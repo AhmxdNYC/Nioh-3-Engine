@@ -1,0 +1,13 @@
+rva	kind	name	signature	description	confidence	source
+0x31a514	function	JobPushToPool		push a job to a pool queue; typically followed by an unconditional wake-one	medium	notes/worker-power.md (static, 2026-10-07)
+0x48b9c	function	JobWakeOneInPool		wake one sleeping worker in a pool (43 call sites)	medium	notes/worker-power.md (static, 2026-10-07)
+0x48c84	function	JobWakeOne		wake one worker (20 call sites)	medium	notes/worker-power.md (static, 2026-10-07)
+0x48d10	function	JobWakeOneExcept		wake one worker other than the caller	medium	notes/worker-power.md (static, 2026-10-07)
+0x1343720	function	ResourceLoadManagerJob		persistent ResourceLoad manager job; idle loop via 1FEE28 = Sleep(1) poll at ~1 kHz	medium	notes/worker-power.md (static, 2026-10-07)
+0x1fee28	function	ResourceLoadIdlePoll		Sleep(1) poll loop of the ResourceLoad manager; wakes a worker per ms while loads are in flight	medium	notes/worker-power.md (static, 2026-10-07)
+0x3fd10	function	SignalUntilAcknowledged		SetEvent once per spin until the target thread wakes; called each frame from MeshletRequestLoadStep 5DC18	medium	notes/worker-power.md (static, 2026-10-07)
+0x3eb38	function	SignalUntilAcknowledged2		second signal-until-acknowledged SetEvent loop	medium	notes/worker-power.md (static, 2026-10-07)
+0x3249d0c	function	TaskGraphJobCreate		task-graph job creator; unconditional wake at 40D2F	medium	notes/worker-power.md (static, 2026-10-07)
+0x3d6f14	function	EffectDispKick		kicks every EffectDisp worker each tick (call at 3D6F46), even with an empty list	medium	notes/worker-power.md (static, 2026-10-07)
+0x3d6f60	function	EffectDispJoin		joins every EffectDisp worker each tick (call at 3D6F8B)	medium	notes/worker-power.md (static, 2026-10-07)
+0x40b0a	label	PopPathSetEvent		real SetEvent of the pop-path wake chain (after the WK gate at 40A4C)	medium	notes/worker-power.md (static, 2026-10-07)
