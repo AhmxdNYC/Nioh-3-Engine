@@ -1,0 +1,5 @@
+rva	kind	name	signature	description	confidence	source
+0x2338b0	function	GameUpdateTick		one game-update tick; ends with add [rdi+610h],1 (G+0x610 tick counter); called from 0x45A54. Ticks can outnumber presented frames (Ally FG off: 60 ticks/s vs 20 presents/s)	high	mod/Nioh3EngineFix ASI 1.1.0 port (OSD counter fix), MODLOG 2026-10-07
+0x233b73	label	GameTickCounterInc		add [rdi+610h],1 - increments G+0x610 per game-update tick (NOT per rendered frame)	high	ASI 1.1.0 port, MODLOG 2026-10-07
+0x1a822d9	label	PresentThreadClearBusy		Present thread clears GfxDevice+0x7728 after Present returns; ASI W6 adds WakeByAddressAll here for the main thread's WaitOnAddress	high	ASI 1.1.0 W6, notes/d3d12-submission.md §7
+0x7d9e90	function	WaitPresentThreadIdle	void (volatile int* flag)	ASI W6 (1.1.0): replaced by 50 us PAUSE spin + WaitOnAddress 1 ms rounds. Ally FG off: this Sleep(0)=sched_yield spin made the main thread 99% CPU / 38% kernel, CPU 16 W vs GPU 17.6 W at 25 W TDP, GPU 984 MHz	high	Ally bridge #35 2026-10-07
