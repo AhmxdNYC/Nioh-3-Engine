@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -116,6 +116,10 @@ static const uint8_t orig_W6[] = { 0x33, 0xC9, 0xFF, 0x15, 0x8E, 0x84, 0x10, 0x0
 static const uint8_t orig_W6W[] = { 0xC6, 0x83, 0x28, 0x77, 0x00, 0x00, 0x00 };
 static const uint8_t orig_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x0F, 0xB6, 0x05, 0x2B, 0x59, 0x1B, 0x04, 0x84, 0xC0, 0x75, 0xE7 };
 static const uint8_t repl_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x84, 0xC0, 0x74, 0x07, 0xF3, 0x90, 0xEB, 0xEA, 0x0F, 0x1F, 0x00 };
+static const uint8_t orig_RWb[] = { 0x8B, 0x95, 0xA8, 0x03, 0x00, 0x00, 0x48, 0x8B, 0xCD, 0xE8, 0x24, 0x77, 0x61, 0xFE, 0xFF, 0xC3, 0x84, 0xDB, 0x75, 0x08, 0x33, 0xC9 };
+static const uint8_t repl_RWb[] = { 0xFF, 0xC3, 0x84, 0xDB, 0x75, 0x16, 0x8B, 0x95, 0xA8, 0x03, 0x00, 0x00, 0x48, 0x8B, 0xCD, 0xE8, 0x1E, 0x77, 0x61, 0xFE, 0x33, 0xC9 };
+static const uint8_t orig_SPg[] = { 0xE8, 0xC9, 0xF9, 0x80, 0x00 };
+static const uint8_t orig_SPu[] = { 0xE8, 0xF4, 0x56, 0x39, 0x00 };
 static const uint8_t orig_IK[] = { 0xE8, 0xDC, 0x00, 0x00, 0x00 };
 static const uint8_t orig_IKc[] = { 0xE8, 0x69, 0xF5, 0x2B, 0x00 };
 static const uint8_t orig_TSl[] = { 0x49, 0x89, 0x17, 0x0F, 0x57, 0xC9 };
@@ -239,6 +243,9 @@ static const Site kSites[] = {
     { "W6", "W6", 0x7D9EA2, 8, orig_W6, "74 11 33 C9 FF 15 ?? ?? ?? ?? 80 BB 28 77 00 00 00", 2, Kind::Call, nullptr, Target::caveW6, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "W6W", "W6W", 0x1A822D9, 7, orig_W6W, "48 8B 05 ?? ?? ?? ?? C6 83 28 77 00 00 00 48 85 C0", 7, Kind::Call, nullptr, Target::caveW6Wake, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "S1", "S1", 0x418F68, 17, orig_S1, "88 05 ?? ?? ?? ?? 0F B6 05 ?? ?? ?? ?? 84 C0 75 E7 48 8D 4C 24 20", 0, Kind::Bytes, repl_S1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RWb", "RWb", 0x1A3146A, 22, orig_RWb, "8B 95 A8 03 00 00 48 8B CD E8 ?? ?? ?? ?? FF C3 84 DB 75 08 33 C9", 0, Kind::Bytes, repl_RWb, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "SPg", "SPR", 0x11970A, 5, orig_SPg, "48 8B 0D ?? ?? ?? ?? 48 8D 56 08 E8 ?? ?? ?? ?? 48 89 86 88 00 00 00 48 85 C0 74", 11, Kind::Call, nullptr, Target::caveSprG, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x9290D8 },
+    { "SPu", "SPR", 0x62D7E7, 5, orig_SPu, "4D 8B CC 44 8A C7 49 8B D7 48 8B CE E8 ?? ?? ?? ?? EB BF CC CC", 12, Kind::Call, nullptr, Target::caveSprU, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x9C2EE0 },
     { "IK", "IK", 0x5AB6CF, 5, orig_IK, "48 8B CF E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B D7 E8 ?? ?? ?? ??", 8, Kind::Call, nullptr, Target::caveIkKick, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5AB7B0 },
     { "IKc", "IK", 0x5ACAAA, 5, orig_IKc, "48 8B 13 48 8B CF E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ??", 11, Kind::Call, nullptr, Target::caveIkPadWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x86C018 },
     { "TSl", "TS", 0x5AD2BB, 6, orig_TSl, "48 8B 7C 24 38 49 89 17 0F 57 C9 48 85 DB", 5, Kind::Call, nullptr, Target::caveTsL, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },

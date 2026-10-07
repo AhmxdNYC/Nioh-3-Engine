@@ -52,9 +52,12 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem PSO bytecode swap / shader dump ([ShaderSwap] Enabled = 0 by default; notes\gpu-post-exe.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\psoswap.obj src\psoswap.cpp || exit /b 1
+rem tile-mapping census / merge ([Profiler] TileStats = 0, [GpuOpt] TileBatch = 0; notes\gpu-tiles.md)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\tilestats.obj src\tilestats.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\memstats.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
+   build\tilestats.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\memstats.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal

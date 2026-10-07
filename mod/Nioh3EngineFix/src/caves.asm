@@ -1435,4 +1435,72 @@ spfStock:
     jmp     qword ptr [spf_resume]
 caveSPF ENDP
 
+; =================================================================================================================
+; SPR (1.7.2, measurement only; notes\stutter.md, patcher\stutter_probe_live.fsx): timing wrappers around two calls that
+; are only slow when the engine misses a cache. SprG = `call 9290D8 CreateGfxPso` in PsoGetOrCreateGfx 119670 (a runtime
+; graphics PSO create on the dispatcher thread, PSO-cache CS held; site 11970A). SprU = `call 9C2EE0 CreateDedicatedUpload`
+; in UploadHeapSuballoc 62D688 (upload heap ring full / request larger than a heap; site 62D7E7). Both callees take at most
+; four register arguments: rcx/rdx/r8/r9 are kept in the caller's home space around the rdtsc, the callee is called with
+; them unchanged and its rax is returned. Counters: calls, total ticks, max ticks, calls >= spr_slow ticks (stats only).
+; =================================================================================================================
+PUBLIC caveSprG, caveSprU, spr_gfxFn, spr_ufFn, spr_slow, spr_gN, spr_gSum, spr_gMax, spr_gSlow, spr_uN, spr_uSum, spr_uMax, spr_uSlow
+
+sprdata SEGMENT ALIGN(64) READ WRITE 'DATA'
+spr_gfxFn   DQ 0                ; Nioh3+9290D8
+spr_ufFn    DQ 0                ; Nioh3+9C2EE0
+spr_slow    DQ 0                ; ticks of the slow threshold (1 ms)
+spr_gN      DQ 0
+spr_gSum    DQ 0
+spr_gMax    DQ 0
+spr_gSlow   DQ 0
+spr_uN      DQ 0
+spr_uSum    DQ 0
+spr_uMax    DQ 0
+spr_uSlow   DQ 0
+sprdata ENDS
+
+.code
+SPRCAVE MACRO nm, fn, cn, sm, mx, sl
+LOCAL nomax, noslow
+nm PROC FRAME
+    sub     rsp, 48h
+    .allocstack 48h
+    .endprolog
+    mov     qword ptr [rsp+50h], rcx
+    mov     qword ptr [rsp+58h], rdx
+    mov     qword ptr [rsp+60h], r8
+    mov     qword ptr [rsp+68h], r9
+    rdtsc
+    shl     rdx, 32
+    or      rax, rdx
+    mov     qword ptr [rsp+20h], rax
+    mov     rcx, qword ptr [rsp+50h]
+    mov     rdx, qword ptr [rsp+58h]
+    mov     r8, qword ptr [rsp+60h]
+    mov     r9, qword ptr [rsp+68h]
+    call    qword ptr [fn]
+    mov     qword ptr [rsp+28h], rax
+    rdtsc
+    shl     rdx, 32
+    or      rax, rdx
+    sub     rax, qword ptr [rsp+20h]
+    lock inc qword ptr [cn]
+    lock add qword ptr [sm], rax
+    cmp     rax, qword ptr [mx]
+    jbe     nomax
+    mov     qword ptr [mx], rax
+nomax:
+    cmp     rax, qword ptr [spr_slow]
+    jb      noslow
+    lock inc qword ptr [sl]
+noslow:
+    mov     rax, qword ptr [rsp+28h]
+    add     rsp, 48h
+    ret
+nm ENDP
+ENDM
+
+SPRCAVE caveSprG, spr_gfxFn, spr_gN, spr_gSum, spr_gMax, spr_gSlow
+SPRCAVE caveSprU, spr_ufFn, spr_uN, spr_uSum, spr_uMax, spr_uSlow
+
 END

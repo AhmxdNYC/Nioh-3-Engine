@@ -323,6 +323,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * 1.6.0, all opt-in (default 0): `[Patches] WG` (0/1/2), `TG` (0/1, experiment), `DS` (0/1/2), `LK` (0/1, next
   launch), `CP` (0/1/2), `SPF` (0/1/2); `[Tuning] WG_MaxPending` (1-8, 1), `WG_WindowUs` (100-100000, 2000),
   `TG_Floor` (24-60, 30), `TG_RatioPct` (100-200, 125), `DS_MarginUs` (50-900, 150).
+* 1.7.2: `[Patches] RWb` (0/1, next launch), `SPR` (0/1, measurement), `[Profiler] TileStats` (0/1/2), `[GpuOpt] TileBatch` (0/1/2); all default 0.
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
@@ -343,6 +344,33 @@ that rejects it falls back to the game's own shader). No replacement files ship;
 | `LogAll` | 0 | 1 = log non-exe shaders too (long at boot) |
 
 Design and proofs: `notes\gpu-post-exe.md`. There is no live switch: PSOs are built at boot, so restart the game.
+
+## Tile-mapping census / merge (`TileStats`, `TileBatch`, 1.7.2)
+
+`src\tilestats.cpp` hooks the D3D12 command-queue vtable slots UpdateTileMappings, CopyTileMappings, Signal and Wait (and
+ExecuteCommandLists through the overlay's hook, which calls `tilestats::OnEcl` first). `[Profiler] TileStats` (0 off, 1 on,
+2 = also a one-shot 256-call trace) logs one `stats tiles:` line every 30 s: calls, regions, ranges and tiles per frame by
+queue type, CPU us inside the call, and ECL / Signal / Wait per frame. `[GpuOpt] TileBatch` (0 off, 1 merge, 2 count only)
+merges consecutive game UpdateTileMappings on one queue when the final mapping is provably identical; the merged call is
+issued before any other operation on that queue and at every Present. Needs the overlay's Present hook (no hooks without
+it). Main ini 0/0; Ally zip TileStats = 2, TileBatch = 2 (count only, nothing changes). Harness:
+`py -I tests\run_tilestats_harness.py` (real D3D12 device). Background: `notes\gpu-tiles.md`.
+
+## Stutter: RWb and SPR (`[Patches]`, 1.7.2, v2.02 only)
+
+* **RWb** (default 0, code bytes: next launch). `ResStateWaitSwap` (behind `ResSetWithStateWait`) woke a ResourceLoad worker
+  (JobWakeOneInPool, pool 1) on every iteration of its cold spin and called Sleep(0) only every 256th. Nothing is pushed,
+  so each woken worker found empty queues and slept again: the 25-150k wakes/s storm seen on the Ally for ~4 minutes around
+  a level load. RWb is a 22-byte patch at 1A3146A that moves the wake behind the Sleep(0) wrap test: one wake per 256
+  spins. Same exit condition, same flush request, same Sleep(0) cadence in spin count; any job pushed to pool 1 brings its
+  own wake. Proven offline by `patcher\reswait_live.fsx`; `tests\test_patterns.py` verifies the site. Read the effect from
+  `stats/s WG` / `stats wakes/s` and the fps in the settle window after a load. Undo: `RWb = 0`.
+* **SPR** (default 0 in the main ini, 1 in the Ally zip; measurement only). Two timing wrappers (`caveSprG`, `caveSprU`)
+  around `CreateGfxPso` 9290D8 (a runtime graphics PSO create on the dispatcher thread, called from `PsoGetOrCreateGfx`
+  119670) and `CreateDedicatedUpload` 9C2EE0 (the upload-heap ring full or oversized request, `UploadHeapSuballoc` 62D688).
+  They call the original with the original arguments and return its result. One `stats spr:` line every 30 s: count (total
+  and per 30 s), average and max us, and calls >= 1 ms. Tells whether the PSO-cache or upload-ring fixes in
+  `notes\stutter.md` are worth building. Undo: `SPR = 0`.
 
 ## In-game mod menu
 Change the fixes and the overlay while you play, with no restart. The menu opens at any time: in gameplay, in the

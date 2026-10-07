@@ -29,12 +29,13 @@
 #include "sp.h"
 #include "psoswap.h"
 #include "memstats.h"
+#include "tilestats.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.1"
+#define MOD_VERSION "1.7.2"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -128,6 +129,10 @@ void caveDs();
 void caveCP();
 void caveSPF();
 extern uint32_t cp_enable, spf_enable;
+// SPR: runtime PSO create / upload-heap fallback timing (measurement only)
+void caveSprG();
+void caveSprU();
+extern uint64_t spr_gfxFn, spr_ufFn, spr_slow, spr_gN, spr_gSum, spr_gMax, spr_gSlow, spr_uN, spr_uSum, spr_uMax, spr_uSlow;
 extern uint64_t cp_resume, spf_resume, spf_gworld;
 BOOL WgWake(HANDLE ev, uint8_t* slot);
 DWORD WgSleep(HANDLE ev, DWORD ms, uint8_t* pool, uint8_t* slot);
@@ -291,6 +296,7 @@ struct Config {
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
     int ds = 0, dsMarginUs = 150;
     int lk = 0, cp = 0, spf = 0;
+    int rwb = 0, spr = 0;
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
 };
@@ -362,6 +368,8 @@ Config LoadConfig() {
     c.lk = I(L"Patches", L"LK", c.lk);
     c.cp = I(L"Patches", L"CP", c.cp);
     c.spf = I(L"Patches", L"SPF", c.spf);
+    c.rwb = I(L"Patches", L"RWb", c.rwb);
+    c.spr = I(L"Patches", L"SPR", c.spr);
     c.wgMaxPending = std::clamp(I(L"Tuning", L"WG_MaxPending", c.wgMaxPending), 1, 8);
     c.wgWindowUs = std::clamp(I(L"Tuning", L"WG_WindowUs", c.wgWindowUs), 100, 100000);
     c.tgFloor = std::clamp(I(L"Tuning", L"TG_Floor", c.tgFloor), 24, 60);
@@ -555,6 +563,8 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveDs: return (void*)&caveDs;
         case gen::Target::caveCP: return (void*)&caveCP;
         case gen::Target::caveSPF: return (void*)&caveSPF;
+        case gen::Target::caveSprG: return (void*)&caveSprG;
+        case gen::Target::caveSprU: return (void*)&caveSprU;
         default: return nullptr;
     }
 }
@@ -720,6 +730,20 @@ void TsAnalyse(bool logIt, double freq) {
 // ---- WS: 30 s wake summary. Real SetEvents per site, worker sleeps (per pool), wake checks at 40A4C split by the caller
 // of JobWorkerPoll 40800, and the waste estimate from notes\worker-power.md: wasted ~= sleeps - checks from 3FE14 (a
 // worker that wakes and goes straight back to sleep did one 3FE14 round that found nothing).
+double g_sprTicksPerUs = 0.0;
+void SprLog() {
+    static uint64_t pgN, pgS, puN, puS, pgSl, puSl;
+    const uint64_t gN = spr_gN, gS = spr_gSum, gM = spr_gMax, gSl = spr_gSlow, uN = spr_uN, uS = spr_uSum, uM = spr_uMax, uSl = spr_uSlow;
+    const double t = g_sprTicksPerUs > 0 ? g_sprTicksPerUs : 1.0;
+    auto avg = [&](uint64_t s, uint64_t n) { return n ? (double)s / (double)n / t : 0.0; };
+    Log("stats spr: runtime gfx PSO creates %llu (+%llu in 30 s, avg %.0f us, max %.0f us, >=1 ms: %llu) | "
+        "upload-heap dedicated fallbacks %llu (+%llu in 30 s, avg %.0f us, max %.0f us, >=1 ms: %llu)",
+        (unsigned long long)gN, (unsigned long long)(gN - pgN), avg(gS - pgS, gN - pgN), (double)gM / t, (unsigned long long)gSl,
+        (unsigned long long)uN, (unsigned long long)(uN - puN), avg(uS - puS, uN - puN), (double)uM / t, (unsigned long long)uSl);
+    pgN = gN; pgS = gS; puN = uN; puS = uS; pgSl = gSl; puSl = uSl;
+    (void)pgSl; (void)puSl;
+}
+
 void WakeStatsLog() {
     static uint64_t pSet[6], pSleeps, pPool[64], pChk[4], pEdK, pEdS;
     static bool init = false;
@@ -1206,6 +1230,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LK")) return cfg.lk != 0;
         if (!strcmp(g, "CP")) return cfg.cp != 0;
         if (!strcmp(g, "SPF")) return cfg.spf != 0;
+        if (!strcmp(g, "RWb")) return cfg.rwb != 0;
+        if (!strcmp(g, "SPR")) return cfg.spr != 0;
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
     };
@@ -1478,6 +1504,31 @@ DWORD WINAPI Worker(LPVOID) {
         return true;
     });
     exDone[menu::kExpS1] = expGroup("S1", cfg.s1 != 0, nullptr);
+    // RWb (notes\stutter.md 3.5): 22 code bytes at ResStateWaitSwap's cold spin; the wake moves behind the Sleep(0) wrap test
+    // (one futile pool-1 wake per 256 spins instead of one per spin). Next launch only; no menu item.
+    expGroup("RWb", cfg.rwb != 0, nullptr);
+    // SPR (notes\stutter.md): count/time runtime graphics-PSO creates and upload-heap fallbacks. Measurement only.
+    static bool s_sprDone = false;
+    s_sprDone = expGroup("SPR", cfg.spr != 0, [&]() {
+        Item* g = findItem("SPg");
+        Item* u = findItem("SPu");
+        const uintptr_t gf = calleeOf(g->addr), uf = calleeOf(u->addr);
+        if (gf != (uintptr_t)(g_base + g->s->expectRva) || uf != (uintptr_t)(g_base + u->s->expectRva)) return false;
+        LARGE_INTEGER q0, q1;  // rdtsc ticks per ms
+        QueryPerformanceCounter(&q0);
+        const uint64_t t0 = __rdtsc();
+        Sleep(20);
+        QueryPerformanceCounter(&q1);
+        const uint64_t t1 = __rdtsc();
+        const double us = (double)(q1.QuadPart - q0.QuadPart) * 1e6 / (double)qf.QuadPart;
+        const double perUs = us > 0 ? (double)(t1 - t0) / us : 0.0;
+        if (perUs < 100.0 || perUs > 10000.0) { Log("SPR: rdtsc calibration looks wrong (%.1f ticks/us)", perUs); return false; }
+        g_sprTicksPerUs = perUs;
+        spr_slow = (uint64_t)(perUs * 1000.0);
+        spr_gfxFn = (uint64_t)gf;
+        spr_ufFn = (uint64_t)uf;
+        return true;
+    });
 
     // ---- input latency (notes\input-latency.md): IK late input kick (sites K 5AB6CF + C 5ACAAA) and TS timestamp
     // probes (L/W/B/P; K and C stamp too). The K/C caves are installed for either key; with IK off they behave stock.
@@ -1718,6 +1769,7 @@ DWORD WINAPI Worker(LPVOID) {
                     Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
                 }
                 if (s_wsDone && ws_enable && sec % 30 == 0) WakeStatsLog();
+                if (s_sprDone && sec % 30 == 0) SprLog();
                 if (wg_installed && sec % 30 == 0) {
                     static LONG64 pS = 0, pC = 0, pT = 0;
                     const LONG64 s = g_wgSkipped, c = g_wgCounted, t = g_wgStale;
@@ -1751,6 +1803,7 @@ DWORD WINAPI Worker(LPVOID) {
                         w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, g_dsEnable ? "ON" : "off");
                     pW = w; pT = tk;
                 }
+                if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
                 if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
                 if (s_wlDone && sec % 30 == 0) {
@@ -1936,6 +1989,12 @@ DWORD WINAPI Worker(LPVOID) {
             mi.base = reinterpret_cast<uintptr_t>(g_base);
             mi.knownBuild = known;
             memstats::Start(mi);
+        }
+        {  // tile-mapping / queue-sync census (tilestats.cpp; [Profiler] TileStats = 0, [GpuOpt] TileBatch = 0)
+            tilestats::StartInfo ti;
+            ti.log = &Log;
+            ti.iniPath = iniPath.c_str();
+            tilestats::Start(ti);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;

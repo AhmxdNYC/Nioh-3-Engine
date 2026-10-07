@@ -37,6 +37,7 @@
 #include "menu.h"
 #include "osd.h"
 #include "psoswap.h"
+#include "tilestats.h"
 #include "osd_font.h"
 #include "osd_shaders.h"
 
@@ -610,6 +611,7 @@ bool CallerIsGame(const void* ra) {
 
 void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D12CommandList* const* lists) {
     static thread_local bool lastIsDirect = false;
+    tilestats::OnEcl(q, n, CallerIsGame(_ReturnAddress()));  // before g_origEcl for EVERY caller (TileBatch correctness)
     if (!CallerIsGame(_ReturnAddress())) {
         g_origEcl(q, n, lists);
         return;
@@ -1048,6 +1050,7 @@ void OnPresent(IDXGISwapChain* sc) {
     }
     g_ctx.lastPresent = now;
     gpuopt::OnFrame();  // once per frame of the drawing (game) swapchain
+    tilestats::OnFrame();
     gp::OnFrame();      // GP profiler: reads the timestamps of 6 frames ago
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
     UpdateStats(now);
@@ -1188,6 +1191,7 @@ bool InstallHooks() {
         // queue first: by the time Present is hooked the game's queue is being captured (fallback for proxy swapchains)
         if (!PatchSlot(&qvt[kSlotExecuteCommandLists], (void*)&HkExecuteCommandLists, (void**)&g_origEcl, "ExecuteCommandLists"))
             g_origEcl = nullptr;
+        if (tilestats::WantsHooks()) tilestats::InstallOnQueueVtable(qvt, /*eclViaOsd=*/g_origEcl != nullptr);
         bool a = PatchSlot(&vt[kSlotPresent], (void*)&HkPresent, (void**)&g_origPresent, "Present");
         bool b = PatchSlot(&vt[kSlotPresent1], (void*)&HkPresent1, (void**)&g_origPresent1, "Present1");
         if (!PatchSlot(&vt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
