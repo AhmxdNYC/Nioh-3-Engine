@@ -28,3 +28,6 @@ Done when each item ships to the Ally or is written off in its notes file; updat
 
 ## 18:45 update
 Shipped to Ally: ASI 1.7.2 (FG-off fix, GPUProf, ShaderSwap dump, TileStats/SPR probes, WG/CP/SPF installed-off), shader pack v3. MAX shader A/B: GPU W 23.1->20.5 at same fps (VSync 8.33 ms slot quantization) -> metric = GPU ms. HOLD: next shader pack v4 adds GI #121 (0xd070067d, ~2 ms Ally at GI HIGHEST, bit-exact) - send only after the Ally's 1.7.2 digest (one build per session). Running: VFSCAT fog rewrite (opus). Next after digest: rewrite top GPUProf passes + dumped motion blur/DOF/bloom via psoswap.
+
+## 19:35 update
+Ally 1.7.2 digest: FG-off fixed; GP labelled = 14.5 of 59 ms (FSR3 native AA 6.9 ms = user's setting, out of scope); tiles ruled out; CPU patches neutral; dump at D:\nioh3-re\ally-dump\shaderdump_172.zip. Sent: ASI 1.7.3 + shader pack v4 (gi). Running: VFSCAT fog (opus), GPUProf v2 per-PSO timing -> ASI 1.7.4 (sonnet, hold until the Ally's 1.7.3 digest), runtime post shaders from the dump (opus).
