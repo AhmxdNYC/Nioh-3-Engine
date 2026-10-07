@@ -66,6 +66,7 @@ struct Cfg {
     int enabled = 0;
     int dumpMode = 0;
     int logAll = 0;
+    int track = 0;  // [Profiler] GPUProf >= 2: remember which shaders each PSO was built from (GP2, gpuprof.cpp)
     std::wstring folder;
 };
 Cfg g_cfg;
@@ -386,6 +387,85 @@ void Observe(const BlobInfo& bi, const void* p) {
     if (g_cfg.dumpMode == 2 || (g_cfg.dumpMode == 1 && inExe)) Dump(bi, p);
 }
 
+// ---- GP2 PSO tracking: PSO pointer -> shader set (lock-free reads on the command-list hot path) -----------------------
+constexpr int kTrkStages = 6;
+constexpr uint32_t kMaxTrkSets = 32768, kPsoTab = 1u << 17;
+struct SetRec {
+    uint8_t n = 0;
+    uint8_t st[kTrkStages] = {};
+    Key k[kTrkStages];
+};
+SetRec* g_sets = nullptr;                 // [kMaxTrkSets], VirtualAlloc'ed on Start when tracking; records are immutable once published
+volatile LONG g_setN = 1;                 // 0 = unknown PSO
+std::unordered_map<uint64_t, uint32_t> g_setIdx;
+SRWLOCK g_trkLock = SRWLOCK_INIT;
+struct PsoEnt {
+    volatile uintptr_t p;
+    volatile uint32_t id;
+};
+PsoEnt* g_psoTab = nullptr;               // [kPsoTab] open addressing; id is written before p
+struct Trk {
+    int n = 0;
+    uint8_t st[kTrkStages];
+    Key k[kTrkStages];
+};
+thread_local Trk t_trk;
+
+void TrkAdd(int stage, const Key& k) {
+    Trk& t = t_trk;
+    if (t.n < kTrkStages) {
+        t.st[t.n] = (uint8_t)stage;
+        t.k[t.n] = k;
+        ++t.n;
+    }
+}
+void TrkBegin() {
+    if (g_cfg.track && !t_depth) t_trk.n = 0;
+}
+// after a PSO creation call returned (t_depth back to 0): file the PSO under its shader set
+void TrkCommit(HRESULT hr, void** pp) {
+    if (!g_cfg.track || t_depth) return;
+    Trk& t = t_trk;
+    const int n = t.n;
+    t.n = 0;
+    if (FAILED(hr) || !pp || !n || !g_sets || !g_psoTab) return;
+    void* pso = nullptr;
+    if (!SafeCopy(&pso, pp, sizeof pso) || !pso) return;
+    uint64_t h = 0xCBF29CE484222325ull;
+    auto mix = [&](uint64_t v) { h = (h ^ v) * 0x100000001B3ull; };
+    for (int i = 0; i < n; ++i) {
+        mix(t.st[i]);
+        mix(t.k[i].a);
+        mix(t.k[i].b);
+        mix(t.k[i].fnv);
+    }
+    uint32_t id = 0;
+    AcquireSRWLockExclusive(&g_trkLock);
+    auto it = g_setIdx.find(h);
+    if (it != g_setIdx.end()) {
+        id = it->second;
+    } else if ((uint32_t)g_setN < kMaxTrkSets) {
+        id = (uint32_t)g_setN;
+        SetRec& r = g_sets[id];
+        r.n = (uint8_t)n;
+        for (int i = 0; i < n; ++i) r.st[i] = t.st[i], r.k[i] = t.k[i];
+        g_setIdx.emplace(h, id);
+        InterlockedIncrement(&g_setN);
+    }
+    ReleaseSRWLockExclusive(&g_trkLock);
+    if (!id) return;
+    const uintptr_t p = (uintptr_t)pso;
+    uint32_t pos = (uint32_t)(((p >> 4) * 0x9E3779B97F4A7C15ull) >> 40) & (kPsoTab - 1);
+    for (int probe = 0; probe < 64; ++probe, pos = (pos + 1) & (kPsoTab - 1)) {
+        PsoEnt& e = g_psoTab[pos];
+        if (e.p == p || e.p == 0) {
+            e.id = id;
+            e.p = p;  // x64: stores are not reordered, so a reader that sees p sees this id
+            return;
+        }
+    }
+}
+
 // ---- per-PSO plans -------------------------------------------------------------------------------------------------------
 constexpr int kMaxStages = 8;
 struct Use {
@@ -401,7 +481,8 @@ const Repl* Consider(const D3D12_SHADER_BYTECODE& bc, Kinds& kinds, Use& use) {
     if (!bc.pShaderBytecode || bc.BytecodeLength < 32) return nullptr;
     BlobInfo bi;
     if (!SafeReadBlob(bc.pShaderBytecode, bc.BytecodeLength, &bi)) return nullptr;
-    Observe(bi, bc.pShaderBytecode);
+    if (g_cfg.enabled) Observe(bi, bc.pShaderBytecode);
+    if (g_cfg.track) TrkAdd(bi.stage, bi.key);
     const Repl* r = g_cfg.enabled ? GetRepl(bi) : nullptr;
     const bool dx = r ? r->info.dxil : bi.dxil;
     (dx ? kinds.dxil : kinds.dxbc)++;
@@ -638,15 +719,24 @@ void HookLibraryObject(IUnknown* lib);
 
 template <int S>
 HRESULT STDMETHODCALLTYPE HkGfx(ID3D12Device* self, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
-    return DoGfx(g_dev[S].gfx, self, d, riid, pp);
+    TrkBegin();
+    const HRESULT hr = DoGfx(g_dev[S].gfx, self, d, riid, pp);
+    TrkCommit(hr, pp);
+    return hr;
 }
 template <int S>
 HRESULT STDMETHODCALLTYPE HkCs(ID3D12Device* self, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
-    return DoCs(g_dev[S].cs, self, d, riid, pp);
+    TrkBegin();
+    const HRESULT hr = DoCs(g_dev[S].cs, self, d, riid, pp);
+    TrkCommit(hr, pp);
+    return hr;
 }
 template <int S>
 HRESULT STDMETHODCALLTYPE HkStream(ID3D12Device* self, const D3D12_PIPELINE_STATE_STREAM_DESC* d, REFIID riid, void** pp) {
-    return DoStream(g_dev[S].stream, self, d, riid, pp);
+    TrkBegin();
+    const HRESULT hr = DoStream(g_dev[S].stream, self, d, riid, pp);
+    TrkCommit(hr, pp);
+    return hr;
 }
 template <int S>
 HRESULT STDMETHODCALLTYPE HkLib(ID3D12Device* self, const void* blob, SIZE_T len, REFIID riid, void** pp) {
@@ -682,7 +772,7 @@ HRESULT LibLoad(PlanT& pl, bool planned, ID3D12PipelineLibrary* self, CreateCall
 }
 
 template <int S>
-HRESULT STDMETHODCALLTYPE HkLoadGfx(ID3D12PipelineLibrary* self, LPCWSTR name, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d,
+HRESULT HkLoadGfxI(ID3D12PipelineLibrary* self, LPCWSTR name, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d,
                                     REFIID riid, void** pp) {
     if (t_depth || !d) return g_lib[S].gfx(self, name, d, riid, pp);
     Add(g_c.libLoads);
@@ -696,7 +786,7 @@ HRESULT STDMETHODCALLTYPE HkLoadGfx(ID3D12PipelineLibrary* self, LPCWSTR name, c
     return g_lib[S].gfx(self, name, d, riid, pp);
 }
 template <int S>
-HRESULT STDMETHODCALLTYPE HkLoadCs(ID3D12PipelineLibrary* self, LPCWSTR name, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d,
+HRESULT HkLoadCsI(ID3D12PipelineLibrary* self, LPCWSTR name, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d,
                                    REFIID riid, void** pp) {
     if (t_depth || !d) return g_lib[S].cs(self, name, d, riid, pp);
     Add(g_c.libLoads);
@@ -715,7 +805,7 @@ HRESULT STDMETHODCALLTYPE HkLoadCs(ID3D12PipelineLibrary* self, LPCWSTR name, co
     return g_lib[S].cs(self, name, d, riid, pp);
 }
 template <int S>
-HRESULT STDMETHODCALLTYPE HkLoadStream(ID3D12PipelineLibrary* self, LPCWSTR name, const D3D12_PIPELINE_STATE_STREAM_DESC* d,
+HRESULT HkLoadStreamI(ID3D12PipelineLibrary* self, LPCWSTR name, const D3D12_PIPELINE_STATE_STREAM_DESC* d,
                                        REFIID riid, void** pp) {
     if (t_depth || !d) return g_lib[S].stream(self, name, d, riid, pp);
     Add(g_c.libLoads);
@@ -752,6 +842,19 @@ HRESULT STDMETHODCALLTYPE HkLoadStream(ID3D12PipelineLibrary* self, LPCWSTR name
     Depth g;
     return g_lib[S].stream(self, name, d, riid, pp);
 }
+
+// GP2: the library hooks above are plain functions; these wrappers file the resulting PSO under its shader set
+#define PSOSWAP_LIB_WRAP(NAME, DESC)                                                                                   \
+    template <int S>                                                                                                   \
+    HRESULT STDMETHODCALLTYPE NAME(ID3D12PipelineLibrary* self, LPCWSTR name, const DESC* d, REFIID riid, void** pp) { \
+        TrkBegin();                                                                                                    \
+        const HRESULT hr = NAME##I<S>(self, name, d, riid, pp);                                                        \
+        TrkCommit(hr, pp);                                                                                             \
+        return hr;                                                                                                     \
+    }
+PSOSWAP_LIB_WRAP(HkLoadGfx, D3D12_GRAPHICS_PIPELINE_STATE_DESC)
+PSOSWAP_LIB_WRAP(HkLoadCs, D3D12_COMPUTE_PIPELINE_STATE_DESC)
+PSOSWAP_LIB_WRAP(HkLoadStream, D3D12_PIPELINE_STATE_STREAM_DESC)
 
 // ---- vtable patching -------------------------------------------------------------------------------------------------------
 std::string ModuleOfVt(void* p) { return ModuleOfAddr(p); }
@@ -978,9 +1081,15 @@ void Start(const StartInfo& info) {
     g_cfg.enabled = IniInt(L"Enabled", 0, 0, 1, ini);
     g_cfg.dumpMode = IniInt(L"DumpMode", 0, 0, 2, ini);
     g_cfg.logAll = IniInt(L"LogAll", 0, 0, 1, ini);
-    if (!g_cfg.enabled) {
+    g_cfg.track = GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ? 1 : 0;
+    if (!g_cfg.enabled && !g_cfg.track) {
         g_state = (LONG)State::Off;
         return;
+    }
+    if (g_cfg.track) {
+        g_sets = static_cast<SetRec*>(VirtualAlloc(nullptr, sizeof(SetRec) * kMaxTrkSets, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        g_psoTab = static_cast<PsoEnt*>(VirtualAlloc(nullptr, sizeof(PsoEnt) * kPsoTab, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        if (!g_sets || !g_psoTab) g_cfg.track = 0;
     }
     wchar_t folder[MAX_PATH] = {};
     GetPrivateProfileStringW(L"ShaderSwap", L"Folder", L"Nioh3EngineFix_shaders", folder, MAX_PATH, ini.c_str());
@@ -994,9 +1103,10 @@ void Start(const StartInfo& info) {
     g_cfg.folder = f;
     uintptr_t lo, hi;
     if (ImageRange(GetModuleHandleW(nullptr), lo, hi)) g_exeLo = lo, g_exeHi = hi;
-    const int files = IndexFolder();
+    const int files = g_cfg.enabled ? IndexFolder() : 0;
     g_state = (LONG)State::Waiting;
-    LOG("Enabled=1 DumpMode=%d LogAll=%d Folder=\"%ls\": %d replacement file(s) indexed%s%s", g_cfg.dumpMode, g_cfg.logAll,
+    if (!g_cfg.enabled) LOG("Enabled=0 but [Profiler] GPUProf >= 2: PSO creation is hooked only to map each PSO to its shader hashes (no swap, no dump)");
+    LOG("Enabled=%d track=%d DumpMode=%d LogAll=%d Folder=\"%ls\": %d replacement file(s) indexed%s%s", g_cfg.enabled, g_cfg.track, g_cfg.dumpMode, g_cfg.logAll,
         g_cfg.folder.c_str(), files, g_wine.empty() ? "" : ", wine ", g_wine.c_str());
     if (!ArmImportHooksSafe())
         LOG("no D3D12CreateDevice import found in the main module - waiting for InstallNow (late install: PSOs created "
@@ -1028,6 +1138,33 @@ bool InstallNow() {
     if (g_devN) LOG("late install: PSOs the engine created before this point keep their original bytecode");
     return g_devN > 0;
 }
+
+bool Tracking() { return g_cfg.track != 0 && g_sets && g_psoTab; }
+uint32_t PsoSetId(const void* pso) {
+    if (!g_psoTab || !pso) return 0;
+    const uintptr_t p = (uintptr_t)pso;
+    uint32_t pos = (uint32_t)(((p >> 4) * 0x9E3779B97F4A7C15ull) >> 40) & (kPsoTab - 1);
+    for (int probe = 0; probe < 64; ++probe, pos = (pos + 1) & (kPsoTab - 1)) {
+        const PsoEnt& e = g_psoTab[pos];
+        if (e.p == p) return e.id;
+        if (e.p == 0) return 0;
+    }
+    return 0;
+}
+int DescribeSet(uint32_t id, char* buf, size_t n) {
+    if (!buf || !n) return 0;
+    buf[0] = 0;
+    if (!id || id >= (uint32_t)g_setN || !g_sets) return 0;
+    const SetRec& r = g_sets[id];
+    size_t o = 0;
+    for (int i = 0; i < r.n && o + 48 < n; ++i) {
+        char kn[40];
+        KeyName(r.k[i], kn);
+        o += (size_t)snprintf(buf + o, n - o, "%s%s=%s", i ? " " : "", StageName(r.st[i]), kn);
+    }
+    return (int)o;
+}
+uint32_t SetCount() { return (uint32_t)g_setN - 1; }
 
 State GetState() { return (State)g_state; }
 const char* StateName(State s) {

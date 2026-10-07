@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
+#include <d3dcompiler.h>
 #include <cstdarg>
 #include <cstdio>
 #include <string>
@@ -16,6 +17,7 @@
 
 #include "../src/gpuopt.h"
 #include "../src/gpuprof.h"
+#include "../src/psoswap.h"
 
 static std::vector<std::string> g_lines;
 static void Log(const char* fmt, ...) {
@@ -28,7 +30,9 @@ static void Log(const char* fmt, ...) {
     g_lines.push_back(b);
 }
 
-int main() {
+int main(int argc, char** argv) {
+    const int mode = argc > 1 ? atoi(argv[1]) : 1;   // 1 = marker profiler, 2 = GP2 per-PSO attribution
+    printf("=== GPUProf = %d ===\n", mode);
     int fails = 0;
     auto check = [&](bool c, const char* m) { printf("%s %s\n", c ? "OK  " : "FAIL", m); fails += !c; };
     // fake engine image: g = [base+45BA588] -> block with the record (+2A62h) and replay (+552h) bytes
@@ -38,7 +42,9 @@ int main() {
     wchar_t ini[MAX_PATH];
     GetTempPathW(MAX_PATH, ini);
     wcscat_s(ini, L"gp_harness.ini");
-    WritePrivateProfileStringW(L"Profiler", L"GPUProf", L"1", ini);
+    WritePrivateProfileStringW(L"Profiler", L"GPUProf", mode == 2 ? L"2" : L"1", ini);
+    WritePrivateProfileStringW(L"ShaderSwap", L"Enabled", L"0", ini);   // GP2 alone: psoswap only maps PSOs to shader hashes
+    WritePrivateProfileStringW(L"Profiler", L"GPUProf2_AB", L"0", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"Barriers", L"0", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"InstallDelaySec", L"600", ini);
 
@@ -47,6 +53,12 @@ int main() {
     if (debug) dbg->EnableDebugLayer();
     printf("D3D12 debug layer: %s\n", debug ? "on" : "not installed");
 
+    if (mode == 2) {
+        psoswap::StartInfo ps;
+        ps.log = &Log;
+        ps.iniPath = ini;
+        psoswap::Start(ps);   // IAT hook on this exe's D3D12CreateDevice
+    }
     gp::StartInfo si;
     si.log = &Log;
     si.iniPath = ini;
@@ -64,6 +76,7 @@ int main() {
 
     ID3D12Device* dev = nullptr;
     if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), (void**)&dev))) return 2;
+    check(mode != 2 || psoswap::Tracking(), "psoswap PSO tracking on");
     ID3D12InfoQueue* iq = nullptr;
     if (debug) dev->QueryInterface(__uuidof(ID3D12InfoQueue), (void**)&iq);
     D3D12_COMMAND_QUEUE_DESC qd = {};
@@ -122,6 +135,37 @@ int main() {
         b.UAV.pResource = buf;
         cl->ResourceBarrier(1, &b);
     };
+    // GP2: two compute PSOs, one ~20x heavier (a dependent integer loop), a root UAV on the buffer
+    ID3D12RootSignature* rs = nullptr;
+    ID3D12PipelineState *psoHeavy = nullptr, *psoLight = nullptr;
+    if (mode == 2) {
+        D3D12_ROOT_PARAMETER rp = {};
+        rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+        D3D12_ROOT_SIGNATURE_DESC rsd = {1, &rp, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE};
+        ID3DBlob *sb = nullptr, *eb = nullptr;
+        D3D12SerializeRootSignature(&rsd, D3D_ROOT_SIGNATURE_VERSION_1, &sb, &eb);
+        dev->CreateRootSignature(0, sb->GetBufferPointer(), sb->GetBufferSize(), __uuidof(ID3D12RootSignature), (void**)&rs);
+        auto mk = [&](int n) {
+            char src[512];
+            snprintf(src, sizeof src,
+                     "RWByteAddressBuffer u : register(u0);\n[numthreads(64,1,1)] void main(uint3 t : SV_DispatchThreadID) {\n"
+                     "uint a = t.x; [loop] for (uint i = 0; i < %d; ++i) a = a * 1664525u + 1013904223u + (a >> 3);\n"
+                     "u.Store((t.x & 0xFFFFu) * 4, a); }\n", n);
+            ID3DBlob *cs = nullptr, *er = nullptr;
+            D3DCompile(src, strlen(src), nullptr, nullptr, nullptr, "main", "cs_5_0", 0, 0, &cs, &er);
+            ID3D12PipelineState* p = nullptr;
+            if (cs) {
+                D3D12_COMPUTE_PIPELINE_STATE_DESC pd = {};
+                pd.pRootSignature = rs;
+                pd.CS = {cs->GetBufferPointer(), cs->GetBufferSize()};
+                dev->CreateComputePipelineState(&pd, __uuidof(ID3D12PipelineState), (void**)&p);
+            }
+            return p;
+        };
+        psoHeavy = mk(3000);
+        psoLight = mk(150);
+        check(psoHeavy && psoLight, "two compute PSOs created");
+    }
     auto ev16 = [&](const wchar_t* s) { cl->BeginEvent(0xFF336699u, s, (UINT)(wcslen(s) * 2)); };
     UINT64 fv = 0;
     UINT64 done[kInFlight] = {};
@@ -147,6 +191,19 @@ int main() {
         ev16(L"Tile 4 7");
         clear(1);
         cl->EndEvent();
+        if (mode == 2 && psoHeavy && psoLight) {
+            cl->SetComputeRootSignature(rs);
+            cl->SetComputeRootUnorderedAccessView(0, buf->GetGPUVirtualAddress());
+            ev16(L"HeavyPass");
+            cl->SetPipelineState(psoHeavy);
+            cl->Dispatch(1024, 1, 1);
+            cl->Dispatch(1024, 1, 1);
+            cl->EndEvent();
+            ev16(L"LightPass");
+            cl->SetPipelineState(psoLight);
+            cl->Dispatch(1024, 1, 1);
+            cl->EndEvent();
+        }
         if (FAILED(cl->Close())) { ++fails; printf("FAIL Close in frame %d\n", f); }
         ID3D12CommandList* lists[] = {cl};
         q->ExecuteCommandLists(1, lists);
@@ -194,6 +251,32 @@ int main() {
     check(unmatched == 0, "every EndEvent matched a BeginEvent");
     check(unresolved == 0, "no unresolved / bad timestamps in the measured window");
     check(frameMs > 0 && frameMs >= big - 1e-6, "frame total covers the top-level pass");
+    if (mode == 2) {
+        // GP2: rows "GP2:   <rank> <desc> | <ms> ms | <draws/frame> | <intervals/frame> | [marker]"
+        double heavy = -1, light = -1, hd = -1, copyMs = -1, covered = -1, span = -1;
+        bool csNamed = false;
+        for (const std::string& l : g_lines) {
+            const size_t bar = l.find(" | ");
+            if (l.rfind("GP2: frame ", 0) == 0) {
+                sscanf_s(l.c_str(), "GP2: frame %lf ms GPU span (wall %*lf ms); covered %lf ms", &span, &covered);
+            }
+            if (l.rfind("GP2:  ", 0) != 0 || bar == std::string::npos) continue;
+            double ms = 0, d = 0;
+            if (sscanf_s(l.c_str() + bar, " | %lf ms | %lf |", &ms, &d) != 2) continue;
+            const bool hv = l.find("[HeavyPass]") != std::string::npos, lt = l.find("[LightPass]") != std::string::npos;
+            if (l.find(" cs=") != std::string::npos) csNamed = true;
+            if (hv && l.find(" cs=") != std::string::npos) heavy = ms, hd = d;
+            if (lt && l.find(" cs=") != std::string::npos) light = ms;
+            if (l.find("(copy / resolve / clear)") != std::string::npos) copyMs += ms + (copyMs < 0 ? 1 : 0);
+        }
+        printf("parsed GP2: span %.3f covered %.3f, HeavyPass cs %.3f ms (%.1f dispatches/frame), LightPass cs %.3f ms, copy/clear %.3f\n",
+               span, covered, heavy, hd, light, copyMs);
+        check(csNamed, "GP2: compute buckets carry their cs= shader hash");
+        check(heavy > 0 && light >= 0 && heavy > 3 * light, "GP2: heavy PSO (3000 iterations) billed much more than the light one (150)");
+        check(hd > 1.9 && hd < 2.1, "GP2: 2 dispatches/frame counted for the heavy PSO");
+        check(copyMs > 0, "GP2: clears are billed to the copy/clear bucket");
+        check(covered > 0 && span > 0 && covered <= span * 1.001, "GP2: covered <= span");
+    }
     if (iq) {
         const UINT64 n = iq->GetNumStoredMessages();
         int errors = 0;

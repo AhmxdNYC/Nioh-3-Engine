@@ -97,4 +97,13 @@ void GetStats(Stats& out);
 // e.g. "on: 1834 PSOs (gfx 1612, cs 222, stream 0, lib 0), 1 swapped (1 blob), 0 rejected, 104 exe shaders"
 const char* StatusLine(char* buf, size_t n);
 
+// ---- GP2 (1.7.4): PSO pointer -> shader set, for the GPU profiler's per-PSO attribution (gpuprof.cpp, GPUProf = 2) ----
+// With [Profiler] GPUProf >= 2 the PSO-creation hooks are installed even when [ShaderSwap] Enabled = 0 (then they only
+// record; nothing is swapped, dumped or logged). Every PSO the engine creates (direct or via a pipeline library) is filed
+// under the set of its shader container digests (VS/PS/.../CS). PSOs created before the hook exist are unknown (id 0).
+bool Tracking();
+uint32_t PsoSetId(const void* pso);                   // lock-free; 0 = unknown PSO. Valid ids: 1..SetCount()
+int DescribeSet(uint32_t id, char* buf, size_t n);    // "vs=<32 hex> ps=<32 hex>" (psoswap file-name keys); returns length
+uint32_t SetCount();
+
 }  // namespace psoswap

@@ -17,11 +17,14 @@ pre = ('call "%s" >nul && ' % setup) if setup.exists() else ""
 src = ROOT / "src"
 cmd = pre + (
     'ml64 /nologo /c /W3 /Fo"{o}\\gpuopt_thunks.obj" "{s}\\gpuopt_thunks.asm" >nul && '
-    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE "{t}" "{s}\\gpuopt.cpp" "{s}\\gpuprof.cpp" '
-    '"{o}\\gpuopt_thunks.obj" /Fo"{o}\\\\" /Fe"{o}\\gp_harness.exe" /link d3d12.lib dxgi.lib kernel32.lib user32.lib'
+    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE "{t}" "{s}\\gpuopt.cpp" "{s}\\gpuprof.cpp" "{s}\psoswap.cpp" '
+    '"{o}\\gpuopt_thunks.obj" /Fo"{o}\\\\" /Fe"{o}\\gp_harness.exe" /link d3d12.lib d3dcompiler.lib dxgi.lib kernel32.lib user32.lib'
 ).format(o=OUT, s=src, t=ROOT / "tests" / "gp_harness.cpp")
 r = subprocess.run('cmd /s /c "' + cmd + '"', capture_output=True, text=True)
 if r.returncode:
     print(r.stdout[-4000:], r.stderr[-2000:])
     sys.exit("compile failed")
-sys.exit(subprocess.run([str(OUT / "gp_harness.exe")]).returncode)
+rc = 0
+for mode in ("1", "2"):   # 1 = marker profiler, 2 = GP2 per-PSO attribution
+    rc |= subprocess.run([str(OUT / "gp_harness.exe"), mode]).returncode
+sys.exit(rc)

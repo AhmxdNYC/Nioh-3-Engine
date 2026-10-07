@@ -7,9 +7,11 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "gpuprof.h"
+#include "psoswap.h"
 
 extern "C" {
 extern void* gpuopt_orig0[96];  // gpuopt_thunks.asm: the original command-list methods per vtable set
@@ -29,6 +31,13 @@ constexpr uint32_t kRvaIface = 0x4BD09C0;   // optional marker interface (when s
 constexpr int kSlotGetDevice = 7, kSlotGetType = 8, kSlotClose = 9, kSlotReset = 10, kSlotEndQuery = 53,
               kSlotResolve = 54, kSlotBeginEvent = 57, kSlotEndEvent = 58;
 
+// GP2 (GPUProf = 2): list events that open / close a per-PSO interval
+constexpr int kSlotSetPso = 25;
+constexpr int kDrawSlots[] = {12, 13, 14, 59, 79};                 // DrawInstanced, DrawIndexedInstanced, Dispatch, ExecuteIndirect, DispatchMesh
+constexpr int kCopySlots[] = {15, 16, 17, 19, 64, 47, 48, 49, 50};  // Copy*, Resolve*, Clear DSV / RTV / UAV x2
+constexpr uint32_t kBkNoPso = 0xFFFFFFFFu, kBkCopy = 0xFFFFFFFEu;  // buckets besides PSO shader-set ids (1..) and 0x80000000 | ptr bits
+constexpr uint16_t kNoMarker = 0xFFFF;
+
 constexpr int kRing = 8;        // frame slots of the query heap; a slot is read 6 frames after it was current (the
                                 // dispatcher records behind the Present thread, and the GPU queues frames)
 constexpr int kChunk = 64;      // queries a list takes at a time (resolved as one range on that list)
@@ -38,6 +47,7 @@ constexpr int kMaxTid = 8;
 
 struct Cfg {
     int prof = 0, markers = 0, maxMarkers = 2048, top = 30;
+    int maxStamps = 8192, top2 = 40, ab = 1;   // GPUProf = 2: PSO timestamps per frame, rows in the GP2 log, overhead A/B windows
 };
 Cfg g_cfg;
 void (*g_log)(const char*, ...) = nullptr;
@@ -46,6 +56,7 @@ bool g_codeOk = false;
 std::string g_wine;
 
 #define GLOG(fmt, ...) do { if (g_log) g_log("GP: " fmt, __VA_ARGS__); } while (0)
+#define GLOG2(fmt, ...) do { if (g_log) g_log("GP2: " fmt, __VA_ARGS__); } while (0)
 
 volatile LONG g_on = 0;         // sampling (queries) active
 volatile LONG g_failed = 0;
@@ -58,6 +69,9 @@ volatile uint64_t* g_rbMap = nullptr;
 double g_ticksPerMs = 0;
 int g_qPerSlot = 0;
 volatile LONG64 g_frame = 0;
+volatile LONG g_stampOn = 1;    // GP2: PSO-level timestamps (switched off in the A/B overhead windows)
+volatile LONG g_stampsUsed[8] = {};   // per frame slot: PSO timestamps taken (cap = g_cfg.maxStamps)
+volatile LONG64 g_stampDrop = 0, g_rec2Full = 0, g_hookTicks = 0, g_hookCalls = 0, g_wallTicks = 0, g_wallFrames = 0;
 
 using EndQueryFn = void(STDMETHODCALLTYPE*)(ID3D12GraphicsCommandList*, ID3D12QueryHeap*, D3D12_QUERY_TYPE, UINT);
 using ResolveFn = void(STDMETHODCALLTYPE*)(ID3D12GraphicsCommandList*, ID3D12QueryHeap*, D3D12_QUERY_TYPE, UINT, UINT,
@@ -153,10 +167,18 @@ struct Rec {
     int16_t name;
     uint8_t depth, tid;
 };
+struct Rec2 {   // GP2: GPU time between two timestamps of one list, billed to the bucket that was bound
+    int32_t b, e;
+    uint32_t bucket;   // PSO shader-set id | 0x80000000|ptr bits (PSO not created through the hooks) | kBkNoPso | kBkCopy
+    uint16_t marker;   // enclosing engine marker (name id) or kNoMarker
+    uint16_t draws;    // draws + dispatches recorded in the interval
+    uint8_t ctype;     // 0 DIRECT, 1 COMPUTE
+};
 struct Slot {
     SRWLOCK lock;
     volatile LONG used;  // queries handed out (in chunks)
     std::vector<Rec> recs;
+    std::vector<Rec2> recs2;
 };
 Slot g_slot[kRing];
 
@@ -168,6 +190,13 @@ struct ListState {
     int base;   // first query index of the chunk, -1 = none
     int used;   // queries ended in the chunk
     int ok;     // 1 DIRECT/COMPUTE list of our device, 0 skip
+    // GP2
+    int ctype;          // 0 DIRECT, 1 COMPUTE
+    int ivQ;            // query index that opened the current interval, -1 = none
+    uint32_t bucket;    // what the current interval is billed to
+    uint32_t bound;     // bucket of the PSO currently bound
+    uintptr_t boundPtr;
+    uint32_t draws;     // draws + dispatches since ivQ
 };
 constexpr int kLists = 64;
 ListState g_ls[kLists];
@@ -187,8 +216,14 @@ ListState* FindList(void* list, int set, bool create) {
     s.base = -1;
     s.used = 0;
     s.ok = 0;
+    s.ctype = 0;
+    s.ivQ = -1;
+    s.bucket = s.bound = kBkNoPso;
+    s.boundPtr = 0;
+    s.draws = 0;
     auto cl = (ID3D12GraphicsCommandList*)list;
     const D3D12_COMMAND_LIST_TYPE t = reinterpret_cast<GetTypeFn>(Orig(set, kSlotGetType))(cl);
+    s.ctype = t == D3D12_COMMAND_LIST_TYPE_COMPUTE ? 1 : 0;
     if (t == D3D12_COMMAND_LIST_TYPE_DIRECT || t == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
         ID3D12Device* d = nullptr;
         if (SUCCEEDED(reinterpret_cast<GetDeviceFn>(Orig(set, kSlotGetDevice))(cl, __uuidof(ID3D12Device), (void**)&d)) && d) {
@@ -209,28 +244,62 @@ void ResolveChunk(ListState& s) {
     s.used = 0;
 }
 
-// a timestamp on `list` now; returns its query index or -1 (not sampled)
-int Stamp(void* list, int set) {
+// a timestamp on `list` now (g_lsLock held); returns its query index or -1 (not sampled). pso = a GP2 PSO-level stamp: capped
+int StampLocked(ListState& s, void* list, int set, bool pso) {
+    const int cur = (int)(g_frame % kRing);
+    if (pso && InterlockedIncrement(&g_stampsUsed[cur]) > g_cfg.maxStamps) {
+        InterlockedIncrement64(&g_stampDrop);
+        return -1;
+    }
+    int idx = -1;
+    if (s.base >= 0 && (s.slot != cur || s.used >= kChunk)) ResolveChunk(s);
+    if (s.base < 0) {
+        const LONG off = InterlockedExchangeAdd(&g_slot[cur].used, kChunk);
+        if (off + kChunk <= g_qPerSlot) {
+            s.base = cur * g_qPerSlot + off;
+            s.slot = cur;
+            s.used = 0;
+        } else {
+            InterlockedIncrement64(&g_full);
+        }
+    }
+    if (s.base >= 0) {
+        idx = s.base + s.used++;
+        reinterpret_cast<EndQueryFn>(Orig(set, kSlotEndQuery))((ID3D12GraphicsCommandList*)list, g_heap,
+                                                              D3D12_QUERY_TYPE_TIMESTAMP, (UINT)idx);
+    }
+    return idx;
+}
+
+// GP2: the interval opened at s.ivQ ends at qNow; file it under s.bucket, start the next one at qNow (g_lsLock held)
+void IvClose(ListState& s, int qNow, uint16_t marker) {
+    if (s.ivQ >= 0 && qNow >= 0) {
+        Slot& S = g_slot[qNow / g_qPerSlot];
+        AcquireSRWLockExclusive(&S.lock);
+        if (S.recs2.size() < S.recs2.capacity())
+            S.recs2.push_back(Rec2{s.ivQ, qNow, s.bucket, marker, (uint16_t)(s.draws > 65535 ? 65535 : s.draws), (uint8_t)s.ctype});
+        else
+            InterlockedIncrement64(&g_rec2Full);
+        ReleaseSRWLockExclusive(&S.lock);
+    }
+    s.ivQ = qNow;
+    s.draws = 0;
+}
+
+// closeMarker: -2 = markers only (GPUProf = 1); otherwise GP2: the marker name id the ending interval belongs to
+int Stamp(void* list, int set, int closeMarker = -2) {
     AcquireSRWLockExclusive(&g_lsLock);
     int idx = -1;
     ListState* s = FindList(list, set, true);
     if (s && s->ok) {
-        const int cur = (int)(g_frame % kRing);
-        if (s->base >= 0 && (s->slot != cur || s->used >= kChunk)) ResolveChunk(*s);
-        if (s->base < 0) {
-            const LONG off = InterlockedExchangeAdd(&g_slot[cur].used, kChunk);
-            if (off + kChunk <= g_qPerSlot) {
-                s->base = cur * g_qPerSlot + off;
-                s->slot = cur;
-                s->used = 0;
+        idx = StampLocked(*s, list, set, false);
+        if (closeMarker != -2) {
+            if (g_stampOn) {
+                IvClose(*s, idx, (uint16_t)closeMarker);
             } else {
-                InterlockedIncrement64(&g_full);
+                s->ivQ = -1;
+                s->bucket = kBkNoPso;
             }
-        }
-        if (s->base >= 0) {
-            idx = s->base + s->used++;
-            reinterpret_cast<EndQueryFn>(Orig(set, kSlotEndQuery))((ID3D12GraphicsCommandList*)list, g_heap,
-                                                                  D3D12_QUERY_TYPE_TIMESTAMP, (UINT)idx);
         }
     }
     ReleaseSRWLockExclusive(&g_lsLock);
@@ -246,6 +315,44 @@ thread_local Open t_stack[kMaxDepth];
 thread_local int t_depth = 0;
 thread_local int t_tid = -1;
 volatile LONG g_tidNext = 0;
+uint16_t CurMarker() {
+    const int d = t_depth;
+    return d <= 0 || d > kMaxDepth ? kNoMarker : (uint16_t)t_stack[d - 1].name;
+}
+
+// ---- GP2 list events -------------------------------------------------------------------------------------------------------
+bool IsIn(const int* a, size_t n, int v) {
+    for (size_t i = 0; i < n; ++i)
+        if (a[i] == v) return true;
+    return false;
+}
+void Gp2Event(void* list, int set, int slot, uintptr_t a1) {
+    const bool setPso = slot == kSlotSetPso;
+    const bool copy = !setPso && IsIn(kCopySlots, sizeof kCopySlots / sizeof(int), slot);
+    AcquireSRWLockExclusive(&g_lsLock);
+    ListState* s = FindList(list, set, true);
+    if (s && s->ok) {
+        if (setPso) {
+            if (a1 != s->boundPtr) {
+                s->boundPtr = a1;
+                const uint32_t id = psoswap::PsoSetId((const void*)a1);
+                s->bound = id ? id : (0x80000000u | (uint32_t)((a1 >> 4) & 0x7FFFFFFFu));
+            }
+        } else if (!g_stampOn) {
+            s->ivQ = -1;
+            s->bucket = kBkNoPso;
+        } else {
+            const uint32_t want = copy ? kBkCopy : s->bound;
+            if (want != s->bucket) {
+                const int q = StampLocked(*s, list, set, true);
+                IvClose(*s, q, CurMarker());
+                s->bucket = want;
+            }
+            if (!copy) ++s->draws;
+        }
+    }
+    ReleaseSRWLockExclusive(&g_lsLock);
+}
 
 // ---- init (first BeginEvent, recording thread) ----------------------------------------------------------------------------------
 bool Init(void* list, int set) {
@@ -256,6 +363,7 @@ bool Init(void* list, int set) {
         return false;
     }
     g_qPerSlot = g_cfg.maxMarkers * 2;
+    if (g_cfg.prof >= 2) g_qPerSlot += g_cfg.maxStamps + 256 * kChunk;   // PSO stamps + chunk slack of up to 256 lists
     const UINT total = (UINT)(g_qPerSlot * kRing);
     D3D12_QUERY_HEAP_DESC qd = {};
     qd.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
@@ -310,10 +418,13 @@ bool Init(void* list, int set) {
     }
     g_ticksPerMs = (double)freq / 1000.0;
     g_dev = dev;  // keep the reference: the heap and buffer belong to it
-    for (Slot& s : g_slot) s.recs.reserve((size_t)g_cfg.maxMarkers);
-    GLOG("timestamp queries ready: %u queries (%d frame slots x %d markers), readback %u KB, GPU clock %llu Hz, list %p "
+    for (Slot& s : g_slot) {
+        s.recs.reserve((size_t)g_cfg.maxMarkers);
+        if (g_cfg.prof >= 2) s.recs2.reserve((size_t)(g_cfg.maxStamps + g_cfg.maxMarkers * 2 + 256));
+    }
+    GLOG("timestamp queries ready: %u queries (%d frame slots x %d markers%s), readback %u KB, GPU clock %llu Hz, list %p "
          "(type %d)",
-         total, kRing, g_cfg.maxMarkers, total * 8 / 1024, (unsigned long long)freq, list,
+         total, kRing, g_cfg.maxMarkers, g_cfg.prof >= 2 ? " + PSO stamps (GPUProf 2)" : "", total * 8 / 1024, (unsigned long long)freq, list,
          (int)reinterpret_cast<GetTypeFn>(Orig(set, kSlotGetType))(cl));
     return true;
 }
@@ -338,7 +449,7 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
         case kSlotBeginEvent: {
             InterlockedIncrement64(&g_begins);
             const int name = InternName((UINT)a1, (const void*)a2, (UINT)a3);
-            const int q = Stamp(list, set);
+            const int q = Stamp(list, set, g_cfg.prof >= 2 ? (int)CurMarker() : -2);  // GP2: the interval ending here is the outer marker's
             if (t_depth < kMaxDepth) t_stack[t_depth] = Open{q, (int16_t)name};
             ++t_depth;
             break;
@@ -353,7 +464,7 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
             if (t_depth >= kMaxDepth) break;  // inside an overflowed region: not sampled
             const Open o = t_stack[t_depth];
             if (o.q < 0) break;
-            const int e = Stamp(list, set);
+            const int e = Stamp(list, set, g_cfg.prof >= 2 ? (int)o.name : -2);  // GP2: the interval ending here is this marker's
             if (e < 0) break;
             if (t_tid < 0) {
                 const LONG id = InterlockedIncrement(&g_tidNext) - 1;
@@ -370,6 +481,10 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
             if (g_inited != 1) break;
             AcquireSRWLockExclusive(&g_lsLock);
             if (ListState* s = FindList(list, set, false)) {
+                if (s->ok && g_cfg.prof >= 2 && g_stampOn && s->ivQ >= 0) {  // GP2: list end
+                    const int q = StampLocked(*s, list, set, true);
+                    IvClose(*s, q, CurMarker());
+                }
                 if (s->ok) ResolveChunk(*s);  // last commands of the list: every query of the chunk was ended on it
                 s->list = nullptr;
             }
@@ -382,7 +497,12 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
             ReleaseSRWLockExclusive(&g_lsLock);
             break;
         }
-        default: break;
+        default:
+            if (g_cfg.prof >= 2 && g_inited == 1 &&
+                (slot == kSlotSetPso || IsIn(kDrawSlots, sizeof kDrawSlots / sizeof(int), slot) ||
+                 IsIn(kCopySlots, sizeof kCopySlots / sizeof(int), slot)))
+                Gp2Event(list, set, slot, a1);
+            break;
     }
 }
 
@@ -394,6 +514,16 @@ struct Agg {
     uint64_t frames = 0, recs = 0;
 };
 Agg g_win, g_short;   // 30 s log window, ~2 s menu window
+struct A2 {
+    double ticks = 0;
+    uint64_t n = 0, draws = 0;
+};
+struct Win2 {   // GP2 30 s window
+    std::unordered_map<uint64_t, A2> m;   // bucket | marker << 32 | ctype << 48
+    double covered = 0, span = 0, async = 0;
+    uint64_t frames = 0, intervals = 0, draws = 0, bad = 0;
+};
+Win2 g_win2;
 SRWLOCK g_aggLock = SRWLOCK_INIT;
 char g_status[256] = "";
 SRWLOCK g_statusLock = SRWLOCK_INIT;
@@ -435,11 +565,40 @@ void ProcessSlot(int r) {
         a->span += hi > lo ? (double)(hi - lo) : 0.0;
         a->frames++;
     }
+    if (g_cfg.prof >= 2) {   // GP2 intervals: per (bucket, marker) time; DIRECT-queue intervals make up "covered"
+        uint64_t l2 = ~0ull, h2 = 0;
+        Win2& w = g_win2;
+        for (const Rec2& rc : S.recs2) {
+            const uint64_t b = g_rbMap[rc.b], e = g_rbMap[rc.e];
+            if (!(b && e && e >= b && (double)(e - b) < maxTicks)) {
+                ++w.bad;
+                continue;
+            }
+            const double dt = (double)(e - b);
+            A2& a = w.m[(uint64_t)rc.bucket | ((uint64_t)rc.marker << 32) | ((uint64_t)rc.ctype << 48)];
+            a.ticks += dt;
+            a.n++;
+            a.draws += rc.draws;
+            w.intervals++;
+            w.draws += rc.draws;
+            if (rc.ctype == 0) {
+                w.covered += dt;
+                l2 = std::min(l2, b);
+                h2 = std::max(h2, e);
+            } else {
+                w.async += dt;
+            }
+        }
+        w.span += h2 > l2 ? (double)(h2 - l2) : 0.0;
+        w.frames++;
+    }
     ReleaseSRWLockExclusive(&g_aggLock);
     const LONG usedNow = S.used;
     const LONG used = std::min<LONG>(usedNow, (LONG)g_qPerSlot);
     if (used > 0) memset((void*)(g_rbMap + (size_t)r * g_qPerSlot), 0, (size_t)used * 8);
     S.recs.clear();
+    S.recs2.clear();
+    InterlockedExchange(&g_stampsUsed[r], 0);
     InterlockedExchange(&S.used, 0);
     ReleaseSRWLockExclusive(&S.lock);
 }
@@ -497,6 +656,79 @@ DWORD WINAPI MarkerThread(LPVOID) {
     }
 }
 
+
+// GP2 30 s log (stats thread)
+void LogGp2() {
+    static int window = 0;
+    static double wallOn = 0, wallOff = 0, hookOn = 0;
+    static int nOn = 0, nOff = 0;
+    static LONG64 pDrop = 0, pRec = 0, pCalls = 0, pTicks = 0, pFull = 0;
+    const bool wasOn = g_stampOn != 0;
+    LARGE_INTEGER qf;
+    QueryPerformanceFrequency(&qf);
+    const LONG64 wt = InterlockedExchange64(&g_wallTicks, 0), wf = InterlockedExchange64(&g_wallFrames, 0);
+    const double wallMs = wf ? (double)wt / (double)qf.QuadPart * 1000.0 / (double)wf : 0.0;
+    Win2* w = new (std::nothrow) Win2();
+    if (!w) return;
+    AcquireSRWLockExclusive(&g_aggLock);
+    std::swap(*w, g_win2);
+    ReleaseSRWLockExclusive(&g_aggLock);
+    const double fr = w->frames ? (double)w->frames : 1.0, ms = g_ticksPerMs;
+    const LONG64 calls = g_hookCalls - pCalls, ticks = g_hookTicks - pTicks;
+    const double hookMsFrame = wf ? (double)ticks / (double)qf.QuadPart * 1000.0 / (double)wf : 0.0;
+    const double callsFrame = wf ? (double)calls / (double)wf : 0.0;
+    const double nsCall = calls ? (double)ticks / (double)qf.QuadPart * 1e9 / (double)calls : 0.0;
+    pCalls = g_hookCalls; pTicks = g_hookTicks;
+    if (wasOn) {
+        wallOn += wallMs; ++nOn; hookOn = hookMsFrame;
+    } else {
+        wallOff += wallMs; ++nOff;
+    }
+    GLOG2("frame %.2f ms GPU span (wall %.2f ms); covered %.2f ms (%.0f %% of span); async-compute %.2f ms; %.0f intervals/frame, "
+         "%.0f draws+dispatches/frame, PSO stamps %s | dropped: cap %lld, rec %lld, unresolved %lld, heap full %lld",
+         w->span / fr / ms, wallMs, w->covered / fr / ms, w->span > 0 ? 100.0 * w->covered / w->span : 0.0, w->async / fr / ms,
+         (double)w->intervals / fr, (double)w->draws / fr, wasOn ? "ON" : "OFF (A/B overhead window)", g_stampDrop - pDrop,
+         g_rec2Full - pRec, (long long)w->bad, g_full - pFull);
+    pDrop = g_stampDrop; pRec = g_rec2Full; pFull = g_full;
+    if (wasOn) {
+        struct Row { uint64_t key; A2 a; };
+        std::vector<Row> rows;
+        rows.reserve(w->m.size());
+        for (const auto& kv : w->m) rows.push_back(Row{kv.first, kv.second});
+        std::sort(rows.begin(), rows.end(), [](const Row& x, const Row& y) { return x.a.ticks > y.a.ticks; });
+        GLOG2("top %d of %zu (PSO shader set, marker) buckets - hash stage(s) | ms/frame | draws+dispatches/frame | intervals/frame | [marker]",
+             g_cfg.top2, rows.size());
+        int rank = 0;
+        for (const Row& r : rows) {
+            if (++rank > g_cfg.top2) break;
+            const uint32_t bk = (uint32_t)(r.key & 0xFFFFFFFFu);
+            const uint16_t mk = (uint16_t)((r.key >> 32) & 0xFFFFu);
+            const int ct = (int)((r.key >> 48) & 0xFFu);
+            char desc[360];
+            if (bk == kBkNoPso) strcpy_s(desc, "(no PSO bound yet)");
+            else if (bk == kBkCopy) strcpy_s(desc, "(copy / resolve / clear)");
+            else if (bk & 0x80000000u) _snprintf_s(desc, sizeof desc, _TRUNCATE, "(PSO not created through the hooks @%07x)", bk & 0x7FFFFFFFu);
+            else if (!psoswap::DescribeSet(bk, desc, sizeof desc)) strcpy_s(desc, "(unnamed set)");
+            GLOG2("  %2d %s%s | %7.3f ms | %7.1f | %7.1f | [%s]", rank, desc, ct ? " (async compute)" : "", r.a.ticks / fr / ms,
+                 (double)r.a.draws / fr, (double)r.a.n / fr, mk == kNoMarker ? "-" : NameOf(mk));
+        }
+    }
+    if (nOn && nOff) {
+        const double on = wallOn / nOn, off = wallOff / nOff;
+        GLOG2("overhead: wall frame with PSO stamps ON %.2f ms (%d windows) vs OFF %.2f ms (%d windows) -> %+.2f ms/frame (%+.1f %%; scene "
+             "changes between windows add noise); hook CPU %.3f ms/frame (%.0f calls/frame, ~%.0f ns/call, sampled); mod GPU cost "
+             "= the extra timestamp writes (%.0f/frame)",
+             on, nOn, off, nOff, on - off, off > 0 ? 100.0 * (on - off) / off : 0.0, hookOn, callsFrame, nsCall,
+             (double)w->intervals / fr);
+    } else {
+        GLOG2("overhead: hook CPU %.3f ms/frame (%.0f calls/frame, ~%.0f ns/call, sampled), wall frame %.2f ms; A/B windows follow",
+             hookMsFrame, callsFrame, nsCall, wallMs);
+    }
+    delete w;
+    ++window;   // A/B: windows 2 and 4 (index 1 and 3) run with the PSO stamps off
+    InterlockedExchange(&g_stampOn, (g_cfg.ab && (window == 1 || window == 3)) ? 0 : 1);
+}
+
 }  // namespace
 
 void Start(const StartInfo& info) {
@@ -509,10 +741,13 @@ void Start(const StartInfo& info) {
         const int v = (int)GetPrivateProfileIntW(L"Profiler", k, def, ini);
         return v < lo ? lo : v > hi ? hi : v;
     };
-    g_cfg.prof = I(L"GPUProf", 0, 0, 1);
+    g_cfg.prof = I(L"GPUProf", 0, 0, 2);
     g_cfg.markers = I(L"GPUProf_Markers", 0, 0, 1);
     g_cfg.maxMarkers = I(L"GPUProf_MaxMarkers", 2048, 256, 8192);
     g_cfg.top = I(L"GPUProf_Top", 30, 5, 60);
+    g_cfg.maxStamps = I(L"GPUProf2_MaxStamps", 8192, 1024, 65536);
+    g_cfg.top2 = I(L"GPUProf2_Top", 40, 5, 100);
+    g_cfg.ab = I(L"GPUProf2_AB", 1, 0, 1);
     if (!g_cfg.prof && !g_cfg.markers) return;
     if (!g_codeOk || !g_base) {
         GLOG("%s", "marker code not verified on this build - GP off");
@@ -524,6 +759,10 @@ void Start(const StartInfo& info) {
     if (g_cfg.prof) InterlockedExchange(&g_on, 1);
     GLOG("GPUProf %d, GPUProf_Markers %d, max %d markers/frame, top %d%s", g_cfg.prof, g_cfg.markers, g_cfg.maxMarkers,
          g_cfg.top, g_wine.empty() ? "" : " (Proton: timestamps through vkd3d-proton)");
+    if (g_cfg.prof >= 2)
+        GLOG2("per-PSO attribution on - max %d PSO timestamps/frame, top %d rows, overhead A/B windows %s; PSO->shader map %s",
+             g_cfg.maxStamps, g_cfg.top2, g_cfg.ab ? "windows 2 and 4 run with PSO stamps off" : "off",
+             psoswap::Tracking() ? "from the psoswap creation hooks" : "NOT available yet (psoswap starts earlier; check the PSOSWAP lines)");
     if (HANDLE h = CreateThread(nullptr, 0, MarkerThread, nullptr, 0, nullptr)) CloseHandle(h);
 }
 
@@ -536,13 +775,35 @@ void EnableHooks(volatile uint8_t* mask, int slots) {
     mask[kSlotReset] = 1;
     mask[kSlotBeginEvent] = 1;
     mask[kSlotEndEvent] = 1;
+    if (g_cfg.prof >= 2 && slots > 79) {
+        mask[kSlotSetPso] = 1;
+        for (int v : kDrawSlots) mask[v] = 1;
+        for (int v : kCopySlots) mask[v] = 1;
+        GLOG("%s", "command-list hooks: BeginEvent, EndEvent, Close, Reset + GP2: SetPipelineState, Draw*, Dispatch, ExecuteIndirect, DispatchMesh, Copy*, Resolve*, Clear*");
+        return;
+    }
     GLOG("%s", "command-list hooks: BeginEvent, EndEvent, Close, Reset");
 }
 
 void OnListCall(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3) {
     if (!g_on) return;
     __try {
-        OnListCallImpl(list, set, slot, a1, a2, a3);
+        if (g_cfg.prof >= 2) {   // GP2 overhead: time 1 call in 16 (QPC), count calls in batches of 1024
+            static thread_local uint32_t t_n = 0;
+            const uint32_t n = ++t_n;
+            if (!(n & 1023)) InterlockedAdd64(&g_hookCalls, 1024);
+            if (!(n & 15)) {
+                LARGE_INTEGER t0, t1;
+                QueryPerformanceCounter(&t0);
+                OnListCallImpl(list, set, slot, a1, a2, a3);
+                QueryPerformanceCounter(&t1);
+                InterlockedAdd64(&g_hookTicks, (t1.QuadPart - t0.QuadPart) * 16);
+            } else {
+                OnListCallImpl(list, set, slot, a1, a2, a3);
+            }
+        } else {
+            OnListCallImpl(list, set, slot, a1, a2, a3);
+        }
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         InterlockedExchange(&g_on, 0);
         InterlockedExchange(&g_failed, 1);
@@ -553,6 +814,16 @@ void OnListCall(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintp
 void OnFrame() {
     const LONG64 f = InterlockedIncrement64(&g_frame);
     if (!g_on || g_inited != 1) return;
+    if (g_cfg.prof >= 2) {   // wall time between presents (the game is GPU-bound, so this tracks GPU frame time)
+        static LARGE_INTEGER last = {};
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        if (last.QuadPart) {
+            InterlockedAdd64(&g_wallTicks, now.QuadPart - last.QuadPart);
+            InterlockedIncrement64(&g_wallFrames);
+        }
+        last = now;
+    }
     __try {
         ProcessSlot((int)((f + 2) % kRing));  // the slot that was current 6 frames ago; current again 2 frames from now
     } __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -584,6 +855,7 @@ void LogLine() {
         GLOG("  %2d %-44s incl %7.3f ms  self %7.3f ms  %6.1f/frame", ++rank, NameOf(id), a->incl[id] / fr / ms,
              a->self[id] / fr / ms, (double)a->count[id] / fr);
     delete a;
+    if (g_cfg.prof >= 2) LogGp2();
 }
 
 const char* StatusLine(char* buf, size_t n) {

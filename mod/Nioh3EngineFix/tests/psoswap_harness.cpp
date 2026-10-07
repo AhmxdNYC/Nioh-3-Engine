@@ -235,6 +235,7 @@ int main(int argc, char** argv) {
     WritePrivateProfileStringW(L"ShaderSwap", L"Folder", L"repl", ini.c_str());
     WritePrivateProfileStringW(L"ShaderSwap", L"DumpMode", L"2", ini.c_str());
     WritePrivateProfileStringW(L"ShaderSwap", L"LogAll", L"1", ini.c_str());
+    WritePrivateProfileStringW(L"Profiler", L"GPUProf", L"2", ini.c_str());  // GP2: PSO -> shader-set map
 
     psoswap::StartInfo si;
     si.log = &Log;
@@ -255,6 +256,13 @@ int main(int argc, char** argv) {
 
     ID3D12PipelineState* p = MakeCs(g, A);
     CHECK(p && Run(g, p, 3, 7), "A: CreateComputePipelineState swapped -> replacement output");
+    {   // GP2: the swapped PSO is filed under the ORIGINAL shader's digest; the map answers by PSO pointer
+        char d[400] = {};
+        const uint32_t id = psoswap::PsoSetId(p);
+        const int n = psoswap::DescribeSet(id, d, sizeof d);
+        CHECK(psoswap::Tracking() && id != 0 && n > 3 && !strncmp(d, "cs=", 3), "GP2: PSO -> set %u \"%s\"", id, d);
+        CHECK(psoswap::PsoSetId((const void*)0x1234560) == 0, "GP2: unknown pointer -> 0");
+    }
     if (p) p->Release();
     p = MakeCs(g, G);
     CHECK(p && Run(g, p, 1, 600), "G: no replacement -> original output");

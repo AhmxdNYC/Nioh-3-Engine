@@ -35,7 +35,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.3"
+#define MOD_VERSION "1.7.4"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

@@ -12,6 +12,10 @@
 //    queries of a list are resolved into a readback buffer in chunks (when a chunk fills, and at Close), always after
 //    they were written on that same list. A frame slot is read on the Present thread 6 frames later (no stall), then
 //    cleared. Names are aggregated nesting-aware (inclusive and self time) per 30 s window.
+// 3. GPUProf = 2 (1.7.4, GP2): also bills the GPU time between consecutive timestamps of a list to the PSO bound (keyed by its
+//    shader hashes via psoswap::PsoSetId) or to "copy / clear", with the enclosing marker. Stamps at the first hooked call, on
+//    bucket change (first draw / dispatch after SetPipelineState, copy, clear), at marker begin / end and before Close. Intervals
+//    are GPU-pipelined (approximate per-PSO cost). Keys: GPUProf2_MaxStamps / _Top / _AB. See README.md "per-PSO mode".
 // GPUProf_Markers = 1 (GPUProf = 0): markers only, no queries (for PIX on the PC).
 // Any failure: logged, GP switches itself off (hooks pass through), rendering is never touched beyond the added
 // EndQuery / ResolveQueryData commands.
@@ -32,7 +36,7 @@ struct StartInfo {
 // Reads [Profiler] GPUProf / GPUProf_Markers / GPUProf_MaxMarkers / GPUProf_Top. Starts the marker-enable thread when
 // either is on (and codeOk). Returns at once.
 void Start(const StartInfo& info);
-bool WantsHooks();           // GPUProf = 1 (and codeOk): gpuopt must install its command-list hooks
+bool WantsHooks();           // GPUProf = 1 or 2 (and codeOk): gpuopt must install its command-list hooks
 // gpuopt, after its vtables are patched: slots to send to OnListCall (Close 9, Reset 10, BeginEvent 57, EndEvent 58)
 void EnableHooks(volatile uint8_t* hookMask, int slots);
 // gpuopt slow path (asm thunk -> GpuOptSlow) for the hooked slots, BEFORE the original method runs

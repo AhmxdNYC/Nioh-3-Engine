@@ -323,6 +323,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * 1.6.0, all opt-in (default 0): `[Patches] WG` (0/1/2), `TG` (0/1, experiment), `DS` (0/1/2), `LK` (0/1, next
   launch), `CP` (0/1/2), `SPF` (0/1/2); `[Tuning] WG_MaxPending` (1-8, 1), `WG_WindowUs` (100-100000, 2000),
   `TG_Floor` (24-60, 30), `TG_RatioPct` (100-200, 125), `DS_MarginUs` (50-900, 150).
+* 1.7.4: `[Profiler] GPUProf = 2` (per-PSO GPU attribution), `GPUProf2_MaxStamps` (1024-65536, 8192), `GPUProf2_Top` (5-100, 40), `GPUProf2_AB` (0/1, 1); measurement only, GPUProf stays 0 by default.
 * 1.7.2: `[Patches] RWb` (0/1, next launch), `SPR` (0/1, measurement), `[Profiler] TileStats` (0/1/2), `[GpuOpt] TileBatch` (0/1/2); all default 0.
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
@@ -344,6 +345,22 @@ that rejects it falls back to the game's own shader). No replacement files ship;
 | `LogAll` | 0 | 1 = log non-exe shaders too (long at boot) |
 
 Design and proofs: `notes\gpu-post-exe.md`. There is no live switch: PSOs are built at boot, so restart the game.
+
+## GPU profiler, per-PSO mode (`GPUProf = 2`, 1.7.4)
+Why: with `GPUProf = 1` the engine's own debug markers cover only about 25 % of the Ally's GPU time (14.5 ms of a 59 ms frame, GPU 99 % busy). `GPUProf = 2` attributes the rest.
+
+How: gpuopt's command-list hooks also take `SetPipelineState`, `DrawInstanced`, `DrawIndexedInstanced`, `Dispatch`, `ExecuteIndirect`, `DispatchMesh`, the `Copy*` / `ResolveSubresource*` calls and `Clear*View`. Per command list the mod tracks the bound PSO and a current *bucket* (a PSO, or "copy / resolve / clear"). A GPU timestamp is written (1) at a list's first hooked call, (2) when the work changes bucket (the next draw or dispatch after a `SetPipelineState`, or a copy / clear), (3) at every marker begin / end, (4) just before `Close`. The GPU time between two timestamps of one list is billed to the bucket that was current, together with the enclosing marker name. PSO pointers are mapped to shader hashes by psoswap's creation hooks (`psoswap::PsoSetId`); the key is the set of container digests of all stages (`vs=... ps=...`, the same 32-hex names psoswap uses for replacement files). `GPUProf = 2` turns that tracking on by itself; with `[ShaderSwap] Enabled = 0` nothing is swapped, dumped or logged. PSOs created before the hook, or not through the device hooks, show as `(PSO not created through the hooks @xxxxxxx)`.
+
+Readback: the same 8-slot ring as `GPUProf = 1`. The dispatcher records behind the Present thread and the GPU queues frames, so a slot is read on the Present thread 6 frames after it was current (never a wait). The PSO stamps have their own per-frame cap (`GPUProf2_MaxStamps`, default 8192) and a larger query heap (8 x (2 x MaxMarkers + MaxStamps + 16384) queries, about 1.8 MB of readback at the defaults). Failure is safe: an exception or a failed heap switches GP off and the hooks pass through.
+
+Log, every 30 s:
+* `GP2: frame X ms GPU span (wall W ms); covered Y ms (n % of span); async-compute Z ms; ... intervals/frame, ... draws+dispatches/frame, PSO stamps ON | dropped: cap, rec, unresolved, heap full`. Span = first to last DIRECT-queue timestamp of the frame; covered = sum of the billed DIRECT-queue intervals. What stays uncovered is the time between command lists (switches, fences) and the work before a list's first hooked call.
+* `GP2: top 40 of N buckets`, then rows `rank desc | ms/frame | draws+dispatches/frame | intervals/frame | [marker]`. desc is `vs=<hash> ps=<hash>`, `cs=<hash>`, `(copy / resolve / clear)` or `(no PSO bound yet)`; async-compute lists are tagged and excluded from "covered".
+* `GP2: overhead: ...`. The 2nd and 4th 30 s windows run with the PSO stamps off (`GPUProf2_AB = 1`); the line compares the wall-clock frame time ON vs OFF and reports the hook CPU time per frame (1 call in 16 is timed with QPC). The GPU cost of the mode is the extra timestamp writes (intervals/frame); the A/B delta measures it (scene changes between windows add noise, so compare windows taken in the same place).
+
+Accuracy caveat: `EndQuery(TIMESTAMP)` between draws on one queue measures *GPU-pipelined intervals*, i.e. the time from when everything before the previous stamp finished to when everything before this stamp finished. Draws of consecutive PSOs overlap on the GPU, so a PSO's number is an approximate cost (it includes the tail of the previous work that had not drained and any barrier wait recorded before the stamp), not an isolated one. The sums are exact; the per-PSO split is good for ranking, not for absolute savings. A marker boundary also splits an interval, so one PSO can appear under two markers.
+
+Test: `tests\run_gp_harness.py` runs mode 1 and mode 2 on a real D3D12 device (two compute PSOs of different weight, hash names, dispatch counts, clears in the copy bucket, covered <= span).
 
 ## Tile-mapping census / merge (`TileStats`, `TileBatch`, 1.7.2)
 
