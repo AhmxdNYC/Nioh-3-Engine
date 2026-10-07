@@ -8,8 +8,8 @@
 Pending (not yet applied): config.xml â†’ `configs\quality-60.xml` (Acer) or `configs\perf-120.xml` (AOC); in-game upscaler must be set to XeSS for OptiScaler to take over.
 | 2026-10-06 14:15 | Main monitor DISPLAY1 refresh 60 ? 240 Hz (Windows display mode, user-approved: 'use my main'). | `dotnet fsi tools\modes.fsx set \\.\DISPLAY1 60` |
 | 2026-10-06 14:16 | config.xml ? `configs\main-240.xml` (quality-60 base, REN_FPS 120, FG off, XeSS?FSR4 @75%). | copy `backups\20261006-1334-pristine\AppData-NIOH3\config.xml` back |
-| 2026-10-06 14:40 | LIVE MEMORY PATCH (not on disk; gone on game restart): CPU fixes W1 (rep stosd zero-fill, 61BAC) + W2a-d (movq store, 1371D0 quad writer) — removes read-modify-write on write-combined GPU upload memory. | `dotnet fsi patcher\cpu_patches.fsx revert` or restart game |
-| 2026-10-06 14:42 | LIVE MEMORY PATCH: variable-dt frame timing (P1/P2/P3x7/P4 + code cave) — game speed 0.90x -> 1.00x at off-target fps, 120 tier only. | `FT_ALLOW_WRITE=1 dotnet fsi patcher\ft_vrr_patch.fsx revert` (or `off`) |
+| 2026-10-06 14:40 | LIVE MEMORY PATCH (not on disk; gone on game restart): CPU fixes W1 (rep stosd zero-fill, 61BAC) + W2a-d (movq store, 1371D0 quad writer) ï¿½ removes read-modify-write on write-combined GPU upload memory. | `dotnet fsi patcher\cpu_patches.fsx revert` or restart game |
+| 2026-10-06 14:42 | LIVE MEMORY PATCH: variable-dt frame timing (P1/P2/P3x7/P4 + code cave) ï¿½ game speed 0.90x -> 1.00x at off-target fps, 120 tier only. | `FT_ALLOW_WRITE=1 dotnet fsi patcher\ft_vrr_patch.fsx revert` (or `off`) |
 | 2026-10-06 19:35 | GAME FILE: `shader_dx12\0x0104840c.file` replaced with the fast GHDM depth-reduction shader (A/B: +3% fps no FG, ~+11% with FG; same image). Applied by the panel (option "Fast shadow shader", on). Original in `gpu-shaders\backup\`. | `powershell -File gpu-shaders\apply_ghdm.ps1 -Revert` (game closed), untick in the panel, or Steam verify |
 | 2026-10-06 19:20 | Tested and REVERTED (archive is back to shipped bytes): physics MaxThreadCount 2 -> 4 via append-and-repoint in `package\system.rdb` + `package\0x52482d03.fdata`. Optional panel option "Physics on 4 threads" (off). | `powershell -File data\physics_threads.ps1 -Revert` |
 | 2026-10-06 18:00 | Installed MSI Afterburner 4.6.6 + RivaTuner 7.3.7 (MSI-signed, user request) for an FPS overlay. OSD only; no limiter, no overclock. | Uninstall from Windows Settings > Apps |
@@ -35,3 +35,8 @@ Pending (not yet applied): config.xml â†’ `configs\quality-60.xml` (Acer) or `co
 - New script `patcher\drawprep_elim.fsx` (memory-only, not run against the game yet): PP = page-pool usage sweep 2523FC every 4th frame (call site 252677 -> cave), FPC = per-frame cache for material FindParam (vtable slot 38FB9D8 -> cave). `apply` installs both with switches OFF; `on`/`off` to A/B. Offline: ALL PASSED (`re\scripts_draw\drawprep_elim_offline.txt`).
 - Symbols: `re\symbols\incoming\parallel-drawprep.tsv` (24 rows, not merged).
 - Undo: `dotnet fsi patcher\drawprep_elim.fsx off PP,FPC` (switch) / `revert PP,FPC` (original bytes + vtable pointer), or restart the game.
+
+## 2026-10-07 04:xx - GPU savings round 2 (staged only, nothing installed)
+- New: `gpu-shaders\ESM_fast.hlsl` + `build_esm.py` -> staged `gpu-shaders\replacement\0x1ca8bb39.file` (ESM shadow-map blur, records #2..#11: R+1 gathers instead of 2R+1 samples; interface parts byte-identical; offline emulation `emulate_esm.py` = 0 diff). Original backed up to `gpu-shaders\backup\0x1ca8bb39.file` (sha256 22103ae7...6dd54). Installer `gpu-shaders\apply_esm.ps1` (`-Status` / `-Revert`). **Game folder untouched** (status: ORIGINAL).
+- Analysis + Ally frame model + ranking: `notes\gpu-savings-round2.md`.
+- Undo (only if later installed): `powershell -File gpu-shaders\apply_esm.ps1 -Revert` (game closed) or Steam verify.
