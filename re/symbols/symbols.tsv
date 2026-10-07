@@ -330,6 +330,7 @@ rva	kind	name	signature	description	confidence	source
 0x137434	function	UiVertexProducerB		UI vertex producer: add [r+358h],bytes; add [r+39Ch],bytes	medium	notes/ui-mainthread.md §E; re/scripts_ui/dis_137715.txt
 0x141269	label	Sleep0Call_141269		call Sleep(0); pdata fragment start 1410C0	high	re/out/spinscan.txt §all call sites
 0x147f60	function	CascadeMatrixGet	float4x4* (ShadowObj* s, u32 c)	s+(0x25+c)*0x40, or a constant when c is masked out by s+3F0h	medium	notes/shadows-culling.md §1.2
+0x148514	function	AsyncSlotAddFence	void(AsyncSched* s, key, u32 slot, u64 fence)	appends a context fence handle (ctxIndex<<56 | value) to the slot's pending list s+0xE0[idx]; the graphics side waits on it	medium	notes/gpu-scheduling.md §A.2
 0x149468	function	VsmTileMarkRendered	void (PageMgr* pm, TileList* l, u32* tile, u8 flag)	updates the page mapping after a tile render or clear	medium	notes/shadows-culling.md §1.3
 0x15fc80	function	EffectManagerUpdateInstances	void EffectManagerUpdateInstances(EffectMgr* m, void* scene, EffectPassParams* p)	Per-pass walk over EVERY live effect instance (std::map at [m]) on KIDSTaskScheduler0: removal checks, owner/visibility/display-distance tests -> disp flag; parallel mode: invisible -> EffectNoDispEnqueue (0x160b83), visible -> Disp list (0x160fc0); otherwise inline EffectSystemUpdate	high	notes/effects-animation.md §1.1
 0x160b83	label	EffectManagerUpdateInstances_CallNoDispEnqueue		Only caller of EffectNoDispEnqueue (E8 70 9B 5D 00); fx_live E1 site B -> call cave (invisible effects updated every N-th pass with dt*N)	high	notes/effects-animation.md §5
@@ -408,6 +409,7 @@ rva	kind	name	signature	description	confidence	source
 0x1d3056	label	DrawRecordToken6A_MeshletParamLookup		lea 'Meshlet' + vcall +0xf8 (per-draw by-name lookup); found -> MeshletDrawRecord	high	re/scripts_draw/dis_1D2F60.txt
 0x1d30a6	label	DrawRecordToken6A_WriteToken		Writes token (ebx<<16)|0x6A then [pkt+0x14],[+0x18],[+0x1c],[+0x20] at ctx+0x3c40, bumps +0x3c78/+0x3c74, flushes when +0x3c74 >= +0x3c70	high	re/scripts_draw/dis_1D2F60.txt
 0x1d3118	label	DrawSubmit_KickThresholdCmp		cmp CmdCountSinceFlush, CmdFlushLimit (+0x3C74 vs +0x3C70) -> KtglCmdStreamFlush every N draws (candidate K1)	high	notes/d3d12-submission.md §5 K1
+0x1d3186	label	DrawSubmit_K1Kick	xor edx,edx; call KtglCmdStreamFlush	K1 kick with submit = 0 (all 29 K1 kick sites pass 0); design E2 would make it B2 01	high	patcher/k1_live.fsx
 0x1d3ad8	function	GfxBeginMarker	u64 (KtglContext* ctx, const char* fmt, ...)	returns 0 unless byte ctx+2A62h; vsnprintf + colour, token 0xA5 + string into ctx+3C40h	high	notes/shadows-culling.md §4
 0x1d46f8	function	DebugTextPuts	DebugTextConsole*(DebugTextConsole* c, const char* s)	binds the console font page (c+38 table, c+40 index, device c+48; emits KTGL token 0x44/0x4C on change) then DebugTextPutChar per byte; 13 callers (KTGL perf overlay, 365Cxxx/2F13xxx debug panels)	high	notes/osd-design.md §A
 0x1d4934	function	DebugTextPutChar	void(DebugTextConsole* c, char ch)	per-character emitter of DebugTextPuts	medium	notes/osd-design.md §A
@@ -509,7 +511,7 @@ rva	kind	name	signature	description	confidence	source
 0x2526d1	label	RenderCmd_WriteToken95_CrashSite		Fatal 0xC0000005 at Nioh3+2526D1 inside 0x2526c8 (1 in ~60 launches, SSS ON->OFF sweep); no patch touches this code	high	MODLOG.md 2026-10-06 21:36
 0x2526e4	function	EclItemDone	void (EclRing* r)	after an ECL item: ++completed, ReleaseSemaphore(r+8), --pending	high	notes/d3d12-submission.md §1
 0x252758	function	GfxSubmitFrameCmdList	u64 (CmdListRing* r, void* alloc, u8 flag)	closes the current command list (490D5C) and hands all pending lists to the ECL ring (4930C8); used by the present path	high	notes/d3d12-submission.md §1
-0x253c68	function	UiViewRender		UI view render; calls SaveColorBeforeUiRendering only when copy+0x25b0 (S+0x20e0) != 0 and RenderUiMask when +0x2534 && +0x2524; both off with FG OFF (aka ZeroFillChain_253C68, UiFrameUpdate)	high	notes/gpu-copies-postres.md §Bottom line; notes/cpu-profile.md §W1 patch; notes/ui-mainthread.md §Ranked candidates
+0x253c68	function	UiViewRender		UI view render; calls SaveColorBeforeUiRendering only when copy+0x25b0 (S+0x20e0) != 0 and RenderUiMask when +0x2534 && +0x2524; both off with FG OFF (aka ZeroFillChain_253C68, UiFrameUpdate); also (gpu-scheduling.tsv): OffScreenRenderSubmit - "OffScreenRendering" pass; KtglCmdStreamFlush(ctx, 1) at 253EE0 (explicit submit site)	high	notes/gpu-copies-postres.md §Bottom line; notes/cpu-profile.md §W1 patch; notes/ui-mainthread.md §Ranked candidates
 0x254110	function	KtglCmdStreamFlush	void (KtglContext*, int)	Called when command-token count +0x3c74 reaches limit +0x3c70 (44 callers)	high	re/scripts_draw/dis_1D2F60.txt
 0x25426c	function	DispatcherRingPush	void (DispatcherRing* r, StreamSeg* seg, u8 submit, Stats* s)	push a 32-B item {ctx, begin, end, submit} into the dispatcher ring, lock inc inflight, ReleaseSemaphore	high	notes/d3d12-submission.md §5
 0x254440	function	UiTextFrame		if R+4A0 && UiSettings+37C: UiAtlasMap 30DD720, TextLayerRasterize x64 slots, then UiAtlasUpload 30DE7E8; body 684 B (aka ZeroFillChain_254440)	high	notes/ui-mainthread.md §C; notes/cpu-profile.md §W1 patch
@@ -594,7 +596,9 @@ rva	kind	name	signature	description	confidence	source
 0x3c7750	function	MaterialParamNameEquals		per-node compare used by MaterialFindParam: hash then strcmp; 0.8-1.2% self (aka MainHot_3C7750)	high	notes/mainthread-drawprep.md §2 F; notes/cpu-profile.md §Top 30 self functions
 0x3c77f4	function	MaterialTechniqueBind		Per-group technique/material bind (9651 B; sole caller DrawListWalk); by-name lookups of PB2/PB2TREE2/GRASS2/SMTREE2/GBuffer/ShadowMask/Weathering etc. (aka MaterialBindTechnique) || also: technique/material bind per draw group (6.7% incl); contains more by-name lookups; not examined in depth	medium	re/scripts_draw/dec_39E20.txt; notes/mainthread-drawprep.md §1
 0x3cd840	function	Vec3AddKeepW	f32* Vec3AddKeepW(f32* out, const f32* a, const f32* b)	out.xyz = a.xyz + b.xyz, out.w = a.w	high	notes/worker-jobs-opt.md §2
+0x3d1ba4	function	KtglCtxGetFence	u64*(KtglContext* c, u64* out, u32 flag)	out = (c+0x10 ctx index << 56) | backend->GetFence(flag)	high	notes/gpu-scheduling.md §A.2
 0x3d1f20	function	FrameStep	int()	frame-step function called each main-loop iteration; returns 0 when no frame step ran (triggers the 1 ms retry); top of render chain 3D1F20 -> 112DD8 -> 113204 (37%); body 681 B	medium	notes/mainthread-drawprep.md §1 + §2 D
+0x3d2c64	function	KtglWaitQueryOrKick		if a GPU query/fence handle is not ready: KtglCmdStreamFlush(ctx, 1) at 3D2CDF so the GPU gets the work	medium	notes/gpu-scheduling.md §B.1
 0x3d62e4	function	GfxDevicePresent	void (GfxDevice* d, PresentParams* p)	end of frame on the main thread: CmdStreamEndFrame 418B94 (final kick + drain spin), ResolveQueryData on list +0x590, back buffer -> PRESENT barrier (115E24 on device+0x10), GfxSubmitFrameCmdList 252758, then either inline Present (+0x3F80 == 0) or wait previous present (7D9E90) + SetEvent to the present thread; stores its QPC duration in +0x7708	high	notes/d3d12-submission.md §1, §5
 0x3d652b	label	CallSpinWaitFlagSleep0_3D652B		one of the 4 callers (call sites) of SpinWaitFlagSleep0 (7D9E90); also (d3d12-submission.tsv): GfxDevicePresent_WaitPrevPresent - call WaitPresentThreadIdle before handing the next Present to the present thread	high	notes/cpu-profile.md §TL;DR W6
 0x3d6552	label	GfxDevicePresent_SetEventPresentThread		SetEvent(GfxDevice+7720h): hands Present(SyncInterval=+424Ch) to the present thread; TS probe P (FF 15 F0 BD 50 03)	high	notes/input-latency.md §3; patcher/latency_live.fsx
@@ -618,6 +622,7 @@ rva	kind	name	signature	description	confidence	source
 0x414843	label	Sleep0Call_414843		call Sleep(0); pdata fragment start 4145C8	high	re/out/spinscan.txt §all call sites
 0x414b2e	label	Sleep0Call_414B2E		call Sleep(0); pdata fragment start 414894	high	re/out/spinscan.txt §all call sites
 0x418b94	function	CmdStreamEndFrame	void (GfxDevice* d)	CmdStreamFinalKick 418C70 then snapshots and clears the per-frame stream stats block +0x3C78..+0x3CF8 into +0x3D00	high	notes/d3d12-submission.md §5
+0x418ba9	label	CmdStreamEndFrame_StatsSnapshot		copies the per-frame stream stats +3C78..+3CFF to +3D00: +3D00 draws, +3D04 kicks, +3D10 ring-full wait timer, +3D28 drain-spin timer	high	patcher/k1_live.fsx
 0x418c70	function	CmdStreamFinalKick	void (GfxDevice* d)	pushes the last stream segment to the dispatcher ring with submit=1 (DispatcherRingPush 25426C), then WaitDispatcherDrainSpin 418F40, then resets the stream pointers	high	notes/d3d12-submission.md §5
 0x418d3d	label	CmdStreamFinalKick_IncGeneration	inc dword [rbx+3C60h]	g+3C60h stream generation += 1 once per frame end; used as the FPC epoch source	high	notes/parallel-drawprep.md §5.2
 0x418f40	function	MainHot_418F40		[App]Game hotspot: 0.7% self of main-thread samples (capture 2, 14:22); role not identified [Ghidra: 73 B, 2 callers]; also (d3d12-submission.tsv): WaitDispatcherDrainSpin - pure busy spin (no pause/Sleep) until DispatcherRingBusy returns 0, i.e. the dispatcher has consumed everything; 0.7-2.1 % of main thread; patch S1 adds PAUSE (was MainHot_418F40)	high	notes/cpu-profile.md §Top 30 self functions
@@ -655,6 +660,7 @@ rva	kind	name	signature	description	confidence	source
 0x48dc4c	label	Sleep0Call_48DC4C		call Sleep(0); pdata fragment start 48DAA0	high	re/out/spinscan.txt §all call sites
 0x48ea28	function	PauseSpin_48EA28		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48EAA4..48EC13	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x48ed88	function	PauseSpin_48ED88		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48EDAB..48EF4E	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x48f3b4	function	EclEmitWait		writes ECL token 8 {queue, fence, value} (queue->Wait on the ECL thread)	medium	notes/gpu-scheduling.md §A.2
 0x48f67c	function	PauseSpin_48F67C		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48F6B3..48F915 48F6FE..48F91D 48F7DE..48F923	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x48fd9c	function	PauseSpin_48FD9C		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48FDA9..48FE3B	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x490d5c	function	CmdListRingClose	u64 (CmdListRing* r, Allocator* a, u8 f)	list->ClearState(NULL) (vtbl+0x58) + Close (vtbl+0x48), assigns ++fence (+0x30), records the ECL token for it, advances the ring	high	notes/d3d12-submission.md §1, §3
@@ -663,6 +669,7 @@ rva	kind	name	signature	description	confidence	source
 0x491c3a	label	Sleep0Call_491C3A		call Sleep(0); pdata fragment start 491B30	high	re/out/spinscan.txt §all call sites
 0x491c88	label	Sleep0Call_491C88		call Sleep(0); pdata fragment start 491C44	high	re/out/spinscan.txt §all call sites
 0x4920e0	function	CmdListRingFlushAndRecycle	void (CmdListRing* r, Allocator* a)	submits pending lists to the ECL ring (86F760) and recycles the next list/allocator through allocator vfns +0x10/+0x18 (may wait on its fence; not examined)	medium	notes/d3d12-submission.md §5
+0x492954	function	KtglTimerAccumulate	void(struct{u64* acc; u64 t0;}*)	acc[0] += now - t0, acc[1] = max, acc[2]++ (QPC or clock())	high	notes/gpu-scheduling.md §B.1
 0x492973	label	QpcXCall_492973		call QueryPerformanceCounter(?); pdata fragment start 492954	high	re/out/spinscan.txt §all call sites
 0x4930be	label	Sleep0Call_4930BE		call Sleep(0); pdata fragment start 493050	high	re/out/spinscan.txt §all call sites
 0x4930c8	function	CmdListRingSubmitUpTo	u64 (CmdListRing* r, void* a, u64 fence, u8 f)	hands all pending closed lists up to the given fence value to the ECL ring (EclRingPush 86F760)	high	notes/d3d12-submission.md §1
@@ -703,6 +710,7 @@ rva	kind	name	signature	description	confidence	source
 0x4f91c0	function	EclTokQueueSignal	void (void*, u16** p)	ECL tok7: queue->Signal(fence, value) (vtbl+0x70)	high	notes/d3d12-submission.md §1
 0x4f9214	function	EclTokExecuteCommandList	void (void*, u16** p)	ECL tok6: queue->ExecuteCommandLists(1, &list) (vtbl+0x50); one list per call, ~28 GFX lists per frame	high	notes/d3d12-submission.md §1
 0x4f93c8	function	EclTokQueueWait	void (void*, u16** p)	ECL tok8: queue->Wait(fence, value) (vtbl+0x78)	high	notes/d3d12-submission.md §1
+0x52be1c	function	AsyncSlotGetCtx	KtglContext*(AsyncSched* s, u32 slot)	returns the async compute context of a slot if (s+0x1CC mask bit set and s+0x17C[slot] >= 0), else NULL (caller then records into the graphics stream with tokens 7C/7D)	high	notes/gpu-scheduling.md §A.2
 0x52e424	function	MeshletCullBeginAlt	void (MeshletSys* m, Ctx*)	alternative culling setup (when obj+1ECh != 0)	low	notes/shadows-culling.md §1.2
 0x52e47c	function	RcasRecord		Engine FidelityFX RCAS pass (exe shader fbef920b, Const0..3/Sample cbuffer), PSO d3fd8774 34.5us after upscaler	high	notes/gpu-copies-postres.md §1 (RCAS)
 0x53007c	function	MeshletCullEnd	void (MeshletSys* m, u32* out)	resets the culling state, emits 3 x token 0x8A (UAV barrier)	high	notes/shadows-culling.md §1.2
@@ -895,14 +903,17 @@ rva	kind	name	signature	description	confidence	source
 0x878b4c	function	WndProcOnDeviceChange	void WndProcOnDeviceChange(WPARAM wp, LPARAM lp)	WM_DEVICECHANGE (0x219) handler	medium	re/out/anchors.md §site 0x8781f8
 0x892db4	label	WfsoXCall_892DB4		call WaitForSingleObject(?); pdata fragment start 892D88	high	re/out/spinscan.txt §all call sites
 0x894344	function	ViewVsmListB	DrawList* (View* v, u32 i)	i < 4: entry 19+i of v+3FF0h (VSM alternative list B)	high	notes/shadows-culling.md §1.2
+0x8988a8	function	SynTokComputeEnd		KTGL tok 0x7D: UAV barrier (1139D4), dirty 0x20, c+0x541 = 0	high	notes/gpu-scheduling.md §A.3
 0x89a9d0	function	SetParamIndirectRenderScaleForOcn	bool SetParamIndirectRenderScaleForOcn(float v, void* params, int idx)	writes float v to render param hash 0x01FCC200 (IndirectRenderScaleForOcn, water view diffuse gather)	medium	notes/gpu-maxsettings.md §3
 0x89aa94	function	SetParamReflectionRenderScaleForOcn	bool SetParamReflectionRenderScaleForOcn(float v, void* params, int idx)	writes float v to render param hash 0x0F38BF83 (ReflectionRenderScaleForOcn, water view reflection gather)	medium	notes/gpu-maxsettings.md §3
+0x8bb170	function	SynTokComputeBegin		KTGL tok 0x7C: compute section begins on the graphics list (c+0x541 = 1, dirty 0x40)	high	notes/gpu-scheduling.md §A.3
 0x8bec48	function	GfxFrameSlotAdvance	void (GfxDevice* d, bool advance)	after each Present: slot +4730h = (slot+1) % BufferCount(+4240h = 3), then GfxWaitFenceValue(slot fence +4320h[slot]) = waits until the GPU finished the frame that last used this slot (frame N-2): engine frames in flight = 3; also flushes per-slot query ranges	high	notes/input-latency.md §3
 0x8c8e54	function	UpdateDispatchA		Update dispatch from dt setup with dtSec=G[624]/G[614], dt60=G[624]*60/G[614] (one of pair 0x8C8E54/0x5AB644) (aka GameModeUpdateDispatch) || also: 29-byte game-mode update entry fed dt60 by GameFrameUpdate	medium	notes/frame-timing.md §1 Loop diagram; re/out/README.md §Findings: frame pacing
 0x8c8eec	label	JmpIat_Sleep_8C8EEC		`jmp [IAT Sleep]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x8ccabc	function	SetParamReflectionRenderScale	bool SetParamReflectionRenderScale(float v, void* params, int idx)	writes float v to render param hash 0xEA3FCBD2 (ReflectionRenderScale; sizes RefProbe#414 dispatch)	medium	notes/gpu-maxsettings.md §3
 0x8ccb80	function	SetParamIndirectRenderScale	bool SetParamIndirectRenderScale(float v, void* params, int idx)	writes float v to render param hash 0xD8A8960F slot idx (IndirectRenderScale; sizes RefProbe#121 dispatch)	medium	notes/gpu-maxsettings.md §3
 0x8ee418	function	PauseSpin_8EE418		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 8EE426..8EE44C	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x8f0b5c	function	SynTokFencePoint		KTGL tok 1 handler body: list boundary + fence on the dispatcher context (list ring c+0x5A0)	medium	notes/gpu-scheduling.md §B.1
 0x9039be	label	JmpIat_WaitForMultipleObjects_9039BE		`jmp [IAT WaitForMultipleObjects]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x9060c4	function	PauseSpin_9060C4		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 9060E7..906199 906186..9061A0	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x90e060	function	PauseSpin_90E060		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 90E080..90E100 90E0F3..90E107	medium	re/out/spinscan.txt §fragments containing PAUSE
@@ -1489,6 +1500,9 @@ rva	kind	name	signature	description	confidence	source
 0x2237840	function	TimeEffectState4		Time-effect state machine function (listed 4th of states 1..4; mapping by list order)	medium	notes/frame-timing.md §8.3
 0x22378c0	function	TimeEffectState1		Time-effect state machine function (listed 1st of states 1..4; state mapping by list order)	medium	notes/frame-timing.md §8.3
 0x22379b4	function	TimeEffectState2		Time-effect state machine function (listed 2nd of states 1..4; mapping by list order)	medium	notes/frame-timing.md §8.3
+0x2269ec4	function	RenderAsyncSlotsInit	void(void* p1, void* mgr)	renderer init: copies per-slot configs, applies the vendor rules to the async-slot table 44C04D0 (non-NVIDIA: slot 0 off; NVIDIA driver <= 0x1C92: all off), builds the slot mask, copies the table to 45C0460, calls AsyncSlotsCreate 32FA450 on mgr+0x1130	high	notes/gpu-scheduling.md §A.2
+0x226a490	label	RenderAsyncSlotsInit_VendorGate	cmp dword [rbp+70h],10DEh / je 226A4AD	non-NVIDIA branch into the slot-0 disable loop 226A499; AS experiment patches the je (226A497 74 -> EB)	high	patcher/async_slots.fsx
+0x226a571	label	RenderAsyncSlotsInit_NvOldDriverGate		NVIDIA and driver <= 0x1C92 -> every slot enable = 0	high	notes/gpu-scheduling.md §A.2
 0x226d140	function	DisplayResetRebuildSwapchain	bool DisplayResetRebuildSwapchain(void* p1, int* desc, Gfx* g)	waits for 0x3B2970 idle (Sleep(1)), builds the swapchain desc (VSYNC, 3 buffers, refresh change flag, FG backend ptr by FRAME_GENERATION: DLSS 0x198D150 / FSR 0x34692B4 / XeSS 0x3420C98) and calls RecreateSwapchainDevice 0x2EEA690; callers 0x1350210, 0x1351690	high	notes/frame-generation.md §3
 0x226d188	label	SleepXCall_226D188		call Sleep(?); pdata fragment start 226D140	high	re/out/spinscan.txt §all call sites
 0x22a2125	label	SleepXCall_22A2125		call Sleep(?); pdata fragment start 22A20DC	high	re/out/spinscan.txt §all call sites
@@ -1584,11 +1598,14 @@ rva	kind	name	signature	description	confidence	source
 0x2ee090f	label	CallSpinWaitFlagSleep0_2EE090F		one of the 4 callers (call sites) of SpinWaitFlagSleep0 (7D9E90)	high	notes/cpu-profile.md §TL;DR W6
 0x2ee0932	label	WfsoXCall_2EE0932		call WaitForSingleObject(?); pdata fragment start 2EE0694	high	re/out/spinscan.txt §all call sites
 0x2ee1bc0	function	CreateDxgiFactory		Calls CreateDXGIFactory2 via the Streamline interposer (731 B)	high	re/out/README.md §KATANA / engine identification; re/out/imports.tsv
+0x2ee256c	function	AsyncComputeCtxCreate	KtglContext*(GfxDevice* d, cfg*)	allocates a free async context slot d+0x74D8[i] (count d+0x3E28) and initialises it via 2EF8354	high	notes/gpu-scheduling.md §A.2
 0x2ee300c	function	CreateD3D12Device		Calls D3D12CreateDevice and D3D12GetDebugInterface (Streamline sl.interposer.dll imports); 1629 B	high	re/out/README.md §KATANA / engine identification; re/out/imports.tsv
 0x2ee5a38	function	DxgiCreateSwapChain	bool (GfxDevice* d, Desc* desc, Window* w, u32 refreshHz)	CreateDXGIFactory1 (sl.interposer) -> legacy IDXGIFactory::CreateSwapChain(queue +4270h, DXGI_SWAP_CHAIN_DESC: BufferCount = desc+8 (3), Flags = cfg+3Ch (0x842 incl. FRAME_LATENCY_WAITABLE_OBJECT)) -> QI IDXGISwapChain3 into +4278h -> MakeWindowAssociation(hwnd, 3). The game never calls SetMaximumFrameLatency (no swapchain vtbl+F8h call anywhere): waitable max latency stays at its default 1	high	notes/input-latency.md §3
 0x2ee8498	function	DebugFpsOverlayFormat		Only function referencing the debug FPS overlay string per strings.tsv (1633 B); role beyond that unverified	high	re/out/strings.tsv
 0x2ee8fe8	function	PagePoolGetPrevUsedCount	u32 (GfxDevice* g)	trivial getter: return [g+6CD0h] (= pool+B30h, previous used-entry count); no direct or vtable refs found (likely an RVA table / binding)	medium	notes/parallel-drawprep.md §5.1
 0x2ee8ff0	function	PagePoolGetPrevFullBuckets	u32 (GfxDevice* g)	trivial getter: return [g+6CD8h] (= pool+B38h, previous full-bucket count)	medium	notes/parallel-drawprep.md §5.1
+0x2ee9de4	function	GfxCreateDirectQueue		CreateCommandQueue(type 0 DIRECT) + allocator + fence + list (the device's GFX queue path)	medium	notes/gpu-scheduling.md §A.1
+0x2ee9ee8	function	GfxCreateCopyQueue8		CreateCommandQueue(type 3 COPY) + 8 copy lists	medium	notes/gpu-scheduling.md §A.1
 0x2eea344	function	PresentThreadEntry	u32 (void)	thread entry of the (unnamed) present thread -> PresentThreadLoop	high	notes/d3d12-submission.md §1
 0x2eea690	function	RecreateSwapchainDevice	bool RecreateSwapchainDevice(GfxDevice* d, Desc* desc, void* modes)	4.5 KB swapchain/output (re)create used by DisplayResetRebuildSwapchain; calls CreateDxgiFactory 0x2EE1BC0; internals not traced	high	notes/frame-generation.md §3
 0x2eebee4	function	GfxDeviceSetDebugTextConsole	void(GfxDevice* d, DebugTextConsole* c, int level)	leaf: d+76F0 = c, d+76F8 = level; no pdata, zero rel32 and zero absolute-pointer references in the dump -> dead in retail, so the KTGL perf overlay can never be switched on by a flag	high	notes/osd-design.md §A
@@ -1609,9 +1626,13 @@ rva	kind	name	signature	description	confidence	source
 0x2ef55c0	function	DebugOverlayUserCallback	void(DebugOverlayCb* cb, DebugTextConsole* c)	calls cb+50(cb, c, cb+30, cb+38, cb+40) under the critical section g_QpcTimer+0x90; reached from DebugFpsOverlayFormat via GfxDevice+7710	medium	notes/osd-design.md §A
 0x2ef596c	function	DebugTextPrintf	void(DebugTextConsole* c, const char* fmt, ...)	_vsnprintf into a 0x400 stack buffer, then DebugTextPuts; 25 callers	high	notes/osd-design.md §A
 0x2ef59dc	function	DebugTextPutsLine	DebugTextConsole*(DebugTextConsole* c, const char* s)	DebugTextPuts then row(+0)++, col(+4)=0	high	notes/osd-design.md §A
+0x2ef8354	function	AsyncComputeCtxInit		AsyncComputeCtxCreateQueue on ctx+0x68; optional own dispatcher backend (vtable 409A3B0) when cfg+0x3D	medium	notes/gpu-scheduling.md §A.2
+0x2ef8448	function	AsyncComputeCtxCreateQueue		CreateCommandQueue(type 2 COMPUTE), N compute allocators + lists, event, compute root signature, CBV/SRV/UAV/sampler heaps	high	notes/gpu-scheduling.md §A.1
+0x2f110a8	function	GfxCreateCopyQueueB		CreateCommandQueue(type 3 COPY); falls back to the GFX queue (dev+0x4270) on failure	medium	notes/gpu-scheduling.md §A.1
 0x2f11297	label	JmpIat_WaitForSingleObject_2F11297		`jmp [IAT WaitForSingleObject]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x2f1317e	label	WfsoXCall_2F1317E		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
 0x2f131b2	label	WfsoXCall_2F131B2		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
+0x2f13350	function	GfxCreateCopyQueueC		CreateCommandQueue(type 3 COPY) + N copy lists	medium	notes/gpu-scheduling.md §A.1
 0x2f14479	label	WfsoXCall_2F14479		call WaitForSingleObject(?); pdata fragment start 2F14448	high	re/out/spinscan.txt §all call sites
 0x2f144b4	function	ExecuteCommandListsThreadEntry	u32 (void* p)	thread entry: SetThreadDescription ExecuteCommandListsThread then ExecuteCommandListsThreadLoop 1A75970	high	notes/d3d12-submission.md §1
 0x2f5cb88	label	Sleep0Call_2F5CB88		call Sleep(0); pdata fragment start 2F5CB74	high	re/out/spinscan.txt §all call sites
@@ -1718,6 +1739,7 @@ rva	kind	name	signature	description	confidence	source
 0x32d8c60	function	PauseSpin_32D8C60		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 32D8C76..32D8C7E	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x32da963	label	Sleep0Call_32DA963		call Sleep(0); pdata fragment start 32DA460	high	re/out/spinscan.txt §all call sites
 0x32f5248	function	DrawMeshletPathAux		meshlet draw path helper from DrawSubmit	low	notes/mainthread-drawprep.md §1
+0x32fa450	function	AsyncSlotsCreate	bool(AsyncSched* s, ?, cfg*, u32* mask)	for each set mask bit: AsyncComputeCtxCreate; stores mask at s+0x1CC; slot 0 also starts the KIDS job KIDS_ASync_LLCulling_Effect (cb 3D16AC)	high	notes/gpu-scheduling.md §A.2
 0x32fae8c	function	PostEffectLibraryInit		Post-effect shader library initialiser (13.9 KB); creates every exe-embedded FXC post PSO and stores each in a slot of the library object (R15) (aka UiAtlasInit) || also: creates the UI glyph atlas (persist = UiSettings+0x37C) and 3 textures with desc+0x24=1 (dedicated staging), attaches via 26B66B0; body 13890 B	high	notes/invisible-gpu.md §4a; notes/ui-mainthread.md §C
 0x32fc8ab	label	PostEffectLibraryInit_CreateDepthCopyPso		Creates depth-copy PSO (PS 5fccb795, oDepth=t0; PSO 80896c31, 26+56us before water) -> slot +0x220	high	notes/invisible-gpu.md §4a
 0x32fcacd	label	PostEffectLibraryInit_CreateRectCopyPso		Creates 1-sample rect copy PSO (PS d787dbd0, PSO 5e9935b5, 169us output-res copy) -> slot +0x2d0	high	notes/invisible-gpu.md §4a
@@ -1989,6 +2011,7 @@ rva	kind	name	signature	description	confidence	source
 0x40358e8	vtable	FrameTask_vftable		Frame task class vtable (verified live); vf[1]=0x5ACEE8; owner of the QPC limiter in 0x5ACF80	high	notes/frame-timing.md §1, §4b; patcher/ft_findtask.fsx
 0x4050898	vtable	FrameProfile_vftable		Frame profile object (r13+8) vtable: vf+0x08 SetProfile 0x5AF324, vf+0x10 -> profile, vf+0x20 SetLimiterFps 0x5AF400, vf+0x28 -> &fps	high	notes/frame-timing.md §1, §4b
 0x4099fb0	data	Str_DebugFpsOverlay	char[]	"FPS %2.2f(%4.2f)" debug FPS overlay format; README says no code xref but strings.tsv lists a reference from 0x2ee8498 (aka StrFpsOverlayFmt) || also: "FPS %2.2f(%4.2f)\n" debug FPS overlay format; README says no code xref but strings.tsv lists a ref from 0x2ee8498	medium	re/out/README.md §Findings: config.xml; re/out/strings.tsv; re/out/README.md §config.xml; re/out/strings.tsv
+0x409a3b0	vtable	KtglAsyncBackend_vtbl		async/deferred context backend: +10 Begin, +18 GetFence (KTGL tok 1), +38 End, +48 IsFenceDone 4F9368, +50 CpuWaitFence 2EF9820, +60 tok 7 2EF9088, +68 tok 6 3D1B5C, +D0 Dispatch	medium	notes/gpu-scheduling.md §A.2
 0x40d4b98	data	GfxDeviceVtbl_PresentSlot	ptr	graphics-device vtable slot holding GfxDevicePresentVfn 5DA94 (slot-0x10 = RenderFrameBegin 4A529C, slot-8 = 4A3334); vtable start not determined	medium	notes/d3d12-submission.md §1
 0x40ef418	vtable	FrameTaskSibling_vftable		Sibling task class vtable (not the limiter owner; earlier candidate)	medium	notes/frame-timing.md §1
 0x410a0a8	vtable	PrepareThinSurfaceBsdfNode_vftable		vtable of PrepareThinSurfaceBSDF render node; note pairs it with execute 0x295c44 (not among the first 8 slots: 0x36853ec, 0x9a6444, 0x3687154, ...)	medium	notes/gpu-copies-postres.md §1
@@ -2000,6 +2023,7 @@ rva	kind	name	signature	description	confidence	source
 0x44b68f0	global	g_HidTimerPeriod	UINT	Timer period passed to timeBeginPeriod/timeEndPeriod by the HID reader threads	medium	re/out/README.md §Findings: frame pacing
 0x44b7f30	global	__security_cookie	u64	MSVC /GS stack cookie (xored with frame address in function prologues) || also: MSVC /GS stack cookie (xor rsp in config functions) | MSVC stack cookie (XORed with RSP in prologues)	high	re/scripts_workers/g_w1.txt; re/settings/acc.asm; re/out/anchors.md §site 0x5af5c2; re/scripts_cpu/q3.txt (Ghidra)
 0x44bb9f0	global	g_CharacterUpdateParams	u8[32]	First 0x20 bytes of the MotionLodParamsBuild block (dt, dtRaw, camera pos), written by CharacterJobsDispatchA/B, read by the per-actor jobs; the MOTION_QUALITY fields beyond 0x20 are not copied	high	notes/effects-animation.md §3.1
+0x44c04d0	global	g_AsyncSlotTable	struct{u8 enable; f32 param; u32 slotId}[13]	static async-compute slot table; shipped enables slots 0,3,4,6 (slot 6 param 0.5); read once at renderer init	high	notes/gpu-scheduling.md §A.2
 0x455aba0	data	Str_KatanaSceneDbStackIdMangled	char[]	Mangled RTTI-style name containing kids::E_KATANA_SCENEDATABASE_STACK_ID (only engine-side "katana" hit)	medium	re/out/README.md §KATANA / engine identification
 0x4569828	global	g_IsWine	u8	cache of IsRunningUnderWine	high	notes/input-thread.md §Wine
 0x45b9e30	global	g_pLodScaleCfg	void*	LOD scale config: +0xb08 enable byte, +0xa08 per-slot scale table (GetLodScaleEntry), +0xe0 used by PlaceableVisibilityUpdateRange	medium	re/out/anchors.md §site 0x23554f; §site 0xde8d0
@@ -2085,6 +2109,7 @@ rva	kind	name	signature	description	confidence	source
 0x45bbccc	global	g_LastDispMode	int	DISP_MODE last applied by WndProc msg 0x403 (display-mode change); compared with g_CfgDispMode	medium	re/out/anchors.md §site 0x8781f8
 0x45bbce4	global	g_ActiveScrRezIndex	int	Active SCR_REZ table index; written by SetScreenResolutionIndex and by WndProc 0x403 (first supported resolution, 0..12)	medium	re/out/anchors.md §site 0x1fde50e; §site 0x8781f8
 0x45bbcee	global	g_IsIntelAdapter	bool	Set by apply 0x1fe6064 (sete) when the selected adapter PCI vendor is 0x8086; cleared by ctor	high	notes/settings.md §2 ADAPTER_ID; re/settings/saveapply.asm
+0x45c0460	global	g_AsyncSlotTableLive	struct{u8 enable; f32 param; u32 slotId}[13]	runtime copy after the vendor rules (BSS, zero before init); PC dump: slots 3,4,6	high	notes/gpu-scheduling.md §A.2
 0x45c3810	global	g_InputUpdateWorker	KtglWorker	static worker object: vtbl 0x3b88660, start event +8, done event +0xa8, quit +0x150, entry +0x158 (=0x1a7b8b4), name +0x160 "[App]InputUpdateWorker", pad-stage event +0x1a0	high	notes/input-thread.md §1
 0x45c3da0	global	g_XessInputSize		XeSS input (render) size, 1920x1080 at REN_RAT 75; used as post base size at POSTEFFECT_RESOLUTION=STANDARD	high	notes/gpu-copies-postres.md §2
 0x45c3e40	global	g_XessAvailable	uint8_t	Gate for the RESOLUTION_SCALING==3 (XeSS) path (rc+0x20b8)	low	re/out/anchors.md §site 0x39a758
@@ -2136,6 +2161,7 @@ rva	kind	name	signature	description	confidence	source
 0x140	struct_field	AppWindow::CursorCache	struct{LPCSTR name;HCURSOR h;}[5]	Cached cursors for WM_SETCURSOR	high	re/out/anchors.md §site 0x8781f8
 0x1ab	struct_field	AppWindow::AppActive	uint8_t	WM_ACTIVATEAPP wParam != 0	high	re/out/anchors.md §site 0x8781f8
 0xb0	struct_field	AssetHandlerVtbl::Deserialize	void* (*)(AssetHandler*, LoadCtx*, AssetReader*, void*)	Deserialize slot called at 0x315c74	high	notes/game-data.md §2 Hooks
+0x1cc	struct_field	AsyncSched::SlotMask	u32	async slot mask (sched = mgr+0x1130)	high	notes/gpu-scheduling.md §A.2
 0x8c0	struct_field	Character::LodDistance	float	LOD/draw distance written by UpdateCharacterLodDistance	medium	re/out/anchors.md §site 0x133d8a
 0xae14	struct_field	Character::ActiveInRange	u8	in-range/active flag (UpdateCharacterLodDistance, CharacterActivationUpdate)	medium	notes/effects-animation.md §3.2
 0xae18	struct_field	Character::CameraDistance	float	Distance to camera computed in UpdateCharacterLodDistance	medium	re/out/anchors.md §site 0x133d8a
@@ -2347,10 +2373,12 @@ rva	kind	name	signature	description	confidence	source
 0x29a3	struct_field	KtglContext::StateShadow29A3	u8	cached state shadow	medium	notes/mainthread-drawprep.md §1
 0x2a62	struct_field	KtglContext::MarkersEnabled	u8	record-side debug marker switch, off at boot, 25 readers, no code writer; patcher/gpu_markers.fsx	high	notes/shadows-culling.md §4
 0x2a70	struct_field	KtglContext::DispatchCounter	u32	compute dispatch counter incremented by 4AA34/4B104	high	notes/meshlet-mainthread.md §2 What must NOT be frame-skipped
+0x3c00	struct_field	KtglContext::DispatchRingCap	u32	dispatcher ring capacity (write +3C04, read +3C08, in flight +3C10, semaphore +3BF0, items +3BF8)	high	notes/gpu-scheduling.md §B.1
 0x3c40	struct_field	KtglContext::CmdStreamPtr	u8*	deferred command-stream write pointer (*(ctx+0x3C40) += 4.. per token) (aka KtglContext::CmdWritePtr) || also: Command-stream write pointer; tokens appended 4 bytes at a time	high	notes/mainthread-drawprep.md §1; re/scripts_draw/dis_1D2F60.txt
 0x3c70	struct_field	KtglContext::CmdFlushLimit	u32	Token-count limit; reaching it calls KtglCmdStreamFlush	medium	re/scripts_draw/dis_1D2F60.txt
 0x3c74	struct_field	KtglContext::CmdCountSinceFlush	u32	Incremented per recorded draw token, compared against +0x3c70	medium	re/scripts_draw/dis_1D2F60.txt
 0x3c78	struct_field	KtglContext::DrawCount	u32	Incremented per recorded draw token (total counter)	low	re/scripts_draw/dis_1D2F60.txt
+0x3d00	struct_field	KtglContext::LastFrameStreamStats	u32[2]+timers	previous frame: draws, kicks; +0x10 ring-full wait timer; +0x28 drain-spin timer	high	patcher/k1_live.fsx
 0x4678	struct_field	KtglDevice::UploadHeapAlloc		upload-heap suballocator used by 62D688	high	notes/ui-mainthread.md §E
 0x6cd0	struct_field	KtglDevice::PagePoolUsedPrev	u32	previous frame's page-pool used count (read by 126C64 >85% heuristic, 28B1B1C)	high	notes/mainthread-drawprep.md §1
 0x150	struct_field	KtglWorker::QuitFlag	u32	worker loop exits when 1 (atomically cleared)	high	notes/input-thread.md §1

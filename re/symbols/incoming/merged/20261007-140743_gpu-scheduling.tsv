@@ -1,0 +1,30 @@
+rva	kind	name	signature	description	confidence	source
+0x2269ec4	function	RenderAsyncSlotsInit	void(void* p1, void* mgr)	renderer init: copies per-slot configs, applies the vendor rules to the async-slot table 44C04D0 (non-NVIDIA: slot 0 off; NVIDIA driver <= 0x1C92: all off), builds the slot mask, copies the table to 45C0460, calls AsyncSlotsCreate 32FA450 on mgr+0x1130	high	notes/gpu-scheduling.md §A.2
+0x226a490	label	RenderAsyncSlotsInit_VendorGate	cmp dword [rbp+70h],10DEh / je 226A4AD	non-NVIDIA branch into the slot-0 disable loop 226A499; AS experiment patches the je (226A497 74 -> EB)	high	patcher/async_slots.fsx
+0x226a571	label	RenderAsyncSlotsInit_NvOldDriverGate		NVIDIA and driver <= 0x1C92 -> every slot enable = 0	high	notes/gpu-scheduling.md §A.2
+0x44c04d0	global	g_AsyncSlotTable	struct{u8 enable; f32 param; u32 slotId}[13]	static async-compute slot table; shipped enables slots 0,3,4,6 (slot 6 param 0.5); read once at renderer init	high	notes/gpu-scheduling.md §A.2
+0x45c0460	global	g_AsyncSlotTableLive	struct{u8 enable; f32 param; u32 slotId}[13]	runtime copy after the vendor rules (BSS, zero before init); PC dump: slots 3,4,6	high	notes/gpu-scheduling.md §A.2
+0x32fa450	function	AsyncSlotsCreate	bool(AsyncSched* s, ?, cfg*, u32* mask)	for each set mask bit: AsyncComputeCtxCreate; stores mask at s+0x1CC; slot 0 also starts the KIDS job KIDS_ASync_LLCulling_Effect (cb 3D16AC)	high	notes/gpu-scheduling.md §A.2
+0x52be1c	function	AsyncSlotGetCtx	KtglContext*(AsyncSched* s, u32 slot)	returns the async compute context of a slot if (s+0x1CC mask bit set and s+0x17C[slot] >= 0), else NULL (caller then records into the graphics stream with tokens 7C/7D)	high	notes/gpu-scheduling.md §A.2
+0x148514	function	AsyncSlotAddFence	void(AsyncSched* s, key, u32 slot, u64 fence)	appends a context fence handle (ctxIndex<<56 | value) to the slot's pending list s+0xE0[idx]; the graphics side waits on it	medium	notes/gpu-scheduling.md §A.2
+0x2ee256c	function	AsyncComputeCtxCreate	KtglContext*(GfxDevice* d, cfg*)	allocates a free async context slot d+0x74D8[i] (count d+0x3E28) and initialises it via 2EF8354	high	notes/gpu-scheduling.md §A.2
+0x2ef8354	function	AsyncComputeCtxInit		AsyncComputeCtxCreateQueue on ctx+0x68; optional own dispatcher backend (vtable 409A3B0) when cfg+0x3D	medium	notes/gpu-scheduling.md §A.2
+0x2ef8448	function	AsyncComputeCtxCreateQueue		CreateCommandQueue(type 2 COMPUTE), N compute allocators + lists, event, compute root signature, CBV/SRV/UAV/sampler heaps	high	notes/gpu-scheduling.md §A.1
+0x2ee9de4	function	GfxCreateDirectQueue		CreateCommandQueue(type 0 DIRECT) + allocator + fence + list (the device's GFX queue path)	medium	notes/gpu-scheduling.md §A.1
+0x2ee9ee8	function	GfxCreateCopyQueue8		CreateCommandQueue(type 3 COPY) + 8 copy lists	medium	notes/gpu-scheduling.md §A.1
+0x2f110a8	function	GfxCreateCopyQueueB		CreateCommandQueue(type 3 COPY); falls back to the GFX queue (dev+0x4270) on failure	medium	notes/gpu-scheduling.md §A.1
+0x2f13350	function	GfxCreateCopyQueueC		CreateCommandQueue(type 3 COPY) + N copy lists	medium	notes/gpu-scheduling.md §A.1
+0x409a3b0	vtable	KtglAsyncBackend_vtbl		async/deferred context backend: +10 Begin, +18 GetFence (KTGL tok 1), +38 End, +48 IsFenceDone 4F9368, +50 CpuWaitFence 2EF9820, +60 tok 7 2EF9088, +68 tok 6 3D1B5C, +D0 Dispatch	medium	notes/gpu-scheduling.md §A.2
+0x3d1ba4	function	KtglCtxGetFence	u64*(KtglContext* c, u64* out, u32 flag)	out = (c+0x10 ctx index << 56) | backend->GetFence(flag)	high	notes/gpu-scheduling.md §A.2
+0x48f3b4	function	EclEmitWait		writes ECL token 8 {queue, fence, value} (queue->Wait on the ECL thread)	medium	notes/gpu-scheduling.md §A.2
+0x8bb170	function	SynTokComputeBegin		KTGL tok 0x7C: compute section begins on the graphics list (c+0x541 = 1, dirty 0x40)	high	notes/gpu-scheduling.md §A.3
+0x8988a8	function	SynTokComputeEnd		KTGL tok 0x7D: UAV barrier (1139D4), dirty 0x20, c+0x541 = 0	high	notes/gpu-scheduling.md §A.3
+0x8f0b5c	function	SynTokFencePoint		KTGL tok 1 handler body: list boundary + fence on the dispatcher context (list ring c+0x5A0)	medium	notes/gpu-scheduling.md §B.1
+0x253c68	function	OffScreenRenderSubmit		"OffScreenRendering" pass; KtglCmdStreamFlush(ctx, 1) at 253EE0 (explicit submit site)	medium	notes/gpu-scheduling.md §B.1
+0x3d2c64	function	KtglWaitQueryOrKick		if a GPU query/fence handle is not ready: KtglCmdStreamFlush(ctx, 1) at 3D2CDF so the GPU gets the work	medium	notes/gpu-scheduling.md §B.1
+0x1d3186	label	DrawSubmit_K1Kick	xor edx,edx; call KtglCmdStreamFlush	K1 kick with submit = 0 (all 29 K1 kick sites pass 0); design E2 would make it B2 01	high	patcher/k1_live.fsx
+0x418ba9	label	CmdStreamEndFrame_StatsSnapshot		copies the per-frame stream stats +3C78..+3CFF to +3D00: +3D00 draws, +3D04 kicks, +3D10 ring-full wait timer, +3D28 drain-spin timer	high	patcher/k1_live.fsx
+0x492954	function	KtglTimerAccumulate	void(struct{u64* acc; u64 t0;}*)	acc[0] += now - t0, acc[1] = max, acc[2]++ (QPC or clock())	high	notes/gpu-scheduling.md §B.1
+0x3c00	struct_field	KtglContext::DispatchRingCap	u32	dispatcher ring capacity (write +3C04, read +3C08, in flight +3C10, semaphore +3BF0, items +3BF8)	high	notes/gpu-scheduling.md §B.1
+0x3d00	struct_field	KtglContext::LastFrameStreamStats	u32[2]+timers	previous frame: draws, kicks; +0x10 ring-full wait timer; +0x28 drain-spin timer	high	patcher/k1_live.fsx
+0x1cc	struct_field	AsyncSched::SlotMask	u32	async slot mask (sched = mgr+0x1130)	high	notes/gpu-scheduling.md §A.2
