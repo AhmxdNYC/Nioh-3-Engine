@@ -1,0 +1,628 @@
+453:         if (v99)
+459:             if (v104)
+470:     v115 = sStencil.Load(int3(v113, v114, 0u));
+478:     if (v123)
+480:         v125 = sGBuf0.SampleLevel(__smpsGBuf0, float2(v94, v95), 0.0f);
+483:         v128 = sGBuf1.SampleLevel(__smpsGBuf1, float2(v94, v95), 0.0f);
+526:         v174 = sDepth.SampleLevel(__smpsDepth, float2(v94, v95), 0.0f);
+647:         if (v306)
+651:         else
+658:             if (v312)
+662:             else
+682:         do
+690:             if (v337)
+709:                 if (v355)
+711:         uOutTex1[uint3(v20, v21, 0u)] = float4(0.0f, 0.0f, 0.0f, 1.0f);
+712:         return;
+714:                 else
+746:         v389 = sRLRResult.Load(int3(v387, v388, 0u));
+781:         [loop] for (;;)
+783:             do
+785:                 do
+791:                     if (v431)
+798:                     else
+801:             if (v433)
+807:                 if (v438)
+832:                     break;
+854:             [loop] for (;;)
+888:                 if (v511)
+893:                 else
+904:                     v522 = oct_ref_table[v521];
+907:                     if (v524)
+911:                         v528 = oct_probe_info[v527];
+915:                         v532 = oct_probe_info[v526];
+918:                         v535 = oct_probe_info[v534];
+921:                         v538 = oct_probe_info[v537];
+928:                     else
+942:                     if (v553)
+947:                     else
+951:                         v557 = oct_probe_info[v556];
+954:                         if (v559)
+958:                 v563 = oct_probe_info[v562];
+962:                 v567 = oct_probe_info[v566];
+966:                 v571 = oct_probe_info[v570];
+970:                 v575 = oct_probe_info[v574];
+1029:                 v636 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v631, v632, v635), 0.0f);
+1036:                 if (v643)
+1042:                 else
+1048:                         else
+1057:                 if (v650)
+1060:                     if (v652)
+1068:                     if (v659)
+1075:                         break;
+1077:                     else
+1080:                         if (v661)
+1082:                 if (v652)
+1130:                     [loop] for (;;)
+1159:                         if (v739)
+1167:                         else
+1178:                             v750 = oct_ref_table[v749];
+1181:                             if (v752)
+1185:                     v756 = oct_probe_info[v755];
+1189:                     v760 = oct_probe_info[v754];
+1192:                     v763 = oct_probe_info[v762];
+1195:                     v766 = oct_probe_info[v765];
+1202:                             else
+1214:                             if (v779)
+1222:                             else
+1226:                     v783 = oct_probe_info[v782];
+1230:                     v787 = oct_probe_info[v786];
+1234:                     v791 = oct_probe_info[v790];
+1238:                     v795 = oct_probe_info[v794];
+1297:                     v856 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v851, v852, v855), 0.0f);
+1305:                     if (v864)
+1309:                     else
+1312:                         v867 = oct_probe_info[v866];
+1315:                         if (v869)
+1319:                         else
+1325:                     if (v873)
+1338:                     else
+1350:                         if (v887)
+1357:                             break;
+1359:                         else
+1376:                 else
+1398:                     [loop] for (;;)
+1400:                         do
+1402:                             do
+1451:                     if (v970)
+1455:                     else
+1466:                         v981 = oct_ref_table[v980];
+1469:                         if (v983)
+1473:                             v992 = oct_probe_info[v991];
+1477:                             v996 = oct_probe_info[v990];
+1480:                             v999 = oct_probe_info[v998];
+1483:                             v1002 = oct_probe_info[v1001];
+1490:                         else
+1502:                         if (v1010)
+1506:                         else
+1510:                             v1014 = oct_probe_info[v1013];
+1514:                             v1018 = oct_probe_info[v1017];
+1518:                             v1022 = oct_probe_info[v1021];
+1522:                             v1026 = oct_probe_info[v1025];
+1581:                             v1087 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v1082, v1083, v1086), 0.0f);
+1589:                             if (v1095)
+1593:                             else
+1596:                                 v1098 = oct_probe_info[v1097];
+1599:                                 if (v1100)
+1603:                                 else
+1609:                             if (v1104)
+1612:                                 break;
+1614:                             else
+1638:                     if (v1124)
+1642:                     else
+1653:                         v1135 = oct_ref_table[v1134];
+1656:                         if (v1137)
+1660:                             v1146 = oct_probe_info[v1145];
+1664:                             v1150 = oct_probe_info[v1144];
+1667:                             v1153 = oct_probe_info[v1152];
+1670:                             v1156 = oct_probe_info[v1155];
+1677:                         else
+1689:                         if (v1164)
+1693:                         else
+1698:                             v1169 = oct_probe_info[v1168];
+1702:                             v1173 = oct_probe_info[v1172];
+1706:                             v1177 = oct_probe_info[v1176];
+1710:                             v1181 = oct_probe_info[v1180];
+1769:                             v1242 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v1237, v1238, v1241), 0.0f);
+1777:                             if (v1250)
+1781:                             else
+1784:                                 v1253 = oct_probe_info[v1252];
+1787:                                 if (v1255)
+1791:                                 else
+1797:                             if (v1259)
+1800:                                 break;
+1802:                             else
+1826:                     if (v1279)
+1830:                     else
+1841:                         v1290 = oct_ref_table[v1289];
+1844:                         if (v1292)
+1848:                             v1301 = oct_probe_info[v1300];
+1852:                             v1305 = oct_probe_info[v1299];
+1855:                             v1308 = oct_probe_info[v1307];
+1858:                             v1311 = oct_probe_info[v1310];
+1865:                         else
+1877:                         if (v1319)
+1881:                         else
+1886:                             v1324 = oct_probe_info[v1323];
+1890:                             v1328 = oct_probe_info[v1327];
+1894:                             v1332 = oct_probe_info[v1331];
+1898:                             v1336 = oct_probe_info[v1335];
+1957:                             v1397 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v1392, v1393, v1396), 0.0f);
+1965:                             if (v1405)
+1969:                             else
+1972:                                 v1408 = oct_probe_info[v1407];
+1975:                                 if (v1410)
+1979:                                 else
+1985:                             if (v1414)
+1988:                                 break;
+1990:                             else
+2014:                     if (v1434)
+2019:                         break;
+2021:                     else
+2032:                         v1445 = oct_ref_table[v1444];
+2035:                         if (v1447)
+2039:                             v1456 = oct_probe_info[v1455];
+2043:                             v1460 = oct_probe_info[v1454];
+2046:                             v1463 = oct_probe_info[v1462];
+2049:                             v1466 = oct_probe_info[v1465];
+2056:                         else
+2068:                         if (v1474)
+2073:                             break;
+2075:                         else
+2080:                             v1479 = oct_probe_info[v1478];
+2084:                             v1483 = oct_probe_info[v1482];
+2088:                             v1487 = oct_probe_info[v1486];
+2092:                             v1491 = oct_probe_info[v1490];
+2151:                             v1552 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v1547, v1548, v1551), 0.0f);
+2159:                             if (v1560)
+2163:                             else
+2166:                                 v1563 = oct_probe_info[v1562];
+2169:                                 if (v1565)
+2173:                                 else
+2179:                             if (v1569)
+2183:                             else
+2188:                                 break;
+2192:                             } while (false);
+2193:                             if (_j == 19u)
+2196:                     break;
+2201:                         } while (false);
+2205:                         if (v1578)
+2212:                         else
+2215:                             if (v1580)
+2225:                     continue;
+2227:                             else
+2240:                         break;
+2244:                         else
+2254:                         if (v1601)
+2260:                 break;
+2262:                         else
+2265:                 if (v1603)
+2272:                     break;
+2274:                 else
+2285:                     break;
+2290:                 else
+2297:             if (_j == 5u)
+2299:                 break;
+2301:             if (_j == 6u)
+2304:                 break;
+2309:                     if (v1616)
+2317:             break;
+2319:                     else
+2326:                 } while (false);
+2327:                 if (_j == 4u)
+2329:                     break;
+2331:                 if (_j == 5u)
+2334:                     break;
+2359:             } while (false);
+2360:             if (_j == 4u)
+2363:                 continue;
+2366:             if (v1647)
+2369:                 uOutTex1[uint3(v20, v21, 0u)] = float4(0.0f, 0.0f, 0.0f, v1649);
+2370:                 return;
+2372:             else
+2386:                 [loop] for (;;)
+2420:                     if (!(v1696))
+2431:             v1707 = oct_ref_table[v1706];
+2434:             if (!(v1709))
+2438:                 v1713 = oct_probe_info[v1712];
+2447:                 v1722 = oct_probe_info[v1721];
+2451:                 if (v1725)
+2459:                     if (v1730)
+2494:             if (v1764)
+2501:             else
+2508:             if (v1773)
+2515:             else
+2522:             if (v1782)
+2529:             else
+2537:             [loop] for (;;)
+2540:                 if (v1794)
+2545:                 else
+2548:                     v1797 = oct_probe_info[v1796];
+2551:                     v1800 = oct_probe_info[v1799];
+2554:                     v1803 = oct_probe_info[v1802];
+2557:                     v1806 = oct_probe_info[v1805];
+2636:                     v1886 = oct_probe_info[v1885];
+2640:                     v1890 = oct_probe_info[v1889];
+2644:                     v1894 = oct_probe_info[v1893];
+2648:                     v1898 = oct_probe_info[v1897];
+2673:                     v1925 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v1920, v1921, v1924), 0.0f);
+2680:                     if (v1932)
+2692:                     else
+2724:                     v1972 = oct_probe_info[v1885];
+2727:                     v1975 = oct_probe_info[v1889];
+2730:                     v1978 = oct_probe_info[v1893];
+2747:                     v1995 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v1992, v1993, v1994), 0.0f);
+2782:                     v2030 = sky_occ[v2029];
+2785:                     v2033 = sky_occ[v2032];
+2788:                     v2036 = sky_occ[v2035];
+2791:                     v2039 = sky_occ[v2038];
+2794:                     v2042 = sky_occ[v2041];
+2797:                     v2045 = sky_occ[v2044];
+2800:                     v2048 = sky_occ[v2047];
+2803:                     v2051 = sky_occ[v2050];
+2806:                     v2054 = sky_occ[v2053];
+2853:                 if (v2100)
+2865:                     if (v2115)
+2888:                         [loop] for (;;)
+2890:                 do
+2892:                     v2140 = ldsTraceResult[v53];
+2902:                     ldsTraceResult[v53] = 0.0f;
+2904:                     if (v2150)
+2907:                         v2153 = oct_probe_info[v2152];
+2910:                         v2156 = oct_probe_info[v2155];
+2913:                         v2159 = oct_probe_info[v2158];
+2916:                         v2162 = oct_probe_info[v2161];
+2936:                         if (v2181)
+2939:                             v2184 = oct_probe_info[v2183];
+2943:                             v2188 = oct_probe_info[v2187];
+2947:                             v2192 = oct_probe_info[v2191];
+3002:                             v2249 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v2244, v2245, v2248), 0.0f);
+3009:                             if (v2256)
+3044:                     [loop] for (;;)
+3046:                         do
+3054:                             if (v2299)
+3063:                             else
+3230:                                 if (v2466)
+3242:                                 else
+3277:                                 if (v2507)
+3285:                                 else
+3297:                                 if (v2523)
+3310:                         [loop] for (;;)
+3331:                             v2557 = sOctDepthSource.Load(int4(v2550, v2551, v2556, 0u));
+3357:                             if (v2583)
+3369:                             else
+3395:                             if (v2615)
+3403:                             else
+3423:                             if (v2639)
+3433:                                 if (v2690)
+3446:                                 else
+3455:                                     break;
+3458:                             else
+3461:                                 if (v2641)
+3464:                                     v2644 = sOctNormalSource.Load(int4(v2550, v2551, v2556, 0u));
+3488:                                     if (v2668)
+3497:                             break;
+3499:                                     else
+3502:                             ldsTraceResult[v53] = v2670;
+3510:                             v2679 = ldsTraceResult[v56];
+3512:                             if (v2680)
+3514:                                 ldsTraceResult[v56] = v2678;
+3522:                                 break;
+3524:                             else
+3533:                                 break;
+3537:                                 else
+3546:                                     break;
+3551:                                 else
+3562:                                 if (v2700)
+3571:                                 else
+3580:                         break;
+3585:                             if (v2709)
+3595:                                 break;
+3597:                             else
+3607:                         } while (false);
+3608:                         if (_j == 46u)
+3611:                             continue;
+3620:                         break;
+3623:                             else
+3637:                             if (v2729)
+3647:                             else
+3660:                     break;
+3663:                         else
+3674:                     else
+3686:                     if (v2743)
+3702:                         break;
+3704:                     else
+3715:                 } while (false);
+3716:                 if (_j == 42u)
+3719:                     continue;
+3721:                 do
+3755:                     if (v2757)
+3775:                         if (v2812)
+3782:                         else
+3789:                         if (v2821)
+3796:                         else
+3803:                         if (v2830)
+3810:                         else
+3817:                         v2841 = oct_probe_info[v2840];
+3839:                         [loop] for (;;)
+3845:                             if (v2868)
+3854:                             else
+3857:                     v2871 = oct_probe_info[v2870];
+3860:                     v2874 = oct_probe_info[v2873];
+3863:                     v2877 = oct_probe_info[v2876];
+3913:                     v2927 = oct_probe_info[v2926];
+3917:                     v2931 = oct_probe_info[v2930];
+3921:                     v2935 = oct_probe_info[v2934];
+3925:                     v2939 = oct_probe_info[v2938];
+3950:                     v2966 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v2961, v2962, v2965), 0.0f);
+3958:                     if (v2974)
+3970:                     else
+4022:                     v3034 = oct_probe_info[v2926];
+4025:                     v3037 = oct_probe_info[v2930];
+4028:                     v3040 = oct_probe_info[v2934];
+4031:                     v3043 = oct_probe_info[v2938];
+4050:                     v3062 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v3059, v3060, v3061), 0.0f);
+4056:                     if (v3067)
+4068:                     else
+4078:                     if (v3084)
+4087:                     else
+4121:                         if (v3117)
+4172:                         else
+4185:                             if (v3169)
+4190:                     v3174 = oct_probe_info[v3173];
+4194:                     v3178 = oct_probe_info[v3177];
+4198:                     v3182 = oct_probe_info[v3181];
+4202:                     v3186 = oct_probe_info[v3185];
+4264:                     v3249 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v3226, v3227, v3215), v3203);
+4268:                     v3253 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v3247, v3248, v3215), v3228);
+4286:                     [loop] for (;;)
+4290:                         if (v3274)
+4297:                         else
+4302:                             if (v3279)
+4309:                             else
+4313:                                 if (v3282)
+4319:                                 else
+4322:                         v3285 = oct_probe_info[v3284];
+4325:                         v3288 = oct_probe_info[v3287];
+4327:                         v3290 = oct_probe_info[v3281];
+4352:                         v3315 = oct_probe_info[v3314];
+4385:                         v3348 = oct_probe_info[v3347];
+4389:                         v3352 = oct_probe_info[v3351];
+4393:                         v3356 = oct_probe_info[v3355];
+4455:                         v3419 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v3396, v3397, v3385), v3373);
+4459:                         v3423 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v3417, v3418, v3385), v3398);
+4491:                         if (v3453)
+4494:                             if (v3455)
+4504:                                 break;
+4506:                             else
+4513:                                 break;
+4516:                         else
+4525:                     if (_j == 55u)
+4528:                         break;
+4531:                             else
+4543:                     else
+4546:                         if (v3461)
+4562:                             if (v3476)
+4569:                             else
+4576:                             if (v3485)
+4583:                             else
+4590:                             if (v3494)
+4597:                             else
+4608:                             [loop] for (;;)
+4611:                     if (v3509)
+4619:                     else
+4648:                         v3538 = oct_probe_info[v3537];
+4652:                         v3542 = oct_probe_info[v3541];
+4656:                         v3546 = oct_probe_info[v3545];
+4660:                         v3550 = oct_probe_info[v3549];
+4679:                         v3569 = sOctDepthSource.Load(int4(v3566, v3567, v3568, 0u));
+4682:                         if (v3571)
+4690:                         else
+4750:                             v3633 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v3610, v3611, v3557), v3591);
+4754:                             v3637 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v3631, v3632, v3557), v3612);
+4758:                             v3641 = sOctRadianceMask.SampleLevel(__smpsOctRadianceSource, float3(v3610, v3611, v3557), v3591);
+4760:                             v3643 = sOctRadianceMask.SampleLevel(__smpsOctRadianceSource, float3(v3631, v3632, v3557), v3612);
+4796:                             v3679 = oct_probe_info[v3536];
+4799:                             v3682 = oct_probe_info[v3681];
+4802:                             v3685 = oct_probe_info[v3684];
+4843:                             v3726 = oct_probe_info[v3537];
+4846:                             v3729 = oct_probe_info[v3541];
+4849:                             v3732 = oct_probe_info[v3545];
+4852:                             v3735 = oct_probe_info[v3549];
+4877:                             v3762 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v3757, v3758, v3761), 0.0f);
+4884:                             if (v3769)
+4896:                             else
+4919:                     if (v3798)
+4922:                         if (v3803)
+4929:                         else
+4946:                         break;
+4948:                     else
+4961:                         else
+4963:                             v3817 = ldsTraceResult[v56];
+4965:                             if (v3818)
+4985:                     if (v3837)
+4992:                     else
+4999:                     if (v3846)
+5006:                     else
+5013:                     if (v3855)
+5020:                     else
+5027:                     v3866 = oct_probe_info[v3865];
+5049:                     [loop] for (;;)
+5055:                         if (v3893)
+5064:                         else
+5067:                             v3896 = oct_probe_info[v3895];
+5070:                             v3899 = oct_probe_info[v3898];
+5073:                             v3902 = oct_probe_info[v3901];
+5123:                             v3952 = oct_probe_info[v3951];
+5127:                             v3956 = oct_probe_info[v3955];
+5131:                             v3960 = oct_probe_info[v3959];
+5135:                             v3964 = oct_probe_info[v3963];
+5160:                             v3991 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v3986, v3987, v3990), 0.0f);
+5168:                             if (v3999)
+5180:                             else
+5232:                             v4059 = oct_probe_info[v3951];
+5235:                             v4062 = oct_probe_info[v3955];
+5238:                             v4065 = oct_probe_info[v3959];
+5241:                             v4068 = oct_probe_info[v3963];
+5260:                             v4087 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v4084, v4085, v4086), 0.0f);
+5266:                             if (v4092)
+5278:                             else
+5288:                             if (v4109)
+5297:                             else
+5331:                                 if (v4142)
+5382:                                 else
+5395:                         if (v4194)
+5400:                             v4199 = oct_probe_info[v4198];
+5404:                             v4203 = oct_probe_info[v4202];
+5408:                             v4207 = oct_probe_info[v4206];
+5412:                             v4211 = oct_probe_info[v4210];
+5474:                             v4274 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v4251, v4252, v4240), v4228);
+5478:                             v4278 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v4272, v4273, v4240), v4253);
+5496:                             [loop] for (;;)
+5500:                                 if (v4299)
+5507:                                 else
+5512:                         if (v4304)
+5519:                         else
+5523:                             if (v4307)
+5529:                             else
+5532:                                 v4310 = oct_probe_info[v4309];
+5535:                                 v4313 = oct_probe_info[v4312];
+5537:                                 v4315 = oct_probe_info[v4306];
+5562:                                 v4340 = oct_probe_info[v4339];
+5595:                                 v4373 = oct_probe_info[v4372];
+5599:                                 v4377 = oct_probe_info[v4376];
+5603:                                 v4381 = oct_probe_info[v4380];
+5665:                                 v4444 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v4421, v4422, v4410), v4398);
+5669:                                 v4448 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v4442, v4443, v4410), v4423);
+5701:                                 if (v4478)
+5704:                         if (v4480)
+5714:                             break;
+5716:                         else
+5723:                             break;
+5726:                                 else
+5735:                             if (_j == 55u)
+5738:                                 break;
+5741:                         else
+5753:                             else
+5769:                     if (v4499)
+5776:                     else
+5783:                     if (v4508)
+5790:                     else
+5797:                     if (v4517)
+5804:                     else
+5814:                     [loop] for (;;)
+5818:                         if (v4532)
+5825:                         else
+5828:                             v4535 = oct_probe_info[v4534];
+5831:                             v4538 = oct_probe_info[v4537];
+5834:                             v4541 = oct_probe_info[v4540];
+5876:                             v4583 = oct_probe_info[v4582];
+5880:                             v4587 = oct_probe_info[v4586];
+5884:                             v4591 = oct_probe_info[v4590];
+5888:                             v4595 = oct_probe_info[v4594];
+5913:                             v4622 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v4617, v4618, v4621), 0.0f);
+5920:                             if (v4629)
+5932:                             else
+5937:                             if (v4641)
+5944:                             else
+6000:                                 v4697 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v4695, v4696, v4602), 0.0f);
+6020:                                 if (v4716)
+6027:                                 else
+6054:                         if (v4739)
+6057:                             if (v4744)
+6064:                             else
+6079:                                 [loop] for (;;)
+6083:                         if (v4762)
+6091:                         else
+6095:                             v4767 = oct_probe_info[v4766];
+6098:                             v4770 = oct_probe_info[v4769];
+6101:                             v4773 = oct_probe_info[v4772];
+6112:                             if (v4783)
+6120:                             else
+6154:                                 v4818 = oct_probe_info[v4817];
+6158:                                 v4822 = oct_probe_info[v4821];
+6162:                                 v4826 = oct_probe_info[v4825];
+6166:                                 v4830 = oct_probe_info[v4829];
+6232:                                 v4897 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v4874, v4875, v4863), v4851);
+6236:                                 v4901 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v4895, v4896, v4863), v4876);
+6240:                                 v4905 = sOctRadianceMask.SampleLevel(__smpsOctRadianceSource, float3(v4874, v4875, v4863), v4851);
+6242:                                 v4907 = sOctRadianceMask.SampleLevel(__smpsOctRadianceSource, float3(v4895, v4896, v4863), v4876);
+6274:                         if (v4937)
+6293:                             break;
+6295:                         else
+6315:                             break;
+6317:                         else
+6331:                 } while (false);
+6334:                 v4969 = oct_probe_info[v4968];
+6349:                 break;
+6352:                     else
+6360:                     if (v4986)
+6407:                         if (v5037)
+6414:                         else
+6421:                         if (v5046)
+6428:                         else
+6435:                         if (v5055)
+6442:                         else
+6452:                         [loop] for (;;)
+6456:                 if (v5070)
+6463:                 else
+6466:                     v5073 = oct_probe_info[v5072];
+6469:                     v5076 = oct_probe_info[v5075];
+6472:                     v5079 = oct_probe_info[v5078];
+6514:                     v5121 = oct_probe_info[v5120];
+6518:                     v5125 = oct_probe_info[v5124];
+6522:                     v5129 = oct_probe_info[v5128];
+6526:                     v5133 = oct_probe_info[v5132];
+6551:                     v5160 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v5155, v5156, v5159), 0.0f);
+6558:                     if (v5167)
+6570:                     else
+6575:                     if (v5179)
+6582:                     else
+6638:                         v5235 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v5233, v5234, v5140), 0.0f);
+6658:                         if (v5254)
+6665:                         else
+6692:                 if (v5277)
+6695:                     if (v5282)
+6702:                     else
+6717:                         [loop] for (;;)
+6721:                             if (v5300)
+6729:                             else
+6733:                     v5305 = oct_probe_info[v5304];
+6736:                     v5308 = oct_probe_info[v5307];
+6739:                     v5311 = oct_probe_info[v5310];
+6750:                     if (v5321)
+6758:                     else
+6792:                         v5356 = oct_probe_info[v5355];
+6796:                         v5360 = oct_probe_info[v5359];
+6800:                         v5364 = oct_probe_info[v5363];
+6804:                         v5368 = oct_probe_info[v5367];
+6870:                         v5435 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v5412, v5413, v5401), v5389);
+6874:                         v5439 = sOctRadianceSource.SampleLevel(__smpsOctRadianceSource, float3(v5433, v5434, v5401), v5414);
+6878:                         v5443 = sOctRadianceMask.SampleLevel(__smpsOctRadianceSource, float3(v5412, v5413, v5401), v5389);
+6880:                         v5445 = sOctRadianceMask.SampleLevel(__smpsOctRadianceSource, float3(v5433, v5434, v5401), v5414);
+6912:                             if (v5475)
+6931:                     break;
+6933:                             else
+6950:                     break;
+6952:                 else
+6964:                     else
+6994:                     break;
+6996:                 else
+7005:             if (_j == 3u)
+7007:                 break;
+7010:                     else
+7015:                 if (_j == 3u)
+7018:                     break;
+7024:             else
+7031:         } while (false);
+7036:         if (v5530)
+7044:         else
+7051:         uOutTex1[uint3(v20, v21, 0u)] = float4(v5540, v5541, v5542, v5539);
+7052:         return;
+7054:     else
+7056:         return;
+7059:             else
+7061:     return;
+7064:         else
+7066:             return;
+7069:     return;

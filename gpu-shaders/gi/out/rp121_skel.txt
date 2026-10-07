@@ -1,0 +1,266 @@
+336:                     v145 = sDepth.SampleLevel(__smpsDepth, float2(v67, v68), 0.0f);
+442:                     if (v260)
+446:                     else
+453:                         if (v266)
+457:                         else
+483:                     if (v291)
+493:                         [loop] for (;;)
+495:                             do
+501:                                 if (!(v307))
+520:                                     [loop] for (;;)
+554:                                         if (!(v359))
+565:                                             v370 = oct_ref_table[v369];
+568:                                             if (v372)
+572:                                                 v376 = oct_probe_info[v375];
+578:                                             else
+584:                                             if (!(v383))
+588:                                                 break;
+593:                                         if (v386)
+597:                                         else
+599:                                             break;
+602:                                     if (_j == 5u)
+605:                                         break;
+610:                                 if (v390)
+614:                                     break;
+616:                                 else
+620:                             } while (false);
+621:                             if (_j == 4u)
+624:                                 continue;
+627:                             if (v395)
+631:                             else
+651:                                 [loop] for (;;)
+685:                                     if (v448)
+689:                                     else
+700:                                         v459 = oct_ref_table[v458];
+703:                                         if (v461)
+707:                                             v465 = oct_probe_info[v464];
+711:                                             v469 = oct_probe_info[v463];
+714:                                             v472 = oct_probe_info[v471];
+717:                                             v475 = oct_probe_info[v474];
+724:                                         else
+740:                                         if (v492)
+744:                                         else
+748:                                             v496 = oct_probe_info[v495];
+751:                                             if (v498)
+802:                                                 v549 = oct_probe_info[v548];
+806:                                                 v553 = oct_probe_info[v552];
+810:                                                 v557 = oct_probe_info[v556];
+814:                                                 v561 = oct_probe_info[v560];
+839:                                                 v588 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v583, v584, v587), 0.0f);
+846:                                                 if (v595)
+873:                                                 else
+880:                                                 if (v625)
+884:                                                 else
+895:                                             else
+903:                                     if (v636)
+907:                                         break;
+909:                                     else
+916:                             do
+920:                                 if (v642)
+923:                                     if (v644)
+931:                                         [loop] for (;;)
+938:                                             if (v658)
+946:                                             else
+1017:                                                 [loop] for (;;)
+1063:                                                     if (v779)
+1071:                                                         v787 = oct_ref_table[v786];
+1074:                                                         if (v789)
+1078:                                                             v793 = oct_probe_info[v792];
+1082:                                                             v797 = oct_probe_info[v791];
+1085:                                                             v800 = oct_probe_info[v799];
+1088:                                                             v803 = oct_probe_info[v802];
+1095:                                                         else
+1109:                                                         if (v818)
+1119:                                                         else
+1123:                                                             v822 = oct_probe_info[v821];
+1126:                                                             if (v824)
+1184:                                                                 v883 = oct_probe_info[v882];
+1188:                                                                 v887 = oct_probe_info[v886];
+1192:                                                                 v891 = oct_probe_info[v890];
+1196:                                                                 v895 = oct_probe_info[v894];
+1221:                                                                 v922 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v917, v918, v921), 0.0f);
+1228:                                                                 if (v929)
+1255:                                                                 else
+1309:                                                                 if (v1011)
+1314:                                                                 else
+1319:                                                                 v1017 = sky_occ[v1016];
+1322:                                                                 v1020 = sky_occ[v1019];
+1325:                                                                 v1023 = sky_occ[v1022];
+1328:                                                                 v1026 = sky_occ[v1025];
+1331:                                                                 v1029 = sky_occ[v1028];
+1334:                                                                 v1032 = sky_occ[v1031];
+1337:                                                                 v1035 = sky_occ[v1034];
+1340:                                                                 v1038 = sky_occ[v1037];
+1343:                                                                 v1041 = sky_occ[v1040];
+1392:                                                                 v1091 = oct_probe_info[v1090];
+1399:                                                                 v1099 = shCoeff[v788].c[0];
+1403:                                                                 v1103 = shCoeff[v788].c[1];
+1407:                                                                 v1107 = shCoeff[v788].c[2];
+1411:                                                                 v1111 = shCoeff[v788].c[3];
+1415:                                                                 v1115 = shCoeff[v788].c[4];
+1419:                                                                 v1119 = shCoeff[v788].c[5];
+1423:                                                                 v1123 = shCoeff[v788].c[6];
+1427:                                                                 v1127 = shCoeff[v788].c[7];
+1431:                                                                 v1131 = shCoeff[v788].c[8];
+1567:                                                             else
+1592:                                                     else
+1624:                                                     if (v1303)
+1660:                                                         if (v1338)
+1667:                                                             break;
+1669:                                                         else
+1677:                                                             break;
+1680:                                                     else
+1693:                                                 if (_j == 15u)
+1695:                                                     break;
+1700:                                             if (v1348)
+1709:                                             else
+1715:                                                 break;
+1718:                                         if (_j == 15u)
+1721:                                             break;
+1724:                                     else
+1737:                                 else
+1781:                                     [loop] for (;;)
+1809:                                         if (v1427)
+1813:                                         else
+1824:                                             v1438 = oct_ref_table[v1437];
+1827:                                             if (v1440)
+1831:                                                 v1444 = oct_probe_info[v1443];
+1835:                                                 v1448 = oct_probe_info[v1442];
+1838:                                                 v1451 = oct_probe_info[v1450];
+1841:                                                 v1454 = oct_probe_info[v1453];
+1848:                                             else
+1862:                                             if (v1469)
+1866:                                             else
+1870:                                                 v1473 = oct_probe_info[v1472];
+1873:                                                 if (v1475)
+1924:                                                     v1526 = oct_probe_info[v1525];
+1928:                                                     v1530 = oct_probe_info[v1529];
+1932:                                                     v1534 = oct_probe_info[v1533];
+1936:                                                     v1538 = oct_probe_info[v1537];
+1961:                                                     v1565 = sOctDepthSource.SampleLevel(__smpsOctmapSource, float3(v1560, v1561, v1564), 0.0f);
+1968:                                                     if (v1572)
+1995:                                                     else
+2002:                                                     if (v1602)
+2006:                                                     else
+2017:                                                 else
+2025:                                         if (v1613)
+2030:                                             if (v1615)
+2077:                                                 [loop] for (;;)
+2105:                                                     if (v1691)
+2140:                                                     else
+2151:                                                         v1702 = oct_ref_table[v1701];
+2154:                                                         if (v1704)
+2158:                                                             v1708 = oct_probe_info[v1707];
+2162:                                                             v1712 = oct_probe_info[v1706];
+2165:                                                             v1715 = oct_probe_info[v1714];
+2168:                                                             v1718 = oct_probe_info[v1717];
+2175:                                                         else
+2187:                                                         if (v1731)
+2222:                                                         else
+2224:                                                             v1733 = shCoeff[v1703].c[0];
+2228:                                                             v1737 = shCoeff[v1703].c[1];
+2232:                                                             v1741 = shCoeff[v1703].c[2];
+2236:                                                             v1745 = shCoeff[v1703].c[3];
+2240:                                                             v1749 = shCoeff[v1703].c[4];
+2244:                                                             v1753 = shCoeff[v1703].c[5];
+2248:                                                             v1757 = shCoeff[v1703].c[6];
+2252:                                                             v1761 = shCoeff[v1703].c[7];
+2256:                                                             v1765 = shCoeff[v1703].c[8];
+2324:                                                             [loop] for (;;)
+2340:                                                                 if (v1850)
+2373:                                                                     v1883 = sky_occ[v1882];
+2376:                                                                     v1886 = sky_occ[v1885];
+2379:                                                                     v1889 = sky_occ[v1888];
+2382:                                                                     v1892 = sky_occ[v1891];
+2385:                                                                     v1895 = sky_occ[v1894];
+2388:                                                                     v1898 = sky_occ[v1897];
+2391:                                                                     v1901 = sky_occ[v1900];
+2394:                                                                     v1904 = sky_occ[v1903];
+2397:                                                                     v1907 = sky_occ[v1906];
+2465:                                                                     break;
+2467:                                                                 else
+2476:                                                     if (v1977)
+2479:                                                         if (v1979)
+2486:                                                             break;
+2488:                                                         else
+2660:                                                             break;
+2663:                                                     else
+2700:                                                 if (_j == 15u)
+2703:                                                     break;
+2706:                                             else
+2738:                                                 [loop] for (;;)
+2766:                                                     if (v2207)
+2770:                                                     else
+2781:                                                         v2218 = oct_ref_table[v2217];
+2784:                                                         if (v2220)
+2788:                                                             v2224 = oct_probe_info[v2223];
+2794:                                                         else
+2802:                                                         if (v2233)
+2806:                                                         else
+2810:                                                             v2237 = oct_probe_info[v2236];
+2813:                                                             if (v2239)
+2818:                                                             else
+2826:                                                     if (v2245)
+2829:                                                         if (v2247)
+2878:                                                             [loop] for (;;)
+2906:                                                                 if (v2323)
+2941:                                                                 else
+2952:                                                                     v2334 = oct_ref_table[v2333];
+2955:                                                                     if (v2336)
+2959:                                                                         v2340 = oct_probe_info[v2339];
+2963:                                                                         v2344 = oct_probe_info[v2338];
+2966:                                                                         v2347 = oct_probe_info[v2346];
+2969:                                                                         v2350 = oct_probe_info[v2349];
+2976:                                                                     else
+2988:                                                                     if (v2363)
+3023:                                                                     else
+3025:                                                                         v2365 = shCoeff[v2335].c[0];
+3029:                                                                         v2369 = shCoeff[v2335].c[1];
+3033:                                                                         v2373 = shCoeff[v2335].c[2];
+3037:                                                                         v2377 = shCoeff[v2335].c[3];
+3041:                                                                         v2381 = shCoeff[v2335].c[4];
+3045:                                                                         v2385 = shCoeff[v2335].c[5];
+3049:                                                                         v2389 = shCoeff[v2335].c[6];
+3053:                                                                         v2393 = shCoeff[v2335].c[7];
+3057:                                                                         v2397 = shCoeff[v2335].c[8];
+3125:                                                                         [loop] for (;;)
+3141:                                                                             if (v2482)
+3174:                                                                                 v2515 = sky_occ[v2514];
+3177:                                                                                 v2518 = sky_occ[v2517];
+3180:                                                                                 v2521 = sky_occ[v2520];
+3183:                                                                                 v2524 = sky_occ[v2523];
+3186:                                                                                 v2527 = sky_occ[v2526];
+3189:                                                                                 v2530 = sky_occ[v2529];
+3192:                                                                                 v2533 = sky_occ[v2532];
+3195:                                                                                 v2536 = sky_occ[v2535];
+3198:                                                                                 v2539 = sky_occ[v2538];
+3266:                                                                                 break;
+3268:                                                                             else
+3277:                                                                 if (v2609)
+3280:                                                                     if (v2611)
+3287:                                                                         break;
+3289:                                                                     else
+3461:                                                                         break;
+3464:                                                                 else
+3501:                                                             if (_j == 15u)
+3503:                                                                 break;
+3506:                                                         else
+3515:                                                             break;
+3518:                                                     else
+3524:                                                 if (_j == 15u)
+3527:                                                     break;
+3531:                                         else
+3538:                             } while (false);
+3551:                             break;
+3554:                     else
+3565:                     if (v2809)
+3573:                     else
+3577:                     uOutTex1[uint3(v14, v15, 0u)] = float4(v2801, v2802, v2803, v2818);
+3578:                     return;
+3580:                 else
+3582:                     return;
+3585:             else
+3587:                 return;
+3590:         else
+3592:             return;
+3595:     return;

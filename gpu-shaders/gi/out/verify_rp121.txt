@@ -1,0 +1,18 @@
+RefProbe_121.ll vs rp_121_fast.ll: 256 seeds, 47234 writes, bit-exact 47234 (100.0000%), max 0 ulp, write-set differences 0, 8s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:47234
+original block coverage: 109 / 109 (100.0%)
+RESULT: PASS
+RefProbe_121.ll vs rp_121_fast.ll: 512 seeds, 94161 writes, bit-exact 94161 (100.0000%), max 0 ulp, write-set differences 0, 15s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:94161
+original block coverage: 109 / 109 (100.0%)
+RESULT: PASS
+RefProbe_121.ll vs rp_121_fast.ll: 256 seeds, 48324 writes, bit-exact 48324 (100.0000%), max 0 ulp, write-set differences 0, 18s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:48324
+original block coverage: 107 / 109 (98.2%)
+RESULT: PASS

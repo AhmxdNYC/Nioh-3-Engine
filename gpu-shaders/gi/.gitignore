@@ -1,0 +1,6 @@
+out/*
+!out/rp121_fast.hlsl
+!out/*.txt
+build/
+__pycache__/
+umdrepoint.log
