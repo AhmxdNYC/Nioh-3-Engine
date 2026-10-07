@@ -199,6 +199,7 @@ struct ScCount {
     volatile LONG64 last;
 };
 ScCount g_sc[4] = {};
+void (*volatile g_rateSink)(double, double) = nullptr;  // TG governor (dllmain), set before Start
 volatile DWORD g_fsrTid = 0;          // the FidelityFX presenter thread (by name), 0 = never seen
 volatile LONG64 g_lastFsrPresent = 0;
 volatile LONG g_fsrSeen = 0;
@@ -314,6 +315,7 @@ void UpdateStats(int64_t now) {
     else if (!g_st.fgActive && rendered > 5 && g_st.ratio > 1.4) g_st.fgActive = true;
     else if (g_st.fgActive && (g_st.ratio < 1.2 || rendered <= 5)) g_st.fgActive = false;
     g_st.haveRates = true;
+    if (g_rateSink) g_rateSink(g_st.realFps, g_st.tickFps);  // TG governor (dllmain)
     if (g_info.known) {  // the game's FG / upscaler settings: logged at the first window and whenever they change
         const int fg = ReadCfg(kRvaFrameGen), up = ReadCfg(kRvaUpscaler);
         if (fg != g_fgLogged || up != g_upLogged) {
@@ -1226,6 +1228,17 @@ float IniFloat(const wchar_t* ini, const wchar_t* sec, const wchar_t* key, float
 }  // namespace
 
 OverlaySettings& Overlay() { return g_cfg; }
+
+void SetRateSink(void (*fn)(double rendered, double ticks)) { g_rateSink = fn; }
+
+int64_t LastPresentQpc() {
+    int64_t last = 0;
+    for (const ScCount& e : g_sc) {
+        const int64_t t = e.last;
+        if (e.sc && t > last) last = t;
+    }
+    return last;
+}
 LatencyStatus Latency() {
     LatencyStatus s;
     s.want = g_cfg.maxLatency;

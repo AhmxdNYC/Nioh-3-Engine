@@ -15,6 +15,7 @@
 #include <intrin.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -31,7 +32,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.5.0"
+#define MOD_VERSION "1.6.0"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -117,6 +118,18 @@ void caveWL();
 extern uint32_t wl_enable;
 extern uint64_t wl_prev, wl_closed, wl_closeHandle;
 extern uint64_t w6_wakeAll, w6_wakes;
+// 1.6.0: TG tick governor (caveLim), WG wake gate (WS2/WS3/WSs), DS, CP, SPF
+extern uint32_t tg_cap;
+extern uint32_t vrr_fpsOut;
+extern uint32_t wg_installed;
+void caveDs();
+void caveCP();
+void caveSPF();
+extern uint32_t cp_enable, spf_enable;
+extern uint64_t cp_resume, spf_resume, spf_gworld;
+BOOL WgWake(HANDLE ev, uint8_t* slot);
+DWORD WgSleep(HANDLE ev, DWORD ms, uint8_t* pool, uint8_t* slot);
+BOOL DsQpc(LARGE_INTEGER* now, int64_t start);
 }
 
 namespace {
@@ -174,6 +187,51 @@ DWORD g_gfTimeoutMs = 100;           // per wait round; the engine's loop re-che
 volatile long g_gfWaits = 0, g_gfFallbacks = 0;
 volatile long long g_gfTicks = 0;
 
+// ---- WG (1.6.0): wake gate on the wake-one sites (WS2 48C6B, WS3 48D06) -----------------------------------------
+// Per worker (pool slot id x worker index) a state word: kWgWaiting while the worker is inside WgSleep (the wrapper
+// around its WaitForSingleObject at 1A6BC35), kWgPending once a counted wake has targeted it in that window. Per pool
+// `pending` = number of workers in the pool woken by a counted wake that have not yet left their wait. A wake-one is
+// skipped while pending >= WG_MaxPending (and the last counted wake is younger than WG_WindowUs). Proof of "no stalled
+// job" in README (WG section) and notes: every pending unit is cleared by the woken worker itself right before it runs
+// JobWorkerRunUntilIdle over the whole pool, and that clear is ordered after the skipping submitter's push.
+constexpr LONG kWgWaiting = 1, kWgPending = 2;
+#pragma warning(disable : 4324)  // the per-pool / per-worker states are padded to a cache line on purpose
+struct alignas(64) WgPoolState {
+    void* volatile owner;          // the pool object this id slot belongs to (first user); another pool -> no gating
+    volatile LONG pending;
+    LONG pad;
+    volatile LONG64 lastTsc;       // rdtsc of the last counted wake
+};
+struct alignas(64) WgWorkerState {
+    volatile LONG st;
+};
+WgPoolState g_wgPool[64];
+WgWorkerState g_wgWorker[64][64];
+volatile uint32_t g_wgEnable = 0;
+LONG g_wgMax = 1;
+uint64_t g_wgWindowTsc = 0;
+volatile LONG64 g_wgSkipped = 0, g_wgCounted = 0, g_wgStale = 0, g_wgCalls = 0;
+
+// ---- TG (1.6.0, opt-in experiment): logic tick governor. The limiter cap (caveLim) follows the rendered rate with a
+// floor, so the game logic does not run ticks whose result is never shown. Needs VRR armed (variable dt keeps the game
+// speed) and L1 active (otherwise the limiter slack would be spun, not slept).
+volatile uint32_t g_tgEnable = 0;
+volatile long g_tgState = 0;      // 0 off, 1 governing (cap > 0), 2 refused: L1 not active, 3 VRR not armed, 4 nothing to govern
+int g_tgFloor = 30, g_tgRatioPct = 125;
+bool g_tgL1 = false;              // L1 installed this session
+volatile double g_tgRendered = 0, g_tgTicks = 0;
+ULONGLONG g_tgLowerSince = 0;
+
+// ---- DS (1.6.0, opt-in): high-resolution timer sleep inside the main loop's 1 ms retry spin ----------------------
+volatile uint32_t g_dsEnable = 0;
+HANDLE g_dsTimer = nullptr;
+volatile LONG g_dsTid = 0;
+int64_t g_dsMarginUs = 150;
+int64_t g_qpcFreqDs = 0;
+volatile long g_dsWaits = 0;
+volatile long long g_dsTicks = 0;
+constexpr uint32_t kRvaEngineTimer = 0x45BA780;  // DS: engine timer object (+12h QPC mode byte, +18h frequency)
+
 // v2.02 engine addresses used by the experimental caves (verified by tests/test_patterns.py deps / the live scripts)
 constexpr uint32_t kRvaGfxGlobal = 0x45BA588;   // GfxDevice/KtglContext* g (FPC: g+3C60h stream generation)
 constexpr uint32_t kRvaPadMgr = 0x45BA1E0;      // pad manager pointer (X1: +69850h + i*14h connected bytes)
@@ -226,6 +284,11 @@ struct Config {
     int gf = 0, gfTimeoutMs = 100;
     // waitable-handle leak fix (1.5.0): on by default (Windows leaks one handle per frame; never triggers under Proton)
     int wl = 1;
+    // 1.6.0 (notes\cpu-hotspots-ally.md, notes\worker-jobs-opt.md): all opt-in, 0 = off / not installed
+    int wg = 0, wgMaxPending = 1, wgWindowUs = 2000;
+    int tg = 0, tgFloor = 30, tgRatioPct = 125;
+    int ds = 0, dsMarginUs = 150;
+    int lk = 0, cp = 0, spf = 0;
 };
 
 Config LoadConfig() {
@@ -289,6 +352,17 @@ Config LoadConfig() {
     c.gf = I(L"Patches", L"GF", c.gf);
     c.wl = I(L"Patches", L"WL", c.wl);
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
+    c.wg = I(L"Patches", L"WG", c.wg);
+    c.tg = I(L"Patches", L"TG", c.tg);
+    c.ds = I(L"Patches", L"DS", c.ds);
+    c.lk = I(L"Patches", L"LK", c.lk);
+    c.cp = I(L"Patches", L"CP", c.cp);
+    c.spf = I(L"Patches", L"SPF", c.spf);
+    c.wgMaxPending = std::clamp(I(L"Tuning", L"WG_MaxPending", c.wgMaxPending), 1, 8);
+    c.wgWindowUs = std::clamp(I(L"Tuning", L"WG_WindowUs", c.wgWindowUs), 100, 100000);
+    c.tgFloor = std::clamp(I(L"Tuning", L"TG_Floor", c.tgFloor), 24, 60);
+    c.tgRatioPct = std::clamp(I(L"Tuning", L"TG_RatioPct", c.tgRatioPct), 100, 200);
+    c.dsMarginUs = std::clamp(I(L"Tuning", L"DS_MarginUs", c.dsMarginUs), 50, 900);
     return c;
 }
 
@@ -472,11 +546,14 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveGf1: return (void*)&caveGf1;
         case gen::Target::caveGf2: return (void*)&caveGf2;
         case gen::Target::caveWL: return (void*)&caveWL;
+        case gen::Target::caveDs: return (void*)&caveDs;
+        case gen::Target::caveCP: return (void*)&caveCP;
+        case gen::Target::caveSPF: return (void*)&caveSPF;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveWL;
+constexpr int kLastTarget = (int)gen::Target::caveSPF;
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -691,6 +768,66 @@ const char* GpuOptStatus(char* buf, size_t n) {
     snprintf(buf, n, "%s", g_gpuStatus[0] ? g_gpuStatus : gpuopt::StateName(gpuopt::GetState()));
     ReleaseSRWLockShared(&g_gpuStatusLock);
     return buf;
+}
+
+// ---- TG governor (1.6.0). Runs on the Present-hook thread after each osd stats window (~0.5 s) with the rendered
+// (real, FG excluded) fps and the engine's ticks/s. Publishes tg_cap, which caveLim applies as the limiter target while
+// VRR is armed. Raises at once, lowers only after the target stayed >2 below the cap for 2 s. Never engages without
+// L1 (the limiter slack would otherwise be spun, not slept) or without VRR armed (stock dt would slow the game).
+void TgOnRates(double rendered, double ticks) {
+    g_tgRendered = rendered;
+    g_tgTicks = ticks;
+    const ULONGLONG now = GetTickCount64();
+    static const char* const kNames[] = {"off", "governing", "refused - L1 is not active (it must be installed and switched "
+                                         "on; under Proton L1OnWine = 1)", "waiting - VRR not armed", "idle - nothing to govern"};
+    auto set = [&](long st, uint32_t cap) {
+        tg_cap = cap;
+        const long old = InterlockedExchange(&g_tgState, st);
+        if (old != st) Log("TG: %s%s", kNames[st], st == 1 ? "" : " (logic ticks: stock limiter)");
+    };
+    if (!g_tgEnable) { g_tgLowerSince = 0; set(0, 0); return; }
+    if (!g_tgL1 || !g_l1Enable) { g_tgLowerSince = 0; set(2, 0); return; }
+    if (!vrr_enable || !vrr_fpsOut) { g_tgLowerSince = 0; set(3, 0); return; }
+    const int cap = (int)vrr_capCur;
+    const int idx = vrr_tier == 30 ? 0 : vrr_tier == 120 ? 2 : 1;
+    const int minF = vrr_maxNs[idx] ? (int)((1000000000ull + vrr_maxNs[idx] - 1) / vrr_maxNs[idx]) : 24;
+    const int floorT = std::max(g_tgFloor, minF + 1);  // stay inside the VRR clamp (tier 60: 24 -> floor 30)
+    int target = (int)std::ceil(rendered * (double)g_tgRatioPct / 100.0) + 2;
+    target = std::max(target, floorT);
+    if (rendered < 1.0 || target >= cap) { g_tgLowerSince = 0; set(4, 0); return; }
+    const int cur = tg_cap ? (int)tg_cap : cap;
+    int next = cur;
+    if (target > cur) {
+        next = target;
+        g_tgLowerSince = 0;
+    } else if (target + 2 < cur) {
+        if (!g_tgLowerSince) g_tgLowerSince = now;
+        else if (now - g_tgLowerSince >= 2000) { next = target; g_tgLowerSince = 0; }
+    } else {
+        g_tgLowerSince = 0;
+    }
+    if (next >= cap) set(4, 0);
+    else set(1, (uint32_t)next);
+}
+
+// TG watchdog: drops the cap at once when TG is switched off, L1 goes off, VRR is switched off, or the game's presents
+// stall for more than 250 ms (loading / no 3D frames: the governor gets no new rate then).
+DWORD WINAPI TgWatchdog(LPVOID) {
+    LARGE_INTEGER f;
+    QueryPerformanceFrequency(&f);
+    for (;;) {
+        Sleep(100);
+        if (!tg_cap) continue;
+        bool off = !g_tgEnable || !g_tgL1 || !g_l1Enable || !vrr_enable;
+        LARGE_INTEGER n;
+        QueryPerformanceCounter(&n);
+        const int64_t last = osd::LastPresentQpc();
+        if (!off && (!last || n.QuadPart - last > f.QuadPart / 4)) off = true;
+        if (off) {
+            tg_cap = 0;
+            g_tgLowerSince = 0;
+        }
+    }
 }
 
 bool BuildRepl(Item& it) {
@@ -1043,10 +1180,14 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
         if (!strcmp(g, "TS")) return cfg.ts != 0;
-        if (!strcmp(g, "WS")) return cfg.wakeStats != 0;
+        if (!strcmp(g, "WS")) return cfg.wakeStats != 0 || cfg.wg != 0;  // WG rides the WS sites
         if (!strcmp(g, "ED")) return cfg.ed != 0;
         if (!strcmp(g, "GF")) return cfg.gf != 0;
         if (!strcmp(g, "WL")) return cfg.wl != 0;
+        if (!strcmp(g, "DS")) return cfg.ds != 0;
+        if (!strcmp(g, "LK")) return cfg.lk != 0;
+        if (!strcmp(g, "CP")) return cfg.cp != 0;
+        if (!strcmp(g, "SPF")) return cfg.spf != 0;
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1361,7 +1502,7 @@ DWORD WINAPI Worker(LPVOID) {
 
     // ---- worker wakes (notes\worker-power.md): WS counters (measurement only) and ED EffectDisp empty-list skip
     static bool s_wsDone = false;
-    s_wsDone = expGroup("WS", cfg.wakeStats != 0, [&]() {
+    s_wsDone = expGroup("WS", cfg.wakeStats != 0 || cfg.wg != 0, [&]() {
         auto slotOf = [&](const char* id) -> uint8_t* {  // FF 15 disp32 at the site
             uint8_t* a = findItem(id)->addr;
             uint8_t* s = a + 6 + *(int32_t*)(a + 2);
@@ -1377,11 +1518,34 @@ DWORD WINAPI Worker(LPVOID) {
         ws_ret[0] = (uint64_t)(uintptr_t)(g_base + 0x3FF5E);  // the 40800 calls in 3FE14 / 403A0 / 207200 (deps-checked)
         ws_ret[1] = (uint64_t)(uintptr_t)(g_base + 0x403D7);
         ws_ret[2] = (uint64_t)(uintptr_t)(g_base + 0x20723D);
-        ws_enable = 1;
+        ws_enable = cfg.wakeStats ? 1u : 0u;  // installed only for WG: counting off (live switch in the menu)
+        if (cfg.wg) {
+            // rdtsc ticks per microsecond for WG_WindowUs (the window only ever makes the gate more stock-like)
+            LARGE_INTEGER q0, q1;
+            QueryPerformanceCounter(&q0);
+            const uint64_t t0 = __rdtsc();
+            Sleep(20);
+            QueryPerformanceCounter(&q1);
+            const uint64_t t1 = __rdtsc();
+            const double us = (double)(q1.QuadPart - q0.QuadPart) * 1e6 / (double)qf.QuadPart;
+            const double perUs = us > 0 ? (double)(t1 - t0) / us : 0.0;
+            if (perUs < 100.0 || perUs > 10000.0) { Log("WG: rdtsc calibration looks wrong (%.1f ticks/us) - WG not installed", perUs); }
+            else {
+                g_wgWindowTsc = (uint64_t)(perUs * cfg.wgWindowUs);
+                g_wgMax = cfg.wgMaxPending;
+                g_wgEnable = cfg.wg == 1 ? 1u : 0u;  // 2 = installed, switched off (live A/B)
+                wg_installed = 1;
+            }
+        }
         return true;
     });
     if (s_wsDone && !wkDone) Log("WS: the wake-check caller split needs the WK site (40A4C) - not installed, split stays 0");
+    if (s_wsDone && wg_installed)
+        Log("WG: wake gate on the wake-one sites 48C6B / 48D06 installed (switch %s, MaxPending %ld, window %d us); worker "
+            "sleep 1A6BC35 wrapped", g_wgEnable ? "ON" : "off", g_wgMax, cfg.wgWindowUs);
+    if (cfg.wg && known && !s_wsDone) Log("WG: needs the WS sites - not installed");
     exDone[menu::kExpWS] = s_wsDone;
+    exDone[menu::kExpWG] = s_wsDone && wg_installed;
     exDone[menu::kExpED] = expGroup("ED", cfg.ed != 0, [&]() {
         Item* k = findItem("EDk");
         Item* j = findItem("EDj");
@@ -1417,6 +1581,61 @@ DWORD WINAPI Worker(LPVOID) {
         return true;
     });
     exDone[menu::kExpWL] = s_wlDone;
+
+    // ---- 1.6.0 opt-in items ---------------------------------------------------------------------------------------
+    // DS: the main loop's 1 ms retry spin sleeps on its own high-resolution timer (needs L1: the timer is proven usable
+    // on this system only when L1 is installed - under Proton that means L1OnWine = 1)
+    static bool s_dsDone = false;
+    if (cfg.ds && known && l1State != osd::State::On)
+        Log("DS: needs L1 installed (high-resolution timer; under Proton set L1OnWine = 1) - skipped");
+    s_dsDone = expGroup("DS", cfg.ds != 0 && l1State == osd::State::On, [&]() {
+        g_dsTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+        if (!g_dsTimer) { Log("DS: high-resolution waitable timer not available"); return false; }
+        g_dsMarginUs = cfg.dsMarginUs;
+        g_qpcFreqDs = qf.QuadPart;
+        g_dsEnable = cfg.ds == 1 ? 1u : 0u;
+        return true;
+    });
+    if (s_dsDone) Log("DS: 1 ms retry spin of the main loop (1A74BDA) sleeps on a timer, margin %d us (switch %s)", cfg.dsMarginUs,
+                      g_dsEnable ? "ON" : "off");
+    exDone[menu::kExpDS] = s_dsDone;
+    // LK: 18 locked "atomic loads" -> plain loads (code bytes, next launch)
+    exDone[menu::kExpLK] = expGroup("LK", cfg.lk != 0, nullptr);
+    // CP / SPF: worker loop prefetch caves (live switches; 2 = installed, switched off)
+    exDone[menu::kExpCP] = expGroup("CP", cfg.cp != 0, [&]() {
+        cp_resume = (uint64_t)(uintptr_t)(findItem("CP")->addr + 7);  // D8187
+        cp_enable = cfg.cp == 1 ? 1u : 0u;
+        return true;
+    });
+    exDone[menu::kExpSPF] = expGroup("SPF", cfg.spf != 0, [&]() {
+        uint8_t* a = findItem("SPF")->addr;  // 48 8B 05 rel32: mov rax,[rip+rel] = g_CollisionWorld
+        const uintptr_t gw = (uintptr_t)(a + 7 + *(int32_t*)(a + 3));
+        if (gw != (uintptr_t)(g_base + 0x45B9E58)) { Log("SPF: g_CollisionWorld reference differs"); return false; }
+        spf_gworld = gw;
+        spf_resume = (uint64_t)(uintptr_t)(a + 7);  // DB8C6
+        spf_enable = cfg.spf == 1 ? 1u : 0u;
+        return true;
+    });
+    if (exDone[menu::kExpCP] || exDone[menu::kExpSPF])
+        Log("CP/SPF: worker prefetch caves installed: CP %s, SPF %s", !exDone[menu::kExpCP] ? "-" : cp_enable ? "ON" : "off",
+            !exDone[menu::kExpSPF] ? "-" : spf_enable ? "ON" : "off");
+    // TG: no site of its own (caveLim reads tg_cap). Available whenever VRR is installed; the ini only sets the start
+    // state. It never engages without L1 (refused + logged by the governor).
+    g_tgL1 = l1State == osd::State::On;
+    g_tgFloor = cfg.tgFloor;
+    g_tgRatioPct = cfg.tgRatioPct;
+    g_tgEnable = (vrrDone && cfg.tg == 1) ? 1u : 0u;
+    exDone[menu::kExpTG] = vrrDone;
+    if (cfg.tg && !vrrDone) Log("TG: needs VRR installed - not available");
+    else if (vrrDone)
+        Log("TG: tick governor available (switch %s, floor %d ticks/s, ratio %d %%)%s", g_tgEnable ? "ON" : "off", cfg.tgFloor,
+            cfg.tgRatioPct, g_tgL1 ? "" : " - L1 is not installed, so TG will refuse to engage (Proton: L1OnWine = 1)");
+    static bool s_tgAvail = false;
+    s_tgAvail = vrrDone;
+    if (vrrDone) {
+        osd::SetRateSink(&TgOnRates);  // the governor runs on the Present-hook thread after each stats window
+        if (HANDLE h = CreateThread(nullptr, 0, TgWatchdog, nullptr, 0, nullptr)) CloseHandle(h);
+    }
 
     // periodic stats so a log from a handheld shows the wake rates and the experimental patches working without a
     // profiler. The same thread finds the [App]Game thread for FPC.
@@ -1463,7 +1682,40 @@ DWORD WINAPI Worker(LPVOID) {
                     char b[256];
                     Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
                 }
-                if (s_wsDone && sec % 30 == 0) WakeStatsLog();
+                if (s_wsDone && ws_enable && sec % 30 == 0) WakeStatsLog();
+                if (wg_installed && sec % 30 == 0) {
+                    static LONG64 pS = 0, pC = 0, pT = 0;
+                    const LONG64 s = g_wgSkipped, c = g_wgCounted, t = g_wgStale;
+                    long pend = 0, peak = 0;
+                    for (const WgPoolState& ps : g_wgPool) {
+                        pend += ps.pending > 0 ? ps.pending : 0;
+                        peak = std::max(peak, (long)ps.pending);
+                    }
+                    Log("stats/s WG: wake-one wakes skipped %lld, counted (worker on its way) %lld, stale window -> woke %lld | "
+                        "pending now %ld (max per pool %ld), switch %s",
+                        (s - pS) / 30, (c - pC) / 30, (t - pT) / 30, pend, peak, g_wgEnable ? "ON" : "off");
+                    pS = s; pC = c; pT = t;
+                }
+                if (s_tgAvail && sec % 30 == 0) {
+                    static long pL1 = 0;
+                    const long l1 = g_l1Count;
+                    static const char* const kTgSt[] = {"off", "governing", "REFUSED: L1 not active", "VRR not armed",
+                                                        "nothing to govern (rendered near the cap)"};
+                    const long st = g_tgState;
+                    Log("stats/s TG: switch %s, state %s, logic tick cap %u (0 = stock), game ticks %.1f/s vs rendered %.1f/s, "
+                        "L1 timer sleeps %ld/s", g_tgEnable ? "ON" : "off", kTgSt[st >= 0 && st <= 4 ? st : 0], tg_cap,
+                        (double)g_tgTicks, (double)g_tgRendered, (l1 - pL1) / 30);
+                    pL1 = l1;
+                }
+                if (s_dsDone && sec % 30 == 0) {
+                    static long pW = 0;
+                    static long long pT = 0;
+                    const long w = g_dsWaits;
+                    const long long tk = g_dsTicks;
+                    Log("stats/s DS: retry-spin timer sleeps %ld, avg %.0f us (switch %s)", (w - pW) / 30,
+                        w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, g_dsEnable ? "ON" : "off");
+                    pW = w; pT = tk;
+                }
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
                 if (s_wlDone && sec % 30 == 0) {
                     static uint64_t pC = 0;
@@ -1583,8 +1835,14 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpED] = U(ed_enable);
         sw[menu::kExpGF] = &g_gfEnable;
         sw[menu::kExpWL] = U(wl_enable);
+        sw[menu::kExpWG] = &g_wgEnable;
+        sw[menu::kExpTG] = &g_tgEnable;
+        sw[menu::kExpDS] = &g_dsEnable;
+        sw[menu::kExpCP] = U(cp_enable);
+        sw[menu::kExpSPF] = U(spf_enable);
         const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
-                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gf, cfg.wl};
+                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gf, cfg.wl,
+                                         cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf};
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -1606,6 +1864,10 @@ DWORD WINAPI Worker(LPVOID) {
         mh.gfWaits = &g_gfWaits;
         mh.gfTicks = &g_gfTicks;
         mh.gfFallbacks = &g_gfFallbacks;
+        mh.wgSkipped = &g_wgSkipped;
+        mh.tgCap = U(tg_cap);
+        mh.tgState = &g_tgState;
+        mh.dsWaits = &g_dsWaits;
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:
            // the osd install thread calls gpuopt::InstallNow() once the engine renders.
@@ -1802,6 +2064,109 @@ extern "C" void GfWait(void** pf, uint64_t value) {
     QueryPerformanceCounter(&t1);
     InterlockedIncrement(&g_gfWaits);
     InterlockedAdd64(&g_gfTicks, t1.QuadPart - t0.QuadPart);
+}
+
+// ---- WG (1.6.0): wake gate. Worker slot layout (v2.02, deps-checked): slot = pool->workers ([pool+10h]) + i*458h,
+// [slot] = WorkerThread (+8 event, +10h bit0 "sleeping, wake me"), [slot+440h] = pool, [pool+34h] = pool id.
+namespace {
+bool WgIndex(uint8_t* slot, uint8_t* pool, int& p, int& i) {
+    if (!slot || !pool || *reinterpret_cast<uint8_t* volatile*>(slot + 0x440) != pool) return false;
+    uint8_t* base = *reinterpret_cast<uint8_t* volatile*>(pool + 0x10);
+    if (!base || slot < base) return false;
+    const uintptr_t d = (uintptr_t)(slot - base);
+    if (d % 0x458 || d / 0x458 >= 64) return false;
+    const int id = *reinterpret_cast<volatile int*>(pool + 0x34) & 63;
+    WgPoolState& ps = g_wgPool[id];
+    if (ps.owner != pool) {
+        if (ps.owner) return false;  // two pools share an id slot: the second one stays stock (never gated, never counted)
+        InterlockedCompareExchangePointer(const_cast<PVOID volatile*>(&ps.owner), pool, nullptr);
+        if (ps.owner != pool) return false;
+    }
+    p = id;
+    i = (int)(d / 0x458);
+    return true;
+}
+using SetEvent_t = BOOL(WINAPI*)(HANDLE);
+using Wfso_t = DWORD(WINAPI*)(HANDLE, DWORD);
+}  // namespace
+
+// Replaces SetEvent at the wake-one sites (the game has just cleared the target's bit0 with a lock cmpxchg). Skip =
+// give the target its bit0 back (it is still blocked: no SetEvent was issued) and report success, as the callers expect
+// from "a worker is on its way" - which is true: a worker of the same pool was woken and has not yet left its wait.
+extern "C" BOOL WgWake(HANDLE ev, uint8_t* slot) {
+    const SetEvent_t setEvent = *reinterpret_cast<const SetEvent_t*>(ws_iatSetEvent);  // chained hooks stay in the path
+    int p, i;
+    uint8_t* pool = slot ? *reinterpret_cast<uint8_t* volatile*>(slot + 0x440) : nullptr;
+    if (!WgIndex(slot, pool, p, i)) return setEvent(ev);
+    WgPoolState& ps = g_wgPool[p];
+    if (g_wgEnable) {
+        InterlockedIncrement64(&g_wgCalls);
+        // plain load, ordered after the game's lock cmpxchg on the target (and so after the caller's job push)
+        if (ps.pending >= g_wgMax) {
+            if (__rdtsc() - (uint64_t)ps.lastTsc <= g_wgWindowTsc) {
+                if (uint8_t* wt = *reinterpret_cast<uint8_t* volatile*>(slot)) {
+                    _InterlockedOr(reinterpret_cast<volatile long*>(wt + 0x10), 1);  // still asleep: "sleeping, wake me" again
+                    InterlockedIncrement64(&g_wgSkipped);
+                    return TRUE;
+                }
+            } else {
+                InterlockedIncrement64(&g_wgStale);  // the last counted wake is old: behave stock
+            }
+        }
+    }
+    // counted wake: only when the target is inside its WgSleep window (so its own exit clears the mark, then it scans)
+    volatile LONG* st = &g_wgWorker[p][i].st;
+    for (LONG s = *st; (s & kWgWaiting) && !(s & kWgPending); s = *st)
+        if (InterlockedCompareExchange(st, s | kWgPending, s) == s) {
+            InterlockedIncrement(&ps.pending);
+            ps.lastTsc = (LONG64)__rdtsc();
+            InterlockedIncrement64(&g_wgCounted);
+            break;
+        }
+    return setEvent(ev);
+}
+
+// Replaces WaitForSingleObject in the worker sleep (1A6BC35). Marks the worker "waiting" for the duration of the real
+// wait; on return it clears its mark atomically and, if a counted wake had targeted it, takes that unit off the pool's
+// pending count - before it goes on to JobWorkerRunUntilIdle (1A6BC48 -> 1A6BC5C).
+extern "C" DWORD WgSleep(HANDLE ev, DWORD ms, uint8_t* pool, uint8_t* slot) {
+    const Wfso_t wait = *reinterpret_cast<const Wfso_t*>(ws_iatWait);
+    int p, i;
+    if (!WgIndex(slot, pool, p, i)) return wait(ev, ms);
+    volatile LONG* st = &g_wgWorker[p][i].st;
+    if (InterlockedExchange(st, kWgWaiting) & kWgPending) InterlockedDecrement(&g_wgPool[p].pending);  // defensive
+    const DWORD r = wait(ev, ms);
+    if (InterlockedExchange(st, 0) & kWgPending) InterlockedDecrement(&g_wgPool[p].pending);
+    return r;
+}
+
+// ---- DS (1.6.0): replaces the QueryPerformanceCounter call of the main loop's 1 ms retry spin (1A74BDA). Reads the
+// clock as before; when switched on and more than 200 us of the millisecond (minus DS_MarginUs) is left, it first
+// sleeps on its own high-resolution timer and reads the clock again. The spin's exit test is the game's, unchanged.
+extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
+    QueryPerformanceCounter(now);
+    if (!g_dsEnable || !g_dsTimer || !g_qpcFreqDs) return TRUE;
+    const LONG tid = (LONG)GetCurrentThreadId();
+    if (g_dsTid != tid) {  // one thread only ([App]Game): the timer object is not shared
+        if (g_dsTid || InterlockedCompareExchange(&g_dsTid, tid, 0) != 0) return TRUE;
+    }
+    uint8_t* tm = *reinterpret_cast<uint8_t* volatile*>(g_base + kRvaEngineTimer);
+    if (!tm) return TRUE;
+    const int64_t freq = *reinterpret_cast<volatile int64_t*>(tm + 0x18);  // the spin divides by this
+    const int64_t elapsed = now->QuadPart - start;
+    if (freq <= 0 || elapsed < 0) return TRUE;
+    const int64_t left = freq / 1000 - elapsed - freq * g_dsMarginUs / 1000000;  // engine ticks
+    if (left <= freq / 5000) return TRUE;
+    const int64_t leftQpc = left * g_qpcFreqDs / freq;
+    LARGE_INTEGER due;
+    due.QuadPart = -(leftQpc * 10000000 / g_qpcFreqDs);
+    if (due.QuadPart >= 0 || !SetWaitableTimer(g_dsTimer, &due, 0, nullptr, nullptr, FALSE)) return TRUE;
+    WaitForSingleObject(g_dsTimer, 2);
+    const int64_t before = now->QuadPart;
+    QueryPerformanceCounter(now);
+    InterlockedIncrement(&g_dsWaits);
+    InterlockedAdd64(&g_dsTicks, now->QuadPart - before);
+    return TRUE;
 }
 
 BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID reserved) {

@@ -92,6 +92,107 @@ If the runtime returns the same value again, it is kept (no duplicate to close).
 logs one `stats mem:` line every 30 s: process private bytes, working set, commit, handles, threads, VRAM local and
 non-local, system RAM, and the change since start. Measurement only.
 
+### 1.6.0 (v10): opt-in CPU items - WG, TG, DS, LK, CP, SPF
+From `notes\cpu-hotspots-ally.md` (Ally SP profiles: 70 min of MAX gameplay) and `notes\worker-jobs-opt.md`. **Everything
+here is off by default** (main ini). v2.02 only; every site, original byte and dependency is verified before writing.
+Menu section *1.6.0 - OPT-IN*; the `Exp/s` menu line adds `WG skip` and `DS`.
+
+| Key | What | Default (main / Ally zip) | Switch | Log line (30 s) |
+|---|---|---|---|---|
+| **WG** | wake gate on the two wake-one sites | 0 / **2** (installed, off) | live | `stats/s WG:` skipped, counted, stale, pending |
+| **TG** | logic tick governor - **EXPERIMENT** | 0 / 0 | live (whenever VRR is installed) | `stats/s TG:` state, cap, ticks/s vs rendered/s, L1 sleeps |
+| **DS** | timer sleep in the main loop's 1 ms retry spin | 0 / 0 | live (2 = installed, off) | `stats/s DS:` sleeps, average |
+| **LK** | 18 locked loads -> plain loads (worker code) | 0 / 0 | next launch | - |
+| **CP** | collision worker prefetch (D8180) | 0 / **2** | live | - |
+| **SPF** | stage placeable prefetch (DB8BF) | 0 / **2** | live | - |
+
+**WG - wake gate** (`[Patches] WG`, `[Tuning] WG_MaxPending` 1, `WG_WindowUs` 2000). The Ally's WakeStats showed
+storms of 25-150k wake-one calls/s on pool 1 in the first minutes in a level: a submitter pushes small jobs one at a time
+with a wake-one each, and every woken worker finds nothing. WG: at the wake-one sites (WS2 48C6B in
+`JobWakeOneInPool` 48B9C, WS3 48D06 in `JobWakeOne` 48C84) a wake is skipped while at least `WG_MaxPending` workers of
+the same pool have been woken and have not yet left their wait. The skipped target gets its "sleeping, wake me" bit
+(`[WorkerThread+10h]` bit0, just cleared by the game's CAS) back and stays asleep; the caller gets its usual result.
+Never gated: the pop chain 40B0A, the task wake 40D2F, wake-except 48DEC and the forward 48E3C.
+- *What "on its way" means, verified against the code:* the design note's single per-pool counter (increment at
+  SetEvent, decrement after the wait) is **not** exact: a worker can return from its wait on a stale signal with bit0
+  still set (SetEvent on an auto-reset event while it runs), and a later counted wake on it would then count a worker
+  that is already running. So WG keeps a **per-worker** state: `waiting` while the worker is inside its wait at
+  1A6BC35 (the WSs cave became a C++ wrapper, `WgSleep`), and `pending` when a counted wake (WS2/WS3) targets it while
+  it is `waiting` (CAS). Leaving the wait clears both atomically and, if `pending` was set, takes one unit off the
+  pool's count. The count is therefore exactly "workers of this pool woken by a counted wake and still inside their
+  wait". Pools are told apart by `[pool+34h] & 63` with an owner check (a second pool on the same slot is never gated);
+  workers by `(slot - [pool+10h]) / 458h` (< 64, exact multiple).
+- *Why a skipped wake cannot stall a job (proof):* (1) the worker that owns the pending unit returns from its wait
+  (its waker's SetEvent is already issued or follows right after the count), clears the unit with a locked
+  instruction and then, in the same worker loop (1A6BC48 -> 1A6BC5C), runs `JobWorkerRunUntilIdle` 3FE14, which runs
+  its own queue and steals from every other worker of the pool (411C0 over all slots) until a full pass finds nothing.
+  (2) The submitter pushed its job before calling the wake function, and the game's `lock cmpxchg` on the target's
+  bit0 comes before WG's read of the count. With full fences on both sides (submitter: push, locked CAS, read;
+  worker: locked clear, then queue loads), x86-TSO forbids "the submitter saw the unit still pending" together with
+  "the worker's scan missed the job" (store-buffer litmus). (3) The wake-one functions pick the target as "highest
+  index with bit0 set", so stock already relies on *any* worker of the pool finding the job; the pending worker is such
+  a worker. (4) The only sleeper that sets bit0 is the worker loop at 1A6BC15 (the twin wait 3FD8C has no caller),
+  and every return from it goes to RunUntilIdle. A skip therefore changes which thread runs the job and when (fan-out
+  ramps through the woken worker's own pop-chain wakes), never whether it runs. The window `WG_WindowUs` only makes WG
+  wake more (a pending unit older than the window does not gate). The `deps` in patches.json pin every instruction this
+  relies on (slot arithmetic, the CAS before each SetEvent, the unused results, the sleep path).
+- *Test on this PC:* `py -I tests\run_wg_harness.py` compiles the real `WgIndex/WgWake/WgSleep` source (extracted from
+  dllmain.cpp) into a model of the pools with the v2.02 layout (8 workers, 3 submitters with bursts, nested submissions,
+  stock model free of lost wake-ups) and an unbounded window: WG off / on with MaxPending 1 and 2, ~2-4 M jobs per run,
+  **all complete, ~1.5-2.6 M wakes skipped, pending back to 0**. `--negative` (a gate that ignores the count) stalls
+  within a second, so the oracle works. Not run in the game.
+- WG installs the WS sites even with WakeStats = 0 (counters then off; WakeStats stays a separate live switch).
+
+**TG - logic tick governor: an OPT-IN EXPERIMENT** (`[Patches] TG`, `[Tuning] TG_Floor` 30, `TG_RatioPct` 125). The
+Ally runs the game logic at 44.6 ticks/s while it shows 16.2 fps, so ~2/3 of all logic ticks (collision, stage, AI,
+effects, scripts) produce state nobody sees. TG makes the logic tick cap follow the rendered rate:
+`cap = clamp(ceil(rendered x TG_RatioPct %) + 2, max(TG_Floor, VRR clamp minimum + 1), tier cap)`; raised at once,
+lowered only after it stayed more than 2 below for 2 s; "nothing to govern" (cap would reach the tier cap) = stock.
+`caveLim` (P4, the limiter's target) got 4 instructions (`tg_cap`, eax and flags only, as before); the governor runs on
+the Present-hook thread after each overlay stats window (~0.5 s, rendered = the game's own frames, FG excluded); a
+watchdog drops the cap within 100 ms when TG is switched off, L1 or VRR go off, or presents stall for 250 ms.
+- **Why opt-in:** it is *not* "same behaviour". The simulation step becomes ~1/30 s (at the floor) instead of
+  ~1/45 s - exactly what the game does in its own 30 FPS mode (tier 30, dt 1/30), so it stays inside the engine's
+  designed envelope, and VRR keeps the game speed at 1.0x. But input is sampled once per tick: **a tap must be held
+  ~33 ms instead of ~22 ms to be seen** (normal taps are 50-100 ms), and the newest frame packet is ~6 ms older on
+  average when shown. Offline only (same caveat as VRR).
+- **Needs VRR** (armed tier; otherwise stock dt) **and L1** (installed and switched on). Without L1 the limiter slack
+  would be a Sleep(0)/job-steal spin on Scheduler0 instead of a sleep, so TG **refuses to engage** and logs
+  `TG: refused - L1 is not active ...`; the menu row says `REFUSED: L1 off`. Under Proton that means `L1OnWine = 1`.
+- It also needs the overlay's Present hook (installed whenever the FPS counter, the startup popup or the mod menu is
+  on - the menu is on by default): without frame-rate data the governor never engages.
+- Expected (notes 4): ticks 44.6 -> ~30 = ~-33 % of the logic-side work, ~1.0-1.4 cores on the Ally at MAX. Untested.
+
+**DS - retry-spin sleep** (`[Patches] DS`, `[Tuning] DS_MarginUs` 150). The main loop retries the frame function after
+`while ((QPC - start) / freq < 0.001f) ;` (1A74BD0..1A74C48: no pause, no readiness check). The loop's
+`call [QueryPerformanceCounter]` at 1A74BDA goes to `DsQpc`: it reads the clock exactly as before and, when more than
+200 us of the millisecond (minus the margin) is left, first sleeps on its own high-resolution timer (one thread only:
+the first caller, [App]Game). The loop's exit test is the game's own, unchanged, so the retry never comes *earlier*;
+it can come up to the timer's overshoot later (Windows ~0.05-0.5 ms). ~0 CPU today (0.36 % of the main thread); it
+matters with TG. Needs L1 installed (the high-resolution timer is proven usable on this system only then).
+
+**LK / CP / SPF - worker jobs** (notes\worker-jobs-opt.md; ports of `patcher\lockload_live.fsx`,
+`collprefetch_live.fsx`, `stageprefetch_live.fsx`, all offline-verified there with 0 mismatches).
+- **LK**: 18 `lock cmpxchg [m],zero` used as loads (source and eax provably zero) become `mov` (+`test` where a ZF
+  jump follows), same length: object update 1A18C9 / 1A1935 / 42877, meshlet job 4A545 / 4A55A / 4A708 / 4A719,
+  130096 / 1301B4 / 1301C5 / 1301E4 / 130225, job system 40921 / 40A14 / 40CE4 / 40D75 / 41325 / 41447. eax = [m] and
+  memory unchanged in both cases; only rows with a clean StoreLoad screen. The four 1301xx rows sit in a function that
+  has a byte-identical twin at 12F3xx, so their patterns include the rel32 bytes (known build only anyway). Next launch.
+- **CP**: cave at the collision loop head D8180 (`CollisionObjectUpdate` D80B0): prefetch colliders 3 strides ahead,
+  their part/count/radius arrays 2 ahead, their first 4 parts 1 ahead. Writes only rax/rcx/flags (dead there) and
+  saves rdx/r8; no stores. Measured on the real code in a harness: -16 to -27 % of the loop.
+- **SPF**: cave at DB8BF in the placeable-map loop of DA830: prefetch the placeable 4 entries ahead and its +B0h
+  object 2 ahead. Writes rax (its original value), rsi and flags (dead there); no stores.
+- Live switches for CP / SPF (2 = installed, off). Expected: Ally ~0.1-0.2 core of worker CPU in total, no fps change.
+
+**Skipped in 1.6.0:**
+- **RL** (ResourceLoad idle Sleep(1) -> Sleep(4), 1FEE65): not built. The SP profiles never sampled it in gameplay
+  (0.000 %), the notes say "only if a profile shows `<- 1FEE28` rows", and it delays new load requests by up to 3 ms
+  (a behaviour change for a <= 0.02-core saving).
+- **IATS** (point the ASI loader's kernel32 IAT shims back at kernel32): not built. It rewrites slots owned by a
+  third-party loader (Ultimate ASI Loader, also used by Nioh3Fix); whether a loader version needs its shims after
+  loading cannot be proven from the game side, and the saving after GF is 0.01-0.05 core.
+
 ### GPU-fence waits (1.4.0) - GF
 The Ally profiler (SP) found 58 % of the main thread's samples in `IsFenceComplete` 1180A4 called from `FenceWait`
 7D9E1C. When the engine passes no event, that function spins `do Sleep(0); while (fence->GetCompletedValue() < value)`
@@ -126,6 +227,9 @@ workers", and neither exists exactly.
    main-thread submissions use the separate wake-one paths), but the gate can't be made "wake only as many as queued".
    It would be a parallelism guess, not the proven-safe filter that was asked for. WakeStats shows whether it's worth
    building a heuristic version.
+
+*1.6.0:* **WG** is the gate that *can* be proven: it does not count jobs or idle workers; it tracks, per worker, "woken
+by a wake-one and not yet out of its wait" with its own wrapper around the worker's wait (see the 1.6.0 section).
 
 ### GPU barrier batching (1.3.0) - notes\gpu-barriers.md
 `[GpuOpt]` integrates `src\gpuopt.cpp` (D3D12 barrier batching on the game's command lists, written by another agent;
@@ -216,6 +320,9 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * `[Patches] WakeStats`, `ED` (worker wakes, 0 = off; ED 2 = installed, switched off) and `[GpuOpt]` (see above).
 * `[Patches] GF` (GPU-fence waits, 0 = off) and `[Tuning] GF_TimeoutMs` (1-1000, default 100).
 * `[Patches] WL` (waitable-handle leak fix, default 1) and `[Profiler] MemStats` (memory line, default 0).
+* 1.6.0, all opt-in (default 0): `[Patches] WG` (0/1/2), `TG` (0/1, experiment), `DS` (0/1/2), `LK` (0/1, next
+  launch), `CP` (0/1/2), `SPF` (0/1/2); `[Tuning] WG_MaxPending` (1-8, 1), `WG_WindowUs` (100-100000, 2000),
+  `TG_Floor` (24-60, 30), `TG_RatioPct` (100-200, 125), `DS_MarginUs` (50-900, 150).
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
@@ -248,6 +355,8 @@ What it shows:
   ini key for the next launch, `* restart`), M2, J1, S1 (next launch). An `Exp/s` stats line shows W6 waits and
   average wait, PP skips, FPC hit rate, M1 refreshes, X1 and E1 skips.
   A fix that isn't installed this session shows `not installed` or `off (Proton)`, with the reason.
+* **1.6.0 - OPT-IN:** WG, TG (shows `ticks <= N` while it governs, `REFUSED: L1 off` without L1), DS, CP, SPF live;
+  LK next launch. Items installed with the switch off are saved as 2 (stay installed).
 * **Overlay:** FPS counter, frame time, speed factor, counter position, counter text size.
 * **Game setting:** *Frame generation* (the game's own setting, switched live the way its options menu does it), plus
   two status rows: *FG running* (real vs presented fps) and the game's *Upscaler* setting. See
@@ -352,6 +461,7 @@ patches.json          single source of truth: every site's pattern, offset, orig
 tools/derive_patterns.fsx  derives the patterns from the decrypted dump (Iced; rel32/RIP-disp wildcarded)
 tools/gen_header.py   patches.json -> src/patches_gen.h   (--check verifies sync)
 tests/test_patterns.py  verifies every pattern against the decrypted v2.02 dump (stdlib only)
+tests/run_wg_harness.py + wg_harness.cpp  WG stress test: the real WgWake/WgSleep source in a model of the job pools
 build.bat / CMakeLists.txt / .github/workflows/build.yml
 ```
 

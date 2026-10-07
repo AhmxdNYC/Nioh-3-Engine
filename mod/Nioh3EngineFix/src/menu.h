@@ -27,6 +27,8 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpWS, kExpED,  // worker wakes (1.3.0)
                    kExpGF,          // GPU-fence waits (1.4.0)
                    kExpWL,          // waitable-handle leak fix (1.5.0)
+                   kExpWG, kExpTG, kExpDS,          // wake gate, tick governor, retry-spin sleep (1.6.0)
+                   kExpLK, kExpCP, kExpSPF,         // worker jobs: locked loads, collision / stage prefetch (1.6.0)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)
@@ -69,6 +71,10 @@ struct Host {
     const char* (*gpuStatus)(char* buf, size_t n) = nullptr;  // cached gpuopt status line (dllmain refreshes it)
     volatile long *gfWaits = nullptr, *gfFallbacks = nullptr;  // GF counters
     volatile long long* gfTicks = nullptr;
+    volatile long long* wgSkipped = nullptr;      // WG skipped wakes
+    volatile uint32_t* tgCap = nullptr;           // TG limiter cap (0 = stock)
+    volatile long* tgState = nullptr;             // TG state (0 off, 1 governing, 2 refused: L1, 3 VRR not armed, 4 idle)
+    volatile long* dsWaits = nullptr;             // DS timer sleeps
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.

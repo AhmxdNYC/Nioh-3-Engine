@@ -696,12 +696,14 @@ void NoteFgSwitchProton(int want) {
 // ---- items ----------------------------------------------------------------------------------------------------------
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
+          kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF,
           kGpu,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXWL - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXWL; }
-const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL"};
+static_assert(kXSPF - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXSPF; }
+const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
+                                             L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF"};
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -733,6 +735,12 @@ const ItemDef kItems[kCount] = {
     {nullptr, "ED skip empty effect lists", "Effect Disp workers with nothing to update are not woken (same output)."},
     {"GPU FENCE WAITS", "GF fence wait sleeps", "Main thread / workers sleep until the GPU fence fires instead of Sleep(0)-spinning."},
     {nullptr, "WL close waitable handles", "Closes the per-frame frame-latency handle the game leaks (Windows; no-op on Proton)."},
+    {"1.6.0 - OPT-IN", "WG wake gate", "No second wake-one while a woken worker of the pool is still on its way (same jobs run)."},
+    {nullptr, "TG tick governor (exp.)", "EXPERIMENT: logic ticks follow rendered fps (floor 30). Step 1/30 s like 30-FPS mode. Needs L1."},
+    {nullptr, "DS retry-spin sleep", "Main loop's 1 ms no-new-frame spin sleeps on a timer (exit test unchanged). Needs L1."},
+    {nullptr, "LK plain loads (18)", "Locked 'atomic loads' in worker code become plain loads (code bytes: next launch)."},
+    {nullptr, "CP collision prefetch", "Collision workers prefetch the next colliders (same results, less memory stall)."},
+    {nullptr, "SPF stage prefetch", "Stage-update worker prefetches placeables 4 ahead (same results, less memory stall)."},
     {"GPU", "GPU barrier batching", "Batches the game's D3D12 barriers into fewer calls. ~0 on the Ally, 2-3 % on PC."},
     {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
     {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},
@@ -820,6 +828,16 @@ void ExpValue(int id, char* buf, size_t n, uint32_t& color, uint32_t cGreenC, ui
             if (us >= 0) snprintf(buf, n, "ON  %.1f ms", us / 1000.0);
             else snprintf(buf, n, "ON  measuring...");
             color = cGreenC;
+            return;
+        }
+        if (e == kExpTG && on) {  // governor state: the cap it publishes, or why it does not engage
+            const long st = g_host.tgState ? *g_host.tgState : 0;
+            const uint32_t cap = g_host.tgCap ? *g_host.tgCap : 0;
+            if (st == 1 && cap) snprintf(buf, n, "ON  ticks <= %u", cap);
+            else if (st == 2) snprintf(buf, n, "ON  REFUSED: L1 off");
+            else if (st == 3) snprintf(buf, n, "ON  (VRR not armed)");
+            else snprintf(buf, n, "ON  (idle)");
+            color = st == 2 ? cYellowC : cGreenC;
             return;
         }
         snprintf(buf, n, "%s", on ? "ON" : "OFF");
@@ -1005,8 +1023,11 @@ void StartSave() {
     if (Available(kWk)) add(L"Patches", L"WK", b(LiveBool(kWk)));
     for (int e = 0; e < kNumExp; ++e) {
         int v = g_expIni[e];
-        // ED installed with its switch off stays installed (2) so the live A/B keeps working next launch
-        if (e == kExpED && g_host.exp[e].enable && !*g_host.exp[e].enable && v == 0) v = 2;
+        // ED / WG / DS / CP / SPF installed with the switch off stay installed (2) so the live A/B keeps working next
+        // launch (TG needs no install: its 0 already keeps the live switch)
+        if ((e == kExpED || e == kExpWG || e == kExpDS || e == kExpCP || e == kExpSPF) && g_host.exp[e].enable &&
+            !*g_host.exp[e].enable && v == 0)
+            v = 2;
         add(L"Patches", kExpIniKey[e], std::to_wstring(v));
     }
     if (Available(kGpu)) add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : L"2");
@@ -1226,6 +1247,9 @@ struct Rates {
     long gf = 0;
     long long gft = 0;
     double rGf = 0, gfUs = 0;
+    long long wgs = 0;
+    long ds = 0;
+    double rWg = 0, rDs = 0;
 };
 Rates g_rates;
 ULONGLONG g_rep[4] = {};  // next auto-repeat time per direction (0 = not repeating)
@@ -1268,6 +1292,8 @@ void SampleRates(ULONGLONG t) {
         const long gfw = ReadPtr(g_host.gfWaits);
         r.rGf = (double)(gfw - r.gf) / s;
         r.gfUs = gfw > r.gf ? (double)(ReadPtr(g_host.gfTicks) - r.gft) * 1e6 / (double)qf.QuadPart / (double)(gfw - r.gf) : 0.0;
+        r.rWg = (double)(ReadPtr(g_host.wgSkipped) - r.wgs) / s;
+        r.rDs = (double)(ReadPtr(g_host.dsWaits) - r.ds) / s;
     } else if (r.t0) {
         return;
     }
@@ -1281,6 +1307,8 @@ void SampleRates(ULONGLONG t) {
     r.e1s = ReadPtr(g_host.e1Skip);
     r.gf = ReadPtr(g_host.gfWaits);
     r.gft = ReadPtr(g_host.gfTicks);
+    r.wgs = ReadPtr(g_host.wgSkipped);
+    r.ds = ReadPtr(g_host.dsWaits);
     r.t0 = t;
     r.w3 = w3;
     r.l1 = l1;
@@ -1537,8 +1565,8 @@ float DrawImpl(unsigned W, unsigned H) {
         char fpc[16];
         if (r.fpcPct >= 0) snprintf(fpc, sizeof(fpc), "%.0f%%", r.fpcPct);
         else snprintf(fpc, sizeof(fpc), "-");
-        snprintf(stats, sizeof(stats), "Exp/s: W6 %.0f x %.0fus  GF %.0f x %.0fus  PP skip %.0f  FPC hit %s  M1 %.0f  X1 %.0f  E1 %.0f",
-                 r.rW6, r.w6Us, r.rGf, r.gfUs, r.rPps, fpc, r.rM1, r.rX1, r.rE1);
+        snprintf(stats, sizeof(stats), "Exp/s: W6 %.0f x %.0fus  GF %.0f x %.0fus  PP skip %.0f  FPC hit %s  M1 %.0f  X1 %.0f  E1 %.0f  WG skip %.0f  DS %.0f",
+                 r.rW6, r.w6Us, r.rGf, r.gfUs, r.rPps, fpc, r.rM1, r.rX1, r.rE1, r.rWg, r.rDs);
         add(stats, "", cGray, cWhite, false, false);
     }
     if (gpuopt::GetState() != gpuopt::State::Off && g_host.gpuStatus) {

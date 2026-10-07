@@ -27,6 +27,12 @@ struct StartupInfo {
 // Present. Returns immediately; never throws. Does nothing when FpsCounter, StartupPopup and the mod menu are all off.
 void Start(const StartupInfo& info);
 
+// TG (dllmain): called on the Present-hook thread after every stats window (~0.5 s) with the rendered fps (the game's
+// own frames, FG excluded) and the engine's update ticks/s. Set before Start.
+void SetRateSink(void (*fn)(double rendered, double ticks));
+// QPC of the newest hooked Present on any swapchain (0 = none yet); any thread.
+int64_t LastPresentQpc();
+
 // ---- shared with the mod menu (menu.cpp); valid only on the Present-hook thread (under the overlay lock) ----------
 struct OverlaySettings {
     int fpsCounter = 1, frameTime = 1, speed = 1, popup = 1;

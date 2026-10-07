@@ -26,6 +26,7 @@ PUBLIC caveFps, caveScale, caveLim, caveTier, caveMenu, caveL1
 PUBLIC vrr_minNs, vrr_maxNs, vrr_pNear, vrr_getDelta60, l1_callee
 PUBLIC vrr_enable, vrr_tier, vrr_capCur, vrr_arm, vrr_cap, vrr_fpsOut, vrr_scale, vrr_last
 PUBLIC caveWakeGate, wk_enable, wk_skipped, wk_kept
+PUBLIC tg_cap
 
 .data
 ALIGN 16
@@ -51,6 +52,7 @@ vrr_cap         dd 3 dup(0)
 c_4f            REAL4 4.0
 c_025f          REAL4 0.25
 vrr_mcarry      REAL4 0.0
+tg_cap          dd 0            ; TG: limiter cap from the tick governor (0 = stock / not engaged)
 
 .code
 
@@ -184,11 +186,19 @@ caveScale PROC
 caveScale ENDP
 
 ; ---- caveLim (P4): the limiter keeps the tier cap while armed -----------------------------------------------------
+; TG (1.6.0, opt-in): while VRR is armed and the tick governor publishes a cap (tg_cap != 0, always below the tier
+; cap), the limiter target becomes tg_cap. eax and the flags only, as before (P4 is followed by `mov [rsp+20h],eax;
+; call`, so the flags are dead).
 caveLim PROC
     mov     eax, dword ptr [rdi+614h]
     cmp     dword ptr [vrr_fpsOut], 0
     je      lR
     mov     eax, dword ptr [vrr_capCur]
+    cmp     dword ptr [tg_cap], 0
+    je      lR
+    cmp     eax, dword ptr [tg_cap]
+    jbe     lR
+    mov     eax, dword ptr [tg_cap]
 lR:
     ret
 caveLim ENDP
@@ -1087,10 +1097,15 @@ tsPSlow ENDP
 PUBLIC caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin
 PUBLIC ws_enable, ws_iatSetEvent, ws_iatWait, ws_set, ws_sleeps, ws_sleepPool, ws_chk, ws_ret
 PUBLIC ed_enable, ed_kickFn, ed_joinFn, ed_kicked, ed_skipped
+PUBLIC wg_installed
+EXTERN WgWake:PROC
+EXTERN WgSleep:PROC
 
 wsdata SEGMENT ALIGN(64) READ WRITE 'DATA'
 ws_enable       DD 0
 ed_enable       DD 0
+wg_installed    DD 0            ; WG bookkeeping installed (set once before the WS group is written)
+                DD 0
 ws_iatSetEvent  DQ 0            ; &IAT slot SetEvent
 ws_iatWait      DQ 0            ; &IAT slot WaitForSingleObject
 ws_ret          DQ 3 DUP(0)     ; return addresses of the 40800 calls in 3FE14 / 403A0 / 207200
@@ -1122,13 +1137,45 @@ NAME ENDP
 ENDM
 WS_CAVE caveWs0, 0
 WS_CAVE caveWs1, 1
-WS_CAVE caveWs2, 2
-WS_CAVE caveWs3, 3
 WS_CAVE caveWs4, 4
 WS_CAVE caveWs5, 5
 
-; WSs: replaces `call [WaitForSingleObject]` in the worker sleep (1A6BC35); rbx = pool. Uses only volatile non-argument
-; registers (rax, r10, r11).
+; WS2 / WS3 (the two wake-one sites) also carry WG (1.6.0): with WG installed (wg_installed) they tail-call
+; WgWake(event, slot) (C++, dllmain.cpp) instead of SetEvent. That is a plain Win64 call in place of a call to
+; SetEvent: the same argument register, the same volatile registers clobbered, the callers ignore eax (48C71
+; `mov al,dil`, 48D0C `mov al,1`). The target's slot is rsi (48BFF..48C0F) / rbx (48CA4..48CAF).
+caveWs2 PROC
+    cmp     dword ptr [ws_enable], 0
+    je      @F
+    lock inc qword ptr [ws_set + 2*64]
+@@:
+    cmp     dword ptr [wg_installed], 0
+    jne     ws2Wg
+    mov     rax, qword ptr [ws_iatSetEvent]
+    jmp     qword ptr [rax]
+ws2Wg:
+    mov     rdx, rsi
+    jmp     WgWake
+caveWs2 ENDP
+
+caveWs3 PROC
+    cmp     dword ptr [ws_enable], 0
+    je      @F
+    lock inc qword ptr [ws_set + 3*64]
+@@:
+    cmp     dword ptr [wg_installed], 0
+    jne     ws3Wg
+    mov     rax, qword ptr [ws_iatSetEvent]
+    jmp     qword ptr [rax]
+ws3Wg:
+    mov     rdx, rbx
+    jmp     WgWake
+caveWs3 ENDP
+
+; WSs: replaces `call [WaitForSingleObject]` in the worker sleep (1A6BC35); rbx = pool, rdi = the worker's slot. Uses
+; only volatile registers (rax, r8-r11; WaitForSingleObject has two arguments). With WG installed the wait becomes
+; WgSleep(event, timeout, pool, slot) (C++), which marks the worker "waiting" around the real wait (WG bookkeeping);
+; the result of the wait is dead at 1A6BC48 (xor eax,eax).
 caveWsSleep PROC
     cmp     dword ptr [ws_enable], 0
     je      wsSlGo
@@ -1138,8 +1185,14 @@ caveWsSleep PROC
     lock inc qword ptr [r11+r10*8]
     lock inc qword ptr [ws_sleeps]
 wsSlGo:
+    cmp     dword ptr [wg_installed], 0
+    jne     wsSlWg
     mov     rax, qword ptr [ws_iatWait]
     jmp     qword ptr [rax]
+wsSlWg:
+    mov     r8, rbx
+    mov     r9, rdi
+    jmp     WgSleep
 caveWsSleep ENDP
 
 ; ED kick: replaces `call 2F6680` (event set) in the EffectDisp kick loop (3D6F46). rcx = obj+8, ebx = worker index.
@@ -1243,5 +1296,143 @@ wlDone:
     add     rsp, 38h
     ret
 caveWL ENDP
+
+; =================================================================================================================
+; DS (1.6.0, opt-in; notes\cpu-hotspots-ally.md 10): the [App]Game main loop's 1 ms "no new frame packet" retry spin
+; `while ((QPC - start) / freq < 0.001f) ;` (1A74BD0..1A74C48). Site 1A74BDA `call [QueryPerformanceCounter]` (6 B ->
+; nop; call). rcx = &now, rbx = the spin's start (callee-saved, read only). DsQpc (C++) = QueryPerformanceCounter plus,
+; when switched on and enough of the millisecond is left, a high-resolution timer sleep first. The loop's own exit test
+; is unchanged. Normal Win64 call semantics (same as the QPC call it replaces).
+; =================================================================================================================
+PUBLIC caveDs
+EXTERN DsQpc:PROC
+.code
+caveDs PROC
+    mov     rdx, rbx
+    jmp     DsQpc
+caveDs ENDP
+
+; =================================================================================================================
+; CP / SPF (1.6.0, opt-in; notes\worker-jobs-opt.md 7, patcher\collprefetch_live.fsx / stageprefetch_live.fsx):
+; software prefetch at two worker loop heads. No stores, prefetches never fault, only registers dead at the site
+; are written (proofs in the notes). Switch off = the displaced instruction, then back into the game.
+; =================================================================================================================
+PUBLIC caveCP, cp_enable, cp_resume, caveSPF, spf_enable, spf_resume, spf_gworld
+
+pfdata SEGMENT ALIGN(64) READ WRITE 'DATA'
+cp_enable   DD 0
+spf_enable  DD 0
+cp_resume   DQ 0                ; Nioh3+D8187
+spf_resume  DQ 0                ; Nioh3+DB8C6
+spf_gworld  DQ 0                ; Nioh3+45B9E58 (address of g_CollisionWorld)
+pfdata ENDS
+
+.code
+; CP: CollisionObjectUpdate loop-head prefetch. Site D8180 `mov rcx,[r10+150h]` -> jmp; nop2.
+; r10 = mgr, r13 = i (stride 5). Writes rax/rcx/flags (dead at D8180); rdx/r8 saved. No stores.
+caveCP PROC
+    cmp     dword ptr [cp_enable], 0
+    je      cpStock
+    push    rdx
+    push    r8
+    mov     rcx, qword ptr [r10+150h]
+    mov     rax, qword ptr [r10+158h]
+    sub     rax, rcx
+    sar     rax, 3
+    lea     rdx, [r13+15]
+    cmp     rdx, rax
+    jae     cpB
+    mov     rdx, qword ptr [rcx+rdx*8]
+    test    rdx, rdx
+    je      cpB
+    prefetcht0 byte ptr [rdx+8]
+    prefetcht0 byte ptr [rdx+88h]
+    prefetcht0 byte ptr [rdx+0C8h]
+cpB:
+    lea     rdx, [r13+10]
+    cmp     rdx, rax
+    jae     cpC
+    mov     rdx, qword ptr [rcx+rdx*8]
+    test    rdx, rdx
+    je      cpC
+    cmp     byte ptr [rdx+0A5h], 0
+    je      cpC
+    mov     r8, qword ptr [rdx+88h]
+    prefetcht0 byte ptr [r8]
+    mov     r8, qword ptr [rdx+0C8h]
+    prefetcht0 byte ptr [r8]
+    mov     r8, qword ptr [rdx+90h]
+    prefetcht0 byte ptr [r8]
+cpC:
+    lea     rdx, [r13+5]
+    cmp     rdx, rax
+    jae     cpDone
+    mov     rdx, qword ptr [rcx+rdx*8]
+    test    rdx, rdx
+    je      cpDone
+    cmp     byte ptr [rdx+0A5h], 0
+    je      cpDone
+    mov     r8, qword ptr [rdx+0C8h]
+    test    r8, r8
+    je      cpDone
+    mov     eax, dword ptr [r8]
+    mov     r8, qword ptr [rdx+88h]
+    test    r8, r8
+    je      cpDone
+    cmp     eax, 4
+    jbe     cpK
+    mov     eax, 4
+cpK:
+    test    eax, eax
+    je      cpDone
+cpLoop:
+    mov     rdx, qword ptr [r8]
+    test    rdx, rdx
+    je      cpNext
+    prefetcht0 byte ptr [rdx+62h]
+    prefetcht0 byte ptr [rdx+88h]
+    prefetcht0 byte ptr [rdx+0B8h]
+cpNext:
+    add     r8, 8
+    dec     eax
+    jne     cpLoop
+cpDone:
+    pop     r8
+    pop     rdx
+cpStock:
+    mov     rcx, qword ptr [r10+150h]
+    jmp     qword ptr [cp_resume]
+caveCP ENDP
+
+; SPF: placeable-map loop prefetch. Site DB8BF `mov rax,[rel g_CollisionWorld]` -> jmp; nop2.
+; rbx = entry (16 B), r14 = end. Writes rax (original value), rsi, flags (rsi/flags dead at DB8C6). No stores.
+caveSPF PROC
+    cmp     dword ptr [spf_enable], 0
+    je      spfStock
+    lea     rsi, [rbx+40h]
+    cmp     rsi, r14
+    jae     spf2
+    mov     rsi, qword ptr [rsi+8]
+    test    rsi, rsi
+    je      spf2
+    prefetcht0 byte ptr [rsi+10h]
+    prefetcht0 byte ptr [rsi+70h]
+    prefetcht0 byte ptr [rsi+98h]
+    prefetcht0 byte ptr [rsi+0C8h]
+    prefetcht0 byte ptr [rsi+109h]
+spf2:
+    lea     rsi, [rbx+20h]
+    cmp     rsi, r14
+    jae     spfStock
+    mov     rsi, qword ptr [rsi+8]
+    test    rsi, rsi
+    je      spfStock
+    mov     rsi, qword ptr [rsi+0B0h]
+    prefetcht0 byte ptr [rsi]
+spfStock:
+    mov     rax, qword ptr [spf_gworld]
+    mov     rax, qword ptr [rax]
+    jmp     qword ptr [spf_resume]
+caveSPF ENDP
 
 END
