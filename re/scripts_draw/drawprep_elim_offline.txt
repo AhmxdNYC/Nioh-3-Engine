@@ -1,0 +1,128 @@
+
+
+drawprep_elim.fsx(531,33): info FS3886: This list expression contains a single tuple element. Did you mean to use ';' instead of ',' to separate list elements?
+
+
+
+drawprep_elim.fsx(580,29): info FS3886: This list expression contains a single tuple element. Did you mean to use ';' instead of ',' to separate list elements?
+
+dump: C:\Users\Ahmad Hamza\nioh3-engine\patcher\..\re\Nioh3.dump.exe
+site bytes vs dump:
+  PP call site (call 2522C4)           252677  MATCH
+  PP call target decodes to 2522C4 (ok)
+  PP dependency                        2522C4  MATCH
+  PP dependency                        252303  MATCH
+  PP dependency                        252310  MATCH
+  PP dependency                        25232D  MATCH
+  PP dependency                        252338  MATCH
+  PP dependency                        252341  MATCH
+  PP dependency                        25234C  MATCH
+  PP dependency                        252356  MATCH
+  PP dependency                        252363  MATCH
+  PP dependency                        25267C  MATCH
+  FPC vtable slot 38FB9D8 = 7FF74F7D768C (= base+3C768C, ok)
+  FPC MaterialFindParam 3C768C         3C768C  MATCH
+  FPC node compare 3C774C              3C774C  MATCH
+  epoch writer inc [g+3C60h]           418D3D  MATCH
+  epoch writer inc [g+3C60h]          1910CAF  MATCH
+  "Meshlet" literal at 38EA848: in .rdata [38E2000,44B3B8C) = true
+  qword pointers to 3C768C in the image: 1 (expected 1: the slot)
+  no overlap with 70 known patch sites
+cave @dummy 7FF755320000: 692 bytes (PP=+140 FPC=+18F), table +1000 (2048 x 64 B)
+    7FF755320140  cmp dword [rel 7FF755320000h],0
+    7FF755320147  je short 00007FF75532017Fh
+    7FF755320149  cmp byte [rcx+0B28h],0
+    7FF755320150  je short 00007FF75532017Fh
+    7FF755320152  mov eax,[rcx+0D10h]
+    7FF755320158  test [rel 7FF755320008h],eax
+    7FF75532015E  je short 00007FF75532017Fh
+    7FF755320160  mov eax,[rcx+0B2Ch]
+    7FF755320166  mov [rcx+0B30h],eax
+    7FF75532016C  mov eax,[rcx+0B34h]
+    7FF755320172  mov [rcx+0B38h],eax
+    7FF755320178  inc dword [rel 7FF755320084h]
+    7FF75532017E  ret
+    7FF75532017F  inc dword [rel 7FF755320080h]
+    7FF755320185  jmp qword [rel 7FF755320030h]
+    7FF75532018B  int3
+    7FF75532018C  int3
+    7FF75532018D  int3
+    7FF75532018E  int3
+    7FF75532018F  cmp dword [rel 7FF755320004h],0
+    7FF755320196  je near 00007FF7553202AEh
+    7FF75532019C  mov eax,[gs:48h]
+    7FF7553201A4  cmp eax,[rel 7FF75532000Ch]
+    7FF7553201AA  jne near 00007FF7553202AEh
+    7FF7553201B0  cmp rdx,[rel 7FF755320010h]
+    7FF7553201B7  jb near 00007FF7553202A7h
+    7FF7553201BD  cmp rdx,[rel 7FF755320018h]
+    7FF7553201C4  jae near 00007FF7553202A7h
+    7FF7553201CA  mov r8,[rel 7FF755320020h]
+    7FF7553201D1  mov r8,[r8]
+    7FF7553201D4  test r8,r8
+    7FF7553201D7  je near 00007FF7553202A7h
+    7FF7553201DD  mov r8d,[r8+3C60h]
+    7FF7553201E4  cmp r8d,[rel 7FF755320040h]
+    7FF7553201EB  je short 00007FF7553201FBh
+    7FF7553201ED  mov [rel 7FF755320040h],r8d
+    7FF7553201F4  inc qword [rel 7FF755320048h]
+    7FF7553201FB  mov r8,[rel 7FF755320048h]
+    7FF755320202  mov r9,[rcx+1338h]
+    7FF755320209  mov rax,rcx
+    7FF75532020C  shr rax,6
+    7FF755320210  mov r10,rcx
+    7FF755320213  shr r10,11h
+    7FF755320217  xor rax,r10
+    7FF75532021A  mov r10,rdx
+    7FF75532021D  shr r10,3
+    7FF755320221  xor rax,r10
+    7FF755320224  and eax,7FFh
+    7FF755320229  shl rax,6
+    7FF75532022D  add rax,[rel 7FF755320038h]
+    7FF755320234  mov r10,rax
+    7FF755320237  cmp [r10],rcx
+    7FF75532023A  jne short 00007FF75532025Ah
+    7FF75532023C  cmp [r10+8],rdx
+    7FF755320240  jne short 00007FF75532025Ah
+    7FF755320242  cmp [r10+10h],r9
+    7FF755320246  jne short 00007FF75532025Ah
+    7FF755320248  cmp [r10+18h],r8
+    7FF75532024C  jne short 00007FF75532025Ah
+    7FF75532024E  mov rax,[r10+20h]
+    7FF755320252  inc qword [rel 7FF7553200C0h]
+    7FF755320259  ret
+    7FF75532025A  push rbx
+    7FF75532025B  push rsi
+    7FF75532025C  push rdi
+    7FF75532025D  push r12
+    7FF75532025F  push r13
+    7FF755320261  sub rsp,20h
+    7FF755320265  mov rbx,r10
+    7FF755320268  mov rsi,rcx
+    7FF75532026B  mov rdi,rdx
+    7FF75532026E  mov r12,r9
+    7FF755320271  mov r13,r8
+    7FF755320274  call qword [rel 7FF755320028h]
+    7FF75532027A  mov qword [rbx],0
+    7FF755320281  mov [rbx+8],rdi
+    7FF755320285  mov [rbx+10h],r12
+    7FF755320289  mov [rbx+18h],r13
+    7FF75532028D  mov [rbx+20h],rax
+    7FF755320291  mov [rbx],rsi
+    7FF755320294  inc qword [rel 7FF7553200C8h]
+    7FF75532029B  add rsp,20h
+    7FF75532029F  pop r13
+    7FF7553202A1  pop r12
+    7FF7553202A3  pop rdi
+    7FF7553202A4  pop rsi
+    7FF7553202A5  pop rbx
+    7FF7553202A6  ret
+    7FF7553202A7  inc qword [rel 7FF755320100h]
+    7FF7553202AE  jmp qword [rel 7FF755320028h]
+patched call site: E8 48 FC FF FF -> E8 C4 DA CB 05
+native tests:
+  PP: 20000 cases, 0 mismatches (model: 10814 run / 9186 skipped; cave counters 10814 / 9186)
+  FPC: 240000 lookups over 4000 frames, 0 mismatches; cave hits 87399, misses 112147, .rdata bypasses 28694
+  FPC limitation check (param appended mid-frame): before=0 same frame=0 (stale, expected) next frame=2E39ABA7FA0 orig=2E39ABA7FA0
+  FPC timing (31-node list, name absent, warm caches, incl. delegate overhead): orig 44 ns, cave hit 8 ns
+OFFLINE CHECKS: ALL PASSED

@@ -29,3 +29,9 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - tests\test_patterns.py: new 'fg:' checks (setter/gate bytes, 9 references, descriptors 50/54, config path). Untested in-game.
 - Undo: config.xml -> copy config.xml.Nioh3EngineFix.bak back (game closed), or set Frame Generation in the game's options. The mod change itself: set [Menu] FrameGenToggle = 0, or replace the .asi with the previous build.
 - Ally zip rebuilt (WorkerCap = 10 kept; FrameGenToggle = 1 added).
+
+## 2026-10-07 04:20 - draw-prep parallelisation study + work-elimination caves (nothing applied)
+- Study: `notes\parallel-drawprep.md`. Verdict: moving draw recording onto the KIDS job workers is NO-GO as a live patch (single KtglContext / ordered token stream / state-shadow cache, per-draw side effects outside the stream, single dispatcher). Helper-thread prefetch NO-GO (in-line prefetch caves were neutral in r9; adds CPU on the Ally).
+- New script `patcher\drawprep_elim.fsx` (memory-only, not run against the game yet): PP = page-pool usage sweep 2523FC every 4th frame (call site 252677 -> cave), FPC = per-frame cache for material FindParam (vtable slot 38FB9D8 -> cave). `apply` installs both with switches OFF; `on`/`off` to A/B. Offline: ALL PASSED (`re\scripts_draw\drawprep_elim_offline.txt`).
+- Symbols: `re\symbols\incoming\parallel-drawprep.tsv` (24 rows, not merged).
+- Undo: `dotnet fsi patcher\drawprep_elim.fsx off PP,FPC` (switch) / `revert PP,FPC` (original bytes + vtable pointer), or restart the game.

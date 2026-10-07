@@ -1,0 +1,25 @@
+rva	kind	name	signature	description	confidence	source
+0x252677	label	PagePoolFrameUpdate_CallScanAll	call 2522C4	the per-frame call of PagePoolScanAll (E8 48 FC FF FF); PP patch site (call -> decimation cave)	high	notes/parallel-drawprep.md §5.1; patcher/drawprep_elim.fsx
+0x25267c	label	PagePoolFrameUpdate_IncFrameStamp	inc qword [rdi+0D10h]	pool+D10h (= g+6EB0h, the global texture/meshlet frame stamp) += 1 right after the scan; untouched by PP	high	notes/parallel-drawprep.md §5.1
+0x2ee8fe8	function	PagePoolGetPrevUsedCount	u32 (GfxDevice* g)	trivial getter: return [g+6CD0h] (= pool+B30h, previous used-entry count); no direct or vtable refs found (likely an RVA table / binding)	medium	notes/parallel-drawprep.md §5.1
+0x2ee8ff0	function	PagePoolGetPrevFullBuckets	u32 (GfxDevice* g)	trivial getter: return [g+6CD8h] (= pool+B38h, previous full-bucket count)	medium	notes/parallel-drawprep.md §5.1
+0x38fb8e0	vtable	MaterialVtbl		material class vtable; +F8h FindParam (3C768C) is the only image pointer to 3C768C; FPC re-points slot 38FB9D8	high	notes/parallel-drawprep.md §5.2; patcher/drawprep_elim.fsx
+0x38fb9d8	data	MaterialVtbl_FindParamSlot	ptr	vtable slot (MaterialVtbl+F8h) holding base+3C768C; FPC patch site (data write, process frozen)	high	notes/parallel-drawprep.md §5.2; patcher/drawprep_elim.fsx
+0x3c774c	function	MaterialParamNode_NameEquals	bool (MaterialParamNode* n, const char* name, i32 hash)	node vtbl+60h for ~20 param-node classes: r9=[n+10h] record, then 3C7750 compares record hash and the name string (record+0Ch+count*8); no .pdata (profiler files it as 3C7750 leaf)	high	notes/parallel-drawprep.md §5.2
+0x418d3d	label	CmdStreamFinalKick_IncGeneration	inc dword [rbx+3C60h]	g+3C60h stream generation += 1 once per frame end; used as the FPC epoch source	high	notes/parallel-drawprep.md §5.2
+0x1910caf	label	CmdStreamWrap_IncGeneration	inc dword [rdi+3C60h]	cold path of the stream flush: buffer wrap resets +3C40/48/68 and bumps +3C60h generation and +3C80h	high	notes/parallel-drawprep.md §5.2
+0x3c60	struct_field	GfxDevice::StreamGeneration	u32	command-stream generation: +1 at frame end (418D3D) and on stream wrap (1910CAF); also shifted into the 0xA7 token (418E74)	high	notes/parallel-drawprep.md §5.2
+0x61a0	struct_field	GfxDevice::PagePool	PagePool	embedded streaming page pool (PagePoolFrameUpdate(g+61A0h, g) from 7D9B6C)	high	notes/parallel-drawprep.md §5.1
+0xb28	struct_field	PagePool::PerTypePools	u8	!=0 -> PagePoolScanAll takes the PagePoolCountUsed path (the hot one); 0 -> PagePoolScanHelper (cold 196CAC4)	high	notes/parallel-drawprep.md §5.1
+0xb2c	struct_field	PagePool::UsedCount	u32	entries with lastUsedFrame >= D10h, written by PagePoolScanAll every scan	high	notes/parallel-drawprep.md §5.1
+0xb30	struct_field	PagePool::PrevUsedCount	u32	previous UsedCount (= g+6CD0h); read by PagePoolOccupancyCheck 126C64 (>85 % -> mip-bias step, 0.3 s cooldown)	high	notes/parallel-drawprep.md §5.1
+0xb34	struct_field	PagePool::FullBuckets	u32	buckets whose ways are all used this frame (PagePoolCountUsed out param)	high	notes/parallel-drawprep.md §5.1
+0xb38	struct_field	PagePool::PrevFullBuckets	u32	previous FullBuckets (= g+6CD8h); read by PagePoolStatsReader 28B1B1C (streaming-settled state machine)	high	notes/parallel-drawprep.md §5.1
+0xd10	struct_field	PagePool::FrameStamp	u64	scan frame stamp (= g+6EB0h, the 'global frame stamp' read by 1E7050/128EF0 etc.); +1 per scan block in 252510	high	notes/parallel-drawprep.md §5.1
+0xd18	struct_field	PagePool::FrameCounter	u64	+1 per PagePoolFrameUpdate with D20h set (= g+6EB8h)	high	notes/parallel-drawprep.md §5.1
+0xd20	struct_field	PagePool::Enabled	u8	PagePoolFrameUpdate does nothing when 0	high	notes/parallel-drawprep.md §5.1
+0xd21	struct_field	PagePool::ScanPending	u8	gates the stats copy + PagePoolScanAll + D10h increment; cleared after	high	notes/parallel-drawprep.md §5.1
+0x1338	struct_field	Material::ParamListFirstLink	MaterialParamNode*	next pointer of the embedded first param node at +1330h; part of the FPC cache key	high	notes/parallel-drawprep.md §5.2
+0x10	struct_field	MaterialParamNode::Record	MaterialParamRecord*	name record compared by 3C774C	high	notes/parallel-drawprep.md §5.2
+0x0	struct_field	MaterialParamRecord::NameHash	i32	h = h*27 + (signed char)c over the name (same hash MaterialFindParam computes)	high	notes/parallel-drawprep.md §5.2
+0x8	struct_field	MaterialParamRecord::Count	u32	number of 8-byte values before the name; name string at +0Ch + Count*8	high	notes/parallel-drawprep.md §5.2
