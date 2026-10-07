@@ -28,7 +28,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.0.0"
+#define MOD_VERSION "1.1.0"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -53,6 +53,35 @@ int L1Wait(uint64_t now, uint64_t last, uint64_t ticksPerFrame, uint64_t freq);
 void fgWait(int64_t target);
 void caveWakeGate();
 extern uint32_t wk_enable, wk_skipped, wk_kept;
+// experimental CPU-power caves (caves.asm, second half)
+void caveGallop();
+void cavePP();
+void caveFPC();
+void caveAabb();
+void caveM1();
+void caveX1();
+void caveE1A();
+void caveE1B();
+void caveW6();
+void caveW6Wake();
+void W6Wait(uint8_t* ctx);
+extern uint32_t gal_enable;
+extern uint64_t gal_resume;
+extern uint32_t pp_enable, pp_mask, pp_ran, pp_skipped;
+extern uint64_t pp_target;
+extern uint32_t fpc_enable, fpc_tid;
+extern uint64_t fpc_rlo, fpc_rhi, fpc_gaddr, fpc_orig, fpc_epoch, fpc_hits, fpc_misses, fpc_bypass;
+extern uint32_t aabb_enable;
+extern uint64_t aabb_resume;
+extern uint32_t m1_enable, m1_refresh;
+extern uint64_t m1_resume, m1_stock;
+extern uint32_t x1_enable, x1_skip, x1_pass;
+extern uint64_t x1_pmgr, x1_iat;
+extern uint32_t e1_enable, e1_mask, e1_pass;
+extern float e1_scale;
+extern uint64_t e1_upd, e1_skip, e1_aback, e1_enq;
+extern uint32_t w6_waiting;
+extern uint64_t w6_wakeAll, w6_wakes;
 }
 
 namespace {
@@ -95,6 +124,18 @@ int64_t g_fgThreshTicks = 0;  // sleep only when more than margin+min remain
 int64_t g_fgMarginTicks = 0;  // the last margin is the original QPC spin
 int64_t g_qpcFreq = 0;
 volatile LONG g_fgCount = 0;
+// W6 (present wait, experimental) runtime state
+using WaitOnAddress_t = BOOL(WINAPI*)(volatile VOID*, PVOID, SIZE_T, DWORD);
+WaitOnAddress_t g_waitOnAddress = nullptr;
+volatile uint32_t g_w6Enable = 0;
+int64_t g_w6SpinTicks = 0;
+DWORD g_w6TimeoutMs = 1;
+volatile LONG g_w6Waits = 0, g_w6Sleeps = 0;
+volatile LONG64 g_w6Ticks = 0;
+
+// v2.02 engine addresses used by the experimental caves (verified by tests/test_patterns.py deps / the live scripts)
+constexpr uint32_t kRvaGfxGlobal = 0x45BA588;   // GfxDevice/KtglContext* g (FPC: g+3C60h stream generation)
+constexpr uint32_t kRvaPadMgr = 0x45BA1E0;      // pad manager pointer (X1: +69850h + i*14h connected bytes)
 
 // ---- logging ---------------------------------------------------------------------------------------------------
 void Log(const char* fmt, ...) {
@@ -133,6 +174,9 @@ struct Config {
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
+    // experimental CPU-power patches (known build only; 0 = not installed)
+    int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
+    int ppPeriod = 4, e1N = 2, w6SpinUs = 50, w6TimeoutMs = 1;
 };
 
 Config LoadConfig() {
@@ -171,6 +215,23 @@ Config LoadConfig() {
     c.r1Ms = std::clamp(I(L"Tuning", L"R1_TimeoutMs", c.r1Ms), 0, 16);
     c.l1MarginUs = std::clamp(I(L"Tuning", L"L1_MarginUs", c.l1MarginUs), 200, 20000);
     c.l1MinUs = std::clamp(I(L"Tuning", L"L1_MinSleepUs", c.l1MinUs), 0, 20000);
+    c.b = I(L"Patches", L"B", c.b);
+    c.pp = I(L"Patches", L"PP", c.pp);
+    c.fpc = I(L"Patches", L"FPC", c.fpc);
+    c.aabb = I(L"Patches", L"AABB", c.aabb);
+    c.m1 = I(L"Patches", L"M1", c.m1);
+    c.m2 = I(L"Patches", L"M2", c.m2);
+    c.j1 = I(L"Patches", L"J1", c.j1);
+    c.x1 = I(L"Patches", L"X1", c.x1);
+    c.e1 = I(L"Patches", L"E1", c.e1);
+    c.w6 = I(L"Patches", L"W6", c.w6);
+    c.s1 = I(L"Patches", L"S1", c.s1);
+    c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
+    if (c.ppPeriod != 2 && c.ppPeriod != 4 && c.ppPeriod != 8 && c.ppPeriod != 16) c.ppPeriod = 4;
+    c.e1N = I(L"Tuning", L"E1_N", c.e1N);
+    if (c.e1N != 1 && c.e1N != 2 && c.e1N != 4 && c.e1N != 8) c.e1N = 2;
+    c.w6SpinUs = std::clamp(I(L"Tuning", L"W6_SpinUs", c.w6SpinUs), 0, 2000);
+    c.w6TimeoutMs = std::clamp(I(L"Tuning", L"W6_TimeoutMs", c.w6TimeoutMs), 1, 16);
     return c;
 }
 
@@ -326,14 +387,27 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveL1: return (void*)&caveL1;
         case gen::Target::fgWait: return (void*)&fgWait;
         case gen::Target::caveWakeGate: return (void*)&caveWakeGate;
+        case gen::Target::caveGallop: return (void*)&caveGallop;
+        case gen::Target::cavePP: return (void*)&cavePP;
+        case gen::Target::caveFPC: return (void*)&caveFPC;
+        case gen::Target::caveAabb: return (void*)&caveAabb;
+        case gen::Target::caveM1: return (void*)&caveM1;
+        case gen::Target::caveX1: return (void*)&caveX1;
+        case gen::Target::caveE1A: return (void*)&caveE1A;
+        case gen::Target::caveE1B: return (void*)&caveE1B;
+        case gen::Target::caveW6: return (void*)&caveW6;
+        case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
         default: return nullptr;
     }
 }
 
+constexpr int kLastTarget = (int)gen::Target::caveW6Wake;
+static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
+
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
 
 void WriteTrampolines() {
-    for (int t = 1; t <= (int)gen::Target::caveWakeGate; ++t) {
+    for (int t = 1; t <= kLastTarget; ++t) {
         uint8_t* p = Trampoline((gen::Target)t);
         const uint8_t jmp[6] = {0xFF, 0x25, 0, 0, 0, 0};  // jmp qword ptr [rip+0]
         memcpy(p, jmp, 6);
@@ -355,6 +429,17 @@ struct Item {
 
 bool Resolve(const gen::Site& s, const std::vector<Range>& ranges, bool known, Item& it) {
     it.s = &s;
+    if (s.kind == gen::Kind::VPtr) {  // .rdata pointer slot: known build only, verified by value
+        if (!known) { Log("  %-4s data slot, known build only (skipped)", s.id); return false; }
+        uint64_t cur = *reinterpret_cast<const volatile uint64_t*>(g_base + s.rva);
+        if (cur != (uint64_t)(uintptr_t)(g_base + s.expectRva)) {
+            Log("  %-4s slot RVA %X holds %llX, expected Nioh3+%X (another mod?) (skipped)", s.id, s.rva, (unsigned long long)cur, s.expectRva);
+            return false;
+        }
+        it.addr = g_base + s.rva;
+        it.found = true;
+        return true;
+    }
     Pattern p;
     if (!ParsePattern(s.pattern, p)) { Log("  %-4s bad pattern", s.id); return false; }
     uint8_t* first = nullptr;
@@ -382,6 +467,26 @@ bool Resolve(const gen::Site& s, const std::vector<Range>& ranges, bool known, I
     return true;
 }
 
+// original code a group's caves reproduce or rely on (patches.json "deps"); known build only
+uint32_t Fnv1a(const uint8_t* p, size_t n) {
+    uint32_t h = 0x811C9DC5u;
+    for (size_t i = 0; i < n; ++i) h = (h ^ p[i]) * 0x01000193u;
+    return h;
+}
+bool DepsOk(const char* group) {
+    for (int i = 0; i < gen::kNumDeps; ++i) {
+        const gen::Dep& d = gen::kDeps[i];
+        if (strcmp(d.group, group) != 0) continue;
+        const uint8_t* a = g_base + d.rva;
+        const bool ok = d.bytes ? memcmp(a, d.bytes, d.len) == 0 : Fnv1a(a, d.len) == d.fnv1a;
+        if (!ok) {
+            Log("%s: original code at RVA %X (%u bytes) differs from v2.02 (another mod?) - group skipped", group, d.rva, d.len);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool BuildRepl(Item& it) {
     const gen::Site& s = *it.s;
     std::vector<uint8_t>& r = it.repl;
@@ -390,15 +495,23 @@ bool BuildRepl(Item& it) {
         r.assign(s.repl, s.repl + s.len);
         return true;
     }
-    if (s.kind == gen::Kind::Call) {
-        for (int k = 0; k < s.callAt; ++k) r.push_back(0x90);
+    if (s.kind == gen::Kind::VPtr) {  // aligned data pointer -> the cave itself (no trampoline needed)
+        const uint64_t p = (uint64_t)(uintptr_t)TargetFn(s.target);
+        if (!p || s.len != 8) return false;
+        for (int k = 0; k < 8; ++k) r.push_back((uint8_t)(p >> (8 * k)));
+        return true;
+    }
+    if (s.kind == gen::Kind::Call || s.kind == gen::Kind::Jmp) {
+        const bool jmp = s.kind == gen::Kind::Jmp;
+        const int at = jmp ? 0 : s.callAt;
+        for (int k = 0; k < at; ++k) r.push_back(0x90);
         int32_t rel;
-        if (!Rel32(it.addr + s.callAt + 5, Trampoline(s.target), &rel)) return false;
-        r.push_back(0xE8);
+        if (!Rel32(it.addr + at + 5, Trampoline(s.target), &rel)) return false;
+        r.push_back(jmp ? 0xE9 : 0xE8);
         for (int k = 0; k < 4; ++k) r.push_back((uint8_t)(rel >> (8 * k)));
         static const uint8_t pad1[] = {0x90}, pad2[] = {0x66, 0x90}, pad3[] = {0x0F, 0x1F, 0x00},
                              pad5[] = {0x0F, 0x1F, 0x44, 0x00, 0x00};
-        int pad = s.len - s.callAt - 5;
+        int pad = s.len - at - 5;
         const uint8_t* pp = nullptr;
         switch (pad) {
             case 0: break;
@@ -482,7 +595,12 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             }
         }
         if (!clash) {
-            for (Item* it : items) memcpy(it->addr, it->repl.data(), it->repl.size());
+            for (Item* it : items) {
+                if (it->s->kind == gen::Kind::VPtr)  // vtable slot: one aligned 8-byte store
+                    InterlockedExchange64(reinterpret_cast<volatile LONG64*>(it->addr), *reinterpret_cast<const LONG64*>(it->repl.data()));
+                else
+                    memcpy(it->addr, it->repl.data(), it->repl.size());
+            }
             FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
             written = true;
         }
@@ -532,6 +650,50 @@ void ConfigureVrr(const Config& c) {
 
 bool InModule(uintptr_t a) { return a >= (uintptr_t)g_base && a < (uintptr_t)g_base + g_imageSize; }
 
+// ---- Proton FG guard: exit hooks on the game's own ExitProcess / TerminateProcess imports (menu::ProtonFgExit puts
+// FRAME_GENERATION OFF back into config.xml when the mod switched FG on this session). They run on the exiting thread
+// before the process is torn down, unlike DLL_PROCESS_DETACH (loader lock, other threads already killed).
+using ExitProcess_t = void(WINAPI*)(UINT);
+using TerminateProcess_t = BOOL(WINAPI*)(HANDLE, UINT);
+ExitProcess_t g_origExitProcess = nullptr;
+TerminateProcess_t g_origTerminateProcess = nullptr;
+bool g_wineEarly = false;
+
+void WINAPI HkExitProcess(UINT code) {
+    menu::ProtonFgExit("ExitProcess");
+    g_origExitProcess(code);
+}
+BOOL WINAPI HkTerminateProcess(HANDLE h, UINT code) {
+    if (h == GetCurrentProcess() || GetProcessId(h) == GetCurrentProcessId()) menu::ProtonFgExit("TerminateProcess");
+    return g_origTerminateProcess(h, code);
+}
+
+void** ImportSlot(const char* dll, const char* fn) {
+    auto nt = Nt(g_base);
+    const IMAGE_DATA_DIRECTORY& dd = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (!dd.VirtualAddress) return nullptr;
+    for (auto d = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(g_base + dd.VirtualAddress); d->Name; ++d) {
+        if (_stricmp(reinterpret_cast<const char*>(g_base + d->Name), dll) != 0 || !d->OriginalFirstThunk) continue;
+        auto oft = reinterpret_cast<IMAGE_THUNK_DATA64*>(g_base + d->OriginalFirstThunk);
+        auto ft = reinterpret_cast<IMAGE_THUNK_DATA64*>(g_base + d->FirstThunk);
+        for (; oft->u1.AddressOfData; ++oft, ++ft)
+            if (!IMAGE_SNAP_BY_ORDINAL64(oft->u1.Ordinal) &&
+                !strcmp(reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(g_base + oft->u1.AddressOfData)->Name, fn))
+                return reinterpret_cast<void**>(&ft->u1.Function);
+    }
+    return nullptr;
+}
+
+bool SwapImport(const char* fn, void* hook, void** orig) {
+    void** slot = ImportSlot("KERNEL32.dll", fn);
+    if (!slot || !*slot) return false;
+    DWORD old, t;
+    if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) return false;
+    *orig = InterlockedExchangePointer(slot, hook);
+    VirtualProtect(slot, sizeof(void*), old, &t);
+    return true;
+}
+
 // ---- main worker ------------------------------------------------------------------------------------------------
 DWORD WINAPI Worker(LPVOID) {
     Config cfg = LoadConfig();
@@ -557,6 +719,17 @@ DWORD WINAPI Worker(LPVOID) {
     if (!known && !cfg.allowUnknownBuild) {
         Log("refusing to patch an unknown build (set [General] AllowUnknownBuild=1 to try pattern-only matching at your own risk)");
         return 0;
+    }
+
+    // Proton FG guard, before the game reads config.xml (the crash-loop case: put OFF back if the last session left
+    // the mod's FG marker), plus the exit hooks. The import table is the loader's, not encrypted by SteamStub.
+    if (HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) g_wineEarly = GetProcAddress(ntdll, "wine_get_version") != nullptr;
+    if (g_wineEarly) {
+        std::wstring marker = SelfPathWithExt(L".fgmarker");
+        menu::ProtonFgEarly(&Log, marker.c_str());
+        const bool e = SwapImport("ExitProcess", (void*)&HkExitProcess, (void**)&g_origExitProcess);
+        const bool t = SwapImport("TerminateProcess", (void*)&HkTerminateProcess, (void**)&g_origTerminateProcess);
+        Log("Proton FG guard: exit hooks ExitProcess %s, TerminateProcess %s", e ? "ok" : "MISSING", t ? "ok" : "MISSING");
     }
 
     // ---- wait for SteamStub to decrypt .text (never touch the stub; just poll the bytes)
@@ -649,6 +822,19 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "L1")) return cfg.l1 != 0;
         if (!strcmp(g, "FG")) return cfg.fg != 0;
         if (!strcmp(g, "WK")) return cfg.wk != 0;
+        // experimental (known build only)
+        if (!known) return false;
+        if (!strcmp(g, "B")) return cfg.b != 0;
+        if (!strcmp(g, "PP")) return cfg.pp != 0;
+        if (!strcmp(g, "FPC")) return cfg.fpc != 0;
+        if (!strcmp(g, "AABB")) return cfg.aabb != 0;
+        if (!strcmp(g, "M1")) return cfg.m1 != 0;
+        if (!strcmp(g, "M2")) return cfg.m2 != 0;
+        if (!strcmp(g, "J1")) return cfg.j1 != 0;
+        if (!strcmp(g, "X1")) return cfg.x1 != 0;
+        if (!strcmp(g, "E1")) return cfg.e1 != 0;
+        if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
+        if (!strcmp(g, "S1")) return cfg.s1 != 0;
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -805,20 +991,6 @@ DWORD WINAPI Worker(LPVOID) {
         }
         f1State = run("F1", v, ok) ? osd::State::On : osd::State::Failed;
     }
-    // periodic stats so a log from a handheld shows the wake rates without a profiler
-    if (HANDLE h = CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
-            LONG w3 = g_w3Count, l1 = g_l1Count, fg = g_fgCount;
-            uint32_t ks = wk_skipped, kk = wk_kept;
-            for (;;) {
-                Sleep(30000);
-                LONG w3n = g_w3Count, l1n = g_l1Count, fgn = g_fgCount;
-                uint32_t ksn = wk_skipped, kkn = wk_kept;
-                Log("stats/s: W3 waits %ld (%s), L1 timer sleeps %ld, F1 timer sleeps %ld, WK wakes kept %u / skipped %u",
-                    (w3n - w3) / 30, g_w3UseSleep ? "Sleep" : "MsgWait", (l1n - l1) / 30, (fgn - fg) / 30,
-                    (kkn - kk) / 30, (ksn - ks) / 30);
-                w3 = w3n; l1 = l1n; fg = fgn; ks = ksn; kk = kkn;
-            }
-        }, nullptr, 0, nullptr)) CloseHandle(h);
     // WK: job-system wake gate (skip the futile "wake one more worker" when no queue of the pool holds work)
     if (cfg.wk) {
         auto v = collect("WK");
@@ -826,6 +998,194 @@ DWORD WINAPI Worker(LPVOID) {
         if (ok) wk_enable = 1;
         wkDone = run("WK", v, ok);
     }
+
+    // ---- EXPERIMENTAL CPU-power patches (ini default 0). Known build only: the caves use v2.02 engine offsets.
+    // Each group: every site found + original bytes + its patches.json deps, then one frozen write (ApplyBatch).
+    bool exDone[menu::kNumExp] = {};
+    auto findItem = [&](const char* id) -> Item* {
+        for (Item& it : items)
+            if (!strcmp(it.s->id, id)) return &it;
+        return nullptr;
+    };
+    auto calleeOf = [](uint8_t* a) { return (uintptr_t)(a + 5 + *(int32_t*)(a + 1)); };  // E8 rel32 at a
+    auto expGroup = [&](const char* g, bool want, const std::function<bool()>& prep) -> bool {
+        if (!want) return false;
+        if (!known) {
+            Log("%s: experimental patch, v2.02 only - skipped on this build", g);
+            return false;
+        }
+        auto v = collect(g);
+        bool ok = allFound(v) && g_near != nullptr && DepsOk(g);
+        if (ok && prep) ok = prep();
+        return run(g, v, ok);
+    };
+    LARGE_INTEGER qf;
+    QueryPerformanceFrequency(&qf);
+    // W6 first (the main thread's present wait - the biggest Ally lever)
+    if (cfg.w6 && known) {
+        HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
+        if (!kb) kb = LoadLibraryW(L"api-ms-win-core-synch-l1-2-0.dll");
+        auto wait = kb ? reinterpret_cast<WaitOnAddress_t>(GetProcAddress(kb, "WaitOnAddress")) : nullptr;
+        auto wake = kb ? GetProcAddress(kb, "WakeByAddressAll") : nullptr;
+        if (!wait || !wake) Log("W6: WaitOnAddress/WakeByAddressAll not available - skipped");
+        exDone[menu::kExpW6] = expGroup("W6", wait && wake, [&]() {
+            g_waitOnAddress = wait;
+            w6_wakeAll = (uint64_t)(uintptr_t)wake;
+            g_w6SpinTicks = (int64_t)cfg.w6SpinUs * qf.QuadPart / 1000000;
+            g_w6TimeoutMs = (DWORD)cfg.w6TimeoutMs;
+            g_w6Enable = 1;
+            return true;
+        });
+        if (exDone[menu::kExpW6]) {
+            if (expGroup("W6W", true, nullptr))
+                Log("W6: hybrid present wait on (spin %d us, then WaitOnAddress, %d ms timeout); waker at the Present "
+                    "thread's flag clear installed", cfg.w6SpinUs, cfg.w6TimeoutMs);
+            else
+                Log("W6: waker NOT installed - waits end by the %d ms WaitOnAddress timeout instead", cfg.w6TimeoutMs);
+        }
+    }
+    exDone[menu::kExpB] = expGroup("B", cfg.b != 0, [&]() {
+        gal_resume = (uint64_t)(uintptr_t)(findItem("B")->addr + 5);  // 3BC1C: the original binary search
+        gal_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpPP] = expGroup("PP", cfg.pp != 0, [&]() {
+        const uintptr_t t = calleeOf(findItem("PP")->addr);
+        if (t != (uintptr_t)(g_base + findItem("PP")->s->expectRva)) return false;
+        pp_target = t;
+        pp_mask = (uint32_t)(cfg.ppPeriod - 1);
+        pp_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpFPC] = expGroup("FPC", cfg.fpc != 0, [&]() {
+        auto ntH = Nt(g_base);
+        auto sec = IMAGE_FIRST_SECTION(ntH);
+        for (WORD i = 0; i < ntH->FileHeader.NumberOfSections; ++i, ++sec)
+            if (!memcmp(sec->Name, ".rdata\0", 7)) {
+                fpc_rlo = (uint64_t)(uintptr_t)(g_base + sec->VirtualAddress);
+                fpc_rhi = fpc_rlo + sec->Misc.VirtualSize;
+            }
+        if (!fpc_rlo) { Log("FPC: no .rdata section - skipped"); return false; }
+        fpc_gaddr = (uint64_t)(uintptr_t)(g_base + kRvaGfxGlobal);
+        fpc_orig = (uint64_t)(uintptr_t)(g_base + findItem("FPC")->s->expectRva);
+        fpc_tid = 0;  // filled in by the stats thread once [App]Game exists and frames advance
+        fpc_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpAABB] = expGroup("AABB", cfg.aabb != 0, [&]() {
+        aabb_resume = (uint64_t)(uintptr_t)(findItem("AABB")->addr + 5);  // 6EA55 push rbp
+        aabb_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpM1] = expGroup("M1", cfg.m1 != 0, [&]() {
+        uint8_t* a = findItem("M1")->addr;
+        m1_stock = (uint64_t)(uintptr_t)(a + 7);              // 49138
+        m1_resume = (uint64_t)(uintptr_t)(a + (0x491AC - 0x49131));  // 491AC
+        m1_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpM2] = expGroup("M2", cfg.m2 != 0, nullptr);
+    exDone[menu::kExpJ1] = expGroup("J1", cfg.j1 != 0, nullptr);
+    exDone[menu::kExpX1] = expGroup("X1", cfg.x1 != 0, [&]() {
+        uint8_t* a = findItem("X1")->addr;  // FF 15 disp32
+        uint8_t* slot = a + 6 + *(int32_t*)(a + 2);
+        if (!InModule((uintptr_t)slot) || !*(void**)slot) { Log("X1: IAT slot looks wrong"); return false; }
+        x1_iat = (uint64_t)(uintptr_t)slot;
+        x1_pmgr = (uint64_t)(uintptr_t)(g_base + kRvaPadMgr);
+        x1_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpE1] = expGroup("E1", cfg.e1 != 0, [&]() {
+        const uintptr_t enq = calleeOf(findItem("E1B")->addr);
+        if (enq != (uintptr_t)(g_base + findItem("E1B")->s->expectRva)) return false;
+        e1_enq = enq;
+        e1_aback = (uint64_t)(uintptr_t)(findItem("E1A")->addr + 5);  // 7E82B9
+        e1_mask = (uint32_t)(cfg.e1N - 1);
+        e1_scale = (float)cfg.e1N;
+        e1_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpS1] = expGroup("S1", cfg.s1 != 0, nullptr);
+
+    // periodic stats so a log from a handheld shows the wake rates and the experimental patches working without a
+    // profiler. The same thread finds the [App]Game thread for FPC.
+    static bool s_fpcWanted = false, s_anyExp = false;
+    for (bool d : exDone) s_anyExp |= d;
+    s_fpcWanted = exDone[menu::kExpFPC];
+    if (HANDLE h = CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
+            struct Snap {
+                LONG w3, l1, fg, w6w, w6s;
+                LONG64 w6t;
+                uint32_t ks, kk, ppr, pps, m1r, x1s, x1p, e1p;
+                uint64_t fh, fm, fb, e1u, e1s, w6k;
+            };
+            auto take = []() {
+                return Snap{g_w3Count, g_l1Count, g_fgCount, g_w6Waits, g_w6Sleeps, g_w6Ticks, wk_skipped, wk_kept,
+                            pp_ran, pp_skipped, m1_refresh, x1_skip, x1_pass, e1_pass, fpc_hits, fpc_misses, fpc_bypass,
+                            e1_upd, e1_skip, w6_wakes};
+            };
+            LARGE_INTEGER f;
+            QueryPerformanceFrequency(&f);
+            using GetDescFn = HRESULT(WINAPI*)(HANDLE, PWSTR*);
+            HMODULE k = GetModuleHandleW(L"kernelbase.dll");
+            if (!k) k = GetModuleHandleW(L"kernel32.dll");
+            auto getDesc = k ? reinterpret_cast<GetDescFn>(GetProcAddress(k, "GetThreadDescription")) : nullptr;
+            uint32_t lastEpoch = 0;
+            bool haveEpoch = false;
+            DWORD candTid = 0;
+            Snap p = take();
+            for (int sec = 1;; ++sec) {
+                Sleep(1000);
+                // FPC: cache only on [App]Game, and only once its frames advance (g+3C60h moving), like the script's `on`
+                if (s_fpcWanted && !fpc_tid && sec % 2 == 0 && getDesc) {
+                    if (!candTid) {
+                        HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+                        if (snap != INVALID_HANDLE_VALUE) {
+                            THREADENTRY32 te{};
+                            te.dwSize = sizeof(te);
+                            for (BOOL ok = Thread32First(snap, &te); ok && !candTid; ok = Thread32Next(snap, &te)) {
+                                if (te.th32OwnerProcessID != GetCurrentProcessId()) continue;
+                                if (HANDLE th = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, te.th32ThreadID)) {
+                                    PWSTR d = nullptr;
+                                    if (SUCCEEDED(getDesc(th, &d)) && d) {
+                                        if (!wcscmp(d, L"[App]Game")) candTid = te.th32ThreadID;
+                                        LocalFree(d);
+                                    }
+                                    CloseHandle(th);
+                                }
+                            }
+                            CloseHandle(snap);
+                        }
+                    }
+                    const uint64_t g = *reinterpret_cast<volatile uint64_t*>(fpc_gaddr);
+                    const uint32_t ep = g ? *reinterpret_cast<volatile uint32_t*>(g + 0x3C60) : 0;
+                    if (candTid && g && haveEpoch && ep != lastEpoch) {
+                        fpc_tid = candTid;
+                        Log("FPC: [App]Game is TID %lu and frames advance - the FindParam cache is live", candTid);
+                    }
+                    lastEpoch = ep;
+                    haveEpoch = g != 0;
+                }
+                if (sec % 30) continue;
+                Snap n = take();
+                Log("stats/s: W3 waits %ld (%s), L1 timer sleeps %ld, F1 timer sleeps %ld, WK wakes kept %u / skipped %u",
+                    (n.w3 - p.w3) / 30, g_w3UseSleep ? "Sleep" : "MsgWait", (n.l1 - p.l1) / 30, (n.fg - p.fg) / 30,
+                    (n.kk - p.kk) / 30, (n.ks - p.ks) / 30);
+                const LONG w6n = n.w6w - p.w6w;
+                const double w6us = w6n > 0 ? (double)(n.w6t - p.w6t) * 1e6 / (double)f.QuadPart / w6n : 0.0;
+                const uint64_t fh = n.fh - p.fh, fm = n.fm - p.fm;
+                if (s_anyExp) Log("stats/s exp: W6 waits %ld avg %.0f us (slept %ld, spun %ld, wakes %llu) | PP scans %u skipped %u | "
+                    "FPC hits %llu misses %llu (%.0f %%) bypass %llu | M1 refreshes %u | X1 skipped %u passed %u | "
+                    "E1 passes %u updated %llu skipped %llu",
+                    w6n / 30, w6us, (n.w6s - p.w6s) / 30, (w6n - (n.w6s - p.w6s)) / 30,
+                    (unsigned long long)((n.w6k - p.w6k) / 30), (n.ppr - p.ppr) / 30, (n.pps - p.pps) / 30,
+                    (unsigned long long)(fh / 30), (unsigned long long)(fm / 30), fh + fm ? 100.0 * fh / (fh + fm) : 0.0,
+                    (unsigned long long)((n.fb - p.fb) / 30), (n.m1r - p.m1r) / 30, (n.x1s - p.x1s) / 30,
+                    (n.x1p - p.x1p) / 30, (n.e1p - p.e1p) / 30, (unsigned long long)((n.e1u - p.e1u) / 30),
+                    (unsigned long long)((n.e1s - p.e1s) / 30));
+                p = n;
+            }
+        }, nullptr, 0, nullptr)) CloseHandle(h);
     {  // in-game overlay: FPS counter + startup popup (osd.cpp) + mod menu (menu.cpp)
         std::wstring iniPath = SelfPathWithExt(L".ini");
         menu::Host mh;
@@ -860,6 +1220,34 @@ DWORD WINAPI Worker(LPVOID) {
         mh.p12 = cfg.p12;
         mh.l1OnWine = cfg.l1OnWine;
         mh.fgOnWine = cfg.fgOnWine;
+        // experimental patches: live switch when installed (M2/J1/S1 are code bytes only: next launch)
+        auto U = [](uint32_t& v) { return reinterpret_cast<volatile uint32_t*>(&v); };
+        volatile uint32_t* sw[menu::kNumExp] = {};
+        sw[menu::kExpW6] = &g_w6Enable;
+        sw[menu::kExpB] = U(gal_enable);
+        sw[menu::kExpPP] = U(pp_enable);
+        sw[menu::kExpFPC] = U(fpc_enable);
+        sw[menu::kExpAABB] = U(aabb_enable);
+        sw[menu::kExpM1] = U(m1_enable);
+        sw[menu::kExpX1] = U(x1_enable);
+        sw[menu::kExpE1] = U(e1_enable);
+        const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1};
+        for (int i = 0; i < menu::kNumExp; ++i) {
+            mh.exp[i].ini = iniv[i] ? 1 : 0;
+            mh.exp[i].applied = exDone[i];
+            if (exDone[i]) mh.exp[i].enable = sw[i];
+        }
+        mh.ppRan = U(pp_ran);
+        mh.ppSkipped = U(pp_skipped);
+        mh.m1Refresh = U(m1_refresh);
+        mh.x1Skip = U(x1_skip);
+        mh.e1Skip = reinterpret_cast<volatile uint64_t*>(&e1_skip);
+        mh.e1Upd = reinterpret_cast<volatile uint64_t*>(&e1_upd);
+        mh.fpcHits = reinterpret_cast<volatile uint64_t*>(&fpc_hits);
+        mh.fpcMisses = reinterpret_cast<volatile uint64_t*>(&fpc_misses);
+        mh.w6Waits = &g_w6Waits;
+        mh.w6Sleeps = &g_w6Sleeps;
+        mh.w6Ticks = &g_w6Ticks;
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         osd::StartupInfo si;
         si.version = MOD_VERSION;
@@ -959,7 +1347,50 @@ extern "C" void fgWait(int64_t target) {
     while (now.QuadPart < target);
 }
 
-BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID) {
+// ---- W6: replaces the Sleep(0) of 7D9E90 `while ([ctx+7728h]) Sleep(0)` (the main thread waiting for the Present
+// thread to return from Present). Hybrid: pause-spin for W6_SpinUs, then WaitOnAddress on the flag byte with a
+// W6_TimeoutMs timeout per round until it clears (the timeout bounds the latency if a wake is ever missed). The waker
+// (caveW6Wake at the clear, 1A822D9) calls WakeByAddressAll when w6_waiting > 0. Switched off: one Sleep(0), as stock.
+extern "C" void W6Wait(uint8_t* ctx) {
+    volatile uint8_t* flag = ctx + 0x7728;
+    if (!g_w6Enable) {
+        Sleep(0);
+        return;
+    }
+    LARGE_INTEGER t0, now;
+    QueryPerformanceCounter(&t0);
+    bool slept = false;
+    if (g_w6SpinTicks > 0) {
+        const int64_t end = t0.QuadPart + g_w6SpinTicks;
+        for (unsigned i = 1; *flag; ++i) {
+            _mm_pause();
+            if ((i & 15) == 0) {
+                QueryPerformanceCounter(&now);
+                if (now.QuadPart >= end) break;
+            }
+        }
+    }
+    for (;;) {
+        uint8_t v = *flag;
+        if (!v) break;
+        InterlockedIncrement(reinterpret_cast<volatile LONG*>(&w6_waiting));  // full barrier before the re-check
+        if (*flag) {
+            g_waitOnAddress(flag, &v, 1, g_w6TimeoutMs);
+            slept = true;
+        }
+        InterlockedDecrement(reinterpret_cast<volatile LONG*>(&w6_waiting));
+    }
+    QueryPerformanceCounter(&now);
+    InterlockedIncrement(&g_w6Waits);
+    if (slept) InterlockedIncrement(&g_w6Sleeps);
+    InterlockedAdd64(&g_w6Ticks, now.QuadPart - t0.QuadPart);
+}
+
+BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID reserved) {
+    if (reason == DLL_PROCESS_DETACH && reserved && g_wineEarly) {
+        menu::ProtonFgExit("DLL detach");  // last resort; no-op when an exit hook already ran or FG was never switched on
+        return TRUE;
+    }
     if (reason == DLL_PROCESS_ATTACH) {
         g_self = mod;
         DisableThreadLibraryCalls(mod);

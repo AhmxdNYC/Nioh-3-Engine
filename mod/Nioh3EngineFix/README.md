@@ -24,6 +24,64 @@ files are changed, and nothing is left behind when the game exits.
 On an APU (ROG Ally / Steam Deck), every watt a spinning core burns comes out of the GPU's shared power budget.
 W3, R1 and L1 hand those watts back to the GPU.
 
+### Experimental CPU-power patches (1.1.0, all off by default)
+Ports of memory patches that were built and verified offline with the live scripts (most were never applied in the
+game yet). They exist so a power-bound handheld (ROG Ally: CPU + GPU share 25 W) can A/B them: every CPU watt removed
+goes to the GPU clock. Each has its own `[Patches]` key (0 = not installed). An installed patch with a runtime switch
+is turned on/off **live** in the mod menu (section *EXPERIMENTAL CPU POWER*); M2, J1 and S1 are code bytes only and
+switch at the next launch. They are applied on **v2.02 only** (they use engine offsets), each after its sites, original
+bytes and the original code it depends on (`patches.json` `deps`) are verified.
+
+| Key | What | Thread | Source script | Live switch | Stats (log `stats/s exp:` every 30 s, menu `Exp/s` line) |
+|---|---|---|---|---|---|
+| **W6** | The main thread's wait for Present to return (`while (flag) Sleep(0)`, 7D9E90) becomes a short pause-spin (`W6_SpinUs`, 50 µs) then `WaitOnAddress` on the flag (`W6_TimeoutMs`, 1 ms per round). A waker at the Present thread's flag clear (1A822D9) calls `WakeByAddressAll` when someone waits, so the wake is immediate; without the waker the timeout bounds it. GPU-bound handhelds spend most of the frame in this loop (Ally: [App]Game 96-99 % busy at 33 fps). | [App]Game | notes\d3d12-submission.md | yes | waits/s, average wait µs, slept vs spun, wakes |
+| **B** | Draw-list group-length search (3BC0C, type-3 path at 3BC17): galloping instead of a full binary search. +5 % main thread on PC in round 9. | [App]Game | patcher\gallop_live.fsx | yes (added: off = the original binary search) | - |
+| **PP** | Streaming page-pool usage sweep (2523FC via 252677) only every `PP_Period`-th frame (4); skipped frames republish the last measurement. | [App]Game | patcher\drawprep_elim.fsx | yes | sweeps skipped/s |
+| **FPC** | Per-frame cache for material `FindParam` (vtable slot 38FB9D8). Cached only on [App]Game, for string-literal names; entries expire every frame. The mod finds [App]Game by its thread name once frames advance (log `FPC: [App]Game is TID ...`). | [App]Game | patcher\drawprep_elim.fsx | yes | hit rate |
+| **AABB** | OBB→AABB (6EA50) in SSE, bit-identical results (300k random boxes in the script). | game update (Scheduler0) | re\scripts_logic\logic_live.fsx | yes | - |
+| **M1** | Meshlet-request workers cache the page-pool capacity sum (rdtsc window + list-head key) instead of re-walking the list per chunk (49131). | workers | re\scripts_workers\workers_live.fsx | yes | cache refreshes/s |
+| **M2** | 5 `lock cmpxchg` "atomic loads" in the meshlet worker become plain loads. | workers | workers_live.fsx | next launch | - |
+| **J1** | 8 `lock cmpxchg` loads in the job-queue polls (411C0/40800/403A0/3E7CC) become plain loads. | all job workers | workers_live.fsx | next launch | - |
+| **X1** | The per-frame active-pad scan (435BB7) skips XInput slots the game already marked as not connected. Chains through the current IAT entry, so the mod menu's pad hook keeps working. | [App]InputUpdateWorker | re\scripts_input\input_live.fsx | yes | skipped calls/s |
+| **E1** | Effects nobody can see (NoDisp) update every `E1_N`-th pass (2) with N× the time step. Visible effects untouched. | game update | re\scripts_fx\fx_live.fsx | yes | skipped/s |
+| **S1** | `PAUSE` in the main thread's end-of-frame busy spin on the dispatcher (418F68, 17 bytes). | [App]Game | re\scripts_d3d12\drainspin_pause.fsx | next launch | - |
+
+Skipped: none of the requested patches. AABB's optional call counter (`count` mode of the script) was not ported (a
+shared counter on a multi-threaded hot path).
+
+### Input latency (1.1.0)
+`[Latency] MaxFrameLatency = N` (0 = the game's value) calls `IDXGISwapChain2::SetMaximumFrameLatency(N)` on every
+presenting swapchain that was created with `DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT` (the game's FG chain
+has flags 0x842). The game's own value is logged (`MaxFrameLatency: ... the game's maximum frame latency is N`); it is
+re-checked every 2 s, so rebuilt swapchains (FG toggle, resize) get it again, and 0 puts the game's value back. Live
+menu item *Max frame latency*: game / 1 / 2 / 3. 1 = least input delay.
+
+### FPS counter (1.1.0)
+* **FPS** = frames the game renders and presents. **FG FPS** = frames shown including generated ones.
+* With FSR frame generation behind Streamline's interposer, two swapchain objects present: the game thread to the FG
+  proxy chain, the "AMD FSR Presenter Thread" to the inner chain. Presents are now counted per swapchain (all threads);
+  displayed = the busiest chain, rendered = the quietest active one. Before 1.1.0 the presenter's presents were not
+  counted and FG showed "off" (x1.07) while it ran.
+* FG counts as active when displayed/rendered > 1.4 (off below 1.2), or when the FSR presenter thread presents and at
+  least 1.15x frames reach the screen (in menus/cutscenes the presenter only passes frames through).
+* `G+0x610`, the old "Real FPS" source, counts **game-update ticks** (`add [rdi+610h],1` at 233B73, end of the update
+  tick 2338B0), not rendered frames. When the render side presents fewer frames than the game updates (Ally, FG off:
+  54.6 ticks/s vs 35.8 presents/s), the counter now shows the presented rate as FPS and adds `(game N Hz)`. VRR
+  measures its interval per tick, so its "armed" values (39-56 there) follow the tick rate and the game speed stays
+  right; the frames simply aren't all presented.
+
+### Proton: FG never stays on in config.xml because of the mod (1.1.0)
+With `[Menu] FrameGenToggle = 2` under Proton the mod switches FG on for the session only, but the game itself saves it
+when the user leaves its own Options/pause menu - and FG on is reported to crash-loop the game there. Now, when the mod
+switched FG on and config.xml had `FRAME_GENERATION` OFF at startup, the mod writes a marker file
+(`Nioh3EngineFix.fgmarker`) and puts OFF back:
+* at exit: hooks on the game's own `ExitProcess` / `TerminateProcess` imports (they run on the exiting thread before
+  teardown; `DLL_PROCESS_DETACH` is only the last resort because of the loader lock and already-killed threads);
+* at the next start, before the game reads its config, if the marker is still there (crash). This is the path that
+  breaks the crash loop.
+Both use the existing config.xml writer (value check, `.Nioh3EngineFix.bak` backup, only that value changed) and log
+`MENU: Proton ...` lines.
+
 ## Requirements
 
 * Nioh 3 on Steam, **version 2.02**. The mod checks the executable and **refuses to patch any other build**
@@ -72,7 +130,10 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
   * `MaxFps`: with the in-game cap at 120, raise the limiter to 144/165/240, or 0 = unlocked. This is
     **experimental**: script timers and frame pacing above 120 have not been fully verified.
   * `MenuQuantize = 1` only if menu key-repeat misbehaves. Leave it at 0 if you use Nioh3Fix.
-* `[Tuning]`: W3/R1 wait times and the L1 margin. The defaults match the tested values.
+* `[Patches]` also has the experimental keys `W6 B PP FPC AABB M1 M2 J1 X1 E1 S1` (0 = off, see above).
+* `[Tuning]`: W3/R1 wait times and the L1 margin. The defaults match the tested values. Experimental:
+  `PP_Period` (2/4/8/16), `E1_N` (1/2/4/8), `W6_SpinUs` (0-2000), `W6_TimeoutMs` (1-16).
+* `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
 
@@ -97,7 +158,11 @@ game's pause menu, or on the title screen.
 
 What it shows:
 * **Live fixes, applied at once:** VRR timing, W3 message-pump wait (and its Proton sleep mode), R1 render-wait
-  timeout (0 = stock busy poll), L1 frame-limiter sleep, F1 FSR frame-gen presenter sleep, WK job wake gate.
+  timeout (0 = stock busy poll), L1 frame-limiter sleep, F1 FSR frame-gen presenter sleep, WK job wake gate, Max frame
+  latency (game / 1 / 2 / 3).
+* **Experimental CPU power:** W6, B, PP, FPC, AABB, M1, X1, E1 (live when installed; when not installed, toggling sets the
+  ini key for the next launch, `* restart`), M2, J1, S1 (next launch). An `Exp/s` stats line shows W6 waits and
+  average wait, PP skips, FPC hit rate, M1 refreshes, X1 and E1 skips.
   A fix that isn't installed this session shows `not installed` or `off (Proton)`, with the reason.
 * **Overlay:** FPS counter, frame time, speed factor, counter position, counter text size.
 * **Game setting:** *Frame generation* (the game's own setting, switched live the way its options menu does it), plus
@@ -214,6 +279,14 @@ build.bat / CMakeLists.txt / .github/workflows/build.yml
   It also checks what the mod menu relies on: the XInputGetState IAT slot, the engine's stop-flag code, and the
   frame-generation pieces (the game's FG setter and its gate, the settings-changed flag, the FG/upscaler config
   descriptors, the config.xml path string).
+* **Site kinds** (`patches.json`): `bytes` (fixed replacement), `call` (E8 to a near trampoline, nop-padded),
+  `ripload` (`opcode` + rel32 to a near data slot), `jmp` (E9 to a near trampoline - the cave returns by itself or
+  jumps back to an absolute address), `vptr` (an aligned 8-byte pointer in .rdata re-pointed at a cave; `vtarget` = the
+  original target RVA, no code pattern). Optional `callee` (expected E8 target) and `iat_disp_at` / `iat_name`
+  (FF 15 slot and the import it must be) are verified by the test. `deps` lists original code a group relies on beyond
+  its site (exact bytes, or an FNV-1a hash for long ranges); the mod checks them before writing that group and the
+  test checks them against the dump. The experimental sites were derived and swept for branch targets into the patched
+  bytes offline (none), and the MASM caves were compared instruction by instruction with the scripts' Iced caves.
 * **How sites are patched:**
   1. Every enabled site is located by pattern and verified: unique match, original bytes, and the expected RVA on
      the known build.

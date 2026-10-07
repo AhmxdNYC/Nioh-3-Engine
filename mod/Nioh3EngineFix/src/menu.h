@@ -20,6 +20,14 @@ namespace menu {
 
 enum class FixState : uint8_t { Installed, NotInstalled, WineSkipped };
 
+// experimental CPU-power patches (ini default 0), in menu order
+enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kExpE1, kExpM2, kExpJ1, kExpS1, kNumExp };
+struct ExpFix {
+    volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)
+    int ini = 0;                          // ini value at launch
+    bool applied = false;                 // written this session
+};
+
 struct Host {
     const char* version = "";
     void (*log)(const char* fmt, ...) = nullptr;
@@ -45,10 +53,21 @@ struct Host {
     volatile uint32_t* wkSkipped = nullptr;
     // boot-time values the game was launched with ("applies next launch" items)
     int workerCap = 0, p12 = 0, l1OnWine = 0, fgOnWine = 0;
+    // experimental patches + their counters (stats line)
+    ExpFix exp[kNumExp];
+    volatile uint32_t *ppRan = nullptr, *ppSkipped = nullptr, *m1Refresh = nullptr, *x1Skip = nullptr;
+    volatile uint64_t *fpcHits = nullptr, *fpcMisses = nullptr, *e1Upd = nullptr, *e1Skip = nullptr;
+    volatile long *w6Waits = nullptr, *w6Sleeps = nullptr;
+    volatile long long* w6Ticks = nullptr;
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.
 void Configure(const Host& h);
+// Proton only (FG crash-loop guard, see menu.cpp). Early: called by dllmain's worker before the game reads config.xml;
+// restores FRAME_GENERATION OFF when the last session left the mod's FG marker. Exit: called from the ExitProcess /
+// TerminateProcess import hooks (or DLL detach); restores OFF when the mod switched FG on this session.
+void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath);
+void ProtonFgExit(const char* how);
 // true when [Menu] Enabled=1 (the OSD then installs its Present hook even with the counter and popup off)
 bool Enabled();
 // osd install thread, after the Present hook is installed: hooks XInputGetState (game IAT) and DirectInput

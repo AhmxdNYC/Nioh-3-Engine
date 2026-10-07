@@ -642,9 +642,64 @@ int WriteGameConfigFg(const std::wstring& path, const std::string& value) {
     return 1;
 }
 
+// ---- Proton: never leave FRAME_GENERATION on in config.xml because of the mod ---------------------------------------------
+// FG on under Proton is reported to crash the game, and a config.xml with FG on then crash-loops it. The mod never saves
+// FG on there itself, but the game does as soon as the user leaves its own Options/pause menu. So when the mod switched
+// FG on this session and config.xml had FG OFF at startup, it drops a marker file next to the mod and puts OFF back:
+//   * at exit (dllmain hooks the game's ExitProcess / TerminateProcess imports and calls ProtonFgExit; DLL detach as a
+//     last resort), and
+//   * at the next start, before the game reads its config, if the marker is still there (crash) - ProtonFgEarly.
+std::wstring g_fgMarker;        // Nioh3EngineFix.fgmarker
+std::wstring g_cfgPathEarly;    // %LOCALAPPDATA%\KoeiTecmo\NIOH3\config.xml
+std::string g_fgAtStart;        // FRAME_GENERATION in config.xml when the mod started ("" = unknown)
+volatile LONG g_fgMarkerSet = 0;
+volatile LONG g_fgExitDone = 0;
+
+std::string ReadGameConfigFg(const std::wstring& path) {
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return "";
+    std::string data;
+    LARGE_INTEGER sz{};
+    DWORD rd = 0;
+    if (GetFileSizeEx(h, &sz) && sz.QuadPart > 0 && sz.QuadPart < (1 << 20)) {
+        data.resize((size_t)sz.QuadPart);
+        if (!ReadFile(h, &data[0], (DWORD)data.size(), &rd, nullptr) || rd != (DWORD)data.size()) data.clear();
+    }
+    CloseHandle(h);
+    static const char kOpen[] = "<FRAME_GENERATION>", kClose[] = "</FRAME_GENERATION>";
+    const size_t a = data.find(kOpen);
+    if (a == std::string::npos) return "";
+    const size_t v0 = a + strlen(kOpen), b = data.find(kClose, v0);
+    return b == std::string::npos || b - v0 > 8 ? "" : data.substr(v0, b - v0);
+}
+
+void SetFgMarker() {
+    if (g_fgMarker.empty() || InterlockedExchange(&g_fgMarkerSet, 1)) return;
+    HANDLE h = CreateFileW(g_fgMarker.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    static const char kText[] = "FG switched on by the mod under Proton; config.xml had FRAME_GENERATION OFF at startup.\r\n"
+                                "Nioh3EngineFix puts OFF back at exit, or at the next start if this file is still here.\r\n";
+    DWORD wr = 0;
+    const bool ok = h != INVALID_HANDLE_VALUE && WriteFile(h, kText, (DWORD)sizeof(kText) - 1, &wr, nullptr) && FlushFileBuffers(h);
+    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+    MLOG("Proton: FG switched on by the mod - marker %ls %s (config.xml gets FRAME_GENERATION OFF back at exit / next start)",
+         g_fgMarker.c_str(), ok ? "written" : "COULD NOT be written");
+}
+
+// called from ChangeFg on the Present thread after a switch
+void NoteFgSwitchProton(int want) {
+    if (!g_host.wine || !want) return;
+    if (g_fgAtStart == "OFF") SetFgMarker();
+    else MLOG("Proton: config.xml had FRAME_GENERATION %s at startup - no OFF restore at exit", g_fgAtStart.empty() ? "?" : g_fgAtStart.c_str());
+}
+
 // ---- items ----------------------------------------------------------------------------------------------------------
-enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
+enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
+          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1,  // order = menu::ExpId
+          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
+static_assert(kXS1 - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXS1; }
+const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1"};
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -658,6 +713,18 @@ const ItemDef kItems[kCount] = {
     {nullptr, "L1 frame limiter sleep", "Frame limiter sleeps on a high-resolution timer instead of spinning."},
     {nullptr, "F1 FSR-FG presenter", "FSR frame-gen presenter sleeps instead of spinning (FG on only)."},
     {nullptr, "WK job wake gate", "Skips waking a job worker when no queue holds work (less CPU power)."},
+    {nullptr, "Max frame latency", "Frames queued ahead of the GPU: 1 = least input delay. game = the game's own value."},
+    {"EXPERIMENTAL CPU POWER - A/B live", "W6 present wait", "Main thread sleeps while Present blocks, instead of Sleep(0)-spinning a core."},
+    {nullptr, "B gallop search", "Draw-list group length: galloping instead of full binary search (main thread)."},
+    {nullptr, "PP page-pool sweep /N", "Streaming page-pool usage sweep every N-th frame (Tuning PP_Period, default 4)."},
+    {nullptr, "FPC FindParam cache", "Per-frame cache of material parameter lookups on the render thread."},
+    {nullptr, "AABB box math (SSE)", "Character bounding boxes in SSE, bit-identical (game-update thread)."},
+    {nullptr, "M1 meshlet pool sum", "Meshlet-request workers stop re-summing the page-pool capacity per chunk."},
+    {nullptr, "X1 empty pad slots", "Active-pad scan skips XInput slots the game knows are empty."},
+    {nullptr, "E1 hidden effects /N", "Effects nobody can see update every N-th pass with N x the time step (E1_N=2)."},
+    {nullptr, "M2 meshlet atomics", "Meshlet workers read bitmaps with plain loads (code bytes: next launch)."},
+    {nullptr, "J1 job-queue polls", "Idle job workers poll queues with plain loads (code bytes: next launch)."},
+    {nullptr, "S1 drain-spin pause", "PAUSE in the main thread's end-of-frame spin (code bytes: next launch)."},
     {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
     {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},
     {nullptr, "Speed factor", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow."},
@@ -678,6 +745,7 @@ const ItemDef kItems[kCount] = {
 int g_sel = 0;
 bool g_dirty = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
+int g_expIni[kNumExp] = {};  // what Save writes for each experimental patch (live state when installed)
 
 bool Visible(int id) {
     switch (id) {
@@ -724,8 +792,30 @@ bool LiveBool(int id) {
         case kL1: return *g_host.l1Enable != 0;
         case kF1: return *g_host.fgEnable != 0;
         case kWk: return *g_host.wkEnable != 0;
-        default: return false;
+        default:
+            if (IsExp(id) && g_host.exp[id - kXW6].enable) return *g_host.exp[id - kXW6].enable != 0;
+            return false;
     }
+}
+
+// experimental rows: ON/OFF live when installed with a switch, otherwise the ini value for the next launch
+void ExpValue(int id, char* buf, size_t n, uint32_t& color, uint32_t cGreenC, uint32_t cGrayC, uint32_t cYellowC, uint32_t cDimC) {
+    const int e = id - kXW6;
+    const ExpFix& x = g_host.exp[e];
+    if (x.enable) {
+        const bool on = *x.enable != 0;
+        snprintf(buf, n, "%s", on ? "ON" : "OFF");
+        color = on ? cGreenC : cGrayC;
+        return;
+    }
+    const bool changed = g_expIni[e] != x.ini;
+    if (x.ini && !x.applied && !changed) {
+        snprintf(buf, n, "%s", g_host.knownBuild ? "failed - see the log" : "v2.02 only");
+        color = cDimC;
+        return;
+    }
+    snprintf(buf, n, "%s%s", g_expIni[e] ? "ON" : "OFF", changed ? "  * restart" : (x.applied ? "" : "  (ini)"));
+    color = changed ? cYellowC : (g_expIni[e] ? cGreenC : cGrayC);
 }
 
 // frame-generation rows (status from osd::FrameGen; also shown when the switch itself is not available)
@@ -773,6 +863,21 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
     color = cWhite;
     if (id == kFg || id == kFgState || id == kUpscaler) {
         FgValue(id, buf, n, color);
+        return;
+    }
+    if (IsExp(id)) {
+        ExpValue(id, buf, n, color, cGreen, cGray, cYellow, cDim);
+        return;
+    }
+    if (id == kLat) {
+        const osd::LatencyStatus ls = osd::Latency();
+        char game[16];
+        if (ls.game > 0) snprintf(game, sizeof(game), "%d", ls.game);
+        else snprintf(game, sizeof(game), "?");
+        if (ls.state == 2) snprintf(buf, n, "%s (n/a: no waitable swapchain)", ls.want ? std::to_string(ls.want).c_str() : "game");
+        else if (!ls.want) snprintf(buf, n, "game (%s)", game);
+        else snprintf(buf, n, "%d (game %s)", ls.want, game);
+        color = ls.state == 2 ? cDim : ls.want ? cGreen : cGray;
         return;
     }
     if (!Available(id)) {
@@ -873,6 +978,8 @@ void StartSave() {
     if (Available(kL1)) add(L"Patches", L"L1", b(LiveBool(kL1)));
     if (Available(kF1)) add(L"Patches", L"FG", b(LiveBool(kF1)));
     if (Available(kWk)) add(L"Patches", L"WK", b(LiveBool(kWk)));
+    for (int e = 0; e < kNumExp; ++e) add(L"Patches", kExpIniKey[e], std::to_wstring(g_expIni[e]));
+    add(L"Latency", L"MaxFrameLatency", std::to_wstring(osd::Overlay().maxLatency));
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
     if (g_host.wine) {
@@ -987,6 +1094,7 @@ void ChangeFg(int dir) {
     g_fgChanged = true;
     g_dirty = true;
     if (want) g_fgLastOn = want;
+    NoteFgSwitchProton(want);
     MLOG("Frame generation %s -> %s via the game's FrameGenSettingWrite (%s); the game rebuilds its swapchain in a few "
          "frames", a, b, persist ? "config marked dirty" : "Proton: this session only, never saved");
 }
@@ -1008,7 +1116,23 @@ void Change(int id, int dir) {
     }
     if (!Available(id)) return;
     osd::OverlaySettings& o = osd::Overlay();
+    if (IsExp(id)) {
+        const int e = id - kXW6;
+        if (volatile uint32_t* sw = g_host.exp[e].enable) {
+            *sw = *sw ? 0u : 1u;
+            g_expIni[e] = *sw ? 1 : 0;
+        } else {
+            g_expIni[e] = !g_expIni[e];
+        }
+    } else
     switch (id) {
+        case kLat: {
+            int v = o.maxLatency;
+            if (dir == 0) v = v ? 0 : 1;
+            else v = (v + (dir > 0 ? 1 : 3)) % 4;
+            o.maxLatency = v;
+            break;
+        }
         case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: SetLiveBool(id, !LiveBool(id)); break;
         case kR1: {
             int v = (int)*g_host.r1Timeout;
@@ -1060,6 +1184,12 @@ struct Rates {
     long w3 = 0, l1 = 0, fg = 0;
     uint32_t kk = 0, ks = 0;
     double rW3 = -1, rL1 = -1, rFg = -1, rKk = -1, rKs = -1;
+    // experimental
+    long w6 = 0, w6s = 0;
+    long long w6t = 0;
+    uint32_t pps = 0, m1r = 0, x1s = 0;
+    uint64_t fh = 0, fm = 0, e1s = 0;
+    double rW6 = 0, w6Us = 0, rPps = 0, fpcPct = -1, rM1 = 0, rX1 = 0, rE1 = 0;
 };
 Rates g_rates;
 ULONGLONG g_rep[4] = {};  // next auto-repeat time per direction (0 = not repeating)
@@ -1088,9 +1218,28 @@ void SampleRates(ULONGLONG t) {
         r.rFg = (double)(fg - r.fg) / s;
         r.rKk = (double)(uint32_t)(kk - r.kk) / s;
         r.rKs = (double)(uint32_t)(ks - r.ks) / s;
+        const long w6 = ReadPtr(g_host.w6Waits);
+        const long long w6t = ReadPtr(g_host.w6Ticks);
+        static LARGE_INTEGER qf = [] { LARGE_INTEGER f; QueryPerformanceFrequency(&f); return f; }();
+        r.rW6 = (double)(w6 - r.w6) / s;
+        r.w6Us = w6 > r.w6 ? (double)(w6t - r.w6t) * 1e6 / (double)qf.QuadPart / (double)(w6 - r.w6) : 0.0;
+        r.rPps = (double)(uint32_t)(ReadPtr(g_host.ppSkipped) - r.pps) / s;
+        const uint64_t fh = ReadPtr(g_host.fpcHits) - r.fh, fm = ReadPtr(g_host.fpcMisses) - r.fm;
+        r.fpcPct = fh + fm ? 100.0 * (double)fh / (double)(fh + fm) : -1;
+        r.rM1 = (double)(uint32_t)(ReadPtr(g_host.m1Refresh) - r.m1r) / s;
+        r.rX1 = (double)(uint32_t)(ReadPtr(g_host.x1Skip) - r.x1s) / s;
+        r.rE1 = (double)(ReadPtr(g_host.e1Skip) - r.e1s) / s;
     } else if (r.t0) {
         return;
     }
+    r.w6 = ReadPtr(g_host.w6Waits);
+    r.w6t = ReadPtr(g_host.w6Ticks);
+    r.pps = ReadPtr(g_host.ppSkipped);
+    r.fh = ReadPtr(g_host.fpcHits);
+    r.fm = ReadPtr(g_host.fpcMisses);
+    r.m1r = ReadPtr(g_host.m1Refresh);
+    r.x1s = ReadPtr(g_host.x1Skip);
+    r.e1s = ReadPtr(g_host.e1Skip);
     r.t0 = t;
     r.w3 = w3;
     r.l1 = l1;
@@ -1289,10 +1438,10 @@ float DrawImpl(unsigned W, unsigned H) {
     }
 
     // ---- the menu panel
-    Row rows[48];
+    Row rows[64];
     int n = 0;
     auto add = [&](const char* label, const char* value, uint32_t lc, uint32_t vc, bool sel, bool rule) {
-        if (n >= 48) return;
+        if (n >= 64) return;
         Row& r = rows[n++];
         snprintf(r.label, sizeof(r.label), "%s", label);
         snprintf(r.value, sizeof(r.value), "%s", value);
@@ -1341,6 +1490,16 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(stats, sizeof(stats), "Stats/s: W3 %.0f  L1 %.0f  F1 %.0f  WK kept %.0f skipped %.0f", r.rW3, r.rL1, r.rFg,
                  r.rKk, r.rKs);
     add(stats, "", cGray, cWhite, false, false);
+    bool anyExp = false;
+    for (const ExpFix& x : g_host.exp) anyExp |= x.applied;
+    if (anyExp && r.rW3 >= 0) {
+        char fpc[16];
+        if (r.fpcPct >= 0) snprintf(fpc, sizeof(fpc), "%.0f%%", r.fpcPct);
+        else snprintf(fpc, sizeof(fpc), "-");
+        snprintf(stats, sizeof(stats), "Exp/s: W6 %.0f x %.0fus  PP skip %.0f  FPC hit %s  M1 %.0f  X1 skip %.0f  E1 skip %.0f",
+                 r.rW6, r.w6Us, r.rPps, fpc, r.rM1, r.rX1, r.rE1);
+        add(stats, "", cGray, cWhite, false, false);
+    }
     // footer / save status
     const LONG ss = g_saveState;
     if (ss >= 2 && !g_saveShownAt) g_saveShownAt = t;
@@ -1369,7 +1528,7 @@ float DrawImpl(unsigned W, unsigned H) {
         return n * lineH + 2 * pad <= 0.94f * (float)H && (float)cols * osd::kGlyphW * s + 2 * pad <= 0.96f * (float)W;
     };
     while (sc > 1.0f && !fits(sc)) sc -= 0.5f;
-    if (!fits(sc) && sc > 0.5f) sc = 0.5f;  // tiny back buffers (< ~500 px): half-size text rather than clipping
+    while (!fits(sc) && sc > 0.5f) sc -= 0.25f;  // small back buffers (800p with every row): 0.75, then 0.5
     const float lineH = (osd::kGlyphH + 2) * sc, pad = 6 * sc, cw = osd::kGlyphW * sc;
     const float w = (float)cols * cw + 2 * pad, h = n * lineH + 2 * pad;
     const float x0 = std::floor(((float)W - w) / 2), y0 = std::floor(((float)H - h) / 2);
@@ -1438,6 +1597,40 @@ bool ParseHold(const wchar_t* s, uint32_t& mask, char* name, size_t nameLen) {
 }  // namespace
 
 // ---- public ------------------------------------------------------------------------------------------------------------------
+void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath) {
+    if (!g_log) g_log = log;
+    g_fgMarker = markerPath ? markerPath : L"";
+    wchar_t e[MAX_PATH] = {};
+    const DWORD n = ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\KoeiTecmo\\NIOH3\\config.xml", e, MAX_PATH);
+    if (n && n <= MAX_PATH && e[0] != L'%') g_cfgPathEarly = e;
+    g_fgAtStart = g_cfgPathEarly.empty() ? "" : ReadGameConfigFg(g_cfgPathEarly);
+    const bool marker = !g_fgMarker.empty() && GetFileAttributesW(g_fgMarker.c_str()) != INVALID_FILE_ATTRIBUTES;
+    MLOG("Proton: config.xml %ls: FRAME_GENERATION %s at startup%s", g_cfgPathEarly.empty() ? L"(no path)" : g_cfgPathEarly.c_str(),
+         g_fgAtStart.empty() ? "?" : g_fgAtStart.c_str(), marker ? "; FG marker from the last session found" : "");
+    if (!marker) return;
+    if (!g_fgAtStart.empty() && g_fgAtStart != "OFF") {
+        MLOG("Proton: the last session ended with FG switched on by the mod (crash?) and config.xml has %s - putting OFF back "
+             "before the game reads it", g_fgAtStart.c_str());
+        const int r = WriteGameConfigFg(g_cfgPathEarly, "OFF");
+        if (r == 1 || r == 2) g_fgAtStart = "OFF";
+    }
+    DeleteFileW(g_fgMarker.c_str());
+}
+
+void ProtonFgExit(const char* how) {
+    if (!g_fgMarkerSet || InterlockedExchange(&g_fgExitDone, 1)) return;
+    std::wstring path = g_host.base && g_host.knownBuild ? GameConfigPath() : g_cfgPathEarly;
+    if (path.empty()) path = g_cfgPathEarly;
+    const std::string cur = ReadGameConfigFg(path);
+    MLOG("Proton exit (%s): config.xml FRAME_GENERATION is %s", how, cur.empty() ? "?" : cur.c_str());
+    if (cur != "OFF") {
+        const int r = WriteGameConfigFg(path, "OFF");
+        MLOG("Proton exit: FRAME_GENERATION OFF %s", r == 1 ? "restored" : r == 2 ? "already set" : "NOT restored - the marker stays for the next start");
+        if (r == 3) return;
+    }
+    DeleteFileW(g_fgMarker.c_str());
+}
+
 void Configure(const Host& h) {
     g_host = h;
     g_log = h.log;
@@ -1447,6 +1640,7 @@ void Configure(const Host& h) {
     g_bootP12 = h.p12;
     g_bootL1Wine = h.l1OnWine;
     g_bootFgWine = h.fgOnWine;
+    for (int e = 0; e < kNumExp; ++e) g_expIni[e] = h.exp[e].ini;
     const wchar_t* f = g_ini.c_str();
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
     wchar_t b[96] = {};

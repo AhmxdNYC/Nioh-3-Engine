@@ -48,7 +48,11 @@ namespace {
 
 // ---- engine addresses (Nioh 3 Steam v2.02 only; see notes\frame-timing.md, notes\settings.md) -----------------------
 constexpr uint32_t kRvaFrameMgrPtr = 0x4759910;  // G = [base+4759910]
-constexpr uint32_t kOffFrameCounter = 0x610;     // G+610: +1 per engine frame
+// G+610: +1 per game-update TICK (`add [rdi+610h],r12d` at 233B73, the end of the update tick 2338B0 called from 45A54;
+// skipped while G+646h is 0). It is not tied to Present: when the render side presents fewer frames than the game
+// updates (seen on the Ally: 54.6 ticks/s vs 35.8 presents/s with FG off), ticks > frames. So the counter shows the
+// presented (rendered) rate as FPS and the tick rate only as a secondary "game Hz" when they differ.
+constexpr uint32_t kOffFrameCounter = 0x610;
 constexpr uint32_t kOffFpsForDt = 0x614;         // G+614: fps used for dt this frame
 constexpr uint32_t kRvaRenFps = 0x45BAF54;       // REN_FPS index -> {30,60,120}
 constexpr uint32_t kRvaDynamicFps = 0x45BAF58;   // DYNAMIC_FPS 0 = OFF, 1 = ON
@@ -183,21 +187,66 @@ const char* StateStr(State s) {
 }
 
 // ---- statistics (all touched under g_lock from the present hook) ---------------------------------------------------
+// Presents per swapchain, counted for EVERY hooked outermost Present (any thread, before the overlay lock). With FSR
+// frame generation behind Streamline's interposer two swapchain objects present through the same vtable: the game
+// thread presents its rendered frames to the FG proxy chain (our drawing chain), the "AMD FSR Presenter Thread" presents
+// rendered + generated frames to the inner chain. Displayed fps = the busiest chain; rendered fps = the quietest active
+// chain when two are active.
+struct ScCount {
+    IDXGISwapChain* volatile sc;
+    volatile LONG64 n;
+    volatile LONG64 last;
+};
+ScCount g_sc[4] = {};
+volatile DWORD g_fsrTid = 0;          // the FidelityFX presenter thread (by name), 0 = never seen
+volatile LONG64 g_lastFsrPresent = 0;
+volatile LONG g_fsrSeen = 0;
+thread_local int t_named = 0;        // this thread's presents were looked at (name logged / FSR presenter checked)
+
+void CountPresent(IDXGISwapChain* sc, int64_t now) {
+    for (ScCount& e : g_sc)
+        if (e.sc == sc) {
+            InterlockedIncrement64(&e.n);
+            e.last = now;
+            return;
+        }
+    for (ScCount& e : g_sc) {  // a free slot, or one whose chain went quiet (> 2 s)
+        IDXGISwapChain* cur = e.sc;
+        if (cur && Secs(now - e.last) <= 2.0) continue;
+        if (InterlockedCompareExchangePointer(reinterpret_cast<PVOID volatile*>(&e.sc), sc, cur) == cur) {
+            e.n = 1;
+            e.last = now;
+            return;
+        }
+    }
+}
+
+void NotePresentThread(int64_t now) {
+    const DWORD tid = GetCurrentThreadId();
+    if (tid == g_fsrTid) g_lastFsrPresent = now;
+    if (t_named) return;
+    t_named = 1;
+    std::string name = ThreadName();
+    if (name.find("FSR") != std::string::npos || name.find("FrameInterpolation") != std::string::npos) {
+        g_fsrTid = tid;
+        g_lastFsrPresent = now;
+        InterlockedExchange(&g_fsrSeen, 1);
+    }
+    OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
+}
+
 struct Stats {
     int64_t winStart = 0;
     uint32_t frame0 = 0;
-    uint64_t presents = 0, presents0 = 0;
+    IDXGISwapChain* snapSc[4] = {};
+    LONG64 snapN[4] = {};
     double dtSum = 0;
     int dtN = 0;
     bool haveRates = false, haveReal = false, fgActive = false;
-    double realFps = 0, presentFps = 0, frameMs = 0, speed = 0, ratio = 0;
+    double realFps = 0, presentFps = 0, tickFps = 0, frameMs = 0, speed = 0, ratio = 0;
+    int chains = 0;             // swapchains that presented in the last window
     int64_t lastLog = 0;
     uint64_t draws = 0, skips = 0;
-    int fsrThreadSeen = 0;
-    DWORD fsrTid = 0;           // the FidelityFX presenter thread (by name), 0 = not seen on this swapchain
-    int64_t lastFsrPresent = 0; // last hooked Present from it
-    DWORD seenTid[8] = {};
-    int seenN = 0;
 };
 Stats g_st;
 
@@ -205,23 +254,14 @@ Stats g_st;
 int g_fgLogged = -2, g_upLogged = -2;
 int64_t g_fgSwitchAt = 0;
 
-void NoteThread(int64_t now) {
-    DWORD tid = GetCurrentThreadId();
-    if (tid == g_st.fsrTid) g_st.lastFsrPresent = now;
-    for (int i = 0; i < g_st.seenN; ++i)
-        if (g_st.seenTid[i] == tid) return;
-    std::string name = ThreadName();
-    if (g_st.seenN < 8) g_st.seenTid[g_st.seenN++] = tid;
-    if (name.find("FSR") != std::string::npos || name.find("FrameInterpolation") != std::string::npos) {
-        g_st.fsrThreadSeen = 1;
-        g_st.fsrTid = tid;
-        g_st.lastFsrPresent = now;
+void SnapCounts(Stats& s) {
+    for (int i = 0; i < 4; ++i) {
+        s.snapSc[i] = g_sc[i].sc;
+        s.snapN[i] = g_sc[i].n;
     }
-    OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
 }
 
 void UpdateStats(int64_t now) {
-    ++g_st.presents;
     uint8_t* G = EngineG();
     if (G) {
         int fps = 0;
@@ -232,7 +272,7 @@ void UpdateStats(int64_t now) {
     }
     if (g_st.winStart == 0) {
         g_st.winStart = now;
-        g_st.presents0 = g_st.presents;
+        SnapCounts(g_st);
         if (G) Rd(G + kOffFrameCounter, g_st.frame0);
         g_st.lastLog = now;
         return;
@@ -241,14 +281,37 @@ void UpdateStats(int64_t now) {
     if (el < 0.5) return;
     uint32_t fr = 0;
     g_st.haveReal = G && Rd(G + kOffFrameCounter, fr);
-    g_st.realFps = g_st.haveReal ? (double)(uint32_t)(fr - g_st.frame0) / el : 0.0;
+    g_st.tickFps = g_st.haveReal ? (double)(uint32_t)(fr - g_st.frame0) / el : 0.0;
     g_st.frame0 = fr;
-    g_st.presentFps = (double)(g_st.presents - g_st.presents0) / el;
-    g_st.frameMs = g_st.realFps > 0.5 ? 1000.0 / g_st.realFps : 0.0;
-    g_st.speed = g_st.dtN ? g_st.realFps * g_st.dtSum / g_st.dtN : 0.0;
-    g_st.ratio = g_st.realFps > 0.5 ? g_st.presentFps / g_st.realFps : 0.0;
-    if (!g_st.fgActive && g_st.realFps > 5 && g_st.ratio > 1.4) g_st.fgActive = true;
-    else if (g_st.fgActive && (g_st.ratio < 1.2 || g_st.realFps <= 5)) g_st.fgActive = false;
+    // per-swapchain present rates over the window (a slot reassigned mid-window is ignored for this window)
+    double hi = 0, lo = 0;
+    int chains = 0;
+    for (int i = 0; i < 4; ++i) {
+        IDXGISwapChain* sc = g_sc[i].sc;
+        if (!sc || sc != g_st.snapSc[i]) continue;
+        const double r = (double)(g_sc[i].n - g_st.snapN[i]) / el;
+        if (r < 1.0) continue;
+        if (!chains || r > hi) hi = r;
+        if (!chains || r < lo) lo = r;
+        ++chains;
+    }
+    SnapCounts(g_st);
+    g_st.chains = chains;
+    g_st.presentFps = hi;  // displayed: the busiest chain (incl. generated frames)
+    // rendered: the game's own chain when the FG presenter has its own one; with a single chain that carries
+    // generated frames too (presented well above the tick rate), the engine tick rate is the best estimate
+    const bool presenterRecent = g_lastFsrPresent && Secs(now - g_lastFsrPresent) < 1.0;
+    double rendered = chains >= 2 ? lo : hi;
+    if (chains < 2 && g_st.tickFps > 5 && hi > 1.4 * g_st.tickFps) rendered = g_st.tickFps;
+    g_st.realFps = rendered;
+    g_st.frameMs = rendered > 0.5 ? 1000.0 / rendered : 0.0;
+    g_st.speed = g_st.dtN ? g_st.tickFps * g_st.dtSum / g_st.dtN : 0.0;  // game seconds per real second
+    g_st.ratio = rendered > 0.5 ? hi / rendered : 0.0;
+    // FG runs when the displayed rate is well above the rendered one; a present from the FSR presenter thread counts
+    // as FG running unless no extra frames reach the screen (menus/cutscenes: the presenter passes frames through)
+    if (presenterRecent && rendered > 5 && g_st.ratio >= 1.15) g_st.fgActive = true;
+    else if (!g_st.fgActive && rendered > 5 && g_st.ratio > 1.4) g_st.fgActive = true;
+    else if (g_st.fgActive && (g_st.ratio < 1.2 || rendered <= 5)) g_st.fgActive = false;
     g_st.haveRates = true;
     if (g_info.known) {  // the game's FG / upscaler settings: logged at the first window and whenever they change
         const int fg = ReadCfg(kRvaFrameGen), up = ReadCfg(kRvaUpscaler);
@@ -262,15 +325,15 @@ void UpdateStats(int64_t now) {
         }
     }
     g_st.winStart = now;
-    g_st.presents0 = g_st.presents;
     g_st.dtSum = 0;
     g_st.dtN = 0;
     if (Secs(now - g_st.lastLog) >= 30.0) {
         g_st.lastLog = now;
-        OLOG("stats: real %.1f fps, presented %.1f fps (x%.2f, FG %s), speed %.2fx, vrr tier %u cap %u armed %u, "
-             "draws %llu, skipped %llu",
-             g_st.realFps, g_st.presentFps, g_st.ratio, g_st.fgActive ? "active" : "off", g_st.speed, vrr_tier,
-             vrr_capCur, vrr_fpsOut, (unsigned long long)g_st.draws, (unsigned long long)g_st.skips);
+        OLOG("stats: rendered %.1f fps, displayed %.1f fps (x%.2f, FG %s, %d chain(s)%s), game ticks %.1f/s, speed %.2fx, "
+             "vrr tier %u cap %u armed %u, draws %llu, skipped %llu",
+             g_st.realFps, g_st.presentFps, g_st.ratio, g_st.fgActive ? "active" : "off", g_st.chains,
+             presenterRecent ? ", FSR presenter" : "", g_st.tickFps, g_st.speed, vrr_tier, vrr_capCur, vrr_fpsOut,
+             (unsigned long long)g_st.draws, (unsigned long long)g_st.skips);
     }
 }
 
@@ -284,7 +347,7 @@ const char* FgName(int setting) {
 }
 
 const char* FgActiveName() {
-    if (g_st.fsrThreadSeen) return "FSR";
+    if (g_fsrSeen) return "FSR";
     if (const char* n = FgName(ReadCfg(kRvaFrameGen))) return n;
     if (GetModuleHandleW(L"libxess_fg.dll")) return "XeSS";
     if (GetModuleHandleW(L"sl.dlss_g.dll")) return "DLSS";
@@ -315,10 +378,10 @@ struct Seg {
     uint32_t c;
 };
 struct Line {
-    Seg s[4];
+    Seg s[6];
     int n = 0;
     void add(uint32_t c, const char* fmt, ...) {
-        if (n >= 4) return;
+        if (n >= 6) return;
         va_list ap;
         va_start(ap, fmt);
         vsnprintf(s[n].t, sizeof(s[n].t), fmt, ap);
@@ -382,13 +445,19 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     Line counter;
     if (g_cfg.fpsCounter) {
         if (!g_st.haveRates) {
-            counter.add(kWhite, "Real FPS: --");
+            counter.add(kWhite, "FPS: --");
         } else if (!g_st.haveReal) {
             counter.add(kWhite, "FPS: %.0f", g_st.presentFps);  // unknown build: presented frames only
         } else {
-            counter.add(kWhite, "Real FPS: %.0f", g_st.realFps);
+            // FPS = frames the game rendered and presented; FG FPS = frames shown incl. generated ones; "game N Hz" =
+            // engine update ticks, shown only when they differ from the rendered rate (ticks without a Present)
+            char tick[32] = "";
+            if (g_st.tickFps > 0 && std::fabs(g_st.tickFps - g_st.realFps) > std::max(2.0, 0.1 * g_st.realFps))
+                snprintf(tick, sizeof(tick), " (game %.0f Hz)", g_st.tickFps);
+            counter.add(kWhite, "FPS: %.0f", g_st.realFps);
             if (g_st.fgActive) counter.add(kCyan, " | FG FPS: %.0f", g_st.presentFps);
-            else counter.add(kGray, " | FG: off");
+            else counter.add(kGray, " | FG: off%s", tick);
+            if (g_st.fgActive && tick[0]) counter.add(kGray, "%s", tick);
             if (g_cfg.frameTime && g_st.frameMs > 0) counter.add(kWhite, " | %.1f ms", g_st.frameMs);
             if (g_cfg.speed && g_st.speed > 0) {
                 const bool ok = g_st.speed > 0.97 && g_st.speed < 1.03;
@@ -835,6 +904,72 @@ bool DrawFrame(Ctx& c, int64_t now) {
     return drawn;
 }
 
+// ---- [Latency] MaxFrameLatency: IDXGISwapChain2::SetMaximumFrameLatency on every presenting swapchain that was created
+// with DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT (the game's FG chain: flags 0x842). Re-checked every 2 s
+// and on a setting change, so swapchain rebuilds (FG toggle, resize) get it again; 0 restores the game's own value.
+struct LatEntry {
+    IDXGISwapChain* sc = nullptr;
+    int64_t checked = 0;
+    int want = -1, game = 0, cur = 0, applied = 0, state = 0;
+};
+LatEntry g_lat[4];
+IDXGISwapChain* g_latLast = nullptr;  // the swapchain the menu reports
+
+void ApplyLatency(IDXGISwapChain* sc, int64_t now) {
+    LatEntry* e = nullptr;
+    for (LatEntry& x : g_lat)
+        if (x.sc == sc) e = &x;
+    const bool fresh = e == nullptr;
+    if (fresh) {
+        e = &g_lat[0];
+        for (LatEntry& x : g_lat)
+            if (x.checked < e->checked) e = &x;  // reuse the least recently checked entry
+        *e = LatEntry{};
+        e->sc = sc;
+    }
+    g_latLast = sc;
+    const int want = g_cfg.maxLatency;
+    if (!fresh && e->want == want && Secs(now - e->checked) < 2.0) return;
+    const bool wantChanged = e->want != want;
+    e->checked = now;
+    e->want = want;
+    const bool wasNa = e->state == 2;  // not applicable last time: re-checked quietly (the address may be a new chain)
+    IDXGISwapChain2* s2 = nullptr;
+    if (FAILED(sc->QueryInterface(IID_PPV_ARGS(&s2))) || !s2) {
+        if (want && !wasNa) OLOG("MaxFrameLatency: swapchain %p has no IDXGISwapChain2 - not applicable", (void*)sc);
+        e->state = 2;
+        return;
+    }
+    DXGI_SWAP_CHAIN_DESC1 d{};
+    if (FAILED(s2->GetDesc1(&d)) || !(d.Flags & DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT)) {
+        if (!wasNa) OLOG("MaxFrameLatency: swapchain %p (flags %X) was not created with FRAME_LATENCY_WAITABLE_OBJECT - not applicable%s",
+             (void*)sc, d.Flags, want ? "" : " (setting is 0 anyway)");
+        e->state = 2;
+        s2->Release();
+        return;
+    }
+    UINT cur = 0;
+    if (FAILED(s2->GetMaximumFrameLatency(&cur))) cur = 0;
+    if (fresh || wasNa || (int)cur != e->applied) {  // first look, or the game (or a rebuilt chain) changed it: that is its value
+        if (!fresh) OLOG("MaxFrameLatency: swapchain %p value is now %u (set by the game)", (void*)sc, cur);
+        else OLOG("MaxFrameLatency: swapchain %p (flags %X) - the game's maximum frame latency is %u", (void*)sc, d.Flags, cur);
+        e->game = (int)cur;
+    }
+    const int target = want ? want : e->game;
+    if (target > 0 && (int)cur != target) {
+        const HRESULT hr = s2->SetMaximumFrameLatency((UINT)target);
+        OLOG("MaxFrameLatency: swapchain %p %u -> %d (%s)%s", (void*)sc, cur, target, want ? "setting" : "game's value restored",
+             SUCCEEDED(hr) ? "" : " FAILED");
+        if (SUCCEEDED(hr)) cur = (UINT)target;
+    } else if (wantChanged && !fresh) {
+        OLOG("MaxFrameLatency: swapchain %p stays %u", (void*)sc, cur);
+    }
+    e->applied = (int)cur;
+    e->cur = (int)cur;
+    e->state = 1;
+    s2->Release();
+}
+
 void OnPresent(IDXGISwapChain* sc) {
     const int64_t now = Qpc();
     if (sc != g_ctx.sc) {
@@ -880,7 +1015,6 @@ void OnPresent(IDXGISwapChain* sc) {
     }
     g_ctx.lastPresent = now;
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
-    NoteThread(now);
     UpdateStats(now);
     menu::OnPresent();  // menu input + runtime switches (needs a working drawing context, checked above)
     static bool loggedFirst = false;
@@ -904,7 +1038,14 @@ void OnPresentSafe(IDXGISwapChain* sc) {
 
 void Hooked(IDXGISwapChain* sc, UINT flags) {
     if (t_depth != 1 || (flags & DXGI_PRESENT_TEST) || g_disabled) return;
+    const int64_t now = Qpc();
+    CountPresent(sc, now);  // every swapchain, every presenting thread (FG presenter included), lock-free
+    NotePresentThread(now);
     if (!TryAcquireSRWLockExclusive(&g_lock)) return;  // another thread is drawing: just present
+    __try {
+        ApplyLatency(sc, now);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
     OnPresentSafe(sc);
     ReleaseSRWLockExclusive(&g_lock);
 }
@@ -1070,6 +1211,25 @@ float IniFloat(const wchar_t* ini, const wchar_t* sec, const wchar_t* key, float
 }  // namespace
 
 OverlaySettings& Overlay() { return g_cfg; }
+LatencyStatus Latency() {
+    LatencyStatus s;
+    s.want = g_cfg.maxLatency;
+    // prefer the drawing chain (the game's own), else the swapchain that presented last
+    const LatEntry* e = nullptr;
+    for (const LatEntry& x : g_lat)
+        if (x.sc && x.sc == g_ctx.sc && x.state) e = &x;
+    if (!e)
+        for (const LatEntry& x : g_lat)
+            if (x.sc && x.sc == g_latLast) e = &x;
+    if (!e) return s;
+    // a waitable chain anywhere counts as applicable (with FG the presenter's inner chain may not be waitable)
+    for (const LatEntry& x : g_lat)
+        if (x.sc && x.state == 1 && e->state != 1) e = &x;
+    s.game = e->game;
+    s.cur = e->cur;
+    s.state = e->state;
+    return s;
+}
 const char* PositionName(int pos) {
     static const char* const k[4] = {"TopLeft", "TopRight", "BottomLeft", "BottomRight"};
     return k[pos & 3];
@@ -1099,9 +1259,10 @@ FgStatus FrameGen() {
     }
     s.measured = g_st.haveRates && g_st.haveReal;
     s.active = g_st.fgActive;
-    s.presenter = g_st.fsrTid && g_st.lastFsrPresent && Secs(now - g_st.lastFsrPresent) < 2.0;
+    s.presenter = g_fsrTid && g_lastFsrPresent && Secs(now - g_lastFsrPresent) < 2.0;
     s.realFps = g_st.realFps;
     s.presentFps = g_st.presentFps;
+    s.tickFps = g_st.tickFps;
     if (g_fgSwitchAt) s.sinceSwitch = Secs(now - g_fgSwitchAt);
     return s;
 }
@@ -1151,7 +1312,9 @@ void Start(const StartupInfo& si) {
         wchar_t pos[32] = {};
         GetPrivateProfileStringW(L"Overlay", L"Position", L"TopLeft", pos, 32, f);
         g_cfg.pos = !_wcsicmp(pos, L"TopRight") ? 1 : !_wcsicmp(pos, L"BottomLeft") ? 2 : !_wcsicmp(pos, L"BottomRight") ? 3 : 0;
+        g_cfg.maxLatency = std::clamp(I(L"Latency", L"MaxFrameLatency", 0), 0, 16);
     }
+    if (g_cfg.maxLatency) OLOG("MaxFrameLatency=%d (applied to waitable swapchains as they present)", g_cfg.maxLatency);
     OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f", g_cfg.fpsCounter,
          g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale);
     if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled()) {

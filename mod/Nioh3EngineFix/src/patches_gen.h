@@ -4,8 +4,8 @@
 
 namespace gen {
 
-enum class Kind : uint8_t { Bytes, Call, RipLoad };
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate };
+enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -24,6 +24,16 @@ struct Site {
     uint8_t opcode[2];    // Kind::RipLoad: opcode + modrm, followed by rel32 to the near data slot
     Data data;            // Kind::RipLoad: near data slot
     Reads reads;          // value taken from the original bytes before patching
+    uint32_t expectRva;   // Kind::VPtr: original pointer target RVA; E8 sites with "callee": expected callee RVA; else 0
+};
+
+// original code the caves depend on beyond their own site (checked on the known build before a group is written)
+struct Dep {
+    const char* group;
+    uint32_t rva;
+    uint32_t len;
+    const uint8_t* bytes;  // exact bytes, or nullptr -> compare the FNV-1a 32 hash
+    uint32_t fnv1a;
 };
 
 constexpr uint32_t kBuildTimestamp = 0x6AA7C106;   // Nioh 3 v2.02 (Steam)
@@ -69,40 +79,142 @@ static const uint8_t orig_WCa[] = { 0x41, 0x83, 0xFB, 0x20 };
 static const uint8_t repl_WCa[] = { 0x41, 0x83, 0xFB, 0x0A };
 static const uint8_t orig_WCb[] = { 0xB0, 0x20 };
 static const uint8_t repl_WCb[] = { 0xB0, 0x0A };
+static const uint8_t orig_B[] = { 0x44, 0x8B, 0x54, 0x24, 0x28 };
+static const uint8_t orig_PP[] = { 0xE8, 0x48, 0xFC, 0xFF, 0xFF };
+static const uint8_t orig_AABB[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_M1[] = { 0x48, 0x8B, 0x96, 0xC8, 0x01, 0x00, 0x00 };
+static const uint8_t orig_M2a[] = { 0xF0, 0x44, 0x0F, 0xB1, 0xAD, 0xB8, 0x00, 0x00, 0x00 };
+static const uint8_t repl_M2a[] = { 0x8B, 0x85, 0xB8, 0x00, 0x00, 0x00, 0x0F, 0x1F, 0x00 };
+static const uint8_t orig_M2b[] = { 0xF0, 0x46, 0x0F, 0xB1, 0x2C, 0x21 };
+static const uint8_t repl_M2b[] = { 0x42, 0x8B, 0x04, 0x21, 0x66, 0x90 };
+static const uint8_t orig_M2c[] = { 0xF0, 0x45, 0x0F, 0xB1, 0x29 };
+static const uint8_t repl_M2c[] = { 0x41, 0x8B, 0x01, 0x66, 0x90 };
+static const uint8_t orig_M2d[] = { 0xF0, 0x46, 0x0F, 0xB1, 0x2C, 0x21 };
+static const uint8_t repl_M2d[] = { 0x42, 0x8B, 0x04, 0x21, 0x66, 0x90 };
+static const uint8_t orig_M2e[] = { 0xF0, 0x45, 0x0F, 0xB1, 0x28 };
+static const uint8_t repl_M2e[] = { 0x41, 0x8B, 0x00, 0x66, 0x90 };
+static const uint8_t orig_J1a[] = { 0xF0, 0x42, 0x0F, 0xB1, 0x1C, 0x19 };
+static const uint8_t repl_J1a[] = { 0x42, 0x8B, 0x04, 0x19, 0x66, 0x90 };
+static const uint8_t orig_J1b[] = { 0xF0, 0x42, 0x0F, 0xB1, 0x1C, 0x19 };
+static const uint8_t repl_J1b[] = { 0x42, 0x8B, 0x04, 0x19, 0x85, 0xC0 };
+static const uint8_t orig_J1c[] = { 0xF0, 0x42, 0x0F, 0xB1, 0x1C, 0x19 };
+static const uint8_t repl_J1c[] = { 0x42, 0x8B, 0x04, 0x19, 0x66, 0x90 };
+static const uint8_t orig_J1d[] = { 0xF0, 0x42, 0x0F, 0xB1, 0x1C, 0x19 };
+static const uint8_t repl_J1d[] = { 0x42, 0x8B, 0x04, 0x19, 0x85, 0xC0 };
+static const uint8_t orig_J1e[] = { 0xF0, 0x42, 0x0F, 0xB1, 0x34, 0x01 };
+static const uint8_t repl_J1e[] = { 0x42, 0x8B, 0x04, 0x01, 0x85, 0xC0 };
+static const uint8_t orig_J1f[] = { 0xF0, 0x45, 0x0F, 0xB1, 0xAF, 0x54, 0x04, 0x00, 0x00 };
+static const uint8_t repl_J1f[] = { 0x41, 0x8B, 0x87, 0x54, 0x04, 0x00, 0x00, 0x66, 0x90 };
+static const uint8_t orig_J1g[] = { 0xF0, 0x44, 0x0F, 0xB1, 0x71, 0x34 };
+static const uint8_t repl_J1g[] = { 0x8B, 0x41, 0x34, 0x0F, 0x1F, 0x00 };
+static const uint8_t orig_J1h[] = { 0xF0, 0x44, 0x0F, 0xB1, 0x73, 0x34 };
+static const uint8_t repl_J1h[] = { 0x8B, 0x43, 0x34, 0x0F, 0x1F, 0x00 };
+static const uint8_t orig_X1[] = { 0xFF, 0x15, 0x93, 0xD0, 0x4A, 0x03 };
+static const uint8_t orig_E1A[] = { 0x33, 0xD2, 0x44, 0x8B, 0xCA };
+static const uint8_t orig_E1B[] = { 0xE8, 0x70, 0x9B, 0x5D, 0x00 };
+static const uint8_t orig_W6[] = { 0x33, 0xC9, 0xFF, 0x15, 0x8E, 0x84, 0x10, 0x03 };
+static const uint8_t orig_W6W[] = { 0xC6, 0x83, 0x28, 0x77, 0x00, 0x00, 0x00 };
+static const uint8_t orig_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x0F, 0xB6, 0x05, 0x2B, 0x59, 0x1B, 0x04, 0x84, 0xC0, 0x75, 0xE7 };
+static const uint8_t repl_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x84, 0xC0, 0x74, 0x07, 0xF3, 0x90, 0xEB, 0xEA, 0x0F, 0x1F, 0x00 };
 
 static const Site kSites[] = {
-    { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "W2a", "W2", 0x13721F, 14, orig_W2a, "0F 85 ?? ?? ?? ?? F3 0F 10 06 F3 0F 5C 45 00 F3 0F 11 03 F3 0F 10 46 04 F3 0F 58 45 04 83 63 08 00 80 7C 24 58 00 F3 0F 11 43 04 48 8B 07 48 89 43 0C 48 8B 47 20 48 89 43 14 48 8B 47 40 48 89 43 1C", 29, Kind::Bytes, repl_W2a, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "W2b", "W2", 0x137269, 14, orig_W2b, "83 63 34 00 80 7C 24 58 00 F3 0F 11 4B 30", 0, Kind::Bytes, repl_W2b, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "W2c", "W2", 0x1372B4, 14, orig_W2c, "83 63 60 00 80 7C 24 58 00 F3 0F 11 4B 5C", 0, Kind::Bytes, repl_W2c, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "W2d", "W2", 0x1372FE, 25, orig_W2d, "83 A3 8C 00 00 00 00 48 8B 6C 24 38 48 8B 74 24 40 F3 0F 11 8B 88 00 00 00", 0, Kind::Bytes, repl_W2d, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P3a", "VRR", 0x43593A, 6, orig_P3a, "44 8B C0 8D 42 78 41 F7 F0 41 03 C2 41 89 81 FC 03 00 00", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None },
-    { "P3b", "VRR", 0x437EE5, 6, orig_P3b, "8D 42 78 41 F7 F0 01 83 00 98 06 00", 0, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None },
-    { "P3c", "VRR", 0x438473, 6, orig_P3c, "44 8B C0 8D 42 78 41 F7 F0 29 06 EB 06", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None },
-    { "P3d", "VRR", 0x55DC56, 6, orig_P3d, "44 8B C0 8D 42 78 41 F7 F0 41 03 C2 41 89 81 F8 03 00 00", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None },
-    { "P3e", "VRR", 0x5AF6C9, 6, orig_P3e, "44 8B C0 8D 42 78 41 F7 F0 44 2B C8", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None },
-    { "P3f", "VRR", 0x29770C6, 6, orig_P3f, "44 8B C0 8D 42 78 41 F7 F0 29 43 F4", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None },
-    { "P3g", "VRR", 0x29771B4, 6, orig_P3g, "33 D2 8D 42 78 41 F7 F0 01 43 20 41 8B 42 04", 2, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None },
-    { "P6", "VRR", 0x1975BAA, 6, orig_P6, "0F 57 C0 8D 42 3C 41 F7 F0 8B C8 F3 48 0F 2A C1", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks60, Reads::None },
-    { "P8a", "VRR", 0x20E77B, 5, orig_P8a, "40 84 ED 75 37 E8 ?? ?? ?? ?? 44 8B C0 F3 41 0F 59 C9", 5, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P8b", "VRR", 0x5AF526, 5, orig_P8b, "0F 85 ?? ?? ?? ?? E8 ?? ?? ?? ?? 69 C8 E8 03 00 00 B8 89 88 88 88", 6, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P8c", "VRR", 0x5AF682, 5, orig_P8c, "0F 29 74 24 30 48 8B D9 E8 ?? ?? ?? ?? 0F 57 F6 44 8B C0", 8, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P8d", "VRR", 0x5AF69F, 5, orig_P8d, "F3 0F 5E 35 ?? ?? ?? ?? E8 ?? ?? ?? ?? 44 8B 4B 64 69 D0 E8 03 00 00", 8, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P9", "VRR", 0x5AD89B, 6, orig_P9, "FF 50 08 8B 87 14 06 00 00 33 D2 F7 B7 1C 06 00 00", 3, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P2", "VRR", 0x5AD6AA, 8, orig_P2, "F3 0F 11 97 24 06 00 00 80 BF 8C 05 00 00 00", 0, Kind::Call, nullptr, Target::caveScale, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P4", "VRR", 0x5AD860, 6, orig_P4, "E8 ?? ?? ?? ?? 8B 87 14 06 00 00 89 44 24 20 E8 ?? ?? ?? ??", 5, Kind::Call, nullptr, Target::caveLim, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P1", "VRR", 0x5AD677, 7, orig_P1, "44 89 87 14 06 00 00 89 87 1C 06 00 00", 0, Kind::Call, nullptr, Target::caveFps, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P7", "VRRMENU", 0x43312B, 5, orig_P7, "0F 29 74 24 20 48 8B F9 E8 ?? ?? ?? ?? 48 8B 71 50 0F 28 F0", 8, Kind::Call, nullptr, Target::caveMenu, 0, { 0x00, 0x00 }, Data::none, Reads::CalleeRel32At1 },
-    { "W3", "W3", 0x1A6BF2D, 6, orig_W3, "48 8D 4C 24 48 33 D2 FF 15 ?? ?? ?? ?? 85 C0 74 1D", 7, Kind::Call, nullptr, Target::hookPeek, 1, { 0x00, 0x00 }, Data::none, Reads::IatDisp32At2 },
-    { "R1", "R1", 0x4A5346, 6, orig_R1, "74 13 EB 02 F3 90 33 D2 48 8B CD FF 15 ?? ?? ?? ??", 2, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x15 }, Data::r1Timeout, Reads::None },
-    { "R1j", "R1", 0x4A5357, 2, orig_R1j, "FF 15 ?? ?? ?? ?? 85 C0 75 EF 48 8D 54 24 40 E8 ?? ?? ?? ??", 8, Kind::Bytes, repl_R1j, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "L1", "L1", 0x19DF57E, 10, orig_L1, "41 89 4F 30 E9 ?? ?? ?? ?? 33 D2 48 8B CE E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B D0", 9, Kind::Call, nullptr, Target::caveL1, 0, { 0x00, 0x00 }, Data::none, Reads::CalleeRel32At6 },
-    { "F1", "FG", 0x3777A40, 5, orig_F1, "48 8B 0F 48 03 4C 24 20 E8 ?? ?? ?? ?? 48 8D 4C 24 20 FF 15 ?? ?? ?? ?? 44 8B C6", 8, Kind::Call, nullptr, Target::fgWait, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "P12", "P12", 0x1FE30D5, 4, orig_P12, "41 83 FB 0C 7F 2B 41 0F B7 C1 B9 FD FF 00 00", 0, Kind::Bytes, repl_P12, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "WK", "WK", 0x40A4C, 7, orig_WK, "45 84 C0 0F 84 ?? ?? ?? ?? 49 8B 8F 40 04 00 00 33 C0 F0 0F B1 71 2C", 9, Kind::Call, nullptr, Target::caveWakeGate, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "WCa", "WC", 0x1FE300B, 4, orig_WCa, "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", 0, Kind::Bytes, repl_WCa, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
-    { "WCb", "WC", 0x1FE3011, 2, orig_WCb, "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", 6, Kind::Bytes, repl_WCb, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None },
+    { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "W2a", "W2", 0x13721F, 14, orig_W2a, "0F 85 ?? ?? ?? ?? F3 0F 10 06 F3 0F 5C 45 00 F3 0F 11 03 F3 0F 10 46 04 F3 0F 58 45 04 83 63 08 00 80 7C 24 58 00 F3 0F 11 43 04 48 8B 07 48 89 43 0C 48 8B 47 20 48 89 43 14 48 8B 47 40 48 89 43 1C", 29, Kind::Bytes, repl_W2a, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "W2b", "W2", 0x137269, 14, orig_W2b, "83 63 34 00 80 7C 24 58 00 F3 0F 11 4B 30", 0, Kind::Bytes, repl_W2b, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "W2c", "W2", 0x1372B4, 14, orig_W2c, "83 63 60 00 80 7C 24 58 00 F3 0F 11 4B 5C", 0, Kind::Bytes, repl_W2c, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "W2d", "W2", 0x1372FE, 25, orig_W2d, "83 A3 8C 00 00 00 00 48 8B 6C 24 38 48 8B 74 24 40 F3 0F 11 8B 88 00 00 00", 0, Kind::Bytes, repl_W2d, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P3a", "VRR", 0x43593A, 6, orig_P3a, "44 8B C0 8D 42 78 41 F7 F0 41 03 C2 41 89 81 FC 03 00 00", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None, 0x0 },
+    { "P3b", "VRR", 0x437EE5, 6, orig_P3b, "8D 42 78 41 F7 F0 01 83 00 98 06 00", 0, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None, 0x0 },
+    { "P3c", "VRR", 0x438473, 6, orig_P3c, "44 8B C0 8D 42 78 41 F7 F0 29 06 EB 06", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None, 0x0 },
+    { "P3d", "VRR", 0x55DC56, 6, orig_P3d, "44 8B C0 8D 42 78 41 F7 F0 41 03 C2 41 89 81 F8 03 00 00", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None, 0x0 },
+    { "P3e", "VRR", 0x5AF6C9, 6, orig_P3e, "44 8B C0 8D 42 78 41 F7 F0 44 2B C8", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None, 0x0 },
+    { "P3f", "VRR", 0x29770C6, 6, orig_P3f, "44 8B C0 8D 42 78 41 F7 F0 29 43 F4", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None, 0x0 },
+    { "P3g", "VRR", 0x29771B4, 6, orig_P3g, "33 D2 8D 42 78 41 F7 F0 01 43 20 41 8B 42 04", 2, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks120, Reads::None, 0x0 },
+    { "P6", "VRR", 0x1975BAA, 6, orig_P6, "0F 57 C0 8D 42 3C 41 F7 F0 8B C8 F3 48 0F 2A C1", 3, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x05 }, Data::ticks60, Reads::None, 0x0 },
+    { "P8a", "VRR", 0x20E77B, 5, orig_P8a, "40 84 ED 75 37 E8 ?? ?? ?? ?? 44 8B C0 F3 41 0F 59 C9", 5, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P8b", "VRR", 0x5AF526, 5, orig_P8b, "0F 85 ?? ?? ?? ?? E8 ?? ?? ?? ?? 69 C8 E8 03 00 00 B8 89 88 88 88", 6, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P8c", "VRR", 0x5AF682, 5, orig_P8c, "0F 29 74 24 30 48 8B D9 E8 ?? ?? ?? ?? 0F 57 F6 44 8B C0", 8, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P8d", "VRR", 0x5AF69F, 5, orig_P8d, "F3 0F 5E 35 ?? ?? ?? ?? E8 ?? ?? ?? ?? 44 8B 4B 64 69 D0 E8 03 00 00", 8, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P9", "VRR", 0x5AD89B, 6, orig_P9, "FF 50 08 8B 87 14 06 00 00 33 D2 F7 B7 1C 06 00 00", 3, Kind::Call, nullptr, Target::caveTier, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P2", "VRR", 0x5AD6AA, 8, orig_P2, "F3 0F 11 97 24 06 00 00 80 BF 8C 05 00 00 00", 0, Kind::Call, nullptr, Target::caveScale, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P4", "VRR", 0x5AD860, 6, orig_P4, "E8 ?? ?? ?? ?? 8B 87 14 06 00 00 89 44 24 20 E8 ?? ?? ?? ??", 5, Kind::Call, nullptr, Target::caveLim, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P1", "VRR", 0x5AD677, 7, orig_P1, "44 89 87 14 06 00 00 89 87 1C 06 00 00", 0, Kind::Call, nullptr, Target::caveFps, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P7", "VRRMENU", 0x43312B, 5, orig_P7, "0F 29 74 24 20 48 8B F9 E8 ?? ?? ?? ?? 48 8B 71 50 0F 28 F0", 8, Kind::Call, nullptr, Target::caveMenu, 0, { 0x00, 0x00 }, Data::none, Reads::CalleeRel32At1, 0x0 },
+    { "W3", "W3", 0x1A6BF2D, 6, orig_W3, "48 8D 4C 24 48 33 D2 FF 15 ?? ?? ?? ?? 85 C0 74 1D", 7, Kind::Call, nullptr, Target::hookPeek, 1, { 0x00, 0x00 }, Data::none, Reads::IatDisp32At2, 0x0 },
+    { "R1", "R1", 0x4A5346, 6, orig_R1, "74 13 EB 02 F3 90 33 D2 48 8B CD FF 15 ?? ?? ?? ??", 2, Kind::RipLoad, nullptr, Target::none, 0, { 0x8B, 0x15 }, Data::r1Timeout, Reads::None, 0x0 },
+    { "R1j", "R1", 0x4A5357, 2, orig_R1j, "FF 15 ?? ?? ?? ?? 85 C0 75 EF 48 8D 54 24 40 E8 ?? ?? ?? ??", 8, Kind::Bytes, repl_R1j, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "L1", "L1", 0x19DF57E, 10, orig_L1, "41 89 4F 30 E9 ?? ?? ?? ?? 33 D2 48 8B CE E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B D0", 9, Kind::Call, nullptr, Target::caveL1, 0, { 0x00, 0x00 }, Data::none, Reads::CalleeRel32At6, 0x0 },
+    { "F1", "FG", 0x3777A40, 5, orig_F1, "48 8B 0F 48 03 4C 24 20 E8 ?? ?? ?? ?? 48 8D 4C 24 20 FF 15 ?? ?? ?? ?? 44 8B C6", 8, Kind::Call, nullptr, Target::fgWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "P12", "P12", 0x1FE30D5, 4, orig_P12, "41 83 FB 0C 7F 2B 41 0F B7 C1 B9 FD FF 00 00", 0, Kind::Bytes, repl_P12, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "WK", "WK", 0x40A4C, 7, orig_WK, "45 84 C0 0F 84 ?? ?? ?? ?? 49 8B 8F 40 04 00 00 33 C0 F0 0F B1 71 2C", 9, Kind::Call, nullptr, Target::caveWakeGate, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "WCa", "WC", 0x1FE300B, 4, orig_WCa, "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", 0, Kind::Bytes, repl_WCa, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "WCb", "WC", 0x1FE3011, 2, orig_WCb, "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", 6, Kind::Bytes, repl_WCb, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "B", "B", 0x3BC17, 5, orig_B, "75 58 44 8B 54 24 28 45 3B CA 73 3A", 2, Kind::Jmp, nullptr, Target::caveGallop, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PP", "PP", 0x252677, 5, orig_PP, "48 89 43 10 E8 ?? ?? ?? ?? 48 FF 87 10 0D 00 00", 4, Kind::Call, nullptr, Target::cavePP, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x2522C4 },
+    { "FPC", "FPC", 0x38FB9D8, 8, nullptr, "", 0, Kind::VPtr, nullptr, Target::caveFPC, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3C768C },
+    { "AABB", "AABB", 0x6EA50, 5, orig_AABB, "48 89 5C 24 08 55 48 8D 6C 24 A9 48 81 EC 90 00 00 00 F3 0F 10 2D ?? ?? ?? ??", 0, Kind::Jmp, nullptr, Target::caveAabb, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "M1", "M1", 0x49131, 7, orig_M1, "0F 84 ?? ?? ?? ?? 48 8B 96 C8 01 00 00 41 8B CD", 6, Kind::Jmp, nullptr, Target::caveM1, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "M2a", "M2", 0x48FB9, 9, orig_M2a, "F0 44 0F B1 AD B8 00 00 00 C1 F8 10", 0, Kind::Bytes, repl_M2a, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "M2b", "M2", 0x49046, 6, orig_M2b, "33 C0 F0 46 0F B1 2C 21 A8 01 74 65", 2, Kind::Bytes, repl_M2b, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "M2c", "M2", 0x49261, 5, orig_M2c, "4C 8D 0C 88 33 C0 F0 45 0F B1 29 44 8B D2 41 F7 D2 0F 1F 40 00", 6, Kind::Bytes, repl_M2c, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "M2d", "M2", 0x4933D, 6, orig_M2d, "33 C0 F0 46 0F B1 2C 21 A8 01 74 0A", 2, Kind::Bytes, repl_M2d, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "M2e", "M2", 0x493DC, 5, orig_M2e, "4D 03 C4 33 C0 F0 45 0F B1 28 8B C8 8B D0", 5, Kind::Bytes, repl_M2e, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1a", "J1", 0x4122D, 6, orig_J1a, "33 C0 F0 42 0F B1 1C 19 44 8B D0 41 8B C9", 2, Kind::Bytes, repl_J1a, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1b", "J1", 0x41265, 6, orig_J1b, "33 C0 F0 42 0F B1 1C 19 8B F0 0F 85 ?? ?? ?? ??", 2, Kind::Bytes, repl_J1b, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1c", "J1", 0x41397, 6, orig_J1c, "33 C0 F0 42 0F B1 1C 19 BA 10 00 00 00 44 8B D0", 2, Kind::Bytes, repl_J1c, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1d", "J1", 0x414B6, 6, orig_J1d, "33 C0 F0 42 0F B1 1C 19 BA 10 00 00 00 8B F0", 2, Kind::Bytes, repl_J1d, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1e", "J1", 0x40899, 6, orig_J1e, "33 C0 F0 42 0F B1 34 01 8B D0 0F 84 ?? ?? ?? ??", 2, Kind::Bytes, repl_J1e, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1f", "J1", 0x40481, 9, orig_J1f, "33 C0 F0 45 0F B1 AF 54 04 00 00 A8 01", 2, Kind::Bytes, repl_J1f, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1g", "J1", 0x3E7F5, 6, orig_J1g, "48 8B D9 F0 44 0F B1 71 34 EB 2A 41 B9 02 00 00 00", 3, Kind::Bytes, repl_J1g, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "J1h", "J1", 0x3E821, 6, orig_J1h, "33 C0 F0 44 0F B1 73 34 83 F8 01 7F D1", 2, Kind::Bytes, repl_J1h, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "X1", "X1", 0x435BB7, 6, orig_X1, "48 8B D7 8B CB FF 15 ?? ?? ?? ?? 85 C0 0F 84 ?? ?? ?? ?? FF C3", 5, Kind::Call, nullptr, Target::caveX1, 1, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "E1A", "E1", 0x7E82B4, 5, orig_E1A, "33 D2 44 8B CA 39 91 00 70 00 00 7E 1E", 0, Kind::Jmp, nullptr, Target::caveE1A, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "E1B", "E1", 0x160B83, 5, orig_E1B, "4D 8B C5 41 8B D6 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8D 46 01", 6, Kind::Call, nullptr, Target::caveE1B, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x73A6F8 },
+    { "W6", "W6", 0x7D9EA2, 8, orig_W6, "74 11 33 C9 FF 15 ?? ?? ?? ?? 80 BB 28 77 00 00 00", 2, Kind::Call, nullptr, Target::caveW6, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "W6W", "W6W", 0x1A822D9, 7, orig_W6W, "48 8B 05 ?? ?? ?? ?? C6 83 28 77 00 00 00 48 85 C0", 7, Kind::Call, nullptr, Target::caveW6Wake, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "S1", "S1", 0x418F68, 17, orig_S1, "88 05 ?? ?? ?? ?? 0F B6 05 ?? ?? ?? ?? 84 C0 75 E7 48 8D 4C 24 20", 0, Kind::Bytes, repl_S1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
+
+static const uint8_t dep_0[] = { 0x48, 0x89, 0x5C, 0x24, 0x10, 0x57 };
+static const uint8_t dep_1[] = { 0x80, 0xBB, 0x38, 0x02, 0x00, 0x00, 0x00 };
+static const uint8_t dep_2[] = { 0x48, 0x8B, 0x97, 0x10, 0x0D, 0x00, 0x00 };
+static const uint8_t dep_3[] = { 0x8B, 0x8B, 0x3C, 0x02, 0x00, 0x00 };
+static const uint8_t dep_4[] = { 0x89, 0x83, 0x3C, 0x02, 0x00, 0x00 };
+static const uint8_t dep_5[] = { 0x8B, 0x83, 0x44, 0x02, 0x00, 0x00 };
+static const uint8_t dep_6[] = { 0x89, 0x83, 0x48, 0x02, 0x00, 0x00 };
+static const uint8_t dep_7[] = { 0x89, 0x8B, 0x40, 0x02, 0x00, 0x00 };
+static const uint8_t dep_8[] = { 0x89, 0x83, 0x44, 0x02, 0x00, 0x00 };
+static const uint8_t dep_9[] = { 0x48, 0xFF, 0x87, 0x10, 0x0D, 0x00, 0x00 };
+static const uint8_t dep_12[] = { 0xFF, 0x83, 0x60, 0x3C, 0x00, 0x00 };
+static const uint8_t dep_13[] = { 0xFF, 0x87, 0x60, 0x3C, 0x00, 0x00 };
+static const uint8_t dep_16[] = { 0x48, 0x8B, 0x0D, 0x91, 0x46, 0x18, 0x04 };
+static const uint8_t dep_18[] = { 0x80, 0xB9, 0x28, 0x77, 0x00, 0x00, 0x00 };
+static const uint8_t dep_19[] = { 0x80, 0xBB, 0x28, 0x77, 0x00, 0x00, 0x00, 0x75, 0xEF };
+static const uint8_t dep_20[] = { 0xFF, 0x50, 0x40 };
+static const Dep kDeps[] = {
+    { "PP", 0x2522C4, 6, dep_0, 0 },  // PagePoolScanAll prologue
+    { "PP", 0x252303, 7, dep_1, 0 },  // cmp byte [rbx+238h],0 (pool+B28h branch)
+    { "PP", 0x252310, 7, dep_2, 0 },  // mov rdx,[rdi+D10h] frame stamp
+    { "PP", 0x25232D, 6, dep_3, 0 },  // old B2Ch
+    { "PP", 0x252338, 6, dep_4, 0 },  // B2Ch = new count
+    { "PP", 0x252341, 6, dep_5, 0 },  // old B34h
+    { "PP", 0x25234C, 6, dep_6, 0 },  // B38h = old B34h
+    { "PP", 0x252356, 6, dep_7, 0 },  // B30h = old B2Ch
+    { "PP", 0x252363, 6, dep_8, 0 },  // B34h = new full buckets
+    { "PP", 0x25267C, 7, dep_9, 0 },  // inc qword [rdi+D10h] after the call
+    { "FPC", 0x3C768C, 94, nullptr, 0x29BEEF42 },  // MaterialFindParam body
+    { "FPC", 0x3C774C, 55, nullptr, 0x455AD13F },  // node compare (node vtbl+60h)
+    { "FPC", 0x418D3D, 6, dep_12, 0 },  // epoch writer inc [g+3C60h] (frame end)
+    { "FPC", 0x1910CAF, 6, dep_13, 0 },  // epoch writer inc [g+3C60h] (stream wrap)
+    { "AABB", 0x6EA55, 1398, nullptr, 0xA3C06912 },  // ObbToAabb body + cold stubs 6EA55..6EFCB
+    { "M1", 0x49138, 116, nullptr, 0x21F5D5C0 },  // original segment-list walk 49138..491AB
+    { "X1", 0x435B48, 7, dep_16, 0 },  // mov rcx,[45BA1E0] (padMgr global)
+    { "X1", 0x43502C, 64, nullptr, 0xB30BA8F6 },  // 434E18 2-s probe writes the connected bytes +69850h
+    { "W6", 0x7D9E96, 7, dep_18, 0 },  // cmp byte [rcx+7728h],0 (present-pending flag)
+    { "W6", 0x7D9EAA, 9, dep_19, 0 },  // loop re-check after the patched call
+    { "W6W", 0x1A822CF, 3, dep_20, 0 },  // swapchain->Present just before the clear
+};
+constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 
 } // namespace gen

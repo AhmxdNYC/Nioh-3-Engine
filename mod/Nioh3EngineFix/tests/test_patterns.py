@@ -11,6 +11,9 @@ The dump is a memory-layout snapshot of the decrypted image (raw offset == RVA).
   * values the mod reads from original bytes resolve to what the scripts hard-coded:
       W3 disp32 -> IAT slot of USER32!PeekMessageA, L1 rel32 -> 0x916EBC, P7 rel32 -> GetDelta60 0x46484,
       P8a-d all call the same function (GetFps 0x46594)
+  * experimental sites: `jmp` shapes, `vptr` slots (value = image base + vtarget, the only aligned pointer to it),
+    `callee` E8 targets, `iat_name` FF 15 slots (ordinal imports as DLL!#n), and every `deps` range (exact bytes or
+    FNV-1a) against the dump
   * src/patches_gen.h is in sync with patches.json
   * mod menu: the XInputGetState IAT slot and the engine stop-flag code it relies on (pause hint)
   * frame generation (menu FG item, overlay FG status): FrameGenSettingWrite / IsFrameGenTypeAvailable bytes, the
@@ -116,6 +119,8 @@ def iat_names(img):
             if not ent >> 63:
                 nm = img[ent + 2:img.index(b"\0", ent + 2)].decode("ascii")
                 res[ft + 8 * i] = dll + "!" + nm
+            elif oft:
+                res[ft + 8 * i] = dll + "!#%d" % (ent & 0xFFFF)
             i += 1
         d += 20
     return res
@@ -171,8 +176,27 @@ def main():
     ranges = []
     p8_targets = set()
     print("%-4s %-8s %9s %4s %6s  %s" % ("id", "group", "rva", "len", "hits", "result"))
+    ib0 = struct.unpack_from("<Q", img, pe + 24 + 24)[0]
     for s in doc["sites"]:
-        sid, rva, ln, off = s["id"], int(s["rva"], 16), s["len"], s["offset"]
+        sid, rva, ln = s["id"], int(s["rva"], 16), s["len"]
+        if s["kind"] == "vptr":
+            # aligned pointer in .rdata (no code pattern): value = image base + vtarget, and it is the only such pointer
+            want = ib0 + int(s["vtarget"], 16)
+            ok = check(ln == 8 and rva % 8 == 0, "%s: vptr must be an aligned 8-byte slot" % sid)
+            ok &= check(struct.unpack_from("<Q", img, rva)[0] == want, "%s: slot 0x%X != base+%s" % (sid, rva, s["vtarget"]))
+            needle, n, pos = struct.pack("<Q", want), 0, 0
+            while True:
+                pos = img.find(needle, pos)
+                if pos < 0:
+                    break
+                n += pos % 8 == 0
+                pos += 1
+            ok &= check(n == 1, "%s: %d aligned pointers to %s in the image (need exactly 1, the slot)" % (sid, n, s["vtarget"]))
+            ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
+            ranges.append((rva, rva + ln, sid))
+            print("%-4s %-8s %9X %4d %6s  %s" % (sid, s["group"], rva, ln, "-", "OK" if ok else "FAIL"))
+            continue
+        off = s["offset"]
         orig = bytes(int(x, 16) for x in s["orig"].split())
         pat, wild = parse_pattern(s["pattern"])
         ok = True
@@ -192,6 +216,9 @@ def main():
             ca = int(s.get("call_at", 0))
             ok &= check(ca + 5 <= ln and ln - ca - 5 in (0, 1, 2, 3, 5), "%s: call does not fit / bad nop pad" % sid)
             ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
+        elif k == "jmp":
+            ok &= check(ln - 5 in (0, 1, 2, 3, 5), "%s: jmp does not fit / bad nop pad" % sid)
+            ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
         elif k == "ripload":
             ok &= check(ln == 6 and len(s["opcode"].split()) == 2, "%s: ripload must be 6 bytes" % sid)
             ok &= check(s.get("data") in gen_header.DATAS[1:], "%s: unknown data slot" % sid)
@@ -205,10 +232,40 @@ def main():
             ok &= check(rva + 10 + struct.unpack_from("<i", orig, 6)[0] == 0x916EBC, "%s: callee != 0x916EBC" % sid)
         elif reads == "callee_rel32@1":
             ok &= check(rva + 5 + struct.unpack_from("<i", orig, 1)[0] == 0x46484, "%s: callee != GetDelta60 0x46484" % sid)
+        if "callee" in s:
+            ok &= check(orig[0] == 0xE8 and rva + 5 + struct.unpack_from("<i", orig, 1)[0] == int(s["callee"], 16),
+                        "%s: E8 target != %s" % (sid, s["callee"]))
+        if "iat_name" in s:
+            at = int(s["iat_disp_at"])
+            slot = rva + at + 4 + struct.unpack_from("<i", orig, at)[0]
+            ok &= check(orig[at - 2:at] == b"\xFF\x15" and iat.get(slot, "").upper() == s["iat_name"].upper(),
+                        "%s: call [rip+disp] -> 0x%X = %s, expected %s" % (sid, slot, iat.get(slot), s["iat_name"]))
         if sid.startswith("P8"):
             p8_targets.add(rva + 5 + struct.unpack_from("<i", orig, 1)[0])
         ranges.append((rva, rva + ln, sid))
         print("%-4s %-8s %9X %4d %6d  %s" % (sid, s["group"], rva, ln, len(hits), "OK" if ok else "FAIL"))
+
+    # dependencies of the caves: original code they reproduce or rely on beyond their own site
+    deps = doc.get("deps", [])
+    groups = {s["group"] for s in doc["sites"]}
+
+    def fnv1a(b):
+        h = 0x811C9DC5
+        for x in b:
+            h = ((h ^ x) * 0x01000193) & 0xFFFFFFFF
+        return h
+    dep_ok = 0
+    for d in deps:
+        a = int(d["rva"], 16)
+        good = d["group"] in groups
+        if "bytes" in d:
+            want = bytes(int(x, 16) for x in d["bytes"].split())
+            good = good and img[a:a + len(want)] == want
+        else:
+            good = good and fnv1a(img[a:a + int(d["len"])]) == int(d["fnv1a"], 16)
+        dep_ok += good
+        check(good, "dep %s @0x%X (%s) differs from the dump" % (d["group"], a, d.get("what", "")))
+    print("deps: %d/%d dependency ranges match the dump" % (dep_ok, len(deps)))
 
     check(p8_targets == {0x46594}, "P8 call targets %s != {GetFps 0x46594}" % sorted(hex(t) for t in p8_targets))
     ranges.sort()

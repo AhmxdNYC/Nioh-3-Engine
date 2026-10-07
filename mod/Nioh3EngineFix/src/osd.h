@@ -32,8 +32,17 @@ struct OverlaySettings {
     int fpsCounter = 1, frameTime = 1, speed = 1, popup = 1;
     int pos = 0;  // 0 TopLeft, 1 TopRight, 2 BottomLeft, 3 BottomRight
     float scale = 1.0f, popupSeconds = 8.0f, popupDelay = 3.0f, brightness = 1.0f;
+    int maxLatency = 0;  // [Latency] MaxFrameLatency: 0 = the game's value, 1..16 = SetMaximumFrameLatency(N)
 };
 OverlaySettings& Overlay();
+// MaxFrameLatency status of the presenting swapchain (Present-hook thread)
+struct LatencyStatus {
+    int want = 0;   // setting (0 = game)
+    int game = 0;   // the game's own value (GetMaximumFrameLatency before we changed it), 0 = not known yet
+    int cur = 0;    // current value on the swapchain
+    int state = 0;  // 0 not checked yet, 1 waitable swapchain (applied), 2 not applicable (no waitable flag / no IDXGISwapChain2)
+};
+LatencyStatus Latency();
 const char* PositionName(int pos);
 // FPS-counter text scale for a back buffer of height H (Scale x auto factor), as used by the counter itself
 float CounterScale(unsigned H);
@@ -46,7 +55,8 @@ struct FgStatus {
     bool measured = false;    // real (engine) and presented frame rates are known
     bool active = false;      // presented / real > 1.4: generated frames reach the screen
     bool presenter = false;   // the FidelityFX "FSR Presenter" thread presented within the last 2 s
-    double realFps = 0, presentFps = 0;
+    double realFps = 0, presentFps = 0;  // rendered frames/s (the game's own presents) and displayed frames/s (incl. generated)
+    double tickFps = 0;                  // engine update ticks/s (G+0x610)
     double sinceSwitch = 1e9; // seconds since the mod menu changed the setting (the game rebuilds its swapchain)
 };
 FgStatus FrameGen();
