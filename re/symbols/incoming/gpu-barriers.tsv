@@ -1,0 +1,19 @@
+rva	kind	name	signature	description	confidence	source
+0x115e97	label	SynTransitionResource_CallResourceBarrier		call [rax+0D0h] = ID3D12GraphicsCommandList::ResourceBarrier(1, TRANSITION, all subresources, flags 0); the most frequent barrier site (45 callers incl. 115B9C texture bind and GfxDevicePresent back buffer -> PRESENT); deferred + batched by gpuopt (Barriers=1)	high	notes/gpu-barriers.md §3
+0x118443	label	SynFlushGfxStateForDraw_RtBarrier		per bound render target, ResourceBarrier(1, RT state 4) inside the RT loop (one call per RT; 4 back-to-back EOP-wait barriers for a 4-target pass in RGP r5); batched by gpuopt	high	notes/gpu-barriers.md §3
+0x118519	label	SynFlushGfxStateForDraw_DsvBarrier		depth buffer ResourceBarrier(1, DEPTH_WRITE 0x10 / DEPTH_READ|SRV) before OMSetRenderTargets (RT-dirty path, c+0xB24 & 1); batched by gpuopt	high	notes/gpu-barriers.md §3
+0x118597	label	SynFlushGfxStateForDraw_DsvBarrier2		depth buffer ResourceBarrier(1) on the depth-state-only path (c+0xB24 & 0x10002, no RT change); batched by gpuopt	high	notes/gpu-barriers.md §3
+0x1139fe	label	SynUavBarrier_CallResourceBarrier		ResourceBarrier(1, UAV, r) from SynUavBarrier (callers 83BBD8, 8988A8)	high	notes/gpu-barriers.md §3
+0x113a52	label	SynTokUavBarrier_CallResourceBarrier		tok 0x8A UAV barrier (resource from the stream, may be NULL); RGP r5 shows NO barrier between the 74/75 single-group particle dispatches, so these are not per-emitter barriers there	high	notes/gpu-barriers.md §3, §4
+0x114614	function	SynSetIndexBufferTracked	void (SynCtx* c, IndexBufferView* ib)	tok 0x7A/0x7B (callers 45AF68, 45AB1C, 114878): if the index buffer changed: state-tracked transition (state & 0xAC3 | ib+0x50, reset to COMMON when the per-list stamp c+0x6D0 differs) then IASetIndexBuffer (vtbl+0x158)	high	notes/gpu-barriers.md §3
+0x1146d0	label	SynSetIndexBufferTracked_Barrier		ResourceBarrier(1, TRANSITION) of the index buffer	high	notes/gpu-barriers.md §3
+0x114a20	function	SynTokSetIndexBuffer	void (SynCtx* c, u16** p)	tok 0x3D: same as SynSetIndexBufferTracked with the view pointer read from the stream (aka RenderSubmitHot_114A20)	high	notes/gpu-barriers.md §3
+0x114af4	label	SynTokSetIndexBuffer_Barrier		ResourceBarrier(1, TRANSITION) of the index buffer	high	notes/gpu-barriers.md §3
+0x7f52ac	function	SynTokTransitionResource	void (SynCtx* c, u16** p)	tok 0x9B: explicit state-tracked transition from the stream (resource, state slot, new state, stamp, subresource); skips equal states	high	notes/gpu-barriers.md §3
+0x7f5365	label	SynTokTransitionResource_Barrier		ResourceBarrier(1, TRANSITION)	high	notes/gpu-barriers.md §3
+0x7f9bf8	function	SynCopyTextureRegionTracked	void (SynCtx* c, ID3D12Resource* dst, u32* dstState, u32 dstSub, u32 x, u32 y, u32 z, ID3D12Resource* src, u32* srcState, u32 srcSub, D3D12_BOX* box)	tok 0x92 (via 7F9A6C): src -> COPY_SOURCE and dst -> COPY_DEST as two separate ResourceBarrier calls, CopyTextureRegion (vtbl+0x80), then both restored to their previous states as two more calls (2+2 -> 1+1 with gpuopt; the restore is a split-barrier candidate)	high	notes/gpu-barriers.md §3
+0x7f9d27	label	SynCopyTextureRegionTracked_SrcBarrier		ResourceBarrier(1): src -> COPY_SOURCE (0x800)	high	notes/gpu-barriers.md §3
+0x7f9d64	label	SynCopyTextureRegionTracked_DstBarrier		ResourceBarrier(1): dst -> COPY_DEST (0x400)	high	notes/gpu-barriers.md §3
+0x7f9d9f	label	SynCopyTextureRegionTracked_SrcRestore		ResourceBarrier(1): src back to its previous state after the copy	high	notes/gpu-barriers.md §3
+0x7f9dd6	label	SynCopyTextureRegionTracked_DstRestore		ResourceBarrier(1): dst back to its previous state after the copy	high	notes/gpu-barriers.md §3
+0x3c02670	data	KtglTokenHandler_8A	ptr	token handler table entry 0x8A -> SynTokUavBarrier 113A0C	high	notes/gpu-barriers.md §3
