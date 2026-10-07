@@ -27,13 +27,14 @@
 #include "gpuopt.h"
 #include "gpuprof.h"
 #include "sp.h"
+#include "psoswap.h"
 #include "memstats.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.0"
+#define MOD_VERSION "1.7.1"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1078,6 +1079,18 @@ DWORD WINAPI Worker(LPVOID) {
         const bool e = SwapImport("ExitProcess", (void*)&HkExitProcess, (void**)&g_origExitProcess);
         const bool t = SwapImport("TerminateProcess", (void*)&HkTerminateProcess, (void**)&g_origTerminateProcess);
         Log("Proton FG guard: exit hooks ExitProcess %s, TerminateProcess %s", e ? "ok" : "MISSING", t ? "ok" : "MISSING");
+    }
+
+    // PSO bytecode swap / shader dump (notes\gpu-post-exe.md): early, so the IAT slot swap beats the engine's device creation
+    {
+        psoswap::StartInfo pi;
+        pi.log = &Log;
+        std::wstring psoIni = SelfPathWithExt(L".ini");
+        pi.iniPath = psoIni.c_str();
+        pi.wine = nullptr;
+        if (HMODULE nt = GetModuleHandleW(L"ntdll.dll"))
+            if (auto wgv = reinterpret_cast<const char*(__cdecl*)()>(GetProcAddress(nt, "wine_get_version"))) pi.wine = wgv();
+        psoswap::Start(pi);
     }
 
     // ---- wait for SteamStub to decrypt .text (never touch the stub; just poll the bytes)

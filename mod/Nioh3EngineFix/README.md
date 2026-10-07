@@ -327,6 +327,23 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
 
+## Shader dump / swap (`[ShaderSwap]`, 1.7.1)
+
+Hooks D3D12 pipeline-state creation (before the engine creates its device) and logs every shader hash once
+(`psoswap:` lines; for exe-embedded shaders `exe <stage> <key> <size> rva=...`). Optional: `DumpMode = 1` writes the
+exe-embedded shader blobs, `DumpMode = 2` writes every shader the game builds, to `<Folder>\dump\<digest>.dxbc|.dxil`.
+If a file `<Folder>\<digest>.dxbc|.dxil` exists, that bytecode replaces the game's for the matching shader (a runtime
+that rejects it falls back to the game's own shader). No replacement files ship; this build observes and dumps.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Enabled` | 0 (main ini) | 1 = hook PSO creation. 0 = nothing is installed |
+| `Folder` | `Nioh3EngineFix_shaders` | relative to the ini's folder (the game folder) |
+| `DumpMode` | 0 | 0 off, 1 exe-embedded originals, 2 every shader |
+| `LogAll` | 0 | 1 = log non-exe shaders too (long at boot) |
+
+Design and proofs: `notes\gpu-post-exe.md`. There is no live switch: PSOs are built at boot, so restart the game.
+
 ## In-game mod menu
 Change the fixes and the overlay while you play, with no restart. The menu opens at any time: in gameplay, in the
 game's pause menu, or on the title screen.

@@ -36,6 +36,7 @@
 #include "gpuprof.h"
 #include "menu.h"
 #include "osd.h"
+#include "psoswap.h"
 #include "osd_font.h"
 #include "osd_shaders.h"
 
@@ -1243,6 +1244,8 @@ DWORD WINAPI InstallThread(LPVOID) {
     // itself later otherwise). A failure only disables gpuopt; the overlay and the patches go on.
     if (gpuopt::GetState() != gpuopt::State::Off && !InstallGpuOptSafe())
         OLOG("gpuopt: hooks not installed (see the GPUOPT: lines) - the overlay and the patches are unaffected");
+    // PSO bytecode swap / dump: late path, only does something when the IAT hook missed the engine's device
+    if (psoswap::GetState() != psoswap::State::Off) psoswap::InstallNow();
     return 0;
 }
 
