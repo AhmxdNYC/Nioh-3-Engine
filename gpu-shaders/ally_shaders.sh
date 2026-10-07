@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # ally_shaders.sh - status / install / exact revert of the staged Nioh 3 shader swaps on Linux (Bazzite / SteamOS,
-# Proton + vkd3d-proton). Same files and SHA-256 checks as gpu-shaders\apply_{ghdm,esm,wdo28}.ps1 on Windows.
+# Proton + vkd3d-proton). Same files and SHA-256 checks as gpu-shaders\apply_{ghdm,esm,wdo28,sweep}.ps1 on Windows.
 #
-#   ./ally_shaders.sh status            [ghdm|esm|wdo28|all]
-#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|all]
-#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|all]
+#   ./ally_shaders.sh status            [ghdm|esm|wdo28|mpc23|toonedge2|all]
+#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|mpc23|toonedge2|all]
+#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|mpc23|toonedge2|all]
+#
+# mpc23 / toonedge2 = the 2026-10-07 shader sweep (notes/gpu-shader-sweep.md); toonedge2 covers two files.
 #
 # Put this script next to the folder "replacement/" (gpu-shaders/replacement/*.file from the build PC).
 # Game folder: auto-detected from the Steam library folders, or set NIOH3_DIR=/path/to/steamapps/common/Nioh3.
@@ -23,6 +25,9 @@ TABLE="
 ghdm  0x0104840c.file  32151bd9d09f21dd995fa1ccfd23b8fd0bd7d5e02463740641b013db2675bb87  129f03a0971e0a073b346224588e2ec0dbc41a4240e1a42efd285693e5742ce9
 esm   0x1ca8bb39.file  22103ae7d838771f4aa8e9506855c2dc04820feece73fe7dbcacddecfe56dd54  3c34641f1fb8d53bcac7111b66b2212f7a9ff1e7378d736626bebdf7f42bc73a
 wdo28 0x1fd07cc0.file  197f0c438e05b68cf89d4f3f03e20c0a903bcffa6198a93a43c938e960d28ab3  a38f7de7522c4c28d75e458b4a8f6ba9c7015731365a313d2c745a83607536f9
+mpc23 0x29ee0902.file  42f045c370e99b80626c64e9d8084a4a855bb3baad3b04b8f634114d34b97b16  26417c0ff41b128443ce364a69e68328588abd5f044129fe1a8c2e8dea80cec7
+toonedge2 0x9c481f79.file  7a8171617b2530648e12ce9dd52c091faf31cd4f1026d3b40a7fdde5788ac1ae  d672a5d530f9d1cb49f37ee3de6f626d95e7273eb897e17de3683a8dfb2c2e6d
+toonedge2 0x47bc5cb4.file  07542a8322a617b7783b0c7b79580689339429c1d1e416bf70c8d0f3b0aee99a  9a37b6e45360bb8664746687757c68ebfd33cdeb711a6459bbbe29cee111ef80
 "
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -44,7 +49,7 @@ find_game() {
   die "Nioh3 not found in the Steam libraries; set NIOH3_DIR=/path/to/steamapps/common/Nioh3"
 }
 
-[ $# -ge 1 ] || { sed -n '2,15p' "$0"; exit 1; }
+[ $# -ge 1 ] || { sed -n '2,17p' "$0"; exit 1; }
 CMD="$1"; WHICH="${2:-all}"
 case "$CMD" in status|apply|revert) ;; *) die "unknown command '$CMD' (status|apply|revert)";; esac
 GAME="$(find_game)"; SD="$GAME/shader_dx12"
@@ -52,6 +57,8 @@ GAME="$(find_game)"; SD="$GAME/shader_dx12"
 if [ "$CMD" != status ] && pgrep -fi 'nioh3\.exe' >/dev/null 2>&1; then die "Nioh3 is running - close the game first"; fi
 mkdir -p "$BACKUP_DIR"
 
+# pass 1 checks every selected file (nothing is touched if any check fails); pass 2 acts
+for PASS in check act; do
 any=0
 while read -r name file orig repl; do
   [ -n "$name" ] || continue
@@ -62,23 +69,32 @@ while read -r name file orig repl; do
   case "$hg" in
     "$orig") state=ORIGINAL;; "$repl") state=REPLACEMENT;; *) state="UNKNOWN($hg)";;
   esac
-  if [ "$CMD" = status ]; then printf '%-6s %-16s %s\n' "$name" "$file" "$state"; continue; fi
-  case "$state" in UNKNOWN*) die "$name: $file is neither the v2.02 original nor our replacement - game updated? not touching it";; esac
+  b="$BACKUP_DIR/$file"; r="$REPL_DIR/$file"
+  if [ "$CMD" = status ]; then [ "$PASS" = act ] && printf '%-10s %-16s %s\n' "$name" "$file" "$state"; continue; fi
+  case "$state" in UNKNOWN*) die "$name: $file is neither the v2.02 original nor our replacement - game updated? not touching anything";; esac
+  if [ "$PASS" = check ]; then
+    if [ "$CMD" = apply ]; then
+      [ "$state" = REPLACEMENT ] && continue
+      [ -f "$r" ] || die "$name: replacement file missing: $r"
+      [ "$(sha "$r")" = "$repl" ] || die "$name: $r has the wrong sha256 (corrupt copy?)"
+      if [ -f "$b" ] && [ "$(sha "$b")" != "$orig" ]; then die "$name: backup $b is not the original - remove it and retry"; fi
+    else
+      [ "$state" = ORIGINAL ] && continue
+      [ -f "$b" ] && [ "$(sha "$b")" = "$orig" ] || die "$name: no valid backup of $file in $BACKUP_DIR - use Steam 'Verify integrity of game files'"
+    fi
+    continue
+  fi
   if [ "$CMD" = apply ]; then
-    if [ "$state" = REPLACEMENT ]; then echo "$name: already installed"; continue; fi
-    r="$REPL_DIR/$file"; [ -f "$r" ] || die "$name: replacement file missing: $r"
-    [ "$(sha "$r")" = "$repl" ] || die "$name: $r has the wrong sha256 (corrupt copy?)"
-    b="$BACKUP_DIR/$file"
+    if [ "$state" = REPLACEMENT ]; then echo "$name: $file already installed"; continue; fi
     if [ ! -f "$b" ]; then cp -p "$g" "$b"; fi
     [ "$(sha "$b")" = "$orig" ] || die "$name: backup $b is not the original - remove it and retry"
     cp "$r" "$g"; [ "$(sha "$g")" = "$repl" ] || die "$name: copy failed"
-    echo "$name: installed (backup: $b)"
+    echo "$name: $file installed (backup: $b)"
   else
-    if [ "$state" = ORIGINAL ]; then echo "$name: already original"; continue; fi
-    b="$BACKUP_DIR/$file"
-    [ -f "$b" ] && [ "$(sha "$b")" = "$orig" ] || die "$name: no valid backup in $BACKUP_DIR - use Steam 'Verify integrity of game files'"
+    if [ "$state" = ORIGINAL ]; then echo "$name: $file already original"; continue; fi
     cp "$b" "$g"; [ "$(sha "$g")" = "$orig" ] || die "$name: restore failed"
-    echo "$name: reverted to the original"
+    echo "$name: $file reverted to the original"
   fi
 done <<< "$TABLE"
-[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|all)"
+done
+[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|mpc23|toonedge2|all)"

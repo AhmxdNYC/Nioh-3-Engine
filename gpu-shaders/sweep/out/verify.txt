@@ -1,0 +1,22 @@
+mpc23: 60 scenes, 0 differences -> PASS
+  (9 s)
+  tex 37x21 nRes  37, 21 groups 3x2: 1536 writes, outputs 3.40282e+38:1090 -0.5:97 0.7505:72 0.62525:56 -0.7505:52 1.001:46
+  tex 32x16 nRes  32, 16 groups 2x1:  512 writes, outputs 3.40282e+38:464 -0.5:23 -0.75:8 -0.875:7 -0.625:6 -1:2
+  tex  5x 3 nRes   5,  3 groups 1x1:  256 writes, outputs 3.40282e+38:176 -0.5:42 0.5:37 -0.707107:1
+  tex 40x24 nRes  37, 21 groups 3x2: 1536 writes, outputs 3.40282e+38:960 -2:88 -3.5:79 -1.25:66 -2.75:51 3.5:44
+  tex 30x18 nRes  37, 21 groups 3x2: 1536 writes, outputs 3.40282e+38:1364 -0.87575:20 -0.7505:17 -1.08286:16 -1.001:15 0.7505:14
+  tex 37x21 nRes   0,  0 groups 1x1:  256 writes, outputs 3.40282e+38:256
+  tex 37x21 nRes  -3, 21 groups 1x1:  256 writes, outputs 3.40282e+38:256
+  tex 70x60 nRes  70, 60 groups 1x1:  256 writes, outputs 3.40282e+38:192 6.3125:11 6.51961:9 -6.3125:7 -4.58211:6 -8.25:5
+  tex 17x17 nRes  17, 17 groups 2x2: 1024 writes, outputs 3.40282e+38:680 -0.5:110 -0.75:51 -1:42 -0.625:40 1:34
+  tex 48x40 nRes  48, 33 groups 3x3: 2304 writes, outputs 3.40282e+38:1648 -0.5:154 -1.25:103 -0.875:86 -2:85 -1.625:64
+  tex 16x16 nRes   1,  1 groups 1x1:  256 writes, outputs 3.40282e+38:256
+  tex 34x20 nRes  34, 20 groups 3x2: 1536 writes, outputs 3.40282e+38:785 0.5:211 -1:87 1:77 -0.75:75 -0.5:63
+toonedge2: 96 scenes, 0 differences -> PASS
+  (16 s)
+toonedge2 mostly-empty outline mask (typical)    image loads/pixel: original 17.48, fast 3.51
+toonedge2 dense outline mask                     image loads/pixel: original 14.02, fast 3.31
+toonedge2 no zero texels                         image loads/pixel: original 12.18, fast 3.20
+mpc23 cnt= 256: buffer loads 16512 (original: up to 64 serialised round trips per thread) vs 510 (fast: 1 round trip + LDS scan)
+mpc23 cnt=1000: buffer loads 63960 (original: up to 64 serialised round trips per thread) vs 1998 (fast: 1 round trip + LDS scan)
+  (2 s)

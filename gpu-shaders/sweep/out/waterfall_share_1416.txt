@@ -1,0 +1,15 @@
+frame wave-time 8845991 wave-us; with ISA 8747065 (99%); in shaders with waiting waterfall loops 241537 (2.7% of the frame)
+    184187   2.1%    2 waiting waterfall loops  5a14b619 co 0xd070067d.file/RefProbe-CllPtSfbSplsSslsSsmVsm#414
+     10867   0.1%    1 waiting waterfall loops  96aa18fb co 0x2801580a.file/TREE2WIND#0
+     10675   0.1%    1 waiting waterfall loops  54087384 co exe:dfe80724
+      9673   0.1%    1 waiting waterfall loops  aa20f83f co exe:52e987e4
+      6797   0.1%    1 waiting waterfall loops  e44b2640 co exe:4924b422
+      6445   0.1%    1 waiting waterfall loops  c18010ce co exe:3c42e0de
+      5413   0.1%    2 waiting waterfall loops  10e5d3ea co 0xd070067d.file/RefProbe-CllPtSfbSplsSslsSsmVsm#438
+      2974   0.0%    1 waiting waterfall loops  cf043585 co exe:30f0be35
+      2898   0.0%    1 waiting waterfall loops  0528cc5d co exe:272f0655
+       478   0.0%    1 waiting waterfall loops  1793747b co exe:a53aa0d2
+       401   0.0%    1 waiting waterfall loops  49aea368 co exe:f204f6a3
+       393   0.0%    1 waiting waterfall loops  4109b692 co exe:8350c258
+       236   0.0%    1 waiting waterfall loops  67d96a4a co exe:6019088d
+       100   0.0%    1 waiting waterfall loops  e68fdb0a co exe:e18ea0de
