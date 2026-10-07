@@ -50,3 +50,20 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - Proton FG guard: marker Nioh3EngineFix.fgmarker when the mod switched FG on and config.xml had OFF at start; OFF restored at exit (game's ExitProcess/TerminateProcess import hooks; DLL detach last resort) and at the next start before the game reads config.xml.
 - Ally zip rebuilt: Desktop\Nioh3EngineFix-Ally.zip (WorkerCap = 10, W6 = 1, MaxFrameLatency = 1).
 - Undo: ini keys to 0 / MaxFrameLatency = 0, or the previous .asi. config.xml backup: config.xml.Nioh3EngineFix.bak.
+
+## 2026-10-07 04:40 - input-latency study + live IK/TS script (nothing applied; game not run)
+- Study: `notes\input-latency.md`. It covers the frame budget from controller to photons, and the ranked same-look
+  reductions. Findings:
+  - The pad poll is kicked at the END of the logic frame (5AB6CF), before the QPC limiter, and consumed at the next
+    frame's start (5ACAAA). So input is stale by the limiter slack, ~5-9 ms at a 60 cap.
+  - The game never calls SetMaximumFrameLatency, so the waitable latency is 1. Under vkd3d-proton the waitable is
+    released after vkWaitForPresentKHR, which likely serialises render and GPU on the Ally (MaxFrameLatency 1 vs 2
+    A/B).
+  - VSync ON (composed) costs the PC ~1 frame of present->display vs VSync OFF + VRR (PresentMon: 25.8 vs 6-10 ms).
+- New script `patcher\latency_live.fsx` (memory-only, PC). IK moves the input kick to logic-frame start; TS adds
+  timestamp probes K/C/L/W/B/P. `apply` installs everything with both switches OFF (stock); toggle with `on`/`off`.
+  Offline check: ALL PASSED (6 sites vs dump, call targets, no branch into the sites, no overlap with patches.json).
+- Helpers: `re\scripts_latency\` (vscan, peek, derive_lat_patterns, branch_into_sites). Symbols:
+  `re\symbols\incoming\input-latency.tsv` (already merged by the symbol agent in cae0a2e).
+- Undo (only if applied later): `set FT_ALLOW_WRITE=1 & dotnet fsi patcher\latency_live.fsx revert`, or
+  `off IK` / `off TS`, or restart the game.
