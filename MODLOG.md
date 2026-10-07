@@ -67,3 +67,10 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
   `re\symbols\incoming\input-latency.tsv` (already merged by the symbol agent in cae0a2e).
 - Undo (only if applied later): `set FT_ALLOW_WRITE=1 & dotnet fsi patcher\latency_live.fsx revert`, or
   `off IK` / `off TS`, or restart the game.
+
+## 2026-10-07 05:xx - GPU: MAX-settings map + GI HIGHEST patch spec (static only, nothing installed or patched)
+- Study: `notes\gpu-maxsettings.md`. Every quality setting mapped to its engine consumer, per-level values and passes (HIGH vs MAX). Finding: GI HIGHEST sets all four probe-GI gather scales to 1.0 (HIGH 0.6/0.5/0.35/0.6; table read every frame by GiScaleLookup 0x187A50) = +1.8 ms PC / ~+11-14 ms Ally; the other MAX steps are small (SHADOW HIGHEST = one flag, AO HIGHEST masked here, SSR x2 steps, MB 10 samples, LANDSCAPE ULTRA LOD 0.8/4000). Ally at MAX native 1080p modelled at ~55-80 ms GPU: 60 fps there is not reachable with same-look changes.
+- New: `gpu-shaders\maxsettings_spec.py` (offline validator: v2.02 site bytes, tables re-derived from code operands, r5 dispatch-grid cross-check, preset proofs, unique AOB; ALL PASSED) -> `gpu-shaders\maxsettings_patches.json` (GI1 caveGiScale spec for the ASI agent; ASI src not touched).
+- New: `gpu-shaders\ally_shaders.sh` - Linux status/apply/revert for the staged GHDM/ESM/WDO#28 swaps (sha256-checked, exact revert, refuses while Nioh3.exe runs; tested on a scratch copy only).
+- Symbols: `re\symbols\incoming\gpu-maxsettings.tsv` (13 rows, not merged).
+- Undo: nothing was applied. If ally_shaders.sh was used: `./ally_shaders.sh revert all` or Steam verify.

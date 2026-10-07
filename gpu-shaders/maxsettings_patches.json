@@ -1,0 +1,133 @@
+{
+ "game": "Nioh 3 Steam v2.02 (PE timestamp 0x6AA7C106)",
+ "doc": "notes/gpu-maxsettings.md \u00a75",
+ "patches": [
+  {
+   "id": "GI1",
+   "name": "caveGiScale (GI HIGHEST render-scale override)",
+   "site_rva": "0x187A50",
+   "kind": "replace function entry with jmp to cave (5 B over 'sub rsp,78h' + 1 B)",
+   "orig_bytes": "4883ec78488b05d50433044833c44889",
+   "aob": "48 83 EC 78 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 60 0F 28 05 ?? ?? ?? ?? 0F 28 0D ?? ?? ?? ?? 48 63 C1",
+   "callers": [
+    "0x18745A",
+    "0x187464",
+    "0x187471",
+    "0x18747F (GiRenderScalesApply 0x1872C4, every frame)"
+   ],
+   "contract": "in ecx = which (0..3); out xmm0 = scale; may clobber rax rcx rdx r8-r11 xmm1-xmm5 (leaf, Win64 volatile)",
+   "default_table_rows_by_which": [
+    [
+     0.30000001192092896,
+     0.4000000059604645,
+     0.5,
+     0.6000000238418579,
+     0.699999988079071,
+     1.0
+    ],
+    [
+     0.30000001192092896,
+     0.4000000059604645,
+     0.5,
+     0.5,
+     0.5,
+     1.0
+    ],
+    [
+     0.20000000298023224,
+     0.25,
+     0.30000001192092896,
+     0.3499999940395355,
+     0.4000000059604645,
+     1.0
+    ],
+    [
+     0.30000001192092896,
+     0.4000000059604645,
+     0.5,
+     0.6000000238418579,
+     0.699999988079071,
+     1.0
+    ]
+   ],
+   "rowmap": [
+    0,
+    2,
+    1,
+    0
+   ],
+   "gi_slot": "0x45BAF88",
+   "presets": {
+    "stock": {
+     "highest_column": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ],
+     "pc_us": 2511.2,
+     "saves_pc_us": 0.0
+    },
+    "P1_water_views_at_HIGH": {
+     "highest_column": [
+      1.0,
+      1.0,
+      0.3499999940395355,
+      0.6000000238418579
+     ],
+     "pc_us": 2258.8,
+     "saves_pc_us": 252.4
+    },
+    "P2_diffuse_0.75": {
+     "highest_column": [
+      0.75,
+      1.0,
+      1.0,
+      1.0
+     ],
+     "pc_us": 2100.9,
+     "saves_pc_us": 410.3
+    },
+    "P3_reflection_0.75": {
+     "highest_column": [
+      1.0,
+      0.75,
+      1.0,
+      1.0
+     ],
+     "pc_us": 1956.2,
+     "saves_pc_us": 554.9
+    },
+    "P1+P2": {
+     "highest_column": [
+      0.75,
+      1.0,
+      0.3499999940395355,
+      0.6000000238418579
+     ],
+     "pc_us": 1848.5,
+     "saves_pc_us": 662.7
+    },
+    "P1+P2+P3": {
+     "highest_column": [
+      0.75,
+      0.75,
+      0.3499999940395355,
+      0.6000000238418579
+     ],
+     "pc_us": 1293.6,
+     "saves_pc_us": 1217.6
+    }
+   },
+   "risk": "visual only (render scale of the GI gather); live, takes effect next frame"
+  },
+  {
+   "id": "MB1",
+   "name": "MOTION_BLUR HIGHEST samples 10 -> 8 (== HIGH)",
+   "site_rva": "0x39B4DA",
+   "orig_bytes": "0a",
+   "new_bytes": "08",
+   "note": "pointless as a patch: choose HIGH in the menu; listed for completeness"
+  }
+ ]
+}
