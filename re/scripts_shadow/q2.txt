@@ -1,0 +1,200 @@
+==== decompile RVA 0x465384 ====
+// function FUN_7ff74f875384 @ 0x465384  body=46 bytes  pdataStart=0x465384
+// callers(0): 
+// callees(1): FUN_7ff74f875414@0x465414 
+
+ulonglong FUN_7ff74f875384(undefined8 param_1,longlong param_2)
+
+{
+  ulonglong uVar1;
+  
+  if (*(int *)(*(ulonglong *)(param_2 + 0xf8) + 0x968) < 0) {
+    uVar1 = *(ulonglong *)(param_2 + 0xf8) & 0xffffffffffffff00;
+  }
+  else {
+    uVar1 = FUN_7ff74f875414();
+  }
+  return uVar1;
+}
+
+
+
+==== references to RVA 0x465384 ====
+0x4e520cc	DATA	-
+
+==== decompile RVA 0x32ff074 ====
+// function FUN_7ff75270f074 @ 0x32ff074  body=779 bytes  pdataStart=0x32ff074
+// callers(1): FUN_7ff74f875414@0x465414 
+// callees(7): FUN_7ff74f653ed0@0x243ed0 FUN_7ff74f592f7c@0x182f7c FUN_7ff74f90c21c@0x4fc21c FUN_7ff74f60791c@0x1f791c __security_check_cookie@0xb912e0 FUN_7ff74f530ec0@0x120ec0 FUN_7ff74f653bb0@0x243bb0 
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+void FUN_7ff75270f074(longlong param_1,longlong param_2,longlong param_3)
+
+{
+  uint *puVar1;
+  longlong lVar2;
+  uint uVar3;
+  uint uVar4;
+  ulonglong uVar5;
+  int iVar6;
+  uint uVar7;
+  ulonglong uVar8;
+  uint *puVar9;
+  float fVar10;
+  undefined1 auStack_308 [32];
+  uint local_2e8;
+  uint local_2e4;
+  uint local_2e0;
+  int local_2dc;
+  int local_2d8;
+  int local_2d4;
+  int local_2d0;
+  uint local_2cc;
+  longlong local_2c8;
+  longlong local_2c0;
+  longlong local_2b8;
+  uint local_2b0;
+  uint uStack_2ac;
+  uint uStack_2a8;
+  uint uStack_2a4;
+  undefined8 local_298;
+  undefined4 uStack_290;
+  undefined4 uStack_28c;
+  undefined8 local_288;
+  undefined4 uStack_280;
+  undefined4 uStack_27c;
+  undefined8 local_278;
+  undefined4 uStack_270;
+  undefined4 uStack_26c;
+  undefined8 local_268;
+  undefined4 uStack_260;
+  undefined4 uStack_25c;
+  undefined *local_258;
+  undefined8 local_250;
+  undefined8 local_248;
+  undefined8 uStack_240;
+  undefined1 local_238 [16];
+  undefined1 local_228 [304];
+  float local_f8;
+  float local_f4;
+  undefined1 local_c8 [128];
+  ulonglong local_48;
+  
+  if (param_3 != 0) {
+    local_48 = _DAT_7ff7538c7f30 ^ (ulonglong)auStack_308;
+    local_2d0 = *(int *)(param_1 + 0x400fc);
+    local_2e8 = *(uint *)(param_1 + 0x400e4);
+    uVar3 = *(uint *)(param_1 + 0x400f8);
+    if (*(uint *)(param_1 + 0x400d8) < *(uint *)(param_1 + 0x400f8)) {
+      uVar3 = *(uint *)(param_1 + 0x400d8);
+    }
+    local_2e4 = *(uint *)(param_1 + 0x400e8);
+    local_2cc = uVar3;
+    local_2c8 = param_3;
+    local_2b8 = param_2;
+    FUN_7ff74f90c21c(local_238);
+    uVar5 = 0;
+    if (uVar3 != 0) {
+      puVar9 = (uint *)(param_1 + 0x41730);
+      uVar8 = uVar5;
+      do {
+        uVar4 = (uint)uVar5;
+        lVar2 = FUN_7ff74f60791c(param_3,uVar5);
+        local_2c0 = lVar2;
+        if ((lVar2 != 0) && (local_2d0 + uVar4 != 0)) {
+          fVar10 = *(float *)(param_2 + 0x134);
+          local_f4 = (float)(1 << ((char)(local_2d0 + uVar4) - 1U & 0x1f));
+          if ((fVar10 <= local_f4) || (fVar10 = *(float *)(param_2 + 0x130), local_f4 <= fVar10)) {
+            local_f4 = fVar10;
+          }
+          if (local_f8 != local_f4) {
+            FUN_7ff74f653ed0(local_238,0,1);
+            FUN_7ff74f653bb0(local_c8,local_228,2);
+            uStack_28c = 0;
+            uStack_27c = 0;
+            FUN_7ff74f592f7c(local_c8,&local_298);
+            local_250 = 0;
+            local_278 = local_288;
+            local_258 = &DAT_7ff752dcdc00;
+            local_268 = local_298;
+            local_248 = 0;
+            uStack_240 = 0;
+            _uStack_260 = CONCAT44(0x3f800000,uStack_290);
+            _uStack_270 = CONCAT44(0x3f800000,uStack_280);
+            local_2e0 = local_2e8;
+            FUN_7ff74f530ec0(lVar2,&local_278,1,&local_2e0);
+            param_3 = local_2c8;
+            if (local_2e0 != local_2e8) {
+              uVar7 = local_2e0;
+              if ((int)local_2e0 < 0) {
+                uVar7 = 0;
+              }
+              if (local_2dc < 0) {
+                local_2dc = 0;
+              }
+              if ((int)(local_2e8 - 1) < local_2d8) {
+                local_2d8 = local_2e8 - 1;
+              }
+              if ((int)(local_2e4 - 1) < local_2d4) {
+                local_2d4 = local_2e4 - 1;
+              }
+              if ((int)uVar7 <= local_2d8) {
+                do {
+                  if (local_2dc <= local_2d4) {
+                    iVar6 = local_2dc;
+                    do {
+                      if (*puVar9 < 0x400) {
+                        uStack_2ac = ((int)(longlong)
+                                           ((float)local_2e8 * *(float *)(local_2c0 + 0x8a0)) +
+                                     uVar7) % local_2e8;
+                        uStack_2a8 = (uint)((int)(longlong)
+                                                 ((float)local_2e4 * *(float *)(local_2c0 + 0x8a4))
+                                           + iVar6) % local_2e4;
+                        local_2b0 = uVar4 | 0x80;
+                        puVar1 = (uint *)(param_1 + (uVar8 + 0x4177 + (ulonglong)*puVar9) * 0x10);
+                        *puVar1 = local_2b0;
+                        puVar1[1] = uStack_2ac;
+                        puVar1[2] = uStack_2a8;
+                        puVar1[3] = uStack_2a4;
+                        *puVar9 = *puVar9 + 1;
+                      }
+                      iVar6 = iVar6 + 1;
+                    } while (iVar6 <= local_2d4);
+                  }
+                  uVar7 = uVar7 + 1;
+                  param_2 = local_2b8;
+                  uVar3 = local_2cc;
+                } while ((int)uVar7 <= local_2d8);
+              }
+            }
+          }
+        }
+        uVar5 = (ulonglong)(uVar4 + 1);
+        puVar9 = puVar9 + 1;
+        uVar8 = uVar8 + 0x400;
+      } while (uVar4 + 1 < uVar3);
+    }
+  }
+  return;
+}
+
+
+
+==== decompile RVA 0x9fa954 ====
+// function FUN_7ff74fe0a954 @ 0x9fa954  body=23 bytes  pdataStart=0x9fa954
+// callers(5): FUN_7ff74fe127e4@0xa027e4 FUN_7ff74fe0abe4@0x9fabe4 FUN_7ff74fe58f9c@0xa48f9c FUN_7ff74f4aadb8@0x9adb8 FUN_7ff75145fc7c@0x204fc7c 
+// callees(1): FUN_7ff74f50262c@0xf262c 
+
+void FUN_7ff74fe0a954(longlong param_1)
+
+{
+  if (*(longlong *)(param_1 + 8) != 0) {
+    FUN_7ff74f50262c();
+  }
+  return;
+}
+
+
+

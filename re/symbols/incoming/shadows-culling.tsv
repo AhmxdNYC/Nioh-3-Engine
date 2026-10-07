@@ -1,0 +1,45 @@
+rva	kind	name	signature	description	confidence	source
+0x1f5c2c	function	ShadowCascadeRender	void (SceneR*, ?, Base* b, ..., u32 view(p5), ..., Obj* bakedObj(p17), ..., u8 skipListB(p26), ..., u32 cascade(p32), u8 vsm(p33), u8 vsmTile(p34), ...)	per cascade (535188 loops 1+2) or per VSM tile/batch (1F8340): meshlet culling (9AC33C/52E424, MeshletInstanceCulling 53FD3C, MeshletPreculling 5301FC, end 53007C) then DrawListWalk of list A (slots 2-5, two sub-passes) and list B (slots 11-14, when p26==0); baked path when p25 and bit(cascade) of b2+EA0h; 3278 B	high	notes/shadows-culling.md §1.2
+0x1f6313	label	ShadowCascadeRender_RetDrawListWalk		return site of a DrawListWalk call inside ShadowCascadeRender; 2-7 % of DrawListWalk self samples in r5-r7 profiles	high	notes/shadows-culling.md §3.2
+0x5384aa	label	SceneRenderView_CallCascadeLoop1	call 1F5C2Ch	cascade loop 1 (first shadow occlusion phase) call of ShadowCascadeRender; marker 'Cascade %d' before it	medium	notes/shadows-culling.md §1.1
+0x5389bb	label	SceneRenderView_CallCascadeLoop2	call 1F5C2Ch	cascade loop 2 (after GenerateShadowMapHiZ, second occlusion phase); passes the same skipListB arg as loop 1 (dec_535188.c:1560): hypothesis H1 / design A2	medium	notes/shadows-culling.md §2.4
+0x1f8340	function	VsmClipmapRender	void (SceneR*, Args* a)	CPU per-tile VSM path, only when base+1AC678 == 5 (markers VirtualShadowmap, Clipmap %d, Clear Tile %d %d, Batch Tiles %d, Tile %d %d); returns early for modes 1 and 6; renders dirty+requested+uncached tiles up to VsmTilesPerFrameBudget via ShadowCascadeRender; 5021 B	high	notes/shadows-culling.md §1.3
+0x1f691c	function	ViewShadowListA	DrawList* (View* v, u32 cascade)	cascade < 4: entry 2+cascade of v+3FF0h (32-byte list headers, count v+3FF8h)	high	notes/shadows-culling.md §1.2
+0x1f68fc	function	ViewShadowListB	DrawList* (View* v, u32 cascade)	cascade < 4: entry 11+cascade of v+3FF0h	high	notes/shadows-culling.md §1.2
+0x1f4b84	function	ViewVsmListA	DrawList* (View* v, u32 i)	i < 4: entry 15+i of v+3FF0h (VSM alternative list A)	high	notes/shadows-culling.md §1.2
+0x894344	function	ViewVsmListB	DrawList* (View* v, u32 i)	i < 4: entry 19+i of v+3FF0h (VSM alternative list B)	high	notes/shadows-culling.md §1.2
+0x533e88	function	ViewGetShadowObj	ShadowObj* (View* v)	[[v+4328h]+20h]; shadow object: +18h cascade count, +914h/+918h/+920h depth-range inputs, vtbl+0x88/0x90 begin/end cascade	high	notes/shadows-culling.md §1.1
+0x1f791c	function	ViewGetVsmClipmapObj	void* (View* v, u32 i)	[[v+4328h]+28h+i*8]	high	notes/shadows-culling.md §1.3
+0x535080	function	DrawListCount	u32 (DrawList* l)	locked read of l+0Ch; negative = -(n)-1 clamped to l+08h	high	notes/shadows-culling.md §1.2
+0x147f60	function	CascadeMatrixGet	float4x4* (ShadowObj* s, u32 c)	s+(0x25+c)*0x40, or a constant when c is masked out by s+3F0h	medium	notes/shadows-culling.md §1.2
+0x86b8a4	function	ShadowSetDepthRange	void (ShadowObj* s)	derives a depth range from s+914h*0.5 and s+918h (negated if s+920h), writes it to [s+138h] with a dirty bit only on change; called twice per cascade in 535188	medium	notes/shadows-culling.md §1.1
+0x1f80c8	function	VsmTileNeedsRender	bool (PageMgr* pm, TileList* l, u32* tile)	true when the tile's physical-page entry is 0 (not cached)	high	notes/shadows-culling.md §1.3
+0x1f8168	function	VsmTileDirty	bool (PageMgr* pm, u32* tile)	pm+41720h page-flag bit 1	high	notes/shadows-culling.md §1.3
+0x1f8094	function	VsmTileRequested	bool (PageMgr* pm, u32* tile)	pm+40118h page-flag bit 4	high	notes/shadows-culling.md §1.3
+0x1f7960	function	VsmTilesPerFrameBudget	u32 (ParamList* p)	env param 0x93bce2c1 (type 0x4000000) or 16	high	notes/shadows-culling.md §1.3
+0x149468	function	VsmTileMarkRendered	void (PageMgr* pm, TileList* l, u32* tile, u8 flag)	updates the page mapping after a tile render or clear	medium	notes/shadows-culling.md §1.3
+0x1f96e0	function	VsmTileBindViewport	bool (ClipmapObj* c, Ctx* ctx)	viewport/scissor for the current tile, writes a token; false when the level is out of range	medium	notes/shadows-culling.md §1.3
+0x9ac33c	function	MeshletCullBegin	void (MeshletSys* m, Ctx*, u32 view, ...)	per-view meshlet culling setup before MeshletInstanceCulling/MeshletPreculling	medium	notes/shadows-culling.md §1.2
+0x52e424	function	MeshletCullBeginAlt	void (MeshletSys* m, Ctx*)	alternative culling setup (when obj+1ECh != 0)	low	notes/shadows-culling.md §1.2
+0x53fd3c	function	MeshletInstanceCullingRecord	void (MeshletSys* m, Ctx*, ...)	marker MeshletInstanceCulling; records MIC#0 (56 groups)	high	notes/shadows-culling.md §3.1
+0x5301fc	function	MeshletPrecullingRecord	void (MeshletSys* m, Ctx*, ...)	marker MeshletPreculling; records the MPC chain #22 #0 #20/#33 #23 #28 #29 #30 #31 #24 #26 #27 (dependent prefix-scan stages with UAV barriers between)	high	notes/shadows-culling.md §3.4
+0x53007c	function	MeshletCullEnd	void (MeshletSys* m, u32* out)	resets the culling state, emits 3 x token 0x8A (UAV barrier)	high	notes/shadows-culling.md §1.2
+0x9b1850	function	GenerateShadowMapHiZ	u8 (MeshletSys*, Ctx*, ...)	marker GenerateShadowMapHiZ + Hi-Z build between the two shadow occlusion phases	high	notes/shadows-culling.md §1.1
+0x465384	function	VsmPassNodeExecute	u64 (Node*, RenderCtx* r)	render-node callback (referenced from data 4E520CC); calls VsmPassExecute when [r+F8h]+968h >= 0	medium	notes/shadows-culling.md §1.1
+0x465414	function	VsmPassExecute		VSM render pass for modes other than 5 (inferred): page manager base+16C640, clipmap entries view+4730h (0x150 B each, VsmClipmapSetup 32FF074), MeshletInstanceCulling/MeshletPreculling/DrawListWalk; 3144 B	low	notes/shadows-culling.md §1.1
+0x32ff074	function	VsmClipmapSetup	void (PageMgr* pm, Entry* e, View* v)	per clipmap level setup (scale 1 << level)	low	notes/shadows-culling.md §1.1
+0x1d3ad8	function	GfxBeginMarker	u64 (KtglContext* ctx, const char* fmt, ...)	returns 0 unless byte ctx+2A62h; vsnprintf + colour, token 0xA5 + string into ctx+3C40h	high	notes/shadows-culling.md §4
+0x113ca4	function	GfxEndMarker	void (KtglContext* ctx)	token 0xA6 when byte ctx+2A62h	high	notes/shadows-culling.md §4
+0x114024	function	SynTokBeginEvent	void (SynCtx* c, u32** p)	token 0xA5: unpack colour + name, call SynBeginEvent 113E64	high	notes/shadows-culling.md §4
+0x113e64	function	SynBeginEvent	void (SynCtx* c, u32 colour, const char* name)	returns unless byte c+542h; marker interface [4BD09C0] if set, else MultiByteToWideChar + ID3D12GraphicsCommandList::BeginEvent (vtbl+1C8h) on c+580h	high	notes/shadows-culling.md §4
+0x113fc8	function	SynTokEndEvent	void (SynCtx* c, u32** p)	token 0xA6: EndEvent (vtbl+1D0h) when byte c+542h	high	notes/shadows-culling.md §4
+0xa96d70	function	SynTokSetMarkerReplay	void (SynCtx* c, u32** p)	token 0xA0: c+542h = byte from the stream (the engine's own replay switch)	high	notes/shadows-culling.md §4
+0xa96d90	function	SynTokSetMarkerIface	void (SynCtx* c, u32** p)	token 0x8E: [4BD09C0] = qword from the stream	high	notes/shadows-culling.md §4
+0x4bd09c0	global	g_MarkerInterface	void*	optional marker interface used instead of D3D12 BeginEvent/EndEvent (0 = use the command list)	medium	notes/shadows-culling.md §4
+0x11383c	label	RenderTaskNode_MarkerCheck	cmp byte [rdx+2A62h],0	render-graph node loop 113204: node-name marker when markers are on	medium	notes/shadows-culling.md §4
+0x2a62	struct_field	KtglContext::MarkersEnabled	u8	record-side debug marker switch, off at boot, 25 readers, no code writer; patcher/gpu_markers.fsx	high	notes/shadows-culling.md §4
+0x542	struct_field	SynCtx::MarkersReplay	u8	replay-side marker switch (= g+552h); set by token 0xA0	high	notes/shadows-culling.md §4
+0x3ff0	struct_field	View::DrawLists	ptr	array of 32-byte draw-list headers (count View+3FF8h): shadow lists A 2-5, B 11-14, VSM 15-22	high	notes/shadows-culling.md §1.2
+0x4328	struct_field	View::ShadowRoot	ptr	+20h -> shadow (cascade) object, +28h+i*8 -> VSM clipmap objects	high	notes/shadows-culling.md §1.1
+0x4460	struct_field	View::VsmTileList	ptr	+0Ch count, +10h array of 16-byte tiles {level|flags, x, y, ...}	high	notes/shadows-culling.md §1.3
+0x7598	struct_field	RenderGlobals::ShadowNotHighest	u8	set for SHADOW_QUAL <= HIGH; gates flag 0x20 (381A8) and the per-frame texture-stream stamp skip in DrawEmit 1E80B0 for objects whose vcall+128h is true	medium	notes/shadows-culling.md §1.4
