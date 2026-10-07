@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr };
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2 };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -133,6 +133,7 @@ static const uint8_t orig_EDk[] = { 0xE8, 0x35, 0xF7, 0xF1, 0xFF };
 static const uint8_t orig_EDj[] = { 0xE8, 0x38, 0x0D, 0x00, 0x00 };
 static const uint8_t orig_GF1[] = { 0x33, 0xC9, 0xFF, 0x15, 0xCA, 0x84, 0x10, 0x03 };
 static const uint8_t orig_GF2[] = { 0x33, 0xC9, 0xFF, 0x15, 0x91, 0xA5, 0x7C, 0x03 };
+static const uint8_t orig_WL[] = { 0xFF, 0x90, 0x08, 0x01, 0x00, 0x00 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -207,6 +208,7 @@ static const Site kSites[] = {
     { "EDj", "ED", 0x3D6F8B, 5, orig_EDj, "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C DD", 10, Kind::Call, nullptr, Target::caveEdJoin, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3D7CC8 },
     { "GF1", "GF", 0x7D9E66, 8, orig_GF1, "EB 17 33 C9 FF 15 ?? ?? ?? ?? 48 8B D7 48 8B CE", 2, Kind::Call, nullptr, Target::caveGf1, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "GF2", "GF", 0x117D9F, 8, orig_GF2, "76 0A 33 C9 FF 15 ?? ?? ?? ?? EB E7 8B 83 C4 00 00 00", 2, Kind::Call, nullptr, Target::caveGf2, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "WL", "WL", 0x4A5338, 6, orig_WL, "48 8B 01 FF 90 08 01 00 00 48 8B E8", 3, Kind::Call, nullptr, Target::caveWL, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -246,6 +248,10 @@ static const uint8_t dep_37[] = { 0x48, 0x8B, 0xD7, 0x48, 0x8B, 0xCE, 0xE8, 0x2B
 static const uint8_t dep_38[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x09, 0x48, 0x8B, 0xDA, 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x40, 0x48, 0x3B, 0xD8, 0x0F, 0x96, 0xC0, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3 };
 static const uint8_t dep_39[] = { 0x48, 0x8B, 0xC2, 0x48, 0x8B, 0x79, 0x20, 0x48, 0x8B, 0xD9, 0x48, 0x3B, 0x79, 0x30, 0x74, 0x54, 0x48, 0x85, 0xC0, 0x0F, 0x85, 0x54, 0x23, 0x7F, 0x01, 0x48, 0x8B, 0x4B, 0x18, 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x40, 0x48, 0x3B, 0xF8, 0x76, 0x0A };
 static const uint8_t dep_40[] = { 0xEB, 0xE7 };
+static const uint8_t dep_41[] = { 0x48, 0x8B, 0x01 };
+static const uint8_t dep_42[] = { 0x48, 0x8B, 0xE8 };
+static const uint8_t dep_43[] = { 0x48, 0x8B, 0xCD };
+static const uint8_t dep_44[] = { 0x48, 0x8B, 0x6B, 0x70 };
 static const Dep kDeps[] = {
     { "PP", 0x2522C4, 6, dep_0, 0 },  // PagePoolScanAll prologue
     { "PP", 0x252303, 7, dep_1, 0 },  // cmp byte [rbx+238h],0 (pool+B28h branch)
@@ -288,6 +294,10 @@ static const Dep kDeps[] = {
     { "GF", 0x1180A4, 30, dep_38, 0 },  // IsFenceComplete: (*f)->GetCompletedValue() (vtbl+40h) >= value
     { "GF", 0x117D77, 40, dep_39, 0 },  // worker fence poll 117D6C: p2 == NULL path, fence = [rbx+18h], value = rdi
     { "GF", 0x117DA7, 2, dep_40, 0 },  // loop back to the GetCompletedValue check after the patched call
+    { "WL", 0x4A5335, 3, dep_41, 0 },  // rax = swapchain vtable (rcx = IDXGISwapChain3*) before the call
+    { "WL", 0x4A533E, 3, dep_42, 0 },  // rbp = the waitable handle
+    { "WL", 0x4A534C, 3, dep_43, 0 },  // the only use of rbp: WaitForSingleObject(rbp) in the frame-latency wait loop
+    { "WL", 0x4A5461, 4, dep_44, 0 },  // rbp overwritten before any other use: the handle is dead after the loop
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

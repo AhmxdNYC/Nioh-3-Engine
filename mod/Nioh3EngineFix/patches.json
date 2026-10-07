@@ -145,7 +145,9 @@
     { "id": "GF1", "group": "GF", "rva": "0x7D9E66", "len": 8, "orig": "33 C9 FF 15 CA 84 10 03", "kind": "call", "target": "caveGf1", "call_at": 0, "iat_disp_at": 4, "iat_name": "KERNEL32.DLL!Sleep",
       "pattern": "EB 17 33 C9 FF 15 ?? ?? ?? ?? 48 8B D7 48 8B CE", "offset": 2 },
     { "id": "GF2", "group": "GF", "rva": "0x117D9F", "len": 8, "orig": "33 C9 FF 15 91 A5 7C 03", "kind": "call", "target": "caveGf2", "call_at": 0, "iat_disp_at": 4, "iat_name": "KERNEL32.DLL!Sleep",
-      "pattern": "76 0A 33 C9 FF 15 ?? ?? ?? ?? EB E7 8B 83 C4 00 00 00", "offset": 2 }
+      "pattern": "76 0A 33 C9 FF 15 ?? ?? ?? ?? EB E7 8B 83 C4 00 00 00", "offset": 2 },
+    { "id": "WL", "group": "WL", "rva": "0x4A5338", "len": 6, "orig": "FF 90 08 01 00 00", "kind": "call", "target": "caveWL", "call_at": 0,
+      "pattern": "48 8B 01 FF 90 08 01 00 00 48 8B E8", "offset": 3 }
   ],
   "deps": [
     { "group": "PP", "rva": "0x2522C4", "bytes": "48 89 5C 24 10 57", "what": "PagePoolScanAll prologue" },
@@ -188,6 +190,10 @@
     { "group": "GF", "rva": "0x7D9E6E", "bytes": "48 8B D7 48 8B CE E8 2B E2 93 FF 84 C0 74 E9", "what": "the Sleep(0) loop re-checks IsFenceComplete(rsi, rdi) after the patched call" },
     { "group": "GF", "rva": "0x1180A4", "bytes": "40 53 48 83 EC 20 48 8B 09 48 8B DA 48 8B 01 FF 50 40 48 3B D8 0F 96 C0 48 83 C4 20 5B C3", "what": "IsFenceComplete: (*f)->GetCompletedValue() (vtbl+40h) >= value" },
     { "group": "GF", "rva": "0x117D77", "bytes": "48 8B C2 48 8B 79 20 48 8B D9 48 3B 79 30 74 54 48 85 C0 0F 85 54 23 7F 01 48 8B 4B 18 48 8B 01 FF 50 40 48 3B F8 76 0A", "what": "worker fence poll 117D6C: p2 == NULL path, fence = [rbx+18h], value = rdi" },
-    { "group": "GF", "rva": "0x117DA7", "bytes": "EB E7", "what": "loop back to the GetCompletedValue check after the patched call" }
+    { "group": "GF", "rva": "0x117DA7", "bytes": "EB E7", "what": "loop back to the GetCompletedValue check after the patched call" },
+    { "group": "WL", "rva": "0x4A5335", "bytes": "48 8B 01", "what": "rax = swapchain vtable (rcx = IDXGISwapChain3*) before the call" },
+    { "group": "WL", "rva": "0x4A533E", "bytes": "48 8B E8", "what": "rbp = the waitable handle" },
+    { "group": "WL", "rva": "0x4A534C", "bytes": "48 8B CD", "what": "the only use of rbp: WaitForSingleObject(rbp) in the frame-latency wait loop" },
+    { "group": "WL", "rva": "0x4A5461", "bytes": "48 8B 6B 70", "what": "rbp overwritten before any other use: the handle is dead after the loop" }
   ]
 }

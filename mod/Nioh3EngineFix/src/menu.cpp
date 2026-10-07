@@ -695,13 +695,13 @@ void NoteFgSwitchProton(int want) {
 
 // ---- items ----------------------------------------------------------------------------------------------------------
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
-          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF,  // order = menu::ExpId
+          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kGpu,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXGF - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXGF; }
-const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF"};
+static_assert(kXWL - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXWL; }
+const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL"};
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -732,6 +732,7 @@ const ItemDef kItems[kCount] = {
     {"WORKER WAKES", "WakeStats counters", "Counts job-worker wakes and sleeps (log \"stats wakes/s\" every 30 s). Measurement only."},
     {nullptr, "ED skip empty effect lists", "Effect Disp workers with nothing to update are not woken (same output)."},
     {"GPU FENCE WAITS", "GF fence wait sleeps", "Main thread / workers sleep until the GPU fence fires instead of Sleep(0)-spinning."},
+    {nullptr, "WL close waitable handles", "Closes the per-frame frame-latency handle the game leaks (Windows; no-op on Proton)."},
     {"GPU", "GPU barrier batching", "Batches the game's D3D12 barriers into fewer calls. ~0 on the Ally, 2-3 % on PC."},
     {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
     {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},

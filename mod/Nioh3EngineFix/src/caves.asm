@@ -1204,4 +1204,44 @@ caveGf2 PROC
     jmp     GfWait
 caveGf2 ENDP
 
+; =================================================================================================================
+; WL (1.5.0, notes\memory-leaks.md 5.3): RenderFrameBegin calls IDXGISwapChain2::GetFrameLatencyWaitableObject every
+; frame (4A5338, vtbl+108h) and never closes the handle (DXGI returns a new one per call). Site `call [rax+108h]`
+; (6 bytes) -> call here; nop. Gets the handle exactly as before (rcx = swapchain, rax = its vtable), then closes the
+; PREVIOUS frame's handle: its wait loop is over (rbp's only use is 4A534C; rbp is overwritten at 4A5461).
+; The same value as last time means the runtime does not duplicate: kept. Switch off = stock (nothing closed).
+; =================================================================================================================
+PUBLIC caveWL, wl_enable, wl_prev, wl_closed, wl_closeHandle
+
+wldata SEGMENT ALIGN(64) READ WRITE 'DATA'
+wl_enable       DD 0
+                DD 0
+wl_prev         DQ 0
+wl_closed       DQ 0
+wl_closeHandle  DQ 0            ; kernel32!CloseHandle
+wldata ENDS
+
+.code
+caveWL PROC FRAME
+    sub     rsp, 38h
+    .allocstack 38h
+    .endprolog
+    call    qword ptr [rax+108h]                        ; h = GetFrameLatencyWaitableObject()
+    mov     qword ptr [rsp+28h], rax
+    mov     rcx, rax
+    xchg    rcx, qword ptr [wl_prev]                    ; rcx = the previous frame's handle; store h
+    test    rcx, rcx
+    jz      wlDone
+    cmp     rcx, qword ptr [rsp+28h]
+    je      wlDone
+    cmp     dword ptr [wl_enable], 0
+    je      wlDone
+    call    qword ptr [wl_closeHandle]
+    lock inc qword ptr [wl_closed]
+wlDone:
+    mov     rax, qword ptr [rsp+28h]
+    add     rsp, 38h
+    ret
+caveWL ENDP
+
 END

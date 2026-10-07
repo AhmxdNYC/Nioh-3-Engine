@@ -119,3 +119,10 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - New (not integrated; the ASI src owner integrates): `mod\Nioh3EngineFix\src\memstats.h`, `memstats.cpp` - [Profiler] MemStats (default 0): 30 s "stats mem:" line (private, working set, commit, handles, threads, VRAM local/non-local used/budget via system dxgi CreateDXGIFactory1 + device LUID, system RAM, deltas). Compiles /W4-clean with build.bat flags; only KERNEL32/USER32 imports; verified in a scratch harness on this PC.
 - Symbols: `re\symbols\incoming\memory.tsv` (11 rows; not merged).
 - Undo: nothing applied.
+
+## 2026-10-07 - ASI 1.5.0 (v9): WL waitable-handle leak fix, MemStats integrated (memory only; nothing run in-game)
+- WL (ini WL, default 1; live menu switch): 4A5338 `call [rax+108h]` (GetFrameLatencyWaitableObject, every frame, never closed) -> caveWL: same call, then CloseHandle on the previous frame's handle (its wait loop is over: rbp's only use 4A534C, overwritten at 4A5461 - verified in the dump, deps in patches.json). Same value kept. No overlap with R1. No-op under Proton (getter returns NULL). 30 s "stats/s WL" line.
+- MemStats (another agent's src\memstats.cpp): memstats::Start next to sp::Start, LogLine in the 30 s block, build.bat/CMake (CMake also gets src/sp.cpp, missing before). [Profiler] MemStats = 0 (main) / 1 (Ally zip).
+- patches.json: 1 site + 4 deps. Test: ALL 73 SITES OK.
+- Ally zip rebuilt: GF 1, SP 1, MemStats 1, WL 1; other values unchanged.
+- Undo: WL = 0 / MemStats = 0, or the previous .asi.

@@ -26,6 +26,7 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpIK, kExpTS,  // input latency (1.2.0)
                    kExpWS, kExpED,  // worker wakes (1.3.0)
                    kExpGF,          // GPU-fence waits (1.4.0)
+                   kExpWL,          // waitable-handle leak fix (1.5.0)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)

@@ -77,6 +77,21 @@ swapchain is rebuilt or the game restarts** (the menu says so). For an A/B set i
 value is logged; the setting is re-checked every 2 s, so rebuilt swapchains get it again. Live menu item *Max frame
 latency*: game / 1 / 2 / 3.
 
+### Handle leak fix + memory line (1.5.0) - notes\memory-leaks.md
+**WL** (ini `WL`, **default 1**; live menu switch): `RenderFrameBegin` 4A529C calls
+`IDXGISwapChain2::GetFrameLatencyWaitableObject` (vtbl+108h at 4A5338) every frame and never closes the handle. DXGI
+returns a new handle per call, so Windows leaks one handle per rendered frame (~13M after 60 h at 60 fps; the
+per-process limit is 16.7M). The 6-byte call is redirected to `caveWL`, which gets the handle exactly as before and
+then closes the **previous** frame's handle. That handle is dead by then: its only use is the wait loop (4A534C, the R1
+site), and rbp is overwritten at 4A5461 with no read in between (checked in the dump; the test verifies those bytes).
+If the runtime returns the same value again, it is kept (no duplicate to close). The site does not overlap R1
+(4A5346 / 4A5357). Under Proton the swapchain has no waitable flag, the getter returns NULL and nothing happens.
+`stats/s WL:` line every 30 s (handles closed).
+
+**MemStats** (`[Profiler] MemStats`, default 0; Ally zip 1) integrates `src\memstats.cpp` (written by another agent). It
+logs one `stats mem:` line every 30 s: process private bytes, working set, commit, handles, threads, VRAM local and
+non-local, system RAM, and the change since start. Measurement only.
+
 ### GPU-fence waits (1.4.0) - GF
 The Ally profiler (SP) found 58 % of the main thread's samples in `IsFenceComplete` 1180A4 called from `FenceWait`
 7D9E1C. When the engine passes no event, that function spins `do Sleep(0); while (fence->GetCompletedValue() < value)`
@@ -200,6 +215,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * `[Patches] IK`, `TS` (input latency, 0 = off) and `[Tuning] IK_PadWaitCapMs` (0-8, default 0 = no wait).
 * `[Patches] WakeStats`, `ED` (worker wakes, 0 = off; ED 2 = installed, switched off) and `[GpuOpt]` (see above).
 * `[Patches] GF` (GPU-fence waits, 0 = off) and `[Tuning] GF_TimeoutMs` (1-1000, default 100).
+* `[Patches] WL` (waitable-handle leak fix, default 1) and `[Profiler] MemStats` (memory line, default 0).
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.

@@ -25,12 +25,13 @@
 
 #include "gpuopt.h"
 #include "sp.h"
+#include "memstats.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.4.0"
+#define MOD_VERSION "1.5.0"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -111,6 +112,10 @@ extern uint64_t ws_set[48], ws_sleeps, ws_sleepPool[64], ws_chk[32];
 void caveGf1();
 void caveGf2();
 void GfWait(void** fence, uint64_t value);
+// WL: waitable-handle leak fix
+void caveWL();
+extern uint32_t wl_enable;
+extern uint64_t wl_prev, wl_closed, wl_closeHandle;
 extern uint64_t w6_wakeAll, w6_wakes;
 }
 
@@ -219,6 +224,8 @@ struct Config {
     int wakeStats = 0, ed = 0;
     // GPU-fence waits (1.4.0)
     int gf = 0, gfTimeoutMs = 100;
+    // waitable-handle leak fix (1.5.0): on by default (Windows leaks one handle per frame; never triggers under Proton)
+    int wl = 1;
 };
 
 Config LoadConfig() {
@@ -280,6 +287,7 @@ Config LoadConfig() {
     c.wakeStats = I(L"Patches", L"WakeStats", c.wakeStats);
     c.ed = I(L"Patches", L"ED", c.ed);
     c.gf = I(L"Patches", L"GF", c.gf);
+    c.wl = I(L"Patches", L"WL", c.wl);
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     return c;
 }
@@ -463,11 +471,12 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveEdJoin: return (void*)&caveEdJoin;
         case gen::Target::caveGf1: return (void*)&caveGf1;
         case gen::Target::caveGf2: return (void*)&caveGf2;
+        case gen::Target::caveWL: return (void*)&caveWL;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveGf2;
+constexpr int kLastTarget = (int)gen::Target::caveWL;
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1037,6 +1046,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "WS")) return cfg.wakeStats != 0;
         if (!strcmp(g, "ED")) return cfg.ed != 0;
         if (!strcmp(g, "GF")) return cfg.gf != 0;
+        if (!strcmp(g, "WL")) return cfg.wl != 0;
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1396,6 +1406,18 @@ DWORD WINAPI Worker(LPVOID) {
     exDone[menu::kExpGF] = s_gfDone;
     if (s_gfDone) Log("GF: GPU-fence waits use SetEventOnCompletion + an event wait (%lu ms rounds) instead of Sleep(0)", g_gfTimeoutMs);
 
+    // ---- WL: close the previous frame's frame-latency waitable handle (4A5338; notes\memory-leaks.md 5.3)
+    static bool s_wlDone = false;
+    s_wlDone = expGroup("WL", cfg.wl != 0, [&]() {
+        HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
+        auto ch = k32 ? GetProcAddress(k32, "CloseHandle") : nullptr;
+        if (!ch) { Log("WL: CloseHandle not found"); return false; }
+        wl_closeHandle = (uint64_t)(uintptr_t)ch;
+        wl_enable = 1;
+        return true;
+    });
+    exDone[menu::kExpWL] = s_wlDone;
+
     // periodic stats so a log from a handheld shows the wake rates and the experimental patches working without a
     // profiler. The same thread finds the [App]Game thread for FPC.
     static bool s_fpcWanted = false, s_anyExp = false;
@@ -1442,6 +1464,14 @@ DWORD WINAPI Worker(LPVOID) {
                     Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
                 }
                 if (s_wsDone && sec % 30 == 0) WakeStatsLog();
+                if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
+                if (s_wlDone && sec % 30 == 0) {
+                    static uint64_t pC = 0;
+                    const uint64_t cl = wl_closed;
+                    Log("stats/s WL: waitable handles closed %llu (total %llu, switch %s; 0 = no waitable swapchain, e.g. Proton)",
+                        (unsigned long long)((cl - pC) / 30), (unsigned long long)cl, wl_enable ? "ON" : "off");
+                    pC = cl;
+                }
                 if (s_gfDone && sec % 30 == 0) {
                     static long pW = 0, pF = 0;
                     static long long pT = 0;
@@ -1552,8 +1582,9 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpWS] = U(ws_enable);
         sw[menu::kExpED] = U(ed_enable);
         sw[menu::kExpGF] = &g_gfEnable;
+        sw[menu::kExpWL] = U(wl_enable);
         const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
-                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gf};
+                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gf, cfg.wl};
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -1590,6 +1621,14 @@ DWORD WINAPI Worker(LPVOID) {
             pi.iniPath = iniPath.c_str();
             pi.base = reinterpret_cast<uintptr_t>(g_base);
             sp::Start(pi);
+        }
+        {  // memory line (memstats.cpp, [Profiler] MemStats = 0 by default): measurement only
+            memstats::StartInfo mi;
+            mi.log = &Log;
+            mi.iniPath = iniPath.c_str();
+            mi.base = reinterpret_cast<uintptr_t>(g_base);
+            mi.knownBuild = known;
+            memstats::Start(mi);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;
