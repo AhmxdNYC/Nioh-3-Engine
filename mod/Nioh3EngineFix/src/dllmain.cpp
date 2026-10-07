@@ -35,7 +35,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.2"
+#define MOD_VERSION "1.7.3"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -569,7 +569,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveSPF;
+constexpr int kLastTarget = (int)gen::Target::caveSprU;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }

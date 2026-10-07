@@ -20,7 +20,7 @@ The dump is a memory-layout snapshot of the decrypted image (raw offset == RVA).
     SetOptionValue dirty store, the slots/flags they reference, config descriptors 50/54, the config.xml path string
   * (info) any Lyall Nioh3Fix 0.0.6 pattern that lands within 32 bytes of one of our sites
 """
-import json
+import json, re
 import pathlib
 import struct
 import sys
@@ -370,6 +370,45 @@ def main():
                 if h < r1 + 32 and r0 < h + plen + 32:
                     near.append("%s @0x%X near %s" % (p[:23], h, sid))
     print("Nioh3Fix 0.0.6 patterns within 32 bytes of our sites: %s" % ("; ".join(near) if near else "none"))
+
+    # 1.7.3: every Target enum entry needs a written trampoline (1.7.2 SPR hung because kLastTarget stopped at caveSPF)
+    hdr = (ROOT / "src" / "patches_gen.h").read_text(encoding="utf-8")
+    m = re.search(r"enum class Target : uint8_t \{([^}]*)\}", hdr)
+    ents = [e.strip() for e in m.group(1).split(",") if e.strip()] if m else []
+    m2 = re.search(r"kLastTarget = \(int\)gen::Target::(\w+)", (ROOT / "src" / "dllmain.cpp").read_text(encoding="utf-8"))
+    check(bool(ents) and bool(m2) and m2.group(1) == ents[-1], "kLastTarget (%s) is not the last Target enum entry (%s)" % (m2 and m2.group(1), ents and ents[-1]))
+    # 1.7.3: no branch may land inside the bytes a call-kind site overwrites (SPR: SPg, SPu); scanned over the +-0x400 window
+    for st in doc["sites"]:
+        if st.get("kind") != "call" or st.get("group") != "SPR":
+            continue
+        rva = int(st["rva"], 16); ln = st["len"]; lo, hi = rva + 1, rva + ln
+        base = rva - 0x400
+        # rva -> file offset via exec sections is not needed: patterns are resolved in the dump image by find_all
+        offs = find_all(img, secs, st["pattern"].replace(" ", " "))
+        hit = [o for o in offs if True]
+        check(len(hit) == 1, "%s: pattern not unique for branch scan" % st["id"])
+        if len(hit) != 1:
+            continue
+        a = hit[0][1] if isinstance(hit[0], tuple) else hit[0]
+        va_of = lambda fo: fo  # offsets below are relative to the match
+        # find_all returns (rva, fileoff) style results in this file; derive file offset of RVA via the match
+        site_fo = a + st["offset"]
+        bad = []
+        for d in range(-0x400, 0x400):
+            fo = site_fo + d
+            if fo < 0 or fo + 6 >= len(img):
+                continue
+            b0 = img[fo]; tgt = None
+            if b0 in (0xE8, 0xE9):
+                tgt = d + 5 + struct.unpack_from("<i", img, fo + 1)[0]
+            elif b0 == 0x0F and 0x80 <= img[fo + 1] <= 0x8F:
+                tgt = d + 6 + struct.unpack_from("<i", img, fo + 2)[0]
+            elif 0x70 <= b0 <= 0x7F or b0 == 0xEB:
+                tgt = d + 2 + struct.unpack_from("<b", img, fo + 1)[0]
+            if tgt is not None and 1 <= tgt < ln and d != 0:
+                bad.append("%+d->%+d" % (d, tgt))
+        check(not bad, "%s: branch(es) land inside the overwritten range: %s" % (st["id"], bad))
+    print("SPR branch-into-range scan and trampoline coverage checked")
 
     print()
     if fails:
