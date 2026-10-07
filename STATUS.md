@@ -10,3 +10,18 @@ Killed at the session limit (resume with SMALL fresh agents, Sonnet unless noted
 5. Stutter/p99 (Sonnet) - partial; notes\stutter.md may be missing.
 6. Exe post-effects via PSO hook (Opus) - notes\gpu-post-exe.md; was implementing psoswap.
 Ally pending: ESM/WDO28 at MAX, shader v2 A/B, fast-travel MemStats test. Never use RGP on the Ally (froze it).
+
+## 6PM PLAN (run as-is after the reset; the hourly heartbeat at :07 triggers it)
+Budget: max 3 agents at once; pass `model`; briefs = goal + inputs + deliverable + "read AGENT_BRIEF.md + token-efficiency.md".
+Step 0 (main session, cheap): `git -C nioh3-engine status` - see what the killed agents left half-done in mod\Nioh3EngineFix\src and gpu-shaders\. Relaunch the watcher as a background `watch_inbox.py --once`.
+Wave 1 (start together):
+  A. [sonnet] ASI v10 = FG-off crash fix ONLY first (queue capture limited to the game's ECL callers; Proton ON->OFF = next launch), build + pattern test + zip; then add LK/CP/SPF (notes\worker-jobs-opt.md) + WG; TG opt-in. Finish half-done src edits or revert them (git) if broken. Report -> main posts [BUILD] to the Ally.
+  B. [opus] GI/fog shader rewrite: resume from gpu-shaders\ partial files + notes; the biggest same-look GPU lever at MAX (GI = 15-20 ms on the Ally).
+  C. [opus] Exe post-effects: psoswap hook (new files) + motion blur/TAA rewrites (8-10 ms on the Ally). Check partial files first.
+Wave 2 (as slots free up):
+  D. [sonnet] GP GPU-pass profiler in the ASI (timestamp queries at the engine debug markers; patcher\gpu_markers.fsx) - replaces RGP on the Ally.
+  E. [opus] Culling-kernel rewrite (merge with sweep MPC#23 in 0x29ee0902).
+  F. [opus] Tiled-resource stall hunt (tilestats module + census).
+  G. [sonnet] Stutter/p99 census (finish notes\stutter.md from the Ally CSVs).
+Ally side: ESM/WDO28 at MAX, shader v2 A/B, then v10 tests (FG off fix, CP/SPF/WG A/Bs), fast-travel MemStats. Digest logs with re\scripts_cpu\sp_aggregate.py before posting.
+Done when each item ships to the Ally or is written off in its notes file; update this file after each.
