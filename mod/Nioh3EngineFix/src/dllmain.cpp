@@ -24,12 +24,13 @@
 #include <vector>
 
 #include "gpuopt.h"
+#include "sp.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.3.0"
+#define MOD_VERSION "1.3.1"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1539,6 +1540,13 @@ DWORD WINAPI Worker(LPVOID) {
             gi.iniPath = iniPath.c_str();
             gi.wine = wine;
             gpuopt::Start(gi);
+        }
+        {  // sampling profiler (sp.cpp, [Profiler] SP = 0 by default): measurement only
+            sp::StartInfo pi;
+            pi.log = &Log;
+            pi.iniPath = iniPath.c_str();
+            pi.base = reinterpret_cast<uintptr_t>(g_base);
+            sp::Start(pi);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;

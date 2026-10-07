@@ -101,3 +101,6 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - patches.json: 9 sites + 10 deps; test ALL 70 SITES OK, deps 36/36; no branch into the new sites.
 - Ally zip rebuilt: WorkerCap 10, W6 1, IK 0, TS 1, WakeStats 1, ED 2, MaxFrameLatency 0, Barriers 2.
 - Undo: WakeStats = 0 / ED = 0 / Barriers = 0, or the previous .asi.
+## 2026-10-07 05:45 - ASI 1.3.1: SP sampling profiler
+- New src\sp.cpp/.h: in-process sampler ([Profiler] SP, default 0; Ally zip 1). Suspends [App]Game every 1 ms + one engine worker round-robin, GetThreadContext + stack copy via ReadProcessMemory while suspended (no heap/loader work while suspended), then attributes RIP to the Nioh3.exe .pdata function, or for system code to the first game return address on the stack (call-site validated). Top-N per thread group logged every 30 s.
+- Verified on the PC with a harness: a Sleep(0)-spinning thread named [App]Game -> '97.8 % [ntdll.dll] <- fn <its RVA>'; a busy worker -> 100 % its function.
