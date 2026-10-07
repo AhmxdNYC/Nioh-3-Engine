@@ -123,7 +123,25 @@
     { "id": "TSb", "group": "TS", "rva": "0x4A535E", "len": 5, "orig": "E8 D1 39 21 00", "kind": "call", "target": "caveTsB", "call_at": 0, "callee": "0x6B8D34",
       "pattern": "85 C0 75 ?? 48 8D 54 24 40 E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ??", "offset": 9 },
     { "id": "TSp", "group": "TS", "rva": "0x3D6552", "len": 6, "orig": "FF 15 F0 BD 50 03", "kind": "call", "target": "caveTsP", "call_at": 0, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SetEvent",
-      "pattern": "89 AF 3C 77 00 00 FF 15 ?? ?? ?? ?? EB 5B 48 8B 05 ?? ?? ?? ??", "offset": 6 }
+      "pattern": "89 AF 3C 77 00 00 FF 15 ?? ?? ?? ?? EB 5B 48 8B 05 ?? ?? ?? ??", "offset": 6 },
+    { "id": "WS0", "group": "WS", "rva": "0x40B0A", "len": 6, "orig": "FF 15 38 18 8A 03", "kind": "call", "target": "caveWs0", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SetEvent",
+      "pattern": "48 8B 4A 08 FF 15 ?? ?? ?? ?? 48 8B 84 24 C0 00 00 00", "offset": 4 },
+    { "id": "WS1", "group": "WS", "rva": "0x40D2F", "len": 6, "orig": "FF 15 13 16 8A 03", "kind": "call", "target": "caveWs1", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SetEvent",
+      "pattern": "EB A5 49 8B 48 08 FF 15 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ??", "offset": 6 },
+    { "id": "WS2", "group": "WS", "rva": "0x48C6B", "len": 6, "orig": "FF 15 D7 96 89 03", "kind": "call", "target": "caveWs2", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SetEvent",
+      "pattern": "74 BF 48 8B 49 08 FF 15 ?? ?? ?? ?? 40 8A C7 EB B2", "offset": 6 },
+    { "id": "WS3", "group": "WS", "rva": "0x48D06", "len": 6, "orig": "FF 15 3C 96 89 03", "kind": "call", "target": "caveWs3", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SetEvent",
+      "pattern": "74 C3 48 8B 49 08 FF 15 ?? ?? ?? ?? B0 01 EB B8", "offset": 6 },
+    { "id": "WS4", "group": "WS", "rva": "0x48DEC", "len": 6, "orig": "FF 15 56 95 89 03", "kind": "call", "target": "caveWs4", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SetEvent",
+      "pattern": "74 B1 48 8B 49 08 FF 15 ?? ?? ?? ?? B0 01 EB A6", "offset": 6 },
+    { "id": "WS5", "group": "WS", "rva": "0x48E3C", "len": 6, "orig": "FF 15 06 95 89 03", "kind": "call", "target": "caveWs5", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SetEvent",
+      "pattern": "74 E2 48 8B 49 08 FF 15 ?? ?? ?? ?? EB D9 32 C0", "offset": 6 },
+    { "id": "WSs", "group": "WS", "rva": "0x1A6BC35", "len": 6, "orig": "FF 15 05 67 E7 01", "kind": "call", "target": "caveWsSleep", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!WaitForSingleObject",
+      "pattern": "83 CA FF FF 15 ?? ?? ?? ?? EB 0B B9 01 00 00 00", "offset": 3 },
+    { "id": "EDk", "group": "ED", "rva": "0x3D6F46", "len": 5, "orig": "E8 35 F7 F1 FF", "kind": "call", "target": "caveEdKick", "call_at": 0, "callee": "0x2F6680",
+      "pattern": "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C E0", "offset": 10 },
+    { "id": "EDj", "group": "ED", "rva": "0x3D6F8B", "len": 5, "orig": "E8 38 0D 00 00", "kind": "call", "target": "caveEdJoin", "call_at": 0, "callee": "0x3D7CC8",
+      "pattern": "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C DD", "offset": 10 }
   ],
   "deps": [
     { "group": "PP", "rva": "0x2522C4", "bytes": "48 89 5C 24 10 57", "what": "PagePoolScanAll prologue" },
@@ -151,6 +169,16 @@
     { "group": "IK", "rva": "0x205530", "bytes": "48 83 EC 28 48 8B 05", "what": "QpcNow (stamps / input age)" },
     { "group": "IK", "rva": "0x5ACAAF", "bytes": "E8 E4 1A 02 00", "what": "the pad-stage wait's result is not used after 5ACAAA" },
     { "group": "TS", "rva": "0x5AD2C1", "bytes": "48 85 DB", "what": "flags dead after the limiter-exit site (test rbx,rbx)" },
-    { "group": "TS", "rva": "0x3D6558", "bytes": "EB 5B", "what": "SetEvent result unused after the present hand-off" }
+    { "group": "TS", "rva": "0x3D6558", "bytes": "EB 5B", "what": "SetEvent result unused after the present hand-off" },
+    { "group": "WS", "rva": "0x40800", "bytes": "4C 89 4C 24 20 4C 89 44 24 18 89 54 24 10 48 89 4C 24 08 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 68", "what": "JobWorkerPoll prologue: 8 pushes + 68h -> its return address is at [rsp+0A8h] at 40A4C" },
+    { "group": "WS", "rva": "0x40B10", "bytes": "48 8B 84 24 C0 00 00 00", "what": "same frame at the end of the wake block (param 3 at [rsp+0C0h])" },
+    { "group": "WS", "rva": "0x3FF59", "bytes": "E8 A2 08 00 00", "what": "JobWorkerRunUntilIdle 3FE14 calls 40800 (return 3FF5E)" },
+    { "group": "WS", "rva": "0x403D2", "bytes": "E8 29 04 00 00", "what": "JobHelpStep 403A0 calls 40800 (return 403D7)" },
+    { "group": "WS", "rva": "0x207238", "bytes": "E8 C3 95 E3 FF", "what": "JobWaitSleepBackoff 207200 calls 40800 (return 20723D)" },
+    { "group": "WS", "rva": "0x1A6BBF5", "bytes": "48 8B 9F 40 04 00 00 F0 FF 43 30", "what": "worker sleep: rbx = pool, lock inc pool+30h (rbx unchanged until the wait)" },
+    { "group": "ED", "rva": "0x3D83F0", "bytes": "49 8B 95 A0 01 00 00 49 BF AB AA AA AA AA AA AA 2A 49 8B C7 33 ED 48 8B 1A 48 8B 4A 08 48 2B CB", "what": "EffectWorkerRunList: list = [obj+1A0h] (vector of 48-byte entries), count = (end-begin)/48" },
+    { "group": "ED", "rva": "0x3D8421", "bytes": "0F 84 14 01 00 00", "what": "empty list -> straight to the epilogue (nothing else is done)" },
+    { "group": "ED", "rva": "0x3D6F2D", "bytes": "39 99 00 70 00 00 7E 20 48 63 C3 48 8D 4F 08 48 69 D0 A8 01 00 00 48 03 CA E8 35 F7 F1 FF FF C3 3B 9F 00 70 00 00", "what": "EffectDispKick loop: ebx = index, obj = mgr + ebx*1A8h, kicks obj+8" },
+    { "group": "ED", "rva": "0x3D6F6F", "bytes": "39 99 00 70 00 00 7E 23 48 63 C3 48 8D 8F A8 00 00 00 48 69 D0 A8 01 00 00 48 03 CA E8 38 0D 00 00 FF C3 3B 9F 00 70 00 00", "what": "EffectDispJoin loop: same index, waits obj+0A8h" }
   ]
 }

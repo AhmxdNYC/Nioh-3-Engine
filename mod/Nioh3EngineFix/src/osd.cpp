@@ -30,6 +30,7 @@
 #include <cstring>
 #include <string>
 
+#include "gpuopt.h"
 #include "menu.h"
 #include "osd.h"
 #include "osd_font.h"
@@ -1014,6 +1015,7 @@ void OnPresent(IDXGISwapChain* sc) {
         }
     }
     g_ctx.lastPresent = now;
+    gpuopt::OnFrame();  // once per frame of the drawing (game) swapchain
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
     UpdateStats(now);
     menu::OnPresent();  // menu input + runtime switches (needs a working drawing context, checked above)
@@ -1168,6 +1170,15 @@ bool InstallHooks() {
     return ok;
 }
 
+bool InstallGpuOptSafe() {
+    __try {
+        return gpuopt::InstallNow();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        OLOG("gpuopt: exception %08lX in InstallNow - gpuopt off for this session", GetExceptionCode());
+        return false;
+    }
+}
+
 DWORD WINAPI InstallThread(LPVOID) {
     const DWORD t0 = GetTickCount();
     if (g_info.known) {
@@ -1196,6 +1207,10 @@ DWORD WINAPI InstallThread(LPVOID) {
     } else if (menu::Enabled()) {
         menu::InstallInputHooks();
     }
+    // GPU barrier batching (gpuopt.cpp): install its command-list hooks now that the engine renders (it installs by
+    // itself later otherwise). A failure only disables gpuopt; the overlay and the patches go on.
+    if (gpuopt::GetState() != gpuopt::State::Off && !InstallGpuOptSafe())
+        OLOG("gpuopt: hooks not installed (see the GPUOPT: lines) - the overlay and the patches are unaffected");
     return 0;
 }
 

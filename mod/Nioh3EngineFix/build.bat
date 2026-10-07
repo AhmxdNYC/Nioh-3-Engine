@@ -27,6 +27,8 @@ if not exist build mkdir build
 if not exist bin mkdir bin
 
 ml64 /nologo /c /W3 /Fobuild\caves.obj src\caves.asm || exit /b 1
+rem GPU barrier batching (gpuopt.cpp): per-slot command-list thunks
+ml64 /nologo /c /W3 /Fobuild\gpuopt_thunks.obj src\gpuopt_thunks.asm || exit /b 1
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\dllmain.obj src\dllmain.cpp || exit /b 1
 rem in-game overlay (d3d12.dll / dxgi.dll are loaded at run time - no import dependency)
@@ -35,9 +37,12 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem mod menu (xinput / dinput8 are loaded at run time too)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\menu.obj src\menu.cpp || exit /b 1
+rem GPU barrier batching (notes\gpu-barriers.md; [GpuOpt] Barriers = 0 by default)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\gpuopt.obj src\gpuopt.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\dllmain.obj build\osd.obj build\menu.obj build\caves.obj kernel32.lib user32.lib || exit /b 1
+   build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal

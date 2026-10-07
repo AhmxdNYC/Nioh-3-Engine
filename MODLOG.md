@@ -90,3 +90,14 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - Verified offline in a scratch D3D12 harness on this PC (D3D12Core 10.0.26100.9278, RX 9070): 20/20 checks incl. real submits; compile /W4 clean; scratch link with the mod's objects OK. Not run in the game.
 - Symbols: `re\symbols\incoming\gpu-barriers.tsv` (18 rows: 13 barrier call sites, 4 handlers, token entry 0x8A; not merged).
 - Undo: nothing applied. Once integrated: `[GpuOpt] Barriers = 0`, or the menu switch (live).
+
+## 2026-10-07 05:25 - ASI 1.3.0 (v7): worker-wake counters, EffectDisp skip, GPU barrier batching integrated, IK wait fix (memory only; nothing run in-game)
+- WakeStats (ini WakeStats, default 0; Ally zip 1): counters at the 6 SetEvent wake sites (40B0A 40D2F 48C6B 48D06 48DEC 48E3C), worker sleeps per pool at 1A6BC35, wake checks at 40A4C split by 40800's caller (3FE14 / 403A0 / 207200 / other, via the WK cave; WK site installed with its gate off when WK = 0). 30 s "stats wakes/s" line incl. wasted ~= sleeps - checks from 3FE14.
+- ED (ini ED, 0 off / 1 on / 2 installed+off; Ally zip 2): EffectDisp kick (3D6F46) skips workers whose list ([obj+1A0h] vector) is empty; the join (3D6F8B) skips exactly those. Layout verified in the dump (vtable 402D768 slot 2 = 3D83BC, obj stride 1A8h, start +8, done +0A8h, push_back 73A784, empty -> epilogue 3D8421).
+- WK2 not shipped: no queued-job count exists (lock-free stacks, only per-priority bitmaps), and the idle count can't separate woken-not-running from about-to-sleep workers (inc pool+30h at 1A6BBFC before bit0 at 1A6BC15). Reasons in README.
+- IK: IK_PadWaitCapMs default 0 = no wait at the frame start (v6 timed out every frame at 2 ms); Ally zip IK = 0.
+- gpuopt (another agent's src\gpuopt*.cpp/.h/.asm) integrated per notes\gpu-barriers.md 7: build.bat/CMake, gpuopt::Start from dllmain, InstallNow from the OSD install thread (SEH-guarded), OnFrame from the Present hook, menu item + GPU status row, 30 s "stats/s gpuopt" line. [GpuOpt] Barriers = 0 (main ini) / 2 (Ally zip).
+- Not in this build: the in-process sampling profiler (SP).
+- patches.json: 9 sites + 10 deps; test ALL 70 SITES OK, deps 36/36; no branch into the new sites.
+- Ally zip rebuilt: WorkerCap 10, W6 1, IK 0, TS 1, WakeStats 1, ED 2, MaxFrameLatency 0, Barriers 2.
+- Undo: WakeStats = 0 / ED = 0 / Barriers = 0, or the previous .asi.

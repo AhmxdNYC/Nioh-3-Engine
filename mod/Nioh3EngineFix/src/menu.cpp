@@ -31,6 +31,7 @@
 #include <string>
 #include <vector>
 
+#include "gpuopt.h"
 #include "menu.h"
 #include "osd.h"
 
@@ -694,12 +695,13 @@ void NoteFgSwitchProton(int want) {
 
 // ---- items ----------------------------------------------------------------------------------------------------------
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
-          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS,  // order = menu::ExpId
+          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED,  // order = menu::ExpId
+          kGpu,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXTS - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXTS; }
-const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS"};
+static_assert(kXED - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXED; }
+const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED"};
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -727,6 +729,9 @@ const ItemDef kItems[kCount] = {
     {nullptr, "S1 drain-spin pause", "PAUSE in the main thread's end-of-frame spin (code bytes: next launch)."},
     {"INPUT LATENCY", "IK input kick early", "Pad read at the start of the logic frame, not the end (-4..9 ms). Toggle while idle."},
     {nullptr, "TS input -> display", "Timestamp probes: median button-sample -> frame presented (add half a refresh)."},
+    {"WORKER WAKES", "WakeStats counters", "Counts job-worker wakes and sleeps (log \"stats wakes/s\" every 30 s). Measurement only."},
+    {nullptr, "ED skip empty effect lists", "Effect Disp workers with nothing to update are not woken (same output)."},
+    {"GPU", "GPU barrier batching", "Batches the game's D3D12 barriers into fewer calls. ~0 on the Ally, 2-3 % on PC."},
     {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
     {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},
     {nullptr, "Speed factor", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow."},
@@ -755,6 +760,7 @@ bool Visible(int id) {
         case kL1Wine:
         case kFgWine: return g_host.wine;
         case kFg: case kFgState: case kUpscaler: return g_host.knownBuild && g_host.base;  // engine slots: v2.02 only
+        case kGpu: return gpuopt::GetState() != gpuopt::State::Off;
         default: return true;
     }
 }
@@ -772,6 +778,7 @@ bool Available(int id) {
         case kF1: return g_host.fgEnable != nullptr;
         case kWk: return g_host.wkEnable != nullptr;
         case kFg: return g_fgOk;
+        case kGpu: return gpuopt::GetState() == gpuopt::State::Active || gpuopt::GetState() == gpuopt::State::Paused;
         default: return true;
     }
 }
@@ -876,6 +883,13 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
     }
     if (IsExp(id)) {
         ExpValue(id, buf, n, color, cGreen, cGray, cYellow, cDim);
+        return;
+    }
+    if (id == kGpu) {
+        const gpuopt::State s = gpuopt::GetState();
+        snprintf(buf, n, "%s", s == gpuopt::State::Active ? "ON" : s == gpuopt::State::Paused ? "OFF (hooked)"
+                                   : s == gpuopt::State::Waiting ? "waiting for the device" : "failed - see the log");
+        color = s == gpuopt::State::Active ? cGreen : s == gpuopt::State::Paused ? cGray : cDim;
         return;
     }
     if (id == kLat) {
@@ -987,7 +1001,13 @@ void StartSave() {
     if (Available(kL1)) add(L"Patches", L"L1", b(LiveBool(kL1)));
     if (Available(kF1)) add(L"Patches", L"FG", b(LiveBool(kF1)));
     if (Available(kWk)) add(L"Patches", L"WK", b(LiveBool(kWk)));
-    for (int e = 0; e < kNumExp; ++e) add(L"Patches", kExpIniKey[e], std::to_wstring(g_expIni[e]));
+    for (int e = 0; e < kNumExp; ++e) {
+        int v = g_expIni[e];
+        // ED installed with its switch off stays installed (2) so the live A/B keeps working next launch
+        if (e == kExpED && g_host.exp[e].enable && !*g_host.exp[e].enable && v == 0) v = 2;
+        add(L"Patches", kExpIniKey[e], std::to_wstring(v));
+    }
+    if (Available(kGpu)) add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : L"2");
     add(L"Latency", L"MaxFrameLatency", std::to_wstring(osd::Overlay().maxLatency));
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
@@ -1133,6 +1153,8 @@ void Change(int id, int dir) {
         } else {
             g_expIni[e] = !g_expIni[e];
         }
+    } else if (id == kGpu) {
+        gpuopt::SetBatching(!gpuopt::Batching());
     } else
     switch (id) {
         case kLat: {
@@ -1386,7 +1408,7 @@ void OnPresentImpl() {
 
 // ---- drawing --------------------------------------------------------------------------------------------------------------
 struct Row {
-    char label[72];
+    char label[128];
     char value[48];
     uint32_t lc, vc;
     bool sel, rule;
@@ -1508,6 +1530,13 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(stats, sizeof(stats), "Exp/s: W6 %.0f x %.0fus  PP skip %.0f  FPC hit %s  M1 %.0f  X1 skip %.0f  E1 skip %.0f",
                  r.rW6, r.w6Us, r.rPps, fpc, r.rM1, r.rX1, r.rE1);
         add(stats, "", cGray, cWhite, false, false);
+    }
+    if (gpuopt::GetState() != gpuopt::State::Off && g_host.gpuStatus) {
+        char gs[120];
+        g_host.gpuStatus(gs, sizeof(gs));
+        char line[128];
+        snprintf(line, sizeof(line), "GPU: %s", gs);
+        add(line, "", cGray, cWhite, false, false);
     }
     // footer / save status
     const LONG ss = g_saveState;
@@ -1649,7 +1678,7 @@ void Configure(const Host& h) {
     g_bootP12 = h.p12;
     g_bootL1Wine = h.l1OnWine;
     g_bootFgWine = h.fgOnWine;
-    for (int e = 0; e < kNumExp; ++e) g_expIni[e] = h.exp[e].ini;
+    for (int e = 0; e < kNumExp; ++e) g_expIni[e] = h.exp[e].enable ? (*h.exp[e].enable ? 1 : 0) : h.exp[e].ini;
     const wchar_t* f = g_ini.c_str();
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
     wchar_t b[96] = {};

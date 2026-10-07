@@ -260,6 +260,28 @@ caveWakeGate PROC
     push    rdx
     push    r8
     push    r9
+    ; WS (1.3.0): split the wake checks by the caller of JobWorkerPoll 40800. Its frame is 8 pushes + 68h, so its
+    ; return address is at site rsp + 0A8h = [rsp + 0D8h] here (call 8 + pushfq + 4 pushes = 30h).
+    cmp     dword ptr [ws_enable], 0
+    je      wsNoSplit
+    mov     rax, qword ptr [rsp+0D8h]
+    mov     edx, 3
+    cmp     rax, qword ptr [ws_ret]
+    jne     @F
+    xor     edx, edx
+@@:
+    cmp     rax, qword ptr [ws_ret+8]
+    jne     @F
+    mov     edx, 1
+@@:
+    cmp     rax, qword ptr [ws_ret+10h]
+    jne     @F
+    mov     edx, 2
+@@:
+    shl     edx, 6
+    lea     rax, ws_chk
+    lock inc qword ptr [rax+rdx]
+wsNoSplit:
     cmp     dword ptr [wk_enable], 0
     je      wkKeep
     mov     rax, [r15+440h]
@@ -925,6 +947,8 @@ caveIkPadWait PROC FRAME
     mov     ecx, 1
     call    latStamp
     call    qword ptr [lat_inputKick]
+    cmp     qword ptr [lat_cap], 0                      ; cap 0: don't wait here (GameModeUpdateMain joins the
+    je      cMeas                                       ; input worker later anyway, 5AB7E0)
     mov     rcx, qword ptr [lat_padEvent]
     lea     rdx, lat_cap
     call    qword ptr [lat_padWaitN]
@@ -1056,5 +1080,105 @@ tsPSlow PROC FRAME
     pop     rcx
     jmp     tsPGo
 tsPSlow ENDP
+
+; =================================================================================================================
+; WORKER WAKES (1.3.0, notes\worker-power.md): WS wake counters (measurement only) and ED EffectDisp empty-list skip.
+; =================================================================================================================
+PUBLIC caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin
+PUBLIC ws_enable, ws_iatSetEvent, ws_iatWait, ws_set, ws_sleeps, ws_sleepPool, ws_chk, ws_ret
+PUBLIC ed_enable, ed_kickFn, ed_joinFn, ed_kicked, ed_skipped
+
+wsdata SEGMENT ALIGN(64) READ WRITE 'DATA'
+ws_enable       DD 0
+ed_enable       DD 0
+ws_iatSetEvent  DQ 0            ; &IAT slot SetEvent
+ws_iatWait      DQ 0            ; &IAT slot WaitForSingleObject
+ws_ret          DQ 3 DUP(0)     ; return addresses of the 40800 calls in 3FE14 / 403A0 / 207200
+ed_kickFn       DQ 0            ; Nioh3+2F6680 (event set)
+ed_joinFn       DQ 0            ; Nioh3+3D7CC8 (event wait)
+ALIGN 64
+ws_set          DQ 48 DUP(0)    ; real SetEvents per site (6 sites, one 64-byte line each)
+ws_sleeps       DQ 0            ; worker sleeps (all pools)
+ALIGN 64
+ws_sleepPool    DQ 64 DUP(0)    ; worker sleeps per pool id (pool+34h & 63)
+ws_chk          DQ 32 DUP(0)    ; wake checks at 40A4C by caller of 40800: 3FE14, 403A0, 207200, other (one line each)
+ed_kicked       DQ 0
+ed_skipped      DQ 0
+ed_skip         DB 64 DUP(0)    ; per Disp worker: kick was skipped this pass -> skip its join too
+wsdata ENDS
+
+.code
+
+; WS0..WS5: replace `call [SetEvent]` (FF 15, 6 bytes -> nop; call). Count, then tail-call through the IAT slot.
+WS_CAVE MACRO NAME, IDX
+NAME PROC
+    cmp     dword ptr [ws_enable], 0
+    je      @F
+    lock inc qword ptr [ws_set + IDX*64]
+@@:
+    mov     rax, qword ptr [ws_iatSetEvent]
+    jmp     qword ptr [rax]
+NAME ENDP
+ENDM
+WS_CAVE caveWs0, 0
+WS_CAVE caveWs1, 1
+WS_CAVE caveWs2, 2
+WS_CAVE caveWs3, 3
+WS_CAVE caveWs4, 4
+WS_CAVE caveWs5, 5
+
+; WSs: replaces `call [WaitForSingleObject]` in the worker sleep (1A6BC35); rbx = pool. Uses only volatile non-argument
+; registers (rax, r10, r11).
+caveWsSleep PROC
+    cmp     dword ptr [ws_enable], 0
+    je      wsSlGo
+    mov     r10d, dword ptr [rbx+34h]
+    and     r10d, 63
+    lea     r11, ws_sleepPool
+    lock inc qword ptr [r11+r10*8]
+    lock inc qword ptr [ws_sleeps]
+wsSlGo:
+    mov     rax, qword ptr [ws_iatWait]
+    jmp     qword ptr [rax]
+caveWsSleep ENDP
+
+; ED kick: replaces `call 2F6680` (event set) in the EffectDisp kick loop (3D6F46). rcx = obj+8, ebx = worker index.
+; If the switch is on and the worker's list ([obj+1A0h] -> vector {begin,end}) is empty, the kick is skipped and
+; remembered so the matching join is skipped too. Clobbers rax, rdx, flags (volatile at a call).
+caveEdKick PROC
+    cmp     ebx, 63
+    ja      edKickGo
+    lea     rax, ed_skip
+    mov     byte ptr [rax+rbx], 0
+    cmp     dword ptr [ed_enable], 0
+    je      edKickGo
+    mov     rdx, qword ptr [rcx+198h]                   ; obj+1A0h
+    test    rdx, rdx
+    je      edKickGo
+    mov     rax, qword ptr [rdx]
+    cmp     rax, qword ptr [rdx+8]
+    jne     edKickGo
+    lea     rax, ed_skip
+    mov     byte ptr [rax+rbx], 1
+    inc     qword ptr [ed_skipped]
+    ret
+edKickGo:
+    inc     qword ptr [ed_kicked]
+    jmp     qword ptr [ed_kickFn]
+caveEdKick ENDP
+
+; ED join: replaces `call 3D7CC8` (event wait) in the EffectDisp join loop (3D6F8B). Skips exactly the joins whose kick
+; was skipped (independent of the switch, so toggling between kick and join stays matched).
+caveEdJoin PROC
+    cmp     ebx, 63
+    ja      edJoinGo
+    lea     rax, ed_skip
+    cmp     byte ptr [rax+rbx], 0
+    je      edJoinGo
+    mov     byte ptr [rax+rbx], 0
+    ret
+edJoinGo:
+    jmp     qword ptr [ed_joinFn]
+caveEdJoin ENDP
 
 END

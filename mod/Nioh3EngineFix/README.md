@@ -58,6 +58,11 @@ shared counter on a multi-threaded hot path).
 | **IK** | Late input kick: the pad poll (`InputWorkerKick` 5AB7B0) is kicked at the **start** of the logic frame, right before the engine's own pad-stage wait (5ACAAA), instead of at the end of the previous frame (5AB6CF, before the frame limiter). The sample is ~4-9 ms fresher when consumed; still one poll per logic frame, so button edges behave as stock. The switch is latched once per frame at 5ACAAA: switching IK off never skips a poll; **the frame IK is switched on polls twice** (a press in that frame can read as "held" instead of "pressed" - toggle while idle). The fresh-poll wait is capped at `IK_PadWaitCapMs` (2). Safe online (only the read time moves). | yes | `stats latency:` kicks at frame end / start, input age K->C mean/max, wait timeouts |
 | **TS** | Timestamp probes, measurement only: K (pad kick), C (pad consumed), L (limiter exit 5AD2BB), W (render begin 4A52D4), B (after the waitable wait 4A535E), P (present hand-off 3D6552) into a 4096-entry ring. Every 30 s the log prints medians of K->C, C->L, L->W, W->B, B->P, C->C, P->P, K->P and **input->display = B(n+1) - K(n)** (on vkd3d the latency-1 waitable releases B when the previous frame was presented; add half a refresh for mid-screen). The menu row *TS input -> display* shows that median, updated every 2 s. TS needs the IK sites (installed with IK off when only TS = 1). | yes | as described |
 
+**IK in 1.3.0:** the Ally run with 1.2.0 showed no effect (GPU-bound: the limiter never sleeps, so the input age is
+~2 ms either way) and a pad-stage wait timeout on every frame: the 2 ms cap was spent on the logic thread each frame.
+`IK_PadWaitCapMs` now defaults to **0 = do not wait at the frame start** (the game update joins the input worker later,
+5AB7E0, so the fresh read is still used before it is needed). The Ally zip has IK = 0.
+
 Ports of `patcher\latency_live.fsx` (same 6 sites, same original-byte checks, patterns from
 `re\scripts_latency\derive_lat_patterns.fsx`). TSb uses the R1-independent pattern (`75 ??`): it starts on R1j's bytes,
 and the pattern test checks it still matches once R1j is written. The pad-stage event and `KtglEventWaitFor` are read
@@ -71,6 +76,34 @@ SetMaximumFrameLatency only ever adds permits: raising it applies at once, **low
 swapchain is rebuilt or the game restarts** (the menu says so). For an A/B set it in the ini and restart. The game's
 value is logged; the setting is re-checked every 2 s, so rebuilt swapchains get it again. Live menu item *Max frame
 latency*: game / 1 / 2 / 3.
+
+### Worker wakes (1.3.0) - notes\worker-power.md
+| Key | What | Live switch | Stats |
+|---|---|---|---|
+| **WakeStats** | Measurement only. Counts the real `SetEvent` calls at the six worker-wake sites (pop chain 40B0A, task 40D2F, wake-one 48C6B / 48D06 / 48DEC, forward 48E3C), worker sleeps (`WaitForSingleObject` at 1A6BC35) per pool (pool+34h), and the wake checks at 40A4C split by the caller of `JobWorkerPoll` 40800 (3FE14 / 403A0 / 207200 / other; read from 40800's return address, frame verified as 8 pushes + 68h). The split rides on the WK cave, so with WakeStats = 1 the WK site is installed even when WK = 0 (its gate then stays off = stock). | yes | `stats wakes/s:` every 30 s, incl. wasted ~= sleeps - checks from 3FE14 and ED kicks/skips |
+| **ED** | EffectDisp skip: the kick loop (3D6F14, call at 3D6F46) does not set the start event of a Disp worker whose list is empty, and the join loop (3D6F60, call at 3D6F8B) skips exactly those workers. Layout verified: worker i = mgr + i*1A8h (vtable 402D768, run = slot 2 = 3D83BC), start event +8, done event +0A8h, list = `[obj+1A0h]` = `std::vector` of 48-byte entries (push_back 73A784); the run function returns at once on an empty list (3D8421). The lists are filled by 15FC80 on the same thread before the kick (39E9E7 -> 39EA31). The skip is recorded at kick time per worker, and the join reads it whatever the switch says, so toggling between kick and join stays matched. 0 off, 1 on, 2 installed + off. | yes | ED kicks / skipped in the wakes line |
+| WK2 | *Not shipped.* See below. | - | - |
+
+**Why WK2 (stricter wake gate) is not in this build:** the gate needs "queued jobs" and "woken but not yet running
+workers", and neither exists exactly.
+1. The per-worker queues are lock-free stacks with no length; only a per-priority non-empty bitmap exists. Counting jobs
+   means walking other workers' stacks while they pop and free nodes (unsafe). The bitmap is only a lower bound, so a
+   50-job fan-out on one priority looks like 1 job and the gate would cut its parallelism.
+2. A sleeping worker does `lock inc pool+30h` (1A6BBFC) *before* it sets bit0 (1A6BC15) and waits, with no queue
+   re-check between. In the idle count a woken-not-running worker can't be told from one that is about to sleep (or a
+   paused one), so "idle - bit0 set" overcounts the workers already on their way.
+3. No stall would follow from a skipped pop-path wake (each worker drains its own queue before sleeping, waiters help,
+   main-thread submissions use the separate wake-one paths), but the gate can't be made "wake only as many as queued".
+   It would be a parallelism guess, not the proven-safe filter that was asked for. WakeStats shows whether it's worth
+   building a heuristic version.
+
+### GPU barrier batching (1.3.0) - notes\gpu-barriers.md
+`[GpuOpt]` integrates `src\gpuopt.cpp` (D3D12 barrier batching on the game's command lists, written by another agent;
+see `gpuopt.h` and the notes). `Barriers`: 0 off (main ini), 1 on, 2 hooked with counters only (Ally zip). It starts
+from dllmain (`gpuopt::Start`) and installs from the overlay's install thread after the Present hook (`InstallNow`,
+inside SEH; a failure is logged and only gpuopt stays off). The Present hook calls `gpuopt::OnFrame()` once per frame of
+the drawing swapchain. Menu: *GPU barrier batching* (live on/off when hooked) plus a `GPU:` status row. The log prints
+`stats/s gpuopt:` every 30 s. Expected: ~0 on the Ally (RADV already coalesces), 2-3 % on a GPU-bound PC.
 
 ### FPS counter (1.1.0)
 * **FPS** = frames the game renders and presents. **FG FPS** = frames shown including generated ones.
@@ -149,7 +182,8 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * `[Patches]` also has the experimental keys `W6 B PP FPC AABB M1 M2 J1 X1 E1 S1` (0 = off, see above).
 * `[Tuning]`: W3/R1 wait times and the L1 margin. The defaults match the tested values. Experimental:
   `PP_Period` (2/4/8/16), `E1_N` (1/2/4/8), `W6_SpinUs` (0-2000), `W6_TimeoutMs` (1-16).
-* `[Patches] IK`, `TS` (input latency, 0 = off) and `[Tuning] IK_PadWaitCapMs` (1-8, default 2).
+* `[Patches] IK`, `TS` (input latency, 0 = off) and `[Tuning] IK_PadWaitCapMs` (0-8, default 0 = no wait).
+* `[Patches] WakeStats`, `ED` (worker wakes, 0 = off; ED 2 = installed, switched off) and `[GpuOpt]` (see above).
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.

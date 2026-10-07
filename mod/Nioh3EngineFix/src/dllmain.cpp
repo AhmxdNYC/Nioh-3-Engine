@@ -23,12 +23,13 @@
 #include <string>
 #include <vector>
 
+#include "gpuopt.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.2.0"
+#define MOD_VERSION "1.3.0"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -92,6 +93,19 @@ extern uint32_t lat_ik, lat_ts, lat_iklatch;
 extern uint64_t lat_cap, lat_qpcNow, lat_inputKick, lat_padWait1, lat_padWaitN, lat_padEvent, lat_latMarker, lat_iatSetEvent;
 extern uint64_t lat_lastkick, lat_agesum, lat_agecnt, lat_agemax, lat_timeouts, lat_ringidx, lat_kstock, lat_kik;
 extern uint8_t lat_ring[];
+// worker wakes (WS counters, ED EffectDisp skip)
+void caveWs0();
+void caveWs1();
+void caveWs2();
+void caveWs3();
+void caveWs4();
+void caveWs5();
+void caveWsSleep();
+void caveEdKick();
+void caveEdJoin();
+extern uint32_t ws_enable, ed_enable;
+extern uint64_t ws_iatSetEvent, ws_iatWait, ws_ret[3], ed_kickFn, ed_joinFn, ed_kicked, ed_skipped;
+extern uint64_t ws_set[48], ws_sleeps, ws_sleepPool[64], ws_chk[32];
 extern uint64_t w6_wakeAll, w6_wakes;
 }
 
@@ -189,7 +203,9 @@ struct Config {
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
     int ppPeriod = 4, e1N = 2, w6SpinUs = 50, w6TimeoutMs = 1;
     // input latency (1.2.0)
-    int ik = 0, ts = 0, ikCapMs = 2;
+    int ik = 0, ts = 0, ikCapMs = 0;
+    // worker wakes (1.3.0)
+    int wakeStats = 0, ed = 0;
 };
 
 Config LoadConfig() {
@@ -247,7 +263,9 @@ Config LoadConfig() {
     c.w6TimeoutMs = std::clamp(I(L"Tuning", L"W6_TimeoutMs", c.w6TimeoutMs), 1, 16);
     c.ik = I(L"Patches", L"IK", c.ik);
     c.ts = I(L"Patches", L"TS", c.ts);
-    c.ikCapMs = std::clamp(I(L"Tuning", L"IK_PadWaitCapMs", c.ikCapMs), 1, 8);
+    c.ikCapMs = std::clamp(I(L"Tuning", L"IK_PadWaitCapMs", c.ikCapMs), 0, 8);
+    c.wakeStats = I(L"Patches", L"WakeStats", c.wakeStats);
+    c.ed = I(L"Patches", L"ED", c.ed);
     return c;
 }
 
@@ -419,11 +437,20 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveTsW: return (void*)&caveTsW;
         case gen::Target::caveTsB: return (void*)&caveTsB;
         case gen::Target::caveTsP: return (void*)&caveTsP;
+        case gen::Target::caveWs0: return (void*)&caveWs0;
+        case gen::Target::caveWs1: return (void*)&caveWs1;
+        case gen::Target::caveWs2: return (void*)&caveWs2;
+        case gen::Target::caveWs3: return (void*)&caveWs3;
+        case gen::Target::caveWs4: return (void*)&caveWs4;
+        case gen::Target::caveWs5: return (void*)&caveWs5;
+        case gen::Target::caveWsSleep: return (void*)&caveWsSleep;
+        case gen::Target::caveEdKick: return (void*)&caveEdKick;
+        case gen::Target::caveEdJoin: return (void*)&caveEdJoin;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveTsP;
+constexpr int kLastTarget = (int)gen::Target::caveEdJoin;
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -579,6 +606,65 @@ void TsAnalyse(bool logIt, double freq) {
         "W->B waitable wait %.2f | B->P render %.2f | C->C logic frame %.2f | P->P present %.2f | K->P sample->present %.2f | "
         "input->display B(n+1)-K(n) %.2f (+ half a refresh for mid-screen; vkd3d latency-1 semantics)",
         ev.size(), mKc, mCl, mLw, mWb, mBp, mCc, mPp, mKp, mK2b);
+}
+
+// ---- WS: 30 s wake summary. Real SetEvents per site, worker sleeps (per pool), wake checks at 40A4C split by the caller
+// of JobWorkerPoll 40800, and the waste estimate from notes\worker-power.md: wasted ~= sleeps - checks from 3FE14 (a
+// worker that wakes and goes straight back to sleep did one 3FE14 round that found nothing).
+void WakeStatsLog() {
+    static uint64_t pSet[6], pSleeps, pPool[64], pChk[4], pEdK, pEdS;
+    static bool init = false;
+    uint64_t set[6], pool[64], chk[4];
+    for (int i = 0; i < 6; ++i) set[i] = ws_set[i * 8];
+    for (int i = 0; i < 64; ++i) pool[i] = ws_sleepPool[i];
+    for (int i = 0; i < 4; ++i) chk[i] = ws_chk[i * 8];
+    const uint64_t sleeps = ws_sleeps, edK = ed_kicked, edS = ed_skipped;
+    if (init) {
+        auto r = [](uint64_t a, uint64_t b) { return (unsigned long long)((a - b) / 30); };
+        unsigned long long setAll = 0;
+        for (int i = 0; i < 6; ++i) setAll += r(set[i], pSet[i]);
+        // the five busiest pools
+        int idx[64];
+        for (int i = 0; i < 64; ++i) idx[i] = i;
+        std::sort(idx, idx + 64, [&](int a, int b) { return pool[a] - pPool[a] > pool[b] - pPool[b]; });
+        char pools[160] = "";
+        size_t o = 0;
+        for (int k = 0; k < 5 && pool[idx[k]] != pPool[idx[k]]; ++k)
+            o += (size_t)snprintf(pools + o, sizeof(pools) - o, "%s%d:%llu", k ? " " : "", idx[k], r(pool[idx[k]], pPool[idx[k]]));
+        const long long wasted = (long long)r(sleeps, pSleeps) - (long long)r(chk[0], pChk[0]);
+        Log("stats wakes/s: SetEvent %llu (pop chain 40B0A %llu, task 40D2F %llu, wake-one 48C6B %llu / 48D06 %llu / 48DEC %llu, "
+            "forward 48E3C %llu) | worker sleeps %llu (pools id:n %s) | wake checks by caller 3FE14 %llu, 403A0 %llu, "
+            "207200 %llu, other %llu | wasted ~ %lld | ED Disp kicks %llu, skipped %llu",
+            setAll, r(set[0], pSet[0]), r(set[1], pSet[1]), r(set[2], pSet[2]), r(set[3], pSet[3]), r(set[4], pSet[4]),
+            r(set[5], pSet[5]), r(sleeps, pSleeps), pools, r(chk[0], pChk[0]), r(chk[1], pChk[1]), r(chk[2], pChk[2]),
+            r(chk[3], pChk[3]), wasted, r(edK, pEdK), r(edS, pEdS));
+    }
+    init = true;
+    memcpy(pSet, set, sizeof(set));
+    memcpy(pPool, pool, sizeof(pool));
+    memcpy(pChk, chk, sizeof(chk));
+    pSleeps = sleeps;
+    pEdK = edK;
+    pEdS = edS;
+}
+
+// ---- gpuopt status: StatusLine() reports rates since its previous call, so only this thread calls it (every 2 s) and
+// the mod menu reads the cached copy.
+SRWLOCK g_gpuStatusLock = SRWLOCK_INIT;
+char g_gpuStatus[256] = "";
+void GpuOptRefresh() {
+    if (gpuopt::GetState() == gpuopt::State::Off) return;
+    char b[256];
+    gpuopt::StatusLine(b, sizeof(b));
+    AcquireSRWLockExclusive(&g_gpuStatusLock);
+    snprintf(g_gpuStatus, sizeof(g_gpuStatus), "%s", b);
+    ReleaseSRWLockExclusive(&g_gpuStatusLock);
+}
+const char* GpuOptStatus(char* buf, size_t n) {
+    AcquireSRWLockShared(&g_gpuStatusLock);
+    snprintf(buf, n, "%s", g_gpuStatus[0] ? g_gpuStatus : gpuopt::StateName(gpuopt::GetState()));
+    ReleaseSRWLockShared(&g_gpuStatusLock);
+    return buf;
 }
 
 bool BuildRepl(Item& it) {
@@ -915,7 +1001,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "R1")) return cfg.r1 != 0;
         if (!strcmp(g, "L1")) return cfg.l1 != 0;
         if (!strcmp(g, "FG")) return cfg.fg != 0;
-        if (!strcmp(g, "WK")) return cfg.wk != 0;
+        if (!strcmp(g, "WK")) return cfg.wk != 0 || (cfg.wakeStats != 0 && known);  // WakeStats splits the checks here
         // experimental (known build only)
         if (!known) return false;
         if (!strcmp(g, "B")) return cfg.b != 0;
@@ -931,6 +1017,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
         if (!strcmp(g, "TS")) return cfg.ts != 0;
+        if (!strcmp(g, "WS")) return cfg.wakeStats != 0;
+        if (!strcmp(g, "ED")) return cfg.ed != 0;
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1088,10 +1176,10 @@ DWORD WINAPI Worker(LPVOID) {
         f1State = run("F1", v, ok) ? osd::State::On : osd::State::Failed;
     }
     // WK: job-system wake gate (skip the futile "wake one more worker" when no queue of the pool holds work)
-    if (cfg.wk) {
+    if (cfg.wk || (cfg.wakeStats && known)) {
         auto v = collect("WK");
         bool ok = allFound(v) && g_near;
-        if (ok) wk_enable = 1;
+        if (ok) wk_enable = cfg.wk ? 1u : 0u;  // installed only for WakeStats: the gate stays off (stock)
         wkDone = run("WK", v, ok);
     }
 
@@ -1243,6 +1331,41 @@ DWORD WINAPI Worker(LPVOID) {
     exDone[menu::kExpIK] = s_ikDone;
     exDone[menu::kExpTS] = s_tsDone;
 
+    // ---- worker wakes (notes\worker-power.md): WS counters (measurement only) and ED EffectDisp empty-list skip
+    static bool s_wsDone = false;
+    s_wsDone = expGroup("WS", cfg.wakeStats != 0, [&]() {
+        auto slotOf = [&](const char* id) -> uint8_t* {  // FF 15 disp32 at the site
+            uint8_t* a = findItem(id)->addr;
+            uint8_t* s = a + 6 + *(int32_t*)(a + 2);
+            return InModule((uintptr_t)s) && *(void**)s ? s : nullptr;
+        };
+        uint8_t* se = slotOf("WS0");
+        uint8_t* wt = slotOf("WSs");
+        if (!se || !wt) { Log("WS: IAT slot looks wrong"); return false; }
+        for (const char* id : {"WS1", "WS2", "WS3", "WS4", "WS5"})
+            if (slotOf(id) != se) { Log("WS: %s does not call the same SetEvent slot", id); return false; }
+        ws_iatSetEvent = (uint64_t)(uintptr_t)se;
+        ws_iatWait = (uint64_t)(uintptr_t)wt;
+        ws_ret[0] = (uint64_t)(uintptr_t)(g_base + 0x3FF5E);  // the 40800 calls in 3FE14 / 403A0 / 207200 (deps-checked)
+        ws_ret[1] = (uint64_t)(uintptr_t)(g_base + 0x403D7);
+        ws_ret[2] = (uint64_t)(uintptr_t)(g_base + 0x20723D);
+        ws_enable = 1;
+        return true;
+    });
+    if (s_wsDone && !wkDone) Log("WS: the wake-check caller split needs the WK site (40A4C) - not installed, split stays 0");
+    exDone[menu::kExpWS] = s_wsDone;
+    exDone[menu::kExpED] = expGroup("ED", cfg.ed != 0, [&]() {
+        Item* k = findItem("EDk");
+        Item* j = findItem("EDj");
+        const uintptr_t kick = calleeOf(k->addr), join = calleeOf(j->addr);
+        if (kick != (uintptr_t)(g_base + k->s->expectRva) || join != (uintptr_t)(g_base + j->s->expectRva)) return false;
+        ed_kickFn = kick;
+        ed_joinFn = join;
+        ed_enable = cfg.ed == 1 ? 1u : 0u;  // 2 = installed with the switch off (live A/B from the menu)
+        return true;
+    });
+    if (exDone[menu::kExpED]) Log("ED: EffectDisp empty-list skip installed, switch %s", ed_enable ? "ON" : "off");
+
     // periodic stats so a log from a handheld shows the wake rates and the experimental patches working without a
     // profiler. The same thread finds the [App]Game thread for FPC.
     static bool s_fpcWanted = false, s_anyExp = false;
@@ -1283,6 +1406,12 @@ DWORD WINAPI Worker(LPVOID) {
                         (unsigned long long)(lat_timeouts - ikTo));
                     ikAgeSum = lat_agesum; ikAgeCnt = lat_agecnt; ikTo = lat_timeouts; ikKs = lat_kstock; ikKi = lat_kik;
                 }
+                if (sec % 2 == 0) GpuOptRefresh();
+                if (sec % 30 == 0 && gpuopt::GetState() != gpuopt::State::Off) {
+                    char b[256];
+                    Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
+                }
+                if (s_wsDone && sec % 30 == 0) WakeStatsLog();
                 // FPC: cache only on [App]Game, and only once its frames advance (g+3C60h moving), like the script's `on`
                 if (s_fpcWanted && !fpc_tid && sec % 2 == 0 && getDesc) {
                     if (!candTid) {
@@ -1380,8 +1509,10 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpE1] = U(e1_enable);
         sw[menu::kExpIK] = U(lat_ik);
         sw[menu::kExpTS] = U(lat_ts);
+        sw[menu::kExpWS] = U(ws_enable);
+        sw[menu::kExpED] = U(ed_enable);
         const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
-                                         cfg.ik, cfg.ts};
+                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed};
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -1399,7 +1530,16 @@ DWORD WINAPI Worker(LPVOID) {
         mh.w6Sleeps = &g_w6Sleeps;
         mh.w6Ticks = &g_w6Ticks;
         mh.tsInDispUs = &g_tsInDispUs;
+        mh.gpuStatus = &GpuOptStatus;
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
+        {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:
+           // the osd install thread calls gpuopt::InstallNow() once the engine renders.
+            gpuopt::StartInfo gi;
+            gi.log = &Log;
+            gi.iniPath = iniPath.c_str();
+            gi.wine = wine;
+            gpuopt::Start(gi);
+        }
         osd::StartupInfo si;
         si.version = MOD_VERSION;
         si.log = &Log;
