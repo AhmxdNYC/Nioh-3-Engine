@@ -141,7 +141,11 @@
     { "id": "EDk", "group": "ED", "rva": "0x3D6F46", "len": 5, "orig": "E8 35 F7 F1 FF", "kind": "call", "target": "caveEdKick", "call_at": 0, "callee": "0x2F6680",
       "pattern": "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C E0", "offset": 10 },
     { "id": "EDj", "group": "ED", "rva": "0x3D6F8B", "len": 5, "orig": "E8 38 0D 00 00", "kind": "call", "target": "caveEdJoin", "call_at": 0, "callee": "0x3D7CC8",
-      "pattern": "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C DD", "offset": 10 }
+      "pattern": "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C DD", "offset": 10 },
+    { "id": "GF1", "group": "GF", "rva": "0x7D9E66", "len": 8, "orig": "33 C9 FF 15 CA 84 10 03", "kind": "call", "target": "caveGf1", "call_at": 0, "iat_disp_at": 4, "iat_name": "KERNEL32.DLL!Sleep",
+      "pattern": "EB 17 33 C9 FF 15 ?? ?? ?? ?? 48 8B D7 48 8B CE", "offset": 2 },
+    { "id": "GF2", "group": "GF", "rva": "0x117D9F", "len": 8, "orig": "33 C9 FF 15 91 A5 7C 03", "kind": "call", "target": "caveGf2", "call_at": 0, "iat_disp_at": 4, "iat_name": "KERNEL32.DLL!Sleep",
+      "pattern": "76 0A 33 C9 FF 15 ?? ?? ?? ?? EB E7 8B 83 C4 00 00 00", "offset": 2 }
   ],
   "deps": [
     { "group": "PP", "rva": "0x2522C4", "bytes": "48 89 5C 24 10 57", "what": "PagePoolScanAll prologue" },
@@ -179,6 +183,11 @@
     { "group": "ED", "rva": "0x3D83F0", "bytes": "49 8B 95 A0 01 00 00 49 BF AB AA AA AA AA AA AA 2A 49 8B C7 33 ED 48 8B 1A 48 8B 4A 08 48 2B CB", "what": "EffectWorkerRunList: list = [obj+1A0h] (vector of 48-byte entries), count = (end-begin)/48" },
     { "group": "ED", "rva": "0x3D8421", "bytes": "0F 84 14 01 00 00", "what": "empty list -> straight to the epilogue (nothing else is done)" },
     { "group": "ED", "rva": "0x3D6F2D", "bytes": "39 99 00 70 00 00 7E 20 48 63 C3 48 8D 4F 08 48 69 D0 A8 01 00 00 48 03 CA E8 35 F7 F1 FF FF C3 3B 9F 00 70 00 00", "what": "EffectDispKick loop: ebx = index, obj = mgr + ebx*1A8h, kicks obj+8" },
-    { "group": "ED", "rva": "0x3D6F6F", "bytes": "39 99 00 70 00 00 7E 23 48 63 C3 48 8D 8F A8 00 00 00 48 69 D0 A8 01 00 00 48 03 CA E8 38 0D 00 00 FF C3 3B 9F 00 70 00 00", "what": "EffectDispJoin loop: same index, waits obj+0A8h" }
+    { "group": "ED", "rva": "0x3D6F6F", "bytes": "39 99 00 70 00 00 7E 23 48 63 C3 48 8D 8F A8 00 00 00 48 69 D0 A8 01 00 00 48 03 CA E8 38 0D 00 00 FF C3 3B 9F 00 70 00 00", "what": "EffectDispJoin loop: same index, waits obj+0A8h" },
+    { "group": "GF", "rva": "0x7D9E2B", "bytes": "48 8D B1 D8 06 00 00 49 8B D8 48 8B CE 48 8B FA E8 64 E2 93 FF 84 C0 75 39", "what": "FenceWait 7D9E1C: rsi = &fence (p1+6D8h), rdi = value, rbx = event" },
+    { "group": "GF", "rva": "0x7D9E6E", "bytes": "48 8B D7 48 8B CE E8 2B E2 93 FF 84 C0 74 E9", "what": "the Sleep(0) loop re-checks IsFenceComplete(rsi, rdi) after the patched call" },
+    { "group": "GF", "rva": "0x1180A4", "bytes": "40 53 48 83 EC 20 48 8B 09 48 8B DA 48 8B 01 FF 50 40 48 3B D8 0F 96 C0 48 83 C4 20 5B C3", "what": "IsFenceComplete: (*f)->GetCompletedValue() (vtbl+40h) >= value" },
+    { "group": "GF", "rva": "0x117D77", "bytes": "48 8B C2 48 8B 79 20 48 8B D9 48 3B 79 30 74 54 48 85 C0 0F 85 54 23 7F 01 48 8B 4B 18 48 8B 01 FF 50 40 48 3B F8 76 0A", "what": "worker fence poll 117D6C: p2 == NULL path, fence = [rbx+18h], value = rdi" },
+    { "group": "GF", "rva": "0x117DA7", "bytes": "EB E7", "what": "loop back to the GetCompletedValue check after the patched call" }
   ]
 }

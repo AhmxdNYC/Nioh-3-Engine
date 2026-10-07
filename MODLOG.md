@@ -104,3 +104,10 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 ## 2026-10-07 05:45 - ASI 1.3.1: SP sampling profiler
 - New src\sp.cpp/.h: in-process sampler ([Profiler] SP, default 0; Ally zip 1). Suspends [App]Game every 1 ms + one engine worker round-robin, GetThreadContext + stack copy via ReadProcessMemory while suspended (no heap/loader work while suspended), then attributes RIP to the Nioh3.exe .pdata function, or for system code to the first game return address on the stack (call-site validated). Top-N per thread group logged every 30 s.
 - Verified on the PC with a harness: a Sleep(0)-spinning thread named [App]Game -> '97.8 % [ntdll.dll] <- fn <its RVA>'; a busy worker -> 100 % its function.
+
+## 2026-10-07 05:45 - ASI 1.4.0 (v8): GF GPU-fence waits (memory only; nothing run in-game)
+- GF (ini GF, main default 0; Ally zip GF = 1; live menu switch): the Sleep(0) in FenceWait 7D9E1C's event == NULL loop (7D9E66) and in the worker fence poll 117D6C's p2 == NULL loop (117D9F) -> GfWait: per-thread auto-reset event (TLS) registered with ID3D12Fence::SetEventOnCompletion (vtbl+48h, HRESULT checked), then WaitForSingleObject(event, GF_TimeoutMs = 100). The engine's loop re-checks the fence after every return. Failure -> stock Sleep(0) for that round (counted). Off = stock.
+- Stats: 30 s "stats/s GF:" line (waits/s, avg wait us, fallbacks); menu Exp/s line.
+- patches.json: 2 sites + 5 deps (FenceWait registers, the loop re-checks, IsFenceComplete 1180A4, the 117D6C loop). Test: ALL 72 SITES OK, deps 41/41; no branch into the sites.
+- Built on 1.3.1 (SP profiler, other agent). Ally zip rebuilt: SP = 1 kept, GF = 1 added; all other values unchanged.
+- Undo: GF = 0 or the menu switch, or the previous .asi.

@@ -30,7 +30,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.3.1"
+#define MOD_VERSION "1.4.0"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -107,6 +107,10 @@ void caveEdJoin();
 extern uint32_t ws_enable, ed_enable;
 extern uint64_t ws_iatSetEvent, ws_iatWait, ws_ret[3], ed_kickFn, ed_joinFn, ed_kicked, ed_skipped;
 extern uint64_t ws_set[48], ws_sleeps, ws_sleepPool[64], ws_chk[32];
+// GF: GPU-fence waits
+void caveGf1();
+void caveGf2();
+void GfWait(void** fence, uint64_t value);
 extern uint64_t w6_wakeAll, w6_wakes;
 }
 
@@ -158,6 +162,12 @@ int64_t g_w6SpinTicks = 0;
 DWORD g_w6TimeoutMs = 1;
 volatile LONG g_w6Waits = 0, g_w6Sleeps = 0;
 volatile LONG64 g_w6Ticks = 0;
+// GF (GPU-fence waits) runtime state
+volatile uint32_t g_gfEnable = 0;
+DWORD g_gfTls = TLS_OUT_OF_INDEXES;  // per-thread auto-reset event (created lazily, never closed)
+DWORD g_gfTimeoutMs = 100;           // per wait round; the engine's loop re-checks the fence after every return
+volatile long g_gfWaits = 0, g_gfFallbacks = 0;
+volatile long long g_gfTicks = 0;
 
 // v2.02 engine addresses used by the experimental caves (verified by tests/test_patterns.py deps / the live scripts)
 constexpr uint32_t kRvaGfxGlobal = 0x45BA588;   // GfxDevice/KtglContext* g (FPC: g+3C60h stream generation)
@@ -207,6 +217,8 @@ struct Config {
     int ik = 0, ts = 0, ikCapMs = 0;
     // worker wakes (1.3.0)
     int wakeStats = 0, ed = 0;
+    // GPU-fence waits (1.4.0)
+    int gf = 0, gfTimeoutMs = 100;
 };
 
 Config LoadConfig() {
@@ -267,6 +279,8 @@ Config LoadConfig() {
     c.ikCapMs = std::clamp(I(L"Tuning", L"IK_PadWaitCapMs", c.ikCapMs), 0, 8);
     c.wakeStats = I(L"Patches", L"WakeStats", c.wakeStats);
     c.ed = I(L"Patches", L"ED", c.ed);
+    c.gf = I(L"Patches", L"GF", c.gf);
+    c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     return c;
 }
 
@@ -447,11 +461,13 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveWsSleep: return (void*)&caveWsSleep;
         case gen::Target::caveEdKick: return (void*)&caveEdKick;
         case gen::Target::caveEdJoin: return (void*)&caveEdJoin;
+        case gen::Target::caveGf1: return (void*)&caveGf1;
+        case gen::Target::caveGf2: return (void*)&caveGf2;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveEdJoin;
+constexpr int kLastTarget = (int)gen::Target::caveGf2;
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1020,6 +1036,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "TS")) return cfg.ts != 0;
         if (!strcmp(g, "WS")) return cfg.wakeStats != 0;
         if (!strcmp(g, "ED")) return cfg.ed != 0;
+        if (!strcmp(g, "GF")) return cfg.gf != 0;
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1367,6 +1384,18 @@ DWORD WINAPI Worker(LPVOID) {
     });
     if (exDone[menu::kExpED]) Log("ED: EffectDisp empty-list skip installed, switch %s", ed_enable ? "ON" : "off");
 
+    // ---- GF: GPU-fence Sleep(0) spins (7D9E66 main-thread FenceWait, 117D9F worker fence poll) -> event wait
+    static bool s_gfDone = false;
+    s_gfDone = expGroup("GF", cfg.gf != 0, [&]() {
+        g_gfTls = TlsAlloc();
+        if (g_gfTls == TLS_OUT_OF_INDEXES) { Log("GF: TlsAlloc failed"); return false; }
+        g_gfTimeoutMs = (DWORD)cfg.gfTimeoutMs;
+        g_gfEnable = 1;
+        return true;
+    });
+    exDone[menu::kExpGF] = s_gfDone;
+    if (s_gfDone) Log("GF: GPU-fence waits use SetEventOnCompletion + an event wait (%lu ms rounds) instead of Sleep(0)", g_gfTimeoutMs);
+
     // periodic stats so a log from a handheld shows the wake rates and the experimental patches working without a
     // profiler. The same thread finds the [App]Game thread for FPC.
     static bool s_fpcWanted = false, s_anyExp = false;
@@ -1413,6 +1442,16 @@ DWORD WINAPI Worker(LPVOID) {
                     Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
                 }
                 if (s_wsDone && sec % 30 == 0) WakeStatsLog();
+                if (s_gfDone && sec % 30 == 0) {
+                    static long pW = 0, pF = 0;
+                    static long long pT = 0;
+                    const long w = g_gfWaits, fb = g_gfFallbacks;
+                    const long long tk = g_gfTicks;
+                    Log("stats/s GF: fence waits %ld, avg wait %.0f us, fallbacks to Sleep(0) %ld (switch %s)", (w - pW) / 30,
+                        w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, (fb - pF) / 30,
+                        g_gfEnable ? "ON" : "off");
+                    pW = w; pF = fb; pT = tk;
+                }
                 // FPC: cache only on [App]Game, and only once its frames advance (g+3C60h moving), like the script's `on`
                 if (s_fpcWanted && !fpc_tid && sec % 2 == 0 && getDesc) {
                     if (!candTid) {
@@ -1512,8 +1551,9 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpTS] = U(lat_ts);
         sw[menu::kExpWS] = U(ws_enable);
         sw[menu::kExpED] = U(ed_enable);
+        sw[menu::kExpGF] = &g_gfEnable;
         const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
-                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed};
+                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gf};
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -1532,6 +1572,9 @@ DWORD WINAPI Worker(LPVOID) {
         mh.w6Ticks = &g_w6Ticks;
         mh.tsInDispUs = &g_tsInDispUs;
         mh.gpuStatus = &GpuOptStatus;
+        mh.gfWaits = &g_gfWaits;
+        mh.gfTicks = &g_gfTicks;
+        mh.gfFallbacks = &g_gfFallbacks;
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:
            // the osd install thread calls gpuopt::InstallNow() once the engine renders.
@@ -1683,6 +1726,43 @@ extern "C" void W6Wait(uint8_t* ctx) {
     InterlockedIncrement(&g_w6Waits);
     if (slept) InterlockedIncrement(&g_w6Sleeps);
     InterlockedAdd64(&g_w6Ticks, now.QuadPart - t0.QuadPart);
+}
+
+// ---- GF: replaces the Sleep(0) of `while (fence->GetCompletedValue() < value) Sleep(0)` (7D9E1C event == NULL path,
+// 117D6C p2 == NULL path). Registers a per-thread auto-reset event with ID3D12Fence::SetEventOnCompletion (vtbl+48h,
+// the call the engine itself makes when it has an event) and waits on it. The caller's loop re-checks the fence after
+// every return, so a timeout or a stale signal only costs one more round. If SetEventOnCompletion fails, or no event
+// can be made, it falls back to the stock Sleep(0) for that round. Switched off: Sleep(0), as stock.
+extern "C" void GfWait(void** pf, uint64_t value) {
+    if (!g_gfEnable) {
+        Sleep(0);
+        return;
+    }
+    void* fence = pf ? *pf : nullptr;
+    HANDLE ev = g_gfTls != TLS_OUT_OF_INDEXES ? (HANDLE)TlsGetValue(g_gfTls) : nullptr;
+    if (!ev && g_gfTls != TLS_OUT_OF_INDEXES) {
+        ev = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        if (ev) TlsSetValue(g_gfTls, ev);
+    }
+    if (!fence || !ev) {
+        InterlockedIncrement(&g_gfFallbacks);
+        Sleep(0);
+        return;
+    }
+    using SetEvOnCompl = HRESULT(STDMETHODCALLTYPE*)(void* self, UINT64 value, HANDLE ev);
+    auto setEv = reinterpret_cast<SetEvOnCompl>((*reinterpret_cast<void***>(fence))[9]);  // ID3D12Fence vtbl+48h
+    LARGE_INTEGER t0, t1;
+    QueryPerformanceCounter(&t0);
+    const HRESULT hr = setEv(fence, value, ev);
+    if (FAILED(hr)) {
+        InterlockedIncrement(&g_gfFallbacks);
+        Sleep(0);
+        return;
+    }
+    WaitForSingleObject(ev, g_gfTimeoutMs);
+    QueryPerformanceCounter(&t1);
+    InterlockedIncrement(&g_gfWaits);
+    InterlockedAdd64(&g_gfTicks, t1.QuadPart - t0.QuadPart);
 }
 
 BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID reserved) {

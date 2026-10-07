@@ -77,6 +77,21 @@ swapchain is rebuilt or the game restarts** (the menu says so). For an A/B set i
 value is logged; the setting is re-checked every 2 s, so rebuilt swapchains get it again. Live menu item *Max frame
 latency*: game / 1 / 2 / 3.
 
+### GPU-fence waits (1.4.0) - GF
+The Ally profiler (SP) found 58 % of the main thread's samples in `IsFenceComplete` 1180A4 called from `FenceWait`
+7D9E1C. When the engine passes no event, that function spins `do Sleep(0); while (fence->GetCompletedValue() < value)`
+until the GPU is done, which burns a core while GPU-bound (same class as W6). The worker fence poll 117D6C has the
+same loop when its second argument is NULL.
+
+**GF** (ini `GF`, main default 0, Ally zip 1; live menu switch) replaces the `xor ecx,ecx; call [Sleep]` inside both
+loops (7D9E66 and 117D9F, 8 bytes each). `GfWait` registers a per-thread auto-reset event (TLS, created on first use,
+never closed) with `ID3D12Fence::SetEventOnCompletion(value, event)`, the vtbl+48h call the engine makes itself when it
+has an event, then sleeps on it for at most `GF_TimeoutMs` (100). The engine's own loop re-checks the fence after every
+return, so the exit condition is unchanged: a timeout or a stale signal costs one more round, never a missed
+completion. If `SetEventOnCompletion` fails (its HRESULT is checked), or no event can be made, that round falls back to
+the stock `Sleep(0)` and is counted. Switched off, it is exactly `Sleep(0)`. The `stats/s GF:` log line (30 s) shows
+waits/s, average wait (us) and fallbacks; the menu's `Exp/s` line shows `GF n x us`.
+
 ### Worker wakes (1.3.0) - notes\worker-power.md
 | Key | What | Live switch | Stats |
 |---|---|---|---|
@@ -184,6 +199,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
   `PP_Period` (2/4/8/16), `E1_N` (1/2/4/8), `W6_SpinUs` (0-2000), `W6_TimeoutMs` (1-16).
 * `[Patches] IK`, `TS` (input latency, 0 = off) and `[Tuning] IK_PadWaitCapMs` (0-8, default 0 = no wait).
 * `[Patches] WakeStats`, `ED` (worker wakes, 0 = off; ED 2 = installed, switched off) and `[GpuOpt]` (see above).
+* `[Patches] GF` (GPU-fence waits, 0 = off) and `[Tuning] GF_TimeoutMs` (1-1000, default 100).
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.

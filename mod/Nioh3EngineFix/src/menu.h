@@ -25,6 +25,7 @@ enum class FixState : uint8_t { Installed, NotInstalled, WineSkipped };
 enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kExpE1, kExpM2, kExpJ1, kExpS1,
                    kExpIK, kExpTS,  // input latency (1.2.0)
                    kExpWS, kExpED,  // worker wakes (1.3.0)
+                   kExpGF,          // GPU-fence waits (1.4.0)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)
@@ -65,6 +66,8 @@ struct Host {
     volatile long long* w6Ticks = nullptr;
     volatile long* tsInDispUs = nullptr;  // TS: input -> display median (us), -1 = no data yet
     const char* (*gpuStatus)(char* buf, size_t n) = nullptr;  // cached gpuopt status line (dllmain refreshes it)
+    volatile long *gfWaits = nullptr, *gfFallbacks = nullptr;  // GF counters
+    volatile long long* gfTicks = nullptr;
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.

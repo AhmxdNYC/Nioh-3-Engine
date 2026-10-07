@@ -1181,4 +1181,27 @@ edJoinGo:
     jmp     qword ptr [ed_joinFn]
 caveEdJoin ENDP
 
+; =================================================================================================================
+; GF (1.4.0): GPU-fence Sleep(0) spins -> SetEventOnCompletion + wait (GfWait, C++). Both sites are the
+; `xor ecx,ecx; call [Sleep]` inside a `while (fence->GetCompletedValue() < value) Sleep(0)` loop (8 bytes ->
+; call; nop3); the loop's own re-check follows, so returning early only costs one more iteration.
+; GfWait(ID3D12Fence** f, UINT64 value). Both functions keep rsp 16-aligned with 20h of home space at the site.
+; =================================================================================================================
+PUBLIC caveGf1, caveGf2
+EXTERN GfWait:PROC
+
+; 7D9E66 in FenceWait 7D9E1C (event == NULL path): rsi = &fence (p1+6D8h), rdi = value
+caveGf1 PROC
+    mov     rcx, rsi
+    mov     rdx, rdi
+    jmp     GfWait
+caveGf1 ENDP
+
+; 117D9F in the worker fence poll 117D6C (p2 == NULL path): fence = [rbx+18h], value = rdi
+caveGf2 PROC
+    lea     rcx, [rbx+18h]
+    mov     rdx, rdi
+    jmp     GfWait
+caveGf2 ENDP
+
 END

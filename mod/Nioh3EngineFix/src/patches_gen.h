@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr };
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2 };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -131,6 +131,8 @@ static const uint8_t orig_WS5[] = { 0xFF, 0x15, 0x06, 0x95, 0x89, 0x03 };
 static const uint8_t orig_WSs[] = { 0xFF, 0x15, 0x05, 0x67, 0xE7, 0x01 };
 static const uint8_t orig_EDk[] = { 0xE8, 0x35, 0xF7, 0xF1, 0xFF };
 static const uint8_t orig_EDj[] = { 0xE8, 0x38, 0x0D, 0x00, 0x00 };
+static const uint8_t orig_GF1[] = { 0x33, 0xC9, 0xFF, 0x15, 0xCA, 0x84, 0x10, 0x03 };
+static const uint8_t orig_GF2[] = { 0x33, 0xC9, 0xFF, 0x15, 0x91, 0xA5, 0x7C, 0x03 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -203,6 +205,8 @@ static const Site kSites[] = {
     { "WSs", "WS", 0x1A6BC35, 6, orig_WSs, "83 CA FF FF 15 ?? ?? ?? ?? EB 0B B9 01 00 00 00", 3, Kind::Call, nullptr, Target::caveWsSleep, 1, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "EDk", "ED", 0x3D6F46, 5, orig_EDk, "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C E0", 10, Kind::Call, nullptr, Target::caveEdKick, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x2F6680 },
     { "EDj", "ED", 0x3D6F8B, 5, orig_EDj, "48 69 D0 A8 01 00 00 48 03 CA E8 ?? ?? ?? ?? FF C3 3B 9F 00 70 00 00 7C DD", 10, Kind::Call, nullptr, Target::caveEdJoin, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3D7CC8 },
+    { "GF1", "GF", 0x7D9E66, 8, orig_GF1, "EB 17 33 C9 FF 15 ?? ?? ?? ?? 48 8B D7 48 8B CE", 2, Kind::Call, nullptr, Target::caveGf1, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "GF2", "GF", 0x117D9F, 8, orig_GF2, "76 0A 33 C9 FF 15 ?? ?? ?? ?? EB E7 8B 83 C4 00 00 00", 2, Kind::Call, nullptr, Target::caveGf2, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -237,6 +241,11 @@ static const uint8_t dep_32[] = { 0x49, 0x8B, 0x95, 0xA0, 0x01, 0x00, 0x00, 0x49
 static const uint8_t dep_33[] = { 0x0F, 0x84, 0x14, 0x01, 0x00, 0x00 };
 static const uint8_t dep_34[] = { 0x39, 0x99, 0x00, 0x70, 0x00, 0x00, 0x7E, 0x20, 0x48, 0x63, 0xC3, 0x48, 0x8D, 0x4F, 0x08, 0x48, 0x69, 0xD0, 0xA8, 0x01, 0x00, 0x00, 0x48, 0x03, 0xCA, 0xE8, 0x35, 0xF7, 0xF1, 0xFF, 0xFF, 0xC3, 0x3B, 0x9F, 0x00, 0x70, 0x00, 0x00 };
 static const uint8_t dep_35[] = { 0x39, 0x99, 0x00, 0x70, 0x00, 0x00, 0x7E, 0x23, 0x48, 0x63, 0xC3, 0x48, 0x8D, 0x8F, 0xA8, 0x00, 0x00, 0x00, 0x48, 0x69, 0xD0, 0xA8, 0x01, 0x00, 0x00, 0x48, 0x03, 0xCA, 0xE8, 0x38, 0x0D, 0x00, 0x00, 0xFF, 0xC3, 0x3B, 0x9F, 0x00, 0x70, 0x00, 0x00 };
+static const uint8_t dep_36[] = { 0x48, 0x8D, 0xB1, 0xD8, 0x06, 0x00, 0x00, 0x49, 0x8B, 0xD8, 0x48, 0x8B, 0xCE, 0x48, 0x8B, 0xFA, 0xE8, 0x64, 0xE2, 0x93, 0xFF, 0x84, 0xC0, 0x75, 0x39 };
+static const uint8_t dep_37[] = { 0x48, 0x8B, 0xD7, 0x48, 0x8B, 0xCE, 0xE8, 0x2B, 0xE2, 0x93, 0xFF, 0x84, 0xC0, 0x74, 0xE9 };
+static const uint8_t dep_38[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x09, 0x48, 0x8B, 0xDA, 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x40, 0x48, 0x3B, 0xD8, 0x0F, 0x96, 0xC0, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3 };
+static const uint8_t dep_39[] = { 0x48, 0x8B, 0xC2, 0x48, 0x8B, 0x79, 0x20, 0x48, 0x8B, 0xD9, 0x48, 0x3B, 0x79, 0x30, 0x74, 0x54, 0x48, 0x85, 0xC0, 0x0F, 0x85, 0x54, 0x23, 0x7F, 0x01, 0x48, 0x8B, 0x4B, 0x18, 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x40, 0x48, 0x3B, 0xF8, 0x76, 0x0A };
+static const uint8_t dep_40[] = { 0xEB, 0xE7 };
 static const Dep kDeps[] = {
     { "PP", 0x2522C4, 6, dep_0, 0 },  // PagePoolScanAll prologue
     { "PP", 0x252303, 7, dep_1, 0 },  // cmp byte [rbx+238h],0 (pool+B28h branch)
@@ -274,6 +283,11 @@ static const Dep kDeps[] = {
     { "ED", 0x3D8421, 6, dep_33, 0 },  // empty list -> straight to the epilogue (nothing else is done)
     { "ED", 0x3D6F2D, 38, dep_34, 0 },  // EffectDispKick loop: ebx = index, obj = mgr + ebx*1A8h, kicks obj+8
     { "ED", 0x3D6F6F, 41, dep_35, 0 },  // EffectDispJoin loop: same index, waits obj+0A8h
+    { "GF", 0x7D9E2B, 25, dep_36, 0 },  // FenceWait 7D9E1C: rsi = &fence (p1+6D8h), rdi = value, rbx = event
+    { "GF", 0x7D9E6E, 15, dep_37, 0 },  // the Sleep(0) loop re-checks IsFenceComplete(rsi, rdi) after the patched call
+    { "GF", 0x1180A4, 30, dep_38, 0 },  // IsFenceComplete: (*f)->GetCompletedValue() (vtbl+40h) >= value
+    { "GF", 0x117D77, 40, dep_39, 0 },  // worker fence poll 117D6C: p2 == NULL path, fence = [rbx+18h], value = rdi
+    { "GF", 0x117DA7, 2, dep_40, 0 },  // loop back to the GetCompletedValue check after the patched call
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

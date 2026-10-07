@@ -695,13 +695,13 @@ void NoteFgSwitchProton(int want) {
 
 // ---- items ----------------------------------------------------------------------------------------------------------
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
-          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED,  // order = menu::ExpId
+          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF,  // order = menu::ExpId
           kGpu,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXED - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXED; }
-const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED"};
+static_assert(kXGF - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXGF; }
+const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF"};
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -731,6 +731,7 @@ const ItemDef kItems[kCount] = {
     {nullptr, "TS input -> display", "Timestamp probes: median button-sample -> frame presented (add half a refresh)."},
     {"WORKER WAKES", "WakeStats counters", "Counts job-worker wakes and sleeps (log \"stats wakes/s\" every 30 s). Measurement only."},
     {nullptr, "ED skip empty effect lists", "Effect Disp workers with nothing to update are not woken (same output)."},
+    {"GPU FENCE WAITS", "GF fence wait sleeps", "Main thread / workers sleep until the GPU fence fires instead of Sleep(0)-spinning."},
     {"GPU", "GPU barrier batching", "Batches the game's D3D12 barriers into fewer calls. ~0 on the Ally, 2-3 % on PC."},
     {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
     {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},
@@ -1221,6 +1222,9 @@ struct Rates {
     uint32_t pps = 0, m1r = 0, x1s = 0;
     uint64_t fh = 0, fm = 0, e1s = 0;
     double rW6 = 0, w6Us = 0, rPps = 0, fpcPct = -1, rM1 = 0, rX1 = 0, rE1 = 0;
+    long gf = 0;
+    long long gft = 0;
+    double rGf = 0, gfUs = 0;
 };
 Rates g_rates;
 ULONGLONG g_rep[4] = {};  // next auto-repeat time per direction (0 = not repeating)
@@ -1260,6 +1264,9 @@ void SampleRates(ULONGLONG t) {
         r.rM1 = (double)(uint32_t)(ReadPtr(g_host.m1Refresh) - r.m1r) / s;
         r.rX1 = (double)(uint32_t)(ReadPtr(g_host.x1Skip) - r.x1s) / s;
         r.rE1 = (double)(ReadPtr(g_host.e1Skip) - r.e1s) / s;
+        const long gfw = ReadPtr(g_host.gfWaits);
+        r.rGf = (double)(gfw - r.gf) / s;
+        r.gfUs = gfw > r.gf ? (double)(ReadPtr(g_host.gfTicks) - r.gft) * 1e6 / (double)qf.QuadPart / (double)(gfw - r.gf) : 0.0;
     } else if (r.t0) {
         return;
     }
@@ -1271,6 +1278,8 @@ void SampleRates(ULONGLONG t) {
     r.m1r = ReadPtr(g_host.m1Refresh);
     r.x1s = ReadPtr(g_host.x1Skip);
     r.e1s = ReadPtr(g_host.e1Skip);
+    r.gf = ReadPtr(g_host.gfWaits);
+    r.gft = ReadPtr(g_host.gfTicks);
     r.t0 = t;
     r.w3 = w3;
     r.l1 = l1;
@@ -1527,8 +1536,8 @@ float DrawImpl(unsigned W, unsigned H) {
         char fpc[16];
         if (r.fpcPct >= 0) snprintf(fpc, sizeof(fpc), "%.0f%%", r.fpcPct);
         else snprintf(fpc, sizeof(fpc), "-");
-        snprintf(stats, sizeof(stats), "Exp/s: W6 %.0f x %.0fus  PP skip %.0f  FPC hit %s  M1 %.0f  X1 skip %.0f  E1 skip %.0f",
-                 r.rW6, r.w6Us, r.rPps, fpc, r.rM1, r.rX1, r.rE1);
+        snprintf(stats, sizeof(stats), "Exp/s: W6 %.0f x %.0fus  GF %.0f x %.0fus  PP skip %.0f  FPC hit %s  M1 %.0f  X1 %.0f  E1 %.0f",
+                 r.rW6, r.w6Us, r.rGf, r.gfUs, r.rPps, fpc, r.rM1, r.rX1, r.rE1);
         add(stats, "", cGray, cWhite, false, false);
     }
     if (gpuopt::GetState() != gpuopt::State::Off && g_host.gpuStatus) {
