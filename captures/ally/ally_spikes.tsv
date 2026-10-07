@@ -1,0 +1,233 @@
+capture	t_s	frame_ms	median_ms	ratio	phase	dvram_MB_3s	dswap_MB_3s	dram_MB_3s	vram_MB	swap_MB	ram_MB	cpu_pct	gpu_pct	gpu_mhz	log_events
+mangohud	4.2	82.7	33.1	2.50	title+load (no log flag)	662	-0	291	2243	1500	8715	40	10	800	
+mangohud	21.3	78.0	33.3	2.34	title+load (no log flag)	21	-0	1	3681	1514	9744	95	26	800	
+mangohud	25.9	108.9	32.9	3.31	title+load (no log flag)	0	0	9	3717	1514	9773	94	25	800	
+mangohud	26.3	77.7	32.9	2.36	title+load (no log flag)	1	0	10	3717	1514	9778	95	25	800	
+mangohud	26.7	99.2	32.9	3.02	title+load (no log flag)	0	0	10	3717	1514	9776	97	25	800	
+mangohud	45.2	100.8	22.9	4.41	title+load (no log flag)	115	-0	179	4538	1515	9892	48	98	2012	
+mangohud	49.4	78.1	22.9	3.40	title+load (no log flag)	41	-0	43	4927	1515	10067	83	58	800	
+mangohud	52.7	64.3	24.8	2.60	title+load (no log flag)	207	0	34	4940	1515	10059	89	73	1009	
+mangohud	52.8	63.0	24.8	2.54	title+load (no log flag)	207	0	34	4940	1515	10059	89	73	1009	
+mangohud	53.4	62.0	24.9	2.49	title+load (no log flag)	149	0	75	4979	1515	10138	94	76	800	
+mangohud	53.8	83.4	25.3	3.30	title+load (no log flag)	153	0	114	5037	1515	10132	91	75	927	
+mangohud	54.2	56.1	25.8	2.17	title+load (no log flag)	115	0	131	5062	1515	10127	92	77	800	
+mangohud	55.1	85.9	26.7	3.22	title+load (no log flag)	31	0	47	5066	1515	10180	96	73	800	
+mangohud	55.2	75.5	26.7	2.83	title+load (no log flag)	16	1	113	5066	1515	10180	96	73	800	
+mangohud	55.6	80.0	27.2	2.94	title+load (no log flag)	-9	0	118	5066	1515	10180	96	73	800	
+mangohud	56.4	61.0	27.4	2.22	title+load (no log flag)	-7	1	119	5068	1516	10178	96	60	957	
+mangohud	56.5	59.9	27.6	2.17	title+load (no log flag)	-12	1	79	5068	1516	10178	96	60	957	
+mangohud	56.6	57.5	27.8	2.07	title+load (no log flag)	-12	1	79	5068	1516	10178	96	60	957	
+mangohud	57.0	57.8	27.9	2.07	title+load (no log flag)	-9	4	74	5053	1516	10245	95	66	800	
+mangohud	57.2	65.3	28.0	2.33	title+load (no log flag)	2	4	65	5053	1516	10245	95	66	800	
+mangohud	57.3	129.4	28.0	4.63	title+load (no log flag)	2	4	65	5035	1516	10276	95	70	800	
+mangohud	58.0	65.6	28.4	2.31	title+load (no log flag)	-41	4	60	5055	1517	10260	95	71	800	
+mangohud	58.7	65.2	28.4	2.29	title+load (no log flag)	-7	3	-39	5058	1519	10254	94	67	800	
+mangohud	75.2	57.1	27.8	2.05	title+load (no log flag)	4	11	-18	5187	1519	10235	93	81	1117	
+mangohud	92.4	61.0	30.5	2.00	title+load (no log flag)	120	4	-3	5261	1538	10412	86	96	1437	
+mangohud	117.4	58.1	27.6	2.10	title+load (no log flag)	1	4	4	5808	1545	10449	85	95	1366	
+mangohud	122.0	60.5	29.7	2.04	title+load (no log flag)	119	0	11	5928	1545	10458	86	94	1339	
+mangohud	122.2	61.5	29.8	2.06	title+load (no log flag)	119	0	11	5928	1545	10456	87	94	1379	
+mangohud	126.1	68.7	29.7	2.31	title+load (no log flag)	1	0	14	5929	1545	10469	85	94	1470	
+mangohud	127.6	61.9	29.3	2.11	title+load (no log flag)	49	7	35	5930	1545	10484	85	94	1420	
+mangohud	128.2	125.3	28.9	4.34	title+load (no log flag)	1	7	43	5930	1545	10491	72	94	1496	
+mangohud	128.3	75.2	29.1	2.59	title+load (no log flag)	1	7	29	5930	1545	10491	72	94	1496	
+mangohud	129.4	63.2	29.5	2.14	title+load (no log flag)	243	7	30	5978	1552	10504	86	89	1354	
+mangohud	129.5	70.4	29.1	2.42	title+load (no log flag)	243	7	30	5978	1552	10504	86	89	1354	
+mangohud	130.3	58.8	28.8	2.04	title+load (no log flag)	243	0	39	6049	1552	10521	80	92	1756	
+mangohud	130.5	59.7	28.9	2.07	title+load (no log flag)	195	0	17	6049	1552	10521	80	92	1756	
+mangohud	130.7	64.2	29.1	2.20	title+load (no log flag)	195	0	17	6173	1552	10521	93	93	1349	
+mangohud	134.1	80.9	32.0	2.53	title+load (no log flag)	0	-0	11	6173	1552	10536	84	95	1502	
+mangohud	136.1	88.5	33.2	2.66	title+load (no log flag)	68	0	2	6173	1552	10539	90	96	1294	
+mangohud	136.5	86.1	32.6	2.64	title+load (no log flag)	68	0	5	6241	1552	10540	88	96	1474	
+mangohud	138.4	84.8	34.2	2.48	title+load (no log flag)	0	3	29	6241	1552	10537	84	95	1459	
+mangohud	139.2	83.4	34.3	2.43	title+load (no log flag)	119	3	29	6241	1555	10565	89	96	1465	
+mangohud	140.7	75.8	32.6	2.33	title+load (no log flag)	238	0	10	6361	1555	10565	84	95	1401	
+mangohud	140.9	74.2	32.6	2.28	title+load (no log flag)	238	0	8	6361	1555	10565	84	95	1401	
+mangohud	141.1	92.0	32.5	2.83	title+load (no log flag)	238	0	11	6361	1555	10571	68	96	1915	
+mangohud	141.2	72.7	32.5	2.24	title+load (no log flag)	238	0	11	6361	1555	10571	68	96	1915	
+mangohud	141.3	108.8	32.6	3.34	title+load (no log flag)	238	0	11	6361	1555	10571	68	96	1915	
+mangohud	141.4	108.0	32.6	3.31	title+load (no log flag)	238	0	11	6361	1555	10571	68	96	1915	
+mangohud	141.5	102.2	32.7	3.13	title+load (no log flag)	238	0	11	6361	1555	10571	68	96	1915	
+mangohud	141.6	112.9	32.7	3.46	title+load (no log flag)	238	0	11	6486	1555	10575	71	96	1586	
+mangohud	141.7	108.2	32.6	3.32	title+load (no log flag)	238	0	11	6486	1555	10575	71	96	1586	
+mangohud	141.8	80.2	32.6	2.46	title+load (no log flag)	238	0	11	6486	1555	10575	71	96	1586	
+mangohud	141.9	97.8	32.7	2.99	title+load (no log flag)	119	0	12	6486	1555	10575	71	96	1586	
+mangohud	142.0	67.4	32.7	2.06	title+load (no log flag)	119	0	12	6486	1555	10575	71	96	1586	
+mangohud	142.1	86.7	32.7	2.65	title+load (no log flag)	119	0	12	6480	1555	10575	67	96	1828	
+mangohud	142.2	73.9	32.7	2.26	title+load (no log flag)	119	0	13	6480	1555	10575	67	96	1828	
+mangohud	142.3	81.5	32.7	2.49	title+load (no log flag)	119	0	13	6480	1555	10575	67	96	1828	
+mangohud	142.6	66.1	32.6	2.03	title+load (no log flag)	119	0	7	6480	1555	10578	68	97	1827	
+mangohud	144.9	71.1	32.8	2.17	title+load (no log flag)	56	3	33	6480	1555	10615	88	97	1347	
+mangohud	148.0	86.1	34.2	2.52	title+load (no log flag)	166	0	138	6541	1559	10680	77	91	1539	
+mangohud	159.9	70.1	34.1	2.05	title+load (no log flag)	-109	-0	11	6812	1559	10724	91	94	1316	
+mangohud	172.3	91.9	34.7	2.65	title+load (no log flag)	120	0	-26	6934	1558	10728	89	90	1337	
+mangohud	180.6	102.9	34.7	2.97	title+load (no log flag)	0	0	-14	7127	1558	10728	85	95	907	
+mangohud	180.7	74.9	34.6	2.16	title+load (no log flag)	0	0	-7	7127	1558	10728	85	95	907	
+mangohud	301.1	81.6	32.9	2.48	gameplay	-41	-0	-39	7311	1557	10811	87	92	1315	
+mangohud	4.2	51.8	16.7	3.10	title+load (no log flag)	363	1	316	2385	829	8193	39	10	800	
+mangohud	16.1	49.7	16.7	2.98	title+load (no log flag)	-13	-0	188	3181	839	8996	25	44	800	
+mangohud	30.9	37.8	18.7	2.02	title+load (no log flag)	413	1	39	3641	954	9154	73	41	800	
+mangohud	56.6	46.2	18.4	2.51	title+load (no log flag)	60	0	62	4724	957	9457	93	85	800	
+mangohud	56.7	41.0	18.4	2.23	title+load (no log flag)	60	0	62	4724	957	9457	93	85	800	
+mangohud	57.0	46.6	18.4	2.53	title+load (no log flag)	58	0	47	4724	957	9457	93	85	800	
+mangohud	60.1	41.4	19.0	2.18	title+load (no log flag)	135	-0	110	4754	957	9545	95	87	1269	
+mangohud	60.3	55.8	19.0	2.93	title+load (no log flag)	65	-0	107	4829	957	9570	93	87	1417	
+mangohud	60.4	39.4	19.1	2.07	title+load (no log flag)	65	-0	107	4829	957	9570	93	87	1417	
+mangohud	60.5	48.8	19.1	2.56	title+load (no log flag)	62	0	56	4829	957	9570	93	87	1417	
+mangohud	60.6	49.7	19.1	2.60	title+load (no log flag)	62	0	56	4829	957	9570	93	87	1417	
+mangohud	60.7	40.4	19.1	2.11	title+load (no log flag)	63	0	75	4869	957	9610	89	80	800	
+mangohud	81.4	59.3	26.1	2.27	title+load (no log flag)	109	-0	47	5013	957	9729	88	87	1314	
+mangohud	82.2	65.4	26.8	2.44	title+load (no log flag)	109	-0	51	5013	957	9789	89	91	1603	
+mangohud	83.2	59.0	27.1	2.18	title+load (no log flag)	109	-0	50	5122	957	9779	89	94	1418	
+mangohud	84.1	54.4	27.1	2.01	title+load (no log flag)	1	-0	-10	5122	957	9779	91	94	1536	
+mangohud	98.3	54.2	24.6	2.20	title+load (no log flag)	120	-0	12	5401	957	9818	82	96	1731	
+mangohud	101.7	78.4	25.2	3.12	title+load (no log flag)	65	0	6	5521	957	9839	85	95	1619	
+mangohud	108.8	63.6	26.4	2.41	title+load (no log flag)	1	0	-2	5706	957	9853	81	95	1730	
+mangohud	110.8	59.1	27.1	2.19	title+load (no log flag)	1	-0	-3	5706	957	9863	84	94	1678	
+mangohud	111.8	54.3	27.0	2.01	title+load (no log flag)	120	-0	-5	5707	957	9861	80	93	1733	
+mangohud	115.7	53.6	25.6	2.09	title+load (no log flag)	120	-0	39	5827	957	9866	83	94	1831	
+mangohud	116.0	107.5	25.7	4.18	title+load (no log flag)	120	-0	41	5827	957	9874	82	95	1529	
+mangohud	116.2	91.4	25.7	3.56	title+load (no log flag)	120	-0	43	5827	957	9874	82	95	1529	
+mangohud	116.3	73.3	25.6	2.87	title+load (no log flag)	120	-0	43	5947	957	9888	70	93	800	
+mangohud	116.7	92.4	25.7	3.60	title+load (no log flag)	120	-0	48	5947	957	9888	70	93	800	
+mangohud	118.8	73.9	27.1	2.73	title+load (no log flag)	127	0	23	6066	957	9918	67	93	1976	
+mangohud	119.5	74.9	28.2	2.65	title+load (no log flag)	247	0	15	6071	957	9946	91	94	1637	
+mangohud	121.0	70.5	28.8	2.45	title+load (no log flag)	242	-0	-24	6194	957	9929	81	95	1657	
+mangohud	124.3	72.8	29.8	2.44	title+load (no log flag)	1	-0	30	6313	957	9928	82	95	1810	
+mangohud	125.4	71.9	30.5	2.36	title+load (no log flag)	0	-0	42	6313	957	9948	83	95	1532	
+mangohud	126.8	70.2	29.4	2.39	title+load (no log flag)	0	-0	30	6314	957	9970	83	96	1459	
+mangohud	127.5	62.2	29.9	2.08	title+load (no log flag)	1	0	22	6314	957	9979	74	96	1459	
+mangohud	127.6	97.0	29.9	3.24	title+load (no log flag)	1	0	20	6314	957	9979	74	96	1459	
+mangohud	127.7	83.4	30.1	2.77	title+load (no log flag)	1	0	20	6314	957	9979	74	96	1459	
+mangohud	127.8	106.1	30.3	3.50	title+load (no log flag)	1	0	20	6314	957	9978	64	96	2326	
+mangohud	127.9	121.1	30.5	3.97	title+load (no log flag)	1	0	4	6314	957	9978	64	96	2326	
+mangohud	128.0	118.8	30.6	3.88	title+load (no log flag)	1	0	4	6314	957	9978	64	96	2326	
+mangohud	128.1	99.4	30.7	3.23	title+load (no log flag)	1	0	-8	6314	957	9978	64	96	2326	
+mangohud	128.3	117.0	30.8	3.79	title+load (no log flag)	1	0	-8	6314	957	9978	64	96	2326	
+mangohud	128.4	81.6	30.8	2.65	title+load (no log flag)	1	0	-8	6314	957	9977	63	96	2178	
+mangohud	128.5	68.6	30.8	2.22	title+load (no log flag)	1	0	14	6314	957	9977	63	96	2178	
+mangohud	128.6	78.5	30.9	2.54	title+load (no log flag)	1	0	5	6314	957	9977	63	96	2178	
+mangohud	128.7	69.7	30.9	2.26	title+load (no log flag)	1	0	5	6314	957	9977	63	96	2178	
+mangohud	128.8	79.5	30.9	2.57	title+load (no log flag)	1	0	5	6314	957	9977	63	96	2178	
+mangohud	128.9	78.2	30.9	2.53	title+load (no log flag)	1	0	5	6314	957	9978	66	95	2184	
+mangohud	129.1	73.9	31.1	2.38	title+load (no log flag)	120	0	-2	6314	957	9978	66	95	2184	
+mangohud	129.2	74.7	31.1	2.40	title+load (no log flag)	120	0	-0	6314	957	9978	66	95	2184	
+mangohud	129.3	76.3	31.1	2.46	title+load (no log flag)	120	0	-0	6314	957	9978	66	95	2184	
+mangohud	129.4	111.6	31.1	3.59	title+load (no log flag)	120	0	-0	6314	957	9962	67	95	2119	
+mangohud	129.5	109.8	30.9	3.55	title+load (no log flag)	120	0	-0	6314	957	9962	67	95	2119	
+mangohud	129.6	83.5	31.1	2.69	title+load (no log flag)	120	0	-1	6314	957	9962	67	95	2119	
+mangohud	129.8	111.9	31.3	3.57	title+load (no log flag)	119	0	-0	6314	957	9962	67	95	2119	
+mangohud	130.0	114.9	31.6	3.64	title+load (no log flag)	119	0	-0	6314	957	9984	66	97	2164	
+mangohud	130.1	104.9	31.6	3.32	title+load (no log flag)	119	0	1	6314	957	9984	66	97	2164	
+mangohud	130.2	100.9	31.6	3.19	title+load (no log flag)	119	0	1	6314	957	9984	66	97	2164	
+mangohud	130.3	94.4	31.8	2.97	title+load (no log flag)	119	0	-0	6314	957	9984	66	97	2164	
+mangohud	130.4	95.2	31.8	3.00	title+load (no log flag)	119	0	-0	6314	957	9984	66	97	2164	
+mangohud	130.5	97.3	31.8	3.06	title+load (no log flag)	119	0	-0	6314	957	9984	66	97	2164	
+mangohud	130.6	101.4	31.8	3.19	title+load (no log flag)	119	0	0	6433	957	9977	67	97	2133	
+mangohud	130.7	105.2	31.8	3.31	title+load (no log flag)	119	0	0	6433	957	9977	67	97	2133	
+mangohud	130.8	122.0	31.9	3.82	title+load (no log flag)	119	-0	16	6433	957	9977	67	97	2133	
+mangohud	130.9	108.8	32.0	3.40	title+load (no log flag)	119	-0	16	6433	957	9977	67	97	2133	
+mangohud	131.0	114.1	32.0	3.57	title+load (no log flag)	119	-0	16	6433	957	9977	67	97	2133	
+mangohud	131.1	109.0	32.0	3.41	title+load (no log flag)	119	-0	16	6433	957	9977	64	97	2174	
+mangohud	131.3	135.3	32.0	4.23	title+load (no log flag)	119	-0	16	6433	957	9977	64	97	2174	
+mangohud	131.4	126.5	32.0	3.96	title+load (no log flag)	119	-0	-6	6433	957	9977	64	97	2174	
+mangohud	131.5	113.1	32.0	3.54	title+load (no log flag)	119	-0	-6	6433	957	9977	64	97	2174	
+mangohud	131.6	136.9	32.0	4.27	title+load (no log flag)	119	-0	-6	6433	957	9978	63	98	2157	
+mangohud	131.8	122.4	32.0	3.82	title+load (no log flag)	119	-0	-6	6433	957	9978	63	98	2157	
+mangohud	131.9	116.4	32.2	3.62	title+load (no log flag)	119	-0	-6	6433	957	9978	63	98	2157	
+mangohud	132.1	123.6	32.1	3.85	title+load (no log flag)	0	0	1	6433	957	9978	62	98	2169	
+mangohud	133.9	106.0	32.9	3.22	title+load (no log flag)	312	0	60	6433	957	9980	60	98	2368	
+mangohud	147.5	84.0	32.7	2.57	title+load (no log flag)	163	0	35	6866	957	10089	40	89	1356	
+mangohud	207.3	77.1	32.5	2.37	title+load (no log flag)	163	-0	-96	6980	1868	10846	73	92	2325	
+mangohud	4.1	83.7	16.9	4.96	title/menu (pre-load)	750	-0	279	2167	1350	9399	35	9	800	
+mangohud	6.2	53.4	16.8	3.17	title/menu (pre-load)	938	0	681	2965	1350	9745	76	31	800	OSD: engine is rendering (5606 ms after start) - installing the Present hook | OSD: system d3d12 C:\windows\system32\d3d12.dll+0, dxgi C:\windows\system32\dxgi.dll+0 | OSD: dummy swapchain 000000003206D0F0, vtable S:\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\windows\system32\d3d12core.dll+488FE0
+mangohud	41.6	38.8	17.4	2.23	title/menu (pre-load)	22	0	-11	3733	1352	10325	93	49	800	
+mangohud	49.1	65.2	30.0	2.17	title/menu (pre-load)	324	0	34	3853	1353	10350	70	50	800	
+mangohud	111.0	75.0	35.2	2.13	load	69	0	9	4831	1354	10583	87	74	925	
+mangohud	117.6	84.0	38.4	2.19	load	51	1	97	4839	1355	10725	95	72	800	
+mangohud	117.7	90.4	38.5	2.34	load	51	1	97	4839	1355	10725	95	72	800	
+mangohud	117.8	84.7	38.5	2.20	load	-61	1	80	4839	1355	10725	95	72	800	
+mangohud	117.9	77.1	38.5	2.00	load	-61	1	80	4839	1355	10725	95	72	800	
+mangohud	118.2	90.6	38.4	2.36	load	-25	1	78	4841	1355	10741	94	66	800	
+mangohud	118.4	77.2	38.4	2.01	load	86	1	68	4841	1355	10741	94	66	800	
+mangohud	170.2	100.0	49.5	2.02	load	120	0	24	5796	1355	11045	85	80	800	
+mangohud	171.7	109.1	49.5	2.20	load	120	0	-3	5916	1355	11052	83	81	864	
+mangohud	171.9	102.0	49.1	2.08	load	120	0	-11	5916	1355	11052	83	81	864	
+mangohud	173.7	131.4	49.9	2.63	load	120	0	42	5917	1355	11075	72	80	800	
+mangohud	176.6	116.4	52.9	2.20	load	127	0	15	6160	1355	11107	82	83	943	
+mangohud	177.2	110.2	53.2	2.07	load	4	0	16	6160	1355	11109	74	83	1052	
+mangohud	180.4	127.0	63.0	2.02	load	65	0	55	6228	1355	11138	80	83	1246	
+mangohud	181.8	138.9	66.8	2.08	load	122	0	13	6229	1355	11186	82	82	1010	
+mangohud	183.1	152.2	75.6	2.01	load	241	0	-20	6350	1355	11151	59	82	1255	
+mangohud	194.3	271.5	135.4	2.01	load	0	0	-23	6469	1355	11197	57	92	1262	
+mangohud	194.9	279.6	124.9	2.24	load	0	0	-24	6469	1355	11175	52	92	1273	
+mangohud	195.1	268.4	63.7	4.22	load	0	0	-19	6469	1355	11175	52	92	1273	
+mangohud	195.4	273.8	55.4	4.94	load	0	0	-25	6469	1355	11177	56	92	1350	
+mangohud	195.7	259.3	56.3	4.61	load	0	0	-27	6469	1355	11177	56	92	1350	
+mangohud	195.9	267.7	56.3	4.76	load	0	0	-27	6469	1355	11178	49	92	2027	
+mangohud	196.2	305.4	56.2	5.44	load	0	0	-3	6469	1355	11178	49	92	2027	
+mangohud	196.5	281.4	56.3	5.00	load	0	0	-3	6469	1355	11177	56	92	1957	
+mangohud	196.8	262.9	56.1	4.68	load	0	0	-3	6469	1355	11177	56	92	1957	
+mangohud	197.1	292.3	52.9	5.52	load	0	0	-3	6469	1355	11170	52	93	2009	
+mangohud	197.4	286.7	50.5	5.68	load	0	0	-6	6469	1355	11170	52	93	2009	
+mangohud	197.7	298.5	50.4	5.92	load	0	0	-4	6469	1355	11172	50	93	1179	
+mangohud	197.9	273.0	50.1	5.44	load	0	0	-2	6469	1355	11172	50	93	1179	
+mangohud	200.4	285.1	52.8	5.39	load	119	0	12	6469	1355	11186	49	89	1986	
+mangohud	4.1	86.8	16.8	5.15	title/menu (pre-load)	764	0	305	2128	1355	9612	36	9	800	
+mangohud	57.7	35.4	16.8	2.11	title/menu (pre-load)	463	0	108	3217	1355	10640	26	51	800	
+mangohud	69.7	75.1	28.2	2.67	title/menu (pre-load)	399	0	14	3717	1355	10746	71	51	800	
+mangohud	126.3	72.0	34.9	2.06	load	76	160	-153	4744	1598	10726	87	70	981	
+mangohud	127.5	73.6	35.8	2.06	load	36	277	-243	4747	1697	10579	91	66	800	
+mangohud	128.3	84.3	36.5	2.31	load	79	386	-208	4767	1816	10510	93	62	800	
+mangohud	130.8	78.3	37.8	2.07	load	27	463	-333	4805	2201	10218	95	65	800	
+mangohud	130.9	79.6	37.8	2.10	load	27	463	-333	4805	2201	10218	95	65	800	
+mangohud	131.2	134.5	37.8	3.56	load	-18	478	-312	4805	2201	10218	95	65	800	
+mangohud	131.4	106.0	37.9	2.80	load	-18	478	-312	4805	2344	10161	98	64	800	
+mangohud	132.0	81.3	38.3	2.12	load	5	421	-227	4808	2417	10105	98	55	800	
+mangohud	132.1	94.6	38.6	2.45	load	5	421	-227	4808	2417	10105	98	55	800	
+mangohud	173.0	99.6	49.2	2.02	load	130	-0	13	5659	2484	10387	77	82	886	
+mangohud	175.0	106.5	49.2	2.16	load	130	-0	13	5789	2484	10396	79	80	1240	
+mangohud	178.2	98.2	47.3	2.08	load	-9	-0	11	5790	2484	10420	81	80	925	
+mangohud	178.6	107.7	47.3	2.28	load	110	-0	10	5790	2484	10420	81	80	925	
+mangohud	180.3	107.4	47.2	2.27	load	111	-0	4	5900	2484	10412	79	79	800	
+mangohud	182.9	126.8	48.7	2.60	load	124	-2	86	5901	2483	10415	73	80	954	
+mangohud	183.1	114.2	48.7	2.34	load	128	-2	85	5901	2483	10446	72	80	1270	
+mangohud	186.3	104.7	51.8	2.02	load	120	-0	3	6029	2482	10493	70	83	800	
+mangohud	186.9	112.2	54.4	2.06	load	120	-0	7	6029	2482	10498	69	83	851	
+mangohud	194.1	164.2	80.8	2.03	load	0	-0	1	6515	2481	10545	57	87	1759	
+mangohud	194.9	170.5	77.9	2.19	load	0	-0	2	6515	2481	10535	55	88	1982	
+mangohud	196.0	157.1	75.7	2.08	load	0	-0	3	6515	2481	10536	56	88	1863	
+mangohud	196.3	158.5	73.9	2.14	load	0	-0	3	6515	2481	10536	52	89	1666	
+mangohud	196.4	148.8	73.9	2.01	load	0	-0	3	6515	2481	10536	52	89	1666	
+mangohud	196.6	177.9	73.9	2.41	load	0	-0	3	6515	2481	10536	52	89	1666	
+mangohud	196.8	166.1	73.9	2.25	load	0	-0	23	6515	2481	10538	51	89	1997	
+mangohud	197.0	199.6	72.5	2.75	load	0	-0	22	6515	2481	10538	51	89	1997	
+mangohud	197.2	165.7	72.5	2.29	load	0	-0	22	6515	2481	10538	51	89	1997	
+mangohud	197.3	186.9	72.5	2.58	load	0	-0	22	6515	2481	10539	59	89	1859	
+mangohud	197.5	179.7	72.4	2.48	load	0	-0	33	6515	2481	10539	59	89	1859	
+mangohud	197.7	174.2	72.3	2.41	load	0	-0	33	6515	2481	10539	59	89	1859	
+mangohud	197.9	177.7	72.3	2.46	load	0	-0	33	6515	2481	10538	56	90	1860	
+mangohud	198.1	182.3	72.3	2.52	load	0	-0	28	6515	2481	10538	56	90	1860	
+mangohud	198.2	176.8	72.3	2.45	load	0	-0	28	6515	2481	10538	56	90	1860	
+mangohud	198.4	194.6	72.3	2.69	load	0	-0	28	6515	2481	10557	53	90	1947	
+mangohud	198.7	230.4	72.3	3.19	load	0	-0	28	6515	2481	10557	53	90	1947	
+mangohud	198.9	220.9	72.3	3.06	load	0	-0	26	6515	2481	10557	53	90	1947	
+mangohud	199.1	236.7	72.3	3.27	load	0	-0	26	6515	2481	10569	60	91	1912	
+mangohud	199.3	211.3	72.3	2.92	load	0	-0	27	6515	2481	10569	60	91	1912	
+mangohud	199.5	223.0	70.3	3.17	load	0	-0	28	6515	2481	10569	60	91	1912	
+mangohud	199.8	213.6	70.3	3.04	load	0	-0	8	6515	2481	10567	56	91	1905	
+mangohud	200.0	224.6	70.3	3.19	load	0	-0	4	6515	2481	10567	56	91	1905	
+mangohud	200.2	217.6	70.3	3.09	load	0	-0	4	6515	2481	10567	56	91	1905	
+mangohud	200.4	221.1	70.3	3.14	load	0	-0	-8	6515	2481	10565	57	91	1892	
+mangohud	200.6	222.2	70.2	3.16	load	0	-0	-9	6515	2481	10565	57	91	1892	
+mangohud	200.9	226.0	69.6	3.25	load	0	-0	-9	6515	2481	10565	57	91	1892	
+mangohud	201.1	229.1	68.6	3.34	load	-0	-0	-7	6515	2481	10566	56	92	1882	
+mangohud	201.4	261.5	66.6	3.92	load	0	-0	-7	6515	2481	10566	56	92	1882	
+mangohud	201.6	242.1	65.4	3.70	load	0	-0	-7	6515	2481	10561	56	92	2004	
+mangohud	201.9	264.5	64.8	4.08	load	0	-0	-7	6515	2481	10561	56	92	2004	
+mangohud	202.1	237.8	63.9	3.72	load	0	-0	-7	6515	2481	10560	46	92	2050	
+mangohud	202.3	242.5	63.8	3.80	load	119	-0	-7	6515	2481	10560	46	92	2050	
+mangohud	202.6	234.8	63.3	3.71	load	119	-0	-8	6515	2481	10560	46	92	2050	
+mangohud	202.8	259.4	62.8	4.13	load	119	-0	-8	6515	2481	10560	48	92	800	
+mangohud	203.1	250.9	62.3	4.03	load	119	-0	8	6515	2481	10560	48	92	800	
+mangohud	203.3	255.9	62.1	4.12	load	119	-0	8	6515	2480	10558	54	92	2015	

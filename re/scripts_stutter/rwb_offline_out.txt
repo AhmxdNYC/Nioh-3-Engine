@@ -1,0 +1,27 @@
+site 1A3146A: 8B 95 A8 03 00 00 48 8B CD E8 24 77 61 FE FF C3 84 DB 75 08 33 C9
+  [ok] original bytes match the dump
+original:
+  0000000001A3146A  mov edx,[rbp+3A8h]                            
+  0000000001A31470  mov rcx,rbp                                   
+  0000000001A31473  call 0000000000048B9Ch                        
+  0000000001A31478  inc ebx                                       
+  0000000001A3147A  test bl,bl                                    
+  0000000001A3147C  jne short 0000000001A31486h                      ; -> Nioh3+1A31486
+  0000000001A3147E  xor ecx,ecx                                   
+new:
+  0000000001A3146A  inc ebx                                       
+  0000000001A3146C  test bl,bl                                    
+  0000000001A3146E  jne short 0000000001A31486h                      ; -> Nioh3+1A31486
+  0000000001A31470  mov edx,[rbp+3A8h]                            
+  0000000001A31476  mov rcx,rbp                                   
+  0000000001A31479  call 0000000000048B9Ch                        
+  0000000001A3147E  xor ecx,ecx                                   
+  [ok] both versions call JobWakeOneInPool 48B9C
+  [ok] both versions branch to 1A31486 when bl != 0
+  [ok] same length, ends on an instruction boundary
+  [ok] next instruction is the Sleep(0) call at 1A31480 (call qword [rip+1EB0EB2h])
+  skip target 1A31486: mov rcx,[r14+10h]
+  [ok] rax/rcx/rdx/r8-r11 and flags dead at 1A31486 (written before read on every path)
+  [ok] no overlap with other patch sets []
+  [ok] no direct branch/call target strictly inside the range ()
+OFFLINE CHECKS: ALL PASSED

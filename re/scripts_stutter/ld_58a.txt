@@ -1,0 +1,8 @@
+   20DC0  fn    1EC30  mov byte [rsp+58Ah],24h
+  E22D75  fn   E22D10  cmp byte [rax+58Ah],0
+  E5EFB4  fn   E5EF40  cmp byte [rax+58Ah],0
+  FC55CA  fn   FC5530  cmp byte [rax+58Ah],0
+  FDC2B2  fn   FDC010  cmp byte [rax+58Ah],0
+ 10181C4  fn  1018120  cmp byte [rax+58Ah],0
+ 10FD729  fn  10FD6E0  cmp byte [rdx+58Ah],0
+ 12E9860  fn  12E97F0  cmp byte [rax+58Ah],0

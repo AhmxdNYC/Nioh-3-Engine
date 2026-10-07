@@ -1,0 +1,170 @@
+G1   11970A E8 C9 F9 80 00         call 00000000009290D8h             fn 119670 [ok]
+      runtime gfx PSO create (dispatcher, PSO-cache CS held)
+C1   119AE1 E8 CA 27 47 00         call 000000000058C2B0h             fn 119A48 [ok]
+      runtime compute PSO create (per-context cache)
+C2   119D86 E8 25 25 47 00         call 000000000058C2B0h             fn 119C08 [ok]
+      runtime compute PSO create (compute state flush)
+C3   58BF92 E8 19 03 00 00         call 000000000058C2B0h             fn 58BE90 [ok]
+      runtime compute PSO create (SynFlushComputeState)
+C4   58C07A E8 31 02 00 00         call 000000000058C2B0h             fn 58C000 [ok]
+      runtime compute PSO create (shared cache)
+PG  2EFE47C E8 57 AC A2 FD         call 00000000009290D8h             fn 2EFE440 [ok]
+      preload gfx PSO create (PreloadPSO list)
+PC  2EFE1F2 E8 B9 E0 68 FD         call 000000000058C2B0h             fn 2EFE1CC [ok]
+      preload compute PSO create (PreloadPSO list)
+UF   62D7E7 E8 F4 56 39 00         call 00000000009C2EE0h             fn 62D688 [ok]
+      upload heap full -> dedicated committed resource
+UP   62D784 41 FF 93 E8 00 00 00   call qword [r11+0E8h]              fn 62D688 [ok]
+      CreatePlacedResource per upload suballocation
+direct branch/call targets strictly inside the sites (whole executable sweep): none
+cave G1 @dummy 7FF755242000 (238 bytes):
+  00007FF755242000  mov r10,7FF755240000h                         
+  00007FF75524200A  cmp dword [r10],0                             
+  00007FF75524200E  je near 00007FF7552420E9h                     
+  00007FF755242014  push rbx                                      
+  00007FF755242015  push rsi                                      
+  00007FF755242016  push rdi                                      
+  00007FF755242017  sub rsp,20h                                   
+  00007FF75524201B  mov rsi,rdx                                   
+  00007FF75524201E  rdtsc                                         
+  00007FF755242020  shl rdx,20h                                   
+  00007FF755242024  or rax,rdx                                    
+  00007FF755242027  mov rbx,rax                                   
+  00007FF75524202A  mov rdx,rsi                                   
+  00007FF75524202D  call 00007FF74FD390D8h                        
+  00007FF755242032  mov rsi,rax                                   
+  00007FF755242035  rdtsc                                         
+  00007FF755242037  shl rdx,20h                                   
+  00007FF75524203B  or rax,rdx                                    
+  00007FF75524203E  sub rax,rbx                                   
+  00007FF755242041  mov r10,7FF755240040h                         
+  00007FF75524204B  lock inc qword [r10]                          
+  00007FF75524204F  lock add [r10+8],rax                          
+  00007FF755242054  cmp rax,[r10+10h]                             
+  00007FF755242058  jbe short 00007FF75524205Eh                   
+  00007FF75524205A  mov [r10+10h],rax                             
+  00007FF75524205E  mov r11,7FF755240000h                         
+  00007FF755242068  cmp rax,[r11+10h]                             
+  00007FF75524206C  jb short 00007FF75524209Ch                    
+  00007FF75524206E  cmp rax,[r11+18h]                             
+  00007FF755242072  jb short 00007FF755242095h                    
+  00007FF755242074  cmp rax,[r11+20h]                             
+  00007FF755242078  jb short 00007FF75524208Eh                    
+  00007FF75524207A  cmp rax,[r11+28h]                             
+  00007FF75524207E  jb short 00007FF755242087h                    
+  00007FF755242080  lock inc qword [r10+38h]                      
+  00007FF755242085  jmp short 00007FF7552420A1h                   
+  00007FF755242087  lock inc qword [r10+30h]                      
+  00007FF75524208C  jmp short 00007FF7552420A1h                   
+  00007FF75524208E  lock inc qword [r10+28h]                      
+  00007FF755242093  jmp short 00007FF7552420A1h                   
+  00007FF755242095  lock inc qword [r10+20h]                      
+  00007FF75524209A  jmp short 00007FF7552420A1h                   
+  00007FF75524209C  lock inc qword [r10+18h]                      
+  00007FF7552420A1  cmp rax,[r11+8]                               
+  00007FF7552420A5  jb short 00007FF7552420DEh                    
+  00007FF7552420A7  mov edi,1                                     
+  00007FF7552420AC  lock xadd [r11+30h],rdi                       
+  00007FF7552420B2  and edi,0FFh                                  
+  00007FF7552420B8  shl rdi,4                                     
+  00007FF7552420BC  add rdi,r11                                   
+  00007FF7552420BF  add rdi,1000h                                 
+  00007FF7552420C6  mov [rdi],rbx                                 
+  00007FF7552420C9  mov rdx,0                                     
+  00007FF7552420D3  shl rdx,38h                                   
+  00007FF7552420D7  or rax,rdx                                    
+  00007FF7552420DA  mov [rdi+8],rax                               
+  00007FF7552420DE  mov rax,rsi                                   
+  00007FF7552420E1  add rsp,20h                                   
+  00007FF7552420E5  pop rdi                                       
+  00007FF7552420E6  pop rsi                                       
+  00007FF7552420E7  pop rbx                                       
+  00007FF7552420E8  ret                                           
+  00007FF7552420E9  jmp 00007FF74FD390D8h                            ; -> Nioh3+9290D8
+  G1 site 11970A: E8 C9 F9 80 00 -> E8 F1 88 D1 05
+  C1 site 119AE1: E8 CA 27 47 00 -> E8 5A 86 D1 05
+  C2 site 119D86: E8 25 25 47 00 -> E8 F5 84 D1 05
+  C3 site 58BF92: E8 19 03 00 00 -> E8 29 64 8A 05
+  C4 site 58C07A: E8 31 02 00 00 -> E8 81 64 8A 05
+  PG site 2EFE47C: E8 57 AC A2 FD -> E8 BF 41 F3 02
+  PC site 2EFE1F2: E8 B9 E0 68 FD -> E8 89 45 F3 02
+  UF site 62D7E7: E8 F4 56 39 00 -> E8 D4 50 80 05
+cave UP @dummy 7FF755242A00 (294 bytes):
+  00007FF755242A00  mov r10,7FF755240000h                         
+  00007FF755242A0A  cmp dword [r10],0                             
+  00007FF755242A0E  je near 00007FF755242B1Fh                     
+  00007FF755242A14  push rbx                                      
+  00007FF755242A15  push rsi                                      
+  00007FF755242A16  push rdi                                      
+  00007FF755242A17  sub rsp,40h                                   
+  00007FF755242A1B  mov rax,[rsp+80h]                             
+  00007FF755242A23  mov [rsp+20h],rax                             
+  00007FF755242A28  mov rax,[rsp+88h]                             
+  00007FF755242A30  mov [rsp+28h],rax                             
+  00007FF755242A35  mov rax,[rsp+90h]                             
+  00007FF755242A3D  mov [rsp+30h],rax                             
+  00007FF755242A42  mov rax,[rsp+98h]                             
+  00007FF755242A4A  mov [rsp+38h],rax                             
+  00007FF755242A4F  mov rsi,rdx                                   
+  00007FF755242A52  rdtsc                                         
+  00007FF755242A54  shl rdx,20h                                   
+  00007FF755242A58  or rax,rdx                                    
+  00007FF755242A5B  mov rbx,rax                                   
+  00007FF755242A5E  mov rdx,rsi                                   
+  00007FF755242A61  call qword [r11+0E8h]                         
+  00007FF755242A68  mov rsi,rax                                   
+  00007FF755242A6B  rdtsc                                         
+  00007FF755242A6D  shl rdx,20h                                   
+  00007FF755242A71  or rax,rdx                                    
+  00007FF755242A74  sub rax,rbx                                   
+  00007FF755242A77  mov r10,7FF755240440h                         
+  00007FF755242A81  lock inc qword [r10]                          
+  00007FF755242A85  lock add [r10+8],rax                          
+  00007FF755242A8A  cmp rax,[r10+10h]                             
+  00007FF755242A8E  jbe short 00007FF755242A94h                   
+  00007FF755242A90  mov [r10+10h],rax                             
+  00007FF755242A94  mov r11,7FF755240000h                         
+  00007FF755242A9E  cmp rax,[r11+10h]                             
+  00007FF755242AA2  jb short 00007FF755242AD2h                    
+  00007FF755242AA4  cmp rax,[r11+18h]                             
+  00007FF755242AA8  jb short 00007FF755242ACBh                    
+  00007FF755242AAA  cmp rax,[r11+20h]                             
+  00007FF755242AAE  jb short 00007FF755242AC4h                    
+  00007FF755242AB0  cmp rax,[r11+28h]                             
+  00007FF755242AB4  jb short 00007FF755242ABDh                    
+  00007FF755242AB6  lock inc qword [r10+38h]                      
+  00007FF755242ABB  jmp short 00007FF755242AD7h                   
+  00007FF755242ABD  lock inc qword [r10+30h]                      
+  00007FF755242AC2  jmp short 00007FF755242AD7h                   
+  00007FF755242AC4  lock inc qword [r10+28h]                      
+  00007FF755242AC9  jmp short 00007FF755242AD7h                   
+  00007FF755242ACB  lock inc qword [r10+20h]                      
+  00007FF755242AD0  jmp short 00007FF755242AD7h                   
+  00007FF755242AD2  lock inc qword [r10+18h]                      
+  00007FF755242AD7  cmp rax,[r11+8]                               
+  00007FF755242ADB  jb short 00007FF755242B14h                    
+  00007FF755242ADD  mov edi,1                                     
+  00007FF755242AE2  lock xadd [r11+30h],rdi                       
+  00007FF755242AE8  and edi,0FFh                                  
+  00007FF755242AEE  shl rdi,4                                     
+  00007FF755242AF2  add rdi,r11                                   
+  00007FF755242AF5  add rdi,1000h                                 
+  00007FF755242AFC  mov [rdi],rbx                                 
+  00007FF755242AFF  mov rdx,8                                     
+  00007FF755242B09  shl rdx,38h                                   
+  00007FF755242B0D  or rax,rdx                                    
+  00007FF755242B10  mov [rdi+8],rax                               
+  00007FF755242B14  mov rax,rsi                                   
+  00007FF755242B17  add rsp,40h                                   
+  00007FF755242B1B  pop rdi                                       
+  00007FF755242B1C  pop rsi                                       
+  00007FF755242B1D  pop rbx                                       
+  00007FF755242B1E  ret                                           
+  00007FF755242B1F  jmp qword [r11+0E8h]                          
+  UP site 62D784: 41 FF 93 E8 00 00 00 -> E8 77 52 80 05 66 90
+  cave kind rel32     switch 1: 2000 calls, count 2000, ring 2000
+  cave kind rel32     switch 0: 2000 calls, count 0, ring 0
+  cave kind vcall+E8  switch 1: 2000 calls, count 2000, ring 2000
+  cave kind vcall+E8  switch 0: 2000 calls, count 0, ring 0
+  transparency: 8000 harness runs, 0 differences
+OFFLINE CHECKS: ALL PASSED
