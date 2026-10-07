@@ -1,0 +1,1242 @@
+05301FC  48895C2410               mov       [rsp+10h],rbx
+0530201  55                       push      rbp
+0530202  56                       push      rsi
+0530203  57                       push      rdi
+0530204  4154                     push      r12
+0530206  4155                     push      r13
+0530208  4156                     push      r14
+053020A  4157                     push      r15
+053020C  4883EC30                 sub       rsp,30h
+0530210  4C8BBC2490000000         mov       r15,[rsp+90h]
+0530218  488BFA                   mov       rdi,rdx
+053021B  488BE9                   mov       rbp,rcx
+053021E  488D15DB716003           lea       rdx,[7FF752F47400h]
+0530225  488BCF                   mov       rcx,rdi
+0530228  418AD9                   mov       bl,r9b
+053022B  498BF0                   mov       rsi,r8
+053022E  E8A538CAFF               call      00007FF74F5E3AD8h   ; -> 1D3AD8
+0530233  448B842498000000         mov       r8d,[rsp+98h]
+053023B  4C8D7560                 lea       r14,[rbp+60h]
+053023F  448A8C24A0000000         mov       r9b,[rsp+0A0h]
+0530247  4533ED                   xor       r13d,r13d
+053024A  889D3C9D1600             mov       [rbp+169D3Ch],bl
+0530250  4183F8FF                 cmp       r8d,0FFFFFFFFh
+0530254  7505                     jne       short 00007FF74F94025Bh   ; -> 53025B
+0530256  4584C9                   test      r9b,r9b
+0530259  7437                     je        short 00007FF74F940292h   ; -> 530292
+053025B  418B9644020000           mov       edx,[r14+244h]
+0530262  498BCE                   mov       rcx,r14
+0530265  448BD2                   mov       r10d,edx
+0530268  41BB00020000             mov       r11d,200h
+053026E  83E20F                   and       edx,0Fh
+0530271  E8C2FCFFFF               call      00007FF74F93FF38h   ; -> 52FF38
+0530276  418B8E44020000           mov       ecx,[r14+244h]
+053027D  4523D3                   and       r10d,r11d
+0530280  7405                     je        short 00007FF74F940287h   ; -> 530287
+0530282  410BCB                   or        ecx,r11d
+0530285  EB04                     jmp       short 00007FF74F94028Bh   ; -> 53028B
+0530287  0FBAF109                 btr       ecx,9
+053028B  41898E44020000           mov       [r14+244h],ecx
+0530292  488B4628                 mov       rax,[rsi+28h]
+0530296  41B901000000             mov       r9d,1
+053029C  410FB6CD                 movzx     ecx,r13b
+05302A0  488B5068                 mov       rdx,[rax+68h]
+05302A4  4885D2                   test      rdx,rdx
+05302A7  7417                     je        short 00007FF74F9402C0h   ; -> 5302C0
+05302A9  488B82A0000000           mov       rax,[rdx+0A0h]
+05302B0  4885C0                   test      rax,rax
+05302B3  740B                     je        short 00007FF74F9402C0h   ; -> 5302C0
+05302B5  44848848010000           test      [rax+148h],r9b
+05302BC  410F45C9                 cmovne    ecx,r9d
+05302C0  4438AC24A8000000         cmp       [rsp+0A8h],r13b
+05302C8  0FB6D1                   movzx     edx,cl
+05302CB  488BCE                   mov       rcx,rsi
+05302CE  410F45D1                 cmovne    edx,r9d
+05302D2  E885EEFFFF               call      00007FF74F93F15Ch   ; -> 52F15C
+05302D7  8B8D489D1600             mov       ecx,[rbp+169D48h]
+05302DD  B820000000               mov       eax,20h
+05302E2  83F904                   cmp       ecx,4
+05302E5  898C2488000000           mov       [rsp+88h],ecx
+05302EC  8D50FC                   lea       edx,[rax-4]
+05302EF  0F44C2                   cmove     eax,edx
+05302F2  428B1C38                 mov       ebx,[rax+r15]
+05302F6  41899E80020000           mov       [r14+280h],ebx
+05302FD  4C89B6F0120000           mov       [rsi+12F0h],r14
+0530304  899C24A8000000           mov       [rsp+0A8h],ebx
+053030B  44386D14                 cmp       [rbp+14h],r13b
+053030F  7411                     je        short 00007FF74F940322h   ; -> 530322
+0530311  458AF9                   mov       r15b,r9b
+0530314  4438AD2D9D1600           cmp       [rbp+169D2Dh],r13b
+053031B  7408                     je        short 00007FF74F940325h   ; -> 530325
+053031D  458AE1                   mov       r12b,r9b
+0530320  EB06                     jmp       short 00007FF74F940328h   ; -> 530328
+0530322  458AFD                   mov       r15b,r13b
+0530325  458AE5                   mov       r12b,r13b
+0530328  410FB6D7                 movzx     edx,r15b
+053032C  488BCE                   mov       rcx,rsi
+053032F  E89CEEFFFF               call      00007FF74F93F1D0h   ; -> 52F1D0
+0530334  488B16                   mov       rdx,[rsi]
+0530337  FF5268                   call      qword ptr [rdx+68h]
+053033A  84C0                     test      al,al
+053033C  0F84D2150000             je        near ptr 00007FF74F941914h   ; -> 531914
+0530342  488B06                   mov       rax,[rsi]
+0530345  488BCE                   mov       rcx,rsi
+0530348  FF9088000000             call      qword ptr [rax+88h]
+053034E  448AAC24B0000000         mov       r13b,[rsp+0B0h]
+0530356  89442420                 mov       [rsp+20h],eax
+053035A  83F801                   cmp       eax,1
+053035D  0F8669040000             jbe       near ptr 00007FF74F9407CCh   ; -> 5307CC
+0530363  488BCE                   mov       rcx,rsi
+0530366  E845FCFFFF               call      00007FF74F93FFB0h   ; -> 52FFB0
+053036B  84C0                     test      al,al
+053036D  0F84C5010000             je        near ptr 00007FF74F940538h   ; -> 530538
+0530373  488B06                   mov       rax,[rsi]
+0530376  BA04000000               mov       edx,4
+053037B  FF90A8000000             call      qword ptr [rax+0A8h]
+0530381  84C0                     test      al,al
+0530383  747A                     je        short 00007FF74F9403FFh   ; -> 5303FF
+0530385  488B95C0A11600           mov       rdx,[rbp+16A1C0h]
+053038C  498BCE                   mov       rcx,r14
+053038F  E85CEFFFFF               call      00007FF74F93F2F0h   ; -> 52F2F0
+0530394  488B06                   mov       rax,[rsi]
+0530397  488BCE                   mov       rcx,rsi
+053039A  FF90C8000000             call      qword ptr [rax+0C8h]
+05303A0  488B8D70A11600           mov       rcx,[rbp+16A170h]
+05303A7  FF87702A0000             inc       dword ptr [rdi+2A70h]
+05303AD  488B87403C0000           mov       rax,[rdi+3C40h]
+05303B4  C70081000000             mov       dword ptr [rax],81h
+05303BA  488387403C000004         add       qword ptr [rdi+3C40h],4
+05303C2  488B87403C0000           mov       rax,[rdi+3C40h]
+05303C9  832000                   and       dword ptr [rax],0
+05303CC  488387403C000004         add       qword ptr [rdi+3C40h],4
+05303D4  488B87403C0000           mov       rax,[rdi+3C40h]
+05303DB  8908                     mov       [rax],ecx
+05303DD  488B87403C0000           mov       rax,[rdi+3C40h]
+05303E4  48C1E920                 shr       rcx,20h
+05303E8  894804                   mov       [rax+4],ecx
+05303EB  488BCE                   mov       rcx,rsi
+05303EE  488387403C000008         add       qword ptr [rdi+3C40h],8
+05303F6  488B06                   mov       rax,[rsi]
+05303F9  FF90B8000000             call      qword ptr [rax+0B8h]
+05303FF  488B8570A11600           mov       rax,[rbp+16A170h]
+0530406  BA03000000               mov       edx,3
+053040B  488B4818                 mov       rcx,[rax+18h]
+053040F  488B87403C0000           mov       rax,[rdi+3C40h]
+0530416  C7008A000000             mov       dword ptr [rax],8Ah
+053041C  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530424  488B87403C0000           mov       rax,[rdi+3C40h]
+053042B  8908                     mov       [rax],ecx
+053042D  488B87403C0000           mov       rax,[rdi+3C40h]
+0530434  48C1E920                 shr       rcx,20h
+0530438  894804                   mov       [rax+4],ecx
+053043B  488BCE                   mov       rcx,rsi
+053043E  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530446  488B06                   mov       rax,[rsi]
+0530449  FF90A8000000             call      qword ptr [rax+0A8h]
+053044F  84C0                     test      al,al
+0530451  0F849F000000             je        near ptr 00007FF74F9404F6h   ; -> 5304F6
+0530457  4533C9                   xor       r9d,r9d
+053045A  4533C0                   xor       r8d,r8d
+053045D  33D2                     xor       edx,edx
+053045F  498BCE                   mov       rcx,r14
+0530462  E885F4FFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+0530467  488B06                   mov       rax,[rsi]
+053046A  488BCE                   mov       rcx,rsi
+053046D  FF90C8000000             call      qword ptr [rax+0C8h]
+0530473  488B9570A11600           mov       rdx,[rbp+16A170h]
+053047A  41B901000000             mov       r9d,1
+0530480  4533C0                   xor       r8d,r8d
+0530483  498BCE                   mov       rcx,r14
+0530486  E861F4FFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+053048B  488B06                   mov       rax,[rsi]
+053048E  488BCE                   mov       rcx,rsi
+0530491  FF90C8000000             call      qword ptr [rax+0C8h]
+0530497  B901000000               mov       ecx,1
+053049C  018F702A0000             add       [rdi+2A70h],ecx
+05304A2  488B87403C0000           mov       rax,[rdi+3C40h]
+05304A9  C7007E000000             mov       dword ptr [rax],7Eh
+05304AF  488387403C000004         add       qword ptr [rdi+3C40h],4
+05304B7  488B87403C0000           mov       rax,[rdi+3C40h]
+05304BE  8908                     mov       [rax],ecx
+05304C0  488387403C000004         add       qword ptr [rdi+3C40h],4
+05304C8  488B87403C0000           mov       rax,[rdi+3C40h]
+05304CF  8908                     mov       [rax],ecx
+05304D1  488387403C000004         add       qword ptr [rdi+3C40h],4
+05304D9  488B87403C0000           mov       rax,[rdi+3C40h]
+05304E0  8908                     mov       [rax],ecx
+05304E2  488BCE                   mov       rcx,rsi
+05304E5  488387403C000004         add       qword ptr [rdi+3C40h],4
+05304ED  488B06                   mov       rax,[rsi]
+05304F0  FF90B8000000             call      qword ptr [rax+0B8h]
+05304F6  488B85C0A11600           mov       rax,[rbp+16A1C0h]
+05304FD  488B4818                 mov       rcx,[rax+18h]
+0530501  488B87403C0000           mov       rax,[rdi+3C40h]
+0530508  488B11                   mov       rdx,[rcx]
+053050B  C7008A000000             mov       dword ptr [rax],8Ah
+0530511  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530519  488B87403C0000           mov       rax,[rdi+3C40h]
+0530520  8910                     mov       [rax],edx
+0530522  488B87403C0000           mov       rax,[rdi+3C40h]
+0530529  48C1EA20                 shr       rdx,20h
+053052D  895004                   mov       [rax+4],edx
+0530530  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530538  4584FF                   test      r15b,r15b
+053053B  0F8437010000             je        near ptr 00007FF74F940678h   ; -> 530678
+0530541  488B06                   mov       rax,[rsi]
+0530544  BA07000000               mov       edx,7
+0530549  488BCE                   mov       rcx,rsi
+053054C  FF90A8000000             call      qword ptr [rax+0A8h]
+0530552  84C0                     test      al,al
+0530554  0F841E010000             je        near ptr 00007FF74F940678h   ; -> 530678
+053055A  488B9588A11600           mov       rdx,[rbp+16A188h]
+0530561  498BCE                   mov       rcx,r14
+0530564  E89FF5FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0530569  458B8644020000           mov       r8d,[r14+244h]
+0530570  458ACD                   mov       r9b,r13b
+0530573  488B9578A11600           mov       rdx,[rbp+16A178h]
+053057A  4183E00F                 and       r8d,0Fh
+053057E  498BCE                   mov       rcx,r14
+0530581  E8B6F6FFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0530586  488B06                   mov       rax,[rsi]
+0530589  488BCE                   mov       rcx,rsi
+053058C  FF90C8000000             call      qword ptr [rax+0C8h]
+0530592  BA01000000               mov       edx,1
+0530597  0197702A0000             add       [rdi+2A70h],edx
+053059D  488B87403C0000           mov       rax,[rdi+3C40h]
+05305A4  C7007E000000             mov       dword ptr [rax],7Eh
+05305AA  8D83FF030000             lea       eax,[rbx+3FFh]
+05305B0  488387403C000004         add       qword ptr [rdi+3C40h],4
+05305B8  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05305BF  C1E80A                   shr       eax,0Ah
+05305C2  8901                     mov       [rcx],eax
+05305C4  488BCE                   mov       rcx,rsi
+05305C7  488387403C000004         add       qword ptr [rdi+3C40h],4
+05305CF  488B87403C0000           mov       rax,[rdi+3C40h]
+05305D6  8910                     mov       [rax],edx
+05305D8  488387403C000004         add       qword ptr [rdi+3C40h],4
+05305E0  488B87403C0000           mov       rax,[rdi+3C40h]
+05305E7  8910                     mov       [rax],edx
+05305E9  488387403C000004         add       qword ptr [rdi+3C40h],4
+05305F1  488B06                   mov       rax,[rsi]
+05305F4  FF90B8000000             call      qword ptr [rax+0B8h]
+05305FA  488B8588A11600           mov       rax,[rbp+16A188h]
+0530601  41B88A000000             mov       r8d,8Ah
+0530607  488B4818                 mov       rcx,[rax+18h]
+053060B  488B87403C0000           mov       rax,[rdi+3C40h]
+0530612  448900                   mov       [rax],r8d
+0530615  488387403C000004         add       qword ptr [rdi+3C40h],4
+053061D  488B87403C0000           mov       rax,[rdi+3C40h]
+0530624  8908                     mov       [rax],ecx
+0530626  488B87403C0000           mov       rax,[rdi+3C40h]
+053062D  48C1E920                 shr       rcx,20h
+0530631  894804                   mov       [rax+4],ecx
+0530634  488387403C000008         add       qword ptr [rdi+3C40h],8
+053063C  488B8578A11600           mov       rax,[rbp+16A178h]
+0530643  488B8F403C0000           mov       rcx,[rdi+3C40h]
+053064A  488B5018                 mov       rdx,[rax+18h]
+053064E  448901                   mov       [rcx],r8d
+0530651  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530659  488B87403C0000           mov       rax,[rdi+3C40h]
+0530660  8910                     mov       [rax],edx
+0530662  488B87403C0000           mov       rax,[rdi+3C40h]
+0530669  48C1EA20                 shr       rdx,20h
+053066D  895004                   mov       [rax+4],edx
+0530670  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530678  488B06                   mov       rax,[rsi]
+053067B  33D2                     xor       edx,edx
+053067D  488BCE                   mov       rcx,rsi
+0530680  FF90A8000000             call      qword ptr [rax+0A8h]
+0530686  84C0                     test      al,al
+0530688  0F843E010000             je        near ptr 00007FF74F9407CCh   ; -> 5307CC
+053068E  488B9D70A11600           mov       rbx,[rbp+16A170h]
+0530695  41B804000000             mov       r8d,4
+053069B  448B8C24A8000000         mov       r9d,[rsp+0A8h]
+05306A3  488BD3                   mov       rdx,rbx
+05306A6  498BCE                   mov       rcx,r14
+05306A9  E83EF2FFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+05306AE  488B06                   mov       rax,[rsi]
+05306B1  488BCE                   mov       rcx,rsi
+05306B4  FF90C8000000             call      qword ptr [rax+0C8h]
+05306BA  488B06                   mov       rax,[rsi]
+05306BD  4C8D8C2498000000         lea       r9,[rsp+98h]
+05306C5  4C8D442470               lea       r8,[rsp+70h]
+05306CA  488BCE                   mov       rcx,rsi
+05306CD  488D942480000000         lea       rdx,[rsp+80h]
+05306D5  FF90D8000000             call      qword ptr [rax+0D8h]
+05306DB  FF87702A0000             inc       dword ptr [rdi+2A70h]
+05306E1  488B87403C0000           mov       rax,[rdi+3C40h]
+05306E8  8B8C2480000000           mov       ecx,[rsp+80h]
+05306EF  448B842498000000         mov       r8d,[rsp+98h]
+05306F7  8B542470                 mov       edx,[rsp+70h]
+05306FB  C7007E000000             mov       dword ptr [rax],7Eh
+0530701  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530709  488B87403C0000           mov       rax,[rdi+3C40h]
+0530710  8908                     mov       [rax],ecx
+0530712  488BCE                   mov       rcx,rsi
+0530715  488387403C000004         add       qword ptr [rdi+3C40h],4
+053071D  488B87403C0000           mov       rax,[rdi+3C40h]
+0530724  8910                     mov       [rax],edx
+0530726  488387403C000004         add       qword ptr [rdi+3C40h],4
+053072E  488B87403C0000           mov       rax,[rdi+3C40h]
+0530735  448900                   mov       [rax],r8d
+0530738  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530740  488B06                   mov       rax,[rsi]
+0530743  FF90B8000000             call      qword ptr [rax+0B8h]
+0530749  488B4B18                 mov       rcx,[rbx+18h]
+053074D  41B98A000000             mov       r9d,8Ah
+0530753  488B87403C0000           mov       rax,[rdi+3C40h]
+053075A  8B9C24A8000000           mov       ebx,[rsp+0A8h]
+0530761  448908                   mov       [rax],r9d
+0530764  488387403C000004         add       qword ptr [rdi+3C40h],4
+053076C  488B87403C0000           mov       rax,[rdi+3C40h]
+0530773  8908                     mov       [rax],ecx
+0530775  488B87403C0000           mov       rax,[rdi+3C40h]
+053077C  48C1E920                 shr       rcx,20h
+0530780  894804                   mov       [rax+4],ecx
+0530783  488387403C000008         add       qword ptr [rdi+3C40h],8
+053078B  488B8540A11600           mov       rax,[rbp+16A140h]
+0530792  488B97403C0000           mov       rdx,[rdi+3C40h]
+0530799  488B4818                 mov       rcx,[rax+18h]
+053079D  4C8B01                   mov       r8,[rcx]
+05307A0  44890A                   mov       [rdx],r9d
+05307A3  488387403C000004         add       qword ptr [rdi+3C40h],4
+05307AB  488B87403C0000           mov       rax,[rdi+3C40h]
+05307B2  448900                   mov       [rax],r8d
+05307B5  488B87403C0000           mov       rax,[rdi+3C40h]
+05307BC  49C1E820                 shr       r8,20h
+05307C0  44894004                 mov       [rax+4],r8d
+05307C4  488387403C000008         add       qword ptr [rdi+3C40h],8
+05307CC  488B06                   mov       rax,[rsi]
+05307CF  BA01000000               mov       edx,1
+05307D4  488BCE                   mov       rcx,rsi
+05307D7  FF90A8000000             call      qword ptr [rax+0A8h]
+05307DD  84C0                     test      al,al
+05307DF  0F8487020000             je        near ptr 00007FF74F940A6Ch   ; -> 530A6C
+05307E5  83BC248800000004         cmp       dword ptr [rsp+88h],4
+05307ED  488B85B0A01600           mov       rax,[rbp+16A0B0h]
+05307F4  7406                     je        short 00007FF74F9407FCh   ; -> 5307FC
+05307F6  488B5038                 mov       rdx,[rax+38h]
+05307FA  EB04                     jmp       short 00007FF74F940800h   ; -> 530800
+05307FC  488B5020                 mov       rdx,[rax+20h]
+0530800  498BCE                   mov       rcx,r14
+0530803  E824EBFFFF               call      00007FF74F93F32Ch   ; -> 52F32C
+0530808  488B9570A11600           mov       rdx,[rbp+16A170h]
+053080F  448BCB                   mov       r9d,ebx
+0530812  41B804000000             mov       r8d,4
+0530818  498BCE                   mov       rcx,r14
+053081B  E8CCF0FFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+0530820  488B9568A11600           mov       rdx,[rbp+16A168h]
+0530827  498BCE                   mov       rcx,r14
+053082A  E839EBFFFF               call      00007FF74F93F368h   ; -> 52F368
+053082F  83BC248800000004         cmp       dword ptr [rsp+88h],4
+0530837  488B95B0A01600           mov       rdx,[rbp+16A0B0h]
+053083E  7406                     je        short 00007FF74F940846h   ; -> 530846
+0530840  488B5240                 mov       rdx,[rdx+40h]
+0530844  EB04                     jmp       short 00007FF74F94084Ah   ; -> 53084A
+0530846  488B5228                 mov       rdx,[rdx+28h]
+053084A  498BCE                   mov       rcx,r14
+053084D  E8C6230000               call      00007FF74F942C18h   ; -> 532C18
+0530852  33DB                     xor       ebx,ebx
+0530854  4584FF                   test      r15b,r15b
+0530857  7445                     je        short 00007FF74F94089Eh   ; -> 53089E
+0530859  488B9588A11600           mov       rdx,[rbp+16A188h]
+0530860  498BCE                   mov       rcx,r14
+0530863  E8A0F2FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0530868  458B8644020000           mov       r8d,[r14+244h]
+053086F  458ACD                   mov       r9b,r13b
+0530872  488B9578A11600           mov       rdx,[rbp+16A178h]
+0530879  4183E00F                 and       r8d,0Fh
+053087D  498BCE                   mov       rcx,r14
+0530880  E8B7F3FFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0530885  4584E4                   test      r12b,r12b
+0530888  7409                     je        short 00007FF74F940893h   ; -> 530893
+053088A  488B9598A11600           mov       rdx,[rbp+16A198h]
+0530891  EB03                     jmp       short 00007FF74F940896h   ; -> 530896
+0530893  488BD3                   mov       rdx,rbx
+0530896  498BCE                   mov       rcx,r14
+0530899  E80EEBFFFF               call      00007FF74F93F3ACh   ; -> 52F3AC
+053089E  488BCE                   mov       rcx,rsi
+05308A1  E80AF7FFFF               call      00007FF74F93FFB0h   ; -> 52FFB0
+05308A6  84C0                     test      al,al
+05308A8  740F                     je        short 00007FF74F9408B9h   ; -> 5308B9
+05308AA  488B95C0A11600           mov       rdx,[rbp+16A1C0h]
+05308B1  498BCE                   mov       rcx,r14
+05308B4  E837EAFFFF               call      00007FF74F93F2F0h   ; -> 52F2F0
+05308B9  488B06                   mov       rax,[rsi]
+05308BC  488BCE                   mov       rcx,rsi
+05308BF  4C89B6F0120000           mov       [rsi+12F0h],r14
+05308C6  FF90C8000000             call      qword ptr [rax+0C8h]
+05308CC  488B8D70A11600           mov       rcx,[rbp+16A170h]
+05308D3  FF87702A0000             inc       dword ptr [rdi+2A70h]
+05308D9  488B87403C0000           mov       rax,[rdi+3C40h]
+05308E0  C70081000000             mov       dword ptr [rax],81h
+05308E6  488387403C000004         add       qword ptr [rdi+3C40h],4
+05308EE  488B87403C0000           mov       rax,[rdi+3C40h]
+05308F5  8918                     mov       [rax],ebx
+05308F7  488387403C000004         add       qword ptr [rdi+3C40h],4
+05308FF  488B87403C0000           mov       rax,[rdi+3C40h]
+0530906  8908                     mov       [rax],ecx
+0530908  488B87403C0000           mov       rax,[rdi+3C40h]
+053090F  48C1E920                 shr       rcx,20h
+0530913  894804                   mov       [rax+4],ecx
+0530916  488BCE                   mov       rcx,rsi
+0530919  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530921  488B06                   mov       rax,[rsi]
+0530924  FF90B8000000             call      qword ptr [rax+0B8h]
+053092A  41B98A000000             mov       r9d,8Ah
+0530930  4584FF                   test      r15b,r15b
+0530933  0F843B010000             je        near ptr 00007FF74F940A74h   ; -> 530A74
+0530939  488B8588A11600           mov       rax,[rbp+16A188h]
+0530940  488B4818                 mov       rcx,[rax+18h]
+0530944  488B87403C0000           mov       rax,[rdi+3C40h]
+053094B  448908                   mov       [rax],r9d
+053094E  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530956  488B87403C0000           mov       rax,[rdi+3C40h]
+053095D  8908                     mov       [rax],ecx
+053095F  488B87403C0000           mov       rax,[rdi+3C40h]
+0530966  48C1E920                 shr       rcx,20h
+053096A  894804                   mov       [rax+4],ecx
+053096D  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530975  488B8578A11600           mov       rax,[rbp+16A178h]
+053097C  488B8F403C0000           mov       rcx,[rdi+3C40h]
+0530983  488B5018                 mov       rdx,[rax+18h]
+0530987  448909                   mov       [rcx],r9d
+053098A  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530992  488B87403C0000           mov       rax,[rdi+3C40h]
+0530999  8910                     mov       [rax],edx
+053099B  488B87403C0000           mov       rax,[rdi+3C40h]
+05309A2  48C1EA20                 shr       rdx,20h
+05309A6  895004                   mov       [rax+4],edx
+05309A9  488387403C000008         add       qword ptr [rdi+3C40h],8
+05309B1  488B8598A11600           mov       rax,[rbp+16A198h]
+05309B8  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05309BF  488B5018                 mov       rdx,[rax+18h]
+05309C3  448909                   mov       [rcx],r9d
+05309C6  488387403C000004         add       qword ptr [rdi+3C40h],4
+05309CE  488B87403C0000           mov       rax,[rdi+3C40h]
+05309D5  8910                     mov       [rax],edx
+05309D7  488B87403C0000           mov       rax,[rdi+3C40h]
+05309DE  48C1EA20                 shr       rdx,20h
+05309E2  895004                   mov       [rax+4],edx
+05309E5  488387403C000008         add       qword ptr [rdi+3C40h],8
+05309ED  488B8570A11600           mov       rax,[rbp+16A170h]
+05309F4  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05309FB  488B5018                 mov       rdx,[rax+18h]
+05309FF  448909                   mov       [rcx],r9d
+0530A02  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530A0A  488B87403C0000           mov       rax,[rdi+3C40h]
+0530A11  8910                     mov       [rax],edx
+0530A13  488B87403C0000           mov       rax,[rdi+3C40h]
+0530A1A  48C1EA20                 shr       rdx,20h
+0530A1E  895004                   mov       [rax+4],edx
+0530A21  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530A29  488B8568A11600           mov       rax,[rbp+16A168h]
+0530A30  488B97403C0000           mov       rdx,[rdi+3C40h]
+0530A37  488B4818                 mov       rcx,[rax+18h]
+0530A3B  4C8B01                   mov       r8,[rcx]
+0530A3E  44890A                   mov       [rdx],r9d
+0530A41  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530A49  488B87403C0000           mov       rax,[rdi+3C40h]
+0530A50  448900                   mov       [rax],r8d
+0530A53  488B87403C0000           mov       rax,[rdi+3C40h]
+0530A5A  49C1E820                 shr       r8,20h
+0530A5E  44894004                 mov       [rax+4],r8d
+0530A62  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530A6A  EB08                     jmp       short 00007FF74F940A74h   ; -> 530A74
+0530A6C  33DB                     xor       ebx,ebx
+0530A6E  41B98A000000             mov       r9d,8Ah
+0530A74  488BCE                   mov       rcx,rsi
+0530A77  E834F5FFFF               call      00007FF74F93FFB0h   ; -> 52FFB0
+0530A7C  84C0                     test      al,al
+0530A7E  0F8401040000             je        near ptr 00007FF74F940E85h   ; -> 530E85
+0530A84  488B8570A11600           mov       rax,[rbp+16A170h]
+0530A8B  BA03000000               mov       edx,3
+0530A90  488B4818                 mov       rcx,[rax+18h]
+0530A94  488B87403C0000           mov       rax,[rdi+3C40h]
+0530A9B  448908                   mov       [rax],r9d
+0530A9E  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530AA6  488B87403C0000           mov       rax,[rdi+3C40h]
+0530AAD  8908                     mov       [rax],ecx
+0530AAF  488B87403C0000           mov       rax,[rdi+3C40h]
+0530AB6  48C1E920                 shr       rcx,20h
+0530ABA  894804                   mov       [rax+4],ecx
+0530ABD  488BCE                   mov       rcx,rsi
+0530AC0  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530AC8  418B8640020000           mov       eax,[r14+240h]
+0530ACF  8BD8                     mov       ebx,eax
+0530AD1  83E0E1                   and       eax,0FFFFFFE1h
+0530AD4  D1FB                     sar       ebx,1
+0530AD6  41898640020000           mov       [r14+240h],eax
+0530ADD  488B06                   mov       rax,[rsi]
+0530AE0  FF90A8000000             call      qword ptr [rax+0A8h]
+0530AE6  84C0                     test      al,al
+0530AE8  0F849F000000             je        near ptr 00007FF74F940B8Dh   ; -> 530B8D
+0530AEE  4533C9                   xor       r9d,r9d
+0530AF1  4533C0                   xor       r8d,r8d
+0530AF4  33D2                     xor       edx,edx
+0530AF6  498BCE                   mov       rcx,r14
+0530AF9  E8EEEDFFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+0530AFE  488B06                   mov       rax,[rsi]
+0530B01  488BCE                   mov       rcx,rsi
+0530B04  FF90C8000000             call      qword ptr [rax+0C8h]
+0530B0A  488B9570A11600           mov       rdx,[rbp+16A170h]
+0530B11  41B901000000             mov       r9d,1
+0530B17  4533C0                   xor       r8d,r8d
+0530B1A  498BCE                   mov       rcx,r14
+0530B1D  E8CAEDFFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+0530B22  488B06                   mov       rax,[rsi]
+0530B25  488BCE                   mov       rcx,rsi
+0530B28  FF90C8000000             call      qword ptr [rax+0C8h]
+0530B2E  B901000000               mov       ecx,1
+0530B33  018F702A0000             add       [rdi+2A70h],ecx
+0530B39  488B87403C0000           mov       rax,[rdi+3C40h]
+0530B40  C7007E000000             mov       dword ptr [rax],7Eh
+0530B46  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530B4E  488B87403C0000           mov       rax,[rdi+3C40h]
+0530B55  8908                     mov       [rax],ecx
+0530B57  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530B5F  488B87403C0000           mov       rax,[rdi+3C40h]
+0530B66  8908                     mov       [rax],ecx
+0530B68  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530B70  488B87403C0000           mov       rax,[rdi+3C40h]
+0530B77  8908                     mov       [rax],ecx
+0530B79  488BCE                   mov       rcx,rsi
+0530B7C  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530B84  488B06                   mov       rax,[rsi]
+0530B87  FF90B8000000             call      qword ptr [rax+0B8h]
+0530B8D  4183A640020000E1         and       dword ptr [r14+240h],0FFFFFFE1h
+0530B95  41B98A000000             mov       r9d,8Ah
+0530B9B  83E30F                   and       ebx,0Fh
+0530B9E  03DB                     add       ebx,ebx
+0530BA0  41099E40020000           or        [r14+240h],ebx
+0530BA7  488B8570A11600           mov       rax,[rbp+16A170h]
+0530BAE  488B4818                 mov       rcx,[rax+18h]
+0530BB2  488B87403C0000           mov       rax,[rdi+3C40h]
+0530BB9  448908                   mov       [rax],r9d
+0530BBC  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530BC4  488B87403C0000           mov       rax,[rdi+3C40h]
+0530BCB  8908                     mov       [rax],ecx
+0530BCD  488B87403C0000           mov       rax,[rdi+3C40h]
+0530BD4  48C1E920                 shr       rcx,20h
+0530BD8  894804                   mov       [rax+4],ecx
+0530BDB  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530BE3  488B85C0A11600           mov       rax,[rbp+16A1C0h]
+0530BEA  488B97403C0000           mov       rdx,[rdi+3C40h]
+0530BF1  488B4818                 mov       rcx,[rax+18h]
+0530BF5  4C8B01                   mov       r8,[rcx]
+0530BF8  488BCE                   mov       rcx,rsi
+0530BFB  44890A                   mov       [rdx],r9d
+0530BFE  BA05000000               mov       edx,5
+0530C03  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530C0B  488B87403C0000           mov       rax,[rdi+3C40h]
+0530C12  448900                   mov       [rax],r8d
+0530C15  488B87403C0000           mov       rax,[rdi+3C40h]
+0530C1C  49C1E820                 shr       r8,20h
+0530C20  44894004                 mov       [rax+4],r8d
+0530C24  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530C2C  488B06                   mov       rax,[rsi]
+0530C2F  FF90A8000000             call      qword ptr [rax+0A8h]
+0530C35  33DB                     xor       ebx,ebx
+0530C37  84C0                     test      al,al
+0530C39  0F84C3010000             je        near ptr 00007FF74F940E02h   ; -> 530E02
+0530C3F  448B85ACA21600           mov       r8d,[rbp+16A2ACh]
+0530C46  488D95C0A01600           lea       rdx,[rbp+16A0C0h]
+0530C4D  41FFC0                   inc       r8d
+0530C50  498BCE                   mov       rcx,r14
+0530C53  E894833600               call      00007FF74FCA8FECh   ; -> 898FEC
+0530C58  488B95F8A11600           mov       rdx,[rbp+16A1F8h]
+0530C5F  498BCE                   mov       rcx,r14
+0530C62  E819F13E00               call      00007FF74FD2FD80h   ; -> 91FD80
+0530C67  83BC248800000004         cmp       dword ptr [rsp+88h],4
+0530C6F  488B85B0A01600           mov       rax,[rbp+16A0B0h]
+0530C76  7406                     je        short 00007FF74F940C7Eh   ; -> 530C7E
+0530C78  488B5038                 mov       rdx,[rax+38h]
+0530C7C  EB04                     jmp       short 00007FF74F940C82h   ; -> 530C82
+0530C7E  488B5020                 mov       rdx,[rax+20h]
+0530C82  498BCE                   mov       rcx,r14
+0530C85  E8A2E6FFFF               call      00007FF74F93F32Ch   ; -> 52F32C
+0530C8A  488B9D70A11600           mov       rbx,[rbp+16A170h]
+0530C91  41B804000000             mov       r8d,4
+0530C97  448B8C24A8000000         mov       r9d,[rsp+0A8h]
+0530C9F  488BD3                   mov       rdx,rbx
+0530CA2  498BCE                   mov       rcx,r14
+0530CA5  E842ECFFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+0530CAA  488B9568A11600           mov       rdx,[rbp+16A168h]
+0530CB1  498BCE                   mov       rcx,r14
+0530CB4  E8AFE6FFFF               call      00007FF74F93F368h   ; -> 52F368
+0530CB9  488B95A0A11600           mov       rdx,[rbp+16A1A0h]
+0530CC0  498BCE                   mov       rcx,r14
+0530CC3  E87CF03E00               call      00007FF74FD2FD44h   ; -> 91FD44
+0530CC8  488B95C0A11600           mov       rdx,[rbp+16A1C0h]
+0530CCF  498BCE                   mov       rcx,r14
+0530CD2  E819E6FFFF               call      00007FF74F93F2F0h   ; -> 52F2F0
+0530CD7  488B06                   mov       rax,[rsi]
+0530CDA  488BCE                   mov       rcx,rsi
+0530CDD  FF90C8000000             call      qword ptr [rax+0C8h]
+0530CE3  FF87702A0000             inc       dword ptr [rdi+2A70h]
+0530CE9  488BCE                   mov       rcx,rsi
+0530CEC  488B87403C0000           mov       rax,[rdi+3C40h]
+0530CF3  C70081000000             mov       dword ptr [rax],81h
+0530CF9  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530D01  488B87403C0000           mov       rax,[rdi+3C40h]
+0530D08  832000                   and       dword ptr [rax],0
+0530D0B  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530D13  488B87403C0000           mov       rax,[rdi+3C40h]
+0530D1A  8918                     mov       [rax],ebx
+0530D1C  488B87403C0000           mov       rax,[rdi+3C40h]
+0530D23  48C1EB20                 shr       rbx,20h
+0530D27  895804                   mov       [rax+4],ebx
+0530D2A  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530D32  488B06                   mov       rax,[rsi]
+0530D35  FF90B8000000             call      qword ptr [rax+0B8h]
+0530D3B  33DB                     xor       ebx,ebx
+0530D3D  41B98A000000             mov       r9d,8Ah
+0530D43  4584FF                   test      r15b,r15b
+0530D46  0F84BC000000             je        near ptr 00007FF74F940E08h   ; -> 530E08
+0530D4C  488B8588A11600           mov       rax,[rbp+16A188h]
+0530D53  488B4818                 mov       rcx,[rax+18h]
+0530D57  488B87403C0000           mov       rax,[rdi+3C40h]
+0530D5E  448908                   mov       [rax],r9d
+0530D61  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530D69  488B87403C0000           mov       rax,[rdi+3C40h]
+0530D70  8908                     mov       [rax],ecx
+0530D72  488B87403C0000           mov       rax,[rdi+3C40h]
+0530D79  48C1E920                 shr       rcx,20h
+0530D7D  894804                   mov       [rax+4],ecx
+0530D80  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530D88  488B8578A11600           mov       rax,[rbp+16A178h]
+0530D8F  488B8F403C0000           mov       rcx,[rdi+3C40h]
+0530D96  488B5018                 mov       rdx,[rax+18h]
+0530D9A  448909                   mov       [rcx],r9d
+0530D9D  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530DA5  488B87403C0000           mov       rax,[rdi+3C40h]
+0530DAC  8910                     mov       [rax],edx
+0530DAE  488B87403C0000           mov       rax,[rdi+3C40h]
+0530DB5  48C1EA20                 shr       rdx,20h
+0530DB9  895004                   mov       [rax+4],edx
+0530DBC  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530DC4  488B8598A11600           mov       rax,[rbp+16A198h]
+0530DCB  488B8F403C0000           mov       rcx,[rdi+3C40h]
+0530DD2  488B5018                 mov       rdx,[rax+18h]
+0530DD6  448909                   mov       [rcx],r9d
+0530DD9  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530DE1  488B87403C0000           mov       rax,[rdi+3C40h]
+0530DE8  8910                     mov       [rax],edx
+0530DEA  488B87403C0000           mov       rax,[rdi+3C40h]
+0530DF1  48C1EA20                 shr       rdx,20h
+0530DF5  895004                   mov       [rax+4],edx
+0530DF8  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530E00  EB06                     jmp       short 00007FF74F940E08h   ; -> 530E08
+0530E02  41B98A000000             mov       r9d,8Ah
+0530E08  488B8570A11600           mov       rax,[rbp+16A170h]
+0530E0F  488B4818                 mov       rcx,[rax+18h]
+0530E13  488B87403C0000           mov       rax,[rdi+3C40h]
+0530E1A  448908                   mov       [rax],r9d
+0530E1D  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530E25  488B87403C0000           mov       rax,[rdi+3C40h]
+0530E2C  8908                     mov       [rax],ecx
+0530E2E  488B87403C0000           mov       rax,[rdi+3C40h]
+0530E35  48C1E920                 shr       rcx,20h
+0530E39  894804                   mov       [rax+4],ecx
+0530E3C  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530E44  488B85A0A11600           mov       rax,[rbp+16A1A0h]
+0530E4B  488B97403C0000           mov       rdx,[rdi+3C40h]
+0530E52  488B4818                 mov       rcx,[rax+18h]
+0530E56  4C8B01                   mov       r8,[rcx]
+0530E59  44890A                   mov       [rdx],r9d
+0530E5C  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530E64  488B87403C0000           mov       rax,[rdi+3C40h]
+0530E6B  448900                   mov       [rax],r8d
+0530E6E  488B87403C0000           mov       rax,[rdi+3C40h]
+0530E75  49C1E820                 shr       r8,20h
+0530E79  44894004                 mov       [rax+4],r8d
+0530E7D  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530E85  4584E4                   test      r12b,r12b
+0530E88  0F8439050000             je        near ptr 00007FF74F9413C7h   ; -> 5313C7
+0530E8E  488B06                   mov       rax,[rsi]
+0530E91  BA08000000               mov       edx,8
+0530E96  488BCE                   mov       rcx,rsi
+0530E99  FF90A8000000             call      qword ptr [rax+0A8h]
+0530E9F  84C0                     test      al,al
+0530EA1  0F8436010000             je        near ptr 00007FF74F940FDDh   ; -> 530FDD
+0530EA7  488B9580A11600           mov       rdx,[rbp+16A180h]
+0530EAE  498BCE                   mov       rcx,r14
+0530EB1  E8FAE9FFFF               call      00007FF74F93F8B0h   ; -> 52F8B0
+0530EB6  458B8644020000           mov       r8d,[r14+244h]
+0530EBD  458ACD                   mov       r9b,r13b
+0530EC0  488B9578A11600           mov       rdx,[rbp+16A178h]
+0530EC7  4183E00F                 and       r8d,0Fh
+0530ECB  498BCE                   mov       rcx,r14
+0530ECE  E869EDFFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0530ED3  488B9588A11600           mov       rdx,[rbp+16A188h]
+0530EDA  498BCE                   mov       rcx,r14
+0530EDD  E826ECFFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0530EE2  488B06                   mov       rax,[rsi]
+0530EE5  488BCE                   mov       rcx,rsi
+0530EE8  FF90C8000000             call      qword ptr [rax+0C8h]
+0530EEE  8B9C24A8000000           mov       ebx,[rsp+0A8h]
+0530EF5  BA01000000               mov       edx,1
+0530EFA  0197702A0000             add       [rdi+2A70h],edx
+0530F00  488B87403C0000           mov       rax,[rdi+3C40h]
+0530F07  C7007E000000             mov       dword ptr [rax],7Eh
+0530F0D  8D83FF030000             lea       eax,[rbx+3FFh]
+0530F13  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530F1B  488B8F403C0000           mov       rcx,[rdi+3C40h]
+0530F22  C1E80A                   shr       eax,0Ah
+0530F25  8901                     mov       [rcx],eax
+0530F27  488BCE                   mov       rcx,rsi
+0530F2A  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530F32  488B87403C0000           mov       rax,[rdi+3C40h]
+0530F39  8910                     mov       [rax],edx
+0530F3B  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530F43  488B87403C0000           mov       rax,[rdi+3C40h]
+0530F4A  8910                     mov       [rax],edx
+0530F4C  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530F54  488B06                   mov       rax,[rsi]
+0530F57  FF90B8000000             call      qword ptr [rax+0B8h]
+0530F5D  488B8578A11600           mov       rax,[rbp+16A178h]
+0530F64  41B88A000000             mov       r8d,8Ah
+0530F6A  488B4818                 mov       rcx,[rax+18h]
+0530F6E  488B87403C0000           mov       rax,[rdi+3C40h]
+0530F75  448900                   mov       [rax],r8d
+0530F78  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530F80  488B87403C0000           mov       rax,[rdi+3C40h]
+0530F87  8908                     mov       [rax],ecx
+0530F89  488B87403C0000           mov       rax,[rdi+3C40h]
+0530F90  48C1E920                 shr       rcx,20h
+0530F94  894804                   mov       [rax+4],ecx
+0530F97  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530F9F  488B8588A11600           mov       rax,[rbp+16A188h]
+0530FA6  488B8F403C0000           mov       rcx,[rdi+3C40h]
+0530FAD  488B5018                 mov       rdx,[rax+18h]
+0530FB1  448901                   mov       [rcx],r8d
+0530FB4  488387403C000004         add       qword ptr [rdi+3C40h],4
+0530FBC  488B87403C0000           mov       rax,[rdi+3C40h]
+0530FC3  8910                     mov       [rax],edx
+0530FC5  488B87403C0000           mov       rax,[rdi+3C40h]
+0530FCC  48C1EA20                 shr       rdx,20h
+0530FD0  895004                   mov       [rax+4],edx
+0530FD3  488387403C000008         add       qword ptr [rdi+3C40h],8
+0530FDB  EB07                     jmp       short 00007FF74F940FE4h   ; -> 530FE4
+0530FDD  8B9C24A8000000           mov       ebx,[rsp+0A8h]
+0530FE4  488B06                   mov       rax,[rsi]
+0530FE7  BA0E000000               mov       edx,0Eh
+0530FEC  488BCE                   mov       rcx,rsi
+0530FEF  FF90A8000000             call      qword ptr [rax+0A8h]
+0530FF5  84C0                     test      al,al
+0530FF7  0F84E4000000             je        near ptr 00007FF74F9410E1h   ; -> 5310E1
+0530FFD  458B8644020000           mov       r8d,[r14+244h]
+0531004  458ACD                   mov       r9b,r13b
+0531007  488B9578A11600           mov       rdx,[rbp+16A178h]
+053100E  4183E00F                 and       r8d,0Fh
+0531012  498BCE                   mov       rcx,r14
+0531015  E822ECFFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+053101A  488B9588A11600           mov       rdx,[rbp+16A188h]
+0531021  498BCE                   mov       rcx,r14
+0531024  E8DFEAFFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0531029  488B06                   mov       rax,[rsi]
+053102C  488BCE                   mov       rcx,rsi
+053102F  FF90C8000000             call      qword ptr [rax+0C8h]
+0531035  B801000000               mov       eax,1
+053103A  8D533F                   lea       edx,[rbx+3Fh]
+053103D  C1EA06                   shr       edx,6
+0531040  448BC8                   mov       r9d,eax
+0531043  81C2FF010000             add       edx,1FFh
+0531049  448BC0                   mov       r8d,eax
+053104C  C1EA09                   shr       edx,9
+053104F  488BCF                   mov       rcx,rdi
+0531052  E8690CCAFF               call      00007FF74F5E1CC0h   ; -> 1D1CC0
+0531057  488B06                   mov       rax,[rsi]
+053105A  488BCE                   mov       rcx,rsi
+053105D  FF90B8000000             call      qword ptr [rax+0B8h]
+0531063  488B8578A11600           mov       rax,[rbp+16A178h]
+053106A  41B88A000000             mov       r8d,8Ah
+0531070  488B4818                 mov       rcx,[rax+18h]
+0531074  488B87403C0000           mov       rax,[rdi+3C40h]
+053107B  448900                   mov       [rax],r8d
+053107E  488387403C000004         add       qword ptr [rdi+3C40h],4
+0531086  488B87403C0000           mov       rax,[rdi+3C40h]
+053108D  8908                     mov       [rax],ecx
+053108F  488B87403C0000           mov       rax,[rdi+3C40h]
+0531096  48C1E920                 shr       rcx,20h
+053109A  894804                   mov       [rax+4],ecx
+053109D  488387403C000008         add       qword ptr [rdi+3C40h],8
+05310A5  488B8588A11600           mov       rax,[rbp+16A188h]
+05310AC  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05310B3  488B5018                 mov       rdx,[rax+18h]
+05310B7  448901                   mov       [rcx],r8d
+05310BA  488387403C000004         add       qword ptr [rdi+3C40h],4
+05310C2  488B87403C0000           mov       rax,[rdi+3C40h]
+05310C9  8910                     mov       [rax],edx
+05310CB  488B87403C0000           mov       rax,[rdi+3C40h]
+05310D2  48C1EA20                 shr       rdx,20h
+05310D6  895004                   mov       [rax+4],edx
+05310D9  488387403C000008         add       qword ptr [rdi+3C40h],8
+05310E1  488B06                   mov       rax,[rsi]
+05310E4  BA0F000000               mov       edx,0Fh
+05310E9  488BCE                   mov       rcx,rsi
+05310EC  FF90A8000000             call      qword ptr [rax+0A8h]
+05310F2  84C0                     test      al,al
+05310F4  0F84D7000000             je        near ptr 00007FF74F9411D1h   ; -> 5311D1
+05310FA  458B8644020000           mov       r8d,[r14+244h]
+0531101  458ACD                   mov       r9b,r13b
+0531104  488B9578A11600           mov       rdx,[rbp+16A178h]
+053110B  4183E00F                 and       r8d,0Fh
+053110F  498BCE                   mov       rcx,r14
+0531112  E825EBFFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0531117  488B9588A11600           mov       rdx,[rbp+16A188h]
+053111E  498BCE                   mov       rcx,r14
+0531121  E8E2E9FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0531126  488B06                   mov       rax,[rsi]
+0531129  488BCE                   mov       rcx,rsi
+053112C  FF90C8000000             call      qword ptr [rax+0C8h]
+0531132  B801000000               mov       eax,1
+0531137  488BCF                   mov       rcx,rdi
+053113A  448BC8                   mov       r9d,eax
+053113D  448BC0                   mov       r8d,eax
+0531140  8BD0                     mov       edx,eax
+0531142  E8790BCAFF               call      00007FF74F5E1CC0h   ; -> 1D1CC0
+0531147  488B06                   mov       rax,[rsi]
+053114A  488BCE                   mov       rcx,rsi
+053114D  FF90B8000000             call      qword ptr [rax+0B8h]
+0531153  488B8578A11600           mov       rax,[rbp+16A178h]
+053115A  41B88A000000             mov       r8d,8Ah
+0531160  488B4818                 mov       rcx,[rax+18h]
+0531164  488B87403C0000           mov       rax,[rdi+3C40h]
+053116B  448900                   mov       [rax],r8d
+053116E  488387403C000004         add       qword ptr [rdi+3C40h],4
+0531176  488B87403C0000           mov       rax,[rdi+3C40h]
+053117D  8908                     mov       [rax],ecx
+053117F  488B87403C0000           mov       rax,[rdi+3C40h]
+0531186  48C1E920                 shr       rcx,20h
+053118A  894804                   mov       [rax+4],ecx
+053118D  488387403C000008         add       qword ptr [rdi+3C40h],8
+0531195  488B8588A11600           mov       rax,[rbp+16A188h]
+053119C  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05311A3  488B5018                 mov       rdx,[rax+18h]
+05311A7  448901                   mov       [rcx],r8d
+05311AA  488387403C000004         add       qword ptr [rdi+3C40h],4
+05311B2  488B87403C0000           mov       rax,[rdi+3C40h]
+05311B9  8910                     mov       [rax],edx
+05311BB  488B87403C0000           mov       rax,[rdi+3C40h]
+05311C2  48C1EA20                 shr       rdx,20h
+05311C6  895004                   mov       [rax+4],edx
+05311C9  488387403C000008         add       qword ptr [rdi+3C40h],8
+05311D1  488B06                   mov       rax,[rsi]
+05311D4  BA10000000               mov       edx,10h
+05311D9  488BCE                   mov       rcx,rsi
+05311DC  FF90A8000000             call      qword ptr [rax+0A8h]
+05311E2  84C0                     test      al,al
+05311E4  0F84E4000000             je        near ptr 00007FF74F9412CEh   ; -> 5312CE
+05311EA  458B8644020000           mov       r8d,[r14+244h]
+05311F1  458ACD                   mov       r9b,r13b
+05311F4  488B9578A11600           mov       rdx,[rbp+16A178h]
+05311FB  4183E00F                 and       r8d,0Fh
+05311FF  498BCE                   mov       rcx,r14
+0531202  E835EAFFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0531207  488B9588A11600           mov       rdx,[rbp+16A188h]
+053120E  498BCE                   mov       rcx,r14
+0531211  E8F2E8FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0531216  488B06                   mov       rax,[rsi]
+0531219  488BCE                   mov       rcx,rsi
+053121C  FF90C8000000             call      qword ptr [rax+0C8h]
+0531222  B801000000               mov       eax,1
+0531227  8D533F                   lea       edx,[rbx+3Fh]
+053122A  C1EA06                   shr       edx,6
+053122D  448BC8                   mov       r9d,eax
+0531230  81C2FF010000             add       edx,1FFh
+0531236  448BC0                   mov       r8d,eax
+0531239  C1EA09                   shr       edx,9
+053123C  488BCF                   mov       rcx,rdi
+053123F  E87C0ACAFF               call      00007FF74F5E1CC0h   ; -> 1D1CC0
+0531244  488B06                   mov       rax,[rsi]
+0531247  488BCE                   mov       rcx,rsi
+053124A  FF90B8000000             call      qword ptr [rax+0B8h]
+0531250  488B8578A11600           mov       rax,[rbp+16A178h]
+0531257  41B88A000000             mov       r8d,8Ah
+053125D  488B4818                 mov       rcx,[rax+18h]
+0531261  488B87403C0000           mov       rax,[rdi+3C40h]
+0531268  448900                   mov       [rax],r8d
+053126B  488387403C000004         add       qword ptr [rdi+3C40h],4
+0531273  488B87403C0000           mov       rax,[rdi+3C40h]
+053127A  8908                     mov       [rax],ecx
+053127C  488B87403C0000           mov       rax,[rdi+3C40h]
+0531283  48C1E920                 shr       rcx,20h
+0531287  894804                   mov       [rax+4],ecx
+053128A  488387403C000008         add       qword ptr [rdi+3C40h],8
+0531292  488B8588A11600           mov       rax,[rbp+16A188h]
+0531299  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05312A0  488B5018                 mov       rdx,[rax+18h]
+05312A4  448901                   mov       [rcx],r8d
+05312A7  488387403C000004         add       qword ptr [rdi+3C40h],4
+05312AF  488B87403C0000           mov       rax,[rdi+3C40h]
+05312B6  8910                     mov       [rax],edx
+05312B8  488B87403C0000           mov       rax,[rdi+3C40h]
+05312BF  48C1EA20                 shr       rdx,20h
+05312C3  895004                   mov       [rax+4],edx
+05312C6  488387403C000008         add       qword ptr [rdi+3C40h],8
+05312CE  488B06                   mov       rax,[rsi]
+05312D1  BA11000000               mov       edx,11h
+05312D6  488BCE                   mov       rcx,rsi
+05312D9  FF90A8000000             call      qword ptr [rax+0A8h]
+05312DF  84C0                     test      al,al
+05312E1  0F84DE000000             je        near ptr 00007FF74F9413C5h   ; -> 5313C5
+05312E7  458B8644020000           mov       r8d,[r14+244h]
+05312EE  458ACD                   mov       r9b,r13b
+05312F1  488B9578A11600           mov       rdx,[rbp+16A178h]
+05312F8  4183E00F                 and       r8d,0Fh
+05312FC  498BCE                   mov       rcx,r14
+05312FF  E838E9FFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0531304  488B9588A11600           mov       rdx,[rbp+16A188h]
+053130B  498BCE                   mov       rcx,r14
+053130E  E8F5E7FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0531313  488B06                   mov       rax,[rsi]
+0531316  488BCE                   mov       rcx,rsi
+0531319  FF90C8000000             call      qword ptr [rax+0C8h]
+053131F  B801000000               mov       eax,1
+0531324  8D93FF030000             lea       edx,[rbx+3FFh]
+053132A  C1EA0A                   shr       edx,0Ah
+053132D  448BC8                   mov       r9d,eax
+0531330  448BC0                   mov       r8d,eax
+0531333  488BCF                   mov       rcx,rdi
+0531336  E88509CAFF               call      00007FF74F5E1CC0h   ; -> 1D1CC0
+053133B  488B06                   mov       rax,[rsi]
+053133E  488BCE                   mov       rcx,rsi
+0531341  FF90B8000000             call      qword ptr [rax+0B8h]
+0531347  488B8578A11600           mov       rax,[rbp+16A178h]
+053134E  41B88A000000             mov       r8d,8Ah
+0531354  488B4818                 mov       rcx,[rax+18h]
+0531358  488B87403C0000           mov       rax,[rdi+3C40h]
+053135F  448900                   mov       [rax],r8d
+0531362  488387403C000004         add       qword ptr [rdi+3C40h],4
+053136A  488B87403C0000           mov       rax,[rdi+3C40h]
+0531371  8908                     mov       [rax],ecx
+0531373  488B87403C0000           mov       rax,[rdi+3C40h]
+053137A  48C1E920                 shr       rcx,20h
+053137E  894804                   mov       [rax+4],ecx
+0531381  488387403C000008         add       qword ptr [rdi+3C40h],8
+0531389  488B8588A11600           mov       rax,[rbp+16A188h]
+0531390  488B8F403C0000           mov       rcx,[rdi+3C40h]
+0531397  488B5018                 mov       rdx,[rax+18h]
+053139B  448901                   mov       [rcx],r8d
+053139E  488387403C000004         add       qword ptr [rdi+3C40h],4
+05313A6  488B87403C0000           mov       rax,[rdi+3C40h]
+05313AD  8910                     mov       [rax],edx
+05313AF  488B87403C0000           mov       rax,[rdi+3C40h]
+05313B6  48C1EA20                 shr       rdx,20h
+05313BA  895004                   mov       [rax+4],edx
+05313BD  488387403C000008         add       qword ptr [rdi+3C40h],8
+05313C5  33DB                     xor       ebx,ebx
+05313C7  4584FF                   test      r15b,r15b
+05313CA  0F8447010000             je        near ptr 00007FF74F941517h   ; -> 531517
+05313D0  488B06                   mov       rax,[rsi]
+05313D3  BA09000000               mov       edx,9
+05313D8  488BCE                   mov       rcx,rsi
+05313DB  FF90A8000000             call      qword ptr [rax+0A8h]
+05313E1  84C0                     test      al,al
+05313E3  0F842E010000             je        near ptr 00007FF74F941517h   ; -> 531517
+05313E9  4584ED                   test      r13b,r13b
+05313EC  751C                     jne       short 00007FF74F94140Ah   ; -> 53140A
+05313EE  488BCD                   mov       rcx,rbp
+05313F1  E8C207CAFF               call      00007FF74F5E1BB8h   ; -> 1D1BB8
+05313F6  84C0                     test      al,al
+05313F8  7410                     je        short 00007FF74F94140Ah   ; -> 53140A
+05313FA  389D18A61600             cmp       [rbp+16A618h],bl
+0531400  7508                     jne       short 00007FF74F94140Ah   ; -> 53140A
+0531402  448ACB                   mov       r9b,bl
+0531405  4584E4                   test      r12b,r12b
+0531408  7503                     jne       short 00007FF74F94140Dh   ; -> 53140D
+053140A  41B101                   mov       r9b,1
+053140D  458B8644020000           mov       r8d,[r14+244h]
+0531414  498BCE                   mov       rcx,r14
+0531417  488B9578A11600           mov       rdx,[rbp+16A178h]
+053141E  4183E00F                 and       r8d,0Fh
+0531422  E815E8FFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0531427  488B9588A11600           mov       rdx,[rbp+16A188h]
+053142E  498BCE                   mov       rcx,r14
+0531431  E8D2E6FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0531436  488B9580A11600           mov       rdx,[rbp+16A180h]
+053143D  498BCE                   mov       rcx,r14
+0531440  E86BE4FFFF               call      00007FF74F93F8B0h   ; -> 52F8B0
+0531445  4584E4                   test      r12b,r12b
+0531448  7409                     je        short 00007FF74F941453h   ; -> 531453
+053144A  488B9590A11600           mov       rdx,[rbp+16A190h]
+0531451  EB03                     jmp       short 00007FF74F941456h   ; -> 531456
+0531453  488BD3                   mov       rdx,rbx
+0531456  498BCE                   mov       rcx,r14
+0531459  E88ADFFFFF               call      00007FF74F93F3E8h   ; -> 52F3E8
+053145E  488B06                   mov       rax,[rsi]
+0531461  488BCE                   mov       rcx,rsi
+0531464  FF90C8000000             call      qword ptr [rax+0C8h]
+053146A  8B9424A8000000           mov       edx,[rsp+0A8h]
+0531471  B801000000               mov       eax,1
+0531476  81C2FF030000             add       edx,3FFh
+053147C  448BC8                   mov       r9d,eax
+053147F  C1EA0A                   shr       edx,0Ah
+0531482  448BC0                   mov       r8d,eax
+0531485  488BCF                   mov       rcx,rdi
+0531488  E83308CAFF               call      00007FF74F5E1CC0h   ; -> 1D1CC0
+053148D  488B06                   mov       rax,[rsi]
+0531490  488BCE                   mov       rcx,rsi
+0531493  FF90B8000000             call      qword ptr [rax+0B8h]
+0531499  488B8578A11600           mov       rax,[rbp+16A178h]
+05314A0  41B88A000000             mov       r8d,8Ah
+05314A6  488B4818                 mov       rcx,[rax+18h]
+05314AA  488B87403C0000           mov       rax,[rdi+3C40h]
+05314B1  448900                   mov       [rax],r8d
+05314B4  488387403C000004         add       qword ptr [rdi+3C40h],4
+05314BC  488B87403C0000           mov       rax,[rdi+3C40h]
+05314C3  8908                     mov       [rax],ecx
+05314C5  488B87403C0000           mov       rax,[rdi+3C40h]
+05314CC  48C1E920                 shr       rcx,20h
+05314D0  894804                   mov       [rax+4],ecx
+05314D3  488387403C000008         add       qword ptr [rdi+3C40h],8
+05314DB  488B8588A11600           mov       rax,[rbp+16A188h]
+05314E2  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05314E9  488B5018                 mov       rdx,[rax+18h]
+05314ED  448901                   mov       [rcx],r8d
+05314F0  488387403C000004         add       qword ptr [rdi+3C40h],4
+05314F8  488B87403C0000           mov       rax,[rdi+3C40h]
+05314FF  8910                     mov       [rax],edx
+0531501  488B87403C0000           mov       rax,[rdi+3C40h]
+0531508  48C1EA20                 shr       rdx,20h
+053150C  895004                   mov       [rax+4],edx
+053150F  488387403C000008         add       qword ptr [rdi+3C40h],8
+0531517  4584E4                   test      r12b,r12b
+053151A  0F84BA020000             je        near ptr 00007FF74F9417DAh   ; -> 5317DA
+0531520  488B06                   mov       rax,[rsi]
+0531523  BA0B000000               mov       edx,0Bh
+0531528  488BCE                   mov       rcx,rsi
+053152B  FF90A8000000             call      qword ptr [rax+0A8h]
+0531531  84C0                     test      al,al
+0531533  0F848C000000             je        near ptr 00007FF74F9415C5h   ; -> 5315C5
+0531539  458B8644020000           mov       r8d,[r14+244h]
+0531540  458ACD                   mov       r9b,r13b
+0531543  488B9578A11600           mov       rdx,[rbp+16A178h]
+053154A  4183E00F                 and       r8d,0Fh
+053154E  498BCE                   mov       rcx,r14
+0531551  E8E6E6FFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0531556  488B06                   mov       rax,[rsi]
+0531559  488BCE                   mov       rcx,rsi
+053155C  FF90C8000000             call      qword ptr [rax+0C8h]
+0531562  BA01000000               mov       edx,1
+0531567  488BCF                   mov       rcx,rdi
+053156A  448BCA                   mov       r9d,edx
+053156D  448BC2                   mov       r8d,edx
+0531570  E84B07CAFF               call      00007FF74F5E1CC0h   ; -> 1D1CC0
+0531575  488B06                   mov       rax,[rsi]
+0531578  488BCE                   mov       rcx,rsi
+053157B  FF90B8000000             call      qword ptr [rax+0B8h]
+0531581  488B8578A11600           mov       rax,[rbp+16A178h]
+0531588  41BC8A000000             mov       r12d,8Ah
+053158E  488B4818                 mov       rcx,[rax+18h]
+0531592  488B87403C0000           mov       rax,[rdi+3C40h]
+0531599  448920                   mov       [rax],r12d
+053159C  488387403C000004         add       qword ptr [rdi+3C40h],4
+05315A4  488B87403C0000           mov       rax,[rdi+3C40h]
+05315AB  8908                     mov       [rax],ecx
+05315AD  488B87403C0000           mov       rax,[rdi+3C40h]
+05315B4  48C1E920                 shr       rcx,20h
+05315B8  894804                   mov       [rax+4],ecx
+05315BB  488387403C000008         add       qword ptr [rdi+3C40h],8
+05315C3  EB06                     jmp       short 00007FF74F9415CBh   ; -> 5315CB
+05315C5  41BC8A000000             mov       r12d,8Ah
+05315CB  488B06                   mov       rax,[rsi]
+05315CE  BA0C000000               mov       edx,0Ch
+05315D3  488BCE                   mov       rcx,rsi
+05315D6  FF90A8000000             call      qword ptr [rax+0A8h]
+05315DC  84C0                     test      al,al
+05315DE  0F843B010000             je        near ptr 00007FF74F94171Fh   ; -> 53171F
+05315E4  488B9598A11600           mov       rdx,[rbp+16A198h]
+05315EB  498BCE                   mov       rcx,r14
+05315EE  E8B9DDFFFF               call      00007FF74F93F3ACh   ; -> 52F3AC
+05315F3  488B9590A11600           mov       rdx,[rbp+16A190h]
+05315FA  498BCE                   mov       rcx,r14
+05315FD  E8E6DDFFFF               call      00007FF74F93F3E8h   ; -> 52F3E8
+0531602  458B8644020000           mov       r8d,[r14+244h]
+0531609  458ACD                   mov       r9b,r13b
+053160C  488B9578A11600           mov       rdx,[rbp+16A178h]
+0531613  4183E00F                 and       r8d,0Fh
+0531617  498BCE                   mov       rcx,r14
+053161A  E81DE6FFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+053161F  488B9580A11600           mov       rdx,[rbp+16A180h]
+0531626  498BCE                   mov       rcx,r14
+0531629  E882E2FFFF               call      00007FF74F93F8B0h   ; -> 52F8B0
+053162E  488B9588A11600           mov       rdx,[rbp+16A188h]
+0531635  498BCE                   mov       rcx,r14
+0531638  E8CBE4FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+053163D  488B06                   mov       rax,[rsi]
+0531640  488BCE                   mov       rcx,rsi
+0531643  FF90C8000000             call      qword ptr [rax+0C8h]
+0531649  488B9578A11600           mov       rdx,[rbp+16A178h]
+0531650  41B804000000             mov       r8d,4
+0531656  488BCF                   mov       rcx,rdi
+0531659  E8B6E1FFFF               call      00007FF74F93F814h   ; -> 52F814
+053165E  4C8B06                   mov       r8,[rsi]
+0531661  488BCE                   mov       rcx,rsi
+0531664  41FF90B8000000           call      qword ptr [r8+0B8h]
+053166B  488B8580A11600           mov       rax,[rbp+16A180h]
+0531672  488B4818                 mov       rcx,[rax+18h]
+0531676  488B87403C0000           mov       rax,[rdi+3C40h]
+053167D  448920                   mov       [rax],r12d
+0531680  488387403C000004         add       qword ptr [rdi+3C40h],4
+0531688  488B87403C0000           mov       rax,[rdi+3C40h]
+053168F  8908                     mov       [rax],ecx
+0531691  488B87403C0000           mov       rax,[rdi+3C40h]
+0531698  48C1E920                 shr       rcx,20h
+053169C  894804                   mov       [rax+4],ecx
+053169F  488387403C000008         add       qword ptr [rdi+3C40h],8
+05316A7  488B8578A11600           mov       rax,[rbp+16A178h]
+05316AE  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05316B5  488B5018                 mov       rdx,[rax+18h]
+05316B9  448921                   mov       [rcx],r12d
+05316BC  488387403C000004         add       qword ptr [rdi+3C40h],4
+05316C4  488B87403C0000           mov       rax,[rdi+3C40h]
+05316CB  8910                     mov       [rax],edx
+05316CD  488B87403C0000           mov       rax,[rdi+3C40h]
+05316D4  48C1EA20                 shr       rdx,20h
+05316D8  895004                   mov       [rax+4],edx
+05316DB  488387403C000008         add       qword ptr [rdi+3C40h],8
+05316E3  488B8590A11600           mov       rax,[rbp+16A190h]
+05316EA  488B8F403C0000           mov       rcx,[rdi+3C40h]
+05316F1  488B5018                 mov       rdx,[rax+18h]
+05316F5  448921                   mov       [rcx],r12d
+05316F8  488387403C000004         add       qword ptr [rdi+3C40h],4
+0531700  488B87403C0000           mov       rax,[rdi+3C40h]
+0531707  8910                     mov       [rax],edx
+0531709  488B87403C0000           mov       rax,[rdi+3C40h]
+0531710  48C1EA20                 shr       rdx,20h
+0531714  895004                   mov       [rax+4],edx
+0531717  488387403C000008         add       qword ptr [rdi+3C40h],8
+053171F  418B8644020000           mov       eax,[r14+244h]
+0531726  240F                     and       al,0Fh
+0531728  3C01                     cmp       al,1
+053172A  0F85AA000000             jne       near ptr 00007FF74F9417DAh   ; -> 5317DA
+0531730  4584ED                   test      r13b,r13b
+0531733  0F85A1000000             jne       near ptr 00007FF74F9417DAh   ; -> 5317DA
+0531739  488BCD                   mov       rcx,rbp
+053173C  E87704CAFF               call      00007FF74F5E1BB8h   ; -> 1D1BB8
+0531741  84C0                     test      al,al
+0531743  0F8491000000             je        near ptr 00007FF74F9417DAh   ; -> 5317DA
+0531749  389D18A61600             cmp       [rbp+16A618h],bl
+053174F  0F8585000000             jne       near ptr 00007FF74F9417DAh   ; -> 5317DA
+0531755  488B06                   mov       rax,[rsi]
+0531758  BA0A000000               mov       edx,0Ah
+053175D  488BCE                   mov       rcx,rsi
+0531760  FF90A8000000             call      qword ptr [rax+0A8h]
+0531766  84C0                     test      al,al
+0531768  7470                     je        short 00007FF74F9417DAh   ; -> 5317DA
+053176A  458B8644020000           mov       r8d,[r14+244h]
+0531771  4533C9                   xor       r9d,r9d
+0531774  488B9578A11600           mov       rdx,[rbp+16A178h]
+053177B  4183E00F                 and       r8d,0Fh
+053177F  498BCE                   mov       rcx,r14
+0531782  E8B5E4FFFF               call      00007FF74F93FC3Ch   ; -> 52FC3C
+0531787  488B9588A11600           mov       rdx,[rbp+16A188h]
+053178E  498BCE                   mov       rcx,r14
+0531791  E872E3FFFF               call      00007FF74F93FB08h   ; -> 52FB08
+0531796  488B06                   mov       rax,[rsi]
+0531799  488BCE                   mov       rcx,rsi
+053179C  FF90C8000000             call      qword ptr [rax+0C8h]
+05317A2  488B9578A11600           mov       rdx,[rbp+16A178h]
+05317A9  41B810000000             mov       r8d,10h
+05317AF  488BCF                   mov       rcx,rdi
+05317B2  E85DE0FFFF               call      00007FF74F93F814h   ; -> 52F814
+05317B7  4C8B06                   mov       r8,[rsi]
+05317BA  488BCE                   mov       rcx,rsi
+05317BD  41FF90B8000000           call      qword ptr [r8+0B8h]
+05317C4  488B8568A11600           mov       rax,[rbp+16A168h]
+05317CB  488BCF                   mov       rcx,rdi
+05317CE  488B5018                 mov       rdx,[rax+18h]
+05317D2  488B12                   mov       rdx,[rdx]
+05317D5  E82E22CAFF               call      00007FF74F5E3A08h   ; -> 1D3A08
+05317DA  4584FF                   test      r15b,r15b
+05317DD  0F8506010000             jne       near ptr 00007FF74F9418E9h   ; -> 5318E9
+05317E3  BB02000000               mov       ebx,2
+05317E8  488BCE                   mov       rcx,rsi
+05317EB  8D430B                   lea       eax,[rbx+0Bh]
+05317EE  39442420                 cmp       [rsp+20h],eax
+05317F2  0F47D8                   cmova     ebx,eax
+05317F5  488B06                   mov       rax,[rsi]
+05317F8  8BD3                     mov       edx,ebx
+05317FA  FF90A8000000             call      qword ptr [rax+0A8h]
+0531800  4533E4                   xor       r12d,r12d
+0531803  84C0                     test      al,al
+0531805  0F84DE000000             je        near ptr 00007FF74F9418E9h   ; -> 5318E9
+053180B  4533C9                   xor       r9d,r9d
+053180E  4533C0                   xor       r8d,r8d
+0531811  33D2                     xor       edx,edx
+0531813  498BCE                   mov       rcx,r14
+0531816  E8D1E0FFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+053181B  488B06                   mov       rax,[rsi]
+053181E  488BCE                   mov       rcx,rsi
+0531821  FF90C8000000             call      qword ptr [rax+0C8h]
+0531827  448BBC24A8000000         mov       r15d,[rsp+0A8h]
+053182F  458D442404               lea       r8d,[r12+4]
+0531834  488B9570A11600           mov       rdx,[rbp+16A170h]
+053183B  458BCF                   mov       r9d,r15d
+053183E  498BCE                   mov       rcx,r14
+0531841  E8A6E0FFFF               call      00007FF74F93F8ECh   ; -> 52F8EC
+0531846  488B95B8A11600           mov       rdx,[rbp+16A1B8h]
+053184D  498BCE                   mov       rcx,r14
+0531850  E82B8A4300               call      00007FF74FD7A280h   ; -> 96A280
+0531855  664589A638020000         mov       [r14+238h],r12w
+053185D  488BCE                   mov       rcx,rsi
+0531860  410FBAAE3802000008       bts       dword ptr [r14+238h],8
+0531869  488B06                   mov       rax,[rsi]
+053186C  FF90C8000000             call      qword ptr [rax+0C8h]
+0531872  83FB02                   cmp       ebx,2
+0531875  7505                     jne       short 00007FF74F94187Ch   ; -> 53187C
+0531877  418BD7                   mov       edx,r15d
+053187A  EB2B                     jmp       short 00007FF74F9418A7h   ; -> 5318A7
+053187C  488B06                   mov       rax,[rsi]
+053187F  4C8D8C2488000000         lea       r9,[rsp+88h]
+0531887  4C8D842498000000         lea       r8,[rsp+98h]
+053188F  488BCE                   mov       rcx,rsi
+0531892  488D9424A8000000         lea       rdx,[rsp+0A8h]
+053189A  FF90D8000000             call      qword ptr [rax+0D8h]
+05318A0  8B9424A8000000           mov       edx,[rsp+0A8h]
+05318A7  B801000000               mov       eax,1
+05318AC  488BCF                   mov       rcx,rdi
+05318AF  448BC8                   mov       r9d,eax
+05318B2  448BC0                   mov       r8d,eax
+05318B5  E80604CAFF               call      00007FF74F5E1CC0h   ; -> 1D1CC0
+05318BA  488B06                   mov       rax,[rsi]
+05318BD  488BCE                   mov       rcx,rsi
+05318C0  FF90B8000000             call      qword ptr [rax+0B8h]
+05318C6  488B9570A11600           mov       rdx,[rbp+16A170h]
+05318CD  488BCF                   mov       rcx,rdi
+05318D0  488B5218                 mov       rdx,[rdx+18h]
+05318D4  E82F21CAFF               call      00007FF74F5E3A08h   ; -> 1D3A08
+05318D9  488B95B8A11600           mov       rdx,[rbp+16A1B8h]
+05318E0  488B5218                 mov       rdx,[rdx+18h]
+05318E4  E81F21CAFF               call      00007FF74F5E3A08h   ; -> 1D3A08
+05318E9  488BCE                   mov       rcx,rsi
+05318EC  E8BFE6FFFF               call      00007FF74F93FFB0h   ; -> 52FFB0
+05318F1  84C0                     test      al,al
+05318F3  740A                     je        short 00007FF74F9418FFh   ; -> 5318FF
+05318F5  33D2                     xor       edx,edx
+05318F7  498BCE                   mov       rcx,r14
+05318FA  E8F1D9FFFF               call      00007FF74F93F2F0h   ; -> 52F2F0
+05318FF  488B06                   mov       rax,[rsi]
+0531902  488BCE                   mov       rcx,rsi
+0531905  FF9098000000             call      qword ptr [rax+98h]
+053190B  488B06                   mov       rax,[rsi]
+053190E  488BCE                   mov       rcx,rsi
+0531911  FF5078                   call      qword ptr [rax+78h]
+0531914  488BCF                   mov       rcx,rdi
+0531917  E88823BEFF               call      00007FF74F523CA4h   ; -> 113CA4
+053191C  488D542470               lea       rdx,[rsp+70h]
+0531921  E856D8B2FF               call      00007FF74F46F17Ch   ; -> 5F17C
+0531926  8B85489D1600             mov       eax,[rbp+169D48h]
+053192C  488B5C2478               mov       rbx,[rsp+78h]
+0531931  89854C9D1600             mov       [rbp+169D4Ch],eax
+0531937  4883C430                 add       rsp,30h
+053193B  415F                     pop       r15
+053193D  415E                     pop       r14
+053193F  415D                     pop       r13
+0531941  415C                     pop       r12
+0531943  5F                       pop       rdi
+0531944  5E                       pop       rsi
+0531945  5D                       pop       rbp
+0531946  C3                       ret

@@ -1,11 +1,14 @@
 <#
   apply_sweep.ps1 - install / exact revert / status of the shader-sweep replacements for Nioh 3 (Steam v2.02).
   Items (notes\gpu-shader-sweep.md):
-    mpc23      shader_dx12\0x29ee0902.file  MPC #23: meshlet-culling prefix sums, 1 load round trip + LDS scan
+    mpc        shader_dx12\0x29ee0902.file  ONE combined file: MPC #23 (meshlet-culling prefix sums: 1 load round trip
+               + LDS scan; for <= 1024 draws it computes the whole chain) + #28-#31 (return early then), see
+               notes\gpu-culling-rewrite.md. Supersedes the earlier mpc23-only file: that one is recognised (state
+               SUPERSEDED) and upgraded / reverted like our own replacement.
     toonedge2  shader_dx12\0x9c481f79.file + 0x47bc5cb4.file  TOONEDGE2 #2: outline pass, 18x18 LDS tile
 
-    powershell -NoProfile -ExecutionPolicy Bypass -File apply_sweep.ps1 -Item mpc23            # install
-    powershell -NoProfile -ExecutionPolicy Bypass -File apply_sweep.ps1 -Item mpc23 -Revert    # restore original
+    powershell -NoProfile -ExecutionPolicy Bypass -File apply_sweep.ps1 -Item mpc              # install
+    powershell -NoProfile -ExecutionPolicy Bypass -File apply_sweep.ps1 -Item mpc -Revert      # restore original
     powershell -NoProfile -ExecutionPolicy Bypass -File apply_sweep.ps1 -Item all -Status      # what is installed
 
   Refuses while Nioh3 runs (the files are read at startup / PSO preload). Every file it touches is SHA-256 checked:
@@ -13,15 +16,16 @@
   rebuild with sweep\build_sweep.py first). The original is copied to gpu-shaders\backup\ (sha-checked) before the
   first overwrite, and -Revert restores exactly that file. Steam "Verify integrity of game files" also reverts.
 #>
-param([ValidateSet("mpc23", "toonedge2", "all")][string]$Item = "all", [switch]$Revert, [switch]$Status,
+param([ValidateSet("mpc", "mshlod", "toonedge2", "all")][string]$Item = "all", [switch]$Revert, [switch]$Status,
       [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\Nioh3")
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-# item, file, original sha256 (v2.02), replacement sha256
+# item, file, original sha256 (v2.02), replacement sha256, superseded sha256s (older builds of our replacement)
 $table = @(
-  @("mpc23",     "0x29ee0902.file", "42f045c370e99b80626c64e9d8084a4a855bb3baad3b04b8f634114d34b97b16", "26417c0ff41b128443ce364a69e68328588abd5f044129fe1a8c2e8dea80cec7"),
-  @("toonedge2", "0x9c481f79.file", "7a8171617b2530648e12ce9dd52c091faf31cd4f1026d3b40a7fdde5788ac1ae", "d672a5d530f9d1cb49f37ee3de6f626d95e7273eb897e17de3683a8dfb2c2e6d"),
-  @("toonedge2", "0x47bc5cb4.file", "07542a8322a617b7783b0c7b79580689339429c1d1e416bf70c8d0f3b0aee99a", "9a37b6e45360bb8664746687757c68ebfd33cdeb711a6459bbbe29cee111ef80")
+  @("mpc",       "0x29ee0902.file", "42f045c370e99b80626c64e9d8084a4a855bb3baad3b04b8f634114d34b97b16", "3947f3d70264920e8cf0514139b715ce6552c6389b0e364ca9fb443cca4f0d73", @("26417c0ff41b128443ce364a69e68328588abd5f044129fe1a8c2e8dea80cec7")),
+  @("mshlod",    "0x8d9282e6.file", "ec0f5283660caa64565e17cfb8f2dc4d06ee498278fe1a832db16d27b916ebeb", "214ac371d68ff4e258526bd6f1d7cd044347bc8c417410966ae6400a02986c24", @()),
+  @("toonedge2", "0x9c481f79.file", "7a8171617b2530648e12ce9dd52c091faf31cd4f1026d3b40a7fdde5788ac1ae", "d672a5d530f9d1cb49f37ee3de6f626d95e7273eb897e17de3683a8dfb2c2e6d", @()),
+  @("toonedge2", "0x47bc5cb4.file", "07542a8322a617b7783b0c7b79580689339429c1d1e416bf70c8d0f3b0aee99a", "9a37b6e45360bb8664746687757c68ebfd33cdeb711a6459bbbe29cee111ef80", @())
 )
 function Get-Sha($p) { (Get-FileHash -Algorithm SHA256 -LiteralPath $p).Hash.ToLower() }
 $rows = @()
@@ -30,22 +34,23 @@ if (-not $Status -and (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { throw
 # pass 1: check everything before touching anything
 $plan = @()
 foreach ($r in $rows) {
-  $name, $file, $ho, $hr = $r
+  $name, $file, $ho, $hr, $old = $r
   $game = Join-Path $GameDir "shader_dx12\$file"
   $bak = Join-Path $here "backup\$file"
   $rep = Join-Path $here "replacement\$file"
   if (-not (Test-Path -LiteralPath $game)) { throw "missing game file: $game" }
   $hg = Get-Sha $game
-  $state = if ($hg -eq $ho) { "ORIGINAL" } elseif ($hg -eq $hr) { "REPLACEMENT" } else { "UNKNOWN($hg)" }
+  $state = if ($hg -eq $ho) { "ORIGINAL" } elseif ($hg -eq $hr) { "REPLACEMENT" } elseif ($old -contains $hg) { "SUPERSEDED" } else { "UNKNOWN($hg)" }
   if ($Status) { "{0,-10} {1,-16} {2}" -f $name, $file, $state; continue }
   if ($state -like "UNKNOWN*") { throw "$file is neither the v2.02 original nor our replacement - game updated? not touching anything" }
   if ($Revert) {
-    if ($state -eq "REPLACEMENT") {
+    if ($state -ne "ORIGINAL") {
       if (-not (Test-Path -LiteralPath $bak) -or (Get-Sha $bak) -ne $ho) { throw "no valid backup for $file in $here\backup - use Steam 'Verify integrity'" }
     }
   } else {
     if (-not (Test-Path -LiteralPath $rep) -or (Get-Sha $rep) -ne $hr) { throw "replacement $rep missing or wrong sha256 - run sweep\build_sweep.py" }
     if ((Test-Path -LiteralPath $bak) -and (Get-Sha $bak) -ne $ho) { throw "backup $bak exists but is not the v2.02 original - move it away and retry" }
+    if ($state -eq "SUPERSEDED" -and -not (Test-Path -LiteralPath $bak)) { throw "an older build of our $file is installed but there is no backup of the original - use Steam 'Verify integrity' first" }
   }
   $plan += , @($name, $file, $ho, $hr, $game, $bak, $rep, $state)
 }

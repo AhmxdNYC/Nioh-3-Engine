@@ -1,0 +1,6 @@
+  selftest orig #23 alone                   cnt=200 -> u9[1]: orig 262 fast 4051871784
+  selftest orig chain without #30           cnt=3000 -> u9[1161]: orig 2083435236 fast 1659707025
+  selftest fast chain with orig #23         cnt=300 -> u9[594]: orig 1451666959 fast 1223315637
+  selftest fast chain, no #26 (file-only)   cnt=1500 -> identical (expected identical)
+selftest: PASS
+rc=0

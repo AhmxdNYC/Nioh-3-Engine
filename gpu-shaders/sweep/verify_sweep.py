@@ -1,6 +1,7 @@
 r"""verify_sweep.py - prove that each sweep replacement computes exactly what the shipped shader computes.
 
-    py -I verify_sweep.py [mpc23|toonedge2 ...]      (run build_sweep.py first; it writes build\<item>_{orig,fast}.ll)
+    py -I verify_sweep.py [mpc|mshlod|mpc23|toonedge2 ...]      (run build_sweep.py first; it writes build\<item>_{orig,fast}.ll)
+    (mpc = the combined MPC chain file 0x29ee0902.file; its proof is gpu-shaders\culling\verify_culling.py)
 
 Both DXIL programs (the shipped record and our compiled replacement, as `dxc -dumpbin` text) are executed by the
 reference interpreter (sim.py: IEEE float32 per IR op, robust out-of-bounds loads = 0 / stores dropped, groupshared
@@ -202,7 +203,21 @@ def stats():
     return True
 
 
-ITEMS = {"mpc23": verify_mpc23, "toonedge2": verify_toonedge2}
+def verify_mpc():
+    """combined 0x29ee0902.file (item "mpc": MPC #23 #28 #29 #30 #31): chain-level proof in gpu-shaders\culling."""
+    import subprocess
+    r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "..", "culling", "verify_culling.py")])
+    return r.returncode == 0
+
+
+def verify_mshlod():
+    """0x8d9282e6.file (item "mshlod": MshLod #3): proof in gpu-shaders/culling/verify_culling.py mshlod."""
+    import subprocess
+    r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "..", "culling", "verify_culling.py"), "mshlod"])
+    return r.returncode == 0
+
+
+ITEMS = {"mpc": verify_mpc, "mshlod": verify_mshlod, "mpc23": verify_mpc23, "toonedge2": verify_toonedge2}
 EXTRA = {"stats": stats}
 
 if __name__ == "__main__":

@@ -1,0 +1,5 @@
+MshLod#3: 2926 scenes (532 also vs the shipped DXIL), 0 failures -> PASS
+  selftest stray u4 store     -> detected
+  selftest no nMax test       -> detected
+  selftest serial u3 reads    -> detected
+mshlod selftest: PASS
