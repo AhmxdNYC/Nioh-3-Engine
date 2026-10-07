@@ -41,3 +41,4 @@ panel/panel.log
 panel/panel.err
 **/__pycache__/
 *.pyc
+*.zip
