@@ -184,3 +184,8 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - Skipped: RL (never sampled in gameplay; delays load requests up to 3 ms), IATS (rewrites a third-party loader's IAT shims; not provable from the game side). Reasons in README.
 - patches.json: 21 sites (DS, CP, SPF, 18 LK) + 15 deps (8 WG under group WS, 5 DS, CP, SPF). Test: ALL 94 SITES OK, deps 60/60.
 - Undo: the keys back to 0 (or the menu switches), or the previous .asi.
+## 2026-10-07 - ASI 1.7.0: Proton FG-off crash fix + GPUProf (measurement, default off)
+- osd.cpp: HkExecuteCommandLists captures a queue only when the caller's return address is inside Nioh3.exe or sl.interposer.dll (FSR frame-interpolation internal queues are never used as the overlay queue); DestroyCtx waits up to 1.5 s on the old ctx fence before releasing.
+- menu.cpp: under Proton, FG ON -> OFF no longer calls the game setter (the live swapchain rebuild crashed the game ~2 s later, v9 log); it writes FRAME_GENERATION OFF via the safe config.xml writer (+ marker) and shows "FG off at next launch". OFF -> ON stays live.
+- Also kept from the interrupted work: gpuprof.cpp GP pass profiler ([Profiler] GPUProf, default 0), 103 sites OK. LK/CP/SPF/WG/TG/DS were already in 1.6.0 (defaults 0; Ally zip WG=2, CP=2, SPF=2, TG=0).
+- Untested on hardware (game not run): FG-off path, caller-filtered queue capture.

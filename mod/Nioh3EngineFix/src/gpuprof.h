@@ -1,0 +1,46 @@
+// gpuprof.h - GP: in-process GPU pass profiler of Nioh3EngineFix (1.7.0). Replaces RGP where it cannot run (the Ally:
+// RADV SQTT froze the device). [Profiler] GPUProf = 0 by default.
+//
+// 1. Markers: the engine has its own debug markers (pass names: "Cascade %d", "Tile %d %d", "MeshletPreculling", every
+//    render-graph node name), switched off at boot by two bytes: record g+2A62h (KtglContext, [Nioh3+45BA588]) and
+//    replay g+552h (SynCtx+542h). With both set, the dispatcher thread calls ID3D12GraphicsCommandList::BeginEvent
+//    (vtbl+1C8h, UTF-16 name, colour as Metadata) / EndEvent (vtbl+1D0h) on the list it records (SynBeginEvent 113E64,
+//    SynTokEndEvent 113FC8, 113F70), unless the engine's optional marker interface [4BD09C0] is set. See
+//    notes\shadows-culling.md 4 and patcher\gpu_markers.fsx. GP writes the two bytes (replay first) once g exists.
+// 2. Timing (GPUProf = 1): gpuopt (gpuopt.cpp) hooks every command-list vtable slot; GP takes BeginEvent, EndEvent,
+//    Close and Reset. Each Begin/End records EndQuery(TIMESTAMP) into a query heap split into 8 frame slots; the
+//    queries of a list are resolved into a readback buffer in chunks (when a chunk fills, and at Close), always after
+//    they were written on that same list. A frame slot is read on the Present thread 6 frames later (no stall), then
+//    cleared. Names are aggregated nesting-aware (inclusive and self time) per 30 s window.
+// GPUProf_Markers = 1 (GPUProf = 0): markers only, no queries (for PIX on the PC).
+// Any failure: logged, GP switches itself off (hooks pass through), rendering is never touched beyond the added
+// EndQuery / ResolveQueryData commands.
+#pragma once
+#include <cstddef>
+#include <cstdint>
+
+namespace gp {
+
+struct StartInfo {
+    void (*log)(const char* fmt, ...) = nullptr;
+    const wchar_t* iniPath = nullptr;
+    uint8_t* base = nullptr;   // Nioh3.exe
+    bool codeOk = false;       // dllmain verified the marker code (GP check sites + deps + token table) on v2.02
+    const char* wine = nullptr;
+};
+
+// Reads [Profiler] GPUProf / GPUProf_Markers / GPUProf_MaxMarkers / GPUProf_Top. Starts the marker-enable thread when
+// either is on (and codeOk). Returns at once.
+void Start(const StartInfo& info);
+bool WantsHooks();           // GPUProf = 1 (and codeOk): gpuopt must install its command-list hooks
+// gpuopt, after its vtables are patched: slots to send to OnListCall (Close 9, Reset 10, BeginEvent 57, EndEvent 58)
+void EnableHooks(volatile uint8_t* hookMask, int slots);
+// gpuopt slow path (asm thunk -> GpuOptSlow) for the hooked slots, BEFORE the original method runs
+void OnListCall(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3);
+void OnFrame();              // osd Present hook, once per frame of the drawing swapchain
+void LogLine();              // stats thread, every 30 s
+// menu: "GP: <frame ms> | top 5 ..." (thread-safe; empty when GP is off)
+const char* StatusLine(char* buf, size_t n);
+bool Active();
+
+}  // namespace gp

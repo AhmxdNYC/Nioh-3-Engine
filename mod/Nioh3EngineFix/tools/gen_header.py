@@ -19,7 +19,7 @@ TARGETS = ["none", "caveFps", "caveScale", "caveLim", "caveTier", "caveMenu", "h
            "caveWs0", "caveWs1", "caveWs2", "caveWs3", "caveWs4", "caveWs5", "caveWsSleep", "caveEdKick", "caveEdJoin", "caveGf1", "caveGf2", "caveWL",
            "caveDs", "caveCP", "caveSPF"]
 DATAS = ["none", "ticks120", "ticks60", "r1Timeout"]
-KINDS = {"bytes": "Bytes", "call": "Call", "ripload": "RipLoad", "jmp": "Jmp", "vptr": "VPtr"}
+KINDS = {"bytes": "Bytes", "call": "Call", "ripload": "RipLoad", "jmp": "Jmp", "vptr": "VPtr", "check": "Check"}
 READS = {None: "None", "iat_disp32@2": "IatDisp32At2", "callee_rel32@1": "CalleeRel32At1", "callee_rel32@6": "CalleeRel32At6"}
 
 
@@ -40,7 +40,7 @@ def render(doc):
     w("")
     w("namespace gen {")
     w("")
-    w("enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr };")
+    w("enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written")
     w("enum class Target : uint8_t { %s };" % ", ".join(TARGETS))
     w("enum class Data : uint8_t { %s };" % ", ".join(DATAS))
     w("enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };")

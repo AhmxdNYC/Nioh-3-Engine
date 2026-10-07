@@ -189,7 +189,25 @@
     { "id": "LKJ5", "group": "LK", "rva": "0x41325", "len": 5, "orig": "F0 49 0F B1 1E", "kind": "bytes", "new": "49 8B 06 66 90",
       "pattern": "F0 49 0F B1 1E 48 85 C0 74 ?? 48 63 C8 48 8B D0 4D 8D 14 8E", "offset": 0 },
     { "id": "LKJ6", "group": "LK", "rva": "0x41447", "len": 5, "orig": "F0 49 0F B1 1E", "kind": "bytes", "new": "49 8B 06 66 90",
-      "pattern": "F0 49 0F B1 1E 48 85 C0 74 ?? 48 63 C8 48 8B D0 4D 8D 0C 8E", "offset": 0 }
+      "pattern": "F0 49 0F B1 1E 48 85 C0 74 ?? 48 63 C8 48 8B D0 4D 8D 0C 8E", "offset": 0 },
+    { "id": "GPr1", "group": "GP", "rva": "0x1D3B0E", "len": 6, "orig": "38 99 62 2A 00 00", "kind": "check",
+      "pattern": "38 99 62 2A 00 00", "offset": 0, "what": "GfxBeginMarker 1D3AD8: cmp [rcx+2A62h],bl - record flag (never written by the game)" },
+    { "id": "GPr2", "group": "GP", "rva": "0x113CA4", "len": 7, "orig": "80 B9 62 2A 00 00 00", "kind": "check",
+      "pattern": "80 B9 62 2A 00 00 00", "offset": 0, "what": "GfxEndMarker entry: cmp byte [rcx+2A62h],0" },
+    { "id": "GPp1", "group": "GP", "rva": "0x113E8F", "len": 7, "orig": "44 38 B1 42 05 00 00", "kind": "check",
+      "pattern": "44 38 B1 42 05 00 00", "offset": 0, "what": "SynBeginEvent 113E64: cmp [rcx+542h],r14b - replay flag (SynCtx = g+10h)" },
+    { "id": "GPb", "group": "GP", "rva": "0x113F4B", "len": 6, "orig": "FF 90 C8 01 00 00", "kind": "check",
+      "pattern": "FF 90 C8 01 00 00 48 8B 8C", "offset": 0, "what": "SynBeginEvent: call [rax+1C8h] = ID3D12GraphicsCommandList::BeginEvent(colour, UTF-16 name, bytes)" },
+    { "id": "GPe1", "group": "GP", "rva": "0x113FD5", "len": 7, "orig": "80 B9 42 05 00 00 00", "kind": "check",
+      "pattern": "80 B9 42 05 00 00 00 74 3D", "offset": 0, "what": "SynTokEndEvent 113FC8: cmp byte [rcx+542h],0" },
+    { "id": "GPe2", "group": "GP", "rva": "0x114015", "len": 6, "orig": "FF 90 D0 01 00 00", "kind": "check",
+      "pattern": "FF 90 D0 01 00 00 48 83 C4 20 5B C3 CC CC CC 48", "offset": 0, "what": "SynTokEndEvent: call [rax+1D0h] = EndEvent" },
+    { "id": "GPe3", "group": "GP", "rva": "0x113F76", "len": 7, "orig": "80 B9 42 05 00 00 00", "kind": "check",
+      "pattern": "80 B9 42 05 00 00 00 48", "offset": 0, "what": "second EndEvent path 113F70: cmp byte [rcx+542h],0" },
+    { "id": "GPe4", "group": "GP", "rva": "0x113FB9", "len": 6, "orig": "FF 90 D0 01 00 00", "kind": "check",
+      "pattern": "FF 90 D0 01 00 00 48 83 C4 20 5B C3 CC CC CC 40", "offset": 0, "what": "113F70: call [rax+1D0h] = EndEvent" },
+    { "id": "GPa0", "group": "GP", "rva": "0xA96D81", "len": 7, "orig": "44 88 81 42 05 00 00", "kind": "check",
+      "pattern": "44 88 81 42 05 00 00", "offset": 0, "what": "tok 0xA0 handler: the engine's own replay-flag setter (from the stream; nothing emits it)" }
   ],
   "deps": [
     { "group": "PP", "rva": "0x2522C4", "bytes": "48 89 5C 24 10 57", "what": "PagePoolScanAll prologue" },
@@ -251,6 +269,9 @@
     { "group": "DS", "rva": "0x1A744E4", "bytes": "F3 0F 10 35 9C 01 16 02", "what": "xmm6 = [3BD4688]" },
     { "group": "DS", "rva": "0x3BD4688", "bytes": "6F 12 83 3A", "what": ".rdata 0.001f: the spin quantum is 1 ms" },
     { "group": "CP", "rva": "0xD8187", "len": 1338, "fnv1a": "0x90CE4274", "what": "CollisionObjectUpdate loop D8187..D86C1 (r10 = mgr, r13 = i, stride 5 at D86AF)" },
-    { "group": "SPF", "rva": "0xDB8C6", "len": 251, "fnv1a": "0x7F023EF8", "what": "placeable map loop DB8C6..DB9C1 (rbx = entry, r14 = end, stride 10h)" }
+    { "group": "SPF", "rva": "0xDB8C6", "len": 251, "fnv1a": "0x7F023EF8", "what": "placeable map loop DB8C6..DB9C1 (rbx = entry, r14 = end, stride 10h)" },
+    { "group": "GP", "rva": "0x113F1A", "bytes": "48 83 CB FF 44 8B CB FF 15 01 E4 7C 03 48 8B 8F 80 05 00 00 48 8D 54 24 30 48 8B 01 48 FF C3 66 44 39 34 5A 75 F6 44 8D 0C 1B 8B D6 4C 8D 44 24 30", "what": "SynBeginEvent: name -> UTF-16, list = [SynCtx+580h], Size = 2 x length, Metadata = colour" },
+    { "group": "GP", "rva": "0x113FAF", "bytes": "48 8B 8B 80 05 00 00 48 8B 01", "what": "113F70: EndEvent on [SynCtx+580h]" },
+    { "group": "GP", "rva": "0x11400B", "bytes": "48 8B 8B 80 05 00 00 48 8B 01", "what": "SynTokEndEvent: EndEvent on [SynCtx+580h]" }
   ]
 }

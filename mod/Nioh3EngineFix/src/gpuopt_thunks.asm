@@ -16,7 +16,7 @@ OPTION CASEMAP:NONE
 
 EXTERN GpuOptSlow:PROC
 
-PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
+PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
 
 GPUOPT_SLOTS EQU 96
 
@@ -27,6 +27,7 @@ gpuopt_orig0  dq GPUOPT_SLOTS dup(0)      ; original methods, vtable set 0
 gpuopt_orig1  dq GPUOPT_SLOTS dup(0)      ; original methods, vtable set 1
 gpuopt_flush  db GPUOPT_SLOTS dup(0)      ; 1 = this method must see the deferred barriers first (work / sync / unwrap)
 gpuopt_trace  db 0                        ; 1 = every hooked call goes to GpuOptSlow (trace mode)
+gpuopt_hook   db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (GP profiler: Begin/EndEvent, Close, Reset)
 
 .code
 
@@ -84,6 +85,8 @@ THUNK MACRO S, I
     LOCAL slow, pass
 gpuopt_t&S&_&I LABEL PROC
     cmp     byte ptr [gpuopt_trace], 0
+    jne     slow
+    cmp     byte ptr [gpuopt_hook + I], 0
     jne     slow
     cmp     byte ptr [gpuopt_flush + I], 0
     je      pass

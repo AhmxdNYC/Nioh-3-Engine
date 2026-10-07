@@ -45,6 +45,7 @@ struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;  // dllmain's Log
     const wchar_t* iniPath = nullptr;             // Nioh3EngineFix.ini ([GpuOpt]); also where the trace CSV goes
     const char* wine = nullptr;                   // wine_get_version() or nullptr (only logged)
+    bool gpuProf = false;                         // 1.7.0: the GP profiler needs the hooks (installs them with Barriers = 0)
 };
 
 enum class State : uint8_t {
@@ -86,6 +87,7 @@ State GetState();
 const char* StateName(State s);
 void SetBatching(bool on);          // live; off = pass-through (pending batches still get emitted at their next flush)
 bool Batching();
+int BarriersIni();                  // [GpuOpt] Barriers at launch (menu Save keeps 0 when only GP installed the hooks)
 void SetMergeAcrossBinds(bool on);  // live; off = every hooked list method flushes (strict adjacency)
 bool MergeAcrossBinds();
 void SetDropUndoPairs(bool on);     // live

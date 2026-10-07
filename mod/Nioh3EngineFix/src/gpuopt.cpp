@@ -30,6 +30,7 @@
 #include <string>
 
 #include "gpuopt.h"
+#include "gpuprof.h"
 
 #pragma intrinsic(_ReturnAddress)
 
@@ -40,6 +41,7 @@ extern void* gpuopt_orig0[96];
 extern void* gpuopt_orig1[96];
 extern volatile uint8_t gpuopt_flush[96];
 extern volatile uint8_t gpuopt_trace;
+extern volatile uint8_t gpuopt_hook[96];  // GP profiler (gpuprof.cpp): slots that always take the slow path
 extern void* gpuopt_thunks0[96];
 extern void* gpuopt_thunks1[96];
 void GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3);
@@ -129,6 +131,7 @@ std::string g_wine;
 volatile LONG g_state = (LONG)State::Off;
 volatile LONG g_batching = 0;
 volatile LONG g_dropUndo = 0;
+bool g_gpuProf = false;  // the GP profiler needs the hooks even with Barriers = 0 (batching then stays off)
 SRWLOCK g_installLock = SRWLOCK_INIT;
 
 uintptr_t g_exeLo = 0, g_exeHi = 0;
@@ -666,6 +669,7 @@ extern "C" void GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t
     const int slot = (int)(setSlot & 0xFF), set = (int)(setSlot >> 8);
     if (gpuopt_trace) TraceAdd(self, set, slot, 0, a1, a2, a3, kSlotInfo[slot].kind == kFlush);
     if (gpuopt_flush[slot]) FlushList(self, -1, slot);
+    if (gpuopt_hook[slot]) gp::OnListCall(self, set, slot, a1, a2, a3);  // GP: after the batch flush, before the method
 }
 
 namespace gpuopt {
@@ -685,7 +689,8 @@ void Start(const StartInfo& info) {
     g_cfg.installDelaySec = IniInt(L"InstallDelaySec", 20, 0, 600);
     GetPrivateProfileStringW(L"GpuOpt", L"DeferThreads", L"SynergisticDispatcher", g_cfg.deferThreads,
                              (DWORD)(sizeof g_cfg.deferThreads / sizeof(wchar_t)), g_iniPath.c_str());
-    if (!g_cfg.barriers && !g_cfg.traceRecords) {
+    g_gpuProf = info.gpuProf;
+    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf) {
         g_state = (LONG)State::Off;
         return;
     }
@@ -722,6 +727,7 @@ bool InstallNow() {
                 }
             }
             if (HANDLE h = CreateThread(nullptr, 0, WatchThread, nullptr, 0, nullptr)) CloseHandle(h);
+            if (g_gpuProf) gp::EnableHooks(gpuopt_hook, kSlots);
             g_state = (LONG)(g_batching ? State::Active : State::Paused);
             LOG("installed - batching %s", g_batching ? "ON" : "off (counters only)");
         } else {
@@ -751,6 +757,7 @@ void SetBatching(bool on) {
         InterlockedExchange(&g_state, (LONG)(on ? State::Active : State::Paused));
 }
 bool Batching() { return g_batching != 0; }
+int BarriersIni() { return g_cfg.barriers; }
 void SetMergeAcrossBinds(bool on) {
     g_cfg.mergeAcrossBinds = on ? 1 : 0;
     ApplyFlushMask();

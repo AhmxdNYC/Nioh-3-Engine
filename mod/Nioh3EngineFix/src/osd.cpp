@@ -30,7 +30,10 @@
 #include <cstring>
 #include <string>
 
+#include <intrin.h>
+#pragma intrinsic(_ReturnAddress)
 #include "gpuopt.h"
+#include "gpuprof.h"
 #include "menu.h"
 #include "osd.h"
 #include "osd_font.h"
@@ -582,8 +585,34 @@ int g_ctxBuilds = 0;
 bool g_needQueue = false;  // last BuildCtx failed only because no game DIRECT queue was captured yet
 int g_queueWaits = 0;
 
+// Only submissions made by the game itself (Nioh3.exe) or through Streamline's interposer count: the queues that FSR's
+// frame-interpolation library (and other middleware) creates internally are DIRECT too, die with their swapchain, and
+// crashed the game ~2 s after FG ON -> OFF under Proton (v9 log) when one of them was picked as the overlay queue.
+bool CallerIsGame(const void* ra) {
+    static uintptr_t exeLo = 0, exeHi = 0, slLo = 0, slHi = 0;
+    static volatile LONG tries = 0;
+    auto range = [](HMODULE m, uintptr_t& lo, uintptr_t& hi) {
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(m);
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(reinterpret_cast<const uint8_t*>(m) + dos->e_lfanew);
+        lo = (uintptr_t)m;
+        hi = lo + nt->OptionalHeader.SizeOfImage;
+    };
+    if (!exeHi) {
+        if (HMODULE m = GetModuleHandleW(nullptr)) range(m, exeLo, exeHi);
+    }
+    if (!slHi && (InterlockedIncrement(&tries) & 63) == 1) {  // sl.interposer may load late - look now and then
+        if (HMODULE m = GetModuleHandleW(L"sl.interposer.dll")) range(m, slLo, slHi);
+    }
+    const uintptr_t a = (uintptr_t)ra;
+    return (a >= exeLo && a < exeHi) || (slHi && a >= slLo && a < slHi);
+}
+
 void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D12CommandList* const* lists) {
     static thread_local bool lastIsDirect = false;
+    if (!CallerIsGame(_ReturnAddress())) {
+        g_origEcl(q, n, lists);
+        return;
+    }
     if (q != t_lastQ) {  // GetDesc only when this thread switches queues (a few times per frame at most)
         t_lastQ = q;
         lastIsDirect = q->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -640,7 +669,7 @@ void WaitIdle(Ctx& c, DWORD ms) {
 }
 
 void DestroyCtx(Ctx& c) {
-    WaitIdle(c, 500);
+    WaitIdle(c, 1500);  // the old context's last submission must be done before anything it uses is released
     if (c.upload && c.mapped) c.upload->Unmap(0, nullptr);
     SafeRelease(c.pso);
     SafeRelease(c.rs);
@@ -1018,6 +1047,7 @@ void OnPresent(IDXGISwapChain* sc) {
     }
     g_ctx.lastPresent = now;
     gpuopt::OnFrame();  // once per frame of the drawing (game) swapchain
+    gp::OnFrame();      // GP profiler: reads the timestamps of 6 frames ago
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
     UpdateStats(now);
     menu::OnPresent();  // menu input + runtime switches (needs a working drawing context, checked above)

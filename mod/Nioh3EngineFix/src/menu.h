@@ -75,6 +75,7 @@ struct Host {
     volatile uint32_t* tgCap = nullptr;           // TG limiter cap (0 = stock)
     volatile long* tgState = nullptr;             // TG state (0 off, 1 governing, 2 refused: L1, 3 VRR not armed, 4 idle)
     volatile long* dsWaits = nullptr;             // DS timer sleeps
+    const char* (*gpStatus)(char* buf, size_t n) = nullptr;  // GP profiler: frame ms + top 5 passes (empty = off)
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.

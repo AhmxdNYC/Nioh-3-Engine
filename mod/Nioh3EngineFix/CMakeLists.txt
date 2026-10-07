@@ -15,7 +15,7 @@ if(Python3_FOUND)
         COMMENT "Generating patches_gen.h from patches.json")
 endif()
 
-add_library(Nioh3EngineFix SHARED src/dllmain.cpp src/osd.cpp src/menu.cpp src/gpuopt.cpp src/memstats.cpp src/sp.cpp src/caves.asm src/gpuopt_thunks.asm src/patches_gen.h)
+add_library(Nioh3EngineFix SHARED src/dllmain.cpp src/osd.cpp src/menu.cpp src/gpuopt.cpp src/gpuprof.cpp src/memstats.cpp src/sp.cpp src/caves.asm src/gpuopt_thunks.asm src/patches_gen.h)
 set_target_properties(Nioh3EngineFix PROPERTIES
     SUFFIX ".asi"
     CXX_STANDARD 17

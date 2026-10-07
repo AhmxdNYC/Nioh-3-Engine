@@ -219,6 +219,8 @@ def main():
         elif k == "jmp":
             ok &= check(ln - 5 in (0, 1, 2, 3, 5), "%s: jmp does not fit / bad nop pad" % sid)
             ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
+        elif k == "check":
+            pass  # verified like every site (pattern, RVA, bytes), never written (GP marker code, 1.7.0)
         elif k == "ripload":
             ok &= check(ln == 6 and len(s["opcode"].split()) == 2, "%s: ripload must be 6 bytes" % sid)
             ok &= check(s.get("data") in gen_header.DATAS[1:], "%s: unknown data slot" % sid)
@@ -349,6 +351,16 @@ def main():
     cfg_path = img[0x4B736F0:0x4B736F0 + 520].decode("utf-16-le", "replace").split("\0")[0]
     fg_ok &= check(cfg_path.lower().endswith("\\koeitecmo\\nioh3\\config.xml"), "fg: config path string = %r" % cfg_path)
     print("fg: setter/gate/dirty bytes, %d references, descriptors 50/54, config path %s" % (len(fg_refs), "OK" if fg_ok else "DIFFER"))
+
+    # GP (1.7.0): the engine's marker token handlers (KtglTokenHandlerTable 3C02220, 8-byte pointers) - the mod checks
+    # the same entries at run time before it switches the markers on
+    gp_ok = True
+    for tok, rva, nm in ((0xA5, 0x114024, "SynTokBeginEvent"), (0xA6, 0x113FC8, "SynTokEndEvent"),
+                         (0xA0, 0xA96D70, "SynTokSetMarkerReplay"), (0x8E, 0xA96D90, "SynTokSetMarkerIface")):
+        v = struct.unpack_from("<Q", img, 0x3C02220 + tok * 8)[0]
+        gp_ok &= check(v == ib + rva, "gp: token table[%02X] = 0x%X, expected base+0x%X (%s)" % (tok, v, rva, nm))
+    gp_ok &= check(img[0x11409A:0x11409F] == bytes.fromhex("E8C5FDFFFF"), "gp: SynTokBeginEvent does not call SynBeginEvent 113E64")
+    print("gp: marker token handlers A5/A6/A0/8E and SynTokBeginEvent -> SynBeginEvent %s" % ("OK" if gp_ok else "DIFFER"))
 
     near = []
     for p in NIOH3FIX_PATTERNS:

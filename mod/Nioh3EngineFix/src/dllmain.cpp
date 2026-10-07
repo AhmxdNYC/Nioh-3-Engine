@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "gpuopt.h"
+#include "gpuprof.h"
 #include "sp.h"
 #include "memstats.h"
 #include "patches_gen.h"
@@ -32,7 +33,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.6.0"
+#define MOD_VERSION "1.7.0"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -289,6 +290,8 @@ struct Config {
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
     int ds = 0, dsMarginUs = 150;
     int lk = 0, cp = 0, spf = 0;
+    // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
+    int gpuProf = 0, gpuMarkers = 0;
 };
 
 Config LoadConfig() {
@@ -363,6 +366,8 @@ Config LoadConfig() {
     c.tgFloor = std::clamp(I(L"Tuning", L"TG_Floor", c.tgFloor), 24, 60);
     c.tgRatioPct = std::clamp(I(L"Tuning", L"TG_RatioPct", c.tgRatioPct), 100, 200);
     c.dsMarginUs = std::clamp(I(L"Tuning", L"DS_MarginUs", c.dsMarginUs), 50, 900);
+    c.gpuProf = I(L"Profiler", L"GPUProf", c.gpuProf);
+    c.gpuMarkers = I(L"Profiler", L"GPUProf_Markers", c.gpuMarkers);
     return c;
 }
 
@@ -1188,6 +1193,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LK")) return cfg.lk != 0;
         if (!strcmp(g, "CP")) return cfg.cp != 0;
         if (!strcmp(g, "SPF")) return cfg.spf != 0;
+        if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1630,6 +1636,22 @@ DWORD WINAPI Worker(LPVOID) {
     else if (vrrDone)
         Log("TG: tick governor available (switch %s, floor %d ticks/s, ratio %d %%)%s", g_tgEnable ? "ON" : "off", cfg.tgFloor,
             cfg.tgRatioPct, g_tgL1 ? "" : " - L1 is not installed, so TG will refuse to engage (Proton: L1OnWine = 1)");
+    // ---- 1.7.0 GP: verify the engine's marker code (check sites, deps, token table) before gpuprof writes the two flags
+    static bool s_gpCodeOk = false;
+    if ((cfg.gpuProf || cfg.gpuMarkers) && known) {
+        auto v = collect("GP");
+        bool ok = allFound(v) && DepsOk("GP");
+        const uint64_t* tok = reinterpret_cast<const uint64_t*>(g_base + 0x3C02220);  // KtglTokenHandlerTable
+        if (ok && (tok[0xA5] != (uint64_t)(uintptr_t)(g_base + 0x114024) || tok[0xA6] != (uint64_t)(uintptr_t)(g_base + 0x113FC8))) {
+            Log("GP: the marker token handlers (A5/A6) are not the engine's - GP off");
+            ok = false;
+        }
+        s_gpCodeOk = ok;
+        Log("GP: engine marker code %s (%zu check sites, deps, token table)", ok ? "verified" : "NOT as expected - GP off", v.size());
+    } else if (cfg.gpuProf || cfg.gpuMarkers) {
+        Log("GP: v2.02 only - off");
+    }
+
     static bool s_tgAvail = false;
     s_tgAvail = vrrDone;
     if (vrrDone) {
@@ -1717,6 +1739,7 @@ DWORD WINAPI Worker(LPVOID) {
                     pW = w; pT = tk;
                 }
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
+                if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
                 if (s_wlDone && sec % 30 == 0) {
                     static uint64_t pC = 0;
                     const uint64_t cl = wl_closed;
@@ -1861,6 +1884,7 @@ DWORD WINAPI Worker(LPVOID) {
         mh.w6Ticks = &g_w6Ticks;
         mh.tsInDispUs = &g_tsInDispUs;
         mh.gpuStatus = &GpuOptStatus;
+        mh.gpStatus = &gp::StatusLine;
         mh.gfWaits = &g_gfWaits;
         mh.gfTicks = &g_gfTicks;
         mh.gfFallbacks = &g_gfFallbacks;
@@ -1871,10 +1895,18 @@ DWORD WINAPI Worker(LPVOID) {
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:
            // the osd install thread calls gpuopt::InstallNow() once the engine renders.
+            gp::StartInfo pi;  // GP profiler (gpuprof.cpp): markers + timestamp queries through gpuopt's hooks
+            pi.log = &Log;
+            pi.iniPath = iniPath.c_str();
+            pi.base = g_base;
+            pi.codeOk = s_gpCodeOk;
+            pi.wine = wine;
+            gp::Start(pi);
             gpuopt::StartInfo gi;
             gi.log = &Log;
             gi.iniPath = iniPath.c_str();
             gi.wine = wine;
+            gi.gpuProf = gp::WantsHooks();
             gpuopt::Start(gi);
         }
         {  // sampling profiler (sp.cpp, [Profiler] SP = 0 by default): measurement only

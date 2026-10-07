@@ -485,6 +485,7 @@ bool Rd(const void* p, T& out) {
 // ---- frame generation through the game's own setter --------------------------------------------------------------------
 bool g_fgOk = false;         // setter, gate and dirty store verified, and [Menu] FrameGenToggle allows it (1 / 2 on Proton)
 bool g_fgChanged = false;    // changed from this menu this session: "Save to ini" also writes config.xml (Proton: OFF only)
+bool g_fgNextLaunch = false;  // Proton: FG ON -> OFF written to config.xml, applies at the next launch
 int g_fgLastOn = 2;          // A/Enter turns FG on with this type (FSR unless another one was picked)
 ULONGLONG g_fgChangedAt = 0;
 const int kFgCycle[] = {0, 2, 3, 1};  // OFF, FSR, XeSS, DLSS (unavailable types are skipped)
@@ -885,6 +886,9 @@ void FgValue(int id, char* buf, size_t n, uint32_t& color) {
     if (!name) {
         snprintf(buf, n, "?%s", ro);
         color = cDim;
+    } else if (g_fgNextLaunch && s.setting != 0) {
+        snprintf(buf, n, "FG off at next launch");
+        color = cOrange;
     } else if (s.setting == 0) {
         snprintf(buf, n, "OFF%s", ro);
         color = cGray;
@@ -1030,7 +1034,8 @@ void StartSave() {
             v = 2;
         add(L"Patches", kExpIniKey[e], std::to_wstring(v));
     }
-    if (Available(kGpu)) add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : L"2");
+    if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
+        add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
     add(L"Latency", L"MaxFrameLatency", std::to_wstring(osd::Overlay().maxLatency));
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
@@ -1129,6 +1134,21 @@ void ChangeFg(int dir) {
         want = kFgCycle[i];
     }
     if (want == cur) return;
+    if (g_host.wine && cur != 0 && want == 0) {
+        // Proton: rebuilding the swapchain away from FSR frame generation crashed the game (v9 log). So FG ON -> OFF is
+        // applied at the next launch: config.xml gets FRAME_GENERATION OFF now, the game keeps running as it is.
+        g_fgChangedAt = t;
+        const std::wstring path = GameConfigPath();
+        const int r = path.empty() ? 3 : WriteGameConfigFg(path, "OFF");
+        if (r != 3) {
+            if (g_fgAtStart == "OFF") SetFgMarker();
+            g_fgNextLaunch = true;
+            g_dirty = true;
+        }
+        MLOG("Frame generation %s -> OFF on Proton: %s (live swapchain rebuild skipped - it crashed the game)",
+             osd::FgTypeName(cur), r != 3 ? "config.xml set to OFF, takes effect at the next launch" : "config.xml could NOT be written");
+        return;
+    }
     const int got = CallFgWrite(want);
     g_fgChangedAt = t;
     const char* a = osd::FgTypeName(cur);
@@ -1575,6 +1595,15 @@ float DrawImpl(unsigned W, unsigned H) {
         char line[128];
         snprintf(line, sizeof(line), "GPU: %s", gs);
         add(line, "", cGray, cWhite, false, false);
+    }
+    if (g_host.gpStatus) {  // GP profiler (1.7.0): GPU frame time and the top 5 passes
+        char gs[200];
+        g_host.gpStatus(gs, sizeof(gs));
+        if (gs[0]) {
+            char line[220];
+            snprintf(line, sizeof(line), "GP: %s", gs);
+            add(line, "", cCyan, cWhite, false, false);
+        }
     }
     // footer / save status
     const LONG ss = g_saveState;
