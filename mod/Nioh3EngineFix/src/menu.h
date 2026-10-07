@@ -21,7 +21,9 @@ namespace menu {
 enum class FixState : uint8_t { Installed, NotInstalled, WineSkipped };
 
 // experimental CPU-power patches (ini default 0), in menu order
-enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kExpE1, kExpM2, kExpJ1, kExpS1, kNumExp };
+enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kExpE1, kExpM2, kExpJ1, kExpS1,
+                   kExpIK, kExpTS,  // input latency (1.2.0)
+                   kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)
     int ini = 0;                          // ini value at launch
@@ -59,6 +61,7 @@ struct Host {
     volatile uint64_t *fpcHits = nullptr, *fpcMisses = nullptr, *e1Upd = nullptr, *e1Skip = nullptr;
     volatile long *w6Waits = nullptr, *w6Sleeps = nullptr;
     volatile long long* w6Ticks = nullptr;
+    volatile long* tsInDispUs = nullptr;  // TS: input -> display median (us), -1 = no data yet
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.

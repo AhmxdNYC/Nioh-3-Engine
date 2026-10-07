@@ -74,3 +74,12 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - New: `gpu-shaders\ally_shaders.sh` - Linux status/apply/revert for the staged GHDM/ESM/WDO#28 swaps (sha256-checked, exact revert, refuses while Nioh3.exe runs; tested on a scratch copy only).
 - Symbols: `re\symbols\incoming\gpu-maxsettings.tsv` (13 rows, not merged).
 - Undo: nothing was applied. If ally_shaders.sh was used: `./ally_shaders.sh revert all` or Steam verify.
+
+## 2026-10-07 04:50 - ASI 1.2.0 (v6): input latency IK + TS, MaxFrameLatency default back to the game's (memory only; nothing run in-game)
+- IK (ini IK, default 0; Ally zip IK = 1): port of patcher\latency_live.fsx. 5AB6CF `call InputWorkerKick` -> caveIkKick (skipped while the per-frame latch is set), 5ACAAA `call InputWorkerWaitPadStage` -> caveIkPadWait (latch; IK: kick + KtglEventWaitFor(padStageEvent, IK_PadWaitCapMs = 2)). Switching off never skips a poll; the switch-on frame polls twice (documented). Live menu switch. Stats: kicks at frame end/start, input age K->C, wait timeouts.
+- TS (ini TS, default 0; Ally zip TS = 1): probes K/C/L(5AD2BB)/W(4A52D4)/B(4A535E)/P(3D6552) into a 4096-entry ring; 30 s log line with K->C, C->L, L->W, W->B, B->P, C->C, P->P, K->P medians and input->display B(n+1)-K(n); menu row "TS input -> display" shows the median (every 2 s). TSb uses the R1-independent pattern; the pattern test checks it still matches with R1j written.
+- patches.json: 6 sites + 5 deps (86C018 bytes, QpcNow, unused results/flags). Test: ALL 61 SITES OK, deps 26/26, coexistence OK. No branch lands inside the 6 sites (re\scripts_latency\branch_into_sites.fsx: 0 hits).
+- MaxFrameLatency: the game never sets it (value 1); under vkd3d lowering applies only after a swapchain rebuild/restart - menu text and docs say so; Ally zip back to MaxFrameLatency = 0.
+- Docs follow the scope rule (game-side only): README-ALLY A/B recipes run in the stock environment (no env vars, power profiles or in-game changes); latency A/B order: baseline, MaxFrameLatency 2, IK on.
+- Ally zip rebuilt: WorkerCap = 10, W6 = 1 (confirmed on the Ally), IK = 1, TS = 1, MaxFrameLatency = 0.
+- Undo: IK = 0 / TS = 0 (or the menu switches), or the previous .asi.

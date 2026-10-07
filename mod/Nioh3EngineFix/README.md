@@ -46,15 +46,31 @@ bytes and the original code it depends on (`patches.json` `deps`) are verified.
 | **E1** | Effects nobody can see (NoDisp) update every `E1_N`-th pass (2) with N× the time step. Visible effects untouched. | game update | re\scripts_fx\fx_live.fsx | yes | skipped/s |
 | **S1** | `PAUSE` in the main thread's end-of-frame busy spin on the dispatcher (418F68, 17 bytes). | [App]Game | re\scripts_d3d12\drainspin_pause.fsx | next launch | - |
 
+**W6 is confirmed on the ROG Ally** (FG off): main thread 98 % -> 23 % CPU, GPU clock 1064 -> 1450 MHz, +7-12 % fps.
+The others are still untested in-game.
+
 Skipped: none of the requested patches. AABB's optional call counter (`count` mode of the script) was not ported (a
 shared counter on a multi-threaded hot path).
 
-### Input latency (1.1.0)
+### Input latency (1.2.0) - notes\input-latency.md
+| Key | What | Live switch | Stats |
+|---|---|---|---|
+| **IK** | Late input kick: the pad poll (`InputWorkerKick` 5AB7B0) is kicked at the **start** of the logic frame, right before the engine's own pad-stage wait (5ACAAA), instead of at the end of the previous frame (5AB6CF, before the frame limiter). The sample is ~4-9 ms fresher when consumed; still one poll per logic frame, so button edges behave as stock. The switch is latched once per frame at 5ACAAA: switching IK off never skips a poll; **the frame IK is switched on polls twice** (a press in that frame can read as "held" instead of "pressed" - toggle while idle). The fresh-poll wait is capped at `IK_PadWaitCapMs` (2). Safe online (only the read time moves). | yes | `stats latency:` kicks at frame end / start, input age K->C mean/max, wait timeouts |
+| **TS** | Timestamp probes, measurement only: K (pad kick), C (pad consumed), L (limiter exit 5AD2BB), W (render begin 4A52D4), B (after the waitable wait 4A535E), P (present hand-off 3D6552) into a 4096-entry ring. Every 30 s the log prints medians of K->C, C->L, L->W, W->B, B->P, C->C, P->P, K->P and **input->display = B(n+1) - K(n)** (on vkd3d the latency-1 waitable releases B when the previous frame was presented; add half a refresh for mid-screen). The menu row *TS input -> display* shows that median, updated every 2 s. TS needs the IK sites (installed with IK off when only TS = 1). | yes | as described |
+
+Ports of `patcher\latency_live.fsx` (same 6 sites, same original-byte checks, patterns from
+`re\scripts_latency\derive_lat_patterns.fsx`). TSb uses the R1-independent pattern (`75 ??`): it starts on R1j's bytes,
+and the pattern test checks it still matches once R1j is written. The pad-stage event and `KtglEventWaitFor` are read
+from the verified bytes of 86C018.
+
 `[Latency] MaxFrameLatency = N` (0 = the game's value) calls `IDXGISwapChain2::SetMaximumFrameLatency(N)` on every
-presenting swapchain that was created with `DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT` (the game's FG chain
-has flags 0x842). The game's own value is logged (`MaxFrameLatency: ... the game's maximum frame latency is N`); it is
-re-checked every 2 s, so rebuilt swapchains (FG toggle, resize) get it again, and 0 puts the game's value back. Live
-menu item *Max frame latency*: game / 1 / 2 / 3. 1 = least input delay.
+presenting swapchain that was created with `DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT` (the game's chain has
+flags 0x842). **The game never calls SetMaximumFrameLatency, so its value is the default 1** (the lowest latency); 2-3
+is a throughput lever when the GPU is the limit, at up to one frame more delay. Under vkd3d-proton
+SetMaximumFrameLatency only ever adds permits: raising it applies at once, **lowering it applies only after the
+swapchain is rebuilt or the game restarts** (the menu says so). For an A/B set it in the ini and restart. The game's
+value is logged; the setting is re-checked every 2 s, so rebuilt swapchains get it again. Live menu item *Max frame
+latency*: game / 1 / 2 / 3.
 
 ### FPS counter (1.1.0)
 * **FPS** = frames the game renders and presents. **FG FPS** = frames shown including generated ones.
@@ -133,6 +149,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * `[Patches]` also has the experimental keys `W6 B PP FPC AABB M1 M2 J1 X1 E1 S1` (0 = off, see above).
 * `[Tuning]`: W3/R1 wait times and the L1 margin. The defaults match the tested values. Experimental:
   `PP_Period` (2/4/8/16), `E1_N` (1/2/4/8), `W6_SpinUs` (0-2000), `W6_TimeoutMs` (1-16).
+* `[Patches] IK`, `TS` (input latency, 0 = off) and `[Tuning] IK_PadWaitCapMs` (1-8, default 2).
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
@@ -159,7 +176,8 @@ game's pause menu, or on the title screen.
 What it shows:
 * **Live fixes, applied at once:** VRR timing, W3 message-pump wait (and its Proton sleep mode), R1 render-wait
   timeout (0 = stock busy poll), L1 frame-limiter sleep, F1 FSR frame-gen presenter sleep, WK job wake gate, Max frame
-  latency (game / 1 / 2 / 3).
+  latency (game / 1 / 2 / 3; under Proton lowering applies after a swapchain rebuild / restart).
+* **Input latency:** IK input kick early (live), TS input -> display (live; shows the median in ms).
 * **Experimental CPU power:** W6, B, PP, FPC, AABB, M1, X1, E1 (live when installed; when not installed, toggling sets the
   ini key for the next launch, `* restart`), M2, J1, S1 (next launch). An `Exp/s` stats line shows W6 waits and
   average wait, PP skips, FPC hit rate, M1 refreshes, X1 and E1 skips.

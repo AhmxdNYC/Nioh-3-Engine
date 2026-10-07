@@ -694,12 +694,12 @@ void NoteFgSwitchProton(int want) {
 
 // ---- items ----------------------------------------------------------------------------------------------------------
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
-          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1,  // order = menu::ExpId
+          kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS,  // order = menu::ExpId
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXS1 - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXS1; }
-const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1"};
+static_assert(kXTS - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXTS; }
+const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS"};
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -713,7 +713,7 @@ const ItemDef kItems[kCount] = {
     {nullptr, "L1 frame limiter sleep", "Frame limiter sleeps on a high-resolution timer instead of spinning."},
     {nullptr, "F1 FSR-FG presenter", "FSR frame-gen presenter sleeps instead of spinning (FG on only)."},
     {nullptr, "WK job wake gate", "Skips waking a job worker when no queue holds work (less CPU power)."},
-    {nullptr, "Max frame latency", "Frames queued ahead of the GPU: 1 = least input delay. game = the game's own value."},
+    {nullptr, "Max frame latency", "Frames queued ahead (game: 1). Proton: lowering applies after swapchain rebuild / restart."},
     {"EXPERIMENTAL CPU POWER - A/B live", "W6 present wait", "Main thread sleeps while Present blocks, instead of Sleep(0)-spinning a core."},
     {nullptr, "B gallop search", "Draw-list group length: galloping instead of full binary search (main thread)."},
     {nullptr, "PP page-pool sweep /N", "Streaming page-pool usage sweep every N-th frame (Tuning PP_Period, default 4)."},
@@ -725,6 +725,8 @@ const ItemDef kItems[kCount] = {
     {nullptr, "M2 meshlet atomics", "Meshlet workers read bitmaps with plain loads (code bytes: next launch)."},
     {nullptr, "J1 job-queue polls", "Idle job workers poll queues with plain loads (code bytes: next launch)."},
     {nullptr, "S1 drain-spin pause", "PAUSE in the main thread's end-of-frame spin (code bytes: next launch)."},
+    {"INPUT LATENCY", "IK input kick early", "Pad read at the start of the logic frame, not the end (-4..9 ms). Toggle while idle."},
+    {nullptr, "TS input -> display", "Timestamp probes: median button-sample -> frame presented (add half a refresh)."},
     {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
     {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},
     {nullptr, "Speed factor", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow."},
@@ -804,6 +806,13 @@ void ExpValue(int id, char* buf, size_t n, uint32_t& color, uint32_t cGreenC, ui
     const ExpFix& x = g_host.exp[e];
     if (x.enable) {
         const bool on = *x.enable != 0;
+        if (e == kExpTS && on) {  // the measurement itself: median input -> display
+            const long us = g_host.tsInDispUs ? *g_host.tsInDispUs : -1;
+            if (us >= 0) snprintf(buf, n, "ON  %.1f ms", us / 1000.0);
+            else snprintf(buf, n, "ON  measuring...");
+            color = cGreenC;
+            return;
+        }
         snprintf(buf, n, "%s", on ? "ON" : "OFF");
         color = on ? cGreenC : cGrayC;
         return;

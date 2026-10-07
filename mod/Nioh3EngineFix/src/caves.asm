@@ -829,4 +829,232 @@ w6WakeSlow PROC FRAME
     ret
 w6WakeSlow ENDP
 
+; =================================================================================================================
+; INPUT LATENCY (1.2.0): IK late input kick + TS timestamp probes. 1:1 port of patcher\latency_live.fsx
+; (notes\input-latency.md 6.1 / 6.3). Engine functions are reached through absolute pointers set by dllmain.
+; Probe ids in the ring: 1 K (pad kick), 2 C (pad consumed), 3 W (render begin), 4 B (after the waitable wait),
+; 5 P (present handed to the present thread), 6 L (limiter exit).
+; =================================================================================================================
+PUBLIC caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP
+PUBLIC lat_ik, lat_ts, lat_iklatch, lat_cap, lat_qpcNow, lat_inputKick, lat_padWait1, lat_padWaitN, lat_padEvent
+PUBLIC lat_latMarker, lat_iatSetEvent, lat_lastkick, lat_agesum, lat_agecnt, lat_agemax, lat_timeouts, lat_ringidx
+PUBLIC lat_kstock, lat_kik, lat_ring
+
+latdata SEGMENT ALIGN(64) READ WRITE 'DATA'
+lat_ik          DD 0            ; IK switch (live)
+lat_ts          DD 0            ; TS switch (live)
+lat_iklatch     DD 0            ; IK state latched at the last logic-frame start
+                DD 0
+lat_cap         DQ 2            ; duration for KtglEventWaitFor (stock pad-stage wait passes 1 = 1 ms)
+lat_qpcNow      DQ 0            ; Nioh3+205530 QpcNow
+lat_inputKick   DQ 0            ; Nioh3+5AB7B0 InputWorkerKick (callee of the IK site)
+lat_padWait1    DQ 0            ; Nioh3+86C018 InputWorkerWaitPadStage (callee of IKc)
+lat_padWaitN    DQ 0            ; Nioh3+86C040 KtglEventWaitFor(event*, duration*)
+lat_padEvent    DQ 0            ; Nioh3+45C39B0 pad-stage event
+lat_latMarker   DQ 0            ; Nioh3+6B8D34 (callee of TSb)
+lat_iatSetEvent DQ 0            ; &IAT slot SetEvent (Nioh3+38E2348)
+ALIGN 64
+lat_lastkick    DQ 0            ; QPC of the last kick
+lat_agesum      DQ 0            ; input age K->C (QPC ticks)
+lat_agecnt      DQ 0
+lat_agemax      DQ 0
+lat_timeouts    DQ 0            ; IK pad-stage waits that hit the cap
+lat_kstock      DQ 0            ; kicks at frame end (stock position)
+lat_kik         DQ 0            ; kicks at frame start (IK)
+ALIGN 64
+lat_ringidx     DQ 0
+latdata ENDS
+
+.data?
+ALIGN 16
+lat_ring        DB 10000h DUP(?) ; 4096 x {QPC, id}
+
+.code
+
+; stamp: rax = QPC, ecx = id. Clobbers r10, r11, flags only.
+latStamp PROC
+    cmp     dword ptr [lat_ts], 0
+    je      lsOut
+    mov     r10d, 1
+    lock xadd qword ptr [lat_ringidx], r10
+    and     r10d, 4095
+    shl     r10, 4
+    lea     r11, lat_ring
+    add     r10, r11
+    mov     qword ptr [r10], rax
+    mov     qword ptr [r10+8], rcx
+lsOut:
+    ret
+latStamp ENDP
+
+; K: replaces `call InputWorkerKick` at the end of the logic frame (5AB6CF). IK active this frame -> skip (the kick
+; already happened at the frame start).
+caveIkKick PROC FRAME
+    sub     rsp, 28h
+    .allocstack 28h
+    .endprolog
+    cmp     dword ptr [lat_iklatch], 0
+    jne     kSkip
+    call    qword ptr [lat_qpcNow]
+    mov     qword ptr [lat_lastkick], rax
+    inc     qword ptr [lat_kstock]
+    mov     ecx, 1
+    call    latStamp
+    add     rsp, 28h
+    jmp     qword ptr [lat_inputKick]
+kSkip:
+    add     rsp, 28h
+    ret
+caveIkKick ENDP
+
+; C: replaces `call InputWorkerWaitPadStage` at the start of the logic frame (5ACAAA, same G+646h gate as the stock
+; kick). The switch is latched once per frame: IK path if IK is on now OR was on last frame, so switching IK off still
+; polls once here (last frame's end kick was skipped). The frame IK is switched ON polls twice (end kick + here).
+caveIkPadWait PROC FRAME
+    sub     rsp, 28h
+    .allocstack 28h
+    .endprolog
+    mov     eax, dword ptr [lat_ik]
+    mov     ecx, dword ptr [lat_iklatch]
+    mov     dword ptr [lat_iklatch], eax
+    or      eax, ecx
+    je      cStock
+    call    qword ptr [lat_qpcNow]
+    mov     qword ptr [lat_lastkick], rax
+    inc     qword ptr [lat_kik]
+    mov     ecx, 1
+    call    latStamp
+    call    qword ptr [lat_inputKick]
+    mov     rcx, qword ptr [lat_padEvent]
+    lea     rdx, lat_cap
+    call    qword ptr [lat_padWaitN]
+    test    al, al
+    jne     cMeas
+    lock inc qword ptr [lat_timeouts]
+    jmp     cMeas
+cStock:
+    call    qword ptr [lat_padWait1]
+cMeas:
+    call    qword ptr [lat_qpcNow]
+    mov     rdx, qword ptr [lat_lastkick]
+    test    rdx, rdx
+    je      cNoAge
+    mov     rcx, rax
+    sub     rcx, rdx
+    js      cNoAge
+    add     qword ptr [lat_agesum], rcx
+    inc     qword ptr [lat_agecnt]
+    cmp     rcx, qword ptr [lat_agemax]
+    jbe     cNoAge
+    mov     qword ptr [lat_agemax], rcx
+cNoAge:
+    mov     ecx, 2
+    call    latStamp
+    add     rsp, 28h
+    ret
+caveIkPadWait ENDP
+
+; L: replaces `mov [r15],rdx; xorps xmm1,xmm1` (5AD2BB, call + nop). rdx = limiter exit QPC. Flags are dead after it
+; (5AD2C1 test rbx,rbx).
+caveTsL PROC FRAME
+    push    rax
+    .pushreg rax
+    push    rcx
+    .pushreg rcx
+    push    rdx
+    .pushreg rdx
+    push    r10
+    .pushreg r10
+    push    r11
+    .pushreg r11
+    sub     rsp, 20h
+    .allocstack 20h
+    .endprolog
+    mov     qword ptr [r15], rdx
+    xorps   xmm1, xmm1
+    mov     rax, rdx
+    mov     ecx, 6
+    call    latStamp
+    add     rsp, 20h
+    pop     r11
+    pop     r10
+    pop     rdx
+    pop     rcx
+    pop     rax
+    ret
+caveTsL ENDP
+
+; W: replaces `call QpcNow` at RenderFrameBegin entry (4A52D4); returns the QPC in rax.
+caveTsW PROC FRAME
+    sub     rsp, 28h
+    .allocstack 28h
+    .endprolog
+    call    qword ptr [lat_qpcNow]
+    mov     ecx, 3
+    call    latStamp
+    add     rsp, 28h
+    ret
+caveTsW ENDP
+
+; B: replaces `call 6B8D34` right after the frame-latency (waitable) wait (4A535E); keeps rcx/rdx/r8/r9/xmm0-3.
+caveTsB PROC
+    cmp     dword ptr [lat_ts], 0
+    jne     tsBSlow
+    jmp     qword ptr [lat_latMarker]
+caveTsB ENDP
+
+tsBSlow PROC FRAME
+    push    rcx
+    .pushreg rcx
+    push    rdx
+    .pushreg rdx
+    push    r8
+    .pushreg r8
+    push    r9
+    .pushreg r9
+    sub     rsp, 68h
+    .allocstack 68h
+    .endprolog
+    movdqu  xmmword ptr [rsp+20h], xmm0
+    movdqu  xmmword ptr [rsp+30h], xmm1
+    movdqu  xmmword ptr [rsp+40h], xmm2
+    movdqu  xmmword ptr [rsp+50h], xmm3
+    call    qword ptr [lat_qpcNow]
+    mov     ecx, 4
+    call    latStamp
+    movdqu  xmm0, xmmword ptr [rsp+20h]
+    movdqu  xmm1, xmmword ptr [rsp+30h]
+    movdqu  xmm2, xmmword ptr [rsp+40h]
+    movdqu  xmm3, xmmword ptr [rsp+50h]
+    add     rsp, 68h
+    pop     r9
+    pop     r8
+    pop     rdx
+    pop     rcx
+    jmp     qword ptr [lat_latMarker]
+tsBSlow ENDP
+
+; P: replaces `call [SetEvent]` (3D6552, call + nop) in GfxDevicePresent; rcx = event handle.
+caveTsP PROC
+    cmp     dword ptr [lat_ts], 0
+    jne     tsPSlow
+tsPGo::
+    mov     rax, qword ptr [lat_iatSetEvent]
+    jmp     qword ptr [rax]
+caveTsP ENDP
+
+tsPSlow PROC FRAME
+    push    rcx
+    .pushreg rcx
+    sub     rsp, 20h
+    .allocstack 20h
+    .endprolog
+    call    qword ptr [lat_qpcNow]
+    mov     ecx, 5
+    call    latStamp
+    add     rsp, 20h
+    pop     rcx
+    jmp     tsPGo
+tsPSlow ENDP
+
 END

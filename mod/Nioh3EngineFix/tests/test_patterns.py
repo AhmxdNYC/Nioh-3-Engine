@@ -245,6 +245,19 @@ def main():
         ranges.append((rva, rva + ln, sid))
         print("%-4s %-8s %9X %4d %6d  %s" % (sid, s["group"], rva, ln, len(hits), "OK" if ok else "FAIL"))
 
+    # coexistence: TSb sits 5 bytes after R1j; its pattern must still match once R1/R1j are written (R1 first)
+    by_id = {s["id"]: s for s in doc["sites"]}
+    if "TSb" in by_id and "R1j" in by_id:
+        r1img = bytearray(img)
+        for sid in ("R1j",):
+            s = by_id[sid]
+            a = int(s["rva"], 16)
+            r1img[a:a + s["len"]] = bytes(int(x, 16) for x in s["new"].split())
+        hits_r1 = find_all(bytes(r1img), secs, by_id["TSb"]["pattern"])
+        check(hits_r1 == [int(by_id["TSb"]["rva"], 16) - by_id["TSb"]["offset"]],
+              "TSb pattern does not survive R1j being patched (%d hits)" % len(hits_r1))
+        print("coexistence: TSb pattern still unique with R1j written: %s" % ("OK" if len(hits_r1) == 1 else "FAIL"))
+
     # dependencies of the caves: original code they reproduce or rely on beyond their own site
     deps = doc.get("deps", [])
     groups = {s["group"] for s in doc["sites"]}

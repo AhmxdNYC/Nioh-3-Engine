@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr };
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -116,6 +116,12 @@ static const uint8_t orig_W6[] = { 0x33, 0xC9, 0xFF, 0x15, 0x8E, 0x84, 0x10, 0x0
 static const uint8_t orig_W6W[] = { 0xC6, 0x83, 0x28, 0x77, 0x00, 0x00, 0x00 };
 static const uint8_t orig_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x0F, 0xB6, 0x05, 0x2B, 0x59, 0x1B, 0x04, 0x84, 0xC0, 0x75, 0xE7 };
 static const uint8_t repl_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x84, 0xC0, 0x74, 0x07, 0xF3, 0x90, 0xEB, 0xEA, 0x0F, 0x1F, 0x00 };
+static const uint8_t orig_IK[] = { 0xE8, 0xDC, 0x00, 0x00, 0x00 };
+static const uint8_t orig_IKc[] = { 0xE8, 0x69, 0xF5, 0x2B, 0x00 };
+static const uint8_t orig_TSl[] = { 0x49, 0x89, 0x17, 0x0F, 0x57, 0xC9 };
+static const uint8_t orig_TSw[] = { 0xE8, 0x57, 0x02, 0xD6, 0xFF };
+static const uint8_t orig_TSb[] = { 0xE8, 0xD1, 0x39, 0x21, 0x00 };
+static const uint8_t orig_TSp[] = { 0xFF, 0x15, 0xF0, 0xBD, 0x50, 0x03 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -173,6 +179,12 @@ static const Site kSites[] = {
     { "W6", "W6", 0x7D9EA2, 8, orig_W6, "74 11 33 C9 FF 15 ?? ?? ?? ?? 80 BB 28 77 00 00 00", 2, Kind::Call, nullptr, Target::caveW6, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "W6W", "W6W", 0x1A822D9, 7, orig_W6W, "48 8B 05 ?? ?? ?? ?? C6 83 28 77 00 00 00 48 85 C0", 7, Kind::Call, nullptr, Target::caveW6Wake, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "S1", "S1", 0x418F68, 17, orig_S1, "88 05 ?? ?? ?? ?? 0F B6 05 ?? ?? ?? ?? 84 C0 75 E7 48 8D 4C 24 20", 0, Kind::Bytes, repl_S1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "IK", "IK", 0x5AB6CF, 5, orig_IK, "48 8B CF E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B D7 E8 ?? ?? ?? ??", 8, Kind::Call, nullptr, Target::caveIkKick, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5AB7B0 },
+    { "IKc", "IK", 0x5ACAAA, 5, orig_IKc, "48 8B 13 48 8B CF E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ??", 11, Kind::Call, nullptr, Target::caveIkPadWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x86C018 },
+    { "TSl", "TS", 0x5AD2BB, 6, orig_TSl, "48 8B 7C 24 38 49 89 17 0F 57 C9 48 85 DB", 5, Kind::Call, nullptr, Target::caveTsL, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "TSw", "TS", 0x4A52D4, 5, orig_TSw, "48 8B D9 E8 ?? ?? ?? ?? 45 33 FF 48 89 44 24 30", 3, Kind::Call, nullptr, Target::caveTsW, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x205530 },
+    { "TSb", "TS", 0x4A535E, 5, orig_TSb, "85 C0 75 ?? 48 8D 54 24 40 E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ??", 9, Kind::Call, nullptr, Target::caveTsB, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x6B8D34 },
+    { "TSp", "TS", 0x3D6552, 6, orig_TSp, "89 AF 3C 77 00 00 FF 15 ?? ?? ?? ?? EB 5B 48 8B 05 ?? ?? ?? ??", 6, Kind::Call, nullptr, Target::caveTsP, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -192,6 +204,11 @@ static const uint8_t dep_16[] = { 0x48, 0x8B, 0x0D, 0x91, 0x46, 0x18, 0x04 };
 static const uint8_t dep_18[] = { 0x80, 0xB9, 0x28, 0x77, 0x00, 0x00, 0x00 };
 static const uint8_t dep_19[] = { 0x80, 0xBB, 0x28, 0x77, 0x00, 0x00, 0x00, 0x75, 0xEF };
 static const uint8_t dep_20[] = { 0xFF, 0x50, 0x40 };
+static const uint8_t dep_21[] = { 0x48, 0x89, 0x4C, 0x24, 0x08, 0x48, 0x83, 0xEC, 0x28, 0x48, 0x8D, 0x54, 0x24, 0x30, 0x48, 0xC7, 0x44, 0x24, 0x30, 0x01, 0x00, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0x7A, 0x79, 0xD5, 0x03, 0xE8, 0x05, 0x00, 0x00, 0x00, 0x48, 0x83, 0xC4, 0x28, 0xC3 };
+static const uint8_t dep_22[] = { 0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0x05 };
+static const uint8_t dep_23[] = { 0xE8, 0xE4, 0x1A, 0x02, 0x00 };
+static const uint8_t dep_24[] = { 0x48, 0x85, 0xDB };
+static const uint8_t dep_25[] = { 0xEB, 0x5B };
 static const Dep kDeps[] = {
     { "PP", 0x2522C4, 6, dep_0, 0 },  // PagePoolScanAll prologue
     { "PP", 0x252303, 7, dep_1, 0 },  // cmp byte [rbx+238h],0 (pool+B28h branch)
@@ -214,6 +231,11 @@ static const Dep kDeps[] = {
     { "W6", 0x7D9E96, 7, dep_18, 0 },  // cmp byte [rcx+7728h],0 (present-pending flag)
     { "W6", 0x7D9EAA, 9, dep_19, 0 },  // loop re-check after the patched call
     { "W6W", 0x1A822CF, 3, dep_20, 0 },  // swapchain->Present just before the clear
+    { "IK", 0x86C018, 40, dep_21, 0 },  // InputWorkerWaitPadStage: wait_for(&padStageEvent 45C39B0, 1) via KtglEventWaitFor 86C040
+    { "IK", 0x205530, 7, dep_22, 0 },  // QpcNow (stamps / input age)
+    { "IK", 0x5ACAAF, 5, dep_23, 0 },  // the pad-stage wait's result is not used after 5ACAAA
+    { "TS", 0x5AD2C1, 3, dep_24, 0 },  // flags dead after the limiter-exit site (test rbx,rbx)
+    { "TS", 0x3D6558, 2, dep_25, 0 },  // SetEvent result unused after the present hand-off
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

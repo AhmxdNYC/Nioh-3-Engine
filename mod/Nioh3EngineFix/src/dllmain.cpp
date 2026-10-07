@@ -28,7 +28,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.1.0"
+#define MOD_VERSION "1.2.0"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -81,6 +81,17 @@ extern uint32_t e1_enable, e1_mask, e1_pass;
 extern float e1_scale;
 extern uint64_t e1_upd, e1_skip, e1_aback, e1_enq;
 extern uint32_t w6_waiting;
+// input latency (IK / TS)
+void caveIkKick();
+void caveIkPadWait();
+void caveTsL();
+void caveTsW();
+void caveTsB();
+void caveTsP();
+extern uint32_t lat_ik, lat_ts, lat_iklatch;
+extern uint64_t lat_cap, lat_qpcNow, lat_inputKick, lat_padWait1, lat_padWaitN, lat_padEvent, lat_latMarker, lat_iatSetEvent;
+extern uint64_t lat_lastkick, lat_agesum, lat_agecnt, lat_agemax, lat_timeouts, lat_ringidx, lat_kstock, lat_kik;
+extern uint8_t lat_ring[];
 extern uint64_t w6_wakeAll, w6_wakes;
 }
 
@@ -177,6 +188,8 @@ struct Config {
     // experimental CPU-power patches (known build only; 0 = not installed)
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
     int ppPeriod = 4, e1N = 2, w6SpinUs = 50, w6TimeoutMs = 1;
+    // input latency (1.2.0)
+    int ik = 0, ts = 0, ikCapMs = 2;
 };
 
 Config LoadConfig() {
@@ -232,6 +245,9 @@ Config LoadConfig() {
     if (c.e1N != 1 && c.e1N != 2 && c.e1N != 4 && c.e1N != 8) c.e1N = 2;
     c.w6SpinUs = std::clamp(I(L"Tuning", L"W6_SpinUs", c.w6SpinUs), 0, 2000);
     c.w6TimeoutMs = std::clamp(I(L"Tuning", L"W6_TimeoutMs", c.w6TimeoutMs), 1, 16);
+    c.ik = I(L"Patches", L"IK", c.ik);
+    c.ts = I(L"Patches", L"TS", c.ts);
+    c.ikCapMs = std::clamp(I(L"Tuning", L"IK_PadWaitCapMs", c.ikCapMs), 1, 8);
     return c;
 }
 
@@ -397,11 +413,17 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveE1B: return (void*)&caveE1B;
         case gen::Target::caveW6: return (void*)&caveW6;
         case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
+        case gen::Target::caveIkKick: return (void*)&caveIkKick;
+        case gen::Target::caveIkPadWait: return (void*)&caveIkPadWait;
+        case gen::Target::caveTsL: return (void*)&caveTsL;
+        case gen::Target::caveTsW: return (void*)&caveTsW;
+        case gen::Target::caveTsB: return (void*)&caveTsB;
+        case gen::Target::caveTsP: return (void*)&caveTsP;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveW6Wake;
+constexpr int kLastTarget = (int)gen::Target::caveTsP;
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -485,6 +507,78 @@ bool DepsOk(const char* group) {
         }
     }
     return true;
+}
+
+// ---- TS: per-stage medians from the probe ring (patcher\latency_live.fsx `stats`). Ids: 1 K pad kick, 2 C pad
+// consumed, 3 W render begin, 4 B after the waitable wait, 5 P present hand-off, 6 L limiter exit.
+// Input -> display on vkd3d = B(n+1) - K(n): with the latency-1 waitable, B of the next render frame is released when
+// frame n was presented (vkWaitForPresentKHR). Add half a refresh for mid-screen. Menu shows it (g_tsInDispUs).
+volatile LONG g_tsInDispUs = -1;
+void TsAnalyse(bool logIt, double freq) {
+    const uint64_t idx = lat_ringidx;
+    const uint64_t n = std::min<uint64_t>(idx, 4096);
+    struct Ev {
+        int64_t q;
+        int t;
+    };
+    std::vector<Ev> ev;
+    ev.reserve((size_t)n);
+    const volatile int64_t* ring = reinterpret_cast<const volatile int64_t*>(lat_ring);
+    for (uint64_t k = idx - n; k < idx; ++k) {
+        const size_t s = (size_t)(k & 4095) * 2;
+        const int64_t q = ring[s];
+        const int t = (int)(ring[s + 1] & 0xFF);
+        if (q > 0 && t >= 1 && t <= 6) ev.push_back({q, t});
+    }
+    std::sort(ev.begin(), ev.end(), [](const Ev& a, const Ev& b) { return a.q < b.q; });
+    std::vector<int64_t> T[7];
+    for (const Ev& e : ev) T[e.t].push_back(e.q);
+    auto next = [&](int t, int64_t from) -> int64_t {
+        if (from < 0) return -1;
+        auto it = std::upper_bound(T[t].begin(), T[t].end(), from);
+        return it == T[t].end() ? -1 : *it;
+    };
+    auto prev = [&](int t, int64_t before) -> int64_t {
+        auto it = std::lower_bound(T[t].begin(), T[t].end(), before);
+        return it == T[t].begin() ? -1 : *(it - 1);
+    };
+    const double toMs = 1000.0 / freq;
+    auto med = [](std::vector<double>& v) -> double {
+        if (v.empty()) return -1;
+        std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
+        return v[v.size() / 2];
+    };
+    auto gaps = [&](int a, int b) {
+        std::vector<double> v;
+        for (int64_t q : T[a]) {
+            const int64_t q2 = next(b, q);
+            if (q2 >= 0) v.push_back((double)(q2 - q) * toMs);
+        }
+        return v;
+    };
+    auto diffs = [&](int t) {
+        std::vector<double> v;
+        for (size_t i = 1; i < T[t].size(); ++i) v.push_back((double)(T[t][i] - T[t][i - 1]) * toMs);
+        return v;
+    };
+    std::vector<double> kc, kp, k2b;
+    for (int64_t c : T[2]) {
+        const int64_t k = prev(1, c);
+        if (k < 0) continue;
+        kc.push_back((double)(c - k) * toMs);
+        const int64_t l = next(6, c), w = next(3, l), p = next(5, w), b2 = next(4, p);
+        if (p >= 0) kp.push_back((double)(p - k) * toMs);
+        if (b2 >= 0) k2b.push_back((double)(b2 - k) * toMs);
+    }
+    std::vector<double> cl = gaps(2, 6), lw = gaps(6, 3), wb = gaps(3, 4), bp = gaps(4, 5), cc = diffs(2), pp = diffs(5);
+    const double mK2b = med(k2b);
+    InterlockedExchange(&g_tsInDispUs, mK2b >= 0 ? (LONG)(mK2b * 1000.0) : -1);
+    if (!logIt) return;
+    const double mKc = med(kc), mCl = med(cl), mLw = med(lw), mWb = med(wb), mBp = med(bp), mCc = med(cc), mPp = med(pp), mKp = med(kp);
+    Log("stats latency (TS medians over the last %zu probes, ms): K->C input age %.2f | C->L update+limiter %.2f | L->W %.2f | "
+        "W->B waitable wait %.2f | B->P render %.2f | C->C logic frame %.2f | P->P present %.2f | K->P sample->present %.2f | "
+        "input->display B(n+1)-K(n) %.2f (+ half a refresh for mid-screen; vkd3d latency-1 semantics)",
+        ev.size(), mKc, mCl, mLw, mWb, mBp, mCc, mPp, mKp, mK2b);
 }
 
 bool BuildRepl(Item& it) {
@@ -835,6 +929,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "E1")) return cfg.e1 != 0;
         if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
+        if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
+        if (!strcmp(g, "TS")) return cfg.ts != 0;
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1107,6 +1203,46 @@ DWORD WINAPI Worker(LPVOID) {
     });
     exDone[menu::kExpS1] = expGroup("S1", cfg.s1 != 0, nullptr);
 
+    // ---- input latency (notes\input-latency.md): IK late input kick (sites K 5AB6CF + C 5ACAAA) and TS timestamp
+    // probes (L/W/B/P; K and C stamp too). The K/C caves are installed for either key; with IK off they behave stock.
+    static bool s_ikDone = false, s_tsDone = false;
+    s_ikDone = expGroup("IK", cfg.ik != 0 || cfg.ts != 0, [&]() {
+        Item* k = findItem("IK");
+        Item* c = findItem("IKc");
+        const uintptr_t kick = calleeOf(k->addr), wait1 = calleeOf(c->addr);
+        if (kick != (uintptr_t)(g_base + k->s->expectRva) || wait1 != (uintptr_t)(g_base + c->s->expectRva)) return false;
+        uint8_t* w = reinterpret_cast<uint8_t*>(wait1);  // 86C018: lea rcx,[padStageEvent] @+17h; call KtglEventWaitFor @+1Eh
+        const uintptr_t ev = (uintptr_t)(w + 0x1E + *(int32_t*)(w + 0x1A));
+        const uintptr_t waitN = calleeOf(w + 0x1E);
+        if (!InModule(ev) || !InModule(waitN)) { Log("IK: pad-stage event / wait function out of the module"); return false; }
+        lat_inputKick = kick;
+        lat_padWait1 = wait1;
+        lat_padEvent = ev;
+        lat_padWaitN = waitN;
+        lat_qpcNow = (uint64_t)(uintptr_t)(g_base + 0x205530);  // QpcNow (deps-checked)
+        lat_cap = (uint64_t)cfg.ikCapMs;
+        lat_ik = cfg.ik ? 1u : 0u;
+        return true;
+    });
+    if (cfg.ts && known && !s_ikDone) Log("TS: needs the IK sites (the K/C stamps) - skipped");
+    if (s_ikDone)
+        s_tsDone = expGroup("TS", cfg.ts != 0, [&]() {
+            Item* b = findItem("TSb");
+            Item* p = findItem("TSp");
+            const uintptr_t marker = calleeOf(b->addr);
+            if (marker != (uintptr_t)(g_base + b->s->expectRva)) return false;
+            uint8_t* slot = p->addr + 6 + *(int32_t*)(p->addr + 2);  // FF 15 disp32 -> SetEvent IAT slot
+            if (!InModule((uintptr_t)slot) || !*(void**)slot) { Log("TS: SetEvent IAT slot looks wrong"); return false; }
+            lat_latMarker = marker;
+            lat_iatSetEvent = (uint64_t)(uintptr_t)slot;
+            lat_ts = 1;
+            return true;
+        });
+    if (s_ikDone) Log("IK: input kick %s (pad-stage wait cap %d ms)%s", cfg.ik ? "at the logic-frame start" : "stock (switch off)",
+                      cfg.ikCapMs, s_tsDone ? "; TS probes on" : "");
+    exDone[menu::kExpIK] = s_ikDone;
+    exDone[menu::kExpTS] = s_tsDone;
+
     // periodic stats so a log from a handheld shows the wake rates and the experimental patches working without a
     // profiler. The same thread finds the [App]Game thread for FPC.
     static bool s_fpcWanted = false, s_anyExp = false;
@@ -1134,8 +1270,19 @@ DWORD WINAPI Worker(LPVOID) {
             bool haveEpoch = false;
             DWORD candTid = 0;
             Snap p = take();
+            uint64_t ikAgeSum = lat_agesum, ikAgeCnt = lat_agecnt, ikTo = lat_timeouts, ikKs = lat_kstock, ikKi = lat_kik;
             for (int sec = 1;; ++sec) {
                 Sleep(1000);
+                if (s_tsDone && sec % 2 == 0) TsAnalyse(sec % 30 == 0, (double)f.QuadPart);
+                if (s_ikDone && sec % 30 == 0) {
+                    const uint64_t s = lat_agesum - ikAgeSum, n = lat_agecnt - ikAgeCnt;
+                    Log("stats latency: IK %s, kicks/s at frame end %llu / at frame start %llu, input age K->C mean %.2f ms "
+                        "(max since start %.2f ms), pad-stage wait timeouts %llu",
+                        lat_ik ? "ON" : "off", (unsigned long long)((lat_kstock - ikKs) / 30), (unsigned long long)((lat_kik - ikKi) / 30),
+                        n ? (double)s * 1000.0 / (double)f.QuadPart / (double)n : 0.0, (double)lat_agemax * 1000.0 / (double)f.QuadPart,
+                        (unsigned long long)(lat_timeouts - ikTo));
+                    ikAgeSum = lat_agesum; ikAgeCnt = lat_agecnt; ikTo = lat_timeouts; ikKs = lat_kstock; ikKi = lat_kik;
+                }
                 // FPC: cache only on [App]Game, and only once its frames advance (g+3C60h moving), like the script's `on`
                 if (s_fpcWanted && !fpc_tid && sec % 2 == 0 && getDesc) {
                     if (!candTid) {
@@ -1231,7 +1378,10 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpM1] = U(m1_enable);
         sw[menu::kExpX1] = U(x1_enable);
         sw[menu::kExpE1] = U(e1_enable);
-        const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1};
+        sw[menu::kExpIK] = U(lat_ik);
+        sw[menu::kExpTS] = U(lat_ts);
+        const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
+                                         cfg.ik, cfg.ts};
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -1248,6 +1398,7 @@ DWORD WINAPI Worker(LPVOID) {
         mh.w6Waits = &g_w6Waits;
         mh.w6Sleeps = &g_w6Sleeps;
         mh.w6Ticks = &g_w6Ticks;
+        mh.tsInDispUs = &g_tsInDispUs;
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         osd::StartupInfo si;
         si.version = MOD_VERSION;
