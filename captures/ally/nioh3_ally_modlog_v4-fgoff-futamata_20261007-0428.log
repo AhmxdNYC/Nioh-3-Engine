@@ -1,0 +1,124 @@
+[04:22:53.251] Nioh3EngineFix 1.0.0 (built Oct  7 2026) - native port of the live-tested Nioh 3 engine patches
+[04:22:53.251] Nioh3.exe at 0000000140000000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[04:22:53.251] WC: worker-pool base capped at 10 (of 16 logical CPUs)
+[04:22:53.452] code is decrypted (200 ms after start)
+[04:22:53.452] resolving sites:
+[04:22:53.460]   W1   OK at RVA 61BAC
+[04:22:53.463]   W2a  OK at RVA 13721F
+[04:22:53.474]   W2b  OK at RVA 137269
+[04:22:53.485]   W2c  OK at RVA 1372B4
+[04:22:53.494]   W2d  OK at RVA 1372FE
+[04:22:53.505]   P3a  OK at RVA 43593A
+[04:22:53.520]   P3b  OK at RVA 437EE5
+[04:22:53.531]   P3c  OK at RVA 438473
+[04:22:53.542]   P3d  OK at RVA 55DC56
+[04:22:53.553]   P3e  OK at RVA 5AF6C9
+[04:22:53.564]   P3f  OK at RVA 29770C6
+[04:22:53.574]   P3g  OK at RVA 29771B4
+[04:22:53.585]   P6   OK at RVA 1975BAA
+[04:22:53.603]   P8a  OK at RVA 20E77B
+[04:22:53.616]   P8b  OK at RVA 5AF526
+[04:22:53.634]   P8c  OK at RVA 5AF682
+[04:22:53.653]   P8d  OK at RVA 5AF69F
+[04:22:53.665]   P9   OK at RVA 5AD89B
+[04:22:53.678]   P2   OK at RVA 5AD6AA
+[04:22:53.693]   P4   OK at RVA 5AD860
+[04:22:53.707]   P1   OK at RVA 5AD677
+[04:22:53.723]   W3   OK at RVA 1A6BF2D
+[04:22:53.735]   R1   OK at RVA 4A5346
+[04:22:53.750]   R1j  OK at RVA 4A5357
+[04:22:53.776]   L1   OK at RVA 19DF57E
+[04:22:53.794]   F1   OK at RVA 3777A40
+[04:22:53.805]   WK   OK at RVA 40A4C
+[04:22:53.805] near page at 000000013FFF0000
+[04:22:53.811]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[04:22:53.811] W1: applied (1 site(s), 1 attempt(s))
+[04:22:53.816]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[04:22:53.816] W2a: applied (1 site(s), 1 attempt(s))
+[04:22:53.821]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[04:22:53.821] W2b: applied (1 site(s), 1 attempt(s))
+[04:22:53.827]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[04:22:53.827] W2c: applied (1 site(s), 1 attempt(s))
+[04:22:53.832]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[04:22:53.832] W2d: applied (1 site(s), 1 attempt(s))
+[04:22:53.832] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[04:22:53.832] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[04:22:53.832] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[04:22:53.837]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[04:22:53.837]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[04:22:53.837]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[04:22:53.837]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[04:22:53.838]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[04:22:53.838]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[04:22:53.838]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[04:22:53.838]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[04:22:53.838]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[04:22:53.838]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[04:22:53.838]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[04:22:53.838]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[04:22:53.838]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[04:22:53.838]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[04:22:53.838]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[04:22:53.838]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[04:22:53.838] VRR: applied (16 site(s), 1 attempt(s))
+[04:22:53.843]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[04:22:53.843] W3: applied (1 site(s), 1 attempt(s))
+[04:22:53.849]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[04:22:53.849]   R1j  RVA 4A5357   patched: 75 ED 
+[04:22:53.849] R1: applied (2 site(s), 1 attempt(s))
+[04:22:54.440] running under Wine/Proton 11.0
+[04:22:54.440] W3: Wine/Proton -> empty-queue wait is Sleep(1 ms) (Wine returns from MsgWaitForMultipleObjectsEx at once)
+[04:22:54.449]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[04:22:54.449] L1: applied (1 site(s), 1 attempt(s))
+[04:22:54.454]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[04:22:54.454] F1: applied (1 site(s), 1 attempt(s))
+[04:22:54.460]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[04:22:54.460] WK: applied (1 site(s), 1 attempt(s))
+[04:22:54.461] MENU: frame generation: live switch enabled under Proton ([Menu] FrameGenToggle = 2); FG on is never saved to the game's config here
+[04:22:54.461] MENU: enabled - key F10, controller hold Start 5.0 s, scale auto, pause hint on (flags mask 18)
+[04:22:54.462] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00
+[04:22:54.462] done: 11 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[04:23:00.069] OSD: engine is rendering (5606 ms after start) - installing the Present hook
+[04:23:00.070] OSD: system d3d12 C:\windows\system32\d3d12.dll+0, dxgi C:\windows\system32\dxgi.dll+0
+[04:23:00.088] OSD: dummy swapchain 000000003206D0F0, vtable S:\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\windows\system32\d3d12core.dll+488FE0
+[04:23:00.088] OSD: hooked ExecuteCommandLists: vtable slot 00006FFFF26C9030, original C:\windows\system32\d3d12core.dll+3EB620
+[04:23:00.088] OSD: hooked Present: vtable slot 00006FFFFC756368, original S:\steamapps\common\Nioh3\sl.interposer.dll+29090
+[04:23:00.088] OSD: hooked Present1: vtable slot 00006FFFFC7563D8, original S:\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[04:23:00.089] OSD: hooked SetColorSpace1: vtable slot 00006FFFFC756458, original S:\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[04:23:00.091] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to XINPUT1_4.dll+2080
+[04:23:00.093] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+36480, original DINPUT8.dll+9200
+[04:23:00.093] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+36380, original DINPUT8.dll+C630
+[04:23:00.093] MENU: own XInput for fallback polling: XINPUT1_4.dll+2080
+[04:23:00.093] MENU: ready - open with F10 / Hold Start 5s
+[04:23:00.099] OSD: captured DIRECT queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0, other thread), device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0); back buffer device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0) -> same device, using it
+[04:23:00.099] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain S:\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[04:23:00.099] OSD: swapchain 0000000001C2FB70: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0), device 00000000033A0080
+[04:23:00.100] OSD: drawing context ready (build #1)
+[04:23:00.100] OSD: Present called from thread 748 ""
+[04:23:00.100] MENU: controller: the game has not polled its pad for 0.5 s - polling XInput ourselves (the game will also see menu button presses)
+[04:23:00.106] MENU: keyboard: no DirectInput keyboard read for 0.5 s - polling GetAsyncKeyState (the game will also see menu key presses)
+[04:23:00.106] MENU: engine stop flags (G+588..58D) now: none
+[04:23:00.107] OSD: pipeline created for back buffer format 87
+[04:23:00.107] OSD: first overlay frame drawn (11 quads)
+[04:23:00.610] OSD: game settings: FRAME_GENERATION OFF (0), RESOLUTION_SCALING FSR (2)
+[04:23:24.485] stats/s: W3 waits 922 (Sleep), L1 timer sleeps 45, F1 timer sleeps 0, WK wakes kept 4648 / skipped 194
+[04:23:30.243] OSD: stats: real 60.1 fps, presented 58.2 fps (x0.97, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 1731, skipped 0
+[04:23:54.515] stats/s: W3 waits 857 (Sleep), L1 timer sleeps 51, F1 timer sleeps 0, WK wakes kept 7259 / skipped 126
+[04:24:00.544] OSD: stats: real 60.8 fps, presented 36.1 fps (x0.59, FG off), speed 1.01x, vrr tier 60 cap 60 armed 60, draws 2892, skipped 0
+[04:24:24.545] stats/s: W3 waits 941 (Sleep), L1 timer sleeps 60, F1 timer sleeps 0, WK wakes kept 8716 / skipped 56
+[04:24:31.055] OSD: stats: real 59.5 fps, presented 28.8 fps (x0.48, FG off), speed 0.99x, vrr tier 60 cap 60 armed 60, draws 3816, skipped 0
+[04:24:39.625] MENU: engine stop flags (G+588..58D) now: 58A
+[04:24:54.575] stats/s: W3 waits 836 (Sleep), L1 timer sleeps 33, F1 timer sleeps 0, WK wakes kept 13929 / skipped 205
+[04:25:01.116] OSD: stats: real 30.9 fps, presented 25.1 fps (x0.81, FG off), speed 0.98x, vrr tier 60 cap 60 armed 29, draws 4708, skipped 0
+[04:25:24.606] stats/s: W3 waits 758 (Sleep), L1 timer sleeps 1, F1 timer sleeps 0, WK wakes kept 13510 / skipped 193
+[04:25:31.466] OSD: stats: real 41.9 fps, presented 17.9 fps (x0.43, FG off), speed 1.08x, vrr tier 60 cap 60 armed 39, draws 5337, skipped 0
+[04:25:54.636] stats/s: W3 waits 829 (Sleep), L1 timer sleeps 3, F1 timer sleeps 0, WK wakes kept 13046 / skipped 298
+[04:26:01.833] OSD: stats: real 55.3 fps, presented 6.7 fps (x0.12, FG off), speed 0.97x, vrr tier 60 cap 60 armed 60, draws 5809, skipped 0
+[04:26:20.361] MENU: engine stop flags (G+588..58D) now: none
+[04:26:24.666] stats/s: W3 waits 879 (Sleep), L1 timer sleeps 20, F1 timer sleeps 0, WK wakes kept 18232 / skipped 115
+[04:26:32.082] OSD: stats: real 57.5 fps, presented 19.8 fps (x0.34, FG off), speed 1.03x, vrr tier 60 cap 60 armed 60, draws 6231, skipped 0
+[04:26:54.696] stats/s: W3 waits 893 (Sleep), L1 timer sleeps 49, F1 timer sleeps 0, WK wakes kept 25928 / skipped 71
+[04:27:02.097] OSD: stats: real 59.7 fps, presented 17.9 fps (x0.30, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 6839, skipped 0
+[04:27:24.726] stats/s: W3 waits 903 (Sleep), L1 timer sleeps 56, F1 timer sleeps 0, WK wakes kept 26916 / skipped 88
+[04:27:32.489] OSD: stats: real 60.8 fps, presented 19.0 fps (x0.31, FG off), speed 1.01x, vrr tier 60 cap 60 armed 60, draws 7451, skipped 0
+[04:27:54.756] stats/s: W3 waits 910 (Sleep), L1 timer sleeps 55, F1 timer sleeps 0, WK wakes kept 26851 / skipped 76

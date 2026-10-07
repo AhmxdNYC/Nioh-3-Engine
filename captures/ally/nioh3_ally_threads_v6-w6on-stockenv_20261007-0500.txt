@@ -1,0 +1,69 @@
+sampled 12.0s, 1103 syscall sweeps over 305 threads
+    tid name               cpu%  user%   sys%   vcsw/s  ivcsw/s  syscall state histogram (share of samples)
+ 154377 [App]Game          94.3   75.6   18.7      799      400  <running user/kernel> 99%, futex 0%
+ 154664 KIDSTaskSchedul    67.7   66.0    1.7      408      204  <running user/kernel> 69%, futex 30%
+ 154730 SynergisticDisp    39.4   38.9    0.5      140      119  ioctl 58%, <running user/kernel> 41%
+ 154724 KIDSTaskSchedul    36.2   35.8    0.3      102      118  ioctl 63%, <running user/kernel> 36%
+ 154671 KIDSTaskSchedul    26.3   25.3    1.0     1368       95  ioctl 71%, <running user/kernel> 28%
+ 154670 KIDSTaskSchedul    24.1   23.2    0.8     1264       84  ioctl 74%, <running user/kernel> 25%
+ 154669 KIDSTaskSchedul    21.3   20.6    0.7     1050       77  ioctl 75%, <running user/kernel> 24%
+ 154668 KIDSTaskSchedul    19.9   19.3    0.6      845       73  ioctl 77%, <running user/kernel> 22%
+ 154667 KIDSTaskSchedul    19.5   19.0    0.5      565       67  ioctl 78%, <running user/kernel> 21%
+ 154596 KIDSTS[s2:Stage    19.0   18.6    0.4      220       74  ioctl 76%, <running user/kernel> 23%
+ 154666 KIDSTaskSchedul    17.5   17.0    0.5      535       58  ioctl 79%, <running user/kernel> 20%
+ 154634 KIDSTS[s9:Colli    17.1   16.9    0.2       44       67  ioctl 82%, <running user/kernel> 17%
+ 154665 KIDSTaskSchedul    16.6   16.3    0.2      451       51  ioctl 80%, <running user/kernel> 19%
+ 154595 KIDSTS[s2:Stage    14.2   13.8    0.3      300       47  ioctl 81%, <running user/kernel> 18%
+ 154569 [App]MissionThr    13.6   13.3    0.2      143       45  futex 83%, <running user/kernel> 15%, clock_nanosleep 0%
+ 154633 KIDSTS[s9:Colli    12.4   12.2    0.2       82       45  ioctl 86%, <running user/kernel> 13%
+ 154594 KIDSTS[s2:Stage    12.4   12.1    0.3      290       36  ioctl 82%, <running user/kernel> 17%
+ 154661 KIDSTS[s66:TS_M    12.2    9.7    2.4       34      124  ioctl 86%, <running user/kernel> 13%
+ 154692 KIDSTaskSchedul    11.6   10.6    1.0     1447       87  ioctl 84%, <running user/kernel> 12%, futex 3%
+ 154631 KIDSTS[s9:Colli    11.5   11.2    0.2       84       47  ioctl 87%, <running user/kernel> 12%
+ 154632 KIDSTS[s9:Colli    11.2   11.0    0.2       83       43  ioctl 87%, <running user/kernel> 12%
+ 154374 Nioh3.exe          11.1    5.2    5.9     8382       44  futex 75%, <running user/kernel> 16%, 19 8%
+ 154593 KIDSTS[s2:Stage    10.6   10.2    0.4      263       34  ioctl 86%, <running user/kernel> 13%
+ 154630 KIDSTS[s9:Colli    10.2   10.0    0.2       82       43  ioctl 88%, <running user/kernel> 11%
+ 154592 KIDSTS[s2:Stage     9.8    9.6    0.2      232       30  ioctl 85%, <running user/kernel> 14%
+ 154591 KIDSTS[s2:Stage     9.4    9.2    0.2      197       20  ioctl 87%, <running user/kernel> 12%
+ 154608 KIDSTS[s4:UpdSt     8.2    7.9    0.2       50       60  ioctl 88%, <running user/kernel> 11%, futex 0%
+ 154396 vkd3d_queue         8.2    2.5    5.7      417       93  futex 89%, <running user/kernel> 9%, poll 0%
+ 154629 KIDSTS[s9:Colli     6.9    6.8    0.1       82       28  ioctl 92%, <running user/kernel> 7%
+ 154647 KIDSTS[s12:Phys     6.2    5.7    0.5      166      103  ioctl 91%, <running user/kernel> 8%
+ 154585 [App]EffectUpda     5.6    5.6    0.0       44       17  futex 94%, <running user/kernel> 5%
+ 154582 [App]EffectUpda     5.6    5.5    0.1       44       17  futex 94%, <running user/kernel> 5%
+ 154581 [App]EffectUpda     5.2    5.2    0.0       44       16  futex 95%, <running user/kernel> 4%
+ 154583 [App]EffectUpda     5.1    5.1    0.0       44       16  futex 95%, <running user/kernel> 4%
+ 154602 KIDSTS[s3:Chara     4.6    4.4    0.2      138       24  ioctl 94%, <running user/kernel> 4%, futex 0%
+ 154586 [App]EffectUpda     4.5    4.4    0.1       44       14  futex 94%, <running user/kernel> 5%
+ 154587 [App]EffectUpda     4.4    4.4    0.0       44       15  futex 95%, <running user/kernel> 4%
+ 154584 [App]EffectUpda     4.4    4.4    0.0       44       14  futex 95%, <running user/kernel> 4%
+ 154660 KIDSTS[s66:TS_M     4.3    4.2    0.2      337       33  ioctl 94%, <running user/kernel> 5%
+ 154568 [App]CustomOccl     4.1    3.6    0.5     1349       43  futex 94%, <running user/kernel> 5%
+ 154637 KIDSTS[s10:StgG     3.7    3.6    0.2       88        9  ioctl 96%, <running user/kernel> 3%
+ 154636 KIDSTS[s10:StgG     3.4    3.3    0.1       88        8  ioctl 96%, <running user/kernel> 3%
+ 154659 KIDSTS[s66:TS_M     3.3    3.1    0.2      298       21  ioctl 94%, <running user/kernel> 5%
+
+--- grouped by thread name prefix
+KIDSTaskSche   thr=  26 cpu= 265.5% user= 257.2% sys=   8.3% vcsw/s=   8386 ivcsw/s=   940  ioctl 83%, <running user/kernel> 11%, futex 5%
+[App]Game      thr=  34 cpu= 101.5% user=  81.9% sys=  19.6% vcsw/s=   1708 ivcsw/s=   440  ioctl 82%, futex 14%, <running user/kernel> 3%, 19 0%
+KIDSTS[s2:St   thr=   6 cpu=  75.4% user=  73.5% sys=   1.9% vcsw/s=   1502 ivcsw/s=   242  ioctl 83%, <running user/kernel> 16%
+KIDSTS[s9:Co   thr=   7 cpu=  72.1% user=  71.1% sys=   1.1% vcsw/s=    537 ivcsw/s=   284  ioctl 88%, <running user/kernel> 11%
+SynergisticD   thr=   1 cpu=  39.4% user=  38.9% sys=   0.5% vcsw/s=    140 ivcsw/s=   119  ioctl 58%, <running user/kernel> 41%
+[App]EffectU   thr=   8 cpu=  36.0% user=  35.8% sys=   0.2% vcsw/s=    354 ivcsw/s=   114  futex 95%, <running user/kernel> 4%
+KIDSTS[s66:T   thr=  14 cpu=  25.8% user=  22.5% sys=   3.3% vcsw/s=   1356 ivcsw/s=   223  ioctl 97%, <running user/kernel> 2%
+vkd3d_queue    thr=  40 cpu=  15.2% user=   4.4% sys=  10.7% vcsw/s=   4178 ivcsw/s=   185  futex 95%, ioctl 3%, <running user/kernel> 0%, poll 0%
+KIDSTS[s4:Up   thr=   6 cpu=  14.0% user=  13.1% sys=   0.9% vcsw/s=    459 ivcsw/s=   159  ioctl 95%, <running user/kernel> 4%, futex 0%
+Nioh3.exe      thr=   6 cpu=  13.9% user=   6.6% sys=   7.3% vcsw/s=   9759 ivcsw/s=   260  pselect6 63%, ioctl 16%, futex 12%, <running user/kernel> 5%
+[App]Mission   thr=   1 cpu=  13.6% user=  13.3% sys=   0.2% vcsw/s=    143 ivcsw/s=    45  futex 83%, <running user/kernel> 15%, clock_nanosleep 0%, poll 0%
+KIDSTS[s3:Ch   thr=   6 cpu=  12.9% user=  12.2% sys=   0.7% vcsw/s=    654 ivcsw/s=    60  ioctl 97%, <running user/kernel> 2%, futex 0%
+KIDSTS[s10:S   thr=   3 cpu=  10.1% user=   9.7% sys=   0.3% vcsw/s=    264 ivcsw/s=    23  ioctl 96%, <running user/kernel> 3%
+KIDSTS[s5:Up   thr=   6 cpu=   9.4% user=   8.9% sys=   0.5% vcsw/s=    295 ivcsw/s=    67  ioctl 97%, <running user/kernel> 2%
+
+--- top syscall return PCs (user) for top 6 threads; RVA if inside Nioh3.exe image (base 0x140000000, size 0x52FB000)
+154377 [App]Game: 0x7f3bf5f3637d x10
+154664 KIDSTaskSchedul: 0x7f3bf5f3637d x331
+154730 SynergisticDisp: 0x7f3bf5f342bd x646
+154724 KIDSTaskSchedul: 0x7f3bf5f342bd x703
+154671 KIDSTaskSchedul: 0x7f3bf5f342bd x791
+154670 KIDSTaskSchedul: 0x7f3bf5f342bd x826

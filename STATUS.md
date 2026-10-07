@@ -25,3 +25,6 @@ Wave 2 (as slots free up):
   G. [sonnet] Stutter/p99 census (finish notes\stutter.md from the Ally CSVs).
 Ally side: ESM/WDO28 at MAX, shader v2 A/B, then v10 tests (FG off fix, CP/SPF/WG A/Bs), fast-travel MemStats. Digest logs with re\scripts_cpu\sp_aggregate.py before posting.
 Done when each item ships to the Ally or is written off in its notes file; update this file after each.
+
+## 18:45 update
+Shipped to Ally: ASI 1.7.2 (FG-off fix, GPUProf, ShaderSwap dump, TileStats/SPR probes, WG/CP/SPF installed-off), shader pack v3. MAX shader A/B: GPU W 23.1->20.5 at same fps (VSync 8.33 ms slot quantization) -> metric = GPU ms. HOLD: next shader pack v4 adds GI #121 (0xd070067d, ~2 ms Ally at GI HIGHEST, bit-exact) - send only after the Ally's 1.7.2 digest (one build per session). Running: VFSCAT fog rewrite (opus). Next after digest: rewrite top GPUProf passes + dumped motion blur/DOF/bloom via psoswap.

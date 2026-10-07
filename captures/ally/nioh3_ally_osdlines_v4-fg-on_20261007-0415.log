@@ -1,0 +1,82 @@
+[03:50:33.456] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00
+[03:50:39.162] OSD: engine is rendering (5705 ms after start) - installing the Present hook
+[03:50:39.163] OSD: system d3d12 C:\windows\system32\d3d12.dll+0, dxgi C:\windows\system32\dxgi.dll+0
+[03:50:39.180] OSD: dummy swapchain 00000000401F0A30, vtable S:\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\windows\system32\d3d12core.dll+488FE0
+[03:50:39.181] OSD: hooked ExecuteCommandLists: vtable slot 00006FFFF26C9030, original C:\windows\system32\d3d12core.dll+3EB620
+[03:50:39.181] OSD: hooked Present: vtable slot 00006FFFFC756368, original S:\steamapps\common\Nioh3\sl.interposer.dll+29090
+[03:50:39.181] OSD: hooked Present1: vtable slot 00006FFFFC7563D8, original S:\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[03:50:39.181] OSD: hooked SetColorSpace1: vtable slot 00006FFFFC756458, original S:\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[03:50:39.197] OSD: captured DIRECT queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0, other thread), device 0000000003B70080 (C:\windows\system32\d3d12core.dll+489BE0); back buffer device 0000000003B70080 (C:\windows\system32\d3d12core.dll+489BE0) -> same device, using it
+[03:50:39.197] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain S:\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[03:50:39.197] OSD: swapchain 0000000001C31A30: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0), device 0000000003B70080
+[03:50:39.197] OSD: drawing context ready (build #1)
+[03:50:39.198] OSD: Present called from thread 736 ""
+[03:50:39.198] OSD: pipeline created for back buffer format 87
+[03:50:39.198] OSD: first overlay frame drawn (11 quads)
+[03:50:39.708] OSD: game settings: FRAME_GENERATION OFF (0), RESOLUTION_SCALING FSR (2)
+[03:51:09.416] OSD: stats: real 60.0 fps, presented 60.0 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 1764, skipped 0
+[03:51:39.584] OSD: stats: real 59.5 fps, presented 57.5 fps (x0.97, FG off), speed 0.99x, vrr tier 60 cap 60 armed 60, draws 3563, skipped 0
+[03:52:09.741] OSD: stats: real 59.9 fps, presented 59.9 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 5365, skipped 0
+[03:52:39.830] OSD: stats: real 59.9 fps, presented 59.9 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 7167, skipped 0
+[03:53:09.919] OSD: stats: real 59.9 fps, presented 59.9 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 8969, skipped 0
+[03:53:39.991] OSD: stats: real 59.9 fps, presented 59.9 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 10770, skipped 0
+[03:54:10.044] OSD: stats: real 59.9 fps, presented 59.9 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 12570, skipped 0
+[03:54:40.148] OSD: stats: real 59.9 fps, presented 59.9 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 14373, skipped 0
+[03:55:10.204] OSD: stats: real 59.8 fps, presented 59.8 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 16173, skipped 0
+[03:55:40.258] OSD: stats: real 59.8 fps, presented 59.8 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 17973, skipped 0
+[03:56:10.447] OSD: stats: real 61.9 fps, presented 59.9 fps (x0.97, FG off), speed 1.03x, vrr tier 60 cap 60 armed 60, draws 19772, skipped 0
+[03:56:40.518] OSD: stats: real 59.9 fps, presented 59.9 fps (x1.00, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 21573, skipped 0
+[03:57:11.016] OSD: stats: real 54.6 fps, presented 35.8 fps (x0.66, FG off), speed 0.96x, vrr tier 60 cap 60 armed 44, draws 23339, skipped 0
+[03:57:41.285] OSD: stats: real 37.0 fps, presented 37.0 fps (x1.00, FG off), speed 1.04x, vrr tier 60 cap 60 armed 39, draws 24628, skipped 0
+[03:58:11.794] OSD: stats: real 49.0 fps, presented 35.3 fps (x0.72, FG off), speed 1.04x, vrr tier 60 cap 60 armed 51, draws 25708, skipped 0
+[03:58:41.881] OSD: stats: real 39.8 fps, presented 27.8 fps (x0.70, FG off), speed 0.94x, vrr tier 60 cap 60 armed 53, draws 26668, skipped 0
+[03:59:12.244] OSD: stats: real 51.9 fps, presented 45.9 fps (x0.88, FG off), speed 1.03x, vrr tier 60 cap 60 armed 52, draws 27249, skipped 0
+[03:59:42.382] OSD: stats: real 48.9 fps, presented 44.9 fps (x0.92, FG off), speed 1.01x, vrr tier 60 cap 60 armed 60, draws 28632, skipped 0
+[04:00:12.504] OSD: stats: real 49.5 fps, presented 45.6 fps (x0.92, FG off), speed 1.00x, vrr tier 60 cap 60 armed 48, draws 30008, skipped 0
+[04:00:42.530] OSD: stats: real 51.6 fps, presented 45.6 fps (x0.88, FG off), speed 1.01x, vrr tier 60 cap 60 armed 53, draws 31379, skipped 0
+[04:01:12.664] OSD: stats: real 50.5 fps, presented 46.7 fps (x0.92, FG off), speed 1.01x, vrr tier 60 cap 60 armed 51, draws 32749, skipped 0
+[04:01:42.811] OSD: stats: real 48.7 fps, presented 44.8 fps (x0.92, FG off), speed 0.99x, vrr tier 60 cap 60 armed 56, draws 34122, skipped 0
+[04:02:12.939] OSD: stats: real 46.2 fps, presented 46.2 fps (x1.00, FG off), speed 0.98x, vrr tier 60 cap 60 armed 54, draws 35491, skipped 0
+[04:02:42.987] OSD: stats: real 49.9 fps, presented 45.9 fps (x0.92, FG off), speed 1.01x, vrr tier 60 cap 60 armed 51, draws 36861, skipped 0
+[04:03:13.269] OSD: stats: real 50.4 fps, presented 26.1 fps (x0.52, FG off), speed 1.01x, vrr tier 60 cap 60 armed 47, draws 38130, skipped 0
+[04:03:20.767] MENU: Frame generation OFF -> FSR via the game's FrameGenSettingWrite (Proton: this session only, never saved); the game rebuilds its swapchain in a few frames
+[04:03:21.943] OSD: presenting swapchain changed 0000000001C31A30 -> 0000000040D34860
+[04:03:21.946] OSD: captured DIRECT queue 00000000486C9750 (C:\windows\system32\d3d12core.dll+488FE0, presenting thread), device 0000000003B70080 (C:\windows\system32\d3d12core.dll+489BE0); back buffer device 0000000003B70080 (C:\windows\system32\d3d12core.dll+489BE0) -> same device, using it
+[04:03:21.946] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain S:\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[04:03:21.946] OSD: swapchain 0000000040D34860: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 842; queue 00000000486C9750 (C:\windows\system32\d3d12core.dll+488FE0), device 0000000003B70080
+[04:03:21.947] OSD: drawing context ready (build #2)
+[04:03:21.947] OSD: Present called from thread 736 ""
+[04:03:21.947] OSD: pipeline created for back buffer format 87
+[04:03:22.473] OSD: game settings: FRAME_GENERATION FSR (2), RESOLUTION_SCALING FSR (2) - changed
+[04:03:24.743] OSD: Present called from thread 1868 "AMD FSR Presenter Thread"
+[04:03:52.106] OSD: stats: real 52.3 fps, presented 56.2 fps (x1.07, FG off), speed 1.02x, vrr tier 60 cap 60 armed 50, draws 1460, skipped 0
+[04:04:22.199] OSD: stats: real 53.0 fps, presented 53.0 fps (x1.00, FG off), speed 1.02x, vrr tier 60 cap 60 armed 57, draws 3076, skipped 0
+[04:04:52.453] OSD: stats: real 49.4 fps, presented 55.4 fps (x1.12, FG off), speed 0.99x, vrr tier 60 cap 60 armed 52, draws 4647, skipped 0
+[04:05:22.487] OSD: stats: real 49.0 fps, presented 56.8 fps (x1.16, FG off), speed 1.00x, vrr tier 60 cap 60 armed 47, draws 6330, skipped 0
+[04:05:52.524] OSD: stats: real 50.2 fps, presented 40.5 fps (x0.81, FG off), speed 1.04x, vrr tier 60 cap 60 armed 53, draws 7999, skipped 0
+[04:06:22.632] OSD: stats: real 55.3 fps, presented 55.3 fps (x1.00, FG off), speed 1.01x, vrr tier 60 cap 60 armed 57, draws 9521, skipped 0
+[04:06:52.702] OSD: stats: real 52.5 fps, presented 56.4 fps (x1.07, FG off), speed 1.00x, vrr tier 60 cap 60 armed 51, draws 11177, skipped 0
+[04:07:22.717] OSD: stats: real 53.8 fps, presented 57.8 fps (x1.07, FG off), speed 1.02x, vrr tier 60 cap 60 armed 53, draws 12856, skipped 0
+[04:07:53.215] OSD: stats: real 55.1 fps, presented 55.1 fps (x1.00, FG off), speed 1.01x, vrr tier 60 cap 60 armed 50, draws 14577, skipped 0
+[04:08:23.648] OSD: stats: real 55.7 fps, presented 57.6 fps (x1.04, FG off), speed 1.02x, vrr tier 60 cap 60 armed 60, draws 16306, skipped 0
+[04:08:53.661] OSD: stats: real 57.6 fps, presented 55.6 fps (x0.97, FG off), speed 1.01x, vrr tier 60 cap 60 armed 56, draws 18001, skipped 0
+[04:09:24.173] OSD: stats: real 54.5 fps, presented 56.4 fps (x1.04, FG off), speed 1.00x, vrr tier 60 cap 60 armed 59, draws 19727, skipped 0
+[04:09:54.195] OSD: stats: real 55.0 fps, presented 57.0 fps (x1.04, FG off), speed 0.99x, vrr tier 60 cap 60 armed 57, draws 21429, skipped 0
+[04:10:24.691] OSD: stats: real 52.4 fps, presented 58.2 fps (x1.11, FG off), speed 1.00x, vrr tier 60 cap 60 armed 47, draws 23156, skipped 0
+[04:10:48.951] OSD: presenting swapchain changed 0000000040D34860 -> 0000000040CA5400
+[04:10:48.958] OSD: captured DIRECT queue 00000000486C99B0 (C:\windows\system32\d3d12core.dll+488FE0, presenting thread), device 0000000003B70080 (C:\windows\system32\d3d12core.dll+489BE0); back buffer device 0000000003B70080 (C:\windows\system32\d3d12core.dll+489BE0) -> same device, using it
+[04:10:48.958] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain S:\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[04:10:48.958] OSD: swapchain 0000000040CA5400: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 842; queue 00000000486C99B0 (C:\windows\system32\d3d12core.dll+488FE0), device 0000000003B70080
+[04:10:48.959] OSD: drawing context ready (build #3)
+[04:10:48.959] OSD: Present called from thread 736 ""
+[04:10:48.959] OSD: pipeline created for back buffer format 87
+[04:10:51.167] OSD: Present called from thread 2748 "AMD FSR Presenter Thread"
+[04:11:08.403] OSD: Present called from thread 2856 "AMD FSR Presenter Thread"
+[04:11:19.244] OSD: stats: real 59.7 fps, presented 44.3 fps (x0.74, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 1193, skipped 0
+[04:11:49.280] OSD: stats: real 58.8 fps, presented 53.0 fps (x0.90, FG off), speed 0.99x, vrr tier 60 cap 60 armed 60, draws 2750, skipped 0
+[04:12:19.763] OSD: stats: real 58.3 fps, presented 52.5 fps (x0.90, FG off), speed 1.00x, vrr tier 60 cap 60 armed 60, draws 4375, skipped 0
+[04:12:49.766] OSD: stats: real 53.8 fps, presented 55.8 fps (x1.04, FG off), speed 0.99x, vrr tier 60 cap 60 armed 56, draws 5991, skipped 0
+[04:13:19.820] OSD: stats: real 56.8 fps, presented 54.8 fps (x0.97, FG off), speed 1.00x, vrr tier 60 cap 60 armed 51, draws 7605, skipped 0
+[04:13:49.893] OSD: stats: real 54.0 fps, presented 54.0 fps (x1.00, FG off), speed 1.01x, vrr tier 60 cap 60 armed 54, draws 9240, skipped 0
+[04:14:19.901] OSD: stats: real 58.9 fps, presented 55.0 fps (x0.93, FG off), speed 1.02x, vrr tier 60 cap 60 armed 59, draws 10874, skipped 0
+[04:14:49.910] OSD: stats: real 57.9 fps, presented 53.9 fps (x0.93, FG off), speed 1.01x, vrr tier 60 cap 60 armed 59, draws 12498, skipped 0

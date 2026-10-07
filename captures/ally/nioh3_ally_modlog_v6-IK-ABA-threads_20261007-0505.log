@@ -1,0 +1,242 @@
+[04:55:07.705] Nioh3EngineFix 1.2.0 (built Oct  7 2026) - native port of the live-tested Nioh 3 engine patches
+[04:55:07.705] Nioh3.exe at 0000000140000000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[04:55:07.705] MENU: Proton: config.xml C:\users\steamuser\AppData\Local\KoeiTecmo\NIOH3\config.xml: FRAME_GENERATION OFF at startup
+[04:55:07.705] Proton FG guard: exit hooks ExitProcess ok, TerminateProcess ok
+[04:55:07.705] WC: worker-pool base capped at 10 (of 16 logical CPUs)
+[04:55:07.906] code is decrypted (200 ms after start)
+[04:55:07.906] resolving sites:
+[04:55:07.913]   W1   OK at RVA 61BAC
+[04:55:07.916]   W2a  OK at RVA 13721F
+[04:55:07.928]   W2b  OK at RVA 137269
+[04:55:07.939]   W2c  OK at RVA 1372B4
+[04:55:07.949]   W2d  OK at RVA 1372FE
+[04:55:07.960]   P3a  OK at RVA 43593A
+[04:55:07.975]   P3b  OK at RVA 437EE5
+[04:55:07.986]   P3c  OK at RVA 438473
+[04:55:07.997]   P3d  OK at RVA 55DC56
+[04:55:08.009]   P3e  OK at RVA 5AF6C9
+[04:55:08.020]   P3f  OK at RVA 29770C6
+[04:55:08.030]   P3g  OK at RVA 29771B4
+[04:55:08.040]   P6   OK at RVA 1975BAA
+[04:55:08.057]   P8a  OK at RVA 20E77B
+[04:55:08.070]   P8b  OK at RVA 5AF526
+[04:55:08.088]   P8c  OK at RVA 5AF682
+[04:55:08.106]   P8d  OK at RVA 5AF69F
+[04:55:08.119]   P9   OK at RVA 5AD89B
+[04:55:08.131]   P2   OK at RVA 5AD6AA
+[04:55:08.145]   P4   OK at RVA 5AD860
+[04:55:08.160]   P1   OK at RVA 5AD677
+[04:55:08.176]   W3   OK at RVA 1A6BF2D
+[04:55:08.187]   R1   OK at RVA 4A5346
+[04:55:08.202]   R1j  OK at RVA 4A5357
+[04:55:08.227]   L1   OK at RVA 19DF57E
+[04:55:08.244]   F1   OK at RVA 3777A40
+[04:55:08.254]   WK   OK at RVA 40A4C
+[04:55:08.278]   W6   OK at RVA 7D9EA2
+[04:55:08.293]   W6W  OK at RVA 1A822D9
+[04:55:08.330]   IK   OK at RVA 5AB6CF
+[04:55:08.351]   IKc  OK at RVA 5ACAAA
+[04:55:08.362]   TSl  OK at RVA 5AD2BB
+[04:55:08.381]   TSw  OK at RVA 4A52D4
+[04:55:08.405]   TSb  OK at RVA 4A535E
+[04:55:08.424]   TSp  OK at RVA 3D6552
+[04:55:08.425] near page at 000000013FFF0000
+[04:55:08.431]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[04:55:08.431] W1: applied (1 site(s), 1 attempt(s))
+[04:55:08.436]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[04:55:08.436] W2a: applied (1 site(s), 1 attempt(s))
+[04:55:08.441]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[04:55:08.441] W2b: applied (1 site(s), 1 attempt(s))
+[04:55:08.446]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[04:55:08.446] W2c: applied (1 site(s), 1 attempt(s))
+[04:55:08.451]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[04:55:08.451] W2d: applied (1 site(s), 1 attempt(s))
+[04:55:08.451] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[04:55:08.451] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[04:55:08.451] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[04:55:08.456]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[04:55:08.456]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[04:55:08.456]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[04:55:08.456]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[04:55:08.456]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[04:55:08.456]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[04:55:08.456]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[04:55:08.456]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[04:55:08.456]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[04:55:08.456]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[04:55:08.456]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[04:55:08.456]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[04:55:08.456]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[04:55:08.456]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[04:55:08.456]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[04:55:08.456]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[04:55:08.456] VRR: applied (16 site(s), 1 attempt(s))
+[04:55:08.461]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[04:55:08.461] W3: applied (1 site(s), 1 attempt(s))
+[04:55:08.466]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[04:55:08.466]   R1j  RVA 4A5357   patched: 75 ED 
+[04:55:08.466] R1: applied (2 site(s), 1 attempt(s))
+[04:55:08.901] running under Wine/Proton 11.0
+[04:55:08.902] W3: Wine/Proton -> empty-queue wait is Sleep(1 ms) (Wine returns from MsgWaitForMultipleObjectsEx at once)
+[04:55:08.912]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[04:55:08.912] L1: applied (1 site(s), 1 attempt(s))
+[04:55:08.917]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[04:55:08.917] F1: applied (1 site(s), 1 attempt(s))
+[04:55:08.923]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[04:55:08.923] WK: applied (1 site(s), 1 attempt(s))
+[04:55:08.928]   W6   RVA 7D9EA2   patched: E8 B9 62 81 FF 0F 1F 00 
+[04:55:08.928] W6: applied (1 site(s), 1 attempt(s))
+[04:55:08.933]   W6W  RVA 1A822D9  patched: E8 92 DE 56 FE 66 90 
+[04:55:08.933] W6W: applied (1 site(s), 1 attempt(s))
+[04:55:08.933] W6: hybrid present wait on (spin 50 us, then WaitOnAddress, 1 ms timeout); waker at the Present thread's flag clear installed
+[04:55:08.938]   IK   RVA 5AB6CF   patched: E8 AC 4A A4 FF 
+[04:55:08.938]   IKc  RVA 5ACAAA   patched: E8 E1 36 A4 FF 
+[04:55:08.938] IK: applied (2 site(s), 1 attempt(s))
+[04:55:08.944]   TSl  RVA 5AD2BB   patched: E8 E0 2E A4 FF 90 
+[04:55:08.944]   TSw  RVA 4A52D4   patched: E8 D7 AE B4 FF 
+[04:55:08.944]   TSb  RVA 4A535E   patched: E8 5D AE B4 FF 
+[04:55:08.944]   TSp  RVA 3D6552   patched: E8 79 9C C1 FF 90 
+[04:55:08.944] TS: applied (4 site(s), 1 attempt(s))
+[04:55:08.944] IK: input kick at the logic-frame start (pad-stage wait cap 2 ms); TS probes on
+[04:55:08.945] MENU: frame generation: live switch enabled under Proton ([Menu] FrameGenToggle = 2); FG on is never saved to the game's config here
+[04:55:08.945] MENU: enabled - key F10, controller hold Start 5.0 s, scale auto, pause hint on (flags mask 18)
+[04:55:08.946] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00
+[04:55:08.946] done: 15 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[04:55:14.553] OSD: engine is rendering (5605 ms after start) - installing the Present hook
+[04:55:14.554] OSD: system d3d12 C:\windows\system32\d3d12.dll+0, dxgi C:\windows\system32\dxgi.dll+0
+[04:55:14.583] OSD: dummy swapchain 000000003209F040, vtable S:\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\windows\system32\d3d12core.dll+488FE0
+[04:55:14.585] OSD: hooked ExecuteCommandLists: vtable slot 00006FFFF2699030, original C:\windows\system32\d3d12core.dll+3EB620
+[04:55:14.585] OSD: hooked Present: vtable slot 00006FFFFC756368, original S:\steamapps\common\Nioh3\sl.interposer.dll+29090
+[04:55:14.585] OSD: hooked Present1: vtable slot 00006FFFFC7563D8, original S:\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[04:55:14.585] OSD: hooked SetColorSpace1: vtable slot 00006FFFFC756458, original S:\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[04:55:14.595] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to XINPUT1_4.dll+2080
+[04:55:14.595] OSD: Present called from thread 736 ""
+[04:55:14.595] OSD: MaxFrameLatency: swapchain 0000000001C58BA0 (flags 2) was not created with FRAME_LATENCY_WAITABLE_OBJECT - not applicable (setting is 0 anyway)
+[04:55:14.595] OSD: captured DIRECT queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0, other thread), device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0); back buffer device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0) -> same device, using it
+[04:55:14.595] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain S:\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[04:55:14.595] OSD: swapchain 0000000001C58BA0: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0), device 00000000033A0080
+[04:55:14.597] OSD: drawing context ready (build #1)
+[04:55:14.597] MENU: keyboard: DirectInput is not hooked - polling GetAsyncKeyState (the game will also see menu key presses)
+[04:55:14.598] MENU: engine stop flags (G+588..58D) now: none
+[04:55:14.598] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+36480, original DINPUT8.dll+9200
+[04:55:14.598] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+36380, original DINPUT8.dll+C630
+[04:55:14.598] MENU: own XInput for fallback polling: XINPUT1_4.dll+2080
+[04:55:14.598] MENU: ready - open with F10 / Hold Start 5s
+[04:55:14.598] OSD: pipeline created for back buffer format 87
+[04:55:14.598] OSD: first overlay frame drawn (7 quads)
+[04:55:15.101] OSD: game settings: FRAME_GENERATION OFF (0), RESOLUTION_SCALING FSR (2)
+[04:55:38.975] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.06 | C->L update+limiter 14.56 | L->W 8.36 | W->B waitable wait 0.00 | B->P render 16.43 | C->C logic frame 16.67 | P->P present 16.80 | K->P sample->present 41.31 | input->display B(n+1)-K(n) 41.84 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:55:38.975] stats latency: IK ON, kicks/s at frame end 0 / at frame start 49, input age K->C mean 2.80 ms (max since start 44.69 ms), pad-stage wait timeouts 1371
+[04:55:38.975] stats/s: W3 waits 923 (Sleep), L1 timer sleeps 47, F1 timer sleeps 0, WK wakes kept 6974 / skipped 223
+[04:55:38.975] stats/s exp: W6 waits 40 avg 14735 us (slept 40, spun 0, wakes 40) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:55:44.661] OSD: stats: rendered 59.0 fps, displayed 59.0 fps (x1.00, FG off, 1 chain(s)), game ticks 60.9/s, speed 1.02x, vrr tier 60 cap 60 armed 60, draws 1747, skipped 0
+[04:56:09.011] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.07 | C->L update+limiter 14.54 | L->W 11.76 | W->B waitable wait 0.01 | B->P render 11.84 | C->C logic frame 16.69 | P->P present 22.05 | K->P sample->present 46.98 | input->display B(n+1)-K(n) 56.41 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:56:09.011] stats latency: IK ON, kicks/s at frame end 0 / at frame start 57, input age K->C mean 2.10 ms (max since start 44.69 ms), pad-stage wait timeouts 1699
+[04:56:09.011] stats/s: W3 waits 871 (Sleep), L1 timer sleeps 43, F1 timer sleeps 0, WK wakes kept 15617 / skipped 140
+[04:56:09.011] stats/s exp: W6 waits 17 avg 14317 us (slept 17, spun 0, wakes 17) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:56:15.064] OSD: stats: rendered 29.9 fps, displayed 29.9 fps (x1.00, FG off, 1 chain(s)), game ticks 55.9/s, speed 1.00x, vrr tier 60 cap 60 armed 60, draws 3079, skipped 0
+[04:56:39.042] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 14.56 | L->W 11.87 | W->B waitable wait 0.02 | B->P render 9.54 | C->C logic frame 16.78 | P->P present 23.61 | K->P sample->present 39.37 | input->display B(n+1)-K(n) 53.07 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:56:39.042] stats latency: IK ON, kicks/s at frame end 0 / at frame start 56, input age K->C mean 2.06 ms (max since start 44.69 ms), pad-stage wait timeouts 1684
+[04:56:39.042] stats/s: W3 waits 924 (Sleep), L1 timer sleeps 24, F1 timer sleeps 0, WK wakes kept 8462 / skipped 44
+[04:56:39.042] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:56:45.298] OSD: stats: rendered 39.3 fps, displayed 39.3 fps (x1.00, FG off, 1 chain(s)), game ticks 47.2/s, speed 0.97x, vrr tier 60 cap 60 armed 49, draws 4337, skipped 0
+[04:56:57.621] MENU: engine stop flags (G+588..58D) now: 58A
+[04:57:09.077] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 17.53 | L->W 3.37 | W->B waitable wait 0.01 | B->P render 6.77 | C->C logic frame 19.73 | P->P present 22.94 | K->P sample->present 35.37 | input->display B(n+1)-K(n) 52.04 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:57:09.077] stats latency: IK ON, kicks/s at frame end 0 / at frame start 47, input age K->C mean 2.09 ms (max since start 44.69 ms), pad-stage wait timeouts 1396
+[04:57:09.077] stats/s: W3 waits 865 (Sleep), L1 timer sleeps 11, F1 timer sleeps 0, WK wakes kept 13748 / skipped 165
+[04:57:09.077] stats/s exp: W6 waits 0 avg 1649 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:57:15.771] OSD: stats: rendered 32.6 fps, displayed 32.6 fps (x1.00, FG off, 1 chain(s)), game ticks 32.6/s, speed 1.00x, vrr tier 60 cap 60 armed 34, draws 5474, skipped 0
+[04:57:39.115] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 26.33 | L->W 10.55 | W->B waitable wait 0.01 | B->P render 10.51 | C->C logic frame 28.88 | P->P present 32.32 | K->P sample->present 59.42 | input->display B(n+1)-K(n) 76.02 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:57:39.115] stats latency: IK ON, kicks/s at frame end 0 / at frame start 33, input age K->C mean 2.16 ms (max since start 44.69 ms), pad-stage wait timeouts 1014
+[04:57:39.115] stats/s: W3 waits 714 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19922 / skipped 110
+[04:57:39.115] stats/s exp: W6 waits 0 avg 586 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:57:45.903] OSD: stats: rendered 23.2 fps, displayed 23.2 fps (x1.00, FG off, 1 chain(s)), game ticks 50.2/s, speed 1.08x, vrr tier 60 cap 60 armed 53, draws 6373, skipped 0
+[04:58:09.151] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 22.73 | L->W 18.96 | W->B waitable wait 0.02 | B->P render 25.14 | C->C logic frame 24.99 | P->P present 33.22 | K->P sample->present 70.73 | input->display B(n+1)-K(n) 78.13 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:58:09.151] stats latency: IK ON, kicks/s at frame end 0 / at frame start 41, input age K->C mean 2.10 ms (max since start 44.69 ms), pad-stage wait timeouts 1243
+[04:58:09.151] stats/s: W3 waits 812 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 12567 / skipped 139
+[04:58:09.151] stats/s exp: W6 waits 0 avg 786 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:58:16.123] OSD: stats: rendered 27.4 fps, displayed 27.4 fps (x1.00, FG off, 1 chain(s)), game ticks 37.2/s, speed 0.97x, vrr tier 60 cap 60 armed 36, draws 7210, skipped 0
+[04:58:39.183] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 23.12 | L->W 30.63 | W->B waitable wait 0.02 | B->P render 20.83 | C->C logic frame 25.83 | P->P present 38.85 | K->P sample->present 90.19 | input->display B(n+1)-K(n) 138.51 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:58:39.183] stats latency: IK ON, kicks/s at frame end 0 / at frame start 34, input age K->C mean 2.08 ms (max since start 44.69 ms), pad-stage wait timeouts 1035
+[04:58:39.183] stats/s: W3 waits 828 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 11144 / skipped 130
+[04:58:39.184] stats/s exp: W6 waits 0 avg 602 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:58:46.622] OSD: stats: rendered 41.2 fps, displayed 41.2 fps (x1.00, FG off, 1 chain(s)), game ticks 45.2/s, speed 1.00x, vrr tier 60 cap 60 armed 44, draws 7776, skipped 0
+[04:59:09.215] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 19.36 | L->W 11.96 | W->B waitable wait 0.02 | B->P render 13.45 | C->C logic frame 22.27 | P->P present 24.72 | K->P sample->present 47.96 | input->display B(n+1)-K(n) 59.34 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:59:09.215] stats latency: IK ON, kicks/s at frame end 0 / at frame start 43, input age K->C mean 2.07 ms (max since start 44.69 ms), pad-stage wait timeouts 1310
+[04:59:09.215] stats/s: W3 waits 882 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 14810 / skipped 51
+[04:59:09.215] stats/s exp: W6 waits 0 avg 613 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:59:09.590] MENU: engine stop flags (G+588..58D) now: none
+[04:59:17.077] OSD: stats: rendered 25.1 fps, displayed 25.1 fps (x1.00, FG off, 1 chain(s)), game ticks 28.9/s, speed 1.02x, vrr tier 60 cap 60 armed 28, draws 8906, skipped 0
+[04:59:39.249] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 20.05 | L->W 15.27 | W->B waitable wait 0.03 | B->P render 18.36 | C->C logic frame 23.33 | P->P present 32.34 | K->P sample->present 56.59 | input->display B(n+1)-K(n) 70.94 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[04:59:39.249] stats latency: IK ON, kicks/s at frame end 0 / at frame start 39, input age K->C mean 2.07 ms (max since start 44.69 ms), pad-stage wait timeouts 1192
+[04:59:39.249] stats/s: W3 waits 850 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19178 / skipped 87
+[04:59:39.249] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:59:47.438] OSD: stats: rendered 31.1 fps, displayed 31.1 fps (x1.00, FG off, 1 chain(s)), game ticks 42.8/s, speed 1.00x, vrr tier 60 cap 60 armed 49, draws 9834, skipped 0
+[05:00:09.282] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.07 | C->L update+limiter 19.61 | L->W 14.46 | W->B waitable wait 0.03 | B->P render 18.32 | C->C logic frame 22.79 | P->P present 31.72 | K->P sample->present 55.46 | input->display B(n+1)-K(n) 69.05 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:00:09.282] stats latency: IK ON, kicks/s at frame end 0 / at frame start 43, input age K->C mean 2.08 ms (max since start 44.69 ms), pad-stage wait timeouts 1304
+[05:00:09.283] stats/s: W3 waits 865 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19836 / skipped 50
+[05:00:09.283] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:00:17.947] OSD: stats: rendered 32.7 fps, displayed 32.7 fps (x1.00, FG off, 1 chain(s)), game ticks 42.3/s, speed 1.01x, vrr tier 60 cap 60 armed 40, draws 10799, skipped 0
+[05:00:39.318] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 20.14 | L->W 14.08 | W->B waitable wait 0.03 | B->P render 18.53 | C->C logic frame 23.38 | P->P present 30.58 | K->P sample->present 55.33 | input->display B(n+1)-K(n) 67.75 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:00:39.318] stats latency: IK ON, kicks/s at frame end 0 / at frame start 42, input age K->C mean 2.08 ms (max since start 44.69 ms), pad-stage wait timeouts 1278
+[05:00:39.318] stats/s: W3 waits 887 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19826 / skipped 46
+[05:00:39.318] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:00:48.042] OSD: stats: rendered 32.5 fps, displayed 32.5 fps (x1.00, FG off, 1 chain(s)), game ticks 42.1/s, speed 1.00x, vrr tier 60 cap 60 armed 40, draws 11777, skipped 0
+[05:01:09.349] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.07 | C->L update+limiter 19.75 | L->W 14.25 | W->B waitable wait 0.03 | B->P render 18.48 | C->C logic frame 22.94 | P->P present 30.85 | K->P sample->present 55.08 | input->display B(n+1)-K(n) 67.79 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:01:09.350] stats latency: IK ON, kicks/s at frame end 0 / at frame start 43, input age K->C mean 1.92 ms (max since start 44.69 ms), pad-stage wait timeouts 1187
+[05:01:09.350] stats/s: W3 waits 880 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 20126 / skipped 58
+[05:01:09.350] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:01:12.201] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+[05:01:18.152] OSD: stats: rendered 32.7 fps, displayed 32.7 fps (x1.00, FG off, 1 chain(s)), game ticks 40.4/s, speed 0.99x, vrr tier 60 cap 60 armed 42, draws 12747, skipped 0
+[05:01:39.380] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 21.03 | L->W 14.07 | W->B waitable wait 0.03 | B->P render 17.99 | C->C logic frame 24.30 | P->P present 30.86 | K->P sample->present 56.14 | input->display B(n+1)-K(n) 69.28 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:01:39.380] stats latency: IK ON, kicks/s at frame end 0 / at frame start 41, input age K->C mean 1.88 ms (max since start 44.69 ms), pad-stage wait timeouts 1110
+[05:01:39.381] stats/s: W3 waits 890 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19143 / skipped 45
+[05:01:39.381] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:01:39.393] MENU: IK input kick early -> OFF
+[05:01:46.131] MENU: closed (B / Esc) - unsaved changes are active until the game exits
+[05:01:48.298] OSD: stats: rendered 31.9 fps, displayed 31.9 fps (x1.00, FG off, 1 chain(s)), game ticks 45.9/s, speed 1.00x, vrr tier 60 cap 60 armed 46, draws 13716, skipped 0
+[05:02:09.414] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.21 | C->L update+limiter 19.44 | L->W 14.14 | W->B waitable wait 0.03 | B->P render 18.44 | C->C logic frame 21.58 | P->P present 30.97 | K->P sample->present 55.06 | input->display B(n+1)-K(n) 67.72 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:02:09.414] stats latency: IK off, kicks/s at frame end 45 / at frame start 0, input age K->C mean 2.34 ms (max since start 44.69 ms), pad-stage wait timeouts 1
+[05:02:09.415] stats/s: W3 waits 883 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 20793 / skipped 55
+[05:02:09.415] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:02:18.447] OSD: stats: rendered 32.4 fps, displayed 32.4 fps (x1.00, FG off, 1 chain(s)), game ticks 45.7/s, speed 1.03x, vrr tier 60 cap 60 armed 45, draws 14690, skipped 0
+[05:02:39.447] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.21 | C->L update+limiter 19.58 | L->W 14.57 | W->B waitable wait 0.03 | B->P render 18.44 | C->C logic frame 21.74 | P->P present 30.96 | K->P sample->present 55.69 | input->display B(n+1)-K(n) 68.40 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:02:39.447] stats latency: IK off, kicks/s at frame end 45 / at frame start 0, input age K->C mean 2.33 ms (max since start 44.69 ms), pad-stage wait timeouts 0
+[05:02:39.448] stats/s: W3 waits 876 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 21017 / skipped 43
+[05:02:39.448] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:02:48.513] OSD: stats: rendered 32.8 fps, displayed 32.8 fps (x1.00, FG off, 1 chain(s)), game ticks 44.4/s, speed 0.97x, vrr tier 60 cap 60 armed 47, draws 15660, skipped 0
+[05:03:09.481] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.21 | C->L update+limiter 19.56 | L->W 14.06 | W->B waitable wait 0.03 | B->P render 18.53 | C->C logic frame 21.75 | P->P present 30.93 | K->P sample->present 55.41 | input->display B(n+1)-K(n) 67.83 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:03:09.481] stats latency: IK off, kicks/s at frame end 45 / at frame start 0, input age K->C mean 2.33 ms (max since start 44.69 ms), pad-stage wait timeouts 0
+[05:03:09.481] stats/s: W3 waits 878 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 21153 / skipped 54
+[05:03:09.482] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:03:18.680] OSD: stats: rendered 32.2 fps, displayed 32.2 fps (x1.00, FG off, 1 chain(s)), game ticks 45.4/s, speed 0.99x, vrr tier 60 cap 60 armed 44, draws 16636, skipped 0
+[05:03:39.514] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.17 | C->L update+limiter 19.61 | L->W 14.33 | W->B waitable wait 0.03 | B->P render 18.57 | C->C logic frame 21.76 | P->P present 30.88 | K->P sample->present 55.43 | input->display B(n+1)-K(n) 68.14 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:03:39.514] stats latency: IK off, kicks/s at frame end 45 / at frame start 0, input age K->C mean 2.27 ms (max since start 44.69 ms), pad-stage wait timeouts 0
+[05:03:39.515] stats/s: W3 waits 880 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 21124 / skipped 48
+[05:03:39.515] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:03:42.466] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+[05:03:45.481] MENU: IK input kick early -> ON
+[05:03:47.496] MENU: closed (B / Esc) - unsaved changes are active until the game exits
+[05:03:48.845] OSD: stats: rendered 32.6 fps, displayed 32.6 fps (x1.00, FG off, 1 chain(s)), game ticks 38.4/s, speed 0.98x, vrr tier 60 cap 60 armed 37, draws 17608, skipped 0
+[05:04:03.077] MENU: engine stop flags (G+588..58D) now: 58D
+[05:04:09.548] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 19.46 | L->W 14.66 | W->B waitable wait 0.03 | B->P render 18.12 | C->C logic frame 22.61 | P->P present 30.99 | K->P sample->present 54.94 | input->display B(n+1)-K(n) 68.70 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:04:09.548] stats latency: IK ON, kicks/s at frame end 9 / at frame start 34, input age K->C mean 2.01 ms (max since start 44.69 ms), pad-stage wait timeouts 1043
+[05:04:09.548] stats/s: W3 waits 885 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 20066 / skipped 38
+[05:04:09.548] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:04:10.272] MENU: engine stop flags (G+588..58D) now: none
+[05:04:19.126] OSD: stats: rendered 32.5 fps, displayed 32.5 fps (x1.00, FG off, 1 chain(s)), game ticks 42.0/s, speed 1.00x, vrr tier 60 cap 60 armed 39, draws 18574, skipped 0
+[05:04:39.580] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 20.14 | L->W 13.99 | W->B waitable wait 0.03 | B->P render 18.50 | C->C logic frame 23.30 | P->P present 30.80 | K->P sample->present 55.31 | input->display B(n+1)-K(n) 68.22 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:04:39.581] stats latency: IK ON, kicks/s at frame end 0 / at frame start 42, input age K->C mean 2.06 ms (max since start 44.69 ms), pad-stage wait timeouts 1276
+[05:04:39.581] stats/s: W3 waits 881 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19801 / skipped 51
+[05:04:39.581] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:04:49.408] OSD: stats: rendered 32.2 fps, displayed 32.2 fps (x1.00, FG off, 1 chain(s)), game ticks 43.6/s, speed 1.03x, vrr tier 60 cap 60 armed 44, draws 19553, skipped 0
+[05:05:09.616] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 20.38 | L->W 14.58 | W->B waitable wait 0.03 | B->P render 18.63 | C->C logic frame 23.54 | P->P present 30.68 | K->P sample->present 55.68 | input->display B(n+1)-K(n) 68.49 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:05:09.616] stats latency: IK ON, kicks/s at frame end 0 / at frame start 42, input age K->C mean 2.08 ms (max since start 44.69 ms), pad-stage wait timeouts 1275
+[05:05:09.616] stats/s: W3 waits 881 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19745 / skipped 44
+[05:05:09.616] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:05:19.569] OSD: stats: rendered 32.2 fps, displayed 32.2 fps (x1.00, FG off, 1 chain(s)), game ticks 43.5/s, speed 1.01x, vrr tier 60 cap 60 armed 42, draws 20533, skipped 0
+[05:05:39.647] stats latency (TS medians over the last 4096 probes, ms): K->C input age 2.08 | C->L update+limiter 19.87 | L->W 14.08 | W->B waitable wait 0.03 | B->P render 18.45 | C->C logic frame 23.10 | P->P present 30.68 | K->P sample->present 55.02 | input->display B(n+1)-K(n) 67.96 (+ half a refresh for mid-screen; vkd3d latency-1 semantics)
+[05:05:39.648] stats latency: IK ON, kicks/s at frame end 0 / at frame start 42, input age K->C mean 2.08 ms (max since start 44.69 ms), pad-stage wait timeouts 1283
+[05:05:39.648] stats/s: W3 waits 885 (Sleep), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 19885 / skipped 51
+[05:05:39.648] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:05:49.683] OSD: stats: rendered 31.3 fps, displayed 31.3 fps (x1.00, FG off, 1 chain(s)), game ticks 45.0/s, speed 1.03x, vrr tier 60 cap 60 armed 47, draws 21510, skipped 0

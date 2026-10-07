@@ -1,0 +1,178 @@
+[04:32:32.376] Nioh3EngineFix 1.1.0 (built Oct  7 2026) - native port of the live-tested Nioh 3 engine patches
+[04:32:32.376] Nioh3.exe at 0000000140000000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[04:32:32.377] MENU: Proton: config.xml C:\users\steamuser\AppData\Local\KoeiTecmo\NIOH3\config.xml: FRAME_GENERATION OFF at startup
+[04:32:32.377] Proton FG guard: exit hooks ExitProcess ok, TerminateProcess ok
+[04:32:32.377] WC: worker-pool base capped at 10 (of 16 logical CPUs)
+[04:32:32.577] code is decrypted (200 ms after start)
+[04:32:32.577] resolving sites:
+[04:32:32.586]   W1   OK at RVA 61BAC
+[04:32:32.589]   W2a  OK at RVA 13721F
+[04:32:32.601]   W2b  OK at RVA 137269
+[04:32:32.612]   W2c  OK at RVA 1372B4
+[04:32:32.622]   W2d  OK at RVA 1372FE
+[04:32:32.633]   P3a  OK at RVA 43593A
+[04:32:32.649]   P3b  OK at RVA 437EE5
+[04:32:32.660]   P3c  OK at RVA 438473
+[04:32:32.670]   P3d  OK at RVA 55DC56
+[04:32:32.682]   P3e  OK at RVA 5AF6C9
+[04:32:32.693]   P3f  OK at RVA 29770C6
+[04:32:32.703]   P3g  OK at RVA 29771B4
+[04:32:32.713]   P6   OK at RVA 1975BAA
+[04:32:32.730]   P8a  OK at RVA 20E77B
+[04:32:32.743]   P8b  OK at RVA 5AF526
+[04:32:32.761]   P8c  OK at RVA 5AF682
+[04:32:32.779]   P8d  OK at RVA 5AF69F
+[04:32:32.790]   P9   OK at RVA 5AD89B
+[04:32:32.802]   P2   OK at RVA 5AD6AA
+[04:32:32.817]   P4   OK at RVA 5AD860
+[04:32:32.831]   P1   OK at RVA 5AD677
+[04:32:32.847]   W3   OK at RVA 1A6BF2D
+[04:32:32.860]   R1   OK at RVA 4A5346
+[04:32:32.875]   R1j  OK at RVA 4A5357
+[04:32:32.900]   L1   OK at RVA 19DF57E
+[04:32:32.917]   F1   OK at RVA 3777A40
+[04:32:32.928]   WK   OK at RVA 40A4C
+[04:32:32.952]   W6   OK at RVA 7D9EA2
+[04:32:32.968]   W6W  OK at RVA 1A822D9
+[04:32:32.968] near page at 000000013FFF0000
+[04:32:32.974]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[04:32:32.974] W1: applied (1 site(s), 1 attempt(s))
+[04:32:32.979]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[04:32:32.979] W2a: applied (1 site(s), 1 attempt(s))
+[04:32:32.984]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[04:32:32.984] W2b: applied (1 site(s), 1 attempt(s))
+[04:32:32.989]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[04:32:32.989] W2c: applied (1 site(s), 1 attempt(s))
+[04:32:32.994]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[04:32:32.994] W2d: applied (1 site(s), 1 attempt(s))
+[04:32:32.994] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[04:32:32.994] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[04:32:32.994] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[04:32:32.999]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[04:32:32.999]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[04:32:32.999]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[04:32:32.999]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[04:32:32.999]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[04:32:32.999]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[04:32:32.999]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[04:32:32.999]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[04:32:32.999]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[04:32:32.999]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[04:32:32.999]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[04:32:32.999]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[04:32:32.999]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[04:32:32.999]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[04:32:32.999]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[04:32:32.999]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[04:32:32.999] VRR: applied (16 site(s), 1 attempt(s))
+[04:32:33.004]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[04:32:33.004] W3: applied (1 site(s), 1 attempt(s))
+[04:32:33.009]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[04:32:33.009]   R1j  RVA 4A5357   patched: 75 ED 
+[04:32:33.009] R1: applied (2 site(s), 1 attempt(s))
+[04:32:33.557] running under Wine/Proton 11.0
+[04:32:33.558] W3: Wine/Proton -> empty-queue wait is Sleep(1 ms) (Wine returns from MsgWaitForMultipleObjectsEx at once)
+[04:32:33.564]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[04:32:33.564] L1: applied (1 site(s), 1 attempt(s))
+[04:32:33.569]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[04:32:33.569] F1: applied (1 site(s), 1 attempt(s))
+[04:32:33.574]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[04:32:33.574] WK: applied (1 site(s), 1 attempt(s))
+[04:32:33.582]   W6   RVA 7D9EA2   patched: E8 B9 62 81 FF 0F 1F 00 
+[04:32:33.582] W6: applied (1 site(s), 1 attempt(s))
+[04:32:33.587]   W6W  RVA 1A822D9  patched: E8 92 DE 56 FE 66 90 
+[04:32:33.587] W6W: applied (1 site(s), 1 attempt(s))
+[04:32:33.587] W6: hybrid present wait on (spin 50 us, then WaitOnAddress, 1 ms timeout); waker at the Present thread's flag clear installed
+[04:32:33.589] MENU: frame generation: live switch enabled under Proton ([Menu] FrameGenToggle = 2); FG on is never saved to the game's config here
+[04:32:33.589] MENU: enabled - key F10, controller hold Start 5.0 s, scale auto, pause hint on (flags mask 18)
+[04:32:33.590] OSD: MaxFrameLatency=1 (applied to waitable swapchains as they present)
+[04:32:33.590] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00
+[04:32:33.590] done: 13 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[04:32:39.196] OSD: engine is rendering (5606 ms after start) - installing the Present hook
+[04:32:39.197] OSD: system d3d12 C:\windows\system32\d3d12.dll+0, dxgi C:\windows\system32\dxgi.dll+0
+[04:32:39.208] OSD: dummy swapchain 0000000032069620, vtable S:\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\windows\system32\d3d12core.dll+488FE0
+[04:32:39.209] OSD: hooked ExecuteCommandLists: vtable slot 00006FFFF26A9030, original C:\windows\system32\d3d12core.dll+3EB620
+[04:32:39.209] OSD: hooked Present: vtable slot 00006FFFFC756368, original S:\steamapps\common\Nioh3\sl.interposer.dll+29090
+[04:32:39.209] OSD: hooked Present1: vtable slot 00006FFFFC7563D8, original S:\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[04:32:39.209] OSD: hooked SetColorSpace1: vtable slot 00006FFFFC756458, original S:\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[04:32:39.211] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to XINPUT1_4.dll+2080
+[04:32:39.213] OSD: Present called from thread 744 ""
+[04:32:39.213] OSD: MaxFrameLatency: swapchain 0000000001C58CD0 (flags 2) was not created with FRAME_LATENCY_WAITABLE_OBJECT - not applicable
+[04:32:39.213] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+36480, original DINPUT8.dll+9200
+[04:32:39.213] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+36380, original DINPUT8.dll+C630
+[04:32:39.213] MENU: own XInput for fallback polling: XINPUT1_4.dll+2080
+[04:32:39.213] MENU: ready - open with F10 / Hold Start 5s
+[04:32:39.213] OSD: captured DIRECT queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0, other thread), device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0); back buffer device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0) -> same device, using it
+[04:32:39.213] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain S:\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[04:32:39.213] OSD: swapchain 0000000001C58CD0: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0), device 00000000033A0080
+[04:32:39.214] OSD: drawing context ready (build #1)
+[04:32:39.214] MENU: controller: the game has not polled its pad for 0.5 s - polling XInput ourselves (the game will also see menu button presses)
+[04:32:39.221] MENU: keyboard: no DirectInput keyboard read for 0.5 s - polling GetAsyncKeyState (the game will also see menu key presses)
+[04:32:39.222] MENU: engine stop flags (G+588..58D) now: none
+[04:32:39.222] OSD: pipeline created for back buffer format 87
+[04:32:39.222] OSD: first overlay frame drawn (7 quads)
+[04:32:39.727] OSD: game settings: FRAME_GENERATION OFF (0), RESOLUTION_SCALING FSR (2)
+[04:33:03.617] stats/s: W3 waits 927 (Sleep), L1 timer sleeps 46, F1 timer sleeps 0, WK wakes kept 5057 / skipped 234
+[04:33:03.617] stats/s exp: W6 waits 43 avg 15053 us (slept 43, spun 0, wakes 43) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:33:09.326] OSD: stats: rendered 58.9 fps, displayed 58.9 fps (x1.00, FG off, 1 chain(s)), game ticks 60.8/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 1736, skipped 0
+[04:33:33.647] stats/s: W3 waits 937 (Sleep), L1 timer sleeps 58, F1 timer sleeps 0, WK wakes kept 2511 / skipped 43
+[04:33:33.647] stats/s exp: W6 waits 56 avg 15086 us (slept 56, spun 0, wakes 56) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:33:39.560] OSD: stats: rendered 57.5 fps, displayed 57.5 fps (x1.00, FG off, 1 chain(s)), game ticks 55.5/s, speed 0.98x, vrr tier 60 cap 60 armed 59, draws 3474, skipped 0
+[04:34:03.679] stats/s: W3 waits 873 (Sleep), L1 timer sleeps 55, F1 timer sleeps 0, WK wakes kept 9652 / skipped 106
+[04:34:03.679] stats/s exp: W6 waits 33 avg 20313 us (slept 33, spun 0, wakes 33) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:34:10.034] OSD: stats: rendered 33.8 fps, displayed 33.8 fps (x1.00, FG off, 1 chain(s)), game ticks 59.6/s, speed 0.99x, vrr tier 60 cap 60 armed 60, draws 4467, skipped 0
+[04:34:33.709] stats/s: W3 waits 937 (Sleep), L1 timer sleeps 59, F1 timer sleeps 0, WK wakes kept 8840 / skipped 59
+[04:34:33.709] stats/s exp: W6 waits 33 avg 22522 us (slept 33, spun 0, wakes 33) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:34:34.739] MENU: engine stop flags (G+588..58D) now: 58A
+[04:34:40.410] OSD: stats: rendered 33.2 fps, displayed 33.2 fps (x1.00, FG off, 1 chain(s)), game ticks 52.7/s, speed 0.99x, vrr tier 60 cap 60 armed 39, draws 5559, skipped 0
+[04:35:03.750] stats/s: W3 waits 747 (Sleep), L1 timer sleeps 9, F1 timer sleeps 0, WK wakes kept 24733 / skipped 424
+[04:35:03.750] stats/s exp: W6 waits 23 avg 22923 us (slept 23, spun 0, wakes 23) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:35:10.806] OSD: stats: rendered 17.2 fps, displayed 17.2 fps (x1.00, FG off, 1 chain(s)), game ticks 51.5/s, speed 0.94x, vrr tier 60 cap 60 armed 60, draws 6240, skipped 0
+[04:35:33.782] stats/s: W3 waits 841 (Sleep), L1 timer sleeps 14, F1 timer sleeps 0, WK wakes kept 17394 / skipped 420
+[04:35:33.782] stats/s exp: W6 waits 17 avg 45057 us (slept 17, spun 0, wakes 17) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:35:41.156] OSD: stats: rendered 17.7 fps, displayed 17.7 fps (x1.00, FG off, 1 chain(s)), game ticks 17.7/s, speed 0.74x, vrr tier 60 cap 60 armed 24, draws 6772, skipped 0
+[04:35:59.282] MENU: engine stop flags (G+588..58D) now: none
+[04:36:03.815] stats/s: W3 waits 879 (Sleep), L1 timer sleeps 16, F1 timer sleeps 0, WK wakes kept 15252 / skipped 198
+[04:36:03.815] stats/s exp: W6 waits 12 avg 64724 us (slept 12, spun 0, wakes 12) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:36:11.512] OSD: stats: rendered 24.6 fps, displayed 24.6 fps (x1.00, FG off, 1 chain(s)), game ticks 60.7/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 7199, skipped 0
+[04:36:33.847] stats/s: W3 waits 907 (Sleep), L1 timer sleeps 52, F1 timer sleeps 0, WK wakes kept 26605 / skipped 71
+[04:36:33.847] stats/s exp: W6 waits 21 avg 33394 us (slept 21, spun 0, wakes 21) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:36:41.816] OSD: stats: rendered 20.1 fps, displayed 20.1 fps (x1.00, FG off, 1 chain(s)), game ticks 60.4/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 7868, skipped 0
+[04:37:03.878] stats/s: W3 waits 914 (Sleep), L1 timer sleeps 57, F1 timer sleeps 0, WK wakes kept 27129 / skipped 105
+[04:37:03.878] stats/s exp: W6 waits 21 avg 35133 us (slept 21, spun 0, wakes 21) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:37:12.165] OSD: stats: rendered 23.4 fps, displayed 23.4 fps (x1.00, FG off, 1 chain(s)), game ticks 60.3/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 8520, skipped 0
+[04:37:33.908] stats/s: W3 waits 918 (Sleep), L1 timer sleeps 57, F1 timer sleeps 0, WK wakes kept 27208 / skipped 80
+[04:37:33.908] stats/s exp: W6 waits 22 avg 32107 us (slept 22, spun 0, wakes 22) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:37:42.431] OSD: stats: rendered 23.1 fps, displayed 23.1 fps (x1.00, FG off, 1 chain(s)), game ticks 59.8/s, speed 1.00x, vrr tier 60 cap 60 armed 60, draws 9207, skipped 0
+[04:37:48.150] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+[04:38:03.938] stats/s: W3 waits 920 (Sleep), L1 timer sleeps 49, F1 timer sleeps 0, WK wakes kept 26907 / skipped 111
+[04:38:03.938] stats/s exp: W6 waits 22 avg 32427 us (slept 22, spun 0, wakes 22) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:38:12.532] OSD: stats: rendered 23.3 fps, displayed 23.3 fps (x1.00, FG off, 1 chain(s)), game ticks 60.1/s, speed 1.02x, vrr tier 60 cap 60 armed 56, draws 9890, skipped 0
+[04:38:24.345] MENU: W6 present wait -> OFF
+[04:38:26.335] MENU: closed (B / Esc) - unsaved changes are active until the game exits
+[04:38:33.969] stats/s: W3 waits 918 (Sleep), L1 timer sleeps 43, F1 timer sleeps 0, WK wakes kept 26395 / skipped 74
+[04:38:33.969] stats/s exp: W6 waits 15 avg 32220 us (slept 15, spun 0, wakes 15) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:38:42.871] OSD: stats: rendered 19.6 fps, displayed 19.6 fps (x1.00, FG off, 1 chain(s)), game ticks 60.9/s, speed 1.02x, vrr tier 60 cap 60 armed 60, draws 10534, skipped 0
+[04:39:04.001] stats/s: W3 waits 908 (Sleep), L1 timer sleeps 58, F1 timer sleeps 0, WK wakes kept 26985 / skipped 110
+[04:39:04.001] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:39:13.289] OSD: stats: rendered 21.9 fps, displayed 21.9 fps (x1.00, FG off, 1 chain(s)), game ticks 60.3/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 11144, skipped 0
+[04:39:34.032] stats/s: W3 waits 913 (Sleep), L1 timer sleeps 57, F1 timer sleeps 0, WK wakes kept 26947 / skipped 76
+[04:39:34.032] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:39:43.592] OSD: stats: rendered 21.6 fps, displayed 21.6 fps (x1.00, FG off, 1 chain(s)), game ticks 60.9/s, speed 1.02x, vrr tier 60 cap 60 armed 60, draws 11791, skipped 0
+[04:39:46.972] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+[04:39:54.921] MENU: M2 meshlet atomics -> ON  * restart
+[04:40:03.946] MENU: M2 meshlet atomics -> OFF  (ini)
+[04:40:04.062] stats/s: W3 waits 915 (Sleep), L1 timer sleeps 53, F1 timer sleeps 0, WK wakes kept 26591 / skipped 86
+[04:40:04.062] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:40:10.959] MENU: W6 present wait -> ON
+[04:40:14.039] OSD: stats: rendered 23.7 fps, displayed 23.7 fps (x1.00, FG off, 1 chain(s)), game ticks 59.3/s, speed 1.00x, vrr tier 60 cap 60 armed 54, draws 12453, skipped 0
+[04:40:19.999] MENU: closed (B / Esc) - unsaved changes are active until the game exits
+[04:40:34.092] stats/s: W3 waits 918 (Sleep), L1 timer sleeps 48, F1 timer sleeps 0, WK wakes kept 26780 / skipped 96
+[04:40:34.092] stats/s exp: W6 waits 17 avg 31575 us (slept 17, spun 0, wakes 17) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:40:44.133] OSD: stats: rendered 20.7 fps, displayed 20.7 fps (x1.00, FG off, 1 chain(s)), game ticks 60.3/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 13117, skipped 0
+[04:41:04.122] stats/s: W3 waits 915 (Sleep), L1 timer sleeps 57, F1 timer sleeps 0, WK wakes kept 27120 / skipped 85
+[04:41:04.122] stats/s exp: W6 waits 22 avg 33214 us (slept 22, spun 0, wakes 22) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:41:14.582] OSD: stats: rendered 24.5 fps, displayed 24.5 fps (x1.00, FG off, 1 chain(s)), game ticks 58.4/s, speed 0.97x, vrr tier 60 cap 60 armed 60, draws 13838, skipped 0
+[04:41:34.152] stats/s: W3 waits 917 (Sleep), L1 timer sleeps 55, F1 timer sleeps 0, WK wakes kept 27246 / skipped 83
+[04:41:34.152] stats/s exp: W6 waits 23 avg 30925 us (slept 23, spun 0, wakes 23) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[04:41:44.794] OSD: stats: rendered 23.6 fps, displayed 23.6 fps (x1.00, FG off, 1 chain(s)), game ticks 59.1/s, speed 0.98x, vrr tier 60 cap 60 armed 60, draws 14536, skipped 0
