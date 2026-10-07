@@ -189,3 +189,11 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - menu.cpp: under Proton, FG ON -> OFF no longer calls the game setter (the live swapchain rebuild crashed the game ~2 s later, v9 log); it writes FRAME_GENERATION OFF via the safe config.xml writer (+ marker) and shows "FG off at next launch". OFF -> ON stays live.
 - Also kept from the interrupted work: gpuprof.cpp GP pass profiler ([Profiler] GPUProf, default 0), 103 sites OK. LK/CP/SPF/WG/TG/DS were already in 1.6.0 (defaults 0; Ally zip WG=2, CP=2, SPF=2, TG=0).
 - Untested on hardware (game not run): FG-off path, caller-filtered queue capture.
+
+## 2026-10-07 - psoswap (PSO bytecode swap, default OFF, not integrated) + off-disk post shaders located (nothing applied, game not run)
+- Study: `notes\gpu-post-exe.md`. Of the "~1.4 ms exe post chain", only the TAA filter 449cf0ae, the copies and CustomDepthUpscale are in Nioh3.exe. Bloom (17149dca/18a4c2bb), compose 6a305be4, df4adc57 and MB/DOF are in no file of the game: the bytecode is built at run time. 2493f9d9/d4974586 belong to FSR4 (amd_fidelityfx_upscaler_dx12.dll).
+- No rewrite shipped: the exe-resident post shaders are pixel shaders (no LDS) or bandwidth-bound copies, so there is no output-identical win (reasons in the note). MB/DOF need a DumpMode run first.
+- New: `mod\Nioh3EngineFix\src\psoswap.{h,cpp}` ([ShaderSwap] Enabled/Folder/DumpMode/LogAll). It hooks the device's PSO creation (graphics, compute, stream, pipeline library) through the D3D12CreateDevice IAT slot. Files are keyed by container or DXIL HASH digest; a runtime refusal falls back to the original desc.
+- psoswap integration steps for the ASI src owner: psoswap.h header and note §3. Test: `tests\run_psoswap_harness.py` (real D3D12 device on this PC): ALL PSOSWAP CHECKS OK.
+- Tools: `gpu-shaders\post\inventory.py`, `disasm_all.py`, `offdisk_scan.py` (also decodes the 24 IDRK flag-0x4000 files that dxil_index.csv skips). The extracted blobs and disassembly are gitignored.
+- Undo: nothing installed. Once integrated: `[ShaderSwap] Enabled = 0` (default) or delete the replacement folder.

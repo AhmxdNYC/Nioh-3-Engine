@@ -4,16 +4,18 @@
 // Why: about a third of Nioh 3's post/copy shaders are not in shader_dx12\*.file but embedded in Nioh3.exe (271 DXBC
 // containers in .rdata: the PrepareThinSurfaceBSDF temporal filter, CustomDepthUpscale, the full-screen copies, the
 // GPU particle / hair / ocean / fluid kernels, FidelityFX) and some PSOs are built from bytecode that exists nowhere on
-// disk (bloom / compose / histogram in the r5 trace). A file swap cannot reach either; a PSO-creation hook can.
+// disk (bloom / compose in the r5 trace; probably built at run time - LogAll shows their module as "heap").
+// A file swap cannot reach either; a PSO-creation hook can.
 //
 // What it does:
 //   * hooks ID3D12Device::CreateGraphicsPipelineState / CreateComputePipelineState, ID3D12Device2::CreatePipelineState
 //     (stream descriptors) and ID3D12Device1::CreatePipelineLibrary -> ID3D12PipelineLibrary(1)::LoadGraphicsPipeline /
 //     LoadComputePipeline / LoadPipeline on the vtable of the device the game gets back from D3D12CreateDevice (the
 //     game imports it from sl.interposer.dll; psoswap swaps that IAT slot before the engine creates its device).
-//   * keys every VS/PS/GS/HS/DS/CS/AS/MS blob by its container digest (the 16 bytes after "DXBC" - what RGP and
-//     notes\*.md call the dxbc digest; a blob with an all-zero digest is keyed "f" + FNV-1a-64 of the whole container).
-//   * when <Folder>\<key>.dxbc|.dxil|.cso|.bin exists (and has the same stage and container kind), the PSO is created
+//   * keys every VS/PS/GS/HS/DS/CS/AS/MS blob by its container digest (the 16 bytes after "DXBC"; for FXC shaders this
+//     is what RGP shows), and a DXIL blob also by its HASH-part digest (what RGP and dxc -dumpbin show for DXIL); a
+//     blob with an all-zero digest is keyed "f" + FNV-1a-64 of the whole container. A file may be named by either.
+//   * when <Folder>\<key>.dxbc|.dxil|.cso|.bin exists (same shader stage; all stages of the PSO end up one container kind), the PSO is created
 //     with that bytecode instead (a cached PSO blob in the desc is dropped). If the runtime rejects it, the PSO is
 //     created again from the game's own desc, the key is disabled for the session and a log line says so.
 //   * logs every shader whose bytecode lives inside Nioh3.exe once ("exe <stage> <key> <size> rva=..."); DumpMode = 1

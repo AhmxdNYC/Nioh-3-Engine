@@ -109,6 +109,8 @@ struct BlobInfo {
     int stage = -1;     // D3D12_SHADER_VERSION_TYPE: 0 ps, 1 vs, 2 gs, 3 hs, 4 ds, 5 cs, 13 ms, 14 as
     bool dxil = false;  // the program part is DXIL (SM6) rather than SHEX/SHDR (SM4/5)
     uint32_t size = 0;  // container size
+    bool hasHash = false;  // DXIL: a HASH part exists (its digest is what RGP and dxc -dumpbin call the shader hash)
+    Key hkey;              // HASH-part digest
 };
 
 void KeyName(const Key& k, char out[40]) {
@@ -189,9 +191,15 @@ bool ParseBlob(const uint8_t* p, size_t len, BlobInfo& out) {
             memcpy(&ver, part + 8, 4);
             stage = (int)(ver >> 16);
             dxil = !memcmp(part, "DXIL", 4);
+        } else if (!memcmp(part, "HASH", 4) && off <= size - 28) {
+            memcpy(&out.hkey.a, part + 12, 8);
+            memcpy(&out.hkey.b, part + 20, 8);
+            out.hkey.fnv = 0;
+            out.hasHash = out.hkey.a || out.hkey.b;
         }
     }
     if (stage < 0) return false;
+    if (!out.hasHash) out.hkey = Key{};
     out.stage = stage;
     out.dxil = dxil;
     out.size = size;
@@ -226,6 +234,7 @@ bool SafeCopy(void* dst, const void* src, size_t n) {
 
 // ---- replacements ----------------------------------------------------------------------------------------------------------
 struct Repl {
+    Key key;  // the file's name: container digest, HASH-part digest, or f+FNV
     std::wstring path;
     std::vector<uint8_t> data;
     BlobInfo info;
@@ -252,6 +261,7 @@ bool ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& out, size_t m
 const Repl* GetRepl(const BlobInfo& orig) {
     AcquireSRWLockShared(&g_lock);
     auto it = g_repl.find(orig.key);
+    if (it == g_repl.end() && orig.hasHash) it = g_repl.find(orig.hkey);
     if (it == g_repl.end()) {
         ReleaseSRWLockShared(&g_lock);
         return nullptr;
@@ -261,12 +271,15 @@ const Repl* GetRepl(const BlobInfo& orig) {
     const std::wstring path = st == 0 ? r->path : std::wstring();
     ReleaseSRWLockShared(&g_lock);
     if (st == 1) return r;
-    if (st < 0) return nullptr;
+    if (st < 0) {
+        Add(g_c.skipped);
+        return nullptr;
+    }
 
     std::vector<uint8_t> data;
     BlobInfo bi;
     char kn[40];
-    KeyName(orig.key, kn);
+    KeyName(r->key, kn);
     int ns = -1;
     if (!ReadWholeFile(path, data, 16u << 20)) {
         LOG("%s: cannot read %ls - not used", kn, path.c_str());
@@ -293,6 +306,7 @@ const Repl* GetRepl(const BlobInfo& orig) {
         LOG("%s: replacement loaded (%s %s, %u bytes, new digest %s)", kn, StageName(bi.stage), bi.dxil ? "DXIL" : "DXBC",
             bi.size, rk);
     }
+    if (!ready) Add(g_c.skipped);
     return ready ? r : nullptr;
 }
 
@@ -357,12 +371,17 @@ void Observe(const BlobInfo& bi, const void* p) {
     if (seen) return;
     char kn[40];
     KeyName(bi.key, kn);
+    char hn[48] = "";
+    if (bi.hasHash) {
+        memcpy(hn, " hash=", 6);
+        KeyName(bi.hkey, hn + 6);
+    }
     if (inExe) {
         Add(g_c.exeUnique);
-        LOG("exe %s %s %u B rva=0x%llx %s", StageName(bi.stage), kn, bi.size, (unsigned long long)(a - g_exeLo),
-            bi.dxil ? "DXIL" : "DXBC");
+        LOG("exe %s %s %u B rva=0x%llx %s%s", StageName(bi.stage), kn, bi.size, (unsigned long long)(a - g_exeLo),
+            bi.dxil ? "DXIL" : "DXBC", hn);
     } else if (g_cfg.logAll) {
-        LOG("ext %s %s %u B %s %s", StageName(bi.stage), kn, bi.size, ModuleOfAddr(p).c_str(), bi.dxil ? "DXIL" : "DXBC");
+        LOG("ext %s %s %u B %s %s%s", StageName(bi.stage), kn, bi.size, ModuleOfAddr(p).c_str(), bi.dxil ? "DXIL" : "DXBC", hn);
     }
     if (g_cfg.dumpMode == 2 || (g_cfg.dumpMode == 1 && inExe)) Dump(bi, p);
 }
@@ -387,7 +406,7 @@ const Repl* Consider(const D3D12_SHADER_BYTECODE& bc, Kinds& kinds, Use& use) {
     const bool dx = r ? r->info.dxil : bi.dxil;
     (dx ? kinds.dxil : kinds.dxbc)++;
     if (r) {
-        use.key = bi.key;
+        use.key = r->key;
         use.n = 1;
     }
     return r;
@@ -885,10 +904,16 @@ int ArmImportHooks() {
         if (!sl && !d12) continue;
         auto* names = reinterpret_cast<IMAGE_THUNK_DATA64*>(base + (imp->OriginalFirstThunk ? imp->OriginalFirstThunk : imp->FirstThunk));
         auto* slots = reinterpret_cast<void**>(base + imp->FirstThunk);
+        // by name, or by ordinal (d3d12.lib links D3D12CreateDevice as ordinal 101): match the bound slot value then
+        HMODULE dm = GetModuleHandleA(dll);
+        void* bound = dm ? (void*)GetProcAddress(dm, "D3D12CreateDevice") : nullptr;
         for (int i = 0; names[i].u1.AddressOfData; ++i) {
-            if (IMAGE_SNAP_BY_ORDINAL64(names[i].u1.Ordinal)) continue;
-            auto* ibn = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names[i].u1.AddressOfData);
-            if (strcmp(reinterpret_cast<const char*>(ibn->Name), "D3D12CreateDevice") != 0) continue;
+            if (IMAGE_SNAP_BY_ORDINAL64(names[i].u1.Ordinal)) {
+                if (!bound || slots[i] != bound) continue;
+            } else {
+                auto* ibn = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names[i].u1.AddressOfData);
+                if (strcmp(reinterpret_cast<const char*>(ibn->Name), "D3D12CreateDevice") != 0) continue;
+            }
             if (!slots[i]) break;
             g_iatDll[n] = sl ? "sl.interposer.dll!D3D12CreateDevice" : "d3d12.dll!D3D12CreateDevice";
             g_iatSlot[n] = &slots[i];
@@ -925,6 +950,7 @@ int IndexFolder() {
         Key k;
         if (!ParseKeyName(fd.cFileName, (size_t)(dot - fd.cFileName), k)) continue;
         Repl r;
+        r.key = k;
         r.path = g_cfg.folder + L"\\" + fd.cFileName;
         auto ins = g_repl.emplace(k, std::move(r));
         if (!ins.second) {

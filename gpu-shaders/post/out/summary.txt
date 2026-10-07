@@ -1,0 +1,258 @@
+  881.6 sm5  vs  a2bd0e861c46e2ba rva=0x399ee90    948 B ins=7 fetch=0 loops=0 tg= |  | ktglViewport
+  246.9 sm5  ps  449cf0aead06d9c5 rva=0x3a56590   5324 B ins=119 fetch=12 loops=0 tg= |  | vCustomParams fWeightEdge weight uvInfo screenInfo scale
+  224.5 sm5  ps  7c5acaaff45033f5 rva=0x3a24110   1200 B ins=10 fetch=4 loops=0 tg= |  | 
+  106.9 sm5  ps  8d25b0cd2d5ab9f3 rva=0x3a5b090   1160 B ins=11 fetch=0 loops=0 tg= |  | far_z
+  100.0 sm5  cs  5e771e539081abd4 rva=0x3f1aa50 113708 B ins=3928 fetch=539 loops=4 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress nMaxMainParticleNum nMainParticleManagerAddress vViewZ fFadeParam fAlphaScaleParam
+   72.2 sm5  ps  29ecb6e4d641308d rva=0x3be7f90    724 B ins=4 fetch=1 loops=0 tg= |  | 
+   72.0 sm5  cs  4924b42243c6f156 rva=0x3edff70  92820 B ins=3519 fetch=350 loops=2 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+   71.7 sm5  cs  3c42e0defb8d007f rva=0x3ddb590  56872 B ins=2121 fetch=235 loops=2 tg=64x1x1 |  | nMaxParticleNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+   66.1 sm5  ps  0cbad2cb8ef1af92 rva=0x3a55c20   2408 B ins=40 fetch=7 loops=0 tg= |  | weight uvInfo screenInfo
+   51.4 sm5  ps  5fccb795a4b46b74 rva=0x3a25640    696 B ins=6 fetch=1 loops=0 tg= |  | 
+   41.6 sm5  cs  6019088dab76b8bc rva=0x3e07d90  98324 B ins=3730 fetch=366 loops=2 tg=64x1x1 |  | nMaxParticleNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+   41.6 sm5  cs  272f065523e935b5 rva=0x3ec8d00  94832 B ins=3581 fetch=356 loops=3 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nMeshIndexNum nMeshAccumlatedAreaNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+   40.4 sm5  cs  dfe807249abbce1f rva=0x3c4c2d0 251288 B ins=8628 fetch=2042 loops=55 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress vVolumeFieldAabbScale vVolumeFieldAabbOffset
+   40.4 sm5  cs  8350c258113d3809 rva=0x3cc0600 223380 B ins=7644 fetch=1879 loops=53 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress vVolumeFieldAabbScale vVolumeFieldAabbOffset
+   34.5 sm5  cs  fbef920b3118e564 rva=0x3a3f1c0   7276 B ins=204 fetch=20 loops=0 tg=64x1x1 |  | Const0 Const1 Const2 Const3 Sample
+   29.4 sm5  ps  030dc8025231c963 rva=0x3be7a70    744 B ins=5 fetch=1 loops=0 tg= |  | 
+   28.1 sm5  ps  d8498a2001823c40 rva=0x3be7d60    552 B ins=3 fetch=0 loops=0 tg= |  | 
+   27.3 sm5  ps  9a76cbefdcab3f7b rva=0x3a3d140    944 B ins=6 fetch=1 loops=0 tg= |  | s_fade
+   26.6 sm5  cs  a53aa0d2ae51a8cd rva=0x3f59910 126484 B ins=4394 fetch=632 loops=3 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress vViewZ fFadeParam fAlphaScaleParam
+   26.6 sm5  cs  52e987e4ad40dfb2 rva=0x3f78730 126484 B ins=4394 fetch=632 loops=3 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress vViewZ fFadeParam fAlphaScaleParam
+   26.6 sm5  cs  30f0be352bc8089d rva=0x3fb3190 126836 B ins=4413 fetch=633 loops=3 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress vViewZ fFadeParam fAlphaScaleParam
+   24.3 sm5  cs  b1a7929bce495ec5 rva=0x3d34440  15464 B ins=535 fetch=52 loops=1 tg=64x1x1 |  | nMaxParticleNum nParticleManagerAddress
+   24.3 sm5  cs  648ef5cf4682a890 rva=0x3d380b0  15464 B ins=535 fetch=52 loops=1 tg=64x1x1 |  | nMaxParticleNum nParticleManagerAddress
+   24.3 sm5  cs  ffc7f39e9fc92410 rva=0x3dbae40  15464 B ins=535 fetch=52 loops=1 tg=64x1x1 |  | nMaxParticleNum nParticleManagerAddress
+   23.9 sm5  cs  e18ea0de6a1acbcd rva=0x3df08e0  95408 B ins=3619 fetch=363 loops=2 tg=64x1x1 |  | nMaxParticleNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+   22.8 sm4  ps  5747cd78b018b314 rva=0x3ff2680   1284 B ins=19 fetch=1 loops=0 tg= |  | ol_color ol_param
+   14.4 sm5  cs  0d11ff1340eec3a8 rva=0x3ffe360  10460 B ins=278 fetch=9 loops=0 tg=64x1x1 |  | nMaxDropNum vCameraPosXZ fWriteRange vFrustumPlane[6] vDecalTexOffset vDecalTexNum vFltOrgOfs bSphereCulling nCpuDecalNum nPriority fDecalHeight fRecipRippleLifeSpan bTexDiv vDivUV vDecalTexDivNum bSecondTexture fNormalThreshold fNormalFade fHeightFade fDecalBlendWeight fAlbedoScaler fAlbedoOverlayScaler fGeometryScaler fBaseNormalScaler
+   10.6 sm5  cs  f204f6a3dc3bb625 rva=0x3de93c0  15108 B ins=588 fetch=69 loops=3 tg=64x1x1 |  | nMaxParticleNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber nMaxMainParticleNum nMainParticleManagerAddress nCounterOffset fProbability
+    6.8 sm5  cs  33d5d00179d21f51 rva=0x3a3c030    668 B ins=3 fetch=0 loops=0 tg=1x1x1 |  | nClearValue
+    6.0 sm5  ps  d787dbd05863368d rva=0x3a277b0    676 B ins=3 fetch=1 loops=0 tg= |  | 
+    5.9 sm5  cs  317617bb7787416c rva=0x3db4160  27872 B ins=896 fetch=60 loops=0 tg=32x1x1 |  | clrSpriteNormal clrSpriteTangent clrSpriteVolumeNormal[4] clrSpriteVolumeNormal2[4] clrSpriteDir[2] nMaxParticleNum nIndirectOffset nAlphaTest matW2C vecCameraClipScale matLookAt
+    5.9 sm5  cs  f76e78d395a44737 rva=0x3dc0210   7280 B ins=198 fetch=29 loops=0 tg=32x1x1 |  | nMaxParticleNum nIndirectOffset nInstanceNum nAlphaTest vecBounding matW2C matLookAt
+    5.9 sm5  cs  cbdfcd90b1cbabfb rva=0x3dccee0  43312 B ins=1352 fetch=71 loops=0 tg=32x1x1 |  | nMaxParticleNum nIndirectOffset nAlphaTest matW2C matLookAt
+    5.6 sm5  cs  41393a1d5978d530 rva=0x3a2f790    688 B ins=6 fetch=2 loops=0 tg=1x1x1 |  | 
+    4.3 sm5  cs  caf83300c41809e8 rva=0x3dc1e80   8492 B ins=247 fetch=41 loops=2 tg=64x1x1 |  | nMaxParticleNum nParticleManagerAddress nMaxMainParticleNum nMainParticleManagerAddress nExAttrFlags nExAttrNum nAttType fOccRate vScatterAttr fAutoHDRScaleExposure nStartIndex vFloatingOriginOffset
+    3.9 sm5  cs  0a509b812591e179 rva=0x3a2f530    608 B ins=6 fetch=1 loops=0 tg=4x4x4 |  | 
+    2.8 sm5  cs  e068a1d8542293f3 rva=0x3dbeab0   5976 B ins=168 fetch=19 loops=1 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress matW2V matV2W matW2C vDDot vDPort nDepthFormat nNormalFormat nTexSize
+    0.0 sm5  cs  0a152ab935621832 rva=0x3913a60   1868 B ins=36 fetch=7 loops=0 tg=32x32x1 |  | fDt nSimuSize fAttenuation
+    0.0 sm5  cs  8b7fcffa1a5d8d2a rva=0x39141b0   3052 B ins=71 fetch=10 loops=0 tg=32x32x1 |  | nSimuSize fDiffuseCoefA fDiffuseCoefB fVorticityCoef nSwitch
+    0.0 sm5  cs  6f35b247436645a1 rva=0x3914da0   1552 B ins=31 fetch=5 loops=0 tg=32x32x1 |  | nSimuSize fHx fHy
+    0.0 sm5  cs  733ddebfa3134099 rva=0x39153b0   1684 B ins=34 fetch=5 loops=0 tg=32x32x1 |  | nSimuSize fDiffuseCoefA nSwitch
+    0.0 sm5  cs  e034adc402c9b3d4 rva=0x3915a50   1736 B ins=36 fetch=5 loops=0 tg=32x32x1 |  | nSimuSize fCoefX fCoefY
+    0.0 sm5  cs  9c983196d65b00cc rva=0x3916120   2128 B ins=49 fetch=5 loops=0 tg=32x32x1 |  | nSimuSize fDxt fMinX fMaxX fMinY fMaxY
+    0.0 sm5  cs  e98078345255f5ae rva=0x3916970   2104 B ins=48 fetch=5 loops=0 tg=32x32x1 |  | nSimuSize fDiffuseCoefA fDiffuseCoefB nSwitch
+    0.0 sm5  cs  e3badef7fa4a2667 rva=0x39171b0   2376 B ins=50 fetch=7 loops=0 tg=32x32x1 |  | nSimuSize fDxt fMinX fMaxX fMinY fMaxY
+    0.0 sm5  cs  51fea20e47f8bc73 rva=0x3917b00   5380 B ins=117 fetch=16 loops=0 tg=32x32x1 |  | nSimuSize fSimSizeMax fTexSize fNoiseTexSize fDensityCoef fInvW fInvH fGroupPitch fFadeW fColoring[1024]
+    0.0 sm5  cs  681524fcb3a5f84a rva=0x3919010   8476 B ins=213 fetch=23 loops=0 tg=32x32x1 |  | nSimuSize fSimSizeMax fTexSize fNoiseTexSize fDensityCoef fFlowCoef fInvW fInvH fGroupPitch fOverlayerTexSize fFadeW fFlowmapTime fColoring[1024]
+    0.0 sm5  cs  c6076bb01c263956 rva=0x391b130   2556 B ins=56 fetch=4 loops=0 tg=32x32x1 |  | nSimuSize fSimSizeMax fTexSize fInvW fInvH
+    0.0 sm5  cs  574292e0d72811cf rva=0x391bb30   2360 B ins=44 fetch=4 loops=0 tg=32x32x1 |  | nSimuSize fSimSizeMax fTexSize fInvW fInvH fGradientLength fInvGradientLength fGradientLength2 fGradCoef
+    0.0 sm5  cs  c70abf5ed1eca680 rva=0x391c900   2560 B ins=36 fetch=5 loops=1 tg=32x1x1 |  | nParticleNum nMaxEachPairNum fKernelSize2 fCoefKernelPoly6 fCoefPressure fInitDensity fWeightKernelPoly6Zero fDencity fPressure fMass fMassPerDens vRlate nID0 nID1 fDistance2 nPad0
+    0.0 sm5  cs  2117ea1059976f05 rva=0x391d300   3128 B ins=51 fetch=9 loops=1 tg=32x1x1 |  | nParticleNum nMaxEachPairNum fKernelSize fCoefKernelSpikyGrad fCoefKernelViscoLap fCoefViscosity vGravity fDencity fPressure fMass fMassPerDens vRlate nID0 nID1 fDistance2 nPad0
+    0.0 sm5  cs  e84865b7d6c7a787 rva=0x391df40  15804 B ins=678 fetch=47 loops=9 tg=32x1x1 |  | nParticleNum fGridSize nResolutionX nResolutionXY vSpaceMin nIndexArraySize nMaxEachPairNum fGridSize2 nHash nParticleID vRlate nID0 nID1 fDistance2 nPad0
+    0.0 sm5  cs  0b10d73d76654d93 rva=0x3921d00   3124 B ins=51 fetch=4 loops=0 tg=32x1x1 |  | nParticleNum fTimeStep fUnitCoef nColType fGridSize fBlockZ nResolutionX vBoundingMin vBoundingMax fDencity fPressure fMass fMassPerDens
+    0.0 sm5  cs  29d1f7362554408e rva=0x3922940   1264 B ins=12 fetch=1 loops=0 tg=32x1x1 |  | nCounterArraySize nHashTableSize nPathCount nHash nParticleID
+    0.0 sm5  cs  9db577a75153df82 rva=0x3922e30    740 B ins=8 fetch=0 loops=0 tg=256x1x1 |  | nArraySize
+    0.0 sm5  cs  f70963ca086da278 rva=0x3923120   1308 B ins=29 fetch=2 loops=2 tg=256x1x1 |  | nCounterArraySize nGroupNum
+    0.0 sm5  cs  4d5218781e72872a rva=0x3923640   1872 B ins=27 fetch=4 loops=1 tg=1x1x1 |  | nCounterArraySize nHashTableSize nPathCount nGroupNum nHash nParticleID nHash nParticleID
+    0.0 sm5  cs  d1a7f9d69c56fd9d rva=0x3923d90   2008 B ins=27 fetch=1 loops=0 tg=32x1x1 |  | nParticleNum fGridSize nResolutionX nResolutionXY vSpaceMin nHash nParticleID
+    0.0 sm5  cs  90ed49079e003b5c rva=0x3924570   2072 B ins=18 fetch=5 loops=0 tg=32x1x1 |  | nHashTableSize nHash nParticleID fDencity fPressure fMass fMassPerDens fDencity fPressure fMass fMassPerDens
+    0.0 sm5  cs  06f0d407b1dadac1 rva=0x3924d90   1264 B ins=16 fetch=2 loops=0 tg=32x1x1 |  | nTableSize nIndexArraySize nHash nParticleID
+    0.0 sm5  cs  43db08edd1d9b1b9 rva=0x3925280   1268 B ins=16 fetch=2 loops=0 tg=32x1x1 |  | nTableSize nIndexArraySize nHash nParticleID
+    0.0 sm5  cs  73d38e057016b641 rva=0x3925780   2888 B ins=73 fetch=4 loops=0 tg=32x32x1 |  | nTexSize nDencSize nSliceID
+    0.0 sm5  cs  02fbaff8212dc298 rva=0x39262d0   2820 B ins=53 fetch=2 loops=0 tg=32x32x1 |  | nTexSize nSliceID nOffSetIDX nOffSetIDY nStampAnimeDivNum nStampAnimeFrame fStampCenterU fStampCenterV fStampScaleU fStampScaleV fStampSinR fStampCosR fIntensity
+    0.0 sm5  cs  470931a688ead752 rva=0x3927620   2048 B ins=28 fetch=1 loops=0 tg=32x1x1 |  | nParticleNum fGridSize nResolutionX nResolutionXY vSpaceMin nHash nParticleID
+    0.0 sm5  cs  6e4051028b12bcc1 rva=0x3927e20   1452 B ins=28 fetch=4 loops=2 tg=1x1x1 |  | nTableSize nHash nParticleID
+    0.0 sm5  cs  2bcf2311ce5401c0 rva=0x39283d0    752 B ins=8 fetch=0 loops=0 tg=64x1x1 |  | nArraySize
+    0.0 sm5  cs  a67358921e976fff rva=0x3928bb0   1312 B ins=30 fetch=2 loops=2 tg=256x1x1 |  | nCounterArraySize nGroupNum
+    0.0 sm5  cs  beccb623a0d82a21 rva=0x392aa30  38516 B ins=1829 fetch=109 loops=27 tg=32x1x1 |  | nParticleNum fGridSize nResolutionX nResolutionXY vSpaceMin nIndexArraySize nMaxEachPairNum fGridSize2 nHash nParticleID vRlate nID0 nID1 fDistance2 nPad0
+    0.0 sm5  cs  f759ba9246797324 rva=0x3934ab0   2960 B ins=46 fetch=7 loops=1 tg=32x1x1 |  | nParticleNum nMaxEachPairNum fKernelSize fCoefKernelSpikyGrad fCoefKernelViscoLap fCoefViscosity vGravity fDencity fPressure fMass fMassPerDens vRlate nID0 nID1 fDistance2 nPad0
+    0.0 sm5  cs  7724f9b64dfca31b rva=0x3935640   8288 B ins=229 fetch=17 loops=2 tg=32x1x1 |  | nParticleNum fTimeStep fUnitCoef nColType fGridSize fBlockZ nResolutionX vBoundingMin vBoundingMax fDencity fPressure fMass fMassPerDens
+    0.0 sm5  cs  d88d188230bbadf3 rva=0x398d960   8480 B ins=217 fetch=37 loops=0 tg=256x1x1 |  | vertexOffset vertexNum vertexStride offsetPos offsetNormal offsetTangent meshInfoIDOffset blendCoef bitInfo weightNum l2wMatrix blendCurve[16] nCtrl[4] fWeight[4] fPos0[3] fNormal0[3] fTangent0[4] fBlendRate
+    0.0 sm5  cs  405fd82b27db1400 rva=0x398fa80  12044 B ins=324 fetch=55 loops=0 tg=256x1x1 |  | vertexOffset vertexNum vertexStride offsetPos offsetNormal offsetTangent meshInfoIDOffset blendCoef bitInfo weightNum l2wMatrix blendCurve[16] nCtrl[8] fWeight[8] fPos0[3] fNormal0[3] fTangent0[4] fBlendRate
+    0.0 sm5  cs  94e84ba367653467 rva=0x3992990   8424 B ins=215 fetch=42 loops=0 tg=256x1x1 |  | vertexOffset vertexNum vertexStride offsetPos offsetNormal offsetTangent meshInfoIDOffset blendCoef bitInfo l2wMatrix blendCurve[16] nCtrl[16] fSplinePosCoefX[4] fSplinePosCoefY[4] fSplineDPosCoefX[4] fSplineDPosCoefY[4] vNormal[3] fHeight vTangent[4] fBlendRate
+    0.0 sm5  cs  54b8be01b7cde814 rva=0x3994a90   8584 B ins=223 fetch=36 loops=0 tg=256x1x1 |  | vertexOffset vertexNum vertexStride offsetPos offsetNormal offsetTangent meshInfoIDOffset blendCoef bitInfo l2wMatrix blendCurve[16] nCtrl[8] fSplinePosCoefX[2] fSplinePosCoefY[2] fSplineDPosCoefX[2] fSplineDPosCoefY[2] vNormalTangent[3] fHeightBlendRate
+    0.0 sm5  cs  69f50ebdf3afb64f rva=0x3996c30    952 B ins=17 fetch=1 loops=1 tg=64x1x1 |  | g_nNodeNum
+    0.0 sm5  cs  dbf600dbdfce9770 rva=0x3997000   6644 B ins=136 fetch=32 loops=1 tg=64x1x1 |  | g_nNodeNum g_nGuideNodeNum g_fUpdateDt g_fSmoothRelaxCoef g_isNodeMatValid g_nStrandNum g_vFloat16Origin nStrandID nStrandID nPackedGuideNodeID fLength nRootNodeID nBoneWeightID[4]
+    0.0 sm5  cs  877c4dd2268ceaa0 rva=0x3998a00   6704 B ins=135 fetch=30 loops=0 tg=64x1x1 |  | g_nNodeNum g_nGuideNodeNum g_nStrandNum g_vWind g_fNoiseTimer g_fWindResistance g_fWindNoiseCoef g_fMoveNoiseCoef g_fWindNoiseTimeCoef g_fMoveNoiseTimeCoef g_vFloat16Origin nStrandID nPackedGuideNodeID fLength nRootNodeID nBoneWeightID[4]
+    0.0 sm5  cs  26ad0b6655ea0b69 rva=0x399a430   4880 B ins=101 fetch=27 loops=0 tg=64x1x1 |  | g_nNodeNum g_nGuideNodeNum g_nStrandNum nStrandID nStrandID nPackedGuideNodeID fLength nRootNodeID nBoneWeightID[4]
+    0.0 sm5  cs  8eb7ca0ea971d266 rva=0x399b740   1120 B ins=17 fetch=3 loops=0 tg=64x1x1 |  | g_nNodeNum
+    0.0 sm5  cs  10bfb32c27fe82a4 rva=0x399f250    824 B ins=5 fetch=1 loops=0 tg=1x1x1 |  | VertexStride
+    0.0 sm5  cs  9e15a31e463ef606 rva=0x399f590  14576 B ins=429 fetch=33 loops=4 tg=64x1x1 |  | g_isFirst g_numConstraintIterations g_gravityStrength g_timeStep g_blendAxis g_rootStiffnessBase g_tipStiffnessBase g_stiffnessAttenuateStart g_stiffnessAttenuateEnd g_recoveryThreshold g_dampingCoeff g_numSpheres
+    0.0 sm5  cs  22178da28196c086 rva=0x39a2e80   3556 B ins=82 fetch=21 loops=0 tg=64x1x1 |  | g_maxVertices g_clumpRadius
+    0.0 sm5  cs  e5583730e3c64853 rva=0x39a3c70   3828 B ins=92 fetch=23 loops=0 tg=64x1x1 |  | g_maxVertices
+    0.0 sm5  cs  5ac2ab8ca2360312 rva=0x39a4b70    720 B ins=4 fetch=0 loops=0 tg=1x1x1 |  | nInstNum
+    0.0 sm5  cs  f2927162cc7b8ef4 rva=0x39a4e40   6856 B ins=169 fetch=24 loops=2 tg=64x1x1 |  | vHairParams fInvMaxHairLength nMaxHairVerts vWCenter vEye nTessTotalVerts fTotalDensityScales nPosXY nPosZJitter nTanXY nTexTanZ
+    0.0 sm5  cs  d4ef14a28577bf9c rva=0x39a6910   7424 B ins=185 fetch=24 loops=2 tg=64x1x1 |  | vHairParams fInvMaxHairLength nMaxHairVerts vWCenter vEye vCurl nTessTotalVerts fTotalDensityScales nPosXY nPosZJitter nTanXY nTexTanZ
+    0.0 sm5  cs  cadf2ca20771f277 rva=0x39a8610   6880 B ins=169 fetch=24 loops=2 tg=64x1x1 |  | vHairParams fInvMaxHairLength nMaxHairVerts vWCenter vEye nTessTotalVerts fTotalDensityScales nPosXY nPosZJitter nTanXY nTexTanZ
+    0.0 sm5  cs  53163ad8b2e97685 rva=0x39aa0f0   7448 B ins=185 fetch=24 loops=2 tg=64x1x1 |  | vHairParams fInvMaxHairLength nMaxHairVerts vWCenter vEye vCurl nTessTotalVerts fTotalDensityScales nPosXY nPosZJitter nTanXY nTexTanZ
+    0.0 sm5  cs  e806ed28ac374a6d rva=0x39ade00  16472 B ins=608 fetch=70 loops=32 tg=256x1x1 |  | nIsUpdateH0 nResolutionX nResolutionZ nXxZ fSizeX fSizeZ vWind fGravity fSmallWavesSupressLength fDirectionalDependence fPhillipsConst fCycleTime fTime fChoppyFactor
+    0.0 sm5  cs  260205a2df332bc9 rva=0x39b1e60  13412 B ins=457 fetch=50 loops=22 tg=256x1x1 |  | nIsUpdateH0 nResolutionX nResolutionZ nXxZ fSizeX fSizeZ vWind fGravity fSmallWavesSupressLength fDirectionalDependence fPhillipsConst fCycleTime fTime fChoppyFactor
+    0.0 sm5  cs  2e9b62431d0bb171 rva=0x39b52d0   4056 B ins=88 fetch=2 loops=2 tg=256x1x1 |  | nIsUpdateH0 nResolutionX nResolutionZ nXxZ fSizeX fSizeZ vWind fGravity fSmallWavesSupressLength fDirectionalDependence fPhillipsConst fCycleTime fTime fChoppyFactor
+    0.0 sm5  cs  23a7dd581529c60a rva=0x39b62b0   3084 B ins=52 fetch=2 loops=2 tg=256x1x1 |  | nIsUpdateH0 nResolutionX nResolutionZ nXxZ fSizeX fSizeZ vWind fGravity fSmallWavesSupressLength fDirectionalDependence fPhillipsConst fCycleTime fTime fChoppyFactor
+    0.0 sm5  cs  eb6827ecf3cb78a9 rva=0x39b6ec0   4896 B ins=105 fetch=4 loops=2 tg=256x1x1 |  | nIsUpdateH0 nResolutionX nResolutionZ nXxZ fSizeX fSizeZ vWind fGravity fSmallWavesSupressLength fDirectionalDependence fPhillipsConst fCycleTime fTime fChoppyFactor
+    0.0 sm5  cs  ac53622a95345ad8 rva=0x39b81e0   8956 B ins=276 fetch=30 loops=7 tg=256x1x1 |  | nIsUpdateH0 nResolutionX nResolutionZ nXxZ fSizeX fSizeZ vWind fGravity fSmallWavesSupressLength fDirectionalDependence fPhillipsConst fCycleTime fTime fChoppyFactor fPosX fPosY fPosZ nmlXZ
+    0.0 dxil cs  545720de516b4a53 rva=0x39bdf20   7164 B ins=347 fetch=8 loops=0 tg=256x1x1 | rw_optical_flow_scd_histogram rw_optical_flow_scd_output rw_optical_flow_scd_previous_histogram rw_optical_flow_scd_temp | 
+    0.0 dxil cs  52a5582f92199a92 rva=0x39bfb20   4848 B ins=110 fetch=5 loops=0 tg=32x8x1 | cbOF r_optical_flow_input rw_optical_flow_scd_histogram | 
+    0.0 dxil cs  8ecaccb2efbfe7ac rva=0x39c0e10   4096 B ins=144 fetch=4 loops=0 tg=16x4x1 | r_optical_flow_previous rw_optical_flow | 
+    0.0 dxil cs  89ba4431d5696680 rva=0x39c1e10   8572 B ins=639 fetch=15 loops=0 tg=64x1x1 | cbOF r_optical_flow_input r_optical_flow_previous_input rw_optical_flow rw_optical_flow_scd_output | 
+    0.0 sm5  cs  56f96b069ae999c1 rva=0x39c3f90   1220 B ins=16 fetch=2 loops=0 tg=8x8x1 |  | fThreshold fScale
+    0.0 dxil cs  f406abffa33c540e rva=0x39c4460   6892 B ins=306 fetch=11 loops=0 tg=4x4x4 | cbOF r_optical_flow r_optical_flow_input r_optical_flow_previous_input rw_optical_flow_next_level rw_optical_flow_scd_output | 
+    0.0 dxil cs  6d639d412d499d48 rva=0x39c5f50  13736 B ins=810 fetch=14 loops=0 tg=8x8x1 | cbFI r_counters r_current_interpolation_source r_disocclusion_mask r_game_motion_vector_field_x r_game_motion_vector_field_y r_inpainting_pyramid r_optical_flow_motion_vector_field_x r_optical_flow_motion_vector_field_y r_previous_interpolation_source rw_output s_LinearClamp | 
+    0.0 dxil cs  191a70149c656599 rva=0x39c9500  10404 B ins=468 fetch=11 loops=0 tg=8x8x1 | cbFI r_dilated_depth r_game_motion_vector_field_x r_game_motion_vector_field_y r_inpainting_pyramid r_input_distortion_field r_reconstructed_depth_interpolated_frame r_reconstructed_depth_previous_frame rw_disocclusion_mask s_LinearClamp | 
+    0.0 dxil cs  e9bac0c582b16a22 rva=0x39cbdb0  13608 B ins=1095 fetch=15 loops=0 tg=8x8x1 | cbFI r_current_interpolation_source r_inpainting_pyramid r_optical_flow_scd r_present_backbuffer r_ui_mask r_ui_velocity rw_output s_LinearClamp | 
+    0.0 dxil cs  b7609e9ebada3fe1 rva=0x39cf2e0  19636 B ins=2008 fetch=33 loops=0 tg=256x1x1 | cbFI cbInpaintingPyramid r_output rw_counters rw_inpainting_pyramid0 rw_inpainting_pyramid1 rw_inpainting_pyramid10 rw_inpainting_pyramid11 rw_inpainting_pyramid2 rw_inpainting_pyramid3 rw_inpainting_pyramid4 rw_inpainting_pyramid5 rw_inpainting_pyramid6 rw_inpainting_pyramid7 rw_inpainting_pyramid8 | 
+    0.0 dxil cs  d3295b6d53600453 rva=0x39d3fa0  10932 B ins=503 fetch=14 loops=0 tg=8x8x1 | cbFI r_current_interpolation_source r_disocclusion_mask r_game_motion_vector_field_x r_game_motion_vector_field_y r_inpainting_pyramid r_input_distortion_field r_optical_flow_motion_vector_field_x r_optical_flow_motion_vector_field_y r_present_backbuffer rw_output s_LinearClamp | 
+    0.0 dxil cs  49930a067fa813c9 rva=0x39d6a60  20804 B ins=2216 fetch=50 loops=0 tg=256x1x1 | cbFI cbInpaintingPyramid r_game_motion_vector_field_x r_game_motion_vector_field_y rw_counters rw_inpainting_pyramid0 rw_inpainting_pyramid1 rw_inpainting_pyramid10 rw_inpainting_pyramid11 rw_inpainting_pyramid2 rw_inpainting_pyramid3 rw_inpainting_pyramid4 rw_inpainting_pyramid5 rw_inpainting_pyram | 
+    0.0 dxil cs  961c6ed7fc5c7f85 rva=0x39dbbb0   8552 B ins=671 fetch=17 loops=0 tg=256x1x1 | rw_optical_flow_input rw_optical_flow_input_level_1 rw_optical_flow_input_level_2 rw_optical_flow_input_level_3 rw_optical_flow_input_level_4 rw_optical_flow_input_level_5 rw_optical_flow_input_level_6 | 
+    0.0 dxil cs  ae9257df33ba7c0d rva=0x39ddd20   4948 B ins=137 fetch=2 loops=0 tg=16x16x1 | cbOF r_input_color rw_optical_flow_input | 
+    0.0 dxil cs  be678fe138e2eece rva=0x39df080   7520 B ins=285 fetch=7 loops=0 tg=8x8x1 | cbFSR3Upscaler r_dilated_depth r_dilated_motion_vectors r_dilated_reactive_masks r_internal_upscaled_color rw_upscaled_output s_LinearClamp | 
+    0.0 dxil cs  db8d59bf8af14fcd rva=0x39e0de0   9008 B ins=914 fetch=29 loops=0 tg=64x1x1 | cbRCAS r_input_exposure r_rcas_input rw_upscaled_output | 
+    0.0 dxil cs  e9bd1d1f7fb2c024 rva=0x39e3110   7204 B ins=193 fetch=11 loops=0 tg=8x8x1 | cbFI r_input_depth r_input_motion_vectors rw_dilated_depth rw_dilated_motion_vectors rw_reconstructed_depth_previous_frame | 
+    0.0 dxil cs  f63b0ca26a4526c8 rva=0x39e4d40   5696 B ins=156 fetch=5 loops=0 tg=8x8x1 | cbGenerateReactive r_input_color_jittered r_input_opaque_only r_input_stencil rw_output_autoreactive | 
+    0.0 dxil cs  74de7a9b26c71989 rva=0x39e6380   6644 B ins=109 fetch=5 loops=0 tg=8x8x1 | cbFI r_dilated_depth r_dilated_motion_vectors r_input_distortion_field rw_reconstructed_depth_interpolated_frame s_LinearClamp | 
+    0.0 dxil cs  bcc6b3cbc4504b53 rva=0x39e7d80   6344 B ins=36 fetch=2 loops=0 tg=8x8x1 | cbFI r_optical_flow_scd rw_counters rw_disocclusion_mask rw_game_motion_vector_field_x rw_game_motion_vector_field_y rw_optical_flow_motion_vector_field_x rw_optical_flow_motion_vector_field_y | 
+    0.0 dxil cs  588aee6abfc56d0d rva=0x39e9650   9756 B ins=524 fetch=6 loops=0 tg=8x8x1 | cbFI r_current_interpolation_source r_optical_flow r_previous_interpolation_source rw_optical_flow_motion_vector_field_x rw_optical_flow_motion_vector_field_y s_LinearClamp | 
+    0.0 dxil cs  f4776e20f1075a9b rva=0x39ebc70   9832 B ins=535 fetch=7 loops=0 tg=8x8x1 | cbFI r_dilated_depth r_dilated_motion_vectors r_input_distortion_field r_previous_interpolation_source rw_game_motion_vector_field_x rw_game_motion_vector_field_y s_LinearClamp | 
+    0.0 dxil cs  f46385d1b2616f0e rva=0x39ee2e0  23484 B ins=2374 fetch=75 loops=0 tg=256x1x1 | cbFSR3Upscaler cbSPD r_current_luma r_farthest_depth rw_farthest_depth_mip1 rw_frame_info rw_spd_global_atomic rw_spd_mip5 | 
+    0.0 dxil cs  756aff8f97f1ffb1 rva=0x39f3ea0   8720 B ins=289 fetch=12 loops=0 tg=8x8x1 | cbFSR3Upscaler r_input_color_jittered r_input_depth r_input_motion_vectors rw_current_luma rw_dilated_depth rw_dilated_motion_vectors rw_farthest_depth rw_output_autoreactive rw_reconstructed_previous_nearest_depth | 
+    0.0 dxil cs  5af9b3850de20c16 rva=0x39f60b0   5780 B ins=84 fetch=2 loops=0 tg=8x8x1 | cbFSR3Upscaler r_spd_mips rw_shading_change s_LinearClamp | 
+    0.0 dxil cs  8e8e36dc91c2d271 rva=0x39f7750  66256 B ins=8742 fetch=129 loops=0 tg=256x1x1 | cbFSR3Upscaler cbSPD r_current_luma r_dilated_motion_vectors r_input_exposure r_previous_luma rw_spd_global_atomic rw_spd_mip0 rw_spd_mip1 rw_spd_mip2 rw_spd_mip3 rw_spd_mip4 rw_spd_mip5 | 
+    0.0 dxil cs  3010e631808d1608 rva=0x3a07a20   8012 B ins=252 fetch=7 loops=0 tg=8x8x1 | cbFSR3Upscaler r_current_luma r_dilated_motion_vectors r_dilated_reactive_masks r_input_exposure r_luma_history rw_luma_history rw_luma_instability s_LinearClamp | 
+    0.0 dxil cs  8b86a434076ec26b rva=0x3a09970  12240 B ins=698 fetch=30 loops=0 tg=8x8x1 | cbFSR3Upscaler r_accumulation r_current_luma r_dilated_depth r_dilated_motion_vectors r_input_exposure r_reactive_mask r_reconstructed_previous_nearest_depth r_shading_change r_transparency_and_composition_mask rw_accumulation rw_dilated_reactive_masks rw_new_locks s_LinearClamp | 
+    0.0 dxil cs  e73868403411fc81 rva=0x3a0c940  34660 B ins=4136 fetch=127 loops=0 tg=8x8x1 | cbFSR3Upscaler r_dilated_depth r_dilated_motion_vectors r_dilated_reactive_masks r_farthest_depth_mip1 r_input_color_jittered r_input_depth r_input_exposure r_input_stencil r_internal_upscaled_color r_luma_instability r_upscaled_depth_prev rw_internal_upscaled_color rw_new_locks rw_upscaled_depth_ou | 
+    0.0 dxil cs  bbbebeb351fbef57 rva=0x3a150b0  34824 B ins=4138 fetch=127 loops=0 tg=8x8x1 | cbFSR3Upscaler r_dilated_depth r_dilated_motion_vectors r_dilated_reactive_masks r_farthest_depth_mip1 r_input_color_jittered r_input_depth r_input_exposure r_input_stencil r_internal_upscaled_color r_luma_instability r_upscaled_depth_prev rw_internal_upscaled_color rw_new_locks rw_upscaled_depth_ou | 
+    0.0 sm5  cs  0eb4fa762b862c50 rva=0x3a1d8c0  22212 B ins=751 fetch=12 loops=0 tg=8x8x1 |  | TextureSizeInBlocks TextureSizeRcp
+    0.0 sm5  cs  c05fdcded0f70b5e rva=0x3a2fa40   8272 B ins=270 fetch=15 loops=4 tg=16x16x1 |  | vScreenSize nPointLightNum nSpotLightNum fNearZ
+    0.0 sm5  cs  9bcad85dd4ee07eb rva=0x3a31a90   8420 B ins=274 fetch=15 loops=4 tg=16x16x1 |  | vScreenSize nPointLightNum nSpotLightNum fNearZ
+    0.0 sm5  cs  a816e9f55626b5ca rva=0x3a340f0    816 B ins=5 fetch=0 loops=0 tg=1x1x1 |  | nLightOffset nCountPerLight
+    0.0 sm5  cs  a7d8d85821aeb10f rva=0x3a3bd60    712 B ins=4 fetch=0 loops=0 tg=1x1x1 |  | nClearValue
+    0.0 sm5  cs  ef1a3a55a8e96b74 rva=0x3a3ea60   1876 B ins=28 fetch=4 loops=0 tg=64x1x1 |  | Const0 Const1 Const2 Const3 Sample
+    0.0 sm5  cs  3357f5abba071778 rva=0x3a40e30  38772 B ins=1190 fetch=48 loops=0 tg=64x1x1 |  | Const0 Const1 Const2 Const3 Sample
+    0.0 sm5  cs  0dc41f9f109f15ed rva=0x3a4a5b0  12816 B ins=441 fetch=16 loops=0 tg=8x8x1 |  | 
+    0.0 sm5  cs  95109d35e7da3caf rva=0x3a4d7c0   1428 B ins=15 fetch=5 loops=0 tg=4x4x4 |  | nScale nScale4
+    0.0 sm5  cs  7d6d3c25b99286f3 rva=0x3a4dd60   1180 B ins=9 fetch=1 loops=0 tg=8x8x1 |  | nDstLevel nDstSlice nDstOffsetX nDstOffsetY nSrcSlice nSrcOffsetX nSrcOffsetY
+    0.0 sm5  cs  13e0faa4a0bef9fd rva=0x3a4e200   1180 B ins=9 fetch=1 loops=0 tg=8x8x1 |  | nDstLevel nDstSlice nDstOffsetX nDstOffsetY nSrcSlice nSrcOffsetX nSrcOffsetY
+    0.0 sm5  cs  cacd0ecec14ba945 rva=0x3a52a00   7752 B ins=250 fetch=16 loops=0 tg=8x8x1 |  | 
+    0.0 sm5  cs  e90b93309f97d147 rva=0x3a54850   1776 B ins=31 fetch=1 loops=1 tg=8x8x1 |  | nOffset nBufferWidth nWidth nHeight nBitWidth nLeftShiftCnt nRightShiftCnt nSetFlag nResetFlag
+    0.0 sm5  cs  57844400ce4c1fac rva=0x3a57a60    948 B ins=9 fetch=2 loops=0 tg=4x4x4 |  | nScale
+    0.0 sm5  cs  beb1d444a63efbc8 rva=0x3a58cc0   1208 B ins=13 fetch=4 loops=0 tg=4x4x4 |  | nScale
+    0.0 sm5  cs  85e9c151084482f7 rva=0x3a59180   1076 B ins=11 fetch=3 loops=0 tg=4x4x4 |  | nScale
+    0.0 sm5  cs  f120e8faaf4f9efe rva=0x3c89870 224648 B ins=7675 fetch=1875 loops=53 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress REFERENCE[4] WATER_LEVEL nTexSize vVolumeFieldAabbScale vVolumeFieldAabbOffset
+    0.0 sm5  cs  280647a46e37357c rva=0x3d3bd20 245508 B ins=8383 fetch=2000 loops=55 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress REFERENCE[4] WATER_LEVEL nTexSize vVolumeFieldAabbScale vVolumeFieldAabbOffset
+    0.0 sm5  cs  9d5dfb6bcf0098e0 rva=0x3db3b40   1568 B ins=30 fetch=0 loops=0 tg=64x1x1 | U0:ParticleBuffer CB0:$Globals | nIndirectOffset[16] nMeshData[64] nNum
+    0.0 sm5  cs  f076e3e67760a0f7 rva=0x3dc3fb0  36656 B ins=1138 fetch=58 loops=0 tg=32x1x1 |  | clrSpriteNormal nMaxParticleNum nIndirectOffset nAlphaTest matW2C vecCameraClipScale matLookAt
+    0.0 sm5  cs  787758f57717a7fb rva=0x3dd7810   2820 B ins=58 fetch=0 loops=0 tg=16x1x1 | U0:ParticleCountBuffer0 U1:ParticleCountBuffer1 U2:ParticleCountBuffer2 U3:ParticleCountBuffer3 U4:ParticleCountBuffer4 U5:ParticleCountBuffer5 U6:ParticleCountBuffer6 U7:ParticleCountBuffer7 U8:ParticleCountBuffer8 U9:ParticleCountBuffer9 U10:ParticleCountBuffer10 U11:ParticleCountBuffer11 U12:ParticleCountBuffer12 U13:ParticleCountBuffer13 U14:ParticleCountBuffer14 U15:ParticleCountBuffer15 CB0:$Globals | nNum
+    0.0 sm5  cs  b6a64cbebaf353a3 rva=0x3dd8320  10392 B ins=310 fetch=46 loops=2 tg=64x1x1 |  | nMaxParticleNum nParticleManagerAddress nMaxMainParticleNum nMainParticleManagerAddress nExAttrFlags nExAttrNum nAttType fOccRate vScatterAttr fAutoHDRScaleExposure nStartIndex vFloatingOriginOffset
+    0.0 sm5  cs  434a4bd121fb1266 rva=0x3ddabc0   1208 B ins=19 fetch=0 loops=0 tg=64x1x1 | U0:ParticleCountBuffer CB0:$Globals | nNum nOffsetList[16]
+    0.0 sm5  cs  6e8a73f722cf9a99 rva=0x3ddb080   1292 B ins=22 fetch=0 loops=0 tg=64x1x1 |  | nMaxParticleNum nCounterOffset prototype[2]
+    0.0 sm5  cs  1738445854b6b974 rva=0x3deced0  14864 B ins=576 fetch=66 loops=3 tg=64x1x1 |  | nMaxParticleNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber nMaxMainParticleNum nMainParticleManagerAddress nCounterOffset fProbability
+    0.0 sm5  cs  1c65117389339dd0 rva=0x3e1fdb0  92300 B ins=3480 fetch=348 loops=2 tg=64x1x1 |  | nMaxParticleNum nCounterOffset vScreenSize vRecipScreenSize fProbabilityScale nSourceAddress nFactoryAddress nParticleManagerAddress matC2W vDDot vDPort nDepthFormat nRandomNumber
+    0.0 sm5  cs  769f13e8d3179e11 rva=0x3e36640  49240 B ins=1823 fetch=203 loops=2 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset fNoiseWidth nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber vOffset
+    0.0 sm5  cs  768d6ae02c58b1e3 rva=0x3e426a0  50516 B ins=1857 fetch=216 loops=2 tg=64x1x1 |  | nMaxParticleNum nCounterOffset vScreenSize vRecipScreenSize fProbabilityScale nSourceAddress nFactoryAddress nParticleManagerAddress matC2W vDDot vDPort nDepthFormat nRandomNumber
+    0.0 sm5  cs  6619e0697a87a74d rva=0x3e4ec00  89420 B ins=3371 fetch=345 loops=2 tg=64x1x1 |  | nMaxParticleNum nCounterOffset vScreenSize vRecipScreenSize fProbabilityScale nSourceAddress nFactoryAddress nParticleManagerAddress matC2W vDDot vDPort nDepthFormat nRandomNumber
+    0.0 sm5  cs  e267d366aaf0e405 rva=0x3e64950  51420 B ins=1911 fetch=220 loops=2 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+    0.0 sm5  cs  fd8bf9f7c0a5cea0 rva=0x3e71230  89924 B ins=3409 fetch=347 loops=2 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+    0.0 sm5  cs  46e1252030c7bd75 rva=0x3e87180  87188 B ins=3304 fetch=336 loops=2 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset fNoiseWidth nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber vOffset
+    0.0 sm5  cs  3b2bf539baa6698a rva=0x3e9c620  90048 B ins=3412 fetch=339 loops=2 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset fNoiseWidth nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber vOffset
+    0.0 sm5  cs  cd43e67ee3fac495 rva=0x3eb25e0  91936 B ins=3471 fetch=353 loops=3 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nMeshIndexNum nMeshAccumlatedAreaNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+    0.0 sm5  cs  a5e5a304cfe0d4bf rva=0x3ef6a10  53324 B ins=1970 fetch=225 loops=3 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nMeshIndexNum nMeshAccumlatedAreaNum nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+    0.0 sm5  cs  a7e90d896cc7047d rva=0x3f03a60  94184 B ins=3562 fetch=357 loops=3 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nMeshVertexNormalOffset nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+    0.0 sm5  cs  853bb139a6cb8fd9 rva=0x3f36680  52732 B ins=1953 fetch=226 loops=3 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nMeshVertexNormalOffset nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+    0.0 sm5  cs  6491bf24dd92df7b rva=0x3f43480  91268 B ins=3451 fetch=354 loops=3 tg=64x1x1 |  | nMaxParticleNum nMeshVertexNum nMeshVertexSize nMeshVertexPositionOffset nMeshVertexNormalOffset nCreateNum nStartIndex nSourceAddress nFactoryAddress nParticleManagerAddress nRandomNumber
+    0.0 sm5  cs  d8d5b83aefe41563 rva=0x3f97550 113728 B ins=3929 fetch=539 loops=4 tg=64x1x1 |  | nMaxParticleNum dt nParticleManagerAddress nMaxMainParticleNum nMainParticleManagerAddress vViewZ fFadeParam fAlphaScaleParam
+    0.0 sm5  cs  f13e7cab8d816ef6 rva=0x3fd2e90   2032 B ins=35 fetch=5 loops=1 tg=64x1x1 |  | g_numVertex g_numTarget g_vertexStride g_positionOffset g_normalOffset
+    0.0 sm5  cs  5cc92e46fe29c103 rva=0x3fd3680   1304 B ins=17 fetch=2 loops=0 tg=64x1x1 |  | g_numVertex g_vertexStride g_positionOffset g_normalOffset
+    0.0 sm5  cs  f9a5d4f11e2ee56c rva=0x3fd3ba0   1852 B ins=24 fetch=6 loops=0 tg=64x1x1 |  | g_keyVertexNum g_vertexStride g_positionOffset g_normalOffset g_weight g_targetID
+    0.0 sm5  cs  851d176d388e1b8b rva=0x3fe2740   5640 B ins=126 fetch=11 loops=1 tg=8x8x1 |  | screenInfo mPrevV2P vDepthParam vViewParam vPrevDepthParam nTargetIndex
+    0.0 sm5  cs  32d51e95652ffbdc rva=0x3fe3f10   3032 B ins=59 fetch=7 loops=0 tg=8x8x1 |  | weight scale screenInfo uvInfo
+    0.0 sm5  cs  01055cf46d1099da rva=0x3fe4af0   1168 B ins=12 fetch=4 loops=0 tg=8x8x1 |  | 
+    0.0 sm5  cs  a476a49646fe2146 rva=0x3fe4f80   4272 B ins=132 fetch=11 loops=2 tg=8x8x1 |  | screenInfo
+    0.0 sm5  cs  057283061ac65b73 rva=0x3fe6030   5464 B ins=170 fetch=14 loops=3 tg=8x8x1 |  | screenInfo stageNum
+    0.0 sm5  cs  4769b9613ef44ee4 rva=0x3ff3260    500 B ins=3 fetch=0 loops=0 tg=1x1x1 |  | 
+    0.0 sm5  cs  18561d906b24c78b rva=0x3ff3460   4864 B ins=108 fetch=0 loops=0 tg=64x1x1 |  | nMaxDropNum nCreateNum nStartIndex nRandomSeed dt fSnowProbability fRandomScale fSnowRandomScale vDropArea vDropVelocity vDropSize fTopHeightDiff bEnableSplash vSplashSize bEnableRipple fRippleSize vSnowDropVelocity vSnowSize nCreateBottomNum fBottomHeight
+    0.0 sm5  cs  81a0d1932c0e3493 rva=0x3ff4760   1244 B ins=14 fetch=0 loops=0 tg=1x1x1 |  | nSnowStartVertex nClearTotalIndirectDrawNum
+    0.0 sm5  cs  12b83d3f5dedccdf rva=0x3ff4c40   9700 B ins=278 fetch=11 loops=0 tg=64x1x1 |  | nMaxDropNum nRandomSeed nTexWidth nTexHeight nDepthFormat nNormalFormat fCollisionDepth nStencilFunc nStencilRef nStencilMask fProbability nCollisionState matW2V matV2W matW2C vDDot vWind fSplashEmitCos fSplashNormalBlendWeight fSplashIncidenceBlendWeight unTexOffsetX unTexOffsetY vSplashCorrectionDir fRecipSplashHeightZeroWind
+    0.0 sm5  cs  de85d4a601c7e316 rva=0x3ff7230   7932 B ins=233 fetch=21 loops=2 tg=64x1x1 |  | nMaxDropNum dt bEnableHeightTest bEnableBoxTest bEnableInvisible vWind vDropArea fTopHeight fSplashLifeSpan fRippleLifeSpan nTurbulenceLevel fTurbulenceFrequency vTurbulenceMagnitude vW2H nCreateStartIndex nCreateNum bMaxDrawRangeDecreased
+    0.0 sm5  cs  0f8ac45aaa1b65e6 rva=0x3ff9130  20528 B ins=637 fetch=12 loops=0 tg=64x1x1 |  | nMaxDropNum fShutterSpeed fClipRange fDrawRange vViewZ matW2C vCameraClipScale fRecipSplashLifeSpan fNormalDisplacementScale matLookAt matPre2Cur matPreW2C fCameraMotionBlurScale dt fSnowMotionBlurScale fRainVelocityScale fCameraVelocityScale fMinimumPixelWidthCoeff fViewportAspect nCreateOffset
+    0.0 sm5  cs  92785873526be778 rva=0x3ffe160    512 B ins=4 fetch=0 loops=0 tg=64x1x1 |  | 
+    0.0 sm5  cs  ca297ea23217ac86 rva=0x4000ce0   7316 B ins=254 fetch=4 loops=0 tg=64x1x1 |  | nBoxNum vDropAreaCenter vDropAreaSize bEnableActiveFlag
+    0.0 sm5  cs  4a79222387e87e32 rva=0x4002980   9720 B ins=264 fetch=9 loops=0 tg=64x1x1 |  | nMaxDropNum vCameraPosXZ fWriteRange vFrustumPlane[6] vDecalTexOffset vDecalTexNum vDecalBlendWeight vFltOrgOfs bSphereCulling nCpuDecalNum nPriority fDecalHeight fRecipRippleLifeSpan bTexDiv vDivUV vDecalTexDivNum bSecondTexture fNormalThreshold fNormalFade fHeightFade nCompositionType
+    0.0 sm5  gs  9f4f31fac9194b65 rva=0x39acc20   4312 B ins=162 fetch=0 loops=9 tg= |  | 
+    0.0 sm5  gs  1c8f9982b5586e7b rva=0x39ba6d0    940 B ins=5 fetch=1 loops=0 tg= |  | fPosX fPosY fPosZ ushNmlX
+    0.0 sm5  gs  9cabdce8f6e449fc rva=0x39baa80   1940 B ins=29 fetch=1 loops=0 tg= |  | nResolutionX nResolutionZ fPosX fPosY fPosZ ushNmlX
+    0.0 sm5  ps  0442c582b5a4d5a7 rva=0x39ac4f0   1840 B ins=30 fetch=1 loops=0 tg= |  | fInvNormalMapSize compress
+    0.0 sm5  ps  dde96956920c062a rva=0x3a22f90   1612 B ins=24 fetch=2 loops=0 tg= |  | s_controlParams
+    0.0 sm5  ps  be4226aded83f21e rva=0x3a235e0   1080 B ins=6 fetch=2 loops=0 tg= |  | s_aryno
+    0.0 sm5  ps  cb1f0b6daf327e47 rva=0x3a23a20    900 B ins=6 fetch=2 loops=0 tg= |  | 
+    0.0 sm5  ps  64dcd5873286103a rva=0x3a23db0    852 B ins=5 fetch=2 loops=0 tg= |  | 
+    0.0 sm5  ps  1b4a458b4a6a5a41 rva=0x3a245c0   1080 B ins=7 fetch=3 loops=0 tg= |  | 
+    0.0 sm5  ps  7259974a57d18513 rva=0x3a24a00   1376 B ins=11 fetch=5 loops=0 tg= |  | 
+    0.0 sm5  ps  0e7793d8cbf49f6a rva=0x3a24f60   1200 B ins=10 fetch=4 loops=0 tg= |  | 
+    0.0 sm5  ps  93b9deedec2cad0f rva=0x3a25410    552 B ins=3 fetch=0 loops=0 tg= |  | 
+    0.0 sm5  ps  b7cc300c9567dee0 rva=0x3a25900   1440 B ins=22 fetch=1 loops=0 tg= |  | s_controlParams
+    0.0 sm5  ps  f60511a88c263c0c rva=0x3a25ea0   2424 B ins=48 fetch=1 loops=0 tg= |  | nLutSize fScale
+    0.0 sm5  ps  37a1187ab3784bd1 rva=0x3a26820   1620 B ins=23 fetch=2 loops=0 tg= |  | s_controlParams
+    0.0 sm5  ps  4e03d2de76ea2fde rva=0x3a26e80   1440 B ins=22 fetch=1 loops=0 tg= |  | s_controlParams
+    0.0 sm5  ps  385b6b7b86cd545b rva=0x3a27420    900 B ins=5 fetch=1 loops=0 tg= |  | s_aryno
+    0.0 sm5  ps  6aed5053c7cc8325 rva=0x3a27a60    744 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  044e8ad8f9176cd7 rva=0x3a27d50    708 B ins=4 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  8e24fef44525a532 rva=0x3a28020   1212 B ins=11 fetch=4 loops=0 tg= |  | g_LowResoOffsetX g_LowResoOffsetY
+    0.0 sm5  ps  4d62695c7ef6ea34 rva=0x3a284e0    744 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  6a5898d4ec07c8ae rva=0x3a287d0  12240 B ins=472 fetch=25 loops=0 tg= |  | halfRenderInfo halfRenderUnit jitterOffset
+    0.0 sm5  ps  444fc26220b1914d rva=0x3a2b7a0   1212 B ins=11 fetch=4 loops=0 tg= |  | g_LowResoOffsetX g_LowResoOffsetY
+    0.0 sm5  ps  797759136890a170 rva=0x3a2bc60   3624 B ins=85 fetch=9 loops=0 tg= |  | g_OffsetX g_OffsetY g_Threshold
+    0.0 sm5  ps  f68ae8ae6e50ffa2 rva=0x3a2ca90   1076 B ins=13 fetch=1 loops=0 tg= |  | g_Scale
+    0.0 sm5  ps  796bc6fbe2e6a40f rva=0x3a2ced0   1748 B ins=18 fetch=2 loops=0 tg= |  | s_fade s_depthFade s_viewParam s_depthParam
+    0.0 sm5  ps  27243af0759a89d1 rva=0x3a2d5b0   1264 B ins=15 fetch=2 loops=0 tg= |  | s_fade
+    0.0 sm5  ps  47f71215e4eed33a rva=0x3a2daa0    716 B ins=4 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  a94947e699d838dd rva=0x3a2dd70   2100 B ins=28 fetch=3 loops=0 tg= |  | s_fade s_depthFade s_viewParam s_depthParam
+    0.0 sm5  ps  a7c8d51d324556c7 rva=0x3a2e5b0    752 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  2e6c14513b03be52 rva=0x3a2e8a0    752 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  a5542990425fff20 rva=0x3a2eb90   1220 B ins=11 fetch=4 loops=0 tg= |  | g_LowResoOffsetX g_LowResoOffsetY
+    0.0 sm5  ps  fed967b7640060f7 rva=0x3a2f060   1220 B ins=11 fetch=4 loops=0 tg= |  | g_LowResoOffsetX g_LowResoOffsetY
+    0.0 sm5  ps  4767a74fe5757504 rva=0x3a33b80   1388 B ins=29 fetch=4 loops=0 tg= |  | 
+    0.0 sm5  ps  0847db083d1fc2f9 rva=0x3a34420   1764 B ins=50 fetch=4 loops=2 tg= |  | 
+    0.0 sm5  ps  0687f16fee1965b5 rva=0x3a34b10   2972 B ins=86 fetch=16 loops=0 tg= |  | 
+    0.0 sm5  ps  d58d691571d44a50 rva=0x3a356b0   1440 B ins=14 fetch=1 loops=0 tg= |  | mCW vCamPos nLod
+    0.0 sm5  ps  39d8626445351a4a rva=0x3a35c50   2000 B ins=36 fetch=2 loops=1 tg= |  | blur_params sample_num start_offs
+    0.0 sm5  ps  146a704ae653bb6d rva=0x3a36420    720 B ins=3 fetch=0 loops=0 tg= |  | color
+    0.0 sm5  ps  c6d11c710cc3150b rva=0x3a366f0  12768 B ins=405 fetch=7 loops=0 tg= |  | lyr0prm lyr1prm blend blendType blendprm hsvofs levelofs gamma
+    0.0 sm5  ps  783e376212f98258 rva=0x3a398d0   4740 B ins=155 fetch=4 loops=0 tg= |  | tx0PackFlag tx1PackFlag tx2PackFlag tx3PackFlag s_aryno
+    0.0 sm5  ps  3f04a94a05fb8f7a rva=0x3a3ab60   4604 B ins=153 fetch=4 loops=0 tg= |  | tx0PackFlag tx1PackFlag tx2PackFlag tx3PackFlag
+    0.0 sm5  ps  173fc8db9bba688f rva=0x3a3c2d0   1032 B ins=5 fetch=3 loops=0 tg= |  | 
+    0.0 sm5  ps  b15c7476e33042e7 rva=0x3a3c990    744 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  3d55a6bbbf6a9207 rva=0x3a3cc80   1208 B ins=6 fetch=4 loops=0 tg= |  | 
+    0.0 sm5  ps  86f2902d7d99324d rva=0x3a3d4f0    724 B ins=4 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  5a4f2aaf698a265c rva=0x3a3d7d0   1056 B ins=9 fetch=1 loops=0 tg= |  | saturation_fade
+    0.0 sm5  ps  434443fcd9bca3ca rva=0x3a3dbf0   1084 B ins=8 fetch=2 loops=0 tg= |  | s_fade
+    0.0 sm5  ps  0cc297790b67ad63 rva=0x3a3e030   2604 B ins=50 fetch=4 loops=0 tg= |  | vToneMapParams fGamma fToneCurveType
+    0.0 sm5  ps  522105ef1495761f rva=0x3a4e6a0  16456 B ins=655 fetch=6 loops=11 tg= |  | vCellParam vFieldParam vCellColorList[128] vLineColorList[128] vDotGradParamList[128] fLineWidthList[9] vFrameColor vFrameDotLineParam nLayerViewMask nFlagList[128]
+    0.0 sm5  ps  c0d0240115062003 rva=0x3a54f40   1844 B ins=43 fetch=5 loops=0 tg= |  | 
+    0.0 sm5  ps  7feab4e9da3139c4 rva=0x3a55680   1436 B ins=32 fetch=5 loops=0 tg= |  | 
+    0.0 sm5  ps  a517fcf78606b494 rva=0x3a57e20   3732 B ins=86 fetch=10 loops=0 tg= |  | weight uvInfo
+    0.0 sm5  ps  81a22b36e929c1f8 rva=0x3a595c0   1492 B ins=23 fetch=1 loops=0 tg= |  | s_controlParams
+    0.0 sm5  ps  0b9964475d9f6f67 rva=0x3a59ba0    724 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  75e316048917916f rva=0x3a59e80    864 B ins=6 fetch=2 loops=0 tg= |  | 
+    0.0 sm5  ps  d50fb477bbf56851 rva=0x3a5a1e0   1820 B ins=26 fetch=2 loops=0 tg= |  | s_controlParams s_controlParams2
+    0.0 sm5  ps  cfc994e9f6a730f9 rva=0x3a5a900   1196 B ins=20 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  fe6ded4d9dfc7040 rva=0x3a5adb0    736 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  2eee9b099838facb rva=0x3a5b520    888 B ins=8 fetch=2 loops=0 tg= |  | 
+    0.0 sm5  ps  309c5a560409651e rva=0x3bd1df0   3200 B ins=83 fetch=0 loops=1 tg= |  | fWidth fHeight nSample fMaxLinearRoughness nThreadNumX nThreadNumY
+    0.0 sm5  ps  655bde57480e2288 rva=0x3be8270    772 B ins=6 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  a30a811086e7efa2 rva=0x3be8580    704 B ins=4 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  c479514910a66fe0 rva=0x3be8840    752 B ins=5 fetch=1 loops=0 tg= |  | 
+    0.0 sm5  ps  f5d9ae9362e5e157 rva=0x3be8b30    908 B ins=6 fetch=0 loops=0 tg= |  | ktglViewport vATest
+    0.0 sm5  ps  0f5e00872efae377 rva=0x3be8f30   1120 B ins=9 fetch=1 loops=0 tg= |  | ktglViewport vATest
+    0.0 sm5  ps  6820cebe12448498 rva=0x3be9390   1092 B ins=8 fetch=1 loops=0 tg= |  | ktglViewport vATest
+    0.0 sm5  ps  021e1d8d7a210496 rva=0x3be97e0   1128 B ins=9 fetch=1 loops=0 tg= |  | ktglViewport vATest
+    0.0 sm5  ps  7c13b176cda11fa5 rva=0x3be9c50   1100 B ins=8 fetch=1 loops=0 tg= |  | ktglViewport vATest
+    0.0 sm5  ps  ebce624598c3c0ad rva=0x3fe3d50    440 B ins=3 fetch=0 loops=0 tg= |  | 
+    0.0 dxil ps  e19c07d7721b615e rva=0x3fe8e00   3704 B ins=30 fetch=3 loops=0 tg= | r_currBB r_uiTexture | 
+    0.0 dxil ps  5fae573536c90dcd rva=0x3fea7c0   3692 B ins=28 fetch=3 loops=0 tg= | r_currBB r_uiTexture | 
+    0.0 sm4  ps  1aebeeb6f72ee670 rva=0x3ff2b90   1236 B ins=20 fetch=1 loops=0 tg= |  | aTest
+    0.0 sm5  vs  e4a232e8cf88c104 rva=0x39abe10   1752 B ins=23 fetch=0 loops=0 tg= |  | fSizeX fSizeZ mLC
+    0.0 sm5  vs  11534d38fe0337f9 rva=0x39ba4e0    496 B ins=3 fetch=0 loops=0 tg= |  | 
+    0.0 sm5  vs  86b66967980c5f24 rva=0x3a526f0    772 B ins=11 fetch=0 loops=0 tg= |  | 
+    0.0 dxil vs  7e5130d050048be5 rva=0x3fe82c0   2872 B ins=10 fetch=0 loops=0 tg= |  | 
+    0.0 sm5  vs  27a0034b99c06a06 rva=0x411e9c0   1640 B ins=20 fetch=0 loops=0 tg= |  | bFog0 bFog1 vFog mLC
