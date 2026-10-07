@@ -1,5 +1,6 @@
 # Nioh3.exe Steam v2.02 symbol database (RVAs; Ghidra image base 0x7FF74F410000). Format + workflow: README.md. Seeded 2026-10-06 from notes/*.md, patcher/*.fsx, re/scripts_*, re/out, mod/Nioh3EngineFix/patches.json.
 rva	kind	name	signature	description	confidence	source
+0x1230	function	IsRunningUnderWine	bool IsRunningUnderWine(void)	GetProcAddress(ntdll,"wine_get_version") != 0, cached in g_IsWine; only caller 0x1300 (nvapi/Streamline loader), not used by input	high	notes/input-thread.md §Wine
 0x1437	label	Sleep100Call_1437		call Sleep(100); pdata fragment start 1400	high	re/out/spinscan.txt §all call sites
 0x359eb	label	Sleep0Call_359EB		call Sleep(0); pdata fragment start 35890	high	re/out/spinscan.txt §all call sites
 0x35b7f	label	Sleep0Call_35B7F		call Sleep(0); pdata fragment start 35A50	high	re/out/spinscan.txt §all call sites
@@ -21,8 +22,10 @@ rva	kind	name	signature	description	confidence	source
 0x3d841	label	Sleep0Call_3D841		call Sleep(0); pdata fragment start 3D7B8	high	re/out/spinscan.txt §all call sites
 0x3db57	label	Sleep0Call_3DB57		call Sleep(0); pdata fragment start 3DB08	high	re/out/spinscan.txt §all call sites
 0x3e7b5	label	Sleep0Call_3E7B5		call Sleep(0); pdata fragment start 3E700	high	re/out/spinscan.txt §all call sites
+0x3e7cc	function	JobGroupWait	void JobGroupWait(JobGroup* g, u8 mode)	help-while-waiting join (181 callers): while ([g+34h] > 1) JobHelpStep(g->owner, g, &wakeFlag=1, mode or 2 after 0x4000 polls); then lock dec [g+34h]. J1 rows 3E7F5/3E821	high	notes/job-system.md §1
 0x3e920	label	Sleep0Call_3E920		call Sleep(0); pdata fragment start 3E844	high	re/out/spinscan.txt §all call sites
 0x3ea62	label	Sleep0Call_3EA62		call Sleep(0); pdata fragment start 3E968	high	re/out/spinscan.txt §all call sites
+0x3eb38	function	KtglSignalUntilAwake		while ([x+1D0h]->flag & 1) SetEvent(...); Sleep(0) every 256 tries - wake-until-acknowledged loop	medium	notes/job-system.md §1
 0x3eb93	label	Sleep0Call_3EB93		call Sleep(0); pdata fragment start 3EB38	high	re/out/spinscan.txt §all call sites
 0x3f529	label	Sleep0Call_3F529		call Sleep(0); pdata fragment start 3F364	high	re/out/spinscan.txt §all call sites
 0x3f696	label	Sleep0Call_3F696		call Sleep(0); pdata fragment start 3F658	high	re/out/spinscan.txt §all call sites
@@ -31,20 +34,32 @@ rva	kind	name	signature	description	confidence	source
 0x3f842	label	Sleep1Call_3F842		call Sleep(1); pdata fragment start 3F7C0	high	re/out/spinscan.txt §all call sites
 0x3f9fb	label	Sleep0Call_3F9FB		call Sleep(0); pdata fragment start 3F8E4	high	re/out/spinscan.txt §all call sites
 0x3facf	label	Sleep0Call_3FACF		call Sleep(0); pdata fragment start 3FA70	high	re/out/spinscan.txt §all call sites
+0x3fad8	function	JobPushToOwner	void JobPushToOwner(JobGroup* g, Job* j)	push a job onto the owner worker's queue (lock-free stack per priority at w+418h, then CAS-set the priority bit at w+448h). Never wakes anyone (212 callers)	high	notes/job-system.md §1
 0x3fbde	label	Sleep0Call_3FBDE		call Sleep(0); pdata fragment start 3FBA8	high	re/out/spinscan.txt §all call sites
 0x3fcaf	label	Sleep0Call_3FCAF		call Sleep(0); pdata fragment start 3FC48	high	re/out/spinscan.txt §all call sites
 0x3fcf9	label	Sleep0Call_3FCF9		call Sleep(0); pdata fragment start 3FCB8	high	re/out/spinscan.txt §all call sites
+0x3fd10	function	KtglSignalUntilAwake2		same idiom as 3EB38 on [x+5C8h]; else spins on byte x+5F8h with Sleep(0) every 256	medium	notes/job-system.md §1
 0x3fd5c	label	Sleep0Call_3FD5C		call Sleep(0); pdata fragment start 3FD10	high	re/out/spinscan.txt §all call sites
 0x3fd82	label	Sleep0Call_3FD82		call Sleep(0); pdata fragment start 3FD70	high	re/out/spinscan.txt §all call sites
 0x3fdde	label	WfsoXCall_3FDDE		call WaitForSingleObject(?); pdata fragment start 3FD8C	high	re/out/spinscan.txt §all call sites
 0x3fe0a	label	Sleep1Call_3FE0A		call Sleep(1); pdata fragment start 3FD8C	high	re/out/spinscan.txt §all call sites
+0x3fe14	function	JobWorkerRunUntilIdle	bool JobWorkerRunUntilIdle(JobWorker* w)	worker body after each wake: steal ONE job from the other workers (411C0, w+1..), then 40800 pops with wakeFlag=1 (each woken worker wakes one more = cascade), one last steal scan, return (no spin before sleeping)	high	notes/job-system.md §1
+0x40300	function	JobHelpStepWrapper		calls JobHelpStep 403A0 (6 callers)	low	notes/job-system.md §1
+0x403a0	function	JobHelpStep	void JobHelpStep(JobWorker* w, JobGroup* g, u8* wakeFlag, int mode)	one poll of a job wait: pop/run own queue (40800), re-push deferred jobs, steal one job from the other workers (411C0); if nothing and !(w+454h & 1) -> Sleep(0) at 404B9	high	notes/job-system.md §1
+0x404b7	label	JobHelpStep_Sleep0	xor ecx,ecx; call [Sleep]; jmp 4048E	the job-wait Sleep(0) (candidate Y1, not built): 0 % of [App]Game, <=1.4 % of KIDSTaskScheduler0 in r5	high	notes/job-system.md §2d
 0x404b9	label	Sleep0Call_404B9		call Sleep(0); pdata fragment start 404B7	high	re/out/spinscan.txt §all call sites
 0x40680	function	JobTryRunLocal		pop and run a job from the scheduler's own queue (first step of JobWaitStep) [Ghidra: 362 B, 4 callers]	medium	notes/cpu-profile.md §S1
 0x40800	function	JobWorkerPoll_40800		KIDSTS worker job-queue polling routine (W7 lists it with 411C0/41050 as lock-cmpxchg pollers); QPC calls at 40C1A/40D56; calls 48E90 at 40E1C [Ghidra: 2125 B, 7 callers]	low	notes/cpu-profile.md §TL;DR W7; re/out/spinscan.txt; re/scripts_workers/g_w1.txt
+0x40a01	label	JobWorkerPoll_WakeDecision		wake decision after a successful pop: wake iff *wakeFlag or (all other workers idle && ++w[450h] % 30 == 0); idle count = pool+30h	high	notes/job-system.md §1
+0x40a4c	label	JobWorkerPoll_WakeBlock	mov rcx,[r15+440h]	start of the wake-one block (scan downward from w-1 for a worker whose thread+10h bit0 is set, CAS-clear it, SetEvent); WK patch site (call caveWakeGate)	high	notes/job-system.md §2a; re/scripts_jobs/jobs_live.fsx
+0x40b0a	label	JobWorkerPoll_SetEvent		the per-pop wake syscall (KERNEL32 SetEvent on thread+8)	high	notes/job-system.md §1
+0x40b10	label	JobWorkerPoll_WakeBlockEnd		*wakeFlag = 0 (sil=0); WK skip target	high	notes/job-system.md §2a
 0x40c1a	label	QpcXCall_40C1A		call QueryPerformanceCounter(?) in JobWorkerPoll_40800; pdata fragment start 40800	high	re/out/spinscan.txt §all call sites
+0x40d2f	label	JobWorkerPoll_SetEvent2		second wake-one site: job type 616FA0 when pool+34h != 0, followed by JobWaitSleepBackoff 207200	high	notes/job-system.md §1
 0x40d56	label	QpcXCall_40D56		call QueryPerformanceCounter(?) in JobWorkerPoll_40800; pdata fragment start 40800	high	re/out/spinscan.txt §all call sites
 0x41050	function	JobTrySteal		walk other workers' queues (sched+0x440) via 411C0 and steal a job; queue heads read with `lock cmpxchg [x],0` (W7) [Ghidra: 373 B, 5 callers]	medium	notes/cpu-profile.md §S1; §TL;DR W7
 0x411c0	function	JobQueuePoll		queue poll helper used by JobTrySteal; reads queue heads with `lock cmpxchg [x],0` as an atomic load -> cache-line ping-pong between 7+ spinning workers (W7, ~0.15-0.2 core); 1.9% self of KIDSTaskScheduler0 [Ghidra: 815 B, 8 callers]	medium	notes/cpu-profile.md §S1; §TL;DR W7; §Top 30 self functions
+0x417a0	function	JobPushLocal	void JobPushLocal(JobWorker* w, Job* j)	push onto worker w's own queue + set priority bit; used for continuations (group counter hit 0) (16 callers). No wake	high	notes/job-system.md §1
 0x4196e	label	WfsoXCall_4196E		call WaitForSingleObject(?); pdata fragment start 41940	high	re/out/spinscan.txt §all call sites
 0x4199f	label	JmpIat_WaitForSingleObject_4199F		`jmp [IAT WaitForSingleObject]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x419a8	function	MeshletUpdateEntryFlags	void(MeshletManager* M)	per-entry flag shift register, O(active) every frame (0.8-1.1%): ready bit0, bit7:=bit6, bit6:=bit5, bit5:=0 via 4 CAS loops + locked loads (notes ~14 / table 16 / script comment 9); A2 sites; C419 cave replaces it with one CAS per changed entry; body 494 B (aka MeshletStreamBookkeeping_419A8) || also: meshlet streaming bookkeeping (main thread, 0.7% self); 16 lock-cmpxchg atomic-load sites A2a-p [Ghidra: 494 B, 1 callers]	high	notes/meshlet-mainthread.md §1.1 + §2 C419; re/scripts_meshlet/meshlet_caves.fsx; notes/cpu-profile.md §Top 30 self functions; patcher/mainthread_live.fsx
@@ -78,6 +93,7 @@ rva	kind	name	signature	description	confidence	source
 0x46594	function	GetFps	int GetFps(void)	Returns FrameMgr+0x614 (fps used for dt this frame); 129 call sites (100 float x/fps, 7 int 120/fps, 1 int 60/fps, 4 fps*1000/60, 1 fps/2 compare); null-G fallback reads REN_FPS (~45 inlined readers); 4 calls redirected to caveTier by VRR P8 (aka GetTargetFps) || also: Returns GameMain+0x614 active target FPS (README 93 callers; functions.tsv 125)	high	notes/frame-timing.md §3 Functions; re/out/README.md §Findings: frame pacing
 0x47990	function	UpdateCursorImeState		called every pump iteration: CriticalSection enter/leave + cursor/UI-mode/IME state check (cheap); arg g_45CC560; IMM32 user [Ghidra: 800 B, 2 callers]	medium	notes/cpu-profile.md §S2; §Caves risks
 0x48ad4	function	SteadyClockNowNs	int64 SteadyClockNowNs(void)	std::chrono::steady_clock::now in nanoseconds; source of the FrameMgr frame-start stamp	high	notes/frame-timing.md §3 Functions
+0x48df8	function	JobForwardToWorker		forwards a job whose worker mask (job+22h) excludes the current worker to a specific worker and SetEvents it	medium	notes/job-system.md §1
 0x48e90	function	MeshletRequestWorker		TS_MESHLET_REQ worker (10 threads, ~13% busy each, ~78% blocked): reads GPU results, loads data, sets entry bit 0x200 via CAS	high	notes/meshlet-mainthread.md §1 + §3
 0x49150	label	MeshletRequestWorker_ListSumLoop		hot loop 49150..4915A (38%): walks 4 lists [rsi+1C8h]+67A8h/67B0h/67B8h summing +14h per request (quadratic-ish, worker CPU only)	high	notes/meshlet-mainthread.md §3
 0x493e9	label	MeshletRequestWorker_SetTakenCasA		CAS setting entry bit 0x200	high	notes/meshlet-mainthread.md §1; re/scripts_meshlet/meshlet_caves.fsx
@@ -325,6 +341,8 @@ rva	kind	name	signature	description	confidence	source
 0x1d3056	label	DrawRecordToken6A_MeshletParamLookup		lea 'Meshlet' + vcall +0xf8 (per-draw by-name lookup); found -> MeshletDrawRecord	high	re/scripts_draw/dis_1D2F60.txt
 0x1d30a6	label	DrawRecordToken6A_WriteToken		Writes token (ebx<<16)|0x6A then [pkt+0x14],[+0x18],[+0x1c],[+0x20] at ctx+0x3c40, bumps +0x3c78/+0x3c74, flushes when +0x3c74 >= +0x3c70	high	re/scripts_draw/dis_1D2F60.txt
 0x1d3118	label	DrawSubmit_KickThresholdCmp		cmp CmdCountSinceFlush, CmdFlushLimit (+0x3C74 vs +0x3C70) -> KtglCmdStreamFlush every N draws (candidate K1)	high	notes/d3d12-submission.md §5 K1
+0x1d46f8	function	DebugTextPuts	DebugTextConsole*(DebugTextConsole* c, const char* s)	binds the console font page (c+38 table, c+40 index, device c+48; emits KTGL token 0x44/0x4C on change) then DebugTextPutChar per byte; 13 callers (KTGL perf overlay, 365Cxxx/2F13xxx debug panels)	high	notes/osd-design.md §A
+0x1d4934	function	DebugTextPutChar	void(DebugTextConsole* c, char ch)	per-character emitter of DebugTextPuts	medium	notes/osd-design.md §A
 0x1d69cc	function	StageBindingsApply2578	void StageBindingsApply2578(void* ctx, void* prog)	if the program changed: StageSlotTableUpdate for 5 shader stages + 5 extra tables, then token 0x29 with the new pointer (shadow ctx+2578h); per-draw state commit	medium	notes/mainthread-logic.md §4.3
 0x1d6e64	function	StageBindingsApply2568	void StageBindingsApply2568(void* ctx, void* prog)	twin of 1D69CC for shadow ctx+2568h, token 0x23, tables via 1D84A0	medium	notes/mainthread-logic.md §4.3
 0x1d7340	function	ShaderConstWriteStream		writes tokens 0x2B/0x2C/0x37/0x38 plus inline constant memcpy into the KTGL command stream; body 2255 B (aka MainHot_1D7340) || also: [App]Game hotspot: 0.9% self of main-thread samples (capture 2, 14:22); role not identified [Ghidra: 2255 B, 16 callers]	medium	notes/mainthread-drawprep.md §1; notes/cpu-profile.md §Top 30 self functions
@@ -333,6 +351,7 @@ rva	kind	name	signature	description	confidence	source
 0x1d8220	function	MainHot_1D8220		[App]Game hotspot: 0.8% self of main-thread samples (capture 2, 14:22); role not identified [Ghidra: 637 B, 12 callers]	low	notes/cpu-profile.md §Top 30 self functions
 0x1d84a0	function	MainHot_1D84A0		[App]Game hotspot: 1.3% self of main-thread samples (capture 2, 14:22); role not identified [Ghidra: 665 B, 18 callers]	low	notes/cpu-profile.md §Top 30 self functions
 0x1d8720	function	MainHot_1D8720		[App]Game hotspot: 1.2% self of main-thread samples (capture 2, 14:22); role not identified [Ghidra: 625 B, 18 callers]; also (mainthread-logic.tsv): StageSlotTableUpdate - per 0x90-byte slot: copy binding from the source table, compute dirty bits (tbl[0]) and used bits (tbl[1]); dirty-tracking, not redundant. Better name for existing row MainHot_1D8720	medium	notes/cpu-profile.md §Top 30 self functions
+0x1daa28	function	KtglEmitToken70	bool(GfxDevice* d)	1DAA5C(d+2530) then writes KTGL token 0x70 at d+3C40; 125 callers incl. the perf overlay (begin of a 2D/debug draw block?)	low	notes/osd-design.md §A
 0x1daf6c	function	MainHot_1DAF6C		[App]Game hotspot: 0.8% self of main-thread samples (capture 2, 14:22); role not identified [Ghidra: 2009 B, 163 callers]	low	notes/cpu-profile.md §Top 30 self functions
 0x1dc2f0	function	DrawEmitSubPasses		Per-draw sub-pass loop: vcall +0xa8 on pass object, DrawEmit for the draw and each matching sub-item, vcall +0xb8; returns emitted count (aka DrawGroupSubPass) || also: per-group sub-pass draw loop (walks the group linearly) -> DrawEmit 1E80B0 per draw; body 1024 B	medium	re/scripts_draw/dis_1DC2F0.txt; notes/mainthread-drawprep.md §1
 0x1df880	function	ShaderConstFlush		flush dirty shader-constant slots -> 1D7340; body 958 B	medium	notes/mainthread-drawprep.md §1
@@ -464,7 +483,8 @@ rva	kind	name	signature	description	confidence	source
 0x39a39c	function	ApplyGraphicsSettings	void ApplyGraphicsSettings(GameMain* app, RenderConfig* rc, void* p3)	Graphics settings apply (1883 B): fills RenderConfig from settings (SHADOW_QUAL, AO, idx 23, VOLUMETRIC, LANDSCAPE_QUALITY, RESOLUTION_SCALING, FRAME_GENERATION, DLSS_FRAME_GEN_MULI, NVIDIA_REFLEX, INTEL_XELL), writes g_FfxFenceWaitMode, (re)creates upscaler, checks IsWindowVisible (aka FrameGenConfigApply, RenderSetupFrameGen) || also: Reads FRAME_GENERATION (live slot 0x45bb008); with OFF clears RenderSettings+0x20e0 HUD-less flag; UI-mask flags S+0x2054/S+0x2064 only set in FSR-FG branch | Graphics-settings apply: reads SHADOW/AO/SSR/VOLUMETRIC/LANDSCAPE/EVENT_QUALITY/RESOLUTION_SCALING/FG/REFLEX/XELL slots; contains 2 LOD sites; writes FFX fence-wait byte 0x4bd2580	high	re/out/anchors.md §site 0x39a758; re/out/README.md §Findings: camera / FOV / resolution anchors; notes/gpu-copies-postres.md §Bottom line; re/out/README.md §camera/FOV/resolution; re/settings/live_refs.txt; notes/frame-timing.md §8.3
 0x39a758	label	ApplyGraphicsSettings_LandscapeLodScale		Nioh3Fix LOD site: movss xmm0,[0x3977a58+LANDSCAPE_QUALITY*4] (landscape LOD scale; next instr loads 0x3978390[idx] -> rc+0x1970; stored to rc+0x1978)	high	re/out/anchors.md §site 0x39a758
 0x39a7c8	label	FrameGenConfigApply_ClearHudLessFlag		and dword [rbx+0x20e0],0 - clears HUD-less color flag when FG is OFF	high	notes/gpu-copies-postres.md §Bottom line
-0x39a86c	label	ApplyGraphicsSettings_SuspendCheck		Nioh3Fix LOD site: jnz after call 0x5a37d4; start of the render-suspend decision (IsWindowVisible at 0x39a884, EVENT_QUALITY) feeding rc+0x2055	high	re/out/anchors.md §site 0x39a86c
+0x39a86c	label	ApplyGraphicsSettings_SuspendCheck		Nioh3Fix LOD site: jnz after call 0x5a37d4; start of the render-suspend decision (IsWindowVisible at 0x39a884, EVENT_QUALITY) feeding rc+0x2055; also (fg-toggle.tsv): ApplyGraphicsSettings_MenuFgCheck - Nioh3Fix 0.0.6 'Menu Framegen' signature site (#20): menu-open check feeding the FG pause flag S+0x2055	high	re/out/anchors.md §site 0x39a86c
+0x39a945	label	ApplyGraphicsSettings_StoreFgPauseFlag	mov [rbx+2055h],al	RenderConfig S+0x2055 = FG paused this frame: menu open (0x5A37D4/0xD63C0), window not visible, title/movie/char-create/logo modes, event scene + EVENT_QUALITY, 0x9A7834, 0x561C80, 0x39B04C==0x19	medium	notes/frame-generation.md §2
 0x39af18	function	DlssConfigApply		DLSS upscaler config callback; writes POSTEFFECT_RESOLUTION flag S+0x2091 and CustomDepthUpscale flag S+0x20d8	high	notes/gpu-copies-postres.md §1, §2
 0x39af6f	label	DlssConfigApply_StoreCustomDepthUpscaleFlag		Same S+0x20d8 store as XessConfigApply_StoreCustomDepthUpscaleFlag (DLSS path); alternative patch site	high	notes/gpu-copies-postres.md §1 Patch handles
 0x39b080	function	ApplyVolumetricQuality	void ApplyVolumetricQuality(RenderConfig* rc, int q)	Called with VOLUMETRIC (0x45baf9c)	medium	re/out/anchors.md §site 0x39a758
@@ -515,8 +535,23 @@ rva	kind	name	signature	description	confidence	source
 0x433114	function	UpdateIdTimers60	void UpdateIdTimers60(TimerSet* t)	Adds GetDeltaTime60() to three per-ID timer maps (+0x108, +0x248, +0x388; key lists at +0x50, +0x190, +0x2d0), zeroing timers whose active flag is clear (aka MenuInputHoldRepeat) || also: Menu input hold/repeat using GetDelta60 accumulators; hosts VRR P7 call 0x43312B and Nioh3Fix Menu Input hook 0x433130	high	re/out/anchors.md §site 0x433130; notes/frame-timing.md §8.5
 0x43312b	label	VrrMenu_P7		Nioh3EngineFix id P7 group VRRMENU len 5 orig E8 54 33 C1 FF (call GetDelta60 for menu hold timers) -> call caveMenu (quantise to 0.25 with carry); optional, MenuQuantize=0 default	high	mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §8.5
 0x433130	label	MenuInput_Nioh3FixHook		Lyall Nioh3Fix 'Menu Input' hook (sig #23, 48 8B 71 50 0F 28 F0), rescales repeat by round(60/fps*4)/4; directly after P7 call (README says same site as MenuQuantize; actually +5) (aka UpdateIdTimers60_AfterGetDelta) || also: Nioh3Fix "dynamic-FPS target" site: mov rsi,[rcx+0x50] right after call GetDeltaTime60 (XMM0 = delta)	high	notes/frame-timing.md §3; notes/nioh3fix-signatures.md; mod/Nioh3EngineFix/README.md; re/out/anchors.md §site 0x433130
+0x434d24	function	PadUpdateActive	void PadUpdateActive(void* pads)	XInput path: 0x911388, 0x433224, PadActiveScanWrap, 0x4321d4, 0x433824, 0x432de0, 0x433114, 0x434da0	high	notes/input-thread.md §2
+0x434e18	function	PadPollDevices	void PadPollDevices(PadMgr* m)	XInputGetState on all 4 slots every 2.0 dt-units (m+0x698a0 accumulator) to set m+0x69850+i*0x14; per frame only on connected slots (clears the slot on failure); DI keyboard 0x435d58; 4 Sony HID pad handles via 0xae4f90/0xae4d10/0xae56f0 (SetupDi lookup 0x43506c on connect)	high	notes/input-thread.md §2
+0x43506c	function	PadDeviceInfoLookup	void PadDeviceInfoLookup(PadMgr* m, int slot, void* info)	SetupDiGetClassDevsA/EnumDeviceInterfaces/GetDeviceRegistryPropertyA lookup, only when a Sony HID pad slot (re)connects	medium	notes/input-thread.md §2
+0x435418	function	InputUpdateWorkerRun	void InputUpdateWorkerRun(KtglWorker* w)	vf[2]: PadUpdateIfMgr(); KtglEventSet(w+0x1a0 pad-stage event, awaited <=1 ms by FrameEarlyUpdate); if g_MouseKbEnabled MouseKbUpdate()	high	notes/input-thread.md §2
+0x435698	function	MouseKbUpdate	bool MouseKbUpdate(void)	per frame (g_MouseKbEnabled): DiMouseGetState, CursorUpdate (GetCursorPos/ScreenToClient/GetClientRect/ClientToScreen/SetCursorPos), MouseButtonsPoll (GetAsyncKeyState x5-9), MouseDeltaLatch (mutex), GetClientRect	high	notes/input-thread.md §2
+0x435748	function	MouseDeltaLatch	bool MouseDeltaLatch(void)	WaitForSingleObject(mutex [g_pCursorState]+0x418) / ReleaseMutex around latching the WndProc-accumulated wheel/delta (+0x43c/+0x448), then GetClientRect	high	notes/input-thread.md §2
 0x435785	label	WfsoXCall_435785		call WaitForSingleObject(?); pdata fragment start 435748	high	re/out/spinscan.txt §all call sites
+0x435864	function	CursorUpdate	void CursorUpdate(void)	GetCursorPos, ScreenToClient, GetClientRect, ClientToScreen + SetCursorPos (recenter) per frame	high	notes/input-thread.md §2
 0x43593a	label	VrrTicks120_P3a		Nioh3EngineFix id P3a group VRR len 6 orig 8D 42 78 41 F7 F0 (lea eax,[rdx+78h]; div r8d = 120/fps timer, add to [r9+3FCh]) -> 8B 05 rel32 mov eax,[ticks120] (aka FtVrrPatchSite_43593A, ExtPatchSite_43593A) || also: frame-timing (ft_vrr) patch site; listed in cpu_caves.fsx FT_SITES overlap check (see frame-timing notes for role)	high	mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §3, §5 P3; patcher/cpu_caves.fsx; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
+0x435b1c	function	PadActiveScanWrap	void PadActiveScanWrap(void* pads, u8* skip)	calls XInputFindActivePad(g_pPadMgr, &state) every frame (flag always 0 from PadUpdateActive)	high	notes/input-thread.md §2
+0x435b8c	function	XInputFindActivePad	bool XInputFindActivePad(PadMgr* m, XINPUT_STATE* s)	XInputGetState(0..3) on every slot every frame (connected or not); first slot with a button/trigger/stick past deadzone (0x1EA8/0x21F0) becomes m+0x69b20; then XInputGetState(active). On Windows the empty-slot calls re-enumerate devices (cfgmgr32/DeviceIoControl)	high	notes/input-thread.md §3
+0x435bb7	label	XInputFindActivePad_ScanCall		X1 patch site: FF 15 93 D0 4A 03 (call [XInputGetState]) -> 90 E8 <cave>: skip slots with PadMgr::Connected == 0 (return 0x48F)	high	re/scripts_input/input_live.fsx; notes/input-thread.md §4
+0x435d58	function	DiKeyboardGetState	void DiKeyboardGetState(void* kb)	IDirectInputDevice8::GetDeviceState(0x100) on kb+0xe48, Acquire/Unacquire handling	high	notes/input-thread.md §2
+0x435e08	function	MouseButtonsPoll	bool MouseButtonsPoll(void)	GetClientRect + GetAsyncKeyState for VK 1/2 (via 0x99f5c0/0x99f5e8), 4, 5, 6 per frame	high	notes/input-thread.md §2
+0x43671c	function	PadMgrUpdate	void PadMgrUpdate(void* pads)	per-frame pad update: PadPollDevices(g_pPadMgr), then PadUpdateActive (XInput path) or the 4-slot reset 0x296d3e8; per-slot rumble/state (0x436a1c, 0x43837c -> XInputSetState 0x1fdbb40)	high	notes/input-thread.md §2
+0x4371dc	function	DiMouseGetState	bool DiMouseGetState(void)	IDirectInputDevice8::GetDeviceState(0x14 = DIMOUSESTATE2) on [g_pCursorState]+0x420, Acquire+retry on failure	high	notes/input-thread.md §2
+0x437258	function	PadUpdateIfMgr	void PadUpdateIfMgr(void)	if [0x4b5a7c8] != 0 -> PadMgrUpdate	high	notes/input-thread.md §2
 0x437ee5	label	VrrTicks120_P3b		Nioh3EngineFix id P3b group VRR len 6 orig 8D 42 78 41 F7 F0 (120/fps timer, add to [rbx+69800h]) -> mov eax,[ticks120] (aka FtVrrPatchSite_437EE5, ExtPatchSite_437EE5) || also: frame-timing (ft_vrr) patch site; listed in cpu_caves.fsx FT_SITES overlap check (see frame-timing notes for role)	high	mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §3; patcher/cpu_caves.fsx; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
 0x437f97	label	QpcXCall_437F97		call QueryPerformanceCounter(?); pdata fragment start 437F7C	high	re/out/spinscan.txt §all call sites
 0x438473	label	VrrTicks120_P3c		Nioh3EngineFix id P3c group VRR len 6 orig 8D 42 78 41 F7 F0 (120/fps timer, sub from [rsi]) -> mov eax,[ticks120] (aka FtVrrPatchSite_438473, ExtPatchSite_438473) || also: frame-timing (ft_vrr) patch site; listed in cpu_caves.fsx FT_SITES overlap check (see frame-timing notes for role)	high	mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §3; patcher/cpu_caves.fsx; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
@@ -539,6 +574,7 @@ rva	kind	name	signature	description	confidence	source
 0x4a2e94	function	GlyphAtlasUpload		uploads rect {0,0,W,maxY} of the atlas via TextureUploadRect 699EC8; rotates textures (4A2F24) when G+A8==0	high	notes/ui-mainthread.md §C; notes/mainthread-drawprep.md §2 C
 0x4a2eba	label	GlyphAtlasUpload_RectTopZero	and dword [rsp+34h],0	rect.top=0; cave C2 site (upload only rows from dirtyTop)	high	re/scripts_ui/ui_lib.fsx
 0x4a2f24	function	GlyphAtlasRotateTextures	void(GlyphAtlas* g)	rotates the atlas texture ring (+0x18..+0x40) when the atlas is not persistent; body 151 B	medium	notes/ui-mainthread.md §C; re/scripts_ui/g1.txt
+0x4a361c	function	RenderFrameDebugOverlay	void(GfxDevice* d, int p2)	called from RenderWaitForFrame (4A512F) and 5 others: 4A39FC(d+61A0,d); if d+76F0 -> DebugFpsOverlayFormat(d); 4A365C(d,p2)	high	notes/osd-design.md §A; D:\nioh3-re\osd\q1.log
 0x4a4f94	function	RenderWaitForFrame		Called from RenderFrameBegin; WaitForSingleObjectEx (32% of game-thread samples: back-pressure / job joins) (aka RenderStepMeshletRequest) || also: render step that calls 5DC18 (call at 4A50C1)	medium	notes/frame-timing.md §1, §4; notes/meshlet-mainthread.md §1; re/scripts_meshlet/g2.txt
 0x4a529c	function	RenderFrameBegin	uint8(Renderer* r, void* p2, void* p3, Scene* scene)	render-frame begin (18.7%): latency markers/xellSleep, frame-latency poll (R1 patched), sets textRenderer+0x4A0=1 and calls GlyphAtlasReset every frame, WaitSubmitThread 7D9B6C (8.4%), MeshletFrameBegin 5D214 (~10%); body 1113 B (aka RenderSubmit, RenderBeginFrameLatencyWait) || also: Render submit (1113 B, 1 caller, reached via 0x577e50); if per-frame byte from 0x247708 ([rsp+0x2564]) set, busy-polls WaitForSingleObject(frameLatencyHandle,0) with pause; then xellSleep and Streamline/Reflex markers | Render-frame begin: latency markers (Reflex/AntiLag/XeLL abstraction 0x6B88DC..), xellSleep, frame ids 0x45BAA94/0x45C3F48; calls 0x4A4F94; probably hosts R1 frame-latency wait sites 0x4A5346/0x4A5357	high	notes/mainthread-drawprep.md §1; notes/ui-mainthread.md §C; re/out/README.md §Findings: frame pacing; notes/frame-timing.md §1, §3; patcher/cpu_caves.fsx; notes/cpu-profile.md §Caves; patcher/review_r1.fsx
 0x4a5346	label	FrameLatencyWait_R1		Nioh3EngineFix id R1 group R1 len 6 orig EB 02 F3 90 33 D2 (pause; xor edx,edx timeout 0 before wait call) -> mov edx,[r1Timeout]; game thread waits on frame-latency signal with timeout instead of busy poll (aka RenderBeginFrameLatencyWait_R1, RenderFrameBegin_ExtPatchSiteA) || also: R1 patch site (6 B `jmp +2; pause; xor edx,edx` -> `mov edx,[rip->cave.r1Timeout]`): WaitForSingleObject(h, 2 ms) instead of pause+poll	high	mod/Nioh3EngineFix/patches.json; mod/Nioh3EngineFix/README.md; patcher/cpu_caves.fsx; notes/cpu-profile.md §Caves; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
@@ -589,6 +625,8 @@ rva	kind	name	signature	description	confidence	source
 0x5a9028	function	IsPlayerGuestImpl	bool fn(void)	Guest check helper used by Online::IsPlayerGuest: +0x1DC && !+0x2C8 on [0x45C84F8]	medium	notes/frame-timing.md §10.1
 0x5a9c70	function	UiFadeCounters		UI fade counters set once at mode change (tierFps*15, *6 frames); frame-counted fades	medium	notes/frame-timing.md §8.5
 0x5ab644	function	UpdateDispatchB		Update dispatch from dt setup with dtSec/dt60 (one of pair 0x8C8E54/0x5AB644) (aka GameModeUpdate) || also: Game-mode update (180 B) fed dt60 by GameFrameUpdate	medium	notes/frame-timing.md §1 Loop diagram; re/out/README.md §Findings: frame pacing
+0x5ab7b0	function	InputWorkerKick	void InputWorkerKick(void)	InputWorkerJoin(); reset pad-stage event (0x2f6ce8 on 0x45c39b0); KtglEventSet(g_InputUpdateWorker+8); g_InputWorkerPending = 1. Called once per frame from UpdateDispatchB	high	notes/input-thread.md §1
+0x5ab7e0	function	InputWorkerJoin	void InputWorkerJoin(void)	if g_InputWorkerPending: KtglEventWait(g_InputUpdateWorker+0xa8); pending = 0 (GameModeUpdateMain and InputWorkerKick)	high	notes/input-thread.md §1
 0x5ab994	function	GameClockAdvance		Game clock update: [r13+3BFBC] + [r15+18] passed to it in FrameEnd	medium	notes/frame-timing.md §1 Loop diagram
 0x5ac664	function	FrameMgr_FrameBegin	void FrameMgr::FrameBegin(FrameMgr* this)	FrameMgr vtable vf[1] (frame task vf, 'frame begin'); stores now_ns to G+0x7D8 at 0x5AC6BE; computes dt60=G[624]*60/G[614] for early update 0x5AC9EC	high	notes/frame-timing.md §1 Loop diagram
 0x5ac6be	label	FrameMgr_FrameBegin_StoreFrameStart		G+0x7D8 := now_ns (frame-start stamp)	high	notes/frame-timing.md §1 Loop diagram
@@ -630,6 +668,8 @@ rva	kind	name	signature	description	confidence	source
 0x5b668d	label	WfsoXCall_5B668D		call WaitForSingleObject(?); pdata fragment start 5B6670	high	re/out/spinscan.txt §all call sites
 0x5b7390	function	SaveLoadThreadMain		Save/load worker thread ("[App]SaveLoadThreadMain")	medium	re/out/strings.tsv
 0x5b91ac	label	Sleep0Call_5B91AC		call Sleep(0); pdata fragment start 5B9068	high	re/out/spinscan.txt §all call sites
+0x5b9304	function	GetPoolEntry	PoolEntry* GetPoolEntry(int i)	&g_WorkerPoolTable.Entries[i] (47 callers)	high	notes/job-system.md §2c
+0x5b9320	function	GetWorkerPoolTable	PoolTable* GetWorkerPoolTable(void)	thread-safe-static guard then returns 0x4B722D0	high	notes/job-system.md §2c
 0x5bd8e0	function	CharacterAttachmentUpdate	void CharacterAttachmentUpdate(Attach* a, f32 dt)	Per-character attachment/sub-object update, skipped when the owner is more than 1800 (18 m) from the camera (+0xae18) unless in a special state	low	notes/effects-animation.md §3.2
 0x5c345e	label	Sleep0Call_5C345E		call Sleep(0); pdata fragment start 5C2BC8	high	re/out/spinscan.txt §all call sites
 0x5de334	label	GetArchiveInfo_CallSite		call to GetArchiveInfo 0x2dfb7c (AOB E8 ? ? ? ? 85 C0 0F 85 ? ? ? ? 4C 8B 7E)	high	notes/game-data.md §2 Hooks
@@ -717,6 +757,8 @@ rva	kind	name	signature	description	confidence	source
 0x84187e	label	Sleep0Call_84187E		call Sleep(0); pdata fragment start 84180C	high	re/out/spinscan.txt §all call sites
 0x8629bd	label	WfsoXCall_8629BD		call WaitForSingleObject(?); pdata fragment start 8629AC	high	re/out/spinscan.txt §all call sites
 0x86bf6e	label	Sleep0Call_86BF6E		call Sleep(0); pdata fragment start 86BDBC	high	re/out/spinscan.txt §all call sites
+0x86c018	function	InputWorkerWaitPadStage	void InputWorkerWaitPadStage(void)	FrameEarlyUpdate: KtglEventWaitFor(g_InputUpdateWorker+0x1a0, 1 ms) - main thread waits up to 1 ms for the pad stage	high	notes/input-thread.md §1
+0x86c040	function	KtglEventWaitFor	bool KtglEventWaitFor(KtglEvent* e, const i64* ms)	KTGL event wait with timeout (ms * 1e6 ns via 0x86c244), auto-reset on success	high	notes/input-thread.md §1
 0x86f760	function	EclRingPush	void (CmdListRing* r, void* a, void* tokens, u8 f)	pushes one item into the ExecuteCommandListsThread ring (86F828) and ReleaseSemaphore(+0x80)	high	notes/d3d12-submission.md §1
 0x86f828	function	EclRingPushItem	void (Ring* r, void* item)	ring push; blocks (WaitForSingleObject INFINITE) when the ring is full	high	notes/d3d12-submission.md §1
 0x86f84e	label	WfsoXCall_86F84E		call WaitForSingleObject(?); pdata fragment start 86F828	high	re/out/spinscan.txt §all call sites
@@ -795,6 +837,7 @@ rva	kind	name	signature	description	confidence	source
 0xaf2203	label	timeBeginPeriodXCall_AF2203		call timeBeginPeriod(?); pdata fragment start AF14E0	high	re/out/spinscan.txt §all call sites
 0xaf220e	label	Sleep2Call_AF220E		call Sleep(2); pdata fragment start AF14E0	high	re/out/spinscan.txt §all call sites
 0xaf4a20	label	Sleep500Call_AF4A20		call Sleep(500); pdata fragment start AF2AC0	high	re/out/spinscan.txt §all call sites
+0xaf55e0	function	HidReadReportOverlapped	int HidReadReportOverlapped(void* dev, void* buf, u32 len, ...)	Sony HID pad read: CreateEventW + ReadFile(overlapped) + GetOverlappedResultEx(100 ms or 5000 ms) + CancelIoEx + CloseHandle per report	high	notes/input-thread.md §Wine
 0xb0c7c0	function	PauseSpin_B0C7C0		code with 4 PAUSE instruction(s) (spin-wait candidate); PAUSE loops B0C980..B0C989 B0C9A0..B0C9A9 B0C9B4..B0C9BD B0C9D0..B0C9D9 B0C900..B0CBA8	medium	re/out/spinscan.txt §fragments containing PAUSE
 0xb1009f	label	PauseSpin_B1009F		code with 4 PAUSE instruction(s) (spin-wait candidate); PAUSE loops B100C4..B100CE B100F0..B100FA B10120..B10129 B10140..B10149; pdata fragment start (may be chained fragment)	medium	re/out/spinscan.txt §fragments containing PAUSE
 0xb2c9a6	label	WfsoXCall_B2C9A6		call WaitForSingleObject(?); pdata fragment start B2C990	high	re/out/spinscan.txt §all call sites
@@ -974,7 +1017,9 @@ rva	kind	name	signature	description	confidence	source
 0x1253951	label	InlinedGetFps_1253951		Inlined reader of G[614], float x/fps	high	notes/frame-timing.md §3
 0x1253ed1	label	InlinedGetFps_1253ED1		Inlined reader of G[614], float x/fps	high	notes/frame-timing.md §3
 0x1272c08	label	InlinedGetFps_1272C08		Inlined reader of G[614], float x/fps	high	notes/frame-timing.md §3
-0x12a2368	function	CommitConfigValues		Bulk writer of most live config slots (0-3, 10, 18-47, 51-53, 58) - likely menu commit or preset apply; role unconfirmed	low	re/settings/live_refs.txt
+0x12a2368	function	CommitConfigValues		Bulk writer of most live config slots (0-3, 10, 18-47, 51-53, 58) - likely menu commit or preset apply; role unconfirmed	high	re/settings/live_refs.txt
+0x12a24c4	label	SetOptionValue_FrameGenCase	call FrameGenSettingWrite	option id 0x126 (Frame Generation) in SetOptionValue/CommitConfigValues 0x12A2368: FrameGenSettingWrite(value) then g_ConfigDirty=1	high	notes/frame-generation.md §3
+0x12a46ad	label	SetOptionValue_SetConfigDirty	mov byte [g_ConfigDirty],1	C6 05 CC 28 32 03 01; shared tail of SetOptionValue cases	high	notes/frame-generation.md §3
 0x12cf179	label	QpcXCall_12CF179		call QueryPerformanceCounter(?); pdata fragment start 12CF156	high	re/out/spinscan.txt §all call sites
 0x12cf1a3	label	QpcXCall_12CF1A3		call QueryPerformanceCounter(?); pdata fragment start 12CF156	high	re/out/spinscan.txt §all call sites
 0x12cfe64	label	QpcXCall_12CFE64		call QueryPerformanceCounter(?); pdata fragment start 12CFE41	high	re/out/spinscan.txt §all call sites
@@ -1021,6 +1066,8 @@ rva	kind	name	signature	description	confidence	source
 0x134c533	label	WfsoXCall_134C533		call WaitForSingleObject(?); pdata fragment start 134C4D2	high	re/out/spinscan.txt §all call sites
 0x134ebd0	function	GameThreadProc		outermost frame of [App]Game in capture 2 (1A74130 <- 27049CC <- 134EBD0); 0 direct callers -> likely the [App]Game thread procedure [Ghidra: 135 B, 0 callers]	medium	notes/cpu-profile.md §Threads
 0x1350060	function	WriteCrashDump		Writes %LOCALAPPDATA%\KoeiTecmo\NIOH3\dump\core_dump_*.dmp when --enable_output_dump is given (refs the switch + path strings, GetCommandLineA)	medium	notes/settings.md §3; re/out/strings.tsv
+0x1350210	function	DisplaySettingsWatcher	void DisplaySettingsWatcher(Window* w, Gfx* g)	per frame (from 0x12399D0): compares DISP_MODE/MONITOR/SCR_REZ/HDR/FRAME_GENERATION to w+0x1B0..0x1C4 and posts 0x403/0x402/0x401/0x404/0x405 (FG) to the game window; applies VSYNC/SHADOW_QUAL directly; counts w+0x13C down and runs DisplayResetRebuildSwapchain when w+0x138 is set and [0x475A420]+0x248/0x249 are clear	high	notes/frame-generation.md §3
+0x135030d	label	DisplaySettingsWatcher_FrameGenCompare	mov eax,[g_CfgFrameGeneration]	FG slot vs cached w+0x1C4 -> PostMessage 0x405	high	notes/frame-generation.md §3
 0x1351370	function	CalcWindowRectForClient		Computes window rect for a client size on the window's monitor (GetMonitorInfoA, MonitorFromWindow, GetWindowLongPtrA); used by WndProc msgs 0x401/0x403	medium	re/out/anchors.md §site 0x8781f8; re/out/imports.tsv
 0x1351b80	function	IsOutputDumpEnabled		Checks command line for --enable_output_dump (GetCommandLineA caller)	low	re/out/strings.tsv
 0x1356b20	label	QpcXCall_1356B20		call QueryPerformanceCounter(?); pdata fragment start 1356B0D	high	re/out/spinscan.txt §all call sites
@@ -1116,6 +1163,7 @@ rva	kind	name	signature	description	confidence	source
 0x199d92c	label	Sleep0Call_199D92C		call Sleep(0); pdata fragment start 199D92A	high	re/out/spinscan.txt §all call sites
 0x19a51e5	label	Sleep0Call_19A51E5		call Sleep(0); pdata fragment start 19A51C2	high	re/out/spinscan.txt §all call sites
 0x19a529e	label	Sleep0Call_19A529E		call Sleep(0); pdata fragment start 19A51C2	high	re/out/spinscan.txt §all call sites
+0x19a9b2c	label	XInputFindActivePad_Found		cold block: activity test on the returned XINPUT_STATE, sets PadMgr::ActiveXSlot	high	notes/input-thread.md §3
 0x19b273e	label	Sleep0Call_19B273E		call Sleep(0); pdata fragment start 19B2726	high	re/out/spinscan.txt §all call sites
 0x19cdbf6	label	Sleep0Call_19CDBF6		call Sleep(0); pdata fragment start 19CDBF4	high	re/out/spinscan.txt §all call sites
 0x19cdc10	label	Sleep0Call_19CDC10		call Sleep(0); pdata fragment start 19CDC0E	high	re/out/spinscan.txt §all call sites
@@ -1160,6 +1208,8 @@ rva	kind	name	signature	description	confidence	source
 0x1a444cc	label	Sleep0Call_1A444CC		call Sleep(0); pdata fragment start 1A444CA	high	re/out/spinscan.txt §all call sites
 0x1a445a6	label	Sleep0Call_1A445A6		call Sleep(0); pdata fragment start 1A4459E	high	re/out/spinscan.txt §all call sites
 0x1a60165	label	Sleep1Call_1A60165		call Sleep(1); pdata fragment start 1A60160	high	re/out/spinscan.txt §all call sites
+0x1a6bb84	function	JobWorkerThreadMain	u32 JobWorkerThreadMain(JobWorker* w)	KIDS worker thread: SetThreadDescription, loop { JobWorkerRunUntilIdle; lock inc pool+30h (idle); set thread+10h bit0; WaitForSingleObject(thread+8, INFINITE); lock dec pool+30h }; Sleep(1) while paused (pool+48h & 50000000h)	high	notes/job-system.md §1
+0x1a6bc15	label	JobWorkerThreadMain_SetSleepBit		CAS sets thread+10h bit0 = "sleeping, wake me" before the INFINITE wait at 1A6BC35	high	notes/job-system.md §1
 0x1a6bc35	label	WfsoXCall_1A6BC35		call WaitForSingleObject(?); pdata fragment start 1A6BB84	high	re/out/spinscan.txt §all call sites
 0x1a6bc42	label	Sleep1Call_1A6BC42		call Sleep(1); pdata fragment start 1A6BB84	high	re/out/spinscan.txt §all call sites
 0x1a6bca4	function	Sleep0Thunk	void Sleep0Thunk(void)	Sleep(0) thunk `xor ecx,ecx; rex jmp [Sleep]` (spinscan sees the FF25 at 1A6BCA7)	high	notes/cpu-profile.md §First spin-wait evidence; re/out/spinscan.txt
@@ -1218,6 +1268,7 @@ rva	kind	name	signature	description	confidence	source
 0x1a7a41b	label	WfsoXCall_1A7A41B		call WaitForSingleObject(?); pdata fragment start 1A7A3F4	high	re/out/spinscan.txt §all call sites
 0x1a7a460	label	JmpIat_WaitForSingleObject_1A7A460		`jmp [IAT WaitForSingleObject]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x1a7a774	function	EffectUpdateThreadMain	u32 EffectUpdateThreadMain(void* a1, EffectWorker* w)	loop: KtglEventWait(w+8); quit flag w+0x150; vtable+0x10 (EffectWorkerRunList); KtglEventSet(w+0xa8)	high	notes/effects-animation.md §1.2
+0x1a7b8b4	function	InputUpdateWorkerMain	u32 InputUpdateWorkerMain(void* a1, KtglWorker* w)	thread loop: KtglEventWait(w+8); until quit flag w+0x150: vf[2](w) (InputUpdateWorkerRun); KtglEventSet(w+0xa8); KtglEventWait(w+8). Event-driven, kicked once per frame by InputWorkerKick - NOT a polling loop	high	notes/input-thread.md §1
 0x1a7c2a7	label	WfsoXCall_1A7C2A7		call WaitForSingleObject(?); pdata fragment start 1A7C244	high	re/out/spinscan.txt §all call sites
 0x1a7c31a	label	WfsoXCall_1A7C31A		call WaitForSingleObject(?); pdata fragment start 1A7C2D4	high	re/out/spinscan.txt §all call sites
 0x1a7c3e0	function	SynergisticDispatcherLoop	void SynergisticDispatcherLoop(DispatcherRing* ring)	SynergisticDispatcherTask body: WaitForSingleObject(sem, INFINITE), pop 32-B ring item, replay tokens via KtglTokenHandlerTable into SynCtx+0x580 command list, on submit items close list (496078) and hand to ECL ring (4930C8); 60 % CPU, 44 % blocked	high	notes/d3d12-submission.md §1
@@ -1242,6 +1293,7 @@ rva	kind	name	signature	description	confidence	source
 0x1fdb292	label	QpcXCall_1FDB292		call QueryPerformanceCounter(?); pdata fragment start 1FDB24C	high	re/out/spinscan.txt §all call sites
 0x1fdbb1c	function	OnInputLangChange	void OnInputLangChange(const char* klid)	WM_INPUTLANGCHANGE (0x51): receives GetKeyboardLayoutNameA result	medium	re/out/anchors.md §site 0x8781f8
 0x1fdbfbd	label	JmpIat_QueryPerformanceCounter_1FDBFBD		`jmp [IAT QueryPerformanceCounter]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
+0x1fddf00	function	SetDlssFrameGenMultiplier	void SetDlssFrameGenMultiplier(int idx)	writes DLSS_FRAME_GEN_MULI 0x45BB00C = idx if IsDlssFrameGenMultiplierAvailable(idx) else 0	high	notes/frame-generation.md §1
 0x1fddf28	function	SetDynRenderRatioMax	void SetDynRenderRatioMax(int idx)	Sets DYNAMIC_RENDER_RATIO_MAX; called by SetRenderRatioIndex when it differs from the effective ratio (mutually recursive) || also: Writes DYNAMIC_RENDER_RATIO_MAX slot (also reads MIN/RES_SCALING); called from apply	medium	re/out/anchors.md §site 0x1fde43e; re/settings/live_refs.txt; re/settings/saveapply.asm
 0x1fddf74	function	SetDynRenderRatioMin	void SetDynRenderRatioMin(int idx)	Sets DYNAMIC_RENDER_RATIO_MIN || also: Writes DYNAMIC_RENDER_RATIO_MIN slot; called from apply	medium	re/out/anchors.md §site 0x1fde50e; re/settings/live_refs.txt; re/settings/saveapply.asm
 0x1fddfcc	function	FrameGenSettingWrite		Writes FRAME_GENERATION config [0x45BB008] (1/2/3 = DLSS/FSR/XeSS) (aka SetFrameGenLatencyOpts) || also: Writes VSYNC, FRAME_GENERATION, NVIDIA_REFLEX, INTEL_XELL slots together	medium	notes/frame-timing.md §8.3; re/settings/live_refs.txt
@@ -1256,6 +1308,7 @@ rva	kind	name	signature	description	confidence	source
 0x1fdeaa0	function	RecomputeRenRez		Recomputes REN_REZ slot from SCR_REZ x REN_RAT (only writer of slot 7) (aka OnRenderResolutionChanged)	high	notes/settings.md §2 REN_REZ; re/settings/live_refs.txt; re/out/anchors.md §site 0x1fde43e
 0x1fdec4c	function	ValidateUpscalerFrameGen		Reads/writes VSYNC, RESOLUTION_SCALING, FRAME_GENERATION, DLSS_FRAME_GEN_MULI, REFLEX, XELL slots (combo validation)	low	re/settings/live_refs.txt
 0x1fded2c	function	MonitorSupportsHdr	bool MonitorSupportsHdr(int monitorId)	Checked on msg 0x402 when settings index 11 (assumed HDR) == 1; failure calls SetHdrSetting(0)	low	re/out/anchors.md §site 0x8781f8
+0x1fdfeb4	function	PoolBaseForIndex	int PoolBaseForIndex(int base, u16 pool)	SizeWorkerPools helper: base<=12 -> base; else pools 3,6,7,10,11,13,14,48,55,56 -> min(base,16), pools 5,8,9,16 -> 12, others base (no .pdata)	high	notes/job-system.md §2c
 0x1fe0054	function	CpuScoreToSpecClass	int CpuScoreToSpecClass(score)	score <15,000,000 -> LOW, <32,000,000 -> STANDARD, else HIGH (7600X got STANDARD)	high	notes/settings.md §4.2
 0x1fe0a24	function	GetMaxDynResTargetForFps		Highest allowed DYNAMIC_RESOLUTION target per REN_FPS (30->30FPS, 60->60FPS, 120->120FPS); called from apply	high	notes/settings.md §2 DYNAMIC_RESOLUTION; re/settings/saveapply.asm
 0x1fe0e74	function	GetMonitorRect	void GetMonitorRect(RECT* out, void* mon)	Fills monitor rect from a g_MonitorTable entry (GetMonitorInfoA user); used for borderless placement	medium	re/out/anchors.md §site 0x8781f8
@@ -1264,10 +1317,14 @@ rva	kind	name	signature	description	confidence	source
 0x1fe2314	function	GetConfigValueString	const char* GetConfigValueString(int key, int value)	Option string for enum keys (bounds-checked vs Count) or "%d"-formats int keys into desc FormatBuf (bounds-checked vs Min/Max); "" if invalid	high	re/settings/acc.asm
 0x1fe2424	function	GetPrimaryMonitorIndex	int GetPrimaryMonitorIndex(void)	Fallback monitor index when g_MonitorTable[MONITOR_ID] is null	low	re/out/anchors.md §site 0x8781f8
 0x1fe2fd4	function	SizeWorkerPools		sizes the engine's 74 worker pools once at boot from the logical CPU count (clamped 6..32); with <13 logical CPUs it takes 3 threads from pool 3 (KIDS_RESOURCE) and pool 5 (StageUpdate) [Ghidra: 357 B, 1 callers] (aka SizeThreadPools) || also: Worker count = clamp(logical,6,32) (12 here), sizes 74 named pools from g_ThreadPoolTable 0x4b722d0; <=12 logical CPUs -> KIDS_RESOURCE and StageUpdate lose 3 threads each (P12 patch lifts it, no fps gain)	high	patcher/pool_patch.fsx; notes/settings.md §4.3; README.md §Second round
+0x1fe300b	label	SizeWorkerPools_BaseClampCmp	cmp r11d,20h	WC (WorkerCap) site A: upper clamp of the logical count -> imm8 = cap	high	notes/job-system.md §2c; re/scripts_jobs/jobs_live.fsx
+0x1fe3011	label	SizeWorkerPools_BaseClampMov	mov al,20h	WC (WorkerCap) site B: clamped value -> imm8 = cap (write before site A)	high	notes/job-system.md §2c; re/scripts_jobs/jobs_live.fsx
 0x1fe30d5	label	WorkerPoolSize_P12		Nioh3EngineFix id P12 group P12 len 4 orig 41 83 FB 0C (cmp r11d,12 hw threads) -> 41 83 FB 00; keeps KIDS_RESOURCE/StageUpdate pools from losing 3 threads on <=12-thread CPUs; must be written before pools are created (aka SizeWorkerPools_SmallCpuPenaltyCmp) || also: P12 patch site: `cmp r11d,0Ch` (41 83 FB 0C; r11d = logical CPU count) -> imm 00h so the <=12-CPU penalty never applies; must be written at boot after SteamStub decrypts .text	high	mod/Nioh3EngineFix/patches.json; mod/Nioh3EngineFix/README.md; patcher/pool_patch.fsx
 0x1fe30d9	label	SizeWorkerPools_SkipPenalty		`jg skip-penalty` (7F 2B) after the CPU-count compare	high	patcher/pool_patch.fsx
 0x1fe3984	function	IsScreenResolutionSupported	bool IsScreenResolutionSupported(int scrRezIdx)	WndProc 0x403 tests SCR_REZ then scans indices 0..12 for the first supported one	medium	re/out/anchors.md §site 0x8781f8
 0x1fe3b8c	function	CurrentMonitorSupportsHdr	bool CurrentMonitorSupportsHdr(void)	Same check as MonitorSupportsHdr for the current monitor in msg 0x403	low	re/out/anchors.md §site 0x8781f8
+0x1fe3f00	function	IsDlssFrameGenMultiplierAvailable	bool IsDlssFrameGenMultiplierAvailable(int idx)	caps+0xF0 ? idx < caps+0x19C : idx == 0	high	notes/frame-generation.md §1
+0x1fe3fa4	function	IsFrameGenTypeAvailable	bool IsFrameGenTypeAvailable(int type)	FRAME_GENERATION availability: 1 DLSS -> SlGetFeatureSupport()+0xF0, 3 XeSS -> g_XessFgAvailable 0x45C3EAA, 0 OFF / 2 FSR -> always true (no vendor or Wine check); 47 B; used by FrameGenSettingWrite	high	notes/frame-generation.md §2
 0x1fe3ff0	function	IsConfigValueValid	bool IsConfigValueValid(int key, int value)	True if value < Count (enum keys) or Min<=value<=Max (int keys)	high	re/settings/acc.asm
 0x1fe402c	function	ClampFpsByRefreshRate		REN_FPS/EVENT_FPS refresh gate compares (0x76=118 Hz, 0x3A=58 Hz); patch target for 72/75 locks or 120 on <118 Hz displays (aka RenFpsRefreshGate) || also: REN_FPS refresh gate: idx 1 needs refresh >=58 Hz, idx 2 needs >=118 Hz (refresh from 0x9AFE00)	medium	notes/settings.md §4.1; notes/frame-timing.md §9.1
 0x1fe41a0	function	LoadConfig	void LoadConfig()	Loads config.xml: calls ReadConfigKey 0x1fe4244 per key then ApplyConfig 0x1fe6064; called from AppInit 0x298d6c8	high	notes/settings.md §1; re/settings/acc.asm
@@ -1290,6 +1347,7 @@ rva	kind	name	signature	description	confidence	source
 0x2237840	function	TimeEffectState4		Time-effect state machine function (listed 4th of states 1..4; mapping by list order)	medium	notes/frame-timing.md §8.3
 0x22378c0	function	TimeEffectState1		Time-effect state machine function (listed 1st of states 1..4; state mapping by list order)	medium	notes/frame-timing.md §8.3
 0x22379b4	function	TimeEffectState2		Time-effect state machine function (listed 2nd of states 1..4; mapping by list order)	medium	notes/frame-timing.md §8.3
+0x226d140	function	DisplayResetRebuildSwapchain	bool DisplayResetRebuildSwapchain(void* p1, int* desc, Gfx* g)	waits for 0x3B2970 idle (Sleep(1)), builds the swapchain desc (VSYNC, 3 buffers, refresh change flag, FG backend ptr by FRAME_GENERATION: DLSS 0x198D150 / FSR 0x34692B4 / XeSS 0x3420C98) and calls RecreateSwapchainDevice 0x2EEA690; callers 0x1350210, 0x1351690	high	notes/frame-generation.md §3
 0x226d188	label	SleepXCall_226D188		call Sleep(?); pdata fragment start 226D140	high	re/out/spinscan.txt §all call sites
 0x22a2125	label	SleepXCall_22A2125		call Sleep(?); pdata fragment start 22A20DC	high	re/out/spinscan.txt §all call sites
 0x22a21f9	label	SleepXCall_22A21F9		call Sleep(?); pdata fragment start 22A21B0	high	re/out/spinscan.txt §all call sites
@@ -1313,6 +1371,7 @@ rva	kind	name	signature	description	confidence	source
 0x26f5e69	label	RegisterAssetHandler_CallSite		call to RegisterAssetHandler 0x3246e9c (AOB E8 ? ? ? ? 84 C0 0F 84 ? ? ? ? 83 65 ? 00 48 8D 15)	high	notes/game-data.md §2 Hooks
 0x27049cc	function	MainLoopFrameCaller		caller of MainLoopFrame (call site 27050D1); in capture 2 chain: 1A74130 <- 27049CC <- 134EBD0 [Ghidra: 1834 B, 0 callers]	medium	notes/cpu-profile.md §Threads; §S3
 0x27050d1	label	MainLoopFrameCaller_CallMainLoopFrame		call/return site of MainLoopFrame (1A74130) inside 27049CC	medium	notes/cpu-profile.md §S3
+0x283892c	function	SaveConfigIfDirty	void SaveConfigIfDirty(void)	if g_ConfigDirty: SaveConfig 0x1FE56A8, clear the flag; callers 0x2826F60 0x282729C 0x2827560 0x28276E4 (option screens)	high	notes/frame-generation.md §3
 0x28a6144	function	AspectRatioScale	float AspectRatioScale(void)	Ultrawide aspect scale = ref/(outW/outH), ref 16/9 (1.7778), 2.3704 (64:27, mode 2 "21:9") or 3.5556 (32:9, mode 3) from GetAspectRatioMode; used for UI/HUD and camera	high	re/out/anchors.md §site 0x28a6198; re/out/README.md §Findings: camera / FOV / resolution anchors
 0x28a6198	label	AspectRatioScale_Return		Nioh3Fix "FOV" site: movaps xmm0,xmm4 (return value after divss) right before ret	high	re/out/anchors.md §site 0x28a6198
 0x28a61a0	function	AspectRatioScaleAlt	float AspectRatioScaleAlt(void)	Sibling of AspectRatioScale (63 B): picks constant 0x3bd4564 or 0x3c0437c by GetAspectRatioMode==2	low	re/out/anchors.md §site 0x28a6198
@@ -1320,11 +1379,15 @@ rva	kind	name	signature	description	confidence	source
 0x28b1b1c	function	PagePoolStatsReader		also reads device+0x6CD0 page-pool used count	low	notes/mainthread-drawprep.md §1
 0x28f621c	label	Sleep1000Call_28F621C		call Sleep(1000); pdata fragment start 28F61FC	high	re/out/spinscan.txt §all call sites
 0x291fcb1	label	Sleep0Call_291FCB1		call Sleep(0); pdata fragment start 291EB78	high	re/out/spinscan.txt §all call sites
+0x2936554	function	AppWorkerThreadStart	bool AppWorkerThreadStart(KtglWorker* w, void* entry, u32 a3, int stack, u32 a5, const char* name)	generic [App] worker creator (35 callers): w+0x158 = entry, name copied to w+0x160, thread created by 0x5b7434 with trampoline 0x2937114; used by InputUpdateWorker, EffectUpdateThread, StageUpdateThread etc.	high	notes/input-thread.md §1
+0x2937114	label	AppWorkerThreadTrampoline		thread start trampoline (no pdata): jmp [rdx+0x158] (the worker entry)	high	notes/input-thread.md §1
 0x29393c9	label	WfsoXCall_29393C9		call WaitForSingleObject(?); pdata fragment start 29393A0	high	re/out/spinscan.txt §all call sites
 0x2948223	label	Sleep1Call_2948223		call Sleep(1); pdata fragment start 29481E8	high	re/out/spinscan.txt §all call sites
 0x295235f	label	Sleep0Call_295235F		call Sleep(0); pdata fragment start 295225C	high	re/out/spinscan.txt §all call sites
 0x295251a	label	Sleep0Call_295251A		call Sleep(0); pdata fragment start 2952414	high	re/out/spinscan.txt §all call sites
 0x2966db9	label	Sleep1Call_2966DB9		call Sleep(1); pdata fragment start 2966DA4	high	re/out/spinscan.txt §all call sites
+0x2973ad0	function	InputUpdateWorkerStart	bool InputUpdateWorkerStart(...)	AppWorkerThreadStart(&g_InputUpdateWorker, InputUpdateWorkerMain, ..., stack 0x40000, "[App]InputUpdateWorker")	high	notes/input-thread.md §1
+0x2973e3c	function	InputUpdateWorkerCreate	void InputUpdateWorkerCreate(void)	gets thread params (0x5b9304(0x44)) and calls InputUpdateWorkerStart; caller 0x298d6c8	high	notes/input-thread.md §1
 0x29770c6	label	VrrTicks120_P3f		Nioh3EngineFix id P3f group VRR len 6 orig 8D 42 78 41 F7 F0 (120/fps timer, sub from [rbx-0Ch]) -> mov eax,[ticks120] (aka FtVrrPatchSite_29770C6, ExtPatchSite_29770C6) || also: frame-timing (ft_vrr) patch site; listed in cpu_caves.fsx FT_SITES overlap check (see frame-timing notes for role)	high	mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §3; patcher/cpu_caves.fsx; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
 0x29771b4	label	VrrTicks120_P3g		Nioh3EngineFix id P3g group VRR len 6 orig 8D 42 78 41 F7 F0 (120/fps timer, add to [rbx+20h]) -> mov eax,[ticks120] (aka FtVrrPatchSite_29771B4, ExtPatchSite_29771B4) || also: frame-timing (ft_vrr) patch site; listed in cpu_caves.fsx FT_SITES overlap check (see frame-timing notes for role)	high	mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §3; patcher/cpu_caves.fsx; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
 0x297bb74	label	Sleep1Call_297BB74		call Sleep(1); pdata fragment start 297BB64	high	re/out/spinscan.txt §all call sites
@@ -1376,8 +1439,10 @@ rva	kind	name	signature	description	confidence	source
 0x2ee0932	label	WfsoXCall_2EE0932		call WaitForSingleObject(?); pdata fragment start 2EE0694	high	re/out/spinscan.txt §all call sites
 0x2ee1bc0	function	CreateDxgiFactory		Calls CreateDXGIFactory2 via the Streamline interposer (731 B)	high	re/out/README.md §KATANA / engine identification; re/out/imports.tsv
 0x2ee300c	function	CreateD3D12Device		Calls D3D12CreateDevice and D3D12GetDebugInterface (Streamline sl.interposer.dll imports); 1629 B	high	re/out/README.md §KATANA / engine identification; re/out/imports.tsv
-0x2ee8498	function	DebugFpsOverlayFormat		Only function referencing the debug FPS overlay string per strings.tsv (1633 B); role beyond that unverified	low	re/out/strings.tsv
+0x2ee8498	function	DebugFpsOverlayFormat		Only function referencing the debug FPS overlay string per strings.tsv (1633 B); role beyond that unverified	high	re/out/strings.tsv
 0x2eea344	function	PresentThreadEntry	u32 (void)	thread entry of the (unnamed) present thread -> PresentThreadLoop	high	notes/d3d12-submission.md §1
+0x2eea690	function	RecreateSwapchainDevice	bool RecreateSwapchainDevice(GfxDevice* d, Desc* desc, void* modes)	4.5 KB swapchain/output (re)create used by DisplayResetRebuildSwapchain; calls CreateDxgiFactory 0x2EE1BC0; internals not traced	medium	notes/frame-generation.md §3
+0x2eebee4	function	GfxDeviceSetDebugTextConsole	void(GfxDevice* d, DebugTextConsole* c, int level)	leaf: d+76F0 = c, d+76F8 = level; no pdata, zero rel32 and zero absolute-pointer references in the dump -> dead in retail, so the KTGL perf overlay can never be switched on by a flag	high	notes/osd-design.md §A
 0x2eebf3c	label	WfsoXCall_2EEBF3C		call WaitForSingleObject(?); pdata fragment start 2EEBEF4	high	re/out/spinscan.txt §all call sites
 0x2eec4f9	label	CallSpinWaitFlagSleep0_2EEC4F9		one of the 4 callers (call sites) of SpinWaitFlagSleep0 (7D9E90)	high	notes/cpu-profile.md §TL;DR W6
 0x2eec755	label	WfsoXCall_2EEC755		call WaitForSingleObject(?); pdata fragment start 2EEC724	high	re/out/spinscan.txt §all call sites
@@ -1391,6 +1456,9 @@ rva	kind	name	signature	description	confidence	source
 0x2ef0c81	label	WfsoXCall_2EF0C81		call WaitForSingleObject(?); pdata fragment start 2EF0C44	high	re/out/spinscan.txt §all call sites
 0x2ef0e00	function	PauseSpin_2EF0E00		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2EF0E11..2EF0E1A	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x2ef0e90	function	PauseSpin_2EF0E90		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2EF0EA2..2EF0EAA	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x2ef55c0	function	DebugOverlayUserCallback	void(DebugOverlayCb* cb, DebugTextConsole* c)	calls cb+50(cb, c, cb+30, cb+38, cb+40) under the critical section g_QpcTimer+0x90; reached from DebugFpsOverlayFormat via GfxDevice+7710	medium	notes/osd-design.md §A
+0x2ef596c	function	DebugTextPrintf	void(DebugTextConsole* c, const char* fmt, ...)	_vsnprintf into a 0x400 stack buffer, then DebugTextPuts; 25 callers	high	notes/osd-design.md §A
+0x2ef59dc	function	DebugTextPutsLine	DebugTextConsole*(DebugTextConsole* c, const char* s)	DebugTextPuts then row(+0)++, col(+4)=0	high	notes/osd-design.md §A
 0x2f11297	label	JmpIat_WaitForSingleObject_2F11297		`jmp [IAT WaitForSingleObject]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x2f1317e	label	WfsoXCall_2F1317E		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
 0x2f131b2	label	WfsoXCall_2F131B2		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
@@ -1460,6 +1528,7 @@ rva	kind	name	signature	description	confidence	source
 0x3242922	label	Sleep1Call_3242922		call Sleep(1); pdata fragment start 3241CD0	high	re/out/spinscan.txt §all call sites
 0x3242a6a	label	Sleep1Call_3242A6A		call Sleep(1); pdata fragment start 3242A00	high	re/out/spinscan.txt §all call sites
 0x3242d1d	label	Sleep0Call_3242D1D		call Sleep(0); pdata fragment start 3242CB8	high	re/out/spinscan.txt §all call sites
+0x3243bc0	function	KidsSchedulerParamsInit	int* KidsSchedulerParamsInit(int* p)	default scheduler params: count = GetSystemInfo().dwNumberOfProcessors - 2 (1 if 2 CPUs); TS_MESHLET_REQ (s66) keeps this default (10 threads on 12T, 14 on 16T); pool-backed schedulers override it	high	notes/job-system.md §2c
 0x324499e	label	Sleep1Call_324499E		call Sleep(1); pdata fragment start 324493C	high	re/out/spinscan.txt §all call sites
 0x3244a46	label	Sleep0Call_3244A46		call Sleep(0); pdata fragment start 3244A04	high	re/out/spinscan.txt §all call sites
 0x3246e9c	function	RegisterAssetHandler		Registers asset handlers by type; LooseFileLoader optional hook disables streaming for StreamingTexContext (0xAD57EBBA)	high	notes/game-data.md §2 Hooks
@@ -1728,6 +1797,7 @@ rva	kind	name	signature	description	confidence	source
 0x3a9baa8	data	IID_IDXGIFactory4	GUID	{1bc6ea02-ef36-464f-bf0c-21ca39e5168a} passed to CreateDXGIFactory1 by config ctor 0xae0bc0 for adapter enumeration	high	re/settings/acc.asm
 0x3b1f308	vtable	FrameMgr_vftable		FrameMgr (G) vtable; vf[1]=0x5AC664 FrameBegin	high	notes/frame-timing.md §2
 0x3b392b8	vtable	ReflectionProbePassTypeHandlers		Handler table for render-node type 0x88416cdb (ReflectionProbePass)	medium	notes/invisible-gpu.md §1 CPU side
+0x3b88660	vtable	InputUpdateWorker_vtbl		vf[0] 0x296d354, vf[1] 0x2972d64, vf[2] 0x435418 (InputUpdateWorkerRun)	high	notes/input-thread.md §1
 0x3b88a84	data	StrWindowTitleNioh3	char[]	"Nioh 3" window/app title used by AppInit 0x298d6c8	medium	re/settings/appinit.asm; re/out/strings.tsv
 0x3b88af0	data	StrCoreDumpPathFmt	char[]	"%s\KoeiTecmo\NIOH3\dump\core_dump_%02d%02d%02d%02d%02d.dmp" crash-dump path (written only with --enable_output_dump)	high	notes/settings.md §3; re/out/strings.tsv
 0x3b88b30	data	StrEnableOutputDumpSwitch	char[]	"--enable_output_dump" - the only game command-line switch found (refs 0x1350060, 0x1351b80)	high	notes/settings.md §3; re/out/strings.tsv
@@ -1771,10 +1841,14 @@ rva	kind	name	signature	description	confidence	source
 0x44b7f30	global	__security_cookie	u64	MSVC /GS stack cookie (xored with frame address in function prologues) || also: MSVC /GS stack cookie (xor rsp in config functions) | MSVC stack cookie (XORed with RSP in prologues)	high	re/scripts_workers/g_w1.txt; re/settings/acc.asm; re/out/anchors.md §site 0x5af5c2; re/scripts_cpu/q3.txt (Ghidra)
 0x44bb9f0	global	g_CharacterUpdateParams	u8[32]	First 0x20 bytes of the MotionLodParamsBuild block (dt, dtRaw, camera pos), written by CharacterJobsDispatchA/B, read by the per-actor jobs; the MOTION_QUALITY fields beyond 0x20 are not copied	high	notes/effects-animation.md §3.1
 0x455aba0	data	Str_KatanaSceneDbStackIdMangled	char[]	Mangled RTTI-style name containing kids::E_KATANA_SCENEDATABASE_STACK_ID (only engine-side "katana" hit)	medium	re/out/README.md §KATANA / engine identification
+0x4569828	global	g_IsWine	u8	cache of IsRunningUnderWine	high	notes/input-thread.md §Wine
 0x45b9e30	global	g_pLodScaleCfg	void*	LOD scale config: +0xb08 enable byte, +0xa08 per-slot scale table (GetLodScaleEntry), +0xe0 used by PlaceableVisibilityUpdateRange	medium	re/out/anchors.md §site 0x23554f; §site 0xde8d0
 0x45b9e40	global	g_pActorManager	void*	Actor/character manager passed to ActorFindById and 0x37a00c	low	re/out/anchors.md §site 0x133d8a; §site 0x39a758
 0x45b9e58	global	g_pSceneDrawCfg	SceneDrawCfg*	Global scene draw/LOD config read by every LOD anchor (+0x8bc/+0x8c0 LOD overrides, +0x11f7 large-object flag, +0x1770/+0x1774 draw-distance override, +0x1bb9) (aka g_CollisionWorld) || also: collision/stage world object read by the CollisionUpdate code (D80B0, D89E0, 319D5C, 319E00)	medium	re/out/anchors.md §site 0x23554f; §site 0xde8d0; §site 0x209edc; §site 0x39a758; re/scripts_workers/g_coll.txt; re/scripts_workers/dis_D80B0.txt
+0x45ba1e0	global	g_pPadMgr	PadMgr*	pad manager (heap); rcx of PadPollDevices and XInputFindActivePad; read by the X1 cave	high	notes/input-thread.md §3
 0x45ba210	global	g_EffectThreadsRunning	i32	Set to 1 by EffectDispKick / EffectNoDispKick (and 0x20adf60); EffectWorkerRunList does nothing unless it is 1	high	notes/effects-animation.md §1.2
+0x45ba540	global	g_MouseKbEnabled	u8	gates MouseKbUpdate in InputUpdateWorkerRun; 1 in the dump	high	notes/input-thread.md §2
+0x45ba541	global	g_InputWorkerPending	u8	set by InputWorkerKick, cleared by InputWorkerJoin	high	notes/input-thread.md §1
 0x45ba588	global	g_RenderGlobals	RenderGlobals*	pointer slot; +6EB0h global frame stamp (TextureStreamUpdate), +6EB8h global counter advanced in MeshletFrameBegin, +4278h object whose vtbl+108h returns a wait handle (RenderFrameBegin) (aka g_pGfxDevice) || also: Graphics device/context pointer; *(+0x4278) is the swapchain object whose vtbl[33] (+0x108) returns the frame-latency waitable handle	medium	notes/meshlet-mainthread.md §1.2 + §2; re/scripts_cpu/q3.txt; re/out/README.md §Findings: frame pacing
 0x45ba780	global	g_QpcTimer	EngineClock	pointer to timer object whose +0x18 holds the QPC frequency (read by the frame limiter at 5AD229) (aka g_EngineClock, g_DefaultAllocatorRoot) || also: Engine clock object (+0x12 hasQPC, +0x18 QPF) | *(+0x20) = default allocator used by GlyphCacheCreate when none is passed	medium	notes/cpu-profile.md §S4; notes/frame-timing.md §2; re/scripts_ui/g2.txt
 0x45baa94	global	g_RenderFrameId	u32	Render frame id written in RenderFrameBegin 0x4A529C	medium	notes/frame-timing.md §3
@@ -1851,6 +1925,7 @@ rva	kind	name	signature	description	confidence	source
 0x45bbccc	global	g_LastDispMode	int	DISP_MODE last applied by WndProc msg 0x403 (display-mode change); compared with g_CfgDispMode	medium	re/out/anchors.md §site 0x8781f8
 0x45bbce4	global	g_ActiveScrRezIndex	int	Active SCR_REZ table index; written by SetScreenResolutionIndex and by WndProc 0x403 (first supported resolution, 0..12)	medium	re/out/anchors.md §site 0x1fde50e; §site 0x8781f8
 0x45bbcee	global	g_IsIntelAdapter	bool	Set by apply 0x1fe6064 (sete) when the selected adapter PCI vendor is 0x8086; cleared by ctor	high	notes/settings.md §2 ADAPTER_ID; re/settings/saveapply.asm
+0x45c3810	global	g_InputUpdateWorker	KtglWorker	static worker object: vtbl 0x3b88660, start event +8, done event +0xa8, quit +0x150, entry +0x158 (=0x1a7b8b4), name +0x160 "[App]InputUpdateWorker", pad-stage event +0x1a0	high	notes/input-thread.md §1
 0x45c3da0	global	g_XessInputSize		XeSS input (render) size, 1920x1080 at REN_RAT 75; used as post base size at POSTEFFECT_RESOLUTION=STANDARD	high	notes/gpu-copies-postres.md §2
 0x45c3e40	global	g_XessAvailable	uint8_t	Gate for the RESOLUTION_SCALING==3 (XeSS) path (rc+0x20b8)	low	re/out/anchors.md §site 0x39a758
 0x45c3e68	global	g_XessOutputDepth		XeSS_OutputDepth (CustomDepthUpscale result); bound by PostEffectApply as post-chain depth for output-res DOF/MB	high	notes/gpu-copies-postres.md §1
@@ -1858,6 +1933,7 @@ rva	kind	name	signature	description	confidence	source
 0x45c3eaa	global	g_XessFgAvailable	uint8_t	XeSS frame-gen availability flag checked for FRAME_GENERATION==3	low	re/out/anchors.md §site 0x39a758
 0x45c3f40	global	g_XellContext	void*	argument to xellSleep in RenderFrameBegin (latency markers)	medium	re/scripts_cpu/q3.txt
 0x45c3f48	global	g_RenderFrameId2	u32	Second render frame id written in RenderFrameBegin 0x4A529C (aka g_XellFrameId) || also: incremented right before xellSleep each frame	medium	notes/frame-timing.md §3; re/scripts_cpu/q3.txt
+0x45c6f80	global	g_ConfigDirty	u8	config changed by an options item (SetOptionValue sets 1); SaveConfigIfDirty 0x283892C writes config.xml and clears it; Nioh3EngineFix sets it after its FG switch (not for FG on under Proton)	high	notes/frame-generation.md §3
 0x45c6f9e	global	g_SkipNextWmSize	uint8_t	When 1 WndProc ignores one WM_SIZE and clears the flag	medium	re/out/anchors.md §site 0x8781f8
 0x45c8458	global	g_pDrawDistanceCfg	void*	Draw-distance config; +0x80 passed to GetDrawDistanceLimit	low	re/out/anchors.md §site 0x1774ad
 0x45c84f8	global	g_MissionOnlineObj	MissionOnlineObj*	Mission/online state object used by IsPlayerGuest (+0x1DC, +0x2C8)	high	notes/frame-timing.md §10.1; patcher/ft_session.fsx
@@ -1865,6 +1941,7 @@ rva	kind	name	signature	description	confidence	source
 0x45cc560	global	g_pImeContext	void*	IME/text-input context; when nonzero WndProc forwards IME and key messages to it (aka g_CursorImeState) || also: object passed to UpdateCursorImeState (47990) from the WinMain pump loop	medium	re/out/anchors.md §site 0x8781f8; notes/cpu-profile.md §S2
 0x45ce800	global	g_pEventCameraState	int*	View-override state: [0] mode (8 or 11..16), +0x1f98 flags, +0x1f9c draw-distance override, +0x1fa0 draw-distance scale; event/photo camera meaning inferred	low	re/out/anchors.md §site 0xde8d0
 0x45ce8a0	global	g_DispatcherDrainBusy	u8	last result of DispatcherRingBusy written each iteration of WaitDispatcherDrainSpin 418F40; only referenced there	high	notes/d3d12-submission.md §6 S1
+0x46d7690	global	g_SlFeatureCaps	u8[0x1a0]	Streamline feature caps static returned by SlGetFeatureSupport 0x6B8E88 (thread-safe magic static): +0x10 Reflex, +0x20 DLSS SR, +0xF0 DLSS-G, +0x19C DLSS-G max multiplier	medium	notes/frame-generation.md §2
 0x4709b50	global	g_NetSession	NetSession*	Online net session object (KTGL COnlineSessionP2p / CSteamOnlineSessionP2p); +0x34 mode (0 solo, 1/2 online); VRR coopSafe disarms when mode!=0	high	notes/frame-timing.md §10.1, §10.3; patcher/ft_session.fsx
 0x4745348	global	g_pLodTierProvider	void*	When null GetLodLevelCount skips the tier query (returns 8)	low	re/out/anchors.md §site 0x39722b
 0x474f8a8	global	g_pEffectThreadMgr	EffectThreadMgr*	Effect worker-group manager (EffectThreadManagerInit); read by EffectManagerUpdateInstances for the round-robin list indices	high	notes/effects-animation.md §1.2
@@ -1874,12 +1951,13 @@ rva	kind	name	signature	description	confidence	source
 0x4759910	global	g_GameMainPtr	GameMain*	GameManager pointer (matches Kassent 2.0.2.0 default); +0x530 ArchiveManager, +0x210 AssetManager; AOB 48 8B 15 ? ? ? ? 0F 57 D2; first-run benchmark 0x1c33fa8 writes CpuSpecClass through it (+0x284) (aka g_pGameMain, g_FrameMgr) || also: Pointer slot to g_GameMain (0x4759090); read by DynFpsGovernorTick commit (0x5af5c6) and PlaceableVisibilityUpdateRange (deref +0x530) | Frame/time manager object pointer G (vtable 0x3B1F308); fields 0x610..0x62C, 0x7D8 FPS monitor	high	notes/game-data.md §2 Hooks; re/settings/cpuspec.asm; re/out/README.md §Findings: frame pacing; re/out/anchors.md §site 0x5af5c2; notes/frame-timing.md §2; re/scripts_workers/g_coll.txt
 0x475a148	global	g_FpsModeObj	FpsModeObj*	Object holding 30/120 fps mode flags (+0x1D 120-mode, +0x1E Is30Fps), set by 0x1334980	high	notes/frame-timing.md §8.1
 0x4b722d0	global	g_WorkerPoolTable	PoolTable	static worker-pool table: 74 pool entries at +0xC stride 0x18 (u8 thread count, i32 weight at +4), worker base count u8 at +0x740; sized once at boot by SizeWorkerPools (aka g_ThreadPoolTable) || also: Named worker-pool table (74 pools, stride 0x18: char* name + prio/thread-count/weight ints; settings.md: weights at +0xC) sized by 0x1fe2fd4; first record "[App]Game"; live counts in re/settings/threads.txt (e.g. CharacterUpdate 8, StgGdtUpd 9, KTGLGraph.Cache.UpdateTileMapping 32)	high	patcher/pools.fsx; patcher/pool_patch.fsx; notes/settings.md §4.3; re/settings/threads.txt; re/out/strings.tsv
+0x4b72a11	global	g_WorkerPoolDivisor	u8	PoolTable+741h: divisor of the pool formula, 13 (static init mov word [4B72A10h],0D01h); 16 when CpuInfo::IsZen1	high	notes/job-system.md §2c
 0x4b72ca0	global	g_SystemSaveFilePathW	wchar_t[]	\Savedata\<steamid>\SYSTEMSAVEDATA00\SAVEDATA.BIN path buffer (refs 0x1fd6dd0, 0x1fe497c)	high	re/out/strings.tsv
 0x4b730c0	global	g_SavedataDirW	wchar_t[]	%LOCALAPPDATA%\KoeiTecmo\NIOH3\Savedata directory buffer (built by 0xfb9790)	high	re/out/strings.tsv
 0x4b732d0	global	g_AppDataDirW	wchar_t[]	%LOCALAPPDATA%\KoeiTecmo\NIOH3 directory buffer (refs 0xa52f2c, 0xfb9790, 0xfbab20, 0xfbab80)	high	re/out/strings.tsv
 0x4b736f0	global	g_ConfigXmlPathW	wchar_t[]	Full path %LOCALAPPDATA%\KoeiTecmo\NIOH3\config.xml (built by 0xfbab80)	high	notes/settings.md §1; re/out/strings.tsv
 0x4ba9244	global	g_ConfigDescTableInitGuard	int	Magic-static init guard for descriptor table 0x45c8570 (_Init_thread_header/footer in 0x1fe14cc)	high	re/settings/cfgfunc.asm
-0x4bd08d8	global	g_pCursorState	void*	Cursor state; +0x458 holds the cursor resource name used in WM_SETCURSOR (cached in AppWindow+0x140, LoadCursorA fallback)	low	re/out/anchors.md §site 0x8781f8
+0x4bd08d8	global	g_pCursorState	void*	Cursor state; +0x458 holds the cursor resource name used in WM_SETCURSOR (cached in AppWindow+0x140, LoadCursorA fallback); also (input-thread.tsv): g_pMouseKbState - mouse/keyboard state: +0 HWND, +0x10 DI mouse ok, +0x418 mutex, +0x420 IDirectInputDevice8* mouse, +0x428 DIMOUSESTATE2, +0x43c/+0x448 WndProc-accumulated deltas	medium	re/out/anchors.md §site 0x8781f8
 0x4bd0998	global	g_PresentPreHook	ptr	optional callback called right before swapchain Present (present thread 1A82298 and inline path in 3D62E4); likely latency-marker hook	medium	notes/d3d12-submission.md §1
 0x4bd09a8	global	g_PresentPostHook1	ptr	optional callback after Present returns (1A82298, 3D62E4); likely latency marker	medium	notes/d3d12-submission.md §1
 0x4bd09b0	global	g_PresentPostHook2	ptr	second optional callback after Present returns (1A82298, 3D62E4)	medium	notes/d3d12-submission.md §1
@@ -1921,6 +1999,12 @@ rva	kind	name	signature	description	confidence	source
 0x281	struct_field	CpuInfo::IsRyzen	bool	"is Ryzen" flag	medium	notes/settings.md §4.3
 0x282	struct_field	CpuInfo::IsZen1	bool	"is Zen1/Zen+" flag	medium	notes/settings.md §4.3
 0x284	struct_field	CpuInfo::CpuSpecClass	int	CPU spec class 1/2/3 (LOW/STANDARD/HIGH) written by benchmark 0x1c33fa8; no other reader of the live config slot	high	notes/settings.md §4.2; re/settings/objrefs.txt
+0x0	struct_field	DebugTextConsole::Row	i32	text row (DebugTextPutsLine increments)	medium	notes/osd-design.md §A
+0x4	struct_field	DebugTextConsole::Col	i32	text column (reset by DebugTextPutsLine)	medium	notes/osd-design.md §A
+0x2c	struct_field	DebugTextConsole::Color	u32	ARGB text colour (0xAF2FAF2F / 0xAF5FAFAF / 0xAFFFFFFF in the perf overlay)	high	notes/osd-design.md §A
+0x38	struct_field	DebugTextConsole::FontTable	ptr	font page table (+18 count, +28 entries)	medium	notes/osd-design.md §A
+0x40	struct_field	DebugTextConsole::FontIndex	i32	index into FontTable	medium	notes/osd-design.md §A
+0x48	struct_field	DebugTextConsole::Device	GfxDevice*	device whose token stream (+3C40) receives the text	medium	notes/osd-design.md §A
 0x10	struct_field	DispatcherRing::Semaphore	HANDLE	released once per pushed item	high	notes/d3d12-submission.md §5
 0x18	struct_field	DispatcherRing::Items	ptr	32-byte items {ctx, begin, end, submit}	high	notes/d3d12-submission.md §5
 0x20	struct_field	DispatcherRing::Capacity	u32	item count	high	notes/d3d12-submission.md §5
@@ -2007,7 +2091,11 @@ rva	kind	name	signature	description	confidence	source
 0x4270	struct_field	GfxDevice::GfxQueue	ID3D12CommandQueue*	queue used by the ECL path (ExecuteCommandLists/Signal in 4F90DC)	medium	notes/d3d12-submission.md §1
 0x4278	struct_field	GfxDevice::SwapChain	IDXGISwapChain2*	Swapchain object; vtbl slot 33 (+0x108) matches IDXGISwapChain2::GetFrameLatencyWaitableObject (likely, not proven)	medium	re/out/README.md §Findings: frame pacing
 0x4698	struct_field	GfxDevice::BackBufferRt	ptr[3]	back-buffer render targets indexed by GetCurrentBackBufferIndex	medium	notes/d3d12-submission.md §5
+0x76f0	struct_field	GfxDevice::DebugTextConsole	DebugTextConsole*	console used by the KTGL perf overlay; 0 in retail (setter 2EEBEE4 unreferenced); RenderWaitForFrame resets its row/col each frame when set	high	notes/osd-design.md §A
+0x76f8	struct_field	GfxDevice::DebugOverlayLevel	i32	>0 FPS lines, >1 platform info + PSO stats	high	notes/osd-design.md §A
+0x7700	struct_field	GfxDevice::DebugOverlayLastQpc	i64	QPC of the previous perf-overlay frame (FPS = QPF / delta)	high	notes/osd-design.md §A
 0x7708	struct_field	GfxDevice::PresentCallQpc	i64	QPC duration of the last GfxDevicePresent call	medium	notes/d3d12-submission.md §1
+0x7710	struct_field	GfxDevice::DebugOverlayCallback	DebugOverlayCb*	optional user callback printed after the FPS block	medium	notes/osd-design.md §A
 0x7720	struct_field	GfxDevice::PresentEvent	HANDLE	auto event that wakes the present thread	high	notes/d3d12-submission.md §1
 0x7728	struct_field	GfxDevice::PresentPending	u8	1 while the present thread owns a Present request; cleared after Present returns	high	notes/d3d12-submission.md §5
 0x7729	struct_field	GfxDevice::PresentThreadQuit	u8	present thread exits when set	high	notes/d3d12-submission.md §1
@@ -2057,8 +2145,27 @@ rva	kind	name	signature	description	confidence	source
 0x24	struct_field	IdrkFileHeader::ResourceHash	u32	== file name 0x????????	high	gpu-shaders/idrk.py
 0x28	struct_field	IdrkFileHeader::TypeHash	u32	0x7bcd279f for shader groups	high	gpu-shaders/idrk.py
 0x2c	struct_field	IdrkFileHeader::Flags	u32	0x00100000 normally; 24/3897 files use 0x00400000 with extra header	high	notes/gpu-shader-replacement.md §1
+0x20	struct_field	Job::Priority	i16	1..128 -> list index prio-1	high	notes/job-system.md §1
+0x22	struct_field	Job::WorkerMask	i16	0 = any worker, else bit i = worker i allowed	medium	notes/job-system.md §1
+0x24	struct_field	Job::Flags	u32	low 4 bits completion mode, bits 12..18 target pool id	medium	notes/job-system.md §1
+0x28	struct_field	Job::Next	u64	lock-free stack link	high	notes/job-system.md §1
 0x2c	struct_field	JobCounter::State	u32	c+0x2C; bit0 set while jobs are outstanding (JobWaitCounter spins while (atomic(c+2C)&1))	high	notes/cpu-profile.md §S1
+0x8	struct_field	JobGroup::Owner	JobWorker*	worker that created and waits on the group	high	notes/job-system.md §1
+0x34	struct_field	JobGroup::Pending	i32	outstanding jobs + 1 (the waiter); JobGroupWait spins while > 1	high	notes/job-system.md §1
+0x10	struct_field	JobPool::Workers	JobWorker*	worker records, stride 0x458	high	notes/job-system.md §1
+0x28	struct_field	JobPool::WorkerCount	i32	scan bound used by steal scans and the WK cave	high	notes/job-system.md §1
+0x2c	struct_field	JobPool::WorkerCountAtomic	i32	same count, read with lock cmpxchg by the wake scan	high	notes/job-system.md §1
+0x30	struct_field	JobPool::IdleWorkers	i32	lock inc before a worker sleeps, lock dec after it wakes	high	notes/job-system.md §1
+0x34	struct_field	JobPool::PoolId	i32	compared with job+24h bits 12..18 (7Fh = any pool)	medium	notes/job-system.md §1
+0x48	struct_field	JobPool::State	u32	(state & 50000000h) == 50000000h -> paused (workers Sleep(1)); bit30 = running	medium	notes/job-system.md §1
 0x440	struct_field	JobScheduler::StealQueues	ptr	sched+0x440 passed to JobTrySteal (41050) to walk other workers' queues	medium	notes/cpu-profile.md §S1
+0x0	struct_field	JobWorker::Thread	WorkerThread*	worker thread object (record stride 0x458 in pool+10h)	high	notes/job-system.md §1
+0x418	struct_field	JobWorker::QueueHeads	u64*	128 priority lists (lock-free stacks, packed self-relative index + ABA tag)	high	notes/job-system.md §1
+0x428	struct_field	JobWorker::DeferredList	u64*	jobs above the current priority, re-pushed by the caller	medium	notes/job-system.md §1
+0x440	struct_field	JobWorker::Pool	JobPool*	owning pool	high	notes/job-system.md §1
+0x448	struct_field	JobWorker::PrioBitmap	u32*	4 dwords, bit p = list p non-empty; read by WK cave and every poll (J1)	high	notes/job-system.md §1
+0x450	struct_field	JobWorker::SoloPops	u32	consecutive pops while all other workers are idle; every 30th wakes one	high	notes/job-system.md §1
+0x454	struct_field	JobWorker::NoSleepFlag	u32	bit0 set -> JobHelpStep returns without Sleep(0)	medium	notes/job-system.md §1
 0x1a80	struct_field	KtglContext::MeshletRefPtr	void*	refcounted pointer swapped per draw in the meshlet path (lock inc new / lock xadd -1 old even when equal)	high	notes/mainthread-drawprep.md §Minor
 0x2550	struct_field	KtglContext::StateShadow2550		cached state shadow compared before emitting a token	medium	notes/mainthread-drawprep.md §1
 0x2558	struct_field	KtglContext::StateShadow2558		cached state shadow	medium	notes/mainthread-drawprep.md §1
@@ -2075,6 +2182,10 @@ rva	kind	name	signature	description	confidence	source
 0x3c78	struct_field	KtglContext::DrawCount	u32	Incremented per recorded draw token (total counter)	low	re/scripts_draw/dis_1D2F60.txt
 0x4678	struct_field	KtglDevice::UploadHeapAlloc		upload-heap suballocator used by 62D688	high	notes/ui-mainthread.md §E
 0x6cd0	struct_field	KtglDevice::PagePoolUsedPrev	u32	previous frame's page-pool used count (read by 126C64 >85% heuristic, 28B1B1C)	high	notes/mainthread-drawprep.md §1
+0x150	struct_field	KtglWorker::QuitFlag	u32	worker loop exits when 1 (atomically cleared)	high	notes/input-thread.md §1
+0x158	struct_field	KtglWorker::Entry	void*	thread entry jumped to by AppWorkerThreadTrampoline	high	notes/input-thread.md §1
+0x160	struct_field	KtglWorker::Name	char[]	thread name string	high	notes/input-thread.md §1
+0x1a0	struct_field	KtglWorker::PadStageEvent	KtglEvent	InputUpdateWorker only: signalled after the pad stage, awaited by FrameEarlyUpdate (<=1 ms)	high	notes/input-thread.md §1
 0xa108	struct_field	LodScaleOwner::LodDistance	float[8]	8 LOD distances (+0xa108..+0xa124) computed by ApplyMeshletLodScales	high	re/out/anchors.md §site 0x23554f
 0x1330	struct_field	Material::ParamList	MaterialParamNode*	parameter linked list head walked by FindParam	high	notes/mainthread-drawprep.md §2 F
 0x8	struct_field	MaterialParamNode::Next	MaterialParamNode*	next pointer	high	notes/mainthread-drawprep.md §2 F
@@ -2109,13 +2220,18 @@ rva	kind	name	signature	description	confidence	source
 0x20	struct_field	Obb::Axis1	f32[4]	second box axis	high	notes/mainthread-logic.md §3.1
 0x30	struct_field	Obb::Axis2	f32[4]	third box axis	high	notes/mainthread-logic.md §3.1
 0x40	struct_field	Obb::HalfExtents	f32[3]	half extent along Axis0/1/2	high	notes/mainthread-logic.md §3.1
+0x69850	struct_field	PadMgr::Connected	u8	slot i at +0x69850+i*0x14: 1 = XInput slot connected (set by the 2-s probe in PadPollDevices, cleared when a per-frame poll fails); X1 cave reads it	high	notes/input-thread.md §3
+0x69854	struct_field	PadMgr::XState	XINPUT_STATE	slot i at +0x69854+i*0x14	high	notes/input-thread.md §3
+0x698a0	struct_field	PadMgr::ProbeTimer	f32	accumulator; all-slot XInput probe when >= 2.0	high	notes/input-thread.md §3
+0x69b20	struct_field	PadMgr::ActiveXSlot	u32	XInput slot chosen by XInputFindActivePad	high	notes/input-thread.md §3
 0x29c	struct_field	Placeable::DrawDistance	float	Base draw distance	high	re/out/anchors.md §site 0x209edc
 0x0	struct_field	PoolEntry::ThreadCount	u8	number of threads in the pool	high	patcher/pools.fsx
 0x4	struct_field	PoolEntry::Weight	i32	pool weight	high	patcher/pools.fsx
 0xc	struct_field	PoolTable::Entries	PoolEntry[74]	array of 74 PoolEntry (stride 0x18); entry i at +0xC+i*0x18	high	patcher/pools.fsx
 0x54	struct_field	PoolTable::Pool3KidsResource	PoolEntry	entry 3 = KIDS_RESOURCE (7 threads on a 7600X, 10 with P12)	high	patcher/pools.fsx; patcher/pool_patch.fsx
-0x84	struct_field	PoolTable::Pool5StageUpdate	PoolEntry	entry 5 = StageUpdate (4 threads on a 7600X, 7 with P12); NOTE thread names say KIDSTS[s2:StageUpdate] so sN in thread names is probably not the table index	medium	patcher/pools.fsx; patcher/pool_patch.fsx; notes/cpu-profile.md §Threads
+0x84	struct_field	PoolTable::Pool5StageUpdate	PoolEntry	entry 5 = StageUpdate (4 threads on a 7600X, 7 with P12); NOTE thread names say KIDSTS[s2:StageUpdate] so sN in thread names is probably not the table index	high	patcher/pools.fsx; patcher/pool_patch.fsx; notes/cpu-profile.md §Threads
 0x740	struct_field	PoolTable::WorkersBase	u8	worker base count	high	patcher/pools.fsx
+0x741	struct_field	PoolTable::Divisor	u8	formula divisor 13 (16 on Zen1/Zen+)	high	notes/job-system.md §2c
 0x2b0	struct_field	PostEffectRenderer::ShaderLibrary	PostEffectShaderLibrary*	Pointer to post-effect shader library ('lib=[x+0x2b0]' pattern scanned by libslot.py)	medium	re/scripts_gpu2/libslot.py
 0x220	struct_field	PostEffectShaderLibrary::DepthCopyPso		Depth copy PSO (PS 5fccb795)	high	notes/invisible-gpu.md §4a
 0x2d0	struct_field	PostEffectShaderLibrary::RectCopyPso		1-tap rect copy PSO (PS d787dbd0) used by CopyRectCommand	high	notes/invisible-gpu.md §4a; notes/gpu-copies-postres.md §1
@@ -2271,3 +2387,7 @@ rva	kind	name	signature	description	confidence	source
 0x8	struct_field	WorkerPoolEntry::Priority	i32	thread priority	high	notes/effects-animation.md §1.2
 0xc	struct_field	WorkerPoolEntry::ThreadCount	u8	threads created for the pool (after SizeWorkerPools)	high	notes/effects-animation.md §1.2
 0x10	struct_field	WorkerPoolEntry::Weight	i32	share of the worker budget, -1 = fixed count	high	notes/effects-animation.md §1.2
+0x8	struct_field	WorkerThread::WakeEvent	HANDLE	auto-reset event a sleeping worker waits on (INFINITE)	high	notes/job-system.md §1
+0x10	struct_field	WorkerThread::SleepFlags	u32	bit0 = sleeping/wake me; set by the worker before waiting, CAS-cleared by the waker before SetEvent	high	notes/job-system.md §1
+0x1c	struct_field	WorkerThread::PendingPriority	i32	-16 none / -17 claimed; other value = SetThreadPriority request applied by the worker itself	medium	notes/job-system.md §1
+0x28	struct_field	WorkerThread::Handle	HANDLE	thread handle	medium	notes/job-system.md §1
