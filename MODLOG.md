@@ -126,3 +126,20 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - patches.json: 1 site + 4 deps. Test: ALL 73 SITES OK.
 - Ally zip rebuilt: GF 1, SP 1, MemStats 1, WL 1; other values unchanged.
 - Undo: WL = 0 / MemStats = 0, or the previous .asi.
+
+## 2026-10-07 13:30 - CPU hotspots on the ROG Ally from the SP profiles (static only; nothing applied, ASI src not touched)
+- Study: `notes\cpu-hotspots-ally.md`. Input: the v71 Ally log (146 SP reports, 139 of them steady MAX gameplay: 16.2 fps
+  rendered, 44.6 game ticks/s). Ranked sinks: (1) [App]Game FenceWait Sleep(0) spin, 66 % of its wall time -> GF (1.4.0,
+  ~0.6 core); (2) logic over-ticking, 2.8 logic ticks per shown frame -> TG tick governor (caveLim clamp + governor in the
+  Present hook; zero-code A/B: in-game FPS cap 30), ~1.0-1.4 cores; (3) worker wake storms (wake-one 48C6B up to 150k/s on
+  pool 1) -> WG pending-wake gate on the existing WS caves; (4) W3 on Proton -> W3_TimeoutMs = 3; small: IATS, DS, RL.
+- Finding: the "DirectInput poll under 0x4E390" is a stale-slot attribution. 4E390 = ID3D12Resource::GetDesc().Width < n;
+  the DINPUT8.dll rows are Ultimate ASI Loader's kernel32 IAT shim in front of FenceWait's Sleep(0) (r = 0.956 with the
+  fence-wait rows); they vanish with GF. The game's own DirectInput reads cost ~0.
+- Sweep: all 400 Sleep/SleepEx sites classified (`re\out\sleepclass.txt`); every site with any SP sample in 70 min listed
+  with thread, wait target, blocking primitive and fix. Outside GF/W6/W3/L1 the spin/poll waste is < 0.5 % of one core.
+- New: `re\scripts_cpu\sp_aggregate.py` (SP log aggregator), `re\scripts_cpu\cpu_hotspots_check.py` (offline proof of the
+  TG/WG/DS/RL/IATS sites, bytes and register contexts: ALL PASSED), `re\scripts_cpu\sleep_classify.py`.
+- Symbols: `re\symbols\incoming\cpu-hotspots.tsv` (20 rows, dry-run merge 19 added / 1 updated; not merged).
+- Note: TG and the cap-30 A/B need L1 under Proton (`L1OnWine = 1`; it was on in v71, the ally-package ini says 0).
+- Undo: nothing was applied.
