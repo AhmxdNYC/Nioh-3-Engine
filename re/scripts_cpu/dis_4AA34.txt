@@ -1,0 +1,707 @@
+﻿; ---- Nioh3+4AA34 .. +4B60C (pdata fn Some (305716u, 307285u))
+   4AA34  mov     rax,rsp                                   
+   4AA37  mov     [rax+18h],rbx                             
+   4AA3B  push    rbp                                       
+   4AA3C  push    rsi                                       
+   4AA3D  push    rdi                                       
+   4AA3E  push    r12                                       
+   4AA40  push    r13                                       
+   4AA42  push    r14                                       
+   4AA44  push    r15                                       
+   4AA46  lea     rbp,[rax-5Fh]                             
+   4AA4A  sub     rsp,0A0h                                  
+   4AA51  test    dword [rcx+1ACh],40000000h                
+   4AA5B  mov     rsi,rdx                                   
+   4AA5E  mov     rbx,[rcx+1C8h]                            
+   4AA65  mov     r14,rcx                                   
+   4AA68  movaps  [rax-48h],xmm6                            
+   4AA6C  movaps  [rax-58h],xmm7                            
+   4AA70  jne     near 00000000019286BAh                    
+   4AA76  xor     edi,edi                                   
+   4AA78  xor     eax,eax                                   
+   4AA7A  lock cmpxchg [rcx+4C0h],edi                       
+   4AA82  je      near 00000000019286C1h                    
+   4AA88  lea     rdx,[rel 390CBA0h]                          ; "MeshletCheckRequestLoad"
+   4AA8F  mov     rcx,rbx                                   
+   4AA92  call    00000000001D3AD8h                         
+   4AA97  mov     rax,[rsi]                                 
+   4AA9A  mov     rcx,rsi                                   
+   4AA9D  call    qword [rax+68h]                           
+   4AAA0  lea     r15d,[rdi+1]                              
+   4AAA4  test    al,al                                     
+   4AAA6  je      near 000000000004AE8Eh                    
+   4AAAC  mov     r8d,[r14+4DCh]                            
+   4AAB3  lea     rdx,[r14+2F0h]                            
+   4AABA  add     r8d,r15d                                  
+   4AABD  mov     rcx,rsi                                   
+   4AAC0  call    00000000008CF1F4h                         
+   4AAC5  mov     rdx,[r14+370h]                            
+   4AACC  mov     rcx,rsi                                   
+   4AACF  call    000000000095DFC4h                         
+   4AAD4  mov     rdx,[r14+428h]                            
+   4AADB  mov     rcx,rsi                                   
+   4AADE  call    000000000095DF88h                         
+   4AAE3  mov     rdx,[r14+440h]                            
+   4AAEA  mov     rcx,rsi                                   
+   4AAED  call    000000000095DF4Ch                         
+   4AAF2  mov     rax,[rsi]                                 
+   4AAF5  mov     rcx,rsi                                   
+   4AAF8  call    qword [rax+88h]                           
+   4AAFE  mov     [rbp-55h],eax                             
+   4AB01  mov     r13d,eax                                  
+   4AB04  cmp     eax,3                                     
+   4AB07  jbe     near 0000000001928A07h                    
+   4AB0D  cmp     [rel 45BAA40h],rdi                        
+   4AB14  je      near 0000000001928A18h                    
+   4AB1A  cmp     [rel 45BAA50h],rdi                        
+   4AB21  je      near 0000000001928A18h                    
+   4AB27  cmp     [rel 45BAA48h],rdi                        
+   4AB2E  je      near 0000000001928A18h                    
+   4AB34  xor     eax,eax                                   
+   4AB36  lock cmpxchg [rel 45C3D38h],edi                   
+   4AB3E  jne     near 0000000001928A18h                    
+   4AB44  mov     rdx,[rel 45BAA40h]                        
+   4AB4B  xor     r9d,r9d                                   
+   4AB4E  xor     r8d,r8d                                   
+   4AB51  mov     rcx,rsi                                   
+   4AB54  mov     rdx,[rdx+0A8h]                            
+   4AB5B  call    000000000093CD08h                         
+   4AB60  mov     rdx,[rel 45BAA50h]                        
+   4AB67  mov     rcx,rsi                                   
+   4AB6A  mov     rdx,[rdx+0A8h]                            
+   4AB71  call    000000000095E290h                         
+   4AB76  mov     rdx,[rel 45BAA48h]                        
+   4AB7D  mov     rcx,rsi                                   
+   4AB80  mov     rdx,[rdx+0A8h]                            
+   4AB87  call    000000000095E254h                         
+   4AB8C  cmp     r13d,5                                    
+   4AB90  jbe     near 00000000019286DEh                    
+   4AB96  mov     ecx,edi                                   
+   4AB98  mov     [rbp-55h],ecx                             
+   4AB9B  mov     rax,[rsi]                                 
+   4AB9E  lea     edx,[rcx+4]                               
+   4ABA1  mov     rcx,rsi                                   
+   4ABA4  call    qword [rax+0A8h]                          
+   4ABAA  test    al,al                                     
+   4ABAC  je      near 000000000004AE25h                    
+   4ABB2  mov     r11d,[r14+4C8h]                           
+   4ABB9  xor     r10d,r10d                                 
+   4ABBC  mov     [rbp-4Dh],edi                             
+   4ABBF  mov     r13d,edi                                  
+   4ABC2  mov     [rbp-51h],r11d                            
+   4ABC6  mov     r12d,r10d                                 
+   4ABC9  test    r11d,r11d                                 
+   4ABCC  je      near 000000000004AE17h                    
+   4ABD2  test    dword [r14+1ACh],40000000h                
+   4ABDD  jne     near 000000000004ADA2h                    
+   4ABE3  cmp     r12d,100000h                              
+   4ABEA  jae     near 000000000004ADA2h                    
+   4ABF0  mov     rax,[r14+4B0h]                            
+   4ABF7  mov     ecx,r12d                                  
+   4ABFA  cmp     dword [rax+rcx*4],0FFFFFFFFh              
+   4ABFE  je      near 000000000004ADA2h                    
+   4AC04  mov     edx,[rax+rcx*4]                           
+   4AC07  mov     rcx,[r14+568h]                            
+   4AC0E  shl     rdx,5                                     
+   4AC12  xor     eax,eax                                   
+   4AC14  lock cmpxchg [rdx+rcx],r10d                       
+   4AC1A  test    al,2                                      
+   4AC1C  je      near 000000000004ADA2h                    
+   4AC22  mov     rcx,[r14+568h]                            
+   4AC29  xor     eax,eax                                   
+   4AC2B  lock cmpxchg [rdx+rcx],r10d                       
+   4AC31  test    al,10h                                    
+   4AC33  jne     near 000000000004ADA2h                    
+   4AC39  mov     rcx,[r14+568h]                            
+   4AC40  xor     eax,eax                                   
+   4AC42  lock cmpxchg [rdx+rcx],r10d                       
+   4AC48  cmp     [rbp-55h],r15d                            
+   4AC4C  jb      near 000000000004AEBEh                    
+   4AC52  test    al,20h                                    
+   4AC54  jne     near 000000000004AFA3h                    
+   4AC5A  mov     dil,r10b                                  
+   4AC5D  mov     rax,[r14+568h]                            
+   4AC64  mov     rcx,[rax+rdx+10h]                         
+   4AC69  mov     rax,[rcx+150h]                            
+   4AC70  mov     ecx,r12d                                  
+   4AC73  mov     r8d,[rax]                                 
+   4AC76  test    dil,dil                                   
+   4AC79  jne     short 000000000004AC7Fh                   
+   4AC7B  bts     ecx,1Fh                                   
+   4AC7F  mov     edx,r10d                                  
+   4AC82  mov     r9d,r10d                                  
+   4AC85  mov     eax,r13d                                  
+   4AC88  mov     [rsi+rax*4+13F4h],r8d                     
+   4AC90  mov     [rsi+rax*4+1BF4h],ecx                     
+   4AC97  mov     [rsi+rax*4+23F4h],r10d                    
+   4AC9F  mov     [rsi+rax*4+2BF4h],r9d                     
+   4ACA7  mov     [rsi+rax*4+33F4h],edx                     
+   4ACAE  lea     eax,[r8+0FFh]                             
+   4ACB5  mov     edi,[rbp-4Dh]                             
+   4ACB8  shr     eax,8                                     
+   4ACBB  lea     ecx,[rax+rdi]                             
+   4ACBE  mov     [rbp-49h],ecx                             
+   4ACC1  cmp     ecx,1000h                                 
+   4ACC7  ja      near 000000000004B04Ah                    
+   4ACCD  mov     ecx,edi                                   
+   4ACCF  mov     [rbp-11h],r13d                            
+   4ACD3  add     rax,rcx                                   
+   4ACD6  mov     [rbp-21h],rcx                             
+   4ACDA  mov     edx,edi                                   
+   4ACDC  mov     [rbp-1],rax                               
+   4ACE0  xor     r9d,r9d                                   
+   4ACE3  shl     edx,8                                     
+   4ACE6  add     rdi,0EFDh                                 
+   4ACED  mov     [rbp-59h],r9b                             
+   4ACF1  lea     r8,[rsi+3BF4h]                            
+   4ACF8  mov     [rbp-4Dh],edx                             
+   4ACFB  lea     r8,[r8+rax*4]                             
+   4ACFF  mov     [rbp-19h],edx                             
+   4AD02  mov     rcx,r8                                    
+   4AD05  mov     [rbp-9],r9d                               
+   4AD09  lea     rdi,[rsi+rdi*4]                           
+   4AD0D  sub     rcx,rdi                                   
+   4AD10  test    r13d,r13d                                 
+   4AD13  je      near 000000000004AF71h                    
+   4AD19  add     rcx,3                                     
+   4AD1D  shr     rcx,2                                     
+   4AD21  cmp     rdi,r8                                    
+   4AD24  cmova   rcx,r9                                    
+   4AD28  test    rcx,rcx                                   
+   4AD2B  je      short 000000000004AD32h                   
+   4AD2D  mov     eax,r13d                                  
+   4AD30  rep stosd                                         
+   4AD32  mov     rdi,[rbp-21h]                             
+   4AD36  mov     r8,[rbp-1]                                
+   4AD3A  add     rdi,1EFDh                                 
+   4AD41  add     r8,1EFDh                                  
+   4AD48  mov     [rbp-21h],r9d                             
+   4AD4C  lea     rdi,[rsi+rdi*4]                           
+   4AD50  lea     r8,[rsi+r8*4]                             
+   4AD54  mov     rcx,r8                                    
+   4AD57  sub     rcx,rdi                                   
+   4AD5A  test    edx,edx                                   
+   4AD5C  je      near 000000000004AF8Dh                    
+   4AD62  add     rcx,3                                     
+   4AD66  shr     rcx,2                                     
+   4AD6A  cmp     rdi,r8                                    
+   4AD6D  cmova   rcx,r9                                    
+   4AD71  test    rcx,rcx                                   
+   4AD74  je      short 000000000004AD7Ah                   
+   4AD76  mov     eax,edx                                   
+   4AD78  rep stosd                                         
+   4AD7A  mov     edi,[rbp-49h]                             
+   4AD7D  add     r13d,r15d                                 
+   4AD80  mov     al,[rbp-59h]                              
+   4AD83  mov     r11d,[rbp-51h]                            
+   4AD87  mov     [rbp-4Dh],edi                             
+   4AD8A  cmp     r13d,200h                                 
+   4AD91  je      near 000000000004AFC3h                    
+   4AD97  xor     r10d,r10d                                 
+   4AD9A  test    al,al                                     
+   4AD9C  jne     near 000000000004AFC3h                    
+   4ADA2  add     r12d,r15d                                 
+   4ADA5  cmp     r12d,r11d                                 
+   4ADA8  jb      near 000000000004ABD2h                    
+   4ADAE  test    r13d,r13d                                 
+   4ADB1  je      short 000000000004AE17h                   
+   4ADB3  mov     rax,[rsi]                                 
+   4ADB6  mov     rcx,rsi                                   
+   4ADB9  mov     [rsi+0BBF4h],r13d                         
+   4ADC0  call    qword [rax+0C8h]                          
+   4ADC6  add     [rbx+2A70h],r15d                          
+   4ADCD  mov     rax,[rbx+3C40h]                           
+   4ADD4  mov     dword [rax],7Eh                           
+   4ADDA  add     qword [rbx+3C40h],4                       
+   4ADE2  mov     rax,[rbx+3C40h]                           
+   4ADE9  mov     [rax],edi                                 
+   4ADEB  add     qword [rbx+3C40h],4                       
+   4ADF3  mov     rax,[rbx+3C40h]                           
+   4ADFA  mov     [rax],r15d                                
+   4ADFD  add     qword [rbx+3C40h],4                       
+   4AE05  mov     rax,[rbx+3C40h]                           
+   4AE0C  mov     [rax],r15d                                
+   4AE0F  add     qword [rbx+3C40h],4                       
+   4AE17  mov     rax,[rsi]                                 
+   4AE1A  mov     rcx,rsi                                   
+   4AE1D  call    qword [rax+0B8h]                          
+   4AE23  xor     edi,edi                                   
+   4AE25  mov     rax,[r14+370h]                            
+   4AE2C  mov     rcx,[rax+18h]                             
+   4AE30  mov     rax,[rbx+3C40h]                           
+   4AE37  mov     rdx,[rcx]                                 
+   4AE3A  mov     ecx,[rbp-55h]                             
+   4AE3D  mov     dword [rax],8Ah                           
+   4AE43  add     ecx,r15d                                  
+   4AE46  add     qword [rbx+3C40h],4                       
+   4AE4E  mov     rax,[rbx+3C40h]                           
+   4AE55  mov     [rbp-55h],ecx                             
+   4AE58  mov     [rax],edx                                 
+   4AE5A  mov     rax,[rbx+3C40h]                           
+   4AE61  shr     rdx,20h                                   
+   4AE65  mov     [rax+4],edx                               
+   4AE68  add     qword [rbx+3C40h],8                       
+   4AE70  cmp     ecx,2                                     
+   4AE73  jb      near 000000000004AB9Bh                    
+   4AE79  mov     rax,[rsi]                                 
+   4AE7C  mov     rcx,rsi                                   
+   4AE7F  call    qword [rax+98h]                           
+   4AE85  mov     rax,[rsi]                                 
+   4AE88  mov     rcx,rsi                                   
+   4AE8B  call    qword [rax+78h]                           
+   4AE8E  mov     rcx,rbx                                   
+   4AE91  call    0000000000113CA4h                         
+   4AE96  mov     al,r15b                                   
+   4AE99  lea     r11,[rsp+0A0h]                            
+   4AEA1  mov     rbx,[r11+50h]                             
+   4AEA5  movaps  xmm6,[r11-10h]                            
+   4AEAA  movaps  xmm7,[r11-20h]                            
+   4AEAF  mov     rsp,r11                                   
+   4AEB2  pop     r15                                       
+   4AEB4  pop     r14                                       
+   4AEB6  pop     r13                                       
+   4AEB8  pop     r12                                       
+   4AEBA  pop     rdi                                       
+   4AEBB  pop     rsi                                       
+   4AEBC  pop     rbp                                       
+   4AEBD  ret                                               
+   4AEBE  test    al,20h                                    
+   4AEC0  je      near 000000000004ADA2h                    
+   4AEC6  mov     rcx,[r14+568h]                            
+   4AECD  xor     eax,eax                                   
+   4AECF  lock cmpxchg [rdx+rcx],r10d                       
+   4AED5  test    r15b,al                                   
+   4AED8  je      near 000000000004ADA2h                    
+   4AEDE  mov     rax,[r14+568h]                            
+   4AEE5  mov     r9,[rax+rdx+8]                            
+   4AEEA  mov     rdi,[r9+30h]                              
+   4AEEE  test    rdi,rdi                                   
+   4AEF1  je      near 00000000019286CBh                    
+   4AEF7  mov     rax,[rdi+190h]                            
+   4AEFE  mov     rcx,[rax+8]                               
+   4AF02  mov     r8d,[rax]                                 
+   4AF05  movups  xmm0,[rcx+70h]                            
+   4AF09  mov     eax,0AAAAAAABh                            
+   4AF0E  psrldq  xmm0,8                                    
+   4AF13  movq    rcx,xmm0                                  
+   4AF18  mul     ecx                                       
+   4AF1A  mov     eax,[r14+2E8h]                            
+   4AF21  mov     r10d,edx                                  
+   4AF24  shr     r10d,4                                    
+   4AF28  mov     rcx,[r9+rax*8+80h]                        
+   4AF30  xor     eax,eax                                   
+   4AF32  movups  xmm0,[rcx+70h]                            
+   4AF36  psrldq  xmm0,8                                    
+   4AF3B  movq    r9,xmm0                                   
+   4AF40  shr     r9d,2                                     
+   4AF44  test    rdi,rdi                                   
+   4AF47  je      near 00000000019286D6h                    
+   4AF4D  mov     rax,[rdi+198h]                            
+   4AF54  mov     rcx,[rax+8]                               
+   4AF58  movups  xmm0,[rcx+70h]                            
+   4AF5C  mov     ecx,r12d                                  
+   4AF5F  psrldq  xmm0,8                                    
+   4AF64  movq    rdx,xmm0                                  
+   4AF69  shr     edx,3                                     
+   4AF6C  jmp     000000000004AC85h                         
+   4AF71  and     rcx,0FFFFFFFFFFFFFFFCh                    
+   4AF75  xor     edx,edx                                   
+   4AF77  mov     r8,rcx                                    
+   4AF7A  mov     rcx,rdi                                   
+   4AF7D  call    0000000000B93F00h                         
+   4AF82  mov     edx,[rbp-4Dh]                             
+   4AF85  xor     r9d,r9d                                   
+   4AF88  jmp     000000000004AD32h                         
+   4AF8D  and     rcx,0FFFFFFFFFFFFFFFCh                    
+   4AF91  xor     edx,edx                                   
+   4AF93  mov     r8,rcx                                    
+   4AF96  mov     rcx,rdi                                   
+   4AF99  call    0000000000B93F00h                         
+   4AF9E  jmp     000000000004AD7Ah                         
+   4AFA3  mov     rcx,[r14+568h]                            
+   4AFAA  xor     eax,eax                                   
+   4AFAC  lock cmpxchg [rdx+rcx],r10d                       
+   4AFB2  mov     dil,r15b                                  
+   4AFB5  test    r15b,al                                   
+   4AFB8  jne     near 000000000004AC5Dh                    
+   4AFBE  jmp     000000000004AC5Ah                         
+   4AFC3  mov     rax,[rsi]                                 
+   4AFC6  mov     rcx,rsi                                   
+   4AFC9  mov     [rsi+0BBF4h],r13d                         
+   4AFD0  call    qword [rax+0C8h]                          
+   4AFD6  add     [rbx+2A70h],r15d                          
+   4AFDD  xor     r10d,r10d                                 
+   4AFE0  mov     rax,[rbx+3C40h]                           
+   4AFE7  mov     r13d,r10d                                 
+   4AFEA  mov     r11d,[rbp-51h]                            
+   4AFEE  mov     [rbp-4Dh],r10d                            
+   4AFF2  mov     dword [rax],7Eh                           
+   4AFF8  add     qword [rbx+3C40h],4                       
+   4B000  mov     rax,[rbx+3C40h]                           
+   4B007  mov     [rax],edi                                 
+   4B009  mov     edi,r10d                                  
+   4B00C  add     qword [rbx+3C40h],4                       
+   4B014  mov     rax,[rbx+3C40h]                           
+   4B01B  mov     [rax],r15d                                
+   4B01E  add     qword [rbx+3C40h],4                       
+   4B026  mov     rax,[rbx+3C40h]                           
+   4B02D  mov     [rax],r15d                                
+   4B030  add     qword [rbx+3C40h],4                       
+   4B038  cmp     [rbp-59h],r10b                            
+   4B03C  je      near 000000000004ADA2h                    
+   4B042  dec     r12d                                      
+   4B045  jmp     000000000004ADA2h                         
+   4B04A  mov     al,r15b                                   
+   4B04D  mov     [rbp-59h],al                              
+   4B050  jmp     000000000004AD8Ah                         
+   4B055  int3                                              
+   4B056  int3                                              
+   4B057  int3                                              
+   4B058  mov     r8d,edx                                   
+   4B05B  xor     r10d,r10d                                 
+   4B05E  mov     rdx,[rcx+568h]                            
+   4B065  mov     r9,rcx                                    
+   4B068  shl     r8,5                                      
+   4B06C  xor     eax,eax                                   
+   4B06E  lock cmpxchg [r8+rdx],r10d                        
+   4B074  test    al,2                                      
+   4B076  je      short 000000000004B09Eh                   
+   4B078  mov     rcx,[rcx+568h]                            
+   4B07F  xor     eax,eax                                   
+   4B081  lock cmpxchg [r8+rcx],r10d                        
+   4B087  test    al,10h                                    
+   4B089  jne     short 000000000004B09Eh                   
+   4B08B  mov     rcx,[r9+568h]                             
+   4B092  xor     eax,eax                                   
+   4B094  lock cmpxchg [r8+rcx],r10d                        
+   4B09A  test    al,20h                                    
+   4B09C  jne     short 000000000004B0A1h                   
+   4B09E  xor     al,al                                     
+   4B0A0  ret                                               
+   4B0A1  mov     rax,[r9+568h]                             
+   4B0A8  mov     edx,[r9+2E8h]                             
+   4B0AF  mov     rcx,[rax+r8+8]                            
+   4B0B4  cmp     dword [rcx+rdx*4+0C8h],0FFFFFFFFh         
+   4B0BC  je      short 000000000004B09Eh                   
+   4B0BE  mov     al,1                                      
+   4B0C0  ret                                               
+   4B0C1  int3                                              
+   4B0C2  int3                                              
+   4B0C3  int3                                              
+   4B0C4  xor     edx,edx                                   
+   4B0C6  xor     eax,eax                                   
+   4B0C8  lock cmpxchg [rcx],edx                            
+   4B0CC  shr     eax,5                                     
+   4B0CF  and     al,1                                      
+   4B0D1  ret                                               
+   4B0D2  int3                                              
+   4B0D3  int3                                              
+   4B0D4  xor     edx,edx                                   
+   4B0D6  xor     eax,eax                                   
+   4B0D8  lock cmpxchg [rcx],edx                            
+   4B0DC  shr     eax,4                                     
+   4B0DF  and     al,1                                      
+   4B0E1  ret                                               
+   4B0E2  int3                                              
+   4B0E3  int3                                              
+   4B0E4  cmp     byte [rcx+0C84h],0                        
+   4B0EB  mov     eax,edx                                   
+   4B0ED  jne     short 000000000004B101h                   
+   4B0EF  xor     edx,edx                                   
+   4B0F1  div     dword [rcx+14Ch]                          
+   4B0F7  cmp     edx,[rcx+630h]                            
+   4B0FD  sete    al                                        
+   4B100  ret                                               
+   4B101  mov     al,1                                      
+   4B103  ret                                               
+   4B104  mov     rax,rsp                                   
+   4B107  mov     [rax+18h],rbx                             
+   4B10B  push    rbp                                       
+   4B10C  push    rsi                                       
+   4B10D  push    rdi                                       
+   4B10E  push    r12                                       
+   4B110  push    r13                                       
+   4B112  push    r14                                       
+   4B114  push    r15                                       
+   4B116  lea     rbp,[rax-1C8h]                            
+   4B11D  sub     rsp,290h                                  
+   4B124  test    dword [rcx+1ACh],40000000h                
+   4B12E  mov     rsi,rdx                                   
+   4B131  movaps  [rax-48h],xmm6                            
+   4B135  mov     r14,rcx                                   
+   4B138  jne     near 000000000004B429h                    
+   4B13E  mov     rbx,[rcx+1C8h]                            
+   4B145  xor     r12d,r12d                                 
+   4B148  test    rdx,rdx                                   
+   4B14B  je      near 000000000004B429h                    
+   4B151  xor     eax,eax                                   
+   4B153  lock cmpxchg [rcx+4C0h],r12d                      
+   4B15C  test    eax,eax                                   
+   4B15E  jle     near 000000000004B429h                    
+   4B164  lea     rdx,[rel 390CBB8h]                          ; "MeshletRequestLoad"
+   4B16B  mov     rcx,rbx                                   
+   4B16E  call    00000000001D3AD8h                         
+   4B173  mov     rax,[r14+1C0h]                            
+   4B17A  lea     rcx,[rbp-80h]                             
+   4B17E  xor     edx,edx                                   
+   4B180  mov     r8d,0B0h                                  
+   4B186  mov     rdi,[rax+0F8h]                            
+   4B18D  call    0000000000B93F00h                         
+   4B192  lea     rax,[rbp+30h]                             
+   4B196  mov     [rbp+20h],rax                             
+   4B19A  lea     rax,[rbp-80h]                             
+   4B19E  mov     rcx,[rdi+78h]                             
+   4B1A2  mov     [rcx+68h],rax                             
+   4B1A6  mov     [rcx+70h],r12                             
+   4B1AA  call    00000000001FA9E0h                         
+   4B1AF  cmp     dword [rbx+60DCh],20h                     
+   4B1B6  mov     rcx,rsi                                   
+   4B1B9  setb    dl                                        
+   4B1BC  call    000000000097C9C0h                         
+   4B1C1  cmp     [r14+400h],r12b                           
+   4B1C8  jne     near 000000000004B685h                    
+   4B1CE  mov     rcx,[rsi+1318h]                           
+   4B1D5  test    rcx,rcx                                   
+   4B1D8  je      short 000000000004B1DFh                   
+   4B1DA  call    0000000000532C64h                         
+   4B1DF  mov     [rsi+1318h],r12                           
+   4B1E6  mov     rax,[rsi]                                 
+   4B1E9  mov     rcx,rsi                                   
+   4B1EC  call    qword [rax+68h]                           
+   4B1EF  test    al,al                                     
+   4B1F1  je      near 000000000004B421h                    
+   4B1F7  mov     rax,[rsi]                                 
+   4B1FA  mov     rcx,rsi                                   
+   4B1FD  call    qword [rax+88h]                           
+   4B203  mov     r13d,r12d                                 
+   4B206  mov     r15d,1                                    
+   4B20C  mov     ecx,eax                                   
+   4B20E  cmp     eax,2                                     
+   4B211  jbe     near 0000000001928ED0h                    
+   4B217  cmp     [rel 45BAA40h],r12                        
+   4B21E  je      near 0000000001928ED5h                    
+   4B224  xor     eax,eax                                   
+   4B226  lock cmpxchg [rel 45C3D38h],r12d                  
+   4B22F  jne     near 0000000001928ED5h                    
+   4B235  mov     rax,[rsi]                                 
+   4B238  mov     edx,r12d                                  
+   4B23B  cmp     ecx,4                                     
+   4B23E  jbe     near 0000000001928C7Dh                    
+   4B244  cmp     ecx,5                                     
+   4B247  mov     rcx,rsi                                   
+   4B24A  seta    dl                                        
+   4B24D  add     edx,4                                     
+   4B250  call    qword [rax+0A8h]                          
+   4B256  test    al,al                                     
+   4B258  je      near 000000000004B3CAh                    
+   4B25E  mov     rdx,[rel 45BAA40h]                        
+   4B265  xor     r9d,r9d                                   
+   4B268  xor     r8d,r8d                                   
+   4B26B  mov     [rsp+20h],r12d                            
+   4B270  mov     rcx,rsi                                   
+   4B273  mov     rdx,[rdx+0A8h]                            
+   4B27A  call    0000000000927D50h                         
+   4B27F  mov     rdx,[r14+370h]                            
+   4B286  mov     rcx,rsi                                   
+   4B289  call    000000000095DE98h                         
+   4B28E  mov     rdx,[r14+440h]                            
+   4B295  mov     rcx,rsi                                   
+   4B298  call    000000000095DE5Ch                         
+   4B29D  mov     rdx,[r14+2E0h]                            
+   4B2A4  mov     rcx,rsi                                   
+   4B2A7  mov     rdx,[rdx+8]                               
+   4B2AB  call    000000000095DE20h                         
+   4B2B0  mov     rdx,[r14+2E0h]                            
+   4B2B7  mov     rcx,rsi                                   
+   4B2BA  mov     rdx,[rdx+10h]                             
+   4B2BE  call    000000000095DDE4h                         
+   4B2C3  mov     r9d,[r14+4C8h]                            
+   4B2CA  xor     r10d,r10d                                 
+   4B2CD  mov     [rsp+34h],r10d                            
+   4B2D2  mov     edi,r10d                                  
+   4B2D5  mov     [rsp+38h],r9d                             
+   4B2DA  test    r9d,r9d                                   
+   4B2DD  je      near 000000000004B3BEh                    
+   4B2E3  test    dword [r14+1ACh],40000000h                
+   4B2EE  jne     short 000000000004B34Dh                   
+   4B2F0  cmp     r13d,100000h                              
+   4B2F7  jae     short 000000000004B34Dh                   
+   4B2F9  mov     rax,[r14+4B0h]                            
+   4B300  mov     ecx,r13d                                  
+   4B303  cmp     dword [rax+rcx*4],0FFFFFFFFh              
+   4B307  je      short 000000000004B34Dh                   
+   4B309  mov     edx,[rax+rcx*4]                           
+   4B30C  mov     rcx,[r14+568h]                            
+   4B313  shl     rdx,5                                     
+   4B317  xor     eax,eax                                   
+   4B319  lock cmpxchg [rdx+rcx],r10d                       
+   4B31F  test    al,2                                      
+   4B321  je      short 000000000004B34Dh                   
+   4B323  mov     rcx,[r14+568h]                            
+   4B32A  xor     eax,eax                                   
+   4B32C  lock cmpxchg [rdx+rcx],r10d                       
+   4B332  test    al,10h                                    
+   4B334  jne     short 000000000004B34Dh                   
+   4B336  mov     rcx,[r14+568h]                            
+   4B33D  xor     eax,eax                                   
+   4B33F  lock cmpxchg [rdx+rcx],r10d                       
+   4B345  test    al,20h                                    
+   4B347  jne     near 000000000004B449h                    
+   4B34D  add     r13d,r15d                                 
+   4B350  cmp     r13d,r9d                                  
+   4B353  jb      short 000000000004B2E3h                   
+   4B355  test    r12d,r12d                                 
+   4B358  je      short 000000000004B3BEh                   
+   4B35A  mov     rax,[rsi]                                 
+   4B35D  mov     rcx,rsi                                   
+   4B360  mov     [rsi+0B32Ch],r12d                         
+   4B367  call    qword [rax+0C8h]                          
+   4B36D  add     [rbx+2A70h],r15d                          
+   4B374  mov     rax,[rbx+3C40h]                           
+   4B37B  mov     dword [rax],7Eh                           
+   4B381  add     qword [rbx+3C40h],4                       
+   4B389  mov     rax,[rbx+3C40h]                           
+   4B390  mov     [rax],edi                                 
+   4B392  add     qword [rbx+3C40h],4                       
+   4B39A  mov     rax,[rbx+3C40h]                           
+   4B3A1  mov     [rax],r15d                                
+   4B3A4  add     qword [rbx+3C40h],4                       
+   4B3AC  mov     rax,[rbx+3C40h]                           
+   4B3B3  mov     [rax],r15d                                
+   4B3B6  add     qword [rbx+3C40h],4                       
+   4B3BE  mov     rax,[rsi]                                 
+   4B3C1  mov     rcx,rsi                                   
+   4B3C4  call    qword [rax+0B8h]                          
+   4B3CA  mov     rax,[rsi]                                 
+   4B3CD  mov     rcx,rsi                                   
+   4B3D0  call    qword [rax+98h]                           
+   4B3D6  mov     rax,[rsi]                                 
+   4B3D9  mov     rcx,rsi                                   
+   4B3DC  call    qword [rax+78h]                           
+   4B3DF  mov     rax,[r14+370h]                            
+   4B3E6  mov     rdx,[rax+18h]                             
+   4B3EA  mov     rax,[rbx+3C40h]                           
+   4B3F1  mov     rdx,[rdx]                                 
+   4B3F4  mov     dword [rax],8Ah                           
+   4B3FA  add     qword [rbx+3C40h],4                       
+   4B402  mov     rax,[rbx+3C40h]                           
+   4B409  mov     [rax],edx                                 
+   4B40B  mov     rax,[rbx+3C40h]                           
+   4B412  shr     rdx,20h                                   
+   4B416  mov     [rax+4],edx                               
+   4B419  add     qword [rbx+3C40h],8                       
+   4B421  mov     rcx,rbx                                   
+   4B424  call    0000000000113CA4h                         
+   4B429  lea     r11,[rsp+290h]                            
+   4B431  mov     rbx,[r11+50h]                             
+   4B435  movaps  xmm6,[r11-10h]                            
+   4B43A  mov     rsp,r11                                   
+   4B43D  pop     r15                                       
+   4B43F  pop     r14                                       
+   4B441  pop     r13                                       
+   4B443  pop     r12                                       
+   4B445  pop     rdi                                       
+   4B446  pop     rsi                                       
+   4B447  pop     rbp                                       
+   4B448  ret                                               
+   4B449  mov     rax,[r14+568h]                            
+   4B450  mov     rdx,[rdx+rax+8]                           
+   4B455  mov     eax,[r14+2E8h]                            
+   4B45C  mov     ecx,[rdx+rax*4+0C8h]                      
+   4B463  cmp     ecx,0FFFFFFFFh                            
+   4B466  je      near 000000000004B34Dh                    
+   4B46C  mov     rdx,[rdx+30h]                             
+   4B470  shr     ecx,2                                     
+   4B473  test    rdx,rdx                                   
+   4B476  je      near 0000000001928C72h                    
+   4B47C  mov     rax,[rdx+190h]                            
+   4B483  mov     rdi,[rax+8]                               
+   4B487  mov     r8d,[rax]                                 
+   4B48A  movups  xmm0,[rdi+70h]                            
+   4B48E  mov     edi,r12d                                  
+   4B491  mov     eax,0AAAAAAABh                            
+   4B496  psrldq  xmm0,8                                    
+   4B49B  mov     [rsi+rdi*4+132Ch],r8d                     
+   4B4A3  add     r8d,1Fh                                   
+   4B4A7  mov     [rsi+rdi*4+232Ch],ecx                     
+   4B4AE  movq    rcx,xmm0                                  
+   4B4B3  mul     ecx                                       
+   4B4B5  shr     r8d,5                                     
+   4B4B9  shr     edx,4                                     
+   4B4BC  mov     [rsi+rdi*4+2B2Ch],edx                     
+   4B4C3  mov     [rsi+rdi*4+1B2Ch],r13d                    
+   4B4CB  mov     edi,[rsp+34h]                             
+   4B4CF  lea     eax,[r8+rdi]                              
+   4B4D3  mov     [rsp+4Ch],eax                             
+   4B4D7  cmp     eax,1000h                                 
+   4B4DC  ja      near 000000000004B696h                    
+   4B4E2  mov     ecx,edi                                   
+   4B4E4  mov     eax,r8d                                   
+   4B4E7  add     rax,rcx                                   
+   4B4EA  mov     [rsp+58h],rcx                             
+   4B4EF  mov     r9d,edi                                   
+   4B4F2  mov     [rsp+30h],r10b                            
+   4B4F7  shl     r9d,5                                     
+   4B4FB  lea     rdx,[rsi+332Ch]                           
+   4B502  add     rdi,0CCBh                                 
+   4B509  mov     [rsp+34h],r9d                             
+   4B50E  lea     rdx,[rdx+rax*4]                           
+   4B512  mov     [rsp+60h],r9d                             
+   4B517  mov     rcx,rdx                                   
+   4B51A  mov     [rsp+68h],r12d                            
+   4B51F  mov     [rsp+78h],rax                             
+   4B524  lea     rdi,[rsi+rdi*4]                           
+   4B528  mov     [rsp+70h],r10d                            
+   4B52D  sub     rcx,rdi                                   
+   4B530  test    r12d,r12d                                 
+   4B533  je      near 000000000004B64Eh                    
+   4B539  add     rcx,3                                     
+   4B53D  shr     rcx,2                                     
+   4B541  cmp     rdi,rdx                                   
+   4B544  cmova   rcx,r10                                   
+   4B548  test    rcx,rcx                                   
+   4B54B  je      short 000000000004B552h                   
+   4B54D  mov     eax,r12d                                  
+   4B550  rep stosd                                         
+   4B552  mov     rdi,[rsp+58h]                             
+   4B557  mov     rdx,[rsp+78h]                             
+   4B55C  add     rdi,1CCBh                                 
+   4B563  add     rdx,1CCBh                                 
+   4B56A  mov     [rsp+58h],r10d                            
+   4B56F  lea     rdi,[rsi+rdi*4]                           
+   4B573  lea     rdx,[rsi+rdx*4]                           
+   4B577  mov     rcx,rdx                                   
+   4B57A  sub     rcx,rdi                                   
+   4B57D  test    r9d,r9d                                   
+   4B580  je      near 000000000004B66Ch                    
+   4B586  add     rcx,3                                     
+   4B58A  shr     rcx,2                                     
+   4B58E  cmp     rdi,rdx                                   
+   4B591  cmova   rcx,r10                                   
+   4B595  test    rcx,rcx                                   
+   4B598  je      short 000000000004B59Fh                   
+   4B59A  mov     eax,r9d                                   
+   4B59D  rep stosd                                         
+   4B59F  mov     edi,[rsp+4Ch]                             
+   4B5A3  add     r12d,r15d                                 
+   4B5A6  mov     al,[rsp+30h]                              
+   4B5AA  mov     r9d,[rsp+38h]                             
+   4B5AF  mov     [rsp+34h],edi                             
+   4B5B3  cmp     r12d,200h                                 
+   4B5BA  je      short 000000000004B5C4h                   
+   4B5BC  test    al,al                                     
+   4B5BE  je      near 000000000004B34Dh                    
+   4B5C4  mov     rax,[rsi]                                 
+   4B5C7  mov     rcx,rsi                                   
+   4B5CA  mov     [rsi+0B32Ch],r12d                         
+   4B5D1  call    qword [rax+0C8h]                          
+   4B5D7  add     [rbx+2A70h],r15d                          
+   4B5DE  xor     r10d,r10d                                 
+   4B5E1  mov     rax,[rbx+3C40h]                           
+   4B5E8  mov     r12d,r10d                                 
+   4B5EB  mov     r9d,[rsp+38h]                             
+   4B5F0  mov     [rsp+34h],r10d                            
+   4B5F5  mov     dword [rax],7Eh                           
+   4B5FB  add     qword [rbx+3C40h],4                       
+   4B603  mov     rax,[rbx+3C40h]                           
+   4B60A  mov     [rax],edi                                 

@@ -1,0 +1,228 @@
+; ---- Nioh3+5D214 .. +5D5D4 (pdata fn Some (381460u, 382411u))
+   5D214  mov     [rsp+10h],rbx                             
+   5D219  mov     [rsp+18h],rbp                             
+   5D21E  mov     [rsp+20h],rsi                             
+   5D223  push    rdi                                       
+   5D224  push    r14                                       
+   5D226  push    r15                                       
+   5D228  sub     rsp,80h                                   
+   5D22F  xor     r15d,r15d                                 
+   5D232  mov     r14d,r8d                                  
+   5D235  lea     rbx,[rcx+169DD0h]                         
+   5D23C  mov     [rcx+169D64h],r15                         
+   5D243  test    dword [rbx+1ACh],40000000h                
+   5D24D  mov     bpl,r9b                                   
+   5D250  mov     rsi,rdx                                   
+   5D253  mov     rdi,rcx                                   
+   5D256  jne     near 000000000005D5AEh                    
+   5D25C  test    r9b,r9b                                   
+   5D25F  jne     short 000000000005D2D6h                   
+   5D261  mov     al,[rcx+169D23h]                          
+   5D267  mov     r8b,[rcx+169D24h]                         
+   5D26E  mov     [rcx+169D25h],al                          
+   5D274  mov     cl,[rcx+169D2Eh]                          
+   5D27A  test    cl,cl                                     
+   5D27C  je      short 000000000005D2B7h                   
+   5D27E  cmp     [rdi+169D26h],r15b                        
+   5D285  jne     short 000000000005D2B7h                   
+   5D287  test    rdx,rdx                                   
+   5D28A  je      short 000000000005D2B7h                   
+   5D28C  mov     rdx,[rdx+r14*8+180h]                      
+   5D294  test    rdx,rdx                                   
+   5D297  je      short 000000000005D2B7h                   
+   5D299  mov     rdx,[rdx+4498h]                           
+   5D2A0  test    rdx,rdx                                   
+   5D2A3  je      short 000000000005D2B7h                   
+   5D2A5  xor     eax,eax                                   
+   5D2A7  lock cmpxchg [rdx+18h],r15d                       
+   5D2AD  test    al,2                                      
+   5D2AF  je      short 000000000005D2B7h                   
+   5D2B1  mov     r8b,r15b                                  
+   5D2B4  mov     cl,r15b                                   
+   5D2B7  mov     [rdi+169D26h],r8b                         
+   5D2BE  mov     [rbx+848h],cl                             
+   5D2C4  cmp     [rdi+14h],r15b                            
+   5D2C8  je      short 000000000005D2D6h                   
+   5D2CA  mov     al,[rdi+169D2Ch]                          
+   5D2D0  mov     [rdi+169D2Dh],al                          
+   5D2D6  mov     rcx,rbx                                   
+   5D2D9  call    000000000005A4DCh                         
+   5D2DE  mov     rcx,rbx                                   
+   5D2E1  call    0000000000387A40h                         
+   5D2E6  mov     r8d,r14d                                  
+   5D2E9  mov     rdx,rsi                                   
+   5D2EC  mov     rcx,rbx                                   
+   5D2EF  call    000000000096A1E4h                         
+   5D2F4  test    bpl,bpl                                   
+   5D2F7  jne     short 000000000005D327h                   
+   5D2F9  mov     ecx,[rbx+2E8h]                            
+   5D2FF  lea     rax,[rbx+1E0h]                            
+   5D306  dec     ecx                                       
+   5D308  and     ecx,1                                     
+   5D30B  mov     [rbx+2E8h],ecx                            
+   5D311  shl     rcx,7                                     
+   5D315  add     rax,rcx                                   
+   5D318  mov     rcx,rbx                                   
+   5D31B  mov     [rbx+2E0h],rax                            
+   5D322  call    000000000093B720h                         
+   5D327  lea     rcx,[rbx+540h]                            
+   5D32E  mov     [rbx+488h],r15                            
+   5D335  mov     [rbx+490h],r15d                           
+   5D33C  call    0000000000955F48h                         
+   5D341  mov     edx,[rdi+16AA68h]                         
+   5D347  cmp     [rbx+5F0h],edx                            
+   5D34D  je      short 000000000005D379h                   
+   5D34F  mov     eax,[rdi+16AA78h]                         
+   5D355  mov     rcx,rbx                                   
+   5D358  mov     r9d,[rdi+16AA70h]                         
+   5D35F  mov     r8d,[rdi+16AA6Ch]                         
+   5D366  mov     [rsp+28h],eax                             
+   5D36A  mov     eax,[rdi+16AA74h]                         
+   5D370  mov     [rsp+20h],eax                             
+   5D374  call    0000000003302214h                         
+   5D379  mov     rcx,rbx                                   
+   5D37C  call    000000000005C708h                         
+   5D381  mov     rcx,rbx                                   
+   5D384  call    000000000004BA8Ch                         
+   5D389  test    bpl,bpl                                   
+   5D38C  jne     short 000000000005D399h                   
+   5D38E  mov     rdx,rsi                                   
+   5D391  mov     rcx,rdi                                   
+   5D394  call    000000000005B278h                         
+   5D399  test    rsi,rsi                                   
+   5D39C  je      short 000000000005D3ADh                   
+   5D39E  mov     rax,[rsi+2B0h]                            
+   5D3A5  mov     edx,[rax+74Ch]                            
+   5D3AB  jmp     short 000000000005D3B0h                   
+   5D3AD  mov     edx,r15d                                  
+   5D3B0  mov     rcx,rbx                                   
+   5D3B3  call    000000000005D160h                         
+   5D3B8  lea     rcx,[rbx+830h]                            
+   5D3BF  call    0000000000034CD8h                         
+   5D3C4  test    rsi,rsi                                   
+   5D3C7  je      short 000000000005D3F1h                   
+   5D3C9  mov     rcx,[rsi+2B0h]                            
+   5D3D0  mov     eax,[rcx+740h]                            
+   5D3D6  test    eax,eax                                   
+   5D3D8  setne   r8b                                       
+   5D3DC  cmp     eax,1                                     
+   5D3DF  jne     short 000000000005D3E9h                   
+   5D3E1  mov     eax,[rcx+73Ch]                            
+   5D3E7  jmp     short 000000000005D3ECh                   
+   5D3E9  or      eax,0FFFFFFFFh                            
+   5D3EC  mov     rdx,rsi                                   
+   5D3EF  jmp     short 000000000005D400h                   
+   5D3F1  mov     rdx,r15                                   
+   5D3F4  mov     r14d,r15d                                 
+   5D3F7  mov     bpl,r15b                                  
+   5D3FA  mov     r8b,r15b                                  
+   5D3FD  or      eax,0FFFFFFFFh                            
+   5D400  or      dword [rsp+30h],0FFFFFFFFh                
+   5D405  mov     r9b,bpl                                   
+   5D408  mov     [rsp+28h],eax                             
+   5D40C  mov     rcx,rdi                                   
+   5D40F  mov     [rsp+20h],r8b                             
+   5D414  mov     r8d,r14d                                  
+   5D417  call    000000000004BBECh                         
+   5D41C  mov     rax,[rsi]                                 
+   5D41F  mov     rcx,rsi                                   
+   5D422  mov     r14,[rbx+1C0h]                            
+   5D429  mov     rbp,[rbx+1C8h]                            
+   5D430  call    qword [rax+50h]                           
+   5D433  mov     rdx,rax                                   
+   5D436  lea     rcx,[rsp+48h]                             
+   5D43B  call    00000000001A5DA0h                         
+   5D440  mov     r8,rax                                    
+   5D443  mov     rcx,rdi                                   
+   5D446  mov     rdx,r14                                   
+   5D449  call    000000000005D1B0h                         
+   5D44E  mov     r8,rax                                    
+   5D451  mov     rcx,rdi                                   
+   5D454  call    000000000005D1F4h                         
+   5D459  xor     eax,eax                                   
+   5D45B  mov     [rbx+400h],r15b                           
+   5D462  lock cmpxchg [rbx+4C0h],r15d                      
+   5D46B  test    eax,eax                                   
+   5D46D  jle     near 000000000005D5AEh                    
+   5D473  cmp     [rbx+3F8h],r15                            
+   5D47A  je      near 000000000005D5AEh                    
+   5D480  mov     rax,[rsi]                                 
+   5D483  mov     rcx,rsi                                   
+   5D486  call    qword [rax+50h]                           
+   5D489  mov     rdx,rax                                   
+   5D48C  lea     rcx,[rsp+60h]                             
+   5D491  call    00000000001A5DA0h                         
+   5D496  mov     r8,rax                                    
+   5D499  mov     rcx,rdi                                   
+   5D49C  mov     rdx,r14                                   
+   5D49F  call    000000000005DA48h                         
+   5D4A4  mov     rdi,rax                                   
+   5D4A7  test    rax,rax                                   
+   5D4AA  je      near 000000000005D5AEh                    
+   5D4B0  mov     rdx,[rax]                                 
+   5D4B3  mov     rcx,rax                                   
+   5D4B6  call    qword [rdx+68h]                           
+   5D4B9  test    al,al                                     
+   5D4BB  je      near 000000000005D5AEh                    
+   5D4C1  mov     rdx,[rdi]                                 
+   5D4C4  mov     rcx,rdi                                   
+   5D4C7  call    qword [rdx+88h]                           
+   5D4CD  mov     edx,6                                     
+   5D4D2  cmp     eax,edx                                   
+   5D4D4  jbe     near 000000000005D592h                    
+   5D4DA  mov     rax,[rdi]                                 
+   5D4DD  mov     rcx,rdi                                   
+   5D4E0  call    qword [rax+0A8h]                          
+   5D4E6  test    al,al                                     
+   5D4E8  je      near 000000000005D592h                    
+   5D4EE  mov     rdx,[rbx+3F8h]                            
+   5D4F5  mov     rcx,rdi                                   
+   5D4F8  call    000000000005DA0Ch                         
+   5D4FD  mov     rax,[rdi]                                 
+   5D500  mov     rcx,rdi                                   
+   5D503  call    qword [rax+0C8h]                          
+   5D509  mov     rax,[rdi]                                 
+   5D50C  lea     r9,[rsp+0A0h]                             
+   5D514  lea     r8,[rsp+40h]                              
+   5D519  mov     rcx,rdi                                   
+   5D51C  lea     rdx,[rsp+44h]                             
+   5D521  call    qword [rax+0D8h]                          
+   5D527  inc     dword [rbp+2A70h]                         
+   5D52D  mov     rax,[rbp+3C40h]                           
+   5D534  mov     ecx,[rsp+44h]                             
+   5D538  mov     r8d,[rsp+0A0h]                            
+   5D540  mov     edx,[rsp+40h]                             
+   5D544  mov     dword [rax],7Eh                           
+   5D54A  add     qword [rbp+3C40h],4                       
+   5D552  mov     rax,[rbp+3C40h]                           
+   5D559  mov     [rax],ecx                                 
+   5D55B  mov     rcx,rdi                                   
+   5D55E  add     qword [rbp+3C40h],4                       
+   5D566  mov     rax,[rbp+3C40h]                           
+   5D56D  mov     [rax],edx                                 
+   5D56F  add     qword [rbp+3C40h],4                       
+   5D577  mov     rax,[rbp+3C40h]                           
+   5D57E  mov     [rax],r8d                                 
+   5D581  add     qword [rbp+3C40h],4                       
+   5D589  mov     rax,[rdi]                                 
+   5D58C  call    qword [rax+0B8h]                          
+   5D592  mov     rax,[rdi]                                 
+   5D595  mov     rcx,rdi                                   
+   5D598  call    qword [rax+98h]                           
+   5D59E  mov     rax,[rdi]                                 
+   5D5A1  mov     rcx,rdi                                   
+   5D5A4  call    qword [rax+78h]                           
+   5D5A7  mov     byte [rbx+400h],1                         
+   5D5AE  lea     r11,[rsp+80h]                             
+   5D5B6  mov     rbx,[r11+28h]                             
+   5D5BA  mov     rbp,[r11+30h]                             
+   5D5BE  mov     rsi,[r11+38h]                             
+   5D5C2  mov     rsp,r11                                   
+   5D5C5  pop     r15                                       
+   5D5C7  pop     r14                                       
+   5D5C9  pop     rdi                                       
+   5D5CA  ret                                               
+   5D5CB  int3                                              
+   5D5CC  push    rbx                                       
+   5D5CE  sub     rsp,20h                                   
+   5D5D2  (bad)                                             

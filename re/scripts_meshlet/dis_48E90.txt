@@ -1,0 +1,368 @@
+; ---- Nioh3+48E90 .. +49441 (pdata fn Some (298640u, 298777u))
+   48E90  mov     r11,rsp                                   
+   48E93  mov     [r11+18h],r8                              
+   48E97  mov     [r11+10h],rdx                             
+   48E9B  push    rbx                                       
+   48E9C  push    rbp                                       
+   48E9D  push    rsi                                       
+   48E9E  push    rdi                                       
+   48E9F  push    r12                                       
+   48EA1  push    r13                                       
+   48EA3  sub     rsp,0C8h                                  
+   48EAA  mov     r12d,r9d                                  
+   48EAD  xor     bl,bl                                     
+   48EAF  shl     r12,5                                     
+   48EB3  mov     rsi,rcx                                   
+   48EB6  mov     r10d,r9d                                  
+   48EB9  mov     r9,[rcx+568h]                             
+   48EC0  add     r9,r12                                    
+   48EC3  mov     [rsp+118h],bl                             
+   48ECA  mov     [rsp+78h],r12                             
+   48ECF  mov     rbp,[r9+8]                                
+   48ED3  mov     [rsp+80h],rbp                             
+   48EDB  test    rbp,rbp                                   
+   48EDE  je      near 0000000000049402h                    
+   48EE4  mov     rdx,[rbp+30h]                             
+   48EE8  test    rdx,rdx                                   
+   48EEB  je      near 0000000000049402h                    
+   48EF1  mov     rax,[rdx+158h]                            
+   48EF8  mov     edi,[rsp+120h]                            
+   48EFF  mov     r8d,[rax]                                 
+   48F02  cmp     edi,r8d                                   
+   48F05  jae     near 0000000000049402h                    
+   48F0B  mov     rax,[rsi+498h]                            
+   48F12  lea     rcx,[r10+r10*2]                           
+   48F16  add     rcx,rcx                                   
+   48F19  mov     [r11-38h],r14                             
+   48F1D  mov     [r11-40h],r15                             
+   48F21  mov     r11,[r9+18h]                              
+   48F25  mov     r9,[rdx+1A8h]                             
+   48F2C  mov     r15d,[rax+rcx*8+4]                        
+   48F31  mov     eax,[rax+rcx*8]                           
+   48F34  mov     [rsp+6Ch],eax                             
+   48F38  lea     eax,[r8-1]                                
+   48F3C  mov     r10d,[r9+rdi*4+4]                         
+   48F41  mov     [rsp+0A8h],r11                            
+   48F49  mov     [rsp+54h],r15d                            
+   48F4E  mov     [rsp+64h],r10d                            
+   48F53  cmp     edi,eax                                   
+   48F55  jne     short 0000000000048F62h                   
+   48F57  mov     rax,[rdx+190h]                            
+   48F5E  mov     edi,[rax]                                 
+   48F60  jmp     short 0000000000048F6Ah                   
+   48F62  lea     eax,[rdi+1]                               
+   48F65  mov     edi,[r9+rax*4+4]                          
+   48F6A  mov     rax,[rbp+40h]                             
+   48F6E  sub     edi,r10d                                  
+   48F71  mov     [rsp+98h],rax                             
+   48F79  mov     rcx,r11                                   
+   48F7C  mov     rax,[rbp+48h]                             
+   48F80  mov     [rsp+0A0h],rax                            
+   48F88  mov     rax,[r11]                                 
+   48F8B  mov     [rsp+68h],edi                             
+   48F8F  call    qword [rax+50h]                           
+   48F92  mov     ecx,[rsi+2E8h]                            
+   48F98  xor     r13d,r13d                                 
+   48F9B  mov     r10,rax                                   
+   48F9E  mov     [rsp+88h],rax                             
+   48FA6  mov     r8d,[rbp+rcx*4+0C8h]                      
+   48FAE  shr     r8d,2                                     
+   48FB2  mov     [rsp+74h],r8d                             
+   48FB7  xor     eax,eax                                   
+   48FB9  lock cmpxchg [rbp+0B8h],r13d                      
+   48FC2  sar     eax,10h                                   
+   48FC5  mov     r14d,r13d                                 
+   48FC8  movzx   r11d,al                                   
+   48FCC  mov     [rsp+5Ch],r11d                            
+   48FD1  mov     [rsp+50h],r13d                            
+   48FD6  test    edi,edi                                   
+   48FD8  je      near 00000000000493A8h                    
+   48FDE  mov     edi,[rsp+64h]                             
+   48FE2  mov     [rsp+58h],edi                             
+   48FE6  test    bl,bl                                     
+   48FE8  jne     near 00000000000493B3h                    
+   48FEE  mov     r9,[rsp+110h]                             
+   48FF6  mov     eax,edi                                   
+   48FF8  shr     eax,5                                     
+   48FFB  mov     ecx,edi                                   
+   48FFD  and     ecx,1Fh                                   
+   49000  add     eax,r8d                                   
+   49003  mov     edx,1                                     
+   49008  shl     edx,cl                                    
+   4900A  mov     rcx,[rsp+108h]                            
+   49012  mov     r8d,edx                                   
+   49015  and     r8d,[r9+rax*4]                            
+   49019  mov     ecx,[rcx+rax*4]                           
+   4901C  and     ecx,edx                                   
+   4901E  cmp     [rsp+120h],r11d                           
+   49026  jb      near 00000000000490C2h                    
+   4902C  test    ecx,ecx                                   
+   4902E  jne     near 00000000000490C2h                    
+   49034  test    r8d,r8d                                   
+   49037  je      near 0000000000049379h                    
+   4903D  mov     rcx,[rsi+568h]                            
+   49044  xor     eax,eax                                   
+   49046  lock cmpxchg [rcx+r12],r13d                       
+   4904C  test    al,1                                      
+   4904E  je      short 00000000000490B5h                   
+   49050  mov     r8,[rbp+30h]                              
+   49054  test    r8,r8                                     
+   49057  je      short 00000000000490B5h                   
+   49059  mov     rax,[r8+190h]                             
+   49060  cmp     edi,[rax]                                 
+   49062  jae     short 00000000000490B5h                   
+   49064  mov     rax,[r8+1B0h]                             
+   4906B  mov     ecx,edi                                   
+   4906D  mov     r10d,[rax+rcx*8+8]                        
+   49072  mov     r8d,[rax+rcx*8+4]                         
+   49077  mov     rax,[rbp+68h]                             
+   4907B  shr     rcx,5                                     
+   4907F  lea     r9,[rcx*4]                                
+   49087  test    [r9+rax],edx                              
+   4908B  jne     short 00000000000490B5h                   
+   4908D  mov     rax,[rbp+58h]                             
+   49091  add     [rax+r10*4],r8d                           
+   49095  add     [rbp+78h],r8d                             
+   49099  mov     rax,[rbp+30h]                             
+   4909D  test    rax,rax                                   
+   490A0  je      short 00000000000490B5h                   
+   490A2  mov     rax,[rax+190h]                            
+   490A9  cmp     edi,[rax]                                 
+   490AB  jae     short 00000000000490B5h                   
+   490AD  mov     rax,[rbp+68h]                             
+   490B1  or      [rax+r9],edx                              
+   490B5  inc     r14d                                      
+   490B8  mov     [rsp+50h],r14d                            
+   490BD  jmp     0000000000049379h                         
+   490C2  mov     eax,edi                                   
+   490C4  lea     rcx,[rax+rax*2]                           
+   490C8  mov     rax,[rsp+98h]                             
+   490D0  mov     edx,[rax+rcx*8]                           
+   490D3  mov     ecx,[rax+rcx*8+4]                         
+   490D7  mov     eax,r13d                                  
+   490DA  mov     [rsp+60h],eax                             
+   490DE  mov     [rsp+100h],edx                            
+   490E5  mov     [rsp+70h],ecx                             
+   490E9  test    ecx,ecx                                   
+   490EB  je      near 0000000000049334h                    
+   490F1  test    bl,bl                                     
+   490F3  jne     near 0000000000049366h                    
+   490F9  lea     ecx,[rdx+rax]                             
+   490FC  mov     rax,[rsp+0A0h]                            
+   49104  mov     r9d,[rax+rcx*8]                           
+   49108  mov     r8d,[rax+rcx*8+4]                         
+   4910D  shl     r9d,10h                                   
+   49111  shl     r8d,10h                                   
+   49115  lea     ecx,[r8+r9]                               
+   49119  cmp     rcx,r10                                   
+   4911C  jbe     short 0000000000049124h                   
+   4911E  mov     r8d,r10d                                  
+   49121  sub     r8d,r9d                                   
+   49124  lea     r10d,[r9+r15]                             
+   49128  test    r8d,r8d                                   
+   4912B  je      near 00000000000492FEh                    
+   49131  mov     rdx,[rsi+1C8h]                            
+   49138  mov     ecx,r13d                                  
+   4913B  mov     rax,[rdx+67A8h]                           
+   49142  cmp     [rdx+67C0h],cl                            
+   49148  je      short 000000000004915Eh                   
+   4914A  test    rax,rax                                   
+   4914D  je      short 00000000000491ACh                   
+   4914F  nop                                               
+   49150  add     ecx,[rax+14h]                             
+   49153  mov     rax,[rax+30h]                             
+   49157  test    rax,rax                                   
+   4915A  jne     short 0000000000049150h                   
+   4915C  jmp     short 00000000000491ACh                   
+   4915E  test    rax,rax                                   
+   49161  je      short 000000000004916Fh                   
+   49163  add     ecx,[rax+14h]                             
+   49166  mov     rax,[rax+30h]                             
+   4916A  test    rax,rax                                   
+   4916D  jne     short 0000000000049163h                   
+   4916F  mov     rax,[rdx+67B0h]                           
+   49176  test    rax,rax                                   
+   49179  je      short 000000000004918Ch                   
+   4917B  nop     dword [rax+rax]                           
+   49180  add     ecx,[rax+14h]                             
+   49183  mov     rax,[rax+30h]                             
+   49187  test    rax,rax                                   
+   4918A  jne     short 0000000000049180h                   
+   4918C  mov     rax,[rdx+67B8h]                           
+   49193  test    rax,rax                                   
+   49196  je      short 00000000000491ACh                   
+   49198  nop     dword [rax+rax]                           
+   491A0  add     ecx,[rax+14h]                             
+   491A3  mov     rax,[rax+30h]                             
+   491A7  test    rax,rax                                   
+   491AA  jne     short 00000000000491A0h                   
+   491AC  imul    ecx,[rsi+134h]                            
+   491B3  mov     r14d,r8d                                  
+   491B6  mov     edx,ecx                                   
+   491B8  mov     rcx,[rsi+488h]                            
+   491BF  add     rcx,r14                                   
+   491C2  shl     rdx,10h                                   
+   491C6  cmp     rcx,rdx                                   
+   491C9  ja      near 000000000004935Bh                    
+   491CF  mov     eax,[rsi+490h]                            
+   491D5  inc     eax                                       
+   491D7  cmp     eax,[rsi+13Ch]                            
+   491DD  ja      near 000000000004935Bh                    
+   491E3  mov     r15d,[rsp+6Ch]                            
+   491E8  mov     eax,1                                     
+   491ED  imul    rcx,r15,7FFF0000h                         
+   491F4  mov     ebp,r10d                                  
+   491F7  add     rcx,rbp                                   
+   491FA  mov     r12d,r9d                                  
+   491FD  mov     r11,rcx                                   
+   49200  shr     r11,10h                                   
+   49204  cmp     r14,rax                                   
+   49207  cmovae  eax,r14d                                  
+   4920B  dec     rcx                                       
+   4920E  add     rcx,rax                                   
+   49211  shr     rcx,10h                                   
+   49215  inc     ecx                                       
+   49217  mov     eax,ecx                                   
+   49219  sub     eax,r11d                                  
+   4921C  cmp     ecx,[rsi+550h]                            
+   49222  ja      near 00000000000492F2h                    
+   49228  mov     ebx,r13d                                  
+   4922B  test    eax,eax                                   
+   4922D  je      near 00000000000492EAh                    
+   49233  mov     edi,eax                                   
+   49235  nop     word [rax+rax]                            
+   49240  mov     rax,[rsi+540h]                            
+   49247  mov     ecx,r11d                                  
+   4924A  and     ecx,1Fh                                   
+   4924D  mov     edx,1                                     
+   49252  shl     edx,cl                                    
+   49254  mov     ecx,r11d                                  
+   49257  shr     rcx,5                                     
+   4925B  lea     r9,[rax+rcx*4]                            
+   4925F  xor     eax,eax                                   
+   49261  lock cmpxchg [r9],r13d                            
+   49266  mov     r10d,edx                                  
+   49269  not     r10d                                      
+   4926C  nop     dword [rax]                               
+   49270  mov     ecx,eax                                   
+   49272  mov     r8d,eax                                   
+   49275  and     ecx,edx                                   
+   49277  jne     short 0000000000049290h                   
+   49279  mov     ecx,r10d                                  
+   4927C  and     ecx,eax                                   
+   4927E  or      ecx,edx                                   
+   49280  lock cmpxchg [r9],ecx                             
+   49285  cmp     eax,r8d                                   
+   49288  jne     short 0000000000049270h                   
+   4928A  test    edx,eax                                   
+   4928C  jne     short 0000000000049290h                   
+   4928E  inc     ebx                                       
+   49290  inc     r11d                                      
+   49293  sub     rdi,1                                     
+   49297  jne     short 0000000000049240h                   
+   49299  test    ebx,ebx                                   
+   4929B  je      short 00000000000492EAh                   
+   4929D  movzx   eax,word [rsi+14Ch]                       
+   492A4  mov     r9,r12                                    
+   492A7  mov     rcx,[rsi+r15*8+2F0h]                      
+   492AF  dec     ax                                        
+   492B2  mov     [rsp+40h],r13                             
+   492B7  mov     r8,r14                                    
+   492BA  mov     [rsp+38h],ax                              
+   492BF  mov     rdx,rbp                                   
+   492C2  mov     rax,[rsp+0A8h]                            
+   492CA  mov     [rsp+30h],r13b                            
+   492CF  mov     [rsp+20h],rax                             
+   492D4  shl     rbx,10h                                   
+   492D8  call    0000000000049D5Ch                         
+   492DD  add     [rsi+488h],rbx                            
+   492E4  inc     dword [rsi+490h]                          
+   492EA  movzx   ebx,byte [rsp+118h]                       
+   492F2  mov     r15d,[rsp+54h]                            
+   492F7  mov     edx,[rsp+100h]                            
+   492FE  mov     eax,[rsp+60h]                             
+   49302  mov     r10,[rsp+88h]                             
+   4930A  inc     eax                                       
+   4930C  mov     [rsp+60h],eax                             
+   49310  cmp     eax,[rsp+70h]                             
+   49314  jb      near 00000000000490F1h                    
+   4931A  mov     edi,[rsp+58h]                             
+   4931E  mov     r14d,[rsp+50h]                            
+   49323  mov     r12,[rsp+78h]                             
+   49328  test    bl,bl                                     
+   4932A  jne     short 0000000000049374h                   
+   4932C  mov     rbp,[rsp+80h]                             
+   49334  mov     rcx,[rsi+568h]                            
+   4933B  xor     eax,eax                                   
+   4933D  lock cmpxchg [rcx+r12],r13d                       
+   49343  test    al,1                                      
+   49345  je      short 0000000000049351h                   
+   49347  mov     edx,edi                                   
+   49349  mov     rcx,rbp                                   
+   4934C  call    0000000000049950h                         
+   49351  inc     r14d                                      
+   49354  mov     [rsp+50h],r14d                            
+   49359  jmp     short 0000000000049374h                   
+   4935B  mov     bl,1                                      
+   4935D  mov     [rsp+118h],bl                             
+   49364  jmp     short 00000000000492F7h                   
+   49366  mov     edi,[rsp+58h]                             
+   4936A  mov     r14d,[rsp+50h]                            
+   4936F  mov     r12,[rsp+78h]                             
+   49374  mov     r11d,[rsp+5Ch]                            
+   49379  mov     rbp,[rsp+80h]                             
+   49381  inc     edi                                       
+   49383  mov     r10,[rsp+88h]                             
+   4938B  mov     eax,edi                                   
+   4938D  sub     eax,[rsp+64h]                             
+   49391  mov     r8d,[rsp+74h]                             
+   49396  mov     [rsp+58h],edi                             
+   4939A  cmp     eax,[rsp+68h]                             
+   4939E  jb      near 0000000000048FE6h                    
+   493A4  test    bl,bl                                     
+   493A6  jne     short 00000000000493B3h                   
+   493A8  mov     rax,[rsp+128h]                            
+   493B0  mov     [rax],r14d                                
+   493B3  mov     r14,[rsp+128h]                            
+   493BB  mov     r15,[rsp+0B8h]                            
+   493C3  cmp     [r14],r13d                                
+   493C6  mov     r14,[rsp+0C0h]                            
+   493CE  jne     short 0000000000049431h                   
+   493D0  mov     r8,[rsi+568h]                             
+   493D7  add     r8,r12                                    
+   493DA  xor     eax,eax                                   
+   493DC  lock cmpxchg [r8],r13d                            
+   493E1  mov     ecx,eax                                   
+   493E3  mov     edx,eax                                   
+   493E5  bts     ecx,9                                     
+   493E9  lock cmpxchg [r8],ecx                             
+   493EE  cmp     eax,edx                                   
+   493F0  jne     short 00000000000493E1h                   
+   493F2  add     rsp,0C8h                                  
+   493F9  pop     r13                                       
+   493FB  pop     r12                                       
+   493FD  pop     rdi                                       
+   493FE  pop     rsi                                       
+   493FF  pop     rbp                                       
+   49400  pop     rbx                                       
+   49401  ret                                               
+   49402  mov     rax,[rsp+128h]                            
+   4940A  xor     r13d,r13d                                 
+   4940D  mov     [rax],r13d                                
+   49410  xor     eax,eax                                   
+   49412  lock cmpxchg [r9],r13d                            
+   49417  nop     word [rax+rax]                            
+   49420  mov     ecx,eax                                   
+   49422  mov     edx,eax                                   
+   49424  bts     ecx,9                                     
+   49428  lock cmpxchg [r9],ecx                             
+   4942D  cmp     eax,edx                                   
+   4942F  jne     short 0000000000049420h                   
+   49431  add     rsp,0C8h                                  
+   49438  pop     r13                                       
+   4943A  pop     r12                                       
+   4943C  pop     rdi                                       
+   4943D  pop     rsi                                       
+   4943E  pop     rbp                                       
+   4943F  pop     rbx                                       
+   49440  ret                                               

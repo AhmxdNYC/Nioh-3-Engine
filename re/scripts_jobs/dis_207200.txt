@@ -1,0 +1,188 @@
+; ---- Nioh3+207200 .. +207491 (pdata fn Some (2126336u, 2126993u))
+  207200  mov     rax,rsp                                   
+  207203  mov     [rax+18h],rbx                             
+  207207  push    rbp                                       
+  207208  push    rsi                                       
+  207209  push    rdi                                       
+  20720A  push    r12                                       
+  20720C  push    r13                                       
+  20720E  push    r14                                       
+  207210  push    r15                                       
+  207212  sub     rsp,30h                                   
+  207216  mov     rsi,[rcx+8]                               
+  20721A  lea     r8,[rax+8]                                
+  20721E  xor     r13d,r13d                                 
+  207221  mov     byte [rax+8],1                            
+  207225  xor     edx,edx                                   
+  207227  mov     [rax-48h],r13b                            
+  20722B  mov     rcx,rsi                                   
+  20722E  mov     rbx,[rsi+428h]                            
+  207235  mov     r9,rbx                                    
+  207238  call    0000000000040800h                         
+  20723D  mov     rcx,[rbx]                                 
+  207240  mov     r14b,al                                   
+  207243  mov     [rsp+78h],al                              
+  207247  mov     r8d,r13d                                  
+  20724A  test    rcx,rcx                                   
+  20724D  jne     near 0000000000207303h                    
+  207253  mov     r15d,7Fh                                  
+  207259  lea     r12d,[r15-5Fh]                            
+  20725D  test    r8,r8                                     
+  207260  jne     near 000000000020731Ah                    
+  207266  test    r14b,r14b                                 
+  207269  jne     short 00000000002072E1h                   
+  20726B  mov     r8,[rsi+440h]                             
+  207272  mov     rcx,rsi                                   
+  207275  mov     rax,3AEF6CA970586723h                     
+  20727F  mov     r14,[r8+10h]                              
+  207283  mov     ebp,[r8+28h]                              
+  207287  sub     rcx,r14                                   
+  20728A  imul    rcx                                       
+  20728D  mov     rdi,rdx                                   
+  207290  sar     rdi,8                                     
+  207294  mov     rax,rdi                                   
+  207297  shr     rax,3Fh                                   
+  20729B  add     rdi,rax                                   
+  20729E  lea     eax,[rdi+1]                               
+  2072A1  cmp     eax,ebp                                   
+  2072A3  mov     ebx,r13d                                  
+  2072A6  cmovl   ebx,eax                                   
+  2072A9  cmp     edi,ebx                                   
+  2072AB  je      short 00000000002072D2h                   
+  2072AD  movsxd  rax,ebx                                   
+  2072B0  xor     edx,edx                                   
+  2072B2  imul    rcx,rax,458h                              
+  2072B9  add     rcx,r14                                   
+  2072BC  call    00000000000411C0h                         
+  2072C1  mov     r11,rax                                   
+  2072C4  test    rax,rax                                   
+  2072C7  jne     near 00000000002073E2h                    
+  2072CD  lea     eax,[rbx+1]                               
+  2072D0  jmp     short 00000000002072A1h                   
+  2072D2  xor     eax,eax                                   
+  2072D4  lock cmpxchg [rsi+454h],r13d                      
+  2072DD  test    al,1                                      
+  2072DF  je      short 00000000002072F9h                   
+  2072E1  mov     rbx,[rsp+80h]                             
+  2072E9  add     rsp,30h                                   
+  2072ED  pop     r15                                       
+  2072EF  pop     r14                                       
+  2072F1  pop     r13                                       
+  2072F3  pop     r12                                       
+  2072F5  pop     rdi                                       
+  2072F6  pop     rsi                                       
+  2072F7  pop     rbp                                       
+  2072F8  ret                                               
+  2072F9  xor     ecx,ecx                                   
+  2072FB  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+  207301  jmp     short 00000000002072E1h                   
+  207303  lea     r8,[rbx+rcx*4]                            
+  207307  mov     rcx,[r8+28h]                              
+  20730B  mov     [rbx],rcx                                 
+  20730E  mov     rcx,r13                                   
+  207311  xchg    rcx,[r8+28h]                              
+  207315  jmp     0000000000207253h                         
+  20731A  mov     r14d,r15d                                 
+  20731D  movsx   ecx,word [r8+20h]                         
+  207322  mov     rdi,r13                                   
+  207325  mov     r10,[rsi+448h]                            
+  20732C  dec     ecx                                       
+  20732E  cmp     ecx,80h                                   
+  207334  cmovge  ecx,r14d                                  
+  207338  mov     eax,ecx                                   
+  20733A  movsxd  rcx,ecx                                   
+  20733D  cdq                                               
+  20733E  idiv    r12d                                      
+  207341  movsxd  r9,eax                                    
+  207344  mov     r12d,edx                                  
+  207347  mov     rax,[rsi+418h]                            
+  20734E  lea     rbp,[rax+rcx*8]                           
+  207352  xor     eax,eax                                   
+  207354  lock cmpxchg [rbp],r13                            
+  20735A  mov     edx,[r8+30h]                              
+  20735E  mov     r15,r8                                    
+  207361  sub     r15,rbp                                   
+  207364  mov     r11,rax                                   
+  207367  sar     r15,2                                     
+  20736B  mov     r15d,r15d                                 
+  20736E  lea     ecx,[rdx+1]                               
+  207371  mov     [r8+30h],ecx                              
+  207375  mov     ecx,edx                                   
+  207377  shl     rcx,20h                                   
+  20737B  or      r15,rcx                                   
+  20737E  mov     rax,rdi                                   
+  207381  lock cmpxchg [r8+28h],r11                         
+  207387  mov     rdi,r11                                   
+  20738A  mov     rax,r11                                   
+  20738D  lock cmpxchg [rbp],r15                            
+  207393  mov     r11,rax                                   
+  207396  cmp     rdi,rax                                   
+  207399  jne     short 000000000020737Eh                   
+  20739B  xor     eax,eax                                   
+  20739D  lock cmpxchg [r10+r9*4],r13d                      
+  2073A3  mov     ecx,eax                                   
+  2073A5  mov     edx,eax                                   
+  2073A7  bts     ecx,r12d                                  
+  2073AB  lock cmpxchg [r10+r9*4],ecx                       
+  2073B1  cmp     edx,eax                                   
+  2073B3  jne     short 00000000002073A3h                   
+  2073B5  mov     rax,[rbx]                                 
+  2073B8  mov     r8,r13                                    
+  2073BB  test    rax,rax                                   
+  2073BE  jne     near 000000000020747Ah                    
+  2073C4  mov     r12d,20h                                  
+  2073CA  test    r8,r8                                     
+  2073CD  jne     near 000000000020731Dh                    
+  2073D3  mov     r14b,[rsp+78h]                            
+  2073D8  lea     r15d,[r12+5Fh]                            
+  2073DD  jmp     0000000000207266h                         
+  2073E2  movsx   ecx,word [rax+20h]                        
+  2073E6  mov     rbx,r13                                   
+  2073E9  mov     r10,[rsi+448h]                            
+  2073F0  dec     ecx                                       
+  2073F2  cmp     ecx,80h                                   
+  2073F8  cmovge  ecx,r15d                                  
+  2073FC  mov     eax,ecx                                   
+  2073FE  movsxd  rcx,ecx                                   
+  207401  cdq                                               
+  207402  idiv    r12d                                      
+  207405  movsxd  r9,eax                                    
+  207408  mov     ebp,edx                                   
+  20740A  mov     rax,[rsi+418h]                            
+  207411  lea     rdi,[rax+rcx*8]                           
+  207415  xor     eax,eax                                   
+  207417  lock cmpxchg [rdi],r13                            
+  20741C  mov     edx,[r11+30h]                             
+  207420  mov     rsi,r11                                   
+  207423  sub     rsi,rdi                                   
+  207426  mov     r8,rax                                    
+  207429  sar     rsi,2                                     
+  20742D  mov     esi,esi                                   
+  20742F  lea     ecx,[rdx+1]                               
+  207432  mov     [r11+30h],ecx                             
+  207436  mov     ecx,edx                                   
+  207438  shl     rcx,20h                                   
+  20743C  or      rsi,rcx                                   
+  20743F  mov     rax,rbx                                   
+  207442  lock cmpxchg [r11+28h],r8                         
+  207448  mov     rbx,r8                                    
+  20744B  mov     rax,r8                                    
+  20744E  lock cmpxchg [rdi],rsi                            
+  207453  mov     r8,rax                                    
+  207456  cmp     rbx,rax                                   
+  207459  jne     short 000000000020743Fh                   
+  20745B  xor     eax,eax                                   
+  20745D  lock cmpxchg [r10+r9*4],r13d                      
+  207463  mov     ecx,eax                                   
+  207465  mov     edx,eax                                   
+  207467  bts     ecx,ebp                                   
+  20746A  lock cmpxchg [r10+r9*4],ecx                       
+  207470  cmp     edx,eax                                   
+  207472  je      near 00000000002072E1h                    
+  207478  jmp     short 0000000000207463h                   
+  20747A  lea     r8,[rbx+rax*4]                            
+  20747E  mov     rax,[r8+28h]                              
+  207482  mov     [rbx],rax                                 
+  207485  mov     rax,r13                                   
+  207488  xchg    rax,[r8+28h]                              
+  20748C  jmp     00000000002073C4h                         

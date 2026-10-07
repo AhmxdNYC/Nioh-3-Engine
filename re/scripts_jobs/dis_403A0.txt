@@ -1,0 +1,22 @@
+; ---- Nioh3+403A0 .. +403EA (pdata fn Some (263072u, 263146u))
+   403A0  push    rbx                                       
+   403A2  push    rsi                                       
+   403A3  push    r13                                       
+   403A5  push    r15                                       
+   403A7  sub     rsp,38h                                   
+   403AB  movsx   eax,word [rdx+20h]                        
+   403AF  xor     r13d,r13d                                 
+   403B2  mov     r15,rcx                                   
+   403B5  test    r9d,r9d                                   
+   403B8  jne     near 00000000000404A8h                    
+   403BE  lea     esi,[rax-1]                               
+   403C1  mov     rbx,[rcx+428h]                            
+   403C8  mov     edx,esi                                   
+   403CA  mov     r9,rbx                                    
+   403CD  mov     [rsp+20h],r13b                            
+   403D2  call    0000000000040800h                         
+   403D7  movzx   r9d,al                                    
+   403DB  mov     r8,r13                                    
+   403DE  mov     rax,[rbx]                                 
+   403E1  test    rax,rax                                   
+   403E4  jne     near 00000000000404C1h                    

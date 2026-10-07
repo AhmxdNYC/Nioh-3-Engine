@@ -1,0 +1,526 @@
+== func 1FE14CC-1FE22F5
+01FE14CC  488BC4                   mov rax,rsp
+01FE14CF  48895808                 mov [rax+8],rbx
+01FE14D3  48896810                 mov [rax+10h],rbp
+01FE14D7  48897018                 mov [rax+18h],rsi
+01FE14DB  48897820                 mov [rax+20h],rdi
+01FE14DF  4156                     push r14
+01FE14E1  4883EC20                 sub rsp,20h
+01FE14E5  65488B042558000000       mov rax,[gs:58h]
+01FE14EE  4863D9                   movsxd rbx,ecx
+01FE14F1  B918000000               mov ecx,18h
+01FE14F6  488B10                   mov rdx,[rax]
+01FE14F9  8B0411                   mov eax,[rcx+rdx]
+01FE14FC  3905427DBC02             cmp [rel R_4BA9244],eax
+01FE1502  7F36                     jg short R_1FE153A
+01FE1504  83FB3B                   cmp ebx,3Bh
+01FE1507  7714                     ja short R_1FE151D
+01FE1509  488D045B                 lea rax,[rbx+rbx*2]
+01FE150D  48C1E004                 shl rax,4
+01FE1511  488D0D58705E02           lea rcx,[rel R_45C8570]
+01FE1518  4803C1                   add rax,rcx
+01FE151B  EB02                     jmp short R_1FE151F
+01FE151D  33C0                     xor eax,eax
+01FE151F  488B5C2430               mov rbx,[rsp+30h]
+01FE1524  488B6C2438               mov rbp,[rsp+38h]
+01FE1529  488B742440               mov rsi,[rsp+40h]
+01FE152E  488B7C2448               mov rdi,[rsp+48h]
+01FE1533  4883C420                 add rsp,20h
+01FE1537  415E                     pop r14
+01FE1539  C3                       ret
+01FE153A  488D0D037DBC02           lea rcx,[rel R_4BA9244]
+01FE1541  E80200BBFE               call R_B91548
+01FE1546  4183CEFF                 or r14d,0FFFFFFFFh
+01FE154A  443935F37CBC02           cmp [rel R_4BA9244],r14d
+01FE1551  75B1                     jne short R_1FE1504
+01FE1553  33ED                     xor ebp,ebp
+01FE1555  44893534705E02           mov [rel R_45C8590],r14d
+01FE155C  0F57C0                   xorps xmm0,xmm0
+01FE155F  48C7052A705E0202000000   mov qword [rel R_45C8594],2
+01FE156A  488D058790AB01           lea rax,[rel R_3A9A5F8]
+01FE1571  892D25705E02             mov [rel R_45C859C],ebp
+01FE1577  488905F26F5E02           mov [rel R_45C8570],rax
+01FE157E  458D4E0B                 lea r9d,[r14+0Bh]
+01FE1582  488D0597A4AB01           lea rax,[rel R_3A9BA20]
+01FE1589  44893530705E02           mov [rel R_45C85C0],r14d
+01FE1590  488905E16F5E02           mov [rel R_45C8578],rax
+01FE1597  4C8D1D92A2AB01           lea r11,[rel R_3A9B830]
+01FE159E  488D056390AB01           lea rax,[rel R_3A9A608]
+01FE15A5  4C890D18705E02           mov [rel R_45C85C4],r9
+01FE15AC  488905ED6F5E02           mov [rel R_45C85A0],rax
+01FE15B3  41B800000080             mov r8d,80000000h
+01FE15B9  488D0510A4AB01           lea rax,[rel R_3A9B9D0]
+01FE15C0  892D06705E02             mov [rel R_45C85CC],ebp
+01FE15C6  488905DB6F5E02           mov [rel R_45C85A8],rax
+01FE15CD  B9FFFFFF7F               mov ecx,7FFFFFFFh
+01FE15D2  488D055F90AB01           lea rax,[rel R_3A9A638]
+01FE15D9  44893510705E02           mov [rel R_45C85F0],r14d
+01FE15E0  488905E96F5E02           mov [rel R_45C85D0],rax
+01FE15E7  418D5001                 lea edx,[r8+1]
+01FE15EB  488D054EA4AB01           lea rax,[rel R_3A9BA40]
+01FE15F2  4C890DFB6F5E02           mov [rel R_45C85F4],r9
+01FE15F9  488905D86F5E02           mov [rel R_45C85D8],rax
+01FE1600  488D053D90AB01           lea rax,[rel R_3A9A644]
+01FE1607  488905F26F5E02           mov [rel R_45C8600],rax
+01FE160E  488D051BA4AB01           lea rax,[rel R_3A9BA30]
+01FE1615  488905EC6F5E02           mov [rel R_45C8608],rax
+01FE161C  488D05F58FAB01           lea rax,[rel R_3A9A618]
+01FE1623  48890506705E02           mov [rel R_45C8630],rax
+01FE162A  33C0                     xor eax,eax
+01FE162C  48890515705E02           mov [rel R_45C8648],rax
+01FE1633  488D05EE8FAB01           lea rax,[rel R_3A9A628]
+01FE163A  4889051F705E02           mov [rel R_45C8660],rax
+01FE1641  33C0                     xor eax,eax
+01FE1643  4889052E705E02           mov [rel R_45C8678],rax
+01FE164A  488D059790AB01           lea rax,[rel R_3A9A6E8]
+01FE1651  48890538705E02           mov [rel R_45C8690],rax
+01FE1658  488D0551A1AB01           lea rax,[rel R_3A9B7B0]
+01FE165F  48890532705E02           mov [rel R_45C8698],rax
+01FE1666  488D058390AB01           lea rax,[rel R_3A9A6F0]
+01FE166D  4889054C705E02           mov [rel R_45C86C0],rax
+01FE1674  488D05559DAB01           lea rax,[rel R_3A9B3D0]
+01FE167B  48890546705E02           mov [rel R_45C86C8],rax
+01FE1682  488D054F90AB01           lea rax,[rel R_3A9A6D8]
+01FE1689  48890560705E02           mov [rel R_45C86F0],rax
+01FE1690  488D054990AB01           lea rax,[rel R_3A9A6E0]
+01FE1697  0F1105E26E5E02           movups [rel R_45C8580],xmm0
+01FE169E  892D586F5E02             mov [rel R_45C85FC],ebp
+01FE16A4  0F1105056F5E02           movups [rel R_45C85B0],xmm0
+01FE16AB  4489356E6F5E02           mov [rel R_45C8620],r14d
+01FE16B2  0F1105276F5E02           movups [rel R_45C85E0],xmm0
+01FE16B9  48C705606F5E0202000000   mov qword [rel R_45C8624],2
+01FE16C4  0F1105456F5E02           movups [rel R_45C8610],xmm0
+01FE16CB  892D5B6F5E02             mov [rel R_45C862C],ebp
+01FE16D1  0F1105606F5E02           movups [rel R_45C8638],xmm0
+01FE16D8  448905716F5E02           mov [rel R_45C8650],r8d
+01FE16DF  892D6F6F5E02             mov [rel R_45C8654],ebp
+01FE16E5  89156D6F5E02             mov [rel R_45C8658],edx
+01FE16EB  890D6B6F5E02             mov [rel R_45C865C],ecx
+01FE16F1  0F1105706F5E02           movups [rel R_45C8668],xmm0
+01FE16F8  448905816F5E02           mov [rel R_45C8680],r8d
+01FE16FF  892D7F6F5E02             mov [rel R_45C8684],ebp
+01FE1705  89157D6F5E02             mov [rel R_45C8688],edx
+01FE170B  890D7B6F5E02             mov [rel R_45C868C],ecx
+01FE1711  0F1105886F5E02           movups [rel R_45C86A0],xmm0
+01FE1718  448935916F5E02           mov [rel R_45C86B0],r14d
+01FE171F  48C7058A6F5E020D000000   mov qword [rel R_45C86B4],0Dh
+01FE172A  892D8C6F5E02             mov [rel R_45C86BC],ebp
+01FE1730  0F1105996F5E02           movups [rel R_45C86D0],xmm0
+01FE1737  448935A26F5E02           mov [rel R_45C86E0],r14d
+01FE173E  48C7059B6F5E027C000000   mov qword [rel R_45C86E4],7Ch
+01FE1749  892D9D6F5E02             mov [rel R_45C86EC],ebp
+01FE174F  4C891DA26F5E02           mov [rel R_45C86F8],r11
+01FE1756  0F1105A36F5E02           movups [rel R_45C8700],xmm0
+01FE175D  448935AC6F5E02           mov [rel R_45C8710],r14d
+01FE1764  48C705A56F5E0210000000   mov qword [rel R_45C8714],10h
+01FE176F  892DA76F5E02             mov [rel R_45C871C],ebp
+01FE1775  488905A46F5E02           mov [rel R_45C8720],rax
+01FE177C  488D0DDD9BAB01           lea rcx,[rel R_3A9B360]
+01FE1783  488D058EA0AB01           lea rax,[rel R_3A9B818]
+01FE178A  48890DC76F5E02           mov [rel R_45C8758],rcx
+01FE1791  488905906F5E02           mov [rel R_45C8728],rax
+01FE1798  8D5564                   lea edx,[rbp+64h]
+01FE179B  488D05868FAB01           lea rax,[rel R_3A9A728]
+01FE17A2  48890DDF6F5E02           mov [rel R_45C8788],rcx
+01FE17A9  488905A06F5E02           mov [rel R_45C8750],rax
+01FE17B0  B9F4010000               mov ecx,1F4h
+01FE17B5  488D05788FAB01           lea rax,[rel R_3A9A734]
+01FE17BC  4489357D6F5E02           mov [rel R_45C8740],r14d
+01FE17C3  488905B66F5E02           mov [rel R_45C8780],rax
+01FE17CA  488D05278FAB01           lea rax,[rel R_3A9A6F8]
+01FE17D1  488905D86F5E02           mov [rel R_45C87B0],rax
+01FE17D8  33C0                     xor eax,eax
+01FE17DA  488905E76F5E02           mov [rel R_45C87C8],rax
+01FE17E1  488D05288FAB01           lea rax,[rel R_3A9A710]
+01FE17E8  488905F16F5E02           mov [rel R_45C87E0],rax
+01FE17EF  33C0                     xor eax,eax
+01FE17F1  48890500705E02           mov [rel R_45C87F8],rax
+01FE17F8  488D05718EAB01           lea rax,[rel R_3A9A670]
+01FE17FF  4889050A705E02           mov [rel R_45C8810],rax
+01FE1806  33C0                     xor eax,eax
+01FE1808  48890519705E02           mov [rel R_45C8828],rax
+01FE180F  488D056A8EAB01           lea rax,[rel R_3A9A680]
+01FE1816  48890523705E02           mov [rel R_45C8840],rax
+01FE181D  33C0                     xor eax,eax
+01FE181F  48890532705E02           mov [rel R_45C8858],rax
+01FE1826  488D05238EAB01           lea rax,[rel R_3A9A650]
+01FE182D  4889053C705E02           mov [rel R_45C8870],rax
+01FE1834  33C0                     xor eax,eax
+01FE1836  4889054B705E02           mov [rel R_45C8888],rax
+01FE183D  488D051C8EAB01           lea rax,[rel R_3A9A660]
+01FE1844  48890555705E02           mov [rel R_45C88A0],rax
+01FE184B  33C0                     xor eax,eax
+01FE184D  48890564705E02           mov [rel R_45C88B8],rax
+01FE1854  488D05618EAB01           lea rax,[rel R_3A9A6BC]
+01FE185B  4889056E705E02           mov [rel R_45C88D0],rax
+01FE1862  488D05C79AAB01           lea rax,[rel R_3A9B330]
+01FE1869  48890568705E02           mov [rel R_45C88D8],rax
+01FE1870  0F1105B96E5E02           movups [rel R_45C8730],xmm0
+01FE1877  48C705C26E5E0203000000   mov qword [rel R_45C8744],3
+01FE1882  892DC46E5E02             mov [rel R_45C874C],ebp
+01FE1888  0F1105D16E5E02           movups [rel R_45C8760],xmm0
+01FE188F  448935DA6E5E02           mov [rel R_45C8770],r14d
+01FE1896  48C705D36E5E0202000000   mov qword [rel R_45C8774],2
+01FE18A1  892DD56E5E02             mov [rel R_45C877C],ebp
+01FE18A7  0F1105E26E5E02           movups [rel R_45C8790],xmm0
+01FE18AE  448935EB6E5E02           mov [rel R_45C87A0],r14d
+01FE18B5  48C705E46E5E0202000000   mov qword [rel R_45C87A4],2
+01FE18C0  892DE66E5E02             mov [rel R_45C87AC],ebp
+01FE18C6  0F1105EB6E5E02           movups [rel R_45C87B8],xmm0
+01FE18CD  448935FC6E5E02           mov [rel R_45C87D0],r14d
+01FE18D4  892DFA6E5E02             mov [rel R_45C87D4],ebp
+01FE18DA  890DF86E5E02             mov [rel R_45C87D8],ecx
+01FE18E0  C705F26E5E02E8030000     mov dword [rel R_45C87DC],3E8h
+01FE18EA  0F1105F76E5E02           movups [rel R_45C87E8],xmm0
+01FE18F1  448935086F5E02           mov [rel R_45C8800],r14d
+01FE18F8  892D066F5E02             mov [rel R_45C8804],ebp
+01FE18FE  8915046F5E02             mov [rel R_45C8808],edx
+01FE1904  890D026F5E02             mov [rel R_45C880C],ecx
+01FE190A  0F1105076F5E02           movups [rel R_45C8818],xmm0
+01FE1911  448935186F5E02           mov [rel R_45C8830],r14d
+01FE1918  48892D156F5E02           mov [rel R_45C8834],rbp
+01FE191F  44890D166F5E02           mov [rel R_45C883C],r9d
+01FE1926  0F11051B6F5E02           movups [rel R_45C8848],xmm0
+01FE192D  4489352C6F5E02           mov [rel R_45C8860],r14d
+01FE1934  48892D296F5E02           mov [rel R_45C8864],rbp
+01FE193B  89152B6F5E02             mov [rel R_45C886C],edx
+01FE1941  0F1105306F5E02           movups [rel R_45C8878],xmm0
+01FE1948  448935416F5E02           mov [rel R_45C8890],r14d
+01FE194F  48892D3E6F5E02           mov [rel R_45C8894],rbp
+01FE1956  44890D3F6F5E02           mov [rel R_45C889C],r9d
+01FE195D  0F1105446F5E02           movups [rel R_45C88A8],xmm0
+01FE1964  448935556F5E02           mov [rel R_45C88C0],r14d
+01FE196B  48892D526F5E02           mov [rel R_45C88C4],rbp
+01FE1972  8915546F5E02             mov [rel R_45C88CC],edx
+01FE1978  0F1105616F5E02           movups [rel R_45C88E0],xmm0
+01FE197F  4489356A6F5E02           mov [rel R_45C88F0],r14d
+01FE1986  48C705636F5E0206000000   mov qword [rel R_45C88F4],6
+01FE1991  488D05308DAB01           lea rax,[rel R_3A9A6C8]
+01FE1998  892D5E6F5E02             mov [rel R_45C88FC],ebp
+01FE199E  4889055B6F5E02           mov [rel R_45C8900],rax
+01FE19A5  8D5505                   lea edx,[rbp+5]
+01FE19A8  488D05E999AB01           lea rax,[rel R_3A9B398]
+01FE19AF  4489356A6F5E02           mov [rel R_45C8920],r14d
+01FE19B6  4889054B6F5E02           mov [rel R_45C8908],rax
+01FE19BD  488D05CC8CAB01           lea rax,[rel R_3A9A690]
+01FE19C4  488905656F5E02           mov [rel R_45C8930],rax
+01FE19CB  488D059E99AB01           lea rax,[rel R_3A9B370]
+01FE19D2  4889055F6F5E02           mov [rel R_45C8938],rax
+01FE19D9  488D05C88CAB01           lea rax,[rel R_3A9A6A8]
+01FE19E0  488905796F5E02           mov [rel R_45C8960],rax
+01FE19E7  488D056A9FAB01           lea rax,[rel R_3A9B958]
+01FE19EE  488905736F5E02           mov [rel R_45C8968],rax
+01FE19F5  488D05EC8DAB01           lea rax,[rel R_3A9A7E8]
+01FE19FC  4889058D6F5E02           mov [rel R_45C8990],rax
+01FE1A03  488D051E9FAB01           lea rax,[rel R_3A9B928]
+01FE1A0A  488905876F5E02           mov [rel R_45C8998],rax
+01FE1A11  488D05D48DAB01           lea rax,[rel R_3A9A7EC]
+01FE1A18  488905A16F5E02           mov [rel R_45C89C0],rax
+01FE1A1F  488D057A9FAB01           lea rax,[rel R_3A9B9A0]
+01FE1A26  4889059B6F5E02           mov [rel R_45C89C8],rax
+01FE1A2D  488D05948DAB01           lea rax,[rel R_3A9A7C8]
+01FE1A34  488905B56F5E02           mov [rel R_45C89F0],rax
+01FE1A3B  488D05469FAB01           lea rax,[rel R_3A9B988]
+01FE1A42  488905AF6F5E02           mov [rel R_45C89F8],rax
+01FE1A49  488D05888DAB01           lea rax,[rel R_3A9A7D8]
+01FE1A50  488905C96F5E02           mov [rel R_45C8A20],rax
+01FE1A57  488D056A9EAB01           lea rax,[rel R_3A9B8C8]
+01FE1A5E  488905C36F5E02           mov [rel R_45C8A28],rax
+01FE1A65  488D05AC8DAB01           lea rax,[rel R_3A9A818]
+01FE1A6C  488905DD6F5E02           mov [rel R_45C8A50],rax
+01FE1A73  488D05369EAB01           lea rax,[rel R_3A9B8B0]
+01FE1A7A  488905D76F5E02           mov [rel R_45C8A58],rax
+01FE1A81  488D05A08DAB01           lea rax,[rel R_3A9A828]
+01FE1A88  488905F16F5E02           mov [rel R_45C8A80],rax
+01FE1A8F  488D05729EAB01           lea rax,[rel R_3A9B908]
+01FE1A96  488905EB6F5E02           mov [rel R_45C8A88],rax
+01FE1A9D  488D054C8DAB01           lea rax,[rel R_3A9A7F0]
+01FE1AA4  48890505705E02           mov [rel R_45C8AB0],rax
+01FE1AAB  488D053E9EAB01           lea rax,[rel R_3A9B8F0]
+01FE1AB2  488905FF6F5E02           mov [rel R_45C8AB8],rax
+01FE1AB9  0F1105506E5E02           movups [rel R_45C8910],xmm0
+01FE1AC0  48C705596E5E0206000000   mov qword [rel R_45C8924],6
+01FE1ACB  892D5B6E5E02             mov [rel R_45C892C],ebp
+01FE1AD1  0F1105686E5E02           movups [rel R_45C8940],xmm0
+01FE1AD8  448935716E5E02           mov [rel R_45C8950],r14d
+01FE1ADF  4889156E6E5E02           mov [rel R_45C8954],rdx
+01FE1AE6  892D706E5E02             mov [rel R_45C895C],ebp
+01FE1AEC  0F11057D6E5E02           movups [rel R_45C8970],xmm0
+01FE1AF3  448935866E5E02           mov [rel R_45C8980],r14d
+01FE1AFA  48C7057F6E5E0206000000   mov qword [rel R_45C8984],6
+01FE1B05  892D816E5E02             mov [rel R_45C898C],ebp
+01FE1B0B  0F11058E6E5E02           movups [rel R_45C89A0],xmm0
+01FE1B12  448935976E5E02           mov [rel R_45C89B0],r14d
+01FE1B19  48C705906E5E0206000000   mov qword [rel R_45C89B4],6
+01FE1B24  892D926E5E02             mov [rel R_45C89BC],ebp
+01FE1B2A  0F11059F6E5E02           movups [rel R_45C89D0],xmm0
+01FE1B31  448935A86E5E02           mov [rel R_45C89E0],r14d
+01FE1B38  48C705A16E5E0206000000   mov qword [rel R_45C89E4],6
+01FE1B43  892DA36E5E02             mov [rel R_45C89EC],ebp
+01FE1B49  0F1105B06E5E02           movups [rel R_45C8A00],xmm0
+01FE1B50  448935B96E5E02           mov [rel R_45C8A10],r14d
+01FE1B57  48C705B26E5E0203000000   mov qword [rel R_45C8A14],3
+01FE1B62  892DB46E5E02             mov [rel R_45C8A1C],ebp
+01FE1B68  0F1105C16E5E02           movups [rel R_45C8A30],xmm0
+01FE1B6F  448935CA6E5E02           mov [rel R_45C8A40],r14d
+01FE1B76  488915C76E5E02           mov [rel R_45C8A44],rdx
+01FE1B7D  892DC96E5E02             mov [rel R_45C8A4C],ebp
+01FE1B83  0F1105D66E5E02           movups [rel R_45C8A60],xmm0
+01FE1B8A  448935DF6E5E02           mov [rel R_45C8A70],r14d
+01FE1B91  48C705D86E5E0203000000   mov qword [rel R_45C8A74],3
+01FE1B9C  892DDA6E5E02             mov [rel R_45C8A7C],ebp
+01FE1BA2  0F1105E76E5E02           movups [rel R_45C8A90],xmm0
+01FE1BA9  448935F06E5E02           mov [rel R_45C8AA0],r14d
+01FE1BB0  48C705E96E5E0204000000   mov qword [rel R_45C8AA4],4
+01FE1BBB  892DEB6E5E02             mov [rel R_45C8AAC],ebp
+01FE1BC1  0F1105F86E5E02           movups [rel R_45C8AC0],xmm0
+01FE1BC8  448935016F5E02           mov [rel R_45C8AD0],r14d
+01FE1BCF  48C705FA6E5E0203000000   mov qword [rel R_45C8AD4],3
+01FE1BDA  488D05278CAB01           lea rax,[rel R_3A9A808]
+01FE1BE1  892DF56E5E02             mov [rel R_45C8ADC],ebp
+01FE1BE7  488905F26E5E02           mov [rel R_45C8AE0],rax
+01FE1BEE  488D054B96AB01           lea rax,[rel R_3A9B240]
+01FE1BF5  488905EC6E5E02           mov [rel R_45C8AE8],rax
+01FE1BFC  488D05558BAB01           lea rax,[rel R_3A9A758]
+01FE1C03  488905066F5E02           mov [rel R_45C8B10],rax
+01FE1C0A  488D051796AB01           lea rax,[rel R_3A9B228]
+01FE1C11  488905006F5E02           mov [rel R_45C8B18],rax
+01FE1C18  488D05498BAB01           lea rax,[rel R_3A9A768]
+01FE1C1F  4889051A6F5E02           mov [rel R_45C8B40],rax
+01FE1C26  488D053B96AB01           lea rax,[rel R_3A9B268]
+01FE1C2D  488905146F5E02           mov [rel R_45C8B48],rax
+01FE1C34  488D05FD8AAB01           lea rax,[rel R_3A9A738]
+01FE1C3B  4889052E6F5E02           mov [rel R_45C8B70],rax
+01FE1C42  488D050796AB01           lea rax,[rel R_3A9B250]
+01FE1C49  488905286F5E02           mov [rel R_45C8B78],rax
+01FE1C50  488D05F18AAB01           lea rax,[rel R_3A9A748]
+01FE1C57  488905426F5E02           mov [rel R_45C8BA0],rax
+01FE1C5E  488D058395AB01           lea rax,[rel R_3A9B1E8]
+01FE1C65  4889053C6F5E02           mov [rel R_45C8BA8],rax
+01FE1C6C  488D05358BAB01           lea rax,[rel R_3A9A7A8]
+01FE1C73  488905566F5E02           mov [rel R_45C8BD0],rax
+01FE1C7A  488D055795AB01           lea rax,[rel R_3A9B1D8]
+01FE1C81  488905506F5E02           mov [rel R_45C8BD8],rax
+01FE1C88  488D05298BAB01           lea rax,[rel R_3A9A7B8]
+01FE1C8F  4889056A6F5E02           mov [rel R_45C8C00],rax
+01FE1C96  488D057B95AB01           lea rax,[rel R_3A9B218]
+01FE1C9D  488905646F5E02           mov [rel R_45C8C08],rax
+01FE1CA4  488D05358CAB01           lea rax,[rel R_3A9A8E0]
+01FE1CAB  4889057E6F5E02           mov [rel R_45C8C30],rax
+01FE1CB2  488D054F95AB01           lea rax,[rel R_3A9B208]
+01FE1CB9  488905786F5E02           mov [rel R_45C8C38],rax
+01FE1CC0  488D05818CAB01           lea rax,[rel R_3A9A948]
+01FE1CC7  488905926F5E02           mov [rel R_45C8C60],rax
+01FE1CCE  488D050B96AB01           lea rax,[rel R_3A9B2E0]
+01FE1CD5  4889058C6F5E02           mov [rel R_45C8C68],rax
+01FE1CDC  488D05758CAB01           lea rax,[rel R_3A9A958]
+01FE1CE3  488905A66F5E02           mov [rel R_45C8C90],rax
+01FE1CEA  488D05DF95AB01           lea rax,[rel R_3A9B2D0]
+01FE1CF1  488905A06F5E02           mov [rel R_45C8C98],rax
+01FE1CF8  0F1105F16D5E02           movups [rel R_45C8AF0],xmm0
+01FE1CFF  448935FA6D5E02           mov [rel R_45C8B00],r14d
+01FE1D06  48C705F36D5E0202000000   mov qword [rel R_45C8B04],2
+01FE1D11  892DF56D5E02             mov [rel R_45C8B0C],ebp
+01FE1D17  0F1105026E5E02           movups [rel R_45C8B20],xmm0
+01FE1D1E  4489350B6E5E02           mov [rel R_45C8B30],r14d
+01FE1D25  48C705046E5E0203000000   mov qword [rel R_45C8B34],3
+01FE1D30  892D066E5E02             mov [rel R_45C8B3C],ebp
+01FE1D36  0F1105136E5E02           movups [rel R_45C8B50],xmm0
+01FE1D3D  4489351C6E5E02           mov [rel R_45C8B60],r14d
+01FE1D44  488915196E5E02           mov [rel R_45C8B64],rdx
+01FE1D4B  892D1B6E5E02             mov [rel R_45C8B6C],ebp
+01FE1D51  0F1105286E5E02           movups [rel R_45C8B80],xmm0
+01FE1D58  448935316E5E02           mov [rel R_45C8B90],r14d
+01FE1D5F  48C7052A6E5E0203000000   mov qword [rel R_45C8B94],3
+01FE1D6A  892D2C6E5E02             mov [rel R_45C8B9C],ebp
+01FE1D70  0F1105396E5E02           movups [rel R_45C8BB0],xmm0
+01FE1D77  448935426E5E02           mov [rel R_45C8BC0],r14d
+01FE1D7E  48C7053B6E5E0204000000   mov qword [rel R_45C8BC4],4
+01FE1D89  892D3D6E5E02             mov [rel R_45C8BCC],ebp
+01FE1D8F  0F11054A6E5E02           movups [rel R_45C8BE0],xmm0
+01FE1D96  448935536E5E02           mov [rel R_45C8BF0],r14d
+01FE1D9D  48C7054C6E5E0202000000   mov qword [rel R_45C8BF4],2
+01FE1DA8  892D4E6E5E02             mov [rel R_45C8BFC],ebp
+01FE1DAE  0F11055B6E5E02           movups [rel R_45C8C10],xmm0
+01FE1DB5  448935646E5E02           mov [rel R_45C8C20],r14d
+01FE1DBC  48C7055D6E5E0202000000   mov qword [rel R_45C8C24],2
+01FE1DC7  892D5F6E5E02             mov [rel R_45C8C2C],ebp
+01FE1DCD  0F11056C6E5E02           movups [rel R_45C8C40],xmm0
+01FE1DD4  448935756E5E02           mov [rel R_45C8C50],r14d
+01FE1DDB  48C7056E6E5E0202000000   mov qword [rel R_45C8C54],2
+01FE1DE6  892D706E5E02             mov [rel R_45C8C5C],ebp
+01FE1DEC  0F11057D6E5E02           movups [rel R_45C8C70],xmm0
+01FE1DF3  448935866E5E02           mov [rel R_45C8C80],r14d
+01FE1DFA  48C7057F6E5E0206000000   mov qword [rel R_45C8C84],6
+01FE1E05  892D816E5E02             mov [rel R_45C8C8C],ebp
+01FE1E0B  0F11058E6E5E02           movups [rel R_45C8CA0],xmm0
+01FE1E12  448935976E5E02           mov [rel R_45C8CB0],r14d
+01FE1E19  48C705906E5E0202000000   mov qword [rel R_45C8CB4],2
+01FE1E24  892D926E5E02             mov [rel R_45C8CBC],ebp
+01FE1E2A  488D05F78AAB01           lea rax,[rel R_3A9A928]
+01FE1E31  448935A86E5E02           mov [rel R_45C8CE0],r14d
+01FE1E38  488905816E5E02           mov [rel R_45C8CC0],rax
+01FE1E3F  488D05DA94AB01           lea rax,[rel R_3A9B320]
+01FE1E46  4889057B6E5E02           mov [rel R_45C8CC8],rax
+01FE1E4D  488D05E48AAB01           lea rax,[rel R_3A9A938]
+01FE1E54  488905956E5E02           mov [rel R_45C8CF0],rax
+01FE1E5B  488D05AE94AB01           lea rax,[rel R_3A9B310]
+01FE1E62  4889058F6E5E02           mov [rel R_45C8CF8],rax
+01FE1E69  488D05E089AB01           lea rax,[rel R_3A9A850]
+01FE1E70  488905A96E5E02           mov [rel R_45C8D20],rax
+01FE1E77  488D052294AB01           lea rax,[rel R_3A9B2A0]
+01FE1E7E  488905A36E5E02           mov [rel R_45C8D28],rax
+01FE1E85  488D05D489AB01           lea rax,[rel R_3A9A860]
+01FE1E8C  488905BD6E5E02           mov [rel R_45C8D50],rax
+01FE1E93  488D05F693AB01           lea rax,[rel R_3A9B290]
+01FE1E9A  488905B76E5E02           mov [rel R_45C8D58],rax
+01FE1EA1  488D058C89AB01           lea rax,[rel R_3A9A834]
+01FE1EA8  488905D16E5E02           mov [rel R_45C8D80],rax
+01FE1EAF  488D050A94AB01           lea rax,[rel R_3A9B2C0]
+01FE1EB6  488905CB6E5E02           mov [rel R_45C8D88],rax
+01FE1EBD  488D057C89AB01           lea rax,[rel R_3A9A840]
+01FE1EC4  488905E56E5E02           mov [rel R_45C8DB0],rax
+01FE1ECB  488D05DE93AB01           lea rax,[rel R_3A9B2B0]
+01FE1ED2  488905DF6E5E02           mov [rel R_45C8DB8],rax
+01FE1ED9  488D05C889AB01           lea rax,[rel R_3A9A8A8]
+01FE1EE0  488905F96E5E02           mov [rel R_45C8DE0],rax
+01FE1EE7  488D053A92AB01           lea rax,[rel R_3A9B128]
+01FE1EEE  488905F36E5E02           mov [rel R_45C8DE8],rax
+01FE1EF5  488D05BC89AB01           lea rax,[rel R_3A9A8B8]
+01FE1EFC  4889050D6F5E02           mov [rel R_45C8E10],rax
+01FE1F03  488D050E92AB01           lea rax,[rel R_3A9B118]
+01FE1F0A  488905076F5E02           mov [rel R_45C8E18],rax
+01FE1F11  488D055889AB01           lea rax,[rel R_3A9A870]
+01FE1F18  488905216F5E02           mov [rel R_45C8E40],rax
+01FE1F1F  488D053A92AB01           lea rax,[rel R_3A9B160]
+01FE1F26  4889051B6F5E02           mov [rel R_45C8E48],rax
+01FE1F2D  488D055489AB01           lea rax,[rel R_3A9A888]
+01FE1F34  488905356F5E02           mov [rel R_45C8E70],rax
+01FE1F3B  488D05E68AAB01           lea rax,[rel R_3A9AA28]
+01FE1F42  488905576F5E02           mov [rel R_45C8EA0],rax
+01FE1F49  0F1105806D5E02           movups [rel R_45C8CD0],xmm0
+01FE1F50  48C705896D5E0202000000   mov qword [rel R_45C8CE4],2
+01FE1F5B  892D8B6D5E02             mov [rel R_45C8CEC],ebp
+01FE1F61  0F1105986D5E02           movups [rel R_45C8D00],xmm0
+01FE1F68  448935A16D5E02           mov [rel R_45C8D10],r14d
+01FE1F6F  48C7059A6D5E0202000000   mov qword [rel R_45C8D14],2
+01FE1F7A  892D9C6D5E02             mov [rel R_45C8D1C],ebp
+01FE1F80  0F1105A96D5E02           movups [rel R_45C8D30],xmm0
+01FE1F87  448935B26D5E02           mov [rel R_45C8D40],r14d
+01FE1F8E  48C705AB6D5E0202000000   mov qword [rel R_45C8D44],2
+01FE1F99  892DAD6D5E02             mov [rel R_45C8D4C],ebp
+01FE1F9F  0F1105BA6D5E02           movups [rel R_45C8D60],xmm0
+01FE1FA6  448935C36D5E02           mov [rel R_45C8D70],r14d
+01FE1FAD  48C705BC6D5E0202000000   mov qword [rel R_45C8D74],2
+01FE1FB8  892DBE6D5E02             mov [rel R_45C8D7C],ebp
+01FE1FBE  0F1105CB6D5E02           movups [rel R_45C8D90],xmm0
+01FE1FC5  448935D46D5E02           mov [rel R_45C8DA0],r14d
+01FE1FCC  48C705CD6D5E0202000000   mov qword [rel R_45C8DA4],2
+01FE1FD7  892DCF6D5E02             mov [rel R_45C8DAC],ebp
+01FE1FDD  0F1105DC6D5E02           movups [rel R_45C8DC0],xmm0
+01FE1FE4  448935E56D5E02           mov [rel R_45C8DD0],r14d
+01FE1FEB  48C705DE6D5E0202000000   mov qword [rel R_45C8DD4],2
+01FE1FF6  892DE06D5E02             mov [rel R_45C8DDC],ebp
+01FE1FFC  0F1105ED6D5E02           movups [rel R_45C8DF0],xmm0
+01FE2003  448935F66D5E02           mov [rel R_45C8E00],r14d
+01FE200A  48C705EF6D5E0202000000   mov qword [rel R_45C8E04],2
+01FE2015  892DF16D5E02             mov [rel R_45C8E0C],ebp
+01FE201B  0F1105FE6D5E02           movups [rel R_45C8E20],xmm0
+01FE2022  448935076E5E02           mov [rel R_45C8E30],r14d
+01FE2029  48C705006E5E0202000000   mov qword [rel R_45C8E34],2
+01FE2034  892D026E5E02             mov [rel R_45C8E3C],ebp
+01FE203A  0F11050F6E5E02           movups [rel R_45C8E50],xmm0
+01FE2041  448935186E5E02           mov [rel R_45C8E60],r14d
+01FE2048  48C705116E5E0208000000   mov qword [rel R_45C8E64],8
+01FE2053  892D136E5E02             mov [rel R_45C8E6C],ebp
+01FE2059  4C891D186E5E02           mov [rel R_45C8E78],r11
+01FE2060  0F1105196E5E02           movups [rel R_45C8E80],xmm0
+01FE2067  448935226E5E02           mov [rel R_45C8E90],r14d
+01FE206E  48C7051B6E5E0210000000   mov qword [rel R_45C8E94],10h
+01FE2079  892D1D6E5E02             mov [rel R_45C8E9C],ebp
+01FE207F  488D05C289AB01           lea rax,[rel R_3A9AA48]
+01FE2086  8915646E5E02             mov [rel R_45C8EF0],edx
+01FE208C  4889053D6E5E02           mov [rel R_45C8ED0],rax
+01FE2093  488D15F68FAB01           lea rdx,[rel R_3A9B090]
+01FE209A  488D059790AB01           lea rax,[rel R_3A9B138]
+01FE20A1  4C891D006E5E02           mov [rel R_45C8EA8],r11
+01FE20A8  488905296E5E02           mov [rel R_45C8ED8],rax
+01FE20AF  488D055289AB01           lea rax,[rel R_3A9AA08]
+01FE20B6  488905436E5E02           mov [rel R_45C8F00],rax
+01FE20BD  488D055489AB01           lea rax,[rel R_3A9AA18]
+01FE20C4  488905656E5E02           mov [rel R_45C8F30],rax
+01FE20CB  488D05B689AB01           lea rax,[rel R_3A9AA88]
+01FE20D2  488905876E5E02           mov [rel R_45C8F60],rax
+01FE20D9  488D05B889AB01           lea rax,[rel R_3A9AA98]
+01FE20E0  488905A96E5E02           mov [rel R_45C8F90],rax
+01FE20E7  488D05828FAB01           lea rax,[rel R_3A9B070]
+01FE20EE  488905A36E5E02           mov [rel R_45C8F98],rax
+01FE20F5  488D056489AB01           lea rax,[rel R_3A9AA60]
+01FE20FC  488905BD6E5E02           mov [rel R_45C8FC0],rax
+01FE2103  488D05F68FAB01           lea rax,[rel R_3A9B100]
+01FE210A  488905B76E5E02           mov [rel R_45C8FC8],rax
+01FE2111  488D056089AB01           lea rax,[rel R_3A9AA78]
+01FE2118  488905D16E5E02           mov [rel R_45C8FF0],rax
+01FE211F  488D05C28FAB01           lea rax,[rel R_3A9B0E8]
+01FE2126  488905CB6E5E02           mov [rel R_45C8FF8],rax
+01FE212D  488D055C88AB01           lea rax,[rel R_3A9A990]
+01FE2134  488905E56E5E02           mov [rel R_45C9020],rax
+01FE213B  488D056E90AB01           lea rax,[rel R_3A9B1B0]
+01FE2142  488905DF6E5E02           mov [rel R_45C9028],rax
+01FE2149  488D055088AB01           lea rax,[rel R_3A9A9A0]
+01FE2150  488905F96E5E02           mov [rel R_45C9050],rax
+01FE2157  488D054290AB01           lea rax,[rel R_3A9B1A0]
+01FE215E  488905F36E5E02           mov [rel R_45C9058],rax
+01FE2165  488D050488AB01           lea rax,[rel R_3A9A970]
+01FE216C  4889050D6F5E02           mov [rel R_45C9080],rax
+01FE2173  488D054690AB01           lea rax,[rel R_3A9B1C0]
+01FE217A  488905076F5E02           mov [rel R_45C9088],rax
+01FE2181  0F1105286D5E02           movups [rel R_45C8EB0],xmm0
+01FE2188  448935316D5E02           mov [rel R_45C8EC0],r14d
+01FE218F  48C7052A6D5E0210000000   mov qword [rel R_45C8EC4],10h
+01FE219A  892D2C6D5E02             mov [rel R_45C8ECC],ebp
+01FE21A0  0F1105396D5E02           movups [rel R_45C8EE0],xmm0
+01FE21A7  48C705426D5E0204000000   mov qword [rel R_45C8EF4],4
+01FE21B2  892D446D5E02             mov [rel R_45C8EFC],ebp
+01FE21B8  488915496D5E02           mov [rel R_45C8F08],rdx
+01FE21BF  0F11054A6D5E02           movups [rel R_45C8F10],xmm0
+01FE21C6  448935536D5E02           mov [rel R_45C8F20],r14d
+01FE21CD  48C7054C6D5E020B000000   mov qword [rel R_45C8F24],0Bh
+01FE21D8  892D4E6D5E02             mov [rel R_45C8F2C],ebp
+01FE21DE  488915536D5E02           mov [rel R_45C8F38],rdx
+01FE21E5  0F1105546D5E02           movups [rel R_45C8F40],xmm0
+01FE21EC  4489355D6D5E02           mov [rel R_45C8F50],r14d
+01FE21F3  48C705566D5E020B000000   mov qword [rel R_45C8F54],0Bh
+01FE21FE  892D586D5E02             mov [rel R_45C8F5C],ebp
+01FE2204  4889155D6D5E02           mov [rel R_45C8F68],rdx
+01FE220B  0F11055E6D5E02           movups [rel R_45C8F70],xmm0
+01FE2212  448935676D5E02           mov [rel R_45C8F80],r14d
+01FE2219  48C705606D5E020B000000   mov qword [rel R_45C8F84],0Bh
+01FE2224  892D626D5E02             mov [rel R_45C8F8C],ebp
+01FE222A  0F11056F6D5E02           movups [rel R_45C8FA0],xmm0
+01FE2231  448935786D5E02           mov [rel R_45C8FB0],r14d
+01FE2238  48C705716D5E0204000000   mov qword [rel R_45C8FB4],4
+01FE2243  892D736D5E02             mov [rel R_45C8FBC],ebp
+01FE2249  0F1105806D5E02           movups [rel R_45C8FD0],xmm0
+01FE2250  448935896D5E02           mov [rel R_45C8FE0],r14d
+01FE2257  48C705826D5E0203000000   mov qword [rel R_45C8FE4],3
+01FE2262  892D846D5E02             mov [rel R_45C8FEC],ebp
+01FE2268  0F1105916D5E02           movups [rel R_45C9000],xmm0
+01FE226F  4489359A6D5E02           mov [rel R_45C9010],r14d
+01FE2276  48C705936D5E0203000000   mov qword [rel R_45C9014],3
+01FE2281  892D956D5E02             mov [rel R_45C901C],ebp
+01FE2287  0F1105A26D5E02           movups [rel R_45C9030],xmm0
+01FE228E  448935AB6D5E02           mov [rel R_45C9040],r14d
+01FE2295  48C705A46D5E0202000000   mov qword [rel R_45C9044],2
+01FE22A0  892DA66D5E02             mov [rel R_45C904C],ebp
+01FE22A6  0F1105B36D5E02           movups [rel R_45C9060],xmm0
+01FE22AD  448935BC6D5E02           mov [rel R_45C9070],r14d
+01FE22B4  48C705B56D5E0202000000   mov qword [rel R_45C9074],2
+01FE22BF  892DB76D5E02             mov [rel R_45C907C],ebp
+01FE22C5  0F1105C46D5E02           movups [rel R_45C9090],xmm0
+01FE22CC  448935CD6D5E02           mov [rel R_45C90A0],r14d
+01FE22D3  488D0D6A6FBC02           lea rcx,[rel R_4BA9244]
+01FE22DA  48C705BF6D5E0203000000   mov qword [rel R_45C90A4],3
+01FE22E5  892DC16D5E02             mov [rel R_45C90AC],ebp
+01FE22EB  E8F8F1BAFE               call R_B914E8
+01FE22F0  E90FF2FFFF               jmp R_1FE1504

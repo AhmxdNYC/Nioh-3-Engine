@@ -1,0 +1,73 @@
+﻿dump: C:\Users\Ahmad Hamza\nioh3-engine\re\Nioh3.dump.exe (raw offset == RVA)
+site:
+  [ok] X1 435BB7 bytes FF 15 93 D0 4A 03  -- FF 15 93 D0 4A 03
+  [ok] X1 is `call qword [rip+disp]` to the XInputGetState IAT slot  -- call qword [rel 38E2C50h]
+  [ok] IAT 38E2C50 = XINPUT1_4.dll!ord2 (XInputGetState is ordinal 2 of xinput1_4)
+context (435B8C scan loop and its caller):
+  [ok] 435BAD  mov rsi,rcx  -- expected mov rsi,rcx
+  [ok] 435BB0  xor ebx,ebx  -- expected xor ebx,ebx
+  [ok] 435BB2  mov rdx,rdi  -- expected mov rdx,rdi
+  [ok] 435BB5  mov ecx,ebx  -- expected mov ecx,ebx
+  [ok] 435BBD  test eax,eax  -- expected test eax,eax
+  [ok] 435BC5  inc ebx  -- expected inc ebx
+  [ok] 435BC7  cmp ebx,4  -- expected cmp ebx,4
+  [ok] 435BCC  mov ebx,[rsi+69B20h]  -- expected mov ebx,[rsi+69B20h]
+  [ok] 435B48 loads rcx = [45BA1E0] (padMgr) before calling 435B8C  -- mov rcx,[rel 45BA1E0h]
+  [ok] 435B5C calls 435B8C  -- call 0000000000435B8Ch
+  [ok] 43671C: rcx=[45BA1E0]; call 434E18 ... later call 434D24  -- Some 14 Some 15 Some 29
+      xor edi,edi
+      lea rsi,[rbx+69850h]
+      lea rbp,[rbx+69854h]
+      mov rdx,rbp
+      mov ecx,edi
+      call qword [rel 38E2C50h]
+      test eax,eax
+      je short 0000000000435066h
+      inc edi
+      add rbp,14h
+      add rsi,14h
+      cmp edi,4
+      jb short 000000000043503Ch
+      and [rbx+698A0h],r13d
+      jmp 0000000000434E77h
+      mov byte [rsi],1
+      jmp short 000000000043504Bh
+      int3
+      (bad)
+  [ok] 434E18 2-s probe writes connected bytes at +69850h+i*14h
+pattern (mod):
+  [ok] X1 pattern unique, site = hit+13  -- 1 hit(s): 435BAA
+  [ok] padMgr pattern unique at 435B48  -- 1 hit(s)
+overlap with other patch sets:
+  [ok] no overlap
+branch/call targets strictly inside 435BB7..435BBD (whole .text sweep):
+  [ok] none
+dead state after the call returns to 435BBD (cave clobbers rax, r11, flags; rax is the result):
+  [ok] r11 and flags dead at 435BBD (test eax,eax rewrites flags; r11 never read)
+  [ok] r11 dead in the 'pad active' cold block 19A9B2C
+cave @dummy 7FF755310000:
+    7FF755310080  cmp dword [rel 7FF755310000h],0
+    7FF755310087  je short 00007FF7553100BBh
+    7FF755310089  cmp ecx,3
+    7FF75531008C  ja short 00007FF7553100BBh
+    7FF75531008E  mov rax,[rel 7FF755310008h]
+    7FF755310095  mov rax,[rax]
+    7FF755310098  test rax,rax
+    7FF75531009B  je short 00007FF7553100BBh
+    7FF75531009D  mov r11d,ecx
+    7FF7553100A0  lea r11,[r11+r11*4]
+    7FF7553100A4  cmp byte [rax+r11*4+69850h],0
+    7FF7553100AD  jne short 00007FF7553100BBh
+    7FF7553100AF  inc dword [rel 7FF755310040h]
+    7FF7553100B5  mov eax,48Fh
+    7FF7553100BA  ret
+    7FF7553100BB  inc dword [rel 7FF755310048h]
+    7FF7553100C1  mov r11,[rel 7FF755310010h]
+    7FF7553100C8  jmp qword [r11]
+patched site: 435BB7  FF 15 93 D0 4A 03  ->  90 E8 C3 A4 AC 05
+    7FF74F845BB7  nop
+    7FF74F845BB8  call 00007FF755310080h
+  [ok] only the site start is an instruction start in both encodings
+native test (this process):
+  X1 native test: 20000 cases (1/8 switch off, 1/20 null padMgr, out-of-range slots), 0 mismatches; cave counters skip=7354 pass=12646
+OFFLINE CHECKS: ALL PASSED

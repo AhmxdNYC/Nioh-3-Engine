@@ -1,0 +1,33 @@
+round,run,setup,f1,valid,avg_fps,low1_fps,spikes,gpu_busy_ms,cpu_busy_ms,cores
+2,B1,P12=True  GHDM=False  17:28:33,F1 on,yes,164.3,78.9,50,5.10,5.60,8.47
+2,B1,P12=True  GHDM=False  17:28:33,F1 off,yes,165.8,81.4,42,5.13,5.61,8.73
+2,A1,P12=False  GHDM=False  17:36:28,F1 on,yes,167.8,82.3,52,5.22,5.57,8.14
+2,A1,P12=False  GHDM=False  17:36:28,F1 off,yes,143.5,64.8,57,5.29,5.66,8.37
+2,B2,P12=True  GHDM=False  17:43:24,F1 on,yes,136.9,67.8,30,5.61,5.94,8.41
+2,B2,P12=True  GHDM=False  17:43:24,F1 off,yes,140.1,67.5,37,5.63,5.93,8.54
+2,A2,P12=False  GHDM=False  17:50:51,F1 on,yes,161.6,77.6,51,5.28,5.70,8.46
+2,A2,P12=False  GHDM=False  17:50:51,F1 off,yes,162.5,81.5,32,5.27,5.72,8.60
+2,C1,P12=True  GHDM=True  17:58:10,F1 on,yes,169.8,84.0,42,5.11,5.51,8.62
+2,C1,P12=True  GHDM=True  17:58:10,F1 off,yes,175.2,81.6,54,5.05,5.37,8.44
+2,C2,P12=True  GHDM=True  18:05:59,F1 on,yes,169.7,83.4,42,5.10,5.54,8.50
+2,C2,P12=True  GHDM=True  18:05:59,F1 off,yes,174.4,84.9,49,5.04,5.45,8.71
+3,G0a,cfg=main-240.xml  OptiScaler=True  P12=False  GHDM=False  18:30:59,F1 on,yes,108.1,55.7,13,8.80,8.98,8.60
+3,G1a,cfg=main-240.xml  OptiScaler=True  P12=False  GHDM=True  18:36:16,F1 on,yes,111.7,91.9,0,8.67,8.81,8.58
+3,G0b,cfg=main-240.xml  OptiScaler=True  P12=False  GHDM=False  18:41:11,F1 on,yes,109.7,51.3,47,8.68,8.89,8.75
+3,G1b,cfg=main-240.xml  OptiScaler=True  P12=False  GHDM=True  18:45:58,F1 on,yes,112.3,51.7,127,7.71,8.58,8.84
+3,P0a,cfg=default-nofg-120.xml  OptiScaler=False  P12=False  GHDM=False  18:50:57,F1 on,no: stuck on the autosave notice (UAC prompt stole focus),119.8,69.2,4,1.52,8.27,1.36
+3,P1a,cfg=default-nofg-120.xml  OptiScaler=False  P12=True  GHDM=False  18:55:57,F1 on,no: stuck on a loading tip (Afterburner dialog stole focus),119.0,67.5,5,5.57,8.23,6.89
+3,S1a,cfg=default-nofg-120-cpuhigh.xml  OptiScaler=False  P12=False  GHDM=False  19:00:36,F1 on,yes,111.9,80.0,8,6.49,8.80,9.03
+3,P0b,cfg=default-nofg-120.xml  OptiScaler=False  P12=False  GHDM=False  19:05:17,F1 on,yes,115.9,91.6,2,6.84,8.50,8.73
+3,P1b,cfg=default-nofg-120.xml  OptiScaler=False  P12=True  GHDM=False  19:09:55,F1 on,yes,114.0,89.2,1,6.94,8.63,8.78
+3,S1b,cfg=default-nofg-120-cpuhigh.xml  OptiScaler=False  P12=False  GHDM=False  19:14:54,F1 on,yes,112.8,82.7,7,7.31,8.72,8.74
+4,phys4,19:21:02,F1 on,yes,112.6,85.5,6,7.24,8.72,8.43
+4,phys2,19:25:54,F1 on,yes,113.3,89.7,0,6.93,8.70,8.77
+6,A1,ObjectUpdateUnits=0  19:43:48,F1 on,yes,113.8,87.4,2,7.02,8.65,8.81
+6,B1,ObjectUpdateUnits=32  19:50:20,F1 on,yes,116.2,93.4,0,6.88,8.48,8.46
+6,A2,ObjectUpdateUnits=0  19:56:48,F1 on,yes,113.4,90.6,2,6.91,8.68,8.84
+6,B2,ObjectUpdateUnits=32  20:03:28,F1 on,yes,113.7,89.6,3,6.91,8.66,8.74
+7,A1,foliage scale=1  20:10:29,F1 on,yes,113.1,90.4,0,6.90,8.71,8.92
+7,B1,foliage scale=0.6  20:15:40,F1 on,yes,115.1,92.3,6,6.93,8.53,8.67
+7,A2,foliage scale=1  20:20:34,F1 on,yes,113.4,88.3,3,6.90,8.68,8.68
+7,B2,foliage scale=0.6  20:25:36,F1 on,yes,114.7,92.5,0,6.89,8.59,8.64

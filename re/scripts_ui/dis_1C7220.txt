@@ -1,0 +1,61 @@
+; ---- Nioh3+1C7128 .. +1C7260 (pdata fn Some (1863976u, 1864288u))
+  1C7128  mov     [rsp+8],rbx                               
+  1C712D  mov     [rsp+10h],rsi                             
+  1C7132  push    rdi                                       
+  1C7133  sub     rsp,20h                                   
+  1C7137  xor     esi,esi                                   
+  1C7139  lea     rax,[rel 38EA1E0h]                        
+  1C7140  mov     [rcx+8],rax                               
+  1C7144  lea     r9,[rel 7F4464h]                          
+  1C714B  mov     [rcx+18h],rsi                             
+  1C714F  or      edi,0FFFFFFFFh                            
+  1C7152  mov     [rcx+20h],rsi                             
+  1C7156  mov     rbx,rcx                                   
+  1C7159  mov     [rcx+28h],rsi                             
+  1C715D  lea     edx,[rsi+38h]                             
+  1C7160  mov     [rcx+30h],rsi                             
+  1C7164  lea     r8d,[rsi+0Ah]                             
+  1C7168  mov     [rcx+38h],rsi                             
+  1C716C  mov     [rcx+10h],edi                             
+  1C716F  mov     [rcx+40h],rax                             
+  1C7173  mov     [rcx+50h],rsi                             
+  1C7177  mov     [rcx+58h],rsi                             
+  1C717B  mov     [rcx+60h],rsi                             
+  1C717F  mov     [rcx+68h],rsi                             
+  1C7183  mov     [rcx+70h],rsi                             
+  1C7187  mov     [rcx+48h],edi                             
+  1C718A  add     rcx,78h                                   
+  1C718E  call    0000000000167D70h                         
+  1C7193  lea     rax,[rel 38E7C48h]                        
+  1C719A  mov     [rbx+2A8h],rax                            
+  1C71A1  lea     rax,[rel 3906C60h]                        
+  1C71A8  mov     [rbx+2B8h],rsi                            
+  1C71AF  mov     [rbx+2C0h],rsi                            
+  1C71B6  mov     [rbx+2C8h],rsi                            
+  1C71BD  mov     [rbx+2D0h],rsi                            
+  1C71C4  mov     [rbx+2D8h],rsi                            
+  1C71CB  mov     [rbx+2B0h],edi                            
+  1C71D1  mov     [rbx+300h],rax                            
+  1C71D8  lea     rax,[rel 3906AA8h]                          ; "@RMR?"
+  1C71DF  mov     [rbx+310h],rsi                            
+  1C71E6  mov     [rbx+318h],rsi                            
+  1C71ED  mov     [rbx+320h],rsi                            
+  1C71F4  mov     [rbx+328h],rsi                            
+  1C71FB  mov     [rbx+330h],rsi                            
+  1C7202  mov     [rbx+308h],edi                            
+  1C7208  mov     [rbx+338h],rax                            
+  1C720F  mov     rax,rbx                                   
+  1C7212  mov     [rbx+348h],rsi                            
+  1C7219  mov     [rbx+350h],rsi                            
+  1C7220  mov     [rbx+358h],rsi                            
+  1C7227  mov     [rbx+360h],rsi                            
+  1C722E  mov     [rbx+368h],rsi                            
+  1C7235  mov     [rbx+340h],edi                            
+  1C723B  mov     [rbx+2E8h],si                             
+  1C7242  mov     [rbx+2EAh],sil                            
+  1C7249  mov     [rbx+2FAh],si                             
+  1C7250  mov     rbx,[rsp+30h]                             
+  1C7255  mov     rsi,[rsp+38h]                             
+  1C725A  add     rsp,20h                                   
+  1C725E  pop     rdi                                       
+  1C725F  ret                                               

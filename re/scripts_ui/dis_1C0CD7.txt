@@ -1,0 +1,136 @@
+; ---- Nioh3+1C0BE0 .. +1C0E59 (pdata fn Some (1838048u, 1838681u))
+  1C0BE0  push    rbx                                       
+  1C0BE2  push    rbp                                       
+  1C0BE3  push    rsi                                       
+  1C0BE4  push    rdi                                       
+  1C0BE5  push    r14                                       
+  1C0BE7  sub     rsp,40h                                   
+  1C0BEB  mov     r14,rdx                                   
+  1C0BEE  mov     rbx,rcx                                   
+  1C0BF1  mov     rdx,[rcx+0E0h]                            
+  1C0BF8  lea     rcx,[rsp+70h]                             
+  1C0BFD  call    00000000001CA6D0h                         
+  1C0C02  mov     rax,[rsp+70h]                             
+  1C0C07  lea     r8,[rsp+88h]                              
+  1C0C0F  lea     rdx,[rsp+80h]                             
+  1C0C17  mov     [rsp+88h],rax                             
+  1C0C1F  mov     rcx,rbx                                   
+  1C0C22  call    00000000001C2744h                         
+  1C0C27  movsx   eax,word [rbx+0F0h]                       
+  1C0C2E  mov     r8,[rbx+378h]                             
+  1C0C35  movss   xmm0,[rsp+80h]                            
+  1C0C3E  mov     [r8+110h],eax                             
+  1C0C45  movsx   eax,word [rbx+0F2h]                       
+  1C0C4C  mov     [r8+114h],eax                             
+  1C0C53  mov     rax,[rbx+378h]                            
+  1C0C5A  mov     rcx,[rax+0F0h]                            
+  1C0C61  movss   [rcx+30h],xmm0                            
+  1C0C66  mov     rax,[rbx+378h]                            
+  1C0C6D  movss   xmm0,[rsp+84h]                            
+  1C0C76  mov     rcx,[rax+0F0h]                            
+  1C0C7D  movss   [rcx+34h],xmm0                            
+  1C0C82  mov     rax,[rbx+378h]                            
+  1C0C89  movss   xmm0,[rsp+70h]                            
+  1C0C8F  mov     rcx,[rax+0F0h]                            
+  1C0C96  movss   [rcx+38h],xmm0                            
+  1C0C9B  mov     rax,[rbx+378h]                            
+  1C0CA2  movss   xmm0,[rsp+74h]                            
+  1C0CA8  mov     rcx,[rax+0F0h]                            
+  1C0CAF  movss   [rcx+3Ch],xmm0                            
+  1C0CB4  mov     al,[rbx+113h]                             
+  1C0CBA  mov     rcx,[rbx+378h]                            
+  1C0CC1  mov     [rcx+0E6h],al                             
+  1C0CC7  mov     al,[rbx+388h]                             
+  1C0CCD  mov     rcx,[rbx+378h]                            
+  1C0CD4  mov     [rcx+54h],al                              
+  1C0CD7  mov     eax,[rbx+398h]                            
+  1C0CDD  mov     rcx,[rbx+378h]                            
+  1C0CE4  mov     [rcx+30h],eax                             
+  1C0CE7  mov     eax,[rbx+39Ch]                            
+  1C0CED  mov     rcx,[rbx+378h]                            
+  1C0CF4  mov     [rcx+34h],eax                             
+  1C0CF7  mov     rcx,[rbx+378h]                            
+  1C0CFE  mov     al,[rbx+38Ch]                             
+  1C0D04  mov     [rcx+0B0h],al                             
+  1C0D0A  mov     rcx,[rbx+378h]                            
+  1C0D11  mov     rax,[rbx+390h]                            
+  1C0D18  mov     [rcx+5Ch],rax                             
+  1C0D1C  mov     eax,0FF0000FFh                            
+  1C0D21  mov     [rsp+30h],eax                             
+  1C0D25  mov     [rsp+34h],eax                             
+  1C0D29  mov     [rsp+38h],eax                             
+  1C0D2D  mov     [rsp+3Ch],eax                             
+  1C0D31  mov     rax,[rbx+378h]                            
+  1C0D38  movups  xmm0,[rsp+30h]                            
+  1C0D3D  movdqu  [rax+6Ch],xmm0                            
+  1C0D42  mov     ecx,[rbx+88h]                             
+  1C0D48  mov     rax,[rbx+378h]                            
+  1C0D4F  shr     ecx,1                                     
+  1C0D51  and     cl,1                                      
+  1C0D54  mov     [rax+118h],cl                             
+  1C0D5A  mov     rcx,[rbx+378h]                            
+  1C0D61  mov     edx,[rbx+8Ch]                             
+  1C0D67  mov     rax,[rcx]                                 
+  1C0D6A  call    qword [rax+20h]                           
+  1C0D6D  mov     eax,[rbx+270h]                            
+  1C0D73  imul    rcx,rax,38h                               
+  1C0D77  add     rcx,200h                                  
+  1C0D7E  add     rcx,rbx                                   
+  1C0D81  mov     rax,[rcx]                                 
+  1C0D84  call    qword [rax+18h]                           
+  1C0D87  mov     rdx,[rbx+378h]                            
+  1C0D8E  mov     r8d,eax                                   
+  1C0D91  mov     eax,[rbx+270h]                            
+  1C0D97  add     rax,0Ah                                   
+  1C0D9B  imul    rax,38h                                   
+  1C0D9F  mov     rcx,[rax+rbx]                             
+  1C0DA3  mov     [rdx+100h],rcx                            
+  1C0DAA  mov     [rdx+10Ch],r8d                            
+  1C0DB1  mov     rax,[rbx+378h]                            
+  1C0DB8  lea     rdi,[rbx+338h]                            
+  1C0DBF  xor     esi,esi                                   
+  1C0DC1  mov     [rax+128h],rbx                            
+  1C0DC8  mov     rax,[rdi]                                 
+  1C0DCB  mov     rcx,rdi                                   
+  1C0DCE  call    qword [rax+30h]                           
+  1C0DD1  test    al,al                                     
+  1C0DD3  jne     short 00000000001C0E48h                   
+  1C0DD5  mov     rax,[rdi]                                 
+  1C0DD8  mov     rcx,rdi                                   
+  1C0DDB  call    qword [rax+80h]                           
+  1C0DE1  mov     r8,[rbx+378h]                             
+  1C0DE8  xor     r9d,r9d                                   
+  1C0DEB  and     qword [rsp+20h],0                         
+  1C0DF1  mov     ebp,eax                                   
+  1C0DF3  mov     eax,[rbx+270h]                            
+  1C0DF9  add     rax,8                                     
+  1C0DFD  imul    rdx,rax,38h                               
+  1C0E01  mov     eax,esi                                   
+  1C0E03  lea     rcx,[rax+rax*4]                           
+  1C0E07  mov     rax,[rdx+rbx]                             
+  1C0E0B  xor     edx,edx                                   
+  1C0E0D  lea     rcx,[rax+rcx*4]                           
+  1C0E11  mov     eax,ebp                                   
+  1C0E13  mov     [r8+0F8h],rcx                             
+  1C0E1A  sub     eax,esi                                   
+  1C0E1C  mov     [r8+108h],eax                             
+  1C0E23  mov     rcx,r14                                   
+  1C0E26  mov     rax,[rbx+378h]                            
+  1C0E2D  mov     byte [rax+124h],1                         
+  1C0E34  mov     rax,[r14]                                 
+  1C0E37  mov     r8,[rbx+378h]                             
+  1C0E3E  call    qword [rax]                               
+  1C0E40  test    al,al                                     
+  1C0E42  je      short 00000000001C0E55h                   
+  1C0E44  mov     esi,ebp                                   
+  1C0E46  jmp     short 00000000001C0DC8h                   
+  1C0E48  mov     al,1                                      
+  1C0E4A  add     rsp,40h                                   
+  1C0E4E  pop     r14                                       
+  1C0E50  pop     rdi                                       
+  1C0E51  pop     rsi                                       
+  1C0E52  pop     rbp                                       
+  1C0E53  pop     rbx                                       
+  1C0E54  ret                                               
+  1C0E55  xor     al,al                                     
+  1C0E57  jmp     short 00000000001C0E4Ah                   

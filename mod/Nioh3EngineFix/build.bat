@@ -1,0 +1,43 @@
+@echo off
+rem Build Nioh3EngineFix.asi (Release x64, /O2, static CRT /MT). Needs MSVC (cl, ml64, link) + Windows SDK.
+rem Finds a toolchain in this order: already on PATH (Developer prompt / CI), the portable MSVC at
+rem ..\..\tools\msvc\setup_x64.bat (this PC), or Visual Studio / Build Tools via vswhere.
+setlocal
+cd /d "%~dp0"
+
+where cl >nul 2>nul && goto :have
+if exist "%~dp0..\..\tools\msvc\setup_x64.bat" (
+    call "%~dp0..\..\tools\msvc\setup_x64.bat"
+    goto :have
+)
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+    for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+        call "%%i\VC\Auxiliary\Build\vcvars64.bat" >nul
+    )
+)
+:have
+where cl >nul 2>nul || (echo ERROR: no MSVC toolchain found & exit /b 1)
+
+rem regenerate the patch table header from patches.json when Python is available (it is checked in anyway)
+where py >nul 2>nul && py -I tools\gen_header.py
+if errorlevel 1 (echo ERROR: gen_header.py failed & exit /b 1)
+
+if not exist build mkdir build
+if not exist bin mkdir bin
+
+ml64 /nologo /c /W3 /Fobuild\caves.obj src\caves.asm || exit /b 1
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\dllmain.obj src\dllmain.cpp || exit /b 1
+rem in-game overlay (d3d12.dll / dxgi.dll are loaded at run time - no import dependency)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\osd.obj src\osd.cpp || exit /b 1
+rem mod menu (xinput / dinput8 are loaded at run time too)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\menu.obj src\menu.cpp || exit /b 1
+link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
+   /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
+   build\dllmain.obj build\osd.obj build\menu.obj build\caves.obj kernel32.lib user32.lib || exit /b 1
+copy /y Nioh3EngineFix.ini bin\ >nul
+echo built %~dp0bin\Nioh3EngineFix.asi
+endlocal

@@ -1,0 +1,63 @@
+no pdata for 0x5AB994
+== func 5ABBA4-5ABC05
+005ABBA4  48895C2408               mov [rsp+8],rbx
+005ABBA9  4889742410               mov [rsp+10h],rsi
+005ABBAE  57                       push rdi
+005ABBAF  4883EC20                 sub rsp,20h
+005ABBB3  498BF8                   mov rdi,r8
+005ABBB6  488BDA                   mov rbx,rdx
+005ABBB9  488BF1                   mov rsi,rcx
+005ABBBC  E8F7070000               call R_5AC3B8
+005ABBC1  4885C0                   test rax,rax
+005ABBC4  740D                     je short R_5ABBD3
+005ABBC6  4885D2                   test rdx,rdx
+005ABBC9  7408                     je short R_5ABBD3
+005ABBCB  488BC8                   mov rcx,rax
+005ABBCE  E82D2BA9FF               call R_3E700
+005ABBD3  488BCE                   mov rcx,rsi
+005ABBD6  E865030000               call R_5ABF40
+005ABBDB  4885C0                   test rax,rax
+005ABBDE  7415                     je short R_5ABBF5
+005ABBE0  4885DB                   test rbx,rbx
+005ABBE3  7410                     je short R_5ABBF5
+005ABBE5  4C8B00                   mov r8,[rax]
+005ABBE8  482BFB                   sub rdi,rbx
+005ABBEB  488BD7                   mov rdx,rdi
+005ABBEE  488BC8                   mov rcx,rax
+005ABBF1  41FF5010                 call qword [r8+10h]
+005ABBF5  488B5C2430               mov rbx,[rsp+30h]
+005ABBFA  488B742438               mov rsi,[rsp+38h]
+005ABBFF  4883C420                 add rsp,20h
+005ABC03  5F                       pop rdi
+005ABC04  C3                       ret
+== func 5AD964-5AD9D4
+005AD964  48895C2408               mov [rsp+8],rbx
+005AD969  48896C2410               mov [rsp+10h],rbp
+005AD96E  4889742418               mov [rsp+18h],rsi
+005AD973  57                       push rdi
+005AD974  4883EC30                 sub rsp,30h
+005AD978  488BB938AD0300           mov rdi,[rcx+3AD38h]
+005AD97F  498BF0                   mov rsi,r8
+005AD982  488B9940AD0300           mov rbx,[rcx+3AD40h]
+005AD989  488BEA                   mov rbp,rdx
+005AD98C  4885FF                   test rdi,rdi
+005AD98F  742B                     je short R_5AD9BC
+005AD991  4885DB                   test rbx,rbx
+005AD994  7426                     je short R_5AD9BC
+005AD996  4883C108                 add rcx,8
+005AD99A  4C8B11                   mov r10,[rcx]
+005AD99D  41FF5210                 call qword [r10+10h]
+005AD9A1  4C8BCF                   mov r9,rdi
+005AD9A4  C644242800               mov byte [rsp+28h],0
+005AD9A9  4C8BC6                   mov r8,rsi
+005AD9AC  4889442420               mov [rsp+20h],rax
+005AD9B1  488BD5                   mov rdx,rbp
+005AD9B4  488BCB                   mov rcx,rbx
+005AD9B7  E830000000               call R_5AD9EC
+005AD9BC  488B6C2448               mov rbp,[rsp+48h]
+005AD9C1  488BC3                   mov rax,rbx
+005AD9C4  488B5C2440               mov rbx,[rsp+40h]
+005AD9C9  488B742450               mov rsi,[rsp+50h]
+005AD9CE  4883C430                 add rsp,30h
+005AD9D2  5F                       pop rdi
+005AD9D3  C3                       ret

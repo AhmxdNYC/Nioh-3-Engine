@@ -1,0 +1,311 @@
+== func 485E0-48782
+000485E0  48895C2410               mov [rsp+10h],rbx
+000485E5  48896C2418               mov [rsp+18h],rbp
+000485EA  4889742420               mov [rsp+20h],rsi
+000485EF  57                       push rdi
+000485F0  4156                     push r14
+000485F2  4157                     push r15
+000485F4  4883EC40                 sub rsp,40h
+000485F8  488B0531F94604           mov rax,[rel R_44B7F30]
+000485FF  4833C4                   xor rax,rsp
+00048602  4889442430               mov [rsp+30h],rax
+00048607  488BFA                   mov rdi,rdx
+0004860A  488BE9                   mov rbp,rcx
+0004860D  E8968EB100               call R_B614A8
+00048612  33F6                     xor esi,esi
+00048614  85C0                     test eax,eax
+00048616  0F8596FD8D01             jne near R_19283B2
+0004861C  E89388B100               call R_B60EB4
+00048621  488BD8                   mov rbx,rax
+00048624  E86F88B100               call R_B60E98
+00048629  4881FB80969800           cmp rbx,989680h
+00048630  0F8584FD8D01             jne near R_19283BA
+00048636  486BD864                 imul rbx,rax,64h
+0004863A  483937                   cmp [rdi],rsi
+0004863D  0F8F0B010000             jg near R_4874E
+00048643  4038B599000000           cmp [rbp+99h],sil
+0004864A  756B                     jne short R_486B7
+0004864C  E86388B100               call R_B60EB4
+00048651  488BF8                   mov rdi,rax
+00048654  E83F88B100               call R_B60E98
+00048659  4881FF80969800           cmp rdi,989680h
+00048660  0F857AFD8D01             jne near R_19283E0
+00048666  486BC064                 imul rax,64h
+0004866A  483BC3                   cmp rax,rbx
+0004866D  7C59                     jl short R_486C8
+0004866F  488BCD                   mov rcx,rbp
+00048672  E8AD8EB100               call R_B61524
+00048677  408AC6                   mov al,sil
+0004867A  488B4C2430               mov rcx,[rsp+30h]
+0004867F  4833CC                   xor rcx,rsp
+00048682  E8598CB400               call R_B912E0
+00048687  488B5C2468               mov rbx,[rsp+68h]
+0004868C  488B6C2470               mov rbp,[rsp+70h]
+00048691  488B742478               mov rsi,[rsp+78h]
+00048696  4883C440                 add rsp,40h
+0004869A  415F                     pop r15
+0004869C  415E                     pop r14
+0004869E  5F                       pop rdi
+0004869F  C3                       ret
+000486A0  83F802                   cmp eax,2
+000486A3  0F85C9000000             jne near R_48772
+000486A9  4584F6                   test r14b,r14b
+000486AC  7595                     jne short R_48643
+000486AE  4038B599000000           cmp [rbp+99h],sil
+000486B5  74B8                     je short R_4866F
+000486B7  8A8598000000             mov al,[rbp+98h]
+000486BD  40B601                   mov sil,1
+000486C0  888599000000             mov [rbp+99h],al
+000486C6  EBA7                     jmp short R_4866F
+000486C8  488BFB                   mov rdi,rbx
+000486CB  482BF8                   sub rdi,rax
+000486CE  E82989B100               call R_B60FFC
+000486D3  0F57C0                   xorps xmm0,xmm0
+000486D6  F2480F2AC7               cvtsi2sd xmm0,rdi
+000486DB  486BC864                 imul rcx,rax,64h
+000486DF  660F2F0541CAB803         comisd xmm0,[rel R_3BD5128]
+000486E7  0F8716FD8D01             ja near R_1928403
+000486ED  448AF6                   mov r14b,sil
+000486F0  4803CF                   add rcx,rdi
+000486F3  48B8B394D626E80B2E11     mov rax,112E0BE826D694B3h
+000486FD  48F7E9                   imul rcx
+00048700  48C1FA1A                 sar rdx,1Ah
+00048704  488BC2                   mov rax,rdx
+00048707  48C1E83F                 shr rax,3Fh
+0004870B  4803D0                   add rdx,rax
+0004870E  4869C200CA9A3B           imul rax,rdx,3B9ACA00h
+00048715  4889542420               mov [rsp+20h],rdx
+0004871A  2BC8                     sub ecx,eax
+0004871C  894C2428                 mov [rsp+28h],ecx
+00048720  488BCD                   mov rcx,rbp
+00048723  E8808CB100               call R_B613A8
+00048728  85C0                     test eax,eax
+0004872A  0F84E8FC8D01             je near R_1928418
+00048730  4C8D442420               lea r8,[rsp+20h]
+00048735  488BD5                   mov rdx,rbp
+00048738  488D4D50                 lea rcx,[rbp+50h]
+0004873C  E8BF90B100               call R_B61800
+00048741  85C0                     test eax,eax
+00048743  0F84FAFEFFFF             je near R_48643
+00048749  E952FFFFFF               jmp R_486A0
+0004874E  48690FE8030000           imul rcx,[rdi],3E8h
+00048755  48BAFFFFFFFFFFFFFF7F     mov rdx,7FFFFFFFFFFFFFFFh
+0004875F  488BC2                   mov rax,rdx
+00048762  482BC1                   sub rax,rcx
+00048765  483BD8                   cmp rbx,rax
+00048768  7C10                     jl short R_4877A
+0004876A  488BDA                   mov rbx,rdx
+0004876D  E9D1FEFFFF               jmp R_48643
+00048772  8BC8                     mov ecx,eax
+00048774  E89F95B100               call R_B61D18
+00048779  CC                       int3
+0004877A  4803D9                   add rbx,rcx
+0004877D  E9C1FEFFFF               jmp R_48643
+== func 487A4-48923
+000487A4  48895C2418               mov [rsp+18h],rbx
+000487A9  55                       push rbp
+000487AA  56                       push rsi
+000487AB  57                       push rdi
+000487AC  4154                     push r12
+000487AE  4155                     push r13
+000487B0  4156                     push r14
+000487B2  4157                     push r15
+000487B4  4883EC40                 sub rsp,40h
+000487B8  488B0571F74604           mov rax,[rel R_44B7F30]
+000487BF  4833C4                   xor rax,rsp
+000487C2  4889442430               mov [rsp+30h],rax
+000487C7  498BF9                   mov rdi,r9
+000487CA  498BE8                   mov rbp,r8
+000487CD  4C8BE2                   mov r12,rdx
+000487D0  4C8BF9                   mov r15,rcx
+000487D3  E8DC86B100               call R_B60EB4
+000487D8  488BD8                   mov rbx,rax
+000487DB  E8B886B100               call R_B60E98
+000487E0  4881FB80969800           cmp rbx,989680h
+000487E7  0F8537FC8D01             jne near R_1928424
+000487ED  486BD864                 imul rbx,rax,64h
+000487F1  33F6                     xor esi,esi
+000487F3  48397500                 cmp [rbp],rsi
+000487F7  0F8FE8000000             jg near R_488E5
+000487FD  4038B799000000           cmp [rdi+99h],sil
+00048804  0F85D3000000             jne near R_488DD
+0004880A  49BD000016ADCD110300     mov r13,311CDAD160000h
+00048814  E89B86B100               call R_B60EB4
+00048819  488BE8                   mov rbp,rax
+0004881C  E87786B100               call R_B60E98
+00048821  4881FD80969800           cmp rbp,989680h
+00048828  0F851CFC8D01             jne near R_192844A
+0004882E  486BC064                 imul rax,64h
+00048832  483BC3                   cmp rax,rbx
+00048835  7C28                     jl short R_4885F
+00048837  408AC6                   mov al,sil
+0004883A  488B4C2430               mov rcx,[rsp+30h]
+0004883F  4833CC                   xor rcx,rsp
+00048842  E8998AB400               call R_B912E0
+00048847  488B9C2490000000         mov rbx,[rsp+90h]
+0004884F  4883C440                 add rsp,40h
+00048853  415F                     pop r15
+00048855  415E                     pop r14
+00048857  415D                     pop r13
+00048859  415C                     pop r12
+0004885B  5F                       pop rdi
+0004885C  5E                       pop rsi
+0004885D  5D                       pop rbp
+0004885E  C3                       ret
+0004885F  4C8BF3                   mov r14,rbx
+00048862  4C2BF0                   sub r14,rax
+00048865  E89287B100               call R_B60FFC
+0004886A  0F57C0                   xorps xmm0,xmm0
+0004886D  F2490F2AC6               cvtsi2sd xmm0,r14
+00048872  486BD064                 imul rdx,rax,64h
+00048876  660F2F05AAC8B803         comisd xmm0,[rel R_3BD5128]
+0004887E  0F87E9FB8D01             ja near R_192846D
+00048884  408AEE                   mov bpl,sil
+00048887  4A8D0C32                 lea rcx,[rdx+r14]
+0004888B  4903D6                   add rdx,r14
+0004888E  4C8D442420               lea r8,[rsp+20h]
+00048893  48B8B394D626E80B2E11     mov rax,112E0BE826D694B3h
+0004889D  48F7EA                   imul rdx
+000488A0  48C1FA1A                 sar rdx,1Ah
+000488A4  488BC2                   mov rax,rdx
+000488A7  48C1E83F                 shr rax,3Fh
+000488AB  4803D0                   add rdx,rax
+000488AE  4869C200CA9A3B           imul rax,rdx,3B9ACA00h
+000488B5  4889542420               mov [rsp+20h],rdx
+000488BA  498BD4                   mov rdx,r12
+000488BD  2BC8                     sub ecx,eax
+000488BF  894C2428                 mov [rsp+28h],ecx
+000488C3  498BCF                   mov rcx,r15
+000488C6  E8393A8200               call R_86C304
+000488CB  83F801                   cmp eax,1
+000488CE  743A                     je short R_4890A
+000488D0  4038B799000000           cmp [rdi+99h],sil
+000488D7  0F8437FFFFFF             je near R_48814
+000488DD  40B601                   mov sil,1
+000488E0  E952FFFFFF               jmp R_48837
+000488E5  48694D00E8030000         imul rcx,[rbp],3E8h
+000488ED  48BAFFFFFFFFFFFFFF7F     mov rdx,7FFFFFFFFFFFFFFFh
+000488F7  488BC2                   mov rax,rdx
+000488FA  482BC1                   sub rax,rcx
+000488FD  483BD8                   cmp rbx,rax
+00048900  7C19                     jl short R_4891B
+00048902  488BDA                   mov rbx,rdx
+00048905  E9F3FEFFFF               jmp R_487FD
+0004890A  4084ED                   test bpl,bpl
+0004890D  75C1                     jne short R_488D0
+0004890F  408AB799000000           mov sil,[rdi+99h]
+00048916  E91CFFFFFF               jmp R_48837
+0004891B  4803D9                   add rbx,rcx
+0004891E  E9DAFEFFFF               jmp R_487FD
+== func 48924-48A55
+00048924  48895C2418               mov [rsp+18h],rbx
+00048929  48896C2420               mov [rsp+20h],rbp
+0004892E  56                       push rsi
+0004892F  57                       push rdi
+00048930  4154                     push r12
+00048932  4156                     push r14
+00048934  4157                     push r15
+00048936  4883EC40                 sub rsp,40h
+0004893A  488B05EFF54604           mov rax,[rel R_44B7F30]
+00048941  4833C4                   xor rax,rsp
+00048944  4889442430               mov [rsp+30h],rax
+00048949  498B01                   mov rax,[r9]
+0004894C  498BF9                   mov rdi,r9
+0004894F  4D8BF0                   mov r14,r8
+00048952  4C8BFA                   mov r15,rdx
+00048955  488BE9                   mov rbp,rcx
+00048958  80B89900000000           cmp byte [rax+99h],0
+0004895F  0F85D6000000             jne near R_48A3B
+00048965  49BC000016ADCD110300     mov r12,311CDAD160000h
+0004896F  E84085B100               call R_B60EB4
+00048974  488BD8                   mov rbx,rax
+00048977  E81C85B100               call R_B60E98
+0004897C  4881FB80969800           cmp rbx,989680h
+00048983  0F85F3FA8D01             jne near R_192847C
+00048989  486BC064                 imul rax,64h
+0004898D  498B1E                   mov rbx,[r14]
+00048990  483BC3                   cmp rax,rbx
+00048993  7C28                     jl short R_489BD
+00048995  32C0                     xor al,al
+00048997  488B4C2430               mov rcx,[rsp+30h]
+0004899C  4833CC                   xor rcx,rsp
+0004899F  E83C89B400               call R_B912E0
+000489A4  4C8D5C2440               lea r11,[rsp+40h]
+000489A9  498B5B40                 mov rbx,[r11+40h]
+000489AD  498B6B48                 mov rbp,[r11+48h]
+000489B1  498BE3                   mov rsp,r11
+000489B4  415F                     pop r15
+000489B6  415E                     pop r14
+000489B8  415C                     pop r12
+000489BA  5F                       pop rdi
+000489BB  5E                       pop rsi
+000489BC  C3                       ret
+000489BD  482BD8                   sub rbx,rax
+000489C0  E83786B100               call R_B60FFC
+000489C5  0F57C0                   xorps xmm0,xmm0
+000489C8  F2480F2AC3               cvtsi2sd xmm0,rbx
+000489CD  486BD064                 imul rdx,rax,64h
+000489D1  660F2F054FC7B803         comisd xmm0,[rel R_3BD5128]
+000489D9  0F87C0FA8D01             ja near R_192849F
+000489DF  4032F6                   xor sil,sil
+000489E2  488D0C1A                 lea rcx,[rdx+rbx]
+000489E6  4803D3                   add rdx,rbx
+000489E9  4C8D442420               lea r8,[rsp+20h]
+000489EE  48B8B394D626E80B2E11     mov rax,112E0BE826D694B3h
+000489F8  48F7EA                   imul rdx
+000489FB  48C1FA1A                 sar rdx,1Ah
+000489FF  488BC2                   mov rax,rdx
+00048A02  48C1E83F                 shr rax,3Fh
+00048A06  4803D0                   add rdx,rax
+00048A09  4869C200CA9A3B           imul rax,rdx,3B9ACA00h
+00048A10  4889542420               mov [rsp+20h],rdx
+00048A15  498BD7                   mov rdx,r15
+00048A18  2BC8                     sub ecx,eax
+00048A1A  894C2428                 mov [rsp+28h],ecx
+00048A1E  488BCD                   mov rcx,rbp
+00048A21  E8DE388200               call R_86C304
+00048A26  83F801                   cmp eax,1
+00048A29  7417                     je short R_48A42
+00048A2B  488B07                   mov rax,[rdi]
+00048A2E  80B89900000000           cmp byte [rax+99h],0
+00048A35  0F8434FFFFFF             je near R_4896F
+00048A3B  B001                     mov al,1
+00048A3D  E955FFFFFF               jmp R_48997
+00048A42  4084F6                   test sil,sil
+00048A45  75E4                     jne short R_48A2B
+00048A47  488B07                   mov rax,[rdi]
+00048A4A  8A8099000000             mov al,[rax+99h]
+00048A50  E942FFFFFF               jmp R_48997
+== func 48A58-48AD1
+00048A58  48895C2408               mov [rsp+8],rbx
+00048A5D  4889742410               mov [rsp+10h],rsi
+00048A62  57                       push rdi
+00048A63  4883EC20                 sub rsp,20h
+00048A67  488BF2                   mov rsi,rdx
+00048A6A  488BD9                   mov rbx,rcx
+00048A6D  E84284B100               call R_B60EB4
+00048A72  488BF8                   mov rdi,rax
+00048A75  E81E84B100               call R_B60E98
+00048A7A  4881FF80969800           cmp rdi,989680h
+00048A81  0F8527FA8D01             jne near R_19284AE
+00048A87  486BC064                 imul rax,64h
+00048A8B  488903                   mov [rbx],rax
+00048A8E  48833E00                 cmp qword [rsi],0
+00048A92  7F13                     jg short R_48AA7
+00048A94  488B742438               mov rsi,[rsp+38h]
+00048A99  488BC3                   mov rax,rbx
+00048A9C  488B5C2430               mov rbx,[rsp+30h]
+00048AA1  4883C420                 add rsp,20h
+00048AA5  5F                       pop rdi
+00048AA6  C3                       ret
+00048AA7  486916E8030000           imul rdx,[rsi],3E8h
+00048AAE  49B8FFFFFFFFFFFFFF7F     mov r8,7FFFFFFFFFFFFFFFh
+00048AB8  498BC8                   mov rcx,r8
+00048ABB  482BCA                   sub rcx,rdx
+00048ABE  483BC1                   cmp rax,rcx
+00048AC1  7D09                     jge short R_48ACC
+00048AC3  488D0C02                 lea rcx,[rdx+rax]
+00048AC7  48890B                   mov [rbx],rcx
+00048ACA  EBC8                     jmp short R_48A94
+00048ACC  4C8903                   mov [rbx],r8
+00048ACF  EBC3                     jmp short R_48A94

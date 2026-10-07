@@ -1,0 +1,60 @@
+; ---- Nioh3+1290B8 .. +1291D8 (pdata fn Some (1216696u, 1218976u))
+  1290B8  push    rbp                                       
+  1290BA  push    r12                                       
+  1290BC  push    r13                                       
+  1290BE  push    r14                                       
+  1290C0  push    r15                                       
+  1290C2  sub     rsp,0E0h                                  
+  1290C9  lea     rbp,[rsp+60h]                             
+  1290CE  mov     [rbp+0B8h],rbx                            
+  1290D5  mov     [rbp+0C0h],rsi                            
+  1290DC  mov     [rbp+0C8h],rdi                            
+  1290E3  mov     rax,[rel 44B7F30h]                        
+  1290EA  xor     rax,rbp                                   
+  1290ED  mov     [rbp+78h],rax                             
+  1290F1  mov     rdi,[rcx+90h]                             
+  1290F8  xor     r9d,r9d                                   
+  1290FB  mov     r10d,0FFh                                 
+  129101  mov     rsi,rcx                                   
+  129104  mov     [rbp+20h],r10d                            
+  129108  mov     r12d,10h                                  
+  12910E  test    rdi,rdi                                   
+  129111  je      near 000000000012996Eh                    
+  129117  mov     rax,[rcx+178h]                            
+  12911E  mov     [rbp+58h],rax                             
+  129122  test    rax,rax                                   
+  129125  je      near 000000000012996Eh                    
+  12912B  lea     r15,[rcx+108h]                            
+  129132  mov     r14,[rcx+1B0h]                            
+  129139  lea     r13,[r14+74E0h]                           
+  129140  cmp     [rcx+12Eh],r9b                            
+  129147  jne     near 000000000012996Eh                    
+  12914D  mov     rax,[r14+74F0h]                           
+  129154  test    rax,rax                                   
+  129157  je      short 0000000000129178h                   
+  129159  cmp     [rcx+158h],r9b                            
+  129160  je      short 00000000001291D1h                   
+  129162  cmp     [rcx+140h],rax                            
+  129169  jne     short 0000000000129178h                   
+  12916B  mov     rax,[rax+8]                               
+  12916F  cmp     [rcx+148h],rax                            
+  129176  je      short 00000000001291D1h                   
+  129178  mov     rax,[r14+7500h]                           
+  12917F  test    rax,rax                                   
+  129182  je      short 00000000001291A3h                   
+  129184  cmp     [rcx+158h],r9b                            
+  12918B  je      short 00000000001291D1h                   
+  12918D  cmp     [rcx+140h],rax                            
+  129194  jne     short 00000000001291A3h                   
+  129196  mov     rax,[rax+8]                               
+  12919A  cmp     [rcx+148h],rax                            
+  1291A1  je      short 00000000001291D1h                   
+  1291A3  mov     rax,[r14+7510h]                           
+  1291AA  test    rax,rax                                   
+  1291AD  je      near 000000000012996Eh                    
+  1291B3  cmp     [rcx+140h],rax                            
+  1291BA  jne     near 000000000012996Eh                    
+  1291C0  mov     rax,[rax+8]                               
+  1291C4  cmp     [rcx+148h],rax                            
+  1291CB  jne     near 000000000012996Eh                    
+  1291D1  mov     rcx,[r14+6EB0h]                           

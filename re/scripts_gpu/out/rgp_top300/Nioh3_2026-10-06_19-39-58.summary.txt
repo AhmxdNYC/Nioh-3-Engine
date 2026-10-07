@@ -1,0 +1,612 @@
+trace: re\scripts_gpu\out\rgp_top300\Nioh3_2026-10-06_19-39-58
+SEs decoded: [0, 1, 2, 3]  clock ratios (shader cycles per 10ns tick): SE0=20.1, SE1=20.1, SE2=20.1, SE3=20.1
+queues: {0: 'GFX', 4: 'Q1(src0x4)', 5: 'Q2(src0x5)'}
+frame span (first..last marker): 10.716 ms; markers=7378 events=2976 segments=477 waves=0  bad-marker-dwords=4
+GFX segment time sum: 9.161 ms (= GFX-queue busy+barrier time)
+user-marker names present: False
+
+== top 300 segments by duration ==
+  seg queue     start_us   dur_us   ev   waves  dominant pass / PSOs
+  148 GFX         2554.4    806.9  113       0  (no marker)  [0e2f1e7d86a4661e 4585964933bae61a 7885433c21337ce3]
+  191 GFX         4589.4    366.7    1       0  (no marker)  [3e7955a89ee71e82]
+  229 GFX         5619.6    302.1    1       0  (no marker)  [d32d17ac1b4fa108]
+  474 Q1(src0x4)    6610.1    293.3    1       0  (no marker)  [5123196aa098e19f]
+  143 GFX         2195.4    278.5  101       0  (no marker)  [09200b35ceefcf22 0d40b60b0efa14a2 18f4e8849c5934c0]
+  381 GFX         8698.8    271.0  252       0  (no marker)  [1359d71d9a3fef6a 29060711f63db3cf 8991e0eeeac60cc5]
+  231 GFX         5979.0    259.8    1       0  (no marker)  [5a14b619e553032c]
+  150 GFX         3425.0    253.6   54       0  (no marker)  [01d612f89cd8a370 063cab8c7ef13364 06f5894498d63dde]
+  351 GFX         8055.9    246.9    1       0  (no marker)  [10c323d1085f6153]
+  219 GFX         5269.1    239.2    1       0  (no marker)  [c570890a613019cc]
+  184 GFX         4222.9    224.5    1       0  (no marker)  [54e610d3e22205ee]
+  402 GFX         9655.5    214.1    1       0  (no marker)  [bc8a53cc288203cf]
+  235 GFX         6497.3    210.3   12       0  (no marker)  [772c50c1abc2e02a cf3d6d4c6d3c5eb3 ef1f51bd087781a5]
+  389 GFX         9116.3    185.7    2       0  (no marker)  [2156f246311e214c f53ffecee495ab7c]
+  295 GFX         7338.0    185.7    1       0  (no marker)  [67089e89eca79b08]
+  430 GFX        10235.6    168.9    1       0  (no marker)  [5e9935b5b593a907]
+  152 GFX         3784.6    141.8    3       0  (no marker)  [868d38ed52a45807 92ce5f7fae96e96b c13f9418907dcaa5]
+  188 GFX         4468.0    120.5    1       0  (no marker)  [4001317a5b6c9ff7]
+  367 GFX         8386.6    116.8    7       0  (no marker)  [03d959ec1553aa83 49cdfa5eca446b90 63ca63e8de5940fe]
+  417 GFX         9992.9    109.2    1       0  (no marker)  [c12e69fd8844fdf8]
+  320 GFX         7775.3    106.9    2       0  (no marker)  [f16f744dbb01a4a2 fb6e6c31532c33b7]
+  151 GFX         3678.6    106.0  299       0  (no marker)  [1e62894ee6dbeb73 240d2e6f5511ccd9 2535862dc7e82963]
+   79 GFX         1524.8    100.0   75       0  (no marker)  [0aac43e6a3a08747]
+  464 Q1(src0x4)    1105.8     95.3    1       0  (no marker)  [edd8e1589a0d0738]
+  115 GFX         1891.9     85.9   57       0  (no marker)  [0b3b32882013bd23 43e6a73e535fb64a 5ba0f78443f6f6a8]
+  194 GFX         4986.4     79.7    1       0  (no marker)  [035f23120a3d378c]
+  297 GFX         7524.0     70.9    1       0  (no marker)  [65812e045c5aa3c2]
+  387 GFX         9039.7     66.1    1       0  (no marker)  [07072497107d0723]
+  149 GFX         3361.3     63.8   24       0  (no marker)  [13cd70ce55c34fcb 1ba1ffe01e3079da 6035e77791403a90]
+  260 GFX         6961.3     60.9    1       0  (no marker)  [59ee3b938777898e]
+  218 GFX         5211.7     57.3    1       0  (no marker)  [8501ad7aa52b63a0]
+  230 GFX         5921.7     57.3    1       0  (no marker)  [5a14b619e553032c]
+   85 GFX         1645.8     56.0   26       0  (no marker)  [3a7a697d9e2f5d06 581e2d038d9e1ce9 c2ad101c6014494f]
+  292 GFX         7271.7     55.8    1       0  (no marker)  [80896c316e197030]
+  380 GFX         8644.7     54.1   10       0  (no marker)  [8991e0eeeac60cc5 a6b90692bcc00166 ad88cae361e1a16c]
+  131 GFX         2062.6     53.9    1       0  (no marker)  [59ee3b938777898e]
+  179 GFX         4159.1     53.1   84       0  (no marker)  [063cab8c7ef13364 14e907908b778fae 240d2e6f5511ccd9]
+  144 GFX         2474.0     52.3   24       0  (no marker)  [0f5c7f3c810dbcc1 41996a3b8263b9dd 532f1f4a40019691]
+  384 GFX         8977.9     51.0   16       0  (no marker)  [a578e4d3b27a8f0d c3f1ab29980773e7 c78f9360add51a31]
+  195 GFX         5066.1     48.1    1       0  (no marker)  [2befb82a949c505e]
+  423 GFX        10142.6     47.3    1       0  (no marker)  [660f2f60e55771fe]
+  400 GFX         9562.8     46.9    2       0  (no marker)  [69f53fa54392fb40 71e8ba97cf1429ce]
+  239 GFX         6748.6     46.3    1       0  (no marker)  [438a6d7e9df3672c]
+  390 GFX         9302.1     46.1    2       0  (no marker)  [2dac7a4ac7d41134 c50712de1cf37a20]
+  177 GFX         4080.1     46.0   86       0  (no marker)  [18f4e8849c5934c0 3f1f43aad5ccfe7e 4f78940d2e666422]
+  391 GFX         9348.2     45.9    2       0  (no marker)  [b1298ad64886f70e d9fe711bcd78f69d]
+  401 GFX         9609.7     45.9    2       0  (no marker)  [3f8da6003cbeaa06 db51642f9b965e85]
+  372 GFX         8536.7     45.0    1       0  (no marker)  [0cfd1ff8c8e2140a]
+  281 GFX         7147.0     42.1   11       0  (no marker)  [026fa843277d9cad 174d909ec209a09c 8a7c9d48fe420704]
+   73 GFX         1378.6     41.6  168       0  (no marker)  [0528cc5d9ed52816 67d96a4a8f2acca7 c18010ceb1f74560]
+  413 GFX         9929.8     41.0    1       0  (no marker)  [90e56d9ebef36002]
+   75 GFX         1446.7     40.4  190       0  (no marker)  [4109b692ba9ad1cb 54087384cd93200e]
+  236 GFX         6707.6     40.1    8       0  (no marker)  [60dee323c414354f a1ba3df18d5934dc]
+  425 GFX        10192.6     38.4    1       0  (no marker)  [06054478e7ac9bc1]
+  398 GFX         9503.0     36.1    2       0  (no marker)  [4db97797a5df62a6 9d68cc3a9eedda56]
+  228 GFX         5584.1     35.5    1       0  (no marker)  [d32d17ac1b4fa108]
+  241 GFX         6820.6     35.3    1       0  (no marker)  [13e7cae42a9d1e4c]
+  403 GFX         9889.7     34.5    1       0  (no marker)  [d3fd8774280af8b6]
+   33 GFX          913.8     34.3    1       0  (no marker)  [2011ba6039b38dfe]
+  178 GFX         4126.1     33.0   82       0  (no marker)  [0cfa944dec165b36 0e2f1e7d86a4661e 4585964933bae61a]
+  374 GFX         8582.1     32.2    1       0  (no marker)  [702b185cbc168966]
+  252 GFX         6895.2     30.9    1       0  (no marker)  [192cee1e6f3aa5e1]
+  298 GFX         7594.8     29.6    1       0  (no marker)  [ffffffffffffffff]
+  336 GFX         7930.6     29.4    1       0  (no marker)  [621e3b03909e5c80]
+  216 GFX         5184.0     27.3    2       0  (no marker)  [c8fdb6c985275213]
+  456 GFX        10531.2     26.8    1       0  (no marker)  [27d3b42e426df2f8]
+   74 GFX         1420.2     26.6  190       0  (no marker)  [1793747b0215cb40 aa20f83fae9344b0 cf043585d20fed33]
+  291 GFX         7245.5     26.3    4       0  (no marker)  [2892ae1916ae4021]
+   48 GFX         1105.9     26.2    1       0  (no marker)  [329e816832eaf21b]
+  240 GFX         6794.9     25.7    1       0  (no marker)  [80896c316e197030]
+   71 GFX         1329.8     24.8    1       0  (no marker)  [e44b264030e594bb]
+  155 GFX         3941.4     24.5    1       0  (no marker)  [13e7cae42a9d1e4c]
+   76 GFX         1487.1     24.3  190       0  (no marker)  [6ab65103e7ea1758 6bf3f5f688a4c0d7 febeb22f910201f1]
+   72 GFX         1354.6     24.0    2       0  (no marker)  [c18010ceb1f74560 e44b264030e594bb]
+   70 GFX         1305.8     23.9    2       0  (no marker)  [c18010ceb1f74560 e68fdb0aa703b854]
+  283 GFX         7195.0     23.9    1       0  (no marker)  [d32d17ac1b4fa108]
+  399 GFX         9539.1     23.7    2       0  (no marker)  [4e49ae70e52b7f15 7fcf7f25d14a9710]
+  394 GFX         9432.1     23.7    2       0  (no marker)  [fa38cf8e06666570 faad3a46406a25e2]
+  393 GFX         9408.6     23.5    2       0  (no marker)  [b4bc186ca068654e ccd71dd12f4720f9]
+  114 GFX         1868.5     23.4   12       0  (no marker)  [00e752ba55126548 0142f3a50fbaf969 434e4e856b18274f]
+  284 GFX         7218.9     23.1    1       0  (no marker)  [5a14b619e553032c]
+  461 GFX        10611.4     23.0    1       0  (no marker)  [a68bd856a04b9270]
+  449 GFX        10498.3     22.9    1       0  (no marker)  [5cba8d2ce22d8562]
+  166 GFX         3995.4     22.6    1       0  (no marker)  [192cee1e6f3aa5e1]
+  227 GFX         5561.7     22.5    3       0  (no marker)  [ffffffffffffffff]
+  123 GFX         2011.9     21.9    1       0  (no marker)  [192cee1e6f3aa5e1]
+  145 GFX         2526.3     21.8   26       0  (no marker)  [4152f0bbdb162549 5ff2124deb8106d6 71c34649b553ff43]
+  104 GFX         1816.1     21.7    1       0  (no marker)  [13e7cae42a9d1e4c]
+  422 GFX        10121.2     21.4    1       0  (no marker)  [ab11dcd70e0ac8ee]
+  207 GFX         5154.0     21.2    1       0  (no marker)  [2461d80ecb797b35]
+  140 GFX         2174.3     20.5    1       0  (no marker)  [0d40b60b0efa14a2]
+  446 GFX        10477.5     20.0    2       0  (no marker)  [27d3b42e426df2f8 9e7a2cd74fa3aacf]
+   62 GFX         1248.3     19.7    1       0  (no marker)  [329e816832eaf21b]
+  471 Q1(src0x4)    1247.8     19.7    1       0  (no marker)  [e416aa98d2b8581f]
+  261 GFX         7036.2     18.8    1       0  (no marker)  [ffffffffffffffff]
+  396 GFX         9465.6     18.7    2       0  (no marker)  [2dd6b8d7a135a88f 734c459b8659ed3b]
+  397 GFX         9484.3     18.7    2       0  (no marker)  [2375a0eaf7f6a785 8d4b6584e5fe4433]
+   50 GFX         1137.2     18.6    1       0  (no marker)  [329e816832eaf21b]
+  113 GFX         1850.3     18.1   65       0  (no marker)  [407830ef1f85b1c3 4263914fd6c5ac6d 69054d50b331bf46]
+  460 GFX        10593.4     18.1    1       0  (no marker)  [ffffffffffffffff]
+  311 GFX         7707.5     17.9    1       0  (no marker)  [81bc6926c8a6193f]
+  249 GFX         6870.6     17.6    1       0  (no marker)  [6581fb6f63e6bd06]
+  137 GFX         2156.4     17.2    2       0  (no marker)  [5811a69069c945eb]
+  332 GFX         7893.0     16.8    1       0  (no marker)  [8992e24f09866503]
+  371 GFX         8520.1     16.6    3       0  (no marker)  [0000000000000000]
+  186 GFX         4447.6     16.6    2       0  (no marker)  [ffffffffffffffff]
+  253 GFX         6926.1     16.3    1       0  (no marker)  [807ca945015b457e]
+  433 GFX        10432.3     15.8   34       0  (no marker)  [2395f5438b5e6dfa 5af8b5a7625859b9 73d253901339149c]
+   58 GFX         1208.3     15.4    1       0  (no marker)  [329e816832eaf21b]
+   60 GFX         1228.3     15.0    1       0  (no marker)  [329e816832eaf21b]
+  414 GFX         9970.9     14.9    1       0  (no marker)  [c12e69fd8844fdf8]
+  472 Q1(src0x4)    1267.5     14.6    1       0  (no marker)  [aeb70acc3677d420]
+  204 GFX         5119.7     14.6    1       0  (no marker)  [2461d80ecb797b35]
+  392 GFX         9394.1     14.5    2       0  (no marker)  [232d014277ba03c1 6ac648b2d08566e1]
+   90 GFX         1727.4     14.4    1       0  (no marker)  [7c383e019f38e4bf]
+   34 GFX          948.1     14.3    2       0  (no marker)  [8ecbc4c4a48c7ce7]
+  222 GFX         5527.5     14.0    1       0  (no marker)  [57509c0c96958258]
+  348 GFX         8041.4     13.1    6       0  (no marker)  [ffffffffffffffff]
+  334 GFX         7917.2     13.0    1       0  (no marker)  [ffffffffffffffff]
+  153 GFX         3926.4     12.9    1       0  (no marker)  [92ce5f7fae96e96b]
+   52 GFX         1159.9     12.6    1       0  (no marker)  [329e816832eaf21b]
+  133 GFX         2130.6     12.6    1       0  (no marker)  [ffffffffffffffff]
+   91 GFX         1741.7     12.6    1       0  (no marker)  [807ca945015b457e]
+   86 GFX         1701.8     12.5   12       0  (no marker)  [14be231f2ab41571 2f4afc79879e66d8 7970e84b0a461bbf]
+  354 GFX         8320.7     12.4    1       0  (no marker)  [97944ba7abac5617]
+  163 GFX         3978.0     12.1    1       0  (no marker)  [6581fb6f63e6bd06]
+   54 GFX         1177.0     12.0    1       0  (no marker)  [329e816832eaf21b]
+  279 GFX         7132.3     11.9    1       0  (no marker)  [b7997c800ec1feae]
+   64 GFX         1273.9     11.9    1       0  (no marker)  [329e816832eaf21b]
+  307 GFX         7694.3     11.7    1       0  (no marker)  [be3ecbfdc2368fce]
+  167 GFX         4018.0     11.6    1       0  (no marker)  [807ca945015b457e]
+  301 GFX         7651.9     11.5    7       0  (no marker)  [7427d4bcb6b4f2f4]
+  441 GFX        10457.7     11.4   41       0  (no marker)  [2395f5438b5e6dfa 3b63ed5cd5ad38f0 5af8b5a7625859b9]
+  124 GFX         2033.8     11.3    1       0  (no marker)  [807ca945015b457e]
+  378 GFX         8626.4     11.2    1       0  (no marker)  [ffffffffffffffff]
+  316 GFX         7745.3     11.0    2       0  (no marker)  [f84c9b6be8b0fec9]
+   84 GFX         1634.8     11.0    1       0  (no marker)  [063498da5c1ab8c6]
+   39 GFX         1054.6     10.9    1       0  (no marker)  [46c2577daba6d69e]
+   56 GFX         1193.0     10.8    1       0  (no marker)  [329e816832eaf21b]
+  470 Q1(src0x4)    1237.0     10.8    1       0  (no marker)  [d849eb47e75b6feb]
+   46 GFX         1091.9     10.7    1       0  (no marker)  [69624b183409a1dc]
+   78 GFX         1514.2     10.6   74       0  (no marker)  [49aea3683c4abf37]
+  278 GFX         7121.8     10.5    9       0  (no marker)  [0000000000000000 8b47a443b551a08b b9279227037a05ce]
+  388 GFX         9105.9     10.5    1       0  (no marker)  [ff38a09baf5e4a8d]
+  385 GFX         9028.8     10.3    2       0  (no marker)  [0fce666b8fd9b75f]
+  174 GFX         4048.6     10.2    1       0  (no marker)  [59ee3b938777898e]
+  120 GFX         1996.3     10.2    1       0  (no marker)  [6581fb6f63e6bd06]
+  468 Q1(src0x4)    1218.6     10.1    1       0  (no marker)  [5e64076addd44c2d]
+  294 GFX         7328.0     10.0    1       0  (no marker)  [ffffffffffffffff]
+  205 GFX         5134.3     10.0    1       0  (no marker)  [2461d80ecb797b35]
+  305 GFX         7683.9     10.0    1       0  (no marker)  [10e5d3ea75550dbe]
+  220 GFX         5508.3      9.8    1       0  (no marker)  [553b687c8b3a51dd]
+  395 GFX         9455.8      9.8    2       0  (no marker)  [21cb51fbbde79c62 7a7b7fe2723983fd]
+  206 GFX         5144.3      9.7    1       0  (no marker)  [2461d80ecb797b35]
+  101 GFX         1798.8      9.6   24       0  (no marker)  [3a7a697d9e2f5d06 581e2d038d9e1ce9 b228b331825c5170]
+  302 GFX         7663.4      9.5    3       0  (no marker)  [7427d4bcb6b4f2f4]
+  221 GFX         5518.1      9.4    1       0  (no marker)  [553b687c8b3a51dd]
+  475 Q1(src0x4)    6903.4      9.4    1       0  (no marker)  [21dc58e934c69a17]
+  365 GFX         8368.6      9.3    1       0  (no marker)  [7d2722c4f09bac39]
+   40 GFX         1065.5      9.3    1       0  (no marker)  [96aa18fbd1b9e7ac]
+  300 GFX         7642.8      9.1    2       0  (no marker)  [7427d4bcb6b4f2f4]
+  352 GFX         8302.8      9.0    1       0  (no marker)  [ffffffffffffffff]
+  353 GFX         8311.8      8.9    1       0  (no marker)  [7d2722c4f09bac39]
+  467 Q1(src0x4)    1209.7      8.9    1       0  (no marker)  [3d4699aba045978c]
+  366 GFX         8377.9      8.7    1       0  (no marker)  [3292b306226d2bb4]
+  134 GFX         2143.2      8.5    1       0  (no marker)  [ffffffffffffffff]
+  368 GFX         8503.4      8.4    1       0  (no marker)  [ffffffffffffffff]
+  469 Q1(src0x4)    1228.6      8.4    1       0  (no marker)  [2291e6478d820303]
+  462 GFX        10634.5      8.3    1       0  (no marker)  [3b353dba669be888]
+  370 GFX         8512.0      8.1    2       0  (no marker)  [7bbdabe8fd0b7120 ffffffffffffffff]
+  272 GFX         7065.4      7.9    1       0  (no marker)  [337b0990d5e38676]
+  100 GFX         1791.1      7.8    1       0  (no marker)  [0000000000000000]
+  452 GFX        10522.1      7.6    3       0  (no marker)  [2395f5438b5e6dfa ad83cb5d2e87b85a b5a128eddb9de876]
+  313 GFX         7728.7      7.5    1       0  (no marker)  [fd8bcea7cc22a061]
+  333 GFX         7909.8      7.4    1       0  (no marker)  [2c194afc4e2855e5]
+   66 GFX         1290.7      7.4    1       0  (no marker)  [329e816832eaf21b]
+   45 GFX         1084.6      7.3    1       0  (no marker)  [3aa0070a19f3b610]
+  421 GFX        10114.0      7.2    1       0  (no marker)  [ab11dcd70e0ac8ee]
+  117 GFX         1981.2      7.2    1       0  (no marker)  [fd8bcea7cc22a061]
+  355 GFX         8333.1      7.2    1       0  (no marker)  [7d2722c4f09bac39]
+  379 GFX         8637.6      7.1    4       0  (no marker)  [735c0e08247ea766 e77eca5565f6dbfc]
+   36 GFX          964.2      7.1    1       0  (no marker)  [ffffffffffffffff]
+  223 GFX         5541.6      6.8    1       0  (no marker)  [ffffffffffffffff]
+  192 GFX         4974.4      6.6    1       0  (no marker)  [42bd0c0103da8bf9]
+   87 GFX         1714.3      6.6    1       0  (no marker)  [6581fb6f63e6bd06]
+  225 GFX         5554.9      6.6    1       0  (no marker)  [ffffffffffffffff]
+  224 GFX         5548.4      6.5    1       0  (no marker)  [ffffffffffffffff]
+  271 GFX         7059.0      6.4    1       0  (no marker)  [82d7ba51b20a1de4]
+  438 GFX        10450.9      6.2    1       0  (no marker)  [a54831314be3d5fc]
+  315 GFX         7739.1      6.2    1       0  (no marker)  [02c4f70e298250d6]
+  465 Q1(src0x4)    1201.1      6.2    1       0  (no marker)  [7574fb5868ed6ce8]
+  180 GFX         4212.2      6.0    1       0  (no marker)  [ffffffffffffffff]
+   63 GFX         1268.0      6.0    1       0  (no marker)  [7b82e68a0c383212]
+  208 GFX         5175.2      5.9    1       0  (no marker)  [4d9be998432eeaf1]
+  383 GFX         8972.0      5.9   16       0  (no marker)  [30935ef91ee1ec55 88b7e783a1a5b2a6 d570138d71e01df5]
+  282 GFX         7189.2      5.9    1       0  (no marker)  [ffffffffffffffff]
+  473 Q1(src0x4)    1282.0      5.7    1       0  (no marker)  [e537be650b3a93bc]
+  304 GFX         7678.3      5.6    1       0  (no marker)  [d32d17ac1b4fa108]
+  431 GFX        10404.4      5.6    1       0  (no marker)  [a58cc4eaee51444d]
+  321 GFX         7882.2      5.6    1       0  (no marker)  [ffffffffffffffff]
+  254 GFX         6942.5      5.6    1       0  (no marker)  [7856866106e31c03]
+  102 GFX         1808.4      5.5   11       0  (no marker)  [0fc885579150c415 14be231f2ab41571 2f4afc79879e66d8]
+  193 GFX         4981.0      5.4    1       0  (no marker)  [44e59054ecf057bd]
+  303 GFX         7672.9      5.4    1       0  (no marker)  [ffffffffffffffff]
+  168 GFX         4029.6      5.3    1       0  (no marker)  [7856866106e31c03]
+   92 GFX         1754.3      5.3    1       0  (no marker)  [7856866106e31c03]
+   49 GFX         1132.1      5.1    1       0  (no marker)  [7b82e68a0c383212]
+  375 GFX         8614.3      5.0    1       0  (no marker)  [074a5b93c509809a]
+  415 GFX         9985.8      4.9    1       0  (no marker)  [c12e69fd8844fdf8]
+  274 GFX         7077.4      4.9    1       0  (no marker)  [337b0990d5e38676]
+   61 GFX         1243.3      4.9    1       0  (no marker)  [7b82e68a0c383212]
+   65 GFX         1285.8      4.9    1       0  (no marker)  [7b82e68a0c383212]
+  119 GFX         1991.5      4.8    1       0  (no marker)  [02c4f70e298250d6]
+  356 GFX         8340.2      4.8    1       0  (no marker)  [97944ba7abac5617]
+   59 GFX         1223.6      4.7    1       0  (no marker)  [7b82e68a0c383212]
+  420 GFX        10109.3      4.7    1       0  (no marker)  [ab11dcd70e0ac8ee]
+   98 GFX         1772.8      4.5    1       0  (no marker)  [59ee3b938777898e]
+   57 GFX         1203.8      4.5    1       0  (no marker)  [7b82e68a0c383212]
+   53 GFX         1172.6      4.4    1       0  (no marker)  [7b82e68a0c383212]
+  377 GFX         8622.0      4.4    2       0  (no marker)  [e77eca5565f6dbfc]
+  347 GFX         8037.0      4.4    1       0  (no marker)  [fd45b9d83962c0b4]
+  463 GFX        10711.6      4.3    1       0  (no marker)  [7ba5c30be297dbca]
+   80 GFX         1624.8      4.3    2       0  (no marker)  [2d99784ea2d72d32]
+  146 GFX         2548.1      4.2    1       0  (no marker)  [bbbf90e497441a19]
+  443 GFX        10469.3      4.2    1       0  (no marker)  [f120c35f2dafefe3]
+  125 GFX         2045.1      4.2    1       0  (no marker)  [7856866106e31c03]
+  248 GFX         6866.5      4.1    1       0  (no marker)  [9e9938bb1b69d79f]
+   51 GFX         1155.8      4.1    1       0  (no marker)  [7b82e68a0c383212]
+  273 GFX         7073.3      4.1    1       0  (no marker)  [82d7ba51b20a1de4]
+   55 GFX         1189.0      4.0    1       0  (no marker)  [7b82e68a0c383212]
+   41 GFX         1074.8      3.9    1       0  (no marker)  [d0ed480465e1b4de]
+  418 GFX        10102.1      3.9    1       0  (no marker)  [ab11dcd70e0ac8ee]
+   89 GFX         1723.5      3.9    1       0  (no marker)  [bb2e0becb0093cd3]
+  251 GFX         6891.4      3.8    1       0  (no marker)  [bb2e0becb0093cd3]
+  357 GFX         8345.1      3.7    1       0  (no marker)  [7d2722c4f09bac39]
+  444 GFX        10473.5      3.7    1       0  (no marker)  [ffffffffffffffff]
+  187 GFX         4464.3      3.7    1       0  (no marker)  [ffffffffffffffff]
+  346 GFX         8033.3      3.7    1       0  (no marker)  [fd45b9d83962c0b4]
+   68 GFX         1300.4      3.4    1       0  (no marker)  [647a4cab0dab47a0]
+  258 GFX         6955.8      3.4    1       0  (no marker)  [800f5eaa73140980]
+  116 GFX         1977.8      3.4    1       0  (no marker)  [e742efe9da34b0c1]
+  312 GFX         7725.4      3.4    1       0  (no marker)  [e742efe9da34b0c1]
+  426 GFX        10231.0      3.3    1       0  (no marker)  [91f9db43c22d3dc6]
+  419 GFX        10106.0      3.3    1       0  (no marker)  [ab11dcd70e0ac8ee]
+  358 GFX         8348.8      3.3    1       0  (no marker)  [97944ba7abac5617]
+  250 GFX         6888.2      3.2    1       0  (no marker)  [b06d2d5ae444d3f8]
+   44 GFX         1081.4      3.2    1       0  (no marker)  [46315147955e557b]
+   47 GFX         1102.7      3.2    1       0  (no marker)  [46315147955e557b]
+  172 GFX         4042.6      3.2    1       0  (no marker)  [800f5eaa73140980]
+   96 GFX         1767.5      3.2    1       0  (no marker)  [800f5eaa73140980]
+  276 GFX         7082.8      3.1    1       0  (no marker)  [251ae736ab5f1022]
+  181 GFX         4218.2      3.1    1       0  (no marker)  [ffffffffffffffff]
+  165 GFX         3992.2      3.1    1       0  (no marker)  [bb2e0becb0093cd3]
+  162 GFX         3974.9      3.1    1       0  (no marker)  [9e9938bb1b69d79f]
+  118 GFX         1988.4      3.1    1       0  (no marker)  [21ede602c7dd4695]
+  122 GFX         2008.8      3.1    1       0  (no marker)  [bb2e0becb0093cd3]
+   37 GFX          981.7      3.0    1       0  (no marker)  [5e9935b5b593a907]
+  359 GFX         8352.1      3.0    1       0  (no marker)  [7d2722c4f09bac39]
+  314 GFX         7736.2      2.9    1       0  (no marker)  [21ede602c7dd4695]
+  360 GFX         8355.1      2.9    1       0  (no marker)  [97944ba7abac5617]
+  130 GFX         2059.7      2.9    1       0  (no marker)  [85743ecc46bcbe06]
+   83 GFX         1631.9      2.9    1       0  (no marker)  [8ea0571b1f4152ea]
+  280 GFX         7144.2      2.8    1       0  (no marker)  [ffffffffffffffff]
+   95 GFX         1764.7      2.8    1       0  (no marker)  [2f6b8d9f4901fd86]
+  176 GFX         4077.3      2.8    4       0  (no marker)  [bd9eafde3a236542]
+  127 GFX         2051.8      2.8    1       0  (no marker)  [2ea3de10509bf85e]
+  129 GFX         2057.0      2.8    1       0  (no marker)  [800f5eaa73140980]
+   77 GFX         1511.4      2.8    1       0  (no marker)  [cba6148fac0585a8]
+  173 GFX         4045.8      2.8    1       0  (no marker)  [85743ecc46bcbe06]
+  424 GFX        10189.9      2.7    1       0  (no marker)  [a83dd59f1b8517d2]
+   93 GFX         1759.5      2.7    1       0  (no marker)  [95a1c25e7ad5609d]
+  255 GFX         6948.0      2.7    1       0  (no marker)  [95a1c25e7ad5609d]
+  171 GFX         4039.9      2.7    1       0  (no marker)  [2f6b8d9f4901fd86]
+  169 GFX         4034.9      2.7    1       0  (no marker)  [95a1c25e7ad5609d]
+  376 GFX         8619.3      2.7    1       0  (no marker)  [ffffffffffffffff]
+  361 GFX         8358.0      2.7    1       0  (no marker)  [7d2722c4f09bac39]
+  362 GFX         8360.8      2.7    1       0  (no marker)  [97944ba7abac5617]
+  175 GFX         4074.6      2.7    2       0  (no marker)  [529f8d542ce0f1e0]
+  257 GFX         6953.1      2.7    1       0  (no marker)  [2f6b8d9f4901fd86]
+  459 GFX        10558.7      2.6   18       0  (no marker)  [3f18a606343f086f 5af8b5a7625859b9 ad83cb5d2e87b85a]
+  364 GFX         8365.9      2.6    1       0  (no marker)  [97944ba7abac5617]
+  432 GFX        10429.8      2.6   15       0  (no marker)  [30bee8dc63ab59cc 7f818f3bbd677d0a a78d6421a4189529]
+   88 GFX         1720.9      2.6    1       0  (no marker)  [b06d2d5ae444d3f8]
+  126 GFX         2049.3      2.5    1       0  (no marker)  [95a1c25e7ad5609d]
+  135 GFX         2151.7      2.5    1       0  (no marker)  [529f8d542ce0f1e0]
+  363 GFX         8363.4      2.5    1       0  (no marker)  [7d2722c4f09bac39]
+  466 Q1(src0x4)    1207.2      2.4    1       0  (no marker)  [14769d331389269d]
+   94 GFX         1762.3      2.4    1       0  (no marker)  [2ea3de10509bf85e]
+   32 GFX          911.4      2.4    1       0  (no marker)  [ffffffffffffffff]
+  128 GFX         2054.6      2.4    1       0  (no marker)  [2f6b8d9f4901fd86]
+  121 GFX         2006.5      2.4    1       0  (no marker)  [b06d2d5ae444d3f8]
+  242 GFX         6855.9      2.3    1       0  (no marker)  [9e9938bb1b69d79f]
+  256 GFX         6950.8      2.3    1       0  (no marker)  [2ea3de10509bf85e]
+    0 GFX            0.0      2.3   10       0  (no marker)  [ffffffffffffffff]
+  170 GFX         4037.6      2.3    1       0  (no marker)  [2ea3de10509bf85e]
+   67 GFX         1298.1      2.2    1       0  (no marker)  [f70d6b8b120cba0f]
+  416 GFX         9990.7      2.2    1       0  (no marker)  [c12e69fd8844fdf8]
+  105 GFX         1837.8      2.2    1       0  (no marker)  [9e9938bb1b69d79f]
+   97 GFX         1770.6      2.2    1       0  (no marker)  [85743ecc46bcbe06]
+  103 GFX         1814.0      2.2    1       0  (no marker)  [ffffffffffffffff]
+
+== passes (est. GPU time) ==
+queue      est_us  exact_us  %frame  events  pass  (exact = barrier-isolated segments only)
+GFX         514.1       0.0    4.8%      72  PSO cb22e8b10199aacc
+GFX         367.0     367.0    3.4%       4  PSO d32d17ac1b4fa108
+GFX         366.7     366.7    3.4%       1  PSO 3e7955a89ee71e82
+GFX         340.2     340.2    3.2%       3  PSO 5a14b619e553032c
+GFX         331.7     321.2    3.1%     107  PSO ffffffffffffffff
+Q1(src0x4)    293.3     293.3    2.7%       1  PSO 5123196aa098e19f
+GFX         246.9     246.9    2.3%       1  PSO 10c323d1085f6153
+GFX         239.2     239.2    2.2%       1  PSO c570890a613019cc
+GFX         224.5     224.5    2.1%       1  PSO 54e610d3e22205ee
+GFX         214.1     214.1    2.0%       1  PSO bc8a53cc288203cf
+GFX         185.7     185.7    1.7%       1  PSO 67089e89eca79b08
+GFX         171.9     171.9    1.6%       2  PSO 5e9935b5b593a907
+GFX         149.6     149.6    1.4%      10  PSO 329e816832eaf21b
+GFX         131.2     131.2    1.2%       4  PSO c12e69fd8844fdf8
+GFX         129.5     129.5    1.2%       4  PSO 59ee3b938777898e
+GFX         120.5     120.5    1.1%       1  PSO 4001317a5b6c9ff7
+GFX         114.0       0.0    1.1%     106  PSO 29060711f63db3cf
+GFX         100.0     100.0    0.9%      75  PSO 0aac43e6a3a08747
+Q1(src0x4)     95.3      95.3    0.9%       1  PSO edd8e1589a0d0738
+GFX          92.9       0.0    0.9%       1  PSO 2156f246311e214c
+GFX          92.9       0.0    0.9%       1  PSO f53ffecee495ab7c
+GFX          81.5      81.5    0.8%       3  PSO 13e7cae42a9d1e4c
+GFX          81.5      81.5    0.8%       2  PSO 80896c316e197030
+GFX          79.7      79.7    0.7%       1  PSO 035f23120a3d378c
+GFX          77.5       0.0    0.7%      39  PSO 44f2177e11ccce39
+GFX          75.4      75.4    0.7%       3  PSO 192cee1e6f3aa5e1
+GFX          73.8       0.0    0.7%     208  PSO 739f0f1c3cb2ae70
+GFX          70.9      70.9    0.7%       1  PSO 65812e045c5aa3c2
+GFX          70.1       0.0    0.7%       4  PSO cf3d6d4c6d3c5eb3
+GFX          70.1       0.0    0.7%       4  PSO ef1f51bd087781a5
+GFX          70.1       0.0    0.7%       4  PSO 772c50c1abc2e02a
+GFX          66.8       0.0    0.6%       4  PSO 63ca63e8de5940fe
+GFX          66.5       4.4    0.6%      33  PSO e77eca5565f6dbfc
+GFX          66.1      66.1    0.6%       1  PSO 07072497107d0723
+GFX          60.2      12.9    0.6%       2  PSO 92ce5f7fae96e96b
+GFX          57.3      57.3    0.5%       1  PSO 8501ad7aa52b63a0
+GFX          56.8      56.8    0.5%       8  PSO 2461d80ecb797b35
+GFX          53.8       0.0    0.5%      46  PSO ad88cae361e1a16c
+GFX          53.4       0.0    0.5%       1  PSO f16f744dbb01a4a2
+GFX          53.4       0.0    0.5%       1  PSO fb6e6c31532c33b7
+GFX          52.7      24.8    0.5%      66  PSO e44b264030e594bb
+GFX          51.9      51.9    0.5%       4  PSO 807ca945015b457e
+GFX          49.8       0.0    0.5%      39  PSO 18f4e8849c5934c0
+GFX          49.2       0.0    0.5%      32  PSO ff0941bc2ae73cfc
+GFX          48.1      48.1    0.4%       1  PSO 2befb82a949c505e
+GFX          47.7       0.0    0.4%      18  PSO aec6c447b4cbc155
+GFX          47.7       0.0    0.4%      18  PSO 4585964933bae61a
+GFX          47.3       0.0    0.4%       1  PSO 868d38ed52a45807
+GFX          47.3       0.0    0.4%       1  PSO c13f9418907dcaa5
+GFX          47.3      47.3    0.4%       1  PSO 660f2f60e55771fe
+GFX          46.9       0.0    0.4%      17  PSO b5e4e26c2da1a18f
+GFX          46.5      46.5    0.4%       4  PSO 6581fb6f63e6bd06
+GFX          46.3      46.3    0.4%       1  PSO 438a6d7e9df3672c
+GFX          45.2       0.0    0.4%      17  PSO 1ba1ffe01e3079da
+GFX          45.0      45.0    0.4%       1  PSO 0cfd1ff8c8e2140a
+GFX          44.1       0.0    0.4%      16  PSO 86238ffe13eff922
+GFX          42.7      42.7    0.4%       9  PSO 7b82e68a0c383212
+GFX          42.2       0.0    0.4%      31  PSO c2ad101c6014494f
+GFX          42.1       0.0    0.4%      33  PSO 69c3644236f8d7a5
+GFX          41.8       0.0    0.4%      74  PSO c18010ceb1f74560
+GFX          41.0      41.0    0.4%       1  PSO 90e56d9ebef36002
+GFX          40.5      40.5    0.4%       5  PSO ab11dcd70e0ac8ee
+GFX          39.7       0.0    0.4%      15  PSO 0e2f1e7d86a4661e
+GFX          39.4      39.4    0.4%      22  PSO 9e9938bb1b69d79f
+GFX          38.4      38.4    0.4%       1  PSO 06054478e7ac9bc1
+GFX          37.4      37.4    0.3%       7  PSO 7d2722c4f09bac39
+GFX          37.1      26.8    0.3%       3  PSO 27d3b42e426df2f8
+GFX          34.5      34.5    0.3%       1  PSO d3fd8774280af8b6
+GFX          34.3      34.3    0.3%       1  PSO 2011ba6039b38dfe
+GFX          33.4       0.0    0.3%       2  PSO 49cdfa5eca446b90
+GFX          33.0       0.0    0.3%      21  PSO ea0f64f0919e608e
+GFX          32.9       0.0    0.3%       7  PSO 2067692dc18588c3
+GFX          32.2      32.2    0.3%       1  PSO 702b185cbc168966
+GFX          31.8       0.0    0.3%      12  PSO 7edf64dfb912afee
+GFX          31.8       0.0    0.3%      12  PSO be2444a22ae42534
+GFX          31.8       0.0    0.3%      12  PSO a411aae3a0be81b8
+GFX          30.0      30.0    0.3%      12  PSO 7427d4bcb6b4f2f4
+GFX          29.8       0.0    0.3%      15  PSO aaa0d34ec6f3db02
+GFX          29.4      29.4    0.3%       1  PSO 621e3b03909e5c80
+GFX          28.7      28.7    0.3%       6  PSO 97944ba7abac5617
+GFX          28.6       0.0    0.3%       4  PSO b240f1cb18df240f
+GFX          27.3      27.3    0.3%       2  PSO c8fdb6c985275213
+GFX          26.3      26.3    0.2%       4  PSO 2892ae1916ae4021
+GFX          25.8      24.4    0.2%       6  PSO 0000000000000000
+GFX          24.4       0.0    0.2%     115  PSO 54087384cd93200e
+GFX          23.5       0.0    0.2%       1  PSO 71e8ba97cf1429ce
+GFX          23.5       0.0    0.2%       1  PSO 69f53fa54392fb40
+GFX          23.2      20.5    0.2%       2  PSO 0d40b60b0efa14a2
+GFX          23.1       0.0    0.2%       1  PSO c50712de1cf37a20
+GFX          23.1       0.0    0.2%       1  PSO 2dac7a4ac7d41134
+GFX          23.0      23.0    0.2%       1  PSO a68bd856a04b9270
+GFX          23.0       0.0    0.2%       1  PSO b1298ad64886f70e
+GFX          23.0       0.0    0.2%       1  PSO d9fe711bcd78f69d
+GFX          22.9       0.0    0.2%       1  PSO db51642f9b965e85
+GFX          22.9       0.0    0.2%       1  PSO 3f8da6003cbeaa06
+GFX          22.9      22.9    0.2%       1  PSO 5cba8d2ce22d8562
+GFX          22.1       0.0    0.2%       8  PSO dc7563ca8d64234b
+GFX          21.8       0.0    0.2%      10  PSO 532f1f4a40019691
+GFX          21.4       0.0    0.2%       3  PSO efb3a806320941aa
+GFX          20.4       0.0    0.2%      19  PSO e1cc16ecadd5d46a
+GFX          20.3      20.3    0.2%       4  PSO 7856866106e31c03
+GFX          20.0       0.0    0.2%       4  PSO 60dee323c414354f
+GFX          20.0       0.0    0.2%       4  PSO a1ba3df18d5934dc
+Q1(src0x4)     19.7      19.7    0.2%       1  PSO e416aa98d2b8581f
+GFX          19.6       0.0    0.2%       9  PSO 41996a3b8263b9dd
+GFX          19.6       0.0    0.2%      13  PSO e172029727b0b588
+GFX          19.6       0.0    0.2%      64  PSO ad83cb5d2e87b85a
+GFX          19.3       0.0    0.2%       7  PSO db737108d76eac1a
+GFX          19.2      19.2    0.2%       2  PSO 553b687c8b3a51dd
+GFX          19.1       0.0    0.2%      15  PSO 4f78940d2e666422
+GFX          19.1       0.0    0.2%      15  PSO af6f978ba8f83893
+GFX          18.8       0.0    0.2%       4  PSO 2a5a31c168449bd0
+GFX          18.8       0.0    0.2%       4  PSO b5682d462ee7478a
+GFX          18.3      18.3    0.2%       5  PSO 8992e24f09866503
+GFX          18.1       0.0    0.2%       1  PSO 4db97797a5df62a6
+GFX          18.1       0.0    0.2%       1  PSO 9d68cc3a9eedda56
+GFX          17.9      17.9    0.2%       1  PSO 81bc6926c8a6193f
+GFX          17.3       0.0    0.2%       8  PSO 8991e0eeeac60cc5
+GFX          17.2      17.2    0.2%       2  PSO 5811a69069c945eb
+GFX          16.7       0.0    0.2%       1  PSO 03d959ec1553aa83
+GFX          16.1       0.0    0.2%      15  PSO 1359d71d9a3fef6a
+GFX          15.9       0.0    0.1%      75  PSO 4109b692ba9ad1cb
+GFX          15.9       0.0    0.1%       6  PSO 8cb13d5f140e44ce
+GFX          15.3       0.0    0.1%      12  PSO bc14daa2caa43eec
+GFX          14.8       0.0    0.1%     106  PSO aa20f83fae9344b0
+GFX          14.7      14.7    0.1%       2  PSO fd8bcea7cc22a061
+Q1(src0x4)     14.6      14.6    0.1%       1  PSO aeb70acc3677d420
+GFX          14.4      14.4    0.1%       6  PSO 337b0990d5e38676
+GFX          14.4      14.4    0.1%       1  PSO 7c383e019f38e4bf
+GFX          14.3      14.3    0.1%       2  PSO 8ecbc4c4a48c7ce7
+GFX          14.1       0.0    0.1%       3  PSO bce8d571bda7b053
+GFX          14.1       0.0    0.1%       3  PSO cf5d8fb688619033
+GFX          14.1       0.0    0.1%       3  PSO 06f5894498d63dde
+GFX          14.0      14.0    0.1%       1  PSO 57509c0c96958258
+GFX          13.8      13.8    0.1%       4  PSO bb2e0becb0093cd3
+GFX          13.6       0.0    0.1%      30  PSO 7970e84b0a461bbf
+GFX          13.6       0.0    0.1%       9  PSO 0b3b32882013bd23
+GFX          13.6       0.0    0.1%     106  PSO 6bf3f5f688a4c0d7
+GFX          12.5      12.5    0.1%       4  PSO 800f5eaa73140980
+GFX          12.4      12.4    0.1%       6  PSO 82d7ba51b20a1de4
+GFX          12.1       0.0    0.1%       8  PSO febbfe3d609c8d1a
+GFX          12.0       0.0    0.1%       1  PSO e68fdb0aa703b854
+GFX          11.9      11.9    0.1%       1  PSO b7997c800ec1feae
+GFX          11.8       0.0    0.1%       1  PSO 7fcf7f25d14a9710
+GFX          11.8       0.0    0.1%       1  PSO 4e49ae70e52b7f15
+GFX          11.8       0.0    0.1%       1  PSO faad3a46406a25e2
+GFX          11.8       0.0    0.1%       1  PSO fa38cf8e06666570
+GFX          11.8       0.0    0.1%      11  PSO e94c62f867200a9a
+GFX          11.7       0.0    0.1%       1  PSO ccd71dd12f4720f9
+GFX          11.7       0.0    0.1%       1  PSO b4bc186ca068654e
+GFX          11.7      11.7    0.1%       1  PSO be3ecbfdc2368fce
+GFX          11.5       0.0    0.1%       9  PSO 3f1f43aad5ccfe7e
+GFX          11.0      11.0    0.1%       2  PSO f84c9b6be8b0fec9
+GFX          11.0       0.0    0.1%       4  PSO 7687466e34e95a46
+GFX          11.0      11.0    0.1%       2  PSO 02c4f70e298250d6
+GFX          11.0      11.0    0.1%       1  PSO 063498da5c1ab8c6
+GFX          10.9      10.9    0.1%       9  PSO fd45b9d83962c0b4
+GFX          10.9      10.9    0.1%       1  PSO 46c2577daba6d69e
+Q1(src0x4)     10.8      10.8    0.1%       1  PSO d849eb47e75b6feb
+GFX          10.8      10.8    0.1%       4  PSO 95a1c25e7ad5609d
+GFX          10.7      10.7    0.1%       1  PSO 69624b183409a1dc
+GFX          10.6      10.6    0.1%      74  PSO 49aea3683c4abf37
+GFX          10.6      10.6    0.1%       4  PSO 2f6b8d9f4901fd86
+GFX          10.5       0.0    0.1%      75  PSO cf043585d20fed33
+GFX          10.5      10.5    0.1%       1  PSO ff38a09baf5e4a8d
+GFX          10.3      10.3    0.1%       4  PSO b06d2d5ae444d3f8
+GFX          10.3      10.3    0.1%       2  PSO 0fce666b8fd9b75f
+GFX          10.2       0.0    0.1%       2  PSO 9e7a2cd74fa3aacf
+Q1(src0x4)     10.1      10.1    0.1%       1  PSO 5e64076addd44c2d
+GFX          10.0      10.0    0.1%       1  PSO 10e5d3ea75550dbe
+GFX          10.0      10.0    0.1%       4  PSO 85743ecc46bcbe06
+GFX           9.9       0.0    0.1%      28  PSO 4ecfce0d4d092358
+GFX           9.8       0.0    0.1%       7  PSO 3a7a697d9e2f5d06
+GFX           9.8       9.8    0.1%       4  PSO 2ea3de10509bf85e
+GFX           9.6       0.0    0.1%      75  PSO febeb22f910201f1
+GFX           9.4       0.0    0.1%       2  PSO 6e1e8d6b39ef7a65
+GFX           9.4       0.0    0.1%       2  PSO 01d612f89cd8a370
+GFX           9.4       0.0    0.1%       1  PSO 2dd6b8d7a135a88f
+GFX           9.4       0.0    0.1%       1  PSO 734c459b8659ed3b
+Q1(src0x4)      9.4       9.4    0.1%       1  PSO 21dc58e934c69a17
+GFX           9.3       0.0    0.1%       1  PSO 2375a0eaf7f6a785
+GFX           9.3       0.0    0.1%       1  PSO 8d4b6584e5fe4433
+GFX           9.3       9.3    0.1%       1  PSO 96aa18fbd1b9e7ac
+GFX           9.2       0.0    0.1%      11  PSO b58006f9896252bf
+GFX           9.1       9.1    0.1%       4  PSO 46315147955e557b
+Q1(src0x4)      8.9       8.9    0.1%       1  PSO 3d4699aba045978c
+GFX           8.7       8.7    0.1%       1  PSO 3292b306226d2bb4
+GFX           8.6       0.0    0.1%       2  PSO f06aad6c88375027
+GFX           8.6       2.1    0.1%      24  PSO 0cfa944dec165b36
+GFX           8.4       0.0    0.1%      10  PSO 5ff2124deb8106d6
+Q1(src0x4)      8.4       8.4    0.1%       1  PSO 2291e6478d820303
+GFX           8.3       8.3    0.1%       1  PSO 3b353dba669be888
+GFX           8.1       0.0    0.1%      15  PSO 47bb0ac2f3af4efb
+GFX           7.9       0.0    0.1%       3  PSO a97abb4f97ef1e41
+GFX           7.9       0.0    0.1%       3  PSO 7885433c21337ce3
+GFX           7.7       0.0    0.1%       6  PSO 581e2d038d9e1ce9
+GFX           7.7       0.0    0.1%       2  PSO e42bd0f4aace1d98
+GFX           7.7       0.0    0.1%       2  PSO c2e28d0215ed2abe
+GFX           7.7       0.0    0.1%       2  PSO c9749f4426cf2aa0
+GFX           7.7       0.0    0.1%       2  PSO 8a7c9d48fe420704
+GFX           7.7       0.0    0.1%       6  PSO e059954413288850
+GFX           7.4       7.4    0.1%       1  PSO 2c194afc4e2855e5
+GFX           7.3       7.3    0.1%       1  PSO 3aa0070a19f3b610
+GFX           7.3       6.2    0.1%       5  PSO a54831314be3d5fc
+GFX           7.3       0.0    0.1%       1  PSO 6ac648b2d08566e1
+GFX           7.3       0.0    0.1%       1  PSO 232d014277ba03c1
+GFX           7.1       0.0    0.1%       1  PSO d56d22ada0c2006a
+GFX           6.9       0.0    0.1%      28  PSO 0528cc5d9ed52816
+GFX           6.7       6.7    0.1%       2  PSO e742efe9da34b0c1
+GFX           6.6       6.6    0.1%       1  PSO 42bd0c0103da8bf9
+GFX           6.4       0.0    0.1%      11  PSO 2395f5438b5e6dfa
+GFX           6.4       0.0    0.1%       2  PSO c3f1ab29980773e7
+GFX           6.4       0.0    0.1%       2  PSO c78f9360add51a31
+Q1(src0x4)      6.2       6.2    0.1%       1  PSO 7574fb5868ed6ce8
+GFX           6.0       0.0    0.1%       4  PSO 43e6a73e535fb64a
+GFX           6.0       6.0    0.1%       2  PSO 21ede602c7dd4695
+GFX           6.0       0.0    0.1%       3  PSO f2154313cdf515a6
+GFX           6.0       0.0    0.1%       3  PSO 80374d8370e59afe
+GFX           6.0       0.0    0.1%       3  PSO 14e907908b778fae
+GFX           6.0       0.0    0.1%       3  PSO 063cab8c7ef13364
+GFX           5.9       5.9    0.1%       1  PSO 4d9be998432eeaf1
+Q1(src0x4)      5.7       5.7    0.1%       1  PSO e537be650b3a93bc
+GFX           5.6       5.6    0.1%       1  PSO a58cc4eaee51444d
+GFX           5.5       0.0    0.1%       2  PSO b80f00e7ccb1c829
+GFX           5.4       5.4    0.1%       1  PSO 44e59054ecf057bd
+GFX           5.4       0.0    0.1%       3  PSO 9ab030f2dd1a151e
+GFX           5.4       0.0    0.1%       1  PSO a6b90692bcc00166
+GFX           5.4       0.0    0.1%       3  PSO 735c0e08247ea766
+GFX           5.3       0.0    0.0%       2  PSO 13cd70ce55c34fcb
+GFX           5.2       5.2    0.0%       3  PSO 529f8d542ce0f1e0
+GFX           5.0       0.0    0.0%      18  PSO 4263914fd6c5ac6d
+GFX           5.0       5.0    0.0%       1  PSO 074a5b93c509809a
+GFX           4.9       4.9    0.0%       6  PSO bd9eafde3a236542
+GFX           4.9       0.0    0.0%       1  PSO 21cb51fbbde79c62
+GFX           4.9       0.0    0.0%       1  PSO 7a7b7fe2723983fd
+GFX           4.9       0.0    0.0%       9  PSO 47e95ec0a11fbe1e
+GFX           4.8       0.0    0.0%      13  PSO 30935ef91ee1ec55
+GFX           4.7       0.0    0.0%      17  PSO 407830ef1f85b1c3
+GFX           4.7       0.0    0.0%       1  PSO 0dd5fda883deef2b
+GFX           4.7       0.0    0.0%       1  PSO 4be5e78dfd19f2e4
+GFX           4.7       0.0    0.0%       1  PSO d0372c140537390a
+GFX           4.7       0.0    0.0%       1  PSO b0a0e9584502f87d
+GFX           4.6       0.0    0.0%      13  PSO fc49c41e24848bdd
+GFX           4.4       0.0    0.0%       2  PSO 542486cbb90f4e90
+GFX           4.4       0.0    0.0%       2  PSO 0f5c7f3c810dbcc1
+GFX           4.3       4.3    0.0%       1  PSO 7ba5c30be297dbca
+GFX           4.3       4.3    0.0%       2  PSO 2d99784ea2d72d32
+GFX           4.3       0.0    0.0%      12  PSO 2535862dc7e82963
+GFX           4.2       4.2    0.0%       1  PSO bbbf90e497441a19
+GFX           4.2       4.2    0.0%       1  PSO f120c35f2dafefe3
+GFX           4.0       0.0    0.0%       1  PSO 7bbdabe8fd0b7120
+GFX           3.9       3.9    0.0%       1  PSO d0ed480465e1b4de
+GFX           3.9       0.0    0.0%       2  PSO fba76cec7fbcb0fc
+GFX           3.8       0.0    0.0%       1  PSO 174d909ec209a09c
+GFX           3.8       0.0    0.0%       1  PSO 026fa843277d9cad
+GFX           3.8       0.0    0.0%       1  PSO fd13f2985405e83d
+GFX           3.6       0.0    0.0%       4  PSO 14be231f2ab41571
+GFX           3.6       0.0    0.0%       4  PSO 2f4afc79879e66d8
+GFX           3.5       0.0    0.0%       3  PSO bdf686057759c405
+GFX           3.5       0.0    0.0%       3  PSO b9279227037a05ce
+GFX           3.5       0.0    0.0%      11  PSO a78d6421a4189529
+GFX           3.4       3.4    0.0%       1  PSO 647a4cab0dab47a0
+GFX           3.3       3.3    0.0%       1  PSO 91f9db43c22d3dc6
+GFX           3.2       0.0    0.0%       7  PSO 73d253901339149c
+GFX           3.2       0.0    0.0%       6  PSO acd5d46f77d747d5
+GFX           3.2       0.0    0.0%       6  PSO d77e1a0f5cdfb04a
+GFX           3.2       0.0    0.0%       6  PSO 6dbd13de744b6b37
+GFX           3.2       0.0    0.0%       6  PSO 5c419e460e9babf7
+GFX           3.2       0.0    0.0%       3  PSO e9a60d0bc81f108d
+GFX           3.2       0.0    0.0%       1  PSO a578e4d3b27a8f0d
+GFX           3.1       3.1    0.0%       5  PSO 2a4027ded33b8345
+GFX           3.1       3.1    0.0%       1  PSO 251ae736ab5f1022
+GFX           3.0       0.0    0.0%       6  PSO 0fc885579150c415
+GFX           3.0       0.0    0.0%       2  PSO af0309a20ff57966
+GFX           3.0       0.0    0.0%       2  PSO 5ba0f78443f6f6a8
+GFX           2.9       2.9    0.0%       2  PSO 3a57e7accd954150
+GFX           2.9       2.9    0.0%       1  PSO 8ea0571b1f4152ea
+GFX           2.8       2.8    0.0%       1  PSO cba6148fac0585a8
+GFX           2.8       0.0    0.0%       1  PSO 6dc65cc43889f1dc
+GFX           2.8       0.0    0.0%       1  PSO 09200b35ceefcf22
+GFX           2.8       0.0    0.0%       1  PSO 7d894ab4d68e88a2
+GFX           2.7       2.7    0.0%       1  PSO a83dd59f1b8517d2
+GFX           2.7       0.0    0.0%       1  PSO b9e9a2451ae3869d
+GFX           2.7       0.0    0.0%       1  PSO 6035e77791403a90
+GFX           2.7       0.0    0.0%       1  PSO f2da7a927e790d14
+GFX           2.7       0.0    0.0%       1  PSO ef4fd2bb9e88e028
+GFX           2.7       0.0    0.0%       1  PSO 983a11cd0d278149
+GFX           2.5       0.0    0.0%       1  PSO b5a128eddb9de876
+Q1(src0x4)      2.4       2.4    0.0%       1  PSO 14769d331389269d
+GFX           2.3       0.0    0.0%       2  PSO 8b47a443b551a08b
+GFX           2.2       2.2    0.0%       1  PSO f70d6b8b120cba0f
+GFX           2.2       0.0    0.0%       1  PSO 7787bfa86044d6ad
+GFX           2.2       2.2    0.0%       1  PSO 0b63362d0a3cf712
+GFX           2.1       0.0    0.0%       6  PSO 51129119e7887d8a
+GFX           2.0       2.0    0.0%       3  PSO eeff8c834a8a68ce
+GFX           2.0       0.0    0.0%       1  PSO 0142f3a50fbaf969
+GFX           2.0       0.0    0.0%       1  PSO 671c1a05e0ac39d4
+GFX           2.0       0.0    0.0%       1  PSO 434e4e856b18274f
+GFX           2.0       0.0    0.0%       1  PSO 00e752ba55126548
+GFX           2.0       0.0    0.0%       7  PSO 69054d50b331bf46

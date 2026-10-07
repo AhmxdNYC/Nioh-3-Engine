@@ -1,0 +1,62 @@
+== func 5A6FDC-5A7040
+005A6FDC  48895C2408               mov [rsp+8],rbx
+005A6FE1  57                       push rdi
+005A6FE2  4883EC20                 sub rsp,20h
+005A6FE6  488B19                   mov rbx,[rcx]
+005A6FE9  90                       nop
+005A6FEA  4885DB                   test rbx,rbx
+005A6FED  744D                     je short R_5A703C
+005A6FEF  E8C09E5B00               call R_B60EB4
+005A6FF4  488BF8                   mov rdi,rax
+005A6FF7  E89C9E5B00               call R_B60E98
+005A6FFC  4881FF80969800           cmp rdi,989680h
+005A7003  0F8525704301             jne near R_19DE02E
+005A7009  486BC864                 imul rcx,rax,64h
+005A700D  482B4B08                 sub rcx,[rbx+8]
+005A7011  48B8B394D626E80B2E11     mov rax,112E0BE826D694B3h
+005A701B  48F7E9                   imul rcx
+005A701E  8B0B                     mov ecx,[rbx]
+005A7020  48C1FA1A                 sar rdx,1Ah
+005A7024  488BC2                   mov rax,rdx
+005A7027  48C1E83F                 shr rax,3Fh
+005A702B  4803C2                   add rax,rdx
+005A702E  4803C1                   add rax,rcx
+005A7031  488B5C2430               mov rbx,[rsp+30h]
+005A7036  4883C420                 add rsp,20h
+005A703A  5F                       pop rdi
+005A703B  C3                       ret
+005A703C  33C0                     xor eax,eax
+005A703E  EBF1                     jmp short R_5A7031
+== func 5A725C-5A72D4
+005A725C  48895C2408               mov [rsp+8],rbx
+005A7261  57                       push rdi
+005A7262  4883EC20                 sub rsp,20h
+005A7266  488BD9                   mov rbx,rcx
+005A7269  E8469C5B00               call R_B60EB4
+005A726E  488BF8                   mov rdi,rax
+005A7271  E8229C5B00               call R_B60E98
+005A7276  4881FF80969800           cmp rdi,989680h
+005A727D  0F85FF6D4301             jne near R_19DE082
+005A7283  4C6BC064                 imul r8,rax,64h
+005A7287  807B1C00                 cmp byte [rbx+1Ch],0
+005A728B  7535                     jne short R_5A72C2
+005A728D  498BC8                   mov rcx,r8
+005A7290  48B8B394D626E80B2E11     mov rax,112E0BE826D694B3h
+005A729A  482B4B10                 sub rcx,[rbx+10h]
+005A729E  48F7E9                   imul rcx
+005A72A1  48C1FA1A                 sar rdx,1Ah
+005A72A5  488BC2                   mov rax,rdx
+005A72A8  48C1E83F                 shr rax,3Fh
+005A72AC  4803D0                   add rdx,rax
+005A72AF  8B4318                   mov eax,[rbx+18h]
+005A72B2  483BD0                   cmp rdx,rax
+005A72B5  7D0B                     jge short R_5A72C2
+005A72B7  488B5C2430               mov rbx,[rsp+30h]
+005A72BC  4883C420                 add rsp,20h
+005A72C0  5F                       pop rdi
+005A72C1  C3                       ret
+005A72C2  488BCB                   mov rcx,rbx
+005A72C5  C6431C00                 mov byte [rbx+1Ch],0
+005A72C9  4C894310                 mov [rbx+10h],r8
+005A72CD  E81AC74900               call R_A439EC
+005A72D2  EBE3                     jmp short R_5A72B7

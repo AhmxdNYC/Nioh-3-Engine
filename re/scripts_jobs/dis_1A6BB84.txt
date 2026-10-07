@@ -1,0 +1,78 @@
+; ---- Nioh3+1A6BB84 .. +1A6BC94 (pdata fn Some (27704196u, 27704468u))
+ 1A6BB84  mov     r11,rsp                                   
+ 1A6BB87  mov     [r11+10h],rbx                             
+ 1A6BB8B  mov     [r11+18h],rbp                             
+ 1A6BB8F  mov     [r11+20h],rsi                             
+ 1A6BB93  push    rdi                                       
+ 1A6BB94  sub     rsp,80h                                   
+ 1A6BB9B  mov     rax,[rel 44B7F30h]                        
+ 1A6BBA2  xor     rax,rsp                                   
+ 1A6BBA5  mov     [rsp+70h],rax                             
+ 1A6BBAA  mov     rbx,[rcx]                                 
+ 1A6BBAD  lea     rax,[r11-58h]                             
+ 1A6BBB1  mov     r9d,20h                                   
+ 1A6BBB7  mov     rdi,rcx                                   
+ 1A6BBBA  mov     [r11-60h],r9d                             
+ 1A6BBBE  xor     edx,edx                                   
+ 1A6BBC0  xor     ecx,ecx                                   
+ 1A6BBC2  mov     [r11-68h],rax                             
+ 1A6BBC6  lea     r8,[rbx+30h]                              
+ 1A6BBCA  call    qword [rel 38E2328h]                        ; KERNEL32.dll!MultiByteToWideChar
+ 1A6BBD0  xor     esi,esi                                   
+ 1A6BBD2  test    eax,eax                                   
+ 1A6BBD4  jle     short 0000000001A6BBE4h                   
+ 1A6BBD6  mov     rcx,[rbx]                                 
+ 1A6BBD9  lea     rdx,[rsp+30h]                             
+ 1A6BBDE  call    qword [rel 38E25E0h]                        ; KERNEL32.dll!SetThreadDescription
+ 1A6BBE4  mov     rcx,rdi                                   
+ 1A6BBE7  call    000000000003FE14h                         
+ 1A6BBEC  test    al,al                                     
+ 1A6BBEE  je      short 0000000001A6BC65h                   
+ 1A6BBF0  mov     ebp,50000000h                             
+ 1A6BBF5  mov     rbx,[rdi+440h]                            
+ 1A6BBFC  lock inc dword [rbx+30h]                          
+ 1A6BC00  xor     eax,eax                                   
+ 1A6BC02  lock cmpxchg [rbx+48h],esi                        
+ 1A6BC07  and     eax,ebp                                   
+ 1A6BC09  cmp     eax,ebp                                   
+ 1A6BC0B  je      short 0000000001A6BC3Dh                   
+ 1A6BC0D  mov     rcx,[rdi]                                 
+ 1A6BC10  test    rcx,rcx                                   
+ 1A6BC13  je      short 0000000001A6BC48h                   
+ 1A6BC15  xor     eax,eax                                   
+ 1A6BC17  lock cmpxchg [rcx+10h],esi                        
+ 1A6BC1C  mov     edx,eax                                   
+ 1A6BC1E  mov     r8d,eax                                   
+ 1A6BC21  or      edx,1                                     
+ 1A6BC24  lock cmpxchg [rcx+10h],edx                        
+ 1A6BC29  cmp     eax,r8d                                   
+ 1A6BC2C  jne     short 0000000001A6BC1Ch                   
+ 1A6BC2E  mov     rcx,[rcx+8]                               
+ 1A6BC32  or      edx,0FFFFFFFFh                            
+ 1A6BC35  call    qword [rel 38E2340h]                        ; KERNEL32.dll!WaitForSingleObject
+ 1A6BC3B  jmp     short 0000000001A6BC48h                   
+ 1A6BC3D  mov     ecx,1                                     
+ 1A6BC42  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A6BC48  xor     eax,eax                                   
+ 1A6BC4A  lock cmpxchg [rbx+48h],esi                        
+ 1A6BC4F  and     eax,ebp                                   
+ 1A6BC51  cmp     eax,ebp                                   
+ 1A6BC53  je      short 0000000001A6BC3Dh                   
+ 1A6BC55  lock dec dword [rbx+30h]                          
+ 1A6BC59  mov     rcx,rdi                                   
+ 1A6BC5C  call    000000000003FE14h                         
+ 1A6BC61  test    al,al                                     
+ 1A6BC63  jne     short 0000000001A6BBF5h                   
+ 1A6BC65  xor     ecx,ecx                                   
+ 1A6BC67  call    0000000000BDBBC4h                         
+ 1A6BC6C  xor     eax,eax                                   
+ 1A6BC6E  mov     rcx,[rsp+70h]                             
+ 1A6BC73  xor     rcx,rsp                                   
+ 1A6BC76  call    0000000000B912E0h                         
+ 1A6BC7B  lea     r11,[rsp+80h]                             
+ 1A6BC83  mov     rbx,[r11+18h]                             
+ 1A6BC87  mov     rbp,[r11+20h]                             
+ 1A6BC8B  mov     rsi,[r11+28h]                             
+ 1A6BC8F  mov     rsp,r11                                   
+ 1A6BC92  pop     rdi                                       
+ 1A6BC93  ret                                               

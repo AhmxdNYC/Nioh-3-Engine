@@ -1,0 +1,310 @@
+# Nioh 3 PC: what's hurting performance, and how we fixed it
+
+Work-in-progress findings from reverse-engineering Nioh 3 (Steam, **v2.02**, Team Ninja's in-house engine) to find out why it runs worse than it should, and fixing it at the engine level. No game files were modified for the engine fixes: they're applied to the running game's memory and disappear when it closes.
+
+**Test machine:** Ryzen 5 7600X (6 cores / 12 threads), 32 GB DDR5-4800, Radeon RX 9070, 2560×1440 240 Hz monitor, NVMe SSD, Windows 11.
+
+---
+
+## TL;DR
+
+| | Before | After | Change |
+|---|---|---|---|
+| Average fps | 59.4 | **~103** (clean session; 109 in a lighter scene) | +74% |
+| 1% low fps | 53.5 | **~81** (clean; 97 in the lighter scene) | +52% |
+| Stutter spikes (frames over 2× the average frame time, per 20–30 s) | 3–6 | **0–2** | |
+| Game speed at in-between framerates | 0.90× (slow motion + judder) | **1.00×** | fixed |
+| Render resolution | 65% (dynamic, down to 50%) | **75% fixed, FSR4** | sharper |
+
+Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and the settings were tuned for the wrong bottleneck). The **engine patches** then fixed the judder and slow motion, removed the stutter spikes and raised the 1% lows by 10%.
+
+---
+
+## What's ruining performance in Nioh 3
+
+### 1. Game speed is tied to framerate (the camera judder everyone reports)
+Every rendered frame advances the game by exactly 1/30, 1/60 or 1/120 of a second, depending on the target, **no matter how long the frame actually took**. If you don't hit the target exactly, the game runs in slow motion and the camera judders. At 108 fps on the 120 target we measured the game running at **90% speed**. That's why the community advice is "lock exactly 60 or 120". It's also why handhelds running 40–50 fps feel bad.
+
+The game's own workaround, **"FPS dynamic adjustment" (Dynamic FPS)**, makes it worse: whenever 120 isn't held, it drops the game into its 60 fps mode. In our tests it held the stock game at **72 fps instead of ~108**.
+
+### 2. The 120 fps mode is hidden unless your desktop refresh rate is 118 Hz or higher
+The engine silently lowers the fps cap to what the Windows refresh rate allows. On our test PC the 240 Hz monitor was set to 60 Hz in Windows, so the game was stuck at 60, and the frame generation it was using made frames the screen could never show.
+
+### 3. The CPU, mainly one thread, is the bottleneck
+- The game keeps **~8.5 CPU cores busy**, even standing still. The main game thread runs at 92% of a core and limits fps.
+- **A bug in that thread:** it clears a GPU upload buffer with an instruction that reads before it writes. That memory is "write-combined", which means reading from it is extremely slow, so every write stalls. This alone cost **11–22% of the main thread**.
+- **Threads that spin instead of sleeping** (burning CPU, power and heat while waiting):
+  - the window message loop never waits (up to 0.6 of a core);
+  - the render-start wait polls in a loop;
+  - the frame limiter fills spare time with `Sleep(0)` loops;
+  - the FSR frame-generation presenter spins on a timer.
+
+  Community reports match: capping CPU boost costs no fps at 60 and runs ~20 °C cooler.
+- Thread pools are sized from your core count, and CPUs with 12 or fewer threads lose some worker threads.
+
+### 4. GPU costs (1440p, 75% render scale, high settings, one frame ≈ 10.6 ms)
+| Work | Time |
+|---|---|
+| Geometry (G-buffer, terrain, grass) | 1.6 ms |
+| Screen-space GI / AO / reflections | 0.9 ms |
+| FSR4 upscaling | 0.8 ms |
+| Shadows | 0.7 ms |
+| Depth min/max reduction | 0.7 ms (**poorly written shader**, could be ~0.1 ms) |
+| ~1,400 GPU barriers + idle gaps waiting on the CPU | ~1–2 ms |
+
+The game also ships only **FSR 3.1**. RX 9000 owners can get FSR4 through OptiScaler (see below).
+
+### 5. Shader compilation: not a problem
+The game compiles all ~17,600 shader pipelines at startup ("Compiling shaders…"). No gameplay shader stutter was reported, so tools like SCSKiller don't help here.
+
+---
+
+## What we did
+
+### Setup (anyone can do this)
+1. **Set the Windows desktop to 120 Hz or higher.** This unlocks the in-game 120 fps option.
+2. **OptiScaler 0.9.4** (`dxgi.dll` in the game folder): set the in-game upscaler to **XeSS** and OptiScaler swaps it for **FSR4** (RX 9000 only; other GPUs can use FSR 3.1 / XeSS).
+3. **Settings shifted from CPU work to GPU work.** Fewer CPU-heavy settings (models drawn, distant-enemy animation quality); more GPU quality (shadows, AO, GI, reflections, textures, 16× AF). Dynamic resolution off, fixed 75% render scale, 120 fps cap. Config: `configs\main-240.xml`.
+
+### Engine patches (applied in memory, verified and A/B tested)
+| Patch | What it fixes | Result |
+|---|---|---|
+| **Write-combined memory fix** | Replaces the read-before-write buffer clear with plain writes | Main-thread hotspot gone; 1% low 88.6 → 97.4; spikes 4 → 0 |
+| **Real-time frame step (v2)** | Each frame advances the game by its real duration instead of a fixed 1/30, 1/60 or 1/120 s. Works with frame generation, falls back to stock during cutscenes and time effects. v2 fixed two v1 bugs (a stray "60 fps mode" flag, and a half-speed motion integrator). It also switches Dynamic FPS off while active (restored on revert), since that setting would otherwise drop to 60 mode | Game speed 0.90× → **1.00×**, no slow motion or judder below the target; on the original settings **72 → 108 fps** |
+| **Spin-loop fixes** | The message loop waits for messages, the render-start wait blocks with a timeout, and the frame limiter sleeps until about 1 ms before the deadline instead of spinning | **At a 60 fps cap: 6.44 → 5.14 busy cores (−20% CPU)**, so less power and heat; matters most on handhelds and laptops. At 120 (CPU fully busy) there's nothing to save: 101.0 vs 101.2 fps, no regression |
+
+### Second round of optimizations (all A/B tested; see "Second-round results" below)
+| Optimization | What it does | Verdict |
+|---|---|---|
+| **Faster shadow depth shader** | The game's depth min/max reduction after the shadow maps fetches one texel at a time and waits on each. The replacement is a standard DX12 compute shader that gives the same result, signed with Microsoft's own compiler. One file swap in `shader_dx12\`. | **Kept, on by default.** +3% fps without frame gen, about +11% with it; lower GPU time; screenshots look the same |
+| **Frame-gen presenter fix (F1)** | The FSR frame-generation presenter thread spun on the clock between the real and the generated frame. It now sleeps on a high-resolution timer until about 1 ms before, then spins the rest, so pacing is unchanged | **Kept, on.** About 0.13–0.26 of a core less in 5 of 6 launches; no fps change |
+| Worker-pool fix (P12) | CPUs with 12 or fewer threads get 3 fewer workers in two engine pools; this removes the cut. It must be written about 1.7 s after launch, before the pools are made | **Off.** Confirmed working (7→10 and 4→7 threads) but no fps gain: the main thread is the limit, not the workers |
+| Physics on 4 threads | The physics solver is set to 2 threads in the game data and read once at boot, so it's changed in the data archive (backed up, exact revert) | **Optional, off.** Boots and runs fine; no change at the test spot (no physics there); can only help physics-heavy fights |
+| `CPU_SPEC_CLASS` = HIGH | Hidden config value | **No effect.** Same thread pools; fps not higher. The code only uses it for the first-launch preset |
+
+### Third round: hunting the remaining main-thread and GPU cost
+| Investigation | Finding | Verdict |
+|---|---|---|
+| **Fresh main-thread CPU profile** (all fixes on) | The main thread is at about 98% of a core and is the limit. No single function above 6%, and no more "read from GPU memory" bugs. The loops left are real work (searches, colour scaling, memcpy). About 8% is the main thread waiting for its own GPU submission thread and a work queue. Roughly 35% + 19% is **preparing what to draw** (scene traversal, draw lists), not character updates | Nothing cheap left to patch |
+| **Fresh GPU trace** | The old shadow shader is gone from the top list. The remaining cost is scene geometry and materials, lighting, reflection probes, volumetric fog (overlapped) and FSR4. Only one other GHDM-style loop exists (a depth-aware blur in a lighting pass), worth about 0.1–0.2 ms, with a risk of visual bugs | Not worth it |
+| **Parallel object update** (`Param::Parallel 2710f411` 0 → 32 units, via the archive) | Boots and runs fine with no crashes over 2 launches and soaks. Main-thread load unchanged (97–98%); fps 113.8 / 113.4 stock vs 116.2 / 113.7. The object update was never the big cost | **Off** (tool kept: `data\sysdb_tweaks.ps1 -ObjectUpdateUnits 32`) |
+| **Shorter far foliage/prop scatter** (×0.6 on all 27 maps, 60,413 values) | 113.1 / 113.4 → **115.1 / 114.7 fps**; 1% low 90.4 / 88.3 → **92.3 / 92.5**. Looks the same up close at the test spot; it should help more in open fields | **Optional** (panel: "Shorter far foliage/prop distance") |
+
+**Bottom line:** on this PC the game is now limited by its main thread preparing draws. What cuts that further is drawing less, such as the foliage option, `MODEL_DRAW` and the grass settings, not more patching. All CPU waste we could find (the spin loops, the slow-memory bug and the Dynamic FPS trap) is fixed.
+
+### Still open
+- **240 fps / unlocked framerate**: the `maxFps` option exists but isn't verified; this CPU tops out around 110–115 real fps anyway.
+- Measuring physics threads and the foliage option in heavy fights or open fields (needs real gameplay, not an idle spot).
+
+---
+
+## Benchmarks
+
+### Final comparison: default vs modified, with and without frame gen (same spot)
+"Real frames" are frames the game actually renders. Frame gen roughly doubles what's on screen, but only real frames make the game respond faster.
+
+| Setup | FPS on screen | Real frames | Graphics |
+|---|---|---|---|
+| Default, no frame gen (your original 60 cap) | 59.5 | 59.5 | Standard preset, 65% dynamic res, FSR3 |
+| Default, no frame gen, cap raised to 120 (stock Dynamic FPS on) | 72–73 | 72–73 | same |
+| **Default settings + engine patches**, no frame gen | **107–108** | **107–108** | same |
+| Modified (higher graphics + FSR4 + patches), no frame gen | 104 | 104 | High/Highest settings, 75% fixed res, FSR4 |
+| Default with frame gen (your original setup) | 119 | 60 | Standard preset, 65% dynamic res, FSR3 |
+| **Modified + frame gen** | **~166** | ~85 | High/Highest settings, 75% fixed res, FSR4 |
+
+How to read this:
+- **Engine patches on the same settings: 72 → 108 fps (+49%).** Most of that is the Dynamic FPS bug below; the rest is the CPU fixes. Measured back-to-back in one session: stock 72.3 → patched 107.9 → stock 73.3 → patched 106.9.
+- **Modified (104) is slightly below "default + patches" (108)** because the modified preset spends the headroom on much better graphics: High shadows, GI, AO, reflections and volumetrics, Highest textures, and a sharper fixed 75% render resolution with FSR4.
+- In an earlier session, stock happened to stay in 120 mode and reached 110 fps. Whether stock drops to 60 mode is luck; with the patches it never does.
+- The default + frame gen and modified + frame gen rows were captured with the AMD overlay open, which makes frame pacing look worse.
+
+**The Dynamic FPS trap (found in this round of testing).** The in-game "FPS dynamic adjustment" setting (on in the original config) drops the game from its 120 fps mode to its 60 fps mode whenever it can't hold 120. On this PC that kept the stock game in 60 mode most of the time: **72 fps instead of ~108**. Its only purpose is to avoid the slow-motion judder of missing the target. The real-time frame step patch fixes that judder properly, so the patch now **switches Dynamic FPS off while active** and restores your setting when reverted. Without the patches, turn it off in the menu yourself, or lock 60.
+
+Spreadsheet with every run: `captures\Nioh3_Performance.xlsx`.
+
+### Step by step
+Same spot (idle at a shrine, camera sweeping left and right), PresentMon, 20–30 s each.
+
+| # | Setup | Avg fps | 1% low | Spikes | CPU ms/frame | GPU ms/frame | Game speed |
+|---|---|---|---|---|---|---|---|
+| 0 | Original: 60 Hz desktop, 65% dynamic res, FSR3 + frame gen, 60 cap | 59.4 | 53.5 | 3 | 10.7 | 7.0 | 1.00 (locked 60) |
+| 1 | 240 Hz + new config + FSR4, 120 cap, no FG | 99.7 | 83.3 | 0 | 9.7 | 8.8 | ~0.90 |
+| 2 | Same session, stock engine | 106.1 | 88.6 | 4 | 9.1 | 9.0 | 0.90 |
+| 3 | + write-combined memory fix | 108.7 | 97.4 | 0 | 8.9 | 9.2 | 0.90 |
+| 4 | + real-time frame step | **109.2** | **97.2** | **0** | 8.8 | 9.1 | **1.00** |
+| 5 | Later, scene got heavier (time of day): spin fixes off | 101.0 | 91.0 | 0 | 9.6 | 9.9 | 1.00 |
+| 6 | Same moment: spin fixes on | 101.2 | 90.7 | 0 | 9.5 | 9.9 | 1.00 |
+| 7 | 60 fps cap, game CPU use: spin fixes off → on | 60 | | | **6.44 → 5.14 cores** | | |
+
+Only back-to-back pairs (2→3→4, 5→6) are fair comparisons: the in-game time of day changes GPU load over a session.
+
+### Clean session (no profiler attached), stock vs all engine patches, two back-to-back pairs
+| Pair | Stock fps | Patched fps | 1% low | Spikes | CPU ms/frame | Game speed |
+|---|---|---|---|---|---|---|
+| 1 | 102.2 | **103.5** | 79.0 → 80.6 | 6 → **1** | 9.58 → 9.51 | ~0.85× → **1.00×** |
+| 2 | 99.5 | **103.2** | 82.2 → 82.2 | 3 → **2** | 9.88 → 9.55 | ~0.83× → **1.00×** |
+
+**Honest summary:** at a 120 fps cap on this PC the engine patches add about **+2.5% fps** and fewer stutter spikes. Their real value is elsewhere: the game runs at **true speed** (stock is in slow motion whenever it misses 120) and uses **~20% less CPU** when there's spare time (60 fps cap, handhelds). The big fps jump (59 → ~103) came from the setup changes: 240 Hz, FSR4, and rebalanced settings.
+
+Caveats:
+- Rows 1–4 ran with AMD's GPU profiler attached, which adds a little overhead to every frame. Final clean numbers are still to come.
+- It's one light scene; combat and dense foliage are still to be tested.
+- Row 0 is capped at 60 by design, so its fps isn't a direct like-for-like comparison.
+
+### Second-round results (same shrine spot, 20 s each; full table in `captures\rounds2-4.csv` and the spreadsheet)
+**Faster shadow shader**, modified preset, back-to-back launches:
+
+| | Original shader | Fast shader |
+|---|---|---|
+| No frame gen (2 pairs) | 108.1 / 109.7 fps | **111.7 / 112.3 fps** |
+| No frame gen, GPU time per frame | 8.80 / 8.68 ms | **8.67 / 7.71 ms** |
+| With frame gen (4 vs 4 launches, on screen) | 137–168, average **155** | 170–175, average **172** |
+
+**Thread-pool fix and `CPU_SPEC_CLASS`**, default settings + engine patches, no frame gen: baseline 115.9 fps; thread-pool fix 114.0; `CPU_SPEC_CLASS` HIGH 111.9 / 112.8. Neither helps.
+
+**Physics threads**: 4 threads 112.6 fps vs 2 threads 113.3 fps at the (physics-free) test spot. It's stable, and the edit reverts byte-for-byte.
+
+**Frame-gen presenter fix**: CPU cores busy with it on vs off, across 6 launches: 8.47/8.73, 8.14/8.37, 8.41/8.54, 8.46/8.60, 8.62/8.44, 8.50/8.71. That's about 0.13 of a core saved on average. Frame-gen fps changes between runs are scene noise.
+
+Two runs were thrown out: the game was stuck on a menu after an installer prompt took focus.
+
+### Checked against MSI Afterburner
+During the last runs MSI Afterburner + RivaTuner were running with their overlay. Its live FPS read about the same as our PresentMon average (112.8 fps).
+
+---
+
+## Easy mode: the control panel (F10 in game)
+`panel\Nioh3 Panel.cmd` starts a small panel that sits on top of the game:
+- **F10** shows or hides it, and focus goes back to the game when you hide it.
+- Every fix has a checkbox: memory fix, real-time frame step, force Dynamic FPS off, spin-wait fixes, frame-gen presenter fix, fast shadow shader, the optional shorter foliage distance, and the experimental physics and worker-pool options.
+- It **applies your chosen fixes automatically** every time the game starts, so you no longer need to run `patch_all.ps1` by hand.
+- File-based options (shader, physics) are applied while the game is closed.
+- Your choices are saved in `panel\settings.txt`.
+- It uses the same signed `dotnet` host as the scripts, so Smart App Control allows it.
+
+---
+
+## Do the fixes work on every CPU and GPU?
+
+**Yes. The engine fixes are hardware-independent, because the problems are in the game's own code, not in our hardware.**
+
+| Fix | AMD CPU | Intel CPU | AMD GPU | NVIDIA GPU | Intel Arc | Who benefits most |
+|---|---|---|---|---|---|---|
+| Write-combined memory fix (W1/W2) | ✅ | ✅ | ✅ | ✅ | ✅ | Everyone; slower CPUs gain the most, since it's main-thread time |
+| Real-time frame step (judder fix) | ✅ | ✅ | ✅ | ✅ | ✅ | Anyone who can't hold their fps cap exactly: handhelds, older PCs, 120 Hz players |
+| Spin-loop fixes (W3/R1/L1) | ✅ | ✅ | ✅ | ✅ | ✅ | Anyone running a cap with headroom (60 fps, laptops, handhelds): less CPU, power and heat |
+| 120 Hz+ desktop to unlock 120 fps | ✅ | ✅ | ✅ | ✅ | ✅ | Anyone with a 120 Hz+ monitor |
+| FSR4 via OptiScaler | — | — | **RX 9000 only** | use DLSS (built in) | XeSS (built in) | RDNA4 owners; older AMD cards can use FSR 3.1 via OptiScaler |
+| Faster shadow depth shader | ✅ | ✅ | ✅ | ✅ | ✅ | Everyone (standard DirectX 12 shader); most when GPU-bound or with frame gen |
+| Frame-gen presenter fix (F1) | ✅ | ✅ | ✅ | ✅ | ✅ | In-game FSR frame-gen users (any GPU); handhelds for power |
+| Settings rebalance | ✅ | ✅ | ✅ | ✅ | ✅ | The exact best settings depend on your CPU/GPU balance |
+
+Notes:
+- The engine patches touch only the game's own CPU code, never the GPU driver, so the GPU brand doesn't matter.
+- They're tied to game **v2.02**. Every site is checked byte-for-byte first, and anything that doesn't match is skipped.
+- They were measured on a Ryzen 5 7600X + RX 9070. Other hardware has the same bugs, but the size of the gain will differ.
+
+## Online co-op
+- **All online functionality stays.** Nothing touches the network, servers, account or saves, and the exe on disk is never modified (Steam's integrity checks stay happy).
+- **CPU and spin-loop fixes:** they change *how fast* the engine works, not *what* it does, so they're co-op safe. The same goes for the frame-gen presenter fix.
+- **Fast shadow shader:** it changes only the local GPU work for shadows (same output), so it's co-op safe. The game has no anti-cheat or shader checksum.
+- **Physics on 4 threads (optional):** the simulation settings are untouched, only the thread count changes. Multithreaded solvers can still order work slightly differently, so keep it for solo play until it's tested in co-op.
+- **Real-time frame step:** co-op is state-sync, not lockstep. Players already mix 30, 60 and 120 fps, and stock players drift into slow motion, so a real-time step should drift *less*. To be safe it has **co-op auto-disarm** (`coopSafe=1`, the default). It reads the engine's online-session flag every frame and uses **exact stock timing** while you're in any online session, then re-arms when you're solo. Verified in solo (flag 0); not yet tested in a real co-op session (needs a second player).
+
+## Known issues fixed during testing
+- **Crash with frame generation on (fixed):** `0xC0000005` inside the W1 site. A game thread was paused mid-loop at the exact moment that loop was rewritten, and it resumed in the middle of a new instruction. Frame gen runs that loop far more often, which is how it surfaced. The patcher now checks every thread's position while the game is frozen and only writes when no thread is inside a site. The packaged mod does the same.
+
+## Will this work on other PCs, Linux, Proton, Steam Deck, ROG Ally?
+
+| Part | Other Windows PCs | Linux / Proton / Steam Deck | Notes |
+|---|---|---|---|
+| Refresh-rate + settings advice | ✅ Yes | ✅ Yes | Deck's screen is 60/90 Hz (OLED 90 Hz), so the 120 mode needs an external display. |
+| OptiScaler | ✅ Yes (FSR4 needs an RX 9000) | ✅ Generally works under Proton (`WINEDLLOVERRIDES="dxgi=n,b" %command%`) | FSR4 on Linux depends on driver/Proton version. **Untested here.** |
+| The bugs themselves | Same on every PC | Same | The write-combined bug, the fixed frame step and the spin loops are in the game code, not our hardware. Weaker CPUs (handhelds, 6-core and older) should benefit **more**. |
+| Our engine patches **as currently delivered** | ⚠️ Windows only, needs the .NET 10 SDK, game **v2.02 only** | ❌ Not yet | Today they're scripts that write into the running game. They check every byte first and refuse to run on a different game version. |
+| **Packaged mod `Nioh3EngineFix.asi`** (`mod\Nioh3EngineFix\bin\`): one DLL, byte-pattern search, an INI with a toggle per fix, and the same safe writing | ✅ Expected (load with Ultimate ASI Loader or Nioh3ModLoader) | ✅ Expected (`WINEDLLOVERRIDES="dinput8=n,b" %command%`) | **Built, and all 28 patterns verified against the game (now including F1 and the optional P12), but not yet run in-game**: this PC's Smart App Control blocks unsigned DLLs. Needs a first test on a Deck, an Ally or another PC. The frame-limiter timer fix (L1) is off by default under Wine. |
+
+**Online co-op:** the real-time frame step changes how much game time each frame covers, so use it in single-player or offline until it's tested in co-op. The CPU fixes don't change game behaviour.
+
+---
+
+## Undo everything
+- Engine patches: restart the game (memory-only), or run `revert` on each patch script in `patcher\`.
+- OptiScaler: `powershell -File optiscaler\apply.ps1 -Revert`.
+- Fast shadow shader: untick it in the panel, or `powershell -File gpu-shaders\apply_ghdm.ps1 -Revert` (game closed).
+- Physics threads / parallel object update: untick it in the panel, or `powershell -File data\sysdb_tweaks.ps1 -Revert` (game closed).
+- Foliage distance: untick it in the panel, or `py -I data\tools\n3foliage.py revert "<Nioh3>\package" data\foliage_backup` (game closed).
+- Steam's "Verify integrity of game files" also restores all of these.
+- Settings: restore `backups\20261006-1334-pristine\AppData-NIOH3\config.xml`.
+- Refresh rate: Windows Settings → Display → Advanced display.
+- Full change list: `MODLOG.md`. Raw benchmark data: `captures\results.csv`.
+
+---
+
+## How close are we to "decompiling the whole game"?
+
+Short answer: **we can read all of it, but we only understand a tiny slice, and that's all performance work needs.**
+
+| Level | What it means | Progress |
+|---|---|---|
+| 1. Disassembly | Every instruction of the game's code turned into readable assembly | **100%**: 59.6 MB of code, **237,573 functions** found |
+| 2. Automatic decompilation | Any function can be turned into rough C-like pseudo-code on demand (Ghidra, ~10 s each) | **100% available**, but it's machine output with no names, types or comments |
+| 3. Understood and named | We know what a function does and why | **~250 functions, about 0.1%**: frame timing, frame limiter, settings loader, the CPU hotspots and spin loops, the upload-buffer bug, the worker-pool sizing, the frame-gen presenter, the main thread's draw preparation (draw-list walk, per-draw state emitter, meshlet streaming bookkeeping, UI glyph atlas), plus ~60 GPU shader pipelines (shadow filtering, reflection/GI gathers, ESM). |
+| 3b. Game data formats | Reading and **writing** the game's own data files | **Done for what we need**: the RDB/fdata archives (read + exact-revert injection), the object databases (KOD: read, and edit any field by name), shader containers (replace a shader) |
+| 4. Full source reconstruction | Readable source you could rebuild the game from | **~0%, and not realistic.** The binary has no debug symbols and no C++ class names (RTTI stripped). Community "decomp" projects take years for N64-era games whose code is 100× smaller |
+
+So "decompiling the whole game" in the sense of understanding everything would take a large team years. **Targeted reverse engineering** (find the hot spots, understand those few hundred functions, patch them) is how every fix here was made, and it scales: each new problem means a few more functions understood, not the whole game.
+
+---
+
+## Sources & community credits
+Every mod, tool, article and thread this work used, and what it was used for.
+
+### Nioh 3 mods and tools (Nexus / GitHub / Codeberg)
+- **[Nioh3Fix](https://www.nexusmods.com/nioh3/mods/14)** by Lyall ([source on Codeberg](https://codeberg.org/Lyall/Nioh3Fix)): its 23 byte patterns gave us verified entry points into the engine (LOD, framerate, resolution); its Dynamic FPS hook pointed us to the frame-timing code.
+- **[Optimization modification and FG x4 unlock](https://www.nexusmods.com/nioh3/mods/36)**: three config.xml presets; showed which settings keys the engine reads.
+- **[Reduce Effects](https://www.nexusmods.com/nioh3/mods/10)**: ReShade + ShaderToggler groups; shader hashes for fog, grass, rain, afterimages and other effects.
+- **[Loose File Loader](https://www.nexusmods.com/nioh3/mods/90)** by Kassent: loads modded files from `<Nioh3>/mods` without repacking; studied for the game-data workflow.
+- **[Nioh3FileLoaderLogger](https://www.nexusmods.com/nioh3/mods/62)**: logs which files the game loads; studied to find render data files.
+- **[Nioh 3 DLL Loader (Nioh3ModLoader)](https://www.nexusmods.com/nioh3/mods/45)**: dinput8 DLL mod loader; the standard way to load native mods, including on Proton.
+- **[Nioh 3 Mod Manager](https://www.nexusmods.com/nioh3/mods/84)**: noted as the community mod-install route.
+- **[Cheat Engine table](https://www.nexusmods.com/nioh3/mods/55)**: checked; has a VSync toggle and speedhack, no real fps unlock.
+- **[RDBExplorer](https://github.com/MrIkso/RDBExplorer)** by MrIkso: reads and repacks Nioh 3 archives (.rdb/.fdata); used to look for tunable render data.
+- **[OptiScaler](https://github.com/optiscaler/OptiScaler)** and its **[Nioh 3 wiki page](https://github.com/optiscaler/OptiScaler/wiki/Nioh-3)**: FSR4 through XeSS inputs; the wiki gave the AMD-safe settings (DLSS inputs crash, XeFG needs `OverrideVsync`). [Issue #976](https://github.com/optiscaler/OptiScaler/issues/976) covers related reports.
+- **[SCSKiller](https://github.com/BlueHeisenberg/SCSKiller)** by BlueHeisenberg: shader pre-compiler; evaluated and not needed, since the game compiles all shaders at boot ([issue #66](https://github.com/BlueHeisenberg/SCSKiller/issues/66): engine not supported yet).
+- **[universal-modder](https://github.com/rehan-remade/universal-modder)** by rehan-remade: AI modding workflow and safety rules (backups, anti-cheat checks), plus the camera-interpolation precedent from its Assassin's Creed notes.
+
+### Same-engine games (Team Ninja / Koei Tecmo)
+- **[Nioh1Fix](https://github.com/RobertTausig/Nioh1Fix)** by RobertTausig / Quabai ([Nexus](https://www.nexusmods.com/nioh/mods/38), [research notes](https://github.com/RobertTausig/Nioh1Fix/blob/main/docs/research.md)): the only real fps unlock with a game-speed fix in this engine family; the blueprint and checklist for our real-time frame step.
+- **[Wo Long mod #18](https://www.nexusmods.com/wolongfallendynasty/mods/18)** and **[#22](https://www.nexusmods.com/wolongfallendynasty/mods/22)**: Wo Long framerate and cutscene-cap mods; checked for how the engine's caps were handled.
+- **[ResetEra: Nioh 2 PC performance thread](https://www.resetera.com/threads/nioh-2-complete-edition-pc-performance-thread.373551/)** and **[Rise of the Ronin PC thread](https://www.resetera.com/threads/rise-of-the-ronin-pc-performance-thread.1130673/page-4)**: engine history (CPU load, frame pacing) across games.
+- **[DSOGaming: Rise of the Ronin performance patch](https://www.dsogaming.com/patches/rise-of-the-ronin-april-10th-patch-released-packing-performance-optimization-improvements/)**: fixed high CPU with surround audio, and the 33+ thread crash.
+- **[Wild Hearts patch notes](https://primagames.com/gaming/wild-hearts-pc-patch-update-notes)**, **[eXputer](https://exputer.com/news/games/new-wild-hearts-patch/)**, **[Wccftech workaround](https://wccftech.com/wild-hearts-simple-workaround-performance/)**: same engine; "high-end CPUs unintentionally capped" and the audio-mode CPU workaround.
+- Steam discussions: **[Nioh 2](https://steamcommunity.com/app/1325200/discussions/0/3879347633288749188)**, **[Wo Long 1](https://steamcommunity.com/app/1448440/discussions/0/3782498683145437645/)**, **[2](https://steamcommunity.com/app/1448440/discussions/0/3792632416036637960/)**, **[3](https://steamcommunity.com/app/1448440/discussions/0/3818528846669544233/)**, **[Rise of the Ronin](https://steamcommunity.com/app/1340990/discussions/0/600772666094279367)**, **[Dynasty Warriors: Origins](https://steamcommunity.com/app/2384580/discussions/0/734750050411921469/)**: fps caps, CPU usage and frame-pacing reports on this engine.
+
+### Nioh 3 performance articles and threads
+- **[DSOGaming: PC performance analysis](https://www.dsogaming.com/pc-performance-analyses/nioh-3-pc-performance-analysis/)**: camera judder unless locked to 60/120; CPU core requirements.
+- **[DSOGaming: first PC benchmarks / no stutters](https://www.dsogaming.com/articles/nioh-3-does-not-suffer-from-stutters-first-pc-benchmarks/)**: confirmed no shader stutter; fps-lock workaround.
+- **[Wccftech: graphics tuning guide](https://wccftech.com/how-to/nioh-3-pc-graphics-tuning-guide-how-to-get-the-best-experience-on-pc/)**: per-setting cost (GI the most expensive); optimized ≈ +25% avg / +14% 1% lows.
+- **[PC Optimized Settings guide](https://pcoptimizedsettings.com/nioh-3-pc-settings-performance-optimization-guide/)**: cross-check of setting costs.
+- **[TechPowerUp: Steam Deck / ROG Xbox Ally X review](https://www.techpowerup.com/review/nioh-3-steam-deck-rog-xbox-ally-x-performance-benchmark/3.html)** ([page 8](https://www.techpowerup.com/review/nioh-3-steam-deck-rog-xbox-ally-x-performance-benchmark/8.html)): handheld performance baseline.
+- **[GameGPU: DLSS 4.5 vs FSR 4 benchmarks](https://en.gamegpu.com/test-gpu/action-fps-tps/nioh-3-sravnitelnye-benchmarki-c-nvidia-dlss-4-5-i-amd-fsr-4)** and **[older-hardware CPU/GPU tests](https://gamegpu.com/test-gpu/rpgrolevye/nioh-3-benchmarki-videokart-i-protsessorov-na-starom-zheleze)**: GPU/CPU scaling; the 60 fps engine lock and frame-gen behavior.
+- **[GameGPU: 240 fps with a 60 fps engine lock](https://en.gamegpu.com/news/igry/kak-poluchit-240-fps-v-nioh-3-pri-loke-dvizhka-v-60-kadrov)**: showed that "240 fps" claims are frame generation.
+- **[Digital Foundry coverage (via Multiplayer.it)](https://multiplayer.it/notizie/nioh-3-tecnicamente-miglior-gioco-pc-team-ninja-digital-foundry-non-mancano-i-problemi.html)**: technical analysis; remaining PC issues.
+- **[ResetEra: Nioh 3 PC performance thread](https://www.resetera.com/threads/nioh-3-pc-performance-thread.1419121/)** (pages [3](https://www.resetera.com/threads/nioh-3-pc-performance-thread.1419121/page-3)–[7](https://www.resetera.com/threads/nioh-3-pc-performance-thread.1419121/page-7)): community reports of high CPU load, USB polling dips, the "99% max CPU state" trick, frame gen and VRR behavior.
+- **[PCGamingWiki: Nioh 3](https://www.pcgamingwiki.com/wiki/Nioh_3)**: fps caps (30/60/120, ×2 with FG), known fixes.
+- **[jonathang.me: FSR 4.1 and Nioh 3](https://blog.jonathang.me/posts/fsr-upscaling-4-1-0-and-nioh-3/)**: FSR 4.1 / OptiScaler behavior in Nioh 3.
+- **[CGWorld interview (Japanese)](https://cgworld.jp/article/202605-cgw333-nioh3-b.html)**: engine internals: meshlet LOD ("RADEN"), real-time GI ("OBORO"), virtual shadow maps.
+- **[Koei Tecmo support: "The game runs slow"](https://support.koeitecmo.info/hc/en-us/articles/4405858545049--Steam-The-game-runs-slow)**: official advice (unplug unused USB input devices).
+- **[Vortex Gaming post 1](https://vortexgaming.io/en/postdetail/658687)** and **[post 2](https://vortexgaming.io/en/postdetail/661018)**: community performance and settings reports.
+- **[Nioh3.net PC settings guide](https://nioh3.net/guides/pc-settings/)**, **[Prima Games camera-stutter workaround](https://primagames.com/tips/nioh-3-camera-stutter-workaround-pc)**: lock-to-60/120 workaround and settings advice.
+- **[vkd3d-proton issue #2845](https://github.com/HansKristian-Work/vkd3d-proton/issues/2845)**: Nioh 3 under Proton/Linux.
+- **[Nexus Mods API](https://api.nexusmods.com/v2/graphql)**: used to list all 119 Nioh 3 mods when looking for existing fps unlocks.
+
+### Tools
+- **[Ghidra](https://github.com/NationalSecurityAgency/ghidra)** (NSA): disassembly and decompilation of the whole game.
+- **[Iced](https://github.com/icedland/iced)**: x86 assembler/disassembler used by our external patcher.
+- **[PresentMon](https://github.com/GameTechDev/PresentMon)** (Intel): every fps / frame-time / CPU / GPU number in this README.
+- **[Radeon GPU Profiler / Developer Tool Suite](https://github.com/GPUOpen-Tools/radeon_gpu_profiler)** (AMD): the GPU frame capture.
+- **[tinygrad `sqtt.py`](https://github.com/tinygrad/tinygrad/blob/master/tinygrad/renderer/amd/sqtt.py)**, AMD's open-sourced rocprof trace decoder, and Mesa's `ac_sqtt.h`: basis for our own RGP trace parser.
+- **.NET 10 / F# Interactive** (Microsoft): runs the patcher under a signed host, so it works with Windows Smart App Control.

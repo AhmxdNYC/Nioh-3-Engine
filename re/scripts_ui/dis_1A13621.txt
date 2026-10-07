@@ -1,0 +1,61 @@
+; ---- Nioh3+1A135FA .. +1A1370E (pdata fn Some (27342330u, 27342606u))
+ 1A135FA  call    00000000018C7F40h                         
+ 1A135FF  mov     r9d,1                                     
+ 1A13605  jmp     00000000007B374Bh                         
+ 1A1360A  mov     rcx,[rdi]                                 
+ 1A1360D  lea     r8,[rbp-51h]                              
+ 1A13611  mov     r9,[rbp+5Fh]                              
+ 1A13615  xor     edx,edx                                   
+ 1A13617  mov     [rsp+28h],r12b                            
+ 1A1361C  movss   [rbp-41h],xmm6                            
+ 1A13621  mov     eax,[rcx+39Ch]                            
+ 1A13627  div     dword [r13+370h]                          
+ 1A1362E  mov     r13,[rcx+358h]                            
+ 1A13635  lea     rdx,[rbp-41h]                             
+ 1A13639  mov     rcx,[rel 4BD0AC0h]                        
+ 1A13640  mov     [rbp-61h],eax                             
+ 1A13643  movss   [rbp-3Dh],xmm7                            
+ 1A13648  mov     [rsp+20h],r14                             
+ 1A1364D  cmp     [rcx+368h],bl                             
+ 1A13653  mov     rcx,r13                                   
+ 1A13656  je      short 0000000001A1366Ch                   
+ 1A13658  call    00000000001371D0h                         
+ 1A1365D  mov     edx,4                                     
+ 1A13662  mov     rcx,r13                                   
+ 1A13665  call    00000000001371B8h                         
+ 1A1366A  jmp     short 0000000001A13671h                   
+ 1A1366C  call    00000000018C7F40h                         
+ 1A13671  mov     edx,[rbp-59h]                             
+ 1A13674  mov     r9d,1                                     
+ 1A1367A  mov     rax,[rdi]                                 
+ 1A1367D  mov     rcx,rbx                                   
+ 1A13680  mov     r8d,[rbp-61h]                             
+ 1A13684  mov     dword [rbp-41h],10000h                    
+ 1A1368B  lea     r10d,[r9+1]                               
+ 1A1368F  mov     dword [rbp-3Dh],10002h                    
+ 1A13696  add     [rax+358h],rdx                            
+ 1A1369D  add     [rax+39Ch],edx                            
+ 1A136A3  lea     edx,[r9+5]                                
+ 1A136A7  mov     dword [rbp-39h],20003h                    
+ 1A136AE  movzx   eax,r8w                                   
+ 1A136B2  add     ax,[rbp+rcx-41h]                          
+ 1A136B7  mov     [rbp+rcx-31h],ax                          
+ 1A136BC  add     rcx,r10                                   
+ 1A136BF  sub     rdx,r9                                    
+ 1A136C2  jne     short 0000000001A136AEh                   
+ 1A136C4  mov     rcx,[rdi]                                 
+ 1A136C7  lea     rdx,[rbp-31h]                             
+ 1A136CB  mov     r8,r15                                    
+ 1A136CE  mov     rcx,[rcx+360h]                            
+ 1A136D5  call    0000000000B94250h                         
+ 1A136DA  mov     rdx,[rdi]                                 
+ 1A136DD  mov     eax,[rbp-5Dh]                             
+ 1A136E0  mov     r13,[rel 4BD0AC0h]                        
+ 1A136E7  mov     rcx,[rdx+360h]                            
+ 1A136EE  add     rcx,r15                                   
+ 1A136F1  add     [rdx+3A0h],eax                            
+ 1A136F7  mov     [rdx+360h],rcx                            
+ 1A136FE  jmp     00000000007B37DAh                         
+ 1A13703  call    00000000018C7F40h                         
+ 1A13708  nop                                               
+ 1A13709  jmp     00000000007B3851h                         

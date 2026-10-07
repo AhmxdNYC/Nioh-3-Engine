@@ -1,0 +1,2586 @@
+# cpuprof — Nioh3 pid
+pid 21964, base 7FF74F410000
+start 2026-10-06 20:24:50, wall 10.0 s, interval 1000 us (jittered), stack read 32768 B, clock est 4.68 GHz
+samples 92808 (9280 Hz aggregate), failures 0, ghidra names 3122
+suspend->context (delivery, target not yet stopped) us: p50<=15 p99<=315 max 2714
+context->resume (target HELD stopped) us: p50<=5 p99<=15 max 3086; holds >50us: 144
+
+## SPIN-WAIT SUSPECTS (wait/sleep/yield/QPC/PAUSE functions with >3% of a thread's samples and >50% busy)
+  tid 13272 [App]Game: 6.6% of samples in ntdll.dll!RtlQueryPerformanceCounter with 99% busy  <- Nioh3+1A74130 @1A74BE0(99%); Nioh3+205530 @205550(0%)
+  tid 20252 KIDSTaskScheduler0: 16.4% of samples in ntdll.dll!NtWaitForAlertByThreadId with 80% busy  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(99%); ntdll.dll+F9C0 (RtlRaiseException+2C0) @FF6D(0%)
+
+## Threads (CPU% = % of one core; process total 834% = 8.34 cores; busy = mean cycle-busy fraction between samples)
+TID       CPU%  kern%   busy samples  start function                     description
+13272     98.6    4.8    98%    3867  Nioh3+BDB740                       [App]Game
+20252     80.6    9.5    80%    3867  Nioh3+BDB740                       KIDSTaskScheduler0
+4216      59.8    3.3    57%    3867  Nioh3+BDB740                       SynergisticDispatcherTask
+6068      34.1    3.7    34%    3867  Nioh3+BDB740                       KIDSTaskScheduler6
+20108     30.8    6.2    29%    3867  Nioh3+BDB740                       KIDSTaskScheduler4
+13080     29.8    2.5    29%    3867  Nioh3+BDB740                       KIDSTaskScheduler5
+23120     27.3    1.9    26%    3867  Nioh3+BDB740                       KIDSTaskScheduler2
+25036     26.1    3.1    26%    3867  Nioh3+BDB740                       KIDSTaskScheduler3
+21560     24.7    0.9    24%    3867  Nioh3+BDB740                       KIDSTaskScheduler1
+20736     23.6    2.0    22%    3867  Nioh3+BDB740                       KIDSTS[s9:CollisionUpdate]8
+24352     22.5    8.0    22%    3867  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]9
+9440      18.1    2.0    16%    3867  Nioh3+BDB740                       [App]MissionThread
+21320     17.5    1.9    17%    3867  Nioh3+BDB740                       KIDSTS[s9:CollisionUpdate]6
+6140      17.2    0.8    17%    3551  Nioh3+BDB740                       KIDSTS[s9:CollisionUpdate]5
+9424      17.2    1.7    17%    3867  Nioh3+BDB740                       KIDSTS[s9:CollisionUpdate]7
+6712      16.4    2.3    18%    3867  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]7
+5072      14.5    3.3    15%    3867  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]6
+28356     14.5    0.5    15%    3068  Nioh3+BDB740                       KIDSTS[s9:CollisionUpdate]4
+23784     13.9    3.4    15%    3867  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]8
+24296     12.7    2.7    14%    3551  Nioh3+BDB740                       
+14860     12.3    3.6    13%    2691  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]5
+7940      12.0    1.2    14%    2628  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]7
+20408     10.2    1.1    11%    1855  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]6
+21908     10.0    1.6    11%    2812  Nioh3+BDB740                       KIDSTS[s4:UpdStgEdt]7
+3964       9.1    1.4    11%    2266  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]4
+19884      8.9    1.6    11%    1214  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]3
+21196      6.6    1.9     7%     724  Nioh3+BDB740                       
+24404      6.1    2.0     5%     413  Nioh3+BDB740                       [App]CustomOccluderRayCastThrea
+8804       6.1    1.1      -       0  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]2
+10980      6.1    0.8     7%     385  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]4
+25316      5.8    1.2      -       0  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]0
+8940       5.6    1.2      -       0  Nioh3+BDB740                       KIDSTS[s2:StageUpdate]1
+17616      5.5    1.6     7%     383  Nioh3+BDB740                       KIDSTS[s3:CharacterUpdate]7
+9740       5.5    0.5      -       0  Nioh3+BDB740                       KIDSTS[s12:PhysUpdate]1
+22192      5.5    1.1      -       0  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]5
+12328      4.7    1.1     6%     385  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]3
+31512      4.5    0.3      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+23620      4.1    0.3     6%     414  Nioh3+BDB740                       [App]EffectUpdateThread
+25156      3.7    1.7      -       0  Nioh3+BDB740                       [App]InputUpdateWorker
+20912      3.4    1.6      -       0  Nioh3+BDB740                       
+11276      3.4    0.6      -       0  Nioh3+BDB740                       KIDSTS[s10:StgGdtUpd]1
+9840       3.3    0.2      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+18600      3.3    2.2      -       0  Nioh3+BDB740                       ExecuteCommandListsThread
+26528      3.1    0.2     3%     413  Nioh3+BDB740                       [App]GameModeDrawThread
+24876      3.1    0.3      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+26628      3.1    0.6      -       0  Nioh3+BDB740                       KIDSTS[s10:StgGdtUpd]3
+3464       3.0    0.3      -       0  Nioh3+BDB740                       KIDSTS[s10:StgGdtUpd]2
+31364      2.8    0.5      -       0  Nioh3+BDB740                       KIDS_STM_ReqMap
+22900      2.8    0.2      -       0  Nioh3+BDB740                       [App]DropItemUpdateThread
+11512      2.8    0.5      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+23320      2.8    0.8      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+21700      2.8    0.9      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+18008      2.8    0.0      -       0  Nioh3+BDB740                       KIDSTS[s5:UpdSclEdt]7
+644        2.7    0.2      -       0  Nioh3+BDB740                       KIDSTS[s3:CharacterUpdate]5
+30336      2.7    0.5      -       0  Nioh3+BDB740                       [App]DiscoverFlagThread
+21316      2.5    0.3      -       0  Nioh3+BDB740                       [App]SoundSystemUpdateThread
+30772      2.5    1.1      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+22064      2.5    0.6      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+27388      2.5    0.2      -       0  Nioh3+BDB740                       KIDSTS[s10:StgGdtUpd]0
+7944       2.3    0.0      -       0  Nioh3+BDB740                       KIDSTS[s9:CollisionUpdate]2
+25384      2.0    0.3      -       0  Nioh3+BDB740                       KIDSTS[s3:CharacterUpdate]6
+8788       2.0    0.0     6%     316  Nioh3+BDB740                       KIDSTS[s9:CollisionUpdate]3
+7952       2.0    0.2      -       0  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]2
+12564      1.9    0.3      -       0  Nioh3+BDB740                       [App]CharacterAIThread
+13420      1.9    0.9      -       0  Nioh3+BDB740                       KIDSTS[s8:MiscAsync]2
+21124      1.7    0.2      -       0  Nioh3+BDB740                       [App]PathFinderThread
+16512      1.7    0.2      -       0  Nioh3+BDB740                       KIDSTS[s5:UpdSclEdt]4
+22440      1.7    0.3      -       0  Nioh3+BDB740                       KIDSTS[s66:TS_MESHLET_REQ]1
+12300      1.6    0.5      -       0  Nioh3+BDB740                       
+7892       1.6    0.2      -       0  Nioh3+BDB740                       [App]EffectUpdateThread
+632        1.6    0.0      -       0  Nioh3+BDB740                       KIDSTS[s5:UpdSclEdt]6
+18108      1.6    0.0      -       0  Nioh3+BDB740                       
+19832      1.2    1.2      -       0  Nioh3+38E1290(leaf?)               
+23508      1.2    0.0      -       0  Nioh3+BDB740                       KIDSTS[s3:CharacterUpdate]4
+10124      1.1    0.3      -       0  Nioh3+BDB740                       [App]UpdateAmbientEffectThread
+8576       1.1    0.2      -       0  Nioh3+BDB740                       KIDSTS[s5:UpdSclEdt]3
+9784       0.9    0.5      -       0  Nioh3+BDB740                       [App]CharacterAIPreProcessThrea
+19332      0.9    0.0      -       0  Nioh3+BDB740                       [App]NETWORK
+10028      0.9    0.2      -       0  d3d11on12.dll+5C290                
+17012      0.8    0.6      -       0  Nioh3+BDB7A8                       
+8032       0.8    0.0      -       0  Nioh3+BDB740                       [App]PreUpdateThread
+10496      0.6    0.2      -       0  Nioh3+BDB740                       [App]UpdateScreenLayoutThread
+13856      0.6    0.0      -       0  Nioh3+BDB740                       KIDSTS[s4:UpdStgEdt]5
+24516      0.6    0.0      -       0  Nioh3+BDB740                       KIDSTS[s4:UpdStgEdt]6
+29992      0.6    0.0      -       0  Nioh3+BDB740                       KIDSTS[s12:PhysUpdate]0
+18900      0.6    0.2      -       0  Nioh3+BDB740                       [App]CharacterEquipmentUpdateTh
+(+148 threads under 0.5% CPU not listed)
+
+### CPU by thread family
+   253.4%    7 threads  KIDSTaskScheduler
+    98.6%    1 threads  [App]Game
+    95.2%    9 threads  KIDSTS[s9:CollisionUpdate]
+    78.9%   10 threads  KIDSTS[s66:TS_MESHLET_REQ]
+    78.7%    8 threads  KIDSTS[s2:StageUpdate]
+    59.8%    1 threads  SynergisticDispatcherTask
+    30.6%   68 threads  (unnamed)
+    30.0%   10 threads  [App]EffectUpdateThread
+    18.1%    1 threads  [App]MissionThread
+    12.2%    8 threads  KIDSTS[s3:CharacterUpdate]
+    12.0%    4 threads  KIDSTS[s10:StgGdtUpd]
+    11.9%    8 threads  KIDSTS[s4:UpdStgEdt]
+     8.6%    8 threads  KIDSTS[s5:UpdSclEdt]
+     6.1%    1 threads  [App]CustomOccluderRayCastThrea
+     6.1%    2 threads  KIDSTS[s12:PhysUpdate]
+     3.7%    1 threads  [App]InputUpdateWorker
+     3.3%    1 threads  ExecuteCommandListsThread
+     3.1%    1 threads  [App]GameModeDrawThread
+     2.8%    1 threads  KIDS_STM_ReqMap
+     2.8%    1 threads  [App]DropItemUpdateThread
+     2.7%    1 threads  [App]DiscoverFlagThread
+     2.5%    1 threads  [App]SoundSystemUpdateThread
+     1.9%    1 threads  [App]CharacterAIThread
+     1.9%    3 threads  KIDSTS[s8:MiscAsync]
+     1.7%    1 threads  [App]PathFinderThread
+
+## Thread 13272  [App]Game  CPU 98.6%  busy 98%  samples 3867  unwound 97%  avg depth 9.6  start=Nioh3+BDB740
+  modules: Nioh3.exe 88.0%, ntdll.dll 9.4%, amdxc64.dll 1.0%, D3D12Core.dll 0.8%, win32u.dll 0.2%, D3DCOMPILER_47.dll 0.1%, KERNEL32.DLL 0.1%, libxell.dll 0.1%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+    6.6%   99%  ntdll.dll!RtlQueryPerformanceCounter  <- Nioh3+1A74130 @1A74BE0(99%); Nioh3+205530 @205550(0%)  | 6BAFD:87% 6BB15:4% 6BB01:3%
+    6.1%   98%  Nioh3+1E80B0 [10863B lock]  <- Nioh3+1DC2F0 @1DC4C0(78%); Nioh3+1DC2F0 @1DC3DD(21%)  | 1EA170:9% 1E8138:8% 1E8CE3:6% loop 1E8CE0..1E8D01 (35 B)
+    2.8%   97%  Nioh3+2523FC [275B ]  <- Nioh3+2522C4 @25232D(100%)  | 252492:75% loop 25248F..2524A5 (24 B) 2524A1:8% loop 25248F..2524A5 (24 B) 25249D:7% loop 25248F..2524A5 (24 B)
+    2.7%   99%  Nioh3+B94230 [16B ]  <- Nioh3+242EB8 @242F87(22%); Nioh3+371863C @3718673(15%); Nioh3+242FC4 @2430BF(14%)  | B9423B:99% B9423E:0%
+    2.5%   99%  Nioh3+B94250 [1653B ]  <- Nioh3+1D7340 @1D76C5(44%); Nioh3+4DD4C @4DDF9(31%); Nioh3+533EC0 @534090(6%)  | B943D7:23% B9444E:8% loop B94420..B944A2 (136 B) B94429:7%
+    2.3%   96%  Nioh3+4AA34 [3032B lock]  <- Nioh3+5D214 @5D459(100%)  | 4AC70:39% 4AC76:32% 4AF09:10%
+    2.1%   98%  Nioh3+1E7050 [835B ]  <- Nioh3+4BBEC @4CAE3(100%)  | 1E721C:21% 1E7167:14% loop 1E710A..1E716A (98 B) 1E71F9:14%
+    2.1%   99%  Nioh3+1A74130 [3876B QueryPerformanceCounter,Sleep,lock]  <- Nioh3+27049CC @27050D6(100%)  | 1A74C45:56% loop 1A74BD0..1A74C48 (122 B) 1A74BFB:15% loop 1A74BD0..1A74C48 (122 B) 1A74BD0:13%
+    2.0%   99%  Nioh3+1D8720 [625B ]  <- Nioh3+1D69CC @1D6BB1(45%); Nioh3+1D69CC @1D6B15(25%); Nioh3+1D69CC @1D6B41(15%)  | 1D8754:20% 1D87C0:16% 1D87AF:10%
+    1.9%   97%  Nioh3+128EF0 [231B ]  <- Nioh3+1E7050 @1E72F9(96%); Nioh3+1E73C0 @1E7D0D(4%)  | 128F03:74% 128F10:20% 128F40:2% loop 128F12..128F55 (69 B)
+    1.7%   99%  Nioh3+39E20 [4310B ]  <- Nioh3+535188 @53E2B6(75%); Nioh3+535188 @53D3CD(18%); Nioh3+535188 @53976B(3%)  | 3A2B0:27% loop 3A26C..3A2E0 (118 B) 3A0D8:22% 3A338:10%
+    1.6%   99%  Nioh3+1D84A0 [665B ]  <- Nioh3+1D6E64 @1D7039(33%); Nioh3+1D6E64 @1D6F45(24%); Nioh3+1D6E64 @1D6F5B(17%)  | 1D84D4:12% 1D8530:11% 1D8657:11% loop 1D8652..1D8666 (22 B)
+    1.5%   99%  Nioh3+61B1C [379B ]  <- Nioh3+62000 @62252(100%)  | 61BBE:100% loop 61BAE..61BC0 (20 B)
+    1.3%   98%  Nioh3+3C7750(leaf?) [0B ]  <- Nioh3+3C768C @3C76CA(50%); Nioh3+3C57DC @3C581A(17%); Nioh3+39E20 @3A53C(11%)  | 3C7753:49% 3C77C3:11% 3C776F:7% loop 3C7767..3C777A (21 B)
+    1.3%   98%  Nioh3+1DAF6C [2113B ]  <- Nioh3+1DC0F0 @1DC0FE(54%); Nioh3+86424C @86425A(16%); Nioh3+52BE60 @52C5AA(6%)  | 1DB533:42% loop 1DB52E..1DB56D (65 B) 1DB51A:4% 1DB1E1:4% loop 1DB1D0..1DB1F2 (36 B)
+    1.3%   99%  Nioh3+3BC0C [150B ]  <- Nioh3+39E20 @3A51F(91%); Nioh3+39E20 @3AEB0(8%)  | 3BC3B:38% loop 3BC2E..3BC56 (42 B) 3BC3F:36% loop 3BC2E..3BC56 (42 B) 3BC38:16% loop 3BC2E..3BC56 (42 B)
+    1.3%   97%  ntdll.dll!ZwDelayExecution  <- ntdll.dll!RtlDelayExecution @D3924(100%)  | 161444:100%
+    1.3%   98%  Nioh3+1CD690 [815B ]  <- Nioh3+1C0FFC @1C12C5(100%)  | 1CD905:28% loop 1CD8A7..1CD91A (117 B) 1CD8C0:26% loop 1CD8A7..1CD91A (117 B) 1CD8D6:22% loop 1CD8A7..1CD91A (117 B)
+    1.1%   99%  Nioh3+1290B8 [2280B ]  <- Nioh3+1E7050 @1E730D(67%); Nioh3+1E6E1C @1E6E79(32%)  | 1290F8:39% 129139:11% 12911E:9%
+    1.0%   98%  Nioh3+1E5854 [992B ]  <- Nioh3+1E55D4 @1E56F4(40%); Nioh3+61DF2C @61DFFC(29%); Nioh3+61DF2C @61E0DE(13%)  | 1E5A5E:29% 1E5909:8% 1E591C:8%
+    0.9%   99%  Nioh3+1D8220 [693B ]  <- Nioh3+1D6780 @1D69B2(30%); Nioh3+1D6780 @1D6899(27%); Nioh3+1D6780 @1D693E(22%)  | 1D831E:11% loop 1D8302..1D8330 (48 B) 1D837E:11% 1D836E:8%
+    0.9%   97%  Nioh3+419A8 [494B lock]  <- Nioh3+5D214 @5D399(100%)  | 41AA2:76% 41AF2:5% 41B23:5% loop 41B17..41B25 (16 B)
+    0.9%   99%  Nioh3+1E8040(leaf?) [0B ]  <- Nioh3+1E80B0 @1E9FB7(90%); Nioh3+1E5854 @1E5A5A(9%)  | 1E8065:81% 1E8071:9% 1E8086:3%
+    0.8%   99%  Nioh3+418F40 [73B ]  <- Nioh3+418C70 @418CD6(100%)  | 418F75:71% loop 418F60..418F77 (25 B) 418F68:21% loop 418F60..418F77 (25 B) 418F6E:6% loop 418F60..418F77 (25 B)
+    0.8%   97%  Nioh3+4DB6C [477B ]  <- Nioh3+695328 @695432(100%)  | 4DC79:34% 4DCD3:34% 4DBE1:21%
+    0.8%   99%  Nioh3+1E55D4 [530B ]  <- Nioh3+1E0B64 @1E0E2A(100%)  | 1E56A5:58% 1E56B1:16% 1E5676:9%
+    0.7%   99%  Nioh3+1D7340 [2542B ]  <- Nioh3+1DF880 @1DF9E9(58%); Nioh3+1D65CC @1D66E6(17%); Nioh3+1E204C @1E224E(10%)  | 1D7375:10% loop 1D7372..1D7381 (17 B) 1D73B6:6% 1D737E:6% loop 1D7372..1D7381 (17 B)
+    0.7%   99%  Nioh3+1E0B64 [1984B ]  <- Nioh3+1DF880 @1DF8B4(89%); Nioh3+1D1D14 @1D1D94(6%); Nioh3+1D1DE8 @1D1E0E(3%)  | 1E11B9:20% 1E11C0:10% 1E1264:6%
+    0.7%   99%  Nioh3+1D7EB0 [614B ]  <- Nioh3+1D5F20 @1D604C(96%); Nioh3+1D5F20 @1D612B(3%)  | 1D7F05:53% loop 1D7F00..1D7F14 (22 B) 1D7F3E:7% loop 1D7F07..1D7F6B (102 B) 1D7F51:7% loop 1D7F07..1D7F6B (102 B)
+    0.7%   99%  Nioh3+5DF70 [166B ]  <- Nioh3+5DC18 @5DD26(25%); Nioh3+5DC18 @5DD11(22%); Nioh3+5DC18 @5DD1A(22%)  | 5DFA4:37% loop 5DF83..5DFC8 (71 B) 5DFB8:18% loop 5DF83..5DFC8 (71 B) 5DF97:14% loop 5DF83..5DFC8 (71 B)
+  -- attributed to first Nioh3 frame top 20 --
+    8.8%  Nioh3+1A74130
+    6.1%  Nioh3+1E80B0
+    2.8%  Nioh3+2523FC
+    2.7%  Nioh3+B94230
+    2.5%  Nioh3+B94250
+    2.3%  Nioh3+4AA34
+    2.1%  Nioh3+1E7050
+    2.0%  Nioh3+1D8720
+    1.9%  Nioh3+128EF0
+    1.7%  Nioh3+39E20
+    1.6%  Nioh3+1D84A0
+    1.5%  Nioh3+61B1C
+    1.3%  Nioh3+3C7750(leaf?)
+    1.3%  Nioh3+7D9E90
+    1.3%  Nioh3+1DAF6C
+    1.3%  Nioh3+3BC0C
+    1.3%  Nioh3+1CD690
+    1.1%  Nioh3+1290B8
+    1.1%  Nioh3+4DB6C
+    1.0%  Nioh3+1E5854
+  -- inclusive top 30 --
+   55.3%  Nioh3+1A74130
+   55.2%  Nioh3+27049CC
+   54.3%  Nioh3+134EBD0
+   54.3%  Nioh3+5B6670
+   54.3%  Nioh3+BDB740
+   54.3%  KERNEL32.DLL!BaseThreadInitThunk
+   54.3%  ntdll.dll!RtlUserThreadStart
+   47.0%  Nioh3+112DD8
+   46.9%  Nioh3+3D1F20
+   35.4%  Nioh3+535188
+   33.2%  Nioh3+113204
+   31.1%  Nioh3+39E20
+   17.8%  Nioh3+1DC2F0
+   17.1%  Nioh3+1E80B0
+   14.6%  Nioh3+4A529C
+   12.0%  Nioh3+577E50
+    9.9%  Nioh3+5D214
+    8.0%  Nioh3+1D2F60
+    7.0%  Nioh3+3C77F4
+    6.6%  ntdll.dll!RtlQueryPerformanceCounter
+    6.3%  Nioh3+4BBEC
+    6.0%  Nioh3+1DF880
+    6.0%  Nioh3+253C68
+    5.9%  Nioh3+254440
+    5.8%  Nioh3+365AA98
+    5.6%  Nioh3+3D0AE0
+    5.5%  Nioh3+2EC91E0
+    5.5%  Nioh3+2EA7D24
+    5.5%  Nioh3+1893374
+    5.5%  Nioh3+3D275C
+
+## Thread 20252  KIDSTaskScheduler0  CPU 80.6%  busy 80%  samples 3867  unwound 99%  avg depth 20.1  start=Nioh3+BDB740
+  modules: Nioh3.exe 80.3%, ntdll.dll 19.7%, <anon> 0.1%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   16.4%   80%  ntdll.dll!NtWaitForAlertByThreadId  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(99%); ntdll.dll+F9C0 (RtlRaiseException+2C0) @FF6D(0%)  | 164A14:100%
+    3.9%   81%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6EB0D(10%); Nioh3+6EA50 @6EEE9(7%); Nioh3+6EA50 @6EB45(7%)  | 6EFDB:34% 6EFD4:28% 6F00C:8%
+    3.2%   80%  Nioh3+71C60 [3118B lock]  <- Nioh3+1A7BF0 @1A8E0C(100%)  | 71DD2:6% 72027:5% 7238C:4%
+    2.4%   81%  Nioh3+6EA50 [1403B ]  <- Nioh3+71C60 @72369(97%); Nioh3+121FC0 @12355F(1%); Nioh3+121FC0 @12252E(1%)  | 6EF25:7% 6EB4A:5% 6ED9D:5%
+    1.9%   82%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(100%)  | 4126B:44% loop 41251..41290 (65 B) 41233:12% 41276:5% loop 41251..41290 (65 B)
+    1.9%   81%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    1.8%   81%  Nioh3+54360 [793B ]  <- Nioh3+71C60 @71FC1(79%); Nioh3+889C0 @88D7D(7%); Nioh3+CC940 @CCE3C(4%)  | 543C0:13% 544EA:10% 54460:8%
+    1.7%   77%  Nioh3+66D00 [2187B ]  <- Nioh3+66A98 @66AE8(75%); Nioh3+66D00 @670B0(22%); Nioh3+7E2270 @7E227E(1%)  | 6710F:21% 66FA1:18% 67119:16%
+    1.6%   80%  Nioh3+174610(leaf?) [0B ]  <- Nioh3+71C60 @7234B(53%); Nioh3+71C60 @72315(41%); Nioh3+237680 @2377BB(1%)  | 174613:79% 17461A:15% 174610:4%
+    1.4%   87%  Nioh3+12B440 [686B ]  <- Nioh3+FE3AC0 @FE3B52(100%)  | 12B67D:98% loop 12B673..12B694 (35 B) 12B51E:1% loop 12B51E..12B569 (77 B)
+    1.3%   82%  Nioh3+6F010 [72B ]  <- Nioh3+6EA50 @6ED54(11%); Nioh3+6EA50 @6EB01(7%); Nioh3+6EA50 @6EC5B(7%)  | 6F053:15% 6F04B:13% 6F010:9%
+    1.1%   77%  Nioh3+889C0 [2856B ]  <- Nioh3+10DED60 @10DEDF8(100%)  | 88B45:58% 889E7:4% 88D91:4%
+    0.9%   79%  ntdll.dll!NtAlertThreadByThreadIdEx  <- ntdll.dll!RtlReleaseSRWLockExclusive @3A244(100%)  | 161BF4:100%
+    0.8%   93%  Nioh3+6642C [359B ]  <- Nioh3+6642C @6657D(81%); Nioh3+64630 @64643(18%)  | 6657A:43% loop 66566..66585 (33 B) 66574:28% loop 66566..66585 (33 B) 66451:9%
+    0.8%   89%  Nioh3+425B0 [1038B lock]  <- Nioh3+1A7BF0 @1ADAAE(100%)  | 42948:80% loop 428E0..42954 (118 B) 426CF:6% 428E8:3%
+    0.7%   72%  Nioh3+16BA70 [1372B ]  <- Nioh3+16BA70 @16BBC1(100%)  | 16BADC:48% 16BAC7:6% 16BB21:6%
+    0.7%   80%  Nioh3+E32D90 [219B ]  <- Nioh3+1363D4 @13646E(100%)  | E32E0D:46% loop E32DE0..E32E43 (101 B) E32E0A:25% loop E32DE0..E32E43 (101 B) E32E2C:14% loop E32DE0..E32E43 (101 B)
+    0.7%   78%  Nioh3+12FBDD0 [1781B lock]  <- Nioh3+1FCF88 @1FD5EF(100%)  | 12FC3D2:69% 12FC281:19% 12FC3CA:11%
+    0.7%   80%  Nioh3+CE5F0 [331B ]  <- Nioh3+66D00 @66FCE(38%); Nioh3+66D00 @67002(26%); Nioh3+86DEC @87242(7%)  | CE61C:50% CE6B6:7% CE733:7%
+    0.7%   80%  Nioh3+166F20 [1742B ]  <- Nioh3+2D7F38 @2D8032(84%); Nioh3+1815330 @1816FBE(15%)  | 16714A:19% 167157:15% 1673A3:11% loop 167360..1673AF (81 B)
+    0.7%   79%  Nioh3+6F060(leaf?) [0B ]  <- Nioh3+6EA50 @6EAA2(34%); Nioh3+6EA50 @6EC74(11%); Nioh3+6EA50 @6EC3C(7%)  | 6F06A:26% 6F084:15% 6F065:15%
+    0.6%   85%  Nioh3+16CFF0 [4723B lock,xchg]  <- Nioh3+16EF8C @16EFE8(100%)  | 16D718:40% 16D897:16% 16D580:12%
+    0.6%   80%  Nioh3+F33A0 [177B ]  <- Nioh3+F32D8 @F32F5(100%)  | F33D8:54% loop F33C6..F340A (70 B) F33C9:12% loop F33C6..F340A (70 B) F340A:12% loop F33C6..F340A (70 B)
+    0.6%   84%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+403A0 @403D7(100%)  | 4089F:33% 40E56:8% 4102F:8%
+    0.6%   85%  Nioh3+403A0 [739B Sleep,lock,xchg]  <- Nioh3+3E7CC @3E81D(100%)  | 40426:21% 40464:13% loop 40450..4047D (47 B) 40476:8% loop 40450..4047D (47 B)
+    0.6%   88%  Nioh3+121E70(leaf?) [0B ]  <- Nioh3+121FC0 @1252B3(56%); Nioh3+121FC0 @123C66(21%); Nioh3+9125CC @9125F2(4%)  | 121EB3:34% loop 121EA3..121EBA (25 B) 121EB5:26% loop 121EA3..121EBA (25 B) 121EC4:13% loop 121EB5..121ECE (27 B)
+    0.6%   81%  Nioh3+13233B0 [472B ]  <- Nioh3+40800 @40E53(100%)  | 13233F2:50% loop 13233D4..1323433 (97 B) 13233FE:36% loop 13233D4..1323433 (97 B) 13233E1:13% loop 13233D4..1323433 (97 B)
+    0.6%   87%  Nioh3+1A7BF0 [44635B lock]  <- Nioh3+61FEA8 @61FFC3(81%); Nioh3+206400 @20656C(18%)  | 1AA69C:9% 1AA698:9% 1A9119:4%
+    0.5%   80%  Nioh3+B94250 [1653B ]  <- Nioh3+483490 @48350C(23%); Nioh3+47050C @470705(19%); Nioh3+11FB20 @11FC57(14%)  | B9446E:14% loop B94420..B944A2 (136 B) B94437:14% B94278:9%
+    0.5%   91%  Nioh3+121FC0 [17455B lock]  <- Nioh3+1202B0 @12054C(100%)  | 1234AF:20% loop 1234A0..1234CA (44 B) 123432:10% 1222C0:10%
+  -- attributed to first Nioh3 frame top 20 --
+   16.0%  Nioh3+B616A4
+    3.9%  Nioh3+6EFD0(leaf?)
+    3.2%  Nioh3+71C60
+    2.4%  Nioh3+6EA50
+    1.9%  Nioh3+411C0
+    1.8%  Nioh3+54360
+    1.7%  Nioh3+66D00
+    1.6%  Nioh3+174610(leaf?)
+    1.6%  Nioh3+40800
+    1.4%  Nioh3+12B440
+    1.3%  Nioh3+6F010
+    1.1%  Nioh3+889C0
+    0.9%  Nioh3+B61524 _Mtx_unlock
+    0.8%  Nioh3+6642C
+    0.8%  Nioh3+425B0
+    0.7%  Nioh3+48B9C
+    0.7%  Nioh3+16BA70
+    0.7%  Nioh3+E32D90
+    0.7%  Nioh3+12FBDD0
+    0.7%  Nioh3+CE5F0
+  -- inclusive top 30 --
+   93.5%  Nioh3+40800
+   70.8%  Nioh3+1A6BB84
+   70.8%  Nioh3+BDB740
+   70.8%  KERNEL32.DLL!BaseThreadInitThunk
+   70.7%  ntdll.dll!RtlUserThreadStart
+   70.7%  Nioh3+111184
+   70.7%  Nioh3+3FE14
+   70.7%  Nioh3+1113B4
+   62.4%  Nioh3+5ACF80
+   61.3%  Nioh3+5AC664
+   61.3%  Nioh3+5AC628
+   59.0%  Nioh3+5AC9EC
+   38.7%  Nioh3+3E7CC
+   38.6%  Nioh3+403A0
+   37.7%  Nioh3+5651D0
+   37.7%  Nioh3+564F60
+   37.7%  Nioh3+564F40
+   37.1%  Nioh3+39E4E4
+   22.8%  Nioh3+182000
+   21.7%  Nioh3+204584
+   21.6%  Nioh3+408FE0
+   21.5%  Nioh3+16CFF0
+   21.5%  Nioh3+16EF8C
+   21.0%  Nioh3+408648
+   20.4%  Nioh3+1A7BF0
+   19.0%  Nioh3+61FEA8
+   19.0%  Nioh3+61FDA8
+   16.4%  ntdll.dll!RtlSleepConditionVariableSRW
+   16.4%  KERNELBASE.dll!SleepConditionVariableSRW
+   16.4%  ntdll.dll!NtWaitForAlertByThreadId
+
+## Thread 4216  SynergisticDispatcherTask  CPU 59.8%  busy 57%  samples 3867  unwound 100%  avg depth 7.7  start=Nioh3+BDB740
+  modules: ntdll.dll 46.2%, amdxc64.dll 25.2%, Nioh3.exe 23.1%, D3D12Core.dll 5.6%, ucrtbase.dll 0.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   45.1%   49%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    3.4%   57%  amdxc64.dll+196B710  <- D3D12Core.dll+18A80 @18ADA(86%); amdxc64.dll+462890 @4629F5(1%); amdxc64.dll+528350 @528406(1%)  | 196B83A:43% 196B841:7% 196BA06:4%
+    2.4%   73%  Nioh3+119820 [288B ]  <- Nioh3+11976C @119787(100%)  | 11984B:30% 11987E:27% loop 119870..1198B5 (71 B) 1198D6:17% loop 11988A..119906 (126 B)
+    1.8%   68%  Nioh3+B94230 [16B ]  <- Nioh3+698EAC @698F2D(47%); Nioh3+118E28 @118F52(38%); Nioh3+1158A0 @115914(11%)  | B9423B:100%
+    1.7%   68%  Nioh3+B94250 [1653B ]  <- Nioh3+1158A0 @115914(48%); Nioh3+118E28 @118F52(21%); Nioh3+11676C @1167B7(7%)  | B94466:12% loop B94420..B944A2 (136 B) B94385:7% B943D7:6%
+    1.4%   75%  amdxc64.dll+46C170  <- amdxc64.dll+46C6E0 @46C70C(100%)  | 46C23D:33% 46C1FB:18% 46C496:13%
+    1.3%   32%  Nioh3+58C144 [221B ]  <- Nioh3+58C0D8 @58C0F3(100%)  | 58C19A:27% loop 58C17A..58C1B3 (59 B) 58C182:17% loop 58C17A..58C1B3 (59 B) 58C1CB:11% loop 58C18F..58C1D8 (75 B)
+    1.3%   55%  Nioh3+1192B0 [180B ]  <- Nioh3+118C10 @118CA7(34%); Nioh3+118E28 @118FDA(18%); Nioh3+495414 @4954A2(14%)  | 1192CE:82% 11930D:8% loop 119300..119311 (19 B) 119304:4% loop 119300..119311 (19 B)
+    1.1%   67%  amdxc64.dll+1B0190  <- amdxc64.dll+1AFDF0 @1AFE2C(100%)  | 1B0199:73% 1B01A3:26%
+    1.0%   64%  D3D12Core.dll+23BF40  <- Nioh3+118604 @118737(68%); Nioh3+58BE90 @58BFEF(26%); Nioh3+119C08 @119C95(5%)  | 23BF5A:71% 23BF80:15% 23BF40:10%
+    1.0%   62%  amdxc64.dll+18CDC0  <- amdxc64.dll+18DAE0 @18DB24(100%)  | 18D007:10% 18CE66:7% 18D0F2:7%
+    0.9%   64%  D3D12Core.dll+23EF60  <- D3D12Core.dll+228C78 @228D82(100%)  | 23EFAD:45% 23EFD7:39% 23EF6B:3%
+    0.8%   71%  Nioh3+116260 [329B ]  <- Nioh3+1A7C3E0 @1A7C467(100%)  | 116309:68% 116319:9% 11631C:9%
+    0.8%   77%  Nioh3+114A20 [223B ]  <- Nioh3+1A7C3E0 @1A7C467(100%)  | 114A69:48% 114A74:29% 114A20:9%
+    0.7%   74%  Nioh3+115B9C [585B ]  <- Nioh3+115A70 @115AE2(78%); Nioh3+115B08 @115B76(7%); Nioh3+7471BC @7471E2(7%)  | 115D70:67% 115BE2:7% 115C68:3%
+    0.7%   56%  Nioh3+B94150 memcmp [199B ]  <- Nioh3+119820 @1198F7(53%); Nioh3+58C144 @58C1D4(28%); Nioh3+58C144 @58C21B(10%)  | B941B2:25% loop B941A0..B941D1 (51 B) B941C8:17% loop B941A0..B941D1 (51 B) B9419E:14% loop B9417B..B941DE (101 B)
+    0.6%   71%  Nioh3+189BFB0(leaf?) [0B ]  <- Nioh3+115A70 @115AC5(84%); Nioh3+84196C @8419C1(12%); Nioh3+3D5B20 @3D5B75(4%)  | 189C0EC:36% 189C0FD:12% 189C121:12%
+    0.6%   67%  amdxc64.dll+454C90  <- amdxc64.dll+3B4E00 @3B4F5B(100%)  | 454EA2:20% 455457:20% 455328:8%
+    0.6%   70%  amdxc64.dll+44FF80  <- amdxc64.dll+154D50 @154DCD(62%); amdxc64.dll+169310 @1693F6(33%); amdxc64.dll+1608E0 @160B9D(4%)  | 44FF8F:25% 450041:16% 44FFFE:16%
+    0.6%   74%  Nioh3+1164C4 [323B ]  <- Nioh3+1A7C3E0 @1A7C467(100%)  | 116528:75% 11656A:8% loop 116561..11657E (31 B) 116565:8% loop 116561..11657E (31 B)
+    0.6%   54%  D3D12Core.dll+18A80  <- Nioh3+115DE8 @115E0C(59%); Nioh3+118E28 @11906F(18%); Nioh3+495764 @49584C(13%)  | 18A80:45% 18AC9:9% 18AD4:9%
+    0.5%   76%  amdxc64.dll+168FE0  <- Nioh3+118604 @118737(90%); Nioh3+58BE90 @58BFEF(9%)  | 168FF7:57% 1692A5:19% 169052:9%
+    0.5%   67%  amdxc64.dll+52A960  <- amdxc64.dll+480D10 @480D6D(100%)  | 52AB32:19% 52AAB2:9% 52A9D3:9%
+    0.5%   61%  amdxc64.dll+3B5790  <- amdxc64.dll+16A330 @16A38C(40%); amdxc64.dll+3B5320 @3B53DE(15%); amdxc64.dll+16A270 @16A2F4(15%)  | 3B57CE:40% 3B57B3:20% 3B57D4:15%
+    0.5%   53%  ntdll.dll!RtlEnterCriticalSection  <- Nioh3+58BE90 @58BF5B(60%); Nioh3+119670 @1196B0(30%); amdxc64.dll+4FBD50 @4FBD83(10%)  | 12843:60% 127F5:15% 12828:10%
+    0.5%   62%  amdxc64.dll+453610  <- amdxc64.dll+454C90 @455702(100%)  | 453BD0:26% 453AE8:15% 453B92:10%
+    0.5%   43%  Nioh3+1134D0(leaf?) [0B ]  <- Nioh3+1A7C3E0 @1A7C467(100%)  | 113537:55% 11357B:22% loop 113572..113591 (33 B) 113555:5%
+    0.4%   67%  amdxc64.dll+46E250  <- amdxc64.dll+169850 @169CEA(82%); amdxc64.dll+44D0D0 @44D2E5(11%); amdxc64.dll+41A1E0 @41A2ED(5%)  | 46E575:11% 46E741:5% 46EB4D:5%
+    0.4%   73%  Nioh3+118E28 [663B ]  <- Nioh3+118DA8 @118E1E(100%)  | 118F83:11% 119083:5% 118F98:5%
+    0.4%   70%  Nioh3+1180D0 [1270B ]  <- Nioh3+1167D4 @11680F(47%); Nioh3+6BE12C @6BE167(47%); Nioh3+6EB908 @6EB950(5%)  | 118112:11% 1181ED:11% 1181BD:5%
+  -- attributed to first Nioh3 frame top 20 --
+   45.4%  Nioh3+1A7C3E0
+    5.3%  Nioh3+118604
+    3.6%  Nioh3+115E24
+    2.8%  Nioh3+1180D0
+    2.4%  Nioh3+119820
+    2.4%  Nioh3+115DE8
+    2.0%  Nioh3+1167D4
+    1.8%  Nioh3+B94230
+    1.8%  Nioh3+58BE90
+    1.7%  Nioh3+B94250
+    1.7%  Nioh3+492220
+    1.6%  Nioh3+4591DC
+    1.4%  Nioh3+118E28
+    1.4%  Nioh3+113A0C
+    1.3%  Nioh3+58C144
+    1.3%  Nioh3+1192B0
+    1.1%  Nioh3+116260
+    1.0%  Nioh3+114A20
+    1.0%  Nioh3+490D5C
+    0.8%  Nioh3+6EB908
+  -- inclusive top 30 --
+   99.4%  Nioh3+1A7C3E0
+   99.4%  Nioh3+2EEDFA0
+   99.4%  Nioh3+BDB740
+   99.4%  KERNEL32.DLL!BaseThreadInitThunk
+   99.4%  ntdll.dll!RtlUserThreadStart
+   45.1%  ntdll.dll!ZwWaitForSingleObject
+   45.1%  KERNELBASE.dll!WaitForSingleObjectEx
+   16.9%  Nioh3+1180D0
+   14.0%  Nioh3+118604
+    9.8%  Nioh3+1167D4
+    6.6%  D3D12Core.dll+23B280
+    6.5%  Nioh3+58BDC4
+    6.1%  Nioh3+58BE90
+    5.5%  amdxc64.dll+168FE0
+    5.3%  D3D12Core.dll+229FDC
+    5.2%  D3D12Core.dll+23E128
+    5.1%  Nioh3+6BE12C
+    4.8%  amdxc64.dll+1AFDF0
+    4.6%  amdxc64.dll+153AE0
+    4.4%  Nioh3+115B9C
+    4.4%  amdxc64.dll+18CAF0
+    3.8%  D3D12Core.dll+18A80
+    3.8%  Nioh3+6EB908
+    3.7%  Nioh3+115A70
+    3.7%  amdxc64.dll+46C6E0
+    3.6%  Nioh3+115E24
+    3.4%  amdxc64.dll+196B710
+    3.2%  Nioh3+119670
+    3.2%  Nioh3+118DA8
+    3.0%  Nioh3+118E28
+
+## Thread 6068  KIDSTaskScheduler6  CPU 34.1%  busy 34%  samples 3867  unwound 100%  avg depth 8.0  start=Nioh3+BDB740
+  modules: ntdll.dll 67.4%, Nioh3.exe 32.6%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   67.0%   31%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.6%   16%  Nioh3+70230 [4282B ]  <- Nioh3+47192C @471C23(100%)  | 707CF:11% 707C7:10% 192C23B:5% loop 192C218..192C26E (88 B)
+    1.4%   42%  Nioh3+1A7BF0 [44635B lock]  <- Nioh3+206400 @20656C(83%); Nioh3+61FEA8 @61FFC3(10%); Nioh3+206400 @20657C(3%)  | 1A91EA:10% 1AA69C:9% 1AA698:7%
+    1.3%   46%  Nioh3+121FC0 [17455B lock]  <- Nioh3+1202B0 @12054C(100%)  | 1234AF:11% loop 1234A0..1234CA (44 B) 1222C0:9% 123BCC:5%
+    1.0%   56%  Nioh3+425B0 [1038B lock]  <- Nioh3+1A7BF0 @1ADAAE(100%)  | 42948:81% loop 428E0..42954 (118 B) 428F3:5% 426CF:2%
+    0.9%   52%  Nioh3+121E70(leaf?) [0B ]  <- Nioh3+121FC0 @1252B3(82%); Nioh3+121FC0 @123C66(17%)  | 121EB3:54% loop 121EA3..121EBA (25 B) 121EB5:31% loop 121EA3..121EBA (25 B) 121EA9:5% loop 121EA3..121EBA (25 B)
+    0.8%   43%  Nioh3+1A188C [298B lock]  <- Nioh3+1A7BF0 @1A9E44(100%)  | 1A18CD:73% 1A18AE:23% loop 1A18AB..1A18C2 (25 B) 1A1961:3%
+    0.7%   53%  Nioh3+120120(leaf?) [0B ]  <- Nioh3+121FC0 @12419B(62%); Nioh3+121FC0 @12401D(37%)  | 120227:44% loop 120215..12022F (28 B) 120272:25% loop 120261..12027A (27 B) 120229:18% loop 120215..12022F (28 B)
+    0.7%   47%  Nioh3+3AF00 [1653B ]  <- Nioh3+1A7BF0 @1ABBF5(100%)  | 3B0F3:22% 3B0E0:14% 3AFF5:11%
+    0.7%   51%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6EB45(11%); Nioh3+11F49C @11F8AA(7%); Nioh3+6EA50 @6EC67(7%)  | 6EFDB:34% 6EFD4:26% 6EFFD:11%
+    0.6%   22%  Nioh3+199180 [1207B ]  <- Nioh3+197C0C @197E04(100%)  | 1992BE:34% 1992C0:8% 19925B:8%
+    0.5%   19%  Nioh3+166F20 [1742B ]  <- Nioh3+2D7F38 @2D8032(100%)  | 16720A:21% loop 1671EA..167226 (62 B) 167157:15% 16714A:10%
+    0.5%   37%  Nioh3+165088 [1402B ]  <- Nioh3+165088 @165375(89%); Nioh3+1635B8 @1638FC(10%)  | 165444:57% loop 165420..16544C (46 B) 165583:10% loop 165568..16558B (37 B) 165387:5%
+    0.5%   25%  Nioh3+203BD4 [538B ]  <- Nioh3+40621C @40628A(68%); Nioh3+1A7BF0 @1A810A(26%); Nioh3+1A7BF0 @1A9949(5%)  | 203C58:26% 203C62:21% 203BF7:10%
+    0.4%   17%  Nioh3+CE1E0 [945B ]  <- Nioh3+1A7BF0 @1B1DA2(37%); Nioh3+1A7BF0 @1B1E99(37%); Nioh3+1A7BF0 @1B1E31(25%)  | CE4DD:56% CE39B:6% CE4E2:6%
+    0.4%   55%  Nioh3+204584 [2077B QueryPerformanceCounter,xchg]  <- Nioh3+40800 @40E53(100%)  | 2046D5:50% 2046C3:37% 204A5B:6%
+    0.4%   79%  Nioh3+6642C [359B ]  <- Nioh3+6642C @6657D(87%); Nioh3+64630 @64643(12%)  | 66451:31% 6657A:25% loop 66566..66585 (33 B) 66574:25% loop 66566..66585 (33 B)
+    0.4%   49%  Nioh3+71C60 [3118B lock]  <- Nioh3+1A7BF0 @1A8E0C(100%)  | 71DFB:13% 7207C:13% 71DB7:13%
+    0.4%   54%  Nioh3+6EA50 [1403B ]  <- Nioh3+71C60 @72369(53%); Nioh3+121FC0 @12355F(26%); Nioh3+121FC0 @124E9E(6%)  | 6EAB6:6% 6EABC:6% 6EF4E:6%
+    0.3%   50%  Nioh3+13233B0 [472B ]  <- Nioh3+40800 @40E53(100%)  | 13233FE:46% loop 13233D4..1323433 (97 B) 13233F2:38% loop 13233D4..1323433 (97 B) 132343D:7% loop 13233D4..132345B (140 B)
+    0.3%   55%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+3FE14 @3FFE5(41%); Nioh3+403A0 @40464(33%); Nioh3+3FE14 @3FE97(16%)  | 4126B:33% loop 41251..41290 (65 B) 41258:25% loop 41251..41290 (65 B) 41460:16% loop 4144C..41468 (30 B)
+    0.3%   38%  Nioh3+16654C [2461B ]  <- Nioh3+165088 @1654B4(91%); Nioh3+165088 @1653F4(8%)  | 1668B3:8% loop 1668A0..1668B6 (24 B) 166D7C:8% loop 166D21..166DA7 (140 B) 166DA1:8% loop 166D9F..166DD9 (60 B)
+    0.3%   40%  Nioh3+6FED0 [843B ]  <- Nioh3+69D18 @69E21(50%); Nioh3+121FC0 @123BBC(25%); Nioh3+69D18 @69D90(16%)  | 6FF4D:16% 6FF11:16% 6FEED:8%
+    0.3%   47%  Nioh3+203B74 [231B lock]  <- Nioh3+1A7BF0 @1A7D10(100%)  | 203B9F:41% 203B8C:33% 203BAB:25% loop 203BAB..203BBB (18 B)
+    0.3%   41%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.3%   41%  Nioh3+204128 [504B ]  <- Nioh3+204584 @204711(100%)  | 2041E1:41% 204196:25% 2041C3:16%
+    0.3%   46%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+403A0 @403D7(50%); Nioh3+3FE14 @3FF5E(50%)  | 4089F:16% 40FAC:16% 40E83:8%
+    0.3%   51%  Nioh3+54360 [793B ]  <- Nioh3+4DB2C4 @4DB3EC(41%); Nioh3+71C60 @71FC1(25%); Nioh3+5ECE50 @5ECE6B(8%)  | 54650:41% loop 54650..54657 (9 B) 543C0:8% 54408:8%
+    0.3%   17%  Nioh3+88780 [440B ]  <- Nioh3+88580 @885F4(33%); Nioh3+88610 @88685(25%); Nioh3+88504 @88565(25%)  | 88790:16% 887C5:16% 888A5:8%
+    0.3%   41%  Nioh3+205840 [3007B Sleep,lock]  <- Nioh3+204584 @204A4A(66%); Nioh3+1A7408 @1A7615(25%); Nioh3+204DB0 @204FD9(8%)  | 2058B0:33% 20597F:16% 205896:16%
+  -- attributed to first Nioh3 frame top 20 --
+   67.1%  Nioh3+1A6BB84
+    1.6%  Nioh3+70230
+    1.4%  Nioh3+1A7BF0
+    1.3%  Nioh3+121FC0
+    1.0%  Nioh3+425B0
+    0.9%  Nioh3+121E70(leaf?)
+    0.8%  Nioh3+1A188C
+    0.7%  Nioh3+120120(leaf?)
+    0.7%  Nioh3+3AF00
+    0.7%  Nioh3+6EFD0(leaf?)
+    0.6%  Nioh3+40800
+    0.6%  Nioh3+199180
+    0.5%  Nioh3+204584
+    0.5%  Nioh3+166F20
+    0.5%  Nioh3+165088
+    0.5%  Nioh3+203BD4
+    0.4%  Nioh3+CE1E0
+    0.4%  Nioh3+6642C
+    0.4%  Nioh3+71C60
+    0.4%  Nioh3+6EA50
+  -- inclusive top 30 --
+   87.6%  Nioh3+1A6BB84
+   87.0%  Nioh3+BDB740
+   86.9%  KERNEL32.DLL!BaseThreadInitThunk
+   86.9%  ntdll.dll!RtlUserThreadStart
+   67.0%  ntdll.dll!ZwWaitForSingleObject
+   67.0%  KERNELBASE.dll!WaitForSingleObjectEx
+   27.2%  Nioh3+40800
+   21.7%  Nioh3+3FE14
+   18.4%  Nioh3+1A7BF0
+   14.9%  Nioh3+205840
+   14.4%  Nioh3+403A0
+   14.4%  Nioh3+3E7CC
+   14.4%  Nioh3+206400
+   12.6%  Nioh3+204DB0
+   10.3%  Nioh3+451E4
+    8.8%  Nioh3+182000
+    8.7%  Nioh3+5795B8
+    8.5%  Nioh3+204584
+    7.8%  Nioh3+855E48
+    7.7%  Nioh3+1113B4
+    7.6%  Nioh3+111184
+    7.5%  Nioh3+7E35E4
+    5.2%  Nioh3+1202B0
+    5.1%  Nioh3+111EA4
+    5.1%  Nioh3+121FC0
+    5.0%  Nioh3+1A7408
+    5.0%  Nioh3+211194
+    3.2%  Nioh3+61FEA8
+    3.2%  Nioh3+61FDA8
+    1.9%  Nioh3+47192C
+
+## Thread 20108  KIDSTaskScheduler4  CPU 30.8%  busy 29%  samples 3867  unwound 100%  avg depth 6.9  start=Nioh3+BDB740
+  modules: ntdll.dll 73.4%, Nioh3.exe 26.6%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   73.1%   26%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.6%   41%  Nioh3+121FC0 [17455B lock]  <- Nioh3+1202B0 @12054C(100%)  | 1234AF:11% loop 1234A0..1234CA (44 B) 1234C5:9% loop 1234A0..1234CA (44 B) 1222C0:4%
+    1.6%   43%  Nioh3+1A7BF0 [44635B lock]  <- Nioh3+206400 @20656C(83%); Nioh3+206400 @20657C(6%); Nioh3+61FEA8 @61FFC3(5%)  | 1AA69C:11% 1A7F78:8% 1AA698:8%
+    1.1%   49%  Nioh3+121E70(leaf?) [0B ]  <- Nioh3+121FC0 @1252B3(75%); Nioh3+121FC0 @123C66(25%)  | 121EB3:59% loop 121EA3..121EBA (25 B) 121EB5:22% loop 121EA3..121EBA (25 B) 121EA9:9% loop 121EA3..121EBA (25 B)
+    0.8%   46%  Nioh3+204584 [2077B QueryPerformanceCounter,xchg]  <- Nioh3+40800 @40E53(100%)  | 2046C3:40% 2046D5:40% 20466A:3%
+    0.8%   44%  Nioh3+120120(leaf?) [0B ]  <- Nioh3+121FC0 @12401D(53%); Nioh3+121FC0 @12419B(46%)  | 120227:43% loop 120215..12022F (28 B) 120229:20% loop 120215..12022F (28 B) 120272:10% loop 120261..12027A (27 B)
+    0.7%   53%  Nioh3+425B0 [1038B lock]  <- Nioh3+1A7BF0 @1ADAAE(100%)  | 42948:85% loop 428E0..42954 (118 B) 42917:7% loop 428E0..42954 (118 B) 428EC:3%
+    0.6%   49%  Nioh3+2040A0 [161B ]  <- Nioh3+2040A0 @20411B(58%); Nioh3+204128 @204261(41%)  | 2040B1:50% 204106:20% loop 2040FB..204123 (42 B) 2040CD:16% loop 2040CA..2040DE (22 B)
+    0.6%   48%  Nioh3+3AF00 [1653B ]  <- Nioh3+1A7BF0 @1ABBF5(100%)  | 3B0F3:26% 3B0E0:17% 3B235:17% loop 3B230..3B259 (43 B)
+    0.6%   42%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6EB45(13%); Nioh3+6EA50 @6ED60(8%); Nioh3+6EA50 @6EE60(8%)  | 6EFD4:26% 6EFDB:26% 6EFFD:13%
+    0.5%   50%  Nioh3+6EA50 [1403B ]  <- Nioh3+121FC0 @12355F(33%); Nioh3+71C60 @72369(27%); Nioh3+121FC0 @12252E(16%)  | 6EF46:5% 6EF25:5% 6EF04:5%
+    0.4%   39%  Nioh3+204128 [504B ]  <- Nioh3+204584 @204711(100%)  | 2041E1:41% 204196:29% 2041C3:23%
+    0.4%   37%  Nioh3+1A188C [298B lock]  <- Nioh3+1A7BF0 @1A9E44(100%)  | 1A18CD:73% 1A18AE:26% loop 1A18AB..1A18C2 (25 B)
+    0.4%   15%  Nioh3+88780 [440B ]  <- Nioh3+88610 @88685(35%); Nioh3+88580 @885F4(28%); Nioh3+88504 @88565(14%)  | 88790:21% 887C5:14% 88851:7%
+    0.3%   31%  Nioh3+6FED0 [843B ]  <- Nioh3+69D18 @69E21(38%); Nioh3+1218EC @121983(30%); Nioh3+16654C @166D76(23%)  | 6FF11:23% 701B1:7% 6FEDA:7%
+    0.3%   47%  Nioh3+203BD4 [538B ]  <- Nioh3+1A7BF0 @1A810A(53%); Nioh3+1A7BF0 @1A9949(46%)  | 203C58:76% 203C69:15% 203C8D:7%
+    0.3%   51%  Nioh3+205840 [3007B Sleep,lock]  <- Nioh3+204584 @204A4A(50%); Nioh3+1A7408 @1A7615(50%)  | 205896:41% 2058B0:25% 2063FD:8%
+    0.3%   74%  Nioh3+6642C [359B ]  <- Nioh3+6642C @6657D(90%); Nioh3+64630 @64643(9%)  | 6657A:54% loop 66566..66585 (33 B) 6656A:27% loop 66566..66585 (33 B) 6642C:9%
+    0.3%   43%  Nioh3+1A7B38 [189B ]  <- Nioh3+204584 @204933(80%); Nioh3+1A7B38 @1A7BB2(20%)  | 1A7BAA:80% loop 1A7B96..1A7BBA (38 B) 1A7B5B:10% 1A7B52:10%
+    0.3%   42%  Nioh3+1218EC [1408B lock,xchg]  <- Nioh3+121FC0 @12530B(100%)  | 121D58:20% loop 121D30..121DA2 (116 B) 121CAA:20% 121C9A:10%
+    0.3%   10%  Nioh3+6FA30 [1419B ]  <- Nioh3+C94A4 @C985A(100%)  | 6FC3D:20% 6FC63:10% 6FCFC:10%
+    0.2%   55%  Nioh3+206700(leaf?) [0B ]  <- Nioh3+206400 @206471(100%)  | 206720:66% loop 20670E..206723 (23 B) 20674A:22% loop 20670E..20674D (65 B) 206729:11% loop 20670E..20672C (32 B)
+    0.2%   26%  Nioh3+165088 [1402B ]  <- Nioh3+165088 @165375(100%)  | 165444:44% loop 165420..16544C (46 B) 165447:22% loop 165420..16544C (46 B) 1654E9:11%
+    0.2%   54%  Nioh3+1A3D3C [1041B lock]  <- Nioh3+1A7BF0 @1AC64B(100%)  | 1A3EA6:44% loop 1A3E94..1A3EB1 (31 B) 1A3E12:22% 1A3D3F:11%
+    0.2%   52%  Nioh3+1A6FC4 [892B lock]  <- Nioh3+205840 @20596D(87%); Nioh3+20690C @206929(12%)  | 1A7077:75% loop 1A7077..1A7092 (29 B) 1A6FFD:12% 1A7231:12%
+    0.2%   46%  Nioh3+11FD70 [371B ]  <- Nioh3+1A7BF0 @1AA854(100%)  | 11FDB9:62% 11FDD2:25% 11FDC4:12%
+    0.2%   28%  Nioh3+171A04 [2250B PAUSE,lock]  <- Nioh3+17164C @1716B6(100%)  | 171C52:25% 171AB0:25% 171F01:12%
+    0.2%   47%  Nioh3+1A7408 [4026B ]  <- Nioh3+211194 @211250(100%)  | 1A74DA:50% 1A7485:12% 1A75F4:12% loop 1A75CE..1A7623 (87 B)
+    0.2%   55%  Nioh3+61EF80(leaf?) [0B ]  <- Nioh3+121FC0 @123C7A(100%)  | 61EF97:75% loop 61EF87..61EF9E (25 B) 61EF89:25% loop 61EF87..61EF9E (25 B)
+    0.2%   14%  Nioh3+166F20 [1742B ]  <- Nioh3+2D7F38 @2D8032(100%)  | 16714A:28% 1673A3:14% loop 167360..1673AF (81 B) 167007:14% loop 166FF0..167049 (91 B)
+  -- attributed to first Nioh3 frame top 20 --
+   73.1%  Nioh3+1A6BB84
+    1.6%  Nioh3+121FC0
+    1.6%  Nioh3+1A7BF0
+    1.1%  Nioh3+121E70(leaf?)
+    0.9%  Nioh3+204584
+    0.8%  Nioh3+120120(leaf?)
+    0.7%  Nioh3+425B0
+    0.6%  Nioh3+2040A0
+    0.6%  Nioh3+3AF00
+    0.6%  Nioh3+6EFD0(leaf?)
+    0.5%  Nioh3+6EA50
+    0.4%  Nioh3+204128
+    0.4%  Nioh3+1A188C
+    0.4%  Nioh3+88780
+    0.4%  Nioh3+40800
+    0.3%  Nioh3+6FED0
+    0.3%  Nioh3+203BD4
+    0.3%  Nioh3+205840
+    0.3%  Nioh3+6642C
+    0.3%  Nioh3+1A7B38
+  -- inclusive top 30 --
+   90.0%  Nioh3+1A6BB84
+   90.0%  Nioh3+BDB740
+   90.0%  KERNEL32.DLL!BaseThreadInitThunk
+   89.9%  ntdll.dll!RtlUserThreadStart
+   73.1%  ntdll.dll!ZwWaitForSingleObject
+   73.1%  KERNELBASE.dll!WaitForSingleObjectEx
+   19.8%  Nioh3+40800
+   17.0%  Nioh3+1A7BF0
+   17.0%  Nioh3+3FE14
+   15.2%  Nioh3+205840
+   14.8%  Nioh3+206400
+   10.5%  Nioh3+204584
+    9.6%  Nioh3+403A0
+    9.6%  Nioh3+3E7CC
+    9.4%  Nioh3+204DB0
+    7.8%  Nioh3+182000
+    7.7%  Nioh3+5795B8
+    6.7%  Nioh3+1A7408
+    6.7%  Nioh3+211194
+    6.5%  Nioh3+1202B0
+    6.4%  Nioh3+121FC0
+    6.2%  Nioh3+7E35E4
+    4.0%  Nioh3+111EA4
+    1.9%  Nioh3+82BF0
+    1.9%  Nioh3+4032E8
+    1.8%  Nioh3+82F1C
+    1.8%  Nioh3+7FE68
+    1.3%  Nioh3+61FEA8
+    1.3%  Nioh3+61FDA8
+    1.2%  Nioh3+204128
+
+## Thread 13080  KIDSTaskScheduler5  CPU 29.8%  busy 29%  samples 3867  unwound 100%  avg depth 7.1  start=Nioh3+BDB740
+  modules: ntdll.dll 72.1%, Nioh3.exe 27.9%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   71.7%   24%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.8%   42%  Nioh3+1A7BF0 [44635B lock]  <- Nioh3+206400 @20656C(86%); Nioh3+61FEA8 @61FFC3(5%); Nioh3+206400 @20657C(5%)  | 1AA69C:23% 1AA698:10% 1AA694:5%
+    1.4%   47%  Nioh3+121E70(leaf?) [0B ]  <- Nioh3+121FC0 @1252B3(85%); Nioh3+121FC0 @123C66(14%)  | 121EB3:55% loop 121EA3..121EBA (25 B) 121EB5:28% loop 121EA3..121EBA (25 B) 121EA9:10% loop 121EA3..121EBA (25 B)
+    1.1%   51%  Nioh3+425B0 [1038B lock]  <- Nioh3+1A7BF0 @1ADAAE(100%)  | 42948:76% loop 428E0..42954 (118 B) 426CF:4% 428F3:2%
+    1.1%   43%  Nioh3+121FC0 [17455B lock]  <- Nioh3+1202B0 @12054C(100%)  | 1234AF:9% loop 1234A0..1234CA (44 B) 123432:7% 12255F:7%
+    0.7%   45%  Nioh3+120120(leaf?) [0B ]  <- Nioh3+121FC0 @12419B(60%); Nioh3+121FC0 @12401D(39%)  | 120227:35% loop 120215..12022F (28 B) 120229:17% loop 120215..12022F (28 B) 120272:17% loop 120261..12027A (27 B)
+    0.7%   41%  Nioh3+3AF00 [1653B ]  <- Nioh3+1A7BF0 @1ABBF5(100%)  | 3B0E0:22% 3B0F3:18% 3B0CF:14%
+    0.7%   39%  Nioh3+1A188C [298B lock]  <- Nioh3+1A7BF0 @1A9E44(88%); Nioh3+19FA5C @19FA97(11%)  | 1A18AE:38% loop 1A18AB..1A18C2 (25 B) 1A18CD:26% 1A193A:15% loop 1A18F2..1A193D (77 B)
+    0.6%   40%  Nioh3+204584 [2077B QueryPerformanceCounter,xchg]  <- Nioh3+40800 @40E53(100%)  | 2046D5:37% 2046C3:33% 2045EC:4%
+    0.6%   41%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6EB45(17%); Nioh3+6EA50 @6EC67(8%); Nioh3+6EA50 @6EC0F(8%)  | 6EFD4:60% 6EFDB:17% 6EFEE:13%
+    0.5%   32%  Nioh3+6FED0 [843B ]  <- Nioh3+16654C @166D76(28%); Nioh3+1218EC @121983(23%); Nioh3+69D18 @69D90(19%)  | 6FF11:23% 6FEED:14% 701C1:9%
+    0.4%   40%  Nioh3+1A6FC4 [892B lock]  <- Nioh3+205840 @20596D(100%)  | 1A7077:52% loop 1A7077..1A7092 (29 B) 1A70C0:35% 1A7029:5%
+    0.4%   49%  Nioh3+6EA50 [1403B ]  <- Nioh3+71C60 @72369(43%); Nioh3+121FC0 @12355F(31%); Nioh3+71C60 @72610(12%)  | 6EC1D:12% 6EC96:6% 6EE65:6%
+    0.4%   41%  Nioh3+204128 [504B ]  <- Nioh3+204584 @204711(100%)  | 2041E1:31% 204196:31% 2041C3:12%
+    0.4%   69%  Nioh3+4DBA00 [2434B ]  <- Nioh3+4DB620 @4DB734(20%); Nioh3+4DB620 @4DB7AA(13%); Nioh3+4DB620 @4DB714(13%)  | 4DBE08:6% 4DBE9F:6% 4DC081:6%
+    0.3%   40%  Nioh3+203B74 [231B lock]  <- Nioh3+1A7BF0 @1A7D10(100%)  | 203B9F:46% 203B8C:46% 203BAB:7% loop 203BAB..203BBB (18 B)
+    0.3%   23%  Nioh3+165088 [1402B ]  <- Nioh3+165088 @165375(100%)  | 165444:41% loop 165420..16544C (46 B) 1650E0:25% 1654D0:8% loop 165463..16551B (189 B)
+    0.3%   34%  Nioh3+205840 [3007B Sleep,lock]  <- Nioh3+204584 @204A4A(50%); Nioh3+1A7408 @1A7615(41%); Nioh3+204DB0 @204FD9(8%)  | 2058B0:33% 205896:33% 20597F:8%
+    0.3%   50%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.3%   51%  Nioh3+B94250 [1653B ]  <- Nioh3+11FB20 @11FC57(100%)  | B943D0:36% B9443C:9% B94429:9%
+    0.3%   51%  Nioh3+2040A0 [161B ]  <- Nioh3+204128 @204261(63%); Nioh3+2040A0 @20411B(36%)  | 2040B1:36% 20410F:18% loop 2040FB..204123 (42 B) 204106:18% loop 2040FB..204123 (42 B)
+    0.3%   32%  Nioh3+1A7B38 [189B ]  <- Nioh3+204584 @204933(81%); Nioh3+1A7B38 @1A7BB2(9%); Nioh3+204584 @204B3E(9%)  | 1A7BAA:81% loop 1A7B96..1A7BBA (38 B) 1A7B5B:9% 1A7B96:9% loop 1A7B96..1A7BBA (38 B)
+    0.3%   14%  Nioh3+CE1E0 [945B ]  <- Nioh3+1A7BF0 @1B1DA2(45%); Nioh3+1A7BF0 @1B1E31(36%); Nioh3+1A7BF0 @1B1E99(18%)  | CE4DD:36% CE2A3:18% CE492:9%
+    0.3%   62%  Nioh3+6F010 [72B ]  <- Nioh3+6EA50 @6EE1C(20%); Nioh3+11F49C @11F5A1(10%); Nioh3+11F49C @11F610(10%)  | 6F037:20% 6F053:20% 6F014:20%
+    0.3%   47%  Nioh3+1218EC [1408B lock,xchg]  <- Nioh3+121FC0 @12530B(100%)  | 121CAA:20% 121911:20% 121AF9:10%
+    0.3%   15%  Nioh3+88780 [440B ]  <- Nioh3+88504 @88565(40%); Nioh3+88580 @885F4(40%); Nioh3+76580 @76A83(10%)  | 88790:20% 887E1:10% 88875:10%
+    0.2%   38%  Nioh3+BE6740 [3782B ]  <- Nioh3+121FC0 @1252C6(88%); Nioh3+53488 @192A74F(11%)  | BE6F04:22% BE6FC6:11% BE7026:11%
+    0.2%   72%  Nioh3+6642C [359B ]  <- Nioh3+6642C @6657D(100%)  | 6657A:44% loop 66566..66585 (33 B) 66574:33% loop 66566..66585 (33 B) 66451:22%
+    0.2%   13%  Nioh3+FAC800 [302B ]  <- Nioh3+31DDF0 @31DE45(100%)  | FAC87D:55% FAC877:22% FAC888:11%
+    0.2%   53%  Nioh3+1A7408 [4026B ]  <- Nioh3+211194 @211250(100%)  | 1A748F:44% 1A74FF:22% 1A769B:11%
+  -- attributed to first Nioh3 frame top 20 --
+   71.7%  Nioh3+1A6BB84
+    1.8%  Nioh3+1A7BF0
+    1.4%  Nioh3+121E70(leaf?)
+    1.1%  Nioh3+425B0
+    1.1%  Nioh3+121FC0
+    0.7%  Nioh3+120120(leaf?)
+    0.7%  Nioh3+204584
+    0.7%  Nioh3+3AF00
+    0.7%  Nioh3+1A188C
+    0.6%  Nioh3+6EFD0(leaf?)
+    0.5%  Nioh3+6FED0
+    0.4%  Nioh3+1A6FC4
+    0.4%  Nioh3+6EA50
+    0.4%  Nioh3+204128
+    0.4%  Nioh3+4DBA00
+    0.3%  Nioh3+203B74
+    0.3%  Nioh3+165088
+    0.3%  Nioh3+40800
+    0.3%  Nioh3+205840
+    0.3%  Nioh3+B94250
+  -- inclusive top 30 --
+   89.4%  Nioh3+1A6BB84
+   89.4%  Nioh3+BDB740
+   89.3%  KERNEL32.DLL!BaseThreadInitThunk
+   89.3%  ntdll.dll!RtlUserThreadStart
+   71.7%  ntdll.dll!ZwWaitForSingleObject
+   71.7%  KERNELBASE.dll!WaitForSingleObjectEx
+   20.4%  Nioh3+40800
+   17.8%  Nioh3+1A7BF0
+   17.7%  Nioh3+3FE14
+   15.0%  Nioh3+205840
+   14.2%  Nioh3+206400
+   10.2%  Nioh3+204584
+   10.1%  Nioh3+403A0
+   10.1%  Nioh3+3E7CC
+    9.8%  Nioh3+204DB0
+    9.0%  Nioh3+182000
+    8.9%  Nioh3+5795B8
+    7.4%  Nioh3+7E35E4
+    7.0%  Nioh3+1A7408
+    7.0%  Nioh3+211194
+    6.5%  Nioh3+1202B0
+    6.4%  Nioh3+121FC0
+    4.0%  Nioh3+111EA4
+    2.2%  Nioh3+61FDA8
+    2.2%  Nioh3+61FEA8
+    1.6%  Nioh3+82BF0
+    1.4%  Nioh3+82F1C
+    1.4%  Nioh3+121E70(leaf?)
+    1.4%  Nioh3+7FE68
+    1.1%  Nioh3+4032E8
+
+## Thread 23120  KIDSTaskScheduler2  CPU 27.3%  busy 26%  samples 3867  unwound 100%  avg depth 6.6  start=Nioh3+BDB740
+  modules: ntdll.dll 74.5%, Nioh3.exe 25.4%, KERNELBASE.dll 0.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   74.3%   22%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.4%   51%  Nioh3+121E70(leaf?) [0B ]  <- Nioh3+121FC0 @1252B3(75%); Nioh3+121FC0 @123C66(25%)  | 121EB3:58% loop 121EA3..121EBA (25 B) 121EB5:25% loop 121EA3..121EBA (25 B) 121EC4:3% loop 121EB5..121ECE (27 B)
+    1.4%   48%  Nioh3+121FC0 [17455B lock]  <- Nioh3+1202B0 @12054C(100%)  | 1234AF:24% loop 1234A0..1234CA (44 B) 123432:5% 122BE7:3%
+    1.4%   43%  Nioh3+1A7BF0 [44635B lock]  <- Nioh3+206400 @20656C(92%); Nioh3+61FEA8 @61FFC3(3%); Nioh3+206400 @20657C(1%)  | 1AA69C:15% 1AA698:9% 1A83D8:7%
+    1.0%   44%  Nioh3+120120(leaf?) [0B ]  <- Nioh3+121FC0 @12419B(59%); Nioh3+121FC0 @12401D(40%)  | 120227:29% loop 120215..12022F (28 B) 120229:21% loop 120215..12022F (28 B) 120274:13% loop 120261..12027A (27 B)
+    0.9%   47%  Nioh3+425B0 [1038B lock]  <- Nioh3+1A7BF0 @1ADAAE(100%)  | 42948:65% loop 428E0..42954 (118 B) 42917:5% loop 428E0..42954 (118 B) 4279A:2%
+    0.7%   41%  Nioh3+204584 [2077B QueryPerformanceCounter,xchg]  <- Nioh3+40800 @40E53(100%)  | 2046D5:48% 2046C3:33% 204AC2:3%
+    0.6%   44%  Nioh3+3AF00 [1653B ]  <- Nioh3+1A7BF0 @1ABBF5(100%)  | 3B0F3:41% 3B0E0:12% 3B235:8% loop 3B230..3B259 (43 B)
+    0.6%   46%  Nioh3+2040A0 [161B ]  <- Nioh3+2040A0 @20411B(54%); Nioh3+204128 @204261(45%)  | 2040B1:50% 2040BA:22% 20410F:13% loop 2040FB..204123 (42 B)
+    0.5%   42%  Nioh3+1A188C [298B lock]  <- Nioh3+1A7BF0 @1A9E44(100%)  | 1A18CD:60% 1A18AE:40% loop 1A18AB..1A18C2 (25 B)
+    0.5%   43%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6ED98(15%); Nioh3+6EA50 @6ECD7(10%); Nioh3+6EA50 @6EF20(10%)  | 6EFD4:42% 6EFDB:31% 6EFDF:10%
+    0.5%   41%  Nioh3+1A6FC4 [892B lock]  <- Nioh3+205840 @20596D(100%)  | 1A7077:100% loop 1A7077..1A7092 (29 B)
+    0.5%   46%  Nioh3+204128 [504B ]  <- Nioh3+204584 @204711(100%)  | 2041E1:44% 2041C3:27% 204196:16%
+    0.4%   45%  Nioh3+203B74 [231B lock]  <- Nioh3+1A7BF0 @1A7D10(100%)  | 203B8C:58% 203B9F:35% 203BAB:5% loop 203BAB..203BBB (18 B)
+    0.4%   44%  Nioh3+1218EC [1408B lock,xchg]  <- Nioh3+121FC0 @12530B(100%)  | 121990:18% 121B9C:12% 121C2D:6%
+    0.3%   14%  Nioh3+88780 [440B ]  <- Nioh3+88504 @88565(41%); Nioh3+88610 @88685(33%); Nioh3+88580 @885F4(16%)  | 88790:25% 8882D:8% 8883D:8%
+    0.3%   41%  Nioh3+6FED0 [843B ]  <- Nioh3+1218EC @121983(40%); Nioh3+121FC0 @123BBC(30%); Nioh3+16654C @166D76(20%)  | 70182:10% 6FF07:10% 6FFA8:10%
+    0.3%   47%  Nioh3+203BD4 [538B ]  <- Nioh3+1A7BF0 @1A810A(80%); Nioh3+1A7BF0 @1A9949(20%)  | 203C58:70% 203C7A:20% 203C8D:10%
+    0.3%    7%  Nioh3+166F20 [1742B ]  <- Nioh3+2D7F38 @2D8032(100%)  | 167157:20% 1673A3:20% loop 167360..1673AF (81 B) 16720A:10% loop 1671EA..167226 (62 B)
+    0.3%   46%  Nioh3+1A7B38 [189B ]  <- Nioh3+204584 @204933(60%); Nioh3+1A7B38 @1A7BB2(40%)  | 1A7BAA:60% loop 1A7B96..1A7BBA (38 B) 1A7B5B:40%
+    0.2%   18%  Nioh3+165088 [1402B ]  <- Nioh3+165088 @165375(88%); Nioh3+1635B8 @1638FC(11%)  | 165444:55% loop 165420..16544C (46 B) 1652B0:11% 165583:11% loop 165568..16558B (37 B)
+    0.2%   45%  Nioh3+205840 [3007B Sleep,lock]  <- Nioh3+204584 @204A4A(66%); Nioh3+1A7408 @1A7615(33%)  | 205896:66% 205916:22% 20597F:11%
+    0.2%   37%  Nioh3+6F010 [72B ]  <- Nioh3+6EA50 @6EC93(25%); Nioh3+6EA50 @6ECCB(12%); Nioh3+6EA50 @6ED1C(12%)  | 6F01E:37% 6F033:25% 6F010:12%
+    0.2%   47%  Nioh3+1A7408 [4026B ]  <- Nioh3+211194 @211250(100%)  | 1A74DA:57% 1A748F:14% 1A7429:14%
+    0.2%    8%  Nioh3+169500 [6839B ]  <- Nioh3+C94A4 @C9799(100%)  | 16AA99:57% 16ABF0:14% 16ABBE:14%
+    0.2%   42%  Nioh3+1A3D3C [1041B lock]  <- Nioh3+1A7BF0 @1AC64B(100%)  | 1A3EA6:28% loop 1A3E94..1A3EB1 (31 B) 1A3E12:14% 1A3E24:14%
+    0.2%   75%  Nioh3+6642C [359B ]  <- Nioh3+6642C @6657D(71%); Nioh3+64630 @64643(28%)  | 6657A:42% loop 66566..66585 (33 B) 66530:14% 66574:14% loop 66566..66585 (33 B)
+    0.2%   48%  Nioh3+120C28 [548B lock]  <- Nioh3+121FC0 @12537E(100%)  | 120D13:28% loop 120D13..120D21 (16 B) 120D8C:14% loop 120D80..120D8E (16 B) 120D80:14% loop 120D80..120D8E (16 B)
+    0.2%   52%  Nioh3+1A3B78 [456B lock]  <- Nioh3+1A7BF0 @1ACE5E(100%)  | 1A3C7B:42% 1A3C56:14% loop 1A3BF9..1A3C85 (146 B) 1A3BB1:14%
+    0.2%   45%  Nioh3+6F060(leaf?) [0B ]  <- Nioh3+6EA50 @6EAA2(28%); Nioh3+11F49C @11F7A6(14%); Nioh3+11F49C @11F4FD(14%)  | 6F084:28% 6F060:28% 6F065:14%
+  -- attributed to first Nioh3 frame top 20 --
+   74.3%  Nioh3+1A6BB84
+    1.4%  Nioh3+121E70(leaf?)
+    1.4%  Nioh3+121FC0
+    1.4%  Nioh3+1A7BF0
+    1.0%  Nioh3+120120(leaf?)
+    0.9%  Nioh3+425B0
+    0.9%  Nioh3+204584
+    0.6%  Nioh3+3AF00
+    0.6%  Nioh3+2040A0
+    0.5%  Nioh3+1A188C
+    0.5%  Nioh3+6EFD0(leaf?)
+    0.5%  Nioh3+1A6FC4
+    0.5%  Nioh3+204128
+    0.4%  Nioh3+203B74
+    0.4%  Nioh3+1218EC
+    0.3%  Nioh3+88780
+    0.3%  Nioh3+6FED0
+    0.3%  Nioh3+203BD4
+    0.3%  Nioh3+166F20
+    0.3%  Nioh3+1A7B38
+  -- inclusive top 30 --
+   90.5%  Nioh3+1A6BB84
+   90.4%  Nioh3+BDB740
+   90.4%  KERNEL32.DLL!BaseThreadInitThunk
+   90.4%  ntdll.dll!RtlUserThreadStart
+   74.3%  ntdll.dll!ZwWaitForSingleObject
+   74.3%  KERNELBASE.dll!WaitForSingleObjectEx
+   17.7%  Nioh3+40800
+   17.1%  Nioh3+1A7BF0
+   16.1%  Nioh3+3FE14
+   15.5%  Nioh3+205840
+   14.7%  Nioh3+206400
+   10.4%  Nioh3+204584
+    7.2%  Nioh3+1A7408
+    7.2%  Nioh3+211194
+    7.0%  Nioh3+204DB0
+    7.0%  Nioh3+1202B0
+    6.9%  Nioh3+121FC0
+    6.5%  Nioh3+403A0
+    6.5%  Nioh3+3E7CC
+    5.6%  Nioh3+182000
+    5.6%  Nioh3+5795B8
+    4.6%  Nioh3+7E35E4
+    2.0%  Nioh3+111EA4
+    1.9%  Nioh3+82BF0
+    1.9%  Nioh3+82F1C
+    1.8%  Nioh3+7FE68
+    1.6%  Nioh3+4032E8
+    1.4%  Nioh3+121E70(leaf?)
+    1.3%  Nioh3+61FEA8
+    1.3%  Nioh3+61FDA8
+
+## Thread 25036  KIDSTaskScheduler3  CPU 26.1%  busy 26%  samples 3867  unwound 100%  avg depth 6.7  start=Nioh3+BDB740
+  modules: ntdll.dll 73.9%, Nioh3.exe 26.1%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   73.7%   21%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:99% 160E30:0%
+    1.8%   47%  Nioh3+1A7BF0 [44635B lock]  <- Nioh3+206400 @20656C(85%); Nioh3+206400 @20657C(9%); Nioh3+61FEA8 @61FFC3(2%)  | 1AA698:21% 1A7CBD:8% 1A83D8:8%
+    1.5%   43%  Nioh3+121FC0 [17455B lock]  <- Nioh3+1202B0 @12054C(100%)  | 1234AF:12% loop 1234A0..1234CA (44 B) 123432:8% 1234C5:5% loop 1234A0..1234CA (44 B)
+    1.4%   48%  Nioh3+121E70(leaf?) [0B ]  <- Nioh3+121FC0 @1252B3(75%); Nioh3+121FC0 @123C66(24%)  | 121EB3:50% loop 121EA3..121EBA (25 B) 121EB5:29% loop 121EA3..121EBA (25 B) 121EBA:7% loop 121EA3..121EBA (25 B)
+    1.0%   48%  Nioh3+425B0 [1038B lock]  <- Nioh3+1A7BF0 @1ADAAE(100%)  | 42948:71% loop 428E0..42954 (118 B) 42917:5% loop 428E0..42954 (118 B) 42694:5%
+    1.0%   49%  Nioh3+120120(leaf?) [0B ]  <- Nioh3+121FC0 @12419B(52%); Nioh3+121FC0 @12401D(47%)  | 120227:28% loop 120215..12022F (28 B) 120272:18% loop 120261..12027A (27 B) 120274:15% loop 120261..12027A (27 B)
+    0.9%   44%  Nioh3+204584 [2077B QueryPerformanceCounter,xchg]  <- Nioh3+40800 @40E53(100%)  | 2046C3:55% 2046D5:32% 204A5B:5%
+    0.6%   47%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6ED28(8%); Nioh3+6EA50 @6EF20(8%); Nioh3+6EA50 @6ED98(8%)  | 6EFD4:39% 6EFDB:26% 6EFFD:13%
+    0.5%   46%  Nioh3+3AF00 [1653B ]  <- Nioh3+1A7BF0 @1ABBF5(100%)  | 3B0F3:40% 3B0E0:20% 3B235:15% loop 3B230..3B259 (43 B)
+    0.5%   38%  Nioh3+204128 [504B ]  <- Nioh3+204584 @204711(100%)  | 2041E1:45% 2041C3:25% 204196:25%
+    0.5%   42%  Nioh3+1A188C [298B lock]  <- Nioh3+1A7BF0 @1A9E44(88%); Nioh3+1A7BF0 @1A8898(5%); Nioh3+19FA5C @19FA97(5%)  | 1A18CD:55% 1A18AE:33% loop 1A18AB..1A18C2 (25 B) 1A1930:5% loop 1A18F2..1A193D (77 B)
+    0.4%   45%  Nioh3+2040A0 [161B ]  <- Nioh3+2040A0 @20411B(52%); Nioh3+204128 @204261(47%)  | 2040B1:52% 20410F:17% loop 2040FB..204123 (42 B) 2040BA:11%
+    0.4%   42%  Nioh3+6FED0 [843B ]  <- Nioh3+1218EC @121983(53%); Nioh3+16654C @166D76(20%); Nioh3+69D18 @69E21(13%)  | 6FF11:26% 70041:13% 70092:6%
+    0.4%   48%  Nioh3+6EA50 [1403B ]  <- Nioh3+71C60 @72369(42%); Nioh3+121FC0 @12355F(28%); Nioh3+121FC0 @124E9E(14%)  | 6ED9D:14% 6EE00:7% 6EF7E:7%
+    0.3%   44%  Nioh3+B94250 [1653B ]  <- Nioh3+11FB20 @11FC57(92%); Nioh3+4F9CB4 @4F9E3E(7%)  | B943D0:23% B94437:15% B9446E:15% loop B94420..B944A2 (136 B)
+    0.3%   35%  Nioh3+6BB80 [481B ]  <- Nioh3+1218EC @121946(30%); Nioh3+16654C @1667E9(30%); Nioh3+16654C @166769(15%)  | 6BD04:15% 6BC76:15% 6BC09:7%
+    0.3%   50%  Nioh3+203B74 [231B lock]  <- Nioh3+1A7BF0 @1A7D10(100%)  | 203B9F:45% 203B8C:45% 203BAB:9% loop 203BAB..203BBB (18 B)
+    0.3%   40%  Nioh3+205840 [3007B Sleep,lock]  <- Nioh3+204584 @204A4A(54%); Nioh3+1A7408 @1A7615(45%)  | 205896:54% 2058B0:18% 20584F:9%
+    0.3%   40%  Nioh3+203BD4 [538B ]  <- Nioh3+1A7BF0 @1A810A(63%); Nioh3+1A7BF0 @1A9949(36%)  | 203C58:63% 203C7A:18% 203C69:18%
+    0.3%   54%  Nioh3+1A6FC4 [892B lock]  <- Nioh3+205840 @20596D(100%)  | 1A7077:80% loop 1A7077..1A7092 (29 B) 1A6FDC:10% 1A6FE3:10%
+    0.2%    7%  Nioh3+166F20 [1742B ]  <- Nioh3+2D7F38 @2D8032(100%)  | 16714A:22% 1673AC:11% loop 167360..1673AF (81 B) 1673A3:11% loop 167360..1673AF (81 B)
+    0.2%   15%  Nioh3+8A420 [505B ]  <- Nioh3+48C1C4 @48C402(44%); Nioh3+48C1C4 @48C463(33%); Nioh3+48C1C4 @48C301(22%)  | 8A427:77% 8A4E8:11% 8A558:11%
+    0.2%   14%  Nioh3+88780 [440B ]  <- Nioh3+88610 @88685(33%); Nioh3+88580 @885F4(22%); Nioh3+88504 @88565(22%)  | 88790:33% 88895:11% 888FA:11%
+    0.2%   68%  Nioh3+6642C [359B ]  <- Nioh3+6642C @6657D(77%); Nioh3+64630 @64643(22%)  | 6657A:55% loop 66566..66585 (33 B) 66574:33% loop 66566..66585 (33 B) 66530:11%
+    0.2%   49%  Nioh3+1A7408 [4026B ]  <- Nioh3+211194 @211250(100%)  | 1A769B:11% 1A74A1:11% 1A7437:11%
+    0.2%   53%  Nioh3+1218EC [1408B lock,xchg]  <- Nioh3+121FC0 @12530B(100%)  | 121C7D:11% 121C00:11% 121CAA:11%
+    0.2%   37%  Nioh3+13233B0 [472B ]  <- Nioh3+40800 @40E53(100%)  | 13233FE:87% loop 13233D4..1323433 (97 B) 13233F2:12% loop 13233D4..1323433 (97 B)
+    0.2%   44%  Nioh3+6F010 [72B ]  <- Nioh3+6EA50 @6ED1C(25%); Nioh3+6EA50 @6EEDD(12%); Nioh3+11F49C @11F6EA(12%)  | 6F043:25% 6F017:25% 6F03F:12%
+    0.2%   56%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+3FE14 @3FF5E(57%); Nioh3+403A0 @403D7(42%)  | 40E64:28% 40F34:14% 40E67:14%
+    0.2%   27%  Nioh3+B5E2C [2950B ]  <- Nioh3+B5178 @B52C5(100%)  | B5FA4:28% B6069:28% loop B6043..B60BC (123 B) B6065:28% loop B6043..B60BC (123 B)
+  -- attributed to first Nioh3 frame top 20 --
+   73.7%  Nioh3+1A6BB84
+    1.8%  Nioh3+1A7BF0
+    1.5%  Nioh3+121FC0
+    1.4%  Nioh3+121E70(leaf?)
+    1.0%  Nioh3+425B0
+    1.0%  Nioh3+204584
+    1.0%  Nioh3+120120(leaf?)
+    0.6%  Nioh3+6EFD0(leaf?)
+    0.5%  Nioh3+3AF00
+    0.5%  Nioh3+204128
+    0.5%  Nioh3+1A188C
+    0.4%  Nioh3+2040A0
+    0.4%  Nioh3+6FED0
+    0.4%  Nioh3+6EA50
+    0.3%  Nioh3+B94250
+    0.3%  Nioh3+6BB80
+    0.3%  Nioh3+203B74
+    0.3%  Nioh3+205840
+    0.3%  Nioh3+203BD4
+    0.3%  Nioh3+1A6FC4
+  -- inclusive top 30 --
+   90.0%  Nioh3+1A6BB84
+   90.0%  Nioh3+BDB740
+   90.0%  KERNEL32.DLL!BaseThreadInitThunk
+   90.0%  ntdll.dll!RtlUserThreadStart
+   73.7%  ntdll.dll!ZwWaitForSingleObject
+   73.7%  KERNELBASE.dll!WaitForSingleObjectEx
+   18.6%  Nioh3+40800
+   18.0%  Nioh3+1A7BF0
+   16.4%  Nioh3+3FE14
+   15.9%  Nioh3+205840
+   15.5%  Nioh3+206400
+   10.3%  Nioh3+204584
+    7.8%  Nioh3+403A0
+    7.8%  Nioh3+3E7CC
+    7.7%  Nioh3+1A7408
+    7.6%  Nioh3+204DB0
+    7.6%  Nioh3+211194
+    7.5%  Nioh3+1202B0
+    7.3%  Nioh3+121FC0
+    6.4%  Nioh3+182000
+    6.4%  Nioh3+5795B8
+    5.1%  Nioh3+7E35E4
+    2.6%  Nioh3+111EA4
+    1.8%  Nioh3+61FEA8
+    1.8%  Nioh3+61FDA8
+    1.6%  Nioh3+7FE68
+    1.6%  Nioh3+82F1C
+    1.6%  Nioh3+82BF0
+    1.4%  Nioh3+121E70(leaf?)
+    1.1%  Nioh3+6EA50
+
+## Thread 21560  KIDSTaskScheduler1  CPU 24.7%  busy 24%  samples 3867  unwound 100%  avg depth 6.3  start=Nioh3+BDB740
+  modules: ntdll.dll 77.2%, Nioh3.exe 22.8%, KERNELBASE.dll 0.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   77.2%   18%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.7%   48%  Nioh3+1A7BF0 [44635B lock]  <- Nioh3+206400 @20656C(92%); Nioh3+206400 @20657C(6%); Nioh3+61FEA8 @61FFC3(1%)  | 1AA69C:14% 1A83D8:10% 1AA698:9%
+    1.3%   48%  Nioh3+121FC0 [17455B lock]  <- Nioh3+1202B0 @12054C(100%)  | 1234AF:10% loop 1234A0..1234CA (44 B) 1222AF:8% 1234C5:8% loop 1234A0..1234CA (44 B)
+    1.2%   48%  Nioh3+121E70(leaf?) [0B ]  <- Nioh3+121FC0 @1252B3(95%); Nioh3+121FC0 @123C66(4%)  | 121EB3:55% loop 121EA3..121EBA (25 B) 121EB5:17% loop 121EA3..121EBA (25 B) 121EC4:14% loop 121EB5..121ECE (27 B)
+    1.0%   43%  Nioh3+120120(leaf?) [0B ]  <- Nioh3+121FC0 @12401D(65%); Nioh3+121FC0 @12419B(34%)  | 120227:31% loop 120215..12022F (28 B) 120272:23% loop 120261..12027A (27 B) 120229:18% loop 120215..12022F (28 B)
+    0.7%   37%  Nioh3+2040A0 [161B ]  <- Nioh3+204128 @204261(55%); Nioh3+2040A0 @20411B(44%)  | 2040B1:37% 20410F:27% loop 2040FB..204123 (42 B) 2040CD:10% loop 2040CA..2040DE (22 B)
+    0.7%   43%  Nioh3+3AF00 [1653B ]  <- Nioh3+1A7BF0 @1ABBF5(100%)  | 3B0E0:24% 3B0F3:17% 3AFF5:13%
+    0.7%   51%  Nioh3+425B0 [1038B lock]  <- Nioh3+1A7BF0 @1ADAAE(100%)  | 42948:57% loop 428E0..42954 (118 B) 42614:7% 428F3:7%
+    0.6%   41%  Nioh3+1A188C [298B lock]  <- Nioh3+1A7BF0 @1A9E44(96%); Nioh3+19FA5C @19FA97(4%)  | 1A18AE:44% loop 1A18AB..1A18C2 (25 B) 1A18CD:40% 1A1930:8% loop 1A18F2..1A193D (77 B)
+    0.6%   49%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6EDF0(24%); Nioh3+6EA50 @6EEB1(8%); Nioh3+11F49C @11F574(8%)  | 6EFDB:36% 6EFD4:24% 6EFDF:8%
+    0.5%   40%  Nioh3+204584 [2077B QueryPerformanceCounter,xchg]  <- Nioh3+40800 @40E53(100%)  | 2046C3:55% 2046D5:20% 204B49:10%
+    0.4%   39%  Nioh3+1A7B38 [189B ]  <- Nioh3+204584 @204933(80%); Nioh3+1A7B38 @1A7BB2(20%)  | 1A7BAA:80% loop 1A7B96..1A7BBA (38 B) 1A7B38:13% 1A7B3D:6%
+    0.4%   36%  Nioh3+6FED0 [843B ]  <- Nioh3+1218EC @121983(60%); Nioh3+69D18 @69D90(20%); Nioh3+16654C @166D76(13%)  | 70158:13% 70182:13% 7003D:6%
+    0.4%   41%  Nioh3+1A6FC4 [892B lock]  <- Nioh3+205840 @20596D(100%)  | 1A7077:85% loop 1A7077..1A7092 (29 B) 1A71AE:7% loop 1A71A0..1A71E9 (75 B) 1A706A:7%
+    0.3%   43%  Nioh3+205840 [3007B Sleep,lock]  <- Nioh3+204584 @204A4A(61%); Nioh3+1A7408 @1A7615(38%)  | 205896:46% 2058B0:23% 205846:7%
+    0.3%   49%  Nioh3+1218EC [1408B lock,xchg]  <- Nioh3+121FC0 @12530B(100%)  | 121CAA:16% 121990:16% 121B39:8%
+    0.3%   45%  Nioh3+204128 [504B ]  <- Nioh3+204584 @204711(100%)  | 2041C3:50% 2041E1:16% 204196:16%
+    0.3%   53%  Nioh3+61EF80(leaf?) [0B ]  <- Nioh3+121FC0 @123C7A(100%)  | 61EF97:54% loop 61EF87..61EF9E (25 B) 61EF99:36% loop 61EF87..61EF9E (25 B) 61EFA8:9% loop 61EF99..61EFB2 (27 B)
+    0.3%   54%  Nioh3+6BB80 [481B ]  <- Nioh3+1218EC @121946(70%); Nioh3+121FC0 @123B71(10%); Nioh3+16654C @166706(10%)  | 6BCD7:20% 6BC3C:10% 6BC67:10%
+    0.2%   51%  Nioh3+1A3B78 [456B lock]  <- Nioh3+1A7BF0 @1ACE5E(88%); Nioh3+1A7BF0 @1B084D(11%)  | 1A3CCC:11% 1A3C33:11% loop 1A3BF9..1A3C37 (64 B) 1A3BB1:11%
+    0.2%   49%  Nioh3+B94250 [1653B ]  <- Nioh3+11FB20 @11FC57(75%); Nioh3+1A7BF0 @1B0F28(12%); Nioh3+3CA00 @3CAF1(12%)  | B943D7:25% B94424:12% B94437:12%
+    0.2%   39%  Nioh3+203BD4 [538B ]  <- Nioh3+1A7BF0 @1A9949(50%); Nioh3+1A7BF0 @1A810A(50%)  | 203C58:50% 203C69:25% 203C98:12%
+    0.2%   43%  Nioh3+203B74 [231B lock]  <- Nioh3+1A7BF0 @1A7D10(100%)  | 203B8C:75% 203B9F:25%
+    0.2%   45%  Nioh3+6EA50 [1403B ]  <- Nioh3+121FC0 @124E9E(50%); Nioh3+71C60 @72369(25%); Nioh3+121FC0 @12355F(12%)  | 6EDA6:12% 6ED79:12% 6EEC7:12%
+    0.2%   43%  Nioh3+1A7408 [4026B ]  <- Nioh3+211194 @211250(100%)  | 1A74DA:25% 1A75DA:25% loop 1A75CE..1A7623 (87 B) 1A74FF:12%
+    0.2%   33%  Nioh3+CE5F0 [331B ]  <- Nioh3+CC940 @CCB03(42%); Nioh3+86DEC @87242(14%); Nioh3+D4BC8 @D4E9E(14%)  | CE61C:57% CE6BD:14% CE62F:14%
+    0.2%   49%  Nioh3+17346C [1590B ]  <- Nioh3+1A7BF0 @1A8E7C(57%); Nioh3+1A7BF0 @1AA620(42%)  | 1736A3:28% 1735D7:14% 17387E:14%
+    0.2%   33%  Nioh3+6F060(leaf?) [0B ]  <- Nioh3+11F49C @11F5F2(14%); Nioh3+6EA50 @6EC3C(14%); Nioh3+6EA50 @6EAA2(14%)  | 6F06A:57% 6F080:28% 6F06E:14%
+    0.2%   34%  Nioh3+165088 [1402B ]  <- Nioh3+165088 @165375(85%); Nioh3+1635B8 @1638FC(14%)  | 165444:57% loop 165420..16544C (46 B) 16509F:14% 165447:14% loop 165420..16544C (46 B)
+    0.2%   18%  Nioh3+88780 [440B ]  <- Nioh3+88580 @885F4(71%); Nioh3+88610 @88685(14%); Nioh3+88504 @88565(14%)  | 88790:28% 887E1:14% 888F4:14%
+  -- attributed to first Nioh3 frame top 20 --
+   77.2%  Nioh3+1A6BB84
+    1.7%  Nioh3+1A7BF0
+    1.3%  Nioh3+121FC0
+    1.2%  Nioh3+121E70(leaf?)
+    1.0%  Nioh3+120120(leaf?)
+    0.7%  Nioh3+2040A0
+    0.7%  Nioh3+3AF00
+    0.7%  Nioh3+425B0
+    0.6%  Nioh3+1A188C
+    0.6%  Nioh3+6EFD0(leaf?)
+    0.6%  Nioh3+204584
+    0.4%  Nioh3+1A7B38
+    0.4%  Nioh3+6FED0
+    0.4%  Nioh3+1A6FC4
+    0.3%  Nioh3+205840
+    0.3%  Nioh3+1218EC
+    0.3%  Nioh3+204128
+    0.3%  Nioh3+61EF80(leaf?)
+    0.3%  Nioh3+6BB80
+    0.2%  Nioh3+1A3B78
+  -- inclusive top 30 --
+   91.1%  Nioh3+1A6BB84
+   91.0%  Nioh3+BDB740
+   91.0%  KERNEL32.DLL!BaseThreadInitThunk
+   91.0%  ntdll.dll!RtlUserThreadStart
+   77.2%  ntdll.dll!ZwWaitForSingleObject
+   77.2%  KERNELBASE.dll!WaitForSingleObjectEx
+   17.0%  Nioh3+1A7BF0
+   16.1%  Nioh3+205840
+   15.5%  Nioh3+206400
+   15.0%  Nioh3+40800
+   13.8%  Nioh3+3FE14
+    9.9%  Nioh3+204584
+    8.0%  Nioh3+1A7408
+    8.0%  Nioh3+211194
+    6.9%  Nioh3+1202B0
+    6.8%  Nioh3+121FC0
+    6.4%  Nioh3+204DB0
+    5.7%  Nioh3+403A0
+    5.7%  Nioh3+3E7CC
+    4.9%  Nioh3+182000
+    4.9%  Nioh3+5795B8
+    4.2%  Nioh3+7E35E4
+    1.6%  Nioh3+111EA4
+    1.5%  Nioh3+82F1C
+    1.5%  Nioh3+82BF0
+    1.4%  Nioh3+7FE68
+    1.2%  Nioh3+121E70(leaf?)
+    1.1%  Nioh3+204128
+    1.0%  Nioh3+120120(leaf?)
+    0.9%  Nioh3+61FEA8
+
+## Thread 20736  KIDSTS[s9:CollisionUpdate]8  CPU 23.6%  busy 22%  samples 3867  unwound 100%  avg depth 6.4  start=Nioh3+BDB740
+  modules: ntdll.dll 78.2%, Nioh3.exe 21.8%, KERNELBASE.dll 0.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   78.0%   17%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    8.0%   39%  Nioh3+D80B0 [1605B ]  <- Nioh3+319D5C @319DE1(100%)  | D8291:25% D8550:13% D83E0:11%
+    3.7%   41%  Nioh3+D8B70 [207B ]  <- Nioh3+D89E0 @D8A78(94%); Nioh3+D6E9C @D6F15(5%)  | D8B7E:97% D8B8F:1% D8BF2:0% loop D8BAF..D8C0C (95 B)
+    3.3%   59%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(99%); Nioh3+3FE14 @3FFE5(0%)  | 4126B:44% loop 41251..41290 (65 B) 41233:9% 41276:8% loop 41251..41290 (65 B)
+    1.5%   40%  Nioh3+D8700(leaf?) [0B ]  <- Nioh3+D80B0 @D83F9(86%); Nioh3+D80B0 @D8424(13%)  | D8770:54% loop D8760..D8778 (26 B) D878D:15% loop D8775..D879E (43 B) D8744:6%
+    1.3%   39%  Nioh3+D8C40(leaf?) [0B ]  <- Nioh3+D80B0 @D827E(100%)  | D8DC0:56% loop D8DB0..D8DC8 (26 B) D8DC5:12% loop D8DB0..D8DC8 (26 B) D8DB9:8% loop D8DB0..D8DC8 (26 B)
+    1.2%    3%  Nioh3+43CEC [901B ]  <- Nioh3+7464BC @7464F0(100%)  | 43F48:95% loop 43F35..43F61 (46 B) 43FC7:2% 43F3D:2% loop 43F35..43F61 (46 B)
+    0.6%   41%  Nioh3+168E80(leaf?) [0B ]  <- Nioh3+2D9EE0 caseD_26 @2D9EFA(100%)  | 168E83:100%
+    0.6%   67%  Nioh3+403A0 [739B Sleep,lock,xchg]  <- Nioh3+3E7CC @3E81D(100%)  | 4048A:33% 4045C:8% loop 40450..4047D (47 B) 403A0:8%
+    0.6%   45%  Nioh3+D89E0 [323B ]  <- Nioh3+D80B0 @D8449(100%)  | D8A6B:39% D8AFC:21% D8AE7:4%
+    0.3%   55%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+403A0 @403D7(100%)  | 4102F:18% 4089F:18% 408A1:9%
+    0.2%   44%  Nioh3+2D9EE0 caseD_26 [48B ]  <- Nioh3+D8B70 @D8BA6(100%)  | 2D9EFF:88% 2D9F03:11%
+    0.2%    4%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.1%   62%  Nioh3+3E7CC [119B lock]  <- Nioh3+319E00 @31A013(75%); Nioh3+319E00 @319F83(25%)  | 3E827:75% loop 3E7FD..3E82A (47 B) 3E808:25% loop 3E7FD..3E82A (47 B)
+    0.1%   89%  ntdll.dll!NtAlertThreadByThreadIdEx  <- ntdll.dll!RtlReleaseSRWLockExclusive @3A244(100%)  | 161BF4:100%
+    0.0%    1%  Nioh3+368980 [107B ]  <- Nioh3+43CEC @43D83(100%)  | 3689C5:100% loop 3689BE..3689D2 (22 B)
+    0.0%    1%  Nioh3+12E4D0 [1052B Sleep,lock]  <- Nioh3+12E43C @12E478(100%)  | 12E712:100% loop 12E6FB..12E720 (39 B)
+    0.0%    1%  Nioh3+7464BC [60B ]  <- Nioh3+40800 @40E53(100%)  | 7464BE:100%
+    0.0%   37%  Nioh3+D1EB0(leaf?) [0B ]  <- Nioh3+319D5C @319DB7(100%)  | D1EEB:100%
+    0.0%   38%  Nioh3+3CD7C0(leaf?) [0B ]  <- Nioh3+D8B70 @D8C0C(100%)  | 3CD86D:100%
+    0.0%    1%  Nioh3+12EBF4 [88B ]  <- Nioh3+36ADF0 @36AE11(100%)  | 12EBF9:100%
+    0.0%    1%  Nioh3+FA08D0 [598B ]  <- Nioh3+319E00 @319EC6(100%)  | FA09B3:100%
+    0.0%    6%  Nioh3+44080(leaf?) [0B ]  <- Nioh3+43CEC @43F5D(100%)  | 440A4:100%
+    0.0%    1%  KERNELBASE.dll!SetEvent  <- Nioh3+40800 @40B10(100%)  | B55DF:100%
+  -- attributed to first Nioh3 frame top 20 --
+   78.0%  Nioh3+1A6BB84
+    8.0%  Nioh3+D80B0
+    3.7%  Nioh3+D8B70
+    3.3%  Nioh3+411C0
+    1.5%  Nioh3+D8700(leaf?)
+    1.3%  Nioh3+D8C40(leaf?)
+    1.2%  Nioh3+43CEC
+    0.6%  Nioh3+168E80(leaf?)
+    0.6%  Nioh3+403A0
+    0.6%  Nioh3+D89E0
+    0.4%  Nioh3+40800
+    0.2%  Nioh3+2D9EE0 caseD_26
+    0.1%  Nioh3+3E7CC
+    0.1%  Nioh3+B61524 _Mtx_unlock
+    0.1%  Nioh3+48B9C
+    0.0%  Nioh3+368980
+    0.0%  Nioh3+12E4D0
+    0.0%  Nioh3+7464BC
+    0.0%  Nioh3+D1EB0(leaf?)
+    0.0%  Nioh3+3CD7C0(leaf?)
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   78.0%  ntdll.dll!ZwWaitForSingleObject
+   78.0%  KERNELBASE.dll!WaitForSingleObjectEx
+   22.0%  Nioh3+3FE14
+   22.0%  Nioh3+40800
+   22.0%  Nioh3+319E00
+   21.8%  Nioh3+3E7CC
+   21.7%  Nioh3+403A0
+   16.1%  Nioh3+319D5C
+   16.1%  Nioh3+D80B0
+    5.0%  Nioh3+D89E0
+    4.6%  Nioh3+D8B70
+    3.3%  Nioh3+411C0
+    1.5%  Nioh3+D8700(leaf?)
+    1.3%  Nioh3+7464BC
+    1.3%  Nioh3+43CEC
+    1.3%  Nioh3+D8C40(leaf?)
+    0.9%  Nioh3+2D9EE0 caseD_26
+    0.6%  Nioh3+168E80(leaf?)
+    0.2%  Nioh3+D6E9C
+    0.2%  KERNELBASE.dll!SetEvent
+    0.2%  ntdll.dll!ZwSetEvent
+    0.1%  ntdll.dll!NtAlertThreadByThreadIdEx
+    0.1%  ntdll.dll!RtlReleaseSRWLockExclusive
+    0.1%  Nioh3+B61524 _Mtx_unlock
+    0.1%  Nioh3+368980
+    0.1%  Nioh3+48B9C
+
+## Thread 24352  KIDSTS[s66:TS_MESHLET_REQ]9  CPU 22.5%  busy 22%  samples 3867  unwound 100%  avg depth 8.3  start=Nioh3+BDB740
+  modules: ntdll.dll 68.8%, Nioh3.exe 28.7%, win32u.dll 1.0%, amdxc64.dll 0.4%, D3D12Core.dll 0.4%, KERNELBASE.dll 0.4%, d3d12.dll 0.1%, RTSSHooks64.dll 0.1%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   53.9%   10%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+   15.4%   38%  Nioh3+48E90 [1457B lock]  <- Nioh3+40800 @40E21(100%)  | 49153:38% loop 49150..4915A (12 B) 49108:17% 49266:9% loop 49240..49297 (89 B)
+   11.6%   36%  ntdll.dll!ZwDelayExecution  <- ntdll.dll!RtlDelayExecution @D3924(100%)  | 161444:99% 161430:0%
+    4.0%   38%  Nioh3+2515B0(leaf?) [0B ]  <- Nioh3+251554 @251568(100%)  | 2515F3:89% loop 2515F0..2515FE (16 B) 2515C7:1% 2515B0:1%
+    2.5%   39%  Nioh3+4A2D0 [1658B Sleep,lock]  <- Nioh3+9811F8 @98120D(100%)  | 4A563:54% loop 4A505..4A575 (114 B) 4A53F:8% loop 4A505..4A575 (114 B) 4A54B:7% loop 4A505..4A575 (114 B)
+    2.4%   38%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:98% 160F80:1%
+    1.9%   42%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(100%)  | 4126B:45% loop 41251..41290 (65 B) 41233:12% 41276:5% loop 41251..41290 (65 B)
+    0.8%   43%  Nioh3+3898C0(leaf?) [0B ]  <- Nioh3+4A85C @4A8E8(100%)  | 389978:62% 389976:31% 389968:6%
+    0.6%   39%  Nioh3+49950 [147B ]  <- Nioh3+48E90 @49351(100%)  | 49983:33% 499AE:29% 499AA:8%
+    0.6%    6%  win32u.dll!NtGdiDdDDISubmitCommand  <- D3D12Core.dll+549E0 @549F1(100%)  | 5EE4:100%
+    0.5%   43%  Nioh3+116A24 [513B ]  <- Nioh3+49D5C @49EFB(100%)  | 116BC1:40% loop 116B92..116BC8 (56 B) 116B1A:10% loop 116B01..116B2F (48 B) 116A68:5%
+    0.4%    7%  win32u.dll!NtGdiDdDDISignalSynchronizationObjectFromGpu2  <- D3D12Core.dll+16760 @1678A(100%)  | 5EC4:100%
+    0.4%   39%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+403A0 @403D7(100%)  | 4089F:35% 40926:14% 40E80:7%
+    0.3%   42%  Nioh3+403A0 [739B Sleep,lock,xchg]  <- Nioh3+3E7CC @3E81D(100%)  | 40493:23% 40464:15% loop 40450..4047D (47 B) 4045C:15% loop 40450..4047D (47 B)
+    0.3%   30%  Nioh3+49D5C [493B ]  <- Nioh3+48E90 @492DD(100%)  | 49E67:30% 49EBC:7% 49DB8:7%
+    0.3%    1%  Nioh3+7B1614 [293B lock,xchg]  <- Nioh3+4A2D0 @4A73B(100%)  | 7B1634:33% 7B1674:33% 7B1698:16%
+    0.3%   31%  ntdll.dll!RtlDelayExecution  <- KERNELBASE.dll!SleepEx @8BB01(100%)  | D3924:63% D38F0:9% D38F5:9%
+    0.3%   32%  ntdll.dll!RtlReleaseSRWLockShared  <- Nioh3+49D5C @49F06(100%)  | 24CA7:30% 24C30:30% 24C6D:10%
+    0.3%   37%  KERNELBASE.dll!SleepEx  <- Nioh3+403A0 @404BF(90%); Nioh3+117D6C @117DA7(10%)  | 8BA7F:20% 8BB01:10% 8BB08:10%
+    0.2%   50%  Nioh3+251554 [87B ]  <- Nioh3+116A24 @116B18(100%)  | 251568:44% 2515AA:22% 25157E:22%
+    0.2%   37%  Nioh3+B93EE0 [16B ]  <- Nioh3+4A2D0 @4A4B0(100%)  | B93EE9:87% B93EEE:12%
+    0.2%   39%  Nioh3+202FF4 [447B lock]  <- Nioh3+202F6C @202F8D(100%)  | 2030A9:25% loop 20309D..2030B7 (28 B) 20306C:25% loop 20306C..20308A (32 B) 203030:25%
+    0.2%   39%  Nioh3+4A85C [483B lock]  <- Nioh3+4A2D0 @4A612(100%)  | 4A98D:33% loop 4A918..4A9C1 (175 B) 4A9A0:33% 4A8D3:16% loop 4A896..4A8F7 (99 B)
+    0.1%   52%  Nioh3+3FAD8 [208B lock]  <- Nioh3+3E5F8 @3E6CB(100%)  | 3FB65:40% loop 3FB5C..3FB76 (28 B) 3FB70:20% loop 3FB5C..3FB76 (28 B) 3FAE3:20%
+    0.1%   42%  Nioh3+3E7CC [119B lock]  <- Nioh3+4A2D0 @4A597(100%)  | 3E827:60% loop 3E7FD..3E82A (47 B) 3E81F:40% loop 3E7FD..3E82A (47 B)
+    0.1%    1%  Nioh3+389830 [134B lock]  <- Nioh3+4A2D0 @4A745(100%)  | 38984E:100%
+    0.1%   45%  Nioh3+117BE0 [76B ]  <- Nioh3+1169EC @116A07(75%); Nioh3+48E90 @48F92(25%)  | 117BE0:50% 117C13:25% 117C12:25%
+    0.1%   45%  ntdll.dll!RtlAcquireSRWLockShared  <- Nioh3+49D5C @49E90(100%)  | 24BD9:66% 24BA6:33%
+    0.1%    9%  Nioh3+117D6C [160B Sleep,WaitForSingleObject]  <- Nioh3+5C0D4 @5C153(100%)  | 117D9A:66% loop 117D90..117DA7 (25 B) 117D97:33% loop 117D90..117DA7 (25 B)
+    0.1%   10%  ntdll.dll!ZwReleaseSemaphore  <- KERNELBASE.dll!ReleaseSemaphore @24C0B(100%)  | 160F04:100%
+  -- attributed to first Nioh3 frame top 20 --
+   53.9%  Nioh3+1A6BB84
+   15.4%  Nioh3+48E90
+   10.6%  Nioh3+403A0
+    4.0%  Nioh3+2515B0(leaf?)
+    2.8%  Nioh3+40800
+    2.5%  Nioh3+4A2D0
+    2.1%  Nioh3+117D6C
+    1.9%  Nioh3+411C0
+    1.4%  Nioh3+5C268
+    0.8%  Nioh3+3898C0(leaf?)
+    0.8%  Nioh3+49D5C
+    0.6%  Nioh3+49950
+    0.5%  Nioh3+62D688
+    0.5%  Nioh3+116A24
+    0.3%  Nioh3+7B1614
+    0.3%  Nioh3+5CEE8
+    0.2%  Nioh3+251554
+    0.2%  Nioh3+B93EE0
+    0.2%  Nioh3+202FF4
+    0.2%  Nioh3+4A85C
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   53.9%  ntdll.dll!ZwWaitForSingleObject
+   53.9%  KERNELBASE.dll!WaitForSingleObjectEx
+   46.1%  Nioh3+40800
+   46.1%  Nioh3+3FE14
+   46.0%  Nioh3+4A2D0
+   46.0%  Nioh3+9811F8
+   37.1%  Nioh3+3E7CC
+   37.0%  Nioh3+403A0
+   21.7%  Nioh3+48E90
+   12.1%  KERNELBASE.dll!SleepEx
+   11.9%  ntdll.dll!RtlDelayExecution
+   11.6%  ntdll.dll!ZwDelayExecution
+    5.7%  Nioh3+49D5C
+    4.8%  Nioh3+116A24
+    4.3%  Nioh3+251554
+    4.2%  Nioh3+5B3AC
+    4.2%  Nioh3+62E680
+    4.2%  Nioh3+4D874
+    4.0%  Nioh3+2515B0(leaf?)
+    3.6%  Nioh3+5C0D4
+    3.6%  Nioh3+1A807F8
+    3.6%  Nioh3+62EA08
+    3.6%  Nioh3+62E9B4
+    2.5%  KERNELBASE.dll!SetEvent
+    2.4%  ntdll.dll!ZwSetEvent
+    2.1%  Nioh3+117D6C
+
+## Thread 9440  [App]MissionThread  CPU 18.1%  busy 16%  samples 3867  unwound 100%  avg depth 9.9  start=Nioh3+BDB740
+  modules: ntdll.dll 86.0%, Nioh3.exe 13.9%, steamclient64.dll 0.1%, steam_api64.dll 0.1%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   85.7%   15%  ntdll.dll!NtWaitForAlertByThreadId  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(100%)  | 164A14:100%
+    2.0%   40%  Nioh3+20B900 [1055B ]  <- Nioh3+E64700 @E6481C(100%)  | 20B9CE:67% 20BA24:19% loop 20B9BC..20BA3A (128 B) 20BB9B:10% loop 20BB7F..20BBA6 (41 B)
+    1.6%   30%  Nioh3+2866F0 [688B ]  <- Nioh3+E26680 @E2669E(100%)  | 286710:58% 286740:20% 286719:10%
+    1.2%   14%  Nioh3+E266B0 [473B ]  <- Nioh3+89A48C @89A4D0(100%)  | E266E6:45% E266F3:29% E26788:14%
+    1.2%   10%  Nioh3+20A298 [103B ]  <- Nioh3+E266B0 @E267A3(97%); Nioh3+2BE45C @2BE4FF(2%)  | 20A2B6:62% 20A2AB:22% 20A2D1:8%
+    0.6%   15%  Nioh3+20A300 [518B ]  <- Nioh3+E266B0 @E26807(100%)  | 20A361:95% 20A4EE:4%
+    0.6%   39%  Nioh3+2E782C [1111B ]  <- Nioh3+2E7668 @2E76AF(52%); Nioh3+2E7668 @2E77BC(47%)  | 2E78A8:73% loop 2E78A4..2E78B5 (19 B) 2E791C:8% 2E7A08:4% loop 2E79FD..2E7A38 (61 B)
+    0.5%   34%  Nioh3+E26260 [958B ]  <- Nioh3+89A328 @89A478(100%)  | E262A4:77% E26401:16% E262B7:5%
+    0.4%    5%  Nioh3+4AB6E4 [225B ]  <- Nioh3+4AB64C @4AB67E(100%)  | 4AB6FF:93% 4AB6EF:6%
+    0.4%   20%  Nioh3+E32D90 [219B ]  <- Nioh3+1363D4 @13646E(100%)  | E32E0D:50% loop E32DE0..E32E43 (101 B) E32E0A:21% loop E32DE0..E32E43 (101 B) E32E13:7% loop E32DE0..E32E43 (101 B)
+    0.3%   23%  Nioh3+282580(leaf?) [0B ]  <- Nioh3+2824EC @2824FF(75%); Nioh3+282320 @282360(25%)  | 28258F:33% 282585:33% 282589:25%
+    0.3%   23%  Nioh3+13A830 [1792B ]  <- Nioh3+2824EC @282539(100%)  | 13A8B4:70% 13AC7D:10% 13A8CF:10%
+    0.3%    2%  Nioh3+2FA4C4 [164B ]  <- Nioh3+30CAD8 @1982E80(100%)  | 2FA4F1:50% loop 2FA4ED..2FA506 (27 B) 19127FD:50% loop 19127F9..1912813 (28 B)
+    0.3%   22%  Nioh3+13B18C [353B ]  <- Nioh3+13A830 @13ABA5(100%)  | 13B22B:70% 13B211:10% 13B2AB:10%
+    0.2%   34%  Nioh3+54ADC0(leaf?) [0B ]  <- Nioh3+20B900 @20BA3A(77%); Nioh3+487DB4 @488062(11%); Nioh3+20B900 @20BBA6(11%)  | 54AE49:88% 54AE91:11%
+    0.2%   25%  Nioh3+13B580(leaf?) [0B ]  <- Nioh3+13A830 @13AB74(75%); Nioh3+13B9E0 @13BA79(12%); Nioh3+13A830 @13AB89(12%)  | 13B5C5:75% 13B581:12% 13B590:12%
+    0.2%   39%  Nioh3+484EB8 [5761B ]  <- Nioh3+20BD44 @20BD7B(100%)  | 4850DF:62% 484F0D:12% 484F54:12%
+    0.2%   23%  Nioh3+13C574 [644B ]  <- Nioh3+13A830 @13AAE7(100%)  | 13C653:87% 13C6D4:12%
+    0.2%   40%  Nioh3+20BD44 [353B ]  <- Nioh3+20B900 @20B9E9(100%)  | 20BD78:62% 20BD70:37%
+    0.2%   35%  Nioh3+60C760(leaf?) [0B ]  <- Nioh3+E26260 @E262A7(100%)  | 60C764:85% 60C760:14%
+    0.2%   32%  Nioh3+27E788 [225B ]  <- Nioh3+27E364 @27E491(100%)  | 27E7E3:33% 27E7BD:33% 27E7E0:16%
+    0.1%    3%  Nioh3+D24D70 [138B ]  <- Nioh3+30DF90 @30DFE8(100%)  | D24DA5:40% loop D24D90..D24DE3 (85 B) D24D96:20% loop D24D90..D24DE3 (85 B) D24DA9:20% loop D24D90..D24DE3 (85 B)
+    0.1%   46%  ntdll.dll!NtFsControlFile  <- KERNELBASE.dll!PeekNamedPipe @BC694(100%)  | 1614E4:100%
+    0.1%   26%  Nioh3+37A8D4 [193B ]  <- Nioh3+37AD78 @37AD8D(100%)  | 37A91D:60% loop 37A8EC..37A940 (86 B) 37A8F6:20% loop 37A8EC..37A940 (86 B) 37A923:20% loop 37A923..37A936 (21 B)
+    0.1%   20%  Nioh3+138558 [876B ]  <- Nioh3+138214 @138254(60%); Nioh3+37A8D4 @37A905(40%)  | 138597:60% 138654:20% loop 13863E..138654 (24 B) 138632:20%
+    0.1%   17%  Nioh3+135B80(leaf?) [0B ]  <- Nioh3+2BE45C @2BE4E9(60%); Nioh3+27DE74 @27DEC3(20%); Nioh3+7E1104 @7E1192(20%)  | 135BC4:60% loop 135B9D..135BC4 (41 B) 135BB2:20% loop 135B9D..135BC4 (41 B) 135B8E:20%
+    0.1%   24%  Nioh3+E26890 [564B lock]  <- Nioh3+89A328 @89A3F8(100%)  | E26A54:75% E268EE:25%
+    0.1%   19%  Nioh3+282320 [364B ]  <- Nioh3+37A434 @37A4BE(100%)  | 2823D3:50% 282350:25% 28233B:25%
+    0.1%   36%  Nioh3+2E7668 [450B ]  <- Nioh3+484EB8 @484F5E(100%)  | 2E779B:33% 2E76DE:33% 2E771F:33%
+    0.1%    3%  Nioh3+2833F0 [385B ]  <- Nioh3+E63350 @E635C2(100%)  | 28346F:50% loop 28346A..2834A1 (57 B) 28344D:50%
+  -- attributed to first Nioh3 frame top 20 --
+   85.8%  Nioh3+B616A4
+    2.0%  Nioh3+20B900
+    1.6%  Nioh3+2866F0
+    1.2%  Nioh3+E266B0
+    1.2%  Nioh3+20A298
+    0.6%  Nioh3+20A300
+    0.6%  Nioh3+2E782C
+    0.5%  Nioh3+E26260
+    0.4%  Nioh3+4AB6E4
+    0.4%  Nioh3+E32D90
+    0.3%  Nioh3+282580(leaf?)
+    0.3%  Nioh3+5A612C
+    0.3%  Nioh3+13A830
+    0.3%  Nioh3+2FA4C4
+    0.3%  Nioh3+13B18C
+    0.2%  Nioh3+54ADC0(leaf?)
+    0.2%  Nioh3+13B580(leaf?)
+    0.2%  Nioh3+484EB8
+    0.2%  Nioh3+13C574
+    0.2%  Nioh3+20BD44
+  -- inclusive top 30 --
+  100.0%  Nioh3+E5E060
+  100.0%  Nioh3+5B6670
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   85.8%  ntdll.dll!RtlSleepConditionVariableSRW
+   85.8%  KERNELBASE.dll!SleepConditionVariableSRW
+   85.8%  Nioh3+B616A4
+   85.8%  Nioh3+B618E8
+   85.7%  ntdll.dll!NtWaitForAlertByThreadId
+   65.7%  Nioh3+3D7CC8
+   31.5%  Nioh3+E63140
+    9.6%  Nioh3+E64700
+    5.6%  Nioh3+379620
+    4.5%  Nioh3+E63350
+    3.5%  Nioh3+20B900
+    3.1%  Nioh3+E266B0
+    3.1%  Nioh3+89A48C
+    2.8%  Nioh3+37A434
+    2.5%  Nioh3+282320
+    2.4%  Nioh3+89A328
+    2.2%  Nioh3+2824EC
+    2.0%  Nioh3+13A830
+    1.6%  Nioh3+2866F0
+    1.6%  Nioh3+E26680
+    1.2%  Nioh3+20A298
+    1.2%  Nioh3+20BD44
+    1.1%  Nioh3+13B18C
+    1.0%  Nioh3+484EB8
+    0.7%  Nioh3+2E7668
+
+## Thread 21320  KIDSTS[s9:CollisionUpdate]6  CPU 17.5%  busy 17%  samples 3867  unwound 100%  avg depth 5.5  start=Nioh3+BDB740
+  modules: ntdll.dll 81.6%, Nioh3.exe 18.4%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   81.6%   14%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    7.7%   35%  Nioh3+D80B0 [1605B ]  <- Nioh3+319D5C @319DE1(100%)  | D8291:23% D83E0:14% D8550:11%
+    4.1%   37%  Nioh3+D8B70 [207B ]  <- Nioh3+D89E0 @D8A78(92%); Nioh3+D6E9C @D6F15(7%)  | D8B7E:96% D8BAA:0% D8B8F:0%
+    2.0%   32%  Nioh3+D8700(leaf?) [0B ]  <- Nioh3+D80B0 @D83F9(77%); Nioh3+D80B0 @D8424(22%)  | D8770:46% loop D8760..D8778 (26 B) D8744:14% D8775:13% loop D8760..D8778 (26 B)
+    1.5%    4%  Nioh3+43CEC [901B ]  <- Nioh3+7464BC @7464F0(100%)  | 43F48:96% loop 43F35..43F61 (46 B) 43F4A:1% loop 43F35..43F61 (46 B) 43F3D:1% loop 43F35..43F61 (46 B)
+    1.4%   36%  Nioh3+D8C40(leaf?) [0B ]  <- Nioh3+D80B0 @D827E(100%)  | D8DC0:43% loop D8DB0..D8DC8 (26 B) D8DC5:20% loop D8DB0..D8DC8 (26 B) D8DDD:7% loop D8DC5..D8DEE (43 B)
+    0.7%   34%  Nioh3+D89E0 [323B ]  <- Nioh3+D80B0 @D8449(100%)  | D8A6B:37% D8AFC:13% D8A7E:13%
+    0.6%   37%  Nioh3+168E80(leaf?) [0B ]  <- Nioh3+2D9EE0 caseD_26 @2D9EFA(100%)  | 168E83:100%
+    0.2%   44%  Nioh3+2D9EE0 caseD_26 [48B ]  <- Nioh3+D8B70 @D8BA6(100%)  | 2D9EFF:77% 2D9EE6:11% 2D9F03:11%
+    0.1%    1%  Nioh3+43AEC [414B ]  <- Nioh3+43CEC @43FB2(100%)  | 43BE8:100% loop 43BD4..43C31 (95 B)
+    0.1%    1%  Nioh3+368980 [107B ]  <- Nioh3+43CEC @43D83(100%)  | 3689C5:100% loop 3689BE..3689D2 (22 B)
+    0.1%    4%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.0%    1%  Nioh3+7464F8 [1387B ]  <- Nioh3+7464BC @7464E8(100%)  | 746519:100%
+    0.0%    4%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+3FE14 @3FF5E(100%)  | 40B0A:100%
+    0.0%    1%  Nioh3+12EC4C [499B Sleep,lock,xchg]  <- Nioh3+12EBF4 @12EC41(100%)  | 12ECB8:100%
+    0.0%   68%  Nioh3+202E00(leaf?) [0B ]  <- Nioh3+40800 @40F82(100%)  | 202DF7:100%
+  -- attributed to first Nioh3 frame top 20 --
+   81.6%  Nioh3+1A6BB84
+    7.7%  Nioh3+D80B0
+    4.1%  Nioh3+D8B70
+    2.0%  Nioh3+D8700(leaf?)
+    1.5%  Nioh3+43CEC
+    1.4%  Nioh3+D8C40(leaf?)
+    0.7%  Nioh3+D89E0
+    0.6%  Nioh3+168E80(leaf?)
+    0.2%  Nioh3+2D9EE0 caseD_26
+    0.1%  Nioh3+40800
+    0.1%  Nioh3+43AEC
+    0.1%  Nioh3+368980
+    0.0%  Nioh3+7464F8
+    0.0%  Nioh3+12EC4C
+    0.0%  Nioh3+202E00(leaf?)
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   81.6%  ntdll.dll!ZwWaitForSingleObject
+   81.6%  KERNELBASE.dll!WaitForSingleObjectEx
+   18.4%  Nioh3+40800
+   18.4%  Nioh3+3FE14
+   16.7%  Nioh3+D80B0
+   16.7%  Nioh3+319D5C
+    5.2%  Nioh3+D89E0
+    4.9%  Nioh3+D8B70
+    2.0%  Nioh3+D8700(leaf?)
+    1.7%  Nioh3+7464BC
+    1.6%  Nioh3+43CEC
+    1.4%  Nioh3+D8C40(leaf?)
+    0.8%  Nioh3+2D9EE0 caseD_26
+    0.6%  Nioh3+168E80(leaf?)
+    0.5%  Nioh3+D6E9C
+    0.1%  Nioh3+43AEC
+    0.1%  Nioh3+368980
+    0.1%  ntdll.dll!ZwSetEvent
+    0.1%  KERNELBASE.dll!SetEvent
+    0.0%  Nioh3+7464F8
+    0.0%  Nioh3+12EC4C
+    0.0%  Nioh3+12EBF4
+    0.0%  Nioh3+36ADF0
+    0.0%  Nioh3+202E00(leaf?)
+
+## Thread 6140  KIDSTS[s9:CollisionUpdate]5  CPU 17.2%  busy 17%  samples 3551  unwound 100%  avg depth 5.5  start=Nioh3+BDB740
+  modules: ntdll.dll 81.5%, Nioh3.exe 18.5%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   81.4%   13%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    8.1%   36%  Nioh3+D80B0 [1605B ]  <- Nioh3+319D5C @319DE1(100%)  | D8291:30% D83E0:14% D81B3:12%
+    3.5%   38%  Nioh3+D8B70 [207B ]  <- Nioh3+D89E0 @D8A78(94%); Nioh3+D6E9C @D6F15(5%)  | D8B7E:99% D8BD9:0% loop D8BAF..D8C0C (95 B)
+    1.8%   38%  Nioh3+D8C40(leaf?) [0B ]  <- Nioh3+D80B0 @D827E(100%)  | D8DC0:57% loop D8DB0..D8DC8 (26 B) D8DC5:17% loop D8DB0..D8DC8 (26 B) D8DDD:7% loop D8DC5..D8DEE (43 B)
+    1.7%   34%  Nioh3+D8700(leaf?) [0B ]  <- Nioh3+D80B0 @D83F9(85%); Nioh3+D80B0 @D8424(14%)  | D8770:49% loop D8760..D8778 (26 B) D878D:13% loop D8775..D879E (43 B) D8775:11% loop D8760..D8778 (26 B)
+    1.7%    3%  Nioh3+43CEC [901B ]  <- Nioh3+7464BC @7464F0(100%)  | 43F48:95% loop 43F35..43F61 (46 B) 43F3D:3% loop 43F35..43F61 (46 B) 43D5C:1%
+    0.7%   31%  Nioh3+168E80(leaf?) [0B ]  <- Nioh3+2D9EE0 caseD_26 @2D9EFA(100%)  | 168E83:100%
+    0.5%   34%  Nioh3+D89E0 [323B ]  <- Nioh3+D80B0 @D8449(100%)  | D8A6B:68% D8A5A:6% D8A07:6%
+    0.2%    1%  Nioh3+43AEC [414B ]  <- Nioh3+43CEC @43FB2(100%)  | 43BE8:100% loop 43BD4..43C31 (95 B)
+    0.1%   35%  Nioh3+2D9EE0 caseD_26 [48B ]  <- Nioh3+D8B70 @D8BA6(100%)  | 2D9EFF:100%
+    0.1%    1%  Nioh3+12E4D0 [1052B Sleep,lock]  <- Nioh3+12E43C @12E478(100%)  | 12E550:50% loop 12E540..12E55D (31 B) 12E553:50% loop 12E540..12E55D (31 B)
+    0.1%   27%  Nioh3+D18A0(leaf?) [0B ]  <- Nioh3+319D5C @319DAA(100%)  | D18AC:50% loop D18AC..D18E0 (54 B) D18CC:50% loop D18C8..D18DB (21 B)
+    0.1%   55%  Nioh3+D6E9C [230B ]  <- Nioh3+D80B0 @D84C7(100%)  | D6F63:50% D6F26:50%
+    0.0%   63%  Nioh3+D8B24 [98B ]  <- Nioh3+D89E0 @D8ABB(100%)  | D8B36:100%
+    0.0%    1%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.0%    2%  Nioh3+36ADF0 [53B ]  <- Nioh3+43CEC @44042(100%)  | 36AE0D:100%
+    0.0%   40%  Nioh3+19CED0(leaf?) [0B ]  <- Nioh3+D80B0 @D8108(100%)  | 19CEEB:100% loop 19CEE3..19CEF0 (15 B)
+  -- attributed to first Nioh3 frame top 20 --
+   81.4%  Nioh3+1A6BB84
+    8.1%  Nioh3+D80B0
+    3.5%  Nioh3+D8B70
+    1.8%  Nioh3+D8C40(leaf?)
+    1.7%  Nioh3+D8700(leaf?)
+    1.7%  Nioh3+43CEC
+    0.7%  Nioh3+168E80(leaf?)
+    0.5%  Nioh3+D89E0
+    0.2%  Nioh3+43AEC
+    0.1%  Nioh3+2D9EE0 caseD_26
+    0.1%  Nioh3+12E4D0
+    0.1%  Nioh3+D18A0(leaf?)
+    0.1%  Nioh3+D6E9C
+    0.0%  Nioh3+D8B24
+    0.0%  Nioh3+40800
+    0.0%  Nioh3+36ADF0
+    0.0%  Nioh3+19CED0(leaf?)
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   81.4%  ntdll.dll!ZwWaitForSingleObject
+   81.4%  KERNELBASE.dll!WaitForSingleObjectEx
+   18.6%  Nioh3+40800
+   18.6%  Nioh3+3FE14
+   16.6%  Nioh3+319D5C
+   16.5%  Nioh3+D80B0
+    4.5%  Nioh3+D89E0
+    4.3%  Nioh3+D8B70
+    2.0%  Nioh3+43CEC
+    2.0%  Nioh3+7464BC
+    1.8%  Nioh3+D8C40(leaf?)
+    1.7%  Nioh3+D8700(leaf?)
+    0.8%  Nioh3+2D9EE0 caseD_26
+    0.7%  Nioh3+168E80(leaf?)
+    0.3%  Nioh3+D6E9C
+    0.2%  Nioh3+43AEC
+    0.1%  Nioh3+12E4D0
+    0.1%  Nioh3+12E43C
+    0.1%  Nioh3+12E41C
+    0.1%  Nioh3+368A24
+    0.1%  Nioh3+368980
+    0.1%  Nioh3+D18A0(leaf?)
+    0.0%  Nioh3+D8B24
+    0.0%  ntdll.dll!ZwSetEvent
+    0.0%  KERNELBASE.dll!SetEvent
+    0.0%  Nioh3+36ADF0
+
+## Thread 9424  KIDSTS[s9:CollisionUpdate]7  CPU 17.2%  busy 17%  samples 3867  unwound 100%  avg depth 5.5  start=Nioh3+BDB740
+  modules: ntdll.dll 82.0%, Nioh3.exe 18.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   82.0%   14%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    8.3%   36%  Nioh3+D80B0 [1605B ]  <- Nioh3+319D5C @319DE1(100%)  | D8291:30% D8550:11% D81BD:10%
+    3.6%   40%  Nioh3+D8B70 [207B ]  <- Nioh3+D89E0 @D8A78(91%); Nioh3+D6E9C @D6F15(8%)  | D8B7E:97% D8B8F:0% D8B76:0%
+    1.7%   38%  Nioh3+D8C40(leaf?) [0B ]  <- Nioh3+D80B0 @D827E(100%)  | D8DC0:48% loop D8DB0..D8DC8 (26 B) D8DDD:18% loop D8DC5..D8DEE (43 B) D8DCD:12%
+    1.6%   37%  Nioh3+D8700(leaf?) [0B ]  <- Nioh3+D80B0 @D83F9(88%); Nioh3+D80B0 @D8424(11%)  | D8770:50% loop D8760..D8778 (26 B) D878D:11% loop D8775..D879E (43 B) D8775:6% loop D8760..D8778 (26 B)
+    1.4%    3%  Nioh3+43CEC [901B ]  <- Nioh3+7464BC @7464F0(100%)  | 43F48:94% loop 43F35..43F61 (46 B) 43DA4:5% loop 43D8D..43DB2 (39 B)
+    0.4%   37%  Nioh3+D89E0 [323B ]  <- Nioh3+D80B0 @D8449(100%)  | D8A6B:37% D8A07:6% D8A7E:6%
+    0.4%   39%  Nioh3+168E80(leaf?) [0B ]  <- Nioh3+2D9EE0 caseD_26 @2D9EFA(100%)  | 168E83:100%
+    0.3%   42%  Nioh3+2D9EE0 caseD_26 [48B ]  <- Nioh3+D8B70 @D8BA6(100%)  | 2D9EFF:90% 2D9F03:9%
+    0.1%   44%  Nioh3+3CD7C0(leaf?) [0B ]  <- Nioh3+D8B70 @D8C0C(100%)  | 3CD849:100%
+    0.1%    1%  Nioh3+43AEC [414B ]  <- Nioh3+43CEC @43FB2(100%)  | 43BE8:100% loop 43BD4..43C31 (95 B)
+    0.1%    0%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.0%    3%  Nioh3+7464F8 [1387B ]  <- Nioh3+7464BC @7464E8(100%)  | 746519:100%
+    0.0%    7%  Nioh3+D8B24 [98B ]  <- Nioh3+D89E0 @D8ABB(100%)  | D8B39:100%
+    0.0%    4%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+3FE14 @3FFE5(100%)  | 41258:100% loop 41251..41290 (65 B)
+    0.0%    1%  Nioh3+368980 [107B ]  <- Nioh3+43CEC @43D83(100%)  | 3689C5:100% loop 3689BE..3689D2 (22 B)
+    0.0%    9%  Nioh3+12EC4C [499B Sleep,lock,xchg]  <- Nioh3+12EBF4 @12EC41(100%)  | 12ED44:100%
+  -- attributed to first Nioh3 frame top 20 --
+   82.0%  Nioh3+1A6BB84
+    8.3%  Nioh3+D80B0
+    3.6%  Nioh3+D8B70
+    1.7%  Nioh3+D8C40(leaf?)
+    1.6%  Nioh3+D8700(leaf?)
+    1.4%  Nioh3+43CEC
+    0.4%  Nioh3+D89E0
+    0.4%  Nioh3+168E80(leaf?)
+    0.3%  Nioh3+2D9EE0 caseD_26
+    0.1%  Nioh3+3CD7C0(leaf?)
+    0.1%  Nioh3+43AEC
+    0.1%  Nioh3+40800
+    0.0%  Nioh3+7464F8
+    0.0%  Nioh3+D8B24
+    0.0%  Nioh3+411C0
+    0.0%  Nioh3+368980
+    0.0%  Nioh3+12EC4C
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   82.0%  ntdll.dll!ZwWaitForSingleObject
+   82.0%  KERNELBASE.dll!WaitForSingleObjectEx
+   18.0%  Nioh3+3FE14
+   18.0%  Nioh3+40800
+   16.4%  Nioh3+D80B0
+   16.4%  Nioh3+319D5C
+    4.5%  Nioh3+D89E0
+    4.4%  Nioh3+D8B70
+    1.7%  Nioh3+D8C40(leaf?)
+    1.6%  Nioh3+7464BC
+    1.6%  Nioh3+D8700(leaf?)
+    1.6%  Nioh3+43CEC
+    0.7%  Nioh3+2D9EE0 caseD_26
+    0.4%  Nioh3+168E80(leaf?)
+    0.3%  Nioh3+D6E9C
+    0.1%  Nioh3+3CD7C0(leaf?)
+    0.1%  Nioh3+43AEC
+    0.1%  ntdll.dll!ZwSetEvent
+    0.1%  KERNELBASE.dll!SetEvent
+    0.0%  Nioh3+7464F8
+    0.0%  Nioh3+D8B24
+    0.0%  Nioh3+411C0
+    0.0%  Nioh3+368980
+    0.0%  Nioh3+12EC4C
+    0.0%  Nioh3+12EBF4
+    0.0%  Nioh3+36ADF0
+
+## Thread 6712  KIDSTS[s2:StageUpdate]7  CPU 16.4%  busy 18%  samples 3867  unwound 100%  avg depth 6.7  start=Nioh3+BDB740
+  modules: ntdll.dll 83.1%, Nioh3.exe 16.9%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   82.9%   16%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    3.4%   38%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(100%)  | 4126B:45% loop 41251..41290 (65 B) 41233:18% 41220:5%
+    1.6%   47%  Nioh3+469C0 [2960B ]  <- Nioh3+10E2230 @10E224F(100%)  | 46E21:39% 46DD9:16% 46E13:11%
+    1.6%   28%  Nioh3+484C0(leaf?) [0B ]  <- Nioh3+47550 @477B0(71%); Nioh3+469C0 @46E2B(13%); Nioh3+1196B70 @1196D7A(11%)  | 484E6:48% 484DD:18% 4853C:15%
+    0.9%   42%  Nioh3+1196B70 [924B ]  <- Nioh3+40800 @40E53(100%)  | 1196D96:40% 1196D1B:22% 1196D0F:11%
+    0.9%   23%  Nioh3+DDC70 [10159B ]  <- Nioh3+10E2200 @10E221E(100%)  | DDEBF:34% DDEDA:22% DFD29:11%
+    0.8%   28%  Nioh3+47DF8 [468B lock]  <- Nioh3+47550 @478C5(56%); Nioh3+1196B70 @1196E15(16%); Nioh3+469C0 @46EA0(13%)  | 47ED5:40% loop 47EB4..47ED5 (35 B) 47E1B:16% 47F11:13% loop 47EFA..47F11 (25 B)
+    0.7%   23%  Nioh3+47550 [950B ]  <- Nioh3+DDC70 @DDF28(100%)  | 477CD:58% 47782:13% 476E8:13%
+    0.6%   33%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+403A0 @403D7(96%); Nioh3+207200 @20723D(4%)  | 4089F:52% 4102F:8% 4081B:8%
+    0.5%   10%  Nioh3+DBA70 [287B ]  <- Nioh3+DA830 @DB978(100%)  | DBA89:21% DBABD:21% DBB88:10%
+    0.4%   38%  Nioh3+403A0 [739B Sleep,lock,xchg]  <- Nioh3+3E7CC @3E81D(94%); Nioh3+1196F10 @119707C(5%)  | 40476:23% loop 40450..4047D (47 B) 4048A:17% 4045F:11% loop 40450..4047D (47 B)
+    0.4%   22%  Nioh3+3BD184 [699B ]  <- Nioh3+DDC70 @DFBD2(86%); Nioh3+D5E90 @D6386(6%); Nioh3+DDC70 @DFB24(6%)  | 3BD1B0:60% 3BD232:33% 3BD19E:6%
+    0.4%   23%  Nioh3+DD7AC [683B ]  <- Nioh3+DDC70 @DDFC2(57%); Nioh3+DDC70 @DEE97(42%)  | DD902:50% DD8D6:28% DD8F6:7%
+    0.3%    4%  Nioh3+130014 [939B Sleep,lock]  <- Nioh3+12FFF4 @13000C(100%)  | 13009C:69% loop 13008E..1300AA (30 B) 130019:7% 1301BA:7%
+    0.3%   38%  Nioh3+D8E00 [5780B Sleep,lock,xchg]  <- Nioh3+567A48 @567D5F(100%)  | D8FC1:50% D8FB4:8% D8FD3:8%
+    0.3%    9%  Nioh3+DBB90 [6622B ]  <- Nioh3+DA830 @DB9B8(100%)  | DC743:10% DC621:10% DC5A6:10%
+    0.3%    9%  Nioh3+DA6E0 [221B ]  <- Nioh3+DA830 @DB98F(100%)  | DA71F:100%
+    0.2%    9%  Nioh3+DA830 [4672B ]  <- Nioh3+567A48 @567D44(100%)  | DB928:85% DB95A:14%
+    0.2%    8%  Nioh3+6A9E0 [116B ]  <- Nioh3+178494 @178517(85%); Nioh3+31B7D4 @31B83F(14%)  | 6AA1A:42% 6AA02:28% loop 6A9FD..6AA14 (25 B) 6AA06:14% loop 6A9FD..6AA14 (25 B)
+    0.2%   19%  Nioh3+6FA30 [1419B ]  <- Nioh3+C94A4 @C985A(100%)  | 6FD7F:16% 6FC1D:16% 6FB37:16%
+    0.2%   22%  Nioh3+163D20 [309B ]  <- Nioh3+DD7AC @DD979(100%)  | 163E1D:16% 163E45:16% 163D6E:16%
+    0.2%    8%  Nioh3+178494 [2554B ]  <- Nioh3+588F48 @588F69(50%); Nioh3+588EF8 @588F19(33%); Nioh3+588EF8 @588F2E(16%)  | 17898D:16% 178B46:16% 178A8A:16%
+    0.1%   21%  Nioh3+211350 [127B ]  <- Nioh3+211350 @2113C3(100%)  | 21137C:100%
+    0.1%   25%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.1%    2%  Nioh3+21FF9C [827B ]  <- Nioh3+91828C @9182B0(100%)  | 220243:40% 220055:20% 220197:20%
+    0.1%   21%  Nioh3+3B7F70 [687B ]  <- Nioh3+165B34 @165B8D(50%); Nioh3+165AD0 @165B04(50%)  | 3B80FF:50% 3B8145:25% 3B801F:25%
+    0.1%    3%  Nioh3+1772B4 [693B ]  <- Nioh3+FAE0F0 @FAE1EA(100%)  | 17735A:50% 177377:25% 17733E:25%
+    0.1%   19%  Nioh3+71130 [1684B ]  <- Nioh3+C94A4 @C988D(100%)  | 713BF:50% 712F5:25% 7142B:25%
+    0.1%   20%  Nioh3+169500 [6839B ]  <- Nioh3+C94A4 @C9799(100%)  | 16AADC:25% 16AA99:25% 16A6C9:25%
+    0.1%   10%  Nioh3+DD570 [182B ]  <- Nioh3+DBB90 @DBF32(100%)  | DD591:33% DD598:33% DD5BD:33%
+  -- attributed to first Nioh3 frame top 20 --
+   82.9%  Nioh3+1A6BB84
+    3.4%  Nioh3+411C0
+    1.6%  Nioh3+469C0
+    1.6%  Nioh3+484C0(leaf?)
+    0.9%  Nioh3+1196B70
+    0.9%  Nioh3+DDC70
+    0.8%  Nioh3+40800
+    0.8%  Nioh3+47DF8
+    0.7%  Nioh3+47550
+    0.5%  Nioh3+DBA70
+    0.4%  Nioh3+403A0
+    0.4%  Nioh3+3BD184
+    0.4%  Nioh3+DD7AC
+    0.3%  Nioh3+130014
+    0.3%  Nioh3+D8E00
+    0.3%  Nioh3+DBB90
+    0.3%  Nioh3+DA6E0
+    0.2%  Nioh3+DA830
+    0.2%  Nioh3+6A9E0
+    0.2%  Nioh3+6FA30
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   82.9%  ntdll.dll!ZwWaitForSingleObject
+   82.9%  KERNELBASE.dll!WaitForSingleObjectEx
+   17.1%  Nioh3+40800
+   17.1%  Nioh3+3FE14
+   16.6%  Nioh3+403A0
+   15.5%  Nioh3+3E7CC
+   11.8%  Nioh3+FAE380
+    8.1%  Nioh3+174C9C
+    8.1%  Nioh3+FADEA0
+    7.8%  Nioh3+567A48
+    4.6%  Nioh3+DDC70
+    4.6%  Nioh3+10E2200
+    3.4%  Nioh3+411C0
+    2.9%  Nioh3+207200
+    2.5%  Nioh3+FAE200
+    2.3%  Nioh3+47550
+    2.2%  Nioh3+7F9F98
+    2.2%  Nioh3+45DCC
+    2.2%  Nioh3+FADF90
+    2.0%  Nioh3+10E2230
+    2.0%  Nioh3+469C0
+    1.7%  Nioh3+DA830
+    1.6%  Nioh3+484C0(leaf?)
+    1.5%  Nioh3+1197100
+    1.3%  Nioh3+1196B70
+    0.9%  Nioh3+1196F10
+
+## Thread 5072  KIDSTS[s2:StageUpdate]6  CPU 14.5%  busy 15%  samples 3867  unwound 100%  avg depth 5.8  start=Nioh3+BDB740
+  modules: ntdll.dll 87.0%, Nioh3.exe 13.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   87.0%   14%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.7%   16%  Nioh3+DBA70 [287B ]  <- Nioh3+DA830 @DB978(100%)  | DBA89:36% DBAB7:19% DBABD:16%
+    1.4%   35%  Nioh3+D8E00 [5780B Sleep,lock,xchg]  <- Nioh3+567A48 @567D5F(100%)  | D8F1C:20% D90BE:16% DA0EB:16% loop DA0E8..DA0F5 (15 B)
+    1.2%   40%  Nioh3+469C0 [2960B ]  <- Nioh3+10E2230 @10E224F(100%)  | 46E21:47% 46DD9:19% 4742E:10%
+    1.1%   16%  Nioh3+DBB90 [6622B ]  <- Nioh3+DA830 @DB9B8(100%)  | DC126:13% loop DC110..DC126 (24 B) DC62A:6% DBE8D:6%
+    1.1%   16%  Nioh3+DA830 [4672B ]  <- Nioh3+567A48 @567D44(100%)  | DB928:83% DB97B:2% DB95A:2%
+    0.7%   37%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(80%); Nioh3+207200 @2072C1(11%); Nioh3+3FE14 @3FFE5(7%)  | 4126B:50% loop 41251..41290 (65 B) 41233:19% 41220:7%
+    0.6%   38%  Nioh3+1196B70 [924B ]  <- Nioh3+40800 @40E53(100%)  | 1196D1B:40% 1196D96:36% 1196CE7:12%
+    0.5%   31%  Nioh3+D6FF8 [125B ]  <- Nioh3+D8E00 @DA191(89%); Nioh3+D5DB4 @D5DD3(10%)  | D703A:47% loop D702C..D7050 (38 B) D7050:15% loop D702C..D7050 (38 B) D7073:15% loop D704D..D7073 (40 B)
+    0.5%   17%  Nioh3+DA6E0 [221B ]  <- Nioh3+DA830 @DB98F(100%)  | DA71F:88% DA79F:5% loop DA760..DA79F (65 B) DA775:5% loop DA760..DA780 (34 B)
+    0.4%   15%  Nioh3+D6CD8 [150B ]  <- Nioh3+DBB90 @DC167(64%); Nioh3+D5E90 @D602C(35%)  | D6D1C:70% loop D6D0E..D6D32 (38 B) D6D14:11% loop D6D0E..D6D32 (38 B) D6D11:5% loop D6D0E..D6D32 (38 B)
+    0.3%    3%  Nioh3+130014 [939B Sleep,lock]  <- Nioh3+12FFF4 @13000C(100%)  | 13009C:69% loop 13008E..1300AA (30 B) 1301EA:7% loop 1301EA..130208 (32 B) 1301A1:7%
+    0.3%   34%  Nioh3+484C0(leaf?) [0B ]  <- Nioh3+47550 @477B0(41%); Nioh3+1196B70 @1196D7A(33%); Nioh3+469C0 @46E2B(25%)  | 484E6:41% 4853C:25% 484DD:16%
+    0.2%   39%  Nioh3+174908 [915B ]  <- Nioh3+174C9C @174E08(100%)  | 1749DE:62% 174A6D:12% loop 174A5B..174A75 (28 B) 174A4E:12% loop 174A3C..174A56 (28 B)
+    0.1%   46%  Nioh3+174680 [681B ]  <- Nioh3+174908 @174A0C(100%)  | 1746EA:40% 174750:20% 1747F1:20%
+    0.1%   13%  Nioh3+DD570 [182B ]  <- Nioh3+DBB90 @DBF32(80%); Nioh3+163E58 @163ECD(20%)  | DD5A8:20% DD5BD:20% DD5B9:20%
+    0.1%   13%  Nioh3+71130 [1684B ]  <- Nioh3+C94A4 @C988D(100%)  | 71492:25% 714A7:25% 713B3:25%
+    0.1%   20%  Nioh3+6FA30 [1419B ]  <- Nioh3+C94A4 @C985A(100%)  | 6FB41:25% 6FE15:25% 6FBCB:25%
+    0.1%    4%  Nioh3+3BD184 [699B ]  <- Nioh3+D5E90 @D6386(100%)  | 3BD200:75% 3BD1F0:25%
+    0.1%   36%  Nioh3+47DF8 [468B lock]  <- Nioh3+469C0 @46EA0(50%); Nioh3+47550 @478C5(25%); Nioh3+DDC70 @DFBEF(25%)  | 47ED5:50% loop 47EB4..47ED5 (35 B) 47F11:25% loop 47EFA..47F11 (25 B) 47E1B:25%
+    0.1%    6%  Nioh3+D5898 [1173B ]  <- Nioh3+174C9C @174D13(100%)  | D591B:50% D5AC6:50%
+    0.1%    2%  Nioh3+21FF9C [827B ]  <- Nioh3+91828C @9182B0(100%)  | 220136:25% 22017B:25% 2201F6:25%
+    0.1%   16%  Nioh3+10F6FF0(leaf?) [0B ]  <- Nioh3+D638C @D63A6(100%)  | 10F7030:66% 10F7035:33%
+    0.1%    3%  Nioh3+1772B4 [693B ]  <- Nioh3+FAE0F0 @FAE1EA(100%)  | 177383:33% 1773B6:33% 1773F6:33%
+    0.1%    5%  Nioh3+D5E90 [1275B ]  <- Nioh3+D5898 @D596E(100%)  | D62DC:66% D6309:33%
+    0.1%    2%  Nioh3+71BC24 [99B ]  <- Nioh3+71BC24 @71BC52(100%)  | 71BC75:66% loop 71BC43..71BC75 (52 B) 71BC5F:33% loop 71BC43..71BC75 (52 B)
+    0.1%   15%  Nioh3+B38930(leaf?) [0B ]  <- Nioh3+DBB90 @DC55D(100%)  | B38B99:66% B38B0E:33%
+    0.1%   19%  Nioh3+16E380 [984B ]  <- Nioh3+7758C @775E0(66%); Nioh3+C94A4 @C9C1D(33%)  | 16E49F:33% 16E577:33% 16E4BC:33% loop 16E46B..16E4FD (151 B)
+    0.1%   13%  Nioh3+7403F0(leaf?) [0B ]  <- Nioh3+D5E90 @D5F9F(100%)  | 740416:33% loop 740407..740416 (17 B) 74040B:33% loop 740401..740410 (17 B) 740410:33% loop 740401..740410 (17 B)
+    0.1%   33%  Nioh3+47550 [950B ]  <- Nioh3+DDC70 @DDF28(100%)  | 477CD:66% 476E8:33%
+  -- attributed to first Nioh3 frame top 20 --
+   87.0%  Nioh3+1A6BB84
+    1.7%  Nioh3+DBA70
+    1.4%  Nioh3+D8E00
+    1.2%  Nioh3+469C0
+    1.1%  Nioh3+DBB90
+    1.1%  Nioh3+DA830
+    0.7%  Nioh3+411C0
+    0.6%  Nioh3+1196B70
+    0.5%  Nioh3+D6FF8
+    0.5%  Nioh3+DA6E0
+    0.4%  Nioh3+D6CD8
+    0.3%  Nioh3+130014
+    0.3%  Nioh3+484C0(leaf?)
+    0.2%  Nioh3+174908
+    0.1%  Nioh3+174680
+    0.1%  Nioh3+DD570
+    0.1%  Nioh3+71130
+    0.1%  Nioh3+6FA30
+    0.1%  Nioh3+3BD184
+    0.1%  Nioh3+47DF8
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   87.0%  ntdll.dll!ZwWaitForSingleObject
+   87.0%  KERNELBASE.dll!WaitForSingleObjectEx
+   13.0%  Nioh3+3FE14
+   13.0%  Nioh3+40800
+    9.1%  Nioh3+FADEA0
+    9.1%  Nioh3+174C9C
+    7.7%  Nioh3+567A48
+    5.1%  Nioh3+DA830
+    2.5%  Nioh3+3E7CC
+    2.5%  Nioh3+403A0
+    1.8%  Nioh3+D8E00
+    1.8%  Nioh3+DBB90
+    1.7%  Nioh3+DBA70
+    1.6%  Nioh3+FADF90
+    1.6%  Nioh3+7F9F98
+    1.6%  Nioh3+45DCC
+    1.4%  Nioh3+10E2230
+    1.4%  Nioh3+469C0
+    0.9%  Nioh3+D5898
+    0.7%  Nioh3+1196B70
+    0.7%  Nioh3+411C0
+    0.6%  Nioh3+315664
+    0.6%  Nioh3+82BF0
+    0.6%  Nioh3+1772B4
+    0.6%  Nioh3+FAE0F0
+    0.6%  Nioh3+7FE68
+
+## Thread 28356  KIDSTS[s9:CollisionUpdate]4  CPU 14.5%  busy 15%  samples 3068  unwound 100%  avg depth 5.4  start=Nioh3+BDB740
+  modules: ntdll.dll 85.3%, Nioh3.exe 14.6%, KERNELBASE.dll 0.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   85.3%   12%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    6.2%   33%  Nioh3+D80B0 [1605B ]  <- Nioh3+319D5C @319DE1(100%)  | D8291:30% D81BD:13% D81B3:11%
+    3.4%   35%  Nioh3+D8B70 [207B ]  <- Nioh3+D89E0 @D8A78(97%); Nioh3+D6E9C @D6F15(2%)  | D8B7E:98% D8B8F:0% D8BE0:0% loop D8BAF..D8C0C (95 B)
+    1.4%   34%  Nioh3+D8700(leaf?) [0B ]  <- Nioh3+D80B0 @D83F9(68%); Nioh3+D80B0 @D8424(31%)  | D8770:40% loop D8760..D8778 (26 B) D8744:18% D8775:13% loop D8760..D8778 (26 B)
+    1.1%    4%  Nioh3+43CEC [901B ]  <- Nioh3+7464BC @7464F0(100%)  | 43F48:88% loop 43F35..43F61 (46 B) 43F3D:5% loop 43F35..43F61 (46 B) 43F61:2% loop 43F35..43F61 (46 B)
+    1.0%   40%  Nioh3+D8C40(leaf?) [0B ]  <- Nioh3+D80B0 @D827E(100%)  | D8DC0:53% loop D8DB0..D8DC8 (26 B) D8DDD:15% loop D8DC5..D8DEE (43 B) D8DC5:9% loop D8DB0..D8DC8 (26 B)
+    0.6%   39%  Nioh3+168E80(leaf?) [0B ]  <- Nioh3+2D9EE0 caseD_26 @2D9EFA(100%)  | 168E83:89% 168E91:5% 168E80:5%
+    0.5%   30%  Nioh3+D89E0 [323B ]  <- Nioh3+D80B0 @D8449(100%)  | D8A6B:57% D8A8B:14% D8AF0:7%
+    0.1%   39%  Nioh3+2D9EE0 caseD_26 [48B ]  <- Nioh3+D8B70 @D8BA6(100%)  | 2D9EFF:100%
+    0.1%    1%  Nioh3+43AEC [414B ]  <- Nioh3+43CEC @43FB2(100%)  | 43BE8:100% loop 43BD4..43C31 (95 B)
+    0.0%    3%  Nioh3+44080(leaf?) [0B ]  <- Nioh3+43CEC @43F5D(100%)  | 44093:100%
+    0.0%   46%  Nioh3+D18A0(leaf?) [0B ]  <- Nioh3+319D5C @319DAA(100%)  | D18E5:100% loop D18AC..D18EC (66 B)
+    0.0%    0%  Nioh3+368980 [107B ]  <- Nioh3+43CEC @43D83(100%)  | 3689C5:100% loop 3689BE..3689D2 (22 B)
+    0.0%    1%  Nioh3+7464F8 [1387B ]  <- Nioh3+7464BC @7464E8(100%)  | 746519:100%
+    0.0%    0%  KERNELBASE.dll!WaitForSingleObjectEx  <- Nioh3+1A6BB84 @1A6BC3B(100%)  | 1BEA4:100%
+    0.0%   38%  Nioh3+D6E9C [230B ]  <- Nioh3+D80B0 @D84C7(100%)  | D6F63:100%
+  -- attributed to first Nioh3 frame top 20 --
+   85.4%  Nioh3+1A6BB84
+    6.2%  Nioh3+D80B0
+    3.4%  Nioh3+D8B70
+    1.4%  Nioh3+D8700(leaf?)
+    1.1%  Nioh3+43CEC
+    1.0%  Nioh3+D8C40(leaf?)
+    0.6%  Nioh3+168E80(leaf?)
+    0.5%  Nioh3+D89E0
+    0.1%  Nioh3+2D9EE0 caseD_26
+    0.1%  Nioh3+43AEC
+    0.0%  Nioh3+44080(leaf?)
+    0.0%  Nioh3+D18A0(leaf?)
+    0.0%  Nioh3+368980
+    0.0%  Nioh3+7464F8
+    0.0%  Nioh3+D6E9C
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   85.4%  KERNELBASE.dll!WaitForSingleObjectEx
+   85.3%  ntdll.dll!ZwWaitForSingleObject
+   14.6%  Nioh3+40800
+   14.6%  Nioh3+3FE14
+   13.4%  Nioh3+319D5C
+   13.3%  Nioh3+D80B0
+    4.4%  Nioh3+D89E0
+    4.1%  Nioh3+D8B70
+    1.4%  Nioh3+D8700(leaf?)
+    1.3%  Nioh3+7464BC
+    1.2%  Nioh3+43CEC
+    1.0%  Nioh3+D8C40(leaf?)
+    0.7%  Nioh3+2D9EE0 caseD_26
+    0.6%  Nioh3+168E80(leaf?)
+    0.3%  Nioh3+D6E9C
+    0.1%  Nioh3+43AEC
+    0.0%  Nioh3+44080(leaf?)
+    0.0%  Nioh3+D18A0(leaf?)
+    0.0%  Nioh3+368980
+    0.0%  Nioh3+7464F8
+
+## Thread 23784  KIDSTS[s66:TS_MESHLET_REQ]8  CPU 13.9%  busy 15%  samples 3867  unwound 100%  avg depth 5.3  start=Nioh3+BDB740
+  modules: ntdll.dll 82.4%, Nioh3.exe 17.6%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   81.7%   13%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+   13.1%   26%  Nioh3+48E90 [1457B lock]  <- Nioh3+40800 @40E21(100%)  | 49153:39% loop 49150..4915A (12 B) 49108:11% 49157:9% loop 49150..4915A (12 B)
+    2.9%   23%  Nioh3+2515B0(leaf?) [0B ]  <- Nioh3+251554 @251568(100%)  | 2515F3:83% loop 2515F0..2515FE (16 B) 2515D6:4% 2515FE:2% loop 2515F0..2515FE (16 B)
+    0.4%   22%  Nioh3+49D5C [493B ]  <- Nioh3+48E90 @492DD(100%)  | 49E67:42% 49E99:7% 49DB8:7%
+    0.3%   27%  Nioh3+49950 [147B ]  <- Nioh3+48E90 @49351(100%)  | 4995B:25% 49983:25% 49950:16%
+    0.3%   27%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.2%   25%  Nioh3+251554 [87B ]  <- Nioh3+116A24 @116B18(100%)  | 251582:22% 251568:22% 251579:11%
+    0.2%   29%  Nioh3+116A24 [513B ]  <- Nioh3+49D5C @49EFB(100%)  | 116BC1:50% loop 116B92..116BC8 (56 B) 116A78:12% 116AE8:12%
+    0.2%   19%  ntdll.dll!RtlReleaseSRWLockShared  <- Nioh3+49D5C @49F06(100%)  | 24CA7:42% 24C1E:42% 24C05:14%
+    0.2%   26%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+3FE14 @3FF5E(100%)  | 4087A:33% 40E3E:16% 40E67:16%
+    0.1%   11%  ntdll.dll!RtlAcquireSRWLockShared  <- Nioh3+49D5C @49E90(100%)  | 24BD9:50% 24BCE:25% 24BDF:25%
+    0.1%   37%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+3FE14 @3FFE5(100%)  | 4126B:100% loop 41251..41290 (65 B)
+    0.1%   26%  Nioh3+3FE14 [1247B lock,xchg]  <- Nioh3+1A6BB84 @1A6BC61(100%)  | 40211:33% loop 40204..40219 (23 B) 3FF9E:33% loop 3FF40..3FFCB (145 B) 3FF8A:33% loop 3FF40..3FFCB (145 B)
+    0.1%    8%  ntdll.dll+15F0C (RtlVirtualUnwind2+202C)  <- ntdll.dll!RtlAcquireSRWLockShared @24BEE(100%)  | 15F26:50% 1606E:50%
+    0.1%   15%  ntdll.dll+D5D80 (RtlQueryFeatureConfiguration+790)  <- ntdll.dll+15F0C (RtlVirtualUnwind2+202C) @16079(100%)  | D5E00:100%
+    0.1%   12%  Nioh3+117BE0 [76B ]  <- Nioh3+1169EC @116A07(100%)  | 117BE0:100%
+    0.0%   21%  Nioh3+202E00(leaf?) [0B ]  <- Nioh3+40800 @40F5C(100%)  | 202E22:100%
+    0.0%   41%  Nioh3+4A2E20(leaf?) [0B ]  <- Nioh3+116A24 @116AF9(100%)  | 4A2E26:100%
+    0.0%   41%  Nioh3+202D54 [313B Sleep,lock,xchg]  <- Nioh3+40800 @40F92(100%)  | 202D6E:100%
+  -- attributed to first Nioh3 frame top 20 --
+   81.7%  Nioh3+1A6BB84
+   13.1%  Nioh3+48E90
+    2.9%  Nioh3+2515B0(leaf?)
+    0.7%  Nioh3+49D5C
+    0.4%  Nioh3+40800
+    0.3%  Nioh3+49950
+    0.2%  Nioh3+251554
+    0.2%  Nioh3+116A24
+    0.1%  Nioh3+411C0
+    0.1%  Nioh3+3FE14
+    0.1%  Nioh3+117BE0
+    0.0%  Nioh3+202E00(leaf?)
+    0.0%  Nioh3+4A2E20(leaf?)
+    0.0%  Nioh3+202D54
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   81.7%  ntdll.dll!ZwWaitForSingleObject
+   81.7%  KERNELBASE.dll!WaitForSingleObjectEx
+   18.3%  Nioh3+3FE14
+   18.1%  Nioh3+40800
+   17.6%  Nioh3+48E90
+    4.2%  Nioh3+49D5C
+    3.4%  Nioh3+116A24
+    3.2%  Nioh3+251554
+    2.9%  Nioh3+2515B0(leaf?)
+    0.3%  Nioh3+49950
+    0.3%  ntdll.dll!ZwSetEvent
+    0.3%  KERNELBASE.dll!SetEvent
+    0.2%  ntdll.dll!RtlAcquireSRWLockShared
+    0.2%  ntdll.dll!RtlReleaseSRWLockShared
+    0.1%  ntdll.dll+15F0C (RtlVirtualUnwind2+202C)
+    0.1%  Nioh3+411C0
+    0.1%  ntdll.dll+D5D80 (RtlQueryFeatureConfiguration+790)
+    0.1%  Nioh3+117BE0
+    0.1%  Nioh3+1169EC
+    0.0%  Nioh3+202E00(leaf?)
+    0.0%  Nioh3+4A2E20(leaf?)
+    0.0%  Nioh3+202D54
+
+## Thread 24296    CPU 12.7%  busy 14%  samples 3551  unwound 100%  avg depth 7.3  start=Nioh3+BDB740
+  modules: ntdll.dll 87.6%, Nioh3.exe 11.7%, XAudio2_9.dll 0.7%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   87.5%   12%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    4.0%   39%  Nioh3+E5840 [1742B ]  <- Nioh3+E5394 @E55CF(100%)  | E5A63:29% E5AD7:20% E5BB9:11%
+    2.8%   11%  Nioh3+18AB80 [12546B ]  <- Nioh3+18AA7C @18AB27(100%)  | 18B6C5:4% loop 18B6A8..18B71A (116 B) 18AD60:3% 18BA63:3% loop 18BA50..18BAAC (94 B)
+    1.4%   32%  Nioh3+E1740 [348B ]  <- Nioh3+E1CBC @E1E31(48%); Nioh3+E0630 @E06BC(42%); Nioh3+E08A0 @E1366(8%)  | E1801:34% loop E17C0..E1813 (85 B) E17EF:34% loop E17C0..E1813 (85 B) E17FD:12% loop E17C0..E1813 (85 B)
+    1.2%   11%  Nioh3+69220 [1803B ]  <- Nioh3+18AB80 @18AED6(100%)  | 6939B:50% loop 69337..693A7 (114 B) 69343:16% 69394:4% loop 69337..693A7 (114 B)
+    0.4%   49%  XAudio2_9.dll+6B90(leaf?)  <- XAudio2_9.dll+6074 @6215(20%); XAudio2_9.dll+6074 @660E(13%); XAudio2_9.dll+6074 @6A7B(13%)  | 6E1C:20% 6D9B:6% 6E88:6%
+    0.3%   36%  Nioh3+E6760 [4056B ]  <- Nioh3+E62B0 @E660A(100%)  | E6A41:9% E73E4:9% E6DDB:9% loop E6D91..E6E28 (157 B)
+    0.2%   25%  Nioh3+B94250 [1653B ]  <- Nioh3+7C5CA4 @7C5D39(33%); Nioh3+18AB80 @18B524(16%); Nioh3+E08A0 @E0D07(16%)  | B944BF:16% B94546:16% B9443C:16%
+    0.2%   50%  XAudio2_9.dll+6074  <- XAudio2_9.dll+31C4 @3247(100%)  | 6426:33% 6440:16% 6781:16%
+    0.2%   46%  Nioh3+E3FF0 [970B ]  <- Nioh3+E3334 @E33A3(100%)  | E4249:50% loop E4208..E425B (85 B) E4245:33% loop E4208..E425B (85 B) E4237:16% loop E4208..E425B (85 B)
+    0.2%   19%  Nioh3+E08A0 [12674B ]  <- Nioh3+361428 @361518(100%)  | E139E:16% E1275:16% E12C8:16%
+    0.1%   48%  Nioh3+26BE50(leaf?) [0B ]  <- Nioh3+388C034 @388C063(60%); Nioh3+26BAB0 @26BB32(40%)  | 26BEC7:20% loop 26BEA1..26BF1E (127 B) 26BF13:20% loop 26BEA1..26BF1E (127 B) 26BEDC:20% loop 26BEA1..26BF1E (127 B)
+    0.1%   38%  Nioh3+E7D00 [3850B ]  <- Nioh3+E7840 @E7913(100%)  | E8128:25% E8071:25% E8123:25%
+    0.1%   42%  Nioh3+4E4C44 [4564B lock,xchg]  <- Nioh3+4E46A0 @4E472F(100%)  | 4E5141:33% 4E4CD4:33% 4E5139:33%
+    0.1%   54%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.1%   48%  Nioh3+1952E4 [5720B ]  <- Nioh3+195244 @1952A2(100%)  | 1955D2:33% 195464:33% 195582:33% loop 195547..195592 (77 B)
+    0.1%   56%  Nioh3+4E5924 [5323B ]  <- Nioh3+4E4C44 @4E5215(66%); Nioh3+4E4C44 @4E54F1(33%)  | 4E59F6:66% 4E5E64:33% loop 4E5E3D..4E5EA2 (103 B)
+    0.1%   76%  Nioh3+4E4B30 [525B ]  <- Nioh3+4E4A98 @4E4AE8(100%)  | 4E4B5E:33% 4E4B77:33% 4E4BC3:33%
+    0.1%   50%  Nioh3+B94150 memcmp [199B ]  <- Nioh3+4E5924 @4E5A6F(66%); Nioh3+4E2B48 @4E2C8C(33%)  | B941C3:33% loop B941A0..B941D1 (51 B) B941E3:33% loop B941E0..B941F0 (18 B) B941A3:33% loop B941A0..B941D1 (51 B)
+    0.1%   23%  Nioh3+E62B0 [1198B ]  <- Nioh3+E5840 @E5E70(100%)  | E6428:50% E64F1:50%
+    0.1%    9%  Nioh3+18AA7C [259B ]  <- Nioh3+1A786A8 @1A787F9(100%)  | 18AAEE:100% loop 18AAE6..18AB2B (71 B)
+    0.1%   26%  Nioh3+1A786A8 [1761B lock]  <- Nioh3+9FC2F4 @9FC30D(100%)  | 1A78C84:50% 1A78866:50%
+    0.1%   27%  Nioh3+6D6F80(leaf?) [0B ]  <- Nioh3+E2340 @E2571(100%)  | 6D7033:50% loop 6D7023..6D703B (26 B) 6D702B:50% loop 6D7023..6D703B (26 B)
+    0.1%   38%  XAudio2_9.dll+5960  <- XAudio2_9.dll+6074 @6113(100%)  | 5BDC:50% 5976:50%
+    0.1%   50%  Nioh3+E2050 [1198B ]  <- Nioh3+36044C @36047D(100%)  | E2190:50% E20F9:50%
+    0.1%    4%  Nioh3+4DD410 [758B ]  <- Nioh3+18AB80 @18AEFC(100%)  | 4DD5B3:50% loop 4DD580..4DD5C3 (69 B) 4DD42B:50%
+    0.1%   45%  Nioh3+383F7F0(leaf?) [0B ]  <- Nioh3+E2340 @1939705(100%)  | 383F857:100% loop 383F84B..383F85F (22 B)
+    0.1%   34%  Nioh3+E7840 [1207B ]  <- Nioh3+E5840 @E590F(100%)  | E7B1C:50% E7A8F:50%
+    0.0%   31%  Nioh3+E3610 [3851B ]  <- Nioh3+E3FF0 @E40AD(100%)  | E3FC1:100%
+    0.0%   35%  XAudio2_9.dll+2AEDC (X3DAudioCalculate+372C)  <- XAudio2_9.dll+2AAD0 (X3DAudioCalculate+3320) @2AB14(100%)  | 2B79F:100%
+  -- attributed to first Nioh3 frame top 20 --
+   87.5%  Nioh3+8629AC
+    4.0%  Nioh3+E5840
+    2.8%  Nioh3+18AB80
+    1.4%  Nioh3+E1740
+    1.2%  Nioh3+69220
+    0.7%  Nioh3+E1BB0
+    0.3%  Nioh3+E6760
+    0.2%  Nioh3+B94250
+    0.2%  Nioh3+E3FF0
+    0.2%  Nioh3+E08A0
+    0.1%  Nioh3+26BE50(leaf?)
+    0.1%  Nioh3+E7D00
+    0.1%  Nioh3+4E4C44
+    0.1%  Nioh3+83B584
+    0.1%  Nioh3+1952E4
+    0.1%  Nioh3+4E5924
+    0.1%  Nioh3+4E4B30
+    0.1%  Nioh3+B94150 memcmp
+    0.1%  Nioh3+E62B0
+    0.1%  Nioh3+18AA7C
+  -- inclusive top 30 --
+   99.9%  Nioh3+1A786A8
+   99.9%  Nioh3+9FC2F4
+   99.9%  Nioh3+BDB740
+   99.9%  KERNEL32.DLL!BaseThreadInitThunk
+   99.9%  ntdll.dll!RtlUserThreadStart
+   87.5%  ntdll.dll!ZwWaitForSingleObject
+   87.5%  KERNELBASE.dll!WaitForSingleObjectEx
+   87.5%  Nioh3+8629AC
+    7.2%  Nioh3+E2050
+    7.2%  Nioh3+36044C
+    4.9%  Nioh3+E3FF0
+    4.9%  Nioh3+E3334
+    4.6%  Nioh3+E5394
+    4.6%  Nioh3+E5840
+    4.1%  Nioh3+18AA7C
+    4.1%  Nioh3+18AB80
+    1.4%  Nioh3+E1740
+    1.2%  Nioh3+69220
+    0.8%  Nioh3+E1CBC
+    0.7%  Nioh3+E1BB0
+    0.7%  Nioh3+E1A48
+    0.7%  XAudio2_9.dll+2EB0
+    0.6%  XAudio2_9.dll+6074
+    0.6%  XAudio2_9.dll+31C4
+    0.6%  Nioh3+E0630
+    0.5%  Nioh3+4E3300
+    0.5%  Nioh3+4E46A0
+    0.4%  XAudio2_9.dll+6B90(leaf?)
+    0.4%  Nioh3+E08A0
+    0.4%  Nioh3+361428
+
+## Thread 14860  KIDSTS[s2:StageUpdate]5  CPU 12.3%  busy 13%  samples 2691  unwound 100%  avg depth 5.8  start=Nioh3+BDB740
+  modules: ntdll.dll 89.5%, Nioh3.exe 10.5%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   89.5%   12%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.1%   16%  Nioh3+DBA70 [287B ]  <- Nioh3+DA830 @DB978(100%)  | DBA89:34% DBAB7:24% DBABD:17%
+    1.0%   37%  Nioh3+469C0 [2960B ]  <- Nioh3+10E2230 @10E224F(100%)  | 46E21:57% 4742E:10% 46E13:10%
+    0.9%   26%  Nioh3+484C0(leaf?) [0B ]  <- Nioh3+47550 @477B0(72%); Nioh3+469C0 @46E2B(24%); Nioh3+1196B70 @1196D7A(4%)  | 484E6:48% 4853C:24% 484EF:20% loop 484EF..4851E (49 B)
+    0.9%   31%  Nioh3+D8E00 [5780B Sleep,lock,xchg]  <- Nioh3+567A48 @567D5F(100%)  | D90BE:21% DA0EB:21% loop DA0E8..DA0F5 (15 B) D8F1C:17%
+    0.6%   12%  Nioh3+DBB90 [6622B ]  <- Nioh3+DA830 @DB9B8(100%)  | DBE8D:11% DC621:11% DC44B:5%
+    0.6%   12%  Nioh3+DA830 [4672B ]  <- Nioh3+567A48 @567D44(100%)  | DB928:75% DB95A:6% DB8A8:6%
+    0.6%   16%  Nioh3+DA6E0 [221B ]  <- Nioh3+DA830 @DB98F(100%)  | DA71F:93% DA6F1:6%
+    0.6%   31%  Nioh3+1196B70 [924B ]  <- Nioh3+40800 @40E53(100%)  | 1196D96:53% 1196E36:20% 1196CF5:13%
+    0.4%   19%  Nioh3+47550 [950B ]  <- Nioh3+DDC70 @DDF28(100%)  | 477CD:83% 47782:8% 4774D:8%
+    0.4%   22%  Nioh3+DDC70 [10159B ]  <- Nioh3+10E2200 @10E221E(100%)  | DDEDA:33% DDEBF:16% DDED4:16%
+    0.3%    9%  Nioh3+D6CD8 [150B ]  <- Nioh3+DBB90 @DC167(75%); Nioh3+D5E90 @D602C(25%)  | D6D1C:87% loop D6D0E..D6D32 (38 B) D6D02:12%
+    0.3%   20%  Nioh3+47DF8 [468B lock]  <- Nioh3+47550 @478C5(42%); Nioh3+469C0 @46EA0(28%); Nioh3+1196B70 @1196E15(14%)  | 47ED5:57% loop 47EB4..47ED5 (35 B) 47E1B:28% 47EFA:14% loop 47EFA..47F11 (25 B)
+    0.2%   15%  Nioh3+DD7AC [683B ]  <- Nioh3+DDC70 @DDFC2(83%); Nioh3+DBB90 @DCA2C(16%)  | DD8D6:50% DD925:16% DD7AC:16%
+    0.2%   41%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(100%)  | 41233:50% 4126B:33% loop 41251..41290 (65 B) 41220:16%
+    0.2%   13%  Nioh3+6A9E0 [116B ]  <- Nioh3+178494 @178517(60%); Nioh3+31B7D4 @31BD3D(20%); Nioh3+174908 @174A32(20%)  | 6AA48:60% 6AA02:20% loop 6A9FD..6AA14 (25 B) 6AA1A:20%
+    0.1%   41%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+403A0 @403D7(100%)  | 4089F:75% 4081B:25%
+    0.1%   18%  Nioh3+DD570 [182B ]  <- Nioh3+DBB90 @DBF32(100%)  | DD588:50% DD580:25% DD5A3:25%
+    0.1%    3%  Nioh3+130014 [939B Sleep,lock]  <- Nioh3+12FFF4 @13000C(100%)  | 13009C:75% loop 13008E..1300AA (30 B) 13009E:25% loop 13008E..1300AA (30 B)
+    0.1%   17%  Nioh3+D6FF8 [125B ]  <- Nioh3+D8E00 @DA191(66%); Nioh3+D5DB4 @D5DD3(33%)  | D704D:33% loop D702C..D7050 (38 B) D7073:33% loop D704D..D7073 (40 B) D703A:33% loop D702C..D7050 (38 B)
+    0.1%   19%  Nioh3+D8C40(leaf?) [0B ]  <- Nioh3+DDC70 @DDD9A(100%)  | D8DC0:100% loop D8DB0..D8DC8 (26 B)
+    0.1%    2%  Nioh3+12FD24 [497B Sleep,lock,xchg]  <- Nioh3+12FCCC @12FD19(100%)  | 12FE18:100%
+    0.1%    1%  Nioh3+D2C34 [963B ]  <- Nioh3+1771F8 @17724B(100%)  | D2F85:50% D2CC4:50%
+    0.1%   34%  Nioh3+174680 [681B ]  <- Nioh3+174908 @174A0C(100%)  | 174754:50% 1747F1:50%
+    0.1%   23%  Nioh3+46840(leaf?) [0B ]  <- Nioh3+469C0 @4737C(100%)  | 46853:100%
+    0.1%   10%  Nioh3+7403F0(leaf?) [0B ]  <- Nioh3+D5E90 @D5F9F(100%)  | 74040B:50% loop 740401..740410 (17 B) 740416:50% loop 740407..740416 (17 B)
+    0.1%   30%  Nioh3+B38930(leaf?) [0B ]  <- Nioh3+DBB90 @DC55D(100%)  | B38B36:50% B38B8B:50%
+    0.1%   20%  Nioh3+403A0 [739B Sleep,lock,xchg]  <- Nioh3+3E7CC @3E81D(100%)  | 4048A:50% 4045C:50% loop 40450..4047D (47 B)
+    0.1%   40%  Nioh3+174908 [915B ]  <- Nioh3+174C9C @174E08(100%)  | 17495C:50% 1749CE:50%
+    0.1%   23%  Nioh3+D5898 [1173B ]  <- Nioh3+174C9C @174D13(100%)  | D591B:100%
+  -- attributed to first Nioh3 frame top 20 --
+   89.5%  Nioh3+1A6BB84
+    1.1%  Nioh3+DBA70
+    1.0%  Nioh3+469C0
+    0.9%  Nioh3+484C0(leaf?)
+    0.9%  Nioh3+D8E00
+    0.6%  Nioh3+DBB90
+    0.6%  Nioh3+DA830
+    0.6%  Nioh3+DA6E0
+    0.6%  Nioh3+1196B70
+    0.4%  Nioh3+47550
+    0.4%  Nioh3+DDC70
+    0.3%  Nioh3+D6CD8
+    0.3%  Nioh3+47DF8
+    0.2%  Nioh3+DD7AC
+    0.2%  Nioh3+411C0
+    0.2%  Nioh3+6A9E0
+    0.1%  Nioh3+40800
+    0.1%  Nioh3+DD570
+    0.1%  Nioh3+130014
+    0.1%  Nioh3+D6FF8
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   89.5%  ntdll.dll!ZwWaitForSingleObject
+   89.5%  KERNELBASE.dll!WaitForSingleObjectEx
+   10.5%  Nioh3+40800
+   10.5%  Nioh3+3FE14
+    7.1%  Nioh3+FADEA0
+    7.0%  Nioh3+174C9C
+    6.6%  Nioh3+567A48
+    4.8%  Nioh3+403A0
+    4.8%  Nioh3+3E7CC
+    3.6%  Nioh3+DA830
+    2.0%  Nioh3+DDC70
+    2.0%  Nioh3+10E2200
+    1.6%  Nioh3+7F9F98
+    1.6%  Nioh3+45DCC
+    1.6%  Nioh3+FADF90
+    1.4%  Nioh3+469C0
+    1.4%  Nioh3+10E2230
+    1.2%  Nioh3+47550
+    1.2%  Nioh3+DBB90
+    1.1%  Nioh3+DBA70
+    0.9%  Nioh3+484C0(leaf?)
+    0.9%  Nioh3+D8E00
+    0.8%  Nioh3+DA6E0
+    0.6%  Nioh3+1196B70
+    0.5%  Nioh3+1772B4
+    0.5%  Nioh3+FAE0F0
+
+## Thread 7940  KIDSTS[s66:TS_MESHLET_REQ]7  CPU 12.0%  busy 14%  samples 2628  unwound 100%  avg depth 5.3  start=Nioh3+BDB740
+  modules: ntdll.dll 84.9%, Nioh3.exe 15.0%, KERNEL32.DLL 0.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   84.4%   12%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+   10.9%   23%  Nioh3+48E90 [1457B lock]  <- Nioh3+40800 @40E21(100%)  | 49153:37% loop 49150..4915A (12 B) 49266:13% loop 49240..49297 (89 B) 49108:12%
+    2.8%   21%  Nioh3+2515B0(leaf?) [0B ]  <- Nioh3+251554 @251568(100%)  | 2515F3:89% loop 2515F0..2515FE (16 B) 2515D6:2% 2515B3:1%
+    0.3%   32%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+3FE14 @3FFE5(87%); Nioh3+3FE14 @40059(12%)  | 4144C:25% loop 4144C..41468 (30 B) 4126B:25% loop 41251..41290 (65 B) 41460:25% loop 4144C..41468 (30 B)
+    0.3%   13%  Nioh3+116A24 [513B ]  <- Nioh3+49D5C @49EFB(100%)  | 116BC1:25% loop 116B92..116BC8 (56 B) 116BB8:12% loop 116B92..116BC8 (56 B) 116A27:12%
+    0.3%   22%  Nioh3+49950 [147B ]  <- Nioh3+48E90 @49351(100%)  | 499DA:28% 499AE:28% 499B6:14%
+    0.3%   20%  ntdll.dll!RtlReleaseSRWLockShared  <- Nioh3+49D5C @49F06(100%)  | 24C1E:42% 24CA7:28% 24C8A:14%
+    0.2%   13%  Nioh3+49D5C [493B ]  <- Nioh3+48E90 @492DD(100%)  | 49E67:33% 49E1E:33% 49E7C:16%
+    0.2%   26%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.1%   33%  Nioh3+251554 [87B ]  <- Nioh3+116A24 @116B18(100%)  | 2515A9:33% 251582:33% 251568:33%
+    0.1%   15%  ntdll.dll!RtlAcquireSRWLockShared  <- Nioh3+49D5C @49E90(100%)  | 24B90:50% 24BD9:50%
+    0.0%    6%  Nioh3+4A2E20(leaf?) [0B ]  <- Nioh3+116A24 @116AF9(100%)  | 4A2E29:100%
+    0.0%   18%  KERNEL32.DLL+56B50 (SetLocaleInfoW+2D0)  <- Nioh3+1A6BB84 @1A6BC3B(100%)  | 56FF0:100%
+    0.0%   28%  ntdll.dll+15F0C (RtlVirtualUnwind2+202C)  <- ntdll.dll!RtlAcquireSRWLockShared @24BEE(100%)  | 15F26:100%
+    0.0%   24%  Nioh3+3FE14 [1247B lock,xchg]  <- Nioh3+1A6BB84 @1A6BC61(100%)  | 3FF8A:100% loop 3FF40..3FFCB (145 B)
+    0.0%   43%  Nioh3+1169EC [53B ]  <- Nioh3+49D5C @49E41(100%)  | 116A1B:100%
+    0.0%   37%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+3FE14 @3FF5E(100%)  | 40F42:100%
+  -- attributed to first Nioh3 frame top 20 --
+   84.4%  Nioh3+1A6BB84
+   10.9%  Nioh3+48E90
+    2.8%  Nioh3+2515B0(leaf?)
+    0.6%  Nioh3+49D5C
+    0.3%  Nioh3+411C0
+    0.3%  Nioh3+116A24
+    0.3%  Nioh3+49950
+    0.2%  Nioh3+40800
+    0.1%  Nioh3+251554
+    0.0%  Nioh3+4A2E20(leaf?)
+    0.0%  Nioh3+3FE14
+    0.0%  Nioh3+1169EC
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   84.4%  ntdll.dll!ZwWaitForSingleObject
+   84.4%  KERNELBASE.dll!WaitForSingleObjectEx
+   15.6%  Nioh3+3FE14
+   15.2%  Nioh3+40800
+   15.0%  Nioh3+48E90
+    3.9%  Nioh3+49D5C
+    3.2%  Nioh3+116A24
+    2.9%  Nioh3+251554
+    2.8%  Nioh3+2515B0(leaf?)
+    0.3%  Nioh3+411C0
+    0.3%  Nioh3+49950
+    0.3%  ntdll.dll!RtlReleaseSRWLockShared
+    0.2%  ntdll.dll!ZwSetEvent
+    0.2%  KERNELBASE.dll!SetEvent
+    0.1%  ntdll.dll!RtlAcquireSRWLockShared
+    0.0%  Nioh3+4A2E20(leaf?)
+    0.0%  KERNEL32.DLL+56B50 (SetLocaleInfoW+2D0)
+    0.0%  ntdll.dll+15F0C (RtlVirtualUnwind2+202C)
+    0.0%  Nioh3+1169EC
+
+## Thread 20408  KIDSTS[s66:TS_MESHLET_REQ]6  CPU 10.2%  busy 11%  samples 1855  unwound 100%  avg depth 5.3  start=Nioh3+BDB740
+  modules: ntdll.dll 85.7%, Nioh3.exe 14.3%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   85.1%   10%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:99% 160E33:0%
+   11.3%   19%  Nioh3+48E90 [1457B lock]  <- Nioh3+40800 @40E21(100%)  | 49153:35% loop 49150..4915A (12 B) 49108:17% 49266:11% loop 49240..49297 (89 B)
+    2.3%   20%  Nioh3+2515B0(leaf?) [0B ]  <- Nioh3+251554 @251568(100%)  | 2515F3:85% loop 2515F0..2515FE (16 B) 2515B0:4% 2515F7:2% loop 2515F0..2515FE (16 B)
+    0.3%   21%  Nioh3+49D5C [493B ]  <- Nioh3+48E90 @492DD(100%)  | 49E67:40% 49E7C:20% 49E1E:20%
+    0.2%   10%  Nioh3+49950 [147B ]  <- Nioh3+48E90 @49351(100%)  | 49972:33% 49983:33% 499B2:33%
+    0.2%   18%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.2%   10%  ntdll.dll!RtlAcquireSRWLockShared  <- Nioh3+49D5C @49E90(100%)  | 24BD9:66% 24B9D:33%
+    0.1%   14%  ntdll.dll+D5D80 (RtlQueryFeatureConfiguration+790)  <- ntdll.dll+15F0C (RtlVirtualUnwind2+202C) @16079(100%)  | D5E00:100%
+    0.1%    5%  Nioh3+116A24 [513B ]  <- Nioh3+49D5C @49EFB(100%)  | 116B05:50% loop 116B01..116B2F (48 B) 116B1A:50% loop 116B01..116B2F (48 B)
+    0.1%   10%  ntdll.dll!RtlReleaseSRWLockShared  <- Nioh3+49D5C @49F06(100%)  | 24C1E:100%
+    0.1%   35%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+3FE14 @3FF5E(100%)  | 40F02:50% 40E67:50%
+    0.1%   39%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+3FE14 @3FFE5(100%)  | 4143A:100%
+    0.1%   19%  Nioh3+251554 [87B ]  <- Nioh3+116A24 @116B18(100%)  | 251568:100%
+    0.1%   17%  ntdll.dll+15F0C (RtlVirtualUnwind2+202C)  <- ntdll.dll!RtlAcquireSRWLockShared @24BEE(100%)  | 15F26:100%
+  -- attributed to first Nioh3 frame top 20 --
+   85.1%  Nioh3+1A6BB84
+   11.3%  Nioh3+48E90
+    2.3%  Nioh3+2515B0(leaf?)
+    0.7%  Nioh3+49D5C
+    0.3%  Nioh3+40800
+    0.2%  Nioh3+49950
+    0.1%  Nioh3+116A24
+    0.1%  Nioh3+411C0
+    0.1%  Nioh3+251554
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   85.1%  ntdll.dll!ZwWaitForSingleObject
+   85.1%  KERNELBASE.dll!WaitForSingleObjectEx
+   14.9%  Nioh3+3FE14
+   14.8%  Nioh3+40800
+   14.6%  Nioh3+48E90
+    3.1%  Nioh3+49D5C
+    2.4%  Nioh3+116A24
+    2.3%  Nioh3+251554
+    2.3%  Nioh3+2515B0(leaf?)
+    0.3%  ntdll.dll!RtlAcquireSRWLockShared
+    0.2%  ntdll.dll+15F0C (RtlVirtualUnwind2+202C)
+    0.2%  Nioh3+49950
+    0.2%  ntdll.dll!ZwSetEvent
+    0.2%  KERNELBASE.dll!SetEvent
+    0.1%  ntdll.dll+D5D80 (RtlQueryFeatureConfiguration+790)
+    0.1%  ntdll.dll!RtlReleaseSRWLockShared
+    0.1%  Nioh3+411C0
+
+## Thread 21908  KIDSTS[s4:UpdStgEdt]7  CPU 10.0%  busy 11%  samples 2812  unwound 100%  avg depth 5.6  start=Nioh3+BDB740
+  modules: ntdll.dll 91.5%, Nioh3.exe 8.4%, KERNEL32.DLL 0.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   89.9%   10%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    4.8%   28%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+207200 @2072C1(95%); Nioh3+403A0 @40464(4%)  | 4126B:58% loop 41251..41290 (65 B) 41276:8% loop 41251..41290 (65 B) 412AA:4%
+    1.2%   30%  ntdll.dll!RtlQueryPerformanceCounter  <- Nioh3+B60E98 @B60EA7(100%)  | 6BAFD:80% 6BB15:5% 6BAD8:5%
+    0.8%   26%  Nioh3+207200 [657B Sleep,lock,xchg]  <- Nioh3+123BD50 @123C07A(100%)  | 2072DD:31% 2072B9:22% loop 2072A1..2072D0 (49 B) 2072A3:9% loop 2072A1..2072D0 (49 B)
+    0.6%    3%  Nioh3+3DAB0(leaf?) [0B ]  <- Nioh3+3CFD0 @3D160(100%)  | 3DAB5:70% loop 3DAAE..3DAF1 (69 B) 3DAD0:17% loop 3DAC3..3DADA (25 B) 3DAEE:11% loop 3DAAE..3DAF1 (69 B)
+    0.6%   29%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+207200 @20723D(93%); Nioh3+403A0 @403D7(6%)  | 4089F:31% 40825:18% 41046:12%
+    0.4%   12%  Nioh3+1655E0 [560B ]  <- Nioh3+1655E0 @1656D0(80%); Nioh3+164824 @164852(20%)  | 165744:30% loop 165730..165778 (74 B) 16575B:10% loop 165730..165778 (74 B) 16560E:10%
+    0.2%   26%  Nioh3+123BD50 [1063B xchg]  <- Nioh3+11966F0 @1196705(100%)  | 123C070:28% loop 123C015..123C084 (113 B) 123C066:14% loop 123C015..123C084 (113 B) 123BD55:14%
+    0.2%   29%  Nioh3+B60E98 [25B QueryPerformanceCounter]  <- Nioh3+123BD50 @123C022(100%)  | B60EAC:100%
+    0.1%   12%  ntdll.dll!NtWaitForAlertByThreadId  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(100%)  | 164A14:100%
+    0.1%    6%  Nioh3+1195DA0 [469B ]  <- Nioh3+40800 @40E53(100%)  | 1195EAC:66% loop 1195E90..1195EFE (112 B) 1195E36:33%
+    0.1%    5%  ntdll.dll!ZwSetEvent  <- KERNELBASE.dll!SetEvent @B55CD(100%)  | 160F84:100%
+    0.1%   12%  Nioh3+164DB4 [697B ]  <- Nioh3+164DB4 @164FA1(66%); Nioh3+202940 @202A6F(33%)  | 165028:66% loop 164FFD..16502B (48 B) 164F1F:33%
+    0.1%   27%  Nioh3+B60EB4 [44B QueryPerformanceFrequency]  <- Nioh3+123BD50 @123C01A(100%)  | B60EDF:100%
+    0.1%    1%  Nioh3+3CFD0 [911B Sleep,lock]  <- Nioh3+8420C0 @8422C3(50%); Nioh3+8420C0 @842104(50%)  | 3D1FD:50% loop 3D1FD..3D21F (36 B) 3D1A2:50%
+    0.1%   11%  Nioh3+202940 [1624B lock,xchg]  <- Nioh3+ED25C @ED39E(100%)  | 202AF6:100% loop 202AE7..202B4A (101 B)
+    0.1%   54%  ntdll.dll!NtAlertThreadByThreadIdEx  <- ntdll.dll!RtlReleaseSRWLockExclusive @3A244(100%)  | 161BF4:100%
+    0.0%    1%  Nioh3+202ECC [157B ]  <- Nioh3+841E5C @842037(100%)  | 202F59:100%
+    0.0%   11%  Nioh3+61482C [531B ]  <- Nioh3+40800 @40E53(100%)  | 614874:100%
+    0.0%    1%  Nioh3+3FAD8 [208B lock]  <- Nioh3+841E5C @842080(100%)  | 3FB70:100% loop 3FB5C..3FB76 (28 B)
+    0.0%   16%  Nioh3+9CDD30(leaf?) [0B ]  <- Nioh3+202940 @202AF9(100%)  | 9CDD65:100%
+    0.0%    1%  Nioh3+1196330 [315B lock]  <- Nioh3+40800 @40E53(100%)  | 119636C:100%
+    0.0%    6%  ntdll.dll!ZwDelayExecution  <- ntdll.dll!RtlDelayExecution @D3924(100%)  | 161444:100%
+    0.0%   13%  KERNEL32.DLL+22790 (GlobalFree+40)  <- Nioh3+B60E98 @B60EA7(100%)  | 227C0:100%
+    0.0%    1%  Nioh3+202F6C [80B ]  <- Nioh3+202ECC @202F01(100%)  | 202F82:100%
+    0.0%    3%  Nioh3+403A0 [739B Sleep,lock,xchg]  <- Nioh3+3E7CC @3E81D(100%)  | 40426:100%
+    0.0%   16%  Nioh3+202FC0(leaf?) [0B ]  <- Nioh3+202F6C @202F99(100%)  | 202FE6:100%
+    0.0%   16%  Nioh3+4B2560(leaf?) [0B ]  <- Nioh3+202940 @202AF9(100%)  | 4B2560:100%
+    0.0%    6%  Nioh3+202FF4 [447B lock]  <- Nioh3+202F6C @202F8D(100%)  | 203042:100%
+    0.0%   12%  Nioh3+202D54 [313B Sleep,lock,xchg]  <- Nioh3+40800 @40F92(100%)  | 202D93:100%
+  -- attributed to first Nioh3 frame top 20 --
+   89.9%  Nioh3+1A6BB84
+    4.8%  Nioh3+411C0
+    1.5%  Nioh3+B60E98
+    0.8%  Nioh3+207200
+    0.7%  Nioh3+40800
+    0.6%  Nioh3+3DAB0(leaf?)
+    0.4%  Nioh3+1655E0
+    0.2%  Nioh3+123BD50
+    0.1%  Nioh3+B616A4
+    0.1%  Nioh3+1195DA0
+    0.1%  Nioh3+164DB4
+    0.1%  Nioh3+B60EB4
+    0.1%  Nioh3+3CFD0
+    0.1%  Nioh3+202940
+    0.1%  Nioh3+B61524 _Mtx_unlock
+    0.0%  Nioh3+202ECC
+    0.0%  Nioh3+61482C
+    0.0%  Nioh3+3FAD8
+    0.0%  Nioh3+9CDD30(leaf?)
+    0.0%  Nioh3+1196330
+  -- inclusive top 30 --
+   99.5%  Nioh3+1A6BB84
+   99.5%  Nioh3+BDB740
+   99.5%  KERNEL32.DLL!BaseThreadInitThunk
+   99.5%  ntdll.dll!RtlUserThreadStart
+   89.9%  ntdll.dll!ZwWaitForSingleObject
+   89.9%  KERNELBASE.dll!WaitForSingleObjectEx
+    9.9%  Nioh3+40800
+    9.6%  Nioh3+3FE14
+    9.6%  Nioh3+11966F0
+    9.5%  Nioh3+123BD50
+    6.3%  Nioh3+207200
+    4.8%  Nioh3+411C0
+    1.5%  Nioh3+403A0
+    1.5%  Nioh3+3E7CC
+    1.5%  Nioh3+B60E98
+    1.2%  ntdll.dll!RtlQueryPerformanceCounter
+    1.0%  Nioh3+841E5C
+    0.7%  Nioh3+3CFD0
+    0.6%  Nioh3+3DAB0(leaf?)
+    0.5%  Nioh3+1196330
+    0.5%  Nioh3+3824D8
+    0.4%  Nioh3+1195F80
+    0.4%  Nioh3+40300
+    0.4%  Nioh3+1196470
+    0.4%  Nioh3+1655E0
+    0.4%  Nioh3+164824
+    0.4%  Nioh3+1646B4
+    0.3%  Nioh3+ED08C
+    0.3%  Nioh3+ECF24
+    0.3%  Nioh3+7A6FAC
+
+## Thread 3964  KIDSTS[s2:StageUpdate]4  CPU 9.1%  busy 11%  samples 2266  unwound 100%  avg depth 5.6  start=Nioh3+BDB740
+  modules: ntdll.dll 91.6%, Nioh3.exe 8.4%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   91.6%   10%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.4%   15%  Nioh3+DBA70 [287B ]  <- Nioh3+DA830 @DB978(100%)  | DBABD:40% DBA89:34% DBAB7:15%
+    0.7%   28%  Nioh3+469C0 [2960B ]  <- Nioh3+10E2230 @10E224F(100%)  | 46E21:80% 46E13:13% 47376:6%
+    0.6%   11%  Nioh3+DBB90 [6622B ]  <- Nioh3+DA830 @DB9B8(100%)  | DC62A:28% DC126:14% loop DC110..DC126 (24 B) DCB94:7%
+    0.5%   22%  Nioh3+D8E00 [5780B Sleep,lock,xchg]  <- Nioh3+567A48 @567D5F(100%)  | D8FB4:25% D8F1C:16% D9236:16%
+    0.5%   14%  Nioh3+DA830 [4672B ]  <- Nioh3+567A48 @567D44(100%)  | DB928:100%
+    0.4%   27%  Nioh3+484C0(leaf?) [0B ]  <- Nioh3+1196B70 @1196D7A(37%); Nioh3+469C0 @46E2B(37%); Nioh3+47550 @477B0(25%)  | 484E6:62% 4853C:37%
+    0.3%   23%  Nioh3+1196B70 [924B ]  <- Nioh3+40800 @40E53(100%)  | 1196D96:83% 1196D0F:16%
+    0.2%    2%  Nioh3+130014 [939B Sleep,lock]  <- Nioh3+12FFF4 @13000C(100%)  | 13009C:40% loop 13008E..1300AA (30 B) 1301CB:20% 130091:20% loop 13008E..1300AA (30 B)
+    0.2%   16%  Nioh3+DA6E0 [221B ]  <- Nioh3+DA830 @DB98F(100%)  | DA71F:100%
+    0.2%    3%  Nioh3+1772B4 [693B ]  <- Nioh3+FAE0F0 @FAE1EA(100%)  | 17735A:60% 1774ED:20% 177506:20% loop 1774F5..177506 (19 B)
+    0.2%   29%  Nioh3+47DF8 [468B lock]  <- Nioh3+469C0 @46EA0(80%); Nioh3+DDC70 @DFBEF(20%)  | 47F11:40% loop 47EFA..47F11 (25 B) 47ED5:20% loop 47EB4..47ED5 (35 B) 47E1B:20%
+    0.2%   23%  Nioh3+47550 [950B ]  <- Nioh3+DDC70 @DDF28(100%)  | 477CD:60% 476E8:40%
+    0.2%   27%  Nioh3+D6FF8 [125B ]  <- Nioh3+D8E00 @DA191(100%)  | D703A:50% loop D702C..D7050 (38 B) D7040:25% loop D702C..D7050 (38 B) D7073:25% loop D704D..D7073 (40 B)
+    0.2%   11%  Nioh3+71130 [1684B ]  <- Nioh3+C94A4 @C988D(100%)  | 71381:25% 713BF:25% 71442:25%
+    0.2%    5%  Nioh3+D6CD8 [150B ]  <- Nioh3+D5E90 @D602C(75%); Nioh3+DBB90 @DC167(25%)  | D6D1C:50% loop D6D0E..D6D32 (38 B) D6D09:25% D6D22:25% loop D6D0E..D6D32 (38 B)
+    0.1%   10%  Nioh3+6FA30 [1419B ]  <- Nioh3+C94A4 @C985A(100%)  | 6FC52:33% 6FC48:33% 6FC79:33%
+    0.1%   12%  Nioh3+DD570 [182B ]  <- Nioh3+DBB90 @DBF32(100%)  | DD580:33% DD5A3:33% DD5A8:33%
+    0.1%   33%  Nioh3+403A0 [739B Sleep,lock,xchg]  <- Nioh3+3E7CC @3E81D(100%)  | 4045F:66% loop 40450..4047D (47 B) 4045C:33% loop 40450..4047D (47 B)
+    0.1%   31%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(100%)  | 4126B:33% loop 41251..41290 (65 B) 41233:33% 411CF:33%
+    0.1%    4%  Nioh3+163E58 [440B ]  <- Nioh3+D5898 @D5A8B(100%)  | 163ED9:50% 163F2C:50%
+    0.1%    1%  Nioh3+12FD24 [497B Sleep,lock,xchg]  <- Nioh3+12FCCC @12FD19(100%)  | 12FDFA:50% loop 12FDFA..12FE0A (18 B) 12FDE3:50%
+    0.1%    1%  Nioh3+21FF9C [827B ]  <- Nioh3+91828C @9182B0(100%)  | 22017B:50% 220153:50%
+    0.1%    9%  Nioh3+C94A4 [3475B ]  <- Nioh3+8D690 @8E441(100%)  | C9679:50% C99D3:50% loop C9960..C99F4 (154 B)
+    0.1%    8%  Nioh3+6A9E0 [116B ]  <- Nioh3+178494 @178517(100%)  | 6AA48:50% 6AA02:50% loop 6A9FD..6AA14 (25 B)
+    0.1%    6%  Nioh3+17A600(leaf?) [0B ]  <- Nioh3+178494 @17874E(50%); Nioh3+178494 @178650(50%)  | 17A630:50% 17A61A:50%
+    0.1%   16%  Nioh3+B38930(leaf?) [0B ]  <- Nioh3+DBB90 @DC55D(100%)  | B38B2F:50% B38B00:50%
+    0.0%   12%  Nioh3+7FE68 [4706B xchg]  <- Nioh3+82F1C @8328C(100%)  | 805E6:100%
+    0.0%    2%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+3FE14 @3FF5E(100%)  | 40839:100%
+    0.0%   24%  Nioh3+468C0(leaf?) [0B ]  <- Nioh3+45818 @45839(100%)  | 468C9:100% loop 468C9..468F8 (49 B)
+  -- attributed to first Nioh3 frame top 20 --
+   91.6%  Nioh3+1A6BB84
+    1.4%  Nioh3+DBA70
+    0.7%  Nioh3+469C0
+    0.6%  Nioh3+DBB90
+    0.5%  Nioh3+D8E00
+    0.5%  Nioh3+DA830
+    0.4%  Nioh3+484C0(leaf?)
+    0.3%  Nioh3+1196B70
+    0.2%  Nioh3+130014
+    0.2%  Nioh3+DA6E0
+    0.2%  Nioh3+1772B4
+    0.2%  Nioh3+47DF8
+    0.2%  Nioh3+47550
+    0.2%  Nioh3+D6FF8
+    0.2%  Nioh3+71130
+    0.2%  Nioh3+D6CD8
+    0.1%  Nioh3+6FA30
+    0.1%  Nioh3+DD570
+    0.1%  Nioh3+403A0
+    0.1%  Nioh3+411C0
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   91.6%  ntdll.dll!ZwWaitForSingleObject
+   91.6%  KERNELBASE.dll!WaitForSingleObjectEx
+    8.4%  Nioh3+3FE14
+    8.3%  Nioh3+40800
+    4.8%  Nioh3+174C9C
+    4.8%  Nioh3+FADEA0
+    4.3%  Nioh3+567A48
+    3.3%  Nioh3+DA830
+    1.9%  Nioh3+403A0
+    1.9%  Nioh3+3E7CC
+    1.4%  Nioh3+DBA70
+    1.2%  Nioh3+7F9F98
+    1.2%  Nioh3+45DCC
+    1.2%  Nioh3+FADF90
+    1.0%  Nioh3+469C0
+    1.0%  Nioh3+10E2230
+    1.0%  Nioh3+DBB90
+    0.7%  Nioh3+D8E00
+    0.7%  Nioh3+315664
+    0.7%  Nioh3+1772B4
+    0.7%  Nioh3+FAE0F0
+    0.6%  Nioh3+7FE68
+    0.6%  Nioh3+82F1C
+    0.6%  Nioh3+82BF0
+    0.6%  Nioh3+8D690
+    0.6%  Nioh3+81B28
+
+## Thread 19884  KIDSTS[s2:StageUpdate]3  CPU 8.9%  busy 11%  samples 1214  unwound 100%  avg depth 5.6  start=Nioh3+BDB740
+  modules: ntdll.dll 89.8%, Nioh3.exe 10.2%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   89.8%   10%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.6%   12%  Nioh3+DBA70 [287B ]  <- Nioh3+DA830 @DB978(100%)  | DBA89:35% DBAB7:30% DBABD:25%
+    1.5%   29%  Nioh3+469C0 [2960B ]  <- Nioh3+10E2230 @10E224F(100%)  | 46E21:55% 47376:16% 4742E:11%
+    1.1%   22%  Nioh3+484C0(leaf?) [0B ]  <- Nioh3+47550 @477B0(53%); Nioh3+469C0 @46E2B(23%); Nioh3+1196B70 @1196D7A(23%)  | 484E6:38% 484DD:23% 4853C:15%
+    0.7%   12%  Nioh3+DBB90 [6622B ]  <- Nioh3+DA830 @DB9B8(100%)  | DC114:11% loop DC110..DC126 (24 B) DC707:11% DC621:11%
+    0.6%   23%  Nioh3+47550 [950B ]  <- Nioh3+DDC70 @DDF28(100%)  | 477CD:85% 476E8:14%
+    0.5%   20%  Nioh3+DDC70 [10159B ]  <- Nioh3+10E2200 @10E221E(100%)  | DDEBF:50% DDED4:33% DDEDA:16%
+    0.4%   14%  Nioh3+DA830 [4672B ]  <- Nioh3+567A48 @567D44(100%)  | DB928:60% DB969:20% DB9B8:20%
+    0.3%   13%  Nioh3+DA6E0 [221B ]  <- Nioh3+DA830 @DB98F(100%)  | DA71F:100%
+    0.3%   29%  Nioh3+47DF8 [468B lock]  <- Nioh3+469C0 @46EA0(50%); Nioh3+1196B70 @1196E15(50%)  | 47ED5:25% loop 47EB4..47ED5 (35 B) 47ECA:25% loop 47EB4..47ED5 (35 B) 47EA4:25%
+    0.3%   19%  Nioh3+1196B70 [924B ]  <- Nioh3+40800 @40E53(100%)  | 1196D96:50% 1196D1B:50%
+    0.2%    3%  Nioh3+130014 [939B Sleep,lock]  <- Nioh3+12FFF4 @13000C(100%)  | 13009C:100% loop 13008E..1300AA (30 B)
+    0.2%   27%  Nioh3+D8E00 [5780B Sleep,lock,xchg]  <- Nioh3+567A48 @567D5F(100%)  | DA0EB:33% loop DA0E8..DA0F5 (15 B) D90BE:33% D8F1C:33%
+    0.2%   29%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+403A0 @40464(66%); Nioh3+3FE14 @3FFE5(33%)  | 41233:33% 4144C:33% loop 4144C..41468 (30 B) 411EF:33%
+    0.2%   22%  Nioh3+D6FF8 [125B ]  <- Nioh3+D8E00 @DA191(100%)  | D702F:33% loop D702C..D7050 (38 B) D7050:33% loop D702C..D7050 (38 B) D703A:33% loop D702C..D7050 (38 B)
+    0.2%   28%  Nioh3+6EFD0(leaf?) [0B ]  <- Nioh3+6EA50 @6EBD7(50%); Nioh3+6EA50 @6EE60(50%)  | 6EFD4:50% 6EFDB:50%
+    0.2%    9%  Nioh3+DD570 [182B ]  <- Nioh3+DBB90 @DBF32(100%)  | DD5A8:50% DD580:50%
+    0.2%   30%  Nioh3+40800 [2125B QueryPerformanceCounter,lock,xchg]  <- Nioh3+207200 @20723D(50%); Nioh3+403A0 @403D7(50%)  | 40981:50% loop 40970..40986 (24 B) 408A1:50%
+    0.2%   13%  Nioh3+DD7AC [683B ]  <- Nioh3+DDC70 @DEE97(50%); Nioh3+DDC70 @DDFC2(50%)  | DD8D6:50% DD8F6:50%
+    0.1%  NaN%  Nioh3+362C90 [191B ]  <- Nioh3+DDC70 @DE76A(100%)  | 362CD7:100% loop 362CC9..362CF2 (43 B)
+    0.1%    6%  Nioh3+2113D0 [339B ]  <- Nioh3+D5E90 @D6300(100%)  | 21142D:100%
+    0.1%    7%  Nioh3+6FA30 [1419B ]  <- Nioh3+C94A4 @C985A(100%)  | 6FBE0:100%
+    0.1%   15%  Nioh3+246BD0 [394B ]  <- Nioh3+174680 @174811(100%)  | 246D50:100%
+    0.1%   18%  Nioh3+3BD184 [699B ]  <- Nioh3+D5E90 @D6386(100%)  | 3BD232:100%
+    0.1%   15%  Nioh3+BE0378 [159B ]  <- Nioh3+7D964 @7DA89(100%)  | BE0412:100%
+    0.1%   28%  Nioh3+165AD0 [99B ]  <- Nioh3+165B34 @165B99(100%)  | 165AF6:100%
+    0.1%   22%  Nioh3+174908 [915B ]  <- Nioh3+174C9C @174E08(100%)  | 1749CE:100%
+    0.1%    9%  Nioh3+211350 [127B ]  <- Nioh3+211350 @2113C3(100%)  | 21137C:100%
+    0.1%    7%  Nioh3+B38930(leaf?) [0B ]  <- Nioh3+DBB90 @DC55D(100%)  | B38B0E:100%
+    0.1%    2%  Nioh3+21FF9C [827B ]  <- Nioh3+91828C @9182B0(100%)  | 220243:100%
+  -- attributed to first Nioh3 frame top 20 --
+   89.8%  Nioh3+1A6BB84
+    1.6%  Nioh3+DBA70
+    1.5%  Nioh3+469C0
+    1.1%  Nioh3+484C0(leaf?)
+    0.7%  Nioh3+DBB90
+    0.6%  Nioh3+47550
+    0.5%  Nioh3+DDC70
+    0.4%  Nioh3+DA830
+    0.3%  Nioh3+DA6E0
+    0.3%  Nioh3+47DF8
+    0.3%  Nioh3+1196B70
+    0.2%  Nioh3+130014
+    0.2%  Nioh3+D8E00
+    0.2%  Nioh3+411C0
+    0.2%  Nioh3+D6FF8
+    0.2%  Nioh3+6EFD0(leaf?)
+    0.2%  Nioh3+DD570
+    0.2%  Nioh3+40800
+    0.2%  Nioh3+DD7AC
+    0.1%  Nioh3+362C90
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   89.8%  ntdll.dll!ZwWaitForSingleObject
+   89.8%  KERNELBASE.dll!WaitForSingleObjectEx
+   10.2%  Nioh3+3FE14
+   10.1%  Nioh3+40800
+    5.0%  Nioh3+FADEA0
+    4.9%  Nioh3+174C9C
+    4.6%  Nioh3+567A48
+    3.5%  Nioh3+DA830
+    2.9%  Nioh3+403A0
+    2.9%  Nioh3+3E7CC
+    2.1%  Nioh3+DDC70
+    2.1%  Nioh3+10E2200
+    2.1%  Nioh3+7F9F98
+    2.1%  Nioh3+45DCC
+    2.1%  Nioh3+FADF90
+    2.0%  Nioh3+10E2230
+    1.9%  Nioh3+469C0
+    1.6%  Nioh3+DBA70
+    1.2%  Nioh3+47550
+    1.2%  Nioh3+DBB90
+    1.1%  Nioh3+484C0(leaf?)
+    0.7%  Nioh3+1196B70
+    0.5%  Nioh3+D8E00
+    0.5%  Nioh3+207200
+    0.3%  Nioh3+174908
+    0.3%  Nioh3+DA6E0
+
+## Thread 21196    CPU 6.6%  busy 7%  samples 724  unwound 100%  avg depth 8.1  start=Nioh3+BDB740
+  modules: ntdll.dll 92.8%, Nioh3.exe 7.2%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   84.1%    6%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    7.6%   17%  ntdll.dll!NtWaitForAlertByThreadId  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(100%)  | 164A14:100%
+    1.1%    2%  Nioh3+4C2DA0 [722B ]  <- Nioh3+4C2D0C @4C2D3E(100%)  | 4C2E41:100%
+    0.4%   10%  Nioh3+340628 [2600B ]  <- Nioh3+3404AC @340606(66%); Nioh3+3404AC @340578(33%)  | 3406BA:66% 34062B:33%
+    0.4%    9%  Nioh3+3410A0 [2855B ]  <- Nioh3+33FEA8 @3403D9(66%); Nioh3+33FEA8 @34044E(33%)  | 341363:33% loop 341350..34136E (32 B) 341160:33% 3412F3:33%
+    0.4%   17%  ntdll.dll!NtAlertThreadByThreadIdEx  <- ntdll.dll!RtlReleaseSRWLockExclusive @3A244(100%)  | 161BF4:100%
+    0.4%    8%  Nioh3+578E4 [3155B ]  <- Nioh3+1A6C358 @1A6ED7F(100%)  | 57D31:66% 5852C:33%
+    0.3%    8%  Nioh3+227334 [2290B ]  <- Nioh3+578E4 @57FBD(100%)  | 22750E:50% 227466:50%
+    0.3%   27%  Nioh3+33BDB8 [128B ]  <- Nioh3+33BD50 @33BD81(100%)  | 33BDF5:50% 33BE0C:50%
+    0.3%   18%  ntdll.dll!RtlSleepConditionVariableSRW  <- KERNELBASE.dll!SleepConditionVariableSRW @22A58(100%)  | A2A40:100%
+    0.3%   20%  Nioh3+55378 [1879B ]  <- Nioh3+55C80 @572A2(100%)  | 558AC:50% 55574:50% loop 554FB..55583 (142 B)
+    0.3%   11%  Nioh3+BE38A8 [604B ]  <- Nioh3+BE3B04 @BE3BC2(100%)  | BE39F4:50% BE39D5:50%
+    0.3%   23%  Nioh3+227C60 [741B ]  <- Nioh3+342EA4 @343CEC(100%)  | 227C9D:50% 227CD8:50%
+    0.1%    3%  Nioh3+6998C0 [190B ]  <- Nioh3+58758 @587A1(100%)  | 6998FE:100% loop 6998FB..699911 (24 B)
+    0.1%    2%  Nioh3+4C2D0C [147B ]  <- Nioh3+4C2D0C @4C2D5E(100%)  | 4C2D27:100%
+    0.1%    5%  Nioh3+33C170 [1733B ]  <- Nioh3+578E4 @57C93(100%)  | 33C1EE:100%
+    0.1%   11%  ntdll.dll!RtlAllocateHeap  <- Nioh3+BF04DC _malloc_base @BF0520(100%)  | 25C7E:100%
+    0.1%   11%  ntdll.dll!RtlQueryPerformanceCounter  <- Nioh3+206B2C @206B4C(100%)  | 6BAA7:100%
+    0.1%   17%  Nioh3+54A78 [257B ]  <- Nioh3+55378 @558D2(100%)  | 54ABF:100%
+    0.1%   17%  Nioh3+52FC0 [238B ]  <- Nioh3+54E20 @54E75(100%)  | 53003:100%
+    0.1%   10%  Nioh3+228028 [1465B ]  <- Nioh3+227FA4 @228023(100%)  | 2281A0:100%
+    0.1%   19%  Nioh3+33BD50 [102B ]  <- Nioh3+33BD50 @33BD98(100%)  | 33BD85:100% loop 33BD70..33BD9F (49 B)
+    0.1%    4%  Nioh3+58758 [479B ]  <- Nioh3+58538 @585E6(100%)  | 5878A:100%
+    0.1%   14%  Nioh3+B94230 [16B ]  <- Nioh3+5C829C @5C865B(100%)  | B9423B:100%
+    0.1%   18%  Nioh3+58B8A0(leaf?) [0B ]  <- Nioh3+58B854 @58B86D(100%)  | 58B89E:100%
+    0.1%   12%  Nioh3+261D10(leaf?) [0B ]  <- Nioh3+55C80 @55F4D(100%)  | 261D1A:100%
+    0.1%   10%  Nioh3+C5E6F4 [556B ]  <- Nioh3+228028 @22815C(100%)  | C5E71B:100%
+    0.1%   25%  Nioh3+B94150 memcmp [199B ]  <- Nioh3+2286B8 @22A987(100%)  | B9419E:100% loop B9417B..B941DE (101 B)
+    0.1%   11%  Nioh3+B93F00 [400B ]  <- Nioh3+342B10 @342C92(100%)  | B93F00:100% loop B93EE0..B93F47 (105 B)
+    0.1%   21%  Nioh3+4E6824 [3201B ]  <- Nioh3+1A6C358 @1A6F38B(100%)  | 4E686D:100% loop 4E685F..4E6875 (24 B)
+  -- attributed to first Nioh3 frame top 20 --
+   84.1%  Nioh3+8629AC
+    7.9%  Nioh3+B616A4
+    1.1%  Nioh3+4C2DA0
+    0.4%  Nioh3+340628
+    0.4%  Nioh3+3410A0
+    0.4%  Nioh3+B61524 _Mtx_unlock
+    0.4%  Nioh3+578E4
+    0.3%  Nioh3+BF04DC _malloc_base
+    0.3%  Nioh3+227334
+    0.3%  Nioh3+33BDB8
+    0.3%  Nioh3+55378
+    0.3%  Nioh3+BE38A8
+    0.3%  Nioh3+227C60
+    0.1%  Nioh3+6998C0
+    0.1%  Nioh3+4C2D0C
+    0.1%  Nioh3+33C170
+    0.1%  Nioh3+206B2C
+    0.1%  Nioh3+54A78
+    0.1%  Nioh3+52FC0
+    0.1%  Nioh3+228028
+  -- inclusive top 30 --
+   99.6%  Nioh3+1A6C358
+   99.6%  Nioh3+9FC2F4
+   99.6%  Nioh3+BDB740
+   99.6%  KERNEL32.DLL!BaseThreadInitThunk
+   99.6%  ntdll.dll!RtlUserThreadStart
+   84.1%  ntdll.dll!ZwWaitForSingleObject
+   84.1%  KERNELBASE.dll!WaitForSingleObjectEx
+   84.1%  Nioh3+8629AC
+   10.2%  Nioh3+55C80
+    9.8%  Nioh3+55378
+    9.4%  Nioh3+5488C
+    8.8%  Nioh3+3D702C
+    8.8%  Nioh3+3D6E64
+    8.8%  Nioh3+3D6D90
+    7.9%  ntdll.dll!RtlSleepConditionVariableSRW
+    7.9%  KERNELBASE.dll!SleepConditionVariableSRW
+    7.9%  Nioh3+B616A4
+    7.9%  Nioh3+B618E8
+    7.9%  Nioh3+3D7CC8
+    7.6%  ntdll.dll!NtWaitForAlertByThreadId
+    7.2%  Nioh3+3D693C
+    5.4%  Nioh3+342EA4
+    4.3%  Nioh3+2286B8
+    4.3%  Nioh3+54744
+    2.6%  Nioh3+578E4
+    1.9%  Nioh3+3D75C4
+    1.9%  Nioh3+3D74E4
+    1.7%  Nioh3+3D6B18
+    1.7%  Nioh3+957018
+    1.2%  Nioh3+4C2D0C
+
+## Thread 24404  [App]CustomOccluderRayCastThrea  CPU 6.1%  busy 5%  samples 413  unwound 100%  avg depth 10.0  start=Nioh3+BDB740
+  modules: ntdll.dll 98.1%, Nioh3.exe 1.9%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   97.8%    5%  ntdll.dll!NtWaitForAlertByThreadId  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(100%)  | 164A14:100%
+    0.7%   13%  Nioh3+1989F0 [1194B ]  <- Nioh3+71C280 @71C710(100%)  | 198AC1:33% 198E02:33% 198AEA:33% loop 198AE1..198AEA (11 B)
+    0.2%    5%  Nioh3+6A8F0(leaf?) [0B ]  <- Nioh3+1989F0 @198C6B(100%)  | 6A975:100%
+    0.2%   14%  Nioh3+71C280 [1690B ]  <- Nioh3+71C200 @71C250(100%)  | 71C7B5:100% loop 71C74C..71C7B8 (110 B)
+    0.2%   14%  ntdll.dll!RtlSleepConditionVariableSRW  <- KERNELBASE.dll!SleepConditionVariableSRW @22A58(100%)  | A2A40:100%
+    0.2%   25%  Nioh3+BBA9D0(leaf?) [0B ]  <- Nioh3+3D7BD4 @3D7BF2(100%)  | BBA9D0:100%
+    0.2%    3%  Nioh3+16B030 [623B ]  <- Nioh3+1989F0 @198C9B(100%)  | 16B24A:100% loop 16B242..16B258 (24 B)
+    0.2%    5%  Nioh3+178470(leaf?) [0B ]  <- Nioh3+168580 @168740(100%)  | 178475:100%
+  -- attributed to first Nioh3 frame top 20 --
+   98.1%  Nioh3+B616A4
+    0.7%  Nioh3+1989F0
+    0.2%  Nioh3+6A8F0(leaf?)
+    0.2%  Nioh3+71C280
+    0.2%  Nioh3+BBA9D0(leaf?)
+    0.2%  Nioh3+16B030
+    0.2%  Nioh3+178470(leaf?)
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A7A6FC
+  100.0%  Nioh3+5B6670
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   98.1%  ntdll.dll!RtlSleepConditionVariableSRW
+   98.1%  KERNELBASE.dll!SleepConditionVariableSRW
+   98.1%  Nioh3+B616A4
+   98.1%  Nioh3+B618E8
+   98.1%  Nioh3+3D7CC8
+   97.8%  ntdll.dll!NtWaitForAlertByThreadId
+    1.9%  Nioh3+3D7AA8
+    1.7%  Nioh3+71C280
+    1.7%  Nioh3+71C200
+    1.7%  Nioh3+FFF6C0
+    1.5%  Nioh3+1989F0
+    0.2%  Nioh3+6A8F0(leaf?)
+    0.2%  Nioh3+BBA9D0(leaf?)
+    0.2%  Nioh3+3D7BD4
+    0.2%  Nioh3+16B030
+    0.2%  Nioh3+178470(leaf?)
+    0.2%  Nioh3+168580
+    0.2%  Nioh3+199D04 caseD_16
+
+## Thread 10980  KIDSTS[s66:TS_MESHLET_REQ]4  CPU 6.1%  busy 7%  samples 385  unwound 100%  avg depth 5.1  start=Nioh3+BDB740
+  modules: ntdll.dll 91.9%, Nioh3.exe 8.1%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   91.7%    6%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    6.5%   17%  Nioh3+48E90 [1457B lock]  <- Nioh3+40800 @40E21(100%)  | 49153:48% loop 49150..4915A (12 B) 49266:16% loop 49240..49297 (89 B) 49157:12% loop 49150..4915A (12 B)
+    1.0%   10%  Nioh3+2515B0(leaf?) [0B ]  <- Nioh3+251554 @251568(100%)  | 2515F3:100% loop 2515F0..2515FE (16 B)
+    0.3%   25%  Nioh3+49D5C [493B ]  <- Nioh3+48E90 @492DD(100%)  | 49E67:100%
+    0.3%   18%  Nioh3+49950 [147B ]  <- Nioh3+48E90 @49351(100%)  | 499AE:100%
+    0.3%    0%  ntdll.dll!RtlAcquireSRWLockShared  <- Nioh3+49D5C @49E90(100%)  | 24BA6:100%
+  -- attributed to first Nioh3 frame top 20 --
+   91.7%  Nioh3+1A6BB84
+    6.5%  Nioh3+48E90
+    1.0%  Nioh3+2515B0(leaf?)
+    0.5%  Nioh3+49D5C
+    0.3%  Nioh3+49950
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   91.7%  ntdll.dll!ZwWaitForSingleObject
+   91.7%  KERNELBASE.dll!WaitForSingleObjectEx
+    8.3%  Nioh3+48E90
+    8.3%  Nioh3+40800
+    8.3%  Nioh3+3FE14
+    1.6%  Nioh3+49D5C
+    1.0%  Nioh3+2515B0(leaf?)
+    1.0%  Nioh3+251554
+    1.0%  Nioh3+116A24
+    0.3%  Nioh3+49950
+    0.3%  ntdll.dll!RtlAcquireSRWLockShared
+
+## Thread 17616  KIDSTS[s3:CharacterUpdate]7  CPU 5.5%  busy 7%  samples 383  unwound 100%  avg depth 5.5  start=Nioh3+BDB740
+  modules: ntdll.dll 93.0%, Nioh3.exe 7.0%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   93.0%    6%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    0.8%   10%  Nioh3+17A1B40 [445976B ]  <- Nioh3+37E290 @37E451(100%)  | 17B4506:33% 18010C1:33% 17EC847:33%
+    0.8%   21%  Nioh3+246BD0 [394B ]  <- Nioh3+CC490 @CC6C2(100%)  | 246D50:33% 246BD0:33% 246CDA:33%
+    0.5%   13%  Nioh3+CC490 [1192B ]  <- Nioh3+83E14 @83EA8(100%)  | CC6CD:50% CC708:50%
+    0.5%   24%  Nioh3+37D7A0(leaf?) [0B ]  <- Nioh3+37DAAC @37DE1A(100%)  | 37D7F5:50% 37D811:50% loop 37D801..37D82E (47 B)
+    0.5%    8%  Nioh3+53B38 [798B ]  <- Nioh3+17A1B40 @17A7D79(50%); Nioh3+17A1B40 @17ABC7D(50%)  | 53D0F:50% 53C1F:50%
+    0.5%   12%  Nioh3+D1908 [1555B ]  <- Nioh3+200A48 @200AFB(100%)  | D1D2D:50% D1A65:50%
+    0.3%    4%  Nioh3+B94230 [16B ]  <- Nioh3+483490 @48350C(100%)  | B9423B:100%
+    0.3%    1%  Nioh3+411C0 [833B lock,xchg]  <- Nioh3+3FE14 @3FFE5(100%)  | 41460:100% loop 4144C..41468 (30 B)
+    0.3%   18%  Nioh3+404780 [2055B lock]  <- Nioh3+4032E8 @40330E(100%)  | 404C50:100%
+    0.3%   10%  Nioh3+89500 [699B ]  <- Nioh3+B38A4 @B3FA1(100%)  | 895F2:100%
+    0.3%   33%  Nioh3+A2520 [3267B ]  <- Nioh3+A23E4 @A23FE(100%)  | A2611:100%
+    0.3%    9%  Nioh3+246F50 [318B ]  <- Nioh3+CC490 @CC67B(100%)  | 246FFF:100%
+    0.3%   11%  Nioh3+3E4EE0(leaf?) [0B ]  <- Nioh3+17A1B40 @17BE304(100%)  | 3E4EE0:100%
+    0.3%   10%  Nioh3+504EA0 [772B ]  <- Nioh3+17A1B40 @17E0404(100%)  | 505002:100%
+    0.3%    2%  Nioh3+87CA0(leaf?) [0B ]  <- Nioh3+407098 @4070BE(100%)  | 87CB0:100%
+    0.3%    2%  Nioh3+2229A4 [2287B ]  <- Nioh3+856C20 @856CE5(100%)  | 222CEB:100%
+    0.3%   12%  Nioh3+C5E6F4 [556B ]  <- Nioh3+53B38 @53C62(100%)  | C5E70D:100%
+    0.3%    2%  Nioh3+3EABB4 [2983B ]  <- Nioh3+404780 @404804(100%)  | 3EB1EE:100%
+    0.3%    2%  Nioh3+21D138 [722B ]  <- Nioh3+21CCD8 @21CD36(100%)  | 21D297:100% loop 21D260..21D2D6 (120 B)
+  -- attributed to first Nioh3 frame top 20 --
+   93.0%  Nioh3+1A6BB84
+    0.8%  Nioh3+17A1B40
+    0.8%  Nioh3+246BD0
+    0.5%  Nioh3+CC490
+    0.5%  Nioh3+37D7A0(leaf?)
+    0.5%  Nioh3+53B38
+    0.5%  Nioh3+D1908
+    0.3%  Nioh3+B94230
+    0.3%  Nioh3+411C0
+    0.3%  Nioh3+404780
+    0.3%  Nioh3+89500
+    0.3%  Nioh3+A2520
+    0.3%  Nioh3+246F50
+    0.3%  Nioh3+3E4EE0(leaf?)
+    0.3%  Nioh3+504EA0
+    0.3%  Nioh3+87CA0(leaf?)
+    0.3%  Nioh3+2229A4
+    0.3%  Nioh3+C5E6F4
+    0.3%  Nioh3+3EABB4
+    0.3%  Nioh3+21D138
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   93.0%  ntdll.dll!ZwWaitForSingleObject
+   93.0%  KERNELBASE.dll!WaitForSingleObjectEx
+    7.0%  Nioh3+3FE14
+    6.8%  Nioh3+40800
+    3.7%  Nioh3+404780
+    3.7%  Nioh3+4032E8
+    3.1%  Nioh3+406D10
+    3.1%  Nioh3+84394
+    3.1%  Nioh3+8437C
+    2.6%  Nioh3+37E290
+    2.6%  Nioh3+37E1B0
+    2.6%  Nioh3+37E144
+    2.6%  Nioh3+406CC8
+    2.1%  Nioh3+17A1B40
+    1.6%  Nioh3+CC490
+    1.6%  Nioh3+83E14
+    1.6%  Nioh3+37DAAC
+    1.0%  Nioh3+408094
+    1.0%  Nioh3+4082B4
+    0.8%  Nioh3+53B38
+    0.8%  Nioh3+246BD0
+    0.5%  Nioh3+37D7A0(leaf?)
+    0.5%  Nioh3+B38A4
+    0.5%  Nioh3+856C20
+    0.5%  Nioh3+D1908
+    0.5%  Nioh3+200A48
+
+## Thread 12328  KIDSTS[s66:TS_MESHLET_REQ]3  CPU 4.7%  busy 6%  samples 385  unwound 100%  avg depth 5.1  start=Nioh3+BDB740
+  modules: ntdll.dll 94.8%, Nioh3.exe 5.2%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   94.8%    6%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    4.7%   17%  Nioh3+48E90 [1457B lock]  <- Nioh3+40800 @40E21(100%)  | 49153:38% loop 49150..4915A (12 B) 49108:16% 49266:11% loop 49240..49297 (89 B)
+    0.5%    5%  Nioh3+2515B0(leaf?) [0B ]  <- Nioh3+251554 @251568(100%)  | 2515F3:100% loop 2515F0..2515FE (16 B)
+  -- attributed to first Nioh3 frame top 20 --
+   94.8%  Nioh3+1A6BB84
+    4.7%  Nioh3+48E90
+    0.5%  Nioh3+2515B0(leaf?)
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   94.8%  ntdll.dll!ZwWaitForSingleObject
+   94.8%  KERNELBASE.dll!WaitForSingleObjectEx
+    5.2%  Nioh3+48E90
+    5.2%  Nioh3+40800
+    5.2%  Nioh3+3FE14
+    0.5%  Nioh3+2515B0(leaf?)
+    0.5%  Nioh3+251554
+    0.5%  Nioh3+116A24
+    0.5%  Nioh3+49D5C
+
+## Thread 23620  [App]EffectUpdateThread  CPU 4.1%  busy 6%  samples 414  unwound 100%  avg depth 10.1  start=Nioh3+BDB740
+  modules: ntdll.dll 96.1%, Nioh3.exe 3.9%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   96.1%    6%  ntdll.dll!NtWaitForAlertByThreadId  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(100%)  | 164A14:100%
+    1.2%    4%  Nioh3+CE7E0 [1806B ]  <- Nioh3+C8498 @C8502(100%)  | CE8B2:40% loop CE84C..CE8BC (114 B) CE850:40% CEA4A:20%
+    0.7%    7%  Nioh3+219E80 [844B ]  <- Nioh3+CE79C @CE7AE(100%)  | 219F53:66% loop 219F13..219F90 (127 B) 219F42:33% loop 219F13..219F90 (127 B)
+    0.5%   10%  Nioh3+C73EC [1581B ]  <- Nioh3+C7F4C caseD_d9 @C8230(100%)  | C740E:50% C7477:50%
+    0.2%    4%  Nioh3+C7A7C [1444B ]  <- Nioh3+3D9F64 @3D9FEC(100%)  | C7AE8:100%
+    0.2%    1%  Nioh3+C8958 [1588B ]  <- Nioh3+C8498 @C8502(100%)  | C8C0A:100%
+    0.2%   16%  Nioh3+216BC8 [1332B ]  <- Nioh3+216B34 caseD_ab @216BC5(100%)  | 216D21:100% loop 216CF3..216D52 (97 B)
+    0.2%    6%  Nioh3+6D360 [4017B ]  <- Nioh3+CE174 @CE18D(100%)  | 6D3B2:100%
+    0.2%   18%  Nioh3+D0F48 [453B ]  <- Nioh3+CE7E0 @CE973(100%)  | D0F7B:100%
+    0.2%    2%  Nioh3+D4FF8 [2545B ]  <- Nioh3+D4BC8 @D4C23(100%)  | D5339:100%
+  -- attributed to first Nioh3 frame top 20 --
+   96.1%  Nioh3+B616A4
+    1.2%  Nioh3+CE7E0
+    0.7%  Nioh3+219E80
+    0.5%  Nioh3+C73EC
+    0.2%  Nioh3+C7A7C
+    0.2%  Nioh3+C8958
+    0.2%  Nioh3+216BC8
+    0.2%  Nioh3+6D360
+    0.2%  Nioh3+D0F48
+    0.2%  Nioh3+D4FF8
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A7A774
+  100.0%  Nioh3+5B6670
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   96.1%  ntdll.dll!NtWaitForAlertByThreadId
+   96.1%  ntdll.dll!RtlSleepConditionVariableSRW
+   96.1%  KERNELBASE.dll!SleepConditionVariableSRW
+   96.1%  Nioh3+B616A4
+   96.1%  Nioh3+B618E8
+   96.1%  Nioh3+3D7CC8
+    3.9%  Nioh3+C7A7C
+    3.9%  Nioh3+3D9F64
+    3.9%  Nioh3+3D83BC
+    3.4%  Nioh3+C7F4C caseD_d9
+    2.9%  Nioh3+C8498
+    1.9%  Nioh3+CE7E0
+    1.0%  Nioh3+D1444
+    0.7%  Nioh3+219E80
+    0.7%  Nioh3+CE79C
+    0.7%  Nioh3+CD4D8
+    0.7%  Nioh3+CE73C
+    0.5%  Nioh3+C8958
+    0.5%  Nioh3+C73EC
+    0.2%  Nioh3+216BC8
+    0.2%  Nioh3+216B34 caseD_ab
+    0.2%  Nioh3+6D360
+    0.2%  Nioh3+CE174
+    0.2%  Nioh3+D0F48
+    0.2%  Nioh3+D4FF8
+
+## Thread 26528  [App]GameModeDrawThread  CPU 3.1%  busy 3%  samples 413  unwound 100%  avg depth 10.0  start=Nioh3+BDB740
+  modules: ntdll.dll 98.8%, Nioh3.exe 1.2%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   98.8%    3%  ntdll.dll!NtWaitForAlertByThreadId  <- ntdll.dll!RtlSleepConditionVariableSRW @A298E(100%)  | 164A14:100%
+    0.7%    8%  Nioh3+20B878 [134B ]  <- Nioh3+3973DC @397420(100%)  | 20B8C5:66% loop 20B8C1..20B8E0 (33 B) 20B8CD:33% loop 20B8C1..20B8E0 (33 B)
+    0.5%    3%  Nioh3+133440 [172B Sleep]  <- Nioh3+1333C8 @13342E(100%)  | 13349D:100% loop 133495..1334A3 (16 B)
+  -- attributed to first Nioh3 frame top 20 --
+   98.8%  Nioh3+B616A4
+    0.7%  Nioh3+20B878
+    0.5%  Nioh3+133440
+  -- inclusive top 30 --
+  100.0%  Nioh3+E6FBE0
+  100.0%  Nioh3+5B6670
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   98.8%  ntdll.dll!NtWaitForAlertByThreadId
+   98.8%  ntdll.dll!RtlSleepConditionVariableSRW
+   98.8%  KERNELBASE.dll!SleepConditionVariableSRW
+   98.8%  Nioh3+B616A4
+   98.8%  Nioh3+B618E8
+   98.8%  Nioh3+3D7CC8
+    1.2%  Nioh3+3973DC
+    1.2%  Nioh3+E6FD40
+    0.7%  Nioh3+20B878
+    0.5%  Nioh3+133440
+    0.5%  Nioh3+1333C8
+    0.5%  Nioh3+7C5C2C
+    0.5%  Nioh3+1620EC
+    0.5%  Nioh3+39745C
+    0.5%  Nioh3+39743C
+
+## Thread 8788  KIDSTS[s9:CollisionUpdate]3  CPU 2.0%  busy 6%  samples 316  unwound 100%  avg depth 5.1  start=Nioh3+BDB740
+  modules: ntdll.dll 95.3%, Nioh3.exe 4.7%
+  -- self top 30:  samples%  busy%  function  <- callers (return sites)  [static flags]  hottest RIPs --
+   95.3%    5%  ntdll.dll!ZwWaitForSingleObject  <- KERNELBASE.dll!WaitForSingleObjectEx @1BE9F(100%)  | 160E44:100%
+    1.9%   17%  Nioh3+D80B0 [1605B ]  <- Nioh3+319D5C @319DE1(100%)  | D81BD:50% D8550:16% D82F8:16% loop D82E0..D82F8 (26 B)
+    0.9%   24%  Nioh3+D8B70 [207B ]  <- Nioh3+D89E0 @D8A78(100%)  | D8B7E:100%
+    0.6%    1%  Nioh3+43CEC [901B ]  <- Nioh3+7464BC @7464F0(100%)  | 43F48:100% loop 43F35..43F61 (46 B)
+    0.3%   14%  Nioh3+D8C40(leaf?) [0B ]  <- Nioh3+D80B0 @D827E(100%)  | D8DC0:100% loop D8DB0..D8DC8 (26 B)
+    0.3%   38%  Nioh3+D89E0 [323B ]  <- Nioh3+D80B0 @D8449(100%)  | D8AC0:100%
+    0.3%   55%  Nioh3+168E80(leaf?) [0B ]  <- Nioh3+2D9EE0 caseD_26 @2D9EFA(100%)  | 168E83:100%
+    0.3%   44%  Nioh3+D8700(leaf?) [0B ]  <- Nioh3+D80B0 @D83F9(100%)  | D8770:100% loop D8760..D8778 (26 B)
+  -- attributed to first Nioh3 frame top 20 --
+   95.3%  Nioh3+1A6BB84
+    1.9%  Nioh3+D80B0
+    0.9%  Nioh3+D8B70
+    0.6%  Nioh3+43CEC
+    0.3%  Nioh3+D8C40(leaf?)
+    0.3%  Nioh3+D89E0
+    0.3%  Nioh3+168E80(leaf?)
+    0.3%  Nioh3+D8700(leaf?)
+  -- inclusive top 30 --
+  100.0%  Nioh3+1A6BB84
+  100.0%  Nioh3+BDB740
+  100.0%  KERNEL32.DLL!BaseThreadInitThunk
+  100.0%  ntdll.dll!RtlUserThreadStart
+   95.3%  ntdll.dll!ZwWaitForSingleObject
+   95.3%  KERNELBASE.dll!WaitForSingleObjectEx
+    4.7%  Nioh3+40800
+    4.7%  Nioh3+3FE14
+    4.1%  Nioh3+D80B0
+    4.1%  Nioh3+319D5C
+    1.6%  Nioh3+D89E0
+    1.3%  Nioh3+D8B70
+    0.6%  Nioh3+43CEC
+    0.6%  Nioh3+7464BC
+    0.3%  Nioh3+D8C40(leaf?)
+    0.3%  Nioh3+168E80(leaf?)
+    0.3%  Nioh3+2D9EE0 caseD_26
+    0.3%  Nioh3+D8700(leaf?)
+

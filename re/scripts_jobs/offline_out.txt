@@ -1,0 +1,122 @@
+
+
+jobs_live.fsx(426,66): info FS3886: This list expression contains a single tuple element. Did you mean to use ';' instead of ',' to separate list elements?
+
+
+
+jobs_live.fsx(743,29): info FS3886: This list expression contains a single tuple element. Did you mean to use ';' instead of ',' to separate list elements?
+
+dump: C:\Users\Ahmad Hamza\nioh3-engine\re\Nioh3.dump.exe (raw offset == RVA)
+site bytes vs dump:
+  WK      40A4C  MATCH     49 8B 8F 40 04 00 00
+  WCa   1FE300B  MATCH     41 83 FB 20
+  WCb   1FE3011  MATCH     B0 20
+  P12   1FE30D5  MATCH     41 83 FB 0C
+WK site decodes as `mov rcx,[r15+440h]`, next 40A53: [ok]
+WK skip target 40B10: `mov rax,[rsp+0C0h]; mov [rax],sil` -> 40B1B [ok]
+WK: esi is zeroed at 40A12 and not written before 40A4C (skip path stores sil=0 into *param_3): [ok]
+WK cave @dummy 7FF755210000: 321 bytes (data C0h, code 129)
+  00007FF7552100C0  pushf
+  00007FF7552100C1  push rax
+  00007FF7552100C2  push rdx
+  00007FF7552100C3  push r8
+  00007FF7552100C5  push r9
+  00007FF7552100C7  cmp dword [rip-0CEh],0
+  00007FF7552100CE  je short 00007FF755210132h
+  00007FF7552100D0  mov rax,[r15+440h]
+  00007FF7552100D7  mov r8d,[rax+28h]
+  00007FF7552100DB  mov rax,[rax+10h]
+  00007FF7552100DF  test r8d,r8d
+  00007FF7552100E2  jle short 00007FF75521012Ch
+  00007FF7552100E4  mov rdx,[rax+448h]
+  00007FF7552100EB  test rdx,rdx
+  00007FF7552100EE  je short 00007FF755210101h
+  00007FF7552100F0  mov r9d,[rdx]
+  00007FF7552100F3  or r9d,[rdx+4]
+  00007FF7552100F7  or r9d,[rdx+8]
+  00007FF7552100FB  or r9d,[rdx+0Ch]
+  00007FF7552100FF  jne short 00007FF75521012Ch
+  00007FF755210101  add rax,458h
+  00007FF755210107  dec r8d
+  00007FF75521010A  jne short 00007FF7552100E4h
+  00007FF75521010C  inc dword [rip-92h]
+  00007FF755210112  add qword [rsp+28h],0BFh
+  00007FF75521011B  mov qword [rsp+8],0
+  00007FF755210124  pop r9
+  00007FF755210126  pop r8
+  00007FF755210128  pop rdx
+  00007FF755210129  pop rax
+  00007FF75521012A  popf
+  00007FF75521012B  ret
+  00007FF75521012C  inc dword [rip-0F2h]
+  00007FF755210132  pop r9
+  00007FF755210134  pop r8
+  00007FF755210136  pop rdx
+  00007FF755210137  pop rax
+  00007FF755210138  popf
+  00007FF755210139  mov rcx,[r15+440h]
+  00007FF755210140  ret
+WK patched site: 40A4C  49 8B 8F 40 04 00 00  ->  E8 6F F6 DB 05 66 90
+  00007FF74F450A4C  call 00007FF7552100C0h
+  00007FF74F450A51  xchg ax,ax
+  instruction starts valid in both encodings: ["40A4C"] (40A51 = the call's return address is NOT one; revert checks the cave)
+WK skip path state proof: the cave preserves every register and the flags; vs the stock flag==0 path into 40B1B
+  (r8 is set to 0 = its value on that path); only rax (written at 40B10) and the flags can differ -> must be dead at 40B1B:
+  [ok] rax, flags dead at 40B1B
+  (stock reaches 40B10 the same way when no sleeper is found: 40A9C / 40AFE -> 40B10)
+  keep path: cave restores all registers + flags and executes the original `mov rcx,[r15+440h]`: identical state at 40A53
+WC sites (SizeWorkerPools 1FE2FD4):
+  0000000001FE300B  cmp r11d,8
+  0000000001FE3011  mov al,8
+direct branch/call targets strictly inside the patched ranges (executable sections):
+  none
+ASI patterns (must be unique and point at the site):
+  WK   1 match(es) 40A43 [ok]
+  WCa  1 match(es) 1FE300B [ok]
+  WCb  1 match(es) 1FE300B [ok]
+ASI site entries (patches.json; WC 'new' shown for cap 8 - the loader substitutes imm8 = WorkerCap):
+  {"id": "WK", "group": "WK", "rva": "0x40A4C", "len": 7, "orig": "49 8B 8F 40 04 00 00", "kind": "call", "target": "caveWakeGate", "call_at": 0, "pattern": "45 84 C0 0F 84 ?? ?? ?? ?? 49 8B 8F 40 04 00 00 33 C0 F0 0F B1 71 2C", "offset": 9}
+  {"id": "WCa", "group": "WC", "rva": "0x1FE300B", "len": 4, "orig": "41 83 FB 20", "kind": "bytes", "new": "41 83 FB 08", "pattern": "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", "offset": 0}
+  {"id": "WCb", "group": "WC", "rva": "0x1FE3011", "len": 2, "orig": "B0 20", "kind": "bytes", "new": "B0 08", "pattern": "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", "offset": 6}
+native test 1 (WK cave vs synthetic pools, own process):
+  WK native test: 20000 cases (10376 keep, 9624 skip, 1/8 with the switch off), 0 mismatches; keep: rcx=pool, r8/rdx/r9/CF preserved; skip: rcx/rdx/r9/CF preserved, r8=0; counters exact
+native test 2 (WC: real SizeWorkerPools bytes, original vs patched vs model, own process):
+  original code at 12 logical reproduces the dump's live pool table: true
+  WC native test: 1920 (config x CPU) runs of the real SizeWorkerPools vs the model, 0 mismatches
+  ROG Ally / Z1 Extreme / 8C16T (16 logical):
+    pool                                stock     cap12     cap10      cap8      cap6
+     3 KIDSTaskScheduler                   13        10         8         6         5
+     5 ResourceLoad                         7         7         6         4         3
+     6 StageUpdate                         11         8         6         5         4
+     7 CharacterUpdate                     11         8         6         5         4
+     8 RequestLoad                          8         8         6         5         4
+     9 TrySync                              3         3         3         2         1
+    10 CollisionUpdate                     12         9         7         6         4
+    11 StgGdtUpd                            6         4         3         3         2
+    13 UpdStgEdt                           11         8         6         5         4
+    14 UpdSclEdt                           11         8         6         5         4
+    16 MiscAsync                            3         3         3         2         1
+    48 [App]ProceduralUpdateThread         13        10         8         6         5
+    55 [App]UpdateStageEffectThread          6         4         3         3         2
+    56 [App]EffectUpdateDispThread         12         9         7         6         4
+    SUM weighted thread pools             127        99        78        63        47
+    base (+740h)                           16        12        10         8         6
+  Steam Deck (8 logical) and 7600X (12 logical):
+    pool                                 Deck     7600X 7600X+P12 7600Xcap8  cap8+P12
+     3 KIDSTaskScheduler                    3         7        10         3         6
+     5 ResourceLoad                         3         4         7         3         4
+     6 StageUpdate                          6         8         8         5         5
+     7 CharacterUpdate                      5         8         8         5         5
+     8 RequestLoad                          5         8         8         5         5
+     9 TrySync                              2         3         3         2         2
+    10 CollisionUpdate                      6         9         9         6         6
+    11 StgGdtUpd                            3         4         4         3         3
+    13 UpdStgEdt                            5         8         8         5         5
+    14 UpdSclEdt                            5         8         8         5         5
+    16 MiscAsync                            2         3         3         2         2
+    48 [App]ProceduralUpdateThread          6        10        10         6         6
+    55 [App]UpdateStageEffectThread          3         4         4         3         3
+    56 [App]EffectUpdateDispThread          6         9         9         6         6
+    SUM weighted thread pools              60        93        99        59        63
+    base (+740h)                            8        12        12         8         8
+OFFLINE CHECKS: ALL PASSED

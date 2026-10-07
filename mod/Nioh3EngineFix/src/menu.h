@@ -1,0 +1,72 @@
+// menu.h - in-game mod menu of Nioh3EngineFix (keyboard F10 / controller hold-Start), drawn by the OSD (osd.cpp).
+//
+// Threads:
+//   * dllmain's Worker calls Configure() once, after the patches are applied.
+//   * osd's install thread calls InstallInputHooks() once the Present hook is in place.
+//   * the game's input thread runs our XInputGetState IAT hook and the DirectInput GetDeviceState hook: they only
+//     record button edges, detect the open gesture and blank the game's view of the pad / navigation keys while the
+//     menu is open (plus until the buttons are released after closing).
+//   * the Present hook thread (osd.cpp, under the osd lock) runs OnPresent() + Draw(): all menu state changes and
+//     every runtime switch write happen there.
+// Fail-safe: any exception in a hook disables the menu (the hooks keep passing through), and the input hooks
+// stop blanking by themselves when the overlay has not presented for 1.5 s.
+// See notes\osd-design.md section 10.
+#pragma once
+#include <cstdint>
+
+struct tagMSG;
+
+namespace menu {
+
+enum class FixState : uint8_t { Installed, NotInstalled, WineSkipped };
+
+struct Host {
+    const char* version = "";
+    void (*log)(const char* fmt, ...) = nullptr;
+    const wchar_t* iniPath = nullptr;             // copied
+    uint8_t* base = nullptr;                      // Nioh3.exe
+    bool knownBuild = false;                      // v2.02: engine reads (pause flags) only then
+    bool wine = false;
+    // live switches (nullptr = the fix is not installed this session)
+    volatile uint32_t* vrrEnable = nullptr;       // caves.asm vrr_enable
+    volatile long* w3Enable = nullptr;            // g_w3Enable
+    volatile long* w3UseSleep = nullptr;          // g_w3UseSleep (Wine sleep mode)
+    volatile uint32_t* r1Timeout = nullptr;       // near page r1Timeout (ms, 0 = stock poll)
+    uint32_t r1Default = 2;                       // [Tuning] R1_TimeoutMs at launch
+    volatile long* l1Enable = nullptr;            // g_l1Enable
+    volatile long* fgEnable = nullptr;            // g_fgEnable
+    volatile uint32_t* wkEnable = nullptr;        // caves.asm wk_enable
+    FixState l1 = FixState::NotInstalled, f1 = FixState::NotInstalled;
+    // counters (stats line)
+    volatile long* w3Count = nullptr;
+    volatile long* l1Count = nullptr;
+    volatile long* fgCount = nullptr;
+    volatile uint32_t* wkKept = nullptr;
+    volatile uint32_t* wkSkipped = nullptr;
+    // boot-time values the game was launched with ("applies next launch" items)
+    int workerCap = 0, p12 = 0, l1OnWine = 0, fgOnWine = 0;
+};
+
+// dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.
+void Configure(const Host& h);
+// true when [Menu] Enabled=1 (the OSD then installs its Present hook even with the counter and popup off)
+bool Enabled();
+// osd install thread, after the Present hook is installed: hooks XInputGetState (game IAT) and DirectInput
+// GetDeviceState (shared vtable); falls back to own polling for whatever could not be hooked.
+void InstallInputHooks();
+// osd: the overlay could not be installed - the menu stays off
+void Disable(const char* why);
+
+// ---- Present-hook thread only (under the osd lock) ----
+// input processing, gesture handling, runtime switch writes; once per hooked Present that is about to draw
+void OnPresent();
+// appends the menu / pause hint / hold indicator quads through osd::DrawRect/DrawText. Returns the text scale the
+// quads were laid out for (0 = nothing drawn); osd draws them with that scale.
+float Draw(unsigned W, unsigned H);
+bool IsOpen();
+
+// ---- W3 hookPeek (game's message thread): swallow the menu key (keeps Windows from entering the F10 system-menu
+// mode) and, while the menu is open, the navigation keys. Only WM_KEY*/WM_SYSKEY* are looked at.
+bool SwallowMessage(const tagMSG* m);
+
+}  // namespace menu

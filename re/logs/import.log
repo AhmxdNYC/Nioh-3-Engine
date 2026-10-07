@@ -1,0 +1,502 @@
+2026-10-06 13:37:34 INFO  (LoggingInitialization) Using log config file: jar:file:/C:/Users/Ahmad%20Hamza/ghidra/ghidra_12.1.4_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-10-06 13:37:34 INFO  (LoggingInitialization) Using log file: C:\Users\Ahmad Hamza\nioh3-engine\re\logs\import.log  
+2026-10-06 13:37:34 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-10-06 13:37:34 INFO  (Preferences) Loading user preferences: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\preferences  
+2026-10-06 13:37:34 INFO  (ClassSearcher) Searching for classes...  
+2026-10-06 13:37:35 INFO  (ClassSearcher) Class search complete (856 ms)  
+2026-10-06 13:37:35 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-10-06 13:37:35 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-10-06 13:37:35 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-10-06 13:37:35 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-10-06 13:37:35 INFO  (FileCacheMaintenanceDaemon) Starting cache cleanup: C:\Users\Ahmad Hamza\AppData\Local\ghidra\fscache2  
+2026-10-06 13:37:35 INFO  (FileCacheMaintenanceDaemon) Finished cache cleanup, estimated storage used: 0  
+2026-10-06 13:37:35 INFO  (AnalyzeHeadless) Headless startup complete (2802 ms)  
+2026-10-06 13:37:35 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-10-06 13:37:36 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    C:\Users\Ahmad Hamza\nioh3-engine\re\scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra_scripts
+    C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts  
+2026-10-06 13:37:36 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-10-06 13:37:36 INFO  (HeadlessAnalyzer) Creating project: C:\Users\Ahmad Hamza\nioh3-engine\re\ghidra_proj\Nioh3  
+2026-10-06 13:37:36 INFO  (DefaultProject) Creating project: C:\Users\Ahmad Hamza\nioh3-engine\re\ghidra_proj\Nioh3  
+2026-10-06 13:37:36 INFO  (HeadlessAnalyzer) REPORT: Processing input files:   
+2026-10-06 13:37:36 INFO  (HeadlessAnalyzer)      project: C:\Users\Ahmad Hamza\nioh3-engine\re\ghidra_proj\Nioh3  
+2026-10-06 13:37:36 INFO  (HeadlessAnalyzer) IMPORTING: file:///C:/Users/Ahmad Hamza/nioh3-engine/re/Nioh3.dump.exe  
+2026-10-06 13:37:37 INFO  (ProgramLoader) Using Loader: Portable Executable (PE)  
+2026-10-06 13:37:37 INFO  (ProgramLoader) Using Language/Compiler: x86:LE:64:default:windows  
+2026-10-06 13:37:37 INFO  (ProgramLoader) Using Library Search Path: [., C:\WINDOWS\SysWOW64, C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot\bin, C:\WINDOWS\Sun\Java\bin, C:\WINDOWS\system32, C:\WINDOWS, C:\WINDOWS\System32\Wbem, C:\WINDOWS\System32\WindowsPowerShell\v1.0\, C:\WINDOWS\System32\OpenSSH\, C:\Program Files\dotnet\, C:\Program Files\Git\cmd, C:\Program Files\playit_gg\bin\, C:\Users\Ahmad Hamza\.local\bin, C:\Users\Ahmad Hamza\AppData\Local\Microsoft\WindowsApps, C:\Users\Ahmad Hamza\AppData\Local\Programs\Microsoft VS Code\bin, C:\Users\Ahmad Hamza\AppData\Local\Python\bin, C:\Users\Ahmad Hamza\.dotnet\tools]  
+2026-10-06 13:37:38 INFO  (TLSDirectory) TLS callbacks at 7ff752cf56e8  
+2026-10-06 13:38:06 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:06 INFO  (TLSDirectory) TLS callbacks at 180399b78  
+2026-10-06 13:38:08 INFO  (TLSDirectory) TLS callbacks at 1801bd870  
+2026-10-06 13:38:10 INFO  (TLSDirectory) TLS callbacks at 1801d33c0  
+2026-10-06 13:38:11 INFO  (TLSDirectory) TLS callbacks at 1800aee08  
+2026-10-06 13:38:11 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:11 INFO  (TLSDirectory) TLS callbacks at 1800e5888  
+2026-10-06 13:38:11 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:12 INFO  (TLSDirectory) TLS callbacks at 1800ae9e0  
+2026-10-06 13:38:12 WARN  (ExportDataDirectory) Invalid or missing function at 1800c2738  
+2026-10-06 13:38:12 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:13 INFO  (TLSDirectory) TLS callbacks at 180632c40  
+2026-10-06 13:38:13 WARN  (ExportDataDirectory) Invalid or missing function at 18071975c  
+2026-10-06 13:38:15 WARN  (ExportDataDirectory) Invalid or missing function at 1800c894c  
+2026-10-06 13:38:15 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:16 INFO  (TLSDirectory) TLS callbacks at 18022f250  
+2026-10-06 13:38:17 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:17 WARN  (ExportDataDirectory) Invalid or missing function at 1800603a4  
+2026-10-06 13:38:17 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:17 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-10-06 13:38:17 WARN  (ExportDataDirectory) Invalid or missing function at 18001460c  
+2026-10-06 13:38:17 INFO  (ProgramLoader) Additional info:
+Loading file:///C:/Users/Ahmad Hamza/nioh3-engine/re/Nioh3.dump.exe?MD5=8abe663d333d38fcd6bc1bca1e9e5ee9...
+------------------------------------------------
+
+Searching 15 paths for library AMD_AGS_X64.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 15 paths for library BCRYPT.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/bcrypt.dll
+Loading file:///C:/Windows/System32/bcrypt.dll?MD5=d6b7fe005405162bc129ebf3ec036da5...
+[bcrypt.dll]: failed to create WEVTResource at 1800284d0: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\bcrypt.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library D3DCOMPILER_47.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/D3DCompiler_47.dll
+Loading file:///C:/Windows/System32/D3DCompiler_47.dll?MD5=f78476bd61be916d629ac603cc77335b...
+Created exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\d3dcompiler_47.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library DBGHELP.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/dbghelp.dll
+Loading file:///C:/Windows/System32/dbghelp.dll?MD5=1b18ea629e10a7af069326d4f90f2a7f...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\dbghelp.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library DINPUT8.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/dinput8.dll
+Loading file:///C:/Windows/System32/dinput8.dll?MD5=712430e0d5a8bff10b9930d5c8d27bd4...
+Created exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\dinput8.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library DXCOMPILER.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 15 paths for library GDI32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/gdi32.dll
+Loading file:///C:/Windows/System32/gdi32.dll?MD5=15928ba7f26cf88a9ce75d713a45ce24...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\gdi32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library HID.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/hid.dll
+Loading file:///C:/Windows/System32/hid.dll?MD5=c57e26afc35342d4d05e8f7910368f10...
+Created exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\hid.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library IMM32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/imm32.dll
+Loading file:///C:/Windows/System32/imm32.dll?MD5=304c1e068240b294c589cf8e999b3c61...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\imm32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library IPHLPAPI.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/IPHLPAPI.DLL
+Loading file:///C:/Windows/System32/IPHLPAPI.DLL?MD5=ebbdd51a2a6665d7e787c4932a0ea84d...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\iphlpapi.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library KERNEL32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/kernel32.dll
+Loading file:///C:/Windows/System32/kernel32.dll?MD5=046e6b86273b9cc2ed367bdcf9c12b44...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\kernel32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library LIBXELL.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 15 paths for library LIBXESS.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 15 paths for library LIBXESS_FG.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 15 paths for library MFPLAT.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/mfplat.dll
+Loading file:///C:/Windows/System32/mfplat.dll?MD5=8521b5f6a6b1d9152fe9a5175bbf44c5...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\mfplat.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library MFREADWRITE.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/mfreadwrite.dll
+Loading file:///C:/Windows/System32/mfreadwrite.dll?MD5=9ebfe0c430b8ec966df82bc4f9b3710a...
+[mfreadwrite.dll]: failed to create WEVTResource at 1800ce978: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\mfreadwrite.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library OLE32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/ole32.dll
+Loading file:///C:/Windows/System32/ole32.dll?MD5=307ac650881c55f4ba2666de9a7191e4...
+[ole32.dll]: failed to create WEVTResource at 180184740: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\ole32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library OLEAUT32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/oleaut32.dll
+Loading file:///C:/Windows/System32/oleaut32.dll?MD5=36de5774ec87b0d53c327ae1f7f103cd...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\oleaut32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library SETUPAPI.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/setupapi.dll
+Loading file:///C:/Windows/System32/setupapi.dll?MD5=6f128d96e658cc62b613ab99738a22a4...
+[setupapi.dll]: failed to create WEVTResource at 18047fe28: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\setupapi.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library SHELL32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/shell32.dll
+Loading file:///C:/Windows/System32/shell32.dll?MD5=aa8575c390922c7a6f00c6ddf4c63538...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\shell32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library SL.INTERPOSER.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 15 paths for library STEAM_API64.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 15 paths for library USER32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/user32.dll
+Loading file:///C:/Windows/System32/user32.dll?MD5=0a96167c4b0625336617aee21c3a7ad1...
+[user32.dll]: failed to create WEVTResource at 1800e7a70: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\user32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library VCOMP140.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/vcomp140.dll
+Loading file:///C:/Windows/System32/vcomp140.dll?MD5=2bf9be45181e00f2747e3b920f5bb3eb...
+Created exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\vcomp140.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library WININET.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/wininet.dll
+Loading file:///C:/Windows/System32/wininet.dll?MD5=a0cef3d25e5e465afd2952a7e049ad0e...
+Created exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\wininet.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library WINMM.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/winmm.dll
+Loading file:///C:/Windows/System32/winmm.dll?MD5=6ec996cd475eac679e62cb9ec054d494...
+[winmm.dll]: failed to create WEVTResource at 180030310: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\winmm.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library WS2_32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/ws2_32.dll
+Loading file:///C:/Windows/System32/ws2_32.dll?MD5=173a92465198d75800463651cfea0ec8...
+[ws2_32.dll]: failed to create WEVTResource at 18006b4b8: Failed to resolve data length for WEVTResource
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\ws2_32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library XAUDIO2_9.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/XAudio2_9.dll
+Loading file:///C:/Windows/System32/XAudio2_9.dll?MD5=76d3eaaf90740e241cfeb37b53229005...
+[XAudio2_9.dll]: failed to create WEVTResource at 1800904b8: Failed to resolve data length for WEVTResource
+Created exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\xaudio2_9.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 15 paths for library XINPUT1_4.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/XInput1_4.dll
+Loading file:///C:/Windows/System32/XInput1_4.dll?MD5=21b465af29840996eef3976388eec11d...
+Using existing exports file: C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\xinput1_4.exports
+Library not saved to project.
+------------------------------------------------
+
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\imm32.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\dbghelp.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\ws2_32.exports
+Applying cached symbols from DINPUT8.DLL
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\xinput1_4.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\iphlpapi.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\winmm.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\kernel32.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\user32.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\gdi32.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\shell32.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\ole32.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\oleaut32.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\vcomp140.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\wininet.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\bcrypt.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\setupapi.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\d3dcompiler_47.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\mfplat.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\mfreadwrite.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\xaudio2_9.exports
+Applying C:\Users\Ahmad Hamza\AppData\Roaming\ghidra\ghidra_12.1.4_PUBLIC\symbols\win64\hid.exports
+Linking the External Programs of 'Nioh3.dump.exe' to imported libraries...
+  [IMM32.DLL] -> not found in project
+  [DBGHELP.DLL] -> not found in project
+  [WS2_32.DLL] -> not found in project
+  [DINPUT8.DLL] -> not found in project
+  [XINPUT1_4.DLL] -> not found in project
+  [AMD_AGS_X64.DLL] -> not found in project
+  [IPHLPAPI.DLL] -> not found in project
+  [WINMM.DLL] -> not found in project
+  [STEAM_API64.DLL] -> not found in project
+  [SL.INTERPOSER.DLL] -> not found in project
+  [LIBXESS.DLL] -> not found in project
+  [LIBXESS_FG.DLL] -> not found in project
+  [LIBXELL.DLL] -> not found in project
+  [KERNEL32.DLL] -> not found in project
+  [USER32.DLL] -> not found in project
+  [GDI32.DLL] -> not found in project
+  [SHELL32.DLL] -> not found in project
+  [OLE32.DLL] -> not found in project
+  [OLEAUT32.DLL] -> not found in project
+  [VCOMP140.DLL] -> not found in project
+  [WININET.DLL] -> not found in project
+  [BCRYPT.DLL] -> not found in project
+  [SETUPAPI.DLL] -> not found in project
+  [D3DCOMPILER_47.DLL] -> not found in project
+  [DXCOMPILER.DLL] -> not found in project
+  [MFPLAT.DLL] -> not found in project
+  [MFREADWRITE.DLL] -> not found in project
+  [XAUDIO2_9.DLL] -> not found in project
+  [HID.DLL] -> not found in project
+------------------------------------------------
+
+  
+2026-10-06 13:38:17 INFO  (HeadlessAnalyzer) IMPORTING: Loaded 0 additional files  
+2026-10-06 13:38:17 INFO  (HeadlessAnalyzer) REPORT: Execute script: N3PreAnalysis.java   
+2026-10-06 13:38:19 INFO  (HeadlessAnalyzer) SCRIPT: C:\Users\Ahmad Hamza\nioh3-engine\re\scripts\N3PreAnalysis.java  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Scalar Operand References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Variadic Function Signature Override = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Relocation Table Guide = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Shared Return Calls.Allow Conditional Jumps = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT PDB Universal = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Allow Offcut References = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Unicode String References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Parameter ID.Analysis Decompiler Timeout (sec) = 60  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function ID.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT PDB Universal.Import Source Line Info = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Disassemble Entry Points.Respect Execute Flag = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Aggressive Instruction Finder = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Address Table Minimum Size = 2  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.Minimum String Length = LEN_5  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT PDB Universal.Search untrusted symbol servers = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Minimum String Length = 5  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function ID = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Non-Returning Functions - Known.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Ascii String References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Relocation Table Guide = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Variadic Function Signature Override.Create Analysis Bookmarks = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function Start Search = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Stack.Max Threads = 2  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Min absolute reference = 4  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Address Table Alignment = 1  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Parameter ID = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Non-Returning Functions - Discovered.Repair Flow Damage = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Apply Data Archives.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT WindowsPE x86 Propagate External Parameters = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.References to Pointers = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Apply Data Archives.Archive Chooser = [Auto-Detect]  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Non-Returning Functions - Discovered = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Apply Data Archives.User Project Archive Path =   
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Relocation Table Guide = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Address Table Alignment = 1  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Align End of Strings = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function ID.Always Apply FID Labels = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Apply Data Archives = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.Create Strings Containing Existing Strings = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Create Address Tables = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.Force Model Reload = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function ID.Multiple Match Threshold = 30.0  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Function parameter/return Pointer analysis = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Ascii String References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Respect Execute Flag = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT PDB MSDIA.Search untrusted symbol servers = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Subroutine References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function ID.Instruction Count Threshold = 14.6  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Shared Return Calls = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Condense Filler Bytes = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Subroutine References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Create Data from pointer = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.Create Strings Containing References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Disassemble Entry Points = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Aggressive Instruction Finder.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Shared Return Calls.Assume Contiguous Functions Only = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Switch Table References = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Condense Filler Bytes.Filler Value = Auto  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Stack.Create Local Variables = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Call Convention ID.Analysis Decompiler Timeout (sec) = 60  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Address Table Minimum Size = 2  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Table Alignment = 4  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Unicode String References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Embedded Media.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Parameter ID.Prototype Evaluation = __fastcall  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.String Start Alignment = ALIGN_1  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Parameter ID.Analysis Clear Level = ANALYSIS  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Scalar Operand References.Relocation Table Guide = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Switch Analysis.Analysis Decompiler Timeout (sec) = 60  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.Require Null Termination for String = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Parameter ID.Commit Data Types = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Trust values read from writable memory = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Minimum Table Size = 2  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.References to Pointers = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Non-Returning Functions - Discovered.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Pointer Alignment = 1  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT External Entry References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Respect Execute Flag = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Require pointer param data type = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.String end alignment = 4  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT PDB MSDIA = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Stored Value Pointer analysis = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Non-Returning Functions - Known = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Stack = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Align End of Strings = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Non-Returning Functions - Discovered.Function Non-return Threshold = 3  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Subroutine References = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Subroutine References.Create Thunks Early = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Call Convention ID = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT WindowsResourceReference.Create Analysis Bookmarks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.Search Only in Accessible Memory Blocks = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Create Address Tables = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT ASCII Strings.Model File = StringModel.sng  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Speculative reference max = 256  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Embedded Media = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Reference.Switch Table References = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Data Reference.Minimum String Length = 5  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Max Threads = 2  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT WindowsResourceReference = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Minimum Pointer Address = 4132  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Switch Analysis = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Decompiler Parameter ID.Commit Void Return Values = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function Start Search.Search Data Blocks = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT x86 Constant Reference Analyzer.Speculative reference min = 1024  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Call-Fixup Installer = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Auto Label Table = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Create Address Tables.Maxmimum Pointer Distance = 16777215  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Stack.Create Param Variables = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Demangler Microsoft = true  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Function Start Search.Bookmark Functions = false  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> OPT Condense Filler Bytes.Minimum number of sequential bytes = 1  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> DISABLED Decompiler Parameter ID  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> DISABLED x86 Constant Reference Analyzer  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> DISABLED Aggressive Instruction Finder  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> DISABLED Embedded Media  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> DISABLED Condense Filler Bytes  
+2026-10-06 13:38:19 INFO  (GhidraScript) N3PreAnalysis.java> DISABLED Scalar Operand References  
+2026-10-06 13:38:19 INFO  (HeadlessAnalyzer) ANALYZING all memory and code: file:///C:/Users/Ahmad Hamza/nioh3-engine/re/Nioh3.dump.exe  
+2026-10-06 13:38:19 WARN  (NoReturnFunctionAnalyzer) Ignoring leading '_' chars on no-return name '___raise_securityfailure' specified in file: C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\Base\data\PEFunctionsThatDoNotReturn  
+2026-10-06 13:38:19 WARN  (NoReturnFunctionAnalyzer) Ignoring leading '_' chars on no-return name '___report_rangecheckfailure' specified in file: C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\Base\data\PEFunctionsThatDoNotReturn  
+2026-10-06 13:38:19 INFO  (PdbUniversalAnalyzer) Skipping PDB processing: missing PDB information in program metadata  
+2026-10-06 13:45:49 WARN  (DecompileCallback) Decompiling 7ff74f4c6c10: Unable to read bytes at ram:1000000000000  
+2026-10-06 13:45:57 WARN  (DecompileCallback) Decompiling 7ff7522607d4: Unable to read bytes at ram:00000201  
+2026-10-06 13:45:57 WARN  (DecompileCallback) Decompiling 7ff7522607d4, pcode error at 7ff7534a782a: Unable to resolve constructor at 7ff7534a782a  
+2026-10-06 13:45:57 WARN  (DecompileCallback) Decompiling 7ff7522607d4, pcode error at 7ff7534a787c: Unable to resolve constructor at 7ff7534a787c  
+2026-10-06 13:46:07 WARN  (DecompileCallback) Decompiling 7ff74f66c510: Unable to read bytes at ram:7ff756470504  
+2026-10-06 13:46:10 WARN  (DecompileCallback) Decompiling 7ff752260488: Unable to read bytes at ram:00000201  
+2026-10-06 13:46:10 WARN  (DecompileCallback) Decompiling 7ff752260488, pcode error at 7ff7534a782a: Unable to resolve constructor at 7ff7534a782a  
+2026-10-06 13:46:10 WARN  (DecompileCallback) Decompiling 7ff752260488, pcode error at 7ff7534a787c: Unable to resolve constructor at 7ff7534a787c  
+2026-10-06 13:46:12 WARN  (DecompileCallback) Decompiling 7ff74f5a9cd4: Unable to read bytes at ram:1000000000000  
+2026-10-06 13:48:05 INFO  (PackedDatabaseCache) Packed database cache: C:\Users\Ahmad Hamza\AppData\Local\ghidra\packed-db-cache  
+2026-10-06 13:48:05 DEBUG (PackedDatabaseCache) Using cached packed database: C:\Users\Ahmad Hamza\ghidra\ghidra_12.1.4_PUBLIC\Ghidra\Features\Base\data\typeinfo\win32\windows_vs12_64.gdt  
+2026-10-06 13:48:07 INFO  (ApplyDataArchiveAnalyzer) Applied data type archive: windows_vs12_64  
+2026-10-06 13:48:09 ERROR (DemangledVariable) Could not create Data at address 7ff75263a070  
+2026-10-06 14:06:08 ERROR (VarnodeContext) VarnodeContext: out of address spaces at @7ff750875ad7 for: RAX-7ff750875ad7  
+2026-10-06 14:06:18 DEBUG (NewFunctionStackAnalysisCmd) Failed to create variable (instruction at 7ff752cef5bd, stack-offset=-8, size=16): Data type does not fit within stack frame constraints (stack offset=-8, size=16  
+2026-10-06 14:06:18 DEBUG (NewFunctionStackAnalysisCmd) Failed to create variable (instruction at 7ff752cef5bd, stack-offset=104, size=16): Data type does not fit within stack frame constraints (stack offset=-8, size=16  
+2026-10-06 14:08:28 DEBUG (NewFunctionStackAnalysisCmd) Failed to create variable (instruction at 7ff75002a4cb, stack-offset=-8, size=16): Data type does not fit within stack frame constraints (stack offset=-8, size=16  
+2026-10-06 14:08:28 DEBUG (NewFunctionStackAnalysisCmd) Failed to create variable (instruction at 7ff75002a4d6, stack-offset=-8, size=16): Data type does not fit within stack frame constraints (stack offset=-8, size=16  
+2026-10-06 14:08:28 DEBUG (NewFunctionStackAnalysisCmd) Failed to create variable (instruction at 7ff75002a4cb, stack-offset=56, size=16): Data type does not fit within stack frame constraints (stack offset=-8, size=16  
+2026-10-06 14:08:28 DEBUG (NewFunctionStackAnalysisCmd) Failed to create variable (instruction at 7ff75002a4d6, stack-offset=56, size=16): Data type does not fit within stack frame constraints (stack offset=-8, size=16  
+2026-10-06 14:08:28 DEBUG (NewFunctionStackAnalysisCmd) Failed to create variable (instruction at 7ff75002a4cb, stack-offset=-8, size=16): Data type does not fit within stack frame constraints (stack offset=-8, size=16  
+2026-10-06 14:10:03 INFO  (AutoAnalysisManager) -----------------------------------------------------
+    ASCII Strings                              2.636 secs
+    Apply Data Archives                        1.629 secs
+    Call Convention ID                         1.346 secs
+    Call-Fixup Installer                       1.272 secs
+    Create Address Tables                      7.584 secs
+    Create Address Tables - One Time         867.468 secs
+    Create Function                            7.566 secs
+    Data Reference                            12.843 secs
+    Decompiler Switch Analysis               230.990 secs
+    Demangler Microsoft                        0.591 secs
+    Disassemble                                0.007 secs
+    Disassemble Entry Points                 275.915 secs
+    External Entry References                  0.006 secs
+    Function ID                               48.403 secs
+    Function Start Search                      2.181 secs
+    Non-Returning Functions - Discovered      89.914 secs
+    Non-Returning Functions - Known            0.279 secs
+    PDB Universal                              0.003 secs
+    Reference                                 10.458 secs
+    Shared Return Calls                       33.729 secs
+    Stack                                    286.176 secs
+    Subroutine References                     20.015 secs
+    WindowsResourceReference                   2.367 secs
+-----------------------------------------------------
+     Total Time   1903 secs
+-----------------------------------------------------
+  
+2026-10-06 14:10:03 INFO  (HeadlessAnalyzer) REPORT: Analysis succeeded for file: file:///C:/Users/Ahmad Hamza/nioh3-engine/re/Nioh3.dump.exe  
+2026-10-06 14:10:05 INFO  (LocalFileSystem) /Nioh3.dump.exe: file created (AhmadHamza)  
+2026-10-06 14:10:05 INFO  (HeadlessAnalyzer) REPORT: Save succeeded for: /Nioh3.dump.exe (Nioh3:/Nioh3.dump.exe)  
+2026-10-06 14:10:05 INFO  (HeadlessAnalyzer) REPORT: Import succeeded  

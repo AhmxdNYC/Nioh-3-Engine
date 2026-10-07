@@ -1,0 +1,102 @@
+rva	kind	name	signature	description	confidence	source
+0x3c02220	data	KtglTokenHandlerTable	ptr[185]	KTGL command-stream token handler table (185 entries, u16 token id); replayed by SynergisticDispatcherLoop 1A7C3E0 and 495EFC	high	notes/d3d12-submission.md §1
+0x3bd4df0	data	EclTokenHandlerTable	ptr[9]	ExecuteCommandListsThread token table: tok6 ExecuteCommandLists(1 list), tok7 queue Signal, tok8 queue Wait, tok0/3 other queue vfns +0x30/+0x48	high	notes/d3d12-submission.md §1
+0x3c332a8	vtable	SynPsoFlushFunctorVtbl	ptr[1]	one-entry functor vtable (slot0 = SynFlushPsoAndBindings 118604) invoked per draw from SynFlushGfxStateForDraw 1180D0	high	notes/d3d12-submission.md §1
+0x40d4b98	data	GfxDeviceVtbl_PresentSlot	ptr	graphics-device vtable slot holding GfxDevicePresentVfn 5DA94 (slot-0x10 = RenderFrameBegin 4A529C, slot-8 = 4A3334); vtable start not determined	medium	notes/d3d12-submission.md §1
+0x45ce8a0	global	g_DispatcherDrainBusy	u8	last result of DispatcherRingBusy written each iteration of WaitDispatcherDrainSpin 418F40; only referenced there	high	notes/d3d12-submission.md §6 S1
+0x4bd0998	global	g_PresentPreHook	ptr	optional callback called right before swapchain Present (present thread 1A82298 and inline path in 3D62E4); likely latency-marker hook	medium	notes/d3d12-submission.md §1
+0x4bd09a8	global	g_PresentPostHook1	ptr	optional callback after Present returns (1A82298, 3D62E4); likely latency marker	medium	notes/d3d12-submission.md §1
+0x4bd09b0	global	g_PresentPostHook2	ptr	second optional callback after Present returns (1A82298, 3D62E4)	medium	notes/d3d12-submission.md §1
+0x1a7c3e0	function	SynergisticDispatcherLoop	void SynergisticDispatcherLoop(DispatcherRing* ring)	SynergisticDispatcherTask body: WaitForSingleObject(sem, INFINITE), pop 32-B ring item, replay tokens via KtglTokenHandlerTable into SynCtx+0x580 command list, on submit items close list (496078) and hand to ECL ring (4930C8); 60 % CPU, 44 % blocked	high	notes/d3d12-submission.md §1
+0x2eedfa0	function	SynergisticDispatcherThreadEntry	u32 (void* p)	thread entry: SetThreadDescription SynergisticDispatcherTask then SynergisticDispatcherLoop	high	notes/d3d12-submission.md §1
+0x2f144b4	function	ExecuteCommandListsThreadEntry	u32 (void* p)	thread entry: SetThreadDescription ExecuteCommandListsThread then ExecuteCommandListsThreadLoop 1A75970	high	notes/d3d12-submission.md §1
+0x1a75970	function	ExecuteCommandListsThreadLoop	void (EclRing* r)	waits on ECL semaphore, replays ECL token items (EclReplayTokens 4F9054), then EclItemDone 2526E4; 2-4 % CPU mostly kernel	high	notes/d3d12-submission.md §1
+0x4f9054	function	EclReplayTokens	void (ID3D12CommandQueue* q, u16** stream, u8 flag)	replays one ECL item through EclTokenHandlerTable 3BD4DF0	high	notes/d3d12-submission.md §1
+0x4f9214	function	EclTokExecuteCommandList	void (void*, u16** p)	ECL tok6: queue->ExecuteCommandLists(1, &list) (vtbl+0x50); one list per call, ~28 GFX lists per frame	high	notes/d3d12-submission.md §1
+0x4f91c0	function	EclTokQueueSignal	void (void*, u16** p)	ECL tok7: queue->Signal(fence, value) (vtbl+0x70)	high	notes/d3d12-submission.md §1
+0x4f93c8	function	EclTokQueueWait	void (void*, u16** p)	ECL tok8: queue->Wait(fence, value) (vtbl+0x78)	high	notes/d3d12-submission.md §1
+0x2526e4	function	EclItemDone	void (EclRing* r)	after an ECL item: ++completed, ReleaseSemaphore(r+8), --pending	high	notes/d3d12-submission.md §1
+0x2eea344	function	PresentThreadEntry	u32 (void)	thread entry of the (unnamed) present thread -> PresentThreadLoop	high	notes/d3d12-submission.md §1
+0x1a82298	function	PresentThreadLoop	u32 (GfxDevice* d)	waits on GfxDevice+0x7720, calls swapchain(+0x7730)->Present(+0x7738, +0x773C) (vtbl+0x40) between g_PresentPreHook/PostHooks, then clears +0x7728; Present path is SL -> RTSS OSD -> Steam overlay -> dxgi	high	notes/d3d12-submission.md §1, §5
+0x3d62e4	function	GfxDevicePresent	void (GfxDevice* d, PresentParams* p)	end of frame on the main thread: CmdStreamEndFrame 418B94 (final kick + drain spin), ResolveQueryData on list +0x590, back buffer -> PRESENT barrier (115E24 on device+0x10), GfxSubmitFrameCmdList 252758, then either inline Present (+0x3F80 == 0) or wait previous present (7D9E90) + SetEvent to the present thread; stores its QPC duration in +0x7708	high	notes/d3d12-submission.md §1, §5
+0x5da94	function	GfxDevicePresentVfn	void (GfxDevice* d, void* p)	graphics-device vtable method (via thunk 5DA8C): pre-present bookkeeping then tail-jumps to GfxDevicePresent 3D62E4	medium	notes/d3d12-submission.md §1
+0x7d9e90	function	WaitPresentThreadIdle	void (GfxDevice* d)	`while (d+0x7728) Sleep(0)`: waits until the present thread has RETURNED from Present (flag cleared at 1A822D9); 1-6.1 % of main thread; W6 (was SpinWaitFlagSleep0 / SubmitWaitSpin: it waits for the Present thread, not the submit thread)	high	notes/d3d12-submission.md §5
+0x7d9b6c	function	RenderFrameBeginWaitPresent	char (GfxDevice* d)	frame-begin: if +0x3F80 wait WaitPresentThreadIdle, PagePoolFrameUpdate 252510, GetCurrentBackBufferIndex (swapchain +0x4278 vtbl+0x120) -> back-buffer RT from +0x4698[], CmdStreamBeginFrame 7D9C78 (was WaitSubmitThread: it waits for the Present thread)	high	notes/d3d12-submission.md §5
+0x7d9c78	function	CmdStreamBeginFrame	bool (GfxDevice* d, void** backBufferRt, void* p3)	starts the frame's KTGL command stream at +0x3C40 (buffer from +0x2538) with the current back buffer	medium	notes/d3d12-submission.md §5
+0x418b94	function	CmdStreamEndFrame	void (GfxDevice* d)	CmdStreamFinalKick 418C70 then snapshots and clears the per-frame stream stats block +0x3C78..+0x3CF8 into +0x3D00	high	notes/d3d12-submission.md §5
+0x418c70	function	CmdStreamFinalKick	void (GfxDevice* d)	pushes the last stream segment to the dispatcher ring with submit=1 (DispatcherRingPush 25426C), then WaitDispatcherDrainSpin 418F40, then resets the stream pointers	high	notes/d3d12-submission.md §5
+0x418f40	function	WaitDispatcherDrainSpin	void (DispatcherRing* r, void* stats)	pure busy spin (no pause/Sleep) until DispatcherRingBusy returns 0, i.e. the dispatcher has consumed everything; 0.7-2.1 % of main thread; patch S1 adds PAUSE (was MainHot_418F40)	high	notes/d3d12-submission.md §5, §6 S1
+0x418f90	function	DispatcherRingBusy	bool (DispatcherRing* r)	returns write != read (+0x24/+0x28) or inflight (+0x30) > 0	high	notes/d3d12-submission.md §5
+0x25426c	function	DispatcherRingPush	void (DispatcherRing* r, StreamSeg* seg, u8 submit, Stats* s)	push a 32-B item {ctx, begin, end, submit} into the dispatcher ring, lock inc inflight, ReleaseSemaphore	high	notes/d3d12-submission.md §5
+0x254110	function	KtglCmdStreamFlush	void (KtglContext*, int submit)	kick: pushes stream segment [+0x3C48, +0x3C40) to the dispatcher ring at +0x3BE0 (inline ring push + ReleaseSemaphore); called from ~46 draw paths when CmdCountSinceFlush +0x3C74 reaches CmdFlushLimit +0x3C70 and when the buffer is nearly full	high	notes/d3d12-submission.md §5 K1
+0x252758	function	GfxSubmitFrameCmdList	u64 (CmdListRing* r, void* alloc, u8 flag)	closes the current command list (490D5C) and hands all pending lists to the ECL ring (4930C8); used by the present path	high	notes/d3d12-submission.md §1
+0x496078	function	SynCloseCmdList	u64 (SynCtx* c)	flush immediate draws if any, then close the list (490F64 -> 490D5C/4920E0); returns its fence value	high	notes/d3d12-submission.md §1
+0x490d5c	function	CmdListRingClose	u64 (CmdListRing* r, Allocator* a, u8 f)	list->ClearState(NULL) (vtbl+0x58) + Close (vtbl+0x48), assigns ++fence (+0x30), records the ECL token for it, advances the ring	high	notes/d3d12-submission.md §1, §3
+0x4920e0	function	CmdListRingFlushAndRecycle	void (CmdListRing* r, Allocator* a)	submits pending lists to the ECL ring (86F760) and recycles the next list/allocator through allocator vfns +0x10/+0x18 (may wait on its fence; not examined)	medium	notes/d3d12-submission.md §5
+0x4930c8	function	CmdListRingSubmitUpTo	u64 (CmdListRing* r, void* a, u64 fence, u8 f)	hands all pending closed lists up to the given fence value to the ECL ring (EclRingPush 86F760)	high	notes/d3d12-submission.md §1
+0x86f760	function	EclRingPush	void (CmdListRing* r, void* a, void* tokens, u8 f)	pushes one item into the ExecuteCommandListsThread ring (86F828) and ReleaseSemaphore(+0x80)	high	notes/d3d12-submission.md §1
+0x86f828	function	EclRingPushItem	void (Ring* r, void* item)	ring push; blocks (WaitForSingleObject INFINITE) when the ring is full	high	notes/d3d12-submission.md §1
+0x945664	function	CmdListRingSubmitIfBehind	void (CmdListRing* r, void* a, u64 fence, u8 f)	if fence > submitted: close list if needed and submit up to fence; called when descriptor/upload rings run out (118E28, 118C10, 1188AC, 495xxx)	medium	notes/d3d12-submission.md §3
+0x1167d4	function	SynTokDrawIndexed	void (SynCtx* c, u16** p)	tok 0x6A: SynFlushGfxStateForDraw then DrawIndexedInstanced(count, 1, start, 0, 0); ++c+0x548	high	notes/d3d12-submission.md §1
+0x6be12c	function	SynTokDraw	void (SynCtx* c, u16** p)	tok 0x69: state flush then DrawInstanced	high	notes/d3d12-submission.md §1
+0x6eb908	function	SynTokExecuteIndirect	void (SynCtx* c, u16** p)	tok 0x6F: state flush, transition the argument buffer (115E24), ExecuteIndirect	high	notes/d3d12-submission.md §1
+0x58bdc4	function	SynTokDispatch	void (SynCtx* c, u16** p)	tok 0x7E: SynFlushComputeState then Dispatch	high	notes/d3d12-submission.md §1
+0x58be90	function	SynFlushComputeState	void (SynCtx* c, ...)	compute PSO lookup/SetPipelineState (vtbl+0xC8) and SetComputeRootDescriptorTable flushes (4959EC/495414/495764)	high	notes/d3d12-submission.md §1
+0x1180d0	function	SynFlushGfxStateForDraw	bool (SynCtx* c, u32 flags)	before every draw: calls SynPsoFlushFunctor (118604); if c+0xB24 & 0xF dirty: per-RT/DSV state transitions (one ResourceBarrier call each, 118443/118519/118597), OMSetRenderTargets, RSSetViewports, RSSetScissorRects	high	notes/d3d12-submission.md §1, §2
+0x118604	function	SynFlushPsoAndBindings	bool (SynCtx** c)	per draw: CBV/SRV/sampler table flushes (118DA8, 118C10, 118BA0, 1188AC), IASetPrimitiveTopology on change, PSO lookup (119670) + SetPipelineState when dirty (c+0xB24 & 0x20); 5.1 % of the dispatcher	high	notes/d3d12-submission.md §1
+0x118da8	function	SynFlushCbvTables	void (SynCtx* c, void* tables, void* fence)	for each shader stage with dirty CBVs (+0xB70[stage]) and a non-empty table: SynFlushCbvTable 118E28	high	notes/d3d12-submission.md §3
+0x118e28	function	SynFlushCbvTable	void (SynCtx* c, ...)	per dirty CBV: upload-ring alloc (1190C0) + memcpy of the slot shadow (3rd copy of constant data) + CreateConstantBufferView (device +0x8E0 vtbl+0x88); then shader-visible ring alloc (1192B0), CopyDescriptorsSimple(whole table), SetGraphicsRootDescriptorTable (was RenderSubmitHot_118E28)	high	notes/d3d12-submission.md §3, §4
+0x118c10	function	SynFlushSrvTables	void (SynCtx* c, void* tables, void* fence)	for each stage with SRV-table dirty bit (+0x10F0): ring alloc, CopyDescriptorsSimple(table size), SetGraphicsRootDescriptorTable	high	notes/d3d12-submission.md §3
+0x1192b0	function	SynDescRingAlloc	i32 (DescRing* r, u32 n, void* fence, void* out)	allocates n descriptors in a shader-visible ring heap; negative when full (caller then submits via 945664 and retries) (was RenderSubmitHot_1192B0)	medium	notes/d3d12-submission.md §3
+0x115b9c	function	SynBindTextureSampler	void (SynCtx* c, int stage, int slot, Texture* t, ...)	binds SRV+sampler to (stage, slot): skipped if both unchanged; else CopyDescriptorsSimple(1) into staging, dirty bits +0x10F0/+0x1E38, and an immediate state transition to PIXEL/NON_PIXEL_SHADER_RESOURCE via 115E24 (was RenderSubmitHot_115B9C)	high	notes/d3d12-submission.md §2, §3
+0x115de8	function	SynCopyDescriptorSimple1	void (SynCtx* c, D3D12_CPU_DESCRIPTOR_HANDLE dst, D3D12_CPU_DESCRIPTOR_HANDLE src, u32 heapType)	device(+0x8E8)->CopyDescriptorsSimple(1, dst, src, type) (vtbl+0xC0); 2.2 % of the dispatcher	high	notes/d3d12-submission.md §3
+0x115e24	function	SynTransitionResource	void (SynCtx* c, ID3D12Resource* r, u32* curState, u32 newState, u64* stamp, u32 sub)	state-tracked single transition: skips if *curState == newState, else ResourceBarrier(1, TRANSITION) (vtbl+0xD0); 45 callers; 4.4 % of the dispatcher; candidate B1	high	notes/d3d12-submission.md §2
+0x113a0c	function	SynTokUavBarrier	void (SynCtx* c, u16** p)	tok 0x8A: ResourceBarrier(1, UAV, resource from token); one per particle-emitter dispatch	high	notes/d3d12-submission.md §2
+0x1139d4	function	SynUavBarrier	void (SynCtx* c, ID3D12Resource* r)	ResourceBarrier(1, UAV, r)	high	notes/d3d12-submission.md §2
+0x7a728c	function	SynFlushImmediateDraws	void (SynCtx* c)	draws pending immediate-mode geometry (+0x2458 verts): IASetVertexBuffers + IASetIndexBuffer + DrawIndexedInstanced; called first by 88 handlers	high	notes/d3d12-submission.md §1
+0x698eac	function	SynTokSetCbData	void (SynCtx* c, u16** p)	tok 0x66: copies the inline constant blob into the per-slot shadow c+0xD70[slot] (2nd copy) and sets dirty bit c+0xB80	high	notes/d3d12-submission.md §4
+0x242eb8	function	CmdWriteInlineBlobA		main thread: writes tok 0x66 (set constant-buffer slot data) + size + memcpy of the CPU constant buffer into the stream (1st copy; later copied twice more by 698EAC and 118E28)	high	notes/d3d12-submission.md §4
+0x119820	function	SynPsoCacheLookup		B-tree lookup with 128-byte memcmp keys used by the PSO resolve path under 118604 (was RenderSubmitHot_119820; aka state-object cache in worker-threads.md)	medium	notes/d3d12-submission.md §1
+0x116260	function	SynTokSetVertexBuffers	void (SynCtx* c, u16** p)	tok 0x3C: transitions + IASetVertexBuffers (was RenderSubmitHot_116260)	high	notes/d3d12-submission.md §1
+0x114a20	function	SynTokSetIndexBuffer	void (SynCtx* c, u16** p)	tok 0x3D: IASetIndexBuffer + transition (was RenderSubmitHot_114A20)	high	notes/d3d12-submission.md §1
+0x418f68	label	WaitDispatcherDrainSpin_PauseSite		patch S1 (17 B): 88 05 32 59 1B 04 0F B6 05 2B 59 1B 04 84 C0 75 E7 -> 88 05 32 59 1B 04 84 C0 74 07 F3 90 EB EA 0F 1F 00 (adds PAUSE); verified offline by re/scripts_d3d12/drainspin_pause.fsx; not applied	high	notes/d3d12-submission.md §6 S1
+0x1d3118	label	DrawSubmit_KickThresholdCmp		cmp CmdCountSinceFlush, CmdFlushLimit (+0x3C74 vs +0x3C70) -> KtglCmdStreamFlush every N draws (candidate K1)	high	notes/d3d12-submission.md §5 K1
+0x3d652b	label	GfxDevicePresent_WaitPrevPresent		call WaitPresentThreadIdle before handing the next Present to the present thread	high	notes/d3d12-submission.md §5
+0x7d9b91	label	RenderFrameBegin_WaitPresentDone		frame-begin call of WaitPresentThreadIdle (the 1-6 % main-thread wait, candidates P1/P2)	high	notes/d3d12-submission.md §5
+0x1a822cf	label	PresentThread_PresentCall		call swapchain->Present (vtbl+0x40) on the present thread	high	notes/d3d12-submission.md §1
+0x10	struct_field	GfxDevice::SynCtx	u8[0x570]	embedded dispatcher context (SynCtx) passed to all token handlers	high	notes/d3d12-submission.md §1
+0x3be0	struct_field	GfxDevice::DispatcherRing	ptr	dispatcher ring (sem +0x10, items +0x18, cap +0x20, write +0x24, read +0x28, inflight +0x30, as DispatcherRing at +0x3BE0)	high	notes/d3d12-submission.md §5
+0x3f80	struct_field	GfxDevice::PresentThreadEnabled	u8	1 = Present runs on the present thread (1A82298), 0 = inline in GfxDevicePresent	high	notes/d3d12-submission.md §5
+0x4270	struct_field	GfxDevice::GfxQueue	ID3D12CommandQueue*	queue used by the ECL path (ExecuteCommandLists/Signal in 4F90DC)	medium	notes/d3d12-submission.md §1
+0x4698	struct_field	GfxDevice::BackBufferRt	ptr[3]	back-buffer render targets indexed by GetCurrentBackBufferIndex	medium	notes/d3d12-submission.md §5
+0x7708	struct_field	GfxDevice::PresentCallQpc	i64	QPC duration of the last GfxDevicePresent call	medium	notes/d3d12-submission.md §1
+0x7720	struct_field	GfxDevice::PresentEvent	HANDLE	auto event that wakes the present thread	high	notes/d3d12-submission.md §1
+0x7728	struct_field	GfxDevice::PresentPending	u8	1 while the present thread owns a Present request; cleared after Present returns	high	notes/d3d12-submission.md §5
+0x7729	struct_field	GfxDevice::PresentThreadQuit	u8	present thread exits when set	high	notes/d3d12-submission.md §1
+0x7730	struct_field	GfxDevice::PresentSwapChain	IDXGISwapChain*	swapchain for the pending Present	high	notes/d3d12-submission.md §1
+0x7738	struct_field	GfxDevice::PresentSyncInterval	u32	SyncInterval for the pending Present	high	notes/d3d12-submission.md §1
+0x773c	struct_field	GfxDevice::PresentFlags	u32	Present flags for the pending Present	high	notes/d3d12-submission.md §1
+0x10	struct_field	DispatcherRing::Semaphore	HANDLE	released once per pushed item	high	notes/d3d12-submission.md §5
+0x18	struct_field	DispatcherRing::Items	ptr	32-byte items {ctx, begin, end, submit}	high	notes/d3d12-submission.md §5
+0x20	struct_field	DispatcherRing::Capacity	u32	item count	high	notes/d3d12-submission.md §5
+0x24	struct_field	DispatcherRing::Write	u32	producer index (lock xadd)	high	notes/d3d12-submission.md §5
+0x28	struct_field	DispatcherRing::Read	u32	consumer index	high	notes/d3d12-submission.md §5
+0x30	struct_field	DispatcherRing::InFlight	u32	items pushed but not finished (lock inc / lock dec)	high	notes/d3d12-submission.md §5
+0x548	struct_field	SynCtx::DrawIndexedCount	u32	incremented per DrawIndexedInstanced	medium	notes/d3d12-submission.md §1
+0x580	struct_field	SynCtx::CmdList	ID3D12GraphicsCommandList*	the open command list all handlers record into	high	notes/d3d12-submission.md §1
+0x588	struct_field	SynCtx::CmdAllocRing	u8[0x18]	allocator side passed with CmdListRing to close/submit	medium	notes/d3d12-submission.md §1
+0x5a0	struct_field	SynCtx::CmdListRing	u8[0x120]	ring of command lists with fence values (+0x10 entries, +0x18 count, +0x20 cur, +0x24/+0x28 pending range, +0x30 fence, +0x38 submitted)	high	notes/d3d12-submission.md §1
+0x6d0	struct_field	SynCtx::FrameFence	u64	fence value used to stamp transitions/ring allocations	low	notes/d3d12-submission.md §3
+0x854	struct_field	SynCtx::CurTopology	i32	last IASetPrimitiveTopology value	high	notes/d3d12-submission.md §1
+0x8e0	struct_field	SynCtx::D3dDeviceCbv	ID3D12Device*	device used for CreateConstantBufferView	high	notes/d3d12-submission.md §3
+0x8e8	struct_field	SynCtx::D3dDevice	ID3D12Device*	device used for CopyDescriptorsSimple	high	notes/d3d12-submission.md §3
+0x938	struct_field	SynCtx::StagingDescIncrement	u32	CBV/SRV/UAV descriptor increment of the staging heap	high	notes/d3d12-submission.md §3
+0x940	struct_field	SynCtx::StagingDescBase	u64	CPU handle base of the per-stage staging tables	high	notes/d3d12-submission.md §3
+0xaf0	struct_field	SynCtx::StageCount	u32	number of shader stages with tables	high	notes/d3d12-submission.md §3
+0xb24	struct_field	SynCtx::DirtyFlags	u32	bit0-3 RT/viewport/scissor dirty, 0x10, 0x20 PSO dirty, 0x10002 depth state	high	notes/d3d12-submission.md §1
+0xb70	struct_field	SynCtx::CbvDirtyMask	u32[8]	per-stage dirty CBV slot bits	high	notes/d3d12-submission.md §3
+0xd70	struct_field	SynCtx::CbSlotShadow	ptr[]	per-slot CPU copy of constant data written by tok 0x66	high	notes/d3d12-submission.md §4
+0x10f0	struct_field	SynCtx::SrvTableDirty	u32	per-stage SRV-table dirty bits	high	notes/d3d12-submission.md §3
+0x1118	struct_field	SynCtx::BoundSrv	u64[]	currently bound SRV descriptor per (stage, slot)	high	notes/d3d12-submission.md §3
+0x1e38	struct_field	SynCtx::SamplerDirty	u32	per-stage sampler-table dirty bits	high	notes/d3d12-submission.md §3
+0x2458	struct_field	SynCtx::ImmVertexCount	u32	pending immediate-mode vertices (flushed by 7A728C)	high	notes/d3d12-submission.md §1

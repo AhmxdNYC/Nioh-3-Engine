@@ -1,0 +1,84 @@
+; ---- Nioh3+875380 .. +8754D2 (pdata fn Some (8868736u, 8869074u))
+  875380  mov     rax,rsp                                   
+  875383  mov     [rax+8],rbx                               
+  875387  mov     [rax+10h],rbp                             
+  87538B  mov     [rax+18h],rsi                             
+  87538F  mov     [rax+20h],rdi                             
+  875393  push    r14                                       
+  875395  push    r15                                       
+  875397  mov     rdi,[rcx]                                 
+  87539A  mov     rsi,r9                                    
+  87539D  mov     r14,[rel 4BD0AC0h]                        
+  8753A4  mov     r11,rdx                                   
+  8753A7  mov     rbx,rcx                                   
+  8753AA  mov     r10d,[rdi+394h]                           
+  8753B1  mov     r15d,[r14+370h]                           
+  8753B8  mov     ebp,r15d                                  
+  8753BB  mov     eax,[rdi+39Ch]                            
+  8753C1  sub     r10d,eax                                  
+  8753C4  imul    ebp,r8d                                   
+  8753C8  cmp     ebp,r10d                                  
+  8753CB  ja      near 00000000008754CEh                    
+  8753D1  mov     r9d,[rsp+38h]                             
+  8753D6  mov     ecx,[rdi+398h]                            
+  8753DC  sub     ecx,[rdi+3A0h]                            
+  8753E2  lea     r10d,[r9+r9]                              
+  8753E6  cmp     r10d,ecx                                  
+  8753E9  ja      near 00000000008754CEh                    
+  8753EF  mov     rcx,[rdi+358h]                            
+  8753F6  xor     edx,edx                                   
+  8753F8  div     r15d                                      
+  8753FB  cmp     byte [r14+368h],0                         
+  875403  mov     r15d,eax                                  
+  875406  je      near 0000000001A2B966h                    
+  87540C  test    r8d,r8d                                   
+  87540F  jne     near 0000000000875499h                    
+  875415  mov     rcx,[rbx]                                 
+  875418  mov     eax,ebp                                   
+  87541A  add     [rcx+358h],rax                            
+  875421  add     [rcx+39Ch],ebp                            
+  875427  mov     rax,[rbx]                                 
+  87542A  mov     rcx,[rax+360h]                            
+  875431  test    r9d,r9d                                   
+  875434  jne     short 0000000000875479h                   
+  875436  mov     ecx,r10d                                  
+  875439  add     rcx,[rax+360h]                            
+  875440  add     [rax+3A0h],r10d                           
+  875447  mov     [rax+360h],rcx                            
+  87544E  mov     al,1                                      
+  875450  mov     rcx,[rbx+8]                               
+  875454  mov     [rcx+14h],r8d                             
+  875458  mov     rcx,[rbx+8]                               
+  87545C  mov     [rcx+18h],r9d                             
+  875460  mov     rbx,[rsp+18h]                             
+  875465  mov     rbp,[rsp+20h]                             
+  87546A  mov     rsi,[rsp+28h]                             
+  87546F  mov     rdi,[rsp+30h]                             
+  875474  pop     r15                                       
+  875476  pop     r14                                       
+  875478  ret                                               
+  875479  mov     rdx,r9                                    
+  87547C  movzx   eax,r15w                                  
+  875480  add     ax,[rsi]                                  
+  875483  lea     rsi,[rsi+4]                               
+  875487  mov     [rcx],ax                                  
+  87548A  lea     rcx,[rcx+2]                               
+  87548E  sub     rdx,1                                     
+  875492  jne     short 000000000087547Ch                   
+  875494  mov     rax,[rbx]                                 
+  875497  jmp     short 0000000000875436h                   
+  875499  mov     edx,r8d                                   
+  87549C  movups  xmm0,[r11]                                
+  8754A0  lea     r11,[r11+28h]                             
+  8754A4  movups  [rcx],xmm0                                
+  8754A7  lea     rcx,[rcx+2Ch]                             
+  8754AB  movups  xmm1,[r11-18h]                            
+  8754B0  movups  [rcx-1Ch],xmm1                            
+  8754B4  movsd   xmm0,[r11-8]                              
+  8754BA  movsd   [rcx-0Ch],xmm0                            
+  8754BF  and     dword [rcx-4],0                           
+  8754C3  sub     rdx,1                                     
+  8754C7  jne     short 000000000087549Ch                   
+  8754C9  jmp     0000000000875415h                         
+  8754CE  xor     al,al                                     
+  8754D0  jmp     short 0000000000875460h                   

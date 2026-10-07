@@ -1,0 +1,4 @@
+﻿G1SFile type ktids: ['0x7bcd279f']
+system 68771 G1S entries
+root 734 G1S entries
+missing: ['7c5acaaff45033f57b4cef0b607ba558', '449cf0aead06d9c5acbdb151ca04522e', 'd787dbd05863368dc49a9e7850622f57', '17149dcafa8138ed066f5fdd69835ce5', '8d25b0cd2d5ab9f33430a464e6d2e547', '0cbad2cb8ef1af92db0c99282aadac83', '5fccb795a4b46b741d1a5d35707b419d', 'a2bd0e861c46e2bad6173e7626f3251f']

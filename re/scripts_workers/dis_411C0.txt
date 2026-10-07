@@ -1,0 +1,251 @@
+; ---- Nioh3+411C0 .. +414F6 (pdata fn Some (266688u, 267510u))
+   411C0  mov     [rsp+8],rbx                               
+   411C5  mov     [rsp+10h],rbp                             
+   411CA  mov     [rsp+18h],rsi                             
+   411CF  mov     [rsp+20h],rdi                             
+   411D4  push    r12                                       
+   411D6  push    r13                                       
+   411D8  push    r14                                       
+   411DA  push    r15                                       
+   411DC  xor     ebx,ebx                                   
+   411DE  mov     eax,edx                                   
+   411E0  cdq                                               
+   411E1  mov     r14d,4                                    
+   411E7  and     edx,1Fh                                   
+   411EA  mov     rdi,rcx                                   
+   411ED  add     eax,edx                                   
+   411EF  mov     r8d,eax                                   
+   411F2  lea     r9d,[rbx+1Fh]                             
+   411F6  and     eax,1Fh                                   
+   411F9  sar     r8d,5                                     
+   411FD  sub     eax,edx                                   
+   411FF  lea     ebp,[rbx+8]                               
+   41202  lea     edx,[rbx+10h]                             
+   41205  lea     r15d,[rbx+2]                              
+   41209  cmp     r8d,r14d                                  
+   4120C  jge     near 0000000001906A8Ah                    
+   41212  mov     r9d,eax                                   
+   41215  test    eax,eax                                   
+   41217  je      short 0000000000041244h                   
+   41219  mov     rcx,[rcx+448h]                            
+   41220  movsxd  rax,r8d                                   
+   41223  lea     r11,[rax*4]                               
+   4122B  xor     eax,eax                                   
+   4122D  lock cmpxchg [rcx+r11],ebx                        
+   41233  mov     r10d,eax                                  
+   41236  mov     ecx,r9d                                   
+   41239  sar     r10d,cl                                   
+   4123C  test    r10d,r10d                                 
+   4123F  jne     short 00000000000412B1h                   
+   41241  inc     r8d                                       
+   41244  cmp     r8d,4                                     
+   41248  jge     short 0000000000041292h                   
+   4124A  mov     r10d,r8d                                  
+   4124D  shl     r10d,5                                    
+   41251  mov     rcx,[rdi+448h]                            
+   41258  movsxd  rax,r8d                                   
+   4125B  lea     r11,[rax*4]                               
+   41263  xor     eax,eax                                   
+   41265  lock cmpxchg [rcx+r11],ebx                        
+   4126B  mov     esi,eax                                   
+   4126D  jne     near 00000000000413E0h                    
+   41273  inc     r8d                                       
+   41276  add     r10d,20h                                  
+   4127A  cmp     r10d,80h                                  
+   41281  jge     short 0000000000041292h                   
+   41283  mov     edx,10h                                   
+   41288  lea     r14d,[rdx-0Ch]                            
+   4128C  lea     r15d,[rdx-0Eh]                            
+   41290  jmp     short 0000000000041251h                   
+   41292  xor     eax,eax                                   
+   41294  mov     rbx,[rsp+28h]                             
+   41299  mov     rbp,[rsp+30h]                             
+   4129E  mov     rsi,[rsp+38h]                             
+   412A3  mov     rdi,[rsp+40h]                             
+   412A8  pop     r15                                       
+   412AA  pop     r14                                       
+   412AC  pop     r13                                       
+   412AE  pop     r12                                       
+   412B0  ret                                               
+   412B1  mov     esi,r8d                                   
+   412B4  shl     esi,5                                     
+   412B7  mov     r13,[rdi+448h]                            
+   412BE  mov     ecx,r9d                                   
+   412C1  shl     r10d,cl                                   
+   412C4  mov     eax,ebx                                   
+   412C6  test    r10w,r10w                                 
+   412CA  mov     ecx,ebx                                   
+   412CC  cmove   ecx,edx                                   
+   412CF  mov     edx,r10d                                  
+   412D2  sar     edx,cl                                    
+   412D4  test    dl,dl                                     
+   412D6  cmove   eax,ebp                                   
+   412D9  add     ecx,eax                                   
+   412DB  mov     eax,r10d                                  
+   412DE  sar     eax,cl                                    
+   412E0  test    al,0Fh                                    
+   412E2  mov     eax,ebx                                   
+   412E4  cmove   eax,r14d                                  
+   412E8  add     ecx,eax                                   
+   412EA  mov     eax,r10d                                  
+   412ED  sar     eax,cl                                    
+   412EF  test    al,3                                      
+   412F1  mov     eax,ebx                                   
+   412F3  cmove   eax,r15d                                  
+   412F7  mov     r15d,1                                    
+   412FD  add     ecx,eax                                   
+   412FF  add     r13,r11                                   
+   41302  sar     r10d,cl                                   
+   41305  not     r10d                                      
+   41308  and     r10d,1                                    
+   4130C  add     ecx,r10d                                  
+   4130F  shl     r15d,cl                                   
+   41312  lea     eax,[rsi+rcx]                             
+   41315  movsxd  rcx,eax                                   
+   41318  mov     rax,[rdi+418h]                            
+   4131F  lea     r14,[rax+rcx*8]                           
+   41323  xor     eax,eax                                   
+   41325  lock cmpxchg [r14],rbx                            
+   4132A  test    rax,rax                                   
+   4132D  je      short 000000000004135Eh                   
+   4132F  movsxd  rcx,eax                                   
+   41332  mov     rdx,rax                                   
+   41335  lea     r10,[r14+rcx*4]                           
+   41339  mov     rcx,[r14+rcx*4+28h]                       
+   4133E  lock cmpxchg [r14],rcx                            
+   41343  cmp     rdx,rax                                   
+   41346  jne     short 000000000004132Ah                   
+   41348  test    rax,rax                                   
+   4134B  je      short 0000000000041361h                   
+   4134D  test    r10,r10                                   
+   41350  je      short 000000000004138Eh                   
+   41352  xchg    rbx,[r10+28h]                             
+   41356  mov     rax,r10                                   
+   41359  jmp     0000000000041294h                         
+   4135E  mov     r10,rbx                                   
+   41361  mov     r12d,r15d                                 
+   41364  mov     ebp,ebx                                   
+   41366  not     r12d                                      
+   41369  mov     ecx,r12d                                  
+   4136C  mov     edx,ebp                                   
+   4136E  and     ecx,ebp                                   
+   41370  mov     eax,ebp                                   
+   41372  lock cmpxchg [r13],ecx                            
+   41378  mov     ebp,eax                                   
+   4137A  cmp     edx,eax                                   
+   4137C  jne     short 0000000000041369h                   
+   4137E  xor     eax,eax                                   
+   41380  lock cmpxchg [r14],rbx                            
+   41385  jne     short 00000000000413C1h                   
+   41387  mov     ebp,8                                     
+   4138C  jmp     short 000000000004134Dh                   
+   4138E  mov     rcx,[rdi+448h]                            
+   41395  xor     eax,eax                                   
+   41397  lock cmpxchg [rcx+r11],ebx                        
+   4139D  mov     edx,10h                                   
+   413A2  mov     r10d,eax                                  
+   413A5  mov     ecx,r9d                                   
+   413A8  sar     r10d,cl                                   
+   413AB  lea     r14d,[rdx-0Ch]                            
+   413AF  lea     r15d,[rdx-0Eh]                            
+   413B3  test    r10d,r10d                                 
+   413B6  je      near 0000000000041241h                    
+   413BC  jmp     00000000000412B7h                         
+   413C1  mov     ecx,ebp                                   
+   413C3  mov     edx,ebp                                   
+   413C5  or      ecx,r15d                                  
+   413C8  mov     eax,ebp                                   
+   413CA  lock cmpxchg [r13],ecx                            
+   413D0  mov     ebp,eax                                   
+   413D2  cmp     edx,eax                                   
+   413D4  je      short 0000000000041387h                   
+   413D6  jmp     short 00000000000413C1h                   
+   413D8  nop     dword [rax+rax]                           
+   413E0  test    si,si                                     
+   413E3  mov     eax,esi                                   
+   413E5  mov     r9d,ebx                                   
+   413E8  mov     r12d,1                                    
+   413EE  cmove   r9d,edx                                   
+   413F2  mov     edx,esi                                   
+   413F4  mov     ecx,r9d                                   
+   413F7  sar     edx,cl                                    
+   413F9  mov     ecx,ebx                                   
+   413FB  test    dl,dl                                     
+   413FD  cmove   ecx,ebp                                   
+   41400  add     ecx,r9d                                   
+   41403  sar     eax,cl                                    
+   41405  test    al,0Fh                                    
+   41407  mov     eax,ebx                                   
+   41409  cmove   eax,r14d                                  
+   4140D  add     ecx,eax                                   
+   4140F  mov     eax,esi                                   
+   41411  sar     eax,cl                                    
+   41413  test    al,3                                      
+   41415  mov     eax,ebx                                   
+   41417  cmove   eax,r15d                                  
+   4141B  mov     r15,[rdi+448h]                            
+   41422  add     ecx,eax                                   
+   41424  add     r15,r11                                   
+   41427  sar     esi,cl                                    
+   41429  not     esi                                       
+   4142B  and     esi,1                                     
+   4142E  add     ecx,esi                                   
+   41430  shl     r12d,cl                                   
+   41433  lea     eax,[r10+rcx]                             
+   41437  movsxd  rcx,eax                                   
+   4143A  mov     rax,[rdi+418h]                            
+   41441  lea     r14,[rax+rcx*8]                           
+   41445  xor     eax,eax                                   
+   41447  lock cmpxchg [r14],rbx                            
+   4144C  test    rax,rax                                   
+   4144F  je      short 0000000000041480h                   
+   41451  movsxd  rcx,eax                                   
+   41454  mov     rdx,rax                                   
+   41457  lea     r9,[r14+rcx*4]                            
+   4145B  mov     rcx,[r14+rcx*4+28h]                       
+   41460  lock cmpxchg [r14],rcx                            
+   41465  cmp     rdx,rax                                   
+   41468  jne     short 000000000004144Ch                   
+   4146A  test    rax,rax                                   
+   4146D  je      short 0000000000041483h                   
+   4146F  test    r9,r9                                     
+   41472  je      short 00000000000414ADh                   
+   41474  xchg    rbx,[r9+28h]                              
+   41478  mov     rax,r9                                    
+   4147B  jmp     0000000000041294h                         
+   41480  mov     r9,rbx                                    
+   41483  mov     ebp,r12d                                  
+   41486  mov     esi,ebx                                   
+   41488  not     ebp                                       
+   4148A  mov     ecx,ebp                                   
+   4148C  mov     edx,esi                                   
+   4148E  and     ecx,esi                                   
+   41490  mov     eax,esi                                   
+   41492  lock cmpxchg [r15],ecx                            
+   41497  mov     esi,eax                                   
+   41499  cmp     edx,eax                                   
+   4149B  jne     short 000000000004148Ah                   
+   4149D  xor     eax,eax                                   
+   4149F  lock cmpxchg [r14],rbx                            
+   414A4  jne     short 00000000000414E0h                   
+   414A6  mov     ebp,8                                     
+   414AB  jmp     short 000000000004146Fh                   
+   414AD  mov     rcx,[rdi+448h]                            
+   414B4  xor     eax,eax                                   
+   414B6  lock cmpxchg [rcx+r11],ebx                        
+   414BC  mov     edx,10h                                   
+   414C1  mov     esi,eax                                   
+   414C3  lea     r14d,[rdx-0Ch]                            
+   414C7  lea     r15d,[rdx-0Eh]                            
+   414CB  je      near 0000000000041273h                    
+   414D1  jmp     00000000000413E0h                         
+   414D6  nop     word [rax+rax]                            
+   414E0  mov     ecx,esi                                   
+   414E2  mov     edx,esi                                   
+   414E4  or      ecx,r12d                                  
+   414E7  mov     eax,esi                                   
+   414E9  lock cmpxchg [r15],ecx                            
+   414EE  mov     esi,eax                                   
+   414F0  cmp     edx,eax                                   
+   414F2  je      short 00000000000414A6h                   
+   414F4  jmp     short 00000000000414E0h                   

@@ -1,0 +1,36 @@
+; ---- Nioh3+3E7CC .. +3E843 (pdata fn Some (255948u, 256067u))
+   3E7CC  mov     [rsp+8],rbx                               
+   3E7D1  mov     [rsp+18h],rbp                             
+   3E7D6  push    rsi                                       
+   3E7D7  push    rdi                                       
+   3E7D8  push    r14                                       
+   3E7DA  sub     rsp,20h                                   
+   3E7DE  mov     rsi,[rcx+8]                               
+   3E7E2  xor     r14d,r14d                                 
+   3E7E5  mov     edi,r14d                                  
+   3E7E8  mov     byte [rsp+48h],1                          
+   3E7ED  xor     eax,eax                                   
+   3E7EF  movzx   ebp,dl                                    
+   3E7F2  mov     rbx,rcx                                   
+   3E7F5  lock cmpxchg [rcx+34h],r14d                       
+   3E7FB  jmp     short 000000000003E827h                   
+   3E7FD  mov     r9d,2                                     
+   3E803  lea     r8,[rsp+48h]                              
+   3E808  cmp     edi,4000h                                 
+   3E80E  mov     rdx,rbx                                   
+   3E811  mov     rcx,rsi                                   
+   3E814  cmovb   r9d,ebp                                   
+   3E818  call    00000000000403A0h                         
+   3E81D  inc     edi                                       
+   3E81F  xor     eax,eax                                   
+   3E821  lock cmpxchg [rbx+34h],r14d                       
+   3E827  cmp     eax,1                                     
+   3E82A  jg      short 000000000003E7FDh                   
+   3E82C  lock dec dword [rbx+34h]                          
+   3E830  mov     rbx,[rsp+40h]                             
+   3E835  mov     rbp,[rsp+50h]                             
+   3E83A  add     rsp,20h                                   
+   3E83E  pop     r14                                       
+   3E840  pop     rdi                                       
+   3E841  pop     rsi                                       
+   3E842  ret                                               

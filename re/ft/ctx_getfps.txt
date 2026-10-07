@@ -1,0 +1,1033 @@
+unknown cmd
+-- A724E
+  000A724E  E841F3F9FF               call R_46594
+  000A7253  448BC0                   mov r8d,eax
+  000A7256  0F57C0                   xorps xmm0,xmm0
+  000A7259  450F57C0                 xorps xmm8,xmm8
+  000A725D  F3490F2AC0               cvtsi2ss xmm0,r8
+  000A7262  410F2EC0                 ucomiss xmm0,xmm8
+  000A7266  7A0A                     jp short R_A7272
+-- B1195
+  000B1195  E8FA53F9FF               call R_46594
+  000B119A  442164244C               and [rsp+4Ch],r12d
+  000B119F  488D9310010000           lea rdx,[rbx+110h]
+  000B11A6  F30F1002                 movss xmm0,[rdx]
+  000B11AA  0F57D2                   xorps xmm2,xmm2
+  000B11AD  F30F5C8300020000         subss xmm0,[rbx+200h]
+  000B11B5  F30F104A04               movss xmm1,[rdx+4]
+-- EFAF7
+  000EFAF7  E8986AF5FF               call R_46594
+  000EFAFC  488B0D2DA34C04           mov rcx,[rel R_45B9E30]
+  000EFB03  0F57C9                   xorps xmm1,xmm1
+  000EFB06  448BC0                   mov r8d,eax
+  000EFB09  BAC0080000               mov edx,8C0h
+  000EFB0E  66410F6ED1               movd xmm2,r9d
+  000EFB13  0F5BD2                   cvtdq2ps xmm2,xmm2
+-- FAA09
+  000FAA09  E886BBF4FF               call R_46594
+  000FAA0E  8BC0                     mov eax,eax
+  000FAA10  0F57C9                   xorps xmm1,xmm1
+  000FAA13  F3480F2AC8               cvtsi2ss xmm1,rax
+  000FAA18  F30F59CE                 mulss xmm1,xmm6
+  000FAA1C  F30F5E0D5C96AD03         divss xmm1,[rel R_3BD4080]
+  000FAA24  0F2FCF                   comiss xmm1,xmm7
+-- FAAB9
+  000FAAB9  E8D6BAF4FF               call R_46594
+  000FAABE  8BC0                     mov eax,eax
+  000FAAC0  0F57C9                   xorps xmm1,xmm1
+  000FAAC3  F3480F2AC8               cvtsi2ss xmm1,rax
+  000FAAC8  F30F59CE                 mulss xmm1,xmm6
+  000FAACC  F30F5E0DAC95AD03         divss xmm1,[rel R_3BD4080]
+  000FAAD4  0F2FF9                   comiss xmm7,xmm1
+-- 1271FB
+  001271FB  E894F3F1FF               call R_46594
+  00127200  D1E8                     shr eax,1
+  00127202  443BC8                   cmp r9d,eax
+  00127205  7D07                     jge short R_12720E
+  00127207  32C0                     xor al,al
+  00127209  4883C428                 add rsp,28h
+  0012720D  C3                       ret
+-- 12B614
+  0012B614  E87BAFF1FF               call R_46594
+  0012B619  0F57C0                   xorps xmm0,xmm0
+  0012B61C  448BC0                   mov r8d,eax
+  0012B61F  66410F6EC9               movd xmm1,r9d
+  0012B624  0F5BC9                   cvtdq2ps xmm1,xmm1
+  0012B627  F3490F2AC0               cvtsi2ss xmm0,r8
+  0012B62C  F30F59C1                 mulss xmm0,xmm1
+-- 20E77B
+  0020E77B  E8147EE3FF               call R_46594
+  0020E780  448BC0                   mov r8d,eax
+  0020E783  F3410F59C9               mulss xmm1,xmm9
+  0020E788  B889888888               mov eax,88888889h
+  0020E78D  0F57C0                   xorps xmm0,xmm0
+  0020E790  41F7E0                   mul r8d
+  0020E793  C1EA05                   shr edx,5
+-- 20FF94
+  0020FF94  E8FB65E3FF               call R_46594
+  0020FF99  F30F103DDF409C03         movss xmm7,[rel R_3BD4080]
+  0020FFA1  488D8E98040000           lea rcx,[rsi+498h]
+  0020FFA8  F30F104E40               movss xmm1,[rsi+40h]
+  0020FFAD  0F57C0                   xorps xmm0,xmm0
+  0020FFB0  448BC0                   mov r8d,eax
+  0020FFB3  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 231CAC
+  00231CAC  E8E348E1FF               call R_46594
+  00231CB1  F30F100DC7239A03         movss xmm1,[rel R_3BD4080]
+  00231CB9  0F57C0                   xorps xmm0,xmm0
+  00231CBC  448BD0                   mov r10d,eax
+  00231CBF  4C8983B0010000           mov [rbx+1B0h],r8
+  00231CC6  4C898BB8010000           mov [rbx+1B8h],r9
+  00231CCD  F3490F2AC2               cvtsi2ss xmm0,r10
+-- 231D9B
+  00231D9B  E8F447E1FF               call R_46594
+  00231DA0  F30F100DD8229A03         movss xmm1,[rel R_3BD4080]
+  00231DA8  0F57C0                   xorps xmm0,xmm0
+  00231DAB  448BC0                   mov r8d,eax
+  00231DAE  498BC9                   mov rcx,r9
+  00231DB1  498B01                   mov rax,[r9]
+  00231DB4  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 26EB06
+  0026EB06  E8897ADDFF               call R_46594
+  0026EB0B  F30F100D6D559603         movss xmm1,[rel R_3BD4080]
+  0026EB13  0F57C0                   xorps xmm0,xmm0
+  0026EB16  448BC0                   mov r8d,eax
+  0026EB19  F3490F2AC0               cvtsi2ss xmm0,r8
+  0026EB1E  F30F5EC8                 divss xmm1,xmm0
+  0026EB22  F3440F59C1               mulss xmm8,xmm1
+-- 26FED2
+  0026FED2  E8BD66DDFF               call R_46594
+  0026FED7  448BC0                   mov r8d,eax
+  0026FEDA  0F57C9                   xorps xmm1,xmm1
+  0026FEDD  F3490F2AC8               cvtsi2ss xmm1,r8
+  0026FEE2  0F2ECA                   ucomiss xmm1,xmm2
+  0026FEE5  7A06                     jp short R_26FEED
+  0026FEE7  0F84EC457001             je near R_19744D9
+-- 270D9C
+  00270D9C  E8F357DDFF               call R_46594
+  00270DA1  F30F1015D7329603         movss xmm2,[rel R_3BD4080]
+  00270DA9  0F57C9                   xorps xmm1,xmm1
+  00270DAC  448BC0                   mov r8d,eax
+  00270DAF  488BCB                   mov rcx,rbx
+  00270DB2  F3490F2AC8               cvtsi2ss xmm1,r8
+  00270DB7  F30F5ED1                 divss xmm2,xmm1
+-- 270E28
+  00270E28  E86757DDFF               call R_46594
+  00270E2D  F30F100D4B329603         movss xmm1,[rel R_3BD4080]
+  00270E35  0F57C0                   xorps xmm0,xmm0
+  00270E38  F30F1097A0090000         movss xmm2,[rdi+9A0h]
+  00270E40  448BC0                   mov r8d,eax
+  00270E43  F3490F2AC0               cvtsi2ss xmm0,r8
+  00270E48  F30F5EC8                 divss xmm1,xmm0
+-- 274636
+  00274636  E8591FDDFF               call R_46594
+  0027463B  F30F103D3DFA9503         movss xmm7,[rel R_3BD4080]
+  00274643  0F57F6                   xorps xmm6,xmm6
+  00274646  448BC0                   mov r8d,eax
+  00274649  F3490F2AF0               cvtsi2ss xmm6,r8
+  0027464E  410F2EF5                 ucomiss xmm6,xmm13
+  00274652  7A05                     jp short R_274659
+-- 274878
+  00274878  E8171DDDFF               call R_46594
+  0027487D  448BC0                   mov r8d,eax
+  00274880  0F57D2                   xorps xmm2,xmm2
+  00274883  F3490F2AD0               cvtsi2ss xmm2,r8
+  00274888  410F2ED5                 ucomiss xmm2,xmm13
+  0027488C  7A05                     jp short R_274893
+  0027488E  7503                     jne short R_274893
+-- 27D052
+  0027D052  E83D95DCFF               call R_46594
+  0027D057  448BC0                   mov r8d,eax
+  0027D05A  0F57C9                   xorps xmm1,xmm1
+  0027D05D  F3490F2AC8               cvtsi2ss xmm1,r8
+  0027D062  0F2ECE                   ucomiss xmm1,xmm6
+  0027D065  7A06                     jp short R_27D06D
+  0027D067  7504                     jne short R_27D06D
+-- 27D0A2
+  0027D0A2  E8ED94DCFF               call R_46594
+  0027D0A7  448BC0                   mov r8d,eax
+  0027D0AA  0F57D2                   xorps xmm2,xmm2
+  0027D0AD  F3490F2AD0               cvtsi2ss xmm2,r8
+  0027D0B2  0F2ED6                   ucomiss xmm2,xmm6
+  0027D0B5  7A06                     jp short R_27D0BD
+  0027D0B7  7504                     jne short R_27D0BD
+-- 27D0E9
+  0027D0E9  E8A694DCFF               call R_46594
+  0027D0EE  448BC0                   mov r8d,eax
+  0027D0F1  0F57D2                   xorps xmm2,xmm2
+  0027D0F4  F3490F2AD0               cvtsi2ss xmm2,r8
+  0027D0F9  0F2ED6                   ucomiss xmm2,xmm6
+  0027D0FC  7A06                     jp short R_27D104
+  0027D0FE  7504                     jne short R_27D104
+-- 27D5F7
+  0027D5F7  E8988FDCFF               call R_46594
+  0027D5FC  448BC0                   mov r8d,eax
+  0027D5FF  0F57C9                   xorps xmm1,xmm1
+  0027D602  F3490F2AC8               cvtsi2ss xmm1,r8
+  0027D607  0F2ECE                   ucomiss xmm1,xmm6
+  0027D60A  7A06                     jp short R_27D612
+  0027D60C  7504                     jne short R_27D612
+-- 27EC4D
+  0027EC4D  E84279DCFF               call R_46594
+  0027EC52  F30F101526549503         movss xmm2,[rel R_3BD4080]
+  0027EC5A  0F57C9                   xorps xmm1,xmm1
+  0027EC5D  448BC0                   mov r8d,eax
+  0027EC60  F3490F2AC8               cvtsi2ss xmm1,r8
+  0027EC65  F30F5ED1                 divss xmm2,xmm1
+  0027EC69  F30F5EC2                 divss xmm0,xmm2
+-- 28FD96
+  0028FD96  E8F967DBFF               call R_46594
+  0028FD9B  F30F1015DD429403         movss xmm2,[rel R_3BD4080]
+  0028FDA3  0F57C0                   xorps xmm0,xmm0
+  0028FDA6  448BC0                   mov r8d,eax
+  0028FDA9  F3490F2AC0               cvtsi2ss xmm0,r8
+  0028FDAE  F30F5ED0                 divss xmm2,xmm0
+  0028FDB2  F30F59155A449403         mulss xmm2,[rel R_3BD4214]
+-- 2B2F54
+  002B2F54  E83B36D9FF               call R_46594
+  002B2F59  448BC0                   mov r8d,eax
+  002B2F5C  0F57C9                   xorps xmm1,xmm1
+  002B2F5F  F3490F2AC8               cvtsi2ss xmm1,r8
+  002B2F64  F30F59C8                 mulss xmm1,xmm0
+  002B2F68  0F2FD1                   comiss xmm2,xmm1
+  002B2F6B  0F97C0                   seta al
+-- 2E5BBB
+  002E5BBB  E8D409D6FF               call R_46594
+  002E5BC0  F30F100DB8E48E03         movss xmm1,[rel R_3BD4080]
+  002E5BC8  0F57C0                   xorps xmm0,xmm0
+  002E5BCB  448BC0                   mov r8d,eax
+  002E5BCE  498BC9                   mov rcx,r9
+  002E5BD1  F3490F2AC0               cvtsi2ss xmm0,r8
+  002E5BD6  F30F5EC8                 divss xmm1,xmm0
+-- 2F8F9C
+  002F8F9C  E8F3D5D4FF               call R_46594
+  002F8FA1  F30F100DD7B08D03         movss xmm1,[rel R_3BD4080]
+  002F8FA9  0F57C0                   xorps xmm0,xmm0
+  002F8FAC  448BC0                   mov r8d,eax
+  002F8FAF  F3490F2AC0               cvtsi2ss xmm0,r8
+  002F8FB4  F30F5EC8                 divss xmm1,xmm0
+  002F8FB8  F30F5CD1                 subss xmm2,xmm1
+-- 39670E
+  0039670E  E881FECAFF               call R_46594
+  00396713  F30F101565D98303         movss xmm2,[rel R_3BD4080]
+  0039671B  0F57C9                   xorps xmm1,xmm1
+  0039671E  F30F1083A0000000         movss xmm0,[rbx+0A0h]
+  00396726  448BC0                   mov r8d,eax
+  00396729  F3490F2AC8               cvtsi2ss xmm1,r8
+  0039672E  F30F5ED1                 divss xmm2,xmm1
+-- 3CDB64
+  003CDB64  E82B8AC7FF               call R_46594
+  003CDB69  0F57C0                   xorps xmm0,xmm0
+  003CDB6C  448BC8                   mov r9d,eax
+  003CDB6F  F3490F2AC1               cvtsi2ss xmm0,r9
+  003CDB74  F30F5E0504658003         divss xmm0,[rel R_3BD4080]
+  003CDB7C  F30F59D8                 mulss xmm3,xmm0
+  003CDB80  0F2F1D4D668003           comiss xmm3,[rel R_3BD41D4]
+-- 42D25F
+  0042D25F  E83093C1FF               call R_46594
+  0042D264  F3410F1009               movss xmm1,[r9]
+  0042D269  0F57C0                   xorps xmm0,xmm0
+  0042D26C  448BC0                   mov r8d,eax
+  0042D26F  C644245401               mov byte [rsp+54h],1
+  0042D274  F3490F2AC0               cvtsi2ss xmm0,r8
+  0042D279  F30F5EF0                 divss xmm6,xmm0
+-- 42F100
+  0042F100  E88F74C1FF               call R_46594
+  0042F105  85C0                     test eax,eax
+  0042F107  7418                     je short R_42F121
+  0042F109  F30F1005CF507A03         movss xmm0,[rel R_3BD41E0]
+  0042F111  0F57C9                   xorps xmm1,xmm1
+  0042F114  8BC0                     mov eax,eax
+  0042F116  F3480F2AC8               cvtsi2ss xmm1,rax
+-- 4318B7
+  004318B7  E8D84CC1FF               call R_46594
+  004318BC  448BC0                   mov r8d,eax
+  004318BF  0F57F6                   xorps xmm6,xmm6
+  004318C2  F3490F2AF0               cvtsi2ss xmm6,r8
+  004318C7  E8ACFBCBFF               call R_F1478
+  004318CC  84C0                     test al,al
+  004318CE  0F8518765701             jne near R_19A8EEC
+-- 433A80
+  00433A80  E80F2BC1FF               call R_46594
+  00433A85  448BC0                   mov r8d,eax
+  00433A88  0F57FF                   xorps xmm7,xmm7
+  00433A8B  F3490F2AF8               cvtsi2ss xmm7,r8
+  00433A90  E8E3D9CBFF               call R_F1478
+  00433A95  84C0                     test al,al
+  00433A97  741C                     je short R_433AB5
+-- 435930
+  00435930  E85F0CC1FF               call R_46594
+  00435935  33D2                     xor edx,edx
+  00435937  448BC0                   mov r8d,eax
+  0043593A  8D4278                   lea eax,[rdx+78h]
+  0043593D  41F7F0                   div r8d
+  00435940  4103C2                   add eax,r10d
+  00435943  418981FC030000           mov [r9+3FCh],eax
+-- 436293
+  00436293  E8FC02C1FF               call R_46594
+  00436298  488B5C2468               mov rbx,[rsp+68h]
+  0043629D  448BC0                   mov r8d,eax
+  004362A0  0F57C9                   xorps xmm1,xmm1
+  004362A3  F3490F2AC8               cvtsi2ss xmm1,r8
+  004362A8  F30F5ECB                 divss xmm1,xmm3
+  004362AC  F30F59C8                 mulss xmm1,xmm0
+-- 4362F8
+  004362F8  E89702C1FF               call R_46594
+  004362FD  488B5C2468               mov rbx,[rsp+68h]
+  00436302  448BC0                   mov r8d,eax
+  00436305  0F57C9                   xorps xmm1,xmm1
+  00436308  F3490F2AC8               cvtsi2ss xmm1,r8
+  0043630D  F30F5ECB                 divss xmm1,xmm3
+  00436311  F30F59C8                 mulss xmm1,xmm0
+-- 437EDB
+  00437EDB  E8B4E6C0FF               call R_46594
+  00437EE0  33D2                     xor edx,edx
+  00437EE2  448BC0                   mov r8d,eax
+  00437EE5  8D4278                   lea eax,[rdx+78h]
+  00437EE8  41F7F0                   div r8d
+  00437EEB  018300980600             add [rbx+69800h],eax
+  00437EF1  81BB00980600B4000000     cmp dword [rbx+69800h],0B4h
+-- 438469
+  00438469  E826E1C0FF               call R_46594
+  0043846E  33D2                     xor edx,edx
+  00438470  448BC0                   mov r8d,eax
+  00438473  8D4278                   lea eax,[rdx+78h]
+  00438476  41F7F0                   div r8d
+  00438479  2906                     sub [rsi],eax
+  0043847B  EB06                     jmp short R_438483
+-- 480F20
+  00480F20  E86F56BCFF               call R_46594
+  00480F25  F30F100D53317503         movss xmm1,[rel R_3BD4080]
+  00480F2D  0F57C0                   xorps xmm0,xmm0
+  00480F30  448BC0                   mov r8d,eax
+  00480F33  F3490F2AC0               cvtsi2ss xmm0,r8
+  00480F38  F30F5EC8                 divss xmm1,xmm0
+  00480F3C  F30F5CD1                 subss xmm2,xmm1
+-- 4AFE38
+  004AFE38  E85767B9FF               call R_46594
+  004AFE3D  0F57C0                   xorps xmm0,xmm0
+  004AFE40  448BC0                   mov r8d,eax
+  004AFE43  F3490F2AC0               cvtsi2ss xmm0,r8
+  004AFE48  F30F58C0                 addss xmm0,xmm0
+  004AFE4C  E883E14301               call R_18EDFD4
+  004AFE51  F30F2CC0                 cvttss2si eax,xmm0
+-- 55DC4C
+  0055DC4C  E84389AEFF               call R_46594
+  0055DC51  33D2                     xor edx,edx
+  0055DC53  448BC0                   mov r8d,eax
+  0055DC56  8D4278                   lea eax,[rdx+78h]
+  0055DC59  41F7F0                   div r8d
+  0055DC5C  4103C2                   add eax,r10d
+  0055DC5F  418981F8030000           mov [r9+3F8h],eax
+-- 5AF526
+  005AF526  E86970A9FF               call R_46594
+  005AF52B  69C8E8030000             imul ecx,eax,3E8h
+  005AF531  B889888888               mov eax,88888889h
+  005AF536  F7E1                     mul ecx
+  005AF538  418ACB                   mov cl,r11b
+  005AF53B  C1EA05                   shr edx,5
+  005AF53E  4183785C04               cmp dword [r8+5Ch],4
+-- 5AF682
+  005AF682  E80D6FA9FF               call R_46594
+  005AF687  0F57F6                   xorps xmm6,xmm6
+  005AF68A  448BC0                   mov r8d,eax
+  005AF68D  F3490F2AF0               cvtsi2ss xmm6,r8
+  005AF692  F30F597374               mulss xmm6,[rbx+74h]
+  005AF697  F30F5E3571516203         divss xmm6,[rel R_3BD4810]
+  005AF69F  E8F06EA9FF               call R_46594
+-- 5AF69F
+  005AF69F  E8F06EA9FF               call R_46594
+  005AF6A4  448B4B64                 mov r9d,[rbx+64h]
+  005AF6A8  69D0E8030000             imul edx,eax,3E8h
+  005AF6AE  B889888888               mov eax,88888889h
+  005AF6B3  F7E2                     mul edx
+  005AF6B5  8BFA                     mov edi,edx
+  005AF6B7  C1EF05                   shr edi,5
+-- 5AF6BF
+  005AF6BF  E8D06EA9FF               call R_46594
+  005AF6C4  33D2                     xor edx,edx
+  005AF6C6  448BC0                   mov r8d,eax
+  005AF6C9  8D4278                   lea eax,[rdx+78h]
+  005AF6CC  41F7F0                   div r8d
+  005AF6CF  442BC8                   sub r9d,eax
+  005AF6D2  44894B64                 mov [rbx+64h],r9d
+-- 5C041B
+  005C041B  E87461A8FF               call R_46594
+  005C0420  F30F100D583C6103         movss xmm1,[rel R_3BD4080]
+  005C0428  0F57C0                   xorps xmm0,xmm0
+  005C042B  448BC0                   mov r8d,eax
+  005C042E  F3490F2AC0               cvtsi2ss xmm0,r8
+  005C0433  F30F5EC8                 divss xmm1,xmm0
+  005C0437  F30F588FF8050000         addss xmm1,[rdi+5F8h]
+-- 5F9B46
+  005F9B46  E849CAA4FF               call R_46594
+  005F9B4B  F30F103D2DA55D03         movss xmm7,[rel R_3BD4080]
+  005F9B53  0F57F6                   xorps xmm6,xmm6
+  005F9B56  448BC0                   mov r8d,eax
+  005F9B59  488BCB                   mov rcx,rbx
+  005F9B5C  488B03                   mov rax,[rbx]
+  005F9B5F  F3490F2AF0               cvtsi2ss xmm6,r8
+-- 5F9B78
+  005F9B78  E817CAA4FF               call R_46594
+  005F9B7D  F30F104DDB               movss xmm1,[rbp-25h]
+  005F9B82  0F57C0                   xorps xmm0,xmm0
+  005F9B85  448BC0                   mov r8d,eax
+  005F9B88  F3490F2AC0               cvtsi2ss xmm0,r8
+  005F9B8D  F30F5EC7                 divss xmm0,xmm7
+  005F9B91  F30F59C8                 mulss xmm1,xmm0
+-- 5FB360
+  005FB360  E82FB2A4FF               call R_46594
+  005FB365  BA992D0000               mov edx,2D99h
+  005FB36A  488BCF                   mov rcx,rdi
+  005FB36D  8BD8                     mov ebx,eax
+  005FB36F  E84CD10000               call R_6084C0
+  005FB374  448BC8                   mov r9d,eax
+  005FB377  41BE89888888             mov r14d,88888889h
+-- 5FB812
+  005FB812  E87DADA4FF               call R_46594
+  005FB817  448BC0                   mov r8d,eax
+  005FB81A  0F57C9                   xorps xmm1,xmm1
+  005FB81D  0F28D6                   movaps xmm2,xmm6
+  005FB820  F3490F2AC8               cvtsi2ss xmm1,r8
+  005FB825  F30F5ED1                 divss xmm2,xmm1
+  005FB829  0F2FC2                   comiss xmm0,xmm2
+-- 67B849
+  0067B849  E846AD9CFF               call R_46594
+  0067B84E  8BC0                     mov eax,eax
+  0067B850  0F57C9                   xorps xmm1,xmm1
+  0067B853  F3480F2AC8               cvtsi2ss xmm1,rax
+  0067B858  F30F5EF9                 divss xmm7,xmm1
+  0067B85C  E8D31EE0FF               call R_47D734
+  0067B861  BA73800000               mov edx,8073h
+-- 67B871
+  0067B871  E81EAD9CFF               call R_46594
+  0067B876  8BC0                     mov eax,eax
+  0067B878  0F57C9                   xorps xmm1,xmm1
+  0067B87B  F3480F2AC8               cvtsi2ss xmm1,rax
+  0067B880  F30F5EF1                 divss xmm6,xmm1
+  0067B884  E8AB1EE0FF               call R_47D734
+  0067B889  BAD7640000               mov edx,64D7h
+-- 688945
+  00688945  E84ADC9BFF               call R_46594
+  0068894A  F30F1015D6B75703         movss xmm2,[rel R_3C04128]
+  00688952  488D7B50                 lea rdi,[rbx+50h]
+  00688956  F30F101D22B75403         movss xmm3,[rel R_3BD4080]
+  0068895E  488D4DF7                 lea rcx,[rbp-9]
+  00688962  F30F107DB7               movss xmm7,[rbp-49h]
+  00688967  0F57C0                   xorps xmm0,xmm0
+-- 68B3B3
+  0068B3B3  E8DCB19BFF               call R_46594
+  0068B3B8  F3440F100D778E5403       movss xmm9,[rel R_3BD4238]
+  0068B3C1  0F57C0                   xorps xmm0,xmm0
+  0068B3C4  410F28D2                 movaps xmm2,xmm10
+  0068B3C8  448BC0                   mov r8d,eax
+  0068B3CB  0F28CF                   movaps xmm1,xmm7
+  0068B3CE  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 68B3EE
+  0068B3EE  E8A1B19BFF               call R_46594
+  0068B3F3  0F57C0                   xorps xmm0,xmm0
+  0068B3F6  448BC0                   mov r8d,eax
+  0068B3F9  0F28CF                   movaps xmm1,xmm7
+  0068B3FC  F3490F2AC0               cvtsi2ss xmm0,r8
+  0068B401  F3440F5ED0               divss xmm10,xmm0
+  0068B406  0F28C3                   movaps xmm0,xmm3
+-- 68B502
+  0068B502  E88DB09BFF               call R_46594
+  0068B507  F30F101D718B5403         movss xmm3,[rel R_3BD4080]
+  0068B50F  0F57C0                   xorps xmm0,xmm0
+  0068B512  0F28D3                   movaps xmm2,xmm3
+  0068B515  448BC0                   mov r8d,eax
+  0068B518  0F57C9                   xorps xmm1,xmm1
+  0068B51B  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 68B53B
+  0068B53B  E854B09BFF               call R_46594
+  0068B540  0F57C0                   xorps xmm0,xmm0
+  0068B543  448BC0                   mov r8d,eax
+  0068B546  0F57C9                   xorps xmm1,xmm1
+  0068B549  F3490F2AC0               cvtsi2ss xmm0,r8
+  0068B54E  F30F5ED8                 divss xmm3,xmm0
+  0068B552  0F28C4                   movaps xmm0,xmm4
+-- 68B83E
+  0068B83E  E851AD9BFF               call R_46594
+  0068B843  F30F100D4D905403         movss xmm1,[rel R_3BD4898]
+  0068B84B  E9F9000000               jmp R_68B949
+  0068B850  488B87E0000000           mov rax,[rdi+0E0h]
+  0068B857  83B884AB0000FF           cmp dword [rax+0AB84h],0FFFFFFFFh
+  0068B85E  0F8426010000             je near R_68B98A
+  0068B864  4438B897080000           cmp [rax+897h],r15b
+-- 68B92D
+  0068B92D  E862AC9BFF               call R_46594
+  0068B932  F30F100DDA915403         movss xmm1,[rel R_3BD4B14]
+  0068B93A  EB0D                     jmp short R_68B949
+  0068B93C  E853AC9BFF               call R_46594
+  0068B941  F30F100D578E5703         movss xmm1,[rel R_3C047A0]
+  0068B949  F30F10542440             movss xmm2,[rsp+40h]
+  0068B94F  0F57C0                   xorps xmm0,xmm0
+-- 68B93C
+  0068B93C  E853AC9BFF               call R_46594
+  0068B941  F30F100D578E5703         movss xmm1,[rel R_3C047A0]
+  0068B949  F30F10542440             movss xmm2,[rsp+40h]
+  0068B94F  0F57C0                   xorps xmm0,xmm0
+  0068B952  F30F101D26875403         movss xmm3,[rel R_3BD4080]
+  0068B95A  F30F5CCA                 subss xmm1,xmm2
+  0068B95E  448BC0                   mov r8d,eax
+-- 68BA81
+  0068BA81  E80EAB9BFF               call R_46594
+  0068BA86  F30F100D0A8E5403         movss xmm1,[rel R_3BD4898]
+  0068BA8E  EB42                     jmp short R_68BAD2
+  0068BA90  85D2                     test edx,edx
+  0068BA92  7475                     je short R_68BB09
+  0068BA94  E8FBAA9BFF               call R_46594
+  0068BA99  F30F100D73905403         movss xmm1,[rel R_3BD4B14]
+-- 68BA94
+  0068BA94  E8FBAA9BFF               call R_46594
+  0068BA99  F30F100D73905403         movss xmm1,[rel R_3BD4B14]
+  0068BAA1  EB2F                     jmp short R_68BAD2
+  0068BAA3  83E904                   sub ecx,4
+  0068BAA6  7419                     je short R_68BAC1
+  0068BAA8  413BCD                   cmp ecx,r13d
+  0068BAAB  755C                     jne short R_68BB09
+-- 68BAB2
+  0068BAB2  E8DDAA9BFF               call R_46594
+  0068BAB7  F30F100D29885703         movss xmm1,[rel R_3C042E8]
+  0068BABF  EB11                     jmp short R_68BAD2
+  0068BAC1  85D2                     test edx,edx
+  0068BAC3  7444                     je short R_68BB09
+  0068BAC5  E8CAAA9BFF               call R_46594
+  0068BACA  F30F100DCE8C5703         movss xmm1,[rel R_3C047A0]
+-- 68BAC5
+  0068BAC5  E8CAAA9BFF               call R_46594
+  0068BACA  F30F100DCE8C5703         movss xmm1,[rel R_3C047A0]
+  0068BAD2  F30F10542460             movss xmm2,[rsp+60h]
+  0068BAD8  0F57C0                   xorps xmm0,xmm0
+  0068BADB  F30F101D9D855403         movss xmm3,[rel R_3BD4080]
+  0068BAE3  F30F5CCA                 subss xmm1,xmm2
+  0068BAE7  448BC0                   mov r8d,eax
+-- 68BB73
+  0068BB73  E81CAA9BFF               call R_46594
+  0068BB78  F30F101D00855403         movss xmm3,[rel R_3BD4080]
+  0068BB80  0F57C0                   xorps xmm0,xmm0
+  0068BB83  0F28D3                   movaps xmm2,xmm3
+  0068BB86  448BC0                   mov r8d,eax
+  0068BB89  0F57C9                   xorps xmm1,xmm1
+  0068BB8C  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 68BBAC
+  0068BBAC  E8E3A99BFF               call R_46594
+  0068BBB1  0F57C0                   xorps xmm0,xmm0
+  0068BBB4  448BC0                   mov r8d,eax
+  0068BBB7  0F57C9                   xorps xmm1,xmm1
+  0068BBBA  F3490F2AC0               cvtsi2ss xmm0,r8
+  0068BBBF  F30F5ED8                 divss xmm3,xmm0
+  0068BBC3  0F28C4                   movaps xmm0,xmm4
+-- 6FE3A6
+  006FE3A6  E8E98194FF               call R_46594
+  006FE3AB  448BC0                   mov r8d,eax
+  006FE3AE  488D8DA0000000           lea rcx,[rbp+0A0h]
+  006FE3B5  0F57C9                   xorps xmm1,xmm1
+  006FE3B8  F3490F2AC8               cvtsi2ss xmm1,r8
+  006FE3BD  F30F5EF1                 divss xmm6,xmm1
+  006FE3C1  F30F11742444             movss [rsp+44h],xmm6
+-- 7D4BCD
+  007D4BCD  E8C21987FF               call R_46594
+  007D4BD2  448BC0                   mov r8d,eax
+  007D4BD5  488D542420               lea rdx,[rsp+20h]
+  007D4BDA  0F57C9                   xorps xmm1,xmm1
+  007D4BDD  C744242005000000         mov dword [rsp+20h],5
+  007D4BE5  488D4C2430               lea rcx,[rsp+30h]
+  007D4BEA  F3490F2AC8               cvtsi2ss xmm1,r8
+-- 7D4BFD
+  007D4BFD  E8921987FF               call R_46594
+  007D4C02  448BC0                   mov r8d,eax
+  007D4C05  488D542420               lea rdx,[rsp+20h]
+  007D4C0A  C744242006000000         mov dword [rsp+20h],6
+  007D4C12  488D4C2430               lea rcx,[rsp+30h]
+  007D4C17  0F57C9                   xorps xmm1,xmm1
+  007D4C1A  F3490F2AC8               cvtsi2ss xmm1,r8
+-- 897487
+  00897487  E808F17AFF               call R_46594
+  0089748C  448BC0                   mov r8d,eax
+  0089748F  0F57C0                   xorps xmm0,xmm0
+  00897492  0F28D7                   movaps xmm2,xmm7
+  00897495  F3490F2AC0               cvtsi2ss xmm0,r8
+  0089749A  F30F5ED0                 divss xmm2,xmm0
+  0089749E  F30F58D3                 addss xmm2,xmm3
+-- 897699
+  00897699  E8F6EE7AFF               call R_46594
+  0089769E  F3410F104820             movss xmm1,[r8+20h]
+  008976A4  0F57C0                   xorps xmm0,xmm0
+  008976A7  448BC8                   mov r9d,eax
+  008976AA  0F28D7                   movaps xmm2,xmm7
+  008976AD  F3490F2AC1               cvtsi2ss xmm0,r9
+  008976B2  F30F5ED0                 divss xmm2,xmm0
+-- 897771
+  00897771  E81EEE7AFF               call R_46594
+  00897776  F30F100D02C93303         movss xmm1,[rel R_3BD4080]
+  0089777E  0F57C0                   xorps xmm0,xmm0
+  00897781  448BC0                   mov r8d,eax
+  00897784  498BC9                   mov rcx,r9
+  00897787  F3490F2AC0               cvtsi2ss xmm0,r8
+  0089778C  F30F5EC8                 divss xmm1,xmm0
+-- 8B28B3
+  008B28B3  E8DC3C79FF               call R_46594
+  008B28B8  F30F1015C0173203         movss xmm2,[rel R_3BD4080]
+  008B28C0  0F57C0                   xorps xmm0,xmm0
+  008B28C3  448BC0                   mov r8d,eax
+  008B28C6  F3490F2AC0               cvtsi2ss xmm0,r8
+  008B28CB  F30F5ED0                 divss xmm2,xmm0
+  008B28CF  F30F100509193203         movss xmm0,[rel R_3BD41E0]
+-- 8B34B8
+  008B34B8  E8D73079FF               call R_46594
+  008B34BD  F30F100DBB0B3203         movss xmm1,[rel R_3BD4080]
+  008B34C5  0F57C0                   xorps xmm0,xmm0
+  008B34C8  448BC0                   mov r8d,eax
+  008B34CB  488BCB                   mov rcx,rbx
+  008B34CE  488B03                   mov rax,[rbx]
+  008B34D1  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 8BFB4B
+  008BFB4B  E8446A78FF               call R_46594
+  008BFB50  F30F100D28453103         movss xmm1,[rel R_3BD4080]
+  008BFB58  0F57C0                   xorps xmm0,xmm0
+  008BFB5B  448BC0                   mov r8d,eax
+  008BFB5E  498BC9                   mov rcx,r9
+  008BFB61  F3490F2AC0               cvtsi2ss xmm0,r8
+  008BFB66  F30F5EC8                 divss xmm1,xmm0
+-- 8CF1AC
+  008CF1AC  E8E37377FF               call R_46594
+  008CF1B1  F30F100DC74E3003         movss xmm1,[rel R_3BD4080]
+  008CF1B9  0F57C0                   xorps xmm0,xmm0
+  008CF1BC  448BC0                   mov r8d,eax
+  008CF1BF  498BC9                   mov rcx,r9
+  008CF1C2  F3490F2AC0               cvtsi2ss xmm0,r8
+  008CF1C7  F30F5EC8                 divss xmm1,xmm0
+-- 8D5B77
+  008D5B77  E8180A77FF               call R_46594
+  008D5B7C  F30F100DFCE42F03         movss xmm1,[rel R_3BD4080]
+  008D5B84  0F57C0                   xorps xmm0,xmm0
+  008D5B87  448BC0                   mov r8d,eax
+  008D5B8A  498BC9                   mov rcx,r9
+  008D5B8D  F3490F2AC0               cvtsi2ss xmm0,r8
+  008D5B92  F30F5EC8                 divss xmm1,xmm0
+-- 8F2366
+  008F2366  E8294275FF               call R_46594
+  008F236B  0F57C0                   xorps xmm0,xmm0
+  008F236E  448BC0                   mov r8d,eax
+  008F2371  F3490F2AC0               cvtsi2ss xmm0,r8
+  008F2376  F30F58C0                 addss xmm0,xmm0
+  008F237A  E855BCFF00               call R_18EDFD4
+  008F237F  F30F2CC0                 cvttss2si eax,xmm0
+-- 8F3E98
+  008F3E98  E8F72675FF               call R_46594
+  008F3E9D  F30F1005DB012E03         movss xmm0,[rel R_3BD4080]
+  008F3EA5  0F57C9                   xorps xmm1,xmm1
+  008F3EA8  448BC0                   mov r8d,eax
+  008F3EAB  F3490F2AC8               cvtsi2ss xmm1,r8
+  008F3EB0  F30F5EC1                 divss xmm0,xmm1
+  008F3EB4  4883C428                 add rsp,28h
+-- 901BAE
+  00901BAE  E8E14974FF               call R_46594
+  00901BB3  F30F100DC5242D03         movss xmm1,[rel R_3BD4080]
+  00901BBB  0F57C0                   xorps xmm0,xmm0
+  00901BBE  438B8C8AA4000000         mov ecx,[r10+r9*4+0A4h]
+  00901BC6  448BC0                   mov r8d,eax
+  00901BC9  F3490F2AC0               cvtsi2ss xmm0,r8
+  00901BCE  F30F5EC8                 divss xmm1,xmm0
+-- 90577D
+  0090577D  E8120E74FF               call R_46594
+  00905782  F30F100DF6E82C03         movss xmm1,[rel R_3BD4080]
+  0090578A  0F57C0                   xorps xmm0,xmm0
+  0090578D  448BC0                   mov r8d,eax
+  00905790  498BC9                   mov rcx,r9
+  00905793  F3490F2AC0               cvtsi2ss xmm0,r8
+  00905798  F30F5EC8                 divss xmm1,xmm0
+-- 9057DD
+  009057DD  E8B20D74FF               call R_46594
+  009057E2  F30F100D96E82C03         movss xmm1,[rel R_3BD4080]
+  009057EA  0F57C0                   xorps xmm0,xmm0
+  009057ED  448BC0                   mov r8d,eax
+  009057F0  498BC9                   mov rcx,r9
+  009057F3  F3490F2AC0               cvtsi2ss xmm0,r8
+  009057F8  F30F5EC8                 divss xmm1,xmm0
+-- 905904
+  00905904  E88B0C74FF               call R_46594
+  00905909  F30F100D6FE72C03         movss xmm1,[rel R_3BD4080]
+  00905911  0F57C0                   xorps xmm0,xmm0
+  00905914  448BC0                   mov r8d,eax
+  00905917  498BCA                   mov rcx,r10
+  0090591A  F3490F2AC0               cvtsi2ss xmm0,r8
+  0090591F  F30F5EC8                 divss xmm1,xmm0
+-- 905959
+  00905959  E8360C74FF               call R_46594
+  0090595E  F30F100D1AE72C03         movss xmm1,[rel R_3BD4080]
+  00905966  0F57C0                   xorps xmm0,xmm0
+  00905969  448BC0                   mov r8d,eax
+  0090596C  498BC9                   mov rcx,r9
+  0090596F  F3490F2AC0               cvtsi2ss xmm0,r8
+  00905974  F30F5EC8                 divss xmm1,xmm0
+-- 9059A1
+  009059A1  E8EE0B74FF               call R_46594
+  009059A6  F30F100DD2E62C03         movss xmm1,[rel R_3BD4080]
+  009059AE  0F57C0                   xorps xmm0,xmm0
+  009059B1  448BC0                   mov r8d,eax
+  009059B4  498BC9                   mov rcx,r9
+  009059B7  F3490F2AC0               cvtsi2ss xmm0,r8
+  009059BC  F30F5EC8                 divss xmm1,xmm0
+-- 9059E9
+  009059E9  E8A60B74FF               call R_46594
+  009059EE  F30F100D8AE62C03         movss xmm1,[rel R_3BD4080]
+  009059F6  0F57C0                   xorps xmm0,xmm0
+  009059F9  448BC0                   mov r8d,eax
+  009059FC  498BC9                   mov rcx,r9
+  009059FF  F3490F2AC0               cvtsi2ss xmm0,r8
+  00905A04  F30F5EC8                 divss xmm1,xmm0
+-- 908177
+  00908177  E818E473FF               call R_46594
+  0090817C  F30F100DFCBE2C03         movss xmm1,[rel R_3BD4080]
+  00908184  0F57C0                   xorps xmm0,xmm0
+  00908187  448BC0                   mov r8d,eax
+  0090818A  F3490F2AC0               cvtsi2ss xmm0,r8
+  0090818F  F30F5EC8                 divss xmm1,xmm0
+  00908193  E880E373FF               call R_46518
+-- 927BC9
+  00927BC9  E8C6E971FF               call R_46594
+  00927BCE  F30F100DAAC42A03         movss xmm1,[rel R_3BD4080]
+  00927BD6  0F57C0                   xorps xmm0,xmm0
+  00927BD9  448BC0                   mov r8d,eax
+  00927BDC  F3490F2AC0               cvtsi2ss xmm0,r8
+  00927BE1  F30F5EC8                 divss xmm1,xmm0
+  00927BE5  EB03                     jmp short R_927BEA
+-- 9B505A
+  009B505A  E8351569FF               call R_46594
+  009B505F  448BC0                   mov r8d,eax
+  009B5062  0F57C0                   xorps xmm0,xmm0
+  009B5065  F3490F2AC0               cvtsi2ss xmm0,r8
+  009B506A  F30F5EC8                 divss xmm1,xmm0
+  009B506E  440F2FE1                 comiss xmm12,xmm1
+  009B5072  0F828E000000             jb near R_9B5106
+-- 9B50AC
+  009B50AC  E8E31469FF               call R_46594
+  009B50B1  F3440F104C2420           movss xmm9,[rsp+20h]
+  009B50B8  0F57C0                   xorps xmm0,xmm0
+  009B50BB  F30F107C2424             movss xmm7,[rsp+24h]
+  009B50C1  F3440F10542428           movss xmm10,[rsp+28h]
+  009B50C8  448BC0                   mov r8d,eax
+  009B50CB  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 9B51FC
+  009B51FC  E8931369FF               call R_46594
+  009B5201  488B4F30                 mov rcx,[rdi+30h]
+  009B5205  0F57C0                   xorps xmm0,xmm0
+  009B5208  F30F101570EE2103         movss xmm2,[rel R_3BD4080]
+  009B5210  448BC0                   mov r8d,eax
+  009B5213  F3490F2AC0               cvtsi2ss xmm0,r8
+  009B5218  F30F5ED0                 divss xmm2,xmm0
+-- A2A53E
+  00A2A53E  E851C061FF               call R_46594
+  00A2A543  0F57C0                   xorps xmm0,xmm0
+  00A2A546  448BC8                   mov r9d,eax
+  00A2A549  F3490F2AC1               cvtsi2ss xmm0,r9
+  00A2A54E  F30F5E052A9B1A03         divss xmm0,[rel R_3BD4080]
+  00A2A556  F30F59D8                 mulss xmm3,xmm0
+  00A2A55A  0F2F1D739C1A03           comiss xmm3,[rel R_3BD41D4]
+-- 1975B9D
+  01975B9D  E8F2096DFE               call R_46594
+  01975BA2  33D2                     xor edx,edx
+  01975BA4  448BC0                   mov r8d,eax
+  01975BA7  0F57C0                   xorps xmm0,xmm0
+  01975BAA  8D423C                   lea eax,[rdx+3Ch]
+  01975BAD  41F7F0                   div r8d
+  01975BB0  8BC8                     mov ecx,eax
+-- 19AF6F9
+  019AF6F9  E8966E69FE               call R_46594
+  019AF6FE  F30F109310040000         movss xmm2,[rbx+410h]
+  019AF706  0F57C0                   xorps xmm0,xmm0
+  019AF709  448BC0                   mov r8d,eax
+  019AF70C  418AD1                   mov dl,r9b
+  019AF70F  488BCF                   mov rcx,rdi
+  019AF712  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 19D3AAC
+  019D3AAC  E8E32A67FE               call R_46594
+  019D3AB1  F30F100D27072002         movss xmm1,[rel R_3BD41E0]
+  019D3AB9  0F57C0                   xorps xmm0,xmm0
+  019D3ABC  448BC0                   mov r8d,eax
+  019D3ABF  F3490F2AC0               cvtsi2ss xmm0,r8
+  019D3AC4  F30F5EC8                 divss xmm1,xmm0
+  019D3AC8  F30F114D08               movss [rbp+8],xmm1
+-- 19E53EE
+  019E53EE  E8A11166FE               call R_46594
+  019E53F3  0F57C9                   xorps xmm1,xmm1
+  019E53F6  448BC0                   mov r8d,eax
+  019E53F9  F3490F2AC8               cvtsi2ss xmm1,r8
+  019E53FE  F30F5EF1                 divss xmm6,xmm1
+  019E5402  F30F5EF0                 divss xmm6,xmm0
+  019E5406  0F1007                   movups xmm0,[rdi]
+-- 1A754E4
+  01A754E4  E8AB105DFE               call R_46594
+  01A754E9  F30F10058FEB1502         movss xmm0,[rel R_3BD4080]
+  01A754F1  0F57C9                   xorps xmm1,xmm1
+  01A754F4  448BC0                   mov r8d,eax
+  01A754F7  F3490F2AC8               cvtsi2ss xmm1,r8
+  01A754FC  F30F5EC1                 divss xmm0,xmm1
+  01A75500  4883C428                 add rsp,28h
+-- 1A861D8
+  01A861D8  E8B7035CFE               call R_46594
+  01A861DD  F30F10059BDE1402         movss xmm0,[rel R_3BD4080]
+  01A861E5  0F57C9                   xorps xmm1,xmm1
+  01A861E8  448BC0                   mov r8d,eax
+  01A861EB  F3490F2AC8               cvtsi2ss xmm1,r8
+  01A861F0  F30F5EC1                 divss xmm0,xmm1
+  01A861F4  4883C428                 add rsp,28h
+-- 1CE93D1
+  01CE93D1  E8BED135FE               call R_46594
+  01CE93D6  448BC0                   mov r8d,eax
+  01CE93D9  488D8DF8000000           lea rcx,[rbp+0F8h]
+  01CE93E0  0F57C9                   xorps xmm1,xmm1
+  01CE93E3  F3490F2AC8               cvtsi2ss xmm1,r8
+  01CE93E8  F30F5EF1                 divss xmm6,xmm1
+  01CE93EC  F30F11742444             movss [rsp+44h],xmm6
+-- 1FF5280
+  01FF5280  E80F1305FE               call R_46594
+  01FF5285  F30F100DF3EDBD01         movss xmm1,[rel R_3BD4080]
+  01FF528D  0F57C0                   xorps xmm0,xmm0
+  01FF5290  448BC0                   mov r8d,eax
+  01FF5293  F3490F2AC0               cvtsi2ss xmm0,r8
+  01FF5298  F30F5EC8                 divss xmm1,xmm0
+  01FF529C  F30F5CE9                 subss xmm5,xmm1
+-- 2017A0E
+  02017A0E  E881EB02FE               call R_46594
+  02017A13  85C0                     test eax,eax
+  02017A15  7420                     je short R_2017A37
+  02017A17  E878EB02FE               call R_46594
+  02017A1C  F30F100D5CC6BB01         movss xmm1,[rel R_3BD4080]
+  02017A24  0F57C0                   xorps xmm0,xmm0
+  02017A27  448BC0                   mov r8d,eax
+-- 2017A17
+  02017A17  E878EB02FE               call R_46594
+  02017A1C  F30F100D5CC6BB01         movss xmm1,[rel R_3BD4080]
+  02017A24  0F57C0                   xorps xmm0,xmm0
+  02017A27  448BC0                   mov r8d,eax
+  02017A2A  F3490F2AC0               cvtsi2ss xmm0,r8
+  02017A2F  F30F5EC8                 divss xmm1,xmm0
+  02017A33  F30F59F1                 mulss xmm6,xmm1
+-- 201E0EA
+  0201E0EA  E8A58402FE               call R_46594
+  0201E0EF  F30F100D895FBB01         movss xmm1,[rel R_3BD4080]
+  0201E0F7  0F57C0                   xorps xmm0,xmm0
+  0201E0FA  438B8C8A70010000         mov ecx,[r10+r9*4+170h]
+  0201E102  448BC0                   mov r8d,eax
+  0201E105  F3490F2AC0               cvtsi2ss xmm0,r8
+  0201E10A  F30F5EC8                 divss xmm1,xmm0
+-- 201E182
+  0201E182  E80D8402FE               call R_46594
+  0201E187  418B9200060000           mov edx,[r10+600h]
+  0201E18E  0F57C0                   xorps xmm0,xmm0
+  0201E191  448BC0                   mov r8d,eax
+  0201E194  8BC2                     mov eax,edx
+  0201E196  83E00F                   and eax,0Fh
+  0201E199  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 201E507
+  0201E507  E8888002FE               call R_46594
+  0201E50C  0F57C0                   xorps xmm0,xmm0
+  0201E50F  448BC0                   mov r8d,eax
+  0201E512  F3490F2AC0               cvtsi2ss xmm0,r8
+  0201E517  F30F5E05615BBB01         divss xmm0,[rel R_3BD4080]
+  0201E51F  F30F59D0                 mulss xmm2,xmm0
+  0201E523  0F2F15AA5CBB01           comiss xmm2,[rel R_3BD41D4]
+-- 203F4CF
+  0203F4CF  E8C07000FE               call R_46594
+  0203F4D4  0F57DB                   xorps xmm3,xmm3
+  0203F4D7  448BC8                   mov r9d,eax
+  0203F4DA  498BD3                   mov rdx,r11
+  0203F4DD  498BCA                   mov rcx,r10
+  0203F4E0  F3490F2AD9               cvtsi2ss xmm3,r9
+  0203F4E5  F30F59DA                 mulss xmm3,xmm2
+-- 20423B4
+  020423B4  E8DB4100FE               call R_46594
+  020423B9  F30F100D1F1EB901         movss xmm1,[rel R_3BD41E0]
+  020423C1  0F57C0                   xorps xmm0,xmm0
+  020423C4  488B4D17                 mov rcx,[rbp+17h]
+  020423C8  4D8B8FB0010000           mov r9,[r15+1B0h]
+  020423CF  482BD9                   sub rbx,rcx
+  020423D2  F30F10154A1EB901         movss xmm2,[rel R_3BD4224]
+-- 209386F
+  0209386F  E8202DFBFD               call R_46594
+  02093874  448BC0                   mov r8d,eax
+  02093877  0F57C0                   xorps xmm0,xmm0
+  0209387A  488BCB                   mov rcx,rbx
+  0209387D  F3490F2AC0               cvtsi2ss xmm0,r8
+  02093882  F3440F5EC8               divss xmm9,xmm0
+  02093887  E840F5FEFF               call R_2082DCC
+-- 2093895
+  02093895  E8FA2CFBFD               call R_46594
+  0209389A  448BC0                   mov r8d,eax
+  0209389D  0F57C0                   xorps xmm0,xmm0
+  020938A0  488BCB                   mov rcx,rbx
+  020938A3  F3490F2AC0               cvtsi2ss xmm0,r8
+  020938A8  F3440F5ED8               divss xmm11,xmm0
+  020938AD  E836F5FEFF               call R_2082DE8
+-- 20938BB
+  020938BB  E8D42CFBFD               call R_46594
+  020938C0  448BC0                   mov r8d,eax
+  020938C3  0F57C9                   xorps xmm1,xmm1
+  020938C6  F30F59FF                 mulss xmm7,xmm7
+  020938CA  450F28F9                 movaps xmm15,xmm9
+  020938CE  440F573DEA08B401         xorps xmm15,[rel R_3BD41C0]
+  020938D6  F3490F2AC8               cvtsi2ss xmm1,r8
+-- 2093A16
+  02093A16  E8792BFBFD               call R_46594
+  02093A1B  448BC0                   mov r8d,eax
+  02093A1E  0F57C0                   xorps xmm0,xmm0
+  02093A21  488BCB                   mov rcx,rbx
+  02093A24  F3490F2AC0               cvtsi2ss xmm0,r8
+  02093A29  F3440F5EC0               divss xmm8,xmm0
+  02093A2E  E83DEEFEFF               call R_2082870
+-- 2093CF7
+  02093CF7  E89828FBFD               call R_46594
+  02093CFC  F30F104DD8               movss xmm1,[rbp-28h]
+  02093D01  0F57C0                   xorps xmm0,xmm0
+  02093D04  448BC0                   mov r8d,eax
+  02093D07  F3490F2AC0               cvtsi2ss xmm0,r8
+  02093D0C  F30F5EF0                 divss xmm6,xmm0
+  02093D10  F30F1045D0               movss xmm0,[rbp-30h]
+-- 2093D7F
+  02093D7F  E81028FBFD               call R_46594
+  02093D84  F30F104DD8               movss xmm1,[rbp-28h]
+  02093D89  0F57C0                   xorps xmm0,xmm0
+  02093D8C  448BC0                   mov r8d,eax
+  02093D8F  F3490F2AC0               cvtsi2ss xmm0,r8
+  02093D94  F30F5EF8                 divss xmm7,xmm0
+  02093D98  F30F1045D0               movss xmm0,[rbp-30h]
+-- 20942FE
+  020942FE  E89122FBFD               call R_46594
+  02094303  F30F101575FDB301         movss xmm2,[rel R_3BD4080]
+  0209430B  0F57C9                   xorps xmm1,xmm1
+  0209430E  F30F59C3                 mulss xmm0,xmm3
+  02094312  448BC0                   mov r8d,eax
+  02094315  F30F5905FB01B401         mulss xmm0,[rel R_3BD4518]
+  0209431D  F3490F2AC8               cvtsi2ss xmm1,r8
+-- 20947AA
+  020947AA  E8E51DFBFD               call R_46594
+  020947AF  F30F1035FDF8B301         movss xmm6,[rel R_3BD40B4]
+  020947B7  0F57C9                   xorps xmm1,xmm1
+  020947BA  F30F59DB                 mulss xmm3,xmm3
+  020947BE  448BC0                   mov r8d,eax
+  020947C1  F30F59E4                 mulss xmm4,xmm4
+  020947C5  F30F59D2                 mulss xmm2,xmm2
+-- 20951B3
+  020951B3  E8DC13FBFD               call R_46594
+  020951B8  F30F1015C0EEB301         movss xmm2,[rel R_3BD4080]
+  020951C0  488D55E7                 lea rdx,[rbp-19h]
+  020951C4  448BC0                   mov r8d,eax
+  020951C7  488D4DF7                 lea rcx,[rbp-9]
+  020951CB  0F57C0                   xorps xmm0,xmm0
+  020951CE  F3490F2AC0               cvtsi2ss xmm0,r8
+-- 209542E
+  0209542E  E86111FBFD               call R_46594
+  02095433  F3440F100544ECB301       movss xmm8,[rel R_3BD4080]
+  0209543C  0F57C9                   xorps xmm1,xmm1
+  0209543F  F3410F107610             movss xmm6,[r14+10h]
+  02095445  F3450F104E14             movss xmm9,[r14+14h]
+  0209544B  448BC0                   mov r8d,eax
+  0209544E  450F28D1                 movaps xmm10,xmm9
+-- 2095BE9
+  02095BE9  E8A609FBFD               call R_46594
+  02095BEE  F3440F103589F6B301       movss xmm14,[rel R_3BD5280]
+  02095BF7  EB29                     jmp short R_2095C22
+  02095BF9  BAAFD40000               mov edx,0D4AFh
+  02095BFE  E8052957FE               call R_608508
+  02095C03  BA394E0000               mov edx,4E39h
+  02095C08  488BCB                   mov rcx,rbx
+-- 2095C14
+  02095C14  E87B09FBFD               call R_46594
+  02095C19  F3440F10359AE5B301       movss xmm14,[rel R_3BD41BC]
+  02095C22  F3440F100555E4B301       movss xmm8,[rel R_3BD4080]
+  02095C2B  488D96B0000000           lea rdx,[rsi+0B0h]
+  02095C32  448BC0                   mov r8d,eax
+  02095C35  0F57C9                   xorps xmm1,xmm1
+  02095C38  488D4597                 lea rax,[rbp-69h]
+-- 20AF473
+  020AF473  E81C71F9FD               call R_46594
+  020AF478  0F57C0                   xorps xmm0,xmm0
+  020AF47B  448BC0                   mov r8d,eax
+  020AF47E  F3490F2AC0               cvtsi2ss xmm0,r8
+  020AF483  F3410F5801               addss xmm0,[r9]
+  020AF488  410F2F4104               comiss xmm0,[r9+4]
+  020AF48D  F3410F1101               movss [r9],xmm0
+-- 23BFD48
+  023BFD48  E84768C8FD               call R_46594
+  023BFD4D  448BC0                   mov r8d,eax
+  023BFD50  0F57E4                   xorps xmm4,xmm4
+  023BFD53  33C9                     xor ecx,ecx
+  023BFD55  F3490F2AE0               cvtsi2ss xmm4,r8
+  023BFD5A  F30F59E1                 mulss xmm4,xmm1
+  023BFD5E  E8B1ABE4FD               call R_20A914
+-- 23D085B
+  023D085B  E8345DC7FD               call R_46594
+  023D0860  448BC0                   mov r8d,eax
+  023D0863  0F57FF                   xorps xmm7,xmm7
+  023D0866  F3490F2AF8               cvtsi2ss xmm7,r8
+  023D086B  F30F59F9                 mulss xmm7,xmm1
+  023D086F  E8205DC7FD               call R_46594
+  023D0874  488B0DAD991E02           mov rcx,[rel R_45BA228]
+-- 23D086F
+  023D086F  E8205DC7FD               call R_46594
+  023D0874  488B0DAD991E02           mov rcx,[rel R_45BA228]
+  023D087B  450F57DB                 xorps xmm11,xmm11
+  023D087F  448BC0                   mov r8d,eax
+  023D0882  F34D0F2AD8               cvtsi2ss xmm11,r8
+  023D0887  F3440F59D8               mulss xmm11,xmm0
+  023D088C  E8431CF9FD               call R_3624D4
+-- 23DB790
+  023DB790  E8FFADC6FD               call R_46594
+  023DB795  448BC0                   mov r8d,eax
+  023DB798  B919000000               mov ecx,19h
+  023DB79D  0F57C0                   xorps xmm0,xmm0
+  023DB7A0  F3490F2AC0               cvtsi2ss xmm0,r8
+  023DB7A5  F30F5EF0                 divss xmm6,xmm0
+  023DB7A9  E8DA25E9FF               call R_226DD88
+-- 23DB868
+  023DB868  E827ADC6FD               call R_46594
+  023DB86D  448BC0                   mov r8d,eax
+  023DB870  0F57C0                   xorps xmm0,xmm0
+  023DB873  F3490F2AC0               cvtsi2ss xmm0,r8
+  023DB878  F30F5EF0                 divss xmm6,xmm0
+  023DB87C  E8977734FE               call R_723018
+  023DB881  4885C0                   test rax,rax
+-- 240556D
+  0240556D  E82210C4FD               call R_46594
+  02405572  F30F10159AEC7C01         movss xmm2,[rel R_3BD4214]
+  0240557A  0F57C9                   xorps xmm1,xmm1
+  0240557D  448BC0                   mov r8d,eax
+  02405580  410FB7422C               movzx eax,word [r10+2Ch]
+  02405585  F3490F2AC8               cvtsi2ss xmm1,r8
+  0240558A  660F6EC0                 movd xmm0,eax
+-- 240560E
+  0240560E  E8810FC4FD               call R_46594
+  02405613  448BC0                   mov r8d,eax
+  02405616  F30F10154AEB7F01         movss xmm2,[rel R_3C04168]
+  0240561E  0F57C0                   xorps xmm0,xmm0
+  02405621  F3490F2AC0               cvtsi2ss xmm0,r8
+  02405626  F30F59C8                 mulss xmm1,xmm0
+  0240562A  F3420F100493             movss xmm0,[rbx+r10*4]
+-- 29770BC
+  029770BC  E8D3F46CFD               call R_46594
+  029770C1  33D2                     xor edx,edx
+  029770C3  448BC0                   mov r8d,eax
+  029770C6  8D4278                   lea eax,[rdx+78h]
+  029770C9  41F7F0                   div r8d
+  029770CC  2943F4                   sub [rbx-0Ch],eax
+  029770CF  44397BF4                 cmp [rbx-0Ch],r15d
+-- 29771AA
+  029771AA  E8E5F36CFD               call R_46594
+  029771AF  448BC0                   mov r8d,eax
+  029771B2  33D2                     xor edx,edx
+  029771B4  8D4278                   lea eax,[rdx+78h]
+  029771B7  41F7F0                   div r8d
+  029771BA  014320                   add [rbx+20h],eax
+  029771BD  418B4204                 mov eax,[r10+4]
+-- 2978671
+  02978671  E81EDF6CFD               call R_46594
+  02978676  448BC0                   mov r8d,eax
+  02978679  0F57FF                   xorps xmm7,xmm7
+  0297867C  F3490F2AF8               cvtsi2ss xmm7,r8
+  02978681  E8F28D77FD               call R_F1478
+  02978686  84C0                     test al,al
+  02978688  741C                     je short R_29786A6

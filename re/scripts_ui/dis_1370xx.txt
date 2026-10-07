@@ -1,0 +1,906 @@
+; ---- Nioh3+136F60 .. +1371B6 (pdata fn Some (1273696u, 1274294u))
+  136F60  mov     [rsp+10h],rbx                             
+  136F65  mov     [rsp+18h],rsi                             
+  136F6A  mov     [rsp+20h],rdi                             
+  136F6F  push    rbp                                       
+  136F70  push    r12                                       
+  136F72  push    r13                                       
+  136F74  push    r14                                       
+  136F76  push    r15                                       
+  136F78  mov     rbp,rsp                                   
+  136F7B  sub     rsp,60h                                   
+  136F7F  mov     rax,[rel 44B7F30h]                        
+  136F86  xor     rax,rsp                                   
+  136F89  mov     [rbp-10h],rax                             
+  136F8D  mov     r10,[rcx]                                 
+  136F90  mov     r15,r9                                    
+  136F93  mov     r11,[rel 4BD0AC0h]                        
+  136F9A  mov     rsi,rdx                                   
+  136F9D  mov     rdi,rcx                                   
+  136FA0  mov     r9d,[r10+394h]                            
+  136FA7  mov     ebx,[r11+370h]                            
+  136FAE  mov     eax,[r10+39Ch]                            
+  136FB5  sub     r9d,eax                                   
+  136FB8  lea     r14d,[rbx*4]                              
+  136FC0  cmp     r14d,r9d                                  
+  136FC3  ja      near 00000000001371B2h                    
+  136FC9  mov     ecx,[r10+398h]                            
+  136FD0  sub     ecx,[r10+3A0h]                            
+  136FD7  cmp     ecx,0Ch                                   
+  136FDA  jb      near 00000000001371B2h                    
+  136FE0  movss   xmm0,[rel 3BD41B8h]                       
+  136FE8  xor     edx,edx                                   
+  136FEA  mov     cl,[r11+364h]                             
+  136FF1  mov     r13d,1                                    
+  136FF7  movss   xmm4,[rsi]                                
+  136FFB  xorps   xmm1,xmm1                                 
+  136FFE  movss   xmm5,[rsi+4]                              
+  137003  div     ebx                                       
+  137005  shr     cl,2                                      
+  137008  lea     edx,[r13+1]                               
+  13700C  mov     r12d,eax                                  
+  13700F  mulss   xmm4,xmm0                                 
+  137013  mov     rax,[rsi]                                 
+  137016  and     cl,r13b                                   
+  137019  mov     [rbp-30h],rax                             
+  13701D  xor     ebx,ebx                                   
+  13701F  movss   xmm2,[rbp-30h]                            
+  137024  movss   xmm3,[rbp-2Ch]                            
+  137029  movzx   eax,r8b                                   
+  13702D  mulss   xmm2,xmm0                                 
+  137031  shr     eax,4                                     
+  137034  mulss   xmm3,xmm0                                 
+  137038  mulss   xmm5,xmm0                                 
+  13703C  xorps   xmm0,xmm0                                 
+  13703F  movaps  [rbp-20h],xmm0                            
+  137043  test    eax,eax                                   
+  137045  je      near 000000000013717Ah                    
+  13704B  cmp     eax,edx                                   
+  13704D  je      near 0000000000137188h                    
+  137053  movsx   eax,r8b                                   
+  137057  and     eax,0Fh                                   
+  13705A  je      near 00000000001371A4h                    
+  137060  cmp     eax,edx                                   
+  137062  je      near 0000000000137196h                    
+  137068  lea     r8,[rbp-20h]                              
+  13706C  mov     rsi,[r10+358h]                            
+  137073  lea     rdx,[rbp-30h]                             
+  137077  mov     rax,[rbp+50h]                             
+  13707B  mov     r9,r15                                    
+  13707E  mov     [rsp+28h],cl                              
+  137082  mov     rcx,rsi                                   
+  137085  mov     [rsp+20h],rax                             
+  13708A  movss   [rbp-30h],xmm4                            
+  13708F  movss   [rbp-2Ch],xmm5                            
+  137094  cmp     [r11+368h],bl                             
+  13709B  je      near 000000000194C014h                    
+  1370A1  call    00000000001371D0h                         
+  1370A6  lea     rax,[rsi+28h]                             
+  1370AA  mov     ecx,4                                     
+  1370AF  mov     [rax],ebx                                 
+  1370B1  lea     rax,[rax+2Ch]                             
+  1370B5  sub     rcx,r13                                   
+  1370B8  jne     short 00000000001370AFh                   
+  1370BA  mov     rcx,[rdi]                                 
+  1370BD  mov     edx,2                                     
+  1370C2  mov     eax,r14d                                  
+  1370C5  mov     dword [rbp-30h],10000h                    
+  1370CC  mov     dword [rbp-2Ch],10002h                    
+  1370D3  add     [rcx+358h],rax                            
+  1370DA  lea     r8d,[rdx+4]                               
+  1370DE  add     [rcx+39Ch],r14d                           
+  1370E5  mov     ecx,r8d                                   
+  1370E8  mov     dword [rbp-28h],20003h                    
+  1370EF  movzx   eax,r12w                                  
+  1370F3  add     ax,[rbp+rbx-30h]                          
+  1370F8  mov     [rbp+rbx-20h],ax                          
+  1370FD  add     rbx,rdx                                   
+  137100  sub     rcx,r13                                   
+  137103  jne     short 00000000001370EFh                   
+  137105  mov     rax,[rdi]                                 
+  137108  mov     ecx,[rbp-18h]                             
+  13710B  movsd   xmm0,[rbp-20h]                            
+  137110  mov     rdx,[rax+360h]                            
+  137117  mov     al,r13b                                   
+  13711A  movsd   [rdx],xmm0                                
+  13711E  mov     [rdx+8],ecx                               
+  137121  mov     rdx,[rdi]                                 
+  137124  mov     rcx,[rdx+360h]                            
+  13712B  add     rcx,0Ch                                   
+  13712F  add     dword [rdx+3A0h],0Ch                      
+  137136  mov     [rdx+360h],rcx                            
+  13713D  mov     rcx,[rdi+8]                               
+  137141  mov     dword [rcx+14h],4                         
+  137148  mov     rcx,[rdi+8]                               
+  13714C  mov     [rcx+18h],r8d                             
+  137150  mov     rcx,[rbp-10h]                             
+  137154  xor     rcx,rsp                                   
+  137157  call    0000000000B912E0h                         
+  13715C  lea     r11,[rsp+60h]                             
+  137161  mov     rbx,[r11+38h]                             
+  137165  mov     rsi,[r11+40h]                             
+  137169  mov     rdi,[r11+48h]                             
+  13716D  mov     rsp,r11                                   
+  137170  pop     r15                                       
+  137172  pop     r14                                       
+  137174  pop     r13                                       
+  137176  pop     r12                                       
+  137178  pop     rbp                                       
+  137179  ret                                               
+  13717A  addss   xmm2,xmm1                                 
+  13717E  movss   [rbp-20h],xmm2                            
+  137183  jmp     0000000000137053h                         
+  137188  subss   xmm0,xmm2                                 
+  13718C  movss   [rbp-20h],xmm0                            
+  137191  jmp     0000000000137053h                         
+  137196  addss   xmm3,xmm1                                 
+  13719A  movss   [rbp-1Ch],xmm3                            
+  13719F  jmp     0000000000137068h                         
+  1371A4  subss   xmm1,xmm3                                 
+  1371A8  movss   [rbp-1Ch],xmm1                            
+  1371AD  jmp     0000000000137068h                         
+  1371B2  xor     al,al                                     
+  1371B4  jmp     short 0000000000137150h                   
+; ---- Nioh3+136F60 .. +1371B6 (pdata fn Some (1273696u, 1274294u))
+  136F60  mov     [rsp+10h],rbx                             
+  136F65  mov     [rsp+18h],rsi                             
+  136F6A  mov     [rsp+20h],rdi                             
+  136F6F  push    rbp                                       
+  136F70  push    r12                                       
+  136F72  push    r13                                       
+  136F74  push    r14                                       
+  136F76  push    r15                                       
+  136F78  mov     rbp,rsp                                   
+  136F7B  sub     rsp,60h                                   
+  136F7F  mov     rax,[rel 44B7F30h]                        
+  136F86  xor     rax,rsp                                   
+  136F89  mov     [rbp-10h],rax                             
+  136F8D  mov     r10,[rcx]                                 
+  136F90  mov     r15,r9                                    
+  136F93  mov     r11,[rel 4BD0AC0h]                        
+  136F9A  mov     rsi,rdx                                   
+  136F9D  mov     rdi,rcx                                   
+  136FA0  mov     r9d,[r10+394h]                            
+  136FA7  mov     ebx,[r11+370h]                            
+  136FAE  mov     eax,[r10+39Ch]                            
+  136FB5  sub     r9d,eax                                   
+  136FB8  lea     r14d,[rbx*4]                              
+  136FC0  cmp     r14d,r9d                                  
+  136FC3  ja      near 00000000001371B2h                    
+  136FC9  mov     ecx,[r10+398h]                            
+  136FD0  sub     ecx,[r10+3A0h]                            
+  136FD7  cmp     ecx,0Ch                                   
+  136FDA  jb      near 00000000001371B2h                    
+  136FE0  movss   xmm0,[rel 3BD41B8h]                       
+  136FE8  xor     edx,edx                                   
+  136FEA  mov     cl,[r11+364h]                             
+  136FF1  mov     r13d,1                                    
+  136FF7  movss   xmm4,[rsi]                                
+  136FFB  xorps   xmm1,xmm1                                 
+  136FFE  movss   xmm5,[rsi+4]                              
+  137003  div     ebx                                       
+  137005  shr     cl,2                                      
+  137008  lea     edx,[r13+1]                               
+  13700C  mov     r12d,eax                                  
+  13700F  mulss   xmm4,xmm0                                 
+  137013  mov     rax,[rsi]                                 
+  137016  and     cl,r13b                                   
+  137019  mov     [rbp-30h],rax                             
+  13701D  xor     ebx,ebx                                   
+  13701F  movss   xmm2,[rbp-30h]                            
+  137024  movss   xmm3,[rbp-2Ch]                            
+  137029  movzx   eax,r8b                                   
+  13702D  mulss   xmm2,xmm0                                 
+  137031  shr     eax,4                                     
+  137034  mulss   xmm3,xmm0                                 
+  137038  mulss   xmm5,xmm0                                 
+  13703C  xorps   xmm0,xmm0                                 
+  13703F  movaps  [rbp-20h],xmm0                            
+  137043  test    eax,eax                                   
+  137045  je      near 000000000013717Ah                    
+  13704B  cmp     eax,edx                                   
+  13704D  je      near 0000000000137188h                    
+  137053  movsx   eax,r8b                                   
+  137057  and     eax,0Fh                                   
+  13705A  je      near 00000000001371A4h                    
+  137060  cmp     eax,edx                                   
+  137062  je      near 0000000000137196h                    
+  137068  lea     r8,[rbp-20h]                              
+  13706C  mov     rsi,[r10+358h]                            
+  137073  lea     rdx,[rbp-30h]                             
+  137077  mov     rax,[rbp+50h]                             
+  13707B  mov     r9,r15                                    
+  13707E  mov     [rsp+28h],cl                              
+  137082  mov     rcx,rsi                                   
+  137085  mov     [rsp+20h],rax                             
+  13708A  movss   [rbp-30h],xmm4                            
+  13708F  movss   [rbp-2Ch],xmm5                            
+  137094  cmp     [r11+368h],bl                             
+  13709B  je      near 000000000194C014h                    
+  1370A1  call    00000000001371D0h                         
+  1370A6  lea     rax,[rsi+28h]                             
+  1370AA  mov     ecx,4                                     
+  1370AF  mov     [rax],ebx                                 
+  1370B1  lea     rax,[rax+2Ch]                             
+  1370B5  sub     rcx,r13                                   
+  1370B8  jne     short 00000000001370AFh                   
+  1370BA  mov     rcx,[rdi]                                 
+  1370BD  mov     edx,2                                     
+  1370C2  mov     eax,r14d                                  
+  1370C5  mov     dword [rbp-30h],10000h                    
+  1370CC  mov     dword [rbp-2Ch],10002h                    
+  1370D3  add     [rcx+358h],rax                            
+  1370DA  lea     r8d,[rdx+4]                               
+  1370DE  add     [rcx+39Ch],r14d                           
+  1370E5  mov     ecx,r8d                                   
+  1370E8  mov     dword [rbp-28h],20003h                    
+  1370EF  movzx   eax,r12w                                  
+  1370F3  add     ax,[rbp+rbx-30h]                          
+  1370F8  mov     [rbp+rbx-20h],ax                          
+  1370FD  add     rbx,rdx                                   
+  137100  sub     rcx,r13                                   
+  137103  jne     short 00000000001370EFh                   
+  137105  mov     rax,[rdi]                                 
+  137108  mov     ecx,[rbp-18h]                             
+  13710B  movsd   xmm0,[rbp-20h]                            
+  137110  mov     rdx,[rax+360h]                            
+  137117  mov     al,r13b                                   
+  13711A  movsd   [rdx],xmm0                                
+  13711E  mov     [rdx+8],ecx                               
+  137121  mov     rdx,[rdi]                                 
+  137124  mov     rcx,[rdx+360h]                            
+  13712B  add     rcx,0Ch                                   
+  13712F  add     dword [rdx+3A0h],0Ch                      
+  137136  mov     [rdx+360h],rcx                            
+  13713D  mov     rcx,[rdi+8]                               
+  137141  mov     dword [rcx+14h],4                         
+  137148  mov     rcx,[rdi+8]                               
+  13714C  mov     [rcx+18h],r8d                             
+  137150  mov     rcx,[rbp-10h]                             
+  137154  xor     rcx,rsp                                   
+  137157  call    0000000000B912E0h                         
+  13715C  lea     r11,[rsp+60h]                             
+  137161  mov     rbx,[r11+38h]                             
+  137165  mov     rsi,[r11+40h]                             
+  137169  mov     rdi,[r11+48h]                             
+  13716D  mov     rsp,r11                                   
+  137170  pop     r15                                       
+  137172  pop     r14                                       
+  137174  pop     r13                                       
+  137176  pop     r12                                       
+  137178  pop     rbp                                       
+  137179  ret                                               
+  13717A  addss   xmm2,xmm1                                 
+  13717E  movss   [rbp-20h],xmm2                            
+  137183  jmp     0000000000137053h                         
+  137188  subss   xmm0,xmm2                                 
+  13718C  movss   [rbp-20h],xmm0                            
+  137191  jmp     0000000000137053h                         
+  137196  addss   xmm3,xmm1                                 
+  13719A  movss   [rbp-1Ch],xmm3                            
+  13719F  jmp     0000000000137068h                         
+  1371A4  subss   xmm1,xmm3                                 
+  1371A8  movss   [rbp-1Ch],xmm1                            
+  1371AD  jmp     0000000000137068h                         
+  1371B2  xor     al,al                                     
+  1371B4  jmp     short 0000000000137150h                   
+; ---- Nioh3+137434 .. +13798C (pdata fn Some (1274932u, 1276300u))
+  137434  mov     rax,rsp                                   
+  137437  mov     [rax+18h],rbx                             
+  13743B  push    rbp                                       
+  13743C  push    rsi                                       
+  13743D  push    rdi                                       
+  13743E  push    r12                                       
+  137440  push    r13                                       
+  137442  push    r14                                       
+  137444  push    r15                                       
+  137446  lea     rbp,[rax-108h]                            
+  13744D  sub     rsp,1D0h                                  
+  137454  movaps  [rax-48h],xmm6                            
+  137458  movaps  [rax-58h],xmm7                            
+  13745C  movaps  [rax-68h],xmm8                            
+  137461  movaps  [rax-78h],xmm9                            
+  137466  mov     rax,[rel 44B7F30h]                        
+  13746D  xor     rax,rsp                                   
+  137470  mov     [rbp+80h],rax                             
+  137477  mov     r14,rdx                                   
+  13747A  mov     [rsp+38h],rdx                             
+  13747F  mov     r13,rcx                                   
+  137482  lea     rbx,[rbp]                                 
+  137486  mov     edi,0Ch                                   
+  13748B  lea     rsi,[rel 165FF0h]                         
+  137492  xor     r15d,r15d                                 
+  137495  dec     rdi                                       
+  137498  lea     rax,[rel 6F090h]                          
+  13749F  cmp     rsi,rax                                   
+  1374A2  jne     near 0000000000137918h                    
+  1374A8  mov     [rbx+0Ch],r15d                            
+  1374AC  add     rbx,8                                     
+  1374B0  test    rdi,rdi                                   
+  1374B3  jne     short 0000000000137495h                   
+  1374B5  test    byte [r13+18h],1                          
+  1374BA  mov     edi,3                                     
+  1374BF  lea     r11d,[rdi-1]                              
+  1374C3  jbe     near 000000000194C020h                    
+  1374C9  mov     rdx,[r13+10h]                             
+  1374CD  movsx   esi,byte [rdx+14h]                        
+  1374D1  movups  xmm0,[rdx+18h]                            
+  1374D5  mov     r12b,[rdx+17h]                            
+  1374D9  mov     ebx,[rdx+10h]                             
+  1374DC  mov     [rsp+40h],esi                             
+  1374E0  movsx   esi,byte [rdx+15h]                        
+  1374E4  mov     [rsp+30h],r12b                            
+  1374E9  mov     [rsp+50h],ebx                             
+  1374ED  movdqu  [rbp-70h],xmm0                            
+  1374F2  test    esi,esi                                   
+  1374F4  je      short 000000000013754Eh                   
+  1374F6  mov     r9,r15                                    
+  1374F9  mov     r11d,esi                                  
+  1374FC  mov     r10d,r15d                                 
+  1374FF  lea     r14d,[rdi-2]                              
+  137503  movsxd  rcx,r10d                                  
+  137506  lea     r12,[rbp]                                 
+  13750A  mov     rax,r9                                    
+  13750D  mov     edi,4                                     
+  137512  sub     rax,rcx                                   
+  137515  lea     r8,[rcx*8]                                
+  13751D  lea     r12,[r12+rax*8]                           
+  137521  mov     rax,[rdx+8]                               
+  137525  mov     rcx,[r8+rax]                              
+  137529  mov     [r12+r8],rcx                              
+  13752D  lea     r8,[r8+8]                                 
+  137531  sub     rdi,r14                                   
+  137534  jne     short 0000000000137521h                   
+  137536  add     r10d,4                                    
+  13753A  add     r9,4                                      
+  13753E  sub     r11,r14                                   
+  137541  jne     short 0000000000137503h                   
+  137543  mov     r14,[rsp+38h]                             
+  137548  mov     r11d,2                                    
+  13754E  cmp     dword [rsp+40h],4                         
+  137553  jne     near 00000000001378D7h                    
+  137559  movss   xmm7,[rel 3BD41B8h]                       
+  137561  mov     r12d,r15d                                 
+  137564  xorps   xmm6,xmm6                                 
+  137567  test    esi,esi                                   
+  137569  je      near 0000000000137708h                    
+  13756F  mov     rdi,r15                                   
+  137572  lea     r14,[rbp+4]                               
+  137576  mov     al,[r13+18h]                              
+  13757A  test    r11b,al                                   
+  13757D  jbe     near 00000000001376EFh                    
+  137583  test    al,1                                      
+  137585  jbe     near 000000000194C21Dh                    
+  13758B  mov     rax,[r13+10h]                             
+  13758F  mov     rcx,[rax]                                 
+  137592  movss   xmm1,[rcx+rdi]                            
+  137597  movss   xmm2,[rcx+rdi+4]                          
+  13759D  movss   xmm3,[rcx+rdi+20h]                        
+  1375A3  movss   xmm4,[rcx+rdi+24h]                        
+  1375A9  movss   xmm0,[rcx+rdi+18h]                        
+  1375AF  mulss   xmm0,[rel 3BD4518h]                       
+  1375B7  lea     r8,[rsp+40h]                              
+  1375BC  lea     rdx,[rsp+48h]                             
+  1375C1  and     [rsp+68h],r15d                            
+  1375C6  movss   xmm8,[r14+4]                              
+  1375CC  movss   xmm9,[r14+10h]                            
+  1375D2  subss   xmm8,[r14-4]                              
+  1375D8  subss   xmm9,[r14]                                
+  1375DD  and     [rsp+7Ch],r15d                            
+  1375E2  mulss   xmm0,xmm7                                 
+  1375E6  mov     dword [rsp+6Ch],3F800000h                 
+  1375EE  andps   xmm8,[rel 3BD41F0h]                       
+  1375F6  andps   xmm9,[rel 3BD41F0h]                       
+  1375FE  movss   [rsp+60h],xmm1                            
+  137604  movss   [rsp+64h],xmm2                            
+  13760A  movss   [rsp+70h],xmm3                            
+  137610  movss   [rsp+74h],xmm4                            
+  137616  mov     dword [rsp+78h],3F800000h                 
+  13761E  call    0000000000054360h                         
+  137623  movss   xmm1,[rsp+48h]                            
+  137629  lea     r9,[rsp+60h]                              
+  13762E  movaps  xmm0,xmm1                                 
+  137631  movss   [rbp-58h],xmm1                            
+  137636  mulss   xmm0,xmm6                                 
+  13763A  lea     r8,[rbp-60h]                              
+  13763E  lea     rdx,[rsp+70h]                             
+  137643  lea     rcx,[rbp-50h]                             
+  137647  movss   [rbp-60h],xmm0                            
+  13764C  movss   [rbp-5Ch],xmm0                            
+  137651  movss   xmm0,[rsp+40h]                            
+  137657  movss   [rbp-54h],xmm0                            
+  13765C  call    0000000000088780h                         
+  137661  movss   xmm4,[rbp-30h]                            
+  137666  mov     rax,r14                                   
+  137669  movss   xmm5,[rbp-2Ch]                            
+  13766E  mov     ecx,4                                     
+  137673  mulss   xmm4,xmm6                                 
+  137677  mulss   xmm5,xmm6                                 
+  13767B  mulss   xmm8,xmm7                                 
+  137680  mulss   xmm9,xmm7                                 
+  137685  movss   xmm2,[rax-4]                              
+  13768A  movss   xmm3,[rax]                                
+  13768E  subss   xmm2,xmm8                                 
+  137693  subss   xmm3,xmm9                                 
+  137698  movaps  xmm0,xmm2                                 
+  13769B  mulss   xmm2,[rbp-4Ch]                            
+  1376A0  mulss   xmm0,[rbp-50h]                            
+  1376A5  movaps  xmm1,xmm3                                 
+  1376A8  mulss   xmm1,[rbp-40h]                            
+  1376AD  mulss   xmm3,[rbp-3Ch]                            
+  1376B2  addss   xmm1,xmm0                                 
+  1376B6  addss   xmm3,xmm2                                 
+  1376BA  addss   xmm1,xmm4                                 
+  1376BE  addss   xmm3,xmm5                                 
+  1376C2  addss   xmm1,[rbp-20h]                            
+  1376C7  addss   xmm3,[rbp-1Ch]                            
+  1376CC  addss   xmm1,xmm8                                 
+  1376D1  addss   xmm3,xmm9                                 
+  1376D6  movss   [rax-4],xmm1                              
+  1376DB  movss   [rax],xmm3                                
+  1376DF  add     rax,8                                     
+  1376E3  sub     rcx,1                                     
+  1376E7  jne     short 0000000000137685h                   
+  1376E9  mov     r11d,2                                    
+  1376EF  inc     r12d                                      
+  1376F2  add     rdi,30h                                   
+  1376F6  add     r14,20h                                   
+  1376FA  cmp     r12d,esi                                  
+  1376FD  jb      near 0000000000137576h                    
+  137703  mov     r14,[rsp+38h]                             
+  137708  mov     r8,[r14]                                  
+  13770B  mov     r9,[rel 4BD0AC0h]                         
+  137712  movsx   eax,bx                                    
+  137715  mov     ecx,[r8+394h]                             
+  13771C  mov     r10d,[r9+370h]                            
+  137723  movd    xmm3,eax                                  
+  137727  movsx   eax,word [rsp+52h]                        
+  13772C  cvtdq2ps xmm3,xmm3                                
+  13772F  lea     edi,[r10*4]                               
+  137737  movd    xmm4,eax                                  
+  13773B  mov     eax,[r8+39Ch]                             
+  137742  sub     ecx,eax                                   
+  137744  movss   [rsp+38h],xmm3                            
+  13774A  cvtdq2ps xmm4,xmm4                                
+  13774D  movss   [rsp+3Ch],xmm4                            
+  137753  cmp     edi,ecx                                   
+  137755  ja      near 00000000001378D7h                    
+  13775B  mov     ecx,[r8+398h]                             
+  137762  sub     ecx,[r8+3A0h]                             
+  137769  cmp     ecx,0Ch                                   
+  13776C  jb      near 00000000001378D7h                    
+  137772  mov     rcx,[rsp+38h]                             
+  137777  xor     edx,edx                                   
+  137779  div     r10d                                      
+  13777C  mov     dl,[r9+364h]                              
+  137783  mov     r12d,1                                    
+  137789  mov     [rsp+38h],rcx                             
+  13778E  mov     esi,eax                                   
+  137790  movsx   ecx,byte [rsp+30h]                        
+  137795  xorps   xmm0,xmm0                                 
+  137798  movss   xmm1,[rsp+38h]                            
+  13779E  movss   xmm2,[rsp+3Ch]                            
+  1377A4  shr     dl,2                                      
+  1377A7  movzx   eax,cl                                    
+  1377AA  and     dl,r12b                                   
+  1377AD  shr     eax,4                                     
+  1377B0  mulss   xmm3,xmm7                                 
+  1377B4  mulss   xmm4,xmm7                                 
+  1377B8  mulss   xmm1,xmm7                                 
+  1377BC  mulss   xmm2,xmm7                                 
+  1377C0  movaps  [rsp+60h],xmm0                            
+  1377C5  test    eax,eax                                   
+  1377C7  je      near 000000000013794Dh                    
+  1377CD  cmp     eax,r11d                                  
+  1377D0  je      near 000000000013795Ch                    
+  1377D6  mov     eax,ecx                                   
+  1377D8  and     eax,0Fh                                   
+  1377DB  je      near 000000000013797Dh                    
+  1377E1  cmp     eax,r11d                                  
+  1377E4  je      near 000000000013796Eh                    
+  1377EA  mov     rbx,[r8+358h]                             
+  1377F1  lea     rax,[rbp-70h]                             
+  1377F5  cmp     [r9+368h],r15b                            
+  1377FC  lea     r8,[rsp+60h]                              
+  137801  mov     [rsp+28h],dl                              
+  137805  lea     r9,[rbp]                                  
+  137809  mov     rcx,rbx                                   
+  13780C  mov     [rsp+20h],rax                             
+  137811  movss   [rsp+38h],xmm3                            
+  137817  lea     rdx,[rsp+38h]                             
+  13781C  movss   [rsp+3Ch],xmm4                            
+  137822  je      near 000000000194C257h                    
+  137828  call    00000000001371D0h                         
+  13782D  lea     rax,[rbx+28h]                             
+  137831  mov     ecx,4                                     
+  137836  mov     [rax],r15d                                
+  137839  lea     rax,[rax+2Ch]                             
+  13783D  sub     rcx,r12                                   
+  137840  jne     short 0000000000137836h                   
+  137842  mov     rcx,[r14]                                 
+  137845  mov     edx,2                                     
+  13784A  mov     eax,edi                                   
+  13784C  mov     dword [rbp+60h],10000h                    
+  137853  mov     dword [rbp+64h],10002h                    
+  13785A  add     [rcx+358h],rax                            
+  137861  lea     r8d,[rdx+4]                               
+  137865  add     [rcx+39Ch],edi                            
+  13786B  mov     ecx,r8d                                   
+  13786E  mov     dword [rbp+68h],20003h                    
+  137875  movzx   eax,si                                    
+  137878  add     ax,[rbp+r15+60h]                          
+  13787E  mov     [rbp+r15+70h],ax                          
+  137884  add     r15,rdx                                   
+  137887  sub     rcx,r12                                   
+  13788A  jne     short 0000000000137875h                   
+  13788C  mov     rax,[r14]                                 
+  13788F  mov     r15b,r12b                                 
+  137892  movsd   xmm0,[rbp+70h]                            
+  137897  mov     rcx,[rax+360h]                            
+  13789E  mov     eax,[rbp+78h]                             
+  1378A1  movsd   [rcx],xmm0                                
+  1378A5  mov     [rcx+8],eax                               
+  1378A8  mov     rcx,[r14]                                 
+  1378AB  mov     rax,[rcx+360h]                            
+  1378B2  add     rax,0Ch                                   
+  1378B6  add     dword [rcx+3A0h],0Ch                      
+  1378BD  mov     [rcx+360h],rax                            
+  1378C4  mov     rax,[r14+8]                               
+  1378C8  mov     dword [rax+14h],4                         
+  1378CF  mov     rax,[r14+8]                               
+  1378D3  mov     [rax+18h],r8d                             
+  1378D7  mov     al,r15b                                   
+  1378DA  mov     rcx,[rbp+80h]                             
+  1378E1  xor     rcx,rsp                                   
+  1378E4  call    0000000000B912E0h                         
+  1378E9  lea     r11,[rsp+1D0h]                            
+  1378F1  mov     rbx,[r11+50h]                             
+  1378F5  movaps  xmm6,[r11-10h]                            
+  1378FA  movaps  xmm7,[r11-20h]                            
+  1378FF  movaps  xmm8,[r11-30h]                            
+  137904  movaps  xmm9,[r11-40h]                            
+  137909  mov     rsp,r11                                   
+  13790C  pop     r15                                       
+  13790E  pop     r14                                       
+  137910  pop     r13                                       
+  137912  pop     r12                                       
+  137914  pop     rdi                                       
+  137915  pop     rsi                                       
+  137916  pop     rbp                                       
+  137917  ret                                               
+  137918  lea     rax,[rel 0A6C8B0h]                        
+  13791F  cmp     rsi,rax                                   
+  137922  je      short 000000000013793Dh                   
+  137924  lea     rax,[rel 0A698F0h]                        
+  13792B  cmp     rsi,rax                                   
+  13792E  je      short 0000000000137945h                   
+  137930  mov     rcx,rbx                                   
+  137933  call    0000000000165FF0h                         
+  137938  jmp     00000000001374ACh                         
+  13793D  mov     [rbx],r15d                                
+  137940  jmp     00000000001374ACh                         
+  137945  mov     [rbx],r15                                 
+  137948  jmp     00000000001374ACh                         
+  13794D  addss   xmm1,xmm6                                 
+  137951  movss   [rsp+60h],xmm1                            
+  137957  jmp     00000000001377D6h                         
+  13795C  movaps  xmm0,xmm6                                 
+  13795F  subss   xmm0,xmm1                                 
+  137963  movss   [rsp+60h],xmm0                            
+  137969  jmp     00000000001377D6h                         
+  13796E  addss   xmm2,xmm6                                 
+  137972  movss   [rsp+64h],xmm2                            
+  137978  jmp     00000000001377EAh                         
+  13797D  subss   xmm6,xmm2                                 
+  137981  movss   [rsp+64h],xmm6                            
+  137987  jmp     00000000001377EAh                         
+; ---- Nioh3+137434 .. +13798C (pdata fn Some (1274932u, 1276300u))
+  137434  mov     rax,rsp                                   
+  137437  mov     [rax+18h],rbx                             
+  13743B  push    rbp                                       
+  13743C  push    rsi                                       
+  13743D  push    rdi                                       
+  13743E  push    r12                                       
+  137440  push    r13                                       
+  137442  push    r14                                       
+  137444  push    r15                                       
+  137446  lea     rbp,[rax-108h]                            
+  13744D  sub     rsp,1D0h                                  
+  137454  movaps  [rax-48h],xmm6                            
+  137458  movaps  [rax-58h],xmm7                            
+  13745C  movaps  [rax-68h],xmm8                            
+  137461  movaps  [rax-78h],xmm9                            
+  137466  mov     rax,[rel 44B7F30h]                        
+  13746D  xor     rax,rsp                                   
+  137470  mov     [rbp+80h],rax                             
+  137477  mov     r14,rdx                                   
+  13747A  mov     [rsp+38h],rdx                             
+  13747F  mov     r13,rcx                                   
+  137482  lea     rbx,[rbp]                                 
+  137486  mov     edi,0Ch                                   
+  13748B  lea     rsi,[rel 165FF0h]                         
+  137492  xor     r15d,r15d                                 
+  137495  dec     rdi                                       
+  137498  lea     rax,[rel 6F090h]                          
+  13749F  cmp     rsi,rax                                   
+  1374A2  jne     near 0000000000137918h                    
+  1374A8  mov     [rbx+0Ch],r15d                            
+  1374AC  add     rbx,8                                     
+  1374B0  test    rdi,rdi                                   
+  1374B3  jne     short 0000000000137495h                   
+  1374B5  test    byte [r13+18h],1                          
+  1374BA  mov     edi,3                                     
+  1374BF  lea     r11d,[rdi-1]                              
+  1374C3  jbe     near 000000000194C020h                    
+  1374C9  mov     rdx,[r13+10h]                             
+  1374CD  movsx   esi,byte [rdx+14h]                        
+  1374D1  movups  xmm0,[rdx+18h]                            
+  1374D5  mov     r12b,[rdx+17h]                            
+  1374D9  mov     ebx,[rdx+10h]                             
+  1374DC  mov     [rsp+40h],esi                             
+  1374E0  movsx   esi,byte [rdx+15h]                        
+  1374E4  mov     [rsp+30h],r12b                            
+  1374E9  mov     [rsp+50h],ebx                             
+  1374ED  movdqu  [rbp-70h],xmm0                            
+  1374F2  test    esi,esi                                   
+  1374F4  je      short 000000000013754Eh                   
+  1374F6  mov     r9,r15                                    
+  1374F9  mov     r11d,esi                                  
+  1374FC  mov     r10d,r15d                                 
+  1374FF  lea     r14d,[rdi-2]                              
+  137503  movsxd  rcx,r10d                                  
+  137506  lea     r12,[rbp]                                 
+  13750A  mov     rax,r9                                    
+  13750D  mov     edi,4                                     
+  137512  sub     rax,rcx                                   
+  137515  lea     r8,[rcx*8]                                
+  13751D  lea     r12,[r12+rax*8]                           
+  137521  mov     rax,[rdx+8]                               
+  137525  mov     rcx,[r8+rax]                              
+  137529  mov     [r12+r8],rcx                              
+  13752D  lea     r8,[r8+8]                                 
+  137531  sub     rdi,r14                                   
+  137534  jne     short 0000000000137521h                   
+  137536  add     r10d,4                                    
+  13753A  add     r9,4                                      
+  13753E  sub     r11,r14                                   
+  137541  jne     short 0000000000137503h                   
+  137543  mov     r14,[rsp+38h]                             
+  137548  mov     r11d,2                                    
+  13754E  cmp     dword [rsp+40h],4                         
+  137553  jne     near 00000000001378D7h                    
+  137559  movss   xmm7,[rel 3BD41B8h]                       
+  137561  mov     r12d,r15d                                 
+  137564  xorps   xmm6,xmm6                                 
+  137567  test    esi,esi                                   
+  137569  je      near 0000000000137708h                    
+  13756F  mov     rdi,r15                                   
+  137572  lea     r14,[rbp+4]                               
+  137576  mov     al,[r13+18h]                              
+  13757A  test    r11b,al                                   
+  13757D  jbe     near 00000000001376EFh                    
+  137583  test    al,1                                      
+  137585  jbe     near 000000000194C21Dh                    
+  13758B  mov     rax,[r13+10h]                             
+  13758F  mov     rcx,[rax]                                 
+  137592  movss   xmm1,[rcx+rdi]                            
+  137597  movss   xmm2,[rcx+rdi+4]                          
+  13759D  movss   xmm3,[rcx+rdi+20h]                        
+  1375A3  movss   xmm4,[rcx+rdi+24h]                        
+  1375A9  movss   xmm0,[rcx+rdi+18h]                        
+  1375AF  mulss   xmm0,[rel 3BD4518h]                       
+  1375B7  lea     r8,[rsp+40h]                              
+  1375BC  lea     rdx,[rsp+48h]                             
+  1375C1  and     [rsp+68h],r15d                            
+  1375C6  movss   xmm8,[r14+4]                              
+  1375CC  movss   xmm9,[r14+10h]                            
+  1375D2  subss   xmm8,[r14-4]                              
+  1375D8  subss   xmm9,[r14]                                
+  1375DD  and     [rsp+7Ch],r15d                            
+  1375E2  mulss   xmm0,xmm7                                 
+  1375E6  mov     dword [rsp+6Ch],3F800000h                 
+  1375EE  andps   xmm8,[rel 3BD41F0h]                       
+  1375F6  andps   xmm9,[rel 3BD41F0h]                       
+  1375FE  movss   [rsp+60h],xmm1                            
+  137604  movss   [rsp+64h],xmm2                            
+  13760A  movss   [rsp+70h],xmm3                            
+  137610  movss   [rsp+74h],xmm4                            
+  137616  mov     dword [rsp+78h],3F800000h                 
+  13761E  call    0000000000054360h                         
+  137623  movss   xmm1,[rsp+48h]                            
+  137629  lea     r9,[rsp+60h]                              
+  13762E  movaps  xmm0,xmm1                                 
+  137631  movss   [rbp-58h],xmm1                            
+  137636  mulss   xmm0,xmm6                                 
+  13763A  lea     r8,[rbp-60h]                              
+  13763E  lea     rdx,[rsp+70h]                             
+  137643  lea     rcx,[rbp-50h]                             
+  137647  movss   [rbp-60h],xmm0                            
+  13764C  movss   [rbp-5Ch],xmm0                            
+  137651  movss   xmm0,[rsp+40h]                            
+  137657  movss   [rbp-54h],xmm0                            
+  13765C  call    0000000000088780h                         
+  137661  movss   xmm4,[rbp-30h]                            
+  137666  mov     rax,r14                                   
+  137669  movss   xmm5,[rbp-2Ch]                            
+  13766E  mov     ecx,4                                     
+  137673  mulss   xmm4,xmm6                                 
+  137677  mulss   xmm5,xmm6                                 
+  13767B  mulss   xmm8,xmm7                                 
+  137680  mulss   xmm9,xmm7                                 
+  137685  movss   xmm2,[rax-4]                              
+  13768A  movss   xmm3,[rax]                                
+  13768E  subss   xmm2,xmm8                                 
+  137693  subss   xmm3,xmm9                                 
+  137698  movaps  xmm0,xmm2                                 
+  13769B  mulss   xmm2,[rbp-4Ch]                            
+  1376A0  mulss   xmm0,[rbp-50h]                            
+  1376A5  movaps  xmm1,xmm3                                 
+  1376A8  mulss   xmm1,[rbp-40h]                            
+  1376AD  mulss   xmm3,[rbp-3Ch]                            
+  1376B2  addss   xmm1,xmm0                                 
+  1376B6  addss   xmm3,xmm2                                 
+  1376BA  addss   xmm1,xmm4                                 
+  1376BE  addss   xmm3,xmm5                                 
+  1376C2  addss   xmm1,[rbp-20h]                            
+  1376C7  addss   xmm3,[rbp-1Ch]                            
+  1376CC  addss   xmm1,xmm8                                 
+  1376D1  addss   xmm3,xmm9                                 
+  1376D6  movss   [rax-4],xmm1                              
+  1376DB  movss   [rax],xmm3                                
+  1376DF  add     rax,8                                     
+  1376E3  sub     rcx,1                                     
+  1376E7  jne     short 0000000000137685h                   
+  1376E9  mov     r11d,2                                    
+  1376EF  inc     r12d                                      
+  1376F2  add     rdi,30h                                   
+  1376F6  add     r14,20h                                   
+  1376FA  cmp     r12d,esi                                  
+  1376FD  jb      near 0000000000137576h                    
+  137703  mov     r14,[rsp+38h]                             
+  137708  mov     r8,[r14]                                  
+  13770B  mov     r9,[rel 4BD0AC0h]                         
+  137712  movsx   eax,bx                                    
+  137715  mov     ecx,[r8+394h]                             
+  13771C  mov     r10d,[r9+370h]                            
+  137723  movd    xmm3,eax                                  
+  137727  movsx   eax,word [rsp+52h]                        
+  13772C  cvtdq2ps xmm3,xmm3                                
+  13772F  lea     edi,[r10*4]                               
+  137737  movd    xmm4,eax                                  
+  13773B  mov     eax,[r8+39Ch]                             
+  137742  sub     ecx,eax                                   
+  137744  movss   [rsp+38h],xmm3                            
+  13774A  cvtdq2ps xmm4,xmm4                                
+  13774D  movss   [rsp+3Ch],xmm4                            
+  137753  cmp     edi,ecx                                   
+  137755  ja      near 00000000001378D7h                    
+  13775B  mov     ecx,[r8+398h]                             
+  137762  sub     ecx,[r8+3A0h]                             
+  137769  cmp     ecx,0Ch                                   
+  13776C  jb      near 00000000001378D7h                    
+  137772  mov     rcx,[rsp+38h]                             
+  137777  xor     edx,edx                                   
+  137779  div     r10d                                      
+  13777C  mov     dl,[r9+364h]                              
+  137783  mov     r12d,1                                    
+  137789  mov     [rsp+38h],rcx                             
+  13778E  mov     esi,eax                                   
+  137790  movsx   ecx,byte [rsp+30h]                        
+  137795  xorps   xmm0,xmm0                                 
+  137798  movss   xmm1,[rsp+38h]                            
+  13779E  movss   xmm2,[rsp+3Ch]                            
+  1377A4  shr     dl,2                                      
+  1377A7  movzx   eax,cl                                    
+  1377AA  and     dl,r12b                                   
+  1377AD  shr     eax,4                                     
+  1377B0  mulss   xmm3,xmm7                                 
+  1377B4  mulss   xmm4,xmm7                                 
+  1377B8  mulss   xmm1,xmm7                                 
+  1377BC  mulss   xmm2,xmm7                                 
+  1377C0  movaps  [rsp+60h],xmm0                            
+  1377C5  test    eax,eax                                   
+  1377C7  je      near 000000000013794Dh                    
+  1377CD  cmp     eax,r11d                                  
+  1377D0  je      near 000000000013795Ch                    
+  1377D6  mov     eax,ecx                                   
+  1377D8  and     eax,0Fh                                   
+  1377DB  je      near 000000000013797Dh                    
+  1377E1  cmp     eax,r11d                                  
+  1377E4  je      near 000000000013796Eh                    
+  1377EA  mov     rbx,[r8+358h]                             
+  1377F1  lea     rax,[rbp-70h]                             
+  1377F5  cmp     [r9+368h],r15b                            
+  1377FC  lea     r8,[rsp+60h]                              
+  137801  mov     [rsp+28h],dl                              
+  137805  lea     r9,[rbp]                                  
+  137809  mov     rcx,rbx                                   
+  13780C  mov     [rsp+20h],rax                             
+  137811  movss   [rsp+38h],xmm3                            
+  137817  lea     rdx,[rsp+38h]                             
+  13781C  movss   [rsp+3Ch],xmm4                            
+  137822  je      near 000000000194C257h                    
+  137828  call    00000000001371D0h                         
+  13782D  lea     rax,[rbx+28h]                             
+  137831  mov     ecx,4                                     
+  137836  mov     [rax],r15d                                
+  137839  lea     rax,[rax+2Ch]                             
+  13783D  sub     rcx,r12                                   
+  137840  jne     short 0000000000137836h                   
+  137842  mov     rcx,[r14]                                 
+  137845  mov     edx,2                                     
+  13784A  mov     eax,edi                                   
+  13784C  mov     dword [rbp+60h],10000h                    
+  137853  mov     dword [rbp+64h],10002h                    
+  13785A  add     [rcx+358h],rax                            
+  137861  lea     r8d,[rdx+4]                               
+  137865  add     [rcx+39Ch],edi                            
+  13786B  mov     ecx,r8d                                   
+  13786E  mov     dword [rbp+68h],20003h                    
+  137875  movzx   eax,si                                    
+  137878  add     ax,[rbp+r15+60h]                          
+  13787E  mov     [rbp+r15+70h],ax                          
+  137884  add     r15,rdx                                   
+  137887  sub     rcx,r12                                   
+  13788A  jne     short 0000000000137875h                   
+  13788C  mov     rax,[r14]                                 
+  13788F  mov     r15b,r12b                                 
+  137892  movsd   xmm0,[rbp+70h]                            
+  137897  mov     rcx,[rax+360h]                            
+  13789E  mov     eax,[rbp+78h]                             
+  1378A1  movsd   [rcx],xmm0                                
+  1378A5  mov     [rcx+8],eax                               
+  1378A8  mov     rcx,[r14]                                 
+  1378AB  mov     rax,[rcx+360h]                            
+  1378B2  add     rax,0Ch                                   
+  1378B6  add     dword [rcx+3A0h],0Ch                      
+  1378BD  mov     [rcx+360h],rax                            
+  1378C4  mov     rax,[r14+8]                               
+  1378C8  mov     dword [rax+14h],4                         
+  1378CF  mov     rax,[r14+8]                               
+  1378D3  mov     [rax+18h],r8d                             
+  1378D7  mov     al,r15b                                   
+  1378DA  mov     rcx,[rbp+80h]                             
+  1378E1  xor     rcx,rsp                                   
+  1378E4  call    0000000000B912E0h                         
+  1378E9  lea     r11,[rsp+1D0h]                            
+  1378F1  mov     rbx,[r11+50h]                             
+  1378F5  movaps  xmm6,[r11-10h]                            
+  1378FA  movaps  xmm7,[r11-20h]                            
+  1378FF  movaps  xmm8,[r11-30h]                            
+  137904  movaps  xmm9,[r11-40h]                            
+  137909  mov     rsp,r11                                   
+  13790C  pop     r15                                       
+  13790E  pop     r14                                       
+  137910  pop     r13                                       
+  137912  pop     r12                                       
+  137914  pop     rdi                                       
+  137915  pop     rsi                                       
+  137916  pop     rbp                                       
+  137917  ret                                               
+  137918  lea     rax,[rel 0A6C8B0h]                        
+  13791F  cmp     rsi,rax                                   
+  137922  je      short 000000000013793Dh                   
+  137924  lea     rax,[rel 0A698F0h]                        
+  13792B  cmp     rsi,rax                                   
+  13792E  je      short 0000000000137945h                   
+  137930  mov     rcx,rbx                                   
+  137933  call    0000000000165FF0h                         
+  137938  jmp     00000000001374ACh                         
+  13793D  mov     [rbx],r15d                                
+  137940  jmp     00000000001374ACh                         
+  137945  mov     [rbx],r15                                 
+  137948  jmp     00000000001374ACh                         
+  13794D  addss   xmm1,xmm6                                 
+  137951  movss   [rsp+60h],xmm1                            
+  137957  jmp     00000000001377D6h                         
+  13795C  movaps  xmm0,xmm6                                 
+  13795F  subss   xmm0,xmm1                                 
+  137963  movss   [rsp+60h],xmm0                            
+  137969  jmp     00000000001377D6h                         
+  13796E  addss   xmm2,xmm6                                 
+  137972  movss   [rsp+64h],xmm2                            
+  137978  jmp     00000000001377EAh                         
+  13797D  subss   xmm6,xmm2                                 
+  137981  movss   [rsp+64h],xmm6                            
+  137987  jmp     00000000001377EAh                         

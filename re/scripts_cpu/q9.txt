@@ -1,0 +1,78 @@
+==== decompile RVA 0x69a36c ====
+// function FUN_7ff74faaa36c @ 0x69a36c  body=139 bytes  pdataStart=0x69a36c
+// callers(3): FUN_7ff74f471378@0x61378 FUN_7ff74f5de818@0x1ce818 FUN_7ff7524ed720@0x30dd720 
+// callees(3): FUN_7ff74f60eb74@0x1feb74 FUN_7ff74faaa3dc@0x69a3dc FUN_7ff74faaa3d5@0x69a3d5 
+
+undefined1 FUN_7ff74faaa36c(longlong param_1,longlong param_2)
+
+{
+  char cVar1;
+  undefined1 uVar2;
+  
+  if ((*(char *)(param_1 + 200) == '\0') && (*(longlong *)(param_1 + 0xc0) != 0)) {
+    if (param_2 != 0) {
+      *(int *)(param_2 + 8) = *(int *)(param_2 + 8) + 1;
+    }
+    if (*(longlong *)(param_1 + 0xb8) != 0) {
+      FUN_7ff74f60eb74();
+    }
+    *(longlong *)(param_1 + 0xb8) = param_2;
+    cVar1 = FUN_7ff74faaa3dc(param_2);
+    if (cVar1 != '\0') {
+      *(undefined1 *)(param_1 + 200) = 1;
+      return 1;
+    }
+    if (*(longlong *)(param_1 + 0xb8) != 0) {
+      FUN_7ff74f60eb74();
+      *(undefined8 *)(param_1 + 0xb8) = 0;
+      uVar2 = FUN_7ff74faaa3d5();
+      return uVar2;
+    }
+  }
+  return 0;
+}
+
+
+
+==== decompile RVA 0x4a2e44 ====
+// function FUN_7ff74f8b2e44 @ 0x4a2e44  body=78 bytes  pdataStart=0x4a2e44
+// callers(2): FUN_7ff74fbe63e4@0x7d63e4 FUN_7ff7524ee7e8@0x30de7e8 
+// callees(2): FUN_7ff74f60eb74@0x1feb74 FUN_7ff74f8b2e94@0x4a2e94 
+
+void FUN_7ff74f8b2e44(longlong param_1)
+
+{
+  if ((*(longlong *)(param_1 + 0xc0) != 0) && (*(char *)(param_1 + 200) != '\0')) {
+    FUN_7ff74f8b2e94(*(undefined8 *)(param_1 + 0xb8));
+    *(undefined1 *)(param_1 + 200) = 0;
+    if (*(longlong *)(param_1 + 0xb8) != 0) {
+      FUN_7ff74f60eb74();
+      *(undefined8 *)(param_1 + 0xb8) = 0;
+    }
+  }
+  return;
+}
+
+
+
+==== decompile RVA 0x4a2e20 ====
+// function FUN_7ff74f8b2e20 @ 0x4a2e20  body=36 bytes  pdataStart=none
+// callers(21): FUN_7ff752320824@0x2f10824 FUN_7ff74f8a19a8@0x4919a8 FUN_7ff74f8a04bc@0x4904bc FUN_7ff75231ee2c@0x2f0ee2c FUN_7ff74fc8583c@0x87583c FUN_7ff75231f4b4@0x2f0f4b4 FUN_7ff75231ee8c@0x2f0ee8c FUN_7ff74f529574@0x119574 FUN_7ff75231fe90@0x2f0fe90 FUN_7ff74fc418bc@0x8318bc FUN_7ff75231f87c@0x2f0f87c FUN_7ff74f5295e8@0x1195e8 FUN_7ff75231f2f0@0x2f0f2f0 FUN_7ff750e81ee8@0x1a71ee8 FUN_7ff74f661024@0x251024 FUN_7ff74f526a24@0x116a24 FUN_7ff74f8a09e0@0x4909e0 FUN_7ff75231f038@0x2f0f038 FUN_7ff74f8a2ec0@0x492ec0 FUN_7ff74f529514@0x119514 FUN_7ff74f6623fc@0x2523fc 
+// callees(0): 
+
+undefined8 FUN_7ff74f8b2e20(longlong param_1,int param_2)
+
+{
+  if ((*(char *)(param_1 + 0x18) != '\0') && (param_2 != 1)) {
+    if (param_2 == 2) {
+      return 1;
+    }
+    if (param_2 == 3) {
+      return 2;
+    }
+  }
+  return 0;
+}
+
+
+

@@ -1,0 +1,284 @@
+; ---- Nioh3+4A529C .. +4A56F5 (pdata fn Some (4870812u, 4871925u))
+  4A529C  mov     [rsp+18h],rbx                             
+  4A52A1  push    rbp                                       
+  4A52A2  push    rsi                                       
+  4A52A3  push    rdi                                       
+  4A52A4  push    r12                                       
+  4A52A6  push    r13                                       
+  4A52A8  push    r14                                       
+  4A52AA  push    r15                                       
+  4A52AC  mov     eax,3D90h                                 
+  4A52B1  call    0000000000B92310h                         
+  4A52B6  sub     rsp,rax                                   
+  4A52B9  mov     rax,[rel 44B7F30h]                        
+  4A52C0  xor     rax,rsp                                   
+  4A52C3  mov     [rsp+3D80h],rax                           
+  4A52CB  mov     rdi,r9                                    
+  4A52CE  mov     r13,rdx                                   
+  4A52D1  mov     rbx,rcx                                   
+  4A52D4  call    0000000000205530h                         
+  4A52D9  xor     r15d,r15d                                 
+  4A52DC  mov     [rsp+30h],rax                             
+  4A52E1  mov     r12,rax                                   
+  4A52E4  mov     esi,1                                     
+  4A52E9  test    rdi,rdi                                   
+  4A52EC  je      near 00000000004A53B4h                    
+  4A52F2  cmp     [rdi+180h],r15                            
+  4A52F9  je      near 00000000004A53B4h                    
+  4A52FF  lea     rcx,[rsp+40h]                             
+  4A5304  call    00000000004FBB88h                         
+  4A5309  lea     r8,[rsp+40h]                              
+  4A530E  xor     edx,edx                                   
+  4A5310  mov     rcx,rdi                                   
+  4A5313  call    0000000000247708h                         
+  4A5318  cmp     [rsp+2564h],r15b                          
+  4A5320  je      short 00000000004A5359h                   
+  4A5322  mov     rcx,[rel 45BA588h]                        
+  4A5329  test    rcx,rcx                                   
+  4A532C  je      short 00000000004A5359h                   
+  4A532E  mov     rcx,[rcx+4278h]                           
+  4A5335  mov     rax,[rcx]                                 
+  4A5338  call    qword [rax+108h]                          
+  4A533E  mov     rbp,rax                                   
+  4A5341  test    rax,rax                                   
+  4A5344  je      short 00000000004A5359h                   
+  4A5346  jmp     short 00000000004A534Ah                   
+  4A5348  pause                                             
+  4A534A  xor     edx,edx                                   
+  4A534C  mov     rcx,rbp                                   
+  4A534F  call    qword [rel 38E2340h]                        ; KERNEL32.dll!WaitForSingleObject
+  4A5355  test    eax,eax                                   
+  4A5357  jne     short 00000000004A5348h                   
+  4A5359  lea     rdx,[rsp+40h]                             
+  4A535E  call    00000000006B8D34h                         
+  4A5363  call    00000000006B88DCh                         
+  4A5368  call    00000000006B8904h                         
+  4A536D  call    00000000006B8924h                         
+  4A5372  call    00000000006B8944h                         
+  4A5377  mov     edx,[rel 45C3F48h]                        
+  4A537D  mov     rcx,[rel 45C3F40h]                        
+  4A5384  add     edx,esi                                   
+  4A5386  mov     [rel 45C3F48h],edx                        
+  4A538C  call    qword [rel 38E2CF0h]                        ; libxell.dll!xellSleep
+  4A5392  xor     edx,edx                                   
+  4A5394  call    0000000000990ED0h                         
+  4A5399  mov     edx,esi                                   
+  4A539B  call    0000000000990ED0h                         
+  4A53A0  mov     edx,2                                     
+  4A53A5  call    0000000000990EB4h                         
+  4A53AA  lea     rcx,[rsp+40h]                             
+  4A53AF  call    00000000002457E0h                         
+  4A53B4  lea     r14,[rbx+16B6A0h]                         
+  4A53BB  mov     rcx,r14                                   
+  4A53BE  call    00000000004A5768h                         
+  4A53C3  test    al,al                                     
+  4A53C5  je      short 00000000004A53D5h                   
+  4A53C7  call    00000000004A56F8h                         
+  4A53CC  test    al,al                                     
+  4A53CE  je      short 00000000004A53D5h                   
+  4A53D0  call    00000000032FE938h                         
+  4A53D5  mov     [rbx+1EE568h],r15d                        
+  4A53DC  lea     rax,[rbx+9B4h]                            
+  4A53E3  mov     [rbx+968h],r15                            
+  4A53EA  mov     ecx,0Fh                                   
+  4A53EF  mov     [rbx+970h],r15d                           
+  4A53F6  mov     [rax-3Ch],r15d                            
+  4A53FA  mov     [rax],r15d                                
+  4A53FD  mov     [rax+3Ch],r15d                            
+  4A5401  lea     rax,[rax+4]                               
+  4A5405  sub     rcx,rsi                                   
+  4A5408  jne     short 00000000004A53F6h                   
+  4A540A  mov     rax,[rbx]                                 
+  4A540D  mov     rcx,rbx                                   
+  4A5410  call    qword [rax+158h]                          
+  4A5416  mov     rcx,rax                                   
+  4A5419  mov     [rax+4A0h],sil                            
+  4A5420  call    000000000096A2C0h                         
+  4A5425  mov     rax,[rbx+0B18h]                           
+  4A542C  test    rax,rax                                   
+  4A542F  je      short 00000000004A5461h                   
+  4A5431  mov     rcx,[rcx+28h]                             
+  4A5435  mov     rdx,[rax+28h]                             
+  4A5439  test    rcx,rcx                                   
+  4A543C  je      short 00000000004A5444h                   
+  4A543E  mov     rcx,[rcx+10h]                             
+  4A5442  jmp     short 00000000004A5447h                   
+  4A5444  mov     rcx,r15                                   
+  4A5447  cmp     rcx,[rdx+10h]                             
+  4A544B  je      short 00000000004A5461h                   
+  4A544D  mov     r8,r13                                    
+  4A5450  xor     edx,edx                                   
+  4A5452  mov     rcx,rax                                   
+  4A5455  call    0000000000047DF8h                         
+  4A545A  mov     [rbx+0B18h],r15                           
+  4A5461  mov     rbp,[rbx+70h]                             
+  4A5465  test    rbp,rbp                                   
+  4A5468  je      near 00000000004A56C4h                    
+  4A546E  test    rdi,rdi                                   
+  4A5471  je      short 00000000004A547Ah                   
+  4A5473  mov     r15,[rdi+2B0h]                            
+  4A547A  mov     rax,[rbx]                                 
+  4A547D  mov     rcx,rbx                                   
+  4A5480  call    qword [rax+0A0h]                          
+  4A5486  test    al,al                                     
+  4A5488  jne     short 00000000004A54B0h                   
+  4A548A  test    r15,r15                                   
+  4A548D  je      short 00000000004A54B0h                   
+  4A548F  mov     edx,[r15+24h]                             
+  4A5493  shr     edx,0Ch                                   
+  4A5496  and     edx,esi                                   
+  4A5498  cmp     [rbp+4264h],edx                           
+  4A549E  je      short 00000000004A54B0h                   
+  4A54A0  mov     rcx,rbp                                   
+  4A54A3  call    0000000002EEBA88h                         
+  4A54A8  test    al,al                                     
+  4A54AA  je      near 00000000004A56C1h                    
+  4A54B0  test    dword [rbx+1EE5C4h],40000000h             
+  4A54BA  jne     short 00000000004A54CBh                   
+  4A54BC  lea     rcx,[rsp+38h]                             
+  4A54C1  mov     [rsp+38h],rbp                             
+  4A54C6  call    000000000099101Ch                         
+  4A54CB  movss   xmm3,[rel 3BD41E0h]                       
+  4A54D3  xor     edx,edx                                   
+  4A54D5  mov     rcx,rbp                                   
+  4A54D8  call    00000000007D9B6Ch                         
+  4A54DD  cmp     al,sil                                    
+  4A54E0  jne     near 00000000004A56C1h                    
+  4A54E6  lea     rcx,[rbx+1130h]                           
+  4A54ED  call    00000000004F941Ch                         
+  4A54F2  mov     rcx,r14                                   
+  4A54F5  call    00000000004A56F8h                         
+  4A54FA  test    al,al                                     
+  4A54FC  je      short 00000000004A5503h                   
+  4A54FE  call    00000000032FF380h                         
+  4A5503  mov     rcx,r14                                   
+  4A5506  call    00000000004A5768h                         
+  4A550B  test    rdi,rdi                                   
+  4A550E  je      short 00000000004A5555h                   
+  4A5510  test    al,al                                     
+  4A5512  je      short 00000000004A552Dh                   
+  4A5514  mov     r8d,[rbx+974h]                            
+  4A551B  lea     rcx,[rbx+18D0h]                           
+  4A5522  xor     r9d,r9d                                   
+  4A5525  mov     rdx,rdi                                   
+  4A5528  call    000000000005D214h                         
+  4A552D  lea     rax,[rdi+180h]                            
+  4A5534  test    rax,rax                                   
+  4A5537  je      short 00000000004A5555h                   
+  4A5539  movsxd  rax,[rbx+974h]                            
+  4A5540  mov     rcx,[rdi+rax*8+180h]                      
+  4A5548  test    rcx,rcx                                   
+  4A554B  je      short 00000000004A5555h                   
+  4A554D  mov     r8,r13                                    
+  4A5550  call    000000000097CBDCh                         
+  4A5555  mov     rcx,[r13+0F8h]                            
+  4A555C  test    r15,r15                                   
+  4A555F  je      short 00000000004A556Dh                   
+  4A5561  mov     eax,[r15+2Ch]                             
+  4A5565  shr     eax,0Ch                                   
+  4A5568  and     al,sil                                    
+  4A556B  jmp     short 00000000004A556Fh                   
+  4A556D  xor     al,al                                     
+  4A556F  mov     r9,[rbp+6EB0h]                            
+  4A5576  add     rcx,1EE360h                               
+  4A557D  mov     r8b,al                                    
+  4A5580  mov     rdx,r13                                   
+  4A5583  call    00000000003D06C8h                         
+  4A5588  test    rdi,rdi                                   
+  4A558B  je      near 00000000004A569Ch                    
+  4A5591  lea     rbp,[rdi+180h]                            
+  4A5598  test    rbp,rbp                                   
+  4A559B  je      near 00000000004A569Ch                    
+  4A55A1  mov     r14d,[rbx+95Ch]                           
+  4A55A8  xor     r12d,r12d                                 
+  4A55AB  mov     ecx,r14d                                  
+  4A55AE  xor     r9d,r9d                                   
+  4A55B1  and     r14d,8000000h                             
+  4A55B8  xor     r15d,r15d                                 
+  4A55BB  and     ecx,10000000h                             
+  4A55C1  jne     short 00000000004A55C8h                   
+  4A55C3  test    r14d,r14d                                 
+  4A55C6  je      short 00000000004A5647h                   
+  4A55C8  xor     r8d,r8d                                   
+  4A55CB  mov     rdx,rbp                                   
+  4A55CE  mov     r10,[rdx]                                 
+  4A55D1  test    r10,r10                                   
+  4A55D4  je      short 00000000004A55F9h                   
+  4A55D6  mov     eax,[r10+4358h]                           
+  4A55DD  test    r12,r12                                   
+  4A55E0  cmove   r12,r10                                   
+  4A55E4  cmp     r9d,eax                                   
+  4A55E7  cmovb   r9d,eax                                   
+  4A55EB  mov     eax,[r10+435Ch]                           
+  4A55F2  cmp     r15d,eax                                  
+  4A55F5  cmovb   r15d,eax                                  
+  4A55F9  add     r8d,esi                                   
+  4A55FC  add     rdx,8                                     
+  4A5600  cmp     r8d,20h                                   
+  4A5604  jb      short 00000000004A55CEh                   
+  4A5606  test    r9d,r9d                                   
+  4A5609  je      short 00000000004A5622h                   
+  4A560B  test    ecx,ecx                                   
+  4A560D  je      short 00000000004A5622h                   
+  4A560F  mov     r8d,[r12+0E6Ch]                           
+  4A5617  mov     rdx,r13                                   
+  4A561A  mov     rcx,rbx                                   
+  4A561D  call    00000000032FF708h                         
+  4A5622  test    r15d,r15d                                 
+  4A5625  je      short 00000000004A5647h                   
+  4A5627  test    r14d,r14d                                 
+  4A562A  je      short 00000000004A5647h                   
+  4A562C  mov     r8d,[r12+0E70h]                           
+  4A5634  mov     rdx,r13                                   
+  4A5637  mov     r9d,r8d                                   
+  4A563A  mov     [rsp+20h],r15d                            
+  4A563F  mov     rcx,rbx                                   
+  4A5642  call    00000000032FF754h                         
+  4A5647  xor     ecx,ecx                                   
+  4A5649  xor     eax,eax                                   
+  4A564B  cmp     qword [rbp],0                             
+  4A5650  jne     short 00000000004A5662h                   
+  4A5652  add     ecx,esi                                   
+  4A5654  add     rax,rsi                                   
+  4A5657  add     rbp,8                                     
+  4A565B  cmp     ecx,20h                                   
+  4A565E  jae     short 00000000004A5697h                   
+  4A5660  jmp     short 00000000004A564Bh                   
+  4A5662  mov     rcx,[rdi+rax*8+180h]                      
+  4A566A  test    rcx,rcx                                   
+  4A566D  je      short 00000000004A5697h                   
+  4A566F  call    000000000010DECCh                         
+  4A5674  mov     r9d,[rbx+964h]                            
+  4A567B  lea     rcx,[rbx+1EE530h]                         
+  4A5682  mov     r8d,[rbx+960h]                            
+  4A5689  mov     rdx,r13                                   
+  4A568C  movss   [rsp+20h],xmm0                            
+  4A5692  call    000000000094541Ch                         
+  4A5697  mov     r12,[rsp+30h]                             
+  4A569C  mov     rcx,r13                                   
+  4A569F  call    000000000099E434h                         
+  4A56A4  mov     rbx,rax                                   
+  4A56A7  test    rax,rax                                   
+  4A56AA  je      short 00000000004A56C7h                   
+  4A56AC  call    0000000000205530h                         
+  4A56B1  mov     r8,rax                                    
+  4A56B4  mov     rdx,r12                                   
+  4A56B7  mov     rcx,rbx                                   
+  4A56BA  call    000000000003E700h                         
+  4A56BF  jmp     short 00000000004A56C7h                   
+  4A56C1  xor     r15d,r15d                                 
+  4A56C4  mov     sil,r15b                                  
+  4A56C7  mov     al,sil                                    
+  4A56CA  mov     rcx,[rsp+3D80h]                           
+  4A56D2  xor     rcx,rsp                                   
+  4A56D5  call    0000000000B912E0h                         
+  4A56DA  mov     rbx,[rsp+3DE0h]                           
+  4A56E2  add     rsp,3D90h                                 
+  4A56E9  pop     r15                                       
+  4A56EB  pop     r14                                       
+  4A56ED  pop     r13                                       
+  4A56EF  pop     r12                                       
+  4A56F1  pop     rdi                                       
+  4A56F2  pop     rsi                                       
+  4A56F3  pop     rbp                                       
+  4A56F4  ret                                               

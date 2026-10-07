@@ -1,0 +1,146 @@
+; ---- Nioh3+1C5348 .. +1C55D1 (pdata fn Some (1856328u, 1856977u))
+  1C5348  mov     rax,rsp                                   
+  1C534B  mov     [rax+8],rbx                               
+  1C534F  mov     [rax+10h],rbp                             
+  1C5353  mov     [rax+18h],rsi                             
+  1C5357  mov     [rax+20h],rdi                             
+  1C535B  push    r14                                       
+  1C535D  sub     rsp,20h                                   
+  1C5361  xor     r14d,r14d                                 
+  1C5364  mov     rbx,rcx                                   
+  1C5367  test    dword [rcx+104h],1000h                    
+  1C5371  je      near 00000000001C5484h                    
+  1C5377  mov     rcx,[rcx+2D0h]                            
+  1C537E  test    rcx,rcx                                   
+  1C5381  je      short 00000000001C538Bh                   
+  1C5383  mov     rax,[rcx]                                 
+  1C5386  xor     edx,edx                                   
+  1C5388  call    qword [rax+48h]                           
+  1C538B  mov     rcx,[rbx+2D8h]                            
+  1C5392  test    rcx,rcx                                   
+  1C5395  je      short 00000000001C539Fh                   
+  1C5397  mov     rax,[rcx]                                 
+  1C539A  xor     edx,edx                                   
+  1C539C  call    qword [rax+48h]                           
+  1C539F  mov     rcx,[rbx+2C8h]                            
+  1C53A6  test    rcx,rcx                                   
+  1C53A9  je      short 00000000001C53B3h                   
+  1C53AB  mov     rax,[rcx]                                 
+  1C53AE  xor     edx,edx                                   
+  1C53B0  call    qword [rax+38h]                           
+  1C53B3  lea     rdi,[rbx+310h]                            
+  1C53BA  mov     rax,[rdi]                                 
+  1C53BD  mov     rcx,rdi                                   
+  1C53C0  call    qword [rax+18h]                           
+  1C53C3  mov     ebp,eax                                   
+  1C53C5  mov     esi,r14d                                  
+  1C53C8  test    eax,eax                                   
+  1C53CA  jle     short 00000000001C53E7h                   
+  1C53CC  mov     r8,[rdi]                                  
+  1C53CF  mov     edx,esi                                   
+  1C53D1  mov     rcx,rdi                                   
+  1C53D4  call    qword [r8+8]                              
+  1C53D8  mov     rcx,rax                                   
+  1C53DB  mov     rdx,[rax]                                 
+  1C53DE  call    qword [rdx+48h]                           
+  1C53E1  inc     esi                                       
+  1C53E3  cmp     esi,ebp                                   
+  1C53E5  jl      short 00000000001C53CCh                   
+  1C53E7  mov     rax,[rdi]                                 
+  1C53EA  mov     rcx,rdi                                   
+  1C53ED  call    qword [rax+48h]                           
+  1C53F0  lea     rdi,[rbx+3A0h]                            
+  1C53F7  mov     rcx,[rdi]                                 
+  1C53FA  test    rcx,rcx                                   
+  1C53FD  jne     near 00000000001C5570h                    
+  1C5403  lea     rsi,[rbx+398h]                            
+  1C540A  mov     rcx,[rsi]                                 
+  1C540D  test    rcx,rcx                                   
+  1C5410  je      short 00000000001C544Bh                   
+  1C5412  mov     rax,[rcx]                                 
+  1C5415  call    qword [rax+48h]                           
+  1C5418  mov     rcx,[rsi]                                 
+  1C541B  add     rcx,38h                                   
+  1C541F  mov     rax,[rcx]                                 
+  1C5422  call    qword [rax+48h]                           
+  1C5425  test    dword [rbx+104h],2000000h                 
+  1C542F  jne     near 000000000195F044h                    
+  1C5435  mov     rax,[rbx+0D8h]                            
+  1C543C  mov     rdx,[rax+2D0h]                            
+  1C5443  mov     rcx,rsi                                   
+  1C5446  call    00000000001C55D4h                         
+  1C544B  cmp     [rdi],r14                                 
+  1C544E  jne     near 00000000001C5545h                    
+  1C5454  mov     rcx,[rbx+358h]                            
+  1C545B  test    rcx,rcx                                   
+  1C545E  jne     near 000000000195F06Ah                    
+  1C5464  mov     rcx,[rbx+360h]                            
+  1C546B  test    rcx,rcx                                   
+  1C546E  jne     near 000000000195F07Bh                    
+  1C5474  mov     rcx,[rbx+368h]                            
+  1C547B  test    rcx,rcx                                   
+  1C547E  jne     near 000000000195F08Ch                    
+  1C5484  mov     rbp,[rsp+38h]                             
+  1C5489  mov     eax,3F800000h                             
+  1C548E  mov     rsi,[rsp+40h]                             
+  1C5493  mov     rdi,[rsp+48h]                             
+  1C5498  mov     [rbx+2C4h],eax                            
+  1C549E  mov     [rbx+3CCh],rax                            
+  1C54A5  mov     [rbx+2B8h],r14                            
+  1C54AC  mov     [rbx+2C0h],r14d                           
+  1C54B3  mov     [rbx+2B0h],r14                            
+  1C54BA  mov     [rbx+2C8h],r14                            
+  1C54C1  mov     [rbx+2D0h],r14                            
+  1C54C8  mov     [rbx+2D8h],r14                            
+  1C54CF  mov     [rbx+358h],r14                            
+  1C54D6  mov     [rbx+360h],r14                            
+  1C54DD  mov     [rbx+368h],r14                            
+  1C54E4  mov     [rbx+370h],r14                            
+  1C54EB  mov     [rbx+398h],r14                            
+  1C54F2  mov     [rbx+3A0h],r14                            
+  1C54F9  mov     [rbx+37Ch],r14                            
+  1C5500  mov     [rbx+384h],r14                            
+  1C5507  mov     [rbx+38Ch],r14                            
+  1C550E  mov     [rbx+3A8h],r14                            
+  1C5515  mov     [rbx+3B4h],r14d                           
+  1C551C  mov     [rbx+3C0h],r14                            
+  1C5523  mov     [rbx+3C8h],r14d                           
+  1C552A  mov     [rbx+3D4h],r14d                           
+  1C5531  mov     [rbx+3D8h],r14w                           
+  1C5539  mov     rbx,[rsp+30h]                             
+  1C553E  add     rsp,20h                                   
+  1C5542  pop     r14                                       
+  1C5544  ret                                               
+  1C5545  test    dword [rbx+104h],4000000h                 
+  1C554F  jne     near 000000000195F057h                    
+  1C5555  mov     rax,[rbx+0D8h]                            
+  1C555C  mov     rdx,[rax+2D0h]                            
+  1C5563  mov     rcx,rdi                                   
+  1C5566  call    00000000009E167Ch                         
+  1C556B  jmp     00000000001C5454h                         
+  1C5570  cmp     [rcx],r14                                 
+  1C5573  jne     short 00000000001C55A3h                   
+  1C5575  test    rcx,rcx                                   
+  1C5578  je      near 00000000001C5403h                    
+  1C557E  cmp     [rcx+8],r14                               
+  1C5582  jne     short 00000000001C55B6h                   
+  1C5584  cmp     [rcx+10h],r14                             
+  1C5588  je      near 00000000001C5403h                    
+  1C558E  mov     rcx,[rcx+10h]                             
+  1C5592  call    00000000009A7DA4h                         
+  1C5597  mov     rax,[rdi]                                 
+  1C559A  mov     [rax+10h],r14                             
+  1C559E  jmp     00000000001C5403h                         
+  1C55A3  mov     rcx,[rcx]                                 
+  1C55A6  call    00000000009A7D68h                         
+  1C55AB  mov     rax,[rdi]                                 
+  1C55AE  mov     [rax],r14                                 
+  1C55B1  mov     rcx,[rdi]                                 
+  1C55B4  jmp     short 00000000001C5575h                   
+  1C55B6  mov     edx,1                                     
+  1C55BB  mov     rcx,rbx                                   
+  1C55BE  call    00000000009A7CF8h                         
+  1C55C3  mov     rcx,[rdi]                                 
+  1C55C6  test    rcx,rcx                                   
+  1C55C9  je      near 00000000001C5403h                    
+  1C55CF  jmp     short 00000000001C5584h                   

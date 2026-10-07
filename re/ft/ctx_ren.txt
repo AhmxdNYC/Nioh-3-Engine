@@ -1,0 +1,1450 @@
+unknown cmd
+-- 5A9E28
+  005A9E28  8B0D26110104             mov ecx,[rel R_45BAF54]
+  005A9E2E  891528F30104             mov [rel R_45C915C],edx
+  005A9E34  448D42F7                 lea r8d,[rdx-9]
+  005A9E38  44890521F30104           mov [rel R_45C9160],r8d
+  005A9E3F  E8E87A4A00               call R_A5192C
+  005A9E44  6BC80F                   imul ecx,eax,0Fh
+  005A9E47  8D0440                   lea eax,[rax+rax*2]
+  005A9E4A  03C0                     add eax,eax
+  005A9E4C  890506F30104             mov [rel R_45C9158],eax
+  005A9E52  890D0CF30104             mov [rel R_45C9164],ecx
+  005A9E58  F30F100D7CAF6203         movss xmm1,[rel R_3BD4DDC]
+  005A9E60  85D2                     test edx,edx
+  005A9E62  7E1C                     jle short R_5A9E80
+  005A9E64  660F6EC2                 movd xmm0,edx
+  005A9E68  412BD7                   sub edx,r15d
+  005A9E6B  0F5BC0                   cvtdq2ps xmm0,xmm0
+  005A9E6E  8915E8F20104             mov [rel R_45C915C],edx
+  005A9E74  F30F5EC1                 divss xmm0,xmm1
+  005A9E78  F30F11833C240000         movss [rbx+243Ch],xmm0
+  005A9E80  4585C0                   test r8d,r8d
+  005A9E83  7E11                     jle short R_5A9E96
+  005A9E85  83A344240000FD           and dword [rbx+2444h],0FFFFFFFDh
+-- 5AF617
+  005AF617  48630536B90004           movsxd rax,[rel R_45BAF54]
+  005AF61E  BA1E000000               mov edx,1Eh
+  005AF623  891424                   mov [rsp],edx
+  005AF626  C74424043C000000         mov dword [rsp+4],3Ch
+  005AF62E  C744240878000000         mov dword [rsp+8],78h
+  005AF636  85C0                     test eax,eax
+  005AF638  780B                     js short R_5AF645
+  005AF63A  4883F803                 cmp rax,3
+  005AF63E  7305                     jae short R_5AF645
+  005AF640  8B0484                   mov eax,[rsp+rax*4]
+  005AF643  EB02                     jmp short R_5AF647
+  005AF645  8BC2                     mov eax,edx
+  005AF647  488B4C2410               mov rcx,[rsp+10h]
+  005AF64C  4833CC                   xor rcx,rsp
+  005AF64F  E88C1C5E00               call R_B912E0
+  005AF654  4883C428                 add rsp,28h
+  005AF658  C3                       ret
+  005AF659  CC                       int3
+  005AF65A  CC                       int3
+  005AF65B  CC                       int3
+  005AF65C  488B05ADA21A04           mov rax,[rel R_4759910]
+  005AF663  4885C0                   test rax,rax
+-- 608187
+  00608187  8B05C72DFB03             mov eax,[rel R_45BAF54]
+  0060818D  E91B030000               jmp R_6084AD
+  00608192  488B05D71CFB03           mov rax,[rel R_45B9E70]
+  00608199  0FB680B7000000           movzx eax,byte [rax+0B7h]
+  006081A0  E908030000               jmp R_6084AD
+  006081A5  488B05C41CFB03           mov rax,[rel R_45B9E70]
+  006081AC  8B881C020000             mov ecx,[rax+21Ch]
+  006081B2  E8ADEA3202               call R_2936C64
+  006081B7  84C0                     test al,al
+  006081B9  7507                     jne short R_6081C2
+  006081BB  E840D93202               call R_2935B00
+  006081C0  8BC8                     mov ecx,eax
+  006081C2  E89D292202               call R_282AB64
+  006081C7  E9E1020000               jmp R_6084AD
+  006081CC  488B059D1CFB03           mov rax,[rel R_45B9E70]
+  006081D3  0FB680AB000000           movzx eax,byte [rax+0ABh]
+  006081DA  E9CE020000               jmp R_6084AD
+  006081DF  488B058A1CFB03           mov rax,[rel R_45B9E70]
+  006081E6  0FBE401C                 movsx eax,byte [rax+1Ch]
+  006081EA  E9BE020000               jmp R_6084AD
+  006081EF  4181E801EE0000           sub r8d,0EE01h
+  006081F6  0F84E2000000             je near R_6082DE
+-- C643B9
+  00C643B9  48630D946B9503           movsxd rcx,[rel R_45BAF54]
+  00C643C0  B81E000000               mov eax,1Eh
+  00C643C5  8985F0010000             mov [rbp+1F0h],eax
+  00C643CB  C785F40100003C000000     mov dword [rbp+1F4h],3Ch
+  00C643D5  C785F801000078000000     mov dword [rbp+1F8h],78h
+  00C643DF  85C9                     test ecx,ecx
+  00C643E1  780D                     js short R_C643F0
+  00C643E3  4883F903                 cmp rcx,3
+  00C643E7  7307                     jae short R_C643F0
+  00C643E9  8B848DF0010000           mov eax,[rbp+rcx*4+1F0h]
+  00C643F0  85C0                     test eax,eax
+  00C643F2  7410                     je short R_C64404
+  00C643F4  0F57C0                   xorps xmm0,xmm0
+  00C643F7  410F28F0                 movaps xmm6,xmm8
+  00C643FB  F3480F2AC0               cvtsi2ss xmm0,rax
+  00C64400  F30F5EF0                 divss xmm6,xmm0
+  00C64404  488B0555F39503           mov rax,[rel R_45C3760]
+  00C6440B  F30F58F6                 addss xmm6,xmm6
+  00C6440F  0F283D1A98D502           movaps xmm7,[rel R_39BDC30]
+  00C64416  488B7A08                 mov rdi,[rdx+8]
+  00C6441A  448B7214                 mov r14d,[rdx+14h]
+  00C6441E  8B4A10                   mov ecx,[rdx+10h]
+-- E34DF6
+  00E34DF6  48630D57617803           movsxd rcx,[rel R_45BAF54]
+  00E34DFD  F3440F115C2470           movss [rsp+70h],xmm11
+  00E34E04  F3440F11442478           movss [rsp+78h],xmm8
+  00E34E0B  44886D98                 mov [rbp-68h],r13b
+  00E34E0F  44896D9C                 mov [rbp-64h],r13d
+  00E34E13  4C896DA0                 mov [rbp-60h],r13
+  00E34E17  44896DA8                 mov [rbp-58h],r13d
+  00E34E1B  6644896D10               mov [rbp+10h],r13w
+  00E34E20  C7451401000000           mov dword [rbp+14h],1
+  00E34E27  4C896D18                 mov [rbp+18h],r13
+  00E34E2B  660F7F4520               movdqa [rbp+20h],xmm0
+  00E34E30  44896D30                 mov [rbp+30h],r13d
+  00E34E34  C74424743C000000         mov dword [rsp+74h],3Ch
+  00E34E3C  4D85C0                   test r8,r8
+  00E34E3F  7409                     je short R_E34E4A
+  00E34E41  418B8014060000           mov eax,[r8+614h]
+  00E34E48  EB36                     jmp short R_E34E80
+  00E34E4A  C785500200001E000000     mov dword [rbp+250h],1Eh
+  00E34E54  C785540200003C000000     mov dword [rbp+254h],3Ch
+  00E34E5E  C7855802000078000000     mov dword [rbp+258h],78h
+  00E34E68  85C9                     test ecx,ecx
+  00E34E6A  780F                     js short R_E34E7B
+-- E4955F
+  00E4955F  48630DEE197703           movsxd rcx,[rel R_45BAF54]
+  00E49566  85C9                     test ecx,ecx
+  00E49568  780D                     js short R_E49577
+  00E4956A  4883F903                 cmp rcx,3
+  00E4956E  7307                     jae short R_E49577
+  00E49570  8B848D60010000           mov eax,[rbp+rcx*4+160h]
+  00E49577  85C0                     test eax,eax
+  00E49579  740E                     je short R_E49589
+  00E4957B  0F57C0                   xorps xmm0,xmm0
+  00E4957E  F3480F2AC0               cvtsi2ss xmm0,rax
+  00E49583  F30F5EF0                 divss xmm6,xmm0
+  00E49587  EB03                     jmp short R_E4958C
+  00E49589  0F57F6                   xorps xmm6,xmm6
+  00E4958C  F30F58F6                 addss xmm6,xmm6
+  00E49590  488B05C9A17703           mov rax,[rel R_45C3760]
+  00E49597  4885C0                   test rax,rax
+  00E4959A  0F84E0010000             je near R_E49780
+  00E495A0  488B98B0010000           mov rbx,[rax+1B0h]
+  00E495A7  4885DB                   test rbx,rbx
+  00E495AA  0F84D0010000             je near R_E49780
+  00E495B0  48C785600100005486121C   mov qword [rbp+160h],1C128654h
+  00E495BB  4C89A568010000           mov [rbp+168h],r12
+-- E5ED1F
+  00E5ED1F  48630D2EC27503           movsxd rcx,[rel R_45BAF54]
+  00E5ED26  B81E000000               mov eax,1Eh
+  00E5ED2B  89442420                 mov [rsp+20h],eax
+  00E5ED2F  C74424243C000000         mov dword [rsp+24h],3Ch
+  00E5ED37  C744242878000000         mov dword [rsp+28h],78h
+  00E5ED3F  85C9                     test ecx,ecx
+  00E5ED41  780A                     js short R_E5ED4D
+  00E5ED43  4883F903                 cmp rcx,3
+  00E5ED47  7304                     jae short R_E5ED4D
+  00E5ED49  8B448C20                 mov eax,[rsp+rcx*4+20h]
+  00E5ED4D  0F57C0                   xorps xmm0,xmm0
+  00E5ED50  F3480F2AC0               cvtsi2ss xmm0,rax
+  00E5ED55  F3410F59806C010000       mulss xmm0,[r8+16Ch]
+  00E5ED5E  0F2F053F53D702           comiss xmm0,[rel R_3BD40A4]
+  00E5ED65  7631                     jbe short R_E5ED98
+  00E5ED67  498B9EA0000000           mov rbx,[r14+0A0h]
+  00E5ED6E  488D4B10                 lea rcx,[rbx+10h]
+  00E5ED72  FF15A835A802             call qword [rel R_38E2320]
+  00E5ED78  8BD7                     mov edx,edi
+  00E5ED7A  498BCE                   mov rcx,r14
+  00E5ED7D  E8F6E758FF               call R_3ED578
+  00E5ED82  4885DB                   test rbx,rbx
+-- E66583
+  00E66583  486305CA497503           movsxd rax,[rel R_45BAF54]
+  00E6658A  B91E000000               mov ecx,1Eh
+  00E6658F  894C2430                 mov [rsp+30h],ecx
+  00E66593  894C2450                 mov [rsp+50h],ecx
+  00E66597  C74424543C000000         mov dword [rsp+54h],3Ch
+  00E6659F  C744245878000000         mov dword [rsp+58h],78h
+  00E665A7  85C0                     test eax,eax
+  00E665A9  780E                     js short R_E665B9
+  00E665AB  4883F803                 cmp rax,3
+  00E665AF  7308                     jae short R_E665B9
+  00E665B1  8B4C8450                 mov ecx,[rsp+rax*4+50h]
+  00E665B5  894C2430                 mov [rsp+30h],ecx
+  00E665B9  488B05381F7603           mov rax,[rel R_45C84F8]
+  00E665C0  4533E4                   xor r12d,r12d
+  00E665C3  4C89B42420010000         mov [rsp+120h],r14
+  00E665CB  418BEC                   mov ebp,r12d
+  00E665CE  458D7C2401               lea r15d,[r12+1]
+  00E665D3  4885C0                   test rax,rax
+  00E665D6  0F84E5010000             je near R_E667C1
+  00E665DC  448BB0C0020000           mov r14d,[rax+2C0h]
+  00E665E3  418BFC                   mov edi,r12d
+  00E665E6  4585F6                   test r14d,r14d
+-- E66E6E
+  00E66E6E  48630DDF407503           movsxd rcx,[rel R_45BAF54]
+  00E66E75  B81E000000               mov eax,1Eh
+  00E66E7A  89442460                 mov [rsp+60h],eax
+  00E66E7E  C74424643C000000         mov dword [rsp+64h],3Ch
+  00E66E86  C744246878000000         mov dword [rsp+68h],78h
+  00E66E8E  85C9                     test ecx,ecx
+  00E66E90  780A                     js short R_E66E9C
+  00E66E92  4883F903                 cmp rcx,3
+  00E66E96  7304                     jae short R_E66E9C
+  00E66E98  8B448C60                 mov eax,[rsp+rcx*4+60h]
+  00E66E9C  8D3440                   lea esi,[rax+rax*2]
+  00E66E9F  4533F6                   xor r14d,r14d
+  00E66EA2  488B05972F7503           mov rax,[rel R_45B9E40]
+  00E66EA9  418BFE                   mov edi,r14d
+  00E66EAC  488B08                   mov rcx,[rax]
+  00E66EAF  4C8B6948                 mov r13,[rcx+48h]
+  00E66EB3  4C896C2448               mov [rsp+48h],r13
+  00E66EB8  498B5D18                 mov rbx,[r13+18h]
+  00E66EBC  0F1F4000                 nop dword [rax]
+  00E66EC0  498B4520                 mov rax,[r13+20h]
+  00E66EC4  48C1E004                 shl rax,4
+  00E66EC8  49034518                 add rax,[r13+18h]
+-- E704BC
+  00E704BC  48630D91AA7403           movsxd rcx,[rel R_45BAF54]
+  00E704C3  B81E000000               mov eax,1Eh
+  00E704C8  89842480000000           mov [rsp+80h],eax
+  00E704CF  C78424840000003C000000   mov dword [rsp+84h],3Ch
+  00E704DA  C784248800000078000000   mov dword [rsp+88h],78h
+  00E704E5  85C9                     test ecx,ecx
+  00E704E7  780D                     js short R_E704F6
+  00E704E9  4883F903                 cmp rcx,3
+  00E704ED  7307                     jae short R_E704F6
+  00E704EF  8B848C80000000           mov eax,[rsp+rcx*4+80h]
+  00E704F6  85C0                     test eax,eax
+  00E704F8  740F                     je short R_E70509
+  00E704FA  0F57C0                   xorps xmm0,xmm0
+  00E704FD  F3480F2AC0               cvtsi2ss xmm0,rax
+  00E70502  F3440F5EE8               divss xmm13,xmm0
+  00E70507  EB04                     jmp short R_E7050D
+  00E70509  450F57ED                 xorps xmm13,xmm13
+  00E7050D  440F28E1                 movaps xmm12,xmm1
+  00E70511  F3450F58E5               addss xmm12,xmm13
+  00E70516  F3440F11A770190000       movss [rdi+1970h],xmm12
+  00E7051F  488B3D7AA78903           mov rdi,[rel R_470ACA0]
+  00E70526  F3410F10B7C0010000       movss xmm6,[r15+1C0h]
+-- EB5543
+  00EB5543  48630D0A5A7003           movsxd rcx,[rel R_45BAF54]
+  00EB554A  B81E000000               mov eax,1Eh
+  00EB554F  898520010000             mov [rbp+120h],eax
+  00EB5555  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00EB555F  C7852801000078000000     mov dword [rbp+128h],78h
+  00EB5569  85C9                     test ecx,ecx
+  00EB556B  780D                     js short R_EB557A
+  00EB556D  4883F903                 cmp rcx,3
+  00EB5571  7307                     jae short R_EB557A
+  00EB5573  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00EB557A  85C0                     test eax,eax
+  00EB557C  740E                     je short R_EB558C
+  00EB557E  0F57C0                   xorps xmm0,xmm0
+  00EB5581  F3480F2AC0               cvtsi2ss xmm0,rax
+  00EB5586  F30F5EF0                 divss xmm6,xmm0
+  00EB558A  EB03                     jmp short R_EB558F
+  00EB558C  0F57F6                   xorps xmm6,xmm6
+  00EB558F  33DB                     xor ebx,ebx
+  00EB5591  48C785200100004284163E   mov qword [rbp+120h],3E168442h
+  00EB559C  F30F108520010000         movss xmm0,[rbp+120h]
+  00EB55A4  F30F58F6                 addss xmm6,xmm6
+  00EB55A8  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F0E193
+  00F0E193  48630DBACD6A03           movsxd rcx,[rel R_45BAF54]
+  00F0E19A  B81E000000               mov eax,1Eh
+  00F0E19F  898520010000             mov [rbp+120h],eax
+  00F0E1A5  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F0E1AF  C7852801000078000000     mov dword [rbp+128h],78h
+  00F0E1B9  85C9                     test ecx,ecx
+  00F0E1BB  780D                     js short R_F0E1CA
+  00F0E1BD  4883F903                 cmp rcx,3
+  00F0E1C1  7307                     jae short R_F0E1CA
+  00F0E1C3  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F0E1CA  85C0                     test eax,eax
+  00F0E1CC  740E                     je short R_F0E1DC
+  00F0E1CE  0F57C0                   xorps xmm0,xmm0
+  00F0E1D1  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F0E1D6  F30F5EF0                 divss xmm6,xmm0
+  00F0E1DA  EB03                     jmp short R_F0E1DF
+  00F0E1DC  0F57F6                   xorps xmm6,xmm6
+  00F0E1DF  33DB                     xor ebx,ebx
+  00F0E1E1  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  00F0E1EC  F30F108520010000         movss xmm0,[rbp+120h]
+  00F0E1F4  F30F58F6                 addss xmm6,xmm6
+  00F0E1F8  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F10033
+  00F10033  48630D1AAF6A03           movsxd rcx,[rel R_45BAF54]
+  00F1003A  B81E000000               mov eax,1Eh
+  00F1003F  898520010000             mov [rbp+120h],eax
+  00F10045  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F1004F  C7852801000078000000     mov dword [rbp+128h],78h
+  00F10059  85C9                     test ecx,ecx
+  00F1005B  780D                     js short R_F1006A
+  00F1005D  4883F903                 cmp rcx,3
+  00F10061  7307                     jae short R_F1006A
+  00F10063  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F1006A  85C0                     test eax,eax
+  00F1006C  740E                     je short R_F1007C
+  00F1006E  0F57C0                   xorps xmm0,xmm0
+  00F10071  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F10076  F30F5EF0                 divss xmm6,xmm0
+  00F1007A  EB03                     jmp short R_F1007F
+  00F1007C  0F57F6                   xorps xmm6,xmm6
+  00F1007F  33DB                     xor ebx,ebx
+  00F10081  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  00F1008C  F30F108520010000         movss xmm0,[rbp+120h]
+  00F10094  F30F58F6                 addss xmm6,xmm6
+  00F10098  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F18D33
+  00F18D33  48630D1A226A03           movsxd rcx,[rel R_45BAF54]
+  00F18D3A  B81E000000               mov eax,1Eh
+  00F18D3F  898520010000             mov [rbp+120h],eax
+  00F18D45  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F18D4F  C7852801000078000000     mov dword [rbp+128h],78h
+  00F18D59  85C9                     test ecx,ecx
+  00F18D5B  780D                     js short R_F18D6A
+  00F18D5D  4883F903                 cmp rcx,3
+  00F18D61  7307                     jae short R_F18D6A
+  00F18D63  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F18D6A  85C0                     test eax,eax
+  00F18D6C  740E                     je short R_F18D7C
+  00F18D6E  0F57C0                   xorps xmm0,xmm0
+  00F18D71  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F18D76  F30F5EF0                 divss xmm6,xmm0
+  00F18D7A  EB03                     jmp short R_F18D7F
+  00F18D7C  0F57F6                   xorps xmm6,xmm6
+  00F18D7F  33DB                     xor ebx,ebx
+  00F18D81  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  00F18D8C  F30F108520010000         movss xmm0,[rbp+120h]
+  00F18D94  F30F58F6                 addss xmm6,xmm6
+  00F18D98  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F1928A
+  00F1928A  48630DC31C6A03           movsxd rcx,[rel R_45BAF54]
+  00F19291  B81E000000               mov eax,1Eh
+  00F19296  8985D0000000             mov [rbp+0D0h],eax
+  00F1929C  C785D40000003C000000     mov dword [rbp+0D4h],3Ch
+  00F192A6  C785D800000078000000     mov dword [rbp+0D8h],78h
+  00F192B0  85C9                     test ecx,ecx
+  00F192B2  780D                     js short R_F192C1
+  00F192B4  4883F903                 cmp rcx,3
+  00F192B8  7307                     jae short R_F192C1
+  00F192BA  8B848DD0000000           mov eax,[rbp+rcx*4+0D0h]
+  00F192C1  85C0                     test eax,eax
+  00F192C3  740E                     je short R_F192D3
+  00F192C5  0F57C0                   xorps xmm0,xmm0
+  00F192C8  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F192CD  F30F5EF0                 divss xmm6,xmm0
+  00F192D1  EB03                     jmp short R_F192D6
+  00F192D3  0F57F6                   xorps xmm6,xmm6
+  00F192D6  32C9                     xor cl,cl
+  00F192D8  48C785D0000000899CC21F   mov qword [rbp+0D0h],1FC29C89h
+  00F192E3  F30F1085D0000000         movss xmm0,[rbp+0D0h]
+  00F192EB  F30F58F6                 addss xmm6,xmm6
+  00F192EF  F30F108DD4000000         movss xmm1,[rbp+0D4h]
+-- F1BBB1
+  00F1BBB1  48630D9CF36903           movsxd rcx,[rel R_45BAF54]
+  00F1BBB8  B81E000000               mov eax,1Eh
+  00F1BBBD  898500010000             mov [rbp+100h],eax
+  00F1BBC3  C785040100003C000000     mov dword [rbp+104h],3Ch
+  00F1BBCD  C7850801000078000000     mov dword [rbp+108h],78h
+  00F1BBD7  85C9                     test ecx,ecx
+  00F1BBD9  780D                     js short R_F1BBE8
+  00F1BBDB  4883F903                 cmp rcx,3
+  00F1BBDF  7307                     jae short R_F1BBE8
+  00F1BBE1  8B848D00010000           mov eax,[rbp+rcx*4+100h]
+  00F1BBE8  85C0                     test eax,eax
+  00F1BBEA  740E                     je short R_F1BBFA
+  00F1BBEC  0F57C0                   xorps xmm0,xmm0
+  00F1BBEF  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F1BBF4  F30F5EF0                 divss xmm6,xmm0
+  00F1BBF8  EB03                     jmp short R_F1BBFD
+  00F1BBFA  0F57F6                   xorps xmm6,xmm6
+  00F1BBFD  32C9                     xor cl,cl
+  00F1BBFF  48C7850001000083FB8753   mov qword [rbp+100h],5387FB83h
+  00F1BC0A  F30F108500010000         movss xmm0,[rbp+100h]
+  00F1BC12  F30F58F6                 addss xmm6,xmm6
+  00F1BC16  F30F108D04010000         movss xmm1,[rbp+104h]
+-- F1CA21
+  00F1CA21  48630D2CE56903           movsxd rcx,[rel R_45BAF54]
+  00F1CA28  B81E000000               mov eax,1Eh
+  00F1CA2D  898520010000             mov [rbp+120h],eax
+  00F1CA33  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F1CA3D  C7852801000078000000     mov dword [rbp+128h],78h
+  00F1CA47  85C9                     test ecx,ecx
+  00F1CA49  780D                     js short R_F1CA58
+  00F1CA4B  4883F903                 cmp rcx,3
+  00F1CA4F  7307                     jae short R_F1CA58
+  00F1CA51  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F1CA58  85C0                     test eax,eax
+  00F1CA5A  740E                     je short R_F1CA6A
+  00F1CA5C  0F57C0                   xorps xmm0,xmm0
+  00F1CA5F  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F1CA64  F30F5EF0                 divss xmm6,xmm0
+  00F1CA68  EB03                     jmp short R_F1CA6D
+  00F1CA6A  0F57F6                   xorps xmm6,xmm6
+  00F1CA6D  33DB                     xor ebx,ebx
+  00F1CA6F  0F29BC2460020000         movaps [rsp+260h],xmm7
+  00F1CA77  32C9                     xor cl,cl
+  00F1CA79  48C785200100005C6E9075   mov qword [rbp+120h],75906E5Ch
+  00F1CA84  F30F108520010000         movss xmm0,[rbp+120h]
+-- F1EC53
+  00F1EC53  48630DFAC26903           movsxd rcx,[rel R_45BAF54]
+  00F1EC5A  B81E000000               mov eax,1Eh
+  00F1EC5F  898520010000             mov [rbp+120h],eax
+  00F1EC65  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F1EC6F  C7852801000078000000     mov dword [rbp+128h],78h
+  00F1EC79  85C9                     test ecx,ecx
+  00F1EC7B  780D                     js short R_F1EC8A
+  00F1EC7D  4883F903                 cmp rcx,3
+  00F1EC81  7307                     jae short R_F1EC8A
+  00F1EC83  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F1EC8A  85C0                     test eax,eax
+  00F1EC8C  740E                     je short R_F1EC9C
+  00F1EC8E  0F57C0                   xorps xmm0,xmm0
+  00F1EC91  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F1EC96  F30F5EF0                 divss xmm6,xmm0
+  00F1EC9A  EB03                     jmp short R_F1EC9F
+  00F1EC9C  0F57F6                   xorps xmm6,xmm6
+  00F1EC9F  33DB                     xor ebx,ebx
+  00F1ECA1  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  00F1ECAC  F30F108520010000         movss xmm0,[rbp+120h]
+  00F1ECB4  F30F58F6                 addss xmm6,xmm6
+  00F1ECB8  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F20ACB
+  00F20ACB  48630D82A46903           movsxd rcx,[rel R_45BAF54]
+  00F20AD2  B81E000000               mov eax,1Eh
+  00F20AD7  894590                   mov [rbp-70h],eax
+  00F20ADA  C745943C000000           mov dword [rbp-6Ch],3Ch
+  00F20AE1  C7459878000000           mov dword [rbp-68h],78h
+  00F20AE8  85C9                     test ecx,ecx
+  00F20AEA  780A                     js short R_F20AF6
+  00F20AEC  4883F903                 cmp rcx,3
+  00F20AF0  7304                     jae short R_F20AF6
+  00F20AF2  8B448D90                 mov eax,[rbp+rcx*4-70h]
+  00F20AF6  85C0                     test eax,eax
+  00F20AF8  740E                     je short R_F20B08
+  00F20AFA  0F57C0                   xorps xmm0,xmm0
+  00F20AFD  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F20B02  F30F5EF0                 divss xmm6,xmm0
+  00F20B06  EB03                     jmp short R_F20B0B
+  00F20B08  0F57F6                   xorps xmm6,xmm6
+  00F20B0B  32C9                     xor cl,cl
+  00F20B0D  48C7459083FB8753         mov qword [rbp-70h],5387FB83h
+  00F20B15  F30F104590               movss xmm0,[rbp-70h]
+  00F20B1A  F30F58F6                 addss xmm6,xmm6
+  00F20B1E  F30F104D94               movss xmm1,[rbp-6Ch]
+-- F232B3
+  00F232B3  48630D9A7C6903           movsxd rcx,[rel R_45BAF54]
+  00F232BA  B81E000000               mov eax,1Eh
+  00F232BF  898520010000             mov [rbp+120h],eax
+  00F232C5  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F232CF  C7852801000078000000     mov dword [rbp+128h],78h
+  00F232D9  85C9                     test ecx,ecx
+  00F232DB  780D                     js short R_F232EA
+  00F232DD  4883F903                 cmp rcx,3
+  00F232E1  7307                     jae short R_F232EA
+  00F232E3  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F232EA  85C0                     test eax,eax
+  00F232EC  740E                     je short R_F232FC
+  00F232EE  0F57C0                   xorps xmm0,xmm0
+  00F232F1  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F232F6  F30F5EF0                 divss xmm6,xmm0
+  00F232FA  EB03                     jmp short R_F232FF
+  00F232FC  0F57F6                   xorps xmm6,xmm6
+  00F232FF  33DB                     xor ebx,ebx
+  00F23301  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  00F2330C  F30F108520010000         movss xmm0,[rbp+120h]
+  00F23314  F30F58F6                 addss xmm6,xmm6
+  00F23318  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F7D27B
+  00F7D27B  48630DD2DC6303           movsxd rcx,[rel R_45BAF54]
+  00F7D282  B81E000000               mov eax,1Eh
+  00F7D287  898520010000             mov [rbp+120h],eax
+  00F7D28D  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F7D297  C7852801000078000000     mov dword [rbp+128h],78h
+  00F7D2A1  85C9                     test ecx,ecx
+  00F7D2A3  780D                     js short R_F7D2B2
+  00F7D2A5  4883F903                 cmp rcx,3
+  00F7D2A9  7307                     jae short R_F7D2B2
+  00F7D2AB  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F7D2B2  85C0                     test eax,eax
+  00F7D2B4  740E                     je short R_F7D2C4
+  00F7D2B6  0F57C0                   xorps xmm0,xmm0
+  00F7D2B9  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F7D2BE  F30F5EF0                 divss xmm6,xmm0
+  00F7D2C2  EB03                     jmp short R_F7D2C7
+  00F7D2C4  0F57F6                   xorps xmm6,xmm6
+  00F7D2C7  33DB                     xor ebx,ebx
+  00F7D2C9  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  00F7D2D4  F30F108520010000         movss xmm0,[rbp+120h]
+  00F7D2DC  F30F58F6                 addss xmm6,xmm6
+  00F7D2E0  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F7FEAB
+  00F7FEAB  48630DA2B06303           movsxd rcx,[rel R_45BAF54]
+  00F7FEB2  B81E000000               mov eax,1Eh
+  00F7FEB7  8985A0010000             mov [rbp+1A0h],eax
+  00F7FEBD  C785A40100003C000000     mov dword [rbp+1A4h],3Ch
+  00F7FEC7  C785A801000078000000     mov dword [rbp+1A8h],78h
+  00F7FED1  85C9                     test ecx,ecx
+  00F7FED3  780D                     js short R_F7FEE2
+  00F7FED5  4883F903                 cmp rcx,3
+  00F7FED9  7307                     jae short R_F7FEE2
+  00F7FEDB  8B848DA0010000           mov eax,[rbp+rcx*4+1A0h]
+  00F7FEE2  85C0                     test eax,eax
+  00F7FEE4  740E                     je short R_F7FEF4
+  00F7FEE6  0F57C0                   xorps xmm0,xmm0
+  00F7FEE9  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F7FEEE  F30F5EF0                 divss xmm6,xmm0
+  00F7FEF2  EB03                     jmp short R_F7FEF7
+  00F7FEF4  0F57F6                   xorps xmm6,xmm6
+  00F7FEF7  32C9                     xor cl,cl
+  00F7FEF9  4889BDA4010000           mov [rbp+1A4h],rdi
+  00F7FF00  F30F108DA4010000         movss xmm1,[rbp+1A4h]
+  00F7FF08  F30F58F6                 addss xmm6,xmm6
+  00F7FF0C  4489B5A0010000           mov [rbp+1A0h],r14d
+-- F826E9
+  00F826E9  48630D64886303           movsxd rcx,[rel R_45BAF54]
+  00F826F0  B81E000000               mov eax,1Eh
+  00F826F5  898520010000             mov [rbp+120h],eax
+  00F826FB  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F82705  C7852801000078000000     mov dword [rbp+128h],78h
+  00F8270F  85C9                     test ecx,ecx
+  00F82711  780D                     js short R_F82720
+  00F82713  4883F903                 cmp rcx,3
+  00F82717  7307                     jae short R_F82720
+  00F82719  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F82720  85C0                     test eax,eax
+  00F82722  740E                     je short R_F82732
+  00F82724  0F57C0                   xorps xmm0,xmm0
+  00F82727  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F8272C  F30F5EF0                 divss xmm6,xmm0
+  00F82730  EB03                     jmp short R_F82735
+  00F82732  0F57F6                   xorps xmm6,xmm6
+  00F82735  33DB                     xor ebx,ebx
+  00F82737  0F29BC2460020000         movaps [rsp+260h],xmm7
+  00F8273F  32C9                     xor cl,cl
+  00F82741  48899D24010000           mov [rbp+124h],rbx
+  00F82748  F30F108D24010000         movss xmm1,[rbp+124h]
+-- F85EE1
+  00F85EE1  48630D6C506303           movsxd rcx,[rel R_45BAF54]
+  00F85EE8  B81E000000               mov eax,1Eh
+  00F85EED  898520010000             mov [rbp+120h],eax
+  00F85EF3  C785240100003C000000     mov dword [rbp+124h],3Ch
+  00F85EFD  C7852801000078000000     mov dword [rbp+128h],78h
+  00F85F07  85C9                     test ecx,ecx
+  00F85F09  780D                     js short R_F85F18
+  00F85F0B  4883F903                 cmp rcx,3
+  00F85F0F  7307                     jae short R_F85F18
+  00F85F11  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  00F85F18  85C0                     test eax,eax
+  00F85F1A  740E                     je short R_F85F2A
+  00F85F1C  0F57C0                   xorps xmm0,xmm0
+  00F85F1F  F3480F2AC0               cvtsi2ss xmm0,rax
+  00F85F24  F30F5EF0                 divss xmm6,xmm0
+  00F85F28  EB03                     jmp short R_F85F2D
+  00F85F2A  0F57F6                   xorps xmm6,xmm6
+  00F85F2D  32C9                     xor cl,cl
+  00F85F2F  0F29BC2460020000         movaps [rsp+260h],xmm7
+  00F85F37  48C78520010000F3110240   mov qword [rbp+120h],400211F3h
+  00F85F42  F30F58F6                 addss xmm6,xmm6
+  00F85F46  F30F108520010000         movss xmm0,[rbp+120h]
+-- FBA869
+  00FBA869  8B0DE5066003             mov ecx,[rel R_45BAF54]
+  00FBA86F  8B3543076003             mov esi,[rel R_45BAFB8]
+  00FBA875  83F9FF                   cmp ecx,0FFFFFFFFh
+  00FBA878  7410                     je short R_FBA88A
+  00FBA87A  E8AD970201               call R_1FE402C
+  00FBA87F  84C0                     test al,al
+  00FBA881  7507                     jne short R_FBA88A
+  00FBA883  8BCF                     mov ecx,edi
+  00FBA885  E8F63B0201               call R_1FDE480
+  00FBA88A  83FEFF                   cmp esi,0FFFFFFFFh
+  00FBA88D  7418                     je short R_FBA8A7
+  00FBA88F  8BCE                     mov ecx,esi
+  00FBA891  E8EE960201               call R_1FE3F84
+  00FBA896  8B0D1C076003             mov ecx,[rel R_45BAFB8]
+  00FBA89C  84C0                     test al,al
+  00FBA89E  0F44CB                   cmove ecx,ebx
+  00FBA8A1  890D11076003             mov [rel R_45BAFB8],ecx
+  00FBA8A7  488B5C2430               mov rbx,[rsp+30h]
+  00FBA8AC  488B742438               mov rsi,[rsp+38h]
+  00FBA8B1  4883C420                 add rsp,20h
+  00FBA8B5  5F                       pop rdi
+  00FBA8B6  C3                       ret
+-- 10E053F
+  010E053F  48630D0EAA4D03           movsxd rcx,[rel R_45BAF54]
+  010E0546  B81E000000               mov eax,1Eh
+  010E054B  890424                   mov [rsp],eax
+  010E054E  C74424043C000000         mov dword [rsp+4],3Ch
+  010E0556  C744240878000000         mov dword [rsp+8],78h
+  010E055E  85C9                     test ecx,ecx
+  010E0560  7809                     js short R_10E056B
+  010E0562  4883F903                 cmp rcx,3
+  010E0566  7303                     jae short R_10E056B
+  010E0568  8B048C                   mov eax,[rsp+rcx*4]
+  010E056B  F30F100D0D3BAF02         movss xmm1,[rel R_3BD4080]
+  010E0573  0F57C0                   xorps xmm0,xmm0
+  010E0576  F3480F2AC0               cvtsi2ss xmm0,rax
+  010E057B  F30F5EC8                 divss xmm1,xmm0
+  010E057F  F30F58CA                 addss xmm1,xmm2
+  010E0583  0F28D3                   movaps xmm2,xmm3
+  010E0586  F30F5DD1                 minss xmm2,xmm1
+  010E058A  E917FFFFFF               jmp R_10E04A6
+  010E058F  CC                       int3
+  010E0590  4889742420               mov [rsp+20h],rsi
+  010E0595  4156                     push r14
+  010E0597  4881ECC0000000           sub rsp,0C0h
+-- 10F287E
+  010F287E  486315CF864C03           movsxd rdx,[rel R_45BAF54]
+  010F2885  B81E000000               mov eax,1Eh
+  010F288A  890424                   mov [rsp],eax
+  010F288D  C74424043C000000         mov dword [rsp+4],3Ch
+  010F2895  C744240878000000         mov dword [rsp+8],78h
+  010F289D  85D2                     test edx,edx
+  010F289F  7809                     js short R_10F28AA
+  010F28A1  4883FA03                 cmp rdx,3
+  010F28A5  7303                     jae short R_10F28AA
+  010F28A7  8B0494                   mov eax,[rsp+rdx*4]
+  010F28AA  C781A00D000000000000     mov dword [rcx+0DA0h],0
+  010F28B4  83F81E                   cmp eax,1Eh
+  010F28B7  7624                     jbe short R_10F28DD
+  010F28B9  C6410801                 mov byte [rcx+8],1
+  010F28BD  488B4C2410               mov rcx,[rsp+10h]
+  010F28C2  4833CC                   xor rcx,rsp
+  010F28C5  E816EAA9FF               call R_B912E0
+  010F28CA  4883C428                 add rsp,28h
+  010F28CE  C3                       ret
+  010F28CF  C6410800                 mov byte [rcx+8],0
+  010F28D3  C781A00D000000000000     mov dword [rcx+0DA0h],0
+  010F28DD  488B4C2410               mov rcx,[rsp+10h]
+-- 10F3343
+  010F3343  4863050A7C4C03           movsxd rax,[rel R_45BAF54]
+  010F334A  B91E000000               mov ecx,1Eh
+  010F334F  890C24                   mov [rsp],ecx
+  010F3352  0F28D1                   movaps xmm2,xmm1
+  010F3355  C74424043C000000         mov dword [rsp+4],3Ch
+  010F335D  0F28D8                   movaps xmm3,xmm0
+  010F3360  C744240878000000         mov dword [rsp+8],78h
+  010F3368  85C0                     test eax,eax
+  010F336A  7809                     js short R_10F3375
+  010F336C  4883F803                 cmp rax,3
+  010F3370  7303                     jae short R_10F3375
+  010F3372  8B0C84                   mov ecx,[rsp+rax*4]
+  010F3375  F30F100D9314AE02         movss xmm1,[rel R_3BD4810]
+  010F337D  0F57C0                   xorps xmm0,xmm0
+  010F3380  8BC1                     mov eax,ecx
+  010F3382  F3480F2AC0               cvtsi2ss xmm0,rax
+  010F3387  F30F5EC8                 divss xmm1,xmm0
+  010F338B  0F2FD1                   comiss xmm2,xmm1
+  010F338E  7217                     jb short R_10F33A7
+  010F3390  B802000000               mov eax,2
+  010F3395  488B4C2410               mov rcx,[rsp+10h]
+  010F339A  4833CC                   xor rcx,rsp
+-- 10F7E28
+  010F7E28  48630525314C03           movsxd rax,[rel R_45BAF54]
+  010F7E2F  B91E000000               mov ecx,1Eh
+  010F7E34  890C24                   mov [rsp],ecx
+  010F7E37  C74424043C000000         mov dword [rsp+4],3Ch
+  010F7E3F  C744240878000000         mov dword [rsp+8],78h
+  010F7E47  85C0                     test eax,eax
+  010F7E49  7809                     js short R_10F7E54
+  010F7E4B  4883F803                 cmp rax,3
+  010F7E4F  7303                     jae short R_10F7E54
+  010F7E51  8B0C84                   mov ecx,[rsp+rax*4]
+  010F7E54  F30F100D0C134D03         movss xmm1,[rel R_45C9168]
+  010F7E5C  0F57C0                   xorps xmm0,xmm0
+  010F7E5F  8BC1                     mov eax,ecx
+  010F7E61  F3480F2AC0               cvtsi2ss xmm0,rax
+  010F7E66  F30F5905E2C4AD02         mulss xmm0,[rel R_3BD4350]
+  010F7E6E  F30F5905C6C4AD02         mulss xmm0,[rel R_3BD433C]
+  010F7E76  0F2FC8                   comiss xmm1,xmm0
+  010F7E79  7214                     jb short R_10F7E8F
+  010F7E7B  32C0                     xor al,al
+  010F7E7D  488B4C2410               mov rcx,[rsp+10h]
+  010F7E82  4833CC                   xor rcx,rsp
+  010F7E85  E85694A9FF               call R_B912E0
+-- 11521A3
+  011521A3  48630DAA8D4603           movsxd rcx,[rel R_45BAF54]
+  011521AA  B81E000000               mov eax,1Eh
+  011521AF  898520010000             mov [rbp+120h],eax
+  011521B5  C785240100003C000000     mov dword [rbp+124h],3Ch
+  011521BF  C7852801000078000000     mov dword [rbp+128h],78h
+  011521C9  85C9                     test ecx,ecx
+  011521CB  780D                     js short R_11521DA
+  011521CD  4883F903                 cmp rcx,3
+  011521D1  7307                     jae short R_11521DA
+  011521D3  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  011521DA  85C0                     test eax,eax
+  011521DC  740E                     je short R_11521EC
+  011521DE  0F57C0                   xorps xmm0,xmm0
+  011521E1  F3480F2AC0               cvtsi2ss xmm0,rax
+  011521E6  F30F5EF0                 divss xmm6,xmm0
+  011521EA  EB03                     jmp short R_11521EF
+  011521EC  0F57F6                   xorps xmm6,xmm6
+  011521EF  33DB                     xor ebx,ebx
+  011521F1  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  011521FC  F30F108520010000         movss xmm0,[rbp+120h]
+  01152204  F30F58F6                 addss xmm6,xmm6
+  01152208  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 1152751
+  01152751  48630DFC874603           movsxd rcx,[rel R_45BAF54]
+  01152758  B81E000000               mov eax,1Eh
+  0115275D  898560010000             mov [rbp+160h],eax
+  01152763  C785640100003C000000     mov dword [rbp+164h],3Ch
+  0115276D  C7856801000078000000     mov dword [rbp+168h],78h
+  01152777  85C9                     test ecx,ecx
+  01152779  780D                     js short R_1152788
+  0115277B  4883F903                 cmp rcx,3
+  0115277F  7307                     jae short R_1152788
+  01152781  8B848D60010000           mov eax,[rbp+rcx*4+160h]
+  01152788  85C0                     test eax,eax
+  0115278A  740E                     je short R_115279A
+  0115278C  0F57C0                   xorps xmm0,xmm0
+  0115278F  F3480F2AC0               cvtsi2ss xmm0,rax
+  01152794  F30F5EF0                 divss xmm6,xmm0
+  01152798  EB03                     jmp short R_115279D
+  0115279A  0F57F6                   xorps xmm6,xmm6
+  0115279D  33DB                     xor ebx,ebx
+  0115279F  48C785600100004AB42D72   mov qword [rbp+160h],722DB44Ah
+  011527AA  F30F108560010000         movss xmm0,[rbp+160h]
+  011527B2  F30F58F6                 addss xmm6,xmm6
+  011527B6  F30F108D64010000         movss xmm1,[rbp+164h]
+-- 11565C1
+  011565C1  48630D8C494603           movsxd rcx,[rel R_45BAF54]
+  011565C8  B81E000000               mov eax,1Eh
+  011565CD  898560010000             mov [rbp+160h],eax
+  011565D3  C785640100003C000000     mov dword [rbp+164h],3Ch
+  011565DD  C7856801000078000000     mov dword [rbp+168h],78h
+  011565E7  85C9                     test ecx,ecx
+  011565E9  780D                     js short R_11565F8
+  011565EB  4883F903                 cmp rcx,3
+  011565EF  7307                     jae short R_11565F8
+  011565F1  8B848D60010000           mov eax,[rbp+rcx*4+160h]
+  011565F8  85C0                     test eax,eax
+  011565FA  740E                     je short R_115660A
+  011565FC  0F57C0                   xorps xmm0,xmm0
+  011565FF  F3480F2AC0               cvtsi2ss xmm0,rax
+  01156604  F30F5EF0                 divss xmm6,xmm0
+  01156608  EB03                     jmp short R_115660D
+  0115660A  0F57F6                   xorps xmm6,xmm6
+  0115660D  33DB                     xor ebx,ebx
+  0115660F  48C785600100004AB42D72   mov qword [rbp+160h],722DB44Ah
+  0115661A  F30F108560010000         movss xmm0,[rbp+160h]
+  01156622  F30F58F6                 addss xmm6,xmm6
+  01156626  F30F108D64010000         movss xmm1,[rbp+164h]
+-- 1159681
+  01159681  48630DCC184603           movsxd rcx,[rel R_45BAF54]
+  01159688  B81E000000               mov eax,1Eh
+  0115968D  898560010000             mov [rbp+160h],eax
+  01159693  C785640100003C000000     mov dword [rbp+164h],3Ch
+  0115969D  C7856801000078000000     mov dword [rbp+168h],78h
+  011596A7  85C9                     test ecx,ecx
+  011596A9  780D                     js short R_11596B8
+  011596AB  4883F903                 cmp rcx,3
+  011596AF  7307                     jae short R_11596B8
+  011596B1  8B848D60010000           mov eax,[rbp+rcx*4+160h]
+  011596B8  85C0                     test eax,eax
+  011596BA  740E                     je short R_11596CA
+  011596BC  0F57C0                   xorps xmm0,xmm0
+  011596BF  F3480F2AC0               cvtsi2ss xmm0,rax
+  011596C4  F30F5EF0                 divss xmm6,xmm0
+  011596C8  EB03                     jmp short R_11596CD
+  011596CA  0F57F6                   xorps xmm6,xmm6
+  011596CD  33DB                     xor ebx,ebx
+  011596CF  48C785600100004AB42D72   mov qword [rbp+160h],722DB44Ah
+  011596DA  F30F108560010000         movss xmm0,[rbp+160h]
+  011596E2  F30F58F6                 addss xmm6,xmm6
+  011596E6  F30F108D64010000         movss xmm1,[rbp+164h]
+-- 1159E51
+  01159E51  48630DFC104603           movsxd rcx,[rel R_45BAF54]
+  01159E58  B81E000000               mov eax,1Eh
+  01159E5D  898560010000             mov [rbp+160h],eax
+  01159E63  C785640100003C000000     mov dword [rbp+164h],3Ch
+  01159E6D  C7856801000078000000     mov dword [rbp+168h],78h
+  01159E77  85C9                     test ecx,ecx
+  01159E79  780D                     js short R_1159E88
+  01159E7B  4883F903                 cmp rcx,3
+  01159E7F  7307                     jae short R_1159E88
+  01159E81  8B848D60010000           mov eax,[rbp+rcx*4+160h]
+  01159E88  85C0                     test eax,eax
+  01159E8A  740E                     je short R_1159E9A
+  01159E8C  0F57C0                   xorps xmm0,xmm0
+  01159E8F  F3480F2AC0               cvtsi2ss xmm0,rax
+  01159E94  F30F5EF0                 divss xmm6,xmm0
+  01159E98  EB03                     jmp short R_1159E9D
+  01159E9A  0F57F6                   xorps xmm6,xmm6
+  01159E9D  33DB                     xor ebx,ebx
+  01159E9F  48C785600100004AB42D72   mov qword [rbp+160h],722DB44Ah
+  01159EAA  F30F108560010000         movss xmm0,[rbp+160h]
+  01159EB2  F30F58F6                 addss xmm6,xmm6
+  01159EB6  F30F108D64010000         movss xmm1,[rbp+164h]
+-- 115A3E0
+  0115A3E0  48630D6D0B4603           movsxd rcx,[rel R_45BAF54]
+  0115A3E7  B81E000000               mov eax,1Eh
+  0115A3EC  898520010000             mov [rbp+120h],eax
+  0115A3F2  C785240100003C000000     mov dword [rbp+124h],3Ch
+  0115A3FC  C7852801000078000000     mov dword [rbp+128h],78h
+  0115A406  85C9                     test ecx,ecx
+  0115A408  780D                     js short R_115A417
+  0115A40A  4883F903                 cmp rcx,3
+  0115A40E  7307                     jae short R_115A417
+  0115A410  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  0115A417  85C0                     test eax,eax
+  0115A419  740E                     je short R_115A429
+  0115A41B  0F57C0                   xorps xmm0,xmm0
+  0115A41E  F3480F2AC0               cvtsi2ss xmm0,rax
+  0115A423  F30F5EF0                 divss xmm6,xmm0
+  0115A427  EB03                     jmp short R_115A42C
+  0115A429  0F57F6                   xorps xmm6,xmm6
+  0115A42C  32C9                     xor cl,cl
+  0115A42E  0F29BC2460020000         movaps [rsp+260h],xmm7
+  0115A436  48899D24010000           mov [rbp+124h],rbx
+  0115A43D  F30F58F6                 addss xmm6,xmm6
+  0115A441  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 115A9E3
+  0115A9E3  48630D6A054603           movsxd rcx,[rel R_45BAF54]
+  0115A9EA  B81E000000               mov eax,1Eh
+  0115A9EF  898520010000             mov [rbp+120h],eax
+  0115A9F5  C785240100003C000000     mov dword [rbp+124h],3Ch
+  0115A9FF  C7852801000078000000     mov dword [rbp+128h],78h
+  0115AA09  85C9                     test ecx,ecx
+  0115AA0B  780D                     js short R_115AA1A
+  0115AA0D  4883F903                 cmp rcx,3
+  0115AA11  7307                     jae short R_115AA1A
+  0115AA13  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  0115AA1A  85C0                     test eax,eax
+  0115AA1C  740E                     je short R_115AA2C
+  0115AA1E  0F57C0                   xorps xmm0,xmm0
+  0115AA21  F3480F2AC0               cvtsi2ss xmm0,rax
+  0115AA26  F30F5EF0                 divss xmm6,xmm0
+  0115AA2A  EB03                     jmp short R_115AA2F
+  0115AA2C  0F57F6                   xorps xmm6,xmm6
+  0115AA2F  33DB                     xor ebx,ebx
+  0115AA31  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  0115AA3C  F30F108520010000         movss xmm0,[rbp+120h]
+  0115AA44  F30F58F6                 addss xmm6,xmm6
+  0115AA48  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 115C6E3
+  0115C6E3  48630D6AE84503           movsxd rcx,[rel R_45BAF54]
+  0115C6EA  B81E000000               mov eax,1Eh
+  0115C6EF  898520010000             mov [rbp+120h],eax
+  0115C6F5  C785240100003C000000     mov dword [rbp+124h],3Ch
+  0115C6FF  C7852801000078000000     mov dword [rbp+128h],78h
+  0115C709  85C9                     test ecx,ecx
+  0115C70B  780D                     js short R_115C71A
+  0115C70D  4883F903                 cmp rcx,3
+  0115C711  7307                     jae short R_115C71A
+  0115C713  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  0115C71A  85C0                     test eax,eax
+  0115C71C  740E                     je short R_115C72C
+  0115C71E  0F57C0                   xorps xmm0,xmm0
+  0115C721  F3480F2AC0               cvtsi2ss xmm0,rax
+  0115C726  F30F5EF0                 divss xmm6,xmm0
+  0115C72A  EB03                     jmp short R_115C72F
+  0115C72C  0F57F6                   xorps xmm6,xmm6
+  0115C72F  33DB                     xor ebx,ebx
+  0115C731  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  0115C73C  F30F108520010000         movss xmm0,[rbp+120h]
+  0115C744  F30F58F6                 addss xmm6,xmm6
+  0115C748  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 115F451
+  0115F451  48630DFCBA4503           movsxd rcx,[rel R_45BAF54]
+  0115F458  B81E000000               mov eax,1Eh
+  0115F45D  898580010000             mov [rbp+180h],eax
+  0115F463  C785840100003C000000     mov dword [rbp+184h],3Ch
+  0115F46D  C7858801000078000000     mov dword [rbp+188h],78h
+  0115F477  85C9                     test ecx,ecx
+  0115F479  780D                     js short R_115F488
+  0115F47B  4883F903                 cmp rcx,3
+  0115F47F  7307                     jae short R_115F488
+  0115F481  8B848D80010000           mov eax,[rbp+rcx*4+180h]
+  0115F488  85C0                     test eax,eax
+  0115F48A  740E                     je short R_115F49A
+  0115F48C  0F57C0                   xorps xmm0,xmm0
+  0115F48F  F3480F2AC0               cvtsi2ss xmm0,rax
+  0115F494  F30F5EF0                 divss xmm6,xmm0
+  0115F498  EB03                     jmp short R_115F49D
+  0115F49A  0F57F6                   xorps xmm6,xmm6
+  0115F49D  32C9                     xor cl,cl
+  0115F49F  0F29BC24C0020000         movaps [rsp+2C0h],xmm7
+  0115F4A7  48C78580010000F3110240   mov qword [rbp+180h],400211F3h
+  0115F4B2  F30F58F6                 addss xmm6,xmm6
+  0115F4B6  F30F108580010000         movss xmm0,[rbp+180h]
+-- 1178692
+  01178692  48630DBB284403           movsxd rcx,[rel R_45BAF54]
+  01178699  B81E000000               mov eax,1Eh
+  0117869E  898520010000             mov [rbp+120h],eax
+  011786A4  C785240100003C000000     mov dword [rbp+124h],3Ch
+  011786AE  C7852801000078000000     mov dword [rbp+128h],78h
+  011786B8  85C9                     test ecx,ecx
+  011786BA  780D                     js short R_11786C9
+  011786BC  4883F903                 cmp rcx,3
+  011786C0  7307                     jae short R_11786C9
+  011786C2  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  011786C9  F30F10350FBBA502         movss xmm6,[rel R_3BD41E0]
+  011786D1  85C0                     test eax,eax
+  011786D3  740E                     je short R_11786E3
+  011786D5  0F57C0                   xorps xmm0,xmm0
+  011786D8  F3480F2AC0               cvtsi2ss xmm0,rax
+  011786DD  F30F5EF0                 divss xmm6,xmm0
+  011786E1  EB03                     jmp short R_11786E6
+  011786E3  0F57F6                   xorps xmm6,xmm6
+  011786E6  488B0573B04403           mov rax,[rel R_45C3760]
+  011786ED  F30F58F6                 addss xmm6,xmm6
+  011786F1  4885C0                   test rax,rax
+  011786F4  0F84D1010000             je near R_11788CB
+-- 1240F71
+  01240F71  48630DDC9F3703           movsxd rcx,[rel R_45BAF54]
+  01240F78  B81E000000               mov eax,1Eh
+  01240F7D  898520010000             mov [rbp+120h],eax
+  01240F83  C785240100003C000000     mov dword [rbp+124h],3Ch
+  01240F8D  C7852801000078000000     mov dword [rbp+128h],78h
+  01240F97  85C9                     test ecx,ecx
+  01240F99  780D                     js short R_1240FA8
+  01240F9B  4883F903                 cmp rcx,3
+  01240F9F  7307                     jae short R_1240FA8
+  01240FA1  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  01240FA8  85C0                     test eax,eax
+  01240FAA  740E                     je short R_1240FBA
+  01240FAC  0F57C0                   xorps xmm0,xmm0
+  01240FAF  F3480F2AC0               cvtsi2ss xmm0,rax
+  01240FB4  F30F5EF0                 divss xmm6,xmm0
+  01240FB8  EB03                     jmp short R_1240FBD
+  01240FBA  0F57F6                   xorps xmm6,xmm6
+  01240FBD  33DB                     xor ebx,ebx
+  01240FBF  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  01240FCA  F30F108520010000         movss xmm0,[rbp+120h]
+  01240FD2  F30F58F6                 addss xmm6,xmm6
+  01240FD6  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 124D031
+  0124D031  48630D1CDF3603           movsxd rcx,[rel R_45BAF54]
+  0124D038  B81E000000               mov eax,1Eh
+  0124D03D  898520010000             mov [rbp+120h],eax
+  0124D043  C785240100003C000000     mov dword [rbp+124h],3Ch
+  0124D04D  C7852801000078000000     mov dword [rbp+128h],78h
+  0124D057  85C9                     test ecx,ecx
+  0124D059  780D                     js short R_124D068
+  0124D05B  4883F903                 cmp rcx,3
+  0124D05F  7307                     jae short R_124D068
+  0124D061  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  0124D068  85C0                     test eax,eax
+  0124D06A  740E                     je short R_124D07A
+  0124D06C  0F57C0                   xorps xmm0,xmm0
+  0124D06F  F3480F2AC0               cvtsi2ss xmm0,rax
+  0124D074  F30F5EF0                 divss xmm6,xmm0
+  0124D078  EB03                     jmp short R_124D07D
+  0124D07A  0F57F6                   xorps xmm6,xmm6
+  0124D07D  33DB                     xor ebx,ebx
+  0124D07F  0F29BC2460020000         movaps [rsp+260h],xmm7
+  0124D087  32C9                     xor cl,cl
+  0124D089  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  0124D094  F30F108520010000         movss xmm0,[rbp+120h]
+-- 124F609
+  0124F609  48630D44B93603           movsxd rcx,[rel R_45BAF54]
+  0124F610  B81E000000               mov eax,1Eh
+  0124F615  898520010000             mov [rbp+120h],eax
+  0124F61B  C785240100003C000000     mov dword [rbp+124h],3Ch
+  0124F625  C7852801000078000000     mov dword [rbp+128h],78h
+  0124F62F  85C9                     test ecx,ecx
+  0124F631  780D                     js short R_124F640
+  0124F633  4883F903                 cmp rcx,3
+  0124F637  7307                     jae short R_124F640
+  0124F639  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  0124F640  85C0                     test eax,eax
+  0124F642  740E                     je short R_124F652
+  0124F644  0F57C0                   xorps xmm0,xmm0
+  0124F647  F3480F2AC0               cvtsi2ss xmm0,rax
+  0124F64C  F30F5EF0                 divss xmm6,xmm0
+  0124F650  EB03                     jmp short R_124F655
+  0124F652  0F57F6                   xorps xmm6,xmm6
+  0124F655  33DB                     xor ebx,ebx
+  0124F657  0F29BC2460020000         movaps [rsp+260h],xmm7
+  0124F65F  32C9                     xor cl,cl
+  0124F661  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  0124F66C  F30F108520010000         movss xmm0,[rbp+120h]
+-- 1251071
+  01251071  48630DDC9E3603           movsxd rcx,[rel R_45BAF54]
+  01251078  B81E000000               mov eax,1Eh
+  0125107D  898560010000             mov [rbp+160h],eax
+  01251083  C785640100003C000000     mov dword [rbp+164h],3Ch
+  0125108D  C7856801000078000000     mov dword [rbp+168h],78h
+  01251097  85C9                     test ecx,ecx
+  01251099  780D                     js short R_12510A8
+  0125109B  4883F903                 cmp rcx,3
+  0125109F  7307                     jae short R_12510A8
+  012510A1  8B848D60010000           mov eax,[rbp+rcx*4+160h]
+  012510A8  85C0                     test eax,eax
+  012510AA  740E                     je short R_12510BA
+  012510AC  0F57C0                   xorps xmm0,xmm0
+  012510AF  F3480F2AC0               cvtsi2ss xmm0,rax
+  012510B4  F30F5EF0                 divss xmm6,xmm0
+  012510B8  EB03                     jmp short R_12510BD
+  012510BA  0F57F6                   xorps xmm6,xmm6
+  012510BD  33DB                     xor ebx,ebx
+  012510BF  0F29BC24A0020000         movaps [rsp+2A0h],xmm7
+  012510C7  32C9                     xor cl,cl
+  012510C9  48C785600100004AB42D72   mov qword [rbp+160h],722DB44Ah
+  012510D4  F30F108560010000         movss xmm0,[rbp+160h]
+-- 1251CD1
+  01251CD1  48630D7C923603           movsxd rcx,[rel R_45BAF54]
+  01251CD8  B81E000000               mov eax,1Eh
+  01251CDD  8985C0000000             mov [rbp+0C0h],eax
+  01251CE3  C785C40000003C000000     mov dword [rbp+0C4h],3Ch
+  01251CED  C785C800000078000000     mov dword [rbp+0C8h],78h
+  01251CF7  85C9                     test ecx,ecx
+  01251CF9  780D                     js short R_1251D08
+  01251CFB  4883F903                 cmp rcx,3
+  01251CFF  7307                     jae short R_1251D08
+  01251D01  8B848DC0000000           mov eax,[rbp+rcx*4+0C0h]
+  01251D08  85C0                     test eax,eax
+  01251D0A  740E                     je short R_1251D1A
+  01251D0C  0F57C0                   xorps xmm0,xmm0
+  01251D0F  F3480F2AC0               cvtsi2ss xmm0,rax
+  01251D14  F30F5EF0                 divss xmm6,xmm0
+  01251D18  EB03                     jmp short R_1251D1D
+  01251D1A  0F57F6                   xorps xmm6,xmm6
+  01251D1D  32C9                     xor cl,cl
+  01251D1F  48C785C000000017D32357   mov qword [rbp+0C0h],5723D317h
+  01251D2A  F30F1085C0000000         movss xmm0,[rbp+0C0h]
+  01251D32  F30F58F6                 addss xmm6,xmm6
+  01251D36  F30F108DC4000000         movss xmm1,[rbp+0C4h]
+-- 1253959
+  01253959  48630DF4753603           movsxd rcx,[rel R_45BAF54]
+  01253960  B81E000000               mov eax,1Eh
+  01253965  898520010000             mov [rbp+120h],eax
+  0125396B  C785240100003C000000     mov dword [rbp+124h],3Ch
+  01253975  C7852801000078000000     mov dword [rbp+128h],78h
+  0125397F  85C9                     test ecx,ecx
+  01253981  780D                     js short R_1253990
+  01253983  4883F903                 cmp rcx,3
+  01253987  7307                     jae short R_1253990
+  01253989  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  01253990  85C0                     test eax,eax
+  01253992  740E                     je short R_12539A2
+  01253994  0F57C0                   xorps xmm0,xmm0
+  01253997  F3480F2AC0               cvtsi2ss xmm0,rax
+  0125399C  F30F5EF0                 divss xmm6,xmm0
+  012539A0  EB03                     jmp short R_12539A5
+  012539A2  0F57F6                   xorps xmm6,xmm6
+  012539A5  33DB                     xor ebx,ebx
+  012539A7  0F29BC2460020000         movaps [rsp+260h],xmm7
+  012539AF  32C9                     xor cl,cl
+  012539B1  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  012539BC  F30F108520010000         movss xmm0,[rbp+120h]
+-- 1253ED9
+  01253ED9  48630D74703603           movsxd rcx,[rel R_45BAF54]
+  01253EE0  B81E000000               mov eax,1Eh
+  01253EE5  898520010000             mov [rbp+120h],eax
+  01253EEB  C785240100003C000000     mov dword [rbp+124h],3Ch
+  01253EF5  C7852801000078000000     mov dword [rbp+128h],78h
+  01253EFF  85C9                     test ecx,ecx
+  01253F01  780D                     js short R_1253F10
+  01253F03  4883F903                 cmp rcx,3
+  01253F07  7307                     jae short R_1253F10
+  01253F09  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  01253F10  85C0                     test eax,eax
+  01253F12  740E                     je short R_1253F22
+  01253F14  0F57C0                   xorps xmm0,xmm0
+  01253F17  F3480F2AC0               cvtsi2ss xmm0,rax
+  01253F1C  F30F5EF0                 divss xmm6,xmm0
+  01253F20  EB03                     jmp short R_1253F25
+  01253F22  0F57F6                   xorps xmm6,xmm6
+  01253F25  33DB                     xor ebx,ebx
+  01253F27  0F29BC2460020000         movaps [rsp+260h],xmm7
+  01253F2F  32C9                     xor cl,cl
+  01253F31  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  01253F3C  F30F108520010000         movss xmm0,[rbp+120h]
+-- 12710D3
+  012710D3  48630D7A9E3403           movsxd rcx,[rel R_45BAF54]
+  012710DA  B81E000000               mov eax,1Eh
+  012710DF  898520010000             mov [rbp+120h],eax
+  012710E5  C785240100003C000000     mov dword [rbp+124h],3Ch
+  012710EF  C7852801000078000000     mov dword [rbp+128h],78h
+  012710F9  85C9                     test ecx,ecx
+  012710FB  780D                     js short R_127110A
+  012710FD  4883F903                 cmp rcx,3
+  01271101  7307                     jae short R_127110A
+  01271103  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  0127110A  85C0                     test eax,eax
+  0127110C  740E                     je short R_127111C
+  0127110E  0F57C0                   xorps xmm0,xmm0
+  01271111  F3480F2AC0               cvtsi2ss xmm0,rax
+  01271116  F30F5EF0                 divss xmm6,xmm0
+  0127111A  EB03                     jmp short R_127111F
+  0127111C  0F57F6                   xorps xmm6,xmm6
+  0127111F  33DB                     xor ebx,ebx
+  01271121  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  0127112C  F30F108520010000         movss xmm0,[rbp+120h]
+  01271134  F30F58F6                 addss xmm6,xmm6
+  01271138  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 1272C10
+  01272C10  48630D3D833403           movsxd rcx,[rel R_45BAF54]
+  01272C17  B81E000000               mov eax,1Eh
+  01272C1C  898560040000             mov [rbp+460h],eax
+  01272C22  C785640400003C000000     mov dword [rbp+464h],3Ch
+  01272C2C  C7856804000078000000     mov dword [rbp+468h],78h
+  01272C36  85C9                     test ecx,ecx
+  01272C38  780D                     js short R_1272C47
+  01272C3A  4883F903                 cmp rcx,3
+  01272C3E  7307                     jae short R_1272C47
+  01272C40  8B848D60040000           mov eax,[rbp+rcx*4+460h]
+  01272C47  85C0                     test eax,eax
+  01272C49  740E                     je short R_1272C59
+  01272C4B  0F57C0                   xorps xmm0,xmm0
+  01272C4E  F3480F2AC0               cvtsi2ss xmm0,rax
+  01272C53  F30F5EF0                 divss xmm6,xmm0
+  01272C57  EB03                     jmp short R_1272C5C
+  01272C59  0F57F6                   xorps xmm6,xmm6
+  01272C5C  32C9                     xor cl,cl
+  01272C5E  0F29BC2430150000         movaps [rsp+1530h],xmm7
+  01272C66  48C785600400005C6E9075   mov qword [rbp+460h],75906E5Ch
+  01272C71  F30F58F6                 addss xmm6,xmm6
+  01272C75  F30F108560040000         movss xmm0,[rbp+460h]
+-- 12738C3
+  012738C3  48630D8A763403           movsxd rcx,[rel R_45BAF54]
+  012738CA  B81E000000               mov eax,1Eh
+  012738CF  898520010000             mov [rbp+120h],eax
+  012738D5  C785240100003C000000     mov dword [rbp+124h],3Ch
+  012738DF  C7852801000078000000     mov dword [rbp+128h],78h
+  012738E9  85C9                     test ecx,ecx
+  012738EB  780D                     js short R_12738FA
+  012738ED  4883F903                 cmp rcx,3
+  012738F1  7307                     jae short R_12738FA
+  012738F3  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  012738FA  85C0                     test eax,eax
+  012738FC  740E                     je short R_127390C
+  012738FE  0F57C0                   xorps xmm0,xmm0
+  01273901  F3480F2AC0               cvtsi2ss xmm0,rax
+  01273906  F30F5EF0                 divss xmm6,xmm0
+  0127390A  EB03                     jmp short R_127390F
+  0127390C  0F57F6                   xorps xmm6,xmm6
+  0127390F  33DB                     xor ebx,ebx
+  01273911  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  0127391C  F30F108520010000         movss xmm0,[rbp+120h]
+  01273924  F30F58F6                 addss xmm6,xmm6
+  01273928  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 12743FB
+  012743FB  48630D526B3403           movsxd rcx,[rel R_45BAF54]
+  01274402  B81E000000               mov eax,1Eh
+  01274407  894540                   mov [rbp+40h],eax
+  0127440A  C745443C000000           mov dword [rbp+44h],3Ch
+  01274411  C7454878000000           mov dword [rbp+48h],78h
+  01274418  85C9                     test ecx,ecx
+  0127441A  780A                     js short R_1274426
+  0127441C  4883F903                 cmp rcx,3
+  01274420  7304                     jae short R_1274426
+  01274422  8B448D40                 mov eax,[rbp+rcx*4+40h]
+  01274426  85C0                     test eax,eax
+  01274428  740E                     je short R_1274438
+  0127442A  0F57C0                   xorps xmm0,xmm0
+  0127442D  F3480F2AC0               cvtsi2ss xmm0,rax
+  01274432  F30F5EF0                 divss xmm6,xmm0
+  01274436  EB03                     jmp short R_127443B
+  01274438  0F57F6                   xorps xmm6,xmm6
+  0127443B  32C9                     xor cl,cl
+  0127443D  48C745403875C937         mov qword [rbp+40h],37C97538h
+  01274445  F30F104540               movss xmm0,[rbp+40h]
+  0127444A  F30F58F6                 addss xmm6,xmm6
+  0127444E  F30F104D44               movss xmm1,[rbp+44h]
+-- 1277D33
+  01277D33  48630D1A323403           movsxd rcx,[rel R_45BAF54]
+  01277D3A  B81E000000               mov eax,1Eh
+  01277D3F  898520010000             mov [rbp+120h],eax
+  01277D45  C785240100003C000000     mov dword [rbp+124h],3Ch
+  01277D4F  C7852801000078000000     mov dword [rbp+128h],78h
+  01277D59  85C9                     test ecx,ecx
+  01277D5B  780D                     js short R_1277D6A
+  01277D5D  4883F903                 cmp rcx,3
+  01277D61  7307                     jae short R_1277D6A
+  01277D63  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  01277D6A  85C0                     test eax,eax
+  01277D6C  740E                     je short R_1277D7C
+  01277D6E  0F57C0                   xorps xmm0,xmm0
+  01277D71  F3480F2AC0               cvtsi2ss xmm0,rax
+  01277D76  F30F5EF0                 divss xmm6,xmm0
+  01277D7A  EB03                     jmp short R_1277D7F
+  01277D7C  0F57F6                   xorps xmm6,xmm6
+  01277D7F  33DB                     xor ebx,ebx
+  01277D81  48C785200100003875C937   mov qword [rbp+120h],37C97538h
+  01277D8C  F30F108520010000         movss xmm0,[rbp+120h]
+  01277D94  F30F58F6                 addss xmm6,xmm6
+  01277D98  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 12805F1
+  012805F1  48630D5CA93303           movsxd rcx,[rel R_45BAF54]
+  012805F8  B81E000000               mov eax,1Eh
+  012805FD  898560010000             mov [rbp+160h],eax
+  01280603  C785640100003C000000     mov dword [rbp+164h],3Ch
+  0128060D  C7856801000078000000     mov dword [rbp+168h],78h
+  01280617  85C9                     test ecx,ecx
+  01280619  780D                     js short R_1280628
+  0128061B  4883F903                 cmp rcx,3
+  0128061F  7307                     jae short R_1280628
+  01280621  8B848D60010000           mov eax,[rbp+rcx*4+160h]
+  01280628  85C0                     test eax,eax
+  0128062A  740E                     je short R_128063A
+  0128062C  0F57C0                   xorps xmm0,xmm0
+  0128062F  F3480F2AC0               cvtsi2ss xmm0,rax
+  01280634  F30F5EF0                 divss xmm6,xmm0
+  01280638  EB03                     jmp short R_128063D
+  0128063A  0F57F6                   xorps xmm6,xmm6
+  0128063D  32C9                     xor cl,cl
+  0128063F  0F29BC24D0020000         movaps [rsp+2D0h],xmm7
+  01280647  4889BD64010000           mov [rbp+164h],rdi
+  0128064E  F30F58F6                 addss xmm6,xmm6
+  01280652  F30F108D64010000         movss xmm1,[rbp+164h]
+-- 1288B0A
+  01288B0A  48630D43243303           movsxd rcx,[rel R_45BAF54]
+  01288B11  B81E000000               mov eax,1Eh
+  01288B16  898520010000             mov [rbp+120h],eax
+  01288B1C  C785240100003C000000     mov dword [rbp+124h],3Ch
+  01288B26  C7852801000078000000     mov dword [rbp+128h],78h
+  01288B30  85C9                     test ecx,ecx
+  01288B32  780D                     js short R_1288B41
+  01288B34  4883F903                 cmp rcx,3
+  01288B38  7307                     jae short R_1288B41
+  01288B3A  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  01288B41  85C0                     test eax,eax
+  01288B43  740E                     je short R_1288B53
+  01288B45  0F57C0                   xorps xmm0,xmm0
+  01288B48  F3480F2AC0               cvtsi2ss xmm0,rax
+  01288B4D  F30F5EF0                 divss xmm6,xmm0
+  01288B51  EB03                     jmp short R_1288B56
+  01288B53  0F57F6                   xorps xmm6,xmm6
+  01288B56  32C9                     xor cl,cl
+  01288B58  48C785200100005C6E9075   mov qword [rbp+120h],75906E5Ch
+  01288B63  F30F108520010000         movss xmm0,[rbp+120h]
+  01288B6B  F30F58F6                 addss xmm6,xmm6
+  01288B6F  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 1288FAC
+  01288FAC  48630DA11F3303           movsxd rcx,[rel R_45BAF54]
+  01288FB3  B81E000000               mov eax,1Eh
+  01288FB8  898520010000             mov [rbp+120h],eax
+  01288FBE  C785240100003C000000     mov dword [rbp+124h],3Ch
+  01288FC8  C7852801000078000000     mov dword [rbp+128h],78h
+  01288FD2  85C9                     test ecx,ecx
+  01288FD4  780D                     js short R_1288FE3
+  01288FD6  4883F903                 cmp rcx,3
+  01288FDA  7307                     jae short R_1288FE3
+  01288FDC  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  01288FE3  85C0                     test eax,eax
+  01288FE5  740E                     je short R_1288FF5
+  01288FE7  0F57C0                   xorps xmm0,xmm0
+  01288FEA  F3480F2AC0               cvtsi2ss xmm0,rax
+  01288FEF  F30F5EF0                 divss xmm6,xmm0
+  01288FF3  EB03                     jmp short R_1288FF8
+  01288FF5  0F57F6                   xorps xmm6,xmm6
+  01288FF8  33DB                     xor ebx,ebx
+  01288FFA  89BD20010000             mov [rbp+120h],edi
+  01289000  F30F108520010000         movss xmm0,[rbp+120h]
+  01289008  F30F58F6                 addss xmm6,xmm6
+  0128900C  32C9                     xor cl,cl
+-- 12896DA
+  012896DA  48630D73183303           movsxd rcx,[rel R_45BAF54]
+  012896E1  B81E000000               mov eax,1Eh
+  012896E6  898520010000             mov [rbp+120h],eax
+  012896EC  C785240100003C000000     mov dword [rbp+124h],3Ch
+  012896F6  C7852801000078000000     mov dword [rbp+128h],78h
+  01289700  85C9                     test ecx,ecx
+  01289702  780D                     js short R_1289711
+  01289704  4883F903                 cmp rcx,3
+  01289708  7307                     jae short R_1289711
+  0128970A  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  01289711  85C0                     test eax,eax
+  01289713  740E                     je short R_1289723
+  01289715  0F57C0                   xorps xmm0,xmm0
+  01289718  F3480F2AC0               cvtsi2ss xmm0,rax
+  0128971D  F30F5EF0                 divss xmm6,xmm0
+  01289721  EB03                     jmp short R_1289726
+  01289723  0F57F6                   xorps xmm6,xmm6
+  01289726  32C9                     xor cl,cl
+  01289728  48C785200100005C6E9075   mov qword [rbp+120h],75906E5Ch
+  01289733  F30F108520010000         movss xmm0,[rbp+120h]
+  0128973B  F30F58F6                 addss xmm6,xmm6
+  0128973F  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 129F0AB
+  0129F0AB  48630DA2BE3103           movsxd rcx,[rel R_45BAF54]
+  0129F0B2  B81E000000               mov eax,1Eh
+  0129F0B7  898520010000             mov [rbp+120h],eax
+  0129F0BD  C785240100003C000000     mov dword [rbp+124h],3Ch
+  0129F0C7  C7852801000078000000     mov dword [rbp+128h],78h
+  0129F0D1  85C9                     test ecx,ecx
+  0129F0D3  780D                     js short R_129F0E2
+  0129F0D5  4883F903                 cmp rcx,3
+  0129F0D9  7307                     jae short R_129F0E2
+  0129F0DB  8B848D20010000           mov eax,[rbp+rcx*4+120h]
+  0129F0E2  85C0                     test eax,eax
+  0129F0E4  740E                     je short R_129F0F4
+  0129F0E6  0F57C0                   xorps xmm0,xmm0
+  0129F0E9  F3480F2AC0               cvtsi2ss xmm0,rax
+  0129F0EE  F30F5EF0                 divss xmm6,xmm0
+  0129F0F2  EB03                     jmp short R_129F0F7
+  0129F0F4  0F57F6                   xorps xmm6,xmm6
+  0129F0F7  33DB                     xor ebx,ebx
+  0129F0F9  48C785200100005C6E9075   mov qword [rbp+120h],75906E5Ch
+  0129F104  F30F108520010000         movss xmm0,[rbp+120h]
+  0129F10C  F30F58F6                 addss xmm6,xmm6
+  0129F110  F30F108D24010000         movss xmm1,[rbp+124h]
+-- 1FDE4AB
+  01FDE4AB  44890DA2CA5D02           mov [rel R_45BAF54],r9d
+  01FDE4B2  4883C428                 add rsp,28h
+  01FDE4B6  C3                       ret
+  01FDE4B7  CC                       int3
+  01FDE4B8  4053                     push rbx
+  01FDE4BA  4883EC20                 sub rsp,20h
+  01FDE4BE  8BD9                     mov ebx,ecx
+  01FDE4C0  E89B5B0000               call R_1FE4060
+  01FDE4C5  84C0                     test al,al
+  01FDE4C7  7408                     je short R_1FDE4D1
+  01FDE4C9  891D29CB5D02             mov [rel R_45BAFF8],ebx
+  01FDE4CF  EB0B                     jmp short R_1FDE4DC
+  01FDE4D1  E802230000               call R_1FE07D8
+  01FDE4D6  89051CCB5D02             mov [rel R_45BAFF8],eax
+  01FDE4DC  8B0D0ECB5D02             mov ecx,[rel R_45BAFF0]
+  01FDE4E2  E841FAFFFF               call R_1FDDF28
+  01FDE4E7  8B0D07CB5D02             mov ecx,[rel R_45BAFF4]
+  01FDE4ED  E882FAFFFF               call R_1FDDF74
+  01FDE4F2  8B0D58CA5D02             mov ecx,[rel R_45BAF50]
+  01FDE4F8  4883C420                 add rsp,20h
+  01FDE4FC  5B                       pop rbx
+  01FDE4FD  E9E6FEFFFF               jmp R_1FDE3E8
+-- 1FE06B0
+  01FE06B0  8B0D9EA85D02             mov ecx,[rel R_45BAF54]
+  01FE06B6  8D73FD                   lea esi,[rbx-3]
+  01FE06B9  83A78800000000           and dword [rdi+88h],0
+  01FE06C0  8D53FE                   lea edx,[rbx-2]
+  01FE06C3  83A79000000000           and dword [rdi+90h],0
+  01FE06CA  83A7B400000000           and dword [rdi+0B4h],0
+  01FE06D1  89574C                   mov [rdi+4Ch],edx
+  01FE06D4  895754                   mov [rdi+54h],edx
+  01FE06D7  89575C                   mov [rdi+5Ch],edx
+  01FE06DA  899784000000             mov [rdi+84h],edx
+  01FE06E0  899794000000             mov [rdi+94h],edx
+  01FE06E6  894748                   mov [rdi+48h],eax
+  01FE06E9  897750                   mov [rdi+50h],esi
+  01FE06EC  897758                   mov [rdi+58h],esi
+  01FE06EF  897760                   mov [rdi+60h],esi
+  01FE06F2  897764                   mov [rdi+64h],esi
+  01FE06F5  897768                   mov [rdi+68h],esi
+  01FE06F8  89776C                   mov [rdi+6Ch],esi
+  01FE06FB  897770                   mov [rdi+70h],esi
+  01FE06FE  896F74                   mov [rdi+74h],ebp
+  01FE0701  897778                   mov [rdi+78h],esi
+  01FE0704  89777C                   mov [rdi+7Ch],esi
+-- 1FE139C
+  01FE139C  8B0DB29B5D02             mov ecx,[rel R_45BAF54]
+  01FE13A2  E87DF6FFFF               call R_1FE0A24
+  01FE13A7  FFC0                     inc eax
+  01FE13A9  4883C428                 add rsp,28h
+  01FE13AD  C3                       ret
+  01FE13AE  CC                       int3
+  01FE13AF  CC                       int3
+  01FE13B0  8B055A9C5D02             mov eax,[rel R_45BB010]
+  01FE13B6  C3                       ret
+  01FE13B7  CC                       int3
+  01FE13B8  488B0519F5BE02           mov rax,[rel R_4BD08D8]
+  01FE13BF  4863D1                   movsxd rdx,ecx
+  01FE13C2  8B449024                 mov eax,[rax+rdx*4+24h]
+  01FE13C6  C3                       ret
+  01FE13C7  CC                       int3
+  01FE13C8  488B0509F5BE02           mov rax,[rel R_4BD08D8]
+  01FE13CF  4863D1                   movsxd rdx,ecx
+  01FE13D2  8B849014010000           mov eax,[rax+rdx*4+114h]
+  01FE13D9  C3                       ret
+  01FE13DA  CC                       int3
+  01FE13DB  CC                       int3
+  01FE13DC  48638150040000           movsxd rax,[rcx+450h]
+-- 1FE3C52
+  01FE3C52  833DFB725D0200           cmp dword [rel R_45BAF54],0
+  01FE3C59  7504                     jne short R_1FE3C5F
+  01FE3C5B  32C0                     xor al,al
+  01FE3C5D  EB68                     jmp short R_1FE3CC7
+  01FE3C5F  E828C5FFFF               call R_1FE018C
+  01FE3C64  8BC8                     mov ecx,eax
+  01FE3C66  E849E7FFFF               call R_1FE23B4
+  01FE3C6B  4C8BC8                   mov r9,rax
+  01FE3C6E  488D15BB725D02           lea rdx,[rel R_45BAF30]
+  01FE3C75  33FF                     xor edi,edi
+  01FE3C77  4533C0                   xor r8d,r8d
+  01FE3C7A  4C2BCA                   sub r9,rdx
+  01FE3C7D  418BC8                   mov ecx,r8d
+  01FE3C80  E8EF010000               call R_1FE3E74
+  01FE3C85  84C0                     test al,al
+  01FE3C87  740E                     je short R_1FE3C97
+  01FE3C89  8B02                     mov eax,[rdx]
+  01FE3C8B  413B0411                 cmp eax,[r9+rdx]
+  01FE3C8F  7E06                     jle short R_1FE3C97
+  01FE3C91  412B0411                 sub eax,[r9+rdx]
+  01FE3C95  03F8                     add edi,eax
+  01FE3C97  41FFC0                   inc r8d
+-- 1FE3F41
+  01FE3F41  8B0D0D705D02             mov ecx,[rel R_45BAF54]
+  01FE3F47  E8D8CAFFFF               call R_1FE0A24
+  01FE3F4C  443BC0                   cmp r8d,eax
+  01FE3F4F  7F02                     jg short R_1FE3F53
+  01FE3F51  B201                     mov dl,1
+  01FE3F53  8AC2                     mov al,dl
+  01FE3F55  4883C428                 add rsp,28h
+  01FE3F59  C3                       ret
+  01FE3F5A  CC                       int3
+  01FE3F5B  CC                       int3
+  01FE3F5C  4883EC28                 sub rsp,28h
+  01FE3F60  4533C0                   xor r8d,r8d
+  01FE3F63  448BC9                   mov r9d,ecx
+  01FE3F66  85C9                     test ecx,ecx
+  01FE3F68  780F                     js short R_1FE3F79
+  01FE3F6A  8BCA                     mov ecx,edx
+  01FE3F6C  E8B3CAFFFF               call R_1FE0A24
+  01FE3F71  443BC8                   cmp r9d,eax
+  01FE3F74  7F03                     jg short R_1FE3F79
+  01FE3F76  41B001                   mov r8b,1
+  01FE3F79  418AC0                   mov al,r8b
+  01FE3F7C  4883C428                 add rsp,28h
+-- 1FE57C1
+  01FE57C1  448B058C575D02           mov r8d,[rel R_45BAF54]
+  01FE57C8  8D5309                   lea edx,[rbx+9]
+  01FE57CB  488D4C2420               lea rcx,[rsp+20h]
+  01FE57D0  E83B42FDFE               call R_FB9A10
+  01FE57D5  84C0                     test al,al
+  01FE57D7  0F8474050000             je near R_1FE5D51
+  01FE57DD  448B0574575D02           mov r8d,[rel R_45BAF58]
+  01FE57E4  8D530A                   lea edx,[rbx+0Ah]
+  01FE57E7  488D4C2420               lea rcx,[rsp+20h]
+  01FE57EC  E81F42FDFE               call R_FB9A10
+  01FE57F1  84C0                     test al,al
+  01FE57F3  0F8458050000             je near R_1FE5D51
+  01FE57F9  448B055C575D02           mov r8d,[rel R_45BAF5C]
+  01FE5800  8D530B                   lea edx,[rbx+0Bh]
+  01FE5803  488D4C2420               lea rcx,[rsp+20h]
+  01FE5808  E80342FDFE               call R_FB9A10
+  01FE580D  84C0                     test al,al
+  01FE580F  0F843C050000             je near R_1FE5D51
+  01FE5815  448B0544575D02           mov r8d,[rel R_45BAF60]
+  01FE581C  8D530C                   lea edx,[rbx+0Ch]
+  01FE581F  488D4C2420               lea rcx,[rsp+20h]
+  01FE5824  E8E741FDFE               call R_FB9A10
+-- 1FE62A7
+  01FE62A7  8B0DA74C5D02             mov ecx,[rel R_45BAF54]
+  01FE62AD  E872A7FFFF               call R_1FE0A24
+  01FE62B2  8BC8                     mov ecx,eax
+  01FE62B4  448BC8                   mov r9d,eax
+  01FE62B7  E878DCFFFF               call R_1FE3F34
+  01FE62BC  F6D8                     neg al
+  01FE62BE  1BC9                     sbb ecx,ecx
+  01FE62C0  4123C9                   and ecx,r9d
+  01FE62C3  890D234D5D02             mov [rel R_45BAFEC],ecx
+  01FE62C9  EB57                     jmp short R_1FE6322
+  01FE62CB  83FB13                   cmp ebx,13h
+  01FE62CE  750E                     jne short R_1FE62DE
+  01FE62D0  85FF                     test edi,edi
+  01FE62D2  410F44FC                 cmove edi,r12d
+  01FE62D6  893DA04C5D02             mov [rel R_45BAF7C],edi
+  01FE62DC  EB44                     jmp short R_1FE6322
+  01FE62DE  83FB30                   cmp ebx,30h
+  01FE62E1  7509                     jne short R_1FE62EC
+  01FE62E3  8BCF                     mov ecx,edi
+  01FE62E5  E83E7CFFFF               call R_1FDDF28
+  01FE62EA  EB36                     jmp short R_1FE6322
+  01FE62EC  83FB31                   cmp ebx,31h

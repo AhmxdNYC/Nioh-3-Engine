@@ -1,0 +1,206 @@
+; ---- Nioh3+7B35EC .. +7B392D (pdata fn Some (8074732u, 8075565u))
+  7B35EC  mov     rax,rsp                                   
+  7B35EF  mov     [rax+10h],rbx                             
+  7B35F3  mov     [rax+18h],rsi                             
+  7B35F7  mov     [rax+20h],rdi                             
+  7B35FB  push    rbp                                       
+  7B35FC  push    r12                                       
+  7B35FE  push    r13                                       
+  7B3600  push    r14                                       
+  7B3602  push    r15                                       
+  7B3604  lea     rbp,[rax-37h]                             
+  7B3608  sub     rsp,0A0h                                  
+  7B360F  movaps  [rax-38h],xmm6                            
+  7B3613  movaps  [rax-48h],xmm7                            
+  7B3617  mov     rax,[rel 44B7F30h]                        
+  7B361E  xor     rax,rsp                                   
+  7B3621  mov     [rbp-21h],rax                             
+  7B3625  mov     al,[rbp+77h]                              
+  7B3628  mov     rdi,rcx                                   
+  7B362B  mov     r13,[rel 4BD0AC0h]                        
+  7B3632  neg     al                                        
+  7B3634  mov     r14,rdx                                   
+  7B3637  mov     r15b,r8b                                  
+  7B363A  sbb     esi,esi                                   
+  7B363C  xor     ebx,ebx                                   
+  7B363E  mov     rdx,[rdi]                                 
+  7B3641  neg     esi                                       
+  7B3643  mov     r10d,[r13+370h]                           
+  7B364A  inc     esi                                       
+  7B364C  cmp     [rbp+7Fh],bl                              
+  7B364F  mov     eax,ebx                                   
+  7B3651  mov     ecx,r10d                                  
+  7B3654  mov     r11d,[rdx+39Ch]                           
+  7B365B  setne   al                                        
+  7B365E  add     esi,eax                                   
+  7B3660  mov     eax,[rdx+394h]                            
+  7B3666  imul    ecx,esi                                   
+  7B3669  sub     eax,r11d                                  
+  7B366C  mov     [rbp-55h],esi                             
+  7B366F  shl     ecx,2                                     
+  7B3672  cmp     ecx,eax                                   
+  7B3674  ja      near 00000000007B3929h                    
+  7B367A  mov     eax,[rdx+398h]                            
+  7B3680  lea     r8d,[rsi+rsi*2]                           
+  7B3684  sub     eax,[rdx+3A0h]                            
+  7B368A  shl     r8d,2                                     
+  7B368E  cmp     r8d,eax                                   
+  7B3691  ja      near 00000000007B3929h                    
+  7B3697  mov     r12b,[r13+364h]                           
+  7B369E  xor     edx,edx                                   
+  7B36A0  movss   xmm6,[r14]                                
+  7B36A5  mov     eax,ecx                                   
+  7B36A7  movss   xmm7,[r14+4]                              
+  7B36AD  lea     rcx,[rbp-51h]                             
+  7B36B1  mulss   xmm6,[rel 3BD41B8h]                       
+  7B36B9  shr     r12b,2                                    
+  7B36BD  mulss   xmm7,[rel 3BD41B8h]                       
+  7B36C5  and     r12b,1                                    
+  7B36C9  div     esi                                       
+  7B36CB  xor     edx,edx                                   
+  7B36CD  mov     [rbp-59h],eax                             
+  7B36D0  mov     eax,r8d                                   
+  7B36D3  div     esi                                       
+  7B36D5  xor     edx,edx                                   
+  7B36D7  lea     r8,[rbp-41h]                              
+  7B36DB  mov     [rbp-5Dh],eax                             
+  7B36DE  mov     eax,r11d                                  
+  7B36E1  div     r10d                                      
+  7B36E4  mov     dl,r15b                                   
+  7B36E7  mov     [rbp-61h],eax                             
+  7B36EA  mov     rax,[r14]                                 
+  7B36ED  mov     [rbp-41h],rax                             
+  7B36F1  call    0000000000137358h                         
+  7B36F6  lea     r8,[rbp-51h]                              
+  7B36FA  mov     rax,[rdi]                                 
+  7B36FD  lea     rdx,[rbp-41h]                             
+  7B3701  mov     r14,[rbp+6Fh]                             
+  7B3705  mov     [rsp+28h],r12b                            
+  7B370A  movss   [rbp-41h],xmm6                            
+  7B370F  mov     r15,[rax+358h]                            
+  7B3716  mov     rcx,r15                                   
+  7B3719  movss   [rbp-3Dh],xmm7                            
+  7B371E  mov     [rsp+20h],r14                             
+  7B3723  cmp     [r13+368h],bl                             
+  7B372A  je      near 0000000001A135FAh                    
+  7B3730  call    00000000001371D0h                         
+  7B3735  lea     rax,[r15+28h]                             
+  7B3739  lea     ecx,[rbx+4]                               
+  7B373C  lea     r9d,[rbx+1]                               
+  7B3740  mov     [rax],ebx                                 
+  7B3742  lea     rax,[rax+2Ch]                             
+  7B3746  sub     rcx,r9                                    
+  7B3749  jne     short 00000000007B3740h                   
+  7B374B  mov     edx,[rbp-59h]                             
+  7B374E  mov     r10d,2                                    
+  7B3754  mov     rax,[rdi]                                 
+  7B3757  mov     rcx,rbx                                   
+  7B375A  mov     r8d,[rbp-61h]                             
+  7B375E  mov     dword [rbp-41h],10000h                    
+  7B3765  mov     dword [rbp-3Dh],10002h                    
+  7B376C  add     [rax+358h],rdx                            
+  7B3773  add     [rax+39Ch],edx                            
+  7B3779  lea     edx,[r10+4]                               
+  7B377D  mov     dword [rbp-39h],20003h                    
+  7B3784  movzx   eax,r8w                                   
+  7B3788  add     ax,[rbp+rcx-41h]                          
+  7B378D  mov     [rbp+rcx-31h],ax                          
+  7B3792  add     rcx,r10                                   
+  7B3795  sub     rdx,r9                                    
+  7B3798  jne     short 00000000007B3784h                   
+  7B379A  mov     rcx,[rdi]                                 
+  7B379D  lea     rdx,[rbp-31h]                             
+  7B37A1  mov     r15d,[rbp-5Dh]                            
+  7B37A5  mov     r8d,r15d                                  
+  7B37A8  mov     rcx,[rcx+360h]                            
+  7B37AF  call    0000000000B94250h                         
+  7B37B4  mov     rdx,[rdi]                                 
+  7B37B7  mov     eax,[rbp-5Dh]                             
+  7B37BA  mov     rcx,[rdx+360h]                            
+  7B37C1  add     [rdx+3A0h],eax                            
+  7B37C7  add     rcx,r15                                   
+  7B37CA  mov     [rdx+360h],rcx                            
+  7B37D1  cmp     [rbp+77h],bl                              
+  7B37D4  jne     near 0000000001A1360Ah                    
+  7B37DA  cmp     [rbp+7Fh],bl                              
+  7B37DD  je      near 00000000007B38D3h                    
+  7B37E3  mov     rcx,[rdi]                                 
+  7B37E6  lea     r8,[rbp-51h]                              
+  7B37EA  mov     r9,[rbp+67h]                              
+  7B37EE  xor     edx,edx                                   
+  7B37F0  mov     [rsp+28h],r12b                            
+  7B37F5  movss   [rbp-41h],xmm6                            
+  7B37FA  mov     eax,[rcx+39Ch]                            
+  7B3800  div     dword [r13+370h]                          
+  7B3807  mov     r13,[rcx+358h]                            
+  7B380E  lea     rdx,[rbp-41h]                             
+  7B3812  mov     rcx,[rel 4BD0AC0h]                        
+  7B3819  mov     [rbp-61h],eax                             
+  7B381C  movss   [rbp-3Dh],xmm7                            
+  7B3821  mov     [rsp+20h],r14                             
+  7B3826  cmp     [rcx+368h],bl                             
+  7B382C  mov     rcx,r13                                   
+  7B382F  je      near 0000000001A13703h                    
+  7B3835  call    00000000001371D0h                         
+  7B383A  mov     ecx,4                                     
+  7B383F  lea     rax,[r13+28h]                             
+  7B3843  lea     edx,[rcx-3]                               
+  7B3846  mov     [rax],ebx                                 
+  7B3848  lea     rax,[rax+2Ch]                             
+  7B384C  sub     rcx,rdx                                   
+  7B384F  jne     short 00000000007B3846h                   
+  7B3851  mov     edx,[rbp-59h]                             
+  7B3854  mov     rax,[rdi]                                 
+  7B3857  mov     ecx,[rbp-61h]                             
+  7B385A  mov     dword [rbp-41h],10000h                    
+  7B3861  mov     dword [rbp-3Dh],10002h                    
+  7B3868  add     [rax+358h],rdx                            
+  7B386F  add     [rax+39Ch],edx                            
+  7B3875  mov     edx,1                                     
+  7B387A  mov     dword [rbp-39h],20003h                    
+  7B3881  lea     r8d,[rdx+1]                               
+  7B3885  lea     esi,[rdx+5]                               
+  7B3888  movzx   eax,cx                                    
+  7B388B  add     ax,[rbp+rbx-41h]                          
+  7B3890  mov     [rbp+rbx-31h],ax                          
+  7B3895  add     rbx,r8                                    
+  7B3898  sub     rsi,rdx                                   
+  7B389B  jne     short 00000000007B3888h                   
+  7B389D  mov     rcx,[rdi]                                 
+  7B38A0  lea     rdx,[rbp-31h]                             
+  7B38A4  mov     r8,r15                                    
+  7B38A7  mov     rcx,[rcx+360h]                            
+  7B38AE  call    0000000000B94250h                         
+  7B38B3  mov     rdx,[rdi]                                 
+  7B38B6  mov     eax,[rbp-5Dh]                             
+  7B38B9  mov     esi,[rbp-55h]                             
+  7B38BC  mov     rcx,[rdx+360h]                            
+  7B38C3  add     rcx,r15                                   
+  7B38C6  add     [rdx+3A0h],eax                            
+  7B38CC  mov     [rdx+360h],rcx                            
+  7B38D3  mov     rcx,[rdi+8]                               
+  7B38D7  lea     edx,[rsi*4]                               
+  7B38DE  mov     eax,1                                     
+  7B38E3  mov     [rcx+14h],edx                             
+  7B38E6  lea     edx,[rsi+rsi*2]                           
+  7B38E9  mov     rcx,[rdi+8]                               
+  7B38ED  add     edx,edx                                   
+  7B38EF  mov     [rcx+18h],edx                             
+  7B38F2  mov     rcx,[rbp-21h]                             
+  7B38F6  xor     rcx,rsp                                   
+  7B38F9  call    0000000000B912E0h                         
+  7B38FE  lea     r11,[rsp+0A0h]                            
+  7B3906  mov     rbx,[r11+38h]                             
+  7B390A  mov     rsi,[r11+40h]                             
+  7B390E  mov     rdi,[r11+48h]                             
+  7B3912  movaps  xmm6,[r11-10h]                            
+  7B3917  movaps  xmm7,[r11-20h]                            
+  7B391C  mov     rsp,r11                                   
+  7B391F  pop     r15                                       
+  7B3921  pop     r14                                       
+  7B3923  pop     r13                                       
+  7B3925  pop     r12                                       
+  7B3927  pop     rbp                                       
+  7B3928  ret                                               
+  7B3929  xor     al,al                                     
+  7B392B  jmp     short 00000000007B38F2h                   

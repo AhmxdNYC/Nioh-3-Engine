@@ -1,0 +1,66 @@
+== func 5AF410-5AF4E3
+005AF410  4053                     push rbx
+005AF412  4883EC20                 sub rsp,20h
+005AF416  80797800                 cmp byte [rcx+78h],0
+005AF41A  488BD9                   mov rbx,rcx
+005AF41D  0F84BA000000             je near R_5AF4DD
+005AF423  488D4C2430               lea rcx,[rsp+30h]
+005AF428  E8A796A9FF               call R_48AD4
+005AF42D  4C8D4358                 lea r8,[rbx+58h]
+005AF431  410FB608                 movzx ecx,byte [r8]
+005AF435  488B10                   mov rdx,[rax]
+005AF438  48B8CFF753E3A59BC420     mov rax,20C49BA5E353F7CFh
+005AF442  482B13                   sub rdx,[rbx]
+005AF445  48F7EA                   imul rdx
+005AF448  48C1FA07                 sar rdx,7
+005AF44C  488BC2                   mov rax,rdx
+005AF44F  48C1E83F                 shr rax,3Fh
+005AF453  4803D0                   add rdx,rax
+005AF456  8D4101                   lea eax,[rcx+1]
+005AF459  418800                   mov [r8],al
+005AF45C  488954CB08               mov [rbx+rcx*8+8],rdx
+005AF461  4180380A                 cmp byte [r8],0Ah
+005AF465  7204                     jb short R_5AF46B
+005AF467  41C60000                 mov byte [r8],0
+005AF46B  33C9                     xor ecx,ecx
+005AF46D  488D4308                 lea rax,[rbx+8]
+005AF471  EB07                     jmp short R_5AF47A
+005AF473  480308                   add rcx,[rax]
+005AF476  4883C008                 add rax,8
+005AF47A  493BC0                   cmp rax,r8
+005AF47D  75F4                     jne short R_5AF473
+005AF47F  48B8CDCCCCCCCCCCCCCC     mov rax,0CCCCCCCCCCCCCCCDh
+005AF489  0F57C0                   xorps xmm0,xmm0
+005AF48C  48F7E1                   mul rcx
+005AF48F  48C1EA03                 shr rdx,3
+005AF493  4885D2                   test rdx,rdx
+005AF496  7807                     js short R_5AF49F
+005AF498  F3480F2AC2               cvtsi2ss xmm0,rdx
+005AF49D  EB15                     jmp short R_5AF4B4
+005AF49F  488BC2                   mov rax,rdx
+005AF4A2  83E201                   and edx,1
+005AF4A5  48D1E8                   shr rax,1
+005AF4A8  480BC2                   or rax,rdx
+005AF4AB  F3480F2AC0               cvtsi2ss xmm0,rax
+005AF4B0  F30F58C0                 addss xmm0,xmm0
+005AF4B4  F30F5E0554536203         divss xmm0,[rel R_3BD4810]
+005AF4BC  C6437800                 mov byte [rbx+78h],0
+005AF4C0  F30F114374               movss [rbx+74h],xmm0
+005AF4C5  E8F6B2B2FF               call R_DA7C0
+005AF4CA  488BCB                   mov rcx,rbx
+005AF4CD  884369                   mov [rbx+69h],al
+005AF4D0  E89B010000               call R_5AF670
+005AF4D5  488BCB                   mov rcx,rbx
+005AF4D8  E807000000               call R_5AF4E4
+005AF4DD  4883C420                 add rsp,20h
+005AF4E1  5B                       pop rbx
+005AF4E2  C3                       ret
+== func 947250-94726C
+00947250  4883EC28                 sub rsp,28h
+00947254  8BD1                     mov edx,ecx
+00947256  488B0DEB2EE103           mov rcx,[rel R_475A148]
+0094725D  4885C9                   test rcx,rcx
+00947260  7405                     je short R_947267
+00947262  E819D79E00               call R_1334980
+00947267  4883C428                 add rsp,28h
+0094726B  C3                       ret

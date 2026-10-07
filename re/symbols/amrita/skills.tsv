@@ -1,0 +1,1101 @@
+id_dec	id_hex	name	order	cost	category	mastery	tier
+84	0054	Skill #0054					
+87	0057	Rainbow Ruse					
+95	005F	Footstool Jump					
+192	00C0	Skill #00C0					
+237	00ED	Enduring Vigor	18	4	C		2
+340	0154	Scampush					
+384	0180	Illusory Dragon	133	4	N		3
+562	0232	Skill #0232					
+654	028E	Sunset Breeze: Heaven					
+655	028F	Skill #028F					
+658	0292	Vile Venom					
+694	02B6	Purify Yokai Realm: Man	57	3	S		0
+741	02E5	Style Shift					
+809	0329	Cutting Stream					
+885	0375	Tiger Sprint					
+911	038F	Retreating Axe					
+1067	042B	Infinite Retribution					
+1143	0477	Vital Spirit	23	4	C		0
+1209	04B9	Switch Stance: Blade					
+1236	04D4	Fatal Fists	31	5	C		1
+1290	050A	Skill #050A					
+1305	0519	Limitless					
+1320	0528	Mortal Flow II					
+1343	053F	SKILL NAME DUMMY					
+1478	05C6	Stone Mallet					
+1502	05DE	Skill #05DE					
+1542	0606	Morning Light					
+1657	0679	Defensive Drop					
+1693	069D	Tri-Spark					
+1694	069E	Dawn's Light					
+1964	07AC	Skill #07AC					
+1984	07C0	Intensity					
+1987	07C3	Hollow Form	123	4	N		0
+1995	07CB	Skill #07CB					
+2148	0864	High Stance					
+2209	08A1	SKILL NAME DUMMY					
+2238	08BE	Skill #08BE					
+2269	08DD	Unshakable	78	6	S		2
+2295	08F7	Inner Light					
+2297	08F9	Skill #08F9					
+2318	090E	Shadowclad	131	5	N		0
+2415	096F	Cutting Wings					
+2439	0987	Cascade					
+2521	09D9	Chaotic Cleave					
+2617	0A39	Pure Mind					
+2626	0A42	Advantageous Deflect	69	6	S		3
+2705	0A91	Tengu Tactics					
+2732	0AAC	Purify Yokai Realm: Spirit Kai	60	4	S		2
+2769	0AD1	Cloudrunner Blade					
+2782	0ADE	Fortitude I	1	2	C		1
+2905	0B59	Moon Shadow					
+2913	0B61	Tiger Claws					
+2945	0B81	Spinning Crab					
+3021	0BCD	Fracture Foe					
+3032	0BD8	Skill #0BD8					
+3063	0BF7	Purify Yokai Realm					
+3158	0C56	Storm Kunai					
+3168	0C60	Burst Counter: Feral					
+3194	0C7A	Spear Flourish					
+3256	0CB8	Blazing Claw					
+3264	0CC0	Skill #0CC0					
+3303	0CE7	Haze II					
+3424	0D60	Purify Yokai Realm: Heaven	56	3	S		0
+3483	0D9B	Heaven and Earth					
+3556	0DE4	Elemental Benison					
+3680	0E60	Caltrops					
+3699	0E73	Fire and Ice					
+3719	0E87	Skill #0E87					
+3777	0EC1	Skill #0EC1					
+3780	0EC4	Skill #0EC4					
+3817	0EE9	Flying Top					
+3823	0EEF	Twin Phoenix III					
+3859	0F13	Blade Spin					
+3937	0F61	Polished Form	73	2	S		1
+3946	0F6A	Recoup	65	5	S		2
+3969	0F81	Beyond Infinity					
+3970	0F82	Skill #0F82					
+4031	0FBF	Water Sword II					
+4085	0FF5	Dual Hurl: Light					
+4117	1015	Skill #1015					
+4177	1051	Mountain Render					
+4213	1075	Punish the Proud					
+4236	108C	Explosive Blast					
+4500	1194	Skill #1194					
+4649	1229	Whirlwind					
+4657	1231	Tourbillon	36	8	C		3
+4689	1251	Skill #1251					
+4727	1277	Dual Hurl: Shadow					
+4801	12C1	Wall or Nothing					
+4823	12D7	Piercing Hurl: Light					
+4844	12EC	Shifting Serenity					
+4871	1307	Spiral Thrust					
+4927	133F	Attack Mastery I	4	2	C		1
+5084	13DC	Drifting Counter					
+5120	1400	Shield Boomerang					
+5228	146C	Skill #146C					
+5335	14D7	Prescience					
+5391	150F	Endless Rain					
+5432	1538	Pufferpuss Technique	113	4	N		0
+5580	15CC	Waking Winds					
+5614	15EE	Supreme Shift	124	6	N		0
+5618	15F2	Skill #15F2					
+5656	1618	Leaping Strike					
+5663	161F	Skill #161F					
+5685	1635	Rigor of the Gods	115	6	N		0
+5725	165D	Deflecting Cut					
+5781	1695	High Kick					
+5794	16A2	Heaven's Impact					
+5842	16D2	Skill #16D2					
+5999	176F	Ki Wave					
+6138	17FA	Flowing Shadow					
+6234	185A	Skill #185A					
+6236	185C	Opportunist II					
+6335	18BF	Skill #18BF					
+6413	190D	SKILL NAME DUMMY					
+6527	197F	Skill #197F					
+6616	19D8	Windstorm					
+6657	1A01	Skill #1A01					
+6668	1A0C	Spear Shove					
+6699	1A2B	Skill #1A2B					
+6739	1A53	Trembling Earth					
+6763	1A6B	Divine Retribution					
+6772	1A74	Skill #1A74					
+6808	1A98	Mist Slash					
+6835	1AB3	Twin Dragons					
+6898	1AF2	Kurama Sword Dance					
+7006	1B5E	Metal Crusher					
+7040	1B80	SKILL NAME DUMMY					
+7055	1B8F	Skill #1B8F					
+7089	1BB1	Three Wars Kata II					
+7103	1BBF	Spirit Ascension	15	4	C		1
+7187	1C13	Fang Toss					
+7296	1C80	Glacial Calamity					
+7324	1C9C	Spiked Wall					
+7344	1CB0	Mountain Climber					
+7371	1CCB	Skill #1CCB					
+7377	1CD1	Havoc Strike					
+7387	1CDB	Supreme Burst	20	4	C		0
+7477	1D35	Golden Current					
+7551	1D7F	Skill #1D7F					
+7750	1E46	Skill #1E46					
+7793	1E71	Shooting Star					
+7812	1E84	Rallying Call					
+7886	1ECE	Skill #1ECE					
+7936	1F00	Azure Wave					
+8057	1F79	Sword of Severance III					
+8133	1FC5	Bear's Bane					
+8226	2022	Demon Dash					
+8238	202E	Mysteries of Onmyo Magic	45	6	C		3
+8239	202F	Skill #202F					
+8252	203C	Dual Hawks					
+8308	2074	Reckless Charge					
+8312	2078	Serpent Strike					
+8337	2091	Flying Chariot					
+8414	20DE	Concentrated Mist	121	5	N		1
+8430	20EE	Evil-Dispelling Evade	111	3	N		1
+8459	210B	Tireless Throw					
+8625	21B1	Nimble Step	64	3	S		0
+8643	21C3	Takedown III					
+8842	228A	Roar Power					
+8873	22A9	Tiger Bite					
+8922	22DA	Dread Bringer	118	3	N	True	4
+8979	2313	Stalwart Shield					
+9023	233F	Devastation Shot					
+9031	2347	Fluidity					
+9034	234A	Sweeping Kick					
+9199	23EF	Wild Surge					
+9252	2424	Samurai's Equilibrium	28	7	C		0
+9359	248F	Stance					
+9410	24C2	Ki Pulse: Earth					
+9569	2561	Lockjaw					
+9603	2583	Sickle Spin					
+9900	26AC	Elemental Benison					
+9942	26D6	Cascading Wave					
+10009	2719	SKILL NAME DUMMY					
+10011	271B	Low Sweep					
+10025	2729	Spinning Realm					
+10077	275D	Roaring Tremor					
+10104	2778	Skill #2778					
+10107	277B	Mind's Eye II					
+10126	278E	Dragon Slayer					
+10213	27E5	Fatal Thrust					
+10347	286B	Blazing Whip					
+10350	286E	Kite Cross					
+10377	2889	Skill #2889					
+10493	28FD	Indestructible Shell					
+10615	2977	Cyclone II					
+10627	2983	Cloud Crush					
+10723	29E3	Cicada Shell					
+10740	29F4	Double Kick					
+10790	2A26	Whirling Tiger					
+10816	2A40	Serpent Bite					
+10939	2ABB	Shapeshift Strike					
+10961	2AD1	Severing Blade					
+11070	2B3E	Quick Burst					
+11207	2BC7	Gong Bash					
+11232	2BE0	Headwind Blaze	91	5	S		1
+11270	2C06	Fire Shuriken					
+11367	2C67	Flux II					
+11435	2CAB	Tempestuous Deflect	72	5	S	True	4
+11500	2CEC	Falling Moon					
+11689	2DA9	Skill #2DA9					
+11725	2DCD	Shadow Cyclone					
+11740	2DDC	Wolf's Rage					
+11747	2DE3	Gale Slicer					
+11750	2DE6	Skill #2DE6					
+11776	2E00	Fill the Void					
+11828	2E34	Running Water	63	2	S		0
+11887	2E6F	Thunderclap					
+11892	2E74	Water Sword II					
+11989	2ED5	Spear Bash					
+12001	2EE1	Switch Stance: Edge					
+12071	2F27	Mountain Climber II					
+12115	2F53	Thundering Calamity					
+12227	2FC3	SKILL NAME DUMMY					
+12413	307D	Skill #307D					
+12444	309C	Hell's Harvest					
+12463	30AF	Skill #30AF					
+12500	30D4	Shield Strike					
+12502	30D6	Sword of Severance II					
+12556	310C	Skill #310C					
+12561	3111	Bamboo Split					
+12633	3159	Skill #3159					
+12652	316C	Butterfly's Grace	94	3	N		0
+12678	3186	Pinwheel					
+12711	31A7	Sunrise					
+12746	31CA	Pole Kick					
+12834	3222	Flame Breath					
+12967	32A7	Lingering Shadow					
+13016	32D8	Tornado					
+13163	336B	Armor Piercer	102	5	N		0
+13204	3394	Skill #3394					
+13220	33A4	Style Shift for switching styles only					
+13221	33A5	Coiled Strike					
+13329	3411	Oppressive Strength	90	6	S		3
+13365	3435	Dragon Fang					
+13421	346D	Shuriken					
+13448	3488	Kindled Edge					
+13475	34A3	Skill #34A3					
+13488	34B0	Impaling Doom					
+13508	34C4	Mountain Sweeper					
+13529	34D9	Awakening	42	3	C	True	4
+13652	3554	Dragonfly					
+13716	3594	Skill #3594					
+13751	35B7	Flying Roundhouse					
+13765	35C5	Soaring Turtle					
+13775	35CF	Skill #35CF					
+13779	35D3	Skill #35D3					
+13845	3615	Darting Cloud					
+13979	369B	Autumn Dusk					
+13982	369E	Skill #369E					
+14100	3714	Tempestuous Calamity					
+14110	371E	Skill #371E					
+14152	3748	Morning Light					
+14285	37CD	Slashing Gale					
+14416	3850	Twirling Top					
+14465	3881	Rakshasa					
+14552	38D8	Serpent Sweep					
+14618	391A	Iron Grip					
+14700	396C	Focused Strike					
+14857	3A09	Vortex Talons					
+14863	3A0F	Shadow Step					
+14866	3A12	Strings of Light					
+15010	3AA2	Blade-Breaking Deflect	70	6	S		1
+15105	3B01	Bewildering Mist	122	3	N		2
+15133	3B1D	Shift Counter					
+15199	3B5F	Rage					
+15265	3BA1	Chain Hurl					
+15286	3BB6	Black Vines					
+15309	3BCD	Dodging	108	4	N		1
+15397	3C25	Skill #3C25					
+15399	3C27	Blinding Edge					
+15517	3C9D	Perseverance	106	4	N		1
+15543	3CB7	Calamitous Blade					
+15769	3D99	Defense Mastery I	50	2	S		1
+15810	3DC2	Mindful Spirit	81	4	S		3
+15935	3E3F	Volitional Onmyo Magic	44	3	C	True	4
+15942	3E46	Willows in Snow					
+15988	3E74	Skill #3E74					
+16300	3FAC	Sunset Breeze: Earth					
+16313	3FB9	Devastation					
+16384	4000	Kibosh Kicker					
+16400	4010	Kickslash					
+16405	4015	Lumber Chop					
+16406	4016	Heaven's Clash					
+16424	4028	Skill #4028					
+16437	4035	Skill #4035					
+16482	4062	Enduring Destruction	19	5	C		1
+16543	409F	All Ablaze					
+16544	40A0	Flying Fist					
+16550	40A6	God of Wind II					
+16570	40BA	Skill #40BA					
+16596	40D4	Sudden Strike					
+16622	40EE	Paralytic Groundfire					
+16643	4103	Skill #4103					
+16650	410A	Floating Vine					
+16660	4114	Skill #4114					
+16665	4119	Skill #4119					
+16758	4176	Heavenly Chain					
+16766	417E	Cloudsplitter					
+16859	41DB	Fortitude II	2	4	C		1
+16934	4226	God of Wind					
+17187	4323	Lethal Barrage					
+17426	4412	Rain of Terror					
+17486	444E	Sharp Old Hag					
+17543	4487	Skill #4487					
+17561	4499	Sublime Impetus	49	6	C		3
+17574	44A6	Shove					
+17580	44AC	Flash Attack					
+17740	454C	Sword of Celerity					
+17791	457F	Wildfire Flux					
+17835	45AB	Skill #45AB					
+17851	45BB	Sunrise					
+17957	4625	Downburst					
+17970	4632	Toxic Groundfire					
+18018	4662	Skill #4662					
+18024	4668	Buoyancy III					
+18040	4678	Awakening					
+18062	468E	Running Water: Earth					
+18131	46D3	Defensive Drop II					
+18139	46DB	Skill #46DB					
+18179	4703	Skill #4703					
+18224	4730	Physical Art Strike	136	7	N		3
+18243	4743	Quadrisect					
+18445	480D	Rigorous Focus	97	5	N		1
+18454	4816	Ki Pulse: Earth	55	3	S		0
+18523	485B	Resounding Lunge					
+18533	4865	Glowing Ember					
+18701	490D	Earthsplitter					
+18714	491A	Enlightenment					
+18778	495A	Roaring Dragon Deflect	71	4	S		2
+18802	4972	Sign of the Cross					
+18888	49C8	Ki Pulse: Man					
+18961	4A11	Skill #4A11					
+19012	4A44	Whirling Retreat					
+19045	4A65	Pufferpuss Form					
+19074	4A82	Slaphappy					
+19086	4A8E	Frost Moon: Earth					
+19110	4AA6	Ground Sweeper					
+19122	4AB2	Flying Fist					
+19139	4AC3	Unbroken					
+19215	4B0F	Skill #4B0F					
+19296	4B60	Foxfire					
+19448	4BF8	Enhanced Gale Sprint					
+19597	4C8D	Swallow's Wing					
+19617	4CA1	Skill #4CA1					
+19621	4CA5	Ki Pulse					
+19673	4CD9	Summer Twilight					
+19784	4D48	Impenetrability					
+19817	4D69	Mind's Edge					
+19880	4DA8	Eight-Handed Blade					
+19946	4DEA	Whirlwind Kick					
+20014	4E2E	Bloodbath					
+20191	4EDF	Defensive Drop					
+20231	4F07	Twirl					
+20257	4F21	Wave Slash					
+20271	4F2F	Fiendish Frenzy					
+20290	4F42	Heaven's Fire					
+20309	4F55	Skill #4F55					
+20343	4F77	Skill #4F77					
+20468	4FF4	Monkey Dance					
+20496	5010	Body Swap					
+20608	5080	Skill #5080					
+20622	508E	Trained Throw					
+20708	50E4	SKILL NAME DUMMY					
+20716	50EC	Buoyancy II					
+20789	5135	Skill #5135					
+20858	517A	Pollard					
+20951	51D7	Random Slice					
+20963	51E3	Three Wars Kata I					
+21043	5233	SKILL NAME DUMMY					
+21105	5271	Venomfang Technique	116	8	N		2
+21243	52FB	Skill #52FB					
+21282	5322	Kick Cycle					
+21294	532E	Thousand Tongues					
+21298	5332	Acrobatics					
+21337	5359	Skill #5359					
+21400	5398	Scaling Waterfall					
+21425	53B1	Single Slash Kata	61	4	S		1
+21591	5457	Crimson Flurry II					
+21607	5467	Skill #5467					
+21662	549E	Pulverize: Man					
+21685	54B5	Deflection Expert	66	6	S		2
+21761	5501	Skill #5501					
+21863	5567	Concealment					
+21903	558F	Fiery Draft					
+21918	559E	Savage Blade Kata	79	5	S		0
+21973	55D5	Skill #55D5					
+21981	55DD	Scattered Ninjutsu					
+21983	55DF	Storm Surge					
+22019	5603	Skill #5603					
+22072	5638	Demon Thrust					
+22086	5646	Shadow Sword					
+22165	5695	Stone Fist					
+22333	573D	Sacred Bird Flight					
+22374	5766	Twisting Spear					
+22411	578B	Blue Moon					
+22418	5792	Skill #5792					
+22516	57F4	Streamflow	130	8	N		3
+22593	5841	Shatter					
+22633	5869	Skill #5869					
+22702	58AE	Demon Dance: Earth					
+22724	58C4	Mortal Flow					
+22743	58D7	Aerial Mastery	96	5	N		0
+22753	58E1	Ethereal Sway	22	10	C	True	4
+22883	5963	Style Shift Flow	40	4	C		2
+22885	5965	Leaf Glide					
+22975	59BF	Waterfall					
+23123	5A53	Skill #5A53					
+23217	5AB1	Mid-Air Dodge					
+23226	5ABA	Skill #5ABA					
+23300	5B04	Skill #5B04					
+23470	5BAE	Shared Blessing	119	5	N		0
+23475	5BB3	Opportunist II					
+23638	5C56	Plummet					
+23716	5CA4	Noxious Groundfire					
+23759	5CCF	Water Shadow					
+23946	5D8A	Skill #5D8A					
+23954	5D92	Kunai					
+24032	5DE0	Skill #5DE0					
+24049	5DF1	Volitional Summoning	14	3	C		0
+24051	5DF3	Mortal Retribution					
+24101	5E25	Skill #5E25					
+24114	5E32	Chain Hurl II					
+24402	5F52	Dual Dragon					
+24472	5F98	Skill #5F98					
+24588	600C	Skill #600C					
+24711	6087	Southpaw					
+24739	60A3	Bedrock Breaker					
+24775	60C7	Sword Ki					
+24821	60F5	Rending Charge					
+24865	6121	Mid Stance					
+24866	6122	Ebb and Flow					
+25061	61E5	Hollow Stab					
+25225	6289	Ubume's Cry					
+25292	62CC	Waking Winds: Heaven					
+25348	6304	Whipper Snapper					
+25373	631D	Twin Phoenix					
+25523	63B3	Enduring Burst	125	3	N		2
+25554	63D2	Caltrop Ball					
+25752	6498	Gale Claws					
+25797	64C5	Three Wars Stance	33	7	C	True	4
+25845	64F5	Lightning Squall					
+25895	6527	Skill #6527					
+25916	653C	Wolf Claw					
+25951	655F	Skill #655F					
+25992	6588	Skill #6588					
+26060	65CC	Moonlit Snow					
+26117	6605	Spirit Storm					
+26215	6667	Skill #6667					
+26228	6674	Thrown Blade Counter	112	3	N		0
+26258	6692	Snakebite Technique	117	3	N		0
+26297	66B9	Ball of Hatred					
+26314	66CA	Fluid Form					
+26349	66ED	Full Moon Kata	98	5	N		0
+26578	67D2	Deflect					
+26604	67EC	Transient Blade					
+26677	6835	Law of Largesse					
+26690	6842	Arts Proficiency					
+26896	6910	Night Rain II					
+26986	696A	Yokai Banisher	120	4	N		2
+27083	69CB	Skill #69CB					
+27111	69E7	Thundering Cry					
+27208	6A48	Flying Buck					
+27231	6A5F	Archer's Impact					
+27592	6BC8	Skill #6BC8					
+27645	6BFD	Takedown					
+27653	6C05	Infernal Calamity					
+27674	6C1A	Maelstrom					
+27695	6C2F	Uncanny Flame					
+27732	6C54	Burst Counter: Phantom					
+27744	6C60	Thunderous Kick					
+27762	6C72	Leaping Fang					
+27815	6CA7	Radiant Moon					
+27832	6CB8	Light in Darkness					
+27862	6CD6	Greased Lightning					
+27863	6CD7	Sanmyo Storm					
+27876	6CE4	Haze II					
+28015	6D6F	Cloud Dancer					
+28124	6DDC	Arts Proficiency Life Siphon	83	5	S		0
+28194	6E22	Skill #6E22					
+28342	6EB6	Arise					
+28352	6EC0	The Path of Three					
+28439	6F17	Fleetfoot					
+28501	6F55	Flying Shield					
+28528	6F70	Falling Moon					
+28547	6F83	Wind Blast					
+28578	6FA2	Impact Punch					
+28611	6FC3	Flying Monkey II					
+28625	6FD1	Fulgent Flight					
+28739	7043	Purify Yokai Realm: Shadow					
+28802	7082	Skill #7082					
+28807	7087	Flash Attack					
+28820	7094	Where There's Smoke					
+28870	70C6	Knifehand Strike					
+28896	70E0	Uncanny Bolt					
+28911	70EF	Hornet Sting					
+28956	711C	True and Through					
+28972	712C	Skill #712C					
+29004	714C	Enhanced Shrapnel Bomb					
+29162	71EA	Undaunted					
+29271	7257	Hazy Moon Blade					
+29274	725A	Spinning Top					
+29287	7267	Tidebreaker					
+29322	728A	Sneak Thief	103	4	N		3
+29341	729D	Coiled Spring					
+29364	72B4	Merciless Barrage					
+29366	72B6	Style Shift Gust	37	3	C		0
+29476	7324	Just Reprisal					
+29552	7370	Izuna Drop					
+29555	7373	Favorable Wind	92	5	S		0
+29660	73DC	Advancing Storm					
+29709	740D	Resilient Arts	87	4	S		2
+29758	743E	Tidal Cleaver					
+29760	7440	Repercussion					
+29775	744F	Skill #744F					
+29854	749E	Chain Pull					
+29919	74DF	Skill #74DF					
+29949	74FD	Battle Frenzy Kata	104	6	N		0
+29992	7528	Attack Mastery III	6	5	C		1
+30110	759E	Switch Stance: Retribution					
+30136	75B8	SKILL NAME DUMMY					
+30194	75F2	Skill #75F2					
+30211	7603	Flux					
+30425	76D9	Skill #76D9					
+30513	7731	Hellfire Wheel					
+30620	779C	Buoyancy I					
+30667	77CB	Piercing Hurl: Shadow					
+30741	7815	Piercing Wheel					
+30851	7883	Swift Step					
+30878	789E	Petrifying Gaze					
+31018	792A	Rising Dragon					
+31094	7976	Skill #7976					
+31108	7984	Infinite Retribution II					
+31133	799D	Artifact Tenacity	25	4	C		0
+31406	7AAE	Earthly Flow					
+31417	7AB9	Piercing Hurl					
+31427	7AC3	Changing Ways					
+31466	7AEA	Arise					
+31613	7B7D	Aerial Strike	95	5	N		1
+31648	7BA0	Arc of Chaos					
+31696	7BD0	Earthrender					
+31701	7BD5	Waking Winds: Man					
+31715	7BE3	Stomp					
+31768	7C18	Rend and Tear					
+31781	7C25	Enhanced Grapple Distance					
+31794	7C32	Strategic Spirit	129	4	N		3
+31866	7C7A	Skill #7C7A					
+31969	7CE1	Skill #7CE1					
+31986	7CF2	Razing Edge					
+32030	7D1E	Rising Frost Moon					
+32037	7D25	Patience of the Gods	114	4	N		0
+32128	7D80	Rumbling Earth					
+32141	7D8D	Skill #7D8D					
+32194	7DC2	Assassinate					
+32347	7E5B	SKILL NAME DUMMY					
+32361	7E69	Stallion Strike					
+32362	7E6A	Senju Rush					
+32414	7E9E	Skill #7E9E					
+32463	7ECF	Shin Crusher II					
+32489	7EE9	Skill #7EE9					
+32519	7F07	Fleeting Edge					
+32545	7F21	Turbulent Waters					
+32562	7F32	Double-Edged Arts	85	4	S		1
+32593	7F51	Haze Strike					
+32692	7FB4	Deadly Mark					
+32714	7FCA	Skill #7FCA					
+32739	7FE3	Brutal Charge					
+32794	801A	Mist Phantom					
+32860	805C	Lightning Step					
+32923	809B	Mad Spinner II					
+33007	80EF	Skill #80EF					
+33025	8101	Cuckoo's Call					
+33174	8196	Double-Headed Slice					
+33235	81D3	Cherry Blossom					
+33268	81F4	Focused Ninjutsu					
+33362	8252	Boiling Counter					
+33381	8265	Masterful Guard					
+33410	8282	Lunar Mirror					
+33443	82A3	Lightning Vortex					
+33537	8301	Skill #8301					
+33712	83B0	Dark Detonation					
+33858	8442	Skill #8442					
+33910	8476	Tentacle Storm					
+33936	8490	Tile Shaker					
+33965	84AD	Heavenly Strike					
+34020	84E4	The Shrike					
+34035	84F3	Night Wave					
+34101	8535	Thunderous Crash					
+34169	8579	Skill #8579					
+34222	85AE	Dawn's Light					
+34281	85E9	Cull the Herd					
+34301	85FD	Indomitable Spirit	76	6	S		0
+34423	8677	Tempest Flux					
+34425	8679	Supreme Parry Kai	17	6	C		2
+34483	86B3	Demon Dance					
+34490	86BA	Feathered Airburst					
+34514	86D2	Shadow Dance					
+34519	86D7	Firm Resolve					
+34527	86DF	Prelusive Arts	89	3	S		3
+34566	8706	Sunset Breeze: Man					
+34665	8769	Weight Bearer	7	6	C		1
+34677	8775	Roundabout					
+34685	877D	Foot Sweep					
+34689	8781	Versatility	29	8	C	True	4
+34729	87A9	Shadowstitch					
+34733	87AD	Fleshy Fury					
+34740	87B4	Skill #87B4					
+34908	885C	Bracing Breeze					
+34910	885E	Airstream Reversal					
+34916	8864	Demon Dance: Heaven					
+35033	88D9	Focused Spirit Force Kata					
+35093	8915	Skill #8915					
+35187	8973	Nagi Blade					
+35192	8978	God of Wind III					
+35242	89AA	Back Slash					
+35257	89B9	Retrograde Flow					
+35410	8A52	Inferno Whirlwind					
+35414	8A56	Skill #8A56					
+35460	8A84	Flying Eagle					
+35617	8B21	Divine Burst	21	5	C		3
+35692	8B6C	Gong					
+35732	8B94	Skill #8B94					
+35744	8BA0	Panacea Curefast	8	5	C		2
+35751	8BA7	Ninja's Equilibrium	27	7	C		0
+36014	8CAE	Skill #8CAE					
+36019	8CB3	Tangle Strike					
+36083	8CF3	Mujina Mimic					
+36085	8CF5	Spearfall					
+36091	8CFB	Dragonfly Reversal					
+36105	8D09	Skill #8D09					
+36114	8D12	Piercing Rain					
+36158	8D3E	Stone Volley					
+36172	8D4C	Hornet Sting II					
+36480	8E80	Ki-Sapping Follow-up	30	5	C		0
+36493	8E8D	Skill #8E8D					
+36588	8EEC	Destructive Arts	88	7	S	True	4
+36716	8F6C	Battle Focus					
+36727	8F77	Slaphappy					
+36788	8FB4	Second Wind					
+36904	9028	Mind's Eye					
+36909	902D	Storm of Strikes					
+36972	906C	Falcon Kick					
+37023	909F	Final Blow					
+37091	90E3	Skill #90E3					
+37157	9125	Height of Obscurity					
+37254	9186	Sword of Severance I					
+37261	918D	Purify Yokai Realm: Heaven					
+37299	91B3	Iai Quickdraw					
+37441	9241	Skill #9241					
+37574	92C6	Skill #92C6					
+37596	92DC	Thunder Strike					
+37623	92F7	Deliverance					
+37636	9304	Heavenly Flow					
+37721	9359	Ninjutsu Cultivation	126	5	N		2
+37776	9390	Twin Phoenix II					
+37816	93B8	Hard-Headed					
+37827	93C3	Groundquake					
+37883	93FB	Fire Foot Drill					
+38027	948B	Flowing Lotus					
+38063	94AF	Sunset Breeze					
+38211	9543	Biting Hail					
+38252	956C	Burst Break (Spirit)					
+38319	95AF	Ascension	128	5	N		3
+38525	967D	Ki Pulse: Man	54	3	S		0
+38562	96A2	Water Drop					
+38610	96D2	Skill #96D2					
+38622	96DE	Thunderous Performance					
+38630	96E6	Dreadslayer					
+38670	970E	Backwave II					
+38709	9735	Ki Pulse: Heaven					
+38776	9778	Double-Headed Slice					
+38916	9804	Moonlit Snow Redux					
+38942	981E	Pulverize: Earth					
+38967	9837	Imperative Strike					
+39040	9880	Vigorous Spirit	10	5	C		0
+39044	9884	Winter Wind					
+39119	98CF	Water Sword					
+39227	993B	Reflexive Breath					
+39343	99AF	Thunder Roar					
+39353	99B9	Skill #99B9					
+39360	99C0	Fists of Reckoning					
+39384	99D8	Earthen Wall					
+39411	99F3	Resolute Arts	84	6	S		0
+39497	9A49	Retreating Strike					
+39530	9A6A	Skyward Serpent					
+39548	9A7C	Great Tanuki Slam					
+39611	9ABB	Skill #9ABB					
+39620	9AC4	Skill #9AC4					
+39636	9AD4	Skeleton Bowman					
+39661	9AED	Sign of the Cross II					
+39728	9B30	SKILL NAME DUMMY					
+39739	9B3B	Great Scampuss Form					
+39760	9B50	Skill #9B50					
+39885	9BCD	Dragon Dance					
+39895	9BD7	Skill #9BD7					
+40106	9CAA	Eagle's Shadow					
+40208	9D10	Reaper					
+40220	9D1C	Chidori					
+40403	9DD3	Thin Air					
+40472	9E18	Skill #9E18					
+40505	9E39	Tiger's Blade					
+40668	9EDC	Windmill					
+40742	9F26	Skill #9F26					
+40850	9F92	Haze					
+40853	9F95	Skill #9F95					
+41112	A098	Groundfire					
+41168	A0D0	Skill #A0D0					
+41225	A109	Tangle Strike II					
+41288	A148	Earth Carver					
+41316	A164	Orion's Belt					
+41353	A189	Quick as Lightning					
+41409	A1C1	Breaking Smash					
+41415	A1C7	Enduring Arts	62	2	S		1
+41582	A26E	Spinning Top					
+41643	A2AB	Dual Hurl					
+41686	A2D6	Fracture Foe					
+41781	A335	Crimson Lotus					
+41859	A383	Backwave					
+41889	A3A1	Skill #A3A1					
+41918	A3BE	Sacred Bird Cry					
+42096	A470	Skill #A470					
+42101	A475	Shadow Slice					
+42112	A480	Delirious Assault					
+42198	A4D6	Wind Dance					
+42201	A4D9	Skill #A4D9					
+42265	A519	Focused Retribution					
+42347	A56B	Winter Dawn					
+42411	A5AB	Spirit Wind					
+42468	A5E4	Ethereal Kata					
+42508	A60C	Mountain Breaker					
+42578	A652	Fire Twister					
+42602	A66A	Unruly Revolution					
+42612	A674	Crimson Flurry					
+42721	A6E1	Flying Monkey					
+42746	A6FA	Parting Slash					
+42795	A72B	Skill #A72B					
+42860	A76C	Thunderclaw Kick					
+42892	A78C	Deft Counter					
+42922	A7AA	Counteroffensive Deflect	67	6	S		1
+43114	A86A	Skill #A86A					
+43291	A91B	Wasp Sting					
+43348	A954	Amplification					
+43472	A9D0	Wrapping Flail					
+43497	A9E9	Crackling Steel					
+43595	AA4B	Skill #AA4B					
+43644	AA7C	Dragon Claw					
+43659	AA8B	Long Stride	107	5	N		2
+43689	AAA9	Purify Yokai Realm: Man					
+43776	AB00	Skill #AB00					
+43788	AB0C	Polished Persistence	82	8	S		3
+43816	AB28	Skill #AB28					
+44038	AC06	Severing Spin					
+44168	AC88	Heaven Flash					
+44378	AD5A	Foxfire					
+44405	AD75	Retreating Axe					
+44411	AD7B	Retreating Slash					
+44424	AD88	Ninjutsu Link	127	2	N		2
+44458	ADAA	Ocean Zephyr					
+44467	ADB3	Skill #ADB3					
+44521	ADE9	Skill #ADE9					
+44532	ADF4	SKILL NAME DUMMY					
+44645	AE65	Uncanny Breeze					
+44665	AE79	Clarity					
+44725	AEB5	Swallow Slash					
+44748	AECC	Tempest					
+44800	AF00	Skill #AF00					
+44874	AF4A	Opportunist					
+45034	AFEA	Whiplash					
+45149	B05D	Hellfire Maul					
+45164	B06C	Takedown II					
+45235	B0B3	Skill #B0B3					
+45257	B0C9	Spirit Channeler	13	5	C		2
+45364	B134	Skill #B134					
+45410	B162	Windswept					
+45474	B1A2	Skill #B1A2					
+45622	B236	Paralysis Shuriken					
+45748	B2B4	Assassinate					
+45849	B319	Abscission					
+45904	B350	Supreme Parry	16	5	C		0
+45924	B364	Tail Strike					
+45968	B390	Sanmyo Storm					
+45995	B3AB	Crashing Waves					
+46044	B3DC	Winter Wind					
+46201	B479	Rally the Dead					
+46330	B4FA	Boulder Breaker					
+46363	B51B	Skill #B51B					
+46370	B522	Water Volley					
+46393	B539	Twirl II					
+46443	B56B	Flying Shield					
+46467	B583	Slaphappy					
+46529	B5C1	Opportunist					
+46626	B622	Immaculate Beam					
+46627	B623	Empty Retribution					
+46698	B66A	Burst Counter: Brute					
+46908	B73C	Skill #B73C					
+46918	B746	Subtle Blade					
+47001	B799	Recoup					
+47050	B7CA	Tiger's Den					
+47180	B84C	Pheasant Leap					
+47222	B876	Skill #B876					
+47426	B942	Senju Shift	99	8	N	True	4
+47443	B953	Kick					
+47474	B972	Sky Rift					
+47547	B9BB	Shrapnel Bomb					
+47595	B9EB	Offensive Odor					
+47611	B9FB	Rumbling Earth II					
+47639	BA17	SKILL NAME DUMMY					
+47680	BA40	SKILL NAME DUMMY					
+47688	BA48	Spinning Drill					
+47729	BA71	Final Blow					
+47760	BA90	Defense Mastery III	52	6	S		1
+47875	BB03	Cyclone Kick					
+47940	BB44	Skill #BB44					
+47968	BB60	Quelling Requiem	41	4	C		0
+48031	BB9F	Dragon Horn					
+48154	BC1A	SKILL NAME DUMMY					
+48187	BC3B	Divine Thunder					
+48300	BCAC	Shockstopper					
+48340	BCD4	Enhanced Style Shift	39	5	C		0
+48428	BD2C	Purify Yokai Realm: Spirit	59	3	S		0
+48451	BD43	Apocalypse					
+48467	BD53	Dance of the Tengu					
+48502	BD76	Smoke and Fire					
+48685	BE2D	Sacred Fire					
+48686	BE2E	Rakansen Coin					
+48692	BE34	SKILL NAME DUMMY					
+48782	BE8E	Tree Slicer					
+48793	BE99	Whirling Blade					
+48822	BEB6	Sacred Stance					
+48872	BEE8	Wormhole					
+48873	BEE9	Skill #BEE9					
+49125	BFE5	Skill #BFE5					
+49150	BFFE	Water Sword					
+49296	C090	Spinning Gale					
+49345	C0C1	Sword of Meditation					
+49380	C0E4	Evade					
+49476	C144	Wild Whirlwind					
+49495	C157	Skill #C157					
+49534	C17E	Skill #C17E					
+49571	C1A3	Beyond Infinity					
+49605	C1C5	Skill #C1C5					
+49630	C1DE	Rising Gale					
+49652	C1F4	Evasion Expert	109	6	N		2
+49692	C21C	Samurai's Cloak	77	3	S		0
+49703	C227	Electrified Kunai					
+49726	C23E	Powerful Shift	38	6	C		0
+49733	C245	Skill #C245					
+49888	C2E0	Skill #C2E0					
+49892	C2E4	Skill #C2E4					
+49988	C344	Skill #C344					
+50003	C353	Amphibian Ritual					
+50019	C363	Skill #C363					
+50179	C403	Last Stand	101	5	N		0
+50249	C449	Izuna Drop					
+50302	C47E	Revolving Parry					
+50373	C4C5	Law of Lethality					
+50414	C4EE	Spiritualism	12	5	C		0
+50432	C500	Urgency					
+50532	C564	Corrupted Breath					
+50543	C56F	Wild Lions					
+50560	C580	Exorcist Blades					
+50640	C5D0	Cross Thunder					
+50652	C5DC	Skill #C5DC					
+50660	C5E4	Skill #C5E4					
+50674	C5F2	SKILL NAME DUMMY					
+50810	C67A	Frenzied Rain					
+50897	C6D1	Tailwind					
+50908	C6DC	SKILL NAME DUMMY					
+50913	C6E1	Skill #C6E1					
+50922	C6EA	Soaring Fowl					
+50979	C723	Sword of Salvation					
+51030	C756	Skill #C756					
+51105	C7A1	Skill #C7A1					
+51182	C7EE	Fire Arm					
+51238	C826	Potent Might Kata	80	4	S		0
+51260	C83C	Thunderbolt					
+51297	C861	SKILL NAME DUMMY					
+51313	C871	Out of Sight					
+51440	C8F0	Kurama's Slicer					
+51466	C90A	Skill #C90A					
+51550	C95E	Iai Quickdraw II					
+51658	C9CA	Frost Moon: Humanity					
+51661	C9CD	Skill #C9CD					
+51684	C9E4	Water Shadow II					
+51769	CA39	Bolting Boar					
+51819	CA6B	Purify Yokai Realm: Earth	58	3	S		0
+51832	CA78	SKILL NAME DUMMY					
+51864	CA98	Roar					
+51915	CACB	Skill #CACB					
+52116	CB94	Swirling Tides					
+52160	CBC0	Elemental Benison					
+52343	CC77	Rising Dragon					
+52383	CC9F	Demon Dance: Man					
+52470	CCF6	Skill #CCF6					
+52692	CDD4	Raging Storm					
+52754	CE12	Mad Spinner					
+52822	CE56	Shield Boomerang					
+52930	CEC2	Skill #CEC2					
+52932	CEC4	Flux					
+53030	CF26	Artful Evasion	136	0	N		3
+53119	CF7F	Invigorating Arts	86	5	S		1
+53177	CFB9	Rebounding Surge	135	3	N		3
+53204	CFD4	Wheel of Flames					
+53238	CFF6	Dragonfly II					
+53363	D073	Expansive Deflect	68	5	S		2
+53426	D0B2	Ki Pulse Mastery Kai	75	6	S		2
+53645	D18D	Counteroffensive Evade	110	5	N		2
+53655	D197	Skill #D197					
+53665	D1A1	Lapping Echo					
+53674	D1AA	Haze					
+53731	D1E3	Seesaw Strike					
+53749	D1F5	Artful Deflection	124	0	S		3
+53792	D220	Demon Undercut					
+53799	D227	Celestial Retribution					
+53804	D22C	Hunter's Harvest					
+53830	D246	Piercing Downpour					
+53900	D28C	Frost Moon: Heaven					
+53925	D2A5	Skill #D2A5					
+53935	D2AF	Moon Shadow					
+53970	D2D2	Morning Light					
+54080	D340	Skill #D340					
+54171	D39B	Skill #D39B					
+54172	D39C	Skill #D39C					
+54185	D3A9	Soul Devourer					
+54375	D467	Skill #D467					
+54392	D478	Spinning Kicks					
+54415	D48F	Pinwheel Shuriken					
+54442	D4AA	Ultimate Sign of the Cross					
+54685	D59D	Kurama's Tempest					
+54718	D5BE	Skill #D5BE					
+54729	D5C9	Healer	9	5	C		0
+54790	D606	Spinning Slide					
+54793	D609	Sword of Execution					
+54879	D65F	Ki Pulse Mastery	74	4	S		0
+54911	D67F	Shield Bash					
+54984	D6C8	Defensive Drop II					
+54997	D6D5	Slicing Thrust					
+55005	D6DD	Bell Ringer					
+55020	D6EC	Defense Mastery II	51	4	S		1
+55033	D6F9	Heron Kick					
+55083	D72B	Windmill II					
+55177	D789	Skill #D789					
+55186	D792	Twin Moons					
+55376	D850	Iai Quickdraw III					
+55424	D880	Mindfulness					
+55689	D989	Unbowed					
+55701	D995	Raijin					
+55717	D9A5	Skill #D9A5					
+55866	DA3A	Pulverize: Heaven					
+55898	DA5A	Skill #DA5A					
+55950	DA8E	Skill #DA8E					
+56169	DB69	Ephemeral Breath					
+56194	DB82	Skill #DB82					
+56231	DBA7	Swirling Snow					
+56670	DD5E	Skill #DD5E					
+56714	DD8A	Tornado Edge					
+56757	DDB5	Merciful Retribution					
+56780	DDCC	Backstab Life Siphon	100	5	N		0
+56784	DDD0	Poison Shuriken					
+56825	DDF9	Skill #DDF9					
+56959	DE7F	Skill #DE7F					
+57148	DF3C	Sword of Discernment					
+57158	DF46	Skill #DF46					
+57225	DF89	Tachi Arts	105	3	N		0
+57283	DFC3	Bird of Prey					
+57288	DFC8	Shin Crusher					
+57356	E00C	Ninjutsu					
+57374	E01E	Waking Winds: Earth					
+57471	E07F	Renegade Dragon					
+57611	E10B	Mountain Hawk					
+57623	E117	Repel Expert	35	5	C		2
+57629	E11D	Slashing Butterfly					
+57637	E125	Skyward Blade					
+57710	E16E	Skill #E16E					
+57853	E1FD	Purify Yokai Realm: Earth					
+57941	E255	Titanic Strength					
+58118	E306	Go Nuts					
+58149	E325	Sky Piercer					
+58211	E363	Skill #E363					
+58240	E380	Entangle					
+58254	E38E	Rising Winds					
+58290	E3B2	Attack Mastery II	5	4	C		1
+58322	E3D2	Skill #E3D2					
+58390	E416	Falcon Strike					
+58427	E43B	Side Swipe					
+58473	E469	Shadowself					
+58475	E46B	Artifact Defense	26	8	C		3
+58767	E58F	Waxing Crescent					
+58797	E5AD	Kurama Sword Dance					
+58867	E5F3	Morning Moon					
+58878	E5FE	Devastating Rush					
+58901	E615	Inferno Rush					
+58925	E62D	Mysteries of Summoning	46	6	C		3
+58948	E644	Low Stance					
+59106	E6E2	Swallow's Wing II					
+59122	E6F2	Pure Heaven Cursed Earth	11	3	C		0
+59140	E704	Pulverize					
+59151	E70F	Skill #E70F					
+59166	E71E	Skill #E71E					
+59280	E790	Foxfire					
+59362	E7E2	Flame Dragon					
+59414	E816	Poison Mist					
+59490	E862	Skill #E862					
+59549	E89D	SKILL NAME DUMMY					
+59579	E8BB	Skill #E8BB					
+59638	E8F6	Flexibility	34	4	C		0
+59645	E8FD	Leaf Glide					
+59677	E91D	Skill #E91D					
+59788	E98C	Three Wars Kata III					
+60016	EA70	Skill #EA70					
+60035	EA83	SKILL NAME DUMMY					
+60136	EAE8	Victory Rush					
+60158	EAFE	Burrow					
+60258	EB62	Lingering Spirit	24	4	C		3
+60279	EB77	Cyclone					
+60418	EC02	Tangle Cotton					
+60451	EC23	Running Water: Heaven					
+60466	EC32	Triple Threat					
+60527	EC6F	Twin Waves					
+60531	EC73	Composure					
+60600	ECB8	Rampage					
+60847	EDAF	One-legged Fury					
+60873	EDC9	The More the Merrier	48	4	C		2
+60950	EE16	Swallow's Wing					
+61055	EE7F	Summoning Basics	47	9	C	True	4
+61183	EEFF	Skill #EEFF					
+61195	EF0B	Reedcutter					
+61203	EF13	Spitball					
+61276	EF5C	Skill #EF5C					
+61323	EF8B	Death from Above					
+61346	EFA2	Skill #EFA2					
+61393	EFD1	Flying Drill					
+61819	F17B	Skill #F17B					
+62187	F2EB	Windstorm II					
+62197	F2F5	Flowing Mist					
+62239	F31F	Magatsu Muscle					
+62357	F395	Water Wheel					
+62396	F3BC	Skill #F3BC					
+62443	F3EB	Deadly Eye	93	4	S		0
+62445	F3ED	Skill #F3ED					
+62473	F409	Gale Sprint					
+62565	F465	Wagon Kick					
+62595	F483	Spinning Kicks					
+62765	F52D	Fortitude III	3	5	C		1
+62769	F531	Elemental Roulette					
+62779	F53B	Lightning Blade					
+62797	F54D	Battering Ram					
+62814	F55E	Skill #F55E					
+62818	F562	Charging Bull					
+62819	F563	Repulse					
+63023	F62F	The Adamantine					
+63029	F635	Demon Fang					
+63047	F647	Night Rain					
+63130	F69A	Kannagi					
+63168	F6C0	Blinding Shell					
+63224	F6F8	Umbral Bullet					
+63238	F706	Spinning Dragon					
+63247	F70F	SKILL NAME DUMMY					
+63295	F73F	Spectral Swarm					
+63339	F76B	Chomp					
+63345	F771	Wild Surge II					
+63371	F78B	Uncanny Bubble					
+63442	F7D2	Ki Pulse: Heaven	53	3	S		0
+63446	F7D6	Dragon Dance II					
+63556	F844	Grapple					
+63562	F84A	Reverse Impact					
+63591	F867	Flying Eagle					
+63678	F8BE	Side Splitter					
+63718	F8E6	Tranquil Edge					
+63826	F952	Spinning Dragon					
+63893	F995	Spider Snare					
+63919	F9AF	Unarmored Death	32	8	C		3
+63929	F9B9	Divine Flight					
+64080	FA50	Gunpowder Bomb					
+64264	FB08	Momentum					
+64266	FB0A	Wrathful Dragon	134	5	N		2
+64308	FB34	SKILL NAME DUMMY					
+64390	FB86	Heaven's Impact					
+64408	FB98	Lethal Barrage II					
+64458	FBCA	Dragon Slayer II					
+64460	FBCC	Murky Fog					
+64595	FC53	Heaven's Drops					
+64661	FC95	Running Water: Man					
+64754	FCF2	Wild Spear					
+64770	FD02	Archer's Impact					
+64786	FD12	Shadow Art Superiority	132	6	N	True	4
+64841	FD49	Skill #FD49					
+64842	FD4A	Amplification	43	3	C		3
+64904	FD88	Dark Digger					
+64916	FD94	SKILL NAME DUMMY					
+65093	FE45	Gusting Crosswind					
+65142	FE76	Guard Punch					
+65150	FE7E	Dancing Kick					
+65240	FED8	Skill #FED8					
+65254	FEE6	Crushing Thunder					
+65265	FEF1	SKILL NAME DUMMY					
+65324	FF2C	Stability					
+65367	FF57	Mist					
+65402	FF7A	Skill #FF7A					

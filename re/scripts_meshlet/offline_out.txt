@@ -1,0 +1,194 @@
+dump: C:\Users\Ahmad Hamza\nioh3-engine\re\Nioh3.dump.exe (raw offset == RVA)
+site bytes vs dump:
+  C419     419A8  MATCH  48 89 5C 24 08
+  P4AA     4ABD2  MATCH  41 F7 86 AC 01 00 00 00 00 00 40
+  P1E7    1E72C6  MATCH  4D 8B 34 24 4D 8B 83 C8 01 00 00
+  S1E7    1E71CD  MATCH  48 3B 4A 20 0F 85 C2 00 00 00
+cave @dummy 7FF755310000: 696 bytes; C419=+34 P4AA=+10D P1E7=+1F7 S1E7=+266 en=+0 cnt=+10
+  00007FF755310034  cmp dword [rip-3Bh],0                           
+  00007FF75531003B  je near 00007FF755310103h                       
+  00007FF755310041  push rbx                                        
+  00007FF755310042  push rsi                                        
+  00007FF755310043  push rdi                                        
+  00007FF755310044  push rbp                                        
+  00007FF755310045  inc dword [rip-3Bh]                             
+  00007FF75531004B  mov ebx,[rcx+11Ch]                              
+  00007FF755310051  test ebx,ebx                                    
+  00007FF755310053  je near 00007FF7553100FEh                       
+  00007FF755310059  mov eax,[rcx+1ACh]                              
+  00007FF75531005F  test eax,0A0000000h                             
+  00007FF755310064  jne near 00007FF7553100FEh                      
+  00007FF75531006A  test eax,40000000h                              
+  00007FF75531006F  jne near 00007FF7553100FEh                      
+  00007FF755310075  mov r10,rcx                                     
+  00007FF755310078  mov esi,[r10+4C0h]                              
+  00007FF75531007F  xor edi,edi                                     
+  00007FF755310081  xor r11d,r11d                                   
+  00007FF755310084  xor r9d,r9d                                     
+  00007FF755310087  mov r8,[r10+568h]                               
+  00007FF75531008E  add r8,r9                                       
+  00007FF755310091  mov eax,[r8]                                    
+  00007FF755310094  test al,2                                       
+  00007FF755310096  je short 00007FF7553100F2h                      
+  00007FF755310098  inc edi                                         
+  00007FF75531009A  mov edx,eax                                     
+  00007FF75531009C  and edx,51Eh                                    
+  00007FF7553100A2  cmp edx,402h                                    
+  00007FF7553100A8  jne short 00007FF7553100C8h                     
+  00007FF7553100AA  cmp dword [r10+18Ch],0                          
+  00007FF7553100B2  je short 00007FF7553100C1h                      
+  00007FF7553100B4  mov rdx,[r8+8]                                  
+  00007FF7553100B8  test byte [rdx+0D0h],8                          
+  00007FF7553100BF  je short 00007FF7553100C8h                      
+  00007FF7553100C1  mov edx,1                                       
+  00007FF7553100C6  jmp short 00007FF7553100CAh                     
+  00007FF7553100C8  xor edx,edx                                     
+  00007FF7553100CA  mov ecx,eax                                     
+  00007FF7553100CC  and ecx,0FFFFFF1Eh                              
+  00007FF7553100D2  or ecx,edx                                      
+  00007FF7553100D4  mov ebp,eax                                     
+  00007FF7553100D6  and ebp,60h                                     
+  00007FF7553100D9  add ebp,ebp                                     
+  00007FF7553100DB  or ecx,ebp                                      
+  00007FF7553100DD  cmp ecx,eax                                     
+  00007FF7553100DF  je short 00007FF7553100EEh                      
+  00007FF7553100E1  lock cmpxchg [r8],ecx                           
+  00007FF7553100E6  jne short 00007FF7553100CAh                     
+  00007FF7553100E8  inc dword [rip-0DAh]                            
+  00007FF7553100EE  cmp edi,esi                                     
+  00007FF7553100F0  jae short 00007FF7553100FEh                     
+  00007FF7553100F2  inc r11d                                        
+  00007FF7553100F5  add r9,20h                                      
+  00007FF7553100F9  cmp r11d,ebx                                    
+  00007FF7553100FC  jb short 00007FF755310087h                      
+  00007FF7553100FE  pop rbp                                         
+  00007FF7553100FF  pop rdi                                         
+  00007FF755310100  pop rsi                                         
+  00007FF755310101  pop rbx                                         
+  00007FF755310102  ret                                             
+  00007FF755310103  mov [rsp+8],rbx                                 
+  00007FF755310108  jmp 00007FF74F4519ADh                              ; -> Nioh3+419AD
+  00007FF75531010D  cmp dword [rip-110h],0                          
+  00007FF755310114  je near 00007FF7553101E7h                       
+  00007FF75531011A  lea r9d,[r12+10h]                               
+  00007FF75531011F  cmp r9d,r11d                                    
+  00007FF755310122  jae short 00007FF75531014Bh                     
+  00007FF755310124  cmp r9d,100000h                                 
+  00007FF75531012B  jae short 00007FF75531014Bh                     
+  00007FF75531012D  mov rcx,[r14+4B0h]                              
+  00007FF755310134  mov edx,[rcx+r9*4]                              
+  00007FF755310138  cmp edx,0FFFFFFFFh                              
+  00007FF75531013B  je short 00007FF75531014Bh                      
+  00007FF75531013D  shl rdx,5                                       
+  00007FF755310141  add rdx,[r14+568h]                              
+  00007FF755310148  prefetcht0 [rdx]                                
+  00007FF75531014B  lea r9d,[r12+8]                                 
+  00007FF755310150  cmp r9d,r11d                                    
+  00007FF755310153  jae short 00007FF755310192h                     
+  00007FF755310155  cmp r9d,100000h                                 
+  00007FF75531015C  jae short 00007FF755310192h                     
+  00007FF75531015E  mov rcx,[r14+4B0h]                              
+  00007FF755310165  mov edx,[rcx+r9*4]                              
+  00007FF755310169  cmp edx,0FFFFFFFFh                              
+  00007FF75531016C  je short 00007FF755310192h                      
+  00007FF75531016E  shl rdx,5                                       
+  00007FF755310172  add rdx,[r14+568h]                              
+  00007FF755310179  mov r8d,[rdx]                                   
+  00007FF75531017C  and r8d,12h                                     
+  00007FF755310180  cmp r8d,2                                       
+  00007FF755310184  jne short 00007FF755310192h                     
+  00007FF755310186  mov r8,[rdx+10h]                                
+  00007FF75531018A  prefetcht0 [r8+150h]                            
+  00007FF755310192  cmp dword [rbp-55h],1                           
+  00007FF755310196  jb short 00007FF7553101E7h                      
+  00007FF755310198  lea r9d,[r12+4]                                 
+  00007FF75531019D  cmp r9d,r11d                                    
+  00007FF7553101A0  jae short 00007FF7553101E7h                     
+  00007FF7553101A2  cmp r9d,100000h                                 
+  00007FF7553101A9  jae short 00007FF7553101E7h                     
+  00007FF7553101AB  mov rcx,[r14+4B0h]                              
+  00007FF7553101B2  mov edx,[rcx+r9*4]                              
+  00007FF7553101B6  cmp edx,0FFFFFFFFh                              
+  00007FF7553101B9  je short 00007FF7553101E7h                      
+  00007FF7553101BB  shl rdx,5                                       
+  00007FF7553101BF  add rdx,[r14+568h]                              
+  00007FF7553101C6  mov r8d,[rdx]                                   
+  00007FF7553101C9  and r8d,12h                                     
+  00007FF7553101CD  cmp r8d,2                                       
+  00007FF7553101D1  jne short 00007FF7553101E7h                     
+  00007FF7553101D3  mov r8,[rdx+10h]                                
+  00007FF7553101D7  test r8,r8                                      
+  00007FF7553101DA  je short 00007FF7553101E7h                      
+  00007FF7553101DC  mov r8,[r8+150h]                                
+  00007FF7553101E3  prefetcht0 [r8]                                 
+  00007FF7553101E7  test dword [r14+1ACh],40000000h                 
+  00007FF7553101F2  jmp 00007FF74F45ABDDh                              ; -> Nioh3+4ABDD
+  00007FF7553101F7  cmp dword [rip-1F6h],0                          
+  00007FF7553101FE  je short 00007FF755310256h                      
+  00007FF755310200  lea ecx,[r15+2]                                 
+  00007FF755310204  cmp ecx,[rdx+18h]                               
+  00007FF755310207  jge short 00007FF755310212h                     
+  00007FF755310209  mov rcx,[r12+10h]                               
+  00007FF75531020E  prefetcht0 [rcx+68h]                            
+  00007FF755310212  lea ecx,[r15+1]                                 
+  00007FF755310216  cmp ecx,[rdx+18h]                               
+  00007FF755310219  jge short 00007FF755310256h                     
+  00007FF75531021B  mov rcx,[r12+8]                                 
+  00007FF755310220  test rcx,rcx                                    
+  00007FF755310223  je short 00007FF755310256h                      
+  00007FF755310225  mov r10,[rcx+68h]                               
+  00007FF755310229  test r10,r10                                    
+  00007FF75531022C  je short 00007FF755310256h                      
+  00007FF75531022E  prefetcht0 [r10+12Eh]                           
+  00007FF755310236  prefetcht0 [r10+150h]                           
+  00007FF75531023E  prefetcht0 [r10+90h]                            
+  00007FF755310246  prefetcht0 [r10+178h]                           
+  00007FF75531024E  prefetcht0 [r10+1B0h]                           
+  00007FF755310256  mov r14,[r12]                                   
+  00007FF75531025A  mov r8,[r11+1C8h]                               
+  00007FF755310261  jmp 00007FF74F5F72D1h                              ; -> Nioh3+1E72D1
+  00007FF755310266  cmp rcx,[rdx+20h]                               
+  00007FF75531026A  je short 00007FF7553102AEh                      
+  00007FF75531026C  cmp dword [rip-267h],0                          
+  00007FF755310273  je short 00007FF7553102B3h                      
+  00007FF755310275  cmp rcx,[rip-254h]                              
+  00007FF75531027C  je short 00007FF755310292h                      
+  00007FF75531027E  mov [rip-25Dh],rcx                              
+  00007FF755310285  xor dword [rip-26Ch],1                          
+  00007FF75531028C  inc dword [rip-276h]                            
+  00007FF755310292  mov rax,rdx                                     
+  00007FF755310295  and eax,3F0h                                    
+  00007FF75531029A  popcnt eax,eax                                  
+  00007FF75531029E  xor eax,[rip-284h]                              
+  00007FF7553102A4  test al,1                                       
+  00007FF7553102A6  jne short 00007FF7553102B3h                     
+  00007FF7553102A8  inc dword [rip-296h]                            
+  00007FF7553102AE  jmp 00007FF74F5F71D7h                              ; -> Nioh3+1E71D7
+  00007FF7553102B3  jmp 00007FF74F5F7299h                              ; -> Nioh3+1E7299
+patched sites (decoded):
+ -- C419 @419A8  orig 48 89 5C 24 08  ->  new E9 87 E6 EB 05
+  00007FF74F4519A8  jmp 00007FF755310034h                              ; -> Nioh3+5F00034
+    instruction starts valid in both encodings: ["419A8"]
+ -- P4AA @4ABD2  orig 41 F7 86 AC 01 00 00 00 00 00 40  ->  new E9 36 55 EB 05 66 0F 1F 44 00 00
+  00007FF74F45ABD2  jmp 00007FF75531010Dh                              ; -> Nioh3+5F0010D
+  00007FF74F45ABD7  nop word [rax+rax]                              
+    instruction starts valid in both encodings: ["4ABD2"]
+ -- P1E7 @1E72C6  orig 4D 8B 34 24 4D 8B 83 C8 01 00 00  ->  new E9 2C 8F D1 05 66 0F 1F 44 00 00
+  00007FF74F5F72C6  jmp 00007FF7553101F7h                              ; -> Nioh3+5F001F7
+  00007FF74F5F72CB  nop word [rax+rax]                              
+    instruction starts valid in both encodings: ["1E72C6"]
+ -- S1E7 @1E71CD  orig 48 3B 4A 20 0F 85 C2 00 00 00  ->  new E9 94 90 D1 05 0F 1F 44 00 00
+  00007FF74F5F71CD  jmp 00007FF755310266h                              ; -> Nioh3+5F00266
+  00007FF74F5F71D2  nop dword [rax+rax]                             
+    instruction starts valid in both encodings: ["1E71CD"]
+dead-register proofs (paths walked in the dump from each resume point):
+  [ok] P4AA  [RCX; RDX; R8; R9] dead after the cave
+  [ok] P1E7  [RCX; R10] + flags dead after the cave
+  [ok] S1E7  [RAX] + flags dead after the cave
+  (C419 replaces the whole function: clobbers rax rcx rdx r8-r11 + flags, a subset of what 419A8 clobbers;
+   the only caller path 5D394 -> 5B278 (tail jmp) -> 419A8 resumes at 5D399 'test rsi,rsi'.)
+direct branch/call targets strictly inside the patched ranges (whole .text linear sweep):
+  none
+native equivalence test (C419 vs original 419A8 bytes copied from the dump):
+  C419 native test: 6000 cases (10% with the switch off), 0 mismatches; cave calls 5373, CAS writes 71434
+OFFLINE CHECKS: ALL PASSED

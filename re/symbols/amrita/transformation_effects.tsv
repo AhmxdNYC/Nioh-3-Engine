@@ -1,0 +1,177 @@
+effect_id_dec	effect_id_hex	name	history_mode
+26583	67D7	Aerial Attack Ki Damage	gated
+2182	0886	Amrita Bonus (Inflict Blustered)	bypass
+58409	E429	Amrita Bonus (Inflict Electrified)	bypass
+42934	A7B6	Amrita Bonus (Inflict Saturated)	bypass
+39522	9A62	Amrita Bonus (Inflict Scorched)	bypass
+34004	84D4	Amrita Earned	gated
+43349	A955	Amrita Earned (Crucible)	gated
+12692	3194	Amrita Gauge Charge	bypass
+34761	87C9	Archspirit (Final Blow/Grapple)	gated
+27260	6A7C	Attack	bypass
+29357	72AD	Auto Life Recovery (Deflect)	gated
+17180	431C	Auto Life Recovery (Enemy Killed)	gated
+63089	F671	Auto Life Recovery (Evade)	gated
+11829	2E35	Backstab Damage	gated
+55201	D7A1	Bluster Accumulation (Enemy)	bypass
+19188	4AF4	Bullseye Bonus	gated
+48726	BE56	Burn Accumulation (Enemy)	bypass
+37028	90A4	Crucible Weapon Drop Rate	gated
+13472	34A0	Damage Bonus (Constitution)	gated
+28544	6F80	Damage Bonus (Heart)	gated
+18634	48CA	Damage Bonus (Intellect)	gated
+33789	83FD	Damage Bonus (Magic)	gated
+8353	20A1	Damage Bonus (Skill)	gated
+2578	0A12	Damage Bonus (Stamina)	gated
+39367	99C7	Damage Bonus (Strength)	gated
+30641	77B1	Damage Over Time	gated
+37872	93F0	Dodge Ki Consumption	bypass
+31327	7A5F	Dodge Ki Consumption (Critical)	bypass
+3580	0DFC	Efficient Guardian Spirit Skills	gated
+26749	687D	Elemental Damage (Living Artifact)	gated
+5516	158C	Elixir Drop Rate	gated
+12422	3086	Equipment Drop Rate	gated
+49544	C188	Extended Elemental Weapon	gated
+43399	A987	Faster Ki Recovery (Critical)	gated
+2879	0B3F	Faster Movement (50% Ki or Less)	gated
+17733	4545	Faster Movement (Ailing)	gated
+49973	C335	Faster Movement (Amrita Absorption)	gated
+53837	D24D	Faster Movement (Critical)	gated
+14879	3A1F	Faster Movement (Deflect)	gated
+37585	92D1	Faster Movement (Enemy Killed)	gated
+22431	579F	Faster Movement (Evade)	gated
+33773	83ED	Faster Movement (Life Recovery)	gated
+27768	6C78	Faster Movement (Ninjutsu Hit)	gated
+44821	AF15	Faster Movement (Onmyo Magic Hit)	gated
+1475	05C3	Faster Movement (Purification)	gated
+17333	43B5	Final Blow/Grapple Damage	gated
+48970	BF4A	Fire Damage	gated
+19563	4C6B	Gain Amrita (Strong Attack)	gated
+53761	D201	Glory Obtained	gated
+50397	C4DD	Gold Earned	bypass
+11605	2D55	Guard Ki Recovery Speed	gated
+53228	CFEC	Guardian Spirit Skill Damage	gated
+23752	5CC8	Guardian Spirit Skill Damage (Blustered Enemy)	gated
+12661	3175	Guardian Spirit Skill Damage (Critical)	gated
+6622	19DE	Guardian Spirit Skill Damage (Electrified Enemy)	gated
+43359	A95F	Guardian Spirit Skill Damage (Paralyzed Enemy)	gated
+30300	765C	Guardian Spirit Skill Damage (Poisoned Enemy)	gated
+8588	218C	Guardian Spirit Skill Damage (Saturated Enemy)	gated
+41677	A2CD	Guardian Spirit Skill Damage (Scorched Enemy)	gated
+32432	7EB0	Guardian Spirit Skill Ki Damage	gated
+5832	16C8	High Attack Damage	gated
+21130	528A	Increased Damage Dealt (Ailing)	gated
+56526	DCCE	Increased Damage Dealt (Amrita Absorption)	gated
+52399	CCAF	Increased Damage Dealt (Critical)	gated
+12153	2F79	Increased Damage Dealt (Enemy Killed)	gated
+51600	C990	Increased Damage Dealt (Medicine)	gated
+35949	8C6D	Increased Damage Dealt (Onmyo Magic Hit)	gated
+45798	B2E6	Increased Damage Dealt (Purification)	gated
+49370	C0DA	Increased Luck (Amrita Absorption)	gated
+25001	61A9	Increased Luck (Enemy Killed)	gated
+45912	B358	Item Drop Rate	bypass
+24157	5E5D	Ki Damage vs. Blustered Enemy	gated
+11532	2D0C	Ki Damage vs. Electrified Enemy	gated
+16671	411F	Ki Damage vs. Saturated Enemy	gated
+4418	1142	Ki Damage vs. Scorched Enemy	gated
+63037	F63D	Ki Pulse Bonus	gated
+64990	FDDE	Ki Pulse Recovery	gated
+54277	D405	Ki Recovery Speed	bypass
+55337	D829	Ki Recovery Speed (Critical)	gated
+62349	F38D	Ki Recovery Speed (Unscathed)	gated
+45494	B1B6	Life	gated
+63628	F88C	Life Drain (Bullseye)	gated
+17973	4635	Life Drain (Elemental Damage)	gated
+21160	52A8	Life Drain (Final Blow/Grapple)	gated
+1987	07C3	Life Drain (Fire Damage)	gated
+34966	8896	Life Drain (Lightning Damage)	gated
+61630	F0BE	Life Drain (Melee Kill)	gated
+39520	9A60	Life Drain (Ninjutsu Hit)	gated
+58516	E494	Life Drain (Onmyo Magic Hit)	gated
+53466	D0DA	Life Drain (Ranged Weapon Hit)	gated
+25362	6312	Life Drain (Water Damage)	gated
+1946	079A	Life Drain (Wind Damage)	gated
+11665	2D91	Life Recovery (Amrita Absorption)	gated
+2263	08D7	Life Recovery (Purification)	bypass
+29867	74AB	Life Recovery (Soul Core Gained)	bypass
+48249	BC79	Life Recovery (Yokai Realm)	gated
+65072	FE30	Lightning Damage	gated
+55662	D96E	Living Artifact Damage	gated
+43557	AA25	Low Attack Damage	gated
+15118	3B0E	Luck	gated
+53458	D0D2	Luck (Critical)	gated
+59479	E857	Luck (Crucible)	gated
+13112	3338	Luck Bonus (Amrita Gauge)	gated
+44844	AF2C	Martial Art Damage	gated
+39657	9AE9	Martial Art Ki Damage	mixed
+60282	EB7A	Melee Damage	bypass
+14436	3864	Melee Damage (Critical)	gated
+32115	7D73	Melee Damage (Crucible)	gated
+22641	5871	Melee Damage vs. Attacking Enemy	gated
+32825	8039	Melee Damage vs. Unscathed Enemy	gated
+62661	F4C5	Melee Damage vs. Winded Enemy	gated
+48731	BE5B	Melee Ki Damage	mixed
+55689	D989	Mid Attack Damage	gated
+10783	2A1F	Ninjutsu Damage	gated
+35553	8AE1	Ninjutsu Ki Damage	gated
+35306	89EA	Onmyo Magic Damage	gated
+45714	B292	Onmyo Magic Ki Damage	gated
+39916	9BEC	Onmyo Magic Power	gated
+42960	A7D0	Paralysis Accumulation (Enemy)	bypass
+60600	ECB8	Pleiades (Ailing)	gated
+32536	7F18	Pleiades (Amrita Absorption)	gated
+33344	8240	Pleiades (Critical)	gated
+49943	C317	Pleiades (Deflect)	gated
+19961	4DF9	Pleiades (Enemy Killed)	gated
+11822	2E2E	Pleiades (Evade)	gated
+63110	F686	Pleiades (Onmyo Magic Hit)	gated
+29749	7435	Pleiades (Onmyo Magic Used)	gated
+4344	10F8	Pleiades (Purification)	gated
+2517	09D5	Poison Accumulation (Enemy)	bypass
+34623	873F	Quick Attack Damage	bypass
+49056	BFA0	Reduced Spirit Force Consumption	gated
+38091	94CB	Saturation Accumulation (Enemy)	bypass
+27854	6CCE	Shadow Art Ailment Augmentation	gated
+6331	18BB	Shock Accumulation (Enemy)	bypass
+10064	2750	Soul Core Drop Rate	gated
+21758	54FE	Spirit Force	bypass
+33189	81A5	Spirit Force Bonus (Amrita)	gated
+58057	E2C9	Spirit Force Bonus (Blustered Enemy)	gated
+47504	B990	Spirit Force Bonus (Critical Amrita)	gated
+63847	F967	Spirit Force Bonus (Electrified Enemy)	gated
+14095	370F	Spirit Force Bonus (Elixir)	gated
+2294	08F6	Spirit Force Bonus (Enemy Blustered)	gated
+18270	475E	Spirit Force Bonus (Enemy Electrified)	gated
+6598	19C6	Spirit Force Bonus (Enemy Paralyzed)	gated
+1908	0774	Spirit Force Bonus (Enemy Poisoned)	gated
+26789	68A5	Spirit Force Bonus (Enemy Saturated)	gated
+58839	E5D7	Spirit Force Bonus (Enemy Scorched)	gated
+48156	BC1C	Spirit Force Bonus (Final Blow/Grapple)	gated
+24275	5ED3	Spirit Force Bonus (Fire Damage)	gated
+47840	BAE0	Spirit Force Bonus (Lightning Damage)	gated
+18370	47C2	Spirit Force Bonus (Paralyzed Enemy)	gated
+20082	4E72	Spirit Force Bonus (Poisoned Enemy)	gated
+48487	BD67	Spirit Force Bonus (Purification)	gated
+58755	E583	Spirit Force Bonus (Saturated Enemy)	gated
+37922	9422	Spirit Force Bonus (Scorched Enemy)	gated
+42067	A453	Spirit Force Bonus (Status Ailment)	gated
+51138	C7C2	Spirit Force Bonus (Unscathed Amrita)	gated
+38228	9554	Spirit Force Bonus (Water Damage)	gated
+2241	08C1	Spirit Force Bonus (Wind Damage)	gated
+33648	8370	Spirit Force Charge	bypass
+15420	3C3C	Spirit Force Charge (Ailing)	gated
+14272	37C0	Spirit Force Charge (Backstab)	gated
+32180	7DB4	Spirit Force Charge (Critical)	gated
+30856	7888	Spirit Force Charge (Crucible)	gated
+14883	3A23	Spirit Force Charge (Enhanced)	gated
+38184	9528	Spirit Force Charge (Martial Art)	gated
+60348	EBBC	Spirit Force Charge (Melee Attack)	gated
+34169	8579	Spirit Force Charge (Strong Attack)	gated
+3860	0F14	Spirit Force Charge (Unscathed)	gated
+62055	F267	Status Ailment Accumulation	bypass
+45194	B08A	Strong Attack Damage	bypass
+34551	86F7	Strong Attack Ki Damage	mixed
+21450	53CA	Thrust Damage	gated
+19915	4DCB	Water Damage	gated
+42654	A69E	Wind Damage	gated
+7480	1D38	Yokai Realm Resistance	bypass

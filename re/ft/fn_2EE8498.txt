@@ -1,0 +1,335 @@
+== func 2EE8498-2EE8AF9
+02EE8498  4053                     push rbx
+02EE849A  55                       push rbp
+02EE849B  56                       push rsi
+02EE849C  57                       push rdi
+02EE849D  4154                     push r12
+02EE849F  4155                     push r13
+02EE84A1  4156                     push r14
+02EE84A3  4157                     push r15
+02EE84A5  4883EC48                 sub rsp,48h
+02EE84A9  33ED                     xor ebp,ebp
+02EE84AB  488BD9                   mov rbx,rcx
+02EE84AE  4839A9F0760000           cmp [rcx+76F0h],rbp
+02EE84B5  0F842D060000             je near R_2EE8AE8
+02EE84BB  E870D031FD               call R_205530
+02EE84C0  488BF8                   mov rdi,rax
+02EE84C3  33D2                     xor edx,edx
+02EE84C5  482BBB00770000           sub rdi,[rbx+7700h]
+02EE84CC  488BCB                   mov rcx,rbx
+02EE84CF  48898300770000           mov [rbx+7700h],rax
+02EE84D6  8A83A0260000             mov al,[rbx+26A0h]
+02EE84DC  448ABB8D260000           mov r15b,[rbx+268Dh]
+02EE84E3  448AA38E260000           mov r12b,[rbx+268Eh]
+02EE84EA  448AAB90260000           mov r13b,[rbx+2690h]
+02EE84F1  448AB398260000           mov r14b,[rbx+2698h]
+02EE84F8  488BB370250000           mov rsi,[rbx+2570h]
+02EE84FF  88842490000000           mov [rsp+90h],al
+02EE8506  8A83A9260000             mov al,[rbx+26A9h]
+02EE850C  88842498000000           mov [rsp+98h],al
+02EE8513  8A83AB260000             mov al,[rbx+26ABh]
+02EE8519  888424A0000000           mov [rsp+0A0h],al
+02EE8520  8B83C4250000             mov eax,[rbx+25C4h]
+02EE8526  89442430                 mov [rsp+30h],eax
+02EE852A  8B8300260000             mov eax,[rbx+2600h]
+02EE8530  89442438                 mov [rsp+38h],eax
+02EE8534  8B8304260000             mov eax,[rbx+2604h]
+02EE853A  89442434                 mov [rsp+34h],eax
+02EE853E  8B83B4260000             mov eax,[rbx+26B4h]
+02EE8544  8944243C                 mov [rsp+3Ch],eax
+02EE8548  E82B862EFD               call R_1D0B78
+02EE854D  B201                     mov dl,1
+02EE854F  E8FC5C2FFD               call R_1DE250
+02EE8554  8D5504                   lea edx,[rbp+4]
+02EE8557  448D4564                 lea r8d,[rbp+64h]
+02EE855B  E8885C2FFD               call R_1DE1E8
+02EE8560  41B001                   mov r8b,1
+02EE8563  33D2                     xor edx,edx
+02EE8565  E886892EFD               call R_1D0EF0
+02EE856A  BA00445500               mov edx,554400h
+02EE856F  E860572FFD               call R_1DDCD4
+02EE8574  41B101                   mov r9b,1
+02EE8577  C644242801               mov byte [rsp+28h],1
+02EE857C  458AC1                   mov r8b,r9b
+02EE857F  C644242001               mov byte [rsp+20h],1
+02EE8584  33D2                     xor edx,edx
+02EE8586  E8E5EC30FD               call R_1F7270
+02EE858B  33D2                     xor edx,edx
+02EE858D  488BCB                   mov rcx,rbx
+02EE8590  E8BBF256FD               call R_457850
+02EE8595  33D2                     xor edx,edx
+02EE8597  E8586022FD               call R_10E5F4
+02EE859C  8D5504                   lea edx,[rbp+4]
+02EE859F  4533C0                   xor r8d,r8d
+02EE85A2  E8118D17FD               call R_612B8
+02EE85A7  4839AB70250000           cmp [rbx+2570h],rbp
+02EE85AE  743A                     je short R_2EE85EA
+02EE85B0  4889AB70250000           mov [rbx+2570h],rbp
+02EE85B7  8BCD                     mov ecx,ebp
+02EE85B9  488B83403C0000           mov rax,[rbx+3C40h]
+02EE85C0  C70022000000             mov dword [rax],22h
+02EE85C6  488383403C000004         add qword [rbx+3C40h],4
+02EE85CE  488B83403C0000           mov rax,[rbx+3C40h]
+02EE85D5  892C01                   mov [rcx+rax],ebp
+02EE85D8  4883C104                 add rcx,4
+02EE85DC  4883F908                 cmp rcx,8
+02EE85E0  7CEC                     jl short R_2EE85CE
+02EE85E2  488383403C000008         add qword [rbx+3C40h],8
+02EE85EA  488BCB                   mov rcx,rbx
+02EE85ED  E836242FFD               call R_1DAA28
+02EE85F2  84C0                     test al,al
+02EE85F4  0F842F040000             je near R_2EE8A29
+02EE85FA  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8601  488D1508191B01           lea rdx,[rel R_4099F10]
+02EE8608  8BABF8760000             mov ebp,[rbx+76F8h]
+02EE860E  C78424A80000002FAF2FAF   mov dword [rsp+0A8h],0AF2FAF2Fh
+02EE8619  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE8620  89412C                   mov [rcx+2Ch],eax
+02EE8623  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE862A  E8C9C02EFD               call R_1D46F8
+02EE862F  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8636  4C8D05C7181B01           lea r8,[rel R_4099F04]
+02EE863D  C68424A8000000AF         mov byte [rsp+0A8h],0AFh
+02EE8645  488D15B4181B01           lea rdx,[rel R_4099F00]
+02EE864C  C68424AA0000005F         mov byte [rsp+0AAh],5Fh
+02EE8654  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE865B  89412C                   mov [rcx+2Ch],eax
+02EE865E  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8665  E802D30000               call R_2EF596C
+02EE866A  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8671  488D15083EBC00           lea rdx,[rel R_3AAC480]
+02EE8678  C68424A80000002F         mov byte [rsp+0A8h],2Fh
+02EE8680  C68424AA0000002F         mov byte [rsp+0AAh],2Fh
+02EE8688  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE868F  89412C                   mov [rcx+2Ch],eax
+02EE8692  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8699  E85AC02EFD               call R_1D46F8
+02EE869E  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE86A5  4C8D0560191B01           lea r8,[rel R_409A00C]
+02EE86AC  C68424A8000000AF         mov byte [rsp+0A8h],0AFh
+02EE86B4  488D158521A000           lea rdx,[rel R_38EA840]
+02EE86BB  C68424AA0000005F         mov byte [rsp+0AAh],5Fh
+02EE86C3  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE86CA  89412C                   mov [rcx+2Ch],eax
+02EE86CD  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE86D4  E893D20000               call R_2EF596C
+02EE86D9  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE86E0  488D151D191B01           lea rdx,[rel R_409A004]
+02EE86E7  C68424A80000002F         mov byte [rsp+0A8h],2Fh
+02EE86EF  C68424AA0000002F         mov byte [rsp+0AAh],2Fh
+02EE86F7  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE86FE  89412C                   mov [rcx+2Ch],eax
+02EE8701  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8708  E8EBBF2EFD               call R_1D46F8
+02EE870D  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8714  C68424A8000000AF         mov byte [rsp+0A8h],0AFh
+02EE871C  C68424AA0000005F         mov byte [rsp+0AAh],5Fh
+02EE8724  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE872B  89412C                   mov [rcx+2Ch],eax
+02EE872E  80BB7840000000           cmp byte [rbx+4078h],0
+02EE8735  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE873C  740E                     je short R_2EE874C
+02EE873E  488D15B7181B01           lea rdx,[rel R_4099FFC]
+02EE8745  E8AEBF2EFD               call R_1D46F8
+02EE874A  EB25                     jmp short R_2EE8771
+02EE874C  83BB6442000001           cmp dword [rbx+4264h],1
+02EE8753  488D05A2181B01           lea rax,[rel R_4099FFC]
+02EE875A  4C8D0593181B01           lea r8,[rel R_4099FF4]
+02EE8761  4C0F45C0                 cmovne r8,rax
+02EE8765  488D15D420A000           lea rdx,[rel R_38EA840]
+02EE876C  E8FBD10000               call R_2EF596C
+02EE8771  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8778  488D156D181B01           lea rdx,[rel R_4099FEC]
+02EE877F  C68424A80000002F         mov byte [rsp+0A8h],2Fh
+02EE8787  C68424AA0000002F         mov byte [rsp+0AAh],2Fh
+02EE878F  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE8796  89412C                   mov [rcx+2Ch],eax
+02EE8799  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE87A0  E837D20000               call R_2EF59DC
+02EE87A5  66818C24A8000000FFFF     or word [rsp+0A8h],0FFFFh
+02EE87AF  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE87B6  C68424AA000000FF         mov byte [rsp+0AAh],0FFh
+02EE87BE  8B8424A8000000           mov eax,[rsp+0A8h]
+02EE87C5  89412C                   mov [rcx+2Ch],eax
+02EE87C8  83FD01                   cmp ebp,1
+02EE87CB  0F8C38020000             jl near R_2EE8A09
+02EE87D1  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE87D8  488D15F9171B01           lea rdx,[rel R_4099FD8]
+02EE87DF  448BC7                   mov r8d,edi
+02EE87E2  448BCF                   mov r9d,edi
+02EE87E5  442B8308770000           sub r8d,[rbx+7708h]
+02EE87EC  E87BD10000               call R_2EF596C
+02EE87F1  448B8308770000           mov r8d,[rbx+7708h]
+02EE87F8  488D15C9171B01           lea rdx,[rel R_4099FC8]
+02EE87FF  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8806  E861D10000               call R_2EF596C
+02EE880B  4885FF                   test rdi,rdi
+02EE880E  740C                     je short R_2EE881C
+02EE8810  488BCF                   mov rcx,rdi
+02EE8813  482B8B08770000           sub rcx,[rbx+7708h]
+02EE881A  EB07                     jmp short R_2EE8823
+02EE881C  BF01000000               mov edi,1
+02EE8821  8BCF                     mov ecx,edi
+02EE8823  488B05561F6D01           mov rax,[rel R_45BA780]
+02EE882A  0F57D2                   xorps xmm2,xmm2
+02EE882D  488B5018                 mov rdx,[rax+18h]
+02EE8831  4885D2                   test rdx,rdx
+02EE8834  7807                     js short R_2EE883D
+02EE8836  F2480F2AD2               cvtsi2sd xmm2,rdx
+02EE883B  EB15                     jmp short R_2EE8852
+02EE883D  488BC2                   mov rax,rdx
+02EE8840  83E201                   and edx,1
+02EE8843  48D1E8                   shr rax,1
+02EE8846  480BC2                   or rax,rdx
+02EE8849  F2480F2AD0               cvtsi2sd xmm2,rax
+02EE884E  F20F58D2                 addsd xmm2,xmm2
+02EE8852  0F57C0                   xorps xmm0,xmm0
+02EE8855  4885C9                   test rcx,rcx
+02EE8858  7807                     js short R_2EE8861
+02EE885A  F2480F2AC1               cvtsi2sd xmm0,rcx
+02EE885F  EB15                     jmp short R_2EE8876
+02EE8861  488BC1                   mov rax,rcx
+02EE8864  83E101                   and ecx,1
+02EE8867  48D1E8                   shr rax,1
+02EE886A  480BC1                   or rax,rcx
+02EE886D  F2480F2AC0               cvtsi2sd xmm0,rax
+02EE8872  F20F58C0                 addsd xmm0,xmm0
+02EE8876  0F28DA                   movaps xmm3,xmm2
+02EE8879  F20F5ED8                 divsd xmm3,xmm0
+02EE887D  0F57C0                   xorps xmm0,xmm0
+02EE8880  4885FF                   test rdi,rdi
+02EE8883  7807                     js short R_2EE888C
+02EE8885  F2480F2AC7               cvtsi2sd xmm0,rdi
+02EE888A  EB15                     jmp short R_2EE88A1
+02EE888C  488BC7                   mov rax,rdi
+02EE888F  83E701                   and edi,1
+02EE8892  48D1E8                   shr rax,1
+02EE8895  480BC7                   or rax,rdi
+02EE8898  F2480F2AC0               cvtsi2sd xmm0,rax
+02EE889D  F20F58C0                 addsd xmm0,xmm0
+02EE88A1  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE88A8  488D1501171B01           lea rdx,[rel R_4099FB0]
+02EE88AF  F20F5ED0                 divsd xmm2,xmm0
+02EE88B3  66490F7ED9               movq r9,xmm3
+02EE88B8  66490F7ED0               movq r8,xmm2
+02EE88BD  E8AAD00000               call R_2EF596C
+02EE88C2  488B93F0760000           mov rdx,[rbx+76F0h]
+02EE88C9  488D4B10                 lea rcx,[rbx+10h]
+02EE88CD  E872109BFE               call R_1899944
+02EE88D2  83FD02                   cmp ebp,2
+02EE88D5  0F8C2E010000             jl near R_2EE8A09
+02EE88DB  488B83F0760000           mov rax,[rbx+76F0h]
+02EE88E2  488D15A7161B01           lea rdx,[rel R_4099F90]
+02EE88E9  C7402CAFAF5FAF           mov dword [rax+2Ch],0AF5FAFAFh
+02EE88F0  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE88F7  E870D00000               call R_2EF596C
+02EE88FC  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8903  488D157E161B01           lea rdx,[rel R_4099F88]
+02EE890A  E8E9BD2EFD               call R_1D46F8
+02EE890F  8B8B40070000             mov ecx,[rbx+740h]
+02EE8915  488D154C161B01           lea rdx,[rel R_4099F68]
+02EE891C  8B8348070000             mov eax,[rbx+748h]
+02EE8922  0F57C9                   xorps xmm1,xmm1
+02EE8925  0F57C0                   xorps xmm0,xmm0
+02EE8928  448BC1                   mov r8d,ecx
+02EE892B  F3480F2AC9               cvtsi2ss xmm1,rcx
+02EE8930  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE8937  F3480F2AC0               cvtsi2ss xmm0,rax
+02EE893C  8B8310080000             mov eax,[rbx+810h]
+02EE8942  89442420                 mov [rsp+20h],eax
+02EE8946  F30F5EC8                 divss xmm1,xmm0
+02EE894A  0F5AD9                   cvtps2pd xmm3,xmm1
+02EE894D  66490F7ED9               movq r9,xmm3
+02EE8952  E815D00000               call R_2EF596C
+02EE8957  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE895E  488D15FB151B01           lea rdx,[rel R_4099F60]
+02EE8965  E88EBD2EFD               call R_1D46F8
+02EE896A  8B8358080000             mov eax,[rbx+858h]
+02EE8970  488D15C9151B01           lea rdx,[rel R_4099F40]
+02EE8977  448B8B5C450000           mov r9d,[rbx+455Ch]
+02EE897E  448B8304450000           mov r8d,[rbx+4504h]
+02EE8985  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE898C  89442420                 mov [rsp+20h],eax
+02EE8990  E8D7CF0000               call R_2EF596C
+02EE8995  448B8BAC440000           mov r9d,[rbx+44ACh]
+02EE899C  488D1585151B01           lea rdx,[rel R_4099F28]
+02EE89A3  448B8354440000           mov r8d,[rbx+4454h]
+02EE89AA  488B8BF0760000           mov rcx,[rbx+76F0h]
+02EE89B1  E8B6CF0000               call R_2EF596C
+02EE89B6  488B93F0760000           mov rdx,[rbx+76F0h]
+02EE89BD  488BCB                   mov rcx,rbx
+02EE89C0  E84B440000               call R_2EECE10
+02EE89C5  8B83283E0000             mov eax,[rbx+3E28h]
+02EE89CB  488BBBD8740000           mov rdi,[rbx+74D8h]
+02EE89D2  85C0                     test eax,eax
+02EE89D4  7420                     je short R_2EE89F6
+02EE89D6  8BE8                     mov ebp,eax
+02EE89D8  488B0F                   mov rcx,[rdi]
+02EE89DB  4885C9                   test rcx,rcx
+02EE89DE  740C                     je short R_2EE89EC
+02EE89E0  488B93F0760000           mov rdx,[rbx+76F0h]
+02EE89E7  E868039BFE               call R_1898D54
+02EE89EC  4883C708                 add rdi,8
+02EE89F0  4883ED01                 sub rbp,1
+02EE89F4  75E2                     jne short R_2EE89D8
+02EE89F6  488B93F0760000           mov rdx,[rbx+76F0h]
+02EE89FD  488D8BA0610000           lea rcx,[rbx+61A0h]
+02EE8A04  E8FF5E0000               call R_2EEE908
+02EE8A09  488B8B10770000           mov rcx,[rbx+7710h]
+02EE8A10  4885C9                   test rcx,rcx
+02EE8A13  740C                     je short R_2EE8A21
+02EE8A15  488B93F0760000           mov rdx,[rbx+76F0h]
+02EE8A1C  E89FCB0000               call R_2EF55C0
+02EE8A21  488BCB                   mov rcx,rbx
+02EE8A24  E883212FFD               call R_1DABAC
+02EE8A29  418AD7                   mov dl,r15b
+02EE8A2C  488BCB                   mov rcx,rbx
+02EE8A2F  E844812EFD               call R_1D0B78
+02EE8A34  418AD4                   mov dl,r12b
+02EE8A37  E814582FFD               call R_1DE250
+02EE8A3C  33D2                     xor edx,edx
+02EE8A3E  458AC5                   mov r8b,r13b
+02EE8A41  E8AA842EFD               call R_1D0EF0
+02EE8A46  8B542430                 mov edx,[rsp+30h]
+02EE8A4A  E885522FFD               call R_1DDCD4
+02EE8A4F  448B442434               mov r8d,[rsp+34h]
+02EE8A54  8B542438                 mov edx,[rsp+38h]
+02EE8A58  E88B572FFD               call R_1DE1E8
+02EE8A5D  8A8C2490000000           mov cl,[rsp+90h]
+02EE8A64  458ACE                   mov r9b,r14b
+02EE8A67  884C2428                 mov [rsp+28h],cl
+02EE8A6B  458AC6                   mov r8b,r14b
+02EE8A6E  488BCB                   mov rcx,rbx
+02EE8A71  4488742420               mov [rsp+20h],r14b
+02EE8A76  33D2                     xor edx,edx
+02EE8A78  E8F3E730FD               call R_1F7270
+02EE8A7D  8A942498000000           mov dl,[rsp+98h]
+02EE8A84  488BCB                   mov rcx,rbx
+02EE8A87  E8C4ED56FD               call R_457850
+02EE8A8C  8A9424A0000000           mov dl,[rsp+0A0h]
+02EE8A93  E85C5B22FD               call R_10E5F4
+02EE8A98  8B54243C                 mov edx,[rsp+3Ch]
+02EE8A9C  4533C0                   xor r8d,r8d
+02EE8A9F  E8148817FD               call R_612B8
+02EE8AA4  4839B370250000           cmp [rbx+2570h],rsi
+02EE8AAB  743B                     je short R_2EE8AE8
+02EE8AAD  4889B370250000           mov [rbx+2570h],rsi
+02EE8AB4  488B83403C0000           mov rax,[rbx+3C40h]
+02EE8ABB  C70022000000             mov dword [rax],22h
+02EE8AC1  488383403C000004         add qword [rbx+3C40h],4
+02EE8AC9  488B83403C0000           mov rax,[rbx+3C40h]
+02EE8AD0  8930                     mov [rax],esi
+02EE8AD2  488B83403C0000           mov rax,[rbx+3C40h]
+02EE8AD9  48C1EE20                 shr rsi,20h
+02EE8ADD  897004                   mov [rax+4],esi
+02EE8AE0  488383403C000008         add qword [rbx+3C40h],8
+02EE8AE8  4883C448                 add rsp,48h
+02EE8AEC  415F                     pop r15
+02EE8AEE  415E                     pop r14
+02EE8AF0  415D                     pop r13
+02EE8AF2  415C                     pop r12
+02EE8AF4  5F                       pop rdi
+02EE8AF5  5E                       pop rsi
+02EE8AF6  5D                       pop rbp
+02EE8AF7  5B                       pop rbx
+02EE8AF8  C3                       ret

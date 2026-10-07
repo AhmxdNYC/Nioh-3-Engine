@@ -1,0 +1,23 @@
+hash_hex	hash_dec	amrita_label	layout	exe_read_site	exe_write_site
+0x938A61DD	2475319773	inventory	u32 hdr + 2500 x 240-byte item records (600000 B). Item: +0 u16 id (0/0xFFFF empty), +4 u16 qty, +6 u16 level, +10 u16 plus, +24 u32 flags, +28 u16 invIndex, +48 u8 rarity (0-5), +56 7 x 24-byte effect slots {+0 u16 effectId, +4 u32 value, +8 u8 q, +10 u8 cls (bit2 = star)}, +232 u8 slotA (Samurai), +236 u8 slotB (Ninja), 17 = unequipped	0x103eb1a (0x103e660); 0x20ee3a2 (0x20ee380)	0x10557b1 (0x1055780); 0x6bbcdf (0x6bbccc)
+0x607E11FF	1618874879	stats	u32 count + u32[] (7 stats: Constitution Heart Stamina Strength Skill Intellect Magic)	0x10447f8 (0x1044680), struct +0x94	0x105b62c (0x105ae20)
+0x614D187E	1632442494	baseStats	u32 count + u32[] (level = sum(stats) - sum(baseStats))	0x104480f (0x1044680), struct +0xB0	0x105b643 (0x105ae20)
+0x3520992B	891328811	guardianPair	u32 count + u32[] guardian ids (Samurai, Ninja)	0x1045206 (0x1044680)	0x105b880 (0x105ae20)
+0x7C53B0C6	2085859526	guardianCurrent	u32 current guardian id	0x1044d53 (0x1044680)	0x105b762 (0x105ae20)
+0x9BB231A2	2612146594	learnedSkills	u32 count + count x 64-byte nested records {0xE6A3A9B0 skillId u16, 0xCC03F7B1 learned u8, 0x5EA83962 enabled u8/u16}	0x104657a (0x1044680)	0x105d385 (0x105ae20)
+0xE6A3A9B0	3869485488	learnedSkills.skillId	u16 skill id (see skills.tsv)	0x10465b7	0x105d3b9
+0xCC03F7B1	3422812081	learnedSkills.learned	u8 0/1	0x10465cb	0x105d3ca
+0x5EA83962	1588083042	learnedSkills.enabled	u8 or u16; 0 = learned but switched off	0x10465fe	0x105d3fd
+0x7D6AB068	2104143976	presets	u32 hdr; 19 presets x 32976 B starting at +12008. Preset: +0 u32 savedAt, +8 UTF-16 name (96 chars), +208 24 x 232-byte items (2 styles x 12 slots), +5776/+5808 shortcut ids, +5840/+5872 qty, +5904 2 x u32 guardian, +5912 8 x 232-byte soul cores, +7896 u32 level, +7900 7 x u32 stats, +7928 6-byte skill entries {u16 id, u16 learned, u16 enabled}	0x104e993 (0x104dfa0)	0x10652e4 (0x10651a0)
+0xB9ED21B2	3119325618	shortcuts	nested records 0xF3EF06E4 {u32 styleIndex} followed by 0x9B3F0B2C {.., u32 count @+8, u16 ids[]}	(via 0x1047f30)	0x1060a13 (0x105ec60)
+0xF3EF06E4	4092528356	shortcuts.set	u32 style index	0x10497f5 (0x1047f30)	0x1060ab8 (0x105ec60)
+0x9B3F0B2C	2604600108	shortcuts.list	u32 ?, u32 ?, u32 count, u16 item ids	0xa31787	0x1060b6b (0x105ec60)
+0x6B52DB66	1800592230	equippedGear	u32 hdr + 2 nested 0x54B78304 blocks (one per style)	0xa58a4a (writer helper 0xa58a34)	0x105eedc (0x105ec60)
+0x54B78304	1421312772	equippedGear.block	u32 17 (slot count) + u32[17] inventory indices; [15] = scroll index into scrollArray (0xFFFFFFFF = none)	0x1048503 (0x1047f30)	0x105efb4 (0x105ec60)
+0xD73A7C7F	3610934399	scrollArray	u32 hdr + 232-byte item records (Picture Scrolls); +51 u8 transfer attempts	0x104df55 (0x104d470)	0x1065183 (0x1064eb0)
+0xAB0E9943	2869860675	soulCores	u32 hdr + 10 x 12-byte entries {u32 0x36BFE4B6, u32 ?, u32 inventory index or 0xFFFFFFFF}; first 2 = yang, next 6 = yin, rest spare	0x1048ad3 (0x1047f30)	0x105f0c3 (0x105ec60)
+0x36BFE4B6	918545590	soulCores.entry	entry tag inside soulCores	0x1049063 (0x1047f30)	0x105f188 (0x105ec60)
+0x1798DF25	395894565	soulCoreHistory	u32 2000 + 2000 x 28-byte nested records: {0xED437257 size 2: u16 effectId}{0x7B345BC8 size 1: u8 seen}{0x664B1257 size 1: u8 firstSeenOnCore}	(via 0x1044680)	0xa55baa (writer 0xa55b94)
+0xED437257	3980620375	soulCoreHistory.effectId	u16 gear effect id	0x1046feb	0x105dd7a
+0x7B345BC8	2067028936	soulCoreHistory.seen	u8	0x1046fff	0x105dd8b
+0x664B1257	1716195927	soulCoreHistory.firstSeenOnCore	u8; Transformation only offers effects whose first sighting was on a soul core	0x1047010	0x105dd9c

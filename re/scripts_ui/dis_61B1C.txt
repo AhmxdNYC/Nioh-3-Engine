@@ -1,0 +1,118 @@
+; ---- Nioh3+61B1C .. +61C97 (pdata fn Some (400156u, 400535u))
+   61B1C  mov     [rsp+8],rbx                               
+   61B21  mov     [rsp+10h],rbp                             
+   61B26  mov     [rsp+18h],rsi                             
+   61B2B  push    rdi                                       
+   61B2C  push    r12                                       
+   61B2E  push    r13                                       
+   61B30  push    r14                                       
+   61B32  push    r15                                       
+   61B34  sub     rsp,20h                                   
+   61B38  mov     edi,[rcx+7Ch]                             
+   61B3B  mov     ebp,r9d                                   
+   61B3E  mov     r14,rdx                                   
+   61B41  mov     rsi,rcx                                   
+   61B44  test    edi,edi                                   
+   61B46  je      near 0000000000061C7Ah                    
+   61B4C  movzx   r10d,byte [rdx]                           
+   61B50  mov     r15d,edi                                  
+   61B53  mov     r9d,[rcx+90h]                             
+   61B5A  sub     r9d,r10d                                  
+   61B5D  mov     r13d,r8d                                  
+   61B60  sub     r9d,r8d                                   
+   61B63  mov     edx,r13d                                  
+   61B66  mov     r8d,[rcx+80h]                             
+   61B6D  cmp     edi,r9d                                   
+   61B70  mov     eax,r8d                                   
+   61B73  cmova   r15d,r9d                                  
+   61B77  mov     r9,[rcx+0A0h]                             
+   61B7E  sub     rdx,r15                                   
+   61B81  imul    eax,ebp                                   
+   61B84  xor     r12d,r12d                                 
+   61B87  add     rax,r9                                    
+   61B8A  lea     rbx,[rax+rdx*4]                           
+   61B8E  mov     dl,[r14+1]                                
+   61B92  test    dl,dl                                     
+   61B94  je      short 0000000000061BE6h                   
+   61B96  test    r15d,r15d                                 
+   61B99  je      short 0000000000061BC2h                   
+   61B9B  mov     r8,r15                                    
+   61B9E  xor     edx,edx                                   
+   61BA0  shl     r8,2                                      
+   61BA4  mov     rcx,rbx                                   
+   61BA7  call    0000000000B93F00h                         
+   61BAC  xor     ecx,ecx                                   
+   61BAE  movzx   eax,byte [r14]                            
+   61BB2  add     eax,r15d                                  
+   61BB5  add     eax,ecx                                   
+   61BB7  inc     ecx                                       
+   61BB9  and     dword [rbx+rax*4],0                       
+   61BBD  cmp     ecx,r15d                                  
+   61BC0  jb      short 0000000000061BAEh                   
+   61BC2  movsxd  r8,[rsi+80h]                              
+   61BC9  inc     r12d                                      
+   61BCC  movzx   edx,byte [r14+1]                          
+   61BD1  add     rbx,r8                                    
+   61BD4  cmp     r12d,edx                                  
+   61BD7  jb      short 0000000000061B96h                   
+   61BD9  mov     edi,[rsi+7Ch]                             
+   61BDC  mov     r9,[rsi+0A0h]                             
+   61BE3  mov     r10b,[r14]                                
+   61BE6  mov     ecx,[rsi+94h]                             
+   61BEC  movzx   eax,dl                                    
+   61BEF  sub     ecx,eax                                   
+   61BF1  sub     ecx,ebp                                   
+   61BF3  cmp     edi,ecx                                   
+   61BF5  cmova   edi,ecx                                   
+   61BF8  sub     ebp,edi                                   
+   61BFA  imul    ebp,r8d                                   
+   61BFE  mov     ecx,ebp                                   
+   61C00  add     rcx,r9                                    
+   61C03  movzx   ebp,r10b                                  
+   61C07  add     ebp,r15d                                  
+   61C0A  xor     r15d,r15d                                 
+   61C0D  lea     rbx,[rcx+r13*4]                           
+   61C11  test    edi,edi                                   
+   61C13  je      short 0000000000061C40h                   
+   61C15  test    ebp,ebp                                   
+   61C17  je      short 0000000000061C2Ah                   
+   61C19  mov     r8d,ebp                                   
+   61C1C  xor     edx,edx                                   
+   61C1E  shl     r8,2                                      
+   61C22  mov     rcx,rbx                                   
+   61C25  call    0000000000B93F00h                         
+   61C2A  movsxd  r8,[rsi+80h]                              
+   61C31  inc     r15d                                      
+   61C34  add     rbx,r8                                    
+   61C37  cmp     r15d,edi                                  
+   61C3A  jb      short 0000000000061C15h                   
+   61C3C  mov     dl,[r14+1]                                
+   61C40  movzx   eax,dl                                    
+   61C43  xor     r14d,r14d                                 
+   61C46  imul    eax,r8d                                   
+   61C4A  cdqe                                              
+   61C4C  add     rbx,rax                                   
+   61C4F  test    edi,edi                                   
+   61C51  je      short 0000000000061C7Ah                   
+   61C53  test    ebp,ebp                                   
+   61C55  je      short 0000000000061C68h                   
+   61C57  mov     r8d,ebp                                   
+   61C5A  xor     edx,edx                                   
+   61C5C  shl     r8,2                                      
+   61C60  mov     rcx,rbx                                   
+   61C63  call    0000000000B93F00h                         
+   61C68  movsxd  rax,[rsi+80h]                             
+   61C6F  inc     r14d                                      
+   61C72  add     rbx,rax                                   
+   61C75  cmp     r14d,edi                                  
+   61C78  jb      short 0000000000061C53h                   
+   61C7A  mov     rbx,[rsp+50h]                             
+   61C7F  mov     rbp,[rsp+58h]                             
+   61C84  mov     rsi,[rsp+60h]                             
+   61C89  add     rsp,20h                                   
+   61C8D  pop     r15                                       
+   61C8F  pop     r14                                       
+   61C91  pop     r13                                       
+   61C93  pop     r12                                       
+   61C95  pop     rdi                                       
+   61C96  ret                                               

@@ -1,0 +1,74 @@
+ 0 threads= 1 weight= -1 prio=6 MOTOR_RUN_SYNERGISTIC
+ 1 threads= 1 weight= -1 prio=6 MOTOR_RUN_COMMAND_LIST_SUBMIT
+ 2 threads= 1 weight= -1 prio=5 KIDSTaskScheduler
+ 3 threads= 7 weight= 11 prio=3 KIDS_RESOURCE
+ 4 threads= 1 weight= -1 prio=4 ResourceLoad
+ 5 threads= 4 weight=  8 prio=5 StageUpdate
+ 6 threads= 8 weight=  9 prio=5 CharacterUpdate
+ 7 threads= 8 weight=  9 prio=2 RequestLoad
+ 8 threads= 8 weight=  9 prio=2 TrySync
+ 9 threads= 3 weight=  4 prio=5 CollisionUpdate
+10 threads= 9 weight= 10 prio=5 StgGdtUpd
+11 threads= 4 weight=  5 prio=5 PhysUpdate
+12 threads= 2 weight= -1 prio=5 UpdStgEdt
+13 threads= 8 weight=  9 prio=5 UpdSclEdt
+14 threads= 8 weight=  9 prio=5 BackupThread
+15 threads= 8 weight= -1 prio=1 MiscAsync
+16 threads= 3 weight=  4 prio=5 KTGLPhysSceneMain
+17 threads= 1 weight= -1 prio=5 KTGLPhysSceneWorker
+18 threads= 4 weight= -1 prio=4 KIDS_RING_CACHE
+19 threads= 1 weight= -1 prio=5 KIDS_RING_CACHE_CREATION
+20 threads= 1 weight= -1 prio=3 KIDS_UNCOMPRESS
+21 threads= 1 weight= -1 prio=5 KIDS_MMM_REQLOAD
+22 threads= 1 weight= -1 prio=4 KIDS_MMM_SUB_REQLOAD
+23 threads=32 weight= -1 prio=4 KTGLGraph.Cache.UpdateTileMapping
+24 threads= 1 weight= -1 prio=4 KTGLGraph.Cache.Update
+25 threads= 1 weight= -1 prio=4 KTGLGraph.Cache.FileLoad
+26 threads= 1 weight= -1 prio=4 KTGLGraph.Cache.FileLoad.Poll
+27 threads= 1 weight= -1 prio=4 KTGLGraph.Cache.Release
+28 threads= 1 weight= -1 prio=6 KTSL_SYNTH
+29 threads= 1 weight= -1 prio=4 KTSL_UPDATE
+30 threads= 1 weight= -1 prio=4 KTGL_IO
+31 threads= 1 weight= -1 prio=2 [App]MuscleLoadManager
+32 threads= 1 weight= -1 prio=2 [App]TrySyncManager
+33 threads= 1 weight= -1 prio=6 [App]GameModeDrawThread
+34 threads= 1 weight= -1 prio=5 [App]MissionThread
+35 threads= 1 weight= -1 prio=5 [App]DiscoverFlagThread
+36 threads= 1 weight= -1 prio=5 [App]CharacterEquipmentUpdateThread
+37 threads= 1 weight= -1 prio=4 [App]PathFinderThread
+38 threads= 1 weight= -1 prio=6 [App]CharacterAIThread
+39 threads= 1 weight= -1 prio=4 [App]BehaviorTreeThread
+40 threads= 1 weight= -1 prio=4 [App]CharacterCheckNextMotionThread
+41 threads= 1 weight= -1 prio=5 [App]CharacterAIPreProcessThread
+42 threads= 1 weight= -1 prio=5 [App]DropItemUpdateThread
+43 threads= 1 weight= -1 prio=4 [App]PreUpdateThread
+44 threads= 1 weight= -1 prio=3 [App]StageUpdateThread
+45 threads= 1 weight= -1 prio=6 [App]StageRemoveThread
+46 threads= 1 weight= -1 prio=5 [App]CustomOccluderRayCastThread
+47 threads= 1 weight= -1 prio=2 [App]ProceduralUpdateThread
+48 threads=10 weight= 11 prio=4 [App]HlodInitializeThread
+49 threads= 1 weight= -1 prio=5 [App]FarHlodUpdateThread
+50 threads= 1 weight= -1 prio=3 [App]StageInitializerThread
+51 threads= 1 weight= -1 prio=3 [App]StageFinalizerThread
+52 threads= 1 weight= -1 prio=5 [App]UpdateAmbientEffectThread
+53 threads= 1 weight= -1 prio=5 [App]PreStageEffectThread
+54 threads= 1 weight= -1 prio=5 [App]UpdateStageEffectThread
+55 threads= 4 weight=  5 prio=5 [App]EffectUpdateDispThread
+56 threads= 9 weight= 10 prio=4 [App]EffectUpdateNoDispThread
+57 threads= 1 weight= -1 prio=5 [App]SoundSystemUpdateThread
+58 threads= 1 weight= -1 prio=4 [App]CameraUpdateThread
+59 threads= 1 weight= -1 prio=5 [App]UpdateScreenLayoutThread
+60 threads= 1 weight= -1 prio=5 [App]PreUpdateMenuThread
+61 threads= 1 weight= -1 prio=5 [App]LLSCLocalLightListSetupWorker
+62 threads= 1 weight= -1 prio=2 [App]NETWORK
+63 threads= 1 weight= -1 prio=6 [App]BenchmarkThread
+64 threads= 1 weight= -1 prio=4 [App]TaskController
+65 threads= 1 weight= -1 prio=3 [App]TaskWorker
+66 threads= 1 weight= -1 prio=1 [App]AdvancedVibrationThread
+67 threads= 1 weight= -1 prio=6 [App]InputUpdateWorker
+68 threads= 1 weight= -1 prio=5 [App]DLCCheckThread
+69 threads= 1 weight= -1 prio=1 [App]UnchartedMapClearThread
+70 threads= 1 weight= -1 prio=0 Dummy:CharacterObjectUpdate
+71 threads=18 weight= 20 prio=0 Dummy:StageGadgetUpdate
+72 threads= 9 weight= 10 prio=0 Dummy:StageObjectUpdate
+73 threads=10 weight= 11 prio=1389699800 0x2

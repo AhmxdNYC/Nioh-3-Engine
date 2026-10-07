@@ -1,0 +1,649 @@
+; ---- Nioh3+1C1CC0 .. +1C23E0 (pdata fn Some (1842368u, 1842485u))
+  1C1CC0  mov     [rsp+8],rbx                               
+  1C1CC5  mov     [rsp+10h],rsi                             
+  1C1CCA  push    rdi                                       
+  1C1CCB  sub     rsp,20h                                   
+  1C1CCF  mov     rax,[rcx+8]                               
+  1C1CD3  mov     rbx,rcx                                   
+  1C1CD6  mov     rdi,rdx                                   
+  1C1CD9  mov     rsi,[rax+2B0h]                            
+  1C1CE0  mov     rcx,rsi                                   
+  1C1CE3  call    00000000001CB8A0h                         
+  1C1CE8  mov     rcx,[rbx+8]                               
+  1C1CEC  call    00000000001CADB4h                         
+  1C1CF1  mov     [rdi],rax                                 
+  1C1CF4  mov     rcx,[rbx+8]                               
+  1C1CF8  mov     rax,[rcx]                                 
+  1C1CFB  call    qword [rax+130h]                          
+  1C1D01  mov     rcx,rax                                   
+  1C1D04  mov     rbx,rax                                   
+  1C1D07  mov     rdx,[rax]                                 
+  1C1D0A  call    qword [rdx+10h]                           
+  1C1D0D  test    al,al                                     
+  1C1D0F  jne     near 000000000195E96Ch                    
+  1C1D15  cmp     byte [rsi+0C4h],0                         
+  1C1D1C  jne     short 00000000001C1D25h                   
+  1C1D1E  and     dword [rdi+90h],0                         
+  1C1D25  mov     rbx,[rsp+30h]                             
+  1C1D2A  mov     rsi,[rsp+38h]                             
+  1C1D2F  add     rsp,20h                                   
+  1C1D33  pop     rdi                                       
+  1C1D34  ret                                               
+  1C1D35  int3                                              
+  1C1D36  int3                                              
+  1C1D37  int3                                              
+  1C1D38  mov     [rsp+8],rbx                               
+  1C1D3D  push    rdi                                       
+  1C1D3E  sub     rsp,20h                                   
+  1C1D42  mov     rbx,rcx                                   
+  1C1D45  mov     rdi,rdx                                   
+  1C1D48  mov     rcx,[rcx+8]                               
+  1C1D4C  xor     edx,edx                                   
+  1C1D4E  mov     rax,[rcx]                                 
+  1C1D51  call    qword [rax+78h]                           
+  1C1D54  xor     ecx,ecx                                   
+  1C1D56  mov     [rdi],rcx                                 
+  1C1D59  mov     r8b,[rax+6]                               
+  1C1D5D  mov     [rdi+7],r8b                               
+  1C1D61  mov     cl,[rax+5]                                
+  1C1D64  mov     [rdi+5],cl                                
+  1C1D67  mov     ecx,[rax]                                 
+  1C1D69  mov     [rdi],ecx                                 
+  1C1D6B  mov     al,[rax+4]                                
+  1C1D6E  mov     [rdi+4],al                                
+  1C1D71  mov     rax,[rbx+8]                               
+  1C1D75  mov     cl,[rax+113h]                             
+  1C1D7B  mov     [rdi+7],cl                                
+  1C1D7E  mov     rax,[rbx+8]                               
+  1C1D82  mov     rbx,[rsp+30h]                             
+  1C1D87  mov     cl,[rax+104h]                             
+  1C1D8D  and     cl,2                                      
+  1C1D90  mov     [rdi+6],cl                                
+  1C1D93  add     rsp,20h                                   
+  1C1D97  pop     rdi                                       
+  1C1D98  ret                                               
+  1C1D99  int3                                              
+  1C1D9A  int3                                              
+  1C1D9B  int3                                              
+  1C1D9C  test    edx,edx                                   
+  1C1D9E  jne     short 00000000001C1DA8h                   
+  1C1DA0  lea     rax,[rcx+1D8h]                            
+  1C1DA7  ret                                               
+  1C1DA8  xor     eax,eax                                   
+  1C1DAA  ret                                               
+  1C1DAB  int3                                              
+  1C1DAC  push    rbx                                       
+  1C1DAE  sub     rsp,20h                                   
+  1C1DB2  mov     rcx,[rcx+8]                               
+  1C1DB6  mov     rbx,rdx                                   
+  1C1DB9  xor     edx,edx                                   
+  1C1DBB  mov     rax,[rcx]                                 
+  1C1DBE  call    qword [rax+68h]                           
+  1C1DC1  xorps   xmm0,xmm0                                 
+  1C1DC4  movups  [rbx],xmm0                                
+  1C1DC7  mov     ecx,[rax]                                 
+  1C1DC9  mov     [rbx],ecx                                 
+  1C1DCB  mov     ecx,[rax+4]                               
+  1C1DCE  mov     [rbx+4],ecx                               
+  1C1DD1  mov     ecx,[rax+10h]                             
+  1C1DD4  mov     [rbx+8],ecx                               
+  1C1DD7  mov     eax,[rax+14h]                             
+  1C1DDA  mov     [rbx+0Ch],eax                             
+  1C1DDD  add     rsp,20h                                   
+  1C1DE1  pop     rbx                                       
+  1C1DE2  ret                                               
+  1C1DE3  int3                                              
+  1C1DE4  test    edx,edx                                   
+  1C1DE6  jne     short 00000000001C1DF0h                   
+  1C1DE8  lea     rax,[rcx+180h]                            
+  1C1DEF  ret                                               
+  1C1DF0  xor     eax,eax                                   
+  1C1DF2  ret                                               
+  1C1DF3  int3                                              
+  1C1DF4  int3                                              
+  1C1DF5  int3                                              
+  1C1DF6  int3                                              
+  1C1DF7  int3                                              
+  1C1DF8  int3                                              
+  1C1DF9  int3                                              
+  1C1DFA  int3                                              
+  1C1DFB  int3                                              
+  1C1DFC  int3                                              
+  1C1DFD  int3                                              
+  1C1DFE  int3                                              
+  1C1DFF  int3                                              
+  1C1E00  mov     r8,[rcx+8]                                
+  1C1E04  movsx   eax,word [r8+0F0h]                        
+  1C1E0C  mov     [rdx],eax                                 
+  1C1E0E  movsx   eax,word [r8+0F2h]                        
+  1C1E16  mov     [rdx+4],eax                               
+  1C1E19  mov     rax,rdx                                   
+  1C1E1C  ret                                               
+  1C1E1D  int3                                              
+  1C1E1E  int3                                              
+  1C1E1F  int3                                              
+  1C1E20  mov     rax,[rcx+8]                               
+  1C1E24  test    dword [rax+104h],10000000h                
+  1C1E2E  mov     rcx,[rax+2B0h]                            
+  1C1E35  je      short 00000000001C1E4Fh                   
+  1C1E37  cmp     byte [rcx+0A2h],0                         
+  1C1E3E  je      short 00000000001C1E4Fh                   
+  1C1E40  mov     al,[rcx+0A0h]                             
+  1C1E46  neg     al                                        
+  1C1E48  sbb     eax,eax                                   
+  1C1E4A  neg     eax                                       
+  1C1E4C  inc     eax                                       
+  1C1E4E  ret                                               
+  1C1E4F  xor     eax,eax                                   
+  1C1E51  ret                                               
+  1C1E52  int3                                              
+  1C1E53  int3                                              
+  1C1E54  mov     rax,[rcx+8]                               
+  1C1E58  test    dword [rax+104h],10000000h                
+  1C1E62  mov     rcx,[rax+2B0h]                            
+  1C1E69  je      short 00000000001C1E74h                   
+  1C1E6B  cmp     byte [rcx+0A0h],0                         
+  1C1E72  jne     short 00000000001C1E77h                   
+  1C1E74  xor     eax,eax                                   
+  1C1E76  ret                                               
+  1C1E77  mov     eax,1                                     
+  1C1E7C  ret                                               
+  1C1E7D  int3                                              
+  1C1E7E  int3                                              
+  1C1E7F  int3                                              
+  1C1E80  mov     rax,[rcx+8]                               
+  1C1E84  cmp     qword [rax+370h],0                        
+  1C1E8C  setne   al                                        
+  1C1E8F  ret                                               
+  1C1E90  mov     rax,[rcx+8]                               
+  1C1E94  mov     eax,[rax+104h]                            
+  1C1E9A  shr     eax,1Ch                                   
+  1C1E9D  and     al,1                                      
+  1C1E9F  ret                                               
+  1C1EA0  mov     rax,[rcx+8]                               
+  1C1EA4  mov     rax,[rax+398h]                            
+  1C1EAB  test    rax,rax                                   
+  1C1EAE  je      short 00000000001C1EB5h                   
+  1C1EB0  mov     rax,[rax+68h]                             
+  1C1EB4  ret                                               
+  1C1EB5  ret                                               
+  1C1EB6  int3                                              
+  1C1EB7  int3                                              
+  1C1EB8  mov     rax,[rcx+8]                               
+  1C1EBC  mov     rax,[rax+398h]                            
+  1C1EC3  test    rax,rax                                   
+  1C1EC6  je      short 00000000001C1ECDh                   
+  1C1EC8  mov     rax,[rax+30h]                             
+  1C1ECC  ret                                               
+  1C1ECD  ret                                               
+  1C1ECE  int3                                              
+  1C1ECF  int3                                              
+  1C1ED0  mov     [rsp+10h],rbx                             
+  1C1ED5  push    rdi                                       
+  1C1ED6  sub     rsp,20h                                   
+  1C1EDA  and     dword [rdx],0                             
+  1C1EDD  mov     rdi,rcx                                   
+  1C1EE0  mov     rcx,[rcx+8]                               
+  1C1EE4  mov     rbx,rdx                                   
+  1C1EE7  and     dword [rdx+4],0                           
+  1C1EEB  mov     rax,[rcx]                                 
+  1C1EEE  call    qword [rax+130h]                          
+  1C1EF4  mov     rcx,rax                                   
+  1C1EF7  mov     r8,[rax]                                  
+  1C1EFA  call    qword [r8+10h]                            
+  1C1EFE  test    al,al                                     
+  1C1F00  jne     near 000000000195E986h                    
+  1C1F06  mov     rax,rbx                                   
+  1C1F09  mov     rbx,[rsp+38h]                             
+  1C1F0E  add     rsp,20h                                   
+  1C1F12  pop     rdi                                       
+  1C1F13  ret                                               
+  1C1F14  push    rbx                                       
+  1C1F16  sub     rsp,20h                                   
+  1C1F1A  mov     rbx,rcx                                   
+  1C1F1D  mov     rcx,[rcx+8]                               
+  1C1F21  mov     rax,[rcx]                                 
+  1C1F24  call    qword [rax+130h]                          
+  1C1F2A  mov     rcx,rax                                   
+  1C1F2D  mov     rdx,[rax]                                 
+  1C1F30  call    qword [rdx+10h]                           
+  1C1F33  test    al,al                                     
+  1C1F35  jne     near 000000000195E9B6h                    
+  1C1F3B  add     rsp,20h                                   
+  1C1F3F  pop     rbx                                       
+  1C1F40  ret                                               
+  1C1F41  int3                                              
+  1C1F42  int3                                              
+  1C1F43  int3                                              
+  1C1F44  mov     [rsp+8],rbx                               
+  1C1F49  push    rdi                                       
+  1C1F4A  sub     rsp,20h                                   
+  1C1F4E  mov     r9d,[rcx+0DCh]                            
+  1C1F55  lea     rbx,[rcx+10h]                             
+  1C1F59  shr     r9d,0Eh                                   
+  1C1F5D  mov     rdi,rcx                                   
+  1C1F60  not     r9b                                       
+  1C1F63  mov     rcx,rbx                                   
+  1C1F66  and     r9b,1                                     
+  1C1F6A  call    00000000001C7B48h                         
+  1C1F6F  mov     rax,[rbx]                                 
+  1C1F72  mov     rcx,rbx                                   
+  1C1F75  call    qword [rax+18h]                           
+  1C1F78  xor     ecx,ecx                                   
+  1C1F7A  test    eax,eax                                   
+  1C1F7C  je      short 00000000001C1F9Ch                   
+  1C1F7E  mov     rax,[rbx]                                 
+  1C1F81  mov     rcx,rbx                                   
+  1C1F84  call    qword [rax+18h]                           
+  1C1F87  dec     ax                                        
+  1C1F8A  mov     rbx,[rsp+30h]                             
+  1C1F8F  mov     [rdi+0E4h],ax                             
+  1C1F96  add     rsp,20h                                   
+  1C1F9A  pop     rdi                                       
+  1C1F9B  ret                                               
+  1C1F9C  movzx   eax,cx                                    
+  1C1F9F  jmp     short 00000000001C1F8Ah                   
+  1C1FA1  int3                                              
+  1C1FA2  int3                                              
+  1C1FA3  int3                                              
+  1C1FA4  mov     [rsp+8],rbx                               
+  1C1FA9  push    rdi                                       
+  1C1FAA  sub     rsp,20h                                   
+  1C1FAE  mov     rax,[rcx]                                 
+  1C1FB1  mov     rbx,rcx                                   
+  1C1FB4  xor     edi,edi                                   
+  1C1FB6  call    qword [rax+0F0h]                          
+  1C1FBC  test    al,al                                     
+  1C1FBE  je      short 00000000001C1FCEh                   
+  1C1FC0  mov     rax,[rbx]                                 
+  1C1FC3  mov     rcx,rbx                                   
+  1C1FC6  call    qword [rax+110h]                          
+  1C1FCC  mov     edi,eax                                   
+  1C1FCE  mov     rbx,[rsp+30h]                             
+  1C1FD3  mov     eax,edi                                   
+  1C1FD5  add     rsp,20h                                   
+  1C1FD9  pop     rdi                                       
+  1C1FDA  ret                                               
+  1C1FDB  int3                                              
+  1C1FDC  mov     rax,[rcx+8]                               
+  1C1FE0  mov     rcx,[rax+398h]                            
+  1C1FE7  test    rcx,rcx                                   
+  1C1FEA  je      short 00000000001C1FF3h                   
+  1C1FEC  mov     rax,[rcx]                                 
+  1C1FEF  jmp     qword [rax+18h]                           
+  1C1FF3  xor     eax,eax                                   
+  1C1FF5  ret                                               
+  1C1FF6  int3                                              
+  1C1FF7  int3                                              
+  1C1FF8  int3                                              
+  1C1FF9  int3                                              
+  1C1FFA  int3                                              
+  1C1FFB  int3                                              
+  1C1FFC  int3                                              
+  1C1FFD  int3                                              
+  1C1FFE  int3                                              
+  1C1FFF  int3                                              
+  1C2000  mov     eax,[rcx+20h]                             
+  1C2003  ret                                               
+  1C2004  mov     [rsp+8],rbx                               
+  1C2009  push    rdi                                       
+  1C200A  sub     rsp,20h                                   
+  1C200E  mov     rax,[rcx]                                 
+  1C2011  mov     rbx,rcx                                   
+  1C2014  xor     edi,edi                                   
+  1C2016  call    qword [rax+0F0h]                          
+  1C201C  test    al,al                                     
+  1C201E  je      short 00000000001C202Eh                   
+  1C2020  mov     rax,[rbx]                                 
+  1C2023  mov     rcx,rbx                                   
+  1C2026  call    qword [rax+120h]                          
+  1C202C  mov     edi,eax                                   
+  1C202E  mov     rbx,[rsp+30h]                             
+  1C2033  mov     eax,edi                                   
+  1C2035  add     rsp,20h                                   
+  1C2039  pop     rdi                                       
+  1C203A  ret                                               
+  1C203B  int3                                              
+  1C203C  mov     rax,[rcx+8]                               
+  1C2040  mov     rcx,[rax+398h]                            
+  1C2047  test    rcx,rcx                                   
+  1C204A  je      short 00000000001C2057h                   
+  1C204C  add     rcx,38h                                   
+  1C2050  mov     rax,[rcx]                                 
+  1C2053  jmp     qword [rax+18h]                           
+  1C2057  xor     eax,eax                                   
+  1C2059  ret                                               
+  1C205A  int3                                              
+  1C205B  int3                                              
+  1C205C  int3                                              
+  1C205D  int3                                              
+  1C205E  int3                                              
+  1C205F  int3                                              
+  1C2060  mov     eax,[rcx+20h]                             
+  1C2063  ret                                               
+  1C2064  mov     rax,[rcx+8]                               
+  1C2068  mov     eax,[rax+104h]                            
+  1C206E  shr     eax,1Ch                                   
+  1C2071  and     al,1                                      
+  1C2073  ret                                               
+  1C2074  mov     eax,[rcx+104h]                            
+  1C207A  shr     eax,1Ch                                   
+  1C207D  and     al,1                                      
+  1C207F  ret                                               
+  1C2080  mov     rax,[rcx+8]                               
+  1C2084  mov     rcx,[rax+38Ch]                            
+  1C208B  mov     rax,rdx                                   
+  1C208E  mov     [rdx],rcx                                 
+  1C2091  ret                                               
+  1C2092  int3                                              
+  1C2093  int3                                              
+  1C2094  int3                                              
+  1C2095  int3                                              
+  1C2096  int3                                              
+  1C2097  int3                                              
+  1C2098  int3                                              
+  1C2099  int3                                              
+  1C209A  int3                                              
+  1C209B  int3                                              
+  1C209C  int3                                              
+  1C209D  int3                                              
+  1C209E  int3                                              
+  1C209F  int3                                              
+  1C20A0  mov     rax,[rcx+8]                               
+  1C20A4  mov     rcx,[rax+384h]                            
+  1C20AB  mov     rax,rdx                                   
+  1C20AE  mov     [rdx],rcx                                 
+  1C20B1  ret                                               
+  1C20B2  int3                                              
+  1C20B3  int3                                              
+  1C20B4  int3                                              
+  1C20B5  int3                                              
+  1C20B6  int3                                              
+  1C20B7  int3                                              
+  1C20B8  int3                                              
+  1C20B9  int3                                              
+  1C20BA  int3                                              
+  1C20BB  int3                                              
+  1C20BC  int3                                              
+  1C20BD  int3                                              
+  1C20BE  int3                                              
+  1C20BF  int3                                              
+  1C20C0  mov     rax,[rcx+8]                               
+  1C20C4  mov     rcx,[rax+37Ch]                            
+  1C20CB  mov     rax,rdx                                   
+  1C20CE  mov     [rdx],rcx                                 
+  1C20D1  ret                                               
+  1C20D2  int3                                              
+  1C20D3  int3                                              
+  1C20D4  int3                                              
+  1C20D5  int3                                              
+  1C20D6  int3                                              
+  1C20D7  int3                                              
+  1C20D8  int3                                              
+  1C20D9  int3                                              
+  1C20DA  int3                                              
+  1C20DB  int3                                              
+  1C20DC  int3                                              
+  1C20DD  int3                                              
+  1C20DE  int3                                              
+  1C20DF  int3                                              
+  1C20E0  mov     rax,[rcx+8]                               
+  1C20E4  mov     rax,[rax+368h]                            
+  1C20EB  ret                                               
+  1C20EC  int3                                              
+  1C20ED  int3                                              
+  1C20EE  int3                                              
+  1C20EF  int3                                              
+  1C20F0  mov     rax,[rcx+8]                               
+  1C20F4  mov     rax,[rax+360h]                            
+  1C20FB  ret                                               
+  1C20FC  int3                                              
+  1C20FD  int3                                              
+  1C20FE  int3                                              
+  1C20FF  int3                                              
+  1C2100  mov     rax,[rcx+8]                               
+  1C2104  mov     rax,[rax+358h]                            
+  1C210B  ret                                               
+  1C210C  mov     [rsp+8],rbx                               
+  1C2111  push    rdi                                       
+  1C2112  sub     rsp,20h                                   
+  1C2116  xor     ebx,ebx                                   
+  1C2118  mov     r9,rdx                                    
+  1C211B  mov     rdi,rcx                                   
+  1C211E  test    rdx,rdx                                   
+  1C2121  je      short 00000000001C2131h                   
+  1C2123  mov     dl,[rcx+79h]                              
+  1C2126  mov     rcx,r9                                    
+  1C2129  call    00000000001C25CCh                         
+  1C212E  mov     rbx,rax                                   
+  1C2131  lea     rax,[r9+80h]                              
+  1C2138  xor     ecx,ecx                                   
+  1C213A  mov     [rbx+70h],rax                             
+  1C213E  xorps   xmm0,xmm0                                 
+  1C2141  movups  [rax],xmm0                                
+  1C2144  mov     [rax+10h],rcx                             
+  1C2148  mov     rax,[rdi+68h]                             
+  1C214C  mov     rcx,[rbx+70h]                             
+  1C2150  mov     [rbx+68h],rax                             
+  1C2154  mov     al,[rdi+78h]                              
+  1C2157  or      al,1                                      
+  1C2159  mov     [rbx+78h],al                              
+  1C215C  mov     rdx,[rdi+68h]                             
+  1C2160  call    00000000001C2288h                         
+  1C2165  mov     rcx,[rdi+68h]                             
+  1C2169  mov     rax,[rcx]                                 
+  1C216C  call    qword [rax+1A0h]                          
+  1C2172  mov     rcx,[rbx+70h]                             
+  1C2176  mov     edx,2                                     
+  1C217B  mov     [rcx+4],al                                
+  1C217E  mov     rax,[rdi+68h]                             
+  1C2182  mov     rcx,[rbx+70h]                             
+  1C2186  mov     al,[rax+10Ch]                             
+  1C218C  mov     [rcx+6],al                                
+  1C218F  mov     rcx,[rdi+68h]                             
+  1C2193  mov     rax,[rcx]                                 
+  1C2196  call    qword [rax+18h]                           
+  1C2199  mov     rcx,[rbx+70h]                             
+  1C219D  xor     edx,edx                                   
+  1C219F  mov     [rcx+10h],eax                             
+  1C21A2  mov     rcx,[rdi+68h]                             
+  1C21A6  mov     rax,[rcx]                                 
+  1C21A9  call    qword [rax+18h]                           
+  1C21AC  mov     rcx,[rbx+70h]                             
+  1C21B0  mov     edx,3                                     
+  1C21B5  mov     [rcx+8],eax                               
+  1C21B8  mov     rcx,[rdi+68h]                             
+  1C21BC  mov     rax,[rcx]                                 
+  1C21BF  call    qword [rax+18h]                           
+  1C21C2  mov     rcx,[rbx+70h]                             
+  1C21C6  mov     edx,1                                     
+  1C21CB  mov     [rcx+14h],eax                             
+  1C21CE  mov     rcx,[rdi+68h]                             
+  1C21D2  mov     rax,[rcx]                                 
+  1C21D5  call    qword [rax+18h]                           
+  1C21D8  mov     rcx,[rbx+70h]                             
+  1C21DC  mov     [rcx+0Ch],eax                             
+  1C21DF  mov     rax,[rdi+18h]                             
+  1C21E3  mov     [rbx+18h],rax                             
+  1C21E7  mov     rax,[rdi+8]                               
+  1C21EB  mov     [rbx+8],rax                               
+  1C21EF  mov     rax,[rdi+20h]                             
+  1C21F3  mov     [rbx+20h],rax                             
+  1C21F7  mov     rax,[rdi+10h]                             
+  1C21FB  mov     [rbx+10h],rax                             
+  1C21FF  mov     rax,[rdi+38h]                             
+  1C2203  mov     [rbx+38h],rax                             
+  1C2207  mov     rax,[rdi+28h]                             
+  1C220B  mov     [rbx+28h],rax                             
+  1C220F  mov     rax,[rdi+40h]                             
+  1C2213  mov     [rbx+40h],rax                             
+  1C2217  mov     rax,[rdi+30h]                             
+  1C221B  mov     [rbx+30h],rax                             
+  1C221F  mov     rax,[rdi+58h]                             
+  1C2223  mov     [rbx+58h],rax                             
+  1C2227  mov     rax,[rdi+48h]                             
+  1C222B  mov     [rbx+48h],rax                             
+  1C222F  mov     rax,[rdi+60h]                             
+  1C2233  mov     [rbx+60h],rax                             
+  1C2237  mov     rax,[rdi+50h]                             
+  1C223B  mov     [rbx+50h],rax                             
+  1C223F  mov     rax,rbx                                   
+  1C2242  mov     rbx,[rsp+30h]                             
+  1C2247  add     rsp,20h                                   
+  1C224B  pop     rdi                                       
+  1C224C  ret                                               
+  1C224D  int3                                              
+  1C224E  int3                                              
+  1C224F  int3                                              
+  1C2250  mov     eax,edx                                   
+  1C2252  mov     eax,[rcx+rax*4+1B8h]                      
+  1C2259  ret                                               
+  1C225A  int3                                              
+  1C225B  int3                                              
+  1C225C  sub     rsp,28h                                   
+  1C2260  mov     rcx,[rcx+8]                               
+  1C2264  mov     rax,[rcx]                                 
+  1C2267  call    qword [rax+1A0h]                          
+  1C226D  xor     eax,eax                                   
+  1C226F  add     rsp,28h                                   
+  1C2273  ret                                               
+  1C2274  int3                                              
+  1C2275  int3                                              
+  1C2276  int3                                              
+  1C2277  int3                                              
+  1C2278  int3                                              
+  1C2279  int3                                              
+  1C227A  int3                                              
+  1C227B  int3                                              
+  1C227C  int3                                              
+  1C227D  int3                                              
+  1C227E  int3                                              
+  1C227F  int3                                              
+  1C2280  mov     eax,4                                     
+  1C2285  ret                                               
+  1C2286  int3                                              
+  1C2287  int3                                              
+  1C2288  mov     [rsp+8],rbx                               
+  1C228D  push    rdi                                       
+  1C228E  sub     rsp,40h                                   
+  1C2292  xor     edi,edi                                   
+  1C2294  movaps  [rsp+30h],xmm6                            
+  1C2299  movaps  [rsp+20h],xmm7                            
+  1C229E  mov     r8,rdx                                    
+  1C22A1  mov     [rcx],edi                                 
+  1C22A3  mov     rbx,rcx                                   
+  1C22A6  test    rdx,rdx                                   
+  1C22A9  je      short 00000000001C230Ah                   
+  1C22AB  mov     eax,[rdx+0F0h]                            
+  1C22B1  mov     [rcx],eax                                 
+  1C22B3  mov     rcx,r8                                    
+  1C22B6  mov     rax,[rdx]                                 
+  1C22B9  xor     edx,edx                                   
+  1C22BB  call    qword [rax+0A0h]                          
+  1C22C1  test    rax,rax                                   
+  1C22C4  je      short 00000000001C230Ah                   
+  1C22C6  cmp     [rax+0A2h],dil                            
+  1C22CD  je      short 00000000001C230Ah                   
+  1C22CF  movss   xmm7,[rax+80h]                            
+  1C22D7  movss   xmm6,[rax+24h]                            
+  1C22DC  movaps  xmm0,xmm7                                 
+  1C22DF  mulss   xmm0,[rax+20h]                            
+  1C22E4  call    00000000018EDFD4h                         
+  1C22E9  cvttss2si eax,xmm0                                
+  1C22ED  mulss   xmm7,xmm6                                 
+  1C22F1  add     ax,ax                                     
+  1C22F4  add     [rbx],ax                                  
+  1C22F7  movaps  xmm0,xmm7                                 
+  1C22FA  call    00000000018EDFD4h                         
+  1C22FF  cvttss2si eax,xmm0                                
+  1C2303  add     ax,ax                                     
+  1C2306  add     [rbx+2],ax                                
+  1C230A  mov     rbx,[rsp+50h]                             
+  1C230F  movaps  xmm6,[rsp+30h]                            
+  1C2314  movaps  xmm7,[rsp+20h]                            
+  1C2319  add     rsp,40h                                   
+  1C231D  pop     rdi                                       
+  1C231E  ret                                               
+  1C231F  int3                                              
+  1C2320  test    edx,edx                                   
+  1C2322  jne     short 00000000001C232Ch                   
+  1C2324  lea     rax,[rcx+1E0h]                            
+  1C232B  ret                                               
+  1C232C  xor     eax,eax                                   
+  1C232E  ret                                               
+  1C232F  int3                                              
+  1C2330  mov     rcx,[rcx+8]                               
+  1C2334  xor     edx,edx                                   
+  1C2336  mov     rax,[rcx]                                 
+  1C2339  jmp     qword [rax+1B8h]                          
+  1C2340  mov     eax,1                                     
+  1C2345  ret                                               
+  1C2346  int3                                              
+  1C2347  int3                                              
+  1C2348  int3                                              
+  1C2349  int3                                              
+  1C234A  int3                                              
+  1C234B  int3                                              
+  1C234C  int3                                              
+  1C234D  int3                                              
+  1C234E  int3                                              
+  1C234F  int3                                              
+  1C2350  mov     [rcx+158h],edx                            
+  1C2356  ret                                               
+  1C2357  int3                                              
+  1C2358  int3                                              
+  1C2359  int3                                              
+  1C235A  int3                                              
+  1C235B  int3                                              
+  1C235C  int3                                              
+  1C235D  int3                                              
+  1C235E  int3                                              
+  1C235F  int3                                              
+  1C2360  mov     rax,[rcx+8]                               
+  1C2364  mov     eax,[rax+8Ch]                             
+  1C236A  ret                                               
+  1C236B  int3                                              
+  1C236C  int3                                              
+  1C236D  int3                                              
+  1C236E  int3                                              
+  1C236F  int3                                              
+  1C2370  mov     rax,[rcx+8]                               
+  1C2374  mov     eax,[rax+88h]                             
+  1C237A  shr     eax,1                                     
+  1C237C  and     al,1                                      
+  1C237E  ret                                               
+  1C237F  int3                                              
+  1C2380  mov     rax,[rcx+8]                               
+  1C2384  movzx   eax,byte [rax+88h]                        
+  1C238B  and     al,1                                      
+  1C238D  ret                                               
+  1C238E  int3                                              
+  1C238F  int3                                              
+  1C2390  mov     rax,[rcx+8]                               
+  1C2394  or      edx,0FFFFFFFFh                            
+  1C2397  mov     cl,[rax+112h]                             
+  1C239D  test    cl,cl                                     
+  1C239F  je      short 00000000001C23ABh                   
+  1C23A1  cmp     cl,2                                      
+  1C23A4  jne     short 00000000001C23ABh                   
+  1C23A6  mov     edx,1                                     
+  1C23AB  mov     eax,edx                                   
+  1C23AD  ret                                               
+  1C23AE  int3                                              
+  1C23AF  int3                                              
+  1C23B0  mov     rcx,[rcx+8]                               
+  1C23B4  xor     edx,edx                                   
+  1C23B6  mov     rax,[rcx]                                 
+  1C23B9  jmp     qword [rax+1B0h]                          
+  1C23C0  mov     eax,9                                     
+  1C23C5  ret                                               
+  1C23C6  int3                                              
+  1C23C7  int3                                              
+  1C23C8  mov     [rsp+8],rbx                               
+  1C23CD  push    rdi                                       
+  1C23CE  sub     rsp,20h                                   
+  1C23D2  mov     eax,1                                     
+  1C23D7  mov     ebx,edx                                   
+  1C23D9  cmp     edx,eax                                   
+  1C23DB  mov     rdi,rcx                                   
+  1C23DE  (bad)                                             

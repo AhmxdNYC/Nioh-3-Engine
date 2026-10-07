@@ -1,0 +1,185 @@
+﻿--- ATOMIC-LOAD? (src EBP must be 0)
+     419D8  jne near 0000000000041B3Bh               0F 85 5D 01 00 00
+     419DE  mov ebx,[rcx+11Ch]                       8B 99 1C 01 00 00
+     419E4  mov edi,ebp                              8B FD
+     419E6  xor eax,eax                              33 C0
+>    419E8  lock cmpxchg [rcx+4C0h],ebp              F0 0F B1 A9 C0 04 00 00
+     419F0  mov esi,eax                              8B F0
+     419F2  mov r11d,ebp                             44 8B DD
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A00  mov r8d,r11d                             45 8B C3
+     41A03  shl r8,5                                 49 C1 E0 05
+     41A07  add r8,[r10+568h]                        4D 03 82 68 05 00 00
+     41A0E  xor eax,eax                              33 C0
+>    41A10  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41A15  test al,2                                A8 02
+     41A17  je near 0000000000041B2Bh                0F 84 0E 01 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A17  je near 0000000000041B2Bh                0F 84 0E 01 00 00
+     41A1D  mov rcx,[r10+568h]                       49 8B 8A 68 05 00 00
+     41A24  inc edi                                  FF C7
+     41A26  xor eax,eax                              33 C0
+>    41A28  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A2E  test al,2                                A8 02
+     41A30  je near 0000000000041B79h                0F 84 43 01 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A28  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A2E  test al,2                                A8 02
+     41A30  je near 0000000000041B79h                0F 84 43 01 00 00
+     41A36  xor eax,eax                              33 C0
+>    41A38  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A3E  bt eax,8                                 0F BA E0 08
+     41A42  jb near 0000000000041B79h                0F 82 31 01 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A38  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A3E  bt eax,8                                 0F BA E0 08
+     41A42  jb near 0000000000041B79h                0F 82 31 01 00 00
+     41A48  xor eax,eax                              33 C0
+>    41A4A  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A50  test al,4                                A8 04
+     41A52  jne near 0000000000041B79h               0F 85 21 01 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A4A  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A50  test al,4                                A8 04
+     41A52  jne near 0000000000041B79h               0F 85 21 01 00 00
+     41A58  xor eax,eax                              33 C0
+>    41A5A  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A60  test al,8                                A8 08
+     41A62  jne near 0000000000041B79h               0F 85 11 01 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A5A  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A60  test al,8                                A8 08
+     41A62  jne near 0000000000041B79h               0F 85 11 01 00 00
+     41A68  xor eax,eax                              33 C0
+>    41A6A  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A70  test al,10h                              A8 10
+     41A72  jne near 0000000000041B79h               0F 85 01 01 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A6A  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A70  test al,10h                              A8 10
+     41A72  jne near 0000000000041B79h               0F 85 01 01 00 00
+     41A78  xor eax,eax                              33 C0
+>    41A7A  lock cmpxchg [r9+rcx],ebp                F0 41 0F B1 2C 09
+     41A80  bt eax,0Ah                               0F BA E0 0A
+     41A84  jae near 0000000000041B79h               0F 83 EF 00 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A8A  cmp [r10+18Ch],ebp                       41 39 AA 8C 01 00 00
+     41A91  je short 0000000000041AAAh               74 17
+     41A93  mov rcx,[r9+rcx+8]                       49 8B 4C 09 08
+     41A98  xor eax,eax                              33 C0
+>    41A9A  lock cmpxchg [rcx+0D0h],ebp              F0 0F B1 A9 D0 00 00 00
+     41AA2  test al,8                                A8 08
+     41AA4  je near 0000000000041B79h                0F 84 CF 00 00 00
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41A9A  lock cmpxchg [rcx+0D0h],ebp              F0 0F B1 A9 D0 00 00 00
+     41AA2  test al,8                                A8 08
+     41AA4  je near 0000000000041B79h                0F 84 CF 00 00 00
+     41AAA  xor eax,eax                              33 C0
+>    41AAC  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AB1  mov ecx,eax                              8B C8
+     41AB3  mov edx,eax                              8B D0
+--- CAS
+     41AAC  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AB1  mov ecx,eax                              8B C8
+     41AB3  mov edx,eax                              8B D0
+     41AB5  or ecx,1                                 83 C9 01
+>    41AB8  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41ABD  cmp eax,edx                              3B C2
+     41ABF  jne short 0000000000041AB1h              75 F0
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41AB8  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41ABD  cmp eax,edx                              3B C2
+     41ABF  jne short 0000000000041AB1h              75 F0
+     41AC1  xor eax,eax                              33 C0
+>    41AC3  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AC8  mov ecx,eax                              8B C8
+     41ACA  xor eax,eax                              33 C0
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41AC1  xor eax,eax                              33 C0
+     41AC3  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AC8  mov ecx,eax                              8B C8
+     41ACA  xor eax,eax                              33 C0
+>    41ACC  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AD1  and ecx,40h                              83 E1 40
+     41AD4  jne near 0000000000041B62h               0F 85 88 00 00 00
+--- CAS
+     41AD4  jne near 0000000000041B62h               0F 85 88 00 00 00
+     41ADA  mov ecx,eax                              8B C8
+     41ADC  mov edx,eax                              8B D0
+     41ADE  btr ecx,7                                0F BA F1 07
+>    41AE2  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41AE7  cmp eax,edx                              3B C2
+     41AE9  jne short 0000000000041ADAh              75 EF
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41AE2  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41AE7  cmp eax,edx                              3B C2
+     41AE9  jne short 0000000000041ADAh              75 EF
+     41AEB  xor eax,eax                              33 C0
+>    41AED  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AF2  mov ecx,eax                              8B C8
+     41AF4  xor eax,eax                              33 C0
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41AEB  xor eax,eax                              33 C0
+     41AED  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AF2  mov ecx,eax                              8B C8
+     41AF4  xor eax,eax                              33 C0
+>    41AF6  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41AFB  and ecx,20h                              83 E1 20
+     41AFE  jne short 0000000000041B50h              75 50
+--- CAS
+     41AFE  jne short 0000000000041B50h              75 50
+     41B00  mov ecx,eax                              8B C8
+     41B02  mov edx,eax                              8B D0
+     41B04  and ecx,0FFFFFFBFh                       83 E1 BF
+>    41B07  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41B0C  cmp eax,edx                              3B C2
+     41B0E  jne short 0000000000041B00h              75 F0
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41B07  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41B0C  cmp eax,edx                              3B C2
+     41B0E  jne short 0000000000041B00h              75 F0
+     41B10  xor eax,eax                              33 C0
+>    41B12  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41B17  mov ecx,eax                              8B C8
+     41B19  mov edx,eax                              8B D0
+--- CAS
+     41B12  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41B17  mov ecx,eax                              8B C8
+     41B19  mov edx,eax                              8B D0
+     41B1B  and ecx,0FFFFFFDFh                       83 E1 DF
+>    41B1E  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41B23  cmp eax,edx                              3B C2
+     41B25  jne short 0000000000041B17h              75 F0
+--- CAS
+     41B4F  ret                                      C3
+     41B50  mov ecx,eax                              8B C8
+     41B52  mov edx,eax                              8B D0
+     41B54  or ecx,40h                               83 C9 40
+>    41B57  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41B5C  cmp eax,edx                              3B C2
+     41B5E  je short 0000000000041B10h               74 B0
+--- CAS
+     41B60  jmp short 0000000000041B50h              EB EE
+     41B62  mov ecx,eax                              8B C8
+     41B64  mov edx,eax                              8B D0
+     41B66  bts ecx,7                                0F BA E9 07
+>    41B6A  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41B6F  cmp eax,edx                              3B C2
+     41B71  je near 0000000000041AEBh                0F 84 74 FF FF FF
+--- ATOMIC-LOAD? (src EBP must be 0)
+     41B6F  cmp eax,edx                              3B C2
+     41B71  je near 0000000000041AEBh                0F 84 74 FF FF FF
+     41B77  jmp short 0000000000041B62h              EB E9
+     41B79  xor eax,eax                              33 C0
+>    41B7B  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41B80  mov ecx,eax                              8B C8
+     41B82  mov edx,eax                              8B D0
+--- CAS
+     41B7B  lock cmpxchg [r8],ebp                    F0 41 0F B1 28
+     41B80  mov ecx,eax                              8B C8
+     41B82  mov edx,eax                              8B D0
+     41B84  and ecx,0FFFFFFFEh                       83 E1 FE
+>    41B87  lock cmpxchg [r8],ecx                    F0 41 0F B1 08
+     41B8C  cmp eax,edx                              3B C2
+     41B8E  je near 0000000000041AC1h                0F 84 2D FF FF FF
+=== 419A8..+1EE : 23 lock ops, 16 atomic-load candidates

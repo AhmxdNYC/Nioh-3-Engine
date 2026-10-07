@@ -1,0 +1,211 @@
+; ---- Nioh3+403A0 .. +40683 (pdata fn Some (263072u, 263146u))
+   403A0  push    rbx                                       
+   403A2  push    rsi                                       
+   403A3  push    r13                                       
+   403A5  push    r15                                       
+   403A7  sub     rsp,38h                                   
+   403AB  movsx   eax,word [rdx+20h]                        
+   403AF  xor     r13d,r13d                                 
+   403B2  mov     r15,rcx                                   
+   403B5  test    r9d,r9d                                   
+   403B8  jne     near 00000000000404A8h                    
+   403BE  lea     esi,[rax-1]                               
+   403C1  mov     rbx,[rcx+428h]                            
+   403C8  mov     edx,esi                                   
+   403CA  mov     r9,rbx                                    
+   403CD  mov     [rsp+20h],r13b                            
+   403D2  call    0000000000040800h                         
+   403D7  movzx   r9d,al                                    
+   403DB  mov     r8,r13                                    
+   403DE  mov     rax,[rbx]                                 
+   403E1  test    rax,rax                                   
+   403E4  jne     near 00000000000404C1h                    
+   403EA  mov     [rsp+60h],rbp                             
+   403EF  mov     [rsp+68h],rdi                             
+   403F4  mov     [rsp+30h],r14                             
+   403F9  test    r8,r8                                     
+   403FC  jne     near 00000000000404D9h                    
+   40402  test    r9b,r9b                                   
+   40405  jne     near 000000000004048Eh                    
+   4040B  mov     r8,[r15+440h]                             
+   40412  mov     rcx,r15                                   
+   40415  mov     rax,3AEF6CA970586723h                     
+   4041F  mov     ebx,r13d                                  
+   40422  mov     r14,[r8+10h]                              
+   40426  mov     ebp,[r8+28h]                              
+   4042A  sub     rcx,r14                                   
+   4042D  imul    rcx                                       
+   40430  mov     rdi,rdx                                   
+   40433  sar     rdi,8                                     
+   40437  mov     rax,rdi                                   
+   4043A  shr     rax,3Fh                                   
+   4043E  add     rdi,rax                                   
+   40441  lea     eax,[rdi+1]                               
+   40444  cmp     eax,ebp                                   
+   40446  cmovl   ebx,eax                                   
+   40449  cmp     edi,ebx                                   
+   4044B  je      short 000000000004047Fh                   
+   4044D  nop     dword [rax]                               
+   40450  movsxd  rax,ebx                                   
+   40453  mov     edx,esi                                   
+   40455  imul    rcx,rax,458h                              
+   4045C  add     rcx,r14                                   
+   4045F  call    00000000000411C0h                         
+   40464  mov     r8,rax                                    
+   40467  test    rax,rax                                   
+   4046A  jne     near 00000000000405AAh                    
+   40470  lea     eax,[rbx+1]                               
+   40473  mov     ebx,r13d                                  
+   40476  cmp     eax,ebp                                   
+   40478  cmovl   ebx,eax                                   
+   4047B  cmp     edi,ebx                                   
+   4047D  jne     short 0000000000040450h                   
+   4047F  xor     eax,eax                                   
+   40481  lock cmpxchg [r15+454h],r13d                      
+   4048A  test    al,1                                      
+   4048C  je      short 00000000000404B7h                   
+   4048E  mov     r14,[rsp+30h]                             
+   40493  mov     rdi,[rsp+68h]                             
+   40498  mov     rbp,[rsp+60h]                             
+   4049D  add     rsp,38h                                   
+   404A1  pop     r15                                       
+   404A3  pop     r13                                       
+   404A5  pop     rsi                                       
+   404A6  pop     rbx                                       
+   404A7  ret                                               
+   404A8  cmp     r9d,1                                     
+   404AC  mov     esi,r13d                                  
+   404AF  cmove   esi,eax                                   
+   404B2  jmp     00000000000403C1h                         
+   404B7  xor     ecx,ecx                                   
+   404B9  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+   404BF  jmp     short 000000000004048Eh                   
+   404C1  mov     rcx,[rbx+rax*4+28h]                       
+   404C6  lea     r8,[rbx+rax*4]                            
+   404CA  mov     [rbx],rcx                                 
+   404CD  mov     rcx,r13                                   
+   404D0  xchg    rcx,[r8+28h]                              
+   404D4  jmp     00000000000403EAh                         
+   404D9  mov     [rsp+70h],r12                             
+   404DE  movsx   edx,word [r8+20h]                         
+   404E3  dec     edx                                       
+   404E5  cmp     edx,80h                                   
+   404EB  jge     near 0000000001906A5Ch                    
+   404F1  mov     r10d,edx                                  
+   404F4  mov     eax,edx                                   
+   404F6  and     r10d,1Fh                                  
+   404FA  test    edx,edx                                   
+   404FC  jns     short 0000000000040505h                   
+   404FE  lea     eax,[rdx+1Fh]                             
+   40501  sub     r10d,20h                                  
+   40505  sar     eax,5                                     
+   40508  mov     r14,r13                                   
+   4050B  movsxd  rcx,eax                                   
+   4050E  mov     rax,[r15+448h]                            
+   40515  lea     r11,[rax+rcx*4]                           
+   40519  mov     rax,[r15+418h]                            
+   40520  movsxd  rcx,edx                                   
+   40523  lea     rbp,[rax+rcx*8]                           
+   40527  xor     eax,eax                                   
+   40529  lock cmpxchg [rbp],r13                            
+   4052F  mov     edx,[r8+30h]                              
+   40533  mov     r12,r8                                    
+   40536  sub     r12,rbp                                   
+   40539  mov     rdi,rax                                   
+   4053C  sar     r12,2                                     
+   40540  mov     r12d,r12d                                 
+   40543  lea     ecx,[rdx+1]                               
+   40546  mov     [r8+30h],ecx                              
+   4054A  mov     ecx,edx                                   
+   4054C  shl     rcx,20h                                   
+   40550  or      r12,rcx                                   
+   40553  mov     rax,r14                                   
+   40556  lock cmpxchg [r8+28h],rdi                         
+   4055C  mov     r14,rdi                                   
+   4055F  mov     rax,rdi                                   
+   40562  lock cmpxchg [rbp],r12                            
+   40568  mov     rdi,rax                                   
+   4056B  cmp     r14,rax                                   
+   4056E  jne     short 0000000000040553h                   
+   40570  xor     eax,eax                                   
+   40572  lock cmpxchg [r11],r13d                           
+   40577  mov     ecx,eax                                   
+   40579  mov     edx,eax                                   
+   4057B  bts     ecx,r10d                                  
+   4057F  lock cmpxchg [r11],ecx                            
+   40584  cmp     edx,eax                                   
+   40586  jne     short 0000000000040577h                   
+   40588  mov     rax,[rbx]                                 
+   4058B  mov     r8,r13                                    
+   4058E  test    rax,rax                                   
+   40591  jne     near 0000000000040656h                    
+   40597  test    r8,r8                                     
+   4059A  jne     near 00000000000404DEh                    
+   405A0  mov     r12,[rsp+70h]                             
+   405A5  jmp     0000000000040402h                         
+   405AA  movsx   r9d,word [rax+20h]                        
+   405AF  dec     r9d                                       
+   405B2  cmp     r9d,80h                                   
+   405B9  jge     near 0000000001906A66h                    
+   405BF  mov     eax,r9d                                   
+   405C2  mov     rbx,r13                                   
+   405C5  cdq                                               
+   405C6  and     edx,1Fh                                   
+   405C9  add     eax,edx                                   
+   405CB  mov     ecx,eax                                   
+   405CD  and     eax,1Fh                                   
+   405D0  sar     ecx,5                                     
+   405D3  sub     eax,edx                                   
+   405D5  movsxd  rdx,ecx                                   
+   405D8  mov     esi,eax                                   
+   405DA  mov     rcx,[r15+448h]                            
+   405E1  xor     eax,eax                                   
+   405E3  lea     r10,[rcx+rdx*4]                           
+   405E7  mov     rcx,[r15+418h]                            
+   405EE  movsxd  rdx,r9d                                   
+   405F1  lea     r11,[rcx+rdx*8]                           
+   405F5  lock cmpxchg [r11],r13                            
+   405FA  mov     edx,[r8+30h]                              
+   405FE  mov     rdi,r8                                    
+   40601  sub     rdi,r11                                   
+   40604  mov     r9,rax                                    
+   40607  sar     rdi,2                                     
+   4060B  mov     edi,edi                                   
+   4060D  lea     ecx,[rdx+1]                               
+   40610  mov     [r8+30h],ecx                              
+   40614  mov     ecx,edx                                   
+   40616  shl     rcx,20h                                   
+   4061A  or      rdi,rcx                                   
+   4061D  mov     rax,rbx                                   
+   40620  lock cmpxchg [r8+28h],r9                          
+   40626  mov     rbx,r9                                    
+   40629  mov     rax,r9                                    
+   4062C  lock cmpxchg [r11],rdi                            
+   40631  mov     r9,rax                                    
+   40634  cmp     rbx,rax                                   
+   40637  jne     short 000000000004061Dh                   
+   40639  xor     eax,eax                                   
+   4063B  lock cmpxchg [r10],r13d                           
+   40640  mov     ecx,eax                                   
+   40642  mov     edx,eax                                   
+   40644  bts     ecx,esi                                   
+   40647  lock cmpxchg [r10],ecx                            
+   4064C  cmp     edx,eax                                   
+   4064E  je      near 000000000004048Eh                    
+   40654  jmp     short 0000000000040640h                   
+   40656  lea     r8,[rbx+rax*4]                            
+   4065A  mov     rax,[rbx+rax*4+28h]                       
+   4065F  mov     [rbx],rax                                 
+   40662  mov     rax,r13                                   
+   40665  xchg    rax,[r8+28h]                              
+   40669  jmp     0000000000040597h                         
+   4066E  int3                                              
+   4066F  int3                                              
+   40670  xor     edx,edx                                   
+   40672  xor     eax,eax                                   
+   40674  lock cmpxchg [rcx+454h],edx                       
+   4067C  and     al,1                                      
+   4067E  ret                                               
+   4067F  int3                                              
+   40680  push    rbx                                       
+   40682  push    rdi                                       

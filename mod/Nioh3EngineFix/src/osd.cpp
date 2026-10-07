@@ -1,0 +1,1016 @@
+// osd.cpp - in-game overlay for Nioh3EngineFix (see osd.h and notes\osd-design.md).
+//
+// How it works
+//   1. A background thread waits until the engine runs frames (known build: frame counter G+0x610 advancing), then
+//      creates a throw-away D3D12 device/queue/swapchain on a hidden window with the SYSTEM d3d12.dll / dxgi.dll
+//      (Windows: the real DXGI; Proton: DXVK's dxgi + vkd3d-proton) to learn the swapchain class's vtable, releases
+//      it again, and swaps vtable slots 8 (Present), 22 (Present1) and 38 (SetColorSpace1) for our hooks.
+//      Every swapchain of that class shares the vtable, so the hook sees the game's bottom-most Present: with FSR
+//      frame generation that is the FidelityFX presenter thread presenting real AND generated frames; without it,
+//      the engine's present thread. Steam overlay / RTSS inline hooks stay in the chain (we call the original).
+//   2. In the hook (outermost call only, never for DXGI_PRESENT_TEST) we count presents, sample the engine, and draw:
+//      the swapchain's own queue (IDXGISwapChain::GetDevice(ID3D12CommandQueue)), one command list from a ring of 4
+//      allocators, back buffer PRESENT -> RENDER_TARGET -> PRESENT, one instanced draw of glyph quads (font in a
+//      constant buffer, shaders precompiled DXBC), ExecuteCommandLists + Signal, then the original Present.
+//      No back-buffer reference is kept between frames, so the game's ResizeBuffers is never blocked.
+//   3. Fail-safe: every call is checked; any failure disables drawing (the hook keeps passing through) and logs why.
+//      Drawing runs under SEH. A busy lock or an unfinished GPU slot skips the overlay for that frame - never blocks.
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <d3d12.h>
+#include <dxgi1_4.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <string>
+
+#include "menu.h"
+#include "osd.h"
+#include "osd_font.h"
+#include "osd_shaders.h"
+
+// diagnostics exported by caves.asm (VRR). vrr_scale stays 1.0 when the VRR group is not installed.
+extern "C" {
+extern float vrr_scale;
+extern uint32_t vrr_fpsOut;
+extern uint32_t vrr_tier;
+extern uint32_t vrr_capCur;
+}
+
+namespace osd {
+namespace {
+
+// ---- engine addresses (Nioh 3 Steam v2.02 only; see notes\frame-timing.md, notes\settings.md) -----------------------
+constexpr uint32_t kRvaFrameMgrPtr = 0x4759910;  // G = [base+4759910]
+constexpr uint32_t kOffFrameCounter = 0x610;     // G+610: +1 per engine frame
+constexpr uint32_t kOffFpsForDt = 0x614;         // G+614: fps used for dt this frame
+constexpr uint32_t kRvaRenFps = 0x45BAF54;       // REN_FPS index -> {30,60,120}
+constexpr uint32_t kRvaDynamicFps = 0x45BAF58;   // DYNAMIC_FPS 0 = OFF, 1 = ON
+constexpr uint32_t kRvaFrameGen = 0x45BB008;     // FRAME_GENERATION 0 OFF, 1 DLSS, 2 FSR, 3 XeSS
+
+// ---- DXGI vtable slots (IDXGISwapChain4 single-inheritance layout) -------------------------------------------------
+constexpr int kSlotPresent = 8, kSlotPresent1 = 22, kSlotSetColorSpace1 = 38;
+
+constexpr int kRing = 4;          // command allocators / instance regions in flight
+constexpr int kMaxInst = 4096;    // quads per frame (counter + popup + mod menu)
+constexpr UINT kInstBytes = 24;   // float4 rect + uint glyph + uint color
+constexpr UINT kFontCb = 6144;    // 95 glyphs * 16 rows * 4 B = 6080, rounded to 256
+constexpr UINT kSlotBytes = kMaxInst * kInstBytes;
+constexpr uint32_t kSolid = 0xFFFF;
+static_assert(osdfont::kWords * 4 <= (int)kFontCb, "font does not fit the constant buffer");
+
+using LogFn = void (*)(const char*, ...);
+LogFn g_log = nullptr;
+#define OLOG(...)                                \
+    do {                                         \
+        if (g_log) g_log("OSD: " __VA_ARGS__);   \
+    } while (0)
+
+using Settings = OverlaySettings;  // osd.h (shared with the mod menu)
+
+struct Info {
+    std::string version, wine, skippedNames;
+    uint8_t* base = nullptr;
+    bool known = false, vrr = false;
+    int applied = 0, skipped = 0;
+    State l1 = State::Off, f1 = State::Off;
+};
+
+Settings g_cfg;
+Info g_info;
+LARGE_INTEGER g_freq{};
+
+// ---- hooks ----------------------------------------------------------------------------------------------------------
+using PresentFn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain*, UINT, UINT);
+using Present1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain1*, UINT, UINT, const DXGI_PRESENT_PARAMETERS*);
+using SetCs1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain3*, DXGI_COLOR_SPACE_TYPE);
+PresentFn g_origPresent = nullptr;
+Present1Fn g_origPresent1 = nullptr;
+SetCs1Fn g_origSetCs1 = nullptr;
+thread_local int t_depth = 0;
+volatile LONG g_disabled = 0;
+volatile LONG g_colorSpace = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+SRWLOCK g_lock = SRWLOCK_INIT;
+
+// ---- small helpers --------------------------------------------------------------------------------------------------
+int64_t Qpc() {
+    LARGE_INTEGER t;
+    QueryPerformanceCounter(&t);
+    return t.QuadPart;
+}
+double Secs(int64_t ticks) { return (double)ticks / (double)g_freq.QuadPart; }
+
+template <class T>
+bool Rd(const void* p, T& out) {
+    if (!p) return false;
+    __try {
+        out = *static_cast<const volatile T*>(p);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+uint8_t* EngineG() {
+    if (!g_info.known || !g_info.base) return nullptr;
+    uint64_t g = 0;
+    if (!Rd(g_info.base + kRvaFrameMgrPtr, g) || g < 0x10000) return nullptr;
+    return reinterpret_cast<uint8_t*>((uintptr_t)g);
+}
+
+int ReadCfg(uint32_t rva) {
+    int v = -1;
+    if (g_info.known && g_info.base) Rd(g_info.base + rva, v);
+    return v;
+}
+
+std::string ModuleOf(const void* p) {
+    HMODULE m = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            (LPCWSTR)p, &m))
+        return "?";
+    wchar_t w[MAX_PATH] = {};
+    GetModuleFileNameW(m, w, MAX_PATH);
+    char a[MAX_PATH * 2] = {};
+    WideCharToMultiByte(CP_UTF8, 0, w, -1, a, (int)sizeof(a), nullptr, nullptr);
+    char buf[MAX_PATH * 2 + 32];
+    snprintf(buf, sizeof(buf), "%s+%llX", a, (unsigned long long)((const uint8_t*)p - (const uint8_t*)m));
+    return buf;
+}
+
+std::string ThreadName() {
+    using GetDescFn = HRESULT(WINAPI*)(HANDLE, PWSTR*);
+    static GetDescFn fn = []() -> GetDescFn {
+        HMODULE k = GetModuleHandleW(L"kernelbase.dll");
+        if (!k) k = GetModuleHandleW(L"kernel32.dll");
+        return k ? reinterpret_cast<GetDescFn>(GetProcAddress(k, "GetThreadDescription")) : nullptr;
+    }();
+    std::string out;
+    PWSTR w = nullptr;
+    if (fn && SUCCEEDED(fn(GetCurrentThread(), &w)) && w) {
+        char a[256] = {};
+        WideCharToMultiByte(CP_UTF8, 0, w, -1, a, (int)sizeof(a), nullptr, nullptr);
+        out = a;
+        LocalFree(w);
+    }
+    return out;
+}
+
+const char* StateStr(State s) {
+    switch (s) {
+        case State::On: return "on";
+        case State::WineSkipped: return "off (Wine)";
+        case State::Failed: return "failed";
+        default: return "off";
+    }
+}
+
+// ---- statistics (all touched under g_lock from the present hook) ---------------------------------------------------
+struct Stats {
+    int64_t winStart = 0;
+    uint32_t frame0 = 0;
+    uint64_t presents = 0, presents0 = 0;
+    double dtSum = 0;
+    int dtN = 0;
+    bool haveRates = false, haveReal = false, fgActive = false;
+    double realFps = 0, presentFps = 0, frameMs = 0, speed = 0, ratio = 0;
+    int64_t lastLog = 0;
+    uint64_t draws = 0, skips = 0;
+    int fsrThreadSeen = 0;
+    DWORD seenTid[8] = {};
+    int seenN = 0;
+};
+Stats g_st;
+
+void NoteThread() {
+    DWORD tid = GetCurrentThreadId();
+    for (int i = 0; i < g_st.seenN; ++i)
+        if (g_st.seenTid[i] == tid) return;
+    std::string name = ThreadName();
+    if (g_st.seenN < 8) g_st.seenTid[g_st.seenN++] = tid;
+    if (name.find("FSR") != std::string::npos || name.find("FrameInterpolation") != std::string::npos)
+        g_st.fsrThreadSeen = 1;
+    OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
+}
+
+void UpdateStats(int64_t now) {
+    ++g_st.presents;
+    uint8_t* G = EngineG();
+    if (G) {
+        int fps = 0;
+        if (Rd(G + kOffFpsForDt, fps) && fps > 0 && fps < 100000) {
+            g_st.dtSum += (double)vrr_scale / (double)fps;  // game seconds advanced per engine frame
+            ++g_st.dtN;
+        }
+    }
+    if (g_st.winStart == 0) {
+        g_st.winStart = now;
+        g_st.presents0 = g_st.presents;
+        if (G) Rd(G + kOffFrameCounter, g_st.frame0);
+        g_st.lastLog = now;
+        return;
+    }
+    const double el = Secs(now - g_st.winStart);
+    if (el < 0.5) return;
+    uint32_t fr = 0;
+    g_st.haveReal = G && Rd(G + kOffFrameCounter, fr);
+    g_st.realFps = g_st.haveReal ? (double)(uint32_t)(fr - g_st.frame0) / el : 0.0;
+    g_st.frame0 = fr;
+    g_st.presentFps = (double)(g_st.presents - g_st.presents0) / el;
+    g_st.frameMs = g_st.realFps > 0.5 ? 1000.0 / g_st.realFps : 0.0;
+    g_st.speed = g_st.dtN ? g_st.realFps * g_st.dtSum / g_st.dtN : 0.0;
+    g_st.ratio = g_st.realFps > 0.5 ? g_st.presentFps / g_st.realFps : 0.0;
+    if (!g_st.fgActive && g_st.realFps > 5 && g_st.ratio > 1.4) g_st.fgActive = true;
+    else if (g_st.fgActive && (g_st.ratio < 1.2 || g_st.realFps <= 5)) g_st.fgActive = false;
+    g_st.haveRates = true;
+    g_st.winStart = now;
+    g_st.presents0 = g_st.presents;
+    g_st.dtSum = 0;
+    g_st.dtN = 0;
+    if (Secs(now - g_st.lastLog) >= 30.0) {
+        g_st.lastLog = now;
+        OLOG("stats: real %.1f fps, presented %.1f fps (x%.2f, FG %s), speed %.2fx, vrr tier %u cap %u armed %u, "
+             "draws %llu, skipped %llu",
+             g_st.realFps, g_st.presentFps, g_st.ratio, g_st.fgActive ? "active" : "off", g_st.speed, vrr_tier,
+             vrr_capCur, vrr_fpsOut, (unsigned long long)g_st.draws, (unsigned long long)g_st.skips);
+    }
+}
+
+const char* FgName(int setting) {
+    switch (setting) {
+        case 1: return "DLSS";
+        case 2: return "FSR";
+        case 3: return "XeSS";
+        default: return nullptr;
+    }
+}
+
+const char* FgActiveName() {
+    if (g_st.fsrThreadSeen) return "FSR";
+    if (const char* n = FgName(ReadCfg(kRvaFrameGen))) return n;
+    if (GetModuleHandleW(L"libxess_fg.dll")) return "XeSS";
+    if (GetModuleHandleW(L"sl.dlss_g.dll")) return "DLSS";
+    return "external";
+}
+
+// ---- text layout ----------------------------------------------------------------------------------------------------
+struct Inst {
+    float x, y, w, h;
+    uint32_t glyph, color;
+};
+static_assert(sizeof(Inst) == kInstBytes, "instance layout");
+Inst g_inst[kMaxInst];
+int g_n = 0;
+int g_nMain = 0;          // quads [0, g_nMain) use the counter scale, [g_nMain, g_n) the menu scale
+float g_menuScale = 0;    // text scale of the menu quads (0 = none this frame)
+
+constexpr uint32_t kWhite = 0xFFFFFFFF, kGray = 0xFFB4B4B4, kGreen = 0xFF6CFF6C, kYellow = 0xFF40E6FF,
+                   kOrange = 0xFF3C8CFF, kCyan = 0xFFFFE08C, kRed = 0xFF5050FF, kPanel = 0xA0000000;
+
+uint32_t Fade(uint32_t c, float a) {
+    uint32_t al = (uint32_t)std::clamp((float)(c >> 24) * a, 0.0f, 255.0f);
+    return (c & 0x00FFFFFFu) | (al << 24);
+}
+
+struct Seg {
+    char t[112];
+    uint32_t c;
+};
+struct Line {
+    Seg s[4];
+    int n = 0;
+    void add(uint32_t c, const char* fmt, ...) {
+        if (n >= 4) return;
+        va_list ap;
+        va_start(ap, fmt);
+        vsnprintf(s[n].t, sizeof(s[n].t), fmt, ap);
+        va_end(ap);
+        s[n++].c = c;
+    }
+    size_t chars() const {
+        size_t k = 0;
+        for (int i = 0; i < n; ++i) k += strlen(s[i].t);
+        return k;
+    }
+};
+
+void AddQuad(float x, float y, float w, float h, uint32_t glyph, uint32_t color) {
+    if (g_n >= kMaxInst) return;
+    g_inst[g_n++] = {x, y, w, h, glyph, color};
+}
+
+float AddText(float x, float y, const char* t, uint32_t color, float sc) {
+    for (; *t; ++t) {
+        unsigned ch = (unsigned char)*t;
+        if (ch < (unsigned)osdfont::kFirst || ch > (unsigned)osdfont::kLast) ch = '?';
+        if (ch != ' ')
+            AddQuad(x - sc, y - sc, (osdfont::kW + 2) * sc, (osdfont::kH + 2) * sc, ch - osdfont::kFirst, color);
+        x += osdfont::kW * sc;
+    }
+    return x;
+}
+
+// draws a block of lines inside a translucent panel; returns the block height
+float DrawBlock(const Line* lines, int count, float x, float y, bool alignRight, float sc, float alpha) {
+    if (count <= 0) return 0;
+    const float pad = 4 * sc, lineH = (osdfont::kH + 2) * sc;
+    size_t maxChars = 0;
+    for (int i = 0; i < count; ++i) maxChars = std::max(maxChars, lines[i].chars());
+    const float w = (float)maxChars * osdfont::kW * sc + 2 * pad, h = count * lineH + 2 * pad - 2 * sc;
+    if (alignRight) x -= w;
+    AddQuad(x, y, w, h, kSolid, Fade(kPanel, alpha));
+    for (int i = 0; i < count; ++i) {
+        float cx = x + pad;
+        for (int k = 0; k < lines[i].n; ++k) cx = AddText(cx, y + pad + i * lineH, lines[i].s[k].t, Fade(lines[i].s[k].c, alpha), sc);
+    }
+    return h;
+}
+
+int64_t g_firstDraw = 0;
+
+float CounterScaleImpl(UINT H) {
+    const float autoMul = (float)std::max(1u, (H + 540) / 1080);  // 1080p/1440p: 1, 4K: 2
+    return std::clamp(g_cfg.scale * autoMul, 0.5f, 8.0f);
+}
+
+void BuildOverlay(UINT W, UINT H, int64_t now) {
+    g_n = 0;
+    g_nMain = 0;
+    g_menuScale = 0;
+    const float sc = CounterScaleImpl(H);
+    const float margin = 8 * sc;
+    const bool right = g_cfg.pos == 1 || g_cfg.pos == 3, bottom = g_cfg.pos >= 2;
+
+    Line counter;
+    if (g_cfg.fpsCounter) {
+        if (!g_st.haveRates) {
+            counter.add(kWhite, "Real FPS: --");
+        } else if (!g_st.haveReal) {
+            counter.add(kWhite, "FPS: %.0f", g_st.presentFps);  // unknown build: presented frames only
+        } else {
+            counter.add(kWhite, "Real FPS: %.0f", g_st.realFps);
+            if (g_st.fgActive) counter.add(kCyan, " | FG FPS: %.0f", g_st.presentFps);
+            else counter.add(kGray, " | FG: off");
+            if (g_cfg.frameTime && g_st.frameMs > 0) counter.add(kWhite, " | %.1f ms", g_st.frameMs);
+            if (g_cfg.speed && g_st.speed > 0) {
+                const bool ok = g_st.speed > 0.97 && g_st.speed < 1.03;
+                counter.add(ok ? kGreen : kYellow, " | %.2fx", g_st.speed);
+            }
+        }
+    }
+
+    Line pop[7];
+    int np = 0;
+    float popAlpha = 0;
+    if (g_cfg.popup && g_firstDraw && !menu::IsOpen()) {
+        const double t = Secs(now - g_firstDraw) - g_cfg.popupDelay;
+        if (t >= 0 && t < g_cfg.popupSeconds) {
+            popAlpha = (float)std::min({1.0, t / 0.3, (g_cfg.popupSeconds - t) / 1.5});
+            const int total = g_info.applied + g_info.skipped;
+            Line& h = pop[np++];
+            h.add(g_info.skipped ? kYellow : kGreen, "Nioh3EngineFix v%s loaded - %d/%d fixes active", g_info.version.c_str(),
+                  g_info.applied, total);
+            if (g_info.skipped && !g_info.skippedNames.empty()) h.add(kYellow, " (skipped: %s)", g_info.skippedNames.c_str());
+            if (!g_info.known) pop[np++].add(kYellow, "Unknown game build - engine readouts off");
+            const int fgSet = ReadCfg(kRvaFrameGen);
+            Line& fg = pop[np++];
+            if (!g_st.haveRates || !g_st.haveReal) {
+                fg.add(kWhite, g_st.haveRates ? "Frame generation: unknown" : "Frame generation: measuring...");
+            } else if (g_st.fgActive) {
+                fg.add(kWhite, "Frame generation: ");
+                fg.add(kCyan, "%s active", FgActiveName());
+                fg.add(kWhite, " (%.0f -> %.0f fps)", g_st.realFps, g_st.presentFps);
+            } else if (FgName(fgSet)) {
+                fg.add(kWhite, "Frame generation: ");
+                fg.add(kYellow, "%s selected but NOT running", FgName(fgSet));
+            } else {
+                fg.add(kWhite, "Frame generation: off");
+            }
+            const int renIdx = ReadCfg(kRvaRenFps);
+            static const int kTiers[3] = {30, 60, 120};
+            const int cap = renIdx >= 0 && renIdx <= 2 ? kTiers[renIdx] : 0;
+            Line& v = pop[np++];
+            if (g_info.vrr) {
+                v.add(kWhite, "VRR timing: ");
+                v.add(kGreen, "on");
+                if (cap) v.add(kWhite, " - %d fps cap (limiter %u)", cap, vrr_capCur);
+                if (g_st.haveRates && g_st.speed > 0)
+                    v.add(g_st.speed > 0.97 && g_st.speed < 1.03 ? kGreen : kYellow, ", game speed %.2fx", g_st.speed);
+            } else {
+                v.add(kWhite, "VRR timing: ");
+                v.add(kGray, "off");
+                if (cap) v.add(kWhite, " - %d fps cap (stock: slow-down below it)", cap);
+            }
+            if (ReadCfg(kRvaDynamicFps) == 1)
+                pop[np++].add(kOrange, "WARNING: 'FPS dynamic adjustment' is ON - set it OFF");
+            Line& p = pop[np++];
+            if (!g_info.wine.empty())
+                p.add(kWhite, "Proton/Wine %s detected - L1 %s, F1 %s", g_info.wine.c_str(), StateStr(g_info.l1), StateStr(g_info.f1));
+            else
+                p.add(kWhite, "Windows - L1 %s, F1 %s", StateStr(g_info.l1), StateStr(g_info.f1));
+        }
+    }
+
+    // stack: counter first, popup next to it (below for top positions, above for bottom positions)
+    const float x = right ? (float)W - margin : margin;
+    const float gap = 4 * sc, lineH = (osdfont::kH + 2) * sc, pad = 4 * sc;
+    float y = bottom ? (float)H - margin : margin;
+    auto place = [&](const Line* l, int n, float a) {
+        if (n <= 0) return;
+        const float h = n * lineH + 2 * pad - 2 * sc;
+        if (bottom) {
+            y -= h;
+            DrawBlock(l, n, x, y, right, sc, a);
+            y -= gap;
+        } else {
+            DrawBlock(l, n, x, y, right, sc, a);
+            y += h + gap;
+        }
+    };
+    if (counter.n) place(&counter, 1, 1.0f);
+    if (np && popAlpha > 0) place(pop, np, popAlpha);
+    g_nMain = g_n;
+    g_menuScale = menu::Draw(W, H);  // mod menu / pause hint / hold indicator (menu.cpp), drawn at its own scale
+    if (g_menuScale <= 0) g_n = g_nMain;
+}
+
+// ---- D3D12 drawing context (one per swapchain; rebuilt when the presenting swapchain changes) -----------------------
+template <class T>
+void SafeRelease(T*& p) {
+    if (p) p->Release();
+    p = nullptr;
+}
+
+struct Ctx {
+    IDXGISwapChain* sc = nullptr;    // identity only - NO reference held (would block the game's swapchain teardown)
+    IDXGISwapChain3* sc3 = nullptr;  // same object, no reference held; only used inside its own Present
+    ID3D12CommandQueue* q = nullptr;
+    ID3D12Device* dev = nullptr;
+    ID3D12Fence* fence = nullptr;
+    HANDLE ev = nullptr;
+    uint64_t fenceVal = 0, slotVal[kRing] = {};
+    ID3D12CommandAllocator* alloc[kRing] = {};
+    ID3D12GraphicsCommandList* cl = nullptr;
+    ID3D12DescriptorHeap* rtv = nullptr;
+    UINT rtvInc = 0;
+    ID3D12Resource* upload = nullptr;
+    uint8_t* mapped = nullptr;
+    ID3D12RootSignature* rs = nullptr;
+    ID3D12PipelineState* pso = nullptr;
+    DXGI_FORMAT psoFmt = DXGI_FORMAT_UNKNOWN;
+    uint64_t frame = 0;
+    int64_t lastPresent = 0;
+    bool ok = false;
+};
+Ctx g_ctx;
+IDXGISwapChain* g_bad[8] = {};
+int g_badN = 0;
+int g_ctxBuilds = 0;
+
+bool IsBad(IDXGISwapChain* sc) {
+    for (int i = 0; i < g_badN; ++i)
+        if (g_bad[i] == sc) return true;
+    return false;
+}
+void MarkBad(IDXGISwapChain* sc) {
+    static int next = 0;
+    g_bad[next] = sc;
+    next = (next + 1) % 8;
+    g_badN = std::min(g_badN + 1, 8);
+}
+
+void WaitIdle(Ctx& c, DWORD ms) {
+    if (!c.fence || !c.ev || c.fence->GetCompletedValue() >= c.fenceVal) return;
+    if (SUCCEEDED(c.fence->SetEventOnCompletion(c.fenceVal, c.ev))) WaitForSingleObject(c.ev, ms);
+}
+
+void DestroyCtx(Ctx& c) {
+    WaitIdle(c, 500);
+    if (c.upload && c.mapped) c.upload->Unmap(0, nullptr);
+    SafeRelease(c.pso);
+    SafeRelease(c.rs);
+    SafeRelease(c.upload);
+    SafeRelease(c.rtv);
+    SafeRelease(c.cl);
+    for (auto& a : c.alloc) SafeRelease(a);
+    SafeRelease(c.fence);
+    if (c.ev) CloseHandle(c.ev);
+    SafeRelease(c.dev);
+    SafeRelease(c.q);
+    c = Ctx{};
+}
+
+#define CHECK(expr, what)                                                                     \
+    do {                                                                                      \
+        HRESULT hr_ = (expr);                                                                 \
+        if (FAILED(hr_)) {                                                                    \
+            OLOG("%s failed (hr %08lX) - overlay off for this swapchain", what, (unsigned long)hr_); \
+            return false;                                                             \
+        }                                                                                     \
+    } while (0)
+
+bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
+    c.sc = sc;
+    ++g_ctxBuilds;
+    IDXGISwapChain3* sc3 = nullptr;
+    CHECK(sc->QueryInterface(IID_PPV_ARGS(&sc3)), "QueryInterface(IDXGISwapChain3)");
+    c.sc3 = sc3;
+    sc3->Release();  // keep the raw pointer only
+    CHECK(sc->GetDevice(IID_PPV_ARGS(&c.q)), "IDXGISwapChain::GetDevice(ID3D12CommandQueue) (not a D3D12 swapchain?)");
+    const D3D12_COMMAND_QUEUE_DESC qd = c.q->GetDesc();
+    if (qd.Type != D3D12_COMMAND_LIST_TYPE_DIRECT) {
+        OLOG("swapchain queue is type %d, not DIRECT - overlay off for this swapchain", (int)qd.Type);
+        return false;
+    }
+    CHECK(c.q->GetDevice(IID_PPV_ARGS(&c.dev)), "ID3D12CommandQueue::GetDevice");
+    DXGI_SWAP_CHAIN_DESC sd{};
+    sc->GetDesc(&sd);
+    OLOG("swapchain %p: %ux%u fmt %d, %u buffers, swap effect %d, flags %X; queue %p (%s), device %p", (void*)sc,
+         sd.BufferDesc.Width, sd.BufferDesc.Height, (int)sd.BufferDesc.Format, sd.BufferCount, (int)sd.SwapEffect,
+         sd.Flags, (void*)c.q, ModuleOf(*(void**)c.q).c_str(), (void*)c.dev);
+
+    CHECK(c.dev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&c.fence)), "CreateFence");
+    c.ev = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!c.ev) { OLOG("CreateEvent failed"); return false; }
+    for (auto& a : c.alloc) CHECK(c.dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&a)), "CreateCommandAllocator");
+    CHECK(c.dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, c.alloc[0], nullptr, IID_PPV_ARGS(&c.cl)), "CreateCommandList");
+    CHECK(c.cl->Close(), "CommandList::Close");
+
+    D3D12_DESCRIPTOR_HEAP_DESC hd{};
+    hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    hd.NumDescriptors = kRing;
+    CHECK(c.dev->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&c.rtv)), "CreateDescriptorHeap(RTV)");
+    c.rtvInc = c.dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+    D3D12_HEAP_PROPERTIES hp{};
+    hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+    D3D12_RESOURCE_DESC rd{};
+    rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    rd.Width = kFontCb + (UINT64)kRing * kSlotBytes;
+    rd.Height = 1;
+    rd.DepthOrArraySize = 1;
+    rd.MipLevels = 1;
+    rd.SampleDesc.Count = 1;
+    rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    CHECK(c.dev->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                         IID_PPV_ARGS(&c.upload)),
+          "CreateCommittedResource(upload)");
+    D3D12_RANGE none{0, 0};
+    void* m = nullptr;
+    CHECK(c.upload->Map(0, &none, &m), "Map(upload)");
+    c.mapped = (uint8_t*)m;
+    memset(c.mapped, 0, kFontCb);
+    memcpy(c.mapped, osdfont::kBits, osdfont::kWords * 4);
+
+    using SerializeFn = HRESULT(WINAPI*)(const D3D12_ROOT_SIGNATURE_DESC*, D3D_ROOT_SIGNATURE_VERSION, ID3DBlob**, ID3DBlob**);
+    HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");
+    auto serialize = d3d12 ? reinterpret_cast<SerializeFn>(GetProcAddress(d3d12, "D3D12SerializeRootSignature")) : nullptr;
+    if (!serialize) { OLOG("D3D12SerializeRootSignature not found"); return false; }
+    D3D12_ROOT_PARAMETER rp[2]{};
+    rp[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rp[0].Descriptor.ShaderRegister = 0;
+    rp[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rp[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    rp[1].Constants.ShaderRegister = 1;
+    rp[1].Constants.Num32BitValues = 4;
+    rp[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    D3D12_ROOT_SIGNATURE_DESC rsd{};
+    rsd.NumParameters = 2;
+    rsd.pParameters = rp;
+    rsd.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+    ID3DBlob* blob = nullptr;
+    ID3DBlob* err = nullptr;
+    HRESULT hr = serialize(&rsd, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+    if (FAILED(hr)) {
+        OLOG("D3D12SerializeRootSignature failed (hr %08lX) %s", (unsigned long)hr,
+             err ? (const char*)err->GetBufferPointer() : "");
+        SafeRelease(err);
+        return false;
+    }
+    SafeRelease(err);
+    hr = c.dev->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&c.rs));
+    SafeRelease(blob);
+    CHECK(hr, "CreateRootSignature");
+    c.ok = true;
+    OLOG("drawing context ready (build #%d)", g_ctxBuilds);
+    return true;
+}
+
+bool EnsurePso(Ctx& c, DXGI_FORMAT fmt) {
+    if (c.pso && c.psoFmt == fmt) return true;
+    switch (fmt) {
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_R10G10B10A2_UNORM:
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB: break;
+        default: OLOG("back buffer format %d not supported - overlay off for this swapchain", (int)fmt); return false;
+    }
+    if (c.pso) {
+        WaitIdle(c, 500);  // in-flight lists still reference the old PSO
+        SafeRelease(c.pso);
+    }
+    static const D3D12_INPUT_ELEMENT_DESC il[3] = {
+        {"RECT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1},
+        {"GLYPH", 0, DXGI_FORMAT_R32_UINT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1},
+        {"COLOR", 0, DXGI_FORMAT_R32_UINT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1},
+    };
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
+    d.pRootSignature = c.rs;
+    d.VS = {kOsdVS, sizeof(kOsdVS)};
+    d.PS = {kOsdPS, sizeof(kOsdPS)};
+    D3D12_RENDER_TARGET_BLEND_DESC& b = d.BlendState.RenderTarget[0];
+    b.BlendEnable = TRUE;
+    b.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+    b.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+    b.BlendOp = D3D12_BLEND_OP_ADD;
+    b.SrcBlendAlpha = D3D12_BLEND_ZERO;
+    b.DestBlendAlpha = D3D12_BLEND_ONE;
+    b.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+    b.LogicOp = D3D12_LOGIC_OP_NOOP;
+    b.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    d.SampleMask = UINT_MAX;
+    d.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+    d.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    d.RasterizerState.DepthClipEnable = TRUE;
+    d.DepthStencilState.DepthEnable = FALSE;
+    d.DepthStencilState.StencilEnable = FALSE;
+    d.InputLayout = {il, 3};
+    d.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    d.NumRenderTargets = 1;
+    d.RTVFormats[0] = fmt;
+    d.SampleDesc.Count = 1;
+    CHECK(c.dev->CreateGraphicsPipelineState(&d, IID_PPV_ARGS(&c.pso)), "CreateGraphicsPipelineState");
+    c.psoFmt = fmt;
+    OLOG("pipeline created for back buffer format %d", (int)fmt);
+    return true;
+}
+
+// returns true when something was drawn
+bool DrawFrame(Ctx& c, int64_t now) {
+    const UINT idx = c.sc3->GetCurrentBackBufferIndex();
+    ID3D12Resource* bb = nullptr;
+    if (FAILED(c.sc->GetBuffer(idx, IID_PPV_ARGS(&bb))) || !bb) {
+        OLOG("GetBuffer(%u) failed - overlay off for this swapchain", idx);
+        c.ok = false;
+        return false;
+    }
+    const D3D12_RESOURCE_DESC bd = bb->GetDesc();
+    const UINT W = (UINT)bd.Width, H = bd.Height;
+    bool drawn = false;
+    do {
+        if (W < 64 || H < 64) break;
+        if (!EnsurePso(c, bd.Format)) { c.ok = false; break; }
+        BuildOverlay(W, H, now);
+        if (g_n == 0) break;
+        const int slot = (int)(c.frame % kRing);
+        if (c.fence->GetCompletedValue() < c.slotVal[slot]) {
+            if (FAILED(c.fence->SetEventOnCompletion(c.slotVal[slot], c.ev)) ||
+                WaitForSingleObject(c.ev, 50) != WAIT_OBJECT_0) {
+                ++g_st.skips;  // GPU far behind: skip the overlay this frame rather than stall the presenter
+                break;
+            }
+        }
+        const UINT64 off = kFontCb + (UINT64)slot * kSlotBytes;
+        memcpy(c.mapped + off, g_inst, (size_t)g_n * kInstBytes);
+        if (FAILED(c.alloc[slot]->Reset()) || FAILED(c.cl->Reset(c.alloc[slot], c.pso))) {
+            OLOG("command allocator/list reset failed - overlay off");
+            c.ok = false;
+            break;
+        }
+        D3D12_RESOURCE_BARRIER br{};
+        br.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        br.Transition.pResource = bb;
+        br.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        br.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+        br.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        c.cl->ResourceBarrier(1, &br);
+        D3D12_CPU_DESCRIPTOR_HANDLE rtv = c.rtv->GetCPUDescriptorHandleForHeapStart();
+        rtv.ptr += (SIZE_T)slot * c.rtvInc;
+        c.dev->CreateRenderTargetView(bb, nullptr, rtv);
+        c.cl->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+        D3D12_VIEWPORT vp{0, 0, (float)W, (float)H, 0, 1};
+        D3D12_RECT sr{0, 0, (LONG)W, (LONG)H};
+        c.cl->RSSetViewports(1, &vp);
+        c.cl->RSSetScissorRects(1, &sr);
+        c.cl->SetGraphicsRootSignature(c.rs);
+        const D3D12_GPU_VIRTUAL_ADDRESS va = c.upload->GetGPUVirtualAddress();
+        c.cl->SetGraphicsRootConstantBufferView(0, va);
+        float bright = 1.0f;
+        if (bd.Format == DXGI_FORMAT_R16G16B16A16_FLOAT) bright = 2.5f;  // scRGB: 1.0 = 80 nits
+        else if (bd.Format == DXGI_FORMAT_R10G10B10A2_UNORM && g_colorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020)
+            bright = 0.55f;  // HDR10 PQ: keep text near 150-200 nits instead of 10000
+        // the pixel shader derives font texels from one scale constant, so the counter and the menu are two draws
+        float consts[4] = {1.0f / W, 1.0f / H, CounterScaleImpl(H), bright * g_cfg.brightness};
+        c.cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        D3D12_VERTEX_BUFFER_VIEW vbv{va + off, (UINT)g_n * kInstBytes, kInstBytes};
+        c.cl->IASetVertexBuffers(0, 1, &vbv);
+        if (g_nMain > 0) {
+            c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
+            c.cl->DrawInstanced(4, (UINT)g_nMain, 0, 0);
+        }
+        if (g_n > g_nMain) {
+            consts[2] = g_menuScale;
+            c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
+            c.cl->DrawInstanced(4, (UINT)(g_n - g_nMain), 0, (UINT)g_nMain);
+        }
+        std::swap(br.Transition.StateBefore, br.Transition.StateAfter);
+        c.cl->ResourceBarrier(1, &br);
+        if (FAILED(c.cl->Close())) {
+            OLOG("command list Close failed - overlay off");
+            c.ok = false;
+            break;
+        }
+        ID3D12CommandList* lists[1] = {c.cl};
+        c.q->ExecuteCommandLists(1, lists);
+        if (FAILED(c.q->Signal(c.fence, ++c.fenceVal))) {
+            OLOG("queue Signal failed (device removed?) - overlay off");
+            c.ok = false;
+            break;
+        }
+        c.slotVal[slot] = c.fenceVal;
+        ++c.frame;
+        drawn = true;
+    } while (false);
+    bb->Release();
+    return drawn;
+}
+
+void OnPresent(IDXGISwapChain* sc) {
+    const int64_t now = Qpc();
+    if (sc != g_ctx.sc) {
+        if (IsBad(sc)) return;
+        // another swapchain is presenting: switch only when the current one went quiet (e.g. FG toggled -> new chain)
+        if (g_ctx.sc && Secs(now - g_ctx.lastPresent) < 1.0) return;
+        if (g_ctx.sc) OLOG("presenting swapchain changed %p -> %p", (void*)g_ctx.sc, (void*)sc);
+        DestroyCtx(g_ctx);
+        g_st = Stats{};
+        if (g_ctxBuilds >= 16) {
+            OLOG("too many swapchain switches - overlay disabled");
+            InterlockedExchange(&g_disabled, 1);
+            return;
+        }
+        if (!BuildCtx(g_ctx, sc)) {
+            DestroyCtx(g_ctx);
+            MarkBad(sc);
+            return;
+        }
+    }
+    if (!g_ctx.ok) return;
+    // the same address can be a NEW swapchain (old one released, e.g. frame generation toggled): its queue tells
+    ID3D12CommandQueue* q = nullptr;
+    if (FAILED(sc->GetDevice(IID_PPV_ARGS(&q))) || !q) return;
+    q->Release();
+    if (q != g_ctx.q) {
+        OLOG("swapchain %p now presents on another queue (%p -> %p) - rebuilding", (void*)sc, (void*)g_ctx.q, (void*)q);
+        DestroyCtx(g_ctx);
+        g_st = Stats{};
+        if (g_ctxBuilds >= 16 || !BuildCtx(g_ctx, sc)) {
+            DestroyCtx(g_ctx);
+            MarkBad(sc);
+            return;
+        }
+    }
+    g_ctx.lastPresent = now;
+    if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
+    NoteThread();
+    UpdateStats(now);
+    menu::OnPresent();  // menu input + runtime switches (needs a working drawing context, checked above)
+    static bool loggedFirst = false;
+    if (DrawFrame(g_ctx, now)) {
+        if (!loggedFirst) {
+            loggedFirst = true;
+            OLOG("first overlay frame drawn (%d quads)", g_n);
+        }
+        ++g_st.draws;
+    }
+}
+
+void OnPresentSafe(IDXGISwapChain* sc) {
+    __try {
+        OnPresent(sc);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedExchange(&g_disabled, 1);
+        if (g_log) g_log("OSD: exception %08lX while drawing - overlay disabled for this session", GetExceptionCode());
+    }
+}
+
+void Hooked(IDXGISwapChain* sc, UINT flags) {
+    if (t_depth != 1 || (flags & DXGI_PRESENT_TEST) || g_disabled) return;
+    if (!TryAcquireSRWLockExclusive(&g_lock)) return;  // another thread is drawing: just present
+    OnPresentSafe(sc);
+    ReleaseSRWLockExclusive(&g_lock);
+}
+
+HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
+    ++t_depth;
+    Hooked(sc, flags);
+    HRESULT hr = g_origPresent(sc, sync, flags);
+    --t_depth;
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
+    ++t_depth;
+    Hooked(sc, flags);
+    HRESULT hr = g_origPresent1(sc, sync, flags, p);
+    --t_depth;
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HkSetColorSpace1(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) {
+    HRESULT hr = g_origSetCs1(sc, cs);
+    if (SUCCEEDED(hr)) {
+        if (g_colorSpace != (LONG)cs) OLOG("swapchain %p color space -> %d", (void*)sc, (int)cs);
+        InterlockedExchange(&g_colorSpace, (LONG)cs);
+    }
+    return hr;
+}
+
+// ---- hook installation ---------------------------------------------------------------------------------------------
+bool PatchSlot(void** slot, void* hook, void** orig, const char* name) {
+    if (*slot == hook) return true;
+    DWORD old;
+    if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) {
+        OLOG("VirtualProtect(vtable %s) failed (%lu)", name, GetLastError());
+        return false;
+    }
+    *orig = *slot;  // published before the slot so the hook never sees a null original
+    MemoryBarrier();
+    InterlockedExchangePointer(slot, hook);
+    DWORD t;
+    VirtualProtect(slot, sizeof(void*), old, &t);
+    OLOG("hooked %s: vtable slot %p, original %s", name, (void*)slot, ModuleOf(*orig).c_str());
+    return true;
+}
+
+LRESULT CALLBACK DummyWndProc(HWND h, UINT m, WPARAM w, LPARAM l) { return DefWindowProcW(h, m, w, l); }
+
+bool InstallHooks() {
+    wchar_t sys[MAX_PATH] = {};
+    UINT n = GetSystemDirectoryW(sys, MAX_PATH);
+    if (!n || n > MAX_PATH - 16) { OLOG("GetSystemDirectory failed"); return false; }
+    const std::wstring d3d12Path = std::wstring(sys) + L"\\d3d12.dll", dxgiPath = std::wstring(sys) + L"\\dxgi.dll";
+    // full paths: the bottom-most (system) DXGI, even if a wrapper dxgi.dll (OptiScaler, ReShade...) sits next to the exe
+    HMODULE d3d12 = LoadLibraryW(d3d12Path.c_str());
+    HMODULE dxgi = LoadLibraryW(dxgiPath.c_str());
+    if (!d3d12 || !dxgi) { OLOG("loading system d3d12.dll/dxgi.dll failed (%lu)", GetLastError()); return false; }
+    OLOG("system d3d12 %s, dxgi %s", ModuleOf(d3d12).c_str(), ModuleOf(dxgi).c_str());
+    auto createDevice = reinterpret_cast<PFN_D3D12_CREATE_DEVICE>(GetProcAddress(d3d12, "D3D12CreateDevice"));
+    using CreateFactoryFn = HRESULT(WINAPI*)(REFIID, void**);
+    auto createFactory = reinterpret_cast<CreateFactoryFn>(GetProcAddress(dxgi, "CreateDXGIFactory1"));
+    if (!createDevice || !createFactory) { OLOG("D3D12CreateDevice/CreateDXGIFactory1 not exported"); return false; }
+
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(wc);
+    wc.lpfnWndProc = DummyWndProc;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.lpszClassName = L"Nioh3EngineFixOsdDummy";
+    RegisterClassExW(&wc);
+    HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"", WS_OVERLAPPEDWINDOW, 0, 0, 64, 64, nullptr, nullptr, wc.hInstance, nullptr);
+    if (!hwnd) { OLOG("dummy window creation failed (%lu)", GetLastError()); return false; }
+
+    bool ok = false;
+    IDXGIFactory2* factory = nullptr;
+    ID3D12Device* dev = nullptr;
+    ID3D12CommandQueue* q = nullptr;
+    IDXGISwapChain1* sc = nullptr;
+    do {
+        HRESULT hr = createFactory(IID_PPV_ARGS(&factory));
+        if (FAILED(hr)) { OLOG("CreateDXGIFactory1 failed (hr %08lX)", (unsigned long)hr); break; }
+        // D3D12 devices are per-adapter singletons: this returns the game's device (or vkd3d-proton's cached one)
+        hr = createDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&dev));
+        if (FAILED(hr)) { OLOG("D3D12CreateDevice failed (hr %08lX)", (unsigned long)hr); break; }
+        D3D12_COMMAND_QUEUE_DESC qd{};
+        qd.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        hr = dev->CreateCommandQueue(&qd, IID_PPV_ARGS(&q));
+        if (FAILED(hr)) { OLOG("CreateCommandQueue failed (hr %08lX)", (unsigned long)hr); break; }
+        DXGI_SWAP_CHAIN_DESC1 sd{};
+        sd.Width = 64;
+        sd.Height = 64;
+        sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        sd.SampleDesc.Count = 1;
+        sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        sd.BufferCount = 2;
+        sd.Scaling = DXGI_SCALING_STRETCH;
+        sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        hr = factory->CreateSwapChainForHwnd(q, hwnd, &sd, nullptr, nullptr, &sc);
+        if (FAILED(hr)) { OLOG("dummy CreateSwapChainForHwnd failed (hr %08lX)", (unsigned long)hr); break; }
+        void** vt = *reinterpret_cast<void***>(sc);
+        OLOG("dummy swapchain %p, vtable %s", (void*)sc, ModuleOf(vt).c_str());
+        // release the dummy objects before patching, so none of their calls go through our hooks
+        sc->Release();
+        sc = nullptr;
+        bool a = PatchSlot(&vt[kSlotPresent], (void*)&HkPresent, (void**)&g_origPresent, "Present");
+        bool b = PatchSlot(&vt[kSlotPresent1], (void*)&HkPresent1, (void**)&g_origPresent1, "Present1");
+        if (!PatchSlot(&vt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
+            OLOG("SetColorSpace1 not hooked - HDR10 text brightness is not adjusted");
+        ok = a || b;
+    } while (false);
+    SafeRelease(sc);
+    SafeRelease(q);
+    SafeRelease(dev);
+    SafeRelease(factory);
+    DestroyWindow(hwnd);
+    UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    return ok;
+}
+
+DWORD WINAPI InstallThread(LPVOID) {
+    const DWORD t0 = GetTickCount();
+    if (g_info.known) {
+        // wait until the engine renders: G exists and its frame counter advances (device + swapchain exist by then)
+        uint32_t first = 0;
+        bool haveFirst = false, running = false;
+        while (GetTickCount() - t0 < 300000) {
+            uint8_t* G = EngineG();
+            uint32_t fc = 0;
+            if (G && Rd(G + kOffFrameCounter, fc)) {
+                if (!haveFirst) first = fc, haveFirst = true;
+                else if (fc - first >= 30) { running = true; break; }
+            }
+            Sleep(100);
+        }
+        if (running) OLOG("engine is rendering (%lu ms after start) - installing the Present hook", GetTickCount() - t0);
+        else OLOG("engine frame counter did not advance within %lu ms - installing the Present hook anyway", GetTickCount() - t0);
+    } else {
+        while (GetTickCount() - t0 < 120000 && !(GetModuleHandleW(L"d3d12.dll") && GetModuleHandleW(L"dxgi.dll"))) Sleep(250);
+        Sleep(10000);
+        OLOG("unknown build: installing the Present hook %lu ms after start (no engine readouts)", GetTickCount() - t0);
+    }
+    if (!InstallHooks()) {
+        OLOG("Present hook NOT installed - no overlay this session (the patches are unaffected)");
+        menu::Disable("the overlay's Present hook could not be installed");
+    } else if (menu::Enabled()) {
+        menu::InstallInputHooks();
+    }
+    return 0;
+}
+
+float IniFloat(const wchar_t* ini, const wchar_t* sec, const wchar_t* key, float def) {
+    wchar_t b[64] = {};
+    GetPrivateProfileStringW(sec, key, L"", b, 64, ini);
+    if (!b[0]) return def;
+    wchar_t* e = nullptr;
+    double v = wcstod(b, &e);
+    return e == b ? def : (float)v;
+}
+
+}  // namespace
+
+OverlaySettings& Overlay() { return g_cfg; }
+const char* PositionName(int pos) {
+    static const char* const k[4] = {"TopLeft", "TopRight", "BottomLeft", "BottomRight"};
+    return k[pos & 3];
+}
+float CounterScale(unsigned H) { return CounterScaleImpl(H); }
+void DrawRect(float x, float y, float w, float h, uint32_t abgr) { AddQuad(x, y, w, h, kSolid, abgr); }
+float DrawText(float x, float y, const char* text, uint32_t abgr, float scale) { return AddText(x, y, text, abgr, scale); }
+
+void Start(const StartupInfo& si) {
+    g_log = si.log;
+    QueryPerformanceFrequency(&g_freq);
+    g_info.version = si.version ? si.version : "";
+    g_info.wine = si.wine ? si.wine : "";
+    g_info.skippedNames = si.skippedNames ? si.skippedNames : "";
+    while (!g_info.skippedNames.empty() && g_info.skippedNames.back() == ' ') g_info.skippedNames.pop_back();
+    g_info.base = si.base;
+    g_info.known = si.knownBuild;
+    g_info.vrr = si.vrr;
+    g_info.applied = si.applied;
+    g_info.skipped = si.skipped;
+    g_info.l1 = si.l1;
+    g_info.f1 = si.f1;
+    if (si.iniPath) {
+        const wchar_t* f = si.iniPath;
+        auto I = [&](const wchar_t* sec, const wchar_t* key, int def) { return (int)GetPrivateProfileIntW(sec, key, def, f); };
+        g_cfg.fpsCounter = I(L"Overlay", L"FpsCounter", g_cfg.fpsCounter);
+        g_cfg.frameTime = I(L"Overlay", L"FrameTime", g_cfg.frameTime);
+        g_cfg.speed = I(L"Overlay", L"SpeedFactor", g_cfg.speed);
+        g_cfg.popup = I(L"General", L"StartupPopup", g_cfg.popup);
+        g_cfg.scale = std::clamp(IniFloat(f, L"Overlay", L"Scale", g_cfg.scale), 0.5f, 6.0f);
+        g_cfg.brightness = std::clamp(IniFloat(f, L"Overlay", L"Brightness", g_cfg.brightness), 0.1f, 4.0f);
+        g_cfg.popupSeconds = std::clamp(IniFloat(f, L"General", L"StartupPopupSeconds", g_cfg.popupSeconds), 2.0f, 60.0f);
+        g_cfg.popupDelay = std::clamp(IniFloat(f, L"General", L"StartupPopupDelay", g_cfg.popupDelay), 0.0f, 60.0f);
+        wchar_t pos[32] = {};
+        GetPrivateProfileStringW(L"Overlay", L"Position", L"TopLeft", pos, 32, f);
+        g_cfg.pos = !_wcsicmp(pos, L"TopRight") ? 1 : !_wcsicmp(pos, L"BottomLeft") ? 2 : !_wcsicmp(pos, L"BottomRight") ? 3 : 0;
+    }
+    OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f", g_cfg.fpsCounter,
+         g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale);
+    if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled()) {
+        OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0) - no Present hook");
+        return;
+    }
+    if (HANDLE h = CreateThread(nullptr, 0, InstallThread, nullptr, 0, nullptr)) CloseHandle(h);
+    else OLOG("CreateThread failed (%lu)", GetLastError());
+}
+
+}  // namespace osd

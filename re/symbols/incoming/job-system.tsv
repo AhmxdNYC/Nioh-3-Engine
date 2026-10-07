@@ -1,0 +1,51 @@
+rva	kind	name	signature	description	confidence	source
+0x3e7cc	function	JobGroupWait	void JobGroupWait(JobGroup* g, u8 mode)	help-while-waiting join (181 callers): while ([g+34h] > 1) JobHelpStep(g->owner, g, &wakeFlag=1, mode or 2 after 0x4000 polls); then lock dec [g+34h]. J1 rows 3E7F5/3E821	high	notes/job-system.md §1
+0x3fad8	function	JobPushToOwner	void JobPushToOwner(JobGroup* g, Job* j)	push a job onto the owner worker's queue (lock-free stack per priority at w+418h, then CAS-set the priority bit at w+448h). Never wakes anyone (212 callers)	high	notes/job-system.md §1
+0x3fe14	function	JobWorkerRunUntilIdle	bool JobWorkerRunUntilIdle(JobWorker* w)	worker body after each wake: steal ONE job from the other workers (411C0, w+1..), then 40800 pops with wakeFlag=1 (each woken worker wakes one more = cascade), one last steal scan, return (no spin before sleeping)	high	notes/job-system.md §1
+0x40300	function	JobHelpStepWrapper		calls JobHelpStep 403A0 (6 callers)	low	notes/job-system.md §1
+0x403a0	function	JobHelpStep	void JobHelpStep(JobWorker* w, JobGroup* g, u8* wakeFlag, int mode)	one poll of a job wait: pop/run own queue (40800), re-push deferred jobs, steal one job from the other workers (411C0); if nothing and !(w+454h & 1) -> Sleep(0) at 404B9	high	notes/job-system.md §1
+0x404b7	label	JobHelpStep_Sleep0	xor ecx,ecx; call [Sleep]; jmp 4048E	the job-wait Sleep(0) (candidate Y1, not built): 0 % of [App]Game, <=1.4 % of KIDSTaskScheduler0 in r5	high	notes/job-system.md §2d
+0x40a01	label	JobWorkerPoll_WakeDecision		wake decision after a successful pop: wake iff *wakeFlag or (all other workers idle && ++w[450h] % 30 == 0); idle count = pool+30h	high	notes/job-system.md §1
+0x40a4c	label	JobWorkerPoll_WakeBlock	mov rcx,[r15+440h]	start of the wake-one block (scan downward from w-1 for a worker whose thread+10h bit0 is set, CAS-clear it, SetEvent); WK patch site (call caveWakeGate)	high	notes/job-system.md §2a; re/scripts_jobs/jobs_live.fsx
+0x40b0a	label	JobWorkerPoll_SetEvent		the per-pop wake syscall (KERNEL32 SetEvent on thread+8)	high	notes/job-system.md §1
+0x40b10	label	JobWorkerPoll_WakeBlockEnd		*wakeFlag = 0 (sil=0); WK skip target	high	notes/job-system.md §2a
+0x40d2f	label	JobWorkerPoll_SetEvent2		second wake-one site: job type 616FA0 when pool+34h != 0, followed by JobWaitSleepBackoff 207200	high	notes/job-system.md §1
+0x417a0	function	JobPushLocal	void JobPushLocal(JobWorker* w, Job* j)	push onto worker w's own queue + set priority bit; used for continuations (group counter hit 0) (16 callers). No wake	high	notes/job-system.md §1
+0x48df8	function	JobForwardToWorker		forwards a job whose worker mask (job+22h) excludes the current worker to a specific worker and SetEvents it	medium	notes/job-system.md §1
+0x3eb38	function	KtglSignalUntilAwake		while ([x+1D0h]->flag & 1) SetEvent(...); Sleep(0) every 256 tries - wake-until-acknowledged loop	medium	notes/job-system.md §1
+0x3fd10	function	KtglSignalUntilAwake2		same idiom as 3EB38 on [x+5C8h]; else spins on byte x+5F8h with Sleep(0) every 256	medium	notes/job-system.md §1
+0x1a6bb84	function	JobWorkerThreadMain	u32 JobWorkerThreadMain(JobWorker* w)	KIDS worker thread: SetThreadDescription, loop { JobWorkerRunUntilIdle; lock inc pool+30h (idle); set thread+10h bit0; WaitForSingleObject(thread+8, INFINITE); lock dec pool+30h }; Sleep(1) while paused (pool+48h & 50000000h)	high	notes/job-system.md §1
+0x1a6bc15	label	JobWorkerThreadMain_SetSleepBit		CAS sets thread+10h bit0 = "sleeping, wake me" before the INFINITE wait at 1A6BC35	high	notes/job-system.md §1
+0x1fdfeb4	function	PoolBaseForIndex	int PoolBaseForIndex(int base, u16 pool)	SizeWorkerPools helper: base<=12 -> base; else pools 3,6,7,10,11,13,14,48,55,56 -> min(base,16), pools 5,8,9,16 -> 12, others base (no .pdata)	high	notes/job-system.md §2c
+0x1fe300b	label	SizeWorkerPools_BaseClampCmp	cmp r11d,20h	WC (WorkerCap) site A: upper clamp of the logical count -> imm8 = cap	high	notes/job-system.md §2c; re/scripts_jobs/jobs_live.fsx
+0x1fe3011	label	SizeWorkerPools_BaseClampMov	mov al,20h	WC (WorkerCap) site B: clamped value -> imm8 = cap (write before site A)	high	notes/job-system.md §2c; re/scripts_jobs/jobs_live.fsx
+0x3243bc0	function	KidsSchedulerParamsInit	int* KidsSchedulerParamsInit(int* p)	default scheduler params: count = GetSystemInfo().dwNumberOfProcessors - 2 (1 if 2 CPUs); TS_MESHLET_REQ (s66) keeps this default (10 threads on 12T, 14 on 16T); pool-backed schedulers override it	high	notes/job-system.md §2c
+0x5b9304	function	GetPoolEntry	PoolEntry* GetPoolEntry(int i)	&g_WorkerPoolTable.Entries[i] (47 callers)	high	notes/job-system.md §2c
+0x5b9320	function	GetWorkerPoolTable	PoolTable* GetWorkerPoolTable(void)	thread-safe-static guard then returns 0x4B722D0	high	notes/job-system.md §2c
+0x4b72a11	global	g_WorkerPoolDivisor	u8	PoolTable+741h: divisor of the pool formula, 13 (static init mov word [4B72A10h],0D01h); 16 when CpuInfo::IsZen1	high	notes/job-system.md §2c
+0x8	struct_field	WorkerThread::WakeEvent	HANDLE	auto-reset event a sleeping worker waits on (INFINITE)	high	notes/job-system.md §1
+0x10	struct_field	WorkerThread::SleepFlags	u32	bit0 = sleeping/wake me; set by the worker before waiting, CAS-cleared by the waker before SetEvent	high	notes/job-system.md §1
+0x1c	struct_field	WorkerThread::PendingPriority	i32	-16 none / -17 claimed; other value = SetThreadPriority request applied by the worker itself	medium	notes/job-system.md §1
+0x28	struct_field	WorkerThread::Handle	HANDLE	thread handle	medium	notes/job-system.md §1
+0x0	struct_field	JobWorker::Thread	WorkerThread*	worker thread object (record stride 0x458 in pool+10h)	high	notes/job-system.md §1
+0x418	struct_field	JobWorker::QueueHeads	u64*	128 priority lists (lock-free stacks, packed self-relative index + ABA tag)	high	notes/job-system.md §1
+0x428	struct_field	JobWorker::DeferredList	u64*	jobs above the current priority, re-pushed by the caller	medium	notes/job-system.md §1
+0x440	struct_field	JobWorker::Pool	JobPool*	owning pool	high	notes/job-system.md §1
+0x448	struct_field	JobWorker::PrioBitmap	u32*	4 dwords, bit p = list p non-empty; read by WK cave and every poll (J1)	high	notes/job-system.md §1
+0x450	struct_field	JobWorker::SoloPops	u32	consecutive pops while all other workers are idle; every 30th wakes one	high	notes/job-system.md §1
+0x454	struct_field	JobWorker::NoSleepFlag	u32	bit0 set -> JobHelpStep returns without Sleep(0)	medium	notes/job-system.md §1
+0x10	struct_field	JobPool::Workers	JobWorker*	worker records, stride 0x458	high	notes/job-system.md §1
+0x28	struct_field	JobPool::WorkerCount	i32	scan bound used by steal scans and the WK cave	high	notes/job-system.md §1
+0x2c	struct_field	JobPool::WorkerCountAtomic	i32	same count, read with lock cmpxchg by the wake scan	high	notes/job-system.md §1
+0x30	struct_field	JobPool::IdleWorkers	i32	lock inc before a worker sleeps, lock dec after it wakes	high	notes/job-system.md §1
+0x34	struct_field	JobPool::PoolId	i32	compared with job+24h bits 12..18 (7Fh = any pool)	medium	notes/job-system.md §1
+0x48	struct_field	JobPool::State	u32	(state & 50000000h) == 50000000h -> paused (workers Sleep(1)); bit30 = running	medium	notes/job-system.md §1
+0x8	struct_field	JobGroup::Owner	JobWorker*	worker that created and waits on the group	high	notes/job-system.md §1
+0x34	struct_field	JobGroup::Pending	i32	outstanding jobs + 1 (the waiter); JobGroupWait spins while > 1	high	notes/job-system.md §1
+0x20	struct_field	Job::Priority	i16	1..128 -> list index prio-1	high	notes/job-system.md §1
+0x22	struct_field	Job::WorkerMask	i16	0 = any worker, else bit i = worker i allowed	medium	notes/job-system.md §1
+0x24	struct_field	Job::Flags	u32	low 4 bits completion mode, bits 12..18 target pool id	medium	notes/job-system.md §1
+0x28	struct_field	Job::Next	u64	lock-free stack link	high	notes/job-system.md §1
+0x54	struct_field	PoolTable::Pool3KidsResource	PoolEntry	CORRECTION: record 3 is KIDSTaskScheduler (13 threads on 16 logical, 7 on 12, 10 with P12); KIDS_RESOURCE is record 4	high	notes/job-system.md §2c; notes/effects-animation.md §1.2
+0x84	struct_field	PoolTable::Pool5StageUpdate	PoolEntry	CORRECTION: record 5 is ResourceLoad (7 / 4 / 7 with P12); StageUpdate is record 6	high	notes/job-system.md §2c
+0x741	struct_field	PoolTable::Divisor	u8	formula divisor 13 (16 on Zen1/Zen+)	high	notes/job-system.md §2c

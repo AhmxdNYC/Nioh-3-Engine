@@ -1,0 +1,116 @@
+
+
+workers_live.fsx(177,15): info FS3886: This list expression contains a single tuple element. Did you mean to use ';' instead of ',' to separate list elements?
+
+dump: C:\Users\Ahmad Hamza\nioh3-engine\re\Nioh3.dump.exe (raw offset == RVA)
+site bytes vs dump:
+  M1     49131  MATCH     48 8B 96 C8 01 00 00
+  M2     48FB9  MATCH     F0 44 0F B1 AD B8 00 00 00
+  M2     49046  MATCH     F0 46 0F B1 2C 21
+  M2     49261  MATCH     F0 45 0F B1 29
+  M2     4933D  MATCH     F0 46 0F B1 2C 21
+  M2     493DC  MATCH     F0 45 0F B1 28
+  J1     4122D  MATCH     F0 42 0F B1 1C 19
+  J1     41265  MATCH     F0 42 0F B1 1C 19
+  J1     41397  MATCH     F0 42 0F B1 1C 19
+  J1     414B6  MATCH     F0 42 0F B1 1C 19
+  J1     40899  MATCH     F0 42 0F B1 34 01
+  J1     40481  MATCH     F0 45 0F B1 AF 54 04 00 00
+  J1     3E7F5  MATCH     F0 44 0F B1 71 34
+  J1     3E821  MATCH     F0 44 0F B1 73 34
+M1 cave @dummy 7FF755210000: 363 bytes (data 80h, code 235)
+  00007FF755210080  cmp dword [rip-87h],0                         
+  00007FF755210087  je near 00007FF75521015Fh                     
+  00007FF75521008D  rdtsc                                         
+  00007FF75521008F  shrd eax,edx,16h                              
+  00007FF755210093  mov ecx,eax                                   
+  00007FF755210095  mov rdx,[rsi+1C8h]                            
+  00007FF75521009C  mov rax,[rdx+67A8h]                           
+  00007FF7552100A3  or rax,1                                      
+  00007FF7552100A9  cmp rax,[rip-0A8h]                            
+  00007FF7552100B0  jne short 00007FF7552100CDh                   
+  00007FF7552100B2  mov rax,[rip-0A9h]                            
+  00007FF7552100B9  shl rcx,20h                                   
+  00007FF7552100BD  xor rcx,rax                                   
+  00007FF7552100C0  shr rcx,20h                                   
+  00007FF7552100C4  jne short 00007FF7552100CDh                   
+  00007FF7552100C6  mov ecx,eax                                   
+  00007FF7552100C8  jmp 00007FF74F4591ACh                            ; -> Nioh3+491AC
+  00007FF7552100CD  mov rdx,[rsi+1C8h]                            
+  00007FF7552100D4  mov ecx,r13d                                  
+  00007FF7552100D7  mov rax,[rdx+67A8h]                           
+  00007FF7552100DE  cmp [rdx+67C0h],cl                            
+  00007FF7552100E4  je short 00007FF7552100F4h                    
+  00007FF7552100E6  test rax,rax                                  
+  00007FF7552100E9  je short 00007FF75521012Ch                    
+  00007FF7552100EB  add ecx,[rax+14h]                             
+  00007FF7552100EE  mov rax,[rax+30h]                             
+  00007FF7552100F2  jmp short 00007FF7552100E6h                   
+  00007FF7552100F4  test rax,rax                                  
+  00007FF7552100F7  je short 00007FF755210102h                    
+  00007FF7552100F9  add ecx,[rax+14h]                             
+  00007FF7552100FC  mov rax,[rax+30h]                             
+  00007FF755210100  jmp short 00007FF7552100F4h                   
+  00007FF755210102  mov rax,[rdx+67B0h]                           
+  00007FF755210109  test rax,rax                                  
+  00007FF75521010C  je short 00007FF755210117h                    
+  00007FF75521010E  add ecx,[rax+14h]                             
+  00007FF755210111  mov rax,[rax+30h]                             
+  00007FF755210115  jmp short 00007FF755210109h                   
+  00007FF755210117  mov rax,[rdx+67B8h]                           
+  00007FF75521011E  test rax,rax                                  
+  00007FF755210121  je short 00007FF75521012Ch                    
+  00007FF755210123  add ecx,[rax+14h]                             
+  00007FF755210126  mov rax,[rax+30h]                             
+  00007FF75521012A  jmp short 00007FF75521011Eh                   
+  00007FF75521012C  mov rax,[rdx+67A8h]                           
+  00007FF755210133  or rax,1                                      
+  00007FF755210139  mov [rip-138h],rax                            
+  00007FF755210140  rdtsc                                         
+  00007FF755210142  shrd eax,edx,16h                              
+  00007FF755210146  shl rax,20h                                   
+  00007FF75521014A  or rax,rcx                                    
+  00007FF75521014D  mov [rip-144h],rax                            
+  00007FF755210154  inc dword [rip-11Ah]                          
+  00007FF75521015A  jmp 00007FF74F4591ACh                            ; -> Nioh3+491AC
+  00007FF75521015F  mov rdx,[rsi+1C8h]                            
+  00007FF755210166  jmp 00007FF74F459138h                            ; -> Nioh3+49138
+M1 patched site:
+  49131  orig 48 8B 96 C8 01 00 00  ->  new E9 4A 6F DB 05 66 90
+  00007FF74F459131  jmp 00007FF755210080h                            ; -> Nioh3+5E00080
+  00007FF74F459136  xchg ax,ax                                    
+  instruction starts valid in both encodings: ["49131"]
+M1 dead-register proof (the cave clobbers rax/rdx/flags; rcx = result, as the original region):
+  [ok] rax, rdx, flags dead at 491AC
+in-place rows (M2, J1):
+  M2  48FB9  F0 44 0F B1 AD B8 00 00 00  -> 8B 85 B8 00 00 00 0F 1F 00  [ok]
+             per call: [entry obj+B8h]; zero src R13D + eax proven; flags dead: overwritten by 48FC2 sar eax,10h
+  M2  49046  F0 46 0F B1 2C 21           -> 42 8B 04 21 66 90           [ok]
+             per page: entry flags; zero src R13D + eax proven; flags dead: overwritten by 4904C test al,1
+  M2  49261  F0 45 0F B1 29              -> 41 8B 01 66 90              [ok]
+             per 64K page: claim bitmap word (hot); zero src R13D + eax proven; flags dead: overwritten by 49275 and ecx,edx
+  M2  4933D  F0 46 0F B1 2C 21           -> 42 8B 04 21 66 90           [ok]
+             per page: entry flags; zero src R13D + eax proven; flags dead: overwritten by 49343 test al,1
+  M2  493DC  F0 45 0F B1 28              -> 41 8B 00 66 90              [ok]
+             per call: entry flags before bts 9 CAS; zero src R13D + eax proven; flags dead: overwritten by 493E9 lock cmpxchg [r8],ecx
+  J1  4122D  F0 42 0F B1 1C 19           -> 42 8B 04 19 66 90           [ok]
+             411C0 first priority word; zero src EBX + eax proven; flags dead: overwritten by 4123C test r10d,r10d
+  J1  41265  F0 42 0F B1 1C 19           -> 42 8B 04 19 85 C0           [ok]
+             411C0 priority-word scan loop (hot RIP 4126B); zero src EBX + eax proven; ZF consumed by 4126D jne near 00000000000413E0h; all flags dead at 413E0 and 41273
+  J1  41397  F0 42 0F B1 1C 19           -> 42 8B 04 19 66 90           [ok]
+             411C0 re-read after empty pop; zero src EBX + eax proven; flags dead: overwritten by 413B3 test r10d,r10d
+  J1  414B6  F0 42 0F B1 1C 19           -> 42 8B 04 19 85 C0           [ok]
+             411C0 re-read after empty pop; zero src EBX + eax proven; ZF consumed by 414CB je near 0000000000041273h; all flags dead at 41273 and 414D1
+  J1  40899  F0 42 0F B1 34 01           -> 42 8B 04 01 85 C0           [ok]
+             40800 own-queue priority word (hot RIP 4089F); zero src ESI + eax proven; ZF consumed by 408A1 je near 0000000000041027h; all flags dead at 41027 and 408A7
+  J1  40481  F0 45 0F B1 AF 54 04 00 00  -> 41 8B 87 54 04 00 00 66 90  [ok]
+             403A0 sched+454h no-sleep flag, once per empty poll; zero src R13D + eax proven; flags dead: overwritten by 4048A test al,1
+  J1  3E7F5  F0 44 0F B1 71 34           -> 8B 41 34 0F 1F 00           [ok]
+             3E7CC job counter, first read; zero src R14D + eax proven; flags dead: overwritten by 3E827 cmp eax,1
+  J1  3E821  F0 44 0F B1 73 34           -> 8B 43 34 0F 1F 00           [ok]
+             3E7CC job counter, wait loop; zero src R14D + eax proven; flags dead: overwritten by 3E827 cmp eax,1
+direct branch/call targets strictly inside the patched ranges (whole .text linear sweep):
+  none
+native equivalence test (M1 cave vs the original 49131..491AB bytes copied from the dump):
+  M1 native test: 6000 cases (10% with the switch off), 0 mismatches; cache hits verified 2717, stale-within-window 2058, window expiries checked 62, cave refreshes 5492
+OFFLINE CHECKS: ALL PASSED

@@ -1,0 +1,190 @@
+==== decompile RVA 0x252510 ====
+// function FUN_7ff74f662510 @ 0x252510  body=438 bytes  pdataStart=0x252510
+// callers(2): FUN_7ff74fbe9b6c@0x7d9b6c FUN_7ff7522f0fc4@0x2ee0fc4 
+// callees(7): FUN_7ff74f6626c8@0x2526c8 FUN_7ff74f615530@0x205530 FUN_7ff74ffa3f00@0xb93f00 FUN_7ff74f8a2954@0x492954 FUN_7ff74f537334@0x127334 FUN_7ff74f5366fc@0x1266fc FUN_7ff74f6622c4@0x2522c4 
+
+void FUN_7ff74f662510(longlong param_1,longlong param_2)
+
+{
+  undefined8 uVar1;
+  undefined4 uVar2;
+  undefined4 uVar3;
+  undefined4 uVar4;
+  undefined4 uVar5;
+  undefined8 uVar6;
+  undefined8 uVar7;
+  undefined8 uVar8;
+  undefined8 *puVar9;
+  undefined8 *puVar10;
+  undefined8 *puVar11;
+  undefined8 *puVar12;
+  longlong lVar13;
+  longlong lVar14;
+  longlong local_138;
+  undefined8 local_130;
+  undefined8 local_128 [36];
+  
+  if (*(char *)(param_1 + 0xd20) != '\0') {
+    local_138 = param_1 + 0x9c8;
+    local_130 = FUN_7ff74f615530();
+    FUN_7ff74f5366fc(param_1 + 0x740,0);
+    AcquireSRWLockExclusive((PSRWLOCK)(param_1 + 0xd08));
+    ReleaseSRWLockExclusive((PSRWLOCK)(param_1 + 0xd08));
+    FUN_7ff74f8a2954(&local_138);
+    if (*(char *)(param_1 + 0xd21) != '\0') {
+      lVar14 = 2;
+      lVar13 = 2;
+      puVar9 = (undefined8 *)(param_1 + 0x8f8);
+      puVar10 = (undefined8 *)(param_1 + 0xa10);
+      do {
+        puVar12 = puVar10;
+        puVar11 = puVar9;
+        uVar1 = puVar11[1];
+        uVar6 = puVar11[2];
+        uVar7 = puVar11[3];
+        *puVar12 = *puVar11;
+        puVar12[1] = uVar1;
+        uVar1 = puVar11[4];
+        uVar8 = puVar11[5];
+        puVar12[2] = uVar6;
+        puVar12[3] = uVar7;
+        uVar6 = puVar11[6];
+        uVar7 = puVar11[7];
+        puVar12[4] = uVar1;
+        puVar12[5] = uVar8;
+        uVar1 = puVar11[8];
+        uVar8 = puVar11[9];
+        puVar12[6] = uVar6;
+        puVar12[7] = uVar7;
+        uVar6 = puVar11[10];
+        uVar7 = puVar11[0xb];
+        puVar12[8] = uVar1;
+        puVar12[9] = uVar8;
+        uVar1 = puVar11[0xc];
+        uVar8 = puVar11[0xd];
+        puVar12[10] = uVar6;
+        puVar12[0xb] = uVar7;
+        uVar2 = *(undefined4 *)(puVar11 + 0xe);
+        uVar3 = *(undefined4 *)((longlong)puVar11 + 0x74);
+        uVar4 = *(undefined4 *)(puVar11 + 0xf);
+        uVar5 = *(undefined4 *)((longlong)puVar11 + 0x7c);
+        puVar12[0xc] = uVar1;
+        puVar12[0xd] = uVar8;
+        *(undefined4 *)(puVar12 + 0xe) = uVar2;
+        *(undefined4 *)((longlong)puVar12 + 0x74) = uVar3;
+        *(undefined4 *)(puVar12 + 0xf) = uVar4;
+        *(undefined4 *)((longlong)puVar12 + 0x7c) = uVar5;
+        lVar13 = lVar13 + -1;
+        puVar9 = puVar11 + 0x10;
+        puVar10 = puVar12 + 0x10;
+      } while (lVar13 != 0);
+      uVar2 = *(undefined4 *)((longlong)puVar11 + 0x84);
+      uVar3 = *(undefined4 *)(puVar11 + 0x11);
+      uVar4 = *(undefined4 *)((longlong)puVar11 + 0x8c);
+      uVar1 = puVar11[0x12];
+      *(undefined4 *)(puVar12 + 0x10) = *(undefined4 *)(puVar11 + 0x10);
+      *(undefined4 *)((longlong)puVar12 + 0x84) = uVar2;
+      *(undefined4 *)(puVar12 + 0x11) = uVar3;
+      *(undefined4 *)((longlong)puVar12 + 0x8c) = uVar4;
+      puVar12[0x12] = uVar1;
+      FUN_7ff74ffa3f00(local_128,0,0x118);
+      puVar9 = local_128;
+      puVar10 = (undefined8 *)(param_1 + 0x8f8);
+      do {
+        puVar12 = puVar10;
+        puVar11 = puVar9;
+        uVar1 = puVar11[1];
+        uVar6 = puVar11[2];
+        uVar7 = puVar11[3];
+        *puVar12 = *puVar11;
+        puVar12[1] = uVar1;
+        uVar1 = puVar11[4];
+        uVar8 = puVar11[5];
+        puVar12[2] = uVar6;
+        puVar12[3] = uVar7;
+        uVar6 = puVar11[6];
+        uVar7 = puVar11[7];
+        puVar12[4] = uVar1;
+        puVar12[5] = uVar8;
+        uVar1 = puVar11[8];
+        uVar8 = puVar11[9];
+        puVar12[6] = uVar6;
+        puVar12[7] = uVar7;
+        uVar6 = puVar11[10];
+        uVar7 = puVar11[0xb];
+        puVar12[8] = uVar1;
+        puVar12[9] = uVar8;
+        uVar1 = puVar11[0xc];
+        uVar8 = puVar11[0xd];
+        puVar12[10] = uVar6;
+        puVar12[0xb] = uVar7;
+        uVar2 = *(undefined4 *)(puVar11 + 0xe);
+        uVar3 = *(undefined4 *)((longlong)puVar11 + 0x74);
+        uVar4 = *(undefined4 *)(puVar11 + 0xf);
+        uVar5 = *(undefined4 *)((longlong)puVar11 + 0x7c);
+        puVar12[0xc] = uVar1;
+        puVar12[0xd] = uVar8;
+        *(undefined4 *)(puVar12 + 0xe) = uVar2;
+        *(undefined4 *)((longlong)puVar12 + 0x74) = uVar3;
+        *(undefined4 *)(puVar12 + 0xf) = uVar4;
+        *(undefined4 *)((longlong)puVar12 + 0x7c) = uVar5;
+        lVar14 = lVar14 + -1;
+        puVar9 = puVar11 + 0x10;
+        puVar10 = puVar12 + 0x10;
+      } while (lVar14 != 0);
+      uVar2 = *(undefined4 *)((longlong)puVar11 + 0x84);
+      uVar3 = *(undefined4 *)(puVar11 + 0x11);
+      uVar4 = *(undefined4 *)((longlong)puVar11 + 0x8c);
+      uVar1 = puVar11[0x12];
+      *(undefined4 *)(puVar12 + 0x10) = *(undefined4 *)(puVar11 + 0x10);
+      *(undefined4 *)((longlong)puVar12 + 0x84) = uVar2;
+      *(undefined4 *)(puVar12 + 0x11) = uVar3;
+      *(undefined4 *)((longlong)puVar12 + 0x8c) = uVar4;
+      puVar12[0x12] = uVar1;
+      FUN_7ff74f6622c4(param_1);
+      *(longlong *)(param_1 + 0xd10) = *(longlong *)(param_1 + 0xd10) + 1;
+      FUN_7ff74f537334(param_2 + 0x74e0,param_2);
+      *(undefined1 *)(param_1 + 0xd21) = 0;
+    }
+    FUN_7ff74f6626c8(param_2);
+    *(longlong *)(param_1 + 0xd18) = *(longlong *)(param_1 + 0xd18) + 1;
+  }
+  return;
+}
+
+
+
+==== callers of function containing 0x252510 ====
+// FUN_7ff74f662510 @ 0x252510
+0x4e3e3d4	DATA	-
+0x7d9ba3	UNCONDITIONAL_CALL	FUN_7ff74fbe9b6c@0x7d9b6c
+0x2ee0fde	UNCONDITIONAL_CALL	FUN_7ff7522f0fc4@0x2ee0fc4
+
+==== decompile RVA 0x2523a8 ====
+// function FUN_7ff74f6623a8 @ 0x2523a8  body=81 bytes  pdataStart=none
+// callers(1): FUN_7ff74f6622c4@0x2522c4 
+// callees(0): 
+
+void FUN_7ff74f6623a8(longlong param_1,undefined4 param_2,undefined4 param_3,longlong param_4)
+
+{
+  longlong lVar1;
+  undefined4 *puVar2;
+  
+  *(undefined4 *)(param_1 + 0x240) = *(undefined4 *)(param_1 + 0x23c);
+  *(undefined4 *)(param_1 + 0x23c) = param_2;
+  puVar2 = (undefined4 *)(param_1 + 0x24c);
+  *(undefined4 *)(param_1 + 0x248) = *(undefined4 *)(param_1 + 0x244);
+  *(undefined4 *)(param_1 + 0x244) = param_3;
+  lVar1 = 0x30;
+  do {
+    puVar2[0x30] = *puVar2;
+    *puVar2 = *(undefined4 *)((param_4 - param_1) + -0x24c + (longlong)puVar2);
+    puVar2 = puVar2 + 1;
+    lVar1 = lVar1 + -1;
+  } while (lVar1 != 0);
+  return;
+}
+
+
+

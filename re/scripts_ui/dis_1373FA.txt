@@ -1,0 +1,69 @@
+; ---- Nioh3+1373FA .. +1374FA (pdata fn None)
+  1373FA  mov     eax,[rdx+394h]                            
+  137400  sub     eax,[rdx+39Ch]                            
+  137406  cmp     r8d,eax                                   
+  137409  ja      short 0000000000137431h                   
+  13740B  mov     eax,[rdx+398h]                            
+  137411  lea     ecx,[r9+r9]                               
+  137415  sub     eax,[rdx+3A0h]                            
+  13741B  cmp     ecx,eax                                   
+  13741D  ja      short 0000000000137431h                   
+  13741F  mov     rax,[rsp+28h]                             
+  137424  mov     [rax],r8d                                 
+  137427  mov     rax,[rsp+30h]                             
+  13742C  mov     [rax],ecx                                 
+  13742E  mov     al,1                                      
+  137430  ret                                               
+  137431  xor     al,al                                     
+  137433  ret                                               
+  137434  mov     rax,rsp                                   
+  137437  mov     [rax+18h],rbx                             
+  13743B  push    rbp                                       
+  13743C  push    rsi                                       
+  13743D  push    rdi                                       
+  13743E  push    r12                                       
+  137440  push    r13                                       
+  137442  push    r14                                       
+  137444  push    r15                                       
+  137446  lea     rbp,[rax-108h]                            
+  13744D  sub     rsp,1D0h                                  
+  137454  movaps  [rax-48h],xmm6                            
+  137458  movaps  [rax-58h],xmm7                            
+  13745C  movaps  [rax-68h],xmm8                            
+  137461  movaps  [rax-78h],xmm9                            
+  137466  mov     rax,[rel 44B7F30h]                        
+  13746D  xor     rax,rsp                                   
+  137470  mov     [rbp+80h],rax                             
+  137477  mov     r14,rdx                                   
+  13747A  mov     [rsp+38h],rdx                             
+  13747F  mov     r13,rcx                                   
+  137482  lea     rbx,[rbp]                                 
+  137486  mov     edi,0Ch                                   
+  13748B  lea     rsi,[rel 165FF0h]                         
+  137492  xor     r15d,r15d                                 
+  137495  dec     rdi                                       
+  137498  lea     rax,[rel 6F090h]                          
+  13749F  cmp     rsi,rax                                   
+  1374A2  jne     near 0000000000137918h                    
+  1374A8  mov     [rbx+0Ch],r15d                            
+  1374AC  add     rbx,8                                     
+  1374B0  test    rdi,rdi                                   
+  1374B3  jne     short 0000000000137495h                   
+  1374B5  test    byte [r13+18h],1                          
+  1374BA  mov     edi,3                                     
+  1374BF  lea     r11d,[rdi-1]                              
+  1374C3  jbe     near 000000000194C020h                    
+  1374C9  mov     rdx,[r13+10h]                             
+  1374CD  movsx   esi,byte [rdx+14h]                        
+  1374D1  movups  xmm0,[rdx+18h]                            
+  1374D5  mov     r12b,[rdx+17h]                            
+  1374D9  mov     ebx,[rdx+10h]                             
+  1374DC  mov     [rsp+40h],esi                             
+  1374E0  movsx   esi,byte [rdx+15h]                        
+  1374E4  mov     [rsp+30h],r12b                            
+  1374E9  mov     [rsp+50h],ebx                             
+  1374ED  movdqu  [rbp-70h],xmm0                            
+  1374F2  test    esi,esi                                   
+  1374F4  je      short 000000000013754Eh                   
+  1374F6  mov     r9,r15                                    
+  1374F9  (bad)                                             

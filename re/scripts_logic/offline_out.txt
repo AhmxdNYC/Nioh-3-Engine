@@ -1,0 +1,195 @@
+﻿== site checks (dump)
+  [ok] 6EA50 bytes = 48 89 5C 24 08 (mov [rsp+8],rbx)
+  [ok] first instruction is exactly 5 bytes, next starts at 6EA55
+  [ok] 6EA50 is a .pdata function start
+== branch-target sweep (all .pdata ranges)
+  direct branches/calls to 6EA50: 58
+  [ok] no branch into the middle of the 5 patched bytes
+== native equivalence (original code copied from the dump vs cave), own process only
+  [ok] copied original only references copied code/constants
+  cave 997 bytes (code 741)
+  finite inputs: 300000 tests, 0 bitwise mismatches (all 8 output dwords, incl. untouched [3]/[7])
+  [ok] bit-identical on finite inputs
+  [ok] aliasing (out overlaps obb) falls back to the stock code: 2001 cases, 0 byte diffs
+  [ok] switch off = stock path
+  non-finite inputs (info only): 20000 tests, 0 differ bitwise (NaN payload/sign only expected)
+== timing (delegate call overhead included in both)
+  empty 10.5 ns, stock 160.8 ns, cave 29.6 ns  => stock body 150.3 ns, cave body 19.1 ns (87% less)
+== cave disassembly (at its test address)
+    24402910100  test byte [rel 24402910000h],1
+    24402910107  je near 00000244029103DBh
+    2440291010D  test byte [rel 24402910000h],2
+    24402910114  je short 000002440291011Ch
+    24402910116  inc dword [rel 24402910004h]
+    2440291011C  lea rax,[rcx+4Ch]
+    24402910120  cmp rdx,rax
+    24402910123  jae short 0000024402910132h
+    24402910125  lea rax,[rdx+1Ch]
+    24402910129  cmp rcx,rax
+    2440291012C  jb near 00000244029103DBh
+    24402910132  movups xmm5,[rcx]
+    24402910135  movaps xmm4,xmm5
+    24402910138  movups xmm0,[rcx+10h]
+    2440291013C  xorps xmm1,xmm1
+    2440291013F  mulps xmm1,xmm0
+    24402910142  movaps xmm2,xmm1
+    24402910145  shufps xmm2,xmm2,55h
+    24402910149  blendps xmm2,xmm0,2
+    2440291014F  movaps xmm3,xmm1
+    24402910152  shufps xmm3,xmm3,0
+    24402910156  blendps xmm3,xmm0,1
+    2440291015C  addps xmm2,xmm3
+    2440291015F  movaps xmm3,xmm1
+    24402910162  shufps xmm3,xmm3,0AAh
+    24402910166  blendps xmm3,xmm0,4
+    2440291016C  addps xmm2,xmm3
+    2440291016F  xorps xmm3,xmm3
+    24402910172  cmpltps xmm3,xmm2
+    24402910176  movaps xmm2,xmm3
+    24402910179  andps xmm3,[rel 24402910040h]
+    24402910180  andnps xmm2,[rel 24402910050h]
+    24402910187  orps xmm3,xmm2
+    2440291018A  movss xmm2,[rcx+40h]
+    2440291018F  shufps xmm2,xmm2,0
+    24402910193  mulps xmm3,xmm2
+    24402910196  mulps xmm3,xmm0
+    24402910199  addps xmm3,xmm4
+    2440291019C  movaps xmm4,xmm3
+    2440291019F  movaps xmm2,xmm1
+    244029101A2  shufps xmm2,xmm2,55h
+    244029101A6  blendps xmm2,xmm0,2
+    244029101AC  xorps xmm2,[rel 24402910070h]
+    244029101B3  movaps xmm3,xmm1
+    244029101B6  shufps xmm3,xmm3,0
+    244029101BA  blendps xmm3,xmm0,1
+    244029101C0  xorps xmm3,[rel 24402910060h]
+    244029101C7  addps xmm2,xmm3
+    244029101CA  movaps xmm3,xmm1
+    244029101CD  shufps xmm3,xmm3,0AAh
+    244029101D1  blendps xmm3,xmm0,4
+    244029101D7  xorps xmm3,[rel 24402910080h]
+    244029101DE  addps xmm2,xmm3
+    244029101E1  xorps xmm3,xmm3
+    244029101E4  cmpltps xmm3,xmm2
+    244029101E8  movaps xmm2,xmm3
+    244029101EB  andps xmm3,[rel 24402910040h]
+    244029101F2  andnps xmm2,[rel 24402910050h]
+    244029101F9  orps xmm3,xmm2
+    244029101FC  movss xmm2,[rcx+40h]
+    24402910201  shufps xmm2,xmm2,0
+    24402910205  mulps xmm3,xmm2
+    24402910208  mulps xmm3,xmm0
+    2440291020B  addps xmm3,xmm5
+    2440291020E  movaps xmm5,xmm3
+    24402910211  movups xmm0,[rcx+20h]
+    24402910215  xorps xmm1,xmm1
+    24402910218  mulps xmm1,xmm0
+    2440291021B  movaps xmm2,xmm1
+    2440291021E  shufps xmm2,xmm2,55h
+    24402910222  blendps xmm2,xmm0,2
+    24402910228  movaps xmm3,xmm1
+    2440291022B  shufps xmm3,xmm3,0
+    2440291022F  blendps xmm3,xmm0,1
+    24402910235  addps xmm2,xmm3
+    24402910238  movaps xmm3,xmm1
+    2440291023B  shufps xmm3,xmm3,0AAh
+    2440291023F  blendps xmm3,xmm0,4
+    24402910245  addps xmm2,xmm3
+    24402910248  xorps xmm3,xmm3
+    2440291024B  cmpltps xmm3,xmm2
+    2440291024F  movaps xmm2,xmm3
+    24402910252  andps xmm3,[rel 24402910040h]
+    24402910259  andnps xmm2,[rel 24402910050h]
+    24402910260  orps xmm3,xmm2
+    24402910263  movss xmm2,[rcx+44h]
+    24402910268  shufps xmm2,xmm2,0
+    2440291026C  mulps xmm3,xmm2
+    2440291026F  mulps xmm3,xmm0
+    24402910272  addps xmm3,xmm4
+    24402910275  movaps xmm4,xmm3
+    24402910278  movaps xmm2,xmm1
+    2440291027B  shufps xmm2,xmm2,55h
+    2440291027F  blendps xmm2,xmm0,2
+    24402910285  xorps xmm2,[rel 24402910070h]
+    2440291028C  movaps xmm3,xmm1
+    2440291028F  shufps xmm3,xmm3,0
+    24402910293  blendps xmm3,xmm0,1
+    24402910299  xorps xmm3,[rel 24402910060h]
+    244029102A0  addps xmm2,xmm3
+    244029102A3  movaps xmm3,xmm1
+    244029102A6  shufps xmm3,xmm3,0AAh
+    244029102AA  blendps xmm3,xmm0,4
+    244029102B0  xorps xmm3,[rel 24402910080h]
+    244029102B7  addps xmm2,xmm3
+    244029102BA  xorps xmm3,xmm3
+    244029102BD  cmpltps xmm3,xmm2
+    244029102C1  movaps xmm2,xmm3
+    244029102C4  andps xmm3,[rel 24402910040h]
+    244029102CB  andnps xmm2,[rel 24402910050h]
+    244029102D2  orps xmm3,xmm2
+    244029102D5  movss xmm2,[rcx+44h]
+    244029102DA  shufps xmm2,xmm2,0
+    244029102DE  mulps xmm3,xmm2
+    244029102E1  mulps xmm3,xmm0
+    244029102E4  addps xmm3,xmm5
+    244029102E7  movaps xmm5,xmm3
+    244029102EA  movups xmm0,[rcx+30h]
+    244029102EE  xorps xmm1,xmm1
+    244029102F1  mulps xmm1,xmm0
+    244029102F4  movaps xmm2,xmm1
+    244029102F7  shufps xmm2,xmm2,55h
+    244029102FB  blendps xmm2,xmm0,2
+    24402910301  movaps xmm3,xmm1
+    24402910304  shufps xmm3,xmm3,0
+    24402910308  blendps xmm3,xmm0,1
+    2440291030E  addps xmm2,xmm3
+    24402910311  movaps xmm3,xmm1
+    24402910314  shufps xmm3,xmm3,0AAh
+    24402910318  blendps xmm3,xmm0,4
+    2440291031E  addps xmm2,xmm3
+    24402910321  xorps xmm3,xmm3
+    24402910324  cmpltps xmm3,xmm2
+    24402910328  movaps xmm2,xmm3
+    2440291032B  andps xmm3,[rel 24402910040h]
+    24402910332  andnps xmm2,[rel 24402910050h]
+    24402910339  orps xmm3,xmm2
+    2440291033C  movss xmm2,[rcx+48h]
+    24402910341  shufps xmm2,xmm2,0
+    24402910345  mulps xmm3,xmm2
+    24402910348  mulps xmm3,xmm0
+    2440291034B  addps xmm3,xmm4
+    2440291034E  movaps xmm4,xmm3
+    24402910351  movaps xmm2,xmm1
+    24402910354  shufps xmm2,xmm2,55h
+    24402910358  blendps xmm2,xmm0,2
+    2440291035E  xorps xmm2,[rel 24402910070h]
+    24402910365  movaps xmm3,xmm1
+    24402910368  shufps xmm3,xmm3,0
+    2440291036C  blendps xmm3,xmm0,1
+    24402910372  xorps xmm3,[rel 24402910060h]
+    24402910379  addps xmm2,xmm3
+    2440291037C  movaps xmm3,xmm1
+    2440291037F  shufps xmm3,xmm3,0AAh
+    24402910383  blendps xmm3,xmm0,4
+    24402910389  xorps xmm3,[rel 24402910080h]
+    24402910390  addps xmm2,xmm3
+    24402910393  xorps xmm3,xmm3
+    24402910396  cmpltps xmm3,xmm2
+    2440291039A  movaps xmm2,xmm3
+    2440291039D  andps xmm3,[rel 24402910040h]
+    244029103A4  andnps xmm2,[rel 24402910050h]
+    244029103AB  orps xmm3,xmm2
+    244029103AE  movss xmm2,[rcx+48h]
+    244029103B3  shufps xmm2,xmm2,0
+    244029103B7  mulps xmm3,xmm2
+    244029103BA  mulps xmm3,xmm0
+    244029103BD  addps xmm3,xmm5
+    244029103C0  movaps xmm5,xmm3
+    244029103C3  movq [rdx],xmm4
+    244029103C7  extractps [rdx+8],xmm4,2
+    244029103CE  movq [rdx+10h],xmm5
+    244029103D3  extractps [rdx+18h],xmm5,2
+    244029103DA  ret
+    244029103DB  mov [rsp+8],rbx
+    244029103E0  jmp 0000024409C2EA55h
+OFFLINE CHECKS: ALL PASSED

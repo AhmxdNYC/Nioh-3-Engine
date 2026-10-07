@@ -1,0 +1,50 @@
+rva	kind	name	signature	description	confidence	source
+0x9261dc	function	UiBufferPoolAcquire	void** UiBufferPoolAcquire(void* pool)	returns the current {VB, IB} GpuBuffer pair of the UI buffer ring (pool+390h, refilled from pool+78h, advanced via pair+10h) under the pool+3A8h lock; called once per frame by UiQuadBuild	high	notes/ui-mainthread.md §E
+0x62ce7c	function	GpuIndexBufferMap	void GpuIndexBufferMap(void* ib, void** out, int mode, u64 off, u32 size)	maps the UI index buffer (UiVertexBuilder+380h) into +360h with mode 3; size from ib+48h	medium	notes/ui-mainthread.md §E
+0x62e4dc	function	GpuIndexBufferUnmap	void GpuIndexBufferUnmap(void* ib)	unmaps the UI index buffer at the end of UiQuadBuild	medium	notes/ui-mainthread.md §E
+0x1cea08	function	UiElementResolveWidget	void* UiElementResolveWidget(void* elem)	returns elem itself when its vfunc+8 is the base stub 1CEA00 and byte +60h is 0, else forwards through vfuncs; used by the icon (type 9) and alpha passes	medium	notes/ui-mainthread.md §E;§R
+0x1cd1e4	function	UiDrawLayerPrepareIcons	void UiDrawLayerPrepareIcons(void* layer, void* builder)	per-frame prepass over UiVertexBuilder::ElementList that handles type-9 (icon) elements only; called right before UiQuadBuild	medium	notes/ui-mainthread.md §E
+0x2edaf3c	function	GlyphAtlasResetDirect	void GlyphAtlasResetDirect(GlyphAtlas* g)	same body as GlyphAtlasReset but takes the atlas directly; no code or data references (dead); one of only three x=shelfY=pad wipes in .text	high	notes/ui-mainthread.md §C
+0x191e5f4	label	TextureMapPrepareStaging_NonPersistWipe		inlined atlas wipe taken by TextureMapPrepareStaging only when GlyphAtlas::Persistent==0; cave C keeps glyphs only when Persistent!=0	high	notes/ui-mainthread.md §C
+0x69a494	function	TextureMapSubresource	u32 TextureMapSubresource(void* tex, void** out, u32 mip, u32 slice, int mode)	maps one texture subresource; slot = tex+B0h+idx*30h; allocates the upload staging (69A720) only if slot+0 is null; returns the pitch	high	notes/ui-mainthread.md §C
+0x1cbd50	function	UiTextElementCtor	void* UiTextElementCtor(void* self)	installs vtable 38EA3E0 (type-2 text element) and initialises style fields +E0h..+110h	high	notes/ui-mainthread.md §R
+0x38ea3e0	vtable	UiTextElementVtbl		type-2 text element: +8 = 1CC010 (mov eax,2; ret), +68 = UiElemCopyToLocalA 1CB86C (pure: memset + copy into *out); the only whitelisted type-2 +68 in cave R	high	notes/ui-mainthread.md §R
+0x38e7188	vtable	UiIconAdapterVtbl		type-9 adapter {vtbl, owner widget}: +8 = 1C23C0 (mov eax,9; ret), +68 = 1C1D38 (forwards to owner vfunc+78), +90 = 1C2390	medium	notes/ui-mainthread.md §R
+0x1b818c	function	UiWidgetAttachAdapters	void UiWidgetAttachAdapters(void* widget, void* a, void* adapter, void* b)	installs UiIconAdapterVtbl into the adapter, links it at widget+2D0h and creates a text element at widget+2D8h	low	notes/ui-mainthread.md §R
+0x1c2100	function	UiDrawCtxGetVertexCursor	void* UiDrawCtxGetVertexCursor(void* ctx)	returns [[ctx+8]+358h] (UiVertexBuilder::WriteCursor); vtable getter used by producers	high	notes/ui-mainthread.md §E
+0x1c20f0	function	UiDrawCtxGetIndexCursor	void* UiDrawCtxGetIndexCursor(void* ctx)	returns [[ctx+8]+360h] (UiVertexBuilder::IndexCursor)	high	notes/ui-mainthread.md §E
+0x1960511	label	UiElementWalk_TextFail		text or icon rasterization failed: when rasterizing, clear r14b (196051A = cave C3 site) so the rest of the walk drops text	high	notes/ui-mainthread.md §C
+0x1cd7cd	label	UiQuadBuild_AlphaPassGate		if UiSettings::AlphaPassEnable: second pass over the mapped VB writing glyph index floats and scaling vertex alpha (the uncached RMW that cave E removes)	high	notes/ui-mainthread.md §E
+0x58	struct_field	GpuBuffer::Size	u64	full buffer size; UiQuadBuild maps [0,Size)	high	notes/ui-mainthread.md §E
+0x30	struct_field	GpuBuffer::Staging	ptr	upload staging resource from UploadHeapSuballoc while mapped (buffers that are not CPU-visible)	high	notes/ui-mainthread.md §E
+0x38	struct_field	GpuBuffer::StagingOffset	u64	suballocation offset of the staging	medium	notes/ui-mainthread.md §E
+0x64	struct_field	GpuBuffer::CpuVisible	u8	nonzero: Map maps the buffer itself instead of a staging copy	medium	notes/ui-mainthread.md §E
+0x68	struct_field	GpuBuffer::MapMode	u32	mode of the current mapping (UiQuadBuild uses 3); 4 = not mapped (set by GpuBufferUnmap); cave E requires 3	high	notes/ui-mainthread.md §E
+0x70	struct_field	GpuBuffer::MapOffset	u64	offset of the current mapping	high	notes/ui-mainthread.md §E
+0x18	struct_field	UiVertexBuilder::ElementList	u8[0x50]	intrusive list of UiQuadNode: first node at +28h, end sentinel at +60h; walked by UiQuadBuild, UiDrawLayerPrepareIcons and UiElementWalk (rdx = builder+18h)	high	notes/ui-mainthread.md §E;§R
+0x100	struct_field	UiVertexBuilder::AlphaGroups	ptr	object with vfunc +18h = group count and +8h(i) = group {+4 = glyph quad count}; drives the alpha pass	high	notes/ui-mainthread.md §E
+0x1c0	struct_field	UiVertexBuilder::DrawCtx	u8[0x10]	{builder, &node+10h} passed in rdx to each producer (vfunc 0 of node+18h)	high	notes/ui-mainthread.md §E
+0x1e0	struct_field	UiVertexBuilder::BufferPool	ptr	UiBufferPoolAcquire argument	high	notes/ui-mainthread.md §E
+0x360	struct_field	UiVertexBuilder::IndexCursor	ptr	index write cursor (mapped IB), advanced by producers	high	notes/ui-mainthread.md §E
+0x380	struct_field	UiVertexBuilder::IndexBuffer	ptr	GpuBuffer holding the UI indices of the current frame	high	notes/ui-mainthread.md §E
+0x398	struct_field	UiVertexBuilder::IndexCapacity	u32	index buffer byte capacity checked by producers (1373E8)	high	notes/ui-mainthread.md §E
+0x3a0	struct_field	UiVertexBuilder::IndexBytesCommitted	u32	index bytes written this frame; zeroed together with BytesCommitted by the qword store at 1CD6B9	high	notes/ui-mainthread.md §E
+0x8	struct_field	UiQuadNode::Next	ptr	next node (end = builder+60h)	high	notes/ui-mainthread.md §E
+0x10	struct_field	UiQuadNode::Element	ptr	UI element (vfunc +8 type, +40 alpha, +68 copy style to local, +70/+78 text)	high	notes/ui-mainthread.md §E;§R
+0x18	struct_field	UiQuadNode::Producer	ptr	vertex producer object; vfunc 0 returns false on failure (exit 19602DC)	high	notes/ui-mainthread.md §E
+0x24	struct_field	UiQuadNode::VertexCount	u32	vertices this node emitted (x 2Ch bytes); the alpha pass skips by it	high	notes/ui-mainthread.md §E
+0x368	struct_field	UiSettings::AlphaPassEnable	u8	gates the vertex-alpha second pass in UiQuadBuild	high	notes/ui-mainthread.md §E
+0x370	struct_field	UiSettings::VertexStride	u32	UI vertex stride in bytes (2Ch); producers reserve stride*4 per quad	high	notes/ui-mainthread.md §E
+0x50	struct_field	GlyphAtlas::CodeTablePtr	u16*	code -> node index (points at +B0h)	high	notes/ui-mainthread.md §C
+0x58	struct_field	GlyphAtlas::NodesPtr	ptr	GlyphNode array (points at +200B0h)	high	notes/ui-mainthread.md §C
+0x60	struct_field	GlyphAtlas::GlyphPage	ptr	current font page: u16 index table + 12-byte glyph records at +20000h	high	notes/ui-mainthread.md §C
+0x70	struct_field	GlyphAtlas::LookupKey	u32	code | page<<16 | palette<<24 of the glyph being looked up	high	notes/ui-mainthread.md §C
+0x80	struct_field	GlyphAtlas::Pitch	u32	staging row pitch returned by TextureMapSubresource	high	notes/ui-mainthread.md §C
+0xa0	struct_field	GlyphAtlas::PixelPtr	ptr	mapped staging pixels; set by TextureMapPrepareStaging, cleared by GlyphAtlasUpload	high	notes/ui-mainthread.md §C
+0x0	struct_field	GlyphNode::Uv	f32[4]	u0 v0 u1 v1 of the glyph rect	high	notes/ui-mainthread.md §C
+0x10	struct_field	GlyphNode::ChildA	u16	BST link by key	high	notes/ui-mainthread.md §C
+0x12	struct_field	GlyphNode::ChildB	u16	BST link by key	high	notes/ui-mainthread.md §C
+0x14	struct_field	GlyphNode::Key	u32	code | page<<16 | palette<<24	high	notes/ui-mainthread.md §C
+0xb0	struct_field	Texture::Subresources	u8[0x30]	per-subresource slots {+0 upload staging, +10h readback staging, +20h map mode (4 = unmapped), +24h pitch, +28h size}; the upload staging is kept when PersistentStaging	high	notes/ui-mainthread.md §C
+0x70	struct_field	TextRenderer::AtlasMgr	ptr	glyph atlas manager: +B8h atlas ref, +C0h, +C8h mapped flag (rasterization allowed only while set)	high	notes/ui-mainthread.md §C
+0x468	struct_field	TextRenderer::AtlasMapped	u8	set by UiAtlasMap every frame	high	notes/ui-mainthread.md §C

@@ -1,0 +1,81 @@
+; ---- Nioh3+30EC4E8 .. +30EC5E8 (pdata fn None)
+ 30EC4E8  add     [rcx+39Ch],edx                            
+ 30EC4EE  mov     eax,edx                                   
+ 30EC4F0  add     [rcx+358h],rax                            
+ 30EC4F7  ret                                               
+ 30EC4F8  mov     [rsp+8],rbx                               
+ 30EC4FD  mov     [rsp+18h],rsi                             
+ 30EC502  push    rdi                                       
+ 30EC503  sub     rsp,20h                                   
+ 30EC507  mov     rdi,rcx                                   
+ 30EC50A  movsxd  rbx,edx                                   
+ 30EC50D  mov     rcx,[rcx+3A8h]                            
+ 30EC514  xor     esi,esi                                   
+ 30EC516  add     rcx,10h                                   
+ 30EC51A  call    qword [rel 38E2320h]                        ; KERNEL32.dll!EnterCriticalSection
+ 30EC520  mov     rax,[rdi+40h]                             
+ 30EC524  lea     r8d,[rsi+1]                               
+ 30EC528  mov     rdx,[rax+rbx*8]                           
+ 30EC52C  xor     eax,eax                                   
+ 30EC52E  lock cmpxchg [rdx+390h],r8d                       
+ 30EC537  jne     short 00000000030EC541h                   
+ 30EC539  mov     rax,[rdi+40h]                             
+ 30EC53D  mov     rsi,[rax+rbx*8]                           
+ 30EC541  mov     rcx,[rdi+3A8h]                            
+ 30EC548  add     rcx,10h                                   
+ 30EC54C  call    qword [rel 38E2318h]                        ; KERNEL32.dll!LeaveCriticalSection
+ 30EC552  mov     rbx,[rsp+30h]                             
+ 30EC557  mov     rax,rsi                                   
+ 30EC55A  mov     rsi,[rsp+40h]                             
+ 30EC55F  add     rsp,20h                                   
+ 30EC563  pop     rdi                                       
+ 30EC564  ret                                               
+ 30EC565  int3                                              
+ 30EC566  int3                                              
+ 30EC567  int3                                              
+ 30EC568  push    rbx                                       
+ 30EC56A  sub     rsp,20h                                   
+ 30EC56E  xor     eax,eax                                   
+ 30EC570  mov     rbx,rcx                                   
+ 30EC573  cmp     [rcx+8],eax                               
+ 30EC576  jne     short 00000000030EC583h                   
+ 30EC578  add     rcx,10h                                   
+ 30EC57C  call    00000000030E0110h                         
+ 30EC581  jmp     short 00000000030EC59Bh                   
+ 30EC583  cmp     dword [rcx+8],1                           
+ 30EC587  jne     short 00000000030EC59Bh                   
+ 30EC589  cmp     [rcx+30h],rax                             
+ 30EC58D  je      short 00000000030EC59Bh                   
+ 30EC58F  mov     [rcx+20h],rax                             
+ 30EC593  mov     [rcx+28h],rax                             
+ 30EC597  mov     [rcx+30h],rax                             
+ 30EC59B  or      dword [rbx+8],0FFFFFFFFh                  
+ 30EC59F  add     rsp,20h                                   
+ 30EC5A3  pop     rbx                                       
+ 30EC5A4  ret                                               
+ 30EC5A5  int3                                              
+ 30EC5A6  int3                                              
+ 30EC5A7  int3                                              
+ 30EC5A8  push    rbx                                       
+ 30EC5AA  sub     rsp,20h                                   
+ 30EC5AE  xor     eax,eax                                   
+ 30EC5B0  mov     rbx,rcx                                   
+ 30EC5B3  cmp     [rcx+8],eax                               
+ 30EC5B6  jne     short 00000000030EC5C3h                   
+ 30EC5B8  add     rcx,10h                                   
+ 30EC5BC  call    00000000030EFE10h                         
+ 30EC5C1  jmp     short 00000000030EC5DBh                   
+ 30EC5C3  cmp     dword [rcx+8],1                           
+ 30EC5C7  jne     short 00000000030EC5DBh                   
+ 30EC5C9  cmp     [rcx+30h],rax                             
+ 30EC5CD  je      short 00000000030EC5DBh                   
+ 30EC5CF  mov     [rcx+20h],rax                             
+ 30EC5D3  mov     [rcx+28h],rax                             
+ 30EC5D7  mov     [rcx+30h],rax                             
+ 30EC5DB  or      dword [rbx+8],0FFFFFFFFh                  
+ 30EC5DF  add     rsp,20h                                   
+ 30EC5E3  pop     rbx                                       
+ 30EC5E4  ret                                               
+ 30EC5E5  int3                                              
+ 30EC5E6  int3                                              
+ 30EC5E7  int3                                              

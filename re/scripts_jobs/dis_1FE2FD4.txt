@@ -1,0 +1,103 @@
+; ---- Nioh3+1FE2FD4 .. +1FE3139 (pdata fn Some (33435604u, 33435961u))
+ 1FE2FD4  mov     rax,rsp                                   
+ 1FE2FD7  mov     [rax+8],rbx                               
+ 1FE2FDB  mov     [rax+10h],rbp                             
+ 1FE2FDF  mov     [rax+18h],rsi                             
+ 1FE2FE3  mov     [rax+20h],rdi                             
+ 1FE2FE7  push    r14                                       
+ 1FE2FE9  sub     rsp,20h                                   
+ 1FE2FED  lea     rbx,[rcx+6F0h]                            
+ 1FE2FF4  mov     rdi,rcx                                   
+ 1FE2FF7  mov     rcx,rbx                                   
+ 1FE2FFA  mov     rsi,rdx                                   
+ 1FE2FFD  call    0000000000048B44h                         
+ 1FE3002  mov     r11d,[rsi+4]                              
+ 1FE3006  mov     ebp,6                                     
+ 1FE300B  cmp     r11d,20h                                  
+ 1FE300F  jle     short 0000000001FE3015h                   
+ 1FE3011  mov     al,20h                                    
+ 1FE3013  jmp     short 0000000001FE301Fh                   
+ 1FE3015  cmp     r11d,ebp                                  
+ 1FE3018  movzx   eax,r11b                                  
+ 1FE301C  cmovl   eax,ebp                                   
+ 1FE301F  mov     [rdi+740h],al                             
+ 1FE3025  cmp     byte [rsi+12h],0                          
+ 1FE3029  je      short 0000000001FE3032h                   
+ 1FE302B  mov     byte [rdi+741h],10h                       
+ 1FE3032  xor     r9d,r9d                                   
+ 1FE3035  lea     r10,[rdi+0Ch]                             
+ 1FE3039  lea     esi,[r9+3]                                
+ 1FE303D  lea     r14d,[r9+1]                               
+ 1FE3041  cmp     r11d,ebp                                  
+ 1FE3044  jg      short 0000000001FE305Bh                   
+ 1FE3046  cmp     r9w,bp                                    
+ 1FE304A  je      short 0000000001FE3057h                   
+ 1FE304C  cmp     r9w,0Bh                                   
+ 1FE3051  jne     short 0000000001FE307Eh                   
+ 1FE3053  mov     al,2                                      
+ 1FE3055  jmp     short 0000000001FE3076h                   
+ 1FE3057  mov     al,4                                      
+ 1FE3059  jmp     short 0000000001FE3076h                   
+ 1FE305B  cmp     r11d,8                                    
+ 1FE305F  jg      short 0000000001FE307Eh                   
+ 1FE3061  cmp     r9w,bp                                    
+ 1FE3065  je      short 0000000001FE3073h                   
+ 1FE3067  cmp     r9w,0Bh                                   
+ 1FE306C  jne     short 0000000001FE307Eh                   
+ 1FE306E  mov     al,sil                                    
+ 1FE3071  jmp     short 0000000001FE3076h                   
+ 1FE3073  mov     al,bpl                                    
+ 1FE3076  mov     [r10],al                                  
+ 1FE3079  jmp     0000000001FE3106h                         
+ 1FE307E  cmp     dword [r10+4],0                           
+ 1FE3083  jl      short 0000000001FE30D5h                   
+ 1FE3085  movzx   ecx,byte [rdi+740h]                       
+ 1FE308C  movzx   edx,r9w                                   
+ 1FE3090  call    0000000001FDFEB4h                         
+ 1FE3095  movd    xmm1,[r10+4]                              
+ 1FE309B  cvtdq2ps xmm1,xmm1                                
+ 1FE309E  movd    xmm2,eax                                  
+ 1FE30A2  movzx   eax,byte [rdi+741h]                       
+ 1FE30A9  cvtdq2ps xmm2,xmm2                                
+ 1FE30AC  movd    xmm0,eax                                  
+ 1FE30B0  cvtdq2ps xmm0,xmm0                                
+ 1FE30B3  divss   xmm2,xmm0                                 
+ 1FE30B7  mulss   xmm2,xmm1                                 
+ 1FE30BB  cvttss2si ecx,xmm2                                
+ 1FE30BF  cmp     ecx,20h                                   
+ 1FE30C2  jle     short 0000000001FE30C8h                   
+ 1FE30C4  mov     al,20h                                    
+ 1FE30C6  jmp     short 0000000001FE30D2h                   
+ 1FE30C8  cmp     ecx,r14d                                  
+ 1FE30CB  movzx   eax,cl                                    
+ 1FE30CE  cmovl   eax,r14d                                  
+ 1FE30D2  mov     [r10],al                                  
+ 1FE30D5  cmp     r11d,0Ch                                  
+ 1FE30D9  jg      short 0000000001FE3106h                   
+ 1FE30DB  movzx   eax,r9w                                   
+ 1FE30DF  mov     ecx,0FFFDh                                
+ 1FE30E4  sub     ax,si                                     
+ 1FE30E7  test    cx,ax                                     
+ 1FE30EA  jne     short 0000000001FE3106h                   
+ 1FE30EC  movzx   eax,byte [r10]                            
+ 1FE30F0  sub     eax,esi                                   
+ 1FE30F2  cmp     eax,20h                                   
+ 1FE30F5  jle     short 0000000001FE30FBh                   
+ 1FE30F7  mov     cl,20h                                    
+ 1FE30F9  jmp     short 0000000001FE3103h                   
+ 1FE30FB  cmp     eax,esi                                   
+ 1FE30FD  movzx   ecx,al                                    
+ 1FE3100  cmovl   ecx,esi                                   
+ 1FE3103  mov     [r10],cl                                  
+ 1FE3106  add     r9d,r14d                                  
+ 1FE3109  add     r10,18h                                   
+ 1FE310D  cmp     r9d,4Ah                                   
+ 1FE3111  jl      near 0000000001FE3041h                    
+ 1FE3117  mov     rcx,rbx                                   
+ 1FE311A  mov     rbx,[rsp+30h]                             
+ 1FE311F  mov     rbp,[rsp+38h]                             
+ 1FE3124  mov     rsi,[rsp+40h]                             
+ 1FE3129  mov     rdi,[rsp+48h]                             
+ 1FE312E  add     rsp,20h                                   
+ 1FE3132  pop     r14                                       
+ 1FE3134  jmp     0000000000B61524h                         

@@ -1,0 +1,2305 @@
+tid	thread	view	count	pct	busy	function
+8564	[App]Game	self	255	6.552	94.8	Nioh3+1E80B0
+8564	[App]Game	self	141	3.623	91.5	ntdll.dll!ZwDelayExecution
+8564	[App]Game	self	118	3.032	95.2	Nioh3+B94230
+8564	[App]Game	self	116	2.980	93.0	Nioh3+B94250
+8564	[App]Game	self	93	2.390	91.6	Nioh3+4AA34
+8564	[App]Game	self	86	2.210	95.3	Nioh3+39E20
+8564	[App]Game	self	84	2.158	90.5	Nioh3+1E7050
+8564	[App]Game	self	79	2.030	90.6	Nioh3+2523FC
+8564	[App]Game	self	76	1.953	96.0	Nioh3+61B1C
+8564	[App]Game	self	65	1.670	95.2	Nioh3+1CD690
+8564	[App]Game	self	65	1.670	94.9	Nioh3+1D7340
+8564	[App]Game	self	65	1.670	95.8	Nioh3+1D8720
+8564	[App]Game	self	64	1.644	96.0	Nioh3+1D84A0
+8564	[App]Game	self	59	1.516	91.3	Nioh3+128EF0
+8564	[App]Game	self	56	1.439	96.1	Nioh3+418F40
+8564	[App]Game	self	50	1.285	96.2	Nioh3+3BC0C
+8564	[App]Game	self	48	1.233	90.1	Nioh3+4DB6C
+8564	[App]Game	self	45	1.156	92.3	Nioh3+1290B8
+8564	[App]Game	self	45	1.156	94.2	Nioh3+3C7750(leaf?)
+8564	[App]Game	self	41	1.053	94.9	Nioh3+1DAF6C
+8564	[App]Game	self	37	0.951	94.5	Nioh3+1E6664
+8564	[App]Game	self	37	0.951	88.4	Nioh3+3D8770(leaf?)
+8564	[App]Game	self	34	0.874	94.9	Nioh3+1E8040(leaf?)
+8564	[App]Game	self	34	0.874	96.6	ntdll.dll!RtlQueryPerformanceCounter
+8564	[App]Game	self	33	0.848	96.2	Nioh3+1E5854
+8564	[App]Game	self	33	0.848	95.1	ntdll.dll!ZwReleaseSemaphore
+8564	[App]Game	self	32	0.822	92.6	Nioh3+419A8
+8564	[App]Game	self	30	0.771	95.9	Nioh3+1D7EB0
+8564	[App]Game	self	28	0.719	94.4	Nioh3+43E300(leaf?)
+8564	[App]Game	self	27	0.694	92.2	Nioh3+3C4B74
+8564	[App]Game	attr	255	6.552		Nioh3+1E80B0
+8564	[App]Game	attr	146	3.751		Nioh3+7D9E90
+8564	[App]Game	attr	118	3.032		Nioh3+B94230
+8564	[App]Game	attr	116	2.980		Nioh3+B94250
+8564	[App]Game	attr	93	2.390		Nioh3+4AA34
+8564	[App]Game	attr	86	2.210		Nioh3+39E20
+8564	[App]Game	attr	84	2.158		Nioh3+1E7050
+8564	[App]Game	attr	79	2.030		Nioh3+2523FC
+8564	[App]Game	attr	76	1.953		Nioh3+61B1C
+8564	[App]Game	attr	65	1.670		Nioh3+1CD690
+8564	[App]Game	attr	65	1.670		Nioh3+1D7340
+8564	[App]Game	attr	65	1.670		Nioh3+1D8720
+8564	[App]Game	attr	64	1.644		Nioh3+1D84A0
+8564	[App]Game	attr	60	1.542		Nioh3+4DB6C
+8564	[App]Game	attr	59	1.516		Nioh3+128EF0
+8564	[App]Game	attr	56	1.439		Nioh3+418F40
+8564	[App]Game	attr	50	1.285		Nioh3+3BC0C
+8564	[App]Game	attr	45	1.156		Nioh3+1290B8
+8564	[App]Game	attr	45	1.156		Nioh3+3C7750(leaf?)
+8564	[App]Game	attr	42	1.079		Nioh3+1A74130
+8564	[App]Game	incl	2075	53.314		Nioh3+112DD8
+8564	[App]Game	incl	2054	52.775		Nioh3+1A74130
+8564	[App]Game	incl	2045	52.544		Nioh3+27049CC
+8564	[App]Game	incl	2037	52.338		Nioh3+3D1F20
+8564	[App]Game	incl	2013	51.721		Nioh3+134EBD0
+8564	[App]Game	incl	2012	51.696		Nioh3+5B6670
+8564	[App]Game	incl	2012	51.696		Nioh3+BDB740
+8564	[App]Game	incl	2012	51.696		KERNEL32.DLL!BaseThreadInitThunk
+8564	[App]Game	incl	2012	51.696		ntdll.dll!RtlUserThreadStart
+8564	[App]Game	incl	1438	36.948		Nioh3+535188
+8564	[App]Game	incl	1400	35.971		Nioh3+113204
+8564	[App]Game	incl	1268	32.580		Nioh3+39E20
+8564	[App]Game	incl	759	19.502		Nioh3+1DC2F0
+8564	[App]Game	incl	731	18.782		Nioh3+1E80B0
+8564	[App]Game	incl	632	16.238		Nioh3+4A529C
+8564	[App]Game	incl	546	14.029		Nioh3+577E50
+8564	[App]Game	incl	391	10.046		Nioh3+5D214
+8564	[App]Game	incl	319	8.196		Nioh3+1D2F60
+8564	[App]Game	incl	305	7.837		Nioh3+253C68
+8564	[App]Game	incl	302	7.760		Nioh3+254440
+8564	[App]Game	incl	287	7.374		Nioh3+365AA98
+8564	[App]Game	incl	283	7.271		Nioh3+3D0AE0
+8564	[App]Game	incl	275	7.066		Nioh3+3D275C
+8564	[App]Game	incl	274	7.040		Nioh3+694B38
+8564	[App]Game	incl	274	7.040		Nioh3+2EC91E0
+8564	[App]Game	incl	274	7.040		Nioh3+2EA7D24
+8564	[App]Game	incl	274	7.040		Nioh3+1893374
+8564	[App]Game	incl	256	6.578		Nioh3+4BBEC
+8564	[App]Game	incl	248	6.372		Nioh3+3C77F4
+8564	[App]Game	incl	238	6.115		Nioh3+1DF880
+10736	KIDSTaskScheduler0	self	529	13.592	77.4	ntdll.dll!NtWaitForAlertByThreadId
+10736	KIDSTaskScheduler0	self	104	2.672	78.4	Nioh3+6EFD0(leaf?)
+10736	KIDSTaskScheduler0	self	77	1.978	83.3	Nioh3+411C0
+10736	KIDSTaskScheduler0	self	77	1.978	76.9	ntdll.dll!ZwSetEvent
+10736	KIDSTaskScheduler0	self	73	1.876	77.7	Nioh3+66D00
+10736	KIDSTaskScheduler0	self	61	1.567	77.1	Nioh3+6EA50
+10736	KIDSTaskScheduler0	self	59	1.516	77.2	Nioh3+71C60
+10736	KIDSTaskScheduler0	self	56	1.439	82.0	Nioh3+12B440
+10736	KIDSTaskScheduler0	self	50	1.285	79.2	Nioh3+54360
+10736	KIDSTaskScheduler0	self	50	1.285	74.9	Nioh3+16BA70
+10736	KIDSTaskScheduler0	self	45	1.156	72.9	Nioh3+889C0
+10736	KIDSTaskScheduler0	self	43	1.105	84.0	Nioh3+425B0
+10736	KIDSTaskScheduler0	self	39	1.002	76.5	ntdll.dll!NtAlertThreadByThreadIdEx
+10736	KIDSTaskScheduler0	self	38	0.976	76.8	Nioh3+F33A0
+10736	KIDSTaskScheduler0	self	37	0.951	91.3	ntdll.dll!ZwDelayExecution
+10736	KIDSTaskScheduler0	self	35	0.899	79.2	Nioh3+174610(leaf?)
+10736	KIDSTaskScheduler0	self	33	0.848	79.8	Nioh3+CC940
+10736	KIDSTaskScheduler0	self	32	0.822	89.3	Nioh3+6642C
+10736	KIDSTaskScheduler0	self	31	0.797	75.1	Nioh3+E32D90
+10736	KIDSTaskScheduler0	self	27	0.694	80.4	Nioh3+121E70(leaf?)
+10736	KIDSTaskScheduler0	self	26	0.668	76.8	Nioh3+199180
+10736	KIDSTaskScheduler0	self	25	0.642	77.1	Nioh3+6F060(leaf?)
+10736	KIDSTaskScheduler0	self	25	0.642	81.9	Nioh3+16CFF0
+10736	KIDSTaskScheduler0	self	25	0.642	77.9	Nioh3+6F010
+10736	KIDSTaskScheduler0	self	24	0.617	76.4	Nioh3+1A7BF0
+10736	KIDSTaskScheduler0	self	23	0.591	77.2	Nioh3+284ED4
+10736	KIDSTaskScheduler0	self	22	0.565	74.0	Nioh3+CE5F0
+10736	KIDSTaskScheduler0	self	22	0.565	78.2	Nioh3+1FDC1C
+10736	KIDSTaskScheduler0	self	21	0.540	85.1	Nioh3+120120(leaf?)
+10736	KIDSTaskScheduler0	self	20	0.514	80.8	Nioh3+403A0
+10736	KIDSTaskScheduler0	attr	522	13.412		Nioh3+B616A4
+10736	KIDSTaskScheduler0	attr	104	2.672		Nioh3+6EFD0(leaf?)
+10736	KIDSTaskScheduler0	attr	77	1.978		Nioh3+411C0
+10736	KIDSTaskScheduler0	attr	73	1.876		Nioh3+66D00
+10736	KIDSTaskScheduler0	attr	61	1.567		Nioh3+40800
+10736	KIDSTaskScheduler0	attr	61	1.567		Nioh3+6EA50
+10736	KIDSTaskScheduler0	attr	59	1.516		Nioh3+71C60
+10736	KIDSTaskScheduler0	attr	56	1.439		Nioh3+12B440
+10736	KIDSTaskScheduler0	attr	50	1.285		Nioh3+54360
+10736	KIDSTaskScheduler0	attr	50	1.285		Nioh3+16BA70
+10736	KIDSTaskScheduler0	attr	45	1.156		Nioh3+889C0
+10736	KIDSTaskScheduler0	attr	44	1.131		Nioh3+B61524 _Mtx_unlock
+10736	KIDSTaskScheduler0	attr	43	1.105		Nioh3+425B0
+10736	KIDSTaskScheduler0	attr	38	0.976		Nioh3+F33A0
+10736	KIDSTaskScheduler0	attr	37	0.951		Nioh3+916EBC
+10736	KIDSTaskScheduler0	attr	35	0.899		Nioh3+174610(leaf?)
+10736	KIDSTaskScheduler0	attr	33	0.848		Nioh3+CC940
+10736	KIDSTaskScheduler0	attr	32	0.822		Nioh3+6642C
+10736	KIDSTaskScheduler0	attr	31	0.797		Nioh3+E32D90
+10736	KIDSTaskScheduler0	attr	27	0.694		Nioh3+121E70(leaf?)
+10736	KIDSTaskScheduler0	incl	3633	93.345		Nioh3+40800
+10736	KIDSTaskScheduler0	incl	2898	74.460		Nioh3+111184
+10736	KIDSTaskScheduler0	incl	2898	74.460		Nioh3+3FE14
+10736	KIDSTaskScheduler0	incl	2897	74.435		Nioh3+1A6BB84
+10736	KIDSTaskScheduler0	incl	2897	74.435		Nioh3+BDB740
+10736	KIDSTaskScheduler0	incl	2897	74.435		KERNEL32.DLL!BaseThreadInitThunk
+10736	KIDSTaskScheduler0	incl	2896	74.409		ntdll.dll!RtlUserThreadStart
+10736	KIDSTaskScheduler0	incl	2895	74.383		Nioh3+1113B4
+10736	KIDSTaskScheduler0	incl	2531	65.031		Nioh3+5ACF80
+10736	KIDSTaskScheduler0	incl	2417	62.102		Nioh3+5AC664
+10736	KIDSTaskScheduler0	incl	2417	62.102		Nioh3+5AC628
+10736	KIDSTaskScheduler0	incl	2338	60.072		Nioh3+5AC9EC
+10736	KIDSTaskScheduler0	incl	1539	39.543		Nioh3+564F60
+10736	KIDSTaskScheduler0	incl	1539	39.543		Nioh3+564F40
+10736	KIDSTaskScheduler0	incl	1538	39.517		Nioh3+5651D0
+10736	KIDSTaskScheduler0	incl	1505	38.669		Nioh3+39E4E4
+10736	KIDSTaskScheduler0	incl	1384	35.560		Nioh3+3E7CC
+10736	KIDSTaskScheduler0	incl	1381	35.483		Nioh3+403A0
+10736	KIDSTaskScheduler0	incl	719	18.474		Nioh3+182000
+10736	KIDSTaskScheduler0	incl	665	17.086		Nioh3+408FE0
+10736	KIDSTaskScheduler0	incl	664	17.061		Nioh3+16CFF0
+10736	KIDSTaskScheduler0	incl	664	17.061		Nioh3+16EF8C
+10736	KIDSTaskScheduler0	incl	652	16.752		Nioh3+1A7BF0
+10736	KIDSTaskScheduler0	incl	649	16.675		Nioh3+204584
+10736	KIDSTaskScheduler0	incl	603	15.493		Nioh3+408648
+10736	KIDSTaskScheduler0	incl	582	14.954		Nioh3+61FDA8
+10736	KIDSTaskScheduler0	incl	581	14.928		Nioh3+61FEA8
+10736	KIDSTaskScheduler0	incl	535	13.746		KERNELBASE.dll!SleepConditionVariableSRW
+10736	KIDSTaskScheduler0	incl	534	13.720		ntdll.dll!RtlSleepConditionVariableSRW
+10736	KIDSTaskScheduler0	incl	529	13.592		ntdll.dll!NtWaitForAlertByThreadId
+5024	SynergisticDispatcherTask	self	1671	42.934	52.0	ntdll.dll!ZwWaitForSingleObject
+5024	SynergisticDispatcherTask	self	110	2.826	62.9	amdxc64.dll+196B710
+5024	SynergisticDispatcherTask	self	110	2.826	70.6	Nioh3+119820
+5024	SynergisticDispatcherTask	self	75	1.927	63.5	Nioh3+B94250
+5024	SynergisticDispatcherTask	self	73	1.876	69.2	amdxc64.dll+46C170
+5024	SynergisticDispatcherTask	self	54	1.387	65.2	amdxc64.dll+1B0190
+5024	SynergisticDispatcherTask	self	53	1.362	66.3	Nioh3+B94230
+5024	SynergisticDispatcherTask	self	48	1.233	61.6	D3D12Core.dll+23BF40
+5024	SynergisticDispatcherTask	self	43	1.105	58.8	Nioh3+1192B0
+5024	SynergisticDispatcherTask	self	42	1.079	74.3	Nioh3+114A20
+5024	SynergisticDispatcherTask	self	38	0.976	65.5	D3D12Core.dll+23EF60
+5024	SynergisticDispatcherTask	self	36	0.925	61.1	amdxc64.dll+18CDC0
+5024	SynergisticDispatcherTask	self	33	0.848	72.4	Nioh3+115B9C
+5024	SynergisticDispatcherTask	self	32	0.822	71.9	Nioh3+189BFB0(leaf?)
+5024	SynergisticDispatcherTask	self	31	0.797	64.6	amdxc64.dll+3B5790
+5024	SynergisticDispatcherTask	self	28	0.719	55.9	Nioh3+B94150 memcmp
+5024	SynergisticDispatcherTask	self	26	0.668	28.5	Nioh3+58C144
+5024	SynergisticDispatcherTask	self	24	0.617	71.3	amdxc64.dll+52A960
+5024	SynergisticDispatcherTask	self	22	0.565	58.6	Nioh3+1A7C3E0
+5024	SynergisticDispatcherTask	self	22	0.565	54.3	ntdll.dll!RtlEnterCriticalSection
+5024	SynergisticDispatcherTask	self	20	0.514	69.7	Nioh3+118E28
+5024	SynergisticDispatcherTask	self	20	0.514	72.0	Nioh3+1164C4
+5024	SynergisticDispatcherTask	self	20	0.514	52.9	D3D12Core.dll+18A80
+5024	SynergisticDispatcherTask	self	20	0.514	72.5	amdxc64.dll+168FE0
+5024	SynergisticDispatcherTask	self	18	0.462	69.0	amdxc64.dll+462890
+5024	SynergisticDispatcherTask	self	18	0.462	50.8	amdxc64.dll+453610
+5024	SynergisticDispatcherTask	self	18	0.462	48.4	amdxc64.dll+156B90(leaf?)
+5024	SynergisticDispatcherTask	self	17	0.437	62.2	amdxc64.dll+44FF80
+5024	SynergisticDispatcherTask	self	17	0.437	66.8	amdxc64.dll+454C90
+5024	SynergisticDispatcherTask	self	17	0.437	74.7	Nioh3+116260
+5024	SynergisticDispatcherTask	attr	1694	43.525		Nioh3+1A7C3E0
+5024	SynergisticDispatcherTask	attr	253	6.501		Nioh3+118604
+5024	SynergisticDispatcherTask	attr	160	4.111		Nioh3+115E24
+5024	SynergisticDispatcherTask	attr	112	2.878		Nioh3+115DE8
+5024	SynergisticDispatcherTask	attr	110	2.826		Nioh3+119820
+5024	SynergisticDispatcherTask	attr	85	2.184		Nioh3+58BE90
+5024	SynergisticDispatcherTask	attr	81	2.081		Nioh3+1167D4
+5024	SynergisticDispatcherTask	attr	75	1.927		Nioh3+1180D0
+5024	SynergisticDispatcherTask	attr	75	1.927		Nioh3+B94250
+5024	SynergisticDispatcherTask	attr	71	1.824		Nioh3+492220
+5024	SynergisticDispatcherTask	attr	64	1.644		Nioh3+4591DC
+5024	SynergisticDispatcherTask	attr	62	1.593		Nioh3+118E28
+5024	SynergisticDispatcherTask	attr	53	1.362		Nioh3+B94230
+5024	SynergisticDispatcherTask	attr	49	1.259		Nioh3+114A20
+5024	SynergisticDispatcherTask	attr	46	1.182		Nioh3+490D5C
+5024	SynergisticDispatcherTask	attr	44	1.131		Nioh3+113A0C
+5024	SynergisticDispatcherTask	attr	43	1.105		Nioh3+1192B0
+5024	SynergisticDispatcherTask	attr	36	0.925		Nioh3+6EB908
+5024	SynergisticDispatcherTask	attr	36	0.925		Nioh3+58BDC4
+5024	SynergisticDispatcherTask	attr	33	0.848		Nioh3+115B9C
+5024	SynergisticDispatcherTask	incl	3876	99.589		Nioh3+1A7C3E0
+5024	SynergisticDispatcherTask	incl	3876	99.589		Nioh3+2EEDFA0
+5024	SynergisticDispatcherTask	incl	3876	99.589		Nioh3+BDB740
+5024	SynergisticDispatcherTask	incl	3876	99.589		KERNEL32.DLL!BaseThreadInitThunk
+5024	SynergisticDispatcherTask	incl	3876	99.589		ntdll.dll!RtlUserThreadStart
+5024	SynergisticDispatcherTask	incl	1673	42.986		KERNELBASE.dll!WaitForSingleObjectEx
+5024	SynergisticDispatcherTask	incl	1671	42.934		ntdll.dll!ZwWaitForSingleObject
+5024	SynergisticDispatcherTask	incl	702	18.037		Nioh3+1180D0
+5024	SynergisticDispatcherTask	incl	627	16.110		Nioh3+118604
+5024	SynergisticDispatcherTask	incl	419	10.766		Nioh3+1167D4
+5024	SynergisticDispatcherTask	incl	282	7.246		D3D12Core.dll+23B280
+5024	SynergisticDispatcherTask	incl	262	6.732		amdxc64.dll+168FE0
+5024	SynergisticDispatcherTask	incl	243	6.244		Nioh3+58BDC4
+5024	SynergisticDispatcherTask	incl	232	5.961		amdxc64.dll+1AFDF0
+5024	SynergisticDispatcherTask	incl	222	5.704		D3D12Core.dll+229FDC
+5024	SynergisticDispatcherTask	incl	215	5.524		Nioh3+58BE90
+5024	SynergisticDispatcherTask	incl	212	5.447		D3D12Core.dll+23E128
+5024	SynergisticDispatcherTask	incl	200	5.139		Nioh3+6BE12C
+5024	SynergisticDispatcherTask	incl	188	4.830		amdxc64.dll+153AE0
+5024	SynergisticDispatcherTask	incl	176	4.522		Nioh3+115B9C
+5024	SynergisticDispatcherTask	incl	173	4.445		amdxc64.dll+18CAF0
+5024	SynergisticDispatcherTask	incl	169	4.342		amdxc64.dll+46C6E0
+5024	SynergisticDispatcherTask	incl	160	4.111		Nioh3+115E24
+5024	SynergisticDispatcherTask	incl	157	4.034		Nioh3+6EB908
+5024	SynergisticDispatcherTask	incl	155	3.983		Nioh3+115A70
+5024	SynergisticDispatcherTask	incl	145	3.726		Nioh3+119670
+5024	SynergisticDispatcherTask	incl	134	3.443		Nioh3+118DA8
+5024	SynergisticDispatcherTask	incl	131	3.366		D3D12Core.dll+18A80
+5024	SynergisticDispatcherTask	incl	125	3.212		Nioh3+119820
+5024	SynergisticDispatcherTask	incl	125	3.212		Nioh3+11976C
+21548	KIDSTaskScheduler6	self	2665	68.474	29.3	ntdll.dll!ZwWaitForSingleObject
+21548	KIDSTaskScheduler6	self	81	2.081	15.9	Nioh3+70230
+21548	KIDSTaskScheduler6	self	51	1.310	42.6	Nioh3+1A7BF0
+21548	KIDSTaskScheduler6	self	44	1.131	45.7	Nioh3+425B0
+21548	KIDSTaskScheduler6	self	42	1.079	43.4	Nioh3+121FC0
+21548	KIDSTaskScheduler6	self	32	0.822	45.1	Nioh3+121E70(leaf?)
+21548	KIDSTaskScheduler6	self	28	0.719	43.4	Nioh3+3AF00
+21548	KIDSTaskScheduler6	self	26	0.668	16.5	Nioh3+CE1E0
+21548	KIDSTaskScheduler6	self	21	0.540	43.7	Nioh3+204584
+21548	KIDSTaskScheduler6	self	21	0.540	72.0	Nioh3+4DBA00
+21548	KIDSTaskScheduler6	self	20	0.514	42.3	Nioh3+120120(leaf?)
+21548	KIDSTaskScheduler6	self	18	0.462	44.5	Nioh3+1A188C
+21548	KIDSTaskScheduler6	self	18	0.462	26.0	Nioh3+199180
+21548	KIDSTaskScheduler6	self	17	0.437	24.6	Nioh3+203BD4
+21548	KIDSTaskScheduler6	self	16	0.411	16.7	Nioh3+709C0(leaf?)
+21548	KIDSTaskScheduler6	self	15	0.385	53.2	Nioh3+13233B0
+21548	KIDSTaskScheduler6	self	15	0.385	33.5	Nioh3+6FED0
+21548	KIDSTaskScheduler6	self	14	0.360	43.3	Nioh3+2040A0
+21548	KIDSTaskScheduler6	self	14	0.360	45.4	ntdll.dll!ZwSetEvent
+21548	KIDSTaskScheduler6	self	14	0.360	23.3	Nioh3+D1908
+21548	KIDSTaskScheduler6	self	14	0.360	75.7	Nioh3+6642C
+21548	KIDSTaskScheduler6	self	13	0.334	37.8	Nioh3+204128
+21548	KIDSTaskScheduler6	self	12	0.308	14.4	Nioh3+88780
+21548	KIDSTaskScheduler6	self	12	0.308	50.9	Nioh3+411C0
+21548	KIDSTaskScheduler6	self	12	0.308	15.2	Nioh3+6FA30
+21548	KIDSTaskScheduler6	self	11	0.283	38.9	Nioh3+40800
+21548	KIDSTaskScheduler6	self	10	0.257	79.3	Nioh3+42154
+21548	KIDSTaskScheduler6	self	10	0.257	40.4	Nioh3+1202B0
+21548	KIDSTaskScheduler6	self	10	0.257	41.2	Nioh3+6BB80
+21548	KIDSTaskScheduler6	self	9	0.231	19.7	Nioh3+166F20
+21548	KIDSTaskScheduler6	attr	2666	68.499		Nioh3+1A6BB84
+21548	KIDSTaskScheduler6	attr	81	2.081		Nioh3+70230
+21548	KIDSTaskScheduler6	attr	51	1.310		Nioh3+1A7BF0
+21548	KIDSTaskScheduler6	attr	44	1.131		Nioh3+425B0
+21548	KIDSTaskScheduler6	attr	42	1.079		Nioh3+121FC0
+21548	KIDSTaskScheduler6	attr	32	0.822		Nioh3+121E70(leaf?)
+21548	KIDSTaskScheduler6	attr	28	0.719		Nioh3+3AF00
+21548	KIDSTaskScheduler6	attr	26	0.668		Nioh3+CE1E0
+21548	KIDSTaskScheduler6	attr	25	0.642		Nioh3+40800
+21548	KIDSTaskScheduler6	attr	22	0.565		Nioh3+204584
+21548	KIDSTaskScheduler6	attr	21	0.540		Nioh3+4DBA00
+21548	KIDSTaskScheduler6	attr	20	0.514		Nioh3+120120(leaf?)
+21548	KIDSTaskScheduler6	attr	18	0.462		Nioh3+1A188C
+21548	KIDSTaskScheduler6	attr	18	0.462		Nioh3+199180
+21548	KIDSTaskScheduler6	attr	17	0.437		Nioh3+203BD4
+21548	KIDSTaskScheduler6	attr	16	0.411		Nioh3+709C0(leaf?)
+21548	KIDSTaskScheduler6	attr	15	0.385		Nioh3+13233B0
+21548	KIDSTaskScheduler6	attr	15	0.385		Nioh3+6FED0
+21548	KIDSTaskScheduler6	attr	14	0.360		Nioh3+2040A0
+21548	KIDSTaskScheduler6	attr	14	0.360		Nioh3+D1908
+21548	KIDSTaskScheduler6	incl	3366	86.485		Nioh3+1A6BB84
+21548	KIDSTaskScheduler6	incl	3322	85.355		Nioh3+BDB740
+21548	KIDSTaskScheduler6	incl	3321	85.329		KERNEL32.DLL!BaseThreadInitThunk
+21548	KIDSTaskScheduler6	incl	3321	85.329		ntdll.dll!RtlUserThreadStart
+21548	KIDSTaskScheduler6	incl	2665	68.474		ntdll.dll!ZwWaitForSingleObject
+21548	KIDSTaskScheduler6	incl	2665	68.474		KERNELBASE.dll!WaitForSingleObjectEx
+21548	KIDSTaskScheduler6	incl	1016	26.105		Nioh3+40800
+21548	KIDSTaskScheduler6	incl	747	19.193		Nioh3+3FE14
+21548	KIDSTaskScheduler6	incl	662	17.009		Nioh3+1A7BF0
+21548	KIDSTaskScheduler6	incl	602	15.468		Nioh3+403A0
+21548	KIDSTaskScheduler6	incl	602	15.468		Nioh3+3E7CC
+21548	KIDSTaskScheduler6	incl	588	15.108		Nioh3+205840
+21548	KIDSTaskScheduler6	incl	576	14.800		Nioh3+206400
+21548	KIDSTaskScheduler6	incl	545	14.003		Nioh3+204DB0
+21548	KIDSTaskScheduler6	incl	451	11.588		Nioh3+451E4
+21548	KIDSTaskScheduler6	incl	347	8.916		Nioh3+182000
+21548	KIDSTaskScheduler6	incl	342	8.787		Nioh3+5795B8
+21548	KIDSTaskScheduler6	incl	327	8.402		Nioh3+204584
+21548	KIDSTaskScheduler6	incl	320	8.222		Nioh3+855E48
+21548	KIDSTaskScheduler6	incl	318	8.171		Nioh3+1113B4
+21548	KIDSTaskScheduler6	incl	318	8.171		Nioh3+111184
+21548	KIDSTaskScheduler6	incl	290	7.451		Nioh3+7E35E4
+21548	KIDSTaskScheduler6	incl	261	6.706		Nioh3+111EA4
+21548	KIDSTaskScheduler6	incl	169	4.342		Nioh3+1202B0
+21548	KIDSTaskScheduler6	incl	159	4.085		Nioh3+121FC0
+21548	KIDSTaskScheduler6	incl	157	4.034		Nioh3+1A7408
+21548	KIDSTaskScheduler6	incl	156	4.008		Nioh3+211194
+21548	KIDSTaskScheduler6	incl	99	2.544		Nioh3+47192C
+21548	KIDSTaskScheduler6	incl	99	2.544		Nioh3+471854
+21548	KIDSTaskScheduler6	incl	97	2.492		Nioh3+70230
+3252	KIDSTaskScheduler4	self	2847	73.150	23.7	ntdll.dll!ZwWaitForSingleObject
+3252	KIDSTaskScheduler4	self	57	1.465	38.8	Nioh3+1A7BF0
+3252	KIDSTaskScheduler4	self	40	1.028	45.5	Nioh3+121FC0
+3252	KIDSTaskScheduler4	self	39	1.002	46.8	Nioh3+121E70(leaf?)
+3252	KIDSTaskScheduler4	self	34	0.874	42.1	Nioh3+204584
+3252	KIDSTaskScheduler4	self	27	0.694	39.0	Nioh3+1A188C
+3252	KIDSTaskScheduler4	self	26	0.668	43.9	Nioh3+2040A0
+3252	KIDSTaskScheduler4	self	25	0.642	46.7	Nioh3+120120(leaf?)
+3252	KIDSTaskScheduler4	self	25	0.642	50.6	Nioh3+425B0
+3252	KIDSTaskScheduler4	self	22	0.565	46.7	Nioh3+3AF00
+3252	KIDSTaskScheduler4	self	18	0.462	44.4	Nioh3+6EFD0(leaf?)
+3252	KIDSTaskScheduler4	self	17	0.437	16.1	Nioh3+88780
+3252	KIDSTaskScheduler4	self	17	0.437	42.9	Nioh3+1A6FC4
+3252	KIDSTaskScheduler4	self	15	0.385	34.9	Nioh3+6FED0
+3252	KIDSTaskScheduler4	self	14	0.360	70.6	Nioh3+4DBA00
+3252	KIDSTaskScheduler4	self	13	0.334	36.7	Nioh3+1A7B38
+3252	KIDSTaskScheduler4	self	13	0.334	15.1	Nioh3+70230
+3252	KIDSTaskScheduler4	self	13	0.334	42.5	Nioh3+203B74
+3252	KIDSTaskScheduler4	self	12	0.308	49.5	Nioh3+204128
+3252	KIDSTaskScheduler4	self	12	0.308	42.9	Nioh3+205840
+3252	KIDSTaskScheduler4	self	12	0.308	40.2	Nioh3+6EA50
+3252	KIDSTaskScheduler4	self	11	0.283	35.3	ntdll.dll!ZwSetEvent
+3252	KIDSTaskScheduler4	self	11	0.283	40.7	Nioh3+61EF80(leaf?)
+3252	KIDSTaskScheduler4	self	9	0.231	42.8	Nioh3+1A7408
+3252	KIDSTaskScheduler4	self	9	0.231	38.6	Nioh3+6BB80
+3252	KIDSTaskScheduler4	self	9	0.231	48.6	Nioh3+13233B0
+3252	KIDSTaskScheduler4	self	9	0.231	36.1	Nioh3+11FD70
+3252	KIDSTaskScheduler4	self	9	0.231	72.7	Nioh3+6642C
+3252	KIDSTaskScheduler4	self	9	0.231	31.2	Nioh3+1A3D3C
+3252	KIDSTaskScheduler4	self	9	0.231	18.2	Nioh3+8A420
+3252	KIDSTaskScheduler4	attr	2847	73.150		Nioh3+1A6BB84
+3252	KIDSTaskScheduler4	attr	57	1.465		Nioh3+1A7BF0
+3252	KIDSTaskScheduler4	attr	40	1.028		Nioh3+121FC0
+3252	KIDSTaskScheduler4	attr	39	1.002		Nioh3+121E70(leaf?)
+3252	KIDSTaskScheduler4	attr	35	0.899		Nioh3+204584
+3252	KIDSTaskScheduler4	attr	27	0.694		Nioh3+1A188C
+3252	KIDSTaskScheduler4	attr	26	0.668		Nioh3+2040A0
+3252	KIDSTaskScheduler4	attr	25	0.642		Nioh3+120120(leaf?)
+3252	KIDSTaskScheduler4	attr	25	0.642		Nioh3+425B0
+3252	KIDSTaskScheduler4	attr	22	0.565		Nioh3+3AF00
+3252	KIDSTaskScheduler4	attr	18	0.462		Nioh3+40800
+3252	KIDSTaskScheduler4	attr	18	0.462		Nioh3+6EFD0(leaf?)
+3252	KIDSTaskScheduler4	attr	17	0.437		Nioh3+88780
+3252	KIDSTaskScheduler4	attr	17	0.437		Nioh3+1A6FC4
+3252	KIDSTaskScheduler4	attr	15	0.385		Nioh3+6FED0
+3252	KIDSTaskScheduler4	attr	14	0.360		Nioh3+4DBA00
+3252	KIDSTaskScheduler4	attr	13	0.334		Nioh3+1A7B38
+3252	KIDSTaskScheduler4	attr	13	0.334		Nioh3+70230
+3252	KIDSTaskScheduler4	attr	13	0.334		Nioh3+203B74
+3252	KIDSTaskScheduler4	attr	12	0.308		Nioh3+204128
+3252	KIDSTaskScheduler4	incl	3456	88.798		Nioh3+1A6BB84
+3252	KIDSTaskScheduler4	incl	3450	88.643		Nioh3+BDB740
+3252	KIDSTaskScheduler4	incl	3450	88.643		KERNEL32.DLL!BaseThreadInitThunk
+3252	KIDSTaskScheduler4	incl	3448	88.592		ntdll.dll!RtlUserThreadStart
+3252	KIDSTaskScheduler4	incl	2847	73.150		ntdll.dll!ZwWaitForSingleObject
+3252	KIDSTaskScheduler4	incl	2847	73.150		KERNELBASE.dll!WaitForSingleObjectEx
+3252	KIDSTaskScheduler4	incl	724	18.602		Nioh3+40800
+3252	KIDSTaskScheduler4	incl	664	17.061		Nioh3+1A7BF0
+3252	KIDSTaskScheduler4	incl	611	15.699		Nioh3+3FE14
+3252	KIDSTaskScheduler4	incl	608	15.622		Nioh3+205840
+3252	KIDSTaskScheduler4	incl	580	14.902		Nioh3+206400
+3252	KIDSTaskScheduler4	incl	381	9.789		Nioh3+204584
+3252	KIDSTaskScheduler4	incl	377	9.687		Nioh3+403A0
+3252	KIDSTaskScheduler4	incl	375	9.635		Nioh3+3E7CC
+3252	KIDSTaskScheduler4	incl	369	9.481		Nioh3+204DB0
+3252	KIDSTaskScheduler4	incl	291	7.477		Nioh3+182000
+3252	KIDSTaskScheduler4	incl	284	7.297		Nioh3+5795B8
+3252	KIDSTaskScheduler4	incl	268	6.886		Nioh3+1A7408
+3252	KIDSTaskScheduler4	incl	267	6.860		Nioh3+211194
+3252	KIDSTaskScheduler4	incl	233	5.987		Nioh3+1202B0
+3252	KIDSTaskScheduler4	incl	229	5.884		Nioh3+121FC0
+3252	KIDSTaskScheduler4	incl	226	5.807		Nioh3+7E35E4
+3252	KIDSTaskScheduler4	incl	185	4.753		Nioh3+111EA4
+3252	KIDSTaskScheduler4	incl	90	2.312		Nioh3+82BF0
+3252	KIDSTaskScheduler4	incl	85	2.184		Nioh3+82F1C
+3252	KIDSTaskScheduler4	incl	82	2.107		Nioh3+7FE68
+3252	KIDSTaskScheduler4	incl	56	1.439		Nioh3+4032E8
+3252	KIDSTaskScheduler4	incl	50	1.285		Nioh3+817F8
+3252	KIDSTaskScheduler4	incl	49	1.259		Nioh3+81B28
+3252	KIDSTaskScheduler4	incl	40	1.028		Nioh3+204128
+8056	KIDSTaskScheduler5	self	2805	72.071	24.3	ntdll.dll!ZwWaitForSingleObject
+8056	KIDSTaskScheduler5	self	72	1.850	35.9	Nioh3+1A7BF0
+8056	KIDSTaskScheduler5	self	42	1.079	39.4	Nioh3+121FC0
+8056	KIDSTaskScheduler5	self	40	1.028	40.1	Nioh3+121E70(leaf?)
+8056	KIDSTaskScheduler5	self	33	0.848	44.2	Nioh3+204584
+8056	KIDSTaskScheduler5	self	30	0.771	44.5	Nioh3+120120(leaf?)
+8056	KIDSTaskScheduler5	self	26	0.668	35.4	Nioh3+425B0
+8056	KIDSTaskScheduler5	self	25	0.642	38.0	Nioh3+2040A0
+8056	KIDSTaskScheduler5	self	23	0.591	40.1	Nioh3+1A188C
+8056	KIDSTaskScheduler5	self	23	0.591	40.9	Nioh3+3AF00
+8056	KIDSTaskScheduler5	self	18	0.462	34.6	Nioh3+6FED0
+8056	KIDSTaskScheduler5	self	17	0.437	30.7	Nioh3+205840
+8056	KIDSTaskScheduler5	self	15	0.385	46.0	Nioh3+13233B0
+8056	KIDSTaskScheduler5	self	15	0.385	41.1	Nioh3+203BD4
+8056	KIDSTaskScheduler5	self	15	0.385	40.7	Nioh3+1A7B38
+8056	KIDSTaskScheduler5	self	15	0.385	43.6	Nioh3+6EFD0(leaf?)
+8056	KIDSTaskScheduler5	self	15	0.385	19.8	Nioh3+165088
+8056	KIDSTaskScheduler5	self	14	0.360	69.0	Nioh3+4DBA00
+8056	KIDSTaskScheduler5	self	14	0.360	41.7	Nioh3+204128
+8056	KIDSTaskScheduler5	self	12	0.308	34.9	Nioh3+203B74
+8056	KIDSTaskScheduler5	self	12	0.308	32.6	Nioh3+1218EC
+8056	KIDSTaskScheduler5	self	12	0.308	44.8	Nioh3+6F010
+8056	KIDSTaskScheduler5	self	12	0.308	71.0	Nioh3+6642C
+8056	KIDSTaskScheduler5	self	11	0.283	18.5	Nioh3+8A420
+8056	KIDSTaskScheduler5	self	11	0.283	42.9	Nioh3+1A7408
+8056	KIDSTaskScheduler5	self	11	0.283	9.0	Nioh3+6FA30
+8056	KIDSTaskScheduler5	self	10	0.257	38.0	Nioh3+1A6FC4
+8056	KIDSTaskScheduler5	self	9	0.231	25.7	Nioh3+6BB80
+8056	KIDSTaskScheduler5	self	9	0.231	39.5	Nioh3+61EF80(leaf?)
+8056	KIDSTaskScheduler5	self	9	0.231	17.8	Nioh3+70230
+8056	KIDSTaskScheduler5	attr	2805	72.071		Nioh3+1A6BB84
+8056	KIDSTaskScheduler5	attr	72	1.850		Nioh3+1A7BF0
+8056	KIDSTaskScheduler5	attr	42	1.079		Nioh3+121FC0
+8056	KIDSTaskScheduler5	attr	40	1.028		Nioh3+121E70(leaf?)
+8056	KIDSTaskScheduler5	attr	34	0.874		Nioh3+204584
+8056	KIDSTaskScheduler5	attr	30	0.771		Nioh3+120120(leaf?)
+8056	KIDSTaskScheduler5	attr	26	0.668		Nioh3+425B0
+8056	KIDSTaskScheduler5	attr	25	0.642		Nioh3+2040A0
+8056	KIDSTaskScheduler5	attr	23	0.591		Nioh3+1A188C
+8056	KIDSTaskScheduler5	attr	23	0.591		Nioh3+3AF00
+8056	KIDSTaskScheduler5	attr	18	0.462		Nioh3+6FED0
+8056	KIDSTaskScheduler5	attr	17	0.437		Nioh3+205840
+8056	KIDSTaskScheduler5	attr	15	0.385		Nioh3+13233B0
+8056	KIDSTaskScheduler5	attr	15	0.385		Nioh3+203BD4
+8056	KIDSTaskScheduler5	attr	15	0.385		Nioh3+1A7B38
+8056	KIDSTaskScheduler5	attr	15	0.385		Nioh3+6EFD0(leaf?)
+8056	KIDSTaskScheduler5	attr	15	0.385		Nioh3+165088
+8056	KIDSTaskScheduler5	attr	14	0.360		Nioh3+4DBA00
+8056	KIDSTaskScheduler5	attr	14	0.360		Nioh3+204128
+8056	KIDSTaskScheduler5	attr	12	0.308		Nioh3+203B74
+8056	KIDSTaskScheduler5	incl	3456	88.798		Nioh3+1A6BB84
+8056	KIDSTaskScheduler5	incl	3452	88.695		Nioh3+BDB740
+8056	KIDSTaskScheduler5	incl	3451	88.669		KERNEL32.DLL!BaseThreadInitThunk
+8056	KIDSTaskScheduler5	incl	3448	88.592		ntdll.dll!RtlUserThreadStart
+8056	KIDSTaskScheduler5	incl	2805	72.071		ntdll.dll!ZwWaitForSingleObject
+8056	KIDSTaskScheduler5	incl	2805	72.071		KERNELBASE.dll!WaitForSingleObjectEx
+8056	KIDSTaskScheduler5	incl	772	19.836		Nioh3+40800
+8056	KIDSTaskScheduler5	incl	656	16.855		Nioh3+3FE14
+8056	KIDSTaskScheduler5	incl	643	16.521		Nioh3+1A7BF0
+8056	KIDSTaskScheduler5	incl	575	14.774		Nioh3+205840
+8056	KIDSTaskScheduler5	incl	555	14.260		Nioh3+206400
+8056	KIDSTaskScheduler5	incl	412	10.586		Nioh3+403A0
+8056	KIDSTaskScheduler5	incl	412	10.586		Nioh3+3E7CC
+8056	KIDSTaskScheduler5	incl	405	10.406		Nioh3+204584
+8056	KIDSTaskScheduler5	incl	395	10.149		Nioh3+204DB0
+8056	KIDSTaskScheduler5	incl	362	9.301		Nioh3+182000
+8056	KIDSTaskScheduler5	incl	349	8.967		Nioh3+5795B8
+8056	KIDSTaskScheduler5	incl	301	7.734		Nioh3+7E35E4
+8056	KIDSTaskScheduler5	incl	275	7.066		Nioh3+1A7408
+8056	KIDSTaskScheduler5	incl	274	7.040		Nioh3+211194
+8056	KIDSTaskScheduler5	incl	224	5.755		Nioh3+1202B0
+8056	KIDSTaskScheduler5	incl	218	5.601		Nioh3+121FC0
+8056	KIDSTaskScheduler5	incl	202	5.190		Nioh3+111EA4
+8056	KIDSTaskScheduler5	incl	90	2.312		Nioh3+4032E8
+8056	KIDSTaskScheduler5	incl	82	2.107		Nioh3+82BF0
+8056	KIDSTaskScheduler5	incl	74	1.901		Nioh3+82F1C
+8056	KIDSTaskScheduler5	incl	73	1.876		Nioh3+7FE68
+8056	KIDSTaskScheduler5	incl	60	1.542		Nioh3+403388
+8056	KIDSTaskScheduler5	incl	49	1.259		Nioh3+1635B8
+8056	KIDSTaskScheduler5	incl	49	1.259		Nioh3+81B28
+9000	KIDSTaskScheduler3	self	2899	74.486	20.5	ntdll.dll!ZwWaitForSingleObject
+9000	KIDSTaskScheduler3	self	51	1.310	39.6	Nioh3+121E70(leaf?)
+9000	KIDSTaskScheduler3	self	47	1.208	41.5	Nioh3+121FC0
+9000	KIDSTaskScheduler3	self	46	1.182	41.2	Nioh3+1A7BF0
+9000	KIDSTaskScheduler3	self	32	0.822	42.0	Nioh3+120120(leaf?)
+9000	KIDSTaskScheduler3	self	31	0.797	45.8	Nioh3+3AF00
+9000	KIDSTaskScheduler3	self	27	0.694	42.3	Nioh3+204584
+9000	KIDSTaskScheduler3	self	21	0.540	45.8	Nioh3+425B0
+9000	KIDSTaskScheduler3	self	21	0.540	34.8	Nioh3+6EFD0(leaf?)
+9000	KIDSTaskScheduler3	self	19	0.488	39.1	Nioh3+2040A0
+9000	KIDSTaskScheduler3	self	18	0.462	43.1	Nioh3+1218EC
+9000	KIDSTaskScheduler3	self	16	0.411	42.4	Nioh3+1A6FC4
+9000	KIDSTaskScheduler3	self	16	0.411	14.4	Nioh3+88780
+9000	KIDSTaskScheduler3	self	16	0.411	46.8	Nioh3+13233B0
+9000	KIDSTaskScheduler3	self	16	0.411	25.9	Nioh3+6FED0
+9000	KIDSTaskScheduler3	self	15	0.385	38.8	Nioh3+1A188C
+9000	KIDSTaskScheduler3	self	14	0.360	66.3	Nioh3+4DBA00
+9000	KIDSTaskScheduler3	self	13	0.334	31.9	Nioh3+204128
+9000	KIDSTaskScheduler3	self	13	0.334	48.3	Nioh3+205840
+9000	KIDSTaskScheduler3	self	11	0.283	28.5	Nioh3+B94250
+9000	KIDSTaskScheduler3	self	9	0.231	22.5	Nioh3+165088
+9000	KIDSTaskScheduler3	self	9	0.231	38.9	Nioh3+1A7408
+9000	KIDSTaskScheduler3	self	9	0.231	37.0	Nioh3+1A7B38
+9000	KIDSTaskScheduler3	self	9	0.231	15.5	Nioh3+889C0
+9000	KIDSTaskScheduler3	self	9	0.231	10.9	Nioh3+CE1E0
+9000	KIDSTaskScheduler3	self	8	0.206	40.5	Nioh3+6F010
+9000	KIDSTaskScheduler3	self	8	0.206	43.1	Nioh3+203BD4
+9000	KIDSTaskScheduler3	self	8	0.206	46.1	Nioh3+6F060(leaf?)
+9000	KIDSTaskScheduler3	self	8	0.206	40.7	Nioh3+11FD70
+9000	KIDSTaskScheduler3	self	8	0.206	45.1	Nioh3+44738
+9000	KIDSTaskScheduler3	attr	2900	74.512		Nioh3+1A6BB84
+9000	KIDSTaskScheduler3	attr	51	1.310		Nioh3+121E70(leaf?)
+9000	KIDSTaskScheduler3	attr	47	1.208		Nioh3+121FC0
+9000	KIDSTaskScheduler3	attr	46	1.182		Nioh3+1A7BF0
+9000	KIDSTaskScheduler3	attr	32	0.822		Nioh3+120120(leaf?)
+9000	KIDSTaskScheduler3	attr	31	0.797		Nioh3+3AF00
+9000	KIDSTaskScheduler3	attr	28	0.719		Nioh3+204584
+9000	KIDSTaskScheduler3	attr	21	0.540		Nioh3+425B0
+9000	KIDSTaskScheduler3	attr	21	0.540		Nioh3+6EFD0(leaf?)
+9000	KIDSTaskScheduler3	attr	19	0.488		Nioh3+2040A0
+9000	KIDSTaskScheduler3	attr	18	0.462		Nioh3+1218EC
+9000	KIDSTaskScheduler3	attr	16	0.411		Nioh3+1A6FC4
+9000	KIDSTaskScheduler3	attr	16	0.411		Nioh3+88780
+9000	KIDSTaskScheduler3	attr	16	0.411		Nioh3+13233B0
+9000	KIDSTaskScheduler3	attr	16	0.411		Nioh3+6FED0
+9000	KIDSTaskScheduler3	attr	15	0.385		Nioh3+1A188C
+9000	KIDSTaskScheduler3	attr	14	0.360		Nioh3+4DBA00
+9000	KIDSTaskScheduler3	attr	13	0.334		Nioh3+204128
+9000	KIDSTaskScheduler3	attr	13	0.334		Nioh3+205840
+9000	KIDSTaskScheduler3	attr	11	0.283		Nioh3+B94250
+9000	KIDSTaskScheduler3	incl	3501	89.954		Nioh3+1A6BB84
+9000	KIDSTaskScheduler3	incl	3494	89.774		Nioh3+BDB740
+9000	KIDSTaskScheduler3	incl	3494	89.774		KERNEL32.DLL!BaseThreadInitThunk
+9000	KIDSTaskScheduler3	incl	3492	89.723		ntdll.dll!RtlUserThreadStart
+9000	KIDSTaskScheduler3	incl	2900	74.512		KERNELBASE.dll!WaitForSingleObjectEx
+9000	KIDSTaskScheduler3	incl	2899	74.486		ntdll.dll!ZwWaitForSingleObject
+9000	KIDSTaskScheduler3	incl	673	17.292		Nioh3+40800
+9000	KIDSTaskScheduler3	incl	660	16.958		Nioh3+1A7BF0
+9000	KIDSTaskScheduler3	incl	613	15.750		Nioh3+205840
+9000	KIDSTaskScheduler3	incl	605	15.545		Nioh3+3FE14
+9000	KIDSTaskScheduler3	incl	591	15.185		Nioh3+206400
+9000	KIDSTaskScheduler3	incl	361	9.275		Nioh3+204584
+9000	KIDSTaskScheduler3	incl	298	7.657		Nioh3+204DB0
+9000	KIDSTaskScheduler3	incl	290	7.451		Nioh3+211194
+9000	KIDSTaskScheduler3	incl	288	7.400		Nioh3+1A7408
+9000	KIDSTaskScheduler3	incl	280	7.194		Nioh3+403A0
+9000	KIDSTaskScheduler3	incl	280	7.194		Nioh3+3E7CC
+9000	KIDSTaskScheduler3	incl	256	6.578		Nioh3+1202B0
+9000	KIDSTaskScheduler3	incl	253	6.501		Nioh3+121FC0
+9000	KIDSTaskScheduler3	incl	224	5.755		Nioh3+182000
+9000	KIDSTaskScheduler3	incl	220	5.653		Nioh3+5795B8
+9000	KIDSTaskScheduler3	incl	181	4.651		Nioh3+7E35E4
+9000	KIDSTaskScheduler3	incl	143	3.674		Nioh3+111EA4
+9000	KIDSTaskScheduler3	incl	82	2.107		Nioh3+82BF0
+9000	KIDSTaskScheduler3	incl	80	2.055		Nioh3+82F1C
+9000	KIDSTaskScheduler3	incl	78	2.004		Nioh3+7FE68
+9000	KIDSTaskScheduler3	incl	51	1.310		Nioh3+121E70(leaf?)
+9000	KIDSTaskScheduler3	incl	46	1.182		Nioh3+81B28
+9000	KIDSTaskScheduler3	incl	46	1.182		Nioh3+817F8
+9000	KIDSTaskScheduler3	incl	39	1.002		Nioh3+8D690
+21488	KIDSTaskScheduler2	self	2926	75.180	21.6	ntdll.dll!ZwWaitForSingleObject
+21488	KIDSTaskScheduler2	self	59	1.516	41.9	Nioh3+1A7BF0
+21488	KIDSTaskScheduler2	self	45	1.156	40.9	Nioh3+121FC0
+21488	KIDSTaskScheduler2	self	39	1.002	42.9	Nioh3+121E70(leaf?)
+21488	KIDSTaskScheduler2	self	29	0.745	40.9	Nioh3+2040A0
+21488	KIDSTaskScheduler2	self	23	0.591	37.6	Nioh3+1A6FC4
+21488	KIDSTaskScheduler2	self	23	0.591	44.3	Nioh3+120120(leaf?)
+21488	KIDSTaskScheduler2	self	22	0.565	44.6	Nioh3+204584
+21488	KIDSTaskScheduler2	self	22	0.565	47.9	Nioh3+3AF00
+21488	KIDSTaskScheduler2	self	20	0.514	39.2	Nioh3+425B0
+21488	KIDSTaskScheduler2	self	19	0.488	38.6	Nioh3+1A188C
+21488	KIDSTaskScheduler2	self	18	0.462	18.8	Nioh3+88780
+21488	KIDSTaskScheduler2	self	18	0.462	40.2	Nioh3+203B74
+21488	KIDSTaskScheduler2	self	16	0.411	41.5	Nioh3+1218EC
+21488	KIDSTaskScheduler2	self	15	0.385	39.8	Nioh3+6EFD0(leaf?)
+21488	KIDSTaskScheduler2	self	13	0.334	34.9	Nioh3+6EA50
+21488	KIDSTaskScheduler2	self	13	0.334	41.9	Nioh3+44738
+21488	KIDSTaskScheduler2	self	13	0.334	14.5	Nioh3+6FA30
+21488	KIDSTaskScheduler2	self	13	0.334	38.6	Nioh3+B94250
+21488	KIDSTaskScheduler2	self	13	0.334	16.4	Nioh3+CE1E0
+21488	KIDSTaskScheduler2	self	13	0.334	35.9	Nioh3+1A7408
+21488	KIDSTaskScheduler2	self	12	0.308	41.9	Nioh3+1A7B38
+21488	KIDSTaskScheduler2	self	11	0.283	40.8	Nioh3+11FD70
+21488	KIDSTaskScheduler2	self	11	0.283	36.0	Nioh3+204128
+21488	KIDSTaskScheduler2	self	10	0.257	26.6	Nioh3+1A3D3C
+21488	KIDSTaskScheduler2	self	10	0.257	41.3	Nioh3+205840
+21488	KIDSTaskScheduler2	self	9	0.231	39.5	Nioh3+203BD4
+21488	KIDSTaskScheduler2	self	8	0.206	15.2	Nioh3+BE0378
+21488	KIDSTaskScheduler2	self	8	0.206	41.1	Nioh3+6BB80
+21488	KIDSTaskScheduler2	self	8	0.206	11.2	Nioh3+D1908
+21488	KIDSTaskScheduler2	attr	2927	75.206		Nioh3+1A6BB84
+21488	KIDSTaskScheduler2	attr	59	1.516		Nioh3+1A7BF0
+21488	KIDSTaskScheduler2	attr	45	1.156		Nioh3+121FC0
+21488	KIDSTaskScheduler2	attr	39	1.002		Nioh3+121E70(leaf?)
+21488	KIDSTaskScheduler2	attr	29	0.745		Nioh3+2040A0
+21488	KIDSTaskScheduler2	attr	25	0.642		Nioh3+204584
+21488	KIDSTaskScheduler2	attr	23	0.591		Nioh3+1A6FC4
+21488	KIDSTaskScheduler2	attr	23	0.591		Nioh3+120120(leaf?)
+21488	KIDSTaskScheduler2	attr	22	0.565		Nioh3+3AF00
+21488	KIDSTaskScheduler2	attr	20	0.514		Nioh3+425B0
+21488	KIDSTaskScheduler2	attr	19	0.488		Nioh3+1A188C
+21488	KIDSTaskScheduler2	attr	18	0.462		Nioh3+88780
+21488	KIDSTaskScheduler2	attr	18	0.462		Nioh3+203B74
+21488	KIDSTaskScheduler2	attr	16	0.411		Nioh3+1218EC
+21488	KIDSTaskScheduler2	attr	15	0.385		Nioh3+6EFD0(leaf?)
+21488	KIDSTaskScheduler2	attr	13	0.334		Nioh3+6EA50
+21488	KIDSTaskScheduler2	attr	13	0.334		Nioh3+44738
+21488	KIDSTaskScheduler2	attr	13	0.334		Nioh3+6FA30
+21488	KIDSTaskScheduler2	attr	13	0.334		Nioh3+B94250
+21488	KIDSTaskScheduler2	attr	13	0.334		Nioh3+CE1E0
+21488	KIDSTaskScheduler2	incl	3527	90.622		Nioh3+1A6BB84
+21488	KIDSTaskScheduler2	incl	3523	90.519		Nioh3+BDB740
+21488	KIDSTaskScheduler2	incl	3522	90.493		KERNEL32.DLL!BaseThreadInitThunk
+21488	KIDSTaskScheduler2	incl	3522	90.493		ntdll.dll!RtlUserThreadStart
+21488	KIDSTaskScheduler2	incl	2926	75.180		ntdll.dll!ZwWaitForSingleObject
+21488	KIDSTaskScheduler2	incl	2926	75.180		KERNELBASE.dll!WaitForSingleObjectEx
+21488	KIDSTaskScheduler2	incl	670	17.215		Nioh3+1A7BF0
+21488	KIDSTaskScheduler2	incl	669	17.189		Nioh3+40800
+21488	KIDSTaskScheduler2	incl	645	16.572		Nioh3+205840
+21488	KIDSTaskScheduler2	incl	613	15.750		Nioh3+206400
+21488	KIDSTaskScheduler2	incl	602	15.468		Nioh3+3FE14
+21488	KIDSTaskScheduler2	incl	391	10.046		Nioh3+204584
+21488	KIDSTaskScheduler2	incl	277	7.117		Nioh3+204DB0
+21488	KIDSTaskScheduler2	incl	274	7.040		Nioh3+1A7408
+21488	KIDSTaskScheduler2	incl	273	7.014		Nioh3+211194
+21488	KIDSTaskScheduler2	incl	257	6.603		Nioh3+403A0
+21488	KIDSTaskScheduler2	incl	257	6.603		Nioh3+3E7CC
+21488	KIDSTaskScheduler2	incl	223	5.730		Nioh3+1202B0
+21488	KIDSTaskScheduler2	incl	222	5.704		Nioh3+121FC0
+21488	KIDSTaskScheduler2	incl	177	4.548		Nioh3+182000
+21488	KIDSTaskScheduler2	incl	173	4.445		Nioh3+5795B8
+21488	KIDSTaskScheduler2	incl	141	3.623		Nioh3+7E35E4
+21488	KIDSTaskScheduler2	incl	136	3.494		Nioh3+111EA4
+21488	KIDSTaskScheduler2	incl	96	2.467		Nioh3+82BF0
+21488	KIDSTaskScheduler2	incl	94	2.415		Nioh3+82F1C
+21488	KIDSTaskScheduler2	incl	91	2.338		Nioh3+7FE68
+21488	KIDSTaskScheduler2	incl	57	1.465		Nioh3+4032E8
+21488	KIDSTaskScheduler2	incl	49	1.259		Nioh3+817F8
+21488	KIDSTaskScheduler2	incl	47	1.208		Nioh3+81B28
+21488	KIDSTaskScheduler2	incl	43	1.105		Nioh3+403388
+19484	KIDSTaskScheduler1	self	2977	76.490	18.0	ntdll.dll!ZwWaitForSingleObject
+19484	KIDSTaskScheduler1	self	63	1.619	42.1	Nioh3+1A7BF0
+19484	KIDSTaskScheduler1	self	51	1.310	46.3	Nioh3+121E70(leaf?)
+19484	KIDSTaskScheduler1	self	43	1.105	39.8	Nioh3+121FC0
+19484	KIDSTaskScheduler1	self	39	1.002	42.3	Nioh3+3AF00
+19484	KIDSTaskScheduler1	self	33	0.848	39.5	Nioh3+2040A0
+19484	KIDSTaskScheduler1	self	32	0.822	44.2	Nioh3+120120(leaf?)
+19484	KIDSTaskScheduler1	self	24	0.617	35.9	Nioh3+1A188C
+19484	KIDSTaskScheduler1	self	23	0.591	37.7	Nioh3+1218EC
+19484	KIDSTaskScheduler1	self	22	0.565	43.0	Nioh3+425B0
+19484	KIDSTaskScheduler1	self	17	0.437	45.0	Nioh3+6EFD0(leaf?)
+19484	KIDSTaskScheduler1	self	15	0.385	39.2	Nioh3+1A6FC4
+19484	KIDSTaskScheduler1	self	15	0.385	42.4	Nioh3+61EF80(leaf?)
+19484	KIDSTaskScheduler1	self	14	0.360	43.6	Nioh3+203BD4
+19484	KIDSTaskScheduler1	self	14	0.360	37.0	Nioh3+204584
+19484	KIDSTaskScheduler1	self	14	0.360	14.3	Nioh3+88780
+19484	KIDSTaskScheduler1	self	11	0.283	11.8	Nioh3+73050
+19484	KIDSTaskScheduler1	self	11	0.283	44.1	Nioh3+203B74
+19484	KIDSTaskScheduler1	self	11	0.283	42.8	Nioh3+205840
+19484	KIDSTaskScheduler1	self	11	0.283	46.1	Nioh3+B94250
+19484	KIDSTaskScheduler1	self	11	0.283	40.6	Nioh3+1A7408
+19484	KIDSTaskScheduler1	self	10	0.257	30.1	Nioh3+6FED0
+19484	KIDSTaskScheduler1	self	10	0.257	11.5	Nioh3+71130
+19484	KIDSTaskScheduler1	self	10	0.257	41.2	Nioh3+204128
+19484	KIDSTaskScheduler1	self	9	0.231	4.6	Nioh3+166F20
+19484	KIDSTaskScheduler1	self	8	0.206	20.0	Nioh3+CE5F0
+19484	KIDSTaskScheduler1	self	8	0.206	36.3	Nioh3+6EA50
+19484	KIDSTaskScheduler1	self	8	0.206	36.5	Nioh3+CC940
+19484	KIDSTaskScheduler1	self	7	0.180	31.5	Nioh3+17346C
+19484	KIDSTaskScheduler1	self	7	0.180	33.5	Nioh3+11FD70
+19484	KIDSTaskScheduler1	attr	2977	76.490		Nioh3+1A6BB84
+19484	KIDSTaskScheduler1	attr	63	1.619		Nioh3+1A7BF0
+19484	KIDSTaskScheduler1	attr	51	1.310		Nioh3+121E70(leaf?)
+19484	KIDSTaskScheduler1	attr	43	1.105		Nioh3+121FC0
+19484	KIDSTaskScheduler1	attr	39	1.002		Nioh3+3AF00
+19484	KIDSTaskScheduler1	attr	33	0.848		Nioh3+2040A0
+19484	KIDSTaskScheduler1	attr	32	0.822		Nioh3+120120(leaf?)
+19484	KIDSTaskScheduler1	attr	24	0.617		Nioh3+1A188C
+19484	KIDSTaskScheduler1	attr	23	0.591		Nioh3+1218EC
+19484	KIDSTaskScheduler1	attr	22	0.565		Nioh3+425B0
+19484	KIDSTaskScheduler1	attr	17	0.437		Nioh3+6EFD0(leaf?)
+19484	KIDSTaskScheduler1	attr	17	0.437		Nioh3+204584
+19484	KIDSTaskScheduler1	attr	15	0.385		Nioh3+1A6FC4
+19484	KIDSTaskScheduler1	attr	15	0.385		Nioh3+61EF80(leaf?)
+19484	KIDSTaskScheduler1	attr	14	0.360		Nioh3+203BD4
+19484	KIDSTaskScheduler1	attr	14	0.360		Nioh3+88780
+19484	KIDSTaskScheduler1	attr	11	0.283		Nioh3+73050
+19484	KIDSTaskScheduler1	attr	11	0.283		Nioh3+203B74
+19484	KIDSTaskScheduler1	attr	11	0.283		Nioh3+205840
+19484	KIDSTaskScheduler1	attr	11	0.283		Nioh3+B94250
+19484	KIDSTaskScheduler1	incl	3503	90.005		Nioh3+1A6BB84
+19484	KIDSTaskScheduler1	incl	3500	89.928		Nioh3+BDB740
+19484	KIDSTaskScheduler1	incl	3499	89.902		KERNEL32.DLL!BaseThreadInitThunk
+19484	KIDSTaskScheduler1	incl	3499	89.902		ntdll.dll!RtlUserThreadStart
+19484	KIDSTaskScheduler1	incl	2977	76.490		ntdll.dll!ZwWaitForSingleObject
+19484	KIDSTaskScheduler1	incl	2977	76.490		KERNELBASE.dll!WaitForSingleObjectEx
+19484	KIDSTaskScheduler1	incl	686	17.626		Nioh3+1A7BF0
+19484	KIDSTaskScheduler1	incl	659	16.932		Nioh3+205840
+19484	KIDSTaskScheduler1	incl	639	16.418		Nioh3+206400
+19484	KIDSTaskScheduler1	incl	578	14.851		Nioh3+40800
+19484	KIDSTaskScheduler1	incl	527	13.541		Nioh3+3FE14
+19484	KIDSTaskScheduler1	incl	365	9.378		Nioh3+204584
+19484	KIDSTaskScheduler1	incl	325	8.350		Nioh3+1A7408
+19484	KIDSTaskScheduler1	incl	324	8.325		Nioh3+211194
+19484	KIDSTaskScheduler1	incl	260	6.680		Nioh3+1202B0
+19484	KIDSTaskScheduler1	incl	258	6.629		Nioh3+121FC0
+19484	KIDSTaskScheduler1	incl	229	5.884		Nioh3+204DB0
+19484	KIDSTaskScheduler1	incl	191	4.908		Nioh3+403A0
+19484	KIDSTaskScheduler1	incl	191	4.908		Nioh3+3E7CC
+19484	KIDSTaskScheduler1	incl	153	3.931		Nioh3+182000
+19484	KIDSTaskScheduler1	incl	151	3.880		Nioh3+5795B8
+19484	KIDSTaskScheduler1	incl	127	3.263		Nioh3+7E35E4
+19484	KIDSTaskScheduler1	incl	84	2.158		Nioh3+111EA4
+19484	KIDSTaskScheduler1	incl	81	2.081		Nioh3+82BF0
+19484	KIDSTaskScheduler1	incl	78	2.004		Nioh3+7FE68
+19484	KIDSTaskScheduler1	incl	78	2.004		Nioh3+82F1C
+19484	KIDSTaskScheduler1	incl	62	1.593		Nioh3+817F8
+19484	KIDSTaskScheduler1	incl	61	1.567		Nioh3+81B28
+19484	KIDSTaskScheduler1	incl	57	1.465		Nioh3+8D690
+19484	KIDSTaskScheduler1	incl	54	1.387		Nioh3+C94A4
+8348	KIDSTS[s9:CollisionUpdate]8	self	3011	77.364	17.7	ntdll.dll!ZwWaitForSingleObject
+8348	KIDSTS[s9:CollisionUpdate]8	self	322	8.273	38.2	Nioh3+D80B0
+8348	KIDSTS[s9:CollisionUpdate]8	self	148	3.803	39.5	Nioh3+D8B70
+8348	KIDSTS[s9:CollisionUpdate]8	self	116	2.980	51.0	Nioh3+411C0
+8348	KIDSTS[s9:CollisionUpdate]8	self	66	1.696	36.8	Nioh3+D8C40(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	self	65	1.670	39.5	Nioh3+D8700(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	self	53	1.362	3.3	Nioh3+43CEC
+8348	KIDSTS[s9:CollisionUpdate]8	self	28	0.719	40.7	Nioh3+40800
+8348	KIDSTS[s9:CollisionUpdate]8	self	18	0.462	37.9	Nioh3+D89E0
+8348	KIDSTS[s9:CollisionUpdate]8	self	18	0.462	55.1	Nioh3+403A0
+8348	KIDSTS[s9:CollisionUpdate]8	self	17	0.437	47.2	Nioh3+168E80(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	self	11	0.283	57.4	Nioh3+2D9EE0 caseD_26
+8348	KIDSTS[s9:CollisionUpdate]8	self	8	0.206	3.0	ntdll.dll!ZwSetEvent
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	0.7	Nioh3+12E43C
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	0.7	Nioh3+202FF4
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	72.5	Nioh3+3E7CC
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	83.1	ntdll.dll!NtAlertThreadByThreadIdEx
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	95.7	ntdll.dll!RtlWakeConditionVariable
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	9.7	Nioh3+48B9C
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	0.6	Nioh3+D18A0(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	1.1	Nioh3+F1D8C
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	39.8	Nioh3+19CED0(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	2.8	Nioh3+43AEC
+8348	KIDSTS[s9:CollisionUpdate]8	self	1	0.026	1.0	Nioh3+12E4D0
+8348	KIDSTS[s9:CollisionUpdate]8	attr	3011	77.364		Nioh3+1A6BB84
+8348	KIDSTS[s9:CollisionUpdate]8	attr	322	8.273		Nioh3+D80B0
+8348	KIDSTS[s9:CollisionUpdate]8	attr	148	3.803		Nioh3+D8B70
+8348	KIDSTS[s9:CollisionUpdate]8	attr	116	2.980		Nioh3+411C0
+8348	KIDSTS[s9:CollisionUpdate]8	attr	66	1.696		Nioh3+D8C40(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	attr	65	1.670		Nioh3+D8700(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	attr	53	1.362		Nioh3+43CEC
+8348	KIDSTS[s9:CollisionUpdate]8	attr	32	0.822		Nioh3+40800
+8348	KIDSTS[s9:CollisionUpdate]8	attr	18	0.462		Nioh3+D89E0
+8348	KIDSTS[s9:CollisionUpdate]8	attr	18	0.462		Nioh3+403A0
+8348	KIDSTS[s9:CollisionUpdate]8	attr	17	0.437		Nioh3+168E80(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	attr	11	0.283		Nioh3+2D9EE0 caseD_26
+8348	KIDSTS[s9:CollisionUpdate]8	attr	5	0.128		Nioh3+48B9C
+8348	KIDSTS[s9:CollisionUpdate]8	attr	1	0.026		Nioh3+12E43C
+8348	KIDSTS[s9:CollisionUpdate]8	attr	1	0.026		Nioh3+202FF4
+8348	KIDSTS[s9:CollisionUpdate]8	attr	1	0.026		Nioh3+3E7CC
+8348	KIDSTS[s9:CollisionUpdate]8	attr	1	0.026		Nioh3+B61524 _Mtx_unlock
+8348	KIDSTS[s9:CollisionUpdate]8	attr	1	0.026		Nioh3+B617E8
+8348	KIDSTS[s9:CollisionUpdate]8	attr	1	0.026		Nioh3+D18A0(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	attr	1	0.026		Nioh3+F1D8C
+8348	KIDSTS[s9:CollisionUpdate]8	incl	3892	100.000		Nioh3+1A6BB84
+8348	KIDSTS[s9:CollisionUpdate]8	incl	3892	100.000		Nioh3+BDB740
+8348	KIDSTS[s9:CollisionUpdate]8	incl	3892	100.000		KERNEL32.DLL!BaseThreadInitThunk
+8348	KIDSTS[s9:CollisionUpdate]8	incl	3892	100.000		ntdll.dll!RtlUserThreadStart
+8348	KIDSTS[s9:CollisionUpdate]8	incl	3011	77.364		ntdll.dll!ZwWaitForSingleObject
+8348	KIDSTS[s9:CollisionUpdate]8	incl	3011	77.364		KERNELBASE.dll!WaitForSingleObjectEx
+8348	KIDSTS[s9:CollisionUpdate]8	incl	881	22.636		Nioh3+3FE14
+8348	KIDSTS[s9:CollisionUpdate]8	incl	880	22.610		Nioh3+40800
+8348	KIDSTS[s9:CollisionUpdate]8	incl	879	22.585		Nioh3+319E00
+8348	KIDSTS[s9:CollisionUpdate]8	incl	870	22.354		Nioh3+3E7CC
+8348	KIDSTS[s9:CollisionUpdate]8	incl	869	22.328		Nioh3+403A0
+8348	KIDSTS[s9:CollisionUpdate]8	incl	648	16.650		Nioh3+D80B0
+8348	KIDSTS[s9:CollisionUpdate]8	incl	648	16.650		Nioh3+319D5C
+8348	KIDSTS[s9:CollisionUpdate]8	incl	189	4.856		Nioh3+D89E0
+8348	KIDSTS[s9:CollisionUpdate]8	incl	176	4.522		Nioh3+D8B70
+8348	KIDSTS[s9:CollisionUpdate]8	incl	116	2.980		Nioh3+411C0
+8348	KIDSTS[s9:CollisionUpdate]8	incl	66	1.696		Nioh3+D8C40(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	incl	65	1.670		Nioh3+D8700(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	incl	57	1.465		Nioh3+43CEC
+8348	KIDSTS[s9:CollisionUpdate]8	incl	57	1.465		Nioh3+7464BC
+8348	KIDSTS[s9:CollisionUpdate]8	incl	28	0.719		Nioh3+2D9EE0 caseD_26
+8348	KIDSTS[s9:CollisionUpdate]8	incl	17	0.437		Nioh3+168E80(leaf?)
+8348	KIDSTS[s9:CollisionUpdate]8	incl	8	0.206		ntdll.dll!ZwSetEvent
+8348	KIDSTS[s9:CollisionUpdate]8	incl	8	0.206		KERNELBASE.dll!SetEvent
+8348	KIDSTS[s9:CollisionUpdate]8	incl	5	0.128		Nioh3+48B9C
+8348	KIDSTS[s9:CollisionUpdate]8	incl	5	0.128		Nioh3+D6E9C
+8348	KIDSTS[s9:CollisionUpdate]8	incl	2	0.051		Nioh3+12E43C
+8348	KIDSTS[s9:CollisionUpdate]8	incl	2	0.051		Nioh3+12E41C
+8348	KIDSTS[s9:CollisionUpdate]8	incl	2	0.051		Nioh3+368A24
+8348	KIDSTS[s9:CollisionUpdate]8	incl	2	0.051		Nioh3+368980
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	2217	56.963	12.4	ntdll.dll!ZwWaitForSingleObject
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	569	14.620	34.5	Nioh3+48E90
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	438	11.254	32.4	ntdll.dll!ZwDelayExecution
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	156	4.008	32.3	Nioh3+2515B0(leaf?)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	83	2.133	31.5	Nioh3+4A2D0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	80	2.055	34.3	ntdll.dll!ZwSetEvent
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	76	1.953	37.6	Nioh3+411C0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	22	0.565	34.1	Nioh3+49950
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	21	0.540	50.8	Nioh3+3898C0(leaf?)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	20	0.514	6.9	win32u.dll!NtGdiDdDDISubmitCommand
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	19	0.488	34.3	Nioh3+116A24
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	19	0.488	7.5	win32u.dll!NtGdiDdDDISignalSynchronizationObjectFromGpu2
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	15	0.385	43.0	Nioh3+40800
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	13	0.334	1.2	Nioh3+7B1614
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	13	0.334	32.5	Nioh3+403A0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	11	0.283	32.1	Nioh3+251554
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	9	0.231	25.6	ntdll.dll!RtlReleaseSRWLockShared
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	7	0.180	27.5	Nioh3+49D5C
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	6	0.154	40.3	Nioh3+B93EE0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	6	0.154	24.3	ntdll.dll!RtlAcquireSRWLockShared
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	5	0.128	32.5	Nioh3+4A85C
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	4	0.103	34.4	KERNELBASE.dll!SleepEx
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	4	0.103	6.5	ntdll.dll+26E50 (RtlAllocateHeap+1200)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	3	0.077	37.4	Nioh3+202FF4
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	3	0.077	50.1	Nioh3+3FAD8
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	3	0.077	38.2	ntdll.dll!RtlDelayExecution
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	3	0.077	47.8	KERNELBASE.dll+C1990 (GetCurrentPackageInfo3+3A0)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	3	0.077	1.2	Nioh3+389830
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	2	0.051	51.3	d3d12.dll+2330 (D3D12CoreCreateLayeredDevice+50)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	self	2	0.051	5.0	D3D12Core.dll+88BD0(leaf?)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	2216	56.937		Nioh3+1A6BB84
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	569	14.620		Nioh3+48E90
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	390	10.021		Nioh3+403A0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	156	4.008		Nioh3+2515B0(leaf?)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	96	2.467		Nioh3+40800
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	83	2.133		Nioh3+4A2D0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	77	1.978		Nioh3+117D6C
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	76	1.953		Nioh3+411C0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	52	1.336		Nioh3+5C268
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	26	0.668		Nioh3+49D5C
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	22	0.565		Nioh3+49950
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	21	0.540		Nioh3+3898C0(leaf?)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	19	0.488		Nioh3+116A24
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	17	0.437		Nioh3+62D688
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	13	0.334		Nioh3+7B1614
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	11	0.283		Nioh3+251554
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	7	0.180		Nioh3+5CEE8
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	6	0.154		Nioh3+B93EE0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	5	0.128		Nioh3+4A85C
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	attr	3	0.077		Nioh3+202FF4
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	3892	100.000		Nioh3+1A6BB84
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	3892	100.000		Nioh3+BDB740
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	3892	100.000		KERNEL32.DLL!BaseThreadInitThunk
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	3892	100.000		ntdll.dll!RtlUserThreadStart
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	2217	56.963		ntdll.dll!ZwWaitForSingleObject
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	2217	56.963		KERNELBASE.dll!WaitForSingleObjectEx
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	1676	43.063		Nioh3+40800
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	1676	43.063		Nioh3+3FE14
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	1672	42.960		Nioh3+4A2D0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	1672	42.960		Nioh3+9811F8
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	1371	35.226		Nioh3+3E7CC
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	1369	35.175		Nioh3+403A0
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	808	20.761		Nioh3+48E90
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	445	11.434		KERNELBASE.dll!SleepEx
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	441	11.331		ntdll.dll!RtlDelayExecution
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	438	11.254		ntdll.dll!ZwDelayExecution
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	217	5.576		Nioh3+49D5C
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	187	4.805		Nioh3+116A24
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	167	4.291		Nioh3+251554
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	156	4.008		Nioh3+2515B0(leaf?)
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	154	3.957		Nioh3+4D874
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	154	3.957		Nioh3+5B3AC
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	153	3.931		Nioh3+62E680
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	133	3.417		Nioh3+5C0D4
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	133	3.417		Nioh3+1A807F8
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	133	3.417		Nioh3+62EA08
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	133	3.417		Nioh3+62E9B4
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	81	2.081		KERNELBASE.dll!SetEvent
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	80	2.055		ntdll.dll!ZwSetEvent
+3116	KIDSTS[s66:TS_MESHLET_REQ]9	incl	77	1.978		Nioh3+117D6C
+5132	KIDSTS[s9:CollisionUpdate]6	self	3187	81.886	14.5	ntdll.dll!ZwWaitForSingleObject
+5132	KIDSTS[s9:CollisionUpdate]6	self	294	7.554	31.6	Nioh3+D80B0
+5132	KIDSTS[s9:CollisionUpdate]6	self	167	4.291	34.5	Nioh3+D8B70
+5132	KIDSTS[s9:CollisionUpdate]6	self	65	1.670	28.6	Nioh3+D8700(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	self	53	1.362	35.8	Nioh3+D8C40(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	self	52	1.336	3.7	Nioh3+43CEC
+5132	KIDSTS[s9:CollisionUpdate]6	self	29	0.745	41.4	Nioh3+168E80(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	self	24	0.617	35.9	Nioh3+D89E0
+5132	KIDSTS[s9:CollisionUpdate]6	self	7	0.180	38.1	Nioh3+2D9EE0 caseD_26
+5132	KIDSTS[s9:CollisionUpdate]6	self	3	0.077	1.5	Nioh3+43AEC
+5132	KIDSTS[s9:CollisionUpdate]6	self	2	0.051	4.1	Nioh3+D8B24
+5132	KIDSTS[s9:CollisionUpdate]6	self	2	0.051	5.7	Nioh3+44080(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	self	1	0.026	11.3	Nioh3+3CD7C0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	self	1	0.026	2.7	KERNELBASE.dll!WaitForSingleObjectEx
+5132	KIDSTS[s9:CollisionUpdate]6	self	1	0.026	45.1	Nioh3+19CED0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	self	1	0.026	0.3	ntdll.dll!ZwSetEvent
+5132	KIDSTS[s9:CollisionUpdate]6	self	1	0.026	2.6	Nioh3+1A6BB84
+5132	KIDSTS[s9:CollisionUpdate]6	self	1	0.026	0.5	Nioh3+7464F8
+5132	KIDSTS[s9:CollisionUpdate]6	self	1	0.026	27.8	Nioh3+D18A0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	attr	3189	81.937		Nioh3+1A6BB84
+5132	KIDSTS[s9:CollisionUpdate]6	attr	294	7.554		Nioh3+D80B0
+5132	KIDSTS[s9:CollisionUpdate]6	attr	167	4.291		Nioh3+D8B70
+5132	KIDSTS[s9:CollisionUpdate]6	attr	65	1.670		Nioh3+D8700(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	attr	53	1.362		Nioh3+D8C40(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	attr	52	1.336		Nioh3+43CEC
+5132	KIDSTS[s9:CollisionUpdate]6	attr	29	0.745		Nioh3+168E80(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	attr	24	0.617		Nioh3+D89E0
+5132	KIDSTS[s9:CollisionUpdate]6	attr	7	0.180		Nioh3+2D9EE0 caseD_26
+5132	KIDSTS[s9:CollisionUpdate]6	attr	3	0.077		Nioh3+43AEC
+5132	KIDSTS[s9:CollisionUpdate]6	attr	2	0.051		Nioh3+D8B24
+5132	KIDSTS[s9:CollisionUpdate]6	attr	2	0.051		Nioh3+44080(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	attr	1	0.026		Nioh3+3CD7C0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	attr	1	0.026		Nioh3+19CED0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	attr	1	0.026		Nioh3+40800
+5132	KIDSTS[s9:CollisionUpdate]6	attr	1	0.026		Nioh3+7464F8
+5132	KIDSTS[s9:CollisionUpdate]6	attr	1	0.026		Nioh3+D18A0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	incl	3892	100.000		Nioh3+1A6BB84
+5132	KIDSTS[s9:CollisionUpdate]6	incl	3892	100.000		Nioh3+BDB740
+5132	KIDSTS[s9:CollisionUpdate]6	incl	3892	100.000		KERNEL32.DLL!BaseThreadInitThunk
+5132	KIDSTS[s9:CollisionUpdate]6	incl	3892	100.000		ntdll.dll!RtlUserThreadStart
+5132	KIDSTS[s9:CollisionUpdate]6	incl	3188	81.912		KERNELBASE.dll!WaitForSingleObjectEx
+5132	KIDSTS[s9:CollisionUpdate]6	incl	3187	81.886		ntdll.dll!ZwWaitForSingleObject
+5132	KIDSTS[s9:CollisionUpdate]6	incl	703	18.063		Nioh3+40800
+5132	KIDSTS[s9:CollisionUpdate]6	incl	703	18.063		Nioh3+3FE14
+5132	KIDSTS[s9:CollisionUpdate]6	incl	644	16.547		Nioh3+319D5C
+5132	KIDSTS[s9:CollisionUpdate]6	incl	643	16.521		Nioh3+D80B0
+5132	KIDSTS[s9:CollisionUpdate]6	incl	221	5.678		Nioh3+D89E0
+5132	KIDSTS[s9:CollisionUpdate]6	incl	204	5.242		Nioh3+D8B70
+5132	KIDSTS[s9:CollisionUpdate]6	incl	65	1.670		Nioh3+D8700(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	incl	58	1.490		Nioh3+7464BC
+5132	KIDSTS[s9:CollisionUpdate]6	incl	57	1.465		Nioh3+43CEC
+5132	KIDSTS[s9:CollisionUpdate]6	incl	53	1.362		Nioh3+D8C40(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	incl	36	0.925		Nioh3+2D9EE0 caseD_26
+5132	KIDSTS[s9:CollisionUpdate]6	incl	29	0.745		Nioh3+168E80(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	incl	9	0.231		Nioh3+D6E9C
+5132	KIDSTS[s9:CollisionUpdate]6	incl	3	0.077		Nioh3+43AEC
+5132	KIDSTS[s9:CollisionUpdate]6	incl	2	0.051		Nioh3+D8B24
+5132	KIDSTS[s9:CollisionUpdate]6	incl	2	0.051		Nioh3+44080(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	incl	1	0.026		Nioh3+3CD7C0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	incl	1	0.026		Nioh3+19CED0(leaf?)
+5132	KIDSTS[s9:CollisionUpdate]6	incl	1	0.026		ntdll.dll!ZwSetEvent
+5132	KIDSTS[s9:CollisionUpdate]6	incl	1	0.026		KERNELBASE.dll!SetEvent
+5132	KIDSTS[s9:CollisionUpdate]6	incl	1	0.026		Nioh3+7464F8
+5132	KIDSTS[s9:CollisionUpdate]6	incl	1	0.026		Nioh3+D18A0(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	self	3196	82.117	14.8	ntdll.dll!ZwWaitForSingleObject
+23928	KIDSTS[s9:CollisionUpdate]7	self	325	8.350	33.2	Nioh3+D80B0
+23928	KIDSTS[s9:CollisionUpdate]7	self	146	3.751	33.9	Nioh3+D8B70
+23928	KIDSTS[s9:CollisionUpdate]7	self	71	1.824	29.7	Nioh3+D8700(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	self	56	1.439	28.4	Nioh3+D8C40(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	self	38	0.976	2.8	Nioh3+43CEC
+23928	KIDSTS[s9:CollisionUpdate]7	self	29	0.745	34.2	Nioh3+168E80(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	self	11	0.283	31.2	Nioh3+D89E0
+23928	KIDSTS[s9:CollisionUpdate]7	self	7	0.180	37.9	Nioh3+2D9EE0 caseD_26
+23928	KIDSTS[s9:CollisionUpdate]7	self	4	0.103	28.7	Nioh3+3CD7C0(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	self	2	0.051	0.5	Nioh3+12E4D0
+23928	KIDSTS[s9:CollisionUpdate]7	self	1	0.026	0.9	Nioh3+7464F8
+23928	KIDSTS[s9:CollisionUpdate]7	self	1	0.026	29.4	Nioh3+319D5C
+23928	KIDSTS[s9:CollisionUpdate]7	self	1	0.026	1.5	Nioh3+43AEC
+23928	KIDSTS[s9:CollisionUpdate]7	self	1	0.026	53.5	Nioh3+D18A0(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	self	1	0.026	0.7	Nioh3+368980
+23928	KIDSTS[s9:CollisionUpdate]7	self	1	0.026	0.4	ntdll.dll!ZwSetEvent
+23928	KIDSTS[s9:CollisionUpdate]7	self	1	0.026	0.7	Nioh3+F1D8C
+23928	KIDSTS[s9:CollisionUpdate]7	attr	3196	82.117		Nioh3+1A6BB84
+23928	KIDSTS[s9:CollisionUpdate]7	attr	325	8.350		Nioh3+D80B0
+23928	KIDSTS[s9:CollisionUpdate]7	attr	146	3.751		Nioh3+D8B70
+23928	KIDSTS[s9:CollisionUpdate]7	attr	71	1.824		Nioh3+D8700(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	attr	56	1.439		Nioh3+D8C40(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	attr	38	0.976		Nioh3+43CEC
+23928	KIDSTS[s9:CollisionUpdate]7	attr	29	0.745		Nioh3+168E80(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	attr	11	0.283		Nioh3+D89E0
+23928	KIDSTS[s9:CollisionUpdate]7	attr	7	0.180		Nioh3+2D9EE0 caseD_26
+23928	KIDSTS[s9:CollisionUpdate]7	attr	4	0.103		Nioh3+3CD7C0(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	attr	2	0.051		Nioh3+12E4D0
+23928	KIDSTS[s9:CollisionUpdate]7	attr	1	0.026		Nioh3+7464F8
+23928	KIDSTS[s9:CollisionUpdate]7	attr	1	0.026		Nioh3+319D5C
+23928	KIDSTS[s9:CollisionUpdate]7	attr	1	0.026		Nioh3+43AEC
+23928	KIDSTS[s9:CollisionUpdate]7	attr	1	0.026		Nioh3+D18A0(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	attr	1	0.026		Nioh3+368980
+23928	KIDSTS[s9:CollisionUpdate]7	attr	1	0.026		Nioh3+40800
+23928	KIDSTS[s9:CollisionUpdate]7	attr	1	0.026		Nioh3+F1D8C
+23928	KIDSTS[s9:CollisionUpdate]7	incl	3892	100.000		Nioh3+1A6BB84
+23928	KIDSTS[s9:CollisionUpdate]7	incl	3892	100.000		Nioh3+BDB740
+23928	KIDSTS[s9:CollisionUpdate]7	incl	3892	100.000		KERNEL32.DLL!BaseThreadInitThunk
+23928	KIDSTS[s9:CollisionUpdate]7	incl	3892	100.000		ntdll.dll!RtlUserThreadStart
+23928	KIDSTS[s9:CollisionUpdate]7	incl	3196	82.117		ntdll.dll!ZwWaitForSingleObject
+23928	KIDSTS[s9:CollisionUpdate]7	incl	3196	82.117		KERNELBASE.dll!WaitForSingleObjectEx
+23928	KIDSTS[s9:CollisionUpdate]7	incl	696	17.883		Nioh3+40800
+23928	KIDSTS[s9:CollisionUpdate]7	incl	696	17.883		Nioh3+3FE14
+23928	KIDSTS[s9:CollisionUpdate]7	incl	651	16.727		Nioh3+319D5C
+23928	KIDSTS[s9:CollisionUpdate]7	incl	649	16.675		Nioh3+D80B0
+23928	KIDSTS[s9:CollisionUpdate]7	incl	188	4.830		Nioh3+D89E0
+23928	KIDSTS[s9:CollisionUpdate]7	incl	186	4.779		Nioh3+D8B70
+23928	KIDSTS[s9:CollisionUpdate]7	incl	71	1.824		Nioh3+D8700(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	incl	56	1.439		Nioh3+D8C40(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	incl	44	1.131		Nioh3+7464BC
+23928	KIDSTS[s9:CollisionUpdate]7	incl	43	1.105		Nioh3+43CEC
+23928	KIDSTS[s9:CollisionUpdate]7	incl	36	0.925		Nioh3+2D9EE0 caseD_26
+23928	KIDSTS[s9:CollisionUpdate]7	incl	29	0.745		Nioh3+168E80(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	incl	9	0.231		Nioh3+D6E9C
+23928	KIDSTS[s9:CollisionUpdate]7	incl	4	0.103		Nioh3+3CD7C0(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	incl	3	0.077		Nioh3+368980
+23928	KIDSTS[s9:CollisionUpdate]7	incl	2	0.051		Nioh3+43AEC
+23928	KIDSTS[s9:CollisionUpdate]7	incl	2	0.051		Nioh3+12E4D0
+23928	KIDSTS[s9:CollisionUpdate]7	incl	2	0.051		Nioh3+12E43C
+23928	KIDSTS[s9:CollisionUpdate]7	incl	2	0.051		Nioh3+12E41C
+23928	KIDSTS[s9:CollisionUpdate]7	incl	2	0.051		Nioh3+368A24
+23928	KIDSTS[s9:CollisionUpdate]7	incl	1	0.026		Nioh3+7464F8
+23928	KIDSTS[s9:CollisionUpdate]7	incl	1	0.026		Nioh3+D18A0(leaf?)
+23928	KIDSTS[s9:CollisionUpdate]7	incl	1	0.026		ntdll.dll!ZwSetEvent
+23928	KIDSTS[s9:CollisionUpdate]7	incl	1	0.026		KERNELBASE.dll!SetEvent
+24924	KIDSTS[s2:StageUpdate]7	self	3188	81.912	16.4	ntdll.dll!ZwWaitForSingleObject
+24924	KIDSTS[s2:StageUpdate]7	self	160	4.111	32.9	Nioh3+411C0
+24924	KIDSTS[s2:StageUpdate]7	self	50	1.285	22.9	Nioh3+47550
+24924	KIDSTS[s2:StageUpdate]7	self	43	1.105	43.2	Nioh3+469C0
+24924	KIDSTS[s2:StageUpdate]7	self	43	1.105	34.2	Nioh3+1196B70
+24924	KIDSTS[s2:StageUpdate]7	self	41	1.053	25.5	Nioh3+484C0(leaf?)
+24924	KIDSTS[s2:StageUpdate]7	self	41	1.053	24.0	Nioh3+DDC70
+24924	KIDSTS[s2:StageUpdate]7	self	27	0.694	33.0	Nioh3+40800
+24924	KIDSTS[s2:StageUpdate]7	self	26	0.668	27.5	Nioh3+47DF8
+24924	KIDSTS[s2:StageUpdate]7	self	22	0.565	36.0	Nioh3+D8E00
+24924	KIDSTS[s2:StageUpdate]7	self	20	0.514	10.6	Nioh3+DBA70
+24924	KIDSTS[s2:StageUpdate]7	self	15	0.385	21.9	Nioh3+DD7AC
+24924	KIDSTS[s2:StageUpdate]7	self	15	0.385	32.2	Nioh3+403A0
+24924	KIDSTS[s2:StageUpdate]7	self	14	0.360	11.3	Nioh3+DA830
+24924	KIDSTS[s2:StageUpdate]7	self	14	0.360	17.8	Nioh3+3BD184
+24924	KIDSTS[s2:StageUpdate]7	self	12	0.308	12.0	ntdll.dll!ZwSetEvent
+24924	KIDSTS[s2:StageUpdate]7	self	9	0.231	9.4	Nioh3+DBB90
+24924	KIDSTS[s2:StageUpdate]7	self	8	0.206	2.0	Nioh3+21FF9C
+24924	KIDSTS[s2:StageUpdate]7	self	7	0.180	21.1	Nioh3+71130
+24924	KIDSTS[s2:StageUpdate]7	self	7	0.180	20.0	Nioh3+D8C40(leaf?)
+24924	KIDSTS[s2:StageUpdate]7	self	7	0.180	5.3	Nioh3+130014
+24924	KIDSTS[s2:StageUpdate]7	self	6	0.154	4.5	Nioh3+71BC24
+24924	KIDSTS[s2:StageUpdate]7	self	6	0.154	8.1	Nioh3+BE0378
+24924	KIDSTS[s2:StageUpdate]7	self	6	0.154	5.5	Nioh3+1772B4
+24924	KIDSTS[s2:StageUpdate]7	self	5	0.128	8.0	Nioh3+178494
+24924	KIDSTS[s2:StageUpdate]7	self	4	0.103	11.3	Nioh3+17A600(leaf?)
+24924	KIDSTS[s2:StageUpdate]7	self	4	0.103	15.2	Nioh3+3B7F70
+24924	KIDSTS[s2:StageUpdate]7	self	4	0.103	5.5	Nioh3+17771C
+24924	KIDSTS[s2:StageUpdate]7	self	4	0.103	33.1	Nioh3+174908
+24924	KIDSTS[s2:StageUpdate]7	self	4	0.103	8.2	Nioh3+DA6E0
+24924	KIDSTS[s2:StageUpdate]7	attr	3188	81.912		Nioh3+1A6BB84
+24924	KIDSTS[s2:StageUpdate]7	attr	160	4.111		Nioh3+411C0
+24924	KIDSTS[s2:StageUpdate]7	attr	50	1.285		Nioh3+47550
+24924	KIDSTS[s2:StageUpdate]7	attr	43	1.105		Nioh3+469C0
+24924	KIDSTS[s2:StageUpdate]7	attr	43	1.105		Nioh3+1196B70
+24924	KIDSTS[s2:StageUpdate]7	attr	41	1.053		Nioh3+484C0(leaf?)
+24924	KIDSTS[s2:StageUpdate]7	attr	41	1.053		Nioh3+DDC70
+24924	KIDSTS[s2:StageUpdate]7	attr	39	1.002		Nioh3+40800
+24924	KIDSTS[s2:StageUpdate]7	attr	26	0.668		Nioh3+47DF8
+24924	KIDSTS[s2:StageUpdate]7	attr	22	0.565		Nioh3+D8E00
+24924	KIDSTS[s2:StageUpdate]7	attr	20	0.514		Nioh3+DBA70
+24924	KIDSTS[s2:StageUpdate]7	attr	15	0.385		Nioh3+DD7AC
+24924	KIDSTS[s2:StageUpdate]7	attr	15	0.385		Nioh3+403A0
+24924	KIDSTS[s2:StageUpdate]7	attr	14	0.360		Nioh3+DA830
+24924	KIDSTS[s2:StageUpdate]7	attr	14	0.360		Nioh3+3BD184
+24924	KIDSTS[s2:StageUpdate]7	attr	9	0.231		Nioh3+DBB90
+24924	KIDSTS[s2:StageUpdate]7	attr	8	0.206		Nioh3+21FF9C
+24924	KIDSTS[s2:StageUpdate]7	attr	7	0.180		Nioh3+71130
+24924	KIDSTS[s2:StageUpdate]7	attr	7	0.180		Nioh3+D8C40(leaf?)
+24924	KIDSTS[s2:StageUpdate]7	attr	7	0.180		Nioh3+130014
+24924	KIDSTS[s2:StageUpdate]7	incl	3892	100.000		Nioh3+1A6BB84
+24924	KIDSTS[s2:StageUpdate]7	incl	3892	100.000		Nioh3+BDB740
+24924	KIDSTS[s2:StageUpdate]7	incl	3892	100.000		KERNEL32.DLL!BaseThreadInitThunk
+24924	KIDSTS[s2:StageUpdate]7	incl	3892	100.000		ntdll.dll!RtlUserThreadStart
+24924	KIDSTS[s2:StageUpdate]7	incl	3188	81.912		ntdll.dll!ZwWaitForSingleObject
+24924	KIDSTS[s2:StageUpdate]7	incl	3188	81.912		KERNELBASE.dll!WaitForSingleObjectEx
+24924	KIDSTS[s2:StageUpdate]7	incl	704	18.088		Nioh3+40800
+24924	KIDSTS[s2:StageUpdate]7	incl	704	18.088		Nioh3+3FE14
+24924	KIDSTS[s2:StageUpdate]7	incl	682	17.523		Nioh3+403A0
+24924	KIDSTS[s2:StageUpdate]7	incl	635	16.316		Nioh3+3E7CC
+24924	KIDSTS[s2:StageUpdate]7	incl	502	12.898		Nioh3+FAE380
+24924	KIDSTS[s2:StageUpdate]7	incl	344	8.839		Nioh3+174C9C
+24924	KIDSTS[s2:StageUpdate]7	incl	344	8.839		Nioh3+FADEA0
+24924	KIDSTS[s2:StageUpdate]7	incl	327	8.402		Nioh3+567A48
+24924	KIDSTS[s2:StageUpdate]7	incl	188	4.830		Nioh3+10E2200
+24924	KIDSTS[s2:StageUpdate]7	incl	187	4.805		Nioh3+DDC70
+24924	KIDSTS[s2:StageUpdate]7	incl	160	4.111		Nioh3+411C0
+24924	KIDSTS[s2:StageUpdate]7	incl	106	2.724		Nioh3+207200
+24924	KIDSTS[s2:StageUpdate]7	incl	92	2.364		Nioh3+47550
+24924	KIDSTS[s2:StageUpdate]7	incl	75	1.927		Nioh3+FAE200
+24924	KIDSTS[s2:StageUpdate]7	incl	67	1.721		Nioh3+DA830
+24924	KIDSTS[s2:StageUpdate]7	incl	66	1.696		Nioh3+1197100
+24924	KIDSTS[s2:StageUpdate]7	incl	63	1.619		Nioh3+FADF90
+24924	KIDSTS[s2:StageUpdate]7	incl	62	1.593		Nioh3+45DCC
+24924	KIDSTS[s2:StageUpdate]7	incl	60	1.542		Nioh3+7F9F98
+24924	KIDSTS[s2:StageUpdate]7	incl	59	1.516		Nioh3+1196B70
+24924	KIDSTS[s2:StageUpdate]7	incl	54	1.387		Nioh3+10E2230
+24924	KIDSTS[s2:StageUpdate]7	incl	53	1.362		Nioh3+469C0
+24924	KIDSTS[s2:StageUpdate]7	incl	41	1.053		Nioh3+484C0(leaf?)
+24924	KIDSTS[s2:StageUpdate]7	incl	35	0.899		Nioh3+1196F10
+25220	KIDSTS[s9:CollisionUpdate]5	self	3199	82.194	14.6	ntdll.dll!ZwWaitForSingleObject
+25220	KIDSTS[s9:CollisionUpdate]5	self	293	7.528	32.8	Nioh3+D80B0
+25220	KIDSTS[s9:CollisionUpdate]5	self	169	4.342	32.5	Nioh3+D8B70
+25220	KIDSTS[s9:CollisionUpdate]5	self	59	1.516	32.0	Nioh3+D8C40(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	self	58	1.490	31.8	Nioh3+D8700(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	self	51	1.310	3.1	Nioh3+43CEC
+25220	KIDSTS[s9:CollisionUpdate]5	self	24	0.617	26.3	Nioh3+168E80(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	self	16	0.411	34.0	Nioh3+D89E0
+25220	KIDSTS[s9:CollisionUpdate]5	self	8	0.206	1.4	Nioh3+43AEC
+25220	KIDSTS[s9:CollisionUpdate]5	self	6	0.154	27.9	Nioh3+2D9EE0 caseD_26
+25220	KIDSTS[s9:CollisionUpdate]5	self	4	0.103	2.0	ntdll.dll!ZwSetEvent
+25220	KIDSTS[s9:CollisionUpdate]5	self	2	0.051	2.9	Nioh3+19CED0(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	self	2	0.051	28.4	Nioh3+3CD7C0(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	self	1	0.026	0.7	Nioh3+12E4D0
+25220	KIDSTS[s9:CollisionUpdate]5	attr	3199	82.194		Nioh3+1A6BB84
+25220	KIDSTS[s9:CollisionUpdate]5	attr	293	7.528		Nioh3+D80B0
+25220	KIDSTS[s9:CollisionUpdate]5	attr	169	4.342		Nioh3+D8B70
+25220	KIDSTS[s9:CollisionUpdate]5	attr	59	1.516		Nioh3+D8C40(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	attr	58	1.490		Nioh3+D8700(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	attr	51	1.310		Nioh3+43CEC
+25220	KIDSTS[s9:CollisionUpdate]5	attr	24	0.617		Nioh3+168E80(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	attr	16	0.411		Nioh3+D89E0
+25220	KIDSTS[s9:CollisionUpdate]5	attr	8	0.206		Nioh3+43AEC
+25220	KIDSTS[s9:CollisionUpdate]5	attr	6	0.154		Nioh3+2D9EE0 caseD_26
+25220	KIDSTS[s9:CollisionUpdate]5	attr	4	0.103		Nioh3+40800
+25220	KIDSTS[s9:CollisionUpdate]5	attr	2	0.051		Nioh3+19CED0(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	attr	2	0.051		Nioh3+3CD7C0(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	attr	1	0.026		Nioh3+12E4D0
+25220	KIDSTS[s9:CollisionUpdate]5	incl	3892	100.000		Nioh3+1A6BB84
+25220	KIDSTS[s9:CollisionUpdate]5	incl	3892	100.000		Nioh3+BDB740
+25220	KIDSTS[s9:CollisionUpdate]5	incl	3892	100.000		KERNEL32.DLL!BaseThreadInitThunk
+25220	KIDSTS[s9:CollisionUpdate]5	incl	3892	100.000		ntdll.dll!RtlUserThreadStart
+25220	KIDSTS[s9:CollisionUpdate]5	incl	3199	82.194		ntdll.dll!ZwWaitForSingleObject
+25220	KIDSTS[s9:CollisionUpdate]5	incl	3199	82.194		KERNELBASE.dll!WaitForSingleObjectEx
+25220	KIDSTS[s9:CollisionUpdate]5	incl	693	17.806		Nioh3+40800
+25220	KIDSTS[s9:CollisionUpdate]5	incl	693	17.806		Nioh3+3FE14
+25220	KIDSTS[s9:CollisionUpdate]5	incl	628	16.136		Nioh3+D80B0
+25220	KIDSTS[s9:CollisionUpdate]5	incl	628	16.136		Nioh3+319D5C
+25220	KIDSTS[s9:CollisionUpdate]5	incl	204	5.242		Nioh3+D89E0
+25220	KIDSTS[s9:CollisionUpdate]5	incl	201	5.164		Nioh3+D8B70
+25220	KIDSTS[s9:CollisionUpdate]5	incl	61	1.567		Nioh3+43CEC
+25220	KIDSTS[s9:CollisionUpdate]5	incl	61	1.567		Nioh3+7464BC
+25220	KIDSTS[s9:CollisionUpdate]5	incl	59	1.516		Nioh3+D8C40(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	incl	58	1.490		Nioh3+D8700(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	incl	30	0.771		Nioh3+2D9EE0 caseD_26
+25220	KIDSTS[s9:CollisionUpdate]5	incl	24	0.617		Nioh3+168E80(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	incl	13	0.334		Nioh3+D6E9C
+25220	KIDSTS[s9:CollisionUpdate]5	incl	8	0.206		Nioh3+43AEC
+25220	KIDSTS[s9:CollisionUpdate]5	incl	4	0.103		ntdll.dll!ZwSetEvent
+25220	KIDSTS[s9:CollisionUpdate]5	incl	4	0.103		KERNELBASE.dll!SetEvent
+25220	KIDSTS[s9:CollisionUpdate]5	incl	2	0.051		Nioh3+19CED0(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	incl	2	0.051		Nioh3+3CD7C0(leaf?)
+25220	KIDSTS[s9:CollisionUpdate]5	incl	1	0.026		Nioh3+12E4D0
+25220	KIDSTS[s9:CollisionUpdate]5	incl	1	0.026		Nioh3+12E43C
+25220	KIDSTS[s9:CollisionUpdate]5	incl	1	0.026		Nioh3+12E41C
+25220	KIDSTS[s9:CollisionUpdate]5	incl	1	0.026		Nioh3+368A24
+25220	KIDSTS[s9:CollisionUpdate]5	incl	1	0.026		Nioh3+368980
+19976	[App]MissionThread	self	3270	84.018	14.8	ntdll.dll!NtWaitForAlertByThreadId
+19976	[App]MissionThread	self	84	2.158	42.8	Nioh3+20B900
+19976	[App]MissionThread	self	68	1.747	34.6	Nioh3+2866F0
+19976	[App]MissionThread	self	65	1.670	10.8	Nioh3+20A298
+19976	[App]MissionThread	self	64	1.644	13.7	Nioh3+E266B0
+19976	[App]MissionThread	self	30	0.771	15.1	Nioh3+20A300
+19976	[App]MissionThread	self	20	0.514	4.9	Nioh3+4AB6E4
+19976	[App]MissionThread	self	18	0.462	24.0	Nioh3+E32D90
+19976	[App]MissionThread	self	17	0.437	19.5	Nioh3+13A830
+19976	[App]MissionThread	self	17	0.437	42.2	Nioh3+2E782C
+19976	[App]MissionThread	self	14	0.360	37.0	Nioh3+E26260
+19976	[App]MissionThread	self	12	0.308	22.4	Nioh3+282580(leaf?)
+19976	[App]MissionThread	self	11	0.283	22.0	Nioh3+13B580(leaf?)
+19976	[App]MissionThread	self	9	0.231	22.8	Nioh3+754370(leaf?)
+19976	[App]MissionThread	self	9	0.231	18.7	Nioh3+2BE394
+19976	[App]MissionThread	self	8	0.206	1.9	Nioh3+2FA4C4
+19976	[App]MissionThread	self	8	0.206	42.1	Nioh3+484EB8
+19976	[App]MissionThread	self	6	0.154	18.2	Nioh3+138558
+19976	[App]MissionThread	self	5	0.128	2.2	Nioh3+D24D70
+19976	[App]MissionThread	self	5	0.128	22.9	Nioh3+37A8D4
+19976	[App]MissionThread	self	5	0.128	25.6	Nioh3+137C1C
+19976	[App]MissionThread	self	5	0.128	20.8	Nioh3+282320
+19976	[App]MissionThread	self	5	0.128	39.9	Nioh3+54ADC0(leaf?)
+19976	[App]MissionThread	self	5	0.128	21.8	Nioh3+13B18C
+19976	[App]MissionThread	self	4	0.103	44.1	ntdll.dll!NtFsControlFile
+19976	[App]MissionThread	self	4	0.103	36.4	Nioh3+60C760(leaf?)
+19976	[App]MissionThread	self	3	0.077	21.7	Nioh3+724CC0(leaf?)
+19976	[App]MissionThread	self	3	0.077	37.0	ntdll.dll!RtlQueryPerformanceCounter
+19976	[App]MissionThread	self	3	0.077	27.3	Nioh3+37ADC8
+19976	[App]MissionThread	self	3	0.077	46.7	ntdll.dll+26E50 (RtlAllocateHeap+1200)
+19976	[App]MissionThread	attr	3274	84.121		Nioh3+B616A4
+19976	[App]MissionThread	attr	84	2.158		Nioh3+20B900
+19976	[App]MissionThread	attr	68	1.747		Nioh3+2866F0
+19976	[App]MissionThread	attr	65	1.670		Nioh3+20A298
+19976	[App]MissionThread	attr	64	1.644		Nioh3+E266B0
+19976	[App]MissionThread	attr	30	0.771		Nioh3+20A300
+19976	[App]MissionThread	attr	20	0.514		Nioh3+4AB6E4
+19976	[App]MissionThread	attr	18	0.462		Nioh3+E32D90
+19976	[App]MissionThread	attr	17	0.437		Nioh3+13A830
+19976	[App]MissionThread	attr	17	0.437		Nioh3+2E782C
+19976	[App]MissionThread	attr	14	0.360		Nioh3+E26260
+19976	[App]MissionThread	attr	12	0.308		Nioh3+282580(leaf?)
+19976	[App]MissionThread	attr	12	0.308		Nioh3+5A612C
+19976	[App]MissionThread	attr	11	0.283		Nioh3+13B580(leaf?)
+19976	[App]MissionThread	attr	9	0.231		Nioh3+754370(leaf?)
+19976	[App]MissionThread	attr	9	0.231		Nioh3+2BE394
+19976	[App]MissionThread	attr	8	0.206		Nioh3+2FA4C4
+19976	[App]MissionThread	attr	8	0.206		Nioh3+484EB8
+19976	[App]MissionThread	attr	6	0.154		Nioh3+138558
+19976	[App]MissionThread	attr	5	0.128		Nioh3+D24D70
+19976	[App]MissionThread	incl	3892	100.000		Nioh3+E5E060
+19976	[App]MissionThread	incl	3892	100.000		Nioh3+5B6670
+19976	[App]MissionThread	incl	3892	100.000		Nioh3+BDB740
+19976	[App]MissionThread	incl	3892	100.000		KERNEL32.DLL!BaseThreadInitThunk
+19976	[App]MissionThread	incl	3892	100.000		ntdll.dll!RtlUserThreadStart
+19976	[App]MissionThread	incl	3274	84.121		KERNELBASE.dll!SleepConditionVariableSRW
+19976	[App]MissionThread	incl	3274	84.121		Nioh3+B616A4
+19976	[App]MissionThread	incl	3274	84.121		Nioh3+B618E8
+19976	[App]MissionThread	incl	3273	84.096		ntdll.dll!RtlSleepConditionVariableSRW
+19976	[App]MissionThread	incl	3270	84.018		ntdll.dll!NtWaitForAlertByThreadId
+19976	[App]MissionThread	incl	2660	68.345		Nioh3+3D7CC8
+19976	[App]MissionThread	incl	1153	29.625		Nioh3+E63140
+19976	[App]MissionThread	incl	391	10.046		Nioh3+E64700
+19976	[App]MissionThread	incl	247	6.346		Nioh3+379620
+19976	[App]MissionThread	incl	218	5.601		Nioh3+E63350
+19976	[App]MissionThread	incl	159	4.085		Nioh3+E266B0
+19976	[App]MissionThread	incl	159	4.085		Nioh3+89A48C
+19976	[App]MissionThread	incl	142	3.649		Nioh3+37A434
+19976	[App]MissionThread	incl	128	3.289		Nioh3+20B900
+19976	[App]MissionThread	incl	115	2.955		Nioh3+282320
+19976	[App]MissionThread	incl	105	2.698		Nioh3+2824EC
+19976	[App]MissionThread	incl	95	2.441		Nioh3+89A328
+19976	[App]MissionThread	incl	94	2.415		Nioh3+13A830
+19976	[App]MissionThread	incl	74	1.901		Nioh3+E26680
+19976	[App]MissionThread	incl	73	1.876		Nioh3+2866F0
+19976	[App]MissionThread	incl	65	1.670		Nioh3+20A298
+19976	[App]MissionThread	incl	54	1.387		Nioh3+13B18C
+19976	[App]MissionThread	incl	31	0.797		Nioh3+20A300
+19976	[App]MissionThread	incl	30	0.771		Nioh3+20BD44
+19976	[App]MissionThread	incl	27	0.694		Nioh3+484EB8
+19792	KIDSTS[s2:StageUpdate]6	self	3049	86.866	14.0	ntdll.dll!ZwWaitForSingleObject
+19792	KIDSTS[s2:StageUpdate]6	self	68	1.937	17.1	Nioh3+DBA70
+19792	KIDSTS[s2:StageUpdate]6	self	54	1.538	31.3	Nioh3+D8E00
+19792	KIDSTS[s2:StageUpdate]6	self	45	1.282	17.3	Nioh3+DBB90
+19792	KIDSTS[s2:StageUpdate]6	self	38	1.083	17.4	Nioh3+DA830
+19792	KIDSTS[s2:StageUpdate]6	self	28	0.798	36.4	Nioh3+469C0
+19792	KIDSTS[s2:StageUpdate]6	self	22	0.627	24.5	Nioh3+411C0
+19792	KIDSTS[s2:StageUpdate]6	self	20	0.570	27.3	Nioh3+D6FF8
+19792	KIDSTS[s2:StageUpdate]6	self	17	0.484	13.8	Nioh3+D6CD8
+19792	KIDSTS[s2:StageUpdate]6	self	16	0.456	23.3	Nioh3+1196B70
+19792	KIDSTS[s2:StageUpdate]6	self	16	0.456	17.4	Nioh3+DA6E0
+19792	KIDSTS[s2:StageUpdate]6	self	11	0.313	34.8	Nioh3+174908
+19792	KIDSTS[s2:StageUpdate]6	self	9	0.256	30.2	Nioh3+484C0(leaf?)
+19792	KIDSTS[s2:StageUpdate]6	self	7	0.199	12.8	Nioh3+B38930(leaf?)
+19792	KIDSTS[s2:StageUpdate]6	self	7	0.199	1.3	Nioh3+21FF9C
+19792	KIDSTS[s2:StageUpdate]6	self	6	0.171	4.1	Nioh3+130014
+19792	KIDSTS[s2:StageUpdate]6	self	6	0.171	32.8	Nioh3+47DF8
+19792	KIDSTS[s2:StageUpdate]6	self	6	0.171	13.4	Nioh3+71130
+19792	KIDSTS[s2:StageUpdate]6	self	5	0.142	9.3	Nioh3+3BD184
+19792	KIDSTS[s2:StageUpdate]6	self	4	0.114	12.3	Nioh3+163D20
+19792	KIDSTS[s2:StageUpdate]6	self	4	0.114	16.6	Nioh3+6A9E0
+19792	KIDSTS[s2:StageUpdate]6	self	3	0.085	3.5	Nioh3+6F450
+19792	KIDSTS[s2:StageUpdate]6	self	3	0.085	18.2	Nioh3+73C30
+19792	KIDSTS[s2:StageUpdate]6	self	3	0.085	19.9	Nioh3+DD570
+19792	KIDSTS[s2:StageUpdate]6	self	3	0.085	13.1	Nioh3+DDC70
+19792	KIDSTS[s2:StageUpdate]6	self	2	0.057	4.7	Nioh3+1772B4
+19792	KIDSTS[s2:StageUpdate]6	self	2	0.057	36.9	Nioh3+6EFD0(leaf?)
+19792	KIDSTS[s2:StageUpdate]6	self	2	0.057	4.5	Nioh3+D5898
+19792	KIDSTS[s2:StageUpdate]6	self	2	0.057	7.9	Nioh3+17771C
+19792	KIDSTS[s2:StageUpdate]6	self	2	0.057	4.3	Nioh3+44EB8
+19792	KIDSTS[s2:StageUpdate]6	attr	3049	86.866		Nioh3+1A6BB84
+19792	KIDSTS[s2:StageUpdate]6	attr	68	1.937		Nioh3+DBA70
+19792	KIDSTS[s2:StageUpdate]6	attr	54	1.538		Nioh3+D8E00
+19792	KIDSTS[s2:StageUpdate]6	attr	45	1.282		Nioh3+DBB90
+19792	KIDSTS[s2:StageUpdate]6	attr	38	1.083		Nioh3+DA830
+19792	KIDSTS[s2:StageUpdate]6	attr	28	0.798		Nioh3+469C0
+19792	KIDSTS[s2:StageUpdate]6	attr	22	0.627		Nioh3+411C0
+19792	KIDSTS[s2:StageUpdate]6	attr	20	0.570		Nioh3+D6FF8
+19792	KIDSTS[s2:StageUpdate]6	attr	17	0.484		Nioh3+D6CD8
+19792	KIDSTS[s2:StageUpdate]6	attr	16	0.456		Nioh3+1196B70
+19792	KIDSTS[s2:StageUpdate]6	attr	16	0.456		Nioh3+DA6E0
+19792	KIDSTS[s2:StageUpdate]6	attr	11	0.313		Nioh3+174908
+19792	KIDSTS[s2:StageUpdate]6	attr	9	0.256		Nioh3+484C0(leaf?)
+19792	KIDSTS[s2:StageUpdate]6	attr	7	0.199		Nioh3+B38930(leaf?)
+19792	KIDSTS[s2:StageUpdate]6	attr	7	0.199		Nioh3+21FF9C
+19792	KIDSTS[s2:StageUpdate]6	attr	6	0.171		Nioh3+130014
+19792	KIDSTS[s2:StageUpdate]6	attr	6	0.171		Nioh3+47DF8
+19792	KIDSTS[s2:StageUpdate]6	attr	6	0.171		Nioh3+71130
+19792	KIDSTS[s2:StageUpdate]6	attr	5	0.142		Nioh3+3BD184
+19792	KIDSTS[s2:StageUpdate]6	attr	4	0.114		Nioh3+163D20
+19792	KIDSTS[s2:StageUpdate]6	incl	3510	100.000		Nioh3+1A6BB84
+19792	KIDSTS[s2:StageUpdate]6	incl	3510	100.000		Nioh3+BDB740
+19792	KIDSTS[s2:StageUpdate]6	incl	3510	100.000		KERNEL32.DLL!BaseThreadInitThunk
+19792	KIDSTS[s2:StageUpdate]6	incl	3510	100.000		ntdll.dll!RtlUserThreadStart
+19792	KIDSTS[s2:StageUpdate]6	incl	3049	86.866		ntdll.dll!ZwWaitForSingleObject
+19792	KIDSTS[s2:StageUpdate]6	incl	3049	86.866		KERNELBASE.dll!WaitForSingleObjectEx
+19792	KIDSTS[s2:StageUpdate]6	incl	461	13.134		Nioh3+40800
+19792	KIDSTS[s2:StageUpdate]6	incl	461	13.134		Nioh3+3FE14
+19792	KIDSTS[s2:StageUpdate]6	incl	337	9.601		Nioh3+174C9C
+19792	KIDSTS[s2:StageUpdate]6	incl	337	9.601		Nioh3+FADEA0
+19792	KIDSTS[s2:StageUpdate]6	incl	298	8.490		Nioh3+567A48
+19792	KIDSTS[s2:StageUpdate]6	incl	200	5.698		Nioh3+DA830
+19792	KIDSTS[s2:StageUpdate]6	incl	91	2.593		Nioh3+403A0
+19792	KIDSTS[s2:StageUpdate]6	incl	90	2.564		Nioh3+3E7CC
+19792	KIDSTS[s2:StageUpdate]6	incl	71	2.023		Nioh3+DBB90
+19792	KIDSTS[s2:StageUpdate]6	incl	71	2.023		Nioh3+D8E00
+19792	KIDSTS[s2:StageUpdate]6	incl	68	1.937		Nioh3+DBA70
+19792	KIDSTS[s2:StageUpdate]6	incl	42	1.197		Nioh3+45DCC
+19792	KIDSTS[s2:StageUpdate]6	incl	42	1.197		Nioh3+FADF90
+19792	KIDSTS[s2:StageUpdate]6	incl	41	1.168		Nioh3+7F9F98
+19792	KIDSTS[s2:StageUpdate]6	incl	36	1.026		Nioh3+469C0
+19792	KIDSTS[s2:StageUpdate]6	incl	36	1.026		Nioh3+10E2230
+19792	KIDSTS[s2:StageUpdate]6	incl	23	0.655		Nioh3+82F1C
+19792	KIDSTS[s2:StageUpdate]6	incl	23	0.655		Nioh3+82BF0
+19792	KIDSTS[s2:StageUpdate]6	incl	23	0.655		Nioh3+315664
+19792	KIDSTS[s2:StageUpdate]6	incl	23	0.655		Nioh3+DA6E0
+19792	KIDSTS[s2:StageUpdate]6	incl	22	0.627		Nioh3+411C0
+19792	KIDSTS[s2:StageUpdate]6	incl	22	0.627		Nioh3+7FE68
+19792	KIDSTS[s2:StageUpdate]6	incl	22	0.627		Nioh3+D5898
+19792	KIDSTS[s2:StageUpdate]6	incl	20	0.570		Nioh3+1196B70
+648	KIDSTS[s9:CollisionUpdate]4	self	2619	84.593	13.0	ntdll.dll!ZwWaitForSingleObject
+648	KIDSTS[s9:CollisionUpdate]4	self	214	6.912	30.5	Nioh3+D80B0
+648	KIDSTS[s9:CollisionUpdate]4	self	99	3.198	32.4	Nioh3+D8B70
+648	KIDSTS[s9:CollisionUpdate]4	self	52	1.680	34.5	Nioh3+D8700(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	self	42	1.357	30.3	Nioh3+D8C40(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	self	26	0.840	3.4	Nioh3+43CEC
+648	KIDSTS[s9:CollisionUpdate]4	self	21	0.678	21.1	Nioh3+168E80(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	self	11	0.355	38.2	Nioh3+D89E0
+648	KIDSTS[s9:CollisionUpdate]4	self	5	0.161	56.3	Nioh3+2D9EE0 caseD_26
+648	KIDSTS[s9:CollisionUpdate]4	self	4	0.129	2.5	Nioh3+43AEC
+648	KIDSTS[s9:CollisionUpdate]4	self	1	0.032	15.2	Nioh3+3CD7C0(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	self	1	0.032	83.9	KERNELBASE.dll!WaitForSingleObject
+648	KIDSTS[s9:CollisionUpdate]4	self	1	0.032	44.5	Nioh3+D8B24
+648	KIDSTS[s9:CollisionUpdate]4	attr	2620	84.625		Nioh3+1A6BB84
+648	KIDSTS[s9:CollisionUpdate]4	attr	214	6.912		Nioh3+D80B0
+648	KIDSTS[s9:CollisionUpdate]4	attr	99	3.198		Nioh3+D8B70
+648	KIDSTS[s9:CollisionUpdate]4	attr	52	1.680		Nioh3+D8700(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	attr	42	1.357		Nioh3+D8C40(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	attr	26	0.840		Nioh3+43CEC
+648	KIDSTS[s9:CollisionUpdate]4	attr	21	0.678		Nioh3+168E80(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	attr	11	0.355		Nioh3+D89E0
+648	KIDSTS[s9:CollisionUpdate]4	attr	5	0.161		Nioh3+2D9EE0 caseD_26
+648	KIDSTS[s9:CollisionUpdate]4	attr	4	0.129		Nioh3+43AEC
+648	KIDSTS[s9:CollisionUpdate]4	attr	1	0.032		Nioh3+3CD7C0(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	attr	1	0.032		Nioh3+D8B24
+648	KIDSTS[s9:CollisionUpdate]4	incl	3096	100.000		Nioh3+1A6BB84
+648	KIDSTS[s9:CollisionUpdate]4	incl	3096	100.000		Nioh3+BDB740
+648	KIDSTS[s9:CollisionUpdate]4	incl	3096	100.000		KERNEL32.DLL!BaseThreadInitThunk
+648	KIDSTS[s9:CollisionUpdate]4	incl	3096	100.000		ntdll.dll!RtlUserThreadStart
+648	KIDSTS[s9:CollisionUpdate]4	incl	2619	84.593		ntdll.dll!ZwWaitForSingleObject
+648	KIDSTS[s9:CollisionUpdate]4	incl	2619	84.593		KERNELBASE.dll!WaitForSingleObjectEx
+648	KIDSTS[s9:CollisionUpdate]4	incl	476	15.375		Nioh3+40800
+648	KIDSTS[s9:CollisionUpdate]4	incl	476	15.375		Nioh3+3FE14
+648	KIDSTS[s9:CollisionUpdate]4	incl	446	14.406		Nioh3+D80B0
+648	KIDSTS[s9:CollisionUpdate]4	incl	446	14.406		Nioh3+319D5C
+648	KIDSTS[s9:CollisionUpdate]4	incl	131	4.231		Nioh3+D89E0
+648	KIDSTS[s9:CollisionUpdate]4	incl	126	4.070		Nioh3+D8B70
+648	KIDSTS[s9:CollisionUpdate]4	incl	52	1.680		Nioh3+D8700(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	incl	42	1.357		Nioh3+D8C40(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	incl	30	0.969		Nioh3+43CEC
+648	KIDSTS[s9:CollisionUpdate]4	incl	30	0.969		Nioh3+7464BC
+648	KIDSTS[s9:CollisionUpdate]4	incl	26	0.840		Nioh3+2D9EE0 caseD_26
+648	KIDSTS[s9:CollisionUpdate]4	incl	21	0.678		Nioh3+168E80(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	incl	7	0.226		Nioh3+D6E9C
+648	KIDSTS[s9:CollisionUpdate]4	incl	4	0.129		Nioh3+43AEC
+648	KIDSTS[s9:CollisionUpdate]4	incl	1	0.032		Nioh3+3CD7C0(leaf?)
+648	KIDSTS[s9:CollisionUpdate]4	incl	1	0.032		KERNELBASE.dll!WaitForSingleObject
+648	KIDSTS[s9:CollisionUpdate]4	incl	1	0.032		Nioh3+D8B24
+5360		self	3359	86.305	11.5	ntdll.dll!ZwWaitForSingleObject
+5360		self	187	4.805	37.5	Nioh3+E5840
+5360		self	123	3.160	10.4	Nioh3+18AB80
+5360		self	48	1.233	30.5	Nioh3+E1740
+5360		self	46	1.182	10.0	Nioh3+69220
+5360		self	25	0.642	48.7	XAudio2_9.dll+6B90(leaf?)
+5360		self	10	0.257	33.0	Nioh3+E7D00
+5360		self	7	0.180	32.9	Nioh3+E3FF0
+5360		self	7	0.180	35.3	Nioh3+E6760
+5360		self	6	0.154	33.0	Nioh3+B94250
+5360		self	5	0.128	51.5	XAudio2_9.dll+6074
+5360		self	5	0.128	44.9	Nioh3+26BE50(leaf?)
+5360		self	4	0.103	16.4	Nioh3+E08A0
+5360		self	4	0.103	57.1	Nioh3+4E4C44
+5360		self	4	0.103	62.0	ntdll.dll!ZwSetEvent
+5360		self	3	0.077	21.3	Nioh3+383F7F0(leaf?)
+5360		self	3	0.077	24.4	Nioh3+B93EE0
+5360		self	3	0.077	23.1	Nioh3+E06D0(leaf?)
+5360		self	2	0.051	31.7	Nioh3+E5394
+5360		self	2	0.051	28.5	Nioh3+E3610
+5360		self	2	0.051	26.9	Nioh3+6D6F80(leaf?)
+5360		self	2	0.051	46.8	Nioh3+4E4A98
+5360		self	2	0.051	44.5	Nioh3+E2610
+5360		self	2	0.051	44.9	Nioh3+1952E4
+5360		self	2	0.051	8.7	Nioh3+4DD410
+5360		self	2	0.051	37.6	Nioh3+E49B0
+5360		self	2	0.051	54.3	XAudio2_9.dll+5960
+5360		self	2	0.051	15.9	Nioh3+B94230
+5360		self	2	0.051	44.8	XAudio2_9.dll+5EC0
+5360		self	1	0.026	26.0	Nioh3+E62B0
+5360		attr	3359	86.305		Nioh3+8629AC
+5360		attr	187	4.805		Nioh3+E5840
+5360		attr	123	3.160		Nioh3+18AB80
+5360		attr	48	1.233		Nioh3+E1740
+5360		attr	46	1.182		Nioh3+69220
+5360		attr	37	0.951		Nioh3+E1BB0
+5360		attr	10	0.257		Nioh3+E7D00
+5360		attr	7	0.180		Nioh3+E3FF0
+5360		attr	7	0.180		Nioh3+E6760
+5360		attr	6	0.154		Nioh3+B94250
+5360		attr	5	0.128		Nioh3+26BE50(leaf?)
+5360		attr	4	0.103		Nioh3+E08A0
+5360		attr	4	0.103		Nioh3+4E4C44
+5360		attr	4	0.103		Nioh3+83B584
+5360		attr	3	0.077		Nioh3+383F7F0(leaf?)
+5360		attr	3	0.077		Nioh3+B93EE0
+5360		attr	3	0.077		Nioh3+E06D0(leaf?)
+5360		attr	2	0.051		Nioh3+E5394
+5360		attr	2	0.051		Nioh3+E3610
+5360		attr	2	0.051		Nioh3+6D6F80(leaf?)
+5360		incl	3890	99.949		Nioh3+1A786A8
+5360		incl	3890	99.949		Nioh3+9FC2F4
+5360		incl	3890	99.949		Nioh3+BDB740
+5360		incl	3890	99.949		KERNEL32.DLL!BaseThreadInitThunk
+5360		incl	3890	99.949		ntdll.dll!RtlUserThreadStart
+5360		incl	3359	86.305		ntdll.dll!ZwWaitForSingleObject
+5360		incl	3359	86.305		KERNELBASE.dll!WaitForSingleObjectEx
+5360		incl	3359	86.305		Nioh3+8629AC
+5360		incl	324	8.325		Nioh3+E2050
+5360		incl	324	8.325		Nioh3+36044C
+5360		incl	227	5.832		Nioh3+E3334
+5360		incl	226	5.807		Nioh3+E3FF0
+5360		incl	215	5.524		Nioh3+E5394
+5360		incl	209	5.370		Nioh3+E5840
+5360		incl	173	4.445		Nioh3+18AA7C
+5360		incl	172	4.419		Nioh3+18AB80
+5360		incl	48	1.233		Nioh3+E1740
+5360		incl	46	1.182		Nioh3+69220
+5360		incl	39	1.002		Nioh3+E1CBC
+5360		incl	37	0.951		Nioh3+E1BB0
+5360		incl	37	0.951		Nioh3+E1A48
+5360		incl	35	0.899		XAudio2_9.dll+2EB0
+5360		incl	34	0.874		XAudio2_9.dll+6074
+5360		incl	34	0.874		XAudio2_9.dll+31C4
+5360		incl	25	0.642		XAudio2_9.dll+6B90(leaf?)
+5360		incl	17	0.437		Nioh3+4E3300
+5360		incl	15	0.385		Nioh3+361428
+5360		incl	15	0.385		Nioh3+4E46A0
+5360		incl	14	0.360		Nioh3+E08A0
+5360		incl	12	0.308		Nioh3+E7840
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	2938	84.401	12.1	ntdll.dll!ZwWaitForSingleObject
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	391	11.232	23.7	Nioh3+48E90
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	90	2.585	22.2	Nioh3+2515B0(leaf?)
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	14	0.402	27.7	Nioh3+49950
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	9	0.259	21.0	Nioh3+49D5C
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	9	0.259	15.0	ntdll.dll!RtlReleaseSRWLockShared
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	8	0.230	25.6	Nioh3+116A24
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	6	0.172	19.3	ntdll.dll+15F0C (RtlVirtualUnwind2+202C)
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	5	0.144	9.4	ntdll.dll!ZwSetEvent
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	3	0.086	35.1	Nioh3+251554
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	2	0.057	30.4	Nioh3+411C0
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	2	0.057	35.0	Nioh3+40800
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	2	0.057	17.8	ntdll.dll!RtlAcquireSRWLockShared
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	1	0.029	26.1	ntdll.dll+D5D80 (RtlQueryFeatureConfiguration+790)
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	self	1	0.029	23.2	Nioh3+3FE14
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	2938	84.401		Nioh3+1A6BB84
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	391	11.232		Nioh3+48E90
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	90	2.585		Nioh3+2515B0(leaf?)
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	27	0.776		Nioh3+49D5C
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	14	0.402		Nioh3+49950
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	8	0.230		Nioh3+116A24
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	7	0.201		Nioh3+40800
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	3	0.086		Nioh3+251554
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	2	0.057		Nioh3+411C0
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	attr	1	0.029		Nioh3+3FE14
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	3481	100.000		Nioh3+1A6BB84
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	3481	100.000		Nioh3+BDB740
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	3481	100.000		KERNEL32.DLL!BaseThreadInitThunk
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	3481	100.000		ntdll.dll!RtlUserThreadStart
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	2938	84.401		ntdll.dll!ZwWaitForSingleObject
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	2938	84.401		KERNELBASE.dll!WaitForSingleObjectEx
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	543	15.599		Nioh3+3FE14
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	540	15.513		Nioh3+40800
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	533	15.312		Nioh3+48E90
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	128	3.677		Nioh3+49D5C
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	101	2.901		Nioh3+116A24
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	93	2.672		Nioh3+251554
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	90	2.585		Nioh3+2515B0(leaf?)
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	14	0.402		Nioh3+49950
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	9	0.259		ntdll.dll!RtlAcquireSRWLockShared
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	9	0.259		ntdll.dll!RtlReleaseSRWLockShared
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	7	0.201		ntdll.dll+15F0C (RtlVirtualUnwind2+202C)
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	5	0.144		ntdll.dll!ZwSetEvent
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	5	0.144		KERNELBASE.dll!SetEvent
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	2	0.057		Nioh3+411C0
+2852	KIDSTS[s66:TS_MESHLET_REQ]7	incl	1	0.029		ntdll.dll+D5D80 (RtlQueryFeatureConfiguration+790)
+27568	KIDSTS[s2:StageUpdate]5	self	2772	89.506	11.8	ntdll.dll!ZwWaitForSingleObject
+27568	KIDSTS[s2:StageUpdate]5	self	29	0.936	19.7	Nioh3+484C0(leaf?)
+27568	KIDSTS[s2:StageUpdate]5	self	29	0.936	15.8	Nioh3+DBA70
+27568	KIDSTS[s2:StageUpdate]5	self	28	0.904	29.6	Nioh3+D8E00
+27568	KIDSTS[s2:StageUpdate]5	self	24	0.775	32.2	Nioh3+469C0
+27568	KIDSTS[s2:StageUpdate]5	self	21	0.678	17.9	Nioh3+DA830
+27568	KIDSTS[s2:StageUpdate]5	self	18	0.581	15.0	Nioh3+DBB90
+27568	KIDSTS[s2:StageUpdate]5	self	16	0.517	21.8	Nioh3+47550
+27568	KIDSTS[s2:StageUpdate]5	self	11	0.355	24.0	Nioh3+1196B70
+27568	KIDSTS[s2:StageUpdate]5	self	11	0.355	12.8	Nioh3+DA6E0
+27568	KIDSTS[s2:StageUpdate]5	self	10	0.323	19.9	Nioh3+DDC70
+27568	KIDSTS[s2:StageUpdate]5	self	10	0.323	32.2	Nioh3+411C0
+27568	KIDSTS[s2:StageUpdate]5	self	8	0.258	31.0	Nioh3+D6FF8
+27568	KIDSTS[s2:StageUpdate]5	self	8	0.258	1.1	Nioh3+21FF9C
+27568	KIDSTS[s2:StageUpdate]5	self	7	0.226	8.4	Nioh3+D6CD8
+27568	KIDSTS[s2:StageUpdate]5	self	6	0.194	17.4	Nioh3+DD7AC
+27568	KIDSTS[s2:StageUpdate]5	self	6	0.194	11.6	Nioh3+3BD184
+27568	KIDSTS[s2:StageUpdate]5	self	6	0.194	23.3	Nioh3+47DF8
+27568	KIDSTS[s2:StageUpdate]5	self	5	0.161	14.8	Nioh3+DD570
+27568	KIDSTS[s2:StageUpdate]5	self	5	0.161	2.6	Nioh3+130014
+27568	KIDSTS[s2:StageUpdate]5	self	4	0.129	14.0	Nioh3+163D20
+27568	KIDSTS[s2:StageUpdate]5	self	4	0.129	18.2	Nioh3+D8C40(leaf?)
+27568	KIDSTS[s2:StageUpdate]5	self	3	0.097	1.9	Nioh3+71BC24
+27568	KIDSTS[s2:StageUpdate]5	self	3	0.097	1.1	ntdll.dll!ZwSetEvent
+27568	KIDSTS[s2:StageUpdate]5	self	3	0.097	8.4	Nioh3+B38930(leaf?)
+27568	KIDSTS[s2:StageUpdate]5	self	3	0.097	31.7	Nioh3+40800
+27568	KIDSTS[s2:StageUpdate]5	self	3	0.097	12.5	Nioh3+2113D0
+27568	KIDSTS[s2:StageUpdate]5	self	2	0.065	27.8	Nioh3+3695D4
+27568	KIDSTS[s2:StageUpdate]5	self	2	0.065	8.2	Nioh3+3B7F70
+27568	KIDSTS[s2:StageUpdate]5	self	2	0.065	8.0	Nioh3+BE0378
+27568	KIDSTS[s2:StageUpdate]5	attr	2772	89.506		Nioh3+1A6BB84
+27568	KIDSTS[s2:StageUpdate]5	attr	29	0.936		Nioh3+484C0(leaf?)
+27568	KIDSTS[s2:StageUpdate]5	attr	29	0.936		Nioh3+DBA70
+27568	KIDSTS[s2:StageUpdate]5	attr	28	0.904		Nioh3+D8E00
+27568	KIDSTS[s2:StageUpdate]5	attr	24	0.775		Nioh3+469C0
+27568	KIDSTS[s2:StageUpdate]5	attr	21	0.678		Nioh3+DA830
+27568	KIDSTS[s2:StageUpdate]5	attr	18	0.581		Nioh3+DBB90
+27568	KIDSTS[s2:StageUpdate]5	attr	16	0.517		Nioh3+47550
+27568	KIDSTS[s2:StageUpdate]5	attr	11	0.355		Nioh3+1196B70
+27568	KIDSTS[s2:StageUpdate]5	attr	11	0.355		Nioh3+DA6E0
+27568	KIDSTS[s2:StageUpdate]5	attr	10	0.323		Nioh3+DDC70
+27568	KIDSTS[s2:StageUpdate]5	attr	10	0.323		Nioh3+411C0
+27568	KIDSTS[s2:StageUpdate]5	attr	8	0.258		Nioh3+D6FF8
+27568	KIDSTS[s2:StageUpdate]5	attr	8	0.258		Nioh3+21FF9C
+27568	KIDSTS[s2:StageUpdate]5	attr	7	0.226		Nioh3+D6CD8
+27568	KIDSTS[s2:StageUpdate]5	attr	6	0.194		Nioh3+DD7AC
+27568	KIDSTS[s2:StageUpdate]5	attr	6	0.194		Nioh3+40800
+27568	KIDSTS[s2:StageUpdate]5	attr	6	0.194		Nioh3+3BD184
+27568	KIDSTS[s2:StageUpdate]5	attr	6	0.194		Nioh3+47DF8
+27568	KIDSTS[s2:StageUpdate]5	attr	5	0.161		Nioh3+DD570
+27568	KIDSTS[s2:StageUpdate]5	incl	3097	100.000		Nioh3+1A6BB84
+27568	KIDSTS[s2:StageUpdate]5	incl	3097	100.000		Nioh3+BDB740
+27568	KIDSTS[s2:StageUpdate]5	incl	3097	100.000		KERNEL32.DLL!BaseThreadInitThunk
+27568	KIDSTS[s2:StageUpdate]5	incl	3097	100.000		ntdll.dll!RtlUserThreadStart
+27568	KIDSTS[s2:StageUpdate]5	incl	2772	89.506		ntdll.dll!ZwWaitForSingleObject
+27568	KIDSTS[s2:StageUpdate]5	incl	2772	89.506		KERNELBASE.dll!WaitForSingleObjectEx
+27568	KIDSTS[s2:StageUpdate]5	incl	325	10.494		Nioh3+3FE14
+27568	KIDSTS[s2:StageUpdate]5	incl	324	10.462		Nioh3+40800
+27568	KIDSTS[s2:StageUpdate]5	incl	229	7.394		Nioh3+FADEA0
+27568	KIDSTS[s2:StageUpdate]5	incl	227	7.330		Nioh3+174C9C
+27568	KIDSTS[s2:StageUpdate]5	incl	206	6.652		Nioh3+567A48
+27568	KIDSTS[s2:StageUpdate]5	incl	159	5.134		Nioh3+403A0
+27568	KIDSTS[s2:StageUpdate]5	incl	159	5.134		Nioh3+3E7CC
+27568	KIDSTS[s2:StageUpdate]5	incl	92	2.971		Nioh3+DA830
+27568	KIDSTS[s2:StageUpdate]5	incl	74	2.389		Nioh3+DDC70
+27568	KIDSTS[s2:StageUpdate]5	incl	74	2.389		Nioh3+10E2200
+27568	KIDSTS[s2:StageUpdate]5	incl	45	1.453		Nioh3+47550
+27568	KIDSTS[s2:StageUpdate]5	incl	37	1.195		Nioh3+FADF90
+27568	KIDSTS[s2:StageUpdate]5	incl	36	1.162		Nioh3+D8E00
+27568	KIDSTS[s2:StageUpdate]5	incl	36	1.162		Nioh3+7F9F98
+27568	KIDSTS[s2:StageUpdate]5	incl	36	1.162		Nioh3+45DCC
+27568	KIDSTS[s2:StageUpdate]5	incl	29	0.936		Nioh3+484C0(leaf?)
+27568	KIDSTS[s2:StageUpdate]5	incl	29	0.936		Nioh3+DBA70
+27568	KIDSTS[s2:StageUpdate]5	incl	29	0.936		Nioh3+469C0
+27568	KIDSTS[s2:StageUpdate]5	incl	29	0.936		Nioh3+10E2230
+27568	KIDSTS[s2:StageUpdate]5	incl	27	0.872		Nioh3+DBB90
+27568	KIDSTS[s2:StageUpdate]5	incl	18	0.581		Nioh3+D5898
+27568	KIDSTS[s2:StageUpdate]5	incl	16	0.517		Nioh3+FAE0F0
+27568	KIDSTS[s2:StageUpdate]5	incl	15	0.484		Nioh3+DA6E0
+27568	KIDSTS[s2:StageUpdate]5	incl	15	0.484		Nioh3+1772B4
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	2601	83.285	12.8	ntdll.dll!ZwWaitForSingleObject
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	363	11.623	24.5	Nioh3+48E90
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	93	2.978	19.6	Nioh3+2515B0(leaf?)
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	15	0.480	20.1	Nioh3+49950
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	12	0.384	25.7	Nioh3+49D5C
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	8	0.256	13.4	Nioh3+116A24
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	8	0.256	22.7	ntdll.dll!ZwSetEvent
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	6	0.192	22.5	ntdll.dll!RtlReleaseSRWLockShared
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	5	0.160	21.6	Nioh3+251554
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	4	0.128	24.9	Nioh3+411C0
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	2	0.064	26.6	Nioh3+40800
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	2	0.064	15.1	Nioh3+3FE14
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	1	0.032	17.6	Nioh3+202E00(leaf?)
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	1	0.032	83.9	Nioh3+202D54
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	1	0.032	46.1	ntdll.dll+15F0C (RtlVirtualUnwind2+202C)
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	self	1	0.032	31.1	ntdll.dll!RtlAcquireSRWLockShared
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	2601	83.285		Nioh3+1A6BB84
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	363	11.623		Nioh3+48E90
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	93	2.978		Nioh3+2515B0(leaf?)
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	20	0.640		Nioh3+49D5C
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	15	0.480		Nioh3+49950
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	10	0.320		Nioh3+40800
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	8	0.256		Nioh3+116A24
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	5	0.160		Nioh3+251554
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	4	0.128		Nioh3+411C0
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	2	0.064		Nioh3+3FE14
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	1	0.032		Nioh3+202E00(leaf?)
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	attr	1	0.032		Nioh3+202D54
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	3123	100.000		Nioh3+1A6BB84
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	3123	100.000		Nioh3+BDB740
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	3123	100.000		KERNEL32.DLL!BaseThreadInitThunk
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	3123	100.000		ntdll.dll!RtlUserThreadStart
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	2601	83.285		ntdll.dll!ZwWaitForSingleObject
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	2601	83.285		KERNELBASE.dll!WaitForSingleObjectEx
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	522	16.715		Nioh3+3FE14
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	516	16.523		Nioh3+40800
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	504	16.138		Nioh3+48E90
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	126	4.035		Nioh3+49D5C
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	106	3.394		Nioh3+116A24
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	98	3.138		Nioh3+251554
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	93	2.978		Nioh3+2515B0(leaf?)
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	15	0.480		Nioh3+49950
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	8	0.256		ntdll.dll!ZwSetEvent
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	8	0.256		KERNELBASE.dll!SetEvent
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	6	0.192		ntdll.dll!RtlReleaseSRWLockShared
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	4	0.128		Nioh3+411C0
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	2	0.064		ntdll.dll!RtlAcquireSRWLockShared
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	1	0.032		Nioh3+202E00(leaf?)
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	1	0.032		Nioh3+202D54
+29492	KIDSTS[s66:TS_MESHLET_REQ]8	incl	1	0.032		ntdll.dll+15F0C (RtlVirtualUnwind2+202C)
+26456	KIDSTS[s2:StageUpdate]3	self	2172	91.107	10.2	ntdll.dll!ZwWaitForSingleObject
+26456	KIDSTS[s2:StageUpdate]3	self	30	1.258	16.9	Nioh3+DBA70
+26456	KIDSTS[s2:StageUpdate]3	self	20	0.839	14.8	Nioh3+DBB90
+26456	KIDSTS[s2:StageUpdate]3	self	19	0.797	16.4	Nioh3+DA830
+26456	KIDSTS[s2:StageUpdate]3	self	17	0.713	30.5	Nioh3+469C0
+26456	KIDSTS[s2:StageUpdate]3	self	14	0.587	22.6	Nioh3+484C0(leaf?)
+26456	KIDSTS[s2:StageUpdate]3	self	12	0.503	22.5	Nioh3+D8E00
+26456	KIDSTS[s2:StageUpdate]3	self	9	0.378	11.7	Nioh3+DA6E0
+26456	KIDSTS[s2:StageUpdate]3	self	7	0.294	20.8	Nioh3+47DF8
+26456	KIDSTS[s2:StageUpdate]3	self	7	0.294	28.9	Nioh3+411C0
+26456	KIDSTS[s2:StageUpdate]3	self	6	0.252	16.0	Nioh3+47550
+26456	KIDSTS[s2:StageUpdate]3	self	6	0.252	14.5	Nioh3+DD7AC
+26456	KIDSTS[s2:StageUpdate]3	self	5	0.210	20.3	Nioh3+DDC70
+26456	KIDSTS[s2:StageUpdate]3	self	5	0.210	1.1	Nioh3+21FF9C
+26456	KIDSTS[s2:StageUpdate]3	self	5	0.210	12.2	Nioh3+3BD184
+26456	KIDSTS[s2:StageUpdate]3	self	4	0.168	14.3	Nioh3+D6CD8
+26456	KIDSTS[s2:StageUpdate]3	self	4	0.168	17.7	Nioh3+DD570
+26456	KIDSTS[s2:StageUpdate]3	self	4	0.168	2.2	Nioh3+1772B4
+26456	KIDSTS[s2:StageUpdate]3	self	3	0.126	3.3	Nioh3+130014
+26456	KIDSTS[s2:StageUpdate]3	self	3	0.126	11.7	Nioh3+B38930(leaf?)
+26456	KIDSTS[s2:StageUpdate]3	self	3	0.126	25.8	Nioh3+D6FF8
+26456	KIDSTS[s2:StageUpdate]3	self	2	0.084	8.4	Nioh3+1196B70
+26456	KIDSTS[s2:StageUpdate]3	self	2	0.084	26.1	Nioh3+3B7F70
+26456	KIDSTS[s2:StageUpdate]3	self	2	0.084	21.3	Nioh3+D8C40(leaf?)
+26456	KIDSTS[s2:StageUpdate]3	self	1	0.042	3.8	Nioh3+D5898
+26456	KIDSTS[s2:StageUpdate]3	self	1	0.042	20.5	Nioh3+6F010
+26456	KIDSTS[s2:StageUpdate]3	self	1	0.042	4.7	Nioh3+13901C
+26456	KIDSTS[s2:StageUpdate]3	self	1	0.042	12.1	Nioh3+73C30
+26456	KIDSTS[s2:StageUpdate]3	self	1	0.042	5.1	Nioh3+167D70
+26456	KIDSTS[s2:StageUpdate]3	self	1	0.042	32.5	Nioh3+202FF4
+26456	KIDSTS[s2:StageUpdate]3	attr	2173	91.149		Nioh3+1A6BB84
+26456	KIDSTS[s2:StageUpdate]3	attr	30	1.258		Nioh3+DBA70
+26456	KIDSTS[s2:StageUpdate]3	attr	20	0.839		Nioh3+DBB90
+26456	KIDSTS[s2:StageUpdate]3	attr	19	0.797		Nioh3+DA830
+26456	KIDSTS[s2:StageUpdate]3	attr	17	0.713		Nioh3+469C0
+26456	KIDSTS[s2:StageUpdate]3	attr	14	0.587		Nioh3+484C0(leaf?)
+26456	KIDSTS[s2:StageUpdate]3	attr	12	0.503		Nioh3+D8E00
+26456	KIDSTS[s2:StageUpdate]3	attr	9	0.378		Nioh3+DA6E0
+26456	KIDSTS[s2:StageUpdate]3	attr	7	0.294		Nioh3+47DF8
+26456	KIDSTS[s2:StageUpdate]3	attr	7	0.294		Nioh3+411C0
+26456	KIDSTS[s2:StageUpdate]3	attr	6	0.252		Nioh3+47550
+26456	KIDSTS[s2:StageUpdate]3	attr	6	0.252		Nioh3+DD7AC
+26456	KIDSTS[s2:StageUpdate]3	attr	5	0.210		Nioh3+DDC70
+26456	KIDSTS[s2:StageUpdate]3	attr	5	0.210		Nioh3+21FF9C
+26456	KIDSTS[s2:StageUpdate]3	attr	5	0.210		Nioh3+3BD184
+26456	KIDSTS[s2:StageUpdate]3	attr	4	0.168		Nioh3+D6CD8
+26456	KIDSTS[s2:StageUpdate]3	attr	4	0.168		Nioh3+DD570
+26456	KIDSTS[s2:StageUpdate]3	attr	4	0.168		Nioh3+1772B4
+26456	KIDSTS[s2:StageUpdate]3	attr	3	0.126		Nioh3+130014
+26456	KIDSTS[s2:StageUpdate]3	attr	3	0.126		Nioh3+B38930(leaf?)
+26456	KIDSTS[s2:StageUpdate]3	incl	2384	100.000		Nioh3+1A6BB84
+26456	KIDSTS[s2:StageUpdate]3	incl	2384	100.000		Nioh3+BDB740
+26456	KIDSTS[s2:StageUpdate]3	incl	2384	100.000		KERNEL32.DLL!BaseThreadInitThunk
+26456	KIDSTS[s2:StageUpdate]3	incl	2384	100.000		ntdll.dll!RtlUserThreadStart
+26456	KIDSTS[s2:StageUpdate]3	incl	2172	91.107		ntdll.dll!ZwWaitForSingleObject
+26456	KIDSTS[s2:StageUpdate]3	incl	2172	91.107		KERNELBASE.dll!WaitForSingleObjectEx
+26456	KIDSTS[s2:StageUpdate]3	incl	211	8.851		Nioh3+3FE14
+26456	KIDSTS[s2:StageUpdate]3	incl	209	8.767		Nioh3+40800
+26456	KIDSTS[s2:StageUpdate]3	incl	132	5.537		Nioh3+FADEA0
+26456	KIDSTS[s2:StageUpdate]3	incl	130	5.453		Nioh3+174C9C
+26456	KIDSTS[s2:StageUpdate]3	incl	120	5.034		Nioh3+567A48
+26456	KIDSTS[s2:StageUpdate]3	incl	93	3.901		Nioh3+DA830
+26456	KIDSTS[s2:StageUpdate]3	incl	57	2.391		Nioh3+403A0
+26456	KIDSTS[s2:StageUpdate]3	incl	57	2.391		Nioh3+3E7CC
+26456	KIDSTS[s2:StageUpdate]3	incl	37	1.552		Nioh3+DDC70
+26456	KIDSTS[s2:StageUpdate]3	incl	37	1.552		Nioh3+10E2200
+26456	KIDSTS[s2:StageUpdate]3	incl	32	1.342		Nioh3+DBB90
+26456	KIDSTS[s2:StageUpdate]3	incl	30	1.258		Nioh3+DBA70
+26456	KIDSTS[s2:StageUpdate]3	incl	27	1.133		Nioh3+FADF90
+26456	KIDSTS[s2:StageUpdate]3	incl	25	1.049		Nioh3+10E2230
+26456	KIDSTS[s2:StageUpdate]3	incl	25	1.049		Nioh3+7F9F98
+26456	KIDSTS[s2:StageUpdate]3	incl	25	1.049		Nioh3+45DCC
+26456	KIDSTS[s2:StageUpdate]3	incl	24	1.007		Nioh3+469C0
+26456	KIDSTS[s2:StageUpdate]3	incl	19	0.797		Nioh3+47550
+26456	KIDSTS[s2:StageUpdate]3	incl	15	0.629		Nioh3+D8E00
+26456	KIDSTS[s2:StageUpdate]3	incl	14	0.587		Nioh3+484C0(leaf?)
+26456	KIDSTS[s2:StageUpdate]3	incl	12	0.503		Nioh3+DA6E0
+26456	KIDSTS[s2:StageUpdate]3	incl	11	0.461		Nioh3+207200
+26456	KIDSTS[s2:StageUpdate]3	incl	10	0.419		Nioh3+DD7AC
+26456	KIDSTS[s2:StageUpdate]3	incl	9	0.378		Nioh3+1772B4
+3940	KIDSTS[s2:StageUpdate]4	self	1432	90.805	10.4	ntdll.dll!ZwWaitForSingleObject
+3940	KIDSTS[s2:StageUpdate]4	self	25	1.585	13.0	Nioh3+DBA70
+3940	KIDSTS[s2:StageUpdate]4	self	15	0.951	25.0	Nioh3+469C0
+3940	KIDSTS[s2:StageUpdate]4	self	10	0.634	14.9	Nioh3+DBB90
+3940	KIDSTS[s2:StageUpdate]4	self	9	0.571	13.1	Nioh3+DA830
+3940	KIDSTS[s2:StageUpdate]4	self	8	0.507	21.4	Nioh3+484C0(leaf?)
+3940	KIDSTS[s2:StageUpdate]4	self	7	0.444	25.9	Nioh3+D8E00
+3940	KIDSTS[s2:StageUpdate]4	self	7	0.444	15.7	Nioh3+1196B70
+3940	KIDSTS[s2:StageUpdate]4	self	4	0.254	11.8	Nioh3+D6FF8
+3940	KIDSTS[s2:StageUpdate]4	self	4	0.254	1.4	Nioh3+21FF9C
+3940	KIDSTS[s2:StageUpdate]4	self	4	0.254	31.5	Nioh3+47DF8
+3940	KIDSTS[s2:StageUpdate]4	self	4	0.254	3.6	Nioh3+130014
+3940	KIDSTS[s2:StageUpdate]4	self	3	0.190	16.3	Nioh3+47550
+3940	KIDSTS[s2:StageUpdate]4	self	3	0.190	5.0	Nioh3+D5898
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	10.1	Nioh3+DDC70
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	8.9	Nioh3+220D30
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	1.8	Nioh3+6F450
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	23.9	Nioh3+411C0
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	28.3	Nioh3+3695D4
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	23.3	Nioh3+D8C40(leaf?)
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	10.5	Nioh3+71130
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	34.6	Nioh3+174680
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	32.6	Nioh3+DDBA8
+3940	KIDSTS[s2:StageUpdate]4	self	2	0.127	13.3	Nioh3+DD570
+3940	KIDSTS[s2:StageUpdate]4	self	1	0.063	21.6	Nioh3+B38930(leaf?)
+3940	KIDSTS[s2:StageUpdate]4	self	1	0.063	2.8	Nioh3+D6CD8
+3940	KIDSTS[s2:StageUpdate]4	self	1	0.063	3.9	Nioh3+3BD184
+3940	KIDSTS[s2:StageUpdate]4	self	1	0.063	0.6	Nioh3+BE0378
+3940	KIDSTS[s2:StageUpdate]4	self	1	0.063	14.4	Nioh3+167D70
+3940	KIDSTS[s2:StageUpdate]4	self	1	0.063	28.5	Nioh3+176C94
+3940	KIDSTS[s2:StageUpdate]4	attr	1432	90.805		Nioh3+1A6BB84
+3940	KIDSTS[s2:StageUpdate]4	attr	25	1.585		Nioh3+DBA70
+3940	KIDSTS[s2:StageUpdate]4	attr	15	0.951		Nioh3+469C0
+3940	KIDSTS[s2:StageUpdate]4	attr	10	0.634		Nioh3+DBB90
+3940	KIDSTS[s2:StageUpdate]4	attr	9	0.571		Nioh3+DA830
+3940	KIDSTS[s2:StageUpdate]4	attr	8	0.507		Nioh3+484C0(leaf?)
+3940	KIDSTS[s2:StageUpdate]4	attr	7	0.444		Nioh3+D8E00
+3940	KIDSTS[s2:StageUpdate]4	attr	7	0.444		Nioh3+1196B70
+3940	KIDSTS[s2:StageUpdate]4	attr	4	0.254		Nioh3+D6FF8
+3940	KIDSTS[s2:StageUpdate]4	attr	4	0.254		Nioh3+21FF9C
+3940	KIDSTS[s2:StageUpdate]4	attr	4	0.254		Nioh3+47DF8
+3940	KIDSTS[s2:StageUpdate]4	attr	4	0.254		Nioh3+130014
+3940	KIDSTS[s2:StageUpdate]4	attr	3	0.190		Nioh3+47550
+3940	KIDSTS[s2:StageUpdate]4	attr	3	0.190		Nioh3+D5898
+3940	KIDSTS[s2:StageUpdate]4	attr	2	0.127		Nioh3+DDC70
+3940	KIDSTS[s2:StageUpdate]4	attr	2	0.127		Nioh3+220D30
+3940	KIDSTS[s2:StageUpdate]4	attr	2	0.127		Nioh3+6F450
+3940	KIDSTS[s2:StageUpdate]4	attr	2	0.127		Nioh3+411C0
+3940	KIDSTS[s2:StageUpdate]4	attr	2	0.127		Nioh3+3695D4
+3940	KIDSTS[s2:StageUpdate]4	attr	2	0.127		Nioh3+D8C40(leaf?)
+3940	KIDSTS[s2:StageUpdate]4	incl	1577	100.000		Nioh3+1A6BB84
+3940	KIDSTS[s2:StageUpdate]4	incl	1577	100.000		Nioh3+BDB740
+3940	KIDSTS[s2:StageUpdate]4	incl	1577	100.000		KERNEL32.DLL!BaseThreadInitThunk
+3940	KIDSTS[s2:StageUpdate]4	incl	1577	100.000		ntdll.dll!RtlUserThreadStart
+3940	KIDSTS[s2:StageUpdate]4	incl	1432	90.805		ntdll.dll!ZwWaitForSingleObject
+3940	KIDSTS[s2:StageUpdate]4	incl	1432	90.805		KERNELBASE.dll!WaitForSingleObjectEx
+3940	KIDSTS[s2:StageUpdate]4	incl	145	9.195		Nioh3+40800
+3940	KIDSTS[s2:StageUpdate]4	incl	145	9.195		Nioh3+3FE14
+3940	KIDSTS[s2:StageUpdate]4	incl	81	5.136		Nioh3+FADEA0
+3940	KIDSTS[s2:StageUpdate]4	incl	79	5.010		Nioh3+174C9C
+3940	KIDSTS[s2:StageUpdate]4	incl	65	4.122		Nioh3+567A48
+3940	KIDSTS[s2:StageUpdate]4	incl	53	3.361		Nioh3+DA830
+3940	KIDSTS[s2:StageUpdate]4	incl	27	1.712		Nioh3+403A0
+3940	KIDSTS[s2:StageUpdate]4	incl	27	1.712		Nioh3+3E7CC
+3940	KIDSTS[s2:StageUpdate]4	incl	25	1.585		Nioh3+DBA70
+3940	KIDSTS[s2:StageUpdate]4	incl	22	1.395		Nioh3+FADF90
+3940	KIDSTS[s2:StageUpdate]4	incl	20	1.268		Nioh3+469C0
+3940	KIDSTS[s2:StageUpdate]4	incl	20	1.268		Nioh3+10E2230
+3940	KIDSTS[s2:StageUpdate]4	incl	19	1.205		Nioh3+7F9F98
+3940	KIDSTS[s2:StageUpdate]4	incl	19	1.205		Nioh3+45DCC
+3940	KIDSTS[s2:StageUpdate]4	incl	19	1.205		Nioh3+10E2200
+3940	KIDSTS[s2:StageUpdate]4	incl	18	1.141		Nioh3+DDC70
+3940	KIDSTS[s2:StageUpdate]4	incl	16	1.015		Nioh3+DBB90
+3940	KIDSTS[s2:StageUpdate]4	incl	10	0.634		Nioh3+D8E00
+3940	KIDSTS[s2:StageUpdate]4	incl	9	0.571		Nioh3+47550
+3940	KIDSTS[s2:StageUpdate]4	incl	9	0.571		Nioh3+207200
+3940	KIDSTS[s2:StageUpdate]4	incl	8	0.507		Nioh3+484C0(leaf?)
+3940	KIDSTS[s2:StageUpdate]4	incl	8	0.507		Nioh3+D5898
+3940	KIDSTS[s2:StageUpdate]4	incl	8	0.507		Nioh3+1196B70
+3940	KIDSTS[s2:StageUpdate]4	incl	7	0.444		Nioh3+21FF9C
+25688	KIDSTS[s4:UpdStgEdt]7	self	1342	88.522	10.5	ntdll.dll!ZwWaitForSingleObject
+25688	KIDSTS[s4:UpdStgEdt]7	self	80	5.277	27.9	Nioh3+411C0
+25688	KIDSTS[s4:UpdStgEdt]7	self	21	1.385	29.9	ntdll.dll!RtlQueryPerformanceCounter
+25688	KIDSTS[s4:UpdStgEdt]7	self	16	1.055	27.0	Nioh3+207200
+25688	KIDSTS[s4:UpdStgEdt]7	self	12	0.792	30.6	Nioh3+40800
+25688	KIDSTS[s4:UpdStgEdt]7	self	9	0.594	12.1	Nioh3+1655E0
+25688	KIDSTS[s4:UpdStgEdt]7	self	8	0.528	31.3	Nioh3+123BD50
+25688	KIDSTS[s4:UpdStgEdt]7	self	6	0.396	17.5	Nioh3+164DB4
+25688	KIDSTS[s4:UpdStgEdt]7	self	3	0.198	22.1	Nioh3+B60E98
+25688	KIDSTS[s4:UpdStgEdt]7	self	3	0.198	4.2	Nioh3+3DAB0(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	self	2	0.132	19.0	ntdll.dll!NtWaitForAlertByThreadId
+25688	KIDSTS[s4:UpdStgEdt]7	self	2	0.132	4.4	ntdll.dll!ZwSetEvent
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	1.0	Nioh3+1196330
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	6.0	ntdll.dll!ZwDelayExecution
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	0.7	Nioh3+B93F00
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	2.0	Nioh3+3F0E8
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	37.8	KERNEL32.DLL+22790 (GlobalFree+40)
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	19.7	Nioh3+9B38A0(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	18.1	Nioh3+3B8220(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	11.1	Nioh3+617120(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	22.5	Nioh3+202940
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	4.2	Nioh3+3CFD0
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	18.3	Nioh3+403A0
+25688	KIDSTS[s4:UpdStgEdt]7	self	1	0.066	0.6	Nioh3+3EBF0(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1342	88.522		Nioh3+1A6BB84
+25688	KIDSTS[s4:UpdStgEdt]7	attr	80	5.277		Nioh3+411C0
+25688	KIDSTS[s4:UpdStgEdt]7	attr	25	1.649		Nioh3+B60E98
+25688	KIDSTS[s4:UpdStgEdt]7	attr	16	1.055		Nioh3+207200
+25688	KIDSTS[s4:UpdStgEdt]7	attr	13	0.858		Nioh3+40800
+25688	KIDSTS[s4:UpdStgEdt]7	attr	9	0.594		Nioh3+1655E0
+25688	KIDSTS[s4:UpdStgEdt]7	attr	8	0.528		Nioh3+123BD50
+25688	KIDSTS[s4:UpdStgEdt]7	attr	6	0.396		Nioh3+164DB4
+25688	KIDSTS[s4:UpdStgEdt]7	attr	3	0.198		Nioh3+3DAB0(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	attr	2	0.132		Nioh3+B616A4
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+1196330
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+247734
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+B93F00
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+3F0E8
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+48B9C
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+9B38A0(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+3B8220(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+617120(leaf?)
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+202940
+25688	KIDSTS[s4:UpdStgEdt]7	attr	1	0.066		Nioh3+3CFD0
+25688	KIDSTS[s4:UpdStgEdt]7	incl	1505	99.274		Nioh3+1A6BB84
+25688	KIDSTS[s4:UpdStgEdt]7	incl	1505	99.274		Nioh3+BDB740
+25688	KIDSTS[s4:UpdStgEdt]7	incl	1505	99.274		KERNEL32.DLL!BaseThreadInitThunk
+25688	KIDSTS[s4:UpdStgEdt]7	incl	1505	99.274		ntdll.dll!RtlUserThreadStart
+25688	KIDSTS[s4:UpdStgEdt]7	incl	1342	88.522		ntdll.dll!ZwWaitForSingleObject
+25688	KIDSTS[s4:UpdStgEdt]7	incl	1342	88.522		KERNELBASE.dll!WaitForSingleObjectEx
+25688	KIDSTS[s4:UpdStgEdt]7	incl	168	11.082		Nioh3+40800
+25688	KIDSTS[s4:UpdStgEdt]7	incl	163	10.752		Nioh3+123BD50
+25688	KIDSTS[s4:UpdStgEdt]7	incl	163	10.752		Nioh3+11966F0
+25688	KIDSTS[s4:UpdStgEdt]7	incl	163	10.752		Nioh3+3FE14
+25688	KIDSTS[s4:UpdStgEdt]7	incl	116	7.652		Nioh3+207200
+25688	KIDSTS[s4:UpdStgEdt]7	incl	80	5.277		Nioh3+411C0
+25688	KIDSTS[s4:UpdStgEdt]7	incl	25	1.649		Nioh3+B60E98
+25688	KIDSTS[s4:UpdStgEdt]7	incl	24	1.583		Nioh3+403A0
+25688	KIDSTS[s4:UpdStgEdt]7	incl	24	1.583		Nioh3+3E7CC
+25688	KIDSTS[s4:UpdStgEdt]7	incl	21	1.385		ntdll.dll!RtlQueryPerformanceCounter
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+841E5C
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+202940
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+ED25C
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+1195F80
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+ED08C
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+ECF24
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+7A6FAC
+25688	KIDSTS[s4:UpdStgEdt]7	incl	10	0.660		Nioh3+11966B0
+25688	KIDSTS[s4:UpdStgEdt]7	incl	9	0.594		Nioh3+1655E0
+25688	KIDSTS[s4:UpdStgEdt]7	incl	9	0.594		Nioh3+164824
+25688	KIDSTS[s4:UpdStgEdt]7	incl	9	0.594		Nioh3+1646B4
+25688	KIDSTS[s4:UpdStgEdt]7	incl	8	0.528		Nioh3+164DB4
+25688	KIDSTS[s4:UpdStgEdt]7	incl	8	0.528		Nioh3+40300
+25688	KIDSTS[s4:UpdStgEdt]7	incl	8	0.528		Nioh3+1196470
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	332	86.911	9.3	ntdll.dll!ZwWaitForSingleObject
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	33	8.639	19.6	Nioh3+48E90
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	12	3.141	8.2	Nioh3+2515B0(leaf?)
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	1	0.262	0.4	ntdll.dll!ZwSetEvent
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	1	0.262	18.6	Nioh3+49950
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	1	0.262	10.0	ntdll.dll!RtlReleaseSRWLockShared
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	1	0.262	2.3	Nioh3+117C20(leaf?)
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	self	1	0.262	5.6	Nioh3+40800
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	attr	332	86.911		Nioh3+1A6BB84
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	attr	33	8.639		Nioh3+48E90
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	attr	12	3.141		Nioh3+2515B0(leaf?)
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	attr	2	0.524		Nioh3+40800
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	attr	1	0.262		Nioh3+49950
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	attr	1	0.262		Nioh3+49D5C
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	attr	1	0.262		Nioh3+117C20(leaf?)
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	382	100.000		Nioh3+1A6BB84
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	382	100.000		Nioh3+BDB740
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	382	100.000		KERNEL32.DLL!BaseThreadInitThunk
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	382	100.000		ntdll.dll!RtlUserThreadStart
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	332	86.911		ntdll.dll!ZwWaitForSingleObject
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	332	86.911		KERNELBASE.dll!WaitForSingleObjectEx
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	50	13.089		Nioh3+40800
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	50	13.089		Nioh3+3FE14
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	48	12.565		Nioh3+48E90
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	14	3.665		Nioh3+49D5C
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	12	3.141		Nioh3+2515B0(leaf?)
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	12	3.141		Nioh3+251554
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	12	3.141		Nioh3+116A24
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	1	0.262		ntdll.dll!ZwSetEvent
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	1	0.262		KERNELBASE.dll!SetEvent
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	1	0.262		Nioh3+49950
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	1	0.262		ntdll.dll!RtlReleaseSRWLockShared
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	1	0.262		Nioh3+117C20(leaf?)
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	1	0.262		Nioh3+117BE0
+25080	KIDSTS[s66:TS_MESHLET_REQ]6	incl	1	0.262		Nioh3+1169EC
+18608	KIDSTS[s2:StageUpdate]1	self	1074	93.068	8.4	ntdll.dll!ZwWaitForSingleObject
+18608	KIDSTS[s2:StageUpdate]1	self	14	1.213	13.7	Nioh3+47550
+18608	KIDSTS[s2:StageUpdate]1	self	11	0.953	19.3	Nioh3+484C0(leaf?)
+18608	KIDSTS[s2:StageUpdate]1	self	10	0.867	10.6	Nioh3+DDC70
+18608	KIDSTS[s2:StageUpdate]1	self	7	0.607	9.9	Nioh3+DBA70
+18608	KIDSTS[s2:StageUpdate]1	self	5	0.433	28.4	Nioh3+469C0
+18608	KIDSTS[s2:StageUpdate]1	self	3	0.260	15.6	Nioh3+DA6E0
+18608	KIDSTS[s2:StageUpdate]1	self	3	0.260	22.1	Nioh3+D8E00
+18608	KIDSTS[s2:StageUpdate]1	self	3	0.260	18.6	Nioh3+DA830
+18608	KIDSTS[s2:StageUpdate]1	self	3	0.260	8.5	Nioh3+3BD184
+18608	KIDSTS[s2:StageUpdate]1	self	3	0.260	12.3	Nioh3+DBB90
+18608	KIDSTS[s2:StageUpdate]1	self	3	0.260	9.6	Nioh3+DD7AC
+18608	KIDSTS[s2:StageUpdate]1	self	2	0.173	1.4	Nioh3+1772B4
+18608	KIDSTS[s2:StageUpdate]1	self	2	0.173	29.0	Nioh3+411C0
+18608	KIDSTS[s2:StageUpdate]1	self	2	0.173	15.1	Nioh3+47DF8
+18608	KIDSTS[s2:StageUpdate]1	self	2	0.173	12.3	Nioh3+DDBA8
+18608	KIDSTS[s2:StageUpdate]1	self	1	0.087	2.2	Nioh3+D8C40(leaf?)
+18608	KIDSTS[s2:StageUpdate]1	self	1	0.087	13.9	Nioh3+D5E90
+18608	KIDSTS[s2:StageUpdate]1	self	1	0.087	14.9	Nioh3+40800
+18608	KIDSTS[s2:StageUpdate]1	self	1	0.087	17.0	Nioh3+FB7080
+18608	KIDSTS[s2:StageUpdate]1	self	1	0.087	2.5	Nioh3+362C90
+18608	KIDSTS[s2:StageUpdate]1	self	1	0.087	23.5	Nioh3+D6FF8
+18608	KIDSTS[s2:StageUpdate]1	self	1	0.087	0.9	Nioh3+130014
+18608	KIDSTS[s2:StageUpdate]1	attr	1074	93.068		Nioh3+1A6BB84
+18608	KIDSTS[s2:StageUpdate]1	attr	14	1.213		Nioh3+47550
+18608	KIDSTS[s2:StageUpdate]1	attr	11	0.953		Nioh3+484C0(leaf?)
+18608	KIDSTS[s2:StageUpdate]1	attr	10	0.867		Nioh3+DDC70
+18608	KIDSTS[s2:StageUpdate]1	attr	7	0.607		Nioh3+DBA70
+18608	KIDSTS[s2:StageUpdate]1	attr	5	0.433		Nioh3+469C0
+18608	KIDSTS[s2:StageUpdate]1	attr	3	0.260		Nioh3+DA6E0
+18608	KIDSTS[s2:StageUpdate]1	attr	3	0.260		Nioh3+D8E00
+18608	KIDSTS[s2:StageUpdate]1	attr	3	0.260		Nioh3+DA830
+18608	KIDSTS[s2:StageUpdate]1	attr	3	0.260		Nioh3+3BD184
+18608	KIDSTS[s2:StageUpdate]1	attr	3	0.260		Nioh3+DBB90
+18608	KIDSTS[s2:StageUpdate]1	attr	3	0.260		Nioh3+DD7AC
+18608	KIDSTS[s2:StageUpdate]1	attr	2	0.173		Nioh3+1772B4
+18608	KIDSTS[s2:StageUpdate]1	attr	2	0.173		Nioh3+411C0
+18608	KIDSTS[s2:StageUpdate]1	attr	2	0.173		Nioh3+47DF8
+18608	KIDSTS[s2:StageUpdate]1	attr	2	0.173		Nioh3+DDBA8
+18608	KIDSTS[s2:StageUpdate]1	attr	1	0.087		Nioh3+D8C40(leaf?)
+18608	KIDSTS[s2:StageUpdate]1	attr	1	0.087		Nioh3+D5E90
+18608	KIDSTS[s2:StageUpdate]1	attr	1	0.087		Nioh3+40800
+18608	KIDSTS[s2:StageUpdate]1	attr	1	0.087		Nioh3+FB7080
+18608	KIDSTS[s2:StageUpdate]1	incl	1154	100.000		Nioh3+1A6BB84
+18608	KIDSTS[s2:StageUpdate]1	incl	1154	100.000		Nioh3+BDB740
+18608	KIDSTS[s2:StageUpdate]1	incl	1154	100.000		KERNEL32.DLL!BaseThreadInitThunk
+18608	KIDSTS[s2:StageUpdate]1	incl	1154	100.000		ntdll.dll!RtlUserThreadStart
+18608	KIDSTS[s2:StageUpdate]1	incl	1074	93.068		ntdll.dll!ZwWaitForSingleObject
+18608	KIDSTS[s2:StageUpdate]1	incl	1074	93.068		KERNELBASE.dll!WaitForSingleObjectEx
+18608	KIDSTS[s2:StageUpdate]1	incl	80	6.932		Nioh3+3FE14
+18608	KIDSTS[s2:StageUpdate]1	incl	79	6.846		Nioh3+40800
+18608	KIDSTS[s2:StageUpdate]1	incl	45	3.899		Nioh3+DDC70
+18608	KIDSTS[s2:StageUpdate]1	incl	45	3.899		Nioh3+10E2200
+18608	KIDSTS[s2:StageUpdate]1	incl	28	2.426		Nioh3+FADEA0
+18608	KIDSTS[s2:StageUpdate]1	incl	27	2.340		Nioh3+174C9C
+18608	KIDSTS[s2:StageUpdate]1	incl	25	2.166		Nioh3+567A48
+18608	KIDSTS[s2:StageUpdate]1	incl	24	2.080		Nioh3+47550
+18608	KIDSTS[s2:StageUpdate]1	incl	16	1.386		Nioh3+DA830
+18608	KIDSTS[s2:StageUpdate]1	incl	14	1.213		Nioh3+403A0
+18608	KIDSTS[s2:StageUpdate]1	incl	14	1.213		Nioh3+3E7CC
+18608	KIDSTS[s2:StageUpdate]1	incl	11	0.953		Nioh3+484C0(leaf?)
+18608	KIDSTS[s2:StageUpdate]1	incl	7	0.607		Nioh3+DBA70
+18608	KIDSTS[s2:StageUpdate]1	incl	7	0.607		Nioh3+469C0
+18608	KIDSTS[s2:StageUpdate]1	incl	7	0.607		Nioh3+10E2230
+18608	KIDSTS[s2:StageUpdate]1	incl	6	0.520		Nioh3+DD7AC
+18608	KIDSTS[s2:StageUpdate]1	incl	4	0.347		Nioh3+D8E00
+18608	KIDSTS[s2:StageUpdate]1	incl	4	0.347		Nioh3+7F9F98
+18608	KIDSTS[s2:StageUpdate]1	incl	4	0.347		Nioh3+45DCC
+18608	KIDSTS[s2:StageUpdate]1	incl	4	0.347		Nioh3+FADF90
+18608	KIDSTS[s2:StageUpdate]1	incl	3	0.260		Nioh3+DA6E0
+18608	KIDSTS[s2:StageUpdate]1	incl	3	0.260		Nioh3+207200
+18608	KIDSTS[s2:StageUpdate]1	incl	3	0.260		Nioh3+1772B4
+18608	KIDSTS[s2:StageUpdate]1	incl	3	0.260		Nioh3+FAE0F0
+27760	KIDSTS[s2:StageUpdate]2	self	731	91.950	9.0	ntdll.dll!ZwWaitForSingleObject
+27760	KIDSTS[s2:StageUpdate]2	self	11	1.384	12.2	Nioh3+47550
+27760	KIDSTS[s2:StageUpdate]2	self	6	0.755	12.3	Nioh3+DDC70
+27760	KIDSTS[s2:StageUpdate]2	self	5	0.629	28.8	Nioh3+469C0
+27760	KIDSTS[s2:StageUpdate]2	self	5	0.629	16.9	Nioh3+484C0(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	self	4	0.503	19.0	Nioh3+D8E00
+27760	KIDSTS[s2:StageUpdate]2	self	4	0.503	13.7	Nioh3+DBA70
+27760	KIDSTS[s2:StageUpdate]2	self	3	0.377	22.9	Nioh3+DBB90
+27760	KIDSTS[s2:StageUpdate]2	self	3	0.377	15.4	Nioh3+DD7AC
+27760	KIDSTS[s2:StageUpdate]2	self	3	0.377	14.7	Nioh3+47DF8
+27760	KIDSTS[s2:StageUpdate]2	self	2	0.252	15.5	Nioh3+DA830
+27760	KIDSTS[s2:StageUpdate]2	self	2	0.252	1.1	Nioh3+130014
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	3.5	Nioh3+3B7F70
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	26.3	Nioh3+D8C40(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	0.6	Nioh3+6F450
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	24.4	Nioh3+DDBA8
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	2.1	Nioh3+10F6FF0(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	2.0	Nioh3+178494
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	23.0	Nioh3+D6FF8
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	25.8	Nioh3+DD570
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	31.5	Nioh3+B38930(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	21.9	Nioh3+40800
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	33.3	Nioh3+403A0
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	18.2	Nioh3+DA6E0
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	29.2	Nioh3+6F060(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	0.9	Nioh3+CE5F0
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	26.2	Nioh3+73A2A0(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	self	1	0.126	1.9	Nioh3+1772B4
+27760	KIDSTS[s2:StageUpdate]2	attr	731	91.950		Nioh3+1A6BB84
+27760	KIDSTS[s2:StageUpdate]2	attr	11	1.384		Nioh3+47550
+27760	KIDSTS[s2:StageUpdate]2	attr	6	0.755		Nioh3+DDC70
+27760	KIDSTS[s2:StageUpdate]2	attr	5	0.629		Nioh3+469C0
+27760	KIDSTS[s2:StageUpdate]2	attr	5	0.629		Nioh3+484C0(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	attr	4	0.503		Nioh3+D8E00
+27760	KIDSTS[s2:StageUpdate]2	attr	4	0.503		Nioh3+DBA70
+27760	KIDSTS[s2:StageUpdate]2	attr	3	0.377		Nioh3+DBB90
+27760	KIDSTS[s2:StageUpdate]2	attr	3	0.377		Nioh3+DD7AC
+27760	KIDSTS[s2:StageUpdate]2	attr	3	0.377		Nioh3+47DF8
+27760	KIDSTS[s2:StageUpdate]2	attr	2	0.252		Nioh3+DA830
+27760	KIDSTS[s2:StageUpdate]2	attr	2	0.252		Nioh3+130014
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+3B7F70
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+D8C40(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+6F450
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+DDBA8
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+10F6FF0(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+178494
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+D6FF8
+27760	KIDSTS[s2:StageUpdate]2	attr	1	0.126		Nioh3+DD570
+27760	KIDSTS[s2:StageUpdate]2	incl	795	100.000		Nioh3+1A6BB84
+27760	KIDSTS[s2:StageUpdate]2	incl	795	100.000		Nioh3+BDB740
+27760	KIDSTS[s2:StageUpdate]2	incl	795	100.000		KERNEL32.DLL!BaseThreadInitThunk
+27760	KIDSTS[s2:StageUpdate]2	incl	795	100.000		ntdll.dll!RtlUserThreadStart
+27760	KIDSTS[s2:StageUpdate]2	incl	731	91.950		ntdll.dll!ZwWaitForSingleObject
+27760	KIDSTS[s2:StageUpdate]2	incl	731	91.950		KERNELBASE.dll!WaitForSingleObjectEx
+27760	KIDSTS[s2:StageUpdate]2	incl	64	8.050		Nioh3+40800
+27760	KIDSTS[s2:StageUpdate]2	incl	64	8.050		Nioh3+3FE14
+27760	KIDSTS[s2:StageUpdate]2	incl	40	5.031		Nioh3+FADEA0
+27760	KIDSTS[s2:StageUpdate]2	incl	39	4.906		Nioh3+403A0
+27760	KIDSTS[s2:StageUpdate]2	incl	39	4.906		Nioh3+3E7CC
+27760	KIDSTS[s2:StageUpdate]2	incl	38	4.780		Nioh3+174C9C
+27760	KIDSTS[s2:StageUpdate]2	incl	36	4.528		Nioh3+567A48
+27760	KIDSTS[s2:StageUpdate]2	incl	30	3.774		Nioh3+DDC70
+27760	KIDSTS[s2:StageUpdate]2	incl	30	3.774		Nioh3+10E2200
+27760	KIDSTS[s2:StageUpdate]2	incl	18	2.264		Nioh3+47550
+27760	KIDSTS[s2:StageUpdate]2	incl	13	1.635		Nioh3+DA830
+27760	KIDSTS[s2:StageUpdate]2	incl	7	0.881		Nioh3+7F9F98
+27760	KIDSTS[s2:StageUpdate]2	incl	7	0.881		Nioh3+45DCC
+27760	KIDSTS[s2:StageUpdate]2	incl	7	0.881		Nioh3+FADF90
+27760	KIDSTS[s2:StageUpdate]2	incl	6	0.755		Nioh3+469C0
+27760	KIDSTS[s2:StageUpdate]2	incl	6	0.755		Nioh3+10E2230
+27760	KIDSTS[s2:StageUpdate]2	incl	5	0.629		Nioh3+D8E00
+27760	KIDSTS[s2:StageUpdate]2	incl	5	0.629		Nioh3+DBB90
+27760	KIDSTS[s2:StageUpdate]2	incl	5	0.629		Nioh3+DD7AC
+27760	KIDSTS[s2:StageUpdate]2	incl	5	0.629		Nioh3+484C0(leaf?)
+27760	KIDSTS[s2:StageUpdate]2	incl	4	0.503		Nioh3+DBA70
+27760	KIDSTS[s2:StageUpdate]2	incl	4	0.503		Nioh3+1772B4
+27760	KIDSTS[s2:StageUpdate]2	incl	4	0.503		Nioh3+FAE0F0
+27760	KIDSTS[s2:StageUpdate]2	incl	3	0.377		Nioh3+47DF8
+20956	[App]CustomOccluderRayCastThrea	self	761	95.723	4.9	ntdll.dll!NtWaitForAlertByThreadId
+20956	[App]CustomOccluderRayCastThrea	self	13	1.635	8.9	Nioh3+1989F0
+20956	[App]CustomOccluderRayCastThrea	self	5	0.629	9.9	ntdll.dll!RtlSleepConditionVariableSRW
+20956	[App]CustomOccluderRayCastThrea	self	4	0.503	11.0	ntdll.dll!NtAlertThreadByThreadIdEx
+20956	[App]CustomOccluderRayCastThrea	self	3	0.377	12.8	Nioh3+168580
+20956	[App]CustomOccluderRayCastThrea	self	2	0.252	4.9	Nioh3+6A8F0(leaf?)
+20956	[App]CustomOccluderRayCastThrea	self	1	0.126	6.5	Nioh3+167D70
+20956	[App]CustomOccluderRayCastThrea	self	1	0.126	10.2	Nioh3+6F450
+20956	[App]CustomOccluderRayCastThrea	self	1	0.126	10.4	Nioh3+19AD90(leaf?)
+20956	[App]CustomOccluderRayCastThrea	self	1	0.126	4.8	Nioh3+16B030
+20956	[App]CustomOccluderRayCastThrea	self	1	0.126	2.3	Nioh3+83ABA0(leaf?)
+20956	[App]CustomOccluderRayCastThrea	self	1	0.126	2.8	Nioh3+21ADF0
+20956	[App]CustomOccluderRayCastThrea	self	1	0.126	6.5	Nioh3+168E80(leaf?)
+20956	[App]CustomOccluderRayCastThrea	attr	766	96.352		Nioh3+B616A4
+20956	[App]CustomOccluderRayCastThrea	attr	13	1.635		Nioh3+1989F0
+20956	[App]CustomOccluderRayCastThrea	attr	4	0.503		Nioh3+B61524 _Mtx_unlock
+20956	[App]CustomOccluderRayCastThrea	attr	3	0.377		Nioh3+168580
+20956	[App]CustomOccluderRayCastThrea	attr	2	0.252		Nioh3+6A8F0(leaf?)
+20956	[App]CustomOccluderRayCastThrea	attr	1	0.126		Nioh3+167D70
+20956	[App]CustomOccluderRayCastThrea	attr	1	0.126		Nioh3+6F450
+20956	[App]CustomOccluderRayCastThrea	attr	1	0.126		Nioh3+19AD90(leaf?)
+20956	[App]CustomOccluderRayCastThrea	attr	1	0.126		Nioh3+16B030
+20956	[App]CustomOccluderRayCastThrea	attr	1	0.126		Nioh3+83ABA0(leaf?)
+20956	[App]CustomOccluderRayCastThrea	attr	1	0.126		Nioh3+21ADF0
+20956	[App]CustomOccluderRayCastThrea	attr	1	0.126		Nioh3+168E80(leaf?)
+20956	[App]CustomOccluderRayCastThrea	incl	795	100.000		Nioh3+1A7A6FC
+20956	[App]CustomOccluderRayCastThrea	incl	795	100.000		Nioh3+5B6670
+20956	[App]CustomOccluderRayCastThrea	incl	795	100.000		Nioh3+BDB740
+20956	[App]CustomOccluderRayCastThrea	incl	795	100.000		KERNEL32.DLL!BaseThreadInitThunk
+20956	[App]CustomOccluderRayCastThrea	incl	795	100.000		ntdll.dll!RtlUserThreadStart
+20956	[App]CustomOccluderRayCastThrea	incl	766	96.352		ntdll.dll!RtlSleepConditionVariableSRW
+20956	[App]CustomOccluderRayCastThrea	incl	766	96.352		KERNELBASE.dll!SleepConditionVariableSRW
+20956	[App]CustomOccluderRayCastThrea	incl	766	96.352		Nioh3+B616A4
+20956	[App]CustomOccluderRayCastThrea	incl	766	96.352		Nioh3+B618E8
+20956	[App]CustomOccluderRayCastThrea	incl	766	96.352		Nioh3+3D7CC8
+20956	[App]CustomOccluderRayCastThrea	incl	761	95.723		ntdll.dll!NtWaitForAlertByThreadId
+20956	[App]CustomOccluderRayCastThrea	incl	25	3.145		Nioh3+FFF6C0
+20956	[App]CustomOccluderRayCastThrea	incl	25	3.145		Nioh3+3D7AA8
+20956	[App]CustomOccluderRayCastThrea	incl	22	2.767		Nioh3+71C280
+20956	[App]CustomOccluderRayCastThrea	incl	22	2.767		Nioh3+71C200
+20956	[App]CustomOccluderRayCastThrea	incl	21	2.642		Nioh3+1989F0
+20956	[App]CustomOccluderRayCastThrea	incl	10	1.258		Nioh3+168580
+20956	[App]CustomOccluderRayCastThrea	incl	10	1.258		Nioh3+199D04 caseD_16
+20956	[App]CustomOccluderRayCastThrea	incl	4	0.503		ntdll.dll!NtAlertThreadByThreadIdEx
+20956	[App]CustomOccluderRayCastThrea	incl	4	0.503		ntdll.dll!RtlReleaseSRWLockExclusive
+20956	[App]CustomOccluderRayCastThrea	incl	4	0.503		Nioh3+B61524 _Mtx_unlock
+20956	[App]CustomOccluderRayCastThrea	incl	3	0.377		Nioh3+B79F8
+20956	[App]CustomOccluderRayCastThrea	incl	2	0.252		Nioh3+167D70
+20956	[App]CustomOccluderRayCastThrea	incl	2	0.252		Nioh3+6A8F0(leaf?)
+20956	[App]CustomOccluderRayCastThrea	incl	1	0.126		Nioh3+6F450
+20956	[App]CustomOccluderRayCastThrea	incl	1	0.126		Nioh3+19AD90(leaf?)
+20956	[App]CustomOccluderRayCastThrea	incl	1	0.126		Nioh3+16B030
+20956	[App]CustomOccluderRayCastThrea	incl	1	0.126		Nioh3+83ABA0(leaf?)
+20956	[App]CustomOccluderRayCastThrea	incl	1	0.126		Nioh3+21ADF0
+20956	[App]CustomOccluderRayCastThrea	incl	1	0.126		Nioh3+168E80(leaf?)
+24596	KIDSTS[s3:CharacterUpdate]7	self	676	92.603	5.9	ntdll.dll!ZwWaitForSingleObject
+24596	KIDSTS[s3:CharacterUpdate]7	self	7	0.959	7.7	Nioh3+17A1B40
+24596	KIDSTS[s3:CharacterUpdate]7	self	5	0.685	15.2	Nioh3+37D7A0(leaf?)
+24596	KIDSTS[s3:CharacterUpdate]7	self	5	0.685	16.5	Nioh3+CC490
+24596	KIDSTS[s3:CharacterUpdate]7	self	4	0.548	16.7	Nioh3+B5E2C
+24596	KIDSTS[s3:CharacterUpdate]7	self	3	0.411	15.6	Nioh3+246BD0
+24596	KIDSTS[s3:CharacterUpdate]7	self	3	0.411	9.6	Nioh3+240100
+24596	KIDSTS[s3:CharacterUpdate]7	self	2	0.274	19.5	Nioh3+246F50
+24596	KIDSTS[s3:CharacterUpdate]7	self	2	0.274	9.2	Nioh3+BE0378
+24596	KIDSTS[s3:CharacterUpdate]7	self	2	0.274	4.2	Nioh3+889C0
+24596	KIDSTS[s3:CharacterUpdate]7	self	2	0.274	9.4	Nioh3+53B38
+24596	KIDSTS[s3:CharacterUpdate]7	self	2	0.274	20.2	Nioh3+89500
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	12.0	Nioh3+42DC6C
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	9.0	Nioh3+5056D8
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	3.6	Nioh3+54360
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	1.4	Nioh3+856C20
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	2.9	Nioh3+4074F8
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	5.7	Nioh3+83F30(leaf?)
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	5.4	Nioh3+203BD4
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	23.5	Nioh3+42EA40
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	0.9	Nioh3+40800
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	18.1	Nioh3+F43B0
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	5.4	Nioh3+B94250
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	14.7	Nioh3+3D7CC8
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	24.0	Nioh3+417A0
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	16.6	Nioh3+4060E0
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	1.4	Nioh3+3B8220(leaf?)
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	4.8	Nioh3+6D130
+24596	KIDSTS[s3:CharacterUpdate]7	self	1	0.137	10.9	Nioh3+175C84
+24596	KIDSTS[s3:CharacterUpdate]7	attr	676	92.603		Nioh3+1A6BB84
+24596	KIDSTS[s3:CharacterUpdate]7	attr	7	0.959		Nioh3+17A1B40
+24596	KIDSTS[s3:CharacterUpdate]7	attr	5	0.685		Nioh3+37D7A0(leaf?)
+24596	KIDSTS[s3:CharacterUpdate]7	attr	5	0.685		Nioh3+CC490
+24596	KIDSTS[s3:CharacterUpdate]7	attr	4	0.548		Nioh3+B5E2C
+24596	KIDSTS[s3:CharacterUpdate]7	attr	3	0.411		Nioh3+246BD0
+24596	KIDSTS[s3:CharacterUpdate]7	attr	3	0.411		Nioh3+240100
+24596	KIDSTS[s3:CharacterUpdate]7	attr	2	0.274		Nioh3+246F50
+24596	KIDSTS[s3:CharacterUpdate]7	attr	2	0.274		Nioh3+BE0378
+24596	KIDSTS[s3:CharacterUpdate]7	attr	2	0.274		Nioh3+889C0
+24596	KIDSTS[s3:CharacterUpdate]7	attr	2	0.274		Nioh3+53B38
+24596	KIDSTS[s3:CharacterUpdate]7	attr	2	0.274		Nioh3+89500
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+42DC6C
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+5056D8
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+54360
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+856C20
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+4074F8
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+83F30(leaf?)
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+203BD4
+24596	KIDSTS[s3:CharacterUpdate]7	attr	1	0.137		Nioh3+42EA40
+24596	KIDSTS[s3:CharacterUpdate]7	incl	730	100.000		Nioh3+1A6BB84
+24596	KIDSTS[s3:CharacterUpdate]7	incl	730	100.000		Nioh3+BDB740
+24596	KIDSTS[s3:CharacterUpdate]7	incl	730	100.000		KERNEL32.DLL!BaseThreadInitThunk
+24596	KIDSTS[s3:CharacterUpdate]7	incl	730	100.000		ntdll.dll!RtlUserThreadStart
+24596	KIDSTS[s3:CharacterUpdate]7	incl	676	92.603		ntdll.dll!ZwWaitForSingleObject
+24596	KIDSTS[s3:CharacterUpdate]7	incl	676	92.603		KERNELBASE.dll!WaitForSingleObjectEx
+24596	KIDSTS[s3:CharacterUpdate]7	incl	54	7.397		Nioh3+40800
+24596	KIDSTS[s3:CharacterUpdate]7	incl	54	7.397		Nioh3+3FE14
+24596	KIDSTS[s3:CharacterUpdate]7	incl	28	3.836		Nioh3+404780
+24596	KIDSTS[s3:CharacterUpdate]7	incl	28	3.836		Nioh3+4032E8
+24596	KIDSTS[s3:CharacterUpdate]7	incl	24	3.288		Nioh3+84394
+24596	KIDSTS[s3:CharacterUpdate]7	incl	24	3.288		Nioh3+8437C
+24596	KIDSTS[s3:CharacterUpdate]7	incl	22	3.014		Nioh3+406D10
+24596	KIDSTS[s3:CharacterUpdate]7	incl	20	2.740		Nioh3+37DAAC
+24596	KIDSTS[s3:CharacterUpdate]7	incl	19	2.603		Nioh3+37E290
+24596	KIDSTS[s3:CharacterUpdate]7	incl	19	2.603		Nioh3+37E1B0
+24596	KIDSTS[s3:CharacterUpdate]7	incl	19	2.603		Nioh3+37E144
+24596	KIDSTS[s3:CharacterUpdate]7	incl	19	2.603		Nioh3+406CC8
+24596	KIDSTS[s3:CharacterUpdate]7	incl	17	2.329		Nioh3+408094
+24596	KIDSTS[s3:CharacterUpdate]7	incl	17	2.329		Nioh3+17A1B40
+24596	KIDSTS[s3:CharacterUpdate]7	incl	10	1.370		Nioh3+CC490
+24596	KIDSTS[s3:CharacterUpdate]7	incl	10	1.370		Nioh3+83E14
+24596	KIDSTS[s3:CharacterUpdate]7	incl	5	0.685		Nioh3+37D7A0(leaf?)
+24596	KIDSTS[s3:CharacterUpdate]7	incl	4	0.548		Nioh3+53B38
+24596	KIDSTS[s3:CharacterUpdate]7	incl	4	0.548		Nioh3+B5E2C
+24596	KIDSTS[s3:CharacterUpdate]7	incl	4	0.548		Nioh3+B5CD8
+24596	KIDSTS[s3:CharacterUpdate]7	incl	4	0.548		Nioh3+B59E0
+24596	KIDSTS[s3:CharacterUpdate]7	incl	4	0.548		Nioh3+B5060
+24596	KIDSTS[s3:CharacterUpdate]7	incl	4	0.548		Nioh3+4082B4
+24596	KIDSTS[s3:CharacterUpdate]7	incl	3	0.411		Nioh3+246BD0
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	self	367	91.067	5.9	ntdll.dll!ZwWaitForSingleObject
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	self	29	7.196	18.0	Nioh3+48E90
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	self	4	0.993	21.5	Nioh3+2515B0(leaf?)
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	self	1	0.248	25.2	ntdll.dll!ZwSetEvent
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	self	1	0.248	4.8	Nioh3+116A24
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	self	1	0.248	16.4	Nioh3+49D5C
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	attr	367	91.067		Nioh3+1A6BB84
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	attr	29	7.196		Nioh3+48E90
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	attr	4	0.993		Nioh3+2515B0(leaf?)
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	attr	1	0.248		Nioh3+40800
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	attr	1	0.248		Nioh3+116A24
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	attr	1	0.248		Nioh3+49D5C
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	403	100.000		Nioh3+1A6BB84
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	403	100.000		Nioh3+BDB740
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	403	100.000		KERNEL32.DLL!BaseThreadInitThunk
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	403	100.000		ntdll.dll!RtlUserThreadStart
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	367	91.067		ntdll.dll!ZwWaitForSingleObject
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	367	91.067		KERNELBASE.dll!WaitForSingleObjectEx
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	36	8.933		Nioh3+40800
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	36	8.933		Nioh3+3FE14
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	35	8.685		Nioh3+48E90
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	6	1.489		Nioh3+49D5C
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	5	1.241		Nioh3+116A24
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	4	0.993		Nioh3+2515B0(leaf?)
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	4	0.993		Nioh3+251554
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	1	0.248		ntdll.dll!ZwSetEvent
+26664	KIDSTS[s66:TS_MESHLET_REQ]4	incl	1	0.248		KERNELBASE.dll!SetEvent
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	self	348	91.099	5.7	ntdll.dll!ZwWaitForSingleObject
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	self	26	6.806	10.8	Nioh3+48E90
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	self	6	1.571	10.7	Nioh3+2515B0(leaf?)
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	self	1	0.262	18.6	ntdll.dll!ZwSetEvent
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	self	1	0.262	10.7	Nioh3+117BE0
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	attr	348	91.099		Nioh3+1A6BB84
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	attr	26	6.806		Nioh3+48E90
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	attr	6	1.571		Nioh3+2515B0(leaf?)
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	attr	1	0.262		Nioh3+40800
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	attr	1	0.262		Nioh3+117BE0
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	382	100.000		Nioh3+1A6BB84
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	382	100.000		Nioh3+BDB740
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	382	100.000		KERNEL32.DLL!BaseThreadInitThunk
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	382	100.000		ntdll.dll!RtlUserThreadStart
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	348	91.099		ntdll.dll!ZwWaitForSingleObject
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	348	91.099		KERNELBASE.dll!WaitForSingleObjectEx
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	34	8.901		Nioh3+40800
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	34	8.901		Nioh3+3FE14
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	33	8.639		Nioh3+48E90
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	7	1.832		Nioh3+49D5C
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	6	1.571		Nioh3+2515B0(leaf?)
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	6	1.571		Nioh3+251554
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	6	1.571		Nioh3+116A24
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	1	0.262		ntdll.dll!ZwSetEvent
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	1	0.262		KERNELBASE.dll!SetEvent
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	1	0.262		Nioh3+117BE0
+11812	KIDSTS[s66:TS_MESHLET_REQ]5	incl	1	0.262		Nioh3+1169EC
+20144	KIDSTS[s10:StgGdtUpd]3	self	395	95.642	4.1	ntdll.dll!ZwWaitForSingleObject
+20144	KIDSTS[s10:StgGdtUpd]3	self	4	0.969	14.1	Nioh3+1323080
+20144	KIDSTS[s10:StgGdtUpd]3	self	3	0.726	3.3	Nioh3+D7238
+20144	KIDSTS[s10:StgGdtUpd]3	self	3	0.726	5.8	Nioh3+2086E8
+20144	KIDSTS[s10:StgGdtUpd]3	self	2	0.484	14.2	Nioh3+2114C0(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	self	1	0.242	9.0	Nioh3+31B760
+20144	KIDSTS[s10:StgGdtUpd]3	self	1	0.242	15.3	Nioh3+212470(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	self	1	0.242	1.1	Nioh3+3BD184
+20144	KIDSTS[s10:StgGdtUpd]3	self	1	0.242	12.6	Nioh3+211A40(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	self	1	0.242	18.9	Nioh3+D8700(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	self	1	0.242	0.9	Nioh3+1738A0
+20144	KIDSTS[s10:StgGdtUpd]3	attr	395	95.642		Nioh3+1A6BB84
+20144	KIDSTS[s10:StgGdtUpd]3	attr	4	0.969		Nioh3+1323080
+20144	KIDSTS[s10:StgGdtUpd]3	attr	3	0.726		Nioh3+D7238
+20144	KIDSTS[s10:StgGdtUpd]3	attr	3	0.726		Nioh3+2086E8
+20144	KIDSTS[s10:StgGdtUpd]3	attr	2	0.484		Nioh3+2114C0(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	attr	1	0.242		Nioh3+31B760
+20144	KIDSTS[s10:StgGdtUpd]3	attr	1	0.242		Nioh3+212470(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	attr	1	0.242		Nioh3+3BD184
+20144	KIDSTS[s10:StgGdtUpd]3	attr	1	0.242		Nioh3+211A40(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	attr	1	0.242		Nioh3+D8700(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	attr	1	0.242		Nioh3+1738A0
+20144	KIDSTS[s10:StgGdtUpd]3	incl	413	100.000		Nioh3+1A6BB84
+20144	KIDSTS[s10:StgGdtUpd]3	incl	413	100.000		Nioh3+BDB740
+20144	KIDSTS[s10:StgGdtUpd]3	incl	413	100.000		KERNEL32.DLL!BaseThreadInitThunk
+20144	KIDSTS[s10:StgGdtUpd]3	incl	413	100.000		ntdll.dll!RtlUserThreadStart
+20144	KIDSTS[s10:StgGdtUpd]3	incl	395	95.642		ntdll.dll!ZwWaitForSingleObject
+20144	KIDSTS[s10:StgGdtUpd]3	incl	395	95.642		KERNELBASE.dll!WaitForSingleObjectEx
+20144	KIDSTS[s10:StgGdtUpd]3	incl	18	4.358		Nioh3+40800
+20144	KIDSTS[s10:StgGdtUpd]3	incl	18	4.358		Nioh3+3FE14
+20144	KIDSTS[s10:StgGdtUpd]3	incl	10	2.421		Nioh3+1323080
+20144	KIDSTS[s10:StgGdtUpd]3	incl	8	1.937		Nioh3+2086E8
+20144	KIDSTS[s10:StgGdtUpd]3	incl	8	1.937		Nioh3+1322F90
+20144	KIDSTS[s10:StgGdtUpd]3	incl	6	1.453		Nioh3+2124A4
+20144	KIDSTS[s10:StgGdtUpd]3	incl	3	0.726		Nioh3+D7238
+20144	KIDSTS[s10:StgGdtUpd]3	incl	2	0.484		Nioh3+2114C0(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	incl	1	0.242		Nioh3+31B760
+20144	KIDSTS[s10:StgGdtUpd]3	incl	1	0.242		Nioh3+212470(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	incl	1	0.242		Nioh3+3BD184
+20144	KIDSTS[s10:StgGdtUpd]3	incl	1	0.242		Nioh3+211A40(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	incl	1	0.242		Nioh3+D8700(leaf?)
+20144	KIDSTS[s10:StgGdtUpd]3	incl	1	0.242		Nioh3+19CA9C
+20144	KIDSTS[s10:StgGdtUpd]3	incl	1	0.242		Nioh3+1738A0
+25056		self	388	95.567	4.3	ntdll.dll!ZwWaitForSingleObject
+25056		self	5	1.232	13.1	win32u.dll!NtDxgkSubmitPresentToHwQueue
+25056		self	1	0.246	9.4	gameoverlayrenderer64.dll+7CB00
+25056		self	1	0.246	5.4	ntdll.dll!NtTraceEvent
+25056		self	1	0.246	1.7	ntdll.dll+16170 (RtlVirtualUnwind2+2290)
+25056		self	1	0.246	8.5	amdxc64.dll+173DF0
+25056		self	1	0.246	4.2	d3d11.dll+1ABDF0(leaf?)
+25056		self	1	0.246	4.8	d3d11.dll+1584B0
+25056		self	1	0.246	7.7	ntdll.dll!ZwSetEvent
+25056		self	1	0.246	9.9	dxgi.dll+1B680
+25056		self	1	0.246	0.5	sl.interposer.dll+50B0(leaf?)
+25056		self	1	0.246	2.7	RTSSHooks64.dll+DBDE4
+25056		self	1	0.246	8.4	D3D12Core.dll+E9060(leaf?)
+25056		self	1	0.246	3.2	d3d11.dll+5A010(leaf?)
+25056		self	1	0.246	3.2	ntdll.dll+26E50 (RtlAllocateHeap+1200)
+25056		attr	404	99.507		Nioh3+1A82298
+25056		attr	1	0.246		Nioh3+6B8FBC
+25056		attr	1	0.246		-
+25056		incl	405	99.754		Nioh3+1A82298
+25056		incl	405	99.754		Nioh3+2EEA344
+25056		incl	405	99.754		Nioh3+BDB740
+25056		incl	405	99.754		KERNEL32.DLL!BaseThreadInitThunk
+25056		incl	405	99.754		ntdll.dll!RtlUserThreadStart
+25056		incl	388	95.567		ntdll.dll!ZwWaitForSingleObject
+25056		incl	388	95.567		KERNELBASE.dll!WaitForSingleObjectEx
+25056		incl	22	5.419		RTSSHooks64.dll+72F20
+25056		incl	22	5.419		sl.interposer.dll+290B0 (DXGIGetDebugInterface1+28D0)
+25056		incl	22	5.419		sl.interposer.dll+29090 (DXGIGetDebugInterface1+28B0)
+25056		incl	13	3.202		RTSSHooks64.dll+7CE60
+25056		incl	13	3.202		RTSSHooks64.dll+7DCB0
+25056		incl	13	3.202		RTSSHooks64.dll+73070
+25056		incl	12	2.956		RTSSHooks64.dll+4BD20
+25056		incl	9	2.217		gameoverlayrenderer64.dll+93E50
+25056		incl	7	1.724		dxgi.dll+19530
+25056		incl	6	1.478		d3d11on12.dll+13998
+25056		incl	6	1.478		d3d11on12.dll+39E20
+25056		incl	6	1.478		d3d11.dll+50D70
+25056		incl	6	1.478		dxgi.dll+13C50
+25056		incl	6	1.478		dxgi.dll+19E00
+25056		incl	5	1.232		win32u.dll!NtDxgkSubmitPresentToHwQueue
+25056		incl	5	1.232		D3D12Core.dll+163F4
+25056		incl	5	1.232		D3D12Core.dll+15CA0
+25056		incl	5	1.232		dxgi.dll+A1B4C
+25056		incl	5	1.232		dxgi.dll+622E0 (PIXGetCaptureState+3400)
+25056		incl	5	1.232		dxgi.dll+62D10 (PIXGetCaptureState+3E30)
+25056		incl	4	0.985		RTSSHooks64.dll+44170
+25056		incl	2	0.493		d3d11on12.dll+102D4
+25056		incl	2	0.493		d3d11on12.dll+10B10

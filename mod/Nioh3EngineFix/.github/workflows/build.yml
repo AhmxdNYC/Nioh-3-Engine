@@ -1,0 +1,38 @@
+# Builds Nioh3EngineFix.asi on GitHub's Windows runners (MSVC). The pattern test needs the decrypted game dump,
+# which is not redistributable, so CI only checks that src/patches_gen.h is in sync with patches.json.
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check generated header
+        run: python -I tools/gen_header.py --check
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Build
+        shell: cmd
+        run: |
+          ml64 /nologo /c /W3 /Fobuild_caves.obj src\caves.asm || exit /b 1
+          cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild_dllmain.obj src\dllmain.cpp || exit /b 1
+          cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild_osd.obj src\osd.cpp || exit /b 1
+          cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild_menu.obj src\menu.cpp || exit /b 1
+          mkdir bin
+          link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /MACHINE:X64 build_dllmain.obj build_osd.obj build_menu.obj build_caves.obj kernel32.lib user32.lib || exit /b 1
+          copy Nioh3EngineFix.ini bin\
+          copy README.md bin\
+          dumpbin /nologo /dependents bin\Nioh3EngineFix.asi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nioh3EngineFix
+          path: bin/

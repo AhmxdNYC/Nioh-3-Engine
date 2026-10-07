@@ -1,0 +1,416 @@
+; ---- Nioh3+D80B0 .. +D86F5 (pdata fn Some (884912u, 885074u))
+   D80B0  mov     [rsp+20h],r9                              
+   D80B5  mov     [rsp+18h],r8                              
+   D80BA  mov     [rsp+10h],rdx                             
+   D80BF  mov     [rsp+8],rcx                               
+   D80C4  push    rbp                                       
+   D80C5  push    rdi                                       
+   D80C6  push    r12                                       
+   D80C8  push    r13                                       
+   D80CA  lea     rbp,[rsp-3Fh]                             
+   D80CF  sub     rsp,0D8h                                  
+   D80D6  mov     rdi,[rel 45B9E58h]                        
+   D80DD  mov     r13,r8                                    
+   D80E0  mov     rax,[rcx+180h]                            
+   D80E7  mov     r12,rdx                                   
+   D80EA  mov     [rcx+188h],rax                            
+   D80F1  mov     r10,rcx                                   
+   D80F4  test    rdi,rdi                                   
+   D80F7  je      near 00000000000D86E1h                    
+   D80FD  mov     edx,[rcx+4]                               
+   D8100  mov     rcx,rdi                                   
+   D8103  call    000000000019CED0h                         
+   D8108  test    rax,rax                                   
+   D810B  je      near 00000000000D86E1h                    
+   D8111  mov     r9,[rax+30h]                              
+   D8115  mov     [rbp-9],r9                                
+   D8119  test    r9,r9                                     
+   D811C  je      near 00000000000D86E1h                    
+   D8122  mov     rax,[rax+60h]                             
+   D8126  mov     [rbp-11h],rax                             
+   D812A  test    rax,rax                                   
+   D812D  je      near 00000000000D86E1h                    
+   D8133  mov     rax,[r10+158h]                            
+   D813A  sub     rax,[r10+150h]                            
+   D8141  sar     rax,3                                     
+   D8145  mov     [rbp-1],rax                               
+   D8149  cmp     r13,rax                                   
+   D814C  jae     near 00000000000D86E1h                    
+   D8152  mov     [rsp+0D0h],rbx                            
+   D815A  mov     [rsp+0C8h],rsi                            
+   D8162  mov     [rsp+0C0h],r14                            
+   D816A  mov     [rsp+0B8h],r15                            
+   D8172  xor     r15d,r15d                                 
+   D8175  nop     word [rax+rax]                            
+   D8180  mov     rcx,[r10+150h]                            
+   D8187  mov     rax,[r10+158h]                            
+   D818E  sub     rax,rcx                                   
+   D8191  sar     rax,3                                     
+   D8195  cmp     rax,r13                                   
+   D8198  jbe     near 00000000000D86EFh                    
+   D819E  mov     r14,[rcx+r13*8]                           
+   D81A2  test    r14,r14                                   
+   D81A5  je      near 00000000000D86AFh                    
+   D81AB  cmp     byte [r14+0A5h],0                         
+   D81B3  je      near 00000000000D86AFh                    
+   D81B9  mov     ebx,[r14+0Ch]                             
+   D81BD  mov     r11d,[r14+8]                              
+   D81C1  mov     esi,[r14+0A0h]                            
+   D81C8  mov     byte [r14+0A5h],0                         
+   D81D0  mov     rcx,[r9+28h]                              
+   D81D4  mov     byte [rbp-79h],2                          
+   D81D8  mov     rdx,rcx                                   
+   D81DB  mov     dword [rbp-61h],0FFFFFFFFh                
+   D81E2  mov     rax,[rcx+8]                               
+   D81E6  movzx   r8d,byte [rax+19h]                        
+   D81EB  test    ebx,ebx                                   
+   D81ED  je      short 00000000000D8233h                   
+   D81EF  test    r8b,r8b                                   
+   D81F2  jne     short 00000000000D820Fh                   
+   D81F4  cmp     [rax+20h],ebx                             
+   D81F7  jae     short 00000000000D81FFh                   
+   D81F9  mov     rax,[rax+10h]                             
+   D81FD  jmp     short 00000000000D8205h                   
+   D81FF  mov     rcx,rax                                   
+   D8202  mov     rax,[rax]                                 
+   D8205  cmp     byte [rax+19h],0                          
+   D8209  je      short 00000000000D81F4h                   
+   D820B  mov     rdx,[r9+28h]                              
+   D820F  cmp     byte [rcx+19h],0                          
+   D8213  jne     short 00000000000D822Bh                   
+   D8215  cmp     ebx,[rcx+20h]                             
+   D8218  jb      short 00000000000D822Bh                   
+   D821A  cmp     rcx,rdx                                   
+   D821D  je      short 00000000000D822Bh                   
+   D821F  mov     rax,[rcx+28h]                             
+   D8223  mov     edx,ebx                                   
+   D8225  mov     [rbp-59h],rax                             
+   D8229  jmp     short 00000000000D8276h                   
+   D822B  mov     [rbp-59h],r15                             
+   D822F  mov     edx,ebx                                   
+   D8231  jmp     short 00000000000D8276h                   
+   D8233  test    r8b,r8b                                   
+   D8236  jne     short 00000000000D8254h                   
+   D8238  cmp     [rax+20h],r11d                            
+   D823C  jae     short 00000000000D8244h                   
+   D823E  mov     rax,[rax+10h]                             
+   D8242  jmp     short 00000000000D824Ah                   
+   D8244  mov     rcx,rax                                   
+   D8247  mov     rax,[rax]                                 
+   D824A  cmp     byte [rax+19h],0                          
+   D824E  je      short 00000000000D8238h                   
+   D8250  mov     rdx,[r9+28h]                              
+   D8254  cmp     byte [rcx+19h],0                          
+   D8258  jne     short 00000000000D826Fh                   
+   D825A  cmp     r11d,[rcx+20h]                            
+   D825E  jb      short 00000000000D826Fh                   
+   D8260  cmp     rcx,rdx                                   
+   D8263  je      short 00000000000D826Fh                   
+   D8265  mov     rax,[rcx+28h]                             
+   D8269  mov     [rbp-59h],rax                             
+   D826D  jmp     short 00000000000D8273h                   
+   D826F  mov     [rbp-59h],r15                             
+   D8273  mov     edx,r11d                                  
+   D8276  mov     rcx,r9                                    
+   D8279  call    00000000000D8D90h                         
+   D827E  mov     [rbp-71h],rax                             
+   D8282  mov     r8,rax                                    
+   D8285  test    rax,rax                                   
+   D8288  je      short 00000000000D829Eh                   
+   D828A  movzx   eax,byte [rax+10Fh]                       
+   D8291  mov     [rbp-79h],al                              
+   D8294  mov     eax,[r8+0F8h]                             
+   D829B  mov     [rbp-61h],eax                             
+   D829E  cmp     qword [rbp-59h],0                         
+   D82A3  jne     near 00000000000D8345h                    
+   D82A9  test    esi,esi                                   
+   D82AB  je      near 00000000000D8345h                    
+   D82B1  mov     rax,[rel 4759FC0h]                        
+   D82B8  test    ebx,ebx                                   
+   D82BA  mov     sil,1                                     
+   D82BD  cmovne  r11d,ebx                                  
+   D82C1  mov     [rbp+7Fh],sil                             
+   D82C5  mov     rdx,[rax+28h]                             
+   D82C9  mov     r8,rdx                                    
+   D82CC  mov     rax,[rdx+8]                               
+   D82D0  cmp     byte [rax+19h],0                          
+   D82D4  jne     short 00000000000D82FEh                   
+   D82D6  mov     ecx,r11d                                  
+   D82D9  nop     dword [rax]                               
+   D82E0  mov     r11d,ecx                                  
+   D82E3  cmp     [rax+20h],ecx                             
+   D82E6  jae     short 00000000000D82EEh                   
+   D82E8  mov     rax,[rax+10h]                             
+   D82EC  jmp     short 00000000000D82F4h                   
+   D82EE  mov     rdx,rax                                   
+   D82F1  mov     rax,[rax]                                 
+   D82F4  cmp     byte [rax+19h],0                          
+   D82F8  je      short 00000000000D82E0h                   
+   D82FA  mov     [rbp+7Fh],sil                             
+   D82FE  cmp     byte [rdx+19h],0                          
+   D8302  jne     short 00000000000D8338h                   
+   D8304  cmp     r11d,[rdx+20h]                            
+   D8308  jb      short 00000000000D8338h                   
+   D830A  cmp     rdx,r8                                    
+   D830D  je      short 00000000000D8338h                   
+   D830F  test    rdi,rdi                                   
+   D8312  je      short 00000000000D832Ah                   
+   D8314  mov     rax,[rdx+28h]                             
+   D8318  cmp     byte [rax+26Dh],0                         
+   D831F  jne     short 00000000000D832Ah                   
+   D8321  cmp     byte [rdi+11F6h],0                        
+   D8328  jne     short 00000000000D8338h                   
+   D832A  mov     r11,[rdx+28h]                             
+   D832E  mov     r8,[rbp-71h]                              
+   D8332  mov     [rbp-69h],r11                             
+   D8336  jmp     short 00000000000D8353h                   
+   D8338  mov     r8,[rbp-71h]                              
+   D833C  mov     r11,r15                                   
+   D833F  mov     [rbp-69h],r15                             
+   D8343  jmp     short 00000000000D8353h                   
+   D8345  xor     sil,sil                                   
+   D8348  mov     [rbp-69h],r15                             
+   D834C  mov     [rbp+7Fh],sil                             
+   D8350  mov     r11,r15                                   
+   D8353  mov     rax,[rdi+1A68h]                           
+   D835A  test    rax,rax                                   
+   D835D  je      short 00000000000D839Dh                   
+   D835F  mov     ecx,[r14+9Ch]                             
+   D8366  test    ecx,ecx                                   
+   D8368  js      short 00000000000D839Dh                   
+   D836A  mov     rax,[rax+28h]                             
+   D836E  test    rax,rax                                   
+   D8371  je      short 00000000000D839Dh                   
+   D8373  cmp     ecx,[rax+10h]                             
+   D8376  jae     short 00000000000D839Dh                   
+   D8378  mov     rdx,[rax+8]                               
+   D837C  test    rdx,rdx                                   
+   D837F  je      short 00000000000D839Dh                   
+   D8381  mov     rax,[rdx+rcx*8]                           
+   D8385  test    rax,rax                                   
+   D8388  je      short 00000000000D839Dh                   
+   D838A  mov     rax,[rax+28h]                             
+   D838E  test    rax,rax                                   
+   D8391  je      short 00000000000D839Dh                   
+   D8393  cmp     dword [rax+8],0                           
+   D8397  mov     byte [rbp-78h],1                          
+   D839B  je      short 00000000000D83B0h                   
+   D839D  mov     byte [rbp-78h],0                          
+   D83A1  nop     dword [rax]                               
+   D83A5  nop     word [rax+rax]                            
+   D83B0  mov     rax,[r14+0C8h]                            
+   D83B7  test    rax,rax                                   
+   D83BA  je      near 00000000000D866Eh                    
+   D83C0  cmp     r15d,[rax]                                
+   D83C3  jae     near 00000000000D866Eh                    
+   D83C9  mov     rcx,[r14+88h]                             
+   D83D0  test    rcx,rcx                                   
+   D83D3  je      near 00000000000D8666h                    
+   D83D9  mov     eax,r15d                                  
+   D83DC  mov     rbx,[rcx+rax*8]                           
+   D83E0  mov     [rbp-19h],rbx                             
+   D83E4  test    rbx,rbx                                   
+   D83E7  je      near 00000000000D8666h                    
+   D83ED  mov     rcx,[rbp-11h]                             
+   D83F1  mov     rdx,rbx                                   
+   D83F4  call    00000000000D8740h                         
+   D83F9  mov     rdi,rax                                   
+   D83FC  mov     [rbp-51h],rax                             
+   D8400  xor     eax,eax                                   
+   D8402  mov     r13d,eax                                  
+   D8405  test    sil,sil                                   
+   D8408  je      short 00000000000D842Bh                   
+   D840A  test    r11,r11                                   
+   D840D  je      short 00000000000D842Bh                   
+   D840F  mov     r13,[r11+60h]                             
+   D8413  test    r13,r13                                   
+   D8416  je      near 00000000000D8662h                    
+   D841C  mov     rcx,r13                                   
+   D841F  call    00000000000D8740h                         
+   D8424  mov     rdi,rax                                   
+   D8427  mov     [rbp-51h],rax                             
+   D842B  test    rdi,rdi                                   
+   D842E  je      near 00000000000D8662h                    
+   D8434  cmp     byte [r14+0A6h],0                         
+   D843C  jne     short 00000000000D8454h                   
+   D843E  mov     edx,r15d                                  
+   D8441  mov     rcx,r14                                   
+   D8444  call    00000000000D89E0h                         
+   D8449  test    al,al                                     
+   D844B  jne     short 00000000000D8454h                   
+   D844D  mov     al,1                                      
+   D844F  jmp     00000000000D84F7h                         
+   D8454  mov     rsi,[r14+0A8h]                            
+   D845B  xor     al,al                                     
+   D845D  mov     r12,[r14+0B0h]                            
+   D8464  cmp     rsi,r12                                   
+   D8467  je      near 00000000000D84EFh                    
+   D846D  mov     rdx,[rbp+67h]                             
+   D8471  mov     eax,[rdx+140h]                            
+   D8477  imul    eax,[rdx+144h]                            
+   D847E  mov     ecx,[rsi]                                 
+   D8480  cmp     eax,ecx                                   
+   D8482  jbe     short 00000000000D84D8h                   
+   D8484  imul    rcx,0D0h                                  
+   D848B  add     rcx,[rdx+148h]                            
+   D8492  je      short 00000000000D84D8h                   
+   D8494  mov     rbx,[rcx+0B0h]                            
+   D849B  mov     rdi,[rcx+0B8h]                            
+   D84A2  cmp     rbx,rdi                                   
+   D84A5  je      short 00000000000D84D8h                   
+   D84A7  nop     word [rax+rax]                            
+   D84B0  movaps  xmm0,[rbx]                                
+   D84B3  lea     r8,[rbp+7]                                
+   D84B7  mov     edx,r15d                                  
+   D84BA  movdqa  [rbp+7],xmm0                              
+   D84BF  mov     rcx,r14                                   
+   D84C2  call    00000000000D6E9Ch                         
+   D84C7  test    al,al                                     
+   D84C9  je      short 00000000000D84E5h                   
+   D84CB  add     rbx,10h                                   
+   D84CF  cmp     rbx,rdi                                   
+   D84D2  jne     short 00000000000D84B0h                   
+   D84D4  mov     rdx,[rbp+67h]                             
+   D84D8  add     rsi,4                                     
+   D84DC  xor     al,al                                     
+   D84DE  cmp     rsi,r12                                   
+   D84E1  jne     short 00000000000D8471h                   
+   D84E3  jmp     short 00000000000D84E7h                   
+   D84E5  mov     al,1                                      
+   D84E7  mov     rdi,[rbp-51h]                             
+   D84EB  mov     rbx,[rbp-19h]                             
+   D84EF  movzx   esi,byte [rbp+7Fh]                        
+   D84F3  mov     r12,[rbp+6Fh]                             
+   D84F7  mov     r11,[rbp-69h]                             
+   D84FB  mov     cl,1                                      
+   D84FD  mov     r8,[rbp-71h]                              
+   D8501  mov     byte [r14+0A6h],0                         
+   D8509  test    sil,sil                                   
+   D850C  je      short 00000000000D8520h                   
+   D850E  test    r11,r11                                   
+   D8511  je      short 00000000000D8538h                   
+   D8513  cmp     [r11+278h],cl                             
+   D851A  jne     short 00000000000D8538h                   
+   D851C  xor     cl,cl                                     
+   D851E  jmp     short 00000000000D8538h                   
+   D8520  test    r8,r8                                     
+   D8523  je      short 00000000000D8538h                   
+   D8525  cmp     byte [r8+106h],1                          
+   D852D  mov     edx,0                                     
+   D8532  movzx   ecx,cl                                    
+   D8535  cmove   ecx,edx                                   
+   D8538  cmp     byte [rbp-78h],0                          
+   D853C  jne     short 00000000000D854Ah                   
+   D853E  test    al,al                                     
+   D8540  je      short 00000000000D854Ah                   
+   D8542  test    cl,cl                                     
+   D8544  je      short 00000000000D854Ah                   
+   D8546  mov     cl,1                                      
+   D8548  jmp     short 00000000000D854Ch                   
+   D854A  xor     cl,cl                                     
+   D854C  movzx   eax,byte [rdi+1]                          
+   D8550  test    sil,sil                                   
+   D8553  je      short 00000000000D85CDh                   
+   D8555  mov     [rbp+7Fh],sil                             
+   D8559  cmp     cl,al                                     
+   D855B  je      near 00000000000D865Eh                    
+   D8561  mov     rdx,[r12+8]                               
+   D8566  mov     byte [rbp-38h],2                          
+   D856A  mov     dword [rbp-35h],0FFFFFFFFh                
+   D8571  mov     byte [rbp-21h],0                          
+   D8575  mov     [rbp-49h],r13                             
+   D8579  mov     [rbp-41h],rbx                             
+   D857D  mov     [rbp-39h],cl                              
+   D8580  mov     [rbp-29h],r14                             
+   D8584  mov     [rbp-31h],sil                             
+   D8588  cmp     rdx,[r12+10h]                             
+   D858D  je      near 00000000000D8652h                    
+   D8593  test    rdx,rdx                                   
+   D8596  je      short 00000000000D85B4h                   
+   D8598  movups  xmm0,[rbp-49h]                            
+   D859C  movups  [rdx],xmm0                                
+   D859F  movups  xmm1,[rbp-39h]                            
+   D85A3  movups  [rdx+10h],xmm1                            
+   D85A7  movups  xmm0,[rbp-29h]                            
+   D85AB  movups  [rdx+20h],xmm0                            
+   D85AF  mov     rdx,[r12+8]                               
+   D85B4  mov     r11,[rbp-69h]                             
+   D85B8  lea     rax,[rdx+30h]                             
+   D85BC  mov     r8,[rbp-71h]                              
+   D85C0  inc     r15d                                      
+   D85C3  mov     [r12+8],rax                               
+   D85C8  jmp     00000000000D83B0h                         
+   D85CD  movzx   r9d,byte [rbp-79h]                        
+   D85D2  cmp     cl,al                                     
+   D85D4  setne   dl                                        
+   D85D7  test    r8,r8                                     
+   D85DA  je      short 00000000000D85E8h                   
+   D85DC  cmp     r9b,[r14+0C0h]                            
+   D85E3  setne   al                                        
+   D85E6  or      dl,al                                     
+   D85E8  test    dl,dl                                     
+   D85EA  je      short 00000000000D8666h                   
+   D85EC  mov     rax,[rbp-11h]                             
+   D85F0  mov     rdx,[r12+8]                               
+   D85F5  mov     [rbp-49h],rax                             
+   D85F9  mov     eax,[rbp-61h]                             
+   D85FC  mov     [rbp-35h],eax                             
+   D85FF  movzx   eax,byte [rdi+5]                          
+   D8603  mov     [rbp-21h],al                              
+   D8606  mov     [rbp-41h],rbx                             
+   D860A  mov     [rbp-39h],cl                              
+   D860D  mov     [rbp-38h],r9b                             
+   D8611  mov     [rbp-29h],r14                             
+   D8615  mov     byte [rbp-31h],0                          
+   D8619  cmp     rdx,[r12+10h]                             
+   D861E  je      short 00000000000D8652h                   
+   D8620  test    rdx,rdx                                   
+   D8623  je      short 00000000000D8641h                   
+   D8625  movups  xmm0,[rbp-49h]                            
+   D8629  movups  [rdx],xmm0                                
+   D862C  movups  xmm1,[rbp-39h]                            
+   D8630  movups  [rdx+10h],xmm1                            
+   D8634  movups  xmm0,[rbp-29h]                            
+   D8638  movups  [rdx+20h],xmm0                            
+   D863C  mov     rdx,[r12+8]                               
+   D8641  lea     rax,[rdx+30h]                             
+   D8645  inc     r15d                                      
+   D8648  mov     [r12+8],rax                               
+   D864D  jmp     00000000000D83B0h                         
+   D8652  lea     r8,[rbp-49h]                              
+   D8656  mov     rcx,r12                                   
+   D8659  call    00000000004B807Ch                         
+   D865E  mov     r11,[rbp-69h]                             
+   D8662  mov     r8,[rbp-71h]                              
+   D8666  inc     r15d                                      
+   D8669  jmp     00000000000D83B0h                         
+   D866E  test    r8,r8                                     
+   D8671  je      short 00000000000D8689h                   
+   D8673  movzx   eax,byte [r8+10Fh]                        
+   D867B  mov     [r8+110h],al                              
+   D8682  mov     [r14+0C0h],al                             
+   D8689  mov     r9,[rbp-59h]                              
+   D868D  xor     r15d,r15d                                 
+   D8690  mov     rdi,[rel 45B9E58h]                        
+   D8697  mov     r10,[rbp+67h]                             
+   D869B  mov     r13,[rbp+77h]                             
+   D869F  test    r9,r9                                     
+   D86A2  je      short 00000000000D86ABh                   
+   D86A4  mov     [r9+126h],r15b                            
+   D86AB  mov     r9,[rbp-9]                                
+   D86AF  add     r13,5                                     
+   D86B3  mov     [rbp+77h],r13                             
+   D86B7  cmp     r13,[rbp-1]                               
+   D86BB  jb      near 00000000000D8180h                    
+   D86C1  mov     r14,[rsp+0C0h]                            
+   D86C9  mov     rsi,[rsp+0C8h]                            
+   D86D1  mov     rbx,[rsp+0D0h]                            
+   D86D9  mov     r15,[rsp+0B8h]                            
+   D86E1  add     rsp,0D8h                                  
+   D86E8  pop     r13                                       
+   D86EA  pop     r12                                       
+   D86EC  pop     rdi                                       
+   D86ED  pop     rbp                                       
+   D86EE  ret                                               
+   D86EF  call    0000000001FB3AD8h                         
+   D86F4  int3                                              

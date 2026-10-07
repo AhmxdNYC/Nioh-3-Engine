@@ -1,0 +1,76 @@
+; ---- Nioh3+128EF0 .. +128FD8 (pdata fn Some (1216240u, 1216471u))
+  128EF0  mov     [rsp+8],rbx                               
+  128EF5  mov     [rsp+10h],rsi                             
+  128EFA  push    rdi                                       
+  128EFB  sub     rsp,20h                                   
+  128EFF  cmp     byte [rcx+26h],0                          
+  128F03  mov     rdi,rdx                                   
+  128F06  jne     short 0000000000128F12h                   
+  128F08  lea     rbx,[rcx+38h]                             
+  128F0C  cmp     r8,[rbx+10h]                              
+  128F10  jne     short 0000000000128F22h                   
+  128F12  mov     rbx,[rsp+30h]                             
+  128F17  mov     rsi,[rsp+38h]                             
+  128F1C  add     rsp,20h                                   
+  128F20  pop     rdi                                       
+  128F21  ret                                               
+  128F22  mov     rcx,[rbx]                                 
+  128F25  test    rcx,rcx                                   
+  128F28  mov     [rbx+10h],r8                              
+  128F2C  sete    dl                                        
+  128F2F  test    rcx,rcx                                   
+  128F32  je      near 0000000000128FCFh                    
+  128F38  mov     rax,[rbx+8]                               
+  128F3C  cmp     [rcx+8],rax                               
+  128F40  setne   sil                                       
+  128F44  or      sil,dl                                    
+  128F47  test    sil,sil                                   
+  128F4A  jne     short 0000000000128F8Bh                   
+  128F4C  mov     dl,1                                      
+  128F4E  mov     rcx,[rdi+10h]                             
+  128F52  test    rcx,rcx                                   
+  128F55  je      short 0000000000128F12h                   
+  128F57  cmp     byte [rbx+18h],0                          
+  128F5B  je      short 0000000000128F6Ch                   
+  128F5D  cmp     [rbx],rcx                                 
+  128F60  jne     short 0000000000128F12h                   
+  128F62  mov     rax,[rcx+8]                               
+  128F66  cmp     [rbx+8],rax                               
+  128F6A  jne     short 0000000000128F12h                   
+  128F6C  test    dl,dl                                     
+  128F6E  je      short 0000000000128F12h                   
+  128F70  mov     rax,[rbx]                                 
+  128F73  mov     edx,[rdi+48h]                             
+  128F76  cmp     [rax],edx                                 
+  128F78  jb      short 0000000000128FAAh                   
+  128F7A  ja      short 0000000000128FB0h                   
+  128F7C  cmp     rax,rcx                                   
+  128F7F  jne     short 0000000000128F12h                   
+  128F81  test    sil,sil                                   
+  128F84  jne     short 0000000000128F12h                   
+  128F86  inc     dword [rdi+64h]                           
+  128F89  jmp     short 0000000000128F12h                   
+  128F8B  test    rcx,rcx                                   
+  128F8E  je      short 0000000000128F9Bh                   
+  128F90  mov     rdx,rbx                                   
+  128F93  mov     rcx,rdi                                   
+  128F96  call    00000000001283A8h                         
+  128F9B  mov     rdx,rbx                                   
+  128F9E  mov     rcx,rdi                                   
+  128FA1  call    00000000001286E8h                         
+  128FA6  mov     dl,al                                     
+  128FA8  jmp     short 0000000000128F4Eh                   
+  128FAA  cmp     rax,[rdi+40h]                             
+  128FAE  je      short 0000000000128FCBh                   
+  128FB0  mov     rdx,rbx                                   
+  128FB3  mov     rcx,rdi                                   
+  128FB6  call    00000000001283A8h                         
+  128FBB  mov     rdx,rbx                                   
+  128FBE  mov     rcx,rdi                                   
+  128FC1  call    00000000001286E8h                         
+  128FC6  jmp     0000000000128F12h                         
+  128FCB  cmp     [rax],edx                                 
+  128FCD  jmp     short 0000000000128F7Ah                   
+  128FCF  mov     sil,dl                                    
+  128FD2  jmp     0000000000128F47h                         
+  128FD7  int3                                              

@@ -1,0 +1,141 @@
+; ---- Nioh3+419A8 .. +41B98 (pdata fn Some (268712u, 269206u))
+   419A8  mov     [rsp+8],rbx                               
+   419AD  mov     [rsp+10h],rbp                             
+   419B2  mov     [rsp+18h],rsi                             
+   419B7  push    rdi                                       
+   419B8  sub     rsp,20h                                   
+   419BC  mov     r10,rcx                                   
+   419BF  call    00000000004A5768h                         
+   419C4  xor     ebp,ebp                                   
+   419C6  test    al,al                                     
+   419C8  je      near 0000000000041B3Bh                    
+   419CE  test    dword [rcx+1ACh],40000000h                
+   419D8  jne     near 0000000000041B3Bh                    
+   419DE  mov     ebx,[rcx+11Ch]                            
+   419E4  mov     edi,ebp                                   
+   419E6  xor     eax,eax                                   
+   419E8  lock cmpxchg [rcx+4C0h],ebp                       
+   419F0  mov     esi,eax                                   
+   419F2  mov     r11d,ebp                                  
+   419F5  test    ebx,ebx                                   
+   419F7  je      near 0000000000041B3Bh                    
+   419FD  mov     r9d,ebp                                   
+   41A00  mov     r8d,r11d                                  
+   41A03  shl     r8,5                                      
+   41A07  add     r8,[r10+568h]                             
+   41A0E  xor     eax,eax                                   
+   41A10  lock cmpxchg [r8],ebp                             
+   41A15  test    al,2                                      
+   41A17  je      near 0000000000041B2Bh                    
+   41A1D  mov     rcx,[r10+568h]                            
+   41A24  inc     edi                                       
+   41A26  xor     eax,eax                                   
+   41A28  lock cmpxchg [r9+rcx],ebp                         
+   41A2E  test    al,2                                      
+   41A30  je      near 0000000000041B79h                    
+   41A36  xor     eax,eax                                   
+   41A38  lock cmpxchg [r9+rcx],ebp                         
+   41A3E  bt      eax,8                                     
+   41A42  jb      near 0000000000041B79h                    
+   41A48  xor     eax,eax                                   
+   41A4A  lock cmpxchg [r9+rcx],ebp                         
+   41A50  test    al,4                                      
+   41A52  jne     near 0000000000041B79h                    
+   41A58  xor     eax,eax                                   
+   41A5A  lock cmpxchg [r9+rcx],ebp                         
+   41A60  test    al,8                                      
+   41A62  jne     near 0000000000041B79h                    
+   41A68  xor     eax,eax                                   
+   41A6A  lock cmpxchg [r9+rcx],ebp                         
+   41A70  test    al,10h                                    
+   41A72  jne     near 0000000000041B79h                    
+   41A78  xor     eax,eax                                   
+   41A7A  lock cmpxchg [r9+rcx],ebp                         
+   41A80  bt      eax,0Ah                                   
+   41A84  jae     near 0000000000041B79h                    
+   41A8A  cmp     [r10+18Ch],ebp                            
+   41A91  je      short 0000000000041AAAh                   
+   41A93  mov     rcx,[r9+rcx+8]                            
+   41A98  xor     eax,eax                                   
+   41A9A  lock cmpxchg [rcx+0D0h],ebp                       
+   41AA2  test    al,8                                      
+   41AA4  je      near 0000000000041B79h                    
+   41AAA  xor     eax,eax                                   
+   41AAC  lock cmpxchg [r8],ebp                             
+   41AB1  mov     ecx,eax                                   
+   41AB3  mov     edx,eax                                   
+   41AB5  or      ecx,1                                     
+   41AB8  lock cmpxchg [r8],ecx                             
+   41ABD  cmp     eax,edx                                   
+   41ABF  jne     short 0000000000041AB1h                   
+   41AC1  xor     eax,eax                                   
+   41AC3  lock cmpxchg [r8],ebp                             
+   41AC8  mov     ecx,eax                                   
+   41ACA  xor     eax,eax                                   
+   41ACC  lock cmpxchg [r8],ebp                             
+   41AD1  and     ecx,40h                                   
+   41AD4  jne     near 0000000000041B62h                    
+   41ADA  mov     ecx,eax                                   
+   41ADC  mov     edx,eax                                   
+   41ADE  btr     ecx,7                                     
+   41AE2  lock cmpxchg [r8],ecx                             
+   41AE7  cmp     eax,edx                                   
+   41AE9  jne     short 0000000000041ADAh                   
+   41AEB  xor     eax,eax                                   
+   41AED  lock cmpxchg [r8],ebp                             
+   41AF2  mov     ecx,eax                                   
+   41AF4  xor     eax,eax                                   
+   41AF6  lock cmpxchg [r8],ebp                             
+   41AFB  and     ecx,20h                                   
+   41AFE  jne     short 0000000000041B50h                   
+   41B00  mov     ecx,eax                                   
+   41B02  mov     edx,eax                                   
+   41B04  and     ecx,0FFFFFFBFh                            
+   41B07  lock cmpxchg [r8],ecx                             
+   41B0C  cmp     eax,edx                                   
+   41B0E  jne     short 0000000000041B00h                   
+   41B10  xor     eax,eax                                   
+   41B12  lock cmpxchg [r8],ebp                             
+   41B17  mov     ecx,eax                                   
+   41B19  mov     edx,eax                                   
+   41B1B  and     ecx,0FFFFFFDFh                            
+   41B1E  lock cmpxchg [r8],ecx                             
+   41B23  cmp     eax,edx                                   
+   41B25  jne     short 0000000000041B17h                   
+   41B27  cmp     edi,esi                                   
+   41B29  jae     short 0000000000041B3Bh                   
+   41B2B  inc     r11d                                      
+   41B2E  add     r9,20h                                    
+   41B32  cmp     r11d,ebx                                  
+   41B35  jb      near 0000000000041A00h                    
+   41B3B  mov     rbx,[rsp+30h]                             
+   41B40  mov     rbp,[rsp+38h]                             
+   41B45  mov     rsi,[rsp+40h]                             
+   41B4A  add     rsp,20h                                   
+   41B4E  pop     rdi                                       
+   41B4F  ret                                               
+   41B50  mov     ecx,eax                                   
+   41B52  mov     edx,eax                                   
+   41B54  or      ecx,40h                                   
+   41B57  lock cmpxchg [r8],ecx                             
+   41B5C  cmp     eax,edx                                   
+   41B5E  je      short 0000000000041B10h                   
+   41B60  jmp     short 0000000000041B50h                   
+   41B62  mov     ecx,eax                                   
+   41B64  mov     edx,eax                                   
+   41B66  bts     ecx,7                                     
+   41B6A  lock cmpxchg [r8],ecx                             
+   41B6F  cmp     eax,edx                                   
+   41B71  je      near 0000000000041AEBh                    
+   41B77  jmp     short 0000000000041B62h                   
+   41B79  xor     eax,eax                                   
+   41B7B  lock cmpxchg [r8],ebp                             
+   41B80  mov     ecx,eax                                   
+   41B82  mov     edx,eax                                   
+   41B84  and     ecx,0FFFFFFFEh                            
+   41B87  lock cmpxchg [r8],ecx                             
+   41B8C  cmp     eax,edx                                   
+   41B8E  je      near 0000000000041AC1h                    
+   41B94  jmp     short 0000000000041B80h                   
+   41B96  int3                                              
+   41B97  int3                                              

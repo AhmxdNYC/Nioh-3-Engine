@@ -1,0 +1,13 @@
+; ---- Nioh3+7D9E90 .. +7D9EB9 (pdata fn Some (8232592u, 8232633u))
+  7D9E90  push    rbx                                       
+  7D9E92  sub     rsp,20h                                   
+  7D9E96  cmp     byte [rcx+7728h],0                        
+  7D9E9D  mov     rbx,rcx                                   
+  7D9EA0  je      short 00000000007D9EB3h                   
+  7D9EA2  xor     ecx,ecx                                   
+  7D9EA4  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+  7D9EAA  cmp     byte [rbx+7728h],0                        
+  7D9EB1  jne     short 00000000007D9EA2h                   
+  7D9EB3  add     rsp,20h                                   
+  7D9EB7  pop     rbx                                       
+  7D9EB8  ret                                               

@@ -1,0 +1,111 @@
+==== decompile RVA 0x7d63e4 ====
+// function FUN_7ff74fbe63e4 @ 0x7d63e4  body=370 bytes  pdataStart=0x7d63e4
+// callers(2): FUN_7ff7524edd18@0x30ddd18 FUN_7ff74fbe622c@0x7d622c 
+// callees(4): FUN_7ff74f5da534@0x1ca534 FUN_7ff74f5de818@0x1ce818 FUN_7ff74f8b2e44@0x4a2e44 FUN_7ff7524ee844@0x30de844 
+
+undefined1 FUN_7ff74fbe63e4(longlong param_1,longlong param_2,undefined1 param_3)
+
+{
+  longlong *plVar1;
+  undefined1 uVar2;
+  int iVar3;
+  longlong *plVar4;
+  undefined8 uVar5;
+  int iVar6;
+  
+  FUN_7ff74f5de818(param_1,param_2 + 0x18);
+  if (*(char *)(param_1 + 0x468) != '\0') {
+    FUN_7ff74f8b2e44(*(undefined8 *)(param_1 + 0x70),0);
+    *(undefined1 *)(param_1 + 0x468) = 0;
+  }
+  plVar1 = (longlong *)(param_1 + 0x3a0);
+  iVar3 = (**(code **)(*plVar1 + 0x18))(plVar1);
+  for (iVar6 = 0; iVar3 != iVar6; iVar6 = iVar6 + 1) {
+    uVar5 = (**(code **)(*plVar1 + 8))(plVar1,iVar6);
+    FUN_7ff7524ee844(param_1,uVar5);
+  }
+  (**(code **)(*plVar1 + 0x40))();
+  plVar1 = (longlong *)(param_2 + 0x170);
+  iVar3 = (**(code **)(*plVar1 + 0x18))(plVar1);
+  for (iVar6 = 0; iVar3 != iVar6; iVar6 = iVar6 + 1) {
+    plVar4 = (longlong *)(**(code **)(*plVar1 + 8))(plVar1,iVar6);
+    if (*plVar4 != 0) {
+      uVar5 = (**(code **)(*plVar1 + 8))(plVar1,iVar6);
+      FUN_7ff7524ee844(param_1,uVar5);
+    }
+  }
+  *(undefined4 *)(param_1 + 0x58) = 0;
+  plVar1 = (longlong *)(param_1 + 0x3d0);
+  *(undefined4 *)(param_1 + 0x5c) = 0;
+  iVar3 = (**(code **)(*plVar1 + 0x18))(plVar1);
+  if ((iVar3 != 0) && (*(longlong *)(param_1 + 0x38) == 0)) {
+    (**(code **)(*plVar1 + 0x40))(plVar1);
+  }
+  if ((*(longlong *)(param_1 + 0x30) == 0) ||
+     (*(longlong *)(*(longlong *)(param_1 + 0x30) + 0x10) != 0)) {
+    *(undefined4 *)(param_1 + 0xdec) = 0;
+    *(undefined1 *)(param_1 + 0xde8) = 0;
+    uVar2 = FUN_7ff74f5da534(param_1,param_2 + 0x18,param_2,param_3);
+    (**(code **)(*plVar1 + 0x40))(plVar1);
+  }
+  else {
+    uVar2 = 1;
+  }
+  return uVar2;
+}
+
+
+
+==== decompile RVA 0x7d6b20 ====
+// function FUN_7ff74fbe6b20 @ 0x7d6b20  body=162 bytes  pdataStart=0x7d6b20
+// callers(1): FUN_7ff74f664440@0x254440 
+// callees(2): FUN_7ff750cd7e5c@0x18c7e5c FUN_7ff74f5de818@0x1ce818 
+
+void FUN_7ff74fbe6b20(longlong param_1,longlong param_2)
+
+{
+  longlong *plVar1;
+  char cVar2;
+  int iVar3;
+  undefined8 uVar4;
+  undefined8 *puVar5;
+  int iVar6;
+  
+  plVar1 = (longlong *)(param_2 + 0x170);
+  *(undefined8 *)(param_1 + 0x30) = *(undefined8 *)(param_1 + 0x28);
+  iVar3 = (**(code **)(*plVar1 + 0x18))(plVar1);
+  for (iVar6 = 0; iVar3 != iVar6; iVar6 = iVar6 + 1) {
+    uVar4 = (**(code **)(*plVar1 + 8))(plVar1,iVar6);
+    cVar2 = FUN_7ff750cd7e5c(param_1,uVar4,0);
+    if (cVar2 == '\0') {
+      puVar5 = (undefined8 *)(**(code **)(*plVar1 + 8))(plVar1,iVar6);
+      *puVar5 = 0;
+    }
+  }
+  FUN_7ff74f5de818(param_1,param_2 + 0x18);
+  return;
+}
+
+
+
+==== decompile RVA 0x61fdc ====
+// function FUN_7ff74f471fdc @ 0x61fdc  body=31 bytes  pdataStart=none
+// callers(2): FUN_7ff7522eaf58@0x2edaf58 FUN_7ff750d16edd@0x1906edd 
+// callees(0): 
+
+void FUN_7ff74f471fdc(longlong param_1,ulonglong param_2)
+
+{
+  longlong lVar1;
+  
+  if (*(longlong *)(param_1 + 0x10) != 0) {
+    *(char *)(param_1 + 0x72) = (char)param_2;
+    lVar1 = *(longlong *)(*(longlong *)(param_1 + 0x10) + 0x18);
+    *(ulonglong *)(param_1 + 0x60) =
+         (ulonglong)*(uint *)(lVar1 + 0x20 + (param_2 & 0xffffffff) * 4) + lVar1;
+  }
+  return;
+}
+
+
+

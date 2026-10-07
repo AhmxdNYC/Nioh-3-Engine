@@ -1,0 +1,397 @@
+﻿--- CAS
+    1E834C  xor eax,eax                              33 C0
+    1E834E  shl rcx,5                                48 C1 E1 05
+    1E8352  add rcx,[rbx+16A338h]                    48 03 8B 38 A3 16 00
+    1E8359  xor edx,edx                              33 D2
+>   1E835B  lock cmpxchg [rcx],edx                   F0 0F B1 11
+    1E835F  test al,1                                A8 01
+    1E8361  je near 00000000001E856Dh                0F 84 06 02 00 00
+--- RMW
+    1E844B  mov rcx,[rbx+1B0h]                       48 8B 8B B0 01 00 00
+    1E8452  test rcx,rcx                             48 85 C9
+    1E8455  je short 00000000001E846Ch               74 15
+    1E8457  mov eax,0FFFFFFFFh                       B8 FF FF FF FF
+>   1E845C  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1E8461  cmp eax,1                                83 F8 01
+    1E8464  jne short 00000000001E846Ch              75 06
+--- RMW
+    1E9881  cmp r13d,r12d                            45 3B EC
+    1E9884  je short 00000000001E98B2h               74 2C
+    1E9886  test r15,r15                             4D 85 FF
+    1E9889  je short 00000000001E98B2h               74 27
+>   1E988B  lock inc dword [r15+8]                   F0 41 FF 47 08
+    1E9890  mov rcx,[rsi+28h]                        48 8B 4E 28
+    1E9894  test rcx,rcx                             48 85 C9
+--- RMW
+    1E9890  mov rcx,[rsi+28h]                        48 8B 4E 28
+    1E9894  test rcx,rcx                             48 85 C9
+    1E9897  je short 00000000001E98AEh               74 15
+    1E9899  mov eax,0FFFFFFFFh                       B8 FF FF FF FF
+>   1E989E  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1E98A3  cmp eax,1                                83 F8 01
+    1E98A6  jne short 00000000001E98AEh              75 06
+--- RMW
+    1E98A6  jne short 00000000001E98AEh              75 06
+    1E98A8  mov rax,[rcx]                            48 8B 01
+    1E98AB  call qword [rax+18h]                     FF 50 18
+    1E98AE  mov [rsi+28h],r15                        4C 89 7E 28
+>   1E98B2  lock inc dword [rdi+8]                   F0 FF 47 08
+    1E98B6  mov rcx,[rsi+20h]                        48 8B 4E 20
+    1E98BA  test rcx,rcx                             48 85 C9
+--- RMW
+    1E98B6  mov rcx,[rsi+20h]                        48 8B 4E 20
+    1E98BA  test rcx,rcx                             48 85 C9
+    1E98BD  je short 00000000001E98D4h               74 15
+    1E98BF  mov eax,0FFFFFFFFh                       B8 FF FF FF FF
+>   1E98C4  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1E98C9  cmp eax,1                                83 F8 01
+    1E98CC  jne short 00000000001E98D4h              75 06
+--- RMW
+    1E9907  je near 00000000001E9735h                0F 84 28 FE FF FF
+    1E990D  mov rdi,[rsi+0B0h]                       48 8B BE B0 00 00 00
+    1E9914  test rdi,rdi                             48 85 FF
+    1E9917  je short 00000000001E991Dh               74 04
+>   1E9919  lock inc dword [rdi+8]                   F0 FF 47 08
+    1E991D  mov rcx,[rax+50h]                        48 8B 48 50
+    1E9921  test rcx,rcx                             48 85 C9
+--- RMW
+    1E991D  mov rcx,[rax+50h]                        48 8B 48 50
+    1E9921  test rcx,rcx                             48 85 C9
+    1E9924  je short 00000000001E993Bh               74 15
+    1E9926  mov eax,0FFFFFFFFh                       B8 FF FF FF FF
+>   1E992B  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1E9930  cmp eax,1                                83 F8 01
+    1E9933  jne short 00000000001E993Bh              75 06
+--- RMW
+    1EA585  mov rcx,[rax+48h]                        48 8B 48 48
+    1EA589  mov rbx,[rcx+rsi*8]                      48 8B 1C F1
+    1EA58D  test rbx,rbx                             48 85 DB
+    1EA590  je short 00000000001EA596h               74 04
+>   1EA592  lock inc dword [rbx+8]                   F0 FF 43 08
+    1EA596  xor r15d,r15d                            45 33 FF
+    1EA599  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+--- RMW
+    1EA599  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+    1EA5A1  test rcx,rcx                             48 85 C9
+    1EA5A4  je short 00000000001EA5B8h               74 12
+    1EA5A6  mov eax,edx                              8B C2
+>   1EA5A8  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1EA5AD  cmp eax,1                                83 F8 01
+    1EA5B0  jne short 00000000001EA5B8h              75 06
+--- RMW
+    1EA6EE  mov rcx,[rax+48h]                        48 8B 48 48
+    1EA6F2  mov rbx,[rcx+rsi*8]                      48 8B 1C F1
+    1EA6F6  test rbx,rbx                             48 85 DB
+    1EA6F9  je short 00000000001EA6FFh               74 04
+>   1EA6FB  lock inc dword [rbx+8]                   F0 FF 43 08
+    1EA6FF  xor r15d,r15d                            45 33 FF
+    1EA702  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+--- RMW
+    1EA702  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+    1EA70A  test rcx,rcx                             48 85 C9
+    1EA70D  je short 00000000001EA721h               74 12
+    1EA70F  mov eax,edx                              8B C2
+>   1EA711  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1EA716  cmp eax,1                                83 F8 01
+    1EA719  jne short 00000000001EA721h              75 06
+--- RMW
+    1EA7F5  mov rcx,[rax+48h]                        48 8B 48 48
+    1EA7F9  mov rbx,[rcx+rsi*8]                      48 8B 1C F1
+    1EA7FD  test rbx,rbx                             48 85 DB
+    1EA800  je short 00000000001EA806h               74 04
+>   1EA802  lock inc dword [rbx+8]                   F0 FF 43 08
+    1EA806  xor r15d,r15d                            45 33 FF
+    1EA809  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+--- RMW
+    1EA809  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+    1EA811  test rcx,rcx                             48 85 C9
+    1EA814  je short 00000000001EA828h               74 12
+    1EA816  mov eax,edx                              8B C2
+>   1EA818  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1EA81D  cmp eax,1                                83 F8 01
+    1EA820  jne short 00000000001EA828h              75 06
+--- RMW
+    1EA8FC  mov rcx,[rax+48h]                        48 8B 48 48
+    1EA900  mov rbx,[rcx+rsi*8]                      48 8B 1C F1
+    1EA904  test rbx,rbx                             48 85 DB
+    1EA907  je short 00000000001EA90Dh               74 04
+>   1EA909  lock inc dword [rbx+8]                   F0 FF 43 08
+    1EA90D  xor r15d,r15d                            45 33 FF
+    1EA910  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+--- RMW
+    1EA910  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+    1EA918  test rcx,rcx                             48 85 C9
+    1EA91B  je short 00000000001EA92Fh               74 12
+    1EA91D  mov eax,edx                              8B C2
+>   1EA91F  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1EA924  cmp eax,1                                83 F8 01
+    1EA927  jne short 00000000001EA92Fh              75 06
+--- RMW
+    1EA989  mov rcx,[r12+1A80h]                      49 8B 8C 24 80 1A 00 00
+    1EA991  test rcx,rcx                             48 85 C9
+    1EA994  je short 00000000001EA9ABh               74 15
+    1EA996  mov eax,0FFFFFFFFh                       B8 FF FF FF FF
+>   1EA99B  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1EA9A0  cmp eax,1                                83 F8 01
+    1EA9A3  jne short 00000000001EA9ABh              75 06
+--- RMW
+    1EAA92  mov rcx,[rdi+rax*8]                      48 8B 0C C7
+    1EAA96  test rcx,rcx                             48 85 C9
+    1EAA99  je short 00000000001EAAAEh               74 13
+    1EAA9B  mov eax,r14d                             41 8B C6
+>   1EAA9E  lock xadd [rcx+8],eax                    F0 0F C1 41 08
+    1EAAA3  cmp eax,1                                83 F8 01
+    1EAAA6  jne short 00000000001EAAAEh              75 06
+=== 1E80B0..+2A70 : 18 lock ops, 0 atomic-load candidates
+--- ATOMIC-LOAD? (src R13D must be 0) FLAGS-USED
+     4BAA4  sub rsp,20h                              48 83 EC 20
+     4BAA8  xor r13d,r13d                            45 33 ED
+     4BAAB  mov rbx,rcx                              48 8B D9
+     4BAAE  xor eax,eax                              33 C0
+>    4BAB0  lock cmpxchg [rcx+4C4h],r13d             F0 44 0F B1 A9 C4 04 00 00
+     4BAB9  je short 000000000004BB17h               74 5C
+     4BABB  mov r15d,[rcx+4C8h]                      44 8B B9 C8 04 00 00
+--- ATOMIC-LOAD? (src R13D must be 0)
+     4BAF0  mov rcx,[rbx+568h]                       48 8B 8B 68 05 00 00
+     4BAF7  mov r8d,ebp                              44 8B C5
+     4BAFA  shl r8,5                                 49 C1 E0 05
+     4BAFE  xor eax,eax                              33 C0
+>    4BB00  lock cmpxchg [r8+rcx],r13d               F0 45 0F B1 2C 08
+     4BB06  bt eax,0Ah                               0F BA E0 0A
+     4BB0A  jae short 000000000004BB36h              73 2A
+--- ATOMIC-LOAD? (src R13D must be 0)
+     4BB35  ret                                      C3
+     4BB36  mov r14,[rbx+568h]                       4C 8B B3 68 05 00 00
+     4BB3D  add r14,r8                               4D 03 F0
+     4BB40  xor eax,eax                              33 C0
+>    4BB42  lock cmpxchg [r14],r13d                  F0 45 0F B1 2E
+     4BB47  mov ecx,eax                              8B C8
+     4BB49  mov edx,eax                              8B D0
+--- CAS
+     4BB42  lock cmpxchg [r14],r13d                  F0 45 0F B1 2E
+     4BB47  mov ecx,eax                              8B C8
+     4BB49  mov edx,eax                              8B D0
+     4BB4B  btr ecx,0Ah                              0F BA F1 0A
+>    4BB4F  lock cmpxchg [r14],ecx                   F0 41 0F B1 0E
+     4BB54  cmp eax,edx                              3B C2
+     4BB56  jne short 000000000004BB47h              75 EF
+--- ATOMIC-LOAD? (src R13D must be 0)
+     4BB4F  lock cmpxchg [r14],ecx                   F0 41 0F B1 0E
+     4BB54  cmp eax,edx                              3B C2
+     4BB56  jne short 000000000004BB47h              75 EF
+     4BB58  xor eax,eax                              33 C0
+>    4BB5A  lock cmpxchg [r14],r13d                  F0 45 0F B1 2E
+     4BB5F  test al,2                                A8 02
+     4BB61  je short 000000000004BB0Ch               74 A9
+--- RMW
+     4BB97  mov edx,400h                             BA 00 04 00 00
+     4BB9C  mov rcx,r14                              49 8B CE
+     4BB9F  mov r8d,edx                              44 8B C2
+     4BBA2  call 0000000000042050h                   E8 A9 64 FF FF
+>    4BBA7  lock dec dword [rbx+4C4h]                F0 FF 8B C4 04 00 00
+     4BBAE  xor eax,eax                              33 C0
+     4BBB0  lock cmpxchg [rbx+4C4h],r13d             F0 44 0F B1 AB C4 04 00 00
+--- ATOMIC-LOAD? (src R13D must be 0) FLAGS-USED
+     4BB9F  mov r8d,edx                              44 8B C2
+     4BBA2  call 0000000000042050h                   E8 A9 64 FF FF
+     4BBA7  lock dec dword [rbx+4C4h]                F0 FF 8B C4 04 00 00
+     4BBAE  xor eax,eax                              33 C0
+>    4BBB0  lock cmpxchg [rbx+4C4h],r13d             F0 44 0F B1 AB C4 04 00 00
+     4BBB9  jne near 000000000004BB0Ch               0F 85 4D FF FF FF
+     4BBBF  jmp 000000000004BB17h                    E9 53 FF FF FF
+=== 4BA8C..+140 : 7 lock ops, 5 atomic-load candidates
+--- ATOMIC-LOAD? (src R10D must be 0)
+     4BD3D  lea rax,[rax*8]                          48 8D 04 C5 00 00 00 00
+     4BD45  shl r14,4                                49 C1 E6 04
+     4BD49  mov [rbp-80h],rax                        48 89 45 80
+     4BD4D  xor eax,eax                              33 C0
+>    4BD4F  lock cmpxchg [r12+9B8h],r10d             F0 45 0F B1 94 24 B8 09 00 00
+     4BD59  cdqe                                     48 98
+     4BD5B  mov dil,r10b                             41 8A FA
+--- ATOMIC-LOAD? (src R14D must be 0)
+     4BF59  mov [r13+5A4h],eax                       41 89 85 A4 05 00 00
+     4BF60  mov eax,[r13+11Ch]                       41 8B 85 1C 01 00 00
+     4BF67  mov [r13+460h],eax                       41 89 85 60 04 00 00
+     4BF6E  xor eax,eax                              33 C0
+>    4BF70  lock cmpxchg [r12+9C8h],r14d             F0 45 0F B1 B4 24 C8 09 00 00
+     4BF7A  mov [r13+464h],eax                       41 89 85 64 04 00 00
+     4BF81  mov eax,[rbp-48h]                        8B 45 B8
+--- CAS
+     4BF84  mov [r13+468h],eax                       41 89 85 68 04 00 00
+     4BF8B  mov [r13+46Ch],eax                       41 89 85 6C 04 00 00
+     4BF92  xor eax,eax                              33 C0
+     4BF94  mov [r13+470h],r15d                      45 89 BD 70 04 00 00
+>    4BF9B  lock cmpxchg [r12+9B8h],r14d             F0 45 0F B1 B4 24 B8 09 00 00
+     4BFA5  mov [r13+474h],eax                       41 89 85 74 04 00 00
+     4BFAC  xor eax,eax                              33 C0
+--- ATOMIC-LOAD? (src R14D must be 0)
+     4BF94  mov [r13+470h],r15d                      45 89 BD 70 04 00 00
+     4BF9B  lock cmpxchg [r12+9B8h],r14d             F0 45 0F B1 B4 24 B8 09 00 00
+     4BFA5  mov [r13+474h],eax                       41 89 85 74 04 00 00
+     4BFAC  xor eax,eax                              33 C0
+>    4BFAE  lock cmpxchg [r12+9C0h],r14d             F0 45 0F B1 B4 24 C0 09 00 00
+     4BFB8  mov [r13+47Ch],eax                       41 89 85 7C 04 00 00
+     4BFBF  xor eax,eax                              33 C0
+--- CAS
+     4BFAE  lock cmpxchg [r12+9C0h],r14d             F0 45 0F B1 B4 24 C0 09 00 00
+     4BFB8  mov [r13+47Ch],eax                       41 89 85 7C 04 00 00
+     4BFBF  xor eax,eax                              33 C0
+     4BFC1  mov [r13+478h],r9d                       45 89 8D 78 04 00 00
+>    4BFC8  lock cmpxchg [r12+9C4h],r14d             F0 45 0F B1 B4 24 C4 09 00 00
+     4BFD2  mov [r13+480h],eax                       41 89 85 80 04 00 00
+     4BFD9  cmp [rbp-6Ch],r14d                       44 39 75 94
+--- ATOMIC-LOAD? (src R10D must be 0)
+     4C68B  call 00000000003D2B90h                   E8 00 65 38 00
+     4C690  mov rsi,[r13+2E0h]                       49 8B B5 E0 02 00 00
+     4C697  xor r10d,r10d                            45 33 D2
+     4C69A  xor eax,eax                              33 C0
+>    4C69C  lock cmpxchg [rsi],r10d                  F0 44 0F B1 16
+     4C6A1  mov r14d,2                               41 BE 02 00 00 00
+     4C6A7  mov edx,2000h                            BA 00 20 00 00
+--- CAS
+     4C6C3  mov rcx,rsi                              48 8B CE
+     4C6C6  call 0000000000042050h                   E8 85 59 FF FF
+     4C6CB  xor eax,eax                              33 C0
+     4C6CD  xor edx,edx                              33 D2
+>    4C6CF  lock cmpxchg [rdi],edx                   F0 0F B1 17
+     4C6D3  bt eax,9                                 0F BA E0 09
+     4C6D7  jae near 000000000004C8E5h               0F 83 08 02 00 00
+--- ATOMIC-LOAD? (src EDX must be 0)
+     4C6D3  bt eax,9                                 0F BA E0 09
+     4C6D7  jae near 000000000004C8E5h               0F 83 08 02 00 00
+     4C6DD  mov rcx,[r13+2E0h]                       49 8B 8D E0 02 00 00
+     4C6E4  xor eax,eax                              33 C0
+>    4C6E6  lock cmpxchg [rcx],edx                   F0 0F B1 11
+     4C6EA  lea ecx,[rdx+1]                          8D 4A 01
+     4C6ED  movzx esi,dl                             0F B6 F2
+--- ATOMIC-LOAD? (src R14D must be 0)
+     4C749  mov r15d,1                               41 BF 01 00 00 00
+     4C74F  jmp short 000000000004C754h              EB 03
+     4C751  xor r14d,r14d                            45 33 F6
+     4C754  xor eax,eax                              33 C0
+>    4C756  lock cmpxchg [rdi],r14d                  F0 44 0F B1 37
+     4C75B  bt eax,10h                               0F BA E0 10
+     4C75F  jb short 000000000004C772h               72 11
+--- ATOMIC-LOAD? (src R14D must be 0)
+     4C756  lock cmpxchg [rdi],r14d                  F0 44 0F B1 37
+     4C75B  bt eax,10h                               0F BA E0 10
+     4C75F  jb short 000000000004C772h               72 11
+     4C761  xor eax,eax                              33 C0
+>    4C763  lock cmpxchg [rdi],r14d                  F0 44 0F B1 37
+     4C768  bt eax,11h                               0F BA E0 11
+     4C76C  jae near 000000000004C87Dh               0F 83 0B 01 00 00
+--- ATOMIC-LOAD? (src R14D must be 0)
+     4C763  lock cmpxchg [rdi],r14d                  F0 44 0F B1 37
+     4C768  bt eax,11h                               0F BA E0 11
+     4C76C  jae near 000000000004C87Dh               0F 83 0B 01 00 00
+     4C772  xor eax,eax                              33 C0
+>    4C774  lock cmpxchg [rdi],r14d                  F0 44 0F B1 37
+     4C779  bt eax,10h                               0F BA E0 10
+     4C77D  jae near 000000000004C8AEh               0F 83 2B 01 00 00
+--- ATOMIC-LOAD? (src R14D must be 0)
+     4C8A2  call 0000000000042050h                   E8 A9 57 FF FF
+     4C8A7  jmp short 000000000004C90Dh              EB 64
+     4C8A9  call 00000000002457E0h                   E8 32 8F 1F 00
+     4C8AE  xor eax,eax                              33 C0
+>    4C8B0  lock cmpxchg [rdi],r14d                  F0 44 0F B1 37
+     4C8B5  bt eax,11h                               0F BA E0 11
+     4C8B9  jae short 000000000004C87Dh              73 C2
+--- ATOMIC-LOAD? (src EDI must be 0)
+     4CA17  call 000000000004D7B4h                   E8 98 0D 00 00
+     4CA1C  mov rcx,[rbp-60h]                        48 8B 4D A0
+     4CA20  mov rdx,[rsp+60h]                        48 8B 54 24 60
+     4CA25  xor eax,eax                              33 C0
+>    4CA27  lock cmpxchg [rsi+rcx],edi               F0 0F B1 3C 0E
+     4CA2C  mov r9d,20h                              41 B9 20 00 00 00
+     4CA32  and eax,r9d                              41 23 C1
+--- ATOMIC-LOAD? (src ECX must be 0)
+     4CBA0  je near 000000000004CC40h                0F 84 9A 00 00 00
+     4CBA6  cmp [rsp+30h],cl                         38 4C 24 30
+     4CBAA  jne short 000000000004CBC9h              75 1D
+     4CBAC  xor eax,eax                              33 C0
+>    4CBAE  lock cmpxchg [r12+9B4h],ecx              F0 41 0F B1 8C 24 B4 09 00 00
+     4CBB8  test al,1                                A8 01
+     4CBBA  jne short 000000000004CBC9h              75 0D
+--- ATOMIC-LOAD? (src R8D must be 0)
+     4CD05  je near 000000000004CE17h                0F 84 0C 01 00 00
+     4CD0B  cmp [rsp+30h],r8b                        44 38 44 24 30
+     4CD10  jne short 000000000004CD54h              75 42
+     4CD12  xor eax,eax                              33 C0
+>    4CD14  lock cmpxchg [r12+9B4h],r8d              F0 45 0F B1 84 24 B4 09 00 00
+     4CD1E  test al,2                                A8 02
+     4CD20  jne short 000000000004CD54h              75 32
+--- ATOMIC-LOAD? (src R8D must be 0)
+     4CEAA  je short 000000000004CF2Bh               74 7F
+     4CEAC  cmp [rsp+30h],r8b                        44 38 44 24 30
+     4CEB1  jne short 000000000004CECDh              75 1A
+     4CEB3  xor eax,eax                              33 C0
+>    4CEB5  lock cmpxchg [r12+9B4h],r8d              F0 45 0F B1 84 24 B4 09 00 00
+     4CEBF  test al,2                                A8 02
+     4CEC1  jne short 000000000004CECDh              75 0A
+--- ATOMIC-LOAD? (src ECX must be 0)
+     4D02F  je near 000000000004D14Ch                0F 84 17 01 00 00
+     4D035  test sil,sil                             40 84 F6
+     4D038  jne short 000000000004D05Ah              75 20
+     4D03A  xor eax,eax                              33 C0
+>    4D03C  lock cmpxchg [r12+9B4h],ecx              F0 41 0F B1 8C 24 B4 09 00 00
+     4D046  test al,4                                A8 04
+     4D048  jne short 000000000004D05Ah              75 10
+--- CAS
+     4D143  mov rbx,[rbp-68h]                        48 8B 5D 98
+     4D147  mov sil,[rsp+30h]                        40 8A 74 24 30
+     4D14C  xor eax,eax                              33 C0
+     4D14E  xor r14d,r14d                            45 33 F6
+>    4D151  lock cmpxchg [r12+9B8h],r14d             F0 45 0F B1 B4 24 B8 09 00 00
+     4D15B  lea rcx,[rbp+80h]                        48 8D 8D 80 00 00 00
+     4D162  mov [rbx+30h],eax                        89 43 30
+--- ATOMIC-LOAD? (src R14D must be 0)
+     4D1C8  je short 000000000004D245h               74 7B
+     4D1CA  test sil,sil                             40 84 F6
+     4D1CD  jne short 000000000004D1ECh              75 1D
+     4D1CF  xor eax,eax                              33 C0
+>    4D1D1  lock cmpxchg [r12+9B4h],r14d             F0 45 0F B1 B4 24 B4 09 00 00
+     4D1DB  test al,8                                A8 08
+     4D1DD  jne short 000000000004D1ECh              75 0D
+--- ATOMIC-LOAD? (src ECX must be 0)
+     4D2BA  je near 000000000004D374h                0F 84 B4 00 00 00
+     4D2C0  cmp [rsp+30h],cl                         38 4C 24 30
+     4D2C4  jne short 000000000004D2E6h              75 20
+     4D2C6  xor eax,eax                              33 C0
+>    4D2C8  lock cmpxchg [r12+9B4h],ecx              F0 41 0F B1 8C 24 B4 09 00 00
+     4D2D2  test al,10h                              A8 10
+     4D2D4  jne short 000000000004D2E6h              75 10
+--- ATOMIC-LOAD? (src ECX must be 0) FLAGS-USED
+     4D56F  mov eax,100h                             B8 00 01 00 00
+     4D574  mov [rdi+238h],ax                        66 89 87 38 02 00 00
+     4D57B  jmp short 000000000004D5B0h              EB 33
+     4D57D  xor eax,eax                              33 C0
+>    4D57F  lock cmpxchg [r13+4ECh],ecx              F0 41 0F B1 8D EC 04 00 00
+     4D588  je short 000000000004D594h               74 0A
+     4D58A  mov rcx,r13                              49 8B CD
+--- ATOMIC-LOAD? (src ECX must be 0)
+     4D58A  mov rcx,r13                              49 8B CD
+     4D58D  call 000000000005A8C4h                   E8 32 D3 00 00
+     4D592  xor ecx,ecx                              33 C9
+     4D594  xor eax,eax                              33 C0
+>    4D596  lock cmpxchg [rdi],ecx                   F0 0F B1 0F
+     4D59A  bt eax,9                                 0F BA E0 09
+     4D59E  jae short 000000000004D5B0h              73 10
+=== 4BBEC..+19EE : 22 lock ops, 18 atomic-load candidates
+=== 1E7050..+343 : 0 lock ops, 0 atomic-load candidates
+--- ATOMIC-LOAD? (src R15D must be 0)
+     5D299  mov rdx,[rdx+4498h]                      48 8B 92 98 44 00 00
+     5D2A0  test rdx,rdx                             48 85 D2
+     5D2A3  je short 000000000005D2B7h               74 12
+     5D2A5  xor eax,eax                              33 C0
+>    5D2A7  lock cmpxchg [rdx+18h],r15d              F0 44 0F B1 7A 18
+     5D2AD  test al,2                                A8 02
+     5D2AF  je short 000000000005D2B7h               74 06
+--- CAS
+     5D451  mov rcx,rdi                              48 8B CF
+     5D454  call 000000000005D1F4h                   E8 9B FD FF FF
+     5D459  xor eax,eax                              33 C0
+     5D45B  mov [rbx+400h],r15b                      44 88 BB 00 04 00 00
+>    5D462  lock cmpxchg [rbx+4C0h],r15d             F0 44 0F B1 BB C0 04 00 00
+     5D46B  test eax,eax                             85 C0
+     5D46D  jle near 000000000005D5AEh               0F 8E 3B 01 00 00
+=== 5D214..+3B7 : 2 lock ops, 1 atomic-load candidates

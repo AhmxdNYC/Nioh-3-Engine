@@ -1,0 +1,21 @@
+N3ApplySymbols: 2042 rows from C:\Users\Ahmad Hamza\nioh3-engine\re\symbols\symbols.tsv  (DRY RUN - rolled back)
+  comment.set = 1755
+  function.asLabel = 7
+  function.created = 3
+  function.renamed = 484
+  function.unchanged = 5
+  global.typed = 103
+  label.created = 1266
+  struct.created = 80
+  struct.field.set = 285
+warnings: 8
+  W TypeHashStub_36CE880E @0xa874f0: function row but no function could be created (exec=true pdataEntry=false insn=false called=false); placed a label
+  W UiElemCopyToLocalE @0xa9ab40: function row but no function could be created (exec=true pdataEntry=false insn=false called=false); placed a label
+  W UiElemCopyToLocalD @0xa9ab60: function row but no function could be created (exec=true pdataEntry=false insn=false called=false); placed a label
+  W MonitorEnumProc @0xfbb7c0: function row but no function could be created (exec=true pdataEntry=false insn=false called=false); placed a label
+  W UiVertexProducerE @0x1a135fa: function row is inside UiVertexProducerC@0x7b35ec; placed a label
+  W Sleep0Thunk @0x1a6bca4: function row but no function could be created (exec=true pdataEntry=false insn=false called=false); placed a label
+  W WinMainThreadStart @0x38e1290: function row but no function could be created (exec=false pdataEntry=false insn=false called=false); placed a label
+  W RenderSettings::XessCreateReactiveInputs @+0x20bf: overlaps existing field XessFlags20be @+0x20be; skipped
+failures: 1
+  F WinMainThreadStart @0x38e1290: address not in program memory

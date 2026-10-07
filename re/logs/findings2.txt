@@ -1,0 +1,1069 @@
+==== decompile RVA 0x5ad5f8 ====
+// function FUN_7ff74f9bd5f8 @ 0x5ad5f8  body=756 bytes  pdataStart=0x5ad5f8
+// callers(1): FUN_7ff74f9bcee8@0x5acee8 
+// callees(19): FUN_7ff74fce6d64@0x8d6d64 FUN_7ff74fd67340@0x957340 FUN_7ff74f9bc8f0@0x5ac8f0 FUN_7ff74f4ea7c0@0xda7c0 FUN_7ff74fcd8e54@0x8c8e54 FUN_7ff74fd57250@0x947250 FUN_7ff74fcab6ec@0x89b6ec FUN_7ff74fcab230@0x89b230 FUN_7ff74f9bb644@0x5ab644 __security_check_cookie@0xb912e0 FUN_7ff75167551c@0x226551c FUN_7ff74f458574@0x48574 FUN_7ff74f9bf410@0x5af410 FUN_7ff74f9bce5c@0x5ace5c FUN_7ff74f9bf604@0x5af604 FUN_7ff751cb6f70@0x28a6f70 FUN_7ff74f995ce8@0x585ce8 FUN_7ff75064aa20@0x123aa20 FUN_7ff74f7ab55c@0x39b55c 
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+void FUN_7ff74f9bd5f8(longlong param_1,undefined8 param_2,longlong param_3,longlong param_4)
+
+{
+  longlong *plVar1;
+  char cVar2;
+  undefined4 uVar3;
+  undefined1 uVar4;
+  uint uVar5;
+  ulonglong uVar6;
+  float fVar7;
+  float fVar8;
+  undefined1 auStack_118 [32];
+  undefined4 local_f8 [2];
+  undefined1 local_f0 [8];
+  longlong local_e8;
+  undefined8 local_e0;
+  uint local_d8;
+  float local_d4;
+  float local_d0;
+  undefined4 local_cc;
+  undefined8 local_c8;
+  uint *local_c0;
+  uint local_b8;
+  uint local_b4;
+  float local_74;
+  undefined8 local_48;
+  ulonglong local_38;
+  
+  local_38 = _DAT_7ff7538c7f30 ^ (ulonglong)auStack_118;
+  FUN_7ff74f9bce5c(local_f0,param_1,param_2);
+  FUN_7ff74fcab230(param_1,param_2,param_3);
+  FUN_7ff74fcab6ec(param_1 + 0x588);
+  FUN_7ff74f458574(_DAT_7ff7539d84c8);
+  FUN_7ff74f995ce8(_DAT_7ff7539d84c8,param_2);
+  uVar6 = (ulonglong)*(uint *)(param_1 + 0x618);
+  *(uint *)(param_1 + 0x614) = *(uint *)(param_1 + 0x618);
+  *(undefined4 *)(param_1 + 0x61c) = *(undefined4 *)(param_1 + 0x620);
+  uVar3 = FUN_7ff74f9bf604();
+  *(undefined4 *)(param_1 + 0x618) = uVar3;
+  uVar3 = FUN_7ff74f9bf604();
+  *(undefined4 *)(param_1 + 0x620) = uVar3;
+  FUN_7ff74fd57250(uVar6 & 0xffffffff);
+  fVar8 = *(float *)(param_1 + 0x628);
+  *(float *)(param_1 + 0x624) = fVar8;
+  if (*(char *)(param_1 + 0x58c) != '\0') {
+    *(undefined4 *)(param_1 + 0x624) = 0;
+    fVar8 = 0.0;
+  }
+  if (*(char *)(param_1 + 0x58b) != '\0') {
+    *(undefined4 *)(param_1 + 0x624) = 0;
+    fVar8 = 0.0;
+  }
+  fVar7 = *(float *)(param_1 + 0x62c);
+  if (1.0 <= fVar7) {
+    fVar7 = fVar7 - (float)(int)fVar7;
+  }
+  *(float *)(param_1 + 0x62c) = (fVar8 * 60.0) / (float)*(uint *)(param_1 + 0x614) + fVar7;
+  FUN_7ff74fce6d64(&local_b8);
+  local_74 = *(float *)(param_1 + 0x624) / (float)*(uint *)(param_1 + 0x614);
+  if (0.0 < *(float *)(param_1 + 0x624)) {
+    FUN_7ff74fd67340();
+  }
+  if (_DAT_7ff7539caf7c == 0) {
+    local_b8 = local_b8 & 0xfffffffb;
+  }
+  uVar5 = local_b8;
+  cVar2 = FUN_7ff74f4ea7c0();
+  if (cVar2 != '\0') {
+    cVar2 = FUN_7ff751cb6f70();
+    if (cVar2 != '\0') goto LAB_7ff74f9bd790;
+  }
+  if (_DAT_7ff7539cafe8 == 0) {
+    local_b8 = uVar5 & 0xfffbffff;
+  }
+LAB_7ff74f9bd790:
+  cVar2 = FUN_7ff75064aa20();
+  local_d4 = *(float *)(param_1 + 0x624);
+  local_d8 = *(uint *)(param_1 + 0x614);
+  if (cVar2 != '\0') {
+    local_b8 = 8;
+  }
+  local_b4 = local_b4 | 0x43c00000;
+  local_cc = 0;
+  local_c8 = 0;
+  local_c0 = (uint *)(param_1 + 0x690);
+  local_d0 = (local_d4 * 60.0) / (float)local_d8;
+  local_e8 = param_3;
+  local_e0 = param_2;
+  FUN_7ff74fcd8e54(&local_e8);
+  local_d8 = *(uint *)(param_1 + 0x614);
+  local_d4 = *(float *)(param_1 + 0x624);
+  local_cc = 0;
+  local_c8 = *(undefined8 *)(param_1 + 0x6d0);
+  local_c0 = &local_b8;
+  local_d0 = (local_d4 * 60.0) / (float)local_d8;
+  local_e8 = param_3;
+  local_e0 = param_2;
+  FUN_7ff74f9bb644(param_1,&local_e8);
+  local_f8[0] = *(undefined4 *)(param_1 + 0x614);
+  cVar2 = FUN_7ff74f7ab55c();
+  if (cVar2 != '\0') {
+    local_48 = FUN_7ff75167551c();
+  }
+  plVar1 = (longlong *)(param_4 + 8);
+  (**(code **)(*plVar1 + 0x20))(plVar1,local_f8);
+  (**(code **)(*plVar1 + 8))(plVar1);
+  uVar6 = (ulonglong)*(uint *)(param_1 + 0x614) / (ulonglong)*(uint *)(param_1 + 0x61c);
+  uVar4 = (undefined1)uVar6;
+  if ((int)uVar6 == 0) {
+    uVar4 = 1;
+  }
+  *(undefined1 *)(param_3 + 0x1e6) = uVar4;
+  FUN_7ff74f9bf410(param_1 + 0x7d8);
+  FUN_7ff74f9bc8f0(local_f0);
+  return;
+}
+
+
+
+==== callers of function containing 0x5ad5f8 ====
+// FUN_7ff74f9bd5f8 @ 0x5ad5f8
+0x4e5d604	DATA	-
+0x5acf56	UNCONDITIONAL_CALL	FUN_7ff74f9bcee8@0x5acee8
+
+==== decompile RVA 0x577e50 ====
+// function FUN_7ff74f987e50 @ 0x577e50  body=108 bytes  pdataStart=0x577e50
+// callers(0): 
+// callees(2): FUN_7ff74f987ebc@0x577ebc FUN_7ff74f8b529c@0x4a529c 
+
+undefined1
+FUN_7ff74f987e50(longlong param_1,undefined8 param_2,undefined4 param_3,undefined8 param_4)
+
+{
+  undefined1 uVar1;
+  
+  (**(code **)(**(longlong **)(param_1 + 0x170) + 0x30))
+            (*(longlong **)(param_1 + 0x170),param_1,param_4);
+  uVar1 = FUN_7ff74f8b529c(param_1,param_2,param_3,param_4);
+  FUN_7ff74f987ebc(*(undefined8 *)(param_1 + 0x170),param_2);
+  return uVar1;
+}
+
+
+
+==== callers of function containing 0x577e50 ====
+// FUN_7ff74f987e50 @ 0x577e50
+0x4e5b210	DATA	-
+0x4180a94	DATA	-
+
+==== decompile RVA 0x207200 ====
+// function FUN_7ff74f617200 @ 0x207200  body=657 bytes  pdataStart=0x207200
+// callers(90): FUN_7ff752692f28@0x3282f28 FUN_7ff752aaab20@0x369ab20 FUN_7ff7504f2230@0x10e2230 FUN_7ff7529c3b08@0x35b3b08 FUN_7ff7529f1878@0x35e1878 FUN_7ff7526e7b8c@0x32d7b8c FUN_7ff75281cf84@0x340cf84 FUN_7ff74f44f658@0x3f658 FUN_7ff75277819c@0x336819c FUN_7ff7526bcec4@0x32acec4 FUN_7ff7516b21b0@0x22a21b0 FUN_7ff7529c0fbc@0x35b0fbc FUN_7ff7503bdf90@0xfadf90 FUN_7ff75281d398@0x340d398 FUN_7ff752b532c8@0x37432c8 FUN_7ff74f99613c@0x58613c FUN_7ff752a9f5a4@0x368f5a4 FUN_7ff752973390@0x3563390 FUN_7ff7526e6e64@0x32d6e64 FUN_7ff75281d2d8@0x340d2d8 FUN_7ff752656d08@0x3246d08 FUN_7ff7529d2c84@0x35c2c84 FUN_7ff74fcd5548@0x8c5548 FUN_7ff7526d02e8@0x32c02e8 FUN_7ff75276929c@0x335929c FUN_7ff74f6174a0@0x2074a0 FUN_7ff752a40ae4@0x3630ae4 FUN_7ff74fc5a188@0x84a188 FUN_7ff74f44f7b3@0x3f7b3 FUN_7ff74f44cfd0@0x3cfd0 FUN_7ff74f995930@0x585930 FUN_7ff75275f0dc@0x334f0dc FUN_7ff752aca5e8@0x36ba5e8 FUN_7ff7503bdea0@0xfadea0 FUN_7ff7504f2200@0x10e2200 FUN_7ff752660250@0x3250250 FUN_7ff752a9f638@0x368f638 FUN_7ff74f794f08@0x384f08 FUN_7ff74f79a17c@0x38a17c FUN_7ff74f44db08@0x3db08 
+// callees(2): FUN_7ff74f450800@0x40800 FUN_7ff74f4511c0@0x411c0 
+
+ulonglong FUN_7ff74f617200(longlong param_1)
+
+{
+  ulonglong *puVar1;
+  uint *puVar2;
+  longlong lVar3;
+  longlong *plVar4;
+  longlong lVar5;
+  int iVar6;
+  char cVar7;
+  int iVar8;
+  uint uVar9;
+  uint uVar10;
+  ulonglong uVar11;
+  longlong lVar12;
+  ulonglong uVar13;
+  ulonglong extraout_RAX;
+  ulonglong uVar14;
+  int iVar15;
+  int iVar16;
+  ulonglong uVar17;
+  ulonglong uVar18;
+  bool bVar19;
+  undefined1 local_res8 [8];
+  undefined1 local_res10;
+  
+  lVar3 = *(longlong *)(param_1 + 8);
+  uVar17 = 0;
+  local_res8[0] = 1;
+  plVar4 = *(longlong **)(lVar3 + 0x428);
+  uVar11 = FUN_7ff74f450800(lVar3,0,local_res8,plVar4,0);
+  cVar7 = (char)uVar11;
+  uVar13 = uVar17;
+  if (*plVar4 != 0) {
+    uVar13 = (longlong)plVar4 + *plVar4 * 4;
+    *plVar4 = *(longlong *)(uVar13 + 0x28);
+    LOCK();
+    *(undefined8 *)(uVar13 + 0x28) = 0;
+    UNLOCK();
+  }
+  if (uVar13 != 0) {
+    do {
+      lVar5 = *(longlong *)(lVar3 + 0x448);
+      iVar15 = *(short *)(uVar13 + 0x20) + -1;
+      if (0x7f < iVar15) {
+        iVar15 = 0x7f;
+      }
+      puVar1 = (ulonglong *)(*(longlong *)(lVar3 + 0x418) + (longlong)iVar15 * 8);
+      LOCK();
+      uVar11 = *puVar1;
+      if (uVar11 == 0) {
+        *puVar1 = 0;
+        uVar11 = 0;
+      }
+      UNLOCK();
+      uVar9 = *(uint *)(uVar13 + 0x30);
+      *(uint *)(uVar13 + 0x30) = uVar9 + 1;
+      uVar18 = uVar17;
+      do {
+        LOCK();
+        if (uVar18 == *(ulonglong *)(uVar13 + 0x28)) {
+          *(ulonglong *)(uVar13 + 0x28) = uVar11;
+        }
+        UNLOCK();
+        LOCK();
+        uVar14 = *puVar1;
+        if (uVar11 == uVar14) {
+          *puVar1 = (longlong)(uVar13 - (longlong)puVar1) >> 2 & 0xffffffffU |
+                    (ulonglong)uVar9 << 0x20;
+          uVar14 = uVar11;
+        }
+        UNLOCK();
+        bVar19 = uVar11 != uVar14;
+        uVar18 = uVar11;
+        uVar11 = uVar14;
+      } while (bVar19);
+      puVar2 = (uint *)(lVar5 + (longlong)(iVar15 / 0x20) * 4);
+      LOCK();
+      uVar9 = *puVar2;
+      if (uVar9 == 0) {
+        *puVar2 = 0;
+        uVar9 = 0;
+      }
+      UNLOCK();
+      do {
+        puVar2 = (uint *)(lVar5 + (longlong)(iVar15 / 0x20) * 4);
+        LOCK();
+        uVar10 = *puVar2;
+        if (uVar9 == uVar10) {
+          *puVar2 = uVar9 | 1 << (iVar15 % 0x20 & 0x1fU);
+          uVar10 = uVar9;
+        }
+        UNLOCK();
+        bVar19 = uVar9 != uVar10;
+        uVar9 = uVar10;
+      } while (bVar19);
+      uVar11 = 0;
+      uVar13 = uVar17;
+      if (*plVar4 != 0) {
+        uVar13 = (longlong)plVar4 + *plVar4 * 4;
+        *plVar4 = *(longlong *)(uVar13 + 0x28);
+        LOCK();
+        uVar11 = *(ulonglong *)(uVar13 + 0x28);
+        *(ulonglong *)(uVar13 + 0x28) = 0;
+        UNLOCK();
+      }
+    } while (uVar13 != 0);
+  }
+  if (cVar7 == '\0') {
+    lVar5 = *(longlong *)(*(longlong *)(lVar3 + 0x440) + 0x10);
+    iVar15 = *(int *)(*(longlong *)(lVar3 + 0x440) + 0x28);
+    iVar6 = (int)((lVar3 - lVar5) / 0x458);
+    local_res10 = 0;
+    iVar16 = iVar6;
+    do {
+      iVar8 = iVar16 + 1;
+      iVar16 = 0;
+      if (iVar8 < iVar15) {
+        iVar16 = iVar8;
+      }
+      if (iVar6 == iVar16) {
+        uVar13 = 0;
+        LOCK();
+        uVar9 = *(uint *)(lVar3 + 0x454);
+        if (uVar9 == 0) {
+          *(uint *)(lVar3 + 0x454) = 0;
+        }
+        else {
+          uVar13 = (ulonglong)uVar9;
+        }
+        UNLOCK();
+        if ((uVar13 & 1) != 0) {
+          return uVar13;
+        }
+        Sleep(0);
+        return extraout_RAX;
+      }
+      lVar12 = FUN_7ff74f4511c0((longlong)iVar16 * 0x458 + lVar5,0);
+    } while (lVar12 == 0);
+    lVar5 = *(longlong *)(lVar3 + 0x448);
+    iVar15 = *(short *)(lVar12 + 0x20) + -1;
+    if (0x7f < iVar15) {
+      iVar15 = 0x7f;
+    }
+    puVar1 = (ulonglong *)(*(longlong *)(lVar3 + 0x418) + (longlong)iVar15 * 8);
+    LOCK();
+    uVar13 = *puVar1;
+    if (uVar13 == 0) {
+      *puVar1 = 0;
+      uVar13 = 0;
+    }
+    UNLOCK();
+    uVar9 = *(uint *)(lVar12 + 0x30);
+    *(uint *)(lVar12 + 0x30) = uVar9 + 1;
+    do {
+      LOCK();
+      if (uVar17 == *(ulonglong *)(lVar12 + 0x28)) {
+        *(ulonglong *)(lVar12 + 0x28) = uVar13;
+      }
+      UNLOCK();
+      LOCK();
+      uVar11 = *puVar1;
+      if (uVar13 == uVar11) {
+        *puVar1 = lVar12 - (longlong)puVar1 >> 2 & 0xffffffffU | (ulonglong)uVar9 << 0x20;
+        uVar11 = uVar13;
+      }
+      UNLOCK();
+      bVar19 = uVar13 != uVar11;
+      uVar17 = uVar13;
+      uVar13 = uVar11;
+    } while (bVar19);
+    uVar11 = 0;
+    puVar2 = (uint *)(lVar5 + (longlong)(iVar15 / 0x20) * 4);
+    LOCK();
+    uVar9 = *puVar2;
+    if (uVar9 == 0) {
+      *puVar2 = 0;
+    }
+    else {
+      uVar11 = (ulonglong)uVar9;
+    }
+    UNLOCK();
+    do {
+      uVar10 = (uint)uVar11;
+      puVar2 = (uint *)(lVar5 + (longlong)(iVar15 / 0x20) * 4);
+      LOCK();
+      uVar9 = *puVar2;
+      if (uVar10 == uVar9) {
+        *puVar2 = uVar10 | 1 << (iVar15 % 0x20 & 0x1fU);
+      }
+      else {
+        uVar11 = (ulonglong)uVar9;
+      }
+      UNLOCK();
+    } while (uVar10 != (uint)uVar11);
+  }
+  return uVar11;
+}
+
+
+
+==== decompile RVA 0x206be4 ====
+// function FUN_7ff74f616be4 @ 0x206be4  body=582 bytes  pdataStart=0x206be4
+// callers(1): FUN_7ff74f7e77ac@0x3d77ac 
+// callees(10): FUN_7ff74f7e7874@0x3d7874 FUN_7ff74fce589c@0x8d589c __security_check_cookie@0xb912e0 FUN_7ff7504120f8@0x10020f8 FUN_7ff74fc09168@0x7f9168 FUN_7ff74f616b2c@0x206b2c FUN_7ff74fc51178@0x841178 SwitchToThread@0xb62080 FUN_7ff750075928@0xc65928 FUN_7ff75027f5d4@0xe6f5d4 
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+/* WARNING: Removing unreachable block (ram,0x7ff74f616df4) */
+/* WARNING: Removing unreachable block (ram,0x7ff74f616c4d) */
+/* WARNING: Removing unreachable block (ram,0x7ff74f616dfb) */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+ulonglong FUN_7ff74f616be4(longlong *param_1,longlong param_2,longlong param_3)
+
+{
+  uint uVar1;
+  BOOL BVar2;
+  undefined1 *puVar3;
+  ulonglong uVar4;
+  ulonglong uVar5;
+  longlong lVar6;
+  longlong *plVar7;
+  uint uVar8;
+  ulonglong uVar9;
+  uint uVar10;
+  ulonglong uVar11;
+  undefined1 auStack_d8 [32];
+  uint local_b8 [2];
+  longlong local_b0;
+  longlong *local_a8;
+  longlong local_a0;
+  longlong local_98;
+  longlong local_88;
+  undefined1 local_80 [64];
+  undefined1 local_40 [8];
+  ulonglong local_38;
+  
+  local_38 = _DAT_7ff7538c7f30 ^ (ulonglong)auStack_d8;
+  plVar7 = &local_88;
+  lVar6 = 3;
+  uVar4 = 0;
+  local_b0 = param_3;
+  local_a8 = param_1;
+  local_a0 = param_2;
+  do {
+    lVar6 = lVar6 + -1;
+    FUN_7ff74fc09168(plVar7);
+    plVar7 = plVar7 + 3;
+  } while (lVar6 != 0);
+  local_98 = FUN_7ff74f616b2c();
+  plVar7 = &local_88;
+  uVar5 = uVar4;
+  uVar9 = uVar4;
+  do {
+    param_1 = param_1 + 1;
+    uVar8 = (uint)uVar9;
+    if (2 < (ulonglong)(longlong)(int)uVar8) {
+                    /* WARNING: Subroutine does not return */
+      FUN_7ff750075928();
+    }
+    uVar11 = (ulonglong)(longlong)(int)uVar8 >> 5;
+    uVar10 = 1 << ((byte)uVar9 & 0x1f);
+    if ((*(uint *)(local_a0 + uVar11 * 4) & uVar10) == 0) {
+      if (2 < uVar8) {
+                    /* WARNING: Subroutine does not return */
+        FUN_7ff750075928();
+      }
+      if ((*(uint *)(local_b0 + uVar11 * 4) & uVar10) != 0) goto LAB_7ff74f616cb7;
+    }
+    else {
+LAB_7ff74f616cb7:
+      while (uVar8 - 1 < 2) {
+        if (2 < uVar5) {
+                    /* WARNING: Subroutine does not return */
+          FUN_7ff75027f5d4();
+        }
+        FUN_7ff74f7e7874(local_b8);
+        uVar1 = local_b8[uVar11];
+        BVar2 = TryEnterCriticalSection((LPCRITICAL_SECTION)(*param_1 + 0x10));
+        if (BVar2 != 0) {
+          if ((uVar10 & uVar1) == 0) {
+            LeaveCriticalSection((LPCRITICAL_SECTION)(*param_1 + 0x10));
+          }
+          break;
+        }
+        if (((char)*local_a8 != '\0') ||
+           (lVar6 = FUN_7ff74f616b2c(), 5000 < (ulonglong)(lVar6 - local_98)))
+        goto LAB_7ff74f616db7;
+        SwitchToThread();
+      }
+      if ((*(uint *)(local_b0 + uVar11 * 4) & uVar10) != 0) {
+        if (2 < uVar5) {
+                    /* WARNING: Subroutine does not return */
+          FUN_7ff7504120f8();
+        }
+        FUN_7ff74fc51178(plVar7);
+        *(undefined1 *)(plVar7 + 1) = 0;
+        *(undefined1 *)(plVar7 + 2) = 1;
+        *plVar7 = (longlong)(local_a8 + (longlong)(int)uVar8 + 1);
+      }
+    }
+    uVar9 = (ulonglong)(uVar8 + 1);
+    uVar5 = uVar5 + 1;
+    plVar7 = plVar7 + 3;
+    if (2 < (int)(uVar8 + 1)) {
+      for (puVar3 = local_80; puVar3 + -8 != local_40; puVar3 = puVar3 + 0x18) {
+        if (puVar3[8] != '\0') {
+          *puVar3 = 1;
+        }
+      }
+      uVar4 = 1;
+LAB_7ff74f616db7:
+      FUN_7ff74fce589c(&local_88);
+      return uVar4;
+    }
+  } while( true );
+}
+
+
+
+==== decompile RVA 0x205530 ====
+// function FUN_7ff74f615530 @ 0x205530  body=54 bytes  pdataStart=0x205530
+// callers(153): FUN_7ff752650570@0x3240570 FUN_7ff74f8a0320@0x490320 FUN_7ff74f9b6a90@0x5a6a90 FUN_7ff75264fff8@0x323fff8 FUN_7ff74fed3674@0xac3674 FUN_7ff74f9b6648@0x5a6648 FUN_7ff74ff216e0@0xb116e0 FUN_7ff7515cfe04@0x21bfe04 FUN_7ff75222dba4@0x2e1dba4 FUN_7ff74fd6f4b4@0x95f4b4 FUN_7ff74f9b6728@0x5a6728 FUN_7ff74f8c4264@0x4b4264 FUN_7ff751d8f5b0@0x297f5b0 FUN_7ff7515d11fc@0x21c11fc FUN_7ff7515d1dec@0x21c1dec FUN_7ff7523c0760@0x2fb0760 FUN_7ff752650fe4@0x3240fe4 FUN_7ff74f7af838@0x39f838 FUN_7ff7515ccfe4@0x21bcfe4 FUN_7ff74f536c64@0x126c64 FUN_7ff7523e4278@0x2fd4278 FUN_7ff74f8d9164@0x4c9164 FUN_7ff74f6e0080@0x2d0080 FUN_7ff74fbaf368@0x79f368 FUN_7ff75222dc20@0x2e1dc20 FUN_7ff752650eb0@0x3240eb0 FUN_7ff74f7e2b90@0x3d2b90 FUN_7ff751d44150@0x2934150 FUN_7ff74f8a20e0@0x4920e0 FUN_7ff74f828f40@0x418f40 FUN_7ff74fa42078@0x632078 FUN_7ff75222db48@0x2e1db48 FUN_7ff7523e4380@0x2fd4380 FUN_7ff751c8f774@0x287f774 FUN_7ff75222fa14@0x2e1fa14 FUN_7ff74ff16ac0@0xb06ac0 FUN_7ff750e90894@0x1a80894 FUN_7ff750cc47d4@0x18b47d4 FUN_7ff7515cefb8@0x21befb8 FUN_7ff74f8a16b4@0x4916b4 
+// callees(1): clock@0xbe379c 
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+LARGE_INTEGER FUN_7ff74f615530(void)
+
+{
+  clock_t cVar1;
+  LARGE_INTEGER local_res8 [4];
+  
+  if (*(char *)(_DAT_7ff7539ca780 + 0x12) == '\0') {
+    cVar1 = clock();
+    local_res8[0] = (LARGE_INTEGER)(longlong)cVar1;
+  }
+  else {
+    QueryPerformanceCounter(local_res8);
+  }
+  return (LARGE_INTEGER)local_res8[0].QuadPart;
+}
+
+
+
+==== callers of function containing 0x30bc730 ====
+// FUN_7ff7524cc730 @ 0x30bc730
+0x506116c	DATA	-
+0x18c6d1c	UNCONDITIONAL_CALL	FUN_7ff750cd6c24@0x18c6c24
+
+==== decompile RVA 0x30bc730 ====
+// function FUN_7ff7524cc730 @ 0x30bc730  body=198 bytes  pdataStart=0x30bc730
+// callers(1): FUN_7ff750cd6c24@0x18c6c24 
+// callees(5): FUN_7ff7524cbb78@0x30bbb78 FUN_7ff7524cc7f8@0x30bc7f8 FUN_7ff7524cbc24@0x30bbc24 FUN_7ff7524cb418@0x30bb418 FUN_7ff74fdc6fc4@0x9b6fc4 
+
+undefined8 FUN_7ff7524cc730(undefined8 *param_1)
+
+{
+  ulonglong *puVar1;
+  byte bVar2;
+  undefined8 uVar3;
+  ulonglong uVar4;
+  ulonglong uVar5;
+  ulonglong *puVar6;
+  longlong lVar7;
+  byte bVar8;
+  
+  bVar2 = 1;
+  if (*(int *)(param_1 + 2) != 0) {
+    bVar2 = FUN_7ff74fdc6fc4(*param_1,*(int *)(param_1 + 2),0);
+    if (bVar2 != 0) {
+      FUN_7ff7524cb418(*param_1);
+    }
+  }
+  param_1[0x16] = 0xffffffffffffffff;
+  puVar1 = param_1 + 0x9b;
+  *(undefined4 *)(param_1 + 0x13) = 0;
+  *(undefined4 *)((longlong)param_1 + 0x7c) = 0;
+  *(undefined4 *)(param_1 + 0x10) = 0;
+  *(undefined4 *)(param_1 + 0xa0) = 0;
+  uVar3 = FUN_7ff7524cbc24();
+  uVar4 = FUN_7ff7524cbb78(uVar3);
+  *puVar1 = uVar4;
+  lVar7 = 3;
+  puVar6 = puVar1;
+  do {
+    *(undefined4 *)(puVar6 + -1) = 0;
+    uVar4 = *puVar1;
+    *puVar6 = uVar4;
+    puVar6 = puVar6 + 2;
+    lVar7 = lVar7 + -1;
+  } while (lVar7 != 0);
+  *(undefined2 *)((longlong)param_1 + 0x9c) = 1;
+  bVar8 = 0;
+  if (bVar2 != 0) {
+    uVar3 = FUN_7ff7524cbc24();
+    uVar5 = FUN_7ff7524cc7f8(uVar3);
+    uVar4 = uVar5 & 0xffffffffffffff00;
+    bVar8 = bVar2 & -((char)uVar5 != '\0');
+  }
+  return CONCAT71((int7)(uVar4 >> 8),bVar8);
+}
+
+
+
+==== references to RVA 0x4759910 ====
+0xae166c	READ_WRITE	FUN_7ff74fef1668@0xae1668
+0x3dc5c	READ	FUN_7ff74f44dc3c@0x3dc3c
+0x3dcb2	READ	FUN_7ff74f44dc98@0x3dc98
+0x3dcfa	READ	FUN_7ff74f44dce0@0x3dce0
+0x3dd42	READ	FUN_7ff74f44dd28@0x3dd28
+0x3dd92	READ	FUN_7ff74f44dd78@0x3dd78
+0x3dddd	READ	FUN_7ff74f44ddc8@0x3ddc8
+0x3de32	READ	FUN_7ff74f44de0c@0x3de0c
+0x6b5e06	READ	FUN_7ff74fac5d3c@0x6b5d3c
+0x47948	READ	FUN_7ff74f45793c@0x4793c
+0x86ef7e	READ	FUN_7ff74fc7ef68@0x86ef68
+0x4689e	READ	FUN_7ff74f45688c@0x4688c
+0x4796c	READ	FUN_7ff74f457968@0x47968
+0xfb356a	READ	FUN_7ff7503c3520@0xfb3520
+0x4516f	READ	FUN_7ff74f455150@0x45150
+0x451a8	READ	FUN_7ff74f4551a4@0x451a4
+0x7c5e53	READ	FUN_7ff74fbd5e4c@0x7c5e4c
+0x7c5d80	READ	FUN_7ff74fbd5d80@0x7c5d80
+0x7d1127	READ	FUN_7ff74fbe1120@0x7d1120
+0x4582a	READ	FUN_7ff74f455818@0x45818
+0x463cd	READ	FUN_7ff74f4563bc@0x463bc
+0x233a08	READ	FUN_7ff74f6438b0@0x2338b0
+0x185a38	READ	FUN_7ff74f595a34@0x185a34
+0x187b04	READ	FUN_7ff74f597b04@0x187b04
+0x10f69ce	READ	FUN_7ff7505068c4@0x10f68c4
+0x10f69fb	READ	FUN_7ff7505068c4@0x10f68c4
+0x10f6a28	READ	FUN_7ff7505068c4@0x10f68c4
+0x10f6a86	READ	FUN_7ff7505068c4@0x10f68c4
+0x484a8	READ	FUN_7ff74f458494@0x48494
+0x2f5592	READ	FUN_7ff74f705570@0x2f5570
+0x2f55b2	READ	FUN_7ff74f705570@0x2f5570
+0x397a20	READ	FUN_7ff74f7a7a20@0x397a20
+0x39b0f7	READ	FUN_7ff74f7ab0e8@0x39b0e8
+0x46594	READ	FUN_7ff74f456594@0x46594
+0x7d9127	READ	FUN_7ff74fbe9120@0x7d9120
+0x10f235f	READ	FUN_7ff750502010@0x10f2010
+0x10f7da3	READ	FUN_7ff750507d00@0x10f7d00
+0x400a66	READ	FUN_7ff74f810a64@0x400a64
+0x4646c	READ	FUN_7ff74f45646c@0x4646c
+0x1193151	READ	FUN_7ff7505a30f0@0x11930f0
+0x11931db	READ	FUN_7ff7505a30f0@0x11930f0
+0x11932fa	READ	FUN_7ff7505a30f0@0x11930f0
+0x119332e	READ	FUN_7ff7505a30f0@0x11930f0
+0x1193350	READ	FUN_7ff7505a30f0@0x11930f0
+0x1193452	READ	FUN_7ff7505a33f0@0x11933f0
+0x119349d	READ	FUN_7ff7505a33f0@0x11933f0
+0x1193546	READ	FUN_7ff7505a33f0@0x11933f0
+0x1193597	READ	FUN_7ff7505a33f0@0x11933f0
+0x11935be	READ	FUN_7ff7505a33f0@0x11933f0
+0x86bec	READ	FUN_7ff74f496be0@0x86be0
+0x28ac810	READ	FUN_7ff751cbc740@0x28ac740
+0x13315ff	READ	FUN_7ff7507415a0@0x13315a0
+0x1331e27	READ	FUN_7ff750741de0@0x1331de0
+0x469eb	READ	FUN_7ff74f4569c0@0x469c0
+0x46e83	READ	FUN_7ff74f4569c0@0x469c0
+0x37f712	READ	FUN_7ff74f78f5f8@0x37f5f8
+0x46547	READ	FUN_7ff74f456534@0x46534
+0x46572	READ	FUN_7ff74f456560@0x46560
+0x478a8	READ	FUN_7ff74f457550@0x47550
+0x4790c	READ	FUN_7ff74f457908@0x47908
+0x4847c	READ	FUN_7ff74f458468@0x48468
+0x48588	READ	FUN_7ff74f458574@0x48574
+0x47924	READ	FUN_7ff74f457924@0x47924
+0x1a70a4	READ	FUN_7ff74f5b6fc4@0x1a6fc4
+0x69d0f1	READ	FUN_7ff74faacffc@0x69cffc
+0xfb0b3a	READ	FUN_7ff7503c09d0@0xfb09d0
+0xfb3dd4	READ	FUN_7ff7503c3c90@0xfb3c90
+0xfb7433	READ	FUN_7ff7503c7370@0xfb7370
+0xfb7484	READ	FUN_7ff7503c7370@0xfb7370
+0x9c9c2b	READ	FUN_7ff74fdd9b88@0x9c9b88
+0xfb78a0	READ	FUN_7ff7503c7690@0xfb7690
+0xfb78e9	READ	FUN_7ff7503c7690@0xfb7690
+0x69bdb5	READ	FUN_7ff74faabcc4@0x69bcc4
+0x69bdd7	READ	FUN_7ff74faabcc4@0x69bcc4
+0x4b965	READ	FUN_7ff74f45b860@0x4b860
+0x5c3d4c	READ	FUN_7ff74f9d3d0c@0x5c3d0c
+0x59100	READ	FUN_7ff74f4690d0@0x590d0
+0x81fb4	READ	FUN_7ff74f491ecc@0x81ecc
+0x3bbed4	READ	FUN_7ff74f7cbe80@0x3bbe80
+0x841c2	READ	FUN_7ff74f4941bc@0x841bc
+0x8434e	READ	FUN_7ff74f494348@0x84348
+0xb1ae3	READ	FUN_7ff74f4c1410@0xb1410
+0x46858	READ	FUN_7ff74f456858@0x46858
+0x27ee78	READ	FUN_7ff74f68ed9c@0x27ed9c
+0x46484	READ	FUN_7ff74f456484@0x46484
+0x2c13d3	READ	FUN_7ff74f6d139c@0x2c139c
+0x2c147b	READ	FUN_7ff74f6d139c@0x2c139c
+0x2c14f4	READ	FUN_7ff74f6d139c@0x2c139c
+0x2c15bc	READ	FUN_7ff74f6d139c@0x2c139c
+0x35f0d8	READ	FUN_7ff74f76f0d4@0x35f0d4
+0x403deb	READ	FUN_7ff74f813388@0x403388
+0x403e36	READ	FUN_7ff74f813388@0x403388
+0x464fc	READ	FUN_7ff74f4564fc@0x464fc
+0xec5ef	READ	FUN_7ff74f4fc56c@0xec56c
+0xed6cf	READ	FUN_7ff74f4fd584@0xed584
+0xed6e8	READ	FUN_7ff74f4fd584@0xed584
+0xec95b	READ	FUN_7ff74f4fc90c@0xec90c
+0xec9fa	READ	FUN_7ff74f4fc90c@0xec90c
+0xee12d	READ	FUN_7ff74f4fe0bc@0xee0bc
+0xee141	READ	FUN_7ff74f4fe0bc@0xee0bc
+0xee1b7	READ	FUN_7ff74f4fe0bc@0xee0bc
+0xee241	READ	FUN_7ff74f4fe0bc@0xee0bc
+0x2c44b5	READ	FUN_7ff74f6d4450@0x2c4450
+0x2c64d6	READ	FUN_7ff74f6d63f0@0x2c63f0
+0x382ab5	READ	FUN_7ff74f792a80@0x382a80
+0x382e9a	READ	FUN_7ff74f792a80@0x382a80
+0x382fd4	READ	FUN_7ff74f792a80@0x382a80
+0x383835	READ	FUN_7ff74f793800@0x383800
+0x383aa4	READ	FUN_7ff74f793800@0x383800
+0x383b8b	READ	FUN_7ff74f793800@0x383800
+0x3fecb7	READ	FUN_7ff74f80ec90@0x3fec90
+0x3ff965	READ	FUN_7ff74f80f90c@0x3ff90c
+0x3ff9b6	READ	FUN_7ff74f80f994@0x3ff994
+0x46518	READ	FUN_7ff74f456518@0x46518
+0x464e8	READ	FUN_7ff74f4564e8@0x464e8
+0x3ed5f1	READ	FUN_7ff74f7fd578@0x3ed578
+0x40480e	READ	FUN_7ff74f814780@0x404780
+0x404e3c	READ	FUN_7ff74f814780@0x404780
+0xb50bf	READ	FUN_7ff74f4c5060@0xb5060
+0x37e129	READ	FUN_7ff74f78e0e4@0x37e0e4
+0x405401	READ	FUN_7ff74f81537c@0x40537c
+0xb5145	READ	FUN_7ff74f4c50f8@0xb50f8
+0x406173	READ	FUN_7ff74f8160e0@0x4060e0
+0x40626d	READ	FUN_7ff74f81621c@0x40621c
+0x406de4	READ	FUN_7ff74f816d10@0x406d10
+0x1391c9	READ	FUN_7ff74f5491a0@0x1391a0
+0x200b0f	READ	FUN_7ff74f610a48@0x200a48
+0x164390	READ	FUN_7ff74f5741b8@0x1641b8
+0x16452c	READ	FUN_7ff74f5741b8@0x1641b8
+0x42dd2c	READ	FUN_7ff74f83dc6c@0x42dc6c
+0x42dde4	READ	FUN_7ff74f83dde4@0x42dde4
+0x481f60	READ	FUN_7ff74f891ef4@0x481ef4
+0x3ba45e	READ	FUN_7ff74f7ca43c@0x3ba43c
+0x4cea59	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4ceb21	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4ceb4e	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4cebd0	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4cf0de	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4cf154	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4cf181	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4cf38e	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4cf43c	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4cf5cd	READ	FUN_7ff74f8de90c@0x4ce90c
+0x4ce0d7	READ	FUN_7ff74f8dde24@0x4cde24
+0x4cf8d6	READ	FUN_7ff74f8df7c8@0x4cf7c8
+0x4cf942	READ	FUN_7ff74f8df7c8@0x4cf7c8
+0x4d0fe4	READ	FUN_7ff74f8e0fe0@0x4d0fe0
+0x4d15e7	READ	FUN_7ff74f8e15e0@0x4d15e0
+0x58f66a	READ	FUN_7ff74f99f614@0x58f614
+0x590f68	READ	FUN_7ff74f9a0f58@0x590f58
+0x5b909b	READ	FUN_7ff74f9c9068@0x5b9068
+0x5c4157	READ	FUN_7ff74f9d3f04@0x5c3f04
+0x5c4234	READ	FUN_7ff74f9d3f04@0x5c3f04
+0x5c435c	READ	FUN_7ff74f9d4358@0x5c4358
+0x5e0e19	READ	FUN_7ff74f9f0de0@0x5e0de0
+0x6e13a2	READ	FUN_7ff74faf1380@0x6e1380
+0x6e18f6	READ	FUN_7ff74faf1828@0x6e1828
+0x6e19b8	READ	FUN_7ff74faf1828@0x6e1828
+0x6e1a72	READ	FUN_7ff74faf1828@0x6e1828
+0x6e1d07	READ	FUN_7ff74faf1b70@0x6e1b70
+0x6e1db5	READ	FUN_7ff74faf1b70@0x6e1b70
+0x6e1f2b	READ	FUN_7ff74faf1e6c@0x6e1e6c
+0x6e204a	READ	FUN_7ff74faf1e6c@0x6e1e6c
+0x6e2f58	READ	FUN_7ff74faf2ebc@0x6e2ebc
+0x6e3331	READ	FUN_7ff74faf2ebc@0x6e2ebc
+0x6e36f7	READ	FUN_7ff74faf3698@0x6e3698
+0x6e398e	READ	FUN_7ff74faf397c@0x6e397c
+0x6e405d	READ	FUN_7ff74faf3ec0@0x6e3ec0
+0x283928	READ	FUN_7ff74f693928@0x283928
+0x283950	READ	FUN_7ff74f693950@0x283950
+0x283970	READ	FUN_7ff74f69396c@0x28396c
+0x2f4f17	READ	FUN_7ff74f704efc@0x2f4efc
+0x917a52	READ	FUN_7ff74fd27a18@0x917a18
+0x5c3933	READ	FUN_7ff74f9d37e8@0x5c37e8
+0x9e50bc	READ	FUN_7ff74fdf507c@0x9e507c
+0x953e6c	READ	FUN_7ff74fd63e30@0x953e30
+0x9fc7be	READ	FUN_7ff74fe0c750@0x9fc750
+0x2838ee	READ	FUN_7ff74f6938e8@0x2838e8
+0x28393c	READ	FUN_7ff74f69393c@0x28393c
+0xa4e8ca	READ	FUN_7ff74fe5e7d0@0xa4e7d0
+0xa4e987	READ	FUN_7ff74fe5e7d0@0xa4e7d0
+0x91a06c	READ	FUN_7ff74fd29e5c@0x919e5c
+0x91a0e2	READ	FUN_7ff74fd29e5c@0x919e5c
+0xfdc270	READ	FUN_7ff7503ec010@0xfdc010
+0xfde700	READ	FUN_7ff7503ee700@0xfde700
+0xfe31a7	READ	FUN_7ff7503f3060@0xfe3060
+0xfe3238	READ	FUN_7ff7503f3060@0xfe3060
+0x10e052b	READ	FUN_7ff7504f03d0@0x10e03d0
+0x9cae7a	READ	FUN_7ff74fddae64@0x9cae64
+0x2a6587	READ	FUN_7ff74f6b6514@0x2a6514
+0x2a6620	READ	FUN_7ff74f6b6514@0x2a6514
+0xa2221f	READ	FUN_7ff74fe3166c@0xa2166c
+0x102ae2b	READ	FUN_7ff75043ad60@0x102ad60
+0x111208f	READ	FUN_7ff750521bd0@0x1111bd0
+0x1113257	READ	FUN_7ff750523090@0x1113090
+0x1113428	READ	FUN_7ff750523090@0x1113090
+0x1113914	READ	FUN_7ff750523780@0x1113780
+0x11149c0	READ	FUN_7ff750524750@0x1114750
+0x912baa	READ	FUN_7ff74fd22b68@0x912b68
+0x912bbe	READ	FUN_7ff74fd22b68@0x912b68
+0x664347	READ	FUN_7ff74fa74334@0x664334
+0x66449e	READ	FUN_7ff74fa74334@0x664334
+0x1853f4	READ	FUN_7ff74f5953c8@0x1853c8
+0x185c3a	READ	FUN_7ff74f595b8c@0x185b8c
+0x27901a	READ	FUN_7ff74f688ff8@0x278ff8
+0x5719a2	READ	FUN_7ff74f981988@0x571988
+0x571a2e	READ	FUN_7ff74f981988@0x571988
+0x2e5c1f	READ	FUN_7ff74f6f5c00@0x2e5c00
+0x185580	READ	FUN_7ff74f595560@0x185560
+0x185641	READ	FUN_7ff74f595560@0x185560
+0x277f13	READ	FUN_7ff74f687ed4@0x277ed4
+0x278085	READ	FUN_7ff74f687ed4@0x277ed4
+0x278115	READ	FUN_7ff74f687ed4@0x277ed4
+0x27822a	READ	FUN_7ff74f687ed4@0x277ed4
+0x278273	READ	FUN_7ff74f687ed4@0x277ed4
+0x86f9a8	READ	FUN_7ff74fc7f994@0x86f994
+0x86fa8a	READ	FUN_7ff74fc7f994@0x86f994
+0x86faca	READ	FUN_7ff74fc7f994@0x86f994
+0x99de90	READ	FUN_7ff74fdade7c@0x99de7c
+0x662804	READ	FUN_7ff74fa7277c@0x66277c
+0x3ee959	READ	FUN_7ff74f7fe8e0@0x3ee8e0
+0x663c47	READ	FUN_7ff74fa739b0@0x6639b0
+0x663c79	READ	FUN_7ff74fa739b0@0x6639b0
+0x663cb2	READ	FUN_7ff74fa739b0@0x6639b0
+0x663d82	READ	FUN_7ff74fa739b0@0x6639b0
+0x5b8f90	READ	FUN_7ff74f9c8f64@0x5b8f64
+0xa45a10	READ	FUN_7ff74fe559fc@0xa459fc
+0x1fbd8fa	READ	FUN_7ff7513cd8dc@0x1fbd8dc
+0x1fbda71	READ	FUN_7ff7513cda50@0x1fbda50
+0x1fd3aaa	READ	FUN_7ff7513e3a14@0x1fd3a14
+0x203fcee	READ	FUN_7ff75144fca4@0x203fca4
+0x204d0e7	READ	FUN_7ff75145d088@0x204d088
+0x204e24b	READ	FUN_7ff75145e21c@0x204e21c
+0x20508f2	READ	FUN_7ff75146087c@0x205087c
+0x20581d6	READ	FUN_7ff7514681cc@0x20581cc
+0x205d053	READ	FUN_7ff75146d010@0x205d010
+0x205d09c	READ	FUN_7ff75146d010@0x205d010
+0x205d209	READ	FUN_7ff75146d010@0x205d010
+0x206a817	READ	FUN_7ff75147a798@0x206a798
+0x206a830	READ	FUN_7ff75147a798@0x206a798
+0x206a8c1	READ	FUN_7ff75147a798@0x206a798
+0x10881af	READ	FUN_7ff7504972f0@0x10872f0
+0x1088392	READ	FUN_7ff7504972f0@0x10872f0
+0x10cea09	READ	FUN_7ff7504de9f0@0x10ce9f0
+0x224e7a7	READ	FUN_7ff75165e770@0x224e770
+0x2252304	READ	FUN_7ff75166218c@0x225218c
+0x2253b77	READ	FUN_7ff751663b34@0x2253b34
+0x2253cb3	READ	FUN_7ff751663c7c@0x2253c7c
+0x291c8ae	READ	FUN_7ff751d2c878@0x291c878
+0x1334080	READ	FUN_7ff750744080@0x1334080
+0x86be0f	READ	FUN_7ff74fc7bdbc@0x86bdbc
+0xa46796	READ	FUN_7ff74fe566e8@0xa466e8
+0x3fd380	READ	FUN_7ff74f80d37c@0x3fd37c
+0x3fd823	READ	FUN_7ff74f80d610@0x3fd610
+0x3fd850	READ	FUN_7ff74f80d610@0x3fd610
+0x3fdc52	READ	FUN_7ff74f80d610@0x3fd610
+0x5e8d72	READ	FUN_7ff74f9f8d48@0x5e8d48
+0x5e8dc9	READ	FUN_7ff74f9f8d48@0x5e8d48
+0x2c3d6d	READ	FUN_7ff74f6d3774@0x2c3774
+0x2c3f4d	READ	FUN_7ff74f6d3774@0x2c3774
+0x2c464f	READ	FUN_7ff74f6d45e4@0x2c45e4
+0x5c33af	READ	FUN_7ff74f9d2bc8@0x5c2bc8
+0x5c3408	READ	FUN_7ff74f9d2bc8@0x5c2bc8
+0x5c231f	READ	FUN_7ff74f9d22fc@0x5c22fc
+0x3beed1	READ	FUN_7ff74f7cee64@0x3bee64
+0x3bef98	READ	FUN_7ff74f7cee64@0x3bee64
+0x9036cc	READ	FUN_7ff74fd13684@0x903684
+0xa1e45d	READ	FUN_7ff74fe2e3cc@0xa1e3cc
+0xa1e491	READ	FUN_7ff74fe2e3cc@0xa1e3cc
+0xa31e2b	READ	FUN_7ff74fe41e08@0xa31e08
+0xa3b719	READ	FUN_7ff74fe4b700@0xa3b700
+0x2257e1d	READ	FUN_7ff751667df8@0x2257df8
+0x93446	READ	FUN_7ff74f4a3408@0x93408
+0x91bd8	READ	FUN_7ff74f4a1bbc@0x91bbc
+0x5d4adb	READ	FUN_7ff74f9e4ab8@0x5d4ab8
+0x5b36e1	READ	FUN_7ff74f9c361c@0x5b361c
+0x5b3849	READ	FUN_7ff74f9c37f0@0x5b37f0
+0x5b3876	READ	FUN_7ff74f9c37f0@0x5b37f0
+0x9a16b	READ	FUN_7ff74f4aa134@0x9a134
+0x9a1a1	READ	FUN_7ff74f4aa134@0x9a134
+0x9a1df	READ	FUN_7ff74f4aa134@0x9a134
+0x9a3a0	READ	FUN_7ff74f4aa134@0x9a134
+0x9a3dc	READ	FUN_7ff74f4aa134@0x9a134
+0x9f3c9	READ	FUN_7ff74f4af344@0x9f344
+0xa0763	READ	FUN_7ff74f4b0718@0xa0718
+0xa07a0	READ	FUN_7ff74f4b0718@0xa0718
+0x89b4a0	READ	FUN_7ff74fcab4a0@0x89b4a0
+0x65ce24	READ	FUN_7ff74fa6cc24@0x65cc24
+0x130ce13	READ	FUN_7ff75071cd70@0x130cd70
+0x661d6a	READ	FUN_7ff74fa7179c@0x66179c
+0xb2bf0	READ	FUN_7ff74f4c2980@0xb2980
+0x9543d7	READ	FUN_7ff74fd64294@0x954294
+0x954682	READ	FUN_7ff74fd64678@0x954678
+0x2aac7a	READ	FUN_7ff74f6bac04@0x2aac04
+0x2c48ce	READ	FUN_7ff74f6d4868@0x2c4868
+0x8bf90c	READ	FUN_7ff74fccf90c@0x8bf90c
+0x95418b	READ	FUN_7ff74fd64164@0x954164
+0xfdefe4	READ	FUN_7ff7503eeef0@0xfdeef0
+0xfdf052	READ	FUN_7ff7503eeef0@0xfdeef0
+0xfdf234	READ	FUN_7ff7503eeef0@0xfdeef0
+0xfdf332	READ	FUN_7ff7503eeef0@0xfdeef0
+0xfdf5d5	READ	FUN_7ff7503eeef0@0xfdeef0
+0xfdf9fb	READ	FUN_7ff7503eeef0@0xfdeef0
+0xff024d	READ	FUN_7ff7504000b0@0xff00b0
+0x1c22a65	READ	FUN_7ff75103292c@0x1c2292c
+0x235ba2	READ	FUN_7ff74f645af0@0x235af0
+0x235ca2	READ	FUN_7ff74f645af0@0x235af0
+0x204c880	READ	FUN_7ff75145c848@0x204c848
+0x204c8d7	READ	FUN_7ff75145c848@0x204c848
+0x328506	READ	FUN_7ff74f737dec@0x327dec
+0x32931c	READ	FUN_7ff74f737dec@0x327dec
+0x7f6fb6	READ	FUN_7ff74fc06fa4@0x7f6fa4
+0x200cf9	READ	FUN_7ff74f610c7c@0x200c7c
+0x902590	READ	FUN_7ff74fd12590@0x902590
+0xb5b1a	READ	FUN_7ff74f4c59e0@0xb59e0
+0x7d04cf	READ	FUN_7ff74fbe0484@0x7d0484
+0x7d0f38	READ	FUN_7ff74fbe0e8c@0x7d0e8c
+0x2916a53	READ	FUN_7ff751d26a00@0x2916a00
+0xd58c5	READ	FUN_7ff74f4e5898@0xd5898
+0xd62b3	READ	FUN_7ff74f4e5e90@0xd5e90
+0xda308	READ	FUN_7ff74f4e8e00@0xd8e00
+0xdbbe9	READ	FUN_7ff74f4ebb90@0xdbb90
+0xdd1b9	READ	FUN_7ff74f4ebb90@0xdbb90
+0x2367a8	READ	FUN_7ff74f646788@0x236788
+0x36d02a	READ	FUN_7ff74f77cf28@0x36cf28
+0x36e0a2	READ	FUN_7ff74f77cf28@0x36cf28
+0x186cb1	READ	FUN_7ff74f596c18@0x186c18
+0x186e3d	READ	FUN_7ff74f596c18@0x186c18
+0x3bca25	READ	FUN_7ff74f7cca00@0x3bca00
+0x3bcac1	READ	FUN_7ff74f7cca00@0x3bca00
+0x69ce93	READ	FUN_7ff74faacdc8@0x69cdc8
+0x69d438	READ	FUN_7ff74faad330@0x69d330
+0x69d5d7	READ	FUN_7ff74faad330@0x69d330
+0x8ab6f5	READ	FUN_7ff74fcbb664@0x8ab664
+0x95eeea	READ	FUN_7ff74fd6ee94@0x95ee94
+0x2250d6a	READ	FUN_7ff751660d54@0x2250d54
+0x2253e34	READ	FUN_7ff751663e18@0x2253e18
+0x1fc739c	READ	FUN_7ff7513d7378@0x1fc7378
+0x1fc60a5	READ	FUN_7ff7513d6054@0x1fc6054
+0xddcda	READ	FUN_7ff74f4edc70@0xddc70
+0xde251	READ	FUN_7ff74f4edc70@0xddc70
+0xdf2f1	READ	FUN_7ff74f4edc70@0xddc70
+0xdf657	READ	FUN_7ff74f4edc70@0xddc70
+0xdfbd2	READ	FUN_7ff74f4edc70@0xddc70
+0xdff7f	READ	FUN_7ff74f4edc70@0xddc70
+0xe023f	READ	FUN_7ff74f4edc70@0xddc70
+0x588d21	READ	FUN_7ff74f998ae4@0x588ae4
+0x8165bf	READ	FUN_7ff74fc264c4@0x8164c4
+0x816759	READ	FUN_7ff74fc264c4@0x8164c4
+0x3a4809	READ	FUN_7ff74f7b46cc@0x3a46cc
+0x111db40	READ	FUN_7ff75052db40@0x111db40
+0x10bc48	READ	FUN_7ff74f51bc34@0x10bc34
+0x126c7f	READ	FUN_7ff74f536c64@0x126c64
+0x126fea	READ	FUN_7ff74f536f74@0x126f74
+0x31c092	READ	FUN_7ff74f72c068@0x31c068
+0x4d1034	READ	FUN_7ff74f8e1028@0x4d1028
+0xa61108	READ	FUN_7ff74fe710d0@0xa610d0
+0x15e597	READ	FUN_7ff74f56e4cc@0x15e4cc
+0x60d419	READ	FUN_7ff74fa1d3fc@0x60d3fc
+0xfa7147	READ	FUN_7ff7503b7120@0xfa7120
+0xfa719d	READ	FUN_7ff7503b7120@0xfa7120
+0xfa71bd	READ	FUN_7ff7503b7120@0xfa7120
+0xfa723d	READ	FUN_7ff7503b7120@0xfa7120
+0xfa725d	READ	FUN_7ff7503b7120@0xfa7120
+0xfa727e	READ	FUN_7ff7503b7120@0xfa7120
+0xfa729d	READ	FUN_7ff7503b7120@0xfa7120
+0x1011740	READ	FUN_7ff750421710@0x1011710
+0x1009be0	READ	FUN_7ff750419bd0@0x1009bd0
+0x20ad6e9	READ	FUN_7ff7514bd64c@0x20ad64c
+0x3d7d70	READ	FUN_7ff74f7e7d70@0x3d7d70
+0x4d222f	READ	FUN_7ff74f8e21e8@0x4d21e8
+0x7f6ef9	READ	FUN_7ff74fc06ed8@0x7f6ed8
+0x7f72a6	READ	FUN_7ff74fc07278@0x7f7278
+0x7f734e	READ	FUN_7ff74fc07278@0x7f7278
+0x9c5138	READ	FUN_7ff74fdd5104@0x9c5104
+0x16252d	READ	FUN_7ff74f5720ec@0x1620ec
+0x16258d	READ	FUN_7ff74f5720ec@0x1620ec
+0x27f659	READ	FUN_7ff74f68f560@0x27f560
+0x686a80	READ	FUN_7ff74fa969d8@0x6869d8
+0x686ad8	READ	FUN_7ff74fa969d8@0x6869d8
+0x686de4	READ	FUN_7ff74fa96d3c@0x686d3c
+0x686e40	READ	FUN_7ff74fa96d3c@0x686d3c
+0x224ca4c	READ	FUN_7ff75165c960@0x224c960
+0x224cbb0	READ	FUN_7ff75165c960@0x224c960
+0x28a6d91	READ	FUN_7ff751cb6d78@0x28a6d78
+0x174dd6	READ	FUN_7ff74f584c9c@0x174c9c
+0xfb8525	READ	FUN_7ff7503c83a0@0xfb83a0
+0x613554	READ	FUN_7ff74fa23538@0x613538
+0x613715	READ	FUN_7ff74fa23704@0x613704
+0x613764	READ	FUN_7ff74fa23754@0x613754
+0xfa78a8	READ	FUN_7ff7503b7860@0xfa7860
+0xfb926a	READ	FUN_7ff7503c9250@0xfb9250
+0x18088f	READ	FUN_7ff74f590880@0x180880
+0x180a73	READ	FUN_7ff74f590908@0x180908
+0x180bbf	READ	FUN_7ff74f590b78@0x180b78
+0x1fb9f70	READ	FUN_7ff7513c9ec0@0x1fb9ec0
+0x181ca6	READ	FUN_7ff74f591c90@0x181c90
+0x181d5e	READ	FUN_7ff74f591cc0@0x181cc0
+0x181d8b	READ	FUN_7ff74f591cc0@0x181cc0
+0x18537a	READ	FUN_7ff74f595358@0x185358
+0x185e73	READ	FUN_7ff74f595e30@0x185e30
+0x185ecf	READ	FUN_7ff74f595e30@0x185e30
+0x18613d	READ	FUN_7ff74f596108@0x186108
+0x1861a3	READ	FUN_7ff74f596194@0x186194
+0x186228	READ	FUN_7ff74f596208@0x186208
+0x1862e8	READ	FUN_7ff74f5962b0@0x1862b0
+0x186a6b	READ	FUN_7ff74f5969a8@0x1869a8
+0x187053	READ	FUN_7ff74f597024@0x187024
+0x18708c	READ	FUN_7ff74f597024@0x187024
+0x1a067a	READ	FUN_7ff74f5b043c@0x1a043c
+0x1a0893	READ	FUN_7ff74f5b043c@0x1a043c
+0x1a09f2	READ	FUN_7ff74f5b043c@0x1a043c
+0x1077425	READ	FUN_7ff750487400@0x1077400
+0x110dbd4	READ	FUN_7ff75051db90@0x110db90
+0x110dd28	READ	FUN_7ff75051db90@0x110db90
+0x5762c3	READ	FUN_7ff74f9862c0@0x5762c0
+0x5779b8	READ	FUN_7ff74f9879b8@0x5779b8
+0x1fd666	READ	FUN_7ff74f60cf88@0x1fcf88
+0x361638	READ	FUN_7ff74f7715d4@0x3615d4
+0x36166f	READ	FUN_7ff74f7715d4@0x3615d4
+0x12fbf75	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fbfc1	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc027	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc084	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc11c	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc1a4	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc26e	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc2bf	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc327	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc384	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x12fc418	READ	FUN_7ff75070bdd0@0x12fbdd0
+0x56e8c6	READ	FUN_7ff74f97e7f8@0x56e7f8
+0x56ead5	READ	FUN_7ff74f97ea84@0x56ea84
+0x56eb3c	READ	FUN_7ff74f97ea84@0x56ea84
+0x36188f	READ	FUN_7ff74f771878@0x361878
+0x28dceec	READ	FUN_7ff751cece34@0x28dce34
+0x46454	READ	FUN_7ff74f456454@0x46454
+0x5cf368	READ	FUN_7ff74f9df368@0x5cf368
+0x7f50d4	READ	FUN_7ff74fc050d4@0x7f50d4
+0x1ff38c	READ	FUN_7ff74f60f320@0x1ff320
+0x1ff92e	READ	FUN_7ff74f60f320@0x1ff320
+0x1fff2c	READ	FUN_7ff74f60ff14@0x1fff14
+0x2005b0	READ	FUN_7ff74f6102d4@0x2002d4
+0x2382aa	READ	FUN_7ff74f6482a4@0x2382a4
+0xff236b	READ	FUN_7ff750402320@0xff2320
+0xff253b	READ	FUN_7ff7504024f0@0xff24f0
+0x205a47	READ	FUN_7ff74f615840@0x205840
+0x205bca	READ	FUN_7ff74f615840@0x205840
+0x205ce8	READ	FUN_7ff74f615840@0x205840
+0x205e41	READ	FUN_7ff74f615840@0x205840
+0x205fa6	READ	FUN_7ff74f615840@0x205840
+0x2061d3	READ	FUN_7ff74f615840@0x205840
+0x3622b4	READ	FUN_7ff74f771f68@0x361f68
+0x5869b6	READ	FUN_7ff74f996840@0x586840
+0x586a86	READ	FUN_7ff74f996840@0x586840
+0x5cbc06	READ	FUN_7ff74f9dbbac@0x5cbbac
+0x6a42ce	READ	FUN_7ff74fab426c@0x6a426c
+0x5874a6	READ	FUN_7ff74f997470@0x587470
+0x58751c	READ	FUN_7ff74f997470@0x587470
+0x2087f8	READ	FUN_7ff74f6186e8@0x2086e8
+0x209334	READ	FUN_7ff74f6186e8@0x2086e8
+0x209771	READ	FUN_7ff74f6186e8@0x2086e8
+0x209c79	READ	FUN_7ff74f6186e8@0x2086e8
+0x4821c5	READ	FUN_7ff74f8920f8@0x4820f8
+0x4821f0	READ	FUN_7ff74f8920f8@0x4820f8
+0x48a25b	READ	FUN_7ff74f89a248@0x48a248
+0x5d4901	READ	FUN_7ff74f9e48a0@0x5d48a0
+0xa30bf4	READ	FUN_7ff74fe40bc0@0xa30bc0
+0x2925a3a	READ	FUN_7ff751d358cc@0x29258cc
+0x1fb8ac5	READ	FUN_7ff7513c8a0c@0x1fb8a0c
+0x12e9825	READ	FUN_7ff7506f97f0@0x12e97f0
+0x205d7e2	READ	FUN_7ff75146d7b4@0x205d7b4
+0x2109bc	READ	FUN_7ff74f6208e4@0x2108e4
+0x210afe	READ	FUN_7ff74f6208e4@0x2108e4
+0x210f03	READ	FUN_7ff74f620c54@0x210c54
+0x211638	READ	FUN_7ff74f621520@0x211520
+0x2bbb01	READ	FUN_7ff74f6cb9fc@0x2bb9fc
+0x211f8b	READ	FUN_7ff74f621a4c@0x211a4c
+0x2b9dd9	READ	FUN_7ff74f6c9b18@0x2b9b18
+0x2125f0	READ	FUN_7ff74f6224a4@0x2124a4
+0x212635	READ	FUN_7ff74f6224a4@0x2124a4
+0x21272d	READ	FUN_7ff74f6224a4@0x2124a4
+0x212ef8	READ	FUN_7ff74f6224a4@0x2124a4
+0x213053	READ	FUN_7ff74f6224a4@0x2124a4
+0x213474	READ	FUN_7ff74f6224a4@0x2124a4
+0x21353e	READ	FUN_7ff74f6224a4@0x2124a4
+0x213674	READ	FUN_7ff74f6224a4@0x2124a4
+0x213792	READ	FUN_7ff74f6224a4@0x2124a4
+0x213971	READ	FUN_7ff74f6224a4@0x2124a4
+0x213abb	READ	FUN_7ff74f6224a4@0x2124a4
+0x213bcc	READ	FUN_7ff74f6224a4@0x2124a4
+0x213c96	READ	FUN_7ff74f6224a4@0x2124a4
+0x213e39	READ	FUN_7ff74f6224a4@0x2124a4
+0x2141d1	READ	FUN_7ff74f6224a4@0x2124a4
+0x214272	READ	FUN_7ff74f6224a4@0x2124a4
+0x2ba58a	READ	FUN_7ff74f6ca540@0x2ba540
+0x3bc816	READ	FUN_7ff74f7cc340@0x3bc340
+0x570fe9	READ	FUN_7ff74f980fd4@0x570fd4
+0x5711e7	READ	FUN_7ff74f980fd4@0x570fd4
+0x57120b	READ	FUN_7ff74f980fd4@0x570fd4
+

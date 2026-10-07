@@ -1,0 +1,2785 @@
+id_dec	id_hex	name	gear_raw
+47	002F	Storm of Strikes	
+171	00AB	Seven Scalp Switchglaive	[20, 0, 16, 0]
+187	00BB	Supreme Shift	
+199	00C7	Demon God Mask	
+201	00C9	Swordmaster's Attire	
+202	00CA	Martial Artist Fists	[18, 0, 16, 0]
+205	00CD	Vibrant Scale	
+217	00D9	Light Yamatai Greaves	[18, 24, 18, 28]
+309	0135	Lone Wolf's Cuirass	[32, 40, 32, 56]
+342	0156	Yamatai Helmet	[54, 44, 51, 50]
+363	016B	High Quality Tamahagane	
+364	016C	Ichigen Koji's Shoes	[41, 28, 34, 31]
+370	0172	Konaki-Jiji Hair	
+424	01A8	Senjuin Tachi	[12, 0, 11, 0]
+457	01C9	Demon Horde Kusarigama	[18, 0, 18, 0]
+473	01D9	Ornamental Blade	
+497	01F1	Frost Blossom Cestuses	[18, 0, 16, 0]
+545	0221	Hino-enma's Cloth	
+595	0253	Infernal Cestuses	
+596	0254	Geyser Shot	
+625	0271	Dodanuki Masakuni	
+646	0286	Upper Vassal's Robe	[32, 26, 32, 38]
+711	02C7	Summoning Seal: {}	
+792	0318	Summoning Seal: {}	
+830	033E	Merchant's Attire	
+886	0376	Tatenashi Waistguard	[83, 68, 78, 75]
+912	0390	Wisdom Sutra Sword & Plane Cutter	
+980	03D4	^13~UNUSED~	
+1028	0404	Scampuss Hat	[16, 19, 16, 28]
+1048	0418	Mataemon's Robe	[36, 38, 32, 38]
+1051	041B	Blood-Scrawled Orders, Section IV	
+1054	041E	Sohaya Armor	
+1061	0425	Summoning Seal: {}	
+1078	0436	Hellfrost Warrior Cuirass	[76, 40, 68, 62]
+1101	044D	Summoning Seal: {}	
+1126	0466	Evil-Crusher Splitstaff	
+1139	0473	Hellfrost Ninja Waistguard	[27, 30, 24, 42]
+1191	04A7	Brave Demon Hunter's Waistguard	[56, 33, 56, 47]
+1202	04B2	Giant Toad Oil	
+1242	04DA	Sickle Spear	[26, 0, 20, 0]
+1243	04DB	Royal Horned Helm	
+1270	04F6	SKILL NAME DUMMY	
+1281	0501	Material Essence (Damage Taken)	
+1296	0510	Heirloom Waistguard	[72, 59, 68, 75]
+1309	051D	Supernatural Tales: "Leave It!"	
+1313	0521	Dodging	
+1351	0547	Usami Nagamitsu	
+1386	056A	Young Branch	
+1389	056D	^13~UNUSED~	
+1397	0575	Roar Power	
+1434	059A	Lantern Plant Fruit	
+1443	05A3	Mantra Sword	[11, 0, 11, 0]
+1477	05C5	Scampuss Hat	[16, 19, 16, 28]
+1486	05CE	Hinomotogo	[27, 0, 20, 0]
+1490	05D2	Youngblood Armor	
+1511	05E7	Elixir	
+1519	05EF	Spy's Fists	[18, 0, 16, 0]
+1544	0608	SKILL NAME DUMMY	
+1547	060B	Guardian Monk's Sleevelets	[35, 20, 34, 31]
+1552	0610	Ancient General's Hoko & Shield	[20, 0, 16, 0]
+1578	062A	Abandoned Shrine Key	
+1605	0645	Brave Demon Hunter's Armor	
+1614	064E	Black Goose Helmet	
+1642	066A	Lightning Omamori	[1, 0, 1, 0]
+1691	069B	Evil-Crusher Switchglaive	[20, 0, 16, 0]
+1759	06DF	Lock of Grey Hair	
+1800	0708	Lightning Shikigami	
+1814	0716	Old Sage Mask	[7, 10, 6, 18]
+1815	0717	Levitation Scroll	
+1865	0749	Ferocious Gale	
+1920	0780	Purging Talisman	
+1921	0781	Gallant Thief's Gauntlets	[26, 46, 26, 49]
+1998	07CE	Officer's Spear	[22, 0, 20, 0]
+2007	07D7	Strider Talisman	
+2052	0804	Giant Beast Bone	
+2096	0830	Lightningstop Talisman	
+2105	0839	Demon Horde Greaves	[26, 45, 25, 49]
+2120	0848	Hellish Soul Gem	
+2121	0849	Gust Talisman	
+2153	0869	Rebounding Surge	
+2163	0873	Roaring Dragon Deflect	
+2169	0879	Kodama Netsuke Charm	[1, 0, 1, 0]
+2174	087E	Summoning Seal: {}	
+2189	088D	Sohaya Greaves	[18, 24, 18, 28]
+2190	088E	Tsuchigumo Clawed Fists	[18, 0, 16, 0]
+2194	0892	High Quality Iron Platelet	
+2240	08C0	Oniwaban Gauntlets	[8, 16, 8, 18]
+2247	08C7	Sacred Brush	
+2296	08F8	Irregular Troop's Greaves	[15, 9, 15, 19]
+2308	0904	Swordsmith's Hammer	
+2380	094C	SKILL NAME DUMMY	
+2412	096C	Shinto Priest's Vestments	
+2437	0985	Infernal Odachi	
+2450	0992	Honjo Masamune & Saber	
+2473	09A9	Old Sage Mask	
+2479	09AF	Overseer's Tonfa	
+2537	09E9	Tengu Mask	[17, 20, 16, 28]
+2538	09EA	Amulet of Camaraderie	
+2551	09F7	Moon Charm Helmet	[15, 10, 15, 19]
+2577	0A11	Tatenashi Armour	
+2578	0A12	Regal Lion & Bone Eater	[28, 0, 21, 0]
+2618	0A3A	Gale Shot Talisman	
+2649	0A59	Last Ninja's Waistguard	[29, 39, 29, 42]
+2661	0A65	Horned Skull Shard	
+2665	0A69	Naval Sleeves	[8, 15, 8, 18]
+2669	0A6D	Nuribotoke Soul Core	
+2730	0AAA	Hazy Moon Flute	[1, 0, 1, 0]
+2773	0AD5	Dissipation Talisman	
+2813	0AFD	Reciprocity Talisman	
+2827	0B0B	Hat Helmet	
+2953	0B89	Saburobei's Odachi	[16, 0, 16, 0]
+2963	0B93	Swordsman's Locks	
+2977	0BA1	Paralytic Groundfire	
+3147	0C4B	Bonepile Spear	
+3154	0C52	Fuma Ninja Hakama	[11, 15, 11, 27]
+3168	0C60	Lingering Spirit	
+3249	0CB1	SKILL NAME DUMMY	
+3260	0CBC	Supreme Parry Kai	
+3294	0CDE	Hollyhock Gauntlets	[40, 26, 40, 31]
+3298	0CE2	Toji Temple Yokai Scroll	
+3319	0CF7	Potsticker Spear	
+3322	0CFA	Swordsmith's Hammer	[45, 0, 48, 0]
+3346	0D12	Master Archer's Bow	
+3352	0D18	Infernal Ninja Sword	[11, 0, 11, 0]
+3373	0D2D	Warrior of the West's Armour	
+3382	0D36	Mind Control Talisman	
+3386	0D3A	Seki Dual Uchigatana	[21, 0, 21, 0]
+3435	0D6B	Bloodsucker & Spider Cutter	[21, 0, 21, 0]
+3472	0D90	Counteroffensive Evade	
+3489	0DA1	Bloodsucker & Spider Cutter	
+3507	0DB3	Hokkyo Rai Kinmichi & Uda Kunimitsu	
+3582	0DFE	SKILL NAME DUMMY	
+3585	0E01	Inadome Matchlock	
+3610	0E1A	Ancient Tree Branch	
+3649	0E41	Yokai Water Pot	
+3676	0E5C	Yagyu Gauntlets	[19, 27, 16, 28]
+3757	0EAD	Artful Deflection	
+3772	0EBC	Demon Horde Waistguard	[39, 68, 38, 74]
+3815	0EE7	Steel Talisman	
+3818	0EEA	Crucible Cudgel	
+3867	0F1B	Brother's Hakama	[56, 36, 56, 47]
+3873	0F21	SKILL NAME DUMMY	
+3881	0F29	Ravenous Claws	
+3909	0F45	Tobikura Kusarigama	
+3948	0F6C	SKILL NAME DUMMY	
+3951	0F6F	Summoning Seal: {}	
+3974	0F86	Lilac Switchglaive	
+3999	0F9F	Water Shot	
+4023	0FB7	Braided Straw Helmet	[17, 16, 17, 19]
+4035	0FC3	Ki-Sapping Follow-up	
+4050	0FD2	Ferryman's Bracers	[7, 11, 7, 18]
+4069	0FE5	Yamatai Cuirass	[108, 88, 102, 100]
+4081	0FF1	Summoning Seal: {}	
+4104	1008	Little Crow & Quickdraw	
+4241	1091	Hornthrust Bow	
+4246	1096	Nuppeppo Liver	
+4250	109A	Fire Omamori	[1, 0, 1, 0]
+4257	10A1	Female Demon Mask	[17, 20, 16, 28]
+4297	10C9	Inadome Matchlock	[5, 0, 5, 0]
+4318	10DE	Carnage Talisman	
+4341	10F5	Devotional Helmet	[36, 20, 33, 31]
+4383	111F	Power Pill	
+4405	1135	Viva la Amrita	
+4422	1146	Earthfolding Talisman	
+4427	114B	Quality Wood	
+4539	11BB	Hatchet Wielder's Locks	
+4569	11D9	Striking Retribution	[11, 0, 11, 0]
+4615	1207	Swallow's Wing	
+4639	121F	Joro-gumo Soul Core	
+4688	1250	Torch Spear	
+4690	1252	Wheel of Ice and Fire	
+4693	1255	White Lotus Fists	[18, 0, 16, 0]
+4694	1256	Yamabushi Bracers	[8, 13, 8, 18]
+4708	1264	Windproof Amulet	
+4723	1273	Slayer's Axe	
+4726	1276	Gaki Soul Core	
+4759	1297	SKILL NAME DUMMY	
+4803	12C3	Golden Key	
+4846	12EE	Arrowsbane	
+4863	12FF	Yagyu Hat	[19, 27, 16, 28]
+4864	1300	Upper Vassal's Hat	[16, 13, 16, 19]
+4866	1302	Ryomen Sukuna's Axe	
+4887	1317	Summoning Seal: {}	
+4907	132B	Gaki Soul Core	
+4925	133D	Samurai's Memorandum	
+4931	1343	Onimaru Kunitsuna	
+4939	134B	Tosa Governor's Armour	
+4968	1368	Luminous Blade Talisman	
+5071	13CF	Wind Familiar Talisman	
+5078	13D6	Footsoldier's Cuirass	[44, 38, 44, 38]
+5082	13DA	Skeletal Warrior's Sacrum	
+5086	13DE	Summoning Seal: {}	
+5126	1406	Rebel Ronin's Greaves	[41, 28, 33, 31]
+5129	1409	Lord Kamakura's Bow	
+5135	140F	Righteous Jasper	
+5165	142D	Deflection Expert	
+5184	1440	Luckbringer Talisman	
+5213	145D	First Captain's Haori	[36, 36, 36, 38]
+5214	145E	Tengu's Khakkhara	[18, 0, 16, 0]
+5218	1462	Myojin Scythe	
+5272	1498	Sozasamonji Matsukurago	
+5278	149E	Billhook Kusarigama	[18, 0, 18, 0]
+5280	14A0	Oasis Talisman	
+5351	14E7	Seething Dragon	[20, 0, 16, 0]
+5357	14ED	Veteran's Cuirass	[78, 50, 78, 62]
+5387	150B	Training Hakama	[11, 12, 9, 27]
+5390	150E	Seimei Fire Talisman	
+5397	1515	Gaki Chief Soul Core	
+5398	1516	Righteous Armor	
+5409	1521	Yata Mirror	[1, 0, 1, 0]
+5499	157B	Exorcist Blade Scroll	
+5517	158D	Overseer's Greaves	[8, 19, 8, 18]
+5551	15AF	Fleeting Guardian Amulet	
+5556	15B4	Quelling Requiem	
+5659	161B	Hino-enma Soul Core	
+5697	1641	Million Koku Waistguard	[89, 75, 80, 75]
+5737	1669	Summoning Seal: {}	
+5738	166A	Seventh Sword Tonfa	[20, 0, 16, 0]
+5739	166B	Mitsumono Greaves	[18, 22, 18, 28]
+5741	166D	Thunderous Warrior Cuirass	[76, 40, 68, 62]
+5755	167B	Gallnut Broth	
+5760	1680	Oak Hammer	[44, 0, 48, 0]
+5769	1689	Yagyo Soldier Soul Core	
+5800	16A8	Heizo's Cuirass	[52, 88, 50, 98]
+5852	16DC	Marksman's Waistguard	[26, 32, 26, 42]
+5874	16F2	Flashfire Helmet	
+5891	1703	Basket Blade & Boar Cutter	
+5931	172B	Diary of Vengeance II	
+5958	1746	Demon Bird's Beak	
+5982	175E	Wood	
+6000	1770	Western Diary Page	
+6015	177F	Nightstorm Kusarigama	
+6019	1783	Onryoki Helmet	
+6036	1794	Summoning Seal: {}	
+6041	1799	Gaki Soul Core	
+6047	179F	Exorcist's Hat	[25, 43, 24, 49]
+6054	17A6	Iga Gunpowder Bomb	
+6170	181A	SP_KARAMETORI	
+6180	1824	Mumyo's Mask	
+6183	1827	Wealthbringer Talisman	
+6196	1834	Earthfall Kusarigama	
+6237	185D	Hellfrost Ninja Greaves	[18, 20, 16, 28]
+6254	186E	Mataemon's Greaves	[18, 19, 16, 19]
+6271	187F	Last Stand	
+6330	18BA	Mountain Bandit Hatchets	[11, 0, 16, 0]
+6345	18C9	Summoning Seal: {}	
+6373	18E5	Osafune Chikakage	
+6377	18E9	Harakiri Sword	
+6465	1941	Tanuki Helmet	
+6474	194A	Yamatai Spear	[20, 0, 20, 0]
+6492	195C	Fledgling Ninja Fists	[18, 0, 16, 0]
+6519	1977	Brave Demon Hunter's Cuirass	[74, 44, 74, 62]
+6521	1979	Second Captain's Odachi	
+6524	197C	Yamauba Spear	
+6588	19BC	Shuri-no-suke's Waistguard	[78, 62, 74, 75]
+6593	19C1	Dojo Master's Memories - Becoming a Pupil	
+6610	19D2	Shinsengumi Headband	[17, 17, 17, 19]
+6632	19E8	Toshiie's Abacus	[1, 0, 1, 0]
+6646	19F6	Footsoldier's Gauntlets	[22, 19, 22, 19]
+6659	1A03	Gaki Soul Core	
+6694	1A26	Eccentric's Armor	
+6711	1A37	Crucible Ice Spear	[20, 0, 20, 0]
+6725	1A45	Umbral Bullet	
+6734	1A4E	Tate Eboshi's Switchglaive	
+6758	1A66	Double-Edged Arts	
+6760	1A68	Heir's Shinobi Gauntlets	[6, 8, 6, 18]
+6761	1A69	Dragon's Roar	[15, 0, 10, 0]
+6774	1A76	Oni-bi Core	
+6782	1A7E	Gaki Soul Core	
+6783	1A7F	One-eyed Imp's Clogs	
+6804	1A94	Kyo-Oh's Blade	[11, 0, 11, 0]
+6847	1ABF	Hellfire Ninja Faceguard	[17, 20, 16, 28]
+6850	1AC2	Summoning Seal: {}	
+6877	1ADD	Fan-Crested Helmet	[38, 23, 33, 31]
+6888	1AE8	Rasetsu Kusarigama	[23, 0, 18, 0]
+6906	1AFA	Water Omamori	[1, 0, 1, 0]
+6909	1AFD	Juzumaru Tsunetsugu	[16, 0, 11, 0]
+6911	1AFF	Sublime Impetus	
+6914	1B02	Shogunate Vest	[16, 34, 16, 36]
+6927	1B0F	Ornamental Blade	[11, 0, 11, 0]
+6944	1B20	Behemoth Snake Skeletons	
+6947	1B23	Dancing Blade	
+6952	1B28	Attack Mastery I	
+7000	1B58	Thunderous Warrior Greaves	[38, 20, 34, 31]
+7014	1B66	Crimson General's Armor	
+7016	1B68	Spider's Leg Husk	
+7077	1BA5	Lilac Cuirass	[112, 92, 106, 100]
+7108	1BC4	Negoro Rifle	[7, 0, 5, 0]
+7135	1BDF	^13~UNUSED~	
+7145	1BE9	Scampuss Hat	[16, 19, 16, 28]
+7174	1C06	Palisade Breaker	[48, 0, 48, 0]
+7176	1C08	Jiro Tachi	
+7180	1C0C	Kimibanzai Tomonari	[18, 0, 16, 0]
+7194	1C1A	Odenta Mitsuyo	
+7197	1C1D	Jonin's Splitstaff	[18, 0, 16, 0]
+7198	1C1E	Flint	
+7199	1C1F	Sohaya Gauntlets	[18, 24, 18, 28]
+7215	1C2F	Tatenashi Helmet	[55, 45, 52, 50]
+7279	1C6F	Yoryu Cannon	[13, 0, 10, 0]
+7287	1C77	Onzoshi Hakama	
+7318	1C96	Hyuga Director's Armor	
+7337	1CA9	Double-Headed Slice	
+7369	1CC9	Body Swap	
+7409	1CF1	Gaki Soul Core	
+7410	1CF2	Thief's Waistguard	[9, 14, 9, 27]
+7475	1D33	Footsoldier's Hoko & Shield	[20, 0, 16, 0]
+7476	1D34	Heir's Gauntlets	[33, 19, 33, 31]
+7557	1D85	Righteous Cuirass	[74, 42, 72, 62]
+7578	1D9A	Urn Splitter	[16, 0, 16, 0]
+7604	1DB4	Spirit Surge Talisman	
+7624	1DC8	Crimson Hand Cannon	[12, 0, 10, 0]
+7643	1DDB	Gaki Soul Core	
+7663	1DEF	Resolute Arts	
+7749	1E45	Lilac Waistguard	[84, 69, 80, 75]
+7789	1E6D	Water Dragon	[1, 0, 1, 0]
+7802	1E7A	Deadly Mark	
+7810	1E82	Hundred Demon Realms Picture Scroll	
+7877	1EC5	Summoning Seal: {}	
+7920	1EF0	Lightningproof Amulet	
+7970	1F22	Brother's Dual Katana	
+7982	1F2E	Demon Horde Hatchets	
+8003	1F43	Onmyo Hunting Hat	[18, 22, 18, 28]
+8077	1F8D	Hellfire Ninja Garment	[34, 40, 32, 56]
+8088	1F98	Preservation Talisman	
+8094	1F9E	Bowl Helmet	
+8098	1FA2	Demon Horde Axe	
+8103	1FA7	Demon Slayer Armor	
+8118	1FB6	Polished Persistence	
+8212	2014	Advantageous Deflect	
+8226	2022	Fuma Chief's Robes	[34, 40, 34, 56]
+8243	2033	Ichigo Hitofuri & Oyako Toshiro	
+8247	2037	Kawanami Clan Armor	
+8267	204B	Reaper	
+8289	2061	Kagutsuchi's Magatama	
+8294	2066	Supernatural Tales: One-Sided Reeds	
+8312	2078	Arrowhead Poison	
+8323	2083	Morning Moon	
+8326	2086	Bewildering Mist	
+8330	208A	Blood-Scrawled Orders, Section II	
+8363	20AB	Mikazuki Munechika	
+8453	2105	Kusanagi Netsuke Charm	[1, 0, 1, 0]
+8463	210F	Switchglaive Wielder's Locks	
+8464	2110	Samurai General's Cuirass	[78, 50, 78, 62]
+8486	2126	Slayer's Odachi	[16, 0, 16, 0]
+8491	212B	Jubei's Journeys III	
+8511	213F	Retainer's Sword & Shield	[20, 0, 16, 0]
+8534	2156	Frayed Diary - Page I	
+8550	2166	Fleetfoot	
+8595	2193	Blade-Breaking Deflect	
+8618	21AA	Fortitude II	
+8627	21B3	Taima Kuniyuki	[13, 0, 11, 0]
+8628	21B4	Mysticite Fragment	
+8636	21BC	Izuna Drop	
+8645	21C5	Scattered Ninjutsu	
+8657	21D1	Otegine Spear	
+8671	21DF	Zen Splitstaff	[18, 0, 16, 0]
+8740	2224	Stone Splitter	
+8744	2228	Izumi-no-Kami Dual Katana	[23, 0, 21, 0]
+8753	2231	Aberrant Switchglaive	[20, 0, 16, 0]
+8773	2245	SKILL NAME DUMMY	
+8796	225C	Style Shift Flow	
+8817	2271	Hozoin Cross Spear	
+8834	2282	Conch Shell	
+8845	228D	Great Ear of the Beast	
+8854	2296	Yokai Water Pot	
+8866	22A2	Note from Hachi	
+8873	22A9	Fan-Crested Helmet	[38, 23, 33, 31]
+8888	22B8	^13~UNUSED~	
+8912	22D0	Prayer Beads	[1, 0, 1, 0]
+8986	231A	Deityte Crystal	
+9007	232F	Lost Kingdom Tonfa	[20, 0, 16, 0]
+9040	2350	Raiju Soul Core	
+9044	2354	Rogue's Cuirass	[90, 76, 90, 76]
+9053	235D	Yatagarasu Armour	
+9058	2362	Exorcist Fists	
+9059	2363	Archyokai Talisman	
+9062	2366	Ninjutsu Link	
+9067	236B	Hairy Caterpillar Helmet	
+9088	2380	Echoing Thunder	[11, 0, 16, 0]
+9097	2389	Eagle Eye Scroll	
+9158	23C6	Himiko's Staff	
+9168	23D0	Evasion Expert	
+9213	23FD	Lord Kamakura's Eboshi	
+9221	2405	Spectral Salve	
+9280	2440	Leeching Talisman	
+9288	2448	Kashu Kiyomitsu	[11, 0, 11, 0]
+9302	2456	Poison Omamori	[1, 0, 1, 0]
+9310	245E	Demon Horde Cuirass	[52, 90, 50, 98]
+9322	246A	Demon Horde Katana	
+9325	246D	Tiger-Running Scroll	
+9341	247D	Serpent Strike	
+9366	2496	Wisdom Sutra Sword & Plane Cutter	[20, 0, 21, 0]
+9391	24AF	Hyottoko Mask	
+9407	24BF	Minamoto's Cuirass	[70, 46, 68, 62]
+9408	24C0	^13~UNUSED~	
+9435	24DB	Pufferpuss Form	
+9446	24E6	Youngblood Cuirass	[66, 40, 66, 62]
+9481	2509	Hand Mirror	[1, 0, 1, 0]
+9552	2550	Quality Leather Cord	
+9567	255F	Gojinka Hammer	
+9569	2561	Black Fox Mask	[8, 16, 7, 18]
+9609	2589	Talisman of the Fist	
+9649	25B1	Realmtaker Spear	
+9690	25DA	Mystic Fungus	
+9716	25F4	Summoning Seal: {}	
+9724	25FC	Fuma Chief's Talons	
+9743	260F	Fabled Umbracite	
+9757	261D	Summoning Seal: {}	
+9760	2620	Onmyo Hunting Bracers	[18, 22, 18, 28]
+9793	2641	Murakumo Helmet	
+9807	264F	Tengu's Fan	
+9817	2659	Aerial Strike	
+9824	2660	Huge Celadon Jar	
+9847	2677	Crimson General's Waistguard	[74, 60, 69, 75]
+9938	26D2	Rejuvenation Talisman	
+9956	26E4	Wooden Hammer	[43, 0, 48, 0]
+9958	26E6	Brute's Axe	[50, 0, 48, 0]
+10021	2725	Brother's Vestments	
+10050	2742	Iron Tonfa	[20, 0, 16, 0]
+10077	275D	Rosewood Tonfa	[20, 0, 16, 0]
+10095	276F	Fuma Clawed Fists	[18, 0, 16, 0]
+10103	2777	SKILL NAME DUMMY	
+10148	27A4	Ferryman's Robes	[14, 22, 14, 36]
+10175	27BF	Wooden Sword	[14, 0, 11, 0]
+10177	27C1	Infernal Dual Katana	[21, 0, 21, 0]
+10190	27CE	Spearman's Locks	
+10208	27E0	Takiguchi Musha Hoko & Shield	[20, 0, 16, 0]
+10214	27E6	Gaki Soul Core	
+10311	2847	Gunner's Hakama	[26, 24, 26, 29]
+10319	284F	Heizo's Gauntlets	[26, 44, 25, 49]
+10406	28A6	Iga Jonin Gauntlets	[7, 11, 7, 18]
+10436	28C4	Genryu's Armor	
+10461	28DD	Blessed Sleeve Gauntlets	[8, 12, 8, 18]
+10512	2910	Mibu Temple Key	
+10518	2916	Shock Troop Vest	[36, 50, 36, 56]
+10545	2931	Youngblood Waistguard	[50, 30, 50, 47]
+10577	2951	Smouldering Ash Pile	
+10591	295F	High Quality Ingot	
+10593	2961	Protection Talisman	
+10631	2987	Great Hachiryo Greaves	[38, 23, 38, 31]
+10664	29A8	Retreat Master's Helmet	[52, 42, 49, 50]
+10702	29CE	SKILL NAME DUMMY	
+10713	29D9	Ibaraki Doji's Odachi	
+10731	29EB	Paralytic Smoke Ball	
+10750	29FE	Vermilion Talons	[18, 0, 16, 0]
+10767	2A0F	Mikazuki Munechika	[15, 0, 11, 0]
+10923	2AAB	Enhanced Style Shift	
+10959	2ACF	Bloody Iron Key	
+10973	2ADD	Shuten Doji's Gourd	[1, 0, 1, 0]
+10974	2ADE	Rogue's Greaves	[16, 19, 16, 28]
+10979	2AE3	SKILL NAME DUMMY	
+11033	2B19	Deityte Fragment	
+11074	2B42	Mezuki Soul Core	
+11075	2B43	Yin-Yang Tonfa	
+11089	2B51	Valor Record	
+11102	2B5E	SKILL NAME DUMMY	
+11104	2B60	Million Koku Armor	
+11106	2B62	Blessed Bolt Talisman	
+11111	2B67	Martial Artist's Hatchets	[11, 0, 16, 0]
+11118	2B6E	Ame-no-Mahitotsu's Axe	
+11158	2B96	Azure Soul Ore	
+11160	2B98	Omamori	[1, 0, 1, 0]
+11180	2BAC	Genmei Onmyo Mage Attire	
+11185	2BB1	Crimson General's Nagamaki	[16, 0, 16, 0]
+11211	2BCB	Gloves of the Exalted	[8, 18, 8, 18]
+11217	2BD1	Mount Fuji Helmet	
+11220	2BD4	Thorned Gaki Soul Core	
+11275	2C0B	Mysteries of Summoning	
+11290	2C1A	Marksman's Gauntlets	[17, 21, 17, 28]
+11312	2C30	Hanzo the Demon's Spear	
+11341	2C4D	Authority's Waistguard	[60, 41, 60, 47]
+11402	2C8A	Ascetic Talisman	
+11407	2C8F	Seki Kaneyoshi Dual Tachi	[24, 0, 21, 0]
+11469	2CCD	Material Essence (Ki Damage Taken & Ki Consumption)	
+11501	2CED	Hayabusa Battle Attire	
+11524	2D04	SKILL NAME DUMMY	
+11566	2D2E	Katei	[1, 0, 1, 0]
+11636	2D74	Mindful Spirit	
+11665	2D91	Rejuvenation Talisman	
+11671	2D97	SKILL NAME DUMMY	
+11690	2DAA	Kodama Bowl	
+11725	2DCD	Japanese Scissors	[1, 0, 1, 0]
+11730	2DD2	Heizo's Armor	
+11734	2DD6	Warrior Monk's Hood	
+11743	2DDF	Summoning Seal: {}	
+11758	2DEE	Scampuss Furball Netsuke Charm	[1, 0, 1, 0]
+11769	2DF9	Upper Vassal's Hakama	[24, 20, 24, 29]
+11776	2E00	Bakegani Soul Core	
+11794	2E12	Infernal Splitstaff	[18, 0, 16, 0]
+11810	2E22	Lord's Tonfa	[20, 0, 16, 0]
+11817	2E29	Tsuchigumo Clawed Fists	
+11846	2E46	Flying Kato's Attire	
+11862	2E56	Trident Vajra Sword Helmet	
+11873	2E61	Persistent Visitor's Note	
+11885	2E6D	Shinobi Box	
+11904	2E80	Exorcist's Greaves	[25, 43, 24, 49]
+11917	2E8D	SKILL NAME DUMMY	
+11956	2EB4	Quality Leather Platelet	
+12002	2EE2	SKILL NAME DUMMY	
+12023	2EF7	Heaven Flash	
+12032	2F00	Genin's Talons	[18, 0, 16, 0]
+12060	2F1C	Incendiary Arrow	
+12085	2F35	Basket Blade & Boar Cutter	[27, 0, 21, 0]
+12088	2F38	Beyond Infinity	
+12099	2F43	Warrior Monk's Hammer	[49, 0, 48, 0]
+12189	2F9D	Summoning Seal: {}	
+12196	2FA4	Giant Toad Soul Core	
+12197	2FA5	Divine Burst	
+12226	2FC2	Palisade Breaker	[48, 0, 48, 0]
+12231	2FC7	Gorgeous Celadon Tea Bowl	
+12291	3003	Demon of Mino's Charm	
+12297	3009	Seer's Bow	[4, 0, 3, 0]
+12303	300F	Candlestick Slicer & Ridged Sword	
+12305	3011	Ki-Carving Talisman	
+12334	302E	Mending Talisman	
+12366	304E	Water Amulet	
+12399	306F	^13~UNUSED~	
+12410	307A	Retreat Master's Cuirass	[104, 84, 98, 100]
+12424	3088	Vassal's Greaves	[37, 22, 37, 31]
+12427	308B	SKILL NAME DUMMY	
+12428	308C	Shichisei & Heishishorin	[29, 0, 21, 0]
+12432	3090	Ascetic Headgear	[24, 40, 23, 49]
+12464	30B0	Cell Keys	
+12516	30E4	Squire's Cross Spear	[22, 0, 20, 0]
+12519	30E7	Kintaro's Headband	[56, 47, 53, 50]
+12540	30FC	Scion of Tamura's Armor	
+12541	30FD	Benkei Muso's Sandals	[19, 28, 17, 28]
+12554	310A	Spirit Stone Arm	
+12576	3120	Bear's Head Helmet	
+12577	3121	Lord Kamakura's Armor	
+12595	3133	Brave Demon Hunter's Gauntlets	[37, 22, 37, 31]
+12619	314B	Long Stride	
+12621	314D	Tengu's Khakkhara	
+12658	3172	Rai Odachi	[17, 0, 16, 0]
+12659	3173	Master's Fists	[18, 0, 16, 0]
+12683	318B	Soul Core Box	
+12691	3193	Water Talisman	
+12707	31A3	Golden Sun Helmet	
+12730	31BA	Prayer Beads	[1, 0, 1, 0]
+12762	31DA	Demon Horde Tonfa	
+12768	31E0	Water Shikigami	
+12799	31FF	Rogue's Helmet	[16, 19, 16, 28]
+12800	3200	Demon Horde Dual Katana	
+12823	3217	Daitoren & Shotoren	
+12826	321A	Supernatural Tales: Tanuki Minstrels	
+12862	323E	Ki Pulse Mastery	
+12875	324B	Yokai Gallstone	
+12913	3271	Brother's Sandals	[37, 24, 37, 31]
+12953	3299	Steel Pill	
+12961	32A1	Hand Cannon	[10, 0, 10, 0]
+12974	32AE	Summoning Seal: {}	
+12987	32BB	One-Eyed Master's Gauntlets	[41, 27, 33, 31]
+12996	32C4	Robe of the Exalted	[16, 36, 16, 36]
+13006	32CE	Ronin's Waistguard	[56, 32, 54, 47]
+13025	32E1	Phoenix Wing	[20, 0, 16, 0]
+13029	32E5	Tatsuke Matchlock	
+13034	32EA	Sacred Salt	
+13072	3310	Yamabushi Talons	[18, 0, 16, 0]
+13110	3336	Jailer Oni (Hell Wind) Soul Core	
+13155	3363	Sloth Talisman	
+13176	3378	Spiritualism	
+13195	338B	Quality Ingot	
+13196	338C	Summoning Seal: {}	
+13261	33CD	Mataemon's Waistguard	[27, 29, 24, 29]
+13278	33DE	Sage's Garb	
+13279	33DF	Shadow Art Superiority	
+13307	33FB	Black Fox Mask	
+13338	341A	Hellfrost Ninja Attire	
+13351	3427	Rebel Ronin's Gauntlets	[41, 28, 33, 31]
+13360	3430	Kobizen Tomonari	[14, 0, 11, 0]
+13392	3450	Yamato Uchigatana	[12, 0, 11, 0]
+13424	3470	Arrowhead Poison	
+13429	3475	Awakening	
+13462	3496	Divination Board	[1, 0, 1, 0]
+13465	3499	Gunner's Gaiters	[17, 16, 17, 19]
+13473	34A1	Munition Talisman	
+13485	34AD	Summoning Seal: {}	
+13500	34BC	Black Lotus	[20, 0, 16, 0]
+13502	34BE	Lord Kamakura's Greaves	[54, 44, 51, 50]
+13547	34EB	Night Shade Mask	[16, 13, 16, 19]
+13551	34EF	Sacred Bird Cry	
+13603	3523	Pure Water	
+13650	3552	Summoning Seal: {}	
+13658	355A	Onmyo Grotto Key	
+13714	3592	Yamashiro Odachi	[16, 0, 16, 0]
+13717	3595	Kashu Kiyomitsu	
+13756	35BC	Footsoldier's Cuirass	[72, 40, 70, 62]
+13761	35C1	Flame Dragon Scroll	
+13762	35C2	Thin Bark	
+13796	35E4	Archer's Straw Sandals	[16, 11, 16, 19]
+13827	3603	Ninja Marksman's Waistguard	[29, 38, 27, 42]
+13847	3617	Yamatai Gauntlets	[54, 44, 51, 50]
+13849	3619	Last Gambit Pill	
+13892	3644	Takeda Sake Bottle	
+13901	364D	Ryomen Sukuna's Bow	[3, 0, 3, 0]
+13921	3661	White-Green Gemstone	
+13939	3673	Pole Kick	
+14010	36BA	Ippon-Datara's Hammer	[45, 0, 48, 0]
+14145	3741	Warrior of the East Cuirass	[100, 80, 94, 100]
+14169	3759	Thunderous Warrior Armor	
+14216	3788	Rai Kuniyuki Odachi	[17, 0, 16, 0]
+14256	37B0	Rebel Ronin's Waistguard	[63, 42, 50, 47]
+14257	37B1	Catwalking Scroll	
+14258	37B2	Sekishu Kazusada	
+14271	37BF	Wooden Spear	
+14299	37DB	White Camellia Hairpin	[1, 0, 1, 0]
+14300	37DC	Reverse Impact	
+14308	37E4	Lifeseal Talisman	
+14341	3805	Hekito Bow	[3, 0, 3, 0]
+14378	382A	Sacred Water	
+14380	382C	Tiger's Blade	
+14436	3864	Gaki Soul Core	
+14480	3890	Ornamental Blade	
+14516	38B4	Yamabushi Sandals	[8, 13, 8, 18]
+14523	38BB	Fire Shikigami	
+14537	38C9	Hellfrost Warrior Gauntlets	[38, 20, 34, 31]
+14543	38CF	Archer's Hat	[16, 11, 16, 19]
+14551	38D7	Shishido Kusarigama	[23, 0, 18, 0]
+14560	38E0	Spirit Channeler	
+14599	3907	Cross Spear	[21, 0, 20, 0]
+14648	3938	Overseer's Gauntlets	[8, 19, 8, 18]
+14682	395A	Uchigatana & Jingasa	[20, 0, 16, 0]
+14721	3981	Thunderous Warrior Gauntlets	[38, 20, 34, 31]
+14776	39B8	Storm Kunai	
+14806	39D6	First Captain's Sandals	[18, 18, 18, 19]
+14809	39D9	Tokagemaru	[11, 0, 11, 0]
+14835	39F3	Crimson General's Gauntlets	[49, 40, 46, 50]
+14851	3A03	Limpid Spring Water	
+14866	3A12	Gallant Thief's Greaves	[26, 46, 26, 49]
+14869	3A15	Leaping Strike	
+14875	3A1B	Uchiko Powder	
+14884	3A24	SKILL NAME DUMMY	
+14901	3A35	Signpost Amulet	
+14906	3A3A	Summoning Seal: {}	
+14912	3A40	Medicine Case	[1, 0, 1, 0]
+14913	3A41	Sandy Cloth	
+14960	3A70	Coiled Snake Helmet	
+14976	3A80	Rusty Hoe	
+14980	3A84	Kamaitachi Helmet	
+14989	3A8D	Material Essence (Ki Damage Dealt)	
+15004	3A9C	Kodama Netsuke	[1, 0, 1, 0]
+15013	3AA5	Infernal Katana	
+15032	3AB8	SKILL NAME DUMMY	
+15054	3ACE	Crucible Saws	[22, 0, 21, 0]
+15062	3AD6	Brother's Dual Katana	[22, 0, 21, 0]
+15080	3AE8	Heirloom Gauntlets	[48, 39, 45, 50]
+15088	3AF0	Summoning Seal: {}	
+15096	3AF8	Izuna Drop	
+15109	3B05	Mermaid Soul Core	
+15116	3B0C	Summoning Seal: {}	
+15146	3B2A	Tokichiro's Gourd	[1, 0, 1, 0]
+15155	3B33	Japanese Scissors	[1, 0, 1, 0]
+15217	3B71	Karasu Tengu Soul Core	
+15221	3B75	Paralysis Shuriken	
+15223	3B77	Vermilion Cestuses	[18, 0, 16, 0]
+15236	3B84	Kusanagi Tsurugi	
+15237	3B85	Possessed Kodama Bowl	
+15252	3B94	Ame-no-Murakumo Tsurugi	
+15260	3B9C	Hellfire Ninja Greaves	[17, 20, 16, 28]
+15271	3BA7	Raikiri	
+15278	3BAE	Retreating Strike	
+15336	3BE8	Last Ninja's Gauntlets	[19, 26, 19, 28]
+15343	3BEF	Odenta Mitsuyo	
+15384	3C18	Shinobi Gaiters	[7, 9, 7, 18]
+15391	3C1F	Sohaya Tsurugi	
+15397	3C25	SKILL NAME DUMMY	
+15410	3C32	Infernal Hatchets	[11, 0, 16, 0]
+15420	3C3C	Beautiful Celadon Tea Bowl	
+15484	3C7C	Flowing Mist	
+15494	3C86	Illusory Dragon	
+15498	3C8A	Kintaro's Axe	[60, 0, 48, 0]
+15507	3C93	Fire Talisman	
+15513	3C99	Mino Veteran's Waistguard	[78, 62, 72, 75]
+15522	3CA2	Wind Shikigami	
+15591	3CE7	Flashfire Splitstaff	[18, 0, 16, 0]
+15593	3CE9	Blessed Sleeve Hat	[8, 12, 8, 18]
+15600	3CF0	Otoroshi Soul Core	
+15623	3D07	Ryukyu Hoko & Shield	[20, 0, 16, 0]
+15660	3D2C	White Cloth	
+15704	3D58	Heir's Shinobi Greaves	[6, 8, 6, 18]
+15714	3D62	Enenra Mask	
+15717	3D65	Fujin Helmet	[18, 25, 16, 28]
+15740	3D7C	Spinning Dragon	
+15782	3DA6	Jailer Oni (Hellfire) Soul Core	
+15800	3DB8	Great Hachiryo Gauntlets	[38, 23, 38, 31]
+15838	3DDE	Taro Tachi	
+15851	3DEB	Ruins Key	
+15880	3E08	SKILL NAME DUMMY	
+15889	3E11	Samurai's Equilibrium	
+15935	3E3F	Dragon Whistle	[1, 0, 1, 0]
+15950	3E4E	Scampuss Hat	[16, 19, 16, 28]
+16017	3E91	Exorcist's Axe	[45, 0, 48, 0]
+16020	3E94	Hellfire Feathers	
+16063	3EBF	Cruxidian Fragment	
+16069	3EC5	Dragon's Roar	
+16113	3EF1	Ingot	
+16118	3EF6	Heir's Waistguard	[50, 29, 50, 47]
+16176	3F30	Abacus	[1, 0, 1, 0]
+16215	3F57	Supernatural Tales: Guiding Clappers	
+16218	3F5A	Summoner's Candle	
+16222	3F5E	Devotional Helmet	
+16246	3F76	Demon Horde Armor	
+16253	3F7D	SKILL NAME DUMMY	
+16315	3FBB	Mino Veteran's Armor	
+16339	3FD3	Kurama Sword Dance	
+16362	3FEA	Fire Shot	
+16391	4007	Black Steel Axe	[45, 0, 48, 0]
+16394	400A	Enhanced Shrapnel Bomb	
+16415	401F	Coiled Snake Helmet	[15, 8, 15, 19]
+16502	4076	Firestop Talisman	
+16537	4099	Hollyhock Cuirass	[80, 52, 80, 62]
+16554	40AA	Unshakable	
+16577	40C1	Youngblood Greaves	[33, 20, 33, 31]
+16580	40C4	White Fox Mask	[8, 13, 7, 18]
+16592	40D0	Windswept	
+16612	40E4	Jakirimaru	[17, 0, 16, 0]
+16615	40E7	Vermilion Switchglaive	[20, 0, 16, 0]
+16619	40EB	Yamatai Greaves	[54, 44, 51, 50]
+16655	410F	Demon's Mask	[6, 8, 6, 18]
+16743	4167	Mino Dual Tachi	[21, 0, 21, 0]
+16756	4174	Last Ninja's Tonfa	[20, 0, 16, 0]
+16776	4188	Chijiko Helmet	
+16792	4198	Summoning Seal: {}	
+16797	419D	Crooked Jawbone	
+16883	41F3	Tempest	
+16899	4203	Crucible Saws	[22, 0, 21, 0]
+16915	4213	Wooden Switchglaive	
+16932	4224	Shinsengumi Uniform	
+16995	4263	Blessed Sleeve Greaves	[8, 12, 8, 18]
+17046	4296	Oniwaban Greaves	[8, 16, 8, 18]
+17064	42A8	Flying Sword Talisman	
+17113	42D9	Heirloom Helmet	[48, 39, 45, 50]
+17134	42EE	Dojo Master's Memories - Avenging Kin	
+17148	42FC	Sarutobi's Gunsticks	[20, 0, 16, 0]
+17193	4329	Full Moon Kata	
+17196	432C	Mikoshi's Khakkhara	[18, 0, 16, 0]
+17201	4331	Deserted Village Key	
+17208	4338	Kanemitsu Switchglaive	
+17223	4347	Sinister Tyrant's Crown	[8, 18, 8, 18]
+17237	4355	Brigand's Hatchets	[11, 0, 16, 0]
+17244	435C	Togakure Clawed Fists	[18, 0, 16, 0]
+17273	4379	Hasty Writings	
+17306	439A	Quality Lacquer	
+17316	43A4	Summoning Seal: {}	
+17331	43B3	Infernal Talons	
+17332	43B4	Overseer's Ninja Sword	[11, 0, 11, 0]
+17371	43DB	Vassal's Helmet	[37, 22, 37, 31]
+17425	4411	Greater Good Armour	
+17530	447A	Raishodo	[3, 0, 3, 0]
+17573	44A5	Blessed Sleeve Waistguard	[12, 18, 12, 27]
+17590	44B6	Anima Stone	
+17591	44B7	Blessed Sleeve Cuirass	[16, 24, 16, 36]
+17596	44BC	Soshu Dual Uchigatana	[20, 0, 21, 0]
+17600	44C0	Sentry's Armor Fragment	
+17605	44C5	Million Koku Cuirass	[118, 100, 106, 100]
+17656	44F8	Vice Shogun's Cestuses	
+17767	4567	Matsudaira Nobutsuna's Fan	[1, 0, 1, 0]
+17782	4576	Raijin's Claw	
+17801	4589	Wooden Hatchets	
+17875	45D3	Changing Ways	
+17919	45FF	Demon of Obsession Soul Core	
+17921	4601	Veteran's Greaves	[39, 25, 39, 31]
+17953	4621	Gaki Soul Core	
+17984	4640	Mysteries of Onmyo Magic	
+17989	4645	Tempestuous Hoko & Shield	[20, 0, 16, 0]
+18019	4663	Venomfang Technique	
+18054	4686	Crimson General's Helmet	[49, 40, 46, 50]
+18077	469D	Biwa Boku-boku Soul Core	
+18086	46A6	Summoning Seal: {}	
+18090	46AA	Samurai General's Greaves	[39, 25, 39, 31]
+18099	46B3	Highest Quality Leather Cord	
+18111	46BF	Aggrieved Sword & Shield	
+18125	46CD	Lumicite Fragment	
+18160	46F0	Tonfa Wielder's Locks	
+18185	4709	Chi-Azamaru	
+18202	471A	Purifying Arrow	
+18247	4747	Chief's Fists	[18, 0, 16, 0]
+18248	4748	Foreign Fruit Wine	
+18262	4756	Merchant's Plan	
+18282	476A	Sudama Skull Hat	
+18303	477F	Raging Bull Armour	
+18307	4783	Swan Spear	[20, 0, 20, 0]
+18319	478F	Demon Horde Axe	[45, 0, 48, 0]
+18329	4799	Lilac Gauntlets	[56, 46, 53, 50]
+18370	47C2	Dried Nuppeppo Meat	
+18390	47D6	Magatama	[1, 0, 1, 0]
+18399	47DF	Cicada Shell	
+18458	481A	Ichi-no-Tani Helmet	
+18501	4845	Ibaraki Doji's Thorns	
+18518	4856	Gaki Soul Core	
+18535	4867	Ame-no-Mahitotsu's Axe	[45, 0, 48, 0]
+18551	4877	Rusty Hoe	[48, 0, 48, 0]
+18592	48A0	Large Baby Stone	
+18606	48AE	Purify Yokai Realm: Heaven	
+18617	48B9	Red Kappa Shell	
+18623	48BF	Mataemon's Attire	
+18638	48CE	Black Rain & Thunder	[11, 0, 16, 0]
+18661	48E5	Storm Kunai	
+18696	4908	Crescent Moon Kusarigama	[19, 0, 18, 0]
+18702	490E	Last Ninja's Tonfa	
+18743	4937	Righteous Gauntlets	[37, 21, 36, 31]
+18749	493D	Bamboo Cutter & Bone Feaster	
+18753	4941	Tsuchigumo Attire	
+18778	495A	Mountain Ridge Helmet	
+18790	4966	Summoning Seal: {}	
+18823	4987	Yasakani Magatama	[1, 0, 1, 0]
+18832	4990	Iga Jonin Apparel	
+18846	499E	SKILL NAME DUMMY	
+18856	49A8	Swan Spear	
+18951	4A07	Heirloom Cuirass	[96, 78, 90, 100]
+18957	4A0D	Kunai	
+18984	4A28	Warrior of the East Greaves	[50, 40, 47, 50]
+19007	4A3F	Wind Shot Talisman	
+19038	4A5E	Summoning Seal: {}	
+19047	4A67	Dojikiri Yasutsuna	
+19048	4A68	High Priest's Hunting Garb	[16, 32, 16, 36]
+19063	4A77	Sohaya Cuirass	[36, 48, 36, 56]
+19128	4AB8	Summoning Seal: {}	
+19144	4AC8	Guardian Monk's Hammer	[48, 0, 48, 0]
+19157	4AD5	Underworld Lapis Lazuli	
+19184	4AF0	Hard-Pressed Writing	
+19189	4AF5	Million Koku Long Spear	
+19224	4B18	Rogue's Greaves	[45, 38, 45, 38]
+19238	4B26	Retreat Master's Gauntlets	[52, 42, 49, 50]
+19291	4B5B	Hollyhock Armor	
+19293	4B5D	Gaki Soul Core	
+19296	4B60	Sacrosanct Talisman	
+19336	4B88	Fresh Grass	
+19357	4B9D	Scampuss Hat	[16, 19, 16, 28]
+19371	4BAB	Flexibility	
+19407	4BCF	Kyo-Oh's Corrupted Blade	
+19447	4BF7	Bizen Tachi	[11, 0, 11, 0]
+19456	4C00	Yorai Hoko & Shield	[20, 0, 16, 0]
+19530	4C4A	^13~UNUSED~	
+19539	4C53	Enduring Burst	
+19551	4C5F	Stone	
+19582	4C7E	Conqueror's Armour	
+19584	4C80	Scribe's Journal - June	
+19615	4C9F	Great Hachiryo Waistguard	[57, 35, 57, 47]
+19617	4CA1	Alchemist's Sword & Shield	[20, 0, 16, 0]
+19625	4CA9	Jabara Odachi	[16, 0, 16, 0]
+19667	4CD3	Urgency	
+19698	4CF2	Onzoshi Greaves	[8, 15, 8, 18]
+19702	4CF6	SKILL NAME DUMMY	
+19718	4D06	Dokisai's Helmet	
+19742	4D1E	Ippon-Datara's Odachi	[16, 0, 16, 0]
+19762	4D32	Demon Horde Spear	
+19777	4D41	Raijin Helmet	[39, 25, 34, 31]
+19786	4D4A	Alchemist's Sword & Shield	[20, 0, 16, 0]
+19814	4D66	Fireproof Amulet	
+19816	4D68	Paralytic Smoke Ball	
+19830	4D76	Samurai's Cloak	
+19882	4DAA	Poison Mist	
+20002	4E22	Daion-Jin's Sake	
+20008	4E28	SKILL NAME DUMMY	
+20009	4E29	Tiger Claws	
+20051	4E53	Martial Artist's Tonfa	[20, 0, 16, 0]
+20055	4E57	Invigorating Arts	
+20078	4E6E	Marksman's Greaves	[17, 21, 17, 28]
+20079	4E6F	SKILL NAME DUMMY	
+20089	4E79	SKILL NAME DUMMY	
+20122	4E9A	Sincere Buddha's Armor	
+20179	4ED3	Seimei Lightning Talisman	
+20232	4F08	Pinwheel Shuriken	
+20253	4F1D	Back Room Key	
+20264	4F28	Aromatic Herbs	
+20306	4F52	Sarutobi's Gunsticks	
+20320	4F60	Supreme Burst	
+20335	4F6F	Prelusive Arts	
+20376	4F98	Lucky Tanuki Netsuke Charm	[1, 0, 1, 0]
+20413	4FBD	Gamatsuki Soul Core	
+20457	4FE9	Master Axe-Thrower's Hatchets	[11, 0, 16, 0]
+20493	500D	Miike Denta & Straw Hat	[20, 0, 16, 0]
+20498	5012	Pinwheel Shuriken	
+20501	5015	Double-headed Snake Tonfa	
+20503	5017	Wooden Sword	[14, 0, 11, 0]
+20513	5021	Kobo Daishi's Khakkhara	
+20548	5044	Ronin's Gauntlets	[37, 21, 36, 31]
+20591	506F	Tengu Mask	
+20629	5095	Snowmelt Kusarigama	[18, 0, 18, 0]
+20704	50E0	SKILL NAME DUMMY	
+20821	5155	Expansive Deflect	
+20845	516D	(Shogun) Hundred Demon Realms Picture Scroll	
+20862	517E	Spirit Stone Box	
+20890	519A	Replicating Talisman	
+20938	51CA	Sohaya Garb	
+20955	51DB	Malefactor's Greaves	[54, 43, 50, 50]
+20994	5202	Goichimonshu Armor	
+21005	520D	Sword Ki	
+21011	5213	Castle Gate Key	
+21022	521E	Red Demon Armour	
+21067	524B	Swallowtail Waistguard	[59, 36, 59, 47]
+21075	5253	Small Beast Bone	
+21085	525D	Scampuss Hat	[16, 19, 16, 28]
+21087	525F	Weathered Bone & Bleached Twig	
+21100	526C	Scampuss Hat	[16, 19, 16, 28]
+21131	528B	Shuten Doji's Club	
+21146	529A	Degeneration Talisman	
+21207	52D7	Rebel Ronin's Hat	[41, 28, 33, 31]
+21245	52FD	Legendary Shogun's Armor	
+21253	5305	0	
+21290	532A	Spirit-Summon Talisman	
+21298	5332	Kyo-Oh's Blade	
+21320	5348	Hundred Night Incense	
+21327	534F	Paralytic Groundfire	
+21406	539E	White Fox Mask	
+21408	53A0	Shadowstep Vest	[54, 98, 54, 98]
+21435	53BB	Vengeful Spirit Mask	
+21457	53D1	Overseer's Cuirass	[16, 38, 16, 36]
+21470	53DE	Nozuchi Soul Core	
+21475	53E3	Embercite Fragment	
+21505	5401	Night Shade Mask	[16, 13, 16, 19]
+21553	5431	Infernal Axe	
+21574	5446	Kusarigama Master Waistguard	[41, 72, 39, 74]
+21579	544B	SKILL NAME DUMMY	
+21631	547F	Odenta Mitsuyo	[14, 0, 11, 0]
+21648	5490	Roundabout	
+21652	5494	Hairy Caterpillar Helmet	[51, 40, 47, 50]
+21666	54A2	Gaki Soul Core	
+21715	54D3	Lone Wolf's Gauntlets	[16, 20, 16, 28]
+21718	54D6	Recoup	
+21743	54EF	Tanegashima Matchlock	[5, 0, 5, 0]
+21756	54FC	Bloodedge Demon's Blood	
+21782	5516	Light Yamatai Cuirass	[36, 48, 36, 56]
+21807	552F	Headwind Blaze	
+21818	553A	Nightstorm Kusarigama	[24, 0, 18, 0]
+21820	553C	Heizo's Faceplate	[26, 44, 25, 49]
+21839	554F	Sword of Discernment	
+21860	5564	Swordmaster's Robe	[32, 24, 32, 38]
+21861	5565	Coin Threader	
+21907	5593	Summoning Seal: {}	
+21937	55B1	Caltrops	
+21969	55D1	Hollyhock Boots	[40, 26, 40, 31]
+21988	55E4	Material Essence (Status Ailment Infliction)	
+22035	5613	Onryoki Soul Core	
+22049	5621	Ancient Vestments	
+22059	562B	Training Robe	
+22090	564A	Monk's Staff Helmet	
+22146	5682	Footsoldier's Greaves	[22, 19, 22, 19]
+22219	56CB	Blossomed Blade	
+22256	56F0	Minamoto's Gauntlets	[35, 23, 34, 31]
+22296	5718	Hand Cannon	[10, 0, 10, 0]
+22312	5728	Divine Branch	
+22350	574E	High Priest's Vestments	
+22393	5779	Samurai's Locks	
+22412	578C	Shock Troop Attire	
+22530	5802	Poisonous Smoke Ball	
+22589	583D	^13~UNUSED~	
+22613	5855	Shinto Priest's Hunting Garb	[16, 26, 16, 36]
+22632	5868	Master's Talons	[18, 0, 16, 0]
+22637	586D	Saisetsu-Shin's Sake	
+22697	58A9	Enenra Soul Core	
+22723	58C3	Writing Set	[1, 0, 1, 0]
+22732	58CC	Minamoto's Greaves	[35, 23, 34, 31]
+22783	58FF	Odenta Mitsuyo	
+22790	5906	Irregular Troop's Cuirass	[30, 18, 30, 38]
+22810	591A	Curious Crown Helm	
+22823	5927	Infernal Cestuses	[18, 0, 16, 0]
+22826	592A	Kawanami Kusarigama	
+22851	5943	Travel Amulet	
+22859	594B	Training Robe	[30, 18, 30, 18]
+22904	5978	Head Ninja's Splitstaff	[18, 0, 16, 0]
+22961	59B1	Itsumade Soul Core	
+23051	5A0B	Koroka Spear	[20, 0, 20, 0]
+23061	5A15	SKILL NAME DUMMY	
+23066	5A1A	Taira no Kagekiyo's Armor	
+23071	5A1F	Atagi Sadamune	[15, 0, 11, 0]
+23121	5A51	Smoke Ball	
+23175	5A87	Goichimonshu Cuirass	[102, 82, 96, 100]
+23182	5A8E	SKILL NAME DUMMY	
+23184	5A90	Weight Bearer	
+23191	5A97	Kobo Daishi's Priest Vestments	
+23201	5AA1	Thunderous Ninja Gauntlets	[18, 20, 16, 28]
+23247	5ACF	Gallant Thief's Cestuses	
+23249	5AD1	Exorcist's Gauntlets	[25, 43, 24, 49]
+23255	5AD7	Rebel Ronin's Gauntlets	[41, 28, 33, 31]
+23285	5AF5	Chijiko Netsuke Charm	[1, 0, 1, 0]
+23312	5B10	Moon Charm Helmet	
+23397	5B65	Bullhead Cross Spear	[25, 0, 20, 0]
+23419	5B7B	Infernal Spear	[20, 0, 20, 0]
+23453	5B9D	Burnt Wick	
+23465	5BA9	Cursed Nail	
+23469	5BAD	Benkei Muso's Headgear	[19, 28, 17, 28]
+23478	5BB6	Rebel Ronin's Cuirass	[82, 56, 66, 62]
+23531	5BEB	Artifact Tenacity	
+23542	5BF6	Demon of Obsession's Horn	
+23577	5C19	Enduring Destruction	
+23611	5C3B	Improvised Ammo Scroll	
+23647	5C5F	Yata Mirror	[1, 0, 1, 0]
+23648	5C60	Base Invitation	
+23669	5C75	Yaroka Water Feathers	
+23694	5C8E	Cutting Blast Talisman	
+23712	5CA0	Bandit Leader's Odachi	
+23718	5CA6	Mikoshi's Khakkhara	
+23745	5CC1	Yagyu Dual Ninja Swords	[27, 0, 21, 0]
+23746	5CC2	Amplification	
+23795	5CF3	Hellfire Warrior Greaves	[37, 20, 34, 31]
+23810	5D02	Summoning Seal: {}	
+23851	5D2B	Black Lotus	
+23884	5D4C	Dragon King Splitstaff	[18, 0, 16, 0]
+23902	5D5E	Bracing Breeze	
+23922	5D72	Dragon Horn	
+23923	5D73	One-eyed Oni Loincloth	
+23944	5D88	Kingo's Armour	
+23949	5D8D	Overseer's Waistguard	[12, 29, 12, 27]
+23962	5D9A	Prayer Beads	[1, 0, 1, 0]
+24024	5DD8	Divine Branch Fragment	
+24025	5DD9	Genno's Hammer	
+24031	5DDF	Pinwheel Shuriken	
+24074	5E0A	Sincere Buddha's Gauntlets	[57, 48, 55, 50]
+24141	5E4D	Noble Dung Ball	
+24183	5E77	Wild Boar Crest Helmet	
+24191	5E7F	SKILL NAME DUMMY	
+24211	5E93	Ichigen Koji's Sleevelets	[41, 28, 34, 31]
+24225	5EA1	Big Dipper Blade & Heishishorin-Ken	
+24283	5EDB	Tiger-Running Amulet	
+24284	5EDC	Crucible Wasp Soul Core	
+24289	5EE1	Weakness Talisman	
+24305	5EF1	Iron Switchglaive	[20, 0, 16, 0]
+24309	5EF5	Gallant Thief's Faceplate	[26, 46, 26, 49]
+24341	5F15	Arts Proficiency Life Siphon	
+24377	5F39	Pure Heaven Cursed Earth	
+24391	5F47	Gaki Soul Core	
+24462	5F8E	White Fox Mask	[8, 13, 7, 18]
+24534	5FD6	Warrior of the East Waistguard	[75, 60, 71, 75]
+24535	5FD7	Chijiko Netsuke Charm	[1, 0, 1, 0]
+24567	5FF7	Nuppeppo Soul Core	
+24569	5FF9	SKILL NAME DUMMY	
+24583	6007	Resilient Arts	
+24593	6011	SKILL NAME DUMMY	
+24618	602A	Sincere Buddha's Cuirass	[114, 96, 110, 100]
+24625	6031	Nurikabe Soul Core	
+24633	6039	Infernal Kusarigama	[18, 0, 18, 0]
+24639	603F	Usumidori	[11, 0, 11, 0]
+24644	6044	Potent Might Kata	
+24680	6068	Lesser Umi-Bozu's Eyestone	
+24693	6075	Burning Oil Jar	
+24695	6077	Armor Piercer	
+24705	6081	Tsuchigumo Clawed Fists	[18, 0, 16, 0]
+24732	609C	Shadowstep Headband	[27, 49, 27, 49]
+24745	60A9	Kamari Vest	[16, 24, 16, 36]
+24790	60D6	Bandit Leader's Odachi	[17, 0, 16, 0]
+24808	60E8	Kobo Daishi's Khakkhara	[18, 0, 16, 0]
+24815	60EF	Ishida Masamune	
+24859	611B	Heshikiri Hasebe	[15, 0, 11, 0]
+24882	6132	Hellfire Talisman	
+24909	614D	Moonprayer Cuirass	[34, 30, 30, 38]
+24958	617E	Flaming Heron Feathers	
+24979	6193	Barbarian's Hatchets	
+24991	619F	Saisetsu-Shin's Sake	
+25010	61B2	Genin's Splitstaff	[18, 0, 16, 0]
+25029	61C5	Sands of Recollection	
+25087	61FF	Flying Kato's Greaves	[8, 17, 8, 18]
+25110	6216	Wind Talisman	
+25132	622C	Master Swordman's Attire	
+25158	6246	Crimson General's Bow	[3, 0, 3, 0]
+25169	6251	Shinobi Hood	[7, 9, 7, 18]
+25178	625A	Blood-Encrusted Sawtooth	
+25221	6285	Fortitude III	
+25241	6299	Sanada's Crimson Armour	
+25256	62A8	Patience of the Gods	
+25271	62B7	SKILL NAME DUMMY	
+25282	62C2	Medicine Case	[1, 0, 1, 0]
+25284	62C4	Magatsu Warrior Soul Core	
+25312	62E0	Style Shift Gust	
+25354	630A	Shinsengumi Hakama	[26, 26, 26, 29]
+25402	633A	Heroic Monk's Splitstaff	[18, 0, 16, 0]
+25433	6359	Guardian Monk's Attire	
+25437	635D	Hooked Kusarigama	[20, 0, 18, 0]
+25462	6376	Seven-Herb Pills	
+25494	6396	Summoning Seal: {}	
+25533	63BD	Swallowtail Cuirass	[78, 48, 78, 62]
+25537	63C1	Fan-Piercing Bow	[3, 0, 3, 0]
+25566	63DE	Ornate Gold Armor	
+25587	63F3	Ichigen Koji's Faceplate	[41, 28, 34, 31]
+25615	640F	Uchigatana & Jingasa	[20, 0, 16, 0]
+25617	6411	Ascetic Sleeves	[24, 40, 23, 49]
+25642	642A	Mutated Skin	
+25646	642E	Water Omamori	[1, 0, 1, 0]
+25653	6435	Everlasting Icicle	
+25676	644C	A Veritable El Dorado	
+25723	647B	Lone Wolf's Armor	
+25736	6488	Summoning Seal: {}	
+25741	648D	Lost Kingdom Tonfa	
+25778	64B2	Tiger of Kai's Greaves	[54, 42, 50, 50]
+25791	64BF	Summoning Seal: {}	
+25807	64CF	Snowclops Soul Core	
+25817	64D9	Material Essence (Ninjutsu)	
+25848	64F8	Fudo Kuniyuki & Yagen Toshiro	
+25862	6506	Kintaro's Greaves	[56, 47, 53, 50]
+25876	6514	Antidote	
+25879	6517	Caltrops	
+25901	652D	White Lotus Talons	[18, 0, 16, 0]
+25903	652F	Wailing Sand	
+25928	6548	Soul Release Talisman	
+25933	654D	Munenori's Note	
+25942	6556	Small Spirit Stone	
+25948	655C	Onzoshi Attire	
+25962	656A	Curious Crown Helm	[36, 20, 33, 31]
+25963	656B	Spirit Resonance Talisman	
+25974	6576	Torch Spear	[20, 0, 20, 0]
+25982	657E	^13~UNUSED~	
+26036	65B4	Healing Pill	
+26048	65C0	Vassal's Cuirass	[74, 44, 74, 62]
+26062	65CE	Burning Oil Jar	
+26073	65D9	Authority's Armor	
+26084	65E4	Ichi-no-Tani Helmet	[51, 40, 46, 50]
+26092	65EC	Waterproof Amulet	
+26139	661B	Benkei's Hidden Scroll - Bottom	
+26140	661C	Firefly Blade	
+26159	662F	Dual Wooden Swords	[20, 0, 21, 0]
+26224	6670	Universalstop Talisman	
+26228	6674	Dragon Claw	
+26256	6690	Infernal Switchglaive	[20, 0, 16, 0]
+26259	6693	Supreme Parry	
+26293	66B5	SKILL NAME DUMMY	
+26297	66B9	Aberrant Spirit Stone	
+26385	6711	Thunderous Hell Feathers	
+26400	6720	Hellfire Ninja Waistguard	[26, 30, 24, 42]
+26408	6728	SKILL NAME DUMMY	
+26412	672C	Thunderous Talons	[18, 0, 16, 0]
+26416	6730	Suwa Myojin Helmet	
+26426	673A	Kamui	
+26439	6747	Vigorous Spirit	
+26488	6778	Highest Quality Tamahagane	
+26511	678F	First Captain's Headband	[18, 18, 18, 19]
+26526	679E	Snakebite Technique	
+26530	67A2	Bloodstained Blade	[11, 0, 16, 0]
+26597	67E5	Warrior's Cross Spear	[23, 0, 20, 0]
+26611	67F3	Magatama	[1, 0, 1, 0]
+26616	67F8	Brothers' Omamori	[1, 0, 1, 0]
+26647	6817	SKILL NAME DUMMY	
+26656	6820	Tiger of Kai's Waistguard	[81, 63, 75, 75]
+26666	682A	Training Robe	
+26683	683B	Scampuss Furball	
+26687	683F	Magatama	[1, 0, 1, 0]
+26688	6840	Supervisor's Instructions	
+26700	684C	Raijin Feathers	
+26710	6856	Poison Arrow Tincture	
+26765	688D	Retainer's Hoko & Shield	[20, 0, 16, 0]
+26767	688F	Apprentice's Hoko & Shield	[20, 0, 16, 0]
+26793	68A9	Marksman's Bow	
+26800	68B0	Vajra Tonfa	[20, 0, 16, 0]
+26845	68DD	Gaki Soul Core	
+26849	68E1	Rebel Ronin's Waistguard	[63, 42, 50, 47]
+26870	68F6	Jonin's Kusarigama	[23, 0, 18, 0]
+26879	68FF	Hikoemon Ichimonji	
+26914	6922	Paralytic Blade Tincture	
+26932	6934	Wooden Splitstaff	
+26941	693D	Kenmyoren	
+26959	694F	Yamabushi Headgear	[8, 13, 8, 18]
+27022	698E	Benkei's Axe	[45, 0, 48, 0]
+27034	699A	Kyokotsu Soul Core	
+27046	69A6	Ki Burst Talisman	
+27102	69DE	Poisonous Smoke Ball	
+27122	69F2	Great Kanehira Sword & Nightingale	
+27155	6A13	Divine Branch	
+27184	6A30	Woman's Face Mask	[7, 10, 6, 18]
+27187	6A33	Concentrated Mist	
+27190	6A36	Kappa Shell	
+27191	6A37	Infernal Tonfa	[20, 0, 16, 0]
+27221	6A55	SKILL NAME DUMMY	
+27271	6A87	Ninja Yoki Soul Core	
+27315	6AB3	Archer's Robe	[32, 22, 32, 38]
+27321	6AB9	First Samurai Armor	
+27329	6AC1	Second Captain's Odachi	[16, 0, 16, 0]
+27403	6B0B	Penance Stone of the Nioh	
+27494	6B66	Female Demon Mask	
+27505	6B71	Sacred Arrow Amulet	
+27506	6B72	Gaki Soul Core	
+27509	6B75	Summoning Seal: {}	
+27555	6BA3	Chijiko Helmet	[15, 8, 15, 19]
+27588	6BC4	Raging Fire Clawed Fists	
+27598	6BCE	Fan	[1, 0, 1, 0]
+27618	6BE2	Shinobi Bracers	[7, 9, 7, 18]
+27682	6C22	Seki Kanenori Dual Uchigatana	[22, 0, 21, 0]
+27686	6C26	DP's Second Report	
+27702	6C36	Demon Horde Kusarigama	
+27708	6C3C	Umbral Bullet Scroll	
+27710	6C3E	Heizo's Hatchets	
+27723	6C4B	Rogue's Cuirass	[32, 38, 32, 56]
+27745	6C61	Highest Quality Leather Platelet	
+27752	6C68	Warrior's Memorandum	
+27754	6C6A	Zenki and Goki	[11, 0, 16, 0]
+27836	6CBC	Bonepile Spear	[20, 0, 20, 0]
+27846	6CC6	Gyosha Hand Axe	[11, 0, 16, 0]
+27854	6CCE	Ninja's Memorandum	
+27862	6CD6	Fuma Chief's Gauntlets	[17, 20, 17, 28]
+27880	6CE8	Unarmored Death	
+27904	6D00	Quaking Tonfa	[20, 0, 16, 0]
+27948	6D2C	Braided Straw Helmet	
+27957	6D35	Infernal Kusarigama	
+27958	6D36	Bloodedge Demon Soul Core	
+28053	6D95	Possessed Kodama Bowl	
+28094	6DBE	Arrowproof Amulet	
+28134	6DE6	Warrior of the East Helmet	[50, 40, 47, 50]
+28170	6E0A	Life Leech Talisman	
+28243	6E53	Yamainu Soul Core	
+28271	6E6F	Child of the Sun's Armour	
+28292	6E84	Fuma Chief's Apparel	
+28329	6EA9	Seer's Bow	
+28336	6EB0	Yamada Kusarigama	
+28350	6EBE	Gourd	[1, 0, 1, 0]
+28387	6EE3	Summoning Seal: {}	
+28419	6F03	Cleansing Talisman	
+28423	6F07	Material Essence (Special)	
+28426	6F0A	Koroka Soul Core	
+28431	6F0F	Raijin's Claw	[20, 0, 16, 0]
+28461	6F2D	Smirkwiper	
+28482	6F42	Scion of Tamura's Gauntlets	[58, 48, 55, 50]
+28529	6F71	Kintaro's Gauntlets	[56, 47, 53, 50]
+28561	6F91	SKILL NAME DUMMY	
+28575	6F9F	Fujin Helmet	
+28581	6FA5	Million Koku Helmet	[59, 50, 53, 50]
+28630	6FD6	Onzoshi Gauntlets	[8, 15, 8, 18]
+28640	6FE0	Amulet of Camaraderie	
+28711	7027	Togakushi Ninja Hatchets	[11, 0, 16, 0]
+28727	7037	Onmyo Hunting Garb	[36, 44, 36, 56]
+28735	703F	Two Leaves	[1, 0, 1, 0]
+28753	7051	Beardcutter and Hobbler	
+28790	7076	Kasha Soul Core	
+28812	708C	Embercite Crystal	
+28835	70A3	Fleeting Guardian Amulet	
+28929	7101	SKILL NAME DUMMY	
+28939	710B	Hellfrost Warrior Armor	
+28944	7110	Peerless Combatant's Gauntlets	[17, 14, 17, 19]
+28973	712D	Crucible Ice Spear	
+28989	713D	Crucible Sasumata	
+29001	7149	Guardian Monk's Hammer	
+29031	7167	Ninja Marksman's Cuirass	[38, 50, 36, 56]
+29082	719A	Blister Beetle Powder	
+29097	71A9	Lumicite Crystal	
+29129	71C9	Master Swordsman's Armour	
+29193	7209	Sensory Overload Talisman	
+29203	7213	Swallowtail Gauntlets	[39, 24, 39, 31]
+29264	7250	Ningen Mukotsu	[26, 0, 20, 0]
+29289	7269	Mitsumono Vest	[36, 44, 36, 56]
+29291	726B	SKILL NAME DUMMY	
+29320	7288	Diary of Vengeance I	
+29327	728F	Demon's Maw	
+29340	729C	Shinobi Robes	[14, 18, 14, 36]
+29341	729D	Power Talisman	
+29354	72AA	Arc of Chaos	
+29359	72AF	Spirit Stone	
+29372	72BC	Wind Amulet	
+29387	72CB	Infernal Axe	[48, 0, 48, 0]
+29406	72DE	Five-Man Bow	[4, 0, 3, 0]
+29409	72E1	Ki Pulse: Earth	
+29430	72F6	Benkei Muso's Hakama	[29, 42, 26, 42]
+29450	730A	Naval Greaves	[8, 15, 8, 18]
+29451	730B	Wayfarer's Vest	[30, 20, 30, 38]
+29464	7318	Jubei's Journeys II	
+29474	7322	Dragon Fang	
+29485	732D	Yamabushi Hakama	[12, 20, 12, 27]
+29490	7332	Holy Axe	
+29575	7387	Lightning Amulet	
+29588	7394	Saisetsu-Shin's Sake	
+29605	73A5	Artifact Defense	
+29607	73A7	Tatsuke Matchlock	[5, 0, 5, 0]
+29634	73C2	Infernal Ninja Sword	
+29684	73F4	Wooden Kusarigama	
+29688	73F8	Martial Arts Handbook: {}	
+29704	7408	Hastily Scrawled Wanted Notice	
+29707	740B	Tengu's Fan	
+29771	744B	Fuma Ninja Greaves	[7, 10, 7, 18]
+29834	748A	Gaki Soul Core	
+29873	74B1	Ungyo Nioh Mask	
+29898	74CA	Comb	[1, 0, 1, 0]
+29944	74F8	Lord Kamakura's Gloves	
+29945	74F9	Bizen Ichimonji	[12, 0, 11, 0]
+29962	750A	Flint	
+29975	7517	Malefactor's Helmet	[54, 43, 50, 50]
+29977	7519	Infernal Nail	
+30019	7543	Jikkyu Mitsutada	[11, 0, 11, 0]
+30031	754F	Shinobi Gauntlets	[25, 42, 24, 49]
+30041	7559	Lotus of Agony	
+30047	755F	Great Hachiryo Armor	
+30073	7579	Kijinmaru Kunishige	
+30090	758A	Kamari Sleeves	[8, 12, 8, 18]
+30106	759A	Takahira Odachi	[17, 0, 16, 0]
+30132	75B4	Fan-Crested Helmet	
+30150	75C6	Fire Familiar Talisman	
+30162	75D2	Raikiri	[16, 0, 11, 0]
+30166	75D6	Overseer's Ninja Sword	
+30189	75ED	Impurity Transference Doll	
+30214	7606	Bloodspider Blade	[16, 0, 16, 0]
+30255	762F	Concealment Talisman	
+30265	7639	Ravenwing Rifle	
+30305	7661	Summoning Seal: {}	
+30355	7693	Rejuvenation Pill	
+30357	7695	Captain's Spear	[23, 0, 20, 0]
+30405	76C5	Thunderous Ninja Attire	
+30433	76E1	Droplet of Decay	
+30492	771C	Onzoshi Hakama	[12, 23, 12, 27]
+30522	773A	Summoning Seal: {}	
+30526	773E	Herbal Remedy	
+30531	7743	Kusanagi Helmet	[33, 19, 33, 31]
+30548	7754	Prayer Beads	[1, 0, 1, 0]
+30558	775E	SKILL NAME DUMMY	
+30568	7768	Kamaitachi Soul Core	
+30572	776C	Infernal Dual Ninja Swords	[25, 0, 21, 0]
+30619	779B	Dragon Fang	
+30667	77CB	0	
+30700	77EC	Gallant Thief's Gauntlets	[26, 46, 26, 49]
+30720	7800	Wooden Sword	
+30769	7831	Grilled Tang Sweet	
+30809	7859	Shockwave Talisman	
+30821	7865	Chijiko Soul Core	
+30847	787F	Fuki's Kusarigama	
+30858	788A	Gaki Soul Core	
+31025	7931	Fuma Chief's Mask	[17, 20, 17, 28]
+31118	798E	Morning Moon	
+31119	798F	Last Ninja's Attire	
+31123	7993	Hunter's Switchglaive	[20, 0, 16, 0]
+31124	7994	SKILL NAME DUMMY	
+31129	7999	Guardian Monk's Hat	[35, 20, 34, 31]
+31136	79A0	Ephemeral Breath	
+31140	79A4	Bishamon Spear	
+31154	79B2	Archer's Gauntlets	[16, 11, 16, 19]
+31174	79C6	DP's First Report	
+31180	79CC	Reverse Impact	
+31181	79CD	Sneak Thief	
+31183	79CF	Rifle Ammunition	
+31199	79DF	SKILL NAME DUMMY	
+31203	79E3	Onmyo Hunting Hakama	[27, 33, 27, 42]
+31210	79EA	Burrow	
+31246	7A0E	Blood-Scrawled Orders, Section VIII	
+31259	7A1B	Medicine Case	[1, 0, 1, 0]
+31292	7A3C	Million Koku Greaves	[59, 50, 53, 50]
+31322	7A5A	Kusarigama Master Cuirass	[54, 96, 52, 98]
+31359	7A7F	Lightning Familiar Talisman	
+31439	7ACF	Fire Omamori	[1, 0, 1, 0]
+31517	7B1D	Dual Bloodstained Cleavers	[20, 0, 21, 0]
+31544	7B38	Flying Bolt Soul Core	
+31555	7B43	Scampuss Fists	
+31560	7B48	Floating Vine	
+31570	7B52	Hellfrost Ninja Faceguard	[18, 20, 16, 28]
+31571	7B53	Ichigen Koji's Hakama	[63, 42, 51, 47]
+31602	7B72	Fan	[1, 0, 1, 0]
+31627	7B8B	Goichimonshu Dual Swords	
+31631	7B8F	Healer	
+31651	7BA3	Fire Amulet	
+31674	7BBA	Divination Talisman	
+31679	7BBF	Leaf Glide	
+31696	7BD0	Samurai's Text	
+31705	7BD9	Ubume Soul Core	
+31726	7BEE	Daidara Bocchi Soul Core	
+31782	7C26	Tempestuous Deflect	
+31800	7C38	Shugendo Hermit Hatchets	[11, 0, 16, 0]
+31804	7C3C	Gaki Soul Core	
+31837	7C5D	Hemlock Broth	
+31842	7C62	Vice Shogun's Waistguard	[89, 75, 77, 75]
+31848	7C68	SKILL NAME DUMMY	
+31866	7C7A	Sakai Rifle	[7, 0, 5, 0]
+31867	7C7B	Kamari Hood	[8, 12, 8, 18]
+31876	7C84	Great Tengu Feather	
+31920	7CB0	Thunderous Fists	
+31931	7CBB	Zenki and Goki	
+31984	7CF0	Ascetic Talisman	
+32010	7D0A	Chieizu's Cloak	[36, 38, 30, 38]
+32110	7D6E	Ronin's Greaves	[37, 21, 36, 31]
+32118	7D76	Hunter's Splitstaff	[18, 0, 16, 0]
+32180	7DB4	Summoning Seal: {}	
+32181	7DB5	White Ochoko Cup	
+32193	7DC1	Royal Tonfa	[20, 0, 16, 0]
+32194	7DC2	Fan	[1, 0, 1, 0]
+32216	7DD8	Writhing Tongue	
+32307	7E33	Large Crooked Horn	
+32333	7E4D	Fire: Flame Breath	
+32355	7E63	Material Essence (Ranged)	
+32367	7E6F	Polished Form	
+32397	7E8D	Japanese Crown Helmet	
+32418	7EA2	Sacred Brush	
+32446	7EBE	Deadly Mark	
+32485	7EE5	Kamui	[18, 0, 16, 0]
+32488	7EE8	Yoshitsune's Armor	
+32489	7EE9	Seventh Sword Tonfa	
+32507	7EFB	Gaki Soul Core	
+32609	7F61	Shock Troop Trousers	[27, 38, 27, 42]
+32637	7F7D	Sage's Khakkhara	[18, 0, 16, 0]
+32653	7F8D	Battle Frenzy Kata	
+32707	7FC3	Smirkwiper	[11, 0, 11, 0]
+32736	7FE0	Arrowhead Paralytic	
+32738	7FE2	Tokagemaru	[11, 0, 11, 0]
+32758	7FF6	Swallowtail Greaves	[39, 24, 39, 31]
+32780	800C	Book of Reincarnation	
+32817	8031	Slayer's Axe	[58, 0, 48, 0]
+32824	8038	Exorcist's Cuirass	[50, 86, 48, 98]
+32835	8043	Conch Eboshi	[15, 8, 15, 19]
+32844	804C	Chieizu's Sandals	[18, 19, 15, 19]
+32853	8055	Shinsengumi Haori	[34, 34, 34, 38]
+32876	806C	One-Eyed Master's Robe	[82, 54, 66, 62]
+32893	807D	Wooden Spear	[18, 0, 20, 0]
+32916	8094	Defense Mastery III	
+32930	80A2	Benkei Muso's Khakkhara	
+32979	80D3	Mononobe Axe	[58, 0, 48, 0]
+32985	80D9	Kusarigama Master Attire	
+32986	80DA	Artful Evasion	
+32989	80DD	Tiger Sprint	
+33018	80FA	Warped Jawbone	
+33035	810B	Necklace of Tormented Souls	
+33088	8140	Searing Bolt Tonfa	[20, 0, 16, 0]
+33094	8146	Lei Gong Hoko & Shield	[20, 0, 16, 0]
+33126	8166	Sessai's Switchglaive	
+33174	8196	Tatsuke Cannon	
+33214	81BE	Gaki Soul Core	
+33248	81E0	Water Buffalo Horn Helmet	
+33259	81EB	Ogo & Nagamei Masamune	
+33260	81EC	Sincere Buddha's Helmet	[57, 48, 55, 50]
+33263	81EF	SKILL NAME DUMMY	
+33293	820D	Mino Veteran's Gauntlets	[52, 41, 48, 50]
+33299	8213	Hachiya Cestuses	[18, 0, 16, 0]
+33321	8229	Shadowstep Greaves	[27, 49, 27, 49]
+33326	822E	Wave Cutter Hatchets	[11, 0, 16, 0]
+33358	824E	Skeleton Warrior Soul Core	
+33366	8256	Ryukyu Hoko & Shield	[18, 0, 16, 0]
+33371	825B	Seven Scalp Splitstaff	[18, 0, 16, 0]
+33382	8266	Heir's Shinobi Waistguard	[9, 12, 9, 27]
+33404	827C	Defense Mastery II	
+33443	82A3	Dojikiri Yasutsuna	
+33473	82C1	Dual Wooden Swords	
+33505	82E1	SKILL NAME DUMMY	
+33509	82E5	Butterfly Helmet	
+33570	8322	Infernal Tonfa	
+33613	834D	Warrior's Text	
+33638	8366	Seimei Water Talisman	
+33642	836A	Blade Spin	
+33701	83A5	First Captain's Sleevelets	[18, 18, 18, 19]
+33706	83AA	Bizen Odachi	[16, 0, 16, 0]
+33781	83F5	Healing Pill	
+33801	8409	Kaikunigo	
+33806	840E	Summoning Seal: {}	
+33812	8414	Chinzei Hachiro's Bow	[4, 0, 3, 0]
+33815	8417	Broken Wheel Piece	
+33859	8443	Gaki Soul Core	
+33876	8454	Eccentric's Waistguard	[60, 39, 60, 47]
+33885	845D	Attack Mastery II	
+33909	8475	Scarlet Sands of Despair	
+33912	8478	Fist Wielder's Locks	
+33954	84A2	Hand-picked Plum Blossoms	
+33978	84BA	SKILL NAME DUMMY	
+34000	84D0	Visitor Amulet	
+34001	84D1	Vassal's Gauntlets	[37, 22, 37, 31]
+34075	851B	Vajra Splitstaff	[18, 0, 16, 0]
+34111	853F	Red Demon Spear	
+34119	8547	Comb	[1, 0, 1, 0]
+34144	8560	Kiryoki's Switchglaive	[20, 0, 16, 0]
+34202	859A	Demon God Hammer	[60, 0, 48, 0]
+34203	859B	Heshikiri Hasebe	
+34208	85A0	Munechika Hoko & Shield	[20, 0, 16, 0]
+34246	85C6	Benkei Muso's Robe	[38, 56, 34, 56]
+34283	85EB	Backstab Life Siphon	
+34339	8623	Infernal Dual Katana	
+34352	8630	Kobo Daishi's Stole	[36, 46, 36, 56]
+34358	8636	Wooden Odachi	
+34395	865B	Fuma Ninja Gauntlets	[7, 10, 7, 18]
+34401	8661	Bell of Invocation	
+34449	8691	Thunder God Kusarigama	[25, 0, 18, 0]
+34450	8692	Explosive Arrow Scroll	
+34485	86B5	Himiko's Staff	[18, 0, 16, 0]
+34496	86C0	Seki Dual Tachi	[23, 0, 21, 0]
+34535	86E7	Gunner's Hammer	
+34547	86F3	Rosewood Tonfa	[20, 0, 16, 0]
+34590	871E	Summoning Seal: {}	
+34594	8722	Light Yamatai Gauntlets	[18, 24, 18, 28]
+34616	8738	Yellow Soul Ore	
+34626	8742	Caltrop Ball	
+34627	8743	Fujiwara Sadayasu	
+34634	874A	Amplification	
+34651	875B	Chieizu's Sleeves	[18, 19, 15, 19]
+34660	8764	Wooden Tonfa	
+34749	87BD	Incense	
+34760	87C8	Sinister Tyrant's Necklace	[16, 36, 16, 36]
+34828	880C	Gunner's Vest	[34, 32, 34, 38]
+34845	881D	Taifu Talons	[18, 0, 16, 0]
+34856	8828	Demon God Mask	[18, 23, 16, 28]
+34872	8838	Sentry Soul Core	
+34899	8853	Marksman's Hat	[17, 21, 17, 28]
+34900	8854	Hero's Hatchets	[11, 0, 16, 0]
+34901	8855	Samurai General's Gauntlets	[39, 25, 39, 31]
+34913	8861	Tomato	
+34921	8869	Sneak Thief Scroll	
+34930	8872	Shinobi Greaves	[25, 42, 24, 49]
+34950	8886	Ascetic Sandals	[24, 40, 23, 49]
+35021	88CD	Yokai Incense	
+35040	88E0	Kamari Hakama	[12, 18, 12, 27]
+35098	891A	Gunpowder Bomb	
+35108	8924	Wooden Axe	
+35110	8926	Hand Mirror	[1, 0, 1, 0]
+35123	8933	Mountain Ridge Helmet	[51, 40, 47, 50]
+35137	8941	Udoto	
+35162	895A	Searing Bolt Tonfa	
+35184	8970	Windstop Talisman	
+35189	8975	Training Robe	[14, 18, 12, 36]
+35209	8989	Lone Wolf's Hood	[16, 20, 16, 28]
+35226	899A	Enduring Vigor	
+35229	899D	Brave Demon Hunter's Helmet	[37, 22, 37, 31]
+35236	89A4	Pagoda Tonfa	[20, 0, 16, 0]
+35242	89AA	Extraction Talisman	
+35247	89AF	Summoning Seal: {}	
+35336	8A08	Pipe	[1, 0, 1, 0]
+35356	8A1C	Bloodstained Letter	
+35357	8A1D	Yagyu Waistguard	[29, 41, 24, 42]
+35373	8A2D	Sacred Ash	
+35381	8A35	Crucible Sasumata	[20, 0, 20, 0]
+35390	8A3E	Sickle Blade Fragments	
+35393	8A41	Salt	
+35417	8A59	Demon Fang Kusarigama	[18, 0, 18, 0]
+35431	8A67	Penance Stone of the Shogun	
+35437	8A6D	Youngblood Gauntlets	[33, 20, 33, 31]
+35443	8A73	Usurper's Helmet	
+35474	8A92	Iron Switchglaive	[20, 0, 16, 0]
+35500	8AAC	SKILL NAME DUMMY	
+35536	8AD0	Yin-Yang Tonfa	[20, 0, 16, 0]
+35572	8AF4	Scribe's Journal - July	
+35654	8B46	Material Essence (Spirit Force)	
+35665	8B51	Mitsuyo Kusarigama	[18, 0, 18, 0]
+35668	8B54	Martial Artist's Switchglaive	[20, 0, 16, 0]
+35674	8B5A	Windproof Amulet	
+35694	8B6E	Iga Enhanced Shrapnel Bomb	
+35697	8B71	Blessed Sleeve Armor	
+35774	8BBE	Benkei's Splitstaff	
+35874	8C22	Shaman Queen's Necklace	[1, 0, 1, 0]
+35910	8C46	Suwa Myojin Sickle	
+35912	8C48	Atagi Sadamune	
+35928	8C58	Glue	
+35941	8C65	Simple Talons	[18, 0, 16, 0]
+36011	8CAB	Futsunomitama	
+36041	8CC9	Thief's Plated Headband	[6, 9, 6, 18]
+36044	8CCC	Lifeseal Talisman	
+36070	8CE6	Vajra Splitstaff	
+36073	8CE9	Toxic Groundfire	
+36101	8D05	Kobo Daishi's Sleevelets	[18, 23, 18, 28]
+36120	8D18	Omamori	[1, 0, 1, 0]
+36161	8D41	Thunderous Warrior Helmet	[38, 20, 34, 31]
+36174	8D4E	Benkei's Axe	
+36187	8D5B	Kaikunigo	[11, 0, 11, 0]
+36227	8D83	Falcon Claws	
+36267	8DAB	Vermilion Spear	[20, 0, 20, 0]
+36277	8DB5	Stone	
+36294	8DC6	Blessed Vajra Hammer	[45, 0, 48, 0]
+36354	8E02	Writing Set	[1, 0, 1, 0]
+36368	8E10	Twin-Snake Helmet	
+36374	8E16	Lone Wolf's Greaves	[16, 20, 16, 28]
+36378	8E1A	Borehole Bow	[5, 0, 3, 0]
+36387	8E23	Sinister Tyrant's Attire	
+36394	8E2A	Artisan's Note	
+36404	8E34	Ichimokuren Soul Core	
+36425	8E49	Baby Stone Fragment	
+36471	8E77	Raishodo	
+36479	8E7F	Oasis Talisman	
+36480	8E80	Raging Fire Clawed Fists	[18, 0, 16, 0]
+36490	8E8A	Bandit Axe	[46, 0, 48, 0]
+36499	8E93	Rigorous Focus	
+36529	8EB1	Crimson General's Nagamaki	
+36552	8EC8	Rebel Ronin's Cuirass	[82, 56, 66, 62]
+36584	8EE8	Naval Cap	[8, 15, 8, 18]
+36595	8EF3	Lilac Armor	
+36600	8EF8	SKILL NAME DUMMY	
+36621	8F0D	Ippon-Datara Fang	
+36624	8F10	Rotten Rope Cutter	[18, 0, 18, 0]
+36625	8F11	Sakon's Spear	
+36754	8F92	Waterstop Talisman	
+36788	8FB4	Golden Shachi Helmet	
+36794	8FBA	Dojikiri Yasutsuna	[15, 0, 11, 0]
+36816	8FD0	Thunderstorm Shot	
+36827	8FDB	Tangle Strike	
+36828	8FDC	SKILL NAME DUMMY	
+36833	8FE1	Golden Gourd Armor	
+36845	8FED	Arrowproof Amulet	
+36850	8FF2	Fan-Piercing Bow	
+36895	901F	Vice Shogun's Cuirass	[118, 100, 102, 100]
+36913	9031	Thunderstorm Oni-bi Soul Core	
+36935	9047	Sword of Meditation	
+36950	9056	Fujiwara Sadayasu	[11, 0, 11, 0]
+36954	905A	Blood-Stained Charges	
+36972	906C	Lightning Step	
+36989	907D	Gozuki Soul Core	
+37074	90D2	Touch-Me-Not Scroll	
+37081	90D9	Ascension	
+37086	90DE	Hayakaze Spear	
+37158	9126	Shunobon Soul Core	
+37203	9153	Ippon-Datara Soul Core	
+37208	9158	Onmyo Warrior's Armor	
+37212	915C	Ninja's Locks	
+37248	9180	Red Spider Lily	
+37363	91F3	Magatama	[1, 0, 1, 0]
+37389	920D	Shadowround Talisman	
+37404	921C	Gaki Soul Core	
+37433	9239	Nurikabe Fragment	
+37503	927F	Purify Yokai Realm: Spirit	
+37513	9289	Raijin Helmet	
+37517	928D	Volitional Summoning	
+37550	92AE	Gaki Soul Core	
+37625	92F9	Hollyhock Culottes	[60, 39, 60, 47]
+37629	92FD	Chief's Talons	[18, 0, 16, 0]
+37667	9323	Lightning Cannon	
+37668	9324	Destructive Arts	
+37687	9337	Paralysis Omamori	[1, 0, 1, 0]
+37728	9360	Smoke Ball	
+37751	9377	Strategic Spirit	
+37756	937C	Merciful Switchglaive	
+37761	9381	SKILL NAME DUMMY	
+37792	93A0	Bizen Osafune	[12, 0, 11, 0]
+37826	93C2	SKILL NAME DUMMY	
+37872	93F0	Urn Splitter	
+37873	93F1	Arrowhead Gunpowder	
+37938	9432	Infernal Hatchets	
+37955	9443	Jailer Oni (Cold Hells) Soul Core	
+37957	9445	Frost Blossom Clawed Fists	
+38010	947A	Minamoto's Helmet	[35, 23, 34, 31]
+38055	94A7	Water Dragon	[1, 0, 1, 0]
+38061	94AD	Yamatai Sword	
+38115	94E3	Lumber Chop	
+38117	94E5	Red Kappa Helmet	
+38121	94E9	Second Wind	
+38133	94F5	Guiding Mirror	
+38135	94F7	Kanesada & Yasutsugu	
+38153	9509	Fragrant Wood	
+38154	950A	Clay Bell of Beckoning	
+38161	9511	Piercing Rain	
+38196	9534	Mitsumono Faceguard	[18, 22, 18, 28]
+38218	954A	Mirage Axe	
+38219	954B	Shadowstep Waistguard	[41, 74, 41, 74]
+38223	954F	Fuma Ninja Plated Headband	[7, 10, 7, 18]
+38242	9562	Infernal Oni-bi Soul Core	
+38252	956C	Ancient Soldier's Hoko & Shield	[20, 0, 16, 0]
+38271	957F	One-Eyed Master's Waistguard	[63, 41, 50, 47]
+38301	959D	Versatility	
+38308	95A4	Wind Demon Hatchets	[11, 0, 16, 0]
+38316	95AC	Battle Strategy Log	
+38355	95D3	Kanesada & Yasutsugu	[22, 0, 21, 0]
+38361	95D9	Guardian Monk's Gaiters	[35, 20, 34, 31]
+38412	960C	Purify Yokai Realm: Spirit Kai	
+38421	9615	Eccentric's Gauntlets	[40, 26, 40, 31]
+38424	9618	Cruxidian Crystal	
+38463	963F	Thunderous Ninja Garment	[36, 40, 32, 56]
+38512	9670	Tempest Horn	
+38518	9676	Zen Manual	
+38537	9689	Noxious Groundfire	
+38565	96A5	Enki Pelt	
+38567	96A7	Arrowproof Amulet	
+38568	96A8	Fan	[1, 0, 1, 0]
+38572	96AC	Anti-Toxin Pill	
+38625	96E1	Kobo Daishi's Hat	[18, 23, 18, 28]
+38650	96FA	Imported Pocket Watch	[1, 0, 1, 0]
+38661	9705	Yamanba Soul Core	
+38673	9711	Shingen's Fan	
+38757	9765	^13~UNUSED~	
+38804	9794	Great Forge Key	
+38821	97A5	Medicine Case	[1, 0, 1, 0]
+38836	97B4	Deadly Eye	
+38856	97C8	Genin's Kusarigama	[19, 0, 18, 0]
+38870	97D6	Summoning Seal: {}	
+38925	980D	Quick-Change Scroll	
+38947	9823	Flying Monkey	
+38976	9840	Wrathful Dragon	
+38979	9843	Summoning Seal: {}	
+39034	987A	Yamada Kusarigama	[18, 0, 18, 0]
+39083	98AB	Kappa Soul Core	
+39090	98B2	Hayakaze Spear	[20, 0, 20, 0]
+39107	98C3	Mysticite Crystal	
+39128	98D8	Aggrieved Sword & Shield	[20, 0, 16, 0]
+39143	98E7	Leather Platelet	
+39149	98ED	Demon of Pride's Horn	
+39174	9906	Demon Arm Fists	[18, 0, 16, 0]
+39187	9913	Gallant Thief's Cestuses	[18, 0, 16, 0]
+39352	99B8	Oni Shibata's Armor	
+39385	99D9	Snowclops Loincloth	
+39415	99F7	Mino Veteran's Greaves	[52, 41, 48, 50]
+39450	9A1A	Tiger of Higo's Spear	
+39469	9A2D	Kohoku Master's Armor	
+39509	9A55	Benkei Muso's Talons	
+39510	9A56	SKILL NAME DUMMY	
+39578	9A9A	SKILL NAME DUMMY	
+39607	9AB7	Gallant Thief's Faceplate	[26, 46, 26, 49]
+39620	9AC4	Goichimonshu Waistguard	[77, 62, 72, 75]
+39636	9AD4	Benkei Muso's Talons	[18, 0, 16, 0]
+39675	9AFB	Vice Shogun's Greaves	[59, 50, 51, 50]
+39749	9B45	Streamflow	
+39760	9B50	Hellfire Warrior Cuirass	[74, 40, 68, 62]
+39768	9B58	Bishamon Spear	[20, 0, 20, 0]
+39814	9B86	Hokkyo Rai Kinmichi & Uda Kunimitsu	[21, 0, 21, 0]
+39842	9BA2	Watatsumi's Watch	[20, 0, 16, 0]
+39854	9BAE	Illegible Secret Letter	
+39858	9BB2	Scion of Tamura's Cuirass	[116, 96, 110, 100]
+39862	9BB6	Footsoldier's Greaves	[36, 20, 35, 31]
+39886	9BCE	Evil-Dispelling Evade	
+39891	9BD3	One-Eyed Master's Greaves	[41, 27, 33, 31]
+39903	9BDF	Summoning Seal: {}	
+39910	9BE6	Focused Spirit Force Kata	
+39911	9BE7	Ascetic Hakama	[36, 60, 35, 74]
+39912	9BE8	Ghostly Gall	
+39940	9C04	Summoning Seal: {}	
+39953	9C11	Purification Talisman	
+39961	9C19	Penance Stone of the Wise	
+39964	9C1C	Stone's Bane	
+39971	9C23	Akechi Chikakage	
+39993	9C39	Necklace of Tormented Souls	
+39996	9C3C	Nagasone Kotetsu	[11, 0, 11, 0]
+40038	9C66	Dreaming Demon Armor	
+40045	9C6D	Haccho Nenbutsu	
+40057	9C79	Odachi Wielder's Locks	
+40064	9C80	Brigand's Hatchets	[11, 0, 16, 0]
+40110	9CAE	Fuma Cestuses	[18, 0, 16, 0]
+40112	9CB0	Rejuvenation Pill	
+40147	9CD3	Infernal Odachi	[17, 0, 16, 0]
+40230	9D26	Antiparalytic Needle	
+40287	9D5F	Fatal Fists: {}	
+40308	9D74	Ippon-Datara's Odachi	
+40355	9DA3	Hand Cannon Ammunition	
+40385	9DC1	Flame Dragon	
+40423	9DE7	Peerless Combatant's Hakama	[26, 21, 26, 29]
+40461	9E0D	Kintaro's Waistguard	[84, 71, 80, 75]
+40484	9E24	Fuma Chief's Waistguard	[26, 30, 26, 42]
+40517	9E45	Benkei's Splitstaff	[18, 0, 16, 0]
+40546	9E62	Sacred Bird Flight	
+40577	9E81	Imakomei's Armor	
+40618	9EAA	Pleiades Talisman	
+40669	9EDD	Whetstone	
+40683	9EEB	Heir's Cuirass	[66, 38, 66, 62]
+40713	9F09	Red Kappa Soul Core	
+40740	9F24	Mino Uchigatana	[11, 0, 11, 0]
+40790	9F56	Eccentric's Greaves	[40, 26, 40, 31]
+40802	9F62	Gunner's Attire	
+40824	9F78	Goichimonshu Gauntlets	[51, 41, 48, 50]
+40841	9F89	Blackened Key	
+40879	9FAF	Pufferpuss Technique	
+40883	9FB3	Onmyo Mage's Locks	
+40887	9FB7	Viridian Soul Ore	
+40901	9FC5	Hellfire Kusarigama	[18, 0, 18, 0]
+40914	9FD2	Ninjutsu Cultivation	
+40956	9FFC	Summoning Seal: {}	
+40975	A00F	Purify Yokai Realm: Shadow	
+41000	A028	Hundred Night Incense	
+41041	A051	Sage's Sandals	[8, 14, 8, 18]
+41042	A052	Bakegani Pincers	
+41054	A05E	Yasakani Magatama	[1, 0, 1, 0]
+41088	A080	Infernal Dual Ninja Swords	
+41176	A0D8	Infernal Talons	[18, 0, 16, 0]
+41179	A0DB	Biwa Pick	
+41209	A0F9	Mataza's Armor	
+41285	A145	Dragon Whistle	[1, 0, 1, 0]
+41287	A147	Severing Spin	
+41295	A14F	Togakushi Kusarigama	[22, 0, 18, 0]
+41296	A150	Umbrella Rib	
+41305	A159	Frost Blossom Clawed Fists	[18, 0, 16, 0]
+41312	A160	Physick	
+41331	A173	Demon's Horn	
+41347	A183	Gallant Thief's Cuirass	[52, 92, 52, 98]
+41362	A192	Sasayuki	[20, 0, 16, 0]
+41373	A19D	Fire Shuriken	
+41374	A19E	Overseer's Tonfa	[20, 0, 16, 0]
+41380	A1A4	Thunderous Ninja Greaves	[18, 20, 16, 28]
+41401	A1B9	Summoning Seal: {}	
+41414	A1C6	Summoning Seal: {}	
+41450	A1EA	Purify Yokai Realm: Earth	
+41451	A1EB	Jabara Odachi	
+41506	A222	Gaki Soul Core	
+41508	A224	Magoroku Kanemoto Dual Katana	[26, 0, 21, 0]
+41515	A22B	Yagyu Robe	[38, 54, 32, 56]
+41577	A269	Groundfire	
+41593	A279	Herbal Remedy	
+41601	A281	Tiger-Running Amulet	
+41660	A2BC	Rebel Ronin's Hat	[41, 28, 33, 31]
+41700	A2E4	Yokai Animagris	
+41751	A317	Ronin's Cuirass	[74, 42, 72, 62]
+41765	A325	Azai Ichimonji	
+41777	A331	Amethyst Soul Ore	
+41801	A349	Falling Moon	
+41804	A34C	Million Koku Long Spear	[26, 0, 20, 0]
+41820	A35C	Nure-onna Soul Core	
+41835	A36B	Sohaya Tsurugi	[18, 0, 11, 0]
+41863	A387	Waira Soul Core	
+41885	A39D	Hanzo the Demon's Spear	[26, 0, 20, 0]
+41889	A3A1	Dual Wooden Swords	[20, 0, 21, 0]
+41895	A3A7	Nokizaru Clawed Fists	[18, 0, 16, 0]
+41927	A3C7	Lilac Greaves	[56, 46, 53, 50]
+41934	A3CE	Black Lacquer Long Sword	
+41960	A3E8	Demon of Envy Soul Core	
+41965	A3ED	Weathered Bone & Bleached Twig	[21, 0, 21, 0]
+42004	A414	Thunder God Kusarigama	
+42052	A444	Karakasa Umbrella Soul Core	
+42160	A4B0	Flashfire Splitstaff	
+42176	A4C0	Punish the Proud	
+42248	A508	Grimy Hatchet & Rusty Hoe	[11, 0, 16, 0]
+42257	A511	Samurai General's Waistguard	[59, 38, 59, 47]
+42263	A517	Urn Splitter Hatchets	
+42303	A53F	Medusa Powder	
+42322	A552	Gisen's Struggle: Final Writings	
+42340	A564	Righteous Helmet	[37, 21, 36, 31]
+42344	A568	Flying Kato's Robes	[16, 34, 16, 36]
+42345	A569	Slayer's Odachi	
+42370	A582	Vengeful Spirit Mask	[18, 25, 16, 28]
+42372	A584	Will-o'-Wisp Blade	[24, 0, 18, 0]
+42393	A599	Tarnished Iron Key	
+42396	A59C	Minamoto's Waistguard	[53, 35, 51, 47]
+42411	A5AB	Sharp Stinger	
+42414	A5AE	Sanctity Talisman	
+42422	A5B6	Rabbit Crest Helmet	
+42464	A5E0	Heizo's Waistguard	[39, 66, 38, 74]
+42491	A5FB	Devigorate Talisman	
+42531	A623	Demon of Envy's Horn	
+42538	A62A	Advancing Storm	
+42615	A677	Daion-Jin's Sake	
+42632	A688	Lesser Umi-bozu Soul Core	
+42646	A696	Ninja Commander Fists	[18, 0, 16, 0]
+42682	A6BA	Gaki Soul Core	
+42704	A6D0	Gaki Soul Core	
+42721	A6E1	Tower Helmet	
+42722	A6E2	Gallant Thief's Waistguard	[39, 69, 39, 74]
+42723	A6E3	Horned Turban Helmet	[33, 19, 33, 31]
+42744	A6F8	Groundfire	
+42749	A6FD	Resistance Talisman	
+42763	A70B	Incendiary Arrow	
+42784	A720	Million Koku Gauntlets	[59, 50, 53, 50]
+42786	A722	Hero's Sword & Shield	[20, 0, 16, 0]
+42792	A728	Aerial Mastery	
+42805	A735	Sekishu Kazusada	[11, 0, 16, 0]
+42892	A78C	One-Eyed Dragon's Armour	
+42899	A793	Summoning Seal: {}	
+42916	A7A4	Dirty Key	
+42923	A7AB	Summoning Seal: {}	
+42925	A7AD	Dread Bringer	
+42943	A7BF	Iga Shrapnel Bomb	
+42957	A7CD	Ibaraki Doji's Odachi	[16, 0, 16, 0]
+42970	A7DA	Honjo Masamune & Saber	[22, 0, 21, 0]
+43005	A7FD	Great Kanemitsu	
+43077	A845	Summoning Seal: {}	
+43086	A84E	Water Drop	
+43087	A84F	Training Hakama	[23, 12, 23, 12]
+43181	A8AD	Spinning Realm	
+43183	A8AF	Enki Soul Core	
+43257	A8F9	Oppressive Strength	
+43285	A915	Fire Shuriken	
+43407	A98F	Summoning Seal: {}	
+43422	A99E	Summoning Seal: {}	
+43452	A9BC	Storm of Strikes	
+43454	A9BE	Vengeful Spirit Mask	[18, 25, 16, 28]
+43465	A9C9	Hellfrost Ninja Gauntlets	[18, 20, 16, 28]
+43476	A9D4	Shuri-no-suke's Armor	
+43477	A9D5	Flame Dragon	
+43480	A9D8	Kobo Daishi's Beads	[1, 0, 1, 0]
+43526	AA06	Ninja Marksman's Greaves	[19, 25, 18, 28]
+43557	AA25	True and Through	
+43564	AA2C	Tornado	
+43625	AA69	SKILL NAME DUMMY	
+43644	AA7C	Powerful Shift	
+43647	AA7F	Juzumaru Tsunetsugu	
+43657	AA89	Heir's Shinobi Headband	[6, 8, 6, 18]
+43668	AA94	Veteran's Helmet	[39, 25, 39, 31]
+43676	AA9C	Summoning Seal: {}	
+43678	AA9E	Blood-stained letter	
+43709	AABD	Demon Horde Odachi	
+43721	AAC9	Carnage Talisman	
+43763	AAF3	Summoning Seal: {}	
+43786	AB0A	Material Essence (Move/Dodge)	
+43829	AB35	Candle Dish	
+43843	AB43	Iga Jonin Waistguard	[11, 17, 11, 27]
+43893	AB75	Wayfarer's Sleevelets	[15, 10, 15, 19]
+43906	AB82	Swallowtail Helmet	[39, 24, 39, 31]
+43945	ABA9	Authority's Cuirass	[80, 54, 80, 62]
+43951	ABAF	Shadow Cyclone	
+43978	ABCA	Scampuss Hat	[16, 19, 16, 28]
+43981	ABCD	Shadowstep Ninja Gear	
+44035	AC03	Summoning Seal: {}	
+44039	AC07	Heaven Flash	
+44041	AC09	SKILL NAME DUMMY	
+44048	AC10	Stun Arrow Tincture	
+44068	AC24	Aggrieved Sword & Shield	[20, 0, 16, 0]
+44069	AC25	Summoner's Candle	
+44077	AC2D	Ninja's Tonfa	[20, 0, 16, 0]
+44085	AC35	Gallant Thief's Armor	
+44108	AC4C	Oniwaban Headband	[8, 16, 8, 18]
+44124	AC5C	Scampuss Hat	[16, 19, 16, 28]
+44141	AC6D	Experiment Methodology	
+44170	AC8A	Favorable Wind	
+44173	AC8D	First Captain's Uniform	
+44192	ACA0	Pure Mind	
+44206	ACAE	Irregular Troop's Hat	[15, 9, 15, 19]
+44213	ACB5	Shogunate Gaiters	[8, 17, 8, 18]
+44300	AD0C	Kobo Daishi's Gaiters	[18, 23, 18, 28]
+44350	AD3E	Ornamental Blade	[11, 0, 11, 0]
+44351	AD3F	Shuri-no-suke's Gauntlets	[52, 41, 49, 50]
+44393	AD69	Dragon King Splitstaff	
+44446	AD9E	SKILL NAME DUMMY	
+44459	ADAB	Ninja's Locks	
+44476	ADBC	Mitsumono Hakama	[27, 33, 27, 42]
+44497	ADD1	Fireproof Amulet	
+44502	ADD6	High Priest's Hakama	[12, 24, 12, 27]
+44522	ADEA	Kurama Sword Dance	
+44527	ADEF	Hellfire Warrior Gauntlets	[37, 20, 34, 31]
+44547	AE03	Wave Swimmer	
+44566	AE16	Resounding Lunge	
+44573	AE1D	Summoning Seal: {}	
+44585	AE29	Ryoma's Letter	
+44623	AE4F	Ryomen Sukuna's Axe	[48, 0, 48, 0]
+44701	AE9D	Tamahagane	
+44715	AEAB	Leather Cord	
+44748	AECC	Shinsengumi Sandals	[17, 17, 17, 19]
+44753	AED1	Rebel Ronin's Greaves	[41, 28, 33, 31]
+44784	AEF0	Pipe	[1, 0, 1, 0]
+44902	AF66	White Camellia Hairpin	[1, 0, 1, 0]
+44918	AF76	Moonprayer Gauntlets	[17, 15, 15, 19]
+44952	AF98	Summoning Seal: {}	
+44961	AFA1	Mataza's Long Spear	
+44963	AFA3	Fuma Chief's Talons	[18, 0, 16, 0]
+44979	AFB3	Diehard's Armour	
+45005	AFCD	Malefactor's Gauntlets	[54, 43, 50, 50]
+45036	AFEC	Summoning Basics	
+45053	AFFD	Steel Talisman	
+45059	B003	Hellfrost Warrior Greaves	[38, 20, 34, 31]
+45079	B017	Gisen's Struggle: Resistance	
+45141	B055	Highest Quality Iron Platelet	
+45340	B11C	Yamato Odachi	[16, 0, 16, 0]
+45375	B13F	Barbarian's Hatchets	[11, 0, 16, 0]
+45376	B140	Thief's Cuirass	[20, 16, 20, 16]
+45396	B154	Vital Spirit	
+45407	B15F	Suzaku's Beak	[20, 0, 16, 0]
+45412	B164	Morning Light	
+45431	B177	Taifu Cestuses	[18, 0, 16, 0]
+45433	B179	Great Chidori Cross Spear	
+45486	B1AE	Yamabushi Robes	[16, 26, 16, 36]
+45488	B1B0	Roaring Gun Ammunition	
+45511	B1C7	Lord Kamakura's Cuirass	
+45519	B1CF	Tanegashima Matchlock	[5, 0, 5, 0]
+45550	B1EE	Yokai Water Pot	
+45552	B1F0	Fuma Kusarigama	[23, 0, 18, 0]
+45574	B206	Summoning Seal: {}	
+45708	B28C	Highest Quality Ingot	
+45857	B321	Pit Viper's Garments	
+45916	B35C	Dweller Soul Core	
+45927	B367	Kijinmaru Kunishige	[16, 0, 16, 0]
+45938	B372	Poison Omamori	[1, 0, 1, 0]
+45961	B389	Vice Shogun's Gauntlets	[59, 50, 51, 50]
+45963	B38B	Lacquer	
+46000	B3B0	Jailer Oni (Needle) Soul Core	
+46010	B3BA	Echoing Thunder	
+46045	B3DD	Black Bear Fur Helmet	[39, 25, 34, 31]
+46056	B3E8	Lightning Shot	
+46150	B446	Soshu Dual Tachi	[22, 0, 21, 0]
+46158	B44E	Suwa Myojin Sickle	[18, 0, 18, 0]
+46226	B492	Fragrant Wood	
+46252	B4AC	Conch Eboshi	
+46311	B4E7	Samurai Noble's Attire	
+46410	B54A	Malefactor's Waistguard	[81, 65, 75, 75]
+46431	B55F	Tri-Spark	
+46468	B584	Attire of the Exalted	
+46483	B593	Lumicite Shard	
+46507	B5AB	Swirling Snow	
+46552	B5D8	Mino Veteran's Helmet	[52, 41, 48, 50]
+46587	B5FB	SKILL NAME DUMMY	
+46627	B623	Night Rain	
+46629	B625	SKILL NAME DUMMY	
+46643	B633	^13~UNUSED~	
+46644	B634	Master Axe-Thrower's Hatchets	
+46699	B66B	Arrowhead Paralytic	
+46708	B674	Ryomen Sukuna's Sword	
+46716	B67C	Hellfire Warrior Armor	
+46765	B6AD	Summoning Seal: {}	
+46827	B6EB	Deityte Shard	
+46850	B702	Frayed Diary - Page II	
+46865	B711	Swordmaster's Shoes	[16, 12, 16, 19]
+46898	B732	Minamoto's Armor	
+46899	B733	Glowing Lock of Wet Hair	
+46977	B781	Mononobe Axe	
+47009	B7A1	Blossomed Blade	
+47035	B7BB	Blacksmith’s Hammer	
+47077	B7E5	Thief's Greaves	[10, 8, 10, 8]
+47090	B7F2	Ghostly Gall	
+47091	B7F3	High-Quality Leather Platelet	
+47100	B7FC	Chinese Crown Helmet	
+47108	B804	Bisento & Danpai	[20, 0, 16, 0]
+47190	B856	Sage's Khakkhara	
+47223	B877	Great Hachiryo Helmet	[38, 23, 38, 31]
+47233	B881	Crucible Cudgel	[48, 0, 48, 0]
+47260	B89C	Sinister Tyrant's Boots	[8, 18, 8, 18]
+47305	B8C9	SKILL NAME DUMMY	
+47330	B8E2	Water Amulet	
+47344	B8F0	Benkei's Armor	
+47381	B915	Summoning Seal: {}	
+47446	B956	SKILL NAME DUMMY	
+47456	B960	Tempest Splitstaff	[18, 0, 16, 0]
+47463	B967	Wayfarer's Hakama	[23, 15, 21, 29]
+47475	B973	SKILL NAME DUMMY	
+47534	B9AE	Devigorate Talisman	
+47542	B9B6	Marksman's Bow	[4, 0, 3, 0]
+47560	B9C8	Bizen Uchigatana	[11, 0, 11, 0]
+47580	B9DC	Shinto Priest's Headgear	[8, 13, 8, 18]
+47607	B9F7	Thunderous Ninja Waistguard	[27, 30, 24, 42]
+47609	B9F9	Hellfire Warrior Waistguard	[56, 30, 51, 47]
+47660	BA2C	Authority's Gauntlets	[40, 27, 40, 31]
+47707	BA5B	Divine Branch	
+47710	BA5E	Demon God Hammer	
+47723	BA6B	Physical Art Strike	
+47749	BA85	Volitional Onmyo Magic	
+47770	BA9A	Vermilion Spear	
+47811	BAC3	Salt	
+47836	BADC	Summoning Seal: {}	
+47887	BB0F	Taro Tachi	[11, 0, 16, 0]
+47895	BB17	Iga Jonin Cuirass	[14, 22, 14, 36]
+47960	BB58	Ki Pulse: Man	
+47985	BB71	Sunakake-baba Soul Core	
+47995	BB7B	Gisen's Struggle: Return	
+48026	BB9A	Arrowhead Poison	
+48033	BBA1	Heavyweight Axe	[48, 0, 48, 0]
+48035	BBA3	Footsoldier's Waistguard	[33, 28, 33, 28]
+48042	BBAA	Murakumo Helmet	[16, 19, 16, 28]
+48050	BBB2	Divine Wind Hoko & Shield	[20, 0, 16, 0]
+48067	BBC3	SKILL NAME DUMMY	
+48092	BBDC	Summoning Seal: {}	
+48107	BBEB	Barrier Talisman	
+48210	BC52	Scribe's Journal - May	
+48215	BC57	Jonin's Talons	[18, 0, 16, 0]
+48222	BC5E	Kusarigama Master Greaves	[27, 48, 26, 49]
+48265	BC89	Nimble Step	
+48266	BC8A	Chieizu's Hood	[18, 19, 15, 19]
+48277	BC95	Kamaitachi's Front Teeth	
+48412	BD1C	Poison Shuriken	
+48436	BD34	Maelstrom Oni-bi Soul Core	
+48451	BD43	Thunderous Warrior Waistguard	[57, 30, 51, 47]
+48453	BD45	Tsurara-onna Soul Core	
+48473	BD59	Kiryoki's Splitstaff	
+48485	BD65	Exorcist's Waistguard	[38, 65, 36, 74]
+48491	BD6B	Sudama Soul Core	
+48567	BDB7	Sunderer	[11, 0, 16, 0]
+48583	BDC7	Kusarigama Master Gauntlets	[27, 48, 26, 49]
+48601	BDD9	Demon Cutter	[11, 0, 11, 0]
+48623	BDEF	SKILL NAME DUMMY	
+48625	BDF1	Yoichi's Bow	
+48630	BDF6	Semiore Flute	[1, 0, 1, 0]
+48648	BE08	Crimson General's Cuirass	[98, 80, 92, 100]
+48665	BE19	Kodama Soul Core	
+48692	BE34	Lord Kamakura's Greaves	
+48731	BE5B	Thronecrusher Cannon	[11, 0, 10, 0]
+48821	BEB5	Last Ninja's Greaves	[19, 26, 19, 28]
+48824	BEB8	Shinsengumi Sandals	[17, 12, 17, 12]
+48872	BEE8	Dual Bloodstained Cleavers	[20, 0, 21, 0]
+48887	BEF7	Great Kanehira Sword & Nightingale	[27, 0, 21, 0]
+48888	BEF8	Material Essence (Item Drops)	
+48913	BF11	Wayfarer's Attire	
+48946	BF32	Ichigen Koji's Attire	
+48975	BF4F	Retreat Master's Greaves	[52, 42, 49, 50]
+49011	BF73	Left-Behind Letter	
+49015	BF77	Koroka Spear	
+49016	BF78	Vice Shogun's Armor	
+49017	BF79	Magatama	[1, 0, 1, 0]
+49046	BF96	Konaki-Jiji Soul Core	
+49058	BFA2	Hellshock Talisman	
+49082	BFBA	Water Familiar Talisman	
+49085	BFBD	Blessed Vajra Hammer	
+49106	BFD2	Shinsengumi Headband	[17, 12, 17, 12]
+49111	BFD7	Footsoldier's Hat	[36, 20, 35, 31]
+49138	BFF2	Iga Jonin Greaves	[7, 11, 7, 18]
+49143	BFF7	Shinobi Box	
+49152	C000	Swift Hawk	
+49161	C009	Yamanba's Knives	[20, 0, 21, 0]
+49162	C00A	Pagoda Tonfa	
+49173	C015	Irregular Troop's Waistguard	[23, 14, 21, 29]
+49192	C028	SKILL NAME DUMMY	
+49202	C032	Kusanagi Netsuke Charm	[1, 0, 1, 0]
+49216	C040	Retaliation Scroll	
+49221	C045	Highest Quality Lacquer	
+49225	C049	Ferryman's Hood	[7, 11, 7, 18]
+49245	C05D	Spirit Ascension	
+49248	C060	Heirloom Greaves	[48, 39, 45, 50]
+49299	C093	Sohaya Mask	[18, 24, 18, 28]
+49300	C094	SKILL NAME DUMMY	
+49303	C097	Yoshiie's Birthright Armor	
+49309	C09D	Summoning Seal: {}	
+49342	C0BE	Tesso Soul Core	
+49364	C0D4	Infernal Katana	[11, 0, 11, 0]
+49369	C0D9	Sasayuki	
+49377	C0E1	Shingen's Fan	[1, 0, 1, 0]
+49459	C133	Tiger of Higo's Armor	
+49521	C171	Lilac Eboshi	[56, 46, 53, 50]
+49523	C173	Sincere Buddha's Greaves	[57, 48, 55, 50]
+49550	C18E	Thief's Cuirass	[12, 18, 12, 36]
+49562	C19A	Mindfulness	
+49596	C1BC	Rigor of the Gods	
+49609	C1C9	Kanemitsu Switchglaive	[20, 0, 16, 0]
+49633	C1E1	Spirit Storm	
+49635	C1E3	Thief's Gauntlets	[10, 8, 10, 8]
+49651	C1F3	Retreat Master's Armor	
+49658	C1FA	Footsoldier's Waistguard	[54, 30, 53, 47]
+49676	C20C	Go-no-Yoshihiro Twin Swords	[21, 0, 21, 0]
+49719	C237	Authority's Greaves	[40, 27, 40, 31]
+49722	C23A	Triple Threat	
+49742	C24E	Wind Omamori	[1, 0, 1, 0]
+49770	C26A	Yokai Incense	
+49780	C274	Summoning Seal: {}	
+49787	C27B	Demon's Mask	
+49788	C27C	Ferryman's Greaves	[7, 11, 7, 18]
+49798	C286	Onmoraki Soul Core	
+49800	C288	Tatenashi Cuirass	[110, 90, 104, 100]
+49814	C296	Spearbreaker Hammer	[47, 0, 48, 0]
+49828	C2A4	Shadowstep Bracers	[27, 49, 27, 49]
+49894	C2E6	SKILL NAME DUMMY	
+49919	C2FF	Ippon-Datara's Hammer	
+49921	C301	Peerless Combatant's Garb	
+49940	C314	Prayer Beads	[1, 0, 1, 0]
+49958	C326	Heir's Greaves	[33, 19, 33, 31]
+49982	C33E	Three Wars Stance	
+50008	C358	Lilac Switchglaive	[20, 0, 16, 0]
+50028	C36C	Atagi Sadamune	
+50052	C384	Benkei Muso's Attire	
+50053	C385	Veteran's Gauntlets	[39, 25, 39, 31]
+50057	C389	Lightning Amulet	
+50065	C391	SKILL NAME DUMMY	
+50069	C395	Trueflight Talisman	
+50123	C3CB	Pheasant Leap	
+50155	C3EB	Supernatural Tales: Guiding Lantern	
+50156	C3EC	Transient Blade	
+50167	C3F7	Goichimonshu Helmet	[51, 41, 48, 50]
+50190	C40E	Jakotsu-baba Soul Core	
+50203	C41B	Dragon Head Helmet	[15, 10, 15, 19]
+50217	C429	Rogue's Waistguard	[24, 29, 24, 42]
+50271	C45F	Fleeting Edge	
+50284	C46C	Merciful Switchglaive	[20, 0, 16, 0]
+50308	C484	Summoning Seal: {}	
+50320	C490	Umbral Bullet	
+50321	C491	Hinomotogo	
+50335	C49F	Ki Pulse: Heaven	
+50350	C4AE	Hiruko Soul Core	
+50450	C512	Demon Horde Switchglaive	
+50456	C518	Mud Jar	
+50463	C51F	Guardian Spirit Talisman	
+50469	C525	Rai Kunitsugu Dual Tachi	[24, 0, 21, 0]
+50502	C546	Shogunate Hakama	[12, 26, 12, 27]
+50520	C558	Lucky Tanuki Netsuke Charm	[1, 0, 1, 0]
+50545	C571	Kintaro's Axe	
+50555	C57B	Material Essence (Amrita Gauge)	
+50585	C599	Ryomen Sukuna's Bow	
+50591	C59F	Hamamatsu Eel	
+50612	C5B4	Thunderous Ninja Faceguard	[18, 20, 16, 28]
+50641	C5D1	Martial Artist's Talons	[18, 0, 16, 0]
+50645	C5D5	Iga Jonin Headband	[7, 11, 7, 18]
+50753	C641	Sage's Hat	[8, 14, 8, 18]
+50796	C66C	Yokai Banisher	
+50801	C671	Summoning Seal: {}	
+50889	C6C9	Mikazuki Munechika	
+50900	C6D4	Wayfarer's Footwear	[15, 10, 15, 19]
+50932	C6F4	Fudo Kuniyuki & Yagen Toshiro	[26, 0, 21, 0]
+50938	C6FA	SKILL NAME DUMMY	
+50986	C72A	Sun and Moon Hatchets	
+50991	C72F	Medicine Case	[1, 0, 1, 0]
+51013	C745	Samurai General's Helmet	[39, 25, 39, 31]
+51075	C783	Heizo's Hatchets	[11, 0, 16, 0]
+51080	C788	Tachi Arts	
+51081	C789	High Priest's Shoes	[8, 16, 8, 18]
+51121	C7B1	Lord Kamakura's Cuirass	[108, 88, 102, 100]
+51190	C7F6	Summoning Seal: {}	
+51193	C7F9	Wheelmonk Soul Core	
+51219	C813	Hino Rifle	[6, 0, 5, 0]
+51220	C814	Oniwaban Waistguard	[12, 24, 12, 27]
+51256	C838	Sun and Moon Hatchets	[11, 0, 16, 0]
+51433	C8E9	Paralytic Blade Tincture	
+51434	C8EA	Summoning Seal: {}	
+51469	C90D	Back Slash	
+51476	C914	Jubei's Journeys I	
+51477	C915	Hellgust Talisman	
+51487	C91F	Thief's Waistguard	[15, 12, 15, 12]
+51496	C928	Osafune Chikakage	[11, 0, 11, 0]
+51511	C937	Moonprayer Greaves	[17, 15, 15, 19]
+51524	C944	Pagoda Key	
+51528	C948	Dry Husk	
+51529	C949	Little Crow & Quickdraw	[25, 0, 21, 0]
+51574	C976	Kintaro's Cuirass	[112, 94, 106, 100]
+51635	C9B3	Sticky Pot	
+51654	C9C6	Kick	
+51663	C9CF	Sohaya Waistguard	[27, 36, 27, 42]
+51708	C9FC	Quality Umbracite	
+51722	CA0A	Hellfrost Warrior Helmet	[38, 20, 34, 31]
+51751	CA27	Hellfrost Warrior Waistguard	[57, 30, 51, 47]
+51759	CA2F	Heizo's Greaves	[26, 44, 25, 49]
+51851	CA8B	Purify Yokai Realm: Man	
+51862	CA96	High Quality Lacquer	
+51885	CAAD	Raging Fire Cestuses	[18, 0, 16, 0]
+51894	CAB6	Sincere Buddha's Waistguard	[86, 72, 83, 75]
+51939	CAE3	SKILL NAME DUMMY	
+51980	CB0C	White Bone Spirit Tonfa	
+51989	CB15	Agyo Nioh Mask	
+52025	CB39	Phantasmic Burst	
+52065	CB61	Material Essence (Status Ailment Reduction)	
+52112	CB90	Karasu Tengu Feather	
+52146	CBB2	Spear	[20, 0, 20, 0]
+52155	CBBB	Master Archer's Armor	
+52163	CBC3	Water Talisman	
+52172	CBCC	Black Fox Mask	[8, 16, 7, 18]
+52178	CBD2	Prayer Beads	[1, 0, 1, 0]
+52186	CBDA	Horned Turban Helmet	
+52224	CC00	Shuri-no-suke's Greaves	[52, 41, 49, 50]
+52226	CC02	Kodama Netsuke Charm	[1, 0, 1, 0]
+52238	CC0E	Crimson General's Bow	
+52257	CC21	Glowing Stone	
+52264	CC28	Infernal Switchglaive	
+52273	CC31	Longbow	[3, 0, 3, 0]
+52278	CC36	Medicine Case	[1, 0, 1, 0]
+52290	CC42	Power Pill	
+52291	CC43	Fuma Chief's Greaves	[17, 20, 17, 28]
+52316	CC5C	Lightningproof Amulet	
+52327	CC67	Demon Horde Gauntlets	[26, 45, 25, 49]
+52348	CC7C	Tokagemaru	
+52360	CC88	Woman's Face Mask	
+52365	CC8D	Moonprayer Waistguard	[26, 23, 21, 29]
+52372	CC94	Guardian Monk's Robes	[70, 40, 68, 62]
+52383	CC9F	Lightning Omamori	[1, 0, 1, 0]
+52393	CCA9	Caltrop Ball	
+52396	CCAC	Tiger of Kai's Gauntlets	[54, 42, 50, 50]
+52411	CCBB	Yamato Odachi	[16, 0, 16, 0]
+52414	CCBE	Warrior of the West Bow	
+52436	CCD4	Onzoshi Cuirass	[16, 30, 16, 36]
+52475	CCFB	Gaki Soul Core	
+52505	CD19	Rabbit Eared Helmet	
+52518	CD26	Demontear Sword	[16, 0, 11, 0]
+52564	CD54	Peerless Combatant's Sandals	[17, 14, 17, 19]
+52566	CD56	Punish the Proud	
+52574	CD5E	Bronze Hammer	[51, 0, 48, 0]
+52586	CD6A	Sloth Talisman	
+52591	CD6F	Kusanagi Helmet	
+52599	CD77	Sage's Robe	[16, 28, 16, 36]
+52602	CD7A	Thrown Blade Counter	
+52665	CDB9	Malefactor's Cuirass	[108, 86, 100, 100]
+52711	CDE7	Goichimonshu Dual Swords	[22, 0, 21, 0]
+52713	CDE9	Fortitude I	
+52718	CDEE	Nene Slayer	
+52727	CDF7	Snowmelt Kusarigama	
+52748	CE0C	Ichigen Koji's Robe	[82, 56, 68, 62]
+52758	CE16	Iron Platelet	
+52763	CE1B	Aberrant Soldier Soul Core	
+52771	CE23	Footsoldier's Hat	[22, 19, 22, 19]
+52774	CE26	Onmyo Hunting Shoes	[18, 22, 18, 28]
+52801	CE41	Acala's Sword & Shield	[20, 0, 16, 0]
+52847	CE6F	Ultimate Sign of the Cross	
+52866	CE82	Ascetic Robes	[48, 80, 46, 98]
+52868	CE84	Waira Claw	
+52874	CE8A	Frontline Hoko & Shield	[20, 0, 16, 0]
+52890	CE9A	Radiant Flame	
+52894	CE9E	Shinto Priest's Shoes	[8, 13, 8, 18]
+52911	CEAF	Suzuka's Battle Attire	
+52912	CEB0	Shunobon Horn	
+52923	CEBB	Spy's Fists	[18, 0, 16, 0]
+52937	CEC9	Explosive Rounds	
+52982	CEF6	Uchiko Powder	
+52988	CEFC	Righteous Waistguard	[56, 32, 54, 47]
+52995	CF03	Alchemist's Sword & Shield	[20, 0, 16, 0]
+53020	CF1C	Footsoldier's Gauntlets	[36, 20, 35, 31]
+53043	CF33	Kodama Transformation	
+53054	CF3E	0	
+53118	CF7E	Old Sage Mask	[7, 10, 6, 18]
+53128	CF88	Upper Vassal's Footwear	[16, 13, 16, 19]
+53131	CF8B	Sage's Hakama	[12, 21, 12, 27]
+53165	CFAD	Gallant Armour	
+53264	D010	Composure	
+53301	D035	Saburobei's Odachi	
+53310	D03E	Scampuss Soul Core	
+53313	D041	Hellfire Ninja Attire	
+53326	D04E	Cracked Ochoko Cup	
+53337	D059	Axeman's Locks	
+53345	D061	Rogue's Helmet	[45, 38, 45, 38]
+53347	D063	Ninja Master Fists	[18, 0, 16, 0]
+53368	D078	Focused Ninjutsu	
+53372	D07C	Ghastly Bird Tail Feathers	
+53405	D09D	Shuriken	
+53411	D0A3	Shrapnel Bomb	
+53492	D0F4	Mujina Soul Core	
+53513	D109	Lion Lord & Bone Eater	
+53532	D11C	Custom Kusarigama	[20, 0, 18, 0]
+53546	D12A	Bloodstained Blade	
+53560	D138	Soul Purge Talisman	
+53581	D14D	Usumidori	[11, 0, 11, 0]
+53616	D170	Mountain Temple Key	
+53622	D176	Cestuses of Malevolence	[18, 0, 16, 0]
+53625	D179	Vice Shogun's Cestuses	[18, 0, 16, 0]
+53631	D17F	Sohaya Deserter Garb	
+53642	D18A	Tsuruga Masamune & Hocho Toshiro	
+53643	D18B	Azure Water Buttercup	
+53649	D191	Black Bear Fur Helmet	
+53685	D1B5	Swordmaster's Hakama	[24, 18, 24, 29]
+53694	D1BE	Rakansen Coin	
+53723	D1DB	Hateful Spine	
+53754	D1FA	Mikoshi Nyudo Soul Core	
+53757	D1FD	Shuri-no-suke's Helmet	[52, 41, 49, 50]
+53758	D1FE	Anazawa Switchglaive	[20, 0, 16, 0]
+53762	D202	Savage Blade Kata	
+53767	D207	Shinobi Faceplate	[25, 42, 24, 49]
+53803	D22B	Material Essence (Ki Recovery)	
+53808	D230	Hazy Moon Flute	[1, 0, 1, 0]
+53819	D23B	SKILL NAME DUMMY	
+53831	D247	Last Stand Talisman	
+53837	D24D	Kamari Gaiters	[8, 12, 8, 18]
+53876	D274	Mirrorblade	[18, 0, 16, 0]
+53900	D28C	Exorcist Fists	[18, 0, 16, 0]
+53913	D299	Poisonous Blade Tincture	
+53929	D2A9	Mujina's Scarf	
+53956	D2C4	Mino Uchigatana	[11, 0, 11, 0]
+53963	D2CB	Waterproof Amulet	
+54013	D2FD	Genin's Splitstaff	[18, 0, 16, 0]
+54063	D32F	Gale Sprint	
+54100	D354	Wooden Fists	
+54101	D355	Thief's Greaves	[6, 9, 6, 18]
+54149	D385	Thunderous Fists	[18, 0, 16, 0]
+54162	D392	Tatenashi Gauntlets	[55, 45, 52, 50]
+54192	D3B0	Brothers' Omamori	[1, 0, 1, 0]
+54201	D3B9	Raiju Pelt	
+54213	D3C5	Exorcist Blade	
+54272	D400	Gaki Soul Core	
+54292	D414	Yagyu Greaves	[19, 27, 16, 28]
+54315	D42B	Mino Veteran's Cuirass	[104, 82, 96, 100]
+54377	D469	Beardcutter	
+54383	D46F	Black Goose Helmet	[45, 39, 45, 50]
+54439	D4A7	Demon God Mask	[18, 23, 16, 28]
+54455	D4B7	SKILL NAME DUMMY	
+54472	D4C8	Soul Core Box	[1, 0, 1, 0]
+54476	D4CC	Onzoshi Cuirass	
+54493	D4DD	Rogue's Gauntlets	[16, 19, 16, 28]
+54563	D523	Scroll of the Nioh	
+54564	D524	Swallowtail Armour	
+54609	D551	Ryomen Sukuna Soul Core	
+54630	D566	Umbracite Fragment	
+54637	D56D	Dual Swordsman's Locks	
+54642	D572	Summoning Seal: {}	
+54681	D599	Ninja's Equilibrium	
+54690	D5A2	Soshu Masamune Dual Katana	[25, 0, 21, 0]
+54706	D5B2	Hellfire Ninja Gauntlets	[17, 20, 16, 28]
+54761	D5E9	Stone's Bane	[20, 0, 16, 0]
+54770	D5F2	Kodama Bowl	[16, 19, 16, 28]
+54797	D60D	SKILL NAME DUMMY	
+54805	D615	SKILL NAME DUMMY	
+54812	D61C	Lightning Talisman	
+54835	D633	Chieizu's Hakama	[27, 29, 21, 29]
+54848	D640	SKILL NAME DUMMY	
+54849	D641	Wooden Odachi	[11, 0, 16, 0]
+54852	D644	Wind Omamori	[1, 0, 1, 0]
+54854	D646	Obsidian Armour	
+54862	D64E	Great Holly Spear	
+54892	D66C	Galestorm Oni-bi Soul Core	
+54895	D66F	Onzoshi Gauntlets	
+54905	D679	Scion of Tamura's Helmet	[58, 48, 55, 50]
+54925	D68D	Kiryoki's Switchglaive	
+54932	D694	Thief's Talons	[18, 0, 16, 0]
+54971	D6BB	SKILL NAME DUMMY	
+54991	D6CF	Blood-Scrawled Orders, Section IX	
+55109	D745	Sinister Tyrant's Gauntlets	[8, 18, 8, 18]
+55119	D74F	Fire Amulet	
+55142	D766	Indomitable Spirit	
+55151	D76F	Footsoldier's Hoko & Shield	[18, 0, 16, 0]
+55167	D77F	One-Eyed Master's Hat	[41, 27, 33, 31]
+55170	D782	Vassal's Waistguard	[56, 33, 56, 47]
+55195	D79B	Grubby Iron Key	
+55200	D7A0	Leaf Glide	
+55206	D7A6	Demon of Pride Soul Core	
+55231	D7BF	Tarobo Kanemitsu & Rapier	
+55239	D7C7	Sage's Sleeves	[8, 14, 8, 18]
+55242	D7CA	Tengu Slayer	
+55243	D7CB	Irregular Troop's Gauntlets	[15, 9, 15, 19]
+55260	D7DC	Gallant Thief's Waistguard	[39, 69, 39, 74]
+55264	D7E0	Oniwaban Cuirass	[16, 32, 16, 36]
+55275	D7EB	Suwa Hoko & Shield	[20, 0, 16, 0]
+55312	D810	Fire Talisman	
+55329	D821	Brutal Combustion	
+55393	D861	Falcon Kick	
+55410	D872	Last Ninja's Cuirass	[38, 52, 38, 56]
+55492	D8C4	Love-Crested Helmet	
+55522	D8E2	Benkei's Hidden Scroll - Middle	
+55525	D8E5	White Bone Spirit Tonfa	[20, 0, 16, 0]
+55526	D8E6	Cruxidian Shard	
+55549	D8FD	Ninja's Text	
+55559	D907	Firefly Blade	[18, 0, 16, 0]
+55582	D91E	Repel Expert	
+55585	D921	Shock Troop Greaves	[18, 25, 18, 28]
+55597	D92D	Malefactor's Armor	
+55599	D92F	Ninjutsu Handbook: {}	
+55692	D98C	Kiku Ichimonji	[14, 0, 11, 0]
+55695	D98F	Gunner's Hammer	[48, 0, 48, 0]
+55715	D9A3	Brother's Vest	[74, 48, 74, 62]
+55740	D9BC	Lord Kamakura's Bow	[3, 0, 3, 0]
+55764	D9D4	Retainer's Tonfa	[20, 0, 16, 0]
+55813	DA05	Bizen Kageyasu	
+55825	DA11	Tombokiri	
+55832	DA18	Embercite Shard	
+55906	DA62	Twin-Snake Helmet	[45, 39, 45, 50]
+55920	DA70	Summoning Seal: {}	
+56028	DADC	Akaname Soul Core	
+56106	DB2A	Itinerant Monk's Splitstaff	[18, 0, 16, 0]
+56146	DB52	Wind Amulet	
+56198	DB86	Sunderer	
+56225	DBA1	Tiger of Kai's Cuirass	[108, 84, 100, 100]
+56311	DBF7	Lord Kamakura's Waistguard	
+56329	DC09	Quality Iron Platelet	
+56357	DC25	Tengu Slayer	[14, 0, 11, 0]
+56361	DC29	Ninja Marksman's Faceplate	[19, 25, 18, 28]
+56385	DC41	Scampuss Hat	[16, 19, 16, 28]
+56454	DC86	Royal Hoko & Shield	[20, 0, 16, 0]
+56483	DCA3	Toxic Insect Carcass	
+56510	DCBE	Ethereal Kata	
+56616	DD28	Tourbillon	
+56623	DD2F	Sukesada Odachi	[16, 0, 16, 0]
+56706	DD82	Scroll of the Nioh	
+56708	DD84	Nuribotoke's Eye	
+56727	DD97	Trident Vajra Sword Helmet	[36, 20, 33, 31]
+56735	DD9F	Grudge Spirit Core	
+56774	DDC6	Heir's Shinobi Garment	[12, 16, 12, 36]
+56782	DDCE	^13~UNUSED~	
+56817	DDF1	Gaki Soul Core	
+56820	DDF4	Umbracite	
+56862	DE1E	Light Yamatai Helmet	[18, 24, 18, 28]
+56872	DE28	Hellfire Warrior Helmet	[37, 20, 34, 31]
+56888	DE38	Goichimonshu Greaves	[51, 41, 48, 50]
+56936	DE68	Rogue's Waistguard	[68, 57, 68, 57]
+56950	DE76	Nene Slayer	[16, 0, 16, 0]
+57025	DEC1	Twin Dragon Tonfa	
+57072	DEF0	Moonprayer Helmet	[17, 15, 15, 19]
+57074	DEF2	Eccentric's Cuirass	[80, 52, 80, 62]
+57083	DEFB	Veteran's Waistguard	[59, 38, 59, 47]
+57093	DF05	Pitch-Black Hair	
+57110	DF16	Jiro Tachi	[11, 0, 16, 0]
+57123	DF23	Sudama Netsuke	[1, 0, 1, 0]
+57151	DF3F	Shugendo Hermit Fists	[18, 0, 16, 0]
+57165	DF4D	Silabar Ingot	
+57203	DF73	Sturdy Vertebral Column	
+57259	DFAB	Foreign-Looking Key	
+57300	DFD4	Golden Sun Helmet	[56, 47, 50, 50]
+57325	DFED	Valve Helmet	
+57339	DFFB	Yasha Soul Core	
+57347	E003	SKILL NAME DUMMY	
+57386	E02A	Large Spirit Stone	
+57389	E02D	Marksman's Attire	
+57391	E02F	Divine Rice	
+57412	E044	Legion Spear	[20, 0, 20, 0]
+57414	E046	Haguro Ninja Hatchets	[11, 0, 16, 0]
+57458	E072	Striking Retribution	
+57562	E0DA	Lord's Hoko & Shield	[20, 0, 16, 0]
+57609	E109	Chunin's Kusarigama	[21, 0, 18, 0]
+57636	E124	Wild Boar Crest Helmet	[36, 20, 33, 31]
+57641	E129	Yamanba's Knives	[20, 0, 21, 0]
+57695	E15F	Mysticite Shard	
+57696	E160	Fan	[1, 0, 1, 0]
+57749	E195	Severing Spin	
+57759	E19F	Shadowclad	
+57782	E1B6	Divine Fragment	
+57787	E1BB	Takeda Soldier Sword & Shield	[20, 0, 16, 0]
+57810	E1D2	Kintaro's Armour	
+57814	E1D6	Spinning Realm	
+57819	E1DB	Divine Umbracite	
+57854	E1FE	Infernal Splitstaff	
+57902	E22E	Blinding Shell	
+57938	E252	Demon Arm Fists	
+57949	E25D	Supernatural Tales: Cleanfoot	
+58011	E29B	Lightning Cannon	[10, 0, 10, 0]
+58067	E2D3	Mataemon's Gauntlets	[18, 19, 16, 19]
+58076	E2DC	Thief's Talons	
+58085	E2E5	Shishido Kusarigama	
+58086	E2E6	Vice Shogun's Pill Box	[1, 0, 1, 0]
+58092	E2EC	Colossal Incisor	
+58093	E2ED	Scampuss Hat	
+58103	E2F7	Watatsumi's Watch	
+58139	E31B	Mino Dual Uchigatana	[21, 0, 21, 0]
+58161	E331	Dragon Head Helmet	
+58214	E366	Exorcist Blade	
+58243	E383	Sticky Pot	
+58282	E3AA	Tatsuke Cannon	[10, 0, 10, 0]
+58286	E3AE	Senju Shift	
+58320	E3D0	Moonprayer Armour	
+58321	E3D1	SP_SHIBAGARAMI	
+58355	E3F3	Seething Dragon	
+58381	E40D	Supernatural Tales: Eternal Tree	
+58413	E42D	Metalworking Chisel	
+58419	E433	Shinsengumi Sleevelet	[17, 12, 17, 12]
+58452	E454	Yamanba's Knives	
+58463	E45F	Thin Air	
+58481	E471	Rakansen Coin	
+58493	E47D	Twin Dragon Tonfa	[20, 0, 16, 0]
+58529	E4A1	Tiger’s Den	
+58538	E4AA	Luckbringer Amulet	
+58562	E4C2	Demon Fang Kusarigama	
+58596	E4E4	Archer's Impact	
+58616	E4F8	Kunitomo Rifle	[6, 0, 5, 0]
+58627	E503	Hino Rifle	
+58683	E53B	Shinto Priest's Bracers	[8, 13, 8, 18]
+58707	E553	Flawless Celadon Tea Bowl	
+58708	E554	Kunai	
+58741	E575	Wisteria Longbow	[4, 0, 3, 0]
+58769	E591	Black Rain & Thunder	
+58772	E594	Otegine	[26, 0, 20, 0]
+58799	E5AF	Sacred Arrow	
+58807	E5B7	Takezo's Headband	
+58811	E5BB	Feather Talisman	
+58834	E5D2	Black Goose Helmet	[45, 39, 45, 50]
+58837	E5D5	Smoke Ball	
+58876	E5FC	Woman's Face Mask	[7, 10, 6, 18]
+58884	E604	(Enlightened) Hundred Demon Realms Picture Scroll	
+58890	E60A	Naval Vest	[16, 30, 16, 36]
+58896	E610	Magatama	[1, 0, 1, 0]
+58906	E61A	High Priest's Bracers	[8, 16, 8, 18]
+58910	E61E	Onimaru Kunitsuna	[16, 0, 11, 0]
+58929	E631	One-eyed Oni Soul Core	
+58939	E63B	Will-o'-Wisp Blade	
+58941	E63D	Summoning Seal: {}	
+58948	E644	Inspiriting Gem	
+58964	E654	Female Demon Mask	[17, 20, 16, 28]
+58967	E657	Ebony Tonfa	[20, 0, 16, 0]
+59016	E688	Acrobatics	
+59030	E696	High Priest's Headgear	[8, 16, 8, 18]
+59063	E6B7	Iceberg	
+59064	E6B8	Yagyu Key	
+59072	E6C0	Gozutenno's Axe	
+59078	E6C6	Rising Frost Moon	
+59079	E6C7	SKILL NAME DUMMY	
+59208	E748	Vice-Minister's Armor	
+59216	E750	Mitsuyo Kusarigama	
+59231	E75F	Spy's Kusarigama	[18, 0, 18, 0]
+59277	E78D	Counteroffensive Deflect	
+59294	E79E	SKILL NAME DUMMY	
+59307	E7AB	Osafune Kanemitsu	[14, 0, 11, 0]
+59313	E7B1	Butterfly's Grace	
+59314	E7B2	SKILL NAME DUMMY	
+59347	E7D3	Dung Ball	
+59353	E7D9	Warrior of the East Gauntlets	[50, 40, 47, 50]
+59384	E7F8	Kusarigama Wielder's Locks	
+59389	E7FD	Barrier Talisman	
+59413	E815	Abacus	[1, 0, 1, 0]
+59470	E84E	Arrow	
+59542	E896	Ichigo Hitofuri & Oyako Toshiro	[21, 0, 21, 0]
+59606	E8D6	Tombokiri	[28, 0, 20, 0]
+59645	E8FD	Material Essence (Life Recovery)	
+59647	E8FF	Great Hachiryo Cuirass	[76, 46, 76, 62]
+59654	E906	Haphazard Scribbles	
+59687	E927	Luminous Blade Talisman	
+59695	E92F	Arrowhead Gunpowder	
+59698	E932	Ninja's Hatchets	[11, 0, 16, 0]
+59701	E935	Running Water	
+59703	E937	Mikazuki Munechika	
+59718	E946	Swift Step	
+59727	E94F	Ichigen Koji's Spear	[26, 0, 20, 0]
+59749	E965	Gaki Soul Core	
+59753	E969	Scampuss Furball Netsuke Charm	[1, 0, 1, 0]
+59792	E990	Thief's Plated Headband	[10, 8, 10, 8]
+59861	E9D5	Extinction Switchglaive	[20, 0, 16, 0]
+59864	E9D8	Anazawa Switchglaive	
+59884	E9EC	Ki Pulse Mastery Kai	
+59890	E9F2	Bloodspider Blade	
+59919	EA0F	Shoulder Strap	[1, 0, 1, 0]
+59942	EA26	Gallant Thief's Greaves	[26, 46, 26, 49]
+59960	EA38	Brave Demon Hunter's Greaves	[37, 22, 37, 31]
+59964	EA3C	Myojin Scythe	[20, 0, 16, 0]
+59969	EA41	Kobo Daishi's Hakama	[27, 35, 27, 42]
+60000	EA60	Shinobi Hakama	[11, 14, 11, 27]
+60046	EA8E	Hyottoko Mask	
+60062	EA9E	Helmsplitter Axe	[47, 0, 48, 0]
+60071	EAA7	Summoning Seal: {}	
+60073	EAA9	Ningen Mukotsu	
+60084	EAB4	Swordmaster's Gauntlets	[16, 12, 16, 19]
+60117	EAD5	Dojikiri Yasutsuna	
+60129	EAE1	Hellstream Talisman	
+60130	EAE2	Black Bamboo Kusarigama	[18, 0, 18, 0]
+60133	EAE5	SKILL NAME DUMMY	
+60140	EAEC	Chain Pull	
+60181	EB15	Ichigen Koji's Spear	
+60208	EB30	Mud Jar	
+60242	EB52	Tengu Mask	[17, 20, 16, 28]
+60251	EB5B	Elephant's Trunk Helmet	
+60256	EB60	Ibaraki Doji Soul Core	
+60267	EB6B	Chinzei Hachiro's Bow	
+60271	EB6F	Genno's Hammer	[45, 0, 48, 0]
+60339	EBB3	Demon Horde Helmet	[26, 45, 25, 49]
+60370	EBD2	Light Yamatai Trousers	[27, 36, 27, 42]
+60377	EBD9	Kyo-Oh's Corrupted Blade	[16, 0, 16, 0]
+60401	EBF1	Shinobi Waistguard	[38, 63, 36, 74]
+60406	EBF6	Blinding Shell	
+60437	EC15	Peerless Combatant's Robes	[34, 28, 34, 38]
+60444	EC1C	Tiger of Kai's Armor	
+60493	EC4D	High Quality Leather Cord	
+60533	EC75	Justice Ministry Armour	
+60574	EC9E	Wave Cutter Hatchets	
+60583	ECA7	Miike Denta & Straw Hat	
+60589	ECAD	Gourd	[1, 0, 1, 0]
+60590	ECAE	Scampuss Hat	
+60591	ECAF	Demon's Axe	
+60593	ECB1	Naval Uniform	
+60606	ECBE	Pickaxe	[43, 0, 48, 0]
+60675	ED03	Weakness Talisman	
+60735	ED3F	Ferryman's Hakama	[11, 17, 11, 27]
+60737	ED41	The Drying Pole	
+60752	ED50	Love-Crested Helmet	[56, 47, 55, 50]
+60798	ED7E	Ninja Marksman's Gauntlets	[19, 25, 18, 28]
+60800	ED80	Yamatai Sword	[11, 0, 11, 0]
+60859	EDBB	Armourcrusher Axe	[52, 0, 48, 0]
+60869	EDC5	SKILL NAME DUMMY	
+60926	EDFE	Splitstaff Wielder's Locks	
+60928	EE00	Stone Splitter	[16, 0, 16, 0]
+60929	EE01	Evil-Crusher Hammer	[55, 0, 48, 0]
+60981	EE35	Paralysis Omamori	[1, 0, 1, 0]
+61049	EE79	Explosive Shot	
+61068	EE8C	Vassal's Sword & Shield	[20, 0, 16, 0]
+61156	EEE4	Benkei Muso's Bracers	[19, 28, 17, 28]
+61160	EEE8	Shinsengumi Haori	[34, 25, 34, 25]
+61166	EEEE	Shock Troop Gauntlets	[18, 25, 18, 28]
+61167	EEEF	Akaname Spiked Tongue	
+61171	EEF3	Great Tengu Soul Core	
+61230	EF2E	Swift Hawk	[11, 0, 11, 0]
+61249	EF41	Gunner's Hat	[17, 16, 17, 19]
+61265	EF51	Demontear Sword	
+61268	EF54	Gaki Soul Core	
+61287	EF67	Kobizen Odachi	[16, 0, 16, 0]
+61300	EF74	Ryomen Sukuna's Sword	[16, 0, 16, 0]
+61311	EF7F	Tigerskin Armour	
+61340	EF9C	Overgrown Dermis	
+61382	EFC6	Hollow Form	
+61386	EFCA	Kinmamon Hoko & Shield	[20, 0, 16, 0]
+61390	EFCE	Yasha's Kusarigama	[23, 0, 18, 0]
+61401	EFD9	Demon Cutter	
+61421	EFED	Eccentric's Helmet	[40, 26, 40, 31]
+61440	F000	Material Essence (Damage Dealt)	
+61465	F019	Soul Leech Talisman	
+61504	F040	Robe of Chieizu	
+61508	F044	Mount Fuji Helmet	[51, 40, 48, 50]
+61517	F04D	Naval Hakama	[12, 23, 12, 27]
+61519	F04F	Iai Quickdraw	
+61572	F084	The Exceptional One's Armour	
+61610	F0AA	Ishida's Medicine	
+61626	F0BA	One-Eyed Master's Garb	
+61631	F0BF	Righteous Greaves	[37, 21, 36, 31]
+61670	F0E6	Flying Buck	
+61689	F0F9	Tail of the Headless Horse	
+61723	F11B	Beardcutter	[11, 0, 11, 0]
+61810	F172	Summoning Seal: {}	
+61828	F184	Legendary Strategist's Garb	
+61885	F1BD	Semiore Flute	[1, 0, 1, 0]
+61897	F1C9	Yokai Teardrop	
+61968	F210	Gallant Thief's Cuirass	[52, 92, 52, 98]
+61990	F226	Summoning Seal: {}	
+62003	F233	Yamatai Waistguard	[81, 66, 77, 75]
+62023	F247	Hellfrost Ninja Garment	[36, 40, 32, 56]
+62028	F24C	Onzoshi Greaves	
+62035	F253	Healing Pill	
+62041	F259	Last Ninja's Faceguard	[19, 26, 19, 28]
+62049	F261	Primordial Mud	
+62115	F2A3	Benkei's Hidden Scroll - Top	
+62224	F310	Eboshi Helmet	
+62225	F311	Scion of Tamura's Greaves	[58, 48, 55, 50]
+62237	F31D	Trousers of the Exalted	[12, 27, 12, 27]
+62242	F322	Terminus Switchglaive	[20, 0, 16, 0]
+62259	F333	Iceberg	[11, 0, 16, 0]
+62270	F33E	Antidote	
+62314	F36A	Wind Talisman	
+62319	F36F	Thief's Gauntlets	[6, 9, 6, 18]
+62326	F376	Gaki Soul Core	
+62338	F382	Night Shade Mask	
+62342	F386	Perseverance	
+62375	F3A7	SKILL NAME DUMMY	
+62376	F3A8	Nagasone Kotetsu	
+62397	F3BD	Five-Man Bow	
+62446	F3EE	Arrow	
+62458	F3FA	Shinobi Cuirass	[50, 84, 48, 98]
+62462	F3FE	Summoning Seal: {}	
+62463	F3FF	Shimmering Crystal	
+62544	F450	Lightning Talisman	
+62557	F45D	Grimy Hatchet & Rusty Hoe	
+62575	F46F	Chunin's Talons	[18, 0, 16, 0]
+62582	F476	Infernal Spear	
+62593	F481	Fire Amulet	
+62620	F49C	Mino Dual Uchigatana	[21, 0, 21, 0]
+62647	F4B7	Summoning Seal: {}	
+62680	F4D8	Warrior of the East's Armour	
+62683	F4DB	Full Moon Kata	
+62712	F4F8	Yamabiko Soul Core	
+62743	F517	Elite Warrior's Splitstaff	[18, 0, 16, 0]
+62755	F523	Tokagemaru	[11, 0, 11, 0]
+62765	F52D	Overseer's Hood	[8, 19, 8, 18]
+62793	F549	First Captain's Hakama	[27, 27, 23, 29]
+62845	F57D	Yoki Soul Core	
+62854	F586	Scribe's Journal - April	
+62871	F597	Shinto Priest's Hakama	[12, 20, 12, 27]
+62889	F5A9	Tiger of Kai's Helmet	[54, 42, 50, 50]
+62899	F5B3	Ichigen Koji's Pipe	[1, 0, 1, 0]
+62907	F5BB	Sinister Tyrant's Earrings	[1, 0, 1, 0]
+62922	F5CA	Archer's Hakama	[24, 17, 24, 29]
+63002	F61A	Crucinite Fragment	
+63013	F625	Necklace of Tormented Souls	
+63017	F629	Boots of the Exalted	[8, 18, 8, 18]
+63023	F62F	Vajra Tonfa	
+63024	F630	Defense Mastery I	
+63047	F647	Scrapped Scribbles	
+63064	F658	Gaki Soul Core	
+63105	F681	Herbal Remedy	
+63111	F687	Rogue's Gauntlets	[45, 38, 45, 38]
+63116	F68C	Longbow	[3, 0, 3, 0]
+63208	F6E8	Birdflight Cross Spear	[26, 0, 20, 0]
+63219	F6F3	High Quality Wood	
+63231	F6FF	Attack Mastery III	
+63252	F714	SKILL NAME DUMMY	
+63254	F716	Hachiya Clawed Fists	[18, 0, 16, 0]
+63262	F71E	Quality Tamahagane	
+63269	F725	Starcutter Sword	
+63286	F736	Flying Kato's Mask	[8, 17, 8, 18]
+63309	F74D	Stone-Splitter Cross Spear	[25, 0, 20, 0]
+63368	F788	Vice Shogun's Helmet	[59, 50, 51, 50]
+63397	F7A5	Senjuin Uchigatana	[13, 0, 11, 0]
+63430	F7C6	Yokai Incense	
+63451	F7DB	Lord Kamakura's Waistguard	[81, 66, 77, 75]
+63459	F7E3	Warrior Monk's Splitstaff	[18, 0, 16, 0]
+63470	F7EE	Linked Ring Helmet	
+63493	F805	Shuri-no-suke's Cuirass	[104, 82, 98, 100]
+63540	F834	Shared Blessing	
+63541	F835	Spy's Kusarigama	[18, 0, 18, 0]
+63580	F85C	Crimson General's Greaves	[49, 40, 46, 50]
+63593	F869	SKILL NAME DUMMY	
+63603	F873	Geisha House Key	
+63604	F874	Lord Kamakura's Gloves	[54, 44, 51, 50]
+63605	F875	Two Leaves	[1, 0, 1, 0]
+63607	F877	Purification Talisman	
+63641	F899	SKILL NAME DUMMY	
+63643	F89B	Shinsengumi Sleevelet	[17, 17, 17, 19]
+63666	F8B2	Flying Kato's Waistguard	[12, 26, 12, 27]
+63673	F8B9	Million Demon Armor	
+63676	F8BC	Dual Bloodstained Cleavers	
+63709	F8DD	Ochoko Cup	
+63757	F90D	Radiant Flame	[11, 0, 16, 0]
+63759	F90F	Great Scampuss Form	
+63782	F926	Usumidori	
+63792	F930	Summoning Seal: {}	
+63804	F93C	Guardian Monk's Hakama	[53, 30, 51, 47]
+63810	F942	Jikkyu Mitsutada	
+63834	F95A	Chunin's Splitstaff	[18, 0, 16, 0]
+63842	F962	Ethereal Sway	
+63877	F985	Crucible Saws	
+63885	F98D	Gaki Soul Core	
+63895	F997	Divination Board	[1, 0, 1, 0]
+63898	F99A	Panacea Curefast	
+63901	F99D	Purifying Shot Talisman	
+63949	F9CD	Shinsengumi Hakama	[26, 19, 26, 19]
+64073	FA49	Fan	[1, 0, 1, 0]
+64110	FA6E	Antiparalytic Needle	
+64122	FA7A	Ronin's Faceplate	[37, 21, 36, 31]
+64176	FAB0	Overseer's Attire	
+64221	FADD	Wayfarer's Headband	[15, 10, 15, 19]
+64228	FAE4	Evil-Crusher Splitstaff	[18, 0, 16, 0]
+64246	FAF6	Highest Quality Wood	
+64249	FAF9	Sinister Tyrant's Trousers	[12, 27, 12, 27]
+64314	FB3A	Tatenashi Greaves	[55, 45, 52, 50]
+64316	FB3C	Scion of Tamura's Waistguard	[87, 72, 83, 75]
+64346	FB5A	Shuten Doji Mask	
+64368	FB70	Training Hakama	
+64376	FB78	SKILL NAME DUMMY	
+64403	FB93	Spear	[20, 0, 20, 0]
+64419	FBA3	Mitsumono Gauntlets	[18, 22, 18, 28]
+64432	FBB0	Shogunate Hat	[8, 17, 8, 18]
+64488	FBE8	Katei	[1, 0, 1, 0]
+64523	FC0B	Honjo Masamune & Iron Shield	[20, 0, 16, 0]
+64551	FC27	Mirage Axe	[58, 0, 48, 0]
+64577	FC41	Fuma Ninja Robe	[14, 20, 14, 36]
+64634	FC7A	Sacred Ash	
+64641	FC81	Enduring Arts	
+64671	FC9F	Summoning Seal: {}	
+64679	FCA7	Single Slash Kata	
+64784	FD10	White Lotus Fists	
+64788	FD14	Painting of Kusanagi	
+64793	FD19	Potsticker Spear	[25, 0, 20, 0]
+64803	FD23	Lord Kamakura's Eboshi	[54, 44, 51, 50]
+64810	FD2A	Phoenix Wing	
+64811	FD2B	Portrait of Takeda Shingen	
+64844	FD4C	Benkei Muso's Khakkhara	[18, 0, 16, 0]
+64970	FDCA	Kunimatsu's Inkstone Box	[1, 0, 1, 0]
+65038	FE0E	Pulverising Hammer	[53, 0, 48, 0]
+65042	FE12	Flying Kato's Gauntlets	[8, 17, 8, 18]
+65063	FE27	Rotten Rope Cutter	
+65089	FE41	Umbracite	
+65102	FE4E	Feathers of the Eight Cold Hells	
+65113	FE59	Yamato Odachi	[16, 0, 16, 0]
+65169	FE91	Lone Wolf's Waistguard	[24, 30, 24, 42]
+65199	FEAF	SKILL NAME DUMMY	
+65205	FEB5	Night Heron's Switchglaive	[20, 0, 16, 0]
+65216	FEC0	Tempest Splitstaff	
+65229	FECD	Spiritflame Sword & Shield	[20, 0, 16, 0]
+65292	FF0C	Retreat Master's Waistguard	[78, 63, 74, 75]
+65299	FF13	Marksman's Cuirass	[34, 42, 34, 56]
+65323	FF2B	Inspiriting Gem	
+65333	FF35	Water God Slayer	
+65374	FF5E	Kusarigama Master Faceplate	[27, 48, 26, 49]
+65382	FF66	Poisonous Blade Tincture	
+65392	FF70	Summoning Seal: {}	
+65419	FF8B	Usumidori	
+65535	FFFF	Conch Eboshi	

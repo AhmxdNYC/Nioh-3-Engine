@@ -1,0 +1,197 @@
+; ---- Nioh3+1E7050 .. +1E73A0 (pdata fn Some (1994832u, 1994882u))
+  1E7050  mov     [rsp+8],rcx                               
+  1E7055  push    rbp                                       
+  1E7056  sub     rsp,80h                                   
+  1E705D  cmp     dword [rcx+18Ch],0                        
+  1E7064  mov     rbp,rdx                                   
+  1E7067  mov     r11,rcx                                   
+  1E706A  je      near 00000000001E714Bh                    
+  1E7070  test    rdx,rdx                                   
+  1E7073  je      near 00000000001E714Bh                    
+  1E7079  test    r8,r8                                     
+  1E707C  je      near 00000000001E714Bh                    
+  1E7082  mov     [rsp+98h],rbx                             
+  1E708A  mov     rbx,[rcx+880h]                            
+  1E7091  mov     [rsp+50h],r15                             
+  1E7096  mov     r15,[rcx+888h]                            
+  1E709D  mov     [rsp+38h],r15                             
+  1E70A2  test    r15,r15                                   
+  1E70A5  je      short 00000000001E70C0h                   
+  1E70A7  mov     r8d,[rcx+8E8h]                            
+  1E70AE  xor     edx,edx                                   
+  1E70B0  mov     rcx,r15                                   
+  1E70B3  call    0000000000B93F00h                         
+  1E70B8  mov     r11,[rsp+90h]                             
+  1E70C0  mov     ecx,[r11+124h]                            
+  1E70C7  cmp     [rbp+48h],ecx                             
+  1E70CA  cmovbe  ecx,[rbp+48h]                             
+  1E70CE  cmp     byte [r11+420h],0                         
+  1E70D6  jne     near 00000000019629CAh                    
+  1E70DC  mov     rbp,[rbp+8]                               
+  1E70E0  test    ecx,ecx                                   
+  1E70E2  je      short 00000000001E713Eh                   
+  1E70E4  mov     [rsp+78h],rsi                             
+  1E70E9  mov     [rsp+70h],rdi                             
+  1E70EE  xor     edi,edi                                   
+  1E70F0  mov     [rsp+68h],r12                             
+  1E70F5  sub     rbp,rbx                                   
+  1E70F8  mov     [rsp+60h],r13                             
+  1E70FD  mov     [rsp+58h],r14                             
+  1E7102  mov     esi,ecx                                   
+  1E7104  cmp     dword [rbx+rbp],0                         
+  1E7108  jne     short 00000000001E7154h                   
+  1E710A  mov     r11,[rsp+90h]                             
+  1E7112  add     rdi,40h                                   
+  1E7116  mov     r15,[rsp+38h]                             
+  1E711B  add     rbx,4                                     
+  1E711F  sub     rsi,1                                     
+  1E7123  jne     short 00000000001E7104h                   
+  1E7125  mov     r14,[rsp+58h]                             
+  1E712A  mov     r13,[rsp+60h]                             
+  1E712F  mov     r12,[rsp+68h]                             
+  1E7134  mov     rdi,[rsp+70h]                             
+  1E7139  mov     rsi,[rsp+78h]                             
+  1E713E  mov     rbx,[rsp+98h]                             
+  1E7146  mov     r15,[rsp+50h]                             
+  1E714B  add     rsp,80h                                   
+  1E7152  pop     rbp                                       
+  1E7153  ret                                               
+  1E7154  mov     r10,[r11+830h]                            
+  1E715B  add     r10,rdi                                   
+  1E715E  mov     [rsp+48h],r10                             
+  1E7163  mov     rcx,[r10+10h]                             
+  1E7167  test    rcx,rcx                                   
+  1E716A  je      short 00000000001E710Ah                   
+  1E716C  mov     eax,[rcx+4]                               
+  1E716F  and     eax,3Fh                                   
+  1E7172  cmp     al,14h                                    
+  1E7174  jne     near 00000000019629D6h                    
+  1E717A  mov     r14,[rcx+8]                               
+  1E717E  mov     r12d,[rbx]                                
+  1E7181  mov     rdx,[r14]                                 
+  1E7184  mov     [rsp+28h],r14                             
+  1E7189  mov     [rsp+30h],rdx                             
+  1E718E  mov     [rsp+24h],r12d                            
+  1E7193  cmp     r12d,0FFFFFFFFh                           
+  1E7197  je      near 00000000019629DEh                    
+  1E719D  cmp     byte [r12+r15],0                          
+  1E71A2  mov     r9b,1                                     
+  1E71A5  setne   r8b                                       
+  1E71A9  mov     [rsp+0A8h],r8b                            
+  1E71B1  mov     [rsp+20h],r9b                             
+  1E71B6  test    rdx,rdx                                   
+  1E71B9  je      near 00000000001E7351h                    
+  1E71BF  mov     rax,[rel 45BA588h]                        
+  1E71C6  mov     rcx,[rax+6EB0h]                           
+  1E71CD  cmp     rcx,[rdx+20h]                             
+  1E71D1  jne     near 00000000001E7299h                    
+  1E71D7  test    r9b,r9b                                   
+  1E71DA  je      near 00000000001E710Ah                    
+  1E71E0  test    r8b,r8b                                   
+  1E71E3  jne     near 00000000001E7363h                    
+  1E71E9  mov     rcx,[r10+18h]                             
+  1E71ED  test    rcx,rcx                                   
+  1E71F0  je      near 00000000001E710Ah                    
+  1E71F6  mov     eax,[rcx+4]                               
+  1E71F9  and     eax,3Fh                                   
+  1E71FC  cmp     al,13h                                    
+  1E71FE  jne     near 00000000001E710Ah                    
+  1E7204  mov     r11,[rcx+8]                               
+  1E7208  test    r11,r11                                   
+  1E720B  je      near 00000000001E710Ah                    
+  1E7211  mov     r15d,[r14+8]                              
+  1E7215  xor     r9d,r9d                                   
+  1E7218  movzx   r14d,word [r11]                           
+  1E721C  mov     r10d,[rdx+18h]                            
+  1E7220  test    r14d,r14d                                 
+  1E7223  je      near 00000000001E710Ah                    
+  1E7229  mov     r13,[rsp+90h]                             
+  1E7231  lea     rcx,[r9+r9*2]                             
+  1E7235  movzx   eax,word [r11+rcx*4+8]                    
+  1E723B  add     eax,r15d                                  
+  1E723E  cmp     eax,r10d                                  
+  1E7241  jae     short 00000000001E726Ah                   
+  1E7243  test    eax,eax                                   
+  1E7245  js      short 00000000001E726Ah                   
+  1E7247  cmp     eax,r10d                                  
+  1E724A  jge     short 00000000001E726Ah                   
+  1E724C  cdqe                                              
+  1E724E  mov     rcx,[rdx+rax*8+28h]                       
+  1E7253  test    rcx,rcx                                   
+  1E7256  je      short 00000000001E726Ah                   
+  1E7258  mov     rcx,[rcx+68h]                             
+  1E725C  test    rcx,rcx                                   
+  1E725F  je      short 00000000001E726Ah                   
+  1E7261  cmp     byte [rcx+12Eh],0                         
+  1E7268  je      short 00000000001E7277h                   
+  1E726A  inc     r9d                                       
+  1E726D  cmp     r9d,r14d                                  
+  1E7270  jb      short 00000000001E7231h                   
+  1E7272  jmp     00000000001E710Ah                         
+  1E7277  mov     rdx,[r13+1C8h]                            
+  1E727E  add     rdx,74E0h                                 
+  1E7285  call    0000000000129A28h                         
+  1E728A  test    al,al                                     
+  1E728C  jne     near 00000000001E7363h                    
+  1E7292  mov     rdx,[rsp+30h]                             
+  1E7297  jmp     short 00000000001E726Ah                   
+  1E7299  movsxd  rax,[rdx+18h]                             
+  1E729D  xor     r15d,r15d                                 
+  1E72A0  xor     r13d,r13d                                 
+  1E72A3  mov     [rdx+20h],rcx                             
+  1E72A7  mov     [rsp+40h],rax                             
+  1E72AC  test    rax,rax                                   
+  1E72AF  jle     near 00000000001E71D7h                    
+  1E72B5  lea     r12,[rdx+28h]                             
+  1E72B9  nop     dword [rax]                               
+  1E72C0  cmp     r15d,[rdx+18h]                            
+  1E72C4  jge     short 00000000001E731Fh                   
+  1E72C6  mov     r14,[r12]                                 
+  1E72CA  mov     r8,[r11+1C8h]                             
+  1E72D1  test    r14,r14                                   
+  1E72D4  je      short 00000000001E731Fh                   
+  1E72D6  mov     rcx,[r14+68h]                             
+  1E72DA  test    rcx,rcx                                   
+  1E72DD  je      short 00000000001E731Fh                   
+  1E72DF  lea     rdx,[r8+74E0h]                            
+  1E72E6  add     rcx,108h                                  
+  1E72ED  mov     r8,[r8+6EB0h]                             
+  1E72F4  call    0000000000128EF0h                         
+  1E72F9  mov     rcx,[r14+68h]                             
+  1E72FD  mov     edx,0FFh                                  
+  1E7302  mov     r8d,10h                                   
+  1E7308  call    00000000001290B8h                         
+  1E730D  mov     rdx,[rsp+30h]                             
+  1E7312  mov     rax,[rsp+40h]                             
+  1E7317  mov     r11,[rsp+90h]                             
+  1E731F  inc     r15d                                      
+  1E7322  inc     r13                                       
+  1E7325  add     r12,8                                     
+  1E7329  cmp     r13,rax                                   
+  1E732C  jl      short 00000000001E72C0h                   
+  1E732E  movzx   r8d,byte [rsp+0A8h]                       
+  1E7337  movzx   r9d,byte [rsp+20h]                        
+  1E733D  mov     r14,[rsp+28h]                             
+  1E7342  mov     r10,[rsp+48h]                             
+  1E7347  mov     r12d,[rsp+24h]                            
+  1E734C  jmp     00000000001E71D7h                         
+  1E7351  test    r9b,r9b                                   
+  1E7354  je      near 00000000001E710Ah                    
+  1E735A  test    r8b,r8b                                   
+  1E735D  je      near 00000000001E710Ah                    
+  1E7363  mov     rcx,[rsp+38h]                             
+  1E7368  mov     eax,r12d                                  
+  1E736B  mov     byte [rax+rcx],1                          
+  1E736F  jmp     00000000001E710Ah                         
+  1E7374  mov     r11d,[rcx+3A4h]                           
+  1E737B  or      r9d,0FFFFFFFFh                            
+  1E737F  xor     r8d,r8d                                   
+  1E7382  test    r11d,r11d                                 
+  1E7385  je      short 00000000001E73B3h                   
+  1E7387  mov     r10,[rcx+370h]                            
+  1E738E  test    r8d,r8d                                   
+  1E7391  js      short 00000000001E73B7h                   
+  1E7393  cmp     r8d,[r10+18h]                             
+  1E7397  jge     short 00000000001E73B7h                   
+  1E7399  movsxd  rax,r8d                                   
+  1E739C  (bad)                                             

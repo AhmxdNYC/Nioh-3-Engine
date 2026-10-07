@@ -1,0 +1,1980 @@
+﻿; ---- Nioh3+60800 .. +62600 (pdata fn None)
+   60800  cmp     [rdi+448B4803h],esi                       
+   60806  and     al,28h                                    
+   60808  addss   xmm2,[rdx]                                
+   6080C  movss   [rax],xmm2                                
+   60810  jmp     short 00000000000607F6h                   
+   60812  int3                                              
+   60813  int3                                              
+   60814  xor     eax,eax                                   
+   60816  mov     r10,r8                                    
+   60819  mov     [rdx],rax                                 
+   6081C  mov     [rdx+8],rax                               
+   60820  test    r9d,r9d                                   
+   60823  je      near 00000000000608BBh                    
+   60829  mov     rcx,r8                                    
+   6082C  mov     rax,rdx                                   
+   6082F  sub     rcx,rdx                                   
+   60832  mov     r8d,4                                     
+   60838  movd    xmm0,[rcx+rax]                            
+   6083D  cvtdq2ps xmm0,xmm0                                
+   60840  movss   [rax],xmm0                                
+   60844  lea     rax,[rax+4]                               
+   60848  sub     r8,1                                      
+   6084C  jne     short 0000000000060838h                   
+   6084E  cmp     r9d,1                                     
+   60852  jbe     short 00000000000608BBh                   
+   60854  movss   xmm3,[rdx+4]                              
+   60859  lea     rcx,[r10+48h]                             
+   6085D  movss   xmm4,[rdx+8]                              
+   60862  lea     r8d,[r9-1]                                
+   60866  movss   xmm5,[rdx+0Ch]                            
+   6086B  movss   xmm1,[rdx]                                
+   6086F  movd    xmm0,[rcx-8]                              
+   60874  movd    xmm2,[rcx-4]                              
+   60879  cvtdq2ps xmm0,xmm0                                
+   6087C  cvtdq2ps xmm2,xmm2                                
+   6087F  minss   xmm1,xmm0                                 
+   60883  movd    xmm0,[rcx]                                
+   60887  minss   xmm3,xmm2                                 
+   6088B  lea     rcx,[rcx+40h]                             
+   6088F  cvtdq2ps xmm0,xmm0                                
+   60892  movss   [rdx],xmm1                                
+   60896  movd    xmm1,[rcx-3Ch]                            
+   6089B  maxss   xmm4,xmm0                                 
+   6089F  cvtdq2ps xmm1,xmm1                                
+   608A2  maxss   xmm5,xmm1                                 
+   608A6  sub     r8,1                                      
+   608AA  jne     short 000000000006086Bh                   
+   608AC  movss   [rdx+4],xmm3                              
+   608B1  movss   [rdx+8],xmm4                              
+   608B6  movss   [rdx+0Ch],xmm5                            
+   608BB  mov     rax,rdx                                   
+   608BE  ret                                               
+   608BF  int3                                              
+   608C0  sub     rsp,28h                                   
+   608C4  cmp     byte [rcx+0D8h],0                         
+   608CB  je      short 000000000006092Eh                   
+   608CD  mov     r9,[rcx+0C8h]                             
+   608D4  test    r9,r9                                     
+   608D7  je      short 000000000006092Eh                   
+   608D9  cmp     dword [rdx+26B4h],5                       
+   608E0  je      short 0000000000060933h                   
+   608E2  mov     [rdx+2580h],r9                            
+   608E9  mov     dword [rdx+26B4h],5                       
+   608F3  mov     rax,[rdx+3C40h]                           
+   608FA  mov     dword [rax],50021h                        
+   60900  add     qword [rdx+3C40h],4                       
+   60908  mov     rax,[rdx+3C40h]                           
+   6090F  mov     [rax],r9d                                 
+   60912  mov     rax,[rdx+3C40h]                           
+   60919  shr     r9,20h                                    
+   6091D  mov     [rax+4],r9d                               
+   60921  add     qword [rdx+3C40h],8                       
+   60929  call    0000000000060A80h                         
+   6092E  add     rsp,28h                                   
+   60932  ret                                               
+   60933  cmp     [rdx+2580h],r9                            
+   6093A  je      short 0000000000060929h                   
+   6093C  jmp     short 00000000000608E2h                   
+   6093E  int3                                              
+   6093F  int3                                              
+   60940  mov     [rsp+8],rbx                               
+   60945  mov     [rsp+10h],rbp                             
+   6094A  mov     [rsp+18h],rsi                             
+   6094F  push    rdi                                       
+   60950  push    r12                                       
+   60952  push    r13                                       
+   60954  push    r14                                       
+   60956  push    r15                                       
+   60958  sub     rsp,20h                                   
+   6095C  mov     r12d,[rdx+64h]                            
+   60960  xor     ebp,ebp                                   
+   60962  mov     rdi,r9                                    
+   60965  mov     r14d,r8d                                  
+   60968  mov     r13,rdx                                   
+   6096B  mov     rsi,rcx                                   
+   6096E  mov     ebx,ebp                                   
+   60970  test    r12d,r12d                                 
+   60973  je      near 0000000000060A3Ch                    
+   60979  lea     r15,[rdx+0B0h]                            
+   60980  cmp     bp,[r15]                                  
+   60984  jg      near 0000000000060A27h                    
+   6098A  test    dil,1                                     
+   6098E  je      near 0000000000060A27h                    
+   60994  mov     rdx,[r13+50h]                             
+   60998  jmp     short 000000000006099Dh                   
+   6099A  mov     rdx,[rdx]                                 
+   6099D  cmp     ebx,[rdx+8]                               
+   609A0  jb      short 000000000006099Ah                   
+   609A2  cmp     r14d,[rsi+8]                              
+   609A6  jae     near 0000000000060A7Ah                    
+   609AC  mov     rax,[rdx+10h]                             
+   609B0  lea     r11,[rel 44BAEC0h]                        
+   609B7  mov     ecx,ebx                                   
+   609B9  mov     r9d,ebp                                   
+   609BC  sub     ecx,[rdx+8]                               
+   609BF  add     rcx,rcx                                   
+   609C2  mov     rdx,[rax+rcx*8]                           
+   609C6  mov     rax,[r11]                                 
+   609C9  mov     rbp,rdx                                   
+   609CC  sub     rbp,rax                                   
+   609CF  movzx   r8d,byte [rax]                            
+   609D3  movzx   r10d,byte [rax+rbp]                       
+   609D8  sub     r8d,r10d                                  
+   609DB  jne     short 00000000000609E5h                   
+   609DD  inc     rax                                       
+   609E0  test    r10d,r10d                                 
+   609E3  jne     short 00000000000609CFh                   
+   609E5  xor     ebp,ebp                                   
+   609E7  test    r8d,r8d                                   
+   609EA  je      near 0000000000060A76h                    
+   609F0  inc     r9d                                       
+   609F3  add     r11,8                                     
+   609F7  cmp     r9d,1                                     
+   609FB  jb      short 00000000000609C6h                   
+   609FD  mov     rcx,[rsi]                                 
+   60A00  call    000000000052DC84h                         
+   60A05  mov     ecx,eax                                   
+   60A07  mov     eax,r14d                                  
+   60A0A  lea     rdx,[rax+rax*2]                           
+   60A0E  mov     [rsi+rdx*4+0Ch],ecx                       
+   60A12  test    ecx,ecx                                   
+   60A14  jne     short 0000000000060A5Bh                   
+   60A16  movzx   eax,bp                                    
+   60A19  mov     ecx,ebp                                   
+   60A1B  mov     [rsi+rdx*4+10h],ecx                       
+   60A1F  inc     r14d                                      
+   60A22  mov     [rsi+rdx*4+14h],ax                        
+   60A27  sar     rdi,1                                     
+   60A2A  inc     ebx                                       
+   60A2C  add     r15,90h                                   
+   60A33  cmp     ebx,r12d                                  
+   60A36  jb      near 0000000000060980h                    
+   60A3C  mov     al,1                                      
+   60A3E  mov     rbx,[rsp+50h]                             
+   60A43  mov     rbp,[rsp+58h]                             
+   60A48  mov     rsi,[rsp+60h]                             
+   60A4D  add     rsp,20h                                   
+   60A51  pop     r15                                       
+   60A53  pop     r14                                       
+   60A55  pop     r13                                       
+   60A57  pop     r12                                       
+   60A59  pop     rdi                                       
+   60A5A  ret                                               
+   60A5B  mov     eax,ecx                                   
+   60A5D  mov     r8d,0FFFh                                 
+   60A63  shr     eax,10h                                   
+   60A66  and     ecx,0F001FFFFh                            
+   60A6C  and     ax,r8w                                    
+   60A70  bts     ecx,10h                                   
+   60A74  jmp     short 0000000000060A1Bh                   
+   60A76  mov     ecx,ebp                                   
+   60A78  jmp     short 0000000000060A07h                   
+   60A7A  xor     al,al                                     
+   60A7C  jmp     short 0000000000060A3Eh                   
+   60A7E  int3                                              
+   60A7F  int3                                              
+   60A80  mov     rax,rsp                                   
+   60A83  mov     [rax+8],rbx                               
+   60A87  mov     [rax+10h],rbp                             
+   60A8B  mov     [rax+18h],rsi                             
+   60A8F  mov     [rax+20h],rdi                             
+   60A93  push    r13                                       
+   60A95  push    r14                                       
+   60A97  push    r15                                       
+   60A99  sub     rsp,20h                                   
+   60A9D  mov     rax,[rdx+3C40h]                           
+   60AA4  lea     rsi,[rel 44BAEC0h]                        
+   60AAB  mov     r13,r8                                    
+   60AAE  mov     rbx,rdx                                   
+   60AB1  mov     r15,rcx                                   
+   60AB4  mov     r14,rsi                                   
+   60AB7  mov     dword [rax],72h                           
+   60ABD  add     qword [rdx+3C40h],4                       
+   60AC5  xor     edi,edi                                   
+   60AC7  mov     ebp,edi                                   
+   60AC9  mov     rcx,[r14]                                 
+   60ACC  lea     rdx,[rel 38E5C80h]                          ; "ol_color"
+   60AD3  call    00000000018EF1B0h                         
+   60AD8  test    eax,eax                                   
+   60ADA  je      near 0000000000060BD3h                    
+   60AE0  inc     ebp                                       
+   60AE2  add     r14,8                                     
+   60AE6  cmp     ebp,1                                     
+   60AE9  jb      short 0000000000060AC9h                   
+   60AEB  mov     rcx,[r15+0C8h]                            
+   60AF2  lea     rdx,[rel 38E5C80h]                          ; "ol_color"
+   60AF9  call    000000000052DC84h                         
+   60AFE  mov     edx,eax                                   
+   60B00  mov     rax,[rbx+3C40h]                           
+   60B07  mov     r14d,100037h                              
+   60B0D  movaps  xmm0,[rel 3BD4340h]                       
+   60B14  mov     ebp,edi                                   
+   60B16  mov     [rax],r14d                                
+   60B19  add     qword [rbx+3C40h],4                       
+   60B21  mov     rax,[rbx+3C40h]                           
+   60B28  mov     [rax],edx                                 
+   60B2A  mov     rcx,[rbx+3C40h]                           
+   60B31  lea     rax,[rcx+14h]                             
+   60B35  mov     [rbx+3C40h],rax                           
+   60B3C  movdqu  [rcx+4],xmm0                              
+   60B41  mov     [r15+0DCh],edx                            
+   60B48  mov     rcx,[rsi]                                 
+   60B4B  lea     rdx,[rel 38E5C70h]                          ; "ol_param"
+   60B52  call    00000000018EF1B0h                         
+   60B57  test    eax,eax                                   
+   60B59  je      short 0000000000060B7Bh                   
+   60B5B  inc     ebp                                       
+   60B5D  add     rsi,8                                     
+   60B61  cmp     ebp,1                                     
+   60B64  jb      short 0000000000060B48h                   
+   60B66  mov     rcx,[r15+0C8h]                            
+   60B6D  lea     rdx,[rel 38E5C70h]                          ; "ol_param"
+   60B74  call    000000000052DC84h                         
+   60B79  mov     edi,eax                                   
+   60B7B  mov     rax,[rbx+3C40h]                           
+   60B82  mov     rdx,[r13+8]                               
+   60B86  mov     rbp,[rsp+48h]                             
+   60B8B  mov     rsi,[rsp+50h]                             
+   60B90  mov     [rax],r14d                                
+   60B93  add     qword [rbx+3C40h],4                       
+   60B9B  mov     rax,[rbx+3C40h]                           
+   60BA2  mov     [rax],edi                                 
+   60BA4  mov     rcx,[rbx+3C40h]                           
+   60BAB  mov     rdi,[rsp+58h]                             
+   60BB0  lea     rax,[rcx+14h]                             
+   60BB4  mov     [rbx+3C40h],rax                           
+   60BBB  movups  xmm0,[rdx]                                
+   60BBE  mov     rbx,[rsp+40h]                             
+   60BC3  movdqu  [rcx+4],xmm0                              
+   60BC8  add     rsp,20h                                   
+   60BCC  pop     r15                                       
+   60BCE  pop     r14                                       
+   60BD0  pop     r13                                       
+   60BD2  ret                                               
+   60BD3  mov     edx,edi                                   
+   60BD5  jmp     0000000000060B00h                         
+   60BDA  int3                                              
+   60BDB  int3                                              
+   60BDC  sub     rsp,1D8h                                  
+   60BE3  mov     rax,[rel 44B7F30h]                        
+   60BEA  xor     rax,rsp                                   
+   60BED  mov     [rsp+1C0h],rax                            
+   60BF5  mov     rax,[rcx+3C40h]                           
+   60BFC  xor     r9d,r9d                                   
+   60BFF  mov     r10,rcx                                   
+   60C02  mov     [rsp+20h],r9d                             
+   60C07  mov     dword [rax],72h                           
+   60C0D  add     qword [rcx+3C40h],4                       
+   60C15  mov     r11,[rcx+3C40h]                           
+   60C1C  test    r8d,r8d                                   
+   60C1F  je      short 0000000000060C67h                   
+   60C21  add     rdx,0Ch                                   
+   60C25  mov     r8d,r8d                                   
+   60C28  cmp     r9d,11h                                   
+   60C2C  jae     short 0000000000060C5Dh                   
+   60C2E  mov     eax,[rdx+4]                               
+   60C31  cmp     [rdx],eax                                 
+   60C33  je      short 0000000000060C5Dh                   
+   60C35  movups  xmm0,[rdx-0Ch]                            
+   60C39  mov     eax,r9d                                   
+   60C3C  inc     r9d                                       
+   60C3F  movsd   xmm1,[rdx+4]                              
+   60C44  mov     [rsp+20h],r9d                             
+   60C49  lea     rcx,[rax+rax*2]                           
+   60C4D  movups  [rsp+rcx*8+28h],xmm0                      
+   60C52  movsd   [rsp+rcx*8+38h],xmm1                      
+   60C58  mov     r9d,[rsp+20h]                             
+   60C5D  add     rdx,18h                                   
+   60C61  sub     r8,1                                      
+   60C65  jne     short 0000000000060C28h                   
+   60C67  mov     dword [r11],9Ch                           
+   60C6E  mov     rdx,[r10+3C40h]                           
+   60C75  mov     eax,r9d                                   
+   60C78  lea     rcx,[rax+rax*2]                           
+   60C7C  lea     r8,[rcx*8]                                
+   60C84  lea     rax,[r8+7]                                
+   60C88  shr     rax,2                                     
+   60C8C  mov     eax,eax                                   
+   60C8E  inc     rax                                       
+   60C91  lea     rcx,[rdx+rax*4]                           
+   60C95  mov     [r10+3C40h],rcx                           
+   60C9C  lea     rcx,[rdx+8]                               
+   60CA0  mov     [rdx+4],r9d                               
+   60CA4  lea     rdx,[rsp+28h]                             
+   60CA9  call    0000000000B94250h                         
+   60CAE  mov     rcx,[rsp+1C0h]                            
+   60CB6  xor     rcx,rsp                                   
+   60CB9  call    0000000000B912E0h                         
+   60CBE  add     rsp,1D8h                                  
+   60CC5  ret                                               
+   60CC6  int3                                              
+   60CC7  int3                                              
+   60CC8  mov     rax,[rcx+3C40h]                           
+   60CCF  mov     dword [rax],72h                           
+   60CD5  add     qword [rcx+3C40h],4                       
+   60CDD  mov     rax,[rcx+3C40h]                           
+   60CE4  mov     dword [rax],9Bh                           
+   60CEA  add     qword [rcx+3C40h],4                       
+   60CF2  mov     rax,[rcx+3C40h]                           
+   60CF9  mov     [rax],edx                                 
+   60CFB  mov     rax,[rcx+3C40h]                           
+   60D02  shr     rdx,20h                                   
+   60D06  mov     [rax+4],edx                               
+   60D09  add     qword [rcx+3C40h],8                       
+   60D11  mov     rax,[rcx+3C40h]                           
+   60D18  mov     [rax],r8d                                 
+   60D1B  mov     rax,[rcx+3C40h]                           
+   60D22  shr     r8,20h                                    
+   60D26  mov     [rax+4],r8d                               
+   60D2A  add     qword [rcx+3C40h],8                       
+   60D32  mov     rax,[rcx+3C40h]                           
+   60D39  mov     [rax],r9d                                 
+   60D3C  add     qword [rcx+3C40h],4                       
+   60D44  mov     rax,[rcx+3C40h]                           
+   60D4B  and     dword [rax],0                             
+   60D4E  mov     rax,[rcx+3C40h]                           
+   60D55  and     dword [rax+4],0                           
+   60D59  add     qword [rcx+3C40h],8                       
+   60D61  mov     rax,[rcx+3C40h]                           
+   60D68  or      dword [rax],0FFFFFFFFh                    
+   60D6B  add     qword [rcx+3C40h],4                       
+   60D73  ret                                               
+   60D74  mov     [rsp+8],rbx                               
+   60D79  mov     rax,[rcx]                                 
+   60D7C  mov     rbx,rcx                                   
+   60D7F  mov     r11,rdx                                   
+   60D82  mov     r10,[rax]                                 
+   60D85  mov     dword [r10],9Bh                           
+   60D8C  mov     rax,[rcx]                                 
+   60D8F  add     qword [rax],4                             
+   60D93  mov     rax,[rcx]                                 
+   60D96  mov     r10,[rax]                                 
+   60D99  mov     [r10],r11d                                
+   60D9C  mov     rax,[rcx]                                 
+   60D9F  shr     r11,20h                                   
+   60DA3  mov     rdx,[rax]                                 
+   60DA6  mov     [rdx+4],r11d                              
+   60DAA  mov     rax,[rcx]                                 
+   60DAD  add     qword [rax],8                             
+   60DB1  mov     rax,[rcx]                                 
+   60DB4  mov     rcx,[rax]                                 
+   60DB7  mov     [rcx],r8d                                 
+   60DBA  mov     rax,[rbx]                                 
+   60DBD  shr     r8,20h                                    
+   60DC1  mov     rcx,[rax]                                 
+   60DC4  mov     [rcx+4],r8d                               
+   60DC8  mov     rax,[rbx]                                 
+   60DCB  add     qword [rax],8                             
+   60DCF  mov     rax,[rbx]                                 
+   60DD2  mov     rcx,[rax]                                 
+   60DD5  mov     [rcx],r9d                                 
+   60DD8  mov     rax,[rbx]                                 
+   60DDB  add     qword [rax],4                             
+   60DDF  mov     rax,[rbx]                                 
+   60DE2  mov     rcx,[rax]                                 
+   60DE5  and     dword [rcx],0                             
+   60DE8  mov     rax,[rbx]                                 
+   60DEB  mov     rcx,[rax]                                 
+   60DEE  and     dword [rcx+4],0                           
+   60DF2  mov     rax,[rbx]                                 
+   60DF5  add     qword [rax],8                             
+   60DF9  mov     rax,[rbx]                                 
+   60DFC  mov     rcx,[rax]                                 
+   60DFF  or      dword [rcx],0FFFFFFFFh                    
+   60E02  mov     rax,[rbx]                                 
+   60E05  mov     rbx,[rsp+8]                               
+   60E0A  add     qword [rax],4                             
+   60E0E  ret                                               
+   60E0F  int3                                              
+   60E10  sub     rsp,1D8h                                  
+   60E17  mov     rax,[rel 44B7F30h]                        
+   60E1E  xor     rax,rsp                                   
+   60E21  mov     [rsp+1C0h],rax                            
+   60E29  mov     rax,[rcx+3C40h]                           
+   60E30  xor     r10d,r10d                                 
+   60E33  mov     r9,rcx                                    
+   60E36  mov     [rsp+20h],r10d                            
+   60E3B  mov     dword [rax],72h                           
+   60E41  add     qword [rcx+3C40h],4                       
+   60E49  mov     eax,[rdx+10h]                             
+   60E4C  mov     rcx,[rcx+3C40h]                           
+   60E53  cmp     [rdx+0Ch],eax                             
+   60E56  je      short 0000000000060E76h                   
+   60E58  movups  xmm0,[rdx]                                
+   60E5B  mov     r10d,1                                    
+   60E61  movsd   xmm1,[rdx+10h]                            
+   60E66  movups  [rsp+28h],xmm0                            
+   60E6B  mov     [rsp+20h],r10d                            
+   60E70  movsd   [rsp+38h],xmm1                            
+   60E76  mov     dword [rcx],9Ch                           
+   60E7C  mov     rdx,[r9+3C40h]                            
+   60E83  mov     eax,r10d                                  
+   60E86  lea     rcx,[rax+rax*2]                           
+   60E8A  lea     r8,[rcx*8]                                
+   60E92  lea     rax,[r8+7]                                
+   60E96  shr     rax,2                                     
+   60E9A  mov     eax,eax                                   
+   60E9C  inc     rax                                       
+   60E9F  lea     rcx,[rdx+rax*4]                           
+   60EA3  mov     [r9+3C40h],rcx                            
+   60EAA  lea     rcx,[rdx+8]                               
+   60EAE  mov     [rdx+4],r10d                              
+   60EB2  lea     rdx,[rsp+28h]                             
+   60EB7  call    0000000000B94250h                         
+   60EBC  mov     rcx,[rsp+1C0h]                            
+   60EC4  xor     rcx,rsp                                   
+   60EC7  call    0000000000B912E0h                         
+   60ECC  add     rsp,1D8h                                  
+   60ED3  ret                                               
+   60ED4  mov     rax,[rcx]                                 
+   60ED7  mov     r8,[rax]                                  
+   60EDA  mov     dword [r8],9Ch                            
+   60EE1  mov     rax,[rcx]                                 
+   60EE4  add     qword [rax],4                             
+   60EE8  mov     r8,[rcx]                                  
+   60EEB  mov     eax,[rdx]                                 
+   60EED  mov     r9,[r8]                                   
+   60EF0  lea     rcx,[rax+rax*2]                           
+   60EF4  lea     rax,[rcx*8+7]                             
+   60EFC  shr     rax,2                                     
+   60F00  mov     eax,eax                                   
+   60F02  lea     rcx,[r9+rax*4]                            
+   60F06  mov     [r8],rcx                                  
+   60F09  lea     rcx,[r9+4]                                
+   60F0D  mov     eax,[rdx]                                 
+   60F0F  mov     [r9],eax                                  
+   60F12  mov     eax,[rdx]                                 
+   60F14  add     rdx,8                                     
+   60F18  lea     r8,[rax+rax*2]                            
+   60F1C  shl     r8,3                                      
+   60F20  jmp     0000000000B94250h                         
+   60F25  int3                                              
+   60F26  int3                                              
+   60F27  int3                                              
+   60F28  mov     r8,[rcx]                                  
+   60F2B  mov     eax,[rdx]                                 
+   60F2D  mov     r9,[r8]                                   
+   60F30  lea     rcx,[rax+rax*2]                           
+   60F34  lea     rax,[rcx*8+7]                             
+   60F3C  shr     rax,2                                     
+   60F40  mov     eax,eax                                   
+   60F42  lea     rcx,[r9+rax*4]                            
+   60F46  mov     [r8],rcx                                  
+   60F49  lea     rcx,[r9+4]                                
+   60F4D  mov     eax,[rdx]                                 
+   60F4F  mov     [r9],eax                                  
+   60F52  mov     eax,[rdx]                                 
+   60F54  add     rdx,8                                     
+   60F58  lea     r8,[rax+rax*2]                            
+   60F5C  shl     r8,3                                      
+   60F60  jmp     0000000000B94250h                         
+   60F65  int3                                              
+   60F66  int3                                              
+   60F67  int3                                              
+   60F68  mov     r8,rcx                                    
+   60F6B  mov     ecx,[rcx]                                 
+   60F6D  cmp     ecx,11h                                   
+   60F70  jb      short 0000000000060F75h                   
+   60F72  xor     al,al                                     
+   60F74  ret                                               
+   60F75  mov     eax,[rdx+10h]                             
+   60F78  cmp     [rdx+0Ch],eax                             
+   60F7B  je      short 0000000000060F9Ch                   
+   60F7D  lea     eax,[rcx+1]                               
+   60F80  mov     [r8],eax                                  
+   60F83  lea     rcx,[rcx+rcx*2]                           
+   60F87  movups  xmm0,[rdx]                                
+   60F8A  movups  [r8+rcx*8+8],xmm0                         
+   60F90  movsd   xmm1,[rdx+10h]                            
+   60F95  movsd   [r8+rcx*8+18h],xmm1                       
+   60F9C  mov     al,1                                      
+   60F9E  ret                                               
+   60F9F  int3                                              
+   60FA0  mov     rax,[rcx+3C40h]                           
+   60FA7  mov     dword [rax],72h                           
+   60FAD  add     qword [rcx+3C40h],4                       
+   60FB5  ret                                               
+   60FB6  int3                                              
+   60FB7  int3                                              
+   60FB8  mov     rax,rsp                                   
+   60FBB  mov     [rax+8],rbx                               
+   60FBF  mov     [rax+10h],rdi                             
+   60FC3  push    rbp                                       
+   60FC4  lea     rbp,[rax-27h]                             
+   60FC8  sub     rsp,0D0h                                  
+   60FCF  movaps  [rax-18h],xmm6                            
+   60FD3  xor     r10d,r10d                                 
+   60FD6  mov     r9,rcx                                    
+   60FD9  mov     rcx,[rcx+0A8h]                            
+   60FE0  movaps  xmm6,xmm3                                 
+   60FE3  movaps  [rax-28h],xmm7                            
+   60FE7  movaps  xmm7,xmm2                                 
+   60FEA  movaps  [rax-38h],xmm8                            
+   60FEF  movaps  xmm8,xmm1                                 
+   60FF3  cmp     [rbp+5Fh],r10b                            
+   60FF7  je      near 000000000006119Bh                    
+   60FFD  cmp     dword [rcx+26B4h],3                       
+   61004  je      short 000000000006104Ch                   
+   61006  mov     dword [rcx+26B4h],3                       
+   61010  mov     edx,r10d                                  
+   61013  mov     [rcx+2580h],r10                           
+   6101A  mov     rax,[rcx+3C40h]                           
+   61021  mov     dword [rax],30021h                        
+   61027  add     qword [rcx+3C40h],4                       
+   6102F  mov     rax,[rcx+3C40h]                           
+   61036  mov     [rdx+rax],r10d                            
+   6103A  add     rdx,4                                     
+   6103E  cmp     rdx,8                                     
+   61042  jl      short 000000000006102Fh                   
+   61044  add     qword [rcx+3C40h],8                       
+   6104C  mov     al,[r9+0CAh]                              
+   61053  mov     rcx,[r9+0C0h]                             
+   6105A  mov     [rcx+0D8h],al                             
+   61060  mov     rdx,[r9+0A0h]                             
+   61067  mov     rax,[rdx+8]                               
+   6106B  cmp     [r9+0CAh],r10b                            
+   61072  je      near 0000000000061246h                    
+   61078  cmp     [rax+70h],r10b                            
+   6107C  je      near 0000000000061246h                    
+   61082  cmp     dword [rax+74h],1                         
+   61086  mov     cl,1                                      
+   61088  jne     near 0000000000061246h                    
+   6108E  mov     r8b,[rax+0AEh]                            
+   61095  test    cl,cl                                     
+   61097  je      near 000000000006124Eh                    
+   6109D  movups  xmm0,[rax+80h]                            
+   610A4  mov     ecx,[rax+7Ch]                             
+   610A7  movdqu  [rbp-51h],xmm0                            
+   610AC  cmp     dword [rdx],1                             
+   610AF  je      near 000000000192B5B3h                    
+   610B5  movss   xmm1,[rel 3BD4160h]                       
+   610BD  xorps   xmm0,xmm0                                 
+   610C0  or      dword [rbp-3Dh],0FFFFFFFFh                
+   610C4  mov     rdx,[r9+0A8h]                             
+   610CB  movzx   eax,cl                                    
+   610CE  movss   [rbp-39h],xmm8                            
+   610D4  movss   [rbp-35h],xmm7                            
+   610D9  movss   [rbp-31h],xmm6                            
+   610DE  cvtsi2ss xmm0,rax                                 
+   610E3  mov     eax,ecx                                   
+   610E5  mov     [rbp-41h],r10d                            
+   610E9  shr     eax,8                                     
+   610EC  movzx   eax,al                                    
+   610EF  divss   xmm0,xmm1                                 
+   610F3  movss   [rbp-61h],xmm0                            
+   610F8  xorps   xmm0,xmm0                                 
+   610FB  cvtsi2ss xmm0,rax                                 
+   61100  mov     eax,ecx                                   
+   61102  shr     ecx,18h                                   
+   61105  shr     eax,10h                                   
+   61108  movzx   eax,al                                    
+   6110B  test    r8b,r8b                                   
+   6110E  lea     r8,[rbp-41h]                              
+   61112  divss   xmm0,xmm1                                 
+   61116  movss   [rbp-5Dh],xmm0                            
+   6111B  xorps   xmm0,xmm0                                 
+   6111E  cvtsi2ss xmm0,rax                                 
+   61123  mov     eax,ecx                                   
+   61125  mov     rcx,[r9+0C0h]                             
+   6112C  divss   xmm0,xmm1                                 
+   61130  movss   [rbp-59h],xmm0                            
+   61135  xorps   xmm0,xmm0                                 
+   61138  cvtsi2ss xmm0,rax                                 
+   6113D  mov     eax,[rbp+57h]                             
+   61140  mov     [rbp-29h],eax                             
+   61143  lea     rax,[rbp-61h]                             
+   61147  mov     [rbp-21h],rax                             
+   6114B  lea     rax,[rbp-51h]                             
+   6114F  mov     [rbp-19h],rax                             
+   61153  divss   xmm0,xmm1                                 
+   61157  movss   [rbp-55h],xmm0                            
+   6115C  movss   xmm0,[rbp+4Fh]                            
+   61161  movss   [rbp-2Dh],xmm0                            
+   61166  jne     near 000000000192B5C6h                    
+   6116C  mov     r9,[rbp+7Fh]                              
+   61170  call    000000000005F334h                         
+   61175  lea     r11,[rsp+0D0h]                            
+   6117D  mov     al,1                                      
+   6117F  mov     rbx,[r11+10h]                             
+   61183  mov     rdi,[r11+18h]                             
+   61187  movaps  xmm6,[r11-10h]                            
+   6118C  movaps  xmm7,[r11-20h]                            
+   61191  movaps  xmm8,[r11-30h]                            
+   61196  mov     rsp,r11                                   
+   61199  pop     rbp                                       
+   6119A  ret                                               
+   6119B  cmp     [rbp+67h],r10b                            
+   6119F  jne     near 000000000192B56Ch                    
+   611A5  cmp     dword [rcx+26B4h],3                       
+   611AC  je      short 00000000000611FBh                   
+   611AE  mov     dword [rcx+26B4h],3                       
+   611B8  mov     rdx,r10                                   
+   611BB  mov     [rcx+2580h],r10                           
+   611C2  mov     rax,[rcx+3C40h]                           
+   611C9  mov     dword [rax],30021h                        
+   611CF  add     qword [rcx+3C40h],4                       
+   611D7  mov     rax,[rcx+3C40h]                           
+   611DE  mov     [rdx+rax],r10d                            
+   611E2  add     rdx,4                                     
+   611E6  cmp     rdx,8                                     
+   611EA  jl      short 00000000000611D7h                   
+   611EC  add     qword [rcx+3C40h],8                       
+   611F4  mov     rcx,[r9+0A8h]                             
+   611FB  cmp     [rbp+6Fh],r10b                            
+   611FF  je      near 000000000192B5A0h                    
+   61205  mov     edx,554400h                               
+   6120A  call    00000000001DDCD4h                         
+   6120F  mov     rcx,[r9+0A8h]                             
+   61216  mov     r8b,1                                     
+   61219  xor     edx,edx                                   
+   6121B  call    00000000001D0EF0h                         
+   61220  mov     rcx,[r9+0A8h]                             
+   61227  mov     dl,1                                      
+   61229  call    00000000001DE250h                         
+   6122E  mov     rcx,[r9+0A8h]                             
+   61235  xor     r8d,r8d                                   
+   61238  lea     edx,[r8+4]                                
+   6123C  call    00000000001DE1E8h                         
+   61241  jmp     000000000006104Ch                         
+   61246  mov     cl,r10b                                   
+   61249  jmp     000000000006108Eh                         
+   6124E  mov     rbx,[r9+0A8h]                             
+   61255  mov     rdi,[r9+0C0h]                             
+   6125C  mov     rdx,rbx                                   
+   6125F  mov     rcx,rdi                                   
+   61262  test    r8b,r8b                                   
+   61265  jne     near 000000000192B5D1h                    
+   6126B  call    000000000005EA28h                         
+   61270  mov     r8d,[rbp+57h]                             
+   61274  or      r9d,0FFFFFFFFh                            
+   61278  mov     rax,[rbp+7Fh]                             
+   6127C  mov     rdx,rbx                                   
+   6127F  movss   xmm0,[rbp+4Fh]                            
+   61284  mov     rcx,rdi                                   
+   61287  mov     [rsp+48h],rax                             
+   6128C  mov     [rsp+40h],r8d                             
+   61291  xor     r8d,r8d                                   
+   61294  movss   [rsp+38h],xmm0                            
+   6129A  movss   [rsp+30h],xmm6                            
+   612A0  movss   [rsp+28h],xmm7                            
+   612A6  movss   [rsp+20h],xmm8                            
+   612AD  call    000000000005F448h                         
+   612B2  jmp     0000000000061175h                         
+   612B7  int3                                              
+   612B8  cmp     [rcx+26B4h],edx                           
+   612BE  je      short 0000000000061306h                   
+   612C0  mov     [rcx+26B4h],edx                           
+   612C6  mov     [rcx+2580h],r8                            
+   612CD  mov     rax,[rcx+3C40h]                           
+   612D4  shl     edx,10h                                   
+   612D7  or      edx,21h                                   
+   612DA  mov     [rax],edx                                 
+   612DC  add     qword [rcx+3C40h],4                       
+   612E4  mov     rax,[rcx+3C40h]                           
+   612EB  mov     [rax],r8d                                 
+   612EE  mov     rax,[rcx+3C40h]                           
+   612F5  shr     r8,20h                                    
+   612F9  mov     [rax+4],r8d                               
+   612FD  add     qword [rcx+3C40h],8                       
+   61305  ret                                               
+   61306  cmp     edx,5                                     
+   61309  jne     short 0000000000061305h                   
+   6130B  cmp     [rcx+2580h],r8                            
+   61312  jne     short 00000000000612C0h                   
+   61314  ret                                               
+   61315  int3                                              
+   61316  int3                                              
+   61317  int3                                              
+   61318  cmp     [rcx+184h],edx                            
+   6131E  je      short 000000000006132Dh                   
+   61320  mov     [rcx+184h],edx                            
+   61326  mov     al,1                                      
+   61328  mov     [rcx+50h],r8                              
+   6132C  ret                                               
+   6132D  cmp     edx,5                                     
+   61330  je      short 0000000000061335h                   
+   61332  xor     al,al                                     
+   61334  ret                                               
+   61335  cmp     [rcx+50h],r8                              
+   61339  je      short 0000000000061332h                   
+   6133B  jmp     short 0000000000061320h                   
+   6133D  int3                                              
+   6133E  int3                                              
+   6133F  int3                                              
+   61340  mov     rax,[rcx]                                 
+   61343  mov     r10,rcx                                   
+   61346  shl     edx,10h                                   
+   61349  or      edx,21h                                   
+   6134C  mov     r9,[rax]                                  
+   6134F  mov     [r9],edx                                  
+   61352  mov     rax,[rcx]                                 
+   61355  add     qword [rax],4                             
+   61359  mov     rax,[rcx]                                 
+   6135C  mov     rdx,[rax]                                 
+   6135F  mov     [rdx],r8d                                 
+   61362  mov     rax,[rcx]                                 
+   61365  shr     r8,20h                                    
+   61369  mov     rcx,[rax]                                 
+   6136C  mov     [rcx+4],r8d                               
+   61370  mov     rax,[r10]                                 
+   61373  add     qword [rax],8                             
+   61377  ret                                               
+   61378  mov     rax,rsp                                   
+   6137B  mov     [rax+8],rbx                               
+   6137F  mov     [rax+10h],rbp                             
+   61383  mov     [rax+18h],rsi                             
+   61387  mov     [rax+20h],rdi                             
+   6138B  push    r14                                       
+   6138D  sub     rsp,20h                                   
+   61391  cmp     byte [rcx+468h],0                         
+   61398  mov     esi,r9d                                   
+   6139B  mov     rbp,r8                                    
+   6139E  mov     r14,rdx                                   
+   613A1  mov     rbx,rcx                                   
+   613A4  mov     dil,1                                     
+   613A7  je      near 0000000001906E9Ch                    
+   613AD  mov     rax,[rbx+30h]                             
+   613B1  cmp     qword [rax+10h],0                         
+   613B6  je      short 00000000000613D6h                   
+   613B8  cmp     byte [rbx+47Dh],0                         
+   613BF  je      short 00000000000613D6h                   
+   613C1  mov     rcx,[rbx+70h]                             
+   613C5  mov     r9d,esi                                   
+   613C8  mov     r8,rbp                                    
+   613CB  mov     rdx,r14                                   
+   613CE  call    0000000000061EA0h                         
+   613D3  mov     dil,al                                    
+   613D6  mov     al,dil                                    
+   613D9  mov     rbx,[rsp+30h]                             
+   613DE  mov     rbp,[rsp+38h]                             
+   613E3  mov     rsi,[rsp+40h]                             
+   613E8  mov     rdi,[rsp+48h]                             
+   613ED  add     rsp,20h                                   
+   613F1  pop     r14                                       
+   613F3  ret                                               
+   613F4  cmp     qword [rcx+0C0h],0                        
+   613FC  setne   al                                        
+   613FF  ret                                               
+   61400  mov     rax,rsp                                   
+   61403  mov     [rax+10h],rbx                             
+   61407  mov     [rax+18h],rsi                             
+   6140B  mov     [rax+20h],rdi                             
+   6140F  push    rbp                                       
+   61410  push    r12                                       
+   61412  push    r13                                       
+   61414  push    r14                                       
+   61416  push    r15                                       
+   61418  lea     rbp,[rax-2Fh]                             
+   6141C  sub     rsp,90h                                   
+   61423  movaps  [rax-38h],xmm6                            
+   61427  mov     rsi,r9                                    
+   6142A  movaps  [rax-48h],xmm7                            
+   6142E  mov     r14,r8                                    
+   61431  movaps  [rax-58h],xmm8                            
+   61436  mov     rdi,rcx                                   
+   61439  movaps  [rax-68h],xmm9                            
+   6143E  xor     eax,eax                                   
+   61440  cmp     [rcx+0C0h],rax                            
+   61447  je      near 00000000000617B1h                    
+   6144D  movzx   ebx,ax                                    
+   61450  movzx   r8d,ax                                    
+   61454  cmp     [r9+70h],al                               
+   61458  je      short 0000000000061484h                   
+   6145A  movss   xmm6,[r9+78h]                             
+   61460  movaps  xmm0,xmm6                                 
+   61463  mulss   xmm0,[r9+18h]                             
+   61469  call    00000000018EDFD4h                         
+   6146E  mulss   xmm6,[rsi+1Ch]                            
+   61473  cvttss2si ebx,xmm0                                
+   61477  movaps  xmm0,xmm6                                 
+   6147A  call    00000000018EDFD4h                         
+   6147F  cvttss2si r8d,xmm0                                
+   61484  mov     ecx,[rbp+67h]                             
+   61487  movss   xmm7,[rbp+9Fh]                            
+   6148F  movd    xmm0,ecx                                  
+   61493  cvtdq2ps xmm0,xmm0                                
+   61496  mulss   xmm0,xmm7                                 
+   6149A  call    00000000000617B8h                         
+   6149F  mov     edx,[rbp+6Fh]                             
+   614A2  mov     r12d,eax                                  
+   614A5  movss   xmm6,[rbp+0A7h]                           
+   614AD  movd    xmm0,edx                                  
+   614B1  cvtdq2ps xmm0,xmm0                                
+   614B4  mulss   xmm0,xmm6                                 
+   614B8  call    00000000000617B8h                         
+   614BD  movsx   r11d,bx                                   
+   614C1  mov     r13d,eax                                  
+   614C4  sub     ecx,r11d                                  
+   614C7  movd    xmm0,ecx                                  
+   614CB  cvtdq2ps xmm0,xmm0                                
+   614CE  mulss   xmm0,xmm7                                 
+   614D2  call    00000000000617B8h                         
+   614D7  movsx   ebx,r8w                                   
+   614DB  mov     r9d,eax                                   
+   614DE  sub     edx,ebx                                   
+   614E0  mov     [rbp-59h],eax                             
+   614E3  movd    xmm0,edx                                  
+   614E7  cvtdq2ps xmm0,xmm0                                
+   614EA  mulss   xmm0,xmm6                                 
+   614EE  call    00000000000617B8h                         
+   614F3  mov     r8,[rbp+5Fh]                              
+   614F7  mov     r10d,eax                                  
+   614FA  mov     [rbp-55h],eax                             
+   614FD  mov     ecx,[r8]                                  
+   61500  lea     edx,[rcx+r11*2]                           
+   61504  movd    xmm0,edx                                  
+   61508  cvtdq2ps xmm0,xmm0                                
+   6150B  mulss   xmm0,xmm7                                 
+   6150F  call    00000000000617B8h                         
+   61514  mov     ecx,[r8+4]                                
+   61518  add     eax,r9d                                   
+   6151B  mov     [rbp-51h],eax                             
+   6151E  lea     edx,[rcx+rbx*2]                           
+   61521  movd    xmm0,edx                                  
+   61525  cvtdq2ps xmm0,xmm0                                
+   61528  mulss   xmm0,xmm6                                 
+   6152C  call    00000000000617B8h                         
+   61531  movss   xmm9,[rbp+77h]                            
+   61537  lea     rdx,[rbp-59h]                             
+   6153B  movss   xmm8,[rbp+7Fh]                            
+   61541  lea     rcx,[rbp-59h]                             
+   61545  mov     r8b,[rsi+4Fh]                             
+   61549  add     eax,r10d                                  
+   6154C  movaps  xmm3,xmm9                                 
+   61550  mov     [rbp-4Dh],eax                             
+   61553  movss   [rsp+20h],xmm8                            
+   6155A  call    00000000007F8FD0h                         
+   6155F  lea     r15,[rdi+10h]                             
+   61563  mov     rdx,r15                                   
+   61566  call    00000000007460C0h                         
+   6156B  mov     rcx,[rbp+57h]                             
+   6156F  and     qword [rdi+40h],0                         
+   61574  movss   [rdi+80h],xmm7                            
+   6157C  movss   [rdi+84h],xmm6                            
+   61584  mov     rax,[rcx]                                 
+   61587  mov     [rdi+20h],rax                             
+   6158B  mov     eax,[rcx+8]                               
+   6158E  mov     [rdi+28h],eax                             
+   61591  mov     rax,[rcx+10h]                             
+   61595  mov     [rdi+30h],rax                             
+   61599  mov     eax,[rcx+18h]                             
+   6159C  mov     [rdi+38h],eax                             
+   6159F  mov     al,[rbp+97h]                              
+   615A5  mov     [rdi+9Ch],al                              
+   615AB  mov     byte [rdi+0C9h],1                         
+   615B2  mov     [rdi+18h],rsi                             
+   615B6  test    r14,r14                                   
+   615B9  je      short 00000000000615BFh                   
+   615BB  inc     dword [r14+8]                             
+   615BF  mov     rcx,[rdi+0B8h]                            
+   615C6  test    rcx,rcx                                   
+   615C9  jne     near 000000000192B602h                    
+   615CF  and     dword [rbp+37h],0                         
+   615D3  xorps   xmm6,xmm6                                 
+   615D6  and     dword [rbp+3Bh],0                         
+   615DA  mov     [rdi+0B8h],r14                            
+   615E1  mov     rcx,[r14+10h]                             
+   615E5  xor     r14d,r14d                                 
+   615E8  test    rcx,rcx                                   
+   615EB  je      short 0000000000061646h                   
+   615ED  mov     rcx,[rcx+18h]                             
+   615F1  movzx   eax,byte [rsi+4Ch]                        
+   615F5  mov     edx,[rcx+rax*4+20h]                       
+   615F9  add     rdx,rcx                                   
+   615FC  movzx   eax,word [rdx+6084h]                      
+   61603  lea     r8,[rax+4000h]                            
+   6160A  lea     r8,[rax+r8*2]                             
+   6160E  lea     r8,[rdx+r8*4]                             
+   61612  test    r8,r8                                     
+   61615  je      near 000000000192B60Dh                    
+   6161B  movzx   eax,byte [r8]                             
+   6161F  movd    xmm0,eax                                  
+   61623  movzx   eax,byte [r8+1]                           
+   61628  cvtdq2ps xmm0,xmm0                                
+   6162B  movd    xmm1,eax                                  
+   6162F  mulss   xmm0,[rsi+18h]                            
+   61634  cvtdq2ps xmm1,xmm1                                
+   61637  movss   [rbp+37h],xmm0                            
+   6163C  mulss   xmm1,[rsi+1Ch]                            
+   61641  movss   [rbp+3Bh],xmm1                            
+   61646  mov     rax,[rbp+37h]                             
+   6164A  mov     rcx,rdi                                   
+   6164D  movups  xmm0,[rbp-59h]                            
+   61651  mov     [rdi+68h],rax                             
+   61655  mov     eax,0C0000000h                            
+   6165A  mov     [rdi+48h],eax                             
+   6165D  mov     [rdi+4Ch],eax                             
+   61660  mov     eax,3FFFFFFFh                             
+   61665  mov     [rdi+50h],eax                             
+   61668  mov     [rdi+54h],eax                             
+   6166B  mov     eax,[rbp+87h]                             
+   61671  movdqu  [rdi+58h],xmm0                            
+   61676  mov     [rdi+70h],r12d                            
+   6167A  movss   xmm0,[rbp+8Fh]                            
+   61682  movss   [rdi+98h],xmm0                            
+   6168A  movss   [rdi+78h],xmm9                            
+   61690  movss   [rdi+7Ch],xmm8                            
+   61696  mov     [rdi+74h],r13d                            
+   6169A  mov     byte [rdi+90h],1                          
+   616A1  mov     [rdi+94h],eax                             
+   616A7  mov     [rdi+0A0h],r15                            
+   616AE  call    0000000000062408h                         
+   616B3  test    al,al                                     
+   616B5  je      near 000000000192B746h                    
+   616BB  lea     rbx,[rdi+140h]                            
+   616C2  mov     rax,[rbx]                                 
+   616C5  mov     rcx,rbx                                   
+   616C8  call    qword [rax+18h]                           
+   616CB  test    eax,eax                                   
+   616CD  jne     near 000000000192B631h                    
+   616D3  cmp     [rsi+54h],r14b                            
+   616D7  jne     near 0000000000061788h                    
+   616DD  cmp     [rsi+70h],r14b                            
+   616E1  je      short 0000000000061707h                   
+   616E3  xor     r9d,r9d                                   
+   616E6  mov     dword [r15],2                             
+   616ED  mov     r8b,1                                     
+   616F0  mov     [rsp+20h],r14                             
+   616F5  xor     edx,edx                                   
+   616F7  mov     rcx,rdi                                   
+   616FA  call    00000000000617D8h                         
+   616FF  test    al,al                                     
+   61701  je      near 000000000192B746h                    
+   61707  mov     rax,[rbp+0AFh]                            
+   6170E  xor     r9d,r9d                                   
+   61711  mov     r8b,1                                     
+   61714  mov     [rsp+20h],rax                             
+   61719  xor     edx,edx                                   
+   6171B  mov     dword [r15],4                             
+   61722  mov     rcx,rdi                                   
+   61725  call    00000000000617D8h                         
+   6172A  mov     rcx,[rdi+0B8h]                            
+   61731  test    al,al                                     
+   61733  je      near 000000000192B74Dh                    
+   61739  mov     [rdi+0C9h],r14b                           
+   61740  test    rcx,rcx                                   
+   61743  je      short 0000000000061751h                   
+   61745  call    00000000001FEB74h                         
+   6174A  mov     [rdi+0B8h],r14                            
+   61751  mov     al,1                                      
+   61753  movaps  xmm7,[rsp+70h]                            
+   61758  lea     r11,[rsp+90h]                             
+   61760  mov     rbx,[r11+38h]                             
+   61764  mov     rsi,[r11+40h]                             
+   61768  mov     rdi,[r11+48h]                             
+   6176C  movaps  xmm6,[r11-10h]                            
+   61771  movaps  xmm8,[r11-30h]                            
+   61776  movaps  xmm9,[r11-40h]                            
+   6177B  mov     rsp,r11                                   
+   6177E  pop     r15                                       
+   61780  pop     r14                                       
+   61782  pop     r13                                       
+   61784  pop     r12                                       
+   61786  pop     rbp                                       
+   61787  ret                                               
+   61788  xor     r9d,r9d                                   
+   6178B  mov     dword [r15],1                             
+   61792  mov     r8b,1                                     
+   61795  mov     [rsp+20h],r14                             
+   6179A  xor     edx,edx                                   
+   6179C  mov     rcx,rdi                                   
+   6179F  call    00000000000617D8h                         
+   617A4  test    al,al                                     
+   617A6  jne     near 00000000000616DDh                    
+   617AC  jmp     000000000192B746h                         
+   617B1  xor     al,al                                     
+   617B3  jmp     short 0000000000061753h                   
+   617B5  int3                                              
+   617B6  int3                                              
+   617B7  int3                                              
+   617B8  comiss  xmm0,[rel 3BD41D4h]                       
+   617BF  jb      short 00000000000617CEh                   
+   617C1  addss   xmm0,[rel 3BD41B8h]                       
+   617C9  cvttss2si eax,xmm0                                
+   617CD  ret                                               
+   617CE  subss   xmm0,[rel 3BD41B8h]                       
+   617D6  jmp     short 00000000000617C9h                   
+   617D8  mov     rax,rsp                                   
+   617DB  mov     [rax+8],rbx                               
+   617DF  mov     [rax+10h],rbp                             
+   617E3  mov     [rax+18h],rsi                             
+   617E7  mov     [rax+20h],rdi                             
+   617EB  push    r12                                       
+   617ED  push    r14                                       
+   617EF  push    r15                                       
+   617F1  sub     rsp,80h                                   
+   617F8  mov     r14b,r9b                                  
+   617FB  mov     sil,r8b                                   
+   617FE  mov     bpl,dl                                    
+   61801  mov     rbx,rcx                                   
+   61804  call    0000000000062408h                         
+   61809  xor     edi,edi                                   
+   6180B  test    al,al                                     
+   6180D  je      near 000000000192B809h                    
+   61813  mov     rax,[rbx+18h]                             
+   61817  mov     cl,[rax+4Fh]                              
+   6181A  call    0000000000061AC4h                         
+   6181F  mov     rcx,[rbx+0C0h]                            
+   61826  mov     r15d,eax                                  
+   61829  movups  xmm0,[rbx+58h]                            
+   6182D  mov     r12,[rsp+0C0h]                            
+   61835  movdqu  [rcx+50h],xmm0                            
+   6183A  mov     byte [rcx+60h],1                          
+   6183E  mov     rdx,[rbx+18h]                             
+   61842  mov     r9,[rbx+0C0h]                             
+   61849  movzx   eax,byte [rdx+90h]                        
+   61850  movzx   r10d,byte [rdx+93h]                       
+   61858  movzx   r8d,byte [rdx+92h]                        
+   61860  movzx   ecx,byte [rdx+91h]                        
+   61867  mov     [r9+80h],ax                               
+   6186F  mov     [r9+82h],cx                               
+   61877  mov     [r9+84h],r8w                              
+   6187F  mov     [r9+86h],r10w                             
+   61887  mov     rax,[rbx+0A0h]                            
+   6188E  cmp     dword [rax],1                             
+   61891  je      near 00000000000619ABh                    
+   61897  cmp     dword [rax],2                             
+   6189A  je      short 00000000000618F5h                   
+   6189C  movd    xmm2,[rbx+74h]                            
+   618A1  mov     rcx,rbx                                   
+   618A4  movd    xmm1,[rbx+70h]                            
+   618A9  movss   xmm0,[rbx+7Ch]                            
+   618AE  movss   xmm3,[rbx+78h]                            
+   618B3  mov     [rsp+50h],r12                             
+   618B8  mov     [rsp+48h],dil                             
+   618BD  mov     [rsp+40h],dil                             
+   618C2  mov     [rsp+38h],r14b                            
+   618C7  mov     [rsp+30h],sil                             
+   618CC  cvtdq2ps xmm2,xmm2                                
+   618CF  mov     [rsp+28h],r15d                            
+   618D4  cvtdq2ps xmm1,xmm1                                
+   618D7  movss   [rsp+20h],xmm0                            
+   618DD  call    0000000000060FB8h                         
+   618E2  test    al,al                                     
+   618E4  je      near 000000000192B809h                    
+   618EA  test    bpl,bpl                                   
+   618ED  jne     near 000000000192B7EAh                    
+   618F3  jmp     short 0000000000061934h                   
+   618F5  test    sil,sil                                   
+   618F8  je      near 000000000192B768h                    
+   618FE  movss   xmm0,[rbx+7Ch]                            
+   61903  mov     rcx,rbx                                   
+   61906  movss   xmm3,[rbx+78h]                            
+   6190B  mov     r8d,[rbx+74h]                             
+   6190F  mov     edx,[rbx+70h]                             
+   61912  mov     [rsp+38h],r14b                            
+   61917  mov     [rsp+30h],sil                             
+   6191C  mov     [rsp+28h],r15d                            
+   61921  movss   [rsp+20h],xmm0                            
+   61927  call    000000000086ECD4h                         
+   6192C  test    al,al                                     
+   6192E  je      near 000000000192B809h                    
+   61934  lea     rsi,[rbx+108h]                            
+   6193B  mov     rax,[rsi]                                 
+   6193E  mov     rcx,rsi                                   
+   61941  call    qword [rax+18h]                           
+   61944  mov     ebp,eax                                   
+   61946  cmp     ebp,edi                                   
+   61948  jne     short 000000000006196Eh                   
+   6194A  mov     al,1                                      
+   6194C  lea     r11,[rsp+80h]                             
+   61954  mov     rbx,[r11+20h]                             
+   61958  mov     rbp,[r11+28h]                             
+   6195C  mov     rsi,[r11+30h]                             
+   61960  mov     rdi,[r11+38h]                             
+   61964  mov     rsp,r11                                   
+   61967  pop     r15                                       
+   61969  pop     r14                                       
+   6196B  pop     r12                                       
+   6196D  ret                                               
+   6196E  mov     r8,[rsi]                                  
+   61971  mov     edx,edi                                   
+   61973  mov     rcx,rsi                                   
+   61976  call    qword [r8+8]                              
+   6197A  mov     [rsp+28h],r12                             
+   6197F  lea     r8,[rsp+68h]                              
+   61984  mov     rcx,[rax+10h]                             
+   61988  lea     r9,[rax+18h]                              
+   6198C  mov     rdx,[rax+8]                               
+   61990  mov     [rsp+68h],rcx                             
+   61995  lea     rcx,[rax+28h]                             
+   61999  mov     [rsp+20h],rcx                             
+   6199E  mov     rcx,[rbx+0A8h]                            
+   619A5  call    qword [rax]                               
+   619A7  inc     edi                                       
+   619A9  jmp     short 0000000000061946h                   
+   619AB  test    sil,sil                                   
+   619AE  je      near 0000000000061897h                    
+   619B4  mov     rcx,[rax+8]                               
+   619B8  movss   xmm0,[rcx+58h]                            
+   619BD  mulss   xmm0,[rcx+18h]                            
+   619C2  call    00000000001C18F8h                         
+   619C7  movss   xmm0,[rcx+5Ch]                            
+   619CC  xorps   xmm0,[rel 3BD41C0h]                       
+   619D3  mulss   xmm0,[rcx+1Ch]                            
+   619D8  movd    xmm4,eax                                  
+   619DC  cvtdq2ps xmm4,xmm4                                
+   619DF  call    00000000001C18F8h                         
+   619E4  mov     rcx,rbx                                   
+   619E7  mov     [rsp+38h],r14b                            
+   619EC  mov     [rsp+30h],sil                             
+   619F1  mov     [rsp+28h],r15d                            
+   619F6  movd    xmm2,[rbx+58h]                            
+   619FB  movd    xmm0,[rbx+5Ch]                            
+   61A00  movd    xmm1,[rbx+60h]                            
+   61A05  movd    xmm3,eax                                  
+   61A09  cvtdq2ps xmm0,xmm0                                
+   61A0C  cvtdq2ps xmm3,xmm3                                
+   61A0F  cvtdq2ps xmm2,xmm2                                
+   61A12  subss   xmm0,xmm3                                 
+   61A16  addss   xmm2,xmm4                                 
+   61A1A  cvtdq2ps xmm1,xmm1                                
+   61A1D  cvttss2si eax,xmm2                                
+   61A21  addss   xmm1,xmm4                                 
+   61A25  mov     [rsp+68h],eax                             
+   61A29  cvttss2si eax,xmm0                                
+   61A2D  movd    xmm0,[rbx+64h]                            
+   61A32  mov     [rsp+6Ch],eax                             
+   61A36  cvtdq2ps xmm0,xmm0                                
+   61A39  cvttss2si eax,xmm1                                
+   61A3D  subss   xmm0,xmm3                                 
+   61A41  mov     [rsp+70h],eax                             
+   61A45  cvttss2si eax,xmm0                                
+   61A49  mov     [rsp+74h],eax                             
+   61A4D  mov     rax,[rbx+0C0h]                            
+   61A54  movups  xmm0,[rsp+68h]                            
+   61A59  movdqu  [rax+50h],xmm0                            
+   61A5E  mov     byte [rax+60h],1                          
+   61A62  movss   xmm0,[rbx+7Ch]                            
+   61A67  movss   xmm3,[rbx+78h]                            
+   61A6C  mov     r8d,[rbx+74h]                             
+   61A70  mov     edx,[rbx+70h]                             
+   61A73  movss   [rsp+20h],xmm0                            
+   61A79  call    0000000000926CA4h                         
+   61A7E  jmp     000000000006192Ch                         
+   61A83  int3                                              
+   61A84  mov     eax,[rcx+8]                               
+   61A87  cmp     [rdx+8],eax                               
+   61A8A  setne   al                                        
+   61A8D  ret                                               
+   61A8E  int3                                              
+   61A8F  int3                                              
+   61A90  mov     [rsp+8],rbx                               
+   61A95  push    rdi                                       
+   61A96  sub     rsp,20h                                   
+   61A9A  mov     rax,[rdx]                                 
+   61A9D  mov     rdi,rcx                                   
+   61AA0  mov     rcx,rdx                                   
+   61AA3  mov     rbx,rdx                                   
+   61AA6  call    qword [rax+18h]                           
+   61AA9  mov     [rdi+8],eax                               
+   61AAC  mov     rax,rdi                                   
+   61AAF  mov     [rdi],rbx                                 
+   61AB2  mov     rbx,[rsp+30h]                             
+   61AB7  add     rsp,20h                                   
+   61ABB  pop     rdi                                       
+   61ABC  ret                                               
+   61ABD  int3                                              
+   61ABE  int3                                              
+   61ABF  int3                                              
+   61AC0  mov     eax,[rcx+20h]                             
+   61AC3  ret                                               
+   61AC4  test    cl,cl                                     
+   61AC6  je      short 0000000000061B01h                   
+   61AC8  mov     eax,1                                     
+   61ACD  cmp     cl,al                                     
+   61ACF  je      short 0000000000061AE6h                   
+   61AD1  mov     eax,2                                     
+   61AD6  cmp     cl,al                                     
+   61AD8  je      short 0000000000061B0Dh                   
+   61ADA  cmp     cl,10h                                    
+   61ADD  je      short 0000000000061B07h                   
+   61ADF  cmp     cl,11h                                    
+   61AE2  jne     short 0000000000061AE7h                   
+   61AE4  xor     eax,eax                                   
+   61AE6  ret                                               
+   61AE7  cmp     cl,12h                                    
+   61AEA  je      short 0000000000061AFBh                   
+   61AEC  cmp     cl,20h                                    
+   61AEF  je      short 0000000000061B13h                   
+   61AF1  cmp     cl,21h                                    
+   61AF4  je      short 0000000000061AE6h                   
+   61AF6  jmp     000000000192B810h                         
+   61AFB  mov     eax,4                                     
+   61B00  ret                                               
+   61B01  mov     eax,5                                     
+   61B06  ret                                               
+   61B07  mov     eax,3                                     
+   61B0C  ret                                               
+   61B0D  mov     eax,6                                     
+   61B12  ret                                               
+   61B13  mov     eax,7                                     
+   61B18  ret                                               
+   61B19  int3                                              
+   61B1A  int3                                              
+   61B1B  int3                                              
+   61B1C  mov     [rsp+8],rbx                               
+   61B21  mov     [rsp+10h],rbp                             
+   61B26  mov     [rsp+18h],rsi                             
+   61B2B  push    rdi                                       
+   61B2C  push    r12                                       
+   61B2E  push    r13                                       
+   61B30  push    r14                                       
+   61B32  push    r15                                       
+   61B34  sub     rsp,20h                                   
+   61B38  mov     edi,[rcx+7Ch]                             
+   61B3B  mov     ebp,r9d                                   
+   61B3E  mov     r14,rdx                                   
+   61B41  mov     rsi,rcx                                   
+   61B44  test    edi,edi                                   
+   61B46  je      near 0000000000061C7Ah                    
+   61B4C  movzx   r10d,byte [rdx]                           
+   61B50  mov     r15d,edi                                  
+   61B53  mov     r9d,[rcx+90h]                             
+   61B5A  sub     r9d,r10d                                  
+   61B5D  mov     r13d,r8d                                  
+   61B60  sub     r9d,r8d                                   
+   61B63  mov     edx,r13d                                  
+   61B66  mov     r8d,[rcx+80h]                             
+   61B6D  cmp     edi,r9d                                   
+   61B70  mov     eax,r8d                                   
+   61B73  cmova   r15d,r9d                                  
+   61B77  mov     r9,[rcx+0A0h]                             
+   61B7E  sub     rdx,r15                                   
+   61B81  imul    eax,ebp                                   
+   61B84  xor     r12d,r12d                                 
+   61B87  add     rax,r9                                    
+   61B8A  lea     rbx,[rax+rdx*4]                           
+   61B8E  mov     dl,[r14+1]                                
+   61B92  test    dl,dl                                     
+   61B94  je      short 0000000000061BE6h                   
+   61B96  test    r15d,r15d                                 
+   61B99  je      short 0000000000061BC2h                   
+   61B9B  mov     r8,r15                                    
+   61B9E  xor     edx,edx                                   
+   61BA0  shl     r8,2                                      
+   61BA4  mov     rcx,rbx                                   
+   61BA7  call    0000000000B93F00h                         
+   61BAC  xor     ecx,ecx                                   
+   61BAE  movzx   eax,byte [r14]                            
+   61BB2  add     eax,r15d                                  
+   61BB5  add     eax,ecx                                   
+   61BB7  inc     ecx                                       
+   61BB9  and     dword [rbx+rax*4],0                       
+   61BBD  cmp     ecx,r15d                                  
+   61BC0  jb      short 0000000000061BAEh                   
+   61BC2  movsxd  r8,[rsi+80h]                              
+   61BC9  inc     r12d                                      
+   61BCC  movzx   edx,byte [r14+1]                          
+   61BD1  add     rbx,r8                                    
+   61BD4  cmp     r12d,edx                                  
+   61BD7  jb      short 0000000000061B96h                   
+   61BD9  mov     edi,[rsi+7Ch]                             
+   61BDC  mov     r9,[rsi+0A0h]                             
+   61BE3  mov     r10b,[r14]                                
+   61BE6  mov     ecx,[rsi+94h]                             
+   61BEC  movzx   eax,dl                                    
+   61BEF  sub     ecx,eax                                   
+   61BF1  sub     ecx,ebp                                   
+   61BF3  cmp     edi,ecx                                   
+   61BF5  cmova   edi,ecx                                   
+   61BF8  sub     ebp,edi                                   
+   61BFA  imul    ebp,r8d                                   
+   61BFE  mov     ecx,ebp                                   
+   61C00  add     rcx,r9                                    
+   61C03  movzx   ebp,r10b                                  
+   61C07  add     ebp,r15d                                  
+   61C0A  xor     r15d,r15d                                 
+   61C0D  lea     rbx,[rcx+r13*4]                           
+   61C11  test    edi,edi                                   
+   61C13  je      short 0000000000061C40h                   
+   61C15  test    ebp,ebp                                   
+   61C17  je      short 0000000000061C2Ah                   
+   61C19  mov     r8d,ebp                                   
+   61C1C  xor     edx,edx                                   
+   61C1E  shl     r8,2                                      
+   61C22  mov     rcx,rbx                                   
+   61C25  call    0000000000B93F00h                         
+   61C2A  movsxd  r8,[rsi+80h]                              
+   61C31  inc     r15d                                      
+   61C34  add     rbx,r8                                    
+   61C37  cmp     r15d,edi                                  
+   61C3A  jb      short 0000000000061C15h                   
+   61C3C  mov     dl,[r14+1]                                
+   61C40  movzx   eax,dl                                    
+   61C43  xor     r14d,r14d                                 
+   61C46  imul    eax,r8d                                   
+   61C4A  cdqe                                              
+   61C4C  add     rbx,rax                                   
+   61C4F  test    edi,edi                                   
+   61C51  je      short 0000000000061C7Ah                   
+   61C53  test    ebp,ebp                                   
+   61C55  je      short 0000000000061C68h                   
+   61C57  mov     r8d,ebp                                   
+   61C5A  xor     edx,edx                                   
+   61C5C  shl     r8,2                                      
+   61C60  mov     rcx,rbx                                   
+   61C63  call    0000000000B93F00h                         
+   61C68  movsxd  rax,[rsi+80h]                             
+   61C6F  inc     r14d                                      
+   61C72  add     rbx,rax                                   
+   61C75  cmp     r14d,edi                                  
+   61C78  jb      short 0000000000061C53h                   
+   61C7A  mov     rbx,[rsp+50h]                             
+   61C7F  mov     rbp,[rsp+58h]                             
+   61C84  mov     rsi,[rsp+60h]                             
+   61C89  add     rsp,20h                                   
+   61C8D  pop     r15                                       
+   61C8F  pop     r14                                       
+   61C91  pop     r13                                       
+   61C93  pop     r12                                       
+   61C95  pop     rdi                                       
+   61C96  ret                                               
+   61C97  int3                                              
+   61C98  movss   xmm1,[rel 3BD4160h]                       
+   61CA0  xorps   xmm0,xmm0                                 
+   61CA3  movzx   eax,dl                                    
+   61CA6  cvtsi2ss xmm0,rax                                 
+   61CAB  mov     eax,edx                                   
+   61CAD  shr     eax,8                                     
+   61CB0  movzx   eax,al                                    
+   61CB3  divss   xmm0,xmm1                                 
+   61CB7  movss   [rcx],xmm0                                
+   61CBB  xorps   xmm0,xmm0                                 
+   61CBE  cvtsi2ss xmm0,rax                                 
+   61CC3  mov     eax,edx                                   
+   61CC5  shr     edx,18h                                   
+   61CC8  shr     eax,10h                                   
+   61CCB  movzx   eax,al                                    
+   61CCE  divss   xmm0,xmm1                                 
+   61CD2  movss   [rcx+4],xmm0                              
+   61CD7  xorps   xmm0,xmm0                                 
+   61CDA  cvtsi2ss xmm0,rax                                 
+   61CDF  mov     eax,edx                                   
+   61CE1  divss   xmm0,xmm1                                 
+   61CE5  movss   [rcx+8],xmm0                              
+   61CEA  xorps   xmm0,xmm0                                 
+   61CED  cvtsi2ss xmm0,rax                                 
+   61CF2  divss   xmm0,xmm1                                 
+   61CF6  movss   [rcx+0Ch],xmm0                            
+   61CFB  ret                                               
+   61CFC  int3                                              
+   61CFD  int3                                              
+   61CFE  int3                                              
+   61CFF  int3                                              
+   61D00  mov     qword [rcx+18h],0                         
+   61D08  ret                                               
+   61D09  int3                                              
+   61D0A  int3                                              
+   61D0B  int3                                              
+   61D0C  int3                                              
+   61D0D  int3                                              
+   61D0E  int3                                              
+   61D0F  int3                                              
+   61D10  mov     qword [rcx+20h],0                         
+   61D18  ret                                               
+   61D19  int3                                              
+   61D1A  int3                                              
+   61D1B  int3                                              
+   61D1C  int3                                              
+   61D1D  int3                                              
+   61D1E  int3                                              
+   61D1F  int3                                              
+   61D20  mov     qword [rcx+20h],0                         
+   61D28  ret                                               
+   61D29  int3                                              
+   61D2A  int3                                              
+   61D2B  int3                                              
+   61D2C  mov     r9,[rcx+18h]                              
+   61D30  cmp     edx,[r9+1Ch]                              
+   61D34  jae     short 0000000000061D61h                   
+   61D36  mov     eax,edx                                   
+   61D38  mov     r8d,[r9+rax*4+20h]                        
+   61D3D  add     r8,r9                                     
+   61D40  movzx   eax,word [r8+42h]                         
+   61D45  lea     rdx,[rax+rax*2]                           
+   61D49  mov     eax,[r8+rdx*4+20008h]                     
+   61D51  and     eax,0F0000000h                            
+   61D56  cmp     eax,20000000h                             
+   61D5B  sete    al                                        
+   61D5E  mov     [rcx+28h],al                              
+   61D61  ret                                               
+   61D62  int3                                              
+   61D63  int3                                              
+   61D64  mov     [rsp+8],rbx                               
+   61D69  push    rdi                                       
+   61D6A  sub     rsp,20h                                   
+   61D6E  cmp     qword [rcx+0B0h],0                        
+   61D76  mov     rdi,rdx                                   
+   61D79  mov     rbx,rcx                                   
+   61D7C  jne     near 0000000000061E12h                    
+   61D82  mov     [rcx+0C0h],r8b                            
+   61D89  test    r8b,r8b                                   
+   61D8C  jne     near 000000000192B820h                    
+   61D92  mov     ecx,[rbx+48h]                             
+   61D95  mov     rdx,rdi                                   
+   61D98  mov     [rbx+0B0h],rdi                            
+   61D9F  mov     rax,[rdi+10h]                             
+   61DA3  test    rax,rax                                   
+   61DA6  je      short 0000000000061DC1h                   
+   61DA8  mov     [rdi+72h],cl                              
+   61DAB  mov     rdx,[rax+18h]                             
+   61DAF  mov     ecx,[rdx+rcx*4+20h]                       
+   61DB3  add     rcx,rdx                                   
+   61DB6  mov     [rdi+60h],rcx                             
+   61DBA  mov     rdx,[rbx+0B0h]                            
+   61DC1  mov     rax,[rdx+10h]                             
+   61DC5  test    rax,rax                                   
+   61DC8  je      short 0000000000061DE6h                   
+   61DCA  mov     r8d,[rbx+4Ch]                             
+   61DCE  mov     [rdx+73h],r8b                             
+   61DD2  mov     r9,[rax+18h]                              
+   61DD6  cmp     r8d,[r9+18h]                              
+   61DDA  jb      near 000000000192B835h                    
+   61DE0  xor     eax,eax                                   
+   61DE2  mov     [rdx+68h],rax                             
+   61DE6  inc     dword [rdi+8]                             
+   61DE9  mov     al,1                                      
+   61DEB  and     dword [rbx+0B8h],0                        
+   61DF2  and     dword [rbx+0BCh],0                        
+   61DF9  and     dword [rbx+0C4h],0                        
+   61E00  and     dword [rbx+8Ch],0                         
+   61E07  mov     rbx,[rsp+30h]                             
+   61E0C  add     rsp,20h                                   
+   61E10  pop     rdi                                       
+   61E11  ret                                               
+   61E12  xor     al,al                                     
+   61E14  jmp     short 0000000000061E07h                   
+   61E16  int3                                              
+   61E17  int3                                              
+   61E18  mov     r8,[rcx+0B0h]                             
+   61E1F  xor     eax,eax                                   
+   61E21  mov     [rcx+4Ch],edx                             
+   61E24  test    r8,r8                                     
+   61E27  je      short 0000000000061E48h                   
+   61E29  mov     r9,[r8+10h]                               
+   61E2D  test    r9,r9                                     
+   61E30  je      short 0000000000061E48h                   
+   61E32  mov     [r8+73h],dl                               
+   61E36  mov     r9,[r9+18h]                               
+   61E3A  cmp     edx,[r9+18h]                              
+   61E3E  jb      near 000000000192B850h                    
+   61E44  mov     [r8+68h],rax                              
+   61E48  ret                                               
+   61E49  int3                                              
+   61E4A  int3                                              
+   61E4B  int3                                              
+   61E4C  mov     r9,[rcx+10h]                              
+   61E50  xor     eax,eax                                   
+   61E52  mov     r8,rcx                                    
+   61E55  test    r9,r9                                     
+   61E58  je      short 0000000000061E6Fh                   
+   61E5A  mov     [rcx+73h],dl                              
+   61E5D  mov     r9,[r9+18h]                               
+   61E61  cmp     edx,[r9+18h]                              
+   61E65  jb      near 000000000192B86Ah                    
+   61E6B  mov     [r8+68h],rax                              
+   61E6F  ret                                               
+   61E70  mov     r8,[rcx+0B0h]                             
+   61E77  mov     eax,edx                                   
+   61E79  mov     [rcx+48h],eax                             
+   61E7C  test    r8,r8                                     
+   61E7F  je      short 0000000000061E9Dh                   
+   61E81  mov     rdx,[r8+10h]                              
+   61E85  test    rdx,rdx                                   
+   61E88  je      short 0000000000061E9Dh                   
+   61E8A  mov     [r8+72h],al                               
+   61E8E  mov     rdx,[rdx+18h]                             
+   61E92  mov     ecx,[rdx+rax*4+20h]                       
+   61E96  add     rcx,rdx                                   
+   61E99  mov     [r8+60h],rcx                              
+   61E9D  ret                                               
+   61E9E  int3                                              
+   61E9F  int3                                              
+   61EA0  push    rbx                                       
+   61EA2  push    rbp                                       
+   61EA3  push    rsi                                       
+   61EA4  push    rdi                                       
+   61EA5  push    r14                                       
+   61EA7  sub     rsp,40h                                   
+   61EAB  mov     rax,[rel 44B7F30h]                        
+   61EB2  xor     rax,rsp                                   
+   61EB5  mov     [rsp+38h],rax                             
+   61EBA  cmp     byte [rcx+0C8h],0                         
+   61EC1  mov     r14d,r9d                                  
+   61EC4  mov     rsi,r8                                    
+   61EC7  mov     rbp,rdx                                   
+   61ECA  mov     rdi,rcx                                   
+   61ECD  je      near 0000000000061FD8h                    
+   61ED3  cmp     qword [rcx+0C0h],0                        
+   61EDB  je      near 0000000000061FD8h                    
+   61EE1  mov     r8,[rcx+0B8h]                             
+   61EE8  movzx   eax,byte [rdx+4Ch]                        
+   61EEC  mov     rdx,[r8+10h]                              
+   61EF0  test    rdx,rdx                                   
+   61EF3  je      short 0000000000061F0Fh                   
+   61EF5  mov     [r8+72h],al                               
+   61EF9  mov     rdx,[rdx+18h]                             
+   61EFD  mov     ecx,[rdx+rax*4+20h]                       
+   61F01  add     rcx,rdx                                   
+   61F04  mov     [r8+60h],rcx                              
+   61F08  mov     r8,[rdi+0B8h]                             
+   61F0F  mov     rdx,[r8+10h]                              
+   61F13  movzx   eax,byte [rbp+4Dh]                        
+   61F17  test    rdx,rdx                                   
+   61F1A  je      short 0000000000061F33h                   
+   61F1C  mov     [r8+73h],al                               
+   61F20  mov     rdx,[rdx+18h]                             
+   61F24  cmp     eax,[rdx+18h]                             
+   61F27  jb      near 0000000001906EC6h                    
+   61F2D  xor     eax,eax                                   
+   61F2F  mov     [r8+68h],rax                              
+   61F33  xor     ebx,ebx                                   
+   61F35  test    r14d,r14d                                 
+   61F38  je      short 0000000000061FABh                   
+   61F3A  mov     rcx,[rdi+0B8h]                            
+   61F41  mov     eax,[rcx+78h]                             
+   61F44  cmp     [rcx+74h],eax                             
+   61F47  jae     near 0000000000061FD8h                    
+   61F4D  movups  xmm0,[rsi]                                
+   61F50  movd    edx,xmm0                                  
+   61F54  movups  [rsp+20h],xmm0                            
+   61F59  test    edx,edx                                   
+   61F5B  jne     short 0000000000061FC5h                   
+   61F5D  cmp     dword [rsp+28h],0FFFFFFFFh                
+   61F62  je      short 0000000000061F91h                   
+   61F64  mov     rdx,[rcx+10h]                             
+   61F68  mov     r8,rcx                                    
+   61F6B  test    rdx,rdx                                   
+   61F6E  je      short 0000000000061F91h                   
+   61F70  mov     al,[rsp+28h]                              
+   61F74  mov     [rcx+72h],al                              
+   61F77  mov     rdx,[rdx+18h]                             
+   61F7B  mov     eax,[rsp+28h]                             
+   61F7F  mov     ecx,[rdx+rax*4+20h]                       
+   61F83  add     rcx,rdx                                   
+   61F86  mov     [r8+60h],rcx                              
+   61F8A  mov     rcx,[rdi+0B8h]                            
+   61F91  movzx   edx,word [rsp+24h]                        
+   61F96  call    0000000000062000h                         
+   61F9B  test    rax,rax                                   
+   61F9E  je      short 0000000000061FD8h                   
+   61FA0  inc     ebx                                       
+   61FA2  add     rsi,14h                                   
+   61FA6  cmp     ebx,r14d                                  
+   61FA9  jb      short 0000000000061F3Ah                   
+   61FAB  mov     al,1                                      
+   61FAD  mov     rcx,[rsp+38h]                             
+   61FB2  xor     rcx,rsp                                   
+   61FB5  call    0000000000B912E0h                         
+   61FBA  add     rsp,40h                                   
+   61FBE  pop     r14                                       
+   61FC0  pop     rdi                                       
+   61FC1  pop     rsi                                       
+   61FC2  pop     rbp                                       
+   61FC3  pop     rbx                                       
+   61FC4  ret                                               
+   61FC5  sub     edx,16h                                   
+   61FC8  je      near 0000000001906EE3h                    
+   61FCE  cmp     edx,1                                     
+   61FD1  jne     short 0000000000061FA0h                   
+   61FD3  jmp     0000000001906EDDh                         
+   61FD8  xor     al,al                                     
+   61FDA  jmp     short 0000000000061FADh                   
+   61FDC  mov     r8,[rcx+10h]                              
+   61FE0  test    r8,r8                                     
+   61FE3  je      short 0000000000061FFAh                   
+   61FE5  mov     [rcx+72h],dl                              
+   61FE8  mov     r8,[r8+18h]                               
+   61FEC  mov     eax,edx                                   
+   61FEE  mov     edx,[r8+rax*4+20h]                        
+   61FF3  add     rdx,r8                                    
+   61FF6  mov     [rcx+60h],rdx                             
+   61FFA  ret                                               
+   61FFB  int3                                              
+   61FFC  int3                                              
+   61FFD  int3                                              
+   61FFE  int3                                              
+   61FFF  int3                                              
+   62000  mov     [rsp+18h],rbx                             
+   62005  mov     [rsp+20h],rbp                             
+   6200A  push    rsi                                       
+   6200B  push    rdi                                       
+   6200C  push    r12                                       
+   6200E  sub     rsp,20h                                   
+   62012  mov     r8,[rcx+50h]                              
+   62016  xor     r12d,r12d                                 
+   62019  mov     rsi,[rcx+58h]                             
+   6201D  mov     rbp,rcx                                   
+   62020  movzx   r11d,dx                                   
+   62024  mov     edi,r12d                                  
+   62027  mov     [rcx+70h],r11w                            
+   6202C  mov     ebx,r11d                                  
+   6202F  mov     eax,[rcx+70h]                             
+   62032  movzx   r10d,word [r8+r11*2]                      
+   62037  lea     r9,[r10+r10*2]                            
+   6203B  cmp     [rsi+r9*8+14h],r11w                       
+   62041  lea     r8,[rsi+r9*8]                             
+   62045  jne     short 000000000006208Eh                   
+   62047  movzx   ecx,r10w                                  
+   6204B  cmp     ecx,[rbp+74h]                             
+   6204E  ja      short 000000000006208Eh                   
+   62050  cmp     eax,[r8+14h]                              
+   62054  jne     short 000000000006206Ch                   
+   62056  mov     rax,r8                                    
+   62059  mov     rbx,[rsp+50h]                             
+   6205E  mov     rbp,[rsp+58h]                             
+   62063  add     rsp,20h                                   
+   62067  pop     r12                                       
+   62069  pop     rdi                                       
+   6206A  pop     rsi                                       
+   6206B  ret                                               
+   6206C  ja      near 0000000000062298h                    
+   62072  movzx   r10d,word [r8+12h]                        
+   62077  movzx   ecx,r10w                                  
+   6207B  mov     rdi,r8                                    
+   6207E  lea     rdx,[rcx+rcx*2]                           
+   62082  cmp     [rsi+rdx*8+14h],r11w                      
+   62088  lea     r8,[rsi+rdx*8]                            
+   6208C  je      short 0000000000062047h                   
+   6208E  mov     r10d,[rbp+74h]                            
+   62092  mov     [rsp+40h],r14                             
+   62097  cmp     r10d,[rbp+78h]                            
+   6209B  jae     near 00000000000622ABh                    
+   620A1  mov     r8,[rbp+60h]                              
+   620A5  mov     r14d,[rbp+84h]                            
+   620AC  movzx   ecx,word [r8+r11*2]                       
+   620B1  lea     r11,[rcx+4000h]                           
+   620B8  lea     r11,[rcx+r11*2]                           
+   620BC  mov     ecx,[rbp+88h]                             
+   620C2  movzx   edx,byte [r8+r11*4]                       
+   620C7  lea     r11,[r8+r11*4]                            
+   620CB  lea     r9d,[rdx+r14]                             
+   620CF  cmp     r9d,[rbp+90h]                             
+   620D6  ja      near 0000000000062285h                    
+   620DC  movzx   r8d,byte [r11+1]                          
+   620E1  add     r8d,ecx                                   
+   620E4  cmp     r8d,[rbp+94h]                             
+   620EB  ja      near 00000000000622ABh                    
+   620F1  mov     edx,[rbp+7Ch]                             
+   620F4  mov     [rbp+88h],ecx                             
+   620FA  mov     [rsp+48h],r15                             
+   620FF  lea     ecx,[rdx+r9]                              
+   62103  mov     [rbp+84h],ecx                             
+   62109  cmp     [rbp+8Ch],r8d                             
+   62110  jb      near 0000000000062264h                    
+   62116  lea     ecx,[r10+1]                               
+   6211A  xorps   xmm0,xmm0                                 
+   6211D  mov     [rbp+74h],ecx                             
+   62120  lea     rdx,[rcx+rcx*2]                           
+   62124  mov     [rsi+rdx*8+14h],eax                       
+   62128  lea     r15,[rsi+rdx*8]                           
+   6212C  mov     [r15+10h],r12d                            
+   62130  xorps   xmm1,xmm1                                 
+   62133  mov     ecx,[rbp+88h]                             
+   62139  cvtsi2ss xmm0,rcx                                 
+   6213E  mov     ecx,r14d                                  
+   62141  divss   xmm0,[rbp+9Ch]                            
+   62149  movss   [r15+4],xmm0                              
+   6214F  xorps   xmm0,xmm0                                 
+   62152  cvtsi2ss xmm0,rcx                                 
+   62157  mov     ecx,r8d                                   
+   6215A  cvtsi2ss xmm1,rcx                                 
+   6215F  mov     ecx,r9d                                   
+   62162  divss   xmm0,[rbp+98h]                            
+   6216A  movss   [r15],xmm0                                
+   6216F  xorps   xmm0,xmm0                                 
+   62172  divss   xmm1,[rbp+9Ch]                            
+   6217A  cvtsi2ss xmm0,rcx                                 
+   6217F  movss   [r15+0Ch],xmm1                            
+   62185  divss   xmm0,[rbp+98h]                            
+   6218D  movss   [r15+8],xmm0                              
+   62193  test    rdi,rdi                                   
+   62196  jne     near 0000000000062273h                    
+   6219C  mov     rcx,[rbp+50h]                             
+   621A0  movzx   eax,word [rbp+74h]                        
+   621A4  mov     [rcx+rbx*2],ax                            
+   621A8  mov     edx,[r11+8]                               
+   621AC  mov     r9d,edx                                   
+   621AF  mov     rax,[rbp+10h]                             
+   621B3  and     r9d,0FFFFFFFh                             
+   621BA  mov     ecx,[rbp+88h]                             
+   621C0  imul    ecx,[rbp+80h]                             
+   621C7  shr     edx,1Ch                                   
+   621CA  add     r9,[rax+20h]                              
+   621CE  mov     eax,r14d                                  
+   621D1  lea     r10,[rcx+rax*4]                           
+   621D5  add     r10,[rbp+0A0h]                            
+   621DC  cmp     edx,2                                     
+   621DF  jne     near 000000000192B884h                    
+   621E5  mov     ebx,r12d                                  
+   621E8  cmp     [r11+1],r12b                              
+   621EC  jbe     short 000000000006223Dh                   
+   621EE  movzx   eax,byte [r11]                            
+   621F2  mov     edx,r12d                                  
+   621F5  test    al,al                                     
+   621F7  je      short 0000000000062228h                   
+   621F9  nop     dword [rax]                               
+   62200  movzx   eax,byte [r9]                             
+   62204  inc     r9                                        
+   62207  mov     ecx,eax                                   
+   62209  shl     ecx,8                                     
+   6220C  or      ecx,eax                                   
+   6220E  shl     ecx,8                                     
+   62211  or      ecx,eax                                   
+   62213  shl     ecx,8                                     
+   62216  or      ecx,eax                                   
+   62218  mov     eax,edx                                   
+   6221A  inc     edx                                       
+   6221C  mov     [r10+rax*4],ecx                           
+   62220  movzx   eax,byte [r11]                            
+   62224  cmp     edx,eax                                   
+   62226  jb      short 0000000000062200h                   
+   62228  movsxd  rcx,[rbp+80h]                             
+   6222F  inc     ebx                                       
+   62231  add     r10,rcx                                   
+   62234  movzx   ecx,byte [r11+1]                          
+   62239  cmp     ebx,ecx                                   
+   6223B  jb      short 00000000000621F2h                   
+   6223D  mov     r9d,[rbp+88h]                             
+   62244  mov     r8d,r14d                                  
+   62247  mov     rdx,r11                                   
+   6224A  mov     rcx,rbp                                   
+   6224D  call    0000000000061B1Ch                         
+   62252  mov     rax,r15                                   
+   62255  mov     r15,[rsp+48h]                             
+   6225A  mov     r14,[rsp+40h]                             
+   6225F  jmp     0000000000062059h                         
+   62264  lea     ecx,[rdx+r8]                              
+   62268  mov     [rbp+8Ch],ecx                             
+   6226E  jmp     0000000000062116h                         
+   62273  movzx   ecx,word [rbp+74h]                        
+   62277  cmp     eax,[rdi+14h]                             
+   6227A  ja      short 00000000000622A2h                   
+   6227C  mov     [rdi+12h],cx                              
+   62280  jmp     00000000000621A8h                         
+   62285  mov     r14d,[rbp+7Ch]                            
+   62289  mov     ecx,[rbp+8Ch]                             
+   6228F  lea     r9d,[rdx+r14]                             
+   62293  jmp     00000000000620DCh                         
+   62298  movzx   r10d,word [r8+10h]                        
+   6229D  jmp     0000000000062077h                         
+   622A2  mov     [rdi+10h],cx                              
+   622A6  jmp     00000000000621A8h                         
+   622AB  xor     eax,eax                                   
+   622AD  jmp     short 000000000006225Ah                   
+   622AF  int3                                              
+   622B0  mov     [rsp+8],rbx                               
+   622B5  mov     r10d,edx                                  
+   622B8  test    rcx,rcx                                   
+   622BB  je      short 0000000000062321h                   
+   622BD  mov     r11,[rcx+18h]                             
+   622C1  mov     edx,[r11+r10*4+20h]                       
+   622C6  add     rdx,r11                                   
+   622C9  movzx   eax,word [rdx+6084h]                      
+   622D0  lea     r8,[rax+4000h]                            
+   622D7  lea     r8,[rax+r8*2]                             
+   622DB  lea     r8,[rdx+r8*4]                             
+   622DF  test    r8,r8                                     
+   622E2  je      near 000000000192B964h                    
+   622E8  cmp     [r11+1Ch],r10d                            
+   622EC  jbe     short 000000000006231Dh                   
+   622EE  mov     rax,[rcx+30h]                             
+   622F2  mov     al,[rax+r10*2+1]                          
+   622F7  test    r8,r8                                     
+   622FA  je      short 0000000000062321h                   
+   622FC  movzx   ecx,byte [r8+1]                           
+   62301  add     al,al                                     
+   62303  movsx   eax,al                                    
+   62306  sub     ecx,eax                                   
+   62308  movd    xmm0,ecx                                  
+   6230C  cvtdq2ps xmm0,xmm0                                
+   6230F  mulss   xmm0,xmm2                                 
+   62313  addss   xmm0,xmm3                                 
+   62317  mov     rbx,[rsp+8]                               
+   6231C  ret                                               
+   6231D  xor     al,al                                     
+   6231F  jmp     short 00000000000622F7h                   
+   62321  xorps   xmm0,xmm0                                 
+   62324  jmp     short 0000000000062317h                   
+   62326  int3                                              
+   62327  int3                                              
+   62328  mov     [rsp+8],rbx                               
+   6232D  mov     [rsp+10h],rbp                             
+   62332  mov     [rsp+18h],rsi                             
+   62337  mov     rsi,rdx                                   
+   6233A  mov     rbp,rcx                                   
+   6233D  test    r8,r8                                     
+   62340  je      near 00000000000623FCh                    
+   62346  or      edx,0FFFFFFFFh                            
+   62349  xor     r9d,r9d                                   
+   6234C  cmp     [rsp+30h],r9b                             
+   62351  je      near 00000000000623EFh                    
+   62357  movss   xmm1,[rsp+28h]                            
+   6235D  xor     r10d,r10d                                 
+   62360  xor     ebx,ebx                                   
+   62362  divss   xmm3,xmm1                                 
+   62366  cmp     [rsp+38h],ebx                             
+   6236A  jbe     short 00000000000623B9h                   
+   6236C  cmp     edx,[rsi+rbx*4]                           
+   6236F  jne     short 00000000000623D5h                   
+   62371  movzx   eax,word [rbp+rbx*2]                      
+   62376  movzx   ecx,word [r9+rax*2]                       
+   6237B  mov     rax,[r8+18h]                              
+   6237F  lea     r11,[rcx+rcx*2]                           
+   62383  cmp     [rax+1Ch],edx                             
+   62386  jbe     short 0000000000062401h                   
+   62388  mov     rax,[r8+30h]                              
+   6238C  mov     al,[rax+rdx*2]                            
+   6238F  movzx   ecx,byte [r9+r11*4+20004h]                
+   62398  inc     ebx                                       
+   6239A  movzx   eax,al                                    
+   6239D  add     eax,eax                                   
+   6239F  sub     ecx,eax                                   
+   623A1  movd    xmm0,ecx                                  
+   623A5  cvtdq2ps xmm0,xmm0                                
+   623A8  mulss   xmm0,xmm3                                 
+   623AC  cvttss2si eax,xmm0                                
+   623B0  add     r10d,eax                                  
+   623B3  cmp     ebx,[rsp+38h]                             
+   623B7  jb      short 000000000006236Ch                   
+   623B9  movd    xmm0,r10d                                 
+   623BE  cvtdq2ps xmm0,xmm0                                
+   623C1  mulss   xmm0,xmm1                                 
+   623C5  mov     rbx,[rsp+8]                               
+   623CA  mov     rbp,[rsp+10h]                             
+   623CF  mov     rsi,[rsp+18h]                             
+   623D4  ret                                               
+   623D5  mov     rcx,[r8+18h]                              
+   623D9  mov     edx,[rsi+rbx*4]                           
+   623DC  cmp     edx,[rcx+1Ch]                             
+   623DF  jae     near 0000000001906EF4h                    
+   623E5  mov     r9d,[rcx+rdx*4+20h]                       
+   623EA  add     r9,rcx                                    
+   623ED  jmp     short 0000000000062371h                   
+   623EF  movss   xmm1,[rel 3BD41E0h]                       
+   623F7  jmp     000000000006235Dh                         
+   623FC  xorps   xmm0,xmm0                                 
+   623FF  jmp     short 00000000000623C5h                   
+   62401  xor     al,al                                     
+   62403  jmp     short 000000000006238Fh                   
+   62405  int3                                              
+   62406  int3                                              
+   62407  int3                                              
+   62408  mov     rax,rsp                                   
+   6240B  mov     [rax+10h],rbx                             
+   6240F  mov     [rax+18h],rsi                             
+   62413  mov     [rax+20h],rdi                             
+   62417  push    rbp                                       
+   62418  push    r12                                       
+   6241A  push    r13                                       
+   6241C  push    r14                                       
+   6241E  push    r15                                       
+   62420  lea     rbp,[rax-1D8h]                            
+   62427  sub     rsp,2B0h                                  
+   6242E  movaps  [rax-38h],xmm6                            
+   62432  movaps  [rax-48h],xmm7                            
+   62436  movaps  [rax-58h],xmm8                            
+   6243B  movaps  [rax-68h],xmm9                            
+   62440  movaps  [rax-78h],xmm10                           
+   62445  movaps  [rax-88h],xmm11                           
+   6244D  movaps  [rax-98h],xmm12                           
+   62455  movaps  [rax-0A8h],xmm13                          
+   6245D  movaps  [rax-0B8h],xmm14                          
+   62465  movaps  [rax-0C8h],xmm15                          
+   6246D  mov     rax,[rel 44B7F30h]                        
+   62474  xor     rax,rsp                                   
+   62477  mov     [rbp+100h],rax                            
+   6247E  mov     rax,[rcx+18h]                             
+   62482  xor     r13d,r13d                                 
+   62485  mov     rdx,[rcx+0B8h]                            
+   6248C  add     rax,90h                                   
+   62492  mov     [rbp+28h],rax                             
+   62496  mov     rbx,rcx                                   
+   62499  mov     rax,[rcx+0A0h]                            
+   624A0  mov     r8,[rdx+10h]                              
+   624A4  mov     rdi,[rax+8]                               
+   624A8  movss   xmm2,[rax+74h]                            
+   624AD  movss   xmm12,[rax+70h]                           
+   624B3  movss   [rbp-68h],xmm2                            
+   624B8  movzx   esi,byte [rdi+4Ch]                        
+   624BC  movss   xmm15,[rdi+18h]                           
+   624C2  movss   xmm13,[rdi+1Ch]                           
+   624C8  movss   [rbp-8],xmm15                             
+   624CE  movss   [rbp-4],xmm13                             
+   624D4  mov     [rbp-60h],esi                             
+   624D7  mov     [rbp-50h],esi                             
+   624DA  test    r8,r8                                     
+   624DD  je      short 0000000000062523h                   
+   624DF  mov     rcx,[r8+18h]                              
+   624E3  cmp     esi,[rcx+1Ch]                             
+   624E6  jae     short 0000000000062516h                   
+   624E8  mov     edx,[rcx+rsi*4+20h]                       
+   624EC  add     rdx,rcx                                   
+   624EF  movzx   eax,word [rdx+42h]                        
+   624F3  lea     rcx,[rax+rax*2]                           
+   624F7  mov     eax,[rdx+rcx*4+20008h]                    
+   624FE  and     eax,0F0000000h                            
+   62503  cmp     eax,20000000h                             
+   62508  sete    al                                        
+   6250B  mov     [r8+28h],al                               
+   6250F  mov     rdx,[rbx+0B8h]                            
+   62516  mov     rax,[rdx+10h]                             
+   6251A  mov     cl,[rax+28h]                              
+   6251D  mov     [rbx+0CAh],cl                             
+   62523  movss   xmm0,[rdi+24h]                            
+   62528  movaps  xmm7,xmm12                                
+   6252C  movss   xmm1,[rdi+28h]                            
+   62531  xorps   xmm10,xmm10                               
+   62535  mulss   xmm7,[rdi+2Ch]                            
+   6253A  mov     r10,[rdx+10h]                             
+   6253E  movzx   eax,word [rdi+20h]                        
+   62542  movss   xmm6,[rdi+3Ch]                            
+   62547  movss   [rbp-4Ch],xmm0                            
+   6254C  mulss   xmm0,xmm15                                
+   62551  mov     [rbp-7Ch],ax                              
+   62555  movss   [rbp-48h],xmm1                            
+   6255A  mulss   xmm1,xmm13                                
+   6255F  movss   [rbp-30h],xmm0                            
+   62564  movaps  xmm0,xmm2                                 
+   62567  mulss   xmm0,[rdi+30h]                            
+   6256C  movss   [rbp-2Ch],xmm1                            
+   62571  movss   [rbp-40h],xmm7                            
+   62576  movss   [rbp-64h],xmm0                            
+   6257B  test    r10,r10                                   
+   6257E  je      short 00000000000625F6h                   
+   62580  mov     r9,[r10+18h]                              
+   62584  mov     edx,[r9+rsi*4+20h]                        
+   62589  add     rdx,r9                                    
+   6258C  movzx   eax,word [rdx+6084h]                      
+   62593  lea     r8,[rax+4000h]                            
+   6259A  lea     r8,[rax+r8*2]                             
+   6259E  lea     r8,[rdx+r8*4]                             
+   625A2  test    r8,r8                                     
+   625A5  jne     short 00000000000625BDh                   
+   625A7  movzx   eax,word [rdx+9Ah]                        
+   625AE  lea     r8,[rax+4000h]                            
+   625B5  lea     r8,[rax+r8*2]                             
+   625B9  lea     r8,[rdx+r8*4]                             
+   625BD  cmp     [r9+1Ch],esi                              
+   625C1  ja      short 00000000000625C8h                   
+   625C3  mov     al,r13b                                   
+   625C6  jmp     short 00000000000625D0h                   
+   625C8  mov     rax,[r10+30h]                             
+   625CC  mov     al,[rax+rsi*2+1]                          
+   625D0  test    r8,r8                                     
+   625D3  je      short 00000000000625F6h                   
+   625D5  movzx   ecx,byte [r8+1]                           
+   625DA  add     al,al                                     
+   625DC  movsx   eax,al                                    
+   625DF  sub     ecx,eax                                   
+   625E1  movd    xmm8,ecx                                  
+   625E6  cvtdq2ps xmm8,xmm8                                
+   625EA  mulss   xmm8,xmm13                                
+   625EF  addss   xmm8,xmm6                                 
+   625F4  jmp     short 00000000000625FAh                   
+   625F6  xorps   xmm8,xmm8                                 
+   625FA  mov     al,[rdi+54h]                              
+   625FD  (bad)                                             

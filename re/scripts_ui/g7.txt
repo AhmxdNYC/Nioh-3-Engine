@@ -1,0 +1,14 @@
+﻿==== callers of function containing 0x7d63e4 ====
+// FUN_7ff74fbe63e4 @ 0x7d63e4
+0x4e74344	DATA	-
+0x41acb64	DATA	-
+0x7d62b2	UNCONDITIONAL_CALL	FUN_7ff74fbe622c@0x7d622c
+0x30dde21	UNCONDITIONAL_CALL	FUN_7ff7524edd18@0x30ddd18
+
+==== callers of function containing 0x1ce818 ====
+// FUN_7ff74f5de818 @ 0x1ce818
+0x4e3ac84	DATA	-
+0x41433d0	DATA	-
+0x7d640e	UNCONDITIONAL_CALL	FUN_7ff74fbe63e4@0x7d63e4
+0x7d6b89	UNCONDITIONAL_CALL	FUN_7ff74fbe6b20@0x7d6b20
+

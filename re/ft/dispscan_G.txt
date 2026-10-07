@@ -1,0 +1,239 @@
+unknown cmd
+== fn_9F664  distinct=2
+   0009F903  48C787100600000000803F   mov qword [rdi+610h],3F800000h
+   0009F90E  4489A718060000           mov [rdi+618h],r12d
+== fn_247950  distinct=7
+   0024865B  898310060000             mov [rbx+610h],eax
+   00248667  898314060000             mov [rbx+614h],eax
+   00248673  898318060000             mov [rbx+618h],eax
+   0024867F  89831C060000             mov [rbx+61Ch],eax
+   0024868B  898320060000             mov [rbx+620h],eax
+   00248697  898324060000             mov [rbx+624h],eax
+   00248BB3  8983D8070000             mov [rbx+7D8h],eax
+== fn_2AEAA8  distinct=2
+   002AEB72  0F118710060000           movups [rdi+610h],xmm0
+   002AEB7D  0F118F20060000           movups [rdi+620h],xmm1
+== fn_2B2520  distinct=3
+   002B2806  4C89B310060000           mov [rbx+610h],r14
+   002B280D  4C89B318060000           mov [rbx+618h],r14
+   002B2814  4C89B320060000           mov [rbx+620h],r14
+== fn_2E9948  distinct=2
+   002EAA8D  4438B91C060000           cmp [rcx+61Ch],r15b
+   002EAA9A  4439B910060000           cmp [rcx+610h],r15d
+== fn_355E50  distinct=3
+   00355EA9  F30F7F8710060000         movdqu [rdi+610h],xmm0
+   00355EC8  4088AF10060000           mov [rdi+610h],bpl
+   00355F24  F30F118718060000         movss [rdi+618h],xmm0
+   00355F2C  4088AF1C060000           mov [rdi+61Ch],bpl
+   00355F9D  F30F118718060000         movss [rdi+618h],xmm0
+== fn_358370  distinct=2
+   00358382  88811C060000             mov [rcx+61Ch],al
+   0035838B  48898120060000           mov [rcx+620h],rax
+== fn_39E3E0  distinct=2
+   0039E418  899820060000             mov [rax+620h],ebx
+   0039E42A  899818060000             mov [rax+618h],ebx
+== fn_3B4A2C  distinct=6
+   003B4DFA  4488AF10060000           mov [rdi+610h],r13b
+   003B4E01  C7871406000000009643     mov dword [rdi+614h],43960000h
+   003B4E0B  898718060000             mov [rdi+618h],eax
+   003B4E11  C7871C06000000004842     mov dword [rdi+61Ch],42480000h
+   003B4E1B  C7872006000000001643     mov dword [rdi+620h],43160000h
+   003B4E25  C787240600000000F041     mov dword [rdi+624h],41F00000h
+== fn_3D1A38  distinct=4
+   003D1A8A  898B24060000             mov [rbx+624h],ecx
+   003D1AAB  F7B31C060000             div dword [rbx+61Ch]
+   003D1AC3  83BB1806000001           cmp dword [rbx+618h],1
+   003D1ACC  899320060000             mov [rbx+620h],edx
+== fn_3D4A5C  distinct=2
+   003D4B7A  F7B71C060000             div dword [rdi+61Ch]
+   003D4B96  899724060000             mov [rdi+624h],edx
+   003D4BA2  F7B71C060000             div dword [rdi+61Ch]
+== fn_3F7E7C  distinct=3
+   003F7F1A  4889B710060000           mov [rdi+610h],rsi
+   003F7F28  4889B718060000           mov [rdi+618h],rsi
+   003F7F31  4889B720060000           mov [rdi+620h],rsi
+== fn_470B60  distinct=3
+   00471176  4889B714060000           mov [rdi+614h],rsi
+   0047117D  4889B71C060000           mov [rdi+61Ch],rsi
+   00471184  4889B724060000           mov [rdi+624h],rsi
+== fn_4FC330  distinct=3
+   004FCE11  89831C060000             mov [rbx+61Ch],eax
+   004FCE1D  898320060000             mov [rbx+620h],eax
+   004FCE29  898324060000             mov [rbx+624h],eax
+== fn_5AD5F8  distinct=5
+   005AD677  44898714060000           mov [rdi+614h],r8d
+   005AD67E  89871C060000             mov [rdi+61Ch],eax
+   005AD689  898718060000             mov [rdi+618h],eax
+   005AD697  898720060000             mov [rdi+620h],eax
+   005AD6AA  F30F119724060000         movss [rdi+624h],xmm2
+   005AD6BB  83A72406000000           and dword [rdi+624h],0
+   005AD6CE  83A72406000000           and dword [rdi+624h],0
+   005AD8A3  F7B71C060000             div dword [rdi+61Ch]
+== fn_5AD9EC  distinct=6
+   005ADC51  898110060000             mov [rcx+610h],eax
+   005ADC5E  898114060000             mov [rcx+614h],eax
+   005ADC6B  898118060000             mov [rcx+618h],eax
+   005ADC78  89811C060000             mov [rcx+61Ch],eax
+   005ADC85  898120060000             mov [rcx+620h],eax
+   005ADC92  898124060000             mov [rcx+624h],eax
+== fn_5BF080  distinct=2
+   005BF16B  0F118710060000           movups [rdi+610h],xmm0
+   005BF172  0F118F20060000           movups [rdi+620h],xmm1
+== fn_5BF3B4  distinct=2
+   005BFACB  0F118710060000           movups [rdi+610h],xmm0
+   005BFAD2  0F118F20060000           movups [rdi+620h],xmm1
+== fn_5C45F0  distinct=5
+   005C5A33  4C898610060000           mov [rsi+610h],r8
+   005C5A3A  48898618060000           mov [rsi+618h],rax
+   005C5A5B  898620060000             mov [rsi+620h],eax
+   005C5A68  898E24060000             mov [rsi+624h],ecx
+   005C5DCD  488986D8070000           mov [rsi+7D8h],rax
+== fn_5D5964  distinct=4
+   005D6BA0  898710060000             mov [rdi+610h],eax
+   005D6BAC  898718060000             mov [rdi+618h],eax
+   005D6BB8  898720060000             mov [rdi+620h],eax
+   005D6BC4  898724060000             mov [rdi+624h],eax
+== fn_5FB244  distinct=2
+   005FB254  80B91006000000           cmp byte [rcx+610h],0
+   005FB260  80B91C06000000           cmp byte [rcx+61Ch],0
+== fn_65FE68  distinct=2
+   0065FFA3  4438A020060000           cmp [rax+620h],r12b
+   0066019B  488986D8070000           mov [rsi+7D8h],rax
+== fn_74A4D0  distinct=3
+   0074A605  83A32006000000           and dword [rbx+620h],0
+   0074A614  83A32406000000           and dword [rbx+624h],0
+   0074A62A  C6831C06000000           mov byte [rbx+61Ch],0
+== fn_78CE8C  distinct=3
+   0078F90C  399810060000             cmp [rax+610h],ebx
+   0079496B  399814060000             cmp [rax+614h],ebx
+   0079589B  399818060000             cmp [rax+618h],ebx
+== fn_819400  distinct=3
+   0081C8D5  4488B720060000           mov [rdi+620h],r14b
+   0081E1E8  F30F1187D8070000         movss [rdi+7D8h],xmm0
+   00821825  4401B71C060000           add [rdi+61Ch],r14d
+== fn_872770  distinct=5
+   00872CF6  48898B14060000           mov [rbx+614h],rcx
+   00872CFD  898B1C060000             mov [rbx+61Ch],ecx
+   00872D03  888B20060000             mov [rbx+620h],cl
+   00872D09  48898B24060000           mov [rbx+624h],rcx
+   00872EC1  48898BD8070000           mov [rbx+7D8h],rcx
+== fn_181B340  distinct=3
+   0181B796  4C898210060000           mov [rdx+610h],r8
+   0181B79D  4C898218060000           mov [rdx+618h],r8
+   0181B7A7  4C898220060000           mov [rdx+620h],r8
+== fn_1913A36  distinct=2
+   01913A36  C78718060000DB0F4940     mov dword [rdi+618h],40490FDBh
+   01913A40  4488B71C060000           mov [rdi+61Ch],r14b
+== fn_1CD0170  distinct=3
+   01CD0391  48898714060000           mov [rdi+614h],rax
+   01CD03C2  898F10060000             mov [rdi+610h],ecx
+   01CD03C8  4C89871C060000           mov [rdi+61Ch],r8
+== fn_1D05F34  distinct=2
+   01D06231  21B718060000             and [rdi+618h],esi
+   01D06237  6621B71C060000           and [rdi+61Ch],si
+== fn_1D21DE8  distinct=2
+   01D21E2B  F30F7F8310060000         movdqu [rbx+610h],xmm0
+   01D21E49  F30F7F8320060000         movdqu [rbx+620h],xmm0
+== fn_1D2B69C  distinct=2
+   01D2B72A  899310060000             mov [rbx+610h],edx
+   01D2B737  898B14060000             mov [rbx+614h],ecx
+== fn_24B140C  distinct=4
+   024B1938  4889B910060000           mov [rcx+610h],rdi
+   024B193F  4889B918060000           mov [rcx+618h],rdi
+   024B1946  4889B920060000           mov [rcx+620h],rdi
+   024B1AC7  4889B9D8070000           mov [rcx+7D8h],rdi
+== fn_24B2110  distinct=7
+   024B2244  89AF10060000             mov [rdi+610h],ebp
+   024B2252  898714060000             mov [rdi+614h],eax
+   024B2258  898718060000             mov [rdi+618h],eax
+   024B2263  89871C060000             mov [rdi+61Ch],eax
+   024B226C  898720060000             mov [rdi+620h],eax
+   024B2280  898724060000             mov [rdi+624h],eax
+   024B23E4  4889AFD8070000           mov [rdi+7D8h],rbp
+== fn_24E9604  distinct=4
+   024EA82B  48898318060000           mov [rbx+618h],rax
+   024EA832  4C898310060000           mov [rbx+610h],r8
+   024EA872  898320060000             mov [rbx+620h],eax
+   024EA886  898B24060000             mov [rbx+624h],ecx
+== fn_25275E0  distinct=3
+   02528361  4C89A310060000           mov [rbx+610h],r12
+   025284C7  48898318060000           mov [rbx+618h],rax
+   02528540  4C89A320060000           mov [rbx+620h],r12
+== fn_2536208  distinct=6
+   02536F25  F30F118F10060000         movss [rdi+610h],xmm1
+   02536F69  898718060000             mov [rdi+618h],eax
+   02536F73  89871C060000             mov [rdi+61Ch],eax
+   02536F7D  898720060000             mov [rdi+620h],eax
+   02536F87  898724060000             mov [rdi+624h],eax
+   02537008  F30F118714060000         movss [rdi+614h],xmm0
+== fn_257F5D8  distinct=2
+   02580761  F30F118B10060000         movss [rbx+610h],xmm1
+   0258203E  4C89BB18060000           mov [rbx+618h],r15
+== fn_2820A30  distinct=4
+   02820AE0  48899F10060000           mov [rdi+610h],rbx
+   02820AE7  48899F18060000           mov [rdi+618h],rbx
+   02820AEE  889F20060000             mov [rdi+620h],bl
+   02820AF4  48899F24060000           mov [rdi+624h],rbx
+== fn_296BF98  distinct=4
+   0296C045  89BB10060000             mov [rbx+610h],edi
+   0296C04B  6689BB14060000           mov [rbx+614h],di
+   0296C059  89BB18060000             mov [rbx+618h],edi
+   0296C05F  4088BB1C060000           mov [rbx+61Ch],dil
+== fn_2EF6920  distinct=4
+   02EF6B96  4889BB10060000           mov [rbx+610h],rdi
+   02EF6B9D  898324060000             mov [rbx+624h],eax
+   02EF6BAB  4889BB18060000           mov [rbx+618h],rdi
+   02EF6BB2  89BB20060000             mov [rbx+620h],edi
+== fn_2EF8448  distinct=2
+   02EF8E91  41898718060000           mov [r15+618h],eax
+   02EF8E9C  4189871C060000           mov [r15+61Ch],eax
+== fn_2EF98FC  distinct=2
+   02EF993A  39AB1C060000             cmp [rbx+61Ch],ebp
+   02EF9977  39AB18060000             cmp [rbx+618h],ebp
+== fn_305AA80  distinct=4
+   0305AB01  898320060000             mov [rbx+620h],eax
+   0305AB07  898324060000             mov [rbx+624h],eax
+   0305AB0D  898318060000             mov [rbx+618h],eax
+   0305AB13  89831C060000             mov [rbx+61Ch],eax
+== fn_30757D0  distinct=4
+   030757EE  898320060000             mov [rbx+620h],eax
+   03075801  898324060000             mov [rbx+624h],eax
+   03075814  898318060000             mov [rbx+618h],eax
+   03075822  89831C060000             mov [rbx+61Ch],eax
+== fn_32EDC84  distinct=3
+   032EE04A  4C89A610060000           mov [rsi+610h],r12
+   032EE051  4C89A618060000           mov [rsi+618h],r12
+   032EE058  4C89A620060000           mov [rsi+620h],r12
+== fn_3302A10  distinct=2
+   03303175  4C89BF10060000           mov [rdi+610h],r15
+   033031A5  4C89BF18060000           mov [rdi+618h],r15
+== fn_3420DD4  distinct=3
+   03421957  89831C060000             mov [rbx+61Ch],eax
+   0342196F  898320060000             mov [rbx+620h],eax
+   0342197B  898324060000             mov [rbx+624h],eax
+== fn_3426D20  distinct=4
+   034271BB  4D89AE10060000           mov [r14+610h],r13
+   034271C2  4D89AE18060000           mov [r14+618h],r13
+   034271C9  4D89AE20060000           mov [r14+620h],r13
+   034272C3  4D89AED8070000           mov [r14+7D8h],r13
+== fn_3446834  distinct=6
+   03446D5D  44898B10060000           mov [rbx+610h],r9d
+   03446D64  89BB14060000             mov [rbx+614h],edi
+   03446D6A  C7831806000006000000     mov dword [rbx+618h],6
+   03446D74  89831C060000             mov [rbx+61Ch],eax
+   03446D7A  C7832006000007000000     mov dword [rbx+620h],7
+   03446D84  C7832406000003000000     mov dword [rbx+624h],3
+== fn_35E9CE8  distinct=3
+   035E9ED2  83A31406000000           and dword [rbx+614h],0
+   035E9ED9  4883A31806000000         and qword [rbx+618h],0
+   035E9F08  C783100600000000803F     mov dword [rbx+610h],3F800000h
+== fn_35F0830  distinct=3
+   035F0A68  4D89A610060000           mov [r14+610h],r12
+   035F0A74  4D89A618060000           mov [r14+618h],r12
+   035F0A7E  4D89A620060000           mov [r14+620h],r12
+   035F0C1E  4D898610060000           mov [r14+610h],r8
+   035F0C25  4D898618060000           mov [r14+618h],r8
+   035F0C2C  4D898620060000           mov [r14+620h],r8
+== fn_3892CF4  distinct=2
+   03892D25  83A32406000000           and dword [rbx+624h],0
+   03892D2F  C783200600008988883C     mov dword [rbx+620h],3C888889h

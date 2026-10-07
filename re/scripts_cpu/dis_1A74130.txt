@@ -1,0 +1,1020 @@
+﻿; ---- Nioh3+1A74130 .. +1A75054 (pdata fn Some (27738416u, 27742292u))
+ 1A74130  push    rbp                                       
+ 1A74132  push    rbx                                       
+ 1A74133  push    rdi                                       
+ 1A74134  push    r12                                       
+ 1A74136  push    r13                                       
+ 1A74138  push    r14                                       
+ 1A7413A  push    r15                                       
+ 1A7413C  lea     rbp,[rsp-70h]                             
+ 1A74141  sub     rsp,170h                                  
+ 1A74148  mov     rax,[rel 44B7F30h]                        
+ 1A7414F  xor     rax,rsp                                   
+ 1A74152  mov     [rbp+30h],rax                             
+ 1A74156  mov     rax,[rbp+0F0h]                            
+ 1A7415D  lea     rdi,[rcx+1F0h]                            
+ 1A74164  mov     r12d,[rbp+0E0h]                           
+ 1A7416B  mov     r14d,r8d                                  
+ 1A7416E  xor     r8d,r8d                                   
+ 1A74171  mov     [rsp+60h],rax                             
+ 1A74176  mov     [rsp+30h],r8d                             
+ 1A7417B  xor     eax,eax                                   
+ 1A7417D  mov     r15,r9                                    
+ 1A74180  mov     ebx,edx                                   
+ 1A74182  mov     r13,rcx                                   
+ 1A74185  lock cmpxchg [rdi],r8                             
+ 1A7418A  nop     word [rax+rax]                            
+ 1A74190  mov     rcx,rax                                   
+ 1A74193  mov     rdx,rax                                   
+ 1A74196  bts     rcx,13h                                   
+ 1A7419B  lock cmpxchg [rdi],rcx                            
+ 1A741A0  cmp     rax,rdx                                   
+ 1A741A3  jne     short 0000000001A74190h                   
+ 1A741A5  mov     rcx,[r13+0F8h]                            
+ 1A741AC  xor     eax,eax                                   
+ 1A741AE  mov     [rsp+168h],rsi                            
+ 1A741B6  movaps  [rsp+150h],xmm6                           
+ 1A741BE  movaps  [rsp+140h],xmm7                           
+ 1A741C6  mov     [rsp+40h],rcx                             
+ 1A741CB  lock cmpxchg [rdi],r8                             
+ 1A741D0  bt      rax,17h                                   
+ 1A741D5  jb      near 0000000001A74FE4h                    
+ 1A741DB  xor     eax,eax                                   
+ 1A741DD  lock cmpxchg [rdi],r8                             
+ 1A741E2  bt      rax,16h                                   
+ 1A741E7  jb      near 0000000001A74FE4h                    
+ 1A741ED  xor     eax,eax                                   
+ 1A741EF  lock cmpxchg [rdi],r8                             
+ 1A741F4  bt      rax,15h                                   
+ 1A741F9  jb      near 0000000001A74FE4h                    
+ 1A741FF  test    rcx,rcx                                   
+ 1A74202  je      near 0000000001A74FE4h                    
+ 1A74208  xor     edx,edx                                   
+ 1A7420A  mov     rcx,r13                                   
+ 1A7420D  call    0000000000877148h                         
+ 1A74212  test    al,al                                     
+ 1A74214  jne     short 0000000001A7422Fh                   
+ 1A74216  xor     ecx,ecx                                   
+ 1A74218  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A7421E  xor     r8d,r8d                                   
+ 1A74221  xor     edx,edx                                   
+ 1A74223  mov     rcx,r13                                   
+ 1A74226  call    0000000000877148h                         
+ 1A7422B  test    al,al                                     
+ 1A7422D  je      short 0000000001A74216h                   
+ 1A7422F  mov     rcx,[r13+160h]                            
+ 1A74236  test    rcx,rcx                                   
+ 1A74239  je      short 0000000001A74254h                   
+ 1A7423B  mov     rax,[r13+10h]                             
+ 1A7423F  mov     r8,r13                                    
+ 1A74242  mov     r10,[rcx]                                 
+ 1A74245  xor     edx,edx                                   
+ 1A74247  mov     r9,[r13+8]                                
+ 1A7424B  mov     [rsp+20h],rax                             
+ 1A74250  call    qword [r10+40h]                           
+ 1A74254  mov     edx,0AF57014Dh                            
+ 1A74259  mov     rcx,r13                                   
+ 1A7425C  call    00000000002385B0h                         
+ 1A74261  mov     r9,rax                                    
+ 1A74264  mov     r8d,ebx                                   
+ 1A74267  xor     edx,edx                                   
+ 1A74269  mov     rcx,r13                                   
+ 1A7426C  call    00000000018CB974h                         
+ 1A74271  mov     rsi,rax                                   
+ 1A74274  mov     rcx,r13                                   
+ 1A74277  test    rax,rax                                   
+ 1A7427A  je      near 0000000001A74FDDh                    
+ 1A74280  mov     edx,60985F9Eh                             
+ 1A74285  call    00000000002385B0h                         
+ 1A7428A  mov     r9,rax                                    
+ 1A7428D  mov     r8d,r14d                                  
+ 1A74290  xor     edx,edx                                   
+ 1A74292  mov     rcx,r13                                   
+ 1A74295  call    00000000018CB974h                         
+ 1A7429A  xor     edx,edx                                   
+ 1A7429C  mov     rbx,rax                                   
+ 1A7429F  mov     r8,r13                                    
+ 1A742A2  test    rax,rax                                   
+ 1A742A5  je      short 0000000001A742EBh                   
+ 1A742A7  xor     r9d,r9d                                   
+ 1A742AA  mov     rcx,rax                                   
+ 1A742AD  call    00000000001A6030h                         
+ 1A742B2  test    al,al                                     
+ 1A742B4  jne     short 0000000001A742D2h                   
+ 1A742B6  xor     ecx,ecx                                   
+ 1A742B8  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A742BE  xor     r9d,r9d                                   
+ 1A742C1  mov     r8,r13                                    
+ 1A742C4  xor     edx,edx                                   
+ 1A742C6  mov     rcx,rbx                                   
+ 1A742C9  call    00000000001A6030h                         
+ 1A742CE  test    al,al                                     
+ 1A742D0  je      short 0000000001A742B6h                   
+ 1A742D2  cmp     qword [rbx+28h],0                         
+ 1A742D7  jne     short 0000000001A74300h                   
+ 1A742D9  mov     r8,r13                                    
+ 1A742DC  xor     edx,edx                                   
+ 1A742DE  mov     rcx,rbx                                   
+ 1A742E1  call    0000000000047DF8h                         
+ 1A742E6  mov     r8,r13                                    
+ 1A742E9  xor     edx,edx                                   
+ 1A742EB  mov     rcx,rsi                                   
+ 1A742EE  call    0000000000047DF8h                         
+ 1A742F3  mov     rcx,r13                                   
+ 1A742F6  call    0000000003247DA8h                         
+ 1A742FB  jmp     0000000001A75015h                         
+ 1A74300  mov     r14d,[r13+1FCh]                           
+ 1A74307  mov     edx,200000h                               
+ 1A7430C  movzx   ecx,byte [rbp+0D8h]                       
+ 1A74313  mov     r8d,edx                                   
+ 1A74316  movzx   eax,byte [rbp+0D0h]                       
+ 1A7431D  shl     ecx,1Dh                                   
+ 1A74320  shl     eax,1Ch                                   
+ 1A74323  or      ecx,eax                                   
+ 1A74325  mov     [rsp+48h],r14d                            
+ 1A7432A  or      ecx,r14d                                  
+ 1A7432D  mov     [r13+1FCh],ecx                            
+ 1A74334  mov     rcx,rdi                                   
+ 1A74337  call    000000000062786Ch                         
+ 1A7433C  xor     eax,eax                                   
+ 1A7433E  mov     dword [rbp-0Ch],0FFFFFFFFh                
+ 1A74345  xorps   xmm0,xmm0                                 
+ 1A74348  mov     [rbp-20h],rax                             
+ 1A7434C  xorps   xmm1,xmm1                                 
+ 1A7434F  movdqa  [rbp-40h],xmm0                            
+ 1A74354  mov     edx,8000000h                              
+ 1A74359  movdqa  [rbp-30h],xmm1                            
+ 1A7435E  mov     [rbp-18h],rax                             
+ 1A74362  mov     [rbp-10h],eax                             
+ 1A74365  mov     [rbp-8],rax                               
+ 1A74369  mov     [rbp],rax                                 
+ 1A7436D  mov     [rbp+8],rax                               
+ 1A74371  call    000000000011E6E0h                         
+ 1A74376  lea     rax,[rbp-40h]                             
+ 1A7437A  mov     edx,8000000h                              
+ 1A7437F  mov     rcx,rdi                                   
+ 1A74382  mov     [r13+0E8h],rax                            
+ 1A74389  call    000000000011E760h                         
+ 1A7438E  mov     r8,rbx                                    
+ 1A74391  xor     edx,edx                                   
+ 1A74393  mov     rcx,r13                                   
+ 1A74396  call    0000000000412748h                         
+ 1A7439B  mov     r8,r13                                    
+ 1A7439E  xor     edx,edx                                   
+ 1A743A0  mov     rcx,rbx                                   
+ 1A743A3  call    0000000000047DF8h                         
+ 1A743A8  mov     rbx,[r13+118h]                            
+ 1A743AF  mov     rax,[r13+120h]                            
+ 1A743B6  mov     [rbp-78h],rax                             
+ 1A743BA  mov     [rbp-50h],rbx                             
+ 1A743BE  test    rbx,rbx                                   
+ 1A743C1  je      short 0000000001A743CEh                   
+ 1A743C3  mov     rax,[rbx]                                 
+ 1A743C6  mov     dl,1                                      
+ 1A743C8  mov     rcx,rbx                                   
+ 1A743CB  call    qword [rax+8]                             
+ 1A743CE  mov     eax,[rbp+0E8h]                            
+ 1A743D4  lea     rcx,[rbp-40h]                             
+ 1A743D8  mov     r9,r15                                    
+ 1A743DB  mov     [rsp+20h],eax                             
+ 1A743DF  mov     r8,rsi                                    
+ 1A743E2  mov     rdx,r13                                   
+ 1A743E5  call    0000000003250A88h                         
+ 1A743EA  test    al,al                                     
+ 1A743EC  je      near 0000000001A74E2Dh                    
+ 1A743F2  mov     rdx,[rsp+60h]                             
+ 1A743F7  test    rdx,rdx                                   
+ 1A743FA  je      short 0000000001A7440Fh                   
+ 1A743FC  mov     rax,[rdx+10h]                             
+ 1A74400  mov     r14,rdx                                   
+ 1A74403  mov     ecx,[rax+34h]                             
+ 1A74406  mov     [r13+3A8h],ecx                            
+ 1A7440D  jmp     short 0000000001A74435h                   
+ 1A7440F  mov     edx,[r13+3A8h]                            
+ 1A74416  mov     rcx,r13                                   
+ 1A74419  call    0000000000049A80h                         
+ 1A7441E  mov     rdx,r13                                   
+ 1A74421  mov     [rsp+20h],rax                             
+ 1A74426  lea     rcx,[rbp+10h]                             
+ 1A7442A  mov     r9d,r12d                                  
+ 1A7442D  call    0000000003249D0Ch                         
+ 1A74432  mov     r14,rax                                   
+ 1A74435  mov     rcx,[r14+10h]                             
+ 1A74439  mov     [rsp+58h],r14                             
+ 1A7443E  test    rcx,rcx                                   
+ 1A74441  je      short 0000000001A74448h                   
+ 1A74443  mov     edx,[rcx+28h]                             
+ 1A74446  jmp     short 0000000001A7444Ch                   
+ 1A74448  xor     ebx,ebx                                   
+ 1A7444A  mov     edx,ebx                                   
+ 1A7444C  mov     [r13+2E8h],edx                            
+ 1A74453  mov     r8,r13                                    
+ 1A74456  xor     edx,edx                                   
+ 1A74458  mov     rcx,rsi                                   
+ 1A7445B  call    0000000000047DF8h                         
+ 1A74460  mov     r15,[rsp+40h]                             
+ 1A74465  mov     rdx,r13                                   
+ 1A74468  mov     rcx,r15                                   
+ 1A7446B  mov     rax,[r15]                                 
+ 1A7446E  call    qword [rax+108h]                          
+ 1A74474  lea     rcx,[r13+330h]                            
+ 1A7447B  cmp     dword [rcx+4Ch],2                         
+ 1A7447F  jne     short 0000000001A74488h                   
+ 1A74481  mov     dword [rcx+4Ch],1                         
+ 1A74488  mov     rdx,r13                                   
+ 1A7448B  call    00000000018CBF2Ch                         
+ 1A74490  mov     rbx,[r13+390h]                            
+ 1A74497  test    rbx,rbx                                   
+ 1A7449A  je      short 0000000001A744CAh                   
+ 1A7449C  nop     dword [rax]                               
+ 1A744A0  mov     rax,[rbx]                                 
+ 1A744A3  test    rax,rax                                   
+ 1A744A6  je      short 0000000001A744C1h                   
+ 1A744A8  cmp     dword [rax+54h],2                         
+ 1A744AC  lea     rcx,[rax+8]                               
+ 1A744B0  jne     short 0000000001A744B9h                   
+ 1A744B2  mov     dword [rax+54h],1                         
+ 1A744B9  mov     rdx,r13                                   
+ 1A744BC  call    00000000018CBF2Ch                         
+ 1A744C1  mov     rbx,[rbx+8]                               
+ 1A744C5  test    rbx,rbx                                   
+ 1A744C8  jne     short 0000000001A744A0h                   
+ 1A744CA  call    qword [rel 38E2430h]                        ; KERNEL32.dll!GetCurrentThreadId
+ 1A744D0  mov     [r13+208h],eax                            
+ 1A744D7  call    0000000000205530h                         
+ 1A744DC  movss   xmm7,[rel 3BD4214h]                       
+ 1A744E4  movss   xmm6,[rel 3BD4688h]                       
+ 1A744EC  mov     [rsp+50h],rax                             
+ 1A744F1  xor     eax,eax                                   
+ 1A744F3  xor     esi,esi                                   
+ 1A744F5  lock cmpxchg [rbp+8],esi                          
+ 1A744FA  and     eax,0C0000000h                            
+ 1A744FF  cmp     eax,40000000h                             
+ 1A74504  jne     near 0000000001A74C9Fh                    
+ 1A7450A  cmp     word [r13+1E4h],6                         
+ 1A74513  mov     [rsp+38h],rsi                             
+ 1A74518  jbe     short 0000000001A7455Dh                   
+ 1A7451A  mov     r12,[r13+148h]                            
+ 1A74521  add     r12,330h                                  
+ 1A74528  je      short 0000000001A74560h                   
+ 1A7452A  mov     rax,[rel 45BA780h]                        
+ 1A74531  cmp     [rax+12h],sil                             
+ 1A74535  je      short 0000000001A7454Eh                   
+ 1A74537  lea     rcx,[rsp+68h]                             
+ 1A7453C  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74542  mov     rbx,[rsp+68h]                             
+ 1A74547  mov     [rsp+38h],rbx                             
+ 1A7454C  jmp     short 0000000001A74560h                   
+ 1A7454E  call    0000000000BE379Ch                         
+ 1A74553  movsxd  rbx,eax                                   
+ 1A74556  mov     [rsp+38h],rbx                             
+ 1A7455B  jmp     short 0000000001A74560h                   
+ 1A7455D  mov     r12,rsi                                   
+ 1A74560  mov     rax,[r15]                                 
+ 1A74563  mov     r8,r14                                    
+ 1A74566  mov     rdx,r13                                   
+ 1A74569  mov     rcx,r15                                   
+ 1A7456C  call    qword [rax+0B8h]                          
+ 1A74572  mov     rax,[r15]                                 
+ 1A74575  mov     rcx,r15                                   
+ 1A74578  call    qword [rax+0D8h]                          
+ 1A7457E  test    al,al                                     
+ 1A74580  je      near 0000000001A74993h                    
+ 1A74586  xor     eax,eax                                   
+ 1A74588  lock cmpxchg [rdi],rsi                            
+ 1A7458D  nop     dword [rax]                               
+ 1A74590  mov     rcx,rax                                   
+ 1A74593  mov     rdx,rax                                   
+ 1A74596  or      rcx,60000000h                             
+ 1A7459D  lock cmpxchg [rdi],rcx                            
+ 1A745A2  cmp     rax,rdx                                   
+ 1A745A5  jne     short 0000000001A74590h                   
+ 1A745A7  nop     word [rax+rax]                            
+ 1A745B0  xor     eax,eax                                   
+ 1A745B2  lock cmpxchg [rdi],rsi                            
+ 1A745B7  mov     rcx,rax                                   
+ 1A745BA  mov     ebx,esi                                   
+ 1A745BC  nop     dword [rax]                               
+ 1A745C0  bt      rcx,19h                                   
+ 1A745C5  jae     short 0000000001A745E6h                   
+ 1A745C7  inc     ebx                                       
+ 1A745C9  test    bl,bl                                     
+ 1A745CB  jne     short 0000000001A745D5h                   
+ 1A745CD  xor     ecx,ecx                                   
+ 1A745CF  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A745D5  xor     eax,eax                                   
+ 1A745D7  lock cmpxchg [rdi],rsi                            
+ 1A745DC  mov     rcx,rax                                   
+ 1A745DF  bt      rax,19h                                   
+ 1A745E4  jb      short 0000000001A745C7h                   
+ 1A745E6  mov     rax,rcx                                   
+ 1A745E9  bts     rcx,19h                                   
+ 1A745EE  lock cmpxchg [rdi],rcx                            
+ 1A745F3  mov     rcx,rax                                   
+ 1A745F6  jne     short 0000000001A745C0h                   
+ 1A745F8  xor     eax,eax                                   
+ 1A745FA  lock cmpxchg [rdi],rsi                            
+ 1A745FF  bt      rax,18h                                   
+ 1A74604  jae     near 0000000001A74694h                    
+ 1A7460A  xor     eax,eax                                   
+ 1A7460C  mov     sil,1                                     
+ 1A7460F  xor     edx,edx                                   
+ 1A74611  lock cmpxchg [rdi],rdx                            
+ 1A74616  mov     rcx,rax                                   
+ 1A74619  mov     ebx,edx                                   
+ 1A7461B  nop     dword [rax+rax]                           
+ 1A74620  bt      rcx,1Bh                                   
+ 1A74625  jae     short 0000000001A74648h                   
+ 1A74627  inc     ebx                                       
+ 1A74629  test    bl,bl                                     
+ 1A7462B  jne     short 0000000001A74637h                   
+ 1A7462D  xor     ecx,ecx                                   
+ 1A7462F  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A74635  xor     edx,edx                                   
+ 1A74637  xor     eax,eax                                   
+ 1A74639  lock cmpxchg [rdi],rdx                            
+ 1A7463E  mov     rcx,rax                                   
+ 1A74641  bt      rax,1Bh                                   
+ 1A74646  jb      short 0000000001A74627h                   
+ 1A74648  mov     rax,rcx                                   
+ 1A7464B  bts     rcx,1Bh                                   
+ 1A74650  lock cmpxchg [rdi],rcx                            
+ 1A74655  mov     rcx,rax                                   
+ 1A74658  jne     short 0000000001A74620h                   
+ 1A7465A  mov     rcx,[r13+0E8h]                            
+ 1A74661  test    rcx,rcx                                   
+ 1A74664  je      short 0000000001A74676h                   
+ 1A74666  xor     eax,eax                                   
+ 1A74668  lock cmpxchg [rcx+48h],edx                        
+ 1A7466D  mov     esi,eax                                   
+ 1A7466F  shr     esi,1Dh                                   
+ 1A74672  and     sil,1                                     
+ 1A74676  xor     eax,eax                                   
+ 1A74678  lock cmpxchg [rdi],rdx                            
+ 1A7467D  mov     rcx,rax                                   
+ 1A74680  mov     rax,rcx                                   
+ 1A74683  btr     rcx,1Bh                                   
+ 1A74688  lock cmpxchg [rdi],rcx                            
+ 1A7468D  mov     rcx,rax                                   
+ 1A74690  jne     short 0000000001A74680h                   
+ 1A74692  jmp     short 0000000001A74699h                   
+ 1A74694  xor     sil,sil                                   
+ 1A74697  xor     edx,edx                                   
+ 1A74699  xor     eax,eax                                   
+ 1A7469B  lock cmpxchg [rdi],rdx                            
+ 1A746A0  mov     rcx,rax                                   
+ 1A746A3  nop     dword [rax]                               
+ 1A746A7  nop     word [rax+rax]                            
+ 1A746B0  mov     rax,rcx                                   
+ 1A746B3  btr     rcx,19h                                   
+ 1A746B8  lock cmpxchg [rdi],rcx                            
+ 1A746BD  mov     rcx,rax                                   
+ 1A746C0  jne     short 0000000001A746B0h                   
+ 1A746C2  mov     rdx,r13                                   
+ 1A746C5  test    sil,sil                                   
+ 1A746C8  jne     short 0000000001A746E4h                   
+ 1A746CA  mov     rcx,r14                                   
+ 1A746CD  call    00000000008FE3BCh                         
+ 1A746D2  mov     ecx,1                                     
+ 1A746D7  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A746DD  xor     esi,esi                                   
+ 1A746DF  jmp     0000000001A745B0h                         
+ 1A746E4  mov     rcx,[r13+0F8h]                            
+ 1A746EB  mov     rax,[rcx]                                 
+ 1A746EE  call    qword [rax+100h]                          
+ 1A746F4  xor     edx,edx                                   
+ 1A746F6  mov     r8d,0E1B6A687h                            
+ 1A746FC  mov     rcx,r13                                   
+ 1A746FF  lea     r9d,[rdx+8]                               
+ 1A74703  call    000000000003CFD0h                         
+ 1A74708  mov     rbx,rax                                   
+ 1A7470B  test    rax,rax                                   
+ 1A7470E  je      short 0000000001A7473Bh                   
+ 1A74710  cmp     qword [rax+20h],0                         
+ 1A74715  je      short 0000000001A7472Eh                   
+ 1A74717  mov     rcx,[rax+8]                               
+ 1A7471B  test    rcx,rcx                                   
+ 1A7471E  je      short 0000000001A7472Eh                   
+ 1A74720  mov     rcx,[rcx+28h]                             
+ 1A74724  mov     rdx,r13                                   
+ 1A74727  mov     r8,[rcx]                                  
+ 1A7472A  call    qword [r8+10h]                            
+ 1A7472E  mov     r8,r13                                    
+ 1A74731  xor     edx,edx                                   
+ 1A74733  mov     rcx,rbx                                   
+ 1A74736  call    000000000003CC88h                         
+ 1A7473B  mov     rcx,r13                                   
+ 1A7473E  call    00000000018CBCB8h                         
+ 1A74743  mov     rcx,[r13+0F8h]                            
+ 1A7474A  mov     rax,[rcx]                                 
+ 1A7474D  call    qword [rax+78h]                           
+ 1A74750  xor     esi,esi                                   
+ 1A74752  test    al,al                                     
+ 1A74754  je      near 0000000001A74969h                    
+ 1A7475A  nop     word [rax+rax]                            
+ 1A74760  cmp     byte [r13+3D0h],0                         
+ 1A74768  je      short 0000000001A74797h                   
+ 1A7476A  mov     rax,[rel 45BA780h]                        
+ 1A74771  cmp     byte [rax+12h],0                          
+ 1A74775  je      short 0000000001A74789h                   
+ 1A74777  lea     rcx,[rsp+70h]                             
+ 1A7477C  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74782  mov     rax,[rsp+70h]                             
+ 1A74787  jmp     short 0000000001A74790h                   
+ 1A74789  call    0000000000BE379Ch                         
+ 1A7478E  cdqe                                              
+ 1A74790  mov     [r13+3C0h],rax                            
+ 1A74797  xor     eax,eax                                   
+ 1A74799  lock cmpxchg [rdi],rsi                            
+ 1A7479E  mov     rcx,rax                                   
+ 1A747A1  mov     ebx,esi                                   
+ 1A747A3  test    rcx,10010000h                             
+ 1A747AA  je      short 0000000001A747D0h                   
+ 1A747AC  nop     dword [rax]                               
+ 1A747B0  inc     ebx                                       
+ 1A747B2  test    bl,bl                                     
+ 1A747B4  jne     short 0000000001A747BEh                   
+ 1A747B6  xor     ecx,ecx                                   
+ 1A747B8  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A747BE  xor     eax,eax                                   
+ 1A747C0  lock cmpxchg [rdi],rsi                            
+ 1A747C5  mov     rcx,rax                                   
+ 1A747C8  test    rax,10010000h                             
+ 1A747CE  jne     short 0000000001A747B0h                   
+ 1A747D0  mov     rax,rcx                                   
+ 1A747D3  or      rcx,10010000h                             
+ 1A747DA  lock cmpxchg [rdi],rcx                            
+ 1A747DF  mov     rcx,rax                                   
+ 1A747E2  jne     short 0000000001A747A3h                   
+ 1A747E4  cmp     qword [r13+128h],0                        
+ 1A747EC  je      near 0000000001A748EDh                    
+ 1A747F2  movzx   r14d,byte [r13+1E1h]                      
+ 1A747FA  mov     rbx,[rel 4BD0BA0h]                        
+ 1A74801  mov     r15,[r13+138h]                            
+ 1A74808  mov     [r13+1E2h],r14b                           
+ 1A7480F  mov     rsi,[r13+140h]                            
+ 1A74816  test    rbx,rbx                                   
+ 1A74819  je      short 0000000001A74867h                   
+ 1A7481B  cmp     byte [rel 44B95E3h],0                     
+ 1A74822  je      short 0000000001A74867h                   
+ 1A74824  lea     rcx,[rbx+7F8h]                            
+ 1A7482B  call    0000000000B614A8h                         
+ 1A74830  test    eax,eax                                   
+ 1A74832  jne     near 0000000001A7504Ch                    
+ 1A74838  mov     rdx,[rel 4BD0BA0h]                        
+ 1A7483F  mov     rcx,[rdx+7F0h]                            
+ 1A74846  mov     rax,[rdx+7E8h]                            
+ 1A7484D  mov     [rdx+7E8h],rcx                            
+ 1A74854  lea     rcx,[rbx+7F8h]                            
+ 1A7485B  mov     [rdx+7F0h],rax                            
+ 1A74862  call    0000000000B61524h                         
+ 1A74867  test    r15,r15                                   
+ 1A7486A  je      short 0000000001A74893h                   
+ 1A7486C  mov     rax,[r15]                                 
+ 1A7486F  mov     rcx,r15                                   
+ 1A74872  call    qword [rax+18h]                           
+ 1A74875  test    rsi,rsi                                   
+ 1A74878  je      short 0000000001A74888h                   
+ 1A7487A  mov     rax,[rsi]                                 
+ 1A7487D  mov     r8,r13                                    
+ 1A74880  xor     edx,edx                                   
+ 1A74882  mov     rcx,rsi                                   
+ 1A74885  call    qword [rax+8]                             
+ 1A74888  mov     edx,[rsp+30h]                             
+ 1A7488C  or      edx,1                                     
+ 1A7488F  xor     al,al                                     
+ 1A74891  jmp     short 0000000001A748B8h                   
+ 1A74893  test    rsi,rsi                                   
+ 1A74896  je      short 0000000001A748A9h                   
+ 1A74898  mov     rax,[rsi]                                 
+ 1A7489B  mov     rcx,rsi                                   
+ 1A7489E  call    qword [rax+10h]                           
+ 1A748A1  cmp     r14d,eax                                  
+ 1A748A4  jne     short 0000000001A7487Ah                   
+ 1A748A6  mov     r15,rsi                                   
+ 1A748A9  mov     edx,[rsp+30h]                             
+ 1A748AD  movzx   eax,byte [r13+1E8h]                       
+ 1A748B5  or      edx,2                                     
+ 1A748B8  mov     [r13+1E8h],al                             
+ 1A748BF  mov     ecx,edx                                   
+ 1A748C1  mov     eax,edx                                   
+ 1A748C3  mov     [r13+140h],r15                            
+ 1A748CA  and     ecx,0FFFFFFFDh                            
+ 1A748CD  and     al,2                                      
+ 1A748CF  cmove   ecx,edx                                   
+ 1A748D2  xor     esi,esi                                   
+ 1A748D4  mov     edx,ecx                                   
+ 1A748D6  mov     [r13+138h],rsi                            
+ 1A748DD  and     edx,0FFFFFFFEh                            
+ 1A748E0  mov     eax,ecx                                   
+ 1A748E2  and     al,1                                      
+ 1A748E4  cmove   edx,ecx                                   
+ 1A748E7  mov     [rsp+30h],edx                             
+ 1A748EB  jmp     short 0000000001A748F0h                   
+ 1A748ED  mov     r15,rsi                                   
+ 1A748F0  xor     eax,eax                                   
+ 1A748F2  lock cmpxchg [rdi],rsi                            
+ 1A748F7  mov     rcx,rax                                   
+ 1A748FA  nop     word [rax+rax]                            
+ 1A74900  mov     rax,rcx                                   
+ 1A74903  and     rcx,0FFFFFFFFEFFEFFFFh                    
+ 1A7490A  lock cmpxchg [rdi],rcx                            
+ 1A7490F  mov     rcx,rax                                   
+ 1A74912  jne     short 0000000001A74900h                   
+ 1A74914  cmp     byte [r13+3D0h],0                         
+ 1A7491C  je      short 0000000001A7494Bh                   
+ 1A7491E  mov     rax,[rel 45BA780h]                        
+ 1A74925  cmp     byte [rax+12h],0                          
+ 1A74929  je      short 0000000001A7493Dh                   
+ 1A7492B  lea     rcx,[rsp+78h]                             
+ 1A74930  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74936  mov     rax,[rsp+78h]                             
+ 1A7493B  jmp     short 0000000001A74944h                   
+ 1A7493D  call    0000000000BE379Ch                         
+ 1A74942  cdqe                                              
+ 1A74944  mov     [r13+3C8h],rax                            
+ 1A7494B  test    r15,r15                                   
+ 1A7494E  jne     short 0000000001A7495Fh                   
+ 1A74950  lea     ecx,[r15+1]                               
+ 1A74954  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A7495A  jmp     0000000001A74760h                         
+ 1A7495F  mov     r15,[rsp+40h]                             
+ 1A74964  mov     r14,[rsp+58h]                             
+ 1A74969  xor     eax,eax                                   
+ 1A7496B  lock cmpxchg [rdi],rsi                            
+ 1A74970  mov     r8,0FFFFFFFF7FFFFFFFh                     
+ 1A7497A  nop     word [rax+rax]                            
+ 1A74980  mov     rcx,rax                                   
+ 1A74983  mov     rdx,rax                                   
+ 1A74986  and     rcx,r8                                    
+ 1A74989  lock cmpxchg [rdi],rcx                            
+ 1A7498E  cmp     rax,rdx                                   
+ 1A74991  jne     short 0000000001A74980h                   
+ 1A74993  mov     rax,[r15]                                 
+ 1A74996  mov     rdx,r13                                   
+ 1A74999  mov     rcx,r15                                   
+ 1A7499C  call    qword [rax+0C8h]                          
+ 1A749A2  mov     rax,[r15]                                 
+ 1A749A5  mov     rcx,r15                                   
+ 1A749A8  mov     sil,1                                     
+ 1A749AB  call    qword [rax+78h]                           
+ 1A749AE  test    al,al                                     
+ 1A749B0  je      short 0000000001A749DFh                   
+ 1A749B2  mov     rax,[r15]                                 
+ 1A749B5  mov     rcx,r15                                   
+ 1A749B8  call    qword [rax+30h]                           
+ 1A749BB  test    al,al                                     
+ 1A749BD  je      short 0000000001A749DFh                   
+ 1A749BF  xor     r9d,r9d                                   
+ 1A749C2  movzx   r8d,sil                                   
+ 1A749C6  xor     edx,edx                                   
+ 1A749C8  mov     rcx,r13                                   
+ 1A749CB  call    00000000003D1F20h                         
+ 1A749D0  test    al,al                                     
+ 1A749D2  mov     rcx,r15                                   
+ 1A749D5  mov     rax,[r15]                                 
+ 1A749D8  sete    sil                                       
+ 1A749DC  call    qword [rax+38h]                           
+ 1A749DF  mov     rax,[r15]                                 
+ 1A749E2  mov     rcx,r15                                   
+ 1A749E5  call    qword [rax+8]                             
+ 1A749E8  test    al,al                                     
+ 1A749EA  je      short 0000000001A74A3Bh                   
+ 1A749EC  cmp     byte [r13+3B8h],0                         
+ 1A749F4  je      short 0000000001A74A3Bh                   
+ 1A749F6  mov     rax,[r15]                                 
+ 1A749F9  mov     rcx,r15                                   
+ 1A749FC  call    qword [rax+78h]                           
+ 1A749FF  mov     r8,[r15]                                  
+ 1A74A02  mov     rcx,r15                                   
+ 1A74A05  test    al,al                                     
+ 1A74A07  je      short 0000000001A74A14h                   
+ 1A74A09  xor     edx,edx                                   
+ 1A74A0B  call    qword [r8+88h]                            
+ 1A74A12  jmp     short 0000000001A74A33h                   
+ 1A74A14  call    qword [r8+30h]                            
+ 1A74A18  test    al,al                                     
+ 1A74A1A  je      short 0000000001A74A33h                   
+ 1A74A1C  mov     rax,[r15]                                 
+ 1A74A1F  xor     edx,edx                                   
+ 1A74A21  mov     rcx,r15                                   
+ 1A74A24  call    qword [rax+88h]                           
+ 1A74A2A  mov     rax,[r15]                                 
+ 1A74A2D  mov     rcx,r15                                   
+ 1A74A30  call    qword [rax+38h]                           
+ 1A74A33  mov     byte [r13+3B8h],0                         
+ 1A74A3B  mov     rax,[rel 45BA780h]                        
+ 1A74A42  cmp     byte [rax+12h],0                          
+ 1A74A46  je      short 0000000001A74A58h                   
+ 1A74A48  lea     rcx,[rbp-80h]                             
+ 1A74A4C  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74A52  mov     rcx,[rbp-80h]                             
+ 1A74A56  jmp     short 0000000001A74A60h                   
+ 1A74A58  call    0000000000BE379Ch                         
+ 1A74A5D  movsxd  rcx,eax                                   
+ 1A74A60  test    sil,sil                                   
+ 1A74A63  je      short 0000000001A74AC7h                   
+ 1A74A65  sub     rcx,[rsp+50h]                             
+ 1A74A6A  xorps   xmm0,xmm0                                 
+ 1A74A6D  js      short 0000000001A74A76h                   
+ 1A74A6F  cvtsi2ss xmm0,rcx                                 
+ 1A74A74  jmp     short 0000000001A74A8Bh                   
+ 1A74A76  mov     rax,rcx                                   
+ 1A74A79  and     ecx,1                                     
+ 1A74A7C  shr     rax,1                                     
+ 1A74A7F  or      rax,rcx                                   
+ 1A74A82  cvtsi2ss xmm0,rax                                 
+ 1A74A87  addss   xmm0,xmm0                                 
+ 1A74A8B  mov     rdx,[rel 45BA780h]                        
+ 1A74A92  xorps   xmm1,xmm1                                 
+ 1A74A95  mov     rcx,[rdx+18h]                             
+ 1A74A99  test    rcx,rcx                                   
+ 1A74A9C  js      short 0000000001A74AA5h                   
+ 1A74A9E  cvtsi2ss xmm1,rcx                                 
+ 1A74AA3  jmp     short 0000000001A74ABAh                   
+ 1A74AA5  mov     rax,rcx                                   
+ 1A74AA8  and     ecx,1                                     
+ 1A74AAB  shr     rax,1                                     
+ 1A74AAE  or      rax,rcx                                   
+ 1A74AB1  cvtsi2ss xmm1,rax                                 
+ 1A74AB6  addss   xmm1,xmm1                                 
+ 1A74ABA  divss   xmm0,xmm1                                 
+ 1A74ABE  comiss  xmm0,xmm7                                 
+ 1A74AC1  jb      near 0000000001A74BA8h                    
+ 1A74AC7  mov     rdx,r13                                   
+ 1A74ACA  mov     rcx,r14                                   
+ 1A74ACD  call    00000000008FE3BCh                         
+ 1A74AD2  mov     eax,[r13+3ACh]                            
+ 1A74AD9  test    al,1                                      
+ 1A74ADB  je      short 0000000001A74AF1h                   
+ 1A74ADD  mov     edx,40h                                   
+ 1A74AE2  mov     rcx,r13                                   
+ 1A74AE5  call    0000000000048B9Ch                         
+ 1A74AEA  mov     eax,[r13+3ACh]                            
+ 1A74AF1  test    al,2                                      
+ 1A74AF3  je      short 0000000001A74B02h                   
+ 1A74AF5  mov     edx,41h                                   
+ 1A74AFA  mov     rcx,r13                                   
+ 1A74AFD  call    0000000000048B9Ch                         
+ 1A74B02  mov     rax,[r15]                                 
+ 1A74B05  mov     rcx,r15                                   
+ 1A74B08  call    qword [rax+80h]                           
+ 1A74B0E  test    al,al                                     
+ 1A74B10  je      short 0000000001A74B5Ch                   
+ 1A74B12  mov     rax,[r15]                                 
+ 1A74B15  mov     rcx,r15                                   
+ 1A74B18  call    qword [rax+8]                             
+ 1A74B1B  test    al,al                                     
+ 1A74B1D  je      short 0000000001A74B29h                   
+ 1A74B1F  mov     byte [r13+3B8h],1                         
+ 1A74B27  jmp     short 0000000001A74B5Ch                   
+ 1A74B29  mov     rbx,[r13+0F8h]                            
+ 1A74B30  test    rbx,rbx                                   
+ 1A74B33  je      short 0000000001A74B5Ch                   
+ 1A74B35  mov     rax,[rbx]                                 
+ 1A74B38  mov     rcx,rbx                                   
+ 1A74B3B  call    qword [rax+30h]                           
+ 1A74B3E  test    al,al                                     
+ 1A74B40  je      short 0000000001A74B5Ch                   
+ 1A74B42  mov     rax,[rbx]                                 
+ 1A74B45  xor     r9d,r9d                                   
+ 1A74B48  xor     r8d,r8d                                   
+ 1A74B4B  xor     edx,edx                                   
+ 1A74B4D  mov     rcx,rbx                                   
+ 1A74B50  call    qword [rax+10h]                           
+ 1A74B53  mov     rax,[rbx]                                 
+ 1A74B56  mov     rcx,rbx                                   
+ 1A74B59  call    qword [rax+38h]                           
+ 1A74B5C  mov     rcx,[rbp-78h]                             
+ 1A74B60  test    rcx,rcx                                   
+ 1A74B63  je      short 0000000001A74B6Eh                   
+ 1A74B65  mov     rax,[rcx]                                 
+ 1A74B68  mov     rdx,r13                                   
+ 1A74B6B  call    qword [rax+18h]                           
+ 1A74B6E  mov     rax,[rel 45BA780h]                        
+ 1A74B75  cmp     byte [rax+12h],0                          
+ 1A74B79  je      short 0000000001A74B8Bh                   
+ 1A74B7B  lea     rcx,[rbp-70h]                             
+ 1A74B7F  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74B85  mov     rcx,[rbp-70h]                             
+ 1A74B89  jmp     short 0000000001A74B93h                   
+ 1A74B8B  call    0000000000BE379Ch                         
+ 1A74B90  movsxd  rcx,eax                                   
+ 1A74B93  mov     [rsp+50h],rcx                             
+ 1A74B98  test    sil,sil                                   
+ 1A74B9B  je      near 0000000001A74C4Fh                    
+ 1A74BA1  mov     rdx,[rel 45BA780h]                        
+ 1A74BA8  cmp     byte [rdx+12h],0                          
+ 1A74BAC  je      short 0000000001A74BBEh                   
+ 1A74BAE  lea     rcx,[rbp-68h]                             
+ 1A74BB2  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74BB8  mov     rbx,[rbp-68h]                             
+ 1A74BBC  jmp     short 0000000001A74BC6h                   
+ 1A74BBE  call    0000000000BE379Ch                         
+ 1A74BC3  movsxd  rbx,eax                                   
+ 1A74BC6  mov     rdx,[rel 45BA780h]                        
+ 1A74BCD  nop     dword [rax]                               
+ 1A74BD0  cmp     byte [rdx+12h],0                          
+ 1A74BD4  je      short 0000000001A74BE6h                   
+ 1A74BD6  lea     rcx,[rbp-60h]                             
+ 1A74BDA  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74BE0  mov     rcx,[rbp-60h]                             
+ 1A74BE4  jmp     short 0000000001A74BEEh                   
+ 1A74BE6  call    0000000000BE379Ch                         
+ 1A74BEB  movsxd  rcx,eax                                   
+ 1A74BEE  sub     rcx,rbx                                   
+ 1A74BF1  xorps   xmm0,xmm0                                 
+ 1A74BF4  js      short 0000000001A74BFDh                   
+ 1A74BF6  cvtsi2ss xmm0,rcx                                 
+ 1A74BFB  jmp     short 0000000001A74C12h                   
+ 1A74BFD  mov     rax,rcx                                   
+ 1A74C00  and     ecx,1                                     
+ 1A74C03  shr     rax,1                                     
+ 1A74C06  or      rax,rcx                                   
+ 1A74C09  cvtsi2ss xmm0,rax                                 
+ 1A74C0E  addss   xmm0,xmm0                                 
+ 1A74C12  mov     rdx,[rel 45BA780h]                        
+ 1A74C19  xorps   xmm1,xmm1                                 
+ 1A74C1C  mov     rcx,[rdx+18h]                             
+ 1A74C20  test    rcx,rcx                                   
+ 1A74C23  js      short 0000000001A74C2Ch                   
+ 1A74C25  cvtsi2ss xmm1,rcx                                 
+ 1A74C2A  jmp     short 0000000001A74C41h                   
+ 1A74C2C  mov     rax,rcx                                   
+ 1A74C2F  and     ecx,1                                     
+ 1A74C32  shr     rax,1                                     
+ 1A74C35  or      rax,rcx                                   
+ 1A74C38  cvtsi2ss xmm1,rax                                 
+ 1A74C3D  addss   xmm1,xmm1                                 
+ 1A74C41  divss   xmm0,xmm1                                 
+ 1A74C45  comiss  xmm6,xmm0                                 
+ 1A74C48  ja      short 0000000001A74BD0h                   
+ 1A74C4A  jmp     0000000001A744F1h                         
+ 1A74C4F  test    r12,r12                                   
+ 1A74C52  je      near 0000000001A744F1h                    
+ 1A74C58  mov     rax,[rel 45BA780h]                        
+ 1A74C5F  cmp     byte [rax+12h],0                          
+ 1A74C63  je      short 0000000001A74C85h                   
+ 1A74C65  lea     rcx,[rbp-58h]                             
+ 1A74C69  call    qword [rel 38E2420h]                        ; KERNEL32.dll!QueryPerformanceCounter
+ 1A74C6F  mov     r8,[rbp-58h]                              
+ 1A74C73  mov     rcx,r12                                   
+ 1A74C76  mov     rdx,[rsp+38h]                             
+ 1A74C7B  call    000000000003E700h                         
+ 1A74C80  jmp     0000000001A744F1h                         
+ 1A74C85  call    0000000000BE379Ch                         
+ 1A74C8A  mov     rdx,[rsp+38h]                             
+ 1A74C8F  mov     rcx,r12                                   
+ 1A74C92  movsxd  r8,eax                                    
+ 1A74C95  call    000000000003E700h                         
+ 1A74C9A  jmp     0000000001A744F1h                         
+ 1A74C9F  mov     [r13+208h],esi                            
+ 1A74CA6  cmp     [rsp+60h],rsi                             
+ 1A74CAB  jne     short 0000000001A74CB5h                   
+ 1A74CAD  mov     rcx,r14                                   
+ 1A74CB0  call    000000000324EBD0h                         
+ 1A74CB5  mov     rcx,[r13+368h]                            
+ 1A74CBC  test    rcx,rcx                                   
+ 1A74CBF  je      short 0000000001A74CE3h                   
+ 1A74CC1  mov     rax,[rcx]                                 
+ 1A74CC4  xor     edx,edx                                   
+ 1A74CC6  mov     rbx,[r13+18h]                             
+ 1A74CCA  call    qword [rax]                               
+ 1A74CCC  mov     rax,[rbx]                                 
+ 1A74CCF  mov     rcx,rbx                                   
+ 1A74CD2  mov     rdx,[r13+368h]                            
+ 1A74CD9  call    qword [rax+58h]                           
+ 1A74CDC  mov     [r13+368h],rsi                            
+ 1A74CE3  mov     rdx,[r13+348h]                            
+ 1A74CEA  test    rdx,rdx                                   
+ 1A74CED  je      short 0000000001A74D36h                   
+ 1A74CEF  nop                                               
+ 1A74CF0  mov     rcx,[r13+350h]                            
+ 1A74CF7  mov     rbx,[rdx+8]                               
+ 1A74CFB  mov     rdx,[rdx]                                 
+ 1A74CFE  mov     rax,[rcx]                                 
+ 1A74D01  call    qword [rax+58h]                           
+ 1A74D04  mov     rdx,rbx                                   
+ 1A74D07  test    rbx,rbx                                   
+ 1A74D0A  jne     short 0000000001A74CF0h                   
+ 1A74D0C  mov     [r13+348h],rsi                            
+ 1A74D13  mov     [r13+340h],rsi                            
+ 1A74D1A  mov     [r13+350h],rsi                            
+ 1A74D21  mov     [r13+358h],rsi                            
+ 1A74D28  mov     [r13+338h],rsi                            
+ 1A74D2F  mov     [r13+360h],esi                            
+ 1A74D36  xor     eax,eax                                   
+ 1A74D38  lock cmpxchg [r13+384h],esi                       
+ 1A74D41  mov     edx,eax                                   
+ 1A74D43  test    al,2                                      
+ 1A74D45  je      short 0000000001A74D59h                   
+ 1A74D47  mov     ecx,eax                                   
+ 1A74D49  and     ecx,0FFFFFFFDh                            
+ 1A74D4C  lock cmpxchg [r13+384h],ecx                       
+ 1A74D55  cmp     eax,edx                                   
+ 1A74D57  jne     short 0000000001A74D41h                   
+ 1A74D59  mov     r14,[r13+390h]                            
+ 1A74D60  test    r14,r14                                   
+ 1A74D63  je      near 0000000001A74E16h                    
+ 1A74D69  xor     r15d,r15d                                 
+ 1A74D6C  nop     dword [rax]                               
+ 1A74D70  mov     rsi,[r14]                                 
+ 1A74D73  test    rsi,rsi                                   
+ 1A74D76  je      near 0000000001A74E04h                    
+ 1A74D7C  mov     rcx,[rsi+40h]                             
+ 1A74D80  test    rcx,rcx                                   
+ 1A74D83  je      short 0000000001A74DA1h                   
+ 1A74D85  mov     rax,[rcx]                                 
+ 1A74D88  xor     edx,edx                                   
+ 1A74D8A  mov     rbx,[r13+18h]                             
+ 1A74D8E  call    qword [rax]                               
+ 1A74D90  mov     rax,[rbx]                                 
+ 1A74D93  mov     rcx,rbx                                   
+ 1A74D96  mov     rdx,[rsi+40h]                             
+ 1A74D9A  call    qword [rax+58h]                           
+ 1A74D9D  mov     [rsi+40h],r15                             
+ 1A74DA1  mov     rdx,[rsi+20h]                             
+ 1A74DA5  test    rdx,rdx                                   
+ 1A74DA8  je      short 0000000001A74DE1h                   
+ 1A74DAA  nop     word [rax+rax]                            
+ 1A74DB0  mov     rcx,[rsi+28h]                             
+ 1A74DB4  mov     rbx,[rdx+8]                               
+ 1A74DB8  mov     rdx,[rdx]                                 
+ 1A74DBB  mov     rax,[rcx]                                 
+ 1A74DBE  call    qword [rax+58h]                           
+ 1A74DC1  mov     rdx,rbx                                   
+ 1A74DC4  test    rbx,rbx                                   
+ 1A74DC7  jne     short 0000000001A74DB0h                   
+ 1A74DC9  mov     [rsi+20h],r15                             
+ 1A74DCD  mov     [rsi+18h],r15                             
+ 1A74DD1  mov     [rsi+28h],r15                             
+ 1A74DD5  mov     [rsi+30h],r15                             
+ 1A74DD9  mov     [rsi+10h],r15                             
+ 1A74DDD  mov     [rsi+38h],r15d                            
+ 1A74DE1  xor     eax,eax                                   
+ 1A74DE3  lock cmpxchg [rsi+5Ch],r15d                       
+ 1A74DE9  nop     dword [rax]                               
+ 1A74DF0  mov     edx,eax                                   
+ 1A74DF2  test    al,2                                      
+ 1A74DF4  je      short 0000000001A74E04h                   
+ 1A74DF6  mov     ecx,eax                                   
+ 1A74DF8  and     ecx,0FFFFFFFDh                            
+ 1A74DFB  lock cmpxchg [rsi+5Ch],ecx                        
+ 1A74E00  cmp     eax,edx                                   
+ 1A74E02  jne     short 0000000001A74DF0h                   
+ 1A74E04  mov     r14,[r14+8]                               
+ 1A74E08  test    r14,r14                                   
+ 1A74E0B  jne     near 0000000001A74D70h                    
+ 1A74E11  mov     r15,[rsp+40h]                             
+ 1A74E16  mov     rdx,r13                                   
+ 1A74E19  lea     rcx,[rbp-40h]                             
+ 1A74E1D  call    0000000003250D3Ch                         
+ 1A74E22  mov     rbx,[rbp-50h]                             
+ 1A74E26  mov     r14d,[rsp+48h]                            
+ 1A74E2B  jmp     short 0000000001A74E32h                   
+ 1A74E2D  mov     r15,[rsp+40h]                             
+ 1A74E32  test    rbx,rbx                                   
+ 1A74E35  je      short 0000000001A74E40h                   
+ 1A74E37  mov     rax,[rbx]                                 
+ 1A74E3A  mov     rcx,rbx                                   
+ 1A74E3D  call    qword [rax+10h]                           
+ 1A74E40  mov     rdx,r13                                   
+ 1A74E43  lea     rcx,[r13+210h]                            
+ 1A74E4A  call    000000000324AE18h                         
+ 1A74E4F  test    al,al                                     
+ 1A74E51  je      short 0000000001A74EA4h                   
+ 1A74E53  mov     rbx,[r13+0F8h]                            
+ 1A74E5A  test    rbx,rbx                                   
+ 1A74E5D  je      short 0000000001A74E86h                   
+ 1A74E5F  mov     rax,[rbx]                                 
+ 1A74E62  mov     rcx,rbx                                   
+ 1A74E65  call    qword [rax+30h]                           
+ 1A74E68  test    al,al                                     
+ 1A74E6A  je      short 0000000001A74E86h                   
+ 1A74E6C  mov     rax,[rbx]                                 
+ 1A74E6F  xor     r9d,r9d                                   
+ 1A74E72  xor     r8d,r8d                                   
+ 1A74E75  mov     dl,1                                      
+ 1A74E77  mov     rcx,rbx                                   
+ 1A74E7A  call    qword [rax+10h]                           
+ 1A74E7D  mov     rax,[rbx]                                 
+ 1A74E80  mov     rcx,rbx                                   
+ 1A74E83  call    qword [rax+38h]                           
+ 1A74E86  mov     ecx,1                                     
+ 1A74E8B  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A74E91  mov     rdx,r13                                   
+ 1A74E94  lea     rcx,[r13+210h]                            
+ 1A74E9B  call    000000000324AE18h                         
+ 1A74EA0  test    al,al                                     
+ 1A74EA2  jne     short 0000000001A74E53h                   
+ 1A74EA4  mov     dl,1                                      
+ 1A74EA6  mov     rcx,r13                                   
+ 1A74EA9  call    00000000032471DCh                         
+ 1A74EAE  mov     rcx,[r13+160h]                            
+ 1A74EB5  test    rcx,rcx                                   
+ 1A74EB8  je      short 0000000001A74EC5h                   
+ 1A74EBA  mov     rax,[rcx]                                 
+ 1A74EBD  mov     r8,r13                                    
+ 1A74EC0  xor     edx,edx                                   
+ 1A74EC2  call    qword [rax+48h]                           
+ 1A74EC5  mov     edx,4000000h                              
+ 1A74ECA  mov     rcx,rdi                                   
+ 1A74ECD  mov     r8d,edx                                   
+ 1A74ED0  call    000000000062786Ch                         
+ 1A74ED5  xor     r8d,r8d                                   
+ 1A74ED8  mov     byte [r13+1E6h],1                         
+ 1A74EE0  xor     edx,edx                                   
+ 1A74EE2  mov     rcx,r13                                   
+ 1A74EE5  call    0000000000412748h                         
+ 1A74EEA  mov     edx,10000h                                
+ 1A74EEF  mov     rcx,rdi                                   
+ 1A74EF2  call    000000000011E6E0h                         
+ 1A74EF7  mov     rcx,[r13+140h]                            
+ 1A74EFE  test    rcx,rcx                                   
+ 1A74F01  je      short 0000000001A74F0Eh                   
+ 1A74F03  mov     rax,[rcx]                                 
+ 1A74F06  mov     r8,r13                                    
+ 1A74F09  xor     edx,edx                                   
+ 1A74F0B  call    qword [rax+8]                             
+ 1A74F0E  mov     rcx,[r13+128h]                            
+ 1A74F15  xor     ebx,ebx                                   
+ 1A74F17  mov     r8,r13                                    
+ 1A74F1A  mov     [r13+140h],rbx                            
+ 1A74F21  xor     edx,edx                                   
+ 1A74F23  call    0000000000047DF8h                         
+ 1A74F28  mov     edx,10000h                                
+ 1A74F2D  mov     [r13+128h],rbx                            
+ 1A74F34  mov     rcx,rdi                                   
+ 1A74F37  call    000000000011E760h                         
+ 1A74F3C  mov     r9,[r15]                                  
+ 1A74F3F  mov     rdx,r13                                   
+ 1A74F42  mov     rcx,r15                                   
+ 1A74F45  call    qword [r9+20h]                            
+ 1A74F49  mov     rcx,[r13+100h]                            
+ 1A74F50  test    rcx,rcx                                   
+ 1A74F53  je      short 0000000001A74F5Eh                   
+ 1A74F55  mov     rax,[rcx]                                 
+ 1A74F58  mov     rdx,r13                                   
+ 1A74F5B  call    qword [rax+8]                             
+ 1A74F5E  xor     r8d,r8d                                   
+ 1A74F61  mov     edx,4000000h                              
+ 1A74F66  mov     rcx,rdi                                   
+ 1A74F69  call    000000000062786Ch                         
+ 1A74F6E  mov     edx,8000000h                              
+ 1A74F73  call    000000000011E6E0h                         
+ 1A74F78  mov     edx,8000000h                              
+ 1A74F7D  mov     [r13+0E8h],rbx                            
+ 1A74F84  mov     rcx,rdi                                   
+ 1A74F87  call    000000000011E760h                         
+ 1A74F8C  xor     r8d,r8d                                   
+ 1A74F8F  mov     edx,200000h                               
+ 1A74F94  call    000000000062786Ch                         
+ 1A74F99  xor     eax,eax                                   
+ 1A74F9B  lock cmpxchg [rdi],rbx                            
+ 1A74FA0  bt      rax,14h                                   
+ 1A74FA5  jae     short 0000000001A74FC9h                   
+ 1A74FA7  nop     word [rax+rax]                            
+ 1A74FB0  mov     ecx,1                                     
+ 1A74FB5  call    qword [rel 38E2338h]                        ; KERNEL32.dll!Sleep
+ 1A74FBB  xor     eax,eax                                   
+ 1A74FBD  lock cmpxchg [rdi],rbx                            
+ 1A74FC2  bt      rax,14h                                   
+ 1A74FC7  jb      short 0000000001A74FB0h                   
+ 1A74FC9  mov     dl,1                                      
+ 1A74FCB  mov     rcx,r13                                   
+ 1A74FCE  call    00000000032471DCh                         
+ 1A74FD3  mov     rcx,r13                                   
+ 1A74FD6  mov     [r13+1FCh],r14d                           
+ 1A74FDD  call    0000000003247DA8h                         
+ 1A74FE2  jmp     short 0000000001A75015h                   
+ 1A74FE4  xor     eax,eax                                   
+ 1A74FE6  lock cmpxchg [rdi],r8                             
+ 1A74FEB  bt      rax,15h                                   
+ 1A74FF0  jb      short 0000000001A75015h                   
+ 1A74FF2  xor     eax,eax                                   
+ 1A74FF4  lock cmpxchg [rdi],r8                             
+ 1A74FF9  nop     dword [rax]                               
+ 1A75000  mov     rcx,rax                                   
+ 1A75003  mov     rdx,rax                                   
+ 1A75006  btr     rcx,13h                                   
+ 1A7500B  lock cmpxchg [rdi],rcx                            
+ 1A75010  cmp     rax,rdx                                   
+ 1A75013  jne     short 0000000001A75000h                   
+ 1A75015  movaps  xmm7,[rsp+140h]                           
+ 1A7501D  movaps  xmm6,[rsp+150h]                           
+ 1A75025  mov     rsi,[rsp+168h]                            
+ 1A7502D  mov     rcx,[rbp+30h]                             
+ 1A75031  xor     rcx,rsp                                   
+ 1A75034  call    0000000000B912E0h                         
+ 1A75039  add     rsp,170h                                  
+ 1A75040  pop     r15                                       
+ 1A75042  pop     r14                                       
+ 1A75044  pop     r13                                       
+ 1A75046  pop     r12                                       
+ 1A75048  pop     rdi                                       
+ 1A75049  pop     rbx                                       
+ 1A7504A  pop     rbp                                       
+ 1A7504B  ret                                               
+ 1A7504C  mov     ecx,eax                                   
+ 1A7504E  call    0000000000B61D18h                         
+ 1A75053  int3                                              

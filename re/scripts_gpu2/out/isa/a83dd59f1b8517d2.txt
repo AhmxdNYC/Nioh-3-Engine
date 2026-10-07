@@ -1,0 +1,81 @@
+//// gfx1201_isa_comp.txt
+_amdgpu_cs_main:
+	s_version UC_VERSION_GFX12|UC_VERSION_W64_BIT              // 000000000000: B0802009
+	s_getpc_b64 s[2:3]                                         // 000000000004: BE824780
+	s_delay_alu instid0(SALU_CYCLE_1) | instskip(SKIP_3) | instid1(VALU_DEP_1)// 000000000008: BF8700C9
+	s_sext_i32_i16 s1, s3                                      // 00000000000C: BE810F03
+	s_mov_b32 s0, s4                                           // 000000000010: BE800004
+	s_load_b128 s[0:3], s[0:1], 0x0                            // 000000000014: F4004000 F8000000
+	v_and_b32_e32 v0, 0x3ff, v0                                // 00000000001C: 360000FF 000003FF
+	v_mad_u32_u24 v2, ttmp9, 64, v0                            // 000000000024: D60B0002 04018075
+	v_mov_b32_e32 v0, 0                                        // 00000000002C: 7E000280
+	v_mov_b32_e32 v1, 0                                        // 000000000030: 7E020280
+	s_wait_kmcnt 0x0                                           // 000000000034: BFC70000
+	buffer_store_d16_format_xyzw v[0:1], v2, s[0:3], null idxen scope:SCOPE_DEV// 000000000038: C403C07C 80080000 00000002
+	s_nop 0                                                    // 000000000044: BF800000
+	s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)                       // 000000000048: BFB60003
+	s_endpgm                                                   // 00000000004C: BFB00000
+	.long 0xbf9f0000                                           // 000000000050: BF9F0000
+	.long 0xbf9f0000                                           // 000000000054: BF9F0000
+	.long 0xbf9f0000                                           // 000000000058: BF9F0000
+	.long 0xbf9f0000                                           // 00000000005C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000060: BF9F0000
+	.long 0xbf9f0000                                           // 000000000064: BF9F0000
+	.long 0xbf9f0000                                           // 000000000068: BF9F0000
+	.long 0xbf9f0000                                           // 00000000006C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000070: BF9F0000
+	.long 0xbf9f0000                                           // 000000000074: BF9F0000
+	.long 0xbf9f0000                                           // 000000000078: BF9F0000
+	.long 0xbf9f0000                                           // 00000000007C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000080: BF9F0000
+	.long 0xbf9f0000                                           // 000000000084: BF9F0000
+	.long 0xbf9f0000                                           // 000000000088: BF9F0000
+	.long 0xbf9f0000                                           // 00000000008C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000090: BF9F0000
+	.long 0xbf9f0000                                           // 000000000094: BF9F0000
+	.long 0xbf9f0000                                           // 000000000098: BF9F0000
+	.long 0xbf9f0000                                           // 00000000009C: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000A0: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000A4: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000A8: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000AC: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000B0: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000B4: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000B8: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000BC: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000C0: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000C4: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000C8: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000CC: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000D0: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000D4: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000D8: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000DC: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000E0: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000E4: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000E8: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000EC: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000F0: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000F4: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000F8: BF9F0000
+	.long 0xbf9f0000                                           // 0000000000FC: BF9F0000
+	.long 0xbf9f0000                                           // 000000000100: BF9F0000
+	.long 0xbf9f0000                                           // 000000000104: BF9F0000
+	.long 0xbf9f0000                                           // 000000000108: BF9F0000
+	.long 0xbf9f0000                                           // 00000000010C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000110: BF9F0000
+	.long 0xbf9f0000                                           // 000000000114: BF9F0000
+	.long 0xbf9f0000                                           // 000000000118: BF9F0000
+	.long 0xbf9f0000                                           // 00000000011C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000120: BF9F0000
+	.long 0xbf9f0000                                           // 000000000124: BF9F0000
+	.long 0xbf9f0000                                           // 000000000128: BF9F0000
+	.long 0xbf9f0000                                           // 00000000012C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000130: BF9F0000
+	.long 0xbf9f0000                                           // 000000000134: BF9F0000
+	.long 0xbf9f0000                                           // 000000000138: BF9F0000
+	.long 0xbf9f0000                                           // 00000000013C: BF9F0000
+	.long 0xbf9f0000                                           // 000000000140: BF9F0000
+	.long 0xbf9f0000                                           // 000000000144: BF9F0000
+	.long 0xbf9f0000                                           // 000000000148: BF9F0000
+	.long 0xbf9f0000                                           // 00000000014C: BF9F0000

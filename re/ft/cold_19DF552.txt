@@ -1,0 +1,70 @@
+019DF552  838F0002000002           or dword [rdi+200h],2
+019DF559  E969DBBCFE               jmp R_5AD0C7
+019DF55E  418B4F30                 mov ecx,[r15+30h]
+019DF562  898DB8000000             mov [rbp+0B8h],ecx
+019DF568  E90ADCBCFE               jmp R_5AD177
+019DF56D  85C9                     test ecx,ecx
+019DF56F  0F8408DCBCFE             je near R_5AD17D
+019DF575  41894F30                 mov [r15+30h],ecx
+019DF579  E9FFDBBCFE               jmp R_5AD17D
+019DF57E  33D2                     xor edx,edx
+019DF580  488BCE                   mov rcx,rsi
+019DF583  E83479F3FE               call R_916EBC
+019DF588  E8A35F82FE               call R_205530
+019DF58D  488BD0                   mov rdx,rax
+019DF590  493BC4                   cmp rax,r12
+019DF593  0F870EDDBCFE             ja near R_5AD2A7
+019DF599  E918DDBCFE               jmp R_5AD2B6
+019DF59E  0F57C0                   xorps xmm0,xmm0
+019DF5A1  4484B424B0000000         test [rsp+0B0h],r14b
+019DF5A9  741D                     je short R_19DF5C8
+019DF5AB  8B9C24B8000000           mov ebx,[rsp+0B8h]
+019DF5B2  F30F100D264C1F02         movss xmm1,[rel R_3BD41E0]
+019DF5BA  F3480F2AC3               cvtsi2ss xmm0,rbx
+019DF5BF  F30F5EC8                 divss xmm1,xmm0
+019DF5C3  E943DDBCFE               jmp R_5AD30B
+019DF5C8  492BD4                   sub rdx,r12
+019DF5CB  7807                     js short R_19DF5D4
+019DF5CD  F2480F2AC2               cvtsi2sd xmm0,rdx
+019DF5D2  EB15                     jmp short R_19DF5E9
+019DF5D4  488BC2                   mov rax,rdx
+019DF5D7  4923D6                   and rdx,r14
+019DF5DA  48D1E8                   shr rax,1
+019DF5DD  480BC2                   or rax,rdx
+019DF5E0  F2480F2AC0               cvtsi2sd xmm0,rax
+019DF5E5  F20F58C0                 addsd xmm0,xmm0
+019DF5E9  F20F5EC1                 divsd xmm0,xmm1
+019DF5ED  660F5AC8                 cvtpd2ps xmm1,xmm0
+019DF5F1  E90EDDBCFE               jmp R_5AD304
+019DF5F6  4183671800               and dword [r15+18h],0
+019DF5FB  0F57D2                   xorps xmm2,xmm2
+019DF5FE  E95BDDBCFE               jmp R_5AD35E
+019DF603  488B4D40                 mov rcx,[rbp+40h]
+019DF607  448BCB                   mov r9d,ebx
+019DF60A  48894C2448               mov [rsp+48h],rcx
+019DF60F  4C8BC7                   mov r8,rdi
+019DF612  8B8DAC000000             mov ecx,[rbp+0ACh]
+019DF618  488BD6                   mov rdx,rsi
+019DF61B  0FBAE918                 bts ecx,18h
+019DF61F  894C2450                 mov [rsp+50h],ecx
+019DF623  488D4C2448               lea rcx,[rsp+48h]
+019DF628  48894C2420               mov [rsp+20h],rcx
+019DF62D  488BC8                   mov rcx,rax
+019DF630  E83F0D8D01               call R_32B0374
+019DF635  90                       nop
+019DF636  E986DDBCFE               jmp R_5AD3C1
+019DF63B  CC                       int3
+019DF63C  498B01                   mov rax,[r9]
+019DF63F  488B90F8000000           mov rdx,[rax+0F8h]
+019DF646  4C8B8AD0E51E00           mov r9,[rdx+1EE5D0h]
+019DF64D  4D85C9                   test r9,r9
+019DF650  0F84BD03BDFE             je near R_5AFA13
+019DF656  4D8B4928                 mov r9,[r9+28h]
+019DF65A  4D85C9                   test r9,r9
+019DF65D  0F84B003BDFE             je near R_5AFA13
+019DF663  418B4264                 mov eax,[r10+64h]
+019DF667  418B4A68                 mov ecx,[r10+68h]
+019DF66B  41874C8140               xchg ecx,[r9+rax*4+40h]
+019DF670  453803                   cmp [r11],r8b
+019DF673  410F95C0                 setne r8b
+019DF677  4587413C                 xchg r8d,[r9+3Ch]

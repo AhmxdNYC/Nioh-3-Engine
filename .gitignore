@@ -1,0 +1,43 @@
+﻿# --- never publish game content, saves or third-party binaries ---
+backups/
+re/Nioh3.dump.exe
+re/ghidra_proj/
+re/ghidra_proj_backup*/
+data/extract/
+data/dumps/
+data/physics_backup/
+data/physics_work/
+data/foliage_backup/
+gpu-shaders/backup/
+gpu-shaders/replacement/*.file
+re/scripts_gpu/out/wdo28/*.file
+mods/
+optiscaler/files/
+tools/
+mod/ally-package/
+
+# --- build outputs ---
+mod/*/bin/
+mod/*/build/
+*.obj
+*.pdb
+*.asi
+*.dll
+*.exe
+
+# --- large captures / screenshots ---
+captures/rgp/
+captures/sweep/*.png
+captures/checks/
+captures/*.png
+*.rgp
+*.dmp
+
+# --- local state ---
+patcher/*_state.txt
+patcher/ft_vrr_dynfps.txt
+panel/settings.txt
+panel/panel.log
+panel/panel.err
+**/__pycache__/
+*.pyc

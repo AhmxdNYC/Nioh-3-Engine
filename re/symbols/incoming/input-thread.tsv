@@ -1,0 +1,44 @@
+# input-thread.tsv - [App]InputUpdateWorker analysis 2026-10-07 (notes/input-thread.md, re/scripts_input/input_live.fsx). Same columns as symbols.tsv.
+rva	kind	name	signature	description	confidence	source
+0x1230	function	IsRunningUnderWine	bool IsRunningUnderWine(void)	GetProcAddress(ntdll,"wine_get_version") != 0, cached in g_IsWine; only caller 0x1300 (nvapi/Streamline loader), not used by input	high	notes/input-thread.md §Wine
+0x2936554	function	AppWorkerThreadStart	bool AppWorkerThreadStart(KtglWorker* w, void* entry, u32 a3, int stack, u32 a5, const char* name)	generic [App] worker creator (35 callers): w+0x158 = entry, name copied to w+0x160, thread created by 0x5b7434 with trampoline 0x2937114; used by InputUpdateWorker, EffectUpdateThread, StageUpdateThread etc.	high	notes/input-thread.md §1
+0x2937114	label	AppWorkerThreadTrampoline		thread start trampoline (no pdata): jmp [rdx+0x158] (the worker entry)	high	notes/input-thread.md §1
+0x2973ad0	function	InputUpdateWorkerStart	bool InputUpdateWorkerStart(...)	AppWorkerThreadStart(&g_InputUpdateWorker, InputUpdateWorkerMain, ..., stack 0x40000, "[App]InputUpdateWorker")	high	notes/input-thread.md §1
+0x2973e3c	function	InputUpdateWorkerCreate	void InputUpdateWorkerCreate(void)	gets thread params (0x5b9304(0x44)) and calls InputUpdateWorkerStart; caller 0x298d6c8	high	notes/input-thread.md §1
+0x1a7b8b4	function	InputUpdateWorkerMain	u32 InputUpdateWorkerMain(void* a1, KtglWorker* w)	thread loop: KtglEventWait(w+8); until quit flag w+0x150: vf[2](w) (InputUpdateWorkerRun); KtglEventSet(w+0xa8); KtglEventWait(w+8). Event-driven, kicked once per frame by InputWorkerKick - NOT a polling loop	high	notes/input-thread.md §1
+0x45c3810	global	g_InputUpdateWorker	KtglWorker	static worker object: vtbl 0x3b88660, start event +8, done event +0xa8, quit +0x150, entry +0x158 (=0x1a7b8b4), name +0x160 "[App]InputUpdateWorker", pad-stage event +0x1a0	high	notes/input-thread.md §1
+0x3b88660	vtable	InputUpdateWorker_vtbl		vf[0] 0x296d354, vf[1] 0x2972d64, vf[2] 0x435418 (InputUpdateWorkerRun)	high	notes/input-thread.md §1
+0x435418	function	InputUpdateWorkerRun	void InputUpdateWorkerRun(KtglWorker* w)	vf[2]: PadUpdateIfMgr(); KtglEventSet(w+0x1a0 pad-stage event, awaited <=1 ms by FrameEarlyUpdate); if g_MouseKbEnabled MouseKbUpdate()	high	notes/input-thread.md §2
+0x437258	function	PadUpdateIfMgr	void PadUpdateIfMgr(void)	if [0x4b5a7c8] != 0 -> PadMgrUpdate	high	notes/input-thread.md §2
+0x43671c	function	PadMgrUpdate	void PadMgrUpdate(void* pads)	per-frame pad update: PadPollDevices(g_pPadMgr), then PadUpdateActive (XInput path) or the 4-slot reset 0x296d3e8; per-slot rumble/state (0x436a1c, 0x43837c -> XInputSetState 0x1fdbb40)	high	notes/input-thread.md §2
+0x434e18	function	PadPollDevices	void PadPollDevices(PadMgr* m)	XInputGetState on all 4 slots every 2.0 dt-units (m+0x698a0 accumulator) to set m+0x69850+i*0x14; per frame only on connected slots (clears the slot on failure); DI keyboard 0x435d58; 4 Sony HID pad handles via 0xae4f90/0xae4d10/0xae56f0 (SetupDi lookup 0x43506c on connect)	high	notes/input-thread.md §2
+0x434d24	function	PadUpdateActive	void PadUpdateActive(void* pads)	XInput path: 0x911388, 0x433224, PadActiveScanWrap, 0x4321d4, 0x433824, 0x432de0, 0x433114, 0x434da0	high	notes/input-thread.md §2
+0x435b1c	function	PadActiveScanWrap	void PadActiveScanWrap(void* pads, u8* skip)	calls XInputFindActivePad(g_pPadMgr, &state) every frame (flag always 0 from PadUpdateActive)	high	notes/input-thread.md §2
+0x435b8c	function	XInputFindActivePad	bool XInputFindActivePad(PadMgr* m, XINPUT_STATE* s)	XInputGetState(0..3) on every slot every frame (connected or not); first slot with a button/trigger/stick past deadzone (0x1EA8/0x21F0) becomes m+0x69b20; then XInputGetState(active). On Windows the empty-slot calls re-enumerate devices (cfgmgr32/DeviceIoControl)	high	notes/input-thread.md §3
+0x435bb7	label	XInputFindActivePad_ScanCall		X1 patch site: FF 15 93 D0 4A 03 (call [XInputGetState]) -> 90 E8 <cave>: skip slots with PadMgr::Connected == 0 (return 0x48F)	high	re/scripts_input/input_live.fsx; notes/input-thread.md §4
+0x19a9b2c	label	XInputFindActivePad_Found		cold block: activity test on the returned XINPUT_STATE, sets PadMgr::ActiveXSlot	high	notes/input-thread.md §3
+0x435698	function	MouseKbUpdate	bool MouseKbUpdate(void)	per frame (g_MouseKbEnabled): DiMouseGetState, CursorUpdate (GetCursorPos/ScreenToClient/GetClientRect/ClientToScreen/SetCursorPos), MouseButtonsPoll (GetAsyncKeyState x5-9), MouseDeltaLatch (mutex), GetClientRect	high	notes/input-thread.md §2
+0x4371dc	function	DiMouseGetState	bool DiMouseGetState(void)	IDirectInputDevice8::GetDeviceState(0x14 = DIMOUSESTATE2) on [g_pCursorState]+0x420, Acquire+retry on failure	high	notes/input-thread.md §2
+0x435864	function	CursorUpdate	void CursorUpdate(void)	GetCursorPos, ScreenToClient, GetClientRect, ClientToScreen + SetCursorPos (recenter) per frame	high	notes/input-thread.md §2
+0x435e08	function	MouseButtonsPoll	bool MouseButtonsPoll(void)	GetClientRect + GetAsyncKeyState for VK 1/2 (via 0x99f5c0/0x99f5e8), 4, 5, 6 per frame	high	notes/input-thread.md §2
+0x435748	function	MouseDeltaLatch	bool MouseDeltaLatch(void)	WaitForSingleObject(mutex [g_pCursorState]+0x418) / ReleaseMutex around latching the WndProc-accumulated wheel/delta (+0x43c/+0x448), then GetClientRect	high	notes/input-thread.md §2
+0x435d58	function	DiKeyboardGetState	void DiKeyboardGetState(void* kb)	IDirectInputDevice8::GetDeviceState(0x100) on kb+0xe48, Acquire/Unacquire handling	high	notes/input-thread.md §2
+0x43506c	function	PadDeviceInfoLookup	void PadDeviceInfoLookup(PadMgr* m, int slot, void* info)	SetupDiGetClassDevsA/EnumDeviceInterfaces/GetDeviceRegistryPropertyA lookup, only when a Sony HID pad slot (re)connects	medium	notes/input-thread.md §2
+0x5ab7b0	function	InputWorkerKick	void InputWorkerKick(void)	InputWorkerJoin(); reset pad-stage event (0x2f6ce8 on 0x45c39b0); KtglEventSet(g_InputUpdateWorker+8); g_InputWorkerPending = 1. Called once per frame from UpdateDispatchB	high	notes/input-thread.md §1
+0x5ab7e0	function	InputWorkerJoin	void InputWorkerJoin(void)	if g_InputWorkerPending: KtglEventWait(g_InputUpdateWorker+0xa8); pending = 0 (GameModeUpdateMain and InputWorkerKick)	high	notes/input-thread.md §1
+0x86c018	function	InputWorkerWaitPadStage	void InputWorkerWaitPadStage(void)	FrameEarlyUpdate: KtglEventWaitFor(g_InputUpdateWorker+0x1a0, 1 ms) - main thread waits up to 1 ms for the pad stage	high	notes/input-thread.md §1
+0x86c040	function	KtglEventWaitFor	bool KtglEventWaitFor(KtglEvent* e, const i64* ms)	KTGL event wait with timeout (ms * 1e6 ns via 0x86c244), auto-reset on success	high	notes/input-thread.md §1
+0xaf55e0	function	HidReadReportOverlapped	int HidReadReportOverlapped(void* dev, void* buf, u32 len, ...)	Sony HID pad read: CreateEventW + ReadFile(overlapped) + GetOverlappedResultEx(100 ms or 5000 ms) + CancelIoEx + CloseHandle per report	high	notes/input-thread.md §Wine
+0x45ba1e0	global	g_pPadMgr	PadMgr*	pad manager (heap); rcx of PadPollDevices and XInputFindActivePad; read by the X1 cave	high	notes/input-thread.md §3
+0x45ba540	global	g_MouseKbEnabled	u8	gates MouseKbUpdate in InputUpdateWorkerRun; 1 in the dump	high	notes/input-thread.md §2
+0x45ba541	global	g_InputWorkerPending	u8	set by InputWorkerKick, cleared by InputWorkerJoin	high	notes/input-thread.md §1
+0x4569828	global	g_IsWine	u8	cache of IsRunningUnderWine	high	notes/input-thread.md §Wine
+0x4bd08d8	global	g_pMouseKbState	void*	mouse/keyboard state: +0 HWND, +0x10 DI mouse ok, +0x418 mutex, +0x420 IDirectInputDevice8* mouse, +0x428 DIMOUSESTATE2, +0x43c/+0x448 WndProc-accumulated deltas	medium	notes/input-thread.md §2
+0x69850	struct_field	PadMgr::Connected	u8	slot i at +0x69850+i*0x14: 1 = XInput slot connected (set by the 2-s probe in PadPollDevices, cleared when a per-frame poll fails); X1 cave reads it	high	notes/input-thread.md §3
+0x69854	struct_field	PadMgr::XState	XINPUT_STATE	slot i at +0x69854+i*0x14	high	notes/input-thread.md §3
+0x698a0	struct_field	PadMgr::ProbeTimer	f32	accumulator; all-slot XInput probe when >= 2.0	high	notes/input-thread.md §3
+0x69b20	struct_field	PadMgr::ActiveXSlot	u32	XInput slot chosen by XInputFindActivePad	high	notes/input-thread.md §3
+0x150	struct_field	KtglWorker::QuitFlag	u32	worker loop exits when 1 (atomically cleared)	high	notes/input-thread.md §1
+0x158	struct_field	KtglWorker::Entry	void*	thread entry jumped to by AppWorkerThreadTrampoline	high	notes/input-thread.md §1
+0x160	struct_field	KtglWorker::Name	char[]	thread name string	high	notes/input-thread.md §1
+0x1a0	struct_field	KtglWorker::PadStageEvent	KtglEvent	InputUpdateWorker only: signalled after the pad stage, awaited by FrameEarlyUpdate (<=1 ms)	high	notes/input-thread.md §1

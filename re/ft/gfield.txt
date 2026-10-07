@@ -1,0 +1,61 @@
+unknown cmd
+== fn_39E3E0 (56 bytes)
+   0039E418  899820060000             mov [rax+620h],ebx
+   0039E42A  899818060000             mov [rax+618h],ebx
+== fn_5AF4E4 (F9 bytes)
+   005AF5D2  898118060000             mov [rcx+618h],eax
+== fn_5E8D48 (1B0 bytes)
+   005E8E4C  440F44862C060000         cmove r8d,[rsi+62Ch]
+== fn_98F368 (69 bytes)
+   0098F3C6  898120060000             mov [rcx+620h],eax
+== fn_E22D10 (D1 bytes)
+   00E22D4A  80B88C05000000           cmp byte [rax+58Ch],0
+   00E22D85  0FB6808B050000           movzx eax,byte [rax+58Bh]
+== fn_E5017E (1EA bytes)
+   00E50215  8B8014060000             mov eax,[rax+614h]
+== fn_E5ECB1 (113 bytes)
+   00E5ED17  8B8014060000             mov eax,[rax+614h]
+== fn_E5EF40 (D7 bytes)
+   00E5EF89  80B88C05000000           cmp byte [rax+58Ch],0
+   00E5EFC4  0FB6808B050000           movzx eax,byte [rax+58Bh]
+== fn_E704A8 (B0 bytes)
+   00E704B4  8B8014060000             mov eax,[rax+614h]
+== fn_F1C8E6 (189 bytes)
+   00F1CA19  8B8014060000             mov eax,[rax+614h]
+== fn_F826BD (7A bytes)
+   00F826E1  8B8014060000             mov eax,[rax+614h]
+== fn_F85DE4 (14B bytes)
+   00F85ED9  8B8014060000             mov eax,[rax+614h]
+== fn_FC5530 (C7 bytes)
+   00FC559F  80B88C05000000           cmp byte [rax+58Ch],0
+   00FC55DA  0FB6808B050000           movzx eax,byte [rax+58Bh]
+== fn_FDC23D (1F0 bytes)
+   00FDC287  80B88C05000000           cmp byte [rax+58Ch],0
+   00FDC2C2  0FB6808B050000           movzx eax,byte [rax+58Bh]
+== fn_1018120 (D9 bytes)
+   0101816E  80B88C05000000           cmp byte [rax+58Ch],0
+   01018199  80B88C05000000           cmp byte [rax+58Ch],0
+   010181D4  0FB6808B050000           movzx eax,byte [rax+58Bh]
+== fn_10E03D0 (1BF bytes)
+   010E0537  8B8014060000             mov eax,[rax+614h]
+== fn_10F2850 (9F bytes)
+   010F2876  8B801C060000             mov eax,[rax+61Ch]
+== fn_10F7D00 (C9 bytes)
+   010F7DAF  C780200600001E000000     mov dword [rax+620h],1Eh
+== fn_10F7DD0 (FD bytes)
+   010F7DF5  F30F109024060000         movss xmm2,[rax+624h]
+   010F7E20  8B881C060000             mov ecx,[rax+61Ch]
+== fn_115A281 (1AD bytes)
+   0115A3D8  8B8014060000             mov eax,[rax+614h]
+== fn_124CF27 (158 bytes)
+   0124D029  8B8014060000             mov eax,[rax+614h]
+== fn_124F5DD (7A bytes)
+   0124F601  8B8014060000             mov eax,[rax+614h]
+== fn_1250F68 (157 bytes)
+   01251069  8B8014060000             mov eax,[rax+614h]
+== fn_125392D (7A bytes)
+   01253951  8B8014060000             mov eax,[rax+614h]
+== fn_1253EAD (7A bytes)
+   01253ED1  8B8014060000             mov eax,[rax+614h]
+== fn_1272AFE (160 bytes)
+   01272C08  8B8014060000             mov eax,[rax+614h]

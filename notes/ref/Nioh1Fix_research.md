@@ -1,0 +1,342 @@
+# Framerate Research
+
+## Examined Build
+
+- Product: Nioh: Complete Edition
+- ProductVersion: 1.24.8.0
+- PE timestamp: `0x6307ABD5`
+- PE image size: `0x0306E000`
+- Packed executable SHA-256:
+  `56006af3fc0945248aa7a2e33fd95d4e510f1dbe3395eb3644dae3c2806377f6`
+
+Analysis uses the persistent unpacked copy at
+`$HOME/.local/share/Nioh1Fix/analysis/nioh.exe.unpacked.exe`. The installed
+executable was not modified.
+
+## Frame Profiles
+
+Katana Engine uses a four-row frame-profile table:
+
+| Row | Stock target | Values |
+| --- | ---: | --- |
+| 0 | 60.0 | 1, 1 |
+| 1 | 30.0 | 1, 2 |
+| 2 | 30.0 | 1, 2 |
+| 3 | 60.0 | 1, 2 |
+
+Nioh1Fix changes rows 0 and 3 to its fixed internal target of 120. Rows 1 and
+2 remain at 30. This target is not exposed as user configuration because the
+actual presentation rate is measured dynamically.
+
+The table alone does not unlock presentation. The two gameplay rows stayed
+patched to 120 during testing while the game continued presenting at 60 FPS.
+
+## Confirmed Limiter Path
+
+Three independent changes are required:
+
+1. Patch the two 60 FPS gameplay profiles to the internal 120 FPS target.
+2. Disable the QPC-based limiter called immediately after each `Present`.
+3. Replace the game's Present dispatch with `SyncInterval = 0` and
+   `DXGI_PRESENT_DO_NOT_WAIT`.
+
+The post-Present limiter at RVA `0x00A9C2D0` was the final effective 60 FPS
+cap. Once disabled, the game followed higher external caps in menus and
+gameplay.
+
+## Dynamic Gameplay Timing
+
+Unlocking presentation exposed a second issue: gameplay and animation speed
+depended on a direct target-FPS accessor at RVA `0x00E7D150`. This accessor has
+roughly 190 static call sites in the supported executable.
+
+Experiments established the direction of the dependency:
+
+- Returning the fixed internal target while presenting above it left gameplay
+  somewhat too fast.
+- Returning the stock value 60 made gameplay approximately twice as fast.
+- Returning the measured presentation FPS improved timing.
+- Returning twice the measured presentation FPS produced stable wall-clock
+  animation duration and remained correct while changing FPS caps at runtime.
+
+For gameplay profiles, the final correction is:
+
+```text
+timing_divisor = 2 * measured_presentation_fps
+```
+
+Presentation intervals are measured once per frame with
+`QueryPerformanceCounter`. The accessor uses the immediately preceding frame
+interval and clamps the result to 30 through 2000. Before the first measured
+interval, it returns `2 * 120` as a startup fallback.
+
+The two 30 FPS profiles bypass dynamic compensation and return 30.
+
+## Component Timing and Input
+
+The dynamic gameplay divisor corrects the player and the verified shared
+motion-component paths. Additional narrowly scoped corrections are required
+for systems that consume per-render values directly:
+
+- Three motion-component delta calls use the measured presentation scale.
+- Normal gameplay camera rotation coefficients are scaled at RVA `0x00853457`.
+  The combined controller and mouse axes in XMM9 and XMM10 remain unscaled
+  because the same values are subsequently compared with the lock-on target-
+  switching threshold. Scaling the coefficients in XMM7 and XMM8 preserves
+  normalized free-camera sensitivity without weakening lock-on input.
+- Firearm and bow aiming-camera axes are scaled at RVA `0x0085E429`.
+- The grass and bush wind phase is scaled at RVA `0x0099105C`.
+- The active seconds-based SCL interface-animation branch is scaled at RVA
+  `0x0053370A`; this corrects the Amrita Gauge pulse.
+- The `CStatisticalOcean::Update` delta is scaled at RVA `0x003A3440`.
+- Cloud movement deltas are scaled in `CCloudPlane::Update` at RVA
+  `0x003A9150`, `CCloudCircle::Update` at RVA `0x003ABAB0`, and
+  `CCloudParticleObject::Update` at RVA `0x003AF180`.
+- The overflow-text controller at RVA `0x0056C1B0` scales its fixed per-render
+  displacement by the presentation interval, preserving horizontal scroll
+  speed for long menu text.
+- Transient pressed, released, and repeat input state is exposed at the
+  original 60 Hz cadence through the call at RVA `0x00FABFA0`.
+
+Each location is found through a unique relocation-aware signature. Fixed
+instruction and operand bytes must match; only audited RIP-relative and call
+displacements are wildcarded. The RVAs above are diagnostic references, not
+patch targets. The timing scale is bounded during startup, cap changes, jitter,
+and stalls; stock 30 FPS profiles use a scale of one.
+
+The input cadence gate calls the original input update on accepted 60 Hz
+samples. Transient and repeat masks are cleared on skipped invocations. This
+preserves firearm trigger handling while preventing one D-pad press from
+producing several menu transitions. Calling the original update on every
+invocation advanced internal repeat state too frequently and regressed menu
+navigation. A later candidate handed a confirmed raw evade/run press off once
+at the gameplay input-module boundary, but did not materially improve evasion
+reliability and was removed.
+
+Testing initially suggested that enemy movement needed another pathfinding
+hook. Those observations came from passive tutorial enemies. Normal aggressive
+enemies later confirmed that idle, movement, blocking, and attack animation
+timing are already corrected by the validated gameplay and motion-component
+paths. No additional AI, pathfinding, physics, attack, or invulnerability hook
+is installed.
+
+## Runtime Patching
+
+SteamStub decrypts code after the ASI starts. Nioh1Fix monitors for 120 seconds
+at 250 ms intervals. Before the first write, it must uniquely locate every
+required code path in executable sections. It then derives and validates the
+frame-profile table, active-profile index, shared motion target, input-update
+target and mask layout, and every overwrite block.
+
+The known timestamp and image size identify the runtime-validated Steam build
+for diagnostics; they are not a compatibility gate. An unknown build proceeds
+only when the complete plan validates. Resolved addresses remain process-local
+and are not persisted as generated RVAs. This supports automatic relocation of
+unchanged code, not automatic reverse engineering of changed code.
+
+The frame-profile table is also monitored. If it returns to the exact original
+state, the internal 120 FPS target is reapplied. Any unexpected table state stops
+monitoring without another write.
+
+Relevant RVAs for the supported build:
+
+- Frame profile table: `0x017AA8D8`
+- Active frame profile: `0x01BB01E8`
+- Direct gameplay FPS accessor: `0x00E7D150`
+- Reciprocal target helper: `0x00E7D170`
+- Post-Present QPC limiter: `0x00A9C2D0`
+- Present dispatch block: `0x002B220C`
+- Original Present sync-interval load: `0x002B2231`
+- Frame controller: `0x019301D0`
+- SCL interface-animation scale: `0x0053370A`
+- Statistical-ocean update: `0x003A3440`
+- Cloud-plane update: `0x003A9150`
+- Cloud-circle update: `0x003ABAB0`
+- Cloud-particle update: `0x003AF180`
+- Overflow-text controller update: `0x0056C1B0`
+- Shared gameplay-action timer update: `0x0071D670`
+- Push-button action-rate update: `0x00730200`
+- Per-action consecutive-held counters: `0x00750220`
+- CharacterObject worker dispatch: `0x00775A20`
+- Delta-driven worker phases: `0x0076C0F0`, `0x0076D990`, `0x007703A0`
+- Script-visible Shot category check: `0x009381FC`
+
+RVAs and PE metadata are documentation and diagnostics. Runtime writes use the
+fully validated compatibility plan derived from relocation-aware signatures.
+
+## Rejected Approaches
+
+- Patching only the frame-profile table did not exceed 60 FPS.
+- Forcing non-blocking Present did not exceed 60 FPS while the post-Present
+  limiter remained active.
+- Bypassing main and worker synchronization produced faster simulation without
+  increasing presentation and is not part of the final implementation.
+- Scaling the value at world offset `0x18322C` was ineffective for visible
+  animation. Diagnostics showed that value was already a seconds-based delta.
+- Returning a fixed stock 60 from the direct FPS accessor applied compensation
+  in the wrong direction and increased animation speed.
+- Experimental broad enemy-update hooks did not improve the tutorial
+  observation and caused firearm or menu regressions. They are not part of the
+  validated implementation.
+- Scaling the fixed one-layout-frame-per-render branch of
+  `CAnimatorBase@scl@ktgl@@` at RVA `0x0056D77C` did not affect the Amrita
+  Gauge pulse. That experiment was removed; the active seconds-based branch at
+  RVA `0x0053370A` was later identified and validated.
+- Scaling the inactive fixed-step SCL loop at RVA `0x005334F9` did not affect
+  overflow text; runtime diagnostics showed that loop was not entered. The
+  dedicated text-scroll controller was identified and used instead.
+- Gating the complete input-update and action-mapping pipeline at 60 Hz caused
+  missed attacks and unreliable menus, while forward evade remained unreliable
+  across framerate changes. The original inner sampler gate was restored.
+- A diagnostic detour at the raw-to-action mapper crashed during startup. Its
+  trampoline's absolute continuation jump clobbered `RAX`, which the mapper
+  prologue uses to retain its entry stack pointer. The hook was removed.
+- A later direct-call diagnostic at the gameplay input snapshot crashed while
+  loading gameplay. It was removed along with all temporary input diagnostics.
+
+## Gameplay Action Timing Investigation
+
+The gameplay `CActModuleInputBase` path is separate from menu input. Its shared
+update at RVA `0x0071D670` decrements multiple action timers by a fixed layout
+frame and supplies that same fixed delta to eight embedded frame-rate
+controllers. `CPushButtonFRateController` at RVA `0x00730200` also advances its
+rise and fall state by fixed per-update increments. These are the downstream
+hold-duration mechanisms used for gameplay action classification; unlike the
+raw sampler, they can be normalized without suppressing physical button edges.
+
+A combined experiment scaled both the shared action-frame delta and the
+push-button rise/fall increments. Forward evade remained unreliable across
+framerates, so that experiment was removed. The aggregate action-update counter
+covers multiple modules and cannot distinguish the player instance.
+A second candidate scaled only the shared countdown delta and left the
+persistent push-button rise/fall state untouched. Forward evade then failed on
+every attempt. Both action-timing experiments were removed.
+
+Static tracing of the player controller identified the evade/run classifier's
+actual held channel as gameplay action index 3. It reads the consecutive-held
+counter at RVA `0x00732BB0` and compares the result against 2 and 30 layout
+frames. The shared counter update at RVA `0x00750220` advances all 56 gameplay
+action counters on every gameplay-module invocation, independently of the
+physical-input sampler. The validated correction preserves every action edge
+but caps only continued held-counter advancement at the original 60 Hz
+cadence.
+
+## Projectile Timing Investigation
+
+Projectile velocity increased with unlocked
+framerate. Tests at 45 and 135 Hz rejected three plausible paths because their
+counters remained zero while ordinary-arrow speed still changed threefold:
+
+- The shot-manager copied delta at RVA `0x0078DB98`.
+- Category-4 `CharacterObjectUpdateWorker` branches. RTTI later proved
+  `ChildShotObject` derives from `ChildGameObjectBase`, not CharacterObject.
+- The script-visible `Shot::SetVelocity` store at RVA `0x00938242`.
+
+Counters for Gadget creation (`0x00943240`), `ChildShotObject` transforms
+(`0x00744EB0`), and `MultiArrows` (`0x00E2A500`) identified only ChildShot as
+the ordinary-arrow path. Its category-4 `Shot` uses the dispatch table at
+`0x017996F0` and the direct update at `0x00DE42D0`. That update already receives
+an inverse-rate delta: about `0.667` at 45 Hz and `0.222` at 135 Hz.
+
+The nested `+0x1D0` motion component was absent and `+0x1E0` inactive. Scaling
+decoded ChildShot positions also had no visible effect. Correlation showed
+those positions and Shot `+0xF0` were already wall-clock normalized, identifying
+them as synchronization or collision state. RTTI instead identified Shot
+`+0x78` as `ControlScriptObject` and `+0x88` as `PostureAnimeObject`.
+
+The Shot update passes that delta to `PostureAnimeObject` at `0x0095FFD0`, but
+the callee only checks that it is positive and advances one integer animation
+frame per invocation. Two unique signatures validate the Shot-specific call
+layout and its complete callee before patching. A per-posture accumulator
+preserves stock 30 FPS profiles and converts the dynamic-profile delta into a
+framerate-independent cadence.
+
+The first production candidate multiplied the delta by two and therefore
+produced 60 posture steps per second. Runtime counters confirmed `0.441` steps
+per 135 Hz call and `1.332` per 45 Hz call, and ordinary-arrow velocity was
+identical at both caps. Subsequent comparison found that normalized projectile
+speeds remained approximately twice the stock base speed. The validated
+correction maps each delta unit to one step, targeting 30 posture steps per
+second: `0.222`
+steps per 135 Hz call, `0.667` per 45 Hz call, and one step every two calls at
+60 Hz. The passed delta remains unchanged because the original callee ignores
+its magnitude.
+
+The corrected speed reduced both player and enemy projectile reach by the same
+amount at 45, 60, and 135 FPS, and the projectiles visibly disappeared in
+mid-air. A candidate hook halved the apparent Shot expiry countdown at object
+offset `+0x304`, but its runtime counter remained zero throughout the arrow
+test; that path is inactive for the tested projectiles and was removed.
+
+The next candidate halved stateful displacement in the active
+`ChildShotObject` transform, preserving raw samples in Shot `+0x160` and
+accumulating output in `+0x170`. Runtime counters confirmed that the hook was
+active, but reach became significantly longer at 45 Hz than at 135 Hz. The
+transform stream is therefore not a valid fixed-factor correction point and
+the behavior-changing hook was removed.
+
+The first termination diagnostic observed the generic end-event setter at RVA
+`0x00435760` and the category-4 terminal flag stores at RVA `0x00749712`.
+Both counters remained zero while the Shot posture counter reached 2,458, so
+those paths were removed.
+
+The direct Shot update has two earlier exits. RVA `0x00DE4330` sets owner/end
+flag `+0x1A5`; RVA `0x00DE43AF` sets expiry flag `+0x1A1` when countdown
+`+0x304` is already zero. The latter can execute without reaching the rejected
+countdown-subtraction hook, explaining its zero count. During a 135 Hz test,
+the owner/end counter stayed zero while five projectiles reached the expiry
+store, identifying the active mid-air disappearance path.
+
+The next candidate recorded each Shot's first posture-update time and first
+already-expired attempt, then delayed that exact end flag until twice the
+observed original wall-clock lifetime. Reach nevertheless remained greater at
+45 Hz than at 135 Hz, so delaying the terminal store did not correct the source
+of the cap dependence and the hook was removed.
+
+Static tracing initially identified a no-delta call on Shot `+0x78` to
+`ControlScriptObject` event dispatcher RVA `0x0094EAE0`. Gating the
+Shot-specific call at RVA `0x00DE496B` to 30 Hz did not change reach. Runtime
+counters explained why: it ran only 18 times against 2,167 posture calls, so it
+is an occasional event path rather than the per-frame lifetime source. That
+candidate was removed.
+
+The active expiry predicate call at Shot RVA `0x00DE43A6` targets
+`ControlScriptObject` RVA `0x0094FCF0`. Full disassembly shows that this is not
+a read-only predicate: after processing script state it increments integer
+fields `+0x14` and `+0x1C` on every invocation, then returns whether the script
+remains alive. The validated correction gates this exact Shot-specific call
+with a bounded, synchronized, timeout-reset per-ControlScript accumulator
+targeting 30 ticks per second. Skipped calls return true so the Shot remains alive;
+accepted calls preserve the original result, and stock 30 FPS profiles retain
+one original tick per invocation. Runtime diagnostics at approximately 135 Hz
+recorded 32,655 tick attempts and 7,253 accepted original steps, a ratio of
+`0.222`, matching `30 / 135`. Runtime comparison then found identical velocity
+and reach at 45 and 135 Hz for tested player and enemy projectiles.
+
+Earlier Gadget, ChildShot, MultiArrows, direct-Shot, component, dispatch-table,
+and transform-correlation diagnostics were removed after their findings were
+recorded. The [diagnostic hook guide](diagnostic-hooks.md) documents the safe
+callback trampoline used by the completed termination investigation.
+
+## Validation
+
+Validated on Linux with Proton:
+
+- Arbitrary framerates in menus and gameplay.
+- Runtime changes between external FPS caps.
+- Stable player, ordinary enemy, grass, bush, Amrita Gauge pulse, water, and
+  cloud animation duration in wall-clock seconds.
+- Stable normal and firearm/bow aiming-camera sensitivity.
+- Reliable directional lock-on target switching across arbitrary framerates.
+- One menu step per D-pad press, normal hold-to-repeat behavior, and working
+  firearm input.
+- Reliable short-press evasion across arbitrary framerates, with intentional
+  hold-to-run behavior and no observed input regressions.
+- Stable horizontal overflow-text speed while changing external caps; the
+  Amrita Gauge pulse remained correct in the same build.
+- Stable player and enemy projectile velocity and reach at 45 and 135 Hz. The
+  30 Hz base-speed calibration visually matches unmodded stock 60 FPS.
+- Clean startup after the final accessor-based implementation.
+
+Areas that still warrant broader regression testing include cutscenes, physics,
+invulnerability timing, focus loss, and sustained uneven frame times.

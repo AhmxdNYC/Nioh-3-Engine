@@ -1,0 +1,72 @@
+; ---- Nioh3+1C2104 .. +1C2204 (pdata fn None)
+  1C2104  mov     rax,[rax+358h]                            
+  1C210B  ret                                               
+  1C210C  mov     [rsp+8],rbx                               
+  1C2111  push    rdi                                       
+  1C2112  sub     rsp,20h                                   
+  1C2116  xor     ebx,ebx                                   
+  1C2118  mov     r9,rdx                                    
+  1C211B  mov     rdi,rcx                                   
+  1C211E  test    rdx,rdx                                   
+  1C2121  je      short 00000000001C2131h                   
+  1C2123  mov     dl,[rcx+79h]                              
+  1C2126  mov     rcx,r9                                    
+  1C2129  call    00000000001C25CCh                         
+  1C212E  mov     rbx,rax                                   
+  1C2131  lea     rax,[r9+80h]                              
+  1C2138  xor     ecx,ecx                                   
+  1C213A  mov     [rbx+70h],rax                             
+  1C213E  xorps   xmm0,xmm0                                 
+  1C2141  movups  [rax],xmm0                                
+  1C2144  mov     [rax+10h],rcx                             
+  1C2148  mov     rax,[rdi+68h]                             
+  1C214C  mov     rcx,[rbx+70h]                             
+  1C2150  mov     [rbx+68h],rax                             
+  1C2154  mov     al,[rdi+78h]                              
+  1C2157  or      al,1                                      
+  1C2159  mov     [rbx+78h],al                              
+  1C215C  mov     rdx,[rdi+68h]                             
+  1C2160  call    00000000001C2288h                         
+  1C2165  mov     rcx,[rdi+68h]                             
+  1C2169  mov     rax,[rcx]                                 
+  1C216C  call    qword [rax+1A0h]                          
+  1C2172  mov     rcx,[rbx+70h]                             
+  1C2176  mov     edx,2                                     
+  1C217B  mov     [rcx+4],al                                
+  1C217E  mov     rax,[rdi+68h]                             
+  1C2182  mov     rcx,[rbx+70h]                             
+  1C2186  mov     al,[rax+10Ch]                             
+  1C218C  mov     [rcx+6],al                                
+  1C218F  mov     rcx,[rdi+68h]                             
+  1C2193  mov     rax,[rcx]                                 
+  1C2196  call    qword [rax+18h]                           
+  1C2199  mov     rcx,[rbx+70h]                             
+  1C219D  xor     edx,edx                                   
+  1C219F  mov     [rcx+10h],eax                             
+  1C21A2  mov     rcx,[rdi+68h]                             
+  1C21A6  mov     rax,[rcx]                                 
+  1C21A9  call    qword [rax+18h]                           
+  1C21AC  mov     rcx,[rbx+70h]                             
+  1C21B0  mov     edx,3                                     
+  1C21B5  mov     [rcx+8],eax                               
+  1C21B8  mov     rcx,[rdi+68h]                             
+  1C21BC  mov     rax,[rcx]                                 
+  1C21BF  call    qword [rax+18h]                           
+  1C21C2  mov     rcx,[rbx+70h]                             
+  1C21C6  mov     edx,1                                     
+  1C21CB  mov     [rcx+14h],eax                             
+  1C21CE  mov     rcx,[rdi+68h]                             
+  1C21D2  mov     rax,[rcx]                                 
+  1C21D5  call    qword [rax+18h]                           
+  1C21D8  mov     rcx,[rbx+70h]                             
+  1C21DC  mov     [rcx+0Ch],eax                             
+  1C21DF  mov     rax,[rdi+18h]                             
+  1C21E3  mov     [rbx+18h],rax                             
+  1C21E7  mov     rax,[rdi+8]                               
+  1C21EB  mov     [rbx+8],rax                               
+  1C21EF  mov     rax,[rdi+20h]                             
+  1C21F3  mov     [rbx+20h],rax                             
+  1C21F7  mov     rax,[rdi+10h]                             
+  1C21FB  mov     [rbx+10h],rax                             
+  1C21FF  mov     rax,[rdi+38h]                             
+  1C2203  (bad)                                             

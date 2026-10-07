@@ -1,0 +1,150 @@
+; ---- Nioh3+1CE818 .. +1CE9E9 (pdata fn Some (1894424u, 1894889u))
+  1CE818  mov     [rsp+8],rbx                               
+  1CE81D  mov     [rsp+10h],rbp                             
+  1CE822  mov     [rsp+18h],rsi                             
+  1CE827  push    rdi                                       
+  1CE828  push    r12                                       
+  1CE82A  push    r13                                       
+  1CE82C  push    r14                                       
+  1CE82E  push    r15                                       
+  1CE830  sub     rsp,0E0h                                  
+  1CE837  mov     rbx,[rdx+10h]                             
+  1CE83B  lea     r13,[rdx+48h]                             
+  1CE83F  mov     bpl,r9b                                   
+  1CE842  mov     rdi,rcx                                   
+  1CE845  mov     r14b,1                                    
+  1CE848  cmp     r13,rbx                                   
+  1CE84B  je      near 00000000001CE9C8h                    
+  1CE851  mov     rsi,[rbx+10h]                             
+  1CE855  mov     rbx,[rbx+8]                               
+  1CE859  mov     rcx,rsi                                   
+  1CE85C  mov     rax,[rsi]                                 
+  1CE85F  call    qword [rax+8]                             
+  1CE862  cmp     eax,2                                     
+  1CE865  je      near 00000000001CE93Bh                    
+  1CE86B  cmp     eax,9                                     
+  1CE86E  jne     short 00000000001CE848h                   
+  1CE870  test    bpl,bpl                                   
+  1CE873  je      short 00000000001CE848h                   
+  1CE875  mov     rcx,rsi                                   
+  1CE878  call    00000000001CEA08h                         
+  1CE87D  mov     rcx,rax                                   
+  1CE880  mov     rsi,rax                                   
+  1CE883  mov     rdx,[rax]                                 
+  1CE886  call    qword [rdx+90h]                           
+  1CE88C  cmp     eax,1                                     
+  1CE88F  jne     short 00000000001CE848h                   
+  1CE891  mov     rcx,rsi                                   
+  1CE894  call    0000000000745738h                         
+  1CE899  mov     rcx,rax                                   
+  1CE89C  mov     rsi,rax                                   
+  1CE89F  mov     rdx,[rax]                                 
+  1CE8A2  call    qword [rdx+0F0h]                          
+  1CE8A8  test    al,al                                     
+  1CE8AA  je      short 00000000001CE848h                   
+  1CE8AC  mov     rdx,[rsi]                                 
+  1CE8AF  mov     rcx,rsi                                   
+  1CE8B2  call    qword [rdx+0B0h]                          
+  1CE8B8  test    al,al                                     
+  1CE8BA  je      short 00000000001CE848h                   
+  1CE8BC  lea     rcx,[rsp+74h]                             
+  1CE8C1  call    00000000018C6F78h                         
+  1CE8C6  mov     r8,[rsi]                                  
+  1CE8C9  lea     rdx,[rsp+20h]                             
+  1CE8CE  mov     rcx,rsi                                   
+  1CE8D1  call    qword [r8+0D0h]                           
+  1CE8D8  mov     rax,[rsi]                                 
+  1CE8DB  mov     rcx,rsi                                   
+  1CE8DE  call    qword [rax+108h]                          
+  1CE8E4  mov     rdx,[rsi]                                 
+  1CE8E7  mov     rcx,rsi                                   
+  1CE8EA  mov     r15,rax                                   
+  1CE8ED  call    qword [rdx+110h]                          
+  1CE8F3  mov     rdx,[rsi]                                 
+  1CE8F6  mov     rcx,rsi                                   
+  1CE8F9  mov     r12d,eax                                  
+  1CE8FC  call    qword [rdx+118h]                          
+  1CE902  mov     rdx,[rsi]                                 
+  1CE905  mov     rcx,rsi                                   
+  1CE908  call    qword [rdx+120h]                          
+  1CE90E  cmp     byte [rdi+47Ch],0                         
+  1CE915  je      near 00000000001CE848h                    
+  1CE91B  mov     r9d,r12d                                  
+  1CE91E  lea     rdx,[rsp+20h]                             
+  1CE923  mov     r8,r15                                    
+  1CE926  mov     rcx,rdi                                   
+  1CE929  call    0000000000061378h                         
+  1CE92E  test    al,al                                     
+  1CE930  jne     near 00000000001CE848h                    
+  1CE936  jmp     000000000196051Ah                         
+  1CE93B  lea     rcx,[rsp+74h]                             
+  1CE940  call    00000000018C6F78h                         
+  1CE945  mov     r8,[rsi]                                  
+  1CE948  lea     rdx,[rsp+20h]                             
+  1CE94D  mov     rcx,rsi                                   
+  1CE950  call    qword [r8+68h]                            
+  1CE954  test    r14b,r14b                                 
+  1CE957  je      near 0000000001960511h                    
+  1CE95D  test    bpl,bpl                                   
+  1CE960  je      near 00000000001CE848h                    
+  1CE966  mov     rax,[rsi]                                 
+  1CE969  mov     rcx,rsi                                   
+  1CE96C  call    qword [rax+78h]                           
+  1CE96F  mov     rdx,[rsi]                                 
+  1CE972  mov     rcx,rsi                                   
+  1CE975  mov     r15d,eax                                  
+  1CE978  call    qword [rdx+70h]                           
+  1CE97B  cmp     byte [rdi+468h],0                         
+  1CE982  mov     rsi,rax                                   
+  1CE985  je      near 00000000019604EEh                    
+  1CE98B  mov     rax,[rdi+30h]                             
+  1CE98F  cmp     qword [rax+10h],0                         
+  1CE994  je      near 00000000001CE848h                    
+  1CE99A  cmp     byte [rdi+47Dh],0                         
+  1CE9A1  je      near 00000000001CE848h                    
+  1CE9A7  mov     rcx,[rdi+70h]                             
+  1CE9AB  lea     rdx,[rsp+20h]                             
+  1CE9B0  mov     r9d,r15d                                  
+  1CE9B3  mov     r8,rsi                                    
+  1CE9B6  call    0000000000061EA0h                         
+  1CE9BB  test    al,al                                     
+  1CE9BD  jne     near 00000000001CE848h                    
+  1CE9C3  jmp     0000000001960511h                         
+  1CE9C8  lea     r11,[rsp+0E0h]                            
+  1CE9D0  mov     rbx,[r11+30h]                             
+  1CE9D4  mov     rbp,[r11+38h]                             
+  1CE9D8  mov     rsi,[r11+40h]                             
+  1CE9DC  mov     rsp,r11                                   
+  1CE9DF  pop     r15                                       
+  1CE9E1  pop     r14                                       
+  1CE9E3  pop     r13                                       
+  1CE9E5  pop     r12                                       
+  1CE9E7  pop     rdi                                       
+  1CE9E8  ret                                               
+; ---- Nioh3+1960500 .. +1960540 (pdata fn Some (26608878u, 26608930u))
+ 1960500  inc     byte [rax+rax*8-7839EA8Ch]                
+ 1960507  push    1000004h                                  
+ 196050C  jmp     00000000001CE98Bh                         
+ 1960511  test    bpl,bpl                                   
+ 1960514  je      near 00000000001CE848h                    
+ 196051A  xor     r14b,r14b                                 
+ 196051D  jmp     00000000001CE848h                         
+ 1960522  mov     rax,[rax+8]                               
+ 1960526  add     rax,10h                                   
+ 196052A  jmp     00000000001CECEEh                         
+ 196052F  int3                                              
+ 1960530  mov     rax,[r8+8]                                
+ 1960534  add     rax,10h                                   
+ 1960538  jmp     00000000001CEDE3h                         
+ 196053D  int3                                              
+ 196053E  (bad)                                             
+; ---- Nioh3+19604EE .. +196050E (pdata fn Some (26608878u, 26608930u))
+ 19604EE  cmp     byte [rdi+78h],0                          
+ 19604F2  je      short 000000000196051Ah                   
+ 19604F4  mov     rdx,[rdi+30h]                             
+ 19604F8  mov     rcx,[rdi+70h]                             
+ 19604FC  call    000000000069A36Ch                         
+ 1960501  test    al,al                                     
+ 1960503  je      short 000000000196051Ah                   
+ 1960505  mov     byte [rdi+468h],1                         
+ 196050C  (bad)                                             

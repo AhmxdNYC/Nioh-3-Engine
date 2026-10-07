@@ -1,0 +1,92 @@
+; ---- Nioh3+1FDFEB4 .. +1FDFFB4 (pdata fn None)
+ 1FDFEB4  mov     r8d,ecx                                   
+ 1FDFEB7  cmp     ecx,0Ch                                   
+ 1FDFEBA  jle     short 0000000001FDFF22h                   
+ 1FDFEBC  movzx   ecx,dx                                    
+ 1FDFEBF  cmp     ecx,30h                                   
+ 1FDFEC2  ja      short 0000000001FDFF09h                   
+ 1FDFEC4  je      short 0000000001FDFF13h                   
+ 1FDFEC6  cmp     ecx,9                                     
+ 1FDFEC9  ja      short 0000000001FDFEE8h                   
+ 1FDFECB  je      short 0000000001FDFF01h                   
+ 1FDFECD  sub     ecx,3                                     
+ 1FDFED0  je      short 0000000001FDFF13h                   
+ 1FDFED2  sub     ecx,2                                     
+ 1FDFED5  je      short 0000000001FDFF01h                   
+ 1FDFED7  sub     ecx,1                                     
+ 1FDFEDA  je      short 0000000001FDFF13h                   
+ 1FDFEDC  sub     ecx,1                                     
+ 1FDFEDF  je      short 0000000001FDFF13h                   
+ 1FDFEE1  cmp     ecx,1                                     
+ 1FDFEE4  je      short 0000000001FDFF01h                   
+ 1FDFEE6  jmp     short 0000000001FDFF22h                   
+ 1FDFEE8  sub     ecx,0Ah                                   
+ 1FDFEEB  je      short 0000000001FDFF13h                   
+ 1FDFEED  sub     ecx,1                                     
+ 1FDFEF0  je      short 0000000001FDFF13h                   
+ 1FDFEF2  sub     ecx,2                                     
+ 1FDFEF5  je      short 0000000001FDFF13h                   
+ 1FDFEF7  sub     ecx,1                                     
+ 1FDFEFA  je      short 0000000001FDFF13h                   
+ 1FDFEFC  cmp     ecx,2                                     
+ 1FDFEFF  jne     short 0000000001FDFF22h                   
+ 1FDFF01  mov     r8d,0Ch                                   
+ 1FDFF07  jmp     short 0000000001FDFF22h                   
+ 1FDFF09  sub     ecx,37h                                   
+ 1FDFF0C  je      short 0000000001FDFF13h                   
+ 1FDFF0E  cmp     ecx,1                                     
+ 1FDFF11  jne     short 0000000001FDFF22h                   
+ 1FDFF13  mov     ecx,10h                                   
+ 1FDFF18  cmp     r8d,ecx                                   
+ 1FDFF1B  cmovle  ecx,r8d                                   
+ 1FDFF1F  mov     r8d,ecx                                   
+ 1FDFF22  mov     eax,r8d                                   
+ 1FDFF25  ret                                               
+ 1FDFF26  int3                                              
+ 1FDFF27  int3                                              
+ 1FDFF28  mov     [rsp+8],rbx                               
+ 1FDFF2D  mov     [rsp+10h],rsi                             
+ 1FDFF32  push    rdi                                       
+ 1FDFF33  sub     rsp,20h                                   
+ 1FDFF37  xor     edx,edx                                   
+ 1FDFF39  mov     r8d,0F0h                                  
+ 1FDFF3F  mov     rdi,rcx                                   
+ 1FDFF42  call    0000000000B93F00h                         
+ 1FDFF47  xor     ebx,ebx                                   
+ 1FDFF49  mov     rsi,rdi                                   
+ 1FDFF4C  mov     ecx,ebx                                   
+ 1FDFF4E  call    0000000001FE22F8h                         
+ 1FDFF53  inc     ebx                                       
+ 1FDFF55  mov     [rsi],eax                                 
+ 1FDFF57  lea     rsi,[rsi+4]                               
+ 1FDFF5B  cmp     ebx,3Ch                                   
+ 1FDFF5E  jb      short 0000000001FDFF4Ch                   
+ 1FDFF60  mov     rbx,[rsp+30h]                             
+ 1FDFF65  mov     rax,rdi                                   
+ 1FDFF68  mov     rsi,[rsp+38h]                             
+ 1FDFF6D  add     rsp,20h                                   
+ 1FDFF71  pop     rdi                                       
+ 1FDFF72  ret                                               
+ 1FDFF73  int3                                              
+ 1FDFF74  mov     rax,rdx                                   
+ 1FDFF77  ret                                               
+ 1FDFF78  mov     eax,[rel 45BAF84h]                        
+ 1FDFF7E  ret                                               
+ 1FDFF7F  int3                                              
+ 1FDFF80  mov     eax,[rel 45BAF80h]                        
+ 1FDFF86  ret                                               
+ 1FDFF87  int3                                              
+ 1FDFF88  xor     edx,edx                                   
+ 1FDFF8A  lea     r8,[rel 45BB190h]                         
+ 1FDFF91  xor     ecx,ecx                                   
+ 1FDFF93  mov     r10d,1414h                                
+ 1FDFF99  lea     r9d,[rdx+1]                               
+ 1FDFF9D  cmp     dword [r8],0                              
+ 1FDFFA1  je      short 0000000001FDFFAFh                   
+ 1FDFFA3  cmp     [r8],r10d                                 
+ 1FDFFA6  je      short 0000000001FDFFAFh                   
+ 1FDFFA8  mov     eax,r9d                                   
+ 1FDFFAB  shl     eax,cl                                    
+ 1FDFFAD  or      edx,eax                                   
+ 1FDFFAF  add     ecx,r9d                                   
+ 1FDFFB2  (bad)                                             

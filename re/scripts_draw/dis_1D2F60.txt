@@ -1,0 +1,132 @@
+; ---- Nioh3+1D2F60 .. +1D3192 (pdata fn Some (1912672u, 1913234u))
+  1D2F60  mov     [rsp+20h],rbx                             
+  1D2F65  mov     [rsp+8],rcx                               
+  1D2F6A  push    rbp                                       
+  1D2F6B  push    rsi                                       
+  1D2F6C  push    rdi                                       
+  1D2F6D  push    r12                                       
+  1D2F6F  push    r13                                       
+  1D2F71  push    r14                                       
+  1D2F73  push    r15                                       
+  1D2F75  sub     rsp,50h                                   
+  1D2F79  mov     rsi,[rcx+70h]                             
+  1D2F7D  mov     r10,rcx                                   
+  1D2F80  mov     r12d,[rdx+28h]                            
+  1D2F84  xor     ecx,ecx                                   
+  1D2F86  mov     r13d,[rdx+2Ch]                            
+  1D2F8A  mov     r14b,1                                    
+  1D2F8D  mov     r15b,r9b                                  
+  1D2F90  mov     [rsp+0A0h],cl                             
+  1D2F97  cmp     [rsi+26A8h],cl                            
+  1D2F9D  mov     rdi,r8                                    
+  1D2FA0  mov     rbp,rdx                                   
+  1D2FA3  mov     [rsp+4Ch],ecx                             
+  1D2FA7  setne   [rsp+41h]                                 
+  1D2FAC  mov     [rsp+98h],cl                              
+  1D2FB3  mov     dword [rsp+48h],7FFFFFFFh                 
+  1D2FBB  mov     [rsp+44h],ecx                             
+  1D2FBF  mov     [rsp+40h],r14b                            
+  1D2FC4  test    r8,r8                                     
+  1D2FC7  je      short 00000000001D3005h                   
+  1D2FC9  mov     r14,[rdx+38h]                             
+  1D2FCD  test    r14,r14                                   
+  1D2FD0  jne     near 0000000001960BD2h                    
+  1D2FD6  cmp     r9b,1                                     
+  1D2FDA  je      near 0000000001960C9Bh                    
+  1D2FE0  cmp     r9b,2                                     
+  1D2FE4  je      near 0000000001960CF6h                    
+  1D2FEA  mov     r14b,[rsp+40h]                            
+  1D2FEF  mov     rax,[rdi]                                 
+  1D2FF2  mov     rcx,rdi                                   
+  1D2FF5  call    qword [rax+0C8h]                          
+  1D2FFB  mov     r10,[rsp+90h]                             
+  1D3003  xor     ecx,ecx                                   
+  1D3005  test    r15b,r15b                                 
+  1D3008  jne     near 0000000001960DA5h                    
+  1D300E  cmp     r12d,0BBBB55h                             
+  1D3015  jne     near 0000000001960D3Bh                    
+  1D301B  mov     [rsp+0A0h],cl                             
+  1D3022  cmp     r13d,7FFFFFFFh                            
+  1D3029  jne     near 0000000001960D6Bh                    
+  1D302F  mov     r12b,cl                                   
+  1D3032  mov     ebx,[rsp+0B8h]                            
+  1D3039  test    rdi,rdi                                   
+  1D303C  je      short 00000000001D3071h                   
+  1D303E  mov     rax,[rdi+20h]                             
+  1D3042  test    rax,rax                                   
+  1D3045  je      short 00000000001D3053h                   
+  1D3047  cmp     [rax+160h],ecx                            
+  1D304D  jne     near 0000000001960DB2h                    
+  1D3053  mov     rax,[rdi]                                 
+  1D3056  lea     rdx,[rel 38EA848h]                          ; "Meshlet"
+  1D305D  mov     rcx,rdi                                   
+  1D3060  call    qword [rax+0F8h]                          
+  1D3066  xor     ecx,ecx                                   
+  1D3068  test    rax,rax                                   
+  1D306B  jne     near 00000000001D316Ah                    
+  1D3071  mov     eax,[rbp+0Ch]                             
+  1D3074  shr     eax,1Fh                                   
+  1D3077  test    al,al                                     
+  1D3079  je      near 0000000001960E27h                    
+  1D307F  mov     eax,[rbp+24h]                             
+  1D3082  mov     edx,[rbp+20h]                             
+  1D3085  test    eax,eax                                   
+  1D3087  jg      near 0000000001960DECh                    
+  1D308D  mov     r8d,[rbp+1Ch]                             
+  1D3091  mov     r9d,[rbp+18h]                             
+  1D3095  mov     r10d,[rbp+14h]                            
+  1D3099  cmp     [rsp+0B0h],cl                             
+  1D30A0  jne     near 0000000001960DCDh                    
+  1D30A6  mov     rax,[rsi+3C40h]                           
+  1D30AD  mov     ecx,ebx                                   
+  1D30AF  shl     ecx,10h                                   
+  1D30B2  or      ecx,6Ah                                   
+  1D30B5  mov     [rax],ecx                                 
+  1D30B7  add     qword [rsi+3C40h],4                       
+  1D30BF  mov     rax,[rsi+3C40h]                           
+  1D30C6  mov     [rax],r10d                                
+  1D30C9  add     qword [rsi+3C40h],4                       
+  1D30D1  mov     rax,[rsi+3C40h]                           
+  1D30D8  mov     [rax],r9d                                 
+  1D30DB  add     qword [rsi+3C40h],4                       
+  1D30E3  mov     rax,[rsi+3C40h]                           
+  1D30EA  mov     [rax],r8d                                 
+  1D30ED  add     qword [rsi+3C40h],4                       
+  1D30F5  mov     rax,[rsi+3C40h]                           
+  1D30FC  mov     [rax],edx                                 
+  1D30FE  add     qword [rsi+3C40h],4                       
+  1D3106  inc     dword [rsi+3C78h]                         
+  1D310C  inc     dword [rsi+3C74h]                         
+  1D3112  mov     eax,[rsi+3C74h]                           
+  1D3118  cmp     eax,[rsi+3C70h]                           
+  1D311E  jae     short 00000000001D3186h                   
+  1D3120  test    rdi,rdi                                   
+  1D3123  je      short 00000000001D3136h                   
+  1D3125  mov     r13,[rsp+90h]                             
+  1D312D  test    r15b,r15b                                 
+  1D3130  jne     near 0000000001960E3Fh                    
+  1D3136  mov     r15d,[rsp+44h]                            
+  1D313B  test    r12b,r12b                                 
+  1D313E  jne     near 0000000001960FEAh                    
+  1D3144  cmp     byte [rsp+0A0h],0                         
+  1D314C  jne     near 0000000001960FFFh                    
+  1D3152  mov     rbx,[rsp+0A8h]                            
+  1D315A  add     rsp,50h                                   
+  1D315E  pop     r15                                       
+  1D3160  pop     r14                                       
+  1D3162  pop     r13                                       
+  1D3164  pop     r12                                       
+  1D3166  pop     rdi                                       
+  1D3167  pop     rsi                                       
+  1D3168  pop     rbp                                       
+  1D3169  ret                                               
+  1D316A  mov     r13,[rsp+90h]                             
+  1D3172  mov     r8,rdi                                    
+  1D3175  mov     rdx,rsi                                   
+  1D3178  lea     rcx,[r13+18D0h]                           
+  1D317F  call    00000000001D2AACh                         
+  1D3184  jmp     short 00000000001D312Dh                   
+  1D3186  xor     edx,edx                                   
+  1D3188  mov     rcx,rsi                                   
+  1D318B  call    0000000000254110h                         
+  1D3190  jmp     short 00000000001D3120h                   

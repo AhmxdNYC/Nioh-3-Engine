@@ -1,0 +1,20 @@
+rva	kind	name	signature	description	confidence	source
+0x2ee8498	function	DebugFpsOverlayFormat	void(GfxDevice* d)	KTGL built-in perf overlay: prints "-- KTGL For DX12(x64)[2.17.0] CS[sRGB|Linear] --", then (level d+76F8 >0) "PU CLCK"/"V  WAIT"/"FPS %2.2f(%4.2f)" from QPC deltas (d+7700 last QPC, d+7708 present-call QPC) and (level >1) "-- KTGL PLATFORM INFO --"/PSO counts into the debug text console d+76F0; saves/restores render state around it; does nothing while d+76F0 == 0 (always in retail: its only setter 2EEBEE4 has no references) (aka KtglDebugPerfOverlay)	high	notes/osd-design.md §A; D:\nioh3-re\osd\q1.log
+0x4a361c	function	RenderFrameDebugOverlay	void(GfxDevice* d, int p2)	called from RenderWaitForFrame (4A512F) and 5 others: 4A39FC(d+61A0,d); if d+76F0 -> DebugFpsOverlayFormat(d); 4A365C(d,p2)	high	notes/osd-design.md §A; D:\nioh3-re\osd\q1.log
+0x2eebee4	function	GfxDeviceSetDebugTextConsole	void(GfxDevice* d, DebugTextConsole* c, int level)	leaf: d+76F0 = c, d+76F8 = level; no pdata, zero rel32 and zero absolute-pointer references in the dump -> dead in retail, so the KTGL perf overlay can never be switched on by a flag	high	notes/osd-design.md §A
+0x1d46f8	function	DebugTextPuts	DebugTextConsole*(DebugTextConsole* c, const char* s)	binds the console font page (c+38 table, c+40 index, device c+48; emits KTGL token 0x44/0x4C on change) then DebugTextPutChar per byte; 13 callers (KTGL perf overlay, 365Cxxx/2F13xxx debug panels)	high	notes/osd-design.md §A
+0x1d4934	function	DebugTextPutChar	void(DebugTextConsole* c, char ch)	per-character emitter of DebugTextPuts	medium	notes/osd-design.md §A
+0x2ef596c	function	DebugTextPrintf	void(DebugTextConsole* c, const char* fmt, ...)	_vsnprintf into a 0x400 stack buffer, then DebugTextPuts; 25 callers	high	notes/osd-design.md §A
+0x2ef59dc	function	DebugTextPutsLine	DebugTextConsole*(DebugTextConsole* c, const char* s)	DebugTextPuts then row(+0)++, col(+4)=0	high	notes/osd-design.md §A
+0x2ef55c0	function	DebugOverlayUserCallback	void(DebugOverlayCb* cb, DebugTextConsole* c)	calls cb+50(cb, c, cb+30, cb+38, cb+40) under the critical section g_QpcTimer+0x90; reached from DebugFpsOverlayFormat via GfxDevice+7710	medium	notes/osd-design.md §A
+0x1daa28	function	KtglEmitToken70	bool(GfxDevice* d)	1DAA5C(d+2530) then writes KTGL token 0x70 at d+3C40; 125 callers incl. the perf overlay (begin of a 2D/debug draw block?)	low	notes/osd-design.md §A
+0x76f0	struct_field	GfxDevice::DebugTextConsole	DebugTextConsole*	console used by the KTGL perf overlay; 0 in retail (setter 2EEBEE4 unreferenced); RenderWaitForFrame resets its row/col each frame when set	high	notes/osd-design.md §A
+0x76f8	struct_field	GfxDevice::DebugOverlayLevel	i32	>0 FPS lines, >1 platform info + PSO stats	high	notes/osd-design.md §A
+0x7700	struct_field	GfxDevice::DebugOverlayLastQpc	i64	QPC of the previous perf-overlay frame (FPS = QPF / delta)	high	notes/osd-design.md §A
+0x7710	struct_field	GfxDevice::DebugOverlayCallback	DebugOverlayCb*	optional user callback printed after the FPS block	medium	notes/osd-design.md §A
+0x0	struct_field	DebugTextConsole::Row	i32	text row (DebugTextPutsLine increments)	medium	notes/osd-design.md §A
+0x4	struct_field	DebugTextConsole::Col	i32	text column (reset by DebugTextPutsLine)	medium	notes/osd-design.md §A
+0x2c	struct_field	DebugTextConsole::Color	u32	ARGB text colour (0xAF2FAF2F / 0xAF5FAFAF / 0xAFFFFFFF in the perf overlay)	high	notes/osd-design.md §A
+0x38	struct_field	DebugTextConsole::FontTable	ptr	font page table (+18 count, +28 entries)	medium	notes/osd-design.md §A
+0x40	struct_field	DebugTextConsole::FontIndex	i32	index into FontTable	medium	notes/osd-design.md §A
+0x48	struct_field	DebugTextConsole::Device	GfxDevice*	device whose token stream (+3C40) receives the text	medium	notes/osd-design.md §A

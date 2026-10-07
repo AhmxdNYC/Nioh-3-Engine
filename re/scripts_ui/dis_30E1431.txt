@@ -1,0 +1,124 @@
+; ---- Nioh3+30E13A8 .. +30E157F (pdata fn Some (51254184u, 51254655u))
+ 30E13A8  mov     r11,rsp                                   
+ 30E13AB  mov     [r11+8],rbx                               
+ 30E13AF  mov     [r11+10h],rbp                             
+ 30E13B3  mov     [r11+18h],r8                              
+ 30E13B7  push    rsi                                       
+ 30E13B8  push    rdi                                       
+ 30E13B9  push    r13                                       
+ 30E13BB  push    r14                                       
+ 30E13BD  push    r15                                       
+ 30E13BF  sub     rsp,40h                                   
+ 30E13C3  mov     esi,[rsp+90h]                             
+ 30E13CA  lea     eax,[r9+1]                                
+ 30E13CE  and     dword [r11+20h],0                         
+ 30E13D3  mov     ebp,r9d                                   
+ 30E13D6  and     dword [r11+18h],0                         
+ 30E13DB  mov     r10,rdx                                   
+ 30E13DE  imul    eax,esi                                   
+ 30E13E1  mov     rdi,rcx                                   
+ 30E13E4  lea     r8d,[rsi+3]                               
+ 30E13E8  imul    r8d,ebp                                   
+ 30E13EC  add     r8d,2                                     
+ 30E13F0  lea     r9d,[rax+rax*2]                           
+ 30E13F4  lea     rax,[r11+18h]                             
+ 30E13F8  add     r9d,r9d                                   
+ 30E13FB  mov     [r11-40h],rax                             
+ 30E13FF  lea     rax,[r11+20h]                             
+ 30E1403  mov     [r11-48h],rax                             
+ 30E1407  call    00000000001373E8h                         
+ 30E140C  test    al,al                                     
+ 30E140E  je      near 00000000030E1568h                    
+ 30E1414  mov     rcx,[rel 4BD0AC0h]                        
+ 30E141B  xor     edx,edx                                   
+ 30E141D  mov     r8,[rdi]                                  
+ 30E1420  movss   xmm3,[r10]                                
+ 30E1425  mulss   xmm3,[rel 3BD41B8h]                       
+ 30E142D  mov     [rsp+28h],esi                             
+ 30E1431  mov     eax,[r8+39Ch]                             
+ 30E1438  div     dword [rcx+370h]                          
+ 30E143E  cmp     byte [rcx+368h],0                         
+ 30E1445  mov     r15d,eax                                  
+ 30E1448  mov     [rsp+20h],ebp                             
+ 30E144C  je      short 00000000030E1479h                   
+ 30E144E  mov     rdx,[r10]                                 
+ 30E1451  mov     rbx,[r8+358h]                             
+ 30E1458  mov     [rsp+30h],rdx                             
+ 30E145D  mov     rcx,rbx                                   
+ 30E1460  lea     rdx,[rsp+30h]                             
+ 30E1465  call    00000000030E0F8Ch                         
+ 30E146A  mov     edx,eax                                   
+ 30E146C  mov     rcx,rbx                                   
+ 30E146F  mov     r10d,eax                                  
+ 30E1472  call    00000000001371B8h                         
+ 30E1477  jmp     short 00000000030E1495h                   
+ 30E1479  mov     rax,[r10]                                 
+ 30E147C  lea     rdx,[rsp+30h]                             
+ 30E1481  mov     rcx,[r8+358h]                             
+ 30E1488  mov     [rsp+30h],rax                             
+ 30E148D  call    00000000030E116Ch                         
+ 30E1492  mov     r10d,eax                                  
+ 30E1495  mov     rdx,[rdi]                                 
+ 30E1498  xor     r14d,r14d                                 
+ 30E149B  mov     ecx,[rsp+88h]                             
+ 30E14A2  xor     r8d,r8d                                   
+ 30E14A5  add     [rdx+358h],rcx                            
+ 30E14AC  lea     r13d,[r14+1]                              
+ 30E14B0  add     [rdx+39Ch],ecx                            
+ 30E14B6  mov     rax,[rdi]                                 
+ 30E14B9  inc     ebp                                       
+ 30E14BB  mov     rdx,[rax+360h]                            
+ 30E14C2  test    esi,esi                                   
+ 30E14C4  jle     short 00000000030E1538h                   
+ 30E14C6  xor     r9d,r9d                                   
+ 30E14C9  test    ebp,ebp                                   
+ 30E14CB  jle     short 00000000030E152Dh                   
+ 30E14CD  movzx   eax,bp                                    
+ 30E14D0  movzx   r11d,r8w                                  
+ 30E14D4  imul    r11d,eax                                  
+ 30E14D8  lea     eax,[r8+r13]                              
+ 30E14DC  movzx   ebx,ax                                    
+ 30E14DF  lea     eax,[rbp*2]                               
+ 30E14E6  movzx   ecx,bp                                    
+ 30E14E9  imul    ebx,ecx                                   
+ 30E14EC  add     r11w,r15w                                 
+ 30E14F0  add     bx,r15w                                   
+ 30E14F4  add     eax,ebp                                   
+ 30E14F6  lea     r14d,[r14+rax*2]                          
+ 30E14FA  lea     eax,[r9+r11]                              
+ 30E14FE  mov     [rdx],ax                                  
+ 30E1501  lea     ecx,[r9+rbx]                              
+ 30E1505  add     ax,r13w                                   
+ 30E1509  mov     [rdx+4],cx                                
+ 30E150D  mov     [rdx+2],ax                                
+ 30E1511  add     r9d,r13d                                  
+ 30E1514  mov     [rdx+6],ax                                
+ 30E1518  lea     eax,[rcx+r13]                             
+ 30E151C  mov     [rdx+8],ax                                
+ 30E1520  mov     [rdx+0Ah],cx                              
+ 30E1524  add     rdx,0Ch                                   
+ 30E1528  cmp     r9d,ebp                                   
+ 30E152B  jl      short 00000000030E14FAh                   
+ 30E152D  add     r8d,r13d                                  
+ 30E1530  cmp     r8d,esi                                   
+ 30E1533  jl      short 00000000030E14C6h                   
+ 30E1535  mov     rax,[rdi]                                 
+ 30E1538  mov     edx,[rsp+80h]                             
+ 30E153F  mov     ecx,edx                                   
+ 30E1541  add     rcx,[rax+360h]                            
+ 30E1548  add     [rax+3A0h],edx                            
+ 30E154E  mov     [rax+360h],rcx                            
+ 30E1555  mov     al,r13b                                   
+ 30E1558  mov     rcx,[rdi+8]                               
+ 30E155C  mov     [rcx+14h],r10d                            
+ 30E1560  mov     rcx,[rdi+8]                               
+ 30E1564  mov     [rcx+18h],r14d                            
+ 30E1568  mov     rbx,[rsp+70h]                             
+ 30E156D  mov     rbp,[rsp+78h]                             
+ 30E1572  add     rsp,40h                                   
+ 30E1576  pop     r15                                       
+ 30E1578  pop     r14                                       
+ 30E157A  pop     r13                                       
+ 30E157C  pop     rdi                                       
+ 30E157D  pop     rsi                                       
+ 30E157E  ret                                               
