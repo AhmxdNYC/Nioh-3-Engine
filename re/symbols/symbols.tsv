@@ -98,8 +98,10 @@ rva	kind	name	signature	description	confidence	source
 0x42877	label	Sched0Hot_425B0_LockLoad9CC		lock cmpxchg [m],zero used as an atomic load ([r14+9CCh] before a CAS loop); LK row: becomes a plain mov (+test) of the same length	high	notes/worker-jobs-opt.md §4; patcher/lockload_live.fsx
 0x42a95	label	SleepEx0Call_42A95		call SleepEx(0); pdata fragment start 429E4	high	re/out/spinscan.txt §all call sites
 0x43cec	function	CollisionGatherInRange	void CollisionGatherInRange(CollisionMgr* mgr)	Per frame and collision manager: clears the work vector mgr+150h, walks the grid cells around the player (g_CollisionWorld+1B10h, +1B20h) and pushes every collider with +A5h==0 (sets +A5h=1); feeds the 5 strided CollisionObjectUpdate jobs; 0.05-0.06 core self on PC	medium	notes/worker-jobs-opt.md §2; notes/worker-threads.md §4
+0x46454	function	GetPoolId_ResourceLoad	int GetPoolId_ResourceLoad(void)	[g_GameMainPtr+6A0h] = 1 (ResourceLoad); -1 if no GameMain	high	notes/stutter.md §3.5
 0x46484	function	GetDeltaTime60	float GetDeltaTime60(void)	Returns GameMain.TimeScale*60/TargetFps (frame delta in 60 Hz units); the delta getter used everywhere (README 39 callers; functions.tsv 64 direct callers) (aka GetDelta60) || also: Returns G[0x624]*60/G[0x614] (time scale in 60 Hz units); ~40 callers incl. menu hold timers (call at VRR P7 0x43312B); verified as P7 callee by rel32	high	re/out/README.md §Findings: frame pacing; re/out/anchors.md §Interpretation notes; notes/frame-timing.md §3 Functions; patcher/ft_vrr_patch.fsx
 0x46594	function	GetFps	int GetFps(void)	Returns FrameMgr+0x614 (fps used for dt this frame); 129 call sites (100 float x/fps, 7 int 120/fps, 1 int 60/fps, 4 fps*1000/60, 1 fps/2 compare); null-G fallback reads REN_FPS (~45 inlined readers); 4 calls redirected to caveTier by VRR P8 (aka GetTargetFps) || also: Returns GameMain+0x614 active target FPS (README 93 callers; functions.tsv 125)	high	notes/frame-timing.md §3 Functions; re/out/README.md §Findings: frame pacing
+0x47924	function	GetPoolId_PhysUpdate	int GetPoolId_PhysUpdate(void)	[g_GameMainPtr+6CCh] = 12	high	notes/stutter.md §3.5
 0x47990	function	UpdateCursorImeState		called every pump iteration: CriticalSection enter/leave + cursor/UI-mode/IME state check (cheap); arg g_45CC560; IMM32 user [Ghidra: 800 B, 2 callers]	medium	notes/cpu-profile.md §S2; §Caves risks
 0x48ad4	function	SteadyClockNowNs	int64 SteadyClockNowNs(void)	std::chrono::steady_clock::now in nanoseconds; source of the FrameMgr frame-start stamp	high	notes/frame-timing.md §3 Functions
 0x48b9c	function	JobWakeOneInPool		wake one sleeping worker in a pool (43 call sites)	medium	notes/worker-power.md (static, 2026-10-07)
@@ -158,6 +160,8 @@ rva	kind	name	signature	description	confidence	source
 0x4dd4c	function	MeshletUploadCopy		CPU shadow buffer -> this frame's mapped upload heap memcpy (double-buffered, with 4DB6C/695328); body 318 B	medium	notes/mainthread-drawprep.md §1; notes/meshlet-mainthread.md §1.2
 0x4e2f8	function	GpuBufferEnsureWidth	void GpuBufferEnsureWidth(GpuBufRef* ref, void* dev, u64 size, void* out)	if ref+18h bit0 and ref->res: ResourceWidthBelow(res,size) -> release (4F0FC) or keep; callers 4D914 (4D8E0) and 62E918; upload/meshlet buffer path	medium	notes/cpu-hotspots-ally.md §3.2
 0x4e390	function	ResourceWidthBelow	bool ResourceWidthBelow(ID3D12Resource* r, u64 n)	r->GetDesc() (vtbl+50h, D3D12_RESOURCE_DESC on the stack) .Width (+10h) < n; upload-buffer capacity check under MeshletUploadBuffers 4DB6C. NOT a DirectInput poll: SP "[DINPUT8]/[ntdll]/[kernel32] <- 4E390" on [App]Game is the ASI loader's Sleep IAT shim inside FenceWait's Sleep(0) loop (stale slot 4E3B3; r = 0.956 with the 1180A4 rows)	high	notes/cpu-hotspots-ally.md §3.2
+0x4f0fc	function	GpuAllocRelease	bool GpuAllocRelease(RenderGlobals* g, IUnknown* res, Suballoc* a)	frees a suballocation (type 1 page heap 62D934, 2 upload ring [g+4678h] vtbl+20h, 3 readback ring) and Releases the placed resource; 30 callers	medium	notes/stutter.md §3.3
+0x4f180	function	GpuAllocRelease2	bool GpuAllocRelease2(RenderGlobals* g, void* unused, Suballoc* a)	same as 4F0FC without the Release	medium	notes/stutter.md §3.3
 0x4fbd4	function	GpuBufferUnmap	void(Buffer* b)	unmap; GPU copies [B+78h] bytes (whole map size) from staging. drawprep writes 45FBD4 (Ghidra suffix)	high	notes/ui-mainthread.md §E; re/scripts_cpu/q14.txt
 0x4fd84	function	GpuBufferMap	void(Buffer* b, void* obj, int mode, int, void*)	map: staging from 62D688 with upload-heap flag, resource vtbl+0x40 Map, stores ptr+offset only into [obj+358h]; mode via table 3BE29D0. drawprep writes 45FD84 (Ghidra FUN_7ff74f45fd84 suffix) - RVA is 0x4FD84	high	notes/ui-mainthread.md §E; re/scripts_cpu/q14.txt
 0x54360	function	Sched0Hot_54360		KIDSTaskScheduler0 hotspot: 1.3% self of that thread's samples (capture 2); job work run by the frame-step thread, role not identified [Ghidra: 793 B, 240 callers]	low	notes/cpu-profile.md §Top 30 self functions
@@ -263,7 +267,14 @@ rva	kind	name	signature	description	confidence	source
 0x118da8	function	SynFlushCbvTables	void (SynCtx* c, void* tables, void* fence)	for each shader stage with dirty CBVs (+0xB70[stage]) and a non-empty table: SynFlushCbvTable 118E28	high	notes/d3d12-submission.md §3
 0x118e28	function	RenderSubmitHot_118E28		SynergisticDispatcherTask (D3D12 submission thread) hotspot: 0.4% self (capture 2); render-submit side, role not identified [Ghidra: 663 B, 1 callers]; also (d3d12-submission.tsv): SynFlushCbvTable - per dirty CBV: upload-ring alloc (1190C0) + memcpy of the slot shadow (3rd copy of constant data) + CreateConstantBufferView (device +0x8E0 vtbl+0x88); then shader-visible ring alloc (1192B0), CopyDescriptorsSimple(whole table), SetGraphicsRootDescriptorTable (was RenderSubmitHot_118E28)	high	notes/cpu-profile.md §Top 30 self functions
 0x1192b0	function	RenderSubmitHot_1192B0		SynergisticDispatcherTask (D3D12 submission thread) hotspot: 0.9% self (capture 2); render-submit side, role not identified [Ghidra: 180 B, 36 callers]; also (d3d12-submission.tsv): SynDescRingAlloc - allocates n descriptors in a shader-visible ring heap; negative when full (caller then submits via 945664 and retries) (was RenderSubmitHot_1192B0)	medium	notes/cpu-profile.md §Top 30 self functions
+0x119670	function	PsoGetOrCreateGfx	ID3D12PipelineState* PsoGetOrCreateGfx(SynCtx* c, PsoKey* k)	dispatcher per PSO-dirty draw (from SynFlushPsoAndBindings 118604 / 118758): hash the 0x80-byte desc (1199A4), EnterCriticalSection([c+818h]+10h), find in cache c+708h (11976C); on a miss grows the cache if full (1899A54) and CREATES THE PSO SYNCHRONOUSLY (9290D8) while still holding the CS, then inserts (9B05BC); NULL -> draw keeps the old PSO state; SPR site G1 at 11970A	high	notes/stutter.md §3.1
+0x11970a	label	PsoGetOrCreateGfx_CallCreate	E8 rel32 -> 9290D8	the runtime graphics PSO creation on a cache miss (dispatcher thread, PSO-cache CS held); SPR probe site G1	high	notes/stutter.md §3.1; patcher/stutter_probe_live.fsx
+0x11976c	function	PsoCacheFindGfx	bool PsoCacheFindGfx(void* cache, PsoKey* k)	graphics PSO cache lookup (cache = owner+708h); fills k+88h with the PSO on a hit	medium	notes/stutter.md §3.1
 0x119820	function	RenderSubmitHot_119820		SynergisticDispatcherTask (D3D12 submission thread) hotspot: 1.7% self (capture 2); render-submit side, role not identified [Ghidra: 288 B, 1 callers]; also (d3d12-submission.tsv): SynPsoCacheLookup - B-tree lookup with 128-byte memcmp keys used by the PSO resolve path under 118604 (was RenderSubmitHot_119820; aka state-object cache in worker-threads.md)	medium	notes/cpu-profile.md §Top 30 self functions
+0x1199a4	function	PsoKeyHash	u32 PsoKeyHash(void* c, void* key, u32 size)	hash of a PSO key (0x80 bytes gfx, 8 bytes compute) used by every PSO cache lookup/insert	medium	notes/stutter.md §3.1
+0x119a48	function	PsoGetOrCreateCompute	ID3D12PipelineState* PsoGetOrCreateCompute(SynCtx* c, void* key)	per-context compute PSO cache (c+128h, CS [c+18h]+10h): miss -> CreateComputePso under the CS; SPR site C1 at 119AE1	high	notes/stutter.md §3.1
+0x119bb8	function	SynFlushComputeStateEx_Caller	void (SynCtx* c)	caller of 119C08 (dispatcher compute state flush)	medium	notes/stutter.md §3.1
+0x119c08	function	SynFlushComputeStateEx	bool SynFlushComputeStateEx(SynCtx* c)	compute state flush: if c+62Ch bit15 (PSO dirty) look up/create the compute PSO in c+128h under CS [c+18h] (miss -> CreateComputePso 119D86 = SPR C2), SetPipelineState (vtbl+C8h); then root tables/descriptor ring	high	notes/stutter.md §3.1
 0x11e74b	label	Sleep0Call_11E74B		call Sleep(0); pdata fragment start 11E6E0	high	re/out/spinscan.txt §all call sites
 0x11ee12	label	Sleep0Call_11EE12		call Sleep(0); pdata fragment start 11E784	high	re/out/spinscan.txt §all call sites
 0x11ef2f	label	Sleep0Call_11EF2F		call Sleep(0); pdata fragment start 11E784	high	re/out/spinscan.txt §all call sites
@@ -273,6 +284,7 @@ rva	kind	name	signature	description	confidence	source
 0x121e90	function	ParamTableGetU32_D15EC139	u32 ParamTableGetU32_D15EC139(ParamTable* t)	Linear scan of {u32 count, 32-byte entries*} for hash D15EC139 with (flags & 0F000000h) == 04000000h; returns *[entry+18h] or 7. Called per object from 121FC0 (1252AE, 123C61); hot loop 121EA3..121EBA (~0.08 core PC). Candidate PL	high	notes/worker-jobs-opt.md §5
 0x121fc0	function	Sched0Hot_121FC0		KIDSTaskScheduler0 hotspot: 0.6% self of that thread's samples (capture 2); job work run by the frame-step thread, role not identified [Ghidra: 17455 B, 2 callers]	low	notes/cpu-profile.md §Top 30 self functions
 0x1265ec	function	PauseSpin_1265EC		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 1265F5..126610	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x126630	function	CacheTileMappingJob	void (KtglCache* c)	job of pool "KTGLGraph.Cache.UpdateTileMapping" (32 threads): unless c+CC8h (GFX drain active) loops {SRW c+CC0h; CacheTileRingProcessCopyQueue(c+6A8h ring, c+608h pages, c+A8h tile batch, c+8F0h stats)} while ring head != tail; registered by KtglCacheInit 2EF053C	high	notes/gpu-tiles.md
 0x1269c1	label	WfsoXCall_1269C1		call WaitForSingleObject(?); pdata fragment start 1269B8	high	re/out/spinscan.txt §all call sites
 0x126c64	function	PagePoolOccupancyCheck		reads previous used count device+0x6CD0 for a >85% occupancy heuristic; body 783 B	medium	notes/mainthread-drawprep.md §1
 0x1271fb	label	FpsHalfCompare_FpsUse		fps/2 integer compare (frames vs fps/2; stays on measured fps)	medium	notes/frame-timing.md §5 Risk, §8.2
@@ -463,6 +475,8 @@ rva	kind	name	signature	description	confidence	source
 0x1fee28	function	ResourceLoadIdlePoll		Sleep(1) poll loop of the ResourceLoad manager; wakes a worker per ms while loads are in flight	medium	notes/worker-power.md (static, 2026-10-07)
 0x1fee65	label	ResourceLoadIdle_SleepArg		RL site: `8D 4A 01` lea ecx,[rdx+1] = the 1 ms of the idle Sleep(1) when [mgr+200h]==0 && [mgr+210h]==0; RL design: `6A NN 59` (push NN; pop rcx), same length; pattern 88 91 49 02 00 00 8D 4A 01 FF 15 (site = hit + 6)	high	notes/cpu-hotspots-ally.md §8
 0x1fee68	label	SleepXCall_1FEE68		call Sleep(?); pdata fragment start 1FEE28	high	re/out/spinscan.txt §all call sites
+0x1ff06a	label	ResourceLoadIdlePoll_WakeDispatch		one wake-one after pushing the per-request ResourceStepJobs, to pool [g+6B8h]=6 (TrySync), not pool 1	high	notes/stutter.md §3.5
+0x1ff184	label	ResourceLoadIdlePoll_WakePool1		JobWakeOneInPool(sched, GetPoolId_ResourceLoad()) then Sleep(1), only when an inner pass made no progress (<=1 kHz)	high	notes/stutter.md §3.5
 0x1ff18c	label	SleepXCall_1FF18C		call Sleep(?); pdata fragment start 1FEE28	high	re/out/spinscan.txt §all call sites
 0x1ff371	label	Sleep1Call_1FF371		call Sleep(1); pdata fragment start 1FF320	high	re/out/spinscan.txt §all call sites
 0x20482e	label	QpcXCall_20482E		call QueryPerformanceCounter(?); pdata fragment start 204584	high	re/out/spinscan.txt §all call sites
@@ -520,6 +534,12 @@ rva	kind	name	signature	description	confidence	source
 0x281470	function	GetFrames60PerFrame	float fn(void)	Returns (float)(60/fps) via integer div (2@30, 1@60, 0@120); notes attribute VRR P6 site 0x1975BAA to it although the site is far outside this address (verify chunking)	medium	notes/frame-timing.md §8.2
 0x284ed4	function	Sched0Hot_284ED4		KIDSTaskScheduler0 hotspot: 0.6% self of that thread's samples (capture 2); job work run by the frame-step thread, role not identified [Ghidra: 464 B, 5 callers]	low	notes/cpu-profile.md §Top 30 self functions
 0x2853d4	function	Script_Online_IsPlayerGuest	bool Online::IsPlayerGuest(void)	[0x45C84F8]+0x1DC && !([0x45C84F8]+0x2C8) (via 0x5A9028)	high	notes/frame-timing.md §10.1; patcher/ft_session.fsx
+0x290900	function	CacheTileRingProcessCopyQueue	void (Ring* r, PageTable* pt, TileBatch* b, Stats* s)	drains the cache request ring (0x28-byte entries): state 1 map -> batch (flush on resource/heap change or full), 2 unmap (NULL) -> batch, 3 -> b->queue->Wait(fence,value) (vtbl+78h); flushes via 290F94 into the cache COPY queue; ends with queue->Signal(b+50h fence, ++b+58h) (vtbl+70h); in-flight batches throttled by the ring at b+468h..488h (cap b+470h)	high	notes/gpu-tiles.md
+0x290df0	function	CacheTileBatchAddMap	void (TileBatch* b, ID3D12Heap* h, u32 page, ID3D12Resource* r, Coord* c)	append one single-tile region {1,TRUE,1,1,1}, range NONE start=page count 1	high	notes/gpu-tiles.md
+0x290e54	function	CacheTileBatchMapNeedsFlush	bool (TileBatch* b, ID3D12Heap* h, ID3D12Resource* r)	true unless (b heap 0 or h) and (b res 0 or r) and count < capacity	high	notes/gpu-tiles.md
+0x290f10	function	CacheTileBatchAddUnmap	void (TileBatch* b, ID3D12Resource* r, Coord* c)	append one single-tile region, range NULL count 1, heap cleared	high	notes/gpu-tiles.md
+0x290f70	function	CacheTileBatchUnmapNeedsFlush	bool (TileBatch* b, ID3D12Resource* r)	true unless b heap == 0 and (res 0 or r) and count < capacity (map and unmap never share a call)	high	notes/gpu-tiles.md
+0x290f94	function	CacheTileBatchFlushDirect	void (TileBatch* b, ID3D12CommandQueue* q, Stats* s)	q->UpdateTileMappings(b+10h res, n=b+4, b+18h coords, b+20h sizes, b+8 heap, n, b+30h flags, b+28h starts, b+38h counts, 0) (vtbl+40h, site 290FFB); s+3Ch += n; clears the batch. The only direct UTM call site in engine code	high	notes/gpu-tiles.md
 0x2953fc	function	CustomDepthUpscaleRecord		Records CustomDepthUpscale: temporal depth upscale to output res (PSO 07072497 / PS 0cbad2cb, 66us at 9.04ms), shader from post library slot +0x380, writes XeSS_OutputDepth	high	notes/gpu-copies-postres.md §1
 0x295c44	function	PrepareThinSurfaceBsdfExecute		Execute of render node PrepareThinSurfaceBSDF (type 0xc41f73b1, graph nodes 270/300): temporal filter PS 449cf0ae (PSO 10c323d1, 247us at 8.06ms), post lib slot +0x378, weight copy+0x25dc; feeds refraction/translucency	high	notes/gpu-copies-postres.md §1
 0x2bfede	label	Sleep0Call_2BFEDE		call Sleep(0); pdata fragment start 2BFE10	high	re/out/spinscan.txt §all call sites
@@ -546,6 +566,7 @@ rva	kind	name	signature	description	confidence	source
 0x315c74	label	LoadAsset_DeserializeCall		call [rbx+0xB0] handler->Deserialize inside 0x3159a0; LooseFileLoader NOPs 6 bytes + mid-hook (rcx handler, rdx loading ctx, r8 AssetReader, r9 arg); AOB FF 93 B0 ? ? ? 48 8D 4D ? 49 89 45	high	notes/game-data.md §2 Hooks
 0x319d5c	function	CollisionUpdateSerial		iterates g_CollisionWorld object list (+0x540, count +0x560) and calls CollisionObjectUpdate on each object's +0x1F0+0x80 sub-object [Ghidra: 164 B, 0 callers]	low	re/scripts_workers/g_coll.txt
 0x319e00	function	CollisionUpdateDispatchJobs		collects collision objects from g_CollisionWorld, then pushes one job per object (vtbl 38EE878) plus 5 phase jobs (vtbl 38EE848) to the job system at GameMain+0x530 and waits [Ghidra: 582 B, 0 callers]	low	re/scripts_workers/g_coll.txt
+0x31a048	function	GetPoolId_CollisionUpdate	int GetPoolId_CollisionUpdate(void)	[g_GameMainPtr+6C0h] = 9	high	notes/stutter.md §3.5
 0x31a2c0	function	CharacterJobsDispatchB	void CharacterJobsDispatchB(u32* a, Scene* s, JobCounter* c, int kind, void* params)	copies params[0..0x1f] to g_CharacterUpdateParams, builds a job group and pushes one job per bucket (0x31a420) round robin	medium	notes/effects-animation.md §3
 0x31a514	function	JobPushToPool		push a job to a pool queue; typically followed by an unconditional wake-one	medium	notes/worker-power.md (static, 2026-10-07)
 0x31a86c	function	CharacterJobsDispatchA	void CharacterJobsDispatchA(ActorMgr* a, JobCounter* c, int kind, void* params)	copies params[0..0x1f] to g_CharacterUpdateParams, counts and pushes per-actor jobs (0x31a928/0x31a1dc)	medium	notes/effects-animation.md §3
@@ -553,6 +574,7 @@ rva	kind	name	signature	description	confidence	source
 0x31ef94	function	GrassPlacementCull		GRASS_DENSITY consumer; CPU placement/per-instance culling of procedural placement (clamps with cmovl)	medium	notes/settings.md §2 GRASS_DENSITY; notes/game-data.md §4.6
 0x360781	label	WfsoXCall_360781		call WaitForSingleObject(?); pdata fragment start 360734	high	re/out/spinscan.txt §all call sites
 0x360e3b	label	WfsoXCall_360E3B		call WaitForSingleObject(?); pdata fragment start 360734	high	re/out/spinscan.txt §all call sites
+0x367674	function	ResSetWithStateWait	int ResSetWithStateWait(Res* res, JobScheduler* s, int* src)	resource commit/set (356 callers): lock flags 0x7FFFFF/0x800000, then ResStateWaitSwap(res+20h, s, res, src) - the per-object spin behind the pool-1 storm	medium	notes/stutter.md §3.5
 0x36795b	label	Sleep0Call_36795B		call Sleep(0); pdata fragment start 3677E0	high	re/out/spinscan.txt §all call sites
 0x384cf0	label	Sleep0Call_384CF0		call Sleep(0); pdata fragment start 384C00	high	re/out/spinscan.txt §all call sites
 0x384ede	label	Sleep0Call_384EDE		call Sleep(0); pdata fragment start 384D14	high	re/out/spinscan.txt §all call sites
@@ -586,6 +608,7 @@ rva	kind	name	signature	description	confidence	source
 0x39b55c	function	FrameDtSetupNoArgCall	void fn(void)	No-arg function called between SetLimiterFps and SetProfile in dt setup; [rsp+20] slot only feeds SetLimiterFps	medium	notes/frame-timing.md §4b
 0x39e4e4	function	GameModeUpdateMain	void GameModeUpdateMain(int* mode, void* scene)	Game-world update on KIDSTaskScheduler0 (35-37% incl in r5/ingame2/r7): first EffectNoDispJoinIfPending (joins last frame's invisible-effect worker), then ~60 subsystem updates incl. CharacterUpdateDispatchIfActive (0x396e38) and EffectManagerFrameUpdate. Better description for the mainthread-logic.tsv row (same name)	medium	notes/effects-animation.md §1.2; notes/effects-animation.md §3
 0x39e910	function	EffectManagerFrameUpdate	void EffectManagerFrameUpdate(EffectMgr* m, void* scene, f32 dt, f32 dtRaw)	Per-frame effect manager step inside GameModeUpdateMain: EffectThreadListsReset, pass params (0x8bbf7c), EffectManagerUpdateInstances, then EffectDispKick when parallel and sets mgr+0x48	high	notes/effects-animation.md §1.1
+0x39f278	function	GetPoolId_StageUpdate	int GetPoolId_StageUpdate(void)	[g_GameMainPtr+6A4h] = 2	high	notes/stutter.md §3.5
 0x3a1672	label	Sleep0Call_3A1672		call Sleep(0); pdata fragment start 3A1634	high	re/out/spinscan.txt §all call sites
 0x3b93ba	label	Sleep0Call_3B93BA		call Sleep(0); pdata fragment start 3B91A8	high	re/out/spinscan.txt §all call sites
 0x3bc86c	label	Sleep0Call_3BC86C		call Sleep(0); pdata fragment start 3BC340	high	re/out/spinscan.txt §all call sites
@@ -733,7 +756,9 @@ rva	kind	name	signature	description	confidence	source
 0x577ebc	function	RenderFrameBeginPost		post step called by RenderFrameBeginThunk after 4A529C	medium	notes/mainthread-drawprep.md §1
 0x58bdc4	function	SynTokDispatch	void (SynCtx* c, u16** p)	tok 0x7E: SynFlushComputeState then Dispatch	high	notes/d3d12-submission.md §1
 0x58be90	function	SynFlushComputeState	void (SynCtx* c, ...)	compute PSO lookup/SetPipelineState (vtbl+0xC8) and SetComputeRootDescriptorTable flushes (4959EC/495414/495764)	high	notes/d3d12-submission.md §1
+0x58c000	function	PsoGetOrCreateComputeShared	ID3D12PipelineState* PsoGetOrCreateComputeShared(void* owner, void* key)	shared compute PSO cache owner+7D8h under the PSO CS [owner+818h]: miss -> CreateComputePso (58C07A = SPR C4); caller 2EC8BF4	high	notes/stutter.md §3.1
 0x58c144	function	RenderSubmitHot_58C144		SynergisticDispatcherTask (D3D12 submission thread) hotspot: 1.3% self (capture 2); render-submit side, role not identified [Ghidra: 221 B, 1 callers]	low	notes/cpu-profile.md §Top 30 self functions
+0x58c2b0	function	CreateComputePso	ID3D12PipelineState* CreateComputePso(RenderGlobals* g, void** key)	device(g+4268h)->CreateComputePipelineState (vtbl+58h) from the shader object's bytecode (+10h..+1Ch); callers 119A48/119C08/58BE90/58C000 (runtime) and 2EFE1CC (preload)	high	notes/stutter.md §3.1
 0x58d8e2	label	Sleep0Call_58D8E2		call Sleep(0); pdata fragment start 58D754	high	re/out/spinscan.txt §all call sites
 0x58dad8	label	Sleep0Call_58DAD8		call Sleep(0); pdata fragment start 58D91C	high	re/out/spinscan.txt §all call sites
 0x58dc11	label	Sleep0Call_58DC11		call Sleep(0); pdata fragment start 58DAE0	high	re/out/spinscan.txt §all call sites
@@ -785,12 +810,14 @@ rva	kind	name	signature	description	confidence	source
 0x5af6c9	label	VrrTicks120_P3e		Nioh3EngineFix id P3e group VRR len 6 orig 8D 42 78 41 F7 F0 (dyn-fps cooldown 120/fps in 0x5AF670) -> mov eax,[ticks120] (aka FtVrrPatchSite_5AF6C9, ExtPatchSite_5AF6C9) || also: frame-timing (ft_vrr) patch site; listed in cpu_caves.fsx FT_SITES overlap check (see frame-timing notes for role)	high	mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §3; patcher/cpu_caves.fsx; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
 0x5af7f8	function	DynResolutionController		Dynamic-resolution controller; resolution target fps x0.5 when FRAME_GENERATION on; uses DYNAMIC_RESOLUTION table 0x3C06B90	high	notes/frame-timing.md §3, §8.3
 0x5b668d	label	WfsoXCall_5B668D		call WaitForSingleObject(?); pdata fragment start 5B6670	high	re/out/spinscan.txt §all call sites
+0x5b66c0	function	SaveLoadThreadProc	u32 SaveLoadThreadProc(void* p)	thread procedure of [App]SaveLoadThreadMain (started by 5B7390, 32 KB stack)	medium	notes/stutter.md §3.6
 0x5b7390	function	SaveLoadThreadMain		Save/load worker thread ("[App]SaveLoadThreadMain")	medium	re/out/strings.tsv
 0x5b91ac	label	Sleep0Call_5B91AC		call Sleep(0); pdata fragment start 5B9068	high	re/out/spinscan.txt §all call sites
 0x5b9304	function	GetPoolEntry	PoolEntry* GetPoolEntry(int i)	&g_WorkerPoolTable.Entries[i] (47 callers)	high	notes/job-system.md §2c
 0x5b9320	function	GetWorkerPoolTable	PoolTable* GetWorkerPoolTable(void)	thread-safe-static guard then returns 0x4B722D0	high	notes/job-system.md §2c
 0x5bd8e0	function	CharacterAttachmentUpdate	void CharacterAttachmentUpdate(Attach* a, f32 dt)	Per-character attachment/sub-object update, skipped when the owner is more than 1800 (18 m) from the camera (+0xae18) unless in a special state	low	notes/effects-animation.md §3.2
 0x5c345e	label	Sleep0Call_5C345E		call Sleep(0); pdata fragment start 5C2BC8	high	re/out/spinscan.txt §all call sites
+0x5cf368	function	GetPoolId_TrySync	int GetPoolId_TrySync(void)	[g_GameMainPtr+6B8h] = 6 (TrySync)	high	notes/stutter.md §3.5
 0x5de334	label	GetArchiveInfo_CallSite		call to GetArchiveInfo 0x2dfb7c (AOB E8 ? ? ? ? 85 C0 0F 85 ? ? ? ? 4C 8B 7E)	high	notes/game-data.md §2 Hooks
 0x5fb360	label	FpsHistoryWindow_FpsUse		fps*1000/60 integer user: history window = N*fps/60 frames (stays on measured fps)	medium	notes/frame-timing.md §5 Risk, §8.2
 0x605ee4	function	Sched0Hot_605EE4		KIDSTaskScheduler0 hotspot: 0.7% self of that thread's samples (capture 2); job work run by the frame-step thread, role not identified [Ghidra: 258 B, 2 callers]	low	notes/cpu-profile.md §Top 30 self functions
@@ -798,6 +825,9 @@ rva	kind	name	signature	description	confidence	source
 0x609f74	function	GetResIdByFileKtid		Resource id from file KTID (LooseFileLoader helper; AOB E8 ? ? ? ? 8B D0 48 8B CB E8 ? ? ? ? BB)	high	notes/game-data.md §2 Hooks
 0x62ce7c	function	GpuIndexBufferMap	void GpuIndexBufferMap(void* ib, void** out, int mode, u64 off, u32 size)	maps the UI index buffer (UiVertexBuilder+380h) into +360h with mode 3; size from ib+48h	medium	notes/ui-mainthread.md §E
 0x62d688	function	UploadHeapSuballoc		suballocates from [dev+4678h] and creates a placed resource in GENERIC_READ (upload heap = WC)	high	notes/ui-mainthread.md §E
+0x62d784	label	UploadHeapSuballoc_CreatePlaced	41 FF 93 E8 00 00 00	device->CreatePlacedResource (vtbl+E8h) for every upload suballocation; SPR probe site UP	high	notes/stutter.md §3.3; patcher/stutter_probe_live.fsx
+0x62d7e7	label	UploadHeapSuballoc_CallDedicatedFallback	E8 rel32 -> 9C2EE0	upload heap ring full or request too big -> CreateCommittedResource per upload (TextureStagingAllocDedicated); SPR probe site UF	high	notes/stutter.md §3.3; patcher/stutter_probe_live.fsx
+0x62d7f0	function	UploadHeapRingAlloc	bool UploadHeapRingAlloc(UploadHeapRing* r, u64 size, u64 align, Suballoc* out)	vtbl+18h of the upload/readback heap ring (vtable 409A748): fails when size > one heap ([r+20h]) or no heap in the ring has room -> caller falls back to a dedicated committed resource	high	notes/stutter.md §3.3
 0x62e4dc	function	GpuIndexBufferUnmap	void GpuIndexBufferUnmap(void* ib)	unmaps the UI index buffer at the end of UiQuadBuild	medium	notes/ui-mainthread.md §E
 0x648482	label	WfsoXCall_648482		call WaitForSingleObject(?); pdata fragment start 648448	high	re/out/spinscan.txt §all call sites
 0x66113e	label	Sleep0Call_66113E		call Sleep(0); pdata fragment start 661070	high	re/out/spinscan.txt §all call sites
@@ -843,6 +873,7 @@ rva	kind	name	signature	description	confidence	source
 0x73a784	function	EffectWorkEntryPushBack	EffectWorkEntry* EffectWorkEntryPushBack(Vec* v, const EffectWorkEntry* e)	std::vector of 0x30-byte entries push_back (grow path 0x1005934); used for the Disp lists (0x160fc0) and by 0x1a72c00	medium	notes/effects-animation.md §1.1
 0x744b30	label	UiElemCopyToLocalG		(site inside function 0x744a88) type-2 element vfunc+0x68 implementation (pure)	medium	notes/ui-mainthread.md §R
 0x744b60	function	UiElemCopyToLocalF		type-2 element vfunc+0x68 implementation (pure)	medium	notes/ui-mainthread.md §R
+0x79e990	function	PsoKeyNormaliseBlend	u32 PsoKeyNormaliseBlend(PsoDesc80* d, u32 b)	returns 0 for key byte +3Dh when no render target uses blending (d+38h bits), else b; used by the preload (2EFE2A8) and 2EFF9C8	medium	notes/stutter.md §3.1
 0x79f62c	function	OceanThread		References "OceanThread%d" thread-name format (252 B)	medium	re/out/README.md §Findings: frame pacing
 0x7a728c	function	SynFlushImmediateDraws	void (SynCtx* c)	draws pending immediate-mode geometry (+0x2458 verts): IASetVertexBuffers + IASetIndexBuffer + DrawIndexedInstanced; called first by 88 handlers	high	notes/d3d12-submission.md §1
 0x7afe94	function	GetResItemById		Resource item lookup by id (LooseFileLoader helper; AOB E8 ? ? ? ? 49 8B 95 ? ? ? ? 4C 8B C0 E8)	high	notes/game-data.md §2 Hooks
@@ -906,7 +937,9 @@ rva	kind	name	signature	description	confidence	source
 0x8988a8	function	SynTokComputeEnd		KTGL tok 0x7D: UAV barrier (1139D4), dirty 0x20, c+0x541 = 0	high	notes/gpu-scheduling.md §A.3
 0x89a9d0	function	SetParamIndirectRenderScaleForOcn	bool SetParamIndirectRenderScaleForOcn(float v, void* params, int idx)	writes float v to render param hash 0x01FCC200 (IndirectRenderScaleForOcn, water view diffuse gather)	medium	notes/gpu-maxsettings.md §3
 0x89aa94	function	SetParamReflectionRenderScaleForOcn	bool SetParamReflectionRenderScaleForOcn(float v, void* params, int idx)	writes float v to render param hash 0x0F38BF83 (ReflectionRenderScaleForOcn, water view reflection gather)	medium	notes/gpu-maxsettings.md §3
+0x89b4a0	function	GetPoolId_MiscAsync	int GetPoolId_MiscAsync(void)	[g_GameMainPtr+6BCh] = 8	high	notes/stutter.md §3.5
 0x8bb170	function	SynTokComputeBegin		KTGL tok 0x7C: compute section begins on the graphics list (c+0x541 = 1, dirty 0x40)	high	notes/gpu-scheduling.md §A.3
+0x8bbb84	function	ResStateWaitSwap	void ResStateWaitSwap(Slot* slot, JobScheduler* s, Res* res, Src* src)	CAS slot+10h 0->src; else spin until the resource's state bits (4 planes at sched+268h, index GetResIdFromRes(sched+218h,res)) allow (relaxed after 0x800 spins), xchg slot+10h and free the old via KidsDeferredRelease 1F78F90; cold spin 1A31388 calls SchedRequestFlush 1A862F4 + JobWakeOneInPool(s,[s+3A8h]=1 ResourceLoad) EVERY spin, Sleep(0) per 256 = the Ally pool-1 wake storm (25-150k/s); RWb/RWc	medium	notes/stutter.md §3.5
 0x8bec48	function	GfxFrameSlotAdvance	void (GfxDevice* d, bool advance)	after each Present: slot +4730h = (slot+1) % BufferCount(+4240h = 3), then GfxWaitFenceValue(slot fence +4320h[slot]) = waits until the GPU finished the frame that last used this slot (frame N-2): engine frames in flight = 3; also flushes per-slot query ranges	high	notes/input-latency.md §3
 0x8c8e54	function	UpdateDispatchA		Update dispatch from dt setup with dtSec=G[624]/G[614], dt60=G[624]*60/G[614] (one of pair 0x8C8E54/0x5AB644) (aka GameModeUpdateDispatch) || also: 29-byte game-mode update entry fed dt60 by GameFrameUpdate	medium	notes/frame-timing.md §1 Loop diagram; re/out/README.md §Findings: frame pacing
 0x8c8eec	label	JmpIat_Sleep_8C8EEC		`jmp [IAT Sleep]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
@@ -914,6 +947,7 @@ rva	kind	name	signature	description	confidence	source
 0x8ccb80	function	SetParamIndirectRenderScale	bool SetParamIndirectRenderScale(float v, void* params, int idx)	writes float v to render param hash 0xD8A8960F slot idx (IndirectRenderScale; sizes RefProbe#121 dispatch)	medium	notes/gpu-maxsettings.md §3
 0x8ee418	function	PauseSpin_8EE418		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 8EE426..8EE44C	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x8f0b5c	function	SynTokFencePoint		KTGL tok 1 handler body: list boundary + fence on the dispatcher context (list ring c+0x5A0)	medium	notes/gpu-scheduling.md §B.1
+0x8fe3bc	function	SchedCtxKick	void SchedCtxKick(Ctx* ctx, JobScheduler* s)	if sched+2D8h & 0x187C0000: push the pool context job (31A63C) and JobWakeOne(ctx pool) at 8FE4BD; called from MainLoopFrame 1A746CD / 1A74ACD	medium	notes/stutter.md §3.5
 0x9039be	label	JmpIat_WaitForMultipleObjects_9039BE		`jmp [IAT WaitForMultipleObjects]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x9060c4	function	PauseSpin_9060C4		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 9060E7..906199 906186..9061A0	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x90e060	function	PauseSpin_90E060		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 90E080..90E100 90E0F3..90E107	medium	re/out/spinscan.txt §fragments containing PAUSE
@@ -925,6 +959,7 @@ rva	kind	name	signature	description	confidence	source
 0x916f14	label	JobWaitStep_Sleep0		Sleep(0) fallback when no job could be run or stolen (`xor ecx,ecx` at 916F12); S1 option (b) site	high	notes/cpu-profile.md §S1; re/out/spinscan.txt
 0x9170c8	function	PauseSpin_9170C8		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 9170E8..917170 917163..917177	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x9261dc	function	UiBufferPoolAcquire	void** UiBufferPoolAcquire(void* pool)	returns the current {VB, IB} GpuBuffer pair of the UI buffer ring (pool+390h, refilled from pool+78h, advanced via pair+10h) under the pool+3A8h lock; called once per frame by UiQuadBuild	high	notes/ui-mainthread.md §E
+0x9290d8	function	CreateGfxPso	ID3D12PipelineState* CreateGfxPso(RenderGlobals* g, PsoDesc80* d)	builds D3D12_GRAPHICS_PIPELINE_STATE_DESC from the 0x80-byte key (shader objects at d+0/d+20h, root signature lookup under CS g+4760h) and calls device(g+4268h)->CreateGraphicsPipelineState (vtbl+50h); if d+30h != 0 (mesh/amplification shaders) uses ID3D12Device2::CreatePipelineState (vtbl+178h) with a 0x268-byte stream; callers 119670 (runtime) and 2EFE440 (preload)	high	notes/stutter.md §3.1
 0x93b720	function	MeshletFrameSetupD		setup callee of MeshletFrameBegin	low	notes/meshlet-mainthread.md §1
 0x93cb4e	label	JmpIat_xellSleep_93CB4E		`jmp [IAT xellSleep]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x945664	function	CmdListRingSubmitIfBehind	void (CmdListRing* r, void* a, u64 fence, u8 f)	if fence > submitted: close list if needed and submit up to fence; called when descriptor/upload rings run out (118E28, 118C10, 1188AC, 495xxx)	medium	notes/d3d12-submission.md §3
@@ -939,6 +974,7 @@ rva	kind	name	signature	description	confidence	source
 0x9a2fa8	function	PauseSpin_9A2FA8		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 9A3036..9A3117	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x9ac33c	function	MeshletCullBegin	void (MeshletSys* m, Ctx*, u32 view, ...)	per-view meshlet culling setup before MeshletInstanceCulling/MeshletPreculling	medium	notes/shadows-culling.md §1.2
 0x9afe00	function	GetDisplayRefreshRate	int GetDisplayRefreshRate()	Returns cached refresh rate g_DisplayRefreshRate 0x45bbcc4 (60 at dump) || also: Display refresh rate source for the REN_FPS refresh gate, cached in [0x45BBCC4]	high	notes/settings.md §4.1; notes/frame-timing.md §9.1
+0x9b05bc	function	PsoCacheInsertGfx	bool PsoCacheInsertGfx(void* cache, PsoKey* k)	inserts k (with PSO at k+88h) into the graphics PSO cache, count +28h	medium	notes/stutter.md §3.1
 0x9b1850	function	GenerateShadowMapHiZ	u8 (MeshletSys*, Ctx*, ...)	marker GenerateShadowMapHiZ + Hi-Z build between the two shadow occlusion phases	high	notes/shadows-culling.md §1.1
 0x9b5702	label	Sleep0Call_9B5702		call Sleep(0); pdata fragment start 9B5634	high	re/out/spinscan.txt §all call sites
 0x9c2ee0	function	TextureStagingAllocDedicated		dedicated persistent staging buffer kept across maps	high	notes/mainthread-drawprep.md §2 C; notes/ui-mainthread.md §C
@@ -1148,6 +1184,7 @@ rva	kind	name	signature	description	confidence	source
 0x10e50f0	function	ShaderGroupResourceResolve		Resource-type resolver for type hash 0x7bcd279f (G1SFile shader group); calls ShaderGroupFileLoad	high	notes/gpu-shader-replacement.md §2
 0x10f7d00	function	EventFpsOverride		Event/cutscene fps override (EVENT_FPS); forces G[620]=30 at 0x10F7DAF; no online condition	medium	notes/frame-timing.md §8.4, §10.2
 0x10f7daf	label	EventFpsOverride_Force30		Event code sets G[620]=30 when event-fps flag (EVENT_FPS) set	high	notes/frame-timing.md §2, §8.4
+0x1101b90	function	PreloadPsoBootLoad	void PreloadPsoBootLoad(void* req, void* arg)	PreloadPSOLoadRequest body: opens resource 0x17A4 (the boot PSO list) and runs PsoListLoad	medium	notes/stutter.md §3.1
 0x1101d0c	label	WfsoXCall_1101D0C		call WaitForSingleObject(?); pdata fragment start 1101C79	high	re/out/spinscan.txt §all call sites
 0x1101fd8	label	Sleep0Call_1101FD8		call Sleep(0); pdata fragment start 1101E90	high	re/out/spinscan.txt §all call sites
 0x1104880	function	WindSensitivityReaderA		Game-side reader of WIND_SENSITIVITY (cloth/foliage wind sim)	medium	notes/settings.md §2 WIND_SENSITIVITY
@@ -1202,11 +1239,14 @@ rva	kind	name	signature	description	confidence	source
 0x1324658	label	Sleep0Call_1324658		call Sleep(0); pdata fragment start 1324600	high	re/out/spinscan.txt §all call sites
 0x13262e3	label	Sleep0Call_13262E3		call Sleep(0); pdata fragment start 13262A0	high	re/out/spinscan.txt §all call sites
 0x1334980	function	SetFpsModeFlags	void SetFpsModeFlags(FpsModeObj* obj, int fps)	fps==30: +1D=0,+1E=1; fps==60: both 0; fps==120: +1D=1; any other value leaves flags unchanged; also fps for physics/Havok-like subsystem path	high	notes/frame-timing.md §8.1
+0x13433f0	function	ResourceStepJob_Ctor	Job* ResourceStepJob_Ctor(Job* j, Req* r[2], Ctx* c)	0x58-byte resource step job (vtbl 3B84610), created per ready request by ResourceLoadIdlePoll 1FEE28 and pushed to pool [g+6B8h]=6 TrySync	medium	notes/stutter.md §3.5
 0x1343720	function	ResourceLoadManagerJob		persistent ResourceLoad manager job; idle loop via 1FEE28 = Sleep(1) poll at ~1 kHz	medium	notes/worker-power.md (static, 2026-10-07)
 0x1343778	label	Sleep0Call_1343778		call Sleep(0); pdata fragment start 1343720	high	re/out/spinscan.txt §all call sites
 0x1343800	label	Sleep1Call_1343800		call Sleep(1); pdata fragment start 1343720	high	re/out/spinscan.txt §all call sites
 0x1343908	label	Sleep0Call_1343908		call Sleep(0); pdata fragment start 13438B0	high	re/out/spinscan.txt §all call sites
 0x1343990	label	Sleep1Call_1343990		call Sleep(1); pdata fragment start 13438B0	high	re/out/spinscan.txt §all call sites
+0x1343d00	function	ResourceStepJob_Run	u64 ResourceStepJob_Run(Job* j)	vtbl slot 1 of 3B84610: if 1FF1E4(req) run req->vf10(ctx), re-arm itself and, if req+54h==0, JobWakeOneInPool(sched,[g+6A0h]=1) at 1343D5E; runs on TrySync (pool 6) workers; secondary pool-1 wake source	medium	notes/stutter.md §3.5
+0x1343d5e	label	ResourceStepJob_WakeCall		optional RW site: E8 39 4E D0 FE then xor eax,eax (eax dead); AOB 66 83 78 54 00 75 31 48 8B 43 48 48 8B 48 08 48 8B 05 ?? ?? ?? ?? 48 85 C0 74 13 8B 90 A0 06 00 00 E8 (+0x21)	high	notes/stutter.md §3.5
 0x1348dc5	label	WfsoXCall_1348DC5		call WaitForSingleObject(?); pdata fragment start 1348D10	high	re/out/spinscan.txt §all call sites
 0x1349e35	label	WfsoXCall_1349E35		call WaitForSingleObject(?); pdata fragment start 1349D80	high	re/out/spinscan.txt §all call sites
 0x134a531	label	WfsoXCall_134A531		call WaitForSingleObject(?); pdata fragment start 134A4E8	high	re/out/spinscan.txt §all call sites
@@ -1240,7 +1280,12 @@ rva	kind	name	signature	description	confidence	source
 0x185a2b0	function	PauseSpin_185A2B0		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 185A2F3..185A2FB	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x185a5a0	function	PauseSpin_185A5A0		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 185A634..185A63C	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x185a7c0	function	PauseSpin_185A7C0		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 185A7DE..185A7E7	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x1896ac8	function	KtglCacheShutdown		teardown: CacheFlushOnGfx, release queues/jobs, CacheTileBatchFlushAndSignalGfx	high	notes/gpu-tiles.md
 0x1898f7e	label	WfsoXCall_1898F7E		call WaitForSingleObject(?); pdata fragment start 1898F44	high	re/out/spinscan.txt §all call sites
+0x1899a54	function	PsoCacheGrow	bool PsoCacheGrow(void* cache, int n)	allocates (n+8)/9+4 blocks of 0xAC0 bytes for the PSO cache when count >= capacity (+730h vs +73Ch, step +7D4h); failure -> PSO not created	medium	notes/stutter.md §3.1
+0x189ba34	function	CacheTileBatchFlushRecorded	void (TileBatch* b, Ctx* ctx, Stats* s)	records the batch as ECL token 4 into ctx+5A0h (189BF3C -> 2F150AC) instead of calling D3D12; s+3Ch += n	high	notes/gpu-tiles.md
+0x189bef4	function	CtxEmitCopyTileMappings		stream = rcx+40h; -> EclEmitCopyTileMappings 2F15010	high	notes/gpu-tiles.md
+0x189bf3c	function	CtxEmitUpdateTileMappings		stream = rcx+40h; -> EclEmitUpdateTileMappings 2F150AC	high	notes/gpu-tiles.md
 0x189bfb0	function	RenderSubmitHot_189BFB0		SynergisticDispatcherTask (D3D12 submission thread) hotspot: 0.6% self (capture 2); render-submit side, role not identified; profiler marked (leaf?) [Ghidra: 114 B, 1 callers]	low	notes/cpu-profile.md §Top 30 self functions
 0x18c6f78	function	UiLocalInit		type-2 element in UiElementWalk: init a local before vfunc+0x68	medium	notes/ui-mainthread.md §R
 0x18cbd41	label	Sleep0Call_18CBD41		call Sleep(0); pdata fragment start 18CBCB8	high	re/out/spinscan.txt §all call sites
@@ -1352,6 +1397,9 @@ rva	kind	name	signature	description	confidence	source
 0x1a27d2e	label	Sleep0Call_1A27D2E		call Sleep(0) in JobWaitLoop_1A27CEC; pdata fragment start 1A27CEC	high	re/out/spinscan.txt §all call sites
 0x1a2918c	label	Sleep0Call_1A2918C		call Sleep(0); pdata fragment start 1A29180	high	re/out/spinscan.txt §all call sites
 0x1a291c6	label	Sleep0Call_1A291C6		call Sleep(0); pdata fragment start 1A29198	high	re/out/spinscan.txt §all call sites
+0x1a31388	label	ResStateWaitSwap_SpinCold		cold spin fragment of ResStateWaitSwap 8BBB84 (bit-plane test, 1A862F4, wake-one, inc ebx, Sleep(0) when bl wraps)	high	notes/stutter.md §3.5
+0x1a3146a	label	ResStateWaitSwap_WakeBlock		RWb site (patcher/reswait_live.fsx): 22 bytes mov edx,[rbp+3A8h]; mov rcx,rbp; call 48B9C; inc ebx; test bl,bl; jne 1A31486; xor ecx,ecx -> wake only on the Sleep(0) spin (1 per 256)	high	notes/stutter.md §3.5; patcher/reswait_live.fsx
+0x1a31473	label	ResStateWaitSwap_WakeCall		RWc site: E8 24 77 61 FE call JobWakeOneInPool(rcx=sched, edx=[sched+3A8h]); eax dead after; AOB 8B 95 A8 03 00 00 48 8B CD E8 ?? ?? ?? ?? FF C3 84 DB 75 08 33 C9 (+9)	high	notes/stutter.md §3.5
 0x1a31480	label	Sleep0Call_1A31480		call Sleep(0); pdata fragment start 1A31388	high	re/out/spinscan.txt §all call sites
 0x1a3274a	label	Sleep0Call_1A3274A		call Sleep(0); pdata fragment start 1A3272C	high	re/out/spinscan.txt §all call sites
 0x1a37c0e	label	Sleep0Call_1A37C0E		call Sleep(0); pdata fragment start 1A37A78	high	re/out/spinscan.txt §all call sites
@@ -1433,8 +1481,10 @@ rva	kind	name	signature	description	confidence	source
 0x1a822d9	label	PresentThreadClearBusy		Present thread clears GfxDevice+0x7728 after Present returns; ASI W6 adds WakeByAddressAll here for the main thread's WaitOnAddress	high	ASI 1.1.0 W6, notes/d3d12-submission.md §7
 0x1a822ff	label	WfsoXCall_1A822FF		call WaitForSingleObject(?); pdata fragment start 1A82298	high	re/out/spinscan.txt §all call sites
 0x1a849ef	label	JmpIat_Sleep_1A849EF		`jmp [IAT Sleep]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
+0x1a862f4	function	SchedRequestFlush	void SchedRequestFlush(JobScheduler* s)	atomic OR of bit 27 (0x8000000) into sched+2D8h via 496F0; consumed by SchedCtxKick 8FE3BC (mask 0x187C0000) on the main loop	medium	notes/stutter.md §3.5
 0x1c33174	function	FirstRunAutoPreset		First-run auto preset; reads CPU_SPEC_CLASS (LOW forces REN_FPS 30), sets HDR, calls 0x1fde034 / 0x1fde480, then SaveConfig 0x1fe56a8	high	notes/settings.md §4.2; re/settings/cpuspec.asm
 0x1c33fa8	function	RunCpuBenchmark		First-run CPU benchmark: score -> 0x1fe0054 -> CPU_SPEC_CLASS slot 0x45bb01c and *g_GameMain+0x284 (1/2/3)	high	notes/settings.md §4.2; re/settings/cpuspec.asm
+0x1f78f90	function	KidsDeferredRelease	void KidsDeferredRelease(JobScheduler* s, void* pair[2])	allocates a 0x48-byte release job (vtbl 3BA6C30) and pushes it to the main pool (sched+E8h) via 31A63C	medium	notes/stutter.md §3.5
 0x1fc34cc	function	OccluderUnitHandlerSetup		Touches the OccluderUnit (type 0xDDD0E775) handler and sets handler+0x18 = 0x32	low	notes/invisible-gpu.md §2
 0x1fc79a1	label	Sleep0Call_1FC79A1		call Sleep(0); pdata fragment start 1FC7914	high	re/out/spinscan.txt §all call sites
 0x1fc7e61	label	Sleep0Call_1FC7E61		call Sleep(0); pdata fragment start 1FC7DD4	high	re/out/spinscan.txt §all call sites
@@ -1526,6 +1576,7 @@ rva	kind	name	signature	description	confidence	source
 0x26b66b0	function	GlyphAtlasAttachTexture		attaches the created atlas textures to the glyph cache ring	low	notes/ui-mainthread.md §C
 0x26f5d37	label	Sleep0Call_26F5D37		call Sleep(0); pdata fragment start 26F5B14	high	re/out/spinscan.txt §all call sites
 0x26f5e69	label	RegisterAssetHandler_CallSite		call to RegisterAssetHandler 0x3246e9c (AOB E8 ? ? ? ? 84 C0 0F 84 ? ? ? ? 83 65 ? 00 48 8D 15)	high	notes/game-data.md §2 Hooks
+0x2703048	function	CreateResourceLoadPool	bool CreateResourceLoadPool(GameMain* g)	pool table entry 5 "ResourceLoad" -> id 1 at g+6A0h; context SchedCreatePoolContext(sched,id) -> g+558h (becomes sched+3A8h = 1 in MainLoopFrame)	high	notes/stutter.md §3.5
 0x27049cc	function	MainLoopFrameCaller		caller of MainLoopFrame (call site 27050D1); in capture 2 chain: 1A74130 <- 27049CC <- 134EBD0 [Ghidra: 1834 B, 0 callers]	medium	notes/cpu-profile.md §Threads; §S3
 0x27050d1	label	MainLoopFrameCaller_CallMainLoopFrame		call/return site of MainLoopFrame (1A74130) inside 27049CC	medium	notes/cpu-profile.md §S3
 0x283892c	function	SaveConfigIfDirty	void SaveConfigIfDirty(void)	if g_ConfigDirty: SaveConfig 0x1FE56A8, clear the flag; callers 0x2826F60 0x282729C 0x2827560 0x28276E4 (option screens)	high	notes/frame-generation.md §3
@@ -1590,6 +1641,7 @@ rva	kind	name	signature	description	confidence	source
 0x2e9e16c	function	PauseSpin_2E9E16C		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2E9E18A..2E9E193	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x2ec7ad4	function	GpuParticleInit		Creates the GPU particle update compute PSO (exe CS 5e771e53); recording site of the 75 serialized dispatches not located	high	notes/invisible-gpu.md §4b
 0x2ec7b16	label	GpuParticleInit_CreateUpdatePso		PSO creation for particle update CS 5e771e53	high	notes/invisible-gpu.md §4b
+0x2ec8bf4	function	ComputePsoWarmOrCache	void (void* p, void* shader)	if [p+53D8h]==0 creates the compute PSO and releases it at once (driver-cache warm-up) else caches it via 58C000; 16 calls from 2EC8AA8 (init)	medium	notes/stutter.md §3.1
 0x2ec91c8	label	Sleep0Call_2EC91C8		call Sleep(0); pdata fragment start 2EC91B4	high	re/out/spinscan.txt §all call sites
 0x2ec9d7d	label	Sleep0Call_2EC9D7D		call Sleep(0); pdata fragment start 2EC9D3C	high	re/out/spinscan.txt §all call sites
 0x2edae7c	function	GlyphCacheCtor		ctor: code table +0xB0 (64K x u16), 1025 nodes x0x18 at +0x200B0, cap +78=1024, pad +7C=1, persist flag +A8	high	notes/ui-mainthread.md §C
@@ -1619,7 +1671,9 @@ rva	kind	name	signature	description	confidence	source
 0x2eede04	label	Sleep0Call_2EEDE04		call Sleep(0); pdata fragment start 2EEDDEC	high	re/out/spinscan.txt §all call sites
 0x2eede7d	label	WfsoXCall_2EEDE7D		call WaitForSingleObject(?); pdata fragment start 2EEDE4C	high	re/out/spinscan.txt §all call sites
 0x2eedfa0	function	SynergisticDispatcherThreadEntry	u32 (void* p)	thread entry: SetThreadDescription SynergisticDispatcherTask then SynergisticDispatcherLoop	high	notes/d3d12-submission.md §1
+0x2ef053c	function	KtglCacheInit	bool (KtglCache* c, GfxDevice* d, CacheDesc* desc, ...)	creates the KTGLGraph resource cache ([45BA588]+61A0h): +A8h tile batch + own COPY queue (2F110A8), +538h GFX-recorded tile batch (2F111AC), +590h, +608h page table, +678h, +6A8h request ring, 4 job pools (+6F8h CacheTileMappingJob 126630, +728h, +758h, +788h), +868h upload COPY queue + N copy contexts (2F13350), +8F0h stats	high	notes/gpu-tiles.md
 0x2ef0919	label	WfsoXCall_2EF0919		call WaitForSingleObject(?); pdata fragment start 2EF08E0	high	re/out/spinscan.txt §all call sites
+0x2ef0938	function	CacheFlushOnGfx	void (KtglCache* c, GfxDevice* d)	render-thread drain of the cache request ring onto the GFX context (d+10h) under the job's lock: map/unmap -> CacheTileBatch (c+538h) -> ECL token 4, then CacheTileBatchFlushAndSignalGfx (token 7 Signal on the GFX queue + SetEventOnCompletion). Called twice per frame by RenderFrameBeginCacheFlush, and at reset	high	notes/gpu-tiles.md
 0x2ef0c81	label	WfsoXCall_2EF0C81		call WaitForSingleObject(?); pdata fragment start 2EF0C44	high	re/out/spinscan.txt §all call sites
 0x2ef0e00	function	PauseSpin_2EF0E00		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2EF0E11..2EF0E1A	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x2ef0e90	function	PauseSpin_2EF0E90		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2EF0EA2..2EF0EAA	medium	re/out/spinscan.txt §fragments containing PAUSE
@@ -1628,13 +1682,36 @@ rva	kind	name	signature	description	confidence	source
 0x2ef59dc	function	DebugTextPutsLine	DebugTextConsole*(DebugTextConsole* c, const char* s)	DebugTextPuts then row(+0)++, col(+4)=0	high	notes/osd-design.md §A
 0x2ef8354	function	AsyncComputeCtxInit		AsyncComputeCtxCreateQueue on ctx+0x68; optional own dispatcher backend (vtable 409A3B0) when cfg+0x3D	medium	notes/gpu-scheduling.md §A.2
 0x2ef8448	function	AsyncComputeCtxCreateQueue		CreateCommandQueue(type 2 COMPUTE), N compute allocators + lists, event, compute root signature, CBV/SRV/UAV/sampler heaps	high	notes/gpu-scheduling.md §A.1
-0x2f110a8	function	GfxCreateCopyQueueB		CreateCommandQueue(type 3 COPY); falls back to the GFX queue (dev+0x4270) on failure	medium	notes/gpu-scheduling.md §A.1
+0x2efba1c	function	CacheUnmapOnCtx		token-driven unmap (2F0D774 handler): first use inits the context, then 2EEF5AC -> CacheTileBatchUnmap on the cache GFX batch	medium	notes/gpu-tiles.md
+0x2efc060	function	GfxExecCopyTileMappings		GFX queue [dev+4270h]->CopyTileMappings (vtbl+48h, site 2EFC08B); executor vtable slot +58h	high	notes/gpu-tiles.md
+0x2efe1cc	function	PsoPreloadComputeCreate	void PsoPreloadComputeCreate(void* owner, void* key)	creates the compute PSO outside the lock (58C2B0, SPR site PC 2EFE1F2), inserts into owner+7D8h if not present and below capacity	high	notes/stutter.md §3.1
+0x2efe2a8	function	PsoPreloadGfx	void PsoPreloadGfx(void* owner, PsoDesc80* d)	PreloadPSO list entry: normalises key byte +3Dh (79E990), skips keys already cached (lookup under CS owner+818h), else 2EFE440	high	notes/stutter.md §3.1
+0x2efe440	function	PsoPreloadGfxCreate	void PsoPreloadGfxCreate(void* owner, PsoDesc80* d, bool force)	creates the graphics PSO OUTSIDE the cache lock (9290D8, SPR site PG 2EFE47C) then inserts under the CS; releases it when the insert fails	high	notes/stutter.md §3.1
+0x2eff9c8	function	PsoKeyBuildGfx	void PsoKeyBuildGfx(SynCtx* c)	builds the runtime graphics PSO key at c+740h..+7BFh from the current shader/state shadow (c+48h.., rasterizer/blend/depth bits into c+780h/+784h) and applies the same normalisation as the preload (79E990); caller 2EFEA14	medium	notes/stutter.md §3.1
+0x2f00960	function	CtxEmitSignalGfx	void (Ctx* ctx, ID3D12Fence** f, u64 v)	ctx+5A0h stream, queue = [45BA588]+4270h -> 48FF10 (ECL Signal token)	medium	notes/gpu-tiles.md
+0x2f0103c	function	GfxExecUpdateTileMappings		[[this+8]+4270h] (the GFX DIRECT queue) ->UpdateTileMappings (vtbl+40h, site 2F0109D, Flags 0); slot +50h of the ECL executor vtable 409A620	high	notes/gpu-tiles.md
+0x2f010a8	function	CtxUpdateTileMappings		recording context: stream ctx+5A0h -> 189BF3C (token 4)	high	notes/gpu-tiles.md
+0x2f035c8	function	UploadHeapRingInit	void UploadHeapRingInit(UploadHeapRing* r, void* dev, int type, IAllocator* a, DevParams* p)	vtbl+08h: creates N heaps (p+170h upload / p+180h readback) of size p+168h / p+178h (CreateHeap via 2F02FEC), linked in a ring (0x38-byte entries)	high	notes/stutter.md §3.3
+0x2f03730	function	UploadHeapRingShutdown	void UploadHeapRingShutdown(UploadHeapRing* r)	vtbl+10h: releases every heap of the ring	medium	notes/stutter.md §3.3
+0x2f03f9c	label	CreateReservedResource_Backend	call [vtbl+F0h]	device->CreateReservedResource in the generic backend texture creator (signature-checked candidate; 62A191, 62D679 are the other two candidates)	medium	notes/gpu-tiles.md
+0x2f10b00	function	CacheRingDrainToCtx		ring state 2 -> CacheTileBatchUnmap 2F11318, state 1 -> 2F0F9AC page map -> CachePageMapTile 2F118F8 -> CacheTileBatchMap 2F10FF4	high	notes/gpu-tiles.md
+0x2f10fa4	function	CacheTileBatchFlushThenCopy		CacheTileBatchFlushRecorded then 2F10F68 -> CtxEmitCopyTileMappings (the only CopyTileMappings user)	medium	notes/gpu-tiles.md
+0x2f10ff4	function	CacheTileBatchMap		flush if CacheTileBatchMapNeedsFlush, then CacheTileBatchAddMap	high	notes/gpu-tiles.md
+0x2f110a8	function	GfxCreateCopyQueueB		CreateCommandQueue(type 3 COPY); falls back to the GFX queue (dev+0x4270) on failure; also (gpu-tiles.tsv): CacheTileQueueCreate - CreateCommandQueue(COPY) into b+40h (falls back to the GFX queue d+4270h on failure), event b+48h, fence b+50h, value b+58h, in-flight ring b+460h	high	notes/gpu-scheduling.md §A.1
+0x2f111ac	function	CacheGfxTileBatchInit		batch for the GFX-recorded path: event +40h, fence +48h (device d+4268h)	high	notes/gpu-tiles.md
+0x2f1120c	function	CacheTileBatchFlushAndSignalGfx	void (TileBatch* b, Ctx* ctx, Stats* s)	++b+50h; CacheTileBatchFlushRecorded; CtxEmitSignalGfx(ctx, b+48h fence, value); fence->SetEventOnCompletion(value, b+40h event). Runs on every CacheFlushOnGfx, also when no tile changed	high	notes/gpu-tiles.md
 0x2f11297	label	JmpIat_WaitForSingleObject_2F11297		`jmp [IAT WaitForSingleObject]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
+0x2f11318	function	CacheTileBatchUnmap		flush if CacheTileBatchUnmapNeedsFlush, then CacheTileBatchAddUnmap	high	notes/gpu-tiles.md
+0x2f118f8	function	CachePageMapTile		page index -> pool heap (+10h) + heap page, -> CacheTileBatchMap	medium	notes/gpu-tiles.md
 0x2f1317e	label	WfsoXCall_2F1317E		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
 0x2f131b2	label	WfsoXCall_2F131B2		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
-0x2f13350	function	GfxCreateCopyQueueC		CreateCommandQueue(type 3 COPY) + N copy lists	medium	notes/gpu-scheduling.md §A.1
+0x2f13350	function	GfxCreateCopyQueueC		CreateCommandQueue(type 3 COPY) + N copy lists; also (gpu-tiles.tsv): CacheUploadQueueCreate - CreateCommandQueue(COPY) + N {allocator, list, ...} upload contexts (texture tile data)	high	notes/gpu-scheduling.md §A.1
 0x2f14479	label	WfsoXCall_2F14479		call WaitForSingleObject(?); pdata fragment start 2F14448	high	re/out/spinscan.txt §all call sites
 0x2f144b4	function	ExecuteCommandListsThreadEntry	u32 (void* p)	thread entry: SetThreadDescription ExecuteCommandListsThread then ExecuteCommandListsThreadLoop 1A75970	high	notes/d3d12-submission.md §1
+0x2f15010	function	EclEmitCopyTileMappings		writes ECL token 5 (site 2F15021)	high	notes/gpu-tiles.md
+0x2f150ac	function	EclEmitUpdateTileMappings		writes ECL token 4 {resource, n regions, coords[], sizes[], heap, n ranges, flags[], starts[], counts[]} (site 2F150D8)	high	notes/gpu-tiles.md
+0x2f15400	function	EclTokCopyTileMappings	void (Exec* e, u16** p)	ECL token 5 handler: e->vtbl+58h (= GfxExecCopyTileMappings 2EFC060)	high	notes/gpu-tiles.md
+0x2f15528	function	EclTokUpdateTileMappings	void (Exec* e, u16** p)	ECL token 4 handler: e->vtbl+50h (= GfxExecUpdateTileMappings 2F0103C) with the 9 decoded arguments	high	notes/gpu-tiles.md
 0x2f5cb88	label	Sleep0Call_2F5CB88		call Sleep(0); pdata fragment start 2F5CB74	high	re/out/spinscan.txt §all call sites
 0x2f5cbdc	label	WfsoXCall_2F5CBDC		call WaitForSingleObject(?); pdata fragment start 2F5CBC4	high	re/out/spinscan.txt §all call sites
 0x2f73742	label	Sleep10Call_2F73742		call Sleep(10); pdata fragment start 2F73608	high	re/out/spinscan.txt §all call sites
@@ -1702,11 +1779,14 @@ rva	kind	name	signature	description	confidence	source
 0x3243bc0	function	KidsSchedulerParamsInit	int* KidsSchedulerParamsInit(int* p)	default scheduler params: count = GetSystemInfo().dwNumberOfProcessors - 2 (1 if 2 CPUs); TS_MESHLET_REQ (s66) keeps this default (10 threads on 12T, 14 on 16T); pool-backed schedulers override it	high	notes/job-system.md §2c
 0x324499e	label	Sleep1Call_324499E		call Sleep(1); pdata fragment start 324493C	high	re/out/spinscan.txt §all call sites
 0x3244a46	label	Sleep0Call_3244A46		call Sleep(0); pdata fragment start 3244A04	high	re/out/spinscan.txt §all call sites
+0x3244c2c	function	SchedCreatePoolContext	Ctx* SchedCreatePoolContext(JobScheduler* s, void* a, int poolId)	0x20-byte context bound to pool poolId (3249D0C); sched+2E8h = that pool's worker count	high	notes/stutter.md §3.5
 0x3246e9c	function	RegisterAssetHandler		Registers asset handlers by type; LooseFileLoader optional hook disables streaming for StreamingTexContext (0xAD57EBBA)	high	notes/game-data.md §2 Hooks
 0x3246fec	label	Sleep1Call_3246FEC		call Sleep(1); pdata fragment start 3246FC8	high	re/out/spinscan.txt §all call sites
 0x32470a3	label	Sleep1Call_32470A3		call Sleep(1); pdata fragment start 3246FC8	high	re/out/spinscan.txt §all call sites
 0x32471bc	label	CallMainLoopFrame_32471BC		second call/return site of MainLoopFrame (1A74130)	medium	notes/cpu-profile.md §S3
 0x324743e	label	JmpIat_Sleep_324743E		`jmp [IAT Sleep]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
+0x32474bc	function	SchedCreateFixedPool	bool SchedCreateFixedPool(JobScheduler* s, PoolDesc* d, int id)	pool with a fixed id >= 0x40 (TS_MESHLET_REQ 0x42, TS_BINDLESS_UP 0x43); sets bit (id-0x40) in sched+3ACh	high	notes/stutter.md §3.5
+0x32475c4	function	SchedCreatePool	int SchedCreatePool(JobScheduler* s, PoolDesc* d)	creates a job pool with the lowest free id 1..63 (scan of sched+3A0h list), links it into sched+3A0h, returns id (-1 on failure)	high	notes/stutter.md §3.5
 0x3247707	label	JmpIat_Sleep_3247707		`jmp [IAT Sleep]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x3247a0f	label	Sleep0Call_3247A0F		call Sleep(0); pdata fragment start 32479B4	high	re/out/spinscan.txt §all call sites
 0x3249d0c	function	TaskGraphJobCreate		task-graph job creator; unconditional wake at 40D2F	medium	notes/worker-power.md (static, 2026-10-07)
@@ -1719,6 +1799,7 @@ rva	kind	name	signature	description	confidence	source
 0x324ec24	label	Sleep1Call_324EC24		call Sleep(1); pdata fragment start 324EBD0	high	re/out/spinscan.txt §all call sites
 0x324f116	label	WfsoXCall_324F116		call WaitForSingleObject(?); pdata fragment start 324F0D0	high	re/out/spinscan.txt §all call sites
 0x324f262	label	WfsoXCall_324F262		call WaitForSingleObject(?); pdata fragment start 324F21C	high	re/out/spinscan.txt §all call sites
+0x32509b4	function	KidsWorkerThreadName	void KidsWorkerThreadName(JobWorker* w, PoolDesc* d, wchar_t* out)	"KIDSTaskScheduler%d" (pool id 0), "KIDSTS[s%d:%s]%d" (%d = pool+34h id), "KIDSTaskScheduler[sub%d]%d"	high	notes/stutter.md §3.5
 0x3250d71	label	Sleep1Call_3250D71		call Sleep(1); pdata fragment start 3250D3C	high	re/out/spinscan.txt §all call sites
 0x3251156	label	WfsoXCall_3251156		call WaitForSingleObject(?); pdata fragment start 325113C	high	re/out/spinscan.txt §all call sites
 0x32513b2	label	JmpIat_Sleep_32513B2		`jmp [IAT Sleep]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
@@ -1746,6 +1827,7 @@ rva	kind	name	signature	description	confidence	source
 0x32fcc7c	label	PostEffectLibraryInit_CreateGBufferEditCopyPso		Creates 4-target copy PSO (PS 7c5acaaf, PSO 54e610d3, 224us after G-buffer) -> slot +0x308	high	notes/invisible-gpu.md §4a
 0x32fcf8f	label	PostEffectLibraryInit_CreateThinSurfaceFilterPso		Creates temporal filter PSO (PS 449cf0ae, PSO 10c323d1, 247us) -> slot +0x378	high	notes/invisible-gpu.md §4a
 0x32fcfcc	label	PostEffectLibraryInit_CreateCustomDepthUpscalePso		Creates depth-reprojection PSO (PS 0cbad2cb, PSO 07072497, 66us before FSR4) -> slot +0x380	high	notes/invisible-gpu.md §4a
+0x32fe938	function	RenderFrameBeginCacheFlush	void (Renderer* r)	from RenderFrameBegin 4A529C: CacheFlushOnGfx, 32FED04, CacheFlushOnGfx again, 32F3970	high	notes/gpu-tiles.md
 0x32ff074	function	VsmClipmapSetup	void (PageMgr* pm, Entry* e, View* v)	per clipmap level setup (scale 1 << level)	low	notes/shadows-culling.md §1.1
 0x33025c8	label	Sleep0Call_33025C8		call Sleep(0); pdata fragment start 33025B4	high	re/out/spinscan.txt §all call sites
 0x33036e5	label	WfsoXCall_33036E5		call WaitForSingleObject(?); pdata fragment start 33036C0	high	re/out/spinscan.txt §all call sites
@@ -1771,6 +1853,11 @@ rva	kind	name	signature	description	confidence	source
 0x3457646	label	Sleep0Call_3457646		call Sleep(0); pdata fragment start 3457620	high	re/out/spinscan.txt §all call sites
 0x34576ae	label	Sleep0Call_34576AE		call Sleep(0); pdata fragment start 3457688	high	re/out/spinscan.txt §all call sites
 0x345c58b	label	SleepXCall_345C58B		call Sleep(?); pdata fragment start 345C52C	high	re/out/spinscan.txt §all call sites
+0x3483484	function	PsoListResolveCompute	int PsoListResolveCompute(void* ctx, void* groups, u64* rec)	compute twin of 34837DC (8-byte records)	medium	notes/stutter.md §3.1
+0x34835d4	function	PsoListPreloadJob	int PsoListPreloadJob(Job* j)	job body: for records [j+40h..j+44h) resolve (34837DC/3483484) and preload (2EFE2A8/2EFE1CC); counts done in [list+40h]	high	notes/stutter.md §3.1
+0x34837dc	function	PsoListResolveGfx	int PsoListResolveGfx(void* ctx, void* groups, u64* rec, void* map1, void* map2)	resolves the shader slots of one 0x80-byte PSO-list record: each slot = {u32 shader-group file id, u32 index}, FFFFFFFFh = none, 56CB1360h = built-in system shaders; returns 1 when a slot's group is not loaded (record skipped, list marked incomplete), 0 = ready to preload	high	notes/stutter.md §3.1
+0x3483e04	function	PsoListLoad	bool PsoListLoad(PsoList* l, void* a, void* ctx, Stream* s)	parses a PSO-list stream (0x18-byte header: counts; gfx records 0x80 B, compute 8 B, shader-group ids), loads the referenced shader groups, then preloads inline or as parallel PsoListPreloadJob jobs (JobGroupWait 3E7CC)	high	notes/stutter.md §3.1
+0x3484594	function	PsoListResourceLoad	bool PsoListResourceLoad(void* a, void* b, void* c, void* path)	resource-type handler: opens a PSO-list stream and runs PsoListLoad (per-package PSO lists)	medium	notes/stutter.md §3.1
 0x3564c35	label	Sleep0Call_3564C35		call Sleep(0); pdata fragment start 3563390	high	re/out/spinscan.txt §all call sites
 0x35a0536	label	Sleep0Call_35A0536		call Sleep(0); pdata fragment start 35A03F4	high	re/out/spinscan.txt §all call sites
 0x35a05b9	label	Sleep0Call_35A05B9		call Sleep(0); pdata fragment start 35A03F4	high	re/out/spinscan.txt §all call sites
@@ -1977,6 +2064,7 @@ rva	kind	name	signature	description	confidence	source
 0x3a9baa8	data	IID_IDXGIFactory4	GUID	{1bc6ea02-ef36-464f-bf0c-21ca39e5168a} passed to CreateDXGIFactory1 by config ctor 0xae0bc0 for adapter enumeration	high	re/settings/acc.asm
 0x3b1f308	vtable	FrameMgr_vftable		FrameMgr (G) vtable; vf[1]=0x5AC664 FrameBegin	high	notes/frame-timing.md §2
 0x3b392b8	vtable	ReflectionProbePassTypeHandlers		Handler table for render-node type 0x88416cdb (ReflectionProbePass)	medium	notes/invisible-gpu.md §1 CPU side
+0x3b84610	vtable	ResourceStepJob_vtbl	ptr[2]	slot0 1343BB0 dtor, slot1 1343D00 run	high	notes/stutter.md §3.5
 0x3b88660	vtable	InputUpdateWorker_vtbl		vf[0] 0x296d354, vf[1] 0x2972d64, vf[2] 0x435418 (InputUpdateWorkerRun)	high	notes/input-thread.md §1
 0x3b88a84	data	StrWindowTitleNioh3	char[]	"Nioh 3" window/app title used by AppInit 0x298d6c8	medium	re/settings/appinit.asm; re/out/strings.tsv
 0x3b88af0	data	StrCoreDumpPathFmt	char[]	"%s\KoeiTecmo\NIOH3\dump\core_dump_%02d%02d%02d%02d%02d.dmp" crash-dump path (written only with --enable_output_dump)	high	notes/settings.md §3; re/out/strings.tsv
@@ -2012,6 +2100,8 @@ rva	kind	name	signature	description	confidence	source
 0x4050898	vtable	FrameProfile_vftable		Frame profile object (r13+8) vtable: vf+0x08 SetProfile 0x5AF324, vf+0x10 -> profile, vf+0x20 SetLimiterFps 0x5AF400, vf+0x28 -> &fps	high	notes/frame-timing.md §1, §4b
 0x4099fb0	data	Str_DebugFpsOverlay	char[]	"FPS %2.2f(%4.2f)" debug FPS overlay format; README says no code xref but strings.tsv lists a reference from 0x2ee8498 (aka StrFpsOverlayFmt) || also: "FPS %2.2f(%4.2f)\n" debug FPS overlay format; README says no code xref but strings.tsv lists a ref from 0x2ee8498	medium	re/out/README.md §Findings: config.xml; re/out/strings.tsv; re/out/README.md §config.xml; re/out/strings.tsv
 0x409a3b0	vtable	KtglAsyncBackend_vtbl		async/deferred context backend: +10 Begin, +18 GetFence (KTGL tok 1), +38 End, +48 IsFenceDone 4F9368, +50 CpuWaitFence 2EF9820, +60 tok 7 2EF9088, +68 tok 6 3D1B5C, +D0 Dispatch	medium	notes/gpu-scheduling.md §A.2
+0x409a620	vtable	GfxQueueExecutorVtbl		ECL replay target used by the token handlers: +30h 4F90DC, +38h 2F01150, +40h 4F92A4, +48h 4F9194, +50h 2F0103C UTM, +58h 2EFC060 CTM, +60h 2EFB19C	medium	notes/gpu-tiles.md
+0x409a748	vtable	UploadHeapRing_vtbl	ptr[6]	upload/readback heap ring; objects at dev+4618h (upload, [dev+4678h]) and dev+4648h (readback, [dev+4680h])	high	notes/stutter.md §3.3
 0x40d4b98	data	GfxDeviceVtbl_PresentSlot	ptr	graphics-device vtable slot holding GfxDevicePresentVfn 5DA94 (slot-0x10 = RenderFrameBegin 4A529C, slot-8 = 4A3334); vtable start not determined	medium	notes/d3d12-submission.md §1
 0x40ef418	vtable	FrameTaskSibling_vftable		Sibling task class vtable (not the limiter owner; earlier candidate)	medium	notes/frame-timing.md §1
 0x410a0a8	vtable	PrepareThinSurfaceBsdfNode_vftable		vtable of PrepareThinSurfaceBSDF render node; note pairs it with execute 0x295c44 (not among the first 8 slots: 0x36853ec, 0x9a6444, 0x3687154, ...)	medium	notes/gpu-copies-postres.md §1
@@ -2270,6 +2360,7 @@ rva	kind	name	signature	description	confidence	source
 0x624	struct_field	GameMain::TimeScale	float	Time scale used by GetDeltaTime60; copied from +0x628, forced to 0 when pause flags +0x58b/+0x58c set; 1.0 in dump || also: Time scale used this frame (from +0x628, 0 when paused); VRR P2 multiplies by scaleCorr	high	re/out/README.md §Findings: frame pacing; notes/frame-timing.md §2
 0x628	struct_field	GameMain::TimeScaleSrc	float	Source time scale copied into +0x624 each frame (aka GameMain::TimeScaleNext) || also: Source time scale copied to +0x624 each frame	high	re/out/README.md §Findings: frame pacing; notes/frame-timing.md §1
 0x62c	struct_field	GameMain::Tick60Accum	f32	60 Hz tick accumulator with fractional carry (+= scale*60/fps) (aka GameMain::FrameAccum60) || also: Fractional 60 Hz frame accumulator	high	notes/frame-timing.md §2; re/out/README.md §Findings: frame pacing
+0x6a0	struct_field	GameMain::PoolIdResourceLoad	i32	1; then +6A4 StageUpdate 2, +6A8 CharacterUpdate 3, +6AC UpdStgEdt 4, +6B0 UpdSclEdt 5, +6B4 RequestLoad 7, +6B8 TrySync 6, +6BC MiscAsync 8, +6C0 CollisionUpdate 9, +6C4 StgGdtUpd 10, +6C8 BackupThread 11, +6CC PhysUpdate 12 (pool ids assigned lowest-free by SchedCreatePool)	high	notes/stutter.md §3.5
 0x7d8	struct_field	GameMain::DynFps	DynFpsState	Embedded dynamic-FPS monitor/governor state (10-sample ring, average at +0x74); passed to DynFpsMonitorUpdate/DynFpsGovernorTick (aka GameMain::FpsMonitor) || also: Embedded FPS monitor; +0 = frame-start ns (written 0x5AC6BE)	high	re/out/README.md §Findings: frame pacing; re/out/anchors.md §Interpretation notes; notes/frame-timing.md §2
 0x84c	struct_field	GameMain::DynFpsAvgFrameTime	float	Average of the 10-sample frame-timing ring (GameMain+0x7d8+0x74)	high	re/out/README.md §Findings: frame pacing
 0x10	struct_field	GfxDevice::SynCtx	u8[0x570]	embedded dispatcher context (SynCtx) passed to all token handlers	high	notes/d3d12-submission.md §1
@@ -2354,6 +2445,10 @@ rva	kind	name	signature	description	confidence	source
 0x30	struct_field	JobPool::IdleWorkers	i32	lock inc before a worker sleeps, lock dec after it wakes	high	notes/job-system.md §1
 0x34	struct_field	JobPool::PoolId	i32	compared with job+24h bits 12..18 (7Fh = any pool)	medium	notes/job-system.md §1
 0x48	struct_field	JobPool::State	u32	(state & 50000000h) == 50000000h -> paused (workers Sleep(1)); bit30 = running	medium	notes/job-system.md §1
+0x268	struct_field	JobScheduler::ResStatePlanes	u32*	4 interleaved bit planes per 32 resource ids (index GetResIdFromRes(sched+218h,res)); ResStateWaitSwap spins on them	medium	notes/stutter.md §3.5
+0x3a0	struct_field	JobScheduler::PoolList	ptr	singly linked {Pool*, next}; walked by JobWakeOneInPool / JobPushToPool / GetPoolById 49A80 for id != 0	high	notes/stutter.md §3.5
+0x3a8	struct_field	JobScheduler::BackgroundPoolId	i32	= 1 (ResourceLoad); set in MainLoopFrame from the g+558h context; target of ResStateWaitSwap's per-spin wake and of 877148's JobWakeOne. Scheduler object = g_GameMainPtr+530h (existing GameMain::ArchiveManager row names that offset; per stutter.md 3.5 it is the KIDS scheduler)	high	notes/stutter.md §3.5
+0x3ac	struct_field	JobScheduler::FixedPoolMask	u32	bit (id-0x40) per fixed pool (0x42 TS_MESHLET_REQ, 0x43 TS_BINDLESS_UP)	high	notes/stutter.md §3.5
 0x440	struct_field	JobScheduler::StealQueues	ptr	sched+0x440 passed to JobTrySteal (41050) to walk other workers' queues	medium	notes/cpu-profile.md §S1
 0x0	struct_field	JobWorker::Thread	WorkerThread*	worker thread object (record stride 0x458 in pool+10h)	high	notes/job-system.md §1
 0x418	struct_field	JobWorker::QueueHeads	u64*	128 priority lists (lock-free stacks, packed self-relative index + ABA tag)	high	notes/job-system.md §1
