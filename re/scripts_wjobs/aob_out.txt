@@ -1,0 +1,20 @@
+D8180  pattern "49 8B 8A 50 01 00 00 49 8B 82 58 01 00 00"  offset 0
+DB8BF  pattern "48 8B 05 ?? ?? ?? ?? 48 8B 73 08"  offset 0
+1A18C9  pattern "F0 0F B1 1F A9 FF FF 7F 00"  offset 0
+1A1935  pattern "F0 0F B1 1C 91 41 85 C0 75 ?? 45 85 C8 74 ?? BA 00 00 00 08 48 8D 8E D8 02 00 00"  offset 0
+42877  pattern "F0 41 0F B1 9E CC 09 00 00"  offset 0
+4A545  pattern "F0 44 0F B1 04 0A A8 80"  offset 0
+4A55A  pattern "F0 44 0F B1 81 B4 00 00 00 85 C0 0F 8F ?? ?? ?? ??"  offset 0
+4A708  pattern "F0 44 0F B1 04 0B A8 80"  offset 0
+4A719  pattern "F0 44 0F B1 81 B4 00 00 00 85 C0 0F 8E ?? ?? ?? ??"  offset 0
+130096  pattern "F0 44 0F B1 1C AE 8B D0 75 ??"  offset 0
+1301B4  no unique pattern within 11 instructions
+1301C5  no unique pattern within 11 instructions
+1301E4  no unique pattern within 11 instructions
+130225  no unique pattern within 11 instructions
+40921  pattern "F0 4D 0F B1 02 48 8B C8"  offset 0
+40A14  pattern "F0 0F B1 72 30 8B C8 8B 42 28"  offset 0
+40CE4  pattern "F0 41 0F B1 48 10 8B D0 0F 1F 40 00"  offset 0
+40D75  pattern "F0 48 0F B1 77 30 48 8D 0C 10"  offset 0
+41325  pattern "F0 49 0F B1 1E 48 85 C0 74 ?? 48 63 C8 48 8B D0 4D 8D 14 8E"  offset 0
+41447  pattern "F0 49 0F B1 1E 48 85 C0 74 ?? 48 63 C8 48 8B D0 4D 8D 0C 8E"  offset 0

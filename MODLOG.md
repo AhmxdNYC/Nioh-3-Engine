@@ -143,3 +143,13 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - Symbols: `re\symbols\incoming\cpu-hotspots.tsv` (20 rows, dry-run merge 19 added / 1 updated; not merged).
 - Note: TG and the cap-30 A/B need L1 under Proton (`L1OnWine = 1`; it was on in v71, the ally-package ini says 0).
 - Undo: nothing was applied.
+
+## 2026-10-07 - worker/job CPU: collision + stage prefetch caves and locked-load rows (offline only; nothing applied, game not run)
+- Study: `notes\worker-jobs-opt.md`. Ally SP aggregation: CollisionUpdate = 45 % and the StageUpdate placeable loop = 25.5 % of all KIDSTS job samples; object update = 32 % of KIDSTaskScheduler job samples. All hot worker RIPs are first-touch misses or `lock cmpxchg` loads; no redundant arithmetic found.
+- New live scripts (memory only, default off, dry/apply/on/off/status/revert, FT_ALLOW_WRITE + safeWrite):
+  - `patcher\collprefetch_live.fsx` CP: jmp at D8180 (CollisionObjectUpdate loop head) -> prefetch cave (colliders 3 strides ahead, their arrays 2 ahead, first 4 parts 1 ahead). Real D80B0 + callees run from the mapped dump on 300 synthetic worlds: 0 mismatches (175k change records + every world byte); -16 to -27 % loop time on this PC.
+  - `patcher\stageprefetch_live.fsx` SPF: jmp at DB8BF (placeable-map loop of DA830) -> prefetch cave (placeable 4 ahead, its +B0h object 2 ahead). Transparency test 30,000 runs: 0 differences.
+  - `patcher\lockload_live.fsx` LK: 18 `lock cmpxchg [m],zero` loads -> plain mov (+test) in 1A188C, 425B0, 4A2D0, 130014, 40800, 411C0 (beyond J1/M2). Dataflow/flag/StoreLoad proofs + native row test: 0 differences.
+- ASI-ready MASM + patches.json rows/patterns in the notes §7 (src not edited). Helpers/outputs: `re\scripts_wjobs\`. Symbols: `re\symbols\incoming\worker-jobs.tsv` (38 rows, not merged).
+- Expected: PC ~0.15-0.25 core, Ally ~0.12-0.2 core of worker CPU; no fps change expected.
+- Undo (only if applied later): `set FT_ALLOW_WRITE=1 & dotnet fsi patcher\<script> revert` (or `off` for CP/SPF), or restart the game.

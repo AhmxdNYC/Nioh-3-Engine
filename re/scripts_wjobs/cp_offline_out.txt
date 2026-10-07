@@ -1,0 +1,92 @@
+site D8180: 49 8B 8A 50 01 00 00  MATCH
+  = mov rcx,[r10+150h] (len 7); next D8187 = mov rax,[r10+158h]
+dead-register/flags proof at D8180 (the cave clobbers rax, rcx, flags; rdx/r8 are saved/restored):
+  [ok] rax, rcx and all status flags are written before any read on every path from D8180
+direct branch/call targets strictly inside D8180..D8187 (whole executable sweep):
+  none
+cave @dummy 7FF755220000: 316 bytes (code at +40h)
+  00007FF755220040  cmp dword [rip-47h],0                         
+  00007FF755220047  je near 00007FF755220130h                     
+  00007FF75522004D  push rdx                                      
+  00007FF75522004E  push r8                                       
+  00007FF755220050  mov rcx,[r10+150h]                            
+  00007FF755220057  mov rax,[r10+158h]                            
+  00007FF75522005E  sub rax,rcx                                   
+  00007FF755220061  sar rax,3                                     
+  00007FF755220065  lea rdx,[r13+0Fh]                             
+  00007FF755220069  cmp rdx,rax                                   
+  00007FF75522006C  jae short 00007FF755220089h                   
+  00007FF75522006E  mov rdx,[rcx+rdx*8]                           
+  00007FF755220072  test rdx,rdx                                  
+  00007FF755220075  je short 00007FF755220089h                    
+  00007FF755220077  prefetcht0 [rdx+8]                            
+  00007FF75522007B  prefetcht0 [rdx+88h]                          
+  00007FF755220082  prefetcht0 [rdx+0C8h]                         
+  00007FF755220089  lea rdx,[r13+0Ah]                             
+  00007FF75522008D  cmp rdx,rax                                   
+  00007FF755220090  jae short 00007FF7552200C5h                   
+  00007FF755220092  mov rdx,[rcx+rdx*8]                           
+  00007FF755220096  test rdx,rdx                                  
+  00007FF755220099  je short 00007FF7552200C5h                    
+  00007FF75522009B  cmp byte [rdx+0A5h],0                         
+  00007FF7552200A2  je short 00007FF7552200C5h                    
+  00007FF7552200A4  mov r8,[rdx+88h]                              
+  00007FF7552200AB  prefetcht0 [r8]                               
+  00007FF7552200AF  mov r8,[rdx+0C8h]                             
+  00007FF7552200B6  prefetcht0 [r8]                               
+  00007FF7552200BA  mov r8,[rdx+90h]                              
+  00007FF7552200C1  prefetcht0 [r8]                               
+  00007FF7552200C5  lea rdx,[r13+5]                               
+  00007FF7552200C9  cmp rdx,rax                                   
+  00007FF7552200CC  jae short 00007FF75522012Dh                   
+  00007FF7552200CE  mov rdx,[rcx+rdx*8]                           
+  00007FF7552200D2  test rdx,rdx                                  
+  00007FF7552200D5  je short 00007FF75522012Dh                    
+  00007FF7552200D7  cmp byte [rdx+0A5h],0                         
+  00007FF7552200DE  je short 00007FF75522012Dh                    
+  00007FF7552200E0  mov r8,[rdx+0C8h]                             
+  00007FF7552200E7  test r8,r8                                    
+  00007FF7552200EA  je short 00007FF75522012Dh                    
+  00007FF7552200EC  mov eax,[r8]                                  
+  00007FF7552200EF  mov r8,[rdx+88h]                              
+  00007FF7552200F6  test r8,r8                                    
+  00007FF7552200F9  je short 00007FF75522012Dh                    
+  00007FF7552200FB  cmp eax,4                                     
+  00007FF755220100  jbe short 00007FF755220107h                   
+  00007FF755220102  mov eax,4                                     
+  00007FF755220107  test eax,eax                                  
+  00007FF755220109  je short 00007FF75522012Dh                    
+  00007FF75522010B  mov rdx,[r8]                                  
+  00007FF75522010E  test rdx,rdx                                  
+  00007FF755220111  je short 00007FF755220125h                    
+  00007FF755220113  prefetcht0 [rdx+62h]                          
+  00007FF755220117  prefetcht0 [rdx+88h]                          
+  00007FF75522011E  prefetcht0 [rdx+0B8h]                         
+  00007FF755220125  add r8,8                                      
+  00007FF755220129  dec eax                                       
+  00007FF75522012B  jne short 00007FF75522010Bh                   
+  00007FF75522012D  pop r8                                        
+  00007FF75522012F  pop rdx                                       
+  00007FF755220130  mov rcx,[r10+150h]                            
+  00007FF755220137  jmp 00007FF74F4E8187h                            ; -> Nioh3+D8187
+patched site: 49 8B 8A 50 01 00 00 -> E9 BB 7E D3 05 66 90
+  00007FF74F4E8180  jmp 00007FF755220040h                            ; -> Nioh3+5E10040
+  00007FF74F4E8185  xchg ax,ax                                    
+  instruction starts valid in both encodings: ["D8180"] (a thread parked at D8180 is safe in either state)
+cave discipline: memory writes other than push = 0; registers written = ["RSP"; "RCX"; "RAX"; "RDX"; "R8"]
+real-code harness (dump image mapped at a private address, stubs: 19CED0 world lookup, D8B24 TLS getter, type-2 position fn):
+  cave alone, 2000 calls (r10 = mgr of 0..49 colliders, random r13, 10 % switch off): 0 register/memory differences (13 GPRs compared; rcx = [r10+150h] as the original)
+  300 synthetic worlds (0..3000 colliders, 5 jobs each, cave on + switch off vs stock): 0 mismatches; 175063 change records emitted by stock (all compared byte for byte, plus every world byte)
+timing (this PC; median of runs; all 5 jobs run back to back on one thread):
+  60000 colliders cold  stock   60.56 ms   CP   50.94 ms   -15.9 %   (1009 ->  849 ns per collider)
+   4000 colliders warm  stock    2.42 ms   CP    1.91 ms   -21.3 %   ( 606 ->  476 ns per collider)
+   4000 colliders cold  stock    2.87 ms   CP    2.35 ms   -18.0 %   ( 718 ->  589 ns per collider)
+  distance / K sweep (20000 colliders, cold, median of 7):
+    A=15 B=10 C= 5 K=4   stock  18.74 ms  CP  13.69 ms  -26.9 %
+    A=10 B=10 C= 5 K=4   stock  19.71 ms  CP  15.85 ms  -19.6 %
+    A=20 B=10 C= 5 K=4   stock  18.09 ms  CP  13.33 ms  -26.3 %
+    A=25 B=15 C= 5 K=4   stock  16.68 ms  CP  13.30 ms  -20.3 %
+    A=20 B=15 C=10 K=4   stock  16.52 ms  CP  14.01 ms  -15.2 %
+    A=15 B=10 C= 5 K=8   stock  17.43 ms  CP  12.91 ms  -26.0 %
+    A=15 B=10 C= 5 K=2   stock  21.45 ms  CP  15.67 ms  -27.0 %
+OFFLINE CHECKS: ALL PASSED

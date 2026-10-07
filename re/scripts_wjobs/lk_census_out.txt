@@ -1,0 +1,104 @@
+48FB9    fn 48E90    (0.607 core)  lock cmpxchg [rbp+0B8h],r13d         len 9  ZERO-LOAD  flags dead (48FC2 sar eax,10h)
+49046    fn 48E90    (0.607 core)  lock cmpxchg [rcx+r12],r13d          len 6  ZERO-LOAD  flags dead (4904C test al,1)
+49261    fn 48E90    (0.607 core)  lock cmpxchg [r9],r13d               len 5  ZERO-LOAD  flags dead (49275 and ecx,edx)
+49280    fn 48E90    (0.607 core)  lock cmpxchg [r9],ecx                len 5  not-proven(src 1/1 acc 1/1)  flags dead (49285 cmp eax,r8d)
+4933D    fn 48E90    (0.607 core)  lock cmpxchg [rcx+r12],r13d          len 6  ZERO-LOAD  flags dead (49343 test al,1)
+493DC    fn 48E90    (0.607 core)  lock cmpxchg [r8],r13d               len 5  ZERO-LOAD  flags dead (493E9 lock cmpxchg [r8],ecx)
+493E9    fn 48E90    (0.607 core)  lock cmpxchg [r8],ecx                len 5  not-proven(src 1/1 acc 1/1)  flags dead (493EE cmp eax,edx)
+49412    fn 48E90    (0.607 core)  lock cmpxchg [r9],r13d               len 5  ZERO-LOAD  flags dead (49428 lock cmpxchg [r9],ecx)
+49428    fn 48E90    (0.607 core)  lock cmpxchg [r9],ecx                len 5  not-proven(src 1/1 acc 1/1)  flags dead (4942D cmp eax,edx)
+4122D    fn 411C0    (0.180 core)  lock cmpxchg [rcx+r11],ebx           len 6  ZERO-LOAD  flags dead (4123C test r10d,r10d)
+41265    fn 411C0    (0.180 core)  lock cmpxchg [rcx+r11],ebx           len 6  ZERO-LOAD  FLAGS READ by 4126D jne near 00000000000413E0h
+41325    fn 411C0    (0.180 core)  lock cmpxchg [r14],rbx               len 5  ZERO-LOAD  flags dead (4132A test rax,rax)
+4133E    fn 411C0    (0.180 core)  lock cmpxchg [r14],rcx               len 5  not-proven(src 1/1 acc 1/1)  flags dead (41343 cmp rdx,rax)
+41372    fn 411C0    (0.180 core)  lock cmpxchg [r13],ecx               len 6  not-proven(src 1/1 acc 1/1)  flags dead (4137A cmp edx,eax)
+41380    fn 411C0    (0.180 core)  lock cmpxchg [r14],rbx               len 5  ZERO-LOAD  FLAGS READ by 41385 jne short 00000000000413C1h
+41397    fn 411C0    (0.180 core)  lock cmpxchg [rcx+r11],ebx           len 6  ZERO-LOAD  flags dead (413B3 test r10d,r10d)
+413CA    fn 411C0    (0.180 core)  lock cmpxchg [r13],ecx               len 6  not-proven(src 1/1 acc 1/1)  flags dead (413D2 cmp edx,eax)
+41447    fn 411C0    (0.180 core)  lock cmpxchg [r14],rbx               len 5  ZERO-LOAD  flags dead (4144C test rax,rax)
+41460    fn 411C0    (0.180 core)  lock cmpxchg [r14],rcx               len 5  not-proven(src 1/1 acc 1/1)  flags dead (41465 cmp rdx,rax)
+41492    fn 411C0    (0.180 core)  lock cmpxchg [r15],ecx               len 5  not-proven(src 1/1 acc 1/1)  flags dead (41499 cmp edx,eax)
+4149F    fn 411C0    (0.180 core)  lock cmpxchg [r14],rbx               len 5  ZERO-LOAD  FLAGS READ by 414A4 jne short 00000000000414E0h
+414B6    fn 411C0    (0.180 core)  lock cmpxchg [rcx+r11],ebx           len 6  ZERO-LOAD  FLAGS READ by 414CB je near 0000000000041273h
+414E9    fn 411C0    (0.180 core)  lock cmpxchg [r15],ecx               len 5  not-proven(src 1/1 acc 1/1)  flags dead (414F0 cmp edx,eax)
+1A7DCD   fn 1A7BF0   (0.098 core)  lock cmpxchg [rcx],edx               len 4  ZERO-LOAD  flags dead (1A7DD1 test al,1)
+1A83D3   fn 1A7BF0   (0.098 core)  lock cmpxchg [rcx],r15d              len 5  ZERO-LOAD  flags dead (1A83D8 test al,4)
+1A88CE   fn 1A7BF0   (0.098 core)  lock cmpxchg [r13+0D0h],esi          len 9  ZERO-LOAD  flags dead (1A88D7 test al,1)
+1A8EE9   fn 1A7BF0   (0.098 core)  lock cmpxchg [rcx+4],r13d            len 6  ZERO-LOAD  flags dead (1A8EFF test rcx,rcx)
+1AB0B4   fn 1A7BF0   (0.098 core)  lock cmpxchg [rcx+4],edx             len 5  ZERO-LOAD  flags dead (1AB0BC cmp ebx,ecx)
+1AED09   fn 1A7BF0   (0.098 core)  lock cmpxchg [rcx+4],edx             len 5  ZERO-LOAD  flags dead (1AED11 cmp ebx,ecx)
+122BF1   fn 121FC0   (0.080 core)  lock cmpxchg [rdx+20h],ecx           len 5  ZERO-LOAD  flags dead (122C03 add ecx,r9d)
+122C12   fn 121FC0   (0.080 core)  lock cmpxchg [rdx+20h],ecx           len 5  not-proven(src 1/1 acc 1/1)  FLAGS READ by 122C19 jne short 0000000000122C00h
+122E1C   fn 121FC0   (0.080 core)  lock cmpxchg [rdx+20h],ecx           len 5  ZERO-LOAD  flags dead (122E33 add ecx,r9d)
+122E42   fn 121FC0   (0.080 core)  lock cmpxchg [rdx+20h],ecx           len 5  not-proven(src 1/1 acc 1/1)  FLAGS READ by 122E49 jne short 0000000000122E30h
+123108   fn 121FC0   (0.080 core)  lock cmpxchg [r14+8],ecx             len 6  ZERO-LOAD  flags dead (123123 add ecx,r8d)
+123131   fn 121FC0   (0.080 core)  lock cmpxchg [r14+8],ecx             len 6  not-proven(src 1/1 acc 1/1)  FLAGS READ by 123139 jne short 0000000000123120h
+123195   fn 121FC0   (0.080 core)  lock cmpxchg [r11+0Ch],r10d          len 6  ZERO-LOAD  flags dead (1231A8 sub ecx,r13d)
+1231C1   fn 121FC0   (0.080 core)  lock cmpxchg [r11+0Ch],ecx           len 6  not-proven(src 1/1 acc 1/1)  FLAGS READ by 1231C9 jne short 00000000001231A0h
+12333A   fn 121FC0   (0.080 core)  lock cmpxchg [r11+18h],ecx           len 6  ZERO-LOAD  FLAGS READ by 123340 jne short 0000000000123384h
+123429   fn 121FC0   (0.080 core)  lock cmpxchg [rcx+4034h],r10d        len 9  ZERO-LOAD  flags dead (123438 test eax,eax)
+42877    fn 425B0    (0.058 core)  lock cmpxchg [r14+9CCh],ebx          len 9  ZERO-LOAD  flags dead (42887 cmp edx,ecx)
+4288F    fn 425B0    (0.058 core)  lock cmpxchg [r14+9CCh],edx          len 9  not-proven(src 1/1 acc 1/1)  flags dead (42898 cmp eax,r8d)
+D9C21    fn D8E00    (0.044 core)  lock cmpxchg [rsi+28h],r14d          len 6  not-proven(src 1/1 acc 1/0)  FLAGS READ by D9C27 je short 00000000000D9C48h
+D9C40    fn D8E00    (0.044 core)  lock cmpxchg [rsi+28h],r14d          len 6  not-proven(src 1/1 acc 1/0)  FLAGS READ by D9C46 jne short 00000000000D9C30h
+40899    fn 40800    (0.040 core)  lock cmpxchg [rcx+r8],esi            len 6  ZERO-LOAD  FLAGS READ by 408A1 je near 0000000000041027h
+40921    fn 40800    (0.040 core)  lock cmpxchg [r10],r8                len 5  ZERO-LOAD  flags dead (40930 test rcx,rcx)
+4094C    fn 40800    (0.040 core)  lock cmpxchg [r10],rcx               len 5  not-proven(src 1/1 acc 1/1)  flags dead (40954 cmp rdx,rax)
+4097C    fn 40800    (0.040 core)  lock cmpxchg [r9],ecx                len 5  not-proven(src 1/1 acc 1/1)  flags dead (40984 cmp edx,eax)
+4098C    fn 40800    (0.040 core)  lock cmpxchg [r10],rcx               len 5  ZERO-LOAD  FLAGS READ by 40991 je short 00000000000409B7h
+409AB    fn 40800    (0.040 core)  lock cmpxchg [r9],ecx                len 5  not-proven(src 1/1 acc 1/1)  flags dead (409B3 cmp edx,eax)
+409EB    fn 40800    (0.040 core)  lock cmpxchg [rbx+28h],rcx           len 6  not-proven(src 1/1 acc 1/0)  flags dead (409F1 sub rbx,r12)
+40A14    fn 40800    (0.040 core)  lock cmpxchg [rdx+30h],esi           len 5  ZERO-LOAD  flags dead (40A20 cmp ecx,eax)
+40A55    fn 40800    (0.040 core)  lock cmpxchg [rcx+2Ch],esi           len 5  ZERO-LOAD  flags dead (40A64 sub rcx,r11)
+40AC2    fn 40800    (0.040 core)  lock cmpxchg [rdx+10h],esi           len 5  ZERO-LOAD  flags dead (40AD5 and ecx,1)
+40ADF    fn 40800    (0.040 core)  lock cmpxchg [rdx+10h],ecx           len 5  not-proven(src 1/1 acc 1/1)  flags dead (40AE4 cmp eax,r8d)
+40C4D    fn 40800    (0.040 core)  lock cmpxchg [rbx+40h],esi           len 5  ZERO-LOAD  flags dead (40C52 test al,1)
+40C7E    fn 40800    (0.040 core)  lock cmpxchg [rdx+2Ch],esi           len 5  ZERO-LOAD  flags dead (40C8A sub rcx,rsi)
+40CE4    fn 40800    (0.040 core)  lock cmpxchg [r8+10h],ecx            len 6  ZERO-LOAD  flags dead (40CF5 and eax,1)
+40D01    fn 40800    (0.040 core)  lock cmpxchg [r8+10h],ecx            len 6  not-proven(src 1/1 acc 1/1)  flags dead (40D09 cmp eax,r9d)
+40D75    fn 40800    (0.040 core)  lock cmpxchg [rdi+30h],rsi           len 6  ZERO-LOAD  flags dead (40D7F lock cmpxchg [rdi+30h],rcx)
+40D7F    fn 40800    (0.040 core)  lock cmpxchg [rdi+30h],rcx           len 6  not-proven(src 1/1 acc 1/1)  FLAGS READ by 40D85 jne short 0000000000040D73h
+40FD9    fn 40800    (0.040 core)  lock cmpxchg [rbx+28h],rcx           len 6  not-proven(src 1/1 acc 1/0)  flags dead (40FDF sub rbx,r12)
+40FF5    fn 40800    (0.040 core)  lock cmpxchg [rsi+28h],rcx           len 6  not-proven(src 1/1 acc 1/0)  flags dead (40FFB sub rsi,r12)
+71DB2    fn 71C60    (0.033 core)  lock cmpxchg [rcx],r10d              len 5  not-proven(src 1/1 acc 1/0)  flags dead (71DB7 test al,2)
+1A18C9   fn 1A188C   (0.030 core)  lock cmpxchg [rdi],ebx               len 4  ZERO-LOAD  flags dead (1A18CD test eax,7FFFFFh)
+1A18D6   fn 1A188C   (0.030 core)  lock cmpxchg [rdx+1F0h],rbx          len 9  ZERO-LOAD  FLAGS READ by 1A18E4 jb short 00000000001A18F2h
+1A192A   fn 1A188C   (0.030 core)  lock cmpxchg [rcx+rdx*4+4],ebx       len 6  ZERO-LOAD  flags dead (1A1933 xor eax,eax)
+1A1935   fn 1A188C   (0.030 core)  lock cmpxchg [rcx+rdx*4],ebx         len 5  ZERO-LOAD  flags dead (1A193A test r8d,eax)
+1A1968   fn 1A188C   (0.030 core)  lock cmpxchg [rsi+1F0h],rbx          len 9  ZERO-LOAD  FLAGS READ by 1A1976 jb short 00000000001A1987h
+1A1992   fn 1A188C   (0.030 core)  lock cmpxchg [rdi+4],ebx             len 5  ZERO-LOAD  flags dead (1A1997 test al,1)
+4A539    fn 4A2D0    (0.025 core)  lock cmpxchg [rdx+rcx],r8d           len 6  ZERO-LOAD  flags dead (4A53F test al,2)
+4A545    fn 4A2D0    (0.025 core)  lock cmpxchg [rdx+rcx],r8d           len 6  ZERO-LOAD  flags dead (4A54B test al,80h)
+4A55A    fn 4A2D0    (0.025 core)  lock cmpxchg [rcx+0B4h],r8d          len 9  ZERO-LOAD  flags dead (4A563 test eax,eax)
+4A67B    fn 4A2D0    (0.025 core)  lock cmpxchg [rdx+rcx],r8d           len 6  ZERO-LOAD  FLAGS READ by 4A685 jb near 000000000004A56Bh
+4A6F8    fn 4A2D0    (0.025 core)  lock cmpxchg [rbx+rcx],r8d           len 6  ZERO-LOAD  flags dead (4A6FE test al,2)
+4A708    fn 4A2D0    (0.025 core)  lock cmpxchg [rbx+rcx],r8d           len 6  ZERO-LOAD  flags dead (4A70E test al,80h)
+4A719    fn 4A2D0    (0.025 core)  lock cmpxchg [rcx+0B4h],r8d          len 9  ZERO-LOAD  flags dead (4A722 test eax,eax)
+4A74A    fn 4A2D0    (0.025 core)  lock cmpxchg [rbx+rsi],r8d           len 6  ZERO-LOAD  flags dead (4A758 lock cmpxchg [rbx+rsi],ecx)
+4A758    fn 4A2D0    (0.025 core)  lock cmpxchg [rbx+rsi],ecx           len 5  not-proven(src 1/1 acc 1/1)  flags dead (4A75D cmp eax,edx)
+1928591  fn 4A2D0    (0.025 core)  lock cmpxchg [rcx],ebx               len 4  ZERO-LOAD  flags dead (1928595 test al,1)
+1928642  fn 4A2D0    (0.025 core)  lock cmpxchg [rcx],r8d               len 5  not-proven(src 1/1 acc 1/0)  FLAGS READ by 192864B jb short 0000000001928681h
+20601D   fn 205840   (0.018 core)  lock cmpxchg [rbx],r11               len 5  not-proven(src 2/1 acc 1/0)  flags dead (20603C and rdx,r13)
+206049   fn 205840   (0.018 core)  lock cmpxchg [rbx],rcx               len 5  not-proven(src 1/1 acc 1/1)  FLAGS READ by 20604E jne short 0000000000206036h
+206213   fn 205840   (0.018 core)  lock cmpxchg [rsi],r11d              len 5  not-proven(src 2/1 acc 1/0)  flags dead (206223 test ecx,ecx)
+20623B   fn 205840   (0.018 core)  lock cmpxchg [rsi],r11d              len 5  not-proven(src 2/1 acc 1/0)  flags dead (206242 test eax,eax)
+20624E   fn 205840   (0.018 core)  lock cmpxchg [rsi],ecx               len 4  not-proven(src 1/1 acc 1/1)  FLAGS READ by 206254 jne short 0000000000206223h
+206266   fn 205840   (0.018 core)  lock cmpxchg [rcx],r11               len 5  not-proven(src 2/1 acc 1/0)  flags dead (206285 and r8,r13)
+206292   fn 205840   (0.018 core)  lock cmpxchg [rcx],rdx               len 5  not-proven(src 1/1 acc 1/1)  FLAGS READ by 206297 jne short 000000000020627Fh
+2062C9   fn 205840   (0.018 core)  lock cmpxchg [rsi],r11d              len 5  not-proven(src 2/1 acc 1/0)  flags dead (2062D6 lock cmpxchg [rsi],ecx)
+2062D6   fn 205840   (0.018 core)  lock cmpxchg [rsi],ecx               len 4  not-proven(src 1/1 acc 1/1)  FLAGS READ by 2062DC jne short 00000000002062D0h
+2062F2   fn 205840   (0.018 core)  lock cmpxchg [rcx],r11               len 5  not-proven(src 2/1 acc 1/0)  flags dead (206311 and r8,r13)
+20631E   fn 205840   (0.018 core)  lock cmpxchg [rcx],rdx               len 5  not-proven(src 1/1 acc 1/1)  FLAGS READ by 206323 jne short 000000000020630Bh
+20634B   fn 205840   (0.018 core)  lock cmpxchg [rbx],r11               len 5  not-proven(src 2/1 acc 1/0)  flags dead (20636A and rdx,r13)
+206377   fn 205840   (0.018 core)  lock cmpxchg [rbx],rcx               len 5  not-proven(src 1/1 acc 1/1)  FLAGS READ by 20637C jne short 0000000000206364h
+130096   fn 130014   (0.018 core)  lock cmpxchg [rsi+rbp*4],r11d        len 6  ZERO-LOAD  FLAGS READ by 13009E jne short 000000000013011Ah
+1301A3   fn 130014   (0.018 core)  lock cmpxchg [r9],r11d               len 5  ZERO-LOAD  FLAGS READ by 1301AC jb near 00000000001302F4h
+1301B4   fn 130014   (0.018 core)  lock cmpxchg [r9+8],r11d             len 6  ZERO-LOAD  flags dead (1301BA cmp r12d,eax)
+1301C5   fn 130014   (0.018 core)  lock cmpxchg [r9+8],r11d             len 6  ZERO-LOAD  FLAGS READ by 1301D1 je near 000000000013035Dh
+1301E4   fn 130014   (0.018 core)  lock cmpxchg [r9+0Ch],r11d           len 6  ZERO-LOAD  flags dead (1301EA cmp eax,edi)
+130200   fn 130014   (0.018 core)  lock cmpxchg [r9+0Ch],ecx            len 6  not-proven(src 1/1 acc 1/1)  flags dead (130206 cmp edx,eax)
+130225   fn 130014   (0.018 core)  lock cmpxchg [r9+r11*4+10h],edx      len 7  ZERO-LOAD  flags dead (13022F cmp eax,0FFFFFFFFh)
+1302C3   fn 130014   (0.018 core)  lock cmpxchg [r9+r11*4+10h],ecx      len 7  not-proven(src 1/1 acc 1/1)  flags dead (1302CD cmp edx,eax)
+130321   fn 130014   (0.018 core)  lock cmpxchg [rsi+rbp*4],r11d        len 6  ZERO-LOAD  FLAGS READ by 13032E je near 00000000001300A0h
+13033B   fn 130014   (0.018 core)  lock cmpxchg [rsi+rbp*4],r11d        len 6  ZERO-LOAD  flags dead (130341 test r10d,eax)
+13034F   fn 130014   (0.018 core)  lock cmpxchg [rsi+rbp*4],ecx         len 5  not-proven(src 1/1 acc 1/1)  flags dead (130354 cmp edx,eax)

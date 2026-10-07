@@ -1,0 +1,33 @@
+site DB8BF: 48 8B 05 92 E5 4D 04  MATCH
+  = mov rax,[rip+44DE592h] (len 7, RIP-relative target 45B9E58); next DB8C6 = mov rsi,[rbx+8]
+dead-register proof at DB8BF: rsi and the flags (the cave's scratch) are written before any read; rax is the original's result:
+  [ok] rsi + all status flags dead at DB8C6 (rsi written at DB8C6, flags at DB8CA)
+direct branch/call targets strictly inside DB8BF..DB8C6: none
+cave @dummy 7FF755230000: 163 bytes
+  00007FF755230040  cmp dword [rip-47h],0                         
+  00007FF755230047  je short 00007FF755230094h                    
+  00007FF755230049  lea rsi,[rbx+40h]                             
+  00007FF75523004D  cmp rsi,r14                                   
+  00007FF755230050  jae short 00007FF755230078h                   
+  00007FF755230052  mov rsi,[rsi+8]                               
+  00007FF755230056  test rsi,rsi                                  
+  00007FF755230059  je short 00007FF755230078h                    
+  00007FF75523005B  prefetcht0 [rsi+10h]                          
+  00007FF75523005F  prefetcht0 [rsi+70h]                          
+  00007FF755230063  prefetcht0 [rsi+98h]                          
+  00007FF75523006A  prefetcht0 [rsi+0C8h]                         
+  00007FF755230071  prefetcht0 [rsi+109h]                         
+  00007FF755230078  lea rsi,[rbx+20h]                             
+  00007FF75523007C  cmp rsi,r14                                   
+  00007FF75523007F  jae short 00007FF755230094h                   
+  00007FF755230081  mov rsi,[rsi+8]                               
+  00007FF755230085  test rsi,rsi                                  
+  00007FF755230088  je short 00007FF755230094h                    
+  00007FF75523008A  mov rsi,[rsi+0B0h]                            
+  00007FF755230091  prefetcht0 [rsi]                              
+  00007FF755230094  mov rax,[qword 7FF7539C9E58h]                 
+  00007FF75523009E  jmp 00007FF74F4EB8C6h                            ; -> Nioh3+DB8C6
+patched site: 48 8B 05 92 E5 4D 04 -> E9 7C 47 D4 05 66 90
+cave discipline: memory writes = 0; registers written = ["RSI"; "RAX"]
+  transparency: 30000 cave executions over 300 random maps (0..39 entries, null placeables/pointers, 10 % switch off): 0 differences (13 GPRs + rax value + 4 MB of memory)
+OFFLINE CHECKS: ALL PASSED

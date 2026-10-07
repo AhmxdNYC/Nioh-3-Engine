@@ -1,0 +1,39 @@
+# mk_symbols.py - writes re\symbols\incoming\worker-jobs.tsv (symbol fragment for notes\worker-jobs-opt.md)
+import os
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, '..', 'symbols', 'incoming', 'worker-jobs.tsv')
+S = 'notes/worker-jobs-opt.md'
+rows = [
+("0x43cec","function","CollisionGatherInRange","void CollisionGatherInRange(CollisionMgr* mgr)","Per frame and collision manager: clears the work vector mgr+150h, walks the grid cells around the player (g_CollisionWorld+1B10h, +1B20h) and pushes every collider with +A5h==0 (sets +A5h=1); feeds the 5 strided CollisionObjectUpdate jobs; 0.05-0.06 core self on PC","medium",S+" §2; notes/worker-threads.md §4"),
+("0xd8180","label","CollisionObjectUpdate_LoopHead","","Loop head of CollisionObjectUpdate (i = start, start+5 ...): mov rcx,[r10+150h] (49 8B 8A 50 01 00 00); r10 = mgr, r13 = i. Patch CP (jmp to a prefetch cave, patcher/collprefetch_live.fsx); rax/rcx/flags proven dead here","high",S+" §2; patcher/collprefetch_live.fsx"),
+("0xd6e9c","function","CollisionPartGridPointTest","bool CollisionPartGridPointTest(Collider* c, u32 part, const f32* point16)","True if part `part` of collider c (position via CollisionShapeGetWorldPos) is farther than radius[part]+const from a grid point; returns 1 when the part/array is missing","medium",S+" §2"),
+("0xd8740","function","CollisionPartMapFind","void* CollisionPartMapFind(PartMap* m, void* part)","lower_bound on a sorted array of 16-byte {u64 key = part pointer, ptr record} at [m+10h], count [m+18h]; returns the record if the key matches, else null. Called per part per frame from CollisionObjectUpdate (D83F4, D841F); ~0.08 core on PC (profiled as D8700(leaf?)). Candidate SH (hinted search)","high",S+" §6"),
+("0xd8b24","function","CollisionTlsStaticGet_46D7AD0","void* CollisionTlsStaticGet_46D7AD0(void)","Thread-safe static-init guard (TLS epoch vs [46D7AC4]) returning &46D7AD0; CollisionIsBeyondDistance calls it and ignores the result","medium",S+" §6"),
+("0x2d9ee0","function","CollisionShapePos_Type26","void CollisionShapePos_Type26(f32* out4, Part* p)","Position function from the table at 3BE3780 that CollisionShapeGetWorldPos calls directly: out = Vec3CopyW0(p+B0h), w = 1.0","high",S+" §2"),
+("0x168e80","function","Vec3CopyW0","f32* Vec3CopyW0(f32* out4, const f32* in4)","out.xyz = in.xyz (16-byte movaps copy), out.w = 0; leaf; its 0.03-0.04 core on the collision workers is the first-touch miss on part+B0h","high",S+" §2"),
+("0x3cd840","function","Vec3AddKeepW","f32* Vec3AddKeepW(f32* out, const f32* a, const f32* b)","out.xyz = a.xyz + b.xyz, out.w = a.w","high",S+" §2"),
+("0x19ced0","function","CollisionWorldFindById","void* CollisionWorldFindById(World* w, u32 id)","std::map find in [w+558h] by id; returns the [node+28h]+20h object when its state checks (+10h == 1, +E9h/+EAh/+EBh/+F8h) pass, else null; first call of CollisionObjectUpdate","medium",S+" §2"),
+("0xda830","function","PlaceableVisibilityUpdateWorker","void PlaceableVisibilityUpdateWorker(Ctx* c, Job* j)","StageUpdate worker called by PlaceableVisibilityUpdate 567A48: two bit-vector passes over world+1668h/+1680h shape lists, then a loop over EVERY entry of the stage placeable map [r15+180h] (16-byte {key, placeable*}) running PlaceableDistanceLod / PlaceableFlag27Check / DBB90 per placeable; hot RIP DB928 = first touch of the placeable","medium",S+" §3"),
+("0xdb8bf","label","PlaceableVisibilityUpdateWorker_MapLoop","","Placeable map loop body start: mov rax,[rel g_CollisionWorld] (48 8B 05 92 E5 4D 04); rbx = entry, r14 = end. Patch SPF (prefetch cave, patcher/stageprefetch_live.fsx); rsi/flags proven dead","high",S+" §3; patcher/stageprefetch_live.fsx"),
+("0xdba70","function","PlaceableDistanceLod","i8 PlaceableDistanceLod(void* unused, const f32* pos, Placeable* p)","-1 if null; else d = |p+80h - pos| - 0.5*|(p+90h..98h)*(p+70h..78h)| clamped >= 0; returns -1 if d*d >= 1e6 else -2 (two sqrt); 0.06 core on PC, mostly the first touch of p+70h..98h","high",S+" §3"),
+("0xda6e0","function","PlaceableFlag27Check","bool PlaceableFlag27Check(void* unused, Placeable* p)","Checks [45CE800] mode, p+B8h bit 27, p+109h == FF and the p+C8h range, then 588EF8 / 588F48; hot RIP DA71F = first touch of p+B8h","low",S+" §3"),
+("0xdbb90","function","PlaceableUpdateDetail","void PlaceableUpdateDetail(Ctx* c, Placeable* p, void* r13)","Per-placeable detail update from PlaceableVisibilityUpdateWorker when [c+8] and p+10Dh == 0; reads the p+B0h object","low",S+" §3"),
+("0x1a188c","function","ObjHandleResolve_1A188C","void* ObjHandleResolve_1A188C(void* a, Obj* o, List* l)","Object-update helper (from 1A7BF0): first list node whose payload is not 0/1, state word [obj] read with lock cmpxchg (hot RIP 1A18CD), bitmap checks via 4A7A30, magic AD57EBBA at +8. LK rows 1A18C9/1A1935","medium",S+" §4; patcher/lockload_live.fsx"),
+("0x4a2d0","function","MeshletRequestJob","void MeshletRequestJob(Job* j)","TS_MESHLET_REQ job (fans out MeshletRequestLoad 48E90 via 40800, waits in 3E7CC); LK rows 4A545/4A55A/4A708/4A719 (hot RIP 4A563)","medium",S+" §4; notes/worker-threads.md §1"),
+("0x130014","function","StreamBitmapClaim_130014","void StreamBitmapClaim_130014(void)","Worker function with bitmap/slot claims read via lock cmpxchg loads (hot RIP 13009E); LK rows 130096/1301B4/1301C5/1301E4/130225; role not identified","low",S+" §4"),
+("0x121e90","function","ParamTableGetU32_D15EC139","u32 ParamTableGetU32_D15EC139(ParamTable* t)","Linear scan of {u32 count, 32-byte entries*} for hash D15EC139 with (flags & 0F000000h) == 04000000h; returns *[entry+18h] or 7. Called per object from 121FC0 (1252AE, 123C61); hot loop 121EA3..121EBA (~0.08 core PC). Candidate PL","high",S+" §5"),
+("0x1201f8","function","ParamTableGet_C4984B63","u32 ParamTableGet_C4984B63(Obj* o)","Scans the [o+3D30h] param table for hash C4984B63 (type bits 0) then 8B252323 (type 4); returns *value or 2; called from 121FC0 (124018, 124196); hot loops 120215..12022F / 120261..12027A","high",S+" §5"),
+("0x120160","function","ParamTableFind_8B252323","bool ParamTableFind_8B252323(ParamTable* t, Entry** out)","Linear scan for hash 8B252323 with type 4; stores the entry pointer","high",S+" §5"),
+]
+lk = [(0x1a18c9,"ObjHandleResolve_LockLoadState","[rdi] state word"),(0x1a1935,"ObjHandleResolve_LockLoadBitmap","bitmap word"),(0x42877,"Sched0Hot_425B0_LockLoad9CC","[r14+9CCh] before a CAS loop"),
+      (0x4a545,"MeshletRequestJob_LockLoadFlags1","entry flags"),(0x4a55a,"MeshletRequestJob_LockLoadB4_1","[obj+B4h]"),(0x4a708,"MeshletRequestJob_LockLoadFlags2","entry flags"),(0x4a719,"MeshletRequestJob_LockLoadB4_2","[obj+B4h]"),
+      (0x130096,"StreamBitmapClaim_LockLoadWord","bitmap word, ZF consumer"),(0x1301b4,"StreamBitmapClaim_LockLoad8a","[r9+8]"),(0x1301c5,"StreamBitmapClaim_LockLoad8b","[r9+8], ZF consumer"),(0x1301e4,"StreamBitmapClaim_LockLoadC","[r9+0Ch]"),(0x130225,"StreamBitmapClaim_LockLoadSlot","[r9+r11*4+10h]"),
+      (0x40921,"JobWorkerPoll_LockLoadHead","stack head before the pop CAS"),(0x40a14,"JobWorkerPoll_LockLoadIdle","pool+30h idle count"),(0x40ce4,"JobWorkerPoll_LockLoadThreadFlags","thread+10h before CAS"),(0x40d75,"JobWorkerPoll_LockLoad30","[rdi+30h] before CAS"),
+      (0x41325,"JobStealScan_LockLoadHead1","stack head before the pop CAS"),(0x41447,"JobStealScan_LockLoadHead2","stack head before the pop CAS")]
+for rva, name, what in lk:
+    rows.append(("0x%x" % rva, "label", name, "", "lock cmpxchg [m],zero used as an atomic load (%s); LK row: becomes a plain mov (+test) of the same length" % what, "high", S + " §4; patcher/lockload_live.fsx"))
+with open(OUT, 'w', encoding='utf-8', newline='\n') as f:
+    f.write('rva\tkind\tname\tsignature\tdescription\tconfidence\tsource\n')
+    for r in rows:
+        f.write('\t'.join(r) + '\n')
+print(len(rows), 'rows ->', os.path.normpath(OUT))

@@ -1,0 +1,186 @@
+LKO   1A18C9 F0 0F B1 1F                    -> 8B 07 66 90                    [ok]
+      1A188C object-handle resolve: state word [obj] (hot RIP 1A18CD = 46-73 % of 1A188C) | lock cmpxchg [rdi],ebx
+      flags dead: overwritten by 1A18CD test eax,7FFFFFh; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1A192A F0 0F B1 5C 91 04              -> 8B 44 91 04 66 90              [ok]
+      1A188C: bitmap word +4 | lock cmpxchg [rcx+rdx*4+4],ebx
+      flags dead: overwritten by 1A1933 xor eax,eax; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1A1935 F0 0F B1 1C 91                 -> 8B 04 91 66 90                 [ok]
+      1A188C: bitmap word | lock cmpxchg [rcx+rdx*4],ebx
+      flags dead: overwritten by 1A193A test r8d,eax; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1A1992 F0 0F B1 5F 04                 -> 8B 47 04 66 90                 [ok]
+      1A188C: [obj+4] flag | lock cmpxchg [rdi+4],ebx
+      flags dead: overwritten by 1A1997 test al,1; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1A7DCD F0 0F B1 11                    -> 8B 01 66 90                    [ok]
+      1A7BF0 object update | lock cmpxchg [rcx],edx
+      flags dead: overwritten by 1A7DD1 test al,1; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1A83D3 F0 44 0F B1 39                 -> 8B 01 0F 1F 00                 [ok]
+      1A7BF0 object update (hot RIP 1A83D8 up to 10 % of 1A7BF0) | lock cmpxchg [rcx],r15d
+      flags dead: overwritten by 1A83D8 test al,4; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1A88CE F0 41 0F B1 B5 D0 00 00 00     -> 41 8B 85 D0 00 00 00 66 90     [ok]
+      1A7BF0 object update | lock cmpxchg [r13+0D0h],esi
+      flags dead: overwritten by 1A88D7 test al,1; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1A8EE9 F0 44 0F B1 69 04              -> 8B 41 04 0F 1F 00              [ok]
+      1A7BF0 object update | lock cmpxchg [rcx+4],r13d
+      flags dead: overwritten by 1A8EFF test rcx,rcx; REVIEW: plain store(s) reach the site: call, 1A8ECC
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1AB0B4 F0 0F B1 51 04                 -> 8B 41 04 66 90                 [ok]
+      1A7BF0: load before CAS loop | lock cmpxchg [rcx+4],edx
+      flags dead: overwritten by 1AB0BC cmp ebx,ecx; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   1AED09 F0 0F B1 51 04                 -> 8B 41 04 66 90                 [ok]
+      1A7BF0: load before CAS loop | lock cmpxchg [rcx+4],edx
+      flags dead: overwritten by 1AED11 cmp ebx,ecx; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   122BF1 F0 0F B1 4A 20                 -> 8B 42 20 66 90                 [ok]
+      121FC0: load before CAS add loop | lock cmpxchg [rdx+20h],ecx
+      flags dead: overwritten by 122C03 add ecx,r9d; REVIEW: plain store(s) reach the site: 122B89, call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   122E1C F0 0F B1 4A 20                 -> 8B 42 20 66 90                 [ok]
+      121FC0: load before CAS add loop | lock cmpxchg [rdx+20h],ecx
+      flags dead: overwritten by 122E33 add ecx,r9d; REVIEW: plain store(s) reach the site: 122DAA, call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   123108 F0 41 0F B1 4E 08              -> 41 8B 46 08 66 90              [ok]
+      121FC0: load before CAS add loop | lock cmpxchg [r14+8],ecx
+      flags dead: overwritten by 123123 add ecx,r8d; REVIEW: plain store(s) reach the site: 1230DB, 1230BD
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   123195 F0 45 0F B1 53 0C              -> 41 8B 43 0C 66 90              [ok]
+      121FC0: load before CAS loop | lock cmpxchg [r11+0Ch],r10d
+      flags dead: overwritten by 1231A8 sub ecx,r13d; REVIEW: plain store(s) reach the site: 12317F
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO   12333A F0 41 0F B1 4B 18              -> 41 8B 43 18 85 C0              [ok]
+      121FC0: flag word, ZF consumer | lock cmpxchg [r11+18h],ecx
+      ZF consumed by 123340 jne short 0000000000123384h; all flags dead at both successors; REVIEW: plain store(s) reach the site: 123327, 1232E5
+      native: 400 random memory values, 0 differences (rax, memory word, ZF)
+LKO   123429 F0 44 0F B1 91 34 40 00 00     -> 8B 81 34 40 00 00 0F 1F 00     [ok]
+      121FC0: [obj+4034h] | lock cmpxchg [rcx+4034h],r10d
+      flags dead: overwritten by 123438 test eax,eax; REVIEW: plain store(s) reach the site: 123425
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKO    42877 F0 41 0F B1 9E CC 09 00 00     -> 41 8B 86 CC 09 00 00 66 90     [ok]
+      425B0: load before CAS loop | lock cmpxchg [r14+9CCh],ebx
+      flags dead: overwritten by 42887 cmp edx,ecx; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM    4A539 F0 44 0F B1 04 0A              -> 8B 04 0A 0F 1F 00              [ok]
+      4A2D0 TS_MESHLET_REQ job: entry flags | lock cmpxchg [rdx+rcx],r8d
+      flags dead: overwritten by 4A53F test al,2; REVIEW: plain store(s) reach the site: 4A4F7
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM    4A545 F0 44 0F B1 04 0A              -> 8B 04 0A 0F 1F 00              [ok]
+      4A2D0: entry flags | lock cmpxchg [rdx+rcx],r8d
+      flags dead: overwritten by 4A54B test al,80h; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM    4A55A F0 44 0F B1 81 B4 00 00 00     -> 8B 81 B4 00 00 00 0F 1F 00     [ok]
+      4A2D0: [obj+B4h] (hot RIP 4A563) | lock cmpxchg [rcx+0B4h],r8d
+      flags dead: overwritten by 4A563 test eax,eax; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM    4A6F8 F0 44 0F B1 04 0B              -> 8B 04 0B 0F 1F 00              [ok]
+      4A2D0: entry flags | lock cmpxchg [rbx+rcx],r8d
+      flags dead: overwritten by 4A6FE test al,2; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM    4A708 F0 44 0F B1 04 0B              -> 8B 04 0B 0F 1F 00              [ok]
+      4A2D0: entry flags | lock cmpxchg [rbx+rcx],r8d
+      flags dead: overwritten by 4A70E test al,80h; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM    4A719 F0 44 0F B1 81 B4 00 00 00     -> 8B 81 B4 00 00 00 0F 1F 00     [ok]
+      4A2D0: [obj+B4h] | lock cmpxchg [rcx+0B4h],r8d
+      flags dead: overwritten by 4A722 test eax,eax; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM    4A74A F0 44 0F B1 04 33              -> 8B 04 33 0F 1F 00              [ok]
+      4A2D0: load before CAS loop | lock cmpxchg [rbx+rsi],r8d
+      flags dead: overwritten by 4A758 lock cmpxchg [rbx+rsi],ecx; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM   130096 F0 44 0F B1 1C AE              -> 8B 04 AE 85 C0 90              [ok]
+      130014 (stage/stream job): bitmap word, ZF consumer (hot RIP 13009E) | lock cmpxchg [rsi+rbp*4],r11d
+      ZF consumed by 13009E jne short 000000000013011Ah; all flags dead at both successors; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word, ZF)
+LKM   1301B4 F0 45 0F B1 59 08              -> 41 8B 41 08 66 90              [ok]
+      130014 | lock cmpxchg [r9+8],r11d
+      flags dead: overwritten by 1301BA cmp r12d,eax; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM   1301C5 F0 45 0F B1 59 08              -> 41 8B 41 08 85 C0              [ok]
+      130014: ZF consumer | lock cmpxchg [r9+8],r11d
+      ZF consumed by 1301D1 je near 000000000013035Dh; all flags dead at both successors; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word, ZF)
+LKM   1301E4 F0 45 0F B1 59 0C              -> 41 8B 41 0C 66 90              [ok]
+      130014 | lock cmpxchg [r9+0Ch],r11d
+      flags dead: overwritten by 1301EA cmp eax,edi; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKM   130225 F0 43 0F B1 54 99 10           -> 43 8B 44 99 10 66 90           [ok]
+      130014 | lock cmpxchg [r9+r11*4+10h],edx
+      flags dead: overwritten by 13022F cmp eax,0FFFFFFFFh; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    40921 F0 4D 0F B1 02                 -> 49 8B 02 66 90                 [ok]
+      40800 JobWorkerPoll: stack head (64-bit) before pop CAS | lock cmpxchg [r10],r8
+      flags dead: overwritten by 40930 test rcx,rcx; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    40A14 F0 0F B1 72 30                 -> 8B 42 30 66 90                 [ok]
+      40800: pool idle count | lock cmpxchg [rdx+30h],esi
+      flags dead: overwritten by 40A20 cmp ecx,eax; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    40A55 F0 0F B1 71 2C                 -> 8B 41 2C 66 90                 [FAIL]
+      40800: pool worker count | lock cmpxchg [rcx+2Ch],esi
+      flags dead: overwritten by 40A64 sub rcx,r11; REVIEW: plain store(s) reach the site: 40A24, 40A3F
+      !! overlaps patch site 40A4C
+LKJ    40C4D F0 0F B1 73 40                 -> 8B 43 40 66 90                 [ok]
+      40800 | lock cmpxchg [rbx+40h],esi
+      flags dead: overwritten by 40C52 test al,1; REVIEW: plain store(s) reach the site: call
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    40C7E F0 0F B1 72 2C                 -> 8B 42 2C 66 90                 [ok]
+      40800 | lock cmpxchg [rdx+2Ch],esi
+      flags dead: overwritten by 40C8A sub rcx,rsi; REVIEW: plain store(s) reach the site: 40C56
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    40CE4 F0 41 0F B1 48 10              -> 41 8B 40 10 66 90              [ok]
+      40800: thread flags before CAS | lock cmpxchg [r8+10h],ecx
+      flags dead: overwritten by 40CF5 and eax,1; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    40D75 F0 48 0F B1 77 30              -> 48 8B 47 30 66 90              [ok]
+      40800: 64-bit load before CAS | lock cmpxchg [rdi+30h],rsi
+      flags dead: overwritten by 40D7F lock cmpxchg [rdi+30h],rcx; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    41325 F0 49 0F B1 1E                 -> 49 8B 06 66 90                 [ok]
+      411C0 steal: stack head (64-bit) before pop CAS | lock cmpxchg [r14],rbx
+      flags dead: overwritten by 4132A test rax,rax; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    41447 F0 49 0F B1 1E                 -> 49 8B 06 66 90                 [ok]
+      411C0 steal: stack head (64-bit) | lock cmpxchg [r14],rbx
+      flags dead: overwritten by 4144C test rax,rax; no plain non-stack store reaches the site within the function
+      native: 400 random memory values, 0 differences (rax, memory word)
+LKJ    41380 F0 49 0F B1 1E                 ->                                [FAIL]
+      411C0: 64-bit, ZF consumer | lock cmpxchg [r14],rbx
+      ZF consumed by 41385 jne short 00000000000413C1h; all flags dead at both successors; no plain non-stack store reaches the site within the function
+      !! new code 6 bytes > original 5
+LKJ    4149F F0 49 0F B1 1E                 ->                                [FAIL]
+      411C0: 64-bit, ZF consumer | lock cmpxchg [r14],rbx
+      ZF consumed by 414A4 jne short 00000000000414E0h; all flags dead at both successors; no plain non-stack store reaches the site within the function
+      !! new code 6 bytes > original 5
+branch targets strictly inside any row (whole executable sweep):
+  none
+summary: 40 rows; 18 clean (default set), 19 need StoreLoad review (excluded), 3 failed proofs (excluded)
+  LKO default rows: 1A18C9 1A1935 42877
+  LKM default rows: 4A545 4A55A 4A708 4A719 130096 1301B4 1301C5 1301E4 130225
+  LKJ default rows: 40921 40A14 40CE4 40D75 41325 41447
+ASI rows (patches.json style, kind=bytes):
+  {"id": "LKO_1A18C9", "group": "LKO", "rva": "0x1A18C9", "len": 4, "orig": "F0 0F B1 1F", "kind": "bytes", "new": "8B 07 66 90"}
+  {"id": "LKO_1A1935", "group": "LKO", "rva": "0x1A1935", "len": 5, "orig": "F0 0F B1 1C 91", "kind": "bytes", "new": "8B 04 91 66 90"}
+  {"id": "LKO_42877", "group": "LKO", "rva": "0x42877", "len": 9, "orig": "F0 41 0F B1 9E CC 09 00 00", "kind": "bytes", "new": "41 8B 86 CC 09 00 00 66 90"}
+  {"id": "LKM_4A545", "group": "LKM", "rva": "0x4A545", "len": 6, "orig": "F0 44 0F B1 04 0A", "kind": "bytes", "new": "8B 04 0A 0F 1F 00"}
+  {"id": "LKM_4A55A", "group": "LKM", "rva": "0x4A55A", "len": 9, "orig": "F0 44 0F B1 81 B4 00 00 00", "kind": "bytes", "new": "8B 81 B4 00 00 00 0F 1F 00"}
+  {"id": "LKM_4A708", "group": "LKM", "rva": "0x4A708", "len": 6, "orig": "F0 44 0F B1 04 0B", "kind": "bytes", "new": "8B 04 0B 0F 1F 00"}
+  {"id": "LKM_4A719", "group": "LKM", "rva": "0x4A719", "len": 9, "orig": "F0 44 0F B1 81 B4 00 00 00", "kind": "bytes", "new": "8B 81 B4 00 00 00 0F 1F 00"}
+  {"id": "LKM_130096", "group": "LKM", "rva": "0x130096", "len": 6, "orig": "F0 44 0F B1 1C AE", "kind": "bytes", "new": "8B 04 AE 85 C0 90"}
+  {"id": "LKM_1301B4", "group": "LKM", "rva": "0x1301B4", "len": 6, "orig": "F0 45 0F B1 59 08", "kind": "bytes", "new": "41 8B 41 08 66 90"}
+  {"id": "LKM_1301C5", "group": "LKM", "rva": "0x1301C5", "len": 6, "orig": "F0 45 0F B1 59 08", "kind": "bytes", "new": "41 8B 41 08 85 C0"}
+  {"id": "LKM_1301E4", "group": "LKM", "rva": "0x1301E4", "len": 6, "orig": "F0 45 0F B1 59 0C", "kind": "bytes", "new": "41 8B 41 0C 66 90"}
+  {"id": "LKM_130225", "group": "LKM", "rva": "0x130225", "len": 7, "orig": "F0 43 0F B1 54 99 10", "kind": "bytes", "new": "43 8B 44 99 10 66 90"}
+  {"id": "LKJ_40921", "group": "LKJ", "rva": "0x40921", "len": 5, "orig": "F0 4D 0F B1 02", "kind": "bytes", "new": "49 8B 02 66 90"}
+  {"id": "LKJ_40A14", "group": "LKJ", "rva": "0x40A14", "len": 5, "orig": "F0 0F B1 72 30", "kind": "bytes", "new": "8B 42 30 66 90"}
+  {"id": "LKJ_40CE4", "group": "LKJ", "rva": "0x40CE4", "len": 6, "orig": "F0 41 0F B1 48 10", "kind": "bytes", "new": "41 8B 40 10 66 90"}
+  {"id": "LKJ_40D75", "group": "LKJ", "rva": "0x40D75", "len": 6, "orig": "F0 48 0F B1 77 30", "kind": "bytes", "new": "48 8B 47 30 66 90"}
+  {"id": "LKJ_41325", "group": "LKJ", "rva": "0x41325", "len": 5, "orig": "F0 49 0F B1 1E", "kind": "bytes", "new": "49 8B 06 66 90"}
+  {"id": "LKJ_41447", "group": "LKJ", "rva": "0x41447", "len": 5, "orig": "F0 49 0F B1 1E", "kind": "bytes", "new": "49 8B 06 66 90"}
+OFFLINE CHECKS: ALL PASSED (default set = clean rows)
