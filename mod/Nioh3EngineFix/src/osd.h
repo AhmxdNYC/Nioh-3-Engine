@@ -38,6 +38,24 @@ const char* PositionName(int pos);
 // FPS-counter text scale for a back buffer of height H (Scale x auto factor), as used by the counter itself
 float CounterScale(unsigned H);
 
+// ---- frame generation (FG): the game's setting plus what the Present hook measures (v2.02 config slots, see
+// notes\settings.md and notes\frame-generation.md). Present-hook thread only (startup popup + mod menu). ------------
+struct FgStatus {
+    int setting = -1;         // FRAME_GENERATION 0x45BB008: 0 OFF, 1 DLSS, 2 FSR, 3 XeSS (-1 = unknown build)
+    int upscaler = -1;        // RESOLUTION_SCALING 0x45BAFF8: 0 OFF, 1 DLSS, 2 FSR, 3 XESS
+    bool measured = false;    // real (engine) and presented frame rates are known
+    bool active = false;      // presented / real > 1.4: generated frames reach the screen
+    bool presenter = false;   // the FidelityFX "FSR Presenter" thread presented within the last 2 s
+    double realFps = 0, presentFps = 0;
+    double sinceSwitch = 1e9; // seconds since the mod menu changed the setting (the game rebuilds its swapchain)
+};
+FgStatus FrameGen();
+const char* FgTypeName(int v);  // "OFF", "DLSS", "FSR", "XeSS"; nullptr when out of range
+// One line: why FG is not running although the setting is on; nullptr when it runs, is off, or is still measuring.
+const char* FgReason(const FgStatus& s);
+// mod menu: the setting was just changed (the reason line says "switching" while the game rebuilds its swapchain)
+void NoteFgSwitch();
+
 constexpr int kGlyphW = 8, kGlyphH = 16;  // font cell in texels
 // append a solid rectangle / a text run (pixels, top-left origin; colours 0xAABBGGRR) to this frame's quads
 void DrawRect(float x, float y, float w, float h, uint32_t abgr);

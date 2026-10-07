@@ -93,13 +93,16 @@ game's pause menu, or on the title screen.
   after closing, so B doesn't also back out of the game's menu. The game never sees F10.
 * While the game's pause menu is open, a reminder shows top-right: `F10 / Hold Start 5s: Mod menu`.
 * All of this is configurable in `[Menu]`: key, hold button or combo (`Back+Start`, `L3+R3`, ...), hold time, text
-  size and the reminder.
+  size, the reminder, and `FrameGenToggle` (see below).
 
 What it shows:
 * **Live fixes, applied at once:** VRR timing, W3 message-pump wait (and its Proton sleep mode), R1 render-wait
   timeout (0 = stock busy poll), L1 frame-limiter sleep, F1 FSR frame-gen presenter sleep, WK job wake gate.
   A fix that isn't installed this session shows `not installed` or `off (Proton)`, with the reason.
 * **Overlay:** FPS counter, frame time, speed factor, counter position, counter text size.
+* **Game setting:** *Frame generation* (the game's own setting, switched live the way its options menu does it), plus
+  two status rows: *FG running* (real vs presented fps) and the game's *Upscaler* setting. See
+  [Frame generation](#frame-generation-status-and-switch).
 * **Next launch:** WorkerCap, P12, and under Proton also L1/F1 on Proton. These are marked `* restart` when changed.
 * **Save to ini** writes everything to `Nioh3EngineFix.ini`. Without saving, changes last until the game exits.
 * A description of the selected item, and a live stats line: W3 waits/s, L1 and F1 timer sleeps/s, WK wakes kept
@@ -116,6 +119,39 @@ Notes:
   Steam Input (Steam Deck / Ally Game Mode) every pad is an XInput pad, so they work.
 * If the overlay stops drawing, the menu closes by itself within 1.5 s and the game's input passes through again.
   Any error disables only the menu and is logged (`MENU: ...` lines).
+
+### Frame generation status and switch
+The startup popup and the menu show:
+* the game's **FRAME_GENERATION** setting (OFF, DLSS, FSR or XeSS) and its **upscaler** setting. FSR frame gen doesn't
+  need the FSR upscaler; it also runs with DLSS, XeSS or no upscaler.
+* whether FG **really runs**: generated frames reach the screen when presented fps > 1.4x the real (engine) fps.
+* a **reason line** when the setting is on but FG doesn't run:
+  * `switching - the game is rebuilding its swapchain`: right after a change, for a few seconds.
+  * `FSR presenter runs but adds no frames`: the engine pauses FG in menus, cutscenes, the title screen and
+    character creation.
+  * `no FSR presenter thread: the FG swapchain was not created`: the setting is on, but the game never built its FG
+    swapchain. Under Proton this is the known vkd3d-proton problem.
+* "Frame generation: off in game settings" means exactly that: nothing blocks it, it is simply off.
+
+The log prints `OSD: game settings: FRAME_GENERATION ..., RESOLUTION_SCALING ...` at the first frame and on every
+change. It also prints which thread presents: `"AMD FSR Presenter Thread"` means FSR FG is running.
+
+The **Frame generation** item (Left/Right: OFF / FSR / XeSS / DLSS, only the types the game allows here; A: on/off)
+calls the game's own setter, the function its Options menu uses, and marks the game's settings as changed. The engine
+then rebuilds its swapchain with the new FG mode within a few frames, so the screen blinks once. There is one change
+per 2 s. **Save to ini** also writes the new FRAME_GENERATION value into the game's `config.xml`: only that one value,
+after copying the file to `config.xml.Nioh3EngineFix.bak`. The game would write the same value itself the next time
+you leave its options screen.
+
+`[Menu] FrameGenToggle` controls the switch:
+* `0`: status only.
+* `1` (default): switch on Windows, status only under Proton / Steam Deck / Bazzite.
+* `2`: switch under Proton too.
+
+Turning FG on under Proton is **reported to crash the game**. Afterwards the game won't start until config.xml is
+fixed (community reports, vkd3d-proton issue 2845). So with `2` under Proton, FG on is applied for the session only:
+the mod never saves it, and a crash is undone by restarting. While FG is on there, don't change other options in the
+game's own menu, because the game would then save FG on itself. Background: `notes\frame-generation.md`.
 
 Recommended in-game settings with VRR:
 * Pick the FPS cap (30/60/120) you can *mostly* hold.
@@ -175,7 +211,9 @@ build.bat / CMakeLists.txt / .github/workflows/build.yml
 * **Test:** run `py -I tests\test_patterns.py <path\to\Nioh3.dump.exe>`. Each pattern must match exactly once in
   the executable sections and land on the expected RVA with the expected original bytes. The test also checks
   values the mod reads from those bytes: the PeekMessageA IAT slot, the limiter callee, GetDelta60, and GetFps.
-  It also checks what the mod menu relies on: the XInputGetState IAT slot and the engine's stop-flag code.
+  It also checks what the mod menu relies on: the XInputGetState IAT slot, the engine's stop-flag code, and the
+  frame-generation pieces (the game's FG setter and its gate, the settings-changed flag, the FG/upscaler config
+  descriptors, the config.xml path string).
 * **How sites are patched:**
   1. Every enabled site is located by pattern and verified: unique match, original bytes, and the expected RVA on
      the known build.

@@ -13,6 +13,8 @@ The dump is a memory-layout snapshot of the decrypted image (raw offset == RVA).
       P8a-d all call the same function (GetFps 0x46594)
   * src/patches_gen.h is in sync with patches.json
   * mod menu: the XInputGetState IAT slot and the engine stop-flag code it relies on (pause hint)
+  * frame generation (menu FG item, overlay FG status): FrameGenSettingWrite / IsFrameGenTypeAvailable bytes, the
+    SetOptionValue dirty store, the slots/flags they reference, config descriptors 50/54, the config.xml path string
   * (info) any Lyall Nioh3Fix 0.0.6 pattern that lands within 32 bytes of one of our sites
 """
 import json
@@ -234,6 +236,49 @@ def main():
     print("menu: XInputGetState IAT slot %s, stop-flag code %s" % (
         ", ".join("0x%X" % x for x in xin) or "MISSING",
         "OK" if all(img[a:a + len(h.split())] == bytes(int(x, 16) for x in h.split()) for a, h in menu_bytes.items()) else "DIFFERS"))
+
+    # frame generation (menu.cpp FG item / osd.cpp FG status) - called / read at run time, not patched
+    fg_bytes = {
+        0x1FDDFCC: "40 53 48 83 EC 20 8B D9 E8 CB 5F 00 00 33 C9 84 C0 74 3E 89 1D 23 D0 5D 02 83 EB 01 74 20 83 FB 02 74 09 "
+                   "48 89 0D 1A D0 5D 02 EB 2B C7 05 12 D0 5D 02 01 00 00 00 89 0D 08 D0 5D 02 EB 19 48 C7 05 FB CF 5D 02 01 "
+                   "00 00 00 89 0D 21 CF 5D 02 EB 06 89 0D E5 CF 5D 02 48 83 C4 20 5B C3",  # FrameGenSettingWrite
+        0x1FE3FA4: "48 83 EC 28 83 E9 01 74 16 83 E9 01 74 0D 83 F9 01 75 08 8A 05 ED FE 5D 02 EB 0F B0 01 EB 0B E8 C0 4E "
+                   "6D FE 8A 80 F0 00 00 00 48 83 C4 28 C3",  # IsFrameGenTypeAvailable
+        0x12A46AD: "C6 05 CC 28 32 03 01",  # SetOptionValue: g_ConfigDirty = 1
+    }
+    fg_ok = all(img[a:a + len(hx.split())] == bytes(int(x, 16) for x in hx.split()) for a, hx in fg_bytes.items())
+    check(fg_ok, "fg: FrameGenSettingWrite / IsFrameGenTypeAvailable / dirty-store bytes differ")
+    rip = lambda at, ln, disp_at: at + ln + struct.unpack_from("<i", img, at + disp_at)[0]
+    fg_refs = [
+        (rip(0x1FDDFDF, 6, 2), 0x45BB008, "FrameGenSettingWrite stores FRAME_GENERATION"),
+        (rip(0x1FE3FB7, 6, 2), 0x45C3EAA, "IsFrameGenTypeAvailable reads g_XessFgAvailable"),
+        (rip(0x1FE3FC3, 5, 1), 0x6B8E88, "IsFrameGenTypeAvailable calls SlGetFeatureSupport"),
+        (rip(0x6B8EAC, 7, 3), 0x46D7690, "SlGetFeatureSupport returns the caps static"),
+        (rip(0x12A46AD, 7, 2), 0x45C6F80, "dirty store -> g_ConfigDirty"),
+        (rip(0x12A24C4, 5, 1), 0x1FDDFCC, "SetOptionValue(0x126) calls FrameGenSettingWrite"),
+        (rip(0x135030D, 6, 2), 0x45BB008, "display watcher compares FRAME_GENERATION"),
+        (rip(0x2838930, 7, 2), 0x45C6F80, "SaveConfigIfDirty tests g_ConfigDirty"),
+        (rip(0x283894E, 5, 1), 0x1FE56A8, "SaveConfigIfDirty calls SaveConfig"),
+    ]
+    for got, want, what in fg_refs:
+        fg_ok &= check(got == want, "fg: %s: 0x%X != 0x%X" % (what, got, want))
+    ib = struct.unpack_from("<Q", img, pe + 24 + 24)[0]
+
+    def cstr(va):
+        a = va - ib
+        return img[a:img.index(b"\0", a)].decode("latin1")
+
+    def desc(idx):
+        d = 0x45C8570 + idx * 0x30
+        name, vals = struct.unpack_from("<QQ", img, d)
+        cnt = struct.unpack_from("<i", img, d + 0x24)[0]
+        return cstr(name), [cstr(struct.unpack_from("<Q", img, vals - ib + 8 * i)[0]) for i in range(cnt)]
+
+    fg_ok &= check(desc(54) == ("FRAME_GENERATION", ["OFF", "DLSS", "FSR", "XeSS"]), "fg: descriptor 54 = %s" % (desc(54),))
+    fg_ok &= check(desc(50) == ("RESOLUTION_SCALING", ["OFF", "DLSS", "FSR", "XESS"]), "fg: descriptor 50 = %s" % (desc(50),))
+    cfg_path = img[0x4B736F0:0x4B736F0 + 520].decode("utf-16-le", "replace").split("\0")[0]
+    fg_ok &= check(cfg_path.lower().endswith("\\koeitecmo\\nioh3\\config.xml"), "fg: config path string = %r" % cfg_path)
+    print("fg: setter/gate/dirty bytes, %d references, descriptors 50/54, config path %s" % (len(fg_refs), "OK" if fg_ok else "DIFFER"))
 
     near = []
     for p in NIOH3FIX_PATTERNS:

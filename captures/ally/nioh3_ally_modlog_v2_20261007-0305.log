@@ -1,0 +1,101 @@
+[03:05:04.279] Nioh3EngineFix 1.0.0 (built Oct  7 2026) - native port of the live-tested Nioh 3 engine patches
+[03:05:04.279] Nioh3.exe at 0000000140000000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[03:05:04.279] WC: worker-pool base capped at 10 (of 16 logical CPUs)
+[03:05:04.479] code is decrypted (200 ms after start)
+[03:05:04.479] resolving sites:
+[03:05:04.487]   W1   OK at RVA 61BAC
+[03:05:04.490]   W2a  OK at RVA 13721F
+[03:05:04.502]   W2b  OK at RVA 137269
+[03:05:04.513]   W2c  OK at RVA 1372B4
+[03:05:04.522]   W2d  OK at RVA 1372FE
+[03:05:04.533]   P3a  OK at RVA 43593A
+[03:05:04.549]   P3b  OK at RVA 437EE5
+[03:05:04.559]   P3c  OK at RVA 438473
+[03:05:04.570]   P3d  OK at RVA 55DC56
+[03:05:04.582]   P3e  OK at RVA 5AF6C9
+[03:05:04.593]   P3f  OK at RVA 29770C6
+[03:05:04.603]   P3g  OK at RVA 29771B4
+[03:05:04.613]   P6   OK at RVA 1975BAA
+[03:05:04.630]   P8a  OK at RVA 20E77B
+[03:05:04.643]   P8b  OK at RVA 5AF526
+[03:05:04.661]   P8c  OK at RVA 5AF682
+[03:05:04.680]   P8d  OK at RVA 5AF69F
+[03:05:04.690]   P9   OK at RVA 5AD89B
+[03:05:04.703]   P2   OK at RVA 5AD6AA
+[03:05:04.717]   P4   OK at RVA 5AD860
+[03:05:04.731]   P1   OK at RVA 5AD677
+[03:05:04.747]   W3   OK at RVA 1A6BF2D
+[03:05:04.759]   R1   OK at RVA 4A5346
+[03:05:04.774]   R1j  OK at RVA 4A5357
+[03:05:04.799]   L1   OK at RVA 19DF57E
+[03:05:04.816]   F1   OK at RVA 3777A40
+[03:05:04.827]   WK   OK at RVA 40A4C
+[03:05:04.827] near page at 000000013FFF0000
+[03:05:04.833]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[03:05:04.833] W1: applied (1 site(s), 1 attempt(s))
+[03:05:04.837]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[03:05:04.837] W2a: applied (1 site(s), 1 attempt(s))
+[03:05:04.843]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[03:05:04.843] W2b: applied (1 site(s), 1 attempt(s))
+[03:05:04.850]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[03:05:04.850] W2c: applied (1 site(s), 1 attempt(s))
+[03:05:04.856]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[03:05:04.856] W2d: applied (1 site(s), 1 attempt(s))
+[03:05:04.856] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[03:05:04.856] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[03:05:04.856] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[03:05:04.861]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[03:05:04.861]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[03:05:04.861]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[03:05:04.861]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[03:05:04.861]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[03:05:04.861]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[03:05:04.861]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[03:05:04.861]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[03:05:04.861]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[03:05:04.861]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[03:05:04.861]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[03:05:04.861]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[03:05:04.861]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[03:05:04.861]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[03:05:04.861]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[03:05:04.861]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[03:05:04.861] VRR: applied (16 site(s), 1 attempt(s))
+[03:05:04.867]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[03:05:04.867] W3: applied (1 site(s), 1 attempt(s))
+[03:05:04.871]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[03:05:04.871]   R1j  RVA 4A5357   patched: 75 ED 
+[03:05:04.871] R1: applied (2 site(s), 1 attempt(s))
+[03:05:05.465] running under Wine/Proton 11.0
+[03:05:05.465] W3: Wine/Proton -> empty-queue wait is Sleep(1 ms) (Wine returns from MsgWaitForMultipleObjectsEx at once)
+[03:05:05.478]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[03:05:05.478] L1: applied (1 site(s), 1 attempt(s))
+[03:05:05.483]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[03:05:05.483] F1: applied (1 site(s), 1 attempt(s))
+[03:05:05.489]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[03:05:05.489] WK: applied (1 site(s), 1 attempt(s))
+[03:05:05.490] MENU: enabled - key F10, controller hold Start 5.0 s, scale auto, pause hint on (flags mask 18)
+[03:05:05.491] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00
+[03:05:05.491] done: 11 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[03:05:11.398] OSD: engine is rendering (5906 ms after start) - installing the Present hook
+[03:05:11.399] OSD: system d3d12 C:\windows\system32\d3d12.dll+0, dxgi C:\windows\system32\dxgi.dll+0
+[03:05:11.428] OSD: dummy swapchain 0000000031BD06F0, vtable S:\steamapps\common\Nioh3\sl.interposer.dll+66328
+[03:05:11.429] OSD: hooked Present: vtable slot 00006FFFFC756368, original S:\steamapps\common\Nioh3\sl.interposer.dll+29090
+[03:05:11.429] OSD: hooked Present1: vtable slot 00006FFFFC7563D8, original S:\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[03:05:11.429] OSD: hooked SetColorSpace1: vtable slot 00006FFFFC756458, original S:\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[03:05:11.433] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to XINPUT1_4.dll+2080
+[03:05:11.437] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+36480, original DINPUT8.dll+9200
+[03:05:11.438] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+36380, original DINPUT8.dll+C630
+[03:05:11.438] MENU: own XInput for fallback polling: XINPUT1_4.dll+2080
+[03:05:11.438] MENU: ready - open with F10 / Hold Start 5s
+[03:05:11.441] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) (not a D3D12 swapchain?) failed (hr 80004002) - overlay off for this swapchain
+[03:05:35.514] stats/s: W3 waits 872 (Sleep), L1 timer sleeps 45, F1 timer sleeps 0, WK wakes kept 6383 / skipped 256
+[03:06:05.545] stats/s: W3 waits 868 (Sleep), L1 timer sleeps 51, F1 timer sleeps 0, WK wakes kept 18825 / skipped 264
+[03:06:35.576] stats/s: W3 waits 715 (Sleep), L1 timer sleeps 10, F1 timer sleeps 0, WK wakes kept 14812 / skipped 76
+[03:07:05.607] stats/s: W3 waits 814 (Sleep), L1 timer sleeps 5, F1 timer sleeps 0, WK wakes kept 14815 / skipped 182
+[03:07:35.636] stats/s: W3 waits 846 (Sleep), L1 timer sleeps 15, F1 timer sleeps 0, WK wakes kept 15870 / skipped 115
+[03:08:05.666] stats/s: W3 waits 895 (Sleep), L1 timer sleeps 24, F1 timer sleeps 0, WK wakes kept 15427 / skipped 27
+[03:08:35.696] stats/s: W3 waits 874 (Sleep), L1 timer sleeps 17, F1 timer sleeps 0, WK wakes kept 17517 / skipped 31
+[03:09:05.726] stats/s: W3 waits 902 (Sleep), L1 timer sleeps 9, F1 timer sleeps 0, WK wakes kept 22198 / skipped 31
+[03:09:35.756] stats/s: W3 waits 899 (Sleep), L1 timer sleeps 2, F1 timer sleeps 0, WK wakes kept 24126 / skipped 31
+[03:10:05.787] stats/s: W3 waits 899 (Sleep), L1 timer sleeps 3, F1 timer sleeps 0, WK wakes kept 23960 / skipped 29

@@ -50,6 +50,33 @@ constexpr uint32_t kOffStopFlags = 0x588;        // 6 latched bytes, from reques
 constexpr uint32_t kOffFrameCounter = 0x610;
 constexpr uint32_t kRvaXInputIat = 0x38E2C50;    // XINPUT1_4 ordinal 2 (XInputGetState) on v2.02
 
+// ---- frame generation (v2.02 only; notes\frame-generation.md) ---------------------------------------------------------
+// The game's options menu changes FG through SetOptionValue(0x126, v) (0x12A2368): FrameGenSettingWrite(v) + the
+// config-dirty byte. Nothing else: the engine's per-frame display watcher (0x1350210) sees the new slot value, posts
+// window message 0x405, and its display reset (0x226D140) rebuilds the swapchain with the chosen FG backend after a
+// 5-tick countdown. The menu item below does exactly those two steps (the game's own function, bytes verified).
+constexpr uint32_t kRvaFrameGen = 0x45BB008;      // FRAME_GENERATION slot: 0 OFF, 1 DLSS, 2 FSR, 3 XeSS
+constexpr uint32_t kRvaFgWrite = 0x1FDDFCC;       // FrameGenSettingWrite(int): gate 0x1FE3FA4, then slot (+VSYNC/Reflex/XeLL)
+constexpr uint32_t kRvaFgAvail = 0x1FE3FA4;       // IsFrameGenTypeAvailable(int): DLSS = Streamline caps+F0, XeSS = 45C3EAA, FSR = 1
+constexpr uint32_t kRvaDirtyStore = 0x12A46AD;    // SetOptionValue: mov byte [g_ConfigDirty],1
+constexpr uint32_t kRvaConfigDirty = 0x45C6F80;   // u8: SaveConfigIfDirty (0x283892C) writes config.xml and clears it
+constexpr uint32_t kRvaXessFgAvail = 0x45C3EAA;   // u8 g_XessFgAvailable
+constexpr uint32_t kRvaSlCaps = 0x46D7690;        // Streamline feature caps (static returned by 0x6B8E88); +F0 = DLSS-G
+constexpr uint32_t kRvaConfigDesc = 0x45C8570;    // 60 x 0x30 descriptors: +0 name*, +8 values**, +0x24 count
+constexpr int kIdxFrameGen = 54;
+constexpr uint32_t kRvaConfigPathW = 0x4B736F0;   // wchar_t[]: the game's full config.xml path
+const uint8_t kFgWriteBytes[] = {  // 0x1FDDFCC, 93 bytes (rel32 / RIP disp32 only - position independent)
+    0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x8B, 0xD9, 0xE8, 0xCB, 0x5F, 0x00, 0x00, 0x33, 0xC9, 0x84, 0xC0, 0x74, 0x3E,
+    0x89, 0x1D, 0x23, 0xD0, 0x5D, 0x02, 0x83, 0xEB, 0x01, 0x74, 0x20, 0x83, 0xFB, 0x02, 0x74, 0x09, 0x48, 0x89, 0x0D,
+    0x1A, 0xD0, 0x5D, 0x02, 0xEB, 0x2B, 0xC7, 0x05, 0x12, 0xD0, 0x5D, 0x02, 0x01, 0x00, 0x00, 0x00, 0x89, 0x0D, 0x08,
+    0xD0, 0x5D, 0x02, 0xEB, 0x19, 0x48, 0xC7, 0x05, 0xFB, 0xCF, 0x5D, 0x02, 0x01, 0x00, 0x00, 0x00, 0x89, 0x0D, 0x21,
+    0xCF, 0x5D, 0x02, 0xEB, 0x06, 0x89, 0x0D, 0xE5, 0xCF, 0x5D, 0x02, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3};
+const uint8_t kFgAvailBytes[] = {  // 0x1FE3FA4, 47 bytes
+    0x48, 0x83, 0xEC, 0x28, 0x83, 0xE9, 0x01, 0x74, 0x16, 0x83, 0xE9, 0x01, 0x74, 0x0D, 0x83, 0xF9, 0x01, 0x75,
+    0x08, 0x8A, 0x05, 0xED, 0xFE, 0x5D, 0x02, 0xEB, 0x0F, 0xB0, 0x01, 0xEB, 0x0B, 0xE8, 0xC0, 0x4E, 0x6D, 0xFE,
+    0x8A, 0x80, 0xF0, 0x00, 0x00, 0x00, 0x48, 0x83, 0xC4, 0x28, 0xC3};
+const uint8_t kDirtyStoreBytes[] = {0xC6, 0x05, 0xCC, 0x28, 0x32, 0x03, 0x01};  // -> 0x45C6F80
+
 // ---- configuration ([Menu]) ------------------------------------------------------------------------------------------
 struct KeyDef {
     const char* name;
@@ -75,6 +102,7 @@ struct Cfg {
     float scale = 0;    // 0 = auto
     int pauseHint = 1;
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
+    int fgToggle = 1;          // [Menu] FrameGenToggle: 0 status only, 1 switch on Windows, 2 also under Proton (risky)
 };
 Cfg g_cfg;
 Host g_host;
@@ -453,8 +481,170 @@ bool Rd(const void* p, T& out) {
     }
 }
 
+// ---- frame generation through the game's own setter --------------------------------------------------------------------
+bool g_fgOk = false;         // setter, gate and dirty store verified, and [Menu] FrameGenToggle allows it (1 / 2 on Proton)
+bool g_fgChanged = false;    // changed from this menu this session: "Save to ini" also writes config.xml (Proton: OFF only)
+int g_fgLastOn = 2;          // A/Enter turns FG on with this type (FSR unless another one was picked)
+ULONGLONG g_fgChangedAt = 0;
+const int kFgCycle[] = {0, 2, 3, 1};  // OFF, FSR, XeSS, DLSS (unavailable types are skipped)
+
+bool BytesAt(uint32_t rva, const uint8_t* b, size_t n) {
+    __try {
+        return memcmp(g_host.base + rva, b, n) == 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+int FgSetting() {
+    int v = -1;
+    if (g_host.knownBuild && g_host.base) Rd(g_host.base + kRvaFrameGen, v);
+    return v >= 0 && v <= 3 ? v : -1;
+}
+
+// mirrors IsFrameGenTypeAvailable (0x1FE3FA4) without calling it: FSR always, DLSS / XeSS only when the game found them
+bool FgTypeAvailable(int v) {
+    uint8_t b = 0;
+    switch (v) {
+        case 0: case 2: return true;
+        case 1: return Rd(g_host.base + kRvaSlCaps + 0xF0, b) && b;
+        case 3: return Rd(g_host.base + kRvaXessFgAvail, b) && b;
+        default: return false;
+    }
+}
+
+// FrameGenSettingWrite(v) - the game's own setter (it re-checks availability and writes 0 if the type is unavailable).
+// Returns the slot value afterwards (-2 on an exception).
+int CallFgWrite(int v) {
+    using Fn = void (*)(int);
+    __try {
+        reinterpret_cast<Fn>(g_host.base + kRvaFgWrite)(v);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -2;
+    }
+    return FgSetting();
+}
+
+void SetConfigDirty() {
+    __try {
+        *reinterpret_cast<volatile uint8_t*>(g_host.base + kRvaConfigDirty) = 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
+bool CStrEq(const char* p, const char* s) {
+    __try {
+        return p && s && strcmp(p, s) == 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+// the game's own descriptor for FRAME_GENERATION still says {OFF, DLSS, FSR, XeSS} (the strings config.xml uses)
+bool FgDescMatches() {
+    const uint8_t* d = g_host.base + kRvaConfigDesc + kIdxFrameGen * 0x30;
+    uint64_t name = 0, vals = 0;
+    int cnt = 0;
+    if (!Rd(d, name) || !Rd(d + 8, vals) || !Rd(d + 0x24, cnt) || cnt != 4) return false;
+    if (!CStrEq(reinterpret_cast<const char*>((uintptr_t)name), "FRAME_GENERATION")) return false;
+    for (int i = 0; i < 4; ++i) {
+        uint64_t p = 0;
+        if (!Rd(reinterpret_cast<const uint8_t*>((uintptr_t)vals) + 8 * i, p) ||
+            !CStrEq(reinterpret_cast<const char*>((uintptr_t)p), osd::FgTypeName(i)))
+            return false;
+    }
+    return true;
+}
+
+bool ReadWStr(const wchar_t* p, wchar_t* out, size_t n) {
+    __try {
+        size_t i = 0;
+        for (; i + 1 < n && p[i]; ++i) out[i] = p[i];
+        out[i] = 0;
+        return i > 0 && i + 1 < n;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+// the config.xml the game loaded (its own path string); %LOCALAPPDATA%\KoeiTecmo\NIOH3\config.xml if that looks wrong
+std::wstring GameConfigPath() {
+    static const wchar_t kTail[] = L"\\KoeiTecmo\\NIOH3\\config.xml";
+    const size_t tail = wcslen(kTail);
+    wchar_t b[MAX_PATH] = {};
+    if (ReadWStr(reinterpret_cast<const wchar_t*>(g_host.base + kRvaConfigPathW), b, MAX_PATH)) {
+        const size_t n = wcslen(b);
+        if (n > tail + 2 && !_wcsicmp(b + n - tail, kTail)) return b;
+    }
+    wchar_t e[MAX_PATH] = {};
+    const DWORD n = ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\KoeiTecmo\\NIOH3\\config.xml", e, MAX_PATH);
+    MLOG("config.xml: the game's path string is not readable - using %ls", n && n <= MAX_PATH ? e : L"(none)");
+    return n && n <= MAX_PATH && e[0] != L'%' ? e : L"";
+}
+
+// Rewrites ONLY the FRAME_GENERATION value of the game's config.xml (every other byte stays), after copying the file
+// to config.xml.Nioh3EngineFix.bak. Returns 1 written, 2 already that value, 3 failed (logged). Save thread.
+int WriteGameConfigFg(const std::wstring& path, const std::string& value) {
+    if (path.empty()) return 3;
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        MLOG("config.xml: cannot open %ls (%lu) - not changed", path.c_str(), GetLastError());
+        return 3;
+    }
+    std::string data;
+    LARGE_INTEGER sz{};
+    bool ok = GetFileSizeEx(h, &sz) && sz.QuadPart > 0 && sz.QuadPart < (1 << 20);
+    if (ok) {
+        data.resize((size_t)sz.QuadPart);
+        DWORD rd = 0;
+        ok = ReadFile(h, &data[0], (DWORD)data.size(), &rd, nullptr) && rd == (DWORD)data.size();
+    }
+    CloseHandle(h);
+    if (!ok) {
+        MLOG("config.xml: reading %ls failed - not changed", path.c_str());
+        return 3;
+    }
+    static const char kOpen[] = "<FRAME_GENERATION>", kClose[] = "</FRAME_GENERATION>";
+    const size_t a = data.find(kOpen);
+    if (a == std::string::npos || data.find(kOpen, a + 1) != std::string::npos) {
+        MLOG("config.xml: <FRAME_GENERATION> not found exactly once - not changed");
+        return 3;
+    }
+    const size_t v0 = a + strlen(kOpen), b = data.find(kClose, v0);
+    const std::string cur = b == std::string::npos ? std::string() : data.substr(v0, b - v0);
+    bool known = false;
+    for (int i = 0; i < 4; ++i) known |= cur == osd::FgTypeName(i);
+    if (!known) {
+        MLOG("config.xml: unexpected FRAME_GENERATION value \"%.16s\" - not changed", cur.c_str());
+        return 3;
+    }
+    if (cur == value) {
+        MLOG("config.xml: FRAME_GENERATION is already %s - not changed", value.c_str());
+        return 2;
+    }
+    const std::wstring bak = path + L".Nioh3EngineFix.bak", tmp = path + L".Nioh3EngineFix.tmp";
+    if (!CopyFileW(path.c_str(), bak.c_str(), FALSE)) {
+        MLOG("config.xml: backup to %ls failed (%lu) - not changed", bak.c_str(), GetLastError());
+        return 3;
+    }
+    const std::string out = data.substr(0, v0) + value + data.substr(b);
+    h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    DWORD wr = 0;
+    ok = h != INVALID_HANDLE_VALUE && WriteFile(h, out.data(), (DWORD)out.size(), &wr, nullptr) && wr == (DWORD)out.size() &&
+         FlushFileBuffers(h);
+    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+    if (!ok || !MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        MLOG("config.xml: writing %ls failed (%lu) - not changed", path.c_str(), GetLastError());
+        DeleteFileW(tmp.c_str());
+        return 3;
+    }
+    MLOG("config.xml: FRAME_GENERATION %s -> %s in %ls (previous file: %ls)", cur.c_str(), value.c_str(), path.c_str(), bak.c_str());
+    return 1;
+}
+
 // ---- items ----------------------------------------------------------------------------------------------------------
-enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kFps, kFrameTime, kSpeed, kPos, kScale, kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
+enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
+          kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -473,11 +663,15 @@ const ItemDef kItems[kCount] = {
     {nullptr, "Speed factor", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow."},
     {nullptr, "Counter position", "Corner of the FPS counter."},
     {nullptr, "Counter text size", "1.0 = 8x16 px letters (x2 at 4K). Whole numbers look sharpest."},
+    {"GAME SETTING - live, the game's own apply", "Frame generation",
+     "Same as the game's Options > Frame Generation. Screen blinks while it switches."},
+    {nullptr, "  FG running", "Real FPS (engine) vs presented FPS: FG runs when presented > 1.4x real."},
+    {nullptr, "  Upscaler (game setting)", "The game's upscaler setting. FSR frame gen does not need the FSR upscaler."},
     {"NEXT LAUNCH - saved to the ini", "WorkerCap", "Handhelds: cap the job thread pools at N (try 10, then 8). Off on desktops."},
     {nullptr, "P12 worker-pool lift", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental."},
     {nullptr, "L1 on Proton", "Install L1 under Wine/Proton too (Wine may not honour the timer)."},
     {nullptr, "F1 on Proton", "Install F1 under Wine/Proton too (same timer caveat as L1)."},
-    {"", "Save to ini", "Write every setting above to Nioh3EngineFix.ini (used from the next launch)."},
+    {"", "Save to ini", "Save to Nioh3EngineFix.ini; FG changed here also goes to the game's config.xml."},
     {nullptr, "Close menu", "Also: B / Esc / the menu key / the open gesture."},
 };
 
@@ -490,9 +684,13 @@ bool Visible(int id) {
         case kW3Mode: return g_host.wine && g_host.w3Enable && g_host.w3UseSleep;
         case kL1Wine:
         case kFgWine: return g_host.wine;
+        case kFg: case kFgState: case kUpscaler: return g_host.knownBuild && g_host.base;  // engine slots: v2.02 only
         default: return true;
     }
 }
+
+// status rows: shown, never selected
+bool ReadOnly(int id) { return id == kFgState || id == kUpscaler; }
 
 bool Available(int id) {
     switch (id) {
@@ -503,6 +701,7 @@ bool Available(int id) {
         case kL1: return g_host.l1Enable != nullptr;
         case kF1: return g_host.fgEnable != nullptr;
         case kWk: return g_host.wkEnable != nullptr;
+        case kFg: return g_fgOk;
         default: return true;
     }
 }
@@ -529,9 +728,53 @@ bool LiveBool(int id) {
     }
 }
 
+// frame-generation rows (status from osd::FrameGen; also shown when the switch itself is not available)
+void FgValue(int id, char* buf, size_t n, uint32_t& color) {
+    const osd::FgStatus s = osd::FrameGen();
+    const char* name = osd::FgTypeName(s.setting);
+    if (id == kUpscaler) {
+        const char* u = osd::FgTypeName(s.upscaler);
+        snprintf(buf, n, "%s", !u ? "?" : s.upscaler == 0 ? "OFF (native)" : u);
+        color = u ? cWhite : cDim;
+        return;
+    }
+    if (id == kFgState) {
+        if (s.active) {
+            snprintf(buf, n, "yes %.0f -> %.0f fps", s.realFps, s.presentFps);
+            color = cCyan;
+        } else if (s.setting == 0) {
+            snprintf(buf, n, "no (off in game settings)");
+            color = cGray;
+        } else if (!s.measured || (s.sinceSwitch < 12.0 && s.setting > 0)) {
+            snprintf(buf, n, s.measured ? "switching..." : "measuring...");
+            color = cWhite;
+        } else {
+            snprintf(buf, n, "NO");
+            color = cYellow;
+        }
+        return;
+    }
+    // kFg
+    const char* ro = Available(kFg) ? "" : "  (read-only)";
+    if (!name) {
+        snprintf(buf, n, "?%s", ro);
+        color = cDim;
+    } else if (s.setting == 0) {
+        snprintf(buf, n, "OFF%s", ro);
+        color = cGray;
+    } else {
+        snprintf(buf, n, "%s%s", name, ro);
+        color = s.active ? cGreen : cYellow;
+    }
+}
+
 void Value(int id, char* buf, size_t n, uint32_t& color) {
     buf[0] = 0;
     color = cWhite;
+    if (id == kFg || id == kFgState || id == kUpscaler) {
+        FgValue(id, buf, n, color);
+        return;
+    }
     if (!Available(id)) {
         snprintf(buf, n, "%s", NaText(id));
         color = cDim;
@@ -582,9 +825,12 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
 struct SaveJob {
     std::wstring ini;
     std::vector<std::wstring> entries;  // section, key, value triples
+    std::wstring gameCfg;               // config.xml to update (empty = leave it alone)
+    std::string fgValue;                // FRAME_GENERATION value for it ("OFF", "FSR", ...)
 };
 volatile LONG g_saveState = 0;  // 0 idle, 1 running, 2 ok, 3 failed
 volatile LONG g_saveErr = 0;
+volatile LONG g_cfgXmlState = 0;  // last save: 0 config.xml not touched, 1 written, 2 already that value, 3 failed
 ULONGLONG g_saveShownAt = 0;
 
 DWORD WINAPI SaveThread(LPVOID p) {
@@ -601,8 +847,10 @@ DWORD WINAPI SaveThread(LPVOID p) {
     WritePrivateProfileStringW(nullptr, nullptr, nullptr, job->ini.c_str());  // flush the profile cache
     if (err) MLOG("save: %zu of %zu keys written, first error %lu", ok, job->entries.size() / 3, err);
     else MLOG("save: %zu keys written to the ini", ok);
+    const LONG xml = job->fgValue.empty() ? 0 : (LONG)WriteGameConfigFg(job->gameCfg, job->fgValue);
+    InterlockedExchange(&g_cfgXmlState, xml);
     g_saveErr = (LONG)err;
-    InterlockedExchange(&g_saveState, err ? 3 : 2);
+    InterlockedExchange(&g_saveState, err || xml == 3 ? 3 : 2);
     delete job;
     return 0;
 }
@@ -642,6 +890,19 @@ void StartSave() {
         swprintf(w, 32, L"%.1f", o.scale);
         add(L"Overlay", L"Scale", w);
     }
+    // frame generation changed from this menu: also into the game's config.xml (only that value; backup first)
+    if (g_fgChanged && Available(kFg)) {
+        const char* v = osd::FgTypeName(FgSetting());
+        if (!v) MLOG("save: FRAME_GENERATION slot unreadable - config.xml not changed");
+        else if (g_host.wine && strcmp(v, "OFF") != 0)
+            MLOG("save: Proton - frame generation %s is kept for this session only, config.xml not changed", v);
+        else if (!FgDescMatches()) MLOG("save: the game's FRAME_GENERATION descriptor differs from OFF/DLSS/FSR/XeSS - config.xml not changed");
+        else {
+            job->gameCfg = GameConfigPath();
+            job->fgValue = v;
+        }
+    }
+    InterlockedExchange(&g_cfgXmlState, 0);
     InterlockedExchange(&g_saveState, 1);
     g_saveShownAt = 0;
     MLOG("save: writing %zu keys", job->entries.size() / 3);
@@ -663,6 +924,7 @@ void Open(const char* how) {
     InterlockedExchange(&g_pressed, 0);
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
+    MessageBeep(MB_OK);  // audible confirmation of the hold gesture, even if the overlay can't draw
     if (!Visible(g_sel)) g_sel = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
@@ -671,6 +933,7 @@ void Close(const char* how) {
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedOr(&g_keyLatch, (LONG)K_NAV);
     InterlockedExchange(&g_open, 0);
+    MessageBeep(MB_ICONASTERISK);
     MLOG("closed (%s)%s", how, g_dirty ? " - unsaved changes are active until the game exits" : "");
 }
 
@@ -686,8 +949,55 @@ void SetLiveBool(int id, bool v) {
     }
 }
 
+// Frame generation: A/Enter = OFF <-> last type (FSR), Left/Right = cycle OFF / FSR / XeSS / DLSS (available ones).
+// One switch per 2 s: every change makes the game rebuild its swapchain.
+void ChangeFg(int dir) {
+    if (!Available(kFg)) return;
+    const ULONGLONG t = Now();
+    if (g_fgChangedAt && t - g_fgChangedAt < 2000) return;
+    const int cur = FgSetting();
+    if (cur < 0) return;
+    int want = cur;
+    if (dir == 0) {
+        want = cur ? 0 : (FgTypeAvailable(g_fgLastOn) ? g_fgLastOn : 2);
+    } else {
+        int i = 0;
+        while (i < 3 && kFgCycle[i] != cur) ++i;
+        for (int k = 0; k < 4; ++k) {
+            i = (i + (dir > 0 ? 1 : 3)) % 4;
+            if (FgTypeAvailable(kFgCycle[i])) break;
+        }
+        want = kFgCycle[i];
+    }
+    if (want == cur) return;
+    const int got = CallFgWrite(want);
+    g_fgChangedAt = t;
+    const char* a = osd::FgTypeName(cur);
+    const char* b = osd::FgTypeName(want);
+    if (got != want) {
+        const char* g = osd::FgTypeName(got);
+        MLOG("Frame generation %s -> %s: the game's setter left it at %s (type not available here)", a, b, g ? g : "?");
+        return;
+    }
+    // as the game's SetOptionValue does: its next SaveConfigIfDirty writes config.xml. Not for FG on under Proton:
+    // if the FG swapchain crashes the game there, the next launch must still start with the old (working) config.
+    const bool persist = !(g_host.wine && want != 0);
+    if (persist) SetConfigDirty();
+    osd::NoteFgSwitch();
+    g_fgChanged = true;
+    g_dirty = true;
+    if (want) g_fgLastOn = want;
+    MLOG("Frame generation %s -> %s via the game's FrameGenSettingWrite (%s); the game rebuilds its swapchain in a few "
+         "frames", a, b, persist ? "config marked dirty" : "Proton: this session only, never saved");
+}
+
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
+    if (id == kFg) {
+        ChangeFg(dir);
+        return;
+    }
+    if (ReadOnly(id)) return;
     if (id == kSave) {
         if (dir == 0) StartSave();
         return;
@@ -740,7 +1050,7 @@ void Change(int id, int dir) {
 void Move(int dir) {
     for (int k = 0; k < kCount; ++k) {
         g_sel = (g_sel + dir + kCount) % kCount;
-        if (Visible(g_sel)) return;
+        if (Visible(g_sel) && !ReadOnly(g_sel)) return;
     }
 }
 
@@ -1010,11 +1320,20 @@ float DrawImpl(unsigned W, unsigned H) {
     if (!Available(g_sel)) {
         if ((g_sel == kL1 && g_host.l1 == FixState::WineSkipped) || (g_sel == kF1 && g_host.f1 == FixState::WineSkipped))
             snprintf(desc, sizeof(desc), "Skipped under Proton - turn on '%s on Proton' below, save, restart.", g_sel == kL1 ? "L1" : "F1");
+        else if (g_sel == kFg)
+            snprintf(desc, sizeof(desc), "%s",
+                     !g_cfg.fgToggle ? "Status only ([Menu] FrameGenToggle = 0): switch it in the game's Options."
+                     : g_host.wine && g_cfg.fgToggle == 1 ? "Status only on Proton: FG is reported to crash there (FrameGenToggle=2)."
+                                                          : "Status only: the game's FG setter did not verify on this build (see the log).");
         else
             snprintf(desc, sizeof(desc), "Not installed this session (off in the ini or a site was not found - see the log).");
     }
     add("", "", cWhite, cWhite, false, true);
     add(desc, "", cWhite, cWhite, false, false);
+    if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes
+        const char* why = osd::FgReason(osd::FrameGen());
+        add(why ? why : "", "", cOrange, cWhite, false, false);
+    }
     char stats[160];
     const Rates& r = g_rates;
     if (r.rW3 < 0) snprintf(stats, sizeof(stats), "Stats/s: measuring...");
@@ -1029,7 +1348,9 @@ float DrawImpl(unsigned W, unsigned H) {
     else if (ss == 1) add("Saving to Nioh3EngineFix.ini...", "", cYellow, cWhite, false, false);
     else if (ss >= 2 && t - g_saveShownAt < 4000) {
         char b[96];
-        if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini");
+        const LONG xml = g_cfgXmlState;
+        if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini%s", xml == 1 ? " + game config.xml (FG)" : "");
+        else if (xml == 3) snprintf(b, sizeof(b), "config.xml NOT changed (FG) - see the log");
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         add(b, "", ss == 2 ? cGreen : cOrange, cWhite, false, false);
     } else {
@@ -1179,6 +1500,22 @@ void Configure(const Host& h) {
     }
     if (g_cfg.holdMask && g_cfg.holdMask == XINPUT_GAMEPAD_START && g_cfg.holdMs == 0)
         MLOG("[Menu] HoldSeconds=0 with HoldButton=Start opens the menu on every Start press - consider a combo");
+    g_cfg.fgToggle = (int)GetPrivateProfileIntW(L"Menu", L"FrameGenToggle", 1, f);
+    g_fgOk = false;
+    if (g_host.knownBuild && g_host.base) {
+        const bool code = BytesAt(kRvaFgWrite, kFgWriteBytes, sizeof(kFgWriteBytes)) &&
+                          BytesAt(kRvaFgAvail, kFgAvailBytes, sizeof(kFgAvailBytes)) &&
+                          BytesAt(kRvaDirtyStore, kDirtyStoreBytes, sizeof(kDirtyStoreBytes));
+        // Proton: FG is reported to crash the game on Steam Deck / Linux (vkd3d-proton issue 2845, notes\community)
+        g_fgOk = code && (g_cfg.fgToggle >= 2 || (g_cfg.fgToggle == 1 && !g_host.wine));
+        MLOG("frame generation: %s", !code ? "the game's FG setter bytes differ - status only"
+                                     : g_fgOk ? (g_host.wine ? "live switch enabled under Proton ([Menu] FrameGenToggle = 2); FG on is "
+                                                               "never saved to the game's config here"
+                                                             : "live switch through the game's FrameGenSettingWrite (0x1FDDFCC) verified")
+                                     : g_cfg.fgToggle ? "status only under Proton (FG is reported to crash there; FrameGenToggle = 2 "
+                                                        "allows the switch)"
+                                                      : "status only ([Menu] FrameGenToggle = 0)");
+    }
     g_configured = true;
     if (!g_cfg.enabled) {
         MLOG("off in ini ([Menu] Enabled=0)");

@@ -1,0 +1,99 @@
+[03:25:10.939] Nioh3EngineFix 1.0.0 (built Oct  7 2026) - native port of the live-tested Nioh 3 engine patches
+[03:25:10.939] Nioh3.exe at 0000000140000000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[03:25:10.939] WC: worker-pool base capped at 10 (of 16 logical CPUs)
+[03:25:11.139] code is decrypted (200 ms after start)
+[03:25:11.139] resolving sites:
+[03:25:11.147]   W1   OK at RVA 61BAC
+[03:25:11.151]   W2a  OK at RVA 13721F
+[03:25:11.162]   W2b  OK at RVA 137269
+[03:25:11.173]   W2c  OK at RVA 1372B4
+[03:25:11.182]   W2d  OK at RVA 1372FE
+[03:25:11.194]   P3a  OK at RVA 43593A
+[03:25:11.210]   P3b  OK at RVA 437EE5
+[03:25:11.220]   P3c  OK at RVA 438473
+[03:25:11.231]   P3d  OK at RVA 55DC56
+[03:25:11.242]   P3e  OK at RVA 5AF6C9
+[03:25:11.253]   P3f  OK at RVA 29770C6
+[03:25:11.263]   P3g  OK at RVA 29771B4
+[03:25:11.273]   P6   OK at RVA 1975BAA
+[03:25:11.290]   P8a  OK at RVA 20E77B
+[03:25:11.303]   P8b  OK at RVA 5AF526
+[03:25:11.320]   P8c  OK at RVA 5AF682
+[03:25:11.338]   P8d  OK at RVA 5AF69F
+[03:25:11.349]   P9   OK at RVA 5AD89B
+[03:25:11.362]   P2   OK at RVA 5AD6AA
+[03:25:11.376]   P4   OK at RVA 5AD860
+[03:25:11.390]   P1   OK at RVA 5AD677
+[03:25:11.406]   W3   OK at RVA 1A6BF2D
+[03:25:11.418]   R1   OK at RVA 4A5346
+[03:25:11.432]   R1j  OK at RVA 4A5357
+[03:25:11.457]   L1   OK at RVA 19DF57E
+[03:25:11.474]   F1   OK at RVA 3777A40
+[03:25:11.484]   WK   OK at RVA 40A4C
+[03:25:11.484] near page at 000000013FFF0000
+[03:25:11.490]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[03:25:11.490] W1: applied (1 site(s), 1 attempt(s))
+[03:25:11.495]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[03:25:11.495] W2a: applied (1 site(s), 1 attempt(s))
+[03:25:11.500]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[03:25:11.500] W2b: applied (1 site(s), 1 attempt(s))
+[03:25:11.505]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[03:25:11.505] W2c: applied (1 site(s), 1 attempt(s))
+[03:25:11.509]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[03:25:11.510] W2d: applied (1 site(s), 1 attempt(s))
+[03:25:11.510] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[03:25:11.510] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[03:25:11.510] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[03:25:11.515]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[03:25:11.515]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[03:25:11.515]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[03:25:11.515]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[03:25:11.515]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[03:25:11.515]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[03:25:11.515]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[03:25:11.515]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[03:25:11.515]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[03:25:11.515]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[03:25:11.516]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[03:25:11.516]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[03:25:11.516]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[03:25:11.516]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[03:25:11.516]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[03:25:11.516]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[03:25:11.516] VRR: applied (16 site(s), 1 attempt(s))
+[03:25:11.520]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[03:25:11.520] W3: applied (1 site(s), 1 attempt(s))
+[03:25:11.525]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[03:25:11.525]   R1j  RVA 4A5357   patched: 75 ED 
+[03:25:11.525] R1: applied (2 site(s), 1 attempt(s))
+[03:25:12.127] running under Wine/Proton 11.0
+[03:25:12.127] W3: Wine/Proton -> empty-queue wait is Sleep(1 ms) (Wine returns from MsgWaitForMultipleObjectsEx at once)
+[03:25:12.133]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[03:25:12.133] L1: applied (1 site(s), 1 attempt(s))
+[03:25:12.138]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[03:25:12.138] F1: applied (1 site(s), 1 attempt(s))
+[03:25:12.144]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[03:25:12.144] WK: applied (1 site(s), 1 attempt(s))
+[03:25:12.145] MENU: enabled - key F10, controller hold Start 5.0 s, scale auto, pause hint on (flags mask 18)
+[03:25:12.146] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00
+[03:25:12.146] done: 11 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[03:25:17.952] OSD: engine is rendering (5806 ms after start) - installing the Present hook
+[03:25:17.953] OSD: system d3d12 C:\windows\system32\d3d12.dll+0, dxgi C:\windows\system32\dxgi.dll+0
+[03:25:17.973] OSD: dummy swapchain 000000003191B7D0, vtable S:\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\windows\system32\d3d12core.dll+488FE0
+[03:25:17.974] OSD: hooked ExecuteCommandLists: vtable slot 00006FFFF26D9030, original C:\windows\system32\d3d12core.dll+3EB620
+[03:25:17.974] OSD: hooked Present: vtable slot 00006FFFFC756368, original S:\steamapps\common\Nioh3\sl.interposer.dll+29090
+[03:25:17.974] OSD: hooked Present1: vtable slot 00006FFFFC7563D8, original S:\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[03:25:17.974] OSD: hooked SetColorSpace1: vtable slot 00006FFFFC756458, original S:\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[03:25:17.980] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to XINPUT1_4.dll+2080
+[03:25:17.984] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+36480, original DINPUT8.dll+9200
+[03:25:17.984] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+36380, original DINPUT8.dll+C630
+[03:25:17.984] MENU: own XInput for fallback polling: XINPUT1_4.dll+2080
+[03:25:17.984] MENU: ready - open with F10 / Hold Start 5s
+[03:25:18.043] OSD: captured DIRECT queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0, other thread), device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0); back buffer device 00000000033A0080 (C:\windows\system32\d3d12core.dll+489BE0) -> same device, using it
+[03:25:18.044] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain S:\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[03:25:18.044] OSD: swapchain 0000000001C5C210: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000000000138FC20 (C:\windows\system32\d3d12core.dll+488FE0), device 00000000033A0080
+[03:25:18.045] OSD: drawing context ready (build #1)
+[03:25:18.045] OSD: Present called from thread 740 ""
+[03:25:18.045] MENU: engine stop flags (G+588..58D) now: none
+[03:25:18.056] OSD: pipeline created for back buffer format 87
+[03:25:18.056] OSD: first overlay frame drawn (11 quads)

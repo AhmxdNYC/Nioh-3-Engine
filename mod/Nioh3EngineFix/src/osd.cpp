@@ -53,6 +53,7 @@ constexpr uint32_t kOffFpsForDt = 0x614;         // G+614: fps used for dt this 
 constexpr uint32_t kRvaRenFps = 0x45BAF54;       // REN_FPS index -> {30,60,120}
 constexpr uint32_t kRvaDynamicFps = 0x45BAF58;   // DYNAMIC_FPS 0 = OFF, 1 = ON
 constexpr uint32_t kRvaFrameGen = 0x45BB008;     // FRAME_GENERATION 0 OFF, 1 DLSS, 2 FSR, 3 XeSS
+constexpr uint32_t kRvaUpscaler = 0x45BAFF8;     // RESOLUTION_SCALING 0 OFF, 1 DLSS, 2 FSR, 3 XESS
 
 // ---- DXGI vtable slots (IDXGISwapChain4 single-inheritance layout) -------------------------------------------------
 constexpr int kSlotPresent = 8, kSlotPresent1 = 22, kSlotSetColorSpace1 = 38;
@@ -93,6 +94,16 @@ using SetCs1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain3*, DXGI_COLOR_SPACE_
 PresentFn g_origPresent = nullptr;
 Present1Fn g_origPresent1 = nullptr;
 SetCs1Fn g_origSetCs1 = nullptr;
+// Fallback queue source: some swapchain proxies (Streamline's sl.interposer on DXVK/vkd3d-proton under Proton) refuse
+// IDXGISwapChain::GetDevice(ID3D12CommandQueue). Then the presenting queue is taken from the game's own submissions:
+// the last DIRECT queue that called ExecuteCommandLists on the presenting thread (else on any thread). Pointers only,
+// no references - BuildCtx AddRefs the one it picks, right after it submitted (it is alive then).
+using EclFn = void(STDMETHODCALLTYPE*)(ID3D12CommandQueue*, UINT, ID3D12CommandList* const*);
+constexpr int kSlotExecuteCommandLists = 10;
+EclFn g_origEcl = nullptr;
+thread_local ID3D12CommandQueue* t_lastQ = nullptr;        // last queue seen on this thread (any type)
+thread_local ID3D12CommandQueue* t_lastDirectQ = nullptr;  // last DIRECT queue that submitted on this thread
+ID3D12CommandQueue* volatile g_lastDirectQ = nullptr;
 thread_local int t_depth = 0;
 volatile LONG g_disabled = 0;
 volatile LONG g_colorSpace = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
@@ -183,19 +194,29 @@ struct Stats {
     int64_t lastLog = 0;
     uint64_t draws = 0, skips = 0;
     int fsrThreadSeen = 0;
+    DWORD fsrTid = 0;           // the FidelityFX presenter thread (by name), 0 = not seen on this swapchain
+    int64_t lastFsrPresent = 0; // last hooked Present from it
     DWORD seenTid[8] = {};
     int seenN = 0;
 };
 Stats g_st;
 
-void NoteThread() {
+// not reset with the swapchain: FG-setting change log and the menu's "switching" window
+int g_fgLogged = -2, g_upLogged = -2;
+int64_t g_fgSwitchAt = 0;
+
+void NoteThread(int64_t now) {
     DWORD tid = GetCurrentThreadId();
+    if (tid == g_st.fsrTid) g_st.lastFsrPresent = now;
     for (int i = 0; i < g_st.seenN; ++i)
         if (g_st.seenTid[i] == tid) return;
     std::string name = ThreadName();
     if (g_st.seenN < 8) g_st.seenTid[g_st.seenN++] = tid;
-    if (name.find("FSR") != std::string::npos || name.find("FrameInterpolation") != std::string::npos)
+    if (name.find("FSR") != std::string::npos || name.find("FrameInterpolation") != std::string::npos) {
         g_st.fsrThreadSeen = 1;
+        g_st.fsrTid = tid;
+        g_st.lastFsrPresent = now;
+    }
     OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
 }
 
@@ -229,6 +250,17 @@ void UpdateStats(int64_t now) {
     if (!g_st.fgActive && g_st.realFps > 5 && g_st.ratio > 1.4) g_st.fgActive = true;
     else if (g_st.fgActive && (g_st.ratio < 1.2 || g_st.realFps <= 5)) g_st.fgActive = false;
     g_st.haveRates = true;
+    if (g_info.known) {  // the game's FG / upscaler settings: logged at the first window and whenever they change
+        const int fg = ReadCfg(kRvaFrameGen), up = ReadCfg(kRvaUpscaler);
+        if (fg != g_fgLogged || up != g_upLogged) {
+            const char* a = FgTypeName(fg);
+            const char* b = FgTypeName(up);
+            OLOG("game settings: FRAME_GENERATION %s (%d), RESOLUTION_SCALING %s (%d)%s", a ? a : "?", fg, b ? b : "?", up,
+                 g_fgLogged == -2 ? "" : " - changed");
+            g_fgLogged = fg;
+            g_upLogged = up;
+        }
+    }
     g_st.winStart = now;
     g_st.presents0 = g_st.presents;
     g_st.dtSum = 0;
@@ -365,7 +397,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
         }
     }
 
-    Line pop[7];
+    Line pop[8];
     int np = 0;
     float popAlpha = 0;
     if (g_cfg.popup && g_firstDraw && !menu::IsOpen()) {
@@ -378,20 +410,22 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
                   g_info.applied, total);
             if (g_info.skipped && !g_info.skippedNames.empty()) h.add(kYellow, " (skipped: %s)", g_info.skippedNames.c_str());
             if (!g_info.known) pop[np++].add(kYellow, "Unknown game build - engine readouts off");
-            const int fgSet = ReadCfg(kRvaFrameGen);
+            const FgStatus fs = FrameGen();
             Line& fg = pop[np++];
-            if (!g_st.haveRates || !g_st.haveReal) {
-                fg.add(kWhite, g_st.haveRates ? "Frame generation: unknown" : "Frame generation: measuring...");
-            } else if (g_st.fgActive) {
-                fg.add(kWhite, "Frame generation: ");
+            fg.add(kWhite, "Frame generation: ");
+            if (fs.setting == 0) {
+                fg.add(kGray, "off in game settings");
+            } else if (fs.active) {
                 fg.add(kCyan, "%s active", FgActiveName());
-                fg.add(kWhite, " (%.0f -> %.0f fps)", g_st.realFps, g_st.presentFps);
-            } else if (FgName(fgSet)) {
-                fg.add(kWhite, "Frame generation: ");
-                fg.add(kYellow, "%s selected but NOT running", FgName(fgSet));
+                fg.add(kWhite, " (%.0f -> %.0f fps)", fs.realFps, fs.presentFps);
+            } else if (FgName(fs.setting)) {
+                if (fs.measured) fg.add(kYellow, "%s on in settings but NOT running", FgName(fs.setting));
+                else fg.add(kWhite, "%s on in settings, measuring...", FgName(fs.setting));
             } else {
-                fg.add(kWhite, "Frame generation: off");
+                fg.add(kWhite, !g_st.haveRates ? "measuring..." : !g_st.haveReal ? "unknown" : "off");
             }
+            if (const char* up = fs.upscaler >= 0 ? FgTypeName(fs.upscaler) : nullptr) fg.add(kGray, " | upscaler %s", up);
+            if (const char* why = FgReason(fs)) pop[np++].add(kOrange, "  %s", why);
             const int renIdx = ReadCfg(kRvaRenFps);
             static const int kTiers[3] = {30, 60, 120};
             const int cap = renIdx >= 0 && renIdx <= 2 ? kTiers[renIdx] : 0;
@@ -466,12 +500,55 @@ struct Ctx {
     DXGI_FORMAT psoFmt = DXGI_FORMAT_UNKNOWN;
     uint64_t frame = 0;
     int64_t lastPresent = 0;
+    bool qFallback = false;  // q came from ExecuteCommandLists, not from the swapchain
     bool ok = false;
 };
 Ctx g_ctx;
 IDXGISwapChain* g_bad[8] = {};
 int g_badN = 0;
 int g_ctxBuilds = 0;
+bool g_needQueue = false;  // last BuildCtx failed only because no game DIRECT queue was captured yet
+int g_queueWaits = 0;
+
+void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D12CommandList* const* lists) {
+    static thread_local bool lastIsDirect = false;
+    if (q != t_lastQ) {  // GetDesc only when this thread switches queues (a few times per frame at most)
+        t_lastQ = q;
+        lastIsDirect = q->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT;
+    }
+    if (lastIsDirect) {
+        t_lastDirectQ = q;
+        g_lastDirectQ = q;
+    }
+    g_origEcl(q, n, lists);
+}
+
+// The game's presenting queue when the swapchain won't say: the DIRECT queue that last submitted on this (the
+// presenting) thread, else on any thread, accepted only if it belongs to the device that owns the back buffers.
+// Returns an AddRef'd queue, or nullptr.
+ID3D12CommandQueue* CapturedQueue(IDXGISwapChain* sc) {
+    if (!g_origEcl) return nullptr;
+    ID3D12CommandQueue* q = t_lastDirectQ ? t_lastDirectQ : g_lastDirectQ;
+    if (!q) return nullptr;
+    q->AddRef();
+    ID3D12Device *qDev = nullptr, *bufDev = nullptr;
+    ID3D12Resource* buf = nullptr;
+    q->GetDevice(IID_PPV_ARGS(&qDev));
+    if (SUCCEEDED(sc->GetBuffer(0, IID_PPV_ARGS(&buf))) && buf) buf->GetDevice(IID_PPV_ARGS(&bufDev));
+    const bool match = qDev && (!bufDev || bufDev == qDev);
+    OLOG("captured DIRECT queue %p (%s, %s thread), device %p (%s); back buffer device %p (%s) -> %s", (void*)q,
+         ModuleOf(*(void**)q).c_str(), q == t_lastDirectQ ? "presenting" : "other", (void*)qDev,
+         qDev ? ModuleOf(*(void**)qDev).c_str() : "-", (void*)bufDev, bufDev ? ModuleOf(*(void**)bufDev).c_str() : "-",
+         match ? (bufDev ? "same device, using it" : "back buffer device unknown, using it") : "DIFFERENT device, not used");
+    if (bufDev) bufDev->Release();
+    if (buf) buf->Release();
+    if (qDev) qDev->Release();
+    if (!match) {
+        q->Release();
+        return nullptr;
+    }
+    return q;
+}
 
 bool IsBad(IDXGISwapChain* sc) {
     for (int i = 0; i < g_badN; ++i)
@@ -522,7 +599,22 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
     CHECK(sc->QueryInterface(IID_PPV_ARGS(&sc3)), "QueryInterface(IDXGISwapChain3)");
     c.sc3 = sc3;
     sc3->Release();  // keep the raw pointer only
-    CHECK(sc->GetDevice(IID_PPV_ARGS(&c.q)), "IDXGISwapChain::GetDevice(ID3D12CommandQueue) (not a D3D12 swapchain?)");
+    g_needQueue = false;
+    HRESULT qhr = sc->GetDevice(IID_PPV_ARGS(&c.q));
+    if (FAILED(qhr) || !c.q) {
+        c.q = CapturedQueue(sc);
+        if (!c.q) {
+            g_needQueue = (g_origEcl != nullptr);
+            if (!g_needQueue || g_queueWaits == 0)
+                OLOG("IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr %08lX) and %s", (unsigned long)qhr,
+                     g_origEcl ? "no usable game queue captured yet - retrying for up to 600 frames"
+                               : "ExecuteCommandLists isn't hooked - overlay off for this swapchain");
+            return false;
+        }
+        c.qFallback = true;
+        OLOG("IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr %08lX, swapchain %s) - drawing on the game's "
+             "captured DIRECT queue instead", (unsigned long)qhr, ModuleOf(*(void**)sc).c_str());
+    }
     const D3D12_COMMAND_QUEUE_DESC qd = c.q->GetDesc();
     if (qd.Type != D3D12_COMMAND_LIST_TYPE_DIRECT) {
         OLOG("swapchain queue is type %d, not DIRECT - overlay off for this swapchain", (int)qd.Type);
@@ -759,15 +851,23 @@ void OnPresent(IDXGISwapChain* sc) {
         }
         if (!BuildCtx(g_ctx, sc)) {
             DestroyCtx(g_ctx);
+            if (g_needQueue && ++g_queueWaits < 600) {
+                --g_ctxBuilds;  // no game submission seen yet - try again next frame (not a failure)
+                return;
+            }
             MarkBad(sc);
             return;
         }
     }
     if (!g_ctx.ok) return;
-    // the same address can be a NEW swapchain (old one released, e.g. frame generation toggled): its queue tells
-    ID3D12CommandQueue* q = nullptr;
-    if (FAILED(sc->GetDevice(IID_PPV_ARGS(&q))) || !q) return;
-    q->Release();
+    // the same address can be a NEW swapchain (old one released, e.g. frame generation toggled): its queue tells.
+    // Not checkable when the queue came from ExecuteCommandLists (several DIRECT queues may take turns there).
+    ID3D12CommandQueue* q = g_ctx.q;
+    if (!g_ctx.qFallback) {
+        q = nullptr;
+        if (FAILED(sc->GetDevice(IID_PPV_ARGS(&q))) || !q) return;
+        q->Release();
+    }
     if (q != g_ctx.q) {
         OLOG("swapchain %p now presents on another queue (%p -> %p) - rebuilding", (void*)sc, (void*)g_ctx.q, (void*)q);
         DestroyCtx(g_ctx);
@@ -780,7 +880,7 @@ void OnPresent(IDXGISwapChain* sc) {
     }
     g_ctx.lastPresent = now;
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
-    NoteThread();
+    NoteThread(now);
     UpdateStats(now);
     menu::OnPresent();  // menu input + runtime switches (needs a working drawing context, checked above)
     static bool loggedFirst = false;
@@ -904,10 +1004,14 @@ bool InstallHooks() {
         hr = factory->CreateSwapChainForHwnd(q, hwnd, &sd, nullptr, nullptr, &sc);
         if (FAILED(hr)) { OLOG("dummy CreateSwapChainForHwnd failed (hr %08lX)", (unsigned long)hr); break; }
         void** vt = *reinterpret_cast<void***>(sc);
-        OLOG("dummy swapchain %p, vtable %s", (void*)sc, ModuleOf(vt).c_str());
+        void** qvt = *reinterpret_cast<void***>(q);
+        OLOG("dummy swapchain %p, vtable %s; dummy queue vtable %s", (void*)sc, ModuleOf(vt).c_str(), ModuleOf(qvt).c_str());
         // release the dummy objects before patching, so none of their calls go through our hooks
         sc->Release();
         sc = nullptr;
+        // queue first: by the time Present is hooked the game's queue is being captured (fallback for proxy swapchains)
+        if (!PatchSlot(&qvt[kSlotExecuteCommandLists], (void*)&HkExecuteCommandLists, (void**)&g_origEcl, "ExecuteCommandLists"))
+            g_origEcl = nullptr;
         bool a = PatchSlot(&vt[kSlotPresent], (void*)&HkPresent, (void**)&g_origPresent, "Present");
         bool b = PatchSlot(&vt[kSlotPresent1], (void*)&HkPresent1, (void**)&g_origPresent1, "Present1");
         if (!PatchSlot(&vt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
@@ -973,6 +1077,51 @@ const char* PositionName(int pos) {
 float CounterScale(unsigned H) { return CounterScaleImpl(H); }
 void DrawRect(float x, float y, float w, float h, uint32_t abgr) { AddQuad(x, y, w, h, kSolid, abgr); }
 float DrawText(float x, float y, const char* text, uint32_t abgr, float scale) { return AddText(x, y, text, abgr, scale); }
+
+const char* FgTypeName(int v) {
+    switch (v) {
+        case 0: return "OFF";
+        case 1: return "DLSS";
+        case 2: return "FSR";
+        case 3: return "XeSS";
+        default: return nullptr;
+    }
+}
+
+FgStatus FrameGen() {
+    FgStatus s;
+    const int64_t now = Qpc();
+    if (g_info.known) {
+        s.setting = ReadCfg(kRvaFrameGen);
+        s.upscaler = ReadCfg(kRvaUpscaler);
+        if (!FgTypeName(s.setting)) s.setting = -1;
+        if (!FgTypeName(s.upscaler)) s.upscaler = -1;
+    }
+    s.measured = g_st.haveRates && g_st.haveReal;
+    s.active = g_st.fgActive;
+    s.presenter = g_st.fsrTid && g_st.lastFsrPresent && Secs(now - g_st.lastFsrPresent) < 2.0;
+    s.realFps = g_st.realFps;
+    s.presentFps = g_st.presentFps;
+    if (g_fgSwitchAt) s.sinceSwitch = Secs(now - g_fgSwitchAt);
+    return s;
+}
+
+// The setting is only the request: the engine builds the FG swapchain on its display reset (notes\frame-generation.md).
+const char* FgReason(const FgStatus& s) {
+    if (s.setting <= 0) return nullptr;
+    if (s.sinceSwitch < 12.0 && !s.active) return "switching - the game is rebuilding its swapchain (a few seconds)";
+    if (!s.measured || s.active) return nullptr;
+    if (s.presenter) return "FSR presenter runs but adds no frames (menu, cutscene or loading screen?)";
+    switch (s.setting) {
+        case 2:
+            return g_info.wine.empty() ? "no FSR presenter thread: the FG swapchain was not created - see the log"
+                                       : "no FSR presenter thread: FG swapchain not created (Proton/vkd3d?) - see the log";
+        case 1: return "DLSS FG selected but no generated frames reach the screen - try FSR";
+        default: return "XeSS FG selected but no generated frames reach the screen - try FSR";
+    }
+}
+
+void NoteFgSwitch() { g_fgSwitchAt = Qpc(); }
 
 void Start(const StartupInfo& si) {
     g_log = si.log;
