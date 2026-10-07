@@ -95,9 +95,13 @@ rva	kind	name	signature	description	confidence	source
 0x47990	function	UpdateCursorImeState		called every pump iteration: CriticalSection enter/leave + cursor/UI-mode/IME state check (cheap); arg g_45CC560; IMM32 user [Ghidra: 800 B, 2 callers]	medium	notes/cpu-profile.md §S2; §Caves risks
 0x48ad4	function	SteadyClockNowNs	int64 SteadyClockNowNs(void)	std::chrono::steady_clock::now in nanoseconds; source of the FrameMgr frame-start stamp	high	notes/frame-timing.md §3 Functions
 0x48b9c	function	JobWakeOneInPool		wake one sleeping worker in a pool (43 call sites)	medium	notes/worker-power.md (static, 2026-10-07)
+0x48c6b	label	JobWakeOneInPool_SetEvent		WS2 site: SetEvent of the worker found by JobWakeOneInPool 48B9C (slot = rsi, WorkerThread = [rsi], pool = [rsi+440h]); the 2026-10-07 Ally storm site (100-150k/s on pool 1); WG gate site	high	notes/cpu-hotspots-ally.md §5
 0x48c84	function	JobWakeOne		wake one worker (20 call sites)	medium	notes/worker-power.md (static, 2026-10-07)
+0x48d06	label	JobWakeOne_SetEvent		WS3 site: SetEvent in JobWakeOne 48C84 (slot = rbx); WG gate site	high	notes/cpu-hotspots-ally.md §5
 0x48d10	function	JobWakeOneExcept		wake one worker other than the caller	medium	notes/worker-power.md (static, 2026-10-07)
+0x48dec	label	JobWakeOneExcept_SetEvent		WS4 site: SetEvent in JobWakeOneExcept 48D10 (slot = rbp + rbx*458h); WG counts, never gates	high	notes/cpu-hotspots-ally.md §5
 0x48df8	function	JobForwardToWorker		forwards a job whose worker mask (job+22h) excludes the current worker to a specific worker and SetEvents it	medium	notes/job-system.md §1
+0x48e3c	label	JobForwardToWorker_SetEvent		WS5 site: SetEvent of the one worker a forwarded job must run on; WG counts, never gates	high	notes/cpu-hotspots-ally.md §5
 0x48e90	function	MeshletRequestWorker		TS_MESHLET_REQ worker (10 threads, ~13% busy each, ~78% blocked): reads GPU results, loads data, sets entry bit 0x200 via CAS	high	notes/meshlet-mainthread.md §1 + §3
 0x49150	label	MeshletRequestWorker_ListSumLoop		hot loop 49150..4915A (38%): walks 4 lists [rsi+1C8h]+67A8h/67B0h/67B8h summing +14h per request (quadratic-ish, worker CPU only)	high	notes/meshlet-mainthread.md §3
 0x493e9	label	MeshletRequestWorker_SetTakenCasA		CAS setting entry bit 0x200	high	notes/meshlet-mainthread.md §1; re/scripts_meshlet/meshlet_caves.fsx
@@ -139,6 +143,8 @@ rva	kind	name	signature	description	confidence	source
 0x4d7b4	function	MeshletPartRegister		called for a part whose entry lacks 0x20; notes write 45D7B4 (Ghidra suffix)	low	notes/meshlet-mainthread.md §1.2; re/scripts_meshlet/g1.txt
 0x4db6c	function	MeshletUploadBuffers		double-buffered upload of scene/meshlet buffers (-> 4DD4C, 695328); body 477 B (aka MainHot_4DB6C) || also: [App]Game hotspot: 1.0% self of main-thread samples (capture 2, 14:22); role not identified [Ghidra: 477 B, 4 callers]	medium	notes/mainthread-drawprep.md §1; notes/cpu-profile.md §Top 30 self functions
 0x4dd4c	function	MeshletUploadCopy		CPU shadow buffer -> this frame's mapped upload heap memcpy (double-buffered, with 4DB6C/695328); body 318 B	medium	notes/mainthread-drawprep.md §1; notes/meshlet-mainthread.md §1.2
+0x4e2f8	function	GpuBufferEnsureWidth	void GpuBufferEnsureWidth(GpuBufRef* ref, void* dev, u64 size, void* out)	if ref+18h bit0 and ref->res: ResourceWidthBelow(res,size) -> release (4F0FC) or keep; callers 4D914 (4D8E0) and 62E918; upload/meshlet buffer path	medium	notes/cpu-hotspots-ally.md §3.2
+0x4e390	function	ResourceWidthBelow	bool ResourceWidthBelow(ID3D12Resource* r, u64 n)	r->GetDesc() (vtbl+50h, D3D12_RESOURCE_DESC on the stack) .Width (+10h) < n; upload-buffer capacity check under MeshletUploadBuffers 4DB6C. NOT a DirectInput poll: SP "[DINPUT8]/[ntdll]/[kernel32] <- 4E390" on [App]Game is the ASI loader's Sleep IAT shim inside FenceWait's Sleep(0) loop (stale slot 4E3B3; r = 0.956 with the 1180A4 rows)	high	notes/cpu-hotspots-ally.md §3.2
 0x4fbd4	function	GpuBufferUnmap	void(Buffer* b)	unmap; GPU copies [B+78h] bytes (whole map size) from staging. drawprep writes 45FBD4 (Ghidra suffix)	high	notes/ui-mainthread.md §E; re/scripts_cpu/q14.txt
 0x4fd84	function	GpuBufferMap	void(Buffer* b, void* obj, int mode, int, void*)	map: staging from 62D688 with upload-heap flag, resource vtbl+0x40 Map, stores ptr+offset only into [obj+358h]; mode via table 3BE29D0. drawprep writes 45FD84 (Ghidra FUN_7ff74f45fd84 suffix) - RVA is 0x4FD84	high	notes/ui-mainthread.md §E; re/scripts_cpu/q14.txt
 0x54360	function	Sched0Hot_54360		KIDSTaskScheduler0 hotspot: 1.3% self of that thread's samples (capture 2); job work run by the frame-step thread, role not identified [Ghidra: 793 B, 240 callers]	low	notes/cpu-profile.md §Top 30 self functions
@@ -184,6 +190,7 @@ rva	kind	name	signature	description	confidence	source
 0xd89e0	function	CollisionIsBeyondDistance		returns true if element i is farther than max(16000,[+0x98])+radius from the view position at g_CollisionWorld+0x1B10 [Ghidra: 323 B, 4 callers]	low	re/scripts_workers/g_coll.txt
 0xd8b70	function	CollisionShapeGetWorldPos		collision hot function (std::map traversal per cpu-profile); returns shape world position via function table at 3BE3780 indexed by type byte +0x62, then adds parent offset (+0x68 -> doubles at +0x210..0x220); ~200 callers [Ghidra: 207 B, 201 callers]	medium	notes/cpu-profile.md §TL;DR; re/scripts_workers/g_coll.txt
 0xd8d90	function	CollisionMapFind		std::map lookup used by CollisionObjectUpdate (named with D80B0/D8B70 as the CollisionUpdate pointer-chasing hotspots) [Ghidra: 99 B, 26 callers]	low	notes/cpu-profile.md §TL;DR; re/scripts_workers/g_coll.txt
+0xd9c30	label	CollisionRwLock_WriteSpin256		KIDSTS CollisionUpdate: write-lock spin on [45C84C0]+28h (lock cmpxchg 80000000h, no PAUSE, Sleep(0) every 256 tries at D9C38); one of 89 spin256 sites	medium	notes/cpu-hotspots-ally.md §8
 0xd9c38	label	Sleep0Call_D9C38		call Sleep(0); pdata fragment start D8E00	high	re/out/spinscan.txt §all call sites
 0xda7c0	function	IsEventScene	bool IsEventScene(void)	19-byte bool (121 callers); when true ApplyGraphicsSettings uses 0.5 landscape scale and EVENT_QUALITY logic; meaning inferred	low	re/out/anchors.md §site 0x39a758
 0xddc70	function	PlaceableVisibilityUpdateRange	void PlaceableVisibilityUpdateRange(void* ctx, size_t begin, size_t end, View* view)	Iterates ctx entries [begin,end): camera distance, draw distance (entry+0xc0), SceneDrawCfg+0x11f7 forces >= 15000 for extents >= 260, event override via g_pEventCameraState; 10159 B	medium	re/out/anchors.md §site 0xde8d0
@@ -217,7 +224,9 @@ rva	kind	name	signature	description	confidence	source
 0x116db2	label	SleepCvSrwXCall_116DB2		call SleepConditionVariableSRW(?); pdata fragment start 116D30	high	re/out/spinscan.txt §all call sites
 0x117003	label	SleepCvSrwXCall_117003		call SleepConditionVariableSRW(?); pdata fragment start 116F80	high	re/out/spinscan.txt §all call sites
 0x117313	label	SleepCvSrwXCall_117313		call SleepConditionVariableSRW(?); pdata fragment start 1172D0	high	re/out/spinscan.txt §all call sites
+0x117d6c	function	GfxFencePollWorker	void GfxFencePollWorker(void* ring, HANDLE ev)	worker fence poll: ev==NULL -> do Sleep(0) while (fence->GetCompletedValue() < [ring+20h]) (117D9F, GF site 2); ev!=NULL -> SetEventOnCompletion path 190A0E4	high	notes/cpu-hotspots-ally.md §8
 0x117da1	label	Sleep0Call_117DA1		call Sleep(0); pdata fragment start 117D6C	high	re/out/spinscan.txt §all call sites
+0x1180a4	function	IsFenceComplete	bool IsFenceComplete(GfxFence** f, u64 value)	(*f)->GetCompletedValue() (vtbl+40h) >= value; polled by FenceWait 7D9E1C after every Sleep(0) (GF). SP "[ntdll] <- 1180A4" (58 % of [App]Game at MAX on the Ally) is FenceWait's Sleep(0) found through the stale return slot 1180B6	high	notes/cpu-hotspots-ally.md §3.1
 0x1180d0	function	SynFlushGfxStateForDraw	bool (SynCtx* c, u32 flags)	before every draw: calls SynPsoFlushFunctor (118604); if c+0xB24 & 0xF dirty: per-RT/DSV state transitions (one ResourceBarrier call each, 118443/118519/118597), OMSetRenderTargets, RSSetViewports, RSSetScissorRects	high	notes/d3d12-submission.md §1, §2
 0x118443	label	SynFlushGfxStateForDraw_RtBarrier		per bound render target, ResourceBarrier(1, RT state 4) inside the RT loop (one call per RT; 4 back-to-back EOP-wait barriers for a 4-target pass in RGP r5); batched by gpuopt	high	notes/gpu-barriers.md §3
 0x118519	label	SynFlushGfxStateForDraw_DsvBarrier		depth buffer ResourceBarrier(1, DEPTH_WRITE 0x10 / DEPTH_READ|SRV) before OMSetRenderTargets (RT-dirty path, c+0xB24 & 1); batched by gpuopt	high	notes/gpu-barriers.md §3
@@ -394,6 +403,7 @@ rva	kind	name	signature	description	confidence	source
 0x1ea170	label	DrawEmit_HotMissD		hot RIP after a per-draw/per-material data load (cache miss)	medium	notes/mainthread-drawprep.md §1
 0x1fdc1c	function	Sched0Hot_1FDC1C		KIDSTaskScheduler0 hotspot: 0.6% self of that thread's samples (capture 2); job work run by the frame-step thread, role not identified [Ghidra: 347 B, 18 callers]	low	notes/cpu-profile.md §Top 30 self functions
 0x1fee28	function	ResourceLoadIdlePoll		Sleep(1) poll loop of the ResourceLoad manager; wakes a worker per ms while loads are in flight	medium	notes/worker-power.md (static, 2026-10-07)
+0x1fee65	label	ResourceLoadIdle_SleepArg		RL site: `8D 4A 01` lea ecx,[rdx+1] = the 1 ms of the idle Sleep(1) when [mgr+200h]==0 && [mgr+210h]==0; RL design: `6A NN 59` (push NN; pop rcx), same length; pattern 88 91 49 02 00 00 8D 4A 01 FF 15 (site = hit + 6)	high	notes/cpu-hotspots-ally.md §8
 0x1fee68	label	SleepXCall_1FEE68		call Sleep(?); pdata fragment start 1FEE28	high	re/out/spinscan.txt §all call sites
 0x1ff18c	label	SleepXCall_1FF18C		call Sleep(?); pdata fragment start 1FEE28	high	re/out/spinscan.txt §all call sites
 0x1ff371	label	Sleep1Call_1FF371		call Sleep(1); pdata fragment start 1FF320	high	re/out/spinscan.txt §all call sites
@@ -403,6 +413,7 @@ rva	kind	name	signature	description	confidence	source
 0x2050f2	label	QpcXCall_2050F2		call QueryPerformanceCounter(?); pdata fragment start 2050EE	high	re/out/spinscan.txt §all call sites
 0x205530	function	QpcNow	int64_t QpcNow(void)	QueryPerformanceCounter wrapper (returns ticks); used by the frame limiter [Ghidra: 54 B, 280 callers] (aka QpcRaw) || also: Raw QueryPerformanceCounter read	high	notes/cpu-profile.md §S4; notes/frame-timing.md §3 Functions
 0x20554a	label	QpcXCall_20554A		call QueryPerformanceCounter(?) in QpcNow; pdata fragment start 205530	high	re/out/spinscan.txt §all call sites
+0x206227	label	RwLock_WriteSpin256_205840		KIDSTaskScheduler: RW-lock write spin (lock cmpxchg on [rsi], Sleep(0) every 256 tries at 206230, no PAUSE)	medium	notes/cpu-hotspots-ally.md §8
 0x206230	label	Sleep0Call_206230		call Sleep(0); pdata fragment start 205840	high	re/out/spinscan.txt §all call sites
 0x2069a8	label	QpcXCall_2069A8		call QueryPerformanceCounter(?); pdata fragment start 20697C	high	re/out/spinscan.txt §all call sites
 0x206a7f	label	QpcXCall_206A7F		call QueryPerformanceCounter(?); pdata fragment start 206A60	high	re/out/spinscan.txt §all call sites
@@ -787,6 +798,7 @@ rva	kind	name	signature	description	confidence	source
 0x7f61ca	label	WfsoXCall_7F61CA		call WaitForSingleObject(?); pdata fragment start 7F61B4	high	re/out/spinscan.txt §all call sites
 0x7f6210	label	WfsoXCall_7F6210		call WaitForSingleObject(?); pdata fragment start 7F6200	high	re/out/spinscan.txt §all call sites
 0x7f6312	label	WfsoXCall_7F6312		call WaitForSingleObject(?); pdata fragment start 7F62F4	high	re/out/spinscan.txt §all call sites
+0x7f64dc	function	SynSharedLockedUpdate_7F64DC	void SynSharedLockedUpdate_7F64DC(void* c, void* item, bool f)	SynergisticDispatcher helper under AcquireSRWLockShared(c+CF8h) (calls 7F6904/7F67EC/7F6574/8F1764); "[ntdll] <- 7F64DC" 4.6 % of the dispatcher = waiting for the exclusive holder (blocked)	low	notes/cpu-hotspots-ally.md §6
 0x7f6a32	label	Sleep0Call_7F6A32		call Sleep(0); pdata fragment start 7F69DC	high	re/out/spinscan.txt §all call sites
 0x7f9bf8	function	SynCopyTextureRegionTracked	void (SynCtx* c, ID3D12Resource* dst, u32* dstState, u32 dstSub, u32 x, u32 y, u32 z, ID3D12Resource* src, u32* srcState, u32 srcSub, D3D12_BOX* box)	tok 0x92 (via 7F9A6C): src -> COPY_SOURCE and dst -> COPY_DEST as two separate ResourceBarrier calls, CopyTextureRegion (vtbl+0x80), then both restored to their previous states as two more calls (2+2 -> 1+1 with gpuopt; the restore is a split-barrier candidate)	high	notes/gpu-barriers.md §3
 0x7f9d27	label	SynCopyTextureRegionTracked_SrcBarrier		ResourceBarrier(1): src -> COPY_SOURCE (0x800)	high	notes/gpu-barriers.md §3
@@ -920,7 +932,11 @@ rva	kind	name	signature	description	confidence	source
 0xb60e98	function	QpcWrapper	int64 QpcWrapper(void)	QueryPerformanceCounter wrapper	medium	notes/frame-timing.md §3 Functions
 0xb60ea1	label	QpcXCall_B60EA1		call QueryPerformanceCounter(?); pdata fragment start B60E98	high	re/out/spinscan.txt §all call sites
 0xb60eb4	function	QpfWrapper	int64 QpfWrapper(void)	QueryPerformanceFrequency wrapper	medium	notes/frame-timing.md §3 Functions
+0xb60ffc	function	XtimeGetTicks	i64 XtimeGetTicks(void)	CRT _Xtime_get_ticks: GetSystemTimePreciseAsFileTime-based 100 ns ticks since 1970 (adds 0xFE624E212AC18000); 69 callers, mostly timed condition-variable waits (job system 486CE/48865/489C0, frame code 5A7xxx)	high	notes/cpu-hotspots-ally.md §2
+0xb611bc	function	MtxLock	int MtxLock(StdMutex* m, void* timeout)	MSVC _Mtx_lock-style: recursive owner TID at +48h, count +4Ch, lock via the impl vtable through the CFG dispatch slot 38E2F48. kidsTS "[ntdll] <- B611BC" 1.65 % = contended std::mutex (blocked, not spinning)	medium	notes/cpu-hotspots-ally.md §2
+0xb61524	function	MtxUnlock	int MtxUnlock(StdMutex* m)	MSVC _Mtx_unlock-style: --count(+4Ch); at 0 owner(+48h) = -1 and impl->unlock (vtbl+18h)	medium	notes/cpu-hotspots-ally.md §2
 0xb6168c	label	SleepCvCsXCall_B6168C		call SleepConditionVariableCS(?); pdata fragment start B6167C	high	re/out/spinscan.txt §all call sites
+0xb616a4	function	CndWaitSrw	bool CndWaitSrw(void* cv, SRWLOCK* lock, u32 ms)	SleepConditionVariableSRW wrapper of the STL condition_variable; SP "[ntdll] <- B616A4" = idle [App] threads parked on condvars (53.6 % of the [App] group, blocked)	medium	notes/cpu-hotspots-ally.md §7
 0xb616b7	label	SleepCvSrwXCall_B616B7		call SleepConditionVariableSRW(?); pdata fragment start B616A4	high	re/out/spinscan.txt §all call sites
 0xb616d8	label	SleepCvCsXCall_B616D8		call SleepConditionVariableCS(?); pdata fragment start B616CC	high	re/out/spinscan.txt §all call sites
 0xb616f7	label	SleepCvSrwXCall_B616F7		call SleepConditionVariableSRW(?); pdata fragment start B616E8	high	re/out/spinscan.txt §all call sites
@@ -937,7 +953,7 @@ rva	kind	name	signature	description	confidence	source
 0xb92bb4	label	QpcXCall_B92BB4		call QueryPerformanceCounter(?); pdata fragment start B92B78	high	re/out/spinscan.txt §all call sites
 0xb92c3a	label	QpcXCall_B92C3A		call QueryPerformanceCounter(?); pdata fragment start B92BE4	high	re/out/spinscan.txt §all call sites
 0xb93f00	function	memset	void* memset(void*, int, size_t)	CRT memset (ctor zeroes 0xF0 config bytes with it) (aka Memset) || also: memset (e.g. GlyphCacheCreate clears 0x20000 B)	high	re/settings/acc.asm; re/scripts_ui/g2.txt
-0xb94230	function	MemcpyAlt		second memcpy entry counted with B94250 (aka CrtMemcpyEntry) || also: 16-byte stub immediately before CrtMemcpy (likely alternate entry e.g. memmove/memset); 1.8% self on main thread, 1.4% on render submit [Ghidra: 16 B, 0 callers]	medium	notes/mainthread-drawprep.md §1; notes/cpu-profile.md §Top 30 self functions
+0xb94230	function	MemcpyAlt		second memcpy entry counted with B94250 (aka CrtMemcpyEntry) || also: 16-byte stub immediately before CrtMemcpy (likely alternate entry e.g. memmove/memset); 1.8% self on main thread, 1.4% on render submit [Ghidra: 16 B, 0 callers]; also (cpu-hotspots.tsv): MemcpyErms - the rep movsb (ERMS) tail of Memcpy B94250 for large copies (reached by jcc from B943C6/B946A0): [App]Game 1.2 % = big inline blobs and upload copies; real work (KTGL double-copy design)	high	notes/mainthread-drawprep.md §1; notes/cpu-profile.md §Top 30 self functions
 0xb94250	function	Memcpy	void*(void* dst, const void* src, size_t n)	memcpy (~5% of main thread together with B94230): constants into stream, upload copies, inline blobs; source loads miss (aka CrtMemcpy)	high	notes/mainthread-drawprep.md §1; notes/cpu-profile.md §Top 30 self functions
 0xb943d7	label	Memcpy_FirstSourceLoad		hot RIP right after the first source load	medium	notes/mainthread-drawprep.md §1
 0xba33bc	function	round		CRT round() (Ghidra-identified) [Ghidra: 101 B, 15 callers]	high	re/scripts_workers/g_w1.txt
@@ -1158,6 +1174,7 @@ rva	kind	name	signature	description	confidence	source
 0x190a2cc	label	WriteQuadVerticesWC_ColdPathC		cold path of WriteQuadVerticesWC, re-enters at 13729C	high	notes/cpu-profile.md §W2 patch; patcher/review_cpu2.fsx
 0x190b126	label	PauseSpin_190B126		code with 1 PAUSE instruction(s) (spin-wait candidate); no backward PAUSE loop detected; pdata fragment start (may be chained fragment)	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x190b188	label	PauseSpin_190B188		code with 2 PAUSE instruction(s) (spin-wait candidate); no backward PAUSE loop detected; pdata fragment start (may be chained fragment)	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x1910c02	label	KtglCmdStreamFlush_RingFullSleep0		[App]Game: do Sleep(0) while ([ctx+3C04h] == [ctx+3C08h]+[ctx+3C00h]) = command ring full, waits for the consumer; 0.011 % of [App]Game at MAX; no waker	high	notes/cpu-hotspots-ally.md §8
 0x1910c04	label	Sleep0Call_1910C04		call Sleep(0); pdata fragment start 1910BD8	high	re/out/spinscan.txt §all call sites
 0x1910caf	label	CmdStreamWrap_IncGeneration	inc dword [rdi+3C60h]	cold path of the stream flush: buffer wrap resets +3C40/48/68 and bumps +3C60h generation and +3C80h	high	notes/parallel-drawprep.md §5.2
 0x1910ccf	label	Sleep0Call_1910CCF		call Sleep(0); pdata fragment start 1910CC0	high	re/out/spinscan.txt §all call sites
@@ -1169,6 +1186,7 @@ rva	kind	name	signature	description	confidence	source
 0x191f137	label	Sleep0Call_191F137		call Sleep(0); pdata fragment start 191F0EE	high	re/out/spinscan.txt §all call sites
 0x191f1b2	label	Sleep0Call_191F1B2		call Sleep(0); pdata fragment start 191F184	high	re/out/spinscan.txt §all call sites
 0x191fc16	label	Sleep0Call_191FC16		call Sleep(0); pdata fragment start 191FC0A	high	re/out/spinscan.txt §all call sites
+0x1921a30	label	EclRingPush_FullWait		cold path of EclRingPushItem 86F828: ring full -> WaitForSingleObject(sem, INFINITE) (1921A43); the SynergisticDispatcher's 69 % "[ntdll] <- 4930C8" is this proper block (GPU-bound backpressure)	high	notes/cpu-hotspots-ally.md §6
 0x1921a43	label	WfsoXCall_1921A43		call WaitForSingleObject(?); pdata fragment start 1921A30	high	re/out/spinscan.txt §all call sites
 0x1922060	label	WfsoXCall_1922060		call WaitForSingleObject(?); pdata fragment start 192205A	high	re/out/spinscan.txt §all call sites
 0x19227f0	label	WfsoXCall_19227F0		call WaitForSingleObject(?); pdata fragment start 19227EA	high	re/out/spinscan.txt §all call sites
@@ -1737,6 +1755,7 @@ rva	kind	name	signature	description	confidence	source
 0x38e25c8	data	Iat_CreateEventA	void*	KERNEL32.DLL!CreateEventA IAT slot; 32 refs; callers 0x2eee73c,0x5b7434,0x2e26310,0x311e50,0xc4e340,0x2f73f8c,...	high	re/out/imports.tsv
 0x38e25d0	data	Iat_WaitForMultipleObjects	void*	KERNEL32.DLL!WaitForMultipleObjects IAT slot; 5 refs; callers 0xc4e870,0x9039ac,0x312754,0xb2d0b0,0x2f78e88	high	re/out/imports.tsv
 0x38e25e0	data	Iat_SetThreadDescription	void*	KERNEL32.DLL!SetThreadDescription IAT slot; 15 refs; callers 0x2ef00f8,0x2f12d9c,0xa12fd8,0x1a6bd18,0xfa9370,0xfa9670,...	high	re/out/imports.tsv
+0x38e2618	data	Iat_AcquireSRWLockExclusive	ptr	IAT slot KERNEL32!AcquireSRWLockExclusive (124 call sites); one of the slots Ultimate ASI Loader shims (IATS)	high	notes/cpu-hotspots-ally.md §9
 0x38e26a8	data	Iat_CreateWaitableTimerA	void*	KERNEL32.DLL!CreateWaitableTimerA IAT slot; 1 refs; callers 0x30bca40	high	re/out/imports.tsv
 0x38e26b0	data	Iat_SetWaitableTimer	ptr	IAT slot for SetWaitableTimer; used by L1 cave; game's only importer is 30BCA40 (aka Imp_SetWaitableTimer) || also: KERNEL32.DLL!SetWaitableTimer IAT slot; 1 refs; callers 0x30bca40 | IAT slot KERNEL32!SetWaitableTimer	high	patcher/cpu_caves.fsx; re/out/imports.tsv; patcher/fg_cave.fsx
 0x38e26d0	data	Iat_SleepEx	void*	KERNEL32.DLL!SleepEx IAT slot; 3 refs; callers 0x429e4,0x716280,0x7162ac || also: IAT slot for SleepEx; 3 SleepEx(0) sites	high	re/out/imports.tsv; patcher/cpu_caves.fsx; re/out/imports.tsv
