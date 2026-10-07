@@ -111,3 +111,11 @@ Pending (not yet applied): config.xml → `configs\quality-60.xml` (Acer) or `co
 - patches.json: 2 sites + 5 deps (FenceWait registers, the loop re-checks, IsFenceComplete 1180A4, the 117D6C loop). Test: ALL 72 SITES OK, deps 41/41; no branch into the sites.
 - Built on 1.3.1 (SP profiler, other agent). Ally zip rebuilt: SP = 1 kept, GF = 1 added; all other values unchanged.
 - Undo: GF = 0 or the menu switch, or the previous .asi.
+
+## 2026-10-07 13:40 - memory-leak study + MemStats module (new files only; nothing applied, game not run)
+- Study: `notes\memory-leaks.md`. Ally MangoHud (4 sessions) and mod logs (70 min v7.1): no steady-state growth (v5 plateau GPU 0.0 MB/min, RAM+swap ~+1 MB/min; fps flat 16.35 +0.1/h over 70 min; thread census constant). Load-time capacity pressure on the 16 GB Ally (GPU memory 4.8 -> 6.8 GB in ~90 s, 0.75-0.85 GB swap-out bursts, 260-300 ms frames), not a leak. Repeated loads not yet measured (test plan B).
+- Static: engine CPU memory = one 6 GiB MEM_COMMIT arena (294D214) split into 52 fixed pools (294C2E0) -> no unbounded commit growth; swapchain rebuild 2EEA690 balanced by its teardown 2EEC4C8.
+- LEAK FOUND (Windows/PC only): 4A5338 calls GetFrameLatencyWaitableObject every frame and never CloseHandles it; DXGI duplicates on each call (scratch harness: +1000 handles / 1000 calls) -> 1 handle per frame (216k/h at 60 fps). Not active on the Ally (swapchain flags 2). Fix WL designed (call -> cave closing the previous frame's handle), not built.
+- New (not integrated; the ASI src owner integrates): `mod\Nioh3EngineFix\src\memstats.h`, `memstats.cpp` - [Profiler] MemStats (default 0): 30 s "stats mem:" line (private, working set, commit, handles, threads, VRAM local/non-local used/budget via system dxgi CreateDXGIFactory1 + device LUID, system RAM, deltas). Compiles /W4-clean with build.bat flags; only KERNEL32/USER32 imports; verified in a scratch harness on this PC.
+- Symbols: `re\symbols\incoming\memory.tsv` (11 rows; not merged).
+- Undo: nothing applied.
