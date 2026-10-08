@@ -65,6 +65,8 @@
       "pattern": "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", "offset": 0 },
     { "id": "WCb", "group": "WC", "rva": "0x1FE3011", "len": 2, "orig": "B0 20", "kind": "bytes", "new": "B0 0A",
       "pattern": "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", "offset": 6 },
+    { "id": "AS0", "group": "AS0", "rva": "0x226A497", "len": 2, "orig": "74 14", "kind": "bytes", "new": "EB 14",
+      "pattern": "81 7D 70 DE 10 00 00 74 14 48 8B C6 39 78 08 75 03 40 88 38", "offset": 7 },
     { "id": "B", "group": "B", "rva": "0x3BC17", "len": 5, "orig": "44 8B 54 24 28", "kind": "jmp", "target": "caveGallop",
       "pattern": "75 58 44 8B 54 24 28 45 3B CA 73 3A", "offset": 2 },
     { "id": "PP", "group": "PP", "rva": "0x252677", "len": 5, "orig": "E8 48 FC FF FF", "kind": "call", "target": "cavePP", "call_at": 0, "callee": "0x2522C4",

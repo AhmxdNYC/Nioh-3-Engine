@@ -279,3 +279,6 @@ On the Ally the boot race runs inside Proton. The ASI owner can port it as an ea
 | `patcher\async_slots.fsx` | AS offline check (dump + installed exe table), status, boot-race arm, revert (default off, experiment) |
 | `re\symbols\incoming\merged\20261007-140743_gpu-scheduling.tsv` | 29 symbols (merged into `symbols.tsv`) |
 | `D:\nioh3-re\gpusched\` | Ghidra query outputs, r5 `sched_segments.tsv` / `sched_cbs.tsv` / `sched_summary.txt`, `qinfo.py` |
+
+## ASI 1.7.5 AS0 integration
+`[Patches] AS0 = 1` in Nioh3EngineFix.ini (default 0, also in the Ally zip) writes `226A497 74 14 -> EB 14` (patches.json site AS0, pattern-tested) from the decrypt-wait loop, i.e. before the renderer init `2269EC4`. Ordering guard: the live slot table `.bss 0x45C0460` is zero until init; if entry 1's slot id (+0x14) is non-zero the init already ran and the patch is refused (log `AS0: renderer already initialised ... NOT applied`). Success log `AS0: slot 0 forced on`. Stats: `stats/s ASYNC: N async compute queue(s), slots ...` every 30 s (stock AMD: 3 = slots 3 4 6; with AS0: 4). Risk (documented in ini/README): KT disabled slot 0 on non-NVIDIA on purpose; faster, slower, one-frame effect lag, corruption or GPU hang are possible. Ally A/B: AS0=1 for one launch.

@@ -44,6 +44,9 @@ the dispatch dims; confirm it equals the cbuffer's nVSDrawPrm.y before relying o
 - **Guard:** only when the installed 0x29ee0902.file has sha256 3947f3d7… (with the shipped #23 the skip is wrong).
 - Each block is already skipped by the engine when its PSO bind ([rax+0A8h]) fails, so skipping is a known-safe path.
 
+**ASI 1.7.5 verdict: CS NOT shipped (equality not proven statically).** What was proven (decomp + disassembly of 5301FC): `[rsp+0A8h]` is written exactly once, at 530304, from `ebx = [param_5+1Ch|20h]` (same value stored to MeshletSys state +280h and used as the dispatch dims `(cnt+3FFh)>>10` of #23); #28-#31 and the 530FE4 detour read it back via 530FDD/530EEE, so it is the engine's single `cnt`. What was NOT proven: that nVSDrawPrm.y (cbuffer, MPC_23 reg1.y; MPC_28 reg0.y; layout nMshltPrm2 @0, nVSDrawPrm @16) equals it. The record function only passes `cnt` into the buffer-view setter 52F8EC (res, stride 4, count -> state +250h/+254h; 52F23C turns +254h into `(n+31)>>5` groups); the block that becomes the cbuffer is filled by the compute-context commit (vtbl +C8h), a different class, and its cbuffer source could not be located statically. Dispatch dims only bound `.y` into the same 1024-bucket, not equal it, and a `.y` > `cnt` would make the skip wrong. Needs the cbuffer fill (commit/upload path) or a runtime check (log `[rsp+0A8h]` vs the uploaded cbuffer) before enabling.
+
+
 ## 4. Expected gain (RGP r5 segment times; floor ≈ 2.2–2.5 µs per dispatch incl. drain)
 | | PC (RX 9070) | Ally 780M (latency ×2–4) |
 |---|---|---|

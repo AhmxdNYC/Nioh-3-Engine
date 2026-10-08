@@ -79,6 +79,8 @@ static const uint8_t orig_WCa[] = { 0x41, 0x83, 0xFB, 0x20 };
 static const uint8_t repl_WCa[] = { 0x41, 0x83, 0xFB, 0x0A };
 static const uint8_t orig_WCb[] = { 0xB0, 0x20 };
 static const uint8_t repl_WCb[] = { 0xB0, 0x0A };
+static const uint8_t orig_AS0[] = { 0x74, 0x14 };
+static const uint8_t repl_AS0[] = { 0xEB, 0x14 };
 static const uint8_t orig_B[] = { 0x44, 0x8B, 0x54, 0x24, 0x28 };
 static const uint8_t orig_PP[] = { 0xE8, 0x48, 0xFC, 0xFF, 0xFF };
 static const uint8_t orig_AABB[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
@@ -219,6 +221,7 @@ static const Site kSites[] = {
     { "WK", "WK", 0x40A4C, 7, orig_WK, "45 84 C0 0F 84 ?? ?? ?? ?? 49 8B 8F 40 04 00 00 33 C0 F0 0F B1 71 2C", 9, Kind::Call, nullptr, Target::caveWakeGate, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "WCa", "WC", 0x1FE300B, 4, orig_WCa, "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", 0, Kind::Bytes, repl_WCa, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "WCb", "WC", 0x1FE3011, 2, orig_WCb, "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", 6, Kind::Bytes, repl_WCb, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "AS0", "AS0", 0x226A497, 2, orig_AS0, "81 7D 70 DE 10 00 00 74 14 48 8B C6 39 78 08 75 03 40 88 38", 7, Kind::Bytes, repl_AS0, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "B", "B", 0x3BC17, 5, orig_B, "75 58 44 8B 54 24 28 45 3B CA 73 3A", 2, Kind::Jmp, nullptr, Target::caveGallop, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "PP", "PP", 0x252677, 5, orig_PP, "48 89 43 10 E8 ?? ?? ?? ?? 48 FF 87 10 0D 00 00", 4, Kind::Call, nullptr, Target::cavePP, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x2522C4 },
     { "FPC", "FPC", 0x38FB9D8, 8, nullptr, "", 0, Kind::VPtr, nullptr, Target::caveFPC, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3C768C },

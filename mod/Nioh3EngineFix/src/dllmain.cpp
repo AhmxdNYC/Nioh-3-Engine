@@ -35,7 +35,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.4"
+#define MOD_VERSION "1.7.5"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -271,10 +271,12 @@ std::wstring SelfPathWithExt(const wchar_t* ext) {
     return s + ext;
 }
 
+static bool s_asyncKnown = false, s_as0Applied = false;  // AS0 / async-queue stats (stats thread)
+
 // ---- config ----------------------------------------------------------------------------------------------------
 struct Config {
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
-    int w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0;
+    int w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
     int minF[3] = {20, 24, 48};
     int maxF[3] = {30, 60, 120};
@@ -323,6 +325,7 @@ Config LoadConfig() {
     c.w3WineSleep = I(L"Patches", L"W3WineSleep", c.w3WineSleep);
     c.wk = I(L"Patches", L"WK", c.wk);
     c.workerCap = I(L"Patches", L"WorkerCap", c.workerCap);
+    c.as0 = I(L"Patches", L"AS0", c.as0);
     const wchar_t* armK[3] = {L"Tier30", L"Tier60", L"Tier120"};
     const wchar_t* minK[3] = {L"Min30", L"Min60", L"Min120"};
     const wchar_t* maxK[3] = {L"Max30", L"Max60", L"Max120"};
@@ -1170,11 +1173,39 @@ DWORD WINAPI Worker(LPVOID) {
         wcPending = false;
         Log("WC: worker-pool base capped at %d (of %lu logical CPUs)", cfg.workerCap, logical);
     };
+    // AS0 (opt-in async-compute experiment, notes\gpu-scheduling.md A.4): the renderer init (2269EC4) switches async slot 0
+    // (KIDS_ASync_LLCulling_Effect) off on every non-NVIDIA GPU at 226A490 (`cmp [rbp+70h],10DEh ; je`). One byte at 226A497
+    // (74 -> EB) keeps it enabled, as on NVIDIA. It only matters if written BEFORE that init: the init copies the table to
+    // g_AsyncSlotTableLive (.bss 0x45C0460, zero until init; entry i = {u8 enable, f32, u32 id==i}), so a non-zero id in
+    // entry 1 means the init already ran and the patch must not (and cannot usefully) be applied.
+    const gen::Site* as0s = nullptr;
+    for (int i = 0; i < gen::kNumSites; ++i)
+        if (!strcmp(gen::kSites[i].id, "AS0")) as0s = &gen::kSites[i];
+    s_asyncKnown = known;
+    bool as0Pending = cfg.as0 && known && as0s;
+    if (cfg.as0 && !known) Log("AS0: skipped on an unknown build (it has to be written before the renderer initialises)");
+    auto tryAS0 = [&]() {
+        uint8_t* a = g_base + as0s->rva;
+        if (memcmp(a, as0s->orig, as0s->len) != 0) return;  // still encrypted / not unpacked yet
+        if (*reinterpret_cast<volatile uint32_t*>(g_base + 0x45C0460 + 12 * 1 + 8) != 0) {
+            Log("AS0: renderer already initialised (async slot table is live) - NOT applied");
+            as0Pending = false; return;
+        }
+        DWORD old, t;
+        if (!VirtualProtect(a, as0s->len, PAGE_EXECUTE_READWRITE, &old)) { Log("AS0: VirtualProtect failed (%lu)", GetLastError()); as0Pending = false; return; }
+        memcpy(a, gen::repl_AS0, as0s->len);
+        VirtualProtect(a, as0s->len, old, &t);
+        FlushInstructionCache(GetCurrentProcess(), a, as0s->len);
+        as0Pending = false;
+        s_as0Applied = true;
+        Log("AS0: slot 0 forced on (async effects queue on a non-NVIDIA GPU; EXPERIMENT - KT disabled it on purpose: faster, slower, one-frame effect lag, corruption or a GPU hang are all possible)");
+    };
     const DWORD t0 = GetTickCount();
     bool ready = false;
     while (!ready) {
         if (p12Pending) tryP12();
         if (wcPending) tryWC();
+        if (as0Pending) tryAS0();
         if (known) {
             ready = true;
             for (const gen::Site* s : sentinels)
@@ -1184,10 +1215,12 @@ DWORD WINAPI Worker(LPVOID) {
             ready = FindPattern(sentinelPat, ExecRanges(), &f) == 1;
         }
         if (ready || GetTickCount() - t0 > (DWORD)cfg.decryptWaitSec * 1000) break;
-        Sleep((p12Pending || wcPending) ? 0 : known ? 20 : 250);
+        Sleep((p12Pending || wcPending || as0Pending) ? 0 : known ? 20 : 250);
     }
     if (p12Pending) tryP12();
     if (wcPending) tryWC();
+    if (as0Pending) tryAS0();
+    if (as0Pending) Log("AS0: site not in its original state after decryption - skipped");
     if (wcPending) Log("WC: sites not in their original state after decryption - skipped");
     if (p12Pending) Log("P12: site not in its original state after decryption - skipped");
     if (ready) Sleep(200);  // let the unpacker finish whatever it does after the last byte
@@ -1802,6 +1835,13 @@ DWORD WINAPI Worker(LPVOID) {
                     Log("stats/s DS: retry-spin timer sleeps %ld, avg %.0f us (switch %s)", (w - pW) / 30,
                         w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, g_dsEnable ? "ON" : "off");
                     pW = w; pT = tk;
+                }
+                if (s_asyncKnown && sec % 30 == 0) {  // async compute queues the engine created (live slot table, .bss 0x45C0460)
+                    const uint8_t* tb = g_base + 0x45C0460;
+                    int n = 0; char sl[64] = ""; size_t o = 0;
+                    for (int i = 0; i < 13; ++i)
+                        if (tb[12 * i] && *reinterpret_cast<const uint32_t*>(tb + 12 * i + 8) == (uint32_t)i) { ++n; o += snprintf(sl + o, sizeof sl - o, " %d", i); }
+                    Log("stats/s ASYNC: %d async compute queue(s), slots%s (AS0 %s)", n, n ? sl : " -", s_as0Applied ? "applied" : "off");
                 }
                 if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
