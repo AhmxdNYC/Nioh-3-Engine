@@ -1,0 +1,14 @@
+# collision-opt: new symbols from the collision bookkeeping pass (2026-10-08). Evidence: notes/collision-opt.md, patcher/collbook_live.fsx.
+rva	kind	name	signature	description	confidence	source
+0xd8844	function	CollisionMgrCellByIndex	Cell* CollisionMgrCellByIndex(CollisionMgr* m, u32 idx)	37 B: idx < [m+140h]*[m+144h] ? [m+148h] + idx*0D0h : null (grid cell, 0xD0 bytes; +90h/+98h collider ptr vector, +B0h/+B8h 16-byte point vector)	high	notes/collision-opt.md
+0x3695a8	function	CollisionMgrCellAt	Cell* CollisionMgrCellAt(CollisionMgr* m, u32 x, u32 y)	grid cell at (x, y); called by CollisionGatherInRange 43CEC for every cell of the 16000-unit window around the player	medium	notes/collision-opt.md
+0x369b5c	function	VectorU32PushBack	void VectorU32PushBack(Vec* v, const u32* x)	push_back of a u32 (43CEC: visited cell index into mgr+168h)	medium	notes/collision-opt.md
+0x4b807c	function	CollisionChangeRecordVecInsert	void CollisionChangeRecordVecInsert(Vec* v, void* where, const void* rec30)	realloc-insert of a 0x30-byte part activation change record; called by CollisionObjectUpdate D8659 when the per-job out vector is full	medium	notes/collision-opt.md
+0x3195b4	function	CollisionPhaseOutVecGet	Vec* CollisionPhaseOutVecGet(void* ctx38, u32 i)	returns phase job i's output vector; used by CollisionUpdateDispatchJobs 319E00 for the 5 CollisionPhaseJob jobs	low	notes/collision-opt.md
+0x4759fc0	global	g_CollisionGlobalOwnerReg	void*	object whose +28h is a std::map<u32 key, Owner*> (MSVC _Tree) used by CollisionObjectUpdate as the fallback owner when the collider (+A0h != 0) has no local owner; owner +26Dh, +278h flags, +60h part map (second CollisionPartMapFind)	medium	notes/collision-opt.md
+0xd83f4	label	CB_DL_Site		CollisionObjectUpdate first CollisionPartMapFind call (per part); dead when the global-owner path (sil, r11) re-searches at D841F. Patch DL (collbook_live.fsx)	high	notes/collision-opt.md
+0xd841f	label	CollisionObjectUpdate_GlobalOwnerPartFind		second CollisionPartMapFind on [globalOwner+60h]; 17 % of D8740 time (PC)	high	notes/collision-opt.md
+0xd867b	label	CB_CS1_Site		owner[+110h] = owner[+10Fh] (prev = cur state), stored for every collider of the owner by all 5 jobs. Patch CS (conditional store)	high	notes/collision-opt.md
+0xd86a4	label	CB_CS2_Site		mapobj[+126h] = 0 per collider. Patch CS (conditional store)	high	notes/collision-opt.md
+0xd8291	label	CollisionObjectUpdate_OwnerRecMiss		hot RIP (25 % of D80B0 self, PC): first touch of the owner record (D8D90 result) +10Fh	high	notes/collision-opt.md
+0x43f3a	label	CollisionGatherCellLoop		43CEC inner loop over a cell's colliders; 43F48 = 95 % of 43CEC self (miss on collider +A5h). Candidate GP (prefetch)	high	notes/collision-opt.md

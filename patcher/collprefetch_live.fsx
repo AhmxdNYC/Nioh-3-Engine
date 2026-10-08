@@ -632,4 +632,6 @@ let live () =
         | _ -> failwith "unexpected bytes at the site - aborting"
     | m -> printfn "unknown mode %s" m
 
-if mode = "offline" then offline () else live ()
+// main only when run directly (collbook_live.fsx #loads this file for its harness)
+if Path.GetFileName(fsi.CommandLineArgs.[0]).StartsWith("collprefetch", StringComparison.OrdinalIgnoreCase) then
+    (if mode = "offline" then offline () else live ())

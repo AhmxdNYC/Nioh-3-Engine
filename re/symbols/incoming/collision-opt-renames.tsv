@@ -1,0 +1,4 @@
+# collision-opt-renames: RENAMES/description fixes of existing symbols.tsv rows; apply IN PLACE (same rva). Evidence: notes/collision-opt.md.
+rva	kind	name	signature	description	confidence	source
+0xd8d90	function	CollisionOwnerArrayFind	Owner* CollisionOwnerArrayFind(void* h, u32 key)	was CollisionMapFind: NOT a std::map - lower_bound over a flat sorted array of 16-byte {u32 key, pad, Owner*} at [h+180h], count [h+188h]; returns the Owner* on an exact match. Called once per collider by CollisionObjectUpdate (owner key = +0Ch ? +0Ch : +08h)	high	notes/collision-opt.md
+0xd8b70	function	CollisionShapeGetWorldPos	f32* CollisionShapeGetWorldPos(Part* p, f32* out4)	description fix: no std::map; position from the type-byte (+62h) function table 3BE3780 (2 types inlined: 2D9EE0 transform at +B0h, copy of +80h), plus parent (+68h) double position at +210h..+220h via 3CD840. Hot RIP D8B7E (96 %) = first touch of the part	high	notes/collision-opt.md

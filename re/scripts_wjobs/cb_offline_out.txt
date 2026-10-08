@@ -1,0 +1,44 @@
+site D83F4: E8 47 03 00 00 = call 00000000000D8740h (len 5) MATCH -> E8 47 7C D4 05
+site D867B: 41 88 80 10 01 00 00 = mov [r8+110h],al (len 7) MATCH -> E9 E2 79 D4 05 66 90
+site D86A4: 45 88 B9 26 01 00 00 = mov [r9+126h],r15b (len 7) MATCH -> E9 D7 79 D4 05 66 90
+direct branch/call targets strictly inside the 3 sites (whole executable sweep): none
+CollisionPartMapFind D8740 (31 instructions): memory writes 0; registers written ["R10"; "R8"; "R9"; "RAX"; "RCX"; "RSP"]
+  D8740 does not read incoming r8/r9/r10: [ok]
+DL: rdi, rcx, r8, r9, r10 (the registers the skipped call would have set) dead from D840F: [ok]
+  [rbp-51h] uses in D80B0: D83FC mov [rbp-51h],rax | D8427 mov [rbp-51h],rax | D84E7 mov rdi,[rbp-51h]
+CS: status flags dead at D8682: [ok]
+CS: status flags dead at D86AB: [ok]
+  00007FF755230040  cmp dword [rip-47h],0                         
+  00007FF755230047  je short 00007FF75523005Dh                    
+  00007FF755230049  test sil,sil                                  
+  00007FF75523004C  je short 00007FF75523005Dh                    
+  00007FF75523004E  test r11,r11                                  
+  00007FF755230051  je short 00007FF75523005Dh                    
+  00007FF755230053  lea rsp,[rsp+8]                               
+  00007FF755230058  jmp 00007FF74F4E8400h                            ; -> Nioh3+D8400
+  00007FF75523005D  jmp 00007FF74F4E8740h                            ; -> Nioh3+D8740
+  00007FF755230062  cmp dword [rip-65h],0                         
+  00007FF755230069  je short 00007FF755230074h                    
+  00007FF75523006B  cmp [r8+110h],al                              
+  00007FF755230072  je short 00007FF75523007Bh                    
+  00007FF755230074  mov [r8+110h],al                              
+  00007FF75523007B  jmp 00007FF74F4E8682h                            ; -> Nioh3+D8682
+  00007FF755230080  cmp dword [rip-83h],0                         
+  00007FF755230087  je short 00007FF755230092h                    
+  00007FF755230089  cmp [r9+126h],r15b                            
+  00007FF755230090  je short 00007FF755230099h                    
+  00007FF755230092  mov [r9+126h],r15b                            
+  00007FF755230099  jmp 00007FF74F4E86ABh                            ; -> Nioh3+D86AB
+cave discipline: stores = ["mov [r8+110h],al"; "mov [r9+126h],r15b"]; registers written = ["RSP"]
+real-code harness (collprefetch_live.fsx: dump image mapped privately, D80B0 + real callees):
+  300 synthetic worlds (0..3000 colliders; 134 also run as 5 concurrent jobs): 0 mismatches vs stock (CB on, CB off, DL only, CB+CP, MT); 180024 change records
+timing (this PC):
+  single thread (5 jobs back to back), median of 11:
+    20000 cold  stock   21.70 ms  DL   21.77 ( +0.3 %)  DL+CS   20.24 ( -6.8 %)
+     4000 warm  stock    2.81 ms  DL    2.68 ( -4.6 %)  DL+CS    3.04 ( +8.0 %)
+     4000 cold  stock    2.95 ms  DL    3.05 ( +3.5 %)  DL+CS    3.12 ( +5.8 %)
+  5 concurrent jobs (5 threads), median of 23:
+    20000 warm  stock    3.61 ms  CS    3.83 ( +6.2 %)  DL+CS    3.83 ( +6.2 %)
+     4000 warm  stock    0.65 ms  CS    0.67 ( +3.1 %)  DL+CS    0.65 ( -0.0 %)
+    20000 cold  stock    4.18 ms  CS    4.22 ( +0.8 %)  DL+CS    4.13 ( -1.3 %)
+OFFLINE CHECKS: ALL PASSED
