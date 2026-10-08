@@ -114,7 +114,7 @@ struct Cfg {
     int tapGapMs = 300;
     int swallowTaps = 1;
     float scale = 0;    // 0 = auto
-    int pauseHint = 1;
+    int pauseHint = 2;  // [Menu] PauseHint: 2 always, 1 while a game menu is open, 0 off
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int fgToggle = 1;          // [Menu] FrameGenToggle: 0 status only, 1 switch on Windows, 2 also under Proton (risky)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
@@ -792,7 +792,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL,
           kGpu, kGR2a, kGR2b, kGR1,
-          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote,
+          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXDL - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 bool IsExp(int id) { return id >= kXW6 && id <= kXDL; }
@@ -856,6 +856,7 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter right", "(offset X)", "Moves the counter away from its corner's left/right screen edge (pixels at 1080p).", "Overlay only. Applies now. A resets to 0."},
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
+    {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
@@ -870,7 +871,7 @@ struct OrderEnt {
 };
 const OrderEnt kOrder[] = {
     {kFps, "Display & overlay"}, {kFrameTime, nullptr}, {kSpeed, nullptr}, {kPos, nullptr}, {kOffX, nullptr}, {kOffY, nullptr},
-    {kScale, nullptr}, {kPerfNote, nullptr},
+    {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kGpu, nullptr},
@@ -1088,6 +1089,10 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
             break;
         }
         case kFps: onoff(o.fpsCounter != 0); break;
+        case kHint:
+            snprintf(buf, n, "%s", g_cfg.pauseHint == 2 ? "Always" : g_cfg.pauseHint ? "In game menus" : "OFF");
+            color = g_cfg.pauseHint ? cGreen : cGray;
+            break;
         case kFrameTime: onoff(o.frameTime != 0); break;
         case kSpeed: onoff(o.speed != 0); break;
         case kPos: snprintf(buf, n, "%s", osd::PositionName(o.pos)); break;
@@ -1190,6 +1195,7 @@ void StartSave() {
         add(L"Overlay", L"OffsetY", std::to_wstring(o.offY));
     }
     add(L"Overlay", L"FpsCounter", b(o.fpsCounter != 0));
+    add(L"Menu", L"PauseHint", std::to_wstring(g_cfg.pauseHint));
     add(L"Overlay", L"FrameTime", b(o.frameTime != 0));
     add(L"Overlay", L"SpeedFactor", b(o.speed != 0));
     {
@@ -1363,6 +1369,7 @@ void Change(int id, int dir) {
             break;
         }
         case kFps: o.fpsCounter = !o.fpsCounter; break;
+        case kHint: g_cfg.pauseHint = (g_cfg.pauseHint + (dir < 0 ? 2 : 1)) % 3; break;  // Always -> Off -> In game menus
         case kFrameTime: o.frameTime = !o.frameTime; break;
         case kSpeed: o.speed = !o.speed; break;
         case kPos: o.pos = (o.pos + (dir < 0 ? 3 : 1)) & 3; break;
@@ -1733,8 +1740,8 @@ float DrawImpl(unsigned W, unsigned H) {
         if (!g_open) return DrawCornerNote(W, H, holdNote, cGold);
     }
     if (!g_open) {
-        if (g_cfg.pauseHint && g_paused) {
-            const std::string s = "Mod menu: " + GestureText();  // drawn every frame while a game menu is open (not a timed popup)
+        if (g_cfg.pauseHint == 2 || (g_cfg.pauseHint && g_paused)) {
+            const std::string s = "Mod menu: " + GestureText();  // drawn every frame (2 = always, 1 = while a game menu is open)
             return DrawCornerNote(W, H, s.c_str(), cWhite);
         }
         return 0;
@@ -2063,7 +2070,7 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);
     g_cfg.scale = (float)std::clamp(_wtof(b), 0.0, 8.0);
     if (g_cfg.scale > 0 && g_cfg.scale < 0.5f) g_cfg.scale = 0.5f;
-    g_cfg.pauseHint = (int)GetPrivateProfileIntW(L"Menu", L"PauseHint", 1, f);
+    g_cfg.pauseHint = (int)GetPrivateProfileIntW(L"Menu", L"PauseHint", 2, f);
     GetPrivateProfileStringW(L"Menu", L"PauseHintSource", L"Both", b, 96, f);
     g_cfg.pauseSrc = !_wcsicmp(b, L"Menu") ? 0 : !_wcsicmp(b, L"StopFlags") ? 1 : 2;
     GetPrivateProfileStringW(L"Menu", L"KeyTripleTap", L"Escape", b, 96, f);

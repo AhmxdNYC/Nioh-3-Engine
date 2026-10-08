@@ -392,3 +392,6 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Docs: README "1.7.14", ini comments. MOD_VERSION 1.7.14. Binary `mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi`. No zip made.
 - First live check (PC or Ally): LoadStats baseline, then each flag alone on the same load route; GL1 vs MissionThread CPU. A crash or a stuck load = set the key back to 0.
 - Undo: keys at 0 (default); revert this commit.
+
+## 1.7.15 (2026-10-08)
+- Mod-menu reminder top-right is now always on screen by default ([Menu] PauseHint = 2; 1 = only in game menus, 0 = off) and has its own menu row "Mod menu reminder (top-right)" next to "Show FPS counter". Undo: PauseHint = 1.
