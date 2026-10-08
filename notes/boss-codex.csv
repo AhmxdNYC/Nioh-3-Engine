@@ -1,0 +1,238 @@
+row,key,row_kind,prefix_class,category,codex_id,seq_index,parent_codex_id,name_text_id,english_name,char_ids,desc_text_id,unlock_type,unlock_type_name,unlock_arg,story_gate_w22,w19,w2
+0,CE_HERO,entry,enemy,boss/yokai/human-enemy,7848,1,0,8190576,,,0,1,none,,,,2
+1,CE_HERO_ANOTHER_STYLE,variant,enemy,boss/yokai/human-enemy,2368,1,7848,8190576,,,0,1,none,,,,2
+2,CE_HERO_TEXT_1,text_page,enemy,boss/yokai/human-enemy,3599,2,7848,0,,,153140209,7,story_gate_only,,,,4294967295
+3,CE_HERO_TEXT_2,text_page,enemy,boss/yokai/human-enemy,9890,3,7848,0,,,153642718,7,story_gate_only,,1000,,4294967295
+4,CE_HERO_TEXT_3,text_page,enemy,boss/yokai/human-enemy,1418,4,7848,0,,,154094869,7,story_gate_only,,2000,,4294967295
+5,CE_HERO_TEXT_4,text_page,enemy,boss/yokai/human-enemy,3880,5,7848,0,,,152888689,7,story_gate_only,,3000,,4294967295
+6,CE_HERO_TEXT_5,text_page,enemy,boss/yokai/human-enemy,7922,6,7848,0,,,154745693,7,story_gate_only,,4000,,4294967295
+7,CE_HERO_TEXT_6,text_page,enemy,boss/yokai/human-enemy,794,7,7848,0,,,154197143,7,story_gate_only,,5000,,4294967295
+8,CE_HERO_TEXT_7,text_page,enemy,boss/yokai/human-enemy,1605,8,7848,0,,,154144746,7,story_gate_only,,6000,,4294967295
+9,CE_HERO_TEXT_8,text_page,enemy,boss/yokai/human-enemy,5254,9,7848,0,,,152842482,8,quest_flag?,387,,,4294967295
+10,CN_KUNIMATSU_FIRST,entry,character,npc/ally(human),7861,10,0,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,0,7,story_gate_only,,1000,,2
+11,CN_KUNIMATSU,variant,character,npc/ally(human),4606,11,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,0,1,none,,5000,,2
+12,CN_KUNIMATSU_KAGEBOSHI,variant,character,npc/ally(human),1545,12,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,0,8,quest_flag?,387,,,2
+13,CN_KUNIMATSU_TEXT_1,text_page,character,npc/ally(human),3703,13,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,151428315,1,none,,5000,,2
+14,CN_KUNIMATSU_TEXT_2,text_page,character,npc/ally(human),2212,14,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,154594336,7,story_gate_only,,1000,,2
+15,CN_KUNIMATSU_TEXT_3,text_page,character,npc/ally(human),4836,15,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,153306447,7,story_gate_only,,5000,,2
+16,CN_KUNIMATSU_TEXT_4,text_page,character,npc/ally(human),5010,16,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,151151811,8,quest_flag?,387,,,2
+17,CN_KUNIMATSU_TEXT_5,text_page,character,npc/ally(human),2086,17,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,153388392,8,quest_flag?,412,,,2
+18,CN_KUNIMATSU_TEXT_6,text_page,character,npc/ally(human),8836,18,7861,7101463,Tokugawa Kunimatsu,22529;22536;22550;23110,154904185,8,quest_flag?,416,,,2
+19,CN_HIMIKO,entry,character,npc/ally(human),3886,19,0,5209301,Himiko,23061;23103,0,7,story_gate_only,,3550,,2
+20,CN_NAOTORA_HIMIKO,variant,character,npc/ally(human),5640,20,3886,4486513,Ii Naotora,23080,0,7,story_gate_only,,5200,,2
+21,CN_SHIZUKA_HIMIKO,variant,character,npc/ally(human),86,21,3886,7406045,Shizuka Gozen,23093,0,7,story_gate_only,,5200,,2
+22,CN_ORYO_HIMIKO,variant,character,npc/ally(human),9252,22,3886,7853717,,,0,7,story_gate_only,,5200,,2
+23,CN_HIMIKO_TEXT_1,text_page,character,npc/ally(human),4622,23,3886,4486513,Ii Naotora,23080,151632453,7,story_gate_only,,5200,,2
+24,CN_HIMIKO_TEXT_2,text_page,character,npc/ally(human),893,24,3886,4486513,Ii Naotora,23080,151067108,7,story_gate_only,,5200,,2
+25,CN_HIMIKO_TEXT_5,text_page,character,npc/ally(human),1069,27,3886,4486513,Ii Naotora,23080,154422217,7,story_gate_only,,5200,,2
+26,CN_HIMIKO_TEXT_6,text_page,character,npc/ally(human),3501,28,3886,4486513,Ii Naotora,23080,152680789,7,story_gate_only,,5200,,2
+27,CN_HIMIKO_TEXT_7,text_page,character,npc/ally(human),7228,29,3886,4486513,Ii Naotora,23080,153046962,7,story_gate_only,,3520,,2
+28,CN_HIMIKO_TEXT_8,text_page,character,npc/ally(human),5954,30,3886,4486513,Ii Naotora,23080,153677723,7,story_gate_only,,3520,,2
+29,CN_HIMIKO_TEXT_9,text_page,character,npc/ally(human),8261,31,3886,4486513,Ii Naotora,23080,151578335,7,story_gate_only,,5000,,2
+30,CN_HIMIKO_TEXT_10,text_page,character,npc/ally(human),9894,32,3886,4486513,Ii Naotora,23080,151944214,7,story_gate_only,,5200,,2
+31,CN_HIMIKO_TEXT_11,text_page,character,npc/ally(human),5136,33,3886,4486513,Ii Naotora,23080,154749806,7,story_gate_only,,6000,,2
+32,CN_HIMIKO_TEXT_12,text_page,character,npc/ally(human),7323,34,3886,4486513,Ii Naotora,23080,151138405,10,table31_ref,5559,,,2
+33,CN_HIMIKO_TEXT_13,text_page,character,npc/ally(human),425,35,3886,4486513,Ii Naotora,23080,152537219,8,quest_flag?,445,,,2
+34,CN_HIMIKO_TEXT_14,text_page,character,npc/ally(human),7710,36,3886,4486513,Ii Naotora,23080,153316135,7,story_gate_only,,6500,,2
+35,CN_MUNENORI,entry,character,npc/ally(human),1797,37,0,6744542,Yagyu Munenori,22638;22669;22700;22731;23277,0,7,story_gate_only,,1000,,2
+36,CN_MUNENORI_TEXT_1,text_page,character,npc/ally(human),9350,38,1797,6744542,Yagyu Munenori,22638;22669;22700;22731;23277,151519804,7,story_gate_only,,1000,,2
+37,CN_MUNENORI_TEXT_2,text_page,character,npc/ally(human),4643,39,1797,6744542,Yagyu Munenori,22638;22669;22700;22731;23277,155025405,3,mission_flag,62949,,,2
+38,CN_MUNENORI_TEXT_3,text_page,character,npc/ally(human),8835,40,1797,6744542,Yagyu Munenori,22638;22669;22700;22731;23277,155139512,3,mission_flag,28261,,,2
+39,CN_MUNENORI_TEXT_4,text_page,character,npc/ally(human),1685,41,1797,6744542,Yagyu Munenori,22638;22669;22700;22731;23277,154099592,3,mission_flag,6750,,,2
+40,CN_HANZO_JR,entry,character,npc/ally(human),7840,42,0,4388383,Hattori Hanzo,22762;22799;22836;22873;23230;23249;23290,0,7,story_gate_only,,1000,,2
+41,CN_HANZO_JR_TEXT_1,text_page,character,npc/ally(human),6019,43,7840,4388383,Hattori Hanzo,22762;22799;22836;22873;23230;23249;23290,153807129,7,story_gate_only,,1000,,2
+42,CN_HANZO_JR_TEXT_2,text_page,character,npc/ally(human),797,44,7840,4388383,Hattori Hanzo,22762;22799;22836;22873;23230;23249;23290,152076135,3,mission_flag,55129,,,2
+43,CN_HANZO_JR_TEXT_3,text_page,character,npc/ally(human),682,45,7840,4388383,Hattori Hanzo,22762;22799;22836;22873;23230;23249;23290,153297789,3,mission_flag,57740,,,2
+44,CN_HANZO_JR_TEXT_4,text_page,character,npc/ally(human),3948,46,7840,4388383,Hattori Hanzo,22762;22799;22836;22873;23230;23249;23290,154993209,3,mission_flag,39908,,,2
+45,CN_OFUKU_OLD_KIMONO,entry,character,npc/ally(human),6330,47,0,5783922,Saito Fuku,22910;22935;23419;23426,0,7,story_gate_only,,1000,,2
+46,CN_OFUKU_OLD,variant,character,npc/ally(human),3601,48,6330,5783922,Saito Fuku,22910;22935;23419;23426,0,7,story_gate_only,,1400,,2
+47,CN_OFUKU_OLD_TEXT_1,text_page,character,npc/ally(human),8010,49,6330,5783922,Saito Fuku,22910;22935;23419;23426,153486598,7,story_gate_only,,1000,,2
+48,CN_OFUKU_OLD_TEXT_2,text_page,character,npc/ally(human),7964,50,6330,5783922,Saito Fuku,22910;22935;23419;23426,151199648,3,mission_flag,9971,,,2
+49,CN_OFUKU_OLD_TEXT_3,text_page,character,npc/ally(human),5660,51,6330,5783922,Saito Fuku,22910;22935;23419;23426,154101458,3,mission_flag,41121,,,2
+50,CN_OFUKU_OLD_TEXT_4,text_page,character,npc/ally(human),7953,52,6330,5783922,Saito Fuku,22910;22935;23419;23426,154913850,3,mission_flag,10278,,,2
+51,CN_NAOTORA,entry,character,npc/ally(human),5730,53,0,4486513,Ii Naotora,23080,0,7,story_gate_only,,1070,,2
+52,CN_NAOTORA_TEXT_1,text_page,character,npc/ally(human),3006,54,5730,4486513,Ii Naotora,23080,151632453,7,story_gate_only,,1070,,2
+53,CN_NAOTORA_TEXT_2,text_page,character,npc/ally(human),4691,55,5730,4486513,Ii Naotora,23080,151067108,7,story_gate_only,,1450,,2
+54,CN_NAOTORA_TEXT_3,text_page,character,npc/ally(human),350,56,5730,4486513,Ii Naotora,23080,153233925,10,table31_ref,14312,,,2
+55,CN_NAOTORA_TEXT_4,text_page,character,npc/ally(human),6325,57,5730,4486513,Ii Naotora,23080,153447586,10,table31_ref,30491,,,2
+56,CN_IEYASU_YNG,entry,character,npc/ally(human),7261,58,0,6130737,Tokugawa Ieyasu,23309,0,7,story_gate_only,,1070,,2
+57,CN_IEYASU_TEXT_1,text_page,character,npc/ally(human),3503,59,7261,6130737,Tokugawa Ieyasu,23309,151972611,7,story_gate_only,,1070,,2
+58,CN_IEYASU_TEXT_2,text_page,character,npc/ally(human),7032,60,7261,6130737,Tokugawa Ieyasu,23309,153657768,7,story_gate_only,,2000,,2
+59,CN_IEYASU_TEXT_3,text_page,character,npc/ally(human),4493,61,7261,6130737,Tokugawa Ieyasu,23309,154027191,10,table31_ref,46979,,,2
+60,CN_IEYASU_TEXT_4,text_page,character,npc/ally(human),9887,62,7261,6130737,Tokugawa Ieyasu,23309,151062155,10,table31_ref,13659,,,2
+61,CN_IEYASU_TEXT_5,text_page,character,npc/ally(human),1444,63,7261,6130737,Tokugawa Ieyasu,23309,151633936,10,table31_ref,11865,,,2
+62,CN_TADAKATSU,entry,character,npc/ally(human),2432,64,0,6039836,Honda Tadakatsu,22616;23189;23208,0,7,story_gate_only,,1050,,2
+63,CN_TADAKATSU_TEXT_1,text_page,character,npc/ally(human),4931,65,2432,6039836,Honda Tadakatsu,22616;23189;23208,153654913,7,story_gate_only,,1050,,2
+64,CN_TADAKATSU_TEXT_2,text_page,character,npc/ally(human),8180,66,2432,6039836,Honda Tadakatsu,22616;23189;23208,153946668,7,story_gate_only,,1050,,2
+65,CN_TADAKATSU_TEXT_3,text_page,character,npc/ally(human),1206,67,2432,6039836,Honda Tadakatsu,22616;23189;23208,152619564,10,table31_ref,58124,,,2
+66,CN_TADAKATSU_TEXT_4,text_page,character,npc/ally(human),608,68,2432,6039836,Honda Tadakatsu,22616;23189;23208,152451373,10,table31_ref,34372,,,2
+67,CN_HANZO_MASANARI,entry,character,npc/ally(human),8749,69,0,6379249,,,0,7,story_gate_only,,1170,,2
+68,CN_HANZO_MASANARI_TEXT_1,text_page,character,npc/ally(human),4115,70,8749,6379249,,,152559403,7,story_gate_only,,1170,,2
+69,CN_HANZO_MASANARI_TEXT_2,text_page,character,npc/ally(human),7471,71,8749,6379249,,,154211377,7,story_gate_only,,1170,,2
+70,CN_HANZO_MASANARI_TEXT_3,text_page,character,npc/ally(human),2385,72,8749,6379249,,,153550877,7,story_gate_only,,1300,,2
+71,CN_HANZO_MASANARI_TEXT_4,text_page,character,npc/ally(human),9898,73,8749,6379249,,,153918298,10,table31_ref,31217,,,2
+72,CN_HANZO_MASANARI_TEXT_5,text_page,character,npc/ally(human),2466,74,8749,6379249,,,153201827,10,table31_ref,1483,,,2
+73,CN_SHINGEN,entry,character,npc/ally(human),5036,75,0,4450463,Takeda Shingen,20899;22199,0,7,story_gate_only,,1050,,2
+74,CE_SHINGEN,variant,enemy,boss-yokai-form-main,2934,76,5036,4450463,Takeda Shingen,20899;22199,0,7,story_gate_only,,1450,,2
+75,CE_SHINGEN_TOKOYAMI,variant,enemy,boss-yokai-form-main,9591,77,5036,4450463,Takeda Shingen,20899;22199,0,7,story_gate_only,,1450,,2
+76,CE_SHINGEN_TEXT_1,text_page,enemy,boss-yokai-form-main,496,78,5036,4450463,Takeda Shingen,20899;22199,154980294,7,story_gate_only,,1050,,2
+77,CE_SHINGEN_TEXT_2,text_page,enemy,boss-yokai-form-main,9834,79,5036,4450463,Takeda Shingen,20899;22199,152592734,7,story_gate_only,,1050,,2
+78,CE_SHINGEN_TEXT_3,text_page,enemy,boss-yokai-form-main,9994,80,5036,4450463,Takeda Shingen,20899;22199,153795479,7,story_gate_only,,1450,,2
+79,CN_MASAKAGE,entry,character,npc/ally(human),19,81,0,5732529,Yamagata Masakage,20878;22178,0,7,story_gate_only,,1050,,2
+80,CE_MASAKAGE,variant,enemy,boss-yokai-form-main,7399,82,19,4450463,Takeda Shingen,20899;22199,0,7,story_gate_only,,1400,,22
+81,CE_MASAKAGE_TOKOYAMI,variant,enemy,boss-yokai-form-main,7152,83,19,4450463,Takeda Shingen,20899;22199,0,7,story_gate_only,,1400,,22
+82,CE_MASAKAGE_TEXT_1,text_page,enemy,boss-yokai-form-main,1053,84,19,4450463,Takeda Shingen,20899;22199,151027693,7,story_gate_only,,1050,,2
+83,CE_MASAKAGE_TEXT_2,text_page,enemy,boss-yokai-form-main,1988,85,19,4450463,Takeda Shingen,20899;22199,153401835,7,story_gate_only,,1050,,2
+84,CE_MASAKAGE_TEXT_3,text_page,enemy,boss-yokai-form-main,7860,86,19,4450463,Takeda Shingen,20899;22199,153319151,7,story_gate_only,,1400,,2
+85,CE_NOBUHARU,entry,enemy,boss-yokai-form-main,4429,87,0,6489713,Baba Nobuharu,20843;20856,0,7,story_gate_only,,1250,,2
+86,CE_NOBUHARU_TOKOYAMI,variant,enemy,boss-yokai-form-main,2530,88,4429,6489713,Baba Nobuharu,20843;20856,0,7,story_gate_only,,1250,,2
+87,CE_NOBUHARU_TEXT_1,text_page,enemy,boss-yokai-form-main,6301,90,4429,6489713,Baba Nobuharu,20843;20856,152108772,7,story_gate_only,,1250,,2
+88,CE_NOBUHARU_TEXT_2,text_page,enemy,boss-yokai-form-main,9947,91,4429,6489713,Baba Nobuharu,20843;20856,151464454,7,story_gate_only,,1250,,2
+89,CN_YORITOMO,entry,character,npc/ally(human),315,92,0,4871674,Minamoto no Yoritomo,20973;23372,0,7,story_gate_only,,2200,,2
+90,CE_YORITOMO,variant,enemy,boss-yokai-form-main,3344,93,315,4871674,Minamoto no Yoritomo,20973;23372,0,7,story_gate_only,,2500,,2
+91,CE_YORITOMO_TOKOYAMI,variant,enemy,boss-yokai-form-main,5565,94,315,4871674,Minamoto no Yoritomo,20973;23372,0,7,story_gate_only,,2500,,2
+92,CE_YORITOMO_TEXT_1,text_page,enemy,boss-yokai-form-main,3713,95,315,4871674,Minamoto no Yoritomo,20973;23372,154427296,7,story_gate_only,,2200,,2
+93,CE_YORITOMO_TEXT_2,text_page,enemy,boss-yokai-form-main,8400,96,315,4871674,Minamoto no Yoritomo,20973;23372,152672720,7,story_gate_only,,2200,,2
+94,CE_YORITOMO_TEXT_3,text_page,enemy,boss-yokai-form-main,7687,97,315,4871674,Minamoto no Yoritomo,20973;23372,152001089,7,story_gate_only,,2500,,2
+95,CN_YOSHITSUNE_BORO,entry,character,npc/ally(human),9163,98,0,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,0,7,story_gate_only,,2100,,2
+96,CE_YOSHITSUNE,variant,enemy,boss-human-sub-mission,1755,99,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,0,10,table31_ref,35640,3000,,2
+97,CE_YOSHITSUNE_TOKOYAMI,variant,enemy,boss-human-sub-mission,498,100,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,0,10,table31_ref,35640,3000,,2
+98,CE_YOSHITSUNE_TEXT_1,text_page,enemy,boss-human-sub-mission,8148,101,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,154782702,7,story_gate_only,,2100,,2
+99,CE_YOSHITSUNE_TEXT_2,text_page,enemy,boss-human-sub-mission,2882,102,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,153312741,7,story_gate_only,,2100,,2
+100,CE_YOSHITSUNE_TEXT_3,text_page,enemy,boss-human-sub-mission,5909,103,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,151515905,8,quest_flag?,169,,,2
+101,CE_YOSHITSUNE_TEXT_4,text_page,enemy,boss-human-sub-mission,9393,104,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,153244334,7,story_gate_only,,2500,,2
+102,CE_YOSHITSUNE_TEXT_5,text_page,enemy,boss-human-sub-mission,5807,105,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,154588839,10,table31_ref,37685,,,2
+103,CE_YOSHITSUNE_TEXT_6,text_page,enemy,boss-human-sub-mission,8068,106,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,152723898,10,table31_ref,13737,,,2
+104,CE_YOSHITSUNE_TEXT_7,text_page,enemy,boss-human-sub-mission,6401,107,9163,6258060,Minamoto no Yoshitsune,22046;22077;23322;23350,153648002,10,table31_ref,35640,,,2
+105,CN_KAGETOKI,entry,character,npc/ally(human),9499,108,0,6486406,Kajiwara Kagetoki,22248;22261;23167,0,8,quest_flag?,338,,,2
+106,CN_KAGETOKI_TEXT_1,text_page,character,npc/ally(human),8237,109,9499,6486406,Kajiwara Kagetoki,22248;22261;23167,154521427,7,story_gate_only,,,,2
+107,CN_KAGETOKI_TEXT_2,text_page,character,npc/ally(human),3302,110,9499,6486406,Kajiwara Kagetoki,22248;22261;23167,153605815,7,story_gate_only,,2200,,2
+108,CN_KAGETOKI_TEXT_3,text_page,character,npc/ally(human),1509,111,9499,6486406,Kajiwara Kagetoki,22248;22261;23167,152895372,3,mission_flag,39461,,,2
+109,CN_KAGETOKI_TEXT_4,text_page,character,npc/ally(human),2289,112,9499,6486406,Kajiwara Kagetoki,22248;22261;23167,152553486,10,table31_ref,35329,,,2
+110,CN_SHIZUKA,entry,character,npc/ally(human),5972,113,0,7406045,Shizuka Gozen,23093,0,7,story_gate_only,,2200,,2
+111,CN_SHIZUKA_TEXT_1,text_page,character,npc/ally(human),7100,114,5972,4486513,Ii Naotora,23080,154422217,7,story_gate_only,,2200,,2
+112,CN_SHIZUKA_TEXT_2,text_page,character,npc/ally(human),7219,115,5972,4486513,Ii Naotora,23080,152680789,7,story_gate_only,,2500,,2
+113,CN_HIRUKO,entry,character,npc/ally(human),3546,116,0,7976265,Hiruko,21134;21153;22510;46927,0,7,story_gate_only,,3550,,2
+114,CE_HIRUKO,variant,enemy,boss-yokai-main,6727,117,3546,7976265,Hiruko,21134;21153;22510;46927,0,7,story_gate_only,,3550,,2
+115,CE_HIRUKO_P,variant,enemy,boss-yokai-main,1363,119,3546,7976265,Hiruko,21134;21153;22510;46927,0,7,story_gate_only,,6500,,2
+116,CE_HIRUKO_P_WING,variant,enemy,boss-yokai-main,8785,120,3546,7976265,Hiruko,21134;21153;22510;46927,0,7,story_gate_only,,6500,,2
+117,CE_HIRUKO_TEXT_1,text_page,enemy,boss-yokai-main,3808,121,3546,7976265,Hiruko,21134;21153;22510;46927,155188522,7,story_gate_only,,3550,,2
+118,CE_HIRUKO_TEXT_2,text_page,enemy,boss-yokai-main,9601,122,3546,7976265,Hiruko,21134;21153;22510;46927,154143536,7,story_gate_only,,5000,,2
+119,CE_HIRUKO_TEXT_3,text_page,enemy,boss-yokai-main,4698,123,3546,7976265,Hiruko,21134;21153;22510;46927,151529504,7,story_gate_only,,6500,,2
+120,CN_YOSHINOBU,entry,character,npc/ally(human),2052,124,0,6485026,Tokugawa Yoshinobu,21113;23394,0,7,story_gate_only,,5200,,2
+121,CE_YOSHINOBU,variant,enemy,boss-human/mixed-main,4642,125,2052,6485026,Tokugawa Yoshinobu,21113;23394,0,7,story_gate_only,,5310,,2
+122,CE_YOSHINOBU_TOKOYAMI,variant,enemy,boss-human/mixed-main,5121,126,2052,6485026,Tokugawa Yoshinobu,21113;23394,0,7,story_gate_only,,5310,,2
+123,CE_YOSHINOBU_TEXT_1,text_page,enemy,boss-human/mixed-main,5295,127,2052,6485026,Tokugawa Yoshinobu,21113;23394,151291315,7,story_gate_only,,5200,,2
+124,CE_YOSHINOBU_TEXT_2,text_page,enemy,boss-human/mixed-main,8797,128,2052,6485026,Tokugawa Yoshinobu,21113;23394,151994522,7,story_gate_only,,5200,,2
+125,CE_YOSHINOBU_TEXT_3,text_page,enemy,boss-human/mixed-main,7504,129,2052,6485026,Tokugawa Yoshinobu,21113;23394,153098981,7,story_gate_only,,5310,,2
+126,CN_SOUJI,entry,character,npc/ally(human),3607,130,0,5223537,Okita Soji,22348,0,7,story_gate_only,,5020,,2
+127,CE_SHIGURUI_SOUJI,variant,enemy,boss-human/mixed-main,3190,131,3607,5223537,Okita Soji,22348,0,3,mission_flag,31877,6000,,2
+128,CE_SOUJI_TEXT_1,text_page,enemy,boss-human/mixed-main,1532,132,3607,5223537,Okita Soji,22348,153287763,7,story_gate_only,,5020,,2
+129,CE_SOUJI_TEXT_2,text_page,enemy,boss-human/mixed-main,1009,133,3607,5223537,Okita Soji,22348,152370872,5,npc_record,36935,6000,1,2
+130,CN_SHINSAKU,entry,character,npc/ally(human),7824,134,0,8273968,Takasugi Shinsaku,22307;23145,0,7,story_gate_only,,5020,,2
+131,CN_SHINSAKU_TEXT_1,text_page,character,npc/ally(human),8016,135,7824,8273968,Takasugi Shinsaku,22307;23145,154368649,7,story_gate_only,,5020,,2
+132,CN_SHINSAKU_TEXT_2,text_page,character,npc/ally(human),5569,136,7824,8273968,Takasugi Shinsaku,22307;23145,151420437,7,story_gate_only,,5020,,2
+133,CN_SHINSAKU_TEXT_3,text_page,character,npc/ally(human),2041,137,7824,8273968,Takasugi Shinsaku,22307;23145,152964724,7,story_gate_only,,5310,,2
+134,CN_SHINSAKU_TEXT_4,text_page,character,npc/ally(human),3905,138,7824,8273968,Takasugi Shinsaku,22307;23145,152144981,10,table31_ref,10756,,,2
+135,CN_ORYO,entry,character,npc/ally(human),4173,139,0,7853717,,,0,7,story_gate_only,,5200,,2
+136,CN_ORYO_TEXT_1,text_page,character,npc/ally(human),4249,140,4173,4486513,Ii Naotora,23080,151944214,7,story_gate_only,,5120,,2
+137,CN_ORYO_TEXT_2,text_page,character,npc/ally(human),4239,141,4173,4486513,Ii Naotora,23080,154749806,7,story_gate_only,,6000,,2
+138,CN_ORYO_TEXT_3,text_page,character,npc/ally(human),716,142,4173,4486513,Ii Naotora,23080,151138405,10,table31_ref,5559,,,2
+139,CN_TOYO,entry,character,npc/ally(human),8088,143,0,4314545,,,0,7,story_gate_only,,1156,,2
+140,CN_TOYO_TEXT_1,text_page,character,npc/ally(human),8161,144,8088,4314545,,,151018150,7,story_gate_only,,1156,,2
+141,CN_TOYO_TEXT_2,text_page,character,npc/ally(human),5986,145,8088,4314545,,,152170431,10,table31_ref,9444,,,2
+142,CN_TOYO_TEXT_3,text_page,character,npc/ally(human),8232,146,8088,4314545,,,153977716,10,table31_ref,9067,,,2
+143,CN_HISAHIDE,entry,character,npc/ally(human),3395,147,0,8253105,Matsunaga Hisahide,23449,0,8,quest_flag?,431,,,2
+144,CN_HISAHIDE_TEXT_1,text_page,character,npc/ally(human),9971,148,3395,8253105,Matsunaga Hisahide,23449,151415554,8,quest_flag?,431,,,2
+145,CN_HISAHIDE_TEXT_2,text_page,character,npc/ally(human),2285,149,3395,8253105,Matsunaga Hisahide,23449,151313836,8,quest_flag?,431,,,2
+146,CN_HISAHIDE_TEXT_3,text_page,character,npc/ally(human),6906,150,3395,8253105,Matsunaga Hisahide,23449,151084207,10,table31_ref,53170,,,2
+147,CN_KUSOZUKI,entry,character,npc/ally(human),2924,151,0,7156849,Tatsumaro,23462;23481,0,10,table31_ref,20023,,,2
+148,CN_KUSOZUKI_TEXT_1,text_page,character,npc/ally(human),2723,152,2924,7156849,Tatsumaro,23462;23481,153396616,10,table31_ref,20023,,,2
+149,CN_KUSOZUKI_TEXT_2,text_page,character,npc/ally(human),9582,153,2924,7156849,Tatsumaro,23462;23481,153249816,8,quest_flag?,389,,,2
+150,CN_KUSOZUKI_TEXT_3,text_page,character,npc/ally(human),2216,154,2924,7156849,Tatsumaro,23462;23481,153620329,8,quest_flag?,472,,,2
+151,CN_KOTARO,entry,character,npc/ally(human),4113,155,0,4288433,Fuma Kotaro,23537;23942,0,10,table31_ref,0,,1,2
+152,CN_KOTARO_TEXT_1,text_page,character,npc/ally(human),8410,156,4113,4288433,Fuma Kotaro,23537;23942,154498224,10,table31_ref,0,,1,2
+153,CN_KOTARO_TEXT_2,text_page,character,npc/ally(human),3412,157,4113,4288433,Fuma Kotaro,23537;23942,155008158,5,npc_record,51572,,1,2
+154,CN_MASATERU,entry,character,npc/ally(human),6860,158,0,8103536,Nakane Masateru,23593,0,5,npc_record,24446,,1,2
+155,CN_MASATERU_TEXT_1,text_page,character,npc/ally(human),6090,159,6860,8103536,Nakane Masateru,23593,151236638,5,npc_record,24446,,1,2
+156,CN_YASUMASA,entry,character,npc/ally(human),8452,160,0,6399838,Sakakibara Yasumasa,23606,0,5,npc_record,18289,,1,2
+157,CN_YASUMASA_TEXT_1,text_page,character,npc/ally(human),7874,161,8452,6399838,Sakakibara Yasumasa,23606,154938026,5,npc_record,18289,,1,2
+158,CN_TADATSUGU,entry,character,npc/ally(human),6555,162,0,6654869,Sakai Tadatsugu,23619,0,5,npc_record,48877,,1,2
+159,CN_TADATSUGU_TEXT,text_page,character,npc/ally(human),6475,163,6555,6654869,Sakai Tadatsugu,23619,152232114,5,npc_record,48877,,1,2
+160,CE_MASTER_ITO,entry,enemy,boss-human-mixed,7560,164,0,4541343,Ito Ittosai,23958,0,5,npc_record,42166,,1,2
+161,CE_MASTER_ITO_TEXT_1,text_page,enemy,boss-human-mixed,6062,165,7560,4541343,Ito Ittosai,23958,154651605,5,npc_record,42166,,1,2
+162,CN_ZENJUBO,entry,character,npc/ally(human),8360,166,0,7998128,Sugitani Zenjubo,23974,0,5,npc_record,63007,,1,2
+163,CN_ZENJUBO_TEXT_1,text_page,character,npc/ally(human),6296,167,8360,7998128,Sugitani Zenjubo,23974,154036529,5,npc_record,63007,,1,2
+164,CE_ANAYAMA,entry,enemy,boss-human-mixed,965,168,0,5632945,Anayama Nobutada,24046,0,5,npc_record,6450,,1,2
+165,CE_ANAYAMA_TEXT_1,text_page,enemy,boss-human-mixed,9274,169,965,5632945,Anayama Nobutada,24046,152338008,5,npc_record,6450,,1,2
+166,CN_MASATOYO,entry,character,npc/ally(human),1450,170,0,5515761,Naito Masatoyo,24094,0,5,npc_record,54460,,1,2
+167,CN_MASATOYO_TEXT_1,text_page,character,npc/ally(human),9956,171,1450,5515761,Naito Masatoyo,24094,152145307,5,npc_record,54460,,1,2
+168,CN_MASANOBU,entry,character,npc/ally(human),7575,172,0,4550110,Kosaka Masanobu,24107,0,5,npc_record,17858,,1,2
+169,CN_MASANOBU_TEXT_1,text_page,character,npc/ally(human),3580,173,7575,4550110,Kosaka Masanobu,24107,151591393,5,npc_record,17858,,1,2
+170,CN_TOMOE,entry,character,npc/ally(human),5354,174,0,7665264,Tomoe Gozen,24200,0,10,table31_ref,37685,,,2
+171,CN_TOMOE_TEXT_1,text_page,character,npc/ally(human),2244,175,5354,7665264,Tomoe Gozen,24200,152288271,10,table31_ref,37685,,,2
+172,CN_TOMOE_TEXT_2,text_page,character,npc/ally(human),3598,176,5354,7665264,Tomoe Gozen,24200,154927235,5,npc_record,49916,,1,2
+173,CN_SHINRAN,entry,character,npc/ally(human),7000,177,0,4766193,Shinran,24235,0,5,npc_record,33040,,1,2
+174,CN_SHINRAN_TEXT_1,text_page,character,npc/ally(human),3023,178,7000,4766193,Shinran,24235,152482344,5,npc_record,33040,,1,2
+175,CN_YOICHI,entry,character,npc/ally(human),4387,179,0,7346516,Nasu no Yoichi,24242,0,5,npc_record,63077,,1,2
+176,CN_YOICHI_TEXT_1,text_page,character,npc/ally(human),8927,180,4387,7346516,Nasu no Yoichi,24242,151527482,5,npc_record,63077,,1,2
+177,CN_SHINPACHI,entry,character,npc/ally(human),2424,181,0,6036849,Nagakura Shinpachi,24268,0,5,npc_record,58059,,1,2
+178,CN_SHINPACHI_TEXT_1,text_page,character,npc/ally(human),9434,182,2424,6036849,Nagakura Shinpachi,24268,154881284,5,npc_record,58059,,1,2
+179,CN_SHINPACHI_TEXT_2,text_page,character,npc/ally(human),3891,183,2424,6036849,Nagakura Shinpachi,24268,153575844,10,table31_ref,10756,,,2
+180,CN_HEISUKE,entry,character,npc/ally(human),3109,184,0,6426846,Todo Heisuke,23580,0,10,table31_ref,3229,,,2
+181,CN_HEISUKE_TEXT_1,text_page,character,npc/ally(human),6239,185,3109,6426846,Todo Heisuke,23580,154885078,10,table31_ref,3229,,,2
+182,CN_HEISUKE_TEXT_2,text_page,character,npc/ally(human),5319,186,3109,6426846,Todo Heisuke,23580,153201711,10,table31_ref,3229,,,2
+183,CN_YASUSUKE,entry,character,npc/ally(human),2604,187,0,6450546,Sawamura Yasusuke,24462,0,5,npc_record,59000,,1,2
+184,CN_YASUSUKE_TEXT_1,text_page,character,npc/ally(human),2199,188,2604,6450546,Sawamura Yasusuke,24462,154930724,5,npc_record,59000,,1,2
+185,CN_DEISHUU,entry,character,npc/ally(human),6597,189,0,6798814,Takahashi Deishu,24532,0,5,npc_record,34838,,1,2
+186,CN_DEISHUU_TEXT_1,text_page,character,npc/ally(human),9425,190,6597,6798814,Takahashi Deishu,24532,152104771,5,npc_record,34838,,1,2
+187,CN_GLOVER,entry,character,npc/ally(human),4763,191,0,6810353,Thomas Glover,23632,0,3,mission_flag,52307,,,2
+188,CN_GLOVER_TEXT_1,text_page,character,npc/ally(human),1324,192,4763,6810353,Thomas Glover,23632,155079364,3,mission_flag,52307,,,2
+189,CN_GLOVER_TEXT_2,text_page,character,npc/ally(human),6874,193,4763,6810353,Thomas Glover,23632,153350754,3,mission_flag,52307,,,2
+190,CN_GLOVER_TEXT_3,text_page,character,npc/ally(human),6534,194,4763,6810353,Thomas Glover,23632,155171465,10,table31_ref,38983,,,2
+191,CN_GLOVER_TEXT_4,text_page,character,npc/ally(human),4730,195,4763,6810353,Thomas Glover,23632,153251093,10,table31_ref,6829,,,2
+192,CN_INE,entry,character,npc/ally(human),9866,196,0,4802801,Kusumoto Ine,23645,0,3,mission_flag,59325,,,2
+193,CN_INE_TEXT_1,text_page,character,npc/ally(human),8505,197,9866,4802801,Kusumoto Ine,23645,151270514,3,mission_flag,59325,,,2
+194,CN_INE_TEXT_2,text_page,character,npc/ally(human),2194,198,9866,4802801,Kusumoto Ine,23645,155009371,3,mission_flag,59325,,,2
+195,CN_INE_TEXT_3,text_page,character,npc/ally(human),5129,199,9866,4802801,Kusumoto Ine,23645,151187871,10,table31_ref,3229,,,2
+196,CE_IEMITSU,entry,enemy,boss/yokai/human-enemy,5641,1000,0,8009584,,,0,7,story_gate_only,,7000,,2
+197,CE_IEMITSU_ANOTHER_STYLE,variant,enemy,boss/yokai/human-enemy,783,1001,5641,8009584,,,0,7,story_gate_only,,7000,,2
+198,CE_IEMITSU_TEXT_1,text_page,enemy,boss/yokai/human-enemy,868,1002,5641,0,,,153738097,7,story_gate_only,,7000,,2
+199,CE_IEMITSU_TEXT_2,text_page,enemy,boss/yokai/human-enemy,6365,1003,5641,0,,,153815134,7,story_gate_only,,7700,,2
+200,CN_JUBE,entry,character,npc/ally(human),6022,1004,0,8038101,Yagyu Jubei,22600;23706,0,7,story_gate_only,,7100,,2
+201,CN_JUBE_TEXT_1,text_page,character,npc/ally(human),3616,1005,6022,8038101,Yagyu Jubei,22600;23706,151873686,7,story_gate_only,,7100,,2
+202,CN_JUBE_TEXT_2,text_page,character,npc/ally(human),9116,1006,6022,8038101,Yagyu Jubei,22600;23706,152081137,10,table31_ref,39689,9999,,2
+203,CN_RODRIGO,entry,character,npc/ally(human),1639,1007,0,6453007,Rodrigo,23658,0,7,story_gate_only,,7100,,2
+204,CN_RODRIGO_TEXT_1,text_page,character,npc/ally(human),2789,1008,1639,6453007,Rodrigo,23658,154415837,7,story_gate_only,,7100,,2
+205,CN_RODRIGO_TEXT_2,text_page,character,npc/ally(human),2138,1009,1639,6453007,Rodrigo,23658,155055639,7,story_gate_only,,7650,,2
+206,CN_MARIA,entry,character,npc/ally(human),1813,1010,0,8089617,Maria,23680,0,8,quest_flag?,562,9999,,2
+207,CN_MARIA_TEXT_1,text_page,character,npc/ally(human),6093,1011,1813,8089617,Maria,23680,152305057,8,quest_flag?,562,9999,,2
+208,CE_HANBE,entry,enemy,boss/yokai/human-enemy,3571,1012,0,5960607,Kanai Hanbei,21356;24824,0,3,mission_flag,6634,9999,,2
+209,CE_HANBE_TOKOYAMI,variant,enemy,boss/yokai/human-enemy,2725,1013,3571,5960607,Kanai Hanbei,21356;24824,0,3,mission_flag,6634,9999,,2
+210,CE_HANBE_HUMAN,variant,enemy,boss/yokai/human-enemy,625,1014,3571,5960607,Kanai Hanbei,21356;24824,0,3,mission_flag,15192,9999,,2
+211,CE_HANBE_RENZO,variant,enemy,boss/yokai/human-enemy,5606,1015,3571,6940190,Fabricated Warrior,21372,0,5,npc_record,33932,9999,1,2
+212,CE_HANBE_TEXT_1,text_page,enemy,boss/yokai/human-enemy,8152,1016,3571,5960607,Kanai Hanbei,21356;24824,151962475,3,mission_flag,6634,9999,,2
+213,CE_HANBE_TEXT_2,text_page,enemy,boss/yokai/human-enemy,1999,1017,3571,5960607,Kanai Hanbei,21356;24824,154015346,3,mission_flag,15192,9999,,2
+214,CE_HANBE_RENZO_TEXT_1,text_page,enemy,boss/yokai/human-enemy,3094,1018,3571,5960607,Kanai Hanbei,21356;24824,151348694,5,npc_record,33932,9999,1,2
+215,CE_SHOSETSU,entry,enemy,boss/yokai/human-enemy,6593,1019,0,5912497,Yui Shosetsu,21385,0,3,mission_flag,46078,9999,,2
+216,CE_SHOSETSU_TOKOYAMI,variant,enemy,boss/yokai/human-enemy,633,1020,6593,5912497,Yui Shosetsu,21385,0,3,mission_flag,46078,9999,,2
+217,CE_SHOSETSU_TEXT_1,text_page,enemy,boss/yokai/human-enemy,1374,1021,6593,5912497,Yui Shosetsu,21385,151448667,3,mission_flag,46078,9999,,2
+218,CN_NOBUTSUNA,entry,character,npc/ally(human),7867,1022,0,6318434,Matsudaira Nobutsuna,23763,0,10,table31_ref,33814,9999,,2
+219,CN_NOBUTSUNA_TEXT_1,text_page,character,npc/ally(human),8109,1023,7867,6318434,Matsudaira Nobutsuna,23763,153497593,10,table31_ref,33814,9999,,2
+220,CN_JUUROUBE,entry,character,npc/ally(human),5994,1024,0,6706569,Kawara Jurobei,24913,0,10,table31_ref,33814,9999,,2
+221,CN_JUUROUBE_TEXT_1,text_page,character,npc/ally(human),7996,1025,5994,6706569,Kawara Jurobei,24913,152235555,10,table31_ref,33814,9999,,2
+222,CN_MASAMORI,entry,character,npc/ally(human),4668,1026,0,5465777,Nakane Masamori,24932,0,5,npc_record,48167,9999,1,2
+223,CN_MASAMORI_TEXT_1,text_page,character,npc/ally(human),4234,1027,4668,5465777,Nakane Masamori,24932,151497093,5,npc_record,48167,9999,1,2
+224,CN_MATAZAEMON,entry,character,npc/ally(human),8035,1028,0,5457192,Araki Mataemon,23731,0,10,table31_ref,38667,9999,,2
+225,CN_MATAZAEMON_TEXT_1,text_page,character,npc/ally(human),1764,1029,8035,5457192,Araki Mataemon,23731,151996117,10,table31_ref,38667,9999,,2
+226,CN_MATAZAEMON_TEXT_2,text_page,character,npc/ally(human),3153,1030,8035,5457192,Araki Mataemon,23731,152348466,5,npc_record,22787,9999,1,2
+227,CN_MITSUKUNI,entry,character,npc/ally(human),5849,1031,0,5938197,Tokugawa Mitsukuni,23789,0,10,table31_ref,8684,9999,,2
+228,CN_MITSUKUNI_TEXT_1,text_page,character,npc/ally(human),4490,1032,5849,5938197,Tokugawa Mitsukuni,23789,154276047,10,table31_ref,8684,9999,,2
+229,CN_MITSUKUNI_TEXT_2,text_page,character,npc/ally(human),2792,1033,5849,5938197,Tokugawa Mitsukuni,23789,153354819,10,table31_ref,7932,9999,,2
+230,CN_CHUTA,entry,character,npc/ally(human),7498,1034,0,8114051,Marubashi Chuya,24853;24988,0,10,table31_ref,55477,9999,,2
+231,CN_CHUTA_TEXT_1,text_page,character,npc/ally(human),9503,1035,7498,8114051,Marubashi Chuya,24853;24988,152160073,10,table31_ref,55477,9999,,2
+232,CN_MITSUTAKA,entry,character,npc/ally(human),1200,1036,0,5821893,Maeda Mitsutaka,24867,0,10,table31_ref,20925,9999,,2
+233,CN_MITSUTAKA_TEXT_1,text_page,character,npc/ally(human),1219,1037,1200,5821893,Maeda Mitsutaka,24867,152051140,10,table31_ref,20925,9999,,2
+234,CN_MITSUTAKA_TEXT_2,text_page,character,npc/ally(human),1173,1038,1200,5821893,Maeda Mitsutaka,24867,152825700,5,npc_record,45394,9999,1,2
+235,CN_NAOYOSHI,entry,character,npc/ally(human),6692,1039,0,5171292,Kumagai Naoyoshi,24958,0,5,npc_record,8316,9999,1,2
+236,CN_NAOYOSHI_TEXT_1,text_page,character,npc/ally(human),768,1040,6692,5171292,Kumagai Naoyoshi,24958,152415464,5,npc_record,8316,9999,1,2
