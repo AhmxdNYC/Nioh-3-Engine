@@ -36,6 +36,7 @@
 #include "gpuopt.h"
 #include "gpuprof.h"
 #include "menu.h"
+#include "padlat.h"
 #include "osd.h"
 #include "psoswap.h"
 #include "tilestats.h"
@@ -1090,6 +1091,7 @@ void OnPresent(IDXGISwapChain* sc) {
         }
     }
     g_ctx.lastPresent = now;
+    padlat::OnPresent(g_ctx.q, now);  // 1.7.35 PadLatency: present stamp + GPU-done fence (no-op when off)
     gpuopt::OnFrame();  // once per frame of the drawing (game) swapchain
     gimerge::OnFrame(); // 1.7.29 GIProbe / GIMerge frame counter
     tilestats::OnFrame();
@@ -1457,7 +1459,7 @@ void Start(const StartupInfo& si) {
     if (g_cfg.maxLatency) OLOG("MaxFrameLatency=%d (applied to waitable swapchains as they present)", g_cfg.maxLatency);
     OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f Offset=%d,%d (px at 1080p)", g_cfg.fpsCounter,
          g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale, OffsetX(), OffsetY());
-    if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled()) {
+    if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled() && !padlat::WantsPresentHook()) {
         OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0) - no Present hook");
         return;
     }

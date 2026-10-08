@@ -47,6 +47,7 @@ are plain Win64 ABI and need nothing beyond the ABI.
 | DQ, P1E7 (1.7.32 drawprep.cpp / drawprep.asm) | 1A74C45 (5 B), 1E72C6 (11 B) | asm cave, mid-function (jmp, absolute exits) | safe: DQ writes flags only (the original comiss does too; flags dead at both exits 1A74BD0 / 1A74C4A, `hook_liveness.py after`). P1E7 writes rcx/r10/flags: dead at 1E72D1 except rcx escaping at 1E7050's ret, which 1E7050 clobbers itself (`clob 1E7050`). `tests\run_drawprep_harness.py` compares every GPR + xmm0-15 against the original bytes |
 | GP, D3D12/DXGI vtables (gpuopt, gpuprof, osd, tilestats, psoswap), XInput IAT (menu) | COM / API | skipped (ABI). |
 | PJ (psojournal, 1.7.31) | device vtable slots 10/11/16/47 (CreateGraphics/ComputePipelineState, CreateRootSignature, CreatePipelineState) | COM vtable | safe (ABI): C++ hooks with the exact method signatures, original called first with the caller's arguments, result returned unchanged. |
+| PadLatency (padlat.cpp, 1.7.35) | XInputGetState IAT 0x38E2C50 (chained after/before the menu's hook), ID3D12CommandQueue::Signal on the game's queue from the osd Present hook | import / COM | safe (ABI): exact XInputGetState signature, original called first, result and XINPUT_STATE returned untouched (tests\run_padlat_harness.py: identical for 8000 calls). The TS/IK sites it reads are the existing ones (rows above). |
 
 ## For the loadstats.cpp owner (not edited here)
 - No RISK left in loadstats.cpp. Optional hardening: make `NewSaveThunk` also save xmm0-5 (same layout as the bosslog

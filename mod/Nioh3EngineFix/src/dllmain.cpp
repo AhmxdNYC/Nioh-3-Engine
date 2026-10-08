@@ -39,6 +39,7 @@
 #include "osd.h"
 #include "bosslog.h"
 #include "fnprobe.h"
+#include "padlat.h"
 #include "autocont.h"
 #include "drawprep.h"
 #include "loadonly.h"
@@ -50,7 +51,8 @@
 // 1.7.29: gimerge.cpp (GIProbe / GIMerge, notes\gi-highest-audit.md s6)
 // 1.7.32: drawprep.cpp (DQ retry quantum / P1E7 texture-loop prefetch, notes\mainthread-25.md)
 // 1.7.34: fnprobe.cpp (FnProbe live function probe, notes\remaining-work.md 10.1; tools\playsession)
-#define MOD_VERSION "1.7.34"
+// 1.7.35: padlat.cpp (PadLatency controller input -> Present / GPU-done latency, notes\pad-latency.md)
+#define MOD_VERSION "1.7.35"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -322,6 +324,7 @@ struct Config {
     int ppPeriod = 4, e1N = 2, w6SpinUs = 50, w6TimeoutMs = 1;
     // input latency (1.2.0)
     int ik = 0, ts = 0, ikCapMs = 0;
+    bool tsForPad = false;  // 1.7.35: TS probes on only because [Debug] PadLatency needs their frame stamps
     // worker wakes (1.3.0)
     int wakeStats = 0, ed = 0;
     // GPU-fence waits (1.4.0)
@@ -399,6 +402,7 @@ Config LoadConfig() {
     c.w6TimeoutMs = std::clamp(I(L"Tuning", L"W6_TimeoutMs", c.w6TimeoutMs), 1, 16);
     c.ik = I(L"Patches", L"IK", c.ik);
     c.ts = I(L"Patches", L"TS", c.ts);
+    if (!c.ts && padlat::Wanted(f)) c.ts = 1, c.tsForPad = true;  // PadLatency reads the TS ring (C/L/W/P); measurement only
     c.ikCapMs = std::clamp(I(L"Tuning", L"IK_PadWaitCapMs", c.ikCapMs), 0, 8);
     c.wakeStats = I(L"Patches", L"WakeStats", c.wakeStats);
     c.ed = I(L"Patches", L"ED", c.ed);
@@ -1801,8 +1805,8 @@ DWORD WINAPI Worker(LPVOID) {
             lat_ts = 1;
             return true;
         });
-    if (s_ikDone) Log("IK: input kick %s (pad-stage wait cap %d ms)%s", cfg.ik ? "at the logic-frame start" : "stock (switch off)",
-                      cfg.ikCapMs, s_tsDone ? "; TS probes on" : "");
+    if (s_ikDone) Log("IK: input kick %s (pad-stage wait cap %d ms)%s%s", cfg.ik ? "at the logic-frame start" : "stock (switch off)",
+                      cfg.ikCapMs, s_tsDone ? "; TS probes on" : "", s_tsDone && cfg.tsForPad ? " (for [Debug] PadLatency)" : "");
     exDone[menu::kExpIK] = s_ikDone;
     exDone[menu::kExpTS] = s_tsDone;
 
@@ -2389,6 +2393,19 @@ DWORD WINAPI Worker(LPVOID) {
             fi.base = reinterpret_cast<uintptr_t>(g_base);
             fi.knownBuild = known;
             fnprobe::Start(fi);
+        }
+        {  // PadLatency (padlat.cpp, [Debug] PadLatency = 0 by default; notes\pad-latency.md): measurement only
+            padlat::StartInfo li;
+            li.log = &Log;
+            li.iniPath = iniPath.c_str();
+            li.base = g_base;
+            li.knownBuild = known;
+            if (exDone[menu::kExpTS]) {
+                li.tsRing = reinterpret_cast<const volatile int64_t*>(lat_ring);
+                li.tsRingIdx = &lat_ringidx;
+                li.tsOn = &lat_ts;
+            }
+            padlat::Start(li);  // before osd::Start: osd asks padlat::WantsPresentHook()
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;

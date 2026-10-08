@@ -2,6 +2,7 @@
 Read this section only; everything older is under '## History' (unchanged). Latest commit when written: 7b4bd34 (ASI 1.7.21).
 
 ## CURRENT STATE
+- 2026-10-08: ASI 1.7.35: [Debug] PadLatency (controller input->present/GPU-done + poll interval, notes\pad-latency.md); play session kit sets PadLatency=1.
 - 2026-10-08: ASI 1.7.34 in src/bin (FnProbe, remaining-work 10.1) + one-click play session kit tools\playsession (desktop 'Nioh3 Session START'/'STOP'; README there). Not installed in the game folder: START installs it per session and STOP restores.
 - Latest ASI = 1.7.26 (2026-10-08): 1.7.25 + PF trace prefetch for the cold ReadFileEx 631FD5 / 31305A reads (default off, not run in game; src\prefetch.cpp, notes\loading-ally-fixed.md 8.8 incl. the Ally protocol) + base ini fixes (remaining-work 6.6). 1.7.25 = read fixes SR / RC / AQ / TSY / SH, all default off, not run in game (src\readfix.cpp; notes\loading-ally-fixed.md 8.7). Ally 1.7.23 R1: EP cut the load 98.9 -> 50.1 s (captures\ally\1723\). Older: 1.7.21 RematchLog Phase 0 + BossLog + LoadGates probe LG.
 - PC game folder: ASI 1.7.21 + full-mod ini with [GpuOpt] Barriers=0 (Barriers=1 measured -7 % on PC). Last PC round was 1.7.16 (captures\tm\results_pc_1716.md).

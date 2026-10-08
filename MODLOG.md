@@ -605,3 +605,13 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   byte-identical, release lock, summarize.py -> captures\playsession\<stamp>-session\report.md. Dry run (test_session.ps1)
   DRY RUN OK; summarize.py --selftest OK. No input injection anywhere.
 - Undo: delete the two desktop shortcuts. A session in progress is undone by STOP (or copy `<session>\orig\*` back to the game folder).
+
+## 2026-10-08 - ASI 1.7.35: PadLatency controller latency measurement (default off; nothing in the game folder changed)
+- ADD `[Debug] PadLatency = 0`, `PadLatencyReportSec = 30` (new src\padlat.cpp/.h, padlat_core.h; notes\pad-latency.md). Measurement only:
+  chains the game's XInputGetState import (XINPUT1_4 #2, the only pad API besides the Sony HID path; no RawInput/GameInput), stamps each
+  pad change as the game reads it, follows it through the TS ring (C->L->W->P, PadLatency switches TS on) to the next hooked Present and to
+  that frame's GPU completion (own fence, one Signal per frame on the game's queue). Logs per window + session total: changes, input->present
+  and input->GPU-done p50/p95/p99, the game's poll interval p50/p95/p99. osd keeps its Present hook when PadLatency is on.
+- Tests: tests\run_padlat_harness.py PADLAT: ALL PASSED (exact timeline stock 32.257 / IK 23.540 ms, GPU, poll, expiry, ring, real hook
+  pass-through + cost ~40 ns/call, dump imports, wiring), test_patterns ALL 228 SITES OK, WG harness ALL PASSED. Not run in game.
+- Undo: PadLatency = 0 (default), or the 1.7.34 .asi.
