@@ -1,0 +1,34 @@
+rva	kind	name	signature	description	confidence	source
+0x3b2a04	function	FastTravelSeqTick	void FastTravelSeqTick(Seq* s, float dt60)	fast-travel/warp state machine (states 1-8): 2 sets stop flag 58A (3B2B8A), 4 warps the player after the fade, 5/6 wait LoadIsLoadEnd + StagePathInitStep + settle gates, 7 waits the popping wait [s+40h] then clears 58A (3B32AD)	high	notes/loading-bottleneck.md
+0x3b29e4	function	FastTravelSeqTickCall		calls FastTravelSeqTick with g_FastTravelSeq; from PerFrameUpdater 5651D0	high	notes/loading-bottleneck.md
+0x4757470	global	g_FastTravelSeq	Seq*	FastTravelSeqTick state: +0 state int, +4 timer float (dt60 units), +10h warp request (pos, rot, area id), +40h popping-wait float, +111h owns-58A byte	high	notes/loading-bottleneck.md
+0x3b2120	function	FastTravelSeqReset		ends/aborts the fast-travel sequence; clears 58A at 3B21C4 if owned	medium	notes/loading-bottleneck.md
+0x3b2488	function	FastTravelSeqRequest	void FastTravelSeqRequest(Seq* s, Req* r)	queues a warp request: idle -> copy to s+10h and state 1, else to the pending slot s+90h	high	notes/loading-bottleneck.md
+0x22395ac	function	FastTravelRequestPost	void FastTravelRequestPost(Req* r)	FastTravelSeqRequest(g_FastTravelSeq, r) if the sequencer exists	high	notes/loading-bottleneck.md
+0x3b2528	function	FastTravelFillWarpPoint	bool FastTravelFillWarpPoint(Req* r, u32 pointId)	fills the request position/rotation/area from warp point pointId	medium	notes/loading-bottleneck.md
+0x1c10f48	function	FastTravelRequestShrine	void FastTravelRequestShrine(bool alt)	native warp request to the current/registered shrine point; popping wait 0	medium	notes/loading-bottleneck.md
+0x1c282cc	function	FastTravelRequestTo	void FastTravelRequestTo(u32 a, u32 pointId, u32 b)	native warp request to a point; popping wait 0	medium	notes/loading-bottleneck.md
+0x5643a0	function	WarpSeqBTick	void WarpSeqBTick(Seq* s, float dt60)	second warp sequencer: state 1 (> 25 units + UiFadeIdle) sets 58A (564684), state 2 (> 10 units + LoadIsLoadEnd) clears it (56460F)	high	notes/loading-bottleneck.md
+0x56437c	function	WarpSeqBTickCall		calls WarpSeqBTick with g_WarpSeqB and dt [rax+18h]; from PerFrameUpdater 5651D0	high	notes/loading-bottleneck.md
+0x47098a0	global	g_WarpSeqB	Seq*	WarpSeqBTick state: +0 state int, +4 timer float	high	notes/loading-bottleneck.md
+0x3b35b4	function	StagePathInitStep	bool StagePathInitStep(PathInit* p, bool full)	stage path/navmesh init state machine at stage+500h (state byte +389h, 0..5); returns state == 5; gate G1 of LoadIsLoadEnd	medium	notes/loading-bottleneck.md
+0x8b3868	function	StageAreaListBusy	bool StageAreaListBusy(AreaList* l)	stage+540h: nonzero while an area entry's load has not finished; gate G2 of LoadIsLoadEnd	medium	notes/loading-bottleneck.md
+0x3b3974	function	StageRequestQueueBusy	bool StageRequestQueueBusy(Ring* q)	stage+450h ring: any request in state 1..3; gate G3 of LoadIsLoadEnd	high	notes/loading-bottleneck.md
+0x3b3934	function	UiLoadPairReady	bool UiLoadPairReady(void)	[45C84A8] 5A3818(0) && 5A3818(1); gate G4 of LoadIsLoadEnd (only when byte 45C6F2C)	low	notes/loading-bottleneck.md
+0x13335c	function	ObjectListAnyNotReady	bool ObjectListAnyNotReady(ObjMgr* m)	CS-locked walk of the object list of [45B9E60]: 1 if an object has +2C8h == 0 (not set up); gate G5 of LoadIsLoadEnd	medium	notes/loading-bottleneck.md
+0x2be284	function	LoadEndBlockerScan	bool LoadEndBlockerScan(u32* a, u32* b)	when [[45B9E40]+2679h], walks [[45B9E40]+48h] entries; 0 when a blocking entry exists; gate G7 of LoadIsLoadEnd	low	notes/loading-bottleneck.md
+0x3b3a28	function	StageAreasObjectsReady	bool StageAreasObjectsReady(Stage* s, bool force, u32 area)	areas at stage+540h: 0 while an area object has +1F0h == 0, +1ECh != 0 or +1C0h != 0; gate G8 of LoadIsLoadEnd	medium	notes/loading-bottleneck.md
+0x3b3ad8	function	UiFadeIdle	bool UiFadeIdle(void)	[45C84A8]+170h widget: vfunc +100h / +48h; 1 when no fade is running	low	notes/loading-bottleneck.md
+0x5a377c	function	UiBlockingWidgetActive	bool UiBlockingWidgetActive(void)	[45C84A8]+430h widget active (vfunc +48h or 5A37BC); FastTravelSeqTick state 6 waits until 0	low	notes/loading-bottleneck.md
+0x6372a0	function	UiLoadingScreenStart	void UiLoadingScreenStart(void)	[45C84A8]+748h loading-screen widget start (script UI::LoadStart, sequencers)	medium	notes/loading-bottleneck.md
+0x3b1b6c	function	UiLoadingScreenEnd	void UiLoadingScreenEnd(void)	[45C84A8]+748h vfunc +38h(0) (script UI::LoadEnd, sequencers before the 58A clear)	medium	notes/loading-bottleneck.md
+0x45c84a8	global	g_UiManager	UiMgr*	+170h fade widget, +430h blocking widget, +748h loading screen	medium	notes/loading-bottleneck.md
+0x45b9e60	global	g_ObjectManager	ObjMgr*	object list walked by ObjectListAnyNotReady 13335C (object ready byte +2C8h)	medium	notes/loading-bottleneck.md
+0x23a2930	function	Script_Load_StageStreamingStart		mission-script Load::StageStreamingStart (table 3980AE0): stage+11F1h = 1	high	notes/loading-bottleneck.md
+0x23a28c4	function	Script_Load_StageStreamingEnd		mission-script Load::StageStreamingEnd (table 3980AF0): stage+11F1h = 0	high	notes/loading-bottleneck.md
+0x23a23a0	function	Script_Load_Stage		mission-script Load::Stage (table 3980A70) -> 1FB46E8(stage, id, 0)	high	notes/loading-bottleneck.md
+0xa429f4	function	Script_Load_Character		mission-script Load::Character (table 3980A40)	high	notes/loading-bottleneck.md
+0x23b42a0	function	Script_UI_LoadStart		mission-script UI::LoadStart (table 3981D70) -> UiLoadingScreenStart	high	notes/loading-bottleneck.md
+0x23b4240	function	Script_UI_LoadEnd		mission-script UI::LoadEnd (table 3981D80) -> UiLoadingScreenEnd	high	notes/loading-bottleneck.md
+0x23a6120	function	Script_Movie_IsEndOfPlay		mission-script Movie::IsEndOfPlay (table 3982470)	high	notes/loading-bottleneck.md
+0x23a61b0	function	Script_Movie_Request		mission-script Movie::Request (table 3982450)	high	notes/loading-bottleneck.md

@@ -411,3 +411,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - With VBC, a waiting tile could later be marked valid with data that streamed in later than stock. That is not provably the same image.
 - No VBC flag or code was added; the ASI stays 1.7.16.
 - Undo: nothing to undo.
+
+## 2026-10-08 - Load wall-time bottleneck (static + PC LoadStats; nothing installed or patched)
+- `notes/loading-bottleneck.md`: PC title->Continue 58A window 25.8 s; the resource managers drain at +9.9..+13.0 s and LC/LW/GL1 change nothing, so the last ~15 s wait on an unmeasured LoadIsLoadEnd gate (G1-G8) or sequencer state; PSO, zlib, disk, Sleep polls, ready-wait and the 2.10 s + 0.59 s UI fades written off.
+- 58A owners decoded (FastTravelSeqTick 3B2A04, WarpSeqBTick 5643A0, Pause::SetFlag); probe LG specified for the next PC/Ally load test.
+- Symbols: `re/symbols/incoming/load-renames.tsv`. Script: `re/scripts_load/ls_digest.py`. Data: `captures/pc/loadstats/`.
+- Undo: nothing to undo.

@@ -135,3 +135,4 @@ flags (/W4).
   answer most of it; the script that sets/clears 58A is not identified.
 - GameMain+4Dh is expected 0 (cap 10) in retail; LoadStats logs it.
 - Manager queue fields are read from the decompile only (+200h/+210h are counts); LoadStats ignores implausible values.
+- 2026-10-08 PC LoadStats: see `notes\loading-bottleneck.md` - managers drain >= 12 s before the clear, LC/LW/GL1 = 0; the window ends on LoadIsLoadEnd preconditions or a sequencer settle state (probe LG). The 118.7 s Ally route is 25.8 s on PC.

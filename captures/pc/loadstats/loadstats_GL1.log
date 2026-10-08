@@ -1,0 +1,248 @@
+[06:06:18.927] Nioh3EngineFix 1.7.16 (built Oct  8 2026) - native port of the live-tested Nioh 3 engine patches
+[06:06:18.927] Nioh3.exe at 00007FF64AF80000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[06:06:19.136] code is decrypted (219 ms after start)
+[06:06:19.137] resolving sites:
+[06:06:19.144]   W1   OK at RVA 61BAC
+[06:06:19.147]   W2a  OK at RVA 13721F
+[06:06:19.158]   W2b  OK at RVA 137269
+[06:06:19.169]   W2c  OK at RVA 1372B4
+[06:06:19.179]   W2d  OK at RVA 1372FE
+[06:06:19.190]   P3a  OK at RVA 43593A
+[06:06:19.206]   P3b  OK at RVA 437EE5
+[06:06:19.216]   P3c  OK at RVA 438473
+[06:06:19.226]   P3d  OK at RVA 55DC56
+[06:06:19.237]   P3e  OK at RVA 5AF6C9
+[06:06:19.248]   P3f  OK at RVA 29770C6
+[06:06:19.257]   P3g  OK at RVA 29771B4
+[06:06:19.266]   P6   OK at RVA 1975BAA
+[06:06:19.284]   P8a  OK at RVA 20E77B
+[06:06:19.298]   P8b  OK at RVA 5AF526
+[06:06:19.316]   P8c  OK at RVA 5AF682
+[06:06:19.334]   P8d  OK at RVA 5AF69F
+[06:06:19.346]   P9   OK at RVA 5AD89B
+[06:06:19.359]   P2   OK at RVA 5AD6AA
+[06:06:19.374]   P4   OK at RVA 5AD860
+[06:06:19.388]   P1   OK at RVA 5AD677
+[06:06:19.403]   W3   OK at RVA 1A6BF2D
+[06:06:19.414]   R1   OK at RVA 4A5346
+[06:06:19.428]   R1j  OK at RVA 4A5357
+[06:06:19.452]   L1   OK at RVA 19DF57E
+[06:06:19.469]   F1   OK at RVA 3777A40
+[06:06:19.479]   WK   OK at RVA 40A4C
+[06:06:19.489]   B    OK at RVA 3BC17
+[06:06:19.514]   PP   OK at RVA 252677
+[06:06:19.537]   W6   OK at RVA 7D9EA2
+[06:06:19.551]   W6W  OK at RVA 1A822D9
+[06:06:19.573]   GF1  OK at RVA 7D9E66
+[06:06:19.593]   GF2  OK at RVA 117D9F
+[06:06:19.607]   WL   OK at RVA 4A5338
+[06:06:19.620]   CP   OK at RVA D8180
+[06:06:19.635]   DL   OK at RVA D83F4
+[06:06:19.642]   MQ   OK at RVA 88780
+[06:06:19.663]   PT1a OK at RVA 114CA8
+[06:06:19.681]   PT1r OK at RVA 114CEE
+[06:06:19.691]   PT1b OK at RVA 129651
+[06:06:19.700]   PT1c OK at RVA 12982E
+[06:06:19.709]   PT1d OK at RVA 1298B3
+[06:06:19.720]   GL1a OK at RVA E266D1
+[06:06:19.733]   GL1b OK at RVA E26690
+[06:06:19.734] near page at 00007FF64AF70000
+[06:06:19.766]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[06:06:19.766] W1: applied (1 site(s), 1 attempt(s))
+[06:06:19.793]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[06:06:19.793] W2a: applied (1 site(s), 1 attempt(s))
+[06:06:19.820]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[06:06:19.820] W2b: applied (1 site(s), 1 attempt(s))
+[06:06:19.847]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[06:06:19.847] W2c: applied (1 site(s), 1 attempt(s))
+[06:06:19.873]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[06:06:19.873] W2d: applied (1 site(s), 1 attempt(s))
+[06:06:19.873] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[06:06:19.873] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[06:06:19.873] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[06:06:19.898]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[06:06:19.898]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[06:06:19.898]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[06:06:19.898]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[06:06:19.898]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[06:06:19.898]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[06:06:19.898]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[06:06:19.898]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[06:06:19.898]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[06:06:19.898]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[06:06:19.898]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[06:06:19.898]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[06:06:19.898]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[06:06:19.898]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[06:06:19.898]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[06:06:19.898]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[06:06:19.898] VRR: applied (16 site(s), 1 attempt(s))
+[06:06:19.925]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[06:06:19.925] W3: applied (1 site(s), 1 attempt(s))
+[06:06:19.952]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[06:06:19.952]   R1j  RVA 4A5357   patched: 75 ED 
+[06:06:19.952] R1: applied (2 site(s), 1 attempt(s))
+[06:06:19.978]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[06:06:19.978] L1: applied (1 site(s), 1 attempt(s))
+[06:06:20.003]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[06:06:20.003] F1: applied (1 site(s), 1 attempt(s))
+[06:06:20.029]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[06:06:20.029] WK: applied (1 site(s), 1 attempt(s))
+[06:06:20.063]   W6   RVA 7D9EA2   patched: E8 B9 62 81 FF 0F 1F 00 
+[06:06:20.063] W6: applied (1 site(s), 1 attempt(s))
+[06:06:20.097]   W6W  RVA 1A822D9  patched: E8 92 DE 56 FE 66 90 
+[06:06:20.097] W6W: applied (1 site(s), 1 attempt(s))
+[06:06:20.097] W6: hybrid present wait on (spin 50 us, then WaitOnAddress, 1 ms timeout); waker at the Present thread's flag clear installed
+[06:06:20.132]   B    RVA 3BC17    patched: E9 C4 44 FB FF 
+[06:06:20.132] B: applied (1 site(s), 1 attempt(s))
+[06:06:20.168]   PP   RVA 252677   patched: E8 74 DA D9 FF 
+[06:06:20.168] PP: applied (1 site(s), 1 attempt(s))
+[06:06:20.207]   GL1a RVA E266D1   patched: E9 8A 9C 1C FF 0F 1F 44 00 00 
+[06:06:20.207]   GL1b RVA E26690   patched: E9 DB 9C 1C FF 
+[06:06:20.207] GL1: applied (2 site(s), 1 attempt(s))
+[06:06:20.207] GL1: task-list prefetch installed (E266D1 proximity pass, E26690 task-state pass)
+[06:06:20.237]   GF1  RVA 7D9E66   patched: E8 05 64 81 FF 0F 1F 00 
+[06:06:20.237]   GF2  RVA 117D9F   patched: E8 DC 84 ED FF 0F 1F 00 
+[06:06:20.237] GF: applied (2 site(s), 1 attempt(s))
+[06:06:20.237] GF: GPU-fence waits use SetEventOnCompletion + an event wait (100 ms rounds) instead of Sleep(0)
+[06:06:20.275]   WL   RVA 4A5338   patched: E8 53 AF B4 FF 90 
+[06:06:20.275] WL: applied (1 site(s), 1 attempt(s))
+[06:06:20.311]   CP   RVA D8180    patched: E9 2B 81 F1 FF 66 90 
+[06:06:20.311]   DL   RVA D83F4    patched: E8 F7 7E F1 FF 
+[06:06:20.311] CP: applied (2 site(s), 1 attempt(s))
+[06:06:20.311] CP/SPF: worker prefetch caves installed: CP ON, SPF -
+[06:06:20.311] DL: dead first part-map lookup (D83F4, CP group) switch ON
+[06:06:20.346]   MQ   RVA 88780    patched: E9 7B 7B F6 FF 0F 1F 44 00 00 
+[06:06:20.346] MQ: applied (1 site(s), 1 attempt(s))
+[06:06:20.346] MQ: MatrixFromScaleQuatTrans SSE cave installed, switch ON
+[06:06:20.379]   PT1a RVA 114CA8   patched: E8 63 B6 ED FF 90 
+[06:06:20.380]   PT1r RVA 114CEE   patched: E8 2D B6 ED FF 90 
+[06:06:20.380]   PT1b RVA 129651   patched: E9 DA 6C EC FF 66 90 
+[06:06:20.380]   PT1c RVA 12982E   patched: E9 0D 6B EC FF 66 90 
+[06:06:20.380]   PT1d RVA 1298B3   patched: E9 98 6A EC FF 0F 1F 44 00 00 
+[06:06:20.380] PT1: applied (5 site(s), 1 attempt(s))
+[06:06:20.380] PT1: pool lock held once per texture in TextureStreamRequestTiles, switch ON
+[06:06:20.380] TG: tick governor available (switch off, floor 30 ticks/s, ratio 125 %)
+[06:06:20.381] MENU: game menu signal (5A37D4 / D63C0): bytes verified; pause hint source Both
+[06:06:20.381] MENU: frame generation: live switch through the game's FrameGenSettingWrite (0x1FDDFCC) verified
+[06:06:20.381] MENU: enabled - key F10, controller triple-tap Start (window 900 ms, gap 300 ms, swallow 1), scale auto, pause hint on (flags mask 18)
+[06:06:20.382] GPUOPT: Barriers=1 MergeAcrossBinds=1 DropDuplicateUav=1 DropUndoPairs=0 MaxBatch=64 DeferThreads="SynergisticDispatcher" AnyCaller=0 TraceRecords=0 R2a=0 R2b=0 R1=0
+[06:06:20.383] MEM: MemStats on - one 'stats mem:' line per stats period (process memory, handles, threads, VRAM)
+[06:06:20.383] LoadStats: mode 1, 25/25 sites hooked, 0 differ, 0 skipped
+[06:06:20.384] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00 Offset=0,160 (px at 1080p)
+[06:06:20.384] done: 21 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[06:06:23.715] OSD: engine is rendering (3328 ms after start) - installing the Present hook
+[06:06:23.716] OSD: system d3d12 C:\WINDOWS\SYSTEM32\d3d12.dll+0, dxgi C:\Program Files (x86)\Steam\steamapps\common\Nioh3\dxgi.dll+0
+[06:06:23.740] OSD: dummy swapchain 00000202B8FB0FB0, vtable C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\WINDOWS\SYSTEM32\D3D12Core.dll+255230
+[06:06:23.741] OSD: hooked ExecuteCommandLists: vtable slot 00007FFEAD585280, original C:\WINDOWS\SYSTEM32\D3D12Core.dll+11280
+[06:06:23.741] OSD: hooked Present: vtable slot 00007FFF229A6368, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+29090
+[06:06:23.741] OSD: hooked Present1: vtable slot 00007FFF229A63D8, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[06:06:23.741] OSD: hooked SetColorSpace1: vtable slot 00007FFF229A6458, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[06:06:23.744] OSD: Present called from thread 32508 "AMD FSR Presenter Thread"
+[06:06:23.744] OSD: MaxFrameLatency: swapchain 00000200D13955A0 (flags 842) - the game's maximum frame latency is 1
+[06:06:23.744] OSD: captured DIRECT queue 00000200D13EE240 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255230, presenting thread), device 00000200DED3AE90 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0); back buffer device 00000200DED3AE90 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0) -> same device, using it
+[06:06:23.744] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[06:06:23.744] OSD: swapchain 00000200D13955A0: 2560x1440 fmt 87, 3 buffers, swap effect 4, flags 842; queue 00000200D13EE240 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255230), device 00000200DED3AE90
+[06:06:23.745] OSD: drawing context ready (build #1)
+[06:06:23.745] MENU: keyboard: DirectInput is not hooked - polling GetAsyncKeyState (the game will also see menu key presses)
+[06:06:23.745] MENU: engine stop flags (G+588..58D) now: none
+[06:06:23.745] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[06:06:23.745] OSD: pipeline created for back buffer format 87
+[06:06:23.745] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to XINPUT1_4.dll+9A60
+[06:06:23.745] OSD: first overlay frame drawn (33 quads)
+[06:06:23.746] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+38238, original DINPUT8.dll+13060
+[06:06:23.746] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+38100, original DINPUT8.dll+13060
+[06:06:23.746] MENU: own XInput for fallback polling: XINPUT1_4.dll+9A60
+[06:06:23.746] MENU: ready - open with F10 / Esc x3 / Start x3
+[06:06:23.752] GPUOPT: vtable set 0 at D3D12Core.dll+0x30E830: 86 slots, 78 thunks + ResourceBarrier hooked (original D3D12Core.dll+0x23B280)
+[06:06:23.752] GPUOPT: vtable set 1 at D3D12Core.dll+0x30ED90: 86 slots, 78 thunks + ResourceBarrier hooked (original D3D12Core.dll+0x23B280)
+[06:06:23.752] GPUOPT: installed - batching ON
+[06:06:23.754] GPUOPT: first deferred barrier: thread 26572, caller Nioh3.exe+0x115E9D, list 00000200D1B45BE0 (vtable set 0)
+[06:06:23.754] GPUOPT: ResourceBarrier on the dispatcher thread from amd_fidelityfx_upscaler_dx12.dll+0x5BF0 is not deferred (only Nioh3.exe / sl.interposer.dll; [GpuOpt] AnyCaller = 1 to allow)
+[06:06:24.148] OSD: Present called from thread 20132 "AMD FSR Presenter Thread"
+[06:06:24.148] OSD: MaxFrameLatency: swapchain 000002034346D320 (flags 842) - the game's maximum frame latency is 1
+[06:06:24.156] OSD: Present called from thread 31420 ""
+[06:06:25.021] OSD: presenting swapchain changed 00000200D13955A0 -> 000002034346D320
+[06:06:25.024] OSD: captured DIRECT queue 00000202EB92FCD0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255230, presenting thread), device 00000200DED3AE90 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0); back buffer device 00000200DED3AE90 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0) -> same device, using it
+[06:06:25.024] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[06:06:25.024] OSD: swapchain 000002034346D320: 2560x1440 fmt 87, 3 buffers, swap effect 4, flags 842; queue 00000202EB92FCD0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255230), device 00000200DED3AE90
+[06:06:25.025] OSD: drawing context ready (build #2)
+[06:06:25.025] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[06:06:25.025] OSD: pipeline created for back buffer format 87
+[06:06:25.441] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[06:06:25.525] OSD: game settings: FRAME_GENERATION FSR (2), RESOLUTION_SCALING XeSS (3)
+[06:06:25.525] OSD: FG state: ON - paused (game menu open) [setting 2, game thread 119.0/s, presenter thread 0.0/s, ratio 1.00, pause reason 1]
+[06:06:26.033] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 120.1/s, presenter thread 0.0/s, ratio 1.00, pause reason 0]
+[06:06:26.534] OSD: FG state: ON - NOT running (no presenter thread) [setting 2, game thread 119.9/s, presenter thread 0.0/s, ratio 1.00, pause reason 0]
+[06:06:34.536] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[06:06:35.104] OSD: FG state: ON - paused (game menu open) [setting 2, game thread 119.9/s, presenter thread 0.0/s, ratio 1.00, pause reason 1]
+[06:06:50.407] stats/s gpuopt: on: 155 barriers/frame in 143 calls -> 98 calls (-31 %), dropped 1.0/frame, undo pairs 0.0/frame, max batch 10
+[06:06:50.407] stats cpu: MQ ON, calls 48373 (+48373 in 30 s) | PT1 ON, textures claimed 0 (+0), lock pairs saved 0 (+0) | DL ON, lookups skipped 0 (+0)
+[06:06:50.407] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 119.7/s vs rendered 119.7/s, L1 timer sleeps 106/s
+[06:06:50.407] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[06:06:50.446] MEM: VRAM source: AMD Radeon RX 9070 (the game's device, by LUID), LUID 00000000:00018C04, dedicated 16189 MB, shared 15940 MB
+[06:06:50.446] stats mem: private 12977 MB, working set 5232 MB (peak 5232), commit 12977 MB, handles 2659, threads 240, VRAM local used/budget 4512/15417 MB, non-local 186/15172 MB | sys RAM avail 10328 MB, commit 50567/51043 MB
+[06:06:50.446] stats/s WL: waitable handles closed 0 (total 1, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[06:06:50.446] stats/s GF: fence waits 88, avg wait 162 us, fallbacks to Sleep(0) 0 (switch ON)
+[06:06:50.447] stats/s: W3 waits 604 (MsgWait), L1 timer sleeps 107, F1 timer sleeps 1, WK wakes kept 8534 / skipped 287
+[06:06:50.447] stats/s exp: W6 waits 0 avg 3793 us (slept 0, spun 0, wakes 0) | PP scans 26 skipped 79 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[06:06:55.302] OSD: stats: rendered 120.1 fps, displayed 120.1 fps (x1.00, FG off, 1 chain(s), threads game 120.1/s presenter 0.0/s), game ticks 120.1/s, speed 1.00x, vrr tier 120 cap 120 armed 120, draws 3623, skipped 0
+[06:07:07.959] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[06:07:07.998] OSD: Present called from thread 32068 "AMD FSR Presenter Thread"
+[06:07:08.532] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 0.0/s, presenter thread 130.6/s, ratio 1.00, pause reason 0]
+[06:07:20.465] stats/s gpuopt: on: 576 barriers/frame in 565 calls -> 245 calls (-57 %), dropped 21.1/frame, undo pairs 9.0/frame, max batch 20
+[06:07:20.465] stats cpu: MQ ON, calls 33377461 (+33329088 in 30 s) | PT1 ON, textures claimed 28080 (+28080), lock pairs saved 154694 (+154694) | DL ON, lookups skipped 0 (+0)
+[06:07:20.465] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 120.0/s vs rendered 126.0/s, L1 timer sleeps 118/s
+[06:07:20.465] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[06:07:20.503] stats mem: private 14792 MB, working set 5484 MB (peak 5484), commit 14792 MB, handles 2717, threads 245, VRAM local used/budget 6415/15417 MB, non-local 190/15172 MB | sys RAM avail 10323 MB, commit 52136/53103 MB | since start (1 min): private +1815, ws +252, handles +58, threads +5, VRAM local +1903, non-local +4
+[06:07:20.503] stats/s WL: waitable handles closed 0 (total 1, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[06:07:20.503] stats/s GF: fence waits 221, avg wait 475 us, fallbacks to Sleep(0) 0 (switch ON)
+[06:07:20.503] stats/s: W3 waits 625 (MsgWait), L1 timer sleeps 118, F1 timer sleeps 27, WK wakes kept 14194 / skipped 197
+[06:07:20.503] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 22 skipped 68 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[06:07:25.661] OSD: stats: rendered 123.9 fps, displayed 123.9 fps (x1.00, FG off, 1 chain(s), FSR presenter, threads game 0.0/s presenter 123.9/s), game ticks 119.9/s, speed 1.00x, vrr tier 120 cap 120 armed 120, draws 7201, skipped 0
+[06:07:32.214] OSD: FG state: ON - running (119 -> 193 fps) [setting 2, game thread 0.0/s, presenter thread 192.9/s, ratio 1.62, pause reason 0]
+[06:07:44.809] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[06:07:45.263] OSD: FG state: ON - paused (game menu open) [setting 2, game thread 107.6/s, presenter thread 29.9/s, ratio 0.28, pause reason 1]
+[06:07:46.913] LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[06:07:46.916] MENU: engine stop flags (G+588..58D) now: 58A
+[06:07:50.523] stats/s gpuopt: on: 1159 barriers/frame in 1138 calls -> 486 calls (-57 %), dropped 53.4/frame, undo pairs 25.8/frame, max batch 20
+[06:07:50.523] stats cpu: MQ ON, calls 87304874 (+53927413 in 30 s) | PT1 ON, textures claimed 91247 (+63167), lock pairs saved 690104 (+535410) | DL ON, lookups skipped 25838 (+25838)
+[06:07:50.523] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 117.1/s vs rendered 115.2/s, L1 timer sleeps 115/s
+[06:07:50.523] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[06:07:50.594] stats mem: private 15706 MB, working set 5833 MB (peak 5833), commit 15706 MB, handles 2804, threads 240, VRAM local used/budget 7149/15417 MB, non-local 190/15172 MB | sys RAM avail 9876 MB, commit 53143/54147 MB | since start (1 min): private +2729, ws +601, handles +145, threads +0, VRAM local +2638, non-local +4
+[06:07:50.594] stats/s WL: waitable handles closed 0 (total 1, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[06:07:50.594] stats/s GF: fence waits 520, avg wait 172 us, fallbacks to Sleep(0) 0 (switch ON)
+[06:07:50.594] stats/s: W3 waits 607 (MsgWait), L1 timer sleeps 115, F1 timer sleeps 76, WK wakes kept 28197 / skipped 269
+[06:07:50.594] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 23 skipped 69 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[06:07:55.867] OSD: stats: rendered 108.6 fps, displayed 108.6 fps (x1.00, FG off, 1 chain(s), threads game 108.6/s presenter 0.0/s), game ticks 110.6/s, speed 1.01x, vrr tier 120 cap 120 armed 116, draws 12081, skipped 0
+[06:08:12.723] MENU: engine stop flags (G+588..58D) now: none
+[06:08:12.730] LoadStats #1: 25.8 s | frames 2909 (8.9 ms) | CPU 8.54 cores | stage ready +0.6 s | loaders busy 9.6/5.2 s (first +0.0, last +11.1), in-flight avg A 9.6 B 4.2 of 10 (at cap A 89 % B 21 %), pending avg A 354.3 B 5.7 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[06:08:12.730] LoadStats #1 io: read 1544 MB archive (68320 calls, 2202 MB overlapped, 965 ms in-call) + 658 MB other (584167 calls, 2236 ms) | inflate 5.40 CPU-s, 76978 chunks, 452 -> 1043 MB, 0 failed, max 4 parallel, 4 threads so far | PSO gfx 27 rt + 0 preload, cmp 8 rt + 0 preload, 0.00 CPU-s, max 21.6 ms | mgr Sleep(1) A idle 6536, A no-progress 1463, B idle 8500
+[06:08:12.730] LoadStats #1 split [set->stage ready] 0.6 s: frames 72 (8.4 ms) | CPU 9.12 cores | read 24 MB (in-call 126 ms) | inflate 0.53 s, 12531 ch, 74->149 MB | PSO 8 (gfx 8+0 pre, cmp 0+0 pre) in 0.00 s
+[06:08:12.730] LoadStats #1 split [stage ready->clear] 25.2 s: frames 2837 (8.9 ms) | CPU 8.53 cores | read 2178 MB (in-call 3074 ms) | inflate 4.87 s, 64447 ch, 378->893 MB | PSO 27 (gfx 19+0 pre, cmp 8+0 pre) in 0.00 s
+[06:08:13.315] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[06:08:13.337] OSD: Present called from thread 18992 "AMD FSR Presenter Thread"
+[06:08:13.509] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 69.8/s, presenter thread 63.8/s, ratio 0.91, pause reason 0]
+[06:08:14.009] OSD: FG state: ON - running (106 -> 164 fps) [setting 2, game thread 0.0/s, presenter thread 163.8/s, ratio 1.55, pause reason 0]
+[06:08:20.619] stats/s gpuopt: on: 656 barriers/frame in 644 calls -> 278 calls (-57 %), dropped 18.0/frame, undo pairs 10.7/frame, max batch 20
+[06:08:20.619] stats cpu: MQ ON, calls 109552994 (+22248120 in 30 s) | PT1 ON, textures claimed 171775 (+80528), lock pairs saved 849480 (+159376) | DL ON, lookups skipped 1098708 (+1072870)
+[06:08:20.619] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 104.9/s vs rendered 104.9/s, L1 timer sleeps 7/s
+[06:08:20.619] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[06:08:20.715] stats mem: private 17571 MB, working set 6330 MB (peak 6330), commit 17571 MB, handles 2822, threads 244, VRAM local used/budget 9142/15417 MB, non-local 191/15172 MB | sys RAM avail 9389 MB, commit 55065/56211 MB | since start (2 min): private +4594, ws +1099, handles +163, threads +4, VRAM local +4630, non-local +5
+[06:08:20.715] stats/s WL: waitable handles closed 0 (total 1, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[06:08:20.715] stats/s GF: fence waits 413, avg wait 433 us, fallbacks to Sleep(0) 0 (switch ON)
+[06:08:20.715] stats/s: W3 waits 595 (MsgWait), L1 timer sleeps 7, F1 timer sleeps 17, WK wakes kept 39986 / skipped 142
+[06:08:20.715] stats/s exp: W6 waits 0 avg 11 us (slept 0, spun 0, wakes 0) | PP scans 24 skipped 74 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[06:08:21.051] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 0.0/s, presenter thread 153.3/s, ratio 1.00, pause reason 0]
+[06:08:22.060] OSD: FG state: ON - running (111 -> 161 fps) [setting 2, game thread 0.0/s, presenter thread 161.1/s, ratio 1.45, pause reason 0]
+[06:08:23.569] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 0.0/s, presenter thread 159.4/s, ratio 1.00, pause reason 0]
+[06:08:24.075] OSD: FG state: ON - running (111 -> 156 fps) [setting 2, game thread 0.0/s, presenter thread 156.2/s, ratio 1.41, pause reason 0]
+[06:08:26.085] OSD: stats: rendered 107.7 fps, displayed 159.6 fps (x1.48, FG active, 1 chain(s), FSR presenter, threads game 0.0/s presenter 159.6/s), game ticks 107.7/s, speed 1.00x, vrr tier 120 cap 120 armed 105, draws 15902, skipped 0
+[06:08:34.138] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 0.0/s, presenter thread 158.8/s, ratio 1.00, pause reason 0]
+[06:08:36.658] OSD: FG state: ON - running (114 -> 161 fps) [setting 2, game thread 0.0/s, presenter thread 161.4/s, ratio 1.42, pause reason 0]
+[06:08:37.662] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 0.0/s, presenter thread 161.2/s, ratio 1.00, pause reason 0]
+[06:08:39.172] OSD: FG state: ON - running (112 -> 161 fps) [setting 2, game thread 0.0/s, presenter thread 161.4/s, ratio 1.45, pause reason 0]
+[06:08:43.699] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 0.0/s, presenter thread 159.2/s, ratio 1.00, pause reason 0]
+[06:08:47.221] OSD: FG state: ON - running (114 -> 162 fps) [setting 2, game thread 0.0/s, presenter thread 162.0/s, ratio 1.42, pause reason 0]
+[06:08:47.727] OSD: FG state: ON - paused (menu/loading/cutscene) [setting 2, game thread 0.0/s, presenter thread 160.4/s, ratio 1.00, pause reason 0]
+[06:08:48.230] OSD: FG state: ON - running (113 -> 159 fps) [setting 2, game thread 0.0/s, presenter thread 158.7/s, ratio 1.40, pause reason 0]
