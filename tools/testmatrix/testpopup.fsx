@@ -48,15 +48,18 @@ let log (s: string) =
 
 // ---- decisions (pure; selftest checks them) ----
 type Act = Pass | Swallow | Release
-// keyboard: injected always passes; Ctrl+Alt+Shift+F12 (real, key down) releases; else swallow while blocking
-let decideKey (blocking: bool) (injected: bool) (vk: int) (down: bool) (ctrl: bool) (alt: bool) (shift: bool) =
+// keyboard: injected always passes; Ctrl+Alt+Shift+F12 (real, key down) releases; else swallow while blocking.
+// gameOnly (vpad): only keys going to the game (game window in the foreground) are swallowed; other programs keep working.
+let decideKey (blocking: bool) (injected: bool) (vk: int) (down: bool) (ctrl: bool) (alt: bool) (shift: bool) (gameOnly: bool) (gameFocused: bool) =
     if injected then Pass
     elif down && vk = 0x7B && ctrl && alt && shift then (if blocking then Release else Pass)
-    elif blocking then Swallow
+    elif blocking && (not gameOnly || gameFocused) then Swallow
     else Pass
-// mouse: injected / over the popup always pass; moves pass when allowed (vpad); else swallow while blocking
-let decideMouse (blocking: bool) (injected: bool) (overPopup: bool) (isMove: bool) (allowMove: bool) =
+// mouse: injected / over the popup always pass; gameOnly (vpad): only input over the game window is swallowed;
+// moves pass when allowed (vpad); else swallow while blocking
+let decideMouse (blocking: bool) (injected: bool) (overPopup: bool) (isMove: bool) (allowMove: bool) (gameOnly: bool) (overGame: bool) =
     if not blocking || injected || overPopup then Pass
+    elif gameOnly && not overGame then Pass
     elif isMove && allowMove then Pass
     else Swallow
 // modifier tracking from REAL key events (swallowed keys never reach the async key state)
@@ -108,6 +111,8 @@ type MSLLHOOKSTRUCT =
 [<DllImport("kernel32.dll", CharSet = CharSet.Unicode)>] extern nativeint GetModuleHandleW(string n)
 [<DllImport("user32.dll")>] extern nativeint WindowFromPoint(POINT p)
 [<DllImport("user32.dll")>] extern nativeint GetAncestor(nativeint h, uint32 flags)
+[<DllImport("user32.dll")>] extern nativeint GetForegroundWindow()
+[<DllImport("user32.dll")>] extern uint32 GetWindowThreadProcessId(nativeint h, uint32& pid)
 
 // ---- the popup ----
 type Popup() =
@@ -126,9 +131,19 @@ let mutable popupHandle = 0n
 let mutable exiting = false
 let mods = Mods()
 let allowMove = inputMode = "vpad"
+let gameOnly = inputMode = "vpad"   // the SendInput path ('ui') needs the game in the foreground, so it keeps the global block
 let mutable releaseRequested = false
 let mutable swallowed = 0
 let mutable passedInjected = 0
+// Nioh3 pids, refreshed by the UI timer (never enumerated inside a hook callback)
+let mutable gamePids : int[] = [||]
+let refreshGamePids () = gamePids <- (try Process.GetProcessesByName "Nioh3" |> Array.map (fun p -> p.Id) with _ -> [||])
+let isGameWindow (h: nativeint) =
+    if h = 0n || gamePids.Length = 0 then false
+    else
+        let mutable pid = 0u
+        GetWindowThreadProcessId(h, &pid) |> ignore
+        Array.contains (int pid) gamePids
 
 let kbProc =
     LowLevelProc(fun code w l ->
@@ -139,7 +154,8 @@ let kbProc =
             let up = msg = 0x101 || msg = 0x105
             let injected = (k.flags &&& 0x10u) <> 0u
             if not injected && (down || up) then mods.Update(int k.vkCode, down)
-            match decideKey blocking injected (int k.vkCode) down mods.Ctrl mods.Alt mods.Shift with
+            let gameFocused = gameOnly && isGameWindow (GetForegroundWindow())
+            match decideKey blocking injected (int k.vkCode) down mods.Ctrl mods.Alt mods.Shift gameOnly gameFocused with
             | Release -> releaseRequested <- true; (if selftest then CallNextHookEx(0n, code, w, l) else 1n)
             | Swallow -> swallowed <- swallowed + 1; (if selftest then CallNextHookEx(0n, code, w, l) else 1n)
             | Pass -> (if injected then passedInjected <- passedInjected + 1); CallNextHookEx(0n, code, w, l)
@@ -149,8 +165,10 @@ let msProc =
         if code >= 0 then
             let m = Marshal.PtrToStructure<MSLLHOOKSTRUCT> l
             let injected = (m.flags &&& 0x1u) <> 0u
-            let over = popupHandle <> 0n && GetAncestor(WindowFromPoint m.pt, 2u) = popupHandle  // GA_ROOT
-            match decideMouse blocking injected over (int w = 0x200) allowMove with
+            let root = GetAncestor(WindowFromPoint m.pt, 2u)  // GA_ROOT
+            let over = popupHandle <> 0n && root = popupHandle
+            let overGame = gameOnly && isGameWindow root
+            match decideMouse blocking injected over (int w = 0x200) allowMove gameOnly overGame with
             | Swallow -> swallowed <- swallowed + 1; (if selftest then CallNextHookEx(0n, code, w, l) else 1n)
             | _ -> CallNextHookEx(0n, code, w, l)
         else CallNextHookEx(0n, code, w, l))
@@ -200,13 +218,16 @@ let refresh () =
         btn.BackColor <- (if blocking then Color.FromArgb(170, 40, 40) else Color.FromArgb(40, 110, 60))
         miToggle.Text <- (if blocking then "Release my input" else "Block my input")
         help.Text <-
-            (if blocking then "BLOCKED: your mouse clicks / keys do not reach any program. Release: this button, the tray icon, or Ctrl+Alt+Shift+F12. Ctrl+Alt+Del always works."
+            (if blocking && gameOnly then "BLOCKED for the game only: your controller, and clicks / keys aimed at the game, are ignored. Other programs work normally. Release: this button, the tray icon, or Ctrl+Alt+Shift+F12."
+             elif blocking then "BLOCKED: your mouse clicks / keys do not reach any program (this test needs the game in front). Release: this button, the tray icon, or Ctrl+Alt+Shift+F12. Ctrl+Alt+Del always works."
+             elif gameOnly then "Off by default. Block = your controller and clicks / keys aimed at the game are ignored so you cannot disturb the test. Everything else keeps working."
              else "Off by default. Block = your mouse clicks and keys are ignored so you cannot disturb the test (the test's own input still works). Ctrl+Alt+Del always works.")
     tray.Text <- (sprintf "Nioh 3 test: %s%s" name (if blocking then " (input BLOCKED)" else "")).Substring(0, min 63 (sprintf "Nioh 3 test: %s%s" name (if blocking then " (input BLOCKED)" else "")).Length)
 
 let setBlock (on: bool) (why: string) =
     if on && noBlock then ()
     elif on && not blocking then
+        refreshGamePids ()
         let hm = GetModuleHandleW null
         hkKb <- SetWindowsHookExW(13, kbProc, hm, 0u)
         hkMs <- SetWindowsHookExW(14, msProc, hm, 0u)
@@ -243,7 +264,10 @@ let quit (why: string) =
     form.Close()
 
 let timer = new Timer(Interval = 300)
+let mutable ticks = 0
 timer.Tick.Add(fun _ ->
+    ticks <- ticks + 1
+    if blocking && gameOnly && ticks % 3 = 0 then refreshGamePids ()   // ~1 s: a relaunched game gets a new pid
     if releaseRequested then (releaseRequested <- false; setBlock false "Ctrl+Alt+Shift+F12")
     if blocking && (DateTime.Now - blockSince).TotalMinutes >= blockMaxMin then setBlock false (sprintf "blocked for %.0f min (max)" blockMaxMin)
     if not (procAlive harnessPid) then quit "the harness ended"
@@ -266,19 +290,25 @@ timer.Tick.Add(fun _ ->
 if selftest then
     let fails = Collections.Generic.List<string>()
     let ck c m = if not c then fails.Add m
-    ck (decideKey false false 0x41 true false false false = Pass) "not blocking: keys pass"
-    ck (decideKey true false 0x41 true false false false = Swallow) "blocking: real key swallowed"
-    ck (decideKey true true 0x41 true false false false = Pass) "blocking: injected key passes"
-    ck (decideKey true false 0x7B true true true true = Release) "Ctrl+Alt+Shift+F12 releases"
-    ck (decideKey true false 0x7B true true true false = Swallow) "F12 without Shift does not release"
-    ck (decideKey false false 0x7B true true true true = Pass) "hotkey passes when not blocking"
-    ck (decideKey true false 0x7B false true true true = Swallow) "hotkey key-up swallowed"
-    ck (decideMouse true false false false false = Swallow) "blocking: real click swallowed"
-    ck (decideMouse true false true false false = Pass) "click over the popup passes"
-    ck (decideMouse true true false false false = Pass) "injected click passes"
-    ck (decideMouse true false false true true = Pass) "vpad: real move passes"
-    ck (decideMouse true false false true false = Swallow) "ui: real move swallowed"
-    ck (decideMouse false false false false false = Pass) "not blocking: mouse passes"
+    ck (decideKey false false 0x41 true false false false false false = Pass) "not blocking: keys pass"
+    ck (decideKey true false 0x41 true false false false false false = Swallow) "blocking: real key swallowed"
+    ck (decideKey true true 0x41 true false false false false false = Pass) "blocking: injected key passes"
+    ck (decideKey true false 0x7B true true true true false false = Release) "Ctrl+Alt+Shift+F12 releases"
+    ck (decideKey true false 0x7B true true true false false false = Swallow) "F12 without Shift does not release"
+    ck (decideKey false false 0x7B true true true true false false = Pass) "hotkey passes when not blocking"
+    ck (decideKey true false 0x7B false true true true false false = Swallow) "hotkey key-up swallowed"
+    ck (decideMouse true false false false false false false = Swallow) "blocking: real click swallowed"
+    ck (decideMouse true false true false false false false = Pass) "click over the popup passes"
+    ck (decideMouse true true false false false false false = Pass) "injected click passes"
+    ck (decideMouse true false false true true false false = Pass) "vpad: real move passes"
+    ck (decideMouse true false false true false false false = Swallow) "ui: real move swallowed"
+    ck (decideMouse false false false false false false false = Pass) "not blocking: mouse passes"
+    ck (decideKey true false 0x41 true false false false true false = Pass) "game-only: key to another program passes"
+    ck (decideKey true false 0x41 true false false false true true = Swallow) "game-only: key to the focused game swallowed"
+    ck (decideKey true false 0x7B true true true true true false = Release) "game-only: hotkey still releases"
+    ck (decideMouse true false false false true true false = Pass) "game-only: click on another program passes"
+    ck (decideMouse true false false false true true true = Swallow) "game-only: click on the game swallowed"
+    ck (decideMouse true false false true true true true = Pass) "game-only: move over the game passes (vpad)"
     let m = Mods()
     m.Update(0xA2, true); m.Update(0xA4, true); m.Update(0xA0, true)
     ck (m.Ctrl && m.Alt && m.Shift) "left mods tracked"
