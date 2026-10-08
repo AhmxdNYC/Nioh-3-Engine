@@ -8906,7 +8906,7 @@ rva	kind	name	signature	description	confidence	source
 0x219feb4	function	SetSmallHellClearMap	void SetSmallHellClearMap(u16 id, char v)	toggle clear-map state; v=0 un-clears (was ClearMapSet)	high	notes/boss-rift-ngplus.md
 0x217e884	function	ClearDbSetMissionState	void ClearDbSetMissionState(Db* db, u16 id, char cleared, char notify)	sets/clears per-slot clear bytes (+0x428 map), first-clear rewards (was ClearMapSetEntry)	high	notes/boss-rift-ngplus.md
 0x2845c8	function	ClearMapGet	bool(db, u16 id)	FNV-1a 2-byte id, table [db+8]+0x428, byte +0x23+slot	medium	notes/boss-rematch-paths.md
-0x285808	function	MissionRecordById	Rec* MissionRecordById(Tbl* t, u16 id)	hash lookup, 0xC4-byte records (+0xC0 type byte) (was AreaRecordGet)	high	notes/boss-rift-ngplus.md
+0x285808	function	AreaRecordById	AreaRec* AreaRecordById(Tbl* t, u16 id)	0xC4-byte area records (archive_03 C0 table), key u16 +0xB8, +0xBC area group, +0xC0 type (3 = hell) (was MissionRecordById)	high	notes/missions.md
 0x1ca7468	function	RetryGadget_ResurrectPlayers		revive loop over players (Gadget::Retry::Resurrect)	low	notes/boss-rematch-paths.md
 0x297f2dc	function	TrophyUnlock	void TrophyUnlock(uint idx, bool flag)	game-side trophy unlock; idx==ACH number; writes record + syncs to Steam via 1fdc0f0	high	notes/boss-achievements.md
 0x297f14c	function	TrophyIsUnlocked	bool TrophyIsUnlocked(uint idx)		high	notes/boss-achievements.md
@@ -8965,7 +8965,7 @@ rva	kind	name	signature	description	confidence	source
 0xa46580	function	ScriptBind_Mission_GetMissionID		u32 [[[ctx+8]+8]+0x90]+0x120	high	notes/boss-duel-flow.md
 0x1c1d148	function	PlacementSetsBuildFromMissionDb		mission db rec +0x54..+0x68 ids, +0x158 u16	medium	notes/boss-duel-flow.md
 0x1c1d288	function	MissionScriptsBuildFromMissionDb		mission db rec +0x6c script id	medium	notes/boss-duel-flow.md
-0x377b6c	function	MissionDbGetRecord		stride 0x198, data+8	medium	notes/boss-duel-flow.md
+0x377b6c	function	MissionMasterGetRecord	MissionRec* MissionMasterGetRecord(idx)	130 x 0x198 mission master table (archive_03 52): +0x70 name text, +0x158 key, +0x15C area, +0x18A main key (was MissionDbGetRecord)	high	notes/missions.md
 0x1c2448c	function	BossBgmEventForMission		uses BossPlacementIdForMission + table [0x45B9E30]+0x8D0	low	notes/boss-duel-flow.md
 0x47098e0	data	g_PlacementSetMgr		list A (sets, id +0x118) at +0/+8, list B (mission scripts, id +0x38) at +0x18/+0x20	medium	notes/boss-duel-flow.md
 0x605acc	function	AmritaMemoryFindFlagNode	u8* AmritaMemoryFindFlagNode(PlayerData** pd, int memoryId)	125 B; FNV-1a (basis CBF29CE484222325) over the 4-byte id, bucket mask [[pd]+71E0h], bucket array [[pd]+71C8h] (16 B per bucket, list head +8), node id at +10h, returns node+14h = the unlocked/seen byte (null if absent); 16 callers	high	notes/boss-codex.md
@@ -9006,3 +9006,4 @@ rva	kind	name	signature	description	confidence	source
 0x1dda0e4	function	ShrineMenu_OpenFromMission	void ShrineMenu_OpenFromMission(Menu* m, u32 a, u32 missionId, u8 b)	sets +0x86 when FeatureUnlocked(8) and mission record flags40 & 0x1000000 (emaki-capable)	low	notes/battle-scrolls.md
 0x605300	function	FeatureUnlocked	bool FeatureUnlocked(u8 bit)	bitset at [0x4B6A170]+8; bit 8 gates the Picture Scroll (Emaki) half of Battle Scroll	medium	notes/battle-scrolls.md
 0x23e0094	function	Script_Mission_IsTrainingMission	short Script_Mission_IsTrainingMission(VM* vm)	returns current mission id ([[0x45B9E40]]+0x64) == 0x6F24 (Training Ground record)	high	notes/battle-scrolls.md
+0x1fd4c00	function	AreaListRefresh		iterates area records, filters type!=3 and +0xBC == current area byte (+0x11)	low	notes/missions.md
