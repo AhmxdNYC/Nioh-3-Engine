@@ -25,7 +25,7 @@ New tools (all read the captures or the dump only, except the probe):
 - Spike census (frames > 2x the local 20 s median, 10 Hz MangoHud): **0 spikes in 5,000+ settle/steady frames** (v4/v5), 1 in v1. All hitches sit in the level-load window (stop flag 58A = the loading screen): 36 frames > 200 ms (v4), 21 (v5), max 265-305 ms.
 - Load-window spikes are not a gameplay stutter: game logic is stopped there. They do dominate a whole-session p99 (v5: 132 ms with the load, 60 ms without).
 - Spike classes: (A) swap-out burst at load start, +1150 MB in ~10 s; (B) streaming ramp with 80-130 ms frames and GPU-memory steps (13/30 and 15/55 spikes within 1.5 s of a >= 50 MB VRAM rise); (C) end-of-load GPU burst, 190-300 ms at 92 % GPU, flat memory; (D) wake storm after the load, 25-150k/s futile wakes, which costs 0.3-1.5 cores of a shared 25-33 W budget and so GPU clock, not a spike; (E) first-use PSO creation: not seen on the Ally, 106 CPU-side 20-50 ms spikes on the PC (~2.3/min uncapped, 0.8/min at a 60 cap).
-- Top fixes: RWb/RWc (stop the pool-1 wake storm; byte patch built, offline PASSED; helps steady-ish throughput in the first ~4 min), SPR (measure PSO / upload-ring misses), PL/PJ (PSO outside lock / miss journal, only if SPR shows misses), UF ring enlargement (only if SPR shows dedicated allocations). Steady 60 needs GPU/CPU-power work (notes\gpu-*.md, worker-jobs-opt.md), not stutter fixes.
+- Top fixes: RWb/RWc (stop the pool-1 wake storm; byte patch built, offline PASSED; helps steady-ish throughput in the first ~4 min), SPR (measure PSO / upload-ring misses; in the ASI since 1.7.2), PJ (PSO journal + title-screen prewarm, built in 1.7.31, default off, test protocol 6.1), PL dropped (no frame-time gain, 3.1), UF ring enlargement (only if SPR shows dedicated allocations). Steady 60 needs GPU/CPU-power work (notes\gpu-*.md, worker-jobs-opt.md), not stutter fixes.
 
 ## 2. Spike census
 
@@ -191,20 +191,29 @@ draw can still miss:
 **Fixes (same look):**
 - **SPR first (section 6)**. Count and time every runtime create (sites G1, C1-C4) next to the preload creates (PG, PC).
   If G1/C* stay at 0 after the first minutes of a level, this class is closed.
-- **PL - create outside the lock** (small, safe, only matters if SPR shows contention). Restructure the miss path of
-  119670 like the preload: release the CS, create, re-take the CS, insert or release a duplicate.
-  - Equivalent result: the insert already handles "someone inserted it meanwhile" (2EFE440 does exactly this).
-  - Gain: preload jobs and 58C000 users stop queueing behind a dispatcher compile. The dispatcher's own stall is
-    unchanged.
-- **PJ - miss journal + prewarm** (the real fix if misses exist; bigger):
-  - The ASI logs each runtime miss at G1/C1-C4 at the moment it happens.
-  - It converts the key's shader-object pointers back to the list format `{group id, index}`. This needs the reverse map
-    group -> object array: 6CBFC4 returns `[[group+20h]][index]` when the group is resident, so the reverse lookup walks
-    the loaded groups' arrays once per miss.
-  - It appends the records to a sidecar file. On the next run, after the boot/stage list, it feeds them through
-    PsoPreloadGfx 2EFE2A8 / PsoPreloadComputeCreate 2EFE1CC on a worker during the load screen.
-  - The result is the same PSO the game would have built on first draw, built earlier. The journal file would be the
-    game-side equivalent of a recorded PSO cache. It is not built: it costs more than it is worth until SPR shows misses.
+- **Confirmed again from the decompile (2026-10-08, `0x119670.c`, `0x418f40.c`):** the create runs on the
+  SynergisticDispatcher thread (callers SynFlushPsoAndBindings 118604 / 118758), inside
+  `EnterCriticalSection([c+818h]+10h)` .. `LeaveCriticalSection`, as `CreateGfxPso(g_RenderGlobals 39CA588, key+8)`; the
+  main thread blocks for it at frame end in WaitDispatcherDrainSpin 418F40 (`do { ... } while (g_DispatcherDrainBusy)`,
+  from CmdStreamFinalKick 418C70). A failed insert (9B05BC) releases the new PSO and returns NULL (the draw keeps the old
+  PSO state). CreateGfxPso's mesh path builds a stream of subobject types 0/2/8/9/10/11/14/15/16/18/24/25 (capstone at
+  9292F9..9293EA), all of which PJ serializes.
+- **PL - create outside the lock: dropped (not built).** Safe in principle (the preload path 2EFE440 already does
+  create-outside + insert-or-release), but it cannot shorten a frame: the stall that reaches the frame is the dispatcher's
+  own create, which PL leaves unchanged. The other holders of the CS are short (preload find/insert) or init-only
+  (PsoGetOrCreateComputeShared 58C000, only from ComputePsoWarmOrCache at init), so the dispatcher never waits long on
+  someone else's compile. PL would need an entry detour on a per-PSO-dirty-draw function and a re-implementation of five
+  internal calls for no frame-time gain. Revisit only if SPR / SP show the dispatcher blocked in `[ntdll] <- 119670` for
+  long.
+- **PJ - PSO journal + title-screen prewarm: BUILT (ASI 1.7.31, `[Patches] PJ = 0` default, section 6.1).** Built at the
+  D3D12 level instead of the game-key level sketched earlier (no reverse map group -> shader object, no game function
+  called): every PSO the engine creates is journaled once per device class with its full desc, shader containers and
+  root-signature blob; the next launch creates the ones the engine has not created yet on one lowest-priority thread once
+  the title screen is idle, then releases them. The game's own ComputePsoWarmOrCache does the same create-and-release for
+  16 compute PSOs. Effect: the engine's later create of the same PSO hits the driver's warm caches (in-memory, plus a
+  refilled disk cache after a driver / Proton update or cache eviction). It does not remove the create call itself (the
+  engine still creates and caches its own object), so the measure is the create time (SPR avg/max, creates >= 1 ms) and
+  the route's frame-time spikes, not the SPR count.
 
 ### 3.2 End of the level load: GPU-bound 190-300 ms frames (Ally phase C)
 
@@ -357,7 +366,7 @@ ound8_settings.ps1`).
 | 2 | D wake storm (RWb/RWc) | ~4 min after each load, 0.3-1.5 cores freed for the GPU budget | phases B, C | RWb built, offline PASSED | first Ally test: `stats/s WG` + fps in settle |
 | 3 | C end-of-load GPU burst | none | p99 270 ms (loading screen) | measure first | session p99 132 -> 76 if cut |
 | 4 | A swap burst | none | 40-134 ms | DiscardVirtualMemory idea | |
-| 5 | B/E PSO and upload ring | not seen on Ally; PC 0.8-2.3/min | 80-130 ms | SPR first | |
+| 5 | B/E PSO and upload ring | not seen on Ally; PC 0.8-2.3/min | 80-130 ms | SPR (ASI 1.7.2); PJ built 1.7.31 (6.1) | PL dropped (3.1) |
 In steady gameplay the only measurable class on the Ally is variance; all spikes live in loads.
 
 ## 5. Ally test plan (ASI SP profiler + MemStats + WakeStats, MangoHud on)
@@ -441,9 +450,74 @@ For the ASI (Ally), the same nine sites are the same `E8 rel32` replacement the 
 An `SPR = 1` key with a 30 s `stats/s SPR:` line (count/ms/max per id) would give the Ally numbers that sections 3.1 and
 3.3 need.
 
+## 6.1 PJ - PSO journal + title-screen prewarm (ASI 1.7.31, `src\psojournal.cpp`, default off)
+
+What it does (details in `src\psojournal.h`):
+- Hooks ID3D12Device::CreateGraphicsPipelineState / CreateComputePipelineState / CreateRootSignature and
+  ID3D12Device2::CreatePipelineState on the vtable of the engine's device (psoswap's D3D12CreateDevice IAT hook reports
+  the device; with PJ on and ShaderSwap off psoswap arms that hook only to report it, its own state stays off).
+- Each engine create that succeeds is serialized after the call (fields copied one by one so padding is zero; shader
+  stages as container digests, the root signature as the key of its serialized blob, the input layout with its semantic
+  names; a cached-PSO blob is dropped) and appended once to `Nioh3EngineFix_pj\pj_<win|proton>_<apu|dgpu>_sm<NN>.bin`
+  next to the ini. Shaders / root signatures are stored once. Writer = one background-priority thread, queue <= 32 MB.
+- Next launch: once the engine has created PSOs, none for `PJ_QuietMs` (3000) and G+58Ah is clear (title idle), one
+  THREAD_PRIORITY_LOWEST thread creates every journaled PSO the engine has not created in this session through the same
+  device method (the call goes through the hooks below PJ, e.g. psoswap) and releases it. Pauses while a level load runs.
+- Bounds: file <= `PJ_MaxMB` (64), <= 16,384 PSO records; a chunk with a bad checksum or a cut tail ends the journal there
+  (the tail is truncated); a corrupt shader chunk only skips the PSOs that use it. Other exe build or device class ->
+  new journal. `PJ = 2` journals without prewarming.
+- Same look: the engine's calls get their own arguments and their own result; prewarm PSOs are never bound.
+  Register-safe: COM vtable hooks (plain Win64 ABI, hook-register-audit.md).
+
+Offline (`py -I mod\Nioh3EngineFix\tests\run_pj_harness.py`, real D3D12 WARP device, six launches): **ALL PJ CHECKS OK**.
+- The device reaches PJ through psoswap's observe-only D3D12CreateDevice IAT hook, as in the mod (psoswap stays off
+  and hooks nothing itself).
+- Padding garbage does not split a desc (2 creates with different garbage -> 1 record); 3 records, 3 shaders, 1 root sig.
+- Launch 2: the PSO the engine already created is skipped, the other two are prewarmed, and a spy hooked BELOW PJ
+  describes every prewarm desc (shader bytes, root-signature blob, every field, input-layout names) **identically** to the
+  engine's launch-1 descs. Launch 3: the file does not grow.
+- Cut tail -> dropped and truncated; corrupt shader chunk -> its 2 PSOs reported missing, no crash; other exe stamp ->
+  new journal.
+
+### Test protocol (PC + Ally): SPR + frame-time hitches on a first-visit route, PJ off vs on across two launches
+
+Setup (both devices): ASI 1.7.31 (or later), the device's release profile ini plus `[Patches] SPR = 1` (the `stats spr:` line:
+runtime graphics PSO creates, avg/max us, creates >= 1 ms). PC: PresentMon CSV for the route; Ally: MangoHud with
+`log_interval=0` (`tools\testmatrix\ally_final\mangohud_nioh3.conf`). Same save, same settings, same route R in every
+launch: title -> Continue -> an area with content the save has not visited in this session (new enemy types, one fight
+with effects, one shrine teleport), ~3 min, inputs as identical as possible. FPS cap as in the profile.
+
+Runs (4 launches per device, then repeat once):
+1. **A1** `PJ = 0`: route R. **A2** `PJ = 0`, new launch: route R. (A2 = baseline; A1 warmed the driver's disk cache.)
+2. Delete `Nioh3EngineFix_pj\`. **B1** `PJ = 1`: route R (journal written; log `PJ: journal ...: 0 PSOs`, then
+   `stats/s PJ: journal 0 PSOs (+N new)`). **B2** `PJ = 1`, new launch: wait at the title until the log shows
+   `PJ: prewarm done in X s: N created ..., 0 refused`, then route R.
+3. Optional cold-cache pair (the after-driver / Proton-update case; ASK THE USER first, it costs a shader rebuild on the
+   next normal launch): reset the driver shader cache before A2 and before B2 (PC: Adrenalin "Reset Shader Cache"; Ally:
+   the game's `steamapps/shadercache/<appid>` and the vkd3d-proton cache in the prefix; Steam shader pre-caching off for
+   the run, its Fossilize replay is a confounder).
+
+Read:
+- SPR over the route window (sum the 30 s lines): runtime gfx creates (expect the same count in A2 and B2 - PJ does not
+  stop the engine's own creates), **creates >= 1 ms and max us (expect lower in B2)**.
+- Frame-time hitches over the route: `py -I re\scripts_stutter\pc_spikes.py <dir>` (PC; CPU-class spikes > 2x the local
+  median) / `py -I re\scripts_stutter\ally_spikes.py` (Ally). Count, max ms, and spikes inside a 30 s window whose
+  `stats spr` >= 1 ms count rose.
+- PJ cost: the `prewarm done` line (seconds at the title, ms total, max), `stats/s PJ` (journal size; `not journaled`
+  should be ~0 - a high `rs` count means the device hook came late, check the PSOSWAP IAT line), the Ally's CPU W at the
+  title during the prewarm (MangoHud), and that Continue is not delayed.
+- Same look: one screenshot at the same spot in A2 and B2 (`tools\testmatrix\shotdiff.py`).
+- Load time of the first level (`LoadStats = 1` if wanted): the stage PSO lists may load faster in B2.
+
+Keep / drop: `PJ = 1` on a device only if B2 beats A2 on creates >= 1 ms or route spikes in both repeats, with 0 refused
+and no visual difference; otherwise leave `PJ = 0`. (The Ally showed no PSO spike class so far, 2.2 - the cold-cache pair
+is where PJ can still pay off there.)
+
 ## 7. Open items
 
-- SPR numbers from the Ally (G1/C1-C4/UF/UP counts); not built into the ASI.
+- SPR numbers from the Ally (G1/C1-C4/UF/UP counts). The ASI's `[Patches] SPR` (1.7.2) times G1 + UF; loadstats counts
+  G1/C1-C4/PG/PC per load.
+- PJ A/B on both devices (protocol 6.1).
 - Identify the phase-C GPU work with GPUProf.
 - Who holds the SynSharedLockedUpdate 7F64DC lock exclusively during loads (13.3 % vs 4.6 %).
 - Arena free-range RVAs for the swap-avoidance idea.

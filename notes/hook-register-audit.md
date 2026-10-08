@@ -45,6 +45,7 @@ are plain Win64 ABI and need nothing beyond the ABI.
 | W1 W2 P3 P6 R1 P12 WC AS0 LC S1 M2 J1 LK | in place | byte patch | no hook; CAS->load rewrites checked for flags: dead or re-set (LKM5 `test`, LKJ4 next cmpxchg). |
 | GIM (1.7.29 gimerge.cpp) | D3D12CreateDevice IAT, device vtbl CreateGfx/CreateCs/CreateCbv, Resource Map/Unmap, list calls via gpuopt thunks | IAT / COM vtable | safe (ABI). Thunk change: `test eax,eax; jnz -> ret` after the slow call - rax is volatile and not an argument; skip only for Dispatch (void); rsp at entry value. |
 | GP, D3D12/DXGI vtables (gpuopt, gpuprof, osd, tilestats, psoswap), XInput IAT (menu) | COM / API | skipped (ABI). |
+| PJ (psojournal, 1.7.31) | device vtable slots 10/11/16/47 (CreateGraphics/ComputePipelineState, CreateRootSignature, CreatePipelineState) | COM vtable | safe (ABI): C++ hooks with the exact method signatures, original called first with the caller's arguments, result returned unchanged. |
 
 ## For the loadstats.cpp owner (not edited here)
 - No RISK left in loadstats.cpp. Optional hardening: make `NewSaveThunk` also save xmm0-5 (same layout as the bosslog

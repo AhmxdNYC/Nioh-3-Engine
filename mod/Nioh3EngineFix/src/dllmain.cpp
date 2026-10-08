@@ -29,6 +29,7 @@
 #include "gpuprof.h"
 #include "sp.h"
 #include "psoswap.h"
+#include "psojournal.h"
 #include "memstats.h"
 #include "tilestats.h"
 #include "loadmem.h"
@@ -43,8 +44,9 @@
 #include "readprobe.h"
 
 #define MOD_NAME "Nioh3EngineFix"
+// 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
 // 1.7.29: gimerge.cpp (GIProbe / GIMerge, notes\gi-highest-audit.md s6)
-#define MOD_VERSION "1.7.30"
+#define MOD_VERSION "1.7.31"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1231,6 +1233,16 @@ DWORD WINAPI Worker(LPVOID) {
         pi.log = &Log;
         std::wstring psoIni = SelfPathWithExt(L".ini");
         pi.iniPath = psoIni.c_str();
+        // 1.7.31 PJ (psojournal.h, [Patches] PJ = 0): PSO journal + title-screen prewarm; psoswap reports the device
+        pj::StartInfo ji;
+        ji.log = &Log;
+        ji.iniPath = psoIni.c_str();
+        ji.base = (uintptr_t)g_base;
+        ji.knownBuild = known;
+        ji.wine = g_wineEarly;
+        pj::Start(ji);
+        pi.onDevice = &pj::OnDevice;
+        pi.observeOnly = pj::Wanted(psoIni.c_str());
         pi.wine = nullptr;
         if (HMODULE nt = GetModuleHandleW(L"ntdll.dll"))
             if (auto wgv = reinterpret_cast<const char*(__cdecl*)()>(GetProcAddress(nt, "wine_get_version"))) pi.wine = wgv();
@@ -2102,6 +2114,7 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
                 if (sec % 30 == 0) loadmem::LogLine();  // no-op unless [Memory] LM = 1
                 if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
+                if (sec % 30 == 0) pj::LogLine();        // no-op unless [Patches] PJ != 0
                 if (s_wlDone && sec % 30 == 0) {
                     static uint64_t pC = 0;
                     const uint64_t cl = wl_closed;

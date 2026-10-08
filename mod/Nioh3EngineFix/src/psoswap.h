@@ -57,6 +57,11 @@ struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;  // dllmain's Log
     const wchar_t* iniPath = nullptr;             // Nioh3EngineFix.ini ([ShaderSwap]); Folder is relative to its folder
     const char* wine = nullptr;                   // wine_get_version() or nullptr (only logged)
+    // 1.7.31 PJ (psojournal.h): every device the engine creates is also reported here (after psoswap's own vtable hook,
+    // so the observer's hooks run first). observeOnly = arm the D3D12CreateDevice hook even with Enabled = 0 and no
+    // GPUProf tracking; psoswap then hooks nothing itself and its state stays Off.
+    void (*onDevice)(void* device) = nullptr;
+    bool observeOnly = false;
 };
 
 enum class State : uint8_t {

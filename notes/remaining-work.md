@@ -23,7 +23,7 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 | 2.3 | SF1+PM PSO skip/key memo, SF3 OM/RS skip - build only if 2.2 shows >= ~200 redundant calls/frame | free (queue 3, opus) | 4-8 h | y (trace first) |
 | 2.4 | FPC material FindParam cache (1.1-1.6 % main), PT1, DL, AABB, M1/M2, J1, E1, S1, X1 - built default off, need PC A/B | matrix (final re-test) | in matrix | y |
 | 2.5 | K1 frame-end drain (CmdFlushLimit), D retry quantum 1 -> 0.2 ms, P1E7 texture-loop prefetch, mainthread-drawprep C (glyph atlas, needs live read) | free; designed / live script only | 3-6 h each | y |
-| 2.6 | PSO first-use stutter: SPR count (built) -> PL (create outside lock) / PJ (journal + prewarm) | free; SPR measurement first | 1 h game + 6 h | y |
+| 2.6 | PSO first-use stutter: SPR count (built) -> PL (create outside lock) / PJ (journal + prewarm) | PJ BUILT 1.7.31 (`[Patches] PJ = 0`, offline ALL PJ CHECKS OK); PL dropped (no frame gain, `stutter.md` 3.1). STILL NEEDED: PC + Ally A/B per `stutter.md` 6.1 (PJ off vs on, two launches each) | 1 h game/device | y |
 | 2.7 | Stutter classes not measured on PC: traversal, new-effect combat, post-load (`stutter.md`) | free; add as windows in the final run | 1 h game | y |
 | 2.8 | AS0 / AS-N async slots (AMD), TG tick governor (behaviour change, opt-in only) | matrix (dropped-but-kept) | in matrix | y |
 

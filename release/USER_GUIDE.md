@@ -65,8 +65,8 @@ reason. Every 30 s it prints `stats` lines. Send this log with any report.
 | visual glitch | turn the newest experimental row off in the menu, note which one, report it |
 
 ## Uninstall
-Delete `dinput8.dll` (unless another mod needs it), `Nioh3EngineFix.asi`, `.ini`, `.log`; on Proton also clear the launch
-option. If you installed the shader, restore the original or verify the game files in Steam.
+Delete `dinput8.dll` (unless another mod needs it), `Nioh3EngineFix.asi`, `.ini`, `.log` (and the `Nioh3EngineFix_pj` folder
+if you used PJ); on Proton also clear the launch option. If you installed the shader, restore the original or verify the game files in Steam.
 
 ## More
 Full option reference: `README-MOD.md` (in the zip). What was measured on which device and why: the project README.

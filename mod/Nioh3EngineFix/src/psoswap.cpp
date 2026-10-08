@@ -978,10 +978,16 @@ CreateDeviceFn g_origCreate[2] = {};
 void** g_iatSlot[2] = {};
 const char* g_iatDll[2] = {};
 
+void (*g_onDevice)(void*) = nullptr;  // PJ observer (psojournal.cpp); it guards itself with __try
+bool g_observeOnly = false;
+
 template <int I>
 HRESULT WINAPI HkCreateDevice(IUnknown* adapter, D3D_FEATURE_LEVEL fl, REFIID riid, void** pp) {
     const HRESULT hr = g_origCreate[I](adapter, fl, riid, pp);
-    if (SUCCEEDED(hr) && pp && *pp) HookDeviceSafe(static_cast<IUnknown*>(*pp), g_iatDll[I]);
+    if (SUCCEEDED(hr) && pp && *pp) {
+        if (!g_observeOnly) HookDeviceSafe(static_cast<IUnknown*>(*pp), g_iatDll[I]);
+        if (g_onDevice) g_onDevice(*pp);
+    }
     return hr;
 }
 
@@ -1082,8 +1088,14 @@ void Start(const StartInfo& info) {
     g_cfg.dumpMode = IniInt(L"DumpMode", 0, 0, 2, ini);
     g_cfg.logAll = IniInt(L"LogAll", 0, 0, 1, ini);
     g_cfg.track = GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ? 1 : 0;
+    g_onDevice = info.onDevice;
     if (!g_cfg.enabled && !g_cfg.track) {
         g_state = (LONG)State::Off;
+        if (info.observeOnly && info.onDevice) {  // PJ only: arm the device hook, hook nothing here, stay Off
+            g_observeOnly = true;
+            LOG("Enabled=0: D3D12CreateDevice hook armed only to report the device to PJ (no swap, no dump, no tracking)");
+            if (!ArmImportHooksSafe()) LOG("no D3D12CreateDevice import found in the main module - PJ gets no device");
+        }
         return;
     }
     if (g_cfg.track) {
@@ -1134,6 +1146,7 @@ bool InstallNow() {
     }
     InterlockedExchange(&g_late, 1);
     HookDeviceSafe(dev, "late install (default adapter)");
+    if (g_onDevice) g_onDevice(dev);  // PJ: root signatures created before this point are unknown (their PSOs are skipped)
     dev->Release();
     if (g_devN) LOG("late install: PSOs the engine created before this point keep their original bytecode");
     return g_devN > 0;

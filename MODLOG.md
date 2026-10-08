@@ -566,3 +566,16 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Why: Ally 1.7.25 R2 digest (notes\loading-ally-fixed.md 8.9): the G8 StageAreasObjectsReady wait (~15.5 s of 38.5) is manager A draining ~1000 queued requests at cap 10 while its pools, the disk and ~5 cores sit idle. Expected 3-8 s per Ally load at 16-32, 0 if the 3 TrySync threads are the limit (then TSY = 6). Not run in game; Ally session R4 protocol in 8.9.
 - Tests: test_patterns ALL 212 SITES OK (+ LC = 11..64 arithmetic and immediates-only proof), READFIX / READPROBE / PREFETCH / LOADSTATS HARNESS ALL OK.
 - Undo: LC = 0 (default), or the 1.7.29 .asi.
+
+## 1.7.31 (2026-10-08) - PJ PSO journal + title-screen prewarm (default off)
+- ADD: `[Patches] PJ = 0` (1 = journal + prewarm, 2 = journal only), `PJ_MaxMB = 64`, `PJ_QuietMs = 3000`. New
+  src\psojournal.cpp/.h: hooks ID3D12Device CreateGraphics/ComputePipelineState, CreateRootSignature and
+  ID3D12Device2::CreatePipelineState on the engine's device (reported by psoswap's D3D12CreateDevice IAT hook; psoswap gets
+  `onDevice` / `observeOnly`, its own behaviour unchanged), journals every PSO the engine creates once to
+  `Nioh3EngineFix_pj\pj_<os>_<gpu>_sm<NN>.bin` next to the ini (new file in the game folder when PJ != 0), and on the next
+  launch creates + releases the journaled PSOs the engine has not created yet on one lowest-priority thread once the title
+  is idle (pauses during loads). Engine calls pass through with their own arguments/results; nothing in Nioh3.exe patched.
+- Decompile check + PL decision (dropped, no frame gain) + PC/Ally test protocol: notes\stutter.md 3.1 / 6.1.
+- Tests: tests\run_pj_harness.py ALL PJ CHECKS OK (WARP device, 6 launches: dedupe with padding garbage, prewarm descs
+  identical below PJ, no growth, cut tail, corrupt shader, other build), test_patterns ALL 212 SITES OK. Built + tested on the pre-rebase tree; the rebuild after rebasing onto 1.7.30 (LC) is pending (PC commit limit during a game test). Not run in game.
+- Undo: `PJ = 0` (default) and delete `Nioh3EngineFix_pj\`, or install 1.7.30.
