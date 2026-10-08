@@ -146,3 +146,10 @@ function Try-Refocus([string]$ui) {   # returns $true if refocused and a retry i
     $script:refocusN++; HG-Log "no human active -> refocusing Nioh3 (#$($script:refocusN))"
     $null = dotnet fsi $ui focus Nioh3 2>&1; Start-Sleep 1; return $true
 }
+
+# AutoContinueLoad is OFF by default since 1.7.33 (user option); harnesses that drive loads need it on. Sets/adds [General] AutoContinueLoad = 1 in ini text.
+function Force-Acl([string]$t) {
+    if ($t -match '(?m)^AutoContinueLoad *=') { return ($t -replace '(?m)^AutoContinueLoad *=.*', 'AutoContinueLoad = 1') }
+    if ($t -match '(?m)^\[General\]') { return ($t -replace '(?m)^\[General\][ \t]*(\r?)$', "[General]`$1`nAutoContinueLoad = 1`$1") }
+    return $t + "`r`n[General]`r`nAutoContinueLoad = 1`r`n"
+}

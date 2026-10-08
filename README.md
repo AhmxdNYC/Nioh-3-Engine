@@ -33,7 +33,7 @@ One line per problem: what the game does -> effect -> our fix -> result. Scope: 
 | Loads do about 540k tiny file reads, each creating and closing a Windows event (both; costly on Ally) | 84 us per event under Proton vs 0.6 us on Windows | EP (event pool, auto-on under Proton) | Ally Level 136 load ~94 s -> ~45-47 s; no PC gain |
 | Cached reads go through overlapped I/O (Ally) | Expensive under Proton | SR (auto-on under Proton) | Ally load -> 38.5 s (-59 % total) |
 | Load queue capped at 10 requests in flight while threads and disk idle (both) | Possible load slowdown | LC (cap 16) | Ally: not yet tested; PC: no change measured |
-| Post-load tip page waits for a button press (both) | Load never ends by itself | AutoContinueLoad | Skips the page; works on PC and Ally |
+| Post-load tip page waits for a button press (both) | Load never ends by itself | AutoContinueLoad | Optional (off by default): mod-menu row "Skip loading tip screen" skips the page; works on PC and Ally |
 | First-use PSO creation under a lock blocks the frame (both) | Hitches on first use of an effect | PJ (PSO journal + prewarm) | Built, not yet tested |
 | GHDM shadow shader is inefficient on the Ally's GPU (Ally) | GPU is ~99 % busy; shadows are a large share | Replacement GHDM shader | +6.4 to +8.7 % fps at MAX (measured) |
 | Barrier batching (PC) | Costs the PC about 7 % | Kept off (`Barriers` / R-series off on PC) | Measured: -7 %, so off |

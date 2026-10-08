@@ -42,8 +42,8 @@ Pick the zip for your device: **PC** (Windows desktop/laptop, usually limited by
 - Every live fix can be switched on/off; rows marked `* restart` apply on the next launch. **Save to ini** keeps choices.
 - Top-left overlay: fps, frame-generation fps, frame time and game speed (1.00x = real time). Turn off with
   `[Overlay] FpsCounter = 0`; startup popup with `[General] StartupPopup = 0`.
-- Loads: the "press button" tip page closes by itself when the load is done (`[General] AutoContinueLoad = 0` to keep
-  the press).
+- Loads: turn on "Skip loading tip screen" in the mod menu (or `[General] AutoContinueLoad = 1`) and the "press button" tip page closes by itself when the load is done. Off by default (it only
+  saves the press).
 
 ## Optional shader (same picture, less GPU time)
 Measured: Ally +6.4 to +8.7 % fps at MAX, PC about +3 %. With the game closed:

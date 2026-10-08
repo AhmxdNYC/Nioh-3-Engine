@@ -11,6 +11,7 @@
   "PC": {
     "title": "Desktop PC (Windows, CPU main-thread bound: 7600X + RX 9070 1440p reference)",
     "overrides": [
+      {"section": "General", "key": "AutoContinueLoad", "value": "0", "status": "off", "why": "user option in the mod menu (Skip loading tip screen); off by default since 1.7.33"},
       {"section": "Patches", "key": "W6", "value": "1", "status": "provisional", "why": "present-wait spin -> WaitOnAddress; PC 1.7.16 ~0, exact; pc-keep-candidates s5"},
       {"section": "Patches", "key": "GF", "value": "1", "status": "provisional", "why": "GPU fence wait on event; PC 1.7.16 +4.1 % (one window); repeat test open (STATUS RUNNING 1)"},
       {"section": "Patches", "key": "B", "value": "1", "status": "provisional", "why": "draw-list gallop; PC 1.7.16 +15.6 % but gpu_ms moved -16 % = suspected draw loss; needs gpuopt trace + screenshot pair"},
@@ -28,6 +29,7 @@
   "ALLY": {
     "title": "ROG Ally X / Steam Deck class handheld (Bazzite / Proton, GPU-bound)",
     "overrides": [
+      {"section": "General", "key": "AutoContinueLoad", "value": "0", "status": "off", "why": "user option in the mod menu (Skip loading tip screen); off by default since 1.7.33"},
       {"section": "Patches", "key": "W6", "value": "1", "status": "kept", "why": "shipped in every Ally zip since 1.1.0: kills main-thread spin, fps flat, watts to GPU"},
       {"section": "Patches", "key": "GF", "value": "1", "status": "kept", "why": "Ally: ~0.6 core of spin removed, GPU clock up, fps flat (pc-keep-candidates s3)"},
       {"section": "Patches", "key": "MQ", "value": "1", "status": "provisional", "why": "bit-exact, CPU power only; not yet run on the Ally"},

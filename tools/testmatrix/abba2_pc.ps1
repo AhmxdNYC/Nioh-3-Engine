@@ -38,6 +38,7 @@ function Make-IniText([hashtable]$kv) {   # base = the user's installed ini (pre
         else { $t = $t -replace "(?m)^\[Patches\]\s*$", "[Patches]`r`n$k = $($kv[$k])" }
         if ($t -notmatch "(?m)^$k = $([regex]::Escape([string]$kv[$k]))") { throw "ini key $k not set" }
     }
+    $t = Force-Acl $t   # off by default since 1.7.33; the harness needs it
     $t
 }
 function Set-TestIni([hashtable]$kv) { [IO.File]::WriteAllText($ini, (Make-IniText $kv), (New-Object Text.UTF8Encoding($false))) }

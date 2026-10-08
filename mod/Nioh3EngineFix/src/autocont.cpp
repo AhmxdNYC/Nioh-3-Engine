@@ -1,4 +1,4 @@
-// autocont.cpp - AutoContinueLoad ([General] AutoContinueLoad = 1 by default). See autocont.h and notes\auto-continue-load.md.
+// autocont.cpp - AutoContinueLoad ([General] AutoContinueLoad = 0 by default). See autocont.h and notes\auto-continue-load.md.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <intrin.h>
@@ -123,7 +123,7 @@ long Count() { return g_count ? *g_count : 0; }
 volatile uint8_t* Start(const StartInfo& info) {
     g_log = info.log;
     if (!g_log || !info.base || !info.iniPath) return nullptr;
-    const int want = (int)GetPrivateProfileIntW(L"General", L"AutoContinueLoad", 1, info.iniPath);
+    const int want = (int)GetPrivateProfileIntW(L"General", L"AutoContinueLoad", 0, info.iniPath);
     if (!info.knownBuild) {
         g_log("AutoContinue: not installed (unknown build; addresses are v2.02)");
         return nullptr;

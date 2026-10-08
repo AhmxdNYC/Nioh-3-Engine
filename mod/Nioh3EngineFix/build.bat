@@ -71,7 +71,7 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem boss fight logger ([Debug] BossLog = 0 by default; notes\boss-fights.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\bosslog.obj src\bosslog.cpp || exit /b 1
-rem skip the post-load "press to continue" tip page ([General] AutoContinueLoad = 1; notes\auto-continue-load.md)
+rem skip the post-load "press to continue" tip page ([General] AutoContinueLoad = 0 by default; notes\auto-continue-load.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\autocont.obj src\autocont.cpp || exit /b 1
 rem RP read probe + EP event pool ([Profiler] ReadProbe = 0, [Patches] EP = 0; notes\loading-ally-fixed.md 8)

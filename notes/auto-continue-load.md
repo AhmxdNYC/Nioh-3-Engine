@@ -1,4 +1,4 @@
-# Auto-continue after loading (ASI 1.7.22, `[General] AutoContinueLoad = 1`)
+# Auto-continue after loading (ASI 1.7.22, `[General] AutoContinueLoad`, default 0 since 1.7.33)
 
 Static work only (decomp_ro + capstone on `re\Nioh3.dump.exe`); the game was not run.
 
@@ -31,7 +31,7 @@ Static work only (decomp_ro + capstone on `re\Nioh3.dump.exe`); the game was not
   closes through the game's own path.
 - The game's own holds still apply: GameMain+3Fh and a queued system message.
 - Only 1CECB24 calls 1CECAE4, so no other prompt, dialog, death choice or menu is affected.
-- The menu row "Skip 'press button' after loading" writes the switch byte live, and writes `[General] AutoContinueLoad` at
+- The menu row "Skip loading tip screen" writes the switch byte live, and writes `[General] AutoContinueLoad` at
   once on a background thread. "Save to ini" also writes the key.
 - Log: `AutoContinue: installed ...`, then one `AutoContinue #n: load done - answered ...` line per load.
 

@@ -9,6 +9,7 @@ foreach($v in $Variants){
   $t=[IO.File]::ReadAllText($base)
   if($Ini -notmatch '_lg'){ $t=$t -replace '(?m)^LoadStats = \d','LoadStats = 1' }
   foreach($k in 'GL1','LC','LW'){ $t=$t -replace "(?m)^$k = \d","$k = $(if($name -eq $k){1}else{0})" }
+  $t = Force-Acl $t   # off by default since 1.7.33
   [IO.File]::WriteAllText("$g\Nioh3EngineFix.ini",$t,(New-Object Text.UTF8Encoding($false)))
   Close-Game
   Assert-Launch

@@ -3,6 +3,7 @@
  "game": "nioh3",
  "steam_id": 3681010,
  "alloff": [
+  ["General", "AutoContinueLoad", "1"],
   [
    "Patches",
    "W1",

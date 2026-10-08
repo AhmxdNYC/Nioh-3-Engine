@@ -48,7 +48,7 @@
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
 // 1.7.29: gimerge.cpp (GIProbe / GIMerge, notes\gi-highest-audit.md s6)
 // 1.7.32: drawprep.cpp (DQ retry quantum / P1E7 texture-loop prefetch, notes\mainthread-25.md)
-#define MOD_VERSION "1.7.32"
+#define MOD_VERSION "1.7.33"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2277,7 +2277,7 @@ DWORD WINAPI Worker(LPVOID) {
         mh.tgCap = U(tg_cap);
         mh.tgState = &g_tgState;
         mh.dsWaits = &g_dsWaits;
-        {  // skip the post-load "press to continue" tip page (autocont.cpp, [General] AutoContinueLoad = 1 by default)
+        {  // skip the post-load "press to continue" tip page (autocont.cpp, [General] AutoContinueLoad = 0 by default)
             autocont::StartInfo ai;
             ai.log = &Log;
             ai.iniPath = iniPath.c_str();

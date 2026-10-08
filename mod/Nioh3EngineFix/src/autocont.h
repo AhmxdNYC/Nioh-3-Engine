@@ -1,4 +1,4 @@
-// autocont.h - AutoContinueLoad ([General] AutoContinueLoad = 1 by default; notes\auto-continue-load.md).
+// autocont.h - AutoContinueLoad ([General] AutoContinueLoad = 0 by default; notes\auto-continue-load.md).
 // Skips the "press button to continue" wait of the post-load tip page: the moment the game marks the load done and would
 // accept the confirm press, the page's own confirm check reads "pressed" and the page closes through the game's own close
 // path (the same calls a real press makes). Nothing else changes.
@@ -20,7 +20,7 @@ namespace autocont {
 
 struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;
-    const wchar_t* iniPath = nullptr;  // [General] AutoContinueLoad (default 1)
+    const wchar_t* iniPath = nullptr;  // [General] AutoContinueLoad (default 0)
     uintptr_t base = 0;                // Nioh3.exe image base
     bool knownBuild = false;           // v2.02 only
 };

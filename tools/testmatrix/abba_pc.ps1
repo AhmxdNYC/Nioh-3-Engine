@@ -37,6 +37,7 @@ function Set-Ini([hashtable]$kv, [string]$base = $fullmod) {   # kv keys "Key" -
     foreach ($k in $kv.Keys) {
         if ($t -match "(?m)^$k = ") { $t = $t -replace "(?m)^$k = .*", "$k = $($kv[$k])" } else { throw "ini key $k missing" }
     }
+    $t = Force-Acl $t   # off by default since 1.7.33
     [IO.File]::WriteAllText($ini, $t, (New-Object Text.UTF8Encoding($false)))
 }
 function Close-GameClean {

@@ -127,6 +127,7 @@ function Set-IniValue([string[]]$lines, [string]$sec, [string]$key, [string]$val
 }
 function Write-IniState($triples) {
     $lines = [IO.File]::ReadAllLines($iniOrig)
+    $lines = Set-IniValue $lines "General" "AutoContinueLoad" "1"   # off by default since 1.7.33; later triples may override
     foreach ($t in $triples) { $lines = Set-IniValue $lines $t[0] $t[1] $t[2] }
     [IO.File]::WriteAllLines($ini, $lines, (New-Object Text.UTF8Encoding($false)))
 }
