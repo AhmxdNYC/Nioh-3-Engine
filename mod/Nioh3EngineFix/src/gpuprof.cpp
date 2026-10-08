@@ -48,6 +48,7 @@ constexpr int kMaxTid = 8;
 struct Cfg {
     int prof = 0, markers = 0, maxMarkers = 2048, top = 30;
     int maxStamps = 8192, top2 = 40, ab = 1;   // GPUProf = 2: PSO timestamps per frame, rows in the GP2 log, overhead A/B windows
+    int sampleEvery = 8, minRun = 4;           // GPUProf = 2 (1.7.8): stamp 1 frame in N; an interval holds >= minRun draws before it is cut
 };
 Cfg g_cfg;
 void (*g_log)(const char*, ...) = nullptr;
@@ -69,7 +70,9 @@ volatile uint64_t* g_rbMap = nullptr;
 double g_ticksPerMs = 0;
 int g_qPerSlot = 0;
 volatile LONG64 g_frame = 0;
-volatile LONG g_stampOn = 1;    // GP2: PSO-level timestamps (switched off in the A/B overhead windows)
+volatile LONG g_stampOn = 1;    // GP2: this frame is sampled (1.7.8: 1 frame in SampleEvery; with SampleEvery = 1 the old A/B windows switch it)
+volatile uint8_t* g_hookMask = nullptr;   // gpuopt_hook: the GP2 slots are cleared in unsampled frames, so those frames pay nothing
+volatile LONG64 g_wallTicksS = 0, g_wallFramesS = 0, g_wallTicksU = 0, g_wallFramesU = 0, g_sampledFrames = 0, g_stampsTaken = 0;
 volatile LONG g_stampsUsed[8] = {};   // per frame slot: PSO timestamps taken (cap = g_cfg.maxStamps)
 volatile LONG64 g_stampDrop = 0, g_rec2Full = 0, g_hookTicks = 0, g_hookCalls = 0, g_wallTicks = 0, g_wallFrames = 0;
 
@@ -197,6 +200,9 @@ struct ListState {
     uint32_t bound;     // bucket of the PSO currently bound
     uintptr_t boundPtr;
     uint32_t draws;     // draws + dispatches since ivQ
+    // 1.7.8 coarse stamps: an interval is cut only once it holds >= minRun draws (copies count as minRun); it is billed to its longest run
+    uint32_t runBucket; // bucket of the run in progress
+    uint32_t runW, bestW, ivW;   // weight (draws) of the run in progress / of the longest run so far / of the whole interval
 };
 constexpr int kLists = 64;
 ListState g_ls[kLists];
@@ -221,6 +227,8 @@ ListState* FindList(void* list, int set, bool create) {
     s.bucket = s.bound = kBkNoPso;
     s.boundPtr = 0;
     s.draws = 0;
+    s.runBucket = kBkNoPso;
+    s.runW = s.bestW = s.ivW = 0;
     auto cl = (ID3D12GraphicsCommandList*)list;
     const D3D12_COMMAND_LIST_TYPE t = reinterpret_cast<GetTypeFn>(Orig(set, kSlotGetType))(cl);
     s.ctype = t == D3D12_COMMAND_LIST_TYPE_COMPUTE ? 1 : 0;
@@ -265,6 +273,7 @@ int StampLocked(ListState& s, void* list, int set, bool pso) {
     }
     if (s.base >= 0) {
         idx = s.base + s.used++;
+        InterlockedIncrement64(&g_stampsTaken);
         reinterpret_cast<EndQueryFn>(Orig(set, kSlotEndQuery))((ID3D12GraphicsCommandList*)list, g_heap,
                                                               D3D12_QUERY_TYPE_TIMESTAMP, (UINT)idx);
     }
@@ -286,8 +295,18 @@ void IvClose(ListState& s, int qNow, uint16_t marker) {
     s.draws = 0;
 }
 
+// the interval is about to be cut for a reason other than a PSO change (marker edge, list end): label it with its longest run
+void Finalize(ListState& s) {
+    if (s.runW > s.bestW) { s.bestW = s.runW; s.bucket = s.runBucket; }
+}
+void Restart(ListState& s) {   // after a forced cut the run in progress goes on in a fresh interval
+    s.bucket = s.runBucket;
+    s.runW = s.bestW = s.ivW = 0;
+}
+
 // closeMarker: -2 = markers only (GPUProf = 1); otherwise GP2: the marker name id the ending interval belongs to
 int Stamp(void* list, int set, int closeMarker = -2) {
+    if (closeMarker != -2 && !g_stampOn) return -1;   // GP2, unsampled frame: no query at all
     AcquireSRWLockExclusive(&g_lsLock);
     int idx = -1;
     ListState* s = FindList(list, set, true);
@@ -295,10 +314,13 @@ int Stamp(void* list, int set, int closeMarker = -2) {
         idx = StampLocked(*s, list, set, false);
         if (closeMarker != -2) {
             if (g_stampOn) {
+                Finalize(*s);
                 IvClose(*s, idx, (uint16_t)closeMarker);
+                Restart(*s);
             } else {
                 s->ivQ = -1;
-                s->bucket = kBkNoPso;
+                s->bucket = s->runBucket = kBkNoPso;
+                s->runW = s->bestW = s->ivW = 0;
             }
         }
     }
@@ -340,14 +362,29 @@ void Gp2Event(void* list, int set, int slot, uintptr_t a1) {
             }
         } else if (!g_stampOn) {
             s->ivQ = -1;
-            s->bucket = kBkNoPso;
+            s->bucket = s->runBucket = kBkNoPso;
+            s->runW = s->bestW = s->ivW = 0;
         } else {
             const uint32_t want = copy ? kBkCopy : s->bound;
-            if (want != s->bucket) {
+            const uint32_t w = copy ? (uint32_t)g_cfg.minRun : 1u;
+            if (s->ivQ < 0) {   // no interval open: this stamp opens one
                 const int q = StampLocked(*s, list, set, true);
                 IvClose(*s, q, CurMarker());
-                s->bucket = want;
+                s->bucket = s->runBucket = want;
+                s->runW = s->bestW = s->ivW = 0;
+            } else if (want != s->runBucket) {   // PSO change: cut only when the interval holds enough draws, else merge the runs
+                if (s->runW > s->bestW) { s->bestW = s->runW; s->bucket = s->runBucket; }
+                if (s->ivW >= (uint32_t)g_cfg.minRun) {
+                    const int q = StampLocked(*s, list, set, true);
+                    IvClose(*s, q, CurMarker());
+                    s->bucket = want;
+                    s->bestW = s->ivW = 0;
+                }
+                s->runBucket = want;
+                s->runW = 0;
             }
+            s->runW += w;
+            s->ivW += w;
             if (!copy) ++s->draws;
         }
     }
@@ -482,6 +519,7 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
             AcquireSRWLockExclusive(&g_lsLock);
             if (ListState* s = FindList(list, set, false)) {
                 if (s->ok && g_cfg.prof >= 2 && g_stampOn && s->ivQ >= 0) {  // GP2: list end
+                    Finalize(*s);
                     const int q = StampLocked(*s, list, set, true);
                     IvClose(*s, q, CurMarker());
                 }
@@ -534,6 +572,7 @@ void ProcessSlot(int r) {
     memset(childSum, 0, sizeof(childSum));
     double top = 0;
     uint64_t lo = ~0ull, hi = 0;
+    const bool had = g_cfg.prof < 2 || S.used > 0;   // GP2 sampling: only frames that were stamped count
     const double maxTicks = g_ticksPerMs * 1000.0;  // a pass longer than 1 s is a bad sample
     AcquireSRWLockExclusive(&S.lock);
     AcquireSRWLockExclusive(&g_aggLock);
@@ -560,11 +599,12 @@ void ProcessSlot(int r) {
             hi = std::max(hi, e);
         }
     }
-    for (Agg* a : {&g_win, &g_short}) {
-        a->top += top;
-        a->span += hi > lo ? (double)(hi - lo) : 0.0;
-        a->frames++;
-    }
+    if (had)
+        for (Agg* a : {&g_win, &g_short}) {
+            a->top += top;
+            a->span += hi > lo ? (double)(hi - lo) : 0.0;
+            a->frames++;
+        }
     if (g_cfg.prof >= 2) {   // GP2 intervals: per (bucket, marker) time; DIRECT-queue intervals make up "covered"
         uint64_t l2 = ~0ull, h2 = 0;
         Win2& w = g_win2;
@@ -590,7 +630,7 @@ void ProcessSlot(int r) {
             }
         }
         w.span += h2 > l2 ? (double)(h2 - l2) : 0.0;
-        w.frames++;
+        if (had) w.frames++;
     }
     ReleaseSRWLockExclusive(&g_aggLock);
     const LONG usedNow = S.used;
@@ -663,7 +703,13 @@ void LogGp2() {
     static double wallOn = 0, wallOff = 0, hookOn = 0;
     static int nOn = 0, nOff = 0;
     static LONG64 pDrop = 0, pRec = 0, pCalls = 0, pTicks = 0, pFull = 0;
-    const bool wasOn = g_stampOn != 0;
+    const bool sampling = g_cfg.sampleEvery > 1;
+    const bool wasOn = sampling || g_stampOn != 0;
+    static LONG64 pSF = 0, pStamps = 0;
+    const LONG64 wtS = InterlockedExchange64(&g_wallTicksS, 0), wfS = InterlockedExchange64(&g_wallFramesS, 0);
+    const LONG64 wtU = InterlockedExchange64(&g_wallTicksU, 0), wfU = InterlockedExchange64(&g_wallFramesU, 0);
+    const LONG64 sf = g_sampledFrames - pSF, stampsNow = g_stampsTaken - pStamps;
+    pSF = g_sampledFrames; pStamps = g_stampsTaken;
     LARGE_INTEGER qf;
     QueryPerformanceFrequency(&qf);
     const LONG64 wt = InterlockedExchange64(&g_wallTicks, 0), wf = InterlockedExchange64(&g_wallFrames, 0);
@@ -679,16 +725,17 @@ void LogGp2() {
     const double callsFrame = wf ? (double)calls / (double)wf : 0.0;
     const double nsCall = calls ? (double)ticks / (double)qf.QuadPart * 1e9 / (double)calls : 0.0;
     pCalls = g_hookCalls; pTicks = g_hookTicks;
-    if (wasOn) {
+    if (sampling) {
+    } else if (wasOn) {
         wallOn += wallMs; ++nOn; hookOn = hookMsFrame;
     } else {
         wallOff += wallMs; ++nOff;
     }
     GLOG2("frame %.2f ms GPU span (wall %.2f ms); covered %.2f ms (%.0f %% of span); async-compute %.2f ms; %.0f intervals/frame, "
-         "%.0f draws+dispatches/frame, PSO stamps %s | dropped: cap %lld, rec %lld, unresolved %lld, heap full %lld",
+         "%.0f draws+dispatches/frame, PSO stamps %s | dropped: cap %lld, rec %lld, unresolved %lld, heap full %lld | sampled %lld frames (1 in %d), min run %d draws",
          w->span / fr / ms, wallMs, w->covered / fr / ms, w->span > 0 ? 100.0 * w->covered / w->span : 0.0, w->async / fr / ms,
          (double)w->intervals / fr, (double)w->draws / fr, wasOn ? "ON" : "OFF (A/B overhead window)", g_stampDrop - pDrop,
-         g_rec2Full - pRec, (long long)w->bad, g_full - pFull);
+         g_rec2Full - pRec, (long long)w->bad, g_full - pFull, (long long)w->frames, g_cfg.sampleEvery, g_cfg.minRun);
     pDrop = g_stampDrop; pRec = g_rec2Full; pFull = g_full;
     if (wasOn) {
         struct Row { uint64_t key; A2 a; };
@@ -713,7 +760,17 @@ void LogGp2() {
                  (double)r.a.draws / fr, (double)r.a.n / fr, mk == kNoMarker ? "-" : NameOf(mk));
         }
     }
-    if (nOn && nOff) {
+    if (sampling) {
+        const double fq = (double)qf.QuadPart / 1000.0;
+        const double mS = wfS ? (double)wtS / fq / (double)wfS : 0.0, mU = wfU ? (double)wtU / fq / (double)wfU : 0.0;
+        const double d = (wfS && wfU) ? mS - mU : 0.0, amort = d / (double)g_cfg.sampleEvery;
+        const double hookPerS = sf ? (double)ticks / fq / (double)sf : 0.0;
+        GLOG2("overhead: wall frame, sampled %.2f ms (%lld) vs unsampled %.2f ms (%lld) -> %+.2f ms on a sampled frame = %+.2f ms/frame averaged "
+             "(%+.1f %%; the cost can land one present late); stamps %.0f/sampled frame for %.0f draws; hook CPU %.3f ms/sampled frame "
+             "(%.0f calls, ~%.0f ns/call, sampled) = %.3f ms/frame averaged; the rest of a sampled frame's cost is GPU-side (timestamp writes)",
+             mS, (long long)wfS, mU, (long long)wfU, d, amort, mU > 0 ? 100.0 * amort / mU : 0.0, sf ? (double)stampsNow / (double)sf : 0.0,
+             (double)w->draws / fr, hookPerS, sf ? (double)calls / (double)sf : 0.0, nsCall, hookMsFrame);
+    } else if (nOn && nOff) {
         const double on = wallOn / nOn, off = wallOff / nOff;
         GLOG2("overhead: wall frame with PSO stamps ON %.2f ms (%d windows) vs OFF %.2f ms (%d windows) -> %+.2f ms/frame (%+.1f %%; scene "
              "changes between windows add noise); hook CPU %.3f ms/frame (%.0f calls/frame, ~%.0f ns/call, sampled); mod GPU cost "
@@ -725,8 +782,8 @@ void LogGp2() {
              hookMsFrame, callsFrame, nsCall, wallMs);
     }
     delete w;
-    ++window;   // A/B: windows 2 and 4 (index 1 and 3) run with the PSO stamps off
-    InterlockedExchange(&g_stampOn, (g_cfg.ab && (window == 1 || window == 3)) ? 0 : 1);
+    ++window;   // A/B (SampleEvery = 1 only): windows 2 and 4 (index 1 and 3) run with the PSO stamps off
+    if (!sampling) InterlockedExchange(&g_stampOn, (g_cfg.ab && (window == 1 || window == 3)) ? 0 : 1);
 }
 
 }  // namespace
@@ -748,6 +805,8 @@ void Start(const StartInfo& info) {
     g_cfg.maxStamps = I(L"GPUProf2_MaxStamps", 8192, 1024, 65536);
     g_cfg.top2 = I(L"GPUProf2_Top", 40, 5, 100);
     g_cfg.ab = I(L"GPUProf2_AB", 1, 0, 1);
+    g_cfg.sampleEvery = I(L"GPUProf2_SampleEvery", 8, 1, 64);
+    g_cfg.minRun = I(L"GPUProf2_MinRun", 4, 1, 64);
     if (!g_cfg.prof && !g_cfg.markers) return;
     if (!g_codeOk || !g_base) {
         GLOG("%s", "marker code not verified on this build - GP off");
@@ -760,8 +819,9 @@ void Start(const StartInfo& info) {
     GLOG("GPUProf %d, GPUProf_Markers %d, max %d markers/frame, top %d%s", g_cfg.prof, g_cfg.markers, g_cfg.maxMarkers,
          g_cfg.top, g_wine.empty() ? "" : " (Proton: timestamps through vkd3d-proton)");
     if (g_cfg.prof >= 2)
-        GLOG2("per-PSO attribution on - max %d PSO timestamps/frame, top %d rows, overhead A/B windows %s; PSO->shader map %s",
-             g_cfg.maxStamps, g_cfg.top2, g_cfg.ab ? "windows 2 and 4 run with PSO stamps off" : "off",
+        GLOG2("per-PSO attribution on - stamps in 1 frame of %d, intervals >= %d draws, max %d PSO timestamps/frame, top %d rows, overhead %s; PSO->shader map %s",
+             g_cfg.sampleEvery, g_cfg.minRun, g_cfg.maxStamps, g_cfg.top2,
+             g_cfg.sampleEvery > 1 ? "measured live (sampled vs unsampled frames)" : g_cfg.ab ? "A/B windows 2 and 4 run with PSO stamps off" : "not measured",
              psoswap::Tracking() ? "from the psoswap creation hooks" : "NOT available yet (psoswap starts earlier; check the PSOSWAP lines)");
     if (HANDLE h = CreateThread(nullptr, 0, MarkerThread, nullptr, 0, nullptr)) CloseHandle(h);
 }
@@ -779,6 +839,7 @@ void EnableHooks(volatile uint8_t* mask, int slots) {
         mask[kSlotSetPso] = 1;
         for (int v : kDrawSlots) mask[v] = 1;
         for (int v : kCopySlots) mask[v] = 1;
+        g_hookMask = mask;   // OnFrame clears these slots in unsampled frames
         GLOG("%s", "command-list hooks: BeginEvent, EndEvent, Close, Reset + GP2: SetPipelineState, Draw*, Dispatch, ExecuteIndirect, DispatchMesh, Copy*, Resolve*, Clear*");
         return;
     }
@@ -811,6 +872,27 @@ void OnListCall(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintp
     }
 }
 
+// GP2 sampling: frame f is stamped when f % SampleEvery == 0. The GP2 list slots are cleared in the hook mask for the other frames,
+// so their draws never leave the asm thunk. Lists that straddle a switch forget their open interval (the stale query would pair
+// with a query of another frame slot).
+void SetSampled(bool on) {
+    InterlockedExchange(&g_stampOn, on ? 1 : 0);
+    if (g_hookMask) {
+        g_hookMask[kSlotSetPso] = on;
+        for (int v : kDrawSlots) g_hookMask[v] = on;
+        for (int v : kCopySlots) g_hookMask[v] = on;
+    }
+    AcquireSRWLockExclusive(&g_lsLock);
+    for (ListState& l : g_ls) {
+        l.ivQ = -1;
+        l.bucket = l.runBucket = kBkNoPso;
+        l.runW = l.bestW = l.ivW = 0;
+        l.bound = kBkNoPso;
+        l.boundPtr = 0;   // the mask was off: SetPipelineState calls were missed, re-learn the bound PSO on the next one
+    }
+    ReleaseSRWLockExclusive(&g_lsLock);
+}
+
 void OnFrame() {
     const LONG64 f = InterlockedIncrement64(&g_frame);
     if (!g_on || g_inited != 1) return;
@@ -819,10 +901,20 @@ void OnFrame() {
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);
         if (last.QuadPart) {
-            InterlockedAdd64(&g_wallTicks, now.QuadPart - last.QuadPart);
+            const LONG64 dt = now.QuadPart - last.QuadPart;
+            InterlockedAdd64(&g_wallTicks, dt);
             InterlockedIncrement64(&g_wallFrames);
+            if (g_cfg.sampleEvery > 1) {   // the interval that just ended belongs to the frame whose state is still current
+                InterlockedAdd64(g_stampOn ? &g_wallTicksS : &g_wallTicksU, dt);
+                InterlockedIncrement64(g_stampOn ? &g_wallFramesS : &g_wallFramesU);
+            }
         }
         last = now;
+        if (g_cfg.sampleEvery > 1) {
+            const bool want = f % g_cfg.sampleEvery == 0;
+            if (want != (g_stampOn != 0)) SetSampled(want);
+            if (want) InterlockedIncrement64(&g_sampledFrames);
+        }
     }
     __try {
         ProcessSlot((int)((f + 2) % kRing));  // the slot that was current 6 frames ago; current again 2 frames from now

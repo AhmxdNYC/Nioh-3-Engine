@@ -31,7 +31,7 @@ static void Log(const char* fmt, ...) {
 }
 
 int main(int argc, char** argv) {
-    const int mode = argc > 1 ? atoi(argv[1]) : 1;   // 1 = marker profiler, 2 = GP2 per-PSO attribution
+    const int mode = argc > 1 ? atoi(argv[1]) : 1;   // 1 = marker profiler, 2 = GP2 (every frame, every PSO run), 3 = GP2 sampled 1 in 4, min run 2
     printf("=== GPUProf = %d ===\n", mode);
     int fails = 0;
     auto check = [&](bool c, const char* m) { printf("%s %s\n", c ? "OK  " : "FAIL", m); fails += !c; };
@@ -42,9 +42,11 @@ int main(int argc, char** argv) {
     wchar_t ini[MAX_PATH];
     GetTempPathW(MAX_PATH, ini);
     wcscat_s(ini, L"gp_harness.ini");
-    WritePrivateProfileStringW(L"Profiler", L"GPUProf", mode == 2 ? L"2" : L"1", ini);
+    WritePrivateProfileStringW(L"Profiler", L"GPUProf", mode >= 2 ? L"2" : L"1", ini);
     WritePrivateProfileStringW(L"ShaderSwap", L"Enabled", L"0", ini);   // GP2 alone: psoswap only maps PSOs to shader hashes
     WritePrivateProfileStringW(L"Profiler", L"GPUProf2_AB", L"0", ini);
+    WritePrivateProfileStringW(L"Profiler", L"GPUProf2_SampleEvery", mode == 3 ? L"4" : L"1", ini);
+    WritePrivateProfileStringW(L"Profiler", L"GPUProf2_MinRun", mode == 3 ? L"2" : L"1", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"Barriers", L"0", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"InstallDelaySec", L"600", ini);
 
@@ -53,7 +55,7 @@ int main(int argc, char** argv) {
     if (debug) dbg->EnableDebugLayer();
     printf("D3D12 debug layer: %s\n", debug ? "on" : "not installed");
 
-    if (mode == 2) {
+    if (mode >= 2) {
         psoswap::StartInfo ps;
         ps.log = &Log;
         ps.iniPath = ini;
@@ -76,7 +78,7 @@ int main(int argc, char** argv) {
 
     ID3D12Device* dev = nullptr;
     if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), (void**)&dev))) return 2;
-    check(mode != 2 || psoswap::Tracking(), "psoswap PSO tracking on");
+    check(mode < 2 || psoswap::Tracking(), "psoswap PSO tracking on");
     ID3D12InfoQueue* iq = nullptr;
     if (debug) dev->QueryInterface(__uuidof(ID3D12InfoQueue), (void**)&iq);
     D3D12_COMMAND_QUEUE_DESC qd = {};
@@ -138,7 +140,7 @@ int main(int argc, char** argv) {
     // GP2: two compute PSOs, one ~20x heavier (a dependent integer loop), a root UAV on the buffer
     ID3D12RootSignature* rs = nullptr;
     ID3D12PipelineState *psoHeavy = nullptr, *psoLight = nullptr;
-    if (mode == 2) {
+    if (mode >= 2) {
         D3D12_ROOT_PARAMETER rp = {};
         rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
         D3D12_ROOT_SIGNATURE_DESC rsd = {1, &rp, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE};
@@ -191,7 +193,7 @@ int main(int argc, char** argv) {
         ev16(L"Tile 4 7");
         clear(1);
         cl->EndEvent();
-        if (mode == 2 && psoHeavy && psoLight) {
+        if (mode >= 2 && psoHeavy && psoLight) {
             cl->SetComputeRootSignature(rs);
             cl->SetComputeRootUnorderedAccessView(0, buf->GetGPUVirtualAddress());
             ev16(L"HeavyPass");
@@ -251,7 +253,7 @@ int main(int argc, char** argv) {
     check(unmatched == 0, "every EndEvent matched a BeginEvent");
     check(unresolved == 0, "no unresolved / bad timestamps in the measured window");
     check(frameMs > 0 && frameMs >= big - 1e-6, "frame total covers the top-level pass");
-    if (mode == 2) {
+    if (mode >= 2) {
         // GP2: rows "GP2:   <rank> <desc> | <ms> ms | <draws/frame> | <intervals/frame> | [marker]"
         double heavy = -1, light = -1, hd = -1, copyMs = -1, covered = -1, span = -1;
         bool csNamed = false;

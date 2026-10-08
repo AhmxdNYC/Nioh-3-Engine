@@ -25,6 +25,6 @@ if r.returncode:
     print(r.stdout[-4000:], r.stderr[-2000:])
     sys.exit("compile failed")
 rc = 0
-for mode in ("1", "2"):   # 1 = marker profiler, 2 = GP2 per-PSO attribution
+for mode in ("1", "2", "3"):   # 1 = marker profiler, 2 = GP2 per-PSO attribution, 3 = GP2 sampled + coarse
     rc |= subprocess.run([str(OUT / "gp_harness.exe"), mode]).returncode
 sys.exit(rc)
