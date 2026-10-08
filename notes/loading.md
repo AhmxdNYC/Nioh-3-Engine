@@ -40,8 +40,10 @@ Symbols: `re\symbols\incoming\loading.tsv` (30 new) + `loading-renames.tsv` (5),
    can shorten such a window; LoadStats measures how much of it is real loading.
 2. Not I/O: streamed textures and meshlets (95 of 112 GiB in `root.rdb`) are stored uncompressed, and VRAM grows at
    15-40 MB/s on an NVMe that reads 1-3 GB/s.
-3. Not decompression wall time (estimate, to be measured): zlib runs per 16 KiB chunk, already spread over job
-   workers; ~1-2 GB inflated per load ~ 4-8 CPU-s on the Ally ~ 1 s of wall time.
+3. Not decompression wall time: zlib runs per 16 KiB chunk, already spread over job workers. SP rows in the 58A
+   window (`re\scripts_load\load_zlib_sp.py`; the sampler is round-robin, so share x threads x s = thread-s) put zlib
+   at **1-13 thread-s per load** (L1/L2/L3/v7.1/v9; only ZlibInflateFast B36BF0 ever reaches the listed rows, at
+   0.0-0.1 % of KIDSTS), against ~1000 CPU-s of other work in the window.
 4. Where throughput matters (A/B on v4/v5/v9-type loads) the bound is **CPU power**: CPU 85-95 % while the GPU sits at
    800 MHz. Futile CPU work (pool-1 wake storm, Sleep(0) fence spins, zram compression) slows both.
 5. Phase C is GPU-bound frames under the cover (VSM blackout floor 64 tiles/frame, `re\scripts_stutter\ld_verify.py`)
@@ -74,10 +76,22 @@ TS_MESHLET_REQ 14 are fixed. With the CPU at 85-95 % in phase A, more threads wo
 | 3 | **LM** sweeper (MEM_RESET dead arena pages) | allocator touches only headers (notes\load-memory.md) | 3-6 s on loads that start with a swap burst, 0 otherwise | swap jump at 58A set |
 | 4 | **in-flight cap 10 -> 16** while 58A is set (A: imm8 at 1FEEA3, B: the 10 at 1FF3B0 path) | same requests, same queue order; dependencies are explicit (ResourceDependenciesReady) | 2-10 s if the managers are the critical path | at cap > 70 % of busy time, loaders busy until stage ready |
 | 5 | **completion event instead of Sleep(1) polls** (signal from ResourceStepJob_Run 1343D00; keep a 1 ms timeout) | same steps, only earlier noticed | 0.5-3 s | many no-progress Sleep(1)s (1FF18C) while busy |
-| 6 | faster bit-exact chunk inflate (libdeflate-class decoder behind 420654/324D064/A09A40; offline check: all 190k entries byte-identical with `data\tools\n3rdb.py`) | DEFLATE decode is deterministic | 0.5-2 s (CPU power) | inflate CPU-s > 10 |
+| 6 | ~~faster bit-exact chunk inflate (ZI)~~ **written off 2026-10-08**, §3.1 | DEFLATE decode is deterministic | <= 1.3 s (< 1.5 %), likely 0.2-0.5 s | reopen if inflate CPU-s > 20 per load |
 | 7 | PSO pre-creation of the next stage's list earlier (title/menu) | same PSOs, earlier | 0-5 s | PSO CPU-s > 5 in the window |
 | 8 | raise WorkerCap only during loads | - | <= 1 s, may be negative (more wakes) | max inflate parallel = pool width and CPU < 80 % |
 | 9 | larger/aligned reads, prefetch | - | < 1 s | read in-call ms high (not expected) |
+
+### 3.1 ZI (faster zlib): written off 2026-10-08
+
+- The contract would be easy to keep: every site is one-shot. ZlibInflateChunk16K 420654 (and _B 324D064, _C A09A40)
+  = inflateInit B34C60 (zlib header, 15-bit window) + one inflate(Z_FINISH) B34670 into a 16 KiB stack buffer +
+  inflateEnd B34AC0 + memcpy out. A whole-buffer decoder (libdeflate `zlib_decompress_ex`, MIT) behind those 3 entry
+  points gives identical bytes; the callers use only the output length and the success flag.
+- The ceiling is below the 2 % bar: zlib = 1-13 thread-s per load (§1 verdict 3). libdeflate is ~2.5-3x zlib 1.1.4,
+  so it saves <= ~9 CPU-s, spread over the 6-7 ResourceLoad workers that run CInflateTask: <= 1.3 s of wall time even
+  if inflate were entirely on the critical path (0 on the timer-bound 118 s route, <= 1.5 % of an 85 s load), and
+  < 1 % of the window's CPU-s for the shared-power argument. Not built (no 1.7.15).
+- Reopen if LoadStats' `inflate CPU-s` exceeds ~20 per load, or `max parallel` <= 2 while stage-ready waits on it.
 
 Not same-result (rejected): converting the 120-frame ready-wait timeout into seconds (characters could appear
 unready), the VSM blackout budget patches VBF/VAT/VBB in `ld_verify.py` (change the shadow refresh policy), frame caps on
