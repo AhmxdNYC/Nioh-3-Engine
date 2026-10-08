@@ -34,3 +34,6 @@ Ally 1.7.2 digest: FG-off fixed; GP labelled = 14.5 of 59 ms (FSR3 native AA 6.9
 
 ## 20:00 backlog (user: optimize everything possible)
 Running: runtime post shaders (opus), GI reflection #414 (opus), ASI 1.7.5 = CS culling skip + AS0 async slot-0 experiment (sonnet). Held for the Ally: ASI 1.7.4 GPUProf=2 per-PSO timing (sent after the 1.7.3 digest) -> then target the top unlabelled GPU costs (material/G-buffer shaders likely). Next queue: A2 shadow double-draw check via GP markers; load hitches (DiscardVirtualMemory at stage teardown, needs arena RVAs); FSR3 shader micro-opts (AMD code, low odds); particles; PC tiny-draw instancing (hard).
+
+## 21:50 - session restart + REGRESSION
+Ally 1.7.5 GP2: all replacements ON = 0.4-0.6 fps SLOWER than all off. Pairs: sync CS 4.82 vs 3.35 ms (likely gi #121/#414), async CS 3.99 vs 3.40 (likely fog). Cause: RGA (Windows AMD compiler) models don't predict vkd3d->dxil-spirv->RADV/ACO. RULE: no shader ships to the default set without an Ally A/B win. AS0 (async slot 0): stable, no gain. GP2 stamps cost ~14 ms (only for attribution). Running: hash mapping + keep/drop table (sonnet). Ally next: 1.7.7 + v6, per-shader A/B w/o GP2. Killed by the restart (resume later): materials/75% (opus, partial gpu-shaders\materials\), vkd3d audit (opus, nothing written).
