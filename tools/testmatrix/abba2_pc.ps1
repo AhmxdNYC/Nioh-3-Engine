@@ -16,12 +16,21 @@
 #   through the mod's VirtualPad pipe (VirtualPad = 1 + KeepRunningUnfocused = 1 in the test ini); no foreground, no idle wait,
 #   no refocus; windows are kept when the user works on the PC (foreground / idle recorded in the manifest as user_active).
 #   Default -Input ui = the SendInput path above, unchanged.
+# 1.7.39 (notes\pc-cpu-next.md): -Arms BASE,DQ,P1E7,BASE,P1E7,DQ,BASE = explicit launch order (3+ BASE launches -> the
+#   report compares each arm with the BASE interpolated between its neighbours). -MaxFps 240 writes [VRR] MaxFps so the
+#   120 cap does not compress CPU gains (run5/run6 sat at 116-118.5 fps). A -Live item that is 0 / missing in the base ini
+#   is installed switched off (= 2) for the run, so DQ / P1E7 / AABB (live rows since 1.7.39) need no ini edit.
 param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Quads = 3, [int]$QuadsB = 2,
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
       [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30,
-      [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui")
+      [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui", [string[]]$Arms = @(), [int]$MaxFps = 0)
 $vp = $InputMode -eq "vpad"
 $ErrorActionPreference = "Continue"
+$Arms = @($Arms -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($Arms.Count) {   # explicit order; the launch flags are its non-BASE arms
+    if ($Arms[0] -ne "BASE" -or $Arms[-1] -ne "BASE") { throw "-Arms must start and end with BASE" }
+    $LaunchFlags = @($Arms | Where-Object { $_ -ne "BASE" } | Select-Object -Unique)
+}
 $Live = @($Live -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" }); $LaunchFlags = @($LaunchFlags -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" })   # -File passes "B,GF" as one string
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "C:\Users\Ahmad Hamza\nioh3-engine\patcher\common.ps1"
@@ -165,7 +174,8 @@ function Boot-Info {   # version + DQ/P1E7 install lines from the first part of 
     $v = if ($tx -match 'Nioh3EngineFix (\d+\.\d+\.\d+)') { $Matches[1] } else { "?" }
     $dq = if ($tx -match 'DQ: main-loop retry quantum .*?\(switch (ON|off)\)') { $Matches[1].ToUpper() } else { $null }
     $pf = if ($tx -match 'P1E7: texture-loop prefetch .*?\(switch (ON|off)\)') { $Matches[1].ToUpper() } else { $null }
-    @{ ver = $v; dq = $dq; p1e7 = $pf }
+    $ma = if ($tx -match 'MA: 25 main-thread locked atomic loads') { "ON" } else { "OFF" }
+    @{ ver = $v; dq = $dq; p1e7 = $pf; ma = $ma }
 }
 function Manifest([hashtable]$h) { Add-Content "$out\manifest.jsonl" ($h | ConvertTo-Json -Compress) }
 function Window([string]$name, [hashtable]$meta) {   # a window with user input or without Nioh3 in front is discarded + repeated
@@ -229,7 +239,14 @@ function Toggle([string]$id, [string]$want) {   # returns [bool]; confirmed only
 $labels = @{}; $script:bootState = @{}
 function Prepare {
     $test = @{ CpuStats = 1; ReportSec = 10; Barriers = 0 }
-    $tmpIni = "$out\test_base.ini"; [IO.File]::WriteAllText($tmpIni, (Make-IniText ($test + @{ DQ = 0; P1E7 = 0 })), (New-Object Text.UTF8Encoding($false)))
+    if ($MaxFps -gt 0) { $test.MaxFps = $MaxFps }
+    foreach ($f in $LaunchFlags) { if ($Live -contains $f) { throw "$f is both -Live and a launch flag" } }
+    $base0 = [IO.File]::ReadAllText($baseIni)
+    foreach ($i in $Live) {   # not installed in the base ini -> installed switched off for this run
+        if (-not ($base0 -match "(?m)^$i\s*=\s*[12]")) { $test[$i] = 2 }
+    }
+    $off = @{}; foreach ($f in @("DQ", "P1E7") + $LaunchFlags) { if ($Live -notcontains $f) { $off[$f] = 0 } }
+    $tmpIni = "$out\test_base.ini"; [IO.File]::WriteAllText($tmpIni, (Make-IniText ($test + $off)), (New-Object Text.UTF8Encoding($false)))
     py -I "$here\menu_map.py" --ini $tmpIni --no-batch --device pc -o "$out\menu_map.json" | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "menu_map.py failed" }
     $script:menu = Get-Content "$out\menu_map.json" -Raw | ConvertFrom-Json
@@ -244,7 +261,7 @@ function Prepare {
 }
 $test = Prepare
 if ($DryRun) {
-    $kv = $test + @{ DQ = 1; P1E7 = 0 }
+    $kv = $test.Clone(); foreach ($f in $LaunchFlags) { $kv[$f] = $(if ($f -eq $LaunchFlags[0]) { 1 } else { 0 }) }
     $txt = Make-IniText $kv
     "DryRun OK: out=$out input=$InputMode"
     if ($vp) { "  vpad ini: " + (("VirtualPad", "KeepRunningUnfocused", "AutoContinueLoad") | ForEach-Object { if ($txt -match "(?m)^$_ = (.*)$") { "$_=$($Matches[1].Trim())" } else { "$_ MISSING" } }) -join " " }
@@ -254,7 +271,8 @@ if ($DryRun) {
     "  UI arg flattening: $($flat.Count) args (first '$($flat[0])', second '$($flat[1])')"
     $c = [IO.File]::ReadAllText($cfg); "  config.xml now: " + (("FRAME_GENERATION", "REN_RAT", "RESOLUTION_SCALING" | ForEach-Object { if ($c -match "<$_>([^<]+)<") { "$_=$($Matches[1])" } }) -join " ") + " -> test: FRAME_GENERATION=OFF REN_RAT=$RenRat RESOLUTION_SCALING=$Upscaler"
     "  foreground now: $(Fg-Name)"
-    "  arms: L1 BASE(+live $($Live -join ',')) " + (($LaunchFlags + ($LaunchFlags[($LaunchFlags.Count-1)..0]) | ForEach-Object -Begin { $n = 1 } -Process { $n++; "L$n $_" }) -join " ") + " L$($LaunchFlags.Count * 2 + 2) BASE"
+    $da = if ($Arms.Count) { $Arms } elseif ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
+    "  arms: " + (($da | ForEach-Object -Begin { $n = 0 } -Process { $n++; "L$n $_" + $(if ($n -eq 1) { "(+live $($Live -join ','))" } else { "" }) }) -join " ") + $(if ($MaxFps -gt 0) { "  [VRR] MaxFps $MaxFps" } else { "" })
     Remove-Item $out -Recurse -Force
     return
 }
@@ -263,7 +281,7 @@ Init-Guard -Name "abba2" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { 
 Start-TestPopup -Name "abba2 flag A/B" -InputMode $InputMode   # status popup; input blocking only if the user clicks it
 T "abba2 start: input=$InputMode out=$out live=$($Live -join ',') launch=$($LaunchFlags -join ',') window=${WindowSec}s quads=$Quads cfg: FG OFF REN_RAT $RenRat $Upscaler"
 $LaunchFlags = @($LaunchFlags | Where-Object { $_ -and $_ -ne "none" }); $Live = @($Live | Where-Object { $_ -and $_ -ne "none" })   # -LaunchFlags none = live items only (one launch)
-$arms = if ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
+$arms = if ($Arms.Count) { $Arms } elseif ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
 try {
     Set-TestCfg
     $L = 0
@@ -273,10 +291,10 @@ try {
         Set-TestIni $kv
         T "launch L$L $arm"; Set-TestStatus "launch L$L of $($arms.Count) ($arm)"
         if (-not (Start-Play)) { T "boot failed L$L - abort (no relaunch loop)"; break }
-        $bi = Boot-Info; T "L$L boot: ver $($bi.ver) DQ $($bi.dq) P1E7 $($bi.p1e7)"
+        $bi = Boot-Info; T "L$L boot: ver $($bi.ver) DQ $($bi.dq) P1E7 $($bi.p1e7) MA $($bi.ma)"
         T "L$L warm-up 60 s (no input)"; Start-Sleep 60
         for ($s = 1; $s -le 3; $s++) {
-            Window "L${L}_${arm}_s$s" @{ kind = "launch"; launch = $L; arm = $arm; state = $(if ($arm -eq "BASE") { "off" } else { "on" }); boot_dq = $bi.dq; boot_p1e7 = $bi.p1e7; ver = $bi.ver }
+            Window "L${L}_${arm}_s$s" @{ kind = "launch"; launch = $L; arm = $arm; state = $(if ($arm -eq "BASE") { "off" } else { "on" }); boot_dq = $bi.dq; boot_p1e7 = $bi.p1e7; boot_ma = $bi.ma; ver = $bi.ver }
         }
         if ($L -eq 1 -and $Live.Count -gt 0) {
             $script:liveOff = Log-Len

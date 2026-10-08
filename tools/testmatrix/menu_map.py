@@ -71,7 +71,7 @@ class Menu:
         m = re.search(r"kExpIniKey\[kNumExp\] = \{(.*?)\};", s, re.S)
         keys = re.findall(r'L"([^"]+)"', m.group(1))
         first = self.rows.index("kXW6")
-        assert self.rows[first + len(keys) - 1] == "kXDL"
+        assert self.rows[first + len(keys)] == "kGpu"  # the experimental rows end right before the GPU rows (1.7.39: ..kXDL, kXDQ, kXP1E7, kXMA)
         self.exp_row = {k: self.rows[first + i] for i, k in enumerate(keys)}
         a = self.rows.index("kGR2a")
         assert self.rows[a:a + 3] == ["kGR2a", "kGR2b", "kGR1"]

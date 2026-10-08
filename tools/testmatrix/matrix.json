@@ -166,6 +166,11 @@
   ],
   [
    "Patches",
+   "MA",
+   "0"
+  ],
+  [
+   "Patches",
    "CP",
    "0"
   ],
@@ -1459,6 +1464,26 @@
    "grp": 5
   },
   {
+   "id": "MA",
+   "type": "asi",
+   "label": "25 main-thread locked loads -> plain loads (4AA34/4B104/419A8/1E835B, ASI 1.7.39)",
+   "ini": [
+    [
+     "Patches",
+     "MA",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "pc",
+    "ally"
+   ],
+   "risk": "low",
+   "expected": "main thread: target 0.3-0.4 ms/frame (r5-r7), est. saving 0.05-0.15 ms; log 'MA: 25 main-thread locked atomic loads'",
+   "grp": 5
+  },
+  {
    "id": "DQ",
    "type": "asi",
    "label": "main-loop retry spin re-checks every DQ_QuantumUs (200 us) instead of a blind 1 ms",
@@ -1474,13 +1499,14 @@
      "200"
     ]
    ],
-   "mode": "launch",
+   "mode": "live",
+   "live_installed_value": "2",
    "devices": [
     "pc",
     "ally"
    ],
    "risk": "low",
-   "expected": "0.1-1.0 ms/frame main thread on PC (median 0.58, r6/r7/r9); only near the fps cap / with TG; log 'DQ: main-loop retry quantum ... (switch ON)'",
+   "expected": "live row since ASI 1.7.39 (launch-only before). 0.1-1.0 ms/frame main thread on PC (median 0.58, r6/r7/r9); only near the fps cap / with TG; log 'DQ: main-loop retry quantum ... (switch ON)'",
    "grp": 5
   },
   {
@@ -1494,13 +1520,14 @@
      "1"
     ]
    ],
-   "mode": "launch",
+   "mode": "live",
+   "live_installed_value": "2",
    "devices": [
     "pc",
     "ally"
    ],
    "risk": "low",
-   "expected": "0.3-0.5 ms/frame main thread on PC; log 'P1E7: texture-loop prefetch ... (switch ON)'",
+   "expected": "live row since ASI 1.7.39 (launch-only before). 0.3-0.5 ms/frame main thread on PC; log 'P1E7: texture-loop prefetch ... (switch ON)'",
    "grp": 5
   },
   {

@@ -656,3 +656,21 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   logged), stick moved the player 367 units, clean close. Offline: run_vpad_harness / test_patterns 236 sites / vpad.py selftest /
   testpopup selftest / dry runs ALL PASSED.
 - Undo: VirtualPad = KeepRunningUnfocused = 0 (default), or the 1.7.36 .asi.
+
+## 2026-10-08 - ASI 1.7.39: MA main-thread plain loads + live DQ / P1E7 rows; PC CPU ranking (default off; nothing in the game folder changed)
+- notes\pc-cpu-next.md: PP KEEP checked (the 'PP scans 110 skipped 0' lines are the OFF windows; ON reads 28/84; -0.26 ms/frame = the
+  removed 2523FC work, readers use absolute counts). PC critical path from r5-r9 + run5/run6: [App]Game (render executor) waits ~0.6-0.7
+  ms/frame for the logic thread (KIDSTaskScheduler0) in the abba2 scene; ranking AABB > DQ > P1E7 > MA (measured targets, est. savings);
+  run5/run6 ran 116-118.5 fps against the 120 cap (compressed); test plan Blocks A-C with -MaxFps 240.
+- ADD `[Patches] MA = 0` (code bytes, next launch): 25 `xor eax,eax; lock cmpxchg [m],<zero reg>` atomic loads in 4AA34 / 4B104 / 419A8 /
+  1E835B -> `mov eax,[m]` + NOP (patches.json group MA, deps = FNV of the three bodies + 1E8359). Proofs: re\scripts_cpu\ma_zero.fsx (Iced
+  reaching-definition: the source register is zero on every path, all chained pieces), mainthread_patches.fsx (operands, flags),
+  test_patterns.py MA transform check.
+- Menu: live rows 'Shorter no-frame retry (DQ)' / 'Texture-loop prefetch (P1E7)' for the 1.7.32 switches (Save keeps 2 = installed + off),
+  next-launch row 'Plain loads in main thread (MA)'. VirtualPad `menu set DQ|P1E7|MA`.
+- tools\testmatrix: abba2_pc.ps1 -Arms (explicit launch order) / -MaxFps (writes [VRR] MaxFps) / live items absent from the base ini
+  installed off; abba2_report.py 3+ BASE launches -> interpolated baseline, live DQ / P1E7 read-back, cap-compressed flag (selftest OK);
+  matrix.json DQ / P1E7 live, MA item; menu_map.py accepts the new rows.
+- Tests: test_patterns ALL 261 SITES OK (MA 25/25 + 4 deps), run_drawprep_harness ALL PASSED, run_vpad_harness ALL PASSED, menu_map
+  selftest OK, abba2_pc.ps1 -DryRun OK, build OK. Not run in game.
+- Undo: MA = 0 (default), or the 1.7.38 .asi.

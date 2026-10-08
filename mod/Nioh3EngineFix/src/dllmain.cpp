@@ -55,7 +55,8 @@
 // 1.7.34: fnprobe.cpp (FnProbe live function probe, notes\remaining-work.md 10.1; tools\playsession)
 // 1.7.35: padlat.cpp (PadLatency controller input -> Present / GPU-done latency, notes\pad-latency.md)
 // 1.7.36: tour.cpp (Tour mode: automatic stage / point tour with saves blocked, notes\tour-mode.md)
-#define MOD_VERSION "1.7.38"
+// 1.7.39: MA (main-thread atomic-load idiom -> plain loads, 25 byte sites; notes\pc-cpu-next.md)
+#define MOD_VERSION "1.7.39"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -339,6 +340,7 @@ struct Config {
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
     int ds = 0, dsMarginUs = 150;
     int lk = 0, cp = 0, spf = 0;
+    int ma = 0;  // 1.7.39: main-thread locked "atomic loads" (code bytes, next launch)
     int mq = 0, pt1 = 0, dl = 0, cpuStats = 0;  // 1.7.12 (DL rides the CP group)
     int rwb = 0, spr = 0;
     // 1.7.23 LO (loadonly.cpp): GF/W6/RWb installed but on only inside 58A; *User = the keys as written in the ini
@@ -416,6 +418,7 @@ Config LoadConfig() {
     c.tg = I(L"Patches", L"TG", c.tg);
     c.ds = I(L"Patches", L"DS", c.ds);
     c.lk = I(L"Patches", L"LK", c.lk);
+    c.ma = I(L"Patches", L"MA", c.ma);
     c.cp = I(L"Patches", L"CP", c.cp);
     c.spf = I(L"Patches", L"SPF", c.spf);
     c.mq = I(L"Patches", L"MQ", c.mq);
@@ -1416,6 +1419,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "WL")) return cfg.wl != 0;
         if (!strcmp(g, "DS")) return cfg.ds != 0;
         if (!strcmp(g, "LK")) return cfg.lk != 0;
+        if (!strcmp(g, "MA")) return cfg.ma != 0;
         if (!strcmp(g, "CP")) return cfg.cp != 0 || cfg.dl != 0;  // DL is a second site of the CP group
         if (!strcmp(g, "MQ")) return cfg.mq != 0;
         if (!strcmp(g, "PT1")) return cfg.pt1 != 0;
@@ -1916,6 +1920,10 @@ DWORD WINAPI Worker(LPVOID) {
     exDone[menu::kExpDS] = s_dsDone;
     // LK: 18 locked "atomic loads" -> plain loads (code bytes, next launch)
     exDone[menu::kExpLK] = expGroup("LK", cfg.lk != 0, nullptr);
+    // MA (1.7.39): the same idiom on the main thread ([App]Game): meshlet bookkeeping 4AA34 / 4B104 / 419A8 and the per-draw
+    // residency read in DrawEmit 1E835B. 25 in-place byte sites, all-or-nothing, code bytes (next launch), no menu row.
+    if ((exDone[menu::kExpMA] = expGroup("MA", cfg.ma != 0, nullptr)))
+        Log("MA: 25 main-thread locked atomic loads -> plain loads (4AA34 x5, 4B104 x3, 419A8 x16, 1E835B x1)");
     // CP / SPF: worker loop prefetch caves (live switches; 2 = installed, switched off)
     exDone[menu::kExpCP] = expGroup("CP", cfg.cp != 0 || cfg.dl != 0, [&]() {
         cp_resume = (uint64_t)(uintptr_t)(findItem("CP")->addr + 7);  // D8187
@@ -2262,7 +2270,8 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpDL] = U(dl_enable);
         const int iniv[menu::kNumExp] = {cfg.w6User, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
                                          cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gfUser, cfg.wl,
-                                         cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf, cfg.mq, cfg.pt1, cfg.dl};
+                                         cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf, cfg.mq, cfg.pt1, cfg.dl,
+                                         0, 0, cfg.ma};  // DQ / P1E7: set after drawprep::Start below
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -2306,6 +2315,14 @@ DWORD WINAPI Worker(LPVOID) {
             di.base = reinterpret_cast<uintptr_t>(g_base);
             di.knownBuild = known;
             drawprep::Start(di);
+            // 1.7.39: live menu rows for the two drawprep switches (same in-launch A/B as the other experimental rows)
+            const struct { int e; const wchar_t* key; volatile uint32_t* sw; } dpRows[] = {
+                {menu::kExpDQ, L"DQ", drawprep::DqSwitch()}, {menu::kExpP1E7, L"P1E7", drawprep::P1e7Switch()}};
+            for (const auto& r : dpRows) {
+                mh.exp[r.e].ini = GetPrivateProfileIntW(L"Patches", r.key, 0, iniPath.c_str()) ? 1 : 0;
+                mh.exp[r.e].applied = r.sw != nullptr;
+                mh.exp[r.e].enable = r.sw;
+            }
         }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:

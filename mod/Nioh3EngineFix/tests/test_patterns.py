@@ -616,6 +616,36 @@ def main():
     lo_ok = lo_sim(img, by_id, iat, check)
     print("LO: RWb switchable cave == stock (word 0) and == RWb (word 1) for all 256 bl values: %s" % ("OK" if lo_ok else "FAIL"))
 
+    # 1.7.39 MA: main-thread atomic-load idiom `xor eax,eax; lock cmpxchg [m],rZ` (rZ == 0) -> `mov eax,[m]` + NOP.
+    # Mechanical check of every site: orig is lock cmpxchg r/m32 with the expected zero register in modrm.reg, new is
+    # mov eax,<the same memory operand> (REX.R dropped, reg field 0, same SIB/disp) followed by a standard NOP of the
+    # remaining length. That the register IS zero on every path to the site is proven by re/scripts_cpu/ma_zero.fsx
+    # (Iced reaching-definition over all chained pieces of 4AA34 / 4B104 / 419A8 / 1E80B0); the deps pin those bodies.
+    nops = {1: b"\x90", 2: b"\x66\x90", 3: b"\x0F\x1F\x00", 4: b"\x0F\x1F\x40\x00"}
+    zero_reg = {"MA1": 10, "MA2": 5, "MA3": 2}  # r10d, ebp, edx
+    ma = [s for s in doc["sites"] if s["group"] == "MA"]
+    ma_ok = check(len(ma) == 25, "MA: expected 25 sites, found %d" % len(ma))
+    for s in ma:
+        o = bytes(int(x, 16) for x in s["orig"].split())
+        n = bytes(int(x, 16) for x in s["new"].split())
+        i, rex = 1, 0
+        good = o[0] == 0xF0
+        if 0x40 <= o[1] <= 0x4F:
+            rex, i = o[1], 2
+        good &= o[i:i + 2] == b"\x0F\xB1" and not (rex & 8)  # 32-bit operand size
+        modrm = o[i + 2]
+        good &= (modrm >> 6) != 3  # memory operand
+        reg = ((modrm >> 3) & 7) | (8 if rex & 4 else 0)
+        good &= reg == zero_reg[s["id"][:3]]
+        mem = o[i + 3:]  # SIB + disp, unchanged
+        nrex = rex & ~4
+        want = (bytes([nrex]) if nrex not in (0, 0x40) else b"") + b"\x8B" + bytes([modrm & 0xC7]) + mem
+        pad = len(o) - len(want)
+        good &= pad in nops and n == want + nops[pad]
+        ma_ok &= check(good, "MA %s: replacement is not mov eax,<same mem> + NOP of the lock cmpxchg with the zero register" % s["id"])
+    print("1.7.39 MA: %d sites = lock cmpxchg [m],<zero reg> -> mov eax,[m] + NOP (zero-source proof: re/scripts_cpu/ma_zero.fsx): %s"
+          % (len(ma), "OK" if ma_ok else "FAIL"))
+
     print()
     if fails:
         print("FAILED (%d):" % len(fails))

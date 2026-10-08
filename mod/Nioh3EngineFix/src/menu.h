@@ -30,6 +30,8 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpWG, kExpTG, kExpDS,          // wake gate, tick governor, retry-spin sleep (1.6.0)
                    kExpLK, kExpCP, kExpSPF,         // worker jobs: locked loads, collision / stage prefetch (1.6.0)
                    kExpMQ, kExpPT1, kExpDL,         // matrix build SSE, texture pool lock, dead collision lookup (1.7.12)
+                   kExpDQ, kExpP1E7,                // main-loop retry quantum, texture-loop prefetch (1.7.32 caves; rows 1.7.39)
+                   kExpMA,                          // main-thread locked atomic loads -> plain loads (1.7.39, code bytes)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)
