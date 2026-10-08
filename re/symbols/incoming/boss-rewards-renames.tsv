@@ -1,0 +1,9 @@
+0x23a444c	Script_Mission_GetGameClearRewardNormal
+0x23a43ec	Script_Mission_GetGameClearRewardHard
+0x2280fa0	GameClearRewardGrant
+0x2280c84	RewardNoticeShowById
+0x238b3ec	Script_Character_AddDropTable
+0x238b194	Script_Character_AddDropFixItem
+0x23a0190	Script_Hell_StatusUpReward
+0x2201294	NetSerialize_RewardObject
+0x220089c	NetSerialize_IsFirstFlag

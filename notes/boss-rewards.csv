@@ -1,0 +1,9 @@
+boss,mission,reward_type,item_id,item_name,first_clear_only,repeat_on_refight,source_evidence
+Yamagata Masakage,The Battle of Hitokoto Slope,gear,,Palisade Breaker Lv2 / Rosewood Tonfa Lv2 / Longbow Lv2,unknown,unknown,web: Game8 via search snippet (single source; unverified whether guaranteed or random)
+Takasugi Shinsaku,A New Era,gear,,Fujiwara Sadayasu Lv109 / Shock Troop Greaves Lv109 / Samurai's Locks,unknown,unknown,web: Game8 archives/580500 (only boss row the page text contained)
+(all yokai bosses with a Soul Core),various,soul_core,0x010d29f1 (text key),{} Soul Core (templated with enemy name),yes (first defeat guaranteed),no (random after first),web: mapmaster.io search snippet "guaranteed on first defeat"; text key from notes/boss-loot.md
+(human bosses),various,soul_core,0x012f2b15 (text key),Mortal Soul Core,unknown,unknown,notes/boss-loot.md (flags hypothesis; unverified)
+Demon of Obsession (secret),post-story ikiryo,soul_core+skill,,Demon of Obsession Soul Core; Transformed Art Kurama Sword Dance Wind (Ninja Sword),yes,unknown,web: allthings.how snippet
+(any boss),first cycle,drop_rarity,,Common/Uncommon soul cores only until post-game; Rare unlocks post-game,n/a,n/a,web: search snippet (rpgsite/mapmaster)
+(mission clear),all,game_clear_reward,0x4472/0xcd6f (normal) 0x7730/0x2641 (hard),Mission::GetGameClearRewardNormal/Hard ids,yes (story end),n/a,RVA 0x23a444c/0x23a43ec -> 0x2280fa0 -> 0x2280c84 looks up id in [g_DataDb+0xD0] (what the ids ARE is unverified)
+Takeda Shingen,Mikatagahara/Saigagake,guardian_spirit,349 and 380 (Player::AddGuardianSpirit consts),unnamed,script F5C49D3F2BD2 ?364 fn also HasGuardianSpirit(137) GuardianSpiritForceReturn(349),guard by HasGuardianSpirit in script,mission script archive_09 (boss script ID unverified; name mapping not done)
