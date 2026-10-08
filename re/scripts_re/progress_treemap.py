@@ -40,6 +40,35 @@ AUTO = pc.AUTO
 NEAR = 192 * 1024
 
 
+PLAIN = {  # area -> 'technical name / plain name'
+    'Third-party (XeSS/FSR/Streamline)': 'XeSS·FSR·Streamline / 3rd-party upscalers',
+    'Meshlet': 'Meshlet / geometry streaming', 'Shadow': 'Shadow·ESM / shadows',
+    'Effects / Post': 'PostEffect / effects & post', 'UI': 'UiQuad·Glyph / user interface',
+    'Jobs / KIDS scheduler': 'KIDS / job system', 'GFX / D3D12 submission': 'SynCtx·D3D12 / GPU submission',
+    'Streaming / Resources': 'Stream·RDB / resource streaming', 'Collision / Physics': 'Collision / physics',
+    'Animation': 'Anim / animation', 'Audio': 'XAudio2 mixer / audio', 'Mission / Game logic': 'Mission·Schema / game logic',
+    'Memory': 'Alloc·Pool / memory', 'Input': 'Input / controls', 'Main loop / timing': 'WinMain·FrameEnd / main loop & timing',
+}
+GPU_PLAIN = {
+    'FSR3': 'FFX_FSR3 / upscaler', 'Copies / clears': 'copies/clears / data copies', 'GI / RefProbe': 'RefProbe / lighting (GI)',
+    'Fog / volumetrics': 'VFSCAT / fog', 'Sky / clouds': 'VCLOUD / sky & clouds', 'Shadows (WDO/ESM/GHDM)': 'WDO·ESM·GHDM / shadows',
+    'Culling (MPC/MshLod)': 'MPC·MshLod / culling', 'Trees / foliage': 'PB2TREE2 / trees', 'Materials / G-buffer (PB2)': 'PB2 / materials',
+    'Post (blur/DOF/bloom/compose)': 'TOONEDGE2·DOF / post & outlines', 'Other': 'other / unattributed',
+}
+
+
+def plain_label(a, m=PLAIN):
+    if a in m:
+        return m[a]
+    mm = re.match(r'unclassified (0x\w+-0x\w+MB)', a)
+    return 'text %s / unexplored code' % mm.group(1) if mm else a
+
+
+def short_desc(d, n=40):
+    d = re.split(r'[;(\[]|, | \| ', d.strip())[0].strip().rstrip('.:')
+    return d if len(d) <= n else d[:n - 1].rstrip() + '…'
+
+
 def area_of(name):
     for a, rx in AREAS:
         if rx.search(name):
@@ -62,6 +91,15 @@ def load_syms():
         if len(f) > 2 and f[0].startswith('0x') and f[1] == 'function' and f[2]:
             best[int(f[0], 16)] = f[2]
     return best
+
+
+def load_desc():
+    out = {}
+    for l in open(pc.SYMS, encoding='utf-8'):
+        f = l.rstrip('\n').split('\t')
+        if len(f) > 4 and f[0].startswith('0x') and f[1] == 'function' and f[4]:
+            out[int(f[0], 16)] = f[4]
+    return out
 
 
 def status(names, r):
@@ -172,6 +210,19 @@ def wcells(cells, x, y, w, h, total, minfrac=0.0002):
         out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s"%s'
                    % (cx, cy, max(cw - .8, .3), max(ch - .8, .3), colour(c[1]),
                       '><title>%s</title></rect>' % c[2] if len(c) > 2 else '/>'))
+        lab = c[3] if len(c) > 3 else (c[2] if len(c) > 2 and 'tiny' in c[2] else None)
+        if isinstance(lab, str):
+            lab = (lab, '')
+        if lab and cw > 44 and ch > 13:
+            nm, pl = lab
+            cap = int((cw - 6) / 5.4)
+            fit = lambda s, n: s if len(s) <= n else s[:max(n - 1, 1)] + '…'
+            tx = lambda yy, s: '<text x="%.1f" y="%.1f" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">%s</text>' % (
+                cx + 3, yy, fit(s, cap).replace('&', '&amp;').replace('<', '&lt;'))
+            if pl and ch >= 28:
+                out.append(tx(cy + 11, nm)); out.append(tx(cy + 22, '/ ' + pl))
+            else:
+                out.append(tx(cy + 11, nm + (' / ' + pl if pl else '')))
     return out
 
 
@@ -188,16 +239,16 @@ def svg(blocks, title, W=1600, H=900, legend='', minfrac=0.0002):
         if i not in rects:
             continue
         x, y, w, h = rects[i]
-        lab = w > 90 and h > 40
+        lab = w > 60 and h > 30
         hy = 17 if lab else 0
         if cells and isinstance(cells[0], tuple):
             o += wcells(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy, tot, minfrac)
         else:
             o += grid(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy)
         if lab:
-            t = label if len(label) * 7.2 < w - 10 else label[:max(int((w - 10) / 7.2) - 1, 3)] + '..'
-            s = sub if len(t + sub) * 6.6 < w - 10 else ''
-            o.append('<text x="%.1f" y="%.1f" fill="#e6edf3" font-size="12" font-weight="600">%s<tspan fill="#8b949e" font-weight="400"> %s</tspan></text>' % (
+            t = label if len(label) * 6.6 < w - 10 else label[:max(int((w - 10) / 6.6) - 1, 3)] + '…'
+            s = sub if len(t + sub) * 6.1 < w - 10 else ''
+            o.append('<text x="%.1f" y="%.1f" fill="#e6edf3" font-size="11" font-weight="600">%s<tspan fill="#8b949e" font-weight="400"> %s</tspan></text>' % (
                 x + 6, y + 16, t.replace('&', '&amp;'), s))
     o.append('</svg>')
     return '\n'.join(o)
@@ -264,8 +315,12 @@ def gpu_data(minpass=None):
             col = G_BLUE
         else:
             col = G_GREEN
+        mk = marker.replace('FFX_FSR3UPSCALER_PASS_', '')
+        base = names[0].split('-')[0] if names and not mk.startswith(('FFX_', 'FSR')) and grp != 'FSR3' else ''
+        nm = mk if grp == 'FSR3' else (base or (mk if mk != '-' else desc[:10]))
+        lbl = (nm.replace('FSR3:', '').replace('FFX_', ''), GPU_PLAIN[grp].split(' / ')[1] if grp in GPU_PLAIN else '')
         title = '%.2f ms: %s %s' % (ms, marker if marker != '-' else '', ' / '.join(dict.fromkeys(names)) or desc[:40])
-        rows.append((grp, ms, col, title.replace('&', '&amp;').replace('<', '&lt;')))
+        rows.append((grp, ms, col, title.replace('&', '&amp;').replace('<', '&lt;'), lbl))
     return span, os.path.basename(log), rows
 
 
@@ -297,7 +352,7 @@ def main():
     for a, vals in grp.items():
         cells = [sum(vals[i:i + N]) / len(vals[i:i + N]) for i in range(0, len(vals), N)]
         named = sum(1 for v in vals if v == 1.0)
-        blocks.append((a, gbytes[a], cells, '%d fn, %s named' % (len(vals), pct(named / len(vals)))))
+        blocks.append((plain_label(a), gbytes[a], cells, '%d fn, %s named' % (len(vals), pct(named / len(vals)))))
         if check:
             print('  %-36s %6d fn %6.2f MB  named %d' % (a, len(vals), gbytes[a] / 1e6, named))
     print('cells: %d functions each, %d total' % (N, sum(len(b[2]) for b in blocks)))
@@ -316,13 +371,22 @@ def main():
     print('perf: %d fns, CPU self time named %s, Unknown_ %s (named+Unknown_ %s), unnamed %s; GPU passes mapped %s' % (
         len(comb), pct(pn), pct(pu), pct(pn + pu), pct(1 - pn - pu), gpu))
     pareas = assign_areas(list(comb), names)
+    desc = load_desc()
     pg = collections.defaultdict(list)
     for k, v in sorted(comb.items(), key=lambda kv: -kv[1]):
-        pg[pareas[k]].append((v, status(names, k)))
+        st = status(names, k)
+        fnm = names.get(k, '')
+        if st:
+            lbl = (fnm, short_desc(desc.get(k, ''), 30))
+            ttl = '%s: %s (%.3f%%)' % (fnm, desc.get(k, '')[:160], 100 * v / tot)
+        else:
+            lbl = ('FUN_%X' % k, 'not named')
+            ttl = 'FUN_%X not named (%.3f%%)' % (k, 100 * v / tot)
+        pg[pareas[k]].append((v, st, ttl.replace('&', '&amp;').replace('<', '&lt;'), lbl))
     pblocks = []
     for a, lst in pg.items():
-        t = sum(v for v, _ in lst)
-        pblocks.append((a, t, lst, '%s of time' % pct(t / tot)))
+        t = sum(c[0] for c in lst)
+        pblocks.append((plain_label(a), t, lst, '%s of time' % pct(t / tot)))
         if check:
             print('  %-36s %5d fn %6.2f%%' % (a, len(lst), 100 * t / tot))
     perf = svg(pblocks, 'Profiled CPU self time (ROG Ally + PC): %d functions; block area = time share, cell area = function time (tiny ones merged)' % len(comb), legend=legend())
@@ -331,15 +395,15 @@ def main():
     gtot = sum(r[1] for r in grows)
     gid = sum(r[1] for r in grows if r[2] != G_GREY) / gtot
     gpa = collections.defaultdict(list)
-    for grp, ms, col, ti in sorted(grows, key=lambda r: -r[1]):
-        gpa[grp].append((ms, col, ti))
-    gblocks = [(grp, sum(c[0] for c in lst), lst, '%.2f ms' % sum(c[0] for c in lst)) for grp, lst in gpa.items()]
+    for grp, ms, col, ti, lbl in sorted(grows, key=lambda r: -r[1]):
+        gpa[grp].append((ms, col, ti, lbl))
+    gblocks = [(plain_label(grp, GPU_PLAIN), sum(c[0] for c in lst), lst, '%.2f ms' % sum(c[0] for c in lst)) for grp, lst in gpa.items()]
     print('gpu (%s): top-%d PSO buckets %.2f ms of %.1f ms span; identified %s; blue %s red %s' % (
         glog, len(grows), gtot, span, pct(gid), pct(sum(r[1] for r in grows if r[2] == G_BLUE) / gtot),
         pct(sum(r[1] for r in grows if r[2] == G_RED) / gtot)))
     if check:
         for b in sorted(gblocks, key=lambda b: -b[1]):
-            print('  %-32s %6.2f ms' % (b[0], b[1]))
+            print('  %-40s %6.2f ms' % (b[0], b[1]))
     gleg = legend(items=(('identified', G_GREEN), ('identified + kept replacement', G_BLUE), ('rewrite tried, dropped', G_RED), ('not identified', G_GREY)), x0=620)
     gpusvg = svg(gblocks, 'GPU time on the Ally (MAX): top-%d PSO buckets, %.1f ms/frame' % (len(grows), gtot),
                  legend=gleg, minfrac=0.004)

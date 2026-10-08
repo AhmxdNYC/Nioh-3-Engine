@@ -2,276 +2,494 @@
 <rect width="100%" height="100%" fill="#0d1117"/>
 <text x="10" y="22" fill="#e6edf3" font-size="15" font-weight="600">Profiled CPU self time (ROG Ally + PC): 1328 functions; block area = time share, cell area = function time (tiny ones merged)</text>
 <rect x="1160" y="10" width="12" height="12" fill="#2ea043"/><text x="1176" y="21" fill="#8b949e" font-size="11">named</text><rect x="1217" y="10" width="12" height="12" fill="#d4a017"/><text x="1233" y="21" fill="#8b949e" font-size="11">Unknown_* (role unclear)</text><rect x="1391" y="10" width="12" height="12" fill="#444a54"/><text x="1407" y="21" fill="#8b949e" font-size="11">not named</text>
-<rect x="584.9" y="524.6" width="275.8" height="370.6" fill="#2ea043"/>
-<rect x="861.5" y="524.6" width="103.8" height="158.5" fill="#2ea043"/>
-<rect x="966.1" y="524.6" width="92.3" height="158.5" fill="#2ea043"/>
-<rect x="861.5" y="683.9" width="116.3" height="93.2" fill="#2ea043"/>
-<rect x="978.6" y="683.9" width="79.8" height="93.2" fill="#2ea043"/>
-<rect x="861.5" y="777.8" width="80.9" height="71.5" fill="#2ea043"/>
-<rect x="861.5" y="850.1" width="80.9" height="45.1" fill="#2ea043"/>
-<rect x="943.2" y="777.8" width="68.9" height="43.7" fill="#d4a017"/>
-<rect x="1012.9" y="777.8" width="45.4" height="43.7" fill="#2ea043"/>
-<rect x="943.2" y="822.3" width="39.2" height="40.7" fill="#2ea043"/>
-<rect x="943.2" y="863.8" width="39.2" height="31.4" fill="#2ea043"/>
-<rect x="983.2" y="822.3" width="25.2" height="40.5" fill="#2ea043"/>
-<rect x="983.2" y="863.6" width="25.2" height="31.6" fill="#2ea043"/>
-<rect x="1009.2" y="822.3" width="25.5" height="19.4" fill="#444a54"/>
-<rect x="1035.5" y="822.3" width="22.8" height="19.4" fill="#444a54"/>
-<rect x="1009.2" y="842.5" width="25.2" height="16.7" fill="#444a54"/>
-<rect x="1035.2" y="842.5" width="23.1" height="16.7" fill="#444a54"/>
+<rect x="584.9" y="524.6" width="275.8" height="370.6" fill="#2ea043"><title>MeshletRequestWorker: TS_MESHLET_REQ worker (10 threads, ~13% busy each, ~78% blocked): reads GPU results, loads data, sets entry bit 0x200 via CAS (8.047%)</title></rect>
+<text x="587.9" y="535.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MeshletRequestWorker</text>
+<text x="587.9" y="546.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ TS_MESHLET_REQ worker</text>
+<rect x="861.5" y="524.6" width="103.8" height="158.5" fill="#2ea043"><title>MeshletCheckRequestLoad: "MeshletCheckRequestLoad" (2.2-2.8%; drawprep 2.3-2.8%): returns if M+4C0==0 or M+1AC&amp;40000000h; 2 shader passes each scanning all M+4C8 map entries; packs disp (1.305%)</title></rect>
+<text x="864.5" y="535.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MeshletCheckReque…</text>
+<text x="864.5" y="546.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ "MeshletCheckRe…</text>
+<rect x="966.1" y="524.6" width="92.3" height="158.5" fill="#2ea043"><title>ObjCountValidSlots: SIMD count of slots != 3FFFFFFFh in the [c+88h]->+30h->+1A0h index list, then 1A6BA0 / AtomicOrFlags; was Unknown_ObjUpdate_425B0 (1.161%)</title></rect>
+<text x="969.1" y="535.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjCountValidSl…</text>
+<text x="969.1" y="546.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ SIMD count of…</text>
+<rect x="861.5" y="683.9" width="116.3" height="93.2" fill="#2ea043"><title>MeshletPageCountdownTick: once per MeshletRequestLoadStep: decrements every non-zero u16 per-page countdown (page count = pool bytes [p3+48h] / (unit&lt;&lt;16), 256 KB fast path), then advanc (0.862%)</title></rect>
+<text x="864.5" y="694.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MeshletPageCountdow…</text>
+<text x="864.5" y="705.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ once per MeshletR…</text>
+<rect x="978.6" y="683.9" width="79.8" height="93.2" fill="#2ea043"><title>MeshletUpdateEntryFlags: per-entry flag shift register, O(active) every frame (0.8-1.1%): ready bit0, bit7:=bit6, bit6:=bit5, bit5:=0 via 4 CAS loops + locked loads (notes ~14 / table 1 (0.593%)</title></rect>
+<text x="981.6" y="694.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MeshletUpdat…</text>
+<text x="981.6" y="705.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-entry …</text>
+<rect x="861.5" y="777.8" width="80.9" height="71.5" fill="#2ea043"><title>MeshletRequestJob: TS_MESHLET_REQ job (fans out MeshletRequestLoad 48E90 via 40800, waits in 3E7CC); LK rows 4A545/4A55A/4A708/4A719 (hot RIP 4A563) (0.463%)</title></rect>
+<text x="864.5" y="788.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MeshletReques…</text>
+<text x="864.5" y="799.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ TS_MESHLET_…</text>
+<rect x="861.5" y="850.1" width="80.9" height="45.1" fill="#2ea043"><title>MeshletUploadBuffers: double-buffered upload of scene/meshlet buffers (-> 4DD4C, 695328); body 477 B (aka MainHot_4DB6C) || also: [App]Game hotspot: 1.0% self of main-thread samples  (0.294%)</title></rect>
+<text x="864.5" y="861.1" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MeshletUpload…</text>
+<text x="864.5" y="872.1" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ double-buff…</text>
+<rect x="943.2" y="777.8" width="68.9" height="43.7" fill="#d4a017"><title>Unknown_Meshlet_49950: MeshletRequestWorker helper: bounds idx by [m+30h]+190h, reads the +1B0h entry and tests bit idx of the m+68h bitmap (0.243%)</title></rect>
+<text x="946.2" y="788.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_Me…</text>
+<text x="946.2" y="799.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ MeshletR…</text>
+<rect x="1012.9" y="777.8" width="45.4" height="43.7" fill="#2ea043"><title>MeshletChunkIssueLoad: after MeshletRequestWorker claims a chunk's 64 KB pages, issues the load: takes g+6EA8h shared, StreamPageLookupOrInsert (116A24), 1169EC (0.161%)</title></rect>
+<text x="1015.9" y="788.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Meshle…</text>
+<text x="1015.9" y="799.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ afte…</text>
+<rect x="943.2" y="822.3" width="39.2" height="40.7" fill="#2ea043"><title>MeshletResGetCount: leaf: r+30h ? *[[r+30h]+190h] : 0; callers MeshletPartRegister / MeshletRequestLoad / MeshletCheckRequestLoad / 4A85C (0.130%)</title></rect>
+<rect x="943.2" y="863.8" width="39.2" height="31.4" fill="#2ea043"><title>MeshletObjectFilter: object filter in 4BBEC object loop; notes write 45D5F8 (Ghidra suffix) (0.101%)</title></rect>
+<rect x="983.2" y="822.3" width="25.2" height="40.5" fill="#2ea043"><title>MeshletRequestLoad: "MeshletRequestLoad" / GenerateLoadRequestCommand (MeshletGenerateLoadRequestCommand dispatch), 0.6%; same loop shape and atomic-load idiom as 4AA34 (A1f-h); bo (0.084%)</title></rect>
+<rect x="983.2" y="863.6" width="25.2" height="31.6" fill="#2ea043"><title>MeshletRequestSwapBuffers: called from MeshletRequestJob: atomically swaps the double-buffered request lists r+58h / r+60h, clears the new one (memset), then 1A13166 (0.066%)</title></rect>
+<rect x="1009.2" y="822.3" width="25.5" height="19.4" fill="#444a54"><title>FUN_42154 not named (0.042%)</title></rect>
+<rect x="1035.5" y="822.3" width="22.8" height="19.4" fill="#444a54"><title>FUN_54AE40 not named (0.037%)</title></rect>
+<rect x="1009.2" y="842.5" width="25.2" height="16.7" fill="#444a54"><title>FUN_5E060 not named (0.036%)</title></rect>
+<rect x="1035.2" y="842.5" width="23.1" height="16.7" fill="#444a54"><title>FUN_4A85C not named (0.033%)</title></rect>
 <rect x="1009.2" y="860.1" width="49.1" height="35.1" fill="#59564b"><title>59 tiny functions</title></rect>
-<text x="586.9" y="519.6" fill="#e6edf3" font-size="12" font-weight="600">Meshlet<tspan fill="#8b949e" font-weight="400"> 13.80% of time</tspan></text>
-<rect x="4.0" y="527.3" width="243.0" height="367.9" fill="#2ea043"/>
-<rect x="247.8" y="527.3" width="230.0" height="190.9" fill="#2ea043"/>
-<rect x="478.6" y="527.3" width="97.5" height="190.9" fill="#2ea043"/>
-<rect x="247.8" y="719.0" width="93.2" height="176.2" fill="#2ea043"/>
-<rect x="341.8" y="719.0" width="116.2" height="105.2" fill="#2ea043"/>
-<rect x="341.8" y="825.0" width="116.2" height="70.2" fill="#2ea043"/>
-<rect x="458.8" y="719.0" width="84.0" height="62.4" fill="#2ea043"/>
-<rect x="543.5" y="719.0" width="32.5" height="62.4" fill="#2ea043"/>
-<rect x="458.8" y="782.2" width="51.1" height="39.4" fill="#d4a017"/>
-<rect x="458.8" y="822.3" width="51.1" height="39.0" fill="#2ea043"/>
-<rect x="458.8" y="862.2" width="51.1" height="33.0" fill="#d4a017"/>
-<rect x="510.7" y="782.2" width="37.8" height="38.3" fill="#2ea043"/>
-<rect x="549.3" y="782.2" width="26.8" height="38.3" fill="#d4a017"/>
-<rect x="510.7" y="821.3" width="28.7" height="27.3" fill="#d4a017"/>
-<rect x="540.1" y="821.3" width="19.2" height="27.3" fill="#444a54"/>
-<rect x="560.1" y="821.3" width="16.0" height="27.3" fill="#444a54"/>
-<rect x="510.7" y="849.4" width="13.9" height="24.8" fill="#444a54"/>
-<rect x="510.7" y="875.0" width="13.9" height="20.2" fill="#444a54"/>
+<text x="1012.2" y="871.1" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">59 tiny…</text>
+<text x="586.9" y="519.6" fill="#e6edf3" font-size="11" font-weight="600">Meshlet / geometry streaming<tspan fill="#8b949e" font-weight="400"> 13.80% of time</tspan></text>
+<rect x="4.0" y="527.3" width="243.0" height="367.9" fill="#2ea043"><title>CollisionObjectUpdate: per-object collision update run by KIDSTS[s9:CollisionUpdate] x9 (~1 core total): std::map red-black-tree traversals (pointer chasing, algorithmic not a spin) [ (7.024%)</title></rect>
+<text x="7.0" y="538.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">CollisionObjectUpdate</text>
+<text x="7.0" y="549.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-object collision update r…</text>
+<rect x="247.8" y="527.3" width="230.0" height="190.9" fill="#2ea043"><title>CollisionShapeGetWorldPos: collision hot function (std::map traversal per cpu-profile); returns shape world position via function table at 3BE3780 indexed by type byte +0x62, then adds pa (3.459%)</title></rect>
+<text x="250.8" y="538.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">CollisionShapeGetWorldPos</text>
+<text x="250.8" y="549.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ collision hot function</text>
+<rect x="478.6" y="527.3" width="97.5" height="190.9" fill="#2ea043"><title>CollisionPartMapFind: lower_bound on a sorted array of 16-byte {u64 key = part pointer, ptr record} at [m+10h], count [m+18h]; returns the record if the key matches, else null. Calle (1.472%)</title></rect>
+<text x="481.6" y="538.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">CollisionPartMap…</text>
+<text x="481.6" y="549.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ lower_bound on…</text>
+<rect x="247.8" y="719.0" width="93.2" height="176.2" fill="#2ea043"><title>CollisionMapFind: std::map lookup used by CollisionObjectUpdate (named with D80B0/D8B70 as the CollisionUpdate pointer-chasing hotspots) [Ghidra: 99 B, 26 callers] (1.300%)</title></rect>
+<text x="250.8" y="730.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">CollisionMapFind</text>
+<text x="250.8" y="741.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ std::map look…</text>
+<rect x="341.8" y="719.0" width="116.2" height="105.2" fill="#2ea043"><title>CollisionGatherInRange: Per frame and collision manager: clears the work vector mgr+150h, walks the grid cells around the player (g_CollisionWorld+1B10h, +1B20h) and pushes every colli (0.969%)</title></rect>
+<text x="344.8" y="730.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">CollisionGatherInRa…</text>
+<text x="344.8" y="741.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Per frame and col…</text>
+<rect x="341.8" y="825.0" width="116.2" height="70.2" fill="#2ea043"><title>PlaceableCollisionUpdate: 5.8 KB, called from PlaceableVisibilityUpdate on KIDSTS StageUpdate: rebuilds the placeable's collision lists (CollisionMapFind, 'list too long'), takes the col (0.649%)</title></rect>
+<text x="344.8" y="836.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PlaceableCollisionU…</text>
+<text x="344.8" y="847.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 5.8 KB</text>
+<rect x="458.8" y="719.0" width="84.0" height="62.4" fill="#2ea043"><title>CollisionIsBeyondDistance: returns true if element i is farther than max(16000,[+0x98])+radius from the view position at g_CollisionWorld+0x1B10 [Ghidra: 323 B, 4 callers] (0.418%)</title></rect>
+<text x="461.8" y="730.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">CollisionIsBe…</text>
+<text x="461.8" y="741.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ returns tru…</text>
+<rect x="543.5" y="719.0" width="32.5" height="62.4" fill="#2ea043"><title>LowerBoundU32Stride28: binary search (lower_bound) over s->count 28-byte entries keyed by their first u32; 14 callers incl. PlaceableCollisionUpdate (0.165%)</title></rect>
+<rect x="458.8" y="782.2" width="51.1" height="39.4" fill="#d4a017"><title>Unknown_199180: masks the tail word of a bitset (b+8 bits at b+18h), then loops over set bits calling 199A40 / 6A970 / 6F090 / 17A610 (0.163%)</title></rect>
+<text x="461.8" y="793.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown…</text>
+<text x="461.8" y="804.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ masks…</text>
+<rect x="458.8" y="822.3" width="51.1" height="39.0" fill="#2ea043"><title>CollisionShapePos_Type26: Position function from the table at 3BE3780 that CollisionShapeGetWorldPos calls directly: out = Vec3CopyW0(p+B0h), w = 1.0 (0.161%)</title></rect>
+<text x="461.8" y="833.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Collisi…</text>
+<text x="461.8" y="844.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Posit…</text>
+<rect x="458.8" y="862.2" width="51.1" height="33.0" fill="#d4a017"><title>Unknown_Res_1A009C: 876 B (__chkstk frame), only caller 19FAD4: reads d+214h/+27Ch/+298h, GetResIdFromRes, 1A1DA0, 324AE18; 0.03 % of Ally samples (0.137%)</title></rect>
+<text x="461.8" y="873.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown…</text>
+<text x="461.8" y="884.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 876 B</text>
+<rect x="510.7" y="782.2" width="37.8" height="38.3" fill="#2ea043"><title>SortedEntries28Find: binary search over o+60h (count o+68h) 28-byte entries keyed by the first u32; callers PlaceableUpdateDetail / PlaceableVisibilityUpdateRange / D5E90 (0.118%)</title></rect>
+<rect x="549.3" y="782.2" width="26.8" height="38.3" fill="#d4a017"><title>Unknown_2E782C: 1.1 KB float loop over o+20h..o+A0h entries, 2E8108 / 10E4180; only caller 2E7668 (0.084%)</title></rect>
+<rect x="510.7" y="821.3" width="28.7" height="27.3" fill="#d4a017"><title>Unknown_Collision_43AEC: only caller CollisionGatherInRange: FB3520 test on o+4, then 4B7D14 / 86060C / 368A80 / F1D8C (0.065%)</title></rect>
+<rect x="540.1" y="821.3" width="19.2" height="27.3" fill="#444a54"><title>FUN_1989F0 not named (0.044%)</title></rect>
+<rect x="560.1" y="821.3" width="16.0" height="27.3" fill="#444a54"><title>FUN_1A0BFC not named (0.037%)</title></rect>
+<rect x="510.7" y="849.4" width="13.9" height="24.8" fill="#444a54"><title>FUN_2BE394 not named (0.029%)</title></rect>
+<rect x="510.7" y="875.0" width="13.9" height="20.2" fill="#444a54"><title>FUN_2D9B84 not named (0.024%)</title></rect>
 <rect x="525.3" y="849.4" width="50.8" height="45.8" fill="#7e6c3b"><title>59 tiny functions</title></rect>
-<text x="6.0" y="522.3" fill="#e6edf3" font-size="12" font-weight="600">Collision / Physics<tspan fill="#8b949e" font-weight="400"> 16.51% of time</tspan></text>
-<rect x="584.9" y="55.0" width="163.8" height="260.8" fill="#2ea043"/>
-<rect x="584.9" y="316.6" width="163.8" height="182.2" fill="#2ea043"/>
-<rect x="749.5" y="55.0" width="132.2" height="106.6" fill="#2ea043"/>
-<rect x="882.5" y="55.0" width="88.6" height="106.6" fill="#2ea043"/>
-<rect x="971.9" y="55.0" width="86.4" height="106.6" fill="#2ea043"/>
-<rect x="749.5" y="162.4" width="105.9" height="84.6" fill="#2ea043"/>
-<rect x="856.2" y="162.4" width="103.0" height="84.6" fill="#2ea043"/>
-<rect x="960.0" y="162.4" width="98.3" height="84.6" fill="#2ea043"/>
-<rect x="749.5" y="247.8" width="79.5" height="98.6" fill="#2ea043"/>
-<rect x="749.5" y="347.2" width="79.5" height="77.7" fill="#2ea043"/>
-<rect x="749.5" y="425.7" width="79.5" height="73.1" fill="#2ea043"/>
-<rect x="829.8" y="247.8" width="61.4" height="63.8" fill="#d4a017"/>
-<rect x="892.0" y="247.8" width="59.0" height="63.8" fill="#d4a017"/>
-<rect x="951.9" y="247.8" width="54.8" height="63.8" fill="#2ea043"/>
-<rect x="1007.5" y="247.8" width="50.9" height="63.8" fill="#d4a017"/>
-<rect x="829.8" y="312.4" width="54.0" height="51.5" fill="#2ea043"/>
-<rect x="829.8" y="364.7" width="54.0" height="47.5" fill="#2ea043"/>
-<rect x="829.8" y="413.0" width="54.0" height="46.4" fill="#d4a017"/>
-<rect x="829.8" y="460.2" width="54.0" height="38.6" fill="#2ea043"/>
-<rect x="884.6" y="312.4" width="46.1" height="44.5" fill="#2ea043"/>
-<rect x="931.5" y="312.4" width="42.9" height="44.5" fill="#d4a017"/>
-<rect x="975.2" y="312.4" width="41.2" height="44.5" fill="#2ea043"/>
-<rect x="1017.2" y="312.4" width="41.2" height="44.5" fill="#d4a017"/>
-<rect x="884.6" y="357.7" width="35.4" height="47.7" fill="#2ea043"/>
-<rect x="884.6" y="406.2" width="35.4" height="46.2" fill="#d4a017"/>
-<rect x="884.6" y="453.2" width="35.4" height="45.6" fill="#2ea043"/>
-<rect x="920.8" y="357.7" width="39.6" height="37.2" fill="#2ea043"/>
-<rect x="961.2" y="357.7" width="35.8" height="37.2" fill="#2ea043"/>
-<rect x="997.9" y="357.7" width="32.6" height="37.2" fill="#d4a017"/>
-<rect x="1031.3" y="357.7" width="27.0" height="37.2" fill="#d4a017"/>
-<rect x="920.8" y="395.8" width="27.3" height="36.2" fill="#2ea043"/>
-<rect x="920.8" y="432.7" width="27.3" height="33.7" fill="#2ea043"/>
-<rect x="920.8" y="467.2" width="27.3" height="31.6" fill="#2ea043"/>
-<rect x="948.9" y="395.8" width="31.9" height="25.4" fill="#d4a017"/>
-<rect x="948.9" y="421.9" width="31.9" height="25.4" fill="#d4a017"/>
-<rect x="948.9" y="448.1" width="31.9" height="25.1" fill="#2ea043"/>
-<rect x="948.9" y="474.0" width="31.9" height="24.8" fill="#d4a017"/>
-<rect x="981.6" y="395.8" width="30.4" height="25.8" fill="#2ea043"/>
-<rect x="1012.8" y="395.8" width="25.9" height="25.8" fill="#2ea043"/>
-<rect x="1039.5" y="395.8" width="18.9" height="25.8" fill="#444a54"/>
-<rect x="981.6" y="422.4" width="17.6" height="22.5" fill="#444a54"/>
-<rect x="981.6" y="445.7" width="17.6" height="19.0" fill="#444a54"/>
-<rect x="981.6" y="465.5" width="17.6" height="16.3" fill="#444a54"/>
-<rect x="981.6" y="482.6" width="17.6" height="16.1" fill="#444a54"/>
-<rect x="1000.0" y="422.4" width="14.5" height="18.4" fill="#444a54"/>
-<rect x="1015.3" y="422.4" width="14.1" height="18.4" fill="#444a54"/>
-<rect x="1030.2" y="422.4" width="13.8" height="18.4" fill="#444a54"/>
-<rect x="1044.9" y="422.4" width="13.5" height="18.4" fill="#2ea043"/>
-<rect x="1000.0" y="441.6" width="3.7" height="57.2" fill="#444a54"/>
+<text x="528.3" y="860.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">59 tiny…</text>
+<text x="6.0" y="522.3" fill="#e6edf3" font-size="11" font-weight="600">Collision / physics<tspan fill="#8b949e" font-weight="400"> 16.51% of time</tspan></text>
+<rect x="584.9" y="55.0" width="163.8" height="260.8" fill="#2ea043"><title>DrawEmit: draw emitter once per draw per sub-pass (17.5% incl, 6.1-6.6% self): state compared vs cached shadow (ctx+0x2550...), tokens 0x3D/0x3B/0x14/0x13/0x17/0x85/0x0B/ (3.338%)</title></rect>
+<text x="587.9" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">DrawEmit</text>
+<text x="587.9" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ draw emitter once per draw…</text>
+<rect x="584.9" y="316.6" width="163.8" height="182.2" fill="#2ea043"><title>WcUploadZeroFill: #1 main-thread hotspot (21.9% self of [App]Game, capture 2; 11-22% of main thread): zero-fill loop over WRITE-COMBINED GPU upload memory using RMW `and dword [r (2.335%)</title></rect>
+<text x="587.9" y="327.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">WcUploadZeroFill</text>
+<text x="587.9" y="338.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ #1 main-thread hotspot</text>
+<rect x="749.5" y="55.0" width="132.2" height="106.6" fill="#2ea043"><title>DrawListWalk: draw-list walker (31%): group = consecutive items with equal object+0x18; per group picks pass material, filters via FindParamByName (SSSTransmit/RefractionPreP (1.107%)</title></rect>
+<text x="752.5" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">DrawListWalk</text>
+<text x="752.5" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ draw-list walker</text>
+<rect x="882.5" y="55.0" width="88.6" height="106.6" fill="#2ea043"><title>StageSlotTableUpdate2578: per-draw slot-table diff for the ctx+2578h path (called from StageBindingsApply2578): walks the slots (+90h), sets dirty bits for changed bindings and stores th (0.745%)</title></rect>
+<text x="885.5" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">StageSlotTable…</text>
+<text x="885.5" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-draw slo…</text>
+<rect x="971.9" y="55.0" width="86.4" height="106.6" fill="#2ea043"><title>DrawListGroupLength: group length: list type 3 = branchless binary search for first i>=s with key(i)!=cur+0x18 (~11-15 dependent probes, 3 loads each), else linear; *out=e-s+1; 1.2- (0.726%)</title></rect>
+<text x="974.9" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">DrawListGroupL…</text>
+<text x="974.9" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ group length…</text>
+<rect x="749.5" y="162.4" width="105.9" height="84.6" fill="#2ea043"><title>DrawStateCommit: per-draw state commit with 160 callers: if the material/program block changed, marks dirty slots and runs StageBindingsApply2568/2578, 1D5F20, 1D6780 (state-com (0.706%)</title></rect>
+<text x="752.5" y="173.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">DrawStateCommit</text>
+<text x="752.5" y="184.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-draw state …</text>
+<rect x="856.2" y="162.4" width="103.0" height="84.6" fill="#2ea043"><title>ObjEntryTableMatch: 982 B, only caller ObjUpdatePerObject; returns 0 if o+4Ch&amp;100000h or no o+3F8h; walks o+340h entries against a +1B0h table; role name from decompile (the exe ha (0.688%)</title></rect>
+<text x="859.2" y="173.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjEntryTableMatch</text>
+<text x="859.2" y="184.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 982 B</text>
+<rect x="960.0" y="162.4" width="98.3" height="84.6" fill="#2ea043"><title>ShaderConstWriteStream: writes tokens 0x2B/0x2C/0x37/0x38 plus inline constant memcpy into the KTGL command stream; body 2255 B (aka MainHot_1D7340) || also: [App]Game hotspot: 0.9% se (0.656%)</title></rect>
+<text x="963.0" y="173.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ShaderConstWrite…</text>
+<text x="963.0" y="184.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ writes tokens …</text>
+<rect x="749.5" y="247.8" width="79.5" height="98.6" fill="#2ea043"><title>StageSlotTableUpdate2568: twin of 1D8720 for the ctx+2568h path (StageBindingsApply2568 'tables via 1D84A0'); was MainHot_1D84A0 (0.618%)</title></rect>
+<text x="752.5" y="258.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">StageSlotTab…</text>
+<text x="752.5" y="269.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ twin of 1D…</text>
+<rect x="749.5" y="347.2" width="79.5" height="77.7" fill="#2ea043"><title>PsoCacheBTreeFind: B-tree walk of the graphics PSO cache: per node up to [n+AB8h] 0x90-byte keys, u32 hash compare then 128-byte memcmp; only caller PsoCacheFindGfx; was RenderSub (0.489%)</title></rect>
+<text x="752.5" y="358.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PsoCacheBTre…</text>
+<text x="752.5" y="369.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ B-tree wal…</text>
+<rect x="749.5" y="425.7" width="79.5" height="73.1" fill="#2ea043"><title>RenderParamsAssign: 29.6 KB field-by-field copy (operator=) of the render/post parameter block (2477D4 first); 29 callers incl. DlssExecute, PostEffectApply, GetFrameLatencyWaitFla (0.460%)</title></rect>
+<text x="752.5" y="436.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">RenderParams…</text>
+<text x="752.5" y="447.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 29.6 KB fi…</text>
+<rect x="829.8" y="247.8" width="61.4" height="63.8" fill="#d4a017"><title>Unknown_SceneDraw_1196B70: virtual; walks the g_pSceneDrawCfg+558h tree (count +560h, 120-byte entries) and per entry resolves D1EB8 -> +30h and ObjPartAcquireShared (0.312%)</title></rect>
+<text x="832.8" y="258.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_S…</text>
+<text x="832.8" y="269.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ virtual</text>
+<rect x="892.0" y="247.8" width="59.0" height="63.8" fill="#d4a017"><title>Unknown_StateCommit_1E0B64: 1.9 KB main-thread draw-state step (flags c+12E8h &amp; 40h/2), callers incl. ShaderConstFlush; calls 61DF2C / 1F9E74 / 1E55D4 / 1E5854 (state-commit family, ~8-10  (0.300%)</title></rect>
+<text x="895.0" y="258.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_…</text>
+<text x="895.0" y="269.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 1.9 KB…</text>
+<rect x="951.9" y="247.8" width="54.8" height="63.8" fill="#2ea043"><title>Vec4CopyW0: copies 16 bytes then sets dst.w = 0; 117 callers (BoundsFromPartObbs, 172814 ...); was Sched0Hot_174610 (0.279%)</title></rect>
+<text x="954.9" y="258.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Vec4Copy…</text>
+<text x="954.9" y="269.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ copies…</text>
+<rect x="1007.5" y="247.8" width="50.9" height="63.8" fill="#d4a017"><title>Unknown_StateCommit_1E5854: slot &lt; 16 binding resolve via the c+12E4h table (stride 14h) -> 1142FC / 1E57E8 / 1E8058; 32 callers in the state-commit family (0.259%)</title></rect>
+<text x="1010.5" y="258.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown…</text>
+<text x="1010.5" y="269.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ slot …</text>
+<rect x="829.8" y="312.4" width="54.0" height="51.5" fill="#2ea043"><title>FrameRenderViews: 37% inclusive; calls the per-view scene renderer 535188; also (mainthread-logic.tsv): RenderTaskNodeExecute - executes one render task-graph node: optional debu (0.222%)</title></rect>
+<text x="832.8" y="323.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">FrameRen…</text>
+<text x="832.8" y="334.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 37% in…</text>
+<rect x="829.8" y="364.7" width="54.0" height="47.5" fill="#2ea043"><title>ShaderVisibleDescRingAlloc: allocates n descriptors in the shader-visible descriptor ring before a draw/dispatch (fence-checked against r+30h slots); 20 callers incl. SynFlushSrvTables / S (0.205%)</title></rect>
+<text x="832.8" y="375.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ShaderVi…</text>
+<text x="832.8" y="386.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ alloca…</text>
+<rect x="829.8" y="413.0" width="54.0" height="46.4" fill="#d4a017"><title>Unknown_BTreeFind_58C144: B-tree style lookup: per node up to [n+248h] 18h-byte entries, u32 compare then memcmp (twin of PsoCacheBTreeFind); only caller 58C0D8; dispatcher thread; was R (0.201%)</title></rect>
+<text x="832.8" y="424.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_…</text>
+<text x="832.8" y="435.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ B-tree…</text>
+<rect x="829.8" y="460.2" width="54.0" height="38.6" fill="#2ea043"><title>StageSlotTableUpdate6780: third member of the state-commit slot-table family (1D6780 -> 1D8220), same shape as StageSlotTableUpdate2578; was MainHot_1D8220 (0.167%)</title></rect>
+<text x="832.8" y="471.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">StageSlo…</text>
+<text x="832.8" y="482.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ third …</text>
+<rect x="884.6" y="312.4" width="46.1" height="44.5" fill="#2ea043"><title>SynTokSetIndexBuffer: dispatcher token 0x3D: reads the IB object from the stream, skips if unchanged (c+30h), else IASetIndexBuffer view; was RenderSubmitHot_114A20 (0.164%)</title></rect>
+<text x="887.6" y="323.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">SynTok…</text>
+<text x="887.6" y="334.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ disp…</text>
+<rect x="931.5" y="312.4" width="42.9" height="44.5" fill="#d4a017"><title>Unknown_StateCommit_1E8058: 77 B predicate: false if [c+68h]+12Eh, checks +160h and dev+74F0h; callers DrawEmit, Unknown_StateCommit_1E5854 (0.153%)</title></rect>
+<rect x="975.2" y="312.4" width="41.2" height="44.5" fill="#2ea043"><title>ObjUpdateEntryList: per list entry (index &lt; o+10h) 240860 / 1FC8A0 / CE5F0; callers ObjUpdatePerObject / 3C1864 / 3C02E4; was Unknown_ObjUpdate_CE1E0 (0.147%)</title></rect>
+<rect x="1017.2" y="312.4" width="41.2" height="44.5" fill="#d4a017"><title>Unknown_SynTok_189C0C4: leaf (no .pdata): pops a pointer from the command stream and copies its 32+ byte payload; callers incl. 115A70 / 115B08 (dispatcher) (0.147%)</title></rect>
+<rect x="884.6" y="357.7" width="35.4" height="47.7" fill="#2ea043"><title>SynBindTextureSlot: dispatcher texture bind (stage*80h + slot): transitions the texture to PIXEL/NON_PIXEL_SHADER_RESOURCE at bind time (SynTransitionResource), CopyDescriptorsSimp (0.136%)</title></rect>
+<rect x="884.6" y="406.2" width="35.4" height="46.2" fill="#d4a017"><title>Unknown_SynTok_1164C4: dispatcher token handler: pops an object pointer, if it differs from c+48h flushes pending immediate draws (c+2458h) and copies its state block; was RenderSubmi (0.132%)</title></rect>
+<rect x="884.6" y="453.2" width="35.4" height="45.6" fill="#2ea043"><title>ParamTableGetU32_BD8BEF28: leaf: linear scan of the {count, 32-byte entries} param table for hash BD8BEF28h with (flags &amp; 0F000000h) == 04000000h (same pattern as ParamTableGetU32_D15EC13 (0.130%)</title></rect>
+<rect x="920.8" y="357.7" width="39.6" height="37.2" fill="#2ea043"><title>StageSlotTableUpdate5F20: fourth member of the state-commit slot-table family (1D5F20 -> 1D7EB0); was MainHot_1D7EB0 (0.119%)</title></rect>
+<rect x="961.2" y="357.7" width="35.8" height="37.2" fill="#2ea043"><title>SynTokResourceBarrier: dispatcher token: pops (state, subresource, resource) and calls SynTransitionResource; was RenderSubmitHot_116260 (0.108%)</title></rect>
+<rect x="997.9" y="357.7" width="32.6" height="37.2" fill="#d4a017"><title>Unknown_StateCommit_1E55D4: walks the c+1100h binding records (u16 count, 12-byte records from c+1102h) calling Unknown_StateCommit_1E5854; callers Unknown_StateCommit_1E0B64 / 1E1AD4 (0.099%)</title></rect>
+<rect x="1031.3" y="357.7" width="27.0" height="37.2" fill="#d4a017"><title>Unknown_174908: 915 B, only caller 174C9C: AabbCenter, 4B2594, 285B4C, 175378, 465C0, 175270 (0.082%)</title></rect>
+<rect x="920.8" y="395.8" width="27.3" height="36.2" fill="#2ea043"><title>CullEntitiesByDrawDistance: Walks a tree of entries, compares distance against GetDrawDistanceLimit and a per-entry distance adjusted by 0x1771b0/0x1770c8, sorts into visible/hidden lists (0.081%)</title></rect>
+<rect x="920.8" y="432.7" width="27.3" height="33.7" fill="#2ea043"><title>IsFenceComplete: (*f)->GetCompletedValue() (vtbl+40h) >= value; polled by FenceWait 7D9E1C after every Sleep(0) (GF). SP "[ntdll] &lt;- 1180A4" (58 % of [App]Game at MAX on the All (0.075%)</title></rect>
+<rect x="920.8" y="467.2" width="27.3" height="31.6" fill="#2ea043"><title>RingWaitIdleSpin: leaf spin: while (r+2Ch != r+30h) sets the busy flag 46D75A0, no PAUSE; callers GfxSubmitFrameCmdList, 4931B0, 48F354, 2F14328; 0.07 % of Ally samples (0.071%)</title></rect>
+<rect x="948.9" y="395.8" width="31.9" height="25.4" fill="#d4a017"><title>Unknown_SceneDraw_D1908: 1.4 KB, walks [o+18h] list with g_pSceneDrawCfg, 2452B0 / B76D0 / CE5F0; callers 1FB8A0C / 200A48 / 200C7C (0.066%)</title></rect>
+<rect x="948.9" y="421.9" width="31.9" height="25.4" fill="#d4a017"><title>Unknown_Render_10F060: 3.9 KB virtual render step: bails when view+F8h -> +968h &lt; 0, uses SceneRenderView and ResourceIsReady, 1105AC / 110C68 / 110988 helpers (0.066%)</title></rect>
+<rect x="948.9" y="448.1" width="31.9" height="25.1" fill="#2ea043"><title>Vec2TransformMat44: returns xy of the 4x4 transform of v (XMM0) by m (packed in RAX); 820 callers (0.066%)</title></rect>
+<rect x="948.9" y="474.0" width="31.9" height="24.8" fill="#d4a017"><title>Unknown_13484C: 1.2 KB loop over the o+A8h slot array (o+2E0h = -1 first), 20 callees (66C814..918EB8); was Sched0Hot_13484C (0.065%)</title></rect>
+<rect x="981.6" y="395.8" width="30.4" height="25.8" fill="#2ea043"><title>DrawBindMaterialParams: binds material parameters per draw (called from DrawEmit) (0.064%)</title></rect>
+<rect x="1012.8" y="395.8" width="25.9" height="25.8" fill="#2ea043"><title>SynUploadCbvTable: per dirty CBV: CreateConstantBufferView (device +88h), ShaderVisibleDescRingAlloc, CopyDescriptorsSimple(N) of the table, SetGraphicsRootDescriptorTable; 3rd co (0.055%)</title></rect>
+<rect x="1039.5" y="395.8" width="18.9" height="25.8" fill="#444a54"><title>FUN_CE7E0 not named (0.041%)</title></rect>
+<rect x="981.6" y="422.4" width="17.6" height="22.5" fill="#444a54"><title>FUN_114C04 not named (0.033%)</title></rect>
+<rect x="981.6" y="445.7" width="17.6" height="19.0" fill="#444a54"><title>FUN_815DB0 not named (0.028%)</title></rect>
+<rect x="981.6" y="465.5" width="17.6" height="16.3" fill="#444a54"><title>FUN_178494 not named (0.024%)</title></rect>
+<rect x="981.6" y="482.6" width="17.6" height="16.1" fill="#444a54"><title>FUN_484EB8 not named (0.024%)</title></rect>
+<rect x="1000.0" y="422.4" width="14.5" height="18.4" fill="#444a54"><title>FUN_1134D0 not named (0.023%)</title></rect>
+<rect x="1015.3" y="422.4" width="14.1" height="18.4" fill="#444a54"><title>FUN_114750 not named (0.022%)</title></rect>
+<rect x="1030.2" y="422.4" width="13.8" height="18.4" fill="#444a54"><title>FUN_174680 not named (0.022%)</title></rect>
+<rect x="1044.9" y="422.4" width="13.5" height="18.4" fill="#2ea043"><title>SynFlushGfxStateForDraw: before every draw: calls SynPsoFlushFunctor (118604); if c+0xB24 &amp; 0xF dirty: per-RT/DSV state transitions (one ResourceBarrier call each, 118443/118519/118597) (0.021%)</title></rect>
+<rect x="1000.0" y="441.6" width="3.7" height="57.2" fill="#444a54"><title>FUN_58C434 not named (0.020%)</title></rect>
 <rect x="1004.5" y="441.6" width="53.9" height="57.2" fill="#6d6242"><title>222 tiny functions</title></rect>
-<text x="586.9" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">GFX / D3D12 submission<tspan fill="#8b949e" font-weight="400"> 16.34% of time</tspan></text>
-<rect x="4.0" y="55.0" width="188.3" height="226.1" fill="#2ea043"/>
-<rect x="4.0" y="281.9" width="188.3" height="219.6" fill="#2ea043"/>
-<rect x="193.1" y="55.0" width="163.4" height="126.7" fill="#2ea043"/>
-<rect x="357.3" y="55.0" width="130.6" height="126.7" fill="#2ea043"/>
-<rect x="488.7" y="55.0" width="87.4" height="126.7" fill="#2ea043"/>
-<rect x="193.1" y="182.5" width="97.1" height="110.3" fill="#2ea043"/>
-<rect x="193.1" y="293.6" width="97.1" height="104.1" fill="#2ea043"/>
-<rect x="193.1" y="398.5" width="97.1" height="102.9" fill="#2ea043"/>
-<rect x="291.0" y="182.5" width="98.7" height="76.1" fill="#2ea043"/>
-<rect x="390.5" y="182.5" width="95.1" height="76.1" fill="#2ea043"/>
-<rect x="486.4" y="182.5" width="89.7" height="76.1" fill="#2ea043"/>
-<rect x="291.0" y="259.3" width="70.9" height="95.7" fill="#2ea043"/>
-<rect x="291.0" y="355.8" width="70.9" height="76.4" fill="#2ea043"/>
-<rect x="291.0" y="433.1" width="70.9" height="68.4" fill="#2ea043"/>
-<rect x="362.7" y="259.3" width="77.2" height="59.9" fill="#2ea043"/>
-<rect x="440.7" y="259.3" width="67.4" height="59.9" fill="#2ea043"/>
-<rect x="508.9" y="259.3" width="67.2" height="59.9" fill="#2ea043"/>
-<rect x="362.7" y="320.0" width="60.5" height="60.1" fill="#d4a017"/>
-<rect x="362.7" y="380.9" width="60.5" height="59.9" fill="#2ea043"/>
-<rect x="362.7" y="441.6" width="60.5" height="59.8" fill="#2ea043"/>
-<rect x="424.1" y="320.0" width="60.5" height="48.7" fill="#2ea043"/>
-<rect x="485.4" y="320.0" width="51.0" height="48.7" fill="#2ea043"/>
-<rect x="537.2" y="320.0" width="38.8" height="48.7" fill="#d4a017"/>
-<rect x="424.1" y="369.5" width="40.0" height="44.7" fill="#2ea043"/>
-<rect x="424.1" y="415.0" width="40.0" height="44.1" fill="#2ea043"/>
-<rect x="424.1" y="459.9" width="40.0" height="41.5" fill="#d4a017"/>
-<rect x="464.9" y="369.5" width="42.3" height="34.3" fill="#2ea043"/>
-<rect x="508.0" y="369.5" width="34.4" height="34.3" fill="#d4a017"/>
-<rect x="543.2" y="369.5" width="32.9" height="34.3" fill="#2ea043"/>
-<rect x="464.9" y="404.6" width="25.5" height="37.3" fill="#d4a017"/>
-<rect x="464.9" y="442.6" width="25.5" height="29.9" fill="#2ea043"/>
-<rect x="464.9" y="473.3" width="25.5" height="28.2" fill="#d4a017"/>
-<rect x="491.2" y="404.6" width="30.3" height="21.8" fill="#d4a017"/>
-<rect x="522.4" y="404.6" width="27.6" height="21.8" fill="#d4a017"/>
-<rect x="550.7" y="404.6" width="25.4" height="21.8" fill="#2ea043"/>
-<rect x="491.2" y="427.1" width="20.6" height="18.9" fill="#444a54"/>
-<rect x="491.2" y="446.8" width="20.6" height="18.6" fill="#2ea043"/>
-<rect x="491.2" y="466.2" width="20.6" height="17.6" fill="#444a54"/>
-<rect x="491.2" y="484.6" width="20.6" height="16.8" fill="#444a54"/>
-<rect x="512.7" y="427.1" width="23.6" height="13.7" fill="#444a54"/>
-<rect x="537.0" y="427.1" width="20.2" height="13.7" fill="#444a54"/>
-<rect x="558.0" y="427.1" width="18.1" height="13.7" fill="#444a54"/>
+<text x="1007.5" y="452.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">222 tiny…</text>
+<text x="586.9" y="50.0" fill="#e6edf3" font-size="11" font-weight="600">SynCtx·D3D12 / GPU submission<tspan fill="#8b949e" font-weight="400"> 16.34% of time</tspan></text>
+<rect x="4.0" y="55.0" width="188.3" height="226.1" fill="#2ea043"><title>WaitDispatcherDrainSpin: End-of-frame spin: QpcNow, loop g_DispatcherDrainBusy = DispatcherRingBusy(d) until the SynergisticDispatcher ring is drained, then KtglTimerAccumulate; no PAUS (3.315%)</title></rect>
+<text x="7.0" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">WaitDispatcherDrainSpin</text>
+<text x="7.0" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ End-of-frame spin: QpcNow</text>
+<rect x="4.0" y="281.9" width="188.3" height="219.6" fill="#2ea043"><title>JobQueuePoll: queue poll helper used by JobTrySteal; reads queue heads with `lock cmpxchg [x],0` as an atomic load -> cache-line ping-pong between 7+ spinning workers (W7, ~0 (3.219%)</title></rect>
+<text x="7.0" y="292.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">JobQueuePoll</text>
+<text x="7.0" y="303.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ queue poll helper used by Job…</text>
+<rect x="193.1" y="55.0" width="163.4" height="126.7" fill="#2ea043"><title>ObjUpdateWorkerBody: 17.5 KB object update run on KIDSTaskScheduler workers from 1202B0; inline [g+3D30h] param-table scan (1234A0), calls AabbTransformByMatrix 6FED0, ObbToAabb, Pa (1.618%)</title></rect>
+<text x="196.1" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjUpdateWorkerBody</text>
+<text x="196.1" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 17.5 KB object update run …</text>
+<rect x="357.3" y="55.0" width="130.6" height="126.7" fill="#2ea043"><title>ParamTableGetU32_D15EC139: Linear scan of {u32 count, 32-byte entries*} for hash D15EC139 with (flags &amp; 0F000000h) == 04000000h; returns *[entry+18h] or 7. Called per object from 121FC0 ( (1.294%)</title></rect>
+<text x="360.3" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ParamTableGetU32_D15EC…</text>
+<text x="360.3" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Linear scan of {u32 …</text>
+<rect x="488.7" y="55.0" width="87.4" height="126.7" fill="#2ea043"><title>ParamTableGet_C4984B63: Scans the [o+3D30h] param table for hash C4984B63 (type bits 0) then 8B252323 (type 4); returns *value or 2; called from 121FC0 (124018, 124196); hot loops 1202 (0.869%)</title></rect>
+<text x="491.7" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ParamTableGet_…</text>
+<text x="491.7" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Scans the</text>
+<rect x="193.1" y="182.5" width="97.1" height="110.3" fill="#2ea043"><title>JobWorkerPoll_40800: KIDSTS worker job-queue polling routine (W7 lists it with 411C0/41050 as lock-cmpxchg pollers); QPC calls at 40C1A/40D56; calls 48E90 at 40E1C [Ghidra: 2125 B,  (0.841%)</title></rect>
+<text x="196.1" y="193.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">JobWorkerPoll_40…</text>
+<text x="196.1" y="204.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ KIDSTS worker …</text>
+<rect x="193.1" y="293.6" width="97.1" height="104.1" fill="#2ea043"><title>PlaceableDistanceLod: -1 if null; else d = |p+80h - pos| - 0.5*|(p+90h..98h)*(p+70h..78h)| clamped >= 0; returns -1 if d*d >= 1e6 else -2 (two sqrt); 0.06 core on PC, mostly the firs (0.794%)</title></rect>
+<text x="196.1" y="304.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PlaceableDistanc…</text>
+<text x="196.1" y="315.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ -1 if null</text>
+<rect x="193.1" y="398.5" width="97.1" height="102.9" fill="#2ea043"><title>JobParallelForSplit: parallel-for job body: claims the job (flag +7Ch), splits the index range [+70h,+74h) in halves while it exceeds the grain (+78h) and pushes the halves (JobPush (0.785%)</title></rect>
+<text x="196.1" y="409.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">JobParallelForSp…</text>
+<text x="196.1" y="420.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ parallel-for j…</text>
+<rect x="291.0" y="182.5" width="98.7" height="76.1" fill="#2ea043"><title>ObjMarkDirtyRecursive: o+388h |= 1, then recurses into every part (o+240h[i]+28h, count o+120h) and the 3 attachments at o+400h (0.591%)</title></rect>
+<text x="294.0" y="193.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjMarkDirtyRecu…</text>
+<text x="294.0" y="204.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ o+388h |= 1</text>
+<rect x="390.5" y="182.5" width="95.1" height="76.1" fill="#2ea043"><title>Vec3CopyW0: out.xyz = in.xyz (16-byte movaps copy), out.w = 0; leaf; its 0.03-0.04 core on the collision workers is the first-touch miss on part+B0h (0.570%)</title></rect>
+<text x="393.5" y="193.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Vec3CopyW0</text>
+<text x="393.5" y="204.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ out.xyz = in.…</text>
+<rect x="486.4" y="182.5" width="89.7" height="76.1" fill="#2ea043"><title>ObjPartAcquireShared: if part slot idx (&lt; o+120h) of o+240h exists with a payload (+28h): CAS-increment the 31-bit shared count + 32-bit version of its lock word, returns the slot; 5 (0.538%)</title></rect>
+<text x="489.4" y="193.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjPartAcquire…</text>
+<text x="489.4" y="204.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ if part slot…</text>
+<rect x="291.0" y="259.3" width="70.9" height="95.7" fill="#2ea043"><title>PlaceableVisibilityUpdateWorker: StageUpdate worker called by PlaceableVisibilityUpdate 567A48: two bit-vector passes over world+1668h/+1680h shape lists, then a loop over EVERY entry of the st (0.535%)</title></rect>
+<text x="294.0" y="270.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PlaceableVi…</text>
+<text x="294.0" y="281.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ StageUpda…</text>
+<rect x="291.0" y="355.8" width="70.9" height="76.4" fill="#2ea043"><title>PlaceableUpdateDetail: Per-placeable detail update from PlaceableVisibilityUpdateWorker when [c+8] and p+10Dh == 0; reads the p+B0h object (0.428%)</title></rect>
+<text x="294.0" y="366.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PlaceableUp…</text>
+<text x="294.0" y="377.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Per-place…</text>
+<rect x="291.0" y="433.1" width="70.9" height="68.4" fill="#2ea043"><title>PlaceableVisibilityUpdateRange: Iterates ctx entries [begin,end): camera distance, draw distance (entry+0xc0), SceneDrawCfg+0x11f7 forces >= 15000 for extents >= 260, event override via g_pEve (0.384%)</title></rect>
+<text x="294.0" y="444.1" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PlaceableVi…</text>
+<text x="294.0" y="455.1" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Iterates …</text>
+<rect x="362.7" y="259.3" width="77.2" height="59.9" fill="#2ea043"><title>ObjVirtCompD40B3C8FUpdate: virtual: vtable slots at 38F1B10 and 38F2038 (two 165-slot Obj-family vtables, 528h apart); reads +254h/+258h of the component at o+158h when its type hash is D (0.365%)</title></rect>
+<text x="365.7" y="270.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjVirtCompD…</text>
+<text x="365.7" y="281.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ virtual: v…</text>
+<rect x="440.7" y="259.3" width="67.4" height="59.9" fill="#2ea043"><title>ObjLockWordSetAndRefresh: if [o+8]+28h == 0 CAS-sets the low 13 bits of the lock word o+2B0h, then 18D7888 / 18D6E4C / 18D7810; was Unknown_ObjUpdate_203B74 (0.320%)</title></rect>
+<text x="443.7" y="270.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjLockWor…</text>
+<text x="443.7" y="281.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ if</text>
+<rect x="508.9" y="259.3" width="67.2" height="59.9" fill="#2ea043"><title>ObjSnapTransform: 26 callers; vfunc +508h when o+158h is null, flags o+4Ch&amp;2000000h/800000h, floorf + Memcpy of a transform; was Unknown_ObjUpdate_203BD4 (0.319%)</title></rect>
+<text x="511.9" y="270.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjSnapTra…</text>
+<text x="511.9" y="281.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 26 calle…</text>
+<rect x="362.7" y="320.0" width="60.5" height="60.1" fill="#d4a017"><title>Unknown_166F20: 1.7 KB float loop over p2+8 entries (10 args), callers PauseSpin_2D7F38 / 1815330, calls 7021C / Vec4Set3 (0.289%)</title></rect>
+<text x="365.7" y="331.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_1…</text>
+<text x="365.7" y="342.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 1.7 KB …</text>
+<rect x="362.7" y="380.9" width="60.5" height="59.9" fill="#2ea043"><title>ObjGridCellBounds: returns 0 unless [o]+1ECh; 6BB80 + TransformedBoxAabb + floorf (grid/cell bounds); callers ObjUpdateWorkerBody / 32CC308; was Unknown_ObjUpdate_1218EC (0.288%)</title></rect>
+<text x="365.7" y="391.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjGridCe…</text>
+<text x="365.7" y="402.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ returns…</text>
+<rect x="362.7" y="441.6" width="60.5" height="59.8" fill="#2ea043"><title>JobHelpStep: one poll of a job wait: pop/run own queue (40800), re-push deferred jobs, steal one job from the other workers (411C0); if nothing and !(w+454h &amp; 1) -> Sleep(0) (0.287%)</title></rect>
+<text x="365.7" y="452.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">JobHelpSt…</text>
+<text x="365.7" y="463.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ one pol…</text>
+<rect x="424.1" y="320.0" width="60.5" height="48.7" fill="#2ea043"><title>ParamTableFindHashType: linear scan of {u32 count, 32-byte entries*}: entry+4 == hash &amp;&amp; (entry[3] &amp; 0Fh) == type; 994 callers; the per-object param lookups of worker-jobs-opt §PL (pro (0.235%)</title></rect>
+<text x="427.1" y="331.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ParamTabl…</text>
+<text x="427.1" y="342.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ linear …</text>
+<rect x="485.4" y="320.0" width="51.0" height="48.7" fill="#2ea043"><title>PlaceableFlag27Check: Checks [45CE800] mode, p+B8h bit 27, p+109h == FF and the p+C8h range, then 588EF8 / 588F48; hot RIP DA71F = first touch of p+B8h (0.198%)</title></rect>
+<text x="488.4" y="331.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Placeab…</text>
+<text x="488.4" y="342.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Checks</text>
+<rect x="537.2" y="320.0" width="38.8" height="48.7" fill="#d4a017"><title>Unknown_TreeWalk_16BA70: recursive walk: nodes of 16 bytes -> 32-byte items at t+148h (skip flags +1Ch/+1Dh/+1Fh), 13 args; Scheduler0 0.7 %; was Sched0Hot_16BA70 (0.152%)</title></rect>
+<rect x="424.1" y="369.5" width="40.0" height="44.7" fill="#2ea043"><title>ObjUpdateJobDispatch: 4.7 KB stage of the object-update chain (16EF8C -> here -> ObjUpdatePerObject): builds per-group job batches (50000 cap) and pushes them (JobPushToPool / JobPus (0.144%)</title></rect>
+<rect x="424.1" y="415.0" width="40.0" height="44.1" fill="#2ea043"><title>KtglSignalUntilAwake2: same idiom as 3EB38 on [x+5C8h]; else spins on byte x+5F8h with Sleep(0) every 256; also (worker-power.tsv): SignalUntilAcknowledged - SetEvent once per spin un (0.142%)</title></rect>
+<rect x="424.1" y="459.9" width="40.0" height="41.5" fill="#d4a017"><title>Unknown_Placeable_DD7AC: callers PlaceableUpdateDetail / PlaceableVisibilityUpdateRange; requires p+1E9h, tests flag bits 10/25h/1Bh of a+B8h (FB7080), 11 callees (0.133%)</title></rect>
+<rect x="464.9" y="369.5" width="42.3" height="34.3" fill="#2ea043"><title>MissionTaskGetTargetPos: if t+A4h names an actor (ActorFindById) -> 20A508(actor, out), else falls back to t+E4h / t+18h sources; MissionThread (0.117%)</title></rect>
+<rect x="508.0" y="369.5" width="34.4" height="34.3" fill="#d4a017"><title>Unknown_1675F0: 812 B, only caller 1815330: compares f[0] with f[15], picks o+16B8h path (1048h/1068h), WaitObjectWrapper_167D70 + 198410 (0.095%)</title></rect>
+<rect x="543.2" y="369.5" width="32.9" height="34.3" fill="#2ea043"><title>JobWaitSleepBackoff: Job-system wait using Sleep(0)/Sleep(n) backoff (657 B, 101 callers); cited as typical Sleep caller (0.091%)</title></rect>
+<rect x="464.9" y="404.6" width="25.5" height="37.3" fill="#d4a017"><title>Unknown_904B58: walks a counted list calling 1A5EC4 / 1A5F20 per entry; only caller 904ADC; 0.02 % of Ally samples (0.077%)</title></rect>
+<rect x="464.9" y="442.6" width="25.5" height="29.9" fill="#2ea043"><title>JobWorkerRunUntilIdle: worker body after each wake: steal ONE job from the other workers (411C0, w+1..), then 40800 pops with wakeFlag=1 (each woken worker wakes one more = cascade),  (0.062%)</title></rect>
+<rect x="464.9" y="473.3" width="25.5" height="28.2" fill="#d4a017"><title>Unknown_HashFind_DD570: hash-bucket lookup: bucket count from the o+20h vector (end-begin)/8, hash via DE31D8; 90 callers incl. PlaceableUpdateDetail (0.059%)</title></rect>
+<rect x="491.2" y="404.6" width="30.3" height="21.8" fill="#d4a017"><title>Unknown_11FD70: initialises ctx (+8 = o, +18h = a, +10h = b) then reads o+100h; 9 callers incl. ObjUpdatePerObject (0.054%)</title></rect>
+<rect x="522.4" y="404.6" width="27.6" height="21.8" fill="#d4a017"><title>Unknown_BTreeFind_3DAAC: leaf: per node up to [n+1B8h] entries compared with the key (B-tree pattern as PsoCacheBTreeFind); 10 callers (0.049%)</title></rect>
+<rect x="550.7" y="404.6" width="25.4" height="21.8" fill="#2ea043"><title>JobGroupWait: help-while-waiting join (181 callers): while ([g+34h] > 1) JobHelpStep(g->owner, g, &amp;wakeFlag=1, mode or 2 after 0x4000 polls); then lock dec [g+34h]. J1 rows 3 (0.046%)</title></rect>
+<rect x="491.2" y="427.1" width="20.6" height="18.9" fill="#444a54"><title>FUN_120C28 not named (0.033%)</title></rect>
+<rect x="491.2" y="446.8" width="20.6" height="18.6" fill="#2ea043"><title>SynergisticDispatcherLoop: SynergisticDispatcherTask body: WaitForSingleObject(sem, INFINITE), pop 32-B ring item, replay tokens via KtglTokenHandlerTable into SynCtx+0x580 command list,  (0.032%)</title></rect>
+<rect x="491.2" y="466.2" width="20.6" height="17.6" fill="#444a54"><title>FUN_169500 not named (0.030%)</title></rect>
+<rect x="491.2" y="484.6" width="20.6" height="16.8" fill="#444a54"><title>FUN_117BE0 not named (0.029%)</title></rect>
+<rect x="512.7" y="427.1" width="23.6" height="13.7" fill="#444a54"><title>FUN_202FF4 not named (0.027%)</title></rect>
+<rect x="537.0" y="427.1" width="20.2" height="13.7" fill="#444a54"><title>FUN_206700 not named (0.024%)</title></rect>
+<rect x="558.0" y="427.1" width="18.1" height="13.7" fill="#444a54"><title>FUN_3F364 not named (0.021%)</title></rect>
 <rect x="512.7" y="441.6" width="63.4" height="59.8" fill="#74663f"><title>174 tiny functions</title></rect>
-<text x="6.0" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">Jobs / KIDS scheduler<tspan fill="#8b949e" font-weight="400"> 19.80% of time</tspan></text>
-<rect x="1362.6" y="55.0" width="232.6" height="156.9" fill="#2ea043"/>
-<rect x="1362.6" y="212.7" width="174.1" height="121.1" fill="#2ea043"/>
-<rect x="1537.5" y="212.7" width="57.7" height="68.4" fill="#2ea043"/>
-<rect x="1537.5" y="281.9" width="29.8" height="51.9" fill="#2ea043"/>
-<rect x="1568.2" y="281.9" width="27.0" height="29.4" fill="#d4a017"/>
-<rect x="1568.2" y="312.1" width="16.2" height="21.7" fill="#2ea043"/>
+<text x="515.7" y="452.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">174 tiny …</text>
+<text x="6.0" y="50.0" fill="#e6edf3" font-size="11" font-weight="600">KIDS / job system<tspan fill="#8b949e" font-weight="400"> 19.80% of time</tspan></text>
+<rect x="1362.6" y="55.0" width="232.6" height="156.9" fill="#2ea043"><title>MemcpyAlt: second memcpy entry counted with B94250 (aka CrtMemcpyEntry) || also: 16-byte stub immediately before CrtMemcpy (likely alternate entry e.g. memmove/memset); 1. (2.993%)</title></rect>
+<text x="1365.6" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MemcpyAlt</text>
+<text x="1365.6" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ second memcpy entry counted w…</text>
+<rect x="1362.6" y="212.7" width="174.1" height="121.1" fill="#2ea043"><title>Memcpy: memcpy (~5% of main thread together with B94230): constants into stream, upload copies, inline blobs; source loads miss (aka CrtMemcpy) (1.734%)</title></rect>
+<text x="1365.6" y="223.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Memcpy</text>
+<text x="1365.6" y="234.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ memcpy</text>
+<rect x="1537.5" y="212.7" width="57.7" height="68.4" fill="#2ea043"><title>MemsetBytewise: byte loop fill (CRT small/unaligned path next to memset B93F00) (0.329%)</title></rect>
+<text x="1540.5" y="223.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MemsetBy…</text>
+<text x="1540.5" y="234.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ byte l…</text>
+<rect x="1537.5" y="281.9" width="29.8" height="51.9" fill="#2ea043"><title>memcmp: CRT memcmp (Ghidra library match); used by PsoCacheBTreeFind / Unknown_BTreeFind_58C144 with 128-byte keys (0.131%)</title></rect>
+<rect x="1568.2" y="281.9" width="27.0" height="29.4" fill="#d4a017"><title>Unknown_CrtMath_BE6740: 3.5 KB AVX/FMA dispatched (flag 45B9D5C) scalar math routine with 271 callers and one callee (BFE6A4); CRT-style libm function, which one not identified (0.068%)</title></rect>
+<rect x="1568.2" y="312.1" width="16.2" height="21.7" fill="#2ea043"><title>SqrtfSlowPath: sqrt fallback for negative input (159 B, 3690 callers) (0.031%)</title></rect>
 <rect x="1585.2" y="312.1" width="10.0" height="21.7" fill="#ca9a1b"><title>15 tiny functions</title></rect>
-<text x="1364.6" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">unclassified 0x8-0xCMB<tspan fill="#8b949e" font-weight="400"> 5.31% of time</tspan></text>
-<rect x="1336.2" y="359.6" width="141.9" height="167.5" fill="#2ea043"/>
-<rect x="1336.2" y="527.9" width="141.9" height="63.6" fill="#2ea043"/>
-<rect x="1478.9" y="359.6" width="63.2" height="56.3" fill="#d4a017"/>
-<rect x="1542.9" y="359.6" width="52.3" height="56.3" fill="#d4a017"/>
-<rect x="1478.9" y="416.7" width="47.3" height="53.0" fill="#d4a017"/>
-<rect x="1527.0" y="416.7" width="35.9" height="53.0" fill="#d4a017"/>
-<rect x="1563.7" y="416.7" width="31.5" height="53.0" fill="#2ea043"/>
-<rect x="1478.9" y="470.5" width="46.6" height="33.3" fill="#d4a017"/>
-<rect x="1526.3" y="470.5" width="43.5" height="33.3" fill="#d4a017"/>
-<rect x="1570.5" y="470.5" width="24.7" height="33.3" fill="#d4a017"/>
-<rect x="1478.9" y="504.6" width="22.6" height="30.2" fill="#d4a017"/>
-<rect x="1478.9" y="535.6" width="22.6" height="29.2" fill="#d4a017"/>
-<rect x="1478.9" y="565.6" width="22.6" height="26.0" fill="#444a54"/>
-<rect x="1502.3" y="504.6" width="22.1" height="23.9" fill="#d4a017"/>
-<rect x="1502.3" y="529.3" width="22.1" height="22.5" fill="#444a54"/>
-<rect x="1502.3" y="552.6" width="22.1" height="19.5" fill="#2ea043"/>
-<rect x="1502.3" y="572.9" width="22.1" height="18.6" fill="#444a54"/>
-<rect x="1525.2" y="504.6" width="17.6" height="16.8" fill="#444a54"/>
-<rect x="1543.6" y="504.6" width="16.9" height="16.8" fill="#444a54"/>
-<rect x="1561.3" y="504.6" width="16.7" height="16.8" fill="#444a54"/>
-<rect x="1578.9" y="504.6" width="16.3" height="16.8" fill="#444a54"/>
+<text x="1364.6" y="50.0" fill="#e6edf3" font-size="11" font-weight="600">text 0x8-0xCMB / unexplored code<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1336.2" y="359.6" width="141.9" height="167.5" fill="#2ea043"><title>ObjUpdatePerObject: 44.6 KB per-object per-frame update at the end of the object-update job chain (182000/204584 -> 408FE0 -> 16EF8C -> 16CFF0 -> here); 308 callees incl. BoundsFro (1.978%)</title></rect>
+<text x="1339.2" y="370.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjUpdatePerObject</text>
+<text x="1339.2" y="381.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 44.6 KB per-object per…</text>
+<rect x="1336.2" y="527.9" width="141.9" height="63.6" fill="#2ea043"><title>ConvReverbPartitionMac: partitioned FFT convolution step: copies n floats, zero-pads to 2n, forward FFT (E7840), stores spectrum in the frequency-domain delay line (ring index param_7) (0.757%)</title></rect>
+<text x="1339.2" y="538.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ConvReverbPartitionMac</text>
+<text x="1339.2" y="549.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ partitioned FFT convol…</text>
+<rect x="1478.9" y="359.6" width="63.2" height="56.3" fill="#d4a017"><title>Unknown_ObjParts_1A6FC4: 892 B, 21 callers: unless o+4Ch &amp; 2000000h (component vfunc +A8h), walks the part slots o+240h with shared-lock CAS like ObjPartAcquireShared, calls 3FC48/48230 (0.301%)</title></rect>
+<text x="1481.9" y="370.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_O…</text>
+<text x="1481.9" y="381.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 892 B</text>
+<rect x="1542.9" y="359.6" width="52.3" height="56.3" fill="#d4a017"><title>Unknown_E1740: virtual; n==1 -> 214A40(o+8, data, count), else min(n, o+1Ch) channels at o+24h (0.250%)</title></rect>
+<text x="1545.9" y="370.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown…</text>
+<text x="1545.9" y="381.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ virtu…</text>
+<rect x="1478.9" y="416.7" width="47.3" height="53.0" fill="#d4a017"><title>Unknown_ObjEffect_1A7408: 3.3 KB, callers ObjUpdatePerObject / 211194; references "CE1ResourceEffect"; skipped when o+4Ch &amp; 20000000h; 33 callees (0.213%)</title></rect>
+<text x="1481.9" y="427.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknow…</text>
+<text x="1481.9" y="438.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 3.3 …</text>
+<rect x="1527.0" y="416.7" width="35.9" height="53.0" fill="#d4a017"><title>Unknown_TreeQuery_165088: recursive (depth &lt;= 6) spatial-tree query with three callback function pointers (17 args); 6 callers (0.163%)</title></rect>
+<rect x="1563.7" y="416.7" width="31.5" height="53.0" fill="#2ea043"><title>ObjSetField3B0Propagate: o+3B0h = v; if o+4Ch &amp; 100000h forwards v to the 3 attachments at o+400h via vfunc +468h; only caller 204DB0 (0.143%)</title></rect>
+<rect x="1478.9" y="470.5" width="46.6" height="33.3" fill="#d4a017"><title>Unknown_Transform_CC940: 3.5 KB transform solve: sqrt, SinCosApprox, MatrixFromScaleQuatTrans, 1FC8A0 / CE5F0 / D3670; callers 32E8388 / 697764 (0.133%)</title></rect>
+<text x="1481.9" y="481.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknow…</text>
+<text x="1481.9" y="492.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 3.5 …</text>
+<rect x="1526.3" y="470.5" width="43.5" height="33.3" fill="#d4a017"><title>Unknown_4DBA00: 2.4 KB leaf loop over n/2 and n/4 element blocks (no callees); callers 4DB800 / 4DB620 / 2FC9220 / 2FC9038 (0.124%)</title></rect>
+<text x="1529.3" y="481.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknow…</text>
+<text x="1529.3" y="492.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 2.4 …</text>
+<rect x="1570.5" y="470.5" width="24.7" height="33.3" fill="#d4a017"><title>Unknown_TreeWalk_1655E0: recursive walk of 8-byte nodes at t+8 (u16 child +6, FFFFh = none, bit0 of byte 0 = leaf), calls 202C8C (0.071%)</title></rect>
+<rect x="1478.9" y="504.6" width="22.6" height="30.2" fill="#d4a017"><title>Unknown_4C2DA0: virtual, 722 B: u16 counts o+56h.., 4C4288 / 4C42A8 / 37EC9C4 / 37DC2B4 (0.060%)</title></rect>
+<rect x="1478.9" y="535.6" width="22.6" height="29.2" fill="#d4a017"><title>Unknown_Lerp_21FF9C: per element (1-t)*a + t*b with sqrt renormalisation, n elements; only caller 91828C (0.058%)</title></rect>
+<rect x="1478.9" y="565.6" width="22.6" height="26.0" fill="#444a54"><title>FUN_3D8770 not named (0.052%)</title></rect>
+<rect x="1502.3" y="504.6" width="22.1" height="23.9" fill="#d4a017"><title>Unknown_15BAE8: 1.2 KB, 1218CC on o+4028h then 15BF38 / 15BA40; only caller 15AE38 (0.047%)</title></rect>
+<rect x="1502.3" y="529.3" width="22.1" height="22.5" fill="#444a54"><title>FUN_4FC330 not named (0.044%)</title></rect>
+<rect x="1502.3" y="552.6" width="22.1" height="19.5" fill="#2ea043"><title>AudioReverbEffectProcess: effect process entry: deinterleave, optional pre-filter (388DE48/388E410), ConvReverbProcess, delay line, 5-tap biquad per channel (0.038%)</title></rect>
+<rect x="1502.3" y="572.9" width="22.1" height="18.6" fill="#444a54"><title>FUN_163D20 not named (0.037%)</title></rect>
+<rect x="1525.2" y="504.6" width="17.6" height="16.8" fill="#444a54"><title>FUN_219E80 not named (0.027%)</title></rect>
+<rect x="1543.6" y="504.6" width="16.9" height="16.8" fill="#444a54"><title>FUN_71BC24 not named (0.026%)</title></rect>
+<rect x="1561.3" y="504.6" width="16.7" height="16.8" fill="#444a54"><title>FUN_1A7AAC not named (0.025%)</title></rect>
+<rect x="1578.9" y="504.6" width="16.3" height="16.8" fill="#444a54"><title>FUN_C8958 not named (0.025%)</title></rect>
 <rect x="1525.2" y="522.2" width="70.0" height="69.4" fill="#484c51"><title>168 tiny functions</title></rect>
-<text x="1338.2" y="354.6" fill="#e6edf3" font-size="12" font-weight="600">Effects / Post<tspan fill="#8b949e" font-weight="400"> 4.98% of time</tspan></text>
-<rect x="1067.1" y="617.4" width="179.4" height="121.7" fill="#2ea043"/>
-<rect x="1067.1" y="739.9" width="95.6" height="155.3" fill="#2ea043"/>
-<rect x="1163.6" y="739.9" width="82.9" height="51.2" fill="#2ea043"/>
-<rect x="1163.6" y="791.8" width="82.9" height="43.6" fill="#2ea043"/>
-<rect x="1163.6" y="836.2" width="42.5" height="59.0" fill="#d4a017"/>
-<rect x="1206.9" y="836.2" width="39.6" height="28.7" fill="#2ea043"/>
-<rect x="1206.9" y="865.8" width="20.3" height="16.8" fill="#444a54"/>
-<rect x="1206.9" y="883.4" width="20.3" height="11.8" fill="#444a54"/>
+<text x="1528.2" y="533.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">168 tiny f…</text>
+<text x="1338.2" y="354.6" fill="#e6edf3" font-size="11" font-weight="600">PostEffect / effects &amp; post<tspan fill="#8b949e" font-weight="400"> 4.98% of time</tspan></text>
+<rect x="1067.1" y="617.4" width="179.4" height="121.7" fill="#2ea043"><title>SetAssocCacheLookup: bucket = key % c->nsets (127 fast path), linear scan of c->nways 64-byte entries at c+10h for entry[0]==key; NULL on miss; the page lookup of 116A24 on the work (1.813%)</title></rect>
+<text x="1070.1" y="628.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">SetAssocCacheLookup</text>
+<text x="1070.1" y="639.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ bucket = key % c->nsets</text>
+<rect x="1067.1" y="739.9" width="95.6" height="155.3" fill="#2ea043"><title>PagePoolCountUsed: counts entries with lastUsedFrame >= frame (2.2%); not debug-only: result feeds device+0x6CD0 heuristic; left alone; body 275 B (aka MainHot_2523FC) || also: [A (1.237%)</title></rect>
+<text x="1070.1" y="750.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PagePoolCountUs…</text>
+<text x="1070.1" y="761.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ counts entrie…</text>
+<rect x="1163.6" y="739.9" width="82.9" height="51.2" fill="#2ea043"><title>SinCosApprox: reduces a by 2*pi then pi (sign flip), polynomial sin/cos; a==0 -> (0,1); 169 callers incl. BoundsFromPartObbs; was Sched0Hot_54360 (0.358%)</title></rect>
+<text x="1166.6" y="750.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">SinCosApprox</text>
+<text x="1166.6" y="761.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ reduces a b…</text>
+<rect x="1163.6" y="791.8" width="82.9" height="43.6" fill="#2ea043"><title>PlaceableDistanceTest: called from PlaceableVisibilityUpdateRange: distance camera(+10h) -> placeable(+80h), scaled radius (+90h * +70h), sqrt; then ObjPartAcquireShared / 47DF8 (0.305%)</title></rect>
+<text x="1166.6" y="802.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PlaceableDist…</text>
+<text x="1166.6" y="813.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ called from…</text>
+<rect x="1163.6" y="836.2" width="42.5" height="59.0" fill="#d4a017"><title>Unknown_ObjRef_47DF8: 1150 callers: takes the lock word ref[0] (CAS), resolves ref[9], calls 3FC48 / 1A5DA0 / 4D5498 / 47FD0 (0.213%)</title></rect>
+<rect x="1206.9" y="836.2" width="39.6" height="28.7" fill="#2ea043"><title>PageCacheFindOwned: SetAssocCacheLookup(c, key) then match owner (+28h) and id (+30h); returns entry+4 (page index) or 0; called by StreamPageLookupOrInsert (0.098%)</title></rect>
+<rect x="1206.9" y="865.8" width="20.3" height="16.8" fill="#444a54"><title>FUN_3B7F70 not named (0.031%)</title></rect>
+<rect x="1206.9" y="883.4" width="20.3" height="11.8" fill="#444a54"><title>FUN_12E4D0 not named (0.022%)</title></rect>
 <rect x="1228.0" y="865.8" width="18.5" height="29.4" fill="#a4832b"><title>28 tiny functions</title></rect>
-<text x="1069.1" y="612.4" fill="#e6edf3" font-size="12" font-weight="600">Memory<tspan fill="#8b949e" font-weight="400"> 4.12% of time</tspan></text>
-<rect x="1067.1" y="55.0" width="94.7" height="171.1" fill="#2ea043"/>
-<rect x="1067.1" y="226.9" width="94.7" height="106.9" fill="#2ea043"/>
-<rect x="1162.6" y="55.0" width="105.8" height="79.9" fill="#2ea043"/>
-<rect x="1269.2" y="55.0" width="84.6" height="79.9" fill="#2ea043"/>
-<rect x="1162.6" y="135.7" width="65.3" height="75.6" fill="#2ea043"/>
-<rect x="1228.8" y="135.7" width="65.1" height="75.6" fill="#2ea043"/>
-<rect x="1294.7" y="135.7" width="59.1" height="75.6" fill="#d4a017"/>
-<rect x="1162.6" y="212.1" width="62.6" height="61.3" fill="#d4a017"/>
-<rect x="1162.6" y="274.2" width="62.6" height="59.6" fill="#d4a017"/>
-<rect x="1226.0" y="212.1" width="41.5" height="68.2" fill="#2ea043"/>
-<rect x="1226.0" y="281.1" width="41.5" height="52.7" fill="#2ea043"/>
-<rect x="1268.3" y="212.1" width="42.5" height="37.6" fill="#d4a017"/>
-<rect x="1311.7" y="212.1" width="42.1" height="37.6" fill="#d4a017"/>
-<rect x="1268.3" y="250.6" width="32.0" height="35.8" fill="#2ea043"/>
-<rect x="1268.3" y="287.2" width="32.0" height="23.1" fill="#d4a017"/>
-<rect x="1268.3" y="311.1" width="32.0" height="22.7" fill="#d4a017"/>
-<rect x="1301.1" y="250.6" width="31.7" height="21.6" fill="#d4a017"/>
-<rect x="1333.7" y="250.6" width="20.1" height="21.6" fill="#2ea043"/>
-<rect x="1301.1" y="273.0" width="20.2" height="18.7" fill="#444a54"/>
-<rect x="1322.1" y="273.0" width="16.8" height="18.7" fill="#444a54"/>
-<rect x="1339.7" y="273.0" width="14.1" height="18.7" fill="#444a54"/>
-<rect x="1301.1" y="292.5" width="11.4" height="20.5" fill="#444a54"/>
-<rect x="1301.1" y="313.8" width="11.4" height="20.0" fill="#444a54"/>
+<text x="1069.1" y="612.4" fill="#e6edf3" font-size="11" font-weight="600">Alloc·Pool / memory<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1067.1" y="55.0" width="94.7" height="171.1" fill="#2ea043"><title>Vec4AddInPlace: a.xyzw += b.xyzw, returns a; 71 callers, hot under ObbToAabb (4 % of Scheduler0 as '6EFD0(leaf?)'); was Sched0Hot_6EFD0 (1.327%)</title></rect>
+<text x="1070.1" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Vec4AddInPlace</text>
+<text x="1070.1" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ a.xyzw += b.x…</text>
+<rect x="1067.1" y="226.9" width="94.7" height="106.9" fill="#2ea043"><title>ObbToAabb: OBB -> AABB through 54 non-inlined vec calls (Vec3Dot 6F060 / Vec4Scale / Vec4AddInPlace); 86 % of calls from BoundsFromPartObbs; was Sched0Hot_6EA50 (0.831%)</title></rect>
+<text x="1070.1" y="237.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObbToAabb</text>
+<text x="1070.1" y="248.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ OBB -> AABB t…</text>
+<rect x="1162.6" y="55.0" width="105.8" height="79.9" fill="#2ea043"><title>BoundsFromPartObbs: per-part bounds: vfunc +E8h for the base transform, then per part SinCos/ObbToAabb/sqrt to build part AABBs; callers 172814 + ObjUpdatePerObject; was Sched0Hot_ (0.695%)</title></rect>
+<text x="1165.6" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">BoundsFromPartObbs</text>
+<text x="1165.6" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-part bounds…</text>
+<rect x="1269.2" y="55.0" width="84.6" height="79.9" fill="#2ea043"><title>AudioVoiceDecodeBlock: per-voice demand-driven stream decode into a float ring (reader vfunc +60h, 69220 inner, 5-tap IIR per channel); mode +160h==1000h; negative error codes; was Un (0.557%)</title></rect>
+<text x="1272.2" y="66.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">AudioVoiceDec…</text>
+<text x="1272.2" y="77.0" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-voice d…</text>
+<rect x="1162.6" y="135.7" width="65.3" height="75.6" fill="#2ea043"><title>Vec4Scale: out = v * s (4 floats), returns out; 419 callers; ObbToAabb callee; was Sched0Hot_6F010 (0.408%)</title></rect>
+<text x="1165.6" y="146.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Vec4Scale</text>
+<text x="1165.6" y="157.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ out = v …</text>
+<rect x="1228.8" y="135.7" width="65.1" height="75.6" fill="#2ea043"><title>TransformedBoxAabb: box (matrix m) -> world AABB: centre = m.t * world, half extents = sum |m row . ext col| (Arvo); 30 callers incl. ObjUpdateWorkerBody (0.407%)</title></rect>
+<text x="1231.8" y="146.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Transforme…</text>
+<text x="1231.8" y="157.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ box</text>
+<rect x="1294.7" y="135.7" width="59.1" height="75.6" fill="#d4a017"><title>Unknown_Transform_66D00: 2.2 KB, Scheduler0 2.4 %: vfunc +198h on o+D0h, resets the o+E8h matrix to identity unless o+104h &amp; 4, builds transforms with MatrixFromScaleQuatTrans / Vec2Tra (0.370%)</title></rect>
+<text x="1297.7" y="146.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_…</text>
+<text x="1297.7" y="157.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 2.2 KB</text>
+<rect x="1162.6" y="212.1" width="62.6" height="61.3" fill="#d4a017"><title>Unknown_Geom_70230: 4.3 KB strided element loop (stride, offsets 3x/5x, unrolled by 6) with sqrt, s+34h/+38h/+40h layout fields; vertex-attribute style processing (0.318%)</title></rect>
+<text x="1165.6" y="223.1" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_G…</text>
+<text x="1165.6" y="234.1" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 4.3 KB …</text>
+<rect x="1162.6" y="274.2" width="62.6" height="59.6" fill="#d4a017"><title>Unknown_ObjState_6642C: virtual state switch on o+140h (cases 0/1/...), epsilon (1.19e-3) tests on o+F4h/+F8h/+113h, then 675E0/675B4 (0.310%)</title></rect>
+<text x="1165.6" y="285.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_O…</text>
+<text x="1165.6" y="296.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ virtual…</text>
+<rect x="1226.0" y="212.1" width="41.5" height="68.2" fill="#2ea043"><title>Vec3Dot: ((a.y*b.y)+(a.x*b.x))+(a.z*b.z); ObbToAabb callee; was Sched0Hot_6F060 (0.236%)</title></rect>
+<rect x="1226.0" y="281.1" width="41.5" height="52.7" fill="#2ea043"><title>AudioVoiceDecodeInner: only caller AudioVoiceDecodeBlock; Memcpy + 383A9B4/383B360 block processing (codec inner loop; libVorbis 1.3.7 is linked); was Unknown_Thread5892_69220 (0.183%)</title></rect>
+<rect x="1268.3" y="212.1" width="42.5" height="37.6" fill="#d4a017"><title>Unknown_6FA30: 1.4 KB: clamps the blend factor o+224h to {0,1} paths and updates the o+450h object (6F770 / 2E358FC / BE50A0); callers 7DFD4 / C94A4 (0.135%)</title></rect>
+<rect x="1311.7" y="212.1" width="42.1" height="37.6" fill="#d4a017"><title>Unknown_F33A0: walks a pointer list; entries whose vfunc +170h is F3350 return 1 while [45C8450]+1CE8h &lt; 17h; else 9FA96C; Scheduler0 0.7 %; was Sched0Hot_F33A0 (0.133%)</title></rect>
+<rect x="1268.3" y="250.6" width="32.0" height="35.8" fill="#2ea043"><title>AabbCenter: out = (b.min + b.max) * 0.5 with w = 0; 68 callers (0.097%)</title></rect>
+<rect x="1268.3" y="287.2" width="32.0" height="23.1" fill="#d4a017"><title>Unknown_Bounds_6BB80: half extents (max - min) * 0.5 plus the box's matrix pointer (box+20h) -> oriented box; 30 callers incl. ObjUpdateWorkerBody (0.063%)</title></rect>
+<rect x="1268.3" y="311.1" width="32.0" height="22.7" fill="#d4a017"><title>Unknown_71130: twin of Unknown_6FA30 (blend factor o+218h clamped to 1, object o+450h), 6F4F0 / 7EBEC / 2E36140; callers 7DF84 / C94A4 (0.062%)</title></rect>
+<rect x="1301.1" y="250.6" width="31.7" height="21.6" fill="#d4a017"><title>Unknown_F450C: walks the global list g_4751530, 22C39B4 / 2FA940 / 552F98 / C624A8; was Sched0Hot_F450C (0.059%)</title></rect>
+<rect x="1333.7" y="250.6" width="20.1" height="21.6" fill="#2ea043"><title>AudioFftKernel: 3.8 KB FFT butterfly kernel, only caller AudioFft2N (0.038%)</title></rect>
+<rect x="1301.1" y="273.0" width="20.2" height="18.7" fill="#444a54"><title>FUN_E6760 not named (0.033%)</title></rect>
+<rect x="1322.1" y="273.0" width="16.8" height="18.7" fill="#444a54"><title>FUN_78150 not named (0.028%)</title></rect>
+<rect x="1339.7" y="273.0" width="14.1" height="18.7" fill="#444a54"><title>FUN_69184 not named (0.024%)</title></rect>
+<rect x="1301.1" y="292.5" width="11.4" height="20.5" fill="#444a54"><title>FUN_6F3F0 not named (0.021%)</title></rect>
+<rect x="1301.1" y="313.8" width="11.4" height="20.0" fill="#444a54"><title>FUN_6D360 not named (0.020%)</title></rect>
 <rect x="1313.4" y="292.5" width="40.5" height="41.3" fill="#675f45"><title>53 tiny functions</title></rect>
-<text x="1069.1" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">Audio<tspan fill="#8b949e" font-weight="400"> 6.50% of time</tspan></text>
-<rect x="1067.1" y="359.6" width="108.4" height="125.0" fill="#2ea043"/>
-<rect x="1067.1" y="485.4" width="108.4" height="106.2" fill="#2ea043"/>
-<rect x="1176.3" y="359.6" width="81.9" height="88.1" fill="#2ea043"/>
-<rect x="1259.0" y="359.6" width="68.4" height="88.1" fill="#2ea043"/>
-<rect x="1176.3" y="448.5" width="54.7" height="95.6" fill="#2ea043"/>
-<rect x="1176.3" y="544.9" width="54.7" height="46.7" fill="#2ea043"/>
-<rect x="1231.8" y="448.5" width="47.8" height="50.0" fill="#d4a017"/>
-<rect x="1280.3" y="448.5" width="47.1" height="50.0" fill="#2ea043"/>
-<rect x="1231.8" y="499.3" width="38.3" height="59.9" fill="#2ea043"/>
-<rect x="1231.8" y="559.9" width="38.3" height="31.6" fill="#2ea043"/>
-<rect x="1270.9" y="499.3" width="30.6" height="20.4" fill="#d4a017"/>
-<rect x="1302.3" y="499.3" width="25.1" height="20.4" fill="#444a54"/>
-<rect x="1270.9" y="520.5" width="19.1" height="23.2" fill="#444a54"/>
-<rect x="1290.8" y="520.5" width="18.6" height="23.2" fill="#444a54"/>
-<rect x="1310.2" y="520.5" width="17.2" height="23.2" fill="#444a54"/>
-<rect x="1270.9" y="544.5" width="16.3" height="23.9" fill="#444a54"/>
-<rect x="1270.9" y="569.2" width="16.3" height="22.4" fill="#444a54"/>
-<rect x="1288.1" y="544.5" width="21.6" height="16.7" fill="#444a54"/>
-<rect x="1310.4" y="544.5" width="17.0" height="16.7" fill="#444a54"/>
-<rect x="1288.1" y="561.9" width="8.7" height="29.6" fill="#444a54"/>
+<text x="1069.1" y="50.0" fill="#e6edf3" font-size="11" font-weight="600">XAudio2 mixer / audio<tspan fill="#8b949e" font-weight="400"> 6.50% of time</tspan></text>
+<rect x="1067.1" y="359.6" width="108.4" height="125.0" fill="#2ea043"><title>TextureStreamUpdate: feedback-driven material texture streaming: memset visited M+888h; per visible slot i&lt;min(M+124h,buf+48h) get texture group via slot+10h, stamp G+20h vs [g_Rend (1.131%)</title></rect>
+<text x="1070.1" y="370.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">TextureStreamUpdate</text>
+<text x="1070.1" y="381.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ feedback-driven …</text>
+<rect x="1067.1" y="485.4" width="108.4" height="106.2" fill="#2ea043"><title>TextureStreamTouchSlot: per-frame stamp (+48h) and check the texture's block-allocator slot is valid; re-acquires/compacts via 1283A8/1286E8 under a critical section; not an LRU; body  (0.962%)</title></rect>
+<text x="1070.1" y="496.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">TextureStreamTouch…</text>
+<text x="1070.1" y="507.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-frame stamp</text>
+<rect x="1176.3" y="359.6" width="81.9" height="88.1" fill="#2ea043"><title>ObjHandleResolve_1A188C: Object-update helper (from 1A7BF0): first list node whose payload is not 0/1, state word [obj] read with lock cmpxchg (hot RIP 1A18CD), bitmap checks via 4A7A30 (0.606%)</title></rect>
+<text x="1179.3" y="370.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjHandleReso…</text>
+<text x="1179.3" y="381.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Object-upda…</text>
+<rect x="1259.0" y="359.6" width="68.4" height="88.1" fill="#2ea043"><title>TextureStreamRequestTiles: per-frame stamp +188h, mip-tile pyramid walk (requested +120h vs resident +D8h), &lt;=16 tile requests per texture per frame under global budget g+7560h/+75A8h/+75 (0.506%)</title></rect>
+<text x="1262.0" y="370.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">TextureStr…</text>
+<text x="1262.0" y="381.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ per-fram…</text>
+<rect x="1176.3" y="448.5" width="54.7" height="95.6" fill="#2ea043"><title>ResourceIsReady: Per-resource readiness check used by render nodes (1312 callers) (aka SpinPoll_1A6030) || also: predicate polled by the Sleep(0) spin at 1A742B6; itself contain (0.441%)</title></rect>
+<text x="1179.3" y="459.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Resource…</text>
+<text x="1179.3" y="470.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Per-re…</text>
+<rect x="1176.3" y="544.9" width="54.7" height="46.7" fill="#2ea043"><title>RollingAvgListUpdate: Scheduler0 1.0-1.4 %: rolling-average list update (see notes §4.2 RA); was Sched0Hot_12B440 (0.217%)</title></rect>
+<text x="1179.3" y="555.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">RollingA…</text>
+<text x="1179.3" y="566.9" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Schedu…</text>
+<rect x="1231.8" y="448.5" width="47.8" height="50.0" fill="#d4a017"><title>Unknown_Resource_1A6820: ResourceIsReady helper (mutually recursive with it): walks the r+40h dependency list, entries of type (x &amp; F000000h) == E000000h; 0.04 % of Ally samples (0.203%)</title></rect>
+<text x="1234.8" y="459.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknow…</text>
+<text x="1234.8" y="470.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Reso…</text>
+<rect x="1280.3" y="448.5" width="47.1" height="50.0" fill="#2ea043"><title>StreamBitmapClaim_130014: Worker function with bitmap/slot claims read via lock cmpxchg loads (hot RIP 13009E); LK rows 130096/1301B4/1301C5/1301E4/130225; role not identified (0.200%)</title></rect>
+<text x="1283.3" y="459.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Stream…</text>
+<text x="1283.3" y="470.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Work…</text>
+<rect x="1231.8" y="499.3" width="38.3" height="59.9" fill="#2ea043"><title>StreamPageLookupOrInsert: streaming page-pool lookup for a byte range (64 KB pages): SetAssocCacheLookup via 251554 / 2515B0, insert path 491728 / 491B04; called from 49D5C under g+6EA8h (0.196%)</title></rect>
+<rect x="1231.8" y="559.9" width="38.3" height="31.6" fill="#2ea043"><title>ObjGetEntryRecord98: leaf: entry idx of the o+38h[set] table (98h-byte records, low 6 bits of +4 = kind); was Unknown_ObjUpdate_1A3B78 (0.105%)</title></rect>
+<rect x="1270.9" y="499.3" width="30.6" height="20.4" fill="#d4a017"><title>Unknown_Res_1A19E0: 301 callers: walks a linked resource list, GetResIdFromRes / 496F0 / 324AE18, returns 1 at the end (0.055%)</title></rect>
+<rect x="1302.3" y="499.3" width="25.1" height="20.4" fill="#444a54"><title>FUN_1FDC1C not named (0.045%)</title></rect>
+<rect x="1270.9" y="520.5" width="19.1" height="23.2" fill="#444a54"><title>FUN_1A3D3C not named (0.039%)</title></rect>
+<rect x="1290.8" y="520.5" width="18.6" height="23.2" fill="#444a54"><title>FUN_1A5EC4 not named (0.038%)</title></rect>
+<rect x="1310.2" y="520.5" width="17.2" height="23.2" fill="#444a54"><title>FUN_1A5DA0 not named (0.036%)</title></rect>
+<rect x="1270.9" y="544.5" width="16.3" height="23.9" fill="#444a54"><title>FUN_1A5820 not named (0.035%)</title></rect>
+<rect x="1270.9" y="569.2" width="16.3" height="22.4" fill="#444a54"><title>FUN_12F22C not named (0.033%)</title></rect>
+<rect x="1288.1" y="544.5" width="21.6" height="16.7" fill="#444a54"><title>FUN_117090 not named (0.032%)</title></rect>
+<rect x="1310.4" y="544.5" width="17.0" height="16.7" fill="#444a54"><title>FUN_60C760 not named (0.026%)</title></rect>
+<rect x="1288.1" y="561.9" width="8.7" height="29.6" fill="#444a54"><title>FUN_117330 not named (0.024%)</title></rect>
 <rect x="1297.6" y="561.9" width="29.8" height="29.6" fill="#50514e"><title>43 tiny functions</title></rect>
-<text x="1069.1" y="354.6" fill="#e6edf3" font-size="12" font-weight="600">Streaming / Resources<tspan fill="#8b949e" font-weight="400"> 5.01% of time</tspan></text>
-<rect x="1255.3" y="617.4" width="137.0" height="85.3" fill="#2ea043"/>
-<rect x="1255.3" y="703.5" width="137.0" height="67.4" fill="#2ea043"/>
-<rect x="1255.3" y="771.7" width="62.4" height="65.2" fill="#2ea043"/>
-<rect x="1255.3" y="837.7" width="62.4" height="57.5" fill="#2ea043"/>
-<rect x="1318.5" y="771.7" width="39.4" height="57.1" fill="#d4a017"/>
-<rect x="1358.7" y="771.7" width="33.6" height="57.1" fill="#2ea043"/>
-<rect x="1318.5" y="829.6" width="30.9" height="45.3" fill="#2ea043"/>
-<rect x="1318.5" y="875.7" width="30.9" height="19.5" fill="#d4a017"/>
-<rect x="1350.2" y="829.6" width="21.3" height="15.5" fill="#444a54"/>
-<rect x="1372.3" y="829.6" width="19.9" height="15.5" fill="#2ea043"/>
-<rect x="1350.2" y="845.9" width="22.8" height="12.8" fill="#444a54"/>
-<rect x="1373.8" y="845.9" width="18.4" height="12.8" fill="#444a54"/>
+<text x="1069.1" y="354.6" fill="#e6edf3" font-size="11" font-weight="600">Stream·RDB / resource streaming<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1255.3" y="617.4" width="137.0" height="85.3" fill="#2ea043"><title>MainLoopFrame: [App]Game per-frame function (QPC-timed; 8 QPC call sites); contains Sleep(0) spin loops at 1A74216 (on 877148) and 1A742B6 (on 1A6030) plus Sleep(1) sites; cal (0.987%)</title></rect>
+<text x="1258.3" y="628.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MainLoopFrame</text>
+<rect x="1255.3" y="703.5" width="137.0" height="67.4" fill="#2ea043"><title>StageObjLodUpdateRange: KIDSTS StageUpdate worker body: for objects [first,end) of l+10h, distance/sqrt against the camera with g_pLodScaleCfg / g_pSceneDrawCfg / GameMain+530h to upda (0.782%)</title></rect>
+<text x="1258.3" y="714.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">StageObjLodUpdateRange</text>
+<text x="1258.3" y="725.5" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ KIDSTS StageUpdate wo…</text>
+<rect x="1255.3" y="771.7" width="62.4" height="65.2" fill="#2ea043"><title>ObjVirtUpdateLocked: 3 KB virtual (vtable slot at 38F16E8); o+550h guard, o+440h/o+552h flags, around 206400; contains the RW write-lock Sleep(0) spin at 206230; was Unknown_ObjUpda (0.347%)</title></rect>
+<text x="1258.3" y="782.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">ObjVirtUp…</text>
+<text x="1258.3" y="793.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 3 KB vi…</text>
+<rect x="1255.3" y="837.7" width="62.4" height="57.5" fill="#2ea043"><title>MaterialBindS2FAcclParams: called from MaterialTechniqueBind: binds slot 10, sets (1/(far-near), -near/(far-near)) from sc+280h/+284h, scans the sc+3D30h param table for fS2FAcclDecayLine (0.307%)</title></rect>
+<text x="1258.3" y="848.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MaterialB…</text>
+<text x="1258.3" y="859.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ called …</text>
+<rect x="1318.5" y="771.7" width="39.4" height="57.1" fill="#d4a017"><title>Unknown_13233B0: virtual; walks the o+40h vector of 16-byte {key, obj} entries, calls 291A128 / 13273E0 / 207BD0 per object (0.193%)</title></rect>
+<rect x="1358.7" y="771.7" width="33.6" height="57.1" fill="#2ea043"><title>MaterialParamNameEquals: per-node compare used by MaterialFindParam: hash then strcmp; 0.8-1.2% self (aka MainHot_3C7750) (0.165%)</title></rect>
+<rect x="1318.5" y="829.6" width="30.9" height="45.3" fill="#2ea043"><title>ObjVisibilityRecurse: recursive over sub-objects with o+4Ch flags and a 6-byte mask; was Unknown_ObjVis_3BD184 (0.122%)</title></rect>
+<rect x="1318.5" y="875.7" width="30.9" height="19.5" fill="#d4a017"><title>Unknown_282574: leaf: o+1 set and [[o+30h]+8]+8 -> +7Ch == +80h (queue empty) (0.054%)</title></rect>
+<rect x="1350.2" y="829.6" width="21.3" height="15.5" fill="#444a54"><title>FUN_B36BF0 not named (0.030%)</title></rect>
+<rect x="1372.3" y="829.6" width="19.9" height="15.5" fill="#2ea043"><title>Vec3AddKeepW: out.xyz = a.xyz + b.xyz, out.w = a.w (0.028%)</title></rect>
+<rect x="1350.2" y="845.9" width="22.8" height="12.8" fill="#444a54"><title>FUN_B38B00 not named (0.027%)</title></rect>
+<rect x="1373.8" y="845.9" width="18.4" height="12.8" fill="#444a54"><title>FUN_282320 not named (0.022%)</title></rect>
 <rect x="1350.2" y="859.5" width="42.1" height="35.7" fill="#987c2f"><title>56 tiny functions</title></rect>
-<text x="1257.3" y="612.4" fill="#e6edf3" font-size="12" font-weight="600">Main loop / timing<tspan fill="#8b949e" font-weight="400"> </tspan></text>
-<rect x="1401.1" y="735.7" width="106.4" height="67.6" fill="#2ea043"/>
-<rect x="1401.1" y="804.2" width="58.8" height="61.3" fill="#2ea043"/>
-<rect x="1401.1" y="866.3" width="58.8" height="28.9" fill="#2ea043"/>
-<rect x="1460.6" y="804.2" width="24.5" height="28.3" fill="#d4a017"/>
-<rect x="1485.9" y="804.2" width="21.6" height="28.3" fill="#d4a017"/>
-<rect x="1460.6" y="833.3" width="28.2" height="21.0" fill="#d4a017"/>
-<rect x="1489.6" y="833.3" width="17.9" height="21.0" fill="#444a54"/>
-<rect x="1460.6" y="855.1" width="12.3" height="22.6" fill="#444a54"/>
-<rect x="1460.6" y="878.5" width="12.3" height="16.7" fill="#444a54"/>
+<text x="1257.3" y="612.4" fill="#e6edf3" font-size="11" font-weight="600">WinMain·FrameEnd / …<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1401.1" y="735.7" width="106.4" height="67.6" fill="#2ea043"><title>GlyphCacheAllocSlot: glyph cache: per-code tree lookup (node valid only if index&lt;=count), shelf-packer slot alloc (x +84, shelf y +88, maxY +8C, W/H +90/+94; key=code|page|palette), (0.658%)</title></rect>
+<text x="1404.1" y="746.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">GlyphCacheAllocSl…</text>
+<text x="1404.1" y="757.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ glyph cache: pe…</text>
+<rect x="1401.1" y="804.2" width="58.8" height="61.3" fill="#2ea043"><title>UiQuadBuild: UI quad/vertex builder (1.1-1.7%; drawprep 1.1-1.6%): maps [obj+378h] via GpuBufferMap mode 3 (write-only WC), base in rbp; per quad (0xB0 B, 4x0x2C vertices) w (0.332%)</title></rect>
+<text x="1404.1" y="815.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">UiQuadBu…</text>
+<text x="1404.1" y="826.2" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ UI qua…</text>
+<rect x="1401.1" y="866.3" width="58.8" height="28.9" fill="#2ea043"><title>WriteQuadVerticesWC: quad/vertex writer into a WRITE-COMBINED vertex buffer; did `and dword [z],0` (RMW) x4 before `movss [y]`; 3.3% self of main thread (3-6%); 6 callers; patched b (0.159%)</title></rect>
+<text x="1404.1" y="877.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">WriteQua…</text>
+<text x="1404.1" y="888.3" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ quad/v…</text>
+<rect x="1460.6" y="804.2" width="24.5" height="28.3" fill="#d4a017"><title>Unknown_62408: 6.3 KB, reads o+18h+90h, o+A0h, o+B8h; callers 61400 / 74616C / 617D8; 0.01 % of Ally samples (0.066%)</title></rect>
+<rect x="1485.9" y="804.2" width="21.6" height="28.3" fill="#d4a017"><title>Unknown_13B590: leaf (no .pdata), 27 callers: q[0]==0 -> index check q[1] &lt; [[o+C8h]+8]+2Ch, else 13B5E0 / 18C4920 (0.058%)</title></rect>
+<rect x="1460.6" y="833.3" width="28.2" height="21.0" fill="#d4a017"><title>Unknown_13A830: 1.8 KB state step on [o+8] (+9Ch bit0, +7Ch vs +80h, +A0h), 69 callees; callers 2824EC / 301A7F0 / 3013388 / 1A75EE4 (0.057%)</title></rect>
+<rect x="1489.6" y="833.3" width="17.9" height="21.0" fill="#444a54"><title>FUN_138558 not named (0.037%)</title></rect>
+<rect x="1460.6" y="855.1" width="12.3" height="22.6" fill="#444a54"><title>FUN_13B18C not named (0.027%)</title></rect>
+<rect x="1460.6" y="878.5" width="12.3" height="16.7" fill="#444a54"><title>FUN_605EE4 not named (0.021%)</title></rect>
 <rect x="1473.7" y="855.1" width="33.7" height="40.1" fill="#645d46"><title>75 tiny functions</title></rect>
-<text x="1403.1" y="730.7" fill="#e6edf3" font-size="12" font-weight="600">UI<tspan fill="#8b949e" font-weight="400"> 1.54% of time</tspan></text>
-<rect x="1401.1" y="617.4" width="75.3" height="48.5" fill="#2ea043"/>
-<rect x="1401.1" y="666.7" width="75.3" height="43.2" fill="#d4a017"/>
-<rect x="1477.2" y="617.4" width="59.9" height="48.7" fill="#d4a017"/>
-<rect x="1477.2" y="666.8" width="59.9" height="43.1" fill="#d4a017"/>
-<rect x="1537.9" y="617.4" width="57.3" height="41.1" fill="#d4a017"/>
-<rect x="1537.9" y="659.3" width="37.3" height="26.8" fill="#d4a017"/>
-<rect x="1537.9" y="686.9" width="37.3" height="23.1" fill="#d4a017"/>
-<rect x="1576.0" y="659.3" width="19.2" height="33.0" fill="#d4a017"/>
+<text x="1403.1" y="730.7" fill="#e6edf3" font-size="11" font-weight="600">UiQuad·Glyph /…<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1401.1" y="617.4" width="75.3" height="48.5" fill="#2ea043"><title>MissionThreadStep: main work of [App]MissionThread (only caller E64700): locks 4759950/4759940, refreshes the player transform (20A914 / 8A630) and runs the mission task updates ( (0.358%)</title></rect>
+<text x="1404.1" y="628.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">MissionThre…</text>
+<text x="1404.1" y="639.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ main work…</text>
+<rect x="1401.1" y="666.7" width="75.3" height="43.2" fill="#d4a017"><title>Unknown_Mission_2866F0: MissionThread work item (callers E26620/E26680): skips if t+D9h, otherwise checks g_4751848 state (286B54) and advances the task (0.319%)</title></rect>
+<text x="1404.1" y="677.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_Mis…</text>
+<text x="1404.1" y="688.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ MissionTh…</text>
+<rect x="1477.2" y="617.4" width="59.9" height="48.7" fill="#d4a017"><title>Unknown_Mission_E266B0: MissionThread: walks a task list, skipping entries with +D9h/+97h set, calls 20A300 / 20A298 per task (0.286%)</title></rect>
+<text x="1480.2" y="628.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_M…</text>
+<text x="1480.2" y="639.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Mission…</text>
+<rect x="1477.2" y="666.8" width="59.9" height="43.1" fill="#d4a017"><title>Unknown_Container_E32D90: 219 B iterator/range helper (segmented container, 4 callers 135C00..1363D4); Scheduler0 0.9 %; was Sched0Hot_E32D90 (0.254%)</title></rect>
+<text x="1480.2" y="677.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_C…</text>
+<text x="1480.2" y="688.8" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 219 B i…</text>
+<rect x="1537.9" y="617.4" width="57.3" height="41.1" fill="#d4a017"><title>Unknown_Mission_20A298: MissionThread predicate: unless t+E7h, checks the entity at t+18h (+11Eh flag via 286DEC, id 5CAAEh special case via 283568) (0.232%)</title></rect>
+<text x="1540.9" y="628.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Unknown_…</text>
+<text x="1540.9" y="639.4" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ Missio…</text>
+<rect x="1537.9" y="659.3" width="37.3" height="26.8" fill="#d4a017"><title>Unknown_GameRule_284ED4: recursive rule check on g_4751848 game state: special-cases ids 28CD7h/27A63h/28541h, IsPlayerGuestImpl, 283568; Scheduler0 0.6 %; was Sched0Hot_284ED4 (0.100%)</title></rect>
+<rect x="1537.9" y="686.9" width="37.3" height="23.1" fill="#d4a017"><title>Unknown_PlayerDist_4AB6E4: if o+19Dh: distance between 20A914(0) (+110h..) and o's vfunc +18h object (+120h..) with sqrt, 2845C8 compare; only caller 4AB64C (0.087%)</title></rect>
+<rect x="1576.0" y="659.3" width="19.2" height="33.0" fill="#d4a017"><title>Unknown_E26260: 956 B list walk with a mutex (B614A8 / _Mtx_unlock) and "list too long" growth; only caller 89A328 (sibling of Unknown_Mission_E266B0) (0.064%)</title></rect>
 <rect x="1576.0" y="693.1" width="19.2" height="16.8" fill="#444a54"><title>23 tiny functions</title></rect>
-<text x="1403.1" y="612.4" fill="#e6edf3" font-size="12" font-weight="600">Mission / Game logic<tspan fill="#8b949e" font-weight="400"> </tspan></text>
-<rect x="1516.2" y="718.7" width="79.0" height="47.2" fill="#2ea043"/>
-<rect x="1516.2" y="766.7" width="62.5" height="48.1" fill="#d4a017"/>
-<rect x="1579.6" y="766.7" width="15.6" height="31.9" fill="#d4a017"/>
-<rect x="1579.6" y="799.4" width="15.6" height="15.4" fill="#444a54"><title>24 tiny functions</title></rect>
-<rect x="1516.2" y="823.6" width="52.1" height="36.9" fill="#2ea043"/>
-<rect x="1516.2" y="861.3" width="40.3" height="33.9" fill="#d4a017"/>
-<rect x="1557.4" y="861.3" width="11.0" height="31.0" fill="#444a54"/>
-<rect x="1557.4" y="893.0" width="11.0" height="2.2" fill="#444a54"><title>4 tiny functions</title></rect>
-<rect x="1577.1" y="823.6" width="17.3" height="15.9" fill="#d4a017"/>
+<text x="1403.1" y="612.4" fill="#e6edf3" font-size="11" font-weight="600">Mission·Schema / game logic<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1516.2" y="735.7" width="43.3" height="70.8" fill="#2ea043"><title>MatrixFromScaleQuatTrans: 4x4 = scale * rotation(quaternion q) with translation t; 238 callers (0.329%)</title></rect>
+<text x="1519.2" y="746.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">Matrix…</text>
+<text x="1519.2" y="757.7" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ 4x4 …</text>
+<rect x="1560.4" y="735.7" width="34.8" height="70.8" fill="#d4a017"><title>Unknown_Anim_889C0: 2.9 KB: clamps time >= 0, converts time * t+18h to 16.16 fixed point against u16 key counts t+1Ch/+20h, SinCosApprox + sqrt (key interpolation); Scheduler0 1.2  (0.266%)</title></rect>
+<rect x="1516.2" y="807.3" width="52.5" height="7.5" fill="#d4a017"><title>Unknown_Unpack_8A420: decodes a 128-bit packed vector with shared-exponent fields ((x >> 25h) &amp; 7800000h) + 32000000h, scales by a/b; callers 48C1C4 / 48C4B4 (0.046%)</title></rect>
+<rect x="1569.6" y="807.3" width="25.6" height="7.5" fill="#444a54"><title>24 tiny functions</title></rect>
+<text x="1518.2" y="730.7" fill="#e6edf3" font-size="11" font-weight="600">Anim / ani…<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1516.2" y="840.6" width="52.1" height="28.0" fill="#2ea043"><title>PhotoModeCopyGbuffer: "CPhotoModeManager::copy_gbuffer" GPU marker; runs only when m+647h is set; GfxBeginMarker + copy passes (10F14B0 / 10F41A0 / 10F3C20) (0.184%)</title></rect>
+<text x="1519.2" y="851.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">PhotoMo…</text>
+<text x="1519.2" y="862.6" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">/ "CPho…</text>
+<rect x="1516.2" y="869.4" width="40.3" height="25.8" fill="#d4a017"><title>Unknown_12FBDD0: 1.8 KB: locks the 4759BD0 mutex, walks [o]+1F0h..+1F8h, 56E7F8 / 56EA84 / 47968 / 1FF294 per entry; Scheduler0 0.7 %; was Sched0Hot_12FBDD0 (0.132%)</title></rect>
+<rect x="1557.4" y="869.4" width="11.0" height="23.5" fill="#444a54"><title>FUN_123BD50 not named (0.035%)</title></rect>
+<rect x="1557.4" y="893.7" width="11.0" height="1.5" fill="#444a54"><title>4 tiny functions</title></rect>
+<text x="1518.2" y="835.6" fill="#e6edf3" font-size="11" font-weight="600">text 0…<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1577.1" y="823.6" width="17.3" height="15.9" fill="#d4a017"><title>Unknown_2FA4C4: 94 B, 78 callers: looks id up in [o]+927D8h (or +E7738h), then 2FA554 / 19127E8 (0.046%)</title></rect>
 <rect x="1595.3" y="823.6" width="0.3" height="15.9" fill="#444a54"><title>11 tiny functions</title></rect>
-<rect x="1577.1" y="848.3" width="9.9" height="15.6" fill="#444a54"/>
+<rect x="1577.1" y="848.3" width="9.9" height="15.6" fill="#444a54"><title>FUN_426FE8 not named (0.027%)</title></rect>
 <rect x="1587.9" y="848.3" width="7.3" height="15.6" fill="#494d51"><title>55 tiny functions</title></rect>
-<rect x="1577.1" y="872.7" width="7.1" height="11.7" fill="#444a54"/>
+<rect x="1577.1" y="872.7" width="7.1" height="11.7" fill="#444a54"><title>FUN_17A1B40 not named (0.023%)</title></rect>
 <rect x="1593.0" y="872.7" width="2.2" height="11.7" fill="#444a54"><title>5 tiny functions</title></rect>
 <rect x="1577.1" y="893.2" width="6.4" height="2.0" fill="#444a54"><title>1 tiny functions</title></rect>
 </svg>
