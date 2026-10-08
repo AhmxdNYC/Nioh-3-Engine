@@ -50,3 +50,12 @@ PC capture command per window: `PresentMon.exe --process_name Nioh3.exe --output
 ## Output
 `notes\final-benchmark-results.md`: one table per device and preset (rows STOCK, ALL-KEPT, delta %), the per-item KEEP/DROP list from the matrix, GPU W/MHz, load seconds,
 hitch counts, screenshots for `shot` items. Then update the README (kept/dropped verdict per device) and post the summary to Discord (webhook pasted by the user in-session, never stored).
+
+## User additions (2026-10-08, 04:00) - these extend everything above
+Start only when decompilation + optimization are done. Everything measured in gameplay.
+1. **Every mod setting and every game graphics level** on both devices: each preset (LOW/MID/HIGH/MAX, and per-setting levels where cheap) x {STOCK, mod ALL-KEPT}, plus each mod flag alone (`tools\testmatrix`).
+2. **Re-test every dropped experiment** (shader rewrites GI #121/#414, fog, toonedge2, esm, wdo28, mpc, mshlod, trvs/pbvs, post shaders; R2a/R2b/R1; AS0; LM; RWb/WG; GL1/LC/LW) on both devices.
+3. **Input latency** in 3 configs: STOCK (game alone), OPTIMIZED (mod, FG off), OPTIMIZED + FG. PC: PresentMon 2 `MsAllInputToPhotonLatency`/`MsClickToPhotonLatency` + `MsPCLatency`. Ally: no software tool reads end-to-end latency on Linux, so a 240 fps phone slow-motion camera filming button press -> screen change (>= 20 presses per config, median), plus the present-to-display part from MangoHud frametimes.
+4. **Tools people use** (alongside our own logs): PC = RTSS/MSI Afterburner overlay + log, Task Manager CPU/GPU %, HWiNFO (CPU/GPU temps, power, clocks); Ally = MangoHud (fps, frametime, CPU/GPU %, temps, power, clocks) and the Bazzite/Steam performance overlay. Record temps for every run.
+5. **Best bang-for-buck settings** per device (PC 7600X + RX 9070 1440p; ROG Ally X RC72LA 1080p): per graphics setting, the fps cost of each level vs its visual change (screenshots) -> a recommended preset per device with the mod; FG listed separately (never counts toward the goal).
+6. **Stability runs**: the user plays for a long session per device with the recommended setup; log crashes/hangs (mod log + game exit code).
