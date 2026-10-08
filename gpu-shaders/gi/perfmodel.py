@@ -22,12 +22,12 @@ import scenes
 def one(args):
     path, kind, seed, lm, la = args
     text = open(path).read()
-    sh = D.Shader(text, _os.path.basename(path), timing=(lm, la))
-    sh1 = D.Shader(text, _os.path.basename(path), timing=(1.0, 0.0))
+    sh = D.Shader(text, _os.path.basename(path), timing=(lm, la, INORDER))
+    sh1 = D.Shader(text, _os.path.basename(path), timing=(1.0, 0.0, INORDER))
     otext = open(ORIG).read() if ORIG else text
     out = []
     for s, tm in ((sh, "cyc"), (sh1, "rt")):
-        sc, groups = scenes.refprobe_scene(otext, seed, realistic=REAL) if kind == "refprobe" else scenes.vfscat_scene(otext, seed)
+        sc, groups = scenes.refprobe_scene(otext, seed, realistic=REAL) if kind == "refprobe" else scenes.vfscat_scene(otext, seed, realistic=REAL)
         X, _ = s.dispatch(sc, groups)
         out.append(X.times)
     writers = set()
@@ -40,6 +40,7 @@ def one(args):
 
 ORIG = None
 REAL = True
+INORDER = False
 
 
 def main():
@@ -53,6 +54,8 @@ def main():
     ap.add_argument("--orig", default=None, help=".ll whose header defines the scene layout (default: each item)")
     ap.add_argument("--jobs", type=int, default=10)
     ap.add_argument("--coverage-scenes", action="store_true", help="use the random coverage scenes, not the realistic ones")
+    ap.add_argument("--inorder", action="store_true", help="in-order issue across basic blocks (a block waits for the "
+                    "loads the blocks before it consumed); default: pure dataflow + control dependence")
     a = ap.parse_args()
     ORIG = a.orig
     lo, hi = (int(x) for x in a.seeds.split(":"))
@@ -63,7 +66,7 @@ def main():
         path = parts[0] if not (len(parts) > 1 and len(parts[0]) == 1) else parts[0] + ":" + parts[1]
         tail = parts[1:] if path == parts[0] else parts[2:]
         waves = [int(x) for x in tail] if tail else []
-        with mp.Pool(a.jobs, initializer=_init, initargs=(a.orig, not a.coverage_scenes)) as p:
+        with mp.Pool(a.jobs, initializer=_init, initargs=(a.orig, not a.coverage_scenes, a.inorder)) as p:
             res = p.map(one, [(path, a.kind, s, a.lm, a.la) for s in range(lo, hi)])
         th = []      # (rt, cyc, ins, mem) per writing thread
         waves_c, waves_i, waves_rt = [], [], []
@@ -99,9 +102,9 @@ def main():
                 r[0], b[0], b[3] / max(r[3], 1e-9), b[5] / max(r[5], 1e-9), ", ".join(sp)))
 
 
-def _init(orig, real):
-    global ORIG, REAL
-    ORIG, REAL = orig, real
+def _init(orig, real, inorder=False):
+    global ORIG, REAL, INORDER
+    ORIG, REAL, INORDER = orig, real, inorder
 
 
 if __name__ == "__main__":

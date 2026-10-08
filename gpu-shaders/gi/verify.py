@@ -33,7 +33,7 @@ def make_scene(kind, text, seed):
     if kind == "refprobe":
         return scenes.refprobe_scene(text, seed, realistic=REAL or kind == "refprobe-real")
     if kind == "vfscat":
-        return scenes.vfscat_scene(text, seed)
+        return scenes.vfscat_scene(text, seed, realistic=REAL)
     raise ValueError(kind)
 
 

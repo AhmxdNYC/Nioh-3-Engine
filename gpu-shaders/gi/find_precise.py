@@ -87,14 +87,14 @@ def main():
     opath = os.path.join(mkfast.ORIG, it["orig"])
     otext = open(opath).read()
     so = D.Shader(otext, "orig")
-    lo, hi = map(int, a.seeds.split(":"))
+    SEEDS = [int(x) for x in a.seeds.split(",")] if "," in a.seeds else list(range(*map(int, a.seeds.split(":"))))  # lo:hi or a,b,c
     pre = [x for x in (a.start if a.start is not None else it["precise"]).split(",") if x]
     for rnd in range(a.rounds):
         stem = mkfast.build(a.item, plain=a.plain, precise=",".join(pre), tag="fp")
         sn = D.Shader(open(stem + ".ll").read(), "new")
         new = []
         nbad = 0
-        for s in range(lo, hi):
+        for s in SEEDS:
             bad = mismatches(so, sn, kind, otext, s)
             nbad += len(bad)
             for tid in bad[:2]:
@@ -110,7 +110,7 @@ def main():
         def bad_count(lst):
             stem = mkfast.build(a.item, plain=a.plain, precise=",".join(lst), tag="fp")
             sn = D.Shader(open(stem + ".ll").read(), "new")
-            return sum(len(mismatches(so, sn, kind, otext, s)) for s in range(lo, hi))
+            return sum(len(mismatches(so, sn, kind, otext, s)) for s in SEEDS)
         n = max(1, len(pre) // 2)
         while n >= 1:
             i = 0

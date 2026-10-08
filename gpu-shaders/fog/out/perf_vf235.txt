@@ -1,0 +1,51 @@
+# RGA (pinned = packaged DXIL; unpinned = what RADV/ACO compiles after NIR folds the max(x,x) pins)
+| shader | chip | vgprs | waves_per_simd | sgprs | instructions | valu | vmem_loads | samples | branches | mem_waits_full | mem_waits_partial | scratch |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | gfx1103 | 96 | 5 | 102 | 3614 | 1854 | 101 | 27 | 88 | 56 | 43 | 0 |
+| shipped | gfx1201 | 96 | 8 | 102 | 3775 | 1857 | 101 | 27 | 88 | 53 | 39 | 0 |
+| packaged | gfx1103 | 96 | 5 | 102 | 3758 | 2119 | 81 | 27 | 78 | 43 | 30 | 0 |
+| packaged | gfx1201 | 96 | 8 | 102 | 3960 | 2158 | 81 | 27 | 79 | 41 | 25 | 0 |
+| unpinned | gfx1103 | 96 | 5 | 102 | 3508 | 1895 | 81 | 27 | 78 | 42 | 33 | 0 |
+| unpinned | gfx1201 | 96 | 8 | 102 | 3650 | 1872 | 81 | 27 | 77 | 40 | 23 | 0 |
+
+# model: VFSCAT_LIGHTS=moderate --inorder (realistic scenes, seeds 0:16, load 500 cyc, ALU 4 cyc)
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | 8192 | 83.1 | 84.0 | 46082 | 46587 | 3528 | 3579 | 274.2 | 5/8 | 9317 | 5823 |
+| rewrite | 8192 | 27.5 | 28.3 | 16485 | 16980 | 2488 | 2562 | 154.9 | 5/8 | 3396 | 2562 |
+model speed-up rewrite vs shipped: round trips x2.96, critical cycles x2.74; gfx1103 x2.74, gfx1201 x2.27
+
+# model: VFSCAT_LIGHTS=moderate dataflow (realistic scenes, seeds 0:16, load 500 cyc, ALU 4 cyc)
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | 8192 | 26.4 | 27.0 | 15199 | 15556 | 3406 | 3456 | 151.8 | 5/8 | 3456 | 3456 |
+| rewrite | 8192 | 19.1 | 19.6 | 11029 | 11374 | 2478 | 2551 | 145.4 | 5/8 | 2551 | 2551 |
+model speed-up rewrite vs shipped: round trips x1.38, critical cycles x1.37; gfx1103 x1.35, gfx1201 x1.35
+
+# model: VFSCAT_LIGHTS=none --inorder (realistic scenes, seeds 0:16, load 500 cyc, ALU 4 cyc)
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | 8192 | 63.3 | 63.5 | 34639 | 34737 | 2312 | 2318 | 205.6 | 5/8 | 6947 | 4342 |
+| rewrite | 8192 | 13.0 | 13.2 | 7596 | 7714 | 1261 | 1281 | 74.5 | 5/8 | 1543 | 1281 |
+model speed-up rewrite vs shipped: round trips x4.80, critical cycles x4.50; gfx1103 x4.50, gfx1201 x3.39
+
+# model: VFSCAT_LIGHTS=none dataflow (realistic scenes, seeds 0:16, load 500 cyc, ALU 4 cyc)
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | 8192 | 9.6 | 9.6 | 5918 | 5919 | 2190 | 2195 | 83.3 | 5/8 | 2195 | 2195 |
+| rewrite | 8192 | 7.8 | 7.9 | 4559 | 4623 | 1251 | 1271 | 65.4 | 5/8 | 1271 | 1271 |
+model speed-up rewrite vs shipped: round trips x1.21, critical cycles x1.28; gfx1103 x1.73, gfx1201 x1.73
+
+# model: VFSCAT_LIGHTS=heavy --inorder (realistic scenes, seeds 0:16, load 500 cyc, ALU 4 cyc)
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | 8192 | 109.1 | 111.5 | 61108 | 62489 | 5117 | 5265 | 364.3 | 5/8 | 12498 | 7811 |
+| rewrite | 8192 | 43.0 | 44.8 | 26337 | 27398 | 4062 | 4216 | 256.5 | 5/8 | 5480 | 4216 |
+model speed-up rewrite vs shipped: round trips x2.49, critical cycles x2.28; gfx1103 x2.28, gfx1201 x1.85
+
+# model: VFSCAT_LIGHTS=heavy dataflow (realistic scenes, seeds 0:16, load 500 cyc, ALU 4 cyc)
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | 8192 | 48.7 | 50.4 | 27495 | 28436 | 4995 | 5143 | 241.9 | 5/8 | 5687 | 5143 |
+| rewrite | 8192 | 31.1 | 32.3 | 18121 | 18780 | 4053 | 4206 | 247.3 | 5/8 | 4206 | 4206 |
+model speed-up rewrite vs shipped: round trips x1.56, critical cycles x1.51; gfx1103 x1.35, gfx1201 x1.22

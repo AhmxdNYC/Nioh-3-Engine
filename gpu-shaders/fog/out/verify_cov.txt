@@ -1,0 +1,6 @@
+VFSCAT_235.ll vs vf235_fast.ll: 768 seeds, 196608 writes, bit-exact 196608 (100.0000%), max 0 ulp, write-set differences 0, 170s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:196608
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS

@@ -1,0 +1,18 @@
+VFSCAT_235.ll vs vf_235_fast.ll: 256 seeds, 65536 writes, bit-exact 65536 (100.0000%), max 0 ulp, write-set differences 0, 68s
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS
+VFSCAT_235.ll vs vf_235_fast.ll: 256 seeds, 65536 writes, bit-exact 65536 (100.0000%), max 0 ulp, write-set differences 0, 67s
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS
+VFSCAT_235.ll vs vf_235_fast.ll: 256 seeds, 65536 writes, bit-exact 65536 (100.0000%), max 0 ulp, write-set differences 0, 71s
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS
+VFSCAT_235.ll vs vf_235_fast.ll: 256 seeds, 65536 writes, bit-exact 65536 (100.0000%), max 0 ulp, write-set differences 0, 70s
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS
+VFSCAT_235.ll vs vf_235_fast.ll: 256 seeds, 65536 writes, bit-exact 65536 (100.0000%), max 0 ulp, write-set differences 0, 74s
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS
+VFSCAT_235.ll vs vf_235_fast.ll: 256 seeds, 65536 writes, bit-exact 65536 (100.0000%), max 0 ulp, write-set differences 0, 75s
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS

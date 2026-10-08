@@ -299,14 +299,31 @@ class Texture:
             return i % n
         return min(max(i, 0), n - 1)
 
-    def sample(self, s, u, v, w, lod, ox=0, oy=0, cmp=None):
+    def sample(self, s, u, v, w, lod, ox=0, oy=0, cmp=None, c3=0.0):
         mip = 0 if lod != lod else min(max(int(round(lod)), 0), len(self.mips) - 1)
         m = self.mipl[mip]
         L, H, W, C = self.mips[mip].shape
-        if self.dim == "2darray":
-            z = min(max(int(round(w)), 0), L - 1)
+        if self.dim in ("cube", "cubearray"):
+            # D3D cube face selection (major axis; ties x > y > z), face layer = 6 * array index + face
+            x, y, z = u, v, w
+            if x != x or y != y or z != z:
+                x, y, z = 1.0, 0.0, 0.0
+            ax, ay, az = abs(x), abs(y), abs(z)
+            if ax >= ay and ax >= az:
+                f, ma, sc, tc = (0 if x >= 0 else 1), ax, (-z if x >= 0 else z), -y
+            elif ay >= az:
+                f, ma, sc, tc = (2 if y >= 0 else 3), ay, x, (z if y >= 0 else -z)
+            else:
+                f, ma, sc, tc = (4 if z >= 0 else 5), az, (x if z >= 0 else -x), -y
+            ma = ma or 1.0
+            u, v = 0.5 * (sc / ma + 1.0), 0.5 * (tc / ma + 1.0)
+            a = 0 if c3 != c3 else int(round(c3))
+            zs = [(min(max(6 * a + f, 0), L - 1), 1.0)]
+        elif self.dim == "2darray":
+            z = min(max(int(round(w)), 0), L - 1) if w == w and abs(w) < 1e9 else (0 if w != w or w < 0 else L - 1)
             zs = [(z, 1.0)]
         elif self.dim == "3d":
+            w = 0.0 if w != w else min(max(w, -1e9), 1e9)
             if s.filt == "point":
                 zs = [(self._wrap(int(math.floor(w * L)), L, s.addr), 1.0)]
             else:
@@ -318,6 +335,7 @@ class Texture:
             zs = [(0, 1.0)]
         if u != u or v != v:
             u = v = 0.0
+        u, v = min(max(u, -1e9), 1e9), min(max(v, -1e9), 1e9)      # +-inf: clamp/wrap to an edge texel
         acc = [0.0] * 4
         for z, wz in zs:
             if s.filt == "point":
@@ -514,7 +532,8 @@ class Shader:
                     return str(op.v & 1)
                 return str(op.v & M32)
             if op.kind == "float":
-                return repr(rf(op.v))
+                fv = rf(op.v)
+                return repr(fv) if math.isfinite(fv) else "float(%r)" % repr(fv)
             if op.kind == "undef":
                 return "0.0" if op.ty in ("float", "half") else "0"
             if op.kind == "glob":
@@ -557,14 +576,23 @@ class Shader:
         self.consts = consts
 
     def _tgen(self, ins, regs):
-        LM, LA = self.timing
+        LM, LA = self.timing[:2]
+        IO = len(self.timing) > 2 and self.timing[2]
         rops = ["T[%d]" % regs[o.v] for o in ins.args if o.kind == "reg"]
         mx = "max(S[0], %s)" % ", ".join(rops) if rops else "S[0]"
         op = ins.op
         if op in ("br", "switch"):
+            if IO:
+                # in-order issue across basic blocks: a block starts only after every non-memory instruction of the
+                # blocks before it has issued (i.e. after the s_waitcnt for any load they consumed); loads that are
+                # not consumed yet stay in flight (what the driver's in-block scheduler + in-order issue gives)
+                return ["S[0] = max(%s, S[4])" % mx]
             return ["S[0] = %s" % mx] if rops else []
         if op == "ret":
             return []
+        if IO and op == "call" and ins.extra["fn"].startswith("dx.op.cbufferLoadLegacy") and ins.args[2].kind == "reg":
+            # per-lane (dynamically indexed) constant-buffer read: a vector-memory load on AMD, not a scalar one
+            return ["T[%d] = %s + %r" % (regs[ins.dest], mx, LM), "S[1] += 1", "S[3] += 1"]
         if op in ("extractvalue", "alloca", "getelementptr", "bitcast") or (op == "call" and (
                 ins.extra["fn"].startswith("dx.op.createHandle") or ins.extra["fn"].startswith("dx.op.cbufferLoadLegacy")
                 or ins.extra["fn"].startswith("dx.op.threadId") or ins.extra["fn"].startswith("dx.op.flattenedThreadId")
@@ -572,7 +600,8 @@ class Shader:
                 or ins.extra["fn"].startswith("dx.op.getDimensions"))):
             return ["T[%d] = %s" % (regs[ins.dest], mx)] if ins.dest else []
         if op == "load":
-            return ["T[%d] = max(%s, M.get((id(_p[0]), _p[1]), 0)) + %r" % (regs[ins.dest], mx, LA), "S[1] += 1"]
+            return ["T[%d] = max(%s, M.get((id(_p[0]), _p[1]), 0)) + %r" % (regs[ins.dest], mx, LA), "S[1] += 1"] + (
+                ["S[4] = max(S[4], T[%d])" % regs[ins.dest]] if IO else [])
         if op == "store":
             return ["M[(id(_p[0]), _p[1])] = %s" % mx, "S[1] += 1"]
         if op == "call":
@@ -582,7 +611,8 @@ class Shader:
             if any(k in fn for k in ("bufferLoad", "textureLoad", "sample", "BufferLoad")):
                 return ["T[%d] = %s + %r" % (regs[ins.dest], mx, LM), "S[1] += 1", "S[3] += 1"]
         if ins.dest:
-            return ["T[%d] = %s + %r" % (regs[ins.dest], mx, LA), "S[1] += 1"]
+            return ["T[%d] = %s + %r" % (regs[ins.dest], mx, LA), "S[1] += 1"] + (
+                ["S[4] = max(S[4], T[%d] - %r)" % (regs[ins.dest], LA)] if IO else [])
         return []
 
     def _phis_for_edge(self, src_block, tgt, val, regs):
@@ -755,10 +785,10 @@ class Shader:
             return ["%s = X.bload(%s, %s, %s, %s)" % (d, a[1], a[2], a[3], isint)]
         if fn.startswith("dx.op.sampleLevel."):
             # (h, s, c0, c1, c2, c3, o0, o1, o2, lod)
-            return ["%s = %s.sample(%s, %s, %s, %s, %s, s32(%s), s32(%s))" % (d, a[1], a[2], a[3], a[4], a[5], a[10], a[7], a[8])]
+            return ["%s = %s.sample(%s, %s, %s, %s, %s, s32(%s), s32(%s), c3=%s)" % (d, a[1], a[2], a[3], a[4], a[5], a[10], a[7], a[8], a[6])]
         if fn.startswith("dx.op.sampleCmpLevelZero."):
             # (h, s, c0, c1, c2, c3, o0, o1, o2, cmp)
-            return ["%s = %s.sample(%s, %s, %s, %s, 0.0, s32(%s), s32(%s), %s)" % (d, a[1], a[2], a[3], a[4], a[5], a[7], a[8], a[10])]
+            return ["%s = %s.sample(%s, %s, %s, %s, 0.0, s32(%s), s32(%s), %s, c3=%s)" % (d, a[1], a[2], a[3], a[4], a[5], a[7], a[8], a[10], a[6])]
         if fn.startswith("dx.op.textureStore."):
             # (h, c0, c1, c2, v0..v3, mask)
             return ["%s.store(%s, %s, %s, (%s, %s, %s, %s), %s, X.who)" % (a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9])]
@@ -799,7 +829,7 @@ class Shader:
                         b, steps = 0, 0
                         if self.timing:
                             T = [0.0] * self.nregs
-                            S = [0.0, 0, 0.0, 0]          # control time, dyn. instructions, store time, mem ops
+                            S = [0.0, 0, 0.0, 0, 0.0]     # control time, dyn. instructions, store time, mem ops, issue
                             M = {}
                             while b >= 0:
                                 cov[b] += 1

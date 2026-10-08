@@ -227,3 +227,12 @@ def refprobe_scene(text, seed, out_w=24, out_h=16, variant=None, realistic=False
     b[(1, 0)] = RWTexture(out_w, out_h, 1)
     groups = [(gx, gy, 0) for gy in range((out_h + 7) // 8 + 1) for gx in range((out_w + 7) // 8)]
     return Scene(b), groups
+
+
+def vfscat_scene(text, seed, realistic=False):
+    """VFSCAT #235 (volumetric fog) inputs: see gpu-shaders\fog\vfscene.py."""
+    fog = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "fog")
+    if fog not in _sys.path:
+        _sys.path.insert(0, fog)
+    import vfscene
+    return vfscene.vfscat_scene(text, seed, realistic=realistic)

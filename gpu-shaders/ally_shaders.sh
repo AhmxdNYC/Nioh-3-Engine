@@ -2,14 +2,16 @@
 # ally_shaders.sh - status / install / exact revert of the staged Nioh 3 shader swaps on Linux (Bazzite / SteamOS,
 # Proton + vkd3d-proton). Same files and SHA-256 checks as gpu-shaders\apply_{ghdm,esm,wdo28,sweep}.ps1 on Windows.
 #
-#   ./ally_shaders.sh status            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|all]
-#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|mpc|mshlod|toonedge2|all]
-#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|all]
+#   ./ally_shaders.sh status            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all]
+#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all]
+#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all]
 #
 # mpc / toonedge2 = the 2026-10-07 shader sweep (notes/gpu-shader-sweep.md); toonedge2 covers two files.
 # mpc = ONE combined 0x29ee0902.file: MPC#23 + the prefix-sum chain #28-#31 (notes/gpu-culling-rewrite.md). It
 # supersedes the earlier mpc23-only file (5th column): that one is recognised and upgraded / reverted like ours.
 # mshlod = 0x8d9282e6.file: MshLod#3 (meshlet LOD chain) pad loop spread over the lanes (notes/gpu-culling-rewrite.md).
+# gi = 0xd070067d.file: RefProbe#121 probe-GI gather (notes/gpu-gi-rewrite.md).
+# fog = 0xa9910db8.file: VFSCAT#235 volumetric-fog scattering latency rewrite (notes/gpu-fog-rewrite.md).
 #
 # Put this script next to the folder "replacement/" (gpu-shaders/replacement/*.file from the build PC).
 # Game folder: auto-detected from the Steam library folders, or set NIOH3_DIR=/path/to/steamapps/common/Nioh3.
@@ -33,6 +35,7 @@ mshlod 0x8d9282e6.file  ec0f5283660caa64565e17cfb8f2dc4d06ee498278fe1a832db16d27
 toonedge2 0x9c481f79.file  7a8171617b2530648e12ce9dd52c091faf31cd4f1026d3b40a7fdde5788ac1ae  d672a5d530f9d1cb49f37ee3de6f626d95e7273eb897e17de3683a8dfb2c2e6d
 toonedge2 0x47bc5cb4.file  07542a8322a617b7783b0c7b79580689339429c1d1e416bf70c8d0f3b0aee99a  9a37b6e45360bb8664746687757c68ebfd33cdeb711a6459bbbe29cee111ef80
 gi    0xd070067d.file  d3cbb484ee3380d337641c8c893aa152f2c8d053afb37f49091609b1d87dc372  c952f39a76bc09668953b1bc483e1434f1cbe121bfe9e907d6f49fc601e0fb97
+fog   0xa9910db8.file  4784aabe40fdb10646babde1df734123ce713dc56089a55b4efa0db43bf4f993  ae04ee6ac2920c62cac9d694428f8105e42c45ef9c34b13426dead6d97190e6d
 "
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -104,4 +107,4 @@ while read -r name file orig repl old; do
   fi
 done <<< "$TABLE"
 done
-[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|mpc|mshlod|toonedge2|all)"
+[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all)"
