@@ -63,7 +63,7 @@ def load_results(d, device):
     res = {}
     for fn in sorted(os.listdir(d)):
         if fn.endswith(".json") and fn.startswith(device + "_"):
-            j = json.load(open(os.path.join(d, fn)))
+            j = json.load(open(os.path.join(d, fn), encoding="utf-8-sig"))
             res[j["id"]] = j
     return res
 
@@ -120,7 +120,7 @@ def report(d, device, floor):
 
 
 def best(d, device, mfile, low):
-    m = json.load(open(mfile)); items = {i["id"]: i for i in m["items"]}
+    m = json.load(open(mfile, encoding="utf-8-sig")); items = {i["id"]: i for i in m["items"]}
     rows = list(csv.DictReader(open(os.path.join(d, f"summary_{device}.csv"))))
     out = []
     for r in rows:

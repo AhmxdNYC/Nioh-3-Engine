@@ -5,7 +5,7 @@
 //   click <x> <y> | rclick <x> <y> | move <x> <y>
 //   key <vk-hex...>               press chord, e.g. key 11 4C  (Ctrl+L)
 //   keyseq <vk-hex|wMS>...        key presses one after another (50 ms down, arrows with the EXTENDED flag so DirectInput sees
-//                                 DIK_UP/DOWN); wMS = wait MS ms. Used by testmatrixun_pc.ps1 -LiveMenu
+//                                 DIK_UP/DOWN); wMS = wait MS ms. Used by testmatrix\run_pc.ps1 -LiveMenu
 //   type <text>                   unicode text
 //   scroll <x> <y> <notches>      wheel (negative = down)
 #r "nuget: System.Drawing.Common, 9.0.0"

@@ -1,4 +1,4 @@
-<#
+﻿<#
   run_pc.ps1 - unattended experiment matrix for Nioh 3 on the Windows PC (final phase).
   Reads matrix.json; per item: set ini/shader state (backed up, always restored), launch via Steam, reach gameplay,
   take the bridge game lock, PresentMon windows (stand 2x20 s + move 20 s), collect the mod's stats lines, restore.
@@ -266,8 +266,8 @@ try {
             if ($e.batch) {
                 $map = Get-Content (Join-Path $here "menu_map.json") -Raw | ConvertFrom-Json
                 $tr = New-Object System.Collections.Generic.List[object]
-                foreach ($t in $M.alloff) { $tr.Add(@($t[0], $t[1], $t[2])) }
-                foreach ($b in $e.batch) { foreach ($t in (Get-Triples $b $true)) { $tr.Add($t) } }
+                foreach ($tx in $M.alloff) { $tr.Add(@($tx[0], $tx[1], $tx[2])) }
+                foreach ($b in $e.batch) { foreach ($tx in (Get-Triples $b $true)) { $tr.Add($tx) } }
                 Set-Shaders @(); Set-Swaps @(); Write-IniState $tr
                 $boot = Start-GameToPlay
                 if ($boot.ok) {
@@ -291,7 +291,7 @@ try {
             } else {
                 $it = $e.it; $triples = $null; $sh = @(); $sw = @()
                 if ($it.type -eq "combo") { $r = Resolve-Combo $it; $sh = $r.shaders; $sw = $r.swaps
-                    $triples = New-Object System.Collections.Generic.List[object]; foreach ($t in $M.alloff) { $triples.Add(@($t[0], $t[1], $t[2])) }; foreach ($t in $r.triples) { $triples.Add($t) } }
+                    $triples = New-Object System.Collections.Generic.List[object]; foreach ($tx in $M.alloff) { $triples.Add(@($tx[0], $tx[1], $tx[2])) }; foreach ($tx in $r.triples) { $triples.Add($tx) } }
                 else { $triples = Get-Triples $it; if ($it.shaders) { $sh = @($it.shaders) }; if ($it.swap) { $sw = @($it.swap) } }
                 if ($sw.Count) { $triples.Add(@("ShaderSwap", "Enabled", "1")) }
                 Set-Shaders $sh; Set-Swaps $sw; Write-IniState $triples
@@ -299,7 +299,7 @@ try {
                 $wins = @(); if ($boot.ok) { $wins = Measure-Item $it $e.res $boot }
                 Save-Result $it $e.res $wins $boot
             }
-        } catch { "!! $($e.res) failed: $_" }
+        } catch { "!! $($e.res) failed: $_"; "$($_.ScriptStackTrace)" }
         finally { Close-Game; Copy-Item $iniOrig $ini -Force }
         py -I "$here\tm.py" report $resD $Device --noise-floor $NoiseFloor | Out-Null
     }
