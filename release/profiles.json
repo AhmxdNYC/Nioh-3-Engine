@@ -35,7 +35,7 @@
       {"section": "Patches", "key": "B", "value": "0", "status": "off", "why": "fps-neutral when GPU-bound; hold until the PC confirms"},
       {"section": "Patches", "key": "PP", "value": "0", "status": "off", "why": "staleness argument weak at 16-30 fps"},
       {"section": "Patches", "key": "EP", "value": "-1", "status": "kept", "why": "auto = on under Proton; Ally load 98.9 -> 50.1 s (1.7.23 R1)"},
-      {"section": "Patches", "key": "SR", "value": "0", "status": "off", "why": "pending Ally session R2 (1.7.25); flip after the verdict"},
+      {"section": "Patches", "key": "SR", "value": "-1", "status": "kept", "why": "auto = on (load windows) under Proton; Ally R2 ABBA 47.25 -> 38.45 s, 0 failures (1.7.25)"},
       {"section": "Patches", "key": "LoadOnlyCpuFixes", "value": "0", "status": "off", "why": "pending Ally A/B (R2 later pair)"},
       {"section": "Tuning", "key": "W3_TimeoutMs", "value": "3", "status": "provisional", "why": "pc-keep-candidates s5 Ally recommendation; not A/B tested"},
       {"section": "GpuOpt", "key": "Barriers", "value": "0", "status": "off", "why": "RADV already merges barriers; R2a/R1 trace work only"},

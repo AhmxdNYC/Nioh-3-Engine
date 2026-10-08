@@ -1012,6 +1012,13 @@ bool Start(const StartInfo& info) {
     if (HMODULE nt0 = GetModuleHandleW(L"ntdll.dll")) wineHost = GetProcAddress(nt0, "wine_get_version") != nullptr;
     bool ep = epIni < 0 ? wineHost : epIni != 0;
     g_log("EP: ini %d (%s) on %s -> %s", epIni, epIni < 0 ? "auto" : epIni ? "forced on" : "forced off", wineHost ? "Wine/Proton" : "native Windows", ep ? "ON" : "OFF");
+    {  // 1.7.28: SR = -1 auto (default): 1 = load windows under Wine/Proton (Ally R2: 47.25 -> 38.45 s), off on native Windows
+        int srIni = 0;
+        bool srWine = false;
+        const int sr = readfix::SrMode(info.iniPath, &srIni, &srWine);
+        g_log("SR: ini %d (%s) on %s -> %s", srIni, srIni < 0 ? "auto" : srIni ? "forced on" : "forced off", srWine ? "Wine/Proton" : "native Windows",
+              sr == 0 ? "OFF" : srWine ? (sr == 1 ? "ON (load windows)" : "ON (always)") : "refused (Wine/Proton only)");
+    }
     bool rp = g_mode > 0;
     if (rp && !info.loadStatsOn) {
         g_log("ReadProbe: needs [Profiler] LoadStats >= 1 - off");

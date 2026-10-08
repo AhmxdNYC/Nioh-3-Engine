@@ -708,9 +708,20 @@ DWORD WINAPI TsyReport(LPVOID) {
 
 }  // namespace
 
+int SrMode(const wchar_t* iniPath, int* iniOut, bool* wineOut) {
+    // 1.7.28: SR = -1 auto (default): 1 (load windows) under Wine/Proton, 0 on native Windows; 0/1/2 force
+    const int ini = iniPath ? (int)GetPrivateProfileIntW(L"Patches", L"SR", -1, iniPath) : 0;
+    HMODULE ntm = GetModuleHandleW(L"ntdll.dll");
+    const bool wine = ntm && GetProcAddress(ntm, "wine_get_version");
+    if (iniOut) *iniOut = ini;
+    if (wineOut) *wineOut = wine;
+    if (ini < 0) return wine ? 1 : 0;
+    return ini > 2 ? 2 : ini;
+}
+
 bool Wants(const wchar_t* iniPath) {
     return iniPath && (GetPrivateProfileIntW(L"Patches", L"RC", 0, iniPath) > 0 || GetPrivateProfileIntW(L"Patches", L"AQ", 0, iniPath) > 0 ||
-                       GetPrivateProfileIntW(L"Patches", L"SR", 0, iniPath) > 0);
+                       SrMode(iniPath, nullptr, nullptr) > 0);
 }
 
 bool Start(const StartInfo& info) {
@@ -729,9 +740,8 @@ bool Start(const StartInfo& info) {
     const int mx = IniInt(info.iniPath, L"RCMaxReadKB", 64, 1, 1024);
     const int aq = IniInt(info.iniPath, L"AQ", 0, 0, 2);
     const int at = IniInt(info.iniPath, L"AQThreads", 4, 1, 16);
-    int sr = IniInt(info.iniPath, L"SR", 0, 0, 2);
-    HMODULE ntm = GetModuleHandleW(L"ntdll.dll");
-    const bool wine = ntm && GetProcAddress(ntm, "wine_get_version");
+    bool wine = false;
+    int sr = SrMode(info.iniPath, nullptr, &wine);
     if (sr && !wine) {
         g_log("ReadFix: SR refused - not running under Wine/Proton (Windows overlapped reads are already cheap; a synchronous file "
               "object serializes its I/O)");

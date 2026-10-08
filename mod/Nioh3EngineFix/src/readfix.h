@@ -3,7 +3,8 @@
 //       RCMB = 64 (16..256)       cache size in MB (committed while active; RC=1 decommits it 10 s after a load window).
 //       RCKB = 64 (16..1024, pow2) block size in KiB.  RCMaxReadKB = 64 (<= RCKB) largest read the cache serves.
 //   AQ  [Patches] AQ = 0|1|2      async archive reads (1 = load windows only, 2 = always). AQThreads = 4 (1..16).
-//   SR  [Patches] SR = 0|1|2      synchronous redirect (1 = load windows only, 2 = always; Wine/Proton only): a read at an
+//   SR  [Patches] SR = -1|0|1|2   synchronous redirect (-1 = auto, default since 1.7.28: 1 under Wine/Proton, 0 on Windows;
+//       1 = load windows only, 2 = always; Wine/Proton only): a read at an
 //       archive site on an OVERLAPPED game handle is done as a positioned synchronous ReadFile on a private synchronous
 //       handle to the same file (opened once per game handle at classification, closed with it) and completed like a
 //       synchronous success. Ally 1.7.23 calib: cached 4K overlapped 52-58 us vs synchronous 2 us; Wine already does the
@@ -56,7 +57,10 @@ struct StartInfo {
     HookCallFn hookCall = nullptr;
 };
 
-// True when [Patches] RC, AQ or SR > 0 (readprobe then installs its R1 read hooks and routes the archive sites here).
+// Effective SR mode (0..2). [Patches] SR = -1 (default, 1.7.28) = auto: 1 under Wine/Proton, 0 on native Windows.
+// iniOut / wineOut (optional) receive the raw ini value and whether ntdll exports wine_get_version.
+int SrMode(const wchar_t* iniPath, int* iniOut, bool* wineOut);
+// True when [Patches] RC or AQ > 0 or SrMode > 0 (readprobe then installs its R1 read hooks and routes the archive sites here).
 bool Wants(const wchar_t* iniPath);
 // Reads the ini, allocates the cache, starts the gate / AQ threads, installs the open/close hooks. True = Read is live.
 bool Start(const StartInfo& info);

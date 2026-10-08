@@ -532,3 +532,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - RenderCmd_WriteToken95 2526C8 (RenderFrameBegin -> WaitSubmitThread -> PagePoolFrameUpdate): the first command-stream token of a frame faults, so dev+3C40 (reset to the stream base every frame end) is bad = stream not allocated/freed (device lifecycle). No patch, hook or switch of the mod writes on this path (W6/PP/R1 nearby keep the game's semantics); the ASI writes code only ~1 s after start. No guard added.
 - The 10/06 15:54 core dump (61BBD, write to 0x1) is the old torn W1 live patch (new bytes in the dump, RIP mid `rep stosd`), already fixed by Mem.fsx safeWrite - a separate crash.
 - Repro protocol (stock / ASI / panel, --enable_output_dump) in remaining-work 6.1; details notes\crash-2526D1.md. Follow-up: ApplyBatch re-snapshot of threads after suspend.
+
+## 1.7.28 (2026-10-08)
+- CHANGE: `[Patches] SR` is now -1 = auto (new default): 1 (load windows only) under Wine/Proton (ntdll wine_get_version), OFF on native Windows; 0/1/2 force (1/2 still refused off Wine). Logged at start: "SR: ini n (auto|forced ...) on <host> -> ON (load windows)/OFF". Same pattern as EP auto (1.7.24).
+- Why: Ally R2 ABBA on 1.7.25 (EP auto in every arm): SR=1 47.25 -> 38.45 s (-8.8 s); site 740392 avg 47 -> 17 us per read, ~550k reads served, ~7.6k private handles, 0 failed. Cumulative Ally load ~94 -> ~38.5 s. Logs `captures\ally\1725\`.
+- release\profiles.json ALLY: SR = -1 (kept). test_patterns ALL 212 SITES OK; READFIX / READPROBE / PREFETCH HARNESS ALL OK. Built, not run in game.
+- Undo: SR = 0 in the ini, or the 1.7.27 .asi.

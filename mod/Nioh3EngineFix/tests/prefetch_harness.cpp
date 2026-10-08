@@ -23,6 +23,7 @@ void NoteRead(int, uint32_t, bool, uint64_t) {}
 uint64_t LastFailEvalQpc() { return 0; }
 }  // namespace loadstats
 namespace readfix {
+int SrMode(const wchar_t*, int* i, bool* w) { if (i) *i = 0; if (w) *w = false; return 0; }
 bool Wants(const wchar_t*) { return false; }
 bool Start(const StartInfo&) { return false; }
 int __stdcall Read(int, void* h, void* b, unsigned long n, unsigned long* g, void* o) { return ReadFile(h, b, n, g, (LPOVERLAPPED)o); }
