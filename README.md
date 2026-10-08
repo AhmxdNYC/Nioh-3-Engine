@@ -20,6 +20,28 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ---
 
+## Progress 2026-10-07: ROG Ally X (Proton) + what actually helped
+
+Goal: real 60 fps on the ROG Ally X (Bazzite/Proton, Z1 Extreme, 25 W) at max settings / native 1080p, low input delay; PC gains are a bonus. Rules: optimize the **game** only (no system/driver/TDP tweaks), same look. Everything ships in the ASI mod `mod\Nioh3EngineFix` (now **1.7.7**) plus optional shader files; every result below was measured on the Ally in real gameplay unless marked otherwise.
+
+**Where it stands:** MAX native 1080p = **16.3-16.8 fps**, GPU 99 % busy (lightest preset @ 50 % = ~32 fps). A real 60 at MAX would need ~3.6x the GPU; same-look work gives tens of percent, so the target isn't reachable on a 25 W 780M, but every win lifts all presets.
+
+| What | Result on the Ally | Status |
+|---|---|---|
+| **GHDM** shadow depth-reduction shader rewrite | **+8.7 % fps at MAX** (15.0 -> 16.3), better p99 | kept - the biggest fps win |
+| **W6** present-wait spin -> sleep (0x7D9E90) | main thread 98 % -> 23 %, GPU clock +37 %, +7-12 % fps at the time | kept |
+| **GF** GPU-fence-wait spin -> SetEventOnCompletion (0x7D9E1C/117D6C) | main thread 85 % -> 32 % at MAX, GPU +70 MHz; fps-neutral (GPU-bound) | kept |
+| ESM / WDO28 shadow blurs, culling chain (mpc/mshlod) | GPU power 23.1 -> ~20.5 W at the same fps (VSync slots hide small ms savings) | under one-by-one re-test |
+| GI #121, fog VFSCAT, toonedge2 rewrites | bit-exact and modelled faster with AMD's Windows compiler, but **slower on RADV** (+0.89 / +0.33 / +0.14 ms) | **dropped** |
+| CPU patches (WK, WG, CP, SPF, LK, ED, barrier batching, IK) | fps-neutral on the Ally (GPU-bound) | off / optional |
+| AS0 async-compute slot 0 on AMD | stable, no gain | off |
+| Fixes: Ally overlay/menu (vkd3d queue capture), live FG-off crash, 1.7.2 startup hang, PC per-frame handle leak (WL) | | fixed |
+| Diagnostics built: in-mod CPU profiler (SP), GPU pass profiler (GPUProf 1/2, per-shader), MemStats, TileStats, shader dump/swap (psoswap) | | in the mod |
+
+**Findings that shaped the plan:** no stutter in steady Ally play (all hitches are in level loads; LM sweeper built for the ~1 GB swap burst); no memory leak on the Ally; tile mapping isn't a cost; the GPU time is a long tail - FSR3 native AA ~21 % (the user's setting), then fog, GI, materials, shadows, sky at 1-4 % each. **Lesson:** offline models (RGA) don't predict the Ally's compiler (vkd3d -> dxil-spirv -> RADV/ACO) - only an Ally A/B decides; a RADV shader pre-screen tool is being built on the Ally. Live status: `STATUS.md`; per-item notes in `notes\`; history in `MODLOG.md`.
+
+---
+
 ## What's ruining performance in Nioh 3
 
 ### 1. Game speed is tied to framerate (the camera judder everyone reports)
