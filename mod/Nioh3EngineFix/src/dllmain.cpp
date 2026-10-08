@@ -36,9 +36,10 @@
 #include "menu.h"
 #include "osd.h"
 #include "bosslog.h"
+#include "autocont.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.21"
+#define MOD_VERSION "1.7.22"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1315,6 +1316,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
         if (!strcmp(g, "BL")) return false;  // BossLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
         if (!strcmp(g, "RM")) return false;  // RematchLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
+        if (!strcmp(g, "AC")) return false;  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
     };
@@ -2148,6 +2150,15 @@ DWORD WINAPI Worker(LPVOID) {
         mh.tgCap = U(tg_cap);
         mh.tgState = &g_tgState;
         mh.dsWaits = &g_dsWaits;
+        {  // skip the post-load "press to continue" tip page (autocont.cpp, [General] AutoContinueLoad = 1 by default)
+            autocont::StartInfo ai;
+            ai.log = &Log;
+            ai.iniPath = iniPath.c_str();
+            ai.base = reinterpret_cast<uintptr_t>(g_base);
+            ai.knownBuild = known;
+            mh.autoContinue = autocont::Start(ai);
+            mh.autoContinueCount = &autocont::Count;
+        }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:
            // the osd install thread calls gpuopt::InstallNow() once the engine renders.

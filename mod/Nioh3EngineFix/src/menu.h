@@ -77,6 +77,8 @@ struct Host {
     volatile long* tgState = nullptr;             // TG state (0 off, 1 governing, 2 refused: L1, 3 VRR not armed, 4 idle)
     volatile long* dsWaits = nullptr;             // DS timer sleeps
     const char* (*gpStatus)(char* buf, size_t n) = nullptr;  // GP profiler: frame ms + top 5 passes (empty = off)
+    volatile uint8_t* autoContinue = nullptr;     // autocont.cpp live switch (1 = skip the post-load tip page's press); nullptr = not installed
+    long (*autoContinueCount)() = nullptr;        // times the tip page's confirm check was answered by the switch
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.

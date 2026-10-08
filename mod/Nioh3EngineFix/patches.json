@@ -381,9 +381,13 @@
     { "id": "RM28", "group": "RM", "rva": "0x23AAA64", "len": 9, "orig": "40 53 48 81 EC 70 01 00 00", "kind": "check",
       "pattern": "40 53 48 81 EC 70 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 60 01 00 00 48 8B D1 48 8D 4C 24 30 E8 ?? ?? ?? ?? 83 64 24 20 00 48 8D 54 24 20 48 8D 4C 24 30 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 11 8A 8A A6 26 00 00", "offset": 0, "what": "Player::NoGameOver script native entry: push rbx; sub rsp,170h relocated" },
     { "id": "RM29", "group": "RM", "rva": "0x1FD6DD0", "len": 7, "orig": "48 83 EC 48 49 8B 11", "kind": "check",
-      "pattern": "48 83 EC 48 49 8B 11 49 83 C8 FF 48 8B 44 24 78", "offset": 0, "what": "BuildSaveFilePath entry (save/load file path builder; Q9 save timing): sub rsp,48h; mov rdx,[r9] relocated" }
+      "pattern": "48 83 EC 48 49 8B 11 49 83 C8 FF 48 8B 44 24 78", "offset": 0, "what": "BuildSaveFilePath entry (save/load file path builder; Q9 save timing): sub rsp,48h; mov rdx,[r9] relocated" },
+    { "id": "AC1", "group": "AC", "rva": "0x1CECAED", "len": 5, "orig": "E8 5E 6E 59 FE", "kind": "check", "callee": "0x283950",
+      "pattern": "40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 84 C0 74 26 E8 ?? ?? ?? ?? 84 C0 75 1D E8", "offset": 9, "what": "AutoContinueLoad: TipPageConfirmCheck 1CECAE4 call -> ConfirmPressed 283950 (GameMain+3Eh||+3Fh); autocont.cpp retargets it to a thunk that answers 1 while the switch is on" }
   ],
   "deps": [
+    { "group": "AC", "rva": "0x1CECAE4", "bytes": "40 53 48 83 EC 20 48 8B D9 E8 5E 6E 59 FE 84 C0 74 26 E8 41 6E 59 FE 84 C0 75 1D E8 40 F1 B0 00 84 C0 75 14 E8 3B 87 5D 00 48 8B 03 33 D2 48 8B CB FF 50 38 B0 01", "what": "TipPageConfirmCheck: ConfirmPressed && !GameMain+3Fh (28393C) && !SystemMessageQueued (27FBC44) -> 22C5248 + vfunc +38h(0) close, al=1 (autocont.cpp verifies these bytes)" },
+    { "group": "AC", "rva": "0x1CECB24", "bytes": "40 53 48 81 EC B0 00 00 00 80 B9 1B 07 00 00 00", "what": "TipPageLoadDoneTick: returns until the load-done byte [page+71Bh] is set (TipPageSetLoadDone 1D010E4, mission sequencer state 0Bh)" },
     { "group": "PP", "rva": "0x2522C4", "bytes": "48 89 5C 24 10 57", "what": "PagePoolScanAll prologue" },
     { "group": "PP", "rva": "0x252303", "bytes": "80 BB 38 02 00 00 00", "what": "cmp byte [rbx+238h],0 (pool+B28h branch)" },
     { "group": "PP", "rva": "0x252310", "bytes": "48 8B 97 10 0D 00 00", "what": "mov rdx,[rdi+D10h] frame stamp" },

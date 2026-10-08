@@ -795,7 +795,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL,
           kGpu, kGR2a, kGR2b, kGR1,
-          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint,
+          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXDL - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 bool IsExp(int id) { return id >= kXW6 && id <= kXDL; }
@@ -860,6 +860,7 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
+    {"Skip 'press button' after loading", "(AutoContinueLoad)", "The tip page after a load continues by itself the moment the game would accept your press.", "Tips still show while loading. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
@@ -876,6 +877,7 @@ const OrderEnt kOrder[] = {
     {kFps, "Display & overlay"}, {kFrameTime, nullptr}, {kSpeed, nullptr}, {kPos, nullptr}, {kOffX, nullptr}, {kOffY, nullptr},
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
+    {kAutoCont, "Gameplay"},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
@@ -923,6 +925,7 @@ bool Available(int id) {
         case kL1: return g_host.l1Enable != nullptr;
         case kF1: return g_host.fgEnable != nullptr;
         case kWk: return g_host.wkEnable != nullptr;
+        case kAutoCont: return g_host.autoContinue != nullptr;
         case kFg: return g_fgOk;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
@@ -1092,6 +1095,14 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
             break;
         }
         case kFps: onoff(o.fpsCounter != 0); break;
+        case kAutoCont: {
+            const bool on = *g_host.autoContinue != 0;
+            const long used = g_host.autoContinueCount ? g_host.autoContinueCount() : 0;
+            if (on && used > 0) snprintf(buf, n, "ON  (used)");
+            else snprintf(buf, n, "%s", on ? "ON" : "OFF");
+            color = on ? cGreen : cGray;
+            break;
+        }
         case kHint:
             snprintf(buf, n, "%s", g_cfg.pauseHint == 2 ? "Always" : g_cfg.pauseHint ? "In game menus" : "OFF");
             color = g_cfg.pauseHint ? cGreen : cGray;
@@ -1198,6 +1209,7 @@ void StartSave() {
         add(L"Overlay", L"OffsetY", std::to_wstring(o.offY));
     }
     add(L"Overlay", L"FpsCounter", b(o.fpsCounter != 0));
+    if (Available(kAutoCont)) add(L"General", L"AutoContinueLoad", b(*g_host.autoContinue != 0));
     add(L"Menu", L"PauseHint", std::to_wstring(g_cfg.pauseHint));
     add(L"Overlay", L"FrameTime", b(o.frameTime != 0));
     add(L"Overlay", L"SpeedFactor", b(o.speed != 0));
@@ -1253,6 +1265,20 @@ void Close(const char* how) {
     InterlockedExchange(&g_open, 0);
     MessageBeep(MB_ICONASTERISK);
     MLOG("closed (%s)%s", how, g_dirty ? " - unsaved changes are active until the game exits" : "");
+}
+
+// AutoContinueLoad: live switch + the one ini key written at once on a background thread (the rest waits for 'Save to ini')
+DWORD WINAPI SaveAutoContinueThread(void* p) {
+    const bool on = p != nullptr;
+    if (!WritePrivateProfileStringW(L"General", L"AutoContinueLoad", on ? L"1" : L"0", g_ini.c_str()))
+        MLOG("save: [General] AutoContinueLoad could not be written (%lu)", GetLastError());
+    else
+        MLOG("save: [General] AutoContinueLoad = %d written to the ini", on ? 1 : 0);
+    return 0;
+}
+void SetAutoContinue(bool on) {
+    *g_host.autoContinue = on ? 1 : 0;
+    if (HANDLE h = CreateThread(nullptr, 0, SaveAutoContinueThread, on ? (void*)1 : nullptr, 0, nullptr)) CloseHandle(h);
 }
 
 void SetLiveBool(int id, bool v) {
@@ -1372,6 +1398,7 @@ void Change(int id, int dir) {
             break;
         }
         case kFps: o.fpsCounter = !o.fpsCounter; break;
+        case kAutoCont: SetAutoContinue(*g_host.autoContinue == 0); break;
         case kHint: g_cfg.pauseHint = (g_cfg.pauseHint + (dir < 0 ? 2 : 1)) % 3; break;  // Always -> Off -> In game menus
         case kFrameTime: o.frameTime = !o.frameTime; break;
         case kSpeed: o.speed = !o.speed; break;
