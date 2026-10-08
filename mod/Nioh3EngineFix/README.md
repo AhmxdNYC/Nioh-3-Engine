@@ -186,6 +186,13 @@ the first caller, [App]Game). The loop's exit test is the game's own, unchanged,
 it can come up to the timer's overshoot later (Windows ~0.05-0.5 ms). ~0 CPU today (0.36 % of the main thread); it
 matters with TG. Needs L1 installed (the high-resolution timer is proven usable on this system only then).
 
+**DQ / P1E7 - main-thread fixes, 1.7.32** (`[Patches] DQ`, `[Tuning] DQ_QuantumUs` 200, `[Patches] P1E7`; 0 / 1 / 2 =
+installed but off; src\drawprep.cpp, notes\mainthread-25.md). **DQ**: the same retry spin re-checks for a new frame
+after DQ_QuantumUs instead of a blind 1 ms (cave on the spin's exit test 1A74C45; the 1A744E4 quantum load runs once
+before the loop). PC captures: 0.08-0.96 ms/frame of [App]Game sat in this spin. With DS on, DS only sleeps inside the
+shorter quantum. **P1E7**: prefetch of the next texture's streaming object in the per-texture loop of 1E7050 (cave at
+1E72C6; loads and prefetches only); target loop 0.28-0.46 ms/frame on PC, needs its own A/B. Both v2.02 only.
+
 **LK / CP / SPF - worker jobs** (notes\worker-jobs-opt.md; ports of `patcher\lockload_live.fsx`,
 `collprefetch_live.fsx`, `stageprefetch_live.fsx`, all offline-verified there with 0 mismatches).
 - **LK**: 18 `lock cmpxchg [m],zero` used as loads (source and eax provably zero) become `mov` (+`test` where a ZF

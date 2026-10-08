@@ -39,6 +39,7 @@
 #include "osd.h"
 #include "bosslog.h"
 #include "autocont.h"
+#include "drawprep.h"
 #include "loadonly.h"
 #include "readfix.h"
 #include "readprobe.h"
@@ -46,7 +47,8 @@
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
 // 1.7.29: gimerge.cpp (GIProbe / GIMerge, notes\gi-highest-audit.md s6)
-#define MOD_VERSION "1.7.31"
+// 1.7.32: drawprep.cpp (DQ retry quantum / P1E7 texture-loop prefetch, notes\mainthread-25.md)
+#define MOD_VERSION "1.7.32"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2055,6 +2057,11 @@ DWORD WINAPI Worker(LPVOID) {
                     Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
                 }
                 if (sec % 30 == 0 && gimerge::WantsHooks()) gimerge::LogLine();  // 1.7.29 GIProbe / GIMerge
+                if (sec % 30 == 0) {  // 1.7.32 DQ / P1E7 (drawprep.cpp); empty when neither is installed
+                    char b[160];
+                    drawprep::StatusLine(b, sizeof(b));
+                    if (b[0]) Log("stats/s %s", b);
+                }
                 if (s_wsDone && ws_enable && sec % 30 == 0) WakeStatsLog();
                 if (s_sprDone && sec % 30 == 0) SprLog();
                 if (sec % 30 == 0 && (s_mqDone || s_ptDone || s_dlDone)) {
@@ -2278,6 +2285,15 @@ DWORD WINAPI Worker(LPVOID) {
             ai.knownBuild = known;
             mh.autoContinue = autocont::Start(ai);
             mh.autoContinueCount = &autocont::Count;
+        }
+        {  // 1.7.32 DQ main-loop retry quantum / P1E7 texture-loop prefetch (drawprep.cpp, [Patches] DQ = P1E7 = 0).
+           // After the DS group: DS checks the loop bytes DQ overwrites as its dependency.
+            drawprep::StartInfo di;
+            di.log = &Log;
+            di.iniPath = iniPath.c_str();
+            di.base = reinterpret_cast<uintptr_t>(g_base);
+            di.knownBuild = known;
+            drawprep::Start(di);
         }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:
@@ -2626,7 +2642,8 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     const int64_t freq = *reinterpret_cast<volatile int64_t*>(tm + 0x18);  // the spin divides by this
     const int64_t elapsed = now->QuadPart - start;
     if (freq <= 0 || elapsed < 0) return TRUE;
-    const int64_t left = freq / 1000 - elapsed - freq * g_dsMarginUs / 1000000;  // engine ticks
+    const int64_t qUs = drawprep::DqQuantumUs();  // 1.7.32: DQ on -> the spin's quantum is DQ_QuantumUs, not 1 ms
+    const int64_t left = (qUs ? freq * qUs / 1000000 : freq / 1000) - elapsed - freq * g_dsMarginUs / 1000000;  // engine ticks
     if (left <= freq / 5000) return TRUE;
     const int64_t leftQpc = left * g_qpcFreqDs / freq;
     LARGE_INTEGER due;

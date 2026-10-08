@@ -22,7 +22,7 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 | 2.2 | gpuopt trace B=0 vs B=1 (`submit_redundancy.py`) + screenshot pair: B draw-loss check before B can be KEEP | free; after 1.1 | 1 h game | y |
 | 2.3 | SF1+PM PSO skip/key memo, SF3 OM/RS skip - build only if 2.2 shows >= ~200 redundant calls/frame | free (queue 3, opus) | 4-8 h | y (trace first) |
 | 2.4 | FPC material FindParam cache (1.1-1.6 % main), PT1, DL, AABB, M1/M2, J1, E1, S1, X1 - built default off, need PC A/B | matrix (final re-test) | in matrix | y |
-| 2.5 | K1 frame-end drain (CmdFlushLimit), D retry quantum 1 -> 0.2 ms, P1E7 texture-loop prefetch, mainthread-drawprep C (glyph atlas, needs live read) | free; designed / live script only | 3-6 h each | y |
+| 2.5 | Measured PC [App]Game cost (`mainthread-25.md`): K1 drain 0-0.19 ms/frame, D retry spin 0.08-0.96 (median 0.58), P1E7 target loop 0.28-0.46, C glyph rebuild 0.10-0.22. **BUILT 1.7.32** (`drawprep.cpp`, default 0): `[Patches] DQ` (+ `[Tuning] DQ_QuantumUs` 200) and `[Patches] P1E7`; offline harness green; not run in game. K1 and C not built (< 0.2 ms, no stutter link). Next: PC A/B of DQ and P1E7 (P1E7 alone, not with C419/P4AA) - add both to `tools\testmatrix\matrix.json` with 4.2 | matrix (pending 4.2) | 1 h game | y |
 | 2.6 | PSO first-use stutter: SPR count (built) -> PL (create outside lock) / PJ (journal + prewarm) | PJ BUILT 1.7.31 (`[Patches] PJ = 0`, offline ALL PJ CHECKS OK); PL dropped (no frame gain, `stutter.md` 3.1). STILL NEEDED: PC + Ally A/B per `stutter.md` 6.1 (PJ off vs on, two launches each) | 1 h game/device | y |
 | 2.7 | Stutter classes not measured on PC: traversal, new-effect combat, post-load (`stutter.md`) | free; add as windows in the final run | 1 h game | y |
 | 2.8 | AS0 / AS-N async slots (AMD), TG tick governor (behaviour change, opt-in only) | matrix (dropped-but-kept) | in matrix | y |
@@ -47,7 +47,7 @@ Top 3 measured targets: FSR3 accumulate 2.1 ms USER (fp16 rebuild 0.2-0.5 E, use
 | # | item | owner / status | effort | game |
 |---|---|---|---|---|
 | 4.1 | Ally load after SR (38.5 s; `loading-ally-fixed.md` 8.9): G8 ~15.5 s = manager A draining ~1000 queued requests at in-flight cap 10 while pools / disk / half the CPU idle; G5+G9 ~7 s = its second batch; pre-gate ~14 s (CPU-saturated at +8..+13). Fix built: `LC = N` (cap 11..64, 1.7.30, default off), expected 3-8 s (up to -14 s at 32), 0 if TrySync-bound (then + `TSY = 6`). Next: Ally R4 ABBA LC=32 vs base (protocol 8.9); after it, the pre-gate CPU block (SP cannot see the unnamed TrySync threads: add them before profiling it) | Ally agent (R4); free after | 1-2 h game | y |
-| 4.2 | Add SR/RC/AQ/TSY/SH/EP/PF + LoadOnlyCpuFixes to `tools\testmatrix\matrix.json` (queue 1b) | free (sonnet); after the harness owner releases it | 1 h | n |
+| 4.2 | Add SR/RC/AQ/TSY/SH/EP/PF + LoadOnlyCpuFixes + DQ/P1E7 (1.7.32, 2.5) to `tools\testmatrix\matrix.json` (queue 1b) | free (sonnet); after the harness owner releases it | 1 h | n |
 | 4.3 | AutoContinueLoad on death-respawn and fast-travel routes (only title->Continue verified) | free; one check in any session | 15 min game | y |
 | 4.4 | LM load-memory sweeper (3-6 s when a swap burst occurs) - built default off | matrix | in matrix | y |
 

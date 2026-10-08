@@ -579,3 +579,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Tests: tests\run_pj_harness.py ALL PJ CHECKS OK (WARP device, 6 launches: dedupe with padding garbage, prewarm descs
   identical below PJ, no growth, cut tail, corrupt shader, other build), test_patterns ALL 212 SITES OK. Built + tested on the pre-rebase tree; the rebuild after rebasing onto 1.7.30 (LC) is pending (PC commit limit during a game test). Not run in game.
 - Undo: `PJ = 0` (default) and delete `Nioh3EngineFix_pj\`, or install 1.7.30.
+## 2026-10-08 - ASI 1.7.32: DQ main-loop retry quantum + P1E7 texture-loop prefetch (default off; nothing in the game folder changed)
+- remaining-work 2.5 measured from the existing PC captures (`notes\mainthread-25.md`): [App]Game K1 drain 0-0.19 ms/frame, D retry spin 0.08-0.96 (median 0.58), P1E7 target loop 0.28-0.46, C glyph rebuild 0.10-0.22. Built the two >= 0.2 ms; K1 and C not built.
+- New `mod\Nioh3EngineFix\src\drawprep.{h,cpp,asm}`: `[Patches] DQ` (+ `[Tuning] DQ_QuantumUs = 200`) replaces the spin's exit test at 1A74C45 (the 1A744E4 xmm6 load runs once before the loop, so it cannot be patched live); `[Patches] P1E7` = cave at 1E72C6 (port of meshlet_caves.fsx). 0 / 1 / 2 (= installed, off). DsQpc honours the DQ quantum. patches.json sites DQ / P1E7 (kind check) + deps.
+- Offline: test_patterns.py (new drawprep checks), `tests\run_drawprep_harness.py` ALL PASSED (caves vs original bytes, full register state). Not run in game; A/B protocol in the note. matrix.json entry pending (remaining-work 4.2).
+- Undo: DQ = 0 / P1E7 = 0 (next launch), or the previous .asi.

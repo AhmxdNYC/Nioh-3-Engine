@@ -44,6 +44,7 @@ are plain Win64 ABI and need nothing beyond the ABI.
 | RWb (loadonly) | 1A3146A | asm cave | safe: skip path drops `call 48B9C; Sleep(0)`, flags dead at 1A31486. |
 | W1 W2 P3 P6 R1 P12 WC AS0 LC S1 M2 J1 LK | in place | byte patch | no hook; CAS->load rewrites checked for flags: dead or re-set (LKM5 `test`, LKJ4 next cmpxchg). |
 | GIM (1.7.29 gimerge.cpp) | D3D12CreateDevice IAT, device vtbl CreateGfx/CreateCs/CreateCbv, Resource Map/Unmap, list calls via gpuopt thunks | IAT / COM vtable | safe (ABI). Thunk change: `test eax,eax; jnz -> ret` after the slow call - rax is volatile and not an argument; skip only for Dispatch (void); rsp at entry value. |
+| DQ, P1E7 (1.7.32 drawprep.cpp / drawprep.asm) | 1A74C45 (5 B), 1E72C6 (11 B) | asm cave, mid-function (jmp, absolute exits) | safe: DQ writes flags only (the original comiss does too; flags dead at both exits 1A74BD0 / 1A74C4A, `hook_liveness.py after`). P1E7 writes rcx/r10/flags: dead at 1E72D1 except rcx escaping at 1E7050's ret, which 1E7050 clobbers itself (`clob 1E7050`). `tests\run_drawprep_harness.py` compares every GPR + xmm0-15 against the original bytes |
 | GP, D3D12/DXGI vtables (gpuopt, gpuprof, osd, tilestats, psoswap), XInput IAT (menu) | COM / API | skipped (ABI). |
 | PJ (psojournal, 1.7.31) | device vtable slots 10/11/16/47 (CreateGraphics/ComputePipelineState, CreateRootSignature, CreatePipelineState) | COM vtable | safe (ABI): C++ hooks with the exact method signatures, original called first with the caller's arguments, result returned unchanged. |
 

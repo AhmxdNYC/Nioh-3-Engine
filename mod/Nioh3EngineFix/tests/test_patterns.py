@@ -536,6 +536,39 @@ def main():
         rva, ln = int(st["rva"], 16), st["len"]
         bad = [x for x in branch_targets_into(rva, ln) if x not in not_branches]
         check(not bad, "%s: branch(es) land inside the overwritten range: %s" % (st["id"], bad))
+    # 1.7.32 DQ / P1E7 (drawprep.cpp): the byte arrays and RVAs the module checks at run time must equal the dump, the
+    # patches.json sites and deps; no branch may land inside either site; the DQ dependency must leave DS's site alone.
+    dsrc = (ROOT / "src" / "drawprep.cpp").read_text(encoding="utf-8")
+    darr = {m.group(1): bytes(int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{2})", m.group(2)))
+            for m in re.finditer(r"const uint8_t (k\w+)\[\] = \{([^}]*)\};", dsrc)}
+    dval = {k: int(v, 16) for k, v in re.findall(r"\b(k\w+) = 0x([0-9A-Fa-f]+)", dsrc)}
+    dchk = [("kDqOrig", "kDqSite"), ("kDqXmm6", "kDqXmm6Rva"), ("kDqHead", "kDqLoop"), ("kDqBody", "kDqBodyRva"),
+            ("kDqTail", "kDqExit"), ("kPfOrig", "kPfSite"), ("kPfLoop", "kPfLoopRva")]
+    for arr, rv in dchk:
+        ok = check(arr in darr and rv in dval, "drawprep.cpp: %s / %s not found" % (arr, rv))
+        if ok:
+            a = dval[rv]
+            check(img[a:a + len(darr[arr])] == darr[arr], "drawprep.cpp: %s @0x%X differs from the dump" % (arr, a))
+    sdq, spf = by_id.get("DQ"), by_id.get("P1E7")
+    check(bool(sdq) and bool(spf), "1.7.32: DQ / P1E7 sites missing in patches.json")
+    if sdq and spf:
+        check(int(sdq["rva"], 16) == dval.get("kDqSite") and int(spf["rva"], 16) == dval.get("kPfSite"),
+              "drawprep.cpp site RVAs != patches.json")
+        check(dval.get("kDqLoop", 0) + len(darr.get("kDqHead", b"")) == int(by_id["DS"]["rva"], 16),
+              "DQ head check must stop at DS's site 1A74BDA")
+        check(dval.get("kDqBodyRva", 0) == int(by_id["DS"]["rva"], 16) + by_id["DS"]["len"]
+              and dval["kDqBodyRva"] + len(darr.get("kDqBody", b"")) == dval["kDqSite"], "DQ body check must span 1A74BE0..site")
+        check(dval.get("kDqExit") == dval["kDqSite"] + 5 and dval.get("kPfResume") == dval["kPfSite"] + 11,
+              "DQ exit / P1E7 resume must be the instruction after the site")
+        check(img[dval["kDqExit"]] == 0xE9 and dval["kDqExit"] + 5 + struct.unpack_from("<i", img, dval["kDqExit"] + 1)[0] == 0x1A744F1,
+              "DQ exit is not jmp 1A744F1")
+        check(img[dval["kDqSite"] + 3] == 0x77 and dval["kDqSite"] + 5 + struct.unpack_from("<b", img, dval["kDqSite"] + 4)[0] == dval["kDqLoop"],
+              "DQ site's ja does not go to the loop head")
+        for st in (sdq, spf):
+            bad = branch_targets_into(int(st["rva"], 16), st["len"])
+            check(not bad, "%s: branch(es) land inside the overwritten range: %s" % (st["id"], bad))
+    print("1.7.32 DQ / P1E7: drawprep.cpp byte checks, site RVAs, DS coexistence, branch scan checked")
+
     byid = {s["id"]: s for s in doc["sites"]}
     hb = bytes.fromhex
     # GL1: the cave re-implements `cmp rbx,[rbp|rdi]` + `je`; both loop exits and the register roles
