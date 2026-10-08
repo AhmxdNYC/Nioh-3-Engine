@@ -14,8 +14,9 @@
 # Lock: caller holds the nioh3 game lock (renewed here).
 param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Quads = 3, [int]$QuadsB = 2,
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
-      [int]$RenRat = 50, [string]$Upscaler = "FSR")
+      [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30)
 $ErrorActionPreference = "Continue"
+$Live = @($Live -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" }); $LaunchFlags = @($LaunchFlags -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" })   # -File passes "B,GF" as one string
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "C:\Users\Ahmad Hamza\nioh3-engine\patcher\common.ps1"
 $GameDir = "C:\Program Files (x86)\Steam\steamapps\common\Nioh3"; $ini = "$GameDir\Nioh3EngineFix.ini"; $logf = "$GameDir\Nioh3EngineFix.log"
@@ -72,16 +73,21 @@ function UI {
 }
 function Fg-Name { $o = dotnet fsi $ui fg 2>&1 | Out-String; if ($o -match 'foreground: pid=\d+ (\S+)') { $Matches[1] } else { "?" } }
 $script:refocus = 0
-function Refocus-Policy([string]$why) {   # Nioh3 is not foreground: human (input within 3 s) -> abort; else refocus (max 6)
-    $fg = Fg-Name
-    Start-Sleep 3
-    $o = dotnet fsi $ui idle 2>&1 | Out-String
-    $idle = if ($o -match 'idle ([\d.]+)') { [double]$Matches[1] } else { 0 }
-    T ("focus lost ($why): foreground={0}, system idle {1:N1}s" -f $fg, $idle)
-    if ($idle -lt 3) { throw "HARNESS-ABORT: user activity while Nioh3 is not foreground (foreground $fg, idle $idle s)" }
-    if (++$script:refocus -gt 6) { throw "HARNESS-ABORT: focus lost more than 6 times" }
-    $null = dotnet fsi $ui focus Nioh3 2>&1; Start-Sleep 1
-    return ((Fg-Name) -eq "Nioh3")
+function Idle-Sec { $o = dotnet fsi $ui idle 2>&1 | Out-String; if ($o -match 'idle ([\d.]+)') { [double]$Matches[1] } else { 0 } }
+# Nioh3 is not foreground. Never take focus from an active user (coordinator 2026-10-08): wait until GetLastInputInfo idle
+# >= $IdleNeed s (poll 15 s, give up after $IdleWaitMin min = abort), then refocus. Max 12 refocuses per run.
+function Refocus-Policy([string]$why) {
+    $fg = Fg-Name; $idle = Idle-Sec
+    T ("focus lost ($why): foreground={0}, system idle {1:N1}s - waiting for idle >= {2}s" -f $fg, $idle, $IdleNeed)
+    $t0 = Get-Date
+    while ($idle -lt $IdleNeed) {
+        if (((Get-Date) - $t0).TotalMinutes -gt $IdleWaitMin) { throw "HARNESS-ABORT: user active for > $IdleWaitMin min (foreground $fg)" }
+        Start-Sleep 15; $idle = Idle-Sec
+    }
+    if ((Fg-Name) -eq "Nioh3") { return $true }
+    if (++$script:refocus -gt 12) { throw "HARNESS-ABORT: focus lost more than 12 times" }
+    $null = dotnet fsi $ui focus Nioh3 2>&1; Start-Sleep 2
+    $ok = ((Fg-Name) -eq "Nioh3"); T "refocus after idle $([Math]::Round($idle))s: $ok"; return $ok
 }
 function Assert-Focus([string]$why) { if ((Fg-Name) -ne "Nioh3") { if (-not (Refocus-Policy $why)) { throw "HARNESS-ABORT: cannot refocus Nioh3" } } }
 # ---- game control ------------------------------------------------------------------------------------------------
@@ -94,6 +100,11 @@ function Close-GameClean {
 }
 function Start-Play {
     Assert-Launch
+    $t0 = Get-Date; $idle = Idle-Sec   # the boot clicks take focus: only launch when nobody has touched the PC for $IdleNeed s
+    while ($idle -lt $IdleNeed) {
+        if (((Get-Date) - $t0).TotalMinutes -gt $IdleWaitMin) { throw "HARNESS-ABORT: user active for > $IdleWaitMin min before a launch" }
+        T ("launch waits: system idle {0:N0}s < {1}s" -f $idle, $IdleNeed); Start-Sleep 30; $idle = Idle-Sec
+    }
     $t0 = Get-Date
     Start-Process "steam://rungameid/3681010"
     $p = $null
@@ -106,7 +117,9 @@ function Start-Play {
     UI focus Nioh3; UI click 380 1024; Start-Sleep 25
     UI focus Nioh3; UI key 20; Start-Sleep 5; UI key 20; Start-Sleep 4
     for ($i = 0; $i -lt 3; $i++) { UI focus Nioh3; Start-Sleep 1; if (Test-InGame) { return $true }; Start-Sleep 3 }
-    return $false
+    T "not in gameplay after the boot clicks (game menu / tip screen?) - Ensure-InGame (Space / Esc)"   # run3: the game menu was open
+    Assert-Focus "boot recover"
+    return (Ensure-InGame)
 }
 function Game-Alive {
     $p = if ($script:gamePid) { Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue } else { $null }
@@ -130,24 +143,51 @@ function Boot-Info {   # version + DQ/P1E7 install lines from the first part of 
     @{ ver = $v; dq = $dq; p1e7 = $pf }
 }
 function Manifest([hashtable]$h) { Add-Content "$out\manifest.jsonl" ($h | ConvertTo-Json -Compress) }
-function Window([string]$name, [hashtable]$meta) {
-    if (-not (Game-Alive)) { throw "HARNESS-ABORT: game dead/hung before $name" }
-    Mem-Guard
-    Assert-Focus "before window $name"
-    $csv = "$out\$name.csv"; $off = Log-Len
-    $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
-    Register-Child $pm "PresentMon"
-    Start-Sleep ($WindowSec + 1); $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
-    Set-Content "$out\$name.log" (Log-From $off)
-    $meta.focus_end = Fg-Name
-    $meta.name = $name; $meta.t = (Get-Date -f HH:mm:ss); Manifest $meta
-    T "window $name done"
+function Window([string]$name, [hashtable]$meta) {   # a window with user input or without Nioh3 in front is discarded + repeated
+    for ($rep = 0; $rep -lt 4; $rep++) {
+        if (-not (Game-Alive)) { throw "HARNESS-ABORT: game dead/hung before $name" }
+        Mem-Guard
+        Assert-Focus "before window $name"
+        $csv = "$out\$name.csv"; $off = Log-Len; $w0 = Get-Date
+        $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
+        Register-Child $pm "PresentMon"
+        Start-Sleep ($WindowSec + 1); $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
+        $fgEnd = Fg-Name; $idle = Idle-Sec; $span = ((Get-Date) - $w0).TotalSeconds
+        if ($fgEnd -eq "Nioh3" -and $idle -ge $span) {
+            Set-Content "$out\$name.log" (Log-From $off)
+            $meta.focus_end = $fgEnd; $meta.idle_end = [Math]::Round($idle, 1); $meta.repeats = $rep
+            $meta.name = $name; $meta.t = (Get-Date -f HH:mm:ss); Manifest $meta
+            T "window $name done"; return
+        }
+        Move-Item $csv "$out\${name}_discarded$rep.csv" -Force -ErrorAction SilentlyContinue
+        T ("!! window $name discarded (foreground at end {0}, input {1:N1}s ago inside the {2:N0}s window) - repeat" -f $fgEnd, $idle, $span)
+    }
+    throw "HARNESS-ABORT: window $name disturbed 4 times"
 }
 $script:menu = $null
+# Nav keys must never reach the game: F10 alone first, and the rest only after the mod logged 'MENU: opened' (run2: the
+# F10 right after a refocus was lost - DirectInput re-acquires on activation - and Up/Enter opened the GAME's menu).
+function Send-MenuKeys([string[]]$keys) {
+    $k = @($keys); if ($k[0] -ne "79") { throw "menu key list does not start with F10" }
+    for ($try = 1; $try -le 2; $try++) {
+        Assert-Focus "menu open"; Start-Sleep -Milliseconds 1500   # let DirectInput re-acquire after any focus change
+        $off = Log-Len
+        UI keyseq "79"
+        for ($i = 0; $i -lt 8; $i++) { Start-Sleep -Milliseconds 250; $tx = Log-From $off; if ($tx -match "MENU: opened") { break } }
+        if ($tx -match "MENU: opened") {
+            $rest = @($k | Select-Object -Skip 1)
+            UI keyseq $rest
+            return $true
+        }
+        if ($tx -match "game menu signal now OPEN") { T "!! the game's own menu opened instead of the mod menu"; return $false }
+        T "!! F10 not seen by the mod (try $try)"
+    }
+    return $false
+}
 function Toggle([string]$id, [string]$want) {   # returns [bool]; confirmed only by the mod's 'MENU: <label> -> <want>' line
     Assert-Focus "before toggle $id"
     $m = $script:menu.items.$id; $off = Log-Len
-    UI keyseq @($m.keys)
+    if (-not (Send-MenuKeys @($m.keys))) { T "!! toggle $id -> ${want}: mod menu did not open"; return $false }
     for ($k = 0; $k -lt 12; $k++) {
         Start-Sleep -Milliseconds 500
         $tx = Log-From $off
@@ -191,7 +231,8 @@ if ($DryRun) {
 
 Init-Guard -Name "abba2" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-GameClean; Restore-All }
 T "abba2 start: out=$out live=$($Live -join ',') launch=$($LaunchFlags -join ',') window=${WindowSec}s quads=$Quads cfg: FG OFF REN_RAT $RenRat $Upscaler"
-$arms = @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE")
+$LaunchFlags = @($LaunchFlags | Where-Object { $_ -and $_ -ne "none" }); $Live = @($Live | Where-Object { $_ -and $_ -ne "none" })   # -LaunchFlags none = live items only (one launch)
+$arms = if ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
 try {
     Set-TestCfg
     $L = 0
@@ -207,7 +248,9 @@ try {
             Window "L${L}_${arm}_s$s" @{ kind = "launch"; launch = $L; arm = $arm; state = $(if ($arm -eq "BASE") { "off" } else { "on" }); boot_dq = $bi.dq; boot_p1e7 = $bi.p1e7; ver = $bi.ver }
         }
         if ($L -eq 1 -and $Live.Count -gt 0) {
-            Assert-Focus "menu init"; UI keyseq @($script:menu.init); Start-Sleep 1
+            $script:liveOff = Log-Len
+            if (-not (Send-MenuKeys @($script:menu.init))) { throw "HARNESS-ABORT: mod menu did not open for init" }; Start-Sleep 1
+            $tx = Log-From $script:liveOff; if ($tx -notmatch "MENU: closed") { throw "HARNESS-ABORT: menu init did not close the menu" }
             $state = @{}; foreach ($i in $Live) { $state[$i] = $script:bootState[$i] }
             foreach ($item in $Live) {
                 if ($state[$item] -ne "ON") { if (-not (Toggle $item "ON")) { T "!! $item cannot be switched ON - item skipped"; continue }; $state[$item] = "ON" }

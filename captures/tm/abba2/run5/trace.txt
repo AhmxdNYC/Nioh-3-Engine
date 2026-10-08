@@ -1,0 +1,56 @@
+[16:11:53] abba2 start: out=C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba2\run5 live=B,PP,GF,MQ launch=DQ,P1E7 window=20s quads=3 cfg: FG OFF REN_RAT 50 FSR
+[16:11:53] launch L1 BASE
+[16:14:28] L1 boot: ver 1.7.32 DQ  P1E7 
+[16:14:28] L1 warm-up 60 s (no input)
+[16:16:02] window L1_BASE_s1 done
+[16:16:37] window L1_BASE_s2 done
+[16:17:10] window L1_BASE_s3 done
+[16:18:12] window L1_B_q1_1_on done
+[16:19:34] window L1_B_q1_2_off done
+[16:20:14] window L1_B_q1_3_off done
+[16:21:43] window L1_B_q1_4_on done
+[16:22:26] window L1_B_q2_1_on done
+[16:23:58] window L1_B_q2_2_off done
+[16:24:39] window L1_B_q2_3_off done
+[16:26:03] window L1_B_q2_4_on done
+[16:26:43] window L1_PP_q1_1_on done
+[16:28:05] window L1_PP_q1_2_off done
+[16:28:45] window L1_PP_q1_3_off done
+[16:30:06] window L1_PP_q1_4_on done
+[16:30:47] window L1_PP_q2_1_on done
+[16:32:10] window L1_PP_q2_2_off done
+[16:32:51] window L1_PP_q2_3_off done
+[16:34:12] window L1_PP_q2_4_on done
+[16:34:53] window L1_PP_q3_1_on done
+[16:36:17] window L1_PP_q3_2_off done
+[16:36:57] window L1_PP_q3_3_off done
+[16:38:20] window L1_PP_q3_4_on done
+[16:39:01] window L1_GF_q1_1_on done
+[16:40:22] window L1_GF_q1_2_off done
+[16:41:02] window L1_GF_q1_3_off done
+[16:42:23] window L1_GF_q1_4_on done
+[16:43:05] window L1_GF_q2_1_on done
+[16:44:30] window L1_GF_q2_2_off done
+[16:45:10] window L1_GF_q2_3_off done
+[16:46:31] window L1_GF_q2_4_on done
+[16:47:11] window L1_GF_q3_1_on done
+[16:48:33] window L1_GF_q3_2_off done
+[16:49:13] window L1_GF_q3_3_off done
+[16:50:34] window L1_GF_q3_4_on done
+[16:51:14] window L1_MQ_q1_1_on done
+[16:52:28] window L1_MQ_q1_2_off done
+[16:53:09] window L1_MQ_q1_3_off done
+[16:54:23] window L1_MQ_q1_4_on done
+[16:55:03] window L1_MQ_q2_1_on done
+[16:56:17] window L1_MQ_q2_2_off done
+[16:56:57] window L1_MQ_q2_3_off done
+[16:58:11] window L1_MQ_q2_4_on done
+[16:58:51] window L1_MQ_q3_1_on done
+[17:00:04] window L1_MQ_q3_2_off done
+[17:00:44] window L1_MQ_q3_3_off done
+[17:01:58] window L1_MQ_q3_4_on done
+[17:02:17] launch L2 DQ
+[17:03:20] focus lost (refused click): foreground=Code, system idle 4.3s
+[17:05:47] L2 boot: ver 1.7.32 DQ ON P1E7 
+[17:05:47] L2 warm-up 60 s (no input)
+[17:08:01] focus lost (before window L2_DQ_s1): foreground=Code, system idle 87.1s

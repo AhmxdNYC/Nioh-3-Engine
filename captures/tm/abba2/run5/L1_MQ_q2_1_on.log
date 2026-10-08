@@ -1,0 +1,10 @@
+[16:54:39.811] stats cpu: MQ ON, calls 5562552703 (+68707044 in 30 s) | PT1 ON, textures claimed 7668522 (+94909), lock pairs saved 18720830 (+225843) | DL ON, lookups skipped 140874468 (+1755241)
+[16:54:39.811] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 118.6/s vs rendered 116.6/s, L1 timer sleeps 0/s
+[16:54:39.811] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[16:54:39.905] stats mem: private 17714 MB, working set 1189 MB (peak 6342), commit 17714 MB, handles 2673, threads 238, VRAM local used/budget 9312/15417 MB, non-local 188/15172 MB | sys RAM avail 11178 MB, commit 55367/56280 MB | since start (42 min): private +5456, ws -4033, handles +33, threads -3, VRAM local +5473, non-local +5
+[16:54:39.906] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[16:54:39.906] stats/s GF: fence waits 219, avg wait 111 us, fallbacks to Sleep(0) 0 (switch ON)
+[16:54:39.906] stats/s: W3 waits 703 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 54886 / skipped 41
+[16:54:39.906] stats/s exp: W6 waits 111 avg 450 us (slept 111, spun 0, wakes 111) | PP scans 28 skipped 84 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[16:54:54.575] OSD: stats: rendered 116.5 fps, displayed 116.5 fps (x1.00, FG off, 1 chain(s), threads game 116.5/s presenter 0.0/s), game ticks 118.4/s, speed 0.99x, vrr tier 120 cap 120 armed 120, draws 288140, skipped 0
+

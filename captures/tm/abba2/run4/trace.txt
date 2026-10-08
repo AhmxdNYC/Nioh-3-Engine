@@ -1,0 +1,14 @@
+[16:04:51] abba2 start: out=C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba2\run4 live=B,PP,GF,MQ launch=DQ,P1E7 window=20s quads=3 cfg: FG OFF REN_RAT 50 FSR
+[16:04:51] launch L1 BASE
+[16:07:40] L1 boot: ver 1.7.32 DQ  P1E7 
+[16:07:40] L1 warm-up 60 s (no input)
+[16:09:15] window L1_BASE_s1 done
+[16:09:49] window L1_BASE_s2 done
+[16:10:23] window L1_BASE_s3 done
+[16:10:39] !! F10 not seen by the mod (try 1)
+[16:10:59] focus lost (menu open): foreground=dotnet, system idle 22.4s
+[16:11:24] !! F10 not seen by the mod (try 2)
+[16:11:24] harness aborted: HARNESS-ABORT: mod menu did not open for init
+[16:11:39] config.xml restored
+[16:11:39] ini restored from preboss.bak
+[16:11:39] done; analysis: py -I C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba2_report.py C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba2\run4

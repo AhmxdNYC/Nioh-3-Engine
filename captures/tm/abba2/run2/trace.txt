@@ -1,0 +1,13 @@
+[15:46:53] abba2 start: out=C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba2\run2 live=B,PP,GF,MQ launch=DQ,P1E7 window=20s quads=3 cfg: FG OFF REN_RAT 50 FSR
+[15:46:53] launch L1 BASE
+[15:49:35] L1 boot: ver 1.7.32 DQ  P1E7 
+[15:49:35] L1 warm-up 60 s (no input)
+[15:51:14] window L1_BASE_s1 done
+[15:51:49] window L1_BASE_s2 done
+[15:52:25] window L1_BASE_s3 done
+[15:53:01] focus lost (refused keyseq): foreground=dotnet, system idle 19.1s
+[15:54:00] focus lost (before window L1_B_q1_1_on): foreground=Code, system idle 2.6s
+[15:54:00] harness aborted: HARNESS-ABORT: user activity while Nioh3 is not foreground (foreground Code, idle 2.6 s)
+[15:54:16] config.xml restored
+[15:54:16] ini restored from preboss.bak
+[15:54:16] done; analysis: py -I C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba2_report.py C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba2\run2

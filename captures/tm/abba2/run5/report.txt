@@ -1,0 +1,65 @@
+abba2 report: captures\tm\abba2\run5
+windows:
+  L1_BASE_s1                   off fps  118.40 p99  10.39 cpu  8.29 gpu  6.50 n  2366 ovl/frame - fg ok seen - tog ok
+  L1_BASE_s2                   off fps  118.50 p99  10.47 cpu  8.26 gpu  6.50 n  2367 ovl/frame - fg ok seen - tog ok
+  L1_BASE_s3                   off fps  116.53 p99  10.85 cpu  8.36 gpu  6.51 n  2327 ovl/frame - fg ok seen - tog ok
+  L1_B_q1_1_on                 on  fps  118.24 p99  10.48 cpu  8.27 gpu  6.50 n  2364 ovl/frame - fg ok seen - tog ok
+  L1_B_q1_2_off                off fps  115.09 p99  10.92 cpu  8.46 gpu  6.52 n  2299 ovl/frame - fg ok seen - tog ok
+  L1_B_q1_3_off                off fps  112.35 p99  12.27 cpu  8.62 gpu  6.75 n  2244 ovl/frame - fg ok focus_end=Code seen - tog ok
+  L1_B_q1_4_on                 on  fps  107.00 p99  13.47 cpu  9.09 gpu  7.37 n  2138 ovl/frame - fg ok seen - tog ok
+  L1_B_q2_1_on                 on  fps  102.78 p99  31.83 cpu  8.99 gpu  6.78 n  2056 ovl/frame - fg ok seen - tog ok
+  L1_B_q2_2_off                off fps  111.44 p99  11.28 cpu  8.77 gpu  6.98 n  2225 ovl/frame - fg ok seen - tog ok
+  L1_B_q2_3_off                off fps  111.95 p99  10.96 cpu  8.73 gpu  6.98 n  2236 ovl/frame - fg ok seen - tog ok
+  L1_B_q2_4_on                 on  fps  114.57 p99  10.50 cpu  8.53 gpu  6.97 n  2288 ovl/frame - fg ok seen - tog ok
+  L1_PP_q1_1_on                on  fps  114.96 p99  10.49 cpu  8.51 gpu  6.97 n  2295 ovl/frame - fg ok seen ON tog ok
+  L1_PP_q1_2_off               off fps  111.90 p99  10.79 cpu  8.74 gpu  6.91 n  2234 ovl/frame - fg ok seen - tog ok
+  L1_PP_q1_3_off               off fps  108.97 p99  11.38 cpu  8.93 gpu  6.94 n  2175 ovl/frame - fg ok seen OFF tog ok
+  L1_PP_q1_4_on                on  fps  114.77 p99  10.54 cpu  8.51 gpu  6.89 n  2290 ovl/frame - fg ok seen - tog ok
+  L1_PP_q2_1_on                on  fps  114.51 p99  10.58 cpu  8.52 gpu  6.90 n  2286 ovl/frame - fg ok seen ON tog ok
+  L1_PP_q2_2_off               off fps  111.35 p99  10.74 cpu  8.76 gpu  6.91 n  2224 ovl/frame - fg ok seen OFF tog ok
+  L1_PP_q2_3_off               off fps  111.51 p99  11.00 cpu  8.75 gpu  6.92 n  2227 ovl/frame - fg ok seen OFF tog ok
+  L1_PP_q2_4_on                on  fps  114.83 p99  10.67 cpu  8.53 gpu  6.90 n  2293 ovl/frame - fg ok seen ON tog ok
+  L1_PP_q3_1_on                on  fps  114.24 p99  10.50 cpu  8.57 gpu  6.90 n  2281 ovl/frame - fg ok seen ON tog ok
+  L1_PP_q3_2_off               off fps  110.57 p99  11.07 cpu  8.83 gpu  6.99 n  2207 ovl/frame - fg ok seen OFF tog ok
+  L1_PP_q3_3_off               off fps  110.60 p99  11.24 cpu  8.80 gpu  7.13 n  2209 ovl/frame - fg ok focus_end=Code seen OFF tog ok
+  L1_PP_q3_4_on                on  fps  113.45 p99  10.82 cpu  8.60 gpu  7.07 n  2266 ovl/frame - fg ok seen ON tog ok
+  L1_GF_q1_1_on                on  fps  114.72 p99  10.67 cpu  8.53 gpu  7.06 n  2290 ovl/frame - fg ok seen ON tog ok
+  L1_GF_q1_2_off               off fps  114.27 p99  10.45 cpu  8.55 gpu  7.07 n  2281 ovl/frame - fg ok seen OFF tog ok
+  L1_GF_q1_3_off               off fps  114.80 p99  10.65 cpu  8.52 gpu  7.06 n  2293 ovl/frame - fg ok seen OFF tog ok
+  L1_GF_q1_4_on                on  fps  111.43 p99  11.06 cpu  8.75 gpu  7.08 n  2225 ovl/frame - fg ok seen ON tog ok
+  L1_GF_q2_1_on                on  fps  112.09 p99  11.24 cpu  8.69 gpu  7.09 n  2239 ovl/frame - fg ok seen - tog ok
+  L1_GF_q2_2_off               off fps  114.68 p99  10.54 cpu  8.52 gpu  7.06 n  2290 ovl/frame - fg ok seen OFF tog ok
+  L1_GF_q2_3_off               off fps  114.45 p99  10.64 cpu  8.55 gpu  7.05 n  2285 ovl/frame - fg ok seen - tog ok
+  L1_GF_q2_4_on                on  fps  114.48 p99  10.62 cpu  8.53 gpu  7.05 n  2285 ovl/frame - fg ok seen ON tog ok
+  L1_GF_q3_1_on                on  fps  114.85 p99  10.58 cpu  8.51 gpu  7.05 n  2292 ovl/frame - fg ok seen - tog ok
+  L1_GF_q3_2_off               off fps  114.71 p99  10.57 cpu  8.51 gpu  7.06 n  2291 ovl/frame - fg ok seen OFF tog ok
+  L1_GF_q3_3_off               off fps  115.00 p99  10.61 cpu  8.48 gpu  7.05 n  2297 ovl/frame - fg ok seen - tog ok
+  L1_GF_q3_4_on                on  fps  114.59 p99  10.66 cpu  8.53 gpu  7.06 n  2288 ovl/frame - fg ok seen ON tog ok
+  L1_MQ_q1_1_on                on  fps  115.12 p99  10.52 cpu  8.48 gpu  7.06 n  2298 ovl/frame - fg ok seen - tog ok
+  L1_MQ_q1_2_off               off fps  114.72 p99  10.65 cpu  8.52 gpu  7.05 n  2291 ovl/frame - fg ok seen OFF tog ok
+  L1_MQ_q1_3_off               off fps  114.94 p99  10.60 cpu  8.49 gpu  7.05 n  2296 ovl/frame - fg ok seen - tog ok
+  L1_MQ_q1_4_on                on  fps  114.19 p99  10.60 cpu  8.54 gpu  7.05 n  2281 ovl/frame - fg ok seen ON tog ok
+  L1_MQ_q2_1_on                on  fps  114.95 p99  10.50 cpu  8.50 gpu  7.05 n  2297 ovl/frame - fg ok seen ON tog ok
+  L1_MQ_q2_2_off               off fps  115.08 p99  10.59 cpu  8.49 gpu  7.05 n  2299 ovl/frame - fg ok seen OFF tog ok
+  L1_MQ_q2_3_off               off fps  114.97 p99  10.69 cpu  8.50 gpu  7.05 n  2297 ovl/frame - fg ok seen OFF tog ok
+  L1_MQ_q2_4_on                on  fps  114.69 p99  10.53 cpu  8.52 gpu  7.06 n  2290 ovl/frame - fg ok seen - tog ok
+  L1_MQ_q3_1_on                on  fps  113.86 p99  10.70 cpu  8.58 gpu  7.06 n  2274 ovl/frame - fg ok seen ON tog ok
+  L1_MQ_q3_2_off               off fps  114.67 p99  10.51 cpu  8.52 gpu  7.05 n  2290 ovl/frame - fg ok seen OFF tog ok
+  L1_MQ_q3_3_off               off fps  114.89 p99  10.67 cpu  8.50 gpu  7.05 n  2295 ovl/frame - fg ok seen - tog ok
+  L1_MQ_q3_4_on                on  fps  114.91 p99  10.50 cpu  8.50 gpu  7.05 n  2295 ovl/frame - fg ok seen ON tog ok
+B: INVALID - 0 valid quads < 2
+    q1: dfps -0.97% dp99 +3.25% dcpu_busy +1.67% (OFF-OFF 2.44%, ON-ON 10.51%, gpu 4.58%) rejected (OFF-OFF step 2.44%, ON-ON drift 10.51%, gpu moved 4.6%)
+    q2: dfps -2.70% dp99 +90.29% dcpu_busy +0.07% (OFF-OFF 0.46%, ON-ON 10.29%, gpu 1.53%) rejected (ON-ON drift 10.29%)
+PP: KEEP - median dfps +2.93% (quads +2.91, +2.95), dp99 -3.36%, dcpu_busy -2.62%
+    q1: dfps +4.01% dp99 -5.14% dcpu_busy -3.68% (OFF-OFF 2.69%, ON-ON 0.16%, gpu 0.08%) rejected (OFF-OFF step 2.69%)
+    q2: dfps +2.91% dp99 -2.28% dcpu_busy -2.63% (OFF-OFF 0.14%, ON-ON 0.28%, gpu 0.26%) valid
+    q3: dfps +2.95% dp99 -4.45% dcpu_busy -2.60% (OFF-OFF 0.03%, ON-ON 0.70%, gpu 1.07%) valid
+GF: INVALID - 1 valid quads < 2
+    q1: dfps -1.27% dp99 +2.99% dcpu_busy +1.25% (OFF-OFF 0.46%, ON-ON 2.95%, gpu 0.11%) rejected (ON-ON drift 2.95%)
+    q2: dfps -1.11% dp99 +3.20% dcpu_busy +0.86% (OFF-OFF 0.20%, ON-ON 2.09%, gpu 0.19%) rejected (ON-ON drift 2.09%)
+    q3: dfps -0.12% dp99 +0.25% dcpu_busy +0.32% (OFF-OFF 0.25%, ON-ON 0.23%, gpu 0.03%) valid
+MQ: DROP - median dfps -0.18% (quads -0.15, -0.18, -0.35), dp99 -0.60%, dcpu_busy +0.22%
+    q1: dfps -0.15% dp99 -0.60% dcpu_busy +0.10% (OFF-OFF 0.19%, ON-ON 0.82%, gpu 0.00%) valid
+    q2: dfps -0.18% dp99 -1.18% dcpu_busy +0.22% (OFF-OFF 0.10%, ON-ON 0.23%, gpu 0.11%) valid
+    q3: dfps -0.35% dp99 +0.08% dcpu_busy +0.32% (OFF-OFF 0.20%, ON-ON 0.91%, gpu 0.07%) valid
+  launch arms: fewer than 2 BASE launches

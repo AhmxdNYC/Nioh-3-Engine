@@ -1,0 +1,20 @@
+[16:22:00.503] stats cpu: MQ ON, calls 1368824139 (+77178942 in 30 s) | PT1 ON, textures claimed 1611970 (+67208), lock pairs saved 4685651 (+138989) | DL ON, lookups skipped 28749739 (+1178240)
+[16:22:00.504] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 109.5/s vs rendered 105.5/s, L1 timer sleeps 0/s
+[16:22:00.504] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[16:22:00.651] stats mem: private 17595 MB, working set 6293 MB (peak 6293), commit 17595 MB, handles 2771, threads 240, VRAM local used/budget 9201/15417 MB, non-local 188/15172 MB | sys RAM avail 8230 MB, commit 55020/56280 MB | since start (10 min): private +5337, ws +1071, handles +131, threads -1, VRAM local +5362, non-local +5
+[16:22:00.651] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[16:22:00.651] stats/s GF: fence waits 350, avg wait 170 us, fallbacks to Sleep(0) 0 (switch ON)
+[16:22:00.651] stats/s: W3 waits 851 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 54801 / skipped 268
+[16:22:00.651] stats/s exp: W6 waits 60 avg 665 us (slept 60, spun 0, wakes 60) | PP scans 24 skipped 73 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[16:22:07.066] OSD: stats: rendered 119.1 fps, displayed 119.1 fps (x1.00, FG off, 1 chain(s), threads game 119.1/s presenter 0.0/s), game ticks 119.1/s, speed 1.01x, vrr tier 120 cap 120 armed 120, draws 69481, skipped 0
+[16:22:09.386] MENU: engine stop flags (G+588..58D) now: 58A
+[16:22:09.386] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[16:22:09.397] LoadStats #2: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[16:22:11.517] AutoContinue #2: load done - answered the tip page's 'press to continue' check
+[16:22:13.112] LoadStats #2: 3.7 s | frames 418 (8.9 ms) | CPU 8.54 cores | stage ready +0.0 s | loaders busy 1.1/0.2 s (first +0.0, last +1.9), in-flight avg A 9.3 B 6.2 of 10 (at cap A 89 % B 62 %), pending avg A 79.4 B 6.7 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[16:22:13.112] LoadStats #2 io: read 215 MB archive (7001 calls, 285 MB overlapped, 138 ms in-call) + 70 MB other (82378 calls, 462 ms) | inflate 0.60 CPU-s, 4075 chunks, 34 -> 55 MB, 0 failed, max 4 parallel, 4 threads so far | PSO gfx 0 rt + 0 preload, cmp 0 rt + 0 preload, 0.00 CPU-s, max 77.9 ms | mgr Sleep(1) A idle 1038, A no-progress 192, B idle 1556
+[16:22:13.112] LoadStats #2 split [set->stage ready] 0.0 s: frames 0 (0.0 ms) | CPU 2.83 cores | read 0 MB (in-call 0 ms) | inflate 0.00 s, 0 ch, 0->0 MB | PSO 0 (gfx 0+0 pre, cmp 0+0 pre) in 0.00 s
+[16:22:13.112] LoadStats #2 split [stage ready->clear] 3.7 s: frames 418 (8.9 ms) | CPU 8.56 cores | read 285 MB (in-call 600 ms) | inflate 0.60 s, 4075 ch, 34->55 MB | PSO 0 (gfx 0+0 pre, cmp 0+0 pre) in 0.00 s
+[16:22:13.113] MENU: engine stop flags (G+588..58D) now: none
+[16:22:13.692] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+

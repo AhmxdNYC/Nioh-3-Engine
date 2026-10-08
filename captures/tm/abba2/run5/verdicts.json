@@ -1,0 +1,22 @@
+{
+ "B": {
+  "verdict": "INVALID",
+  "detail": "0 valid quads < 2",
+  "method": "live ON-OFF-OFF-ON quads, one launch, FG off"
+ },
+ "PP": {
+  "verdict": "KEEP",
+  "detail": "median dfps +2.93% (quads +2.91, +2.95), dp99 -3.36%, dcpu_busy -2.62%",
+  "method": "live ON-OFF-OFF-ON quads, one launch, FG off"
+ },
+ "GF": {
+  "verdict": "INVALID",
+  "detail": "1 valid quads < 2",
+  "method": "live ON-OFF-OFF-ON quads, one launch, FG off"
+ },
+ "MQ": {
+  "verdict": "DROP",
+  "detail": "median dfps -0.18% (quads -0.15, -0.18, -0.35), dp99 -0.60%, dcpu_busy +0.22%",
+  "method": "live ON-OFF-OFF-ON quads, one launch, FG off"
+ }
+}
