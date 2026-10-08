@@ -147,6 +147,13 @@ match args.[0] with
     vks |> Array.iter keyDown
     sleep 40
     vks |> Array.rev |> Array.iter keyUp
+| "hold" ->
+    // hold <vk-hex> <ms>: key down for ms milliseconds (in-game interact prompts need a longer press than "key")
+    let vk = Convert.ToByte(args.[1], 16)
+    guard "hold"
+    keyDown vk
+    sleep (int args.[2])
+    keyUp vk
 | "keyseq" ->
     for a in args.[1..] do
         if a.StartsWith "w" then sleep (int (a.Substring 1))

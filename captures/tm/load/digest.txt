@@ -1,0 +1,5 @@
+﻿ep0_launch1_load1.log #1 window 17.3s last-eval +15.6s holder G8 StageAreasObjectsReady 4.53s | 740392 avg 9 us (576177 calls, in-call 4.94 s) | CreateEventA 0.9 us CloseHandle 0.6 us | EP off hits 0 | AutoContinue fired yes
+ep0_launch3_load1.log #1 window 13.5s last-eval +11.7s holder G8 StageAreasObjectsReady 3.25s | 740392 avg 4 us (576503 calls, in-call 2.38 s) | CreateEventA 0.8 us CloseHandle 0.6 us | EP off hits 0 | AutoContinue fired yes
+ep1_launch2_load1.log #1 window 14.2s last-eval +12.4s holder G8 StageAreasObjectsReady 3.44s | 740392 avg 4 us (579324 calls, in-call 2.50 s) | CreateEventA 0.0 us CloseHandle 0.4 us | EP on hits 601328 | AutoContinue fired yes
+ep1_launch4_load1.log #1 window 15.0s last-eval +13.2s holder G8 StageAreasObjectsReady 3.13s | 740392 avg 4 us (576382 calls, in-call 2.41 s) | CreateEventA 0.0 us CloseHandle 0.4 us | EP on hits 599619 | AutoContinue fired yes
+ep1_launch4_shrinetravel.log #3 window 8.3s last-eval +8.2s holder G5 ObjectListAnyNotReady 6.34s | 740392 avg 9 us (253235 calls, in-call 2.28 s) | CreateEventA 0.0 us CloseHandle 0.7 us | EP on hits 263037 | AutoContinue fired no

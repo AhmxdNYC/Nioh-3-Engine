@@ -1,0 +1,1030 @@
+﻿[11:10:24.122] LoadStats tick out +79 s: frames 135, 58A 0, FT 0, B 0, first failing gate G9 LoadCharacterReady
+[11:10:24.628] RematchLog END: MissionResultUpdate (rate 1/s) rcx=2128D9870A0 caller=+565159 t=79.779
+[11:10:24.921] SP main [App]Game: 3171 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 37.4 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:24.921] SP main      58.4 %  [ntdll.dll] <- fn 0x7D9E1C
+[11:10:24.921] SP main       7.4 %  fn 0x61B1C
+[11:10:24.921] SP main       1.7 %  fn 0x620FA
+[11:10:24.921] SP main       1.5 %  fn 0xB94230
+[11:10:24.921] SP main       1.3 %  [ntdll.dll] <- fn 0x117D6C
+[11:10:24.921] SP main       0.9 %  fn 0x418F40
+[11:10:24.921] SP main       0.6 %  fn 0x1E81AE
+[11:10:24.921] SP main       0.6 %  fn 0x1290B8
+[11:10:24.921] SP main       0.5 %  fn 0x78150
+[11:10:24.921] SP main       0.5 %  fn 0x1D8778
+[11:10:24.921] SP main       0.5 %  fn 0x1DAF6C
+[11:10:24.921] SP main       0.5 %  fn 0x2523FC
+[11:10:24.921] SP main       0.4 %  fn 0x5DF70
+[11:10:24.921] SP main       0.4 %  fn 0x6A9E0
+[11:10:24.921] SP main       0.4 %  fn 0x128EF0
+[11:10:24.921] SP main       0.4 %  fn 0x247950
+[11:10:24.921] SP main       0.4 %  fn 0x4AA34
+[11:10:24.921] SP main       0.4 %  fn 0x1E7154
+[11:10:24.921] SP main       0.4 %  fn 0xB94250
+[11:10:24.921] SP main       0.4 %  fn 0x4D5F8
+[11:10:24.921] SP main       0.4 %  fn 0x1CD690
+[11:10:24.921] SP main       0.3 %  fn 0x419A8
+[11:10:24.921] SP main       0.3 %  fn 0x252746
+[11:10:24.921] SP main       0.3 %  fn 0x6F3F0
+[11:10:24.921] SP main       0.3 %  fn 0x3C4B74
+[11:10:24.921] SP KIDSTaskScheduler: 161 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 12.4 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:24.921] SP kidsTS    79.5 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:24.921] SP kidsTS     5.0 %  [ntdll.dll] <- fn 0x5AD560
+[11:10:24.921] SP kidsTS     1.9 %  [ntdll.dll] <- fn 0x916EBC
+[11:10:24.921] SP kidsTS     1.2 %  fn 0x71D1D
+[11:10:24.921] SP kidsTS     1.2 %  fn 0x1A7AAC
+[11:10:24.921] SP kidsTS     1.2 %  fn 0x6EFD4
+[11:10:24.921] SP kidsTS     1.2 %  fn 0x411C0
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x20108C
+[11:10:24.921] SP kidsTS     0.6 %  [DINPUT8.dll] <- fn 0xB611BC
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x16EE60
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x17139C
+[11:10:24.921] SP kidsTS     0.6 %  fn 0xA648C
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x17A61A
+[11:10:24.921] SP kidsTS     0.6 %  fn 0xF1990
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x6EA50
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x6EFFD
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x204128
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x6BEA88
+[11:10:24.921] SP kidsTS     0.6 %  [ntdll.dll] <- fn 0x12E084
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x1406A4
+[11:10:24.921] SP kidsTS     0.6 %  fn 0x1A6820
+[11:10:24.921] SP KIDSTS: 1929 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 0.2 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:24.921] SP kidsts    99.8 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:24.921] SP kidsts     0.1 %  fn 0x411C0
+[11:10:24.921] SP kidsts     0.1 %  fn 0x48F19
+[11:10:24.921] SP kidsts     0.1 %  fn 0x181F04
+[11:10:24.921] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x40800
+[11:10:24.921] SP SynergisticDispatcher: 23 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 8.7 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:24.921] SP dispatch  56.5 %  [ntdll.dll] <- fn 0x86F760
+[11:10:24.921] SP dispatch  13.0 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:24.921] SP dispatch   4.3 %  [amdxc64.dll] <- fn 0x1190C0
+[11:10:24.921] SP dispatch   4.3 %  [D3D12Core.dll] <- fn 0x7C67E0
+[11:10:24.922] SP dispatch   4.3 %  [ntdll.dll] <- fn 0x1139D4
+[11:10:24.922] SP dispatch   4.3 %  fn 0x114750
+[11:10:24.922] SP dispatch   4.3 %  [ntdll.dll] <- fn 0x7F6904
+[11:10:24.922] SP dispatch   4.3 %  [amdxc64.dll] (no game caller found)
+[11:10:24.922] SP dispatch   4.3 %  fn 0x7D7262
+[11:10:24.922] SP [App] other: 1058 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 0.0 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:24.922] SP app       84.6 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:24.922] SP app        2.2 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:24.922] SP app        2.2 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:24.922] SP app        2.2 %  [ntdll.dll] <- fn 0x3E030
+[11:10:24.922] SP app        2.2 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:24.922] SP app        2.2 %  [ntdll.dll] <- fn 0xB61524
+[11:10:24.922] SP app        2.2 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:24.922] SP app        1.6 %  [ntdll.dll] <- fn 0x1345920
+[11:10:24.922] SP app        0.3 %  [ntdll.dll] (no game caller found)
+[11:10:24.922] SP app        0.1 %  [ntdll.dll] <- fn 0x435C24
+[11:10:24.922] SP app        0.1 %  [win32u.dll] <- fn 0x435D58
+[11:10:24.922] SP app        0.1 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:24.922] SP app        0.1 %  [combase.dll] <- fn 0xB611BC
+[11:10:24.922] SP app        0.1 %  [RPCRT4.dll] <- fn 0xB611BC
+[11:10:25.247] LoadStats tick out +80 s: frames 136, 58A 0, FT 0, B 0, first failing gate G9 LoadCharacterReady
+[11:10:25.628] RematchLog END: MissionResultUpdate (rate 1/s) rcx=2128D9870A0 caller=+565159 t=80.779
+[11:10:26.274] LoadSeq blocking widget ([45C84A8]+430h != 0) 0->1 @81.4 s (no window)
+[11:10:26.395] LoadStats tick out +82 s: frames 124, 58A 0, FT 0, B 0, first failing gate G9 LoadCharacterReady
+[11:10:27.002] RematchLog Q9: MissionStartFromSave caller=+1C3037D rcx=2128D7839D0 dl=00 r8b=00 r9b=00 net{conn=0 host=0} pm{mode=0 sub=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} t=82.152
+[11:10:27.002] RematchLog L7: MissionRequestEnqueue caller=+2239A64 params.lo8=0000000000000000 req[58]=01 00 00 00 00 00 00 00 E0 00 00 00 1D 9F 3D 00 00 00 00 00 01 00 00 00 00 00 00 00 00 7F 00 00 00 00 00 00 01 00 00 00 01 00 28 85 F7 7F 00 00 FF FF FF FF FF FF FF FF 00 00 00 00 00 00 00 00 01 01 00 01 00 00 00 01 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 t=82.153
+[11:10:27.003] LoadSeq FT 0->-2015530160 @82.2 s (no window) (timer 0.0, popping wait 0.0)
+[11:10:27.003] LoadSeq B 0->-2015848800 @82.2 s (no window) (timer 0.0)
+[11:10:27.010] MENU: engine stop flags (G+588..58D) now: 58A
+[11:10:27.014] LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[11:10:27.014] LoadSeq #1 owner at set: script/other (FT state -2015530160, B state -2015848800)
+[11:10:27.036] RematchLog L4 first tick=1 t=82.187 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:27.036] RematchLog L4 slot0 tick=1 t=82.187 mission=0(0x0) region=E0 stageMission=4038429 onlineMode=0 bytes[58]=01 00 00 00 00 00 00 00 E0 00 00 00 1D 9F 3D 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 01 00 28 85 00 00 00 00 FF FF FF FF FF FF FF FF 00 00 00 00 00 00 00 00 01 01 00 01 00 00 00 01 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[11:10:27.281] RematchLog L1: Emaki table T=00000212BD5FA2B0 B=00000212BD5FA300 count=20 M=00000212BD5FA740 emptyKey=FF mapEntries=41
+[11:10:27.281] RematchLog L1: EMAKI[0] 00 00 00 00 AC C0 00 00 F5 00 00 00 49 66 03 01 C6 67 03 01 9A 72 03 01 DE 23 7A 8F 30 DA 47 48 00 A0 41 46 AD 84 68 48 00 00 34 43 64 00 00 00 D4 96 00 00
+[11:10:27.281] RematchLog L1: EMAKI[1] 12 00 00 00 1B E9 0A 00 41 00 00 00 20 7E 03 01 8A 80 03 01 85 6D 03 01 55 55 0A EE C0 7C 3A 48 00 9C 32 46 80 7F 41 48 00 00 10 42 00 00 00 00 8E 96 00 00
+[11:10:27.281] RematchLog L1: EMAKI[2] 24 00 00 00 39 8B 0D 00 4C 00 00 00 6A 74 03 01 B7 7F 03 01 79 89 03 01 40 17 EA 6F 80 75 41 48 00 F8 AB 45 C0 0C 8B 48 00 00 32 43 00 00 00 00 A3 96 00 00
+[11:10:27.281] RematchLog L1: EMAKI[3] 35 00 00 00 A5 8D 04 00 4C 00 00 00 19 8B 03 01 54 8B 03 01 7D 73 03 01 1B 35 E8 A8 C0 DE 68 48 00 58 42 46 80 EC 1A 48 00 00 B4 42 00 00 02 00 D1 96 00 00
+[11:10:27.281] RematchLog L1: EMAKI[4] 45 00 00 00 0D 68 0C 00 F2 00 00 00 80 6A 03 01 81 66 03 01 61 74 03 01 55 55 0A EE 80 20 A4 48 00 D0 1D 46 40 DE 49 48 00 00 B4 C2 00 00 00 00 0B 4B 00 00
+[11:10:27.281] RematchLog L1: EMAKI[5] 56 00 00 00 37 27 0A 00 4C 00 00 00 A9 7B 03 01 96 80 03 01 DB 6A 03 01 30 D5 FD 4C 40 88 20 48 00 50 78 46 80 D1 1F 48 00 00 E2 C2 00 00 00 00 79 96 00 00
+[11:10:27.281] RematchLog L1: EMAKI[6] 65 00 00 00 A5 8D 04 00 4C 00 00 00 1B 6E 03 01 FD 6D 03 01 0F 71 03 01 BF 81 F1 C9 C0 8D 73 48 00 44 85 46 00 E2 19 48 00 00 2E C3 A6 00 02 00 2D 96 00 00
+[11:10:27.281] RematchLog L1: EMAKI[7] 7C 00 00 00 AA B0 0E 00 31 00 00 00 AC 6C 03 01 E5 6D 03 01 9E 88 03 01 C8 0D 0D E6 40 02 54 48 00 60 6A 46 40 19 57 48 00 00 34 43 C8 00 01 00 37 B1 00 00
+[11:10:27.281] RematchLog L1: EMAKI[8] 8B 00 00 00 4E 6E 0B 00 31 00 00 00 80 6C 03 01 53 68 03 01 D2 6A 03 01 12 18 58 A1 40 D8 0E 48 00 20 31 46 40 A7 6B 48 00 00 1F C3 00 00 00 00 57 B1 00 00
+[11:10:27.281] RematchLog L1: EMAKI[9] 98 00 00 00 9D D1 07 00 31 00 00 00 37 76 03 01 A9 6C 03 01 3C 7C 03 01 52 03 62 24 20 0A 80 48 00 00 42 46 80 5E 64 48 00 00 30 C3 00 00 00 00 2C B1 00 00
+[11:10:27.281] RematchLog L1: EMAKI[10] A5 00 00 00 A8 A7 03 00 31 00 00 00 AB 8C 03 01 35 68 03 01 2F 82 03 01 05 05 46 F8 80 D0 6A 48 00 C0 22 46 C0 3A 7C 48 00 00 A8 C1 00 00 02 00 D8 B1 00 00
+[11:10:27.281] RematchLog L1: EMAKI[11] B9 00 00 00 1C 3B 0B 00 70 00 00 00 0B 72 03 01 B1 8C 03 01 AD 71 03 01 27 92 56 0B 40 E0 30 48 00 24 DD 46 00 74 09 48 00 00 34 43 91 01 00 00 74 E0 00 00
+[11:10:27.281] RematchLog L1: EMAKI[12] C9 00 00 00 1A 67 0C 00 70 00 00 00 38 87 03 01 CE 73 03 01 F2 75 03 01 CE 43 74 FA 80 44 5A 48 00 A8 A8 46 A0 83 81 48 00 00 50 42 00 00 00 00 EE E0 00 00
+[11:10:27.281] RematchLog L1: EMAKI[13] DC 00 00 00 0C 47 06 00 70 00 00 00 46 85 03 01 38 81 03 01 D2 7C 03 01 CA 9B 28 7E 40 B8 07 48 00 C0 A5 46 40 C1 77 48 00 00 B4 C2 00 00 02 00 63 E0 00 00
+[11:10:27.281] RematchLog L1: EMAKI[14] FA 00 00 00 0C 47 06 00 70 00 00 00 5D 80 03 01 79 78 03 01 5F 7D 03 01 FF 77 26 79 00 70 F7 47 00 02 B9 46 C0 9C 50 48 00 00 B4 C2 93 01 02 00 08 E0 00 00
+[11:10:27.281] RematchLog L1: EMAKI[15] 0F 01 00 00 0C 47 06 00 70 00 00 00 19 8A 03 01 6E 71 03 01 82 84 03 01 FF 77 26 79 80 FC 5B 48 00 22 CF 46 00 8F 43 48 00 00 80 41 00 00 02 00 B9 E0 00 00
+[11:10:27.281] RematchLog L1: EMAKI[16] 29 01 00 00 53 D7 04 00 2D 00 00 00 24 8A 03 01 D9 6D 03 01 E1 83 03 01 F3 E0 F3 EB 80 51 B1 47 00 CC 09 47 80 31 FC 47 00 00 1F C3 00 00 00 00 40 D8 00 00
+[11:10:27.281] RematchLog L1: EMAKI[17] 36 01 00 00 71 A6 03 00 DB 00 00 00 29 6C 03 01 56 71 03 01 D3 81 03 01 D8 10 2D A5 00 52 71 48 00 7E BA 46 80 0E BE 47 00 00 0D 43 26 03 00 00 45 35 00 00
+[11:10:27.281] RematchLog L1: EMAKI[18] 49 01 00 00 D5 36 05 00 DB 00 00 00 6E 8B 03 01 1D 68 03 01 BE 86 03 01 5F E8 49 1E 40 DD 3D 48 00 18 DB 45 00 48 67 48 00 00 34 C3 00 00 00 00 64 35 00 00
+[11:10:27.281] RematchLog L1: EMAKI[19] 58 01 00 00 C4 0C 0D 00 DB 00 00 00 98 73 03 01 5C 89 03 01 65 6A 03 01 EE C1 D9 CC 40 61 2B 48 00 80 00 46 C0 3E 16 48 00 00 32 43 00 00 00 00 FB 35 00 00
+[11:10:27.281] RematchLog L1: EMAKIMAP[4] byte=B9 recordIndex=15
+[11:10:27.281] RematchLog L1: EMAKIMAP[6] byte=0B recordIndex=4
+[11:10:27.281] RematchLog L1: EMAKIMAP[7] byte=D8 recordIndex=10
+[11:10:27.281] RematchLog L1: EMAKIMAP[13] byte=63 recordIndex=13
+[11:10:27.281] RematchLog L1: EMAKIMAP[15] byte=D4 recordIndex=0
+[11:10:27.281] RematchLog L1: EMAKIMAP[19] byte=45 recordIndex=17
+[11:10:27.281] RematchLog L1: EMAKIMAP[20] byte=40 recordIndex=16
+[11:10:27.281] RematchLog L1: EMAKIMAP[21] byte=64 recordIndex=18
+[11:10:27.281] RematchLog L1: EMAKIMAP[23] byte=08 recordIndex=14
+[11:10:27.281] RematchLog L1: EMAKIMAP[24] byte=2C recordIndex=9
+[11:10:27.281] RematchLog L1: EMAKIMAP[25] byte=79 recordIndex=5
+[11:10:27.281] RematchLog L1: EMAKIMAP[26] byte=74 recordIndex=11
+[11:10:27.281] RematchLog L1: EMAKIMAP[28] byte=EE recordIndex=12
+[11:10:27.281] RematchLog L1: EMAKIMAP[29] byte=8E recordIndex=1
+[11:10:27.281] RematchLog L1: EMAKIMAP[30] byte=37 recordIndex=7
+[11:10:27.281] RematchLog L1: EMAKIMAP[31] byte=FB recordIndex=19
+[11:10:27.281] RematchLog L1: EMAKIMAP[32] byte=D1 recordIndex=3
+[11:10:27.281] RematchLog L1: EMAKIMAP[33] byte=A3 recordIndex=2
+[11:10:27.281] RematchLog L1: EMAKIMAP[34] byte=2D recordIndex=6
+[11:10:27.281] RematchLog L1: EMAKIMAP[40] byte=57 recordIndex=8
+[11:10:27.289] RematchLog L4 change tick=31 t=82.440 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:28.092] LoadStats tick #1 +1 s: frames 113, CPU 7.83 cores, A act 1, read 62.4 MB, inflate 1195 ms, PSO 2, stage 3, acc 0.0
+[11:10:28.092] LoadStats tick #1 +1 s: 58A 1, FT -2015530160, B -2015848800, first failing gate none, evals 0
+[11:10:28.253] RematchLog L4 change tick=131 t=83.405 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:28.508] RematchLog L4 change tick=161 t=83.658 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:28.821] RematchLog L4 change tick=198 t=83.972 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:29.085] RematchLog L4 change tick=225 t=84.235 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:29.189] LoadStats tick #1 +2 s: frames 126, CPU 9.27 cores, A act 10, read 103.1 MB, inflate 559 ms, PSO 1, stage 3, acc 0.0
+[11:10:29.189] LoadStats tick #1 +2 s: 58A 1, FT -2015530160, B -2015848800, first failing gate none, evals 0
+[11:10:29.336] RematchLog L4 change tick=255 t=84.488 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:29.590] RematchLog L4 change tick=285 t=84.742 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:29.859] RematchLog L4 change tick=316 t=85.009 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:29.923] SP main [App]Game: 3169 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 39.1 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:29.923] SP main      38.9 %  [ntdll.dll] <- fn 0x1A74130
+[11:10:29.923] SP main      15.6 %  [ntdll.dll] <- fn 0x7D9E1C
+[11:10:29.923] SP main      12.0 %  fn 0x1A74130
+[11:10:29.923] SP main       3.3 %  fn 0x61B1C
+[11:10:29.923] SP main       2.6 %  fn 0x418F40
+[11:10:29.923] SP main       1.0 %  fn 0x1CD690
+[11:10:29.923] SP main       1.0 %  [win32u.dll] (no game caller found)
+[11:10:29.923] SP main       0.9 %  [ntdll.dll] <- fn 0x117D6C
+[11:10:29.923] SP main       0.9 %  [win32u.dll] <- fn 0xB9F8C
+[11:10:29.923] SP main       0.8 %  fn 0x620FA
+[11:10:29.923] SP main       0.8 %  fn 0xB94230
+[11:10:29.923] SP main       0.7 %  fn 0x5DF70
+[11:10:29.923] SP main       0.4 %  [KERNEL32.DLL] <- fn 0x1A74130
+[11:10:29.923] SP main       0.4 %  fn 0x247950
+[11:10:29.923] SP main       0.3 %  fn 0x4FC330
+[11:10:29.923] SP main       0.3 %  fn 0x113204
+[11:10:29.923] SP main       0.3 %  fn 0x6A9E0
+[11:10:29.923] SP main       0.3 %  [ntdll.dll] <- fn 0x167DE6
+[11:10:29.923] SP main       0.3 %  fn 0x252746
+[11:10:29.923] SP main       0.3 %  fn 0x77AB0
+[11:10:29.923] SP main       0.3 %  fn 0x40E218
+[11:10:29.923] SP main       0.3 %  fn 0x1D8778
+[11:10:29.923] SP main       0.2 %  fn 0x39E20
+[11:10:29.923] SP main       0.2 %  fn 0x4AA34
+[11:10:29.923] SP main       0.2 %  fn 0xB94250
+[11:10:29.923] SP KIDSTaskScheduler: 161 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 6.8 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:29.923] SP kidsTS    83.2 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:29.923] SP kidsTS     8.1 %  [ntdll.dll] <- fn 0x5AD560
+[11:10:29.923] SP kidsTS     1.2 %  fn 0x40800
+[11:10:29.923] SP kidsTS     0.6 %  [DINPUT8.dll] <- fn 0xB611BC
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x4280B
+[11:10:29.923] SP kidsTS     0.6 %  [ntdll.dll] <- fn 0x2E33D8
+[11:10:29.923] SP kidsTS     0.6 %  [win32u.dll] (no game caller found)
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x2D9B84
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x167E18
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x6EFFD
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x16C0A3
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x16C140
+[11:10:29.923] SP kidsTS     0.6 %  fn 0xB93EE0
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x165088
+[11:10:29.923] SP kidsTS     0.6 %  fn 0x87C4DE
+[11:10:29.923] SP KIDSTS: 1922 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 3.6 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:29.923] SP kidsts    94.3 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:29.923] SP kidsts     0.6 %  [ntdll.dll] <- fn 0x311B40
+[11:10:29.923] SP kidsts     0.5 %  fn 0xB36BF0
+[11:10:29.923] SP kidsts     0.5 %  fn 0x1A6030
+[11:10:29.923] SP kidsts     0.3 %  fn 0x411C0
+[11:10:29.923] SP kidsts     0.3 %  [ntdll.dll] <- fn 0x317148
+[11:10:29.923] SP kidsts     0.3 %  fn 0xFAE850
+[11:10:29.923] SP kidsts     0.2 %  fn 0x1A6820
+[11:10:29.923] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x40800
+[11:10:29.923] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x117D6C
+[11:10:29.923] SP kidsts     0.2 %  [win32u.dll] (no game caller found)
+[11:10:29.923] SP kidsts     0.2 %  fn 0xB35DA9
+[11:10:29.923] SP kidsts     0.2 %  [win32u.dll] <- fn 0x5C268
+[11:10:29.923] SP kidsts     0.2 %  fn 0x1A51D4
+[11:10:29.923] SP kidsts     0.2 %  fn 0x4A7A30
+[11:10:29.923] SP kidsts     0.2 %  fn 0x1A009C
+[11:10:29.923] SP kidsts     0.1 %  fn 0x1A19E0
+[11:10:29.923] SP kidsts     0.1 %  fn 0x1A4730
+[11:10:29.923] SP kidsts     0.1 %  fn 0xFB6BAF
+[11:10:29.923] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x207200
+[11:10:29.923] SP kidsts     0.1 %  fn 0x17A1B40
+[11:10:29.923] SP kidsts     0.1 %  fn 0x904D88
+[11:10:29.923] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x2074A0
+[11:10:29.923] SP kidsts     0.1 %  fn 0x251F54
+[11:10:29.923] SP kidsts     0.1 %  fn 0x19F320
+[11:10:29.924] SP SynergisticDispatcher: 23 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 8.7 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:29.924] SP dispatch  73.9 %  [ntdll.dll] <- fn 0x86F760
+[11:10:29.924] SP dispatch   4.3 %  [D3D12Core.dll] <- fn 0x118604
+[11:10:29.924] SP dispatch   4.3 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:29.924] SP dispatch   4.3 %  [ntdll.dll] <- fn 0x1139D4
+[11:10:29.924] SP dispatch   4.3 %  fn 0xB94230
+[11:10:29.924] SP dispatch   4.3 %  [amdxc64.dll] (no game caller found)
+[11:10:29.924] SP dispatch   4.3 %  fn 0xB94250
+[11:10:29.924] SP [App] other: 1011 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 1.6 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:29.924] SP app       81.3 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:29.924] SP app        2.4 %  [ntdll.dll] <- fn 0xB61524
+[11:10:29.924] SP app        2.3 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:29.924] SP app        2.3 %  [ntdll.dll] <- fn 0x3E030
+[11:10:29.924] SP app        2.2 %  [ntdll.dll] <- fn 0x1345920
+[11:10:29.924] SP app        2.2 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:29.924] SP app        1.4 %  [ntdll.dll] <- fn 0x131EC5B
+[11:10:29.924] SP app        1.1 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:29.924] SP app        0.8 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:29.924] SP app        0.6 %  [ntdll.dll] <- fn 0x28ADAC
+[11:10:29.924] SP app        0.5 %  [ntdll.dll] <- fn 0x4793C
+[11:10:29.924] SP app        0.5 %  [DINPUT8.dll] <- fn 0xB611BC
+[11:10:29.924] SP app        0.4 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:29.924] SP app        0.2 %  fn 0x1A6030
+[11:10:29.924] SP app        0.2 %  fn 0x3659E3
+[11:10:29.924] SP app        0.1 %  fn 0x1FF37C
+[11:10:29.924] SP app        0.1 %  fn 0x1FEBE0
+[11:10:29.924] SP app        0.1 %  fn 0x1A6820
+[11:10:29.924] SP app        0.1 %  fn 0xA2BBB8
+[11:10:29.924] SP app        0.1 %  fn 0x1FEDC8
+[11:10:29.924] SP app        0.1 %  [ntdll.dll] <- fn 0x12F20C
+[11:10:29.924] SP app        0.1 %  [DINPUT8.dll] <- fn 0x1A6030
+[11:10:29.924] SP app        0.1 %  fn 0xB611BC
+[11:10:29.924] SP app        0.1 %  [DINPUT8.dll] <- fn 0x5275C4
+[11:10:29.924] SP app        0.1 %  fn 0x134DF30
+[11:10:29.924] SP: 52 samples failed (thread gone or not suspendable)
+[11:10:30.123] RematchLog L4 change tick=348 t=85.274 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:30.270] LoadStats tick #1 +3 s: frames 127, CPU 9.38 cores, A act 10, read 158.1 MB, inflate 415 ms, PSO 3, stage 3, acc 0.0
+[11:10:30.270] LoadStats tick #1 +3 s: 58A 1, FT -2015530160, B -2015848800, first failing gate none, evals 0
+[11:10:30.395] RematchLog L4 change tick=378 t=85.546 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:30.647] RematchLog L4 change tick=408 t=85.798 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:30.906] RematchLog L4 change tick=437 t=86.057 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:31.189] RematchLog L4 change tick=471 t=86.340 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:31.367] LoadStats tick #1 +4 s: frames 126, CPU 8.98 cores, A act 10, read 155.1 MB, inflate 300 ms, PSO 2, stage 3, acc 0.0
+[11:10:31.367] LoadStats tick #1 +4 s: 58A 1, FT -2015530160, B -2015848800, first failing gate none, evals 0
+[11:10:31.443] RematchLog L4 change tick=500 t=86.594 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:31.697] RematchLog L4 change tick=530 t=86.848 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:32.013] RematchLog L4 change tick=567 t=87.163 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:32.264] RematchLog L4 change tick=596 t=87.414 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:32.456] LoadStats tick #1 +5 s: frames 128, CPU 10.47 cores, A act 10, read 68.9 MB, inflate 567 ms, PSO 0, stage 3, acc 0.0
+[11:10:32.456] LoadStats tick #1 +5 s: 58A 1, FT -2015530160, B -2015848800, first failing gate none, evals 0
+[11:10:32.590] RematchLog L4 change tick=635 t=87.741 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:32.845] RematchLog L4 change tick=665 t=87.995 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:33.106] RematchLog L4 change tick=696 t=88.257 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:33.361] RematchLog L4 change tick=725 t=88.512 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:33.544] LoadStats tick #1 +7 s: frames 128, CPU 9.24 cores, A act 10, read 185.3 MB, inflate 117 ms, PSO 0, stage 3, acc 0.0
+[11:10:33.544] LoadStats tick #1 +7 s: 58A 1, FT -2015530160, B -2015848800, first failing gate G8 StageAreasObjectsReady, evals 23
+[11:10:33.613] RematchLog L4 change tick=755 t=88.764 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:33.874] RematchLog L4 change tick=786 t=89.024 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:34.133] RematchLog L4 change tick=816 t=89.284 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:34.398] RematchLog L4 change tick=846 t=89.549 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:34.636] LoadStats tick #1 +8 s: frames 127, CPU 8.88 cores, A act 10, read 285.7 MB, inflate 497 ms, PSO 0, stage 3, acc 0.0
+[11:10:34.636] LoadStats tick #1 +8 s: 58A 1, FT -2015530160, B -2015848800, first failing gate G8 StageAreasObjectsReady, evals 150
+[11:10:34.664] RematchLog L4 change tick=877 t=89.815 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:34.980] SP main [App]Game: 2834 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 55.2 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:34.980] SP main      28.9 %  [ntdll.dll] <- fn 0x1A74130
+[11:10:34.980] SP main       8.7 %  fn 0x1A74130
+[11:10:34.980] SP main       3.3 %  fn 0x61B1C
+[11:10:34.980] SP main       3.2 %  [ntdll.dll] <- fn 0x167DE6
+[11:10:34.980] SP main       1.9 %  [ntdll.dll] <- fn 0x117D6C
+[11:10:34.980] SP main       1.8 %  fn 0x4AA34
+[11:10:34.980] SP main       1.6 %  fn 0x418F40
+[11:10:34.980] SP main       1.4 %  fn 0x252746
+[11:10:34.980] SP main       1.4 %  fn 0x1E81AE
+[11:10:34.980] SP main       1.4 %  fn 0x1CD690
+[11:10:34.980] SP main       1.2 %  [ntdll.dll] <- fn 0x531948
+[11:10:34.980] SP main       1.2 %  [win32u.dll] (no game caller found)
+[11:10:34.980] SP main       1.1 %  fn 0x620FA
+[11:10:34.980] SP main       1.0 %  fn 0x128EF0
+[11:10:34.980] SP main       0.9 %  [win32u.dll] <- fn 0x5C268
+[11:10:34.980] SP main       0.9 %  fn 0xB94230
+[11:10:34.980] SP main       0.8 %  [ntdll.dll] <- fn 0x3EB04
+[11:10:34.980] SP main       0.8 %  fn 0x1E7154
+[11:10:34.980] SP main       0.8 %  fn 0x419A8
+[11:10:34.980] SP main       0.8 %  fn 0x5DF70
+[11:10:34.980] SP main       0.7 %  fn 0x1D8778
+[11:10:34.980] SP main       0.7 %  fn 0x1DAF6C
+[11:10:34.980] SP main       0.6 %  [ntdll.dll] <- fn 0x7D9E1C
+[11:10:34.980] SP main       0.6 %  [KERNEL32.DLL] <- fn 0x1A74130
+[11:10:34.980] SP main       0.6 %  fn 0x6A9E0
+[11:10:34.980] SP KIDSTaskScheduler: 140 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 24.3 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:34.980] SP kidsTS    72.1 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:34.980] SP kidsTS     5.0 %  fn 0x16728D
+[11:10:34.980] SP kidsTS     2.1 %  fn 0x411C0
+[11:10:34.980] SP kidsTS     1.4 %  fn 0xB6C3C
+[11:10:34.980] SP kidsTS     1.4 %  fn 0x71D1D
+[11:10:34.980] SP kidsTS     0.7 %  [ntdll.dll] <- fn 0x5AD560
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x3AF00
+[11:10:34.980] SP kidsTS     0.7 %  [ntdll.dll] <- fn 0x48432
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x13179C
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x6FED0
+[11:10:34.980] SP kidsTS     0.7 %  fn 0xA67B1
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x1670FC
+[11:10:34.980] SP kidsTS     0.7 %  [ntdll.dll] <- fn 0x916EBC
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x66A178
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x167BE0
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x6EA50
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x231B34
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x1A5DA2
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x16D280
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x556C18
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x6EFD4
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x32F64F1
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x19D43F
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x331A31
+[11:10:34.980] SP kidsTS     0.7 %  fn 0x38323E
+[11:10:34.980] SP KIDSTS: 1716 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 5.7 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:34.980] SP kidsts    89.7 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:34.980] SP kidsts     1.7 %  [ntdll.dll] <- fn 0x311B40
+[11:10:34.980] SP kidsts     0.9 %  [win32u.dll] (no game caller found)
+[11:10:34.980] SP kidsts     0.6 %  fn 0x1A6030
+[11:10:34.980] SP kidsts     0.5 %  fn 0x40800
+[11:10:34.980] SP kidsts     0.5 %  fn 0xD8152
+[11:10:34.981] SP kidsts     0.5 %  fn 0x1A6820
+[11:10:34.981] SP kidsts     0.3 %  fn 0x411C0
+[11:10:34.981] SP kidsts     0.3 %  fn 0x3FE14
+[11:10:34.981] SP kidsts     0.3 %  [ntdll.dll] <- fn 0x31182C
+[11:10:34.981] SP kidsts     0.3 %  [win32u.dll] <- fn 0x5C268
+[11:10:34.981] SP kidsts     0.3 %  [ntdll.dll] <- fn 0x40800
+[11:10:34.981] SP kidsts     0.3 %  fn 0x1A009C
+[11:10:34.981] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x631EC0
+[11:10:34.981] SP kidsts     0.2 %  fn 0xD8E00
+[11:10:34.981] SP kidsts     0.2 %  fn 0x1A0BFC
+[11:10:34.981] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x631F70
+[11:10:34.981] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x323A0
+[11:10:34.981] SP kidsts     0.1 %  fn 0x904D0C
+[11:10:34.981] SP kidsts     0.1 %  fn 0x1A19E0
+[11:10:34.981] SP kidsts     0.1 %  fn 0x19F320
+[11:10:34.981] SP kidsts     0.1 %  fn 0x202FF4
+[11:10:34.981] SP kidsts     0.1 %  fn 0x1A5820
+[11:10:34.981] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x2074A0
+[11:10:34.981] SP kidsts     0.1 %  fn 0x27E92C
+[11:10:34.981] SP SynergisticDispatcher: 20 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 5.0 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:34.981] SP dispatch  45.0 %  [ntdll.dll] <- fn 0x86F760
+[11:10:34.981] SP dispatch  10.0 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:34.981] SP dispatch  10.0 %  [amdxc64.dll] (no game caller found)
+[11:10:34.981] SP dispatch  10.0 %  [ntdll.dll] <- fn 0x1139D4
+[11:10:34.981] SP dispatch   5.0 %  [amdxc64.dll] <- fn 0x115DE8
+[11:10:34.981] SP dispatch   5.0 %  [D3D12Core.dll] <- fn 0x115E24
+[11:10:34.981] SP dispatch   5.0 %  [amdxc64.dll] <- fn 0x494AB8
+[11:10:34.981] SP dispatch   5.0 %  [D3D12Core.dll] <- fn 0x1180D0
+[11:10:34.981] SP dispatch   5.0 %  fn 0x45B588
+[11:10:34.981] SP [App] other: 898 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 1.7 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:34.981] SP app       80.6 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:34.981] SP app        2.3 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:34.981] SP app        2.2 %  [ntdll.dll] <- fn 0x3E030
+[11:10:34.981] SP app        2.2 %  [ntdll.dll] <- fn 0x131EC5B
+[11:10:34.981] SP app        2.2 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:34.981] SP app        2.1 %  [ntdll.dll] <- fn 0xB61524
+[11:10:34.981] SP app        1.2 %  [ntdll.dll] <- fn 0x4793C
+[11:10:34.981] SP app        1.2 %  [ntdll.dll] <- fn 0x1345920
+[11:10:34.981] SP app        1.0 %  [ntdll.dll] (no game caller found)
+[11:10:34.981] SP app        0.8 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:34.981] SP app        0.3 %  [ntdll.dll] <- fn 0x1A1B30
+[11:10:34.981] SP app        0.3 %  fn 0x1A6820
+[11:10:34.981] SP app        0.3 %  fn 0x1A6030
+[11:10:34.981] SP app        0.2 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:34.981] SP app        0.2 %  [win32u.dll] (no game caller found)
+[11:10:34.981] SP app        0.2 %  fn 0x1A009C
+[11:10:34.981] SP app        0.2 %  [DINPUT8.dll] <- fn 0x1A1B30
+[11:10:34.981] SP app        0.2 %  [DINPUT8.dll] <- fn 0xB611BC
+[11:10:34.981] SP app        0.1 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:34.981] SP app        0.1 %  [D3D12Core.dll] <- fn 0x4F540
+[11:10:34.981] SP app        0.1 %  [ntdll.dll] <- fn 0x973D4
+[11:10:34.981] SP app        0.1 %  fn 0x1A5820
+[11:10:34.981] SP app        0.1 %  fn 0x628B8C
+[11:10:34.981] SP app        0.1 %  fn 0x3659E3
+[11:10:34.981] SP app        0.1 %  [DINPUT8.dll] <- fn 0x368494
+[11:10:34.981] SP: 60 samples failed (thread gone or not suspendable)
+[11:10:35.005] RematchLog L4 change tick=916 t=90.156 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:35.013] stats cpu: MQ ON, calls 70254440 (+20543075 in 30 s) | PT1 ON, textures claimed 109941 (+68991), lock pairs saved 730288 (+498670) | DL ON, lookups skipped 182893 (+182893)
+[11:10:35.013] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 117.7/s vs rendered 115.7/s, L1 timer sleeps 102/s
+[11:10:35.013] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[11:10:35.119] stats mem: private 16324 MB, working set 6126 MB (peak 6126), commit 16324 MB, handles 3731, threads 242, VRAM local used/budget 7753/15417 MB, non-local 191/15172 MB | sys RAM avail 8129 MB, commit 53317/53985 MB | since start (1 min): private +3347, ws +774, handles +638, threads +0, VRAM local +3241, non-local +5
+[11:10:35.119] stats/s WL: waitable handles closed 0 (total 1, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[11:10:35.119] stats/s GF: fence waits 626, avg wait 520 us, fallbacks to Sleep(0) 0 (switch ON)
+[11:10:35.119] stats/s: W3 waits 585 (MsgWait), L1 timer sleeps 102, F1 timer sleeps 31, WK wakes kept 32070 / skipped 484
+[11:10:35.119] stats/s exp: W6 waits 0 avg 95 us (slept 0, spun 0, wakes 0) | PP scans 25 skipped 77 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[11:10:35.299] RematchLog L4 change tick=949 t=90.449 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:35.557] RematchLog L4 change tick=978 t=90.707 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:35.741] LoadStats tick #1 +9 s: frames 126, CPU 9.13 cores, A act 10, read 270.1 MB, inflate 6 ms, PSO 0, stage 3, acc 0.0
+[11:10:35.741] LoadStats tick #1 +9 s: 58A 1, FT -2015530160, B -2015848800, first failing gate G8 StageAreasObjectsReady, evals 276
+[11:10:35.823] RematchLog L4 change tick=1009 t=90.973 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:36.075] RematchLog L4 change tick=1038 t=91.226 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:36.339] RematchLog L4 change tick=1067 t=91.490 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:36.594] RematchLog L4 change tick=1093 t=91.745 ms{lvl=1 row=224 mission=4038429(0x3D9F1D) mode=1} ch{emakiByte=00 key8=01 isEmaki=0 list=00000001/00000001/06} net{conn=0 host=0} pm{mode=0 sub=1} invCnt=400
+[11:10:36.829] LoadStats tick #1 +10 s: frames 114, CPU 8.82 cores, A act 0, read 159.3 MB, inflate 1 ms, PSO 0, stage 3, acc 0.0
+[11:10:36.829] LoadStats tick #1 +10 s: 58A 1, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady, evals 390
+[11:10:37.930] LoadStats tick #1 +11 s: frames 101, CPU 8.95 cores, A act 10, read 149.4 MB, inflate 514 ms, PSO 9, stage 3, acc 0.0
+[11:10:37.932] LoadStats tick #1 +11 s: 58A 1, FT -2015530160, B -2015848800, first failing gate G5 ObjectListAnyNotReady, evals 447
+[11:10:39.031] LoadStats tick #1 +12 s: frames 107, CPU 9.70 cores, A act 10, read 92.7 MB, inflate 992 ms, PSO 0, stage 3, acc 0.0
+[11:10:39.031] LoadStats tick #1 +12 s: 58A 1, FT -2015530160, B -2015848800, first failing gate G5 ObjectListAnyNotReady, evals 553
+[11:10:39.575] AutoContinue #1: load done - answered the tip page's 'press to continue' check
+[11:10:39.983] SP main [App]Game: 2794 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 64.2 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:39.983] SP main      19.4 %  [ntdll.dll] <- fn 0x1A74130
+[11:10:39.983] SP main       9.4 %  [ntdll.dll] <- fn 0x7D9E1C
+[11:10:39.983] SP main       6.3 %  fn 0x1A74130
+[11:10:39.983] SP main       2.9 %  fn 0x61B1C
+[11:10:39.983] SP main       2.8 %  fn 0x1E81AE
+[11:10:39.983] SP main       2.6 %  fn 0x4AA34
+[11:10:39.983] SP main       2.2 %  fn 0xB94230
+[11:10:39.983] SP main       1.9 %  fn 0x1E7154
+[11:10:39.983] SP main       1.9 %  fn 0x128EF0
+[11:10:39.983] SP main       1.3 %  fn 0x1CD690
+[11:10:39.983] SP main       1.0 %  [ntdll.dll] <- fn 0x167DE6
+[11:10:39.983] SP main       1.0 %  fn 0x252746
+[11:10:39.983] SP main       1.0 %  fn 0x620FA
+[11:10:39.983] SP main       1.0 %  fn 0x419A8
+[11:10:39.983] SP main       0.9 %  fn 0x418F40
+[11:10:39.983] SP main       0.9 %  fn 0x39E20
+[11:10:39.983] SP main       0.9 %  fn 0x1DAF6C
+[11:10:39.983] SP main       0.9 %  [ntdll.dll] <- fn 0x117D6C
+[11:10:39.983] SP main       0.8 %  fn 0x5DF70
+[11:10:39.983] SP main       0.8 %  fn 0x1290B8
+[11:10:39.983] SP main       0.8 %  fn 0x3C4B74
+[11:10:39.983] SP main       0.7 %  fn 0x1E5854
+[11:10:39.983] SP main       0.7 %  fn 0x1D8778
+[11:10:39.983] SP main       0.7 %  fn 0x1D7340
+[11:10:39.983] SP main       0.6 %  fn 0x4D5F8
+[11:10:39.983] SP KIDSTaskScheduler: 140 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 36.4 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:39.983] SP kidsTS    62.1 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:39.983] SP kidsTS     4.3 %  fn 0x16728D
+[11:10:39.983] SP kidsTS     2.9 %  fn 0x4280B
+[11:10:39.983] SP kidsTS     2.9 %  fn 0x2D9B84
+[11:10:39.983] SP kidsTS     2.1 %  fn 0x204584
+[11:10:39.984] SP kidsTS     1.4 %  fn 0x1A7408
+[11:10:39.984] SP kidsTS     1.4 %  fn 0x2040A0
+[11:10:39.984] SP kidsTS     1.4 %  fn 0x1A3B78
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x411C0
+[11:10:39.984] SP kidsTS     0.7 %  fn 0xEA04C
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x16654C
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x1A7BF0
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x270640
+[11:10:39.984] SP kidsTS     0.7 %  fn 0xF43B0
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x403A0
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x6FED0
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x130708
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x1200B1
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x1A6FC4
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x55C864
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x16BA70
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x6EFFD
+[11:10:39.984] SP kidsTS     0.7 %  [ntdll.dll] <- fn 0x40800
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x203BD4
+[11:10:39.984] SP kidsTS     0.7 %  fn 0x1A7B38
+[11:10:39.984] SP KIDSTS: 1694 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 4.9 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:39.984] SP kidsts    92.7 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:39.984] SP kidsts     0.7 %  [ntdll.dll] <- fn 0x311B40
+[11:10:39.984] SP kidsts     0.7 %  fn 0x1A6030
+[11:10:39.984] SP kidsts     0.4 %  [ntdll.dll] <- fn 0x117D6C
+[11:10:39.984] SP kidsts     0.4 %  fn 0x40800
+[11:10:39.984] SP kidsts     0.4 %  [ntdll.dll] <- fn 0x40800
+[11:10:39.984] SP kidsts     0.3 %  fn 0x48F19
+[11:10:39.984] SP kidsts     0.3 %  fn 0xD8152
+[11:10:39.984] SP kidsts     0.3 %  fn 0x3FE14
+[11:10:39.984] SP kidsts     0.3 %  fn 0x1A6820
+[11:10:39.984] SP kidsts     0.2 %  fn 0xB36BF0
+[11:10:39.984] SP kidsts     0.2 %  [win32u.dll] (no game caller found)
+[11:10:39.984] SP kidsts     0.2 %  fn 0x1A5EC4
+[11:10:39.984] SP kidsts     0.1 %  fn 0x411C0
+[11:10:39.984] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x49ABC
+[11:10:39.984] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x429E4
+[11:10:39.984] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x631C84
+[11:10:39.984] SP kidsts     0.1 %  fn 0x1A1DA0
+[11:10:39.984] SP kidsts     0.1 %  fn 0xD8E00
+[11:10:39.984] SP kidsts     0.1 %  [D3D12Core.dll] (no game caller found)
+[11:10:39.984] SP kidsts     0.1 %  fn 0x4A85C
+[11:10:39.984] SP kidsts     0.1 %  fn 0x484EF
+[11:10:39.984] SP kidsts     0.1 %  fn 0x1A19E0
+[11:10:39.984] SP kidsts     0.1 %  fn 0x7FC840
+[11:10:39.984] SP kidsts     0.1 %  fn 0x3C70D8
+[11:10:39.984] SP SynergisticDispatcher: 20 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 5.0 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:39.984] SP dispatch  55.0 %  [ntdll.dll] <- fn 0x86F760
+[11:10:39.984] SP dispatch  10.0 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:39.984] SP dispatch   5.0 %  [D3D12Core.dll] (no game caller found)
+[11:10:39.984] SP dispatch   5.0 %  [D3D12Core.dll] <- fn 0x492220
+[11:10:39.984] SP dispatch   5.0 %  fn 0x45A42C
+[11:10:39.984] SP dispatch   5.0 %  [amdxc64.dll] <- fn 0x1167D4
+[11:10:39.984] SP dispatch   5.0 %  [amdxc64.dll] <- fn 0x115A70
+[11:10:39.984] SP dispatch   5.0 %  [ntdll.dll] <- fn 0x7F6904
+[11:10:39.984] SP dispatch   5.0 %  [amdxc64.dll] (no game caller found)
+[11:10:39.984] SP [App] other: 940 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 0.5 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:39.984] SP app       79.6 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:39.984] SP app        2.1 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:39.984] SP app        2.1 %  [ntdll.dll] <- fn 0xB61524
+[11:10:39.984] SP app        2.1 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:39.984] SP app        2.1 %  [ntdll.dll] <- fn 0x131EC5B
+[11:10:39.984] SP app        2.1 %  [ntdll.dll] <- fn 0x3E030
+[11:10:39.984] SP app        1.9 %  [ntdll.dll] <- fn 0x686D3C
+[11:10:39.984] SP app        1.8 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:39.984] SP app        1.6 %  [ntdll.dll] <- fn 0x1345920
+[11:10:39.984] SP app        1.1 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:39.984] SP app        1.0 %  [ntdll.dll] <- fn 0x2800C8
+[11:10:39.984] SP app        0.7 %  [ntdll.dll] <- fn 0x12F20C
+[11:10:39.984] SP app        0.5 %  [ntdll.dll] (no game caller found)
+[11:10:39.984] SP app        0.2 %  [DINPUT8.dll] <- fn 0xB611BC
+[11:10:39.984] SP app        0.1 %  [ntdll.dll] <- fn 0x5A612C
+[11:10:39.984] SP app        0.1 %  [ntdll.dll] <- fn 0x4B9AC4
+[11:10:39.984] SP app        0.1 %  fn 0x1A5DCD
+[11:10:39.984] SP app        0.1 %  fn 0x13438B0
+[11:10:39.984] SP app        0.1 %  [win32u.dll] <- fn 0x435D58
+[11:10:39.984] SP app        0.1 %  fn 0x28A664
+[11:10:39.984] SP app        0.1 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:39.984] SP app        0.1 %  fn 0x1A6030
+[11:10:39.984] SP app        0.1 %  fn 0x1BEFE48
+[11:10:40.128] LoadStats tick #1 +13 s: frames 94, CPU 7.70 cores, A act 0, read 233.9 MB, inflate 189 ms, PSO 11, stage 3, acc 0.0
+[11:10:40.128] LoadStats tick #1 +13 s: 58A 1, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady, evals 592
+[11:10:40.915] OSD: stats: rendered 37.6 fps, displayed 37.6 fps (x1.00, FG off, 1 chain(s), threads game 37.6/s presenter 0.0/s), game ticks 101.0/s, speed 0.96x, vrr tier 120 cap 120 armed 104, draws 10902, skipped 0
+[11:10:41.170] ReadProbe #1 site 740392: 579324 calls, 643 MB, in-call 2.50 s (avg 4 us) | thr unnamed 100 % | handles 402, sync-handle 10 % | ovl-api 100 % pending 100 % err 0 fp-offset 0 % | size <=1K 98 % 1-4K 0 % 4-64K 1 % >64K 0 % | us <8 96 % 8-32 3 % 32-128 1 % 128-512 0 % >512 0 % | seq 84 % near 15 % inblk 0 % reread 0 % far 2 % | inflight global avg 0.1 max 5, same-handle avg 0.0
+[11:10:41.170] ReadProbe #1 site 631FD5 (ReadFileEx): 12599 calls, 2762 MB, in-call 1.35 s (avg 107 us) | thr ResourceLoad 100 % | handles 411, sync-handle 10 % | ovl-api 100 % pending 0 % err 0 fp-offset 0 % | size <=1K 67 % 1-4K 10 % 4-64K 15 % >64K 8 % | us <8 36 % 8-32 52 % 32-128 6 % 128-512 3 % >512 3 % | seq 0 % near 8 % inblk 11 % reread 0 % far 81 % | inflight global avg 0.3 max 5, same-handle avg 0.0
+[11:10:41.170] ReadProbe #1 site 31305A: 22455 calls, 1393 MB, in-call 0.67 s (avg 30 us) | thr unnamed 100 % | handles 267, sync-handle 7 % | ovl-api 100 % pending 100 % err 0 fp-offset 0 % | size <=1K 0 % 1-4K 0 % 4-64K 100 % >64K 0 % | us <8 0 % 8-32 82 % 32-128 16 % 128-512 1 % >512 0 % | seq 9 % near 0 % inblk 8 % reread 0 % far 83 % | inflight global avg 0.1 max 4, same-handle avg 0.0
+[11:10:41.170] ReadProbe #1 site 311D17: 43984 calls, 34 MB, in-call 0.33 s (avg 8 us) | thr KtglFsThread_Hdd 100 % | handles 359, sync-handle 10 % | ovl-api 100 % pending 0 % err 0 fp-offset 0 % | size <=1K 99 % 1-4K 1 % 4-64K 1 % >64K 0 % | us <8 78 % 8-32 19 % 32-128 2 % 128-512 0 % >512 0 % | seq 66 % near 12 % inblk 0 % reread 0 % far 21 % | inflight global avg 0.3 max 4, same-handle avg 0.0
+[11:10:41.170] ReadProbe #1 files (top 8 by in-call s): package\0xe54792ea.fdata ovl 0.10 s 15654 calls 20 MB | package\0xbc812de6.fdata sync 0.08 s 3649 calls 126 MB | package\0xbc812de6.fdata ovl 0.07 s 11623 calls 55 MB | package\0xe54792ea.fdata sync 0.06 s 12988 calls 23 MB | package\0xe54792ea.fdata ovl 0.05 s 3101 calls 30 MB | package\0xbc812de6.fdata sync 0.04 s 8591 calls 9 MB | package\0x63e1441c.fdata ovl 0.04 s 3485 calls 64 MB | package\0xbc812de6.fdata ovl 0.04 s 4714 calls 45 MB
+[11:10:41.170] ReadProbe #1 events: CreateEventA 601779 (avg 0.0 us), CloseHandle 601779 (avg 0.4 us), WFMO 41284 (avg 45 us, 1.84 thread-s) | EP on: pool hits 601328, returned 601779, really closed 0 | game cache calls 0 hits 0
+[11:10:41.170] ReadProbe #1 threads (share of each pool's thread-time in the window): KtglFsThread_Hdd x1 ReadFile 2 % (43984) + WFMO 0 % (0) | ResourceLoad x4 ReadFile 2 % (12599) + WFMO 0 % (0) | unnamed x2 ReadFile 11 % (601779) + WFMO 6 % (41284)
+[11:10:41.170] ReadProbe #1 total 14.2 s: 658362 calls, 4832 MB, in-call 4.85 thread-s, untracked handles 0
+[11:10:41.170] ReadProbe #1 split [set->work end +12.1 s] 12.1 s: 602450 calls, 4446 MB, in-call 4.41 thread-s, WFMO 1.72 thread-s, CreateEventA 546658
+[11:10:41.170] ReadProbe #1 split [work end->clear] 2.1 s: 55912 calls, 386 MB, in-call 0.45 thread-s, WFMO 0.12 thread-s, CreateEventA 55121
+[11:10:41.173] LoadStats #1: 14.2 s | frames 1516 (9.3 ms) | CPU 8.88 cores | stage ready +0.7 s | loaders busy 11.1/6.4 s (first +0.0, last +12.4), in-flight avg A 9.5 B 4.2 of 10 (at cap A 87 % B 13 %), pending avg A 745.7 B 15.8 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[11:10:41.173] LoadStats #1 io: read 1427 MB archive (66439 calls, 2070 MB overlapped, 1000 ms in-call) + 643 MB other (579324 calls, 2503 ms) | inflate 5.35 CPU-s, 76229 chunks, 443 -> 1031 MB, 0 failed, max 4 parallel, 4 threads so far | PSO gfx 20 rt + 0 preload, cmp 8 rt + 0 preload, 0.00 CPU-s, max 22.9 ms | mgr Sleep(1) A idle 904, A no-progress 1365, B idle 2975
+[11:10:41.173] LoadGates #1: 592 evaluations (0 with no failing gate) | last failing eval +12.4 s, first full-pass eval -999.0 s, last eval +12.4 s, window 14.2 s
+[11:10:41.173] LoadGates #1 G1 StagePathInitStep       calls 592, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[11:10:41.173] LoadGates #1 G2 StageAreaListBusy       calls 592, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[11:10:41.173] LoadGates #1 G3 StageRequestQueueBusy   calls 592, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[11:10:41.173] LoadGates #1 G4 UiLoadPairReady         calls 592, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[11:10:41.173] LoadGates #1 G5 ObjectListAnyNotReady   calls 592, failed 173, first-failing in 173 evals (29 %), held 1.80 s (13 % of window) | first fail +10.3 s, last fail +12.1 s, last flip to pass +12.1 s
+[11:10:41.173] LoadGates #1 G6 CurrentAreaPresent      calls 419, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[11:10:41.173] LoadGates #1 G7 LoadEndBlockerScan      calls 419, failed 1, first-failing in 1 evals (0 %), held 0.01 s (0 % of window) | first fail +12.1 s, last fail +12.1 s, last flip to pass +12.1 s
+[11:10:41.173] MENU: engine stop flags (G+588..58D) now: none
+[11:10:41.173] LoadGates #1 G8 StageAreasObjectsReady  calls 418, failed 389, first-failing in 389 evals (66 %), held 3.44 s (24 % of window) | first fail +6.3 s, last fail +9.8 s, last flip to pass +9.8 s
+[11:10:41.173] LoadGates #1 G9 LoadCharacterReady      calls 25, failed 25, first-failing in 2 evals (0 %), held 2.29 s (16 % of window) | first fail +9.8 s, last fail +12.4 s, last flip to pass -999.0 s
+[11:10:41.173] LoadGates #1 holder: G8 StageAreasObjectsReady (3.44 s of 14.2 s)
+[11:10:41.173] LoadStats #1 split [set->stage ready] 0.7 s: frames 79 (8.5 ms) | CPU 7.92 cores | read 25 MB (in-call 156 ms) | inflate 0.55 s, 11779 ch, 65->138 MB | PSO 2 (gfx 2+0 pre, cmp 0+0 pre) in 0.00 s
+[11:10:41.173] LoadStats #1 split [stage ready->clear] 13.5 s: frames 1437 (9.4 ms) | CPU 8.93 cores | read 2045 MB (in-call 3347 ms) | inflate 4.80 s, 64450 ch, 378->893 MB | PSO 26 (gfx 18+0 pre, cmp 8+0 pre) in 0.00 s
+[11:10:41.651] LoadStats tick out +97 s: frames 1612, 58A 0, FT -2015530160, B -2015848800, first failing gate G2 StageAreaListBusy
+[11:10:41.779] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[11:10:41.798] OSD: Present called from thread 4540 "AMD FSR Presenter Thread"
+[11:10:42.424] OSD: FG state: ON - running (96 -> 152 fps) [setting 2, game thread 0.0/s, presenter thread 151.8/s, ratio 1.58, pause reason 0]
+[11:10:42.751] LoadStats tick out +98 s: frames 106, 58A 0, FT -2015530160, B -2015848800, first failing gate G2 StageAreaListBusy
+[11:10:43.860] LoadStats tick out +99 s: frames 105, 58A 0, FT -2015530160, B -2015848800, first failing gate G2 StageAreaListBusy
+[11:10:44.944] LoadStats tick out +100 s: frames 101, 58A 0, FT -2015530160, B -2015848800, first failing gate G2 StageAreaListBusy
+[11:10:44.985] SP main [App]Game: 2933 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 60.7 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:44.985] SP main      20.0 %  [ntdll.dll] <- fn 0x167DE6
+[11:10:44.985] SP main      12.9 %  [ntdll.dll] <- fn 0x7D9E1C
+[11:10:44.985] SP main       3.3 %  fn 0xB94230
+[11:10:44.985] SP main       3.3 %  fn 0x61B1C
+[11:10:44.985] SP main       3.2 %  fn 0x1E81AE
+[11:10:44.985] SP main       3.1 %  [ntdll.dll] <- fn 0x1A74130
+[11:10:44.985] SP main       1.8 %  fn 0x1E7154
+[11:10:44.985] SP main       1.8 %  fn 0x418F40
+[11:10:44.985] SP main       1.8 %  fn 0x4D5F8
+[11:10:44.985] SP main       1.6 %  fn 0x128EF0
+[11:10:44.985] SP main       1.5 %  fn 0x4AA34
+[11:10:44.985] SP main       1.1 %  fn 0x1A74130
+[11:10:44.986] SP main       1.1 %  fn 0x1CD690
+[11:10:44.986] SP main       1.1 %  fn 0x4B104
+[11:10:44.986] SP main       1.0 %  fn 0x1290B8
+[11:10:44.986] SP main       0.8 %  fn 0xB94250
+[11:10:44.986] SP main       0.8 %  fn 0x1D7340
+[11:10:44.986] SP main       0.8 %  fn 0x1D84F8
+[11:10:44.986] SP main       0.7 %  fn 0x39E20
+[11:10:44.986] SP main       0.7 %  fn 0x620FA
+[11:10:44.986] SP main       0.6 %  fn 0x419A8
+[11:10:44.986] SP main       0.6 %  fn 0x1D8778
+[11:10:44.986] SP main       0.6 %  fn 0x1DAF6C
+[11:10:44.986] SP main       0.5 %  fn 0x1D833C
+[11:10:44.986] SP main       0.5 %  fn 0x4BBEC
+[11:10:44.986] SP KIDSTaskScheduler: 147 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 32.0 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:44.986] SP kidsTS    63.9 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:44.986] SP kidsTS     2.7 %  fn 0x411C0
+[11:10:44.986] SP kidsTS     1.4 %  fn 0x6EA50
+[11:10:44.986] SP kidsTS     1.4 %  [DINPUT8.dll] <- fn 0xB611BC
+[11:10:44.986] SP kidsTS     1.4 %  fn 0x4280B
+[11:10:44.986] SP kidsTS     1.4 %  fn 0x16728D
+[11:10:44.986] SP kidsTS     1.4 %  fn 0x3AF00
+[11:10:44.986] SP kidsTS     1.4 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x1220BD
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x1A3B78
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x1A7BF0
+[11:10:44.986] SP kidsTS     0.7 %  fn 0xD172C
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x11F49C
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x198410
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x207BD0
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x19FA5C
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x6FED0
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x11DAC4
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x284ED4
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x203D88
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x968F2C
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x2040A0
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x670B5
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x7ACAB0
+[11:10:44.986] SP kidsTS     0.7 %  fn 0x6EFDB
+[11:10:44.986] SP KIDSTS: 1778 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 3.5 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:44.986] SP kidsts    95.7 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:44.986] SP kidsts     0.3 %  fn 0xD8152
+[11:10:44.986] SP kidsts     0.3 %  fn 0x48F19
+[11:10:44.986] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x40800
+[11:10:44.986] SP kidsts     0.2 %  fn 0x1A51D4
+[11:10:44.986] SP kidsts     0.2 %  fn 0x46A24
+[11:10:44.986] SP kidsts     0.2 %  fn 0x12E4D0
+[11:10:44.986] SP kidsts     0.2 %  fn 0x1A4730
+[11:10:44.986] SP kidsts     0.2 %  fn 0xB36BF0
+[11:10:44.986] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x631C84
+[11:10:44.986] SP kidsts     0.1 %  fn 0x484E6
+[11:10:44.986] SP kidsts     0.1 %  fn 0xD6FF8
+[11:10:44.986] SP kidsts     0.1 %  fn 0xFB6BAF
+[11:10:44.986] SP kidsts     0.1 %  fn 0xD8DC0
+[11:10:44.986] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x2074A0
+[11:10:44.986] SP kidsts     0.1 %  fn 0x591FBC
+[11:10:44.986] SP kidsts     0.1 %  fn 0x411C0
+[11:10:44.986] SP kidsts     0.1 %  fn 0x3659E3
+[11:10:44.986] SP kidsts     0.1 %  fn 0x46901
+[11:10:44.986] SP kidsts     0.1 %  fn 0x2515F3
+[11:10:44.986] SP kidsts     0.1 %  fn 0x69184
+[11:10:44.986] SP kidsts     0.1 %  fn 0x4BB07C
+[11:10:44.986] SP kidsts     0.1 %  fn 0x364F67
+[11:10:44.986] SP kidsts     0.1 %  fn 0x6B2F03
+[11:10:44.986] SP kidsts     0.1 %  fn 0x3BD184
+[11:10:44.986] SP SynergisticDispatcher: 21 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 14.3 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:44.986] SP dispatch  38.1 %  [ntdll.dll] <- fn 0x86F760
+[11:10:44.986] SP dispatch  19.0 %  [ntdll.dll] <- fn 0x1139D4
+[11:10:44.986] SP dispatch  14.3 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:44.986] SP dispatch   4.8 %  [amdxc64.dll] <- fn 0x4940D8
+[11:10:44.986] SP dispatch   4.8 %  [amdxc64.dll] <- fn 0x116608
+[11:10:44.986] SP dispatch   4.8 %  fn 0xB94150
+[11:10:44.986] SP dispatch   4.8 %  [amdxc64.dll] <- fn 0x49349C
+[11:10:44.986] SP dispatch   4.8 %  fn 0x1190C0
+[11:10:44.986] SP dispatch   4.8 %  fn 0x11A218
+[11:10:44.986] SP [App] other: 987 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 0.7 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:44.986] SP app       80.1 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:44.986] SP app        2.1 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:44.986] SP app        2.1 %  [ntdll.dll] <- fn 0x3E030
+[11:10:44.986] SP app        2.1 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:44.986] SP app        2.1 %  [ntdll.dll] <- fn 0xB61524
+[11:10:44.986] SP app        2.1 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:44.986] SP app        2.0 %  [ntdll.dll] <- fn 0x2800C8
+[11:10:44.986] SP app        1.7 %  [ntdll.dll] <- fn 0x1345920
+[11:10:44.986] SP app        1.4 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:44.986] SP app        0.9 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:44.986] SP app        0.6 %  [ntdll.dll] <- fn 0x12F20C
+[11:10:44.986] SP app        0.5 %  [ntdll.dll] <- fn 0x131EC5B
+[11:10:44.986] SP app        0.5 %  [ntdll.dll] <- fn 0x686D3C
+[11:10:44.986] SP app        0.3 %  [ntdll.dll] (no game caller found)
+[11:10:44.986] SP app        0.2 %  [DINPUT8.dll] <- fn 0xB611BC
+[11:10:44.986] SP app        0.1 %  fn 0x363B28
+[11:10:44.986] SP app        0.1 %  fn 0xC6D08
+[11:10:44.986] SP app        0.1 %  [ntdll.dll] <- fn 0x368494
+[11:10:44.986] SP app        0.1 %  fn 0x27F7F8
+[11:10:44.986] SP app        0.1 %  fn 0xB92310
+[11:10:44.986] SP app        0.1 %  fn 0x18EE664
+[11:10:44.986] SP app        0.1 %  fn 0x1A51D4
+[11:10:44.986] SP app        0.1 %  [ntdll.dll] <- fn 0x6FBAA0
+[11:10:44.986] SP app        0.1 %  fn 0xFB64D0
+[11:10:44.986] SP app        0.1 %  [DINPUT8.dll] <- fn 0x58D304
+[11:10:46.030] LoadStats tick out +101 s: frames 100, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:47.139] LoadStats tick out +102 s: frames 111, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:48.215] LoadStats tick out +103 s: frames 111, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:49.335] LoadStats tick out +104 s: frames 117, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:49.988] SP main [App]Game: 3057 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 60.3 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:49.988] SP main      35.8 %  [ntdll.dll] <- fn 0x167DE6
+[11:10:49.988] SP main       3.8 %  fn 0xB94230
+[11:10:49.988] SP main       2.9 %  fn 0x1E81AE
+[11:10:49.988] SP main       2.1 %  fn 0x4AA34
+[11:10:49.988] SP main       1.8 %  fn 0x4D5F8
+[11:10:49.988] SP main       1.7 %  fn 0x61B1C
+[11:10:49.988] SP main       1.6 %  fn 0x128EF0
+[11:10:49.988] SP main       1.5 %  fn 0x1E7154
+[11:10:49.988] SP main       1.3 %  fn 0x418F40
+[11:10:49.988] SP main       1.1 %  fn 0x4B104
+[11:10:49.988] SP main       1.1 %  fn 0x39E20
+[11:10:49.988] SP main       1.0 %  fn 0x1CD690
+[11:10:49.988] SP main       1.0 %  fn 0x1D7340
+[11:10:49.988] SP main       0.9 %  fn 0xB94250
+[11:10:49.988] SP main       0.9 %  fn 0x1D84F8
+[11:10:49.988] SP main       0.8 %  fn 0x1D8778
+[11:10:49.988] SP main       0.8 %  fn 0xB93EE0
+[11:10:49.988] SP main       0.8 %  fn 0x419A8
+[11:10:49.988] SP main       0.7 %  fn 0x1E55D4
+[11:10:49.988] SP main       0.6 %  fn 0x4BBEC
+[11:10:49.988] SP main       0.6 %  fn 0x1D7EDA
+[11:10:49.988] SP main       0.6 %  fn 0x1290B8
+[11:10:49.988] SP main       0.6 %  fn 0x1DAF6C
+[11:10:49.988] SP main       0.5 %  fn 0x1E0B64
+[11:10:49.988] SP main       0.5 %  fn 0x1E73C0
+[11:10:49.988] SP KIDSTaskScheduler: 154 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 37.0 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:49.988] SP kidsTS    62.3 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:49.988] SP kidsTS     2.6 %  fn 0x1A3B78
+[11:10:49.988] SP kidsTS     1.9 %  fn 0x1A7BF0
+[11:10:49.988] SP kidsTS     1.3 %  fn 0x1220BD
+[11:10:49.988] SP kidsTS     1.3 %  fn 0xF33A0
+[11:10:49.988] SP kidsTS     1.3 %  fn 0xCE5F0
+[11:10:49.988] SP kidsTS     1.3 %  fn 0xB94250
+[11:10:49.988] SP kidsTS     1.3 %  fn 0x1A7408
+[11:10:49.988] SP kidsTS     1.3 %  fn 0x2040A0
+[11:10:49.988] SP kidsTS     1.3 %  fn 0x1991E0
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x47DF8
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x202ECC
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x236415
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x21E4DE
+[11:10:49.988] SP kidsTS     0.6 %  fn 0xCCC21
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x3AF00
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x11F49C
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x198410
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x1A6BB5
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x121EB5
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x1670FC
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x6BB80
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x3DA9A0
+[11:10:49.988] SP kidsTS     0.6 %  fn 0x1E41BC
+[11:10:49.988] SP kidsTS     0.6 %  fn 0xD1908
+[11:10:49.988] SP KIDSTS: 1847 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 3.1 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:49.988] SP kidsts    96.5 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:49.988] SP kidsts     0.3 %  fn 0xD8152
+[11:10:49.988] SP kidsts     0.3 %  fn 0x48F19
+[11:10:49.988] SP kidsts     0.2 %  fn 0x475BD
+[11:10:49.988] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x40800
+[11:10:49.988] SP kidsts     0.1 %  fn 0x2113D0
+[11:10:49.988] SP kidsts     0.1 %  fn 0x484E6
+[11:10:49.988] SP kidsts     0.1 %  fn 0x116A24
+[11:10:49.988] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x247734
+[11:10:49.988] SP kidsts     0.1 %  fn 0x1196BBA
+[11:10:49.988] SP kidsts     0.1 %  fn 0x47DF8
+[11:10:49.989] SP kidsts     0.1 %  fn 0x331A31
+[11:10:49.989] SP kidsts     0.1 %  fn 0x202FF4
+[11:10:49.989] SP kidsts     0.1 %  fn 0x484EF
+[11:10:49.989] SP kidsts     0.1 %  fn 0x45D0A
+[11:10:49.989] SP kidsts     0.1 %  fn 0x411C0
+[11:10:49.989] SP kidsts     0.1 %  fn 0x211350
+[11:10:49.989] SP kidsts     0.1 %  fn 0x86DEC
+[11:10:49.989] SP kidsts     0.1 %  fn 0xB93EE0
+[11:10:49.989] SP kidsts     0.1 %  fn 0x2124A4
+[11:10:49.989] SP kidsts     0.1 %  fn 0xDA879
+[11:10:49.989] SP kidsts     0.1 %  fn 0xDDCFF
+[11:10:49.989] SP kidsts     0.1 %  fn 0x163D20
+[11:10:49.989] SP kidsts     0.1 %  fn 0x6EFDF
+[11:10:49.989] SP kidsts     0.1 %  fn 0xD8DC5
+[11:10:49.989] SP SynergisticDispatcher: 22 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 9.1 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:49.989] SP dispatch  59.1 %  [ntdll.dll] <- fn 0x86F760
+[11:10:49.989] SP dispatch   9.1 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:49.989] SP dispatch   4.5 %  fn 0x114C16
+[11:10:49.989] SP dispatch   4.5 %  [D3D12Core.dll] <- fn 0x115DE8
+[11:10:49.989] SP dispatch   4.5 %  [amdxc64.dll] <- fn 0x3D1A38
+[11:10:49.989] SP dispatch   4.5 %  [ntdll.dll] <- fn 0x1139D4
+[11:10:49.989] SP dispatch   4.5 %  [ntdll.dll] <- fn 0x7F6904
+[11:10:49.989] SP dispatch   4.5 %  fn 0xB94250
+[11:10:49.989] SP dispatch   4.5 %  [amdxc64.dll] <- fn 0x49383C
+[11:10:49.989] SP [App] other: 1034 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 0.9 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:49.989] SP app       80.0 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:49.989] SP app        2.1 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:49.989] SP app        2.1 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:49.989] SP app        2.1 %  [ntdll.dll] <- fn 0xB61524
+[11:10:49.989] SP app        2.1 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:49.989] SP app        2.1 %  [ntdll.dll] <- fn 0x3E030
+[11:10:49.989] SP app        2.1 %  [ntdll.dll] <- fn 0x2800C8
+[11:10:49.989] SP app        2.1 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:49.989] SP app        2.0 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:49.989] SP app        1.7 %  [ntdll.dll] <- fn 0x1345920
+[11:10:49.989] SP app        0.2 %  [combase.dll] <- fn 0xB611BC
+[11:10:49.989] SP app        0.1 %  fn 0x219EEE
+[11:10:49.989] SP app        0.1 %  fn 0x2E782C
+[11:10:49.989] SP app        0.1 %  fn 0xCE7E0
+[11:10:49.989] SP app        0.1 %  fn 0x139BC8
+[11:10:49.989] SP app        0.1 %  [ntdll.dll] <- fn 0x3E844
+[11:10:49.989] SP app        0.1 %  fn 0x20B900
+[11:10:49.989] SP app        0.1 %  fn 0x1991E0
+[11:10:49.989] SP app        0.1 %  [ntdll.dll] (no game caller found)
+[11:10:49.989] SP app        0.1 %  fn 0x3730E3
+[11:10:49.989] SP app        0.1 %  fn 0x432D10
+[11:10:49.989] SP app        0.1 %  fn 0x13B18C
+[11:10:49.989] SP app        0.1 %  [netprofm.dll] <- fn 0x1345920
+[11:10:50.487] LoadStats tick out +106 s: frames 119, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:51.572] LoadStats tick out +107 s: frames 115, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:52.678] LoadStats tick out +108 s: frames 113, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:53.784] LoadStats tick out +109 s: frames 110, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:54.880] LoadStats tick out +110 s: frames 110, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:54.989] SP main [App]Game: 3016 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 59.9 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:54.989] SP main      37.1 %  [ntdll.dll] <- fn 0x167DE6
+[11:10:54.989] SP main       3.8 %  fn 0xB94230
+[11:10:54.989] SP main       3.0 %  fn 0x1E81AE
+[11:10:54.989] SP main       2.0 %  fn 0x4D5F8
+[11:10:54.989] SP main       1.8 %  fn 0x1E7154
+[11:10:54.989] SP main       1.8 %  fn 0x4AA34
+[11:10:54.989] SP main       1.7 %  fn 0x128EF0
+[11:10:54.989] SP main       1.5 %  fn 0xB94250
+[11:10:54.989] SP main       1.4 %  fn 0x418F40
+[11:10:54.989] SP main       1.4 %  fn 0x61B1C
+[11:10:54.989] SP main       1.2 %  fn 0x1CD690
+[11:10:54.989] SP main       1.0 %  fn 0x1D8778
+[11:10:54.989] SP main       0.9 %  fn 0x1D7340
+[11:10:54.989] SP main       0.8 %  fn 0x4B104
+[11:10:54.989] SP main       0.8 %  fn 0x1E5854
+[11:10:54.989] SP main       0.8 %  fn 0x39E20
+[11:10:54.989] SP main       0.8 %  fn 0xB93EE0
+[11:10:54.989] SP main       0.7 %  fn 0x1290B8
+[11:10:54.989] SP main       0.7 %  fn 0x1D84F8
+[11:10:54.989] SP main       0.7 %  fn 0x1E0B64
+[11:10:54.989] SP main       0.6 %  fn 0x1DAF6C
+[11:10:54.989] SP main       0.6 %  fn 0x5DF70
+[11:10:54.989] SP main       0.6 %  fn 0x1D8220
+[11:10:54.989] SP main       0.5 %  fn 0x4BBEC
+[11:10:54.989] SP main       0.5 %  fn 0x4D7B4
+[11:10:54.989] SP KIDSTaskScheduler: 154 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 38.3 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:54.989] SP kidsTS    60.4 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:54.989] SP kidsTS     2.6 %  fn 0x131FA8
+[11:10:54.989] SP kidsTS     1.9 %  fn 0x1220BD
+[11:10:54.989] SP kidsTS     1.3 %  fn 0x4280B
+[11:10:54.989] SP kidsTS     1.3 %  fn 0x121EB3
+[11:10:54.989] SP kidsTS     1.3 %  fn 0x706CC
+[11:10:54.989] SP kidsTS     1.3 %  fn 0x1202B0
+[11:10:54.989] SP kidsTS     1.3 %  fn 0x39A80
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x6F00C
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x8D6200
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x1A7BF0
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x3AF00
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x19BB08
+[11:10:54.989] SP kidsTS     0.6 %  fn 0xFFFDF0
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x6FED0
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x11DAC4
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x16F284
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x17346C
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x1A6FC4
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x16BA70
+[11:10:54.989] SP kidsTS     0.6 %  fn 0xB9F10
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x670B5
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x167E18
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x208193
+[11:10:54.989] SP kidsTS     0.6 %  fn 0x203BD4
+[11:10:54.989] SP KIDSTS: 1806 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 2.9 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:54.989] SP kidsts    97.0 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:54.989] SP kidsts     0.7 %  fn 0xD8152
+[11:10:54.989] SP kidsts     0.3 %  fn 0x411C0
+[11:10:54.989] SP kidsts     0.2 %  fn 0x48F19
+[11:10:54.989] SP kidsts     0.1 %  fn 0x3DAB5
+[11:10:54.989] SP kidsts     0.1 %  fn 0xDBA70
+[11:10:54.989] SP kidsts     0.1 %  fn 0xD8770
+[11:10:54.989] SP kidsts     0.1 %  fn 0x19CA9C
+[11:10:54.989] SP kidsts     0.1 %  fn 0xDBB48
+[11:10:54.989] SP kidsts     0.1 %  fn 0x211350
+[11:10:54.989] SP kidsts     0.1 %  [ntdll.dll] <- fn 0xB61524
+[11:10:54.989] SP kidsts     0.1 %  fn 0x73A2AE
+[11:10:54.989] SP kidsts     0.1 %  fn 0x2515F3
+[11:10:54.989] SP kidsts     0.1 %  fn 0xDA879
+[11:10:54.989] SP kidsts     0.1 %  fn 0x2124A4
+[11:10:54.989] SP kidsts     0.1 %  fn 0x2DF66C
+[11:10:54.989] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x117D6C
+[11:10:54.989] SP kidsts     0.1 %  fn 0x207200
+[11:10:54.989] SP kidsts     0.1 %  fn 0x3BD184
+[11:10:54.989] SP kidsts     0.1 %  fn 0x165717
+[11:10:54.989] SP kidsts     0.1 %  [ntdll.dll] <- fn 0x40800
+[11:10:54.989] SP kidsts     0.1 %  fn 0x6EA50
+[11:10:54.989] SP kidsts     0.1 %  fn 0x40800
+[11:10:54.989] SP kidsts     0.1 %  fn 0x2086E8
+[11:10:54.989] SP kidsts     0.1 %  fn 0x17771C
+[11:10:54.989] SP SynergisticDispatcher: 22 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 13.6 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:54.989] SP dispatch  45.5 %  [ntdll.dll] <- fn 0x86F760
+[11:10:54.989] SP dispatch   9.1 %  [ntdll.dll] <- fn 0x7F6904
+[11:10:54.989] SP dispatch   9.1 %  [amdxc64.dll] <- fn 0x494AB8
+[11:10:54.989] SP dispatch   9.1 %  fn 0x119820
+[11:10:54.989] SP dispatch   4.5 %  [amdxc64.dll] <- fn 0x1190C0
+[11:10:54.989] SP dispatch   4.5 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:54.989] SP dispatch   4.5 %  [amdxc64.dll] <- fn 0x495414
+[11:10:54.989] SP dispatch   4.5 %  [ntdll.dll] <- fn 0x1139D4
+[11:10:54.989] SP dispatch   4.5 %  fn 0x494AB8
+[11:10:54.989] SP dispatch   4.5 %  [amdxc64.dll] (no game caller found)
+[11:10:54.989] SP [App] other: 1034 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 1.2 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:54.989] SP app       79.6 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:54.989] SP app        2.3 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:54.989] SP app        2.1 %  [ntdll.dll] <- fn 0xB61524
+[11:10:54.990] SP app        2.1 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:54.990] SP app        2.1 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:54.990] SP app        2.1 %  [ntdll.dll] <- fn 0x3E030
+[11:10:54.990] SP app        2.1 %  [ntdll.dll] <- fn 0x2800C8
+[11:10:54.990] SP app        2.1 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:54.990] SP app        2.0 %  [ntdll.dll] <- fn 0x1345920
+[11:10:54.990] SP app        2.0 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:54.990] SP app        0.2 %  fn 0xC7F4C
+[11:10:54.991] SP app        0.1 %  fn 0x13B5C5
+[11:10:54.991] SP app        0.1 %  fn 0xCE7E0
+[11:10:54.991] SP app        0.1 %  fn 0x6A98E
+[11:10:54.991] SP app        0.1 %  fn 0x286124
+[11:10:54.991] SP app        0.1 %  fn 0x4EFA88
+[11:10:54.991] SP app        0.1 %  fn 0xD1110
+[11:10:54.991] SP app        0.1 %  fn 0x38237D
+[11:10:54.991] SP app        0.1 %  [ntdll.dll] (no game caller found)
+[11:10:54.991] SP app        0.1 %  fn 0xD0F48
+[11:10:54.991] SP app        0.1 %  fn 0x8FF1E7
+[11:10:54.991] SP app        0.1 %  fn 0x30C534
+[11:10:55.980] LoadStats tick out +111 s: frames 116, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:57.066] LoadStats tick out +112 s: frames 113, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:58.160] LoadStats tick out +113 s: frames 112, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:59.270] LoadStats tick out +114 s: frames 112, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:10:59.993] SP main [App]Game: 3077 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 59.1 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:59.993] SP main      36.4 %  [ntdll.dll] <- fn 0x167DE6
+[11:10:59.993] SP main       3.9 %  fn 0xB94230
+[11:10:59.993] SP main       2.8 %  fn 0x1E81AE
+[11:10:59.993] SP main       2.0 %  fn 0x4AA34
+[11:10:59.993] SP main       2.0 %  fn 0x4D5F8
+[11:10:59.993] SP main       1.8 %  fn 0x1E7154
+[11:10:59.993] SP main       1.7 %  fn 0x418F40
+[11:10:59.993] SP main       1.5 %  fn 0x61B1C
+[11:10:59.993] SP main       1.4 %  fn 0x128EF0
+[11:10:59.993] SP main       1.3 %  fn 0xB94250
+[11:10:59.993] SP main       1.1 %  fn 0x39E20
+[11:10:59.993] SP main       1.0 %  fn 0x1CD690
+[11:10:59.993] SP main       0.9 %  fn 0x1D8778
+[11:10:59.993] SP main       0.8 %  fn 0xB93EE0
+[11:10:59.993] SP main       0.7 %  fn 0x1DAF6C
+[11:10:59.993] SP main       0.7 %  fn 0x1D84F8
+[11:10:59.993] SP main       0.7 %  fn 0x1290B8
+[11:10:59.993] SP main       0.7 %  fn 0x1E73C0
+[11:10:59.993] SP main       0.6 %  fn 0x1E5854
+[11:10:59.993] SP main       0.6 %  fn 0x4B104
+[11:10:59.993] SP main       0.6 %  fn 0x1D7340
+[11:10:59.993] SP main       0.6 %  fn 0x4DB6C
+[11:10:59.993] SP main       0.5 %  fn 0x3C4B74
+[11:10:59.993] SP main       0.5 %  fn 0x113204
+[11:10:59.993] SP main       0.5 %  fn 0x4BBEC
+[11:10:59.993] SP KIDSTaskScheduler: 154 samples in 5 s from 7 thread(s), RIP in Nioh3.exe 36.4 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:59.993] SP kidsTS    60.4 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:59.993] SP kidsTS     1.9 %  fn 0x411C0
+[11:10:59.993] SP kidsTS     1.9 %  fn 0x1220BD
+[11:10:59.993] SP kidsTS     1.3 %  fn 0x204128
+[11:10:59.993] SP kidsTS     1.3 %  fn 0x3AF00
+[11:10:59.993] SP kidsTS     1.3 %  fn 0x1A7BF0
+[11:10:59.993] SP kidsTS     1.3 %  fn 0x1A188C
+[11:10:59.993] SP kidsTS     1.3 %  fn 0x3B7F70
+[11:10:59.993] SP kidsTS     1.3 %  fn 0x16D280
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x40EC74
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x166FB0
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x47BA1C
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x3DA148
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x12FBE1F
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x7162D8
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x19FA5C
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x121EB5
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x3D7CC8
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x121FC0
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x3DA9A0
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x131C50
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x1A6FC4
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x42154
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x2040A0
+[11:10:59.993] SP kidsTS     0.6 %  fn 0x7ACAB0
+[11:10:59.993] SP KIDSTS: 1867 samples in 5 s from 84 thread(s), RIP in Nioh3.exe 2.9 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:59.993] SP kidsts    96.9 %  [ntdll.dll] <- fn 0x1A6BB84
+[11:10:59.993] SP kidsts     0.5 %  fn 0xD8152
+[11:10:59.993] SP kidsts     0.3 %  fn 0x48F19
+[11:10:59.993] SP kidsts     0.2 %  fn 0x411C0
+[11:10:59.993] SP kidsts     0.2 %  fn 0xDBBE1
+[11:10:59.993] SP kidsts     0.2 %  fn 0x46A24
+[11:10:59.993] SP kidsts     0.2 %  [ntdll.dll] <- fn 0x40800
+[11:10:59.993] SP kidsts     0.1 %  fn 0xD8DC0
+[11:10:59.993] SP kidsts     0.1 %  fn 0xD8DD2
+[11:10:59.993] SP kidsts     0.1 %  fn 0x1196BBA
+[11:10:59.993] SP kidsts     0.1 %  fn 0x484EF
+[11:10:59.993] SP kidsts     0.1 %  fn 0xD89E0
+[11:10:59.993] SP kidsts     0.1 %  fn 0xD8DDD
+[11:10:59.993] SP kidsts     0.1 %  fn 0x2515F3
+[11:10:59.993] SP kidsts     0.1 %  fn 0xDBACA
+[11:10:59.993] SP kidsts     0.1 %  fn 0x2DF66C
+[11:10:59.993] SP kidsts     0.1 %  fn 0xDDCFF
+[11:10:59.993] SP kidsts     0.1 %  fn 0xD6FF8
+[11:10:59.993] SP kidsts     0.1 %  fn 0xD8E00
+[11:10:59.993] SP kidsts     0.1 %  fn 0x2D4EB4
+[11:10:59.993] SP kidsts     0.1 %  fn 0x4688C
+[11:10:59.993] SP kidsts     0.1 %  fn 0x89572
+[11:10:59.993] SP kidsts     0.1 %  fn 0xD878D
+[11:10:59.993] SP kidsts     0.1 %  fn 0xDC4CF
+[11:10:59.993] SP kidsts     0.1 %  fn 0x484E6
+[11:10:59.993] SP SynergisticDispatcher: 22 samples in 5 s from 1 thread(s), RIP in Nioh3.exe 9.1 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:59.993] SP dispatch  50.0 %  [ntdll.dll] <- fn 0x86F760
+[11:10:59.993] SP dispatch  13.6 %  [ntdll.dll] <- fn 0x7F6904
+[11:10:59.993] SP dispatch   4.5 %  [ntdll.dll] <- fn 0x1A7C3E0
+[11:10:59.993] SP dispatch   4.5 %  [ntdll.dll] <- fn 0x1139D4
+[11:10:59.993] SP dispatch   4.5 %  fn 0x1192B0
+[11:10:59.993] SP dispatch   4.5 %  [D3D12Core.dll] <- fn 0x492220
+[11:10:59.993] SP dispatch   4.5 %  [amdxc64.dll] (no game caller found)
+[11:10:59.993] SP dispatch   4.5 %  [amdxc64.dll] <- fn 0x494E00
+[11:10:59.993] SP dispatch   4.5 %  fn 0xB94250
+[11:10:59.993] SP dispatch   4.5 %  [amdxc64.dll] <- fn 0x49383C
+[11:10:59.993] SP [App] other: 1034 samples in 5 s from 47 thread(s), RIP in Nioh3.exe 1.0 % (the rest: system/driver code, attributed to the calling game function)
+[11:10:59.993] SP app       79.8 %  [ntdll.dll] <- fn 0xB616A4
+[11:10:59.993] SP app        2.2 %  [ntdll.dll] <- fn 0xB611BC
+[11:10:59.993] SP app        2.1 %  [ntdll.dll] <- fn 0x2800C8
+[11:10:59.993] SP app        2.1 %  [ntdll.dll] <- fn 0x1FEE28
+[11:10:59.993] SP app        2.1 %  [ntdll.dll] <- fn 0xF9C7D0
+[11:10:59.993] SP app        2.1 %  [ntdll.dll] <- fn 0x12F5E0
+[11:10:59.993] SP app        2.1 %  [ntdll.dll] <- fn 0xB61524
+[11:10:59.993] SP app        2.1 %  [ntdll.dll] <- fn 0x1FF320
+[11:10:59.993] SP app        2.1 %  [ntdll.dll] <- fn 0x3E030
+[11:10:59.993] SP app        1.8 %  [ntdll.dll] <- fn 0x1345920
+[11:10:59.993] SP app        0.2 %  fn 0xD3214
+[11:10:59.993] SP app        0.2 %  [ntdll.dll] (no game caller found)
+[11:10:59.993] SP app        0.1 %  fn 0x219EEE
+[11:10:59.993] SP app        0.1 %  fn 0xE26260
+[11:10:59.993] SP app        0.1 %  fn 0x219EB4
+[11:10:59.993] SP app        0.1 %  fn 0x1991E0
+[11:10:59.993] SP app        0.1 %  fn 0xD1110
+[11:10:59.993] SP app        0.1 %  fn 0x2BEC64
+[11:10:59.993] SP app        0.1 %  fn 0x161CAC
+[11:10:59.993] SP app        0.1 %  fn 0xD2530
+[11:10:59.993] SP app        0.1 %  [RPCRT4.dll] <- fn 0x1345920
+[11:11:00.358] LoadStats tick out +116 s: frames 114, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+[11:11:01.443] LoadStats tick out +117 s: frames 114, 58A 0, FT -2015530160, B -2015848800, first failing gate G9 LoadCharacterReady
+

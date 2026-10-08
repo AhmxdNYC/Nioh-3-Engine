@@ -1,0 +1,1136 @@
+﻿[11:25:13] GUARD: init name=abba_A harness=2680 owner=33032 maxMinutes=90 minHeadroom=18GB maxCrashes=2
+[11:25:14] GUARD: headroom OK (commit 35.5/44.6 GB, current headroom 9.1 GB, effective headroom 45.1 GB (C: free 51.2 GB, RAM 31.1 GB); need effective >= 18, current >= 6)
+[11:27:48] in game
+[11:28:01] GUARD: refusal check: system idle 5.7s, since our last input 22.1s
+[11:28:12] GUARD: refusal check: system idle 17.5s, since our last input 11.7s
+[11:28:12] GUARD: no human active -> refocusing Nioh3 (#1)
+powershell : Add-Content : The process cannot access the file 'C:\Users\Ahmad 
+Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+At line:1 char:359
++ ... estmatrix"; powershell -NoProfile -ExecutionPolicy Bypass -File abba_ ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Add-Content : T...a\trace_A.txt' :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:28:58] GUARD: refusal check: system idle 6.1s, since our last input 19.3s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:29:15] GUARD: refusal check: system idle 22.5s, since our last input 16.3s
+[11:29:15] GUARD: no human active -> refocusing Nioh3 (#2)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:29:47] all OFF; warm-up 60 s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:31:21] A_warm_OFF draws/frame mean 53890 (min 53890 max 53890, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:32:12] A_MQ_w1_off draws/frame mean 64379 (min 64379 max 64379, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:32:12] MQ w1 off done
+[11:32:23] GUARD: refusal check: system idle 5.2s, since our last input 52.3s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:33:17] A_MQ_w2_on draws/frame mean 74827 (min 74827 max 74827, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:33:17] MQ w2 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:34:08] A_MQ_w3_on draws/frame mean 85270 (min 85270 max 85270, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:34:08] MQ w3 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:35:15] A_MQ_w4_off draws/frame mean 94680 (min 94680 max 94680, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:35:15] MQ w4 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:36:05] A_MQ_w5_off draws/frame mean 103791 (min 103791 max 103791, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:36:05] MQ w5 off done
+[11:36:14] GUARD: refusal check: system idle 4.3s, since our last input 49.3s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:37:08] A_MQ_w6_on draws/frame mean 112908 (min 112908 max 112908, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:37:08] MQ w6 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:37:56] A_MQ_w7_on draws/frame mean 117435 (min 117435 max 117435, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:37:56] MQ w7 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:39:01] A_MQ_w8_off draws/frame mean 128806.5 (min 126532 max 131081, n=2)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:39:01] MQ w8 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:39:35] A_MQ_sentinel_off draws/frame mean 135611 (min 135611 max 135611, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:39:35] MQ sentinel done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:40:24] A_PP_w1_off draws/frame mean 140140 (min 140140 max 140140, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:40:24] PP w1 off done
+[11:40:33] GUARD: refusal check: system idle 4.9s, since our last input 48.8s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:41:28] A_PP_w2_on draws/frame mean 149380 (min 149380 max 149380, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:41:28] PP w2 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:42:17] A_PP_w3_on draws/frame mean 158453 (min 158453 max 158453, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:42:17] PP w3 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:43:30] A_PP_w4_off draws/frame mean 169040 (min 169040 max 169040, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:43:30] PP w4 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:44:19] A_PP_w5_off draws/frame mean 180948 (min 180948 max 180948, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:44:19] PP w5 off done
+[11:44:28] GUARD: refusal check: system idle 4.1s, since our last input 48.3s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:45:21] A_PP_w6_on draws/frame mean 192322 (min 192322 max 192322, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:45:21] PP w6 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:46:11] A_PP_w7_on draws/frame mean 204148 (min 204148 max 204148, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:46:11] PP w7 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:47:24] A_PP_w8_off draws/frame mean 216084 (min 216084 max 216084, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:47:24] PP w8 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:47:58] A_PP_sentinel_off draws/frame mean 222248 (min 222248 max 222248, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:47:58] PP sentinel done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:48:47] A_B_w1_off draws/frame mean 234555 (min 234555 max 234555, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:48:47] B w1 off done
+[11:48:56] GUARD: refusal check: system idle 4.1s, since our last input 48.5s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:49:50] A_B_w2_on draws/frame mean 246817 (min 246817 max 246817, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:49:50] B w2 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:50:39] A_B_w3_on draws/frame mean 259036 (min 259036 max 259036, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:50:39] B w3 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:51:54] A_B_w4_off draws/frame mean 271258 (min 271258 max 271258, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:51:54] B w4 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:52:43] A_B_w5_off draws/frame mean 283514 (min 283514 max 283514, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:52:43] B w5 off done
+[11:52:52] GUARD: refusal check: system idle 4.3s, since our last input 48.7s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:53:46] A_B_w6_on draws/frame mean 295727 (min 295727 max 295727, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:53:46] B w6 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:54:35] A_B_w7_on draws/frame mean 301841 (min 301841 max 301841, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:54:35] B w7 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:55:49] A_B_w8_off draws/frame mean 320234 (min 320234 max 320234, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:55:49] B w8 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:56:23] A_B_sentinel_off draws/frame mean 326356 (min 326356 max 326356, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:56:23] B sentinel done
+[11:56:42] GUARD: refusal check: system idle 4.1s, since our last input 92.5s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:57:09] GUARD: refusal check: system idle 31.6s, since our last input 27.5s
+[11:57:09] GUARD: no human active -> refocusing Nioh3 (#3)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:57:48] B screenshots done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:58:37] A_GF_w1_off draws/frame mean 350854 (min 350854 max 350854, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:58:37] GF w1 off done
+[11:58:44] GUARD: refusal check: system idle 4.0s, since our last input 47.5s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:59:38] A_GF_w2_on draws/frame mean 365863 (min 362788 max 368938, n=2)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[11:59:38] GF w2 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:00:28] A_GF_w3_on draws/frame mean 375078 (min 375078 max 375078, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:00:28] GF w3 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:01:39] A_GF_w4_off draws/frame mean 388555.5 (min 386168 max 390943, n=2)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:01:39] GF w4 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:02:29] A_GF_w5_off draws/frame mean 395690 (min 395690 max 395690, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:02:29] GF w5 off done
+[12:02:38] GUARD: refusal check: system idle 4.9s, since our last input 49.2s
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:03:32] A_GF_w6_on draws/frame mean 405181 (min 405181 max 405181, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:03:32] GF w6 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:04:22] A_GF_w7_on draws/frame mean 414683 (min 414683 max 414683, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:04:22] GF w7 on done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:05:33] A_GF_w8_off draws/frame mean 424427 (min 424427 max 424427, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:05:33] GF w8 off done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:06:07] A_GF_sentinel_off draws/frame mean 429186 (min 429186 max 429186, n=1)
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:06:07] GF sentinel done
+Add-Content : The process cannot access the file 'C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba\trace_A.txt' 
+because it is being used by another process.
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba_pc.ps1:20 char:74
++ ... [{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
++                                               ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\Ahmad ...bba\trace_A.txt:String) [Add-Content], IOException
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+ 
+[12:06:23] ini restored to fullmod_ini_1716 with Barriers=0
+[12:06:23] GUARD: done

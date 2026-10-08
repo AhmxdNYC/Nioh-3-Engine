@@ -1,0 +1,38 @@
+﻿== Block A
+  MQ w1 off fps 172.45 p99 13.32 cpu 5.61 gpu 4.73 counter 0 draws 64379
+  MQ w2 on  fps 171.71 p99 13.03 cpu 5.64 gpu 4.72 counter 0 draws 74827
+  MQ w3 on  fps 170.01 p99 13.51 cpu 5.68 gpu 4.75 counter 0 draws 85270
+  MQ w4 off fps 146.80 p99 14.59 cpu 6.49 gpu 5.19 counter 0 draws 94680
+  MQ w5 off fps 145.30 p99 14.64 cpu 6.51 gpu 5.20 counter 0 draws 103791
+  MQ w6 on  fps 146.08 p99 14.58 cpu 6.48 gpu 5.19 counter 0 draws 112908
+  MQ w7 on  fps 146.33 p99 14.61 cpu 6.49 gpu 5.19 counter 0 draws 117435
+  MQ w8 off fps 145.27 p99 14.63 cpu 6.51 gpu 5.12 counter 0 draws 128806
+MQ: dfps +8.30% (halves +7.04/+0.63) p99 -3.87% gpu_ms -3.59% counter_on_min 0 sentinel -1.0738624629999325 draws on/off 99089.0/99235.5 -> INVALID(gpu_ms moved -3.6%; counter 0 when ON; sentinel -1.07%)
+  PP w1 off fps 144.60 p99 14.64 cpu 6.51 gpu 5.13 counter 74 draws 140140
+  PP w2 on  fps 144.76 p99 14.67 cpu 6.53 gpu 5.13 counter 74 draws 149380
+  PP w3 on  fps 145.37 p99 14.59 cpu 6.52 gpu 5.11 counter 74 draws 158453
+  PP w4 off fps 196.67 p99 12.42 cpu 4.91 gpu 4.22 counter 100 draws 169040
+  PP w5 off fps 192.81 p99 9.02 cpu 5.02 gpu 4.24 counter 98 draws 180948
+  PP w6 on  fps 193.10 p99 8.93 cpu 5.02 gpu 4.23 counter 90 draws 192322
+  PP w7 on  fps 198.19 p99 8.84 cpu 4.88 gpu 4.19 counter 97 draws 204148
+  PP w8 off fps 202.72 p99 8.71 cpu 4.77 gpu 4.18 counter 100 draws 216084
+PP: dfps -13.10% (halves -14.99/-1.07) p99 +9.70% gpu_ms +10.40% counter_on_min 74 sentinel 0.2071823204419828 draws on/off 175387.5/174994.0 -> INVALID(gpu_ms moved +10.4%)
+  B w1 off fps 202.50 p99 8.62 cpu 4.77 gpu 4.18 counter None draws 234555
+  B w2 on  fps 201.92 p99 8.52 cpu 4.80 gpu 4.18 counter None draws 246817
+  B w3 on  fps 201.47 p99 8.42 cpu 4.82 gpu 4.18 counter None draws 259036
+  B w4 off fps 201.84 p99 8.51 cpu 4.80 gpu 4.18 counter None draws 271258
+  B w5 off fps 201.46 p99 8.54 cpu 4.81 gpu 4.18 counter None draws 283514
+  B w6 on  fps 202.47 p99 8.45 cpu 4.79 gpu 4.18 counter None draws 295727
+  B w7 on  fps 201.95 p99 8.51 cpu 4.80 gpu 4.18 counter None draws 301841
+  B w8 off fps 202.47 p99 8.49 cpu 4.80 gpu 4.18 counter None draws 320234
+B: dfps -0.11% (halves -0.23/+0.12) p99 -0.53% gpu_ms +0.00% counter_on_min None sentinel 0.0 draws on/off 277381.5/277386.0 -> NEUTRAL
+  GF w1 off fps 202.98 p99 8.47 cpu 4.78 gpu 4.18 counter 197 draws 350854
+  GF w2 on  fps 202.79 p99 8.45 cpu 4.79 gpu 4.18 counter 197 draws 365863
+  GF w3 on  fps 202.81 p99 8.48 cpu 4.78 gpu 4.18 counter 197 draws 375078
+  GF w4 off fps 157.76 p99 9.58 cpu 6.20 gpu 4.91 counter 151 draws 388555
+  GF w5 off fps 157.75 p99 9.59 cpu 6.21 gpu 4.90 counter 152 draws 395690
+  GF w6 on  fps 157.46 p99 9.62 cpu 6.22 gpu 4.90 counter 151 draws 405181
+  GF w7 on  fps 157.12 p99 9.59 cpu 6.23 gpu 4.89 counter 151 draws 414683
+  GF w8 off fps 157.11 p99 9.66 cpu 6.22 gpu 4.93 counter 150 draws 424427
+GF: dfps +14.18% (halves +12.44/-0.09) p99 -5.74% gpu_ms -7.54% counter_on_min 151 sentinel 0.4264528037680526 draws on/off 390129.5/392122.5 -> INVALID(gpu_ms moved -7.5%)
+== Block B
