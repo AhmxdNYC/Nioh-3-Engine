@@ -132,7 +132,7 @@ Files: `re\symbols\incoming\audio-objupdate.tsv` (8 new rows), `audio-objupdate-
 - The 18 renames are role names from the decompiled behaviour (confidence low; medium only for audio). `Obj` stays the placeholder class name.
 
 ## Pass 2 (2026-10-07, `perf-rename-2`): self-time coverage toward 99 %
-Files (pending, not merged):
+Files (merged by the main session 2026-10-07 23:32; now `incoming\merged\20261007-233233_perf-rename-2*.tsv`, renames applied in place):
 - `re\symbols\incoming\perf-rename-2.tsv`: 202 new function rows.
 - `re\symbols\incoming\perf-rename-2-renames.tsv`: 78 renames of existing `Unknown_*` / `Sched0Hot_` / `MainHot_` / `RenderSubmitHot_` / `PauseSpin_` rows. The merge keeps old names, so apply these **in place**.
 - `perf_coverage.py` now also reads both files (renames override placeholders).
@@ -172,6 +172,106 @@ Order of work: Ally share first (the target device), then combined share. Names 
 - **Confidence:** about half of the new names are `low` (role from behaviour and callers, no string or RTTI anchor). Game classes still have no RTTI, so class names (e.g. the `Obj` family) remain inferred.
 - **Duplicates by design:** where an agent and the main pass named the same rva, the main-pass name was kept.
 
-### Next: GPU-pass CPU paths and work-deciding systems
-- Per the standing goal (2), the next order is the CPU code behind the costliest Ally GP2 passes: fog (VFSCAT / `VolumetricFogScatter`), GI (RefProbe), sky (`DrawSky` / VCLOUD), PB2 material + PB2TREE2 draws, shadows, `MeshletPreculling`, then LOD selection, streaming budgets, culling thresholds and quality -> pass-parameter tables. FSR3 is covered by `fsr3-audit.md`.
-- Entry point found: the pass / scene-parameter type names (`DrawSky`, `RenderSkyPatternMap`, `VolumetricFogScatter`, `SSFog`, `SkyDome`, `NatureSky`, `MergeNatureCloudAndPatternMap`, `LocalizedSkylight`, `MeshletPreculling`, `UltramarineRender`, ...) are in `re\out\strings.tsv` with their referencing functions. 26F5D84 (54 KB, 680 strings) is the asset / type-handler registry builder (it holds the `RegisterAssetHandler` call at 26F5E69), so 243xxxx..249xxxx are per-type handler initialisers whose 4Bxxxxx globals lead to the per-frame consumers. `DrawSky` / `RenderSkyPatternMap` are referenced directly by 293230; `UltramarineRender` by 1A23646.
+### GPU-pass CPU paths (pending: `incoming\perf-rename-3.tsv` 92 rows incl. 9 node vtables; `perf-rename-3-renames.tsv` 5 corrections, apply in place)
+Ordered by Ally GP2 cost (`D:\nioh3-re\gp2_L2_top20.md`); FSR3 is covered by `fsr3-audit.md`. Found by following each pass/type name in `re\out\strings.tsv` from the type registry builder 26F5D84 (it holds the `RegisterAssetHandler` call at 26F5E69).
+
+
+
+**Common pattern.** Each pass name in 0x26F5D84 is registered by a small `<Type>RegisterType` function. That function stores {handler table, name} in a 0x4Bxxxxx global and tail-calls RegisterAssetHandler 3246E9C(reg, typeHash, &global). The handler tables come in three families:
+- **Render node:** handler slot 7 = 3254D00, slot 22 = factory.
+- **Data object:** slot 7 = 3240A98.
+- **Shader object:** slot 7 = 25ECxxx, slot 14 = A5F500. Its factory loads the program and never creates a node.
+
+The node factory (slot 22) resolves the node's resource/shader hashes and calls the ctor, which sets a **7-slot node vtable**:
+
+| Slot | Role |
+|---|---|
+| +0 | scalar dtor |
+| +8 | **Execute**(node, RenderCtx r, ?, Scene sc) |
+| +10 | ResourcesReady |
+| +18 / +20 / +28 | defaults AA0140 / AA0130 / AA0120 |
+| +30 | ReleaseResources |
+
+Every Execute uses the same view gate: view = (node byte & 7F) + [[r+F8h]+974h]; it must be < 0x20 and sc+180h+8*view must be non-null. `[r+F8h]` is the per-frame render-settings block (RS) that `ApplyGraphicsSettings` 39A39C / RenderParamsAssign 247950 feed.
+
+**Misnamed vtables found.** 0x410A460 and 0x410A498 (in symbols.tsv as ReflectionProbeCmdA/B_vftable) are really the UltraMarineEffectGBufferEdit and UltraMarine node vtables:
+- ctors 368ADB0 / 368ADE8;
+- factories 25B6FBC / 25B7064;
+- types 0x874A47C3 / 0x1872E683.
+
+These corrections are in `perf-rename-3-renames.tsv` (verified: ctor 368ADE8 is called only by UltraMarineFactory 25B7064 = slot 22 of the UltraMarineRegisterType table 3B38CA0):
+
+| RVA | Current name | Should be |
+|---|---|---|
+| 368AE9C | ReflectionProbeCmdA_ScalarDtor | UltraMarineEffectGBufferEdit dtor |
+| 368AEDC | ReflectionProbeCmdB_ScalarDtor | UltraMarine dtor |
+| 368B0AC | ReflectionProbeCmd_ResourcesReady | UltraMarineResourcesReady |
+
+The same correction applies to notes/invisible-gpu.md §1 "Command objects".
+
+#### 1. Fog (VFSCAT #2 1.07 ms; SSFog)
+- **Chain:** VolumetricFogScatterPassRegisterType 244F3E8 (hash 3C0512C3) -> Factory 25B9F84 -> Ctor 345F12C -> vtable 40EBA10 -> **Execute 14871C**.
+  - **Async compute** (AsyncSlotGetCtx(RS+1130h,4) non-null, the profiled case): RecordAsync 90749C -> SetupDispatchAsync 18FAD4 -> program vf+60h.
+  - **Sync:** 38C1AF8 -> 38C15A0 -> 38C1084 -> program vf+68h.
+  - The shader object is registered separately: VolumetricFogScatterShaderRegisterType 243A558.
+- **What sets the amount of work.** The froxel grid is computed in 14871C:
+  - X = RS+960h × view scale sc_view+1F00h × dyn-res sc_view+1ECCh (clamped to (0,2]);
+  - Y = RS+964h × sc_view+1F04h × the same dyn-res factor;
+  - the result is written to cb+14D0h/14D4h.
+  - Depth slices come from the target resource (u16 +38h/+3Ah of 147854's result).
+  - The quality knob upstream is ApplyVolumetricQuality 39B080 (S+13DC/13E0, already at max on HIGH). The RS+960/964 ← S+13DC/13E0 copy path was not traced.
+- **Per-frame CPU:** the work is constant (one Execute per view). The extra branches (LPV, VSM keylight, dust wind) only toggle constants.
+- **SSFog** is a shader member of the **StaticNature** node: StaticNatureRegisterType 244D1AC -> Ctor 346DE18 -> vtable 40EC6E0 -> Execute 6D7B88 -> 6D7B98 -> StaticNatureRenderView 108590 (S2F scattering params). The SSFog shader type itself is 243A058 (schema field at 0x2697F70).
+
+#### 2. GI (RefProbe #7/#9 ≈ 1.0 ms; SDFOCC/RefProbe #20)
+- **ReflectionProbePass:** Register 2448C5C -> Factory 25B2AC0 -> Ctor 368A33C -> vtable 410A428 -> **Execute 54294C** -> **Record 542C08**.
+  - Execute skips the pass if the [[r+F8h]+968h] sign bit is set.
+  - Record checks the RenderingType flags at node+E8h and the view-mode gate RS+95Ch&3, binds SubPoint/SubSpotLightShadows, and records the #121/#414 gathers.
+- **Denoiser:** 2448AAC -> 25B2850 -> 367A494 -> vtable 4109CE8. Its Execute 367BD44 is a generic "vf+40h prepare → vf+38h record" (shared with vtable 4109CA8).
+- **What sets the amount of work:** the gather render scale from GiRenderScalesApply 1872C4 / GiScaleLookup 187A50 (already documented). There is no per-frame throttle in Execute/Record; the probe radiance relight is event-driven (invisible-gpu.md).
+- **Material side:** MaterialBindReflectionProbeLightingParams 3C3F7C sets probeGlobalDiffuseILScaler/SpecScaler per technique.
+- **SkyAmbient pass** (244B1D8 -> 25B48AC -> 346DB38 -> vtable 40EC830 -> Execute 145C60) is **already time-sliced**:
+  - 43 steps spread over a period of view+29Ch seconds (mode view+3C8h: 0 every frame, 1 sliced, 2 forced).
+  - SkyAmbientDetectChange 1467EC resets the slicing when sky params change.
+  - SkyAmbientRecordSteps 145F6C records the steps.
+- LocalizedSkylight (2442EAC) and ReflectionProbeField (2448B3C, ctor 339E5C8) are data objects; they hold no per-frame code.
+
+#### 3. Sky (DrawSky/VCLOUD #10 0.39 ms async)
+- **Chain:** NatureSkyRegisterType 2445548 -> 25ADE2C -> 346D83C -> vtable 40EC750 -> Execute 293220 -> **NatureSkyRender 293230**.
+  - **Mode A** (node+240h bit0): "RenderSkyPatternMap" (2935E4), refreshed only when NatureSkyUpdatePatternParams 5F1628 says the params changed (time delta sc+2CCh - node+24Ch).
+  - **Mode B** ("NUpdate"): "DrawSky" = **NatureSkyDrawClouds 5F2A88** (VCLOUD), then "DrawScreenSpaceVelocity" 293784.
+- **What sets the amount of work:**
+  - VCLOUD renders into a quarter-res target (5F2A88 checks w==W>>2, h==H>>2).
+  - The history target ping-pongs (node+210h/110h, node+244h toggle).
+  - Cloud shadow/weather inputs: 2F95D80/2F95FF8/2F96228.
+  - No time-slicing of DrawSky was seen: it runs every frame.
+- **MergeNatureCloudAndPatternMap** (244348C -> 346D7EC -> vtable 40EC788 -> Execute 346ED64) runs only once per sim-time change (sc+2CCh != node+2Ch): check 3667FB4, then record 365BBD4.
+- SkyDome 244B268 and SkyAmbient object 244B148 are data types.
+
+#### 4. PB2 materials, trees, UltraMarine (#6 0.65, #12 0.34, #13 0.33 ms)
+- **PB2/PB2TREE2** have no dedicated node. They are ordinary G-buffer draws through the draw-list path: SceneRenderView 535188 -> DrawListWalk -> DrawEmit 1E80B0 -> DrawSubmit 1D2F60. Per draw, MaterialTechniqueBind 3C77F4 calls MaterialBindPb2AmbientScaleParams 3C5914 and MaterialResetPb2SpecialParams 3C4598.
+- Those two helpers strncmp the technique name ("PB2TREE2"/"PB2FUR"/"PB2EYEC"/"ThinSurfaceBSDF") **on every draw**. That is a small CPU cost; the GPU work is decided by the meshlet/draw lists (MESHLET_QUALITY → ApplyMeshletLodScales 2353C0; GRASS → GrassPlacementCull 31EF94).
+- **UltraMarine (water):** UltraMarineRegisterType 244E6AC -> Factory 25B7064 -> Ctor 368ADE8 -> vtable **410A498** -> Execute 852620 -> 852650 -> 850F18 -> **UltraMarineRecord 850FE0** (marker "UltramarineRender" in cold chunk 1A23646). It renders once per active view slot (+188h).
+
+#### 5. Shadows (WDO_SST/VSM draws #14 #17–19)
+- **VirtualShadowMapPass:** 244F1C0 -> 25B9DA8 -> 368B3B0 -> vtable 410A5F8 -> VsmPassNodeExecute 465384 -> VsmPassExecute 465414. The VSM clipmap/tile budget is already named (VsmClipmapRender 1F8340, VsmTilesPerFrameBudget 1F7960).
+- **Local lights:** LocalLightShadowmapRender 7E92B4 (point/spot/ESM) runs MeshletInstanceCulling + MeshletPreculling + DrawListWalk per light/face (8 sites).
+- **What sets the amount of work:**
+  - SHADOW_QUAL → ApplyShadowQuality 18A87C;
+  - MaxShadows / ShadowmapResolution params;
+  - the VSM tile budget.
+- Shader types: VirtualShadowMap 243A4B8, WritefShadowPass 2437F38 (unnamed here), ShadowTree 243A0F8 (unnamed here).
+
+#### 6. Culling (MPC #16 0.31 ms)
+- MeshletPreculling / MeshletInstanceCulling are shader types (2439018 / 2438F78). Their records (5301FC / 53FD3C, already named) are called from 38 sites:
+  - SceneRenderView 535188 (6 times);
+  - LocalLightShadowmapRender 7E92B4 (8 times);
+  - VsmPassExecute 465414;
+  - ViewVsmListA 1F5C2C;
+  - 1EB85C, 23584C, 237044, 44DE78.
+- So **MPC runs once per culled view/shadow face**, not once per frame. Its cost scales with the number of shadow views. GpuCullingRecord 69566C ("GPUCulling") is a separate culling path, reached via 905E10.
+- OcclusionCullingManager 2446370 is a data type (OccluderUnitArrayCapacity = 16).
+
+#### Not done / open
+- The copy RS+960h/964h ← ApplyVolumetricQuality S+13DC/13E0 was not traced.
+- The VCLOUD cloud-step count source inside 5F2A88 was not traced.

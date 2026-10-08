@@ -1,0 +1,7 @@
+# perf-rename-3-renames: RENAMES of existing symbols.tsv rows (Unknown_* / *Hot_* placeholders). merge_incoming.py keeps existing names, so apply these IN PLACE (same rva, replace name/signature/description). Evidence: notes/perf-coverage.md.
+rva	kind	name	signature	description	confidence	source
+onProbeCmdA_vftable	medium	notes/perf-coverage.md (perf-rename-3)
+0x410a498	vtable	UltraMarineNode_vftable		7-slot render-node vtable of the "UltraMarine" (water) type (hash 1872E683): stored by ctor 368ADE8, which only UltraMarineFactory 25B7064 calls (UltraMarineRegisterType 244E6AC table 3B38CA0, slot 22 at 3B38D50); Execute 852620; was ReflectionProbeCmdB_vftable	medium	notes/perf-coverage.md (perf-rename-3)
+0x368ae9c	function	UltraMarineEffectGBufferEditNode_ScalarDtor	void* UltraMarineEffectGBufferEditNode_ScalarDtor(Node* n, u8 flags)	scalar deleting dtor, slot 0 of UltraMarineEffectGBufferEditNode_vftable 410A460; was ReflectionProbeCmdA_ScalarDtor	medium	notes/perf-coverage.md (perf-rename-3)
+0x368aedc	function	UltraMarineNode_ScalarDtor	void* UltraMarineNode_ScalarDtor(Node* n, u8 flags)	scalar deleting dtor, slot 0 of UltraMarineNode_vftable 410A498; was ReflectionProbeCmdB_ScalarDtor	medium	notes/perf-coverage.md (perf-rename-3)
+0x368b0ac	function	UltraMarineNode_ResourcesReady	bool UltraMarineNode_ResourcesReady(Node* n, ...)	ResourcesReady slot (+10h) of the UltraMarine node vtables 410A460 / 410A498; was ReflectionProbeCmd_ResourcesReady	medium	notes/perf-coverage.md (perf-rename-3)
