@@ -1,0 +1,25 @@
+rva	kind	name	signature	description	confidence	source
+0x10dbed0	function	EmakiMissionRequest	void(u64 ref, EmakiKey* key, int missionId, StartParams* p)	Battle Scroll start: resolves Emaki record ([0x45B9E30]+0xA88), enqueues mission 0xCC96 into g_MissionRequestQueue	medium	notes/boss-rematch-paths.md
+0xf1f060	function	EmakiItemUse_MenuHandler		scroll item use: reads inventory item (+0x20 key,+0x12,+0xF,+0x28) and calls EmakiMissionRequest	medium	notes/boss-rematch-paths.md
+0x1c1425c	function	EmakiRecordGet		Emaki table lookup by 1-byte emaki id, record 0x34 B	medium	notes/boss-rematch-paths.md
+0x1c2794c	function	MissionSetupEmaki		mission load: init charMgr+0x2BD0 emaki state, +0x2C18 from mission rec +0x43 bit0	medium	notes/boss-rematch-paths.md
+0x1c1e470	function	PlacementBuild_EmakiFilter		placement spawn; for mission 0xCC96 skips placements != emakiRecord+0x10	low	notes/boss-rematch-paths.md
+0x223953c	function	MissionRequestEnqueue		push request into 3-slot queue at 0x45BC420 (0x58 B each)	medium	notes/boss-rematch-paths.md
+0x2239600	function	MissionRequestById	void(int missionId, u8 slot, int sub, StartParams* p)	mission start request by id (Mission::ChangeMission path)	medium	notes/boss-rematch-paths.md
+0x22396d8	function	MissionRequestReturn		re-request mission from MissionMgr+8 saved fields +0x18/+0x19/+0x1C	medium	notes/boss-rematch-paths.md
+0x22397ec	function	MissionRequestCore		builds request struct then MissionRequestEnqueue	medium	notes/boss-rematch-paths.md
+0x22398d4	function	MissionRequestFromQuest		quest-based mission 0x86EC request	low	notes/boss-rematch-paths.md
+0x22399b8	function	MissionRequestRegion		region/mission request used by World::WarpOtherWorld* bindings	medium	notes/boss-rematch-paths.md
+0x1c17be4	function	MissionIdRemapForRegion		hard-coded region->mission fallback ids	medium	notes/boss-rematch-paths.md
+0x223af50	function	MissionLoadStep		consumes g_MissionRequestQueue, sets load mode 6	medium	notes/boss-rematch-paths.md
+0x2237244	function	MissionStartFromSave		resume/start mission from MissionMgr fields (+0x24 mode, +0x21848/+0x21850)	low	notes/boss-rematch-paths.md
+0x45bc420	data	g_MissionRequestQueue		3 x 0x58 B pending mission requests (+4 mission id)	medium	notes/boss-rematch-paths.md
+0x1de28e8	function	MenuOpenMissionReplay	void(owner,int,u8 mode)	opens [0x45C84A8]+0x4E0 menu (mission replay), mode 6 from UI::OpenMissionReplayMenu	medium	notes/boss-rematch-paths.md
+0x1dafe64	function	ShrineTopMenu_Select		option 0 opens mission replay, option 1 opens [0x45C84A8]+0x4E8 menu	low	notes/boss-rematch-paths.md
+0x1db6f4c	function	MissionMenu_OnClose		mode 1 -> MissionRequestReturn	low	notes/boss-rematch-paths.md
+0x219feb4	function	ClearMapSet	void(u16 areaId, bool v)	clear-map setter on g_ClearDb [0x4751848]	medium	notes/boss-rematch-paths.md
+0x217e884	function	ClearMapSetEntry	void(db, u16 id, bool v, bool notify)	writes clear-map entry bytes (+0x23/+0x2B slot), trophies for type 1	medium	notes/boss-rematch-paths.md
+0x2845c8	function	ClearMapGet	bool(db, u16 id)	FNV-1a 2-byte id, table [db+8]+0x428, byte +0x23+slot	medium	notes/boss-rematch-paths.md
+0x285808	function	AreaRecordGet		area record lookup in [0x45B9E30]+0x630 (0xC4 B, +0xC0 type)	medium	notes/boss-rematch-paths.md
+0x10c6e70	function	SaveField_EmakiUniqueEnemyDefeatFlag		reflection writer for emaki_unique_enemy_defeat_flag_	medium	notes/boss-rematch-paths.md
+0x1ca7468	function	RetryGadget_ResurrectPlayers		revive loop over players (Gadget::Retry::Resurrect)	low	notes/boss-rematch-paths.md
