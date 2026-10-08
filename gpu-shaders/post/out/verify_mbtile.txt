@@ -1,0 +1,6 @@
+mbtile: original f11afe97 vs replacement f11afe97be03915b7284f59eadab1819.dxbc (sha256 516f636faa5c7cf690bc0c8eef702f6bd946aecef9d16a942c71dcd31448d3c4)
+interface: OK (ISGN/OSGN identical, same bindings and cbuffer layout)
+scenes 400, pixels 9600 (hang-in-both 0), mismatching pixels 0
+coverage: 28 / 28 shipped instructions executed
+per pixel: fetches 93.36 -> 119.98, wait rounds 93.36 -> 15.00
+RESULT: BIT-EXACT (0 ulp, all outputs)  (22 s)

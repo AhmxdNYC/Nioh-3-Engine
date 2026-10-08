@@ -1,2 +1,8 @@
 out/blobs/
 out/asm/
+out/*.dxbc
+out/*.dxil
+out/psocheck/
+src/gen/
+src/_mut.hlsl
+__pycache__/

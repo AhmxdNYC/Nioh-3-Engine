@@ -1,0 +1,6 @@
+compose_ca2: original e6efc8ff vs replacement e6efc8ff49a9b254151466f9835e8fad.dxbc (sha256 afc8bb78541d7da0a7e39a00ff8318f899a251cd5ebb504aa2aa88b3ecf092ff)
+interface: OK (ISGN/OSGN identical, same bindings and cbuffer layout)
+scenes 400, pixels 9600 (hang-in-both 0), mismatching pixels 0
+coverage: 159 / 159 shipped instructions executed
+per pixel: fetches 14.29 -> 14.29, wait rounds 14.29 -> 8.68
+RESULT: BIT-EXACT (0 ulp, all outputs)  (7 s)

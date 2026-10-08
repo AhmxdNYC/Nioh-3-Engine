@@ -1,0 +1,6 @@
+mbgather: original 4e13e236 vs replacement 4e13e236319c9df7c81203eca95c4df4.dxbc (sha256 62f916521f358b050216bb3d02261a3b8cdea9a75cd28520668d050ee04cd198)
+interface: OK (ISGN/OSGN identical, same bindings and cbuffer layout)
+scenes 400, pixels 16000 (hang-in-both 0), mismatching pixels 0
+coverage: 92 / 92 shipped instructions executed
+per pixel: fetches 14.09 -> 14.09, wait rounds 7.37 -> 3.25
+RESULT: BIT-EXACT (0 ulp, all outputs)  (8 s)

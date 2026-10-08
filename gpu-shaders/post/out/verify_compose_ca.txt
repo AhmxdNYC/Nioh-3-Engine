@@ -1,0 +1,6 @@
+compose_ca: original 04c1052d vs replacement 04c1052dc24e69dc69ae5c52430f97b5.dxbc (sha256 38ce95b33f3656187b2cd95507aae21880879868208fbbb58f08a3d7596d9f2e)
+interface: OK (ISGN/OSGN identical, same bindings and cbuffer layout)
+scenes 400, pixels 9600 (hang-in-both 0), mismatching pixels 0
+coverage: 288 / 288 shipped instructions executed
+per pixel: fetches 16.92 -> 16.92, wait rounds 16.92 -> 11.31
+RESULT: BIT-EXACT (0 ulp, all outputs)  (8 s)

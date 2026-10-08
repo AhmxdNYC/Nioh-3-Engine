@@ -1,0 +1,6 @@
+dofgather: original cf792d56 vs replacement cf792d56ae14e49c093cb5f27a66f871.dxbc (sha256 3c4902b63c9cb03793e744b63b68fea856833da5883883c942ced6112885af6d)
+interface: OK (ISGN/OSGN identical, same bindings and cbuffer layout)
+scenes 400, pixels 6400 (hang-in-both 0), mismatching pixels 0
+coverage: 112 / 112 shipped instructions executed
+per pixel: fetches 119.21 -> 119.21, wait rounds 80.25 -> 22.77
+RESULT: BIT-EXACT (0 ulp, all outputs)  (20 s)

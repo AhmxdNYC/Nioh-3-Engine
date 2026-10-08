@@ -1,0 +1,5 @@
+mbtile       shipped: {'vgpr': 12, 'wave': 64, 'ins': 154, 'vmem': 1, 'vmwaits': 1} | replacement: {'vgpr': 24, 'wave': 64, 'ins': 313, 'vmem': 8, 'vmwaits': 7}
+mbgather     shipped: {'vgpr': 32, 'wave': 64, 'ins': 290, 'vmem': 5, 'vmwaits': 4} | replacement: {'vgpr': 56, 'wave': 64, 'ins': 486, 'vmem': 11, 'vmwaits': 7}
+dofgather    shipped: {'vgpr': 28, 'wave': 64, 'ins': 313, 'vmem': 6, 'vmwaits': 5} | replacement: {'vgpr': 48, 'wave': 64, 'ins': 512, 'vmem': 15, 'vmwaits': 11}
+compose_ca   shipped: {'vgpr': 36, 'wave': 64, 'ins': 798, 'vmem': 12, 'vmwaits': 13} | replacement: {'vgpr': 48, 'wave': 64, 'ins': 909, 'vmem': 15, 'vmwaits': 15}
+compose_ca2  shipped: {'vgpr': 36, 'wave': 64, 'ins': 526, 'vmem': 7, 'vmwaits': 8} | replacement: {'vgpr': 48, 'wave': 64, 'ins': 638, 'vmem': 10, 'vmwaits': 10}
