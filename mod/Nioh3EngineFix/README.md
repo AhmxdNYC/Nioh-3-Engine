@@ -579,11 +579,42 @@ build.bat / CMakeLists.txt / .github/workflows/build.yml
   * Before the first frame, the tier defaults to 60. The scripts read it from the live game. P1 overwrites it on
     the first frame either way.
 
-### Ally barrier trace (1.7.9)
-Counts what vkd3d-proton sees on the Ally, split by the engine's real callers. 1.7.9 adds a `caller2_rva` column to
-`Nioh3EngineFix.gpuopt-trace.csv`: the second return address inside Nioh3.exe (the first is `SynTransitionResource`
-115E9D for every engine barrier). Cost is paid only while `TraceRecords > 0` (one 16-frame unwind per barrier row).
-1. `[GpuOpt] Barriers = 2` (count only, nothing deferred), `TraceRecords = 300000`, `TraceDelaySec = 30` (default); play a match.
-2. After ~2 min the log says `trace: N records written`; take `Nioh3EngineFix.gpuopt-trace.csv` from the game folder.
-3. On the PC: `py -I re\scripts_d3d12\vkd3d_cost.py Nioh3EngineFix.gpuopt-trace.csv` (self-check: `--selftest`).
-   It groups R1 (read->read) / COMMON-origin barriers by caller2, and reports render-pass ends and OMSetRenderTargets.
+### Ally barrier trace and the R2a / R2b / R1 barrier rewrites (1.7.9 / 1.7.10)
+Background: notes\vkd3d-audit.md (Addendum B has the designs, the 45 engine callers and the safety conditions).
+vkd3d-proton maps a `COMMON` before-state to ALL_COMMANDS + MEMORY_READ/WRITE, which on RADV is a full wait-for-idle. The engine
+resets the tracked state of every buffer to COMMON at the start of each command list (list stamp), which is the true D3D12 state
+there, so each list starts with `COMMON -> X` barriers. 1.7.10 can replace that before-state; all three switches are **off by default**.
+
+**Trace** (`TraceRecords > 0`). Every barrier row of `Nioh3EngineFix.gpuopt-trace.csv` now carries `caller2_rva` (the second return
+address inside Nioh3.exe; the first is `SynTransitionResource` 115E9D for every engine barrier) and, new in 1.7.10, `res_dim` and
+`res_flags` (D3D12_RESOURCE_DIMENSION and D3D12_RESOURCE_FLAGS of the resource, e.g. `1,0x4` = buffer with ALLOW_UNORDERED_ACCESS;
+`GetDesc` is cached per resource pointer). 1.7.9 wrote the header without `caller2_rva`; that is fixed. Cost is paid only while
+`TraceRecords > 0`.
+
+**The rewrites** (`[GpuOpt] R2a / R2b / R1`, live switches in the mod menu GPU section, Proton only, dispatcher thread only,
+need the hooks: `Barriers = 1` or `2`). The `stats/s gpuopt` line shows `R2a on/off N/frame, R2b ..., R1 ... dropped; kept tex /
+uav / unknown / foreign` (candidates that were passed through: texture, UAV buffer while R2b is off, no previous state known, previous
+state from another thread or from the same list).
+- **R2a**: a `COMMON -> X` on a buffer without ALLOW_UNORDERED_ACCESS gets `StateBefore = last tracked state | NPSR | PSR` (a write
+  state such as COPY_DEST becomes `{P -> NPSR|PSR}` + `{NPSR|PSR -> X}`, kept in one batch). Conditions: whole-resource barrier,
+  no flags, a previous state recorded by the same thread in an earlier list (list changes are detected per thread); anything else is
+  passed through unchanged.
+- **R2b (EXPERIMENT, warning)**: the same for buffers with ALLOW_UNORDERED_ACCESS (UAV binds, ExecuteIndirect arguments). It narrows
+  the wait for UAV writes that may come from carried-over descriptors and can show stale data or flicker; it may also save nothing
+  on RADV. Judge only with screenshots.
+- **R1 (EXPERIMENT)**: drops read -> read transitions whose new state is a superset of the old one (only VCB/IB/NPSR/PSR bits). Not
+  spec-exact; needs an image compare.
+
+**Ally recipe** (one launch, then A/B live):
+1. Launch 1: `[GpuOpt] Barriers = 2`, `TraceRecords = 300000`, `TraceDelaySec = 30` (default); play a match for ~2 min. The log says
+   `trace: N records written`; take `Nioh3EngineFix.gpuopt-trace.csv` from the game folder.
+2. On the PC: `py -I re\scripts_d3d12\vkd3d_cost.py Nioh3EngineFix.gpuopt-trace.csv` (self-check: `--selftest`). It splits the
+   COMMON-origin barriers into R2a (non-UAV buffers) / R2b (UAV buffers) / textures, counts the R1 supersets by resource class and
+   caller, and reports render-pass ends. Build-worthiness: R2a if >= ~50/frame, R1 if >= ~50/frame.
+3. Same launch or the next one (no trace needed): in the menu switch R2a on and off while watching GPU W / fps (and the `stats/s
+   gpuopt` rewrite counters); take screenshots of the same scene with each switch on and off. Then R1 the same way. R2b last, only as
+   a curiosity. Save to ini writes `R2a / R2b / R1`.
+
+Tests: `py -I tests\run_r2_harness.py` runs identical work (buffers with R2a read and write cases, a UAV buffer, a texture, a small
+render target) on this PC's real D3D12 device with every switch combination and requires bit-identical buffers and render target,
+the expected counters, and the trace columns.

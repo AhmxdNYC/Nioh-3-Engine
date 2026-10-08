@@ -71,6 +71,13 @@ struct Stats {
     uint64_t conflictSplits = 0;    // batch emitted early because the same resource came again (kept sequential)
     uint64_t fullSplits = 0;        // batch emitted because it reached MaxBatch
     uint64_t foreignFlushes = 0;    // a batch was emitted by another thread's call on the list (e.g. frame-end barrier)
+    uint64_t r2a = 0;               // 1.7.10 R2a: COMMON -> X rewritten on buffers without ALLOW_UNORDERED_ACCESS
+    uint64_t r2b = 0;               // R2b (experiment): the same for UAV buffers
+    uint64_t r1Dropped = 0;         // R1 (experiment): read -> read superset transitions dropped
+    uint64_t keptTexture = 0;       // COMMON -> X candidates passed through: texture
+    uint64_t keptUav = 0;           //   ... UAV buffer while R2b is off
+    uint64_t keptUnknown = 0;       //   ... no tracked previous state
+    uint64_t keptForeign = 0;       //   ... previous state from another thread / the same list
     uint32_t maxBatch = 0;          // largest batch emitted
     uint64_t flushBySlot[96] = {};  // which list method emitted the batches (index = vtable slot)
 };
@@ -92,6 +99,11 @@ void SetMergeAcrossBinds(bool on);  // live; off = every hooked list method flus
 bool MergeAcrossBinds();
 void SetDropUndoPairs(bool on);     // live
 bool DropUndoPairs();
+// 1.7.10 barrier rewrites (Wine only, dispatcher thread, default OFF; notes\vkd3d-audit.md Addendum B). which: 0 = R2a, 1 = R2b
+// (UAV buffers, EXPERIMENT), 2 = R1 (read->read supersets, EXPERIMENT). Live. SetRewrite does nothing off Wine.
+void SetRewrite(int which, bool on);
+bool Rewrite(int which);
+bool RewriteIni(int which);        // value at launch ([GpuOpt] R2a / R2b / R1)
 
 void OnFrame();                     // once per presented frame (optional; enables per-frame figures)
 void GetStats(Stats& out);          // cumulative

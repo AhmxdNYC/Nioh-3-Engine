@@ -119,6 +119,7 @@ struct Cfg {
     int dropUndoPairs = 0;
     int anyCaller = 0;
     int maxBatch = 64;
+    int r2a = 0, r2b = 0, r1 = 0;  // barrier rewrites (Wine only, dispatcher thread; notes\vkd3d-audit.md Addendum B)
     int traceRecords = 0;
     int traceDelaySec = 30;
     int installDelaySec = 20;
@@ -131,6 +132,7 @@ std::string g_wine;
 volatile LONG g_state = (LONG)State::Off;
 volatile LONG g_batching = 0;
 volatile LONG g_dropUndo = 0;
+volatile LONG g_r2a = 0, g_r2b = 0, g_r1 = 0;  // live switches (Start copies the ini)
 bool g_gpuProf = false;  // the GP profiler needs the hooks even with Barriers = 0 (batching then stays off)
 SRWLOCK g_installLock = SRWLOCK_INIT;
 
@@ -190,7 +192,7 @@ void ResolveStreamline() {
 // ---- statistics ----------------------------------------------------------------------------------------------------------
 struct Counters {
     volatile LONG64 frames, calls, barriers, deferred, passthrough, passCalls, emitCalls, emitBarriers, dupUav, undoSeen, undoDropped,
-        conflictSplits, fullSplits, foreignFlushes;
+        conflictSplits, fullSplits, foreignFlushes, r2a, r2b, r1, keptTex, keptUav, keptUnknown, keptForeign;
     volatile LONG maxBatch;
     volatile LONG64 bySlot[kSlots];
 };
@@ -208,6 +210,7 @@ struct TraceRec {
     uint32_t callerRva; // first return address inside Nioh3.exe (0 = none within 16 frames)
     uint32_t caller2Rva; // second return address inside Nioh3.exe (the caller of the first frame's function)
     uint64_t a1, a2, a3;
+    uint32_t resDim, resFlags;  // barrier rows: D3D12_RESOURCE_DIMENSION and D3D12_RESOURCE_FLAGS of the resource (0 = unknown)
 };
 TraceRec* g_trace = nullptr;
 volatile LONG g_traceN = 0;
@@ -227,7 +230,48 @@ void CallerRvas(uint32_t& c1, uint32_t& c2) {
     }
 }
 
-void TraceAdd(void* list, int set, int slot, int action, uint64_t a1, uint64_t a2, uint64_t a3, bool caller) {
+// ---- per-resource cache: GetDesc once per pointer (trace) + the last tracked state (rewrites) ---------------------------
+// Keyed by the ID3D12Resource pointer. A recycled pointer can carry a stale Dimension/Flags here, so every rewrite
+// candidate calls GetDesc again (a memcpy in vkd3d); the cached values are only used for the trace columns.
+struct ResEnt {
+    ID3D12Resource* p;
+    uint32_t dim, flags;
+    uint32_t last;      // last whole-resource StateAfter the engine's tracker moved it to (0 = COMMON or unknown)
+    uint32_t lastTid;
+    uint32_t lastGen;   // list generation (thread-local) of that barrier
+};
+constexpr int kResBits = 15;
+ResEnt g_res[1 << kResBits];
+SRWLOCK g_resLock = SRWLOCK_INIT;
+thread_local ID3D12GraphicsCommandList* t_lastCl = nullptr;
+thread_local uint32_t t_listGen = 1;  // bumped when the thread moves to another list and on Close(): "same list" test
+
+void DescInto(ResEnt& e) {
+    const D3D12_RESOURCE_DESC d = e.p->GetDesc();
+    e.dim = (uint32_t)d.Dimension;
+    e.flags = (uint32_t)d.Flags;
+}
+
+// lock held. Never returns null.
+ResEnt* ResFind(ID3D12Resource* p) {
+    const size_t h = (size_t)(((uint64_t)(uintptr_t)p >> 4) * 0x9E3779B97F4A7C15ull >> (64 - kResBits));
+    ResEnt* victim = &g_res[h];
+    for (int i = 0; i < 8; ++i) {
+        ResEnt& e = g_res[(h + i) & ((1 << kResBits) - 1)];
+        if (e.p == p) return &e;
+        if (!e.p) {
+            victim = &e;
+            break;
+        }
+    }
+    memset(victim, 0, sizeof *victim);
+    victim->p = p;
+    DescInto(*victim);
+    return victim;
+}
+
+void TraceAdd(void* list, int set, int slot, int action, uint64_t a1, uint64_t a2, uint64_t a3, bool caller,
+              ID3D12Resource* res = nullptr) {
     if (!gpuopt_trace || !g_trace) return;
     const LONG i = InterlockedIncrement(&g_traceN) - 1;
     if (i >= g_traceCap) {
@@ -248,23 +292,35 @@ void TraceAdd(void* list, int set, int slot, int action, uint64_t a1, uint64_t a
     r.a1 = a1;
     r.a2 = a2;
     r.a3 = a3;
+    r.resDim = r.resFlags = 0;
+    if (res) {
+        AcquireSRWLockExclusive(&g_resLock);
+        const ResEnt* e = ResFind(res);
+        r.resDim = e->dim;
+        r.resFlags = e->flags;
+        ReleaseSRWLockExclusive(&g_resLock);
+    }
 }
 
 void TraceBarrier(void* list, int set, int action, const D3D12_RESOURCE_BARRIER& b, bool caller) {
     if (!gpuopt_trace) return;
     uint64_t res = 0, states = 0, sub = 0;
+    ID3D12Resource* dres = nullptr;
     if (b.Type == D3D12_RESOURCE_BARRIER_TYPE_TRANSITION) {
         res = (uint64_t)b.Transition.pResource;
+        dres = b.Transition.pResource;
         states = ((uint64_t)(uint32_t)b.Transition.StateBefore << 32) | (uint32_t)b.Transition.StateAfter;
         sub = b.Transition.Subresource;
     } else if (b.Type == D3D12_RESOURCE_BARRIER_TYPE_UAV) {
         res = (uint64_t)b.UAV.pResource;
+        dres = b.UAV.pResource;
     } else {
         res = (uint64_t)b.Aliasing.pResourceBefore;
+        dres = b.Aliasing.pResourceBefore;
         states = (uint64_t)b.Aliasing.pResourceAfter;
     }
     TraceAdd(list, set, kSlotResourceBarrier, action, res, states,
-             ((uint64_t)b.Type << 56) | ((uint64_t)b.Flags << 48) | (sub & 0xFFFFFFFFull), caller);
+             ((uint64_t)b.Type << 56) | ((uint64_t)b.Flags << 48) | (sub & 0xFFFFFFFFull), caller, dres);
 }
 
 DWORD WINAPI TraceThread(LPVOID) {
@@ -287,14 +343,14 @@ DWORD WINAPI TraceThread(LPVOID) {
     LARGE_INTEGER fq;
     QueryPerformanceFrequency(&fq);
     const int64_t q0 = n ? g_trace[0].qpc : 0;
-    fprintf(f, "seq,us,tid,list,set,slot,method,action,caller_rva,a1,a2,a3\n");
+    fprintf(f, "seq,us,tid,list,set,slot,method,action,caller_rva,a1,a2,a3,caller2_rva,res_dim,res_flags\n");
     static const char* kAct[] = {"call", "deferred", "pass", "drop_dup_uav", "drop_undo", "emit"};
     for (LONG i = 0; i < n; ++i) {
         const TraceRec& r = g_trace[i];
         const char* m = r.slot < kSlots ? kSlotInfo[r.slot].name : (r.slot == 200 ? "EMIT" : "?");
-        fprintf(f, "%ld,%.3f,%u,%p,%u,%u,%s,%s,0x%X,0x%llX,0x%llX,0x%llX\n", i, (r.qpc - q0) * 1e6 / (double)fq.QuadPart,
+        fprintf(f, "%ld,%.3f,%u,%p,%u,%u,%s,%s,0x%X,0x%llX,0x%llX,0x%llX,0x%X,%u,0x%X\n", i, (r.qpc - q0) * 1e6 / (double)fq.QuadPart,
                 r.tid, r.list, r.set, r.slot, m, r.action < 6 ? kAct[r.action] : "?", r.callerRva,
-                (unsigned long long)r.a1, (unsigned long long)r.a2, (unsigned long long)r.a3, r.caller2Rva);
+                (unsigned long long)r.a1, (unsigned long long)r.a2, (unsigned long long)r.a3, r.caller2Rva, r.resDim, r.resFlags);
     }
     fclose(f);
     InterlockedExchange(&g_traceDone, 1);
@@ -415,6 +471,125 @@ ID3D12Resource* ResOf(const D3D12_RESOURCE_BARRIER& b) {
                                                             : nullptr;
 }
 
+// ---- barrier rewrites R2a / R2b / R1 (notes\vkd3d-audit.md Addendum B; all default OFF, Wine only, dispatcher thread) ------
+// Input: the structs of one ResourceBarrier call. Output: the structs to record (0..2n). glue[j] = out[j] is the second
+// half of a rewritten pair and must stay in the same batch as out[j-1].
+//   bookkeeping: per resource the engine tracker's last StateAfter ("P"), the recording thread and the list generation.
+//   R2a: COMMON -> X on a BUFFER without ALLOW_UNORDERED_ACCESS, P known (set earlier, same thread, an EARLIER list):
+//        StateBefore := P | NPSR | PSR when P is read-only; a write P gives {P -> NPSR|PSR} + {NPSR|PSR -> X}.
+//   R2b: the same for UAV buffers (EXPERIMENT): {UAV -> X} (+ {P -> X} when P has other bits); UAV -> UAV becomes a UAV barrier.
+//   R1 : drop read -> read where the new state is a superset of the old one and only VCB|IB|NPSR|PSR bits are involved.
+// Anything that cannot be checked (texture, no P, other thread, same list, partial subresource, split-barrier flags) is passed
+// through unchanged and counted (kept_*).
+constexpr UINT kReadMask = 0x2AE3;     // VCB|IB|DEPTH_READ|NPSR|PSR|IA|COPY_SOURCE|RESOLVE_SOURCE
+constexpr UINT kShaderRead = 0xC0;     // NPSR|PSR
+constexpr UINT kR1Mask = 0xC3;         // VCB|IB|NPSR|PSR
+thread_local D3D12_RESOURCE_BARRIER t_rw[2 * kBatchCap];
+thread_local bool t_glue[2 * kBatchCap];
+
+UINT RewriteBarriers(ID3D12GraphicsCommandList* cl, UINT n, const D3D12_RESOURCE_BARRIER* b, D3D12_RESOURCE_BARRIER* out,
+                     bool* glue) {
+    const bool r2a = g_r2a != 0, r2b = g_r2b != 0, r1 = g_r1 != 0;
+    const uint32_t tid = GetCurrentThreadId();
+    if (cl != t_lastCl) {
+        t_lastCl = cl;
+        ++t_listGen;
+    }
+    const uint32_t gen = t_listGen;
+    UINT m = 0;
+    AcquireSRWLockExclusive(&g_resLock);
+    for (UINT k = 0; k < n; ++k) {
+        const D3D12_RESOURCE_BARRIER& x = b[k];
+        if (x.Type == D3D12_RESOURCE_BARRIER_TYPE_UAV) {
+            out[m] = x;
+            glue[m++] = false;
+            continue;
+        }
+        if (x.Type != D3D12_RESOURCE_BARRIER_TYPE_TRANSITION) {
+            if (x.Type == D3D12_RESOURCE_BARRIER_TYPE_ALIASING) {  // the tracker's picture of both resources is gone
+                if (x.Aliasing.pResourceBefore) ResFind(x.Aliasing.pResourceBefore)->last = 0;
+                if (x.Aliasing.pResourceAfter) ResFind(x.Aliasing.pResourceAfter)->last = 0;
+            }
+            out[m] = x;
+            glue[m++] = false;
+            continue;
+        }
+        const D3D12_RESOURCE_TRANSITION_BARRIER& t = x.Transition;
+        ResEnt* e = ResFind(t.pResource);
+        const UINT before = (UINT)t.StateBefore, after = (UINT)t.StateAfter;
+        const bool whole = x.Flags == D3D12_RESOURCE_BARRIER_FLAG_NONE &&
+                           (t.Subresource == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES || t.Subresource == 0);
+        bool handled = false;
+        if ((r2a || r2b) && whole && before == 0 && after != 0) {
+            DescInto(*e);
+            if (e->dim != D3D12_RESOURCE_DIMENSION_BUFFER) {
+                Add(g_c.keptTex);
+            } else if (!e->last) {
+                Add(g_c.keptUnknown);
+            } else if (e->lastTid != tid || e->lastGen == gen) {
+                Add(g_c.keptForeign);
+            } else {
+                const UINT P = e->last;
+                if (!(e->flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)) {
+                    if (r2a) {
+                        out[m] = x;
+                        glue[m] = false;
+                        if ((P & ~kReadMask) == 0) {
+                            out[m++].Transition.StateBefore = (D3D12_RESOURCE_STATES)(P | kShaderRead);
+                        } else {  // P is a write state (COPY_DEST, STREAM_OUT, ...): P -> reads -> X
+                            out[m].Transition.StateBefore = (D3D12_RESOURCE_STATES)P;
+                            out[m++].Transition.StateAfter = (D3D12_RESOURCE_STATES)kShaderRead;
+                            out[m] = x;
+                            out[m].Transition.StateBefore = (D3D12_RESOURCE_STATES)kShaderRead;
+                            glue[m++] = true;
+                        }
+                        Add(g_c.r2a);
+                        handled = true;
+                    }
+                } else if (r2b) {
+                    if (P == D3D12_RESOURCE_STATE_UNORDERED_ACCESS && after == D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+                        D3D12_RESOURCE_BARRIER u = {};
+                        u.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+                        u.UAV.pResource = t.pResource;
+                        out[m] = u;
+                        glue[m++] = false;
+                    } else {
+                        out[m] = x;
+                        out[m].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+                        glue[m++] = false;
+                        if ((P & ~kShaderRead) && P != D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+                            out[m] = x;
+                            out[m].Transition.StateBefore = (D3D12_RESOURCE_STATES)P;
+                            glue[m++] = true;
+                        }
+                    }
+                    Add(g_c.r2b);
+                    handled = true;
+                } else {
+                    Add(g_c.keptUav);
+                }
+            }
+        } else if (r1 && x.Flags == D3D12_RESOURCE_BARRIER_FLAG_NONE && before && before != after && (before & after) == before &&
+                   (after & ~kR1Mask) == 0) {
+            Add(g_c.r1);  // dropped: the engine's tracker already holds `after`, later barriers name a covering before-state
+            handled = true;
+            e->last = after;
+            e->lastTid = tid;
+            e->lastGen = gen;
+            continue;
+        }
+        if (!handled) {
+            out[m] = x;
+            glue[m++] = false;
+        }
+        e->last = whole ? after : 0;
+        e->lastTid = tid;
+        e->lastGen = gen;
+    }
+    ReleaseSRWLockExclusive(&g_resLock);
+    return m;
+}
+
 template <int S>
 void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, const D3D12_RESOURCE_BARRIER* b) {
     if (t_inEmit) {
@@ -424,6 +599,13 @@ void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, 
     void* const ra = _ReturnAddress();
     Add(g_c.calls);
     Add(g_c.barriers, n);
+    const bool* gl = nullptr;  // glue flags of a rewritten call (second half of a pair stays in the batch of the first)
+    if ((g_r2a | g_r2b | g_r1) && n && b && n <= (UINT)kBatchCap && !g_wine.empty() && ThreadDefers() && CallerAllowed(ra)) {
+        n = RewriteBarriers(cl, n, b, t_rw, t_glue);
+        b = t_rw;
+        gl = t_glue;
+        if (!n) return;  // every struct dropped (R1): no vkd3d call at all
+    }
     int i = -1;
     if (g_batching && n && b && n <= (UINT)g_cfg.maxBatch && ThreadDefers() && CallerAllowed(ra)) i = MySlot();
     if (i < 0) {
@@ -455,6 +637,13 @@ void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, 
             Add(g_c.passCalls);
             continue;
         }
+        if (gl && gl[k]) {  // second half of a rewritten pair: shares the batch with its first half (room was reserved)
+            p.b[p.n++] = x;
+            Add(g_c.deferred);
+            if (gpuopt_trace) TraceBarrier(cl, S, 1, x, true);
+            continue;
+        }
+        const UINT need = (gl && k + 1 < n && gl[k + 1]) ? 2u : 1u;
         ID3D12Resource* r = ResOf(x);
         int same = -1;          // pending entry on the same resource
         bool uavCovered = false;
@@ -503,7 +692,7 @@ void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, 
             EmitLocked(i, kSlotResourceBarrier, false);
             Add(g_c.conflictSplits);
         }
-        if (p.n >= (UINT)g_cfg.maxBatch) {
+        if (p.n + need > (UINT)g_cfg.maxBatch) {
             EmitLocked(i, kSlotResourceBarrier, false);
             Add(g_c.fullSplits);
         }
@@ -689,13 +878,17 @@ void Start(const StartInfo& info) {
     g_cfg.dropUndoPairs = IniInt(L"DropUndoPairs", 0, 0, 1);
     g_cfg.anyCaller = IniInt(L"AnyCaller", 0, 0, 1);
     g_cfg.maxBatch = IniInt(L"MaxBatch", 64, 2, kBatchCap);
+    g_cfg.r2a = IniInt(L"R2a", 0, 0, 1);
+    g_cfg.r2b = IniInt(L"R2b", 0, 0, 1);
+    g_cfg.r1 = IniInt(L"R1", 0, 0, 1);
     g_cfg.traceRecords = IniInt(L"TraceRecords", 0, 0, 4000000);
     g_cfg.traceDelaySec = IniInt(L"TraceDelaySec", 30, 0, 3600);
     g_cfg.installDelaySec = IniInt(L"InstallDelaySec", 20, 0, 600);
     GetPrivateProfileStringW(L"GpuOpt", L"DeferThreads", L"SynergisticDispatcher", g_cfg.deferThreads,
                              (DWORD)(sizeof g_cfg.deferThreads / sizeof(wchar_t)), g_iniPath.c_str());
     g_gpuProf = info.gpuProf;
-    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf) {
+    if (!info.wine) g_cfg.r2a = g_cfg.r2b = g_cfg.r1 = 0;  // the rewrites are designed for vkd3d-proton only
+    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
         g_state = (LONG)State::Off;
         return;
     }
@@ -704,11 +897,14 @@ void Start(const StartInfo& info) {
     if (ImageRange(GetModuleHandleW(nullptr), lo, hi)) g_exeLo = lo, g_exeHi = hi;
     g_batching = g_cfg.barriers == 1;
     g_dropUndo = g_cfg.dropUndoPairs;
+    g_r2a = g_cfg.r2a;
+    g_r2b = g_cfg.r2b;
+    g_r1 = g_cfg.r1;
     g_state = (LONG)State::Waiting;
     LOG("Barriers=%d MergeAcrossBinds=%d DropDuplicateUav=%d DropUndoPairs=%d MaxBatch=%d DeferThreads=\"%ls\" "
-        "AnyCaller=%d TraceRecords=%d%s%s",
+        "AnyCaller=%d TraceRecords=%d R2a=%d R2b=%d R1=%d%s%s",
         g_cfg.barriers, g_cfg.mergeAcrossBinds, g_cfg.dropDupUav, g_cfg.dropUndoPairs, g_cfg.maxBatch,
-        g_cfg.deferThreads, g_cfg.anyCaller, g_cfg.traceRecords, g_wine.empty() ? "" : ", wine ", g_wine.c_str());
+        g_cfg.deferThreads, g_cfg.anyCaller, g_cfg.traceRecords, g_cfg.r2a, g_cfg.r2b, g_cfg.r1, g_wine.empty() ? "" : ", wine ", g_wine.c_str());
     if (HANDLE h = CreateThread(nullptr, 0, AutoInstallThread, nullptr, 0, nullptr)) CloseHandle(h);
 }
 
@@ -770,6 +966,12 @@ void SetMergeAcrossBinds(bool on) {
 bool MergeAcrossBinds() { return g_cfg.mergeAcrossBinds != 0; }
 void SetDropUndoPairs(bool on) { InterlockedExchange(&g_dropUndo, on ? 1 : 0); }
 bool DropUndoPairs() { return g_dropUndo != 0; }
+void SetRewrite(int which, bool on) {
+    volatile LONG* v = which == 0 ? &g_r2a : which == 1 ? &g_r2b : &g_r1;
+    if (!g_wine.empty()) InterlockedExchange(v, on ? 1 : 0);  // no effect off Wine
+}
+bool Rewrite(int which) { return (which == 0 ? g_r2a : which == 1 ? g_r2b : g_r1) != 0; }
+bool RewriteIni(int which) { return (which == 0 ? g_cfg.r2a : which == 1 ? g_cfg.r2b : g_cfg.r1) != 0; }
 
 void OnFrame() { Add(g_c.frames); }
 
@@ -788,6 +990,13 @@ void GetStats(Stats& o) {
     o.conflictSplits = (uint64_t)g_c.conflictSplits;
     o.fullSplits = (uint64_t)g_c.fullSplits;
     o.foreignFlushes = (uint64_t)g_c.foreignFlushes;
+    o.r2a = (uint64_t)g_c.r2a;
+    o.r2b = (uint64_t)g_c.r2b;
+    o.r1Dropped = (uint64_t)g_c.r1;
+    o.keptTexture = (uint64_t)g_c.keptTex;
+    o.keptUav = (uint64_t)g_c.keptUav;
+    o.keptUnknown = (uint64_t)g_c.keptUnknown;
+    o.keptForeign = (uint64_t)g_c.keptForeign;
     o.maxBatch = (uint32_t)g_c.maxBatch;
     for (int i = 0; i < kSlots; ++i) o.flushBySlot[i] = (uint64_t)g_c.bySlot[i];
 }
@@ -821,6 +1030,15 @@ const char* StatusLine(char* buf, size_t n) {
                 "batch %u",
                 st == State::Active ? "on" : "off", bars, unit, calls, out, calls > 0 ? (out - calls) * 100.0 / calls : 0.0,
                 drop, unit, (s.undoPairsSeen - prev.undoPairsSeen) / div, unit, s.maxBatch);
+    if (g_r2a | g_r2b | g_r1 | (LONG)(s.r2a | s.r2b | s.r1Dropped | s.keptTexture | s.keptUav | s.keptUnknown | s.keptForeign)) {
+        const size_t len = strlen(buf);
+        _snprintf_s(buf + len, n - len, _TRUNCATE,
+                    "; R2a %s %.1f/%s, R2b %s %.1f/%s, R1 %s %.1f/%s dropped; kept tex %.1f uav %.1f unknown %.1f foreign %.1f",
+                    g_r2a ? "ON" : "off", (s.r2a - prev.r2a) / div, unit, g_r2b ? "ON" : "off", (s.r2b - prev.r2b) / div, unit,
+                    g_r1 ? "ON" : "off", (s.r1Dropped - prev.r1Dropped) / div, unit, (s.keptTexture - prev.keptTexture) / div,
+                    (s.keptUav - prev.keptUav) / div, (s.keptUnknown - prev.keptUnknown) / div,
+                    (s.keptForeign - prev.keptForeign) / div);
+    }
     prev = s;
     prevT = now;
     ReleaseSRWLockExclusive(&l);

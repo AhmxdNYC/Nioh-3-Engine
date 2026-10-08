@@ -4,7 +4,10 @@ r"""vkd3d_cost.py -- replay a gpuopt trace through a model of vkd3d-proton (+ RA
     py -I vkd3d_cost.py --selftest
 
 Input: the CSV written by [GpuOpt] TraceRecords = N (format: gpuopt_trace.py docstring; ASI >= 1.7.9 adds caller2_rva =
-the second return address in Nioh3.exe, used to split the sites: the first is SynTransitionResource 115E9D for all). Record it on the Ally with
+the second return address in Nioh3.exe, used to split the sites: the first is SynTransitionResource 115E9D for all;
+ASI >= 1.7.10 adds res_dim / res_flags = D3D12_RESOURCE_DIMENSION and D3D12_RESOURCE_FLAGS of the barrier's resource, which
+split the COMMON -> X barriers into R2a (buffer without ALLOW_UNORDERED_ACCESS), R2b (UAV buffer) and texture, and the R1
+read->read supersets into buffer / texture). Record it on the Ally with
 Barriers = 2 (count only, nothing deferred) so every barrier row is one ResourceBarrier call as vkd3d sees it.
 With batching on, the EMIT rows are the calls and the 'deferred' rows are their structs; both are handled.
 
@@ -97,6 +100,10 @@ def analyse(rows, frames=None, syms=None, out=print):
     sites = collections.defaultdict(collections.Counter)  # class -> caller rva
     trans = collections.Counter()       # (before, after) of R1 / COMMON rows
     last = {}                           # (res, sub) -> last StateAfter seen anywhere (trace order)
+    split = collections.Counter()       # COMMON -> X by resource class (R2a / R2b / texture)
+    split_sites = collections.defaultdict(collections.Counter)
+    rr_split = collections.Counter()    # R1 supersets by resource class
+    rr_sites = collections.defaultdict(collections.Counter)
     batching = any(r["method"] == "EMIT" for r in rows)
 
     def end(st, cause):
@@ -141,6 +148,18 @@ def analyse(rows, frames=None, syms=None, out=print):
                 k = classify(before, after, prev)
                 bcls[k] += 1
                 sites[k][(rva, rva2)] += 1
+                dim = int(r.get("res_dim") or 0)
+                fl = int(r.get("res_flags") or "0", 16)
+                rcls = ("buffer (no UAV)" if not fl & 4 else "buffer (UAV)") if dim == 1 else ("texture" if dim else "unknown")
+                if before == 0 and after != 0:
+                    cn = {"buffer (no UAV)": "R2a: buffer without ALLOW_UNORDERED_ACCESS", "buffer (UAV)": "R2b: UAV buffer",
+                          "texture": "texture (nothing to replace)", "unknown": "unknown (CSV without res_dim)"}[rcls]
+                    split[cn] += 1
+                    split_sites[cn][(rva, rva2)] += 1
+                    split["COMMON->X total"] += 1
+                if k.startswith("read->read superset"):
+                    rr_split[rcls] += 1
+                    rr_sites[rcls][(rva, rva2)] += 1
                 if k.startswith(("read->read superset", "COMMON")):
                     trans[(k[:6], before, after)] += 1
                 if sub == 0xFFFFFFFF:
@@ -216,6 +235,29 @@ def analyse(rows, frames=None, syms=None, out=print):
     out(f"{pf(sum(begins.values()))}  render-pass begins; by the cause of the preceding end:")
     for k, v in begins.most_common(10):
         out(f"{pf(v)}    {k}")
+    out("\n== COMMON -> X barriers by resource class, per frame  [R2a/R2b = the rewrite candidates; needs ASI >= 1.7.10 columns]")
+    for k, v in split.most_common():
+        out(f"{pf(v)}  {k}")
+    if rr_split:
+        out("\n== read->read supersets (R1) by resource class, per frame")
+        for k, v in rr_split.most_common():
+            out(f"{pf(v)}  R1 {k}")
+
+    def top(title, cnt):
+        out(f"\n== {title}: top callers (2nd return RVA in Nioh3.exe; 1st if absent)")
+        g = collections.Counter()
+        for (r1, r2), v in cnt.items():
+            g[r2 or r1] += v
+        for r2, v in g.most_common(8):
+            firsts = {r1 for (r1, x), _ in cnt.items() if (x or r1) == r2}
+            via = "" if firsts == {r2} else " via " + ",".join(f"0x{x:X}" for x in sorted(firsts)[:2])
+            out(f"{pf(v)}  0x{r2:X} {sym(syms, r2)}{via}")
+
+    for cn in ("R2a: buffer without ALLOW_UNORDERED_ACCESS", "R2b: UAV buffer"):
+        if split_sites.get(cn):
+            top("COMMON->X " + cn, split_sites[cn])
+    for rc in sorted(rr_sites):
+        top("R1 superset " + rc, rr_sites[rc])
     for k in ("read->read superset (R1)", "COMMON->X (prev read-only: no dependency)",
               "COMMON->X (prev write: narrowable)", "COMMON->X (prev unknown)"):
         if sites.get(k):
@@ -231,24 +273,30 @@ def analyse(rows, frames=None, syms=None, out=print):
         out("\n== R1 / COMMON transitions by states (per frame, top 12)")
         for (k, b, a), v in trans.most_common(12):
             out(f"{pf(v)}  {k:6s} {sname(b)} -> {sname(a)}")
-    return c, bcls, breaks
+    return c, bcls, breaks, split, rr_split
 
 
 def selftest():
-    H = ["seq", "us", "tid", "list", "set", "slot", "method", "action", "caller_rva", "a1", "a2", "a3", "caller2_rva"]
+    H = ["seq", "us", "tid", "list", "set", "slot", "method", "action", "caller_rva", "a1", "a2", "a3", "caller2_rva",
+         "res_dim", "res_flags"]
     rows, seq = [], 0
 
-    def add(method, action="call", a1=0, a2=0, a3=0, rva=0, lst="L1", rva2=0):
+    def add(method, action="call", a1=0, a2=0, a3=0, rva=0, lst="L1", rva2=0, dim=0, fl=0):
         nonlocal seq
-        rows.append(dict(zip(H, [str(seq), "0", "1", lst, "0", "0", method, action, hex(rva), hex(a1), hex(a2), hex(a3), hex(rva2)])))
+        rows.append(dict(zip(H, [str(seq), "0", "1", lst, "0", "0", method, action, hex(rva), hex(a1), hex(a2), hex(a3), hex(rva2),
+                                 str(dim), hex(fl)])))
         seq += 1
 
-    tr = lambda res, b, a, rva=0x115E97, sub=0xFFFFFFFF, rva2=0x2000: add("ResourceBarrier", "pass", res, (b << 32) | a, sub, rva, rva2=rva2)
+    def tr(res, b, a, rva=0x115E97, sub=0xFFFFFFFF, rva2=0x2000, dim=0, fl=0):
+        add("ResourceBarrier", "pass", res, (b << 32) | a, sub, rva, rva2=rva2, dim=dim, fl=fl)
     for _ in range(2):                       # two frames
         add("OMSetRenderTargets", a1=1, a2=0x10)
-        tr(0xA, 0, 0x80)                     # COMMON -> PSR, prev unknown (1st frame) / prev read-only (2nd)
+        tr(0xA, 0, 0x80, dim=1, fl=0)        # COMMON -> PSR, prev unknown (1st frame) / prev read-only (2nd); R2a buffer
+        tr(0xF, 0, 0x40, dim=1, fl=4)        # COMMON -> NPSR on a UAV buffer: R2b
+        tr(0x10, 0, 0x80, dim=3, fl=0)       # COMMON -> PSR on a texture
+        tr(0x11, 0x40, 0xC0, dim=1, fl=0)    # R1 superset on a buffer
         add("DrawIndexedInstanced")          # begin pass
-        tr(0xB, 0x40, 0xC0)                  # NPSR -> NPSR|PSR: R1, mid-pass split
+        tr(0xB, 0x40, 0xC0, dim=3)           # NPSR -> NPSR|PSR: R1 (texture), mid-pass split
         add("DrawIndexedInstanced")
         tr(0xC, 0x4, 0x80)                   # RT -> PSR real
         add("DrawIndexedInstanced")
@@ -261,10 +309,13 @@ def selftest():
         tr(0xD, 0x80, 0x40)                  # PSR -> NPSR: read->read other
         tr(0xE, 0x4, 0x0, rva=0x3D6400)      # back buffer RT -> PRESENT (frame marker)
         add("Close")
-    c, bcls, breaks = analyse(rows, out=lambda *_: None)
-    exp = [(c["RT->PRESENT"], 2), (c["draws"], 8), (c["vkd3d ResourceBarrier calls"], 10),
-           (bcls["read->read superset (R1)"], 2), (bcls["COMMON->X (prev unknown)"], 1),
-           (bcls["COMMON->X (prev read-only: no dependency)"], 1), (bcls["read->read other"], 2),
+    c, bcls, breaks, split, rrs = analyse(rows, out=lambda *_: None)
+    exp = [(c["RT->PRESENT"], 2), (c["draws"], 8), (c["vkd3d ResourceBarrier calls"], 16),
+           (bcls["read->read superset (R1)"], 4), (bcls["COMMON->X (prev unknown)"], 3),
+           (bcls["COMMON->X (prev read-only: no dependency)"], 3), (bcls["read->read other"], 2),
+           (split["R2a: buffer without ALLOW_UNORDERED_ACCESS"], 2), (split["R2b: UAV buffer"], 2),
+           (split["texture (nothing to replace)"], 2), (split["COMMON->X total"], 6),
+           (rrs["buffer (no UAV)"], 2), (rrs["texture"], 2),
            (c["OMSetRenderTargets same args, no draw between"], 2), (c["implicit ClearUAV barriers"], 2),
            (breaks["ResourceBarrier"], 4), (breaks["OMSetRenderTargets"], 2), (c["ClearRTV full (deferred loadOp)"], 2)]
     bad = [(i, got, want) for i, (got, want) in enumerate(exp) if got != want]

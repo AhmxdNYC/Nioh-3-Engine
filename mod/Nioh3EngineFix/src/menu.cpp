@@ -735,7 +735,7 @@ void NoteFgSwitchProton(int want) {
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF,
-          kGpu,
+          kGpu, kGR2a, kGR2b, kGR1,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXSPF - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
@@ -780,6 +780,9 @@ const ItemDef kItems[kCount] = {
     {nullptr, "CP collision prefetch", "Collision workers prefetch the next colliders (same results, less memory stall)."},
     {nullptr, "SPF stage prefetch", "Stage-update worker prefetches placeables 4 ahead (same results, less memory stall)."},
     {"GPU", "GPU barrier batching", "Batches the game's D3D12 barriers into fewer calls. ~0 on the Ally, 2-3 % on PC."},
+    {nullptr, "R2a COMMON barriers", "Proton: buffer COMMON->X barriers get their real read state (cheaper wait on RADV). A/B with GPU W/fps."},
+    {nullptr, "R2b COMMON barriers (UAV)", "EXPERIMENT. Same for UAV buffers. May show flicker or stale data: judge with screenshots."},
+    {nullptr, "R1 read->read barriers", "EXPERIMENT. Drops read->read superset barriers. Needs an image compare."},
     {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
     {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},
     {nullptr, "Speed factor", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow."},
@@ -809,6 +812,7 @@ bool Visible(int id) {
         case kFgWine: return g_host.wine;
         case kFg: case kFgState: case kUpscaler: return g_host.knownBuild && g_host.base;  // engine slots: v2.02 only
         case kGpu: return gpuopt::GetState() != gpuopt::State::Off;
+        case kGR2a: case kGR2b: case kGR1: return g_host.wine && gpuopt::GetState() != gpuopt::State::Off;
         default: return true;
     }
 }
@@ -826,7 +830,9 @@ bool Available(int id) {
         case kF1: return g_host.fgEnable != nullptr;
         case kWk: return g_host.wkEnable != nullptr;
         case kFg: return g_fgOk;
-        case kGpu: return gpuopt::GetState() == gpuopt::State::Active || gpuopt::GetState() == gpuopt::State::Paused;
+        case kGpu:
+        case kGR2a: case kGR2b: case kGR1:
+            return gpuopt::GetState() == gpuopt::State::Active || gpuopt::GetState() == gpuopt::State::Paused;
         default: return true;
     }
 }
@@ -944,6 +950,12 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
     }
     if (IsExp(id)) {
         ExpValue(id, buf, n, color, cGreen, cGray, cYellow, cDim);
+        return;
+    }
+    if (id == kGR2a || id == kGR2b || id == kGR1) {
+        const bool on = gpuopt::Rewrite(id - kGR2a);
+        snprintf(buf, n, "%s", on ? "ON" : "off");
+        color = on ? (id == kGR2a ? cGreen : cYellow) : cGray;
         return;
     }
     if (id == kGpu) {
@@ -1073,6 +1085,11 @@ void StartSave() {
     }
     if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
         add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
+    if (Available(kGpu) && g_host.wine) {
+        add(L"GpuOpt", L"R2a", gpuopt::Rewrite(0) ? L"1" : L"0");
+        add(L"GpuOpt", L"R2b", gpuopt::Rewrite(1) ? L"1" : L"0");
+        add(L"GpuOpt", L"R1", gpuopt::Rewrite(2) ? L"1" : L"0");
+    }
     add(L"Latency", L"MaxFrameLatency", std::to_wstring(osd::Overlay().maxLatency));
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
@@ -1235,6 +1252,8 @@ void Change(int id, int dir) {
         }
     } else if (id == kGpu) {
         gpuopt::SetBatching(!gpuopt::Batching());
+    } else if (id == kGR2a || id == kGR2b || id == kGR1) {
+        gpuopt::SetRewrite(id - kGR2a, !gpuopt::Rewrite(id - kGR2a));
     } else
     switch (id) {
         case kLat: {

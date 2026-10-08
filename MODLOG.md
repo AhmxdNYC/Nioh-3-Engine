@@ -256,3 +256,10 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 
 ## 2026-10-07 23:47 - PC: ASI installed in the game folder (Smart App Control now off)
 - Copied dinput8.dll (Ultimate ASI Loader), Nioh3EngineFix.asi (current bin build) and the main (PC-default) Nioh3EngineFix.ini next to Nioh3.exe; OptiScaler's dxgi.dll stays. Undo: delete those three files. Not launched yet (Steam account shared with the Ally).
+
+## 2026-10-08 - ASI 1.7.10 (unsent): barrier trace resource desc + R2a / R2b / R1 rewrites (default OFF)
+- Trace: every barrier row gets `res_dim` / `res_flags` (GetDesc cached per resource pointer); the CSV header now names `caller2_rva` too (1.7.9 wrote it without). `re\scripts_d3d12\vkd3d_cost.py` splits COMMON -> X into R2a (non-UAV buffers) / R2b (UAV buffers) / textures and counts R1 supersets by resource class and caller (`--selftest` OK).
+- gpuopt hook (Proton + dispatcher thread only, live menu switches, `[GpuOpt] R2a / R2b / R1` all 0, both inis + ally-package ini): R2a = COMMON before-state -> (last state | NPSR | PSR), a write last state gives a 2-struct pair kept in one batch; R2b (EXPERIMENT, warning in the ini) = UAV buffers; R1 (EXPERIMENT) = drop read->read supersets within VCB/IB/NPSR/PSR. Per resource the last StateAfter, recording thread and list generation are tracked; texture / no last state / other thread / same list / partial subresource / flags passes through unchanged and is counted (kept_*). Counters in the `stats/s gpuopt` line.
+- Tests: `tests\r2_harness.cpp` + `run_r2_harness.py` (real device, identical work with every switch combination: buffers + 64x64 render target bit-identical, counters, trace columns): ALL PASSED. test_patterns ALL 107 SITES OK; gp / psoswap / loadmem / tilestats / wg harnesses pass.
+- README: Ally recipe (one launch Barriers = 2 TraceRecords = 300000 for counts, then A/B R2a and R1 live with GPU W/fps + screenshots). Package zip on the Desktop, NOT sent to the Ally.
+- Undo: set R2a / R2b / R1 = 0 (the default), or revert to the 1.7.9 .asi.
