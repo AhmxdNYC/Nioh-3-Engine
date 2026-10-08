@@ -45,6 +45,7 @@ void (*g_log)(const char* fmt, ...) = nullptr;
 StartInfo g_info;
 int g_mode = 0;               // 0 off, 1 exclusive (real pads hidden), 2 merge
 volatile LONG g_armed = 0;    // 1 = virtual slot live (ini mode); 'disarm' -> plain pass-through
+volatile LONG g_realOff = 0;  // merge mode: 'realpads off' hides the real pads (exclusive mode always does)
 int g_idleSec = 600;
 SRWLOCK g_lock = SRWLOCK_INIT;
 Composer g_comp;
@@ -102,7 +103,17 @@ DWORD WINAPI HkXInputGetState(DWORD idx, XINPUT_STATE* st) {
         ReleaseSRWLockExclusive(&g_lock);
         return ERROR_SUCCESS;
     }
-    // merge: real pads as usual; slot 0 gets the virtual input on top (and exists even without a real pad there)
+    // merge: real pads as usual; slot 0 gets the virtual input on top (and exists even without a real pad there).
+    // 'realpads off' (test popup's block toggle): the real pads are hidden, slot 0 carries only the virtual input.
+    if (g_realOff) {
+        if (idx != 0) return ERROR_DEVICE_NOT_CONNECTED;
+        if (!st) return ERROR_BAD_ARGUMENTS;
+        const int64_t now = NowUs();
+        AcquireSRWLockExclusive(&g_lock);
+        Fill(st, g_comp.ReadPad(now));
+        ReleaseSRWLockExclusive(&g_lock);
+        return ERROR_SUCCESS;
+    }
     DWORD r = g_xiOrig(idx, st);
     if (idx != 0 || !st) return r;
     if (r != ERROR_SUCCESS) {
@@ -436,6 +447,11 @@ int Exec(const char* line, char* r, size_t n) {
             InterlockedExchange(&g_armed, 0);
             return Reply(r, n, 0, "disarmed: the game reads the real pads again");
         case Op::Log: VLOG("VPad log: %s", c.text); return Reply(r, n, 0, "logged");
+        case Op::RealPads:
+            if (!g_xiOrig) return Reply(r, n, 1, "the XInputGetState hook is not installed");
+            if (g_mode == 1) return Reply(r, n, 0, "real pads hidden (VirtualPad = 1 hides them for the whole session)");
+            InterlockedExchange(&g_realOff, c.value ? 0 : 1);
+            return Reply(r, n, 0, "real pads %s", c.value ? "reach the game" : "hidden from the game");
         case Op::Wait: Sleep((DWORD)c.ms); return Reply(r, n, 0, "waited %d ms", c.ms);
         case Op::Press: {
             AcquireSRWLockExclusive(&g_lock);

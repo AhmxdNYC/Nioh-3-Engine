@@ -55,7 +55,7 @@
 // 1.7.34: fnprobe.cpp (FnProbe live function probe, notes\remaining-work.md 10.1; tools\playsession)
 // 1.7.35: padlat.cpp (PadLatency controller input -> Present / GPU-done latency, notes\pad-latency.md)
 // 1.7.36: tour.cpp (Tour mode: automatic stage / point tour with saves blocked, notes\tour-mode.md)
-#define MOD_VERSION "1.7.37"
+#define MOD_VERSION "1.7.38"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

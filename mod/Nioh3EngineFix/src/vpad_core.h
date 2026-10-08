@@ -107,7 +107,7 @@ inline uint8_t TriggerFrom(double v) {
 }
 
 // ---- commands ------------------------------------------------------------------------------------------------------------
-enum class Op : uint8_t { Bad, Ping, Press, Hold, Release, ReleaseAll, Stick, Trigger, Key, Arm, Disarm, State, MenuGet, MenuSet, Log, Wait, Help };
+enum class Op : uint8_t { Bad, Ping, Press, Hold, Release, ReleaseAll, Stick, Trigger, Key, Arm, Disarm, State, MenuGet, MenuSet, Log, Wait, Help, RealPads };
 
 struct Cmd {
     Op op = Op::Bad;
@@ -169,6 +169,12 @@ inline Cmd Parse(const char* line) {
     if (IEq(v, "state")) { c.op = Op::State; return c; }
     if (IEq(v, "arm")) { c.op = Op::Arm; return c; }
     if (IEq(v, "disarm")) { c.op = Op::Disarm; return c; }
+    if (IEq(v, "realpads")) {  // the user's real controllers reach the game (on) or not (off); test popup's block toggle
+        if (n != 2 || !(IEq(tok[1], "on") || IEq(tok[1], "off"))) return Bad("usage: realpads on|off");
+        c.op = Op::RealPads;
+        c.value = IEq(tok[1], "on") ? 1 : 0;
+        return c;
+    }
     if (IEq(v, "log")) {
         // the rest of the original line, verbatim
         const char* r = line;
@@ -257,7 +263,7 @@ inline Cmd Parse(const char* line) {
 inline const char* HelpText() {
     return "commands: ping | state | arm | disarm | press <btn[+btn]> [ms=100] | hold <btn[+btn]> | release <btn[+btn]|all> | "
            "stick L|R <x> <y> [ms] | trigger L|R <v> [ms] | key <name|0xDIK> [ms=100] | menu get <KEY> | menu set <KEY> <v|on|off> | "
-           "wait <ms> | log <text>";
+           "wait <ms> | log <text> | realpads on|off";
 }
 
 // ---- composer ------------------------------------------------------------------------------------------------------------

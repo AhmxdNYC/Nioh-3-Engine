@@ -7,6 +7,10 @@ Two phases share `tm.py` (stats / verdicts) and `matrix.json`:
 
 Run PowerShell scripts as `powershell -NoProfile -ExecutionPolicy Bypass -File <script> ...` (this machine blocks unsigned scripts). Everything has `-DryRun`.
 
+**Input without the foreground (ASI >= 1.7.37):** `abba2_pc.ps1 -Input vpad` and `tools\tour\run_tour.ps1 -Input vpad` drive the game
+through the mod's VirtualPad pipe (`vpad.py` / `vpad.ps1`, notes\virtual-input.md) instead of SendInput: the PC stays usable while a
+test runs. `vpad_live.ps1 -OwnerPid <pid>` is the live smoke test (title -> field, one menu item, stick) with the game unfocused.
+
 ## Files (final phase)
 | file | what |
 |---|---|

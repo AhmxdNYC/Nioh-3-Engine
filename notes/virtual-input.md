@@ -74,6 +74,18 @@ Win+Shift+arrows; game input never comes from window messages.
   and `tools\tour\run_tour.ps1 -Input vpad`: no clicks, no focus / idle waits, no refocus, toggles via `menu set`, windows kept with
   `user_active` recorded; the old SendInput path is unchanged and still the default. harness_guard still checks owner pid,
   MaxMinutes, commit headroom, crash limit.
+- 1.7.38: pipe command `realpads on|off` (VirtualPad = 2: hide the user's real pads; VirtualPad = 1 always hides them).
+- Test popup `tools\testmatrix\testpopup.fsx` (dotnet fsi + WinForms of the installed WindowsDesktop runtime, no Add-Type):
+  small always-on-top, non-activating window + tray icon: harness name, step, ~minutes left, a big **Block my input / Release**
+  button (tray left click = same toggle). Blocking is OFF by default and only the user turns it on: WH_KEYBOARD_LL + WH_MOUSE_LL
+  swallow real events (no LLKHF_INJECTED / LLMHF_INJECTED), mouse input over the popup always passes, with vpad mouse moves pass
+  too; `realpads off` is sent to the mod while blocking. Release: the button, the tray, Ctrl+Alt+Shift+F12, after 30 min of
+  blocking, and automatically when the harness / owner ends, at max time or when the popup exits (hooks die with the process;
+  Windows also drops hung LL hooks). Ctrl+Alt+Del always works (shown in the popup). Wired into abba2_pc.ps1, run_tour.ps1,
+  vpad_live.ps1 (Start-TestPopup / Set-TestStatus / Stop-TestPopup in vpad.ps1) and playsession START (status only, no block
+  button: the user is the player; closes with the monitor). Offline: `dotnet fsi testpopup.fsx --selftest` ALL PASSED (decision
+  table, hotkey + modifier tracking, timers, hooks installed / removed in log-only mode, exit with the harness); a real launch
+  with a fake harness pid exits when the harness ends; `test_session.ps1` DRY RUN OK (`-NoPopup`).
 - Launch caveat: the new game window takes the foreground once when it is created; the wrapper hands it back to the window the
   user had (`VP-GiveBackFocus`, ui.fsx focus - no input sent).
 

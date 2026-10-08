@@ -20,7 +20,7 @@ if (Test-Path "$env:LOCALAPPDATA\KoeiTecmo\NIOH3\config.xml") { Copy-Item "$env:
 $h0 = @{ ini = (Get-FileHash "$g\Nioh3EngineFix.ini").Hash; asi = (Get-FileHash "$g\Nioh3EngineFix.asi").Hash }
 $fails = @()
 function Ck([bool]$cond, [string]$msg) { if ($cond) { Write-Host "ok   $msg" -ForegroundColor Green } else { Write-Host "FAIL $msg" -ForegroundColor Red; $script:fails += $msg } }
-$common = @("-NoPause", "-GameDir", $g, "-SaveRoot", $s, "-BackupRoot", $b, "-CaptureRoot", $c, "-StateDir", $st)
+$common = @("-NoPause", "-NoPopup", "-GameDir", $g, "-SaveRoot", $s, "-BackupRoot", $b, "-CaptureRoot", $c, "-StateDir", $st)
 function Run([string]$script, [string[]]$extra) {
     $o = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here $script) @extra 2>&1 | Out-String
     return @{ code = $LASTEXITCODE; out = $o }

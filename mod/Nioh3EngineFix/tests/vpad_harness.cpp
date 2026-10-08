@@ -365,6 +365,19 @@ static void TestHookMerge() {
     Exec("release all");
     stop = true;
     g.join();
+    // realpads off (test popup's block toggle): the real pad is hidden, the real API is not called
+    g_realConnected = true;
+    g_realButtons = XINPUT_GAMEPAD_X;
+    std::string rr = Exec("realpads off");
+    CHECK(rr == "ok real pads hidden from the game", "realpads off: %s", rr.c_str());
+    g_realCalls = 0;
+    XINPUT_STATE w{};
+    CHECK(reinterpret_cast<XI_t>(g_slotB)(0, &w) == ERROR_SUCCESS && w.Gamepad.wButtons == 0, "realpads off: slot 0 without the real X");
+    CHECK(reinterpret_cast<XI_t>(g_slotB)(1, &w) == ERROR_DEVICE_NOT_CONNECTED && g_realCalls == 0, "realpads off: real API not called");
+    rr = Exec("realpads on");
+    CHECK(rr == "ok real pads reach the game", "realpads on: %s", rr.c_str());
+    CHECK(reinterpret_cast<XI_t>(g_slotB)(0, &w) == ERROR_SUCCESS && w.Gamepad.wButtons == XINPUT_GAMEPAD_X, "realpads on: real X back");
+    CHECK(Parse("realpads maybe").op == Op::Bad, "realpads usage");
 }
 
 // ---- 5. thunk ----

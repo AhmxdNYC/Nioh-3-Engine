@@ -173,7 +173,7 @@ function Window([string]$name, [hashtable]$meta) {   # a window with user input 
         if (-not (Game-Alive)) { throw "HARNESS-ABORT: game dead/hung before $name" }
         Mem-Guard
         Assert-Focus "before window $name"
-        $csv = "$out\$name.csv"; $off = Log-Len; $w0 = Get-Date
+        $csv = "$out\$name.csv"; $off = Log-Len; $w0 = Get-Date; Set-TestStatus "measuring window $name"
         $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
         Register-Child $pm "PresentMon"
         Start-Sleep ($WindowSec + 1); $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
@@ -259,7 +259,8 @@ if ($DryRun) {
     return
 }
 
-Init-Guard -Name "abba2" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-GameClean; Restore-All }
+Init-Guard -Name "abba2" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-GameClean; Restore-All; Stop-TestPopup }
+Start-TestPopup -Name "abba2 flag A/B" -InputMode $InputMode   # status popup; input blocking only if the user clicks it
 T "abba2 start: input=$InputMode out=$out live=$($Live -join ',') launch=$($LaunchFlags -join ',') window=${WindowSec}s quads=$Quads cfg: FG OFF REN_RAT $RenRat $Upscaler"
 $LaunchFlags = @($LaunchFlags | Where-Object { $_ -and $_ -ne "none" }); $Live = @($Live | Where-Object { $_ -and $_ -ne "none" })   # -LaunchFlags none = live items only (one launch)
 $arms = if ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
@@ -270,7 +271,7 @@ try {
         $L++; Renew
         $kv = $test.Clone(); foreach ($f in $LaunchFlags) { $kv[$f] = $(if ($f -eq $arm) { 1 } else { 0 }) }
         Set-TestIni $kv
-        T "launch L$L $arm"
+        T "launch L$L $arm"; Set-TestStatus "launch L$L of $($arms.Count) ($arm)"
         if (-not (Start-Play)) { T "boot failed L$L - abort (no relaunch loop)"; break }
         $bi = Boot-Info; T "L$L boot: ver $($bi.ver) DQ $($bi.dq) P1E7 $($bi.p1e7)"
         T "L$L warm-up 60 s (no input)"; Start-Sleep 60
@@ -308,6 +309,7 @@ try {
 } finally {
     Close-GameClean
     Restore-All
+    Stop-TestPopup
     Done-Guard
     T "done; analysis: py -I $here\abba2_report.py $out"
 }

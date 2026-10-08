@@ -129,6 +129,7 @@ function Launch-Game([int]$n) {
 function Finish-Run {
     if ($script:finished) { return }
     $script:finished = $true
+    try { Stop-TestPopup } catch {}
     try { Close-TourGame } catch {}
     try { Save-ModLog } catch {}
     if ($script:pm -and -not $script:pm.HasExited) { & $PmExe --terminate_existing_session --session_name "Nioh3Tour" 2>$null | Out-Null; & $script:RealSleep -Seconds 2; try { Stop-Process -Id $script:pm.Id -Force -ErrorAction SilentlyContinue } catch {} }
@@ -166,6 +167,7 @@ function Finish-Run {
 }
 
 Init-Guard -Name "run_tour" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -MaxCrashes ($MaxRelaunch + 1) -Cleanup { Finish-Run }
+if (-not $DryRun) { Start-TestPopup -Name "Tour (mode $Mode, list $List)" -InputMode $InputMode }   # status popup; blocking only if the user clicks it
 try {
     Say "Nioh 3 tour - mode $Mode, list $List, $Points points x $DwellSec s, $Passes pass(es)$(if ($DryRun) { ' - DRY RUN' })" Cyan
     if (-not $DryRun -and (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue)) { throw "Nioh 3 is running - quit it first" }
@@ -234,6 +236,7 @@ try {
     while ($true) {
         $launch++
         if ($launch -gt $MaxRelaunch + 1) { Say "not relaunching: $MaxRelaunch relaunches used" Red; $script:verdict = "gave-up"; break }
+        Set-TestStatus "launch $launch - touring"
         Launch-Game $launch
         $tLaunch = Get-Date; $tProgress = Get-Date; $lastSig = ""; $armed = $false; $outcome = ""
         while ($true) {

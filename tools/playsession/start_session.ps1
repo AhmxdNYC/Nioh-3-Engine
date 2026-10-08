@@ -9,7 +9,7 @@
   6. prints the checklist. No input is sent to the game, ever.
   Test switches (tools\playsession\test_session.ps1): -NoLock, -NoPause, -GameDir/-SaveRoot/-BackupRoot/-CaptureRoot/-StateDir.
 #>
-param([switch]$NoPause, [switch]$NoLock, [string]$GameDir = "", [string]$SaveRoot = "", [string]$BackupRoot = "", [string]$CaptureRoot = "", [string]$StateDir = "")
+param([switch]$NoPause, [switch]$NoLock, [switch]$NoPopup, [string]$GameDir = "", [string]$SaveRoot = "", [string]$BackupRoot = "", [string]$CaptureRoot = "", [string]$StateDir = "")
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "session_lib.ps1")
 $Host.UI.RawUI.WindowTitle = "Nioh 3 play session - START"
@@ -95,6 +95,11 @@ try {
     $monArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $PSScriptRoot 'monitor.ps1')`" -SessionDir `"$sess`" -GameDir `"$GameDir`"" + $(if ($lockHeld) { " -RenewLock" } else { "" })
     $mon = Start-Process powershell -ArgumentList $monArgs -WindowStyle Hidden -PassThru
     Say "monitor: running (pid $($mon.Id)) -> sysmon.csv, events.txt, mod log copies"
+    if (-not $NoPopup) {   # "capture session running" popup + tray icon (no input blocking: you are the player); closes with the monitor
+        . (Join-Path $PSScriptRoot "..\testmatrix\vpad.ps1")
+        Start-TestPopup -Name "capture session" -NoBlock -HarnessPid $mon.Id -MaxMin 960 -StatusDir $sess
+        Set-TestStatus "capturing - play normally, click Nioh3 Session STOP when done" ((Get-Date).AddHours(16))
+    }
 
     $now = Get-Date
     $bias = [math]::Round(($now - $now.ToUniversalTime()).TotalSeconds)
