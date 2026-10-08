@@ -30,6 +30,7 @@
 #include <string>
 
 #include "gpuopt.h"
+#include "gimerge.h"
 #include "gpuprof.h"
 
 #pragma intrinsic(_ReturnAddress)
@@ -42,9 +43,11 @@ extern void* gpuopt_orig1[96];
 extern volatile uint8_t gpuopt_flush[96];
 extern volatile uint8_t gpuopt_trace;
 extern volatile uint8_t gpuopt_hook[96];  // GP profiler (gpuprof.cpp): slots that always take the slow path
+extern volatile uint8_t gpuopt_hook2[96];  // 1.7.29 gimerge.cpp: slots that always take the slow path
+extern void* volatile gpuopt_hold;         // 1.7.29 gimerge.cpp: list with a held Dispatch (all its calls: slow path)
 extern void* gpuopt_thunks0[96];
 extern void* gpuopt_thunks1[96];
-void GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3);
+int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3);  // != 0: skip the method
 }
 
 namespace gpuopt {
@@ -134,6 +137,7 @@ volatile LONG g_batching = 0;
 volatile LONG g_dropUndo = 0;
 volatile LONG g_r2a = 0, g_r2b = 0, g_r1 = 0;  // live switches (Start copies the ini)
 bool g_gpuProf = false;  // the GP profiler needs the hooks even with Barriers = 0 (batching then stays off)
+bool g_giHooks = false;  // 1.7.29: gimerge (GIProbe / GIMerge) needs them too
 SRWLOCK g_installLock = SRWLOCK_INIT;
 
 uintptr_t g_exeLo = 0, g_exeHi = 0;
@@ -596,6 +600,7 @@ void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, 
         g_origRB[S](cl, n, b);
         return;
     }
+    if (g_giHooks) gimerge::OnBarrier(cl, S, n, b);  // 1.7.29: a transition on a list with a held Dispatch replays it first
     void* const ra = _ReturnAddress();
     Add(g_c.calls);
     Add(g_c.barriers, n);
@@ -857,13 +862,16 @@ int IniInt(const wchar_t* key, int def, int lo, int hi) {
 // ---- asm slow path ---------------------------------------------------------------------------------------------------------
 }  // namespace gpuopt
 
-extern "C" void GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3) {
+extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3) {
     using namespace gpuopt;
-    if (t_inEmit) return;
+    if (t_inEmit) return 0;
     const int slot = (int)(setSlot & 0xFF), set = (int)(setSlot >> 8);
     if (gpuopt_trace) TraceAdd(self, set, slot, 0, a1, a2, a3, kSlotInfo[slot].kind == kFlush);
+    // gimerge first: a held Dispatch is replayed BEFORE the barriers deferred after it are emitted (original order)
+    const bool skip = (gpuopt_hook2[slot] || self == gpuopt_hold) && gimerge::OnListCall(self, set, slot, a1, a2, a3);
     if (gpuopt_flush[slot]) FlushList(self, -1, slot);
     if (gpuopt_hook[slot]) gp::OnListCall(self, set, slot, a1, a2, a3);  // GP: after the batch flush, before the method
+    return skip ? 1 : 0;
 }
 
 namespace gpuopt {
@@ -887,8 +895,9 @@ void Start(const StartInfo& info) {
     GetPrivateProfileStringW(L"GpuOpt", L"DeferThreads", L"SynergisticDispatcher", g_cfg.deferThreads,
                              (DWORD)(sizeof g_cfg.deferThreads / sizeof(wchar_t)), g_iniPath.c_str());
     g_gpuProf = info.gpuProf;
+    g_giHooks = info.giMerge;
     if (!info.wine) g_cfg.r2a = g_cfg.r2b = g_cfg.r1 = 0;  // the rewrites are designed for vkd3d-proton only
-    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
+    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_giHooks && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
         g_state = (LONG)State::Off;
         return;
     }
@@ -929,6 +938,7 @@ bool InstallNow() {
             }
             if (HANDLE h = CreateThread(nullptr, 0, WatchThread, nullptr, 0, nullptr)) CloseHandle(h);
             if (g_gpuProf) gp::EnableHooks(gpuopt_hook, kSlots);
+            if (g_giHooks) gimerge::EnableHooks(gpuopt_hook2, kSlots, gpuopt_orig0, g_vt[1] ? gpuopt_orig1 : nullptr, &gpuopt_hold);
             g_state = (LONG)(g_batching ? State::Active : State::Paused);
             LOG("installed - batching %s", g_batching ? "ON" : "off (counters only)");
         } else {

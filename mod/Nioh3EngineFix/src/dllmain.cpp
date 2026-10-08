@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "gimerge.h"
 #include "gpuopt.h"
 #include "gpuprof.h"
 #include "sp.h"
@@ -42,7 +43,8 @@
 #include "readprobe.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.28"
+// 1.7.29: gimerge.cpp (GIProbe / GIMerge, notes\gi-highest-audit.md s6)
+#define MOD_VERSION "1.7.29"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1222,6 +1224,13 @@ DWORD WINAPI Worker(LPVOID) {
         if (HMODULE nt = GetModuleHandleW(L"ntdll.dll"))
             if (auto wgv = reinterpret_cast<const char*(__cdecl*)()>(GetProcAddress(nt, "wine_get_version"))) pi.wine = wgv();
         psoswap::Start(pi);
+        // 1.7.29 GI gather light-group probe / merge (gimerge.cpp; [Debug] GIProbe = 0, [Patches] GIMerge = 0): after
+        // psoswap so its D3D12CreateDevice import hook chains psoswap's; does nothing with both keys 0
+        gimerge::StartInfo gm;
+        gm.log = &Log;
+        gm.iniPath = psoIni.c_str();
+        gm.wine = pi.wine;
+        gimerge::Start(gm);
     }
 
     // ---- wait for SteamStub to decrypt .text (never touch the stub; just poll the bytes)
@@ -2017,6 +2026,7 @@ DWORD WINAPI Worker(LPVOID) {
                     char b[256];
                     Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
                 }
+                if (sec % 30 == 0 && gimerge::WantsHooks()) gimerge::LogLine();  // 1.7.29 GIProbe / GIMerge
                 if (s_wsDone && ws_enable && sec % 30 == 0) WakeStatsLog();
                 if (s_sprDone && sec % 30 == 0) SprLog();
                 if (sec % 30 == 0 && (s_mqDone || s_ptDone || s_dlDone)) {
@@ -2255,6 +2265,7 @@ DWORD WINAPI Worker(LPVOID) {
             gi.iniPath = iniPath.c_str();
             gi.wine = wine;
             gi.gpuProf = gp::WantsHooks();
+            gi.giMerge = gimerge::WantsHooks();  // 1.7.29: GIProbe / GIMerge ride on gpuopt's command-list thunks
             gpuopt::Start(gi);
         }
         {  // sampling profiler (sp.cpp, [Profiler] SP = 0 by default): measurement only

@@ -7,7 +7,10 @@
 ; Slow path: the thunk calls gpuopt_slowN, which saves the four argument registers + xmm0-3, calls
 ;   GpuOptSlow(self = rcx, setSlot = set*256 + slot, a1 = rdx, a2 = r8, a3 = r9)
 ; (emit the list's deferred barriers as one ResourceBarrier(n) call and/or record a trace entry), restores everything
-; and returns into the thunk, which tail-jumps to the original method with the caller's exact registers and stack
+; and returns into the thunk, which tail-jumps to the original method with the caller's exact registers and stack.
+; 1.7.29 (gimerge.cpp): the slow path is also taken for slots in gpuopt_hook2 and for every call on the list in
+; gpuopt_hold; when GpuOptSlow returns non-zero (eax) the thunk returns to the caller WITHOUT calling the original
+; (only ever for a void method: gimerge skips a held Dispatch). rax is volatile and not an argument: ABI-neutral
 ; (stack arguments of e.g. ExecuteIndirect / ClearDepthStencilView are untouched: rsp is back at its entry value).
 ; gpuopt_slowN has full x64 unwind info (PROC FRAME) and a plain ret epilogue; the thunks never move rsp except for
 ; that call, so they unwind as leaves. Stack walks and exceptions pass through correctly.
@@ -16,7 +19,7 @@ OPTION CASEMAP:NONE
 
 EXTERN GpuOptSlow:PROC
 
-PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
+PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_hook2, gpuopt_hold, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
 
 GPUOPT_SLOTS EQU 96
 
@@ -28,6 +31,9 @@ gpuopt_orig1  dq GPUOPT_SLOTS dup(0)      ; original methods, vtable set 1
 gpuopt_flush  db GPUOPT_SLOTS dup(0)      ; 1 = this method must see the deferred barriers first (work / sync / unwrap)
 gpuopt_trace  db 0                        ; 1 = every hooked call goes to GpuOptSlow (trace mode)
 gpuopt_hook   db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (GP profiler: Begin/EndEvent, Close, Reset)
+gpuopt_hook2  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (gimerge: Dispatch, PSO, compute roots, ...)
+ALIGN 8
+gpuopt_hold   dq 0                        ; gimerge: the list with a held Dispatch - every call on it goes to GpuOptSlow
 
 .code
 
@@ -63,7 +69,7 @@ gpuopt_slow&S PROC FRAME
     mov     edx, r11d
     or      edx, S * 256                    ; setSlot
     ; rcx = self (unchanged)
-    call    GpuOptSlow
+    call    GpuOptSlow                      ; eax = 1: skip the original method (kept through the restores below)
     movdqa  xmm0, xmmword ptr [rsp+30h]
     movdqa  xmm1, xmmword ptr [rsp+40h]
     movdqa  xmm2, xmmword ptr [rsp+50h]
@@ -73,7 +79,7 @@ gpuopt_slow&S PROC FRAME
     pop     r8
     pop     rdx
     pop     rcx
-    ret                                     ; back into the thunk, which tail-jumps to the original
+    ret                                     ; back into the thunk, which tail-jumps to the original (or returns: eax != 0)
 gpuopt_slow&S ENDP
 ENDM
 
@@ -82,12 +88,16 @@ SLOWBODY 1
 
 ; ---- per-slot thunks --------------------------------------------------------------------------------------------------
 THUNK MACRO S, I
-    LOCAL slow, pass
+    LOCAL slow, pass, skip
 gpuopt_t&S&_&I LABEL PROC
     cmp     byte ptr [gpuopt_trace], 0
     jne     slow
     cmp     byte ptr [gpuopt_hook + I], 0
     jne     slow
+    cmp     byte ptr [gpuopt_hook2 + I], 0
+    jne     slow
+    cmp     rcx, qword ptr [gpuopt_hold]
+    je      slow
     cmp     byte ptr [gpuopt_flush + I], 0
     je      pass
     cmp     rcx, qword ptr [gpuopt_pend]
@@ -103,7 +113,11 @@ pass:
 slow:
     mov     r11d, I
     call    gpuopt_slow&S                   ; the thunk itself never moves rsp, so it unwinds as a leaf
+    test    eax, eax
+    jnz     skip
     jmp     qword ptr [gpuopt_orig&S + I*8]
+skip:
+    ret                                     ; rsp is at its entry value: straight back to the caller
 ENDM
 
 gpuopt_thunk_code PROC

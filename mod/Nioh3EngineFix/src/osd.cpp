@@ -32,6 +32,7 @@
 
 #include <intrin.h>
 #pragma intrinsic(_ReturnAddress)
+#include "gimerge.h"
 #include "gpuopt.h"
 #include "gpuprof.h"
 #include "menu.h"
@@ -1090,6 +1091,7 @@ void OnPresent(IDXGISwapChain* sc) {
     }
     g_ctx.lastPresent = now;
     gpuopt::OnFrame();  // once per frame of the drawing (game) swapchain
+    gimerge::OnFrame(); // 1.7.29 GIProbe / GIMerge frame counter
     tilestats::OnFrame();
     gp::OnFrame();      // GP profiler: reads the timestamps of 6 frames ago
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
