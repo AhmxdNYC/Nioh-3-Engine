@@ -9,6 +9,7 @@
 //   LoadStats #n io: MB read (archive async / sync, sync ms) | inflate CPU-s, chunks, MB in -> out, max parallel, threads
 //                    | PSOs created (gfx / compute, preload vs runtime, CPU-s, max ms) | manager Sleep(1) counts
 //   LoadStats #n split: the same counters for [58A set -> stage ready] and [stage ready -> 58A clear]
+// LoadStats = 3 also ticks outside the window; [Profiler] LoadGates = 1 adds probe LG (gate hooks + sequencer polls, see loadstats.cpp).
 // LoadStats = 2 adds one "LoadStats tick" line per second inside the window (in-flight, MB read, inflate ms, PSOs, frames).
 //
 // How (v2.02 only; every site's bytes are verified first, a mismatching site is skipped and named in the log):

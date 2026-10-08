@@ -417,3 +417,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - 58A owners decoded (FastTravelSeqTick 3B2A04, WarpSeqBTick 5643A0, Pause::SetFlag); probe LG specified for the next PC/Ally load test.
 - Symbols: `re/symbols/incoming/load-renames.tsv`. Script: `re/scripts_load/ls_digest.py`. Data: `captures/pc/loadstats/`.
 - Undo: nothing to undo.
+
+## 2026-10-08 - ASI 1.7.17: probe LG (LoadGates) + LoadStats = 3 (measurement only, both default 0)
+- `[Profiler] LoadGates = 1` (needs LoadStats >= 1): pass-through hooks on the 9 gate calls of LoadIsLoadEnd 3B3424 (3B3443 3B3460 3B347B 3B3490 3B34A4 3B34D0 3B34F0 3B3506 3B3559; E8 sites verified by patches.json group LG, ALL 131 SITES OK). Per load: `LoadGates #n` evaluations, per gate calls / fails / first-failing share / held seconds / first+last fail / flip-to-pass (relative to the 58A set) and `holder: Gx`. 10 ms polls of g_FastTravelSeq [4757470] and g_WarpSeqB [47098A0] log `LoadSeq FT 5->6 +12.3 s`, the 58A owner at the set, [[45B9E40]+58h] and the blocking-widget flag.
+- `LoadStats = 3`: the 1 s tick also runs outside the 58A window (while frames advance) with 58A / FT / B state / first failing gate.
+- Game behaviour unchanged (same args in, same rax out). Test script: `tools\testmatrix\lg_ini.ps1` -> `fullmod_ini_1717_lg.ini`, `loadstats_ab.ps1 -Ini fullmod_ini_1717_lg.ini BASE_a BASE_b`. Not run in game (Ally holds it).
+- Undo: `LoadGates = 0` / `LoadStats = 0`, or the 1.7.16 .asi.

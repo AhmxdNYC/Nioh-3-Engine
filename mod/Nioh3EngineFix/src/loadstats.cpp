@@ -30,7 +30,15 @@ constexpr uint32_t kIatReadFile = 0x38E23B8;
 struct MgrLayout { uint32_t pend0, pend1, actBeg, actEnd; };
 constexpr MgrLayout kMgr[2] = {{0x200, 0x210, 0x230, 0x238}, {0x1E0, 0x1F0, 0x218, 0x220}};
 
-enum Kind : uint8_t { kMgrSleep, kInflate, kPso, kRead };
+// LG probe (1.7.17): LoadIsLoadEnd 3B3424 gates (notes\loading-bottleneck.md 3.2) and the two sequencers that own 58A.
+constexpr uint32_t kFtSeq = 0x4757470;     // g_FastTravelSeq: +0 state, +4 timer (dt60 units), +40h popping wait
+constexpr uint32_t kWarpSeqB = 0x47098A0;  // g_WarpSeqB: +0 state, +4 timer
+constexpr uint32_t kBlkPtr = 0x45B9E40;    // [[45B9E40]+58h] == 0 required by FT state 6
+constexpr uint32_t kBlkOff = 0x58;
+constexpr uint32_t kWidgetPtr = 0x45C84A8; // [[45C84A8]+430h] != 0 -> UiBlockingWidgetActive 5A377C (FT state 6)
+constexpr uint32_t kWidgetOff = 0x430;
+
+enum Kind : uint8_t { kMgrSleep, kInflate, kPso, kRead, kGate };
 struct Site {
     uint32_t rva;
     Kind kind;
@@ -50,12 +58,24 @@ constexpr Site kSites[] = {
     {0x3130D6, kRead, kIatReadFile, 0},    {0x740392, kRead, kIatReadFile, 1},    {0x1FD9CA3, kRead, kIatReadFile, 1},
     {0x32562BE, kRead, kIatReadFile, 1},
 };
+constexpr int kNumGates = 9;
+// The 9 E8 call sites in LoadIsLoadEnd, evaluated in this order; each short-circuits the next. nonzeroPasses: the gate
+// passes when the result is nonzero (G1 G4 G6 G7 G8 G9), else when it is zero (G2 G3 G5). G6 returns a pointer (full rax).
+struct GateDef { uint32_t rva, callee; const char* name; bool nonzeroPasses; };
+constexpr GateDef kGates[kNumGates] = {
+    {0x3B3443, 0x3B35B4, "G1 StagePathInitStep", true}, {0x3B3460, 0x8B3868, "G2 StageAreaListBusy", false},
+    {0x3B347B, 0x3B3974, "G3 StageRequestQueueBusy", false}, {0x3B3490, 0x3B3934, "G4 UiLoadPairReady", true},
+    {0x3B34A4, 0x13335C, "G5 ObjectListAnyNotReady", false}, {0x3B34D0, 0xD3958, "G6 CurrentAreaPresent", true},
+    {0x3B34F0, 0x2BE284, "G7 LoadEndBlockerScan", true}, {0x3B3506, 0x3B3A28, "G8 StageAreasObjectsReady", true},
+    {0x3B3559, 0x3B39AC, "G9 LoadCharacterReady", true}};
 constexpr uint32_t kInflTargets[3] = {0x420654, 0x324D064, 0xA09A40};
 constexpr uint32_t kPsoTargets[2] = {0x9290D8, 0x58C2B0};
 
 void (*g_log)(const char*, ...) = nullptr;
 uintptr_t g_base = 0;
 int g_mode = 0;
+bool g_lg = false;  // [Profiler] LoadGates = 1 (needs LoadStats >= 1)
+uint64_t g_qpc0 = 0;
 int g_loaderCap = 10;  // in-flight cap in force (StartInfo::loaderCap)
 bool g_on = false;
 double g_qpcMs = 0;  // ms per QPC tick
@@ -107,6 +127,81 @@ void NoteThread() {
         }
     }
 }
+
+// ---- LG probe state. Written by the game thread (hooks), reset/read by the sampler; relaxed atomics, approximate by design ----
+struct GateStat {
+    std::atomic<uint64_t> calls{0}, fails{0}, firstFails{0}, holdTicks{0};
+    std::atomic<uint64_t> firstFailQ{0}, lastFailQ{0}, lastFlipQ{0};
+    std::atomic<bool> prevFail{false};
+};
+GateStat g_gate[kNumGates];
+std::atomic<uint64_t> g_evals{0}, g_fullPass{0}, g_firstPassQ{0}, g_lastPassQ{0}, g_lastFailEvQ{0}, g_lastEvQ{0};
+std::atomic<int> g_evalFail{-1};   // first failing gate of the current evaluation (-1 none so far)
+std::atomic<uint64_t> g_evalQ{0};  // QPC of the current evaluation's G1 call (0 = none yet)
+std::atomic<bool> g_evalSawEnd{false};  // the current evaluation reached G9
+
+// Ends the current evaluation at time q: credits the interval to the gate that failed first, counts full passes.
+void FlushEval(uint64_t q) {
+    const uint64_t e0 = g_evalQ.load(std::memory_order_relaxed);
+    if (!e0) return;
+    const int f = g_evalFail.load(std::memory_order_relaxed);
+    if (f >= 0) {
+        g_gate[f].holdTicks.fetch_add(q > e0 ? q - e0 : 0, std::memory_order_relaxed);
+        g_lastFailEvQ.store(e0, std::memory_order_relaxed);
+    } else if (g_evalSawEnd.load(std::memory_order_relaxed)) {
+        g_fullPass.fetch_add(1, std::memory_order_relaxed);
+        if (!g_firstPassQ.load(std::memory_order_relaxed)) g_firstPassQ.store(e0, std::memory_order_relaxed);
+        g_lastPassQ.store(e0, std::memory_order_relaxed);
+    }
+}
+void ResetGates() {
+    for (GateStat& g : g_gate) {
+        g.calls = 0; g.fails = 0; g.firstFails = 0; g.holdTicks = 0;
+        g.firstFailQ = 0; g.lastFailQ = 0; g.lastFlipQ = 0; g.prevFail = false;
+    }
+    g_evals = 0; g_fullPass = 0; g_firstPassQ = 0; g_lastPassQ = 0; g_lastFailEvQ = 0; g_lastEvQ = 0;
+    g_evalFail = -1; g_evalQ = 0; g_evalSawEnd = false;
+}
+void GateNote(int gi, uint64_t r) {
+    const uint64_t q = Qpc();
+    if (gi == 0) {  // G1 starts an evaluation
+        FlushEval(q);
+        g_evals.fetch_add(1, std::memory_order_relaxed);
+        g_evalQ.store(q, std::memory_order_relaxed);
+        g_lastEvQ.store(q, std::memory_order_relaxed);
+        g_evalFail.store(-1, std::memory_order_relaxed);
+        g_evalSawEnd.store(false, std::memory_order_relaxed);
+    }
+    if (gi == kNumGates - 1) g_evalSawEnd.store(true, std::memory_order_relaxed);
+    const bool nz = gi == 5 ? r != 0 : (r & 0xFF) != 0;
+    const bool fail = kGates[gi].nonzeroPasses ? !nz : nz;
+    GateStat& g = g_gate[gi];
+    g.calls.fetch_add(1, std::memory_order_relaxed);
+    if (fail) {
+        g.fails.fetch_add(1, std::memory_order_relaxed);
+        g.lastFailQ.store(q, std::memory_order_relaxed);
+        if (!g.firstFailQ.load(std::memory_order_relaxed)) g.firstFailQ.store(q, std::memory_order_relaxed);
+        if (g_evalFail.load(std::memory_order_relaxed) < 0) {
+            g_evalFail.store(gi, std::memory_order_relaxed);
+            g.firstFails.fetch_add(1, std::memory_order_relaxed);
+        }
+    } else if (g.prevFail.load(std::memory_order_relaxed)) {
+        g.lastFlipQ.store(q, std::memory_order_relaxed);
+    }
+    g.prevFail.store(fail, std::memory_order_relaxed);
+}
+
+// Pass-through hook of one gate call: same four register arguments in (every callee takes <= 4 integer args), same rax out.
+using GateFn = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t);
+template <int G>
+uint64_t HkGate(uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
+    const uint64_t r = reinterpret_cast<GateFn>(g_base + kGates[G].callee)(a, b, c, d);
+    GateNote(G, r);
+    return r;
+}
+const void* const kGateHooks[kNumGates] = {(const void*)&HkGate<0>, (const void*)&HkGate<1>, (const void*)&HkGate<2>,
+                                           (const void*)&HkGate<3>, (const void*)&HkGate<4>, (const void*)&HkGate<5>,
+                                           (const void*)&HkGate<6>, (const void*)&HkGate<7>, (const void*)&HkGate<8>};
 
 // ---- hooks (same arguments in, same result out) ----
 using InflFn = uint64_t (*)(void*, uint32_t, uint64_t*, const void*, uint32_t);
@@ -271,6 +366,7 @@ const void* HookFor(const Site& s) {
                 case 2: return (const void*)&HkPso<2>;
                 default: return (const void*)&HkPso<3>;
             }
+        case kGate: return kGateHooks[s.arg];
         case kRead: return s.arg == 0 ? (const void*)&HkRead<0> : (const void*)&HkRead<1>;
         default: return (const void*)&MgrSleep;
     }
@@ -279,7 +375,7 @@ const void* HookFor(const Site& s) {
 // Verifies one site and installs it. Returns 0 ok, 1 bytes differ (other patch / other build), 2 no room / not atomic.
 int InstallSite(const Site& s) {
     uint8_t* p = (uint8_t*)(g_base + s.rva);
-    const bool isCall = s.kind == kInflate || s.kind == kPso;
+    const bool isCall = s.kind == kInflate || s.kind == kPso || s.kind == kGate;
     if (isCall) {
         if (p[0] != 0xE8) return 1;
         int32_t rel;
@@ -420,6 +516,44 @@ void OpenWindow(uintptr_t gm) {
     g_statusT0.store(g_w.s0.qpc);
     g_statusLoad.store(1);
     g_log("LoadStats #%d: 58A set (loader in-flight cap %d, GameMain+4Dh = %u)", g_w.n, g_w.cap, (unsigned)c1);
+    if (g_lg) {
+        ResetGates();
+        int ft = -1, wb = -1;
+        Rd(g_base + kFtSeq, ft);
+        Rd(g_base + kWarpSeqB, wb);
+        g_log("LoadSeq #%d owner at set: %s (FT state %d, B state %d)", g_w.n,
+              (ft >= 2 && ft <= 4) ? "FT FastTravelSeqTick" : (wb >= 1 && wb <= 2) ? "B WarpSeqBTick" : "script/other", ft, wb);
+    }
+}
+
+const char* GateName(int g) { return g >= 0 && g < kNumGates ? kGates[g].name : "none"; }
+
+// Seconds of QPC value q after the 58A set (negative = before; 0 = never happened -> NaN-free sentinel -999).
+double RelS(uint64_t q, uint64_t q0) { return q ? (double)(int64_t)(q - q0) * g_qpcMs / 1000.0 : -999.0; }
+
+void LogGates(int n, uint64_t q0, double total) {
+    const uint64_t qe = Qpc();
+    FlushEval(qe);
+    const uint64_t ev = g_evals.load();
+    g_log("LoadGates #%d: %llu evaluations (%llu with no failing gate) | last failing eval %+.1f s, first full-pass eval %+.1f s, "
+          "last eval %+.1f s, window %.1f s", n, (unsigned long long)ev, (unsigned long long)g_fullPass.load(),
+          RelS(g_lastFailEvQ.load(), q0), RelS(g_firstPassQ.load(), q0), RelS(g_lastEvQ.load(), q0), total);
+    int best = -1;
+    uint64_t bestT = 0;
+    for (int i = 0; i < kNumGates; ++i) {
+        const GateStat& g = g_gate[i];
+        const uint64_t c = g.calls.load();
+        if (!c) continue;
+        const uint64_t ht = g.holdTicks.load();
+        if (ht > bestT) { bestT = ht; best = i; }
+        g_log("LoadGates #%d %-26s calls %llu, failed %llu, first-failing in %llu evals (%.0f %%), held %.2f s (%.0f %% of window) | "
+              "first fail %+.1f s, last fail %+.1f s, last flip to pass %+.1f s", n, kGates[i].name, (unsigned long long)c,
+              (unsigned long long)g.fails.load(), (unsigned long long)g.firstFails.load(),
+              ev ? 100.0 * (double)g.firstFails.load() / (double)ev : 0.0, (double)ht * g_qpcMs / 1000.0,
+              total > 0 ? 100.0 * (double)ht * g_qpcMs / 1000.0 / total : 0.0, RelS(g.firstFailQ.load(), q0),
+              RelS(g.lastFailQ.load(), q0), RelS(g.lastFlipQ.load(), q0));
+    }
+    g_log("LoadGates #%d holder: %s (%.2f s of %.1f s)", n, GateName(best), (double)bestT * g_qpcMs / 1000.0, total);
 }
 
 void CloseWindow(uintptr_t gm) {
@@ -455,6 +589,7 @@ void CloseWindow(uintptr_t gm) {
                    w.s0.psoTicks[2] - w.s0.psoTicks[3]) * g_qpcMs / 1000.0,
           (double)g_c.psoMaxTicks.exchange(0) * g_qpcMs, (unsigned long long)(e.mgrSleep[0] - w.s0.mgrSleep[0]),
           (unsigned long long)(e.mgrSleep[1] - w.s0.mgrSleep[1]), (unsigned long long)(e.mgrSleep[2] - w.s0.mgrSleep[2]));
+    if (g_lg) LogGates(w.n, w.s0.qpc, sec);
     if (w.haveStage) {
         LogSpan(w.n, "split [set->stage ready]", w.s0, w.sStage);
         LogSpan(w.n, "split [stage ready->clear]", w.sStage, e);
@@ -483,6 +618,52 @@ void SampleMgr(int m, double t) {
     if (m == 0) g_statusAct.store((int)act);
 }
 
+// LG polls (10 ms, window open or not): sequencer states and the two FT state-6 conditions; one line per change.
+struct SeqPoll {
+    int ft = -9, wb = -9, blk = -9, widget = -9;
+};
+SeqPoll g_sp;
+int g_outTick = 0, g_outFrames = 0;
+
+void PollSeq(uint64_t now) {
+    const bool open = g_w.open;
+    const double t = open ? (double)(now - g_w.s0.qpc) * g_qpcMs / 1000.0 : (double)(now - g_qpc0) * g_qpcMs / 1000.0;
+    char when[40];
+    snprintf(when, sizeof(when), open ? "+%.1f s" : "@%.1f s (no window)", t);
+    int ft = -1, wb = -1;
+    Rd(g_base + kFtSeq, ft);
+    Rd(g_base + kWarpSeqB, wb);
+    if (ft != g_sp.ft) {
+        float tm = 0, wait = 0;
+        Rd(g_base + kFtSeq + 4, tm);
+        Rd(g_base + kFtSeq + 0x40, wait);
+        if (g_sp.ft != -9) g_log("LoadSeq FT %d->%d %s (timer %.1f, popping wait %.1f)", g_sp.ft, ft, when, (double)tm, (double)wait);
+        g_sp.ft = ft;
+    }
+    if (wb != g_sp.wb) {
+        float tm = 0;
+        Rd(g_base + kWarpSeqB + 4, tm);
+        if (g_sp.wb != -9) g_log("LoadSeq B %d->%d %s (timer %.1f)", g_sp.wb, wb, when, (double)tm);
+        g_sp.wb = wb;
+    }
+    uintptr_t p = 0;
+    int blk = -1, widget = -1;
+    if (Rd(g_base + kBlkPtr, p) && p) {
+        uint32_t v = 0;
+        if (Rd(p + kBlkOff, v)) blk = (int)v;
+    }
+    uintptr_t q = 0;
+    if (Rd(g_base + kWidgetPtr, p) && p && Rd(p + kWidgetOff, q)) widget = q != 0;
+    if (blk != g_sp.blk) {
+        if (g_sp.blk != -9) g_log("LoadSeq [[45B9E40]+58h] %d->%d %s", g_sp.blk, blk, when);
+        g_sp.blk = blk;
+    }
+    if (widget != g_sp.widget) {
+        if (g_sp.widget != -9) g_log("LoadSeq blocking widget ([45C84A8]+430h != 0) %d->%d %s", g_sp.widget, widget, when);
+        g_sp.widget = widget;
+    }
+}
+
 DWORD WINAPI Sampler(void*) {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);  // keep the 10 ms cadence under load
     for (;;) {
@@ -491,6 +672,17 @@ DWORD WINAPI Sampler(void*) {
         if (!Rd(g_base + kGameMainPtr, gm) || !gm) continue;
         uint8_t f = 0;
         if (!Rd(gm + kGmStopFlag58A, f)) continue;
+        const uint64_t nowQ = Qpc();
+        if (g_lg) PollSeq(nowQ);
+        if (g_mode >= 3 && !g_w.open && !f && ++g_outTick >= 100) {  // LoadStats = 3: 1 s tick outside the 58A window too
+            g_outTick = 0;
+            const int fr = ReadFrames(gm);
+            if (fr != g_outFrames) {
+                g_log("LoadStats tick out %+.0f s: frames %d, 58A 0, FT %d, B %d, first failing gate %s", (double)(nowQ - g_qpc0) * g_qpcMs / 1000.0,
+                      fr - g_outFrames, g_sp.ft, g_sp.wb, GateName(g_evalFail.load()));
+                g_outFrames = fr;
+            }
+        }
         if (!g_w.open) {
             if (f) OpenWindow(gm);
             continue;
@@ -532,6 +724,8 @@ DWORD WINAPI Sampler(void*) {
                   (double)(s.inflTicks - a.inflTicks) * g_qpcMs,
                   (unsigned long long)(s.psoN[0] + s.psoN[1] + s.psoN[2] + s.psoN[3] - a.psoN[0] - a.psoN[1] - a.psoN[2] - a.psoN[3]),
                   ss, (double)acc);
+            if (g_lg) g_log("LoadStats tick #%d %+.0f s: 58A 1, FT %d, B %d, first failing gate %s, evals %llu", g_w.n, t, g_sp.ft, g_sp.wb,
+                            GateName(g_evalFail.load()), (unsigned long long)g_evals.load());
             g_w.sLastTick = s;
         }
     }
@@ -543,6 +737,7 @@ bool Start(const StartInfo& info) {
     g_log = info.log;
     g_base = info.base;
     g_mode = (int)GetPrivateProfileIntW(L"Profiler", L"LoadStats", 0, info.iniPath);
+    g_lg = g_mode >= 1 && GetPrivateProfileIntW(L"Profiler", L"LoadGates", 0, info.iniPath) != 0;
     g_loaderCap = info.loaderCap > 0 ? info.loaderCap : 10;
     if (g_mode <= 0 || !g_log || !g_base) return false;
     if (!info.knownBuild) {
@@ -570,6 +765,19 @@ bool Start(const StartInfo& info) {
         (r == 1 ? differ : skipped)++;
         if (bl < sizeof(bad) - 16) bl += (size_t)snprintf(bad + bl, sizeof(bad) - bl, " %X%s", s.rva, r == 1 ? "(bytes)" : "(atomic)");
     }
+    if (g_lg) {
+        int gok = 0;
+        char gbad[160] = {0};
+        size_t gl = 0;
+        for (int i = 0; i < kNumGates; ++i) {
+            const Site gs{kGates[i].rva, kGate, kGates[i].callee, (uint8_t)i};
+            const int r = g_thunks ? InstallSite(gs) : 2;
+            if (r == 0) { ++gok; continue; }
+            if (gl < sizeof(gbad) - 24) gl += (size_t)snprintf(gbad + gl, sizeof(gbad) - gl, " G%d(%s)", i + 1, r == 1 ? "bytes" : "atomic");
+        }
+        g_log("LoadGates: %d/%d gate call sites hooked%s%s", gok, kNumGates, gl ? " -" : "", gbad);
+    }
+    g_qpc0 = Qpc();
     HANDLE th = CreateThread(nullptr, 0, &Sampler, nullptr, 0, nullptr);
     if (th) CloseHandle(th);
     g_on = th != nullptr;

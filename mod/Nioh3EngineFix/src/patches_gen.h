@@ -205,6 +205,15 @@ static const uint8_t orig_GPe2[] = { 0xFF, 0x90, 0xD0, 0x01, 0x00, 0x00 };
 static const uint8_t orig_GPe3[] = { 0x80, 0xB9, 0x42, 0x05, 0x00, 0x00, 0x00 };
 static const uint8_t orig_GPe4[] = { 0xFF, 0x90, 0xD0, 0x01, 0x00, 0x00 };
 static const uint8_t orig_GPa0[] = { 0x44, 0x88, 0x81, 0x42, 0x05, 0x00, 0x00 };
+static const uint8_t orig_LG1[] = { 0xE8, 0x6C, 0x01, 0x00, 0x00 };
+static const uint8_t orig_LG2[] = { 0xE8, 0x03, 0x04, 0x50, 0x00 };
+static const uint8_t orig_LG3[] = { 0xE8, 0xF4, 0x04, 0x00, 0x00 };
+static const uint8_t orig_LG4[] = { 0xE8, 0x9F, 0x04, 0x00, 0x00 };
+static const uint8_t orig_LG5[] = { 0xE8, 0xB3, 0xFE, 0xD7, 0xFF };
+static const uint8_t orig_LG6[] = { 0xE8, 0x83, 0x04, 0xD2, 0xFF };
+static const uint8_t orig_LG7[] = { 0xE8, 0x8F, 0xAD, 0xF0, 0xFF };
+static const uint8_t orig_LG8[] = { 0xE8, 0x1D, 0x05, 0x00, 0x00 };
+static const uint8_t orig_LG9[] = { 0xE8, 0x4E, 0x04, 0x00, 0x00 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -329,6 +338,15 @@ static const Site kSites[] = {
     { "GPe3", "GP", 0x113F76, 7, orig_GPe3, "80 B9 42 05 00 00 00 48", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "GPe4", "GP", 0x113FB9, 6, orig_GPe4, "FF 90 D0 01 00 00 48 83 C4 20 5B C3 CC CC CC 40", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "GPa0", "GP", 0xA96D81, 7, orig_GPa0, "44 88 81 42 05 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "LG1", "LG", 0x3B3443, 5, orig_LG1, "E8 ?? ?? ?? ?? 33 DB 84 C0 0F 84 41", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B35B4 },
+    { "LG2", "LG", 0x3B3460, 5, orig_LG2, "E8 ?? ?? ?? ?? 84 C0 0F 85 26 01 00 00 48 8B 0D", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x8B3868 },
+    { "LG3", "LG", 0x3B347B, 5, orig_LG3, "E8 ?? ?? ?? ?? 84 C0 0F 85 0B 01 00 00 38", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B3974 },
+    { "LG4", "LG", 0x3B3490, 5, orig_LG4, "E8 ?? ?? ?? ?? 84 C0 0F 84 F6 00 00 00 48 8B 0D", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B3934 },
+    { "LG5", "LG", 0x3B34A4, 5, orig_LG5, "E8 ?? ?? ?? ?? 84 C0 0F 85 E2 00 00 00 4C", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x13335C },
+    { "LG6", "LG", 0x3B34D0, 5, orig_LG6, "E8 ?? ?? ?? ?? 48 85 C0 0F 84 B5 00 00 00 48 8D", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0xD3958 },
+    { "LG7", "LG", 0x3B34F0, 5, orig_LG7, "E8 ?? ?? ?? ?? 84 C0 0F 84 96 00 00 00 41 83", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x2BE284 },
+    { "LG8", "LG", 0x3B3506, 5, orig_LG8, "E8 ?? ?? ?? ?? 84 C0 0F 84 80 00 00 00 E8 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B3A28 },
+    { "LG9", "LG", 0x3B3559, 5, orig_LG9, "E8 ?? ?? ?? ?? 84 C0 75 0C 48 8D 4C 24 20 E8 1C", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B39AC },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
