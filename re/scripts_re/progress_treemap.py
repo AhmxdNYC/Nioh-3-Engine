@@ -144,13 +144,33 @@ def grid(cells, x, y, w, h):
     return out
 
 
+def wcells(cells, x, y, w, h, total):
+    """cells [(weight, value)] hottest first -> squarified rects; the tail below 0.02 % of total is merged into one cell."""
+    keep = [c for c in cells if c[0] >= 0.0002 * total]
+    tail = [c for c in cells if c[0] < 0.0002 * total]
+    if tail:
+        tw = sum(c[0] for c in tail)
+        keep.append((tw, sum(c[0] * c[1] for c in tail) / tw, '%d tiny functions' % len(tail)))
+    if w < 1 or h < 1 or not keep:
+        return []
+    s = sum(c[0] for c in keep)
+    rects = squarify([(i, c[0] / s * w * h) for i, c in enumerate(keep)], x, y, w, h)
+    out = []
+    for i, (cx, cy, cw, ch) in rects.items():
+        c = keep[i]
+        out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s"%s'
+                   % (cx, cy, max(cw - .8, .3), max(ch - .8, .3), colour(c[1]),
+                      '><title>%s</title></rect>' % c[2] if len(c) > 2 else '/>'))
+    return out
+
+
 def svg(blocks, title, W=1600, H=900, legend=''):
     """blocks [(label, weight, [cell values], subtitle)]"""
     top = 34
     tot = sum(b[1] for b in blocks)
     order = sorted(enumerate(blocks), key=lambda t: -t[1][1])
     rects = squarify([(i, b[1] / tot * W * (H - top)) for i, b in order], 0, top, W, H - top)
-    o = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" font-family="Segoe UI,Helvetica,Arial,sans-serif">' % (W, H, W, H),
+    o = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" style="width:100%%;height:auto" font-family="Segoe UI,Helvetica,Arial,sans-serif">' % (W, H),
          '<rect width="100%" height="100%" fill="#0d1117"/>',
          '<text x="10" y="22" fill="#e6edf3" font-size="15" font-weight="600">%s</text>' % title, legend]
     for i, (label, wgt, cells, sub) in enumerate(blocks):
@@ -159,7 +179,10 @@ def svg(blocks, title, W=1600, H=900, legend=''):
         x, y, w, h = rects[i]
         lab = w > 90 and h > 40
         hy = 17 if lab else 0
-        o += grid(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy)
+        if cells and isinstance(cells[0], tuple):
+            o += wcells(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy, tot)
+        else:
+            o += grid(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy)
         if lab:
             t = label if len(label) * 7.2 < w - 10 else label[:max(int((w - 10) / 7.2) - 1, 3)] + '..'
             s = sub if len(t + sub) * 6.6 < w - 10 else ''
@@ -170,7 +193,7 @@ def svg(blocks, title, W=1600, H=900, legend=''):
 
 
 def legend(W=1600):
-    s, x = '', W - 330
+    s, x = '', W - 440
     for t, v in (('named', 1.0), ('Unknown_* (role unclear)', 0.5), ('not named', 0.0)):
         s += '<rect x="%d" y="10" width="12" height="12" fill="%s"/><text x="%d" y="21" fill="#8b949e" font-size="11">%s</text>' % (x, colour(v), x + 16, t)
         x += 26 + len(t) * 6.2
@@ -230,10 +253,10 @@ def main():
     pblocks = []
     for a, lst in pg.items():
         t = sum(v for v, _ in lst)
-        pblocks.append((a, t, [s for _, s in lst], '%s of time' % pct(t / tot)))
+        pblocks.append((a, t, lst, '%s of time' % pct(t / tot)))
         if check:
             print('  %-36s %5d fn %6.2f%%' % (a, len(lst), 100 * t / tot))
-    perf = svg(pblocks, 'Profiled CPU self time (ROG Ally + PC): %d functions; block area = time share, one cell per function (hottest first)' % len(comb), legend=legend())
+    perf = svg(pblocks, 'Profiled CPU self time (ROG Ally + PC): %d functions; block area = time share, cell area = function time (tiny ones merged)' % len(comb), legend=legend())
 
     def badge(l, v, c):
         return '![%s](https://img.shields.io/badge/%s-%s-%s)' % (
