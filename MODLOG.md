@@ -642,3 +642,17 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - notes\ally-gpu-budget.md: USER preset per-PSO table (S1, 95 % of 28.7 ms attributed), U1-U6 upscaler arms, REN_RAT 67 = illegal enum value (not a clamp), RCAS at sharpness 0 is still a sharpen (skip rejected), VCLOUD / copies / PB2 / VFSCAT cost analysis + ranked same-look fixes, Ally A/B protocol (s7).
 - ADD shader item `fogpar` (gpu-shaders\fog\build_fogpar.py, vf235_par_src.hlsl): VFSCAT #235 with only the merged early-exit VSM level search. Bit-exact on 2,688 interpreter seeds; RGA gfx1103 96 VGPR / 5 waves (= stock), VMEM loads 101 -> 79. Pack 0xa9910db8.file sha256 81007b3f...; it supersedes the dropped `fog` row in ally_shaders.sh / apply_fog.ps1 (old sha recognised for upgrade/revert). No ASI change (no version bump).
 - Undo: `./ally_shaders.sh revert fogpar` (Ally) / `apply_fog.ps1 -Revert` (PC), or Steam verify. Not installed anywhere yet.
+## 2026-10-08 - ASI 1.7.37 / 1.7.38: VirtualPad + KeepRunningUnfocused + test popup (debug, default off; nothing in the game folder changed)
+- ADD `[Debug] VirtualPad = 0` (1 exclusive / 2 merge), `VirtualPadIdleReleaseSec = 600`, `KeepRunningUnfocused = 0` (src\vpad.cpp/.h,
+  vpad_core.h; patches.json group VP0-VP3 check-only; notes\virtual-input.md). The game's XInputGetState IAT answers slot 0 from
+  `\\.\pipe\nioh3vpad` (press / hold / release / stick / trigger / key / menu get|set on the Present thread / state / realpads); virtual
+  keys via the menu's DirectInput hook (real keys hidden while unfocused). KeepRunningUnfocused retargets IsAppActive calls 436758 /
+  436A20 / 89B2FD to an al/flags-only thunk (pads + no focus-loss pause; mouse / keyboard / cursor keep the stock answer) and opts the
+  process out of power throttling.
+- tools\testmatrix: vpad.py / vpad.ps1 backend, `abba2_pc.ps1 -Input vpad`, `tools\tour\run_tour.ps1 -Input vpad`, vpad_live.ps1;
+  testpopup.fsx = "test running" popup + tray with an opt-in Block my input / Release toggle (LL hooks, real input only; release by
+  button / tray / Ctrl+Alt+Shift+F12 / 30 min / harness or owner exit), wired into abba2, tour, vpad_live and playsession START.
+- Live 2026-10-08 (PC, game never in the foreground): title -> Continue -> field in 31 s, menu item set via the pipe (MENU line
+  logged), stick moved the player 367 units, clean close. Offline: run_vpad_harness / test_patterns 236 sites / vpad.py selftest /
+  testpopup selftest / dry runs ALL PASSED.
+- Undo: VirtualPad = KeepRunningUnfocused = 0 (default), or the 1.7.36 .asi.

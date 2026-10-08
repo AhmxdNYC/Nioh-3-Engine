@@ -106,4 +106,13 @@ PASSED; `tests\test_patterns.py` ALL 236 SITES OK; `py -I tools\testmatrix\vpad.
 
 ## 6. Live check
 
-(pending: PC flag test holds the game lock)
+2026-10-08 19:08, PC, ASI 1.7.38, `tools\testmatrix\vpad_live.ps1 -OwnerPid <claude.exe>` (captures\vpad\20261008_190802),
+VirtualPad = 1 + KeepRunningUnfocused = 1 + AutoContinueLoad = 1. **Nioh3 never had the foreground** (VS Code had it before launch,
+after the give-back, in the field and at the end; state `active=0 fg=0` throughout):
+- log: `KeepRunningUnfocused: installed at 3/3`, `power throttling off`, `VPad: installed (VirtualPad = 1, exclusive)`.
+- title -> Continue -> field by `title-continue` in **31 s, 5 A presses**, `field=1` (player present, not loading / paused).
+- `menu set FrameTime 0` -> `MENU: Show frame time -> OFF` in the mod log (it was already ON, so `set 1` was a no-op).
+- `stick L 0 1 1500`: the player walked **367 units** (pos 153475,201883 -> 153623,201547) while unfocused; no pause menu.
+- game closed with WM_CLOSE (no kill), ini + asi restored, lock released.
+- The game reads the pad in more than one ~2 ms-separated burst per frame (a 120 ms press = 32 rounds), so the 2-round minimum
+  is not 2 frames: harnesses use presses >= 50 ms (vpad.py uses 120 ms).
