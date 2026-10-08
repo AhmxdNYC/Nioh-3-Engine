@@ -1,0 +1,105 @@
+script,mission_id,placement_id,char_id,evidence
+0F72DF1DECEF,,,,no constant placement id in script (comes from VM locals)
+17B9D0901379,,,,no constant placement id in script (comes from VM locals)
+21FE10656120,,,,no constant placement id in script (comes from VM locals)
+23B11AD2E77F,,17575|18870|58780,,script-const only; placement->char table not found in extracted data
+33F79583DFA3,,,,no constant placement id in script (comes from VM locals)
+35A880867F1E,,,,no constant placement id in script (comes from VM locals)
+397961F3ACF3,,,,no constant placement id in script (comes from VM locals)
+4073BB6CD7BF,,,,no constant placement id in script (comes from VM locals)
+45C15A1FFB1A,,8061822|8063630|8064695|8065081|8066787,,script-const only; placement->char table not found in extracted data
+4A9D7FC0C78E,,,,no constant placement id in script (comes from VM locals)
+5E68F49FC65F,,,,no constant placement id in script (comes from VM locals)
+63742543AEB8,,,,no constant placement id in script (comes from VM locals)
+663667288B5D,,16889|24284|32468|34449|63339|65218,,script-const only; placement->char table not found in extracted data
+6C05ACE2DDE5,,,,no constant placement id in script (comes from VM locals)
+6F565110C482,,,,no constant placement id in script (comes from VM locals)
+70D08AB4D345,,10277,,script-const only; placement->char table not found in extracted data
+7F8686E97E9E,,,,no constant placement id in script (comes from VM locals)
+874591CC96D6,,,,no constant placement id in script (comes from VM locals)
+8A1A6CA9DDC5,,,,no constant placement id in script (comes from VM locals)
+8B5B6D7A96F2,,,,no constant placement id in script (comes from VM locals)
+8B9C9260E89D,,,,no constant placement id in script (comes from VM locals)
+8C931009FD0E,,,,no constant placement id in script (comes from VM locals)
+8EDAAD75A6E4,,,,no constant placement id in script (comes from VM locals)
+8F45C6314FB9,,,,no constant placement id in script (comes from VM locals)
+94B9A85DF3C6,,,,no constant placement id in script (comes from VM locals)
+959B14897863,,,,no constant placement id in script (comes from VM locals)
+9B7E22C510B1,,12572,,script-const only; placement->char table not found in extracted data
+A4B3B1F1B741,,,,no constant placement id in script (comes from VM locals)
+B44697EFB296,,,,no constant placement id in script (comes from VM locals)
+B4F138592131,,,,no constant placement id in script (comes from VM locals)
+B8041D275E2B,,,,no constant placement id in script (comes from VM locals)
+C33DF13FF6D2,,,,no constant placement id in script (comes from VM locals)
+C6DA46D668EC,,,,no constant placement id in script (comes from VM locals)
+C9995129CF08,,,,no constant placement id in script (comes from VM locals)
+D38178C9B28E,,,,no constant placement id in script (comes from VM locals)
+E0E7C53E6980,,,,no constant placement id in script (comes from VM locals)
+EC2CEC687176,,2884,,script-const only; placement->char table not found in extracted data
+EE4550F06AA6,,,,no constant placement id in script (comes from VM locals)
+F269FE4AD196,,,,no constant placement id in script (comes from VM locals)
+F4393CE2152C,,,,no constant placement id in script (comes from VM locals)
+F5C49D3F2BD2,,,,no constant placement id in script (comes from VM locals)
+F9B3F190397C,,,,no constant placement id in script (comes from VM locals)
+C34725FB97C6,,,,no constant placement id in script (comes from VM locals)
+A5A9F2211EC6,,3895,,script-const only; placement->char table not found in extracted data
+C217B8C15062,,6985|31546,,script-const only; placement->char table not found in extracted data
+0AD2EFD76D68,,,,no constant placement id in script (comes from VM locals)
+23B6AC585823,,,,no constant placement id in script (comes from VM locals)
+2F49D478D114,,,,no constant placement id in script (comes from VM locals)
+699A2C366549,,,,no constant placement id in script (comes from VM locals)
+8C8BDE81D976,,,,no constant placement id in script (comes from VM locals)
+937889AF5AA9,,,,no constant placement id in script (comes from VM locals)
+96A326DD1D0A,,,,no constant placement id in script (comes from VM locals)
+A47086B78FCD,,,,no constant placement id in script (comes from VM locals)
+A96CE28F8E68,,,,no constant placement id in script (comes from VM locals)
+BFC230194A06,,,,no constant placement id in script (comes from VM locals)
+E00A59553306,,,,no constant placement id in script (comes from VM locals)
+E7923507DECC,,,,no constant placement id in script (comes from VM locals)
+679CBE96AA72,,24086|60158,,script-const only; placement->char table not found in extracted data
+F54D0C2234EF,,101,,script-const only; placement->char table not found in extracted data
+AF695E47DE3C,,,,no constant placement id in script (comes from VM locals)
+0B43EF696A5E,,6134,,script-const only; placement->char table not found in extracted data
+C65DE6D9C736,,84220,,script-const only; placement->char table not found in extracted data
+06D136FFDA4F,,1086380|1087603,,script-const only; placement->char table not found in extracted data
+6F987ACEDA8F,,,,no constant placement id in script (comes from VM locals)
+D2DF2627F6F3,,65535,,script-const only; placement->char table not found in extracted data
+24A263DA1592,,,,no constant placement id in script (comes from VM locals)
+DE3B2E075980,,,,no constant placement id in script (comes from VM locals)
+F02A826143C9,,,,no constant placement id in script (comes from VM locals)
+D7C672847B77,,22093|50430,,script-const only; placement->char table not found in extracted data
+8008F3E2B14D,,,,no constant placement id in script (comes from VM locals)
+B023CC05F9E5,,,,no constant placement id in script (comes from VM locals)
+3F962263B759,,,,no constant placement id in script (comes from VM locals)
+41EED3E79765,,,,no constant placement id in script (comes from VM locals)
+48C62C56A110,,,,no constant placement id in script (comes from VM locals)
+845492A9A27A,,,,no constant placement id in script (comes from VM locals)
+D84DC0EEC5B1,,,,no constant placement id in script (comes from VM locals)
+6B75B82A1250,,49365,,script-const only; placement->char table not found in extracted data
+6128FD5B8530,,14764,,script-const only; placement->char table not found in extracted data
+B6C6854EBF81,,25523|29179,,script-const only; placement->char table not found in extracted data
+8EDB00EEC40D,,23378|61523,,script-const only; placement->char table not found in extracted data
+CFB8ECB9CBF1,,,,no constant placement id in script (comes from VM locals)
+D0BBC1DE5287,,,,no constant placement id in script (comes from VM locals)
+6D14B07C9687,,,,no constant placement id in script (comes from VM locals)
+5DD0CAD1494A,,,,no constant placement id in script (comes from VM locals)
+2DB4694D793C,,580015|587213,,script-const only; placement->char table not found in extracted data
+5A3A552EA629,,594637,,script-const only; placement->char table not found in extracted data
+1EADF481BCCA,,,,no constant placement id in script (comes from VM locals)
+586F1EC37255,,4017820,,script-const only; placement->char table not found in extracted data
+123ABCEA0B98,,29179,,script-const only; placement->char table not found in extracted data
+ABF937CF4D48,,4067651,,script-const only; placement->char table not found in extracted data
+526F7C4E6488,,42855,,script-const only; placement->char table not found in extracted data
+4876530486F4,,400,,script-const only; placement->char table not found in extracted data
+5F2E0518FFC8,,52697,,script-const only; placement->char table not found in extracted data
+5DDCEF297989,,,,no constant placement id in script (comes from VM locals)
+5E29D52DC42F,,,,no constant placement id in script (comes from VM locals)
+B2074F87F0F2,,23358,,script-const only; placement->char table not found in extracted data
+0CA8409CACB7,,,,no constant placement id in script (comes from VM locals)
+5A34CB851898,,8054890,,script-const only; placement->char table not found in extracted data
+61079E127596,,,,no constant placement id in script (comes from VM locals)
+057875E8B246,,6308,,script-const only; placement->char table not found in extracted data
+B023D29AFD54,,6308,,script-const only; placement->char table not found in extracted data
+710C8B93B28A,,,,no constant placement id in script (comes from VM locals)
+D309DF60D428,,,,no constant placement id in script (comes from VM locals)
+2B59B8417AAE,,,,no constant placement id in script (comes from VM locals)
