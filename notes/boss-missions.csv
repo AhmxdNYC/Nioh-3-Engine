@@ -1,0 +1,105 @@
+script,mission_id,mission_name_en,region,type,evidence
+0F72DF1DECEF,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | hints: Nasu no Yoichi functions
+17B9D0901379,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+21FE10656120,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+23B11AD2E77F,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | hints: Tokoyami / necrosis tutorial
+33F79583DFA3,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+35A880867F1E,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+397961F3ACF3,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+4073BB6CD7BF,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+45C15A1FFB1A,,unresolved (no stage string; stage is passed as data),unknown,unknown,"stage strings: none | hints: Kaneiji wave battle + Rodrigo/Kumagai/Jube/Mitsukuni coop (DLC1 Shadows of Edo, story ch9); Nekomata (hell)"
+4A9D7FC0C78E,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+5E68F49FC65F,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+63742543AEB8,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | hints: Hamamatsu keyguide (S01_SEN_04)
+663667288B5D,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | hints: Hiruko (Antiquity); Himiko (Antiquity)
+6C05ACE2DDE5,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | tags kitan_20;kitan_22 | hints: Kagetoki (Heian); waira quest kitan_22
+6F565110C482,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+70D08AB4D345,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | tags kitan_21 | hints: Nekomata (hell); Ishibitsu
+7F8686E97E9E,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+874591CC96D6,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+8A1A6CA9DDC5,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+8B5B6D7A96F2,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+8B9C9260E89D,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+8C931009FD0E,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+8EDAAD75A6E4,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+8F45C6314FB9,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+94B9A85DF3C6,,unresolved (no stage string; stage is passed as data),unknown,unknown,"stage strings: none | hints: wave battle Yui Shosetsu/Chuya/Hanbe/Juuroube/Naoyoshi (DLC1 rebels, story ch9)"
+959B14897863,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+9B7E22C510B1,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | tags kitan_41 | hints: Nekomata (hell); Oitekebori kitan_41
+A4B3B1F1B741,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+B44697EFB296,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+B4F138592131,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+B8041D275E2B,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+C33DF13FF6D2,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | tags kitan_20;kitan_31 | hints: Yoshitsune (Heian)
+C6DA46D668EC,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+C9995129CF08,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+D38178C9B28E,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | hints: Himiko (Antiquity)
+E0E7C53E6980,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none
+EC2CEC687176,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | tags kitan_20 | hints: Yoshitsune (Heian)
+EE4550F06AA6,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+F269FE4AD196,,unresolved (no stage string; stage is passed as data),unknown,unknown,"stage strings: none | hints: wave battle Shingen/Masakage/Masanobu/Masatomo/Nobuharu (Takeda boss rush, Warring States)"
+F4393CE2152C,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+F5C49D3F2BD2,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | hints: Tomoe wave battle (Heian)
+F9B3F190397C,,unresolved (no stage string; stage is passed as data),unknown,unknown,stage strings: none | generic template size
+C34725FB97C6,H02_NEKOMATA,Hell/Crucible Nekomata encounter (hell stages H01/H02),Hazama / hell stages,hell,stage strings: A01_HAZAMA;CH01_RETURN_NEKOMATA;CH02_FIRST_NEKOMATA;CH02_LAST_NEKOMATA;CH02_SECON_NEKOMATA | tags kitan_20;kitan_21
+A5A9F2211EC6,S01_SEN_03_MATSUNAMIKI,Saigagake open field (CH02_WORLD_SENGOKU_3),Warring States 1572 - Matsunamiki/Kozoku,field,stage strings: CH02_WORLD_SENGOKU_3;S01_SEN_03_KOZOKU;S01_SEN_03_MATSUNAMIKI
+C217B8C15062,CH06_WORLD_BAKU_3,Bakumatsu open-field area (CH06_WORLD_BAKU_3),Bakumatsu 1864,field,stage strings: CH06_WORLD_BAKU_3
+0AD2EFD76D68,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+23B6AC585823,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+2F49D478D114,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+699A2C366549,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+8C8BDE81D976,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+937889AF5AA9,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+96A326DD1D0A,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+A47086B78FCD,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+A96CE28F8E68,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+BFC230194A06,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+E00A59553306,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL | tags tokoyo_2
+E7923507DECC,S00_EDO_ALL,Edo Castle 1622 mission (Ceremony / To the Beginning / What Makes a Shogun; not separable by stage id),Edo 1622 (Edo Castle),main,stage strings: S00_EDO_ALL
+679CBE96AA72,S01_SEN_01_HAIDERA,Haidera (abandoned temple) area near Hamamatsu; mission unresolved,Warring States 1572 - Haidera,sub?,stage strings: S01_SEN_01_HAIDERA
+F54D0C2234EF,S01_SEN_01_MIKATA,The Battle of Mikatagahara,Warring States 1572 - Mikatagahara,main,stage strings: S01_SEN_01_MIKATA | in-game story title: The Battle of Mikatagahara
+AF695E47DE3C,S01_SEN_01_RYOUTANJI,Ryotan Temple area (sub: Fated Land / The Apparition of Ryotan Temple),Warring States 1572 - Ryotan Temple,main/sub,stage strings: S01_SEN_01_RYOUTANJI | in-game story title: Oni at Ryotan Temple
+0B43EF696A5E,S01_SEN_02_FUTAMATA,The Battle of Futamata Castle,Warring States 1572 - Futamata,main,"stage strings: S01_SEN_02_FUTAMATA | in-game story title: Demon of Mino, Baba Nobuharu"
+C65DE6D9C736,S01_SEN_02_FUTAMATA,The Battle of Futamata Castle,Warring States 1572 - Futamata,main,"stage strings: S01_SEN_02_FUTAMATA | in-game story title: Demon of Mino, Baba Nobuharu"
+06D136FFDA4F,S01_SEN_03_SAIGA,The Battle of Saigagake,Warring States 1572 - Saigagake,main,"stage strings: S01_SEN_03_SAIGA | in-game story title: Tiger of Kai, Takeda Shingen"
+6F987ACEDA8F,S01_SEN_03_SAIGA,The Battle of Saigagake,Warring States 1572 - Saigagake,main,"stage strings: S01_SEN_03_SAIGA | in-game story title: Tiger of Kai, Takeda Shingen"
+D2DF2627F6F3,,Multi-stage shared script (lists 8 stages); mission unresolved,multiple,shared,stage strings: S01_SEN_03_SAIGA;S01_SEN_04_HITOKOTO;S01_SEN_04_YOUGASHIDOU;S02_HEI_02_MATUOTAISYA;S02_HEI_04_SLUM02;S02_HEI_04_YASAKA;S04_BAK_01_GOSHO;S90_DLC1_03_EDOJO
+24A263DA1592,S01_SEN_04_HAMAMATSU,The Hamamatsu Incident,Warring States 1572 - Hamamatsu Castle Town,main,stage strings: S01_SEN_04_HAMAMATSU
+DE3B2E075980,S01_SEN_04_HAMAMATSU,The Hamamatsu Incident,Warring States 1572 - Hamamatsu Castle Town,main,stage strings: S01_SEN_04_HAMAMATSU
+F02A826143C9,S01_SEN_04_HAMAMATSU_JOU,The Hamamatsu Incident (castle),Warring States 1572 - Hamamatsu Castle,main,stage strings: A01_HAZAMA;S01_SEN_04_HAMAMATSU_JOU
+D7C672847B77,S01_SEN_04_HAMAMATSU_JOU,The Hamamatsu Incident (castle),Warring States 1572 - Hamamatsu Castle,main,stage strings: S01_SEN_04_HAMAMATSU_JOU;S01_SEN_04_SYUKUBA | tags hell_2;kitan_1;kitan_2 | primary=S01_SEN_04_HAMAMATSU_JOU
+8008F3E2B14D,S01_SEN_04_HITOKOTO,The Battle of Hitokoto Slope,Warring States 1572 - Hitokoto Slope,main,stage strings: S01_SEN_04_HITOKOTO | in-game story title: Yamagata of the Crimson Army
+B023CC05F9E5,S01_SEN_04_SYUKUBA,Hamamatsu post-town (Syukuba) area; sub-missions,Warring States 1572 - Hamamatsu post town,sub?,stage strings: S01_SEN_04_SYUKUBA
+3F962263B759,S01_SEN_04_YOUGASHIDOU,The Hamamatsu Incident (Yougashidou / Crucible Manifested),Warring States 1572 - Hamamatsu Yougashi-do,main,stage strings: S01_SEN_04_YOUGASHIDOU
+41EED3E79765,S01_SEN_04_YOUGASHIDOU,The Hamamatsu Incident (Yougashidou / Crucible Manifested),Warring States 1572 - Hamamatsu Yougashi-do,main,stage strings: S01_SEN_04_YOUGASHIDOU
+48C62C56A110,S01_SEN_04_YOUGASHIDOU,The Hamamatsu Incident (Yougashidou / Crucible Manifested),Warring States 1572 - Hamamatsu Yougashi-do,main,stage strings: S01_SEN_04_YOUGASHIDOU
+845492A9A27A,S01_SEN_04_YOUGASHIDOU,The Hamamatsu Incident (Yougashidou / Crucible Manifested),Warring States 1572 - Hamamatsu Yougashi-do,main,stage strings: S01_SEN_04_YOUGASHIDOU
+D84DC0EEC5B1,S01_SEN_05_HORIE,Horie's Fleeting Petals,Warring States 1572 - Lake Hamana (Horie),sub,stage strings: S01_SEN_05_HORIE
+6B75B82A1250,S01_SEN_05_HORIE,Horie's Fleeting Petals,Warring States 1572 - Lake Hamana (Horie),sub,stage strings: S01_SEN_05_HORIE;S01_SEN_05_JUJIRO | tags kitan_05;kitan_1;kitan_2;kitan_3 | primary=S01_SEN_05_HORIE
+6128FD5B8530,S01_SEN_05_SANDOU,Lake Hamana sub-mission (Sandou),Warring States 1572 - Lake Hamana,sub,stage strings: S01_SEN_05_SANDOU
+B6C6854EBF81,S02_HEI_01_KAMOSHI,"Kamo / Sagano area (Heian Befouled: Black Feather Sanctuary, or Kamo-area subs)",Heian 1190 - Kamo / Sagano,main/sub,stage strings: S02_HEI_01_CHIKURIN_EAST;S02_HEI_01_KAMOSHI | tags kitan_16;kitan_23
+8EDB00EEC40D,S02_HEI_01_KURAMA,The Age of Clans Begins (Sacred Mountain Defiled),Heian 1190 - Mount Kurama,main,stage strings: S02_HEI_01_KURAMA | in-game story title: Mount Kurama Defiled / Yoshitsune and Kurama Tengu
+CFB8ECB9CBF1,S02_HEI_01_KURAMA,The Age of Clans Begins (Sacred Mountain Defiled),Heian 1190 - Mount Kurama,main,stage strings: S02_HEI_01_KURAMA | in-game story title: Mount Kurama Defiled / Yoshitsune and Kurama Tengu
+D0BBC1DE5287,S02_HEI_02_MATUOTAISYA,Heian Befouled (Matsuo-taisha: Otoroshi),Heian 1190 - Matsuo-taisha Shrine,main,stage strings: S02_HEI_02_MATUOTAISYA | in-game story title: Otoroshi of Matsuo-taisha Shrine
+6D14B07C9687,S02_HEI_03_DAIDAIRI,A Cause Too Great (Palace grounds Crucible),Heian 1190 - Daidairi (palace),main,stage strings: S02_HEI_03_DAIDAIRI
+5DD0CAD1494A,S02_HEI_04_RAJOMON,Heian Befouled (The Oni of Rajomon),Heian 1190 - Rajomon,main,"stage strings: S02_HEI_04_RAJOMON | in-game story title: The Oni of Rajomon, Ibaraki Doji"
+2DB4694D793C,S03_KOD_01_REIJU,"Calamity's Seed / Ill Omen (Spirit Tree Village, Dark Roots)",Antiquity 247 - Reiju (Spirit Tree),main,"stage strings: S03_KOD_01_REIJU | in-game story title: Queen of Yamatai, Himiko / The Evil King, Hiruko"
+5A3A552EA629,S03_KOD_01_REIJU,"Calamity's Seed / Ill Omen (Spirit Tree Village, Dark Roots)",Antiquity 247 - Reiju (Spirit Tree),main,"stage strings: S03_KOD_01_REIJU | in-game story title: Queen of Yamatai, Himiko / The Evil King, Hiruko"
+1EADF481BCCA,S04_BAK_01_HORIKAWA,Bakumatsu Kyoto (Horikawa) mission,Bakumatsu 1864 - Horikawa,main/sub,stage strings: S04_BAK_01_HORIKAWA
+586F1EC37255,S04_BAK_01_HORIKAWA,Bakumatsu Kyoto (Horikawa) mission,Bakumatsu 1864 - Horikawa,main/sub,stage strings: S04_BAK_01_HORIKAWA
+123ABCEA0B98,S04_BAK_03_HIGASHIYAMA,"Bakumatsu Higashiyama / Kiyomizu area mission (Kiyomizu Defiled, Crucible Tour)",Bakumatsu 1864 - Higashiyama,sub,stage strings: S04_BAK_03_GOJO;S04_BAK_03_HIGASHIYAMA | tags kitan_27;kitan_31;kitan_32;kitan_36
+ABF937CF4D48,S04_BAK_03_ABURAKOJI,Bakumatsu Aburakoji (Shinsengumi area),Bakumatsu 1864 - Aburakoji,main/sub,stage strings: S04_BAK_03_ABURAKOJI
+526F7C4E6488,S04_BAK_03_HIGASHIYAMA,"Bakumatsu Higashiyama / Kiyomizu area mission (Kiyomizu Defiled, Crucible Tour)",Bakumatsu 1864 - Higashiyama,sub,stage strings: S04_BAK_03_HIGASHIYAMA;S04_BAK_04_HOKANJI | primary=S04_BAK_03_HIGASHIYAMA
+4876530486F4,S04_BAK_03_HONNOJI,Those Left Behind (Sanjo Honnoji Crucible / Accursed Temple),Bakumatsu 1864 - Honnoji Temple,main,stage strings: S04_BAK_03_HONNOJI
+5F2E0518FFC8,S04_BAK_03_HONNOJI,Those Left Behind (Sanjo Honnoji Crucible / Accursed Temple),Bakumatsu 1864 - Honnoji Temple,main,stage strings: S04_BAK_03_HONNOJI
+5DDCEF297989,S04_BAK_03_MIBUDERA,Shinsengumi: Best of Five / Solitary Blade (Mibu Temple),Bakumatsu 1864 - Mibu Temple,sub/main,stage strings: S04_BAK_03_MIBUDERA | in-game story title: Okita Soji at Mibu Temple
+5E29D52DC42F,S04_BAK_03_NISHIHONGANJI,Sealed in the Stone Urn (Nishi Honganji),Bakumatsu 1864 - Nishi Honganji,sub,stage strings: S04_BAK_03_NISHIHONGANJI
+B2074F87F0F2,S04_BAK_03_SHIMABARAYUKAKU,A New Era (Shimabara) / Drawn to Yokai Incense,Bakumatsu 1864 - Shimabara,main,stage strings: S04_BAK_03_SHIMABARAYUKAKU | in-game story title: Pleasure District Patron
+0CA8409CACB7,S90_DLC1_01_HONGO,DLC1 Hongo,DLC1 Edo 1622 (Shadows of Edo) - Hongo,dlc,stage strings: S90_DLC1_01_HONGO;S90_DLC1_01_UENO | tags kitan_38;kitan_44 | primary=S90_DLC1_01_HONGO
+5A34CB851898,S90_DLC1_02_CHOKODO,"DLC1 Chokodo (Mitsukuni, Agony of the Mito Tokugawa area)",DLC1 Edo 1622 (Shadows of Edo) - Chokodo,dlc,stage strings: S90_DLC1_02_CHOKODO
+61079E127596,S90_DLC1_02_CHOKODO,"DLC1 Chokodo (Mitsukuni, Agony of the Mito Tokugawa area)",DLC1 Edo 1622 (Shadows of Edo) - Chokodo,dlc,stage strings: S90_DLC1_02_CHOKODO
+057875E8B246,S90_DLC1_02_HAIKYO,DLC1 Haikyo (ruins),DLC1 Edo 1622 (Shadows of Edo) - Haikyo,dlc,stage strings: S90_DLC1_02_HAIKYO | tags kitan_40
+B023D29AFD54,S90_DLC1_02_HAIKYO,DLC1 Haikyo (ruins),DLC1 Edo 1622 (Shadows of Edo) - Haikyo,dlc,stage strings: S90_DLC1_02_HAIKYO | tags kitan_40;kitan_45;kitan_46
+710C8B93B28A,S90_DLC1_03_EDOJO,DLC1 Edo Castle,DLC1 Edo 1622 (Shadows of Edo) - Edo Castle,dlc,stage strings: CH08EDO;S90_DLC1_03_EDOJO
+D309DF60D428,S90_DLC1_03_EDOJO,DLC1 Edo Castle,DLC1 Edo 1622 (Shadows of Edo) - Edo Castle,dlc,stage strings: S90_DLC1_03_EDOJO;S90_DLC1_03_OGAWAMACHI | primary=S90_DLC1_03_EDOJO
+2B59B8417AAE,S90_DLC1_04_KANDA,DLC1 Kanda,DLC1 Edo 1622 (Shadows of Edo) - Kanda,dlc,stage strings: S90_DLC1_04_KANDA | tags kitan_37;kitan_38
