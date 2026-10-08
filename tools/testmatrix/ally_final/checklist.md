@@ -65,6 +65,7 @@ Per-run columns: `done`; `tag` = `run_log.sh tag <ID> <VARIANT> <PRESET>`; stand
 | [ ] | S_fog | 6 | med | launch | - | fog | stand x2, move | yes | - | `tag S_fog MOD USER` | |
 | [ ] | S_trvs | 6 | low | launch | - | trvs | stand x2, move | - | - | `tag S_trvs MOD USER` | |
 | [ ] | S_pbvs | 6 | low | launch | - | pbvs | stand x2, move | - | - | `tag S_pbvs MOD USER` | |
+| [ ] | S_wdo14 | 6 | low | launch | - | wdo14 | stand x2, move | - | - | `tag S_wdo14 MOD USER` | |
 | [ ] | X_04c1 | 7 | med | launch | - | swap:04c1052dc24e69dc69ae5c52430f97b5 | stand x2, move | yes | - | `tag X_04c1 MOD USER` | |
 | [ ] | X_4e13 | 7 | med | launch | - | swap:4e13e236319c9df7c81203eca95c4df4 | stand x2, move | yes | - | `tag X_4e13 MOD USER` | |
 | [ ] | X_cf79 | 7 | med | launch | - | swap:cf792d56ae14e49c093cb5f27a66f871 | stand x2, move | yes | - | `tag X_cf79 MOD USER` | |
@@ -94,6 +95,7 @@ Excluded and NOT built, so not re-tested: **VBC** (not exact), **HBAO draw merge
 | [ ] | toonedge2 | S_toonedge2 | - | yes | `tag S_toonedge2 MOD USER` |
 | [ ] | esm | S_esm | - | yes | `tag S_esm MOD USER` |
 | [ ] | wdo28 | S_wdo28 | - | yes | `tag S_wdo28 MOD USER` |
+| [ ] | wdo14 | S_wdo14 | - | yes | `tag S_wdo14 MOD USER` |
 | [ ] | mpc | S_mpc | - | yes | `tag S_mpc MOD USER` |
 | [ ] | mshlod | S_mshlod | - | yes | `tag S_mshlod MOD USER` |
 | [ ] | trvs | S_trvs | - | yes | `tag S_trvs MOD USER` |

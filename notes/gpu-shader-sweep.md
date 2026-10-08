@@ -172,6 +172,7 @@ TOONEDGE2 0.8 %. Shaders whose waterfall loops wait for their own fetch: 2.7 % o
 ## 5. Next candidates (designs, not built)
 
 1. **WDO#14 VSM page-flag de-duplication** (`0x1667d3a0.file` #14, 3,914 DXIL lines, 120 µs PC, 0.7–1.1 ms Ally).
+   **BUILT 2026-10-08** (DXIL-level rewrite, bit-exact, staged off as `wdo14`): `gpu-wdo14-flag-dedupe.md`.
    - **Today, per pixel:** a clip-level search loop (one `tVirtualShadowMapFlags` load per level, serial). Then for every
      PCF tap: a page-flag `buffer_load_format_x` in parallel with the `SampleCmpLevelZero`, wait, branch on the flag.
      A resident page then repeats flag + sample for the cross-fade level. That is 2–3 dependent round trips and two

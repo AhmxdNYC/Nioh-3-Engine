@@ -66,7 +66,7 @@ w("## C. Dropped-experiment re-tests (final protocol item 2; each on the Ally, o
 w("Excluded and NOT built, so not re-tested: **VBC** (not exact), **HBAO draw merge** (nothing to merge), **ZI**, **RR1** (not provable). "
   "Source: STATUS.md 'Dropped-but-kept for the final re-test'.\n")
 drop = [("GI shader rewrite #121 + #414", "S_gi", "shot"), ("Fog (VFSCAT) rewrite", "S_fog", "shot"), ("toonedge2", "S_toonedge2", ""),
-        ("esm", "S_esm", ""), ("wdo28", "S_wdo28", ""), ("mpc", "S_mpc", ""), ("mshlod", "S_mshlod", ""), ("trvs", "S_trvs", ""),
+        ("esm", "S_esm", ""), ("wdo28", "S_wdo28", ""), ("wdo14", "S_wdo14", ""), ("mpc", "S_mpc", ""), ("mshlod", "S_mshlod", ""), ("trvs", "S_trvs", ""),
         ("pbvs", "S_pbvs", ""), ("ghdm", "S_ghdm", ""), ("post-v1 swap 04c1", "X_04c1", "shot"), ("post-v1 swap 4e13", "X_4e13", "shot"),
         ("post-v1 swap cf79", "X_cf79", "shot"), ("post-v1 swap e6ef", "X_e6ef", "shot"), ("post-v1 swap f11a", "X_f11a", "shot"),
         ("R2a", "R2a", "shot"), ("R2b", "R2b", "shot"), ("R1 (barriers variant)", "R1g", "shot"), ("R1 (cpu)", "R1p", ""),

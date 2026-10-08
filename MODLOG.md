@@ -550,3 +550,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   values were PC-scaled. Top targets: FSR3 accumulate 2.1 ms, culling chain 3.5-4.5 ms, VSM 2.6-3.8 ms (USER).
 - New re\scripts_gpu\ally_budget.py (gameplay-window filter for GP1 / GP2 logs). remaining-work s3 updated (+3.8 FSR3 row).
 - Undo: none needed (docs/tools only).
+
+## 2026-10-08 - WDO#14 VSM page-flag dedupe staged (repo only; nothing in the game folder changed)
+- New `re\scripts_gpu\build_wdo14.py` + `gpu-shaders\vsm\` (flag_dedupe.py rewrite, verify_vsm.py proof): `0x1667d3a0.file` #14 with 36 of 43 page-flag loads behind a same-page cache. Proven bit-exact offline (psim 120 scenes x 600 px, interface parts identical, signed). Staged as `gpu-shaders\replacement\0x1667d3a0.file` (sha256 60e2646c...), default OFF. RGA: Ally-class VGPR 40 -> 48. Notes: `notes\gpu-wdo14-flag-dedupe.md`.
+- Install for the A/B (game closed): `gpu-shaders\apply_wdo14.ps1` / `./ally_shaders.sh apply wdo14`; matrix id `S_wdo14`.
+- Undo: `apply_wdo14.ps1 -Revert` / `./ally_shaders.sh revert wdo14`, or Steam verify.

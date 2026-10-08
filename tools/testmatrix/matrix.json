@@ -309,6 +309,9 @@
   "pbvs": {
    "ps1": "apply_materials.ps1",
    "item": "pbvs"
+  },
+  "wdo14": {
+   "ps1": "apply_wdo14.ps1"
   }
  },
  "swap_dir": "gpu-shaders\\post\\out",
@@ -1614,6 +1617,22 @@
    ],
    "risk": "low",
    "expected": "~0",
+   "grp": 6
+  },
+  {
+   "id": "S_wdo14",
+   "type": "shader",
+   "label": "WDO#14 VSM page-flag dedupe",
+   "shaders": [
+    "wdo14"
+   ],
+   "mode": "launch",
+   "devices": [
+    "pc",
+    "ally"
+   ],
+   "risk": "low",
+   "expected": "sun-shadow resolve 0.2-0.4 ms Ally",
    "grp": 6
   },
   {

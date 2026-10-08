@@ -2,9 +2,9 @@
 # ally_shaders.sh - status / install / exact revert of the staged Nioh 3 shader swaps on Linux (Bazzite / SteamOS,
 # Proton + vkd3d-proton). Same files and SHA-256 checks as gpu-shaders\apply_{ghdm,esm,wdo28,sweep}.ps1 on Windows.
 #
-#   ./ally_shaders.sh status            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
-#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
-#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
+#   ./ally_shaders.sh status            [ghdm|esm|wdo28|wdo14|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
+#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|wdo14|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
+#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|wdo14|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
 #
 # mpc / toonedge2 = the 2026-10-07 shader sweep (notes/gpu-shader-sweep.md); toonedge2 covers two files.
 # mpc = ONE combined 0x29ee0902.file: MPC#23 + the prefix-sum chain #28-#31 (notes/gpu-culling-rewrite.md). It
@@ -15,6 +15,7 @@
 # trvs / pbvs = LOAD-DEDUPE (notes/gpu-materials-trim.md): vertex shaders that re-load the same read-only dwords
 #   right after writing outputs; the repeat is removed. trvs = 0x52c39db0.file (PB2TREE2 tree VS), pbvs = 0xfd4f418f.file
 #   (PB2 meshlet VS). Separate items: A/B each alone. Expected ~0 if the driver already merges the loads.
+# wdo14 = 0x1667d3a0.file: WDO#14 sun-shadow resolve, VSM page-flag loads de-duplicated (notes/gpu-wdo14-flag-dedupe.md).
 #
 # Put this script next to the folder "replacement/" (gpu-shaders/replacement/*.file from the build PC).
 # Game folder: auto-detected from the Steam library folders, or set NIOH3_DIR=/path/to/steamapps/common/Nioh3.
@@ -33,6 +34,7 @@ TABLE="
 ghdm  0x0104840c.file  32151bd9d09f21dd995fa1ccfd23b8fd0bd7d5e02463740641b013db2675bb87  129f03a0971e0a073b346224588e2ec0dbc41a4240e1a42efd285693e5742ce9
 esm   0x1ca8bb39.file  22103ae7d838771f4aa8e9506855c2dc04820feece73fe7dbcacddecfe56dd54  3c34641f1fb8d53bcac7111b66b2212f7a9ff1e7378d736626bebdf7f42bc73a
 wdo28 0x1fd07cc0.file  197f0c438e05b68cf89d4f3f03e20c0a903bcffa6198a93a43c938e960d28ab3  a38f7de7522c4c28d75e458b4a8f6ba9c7015731365a313d2c745a83607536f9
+wdo14 0x1667d3a0.file  36bdb485805c15ea16b45321da135e98b386fa639ca76bd215aeca4648272a7c  60e2646cf2e46e9586013ae8ea4fb38ec902de36c176b9d9139a12c4ed328259
 mpc   0x29ee0902.file  42f045c370e99b80626c64e9d8084a4a855bb3baad3b04b8f634114d34b97b16  3947f3d70264920e8cf0514139b715ce6552c6389b0e364ca9fb443cca4f0d73  26417c0ff41b128443ce364a69e68328588abd5f044129fe1a8c2e8dea80cec7
 mshlod 0x8d9282e6.file  ec0f5283660caa64565e17cfb8f2dc4d06ee498278fe1a832db16d27b916ebeb  214ac371d68ff4e258526bd6f1d7cd044347bc8c417410966ae6400a02986c24
 toonedge2 0x9c481f79.file  7a8171617b2530648e12ce9dd52c091faf31cd4f1026d3b40a7fdde5788ac1ae  d672a5d530f9d1cb49f37ee3de6f626d95e7273eb897e17de3683a8dfb2c2e6d
@@ -112,4 +114,4 @@ while read -r name file orig repl old; do
   fi
 done <<< "$TABLE"
 done
-[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all)"
+[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|wdo14|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all)"
