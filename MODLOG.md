@@ -447,3 +447,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Mission record file ids resolve through the shipped id table `archive_08\AE\50B70535...` (`g_LfmFileIdMap` 0x475A1A0, built by 0x29481E8). Enemy table = rec +0x54, mission id = rec u16 +0x158, script = rec +0x50.
 - `notes/boss-map-all.csv` (130 rows: 86 bosses, 24 no flag-4 record, 20 unshipped), `notes/boss-duel-flow.md` §7, generator `re/scripts_re/boss_map_all.py`, names `re/symbols/incoming/placement-renames.tsv`.
 - Undo: nothing to undo.
+
+## 2026-10-08 - PC submit-path D3D12 overhead (static; nothing installed or patched)
+- `notes/pc-submit-overhead.md`: per-frame call volume (PC: 1752 barrier calls, 1354 draws, 1081 dispatches, ~140 EI, >=1327 PSO sets; ~12-25k D3D12 calls), what KTGL already filters, ranked ASI state filters SF1-SF3 + PSO-key memo (exact, default off), why Barriers=1 costs 7 % on PC (dispatcher co-critical at ~180 fps, no GPU gain; R2a/R1 are Wine-only no-ops), B GPUBusy anomaly (-16 %: verify draws/frame before KEEP).
+- New `re/scripts_d3d12/submit_redundancy.py` (gpuopt trace -> calls/frame + exact redundancy, --selftest).
+- Undo: nothing to undo.
