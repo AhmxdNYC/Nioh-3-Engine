@@ -1,0 +1,187 @@
+char_id,boss_name,reward_set_id,item_id,item_name,chance,qty_level,condition,confidence,rs_row,rs_amrita_col2,rs_hash_col12,item_rec_idx,item_w0,item_species_w4,item_rarity_w20
+20833,Jakotsu-baba,60558,132302,"Jakotsu-baba Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,48,,3051336956,3203,55404,10,12
+20843,Baba Nobuharu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+20878,Yamagata Masakage,0,,,,,no reward-set link (script/mission-granted or none),n/a
+20899,Takeda Shingen,0,,,,,no reward-set link (script/mission-granted or none),n/a
+20920,Great Tengu,63962,132643,"Great Tengu Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,49,,2903373531,3220,55604,56,10
+20973,Minamoto no Yoritomo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+20995,Otoroshi,31186,132302,"Otoroshi Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,50,,3051336956,3203,55404,10,12
+21008,Nuribotoke,59568,132302,"Nuribotoke Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,52,,3051336956,3203,55404,10,12
+21027,Nuribotoke,59568,132302,"Nuribotoke Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,52,,3051336956,3203,55404,10,12
+21113,Tokugawa Yoshinobu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21134,Hiruko,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21153,Hiruko,15680,133131,"Hiruko Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,76,,2606008756,3238,55830,15,9
+21175,Ibaraki Doji,22980,132684,"Ibaraki Doji Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,51,,1925950386,3222,55626,56,10
+21213,Ibaraki Doji,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21232,Demon of Pride,35596,132302,"Demon of Pride Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,53,,3051336956,3203,55404,10,12
+21254,Demon of Envy,27115,132767,"Demon of Envy Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,54,,3286067126,3225,55667,56,10
+21334,Demon of Obsession,22,132302,"Demon of Obsession Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,55,,3051336956,3203,55404,10,12
+21356,Kanai Hanbei,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21372,Fabricated Warrior,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21385,Yui Shosetsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21429,Mezuki,4453,132302,"Mezuki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,56,,3051336956,3203,55404,10,12
+21439,Mezuki,4453,132302,"Mezuki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,56,,3051336956,3203,55404,10,12
+21467,Mezuki,4453,132302,"Mezuki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,56,,3051336956,3203,55404,10,12
+21584,Gozuki,59511,132935,"Gozuki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,57,,499179995,3228,55706,10,13
+21594,Gozuki,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21619,Gozuki,59511,132935,"Gozuki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,57,,499179995,3228,55706,10,13
+21647,Gozuki,59511,132935,"Gozuki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,57,,499179995,3228,55706,10,13
+21672,Kamaitachi,37843,132954,"Kamaitachi Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,58,,3938608417,3229,55716,18,2
+21695,Hino-enma,30118,132302,"Hino-enma Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,59,,3051336956,3203,55404,10,12
+21705,Enenra,55686,132989,"Enenra Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,60,,544907803,3231,55742,10,13
+21715,Ryomen Sukuna,7132,133008,"Ryomen Sukuna Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,61,,2398072220,3232,55752,12,26
+21728,Ryomen Sukuna,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21762,Ryomen Sukuna,0,,,,,no reward-set link (script/mission-granted or none),n/a
+21796,Joro-gumo,55624,132302,"Joro-gumo Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,62,,3051336956,3203,55404,10,12
+21809,Kasha,36150,133052,"Kasha Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,63,,3814723554,3234,55780,17,4
+21816,Kasha,36150,133052,"Kasha Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,63,,3814723554,3234,55780,17,4
+21841,Kasha,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22013,Onmoraki,41109,132302,"Onmoraki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,64,,3051336956,3203,55404,10,12
+22026,Onryoki,54908,133090,"Onryoki Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,65,,2895022846,3236,55801,14,7
+22036,Giant Toad,45583,133603,"Giant Toad Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,83,,1294763620,3260,56101,10,15
+22046,Minamoto no Yoshitsune,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22077,Minamoto no Yoshitsune,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22178,Yamagata Masakage,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22199,Takeda Shingen,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22248,Kajiwara Kagetoki,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22261,Kajiwara Kagetoki,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22307,Takasugi Shinsaku,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22348,Okita Soji,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22361,Okita Soji,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22389,Kusanagi,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22510,Hiruko,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22529,Tokugawa Kunimatsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22536,Tokugawa Kunimatsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22600,Yagyu Jubei,0,,,,,no reward-set link (script/mission-granted or none),n/a
+22616,Honda Tadakatsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23061,Himiko,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23080,Ii Naotora,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23093,Shizuka Gozen,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23103,Himiko,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23110,Tokugawa Kunimatsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23145,Takasugi Shinsaku,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23167,Kajiwara Kagetoki,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23189,Honda Tadakatsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23208,Honda Tadakatsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23230,Hattori Hanzo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23249,Hattori Hanzo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23277,Yagyu Munenori,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23290,Hattori Hanzo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23309,Tokugawa Ieyasu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23322,Minamoto no Yoshitsune,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23350,Minamoto no Yoshitsune,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23372,Minamoto no Yoritomo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23394,Tokugawa Yoshinobu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23419,Saito Fuku,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23426,Saito Fuku,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23449,Matsunaga Hisahide,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23462,Tatsumaro,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23481,Tatsumaro,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23512,Mysterious Ninja,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23537,Fuma Kotaro,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23580,Todo Heisuke,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23593,Nakane Masateru,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23606,Sakakibara Yasumasa,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23619,Sakai Tadatsugu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23632,Thomas Glover,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23645,Kusumoto Ine,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23658,Rodrigo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23680,Maria,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23706,Yagyu Jubei,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23731,Araki Mataemon,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23763,Matsudaira Nobutsuna,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23789,Tokugawa Mitsukuni,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23803,Robust Spear Samurai,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23942,Fuma Kotaro,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23958,Ito Ittosai,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23974,Sugitani Zenjubo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+23990,Taigen Sessai,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24018,Aggrieved Warrior,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24046,Anayama Nobutada,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24094,Naito Masatoyo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24107,Kosaka Masanobu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24120,Cavern Ascetic,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24157,Otazu no Kata,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24200,Tomoe Gozen,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24210,Demon Slayer,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24235,Shinran,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24242,Nasu no Yoichi,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24255,Usui Sadamitsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24268,Nagakura Shinpachi,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24281,Saito Hajime,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24303,Saito Hajime,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24328,Kondo Isami,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24350,Kondo Isami,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24375,Hijikata Toshizo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24400,Hijikata Toshizo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24428,Ishikawa Goemon,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24462,Sawamura Yasusuke,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24475,Takashima Shuhan,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24503,Shishido Kagetoshi,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24532,Takahashi Deishu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24567,Tsurara-onna,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24595,Tsurara-onna,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24622,Green Shadow's Blade,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24671,Blood-Spurting Ogin,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24720,All-Seeing Mage,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24775,Shinsengumi Member Hattori Takeo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24824,Kanai Hanbei,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24853,Marubashi Chuya,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24867,Maeda Mitsutaka,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24881,Robust Spear Samurai,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24913,Kawara Jurobei,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24932,Nakane Masamori,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24958,Kumagai Naoyoshi,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24972,Berenguela the Whimsical,0,,,,,no reward-set link (script/mission-granted or none),n/a
+24988,Marubashi Chuya,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25017,Araki Mataemon,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25052,Anazawa Morihide,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25081,Yamada Shinryuken,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25113,Mori Gentatsu,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25142,Denrinbo Raikei,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25174,Ooka Genzaburo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25205,Ooka Genzaburo,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25239,Rattan-Clad Ninja Oni,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25267,Rattan-Clad Ninja Oni,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25298,Jinnosuke the Shadow Slicer,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25329,Jinnosuke the Shadow Slicer,0,,,,,no reward-set link (script/mission-granted or none),n/a
+25363,Iron-Fisted Rogue,0,,,,,no reward-set link (script/mission-granted or none),n/a
+26020,Jailer Oni,17937,132302,"Jailer Oni Soul Core (template, inferred)",,1/5/7,common row flag5=0; generic fallback item,L,0,1250,3051336956,3203,55404,10,12
+26798,Ichimokuren,15934,133584,"Ichimokuren Soul Core (template, inferred)",,2/10/15,common row flag5=0,L,82,,733910165,3259,56086,10,15
+27120,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27154,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27228,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27302,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27376,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27450,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27524,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27598,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27635,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27712,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27789,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27866,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+27943,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28020,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28097,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28140,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28223,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28306,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28389,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28472,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+28555,Gaki Chief,55596,132302,"Gaki Chief Soul Core (template, inferred)",,2/10/15,common row flag5=0; generic fallback item,L,15,1250,3051336956,3203,55404,10,12
+30831,Bloodedge Demon,32568,132302,"Bloodedge Demon Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,66,,3051336956,3203,55404,10,12
+32136,Outlaw,0,,,,,no reward-set link (script/mission-granted or none),n/a
+44434,Ichimokuren,0,,,,,no reward-set link (script/mission-granted or none),n/a
+45084,Gozuki,0,,,,,no reward-set link (script/mission-granted or none),n/a
+45930,Enenra,0,,,,,no reward-set link (script/mission-granted or none),n/a
+46239,Demon of Obsession,22,132302,"Demon of Obsession Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,55,,3051336956,3203,55404,10,12
+46775,Otoroshi,31186,132302,"Otoroshi Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1; generic fallback item,L,50,,3051336956,3203,55404,10,12
+46806,Ibaraki Doji,54554,132589,"Ibaraki Doji Soul Core (template, inferred)",,2/10/15,common row flag5=0,L,46,5020,4251236637,3217,55570,18,4
+46899,Great Tengu,63962,132643,"Great Tengu Soul Core (template, inferred)",,5/25/37,boss-flagged row flag5=1,L,49,,2903373531,3220,55604,56,10
+46927,Hiruko,0,,,,,no reward-set link (script/mission-granted or none),n/a
+47654,Kodama,0,,,,,no reward-set link (script/mission-granted or none),n/a
+47661,Sudama,0,,,,,no reward-set link (script/mission-granted or none),n/a
+47668,Sudama,0,,,,,no reward-set link (script/mission-granted or none),n/a
+48614,Daidara Bocchi,28406,133244,"Daidara Bocchi Soul Core (template, inferred)",,2/10/15,boss-flagged row flag5=3,L,77,,3129261791,3243,55891,5,19
+48636,Daidara Bocchi,0,,,,,no reward-set link (script/mission-granted or none),n/a
+50257,Enemy A,0,,,,,no reward-set link (script/mission-granted or none),n/a
