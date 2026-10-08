@@ -1,0 +1,34 @@
+english_name,japanese_name_if_found,region,mission,order,type,main_or_side,sources
+Yamagata Masakage,,1572 Warring States,Escape from Hitokoto Slope,1,human,main,PowerPyx;GamingBolt
+Jakotsu-baba (Yakotsu-baba),,1572 Warring States (Hamamatsu),Crucible Manifested,2,yokai,main,PowerPyx;GamingBolt
+Baba Nobuharu,,1572 Warring States (Futamata),Mirage Fortress,3,yokai-form,main,PowerPyx;GamingBolt
+Yamagata Masakage (mounted),,1572 Warring States,A Fiery Invasion,4,human,main,PowerPyx
+Takeda Shingen (human),,1572 Warring States (Mikatagahara),A Fiery Invasion,5,human,main,PowerPyx;GamingBolt
+Takeda Shingen (monster),,1572 Warring States,Tiger's Cause,6,yokai-form,main,PowerPyx
+Great Tengu,,1190 Heian (Mount Kurama),Sacred Mountain Defiled,7,yokai,main,PowerPyx;GamingBolt
+Otoroshi,,1190 Heian (Sagano),Black Feather Sanctuary,8,yokai,main,PowerPyx;GamingBolt
+Ibaraki Doji,,1190 Heian (Hachijo),The Oni of the Rajomon,9,yokai,main,PowerPyx;GamingBolt
+Kajiwara Kagetoki,,1190 Heian (Rokuhara),Subterfuge at the Abandoned Shrine,10,human,main,PowerPyx;GamingBolt
+Minamoto no Yoritomo,,1190 Heian (Palace Grounds),Frozen City Blazing Tree,11,yokai-form,main,PowerPyx;GamingBolt
+Kusanagi,,247 Antiquity,The Spirit Tree Village,12,yokai,main,PowerPyx;GamingBolt
+Hiruko,,247 Antiquity,Dark Roots,13,yokai,main,PowerPyx;GamingBolt
+Tokugawa Kunimatsu,,1622 Edo (Edo Castle),Light of Hope,14,human,main,PowerPyx;GamingBolt
+Takasugi Shinsaku,,1864 Bakumatsu (Shimabara),Sweet Sound of Strings,15,human,main,PowerPyx;GamingBolt
+Enenra,,1864 Bakumatsu,Those Left Behind,16,yokai,main,PowerPyx;GamingBolt
+Nuribotoke,塗仏,1864 Bakumatsu (Sanjo),Accursed Temple,17,yokai,main,PowerPyx;GamingBolt;GameWith
+Okita Soji & Tokugawa Yoshinobu,,1864 Bakumatsu,Scion of the Gods,18,human/mixed,main,PowerPyx;GamingBolt
+Death Veil,,1622 Final Battle of Edo,A Sinister End,19,yokai,main,PowerPyx;GamingBolt
+Hiruko (final),,1622 Final Battle of Edo,A Sinister End,20,yokai,main,PowerPyx;GamingBolt
+Demon of Pride,,1572 Warring States (Iinoya),secret/post-game,opt,yokai (ikiryo),optional,PowerPyx;GamingBolt;GuruGamer
+Demon of Envy,,1190 Heian (Hachijo),secret/post-game,opt,yokai (ikiryo),optional,PowerPyx;GamingBolt;GuruGamer
+Demon of Obsession,,1864 Bakumatsu (Nijo Castle),secret/post-game,opt,yokai (ikiryo),optional,PowerPyx;GamingBolt;GuruGamer
+Takeda's Four Kings (Kosaka Masanobu; Naito Masatoyo; Takeda Shingen),,1572 Warring States,sub: Takeda's Four Kings,side,human,sub-mission,GamingBolt
+Shinsengumi Best of Five (Okita Soji; Kondo Isami; Hijikata Toshizo; Nagakura Shinpachi; Saito Hajime),,1864 Bakumatsu,sub: Shinsengumi: Best of Five,side,human,sub-mission,GamingBolt
+Tomoe Gozen; Minamoto no Yoshitsune; Nasu no Yoichi; Kajiwara Kagetoki,,1190 Heian,sub: Beneath a Pure White Flag,side,human,sub-mission,GamingBolt
+Hattori Hanzo; Saito Fuku; Yagyu Munenori,,1622 Edo (Eternal Rift),Eternal Rift,side,human,optional,GamingBolt
+Kamaitachi,鎌鼬,multiple eras,Maisaka / Groans of the Valley / Rokuhara Crucible,side,yokai,mixed,GamingBolt;GameWith
+Kasha,火車,Bakumatsu/Edo,Shimabara / Edo Castle,side,yokai,mixed,GamingBolt;GameWith
+Ibaraki Doji (2nd),,1864 Bakumatsu,sub: Sealed in the Stone Urn,side,yokai,sub-mission,GamingBolt
+Fuma Kotaro; Ito Ittosai; Anayama Nobutada; Honda Tadakatsu; Sugitani Zenjubo; Taigen Sessai,,1572 Warring States,various field/sub bosses,side,human,mixed,GamingBolt
+Ishikawa Goemon; Takahashi Deishu; Takashima Shuhan; Shishido Kagetoshi; Sawamura Yasusuke; Hattori Takeo,,1864 Bakumatsu,various field/sub bosses,side,human,mixed,GamingBolt
+Joro-Gumo; Enki; Karasu Tengu; Onmoraki; Raiju; Red Kappa; Yamainu; Kyokotsu; Mezuki; Onryoki; Waira; Tsurara-Onna; Yasha; Usui Sadamitsu; Shinran; All-Seeing Mage; Demon Slayer; Cavern Ascetic; Hino-Enma; Otazu no Kata; Ippon-Datara; Nuppeppo; Gaki Chief; Green Shadow's Blade; Ryomen Sukuna; One-eyed Oni; Ninja Yoki; Magatsu Warrior; Blood-Spurting Ogin; Aggrieved Warrior; Bloodedge Demon,,various,field/sub/optional,side,mixed,mixed,GamingBolt (81 bosses total)
