@@ -42,9 +42,17 @@ Ally 1.7.5 GP2: all replacements ON = 0.4-0.6 fps SLOWER than all off. Pairs: sy
 Done: vkd3d audit (barrier COMMON->full waits est. 0.2-2 ms Ally; needs a trace: ASI 1.7.9 per-caller trace in progress), perf decompile coverage 56.5->96.6 % of game CPU, materials trim (nothing safe; trvs/pbvs ~0), GP2 sampling (ASI 1.7.8, held). Ally: post-reboot session C0..C5 running; then the barrier trace. 'apply all' banned (contains dropped items). Pending for the RADV pre-screen: VCLOUD hoist, SFB dedupe.
 
 ## STANDING GOAL (user, 2026-10-07): everything performance-related decompiled
-Done = (1) >= 99 % of profiled game CPU self time in functions with REAL names (Unknown_* doesn't count; now 82.0 % real + 14.5 % Unknown_), measured by `py -I re\scripts_re\perf_coverage.py --self`; (2) every engine code path behind each GPU pass in the GP2/RGP tables named (now 55/63); (3) every D3D12 call site (barriers, binds, submits, copies, PSO/heap creation) named; (4) each subsystem that costs >= 0.3 % has a short notes entry (role, data structures, hot loops). Keep 1 RE agent on this until done; new profiles (Ally SP/GP2 logs) re-open it.
+Done = (1) >= 99 % of profiled game CPU self time in functions with REAL names (Unknown_* doesn't count; now 82.0 % real + 14.5 % Unknown_), measured by `py -I re\scripts_re\perf_coverage.py --self`; (2) every engine code path behind each GPU pass in the GP2/RGP tables named (now 59/59) [metric fixed 2026-10-08: the old 63 counted 4 non-functions (command-buffer ids, ESM file offsets, a D3D12Core offset); the 4 real misses are named in incoming/gpu-passes-renames.tsv, pending merge]; (3) every D3D12 call site (barriers, binds, submits, copies, PSO/heap creation) named; (4) each subsystem that costs >= 0.3 % has a short notes entry (role, data structures, hot loops). Keep 1 RE agent on this until done; new profiles (Ally SP/GP2 logs) re-open it.
 ORDER (user): decompile in DESCENDING performance impact - CPU by profiled share (Ally first), then the engine code behind the costliest GPU passes by Ally GP2 ms (FSR3, fog, GI, sky, shadows, culling, PB2 submission, foliage), then the systems that decide how much work is done (LOD selection, streaming budgets, culling thresholds, quality-setting -> pass parameter tables, update scheduling).
 
 ## PC test rounds (turn-taking with the Ally)
 Steam allows one device at a time. On '[GAME-FREE]' from the Ally: launch a Sonnet agent for the PC round (L1 mod defaults: log+overlay+F10 menu screenshot+PresentMon 60 s; L2 W6=1 GF=1; L3 GPUProf=2 sampled + SP + MemStats 90 s -> gp2_digest/sp tables; restore the ini; captures\pc\), then send '[GAME-RELEASED]'. On '[Q] need game': close Nioh3 within 2 min and release. Save backup: D:\nioh3-re\save-backups\.
 PC round must take the bridge game lock first: py -m uo_bridge.gamelock acquire nioh3 (UO_AGENT_ID=pc), renew during the run, release at the end. Work-deciders done (no same-look change in the quality tables). CPU perf names 99.5 %; GPU passes mapping agent running.
+
+## QUEUE (refill agents from here; keep 3-4 running, model per job)
+1. [opus] Ally barrier-trace follow-up: when the 1.7.10 trace CSV arrives -> vkd3d_cost.py -> build/keep R2a/R1 per counts.
+2. [sonnet] PC test round on [GAME-FREE] (see 'PC test rounds').
+3. [opus] RADV prescreen follow-up: when the Ally tool works, screen VCLOUD hoist + SFB dedupe + any new rewrite.
+4. [sonnet] Live read on PC (when free): meshlet LOD per-category values (see work-deciders addendum).
+5. [opus] Next decompile area by impact after the current 4 finish (perf_coverage.py --self gaps, GPU chart grey buckets).
+6. [sonnet] README/charts refresh after each merge; device-specific README pass once the Ally hardware IDs arrive.
