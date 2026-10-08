@@ -589,3 +589,19 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Read-only review of every ini key, all src modules/caves, the shader pack and release profiles for NVIDIA / Intel Arc / other AMD GPUs and Intel CPUs: `notes\hardware-compatibility.md` (feature -> class -> works? -> benefit -> risk/guard). README: new section "Will this work on my PC?".
 - Result: no cross-vendor risk in any default-ON or profile feature, so no code change and no version bump. No vendor SDK calls; caves are baseline x64 (MQ's SSE4.1 is checked; AABB / MenuQuantize use SSE4.1 unchecked, default off). No shader uses wave intrinsics or assumes wave size; GHDM is bit-identical by construction on any D3D12 GPU, gain measured on RDNA3/4 only. Keep AS0 (Intel Arc risk; no-op on NVIDIA) and GpuOpt R2a/R2b/R1 (RADV-specific) off; suggested guards are in the note.
 - Undo: n/a (documentation).
+
+## 2026-10-08 - ASI 1.7.34: FnProbe + play session kit (tools\playsession; nothing installed by this entry)
+- ASI 1.7.34 = 1.7.33 + `[Debug] FnProbe` (default 0, measurement only; src\fnprobe.cpp, fnprobe_core.h; patches.json group FP):
+  entry thunk on the 14 last Unknown_ functions of remaining-work 10.1 (or `FnProbeList` RVAs): hit count (one lock xadd),
+  hits/s + peak 1 s, first/last hit, first thread, top 4 callers, first `FnProbeArgs` hits' rcx/rdx/r8/r9 + 16 bytes behind
+  pointer args with hash-looking dwords; log every `FnProbeReportSec`. Saves rax/rcx/rdx/r8-r11, xmm0-5, flags; installed
+  with all other threads suspended (none inside a patched prologue). Tests: tests\run_fnprobe_harness.py ALL PASSED
+  (register-exact, 4-thread exact count, decoder vs capstone on 6614 functions, no branch into patched bytes), test_patterns
+  ALL 228 SITES OK. Also fixed the RematchLog start line's `\b` escape. Not run in game yet.
+- `tools\playsession\` (README.md): desktop shortcuts 'Nioh3 Session START' / 'Nioh3 Session STOP'. START = save backup to
+  D:\nioh3-re\save-backups\<stamp>-session, bridge game lock (refuses if the Ally holds it), keeps the game folder's ini+asi,
+  installs bin\ 1.7.34 + the user's own ini with capture keys (FnProbe BossLog RematchLog MemStats LoadStats LoadGates
+  CpuStats TS SPR = 1), PresentMon 2.6 v2 capture + monitor.ps1 (Windows counters, mod log per launch). STOP = restore ini+asi
+  byte-identical, release lock, summarize.py -> captures\playsession\<stamp>-session\report.md. Dry run (test_session.ps1)
+  DRY RUN OK; summarize.py --selftest OK. No input injection anywhere.
+- Undo: delete the two desktop shortcuts. A session in progress is undone by STOP (or copy `<session>\orig\*` back to the game folder).

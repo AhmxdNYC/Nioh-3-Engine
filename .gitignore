@@ -46,3 +46,7 @@ panel/panel.err
 # --- release zips (release/package.py) ---
 release/dist/
 release/profiles/
+
+# --- play session captures (tools\playsession): PresentMon per-frame CSVs are large ---
+captures/playsession/*/presentmon.csv
+captures/playsession/*/orig/
