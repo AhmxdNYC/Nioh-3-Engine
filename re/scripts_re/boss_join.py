@@ -73,6 +73,51 @@ per_mission = load('boss-per-mission-online.csv')
 scrolls = load('battle-scrolls-online.csv')
 text_index = load('boss-text-index.csv')
 
+# ---- v2 sources
+mapall = load('boss-map-all.csv')
+mapall_by_script = by(mapall, 'script')
+dchecks = load('boss-defeat-checks.csv')
+bscrolls = load('battle-scrolls.csv')
+bscroll_by_id = {r['mission_id_dec']: r for r in bscrolls}
+missions_csv = load('missions.csv')
+mission_by_key = {r['mission_key_u16(+158)']: r for r in missions_csv}
+missions_main = load('missions-main.csv')
+tokens = [t for t in load('boss-token-resolution.csv') if t['status'] in ('exact', 'likely') and t['name_en']
+          and 'not boss' not in t['name_en']]
+drops = by(load('boss-drops.csv'), 'char_id')
+items_named = load('items-boss-named.csv')
+codex = [r for r in load('boss-codex.csv') if r['row_kind'] == 'entry' and r['english_name']]
+mission_by_name = {}
+for r in missions_csv:
+    if r['name_en']:
+        mission_by_name.setdefault(norm(r['name_en']), r['mission_key_u16(+158)'])
+for r in missions_main:
+    if r['name_en']:
+        mission_by_name.setdefault(norm(r['name_en']), r['main_key_u16'])
+for r in mapall:
+    if r['mission_name']:
+        mission_by_name.setdefault(norm(r['mission_name']), r['mission_id'])
+CLASS_TYPE = {'main': 'main', 'prologue': 'main', 'main-title-record': 'main', 'sub-kitan': 'sub',
+              'optional-crucible-story': 'sub', 'dojo-way': 'sub', 'emaki-picture-scroll': 'emaki',
+              'tutorial': 'tutorial'}
+CONF_RANK = {'low': 1, 'medium-low': 2, 'medium': 3, 'medium-high': 4, 'high': 5}
+
+
+def ev_conf(e):
+    m = re.search(r'(medium-low|medium-high|low|medium|high)\.?\s*$', e or '')
+    return m.group(1) if m else 'low'
+
+
+def scroll_status(mid):
+    b = bscroll_by_id.get(mid)
+    if not b:
+        return 'no', ''
+    if b['battle_scroll_candidate'] == '1':
+        return 'yes', b['menu_cat']
+    if 'NOT listed' in b['boss_or_content']:
+        return 'hidden-duel', b['menu_cat']
+    return 'no', b['menu_cat']
+
 ja_by_name = {}
 for r in text_index:
     for k in (r.get('name_en'), r.get('atom'), r.get('boss_text')):
@@ -131,15 +176,23 @@ COLS = ['row_kind', 'english_name', 'japanese_name', 'mission_name', 'mission_ty
         'enemy_record_key', 'enemy_table_lfm', 'base_hp', 'variant_group', 'variant_siblings',
         'defeat_check_kind', 'defeat_check_value', 'achievement', 'arena_box_ids', 'gate_gadget_ids',
         'clear_gadget_ids', 'bgm_boss_ids', 'bgm_mission_ids', 'rewards_known', 'refightable_in_game',
-        'confidence', 'sources']
+        'mission_id', 'mission_class', 'in_battle_scrolls', 'refight_route', 'codex_entry',
+        'column_confidence', 'column_sources', 'confidence', 'sources']
 
 rows = []
 claimed = set()  # id(web fight) claimed by a script row
 
 scripts = sorted(set(duel) | set(fights) | set(miss) | set(ai) | set(bgm) | set(arenas) | set(sargs))
-scripts = [s for s in scripts if s]
+scripts = [s for s in scripts if s] + [s for s in mapall_by_script if s and s not in scripts]
+script_variants = []
+for s in sorted(set(scripts)):
+    mv = mapall_by_script.get(s, [])
+    withb = [x for x in mv if x['boss_placement_id']]
+    for ma_ in (withb or mv[:1] or [None]):
+        script_variants.append((s, ma_))
 
-for s in scripts:
+for s, ma in script_variants:
+    cc, cs = {}, {}
     r = {c: '' for c in COLS}
     r['row_kind'] = 'script'
     r['script_file'] = s
@@ -152,7 +205,23 @@ for s in scripts:
     conf = []
 
     # ---- ids
-    if d:
+    if ma and ma['boss_placement_id']:
+        src.append('boss-map-all')
+        r['boss_char_id'] = ma['boss_char_id']
+        r['placement_id'] = ma['boss_placement_id']
+        r['enemy_record_key'] = ma['boss_name']
+        r['enemy_table_lfm'] = ma['placement_file']
+        allp = [x for x in ((d or {}).get('script_boss_consts') or '').split(';') if x]
+        r['all_placements'] = ';'.join(allp)
+        r['mission_id'] = ma['mission_id']
+        conf.append('ids:mapall-' + ('agrees-duelflow' if ma['agrees_prev'] == 'yes' else 'new' if not ma['agrees_prev'] else 'corrects-duelflow'))
+        cc['ids'] = 'high' if (ma['boss_candidates'] == '1' or ma['agrees_prev'] == 'yes') else 'medium'
+        cs['ids'] = 'boss-map-all'
+    elif ma and ma['agrees_prev'] == 'NO':
+        src.append('boss-map-all')
+        conf.append('ids:none(mapall-no-flag4-record)')
+    elif d:
+        cc['ids'] = d['confidence']; cs['ids'] = 'boss-map-duelflow'
         src.append('boss-map-duelflow')
         r['boss_char_id'] = d['boss_char_id']
         r['placement_id'] = d['boss_placement_id']
@@ -164,6 +233,7 @@ for s in scripts:
     pr = params_by_key.get(r['boss_char_id']) if r['boss_char_id'] else None
     names = []
     if pr:
+        cc['hp'] = 'high'; cs['hp'] = 'boss-enemy-params'
         src.append('boss-enemy-params')
         r['param_char_id'] = pr['char_id']
         r['base_hp'] = pr['hp_0x18']
@@ -172,6 +242,7 @@ for s in scripts:
         r['variant_siblings'] = ';'.join('%s:hp%s' % (x['char_id'], x['hp_0x18']) for x in sib)
         if pr['name']:
             names.append(pr['name'])
+            cc['name'] = 'high'; cs['name'] = 'boss-enemy-params(key64)'
     rj = romaji.get(s, [])
     rj_names = [x['english_name'] for x in rj if x['match_confidence'] in ('exact', 'likely')
                 and x['english_name'] and 'unverified' not in x['english_name']]
@@ -179,6 +250,20 @@ for s in scripts:
         src.append('boss-romaji-match')
     if not names:
         names = rj_names[:]
+    if not names and ma and ma['boss_name']:
+        bl = ma['boss_name'].lower()
+        tk = [t for t in tokens if t['token'] in bl]
+        if tk:
+            names = [tk[0]['name_en']]; src.append('boss-token-resolution')
+            cc['name'] = 'medium'; cs['name'] = 'boss-token-resolution'
+    if not names and ma:
+        bsx = bscroll_by_id.get(ma['mission_id'])
+        if bsx and bsx['boss_or_content'] and not re.search(r'no boss|^\?|NOT listed|formidable|rush|all enemies', bsx['boss_or_content']):
+            nm = re.sub(r'\(.*?\)|\[.*?\]', '', bsx['boss_or_content']).strip(' ?')
+            if nm:
+                names = [nm]; cc['name'] = 'low'; cs['name'] = 'battle-scrolls.csv boss_or_content'
+    if names and 'name' not in cc:
+        cc['name'] = 'medium'; cs['name'] = 'boss-romaji-match'
     names = uniq(names)
 
     # ---- mission
@@ -196,6 +281,18 @@ for s in scripts:
         if not stage and f['stages']:
             stage = f['stages'].split(';')[0]
     r['stage_id'] = stage
+    if ma:
+        r['mission_id'] = ma['mission_id']
+        r['mission_class'] = ma['mission_class']
+        if ma['mission_name'] and ma['mission_name'] != 'Dummy':
+            mname = ma['mission_name']
+        if not r['mission_type'] or r['mission_type'] in ('unknown',):
+            r['mission_type'] = CLASS_TYPE.get(ma['mission_class'], ma['mission_class'])
+        bsr0 = bscroll_by_id.get(ma['mission_id'])
+        if bsr0 and not r['region'] and bsr0['era']:
+            r['region'] = bsr0['era']
+        cc['mission'] = 'high'; cs['mission'] = 'boss-map-all+missions.csv'
+        src.append('missions.csv')
     if not r['region']:
         r['region'] = region_from_text(stage, r['enemy_record_key'])
 
@@ -264,6 +361,39 @@ for s in scripts:
     r['defeat_check_kind'] = '+'.join(kinds)
     r['defeat_check_value'] = ' | '.join(vals)
 
+    # ---- defeat checks v2 (boss-defeat-checks.csv)
+    dcm = []
+    nset = set(norm(n) for n in names)
+    for x in dchecks:
+        if norm(x['boss']) not in nset:
+            continue
+        mtxt = x['mission']
+        base = norm(re.sub(r'\(obj:.*', '', mtxt))
+        objm = re.search(r'\(obj:\s*(.*?)\)?$', mtxt)
+        obj = norm(objm.group(1)) if objm else ''
+        mn = norm(mname)
+        idhit = bool(r['mission_id']) and x['value_or_id'] == 'mission:' + r['mission_id']
+        if idhit or (mn and ((base and (base in mn or mn in base)) or (obj and (obj in mn or mn in obj)))):
+            dcm.append(x)
+    dcm = [x for x in dcm if x['check_kind'] != 'trophy']
+    if dcm:
+        src.append('boss-defeat-checks')
+        best = max(dcm, key=lambda x: CONF_RANK[ev_conf(x['evidence'])])
+        cc['defeat'] = ev_conf(best['evidence']); cs['defeat'] = 'boss-defeat-checks'
+        for x in dcm:
+            if x['check_kind'] == 'clear_map':
+                kinds.append('QuestClear'); vals.append('QuestClear=' + x['value_or_id'])
+            elif x['check_kind'] == 'progress':
+                kinds.append('StoryProgress'); vals.append('StoryProgress' + x['value_or_id'])
+            elif x['check_kind'] == 'flag':
+                kinds.append('MissionFlag'); vals.append('flag ' + x['value_or_id'][:80])
+            else:
+                kinds.append(x['check_kind']); vals.append(x['value_or_id'][:80])
+        r['defeat_check_kind'] = '+'.join(uniq(kinds))
+        r['defeat_check_value'] = ' | '.join(vals)
+    elif kinds:
+        cc['defeat'] = 'low'; cs['defeat'] = 'script constants (boss-fights-table)'
+
     # ---- arena / gates
     ar = arenas.get(s, [])
     if ar:
@@ -306,7 +436,7 @@ for s in scripts:
             ach.append('%s %s' % (ac['ach_api_name'], ac['steam_name']))
     r['achievement'] = '; '.join(uniq(ach))
     if ach:
-        src.append('boss-achievements')
+        src.append('boss-achievements'); cc['achievement'] = 'medium'; cs['achievement'] = 'boss-achievements'
 
     # ---- loot / rewards
     rw = []
@@ -318,7 +448,46 @@ for s in scripts:
         if names and any(norm(n) == norm(x['boss']) for n in names):
             rw.append('%s: %s' % (x['reward_type'], x['item_name']))
             src.append('boss-rewards')
+    for dr in drops.get(r['param_char_id'], []):
+        if dr['item_name']:
+            rw.append('drop: %s (rewardset %s, %s)' % (dr['item_name'], dr['reward_set_id'], dr['confidence']))
+            src.append('boss-drops')
+    for it in items_named:
+        if names and norm(it['boss_atom']) in [norm(n) for n in names]:
+            rw.append('%s: %s' % (it['category'], it['name_en']))
+            src.append('items-boss-named')
     r['rewards_known'] = ' ; '.join(uniq(rw))
+    if r['rewards_known']:
+        cc['rewards'] = 'low'; cs['rewards'] = 'boss-loot/boss-drops(inferred)/items-boss-named(name match)'
+    cx = [c for c in codex if norm(c['english_name']) in [norm(n) for n in names]]
+    r['codex_entry'] = ';'.join(uniq(c['key'] for c in cx))
+
+    # ---- battle scroll + refight route
+    if not r['mission_id'] and mname:
+        mk = mission_by_name.get(norm(mname)) or mission_by_name.get(base_title(mname))
+        if mk:
+            r['mission_id'] = mk
+    if r['mission_id']:
+        r['in_battle_scrolls'], _ = scroll_status(r['mission_id'])
+        cc['scroll'] = 'high'; cs['scroll'] = 'battle-scrolls.csv'
+    else:
+        r['in_battle_scrolls'] = 'no'
+        cc['scroll'] = 'low'; cs['scroll'] = 'no mission id; assumed'
+    mt = r['mission_type']
+    bsr = bscroll_by_id.get(r['mission_id'])
+    if r['in_battle_scrolls'] == 'yes':
+        route = 'Battle Scroll' + (' (Eternal Rift tab)' if bsr and bsr['era'] == 'Eternal Rift' else '')
+    elif r['in_battle_scrolls'] == 'hidden-duel':
+        route = 'Emaki override (or un-hide flag 0x40)'
+    elif mt in ('main', 'sub') and r['mission_id']:
+        route = 'mission replay'
+    elif r['placement_id']:
+        route = 'Emaki override'
+    else:
+        route = 'none'
+    r['refight_route'] = route
+    cc['refight'] = 'medium' if r['in_battle_scrolls'] != 'no' or route == 'none' else 'low'
+    cs['refight'] = 'derived: battle-scrolls.csv + eternal-rift.md + boss-rematch-paths.md'
 
     # ---- refightable
     refs = []
@@ -339,6 +508,12 @@ for s in scripts:
         conf.append('ids:none')
     if not mname:
         conf.append('mission:unresolved')
+    if mname and 'mission' not in cc:
+        cc['mission'] = 'low'; cs['mission'] = 'web name-only'
+    if ma and ma['mission_class'] == 'tutorial':
+        r['row_kind'] = 'nonboss'
+    r['column_confidence'] = ';'.join('%s=%s' % kv for kv in cc.items())
+    r['column_sources'] = ';'.join('%s=%s' % kv for kv in cs.items())
     r['confidence'] = ' '.join(conf)
     r['sources'] = ';'.join(uniq(src))
     rows.append(r)
@@ -375,6 +550,30 @@ for w in web:
     ach = [('%s %s' % (ac['ach_api_name'], ac['steam_name'])) for ac in achs
            if w['nk'] and w['nk'] in norm(ac['boss_or_target']) and ac['boss_or_target'] not in ('-',)]
     r['achievement'] = '; '.join(ach)
+    mk = mission_by_name.get(norm(w['mission'])) or mission_by_name.get(base_title(w['mission']))
+    cc, cs = {'mission': 'low', 'name': 'low'}, {'mission': 'web', 'name': 'boss-per-mission-online'}
+    if mk:
+        r['mission_id'] = mk
+        r['in_battle_scrolls'], _ = scroll_status(mk)
+        r['mission_class'] = (mission_by_key.get(mk) or {}).get('class', '')
+        cc['scroll'] = 'medium'; cs['scroll'] = 'battle-scrolls.csv via mission-name match'
+    else:
+        r['in_battle_scrolls'] = 'no'; cc['scroll'] = 'low'; cs['scroll'] = 'no mission id; assumed'
+    if r['in_battle_scrolls'] == 'yes':
+        r['refight_route'] = 'Battle Scroll'
+    elif r['in_battle_scrolls'] == 'hidden-duel':
+        r['refight_route'] = 'Emaki override (or un-hide flag 0x40)'
+    elif w['mtype'] in ('main', 'sub') and mk:
+        r['refight_route'] = 'mission replay'
+    else:
+        r['refight_route'] = 'none'
+    cc['refight'] = 'low'; cs['refight'] = 'derived'
+    r['codex_entry'] = ';'.join(uniq(c['key'] for c in codex if norm(c['english_name']) == w['nk']))
+    for dr in drops.get(r['param_char_id'], []):
+        if dr['item_name']:
+            r['rewards_known'] = (r['rewards_known'] + ' ; ' if r['rewards_known'] else '') + 'drop: %s (%s)' % (dr['item_name'], dr['confidence'])
+    r['column_confidence'] = ';'.join('%s=%s' % kv for kv in cc.items())
+    r['column_sources'] = ';'.join('%s=%s' % kv for kv in cs.items())
     r['refightable_in_game'] = ';'.join(uniq(refs))
     r['confidence'] = 'web-only' + (' ' + w['conflicts'] if w['conflicts'] and w['conflicts'] != 'none' else '')
     r['sources'] = ';'.join(uniq([w['src']] + (['boss-enemy-params'] if pr else []) + (['boss-achievements'] if ach else [])))
@@ -395,8 +594,10 @@ def cov(kind=None):
 nall, call = cov()
 nsc, csc = cov('script')
 non, con = cov('online')
+nnb, _cnb = cov('nonboss')
+nsc_all = nsc
 lines = ['# Boss master table (generated by re\\scripts_re\\boss_join.py; do not hand-edit)', '',
-         'CSV: `notes\\boss-master.csv`. %d rows = %d script rows (one per boss mission script; a script may hold several placements, see `all_placements`) + %d web-only rows (no script matched yet).' % (nall, nsc, non),
+         'CSV: `notes\\boss-master.csv`. %d rows = %d script rows (one per boss fight that has a mission script; boss-map-all.csv supplies mission id, placement and boss char id, one row per (script, boss mission)) + %d non-boss script rows (tutorials, no boss) + %d web-only rows (no script matched yet). v2 joins: boss-map-all, boss-defeat-checks, battle-scrolls, missions(-main), boss-token-resolution, boss-drops, items-boss-named, boss-codex.' % (nall, nsc, nnb, non),
          'Static data only; game not run. Regenerate: `py re\\scripts_re\\boss_join.py`.', '',
          '## Join keys',
          '- script hash joins duelflow, fights-table, missions, ai, bgm, arenas, script-args, romaji.',
@@ -410,17 +611,42 @@ for c in COLS:
 lines += ['']
 
 sc_rows = [r for r in rows if r['row_kind'] == 'script']
+# ---- v2 summaries
+def counter(rs, c):
+    return collections.Counter(r[c] or '(empty)' for r in rs)
+lines += ['## v2 summary (script rows; web-only rows in brackets)', '']
+for c, title in (('in_battle_scrolls', 'in_battle_scrolls'), ('refight_route', 'refight_route'), ('mission_class', 'mission_class')):
+    on = counter([r for r in rows if r['row_kind'] == 'online'], c)
+    lines.append('- %s: ' % title + ', '.join('%s %d [%d]' % (k, v, on.get(k, 0)) for k, v in counter(sc_rows, c).most_common()))
+cconf = collections.defaultdict(collections.Counter)
+for r in sc_rows:
+    for kv in r['column_confidence'].split(';'):
+        if '=' in kv:
+            k, v = kv.split('=', 1)
+            cconf[k][v] += 1
+lines += ['', 'Per-column confidence (script rows; `column_confidence` / `column_sources` hold it per row):', '',
+          '| column | n with value | confidence mix |', '|---|---|---|']
+for k in sorted(cconf):
+    lines.append('| %s | %d | %s |' % (k, sum(cconf[k].values()), ', '.join('%s %d' % kv for kv in cconf[k].most_common())))
+lines += ['', 'Defeat-check kinds present (script rows): ' + ', '.join('%s %d' % (k, sum(1 for r in sc_rows if k in r['defeat_check_kind']))
+          for k in ('QuestClear', 'StoryProgress', 'MissionFlag', 'ClearGadget', 'Duel::IsAliveBoss', 'HpRate')),
+          'Refight route caveats: `Battle Scroll` = mission is in the 62 listable Battle Scroll rows (battle-scrolls.csv, high); `Emaki override (or un-hide flag 0x40)` = the 3 data-hidden duels (Tadakatsu, Yoshitsune, Jubei/Chuya); `mission replay` = main/sub mission not in the scroll list; `Emaki override` = no replay route, but the boss placement id is known so Emaki 0xCC96 +0x10 could host it (boss-rematch-paths.md); `Rift` rows are the 9 Eternal Rift teacher missions, which are Battle Scroll entries (Rift = era tab, no own spawner: eternal-rift.md). `none` = no mission id and no placement.', '']
+
 lines += ['## Remaining gaps (script rows)', '']
 gaps = [
-    ('no placement/char id (skeleton `DuelCommonFlow()` scripts, no table join)', lambda r: not r['placement_id']),
+    ('no placement/char id (no flag-4 boss record, skeleton or teacher/dojo/wave scripts)', lambda r: not r['placement_id']),
     ('no english_name', lambda r: not r['english_name']),
-    ('no mission_name', lambda r: not r['mission_name']),
-    ('no stage_id', lambda r: not r['stage_id']),
+    ('english_name only low/medium confidence (token or scroll-text derived)', lambda r: 'name=low' in r['column_confidence'] or 'name=medium' in r['column_confidence']),
+    ('no mission_name (unnamed/internal stage)', lambda r: not r['mission_name']),
+    ('no mission_id', lambda r: not r['mission_id']),
+    ('no defeat check from boss-defeat-checks (script constants only)', lambda r: not any(k in r['defeat_check_kind'] for k in ('QuestClear', 'StoryProgress'))),
+    ('defeat check confidence below medium', lambda r: 'defeat=low' in r['column_confidence'] or 'defeat=medium-low' in r['column_confidence']),
     ('no BGM id', lambda r: not (r['bgm_boss_ids'] or r['bgm_mission_ids'])),
     ('no arena box id', lambda r: not r['arena_box_ids']),
     ('no gate/clear gadget id', lambda r: not (r['gate_gadget_ids'] or r['clear_gadget_ids'])),
     ('no known reward', lambda r: not r['rewards_known']),
-    ('mission-flag defeat id not in script constants', lambda r: 'MissionFlag' not in r['defeat_check_kind']),
+    ('no achievement', lambda r: not r['achievement']),
+    ('refight route is a derived guess (confidence low)', lambda r: 'refight=low' in r['column_confidence']),
 ]
 for t, fn in gaps:
     lines.append('- %d / %d: %s' % (sum(1 for r in sc_rows if fn(r)), len(sc_rows), t))
@@ -428,14 +654,15 @@ lines += ['',
           '## Gaps the in-game BossLog will fill (`[Debug] BossLog=1`, ASI 1.7.18+; see mod\\Nioh3EngineFix\\src\\bosslog.cpp)',
           'BossLog logs, per real fight (grep `BossLog` in the mod log): fight number and duration (BossBattleMode start/end), the last 16 `Character::Create` placement ids (before the fight) and those spawned inside it, every `SetMissionFlag` id+value during the fight and 20 s after, the HP-bar boss actor id (`ShowBossGauge`), and the mission id passed to `SetMissionClearFlag`.',
           'Maps to columns:',
-          '- `mission_name` / `stage_id` for the 40+ unresolved scripts: the logged mission id at clear (join to the 130-record mission DB `archive_03\\52\\BD29D455...`).',
+          '- `mission_name` / `stage_id` for the remaining unnamed/internal-stage scripts: the logged mission id at clear (join to the 130-record mission DB `archive_03\\52\\BD29D455...`).',
           '- `placement_id` / `all_placements` for skeleton scripts and low-confidence rows: logged Character::Create ids confirm which record is the boss; BossBattleMode order gives multi-phase sequence.',
           '- `defeat_check_value` flag ids: the SetMissionFlag ids set at boss death (the real per-boss defeat flag, e.g. the 296-298 demon flags).',
           '- `variant_group` / `param_char_id`: ShowBossGauge actor id plus placement resolves which variant (phase/difficulty copy) actually spawns.',
-          '- Not filled by BossLog: BGM names (only hashes known), Japanese names for unmatched bosses, reward tables, Battle Scroll/Rift unlock rules, `story_order` of sub-missions. Those need text tables, a reward-table decode or a scroll/Rift record dump.',
+          '- Also from RematchLog: whether Battle Scroll / hidden-duel / Emaki routes actually start the fight (refight_route is derived, not observed), and the real defeat flag/quest-clear at death (confirms the medium/low defeat-check rows). Not filled by either log: BGM names (hashes only), Japanese names for unmatched bosses, reward tables (rewards_known is name-match inferred), `story_order` of sub-missions.',
           '', '## Other known gaps',
           '- web-only rows have no ids at all: 1:1 name join to a script failed or the fight has no script in the 110 boss scripts (Rift NPCs, field bosses, mid-mission fights).',
-          '- Battle Scroll membership per boss is web-summary only (battle-scrolls-online.md); `refightable_in_game` is a hypothesis except Eternal Rift NPCs and the mission-replay/NG+ mechanisms from boss-rematch-paths.md / boss-rift-ngplus.md.',
+          '- Battle Scroll membership is now data-derived (battle-scrolls.csv, mission id) for rows with a mission id; web-only rows are matched by mission name and default to `no` when unmatched. `refightable_in_game` (v1) stays a hypothesis; use `refight_route`.',
+          '- Multi-boss missions (e.g. Yagyu Principles = Jubei + Chuya, Best of Five) have one placement row; secondary bosses appear only as web-only rows.',
           '- `boss_char_id` for low/medium duelflow rows may be a world-table boss (see boss-duel-flow.md section 5 caveat).',
           '']
 with open(os.path.join(N, 'boss-master.md'), 'w', encoding='utf-8') as fh:
