@@ -16,6 +16,7 @@ import argparse, csv, glob, json, os, re, struct, sys, zlib
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 CACHE = r'D:\nioh3-re\gp2_hash_index.json'
 DUMP = r'D:\nioh3-re\ally-dump\shaderdump_172'
+GAMEDIR = r'C:\Program Files (x86)\Steam\steamapps\common\Nioh3\shader_dx12'
 G = os.path.join(ROOT, 'gpu-shaders')
 HEX32 = re.compile(r'^[0-9a-f]{32}$')
 
@@ -111,6 +112,22 @@ def build_index():
             if h not in idx:
                 add(h, stage='?', loc='runtime-compiled (dump)', kind='runtime', name='(not in inventory)')
             idx[h].setdefault('dump', ext)
+    # psoswap/GP2 key = container digest (DXBC header bytes 4..20, psoswap.cpp ParseBlob), NOT only the HASH part:
+    # scan the real bytes so each record is indexed under both digests (game shader_dx12 + Ally dump contents)
+    if os.path.isdir(GAMEDIR):
+        for fn in sorted(os.listdir(GAMEDIR)):
+            if fn.endswith('.file'):
+                for n, (k, cd, b) in enumerate(containers(os.path.join(GAMEDIR, fn))):
+                    for h in (k, cd):
+                        e = idx.get(h)
+                        if not e or e.get('kind') != 'disk':
+                            add(h, loc='shader_dx12\\%s container #%d (%d B)' % (fn, n, len(b)), kind='disk', file=fn)
+    if os.path.isdir(dd):
+        for fn in os.listdir(dd):
+            for k, cd, b in containers(os.path.join(dd, fn)):
+                for h in (k, cd):
+                    if h not in idx:
+                        add(h, stage='?', loc='runtime-compiled (dump %s)' % fn, kind='runtime')
     # psoswap logs: 'exe|ext <stage> <key> <size> B ...' and any 'PSO shader' lines
     for lg in glob.glob(os.path.join(ROOT, 'captures', 'ally', '*.log')):
         try:
@@ -134,14 +151,27 @@ def build_index():
         bk = os.path.join(G, 'backup', fn)
         new = {k: b for k, c, b in containers(rp)}
         old = {k: (c, b) for k, c, b in containers(bk)}
-        for k, (c, b) in old.items():
-            if k not in new or new[k] != b:
-                for h in (k, c):
-                    reps[h] = 'shader_dx12\\%s replaced (%s)' % (fn, labels.get(fn, 'rewrite'))
+        chg_old = [(k, c, b) for k, (c, b) in old.items() if k not in new or new[k] != b]
+        for k, c, b in chg_old:
+            for h in (k, c):
+                reps[h] = 'ORIGINAL replaced in shader_dx12\\%s (%s)' % (fn, labels.get(fn, 'rewrite'))
+        oldb = {k: b for k, (c, b) in old.items()}
+        newl = [(k, cd, b) for k, cd, b in containers(rp) if oldb.get(k) != b]
+        for i, (k, cd, b) in enumerate(newl):   # pair new<->old by position when counts match
+            orig = chg_old[i] if len(chg_old) == len(newl) else None
+            oe = idx.get(orig[0], {}) if orig else {}
+            for h in (k, cd):
+                reps[h] = 'OUR REPLACEMENT in %s (%s)%s' % (fn, labels.get(fn, 'rewrite'), (' <- orig (positional guess) ' + orig[0]) if orig else '')
+                add(h, stage=oe.get('stage'), loc='replacement\\%s container #%d (%d B)' % (fn, i, len(b)),
+                    kind='replacement', name=oe.get('name') or 'replacement')
     for p in glob.glob(os.path.join(G, 'post', 'out', '*.dxbc')) + glob.glob(os.path.join(G, 'replacement', '*.dxil')) \
             + glob.glob(os.path.join(G, 'replacement', '*.dxbc')):
         h = os.path.basename(p).split('.')[0]
-        reps[h] = 'psoswap file %s' % os.path.relpath(p, G)
+        reps[h] = 'psoswap file %s (ORIGINAL key it replaces)' % os.path.relpath(p, G)
+        for k, cd, b in containers(p):
+            for h2 in (k, cd):
+                reps[h2] = 'OUR REPLACEMENT psoswap file %s' % os.path.relpath(p, G)
+                add(h2, loc='replacement\\' + os.path.relpath(p, G), kind='replacement', name='post-v1 (replaces %s)' % h[:8])
     # RGP / notes mentions
     notes = {}
     for nf in glob.glob(os.path.join(ROOT, 'notes', '*.md')):
