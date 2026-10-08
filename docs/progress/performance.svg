@@ -2,85 +2,85 @@
 <rect width="100%" height="100%" fill="#0d1117"/>
 <text x="10" y="22" fill="#e6edf3" font-size="15" font-weight="600">Profiled CPU self time (ROG Ally + PC): 1328 functions; block area = time share, cell area = function time (tiny ones merged)</text>
 <rect x="1160" y="10" width="12" height="12" fill="#2ea043"/><text x="1176" y="21" fill="#8b949e" font-size="11">named</text><rect x="1217" y="10" width="12" height="12" fill="#d4a017"/><text x="1233" y="21" fill="#8b949e" font-size="11">Unknown_* (role unclear)</text><rect x="1391" y="10" width="12" height="12" fill="#444a54"/><text x="1407" y="21" fill="#8b949e" font-size="11">not named</text>
-<rect x="584.8" y="524.6" width="275.8" height="370.6" fill="#2ea043"/>
-<rect x="861.4" y="524.6" width="103.8" height="158.5" fill="#2ea043"/>
-<rect x="966.0" y="524.6" width="92.3" height="158.5" fill="#2ea043"/>
-<rect x="861.4" y="683.9" width="116.3" height="93.2" fill="#2ea043"/>
-<rect x="978.5" y="683.9" width="79.8" height="93.2" fill="#2ea043"/>
-<rect x="861.4" y="777.8" width="80.9" height="71.5" fill="#2ea043"/>
-<rect x="861.4" y="850.1" width="80.9" height="45.1" fill="#2ea043"/>
+<rect x="584.9" y="524.6" width="275.8" height="370.6" fill="#2ea043"/>
+<rect x="861.5" y="524.6" width="103.8" height="158.5" fill="#2ea043"/>
+<rect x="966.1" y="524.6" width="92.3" height="158.5" fill="#2ea043"/>
+<rect x="861.5" y="683.9" width="116.3" height="93.2" fill="#2ea043"/>
+<rect x="978.6" y="683.9" width="79.8" height="93.2" fill="#2ea043"/>
+<rect x="861.5" y="777.8" width="80.9" height="71.5" fill="#2ea043"/>
+<rect x="861.5" y="850.1" width="80.9" height="45.1" fill="#2ea043"/>
 <rect x="943.2" y="777.8" width="68.9" height="43.7" fill="#d4a017"/>
 <rect x="1012.9" y="777.8" width="45.4" height="43.7" fill="#2ea043"/>
 <rect x="943.2" y="822.3" width="39.2" height="40.7" fill="#2ea043"/>
 <rect x="943.2" y="863.8" width="39.2" height="31.4" fill="#2ea043"/>
-<rect x="983.1" y="822.3" width="25.2" height="40.5" fill="#2ea043"/>
-<rect x="983.1" y="863.6" width="25.2" height="31.6" fill="#2ea043"/>
+<rect x="983.2" y="822.3" width="25.2" height="40.5" fill="#2ea043"/>
+<rect x="983.2" y="863.6" width="25.2" height="31.6" fill="#2ea043"/>
 <rect x="1009.2" y="822.3" width="25.5" height="19.4" fill="#444a54"/>
 <rect x="1035.5" y="822.3" width="22.8" height="19.4" fill="#444a54"/>
 <rect x="1009.2" y="842.5" width="25.2" height="16.7" fill="#444a54"/>
 <rect x="1035.2" y="842.5" width="23.1" height="16.7" fill="#444a54"/>
 <rect x="1009.2" y="860.1" width="49.1" height="35.1" fill="#59564b"><title>59 tiny functions</title></rect>
-<text x="586.8" y="519.6" fill="#e6edf3" font-size="12" font-weight="600">Meshlet<tspan fill="#8b949e" font-weight="400"> 13.80% of time</tspan></text>
-<rect x="4.0" y="527.2" width="243.0" height="368.0" fill="#2ea043"/>
-<rect x="247.8" y="527.2" width="230.0" height="191.0" fill="#2ea043"/>
-<rect x="478.6" y="527.2" width="97.4" height="191.0" fill="#2ea043"/>
+<text x="586.9" y="519.6" fill="#e6edf3" font-size="12" font-weight="600">Meshlet<tspan fill="#8b949e" font-weight="400"> 13.80% of time</tspan></text>
+<rect x="4.0" y="527.3" width="243.0" height="367.9" fill="#2ea043"/>
+<rect x="247.8" y="527.3" width="230.0" height="190.9" fill="#2ea043"/>
+<rect x="478.6" y="527.3" width="97.5" height="190.9" fill="#2ea043"/>
 <rect x="247.8" y="719.0" width="93.2" height="176.2" fill="#2ea043"/>
 <rect x="341.8" y="719.0" width="116.2" height="105.2" fill="#2ea043"/>
 <rect x="341.8" y="825.0" width="116.2" height="70.2" fill="#2ea043"/>
-<rect x="458.7" y="719.0" width="84.0" height="62.4" fill="#2ea043"/>
+<rect x="458.8" y="719.0" width="84.0" height="62.4" fill="#2ea043"/>
 <rect x="543.5" y="719.0" width="32.5" height="62.4" fill="#2ea043"/>
-<rect x="458.7" y="782.2" width="51.1" height="39.4" fill="#d4a017"/>
-<rect x="458.7" y="822.3" width="51.1" height="39.0" fill="#2ea043"/>
-<rect x="458.7" y="862.2" width="51.1" height="33.0" fill="#d4a017"/>
-<rect x="510.6" y="782.2" width="37.8" height="38.4" fill="#2ea043"/>
-<rect x="549.2" y="782.2" width="26.8" height="38.4" fill="#d4a017"/>
-<rect x="510.6" y="821.3" width="28.6" height="27.3" fill="#d4a017"/>
+<rect x="458.8" y="782.2" width="51.1" height="39.4" fill="#d4a017"/>
+<rect x="458.8" y="822.3" width="51.1" height="39.0" fill="#2ea043"/>
+<rect x="458.8" y="862.2" width="51.1" height="33.0" fill="#d4a017"/>
+<rect x="510.7" y="782.2" width="37.8" height="38.3" fill="#2ea043"/>
+<rect x="549.3" y="782.2" width="26.8" height="38.3" fill="#d4a017"/>
+<rect x="510.7" y="821.3" width="28.7" height="27.3" fill="#d4a017"/>
 <rect x="540.1" y="821.3" width="19.2" height="27.3" fill="#444a54"/>
 <rect x="560.1" y="821.3" width="16.0" height="27.3" fill="#444a54"/>
-<rect x="510.6" y="849.4" width="13.9" height="24.8" fill="#444a54"/>
-<rect x="510.6" y="875.0" width="13.9" height="20.2" fill="#444a54"/>
+<rect x="510.7" y="849.4" width="13.9" height="24.8" fill="#444a54"/>
+<rect x="510.7" y="875.0" width="13.9" height="20.2" fill="#444a54"/>
 <rect x="525.3" y="849.4" width="50.8" height="45.8" fill="#7e6c3b"><title>59 tiny functions</title></rect>
-<text x="6.0" y="522.2" fill="#e6edf3" font-size="12" font-weight="600">Collision / Physics<tspan fill="#8b949e" font-weight="400"> 16.51% of time</tspan></text>
-<rect x="584.8" y="55.0" width="163.8" height="260.8" fill="#2ea043"/>
-<rect x="584.8" y="316.6" width="163.8" height="182.2" fill="#2ea043"/>
+<text x="6.0" y="522.3" fill="#e6edf3" font-size="12" font-weight="600">Collision / Physics<tspan fill="#8b949e" font-weight="400"> 16.51% of time</tspan></text>
+<rect x="584.9" y="55.0" width="163.8" height="260.8" fill="#2ea043"/>
+<rect x="584.9" y="316.6" width="163.8" height="182.2" fill="#2ea043"/>
 <rect x="749.5" y="55.0" width="132.2" height="106.6" fill="#2ea043"/>
 <rect x="882.5" y="55.0" width="88.6" height="106.6" fill="#2ea043"/>
 <rect x="971.9" y="55.0" width="86.4" height="106.6" fill="#2ea043"/>
 <rect x="749.5" y="162.4" width="105.9" height="84.6" fill="#2ea043"/>
-<rect x="856.1" y="162.4" width="103.0" height="84.6" fill="#2ea043"/>
+<rect x="856.2" y="162.4" width="103.0" height="84.6" fill="#2ea043"/>
 <rect x="960.0" y="162.4" width="98.3" height="84.6" fill="#2ea043"/>
 <rect x="749.5" y="247.8" width="79.5" height="98.6" fill="#2ea043"/>
 <rect x="749.5" y="347.2" width="79.5" height="77.7" fill="#2ea043"/>
 <rect x="749.5" y="425.7" width="79.5" height="73.1" fill="#2ea043"/>
 <rect x="829.8" y="247.8" width="61.4" height="63.8" fill="#d4a017"/>
 <rect x="892.0" y="247.8" width="59.0" height="63.8" fill="#d4a017"/>
-<rect x="951.8" y="247.8" width="54.8" height="63.8" fill="#2ea043"/>
-<rect x="1007.4" y="247.8" width="50.9" height="63.8" fill="#d4a017"/>
+<rect x="951.9" y="247.8" width="54.8" height="63.8" fill="#2ea043"/>
+<rect x="1007.5" y="247.8" width="50.9" height="63.8" fill="#d4a017"/>
 <rect x="829.8" y="312.4" width="54.0" height="51.5" fill="#2ea043"/>
 <rect x="829.8" y="364.7" width="54.0" height="47.5" fill="#2ea043"/>
 <rect x="829.8" y="413.0" width="54.0" height="46.4" fill="#d4a017"/>
 <rect x="829.8" y="460.2" width="54.0" height="38.6" fill="#2ea043"/>
 <rect x="884.6" y="312.4" width="46.1" height="44.5" fill="#2ea043"/>
-<rect x="931.4" y="312.4" width="42.9" height="44.5" fill="#d4a017"/>
-<rect x="975.1" y="312.4" width="41.2" height="44.5" fill="#2ea043"/>
-<rect x="1017.1" y="312.4" width="41.2" height="44.5" fill="#d4a017"/>
+<rect x="931.5" y="312.4" width="42.9" height="44.5" fill="#d4a017"/>
+<rect x="975.2" y="312.4" width="41.2" height="44.5" fill="#2ea043"/>
+<rect x="1017.2" y="312.4" width="41.2" height="44.5" fill="#d4a017"/>
 <rect x="884.6" y="357.7" width="35.4" height="47.7" fill="#2ea043"/>
 <rect x="884.6" y="406.2" width="35.4" height="46.2" fill="#d4a017"/>
 <rect x="884.6" y="453.2" width="35.4" height="45.6" fill="#2ea043"/>
-<rect x="920.7" y="357.7" width="39.6" height="37.2" fill="#2ea043"/>
+<rect x="920.8" y="357.7" width="39.6" height="37.2" fill="#2ea043"/>
 <rect x="961.2" y="357.7" width="35.8" height="37.2" fill="#2ea043"/>
-<rect x="997.8" y="357.7" width="32.6" height="37.2" fill="#d4a017"/>
+<rect x="997.9" y="357.7" width="32.6" height="37.2" fill="#d4a017"/>
 <rect x="1031.3" y="357.7" width="27.0" height="37.2" fill="#d4a017"/>
-<rect x="920.7" y="395.8" width="27.3" height="36.2" fill="#2ea043"/>
-<rect x="920.7" y="432.7" width="27.3" height="33.7" fill="#2ea043"/>
-<rect x="920.7" y="467.2" width="27.3" height="31.6" fill="#2ea043"/>
+<rect x="920.8" y="395.8" width="27.3" height="36.2" fill="#2ea043"/>
+<rect x="920.8" y="432.7" width="27.3" height="33.7" fill="#2ea043"/>
+<rect x="920.8" y="467.2" width="27.3" height="31.6" fill="#2ea043"/>
 <rect x="948.9" y="395.8" width="31.9" height="25.4" fill="#d4a017"/>
 <rect x="948.9" y="421.9" width="31.9" height="25.4" fill="#d4a017"/>
 <rect x="948.9" y="448.1" width="31.9" height="25.1" fill="#2ea043"/>
 <rect x="948.9" y="474.0" width="31.9" height="24.8" fill="#d4a017"/>
 <rect x="981.6" y="395.8" width="30.4" height="25.8" fill="#2ea043"/>
-<rect x="1012.7" y="395.8" width="25.9" height="25.8" fill="#2ea043"/>
-<rect x="1039.4" y="395.8" width="18.9" height="25.8" fill="#444a54"/>
+<rect x="1012.8" y="395.8" width="25.9" height="25.8" fill="#2ea043"/>
+<rect x="1039.5" y="395.8" width="18.9" height="25.8" fill="#444a54"/>
 <rect x="981.6" y="422.4" width="17.6" height="22.5" fill="#444a54"/>
 <rect x="981.6" y="445.7" width="17.6" height="19.0" fill="#444a54"/>
 <rect x="981.6" y="465.5" width="17.6" height="16.3" fill="#444a54"/>
@@ -88,12 +88,12 @@
 <rect x="1000.0" y="422.4" width="14.5" height="18.4" fill="#444a54"/>
 <rect x="1015.3" y="422.4" width="14.1" height="18.4" fill="#444a54"/>
 <rect x="1030.2" y="422.4" width="13.8" height="18.4" fill="#444a54"/>
-<rect x="1044.8" y="422.4" width="13.5" height="18.4" fill="#2ea043"/>
+<rect x="1044.9" y="422.4" width="13.5" height="18.4" fill="#2ea043"/>
 <rect x="1000.0" y="441.6" width="3.7" height="57.2" fill="#444a54"/>
-<rect x="1004.4" y="441.6" width="53.9" height="57.2" fill="#6d6242"><title>222 tiny functions</title></rect>
-<text x="586.8" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">GFX / D3D12 submission<tspan fill="#8b949e" font-weight="400"> 16.34% of time</tspan></text>
+<rect x="1004.5" y="441.6" width="53.9" height="57.2" fill="#6d6242"><title>222 tiny functions</title></rect>
+<text x="586.9" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">GFX / D3D12 submission<tspan fill="#8b949e" font-weight="400"> 16.34% of time</tspan></text>
 <rect x="4.0" y="55.0" width="188.3" height="226.1" fill="#2ea043"/>
-<rect x="4.0" y="281.9" width="188.3" height="219.5" fill="#2ea043"/>
+<rect x="4.0" y="281.9" width="188.3" height="219.6" fill="#2ea043"/>
 <rect x="193.1" y="55.0" width="163.4" height="126.7" fill="#2ea043"/>
 <rect x="357.3" y="55.0" width="130.6" height="126.7" fill="#2ea043"/>
 <rect x="488.7" y="55.0" width="87.4" height="126.7" fill="#2ea043"/>
@@ -103,46 +103,46 @@
 <rect x="291.0" y="182.5" width="98.7" height="76.1" fill="#2ea043"/>
 <rect x="390.5" y="182.5" width="95.1" height="76.1" fill="#2ea043"/>
 <rect x="486.4" y="182.5" width="89.7" height="76.1" fill="#2ea043"/>
-<rect x="291.0" y="259.4" width="71.0" height="95.7" fill="#2ea043"/>
-<rect x="291.0" y="355.9" width="71.0" height="76.4" fill="#2ea043"/>
-<rect x="291.0" y="433.0" width="71.0" height="68.4" fill="#2ea043"/>
-<rect x="362.8" y="259.4" width="77.1" height="59.9" fill="#2ea043"/>
-<rect x="440.7" y="259.4" width="67.4" height="59.9" fill="#2ea043"/>
-<rect x="508.9" y="259.4" width="67.1" height="59.9" fill="#2ea043"/>
-<rect x="362.8" y="320.1" width="60.6" height="60.1" fill="#d4a017"/>
-<rect x="362.8" y="380.9" width="60.6" height="59.9" fill="#2ea043"/>
-<rect x="362.8" y="441.6" width="60.6" height="59.8" fill="#2ea043"/>
-<rect x="424.1" y="320.1" width="60.5" height="48.7" fill="#2ea043"/>
-<rect x="485.4" y="320.1" width="51.0" height="48.7" fill="#2ea043"/>
-<rect x="537.2" y="320.1" width="38.8" height="48.7" fill="#d4a017"/>
-<rect x="424.1" y="369.6" width="40.1" height="44.7" fill="#2ea043"/>
-<rect x="424.1" y="415.1" width="40.1" height="44.1" fill="#2ea043"/>
-<rect x="424.1" y="460.0" width="40.1" height="41.5" fill="#d4a017"/>
-<rect x="465.0" y="369.6" width="42.2" height="34.3" fill="#2ea043"/>
-<rect x="508.1" y="369.6" width="34.3" height="34.3" fill="#d4a017"/>
-<rect x="543.2" y="369.6" width="32.9" height="34.3" fill="#2ea043"/>
-<rect x="465.0" y="404.7" width="25.6" height="37.2" fill="#d4a017"/>
-<rect x="465.0" y="442.7" width="25.6" height="29.8" fill="#2ea043"/>
-<rect x="465.0" y="473.3" width="25.6" height="28.1" fill="#d4a017"/>
-<rect x="491.4" y="404.7" width="30.3" height="21.8" fill="#d4a017"/>
-<rect x="522.5" y="404.7" width="27.5" height="21.8" fill="#d4a017"/>
-<rect x="550.7" y="404.7" width="25.3" height="21.8" fill="#2ea043"/>
-<rect x="491.4" y="427.4" width="20.7" height="18.8" fill="#444a54"/>
-<rect x="491.4" y="447.0" width="20.7" height="18.6" fill="#2ea043"/>
-<rect x="491.4" y="466.3" width="20.7" height="17.6" fill="#444a54"/>
-<rect x="491.4" y="484.7" width="20.7" height="16.8" fill="#444a54"/>
-<rect x="512.9" y="427.4" width="23.5" height="13.8" fill="#444a54"/>
-<rect x="537.2" y="427.4" width="20.1" height="13.8" fill="#444a54"/>
-<rect x="558.1" y="427.4" width="18.0" height="13.8" fill="#444a54"/>
-<rect x="512.9" y="441.9" width="63.1" height="59.5" fill="#74673f"><title>168 tiny functions</title></rect>
+<rect x="291.0" y="259.3" width="70.9" height="95.7" fill="#2ea043"/>
+<rect x="291.0" y="355.8" width="70.9" height="76.4" fill="#2ea043"/>
+<rect x="291.0" y="433.1" width="70.9" height="68.4" fill="#2ea043"/>
+<rect x="362.7" y="259.3" width="77.2" height="59.9" fill="#2ea043"/>
+<rect x="440.7" y="259.3" width="67.4" height="59.9" fill="#2ea043"/>
+<rect x="508.9" y="259.3" width="67.2" height="59.9" fill="#2ea043"/>
+<rect x="362.7" y="320.0" width="60.5" height="60.1" fill="#d4a017"/>
+<rect x="362.7" y="380.9" width="60.5" height="59.9" fill="#2ea043"/>
+<rect x="362.7" y="441.6" width="60.5" height="59.8" fill="#2ea043"/>
+<rect x="424.1" y="320.0" width="60.5" height="48.7" fill="#2ea043"/>
+<rect x="485.4" y="320.0" width="51.0" height="48.7" fill="#2ea043"/>
+<rect x="537.2" y="320.0" width="38.8" height="48.7" fill="#d4a017"/>
+<rect x="424.1" y="369.5" width="40.0" height="44.7" fill="#2ea043"/>
+<rect x="424.1" y="415.0" width="40.0" height="44.1" fill="#2ea043"/>
+<rect x="424.1" y="459.9" width="40.0" height="41.5" fill="#d4a017"/>
+<rect x="464.9" y="369.5" width="42.3" height="34.3" fill="#2ea043"/>
+<rect x="508.0" y="369.5" width="34.4" height="34.3" fill="#d4a017"/>
+<rect x="543.2" y="369.5" width="32.9" height="34.3" fill="#2ea043"/>
+<rect x="464.9" y="404.6" width="25.5" height="37.3" fill="#d4a017"/>
+<rect x="464.9" y="442.6" width="25.5" height="29.9" fill="#2ea043"/>
+<rect x="464.9" y="473.3" width="25.5" height="28.2" fill="#d4a017"/>
+<rect x="491.2" y="404.6" width="30.3" height="21.8" fill="#d4a017"/>
+<rect x="522.4" y="404.6" width="27.6" height="21.8" fill="#d4a017"/>
+<rect x="550.7" y="404.6" width="25.4" height="21.8" fill="#2ea043"/>
+<rect x="491.2" y="427.1" width="20.6" height="18.9" fill="#444a54"/>
+<rect x="491.2" y="446.8" width="20.6" height="18.6" fill="#2ea043"/>
+<rect x="491.2" y="466.2" width="20.6" height="17.6" fill="#444a54"/>
+<rect x="491.2" y="484.6" width="20.6" height="16.8" fill="#444a54"/>
+<rect x="512.7" y="427.1" width="23.6" height="13.7" fill="#444a54"/>
+<rect x="537.0" y="427.1" width="20.2" height="13.7" fill="#444a54"/>
+<rect x="558.0" y="427.1" width="18.1" height="13.7" fill="#444a54"/>
+<rect x="512.7" y="441.6" width="63.4" height="59.8" fill="#74663f"><title>174 tiny functions</title></rect>
 <text x="6.0" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">Jobs / KIDS scheduler<tspan fill="#8b949e" font-weight="400"> 19.80% of time</tspan></text>
 <rect x="1362.6" y="55.0" width="232.6" height="156.9" fill="#2ea043"/>
 <rect x="1362.6" y="212.7" width="174.1" height="121.1" fill="#2ea043"/>
 <rect x="1537.5" y="212.7" width="57.7" height="68.4" fill="#2ea043"/>
 <rect x="1537.5" y="281.9" width="29.8" height="51.9" fill="#2ea043"/>
 <rect x="1568.2" y="281.9" width="27.0" height="29.4" fill="#d4a017"/>
-<rect x="1568.2" y="312.0" width="16.2" height="21.7" fill="#2ea043"/>
-<rect x="1585.2" y="312.0" width="10.0" height="21.7" fill="#ca9a1b"><title>15 tiny functions</title></rect>
+<rect x="1568.2" y="312.1" width="16.2" height="21.7" fill="#2ea043"/>
+<rect x="1585.2" y="312.1" width="10.0" height="21.7" fill="#ca9a1b"><title>15 tiny functions</title></rect>
 <text x="1364.6" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">unclassified 0x8-0xCMB<tspan fill="#8b949e" font-weight="400"> 5.31% of time</tspan></text>
 <rect x="1336.2" y="359.6" width="141.9" height="167.5" fill="#2ea043"/>
 <rect x="1336.2" y="527.9" width="141.9" height="63.6" fill="#2ea043"/>
@@ -155,34 +155,34 @@
 <rect x="1526.3" y="470.5" width="43.5" height="33.3" fill="#d4a017"/>
 <rect x="1570.5" y="470.5" width="24.7" height="33.3" fill="#d4a017"/>
 <rect x="1478.9" y="504.6" width="22.6" height="30.2" fill="#d4a017"/>
-<rect x="1478.9" y="535.5" width="22.6" height="29.2" fill="#d4a017"/>
-<rect x="1478.9" y="565.5" width="22.6" height="26.0" fill="#444a54"/>
+<rect x="1478.9" y="535.6" width="22.6" height="29.2" fill="#d4a017"/>
+<rect x="1478.9" y="565.6" width="22.6" height="26.0" fill="#444a54"/>
 <rect x="1502.3" y="504.6" width="22.1" height="23.9" fill="#d4a017"/>
-<rect x="1502.3" y="529.2" width="22.1" height="22.5" fill="#444a54"/>
-<rect x="1502.3" y="552.5" width="22.1" height="19.5" fill="#2ea043"/>
+<rect x="1502.3" y="529.3" width="22.1" height="22.5" fill="#444a54"/>
+<rect x="1502.3" y="552.6" width="22.1" height="19.5" fill="#2ea043"/>
 <rect x="1502.3" y="572.9" width="22.1" height="18.6" fill="#444a54"/>
 <rect x="1525.2" y="504.6" width="17.6" height="16.8" fill="#444a54"/>
 <rect x="1543.6" y="504.6" width="16.9" height="16.8" fill="#444a54"/>
 <rect x="1561.3" y="504.6" width="16.7" height="16.8" fill="#444a54"/>
 <rect x="1578.9" y="504.6" width="16.3" height="16.8" fill="#444a54"/>
-<rect x="1525.2" y="522.1" width="70.0" height="69.4" fill="#484c51"><title>169 tiny functions</title></rect>
+<rect x="1525.2" y="522.2" width="70.0" height="69.4" fill="#484c51"><title>168 tiny functions</title></rect>
 <text x="1338.2" y="354.6" fill="#e6edf3" font-size="12" font-weight="600">Effects / Post<tspan fill="#8b949e" font-weight="400"> 4.98% of time</tspan></text>
-<rect x="1067.1" y="617.3" width="179.3" height="121.7" fill="#2ea043"/>
-<rect x="1067.1" y="739.8" width="95.6" height="155.4" fill="#2ea043"/>
-<rect x="1163.5" y="739.8" width="82.9" height="51.2" fill="#2ea043"/>
-<rect x="1163.5" y="791.8" width="82.9" height="43.6" fill="#2ea043"/>
-<rect x="1163.5" y="836.2" width="42.5" height="59.0" fill="#d4a017"/>
-<rect x="1206.8" y="836.2" width="39.6" height="28.7" fill="#2ea043"/>
-<rect x="1206.8" y="865.8" width="20.3" height="16.8" fill="#444a54"/>
-<rect x="1206.8" y="883.4" width="20.3" height="11.8" fill="#444a54"/>
-<rect x="1227.9" y="865.8" width="18.5" height="29.4" fill="#a4832b"><title>28 tiny functions</title></rect>
-<text x="1069.1" y="612.3" fill="#e6edf3" font-size="12" font-weight="600">Memory<tspan fill="#8b949e" font-weight="400"> 4.12% of time</tspan></text>
+<rect x="1067.1" y="617.4" width="179.4" height="121.7" fill="#2ea043"/>
+<rect x="1067.1" y="739.9" width="95.6" height="155.3" fill="#2ea043"/>
+<rect x="1163.6" y="739.9" width="82.9" height="51.2" fill="#2ea043"/>
+<rect x="1163.6" y="791.8" width="82.9" height="43.6" fill="#2ea043"/>
+<rect x="1163.6" y="836.2" width="42.5" height="59.0" fill="#d4a017"/>
+<rect x="1206.9" y="836.2" width="39.6" height="28.7" fill="#2ea043"/>
+<rect x="1206.9" y="865.8" width="20.3" height="16.8" fill="#444a54"/>
+<rect x="1206.9" y="883.4" width="20.3" height="11.8" fill="#444a54"/>
+<rect x="1228.0" y="865.8" width="18.5" height="29.4" fill="#a4832b"><title>28 tiny functions</title></rect>
+<text x="1069.1" y="612.4" fill="#e6edf3" font-size="12" font-weight="600">Memory<tspan fill="#8b949e" font-weight="400"> 4.12% of time</tspan></text>
 <rect x="1067.1" y="55.0" width="94.7" height="171.1" fill="#2ea043"/>
 <rect x="1067.1" y="226.9" width="94.7" height="106.9" fill="#2ea043"/>
 <rect x="1162.6" y="55.0" width="105.8" height="79.9" fill="#2ea043"/>
 <rect x="1269.2" y="55.0" width="84.6" height="79.9" fill="#2ea043"/>
-<rect x="1162.6" y="135.7" width="65.4" height="75.6" fill="#2ea043"/>
-<rect x="1228.7" y="135.7" width="65.1" height="75.6" fill="#2ea043"/>
+<rect x="1162.6" y="135.7" width="65.3" height="75.6" fill="#2ea043"/>
+<rect x="1228.8" y="135.7" width="65.1" height="75.6" fill="#2ea043"/>
 <rect x="1294.7" y="135.7" width="59.1" height="75.6" fill="#d4a017"/>
 <rect x="1162.6" y="212.1" width="62.6" height="61.3" fill="#d4a017"/>
 <rect x="1162.6" y="274.2" width="62.6" height="59.6" fill="#d4a017"/>
@@ -190,88 +190,88 @@
 <rect x="1226.0" y="281.1" width="41.5" height="52.7" fill="#2ea043"/>
 <rect x="1268.3" y="212.1" width="42.5" height="37.6" fill="#d4a017"/>
 <rect x="1311.7" y="212.1" width="42.1" height="37.6" fill="#d4a017"/>
-<rect x="1268.3" y="250.5" width="32.0" height="35.8" fill="#2ea043"/>
+<rect x="1268.3" y="250.6" width="32.0" height="35.8" fill="#2ea043"/>
 <rect x="1268.3" y="287.2" width="32.0" height="23.1" fill="#d4a017"/>
 <rect x="1268.3" y="311.1" width="32.0" height="22.7" fill="#d4a017"/>
-<rect x="1301.1" y="250.5" width="31.7" height="21.6" fill="#d4a017"/>
-<rect x="1333.7" y="250.5" width="20.1" height="21.6" fill="#2ea043"/>
+<rect x="1301.1" y="250.6" width="31.7" height="21.6" fill="#d4a017"/>
+<rect x="1333.7" y="250.6" width="20.1" height="21.6" fill="#2ea043"/>
 <rect x="1301.1" y="273.0" width="20.2" height="18.7" fill="#444a54"/>
 <rect x="1322.1" y="273.0" width="16.8" height="18.7" fill="#444a54"/>
 <rect x="1339.7" y="273.0" width="14.1" height="18.7" fill="#444a54"/>
 <rect x="1301.1" y="292.5" width="11.4" height="20.5" fill="#444a54"/>
 <rect x="1301.1" y="313.8" width="11.4" height="20.0" fill="#444a54"/>
-<rect x="1313.3" y="292.5" width="40.5" height="41.3" fill="#675f45"><title>53 tiny functions</title></rect>
+<rect x="1313.4" y="292.5" width="40.5" height="41.3" fill="#675f45"><title>53 tiny functions</title></rect>
 <text x="1069.1" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">Audio<tspan fill="#8b949e" font-weight="400"> 6.50% of time</tspan></text>
-<rect x="1067.1" y="359.6" width="108.4" height="124.9" fill="#2ea043"/>
-<rect x="1067.1" y="485.3" width="108.4" height="106.2" fill="#2ea043"/>
+<rect x="1067.1" y="359.6" width="108.4" height="125.0" fill="#2ea043"/>
+<rect x="1067.1" y="485.4" width="108.4" height="106.2" fill="#2ea043"/>
 <rect x="1176.3" y="359.6" width="81.9" height="88.1" fill="#2ea043"/>
 <rect x="1259.0" y="359.6" width="68.4" height="88.1" fill="#2ea043"/>
-<rect x="1176.3" y="448.4" width="54.7" height="95.6" fill="#2ea043"/>
-<rect x="1176.3" y="544.8" width="54.7" height="46.7" fill="#2ea043"/>
-<rect x="1231.8" y="448.4" width="47.8" height="50.0" fill="#d4a017"/>
-<rect x="1280.3" y="448.4" width="47.1" height="50.0" fill="#2ea043"/>
-<rect x="1231.8" y="499.2" width="38.3" height="59.9" fill="#2ea043"/>
+<rect x="1176.3" y="448.5" width="54.7" height="95.6" fill="#2ea043"/>
+<rect x="1176.3" y="544.9" width="54.7" height="46.7" fill="#2ea043"/>
+<rect x="1231.8" y="448.5" width="47.8" height="50.0" fill="#d4a017"/>
+<rect x="1280.3" y="448.5" width="47.1" height="50.0" fill="#2ea043"/>
+<rect x="1231.8" y="499.3" width="38.3" height="59.9" fill="#2ea043"/>
 <rect x="1231.8" y="559.9" width="38.3" height="31.6" fill="#2ea043"/>
-<rect x="1270.9" y="499.2" width="30.6" height="20.4" fill="#d4a017"/>
-<rect x="1302.3" y="499.2" width="25.1" height="20.4" fill="#444a54"/>
-<rect x="1270.9" y="520.4" width="19.1" height="23.2" fill="#444a54"/>
-<rect x="1290.8" y="520.4" width="18.6" height="23.2" fill="#444a54"/>
-<rect x="1310.2" y="520.4" width="17.2" height="23.2" fill="#444a54"/>
-<rect x="1270.9" y="544.4" width="16.3" height="23.9" fill="#444a54"/>
+<rect x="1270.9" y="499.3" width="30.6" height="20.4" fill="#d4a017"/>
+<rect x="1302.3" y="499.3" width="25.1" height="20.4" fill="#444a54"/>
+<rect x="1270.9" y="520.5" width="19.1" height="23.2" fill="#444a54"/>
+<rect x="1290.8" y="520.5" width="18.6" height="23.2" fill="#444a54"/>
+<rect x="1310.2" y="520.5" width="17.2" height="23.2" fill="#444a54"/>
+<rect x="1270.9" y="544.5" width="16.3" height="23.9" fill="#444a54"/>
 <rect x="1270.9" y="569.2" width="16.3" height="22.4" fill="#444a54"/>
-<rect x="1288.0" y="544.4" width="21.6" height="16.7" fill="#444a54"/>
-<rect x="1310.4" y="544.4" width="17.0" height="16.7" fill="#444a54"/>
-<rect x="1288.0" y="561.9" width="8.7" height="29.6" fill="#444a54"/>
-<rect x="1297.5" y="561.9" width="29.9" height="29.6" fill="#50514e"><title>43 tiny functions</title></rect>
+<rect x="1288.1" y="544.5" width="21.6" height="16.7" fill="#444a54"/>
+<rect x="1310.4" y="544.5" width="17.0" height="16.7" fill="#444a54"/>
+<rect x="1288.1" y="561.9" width="8.7" height="29.6" fill="#444a54"/>
+<rect x="1297.6" y="561.9" width="29.8" height="29.6" fill="#50514e"><title>43 tiny functions</title></rect>
 <text x="1069.1" y="354.6" fill="#e6edf3" font-size="12" font-weight="600">Streaming / Resources<tspan fill="#8b949e" font-weight="400"> 5.01% of time</tspan></text>
-<rect x="1255.2" y="617.3" width="136.9" height="85.3" fill="#2ea043"/>
-<rect x="1255.2" y="703.4" width="136.9" height="67.4" fill="#2ea043"/>
-<rect x="1255.2" y="771.7" width="62.4" height="65.2" fill="#2ea043"/>
-<rect x="1255.2" y="837.6" width="62.4" height="57.6" fill="#2ea043"/>
-<rect x="1318.4" y="771.7" width="39.4" height="57.1" fill="#d4a017"/>
-<rect x="1358.6" y="771.7" width="33.5" height="57.1" fill="#2ea043"/>
-<rect x="1318.4" y="829.5" width="30.9" height="45.3" fill="#2ea043"/>
-<rect x="1318.4" y="875.7" width="30.9" height="19.5" fill="#d4a017"/>
-<rect x="1350.1" y="829.5" width="21.3" height="15.5" fill="#444a54"/>
-<rect x="1372.2" y="829.5" width="19.9" height="15.5" fill="#2ea043"/>
-<rect x="1350.1" y="845.9" width="22.8" height="12.8" fill="#444a54"/>
+<rect x="1255.3" y="617.4" width="137.0" height="85.3" fill="#2ea043"/>
+<rect x="1255.3" y="703.5" width="137.0" height="67.4" fill="#2ea043"/>
+<rect x="1255.3" y="771.7" width="62.4" height="65.2" fill="#2ea043"/>
+<rect x="1255.3" y="837.7" width="62.4" height="57.5" fill="#2ea043"/>
+<rect x="1318.5" y="771.7" width="39.4" height="57.1" fill="#d4a017"/>
+<rect x="1358.7" y="771.7" width="33.6" height="57.1" fill="#2ea043"/>
+<rect x="1318.5" y="829.6" width="30.9" height="45.3" fill="#2ea043"/>
+<rect x="1318.5" y="875.7" width="30.9" height="19.5" fill="#d4a017"/>
+<rect x="1350.2" y="829.6" width="21.3" height="15.5" fill="#444a54"/>
+<rect x="1372.3" y="829.6" width="19.9" height="15.5" fill="#2ea043"/>
+<rect x="1350.2" y="845.9" width="22.8" height="12.8" fill="#444a54"/>
 <rect x="1373.8" y="845.9" width="18.4" height="12.8" fill="#444a54"/>
-<rect x="1350.1" y="859.4" width="42.1" height="35.8" fill="#987c2f"><title>56 tiny functions</title></rect>
-<text x="1257.2" y="612.3" fill="#e6edf3" font-size="12" font-weight="600">Main loop / timing<tspan fill="#8b949e" font-weight="400"> </tspan></text>
-<rect x="1401.0" y="735.6" width="106.3" height="67.7" fill="#2ea043"/>
-<rect x="1401.0" y="804.1" width="58.7" height="61.3" fill="#2ea043"/>
-<rect x="1401.0" y="866.2" width="58.7" height="29.0" fill="#2ea043"/>
-<rect x="1460.5" y="804.1" width="24.4" height="28.3" fill="#d4a017"/>
-<rect x="1485.7" y="804.1" width="21.6" height="28.3" fill="#d4a017"/>
-<rect x="1460.5" y="833.2" width="28.1" height="21.0" fill="#d4a017"/>
-<rect x="1489.4" y="833.2" width="17.8" height="21.0" fill="#444a54"/>
-<rect x="1460.5" y="855.1" width="12.3" height="22.6" fill="#444a54"/>
-<rect x="1460.5" y="878.5" width="12.3" height="16.7" fill="#444a54"/>
-<rect x="1473.6" y="855.1" width="33.7" height="40.1" fill="#645d46"><title>75 tiny functions</title></rect>
-<text x="1403.0" y="730.6" fill="#e6edf3" font-size="12" font-weight="600">UI<tspan fill="#8b949e" font-weight="400"> 1.54% of time</tspan></text>
-<rect x="1401.0" y="617.3" width="75.4" height="48.5" fill="#2ea043"/>
-<rect x="1401.0" y="666.6" width="75.4" height="43.2" fill="#d4a017"/>
-<rect x="1477.1" y="617.3" width="59.9" height="48.6" fill="#d4a017"/>
-<rect x="1477.1" y="666.8" width="59.9" height="43.1" fill="#d4a017"/>
-<rect x="1537.9" y="617.3" width="57.3" height="41.1" fill="#d4a017"/>
-<rect x="1537.9" y="659.2" width="37.3" height="26.8" fill="#d4a017"/>
-<rect x="1537.9" y="686.8" width="37.3" height="23.1" fill="#d4a017"/>
-<rect x="1576.0" y="659.2" width="19.2" height="33.0" fill="#d4a017"/>
-<rect x="1576.0" y="693.0" width="19.2" height="16.8" fill="#444a54"><title>23 tiny functions</title></rect>
-<text x="1403.0" y="612.3" fill="#e6edf3" font-size="12" font-weight="600">Mission / Game logic<tspan fill="#8b949e" font-weight="400"> </tspan></text>
-<rect x="1516.1" y="718.6" width="79.1" height="47.1" fill="#2ea043"/>
-<rect x="1516.1" y="766.5" width="62.7" height="48.0" fill="#d4a017"/>
-<rect x="1579.6" y="766.5" width="15.6" height="31.8" fill="#d4a017"/>
-<rect x="1579.6" y="799.1" width="15.6" height="15.4" fill="#444a54"><title>24 tiny functions</title></rect>
-<rect x="1516.1" y="823.3" width="51.9" height="37.0" fill="#2ea043"/>
-<rect x="1516.1" y="861.1" width="40.1" height="34.1" fill="#d4a017"/>
-<rect x="1557.0" y="861.1" width="10.9" height="31.1" fill="#444a54"/>
-<rect x="1557.0" y="893.0" width="10.9" height="2.2" fill="#444a54"><title>4 tiny functions</title></rect>
-<rect x="1576.8" y="823.3" width="16.7" height="17.0" fill="#d4a017"/>
-<rect x="1594.3" y="823.3" width="0.9" height="17.0" fill="#444a54"><title>16 tiny functions</title></rect>
-<rect x="1576.8" y="849.1" width="10.1" height="15.2" fill="#444a54"/>
-<rect x="1587.7" y="849.1" width="7.5" height="15.2" fill="#494d51"><title>55 tiny functions</title></rect>
-<rect x="1576.8" y="873.1" width="7.3" height="11.4" fill="#444a54"/>
-<rect x="1592.9" y="873.1" width="2.3" height="11.4" fill="#444a54"><title>5 tiny functions</title></rect>
-<rect x="1576.8" y="893.3" width="6.7" height="1.9" fill="#444a54"><title>1 tiny functions</title></rect>
+<rect x="1350.2" y="859.5" width="42.1" height="35.7" fill="#987c2f"><title>56 tiny functions</title></rect>
+<text x="1257.3" y="612.4" fill="#e6edf3" font-size="12" font-weight="600">Main loop / timing<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1401.1" y="735.7" width="106.4" height="67.6" fill="#2ea043"/>
+<rect x="1401.1" y="804.2" width="58.8" height="61.3" fill="#2ea043"/>
+<rect x="1401.1" y="866.3" width="58.8" height="28.9" fill="#2ea043"/>
+<rect x="1460.6" y="804.2" width="24.5" height="28.3" fill="#d4a017"/>
+<rect x="1485.9" y="804.2" width="21.6" height="28.3" fill="#d4a017"/>
+<rect x="1460.6" y="833.3" width="28.2" height="21.0" fill="#d4a017"/>
+<rect x="1489.6" y="833.3" width="17.9" height="21.0" fill="#444a54"/>
+<rect x="1460.6" y="855.1" width="12.3" height="22.6" fill="#444a54"/>
+<rect x="1460.6" y="878.5" width="12.3" height="16.7" fill="#444a54"/>
+<rect x="1473.7" y="855.1" width="33.7" height="40.1" fill="#645d46"><title>75 tiny functions</title></rect>
+<text x="1403.1" y="730.7" fill="#e6edf3" font-size="12" font-weight="600">UI<tspan fill="#8b949e" font-weight="400"> 1.54% of time</tspan></text>
+<rect x="1401.1" y="617.4" width="75.3" height="48.5" fill="#2ea043"/>
+<rect x="1401.1" y="666.7" width="75.3" height="43.2" fill="#d4a017"/>
+<rect x="1477.2" y="617.4" width="59.9" height="48.7" fill="#d4a017"/>
+<rect x="1477.2" y="666.8" width="59.9" height="43.1" fill="#d4a017"/>
+<rect x="1537.9" y="617.4" width="57.3" height="41.1" fill="#d4a017"/>
+<rect x="1537.9" y="659.3" width="37.3" height="26.8" fill="#d4a017"/>
+<rect x="1537.9" y="686.9" width="37.3" height="23.1" fill="#d4a017"/>
+<rect x="1576.0" y="659.3" width="19.2" height="33.0" fill="#d4a017"/>
+<rect x="1576.0" y="693.1" width="19.2" height="16.8" fill="#444a54"><title>23 tiny functions</title></rect>
+<text x="1403.1" y="612.4" fill="#e6edf3" font-size="12" font-weight="600">Mission / Game logic<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1516.2" y="718.7" width="79.0" height="47.2" fill="#2ea043"/>
+<rect x="1516.2" y="766.7" width="62.5" height="48.1" fill="#d4a017"/>
+<rect x="1579.6" y="766.7" width="15.6" height="31.9" fill="#d4a017"/>
+<rect x="1579.6" y="799.4" width="15.6" height="15.4" fill="#444a54"><title>24 tiny functions</title></rect>
+<rect x="1516.2" y="823.6" width="52.1" height="36.9" fill="#2ea043"/>
+<rect x="1516.2" y="861.3" width="40.3" height="33.9" fill="#d4a017"/>
+<rect x="1557.4" y="861.3" width="11.0" height="31.0" fill="#444a54"/>
+<rect x="1557.4" y="893.0" width="11.0" height="2.2" fill="#444a54"><title>4 tiny functions</title></rect>
+<rect x="1577.1" y="823.6" width="17.3" height="15.9" fill="#d4a017"/>
+<rect x="1595.3" y="823.6" width="0.3" height="15.9" fill="#444a54"><title>11 tiny functions</title></rect>
+<rect x="1577.1" y="848.3" width="9.9" height="15.6" fill="#444a54"/>
+<rect x="1587.9" y="848.3" width="7.3" height="15.6" fill="#494d51"><title>55 tiny functions</title></rect>
+<rect x="1577.1" y="872.7" width="7.1" height="11.7" fill="#444a54"/>
+<rect x="1593.0" y="872.7" width="2.2" height="11.7" fill="#444a54"><title>5 tiny functions</title></rect>
+<rect x="1577.1" y="893.2" width="6.4" height="2.0" fill="#444a54"><title>1 tiny functions</title></rect>
 </svg>

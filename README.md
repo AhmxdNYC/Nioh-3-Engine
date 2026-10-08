@@ -22,7 +22,7 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ## Decompilation progress
 
-![functions named](https://img.shields.io/badge/functions%20named-0.33%25%20(688/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-82.03%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-96.56%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-55/63-green)
+![functions named](https://img.shields.io/badge/functions%20named-0.34%25%20(720/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-87.48%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-96.65%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-93.90%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-55/63-green)
 
 Every function in `Nioh3.exe` (211k function starts from `.pdata`), grouped by game area; block size = code size, each cell = 42 functions, green = real name, amber = `Unknown_*` (described, role unclear), grey = not named yet:
 
@@ -32,7 +32,11 @@ Only the functions that show up in our CPU profiles (ROG Ally + PC, self time); 
 
 ![Performance-relevant decompilation progress](docs/progress/performance.svg)
 
-Regenerate with `py -I re\scripts_re\progress_treemap.py` (`--check` prints the numbers only). Area grouping is inferred from symbol names, so it is approximate.
+GPU time on the ROG Ally at MAX (one all-original-shaders GP2 capture, top PSO buckets, area = ms/frame): green = identified shader/pass, blue = identified and we ship a kept replacement, red = a rewrite we tried and dropped (slower on RADV), grey = not identified:
+
+![GPU time identified](docs/progress/gpu.svg)
+
+GPU numbers are stamp-inflated ranking data, not isolated costs. Regenerate with `py -I re\scripts_re\progress_treemap.py` (`--check` prints the numbers only). Area grouping is inferred from symbol names, so it is approximate.
 
 ---
 

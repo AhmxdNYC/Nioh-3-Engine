@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" style="width:100%;height:auto" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="100%" height="100%" fill="#0d1117"/>
+<text x="10" y="22" fill="#e6edf3" font-size="15" font-weight="600">GPU time on the Ally (MAX): top-118 PSO buckets, 20.7 ms/frame</text>
+<rect x="980" y="10" width="12" height="12" fill="#2ea043"/><text x="996" y="21" fill="#8b949e" font-size="11">identified</text><rect x="1068" y="10" width="12" height="12" fill="#388bfd"/><text x="1084" y="21" fill="#8b949e" font-size="11">identified + kept replacement</text><rect x="1273" y="10" width="12" height="12" fill="#e5534b"/><text x="1289" y="21" fill="#8b949e" font-size="11">rewrite tried, dropped</text><rect x="1436" y="10" width="12" height="12" fill="#444a54"/><text x="1452" y="21" fill="#8b949e" font-size="11">not identified</text>
+<rect x="4.0" y="55.0" width="552.1" height="425.9" fill="#2ea043"><title>3.69 ms: FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN motion blur</title></rect>
+<rect x="4.0" y="481.7" width="254.3" height="220.8" fill="#2ea043"><title>0.88 ms: FFX_FSR3UPSCALER_PASS_PREPARE_REACTIVITY motion blur</title></rect>
+<rect x="4.0" y="703.2" width="254.3" height="192.0" fill="#2ea043"><title>0.77 ms: FFX_FSR3UPSCALER_PASS_PREPARE_INPUTS motion blur</title></rect>
+<rect x="259.1" y="481.7" width="297.0" height="151.1" fill="#2ea043"><title>0.71 ms: FFX_FSR3UPSCALER_PASS_LUMA_INSTABILITY motion blur</title></rect>
+<rect x="259.1" y="633.6" width="138.4" height="176.5" fill="#2ea043"><title>0.39 ms: FFX_FSR3UPSCALER_PASS_SHADING_CHANGE_PYRAMID motion blur</title></rect>
+<rect x="259.1" y="810.9" width="138.4" height="84.3" fill="#2ea043"><title>0.19 ms: FFX_FSR3UPSCALER_PASS_LUMA_PYRAMID motion blur</title></rect>
+<rect x="398.3" y="633.6" width="84.6" height="137.2" fill="#2ea043"><title>0.18 ms: FFX_FSR3UPSCALER_PASS_RCAS fsr/upscale</title></rect>
+<rect x="483.7" y="633.6" width="72.5" height="137.2" fill="#2ea043"><title>0.16 ms: FFX_FSR3UPSCALER_PASS_GENERATE_REACTIVE taa</title></rect>
+<rect x="398.3" y="771.6" width="73.6" height="123.6" fill="#2ea043"><title>0.14 ms: DebugFSR3CopyUpscaledDepth? vs=a2bd0e861c46e2bad6173e7626f3251f ps=5</title></rect>
+<rect x="472.6" y="771.6" width="83.5" height="123.6" fill="#2ea043"><title>3 tiny functions</title></rect>
+<text x="6.0" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">FSR3<tspan fill="#8b949e" font-weight="400"> 7.27 ms</tspan></text>
+<rect x="1060.4" y="536.1" width="349.7" height="173.6" fill="#e5534b"><title>1.07 ms:  VFSCAT-CllLpvSfbVsm</title></rect>
+<text x="1062.4" y="531.1" fill="#e6edf3" font-size="12" font-weight="600">Fog / volumetrics<tspan fill="#8b949e" font-weight="400"> 1.07 ms</tspan></text>
+<rect x="1060.4" y="55.0" width="196.0" height="201.5" fill="#2ea043"><title>0.65 ms:  PB2-BlrGbiMm0sMshltvReSfbVl / PB2-BlrGbiMm00MshltPkSfbVl</title></rect>
+<rect x="1257.2" y="55.0" width="98.6" height="201.5" fill="#2ea043"><title>0.33 ms: UltramarineRender PB2UMAH-GbVl</title></rect>
+<rect x="1060.4" y="257.3" width="128.6" height="132.0" fill="#2ea043"><title>0.28 ms:  PB2RIPPLE-Cbbl / PB2DECAL-CdlRgbSfb</title></rect>
+<rect x="1060.4" y="390.1" width="128.6" height="120.3" fill="#2ea043"><title>0.25 ms:  PB2LS-GbiSfbVl</title></rect>
+<rect x="1189.9" y="257.3" width="92.4" height="93.3" fill="#2ea043"><title>0.14 ms: UltramarineCaustics CTS</title></rect>
+<rect x="1283.1" y="257.3" width="72.7" height="93.3" fill="#388bfd"><title>0.11 ms:  replacement / PB2-AlepmeAtDiDt2l3GbiPfnRiaexSf</title></rect>
+<rect x="1189.9" y="351.3" width="83.2" height="80.8" fill="#2ea043"><title>0.11 ms: UltramarineRenderHeight UMTV-Gb</title></rect>
+<rect x="1189.9" y="433.0" width="83.2" height="77.3" fill="#2ea043"><title>0.11 ms: UltramarineWet WET</title></rect>
+<rect x="1273.8" y="351.3" width="82.0" height="159.0" fill="#2ea043"><title>6 tiny functions</title></rect>
+<text x="1062.4" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">Materials / G-buffer (PB2)<tspan fill="#8b949e" font-weight="400"> 2.19 ms</tspan></text>
+<rect x="564.9" y="583.6" width="192.8" height="176.7" fill="#e5534b"><title>0.56 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="564.9" y="761.1" width="192.8" height="134.1" fill="#e5534b"><title>0.43 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="758.5" y="583.6" width="155.7" height="109.4" fill="#2ea043"><title>0.28 ms:  SDFOCC-CllSdf / RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="915.0" y="583.6" width="136.6" height="109.4" fill="#2ea043"><title>0.25 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="758.5" y="693.8" width="81.8" height="113.7" fill="#2ea043"><title>0.16 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="758.5" y="808.4" width="81.8" height="86.8" fill="#2ea043"><title>0.12 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="841.1" y="693.8" width="88.5" height="72.5" fill="#2ea043"><title>0.11 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="841.1" y="767.1" width="88.5" height="66.4" fill="#2ea043"><title>0.10 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="841.1" y="834.2" width="88.5" height="61.0" fill="#2ea043"><title>0.09 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm / HBAO</title></rect>
+<rect x="930.4" y="693.8" width="121.2" height="201.4" fill="#2ea043"><title>7 tiny functions</title></rect>
+<text x="566.9" y="578.6" fill="#e6edf3" font-size="12" font-weight="600">GI / RefProbe<tspan fill="#8b949e" font-weight="400"> 2.50 ms</tspan></text>
+<rect x="564.9" y="55.0" width="234.9" height="144.8" fill="#2ea043"><title>0.55 ms:  (copy / resolve / clear)</title></rect>
+<rect x="800.6" y="55.0" width="135.2" height="144.8" fill="#444a54"><title>0.32 ms:  vs=a2bd0e861c46e2bad6173e7626f3251f ps=5</title></rect>
+<rect x="936.6" y="55.0" width="115.0" height="144.8" fill="#444a54"><title>0.27 ms:  vs=a2bd0e861c46e2bad6173e7626f3251f ps=7</title></rect>
+<rect x="564.9" y="200.6" width="128.3" height="119.8" fill="#444a54"><title>0.25 ms:  vs=a2bd0e861c46e2bad6173e7626f3251f ps=2</title></rect>
+<rect x="564.9" y="321.2" width="128.3" height="118.4" fill="#2ea043"><title>0.25 ms:  PBRLR</title></rect>
+<rect x="564.9" y="440.4" width="128.3" height="117.4" fill="#2ea043"><title>0.24 ms:  GFM / HBAO</title></rect>
+<rect x="694.0" y="200.6" width="90.5" height="134.9" fill="#444a54"><title>0.20 ms:  vs=a2bd0e861c46e2bad6173e7626f3251f ps=0</title></rect>
+<rect x="694.0" y="336.2" width="90.5" height="113.8" fill="#2ea043"><title>0.17 ms:  G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP</title></rect>
+<rect x="694.0" y="450.8" width="90.5" height="107.0" fill="#2ea043"><title>0.16 ms:  AMBSL</title></rect>
+<rect x="785.3" y="200.6" width="101.2" height="84.2" fill="#2ea043"><title>0.14 ms:  SSFOG-CllFdHfMpfS2aVf</title></rect>
+<rect x="887.3" y="200.6" width="83.5" height="84.2" fill="#2ea043"><title>0.11 ms:  tonemap/compose</title></rect>
+<rect x="971.6" y="200.6" width="80.0" height="84.2" fill="#444a54"><title>0.11 ms:  vs=a2bd0e861c46e2bad6173e7626f3251f ps=9</title></rect>
+<rect x="785.3" y="285.6" width="93.6" height="66.9" fill="#2ea043"><title>0.10 ms:  GFM</title></rect>
+<rect x="879.7" y="285.6" width="85.9" height="66.9" fill="#2ea043"><title>0.09 ms:  AMBSL</title></rect>
+<rect x="966.4" y="285.6" width="85.3" height="66.9" fill="#2ea043"><title>0.09 ms:  post VS / compose (r5 47us)</title></rect>
+<rect x="785.3" y="353.3" width="26.7" height="204.5" fill="#2ea043"><title>0.09 ms:  GFM</title></rect>
+<rect x="812.8" y="353.3" width="238.8" height="204.5" fill="#2ea043"><title>32 tiny functions</title></rect>
+<text x="566.9" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">Other<tspan fill="#8b949e" font-weight="400"> 3.92 ms</tspan></text>
+<rect x="1418.9" y="536.1" width="146.1" height="142.4" fill="#2ea043"><title>0.39 ms: DrawSky VCLOUD</title></rect>
+<rect x="1565.8" y="536.1" width="29.4" height="142.4" fill="#2ea043"><title>1 tiny functions</title></rect>
+<text x="1420.9" y="531.1" fill="#e6edf3" font-size="12" font-weight="600">Sky / clouds<tspan fill="#8b949e" font-weight="400"> 0.47 ms</tspan></text>
+<rect x="1060.4" y="735.5" width="117.9" height="159.7" fill="#2ea043"><title>0.34 ms:  PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDimGbiMshltOcPfnPkSf</title></rect>
+<rect x="1179.1" y="735.5" width="125.6" height="88.7" fill="#2ea043"><title>0.20 ms: Batch Tiles 8 SMTREE2-BlrMfvMshltvReSfb</title></rect>
+<rect x="1179.1" y="825.0" width="125.6" height="70.2" fill="#2ea043"><title>0.16 ms:  PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDimGbiMshltOcPfnSfbT</title></rect>
+<rect x="1305.5" y="735.5" width="104.6" height="72.0" fill="#2ea043"><title>0.14 ms:  TREE2WIND</title></rect>
+<rect x="1305.5" y="808.4" width="104.6" height="86.8" fill="#2ea043"><title>4 tiny functions</title></rect>
+<text x="1062.4" y="730.5" fill="#e6edf3" font-size="12" font-weight="600">Trees / foliage<tspan fill="#8b949e" font-weight="400"> 0.99 ms</tspan></text>
+<rect x="1364.6" y="55.0" width="120.6" height="162.9" fill="#2ea043"><title>0.32 ms:  WDO_SST-PtSrbVsm / PB2MRLR-AmbSpecMapAngLimitCllLas</title></rect>
+<rect x="1486.0" y="55.0" width="109.2" height="162.9" fill="#388bfd"><title>0.29 ms:  WDO_SST-PtSrbVsm / WDO-PtSrbVsm</title></rect>
+<rect x="1364.6" y="218.7" width="116.3" height="152.1" fill="#2ea043"><title>0.29 ms:  WDO_SST-PtSrbVsm / WDO-PtSrbVsm</title></rect>
+<rect x="1481.8" y="218.7" width="113.4" height="152.1" fill="#2ea043"><title>0.29 ms:  WDO_SST-PtSrbVsm / PB2DS-AdmCaCllEmHsIribOfPlaSmSpl</title></rect>
+<rect x="1364.6" y="371.6" width="95.2" height="138.8" fill="#2ea043"><title>0.22 ms:  WDO_SST-PtSrbVsm / PB2DUS-GbMasRefprobelt</title></rect>
+<rect x="1460.7" y="371.6" width="134.5" height="81.8" fill="#2ea043"><title>0.18 ms:  WDO_SST-PtSrbVsm / WDO-PtSrbSsmVsm</title></rect>
+<rect x="1460.7" y="454.2" width="134.5" height="56.1" fill="#2ea043"><title>4 tiny functions</title></rect>
+<text x="1366.6" y="50.0" fill="#e6edf3" font-size="12" font-weight="600">Shadows (WDO/ESM/GHDM)<tspan fill="#8b949e" font-weight="400"> 1.72 ms</tspan></text>
+<rect x="1418.9" y="704.3" width="176.3" height="84.5" fill="#388bfd"><title>0.31 ms: MeshletPreculling MPC</title></rect>
+<text x="1420.9" y="699.3" fill="#e6edf3" font-size="12" font-weight="600">Culling (MPC/MshLod)<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1418.9" y="814.6" width="50.8" height="80.6" fill="#2ea043"><title>0.09 ms: VideoOut vs=958736a709f62937ce423679098f524e ps=8</title></rect>
+<rect x="1470.5" y="814.6" width="83.3" height="80.6" fill="#2ea043"><title>2 tiny functions</title></rect>
+<text x="1420.9" y="809.6" fill="#e6edf3" font-size="12" font-weight="600">Copies / clears<tspan fill="#8b949e" font-weight="400"> </tspan></text>
+<rect x="1562.6" y="797.6" width="32.6" height="97.6" fill="#388bfd"><title>3 tiny functions</title></rect>
+</svg>

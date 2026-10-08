@@ -121,6 +121,8 @@ def squarify(items, x, y, w, h):
 
 
 def colour(v):
+    if isinstance(v, str):
+        return v
     g, a, n = (46, 160, 67), (212, 160, 23), (68, 74, 84)
     if v >= 0.5:
         t = (v - 0.5) * 2; p, q = a, g
@@ -144,13 +146,22 @@ def grid(cells, x, y, w, h):
     return out
 
 
-def wcells(cells, x, y, w, h, total):
+def tailcol(tail, tw):
+    if any(isinstance(c[1], str) for c in tail):
+        w = collections.Counter()
+        for c in tail:
+            w[c[1]] += c[0]
+        return w.most_common(1)[0][0]  # colour of the dominant category
+    return sum(c[0] * c[1] for c in tail) / tw
+
+
+def wcells(cells, x, y, w, h, total, minfrac=0.0002):
     """cells [(weight, value)] hottest first -> squarified rects; the tail below 0.02 % of total is merged into one cell."""
-    keep = [c for c in cells if c[0] >= 0.0002 * total]
-    tail = [c for c in cells if c[0] < 0.0002 * total]
+    keep = [c for c in cells if c[0] >= minfrac * total]
+    tail = [c for c in cells if c[0] < minfrac * total]
     if tail:
         tw = sum(c[0] for c in tail)
-        keep.append((tw, sum(c[0] * c[1] for c in tail) / tw, '%d tiny functions' % len(tail)))
+        keep.append((tw, tailcol(tail, tw), '%d tiny functions' % len(tail)))
     if w < 1 or h < 1 or not keep:
         return []
     s = sum(c[0] for c in keep)
@@ -164,7 +175,7 @@ def wcells(cells, x, y, w, h, total):
     return out
 
 
-def svg(blocks, title, W=1600, H=900, legend=''):
+def svg(blocks, title, W=1600, H=900, legend='', minfrac=0.0002):
     """blocks [(label, weight, [cell values], subtitle)]"""
     top = 34
     tot = sum(b[1] for b in blocks)
@@ -180,7 +191,7 @@ def svg(blocks, title, W=1600, H=900, legend=''):
         lab = w > 90 and h > 40
         hy = 17 if lab else 0
         if cells and isinstance(cells[0], tuple):
-            o += wcells(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy, tot)
+            o += wcells(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy, tot, minfrac)
         else:
             o += grid(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy)
         if lab:
@@ -192,12 +203,70 @@ def svg(blocks, title, W=1600, H=900, legend=''):
     return '\n'.join(o)
 
 
-def legend(W=1600):
-    s, x = '', W - 440
-    for t, v in (('named', 1.0), ('Unknown_* (role unclear)', 0.5), ('not named', 0.0)):
+def legend(W=1600, items=(('named', 1.0), ('Unknown_* (role unclear)', 0.5), ('not named', 0.0)), x0=440):
+    s, x = '', W - x0
+    for t, v in items:
         s += '<rect x="%d" y="10" width="12" height="12" fill="%s"/><text x="%d" y="21" fill="#8b949e" font-size="11">%s</text>' % (x, colour(v), x + 16, t)
         x += 26 + len(t) * 6.2
     return s
+
+
+GPU_GROUPS = [  # (group, regex on 'marker | shader names'); first match wins
+    ('FSR3', r'FSR3|FFX_'),
+    ('Copies / clears', r'^\(copy|copy / resolve|CopyMRLR|VideoOut'),
+    ('GI / RefProbe', r'RefProbe|SDFOCC|LPV'),
+    ('Fog / volumetrics', r'VFSCAT|VFOG|Fog|Volum'),
+    ('Sky / clouds', r'VCLOUD|DrawSky|Sky|Cloud'),
+    ('Shadows (WDO/ESM/GHDM)', r'WDO|ESM|GHDM|Shadow|Cascade'),
+    ('Culling (MPC/MshLod)', r'MPC|MshLod|MeshletPre|Preculling'),
+    ('Trees / foliage', r'TREE|FOLIAGE|GRASS'),
+    ('Materials / G-buffer (PB2)', r'PB2|Ultramarine|GBuffer'),
+    ('Post (blur/DOF/bloom/compose)', r'DOF|Bloom|Compose|Post|Blur|TOONEDGE|Tonemap|motion blur'),
+]
+GPU_GROUPS = [(g, re.compile(r)) for g, r in GPU_GROUPS]
+G_GREEN, G_BLUE, G_RED, G_GREY = '#2ea043', '#388bfd', '#e5534b', '#444a54'
+DROPPED = re.compile(r'gi:|fog:|toonedge|VFSCAT.*replac', re.I)
+KEPT_NAME = re.compile(r'MPC|MshLod|GHDM|ESM|WDO28', re.I)
+
+
+def gpu_data(minpass=None):
+    """-> (span, [(group, ms, colour, title)]) from the Ally GP2 log (all-original shaders)"""
+    sys.path.insert(0, os.path.join(ROOT, 're', 'scripts_gpu'))
+    import gp2_digest as g
+    import glob
+    log = os.path.join(ROOT, 'captures', 'ally', 'nioh3_ally_modlog_175-L2_2112.log')
+    newer = sorted(glob.glob(os.path.join(ROOT, 'captures', 'ally', '*gp2*.log')), key=os.path.getmtime)
+    if newer:
+        log = newer[-1]
+    I = g.load_index(False)
+    wins = g.parse([log], False)
+    acc = collections.defaultdict(float)
+    for w in wins:
+        for k, (ms, _, _) in w['rows'].items():
+            acc[k] += ms / len(wins)
+    span = sum(w['span'] for w in wins) / len(wins)
+    rows = []
+    for (desc, marker), ms in acc.items():
+        st, locs, names, rep, nt = g.resolve(desc, I)
+        txt = marker + ' | ' + desc[:12] + ' | ' + ' '.join(names)
+        grp = next((n for n, rx in GPU_GROUPS if rx.search(txt)), 'Other')
+        located = bool(locs) and not any('UNKNOWN' in l for l in locs)
+        copy = desc.startswith('(')
+        role = bool(names) or marker != '-' or copy
+        rs = ' '.join(rep)
+        if copy:
+            col = G_GREEN
+        elif not (located and role and not (grp == 'Other' and not names)):
+            col = G_GREY
+        elif DROPPED.search(rs):
+            col = G_RED
+        elif rep or KEPT_NAME.search(' '.join(names) + marker):
+            col = G_BLUE
+        else:
+            col = G_GREEN
+        title = '%.2f ms: %s %s' % (ms, marker if marker != '-' else '', ' / '.join(dict.fromkeys(names)) or desc[:40])
+        rows.append((grp, ms, col, title.replace('&', '&amp;').replace('<', '&lt;')))
+    return span, os.path.basename(log), rows
 
 
 def pct(x):
@@ -258,6 +327,23 @@ def main():
             print('  %-36s %5d fn %6.2f%%' % (a, len(lst), 100 * t / tot))
     perf = svg(pblocks, 'Profiled CPU self time (ROG Ally + PC): %d functions; block area = time share, cell area = function time (tiny ones merged)' % len(comb), legend=legend())
 
+    span, glog, grows = gpu_data()
+    gtot = sum(r[1] for r in grows)
+    gid = sum(r[1] for r in grows if r[2] != G_GREY) / gtot
+    gpa = collections.defaultdict(list)
+    for grp, ms, col, ti in sorted(grows, key=lambda r: -r[1]):
+        gpa[grp].append((ms, col, ti))
+    gblocks = [(grp, sum(c[0] for c in lst), lst, '%.2f ms' % sum(c[0] for c in lst)) for grp, lst in gpa.items()]
+    print('gpu (%s): top-%d PSO buckets %.2f ms of %.1f ms span; identified %s; blue %s red %s' % (
+        glog, len(grows), gtot, span, pct(gid), pct(sum(r[1] for r in grows if r[2] == G_BLUE) / gtot),
+        pct(sum(r[1] for r in grows if r[2] == G_RED) / gtot)))
+    if check:
+        for b in sorted(gblocks, key=lambda b: -b[1]):
+            print('  %-32s %6.2f ms' % (b[0], b[1]))
+    gleg = legend(items=(('identified', G_GREEN), ('identified + kept replacement', G_BLUE), ('rewrite tried, dropped', G_RED), ('not identified', G_GREY)), x0=620)
+    gpusvg = svg(gblocks, 'GPU time on the Ally (MAX): top-%d PSO buckets, %.1f ms/frame' % (len(grows), gtot),
+                 legend=gleg, minfrac=0.004)
+
     def badge(l, v, c):
         return '![%s](https://img.shields.io/badge/%s-%s-%s)' % (
             l, l.replace('-', '--').replace(' ', '%20'), v.replace('-', '--').replace('%', '%25').replace(' ', '%20'), c)
@@ -265,12 +351,13 @@ def main():
         badge('functions named', '%.2f%% (%d/%d)' % (100 * nm / nfun, nm, nfun), 'orange'),
         badge('perf CPU time named', pct(pn), 'yellowgreen'),
         badge('perf incl. Unknown_', pct(pn + pu), 'green'),
+        badge('GPU time identified', pct(gid), 'green'),
         badge('GPU passes mapped', gpu, 'green')])
     if check:
         print(badges)
         return
     os.makedirs(OUT, exist_ok=True)
-    for fn, s in (('full_game.svg', full), ('performance.svg', perf)):
+    for fn, s in (('full_game.svg', full), ('performance.svg', perf), ('gpu.svg', gpusvg)):
         open(os.path.join(OUT, fn), 'w', encoding='utf-8').write(s)
         print(fn, len(s) // 1024, 'KB')
     open(os.path.join(OUT, 'badges.md'), 'w', encoding='utf-8').write(badges + '\n')
