@@ -364,3 +364,11 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Docs: README section "1.7.12", settings line; ally-package .asi + README-MOD.md refreshed (ini: only keys added). MOD_VERSION 1.7.12. Zip on the Desktop (not committed): Nioh3EngineFix-1.7.12-ally.zip.
 - Not run in the game (Ally playing / game not launched): first live check is a PC session with MQ=1 PT1=1 DL=1 CpuStats=1 and the `stats cpu:` line; a crash or visual change = set the keys back to 0.
 - Undo: set MQ / PT1 / DL to 0 (they are 0 by default); revert this commit.
+
+## 2026-10-08 01:10 - Code map: purpose regions for the full-game chart (analysis only, no game change)
+- New `re\scripts_re\regions.py` writes `regions.tsv`, which splits .text into 3,023 contiguous regions with `start end label confidence evidence funcs code_bytes`. Each label is in "tech / plain" form, 41 labels in total.
+- Evidence used: strings, imports, symbols.tsv and auto-names, the RTRig table, and our own rip-relative scan. It is spread over calls, vtables and shared module-local globals, then smoothed over address neighbours.
+- Unknown purpose: 0.7 % of code bytes. Hold-out check: medium-confidence labels are 91 % right.
+- `progress_treemap.py` now draws the full-game chart by purpose region and falls back to the old areas if regions.tsv is missing. The perf and GPU charts are unchanged. It also gained short block labels.
+- New doc `docs\code-map.md` has the table, the method and the findings, and is linked from the README. Main finding: 22 % of the code (11.5 MB) is generated RTRig rig programs, reached through the `UnknownRTRig` table.
+- Undo: revert this commit, or delete regions.tsv to get the old chart.

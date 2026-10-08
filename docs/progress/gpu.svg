@@ -94,9 +94,11 @@
 <text x="710.3" y="335.4" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">1.16 ms</text>
 <rect x="939.6" y="480.9" width="56.6" height="104.5" fill="#388bfd"><title>0.31 ms: MeshletPreculling MPC</title></rect>
 <text x="942.6" y="474.9" fill="#fff" font-size="12" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">culling</text>
-<rect x="805.6" y="555.1" width="76.2" height="61.1" fill="#2ea043"><title>0.20 ms:  ExeUI_TintedQuad</title></rect>
-<rect x="882.6" y="555.1" width="50.2" height="51.1" fill="#2ea043"><title>0.11 ms:  ExeUI_AlphaFadeQuad</title></rect>
-<rect x="882.6" y="607.0" width="50.2" height="9.2" fill="#2ea043"><title>3 tiny functions</title></rect>
+<rect x="805.6" y="577.1" width="76.2" height="39.1" fill="#2ea043"><title>0.20 ms:  ExeUI_TintedQuad</title></rect>
+<rect x="882.6" y="577.1" width="41.9" height="39.1" fill="#2ea043"><title>0.11 ms:  ExeUI_AlphaFadeQuad</title></rect>
+<rect x="925.3" y="577.1" width="7.4" height="39.1" fill="#2ea043"><title>3 tiny functions</title></rect>
+<text x="808.6" y="571.1" fill="#fff" font-size="10" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">UI &amp; effect merge</text>
+<text x="916.6" y="571.1" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">0.33 ms</text>
 <rect x="939.6" y="614.2" width="56.6" height="2.0" fill="#388bfd"><title>4 tiny functions</title></rect>
 <text x="942.6" y="608.2" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">post</text>
 </svg>

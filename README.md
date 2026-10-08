@@ -24,7 +24,7 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ![functions named](https://img.shields.io/badge/functions%20named-0.52%25%20(1100/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-99.49%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-99.51%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
 
-Every function in `Nioh3.exe` (211k function starts from `.pdata`), grouped by game area; block size = code size, each cell = 42 functions, green = real name, amber = `Unknown_*` (described, role unclear), grey = not named yet:
+Every function in `Nioh3.exe` (211k function starts from `.pdata`), grouped by purpose region ([docs/code-map.md](docs/code-map.md)); block size = code size, each cell = 42 functions, green = real name, amber = `Unknown_*` (described, role unclear), grey = not named yet:
 
 ![Full game decompilation progress](docs/progress/full_game.svg)
 
@@ -37,6 +37,8 @@ GPU time on the ROG Ally at MAX (one all-original-shaders GP2 capture, top PSO b
 ![GPU time identified](docs/progress/gpu.svg)
 
 Per-subsystem write-ups (role, data structures, hot RVAs, threads, cost drivers): [docs/subsystems/README.md](docs/subsystems/README.md).
+
+What each block of the full-game chart is for (label, size, share, confidence, method): [docs/code-map.md](docs/code-map.md).
 
 GPU numbers are stamp-inflated ranking data, not isolated costs. Regenerate with `py -I re\scripts_re\progress_treemap.py` (`--check` prints the numbers only). Area grouping is inferred from symbol names, so it is approximate.
 

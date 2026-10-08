@@ -3,9 +3,9 @@
 usage: py -I re\\scripts_re\\progress_treemap.py [--check]
   --check  print the numbers only, write nothing
 Writes docs\\progress\\full_game.svg, performance.svg, badges.md (stdlib only).
-Full game: every function start in .pdata of re\\Nioh3.dump.exe (chained/fragment entries merged), grouped by area
-(inferred from symbols.tsv names; unnamed regions take the area of the nearest named function within 192 KB, else an
-address-range block); block area = function bytes; each cell = N functions, colour = share with a real name.
+Full game: every function start in .pdata of re\\Nioh3.dump.exe (chained/fragment entries merged), grouped by purpose
+region from regions.tsv (regions.py, docs\\code-map.md); fallback if that file is missing: area inferred from symbols.tsv
+names (unnamed code takes the area of the nearest named function within 192 KB, else an address-range block); block area = function bytes; each cell = N functions, colour = share with a real name.
 Performance: functions in the Ally SP + PC CPU profiles (self time, perf_coverage.py weighting), block area = time share.
 Green = real name, amber = Unknown_*, grey = unnamed.
 """
@@ -169,6 +169,27 @@ def assign_areas(starts, names):
     return out
 
 
+REGIONS = os.path.join(HERE, 'regions.tsv')
+
+
+def load_regions():
+    """regions.tsv (regions.py): sorted [(start, label, confidence)] or None when the file is missing"""
+    if not os.path.exists(REGIONS):
+        return None
+    out = []
+    for l in open(REGIONS, encoding='utf-8'):
+        f = l.rstrip(chr(10)).split(chr(9))
+        if len(f) > 3 and f[0].startswith('0x'):
+            out.append((int(f[0], 16), f[2], f[3]))
+    return sorted(out) or None
+
+
+def region_areas(starts, regs):
+    """function start -> purpose label of the regions.tsv row holding it"""
+    rs = [r[0] for r in regs]
+    return {s: regs[max(0, bisect.bisect_right(rs, s) - 1)][1] for s in starts}
+
+
 def squarify(items, x, y, w, h):
     """items [(key, area)] sorted desc, areas sum to w*h -> {key: (x,y,w,h)}"""
     res = {}
@@ -272,7 +293,18 @@ def wcells(cells, x, y, w, h, total, minfrac=0.0002):
 SHORT = {'user interface': 'UI', 'animation': 'anim', 'resource streaming': 'streaming', 'main loop & timing': 'main loop',
          'controls': 'input', '3rd-party upscalers': '3rd party', 'geometry streaming': 'meshlet', 'effects & post': 'fx & post',
          'GPU submission': 'GPU', 'sky & clouds': 'sky', 'data copies': 'copies', 'post & outlines': 'post', 'unattributed': 'other',
-         'job system': 'jobs', 'game logic': 'logic', 'unexplored code': 'unexplored', 'materials': 'PB2'}
+         'job system': 'jobs', 'game logic': 'logic', 'unexplored code': 'unexplored', 'materials': 'PB2',
+         # regions.tsv purpose labels (regions.py)
+         'compiled animation rigs': 'anim rigs', 'menu screens & item text': 'menu text', 'object & scene update': 'objects',
+         'sky, weather & water': 'sky & water', 'game logic scripting': 'scripting', 'geometry & culling': 'culling',
+         'game rules & logic': 'game rules', 'materials & render settings': 'materials', 'co-op gameplay sync': 'co-op',
+         'job system & threads': 'jobs', 'sound engine & mixer': 'audio', 'online & matchmaking': 'online',
+         'visual effects': 'VFX', 'physics & collision': 'physics', 'post-processing': 'post', 'characters & combat': 'combat',
+         'menus & HUD': 'HUD', 'saving & config': 'saves', 'C runtime & std library': 'CRT', 'app, window & OS': 'app/OS',
+         'upscalers & frame-gen': 'upscalers', 'resource loading': 'loading', 'strings, text codecs & serializer': 'strings',
+         'enemy & NPC AI': 'AI', 'math & containers': 'math', 'shader compile & PSOs': 'shaders', 'video playback': 'video',
+         'Steam platform': 'Steam', 'decompression': 'zlib', 'dev & debug tools': 'debug', 'camera control': 'camera',
+         'Ogg audio decoding': 'vorbis', 'crypto & checksums': 'crypto', 'photo mode': 'photo', 'no evidence': 'unknown'}
 
 
 def svg(blocks, title, W=1000, H=620, legend='', minfrac=0.0002):
@@ -290,9 +322,10 @@ def svg(blocks, title, W=1000, H=620, legend='', minfrac=0.0002):
         x, y, w, h = rects[i]
         cw_ = lambda s: len(s) * fs * 0.6
         plain = label.split(' / ')[0 if label.startswith('text ') else -1]
-        cands = [(label, 15), (plain, 15), (SHORT.get(plain, plain), 15), (plain, 12), (SHORT.get(plain, plain), 12)]
+        cands = [(label, 15), (plain, 15), (SHORT.get(plain, plain), 15), (plain, 12), (SHORT.get(plain, plain), 12),
+                 (SHORT.get(plain, plain), 10)]
         t, fs = next(((s, f) for s, f in cands if len(s) * f * 0.6 <= w - 12), (None, 15))
-        lab = t is not None and w >= 60 and h > 30
+        lab = t is not None and w >= 30 and h > 24
         hy = 22 if lab else 0
         if cells and isinstance(cells[0], tuple):
             o += wcells(cells, x + 3, y + 3 + hy, w - 6, h - 6 - hy, tot, minfrac)
@@ -386,7 +419,8 @@ def main():
     names = load_syms()
     funcs = load_funcs()
     starts = [s for s, _ in funcs]
-    areas = assign_areas(starts, names)
+    regs = load_regions()
+    areas = region_areas(starts, regs) if regs else assign_areas(starts, names)   # fallback: name-keyword areas
     nfun = len(funcs)
     score = {s: status(names, s) for s in starts}
     nm = sum(1 for v in score.values() if v == 1.0)
@@ -409,7 +443,8 @@ def main():
         if check:
             print('  %-36s %6d fn %6.2f MB  named %d' % (a, len(vals), gbytes[a] / 1e6, named))
     print('cells: %d functions each, %d total' % (N, sum(len(b[2]) for b in blocks)))
-    full = svg(blocks, 'Nioh3.exe: %d functions, %.1f MB of code; block = game area (area ~ code size), cell = %d functions' % (nfun, byt / 1e6, N), legend=legend())
+    what = 'block = purpose region (regions.tsv)' if regs else 'block = game area'
+    full = svg(blocks, 'Nioh3.exe: %d functions, %.1f MB of code; %s (area ~ code size), cell = %d functions' % (nfun, byt / 1e6, what, N), legend=legend())
 
     ally = pc.mean(pc.ally_shares(True))
     pcs = pc.mean(pc.pc_shares(True)[0])
