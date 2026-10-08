@@ -44,6 +44,21 @@ let scan (vk: byte) = byte (MapVirtualKeyW(uint32 vk, 0u))
 let keyDown (vk: byte) = keybd_event(vk, scan vk, 0u, 0n)
 let keyUp (vk: byte) = keybd_event(vk, scan vk, 2u, 0n)
 
+// SAFETY GUARD (2026-10-08): input commands (move/click/rclick/pan/scroll/key/keyseq/type) are only sent while the
+// target game (env UI_TARGET, default Nioh3) is running AND owns the foreground window - checked before every click /
+// key / mouse step. Otherwise nothing is sent and the process exits with code 3 ("REFUSED"), so a harness whose game
+// died or lost focus can no longer click/type into VS Code or whatever else is in front.
+let target = match Environment.GetEnvironmentVariable "UI_TARGET" with | null | "" -> "Nioh3" | s -> s
+let guard (what: string) =
+    let h = GetForegroundWindow()
+    let mutable pid = 0u
+    GetWindowThreadProcessId(h, &pid) |> ignore
+    let procs = Process.GetProcessesByName target
+    if procs.Length = 0 then
+        eprintfn "REFUSED %s: %s is not running - no input sent" what target; exit 3
+    if h = 0n || not (procs |> Array.exists (fun p -> uint32 p.Id = pid)) then
+        eprintfn "REFUSED %s: %s is not the foreground window - no input sent" what target; exit 3
+
 match args.[0] with
 | "shot" ->
     let bounds =
@@ -94,23 +109,29 @@ match args.[0] with
     let mutable pid = 0u
     GetWindowThreadProcessId(h, &pid) |> ignore
     printfn "foreground: pid=%d %s" pid (Process.GetProcessById(int pid).ProcessName)
-| "move" -> SetCursorPos(i 1, i 2) |> ignore
+| "move" -> guard "move"; SetCursorPos(i 1, i 2) |> ignore
 | "click" | "rclick" ->
+    guard args.[0]
     SetCursorPos(i 1, i 2) |> ignore
     sleep 80
+    guard args.[0]
     let down, up = if args.[0] = "click" then 0x2u, 0x4u else 0x8u, 0x10u
     mouse_event(down, 0, 0, 0, 0n); sleep 50; mouse_event(up, 0, 0, 0, 0n)
 | "pan" ->
     // pan <dx-per-step> <steps> <ms-per-step>: relative mouse motion (raw input sees it).
     for _ in 1 .. i 2 do
+        guard "pan"
         mouse_event(0x1u, i 1, 0, 0, 0n)
         sleep (i 3)
 | "scroll" ->
+    guard "scroll"
     SetCursorPos(i 1, i 2) |> ignore
     sleep 50
+    guard "scroll"
     mouse_event(0x800u, 0, 0, 120 * i 3, 0n)
 | "key" ->
     let vks = args.[1..] |> Array.map (fun s -> Convert.ToByte(s, 16))
+    guard "key"
     vks |> Array.iter keyDown
     sleep 40
     vks |> Array.rev |> Array.iter keyUp
@@ -119,6 +140,7 @@ match args.[0] with
         if a.StartsWith "w" then sleep (int (a.Substring 1))
         else
             let vk = Convert.ToByte(a, 16)
+            guard "keyseq"
             let ext = if vk >= 0x21uy && vk <= 0x2Euy then 1u else 0u   // PgUp..Del block + arrows
             keybd_event(vk, scan vk, ext, 0n)
             sleep 50
@@ -126,6 +148,7 @@ match args.[0] with
 | "type" ->
     let text = String.Join(" ", args.[1..])
     for c in text do
+        guard "type"
         let r = VkKeyScanW c
         let vk, shift = byte (r &&& 0xFFs), (r >>> 8) &&& 1s = 1s
         if shift then keyDown 0x10uy

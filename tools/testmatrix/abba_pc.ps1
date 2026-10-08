@@ -15,6 +15,16 @@ $fullmod = "$here\fullmod_ini_1716.ini"
 $script:gamePid = 0
 $trace = "$out\trace_$Block.txt"
 function T([string]$s) { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
+# SAFETY (2026-10-08): never send input unless Nioh3 is running AND in the foreground. ui.fsx re-checks the foreground
+# before every click/key and exits 3 (REFUSED) otherwise; any refusal or a dead game aborts the whole block instead of
+# looping (the old harness kept clicking/typing into VS Code after the game died or lost focus).
+function U {
+    $cmd = [string]$args[0]
+    if ($cmd -ne "shot" -and -not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) {
+        T "!! ABORT: Nioh3 is not running (before 'U $($args -join ' ')') - no input sent, exiting"; throw "HARNESS-ABORT: game not running" }
+    $o = dotnet fsi $ui @args 2>&1 | Out-String
+    if ($LASTEXITCODE -eq 3) { T "!! ABORT: $($o.Trim()) - exiting"; throw "HARNESS-ABORT: input refused (game not in foreground)" }
+}
 function Renew { Push-Location $uoBridge; try { py -m uo_bridge.gamelock renew nioh3 --ttl 5400 | Out-Null } finally { Pop-Location } }
 function Set-Ini([hashtable]$kv, [string]$base = $fullmod) {   # kv keys "Key" -> value (key names unique in the ini)
     $t = [IO.File]::ReadAllText($base)
@@ -121,7 +131,7 @@ try {
                 if ($state[$item] -ne $want) { if (-not (Toggle $item $want)) { T "desync at $item w$n"; return }; $state[$item] = $want }
                 Start-Sleep 5
                 if (-not (Mem-Guard)) { return }
-                if (-not (Test-InGameR)) { T "not in game before $item w$n ($script:lastWhy)"; if (-not (Game-Alive)) { T "game dead - abort"; return }; Ensure-InGame | Out-Null }
+                if (-not (Test-InGameR)) { T "not in game before $item w$n ($script:lastWhy)"; if (-not (Game-Alive)) { T "game dead - abort"; return }; if (-not (Ensure-InGame)) { T "still not in game - abort"; return } }
                 Window "A_${item}_w${n}_$s"; T "$item w$n $s done"; Renew
             }
             Window "A_${item}_sentinel_off"; T "$item sentinel done"
@@ -140,7 +150,7 @@ try {
             foreach ($v in "BASE", "REC") {
                 Renew; T "launch $v$i"
                 Set-Ini $(if ($v -eq "REC") { $five } else { $zero })
-                if (-not (Start-Play)) { T "boot failed $v$i"; Close-GameClean; continue }
+                if (-not (Start-Play)) { T "boot failed $v$i - abort (no relaunch loop)"; return }
                 Start-Sleep 60
                 if (-not (Mem-Guard)) { Close-GameClean; return }
                 $WindowSec = 20
@@ -156,6 +166,8 @@ try {
             }
         }
     }
+} catch {
+    T "harness aborted: $($_.Exception.Message)"
 } finally {
     Close-GameClean
     Set-Ini @{ Barriers = 0 }
