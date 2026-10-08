@@ -2,7 +2,9 @@
 
 Usage: py -I apply_renames.py incoming/<x>-renames.tsv [more ...]
 Each renames row overwrites the non-empty columns of the row with the same RVA; the old name is kept in the
-description as '(was <old>)'. Applied files are moved to incoming/merged/<stamp>_renames_<name>.tsv.
+description as '(was <old>)'. A row whose kind is DELETE removes the row with that RVA (bogus rows, e.g. a sample
+address inside a function; put the real name on the function start in another row). Applied files are moved to
+incoming/merged/<stamp>_renames_<name>.tsv.
 """
 import datetime
 import os
@@ -30,6 +32,12 @@ def main(paths):
         done = 0
         for k, q in new.items():
             r = index.get(k)
+            if len(q) > 1 and q[1] == "DELETE":
+                if r is not None and r[1] != "struct_field":
+                    data.remove(r)
+                    del index[k]
+                    done += 1
+                continue
             if r is None:  # not in the DB yet: add it as a new row
                 r = (q + [''] * len(cols))[: len(cols)]
                 data.append(r)

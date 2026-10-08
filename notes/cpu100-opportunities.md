@@ -67,3 +67,33 @@ None of these is hot either. The top self share is 0x1195da0 at 0.0006 %, and th
 - `0x7433a8` **AudioVoiceLimitStealLowest** (self 0.0000 %): rescans the entire voice list for each voice it steals, O(n*k). Fix: one partial sort (nth_element) by (priority, volume), then stop the lowest k. Risk: low (same choice order when there are no ties).
 - `0xaec760` **GlobalRecordFindById_AEC760** (self 0.0000 %, 24 callers): scans all 0x2C58-byte records to the end even after a match, keeping the last one. Fix: break on the first match if ids are unique. Risk: med (changes which record wins on duplicate ids).
 - `0x2254a4` **AudioPanComputeSpeakerGains** (self 0.0002 %): every call checks two magic-static init guards (a TLS read plus a compare) for constant +-pi/4 tables. Fix: constexpr tables. Risk: low (tiny gain).
+
+## nf share (Unknown_NotAFunction_* / Unknown_MidFunction_* / *Fragment rows, 49 bogus rows -> 56 leaf functions), 2026-10-08
+
+These rows were sample addresses inside leaf functions (no .pdata) or their cold pieces. perf_coverage now folds such
+addresses through `re\out\leaf_ranges.tsv` (`re\scripts_re\leaf_ranges.py`). Everything here is tiny: the hottest function in
+this share is MaterialParamNode_NameEquals at 0.015 % self. None of these is worth doing on its own.
+
+- **Measurement fix, not an opportunity**: Ghidra's function sizes had swallowed the next leaf in several places, so a few
+  named functions were credited with a neighbour's samples. 0x165060 went to OctreeQueryRecurse, 0x1ce9ec to UiElementWalk,
+  0x202df4/0x202e20 to BitmapPoolSlotFreeAtomic, 0x4efafc to TreeLinkDetachableNodesRecursive, 0x699930 to
+  EffectNodeUpdateChildren, and 0x117c20 to ResNodeGetPayloadPtr. Each was well under 0.01 %, but any earlier conclusion
+  that leaned on those functions' self share was slightly inflated.
+- `0x3c774c` **MaterialParamNode_NameEquals** (self 0.0154 %) + `0x3c77b4` **GetNameStrOrEmpty** (0.0020 %): about 20
+  param-node classes find a node by name. Each one compares the record hash and then does a byte-by-byte strcmp of the name
+  for every candidate. Fix idea: resolve the node once per material or binding and cache the pointer or index, or compare
+  the hash only and fall back to strcmp only when the hashes are equal (the hash test is already first, so the gain is the
+  repeated lookup itself). Risk: low-med, because the cache must be invalidated when the node list changes.
+- `0x202fbc` **PoolUsedBytes128** and `0x4141cc` **RefAddAndQueueToFrameList**: both read an atomic with `lock cmpxchg [x], 0`
+  (cmpxchg used as a load). That takes the cache line exclusive on every read. An aligned `mov` (an acquire load) is atomic
+  on x64. Fix: use a plain acquire load and keep the CAS only for the update loop. Risk: low. Gain is negligible at the
+  current share (<0.001 %), but it removes cache-line ping-pong if these get called from many threads.
+- `0x61db84` **FindParamU32ByHashED9DF832** (self ~0 %): every call scans the whole param list for one constant hash.
+  Fix: cache the entry pointer per list at load time. Risk: low.
+- `0x12ee38` / `0x12f824` / `0x19ed9c` / `0x202df4` **AllocatorOwnsPtr\***: each level of the allocator stack tests its
+  own range and on a miss makes a virtual call to the parent. A free that misses walks the whole chain of vcalls. Fix: one
+  sorted range table across all allocators. Risk: med (allocator plumbing). The share is ~0, so this is not worth it now.
+- `0x58b894` **MaskedCopyRecordFieldToArray** (0.0010 %) / `0x58b9b4` (B twin): loops over every index below the count and
+  tests one mask bit per iteration. Fix: iterate the set bits with tzcnt. Risk: low. Gain is tiny.
+- `0xde3058` **HashMixU32**: about 20 byte-identical copies sit at 0xDE3058..0xDE3350, a sign that identical-code folding
+  was off. This costs code size and i-cache only, not fps. There is nothing to do game-side.
