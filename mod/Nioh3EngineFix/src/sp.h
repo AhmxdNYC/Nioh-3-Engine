@@ -25,5 +25,10 @@ struct StartInfo {
 
 // Reads [Profiler]; with SP = 0 returns at once and does nothing. Otherwise starts the sampler thread.
 void Start(const StartInfo& info);
+// 1.7.36 Tour (tour.cpp): with SetExternalWindows(true) the sampler only samples between BeginWindow() and EndWindow(tag)
+// and writes one report per window ("SP window <tag>" + the usual lines) instead of every ReportSec. No-ops when SP = 0.
+void SetExternalWindows(bool on);
+void BeginWindow();
+void EndWindow(const char* tag);
 
 }  // namespace sp

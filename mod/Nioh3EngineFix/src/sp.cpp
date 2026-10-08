@@ -27,6 +27,10 @@ struct Cfg {
     int intervalUs = 1000, workers = 1, reportSec = 30, topN = 25, stackBytes = 2048, startDelaySec = 20;
 } g_cfg;
 
+// 1.7.36 Tour: windows follow the tour's dwells (sampling only inside a dwell, one report per dwell)
+volatile LONG g_ext = 0, g_sampling = 0, g_reqReset = 0, g_reqReport = 0;
+char g_winTag[64] = {};
+
 // ---- Nioh3.exe image ------------------------------------------------------------------------------------------------
 uintptr_t g_base = 0, g_end = 0;
 struct Range {
@@ -319,6 +323,24 @@ DWORD WINAPI SamplerThread(LPVOID) {
     bool loggedThreads = false;
     for (;;) {
         QueryPerformanceCounter(&now);
+        if (g_ext) {  // Tour windows
+            if (InterlockedExchange(&g_reqReport, 0)) {
+                SLOG("SP window %s", g_winTag);
+                Report((int)((double)(now.QuadPart - t0.QuadPart) / (double)f.QuadPart + 0.5));
+                t0 = now;
+            }
+            if (InterlockedExchange(&g_reqReset, 0)) {
+                memset(g_tab, 0, sizeof(Slot) * kSlots);
+                memset(g_total, 0, sizeof(g_total));
+                memset(g_inGame, 0, sizeof(g_inGame));
+                g_failed = 0;
+                t0 = now;
+            }
+            if (!g_sampling) {
+                Sleep(5);
+                continue;
+            }
+        }
         if (lastRefresh == 0 || now.QuadPart - lastRefresh > f.QuadPart * 10) {
             RefreshThreads();
             RefreshModules();
@@ -345,7 +367,7 @@ DWORD WINAPI SamplerThread(LPVOID) {
             }
         }
         const double el = (double)(now.QuadPart - t0.QuadPart) / (double)f.QuadPart;
-        if (el >= g_cfg.reportSec) {
+        if (!g_ext && el >= g_cfg.reportSec) {
             Report((int)el);
             QueryPerformanceCounter(&t0);
         }
@@ -361,6 +383,17 @@ DWORD WINAPI SamplerThread(LPVOID) {
 }
 
 }  // namespace
+
+void SetExternalWindows(bool on) { InterlockedExchange(&g_ext, on ? 1 : 0); }
+void BeginWindow() {
+    InterlockedExchange(&g_reqReset, 1);
+    InterlockedExchange(&g_sampling, 1);
+}
+void EndWindow(const char* tag) {
+    InterlockedExchange(&g_sampling, 0);
+    snprintf(g_winTag, sizeof(g_winTag), "%s", tag ? tag : "");
+    InterlockedExchange(&g_reqReport, 1);
+}
 
 void Start(const StartInfo& info) {
     g_log = info.log;

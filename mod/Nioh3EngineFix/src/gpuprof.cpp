@@ -925,7 +925,33 @@ void OnFrame() {
     }
 }
 
+// 1.7.36 Tour: windows follow the tour's dwells instead of the 30 s stats period
+static volatile LONG g_extWindows = 0;
+static void LogLineImpl();
+
+void SetExternalWindows(bool on) { InterlockedExchange(&g_extWindows, on ? 1 : 0); }
 void LogLine() {
+    if (g_extWindows) return;
+    LogLineImpl();
+}
+void LogWindow(const char* tag) {
+    if (!g_cfg.prof) return;
+    if (!tag) {  // discard everything gathered so far (the time between two dwells)
+        AcquireSRWLockExclusive(&g_aggLock);
+        memset(&g_win, 0, sizeof(g_win));
+        Win2 empty;
+        std::swap(empty, g_win2);
+        ReleaseSRWLockExclusive(&g_aggLock);
+        InterlockedExchange64(&g_wallTicks, 0), InterlockedExchange64(&g_wallFrames, 0);
+        InterlockedExchange64(&g_wallTicksS, 0), InterlockedExchange64(&g_wallFramesS, 0);
+        InterlockedExchange64(&g_wallTicksU, 0), InterlockedExchange64(&g_wallFramesU, 0);
+        return;
+    }
+    GLOG("window %s", tag);
+    LogLineImpl();
+}
+
+static void LogLineImpl() {
     if (!g_cfg.prof) return;
     static LONG64 pB = 0, pE = 0, pF = 0, pU = 0, pBad = 0, pR = 0;
     if (g_failed) { GLOG("%s", "off after a failure (see above)"); return; }

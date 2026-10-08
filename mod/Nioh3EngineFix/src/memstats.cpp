@@ -211,6 +211,13 @@ bool Start(const StartInfo& info) {
 
 bool Enabled() { return g_on; }
 
+// 1.7.36 (tour.cpp): VRAM of the game's adapter in MB; false until the stats thread found the adapter (MemStats = 1)
+bool Vram(double* localUsed, double* localBudget, double* nonLocalUsed, double* nonLocalBudget) {
+    if (!g_on || !*reinterpret_cast<IDXGIAdapter3* volatile*>(&g_adapter)) return false;
+    return QueryVram(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, localUsed, localBudget) &&
+           QueryVram(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, nonLocalUsed, nonLocalBudget);
+}
+
 void LogLine() {
     if (!g_on) return;
     Sample s;

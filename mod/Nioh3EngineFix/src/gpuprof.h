@@ -42,7 +42,11 @@ void EnableHooks(volatile uint8_t* hookMask, int slots);
 // gpuopt slow path (asm thunk -> GpuOptSlow) for the hooked slots, BEFORE the original method runs
 void OnListCall(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3);
 void OnFrame();              // osd Present hook, once per frame of the drawing swapchain
-void LogLine();              // stats thread, every 30 s
+void LogLine();              // stats thread, every 30 s (no-op while SetExternalWindows(true))
+// 1.7.36 Tour (tour.cpp worker thread): the windows follow the tour's dwells. LogWindow(nullptr) discards what was gathered
+// (dwell start), LogWindow("tour p/s/n") logs "GP: window tour p/s/n" + the usual lines for the time since (dwell end).
+void SetExternalWindows(bool on);
+void LogWindow(const char* tag);
 // menu: "GP: <frame ms> | top 5 ..." (thread-safe; empty when GP is off)
 const char* StatusLine(char* buf, size_t n);
 bool Active();

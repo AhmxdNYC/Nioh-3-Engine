@@ -40,5 +40,7 @@ bool Enabled();
 // Logs one "stats mem:" line. Call from the 30 s stats thread (any thread except one holding the loader lock).
 // Cheap: ~1 ms (one Toolhelp thread snapshot + two QueryVideoMemoryInfo calls). No-op when disabled.
 void LogLine();
+// 1.7.36 (Tour): VRAM local / non-local used and budget in MB (any thread); false until the adapter is known (MemStats = 1).
+bool Vram(double* localUsed, double* localBudget, double* nonLocalUsed, double* nonLocalBudget);
 
 }  // namespace memstats

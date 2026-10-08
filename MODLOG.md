@@ -615,3 +615,25 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Tests: tests\run_padlat_harness.py PADLAT: ALL PASSED (exact timeline stock 32.257 / IK 23.540 ms, GPU, poll, expiry, ring, real hook
   pass-through + cost ~40 ns/call, dump imports, wiring), test_patterns ALL 228 SITES OK, WG harness ALL PASSED. Not run in game.
 - Undo: PadLatency = 0 (default), or the 1.7.34 .asi.
+
+## 2026-10-08 - ASI 1.7.36: Tour mode for the stability / performance test (default off; nothing in the game folder changed)
+- ADD `[Debug] Tour = 0` (+ TourDwellSec 4, TourPointsPerStage 3, TourList, TourPasses 1, TourLoadTimeoutSec 120, TourStartDelaySec 5,
+  TourSettleSec 3; new src\tour.cpp/.h, tour_core.h; patches.json group TR = TT1 SB1 SB2 SB3; notes\tour-mode.md). With Tour = 1 (unlocked
+  missions) / 2 (all) the mod loads each TourList mission through the game's own Mission Replay request (MissionRequestById 2239600) and
+  fast-travels the player (FastTravelRequestPost 22395AC, request from FillWarpPoint 3B2528 with point id 0) to the arrival spot + the
+  farthest warp points, dwells and logs one `Tour P` line per point (fps, frame-time p50/p99/max, CPU cores, main-thread busy, private /
+  working set / handles / threads / system commit, VRAM, load + warp seconds). GPUProf / SP windows follow the dwells (gp::LogWindow,
+  sp::Begin/EndWindow; memstats::Vram). Resume after a crash from Nioh3EngineFix_tour\progress.txt. Refuses online (net / play-mode signals).
+- SAVE SAFETY while Tour != 0 (whole session): SaveFileWriteAtomic call 5B6F37 and BACKUP.BIN writer calls 1FDF2D0 / 1FDF62A report success
+  without writing; the game's CreateFileW / MoveFileExW / MoveFileW / DeleteFileW / CopyFileW / SetFileAttributesW imports deny writes
+  into ...\KoeiTecmo\NIOH3\Savedata (count logged, expected 0). tools\tour\run_tour.ps1 also backs up the save folder (SHA-256 manifest),
+  reports any change after the game exits and restores byte-for-byte.
+- tools\tour\: run_tour.ps1 (lock, backup, ini, PresentMon, Steam launch, watch DONE / crash / stall, relaunch + resume, collect, restore,
+  report; user presses Continue at the title, no input injection), summarize_tour.py (per stage, worst points + GPU/CPU bound, opportunities
+  ranked by ms x points: GP passes, GP2 PSO hashes, SP functions by symbol; leak check pass 1 vs 2), fake_game.ps1 (dry run),
+  tourlist_main.txt (15 main missions, ~15 min PC) / tourlist_full.txt (27).
+- Tests: tests\run_tour_harness.py ALL PASSED (44 checks: list / resume / sampling / p99 / save path, real thunk bytes: tick pass-through of
+  int + xmm + stack args, SB1/SB2 blocked and pass-through; dump heads, E8 sites, single SaveFileWriteAtomic caller, KERNEL32 imports;
+  wiring), test_patterns ALL 232 SITES OK, GP and R2 harnesses ALL PASSED, run_tour.ps1 -DryRun verdict done (crash + resume + save
+  scribble detected and restored, report written). Not run in game.
+- Undo: Tour = 0 (default), or the 1.7.35 .asi.

@@ -40,6 +40,7 @@
 #include "bosslog.h"
 #include "fnprobe.h"
 #include "padlat.h"
+#include "tour.h"
 #include "autocont.h"
 #include "drawprep.h"
 #include "loadonly.h"
@@ -52,7 +53,8 @@
 // 1.7.32: drawprep.cpp (DQ retry quantum / P1E7 texture-loop prefetch, notes\mainthread-25.md)
 // 1.7.34: fnprobe.cpp (FnProbe live function probe, notes\remaining-work.md 10.1; tools\playsession)
 // 1.7.35: padlat.cpp (PadLatency controller input -> Present / GPU-done latency, notes\pad-latency.md)
-#define MOD_VERSION "1.7.35"
+// 1.7.36: tour.cpp (Tour mode: automatic stage / point tour with saves blocked, notes\tour-mode.md)
+#define MOD_VERSION "1.7.36"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1427,6 +1429,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "RM")) return false;  // RematchLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
+        if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
@@ -2406,6 +2409,14 @@ DWORD WINAPI Worker(LPVOID) {
                 li.tsOn = &lat_ts;
             }
             padlat::Start(li);  // before osd::Start: osd asks padlat::WantsPresentHook()
+        }
+        {  // Tour mode (tour.cpp, [Debug] Tour = 0 by default; notes\tour-mode.md): blocks save writes for the session when on
+            tour::StartInfo ti;
+            ti.log = &Log;
+            ti.iniPath = iniPath.c_str();
+            ti.base = reinterpret_cast<uintptr_t>(g_base);
+            ti.knownBuild = known;
+            tour::Start(ti);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;
