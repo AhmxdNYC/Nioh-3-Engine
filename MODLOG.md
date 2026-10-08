@@ -428,3 +428,6 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `[Debug] BossLog = 1` (src\bosslog.cpp): entry hooks (relocated-prologue thunks, bytes verified, patches.json group BL, check sites) on Mission::BossBattleMode 23A2DCC / End 23A2F70, Character::Create impl 1180740, MissionFlagSet 70275C, UI::ShowBossGauge 23B8678, SetMissionClearFlag impl 1C1DB88. Logs fight #, timestamps, placement ids (ring of last 16 dumped at fight start), flag id+value in-fight and 20 s after, HP-bar actor id, mission id at clear. Rematch step 1 of notes\boss-fights.md section 9.
 - Game behaviour unchanged (logger runs with arg registers saved, then the original instructions). Not run in game.
 - Undo: `BossLog = 0`, or the 1.7.17 .asi.
+
+## 1.7.19 (2026-10-08)
+- FIX: 1.7.17 LG probe crashed the game during loads (Ally, 0xC0000005 at Nioh3.exe+3B3A56). LoadIsLoadEnd keeps r11 live across the LG6/LG7 calls (LTCG register allocation) and reuses it as rcx at LG8; the C++ gate hooks clobbered it. Gate call-site thunks now save/restore r10/r11 (NewSaveThunk). BossLog entry thunks also preserve r10/r11. Only affected LoadGates=1 / BossLog=1 (both default off).

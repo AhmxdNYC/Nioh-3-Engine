@@ -302,6 +302,23 @@ uint8_t* NewThunk(const uint8_t* pre, size_t preLen, const void* target) {
     return t;
 }
 
+// Call-site thunk that keeps r10/r11 across the hook. LoadIsLoadEnd 3B3424 loads r11 before the LG6 call and reuses it
+// (mov rcx, r11) at LG8 after LG6/LG7 return: the compiler knows those callees leave r11 alone, a C++ hook does not.
+// 1.7.17 crashed there (0xC0000005 at 3B3A56, mov rdi,[r9+560h] with r9 = clobbered r11). Forwards rcx/rdx/r8/r9 only.
+uint8_t* NewSaveThunk(const void* target) {
+    static const uint8_t code[23] = {0x41, 0x52, 0x41, 0x53, 0x48, 0x83, 0xEC, 0x28,  // push r10; push r11; sub rsp,28h
+                                     0xFF, 0x15, 0x09, 0x00, 0x00, 0x00,              // call qword [rip+9] (the target below)
+                                     0x48, 0x83, 0xC4, 0x28, 0x41, 0x5B, 0x41, 0x5A,  // add rsp,28h; pop r11; pop r10
+                                     0xC3};                                            // ret
+    const size_t need = (sizeof(code) + 8 + 15) & ~size_t(15);
+    if (g_thunkUsed + need > kThunkPage) return nullptr;
+    uint8_t* t = g_thunks + g_thunkUsed;
+    memcpy(t, code, sizeof(code));
+    memcpy(t + sizeof(code), &target, 8);
+    g_thunkUsed += need;
+    return t;
+}
+
 // Writes len bytes at p with ONE interlocked 8- or 16-byte compare-exchange; false (nothing written) otherwise.
 bool PatchAtomic(uint8_t* p, const uint8_t* bytes, size_t len) {
     const uintptr_t a = (uintptr_t)p, w8 = a & ~uintptr_t(7), w16 = a & ~uintptr_t(15);
@@ -381,7 +398,7 @@ int InstallSite(const Site& s) {
         int32_t rel;
         memcpy(&rel, p + 1, 4);
         if ((uintptr_t)(p + 5 + rel) != g_base + s.expect) return 1;
-        uint8_t* t = NewThunk(nullptr, 0, HookFor(s));
+        uint8_t* t = s.kind == kGate ? NewSaveThunk(HookFor(s)) : NewThunk(nullptr, 0, HookFor(s));
         if (!t || !RelFits(p + 5, t)) return 2;
         const int32_t nrel = (int32_t)((intptr_t)t - (intptr_t)(p + 5));
         uint8_t nb[5] = {0xE8, 0, 0, 0, 0};

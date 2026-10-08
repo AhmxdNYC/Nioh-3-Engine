@@ -204,7 +204,9 @@ int Install(const Hook& h) {
     auto put = [&](std::initializer_list<uint8_t> b) {
         for (uint8_t x : b) *w++ = x;
     };
-    put({0x51, 0x52, 0x41, 0x50, 0x41, 0x51});  // push rcx, rdx, r8, r9
+    // push rcx, rdx, r8, r9, r10, r11: callers in this LTCG build can keep values in r10/r11 across a call to a function
+    // known not to touch them (1.7.17 LG crash, see loadstats.cpp NewSaveThunk), so the C++ hook must not leak clobbers.
+    put({0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53});
     put({0x48, 0x83, 0xEC, 0x28});              // sub rsp,28h (entry rsp = 8 mod 16 -> 16-aligned at the call)
     put({0x48, 0xB8});                          // mov rax, imm64
     const uint64_t fn = (uint64_t)h.fn;
@@ -212,7 +214,7 @@ int Install(const Hook& h) {
     w += 8;
     put({0xFF, 0xD0});  // call rax
     put({0x48, 0x83, 0xC4, 0x28});
-    put({0x41, 0x59, 0x41, 0x58, 0x5A, 0x59});  // pop r9, r8, rdx, rcx
+    put({0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59});  // pop r11, r10, r9, r8, rdx, rcx
     memcpy(w, h.orig, h.n);                     // relocated prologue (rsp is back at its entry value)
     w += h.n;
     put({0xFF, 0x25, 0, 0, 0, 0});  // jmp [rip+0] -> entry + n
