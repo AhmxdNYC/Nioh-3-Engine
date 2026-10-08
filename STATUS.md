@@ -31,3 +31,6 @@ Shipped to Ally: ASI 1.7.2 (FG-off fix, GPUProf, ShaderSwap dump, TileStats/SPR 
 
 ## 19:35 update
 Ally 1.7.2 digest: FG-off fixed; GP labelled = 14.5 of 59 ms (FSR3 native AA 6.9 ms = user's setting, out of scope); tiles ruled out; CPU patches neutral; dump at D:\nioh3-re\ally-dump\shaderdump_172.zip. Sent: ASI 1.7.3 + shader pack v4 (gi). Running: VFSCAT fog (opus), GPUProf v2 per-PSO timing -> ASI 1.7.4 (sonnet, hold until the Ally's 1.7.3 digest), runtime post shaders from the dump (opus).
+
+## 20:00 backlog (user: optimize everything possible)
+Running: runtime post shaders (opus), GI reflection #414 (opus), ASI 1.7.5 = CS culling skip + AS0 async slot-0 experiment (sonnet). Held for the Ally: ASI 1.7.4 GPUProf=2 per-PSO timing (sent after the 1.7.3 digest) -> then target the top unlabelled GPU costs (material/G-buffer shaders likely). Next queue: A2 shadow double-draw check via GP markers; load hitches (DiscardVirtualMemory at stage teardown, needs arena RVAs); FSR3 shader micro-opts (AMD code, low odds); particles; PC tiny-draw instancing (hard).
