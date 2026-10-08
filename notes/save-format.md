@@ -1,4 +1,4 @@
-# Nioh 3 save format: cipher solved (v2.02)
+﻿# Nioh 3 save format: cipher solved (v2.02)
 
 Static + emulated analysis only (Unicorn ran exe functions on `re\Nioh3.dump.exe`; game never launched, live save never touched).
 Tool: `re\scripts_re\savecrypt.py` (stdlib only). Verified on a COPY (`D:\nioh3-re\save-work\A.BIN` from backup 20261008-0407):
@@ -27,10 +27,10 @@ Editing flow: decrypt, patch bytes, recompute checksum (`savecrypt.checksum`) an
 `BACKUP.BIN` (identical copies). (`encrypt` does not recompute the checksum.)
 
 ## Body structure (partial)
-- Body from 0x190 is a tagged stream `{u32 hash, u32 size, data}` but records are **nested** (e.g. hash `8590a652`, 1024 B, is a list of sub-records
-  `6067cb8b`/`e30a9fb2`...), so a flat top-level walk drifts. Walking the top level from 400 works only for the first ~0x11249d bytes
-  in the two test saves. A proper recursive parser is still to do.
-- Candidates checked for the mission flag block (6 slots x 0x400 B): the two 6148-B records `bf0a03c7` and `cf552cec` are `u32 count=256` + 256 x 24-byte
-  entries (periodic hash-like pattern), not flag bytes. The 1024-B record `8590a652` is a nested list of 30 sub-entries. **Mission flag block not yet
-  located.** Next step: recursive parse, then diff two saves taken before/after one boss kill (same character timeline; the two backups here
-  are different timelines: savedAt 2026-05 vs 2026-10 and diverge at 0x11249d).
+- Body from 0x190 is a FLAT tagged stream `{u32 hash, u32 size, data}`: for save A it tiles exactly to 0x900189 (94,771 records; 7 pad bytes, then seed/checksum
+  at 0x900190/0x900194). Many records are 1-2 byte per-flag values keyed by hash (starting 0x000a20); some records carry nested sub-records inside
+  their data (e.g. `8590a652`, 1024 B = count 30 + sub-records `6067cb8b`/`e30a9fb2`). `savecrypt.py scan` lists them.
+- Save B (backup 20261007-2346) is a different timeline (savedAt 2026-05, the two diverge at 0x11249d), so A-vs-B diffs are not a boss-kill diff.
+- Mission flag block (6 slots x 0x400 B): NOT located. Checked: the two 6148-B records `bf0a03c7`/`cf552cec` are count=256 x 24-byte entries, not flag
+  bytes; no record is exactly 0x400/0x1800 B apart from `8590a652`. The flags may be stored as the per-hash 1-2 byte records instead of one array.
+  Next: take two saves of the same timeline before/after one boss kill (copy only), run `savecrypt.py scan` on both and diff records by hash.
