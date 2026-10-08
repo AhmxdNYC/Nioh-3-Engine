@@ -1,0 +1,6 @@
+abba2 report: captures\tm\abba2\run1
+windows:
+  L1_BASE_s1                   off fps  114.31 p99  10.62 cpu  8.61 gpu  8.71 n  2281 ovl/frame - fg ok seen - tog ok
+  L1_BASE_s2                   off fps  114.21 p99  10.47 cpu  8.62 gpu  8.72 n  2279 ovl/frame - fg ok seen - tog ok
+  L1_BASE_s3                   off fps  114.35 p99  10.61 cpu  8.60 gpu  8.71 n  2280 ovl/frame - fg ok seen - tog ok
+  launch arms: fewer than 2 BASE launches

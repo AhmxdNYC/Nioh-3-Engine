@@ -1,0 +1,20 @@
+﻿[12:18:27] GUARD: init name=abba2 harness=11752 owner=33032 maxMinutes=120 minHeadroom=18GB maxCrashes=2
+[12:18:27] abba2 start: out=C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba2\run1 live=B,PP,GF,MQ launch=DQ,P1E7 window=20s quads=3
+[12:18:27] launch L1 BASE
+[12:18:28] GUARD: headroom OK (commit 35.7/44.6 GB, current headroom 8.9 GB, effective headroom 44.9 GB (C: free 51.0 GB, RAM 31.1 GB); need effective >= 18, current >= 6)
+[12:21:00] L1 boot: ver 1.7.32 DQ  P1E7 
+[12:21:00] L1 warm-up 60 s (no input)
+[12:22:23] window L1_BASE_s1 done
+[12:22:45] window L1_BASE_s2 done
+[12:23:08] window L1_BASE_s3 done
+[12:23:20] GUARD: refusal check: system idle 4.4s, since our last input 156.5s
+[12:23:20] harness aborted: HARNESS-ABORT: input refused (dotnet : REFUSED keyseq: Nioh3 is not the foreground window - no input sent
+At C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba2_pc.ps1:57 char:10
++     $o = dotnet fsi $ui @flat 2>&1 | Out-String; $code = $LASTEXITCOD ...
++          ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (REFUSED keyseq:...- no input sent:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError)
+[12:23:36] config.xml restored
+[12:23:36] ini restored from preboss.bak
+[12:23:36] GUARD: done
+[12:23:36] done; analysis: py -I C:\Users\Ahmad Hamza\nioh3-engine\tools\testmatrix\abba2_report.py C:\Users\Ahmad Hamza\nioh3-engine\captures\tm\abba2\run1

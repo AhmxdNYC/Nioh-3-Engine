@@ -66,6 +66,41 @@ max(2 %, 1.5 x the BASE paired spread). With the expected +2..+4 % this may end 
 **Visual gate (PP):** fast-travel twice, 20 s time-to-sharp textures ON vs OFF screenshot compare; any visible difference = DROP.
 **Barriers (optional, separate):** same ABBA at a GPU-bound setting (render scale up so gpu_ms > cpu_ms); keep only if positive there and not negative at 180 fps.
 
+## 4b. 2026-10-08: why run 4a2b108 (abba_pc Block A) was invalid, and the replacement method (abba2)
+**Diagnosis (offline, from the window logs + the game log):**
+- **No flag was ever toggled.** `U keyseq @($m.keys)` passed the key list as ONE argument (`'79 w500 26 ...'`) -> ui.fsx
+  `Convert.ToByte` failed (exit 1, not 3, so no abort); `Toggle` returned `@(T-output, $false)` = truthy, so "NOT confirmed"
+  was swallowed (trace_A.txt was also locked, so it was never logged). The game log has zero `MENU: <label> -> ` lines and
+  zero `MENU: opened`; the stats lines show GF `(switch ON)`, PP skipped > 0 and `MQ off` in every window. **So all four
+  verdicts, including B "-0.11 %", measured nothing.**
+- **The 'steps' were the FSR frame-generation regime**, not the scene: config.xml has FRAME_GENERATION=FSR and FG engagement
+  switched between paused (rendered = displayed ~150), flapping running/paused every 0.5 s (rendered ~117, displayed ~170)
+  and steady (rendered ~119, displayed ~203). MQ 172->146 at 11:34:17 = flapping -> paused; PP 145->196 at 11:42:33 = paused ->
+  steady; GF 203->158 ~12:00:30 = steady -> paused. PresentMon fps = displayed fps; with FG engaged the rendered rate sits at
+  ~119 (REN_FPS 120), so a CPU flag could not move it anyway. Trigger of the regime change: not identified (no input reached
+  the game); irrelevant once FG is off for the test.
+- **'draws' column:** OSD `draws N` = `g_st.draws`, the overlay's own frames drawn since start (cumulative), not game draw
+  calls. abba2_report.py turns it into overlay draws per rendered frame per window (sanity ~1.00); a real draw-call count
+  needs the GP profiler. The B "draw loss" question is therefore still open (b_check screenshots only).
+- **User-activity rule was confounded:** the harness read `system idle` only after Nioh3 lost focus; idle was always ~4-5 s
+  = the time since the focus loss (the focused game itself keeps the input clock fresh), not a human.
+- **PC at the user's settings is GPU-bound with FG off:** run1 L1 (1.7.32, FG off, REN_RAT 75 XeSS): 114.3 fps, gpu busy
+  8.71 ms = frame time, cpu busy 8.6 ms (waiting), 3 windows within 0.1 %. CPU flags cannot move fps there.
+
+**New method (tools\testmatrix\abba2_pc.ps1 + abba2_report.py, selftest OK):**
+- Test condition via config.xml (backed up, restored at the end / on abort): FRAME_GENERATION OFF, REN_RAT 50, FSR upscaler
+  -> CPU-bound; windows at the 120 fps cap are rejected.
+- One launch: base windows, then live items as ON OFF OFF ON quads (3 per item, 2 for B), 20 s windows, each toggle confirmed
+  by its `MENU:` line, switch read back from the stats lines (GF switch, MQ on/off, PP skipped), focus checked before and
+  after each window. Quad rejected on an OFF-OFF step > 1 %, ON-ON drift > 1.5 %, GPU busy move > 3 %, FG not off.
+  KEEP = median dfps >= +1 % with every valid quad > 0 and p99 not worse > 2 %; else DROP; < 2 valid quads = INVALID.
+- Ini-only flags (DQ, P1E7; no menu row): relaunch per arm BASE DQ P1E7 P1E7 DQ BASE, same save/spawn, 60 s warm-up,
+  3 windows each, switch verified by the boot log line. KEEP = both paired deltas > 0 and mean >= max(2 %, 1.5 x BASE spread);
+  BASE spread > 3 % = INVALID.
+- Bugs fixed: flat UI args + exit codes checked; strict bool Toggle; trace via AppendAllText; refocus policy: when Nioh3 is
+  not foreground wait 3 s, input inside those 3 s = human -> abort, else refocus (max 6); harness to be started from a hidden
+  console so dotnet children cannot open a console window that steals focus.
+
 ## 5. Recommended inis (keys exist in 1.7.16/1.7.17)
 **PC recommended (provisional until Block A/B):**
 ```
