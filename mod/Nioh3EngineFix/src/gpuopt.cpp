@@ -205,7 +205,8 @@ struct TraceRec {
     uint16_t slot;      // vtable slot; 26 = ResourceBarrier struct; 200 = gpuopt emitted a batch
     uint8_t action;     // 0 call, 1 deferred, 2 passed through, 3 dropped dup UAV, 4 dropped undo pair, 5 emit
     uint8_t set;
-    uint32_t callerRva; // first return address inside Nioh3.exe (0 = none within 8 frames)
+    uint32_t callerRva; // first return address inside Nioh3.exe (0 = none within 16 frames)
+    uint32_t caller2Rva; // second return address inside Nioh3.exe (the caller of the first frame's function)
     uint64_t a1, a2, a3;
 };
 TraceRec* g_trace = nullptr;
@@ -213,14 +214,17 @@ volatile LONG g_traceN = 0;
 LONG g_traceCap = 0;
 volatile LONG g_traceDone = 0;
 
-uint32_t CallerRva() {
-    void* fr[10] = {};
-    USHORT n = RtlCaptureStackBackTrace(1, 10, fr, nullptr);
+// First two return addresses inside Nioh3.exe (unwound via .pdata by RtlCaptureStackBackTrace). Only called while tracing.
+void CallerRvas(uint32_t& c1, uint32_t& c2) {
+    void* fr[16] = {};
+    USHORT n = RtlCaptureStackBackTrace(1, 16, fr, nullptr);
+    c1 = c2 = 0;
     for (USHORT i = 0; i < n; ++i) {
         const uintptr_t a = (uintptr_t)fr[i];
-        if (a >= g_exeLo && a < g_exeHi) return (uint32_t)(a - g_exeLo);
+        if (a < g_exeLo || a >= g_exeHi) continue;
+        if (!c1) c1 = (uint32_t)(a - g_exeLo);
+        else { c2 = (uint32_t)(a - g_exeLo); break; }
     }
-    return 0;
 }
 
 void TraceAdd(void* list, int set, int slot, int action, uint64_t a1, uint64_t a2, uint64_t a3, bool caller) {
@@ -239,7 +243,8 @@ void TraceAdd(void* list, int set, int slot, int action, uint64_t a1, uint64_t a
     r.slot = (uint16_t)slot;
     r.action = (uint8_t)action;
     r.set = (uint8_t)set;
-    r.callerRva = caller ? CallerRva() : 0;
+    r.callerRva = r.caller2Rva = 0;
+    if (caller) CallerRvas(r.callerRva, r.caller2Rva);
     r.a1 = a1;
     r.a2 = a2;
     r.a3 = a3;
@@ -289,7 +294,7 @@ DWORD WINAPI TraceThread(LPVOID) {
         const char* m = r.slot < kSlots ? kSlotInfo[r.slot].name : (r.slot == 200 ? "EMIT" : "?");
         fprintf(f, "%ld,%.3f,%u,%p,%u,%u,%s,%s,0x%X,0x%llX,0x%llX,0x%llX\n", i, (r.qpc - q0) * 1e6 / (double)fq.QuadPart,
                 r.tid, r.list, r.set, r.slot, m, r.action < 6 ? kAct[r.action] : "?", r.callerRva,
-                (unsigned long long)r.a1, (unsigned long long)r.a2, (unsigned long long)r.a3);
+                (unsigned long long)r.a1, (unsigned long long)r.a2, (unsigned long long)r.a3, r.caller2Rva);
     }
     fclose(f);
     InterlockedExchange(&g_traceDone, 1);

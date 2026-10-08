@@ -578,3 +578,12 @@ build.bat / CMakeLists.txt / .github/workflows/build.yml
     version lacked both, but it was never applied.
   * Before the first frame, the tier defaults to 60. The scripts read it from the live game. P1 overwrites it on
     the first frame either way.
+
+### Ally barrier trace (1.7.9)
+Counts what vkd3d-proton sees on the Ally, split by the engine's real callers. 1.7.9 adds a `caller2_rva` column to
+`Nioh3EngineFix.gpuopt-trace.csv`: the second return address inside Nioh3.exe (the first is `SynTransitionResource`
+115E9D for every engine barrier). Cost is paid only while `TraceRecords > 0` (one 16-frame unwind per barrier row).
+1. `[GpuOpt] Barriers = 2` (count only, nothing deferred), `TraceRecords = 300000`, `TraceDelaySec = 30` (default); play a match.
+2. After ~2 min the log says `trace: N records written`; take `Nioh3EngineFix.gpuopt-trace.csv` from the game folder.
+3. On the PC: `py -I re\scripts_d3d12\vkd3d_cost.py Nioh3EngineFix.gpuopt-trace.csv` (self-check: `--selftest`).
+   It groups R1 (read->read) / COMMON-origin barriers by caller2, and reports render-pass ends and OMSetRenderTargets.

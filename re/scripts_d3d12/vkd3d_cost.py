@@ -3,7 +3,8 @@ r"""vkd3d_cost.py -- replay a gpuopt trace through a model of vkd3d-proton (+ RA
     py -I vkd3d_cost.py <Nioh3EngineFix.gpuopt-trace.csv> [--frames N] [--syms re\symbols\symbols.tsv]
     py -I vkd3d_cost.py --selftest
 
-Input: the CSV written by [GpuOpt] TraceRecords = N (format: gpuopt_trace.py docstring). Record it on the Ally with
+Input: the CSV written by [GpuOpt] TraceRecords = N (format: gpuopt_trace.py docstring; ASI >= 1.7.9 adds caller2_rva =
+the second return address in Nioh3.exe, used to split the sites: the first is SynTransitionResource 115E9D for all). Record it on the Ally with
 Barriers = 2 (count only, nothing deferred) so every barrier row is one ResourceBarrier call as vkd3d sees it.
 With batching on, the EMIT rows are the calls and the 'deferred' rows are their structs; both are handled.
 
@@ -124,6 +125,7 @@ def analyse(rows, frames=None, syms=None, out=print):
         st = lists[lst]
         a1, a2, a3 = (int(r[k], 16) for k in ("a1", "a2", "a3"))
         rva = int(r["caller_rva"], 16)
+        rva2 = int(r.get("caller2_rva") or "0", 16)   # absent in CSVs from ASI <= 1.7.8
         if m == "ResourceBarrier":
             typ = a3 >> 56
             c["barrier structs"] += 1
@@ -138,7 +140,7 @@ def analyse(rows, frames=None, syms=None, out=print):
                 prev = last.get(key, last.get((a1, 0xFFFFFFFF)))
                 k = classify(before, after, prev)
                 bcls[k] += 1
-                sites[k][rva] += 1
+                sites[k][(rva, rva2)] += 1
                 if k.startswith(("read->read superset", "COMMON")):
                     trans[(k[:6], before, after)] += 1
                 if sub == 0xFFFFFFFF:
@@ -149,7 +151,7 @@ def analyse(rows, frames=None, syms=None, out=print):
                     st.uavpend = False
             elif typ == 2:
                 bcls["UAV barrier"] += 1
-                sites["UAV barrier"][rva] += 1
+                sites["UAV barrier"][(rva, rva2)] += 1
                 st.uavpend = False
             else:
                 bcls["aliasing (full)"] += 1
@@ -217,9 +219,14 @@ def analyse(rows, frames=None, syms=None, out=print):
     for k in ("read->read superset (R1)", "COMMON->X (prev read-only: no dependency)",
               "COMMON->X (prev write: narrowable)", "COMMON->X (prev unknown)"):
         if sites.get(k):
-            out(f"\n== {k}: top call sites (return RVA in Nioh3.exe)")
-            for rva, v in sites[k].most_common(8):
-                out(f"{pf(v)}  0x{rva:X} {sym(syms, rva)}")
+            out(f"\n== {k}: top callers (2nd return RVA in Nioh3.exe; 1st if absent)")
+            g = collections.Counter()      # group by the SECOND Nioh3.exe return address (the real caller);
+            for (r1, r2), v in sites[k].items():   # the first one is the same SynTransitionResource site for all
+                g[r2 or r1] += v
+            for r2, v in g.most_common(12):
+                firsts = {r1 for (r1, x), _ in sites[k].items() if (x or r1) == r2}
+                via = "" if firsts == {r2} else " via " + ",".join(f"0x{x:X}" for x in sorted(firsts)[:2])
+                out(f"{pf(v)}  0x{r2:X} {sym(syms, r2)}{via}")
     if trans:
         out("\n== R1 / COMMON transitions by states (per frame, top 12)")
         for (k, b, a), v in trans.most_common(12):
@@ -228,15 +235,15 @@ def analyse(rows, frames=None, syms=None, out=print):
 
 
 def selftest():
-    H = ["seq", "us", "tid", "list", "set", "slot", "method", "action", "caller_rva", "a1", "a2", "a3"]
+    H = ["seq", "us", "tid", "list", "set", "slot", "method", "action", "caller_rva", "a1", "a2", "a3", "caller2_rva"]
     rows, seq = [], 0
 
-    def add(method, action="call", a1=0, a2=0, a3=0, rva=0, lst="L1"):
+    def add(method, action="call", a1=0, a2=0, a3=0, rva=0, lst="L1", rva2=0):
         nonlocal seq
-        rows.append(dict(zip(H, [str(seq), "0", "1", lst, "0", "0", method, action, hex(rva), hex(a1), hex(a2), hex(a3)])))
+        rows.append(dict(zip(H, [str(seq), "0", "1", lst, "0", "0", method, action, hex(rva), hex(a1), hex(a2), hex(a3), hex(rva2)])))
         seq += 1
 
-    tr = lambda res, b, a, rva=0x115E97, sub=0xFFFFFFFF: add("ResourceBarrier", "pass", res, (b << 32) | a, sub, rva)
+    tr = lambda res, b, a, rva=0x115E97, sub=0xFFFFFFFF, rva2=0x2000: add("ResourceBarrier", "pass", res, (b << 32) | a, sub, rva, rva2=rva2)
     for _ in range(2):                       # two frames
         add("OMSetRenderTargets", a1=1, a2=0x10)
         tr(0xA, 0, 0x80)                     # COMMON -> PSR, prev unknown (1st frame) / prev read-only (2nd)
