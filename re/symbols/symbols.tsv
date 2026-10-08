@@ -8956,3 +8956,15 @@ rva	kind	name	signature	description	confidence	source
 0x2280fa0	func	GameClearRewardGrant	void GetGameClearRewardId(char hard)	boss rewards (notes\boss-rewards.md) (was GetGameClearRewardId)	medium	boss-rewards
 0x2280c84	func	RewardNoticeShowById		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
 0x2201294	func	NetSerialize_RewardObject		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x1c16dc0	function	BossPlacementIdForMission		(missionId) -> first enemy placement with flag 0x4 in the mission placement set; fallback 0x3A	medium	notes/boss-duel-flow.md
+0x1c16934	function	PlacementSetFindByMissionId		list A of [0x47098E0], set+0x118 == id and resources loaded	medium	notes/boss-duel-flow.md
+0xc92fc0	function	PlacementSetResourcesLoaded		6 resource handles loaded check	medium	notes/boss-duel-flow.md
+0x2be574	function	EnemyPlacementTableGet		record i (stride 0x138)	medium	notes/boss-duel-flow.md
+0x2f7378	function	PlacementTableCount		u32 count at data+4	medium	notes/boss-duel-flow.md
+0x2be5a4	function	PlacementTableData		data+8	medium	notes/boss-duel-flow.md
+0xa46580	function	ScriptBind_Mission_GetMissionID		u32 [[[ctx+8]+8]+0x90]+0x120	high	notes/boss-duel-flow.md
+0x1c1d148	function	PlacementSetsBuildFromMissionDb		mission db rec +0x54..+0x68 ids, +0x158 u16	medium	notes/boss-duel-flow.md
+0x1c1d288	function	MissionScriptsBuildFromMissionDb		mission db rec +0x6c script id	medium	notes/boss-duel-flow.md
+0x377b6c	function	MissionDbGetRecord		stride 0x198, data+8	medium	notes/boss-duel-flow.md
+0x1c2448c	function	BossBgmEventForMission		uses BossPlacementIdForMission + table [0x45B9E30]+0x8D0	low	notes/boss-duel-flow.md
+0x47098e0	data	g_PlacementSetMgr		list A (sets, id +0x118) at +0/+8, list B (mission scripts, id +0x38) at +0x18/+0x20	medium	notes/boss-duel-flow.md
