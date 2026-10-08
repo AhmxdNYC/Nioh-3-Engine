@@ -3,7 +3,11 @@
  "game": "nioh3",
  "steam_id": 3681010,
  "alloff": [
-  ["General", "AutoContinueLoad", "1"],
+  [
+   "General",
+   "AutoContinueLoad",
+   "1"
+  ],
   [
    "Patches",
    "W1",
@@ -277,6 +281,16 @@
   [
    "General",
    "StartupPopup",
+   "0"
+  ],
+  [
+   "Patches",
+   "SR",
+   "0"
+  ],
+  [
+   "Patches",
+   "EP",
    "0"
   ]
  ],
@@ -1998,6 +2012,224 @@
    "risk": "low",
    "expected": "LoadStats seconds vs baseline",
    "grp": 8
+  },
+  {
+   "id": "SR",
+   "type": "asi",
+   "label": "load: synchronous redirect of overlapped archive reads (Wine/Proton only; refused on Windows)",
+   "ini": [
+    [
+     "Patches",
+     "SR",
+     "1"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally"
+   ],
+   "risk": "low",
+   "expected": "Ally: LoadStats seconds vs baseline; R2 ABBA 47.25 -> 38.45 s, 0 failures (1.7.25). Default SR=-1 auto = ON under Proton, so BASE needs SR=0 (alloff). 1 = during loads, 2 = always. log 'SR: ini ...', 'ReadFix #n SR:'",
+   "grp": 8,
+   "load": true
+  },
+  {
+   "id": "RC",
+   "type": "asi",
+   "label": "load: read cache (64 MB, 64 KB blocks, reads <= 64 KB)",
+   "ini": [
+    [
+     "Patches",
+     "RC",
+     "1"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "needs": [
+    [
+     "Patches",
+     "SR",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally",
+    "pc"
+   ],
+   "risk": "low",
+   "expected": "LoadStats seconds vs SR alone (A = SR+RC, B = SR; reads 91-93 % sequential). Low value expected (740392 already 94 % < 8 us after SR); no measurement yet. 1 = during loads, 2 = always. log 'ReadFix #n'",
+   "grp": 8,
+   "load": true
+  },
+  {
+   "id": "AQ",
+   "type": "asi",
+   "label": "load: async archive reads on 4 worker threads (3 overlapped submit sites)",
+   "ini": [
+    [
+     "Patches",
+     "AQ",
+     "1"
+    ],
+    [
+     "Patches",
+     "AQThreads",
+     "4"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally",
+    "pc"
+   ],
+   "risk": "med",
+   "expected": "LoadStats seconds vs baseline; for a device-bound load, SR/RC win first; not measured yet. 1 = during loads, 2 = always",
+   "grp": 8,
+   "load": true
+  },
+  {
+   "id": "TSY",
+   "type": "asi",
+   "label": "load: TrySync worker threads 3 -> 6 (boot-time)",
+   "ini": [
+    [
+     "Patches",
+     "TSY",
+     "6"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally",
+    "pc"
+   ],
+   "risk": "low",
+   "expected": "LoadStats seconds vs baseline; 0 if loader is not TrySync-bound; log 'TSY: TrySync pool sized to 6 threads'; not measured yet. Range 3..8, 0 = off",
+   "grp": 8,
+   "load": true
+  },
+  {
+   "id": "SH",
+   "type": "asi",
+   "label": "load: open archive handles synchronous (FileOpenWin32 imm 200h -> 0; boot-time, Wine/Proton only)",
+   "ini": [
+    [
+     "Patches",
+     "SH",
+     "1"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally"
+   ],
+   "risk": "med",
+   "expected": "cruder sibling of SR (also changes the ReadFileEx path); try after SR; not measured yet",
+   "grp": 8,
+   "load": true
+  },
+  {
+   "id": "EP",
+   "type": "asi",
+   "label": "load: event pool for archive reads (FileReqAlloc/Free)",
+   "ini": [
+    [
+     "Patches",
+     "EP",
+     "1"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally",
+    "pc"
+   ],
+   "risk": "low",
+   "expected": "Ally 0-8 s per load, PC ~0; Ally R1 cut 98.9 -> 50.1 s (1.7.23). Default EP=-1 auto = ON under Proton, OFF on native Windows, so BASE needs EP=0 (alloff). log 'EP: ini ...'",
+   "grp": 8,
+   "load": true
+  },
+  {
+   "id": "PF",
+   "type": "asi",
+   "label": "load: trace prefetch of cold package reads (PFThreads 4, PFLeadMB 768); first load only records",
+   "ini": [
+    [
+     "Patches",
+     "PF",
+     "1"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally",
+    "pc"
+   ],
+   "risk": "low",
+   "expected": "Ally: ~2.7 GB in 12.6k cold random reads (~10 s/load); needs 2 loads per launch (first records). A/B arm B = PF=2 (record only, same hook cost). Not measured yet. log 'Prefetch #n'",
+   "grp": 8,
+   "load": true
+  },
+  {
+   "id": "LoadOnlyCpuFixes",
+   "type": "asi",
+   "label": "load: GF + W6 + RWb switched on only while a level loads (58A set..clear)",
+   "ini": [
+    [
+     "Patches",
+     "LoadOnlyCpuFixes",
+     "1"
+    ],
+    [
+     "Profiler",
+     "LoadStats",
+     "1"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "ally",
+    "pc"
+   ],
+   "risk": "low",
+   "expected": "Ally loads 3-10 s faster, PC 0; Ally ABBA pair pending (R2 later pair). log 'LO: on at 58A set #n' / 'LO: off at 58A clear #n'",
+   "grp": 8,
+   "load": true
   }
  ]
 }
