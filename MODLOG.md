@@ -309,3 +309,9 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - New ASI files (not wired in): `mod\Nioh3EngineFix\src\loadstats.{h,cpp}` ([Profiler] LoadStats = 0), `tests\loadstats_harness.cpp`, `tests\run_loadstats_harness.py` (ALL OK), `loadstats_INTEGRATION.md`. Scripts: `re\scripts_load\load_timeline.py`, `load_sp.py`, `ls_sites.py` (LOADSTATS SITES OK).
 - Symbols: `re\symbols\incoming\loading.tsv` (30) + `loading-renames.tsv` (5) applied and merged (merge_incoming also merged the pending `d3d12-sites.tsv`, 192 rows, from another agent).
 - Undo: revert the note/scripts/new files; symbols: `git checkout` the symbols.* files from before this entry.
+
+## 2026-10-08 - D3D12/DXGI call-site census, goal part 3 (RE only; nothing installed, game not run)
+- `notes\d3d12-sites.md`: 604 vtable call sites in 272 functions (barriers excluded, listed for completeness): Device 195, CL 135, Resource 81, SwapChain 46, Queue 44, Fence 42; 261 per-frame/per-draw, 144 streaming, 103 init. Subsystems: GpuMemory 192, SynRecord 117, FSR3 frame-interpolation swapchain 105, DeviceInit 71, CmdListRing 38. Gaps listed (token-stream `this`, small resource wrapper fields).
+- Scripts: `re\scripts_d3d12\d3d12_vsites.fsx` (whole-binary vcall + slice dump), `d3d12_iids.py` + `iids.tsv`, `d3d12_sites.py` (IID/holder/param typing + reviewed sites), `d3d12_census.py` -> census `re\scripts_d3d12\d3d12_sites.tsv`.
+- Symbols: `re\symbols\incoming\d3d12-sites.tsv` (192 new names + 80 notes) and `d3d12-sites-renames.tsv` (0 rows); not merged.
+- Undo: revert the commit (new files only).

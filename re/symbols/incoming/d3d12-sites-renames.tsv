@@ -1,0 +1,2 @@
+# d3d12-sites-renames: RENAMES of RVAs already named (apply IN PLACE: same rva, replace name/description). The 80 enclosing functions named in HEAD agree with their D3D12 calls, so rows appear here only when the working-tree symbols.tsv holds an older run of d3d12-sites.tsv.
+rva	kind	name	signature	description	confidence	source
