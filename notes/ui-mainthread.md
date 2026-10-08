@@ -12,7 +12,7 @@ Static only: Ghidra and the dump. Nothing was attached, read live, or applied. R
 | 4 | **R** | The render path calls 1CE818 with rasterize=0. That call is a pure no-op walk over every UI element | 7D640E | unknown, part of the ~3 % in 7D622C outside 1C0FFC | ~0.2–0.8 % | low |
 | 5 | W2e | `and dword [rax],0` loop on the mapped VB in helper 1371B8 (called from 1A13665, 30E1472, 30E173E). Same class of bug as W2 | 1371BC, 19 bytes in place | not in the top 30 | small | very low; redundant if E is applied |
 
-UI total on the main thread is about 6–8 % inclusive (365AA98 → … → 253C68 → 254440).
+UI total on the main thread is about 6–8 % inclusive (365AA98 → … → 253C68 → 254440). (corrected 2026-10-08, see particles.md section 6: 365AA98 is EffectViewRecordSync (effect GPU recording), not UiRootUpdate, so the 6-8 % is mostly effects; the real UI share is ~6 % of the main thread smaller)
 
 ## E: where the vertex buffer comes from (confirmed)
 - 1CD690 maps `[obj+378h]` with 4FD84(mode 3 = write-only). 4FD84 gets its staging from **62D688 with the upload-heap flag**. 62D688 suballocates from `[dev+4678h]` and creates a placed resource in GENERIC_READ (an upload heap, i.e. WRITE_COMBINE). 69A720 uses the same allocator for the atlas staging when `tex+0xA8 == 0`.

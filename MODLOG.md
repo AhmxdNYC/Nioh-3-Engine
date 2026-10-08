@@ -293,3 +293,8 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - notes\particles.md: spawn -> CPU sim -> per-view GPU recording (sim + draw) -> per-particle frustum collect -> EffectMerge, with RVAs. Findings: on AMD the GPU-effect recording (365AA98 -> 3D275C -> 694B38) runs synchronously on [App]Game at 6-7 % (async slot 0 is NVIDIA-only; AS0 also moves this CPU work); 365AA98 was misnamed UiRootUpdate (ui-mainthread.md's "UI 6-8 %" is mostly effects); VISUAL_EFFECT has one functional reader (EffectCreate); GPU sim = 10 stages with one global UAV barrier each, recorded once per frame; no alpha-0 or occlusion culling of particles; Ally measured G1E draws 0.19-0.23 ms, EffectMerge 0.009 ms (the ~3 ms estimate was wrong). Ranked candidates, no patches.
 - Symbols: re\symbols\incoming\particles.tsv (40 new, merged) + particles-renames.tsv (4 in place: 365AA98 EffectViewRecordSync, 3D859C EffectGpuObjLatchSubsteps, SynTokUavBarrier and GpuParticleInit descriptions).
 - Undo: delete the note; revert symbols.tsv/csv/x64dbg/ida to the previous commit.
+
+### 2026-10-08 notes consistency pass
+- Inline "(corrected 2026-10-08, see <note>)" marks added: ui-mainthread.md, mainthread-logic.md (x3), invisible-gpu.md (x3), perf-coverage.md (x4), docs/subsystems/ui.md, gfx-submission.md. Content: 365AA98 = EffectViewRecordSync (UI 6-8 % mostly effects); 3D859C = effect substep latch; particle barriers are per stage not per emitter; 0x410A460/498 are UltraMarine water node vtables; RS+960/964 = render width/height, not froxel grid.
+- Not touched: work-deciders.md, streaming-anim.md (MODEL_QUAL reconcile in progress elsewhere).
+- Undo: git revert this commit.

@@ -18,7 +18,7 @@ call graph, disassembly): `D:\nioh3-re\logic\`. Symbols: `re\symbols\incoming\ma
    - "113204 = 37 % ⊃ 535188 = 35 %" is false. They are disjoint: root-reaching (52–56 %) + 535188 (34–37 %) ≈ 89–92 %
      of samples in all 10 captures.
    - The real split of [App]Game is: draw walker 535188 ≈ 35 %, render-frame-begin ≈ 13–19 %, UI ≈ 6–7 %,
-     365AA98 chain ≈ 6–7 %, **other render-graph nodes ≈ 18–26 %** (never attributed before), and the 1 ms retry / QPC
+     365AA98 chain ≈ 6–7 % (corrected 2026-10-08, see particles.md section 6: 365AA98 = EffectViewRecordSync, effects not UI) **other render-graph nodes ≈ 18–26 %** (never attributed before), and the 1 ms retry / QPC
      wait (D) 0–8 %.
 3. **One real, patchable waste on the logic side:** `ObbToAabb` 6EA50 computes an OBB's AABB with 54 tiny calls and
    memory round-trips. It costs **6.5–8 % of KIDSTaskScheduler0** in every capture, plus ~0.02–0.04 core on the workers.
@@ -76,7 +76,7 @@ Reading:
   every-4th-node hook 0x70), not inside 113204. This is inferred from the arithmetic, not traced.
 - root − 112DD8 (up to ~8 % in r6/r7) is 1A74130's own QPC retry loop (D).
 - The "113204 − UI − 365AA98" column is the **unexplained remainder: 18–26 % of the main thread in other render-graph
-  nodes**. If the UI chain hangs under 365AA98, as ui-mainthread.md assumes, the remainder is up to ~6 % larger.
+  nodes**. If the UI chain hangs under 365AA98, as ui-mainthread.md assumes, the remainder is up to ~6 % larger (corrected 2026-10-08, see particles.md section 6: 365AA98 is the effect view recording, so the UI chain does not hang under it and the 6-8 % is mostly effects).
   - What the self-time lists say about it (callers from the r5–r7 self tables, direct call graph from
     `callgraph.fsx`): the shader-constant / state commit family is used by ~140 render functions (post-process and
     other passes in 2F9xxxx, 309xxxx, 34Axxxx …), not only by 535188:
@@ -232,7 +232,7 @@ nodes when markers are enabled (`node+4 < 0`). Its cost is below the top-30 thre
   spread over ~140 render callers.
 
 ### 4.4 Small items
-- `3D859C` (main thread, under 694B38 in the 365AA98 chain): two `while (!CAS) Sleep(0)` spinlocks, then a per-entry
+- `3D859C` (corrected 2026-10-08, see particles.md section 6: this is the per-GPU-effect-object substep latch inside 694B38, not a "UI/2D chain") (main thread, under 694B38 in the 365AA98 chain): two `while (!CAS) Sleep(0)` spinlocks, then a per-entry
   virtual 0xE0 call. 3D8770 is ~0.8 % self in 4 captures. That is real work; the spinlocks only matter under
   contention.
 - 113204 per-node `Stats`: 2× QPC + lock-cmpxchg spinlock + ring per node. It is cheap (<0.5 %). Turning it off needs

@@ -207,19 +207,19 @@ These corrections are in `perf-rename-3-renames.tsv` (verified: ctor 368ADE8 is 
 | 368AEDC | ReflectionProbeCmdB_ScalarDtor | UltraMarine dtor |
 | 368B0AC | ReflectionProbeCmd_ResourcesReady | UltraMarineResourcesReady |
 
-The same correction applies to notes/invisible-gpu.md §1 "Command objects".
+The same correction applies to notes/invisible-gpu.md §1 "Command objects" (applied there 2026-10-08).
 
 #### 1. Fog (VFSCAT #2 1.07 ms; SSFog)
 - **Chain:** VolumetricFogScatterPassRegisterType 244F3E8 (hash 3C0512C3) -> Factory 25B9F84 -> Ctor 345F12C -> vtable 40EBA10 -> **Execute 14871C**.
   - **Async compute** (AsyncSlotGetCtx(RS+1130h,4) non-null, the profiled case): RecordAsync 90749C -> SetupDispatchAsync 18FAD4 -> program vf+60h.
   - **Sync:** 38C1AF8 -> 38C15A0 -> 38C1084 -> program vf+68h.
   - The shader object is registered separately: VolumetricFogScatterShaderRegisterType 243A558.
-- **What sets the amount of work.** The froxel grid is computed in 14871C:
+- **What sets the amount of work.** The froxel grid is computed in 14871C (corrected 2026-10-08, see work-deciders.md: RS+960/964 are render width/height, so cb+14D0/14D4 below is a render-sized input, not the froxel grid X/Y):
   - X = RS+960h × view scale sc_view+1F00h × dyn-res sc_view+1ECCh (clamped to (0,2]);
   - Y = RS+964h × sc_view+1F04h × the same dyn-res factor;
   - the result is written to cb+14D0h/14D4h.
   - Depth slices come from the target resource (u16 +38h/+3Ah of 147854's result).
-  - The quality knob upstream is ApplyVolumetricQuality 39B080 (S+13DC/13E0, already at max on HIGH). The RS+960/964 ← S+13DC/13E0 copy path was not traced.
+  - The quality knob upstream is ApplyVolumetricQuality 39B080 (S+13DC/13E0, already at max on HIGH). The RS+960/964 ← S+13DC/13E0 copy path was not traced (corrected 2026-10-08, see work-deciders.md: RS+960/964 are the render width/height, g_RenderResolution copied by RenderSystemSyncRenderSize 0x12399D0, not the froxel grid, so there is no such copy path to trace; froxel X/Z come from VOLUMETRIC only).
 - **Per-frame CPU:** the work is constant (one Execute per view). The extra branches (LPV, VSM keylight, dust wind) only toggle constants.
 - **SSFog** is a shader member of the **StaticNature** node: StaticNatureRegisterType 244D1AC -> Ctor 346DE18 -> vtable 40EC6E0 -> Execute 6D7B88 -> 6D7B98 -> StaticNatureRenderView 108590 (S2F scattering params). The SSFog shader type itself is 243A058 (schema field at 0x2697F70).
 
@@ -273,5 +273,5 @@ The same correction applies to notes/invisible-gpu.md §1 "Command objects".
 - OcclusionCullingManager 2446370 is a data type (OccluderUnitArrayCapacity = 16).
 
 #### Not done / open
-- The copy RS+960h/964h ← ApplyVolumetricQuality S+13DC/13E0 was not traced.
+- The copy RS+960h/964h ← ApplyVolumetricQuality S+13DC/13E0 was not traced (corrected 2026-10-08, see work-deciders.md: no such copy exists; RS+960/964 = render width/height).
 - The VCLOUD cloud-step count source inside 5F2A88 was not traced.

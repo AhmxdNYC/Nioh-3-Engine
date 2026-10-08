@@ -32,7 +32,7 @@ the same output is written, compiled and staged (not installed).
 | 1 | **WDO#28 sun-shadow-mask blur rewrite**: same math, 8 fetches in flight instead of 1 | **0.15–0.25 ms** (of 367 µs) | none (same result up to float reassociation) | shader file swap, game closed (boot) | high that it is latency-bound; speed-up not yet measured |
 | 2 | **ESM chain 2048² → 1024²**. The directional ESM feeds only volumetric fog + LPV/indirect | 0.15–0.22 ms (of ~297 µs) | low–medium (softer fog light shafts) | render-graph data edit (boot) | medium: the mapping from quality to array index is inferred, not proven |
 | 3 | **Full-screen copies (~0.55 ms in total)**: 4-target G-buffer copy 224 µs, 3-layer output-resolution copy 169 µs, 2 depth copies 81 µs, depth reprojection 66 µs | 0 to ~0.4 ms, only for copies found to be unused | none if unused | needs one resource-level capture first | low: purpose not yet proven |
-| 4 | **GPU particle update**: 75 dispatches of a single 64-thread group, each followed by a UAV barrier | 0.05–0.09 ms | none | CPU code change (merge dispatches / drop barriers) | medium; site not located |
+| 4 | **GPU particle update**: 75 dispatches of a single 64-thread group, each followed by a UAV barrier (corrected 2026-10-08, see particles.md section 6: the 75 are per-emitter dispatches inside one of 10 sim stages; only one global UAV barrier per non-empty stage) | 0.05–0.09 ms | none | CPU code change (merge dispatches / drop barriers) | medium; site not located |
 | 5 | TOONEDGE2 outline pass runs full-screen even with nothing to outline | ≤ 45 µs | none | CPU skip; site not located | low |
 | 6 | RefProbe: 2 stencil-split dispatches per pass could be 1 | 15–30 µs | none | CPU code | not worth it |
 | — | RefProbe "update every N frames" | — | — | — | **not possible: screen-space gather, see 1** |
@@ -111,7 +111,7 @@ CPU side (RVAs, image base 0x7FF74F410000):
 | Node factory | `0x25b2ac0` (resolves 20 RT/shader hashes) |
 | Node constructor | `0x368a33c` (object 0x138 bytes, vtable RVA `0x410a428`) |
 | Per-frame "resources ready?" | `0x368a9e4`: AND of all the node's resources; on first use it lazily creates the probe system through `0x33a0f2c`. That function is init only, not a throttle |
-| Command objects | vtables `0x410a460` / `0x410a498` (methods `0x368ae9c`, `0x368aedc`, `0x368b0ac`) |
+| Command objects | vtables `0x410a460` / `0x410a498` (methods `0x368ae9c`, `0x368aedc`, `0x368b0ac`) (corrected 2026-10-08, see perf-coverage.md: these are the UltraMarineEffectGBufferEdit / UltraMarine water node vtables, not ReflectionProbeCmdA/B) |
 
 - The dispatch-recording function itself was **not** traced to its Dispatch call. That is not needed, because the work is the screen gather.
 - **Probe radiance updates are already event-driven.**
@@ -275,7 +275,7 @@ All their PSOs are created in one post-effect library initialiser, `FUN 0x32fae8
   - cbuffer: `nMaxParticleNum, dt, nParticleManagerAddress…`;
   - UAV `ParticleBuffer`.
 - In seg 79 it runs as 75 dispatches of `1x1x1` (64 threads), each closed by a barrier, so the GPU runs one wave at a time for ~100 µs.
-- Batching all emitters into one dispatch, or dropping the per-emitter UAV barriers, would recover most of it.
+- Batching all emitters into one dispatch, or dropping the per-emitter UAV barriers, would recover most of it (corrected 2026-10-08, see particles.md section 6: there are no per-emitter barriers, just one per non-empty stage, see gpu-barriers.md section 2).
 - That is a CPU command-list change, and its safety depends on whether emitters read each other's particles (`MainParticleBuffer`). Medium risk; the recording site was not located.
 
 ### 4c. Smaller items
