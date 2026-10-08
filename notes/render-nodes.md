@@ -21,9 +21,9 @@ Node Executes have ~0 self time. Their cost sits in shared leaves that are alrea
 ## GPU "other / unattributed" bucket (Ally GP2 175-L2: 2.65 ms of 30.1 ms) -> nodes
 | Shader family (ms) | Node / code | Notes |
 |---|---|---|
-| GFM / HBAO, GFM-D, GFM (~0.65) | **SSAO** node: Execute 15612C (7.4 KB); **ApplySSAOPass** Execute 3688234 | HBAO PS 0x3de2e18a. GFM VS 0xec36dc74 is the full-screen VS shared with HBAO. GFM-only/GFM-D draws are likely the AO depth pre-steps (inferred, not traced). |
+| GFM / HBAO, GFM-D, GFM (~0.65) | **SSAO** node: Execute 15612C (7.4 KB); **ApplySSAOPass** Execute 3688234 | HBAO file 0x3de2e18a. GFM VS 0xec36dc74 is the full-screen VS shared with HBAO. **Correction (2026-10-08):** GFM / GFM-D PSs are generic separable Gaussian filters (`vGusPrm`, `vGusWgt[3/4]`, ~4 draws/frame), not AO pre-steps. The AO pre-steps are HBAO #3 (full-res linear depth, 0.13 ms) and #4 (half-res point downsample, 0.08 ms). |
 | copy / resolve / clear (0.55) | **CopyColorRenderTarget** 8493B4, **ClearScene** 8236D8 + the exe copy shaders (`gpu-copies-postres.md`) | |
-| AMBSL (~0.43) | **not mapped** | `frame_account.py` places it at output time (UI). The node is still open. |
+| AMBSL (~0.37-0.43) | **StaticScreenLayout** node: Execute 253C68 (= UiViewRender) -> UiTextFrame 254440 -> UiRenderPathEntry 7D61A8 -> UiRenderPath 7D622C -> UiDrawLayer 1C0FFC -> UiQuadBuild 1CD690 | Screen-layout (2D UI) batched-quad shader, file 0xadb3a8f3, 7-12 draws/frame. See "AMBSL" below. |
 | PBRLR (~0.28) | **RealtimeLocalReflectionPass** 295C44, MergeRLRPass 3685BD0 -> 3686040, MergeRLR2Pass 9A6444 -> 153E98 | SSR trace, temporal filter, mip chain |
 | G1E (~0.23) | EffectRenderNodeExecute 3D0AE0 (ClusterLightCulling slot), OldEffect node 14FAD8 ("EffReduction") | see `particles.md` |
 | tonemap/compose + post VS (~0.2) | **CombineHDR** 1057AC, **HdrOutput** 6D8928 -> 6D89D4, Apply 945350 -> PostEffectApply, Fade 294C04, SSFadeSaturation 927DF8 | |
@@ -39,7 +39,27 @@ Node Executes have ~0 self time. Their cost sits in shared leaves that are alrea
 - **Hot loop:** for each of up to **7 switch groups** (bitmask), it walks the view's draw list for that group. It sets per-group params by **string-name lookup per draw**: `ParamFindByNameUnlessExcluded` 52DC20 with "s_depthParam", "s_viewParam" and "s_depthFade", each an inline strcmp against an exclusion list, then `ParamFindByName` 52DC84.
 - **Same-look ideas:**
   - (a) CPU: resolve the three Param* once per node (bit-exact). This is fps-neutral on the GPU-bound Ally.
-  - (b) GPU: the groups are separate full-screen HBAO draws rejected per pixel by `sPrmSwi & nSwitchRef`. Merging them would cut the redundant VS/raster and early-reject work, but it must win an Ally A/B first (RADV rule, STATUS 21:50). The r5 PC spot measured ~0, while the Ally shows 0.65 ms, so the cost depends on the scene.
+  - (b) GPU draw merge: **written off 2026-10-08, nothing to merge** (see next section).
+
+## HBAO draw merge: written off (2026-10-08)
+The claim in (b) was wrong. The engine already merges the switch groups into one draw:
+- The HBAO main PS ships as permutations with `nSwitchRef[N]`, `vRadiusParam[N]`, `vRayParam[N]` and `vOccParam[N]` for N = 1, 2 or 3 (0x3de2e18a #9..#34). One draw tests `sPrmSwi & nSwitchRef[i]` per pixel, picks parameter set i, and writes 1.0 (no AO) where no group matches. There is no discard. Several full-screen draws would overwrite each other, so the design itself rules out one draw per group.
+- On the Ally (GP2, 175-L1/L2, every window), each AO stage runs **exactly 1.0 draw per frame**: lin-depth #3 0.13 ms, half-res downsample #4 0.08 ms, HBAO main #23 (N=1) 0.033 ms, blur H #6, blur V #7 0.042 ms, temporal #8. In 175-L3 the 2-group permutation #26 (or #24) replaces #23 and is still one draw.
+- The 7-group loop in 15612C does not issue HBAO draws. It copies a 0x54-byte per-group block (item +128..+178), calls the view setup FD8CEC8/FD33E1C per group, and draws mesh draw-list items with alpha test ("vATest", "s_depthParam"...). These are geometry passes, not full-screen AO.
+- **Result:** no ASI flag and no shader. Expected Ally gain: 0 ms. Nothing goes to the RADV pre-screen (STATUS QUEUE 3).
+- The only exact AO-side idea left is to fold #4 into #3, which would save ~0.08 ms at most. A PS cannot write two render-target sizes in one draw, so this needs a CS replacement plus command-list surgery. HBAO samples #4 through a sampler at half-res UVs, so reading #3 directly is not bit-exact. Not pursued.
+
+## AMBSL = StaticScreenLayout UI quads (2026-10-08)
+- **Shader (0xadb3a8f3, 37 VS + 39 PS):**
+  - VS inputs are POSITION, COLOR, TEXCOORD and BLENDWEIGHT (one float). The cbuffer holds `cDiff`, `cAmb`, `mW2P`, `mL2W[192]` (64 x 3-row transforms) and `Gamma`.
+  - PS cbuffer: `SaturationScale`, `Gamma`, `ContrastValuesOfTexture[3]`, `vATest`, one texture `sStage0`. The file also names `sSCLDepth`.
+  - BLENDWEIGHT is the per-quad index into `mL2W`.
+- **Tie to the node (code):** UiQuadBuild 1CD690 writes 44-byte (0x2C) vertices, 4 per quad (0xB0). It stores `(float)quadIndex` at vertex +0x28, the BLENDWEIGHT slot right after the RGBA8 color that ends at +0x27 (alpha is scaled by the fade factor). This is the AMBSL VS vertex layout.
+- **Path:** UiDrawLayer is reached only from UiRenderPath (and UiRasterizePath, the glyph pre-pass), under UiTextFrame. UiTextFrame is called from UiViewRender 253C68, which is the StaticScreenLayout node's Execute (vtable 40EAF20).
+- **Marker:** the GP2 marker column is "-" for every AMBSL PSO, which matches the UiTextFrame branch, not the "OffScreenRendering" event branch of the same Execute. "UIOutputForFSR" (3451A94) only begins when S+0x25B1 is set (separate UI target for frame generation).
+- **Cost (Ally GP2):** 0.37 ms/frame, 7-12 draws. #33/#43 0.15 ms over ~5 draws/frame. #13/#45 is a single ~0.1 ms draw, probably a full-screen HUD layer.
+- **Names:** `re\symbols\incoming\ambsl-renames.tsv`.
+- **Same-look ideas:** not evaluated yet. Output-res UI work, ~1.2 % of the Ally frame.
 
 ## RealtimeLocalReflection (GPU ~0.28 ms PBRLR + merges)
 - **Role:** screen-space reflection.
@@ -53,6 +73,5 @@ Node Executes have ~0 self time. Their cost sits in shared leaves that are alrea
 - **CPU:** ~0.
 
 ## Open
-- AMBSL is not yet tied to a node.
-- The GFM-only draws are inferred as AO pre-steps.
+- AMBSL is mapped (StaticScreenLayout). Its PS cost (#43, #45) has not been looked at.
 - 483 data-object types have only RegisterType/TypeInfo names. Their factories, ctors and vtables (for example SkyAmbient data 2586404 -> 35E46EC) are not walked.

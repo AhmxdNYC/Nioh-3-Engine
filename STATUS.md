@@ -53,7 +53,7 @@ PC round must take the bridge game lock first: py -m uo_bridge.gamelock acquire 
 0. [main] ASI 1.7.14 built (GL1/LC/LW, default off, untested in game): install on PC after the current test round, then LoadStats A/B per flag (baseline vs GL1 / LC / LW alone, same load route); same on the Ally next session.
 1. [opus] Ally barrier-trace follow-up: when the 1.7.10 trace CSV arrives -> vkd3d_cost.py -> build/keep R2a/R1 per counts.
 2. [sonnet] PC test round on [GAME-FREE] (see 'PC test rounds').
-3. [opus] RADV prescreen follow-up: when the Ally tool works, screen VCLOUD hoist + SFB dedupe + any new rewrite.
+3. [opus] RADV prescreen follow-up: when the Ally tool works, screen VCLOUD hoist + SFB dedupe + any new rewrite. (HBAO draw merge: written off 2026-10-08, not a candidate. The Ally already issues 1 HBAO draw per frame (nSwitchRef[1..3] permutations), see notes\render-nodes.md.)
 4. [sonnet] Live read on PC (when free): meshlet LOD per-category values (see work-deciders addendum).
 5. [opus] Next decompile area by impact after the current 4 finish (perf_coverage.py --self gaps, GPU chart grey buckets).
 6. [sonnet] README/charts refresh after each merge; device-specific README pass once the Ally hardware IDs arrive.
