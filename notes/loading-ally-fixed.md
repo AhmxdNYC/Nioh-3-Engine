@@ -203,9 +203,11 @@ then the G8/G9 CPU work (loading-bottleneck §4, rows LB/LS).
   would change PC behaviour too.
 
 Honest scope: with the LG numbers, OJ can save at most the part of the window where only the online op is outstanding,
-which LT will show. It cannot touch the 47 s of G8 or the 26 s of G9 CPU work. If the 1.7.19 log digest (another agent's
-work in progress) confirms that no timeout ends the window, the online path is out and LT/OJ stay unbuilt; §5's finding
-that no ws2_32 call can stall under Wine supports that.
+which LT will show. It cannot touch the 47 s of G8 or the 26 s of G9 CPU work. §7 (1.7.19 log digest) then found that no
+timer ends the window at all (the load work ends at +93.6 s; the rest is the tip page) and retracts #1. The static result
+agrees: no ws2_32 call can stall under Wine, and nothing links an online op to the load-end gates. **LT and OJ stay
+unbuilt**; this spec is kept only in case a later route (e.g. a co-op or visitor load) shows a KTGL `*_TIMEOUT` inside a
+window.
 
 ## 7. Probe results: Ally ASI 1.7.19, online title -> Load Game -> Level 136, L1 + L2 (log digest, 2026-10-08)
 
