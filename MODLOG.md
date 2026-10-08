@@ -439,3 +439,6 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `notes/battle-scrolls.md` + `notes/battle-scrolls.csv`: Battle Scroll = shrine item 3 (visible on mission flag 0xAB) = mission replay over the mission table (LFM archive_03 entry 398, 130 x 0x198-B records, `MissionRecordGet` 0x377B38) + Picture Scroll/Emaki half (FeatureUnlocked bit 8 + flag 0x217). 62 listable missions with bosses; 3 duels excluded by flag 0x40.
 - Symbols: `re/symbols/incoming/battlescroll-renames.tsv`. Scripts: `re/scripts_boss/bs_*.py`. LFM archives 02/06/15 extracted to `data/extract/lfm` (git-ignored).
 - Undo: nothing to undo.
+
+## 2026-10-08 - Eternal Rift / Mugen research (static)
+- notes/eternal-rift.md: Mugen::* natives (0x23E4228, 0x23E41CC) are constant-return stubs, no script calls them; Rift = era-1 rows of the mission table (3 teachers x 3 tiers + 3 tutorials), no spawner or floor table. Names: re/symbols/incoming/mugen-renames.tsv. Nothing to undo.

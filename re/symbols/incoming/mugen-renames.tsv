@@ -1,0 +1,6 @@
+rva	kind	name	signature	description	confidence	source
+0x23e4228	function	Script_Mugen_IsAllMugenBossesDead_STUB	bool f(ScriptCtx*)	script native Mugen::IsAllMugenBossesDead: pushes constant false (0x1398E0 u8 0); only xref is native table 0x397E120; unused stub, no Mugen object exists	high	notes/eternal-rift.md
+0x23e41cc	function	Script_Mugen_GetPeriodicDamageAreaAppearTimeFrame_STUB	int f(ScriptCtx*)	script native Mugen::GetPeriodicDamageAreaAppearTimeFrame: pushes constant 0 (0x2E5A80); unused stub	high	notes/eternal-rift.md
+0x397e120	data	ScriptNativeEntry_Mugen_IsAllMugenBossesDead	{name*,fn*}	native table entry (name 0x3bf8c60 -> wrapper 0x23E4228)	high	notes/eternal-rift.md
+0x397e130	data	ScriptNativeEntry_Mugen_GetPeriodicDamageAreaAppearTimeFrame	{name*,fn*}	native table entry (name 0x3bf8c80 -> wrapper 0x23E41CC)	high	notes/eternal-rift.md
+0x23e0094	function	Script_Mission_IsTrainingMission	bool f(ScriptCtx*)	pushes (currentMissionId == 0x6F24 Training Ground)	high	notes/eternal-rift.md
