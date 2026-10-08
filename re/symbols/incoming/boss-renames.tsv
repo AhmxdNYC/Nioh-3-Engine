@@ -1,0 +1,19 @@
+rva	kind	name	signature	description	confidence	source
+0x23a2dcc	function	ScriptBind_Mission_BossBattleMode		script binding Mission::BossBattleMode: sets charmgr(0x45B9E40)+0x26AA=1, resolves actor, fades out UI/bgm bits; entry for boss fight state	medium	notes/boss-fights.md
+0x23a2f70	function	ScriptBind_Mission_BossBattleModeEnd		script binding Mission::BossBattleModeEnd: undoes BossBattleMode via 1C0D068/1C0CFB4/1C0CEEC/1C0E83C/9DECF8	medium	notes/boss-fights.md
+0x23a3018	function	ScriptBind_Mission_BossBattleModeEndWithoutSpecificBoss		script binding	medium	notes/boss-fights.md
+0x23b8678	function	ScriptBind_UI_ShowBossGauge		script binding UI::ShowBossGauge(actorId): if actor exists -> BossGaugeShow 1D115D4	medium	notes/boss-fights.md
+0x23b36a8	function	ScriptBind_UI_HideBossGauge		script binding UI::HideBossGauge	medium	notes/boss-fights.md
+0x1d115d4	function	BossGaugeShow	void(u32 actorId,u32,u32)	forwards to HUD object [0x45C84A8+0xA8] -> BossGaugeSetup 1D05824	medium	notes/boss-fights.md
+0x1d05824	function	BossGaugeSetup	void(HudBossGauge*,u32 actorId,u32,u32)	fills up to 3 boss gauge rows (0x60 B each; screen layout 00_boss_gauge_hud / MENU_ID_BOSS_GAUGE_HUD)	medium	notes/boss-fights.md
+0x23e0398	function	ScriptBind_Mission_SetMissionFlag	void(flagId,bool)	-> MissionFlagSet 70275C(g 0x47514D0, id, val)	medium	notes/boss-fights.md
+0x70275c	function	MissionFlagSet	void(MissionMgr*,u32 flagId,u8 val,u8)	writes byte at [[mgr+8]+0x130+slot*0x400+flagIdx]; skips if def locked; calls change notify 702BBC/702974	medium	notes/boss-fights.md
+0x284944	function	MissionFlagGet	bool(MissionMgr*,u32 flagId,int)	reads same byte array; 0xFF -> flag def default (def+0xC); slot from NG-level/difficulty (mgr+8 +0x10/+0x24)	medium	notes/boss-fights.md
+0xa36384	function	ScriptBind_Mission_IsMissionFlag		-> MissionFlagGet	medium	notes/boss-fights.md
+0xa30f58	function	ScriptBind_Mission_IsMissionCleared		-> MissionClearedGet 37AFC0	medium	notes/boss-fights.md
+0x37afc0	function	MissionClearedGet	bool(ClearDb* g 0x4751848,u32 missionId)	FNV-1a hash of id in table [db+8]+0x2E0, returns byte [entry+0x38+slot]	medium	notes/boss-fights.md
+0x23a582c	function	ScriptBind_Mission_SetMissionClearFlag		-> 1C1DB88(missionId)	medium	notes/boss-fights.md
+0xa1d204	function	ScriptBind_Character_Create		-> PlacementEnemyActivate 1180740	medium	notes/boss-fights.md
+0x1180740	function	PlacementEnemyActivate	bool(u32 placementId,..)	finds placement record (flag &1), actor via ActorFindById, sets actor+0xDA=1, +0xEE=0, runs spawn init 20A05C/2869A0 - this is how scripts spawn bosses	medium	notes/boss-fights.md
+0x2399ad8	function	ScriptBind_Duel_IsAliveBoss		-> 7E11F0(actor)==0	medium	notes/boss-fights.md
+0x2399a48	function	ScriptBind_Duel_GetBossPlacementID		boss placement id of current mission	medium	notes/boss-fights.md
