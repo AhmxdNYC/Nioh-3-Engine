@@ -1,0 +1,17 @@
+rva	kind	name	signature	description	confidence	source
+0x285448	function	MissionSlotIndex	int MissionSlotIndex(Sel* s)	slot 0..5 for flag/clear arrays: kind 6->[mgr+8]+0x10, mode==2 -> 0, else kind 1..5	high	notes/boss-rift-ngplus.md
+0x285d38	function	IsMissionMode2Active	bool IsMissionMode2Active(Mgr* m)	[m+8]+0x28!=0 && +0x24==2	medium	notes/boss-rift-ngplus.md
+0x285ac0	function	FindScalingRowByJourneyLevel	Row* FindScalingRowByJourneyLevel(Tbl* t, u8 key)	row with byte+0xE==key and level<=[st+0x408+slot*4]	medium	notes/boss-rift-ngplus.md
+0x2180aec	function	SetNextJourneyLevel	void SetNextJourneyLevel(Mgr* m, u8 level)	sets st+0x45, raises +0x44, sets mission flags 0x7F (>=2) and 0x190 (>=3)	high	notes/boss-rift-ngplus.md
+0x1c28b84	function	UnlockNextJourneyLevelStep	void UnlockNextJourneyLevelStep()	from +0x44 (1,2,3) picks next level 2/3/4 and calls SetNextJourneyLevel	medium	notes/boss-rift-ngplus.md
+0x23b1f48	function	Script_System_UnlockNextMissionMode	script wrapper	st+0x44=max(+0x44,+0x10) then UnlockNextJourneyLevelStep	high	notes/boss-rift-ngplus.md
+0x1c1db88	function	SetMissionCleared	void SetMissionCleared(u32 missionId)	body of Mission::SetMissionClearFlag: clear db entries, rewards, retry points	high	notes/boss-rift-ngplus.md
+0x217e884	function	ClearDbSetMissionState	void ClearDbSetMissionState(Db* db, u16 id, char cleared, char notify)	sets/clears per-slot clear bytes (+0x428 map), first-clear rewards	high	notes/boss-rift-ngplus.md
+0x219feb4	function	SetSmallHellClearMap	void SetSmallHellClearMap(u16 id, char v)	toggle clear-map state; v=0 un-clears	high	notes/boss-rift-ngplus.md
+0x239ffb8	function	Script_Hell_ResetClearMapOnlySmallHell	script wrapper	un-clears hell id if mission record type(+0xC0)==3	high	notes/boss-rift-ngplus.md
+0x23a00f0	function	Script_Hell_SetClearMapOnlySmallHell	script wrapper	sets clear map	high	notes/boss-rift-ngplus.md
+0x239faa0	function	Script_Hell_IsClearMapOnlySmallHell	script wrapper	reads 0x2845C8	high	notes/boss-rift-ngplus.md
+0x23e4228	function	Script_Mugen_IsAllMugenBossesDead	script wrapper	Rift/boss-rush lead; reads one bool	medium	notes/boss-rift-ngplus.md
+0x107bb78	function	ClearDbGetClearedU16	u8 ClearDbGetClearedU16(Db* db, u16 id)	FNV-1a over u16 id, byte entry+0x12+slot	high	notes/boss-rift-ngplus.md
+0x285808	function	MissionRecordById	Rec* MissionRecordById(Tbl* t, u16 id)	hash lookup, 0xC4-byte records (+0xC0 type byte)	high	notes/boss-rift-ngplus.md
+0x2280fa0	function	GetGameClearRewardId	void GetGameClearRewardId(char hard)	1->(0x4472,0xCD6F) 2->(0x7730,0x2641)	medium	notes/boss-rift-ngplus.md
