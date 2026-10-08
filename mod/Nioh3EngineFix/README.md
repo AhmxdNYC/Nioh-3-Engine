@@ -193,6 +193,31 @@ matters with TG. Needs L1 installed (the high-resolution timer is proven usable 
   third-party loader (Ultimate ASI Loader, also used by Nioh3Fix); whether a loader version needs its shims after
   loading cannot be proven from the game side, and the saving after GF is 0.01-0.05 core.
 
+### 1.7.12: MQ, PT1, DL - three offline-proved CPU patches (all default 0, v2.02 only)
+From `notes\streaming-anim.md` section 4 (MQ, PT1) and `notes\collision-opt.md` (DL); ports of `patcher\mq_live.fsx`,
+`pt1_live.fsx`, `collbook_live.fsx`. Every site, original byte and dependency range is verified before writing.
+Same results as stock; PC-side CPU only (the Ally is GPU-bound: expect 0 fps there, a little less worker CPU / power).
+
+| Key | What | Sites | Switch | Log (30 s `stats cpu:`) |
+|---|---|---|---|---|
+| **MQ** | `MatrixFromScaleQuatTrans` 88780 rebuilt in SSE, **bit-exact** (2.75 M inputs, 0 diffs incl. NaN payloads and MXCSR flags; ~1.7 % of each scheduler thread -> body -53 %) | 88780 | live (0 / 1 / 2) | calls (needs `CpuStats = 1`) |
+| **PT1** | `TextureStreamRequestTiles` holds the pool SRWLOCK (shared) **once per texture** instead of once per tile touch | 114CA8, 114CEE, 129651, 12982E, 1298B3 | live (0 / 1 / 2) | textures claimed, lock pairs saved |
+| **DL** | collision update skips the always-discarded first `CollisionPartMapFind` on the global-owner path | D83F4 (second site of the **CP** group) | live (0 / 1 / 2) | lookups skipped (needs `CpuStats = 1`) |
+
+* **MQ**: the cave works on volatile xmm0-5 only and falls back to the stock body (displaced prologue, then 8878A) when
+  the switch is off or the output buffer overlaps the scale input. Needs SSE4.1 (`insertps`).
+* **PT1**: the gate is "owner thread AND `114C38` called from phase 2" (return address check), so the second caller and
+  every other thread stay stock. **A live switch is enough**: the bytes are never restored mid-loop; switching off only
+  stops new textures from claiming the lock, and the texture in progress releases it at the end of its loop (the owner
+  and held lock are cleared at the single join point). Exclusive lock takers may wait up to one texture's phase 2
+  (microseconds). Needs the IAT slots of `AcquireSRWLockShared` / `ReleaseSRWLockShared` to be the known ones.
+* **DL**: DL is a second site of the **CP** patch group, so `DL = 1` (or `2`) installs the CP site group (CP's own switch
+  stays as `CP` says; CP itself prefetches only when `CP = 1`). CS (conditional stores) is deliberately not ported.
+* `CpuStats = 1` enables the MQ / DL counters (plain increments from several threads: approximate); PT1 counters are
+  always kept. The `stats cpu:` line appears when any of the three is installed.
+* Menu: *MQ bone matrix SSE*, *PT1 texture pool lock*, *DL skip dead lookup* in the 1.6.0 - OPT-IN section.
+  Items installed with the switch off are saved as 2.
+
 ### GPU-fence waits (1.4.0) - GF
 The Ally profiler (SP) found 58 % of the main thread's samples in `IsFenceComplete` 1180A4 called from `FenceWait`
 7D9E1C. When the engine passes no event, that function spins `do Sleep(0); while (fence->GetCompletedValue() < value)`
@@ -320,6 +345,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * `[Patches] WakeStats`, `ED` (worker wakes, 0 = off; ED 2 = installed, switched off) and `[GpuOpt]` (see above).
 * `[Patches] GF` (GPU-fence waits, 0 = off) and `[Tuning] GF_TimeoutMs` (1-1000, default 100).
 * `[Patches] WL` (waitable-handle leak fix, default 1) and `[Profiler] MemStats` (memory line, default 0).
+* 1.7.12: `[Patches] MQ`, `PT1`, `DL` (0/1/2, default 0 everywhere, live in the menu) and `CpuStats` (0/1, counters for MQ / DL).
 * 1.7.11: `[Profiler] LoadStats` (0/1/2, next launch, measurement only, default 0; Ally zip 1).
 * 1.6.0, all opt-in (default 0): `[Patches] WG` (0/1/2), `TG` (0/1, experiment), `DS` (0/1/2), `LK` (0/1, next
   launch), `CP` (0/1/2), `SPF` (0/1/2); `[Tuning] WG_MaxPending` (1-8, 1), `WG_WindowUs` (100-100000, 2000),
@@ -447,7 +473,7 @@ What it shows:
   ini key for the next launch, `* restart`), M2, J1, S1 (next launch). An `Exp/s` stats line shows W6 waits and
   average wait, PP skips, FPC hit rate, M1 refreshes, X1 and E1 skips.
   A fix that isn't installed this session shows `not installed` or `off (Proton)`, with the reason.
-* **1.6.0 - OPT-IN:** WG, TG (shows `ticks <= N` while it governs, `REFUSED: L1 off` without L1), DS, CP, SPF live;
+* **1.6.0 - OPT-IN:** WG, TG (shows `ticks <= N` while it governs, `REFUSED: L1 off` without L1), DS, CP, SPF, MQ, PT1, DL live;
   LK next launch. Items installed with the switch off are saved as 2 (stay installed).
 * **Overlay:** FPS counter, frame time, speed factor, counter position, counter text size.
 * **Game setting:** *Frame generation* (the game's own setting, switched live the way its options menu does it), plus

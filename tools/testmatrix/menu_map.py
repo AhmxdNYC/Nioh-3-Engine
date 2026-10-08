@@ -67,7 +67,7 @@ class Menu:
         m = re.search(r"kExpIniKey\[kNumExp\] = \{(.*?)\};", s, re.S)
         keys = re.findall(r'L"([^"]+)"', m.group(1))
         first = self.rows.index("kXW6")
-        assert self.rows[first + len(keys) - 1] == "kXSPF"
+        assert self.rows[first + len(keys) - 1] == "kXDL"
         self.exp_row = {k: self.rows[first + i] for i, k in enumerate(keys)}
         a = self.rows.index("kGR2a")
         assert self.rows[a:a + 3] == ["kGR2a", "kGR2b", "kGR1"]

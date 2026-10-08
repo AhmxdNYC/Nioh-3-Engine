@@ -29,6 +29,7 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpWL,          // waitable-handle leak fix (1.5.0)
                    kExpWG, kExpTG, kExpDS,          // wake gate, tick governor, retry-spin sleep (1.6.0)
                    kExpLK, kExpCP, kExpSPF,         // worker jobs: locked loads, collision / stage prefetch (1.6.0)
+                   kExpMQ, kExpPT1, kExpDL,         // matrix build SSE, texture pool lock, dead collision lookup (1.7.12)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)

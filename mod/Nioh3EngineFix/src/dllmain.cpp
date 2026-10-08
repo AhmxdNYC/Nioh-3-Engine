@@ -37,7 +37,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.11"
+#define MOD_VERSION "1.7.12"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -136,6 +136,17 @@ void caveSprG();
 void caveSprU();
 extern uint64_t spr_gfxFn, spr_ufFn, spr_slow, spr_gN, spr_gSum, spr_gMax, spr_gSlow, spr_uN, spr_uSum, spr_uMax, spr_uSlow;
 extern uint64_t cp_resume, spf_resume, spf_gworld;
+// 1.7.12: MQ (SSE matrix build), PT1 (pool lock once per texture), DL (dead part-map lookup; group CP)
+void caveMQ();
+void caveDL();
+void capPt1Acq();
+void capPt1Rel();
+void cavePt1B();
+void cavePt1C();
+void cavePt1D();
+extern uint32_t mq_enable, mq_count, dl_count, dl_enable, pt1_enable, pt1_owner, pt1_claims, pt1_saved;
+extern uint64_t mq_resume, mq_calls, dl_fn, dl_resume, dl_skips;
+extern uint64_t pt1_pAcq, pt1_pRel, pt1_ret, pt1_resB, pt1_resC, pt1_resD, pt1_jeD;
 BOOL WgWake(HANDLE ev, uint8_t* slot);
 DWORD WgSleep(HANDLE ev, DWORD ms, uint8_t* pool, uint8_t* slot);
 BOOL DsQpc(LARGE_INTEGER* now, int64_t start);
@@ -300,6 +311,7 @@ struct Config {
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
     int ds = 0, dsMarginUs = 150;
     int lk = 0, cp = 0, spf = 0;
+    int mq = 0, pt1 = 0, dl = 0, cpuStats = 0;  // 1.7.12 (DL rides the CP group)
     int rwb = 0, spr = 0;
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
@@ -373,6 +385,10 @@ Config LoadConfig() {
     c.lk = I(L"Patches", L"LK", c.lk);
     c.cp = I(L"Patches", L"CP", c.cp);
     c.spf = I(L"Patches", L"SPF", c.spf);
+    c.mq = I(L"Patches", L"MQ", c.mq);
+    c.pt1 = I(L"Patches", L"PT1", c.pt1);
+    c.dl = I(L"Patches", L"DL", c.dl);
+    c.cpuStats = I(L"Patches", L"CpuStats", c.cpuStats);
     c.rwb = I(L"Patches", L"RWb", c.rwb);
     c.spr = I(L"Patches", L"SPR", c.spr);
     c.wgMaxPending = std::clamp(I(L"Tuning", L"WG_MaxPending", c.wgMaxPending), 1, 8);
@@ -570,11 +586,18 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveSPF: return (void*)&caveSPF;
         case gen::Target::caveSprG: return (void*)&caveSprG;
         case gen::Target::caveSprU: return (void*)&caveSprU;
+        case gen::Target::caveDL: return (void*)&caveDL;
+        case gen::Target::caveMQ: return (void*)&caveMQ;
+        case gen::Target::capPt1Acq: return (void*)&capPt1Acq;
+        case gen::Target::capPt1Rel: return (void*)&capPt1Rel;
+        case gen::Target::cavePt1B: return (void*)&cavePt1B;
+        case gen::Target::cavePt1C: return (void*)&cavePt1C;
+        case gen::Target::cavePt1D: return (void*)&cavePt1D;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveSprU;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::cavePt1D;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1263,7 +1286,9 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "WL")) return cfg.wl != 0;
         if (!strcmp(g, "DS")) return cfg.ds != 0;
         if (!strcmp(g, "LK")) return cfg.lk != 0;
-        if (!strcmp(g, "CP")) return cfg.cp != 0;
+        if (!strcmp(g, "CP")) return cfg.cp != 0 || cfg.dl != 0;  // DL is a second site of the CP group
+        if (!strcmp(g, "MQ")) return cfg.mq != 0;
+        if (!strcmp(g, "PT1")) return cfg.pt1 != 0;
         if (!strcmp(g, "SPF")) return cfg.spf != 0;
         if (!strcmp(g, "RWb")) return cfg.rwb != 0;
         if (!strcmp(g, "SPR")) return cfg.spr != 0;
@@ -1707,11 +1732,21 @@ DWORD WINAPI Worker(LPVOID) {
     // LK: 18 locked "atomic loads" -> plain loads (code bytes, next launch)
     exDone[menu::kExpLK] = expGroup("LK", cfg.lk != 0, nullptr);
     // CP / SPF: worker loop prefetch caves (live switches; 2 = installed, switched off)
-    exDone[menu::kExpCP] = expGroup("CP", cfg.cp != 0, [&]() {
+    exDone[menu::kExpCP] = expGroup("CP", cfg.cp != 0 || cfg.dl != 0, [&]() {
         cp_resume = (uint64_t)(uintptr_t)(findItem("CP")->addr + 7);  // D8187
         cp_enable = cfg.cp == 1 ? 1u : 0u;
+        // DL (same group, second site D83F4 `call D8740`): the callee must be the one the cave tail-calls
+        Item* dl = findItem("DL");
+        if (calleeOf(dl->addr) != (uintptr_t)(g_base + dl->s->expectRva)) { Log("DL: D83F4 does not call D8740"); return false; }
+        dl_fn = (uint64_t)calleeOf(dl->addr);
+        dl_resume = (uint64_t)(uintptr_t)(g_base + 0xD8400);
+        dl_enable = cfg.dl == 1 ? 1u : 0u;
+        dl_count = cfg.cpuStats ? 1u : 0u;
         return true;
     });
+    static bool s_dlDone = false, s_mqDone = false, s_ptDone = false, s_cpuStats = false;
+    s_cpuStats = cfg.cpuStats != 0;
+    s_dlDone = exDone[menu::kExpDL] = exDone[menu::kExpCP];
     exDone[menu::kExpSPF] = expGroup("SPF", cfg.spf != 0, [&]() {
         uint8_t* a = findItem("SPF")->addr;  // 48 8B 05 rel32: mov rax,[rip+rel] = g_CollisionWorld
         const uintptr_t gw = (uintptr_t)(a + 7 + *(int32_t*)(a + 3));
@@ -1724,6 +1759,40 @@ DWORD WINAPI Worker(LPVOID) {
     if (exDone[menu::kExpCP] || exDone[menu::kExpSPF])
         Log("CP/SPF: worker prefetch caves installed: CP %s, SPF %s", !exDone[menu::kExpCP] ? "-" : cp_enable ? "ON" : "off",
             !exDone[menu::kExpSPF] ? "-" : spf_enable ? "ON" : "off");
+    if (exDone[menu::kExpDL]) Log("DL: dead first part-map lookup (D83F4, CP group) switch %s", dl_enable ? "ON" : "off");
+    // MQ (1.7.12): bit-exact SSE MatrixFromScaleQuatTrans (88780); the cave falls back to the stock body when off
+    s_mqDone = exDone[menu::kExpMQ] = expGroup("MQ", cfg.mq != 0, [&]() {
+        mq_resume = (uint64_t)(uintptr_t)(findItem("MQ")->addr + 10);  // 8878A
+        if (!IsProcessorFeaturePresent(37 /*PF_SSE4_1_INSTRUCTIONS_AVAILABLE*/)) { Log("MQ: needs SSE4.1"); return false; }
+        mq_enable = cfg.mq == 1 ? 1u : 0u;
+        mq_count = cfg.cpuStats ? 1u : 0u;
+        return true;
+    });
+    if (exDone[menu::kExpMQ]) Log("MQ: MatrixFromScaleQuatTrans SSE cave installed, switch %s", mq_enable ? "ON" : "off");
+    // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
+    // textures (the bytes are never restored mid-loop), so switching off is always safe.
+    s_ptDone = exDone[menu::kExpPT1] = expGroup("PT1", cfg.pt1 != 0, [&]() {
+        auto slotOf = [&](const char* id) -> uint8_t* {  // FF 15 disp32 at the site
+            uint8_t* a = findItem(id)->addr;
+            return a + 6 + *(int32_t*)(a + 2);
+        };
+        uint8_t* sa = slotOf("PT1a");
+        uint8_t* sr = slotOf("PT1r");
+        if (sa != g_base + 0x38E2628 || sr != g_base + 0x38E2630 || !*(void**)sa || !*(void**)sr) {
+            Log("PT1: SRW lock IAT slots look wrong");
+            return false;
+        }
+        pt1_pAcq = (uint64_t)(uintptr_t)*(void**)sa;
+        pt1_pRel = (uint64_t)(uintptr_t)*(void**)sr;
+        pt1_ret = (uint64_t)(uintptr_t)(g_base + 0x1297FE);
+        pt1_resB = (uint64_t)(uintptr_t)(g_base + 0x129658);
+        pt1_resC = (uint64_t)(uintptr_t)(g_base + 0x129835);
+        pt1_resD = (uint64_t)(uintptr_t)(g_base + 0x1298BD);
+        pt1_jeD = (uint64_t)(uintptr_t)(g_base + 0x129943);
+        pt1_enable = cfg.pt1 == 1 ? 1u : 0u;
+        return true;
+    });
+    if (exDone[menu::kExpPT1]) Log("PT1: pool lock held once per texture in TextureStreamRequestTiles, switch %s", pt1_enable ? "ON" : "off");
     // TG: no site of its own (caveLim reads tg_cap). Available whenever VRR is installed; the ini only sets the start
     // state. It never engages without L1 (refused + logged by the governor).
     g_tgL1 = l1State == osd::State::On;
@@ -1805,6 +1874,19 @@ DWORD WINAPI Worker(LPVOID) {
                 }
                 if (s_wsDone && ws_enable && sec % 30 == 0) WakeStatsLog();
                 if (s_sprDone && sec % 30 == 0) SprLog();
+                if (sec % 30 == 0 && (s_mqDone || s_ptDone || s_dlDone)) {
+                    static uint64_t pMq = 0, pDl = 0;
+                    static uint32_t pCl = 0, pSv = 0;
+                    const uint64_t mqc = mq_calls, dls = dl_skips;
+                    const uint32_t cl = pt1_claims, sv = pt1_saved;
+                    Log("stats cpu: MQ %s, calls %llu (+%llu in 30 s) | PT1 %s, textures claimed %u (+%u), lock pairs saved %u (+%u) | DL %s, "
+                        "lookups skipped %llu (+%llu)%s",
+                        s_mqDone ? (mq_enable ? "ON" : "off") : "-", (unsigned long long)mqc, (unsigned long long)(mqc - pMq),
+                        s_ptDone ? (pt1_enable ? "ON" : "off") : "-", cl, cl - pCl, sv, sv - pSv,
+                        s_dlDone ? (dl_enable ? "ON" : "off") : "-", (unsigned long long)dls, (unsigned long long)(dls - pDl),
+                        s_cpuStats ? "" : " (MQ/DL counters need [Patches] CpuStats = 1)");
+                    pMq = mqc; pDl = dls; pCl = cl; pSv = sv;
+                }
                 if (wg_installed && sec % 30 == 0) {
                     static LONG64 pS = 0, pC = 0, pT = 0;
                     const LONG64 s = g_wgSkipped, c = g_wgCounted, t = g_wgStale;
@@ -1972,9 +2054,12 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpDS] = &g_dsEnable;
         sw[menu::kExpCP] = U(cp_enable);
         sw[menu::kExpSPF] = U(spf_enable);
+        sw[menu::kExpMQ] = U(mq_enable);
+        sw[menu::kExpPT1] = U(pt1_enable);
+        sw[menu::kExpDL] = U(dl_enable);
         const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
                                          cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gf, cfg.wl,
-                                         cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf};
+                                         cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf, cfg.mq, cfg.pt1, cfg.dl};
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];

@@ -356,3 +356,11 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
   - Same-behaviour candidates GL1-GL6, ranked. Only GL1 (prefetch in the three walks, ~2.5-3 % of a core, ~0.05-0.1 W on the Ally) is clean. TG / sub-rating / script-slice skipping are documented as out of scope (they change behaviour).
 - re\symbols\incoming\gamelogic.tsv (41 rows) + gamelogic-renames.tsv (6 description fixes); merge left to the main session.
 - Undo: delete the three files (no game, ASI or data change).
+
+## 2026-10-08 - ASI 1.7.12: MQ, PT1, DL ported (built + tested, default 0, NOT sent to the Ally)
+- New patches (all `[Patches]` keys default 0 in both inis, live menu switches 0/1/2, v2.02 only): **MQ** = bit-exact SSE MatrixFromScaleQuatTrans (88780; cave transcribed from `patcher\mq_live.fsx`, instruction stream diffed against the iced cave: identical apart from data refs), **PT1** = pool SRWLOCK held once per texture (5 sites 114CA8/114CEE/129651/12982E/1298B3; safe-revert = live switch only, bytes never restored), **DL** = skip the dead first CollisionPartMapFind (D83F4) as a second site of the **CP** group (`DL=1/2` installs the CP site group; CS not ported).
+- `patches.json`: 8 sites + 4 deps (MQ body, PT1 phase-2 and 114C38 ranges, D8740 purity); `tests\test_patterns.py` ends ALL 114 SITES OK; all 7 harnesses pass. New targets after caveSprU (kLastTarget = cavePt1D).
+- Stats: `stats cpu:` every 30 s (PT1 claims / lock pairs saved always; MQ calls and DL skips need new key `CpuStats = 1`). Menu rows MQ / PT1 / DL in 1.6.0 - OPT-IN; `tools\testmatrix`: MQ, PT1, DL enabled in matrix.json (live), menu_map.json regenerated (menu_map.py assert now kXDL).
+- Docs: README section "1.7.12", settings line; ally-package .asi + README-MOD.md refreshed (ini: only keys added). MOD_VERSION 1.7.12. Zip on the Desktop (not committed): Nioh3EngineFix-1.7.12-ally.zip.
+- Not run in the game (Ally playing / game not launched): first live check is a PC session with MQ=1 PT1=1 DL=1 CpuStats=1 and the `stats cpu:` line; a crash or visual change = set the keys back to 0.
+- Undo: set MQ / PT1 / DL to 0 (they are 0 by default); revert this commit.

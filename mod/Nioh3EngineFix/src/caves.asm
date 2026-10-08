@@ -1503,4 +1503,244 @@ ENDM
 SPRCAVE caveSprG, spr_gfxFn, spr_gN, spr_gSum, spr_gMax, spr_gSlow
 SPRCAVE caveSprU, spr_ufFn, spr_uN, spr_uSum, spr_uMax, spr_uSlow
 
+; =================================================================================================================
+; 1.7.12: MQ / PT1 / DL (opt-in; notes\streaming-anim.md 4, notes\collision-opt.md; ports of patcher\mq_live.fsx,
+; pt1_live.fsx, collbook_live.fsx). Each has a live switch; with the switch off every cave is the displaced stock code.
+; =================================================================================================================
+PUBLIC mq_count, dl_count
+PUBLIC caveMQ, mq_enable, mq_resume, mq_calls
+PUBLIC capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D
+PUBLIC pt1_enable, pt1_owner, pt1_claims, pt1_saved, pt1_pAcq, pt1_pRel, pt1_ret, pt1_resB, pt1_resC, pt1_resD, pt1_jeD
+PUBLIC caveDL, dl_enable, dl_fn, dl_resume, dl_skips
+
+xdata SEGMENT ALIGN(64) READ WRITE 'DATA'
+mq_enable   DD 0                ; 1 = on
+mq_count    DD 0                ; 1 = count calls (CpuStats)
+dl_enable   DD 0                ; 1 = on
+dl_count    DD 0                ; 1 = count skips (CpuStats)
+pt1_enable  DD 0                ; 1 = new textures claim the pool lock
+pt1_owner   DD 0                ; thread id that holds the lock across a texture's touches (0 = none)
+pt1_held    DQ 0                ; the SRWLOCK held shared by the owner
+pt1_claims  DD 0
+pt1_saved   DD 0
+mq_resume   DQ 0                ; Nioh3+8878A
+mq_calls    DQ 0
+dl_fn       DQ 0                ; Nioh3+D8740 (CollisionPartMapFind)
+dl_resume   DQ 0                ; Nioh3+D8400
+dl_skips    DQ 0
+pt1_pAcq    DQ 0                ; AcquireSRWLockShared / ReleaseSRWLockShared, copied from the game's IAT
+pt1_pRel    DQ 0
+pt1_ret     DQ 0                ; Nioh3+1297FE: return address of the phase-2 call to 114C38
+pt1_resB    DQ 0                ; Nioh3+129658
+pt1_resC    DQ 0                ; Nioh3+129835
+pt1_resD    DQ 0                ; Nioh3+1298BD
+pt1_jeD     DQ 0                ; Nioh3+129943
+ALIGN 16
+mq_one      DD 3F800000h, 3F800000h, 3F800000h, 3F800000h
+xdata ENDS
+
+.code
+; ---- MQ: MatrixFromScaleQuatTrans 88780 (rcx = out[16], rdx = scale[3], r8 = quat[4], r9 = trans[4]); bit-exact SSE.
+; Volatile xmm0-5 only, leaf. Switch off or out overlapping s -> displaced prologue, then the original body.
+caveMQ PROC
+    cmp     dword ptr [mq_enable], 0
+    je      mq_fallback
+    cmp     dword ptr [mq_count], 0
+    je      mq_nocount
+    inc     qword ptr [mq_calls]
+mq_nocount:
+    lea     rax, [rcx+40h]
+    cmp     rdx, rax
+    jae     mq_ok
+    lea     rax, [rdx+0Ch]
+    cmp     rcx, rax
+    jb      mq_fallback
+mq_ok:
+    movups  xmm0, xmmword ptr [r8]
+    movaps  xmm5, xmm0
+    shufps  xmm5, xmm5, 0FFh
+    shufps  xmm0, xmm0, 24h
+    movaps  xmm1, xmm0
+    addps   xmm1, xmm0
+    movaps  xmm2, xmm1
+    mulps   xmm2, xmm0
+    movaps  xmm3, xmm0
+    shufps  xmm3, xmm3, 49h
+    movaps  xmm4, xmm1
+    mulps   xmm4, xmm3
+    mulps   xmm1, xmm5
+    shufps  xmm1, xmm1, 92h
+    movaps  xmm5, xmm4
+    addps   xmm5, xmm1
+    subps   xmm4, xmm1
+    movaps  xmm0, xmmword ptr [mq_one]
+    movaps  xmm3, xmm2
+    shufps  xmm3, xmm3, 49h
+    subps   xmm0, xmm3
+    shufps  xmm2, xmm2, 92h
+    subps   xmm0, xmm2
+    movq    xmm1, qword ptr [rdx]
+    insertps xmm1, dword ptr [rdx+8], 20h
+    shufps  xmm1, xmm1, 24h
+    mulps   xmm0, xmm1
+    mulps   xmm5, xmm1
+    shufps  xmm1, xmm1, 49h
+    mulps   xmm4, xmm1
+    movaps  xmm2, xmm0
+    insertps xmm2, xmm5, 18h
+    insertps xmm2, xmm4, 0A8h
+    movaps  xmm3, xmm4
+    insertps xmm3, xmm0, 58h
+    insertps xmm3, xmm5, 68h
+    insertps xmm0, xmm5, 88h
+    insertps xmm0, xmm4, 58h
+    movups  xmm1, xmmword ptr [r9]
+    insertps xmm1, dword ptr [mq_one], 30h
+    movups  xmmword ptr [rcx], xmm2
+    movups  xmmword ptr [rcx+10h], xmm3
+    movups  xmmword ptr [rcx+20h], xmm0
+    movups  xmmword ptr [rcx+30h], xmm1
+    mov     rax, rcx
+    ret
+mq_fallback:
+    mov     r11, rsp
+    sub     rsp, 88h
+    jmp     qword ptr [mq_resume]
+caveMQ ENDP
+
+; ---- DL: site D83F4 `call D8740` -> `call caveDL` (rcx = part map, rdx = part, [rsp] = D83F9). On the global-owner
+; path (sil != 0, r11 != 0) stock re-searches and overwrites everything this first call sets, so skip it: drop the
+; return address and continue at the stock code D8400 (rax = 0, r13 = 0, then the sil / r11 tests).
+caveDL PROC
+    cmp     dword ptr [dl_enable], 0
+    je      dl_stock
+    test    sil, sil
+    jz      dl_stock
+    test    r11, r11
+    jz      dl_stock
+    cmp     dword ptr [dl_count], 0
+    je      dl_skip
+    inc     qword ptr [dl_skips]
+dl_skip:
+    lea     rsp, [rsp+8]
+    jmp     qword ptr [dl_resume]
+dl_stock:
+    jmp     qword ptr [dl_fn]
+caveDL ENDP
+
+; ---- PT1: TextureStreamRequestTiles holds the pool SRWLOCK (shared) once per texture instead of per touch.
+; capPt1Acq / capPt1Rel replace `call [AcquireSRWLockShared]` (114CA8) / `call [ReleaseSRWLockShared]` (114CEE) in 114C38;
+; the gate is "owner thread AND 114C38 called from phase 2" ([rsp+70h] = return address of the call).
+capPt1Acq PROC
+    mov     eax, dword ptr gs:[48h]
+    cmp     eax, dword ptr [pt1_owner]
+    jne     pa_stock
+    mov     rax, qword ptr [rsp+70h]
+    cmp     rax, qword ptr [pt1_ret]
+    jne     pa_stock
+    mov     rax, qword ptr [pt1_held]
+    cmp     rax, rcx
+    je      pa_skip
+    test    rax, rax
+    jz      pa_take
+    push    rcx
+    sub     rsp, 20h
+    mov     rcx, rax
+    call    qword ptr [pt1_pRel]
+    add     rsp, 20h
+    pop     rcx
+pa_take:
+    mov     qword ptr [pt1_held], rcx
+pa_stock:
+    jmp     qword ptr [pt1_pAcq]
+pa_skip:
+    inc     dword ptr [pt1_saved]
+    ret
+capPt1Acq ENDP
+
+capPt1Rel PROC
+    mov     eax, dword ptr gs:[48h]
+    cmp     eax, dword ptr [pt1_owner]
+    jne     pr_stock
+    mov     rax, qword ptr [rsp+70h]
+    cmp     rax, qword ptr [pt1_ret]
+    jne     pr_stock
+    cmp     rcx, qword ptr [pt1_held]
+    jne     pr_stock
+    ret
+pr_stock:
+    jmp     qword ptr [pt1_pRel]
+capPt1Rel ENDP
+
+; S_B 129651: phase 2 begins (displaced `add [r14+7590h], r10d`; rax dead)
+cavePt1B PROC
+    test    byte ptr [pt1_enable], 1
+    jz      pb_skip
+    push    rcx
+    mov     ecx, dword ptr gs:[48h]
+    xor     eax, eax
+    lock cmpxchg dword ptr [pt1_owner], ecx
+    jne     pb_no
+    inc     dword ptr [pt1_claims]
+pb_no:
+    pop     rcx
+pb_skip:
+    add     dword ptr [r14+7590h], r10d
+    jmp     qword ptr [pt1_resB]
+cavePt1B ENDP
+
+; S_C 12982E: touch failed, before `call [rax+28h]`: release first (all volatile GPRs are dead)
+cavePt1C PROC
+    mov     eax, dword ptr gs:[48h]
+    cmp     eax, dword ptr [pt1_owner]
+    jne     pc_out
+    mov     rcx, qword ptr [pt1_held]
+    test    rcx, rcx
+    jz      pc_out
+    mov     qword ptr [pt1_held], 0
+    sub     rsp, 20h
+    call    qword ptr [pt1_pRel]
+    add     rsp, 20h
+pc_out:
+    mov     rax, qword ptr [rsi]
+    lea     r8, [rbp+60h]
+    jmp     qword ptr [pt1_resC]
+cavePt1C ENDP
+
+; S_D 1298B3: phase 2 ends (single join): release a held lock, clear the owner; every volatile GPR preserved
+cavePt1D PROC
+    push    rax
+    push    rcx
+    push    rdx
+    push    r8
+    push    r9
+    push    r10
+    push    r11
+    sub     rsp, 28h
+    mov     eax, dword ptr gs:[48h]
+    cmp     eax, dword ptr [pt1_owner]
+    jne     pd_rest
+    mov     rcx, qword ptr [pt1_held]
+    mov     qword ptr [pt1_held], 0
+    test    rcx, rcx
+    jz      pd_clear
+    call    qword ptr [pt1_pRel]
+pd_clear:
+    mov     dword ptr [pt1_owner], 0
+pd_rest:
+    add     rsp, 28h
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    pop     rdx
+    pop     rcx
+    pop     rax
+    cmp     byte ptr [rbp+0Ch], 0
+    jne     pd_ne
+    jmp     qword ptr [pt1_jeD]
+pd_ne:
+    jmp     qword ptr [pt1_resD]
+cavePt1D ENDP
+
 END

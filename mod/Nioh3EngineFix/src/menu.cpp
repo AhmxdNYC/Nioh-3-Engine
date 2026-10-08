@@ -734,14 +734,14 @@ void NoteFgSwitchProton(int want) {
 // ---- items ----------------------------------------------------------------------------------------------------------
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
-          kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF,
+          kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL,
           kGpu, kGR2a, kGR2b, kGR1,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXSPF - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXSPF; }
+static_assert(kXDL - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXDL; }
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
-                                             L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF"};
+                                             L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL"};
 struct ItemDef {
     const char* section;  // header printed before the item (nullptr = none)
     const char* label;
@@ -779,6 +779,9 @@ const ItemDef kItems[kCount] = {
     {nullptr, "LK plain loads (18)", "Locked 'atomic loads' in worker code become plain loads (code bytes: next launch)."},
     {nullptr, "CP collision prefetch", "Collision workers prefetch the next colliders (same results, less memory stall)."},
     {nullptr, "SPF stage prefetch", "Stage-update worker prefetches placeables 4 ahead (same results, less memory stall)."},
+    {nullptr, "MQ bone matrix SSE", "Skeleton matrix build in SSE, bit-identical (about 1 % of each scheduler thread)."},
+    {nullptr, "PT1 texture pool lock", "Texture tile requests take the pool lock once per texture (same state, fewer lock pairs)."},
+    {nullptr, "DL skip dead lookup", "Collision update skips a part-map search whose result is discarded (CP site group)."},
     {"GPU", "GPU barrier batching", "Batches the game's D3D12 barriers into fewer calls. ~0 on the Ally, 2-3 % on PC."},
     {nullptr, "R2a COMMON barriers", "Proton: buffer COMMON->X barriers get their real read state (cheaper wait on RADV). A/B with GPU W/fps."},
     {nullptr, "R2b COMMON barriers (UAV)", "EXPERIMENT. Same for UAV buffers. May show flicker or stale data: judge with screenshots."},
@@ -1078,7 +1081,7 @@ void StartSave() {
         int v = g_expIni[e];
         // ED / WG / DS / CP / SPF installed with the switch off stay installed (2) so the live A/B keeps working next
         // launch (TG needs no install: its 0 already keeps the live switch)
-        if ((e == kExpED || e == kExpWG || e == kExpDS || e == kExpCP || e == kExpSPF) && g_host.exp[e].enable &&
+        if ((e == kExpED || e == kExpWG || e == kExpDS || e == kExpCP || e == kExpSPF || e == kExpMQ || e == kExpPT1 || e == kExpDL) && g_host.exp[e].enable &&
             !*g_host.exp[e].enable && v == 0)
             v = 2;
         add(L"Patches", kExpIniKey[e], std::to_wstring(v));

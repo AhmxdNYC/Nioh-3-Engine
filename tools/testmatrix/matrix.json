@@ -7,7 +7,7 @@
     ["Patches","W6","0"],["Patches","B","0"],["Patches","PP","0"],["Patches","FPC","0"],["Patches","AABB","0"],["Patches","M1","0"],
     ["Patches","M2","0"],["Patches","J1","0"],["Patches","X1","0"],["Patches","E1","0"],["Patches","S1","0"],["Patches","IK","0"],
     ["Patches","TS","0"],["Patches","WakeStats","0"],["Patches","ED","0"],["Patches","GF","0"],["Patches","WG","0"],["Patches","TG","0"],
-    ["Patches","DS","0"],["Patches","LK","0"],["Patches","CP","0"],["Patches","SPF","0"],["Patches","RWb","0"],["Patches","SPR","0"],
+    ["Patches","DS","0"],["Patches","LK","0"],["Patches","CP","0"],["Patches","SPF","0"],["Patches","MQ","0"],["Patches","PT1","0"],["Patches","DL","0"],["Patches","CpuStats","0"],["Patches","RWb","0"],["Patches","SPR","0"],
     ["GpuOpt","Barriers","0"],["GpuOpt","TileBatch","0"],["GpuOpt","R2a","0"],["GpuOpt","R2b","0"],["GpuOpt","R1","0"],["GpuOpt","DropUndoPairs","0"],
     ["Latency","MaxFrameLatency","0"],["Memory","LM","0"],
     ["Profiler","MemStats","0"],["Profiler","TileStats","0"],["Profiler","GPUProf","0"],["Profiler","SP","0"],
@@ -72,8 +72,9 @@
     {"id":"TileBatch","type":"asi","label":"merge UpdateTileMappings calls","ini":[["GpuOpt","TileBatch","1"],["Profiler","TileStats","1"]],"mode":"launch","devices":["pc","ally"],"risk":"low","expected":"CPU, streaming","grp":4,"load":true},
     {"id":"MFL2","type":"asi","label":"MaxFrameLatency=2","ini":[["Latency","MaxFrameLatency","2"],["Patches","TS","1"]],"mode":"launch","devices":["pc","ally"],"risk":"low","expected":"maybe more fps when GPU-limited, up to +1 frame input delay (TS line)","grp":4,"metric":"latency"},
 
-    {"id":"MQ","type":"asi","label":"(planned) SSE MatrixFromScaleQuatTrans","ini":[],"enabled":false,"mode":"launch","devices":["pc"],"risk":"low","expected":"~1.7 % of scheduler threads (notes\\streaming-anim.md); enable when it is in the ASI","grp":5},
-    {"id":"PT1","type":"asi","label":"(planned) pool lock once per texture","ini":[],"enabled":false,"mode":"launch","devices":["pc"],"risk":"low","expected":"notes\\streaming-anim.md","grp":5},
+    {"id":"MQ","type":"asi","label":"SSE MatrixFromScaleQuatTrans (bit-exact)","ini":[["Patches","MQ","1"],["Patches","CpuStats","1"]],"mode":"live","devices":["pc"],"risk":"low","expected":"~0.8-0.9 % of each KIDSTaskScheduler thread (notes/streaming-anim.md); stats cpu: line counts calls","live_installed_value":"2","grp":5},
+    {"id":"PT1","type":"asi","label":"texture pool lock once per texture","ini":[["Patches","PT1","1"]],"mode":"live","devices":["pc"],"risk":"low","expected":"<= ~0.3 % of the main thread; stats cpu: lock pairs saved","live_installed_value":"2","grp":5},
+    {"id":"DL","type":"asi","label":"collision: skip dead first part-map lookup (CP site group)","ini":[["Patches","DL","1"],["Patches","CpuStats","1"]],"mode":"live","devices":["pc"],"risk":"low","expected":"~0.014 core (17 % of CollisionPartMapFind); stats cpu: lookups skipped","live_installed_value":"2","grp":5},
     {"id":"RR1","type":"asi","label":"(planned) ResourceIsReady frame memo","ini":[],"enabled":false,"mode":"launch","devices":["pc","ally"],"risk":"low","expected":"low value (workers only)","grp":5},
 
     {"id":"S_ghdm","type":"shader","label":"GHDM fast","shaders":["ghdm"],"mode":"launch","devices":["pc","ally"],"risk":"low","expected":"+8.7 % at MAX on the Ally","grp":6},
