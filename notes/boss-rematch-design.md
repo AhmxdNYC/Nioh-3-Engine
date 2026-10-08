@@ -194,3 +194,13 @@ Open questions: **Q1** the key -> byte mapping (0x102BB60/0x102B840; whether a k
 | Mission state `[[0x47514D0]+8]` | `+0x10` level, `+0x11` scaling row, `+0x14` mission id, `+0x24` mode, `+0x130+slot*0x400` flags | which field means "at shrine/hub" |
 | Online | `[0x4709B50]+0x34` (1/2 = online), `[0x45C84F8]+0x1DC/+0x2C8` guest | summon-accept hook point |
 | Getters | `MissionFlagGet` 0x284944 `(Sel*, flagId, 0)`, `MissionClearedGet` 0x37AFC0 `(db, id)` | the unique-defeat-flag getter |
+
+## How to run Phase 0 (ASI 1.7.21)
+Set `[Debug] BossLog = 1` and `RematchLog = 1`, restart, solo/offline, then `grep RematchLog` (and `BossLog`) in the mod log. Save-copy first is optional (nothing writes). Correction from the new decompile: `MissionRequestEnqueue(rcx, rdx)` takes the first 8 StartParams bytes by value in rcx and the 0x58 request in rdx; `EmakiMissionRequest(ref, key*, missionArg, params*)` matches s.1.
+1. Boot to a loaded save, stand at a shrine. Expect `L1` table dump (EMAKI[i], EMAKIMAP) and one `L4 first` line (online conn=0, pm null).
+2. P0-5 first (menus only): Shrine -> Battle Scroll -> (Mission Replay). Expect window OPEN, `Q7/L7` replay-menu lines, `MissionSelectListBuild`, and `getters` lines comparing 702B64/37AFC0/909218 per listed mission. Back out without starting; window closes after 90 s.
+3. Replay one cleared main boss mission and one sub mission to the end (win). Expect `L7 MissionRequestById/Enqueue` (req[58] hex), slot lines, `IN MISSION`, flag/clear/reward lines, `END:` lines, `EXIT`.
+4. P0-1: use one owned Picture Scroll (item menu) and win. Expect `Q7 EmakiItemUse_MenuHandler`, `L2` (key, item bytes), `L3`, after-states, `Create`/`ShowBossGauge` (do BossBattleMode lines appear = Q3), reward lines, item `changed` lines (Q6), `EXIT`.
+5. P0-2: same scroll, die once (watch `END: RetryGadget/SetDecideRetry/GameOver`, repeated L3), then win. P0-3: start it, quit to title mid-fight, Continue (`Q9 MissionStartFromSave`, `BuildSaveFilePath` timing vs request).
+6. P0-4: fight two story bosses normally (SetMissionFlag/clear/trophy baseline). P0-6: 10 min ordinary play, check frame time unchanged.
+Not covered: L6 player position (no offset known; scroll record warp floats are in the L1 dump at +0x1C..+0x28). The EmakiKey->byte value is read from `ch.emakiByte` in the `after-MissionSetupEmaki` line instead of calling 0x102BB60.

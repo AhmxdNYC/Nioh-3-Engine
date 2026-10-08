@@ -457,3 +457,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `notes/loading-ally-fixed.md` §7: the work ends at +93 s, with no timeout (manager A latency / Wine-serialized reads); 7.5 cores are an idle spin baseline; G9 hold = tip-page probe artifact; fixes GF+W6+RWb A/B, RC, AQ, TS, event wake; RP probe spec.
 - New `re/scripts_load/ally_load_sp_phases.py`; names in `re/symbols/incoming/ally-load-renames.tsv`. Logs in `D:\nioh3-re\ally-logs\`.
 - Undo: nothing to undo.
+
+## 1.7.21 (2026-10-08)
+- ADD: `[Debug] RematchLog = 1` (default 0, read-only, also installs the BossLog hooks): Phase 0 of notes/boss-rematch-design.md in src/bosslog.cpp. 29 new entry hooks (patches.json group RM, check sites, ALL 190 SITES OK): MissionLoadStep tick (Emaki table dump, state/queue/online change log, scroll item watch, mission IN/EXIT lifecycle), EmakiMissionRequest, MissionSetupEmaki, MissionRequestById/Enqueue, MissionStartFromSave, replay menu setup/open/list builder, BattleScrollTop_Select, item-use handlers, MissionRecordGet and the 3 clear/unlock getters (window-limited), unique-defeat serializer, ClearMapSetEntry, TrophyUnlock, mission result/retry/game-over natives, BuildSaveFilePath. Thunks now also pass the entry sp (caller RVA, stack args); thunk page 8 KB. Only game calls: the 3 pure getters inside the replay window.
+- Correction found while decompiling: MissionRequestEnqueue rcx is the first 8 StartParams bytes by value, rdx the 0x58 request.
+- Built, not run in game. Run plan: notes/boss-rematch-design.md "How to run Phase 0". Undo: `RematchLog = 0` or the 1.7.20 .asi.

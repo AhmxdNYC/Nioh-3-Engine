@@ -38,7 +38,7 @@
 #include "bosslog.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.20"
+#define MOD_VERSION "1.7.21"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1314,6 +1314,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "SPR")) return cfg.spr != 0;
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
         if (!strcmp(g, "BL")) return false;  // BossLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
+        if (!strcmp(g, "RM")) return false;  // RematchLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
     };

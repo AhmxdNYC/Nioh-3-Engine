@@ -244,6 +244,35 @@ static const uint8_t orig_BL27[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0
 static const uint8_t orig_BL28[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00 };
 static const uint8_t orig_BL29[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00 };
 static const uint8_t orig_BL30[] = { 0x48, 0x83, 0xEC, 0x28, 0x80, 0xF9, 0x01 };
+static const uint8_t orig_RM1[] = { 0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x6C, 0x24, 0x20 };
+static const uint8_t orig_RM2[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_RM3[] = { 0x48, 0x89, 0x5C, 0x24, 0x20 };
+static const uint8_t orig_RM4[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08 };
+static const uint8_t orig_RM5[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_RM6[] = { 0x48, 0x8B, 0xC4, 0x44, 0x88, 0x48, 0x20, 0x44, 0x88, 0x40, 0x18, 0x88, 0x50, 0x10 };
+static const uint8_t orig_RM7[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_RM8[] = { 0x48, 0x89, 0x5C, 0x24, 0x20 };
+static const uint8_t orig_RM9[] = { 0x48, 0x81, 0xEC, 0x48, 0x01, 0x00, 0x00 };
+static const uint8_t orig_RM10[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08 };
+static const uint8_t orig_RM11[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_RM12[] = { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x7C, 0x24, 0x10 };
+static const uint8_t orig_RM13[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_RM14[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9 };
+static const uint8_t orig_RM15[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18, 0x89, 0x50, 0x10 };
+static const uint8_t orig_RM16[] = { 0x89, 0x54, 0x24, 0x10, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x4C, 0x8B, 0x51, 0x08 };
+static const uint8_t orig_RM17[] = { 0x4C, 0x8B, 0x49, 0x08, 0x49, 0xB8, 0x25, 0x23, 0x22, 0x84, 0xE4, 0x9C, 0xF2, 0xCB };
+static const uint8_t orig_RM18[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x02, 0x48, 0x8B, 0xDA };
+static const uint8_t orig_RM19[] = { 0x66, 0x89, 0x54, 0x24, 0x10 };
+static const uint8_t orig_RM20[] = { 0x53, 0x48, 0x83, 0xEC, 0x20, 0x8B, 0xD9, 0x84, 0xD2 };
+static const uint8_t orig_RM21[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10 };
+static const uint8_t orig_RM22[] = { 0x48, 0x8B, 0xC4, 0x44, 0x88, 0x48, 0x20, 0x44, 0x88, 0x40, 0x18 };
+static const uint8_t orig_RM23[] = { 0x48, 0x83, 0xEC, 0x28, 0x8A, 0xC1 };
+static const uint8_t orig_RM24[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00 };
+static const uint8_t orig_RM25[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00 };
+static const uint8_t orig_RM26[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00 };
+static const uint8_t orig_RM27[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_RM28[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00 };
+static const uint8_t orig_RM29[] = { 0x48, 0x83, 0xEC, 0x48, 0x49, 0x8B, 0x11 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -407,6 +436,35 @@ static const Site kSites[] = {
     { "BL28", "BL", 0x23A444C, 9, orig_BL28, "40 53 48 81 EC 60 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 50 01 00 00 48 8B D1 48 8D 4C 24 20 E8 ?? ?? ?? ?? B1 01 E8 ?? ?? ?? ?? 0F B7 9C 24 2C 01 00 00 48 8D 8C 24 30 01 00 00 E8 ?? ?? ?? ?? 0F B7 C3 48 8B 8C 24 50 01 00 00 48 33 CC E8 ?? ?? ?? ?? 48 81 C4 60 01 00 00 5B C3 40 53 48 81 EC 70", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "BL29", "BL", 0x23A43EC, 9, orig_BL29, "40 53 48 81 EC 60 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 50 01 00 00 48 8B D1 48 8D 4C 24 20 E8 ?? ?? ?? ?? B1 02", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "BL30", "BL", 0x2280FA0, 7, orig_BL30, "48 83 EC 28 80 F9 01 75 0C BA 6F CD", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM1", "RM", 0x223AF50, 10, orig_RM1, "48 89 5C 24 18 48 89 6C 24 20 56 57 41 56 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 A0 00 00 00 48 8B F1", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM2", "RM", 0x10DBED0, 5, orig_RM2, "48 89 5C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 20 06 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM3", "RM", 0x1C2794C, 5, orig_RM3, "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 E0 FE FF FF", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM4", "RM", 0x2239600, 7, orig_RM4, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM5", "RM", 0x223953C, 5, orig_RM5, "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8D 0D ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM6", "RM", 0x2237244, 14, orig_RM6, "48 8B C4 44 88 48 20 44 88 40 18 88 50 10 48 89 48 08 55", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM7", "RM", 0x1DC8424, 5, orig_RM7, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B 01 49 8B E9", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM8", "RM", 0x1DDA258, 5, orig_RM8, "48 89 5C 24 20 55 56 57 48 81 EC E0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 D0 00 00 00 48 8B EA 41 8B F8 BA FF 00 00 00 48 8B F1 48 8D 4C 24 40 41 8A D9 44 8D 42 89 E8 ?? ?? ?? ?? 48 81 A4 24 C0 00 00 00 FF FF FF 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM9", "RM", 0x23F90CC, 7, orig_RM9, "48 81 EC 48 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 30 01 00 00 48 8B D1 48 8D 4C 24 20 E8 ?? ?? ?? ?? 41 B0 06", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM10", "RM", 0x378674, 7, orig_RM10, "48 8B C4 48 89 58 08 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D 68 A8 48 81 EC 30 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 20 4C 8B E2", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM11", "RM", 0x1DAFE64, 5, orig_RM11, "48 89 5C 24 08 57 48 83 EC 30 48 8B F9 E8 ?? ?? ?? ?? 84 C0 74 20", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM12", "RM", 0xF1F060, 10, orig_RM12, "48 89 5C 24 08 48 89 7C 24 10 55 48 8B EC 48 83 EC 70 48 8B F9 85 D2", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM13", "RM", 0xF1FD80, 5, orig_RM13, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D AC 24 A0 FA FF FF", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM14", "RM", 0x377B38, 9, orig_RM14, "40 53 48 83 EC 20 48 8B D9 48 8B 49 20 E8 ?? ?? ?? ?? 48 8B 13 3B 42 04 72 08 33 C0 48 83 C4 20 5B C3 8B C0 48 69 C8 98 01 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM15", "RM", 0x702B64, 10, orig_RM15, "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM16", "RM", 0x37AFC0, 13, orig_RM16, "89 54 24 10 53 48 83 EC 20 4C 8B 51 08 48 8B D9", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM17", "RM", 0x909218, 14, orig_RM17, "4C 8B 49 08 49 B8 25 23 22 84 E4 9C F2 CB 33 C9 89 54 24 10 0F B6 44 0C 10 49 BA B3 01 00 00 00 01 00 00 4C 33 C0 48 FF C1 4D 0F AF C2 48 83 F9 04 72 E1 49 8B 89 F8 02 00 00 4D 8B 91 D0 02 00 00 49 23 C8 4D 8B 81 E0 02 00 00 48 03 C9 49 8B 44 C8 08 49 3B C2 74 1B 4D 8B 04 C8 3B 50 10 0F 85 ?? ?? ?? ?? 48 85 C0 74 09 49 3B C2 74 04 8A 40 18", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM18", "RM", 0x10C6E70, 12, orig_RM18, "40 53 48 83 EC 20 48 8B 02 48 8B DA BA 65 00 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM19", "RM", 0x217E884, 5, orig_RM19, "66 89 54 24 10 55 53 56 57 41 54 41 55 41 56", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM20", "RM", 0x297F2E4, 9, orig_RM20, "53 48 83 EC 20 8B D9 84 D2 74 0D E8 ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM21", "RM", 0x1C3413C, 7, orig_RM21, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D A8 28 F5 FF FF", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM22", "RM", 0x1CA7468, 11, orig_RM22, "48 8B C4 44 88 48 20 44 88 40 18 89 50 10", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM23", "RM", 0x1C251C8, 6, orig_RM23, "48 83 EC 28 8A C1 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 44 8A C2 8A D0 E8 ?? ?? ?? ?? 48 83 C4 28 C3 CC CC CC 88 51 04", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM24", "RM", 0x23A59BC, 9, orig_RM24, "40 53 48 81 EC 70 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 60 01 00 00 48 8B D1 48 8D 4C 24 30 E8 ?? ?? ?? ?? 83 64 24 20 00 48 8D 54 24 20 48 8D 4C 24 30 E8 ?? ?? ?? ?? 48 8B 8C 24 58 01 00 00 0F B7 9C 24 3C 01 00 00 48 8B 51 08 48 8B 4A 08 48 8B 91 90 00 00 00 48 8D 8C 24 40 01 00 00 89 82 30 01 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM25", "RM", 0x23B815C, 9, orig_RM25, "40 53 48 81 EC 60 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 50 01 00 00 48 8B D1 48 8D 4C 24 20 E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 0F B7 9C 24 2C 01 00 00 48 8B 08 C6 81 7B 26 00 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM26", "RM", 0x23B81C8, 9, orig_RM26, "40 53 48 81 EC 60 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 50 01 00 00 48 8B D1 48 8D 4C 24 20 E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 0F B7 9C 24 2C 01 00 00 48 8B 08 C6 81 7B 26 00 00 01", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM27", "RM", 0x23AB7C4, 5, orig_RM27, "48 89 5C 24 10 57 48 81 EC 70 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 60 01 00 00 48 8B F9", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM28", "RM", 0x23AAA64, 9, orig_RM28, "40 53 48 81 EC 70 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 60 01 00 00 48 8B D1 48 8D 4C 24 30 E8 ?? ?? ?? ?? 83 64 24 20 00 48 8D 54 24 20 48 8D 4C 24 30 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 11 8A 8A A6 26 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RM29", "RM", 0x1FD6DD0, 7, orig_RM29, "48 83 EC 48 49 8B 11 49 83 C8 FF 48 8B 44 24 78", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
