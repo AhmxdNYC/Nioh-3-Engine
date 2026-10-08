@@ -1,0 +1,115 @@
+trace Nioh3_2026-10-06_19-39-58: 2976 events, 390 PSOs, est GPU work 9638 us (incl. async queues; frame span ~10.7 ms)
+Ally model: k = 4.93 Ally-us per PC-us (fitted to 59 ms incl. GI HIGHEST +1.8 ms PC-equiv and FSR3 AA 6.9 ms)
+
+| family | PC us | PC % | PSOs | events | Ally class | Ally est. ms | Ally % |
+|---|---|---|---|---|---|---|---|
+| GI / reflection probes (RefProbe) | 762 | 7.9 | 6 | 12 | render + GI HIGHEST | 12.7 | 21 |
+| G-buffer material draws | 1922 | 19.9 | 96 | 918 | render | 9.5 | 16 |
+| upscaler (FSR4 on PC) | 400 | 4.1 | 3 | 3 | FSR3 native AA (measured) | 6.9 | 12 |
+| GPU culling / meshlet LOD / indirect args | 986 | 10.2 | 46 | 126 | fixed | 4.9 | 8 |
+| shadow filtering (ESM/WDO/GHDM) | 904 | 9.4 | 6 | 29 | fixed | 4.5 | 8 |
+| deferred lighting / SSS / SSR / outline (full-screen) | 595 | 6.2 | 17 | 51 | render | 2.9 | 5 |
+| post (output res, exe) | 941 | 9.8 | 35 | 43 | output | 2.6 | 4 |
+| particles (draws + PFB) | 482 | 5.0 | 16 | 285 | render | 2.4 | 4 |
+| clears / copies / internal | 474 | 4.9 | 68 | 205 | render | 2.3 | 4 |
+| water / translucent material draws | 393 | 4.1 | 13 | 29 | render | 1.9 | 3 |
+| particle simulation (exe CS) | 320 | 3.3 | 17 | 895 | fixed | 1.6 | 3 |
+| volumetric fog / clouds | 303 | 3.1 | 3 | 3 | fixed | 1.5 | 3 |
+| post (render res, exe) | 292 | 3.0 | 6 | 19 | render | 1.4 | 2 |
+| other exe-embedded | 252 | 2.6 | 8 | 18 | render | 1.2 | 2 |
+| shadow-map / depth draws | 232 | 2.4 | 29 | 213 | fixed | 1.1 | 2 |
+| G-buffer edit copy (exe) | 224 | 2.3 | 1 | 1 | render | 1.1 | 2 |
+| UI | 154 | 1.6 | 20 | 126 | output | 0.4 | 1 |
+| **total** | 9638 | 100 | 390 | 2976 | | 59.0 | |
+
+== top PSOs per family (PC us) ==
+G-buffer material draws: PB2-GbiPkSfbVl#0 / PB2-GbiPkSfbVl#3 658; PB2TREE2-BlrDimGbiMshltvPfnsReSf#3 / PB2TREE2-AtBlrDiGbiMshltOcPfnsPk# 182; PB2LS-GbiSfbVl#2 / PB2LS-GbiSfbVl#12 152; PB2-AlepmeDiGbiPkSfbVl#0 / PB2-GbiSfbVl#3 127; PB2TREE2-BlrGbiMshltvOcReSfbVl#3 / PB2TREE2-BlrDimGbiMshltOcPfnPkSf#1 89; PB2-AlepmeDiGbiOcPkRiaSfbVl#1 / PB2-AlepmeAtDiDt2l3GbiPfnRiaexSf#3 78
+GPU culling / meshlet LOD / indirect args: MshLod#2 150; MPC#27 130; CTS#0 80; MPC#20 75; MPC#23 52; MIC#0 46
+post (output res, exe): output-res 1-tap copy d787dbd0 172; bloom downsample 131; bloom 82; CustomDepthUpscale 0cbad2cb 66; compose 47; exe post 69f53fa5 46
+shadow filtering (ESM/WDO/GHDM): WDO_SST-PtSrbVsm#0 / WDO-PtSrbVsm#28 367; ESM#0 / ESM#4 239; WDO_SST-PtSrbVsm#0 / WDO-PtSrbSsmVsm#14 120; GHDM-FAST(replacement)#4 82; ESM#0 / ESM#9 57; GHDM#1 39
+GI / reflection probes (RefProbe): RefProbe-CllPtSfbSplsSslsSsmVsm#121 367; RefProbe-CllPtSfbSplsSslsSsmVsm#414 340; RefProbe-CllPtSfbSplsSslsSsmVsm#107 19; RefProbe-CllPtSfbSplsSslsSsmVsm#51 14; RefProbe-CllPtSfbSplsSslsSsmVsm#1 / RefProbe-CllPtSfbSplsSslsSsmVsm#15 12; RefProbe-CllPtSfbSplsSslsSsmVsm#438 10
+deferred lighting / SSS / SSR / outline (full-screen): WDO_SST-PtSrbVsm#0 / PB2DS-AdmCaCllEmHsIribOfPlaSmSpl#1 190; WDO_SST-PtSrbVsm#0 / PB2MRLR-CllHhLasVf#44 117; ARPSSSShader-Hf#2 / ARPSSSShader-Hf#16 46; TOONEDGE2#2 45; WDO_SST-PtSrbVsm#0 / PB2DS-AdmCaCllEmGbHhIribOfPlaRrS#1 40; PBRLR#1 / PBRLR#17 37
+particles (draws + PFB): G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP#136 / G1E-CllCsDDomEmeEtmFoHHfoMMvNOc 148; G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP#38 / G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP 108; PFB#0 95; G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP#47 / G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP 49; G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP#167 / G1E-CllCsDDomEmeEtmFoHHfoMMvNOc 42; G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP#17 / G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP 27
+clears / copies / internal: clears / copies / driver internal 322; depth copy (oDepth = t0) 82; unmapped PSO 71
+upscaler (FSR4 on PC): FSR4 ML pass 214; FSR4 pass 186
+water / translucent material draws: PB2UMAH-GbVl#0 / PB2UMAH-GbVl#1 186; UMTV-Gb#0 / UMTV-Gb#1 71; WET#0 48; PB2-BlrGbiMshltvReRiaeSfbSsssTsb#10 / PB2-AtBlrDiGbiMshltOcPkRrSfbTsbV 40; SRIVER2-GbNRrVl#19 / SRIVER2-GbNRrVl#67 30; PB2RIPPLE-Cbbl#1 / PB2DECAL-CdlRgbSfb#16 11
+particle simulation (exe CS): particle update 5e771e53 (75 x Dispatch(1,1,1)) 100; exe CS e44b2640 59; exe CS 54087384 39; exe CS c18010ce 30; exe CS aa20f83f 25; exe CS 6bf3f5f6 21
+volumetric fog / clouds: VFSCAT-CllLpvSfbVsm#235 293; VFSCAT-CllLpvSfbVsm#1 9; VCLOUD#2 / VCLOUD#9 0
+post (render res, exe): temporal filter for thin-surface BSDF (449cf0ae) 247; exe 702b185c 32; exe 7bbdabe8 7; exe 30935ef9 6; exe d570138d 0; exe 88b7e783 0
+other exe-embedded: exe fb6e6c31 107; exe 2461d80e 57; exe 621e3b03 29; exe c8fdb6c9 27; exe fd8bcea7 15; exe e742efe9 7
+shadow-map / depth draws: SM-Sfb#5 / SM-B0I2mIptrSfb#8 81; SM-CmdReSfb#2 / exe: 52; SM-CSfb#5 / SM-B0I2mIptrSfb#8 23; SM-CmdReSfb#0 / SM-B0I2mIptrSfb#8 20; DEPTH-Sfb#1 / SM-SfbUh#12 20; SM-CM0Sfb#5 / exe: 13
+G-buffer edit copy (exe): 4-target copy/convert 7c5acaaf (GBufferEdit copy) 224
+UI: AMBSL#33 / AMBSL#43 29; exe UI/final 27d3b42e 27; exe UI/final a68bd856 23; AMBSL#4 / AMBSL#51 23; exe UI/final 9e7a2cd7 20; AMBSL#35 / AMBSL#66 7
+
+== GFX timeline (consecutive segments merged by dominant family, >= 15 us) ==
+       0 us     47.4  ev=  42  clears / copies / internal
+     914 us     48.6  ev=   3  GPU culling / meshlet LOD / indirect args
+    1055 us     20.2  ev=   2  GPU culling / meshlet LOD / indirect args
+    1079 us    224.8  ev=  27  GPU culling / meshlet LOD / indirect args
+    1306 us    319.6  ev= 895  particle simulation (exe CS)
+    1646 us     68.4  ev=  38  shadow-map / depth draws
+    1714 us     63.2  ev=  12  GPU culling / meshlet LOD / indirect args
+    1799 us     15.1  ev=  35  shadow-map / depth draws
+    1816 us     34.2  ev=   9  shadow filtering (ESM/WDO/GHDM)
+    1850 us    126.5  ev= 134  shadow-map / depth draws
+    1988 us    128.3  ev=  14  GPU culling / meshlet LOD / indirect args
+    2117 us     22.5  ev=   3  clears / copies / internal
+    2152 us     22.0  ev=   5  G-buffer material draws
+    2175 us     20.5  ev=   1  G-buffer material draws
+    2196 us   1741.9  ev= 654  G-buffer material draws
+    3941 us     36.8  ev=   8  shadow filtering (ESM/WDO/GHDM)
+    3978 us     80.7  ev=  12  GPU culling / meshlet LOD / indirect args
+    4075 us    137.4  ev= 258  G-buffer material draws
+    4223 us    224.5  ev=   1  G-buffer edit copy (exe)
+    4447 us     20.6  ev=   4  clears / copies / internal
+    4468 us    120.5  ev=   1  shadow filtering (ESM/WDO/GHDM)
+    4590 us    366.7  ev=   1  shadow filtering (ESM/WDO/GHDM)
+    4974 us     91.7  ev=   3  GPU culling / meshlet LOD / indirect args
+    5066 us     48.1  ev=   1  water / translucent material draws
+    5119 us     62.6  ev=   9  other exe-embedded
+    5184 us     27.3  ev=   2  other exe-embedded
+    5269 us    296.5  ev=   2  shadow filtering (ESM/WDO/GHDM)
+    5508 us     33.2  ev=   3  GI / reflection probes (RefProbe)
+    5542 us     42.6  ev=   7  clears / copies / internal
+    5584 us    654.7  ev=   4  GI / reflection probes (RefProbe)
+    6498 us    250.6  ev=  20  deferred lighting / SSS / SSR / outline (full-screen)
+    6749 us     46.3  ev=   1  deferred lighting / SSS / SSR / outline (full-screen)
+    6795 us     25.7  ev=   1  clears / copies / internal
+    6821 us     49.8  ev=   8  shadow filtering (ESM/WDO/GHDM)
+    6871 us    151.5  ev=  12  GPU culling / meshlet LOD / indirect args
+    7036 us     19.4  ev=   2  clears / copies / internal
+    7056 us     26.8  ev=  12  GPU culling / meshlet LOD / indirect args
+    7122 us     22.4  ev=  10  shadow-map / depth draws
+    7147 us     42.2  ev=  11  water / translucent material draws
+    7195 us     47.0  ev=   2  GI / reflection probes (RefProbe)
+    7246 us     26.3  ev=   4  deferred lighting / SSS / SSR / outline (full-screen)
+    7272 us     66.3  ev=   3  clears / copies / internal
+    7338 us    185.7  ev=   1  water / translucent material draws
+    7524 us     70.9  ev=   1  water / translucent material draws
+    7595 us     30.0  ev=   2  clears / copies / internal
+    7643 us     30.1  ev=  12  water / translucent material draws
+    7678 us     15.6  ev=   2  GI / reflection probes (RefProbe)
+    7708 us     17.9  ev=   1  deferred lighting / SSS / SSR / outline (full-screen)
+    7776 us    106.9  ev=   2  other exe-embedded
+    7896 us     16.8  ev=   1  GPU culling / meshlet LOD / indirect args
+    7931 us     29.4  ev=   1  other exe-embedded
+    8056 us    246.9  ev=   1  post (render res, exe)
+    8312 us    191.5  ev=  21  deferred lighting / SSS / SSR / outline (full-screen)
+    8520 us     16.6  ev=   3  clears / copies / internal
+    8537 us     45.0  ev=   1  deferred lighting / SSS / SSR / outline (full-screen)
+    8582 us     32.2  ev=   1  post (render res, exe)
+    8638 us    331.1  ev= 266  particles (draws + PFB)
+    8978 us     50.9  ev=  16  particles (draws + PFB)
+    9040 us     76.6  ev=   2  post (output res, exe)
+    9116 us    185.7  ev=   2  upscaler (FSR4 on PC)
+    9302 us    353.5  ev=  24  post (output res, exe)
+    9656 us    214.1  ev=   1  upscaler (FSR4 on PC)
+    9890 us     34.5  ev=   1  post (output res, exe)
+    9971 us    304.4  ev=  14  post (output res, exe)
+   10236 us    168.9  ev=   1  post (output res, exe)
+   10404 us     23.9  ev=  50  UI
+   10478 us     20.0  ev=   2  UI
+   10498 us     22.9  ev=   1  UI
+   10531 us     27.3  ev=   2  UI
+   10593 us     18.1  ev=   1  clears / copies / internal
+   10612 us     23.0  ev=   1  UI

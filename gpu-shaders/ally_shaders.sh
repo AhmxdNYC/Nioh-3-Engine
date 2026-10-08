@@ -2,9 +2,9 @@
 # ally_shaders.sh - status / install / exact revert of the staged Nioh 3 shader swaps on Linux (Bazzite / SteamOS,
 # Proton + vkd3d-proton). Same files and SHA-256 checks as gpu-shaders\apply_{ghdm,esm,wdo28,sweep}.ps1 on Windows.
 #
-#   ./ally_shaders.sh status            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all]
-#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all]
-#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all]
+#   ./ally_shaders.sh status            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
+#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
+#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all]
 #
 # mpc / toonedge2 = the 2026-10-07 shader sweep (notes/gpu-shader-sweep.md); toonedge2 covers two files.
 # mpc = ONE combined 0x29ee0902.file: MPC#23 + the prefix-sum chain #28-#31 (notes/gpu-culling-rewrite.md). It
@@ -12,6 +12,9 @@
 # mshlod = 0x8d9282e6.file: MshLod#3 (meshlet LOD chain) pad loop spread over the lanes (notes/gpu-culling-rewrite.md).
 # gi = 0xd070067d.file: RefProbe#121 probe-GI gather + #414 reflection probe trace (notes/gpu-gi-rewrite.md).
 # fog = 0xa9910db8.file: VFSCAT#235 volumetric-fog scattering latency rewrite (notes/gpu-fog-rewrite.md).
+# trvs / pbvs = LOAD-DEDUPE (notes/gpu-materials-trim.md): vertex shaders that re-load the same read-only dwords
+#   right after writing outputs; the repeat is removed. trvs = 0x52c39db0.file (PB2TREE2 tree VS), pbvs = 0xfd4f418f.file
+#   (PB2 meshlet VS). Separate items: A/B each alone. Expected ~0 if the driver already merges the loads.
 #
 # Put this script next to the folder "replacement/" (gpu-shaders/replacement/*.file from the build PC).
 # Game folder: auto-detected from the Steam library folders, or set NIOH3_DIR=/path/to/steamapps/common/Nioh3.
@@ -36,6 +39,8 @@ toonedge2 0x9c481f79.file  7a8171617b2530648e12ce9dd52c091faf31cd4f1026d3b40a7fd
 toonedge2 0x47bc5cb4.file  07542a8322a617b7783b0c7b79580689339429c1d1e416bf70c8d0f3b0aee99a  9a37b6e45360bb8664746687757c68ebfd33cdeb711a6459bbbe29cee111ef80
 gi    0xd070067d.file  d3cbb484ee3380d337641c8c893aa152f2c8d053afb37f49091609b1d87dc372  59897999a85a03398f060abcc1b6a50ed69036994c3e2a2e4d0e1e06e7f2de4f  c952f39a76bc09668953b1bc483e1434f1cbe121bfe9e907d6f49fc601e0fb97
 fog   0xa9910db8.file  4784aabe40fdb10646babde1df734123ce713dc56089a55b4efa0db43bf4f993  ae04ee6ac2920c62cac9d694428f8105e42c45ef9c34b13426dead6d97190e6d
+trvs  0x52c39db0.file  18f82522d1ba8cad1aaf7341ff3708bf40a1dc51eec072fe61205d95ce49cb91  64679acf288bf5eb310a5415c68362b9ba750103d78f256a1c46f9af3cd33d2b
+pbvs  0xfd4f418f.file  806b2d7f343e67b5899585e80f116134fdf1af322191ccbee060443c8cd9da40  a323fe723f5ee7223dd45a21782144f9d13508033229a7b954e8c8257d2d1a30
 "
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -57,7 +62,7 @@ find_game() {
   die "Nioh3 not found in the Steam libraries; set NIOH3_DIR=/path/to/steamapps/common/Nioh3"
 }
 
-[ $# -ge 1 ] || { sed -n '2,17p' "$0"; exit 1; }
+[ $# -ge 1 ] || { sed -n '2,20p' "$0"; exit 1; }
 CMD="$1"; WHICH="${2:-all}"
 case "$CMD" in status|apply|revert) ;; *) die "unknown command '$CMD' (status|apply|revert)";; esac
 GAME="$(find_game)"; SD="$GAME/shader_dx12"
@@ -107,4 +112,4 @@ while read -r name file orig repl old; do
   fi
 done <<< "$TABLE"
 done
-[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|all)"
+[ "$any" = 1 ] || die "unknown shader '$WHICH' (ghdm|esm|wdo28|mpc|mshlod|toonedge2|gi|fog|trvs|pbvs|all)"

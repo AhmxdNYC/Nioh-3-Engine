@@ -1,0 +1,5 @@
+file,rec,groups,status,both,taken_only,skipped_only,never,old_size,new_size,new_hash,inst_lines,secs
+0xd864e310.file,0,5,proven,5,0,0,0,39516,39660,9c362d0c19cfbf18cc1832e7f3345ae2,1584,1.13
+0xd864e310.file,1,5,proven,5,0,0,0,14484,14592,b1df053e12fa9b83faf977dbe7e3b5b3,1106,1.04
+0xdf46710f.file,0,14,proven,14,0,0,0,58108,58608,32f7480dafbcd3988b1c380b0bc813b6,2992,1.65
+0xdf46710f.file,1,14,proven,14,0,0,0,18552,19064,8b92e2a5ffb46e99e2214d89b7d67306,1837,1.36
