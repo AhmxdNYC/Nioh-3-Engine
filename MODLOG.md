@@ -560,3 +560,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - New `mod\Nioh3EngineFix\src\gimerge.{h,cpp}`; gpuopt thunks get a second hook mask + a held-list slot and can skip a held Dispatch. `[Debug] GIProbe = 0`, `[Patches] GIMerge = 0` (2 = observe), `GIMergeQualify = 60`. With both 0 nothing is installed.
 - Merges the two stencil light-group passes of RefProbe #121/#414 into one when they provably differ only in gv_mask_param.xy (notes\gi-highest-audit.md s6). Expected ~0.25-0.5 ms Ally at MAX, ~0.03 ms at the user preset (E). Offline: `tests\run_gimerge_harness.py` ALL OK, gp/r2 harnesses, test_patterns. Not run in game; Ally A/B protocol in the note.
 - Undo: GIMerge = 0 / GIProbe = 0 (next launch), or the previous .asi.
+
+## 1.7.30 (2026-10-08)
+- CHANGE: `[Patches] LC` accepts a cap value: 0 = off (default), 1 = 16 (as before), 11..64 = that in-flight cap for both resource-load managers (LCa 1FEE98 `and r15,-(N-1); add r15,N`, boot flag 1 still gives 1; LCb 1FF3BA `mov eax,N`). Byte immediates only (no cave, no hook). Log "LC: resource-load managers A/B in-flight cap 10 -> N (ini LC = n)"; invalid values are refused and logged.
+- Why: Ally 1.7.25 R2 digest (notes\loading-ally-fixed.md 8.9): the G8 StageAreasObjectsReady wait (~15.5 s of 38.5) is manager A draining ~1000 queued requests at cap 10 while its pools, the disk and ~5 cores sit idle. Expected 3-8 s per Ally load at 16-32, 0 if the 3 TrySync threads are the limit (then TSY = 6). Not run in game; Ally session R4 protocol in 8.9.
+- Tests: test_patterns ALL 212 SITES OK (+ LC = 11..64 arithmetic and immediates-only proof), READFIX / READPROBE / PREFETCH / LOADSTATS HARNESS ALL OK.
+- Undo: LC = 0 (default), or the 1.7.29 .asi.

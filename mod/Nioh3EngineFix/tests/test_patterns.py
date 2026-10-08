@@ -555,6 +555,18 @@ def main():
     check([i for i in range(len(ob)) if ob[i] != nb[i]] == [1] and nb[1] == 0x10, "LCb: must change exactly mov eax,0Ah -> 10h")
     # cap arithmetic: ((-(f != 0)) & mask) + base -> f = 0: base, f != 0: must stay 1 (the boot-flag cap)
     check(((-1) & -15) + 16 == 1 and (0 & -15) + 16 == 16 and ((-1) & -9) + 10 == 1, "LC: cap arithmetic")
+    # 1.7.30 LC = N (dllmain BuildRepl): LCa imm8 at +3 = (1 - N) & FF, imm8 at +11 = N; LCb imm32 low byte = N. Both imm8 are
+    # sign-extended (83 /4 and 83 /0), so N must stay <= 127 and 1 - N >= -128; the boot flag must still give 1, flag 0 N.
+    for n in range(11, 65):
+        ra = bytearray(na); ra[3] = (1 - n) & 0xFF; ra[11] = n
+        rb = bytearray(nb); rb[1] = n
+        m = ra[3] - 256 if ra[3] >= 128 else ra[3]
+        add = ra[11] - 256 if ra[11] >= 128 else ra[11]
+        check(((-1) & m) + add == 1 and (0 & m) + add == n, "LC=%d: cap arithmetic" % n)
+        check([i for i in range(len(oa)) if oa[i] != ra[i]] == [3, 11] and [i for i in range(len(ob)) if ob[i] != rb[i]] == [1]
+              and struct.unpack_from("<I", bytes(rb), 1)[0] == n, "LC=%d: only the immediates may change" % n)
+    na16 = bytearray(na); na16[3] = (1 - 16) & 0xFF; na16[11] = 16
+    check(bytes(na16) == bytes(na), "LC: BuildRepl's formula for N = 16 must equal patches.json")
     # LW: the three Sleep sites run with ecx = 1; the signal site sits between the done-bit store and `cmp [rax+54h],0`
     for sid, pre in (("LWa", hb("8D4A01")), ("LWb", hb("418BCD")), ("LWc", hb("B901000000"))):
         a = int(byid[sid]["rva"], 16)

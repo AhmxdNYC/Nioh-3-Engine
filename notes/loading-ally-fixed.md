@@ -624,3 +624,71 @@ LoadGates eval / manager A last busy). Base = the R2 base (1.7.19 L1 ini + `Read
    route differs from the prime: re-prime and say so.
 5. **Send back**: grep 'LoadStats|LoadGates|ReadProbe|ReadFix|Prefetch|EP:' of each log, plus the size of each pf*.bin.
    Undo: `PF = 0` (the pf*.bin files can be deleted).
+
+## 8.9 Ally 1.7.25 R2 digest: what G8 waits on, and LC = N (built in ASI 1.7.30, default off, not run in game)
+
+Logs: `captures\ally\1725\` (L1/L4 SR=0, L2/L3 SR=1, EP auto in all; bridge #97-#100, msg #270). GF=1, W6=1, RWb=0,
+LoadOnlyCpuFixes=0, WorkerCap per the Ally profile. Digest: `ally_load_sp_phases.py` + the `tick #1 ... A act` column.
+Static: capstone over `re\Nioh3.dump.exe` (no Ghidra: the PC game was running and commit headroom was < 1 GB).
+
+**Where SR's 8.8 s came from** (offsets from the 58A set):
+
+| | L1 / L4 (SR 0) | L2 / L3 (SR 1) |
+|---|---|---|
+| pre-gate (no LoadIsLoadEnd eval yet) | +0..+14.5-16.7 | +0..+13.5-13.8 |
+| G2 StageAreaListBusy | 4.1 / 5.5 s | 0.3 / 0.5 s |
+| G8 StageAreasObjectsReady | 16.8 / 17.5 s (+20..+37.6) | 15.9 / 15.5 s (+13.8..+29.8) |
+| G9 + G5 (second manager-A batch) | ~8 s | ~7 s |
+| work end (last eval) / clear | +45.3-45.6 / 47.1-47.4 | +36.6-36.7 / 38.4-38.5 |
+
+SR removed the G2 time and ~1.5 s of G8; the pre-gate and G8 are now the two blocks (~14 + ~15.5 s).
+
+**What G8 polls** (3B3A28, 47 bytes of loop): for each entry i < [stage+560h] of the area list stage+540h (D3B9C =
+element i), skip if the area id filter does not match (entry dword >> 4); not ready if `[entry+30h]` (area object) has
+byte +1F0h == 0, dword +1ECh != 0, or `[entry+1C0h]` != 0. No waits, no work: a pure flag scan, called once per
+LoadIsLoadEnd eval (~40 evals/s). The flags are set by the area objects' own setup when their resources are in.
+
+**What it waits on: the first manager-A batch draining at the in-flight cap of 10.**
+- A act (in-flight) is 10 in every 1 s tick from +3 s to the end of G8 (all 4 logs); G8 passes at +29.7 / +29.8 and
+  the next ticks show A act 0 / 1 (L2 / L3). With SR=0 the next batch refills at once (A act 8 at +37 in L1).
+  Pending averages ~1000 (L2 1020, L3 993). The second batch (+32..+36, A act 10 again) is the G5 / G9 time.
+- Nothing else is saturated during G8 (L2/L3): CPU 8.3-11 cores of 16 (pre-gate peaks at 14 at +8..+13), inflate 0 ms,
+  PSO 0, reads 33-97 MB/s with 631FD5 in flight 2.4 and the rest 0.2 (the device does ~450 MB/s at QD1 for 256 KiB,
+  calib); KIDSTS (108 threads) 95 % parked in JobWorkerThreadMain, ~3 threads in game code (ResourceIsReady /
+  ResourceDependenciesReady / job pollers / collision); ResourceLoad x7 in ReadFileEx 3-4 % of their time; the 3
+  unnamed archive-read threads (740392 / 31305A; very likely TrySync, which SP cannot see: it samples named threads
+  only) in ReadFile 10 % (20 % with SR=0).
+- Main thread: 49 % in GfxFencePollWorker 117D6C (an event wait with GF on) + 12 % FenceWait at ~48 fps. 117D6C's
+  callers are the synchronous copy-and-wait helpers (5C0D4, 5C228, 41FD9C, 62EBB0 at device+43E8, TextureCopyRegion
+  69A1B4): record one copy, submit, wait for that fence. The GPU is at 99 % with the scene behind the cover.
+- Manager A (ResourceLoadIdlePoll 1FEE28) per pass: takes min(pending, cap - active) (cap = `sbb r15,r15; and r15,-9;
+  add r15,10` at 1FEE85..1FEEA0), then pushes one ResourceStepJob per active request that wants a step to TrySync
+  (GetPoolId_TrySync 5CF368, JobPushToPool 31A514); 12.4k no-progress Sleep(1)s (17.1k with SR=0).
+- Throughput: if each request is one RIS resource read (12.6k reads at 631FD5) over ~33 s of manager-A time at 10 in
+  flight, that is ~380 requests/s, i.e.
+  **~26 ms per request (about one frame)** while every resource it uses is mostly idle. That is latency per request,
+  not throughput: the in-flight cap is what turns it into 15.5 s.
+
+**Fix: LC = N.** LC (1.7.14, default off) already raises both managers' cap 10 -> 16 with byte-only immediates
+(LCa 1FEE98, LCb 1FF3BA; no cave, no hook, no register change). 1.7.30: `LC = 11..64` sets that cap
+(`and r15,-(N-1); add r15,N`, boot flag 1 still gives 1; `mov eax,N` for manager B); `LC = 1` stays 16. test_patterns
+proves the arithmetic and that only the immediates change for every N in 11..64. LoadStats reports the cap.
+- Expected (Ally): the cap-bound non-CPU-saturated time is G8 ~15.5 s + the second batch ~5 s. If per-request latency
+  stays ~26 ms: 16 -> **-5 to -8 s**, 32 -> **-8 to -14 s** (upper bounds; the +8..+13 s CPU-saturated part of the
+  pre-gate does not gain). Realistic 3-8 s. **0 or worse** if the 3 TrySync threads are the limit (the PC case: LC=16
+  raised in-flight 9.6 -> 15 but stretched the busy time 8.7 -> 11.3 s, loading-bottleneck.md); then add `TSY = 6`
+  (1.7.25, boot-time). Also watch fps in G8: if the per-request cost is the main thread's synchronous copy waits, more
+  in flight means more waits per frame.
+- Risks: LC also applies while playing (streaming): more requests in flight, same requests and order. PC ran LC=16
+  without a crash. No new code path; undo `LC = 0`.
+- Not chosen: LW (manager Sleep(1) -> event; 12.4k sleeps x ~1.1 ms are on manager A's own thread, ~0.5 ms notice
+  latency per step at 10 in flight = ~1-2 s at most; still worth one arm), RC on top of SR (740392 is 94 % < 8 us now),
+  more PF sites (G8 reads are not device-bound).
+
+**Ally session R4 (ASI 1.7.30; SR auto and EP auto by default).** Route / metric as 8.4 (work end = last LoadGates
+eval). Base = R2 base (LoadStats=3, LoadGates=1, MemStats=1, SP=1, ReadProbe=1). ABBA, 4 launches x 2 loads:
+B = base, A = base + `LC = 32`. If A gains: a second ABBA `LC = 16` vs `LC = 32`; if A is flat or worse: A = base +
+`LC = 32` + `TSY = 6` vs B = base. Optional arm: `LW = 1`. Check per load: "LC: ... cap 10 -> 32" at start, LoadStats
+"in-flight avg A" (expect > 10) and "pending avg A", the A act ticks, G8 held s and its last fail, work end, fps per
+phase, MB read within 1 %, screenshot 5 s after the press. PF (8.8.5, R3) can run on the same build; keep LC and PF in
+separate ABBAs. Send back: grep 'LoadStats|LoadGates|ReadProbe|ReadFix|LC:|TSY|EP:|SR:' of each log.

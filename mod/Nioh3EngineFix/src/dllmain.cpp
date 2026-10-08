@@ -44,7 +44,7 @@
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.29: gimerge.cpp (GIProbe / GIMerge, notes\gi-highest-audit.md s6)
-#define MOD_VERSION "1.7.29"
+#define MOD_VERSION "1.7.30"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -253,6 +253,7 @@ volatile uint32_t g_tgEnable = 0;
 volatile long g_tgState = 0;      // 0 off, 1 governing (cap > 0), 2 refused: L1 not active, 3 VRR not armed, 4 nothing to govern
 int g_tgFloor = 30, g_tgRatioPct = 125;
 int g_loaderCap = 10;            // 1.7.14: resource-load in-flight cap (16 when LC is applied), for LoadStats
+int g_lcCapWanted = 16;          // 1.7.30: LC = 1 -> 16, LC = 11..64 -> that cap (BuildRepl rewrites the LCa/LCb immediates)
 bool g_tgL1 = false;              // L1 installed this session
 volatile double g_tgRendered = 0, g_tgTicks = 0;
 ULONGLONG g_tgLowerSince = 0;
@@ -975,6 +976,16 @@ bool BuildRepl(Item& it) {
     r.clear();
     if (s.kind == gen::Kind::Bytes) {
         r.assign(s.repl, s.repl + s.len);
+        // 1.7.30 LC = N: manager A `sbb r15,r15; and r15,imm8; add r15,imm8` -> and -(N-1), add N (boot flag 1 still gives 1,
+        // 0 gives N); manager B `mov eax,imm32` -> N. patches.json holds N = 16; test_patterns proves the arithmetic 11..64.
+        if (g_lcCapWanted != 16 && g_lcCapWanted >= 11 && g_lcCapWanted <= 64) {
+            if (!strcmp(s.id, "LCa") && s.len == 12) {
+                r[3] = (uint8_t)(int8_t)(1 - g_lcCapWanted);
+                r[11] = (uint8_t)g_lcCapWanted;
+            } else if (!strcmp(s.id, "LCb") && s.len == 5) {
+                r[1] = (uint8_t)g_lcCapWanted;
+            }
+        }
         return true;
     }
     if (s.kind == gen::Kind::VPtr) {  // aligned data pointer -> the cave itself (no trampoline needed)
@@ -1689,9 +1700,14 @@ DWORD WINAPI Worker(LPVOID) {
         Log("GL1: task-list prefetch installed (E266D1 proximity pass, E26690 task-state pass)");
     // LC (1.7.14, notes\loading.md 3 row 4): resource-load managers keep up to 16 requests in flight instead of 10
     // (the boot-flag value 1 stays 1). Same requests and queue order, only more of them started at once.
-    if (expGroup("LC", cfg.lc != 0, nullptr)) {
-        g_loaderCap = 16;
-        Log("LC: resource-load managers A/B in-flight cap 10 -> 16");
+    // 1.7.30: LC = 1 -> 16 (as before), LC = 11..64 -> that cap (Ally G8 = manager A draining ~1000 queued requests at cap 10,
+    // notes\loading-ally-fixed.md 8.9); 2..10 or > 64 -> refused.
+    const bool lcValid = cfg.lc == 1 || (cfg.lc >= 11 && cfg.lc <= 64);
+    if (cfg.lc != 0 && !lcValid) Log("LC: %d is not 1 or 11..64 - not applied", cfg.lc);
+    g_lcCapWanted = cfg.lc == 1 ? 16 : cfg.lc;
+    if (expGroup("LC", cfg.lc != 0 && lcValid, nullptr)) {
+        g_loaderCap = g_lcCapWanted;
+        Log("LC: resource-load managers A/B in-flight cap 10 -> %d (ini LC = %d)", g_lcCapWanted, cfg.lc);
     }
     // LW (1.7.14, notes\loading.md 3 row 5): the managers' Sleep(1) polls wait on an event that finished ResourceStepJobs
     // set, still with the 1 ms timeout as the upper bound.

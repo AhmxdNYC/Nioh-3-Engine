@@ -1,4 +1,4 @@
-# Remaining work to call the project done (2026-10-08, ASI 1.7.25 built / 1.7.26 in src)
+# Remaining work to call the project done (2026-10-08, ASI 1.7.30 in src)
 
 **Done =** (1) every built fix has a per-device KEEP/DROP verdict from the re-test matrix, (2) the KEEP set is the default
 ini of a per-device release zip (`release\`), (3) the final STOCK vs ALL-KEPT benchmark on PC and Ally is in the README,
@@ -11,7 +11,7 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 | # | item | owner / status | effort | game |
 |---|---|---|---|---|
 | 1.1 | PC ABBA re-test B / PP / GF / MQ (+ OFF sentinels) and PC load EP A/B (`pc-keep-candidates.md` s4) | PC test agent; Block A aborted 10:29 (user active) | 2 h game | y |
-| 1.2 | Ally session R2: SR (1.7.25) ABBA, then SR+RC vs SR, LoadOnlyCpuFixes pair (`loading-ally-fixed.md` 8.7) | Ally agent | 1-2 h game | y |
+| 1.2 | ~~Ally session R2: SR (1.7.25) ABBA~~ DONE: SR=1 47.25 -> 38.45 s, 0 failures; SR = -1 auto (on under Proton) is the default since 1.7.28. Still open: SR+RC vs SR (low value: 740392 is 94 % < 8 us now), LoadOnlyCpuFixes pair | Ally agent | 1 h game | y |
 | 1.3 | Next Ally load fix: ReadFileEx 631FD5 (9-10 s ResourceLoad) -> ASI >= 1.7.26 (src has PF prefetch in progress) | read-fix agent (owns src) | 4-6 h | n (build), y (test) |
 | 1.4 | PC-vs-Ally load analysis (`pc-vs-ally-load.md`) | load-analysis agent | - | n |
 
@@ -46,7 +46,7 @@ Top 3 measured targets: FSR3 accumulate 2.1 ms USER (fp16 rebuild 0.2-0.5 E, use
 ## 4. Loading
 | # | item | owner / status | effort | game |
 |---|---|---|---|---|
-| 4.1 | After 1.2/1.3: G5 ObjectListAnyNotReady ~6 s, G9 LoadCharacterReady 3-4 s holders | free; after R2 data | 4-8 h | y |
+| 4.1 | Ally load after SR (38.5 s; `loading-ally-fixed.md` 8.9): G8 ~15.5 s = manager A draining ~1000 queued requests at in-flight cap 10 while pools / disk / half the CPU idle; G5+G9 ~7 s = its second batch; pre-gate ~14 s (CPU-saturated at +8..+13). Fix built: `LC = N` (cap 11..64, 1.7.30, default off), expected 3-8 s (up to -14 s at 32), 0 if TrySync-bound (then + `TSY = 6`). Next: Ally R4 ABBA LC=32 vs base (protocol 8.9); after it, the pre-gate CPU block (SP cannot see the unnamed TrySync threads: add them before profiling it) | Ally agent (R4); free after | 1-2 h game | y |
 | 4.2 | Add SR/RC/AQ/TSY/SH/EP/PF + LoadOnlyCpuFixes to `tools\testmatrix\matrix.json` (queue 1b) | free (sonnet); after the harness owner releases it | 1 h | n |
 | 4.3 | AutoContinueLoad on death-respawn and fast-travel routes (only title->Continue verified) | free; one check in any session | 15 min game | y |
 | 4.4 | LM load-memory sweeper (3-6 s when a swap burst occurs) - built default off | matrix | in matrix | y |
