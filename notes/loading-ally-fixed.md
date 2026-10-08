@@ -287,8 +287,9 @@ count).
      - Archive reads: 63k calls at 114 us/call (PC: 14 us).
      - Average read rate: 20 MB/s (PC: ~220 MB/s while its managers are busy).
    - Why they serialize under Wine: an overlapped ReadFile on a regular file completes inside the call.
-     FileReadAsyncSubmit 312F7C and FileReadBatchLocked 7401F0 hold an SRW lock across that call. So reads that are async
-     on Windows become serial, device-latency-bound reads on the 3 TrySync step threads.
+     ~~FileReadAsyncSubmit 312F7C and FileReadBatchLocked 7401F0 hold an SRW lock across that call.~~ **Corrected in §8:
+     both release the lock before ReadFile.** So reads that are async on Windows become blocking reads on the calling
+     (step) threads, and their parallelism is the number of calling threads.
    - Other multipliers:
      - The Ally frame is 23-34 ms vs 9 ms on PC, and steps and uploads are noticed once per frame.
      - The main thread spends ~50 % on upload/frame fences, with the GPU at 99 %.
@@ -327,3 +328,142 @@ Same save and route on the Ally. Time the "work end" (last LoadGates eval, manag
    - the SRW lock-hold time at 312F7C and 7401F0.
 
    Also fix the LoadGates tail accounting (§7.1). RP decides between RC, AQ and TS.
+
+## 8. Read fix design (2026-10-08, static only; nothing built, game not run)
+
+Inputs: §7, `loadstats.cpp` (kRead sites), 4 read-only Ghidra queries, a byte scan of `re\Nioh3.dump.exe`. Names:
+`re\symbols\incoming\read-renames.tsv` (29 rows, incl. corrections of CrtReadFd / CrtGetOsHandle / FileReadBatchLocked).
+§7.4's "SRW lock-hold time" item is dropped: the lock is not held across the read (8.1).
+
+### 8.1 What the file layer does (static facts the design rests on)
+
+| fact | where | consequence |
+|---|---|---|
+| Archives open with `GENERIC_READ`, share **`FILE_SHARE_READ` only**, flags `0x80` + `FILE_FLAG_OVERLAPPED` when open bit 0x200 is set. No NO_BUFFERING / SEQUENTIAL_SCAN / RANDOM_ACCESS | FileOpenWin32 314144 (CreateFileW 314199; `and eax,200h` at 314181) | the flags are not pathological. Without write sharing no writer can exist while the handle is open, so cached bytes cannot go stale |
+| The SRW lock f+A0h is **released before** ReadFile | FileReadAsyncSubmit 312F7C, FileReadBatchLocked 7401F0 (§7.2 corrected) | no lock serializes reads; read parallelism = number of calling threads |
+| **One kernel event per read, created and closed every time**: FileReqAlloc 311E50 calls CreateEventA (311EE1) per OVERLAPPED; FileReqFree 311F58 closes them (311F89) | all archive reads (312F7C: n = 1; batch 740144: n = entries) | under Wine both are wineserver calls, and LoadStats does not time them: ~640k creates + closes per load |
+| Completion = `WaitForMultipleObjects(events, bWaitAll, INFINITE)` | FileReqWaitAll 312754 (3127A1). No GetOverlappedResult and no `Internal` poll in the layer | anyone who fills `Internal/InternalHigh` and **signals hEvent** completes a read: AQ is feasible |
+| Every hooked site passes an OVERLAPPED with an explicit offset | 311D17, 312DD2, 31305A, 3130D6, 740392, 32562BE | the file pointer is never used; a cache can serve without touching it |
+| The game has its own read cache: only on FileStreamReadStep 311BFC, only for files with flag 0x40, caching exactly what was read (no read-ahead) | FsReadCacheLookup 2F77A6C (call 198357C), FsReadCacheInsert 2F77474 | not a fix by itself; RP logs whether it ever hits |
+| FileStreamBounceRead 3256334 reads in chunks of the stream's bounce size [s+40h] | 32562BE | if this is the hot 'other' site, calls = bytes / bounce size |
+| 1FD9CA3 is the SAVEDATA.BIN whole-file read (open, read, close) | FileReadWholeByPath 1FD9C58 | never touched by a fix |
+| 13 ReadFile + 1 ReadFileEx call sites in .text; LoadStats hooks 7 | others: AF5656 (device read with timeout), BDCC46, BF9485, BF9647, BF98E5, BF9FC7, ReadFileEx 631FD5 | RP hooks all 14 so nothing hot is missed |
+| TrySync = pool table entry 9: count u32 at **4B723B4** (= 3), weight i32 at **4B723B8** (= 4); count = trunc(12/13 x weight) | SizeWorkerPools 1FE2FD4 (PoolBaseForIndex = 12 for pool 9) | weight 7 -> 6 threads on every CPU (Zen1 divisor 16: 5) |
+
+### 8.2 RP read probe (`[Profiler] ReadProbe = 1|2`, default 0, needs LoadStats >= 1; new file `readprobe.cpp`, sonnet)
+
+**Hooks** (the verified-bytes FF 15 -> E8 thunk path LoadStats uses for kRead; extend `ls_sites.py` -> `READPROBE SITES OK`):
+- R1: the 13 ReadFile sites + ReadFileEx 631FD5, one site id each. With RP on, RP's per-site hook replaces HkRead<C> at
+  the 7 shared sites and still feeds LoadStats' counters (no double hook, no IAT patch).
+- R2: event churn: CreateEventA 311EE1, CloseHandle 311F89, WaitForMultipleObjects 3127A1 (count + in-call time).
+- R3: game cache: the E8 at 198357C -> 2F77A6C (calls; hits = return > 0).
+
+**Per call** (two QPCs, a few relaxed atomics, one 4k-slot open-addressed handle table): site, handle slot, offset (from
+the OVERLAPPED), size, ok/pending/error, duration, thread slot, in-flight count at entry (global and per handle).
+- First sighting of a handle: `GetFinalPathNameByHandleW`, `GetFileInformationByHandleEx(FileStandardInfo)` and
+  `NtQueryInformationFile(FileModeInformation)` (synchronous vs overlapped handle), once, on the calling thread. That is
+  ~3 calls per file, a few hundred per run.
+- Thread -> pool from `GetThreadDescription` (the game's `KIDSTS[s%d:%s]` names), cached per thread.
+
+**Locality per handle**: the last end offset plus a ring of the last 8 64-KiB block ids. Each read is classed:
+- `seq`: offset = last end;
+- `near`: < 64 KiB away;
+- `inblk`: its 64-KiB block is in the ring;
+- `reread`: the same offset + size is in the ring;
+- `far`: none of these.
+
+**Calibration** (once, at the first title frame, never inside a 58A window, ~50 ms, on the sampler thread). Open
+`package\root.rdb` twice: synchronous and FILE_FLAG_OVERLAPPED, GENERIC_READ, share READ (compatible with the game's
+handles). Then:
+1. 1000 x 4 KiB and 1000 x 1 B reads of one just-read offset on each handle -> **per-call cost of a cached read**
+   (Wine + syscall overhead only);
+2. 32 random uncached offsets x {4, 64, 256} KiB -> **device cost by size** (is a 64 KiB read about as cheap as 4 KiB?);
+3. 200 x CreateEventA + CloseHandle -> the event churn cost.
+
+**Log per 58A window** (also split at the last LoadGates eval). Shape (numbers illustrative):
+```
+ReadProbe #n site 740392: 412k calls, 450 MB, in-call 43.1 s | thr TrySync 81 % RequestLoad 12 % other 7 % | handles 3 |
+  ovl-api 100 % pending 0 % | size <=1K 61 % 1-4K 30 % 4-64K 8 % >64K 1 % | us <8 4 % 8-32 9 % 32-128 70 % 128-512 15 % >512 2 % |
+  seq 55 % near 10 % inblk 12 % reread 3 % far 20 % | inflight global avg 2.9 max 3, same-handle avg 2.7
+ReadProbe #n files (top 8 by in-call s): root.rdb ovl 38.0 s 510k calls ... | 0001.fdata ...
+ReadProbe #n events: CreateEventA 413k (avg 18 us), CloseHandle 413k (14 us), WFMO 400k (avg 95 us) | game cache calls 0 hits 0
+ReadProbe #n threads: TrySync x3 in ReadFile 62 % of their window, in WFMO 9 % ...
+ReadProbe calib: cached 4K sync 9 us ovl 14 us 1B 8 us | uncached 4K 95 us 64K 130 us 256K 330 us | event pair 25 us
+```
+- `ReadProbe = 2` also writes a binary trace: 32 B per call, a 32 MB RAM ring, flushed after the window to
+  `Nioh3EngineFix_reads_<n>.bin`.
+- New `re\scripts_load\rp_sim.py` replays the trace. It predicts the RC hit rate per block size and cache MB, and the AQ
+  in-call time per queue depth, using the calibrated device costs.
+- Cost of RP=1: < 1 us per ~100 us call.
+
+**Verdict rules** (the probe decides; the numbers are the thresholds):
+
+| RP shows | means | build first |
+|---|---|---|
+| calib cached 4K >= 40 us, or hot-site calls mostly in 32-128 us with `seq+near+inblk` >= 60 % | per-call Wine overhead | **RC** (hits never enter Wine) |
+| cached 4K <= 15 us, uncached 64K <= 1.5 x uncached 4K, `seq+near+inblk` >= 60 % | device latency, good locality | **RC** (fewer device trips) |
+| as above but `far` >= 50 % | device latency, random | **AQ** (queue depth), then **TSY** |
+| event pair >= 15 us and >= 300k events per load | event churn | **EP** (cheap, alongside any other) |
+| TrySync threads in ReadFile + WFMO >= 50 % and global in-flight ~= 3 | read-bound step threads | **AQ** or **TSY** |
+| overlapped cached 4K >= 1.5 x synchronous cached 4K | overlapped handles cost extra under Wine | **SH** (Ally only) |
+
+### 8.3 Fixes, ranked (Ally seconds of the ~93 s work; zero effect on output bytes)
+
+| # | flag (default 0) | hook points | design | memory | expected Ally | PC | risks |
+|---|---|---|---|---|---|---|---|
+| 1 | **GF=2, W6=2, RWb=2** (loads-only, §8.5) | existing caves; runtime words g_gfEnable / g_w6Enable; RWb needs a switchable cave | on while G+58Ah is set | 0 | **3-10 s** (power back to the step threads and the GPU) | 0 | nothing new except the RWb live switch (§8.5) |
+| 2 | **RC** read cache: `[Patches] RC=1` (1 = 58A windows, 2 = always), `RCMB=64`, `RCKB=64`, `RCMaxReadKB=64` | register at CreateFileW 314199 (GENERIC_READ, no FILE_SHARE_WRITE); unregister at CloseHandle (IAT 38E2390, hash-set check); serve at 311D17, 312DD2, 31305A, 3130D6, 740392, 32562BE (never 1FD9CA3) | reads <= RCMaxReadKB on a registered handle are copied from cached aligned RCKB blocks. A miss reads the whole aligned block(s) with the real ReadFile (own OVERLAPPED + per-thread event + GetOverlappedResult wait, so it is also correct on Windows). Other threads that want a loading block wait on it (WaitOnAddress). A hit returns exactly like a synchronous completion: TRUE, `*got`, `Internal = 0`, `InternalHigh = n`, `SetEvent(hEvent)`. A short block at EOF or a failed block read passes the original call through (same errors). CLOCK eviction, 64 shards. RC=1 frees the blocks 10 s after the clear | RCMB (64 MB default, max 256; 4.9-5.8 GB available during the Ally load) | **10-30 s** if 60-80 % of reads hit (68 thread-s in calls -> ~10-15, mostly on the 3 step threads); ~0 or slightly negative if `far` dominates (a 64 KiB miss costs more than 4 KiB) | 0 (3.2 s in calls in total; managers off the critical path) | staleness impossible while the share mode holds; handle reuse after a close -> the CloseHandle unregister; an extra copy per hit (~1 us per KB-sized read) |
+| 3 | **AQ** async archive reads: `AQ=1`, `AQThreads=4` | 31305A, 3130D6, 740392 (the overlapped sites; their callers accept ERROR_IO_PENDING) | set `Internal = STATUS_PENDING (0x103)`, queue {handle, buf, n, OVERLAPPED*}, return FALSE with `SetLastError(ERROR_IO_PENDING)`. An ASI worker reads into the game's buffer (through RC when it is on), fills `Internal/InternalHigh` and signals `hEvent`. The game already waits in FileReqWaitAll (WFMO on hEvent): the Windows overlapped contract | 4 threads | **5-20 s** if device-latency bound and `far`-heavy: step threads stop blocking in reads and the device sees queue depth 4+ instead of <= 3 | 0 (Windows is already async) | the game must not reuse the buffer or OVERLAPPED before its wait (it waits in 312754 before FileReqFree 311F58); only events made by FileReqAlloc are signalled (hEvent != 0 checked) |
+| 4 | **EP** event pool: `EP=1` | CreateEventA 311EE1, CloseHandle 311F89 | hand out manual-reset, non-signalled events from a pool (ResetEvent when returned); create only when the pool is empty; cap 4096 | ~0 | **0-8 s** (2 wineserver calls per read: 640k x 2 x 10-25 us = 13-30 thread-s) | ~0 | an event still referenced by a pending read is impossible: FileReqFree waits for all first; ResetEvent on return keeps "non-signalled at creation" |
+| 5 | **TSY** TrySync threads: `TSY=6` (3..8) | data 4B723B8: weight 4 -> the smallest weight giving N (7 for 6), written before SizeWorkerPools (the boot race P12/WC already win); assert count 3 at 4B723B4 | more step threads run read-blocked steps at once | +3 threads (blocked when idle) | **5-15 s** if step threads are read-bound and the device has queue headroom; 0 if CPU-bound | 0 (LC showed the PC is not step-bound) | boot-time only (next launch); steps already run 3-wide, so they are thread-safe; more CPU contention on the APU in CPU-heavy phases. "TS" is already an exp-menu key, hence TSY |
+| 6 | **SH** synchronous archive handles: `SH=1`, Ally only | 314181 `25 00 02 00 00` -> `25 00 00 00 00` (before the first open; boot) | handles open without FILE_FLAG_OVERLAPPED; the game's reads become positioned synchronous reads that return TRUE, the path Windows takes on cache hits | 0 | **0-6 s**, only if calib shows overlapped cached reads >= 1.5 x synchronous | **negative** (Windows serializes I/O per synchronous file object): never on PC | excludes AQ; write/rw opens should keep the flag (restricting to mode&3 == 1 needs a small cave instead of the imm; builder decides) |
+| 7 | **MM** mapped reads: `MM=1`, `MMViewMB=64` | the RC serve sites | serve from 64 MiB read-only views (CreateFileMapping + MapViewOfFile, LRU of 32 views) by memcpy inside `__try`; EXCEPTION_IN_PAGE_ERROR -> pass through | 0 private; page cache only; 2 GB of VA | like RC hits, plus kernel read-around on faults | ~0 | if Wine falls back to reading a whole view (a map taking > 5 ms), disable MM for that file; fault-time blocking is invisible to the game. Only if RC's memory or copy cost is the problem |
+| - | write-offs | - | FILE_FLAG_SEQUENTIAL_SCAN / RANDOM_ACCESS (cache-manager hints on Windows; no known Wine equivalent); NO_BUFFERING (bypasses the page cache, needs sector-aligned buffers, hurts both devices); the game's FsReadCache (exact-range, no read-ahead, one path); 1FD9CA3 (save data) | - | 0 | - | - |
+
+Together (RP picks 2-3 of rows 2-7): **~15-40 s** off the ~93 s, plus row 1.
+- Build order: RP + LO (row 1) in one build, then the RP-chosen fix(es) in the next (one build per session).
+- **Proofs before shipping** (offline, no game):
+  - `tests\run_readfix_harness.py` (new) runs 8 threads of random reads on a 1 GiB test file: 1 B - 128 KiB,
+    unaligned, block-crossing, at and past EOF, synchronous and overlapped handles, completion via WFMO on per-read
+    events like 312754. It goes through RC, AQ, EP and RC+AQ, and compares against plain ReadFile: bytes, return value,
+    `*got`, `GetLastError`, `Internal/InternalHigh` and event state -> `READFIX HARNESS: ALL OK`.
+  - Site bytes: `READPROBE SITES OK`, plus `tests\test_patterns.py` -> `ALL N SITES OK`.
+
+### 8.4 Ally A/B (exact)
+
+Route and metric as in §7: same save, online title -> Load Game -> Level 136; press A as soon as the tip page shows.
+- **Metric = work end**: the last LoadGates eval and manager A last busy (L1: 93.6 / 93.5 s). Also RP in-call s, CPU
+  cores, RAM available min, VRAM 60 s after the press.
+- **Base ini** = the 1.7.19 L1 ini (LoadStats=3, LoadGates=1, MemStats=1, SP=1) + `ReadProbe=1` in **every** arm, so
+  its overhead cancels.
+- **Each arm = one launch, two loads**: title -> Load Game (#1, colder page cache), press A, 60 s in game, quit to
+  title, Load Game (#2, warmer). Compare #1 with #1 and #2 with #2; RP's duration histogram shows the cache warmth.
+- **Order ABBA** (4 launches). A fix counts if both A-B pairs improve the work end by more than the B-B spread (expect
+  <= 1 s).
+- **Same look and content**: a screenshot 5 s after the press in each arm; LoadStats `MB read` (game-requested bytes,
+  counted before RC) within 1 %; VRAM at +60 s within 2 %.
+
+| session | build | arms (A / B) |
+|---|---|---|
+| R1 | RP + LO (row 1) | B = base; A = `GF=2 W6=2 RWb=2`. Launch 1 also runs `ReadProbe=2` (trace for rp_sim.py) |
+| R2 | the RP-chosen fix | B = base (+ LO if R1 kept it); A = base + one of `RC=1` / `AQ=1` / `EP=1` / `TSY=6` / `SH=1`. A second fix gets its own ABBA (or a 2x2 in R3) |
+
+PC: one ABBA of the kept fixes on the PC LG route (`loadstats_ab.ps1`) to confirm "0 or better". SH never runs on PC.
+
+### 8.5 Loads-only gating via G+58Ah (LO)
+
+- ini: `GF`, `W6`, `RWb` accept **2 = loads only** (1 = always, as now). The caves are installed as for 1, with the
+  runtime word starting at 0.
+- Gate thread: LoadStats' 10 ms sampler if LoadStats >= 1, else a small 10 ms timer thread. It reads byte
+  `[g_GameMainPtr]+58Ah` (the same read LoadStats does).
+  - Rising edge: set `g_gfEnable = 1`, `g_w6Enable = 1`, `g_rwbEnable = 1`.
+  - Falling edge: set them to 0 at once. The tip page is inside the window, so it is helped too (no spin).
+  - Log `LO: on at 58A set #n, off at clear (+x s)`.
+- GF and W6 already switch live: the mod menu flips the same words, and a waiter falls back to the stock Sleep(0) when
+  its word is 0.
+- RWb is a 22-byte reorder at 1A3146A with no runtime word. For mode 2:
+  - the builder replaces it once with `jmp caveRWb` + nops, installed with LoadStats' EB FE two-step write;
+  - the cave holds both orders (stock and RWb) and branches on `g_rwbEnable`;
+  - the cave calls JobWakeOneInPool 48B9C by absolute address, because the original E8 rel32 cannot move;
+  - the patterns test proves both cave paths match the stock and RWb sequences.
+- Expected: row 1 of §8.3 on the Ally, 0 on PC. In gameplay the words are 0, so the game runs stock code there.

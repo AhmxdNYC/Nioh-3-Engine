@@ -15,8 +15,8 @@ Read this section only; everything older is under '## History' (unchanged). Late
 4. User-pending on the Ally: the title-screen tip-page press during load tests; the Phase 0 session; scheduling the final benchmark; Discord posts. Ask via the bridge, do not guess.
 
 ## QUEUE (ranked; model per job; keep 3-4 agents running)
-1. [sonnet] RP read probe (per-site calls / in-call time / thread pool / offset locality, SRW hold at 312F7C / 7401F0) + LoadGates tail fix, new files. Then [opus] read fix (RC read cache / AQ async archive reads / TS TrySync 3->6) after the design in notes\loading-ally-fixed.md section 7 lands. Needs the Ally digest of step 2 first for the decision.
-2. [sonnet] Loads-only gating of GF/W6/RWb (apply only while a load is active; ini flag, default off) - build then Ally test.
+1. [sonnet] BUILD next (after 1.7.21 lands): RP read probe `[Profiler] ReadProbe=1|2` (new readprobe.cpp; 14 ReadFile/ReadFileEx sites, event churn 311EE1/311F89/3127A1, game cache call 198357C, Wine calibration at the title, trace + re\scripts_loadp_sim.py) + LO loads-only GF/W6/RWb=2 gated on G+58Ah (RWb via a switchable cave) + LoadGates tail fix; spec notes\loading-ally-fixed.md §8.2/§8.5, Ally A/B session R1 §8.4. Then [opus] the RP-chosen fix (RC read cache / AQ async archive reads / EP event pool / TSY TrySync 3->6 / SH, §8.3; harness READFIX HARNESS: ALL OK) = session R2.
+2. (merged into 1: LO loads-only gating ships with RP.)
 3. [opus] PC submit filters: PSO/RT redundancy (SF1 + PM key memo, SF3 OM/RS) per notes\pc-submit-overhead.md; build only if the trace shows >= ~200 redundant calls/frame; run submit_redundancy.py on the one trace run first; B draw-loss check by screenshot pair.
 4. [opus] Rematch build after the Phase 0 logs (notes\boss-rematch-design.md; boss-master.md has the data). Blocked on the user session.
 5. [sonnet] settings-cost.md: fill measured columns when benchmark data exists; README/charts refresh after merges.
