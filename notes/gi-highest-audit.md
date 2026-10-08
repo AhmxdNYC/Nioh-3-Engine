@@ -178,3 +178,27 @@ Files:
 - `re\symbols\incoming\gi-audit-renames.tsv` (10 per-frame param setters from GiRenderScalesApply).
 
 Scratch disassembly of the RefProbe PS/CS records came from `re\scripts_gpu\extract_dxbc.py` plus `dxc -dumpbin` and was not kept.
+
+## 6. Built: A0 probe + A1 merge (ASI 1.7.29, both default off)
+
+Value re-anchored by `ally-gpu-budget.md`: **~0.25-0.5 ms Ally at MAX, ~0.03 ms at the user preset (E)**. The 0.7-1.9 ms above was PC r5 × 6-8 on a menu-diluted table.
+
+**Code.** `mod\Nioh3EngineFix\src\gimerge.{h,cpp}` (new). Integration: `gpuopt_thunks.asm` (new `gpuopt_hook2` mask, `gpuopt_hold` list, a thunk returns without calling the original when `GpuOptSlow` returns 1), `gpuopt.cpp` (`StartInfo.giMerge`, gimerge before gpuopt's batch flush, `OnBarrier` in `HkResourceBarrier`), dllmain (Start after psoswap, stats line), osd (`OnFrame`).
+- Hooks: D3D12CreateDevice import (chains psoswap) → device `CreateComputePipelineState` (PSO → shader digest), `CreateGraphicsPipelineState` (pointer reuse), `CreateConstantBufferView` (the CBV a dispatch reads: newest CBV of the target's size created on the recording thread since the last work call), `ID3D12Resource::Map/Unmap` (upload VA → CPU). Command-list calls arrive through gpuopt's thunks. All COM/IAT sites: plain ABI (`hook-register-audit.md`).
+- Targets: #121 `4b4c3cbe` (mask @464) and #414 `6ae59bd0` (mask @480) mergeable; seven more gv_mask_param shaders of `shaderdump_172` are probe-only.
+
+**Keys.**
+- `[Debug] GIProbe = 1` (A0): every 30 s `stats/s giprobe:` (dispatches + groups per frame per shader, (ref, mask) pairs seen, CBV misses) and `stats/s gimerge:` (pairs ok/bad + why: pso, grid, no-cbv, roots, cbuffer, mask-value, union, barrier/work, same-cbv). Every `GIProbeEvery` (300) frames, up to `GIProbeFrames` (30), one frame of `GIPROBE` lines: grid, groups, gv_mask_param, CBV VA, gv_info_out, cbuffer rows and root params that differ from the previous same-shader dispatch, and `PAIR ok -> x' y'` or the reason. This answers A0: are the two dispatches identical except mask.xy, and is the union a single masked test.
+- `[Patches] GIMerge = 2`: observe only (would-merge counts). `GIMerge = 1`: merge after `GIMergeQualify` (60) clean pairs.
+
+**Exactness (A1).** A pair merges only when: same PSO and grid, exactly one root parameter rebound (the CBV table), cbuffers byte-identical except `gv_mask_param.x/.y` (so `.z/.w`, used in the math, are equal), and `MaskUnion` finds `(x', y')` with S(x',y') = S1 ∪ S2 over all u32 stencil values (closed form: containment, or same mask and refs one bit apart). Then group 1 is not recorded and `(x', y')` is written into group 2's own upload-ring cbuffer (read back to verify) before the list executes.
+- Group 1 is **held**, not dropped. Any other call on that list (PSO, root signature, heaps, draws, copies, Close, a transition barrier) replays it first with its own root tables, then restores the current ones, plus a NULL UAV barrier when a UAV barrier was held over. Root-table rebinds and UAV barriers keep the hold.
+- A failed pair disarms (observe again). If the first dispatch after a merged one still binds the same CBV table without a new CBV (it would read the rewritten mask), the merge is disabled for the session.
+- Refs 1 and 2 under mask 3 can never merge (A2 territory); the probe shows which refs the game uses.
+
+**Offline checks.** `py -I tests\run_gimerge_harness.py`: MaskUnion = brute force on all 2^20 5-bit cases; fake-list streams (qualify → merged frame has one dispatch and mask (2,2); cbuffer mismatch → replay `T2=g1 D T2=g2 U D`; transition → replay before it; Close → replay; reuse → disabled; refs 1/2 never arm). gp / r2 harnesses (they link gpuopt) and `test_patterns.py` pass. Not run in the game.
+
+### Ally A/B protocol
+1. **A0 (one session, ~10 min).** `[Debug] GIProbe = 1`, `[Patches] GIMerge = 2`, `[Profiler] GPUProf = 2`. GI HIGHEST, REN_RAT 100, gameplay (not menus): a spot with the player and enemies, open sky, a river; 2 min each. Read: `PSOs n target` > 0 and `Map hooked` (else the IAT/device hook missed: stop), the (ref, mask) pairs for rp121/rp414, `pairs ok` vs `why`, any `would-merge ... DISABLED`. Go to step 2 only if rp121/rp414 pairs are mostly `ok` and nothing was disabled. If `why: union` dominates → A2 (psoswap) or write off; `roots`/`cbuffer` → read the GIPROBE rows to see what differs.
+2. **Visual.** `GIMerge = 1`, the same spots: screenshot pairs GIMerge 0 vs 1 (same camera, paused). Must be identical (GI is deterministic per frame). Log: `armed`, `merged ~2/f`, `replays` small, `conflicts 0`.
+3. **Perf.** GI HIGHEST, REN_RAT 100, VSync off, GPUProf off, fixed spot. ABBA 4 × 60 s MangoHud, GIMerge 0 / 1 (GIProbe 0). Metric: GPU frame ms. Expected −0.25…−0.5 ms (E); then one GP2 window per arm: rp121/rp414 per-PSO ms down by the group-1 share. Repeat once at the user preset (expected ~0, only as a no-regression check). Ship only on an Ally win.

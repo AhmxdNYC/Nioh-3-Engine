@@ -555,3 +555,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - New `re\scripts_gpu\build_wdo14.py` + `gpu-shaders\vsm\` (flag_dedupe.py rewrite, verify_vsm.py proof): `0x1667d3a0.file` #14 with 36 of 43 page-flag loads behind a same-page cache. Proven bit-exact offline (psim 120 scenes x 600 px, interface parts identical, signed). Staged as `gpu-shaders\replacement\0x1667d3a0.file` (sha256 60e2646c...), default OFF. RGA: Ally-class VGPR 40 -> 48. Notes: `notes\gpu-wdo14-flag-dedupe.md`.
 - Install for the A/B (game closed): `gpu-shaders\apply_wdo14.ps1` / `./ally_shaders.sh apply wdo14`; matrix id `S_wdo14`.
 - Undo: `apply_wdo14.ps1 -Revert` / `./ally_shaders.sh revert wdo14`, or Steam verify.
+
+## 2026-10-08 - ASI 1.7.29: GIProbe (A0) + GIMerge (A1) GI gather light-group merge (default off; nothing in the game folder changed)
+- New `mod\Nioh3EngineFix\src\gimerge.{h,cpp}`; gpuopt thunks get a second hook mask + a held-list slot and can skip a held Dispatch. `[Debug] GIProbe = 0`, `[Patches] GIMerge = 0` (2 = observe), `GIMergeQualify = 60`. With both 0 nothing is installed.
+- Merges the two stencil light-group passes of RefProbe #121/#414 into one when they provably differ only in gv_mask_param.xy (notes\gi-highest-audit.md s6). Expected ~0.25-0.5 ms Ally at MAX, ~0.03 ms at the user preset (E). Offline: `tests\run_gimerge_harness.py` ALL OK, gp/r2 harnesses, test_patterns. Not run in game; Ally A/B protocol in the note.
+- Undo: GIMerge = 0 / GIProbe = 0 (next launch), or the previous .asi.

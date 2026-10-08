@@ -17,7 +17,7 @@ pre = ('call "%s" >nul && ' % setup) if setup.exists() else ""
 src = ROOT / "src"
 cmd = pre + (
     'ml64 /nologo /c /W3 /Fo"{o}\\gpuopt_thunks.obj" "{s}\\gpuopt_thunks.asm" >nul && '
-    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE "{t}" "{s}\\gpuopt.cpp" "{s}\\gpuprof.cpp" "{s}\psoswap.cpp" '
+    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE "{t}" "{s}\\gpuopt.cpp" "{s}\gimerge.cpp" "{s}\\gpuprof.cpp" "{s}\psoswap.cpp" '
     '"{o}\\gpuopt_thunks.obj" /Fo"{o}\\\\" /Fe"{o}\\gp_harness.exe" /link d3d12.lib d3dcompiler.lib dxgi.lib kernel32.lib user32.lib'
 ).format(o=OUT, s=src, t=ROOT / "tests" / "gp_harness.cpp")
 r = subprocess.run('cmd /s /c "' + cmd + '"', capture_output=True, text=True)

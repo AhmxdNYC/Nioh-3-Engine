@@ -43,6 +43,7 @@ are plain Win64 ABI and need nothing beyond the ABI.
 | W3 X1 W6 GF1/2 WL DS TSp WS0-5 WSs PT1a/r LWa-c | FF 15 / FF 90 | import / vtable | safe (ABI); W3 hookPeek has the 5-arg signature; asm caves keep rsp alignment. |
 | RWb (loadonly) | 1A3146A | asm cave | safe: skip path drops `call 48B9C; Sleep(0)`, flags dead at 1A31486. |
 | W1 W2 P3 P6 R1 P12 WC AS0 LC S1 M2 J1 LK | in place | byte patch | no hook; CAS->load rewrites checked for flags: dead or re-set (LKM5 `test`, LKJ4 next cmpxchg). |
+| GIM (1.7.29 gimerge.cpp) | D3D12CreateDevice IAT, device vtbl CreateGfx/CreateCs/CreateCbv, Resource Map/Unmap, list calls via gpuopt thunks | IAT / COM vtable | safe (ABI). Thunk change: `test eax,eax; jnz -> ret` after the slow call - rax is volatile and not an argument; skip only for Dispatch (void); rsp at entry value. |
 | GP, D3D12/DXGI vtables (gpuopt, gpuprof, osd, tilestats, psoswap), XInput IAT (menu) | COM / API | skipped (ABI). |
 
 ## For the loadstats.cpp owner (not edited here)
