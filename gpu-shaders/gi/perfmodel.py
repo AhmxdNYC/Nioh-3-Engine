@@ -27,7 +27,7 @@ def one(args):
     otext = open(ORIG).read() if ORIG else text
     out = []
     for s, tm in ((sh, "cyc"), (sh1, "rt")):
-        sc, groups = scenes.refprobe_scene(otext, seed, realistic=REAL) if kind == "refprobe" else scenes.vfscat_scene(otext, seed, realistic=REAL)
+        sc, groups = scenes.make(kind, otext, seed, realistic=REAL)
         X, _ = s.dispatch(sc, groups)
         out.append(X.times)
     writers = set()

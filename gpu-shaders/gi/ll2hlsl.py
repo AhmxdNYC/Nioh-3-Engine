@@ -340,8 +340,13 @@ def seq(items):
 
 
 class Decompiler:
-    def __init__(self, text, name="main", collapse=()):
-        """collapse: [(loop header block, trip count), ...] loops to fully unroll + if-convert (see collapse_loop)."""
+    def __init__(self, text, name="main", collapse=(), cdpred=False):
+        """collapse: [(loop header block, trip count), ...] loops to fully unroll + if-convert (see collapse_loop).
+        cdpred: in a collapsed loop, a block control-equivalent to an earlier one (dominated by it and
+        post-dominating it inside the iteration) reuses that block's predicate instead of OR-ing its in-edge
+        predicates; same value, but it does not depend on the branch conditions in between, so the next
+        iteration's reads do not wait for this iteration's loads (dxc does not fold (p&&c)||(p&&!c) -> p)."""
+        self.cdpred = cdpred
         self.text = text
         self.m = llir.parse(text)
         self.ifc = Iface(text)
@@ -509,6 +514,27 @@ class Decompiler:
             newty[name] = "bool"
             return "v" + name
 
+        # control equivalence inside one iteration (cdpred): b ~ d if d dominates b and b post-dominates d,
+        # where the latch's back edge and every loop exit go to one virtual EXIT node
+        ceq = {}
+        if self.cdpred:
+            succ = {b: [t if (t in body and not (b == latch and t == H)) else "EXIT" for t in m.byname[b].succs]
+                    for b in order}
+            pdom = {b: set(order) | {"EXIT"} for b in order}
+            pdom["EXIT"] = {"EXIT"}
+            changed = True
+            while changed:
+                changed = False
+                for b in reversed(order):
+                    new = set.intersection(*[pdom[t] for t in succ[b]]) | {b} if succ[b] else {b}
+                    if new != pdom[b]:
+                        pdom[b] = new; changed = True
+            for i, b in enumerate(order):
+                if b == H:
+                    continue
+                cands = [d for d in order[:i] if d in dom[b] and b in pdom[d]]
+                if cands:
+                    ceq[b] = cands[-1]
         saved = dict(self.ren)
         exit_preds = []        # (k, b, t, printed pred var, renaming)
         prev = None            # renaming of iteration k-1
@@ -542,7 +568,10 @@ class Decompiler:
                     ins_ = [p for p in blk.preds if p in body]
                     ps = [edge[(p, b)] for p in ins_]
                     pvn = pv("%sk%d_p%s" % (tag, k, b))
-                    lines.append("%s = %s;" % (pvn, " || ".join(ps) if ps else "false"))
+                    if b in ceq:
+                        lines.append("%s = %s;" % (pvn, P[ceq[b]]))
+                    else:
+                        lines.append("%s = %s;" % (pvn, " || ".join(ps) if ps else "false"))
                     P[b] = pvn
                     for i in blk.instrs:
                         if i.op != "phi":
@@ -1242,9 +1271,10 @@ if __name__ == "__main__":
     ap.add_argument("src"); ap.add_argument("dst")
     ap.add_argument("--collapse", default="", help="loop headers to unroll+if-convert: H:N,H:N (N = trip count)")
     ap.add_argument("--title", default=None)
+    ap.add_argument("--cdpred", action="store_true", help="collapse: control-equivalent blocks share a predicate")
     a = ap.parse_args()
     col = [(x.split(":")[0], int(x.split(":")[1])) for x in a.collapse.split(",") if x]
-    d = Decompiler(open(a.src).read(), name=a.src.replace("\\", "/").split("/")[-1], collapse=col)
+    d = Decompiler(open(a.src).read(), name=a.src.replace("\\", "/").split("/")[-1], collapse=col, cdpred=a.cdpred)
     text = d.emit()
     if a.title:
         text = "// " + a.title + chr(10) + text

@@ -1,6 +1,6 @@
 r"""verify.py - differential test of two DXIL programs (original vs rewrite) on synthetic scenes.
 
-    py -I verify.py ORIG.ll NEW.ll --kind refprobe|vfscat --seeds 0:64 [--jobs 10] [--ulp 0]
+    py -I verify.py ORIG.ll NEW.ll --kind refprobe|refgeo|vfscat --seeds 0:64 [--jobs 10] [--ulp 0]
 
 For every seed both programs run on identical inputs (scenes.py) in the reference interpreter (dxil_interp.py);
 every UAV write (thread, address, 4 values) is compared. Reported:
@@ -30,11 +30,7 @@ REAL = False
 
 
 def make_scene(kind, text, seed):
-    if kind == "refprobe":
-        return scenes.refprobe_scene(text, seed, realistic=REAL or kind == "refprobe-real")
-    if kind == "vfscat":
-        return scenes.vfscat_scene(text, seed, realistic=REAL)
-    raise ValueError(kind)
+    return scenes.make(kind, text, seed, realistic=REAL)
 
 
 def run_one(args):

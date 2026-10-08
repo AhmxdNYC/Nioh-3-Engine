@@ -1,8 +1,9 @@
-<#
+﻿<#
   apply_gi.ps1 - install / exact revert / status of the GI-gather replacement for Nioh 3 (Steam v2.02).
-    gi   shader_dx12\0xd070067d.file  RefProbe #121 (diffuse probe GI gather): the 8-corner trilinear probe loop is
-         unrolled + if-converted so all corners' reads issue together (memory-level parallelism). Bit-exact to the
-         shipped DXIL on the interpreter (notes\gpu-gi-rewrite.md); every other record of the file byte-identical.
+    gi   shader_dx12\0xd070067d.file  RefProbe #121 (diffuse probe GI gather) and #414 (reflection probe trace): the
+         constant-trip probe loops are unrolled + if-converted so their reads issue together (memory-level
+         parallelism). Bit-exact to the shipped DXIL on the interpreter (notes\gpu-gi-rewrite.md); every other
+         record of the file byte-identical. SUPERSEDED = the older #121-only build (install upgrades, revert restores).
 
     powershell -NoProfile -ExecutionPolicy Bypass -File apply_gi.ps1            # install
     powershell -NoProfile -ExecutionPolicy Bypass -File apply_gi.ps1 -Revert    # restore original
@@ -18,14 +19,15 @@ $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $file = "0xd070067d.file"
 $ho = "d3cbb484ee3380d337641c8c893aa152f2c8d053afb37f49091609b1d87dc372"
-$hr = "c952f39a76bc09668953b1bc483e1434f1cbe121bfe9e907d6f49fc601e0fb97"
+$hr = "59897999a85a03398f060abcc1b6a50ed69036994c3e2a2e4d0e1e06e7f2de4f"   # #121 + #414
+$hs = @("c952f39a76bc09668953b1bc483e1434f1cbe121bfe9e907d6f49fc601e0fb97")      # superseded builds (#121 only)
 function Get-Sha($p) { (Get-FileHash -Algorithm SHA256 -LiteralPath $p).Hash.ToLower() }
 $game = Join-Path $GameDir "shader_dx12\$file"
 $bak = Join-Path $here "backup\$file"
 $rep = Join-Path $here "replacement\$file"
 if (-not (Test-Path -LiteralPath $game)) { throw "missing game file: $game" }
 $hg = Get-Sha $game
-$state = if ($hg -eq $ho) { "ORIGINAL" } elseif ($hg -eq $hr) { "REPLACEMENT" } else { "UNKNOWN($hg)" }
+$state = if ($hg -eq $ho) { "ORIGINAL" } elseif ($hg -eq $hr) { "REPLACEMENT" } elseif ($hs -contains $hg) { "SUPERSEDED" } else { "UNKNOWN($hg)" }
 if ($Status) { "gi         {0,-16} {1}" -f $file, $state; exit 0 }
 if (Get-Process Nioh3 -ErrorAction SilentlyContinue) { throw "Nioh3 is running - close it first" }
 if ($state -like "UNKNOWN*") { throw "$file is neither the v2.02 original nor our replacement - game updated? not touching anything" }

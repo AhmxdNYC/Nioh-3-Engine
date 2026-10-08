@@ -1,0 +1,57 @@
+# RefProbe #414 rewrite: verify.py, shipped DXIL vs packaged DXIL (build/rp_414_fast.dxil == out/rp414_fast.dxil, sha-identical)
+## v414_refgeo_0_256--realistic
+RefProbe_414.ll vs rp414_fast.ll: 256 seeds, 190600 writes, bit-exact 190600 (100.0000%), max 0 ulp, write-set differences 0, 78s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:190600
+original block coverage: 261 / 270 (96.7%)
+never executed: 356 870 1101 1256 1411 1566 2508 2616 5531
+RESULT: PASS
+## v414_refgeo_0_768
+RefProbe_414.ll vs rp414_fast.ll: 768 seeds, 242445 writes, bit-exact 242445 (100.0000%), max 0 ulp, write-set differences 0, 60s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:242445
+original block coverage: 268 / 270 (99.3%)
+never executed: 2508 2616
+RESULT: PASS
+## v414_refgeo_768_2304
+RefProbe_414.ll vs rp414_fast.ll: 1536 seeds, 481523 writes, bit-exact 481523 (100.0000%), max 0 ulp, write-set differences 0, 119s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:481523
+original block coverage: 268 / 270 (99.3%)
+never executed: 2508 2616
+RESULT: PASS
+## v414_refprobe_0_256--realistic
+RefProbe_414.ll vs rp414_fast.ll: 256 seeds, 48119 writes, bit-exact 48119 (100.0000%), max 0 ulp, write-set differences 0, 14s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:48119
+original block coverage: 251 / 270 (93.0%)
+never executed: 870 1101 1256 1411 1566 1570 2508 2616 2813 2822 2831 2975 3068 3838 3847 3856 4093 4509 5531
+RESULT: PASS
+## v414_refprobe_0_768
+RefProbe_414.ll vs rp414_fast.ll: 768 seeds, 141853 writes, bit-exact 141853 (100.0000%), max 0 ulp, write-set differences 0, 11s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:141853
+original block coverage: 265 / 270 (98.1%)
+never executed: 1570 2508 2616 3283 4308
+RESULT: PASS
+## v414_refprobe_768_2304
+RefProbe_414.ll vs rp414_fast.ll: 1536 seeds, 290419 writes, bit-exact 290419 (100.0000%), max 0 ulp, write-set differences 0, 22s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:290419
+original block coverage: 265 / 270 (98.1%)
+never executed: 1570 2508 2616 2975 3068
+RESULT: PASS
+## mutation: guard constant 1e-4 -> 0.1 in BOTH programs (reaches bb 2508/2616, the ray-parallel-to-texel-direction guards)
+m_o.ll vs m_f.ll: 256 seeds, 81736 writes, bit-exact 81736 (100.0000%), max 0 ulp, write-set differences 0, 21s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:81736
+original block coverage: 270 / 270 (100.0%)
+never executed: 
+RESULT: PASS

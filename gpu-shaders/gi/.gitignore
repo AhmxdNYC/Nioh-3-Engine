@@ -4,3 +4,4 @@ out/*
 build/
 __pycache__/
 umdrepoint.log
+!out/rp414_fast.hlsl

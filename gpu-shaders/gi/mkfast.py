@@ -21,7 +21,12 @@ OUT = os.path.join(HERE, "out")
 ITEMS = {
     "rp121": dict(orig="RefProbe_121.ll", collapse="325:8,413:8,725:8",
                   precise="v1311,v1312,v1313,v1317,v1322,v1324,v1326,v1327,v1359,v1361,v1363,v1435,v1699,v1937,v1983,v1984,v1985,v1986,v1987,v1988,v1989,v1990,v1991,v1992,v1993,v1994,v1995,v1996,v1997,v1998,v1999,v2000,v2001,v2002,v2003,v2004,v2005,v2006,v2007,v2008,v2009,v2040,v2041,v2042,v2044,v2054,v2058,v2071,v2081,v2089,v2091,v2099,v2101,v2109,v2214,v2215,v2330,v2331,v2569,v2615,v2616,v2617,v2618,v2619,v2620,v2621,v2622,v2623,v2624,v2625,v2626,v2627,v2628,v2629,v2630,v2631,v2632,v2633,v2634,v2635,v2636,v2637,v2638,v2639,v2640,v2641,v2671,v2672,v2673,v2674,v2675,v2686,v2690,v2703,v2713,v2719,v2721,v2723,v2729,v2731,v2733,v2741,v2815"),
-    "rp414": dict(orig="RefProbe_414.ll", collapse="475:8,1662:8,1789:8,2856:8,3266:8,3501:8,3881:8,4291:8,4524:8,4753:8,5062:8,5291:8", precise=""),
+    # rp414: restructured source from gi\mk414.py (collapse with --cdpred, if-conversion, prefetch); pins max(x, x)
+    # -HV 2018: && || ?: evaluate both operands (HLSL 2021 short-circuits them, and dxc then sinks the if-converted
+    # reads back into branches)
+    "rp414": dict(orig="RefProbe_414.ll", collapse="", pin_lo="self", pin_coll=True, dxc=["-HV", "2018"],
+                  precise=open(os.path.join(HERE, "rp414_pins.txt")).read().strip(),
+                  src=os.path.join(HERE, "out", "rp414_src.hlsl")),
     # vf235: pins are max(x, x) - exact for every x incl. NaN; dxc keeps the FMax so it cannot reassociate through
     # it, while Mesa NIR folds fmax(a,a) -> fcanonicalize(a) -> a, so RADV/ACO sees (and FMA-fuses) the shipped
     # expression DAG. Divisions are pinned too. Source: the hand-restructured fog\vf235_src.hlsl (--plain = decompile)
@@ -31,11 +36,11 @@ ITEMS = {
 }
 
 
-BIN = re.compile(r"^(\s*)(v\d+) = (\S+) ([-+*]) (\S+);$")
-BINDIV = re.compile(r"^(\s*)(v\d+) = (\S+) ([-+*/]) (\S+);$")
+BIN = re.compile(r"^(\s*)(v\d+|vU\d+k\d+_\d+) = (\S+) ([-+*]) (\S+);$")
+BINDIV = re.compile(r"^(\s*)(v\d+|vU\d+k\d+_\d+) = (\S+) ([-+*/]) (\S+);$")
 
 
-def pin(text, names, use_precise=False, lo="-3.402823466e+38f", div=False):
+def pin(text, names, use_precise=False, lo="-3.402823466e+38f", div=False, coll=False):
     """keep dxc from reassociating THROUGH each named value: a plain `v = a op b;` becomes an FMad with an exact
     identity operand (a*b -> mad(a,b,-0.0); a+b -> mad(a,1,b); a-b -> mad(b,-1,a)): IEEE-identical to the shipped op
     (also when the driver fuses it), but an intrinsic call that LLVM's reassociation cannot look through, so it
@@ -43,17 +48,24 @@ def pin(text, names, use_precise=False, lo="-3.402823466e+38f", div=False):
     when there are none does it fall back to `precise` (which also blocks FMA contraction and propagates backwards
     through the whole expression tree, so it is the expensive last resort)."""
     names = [n for n in names.split(",") if n]
+    if coll:      # a local of a collapsed loop exists once per iteration: vU<header>k<iteration>_<n>
+        allv = set(re.findall(r"\bvU\d+k\d+_\d+\b", text))
+        byn = {}
+        for x in allv:
+            byn.setdefault("v" + x.rsplit("_", 1)[1], []).append(x)
+        names = names + sorted(x for n in names for x in byn.get(n, []))
     BINRE = BINDIV if div else BIN
     lines = text.split("\n")
     defs = {}
     for i, l in enumerate(lines):
-        m = re.match(r"^\s*(v\d+) = (.*);$", l)
+        m = re.match(r"^\s*(v\d+|vU\d+k\d+_\d+) = (.*);$" if coll else r"^\s*(v\d+) = (.*);$", l)
         if m:
             defs.setdefault(m.group(1), []).append(i)
     extra = []
     for n in names:
         if n in defs and not any(BINRE.match(lines[i]) for i in defs[n]):
-            ops = [o for i in defs[n] for o in re.findall(r"\bv\d+\b", lines[i].split("=", 1)[1])]
+            ops = [o for i in defs[n] for o in re.findall(r"\bv(?:U\d+k\d+_)?\d+\b" if coll else r"\bv\d+\b",
+                                                         lines[i].split("=", 1)[1])]
             ops = [o for o in ops if o in defs and any(BINRE.match(lines[i]) for i in defs[o])]
             if ops:
                 extra += ops
@@ -75,6 +87,8 @@ def pin(text, names, use_precise=False, lo="-3.402823466e+38f", div=False):
                 e = "max(%s %s %s, %s)" % (a, op, b, lo)
             lines[i] = "%s%s = %s;" % (ind, n, e)
             hit = True
+        if coll and not hit and n not in defs:
+            continue          # only exists per iteration of a collapsed loop (its vU..._N copies are in the list)
         if not hit or use_precise:
             rest.append(n)
     return mark_precise("\n".join(lines), ",".join(rest))
@@ -105,20 +119,23 @@ def build(item, plain=False, collapse=None, precise=None, tag="fast"):
     else:
         cmd = [sys.executable, "-I", os.path.join(HERE, "ll2hlsl.py"), os.path.join(ORIG, it["orig"]), stem + ".hlsl"]
         if col and not plain:
-            cmd += ["--collapse", col]
+            cmd += ["--collapse", col] + (["--cdpred"] if it.get("cdpred") else [])
         subprocess.run(cmd, check=True)
     src = open(stem + ".hlsl").read()
     if pre:
-        txt = pin(src, pre, lo=it.get("pin_lo", "-3.402823466e+38f"), div=it.get("pin_div", False))
+        txt = pin(src, pre, lo=it.get("pin_lo", "-3.402823466e+38f"), div=it.get("pin_div", False), coll=it.get("pin_coll", False))
         open(stem + ".hlsl", "w", newline="\n").write(txt)
     r = subprocess.run([DXC, "-T", "cs_6_0", "-E", "main", "-O3", "-validator-version", "1.5", "-Zs", "-Fd", OUT + os.sep,
-                        "-Fo", stem + ".dxil", stem + ".hlsl"], capture_output=True, text=True)
+                        "-Fo", stem + ".dxil", stem + ".hlsl"] + it.get("dxc", []), capture_output=True, text=True)
     if r.returncode:
         print(r.stdout[-3000:], r.stderr[-3000:])
         raise SystemExit("compile failed")
     for f in os.listdir(OUT):
         if f.endswith(".pdb"):
-            os.remove(os.path.join(OUT, f))
+            try:
+                os.remove(os.path.join(OUT, f))
+            except OSError:      # a parallel build removed it
+                pass
     ll = subprocess.run([DXC, "-dumpbin", stem + ".dxil"], capture_output=True, text=True, check=True).stdout
     open(stem + ".ll", "w", newline="\n").write(ll)
     return stem

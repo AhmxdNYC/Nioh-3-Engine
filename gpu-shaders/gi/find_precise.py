@@ -12,10 +12,11 @@ import argparse, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import dxil_interp as D, scenes, mkfast  # noqa: E402
+REAL = False
 
 
 def scene(kind, text, seed):
-    return scenes.refprobe_scene(text, seed) if kind == "refprobe" else scenes.vfscat_scene(text, seed)
+    return scenes.make(kind, text, seed, realistic=REAL)
 
 
 def trace(sh, kind, otext, seed, tid):
@@ -57,12 +58,13 @@ def mismatches(so, sn, kind, otext, seed):
     return [b for b in bad if b is not None]
 
 
-def roots(A, B):
+def roots(A, B, deep=0):
     bits = lambda v: D.f2bits(v) if v == v else -1
     setB = set(bits(v) for v, _ in B) | set(bits(-v) for v, _ in B)   # -x: dxc folds negations exactly
-    val = {}
+    val, defs = {}, {}
     for v, ins in A:
         val[ins.dest] = v
+        defs[ins.dest] = ins
     out = []
     for v, ins in A:
         if bits(v) in setB or ins.op == "phi":
@@ -73,6 +75,18 @@ def roots(A, B):
                 ok = False
         if ok:
             out.append(ins.dest.lstrip("%"))
+            # deep: the root's operands may be "present" in B only by coincidence (the same expression is also
+            # computed elsewhere, e.g. trilinear weights in two probe loops) -> also pin the arithmetic behind them
+            todo = [(ins, deep)]
+            while todo:
+                x, d = todo.pop()
+                if d <= 0:
+                    continue
+                for a in x.args:
+                    dx = defs.get(a.v) if getattr(a, "kind", None) == "reg" else None
+                    if dx is not None and dx.op in ("fmul", "fadd", "fsub"):
+                        out.append(dx.dest.lstrip("%"))
+                        todo.append((dx, d - 1))
     return out
 
 
@@ -80,15 +94,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("item"); ap.add_argument("--seeds", default="0:20"); ap.add_argument("--plain", action="store_true")
     ap.add_argument("--rounds", type=int, default=12); ap.add_argument("--start", default=None)
+    ap.add_argument("--kind", default=None, help="scene kind (default: vfscat for vf*, else refprobe; refgeo = gi/geoscene.py)")
+    ap.add_argument("--realistic", action="store_true")
     ap.add_argument("--prune", action="store_true", help="then drop every precise local that is not needed (ddmin)")
     a = ap.parse_args()
     it = mkfast.ITEMS[a.item]
-    kind = "vfscat" if a.item.startswith("vf") else "refprobe"
+    kind = a.kind or ("vfscat" if a.item.startswith("vf") else "refprobe")
+    global REAL
+    REAL = a.realistic
     opath = os.path.join(mkfast.ORIG, it["orig"])
     otext = open(opath).read()
     so = D.Shader(otext, "orig")
     SEEDS = [int(x) for x in a.seeds.split(",")] if "," in a.seeds else list(range(*map(int, a.seeds.split(":"))))  # lo:hi or a,b,c
     pre = [x for x in (a.start if a.start is not None else it["precise"]).split(",") if x]
+    deep = 0
     for rnd in range(a.rounds):
         stem = mkfast.build(a.item, plain=a.plain, precise=",".join(pre), tag="fp")
         sn = D.Shader(open(stem + ".ll").read(), "new")
@@ -98,13 +117,18 @@ def main():
             bad = mismatches(so, sn, kind, otext, s)
             nbad += len(bad)
             for tid in bad[:2]:
-                for r in roots(trace(so, kind, otext, s, tid), trace(sn, kind, otext, s, tid)):
+                for r in roots(trace(so, kind, otext, s, tid), trace(sn, kind, otext, s, tid), deep):
                     v = "v" + r
                     if v not in pre and v not in new:
                         new.append(v)
         print("round %d: %d mismatching writes, new precise: %s" % (rnd, nbad, ",".join(new)), flush=True)
+        if nbad and not new and deep < 3:
+            deep += 1
+            print("  no new roots: operand depth %d" % deep, flush=True)
+            continue
         if not nbad or not new:
             break
+        deep = 0
         pre += new
     if a.prune:
         def bad_count(lst):

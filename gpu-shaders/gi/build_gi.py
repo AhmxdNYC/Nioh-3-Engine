@@ -1,7 +1,8 @@
-r"""build_gi.py - STAGE (never install) the GI-gather replacement: RefProbe #121 (diffuse probe GI) in
-shader_dx12\0xd070067d.file ("RefProbe-CllPtSfbSplsSslsSsmVsm", 517 compute records).
+r"""build_gi.py - STAGE (never install) the GI-gather replacement: RefProbe #121 (diffuse probe GI) and #414
+(reflection probe trace) in shader_dx12\0xd070067d.file ("RefProbe-CllPtSfbSplsSslsSsmVsm", 517 compute records).
 
     py -I mkfast.py rp121        # 1. regenerate out\rp121_fast.hlsl from the shipped DXIL (decompile+collapse+pins)
+    py -I mk414.py && py -I mkfast.py rp414   #  and out\rp414_fast.hlsl (restructure + pins; compiled with -HV 2018)
     py -I build_gi.py            # 2. compile, interface-check, splice, re-pack -> gpu-shaders\replacement\0xd070067d.file
 
 Compiles and interface-checks with sweep\build_sweep.py's functions (same dxc, validator 1.5, -Zs; DXBC parts / SFI0 /
@@ -22,7 +23,9 @@ import s2g as S  # noqa: E402  (gi\s2g.py)
 import idrk  # noqa: E402
 
 FILE = "0xd070067d.file"
-RECORDS = {121: ("4b4c3cbe6724e06841b7ed69d7472a46", os.path.join(HERE, "out", "rp121_fast.hlsl"))}
+# record: (shipped container digest, replacement source, extra dxc args)
+RECORDS = {121: ("4b4c3cbe6724e06841b7ed69d7472a46", os.path.join(HERE, "out", "rp121_fast.hlsl"), []),
+           414: ("6ae59bd0ddf1220dc8907954b1f215b4", os.path.join(HERE, "out", "rp414_fast.hlsl"), ["-HV", "2018"])}
 BUILD = os.path.join(HERE, "build")
 _iface = B.iface
 B.iface = lambda ll: [l.replace("hostlayout.", "dx.alignment.legacy.") for l in _iface(ll)]
@@ -40,14 +43,14 @@ def main():
     p = idrk.unpack(orig)
     tab, base, ents = S.layout(p)
     new = {}
-    for k, (odig, src) in RECORDS.items():
+    for k, (odig, src, extra) in RECORDS.items():
         o, s = ents[k]
         od = p[base + o:base + o + s]
         assert od[4:20].hex() == odig, "#%d digest %s != %s - game updated?" % (k, od[4:20].hex(), odig)
         op_path = os.path.join(BUILD, "rp%d_orig.dxbc" % k)
         open(op_path, "wb").write(od)
         orig_ll = B.dumpbin(op_path)
-        nb, fast_ll = B.compile_record("rp", k, src, "cs_6_0", [], True)
+        nb, fast_ll = B.compile_record("rp", k, src, "cs_6_0", extra, True)
         B.check_iface("gi", k, od, nb, orig_ll, fast_ll)
         new[k] = nb
         print("  %s #%d: %d -> %d B DXBC, container digest %s -> %s; parts/SFI0/ISG1/OSG1/PSV0/bindings identical"

@@ -1,0 +1,40 @@
+| shader | chip | vgprs | waves_per_simd | sgprs | instructions | valu | vmem_loads | samples | branches | mem_waits_full | mem_waits_partial | scratch |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| orig | gfx1103 | 124 | 4 | 94 | 23213 | 14631 | 1083 | 239 | 363 | 306 | 585 | 0 |
+| orig | gfx1201 | 108 | 6 | 94 | 25120 | 14532 | 1083 | 239 | 362 | 314 | 563 | 0 |
+| fast | gfx1103 | 120 | 4 | 94 | 25618 | 16107 | 1069 | 239 | 161 | 266 | 550 | 0 |
+| fast | gfx1201 | 108 | 6 | 94 | 26433 | 16100 | 1069 | 239 | 163 | 268 | 592 | 0 |
+| nopin | gfx1103 | 120 | 4 | 94 | 23474 | 14712 | 1069 | 239 | 172 | 273 | 567 | 0 |
+| nopin | gfx1201 | 140 | 5 | 94 | 24243 | 14600 | 1069 | 239 | 169 | 254 | 567 | 0 |
+## scenes=refgeo realistic seeds=0:24 model=dataflow
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| orig | 18186 | 101.6 | 132.4 | 55680 | 72674 | 6071 | 8254 | 407.4 | 4/6 | 18168 | 12112 |
+| fast | 18186 | 17.1 | 24.3 | 10146 | 14466 | 6321 | 8331 | 426.5 | 4/6 | 8331 | 8331 |
+| nopin | 18186 | 17.1 | 24.3 | 10115 | 14420 | 5993 | 7887 | 423.4 | 4/6 | 7887 | 7887 |
+model speed-up fast vs orig: round trips x5.45, critical cycles x5.02; gfx1103 x2.18, gfx1201 x1.45
+model speed-up nopin vs orig: round trips x5.45, critical cycles x5.04; gfx1103 x2.30, gfx1201 x1.54
+## scenes=refgeo realistic seeds=0:24 model=--inorder
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| orig | 18186 | 120.6 | 159.2 | 66203 | 87606 | 6071 | 8254 | 407.4 | 4/6 | 21902 | 14601 |
+| fast | 18186 | 32.0 | 40.6 | 18695 | 23941 | 6321 | 8331 | 426.5 | 4/6 | 8331 | 8331 |
+| nopin | 18186 | 32.0 | 40.6 | 18635 | 23860 | 5993 | 7887 | 423.4 | 4/6 | 7887 | 7887 |
+model speed-up fast vs orig: round trips x3.92, critical cycles x3.66; gfx1103 x2.63, gfx1201 x1.75
+model speed-up nopin vs orig: round trips x3.92, critical cycles x3.67; gfx1103 x2.78, gfx1201 x1.85
+## scenes=refprobe realistic seeds=0:48 model=dataflow
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| orig | 9040 | 37.8 | 111.3 | 21016 | 61239 | 2190 | 6150 | 132.6 | 4/6 | 15310 | 10207 |
+| fast | 9040 | 12.0 | 33.7 | 6980 | 19233 | 2732 | 7014 | 182.5 | 4/6 | 7014 | 7014 |
+| nopin | 9040 | 12.0 | 33.7 | 6967 | 19203 | 2627 | 6742 | 182.0 | 4/6 | 6742 | 6742 |
+model speed-up fast vs orig: round trips x3.30, critical cycles x3.18; gfx1103 x2.18, gfx1201 x1.46
+model speed-up nopin vs orig: round trips x3.30, critical cycles x3.19; gfx1103 x2.27, gfx1201 x1.51
+## scenes=refprobe realistic seeds=0:48 model=--inorder
+| shader | threads | round trips/thread | round trips/wave(max) | crit. cycles/thread | crit. cycles/wave | DXIL instr/thread | instr/wave | mem reads/thread | waves/SIMD | est. cycles/wave gfx1103 | gfx1201 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| orig | 9040 | 45.4 | 135.6 | 25130 | 74510 | 2190 | 6150 | 132.6 | 4/6 | 18628 | 12418 |
+| fast | 9040 | 17.1 | 47.9 | 9820 | 27090 | 2732 | 7014 | 182.5 | 4/6 | 7014 | 7014 |
+| nopin | 9040 | 17.1 | 47.9 | 9798 | 27035 | 2627 | 6742 | 182.0 | 4/6 | 6759 | 6742 |
+model speed-up fast vs orig: round trips x2.83, critical cycles x2.75; gfx1103 x2.66, gfx1201 x1.77
+model speed-up nopin vs orig: round trips x2.83, critical cycles x2.76; gfx1103 x2.76, gfx1201 x1.84

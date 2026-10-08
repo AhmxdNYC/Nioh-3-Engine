@@ -236,3 +236,16 @@ def vfscat_scene(text, seed, realistic=False):
         _sys.path.insert(0, fog)
     import vfscene
     return vfscene.vfscat_scene(text, seed, realistic=realistic)
+
+
+def make(kind, text, seed, realistic=False):
+    """one entry point for every tool: kind refprobe (random coverage scenes), refgeo (geometry-consistent probe
+    field + G-buffer, gi\geoscene.py), vfscat (fog)."""
+    if kind in ("refprobe", "refprobe-real"):
+        return refprobe_scene(text, seed, realistic=realistic or kind == "refprobe-real")
+    if kind == "refgeo":
+        import geoscene
+        return geoscene.refprobe_geo_scene(text, seed, realistic=realistic)
+    if kind == "vfscat":
+        return vfscat_scene(text, seed, realistic=realistic)
+    raise ValueError(kind)
