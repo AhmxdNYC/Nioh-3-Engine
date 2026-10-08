@@ -423,3 +423,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `LoadStats = 3`: the 1 s tick also runs outside the 58A window (while frames advance) with 58A / FT / B state / first failing gate.
 - Game behaviour unchanged (same args in, same rax out). Test script: `tools\testmatrix\lg_ini.ps1` -> `fullmod_ini_1717_lg.ini`, `loadstats_ab.ps1 -Ini fullmod_ini_1717_lg.ini BASE_a BASE_b`. Not run in game (Ally holds it).
 - Undo: `LoadGates = 0` / `LoadStats = 0`, or the 1.7.16 .asi.
+
+## 2026-10-08 - ASI 1.7.18: BossLog (read-only boss fight logger, default off)
+- `[Debug] BossLog = 1` (src\bosslog.cpp): entry hooks (relocated-prologue thunks, bytes verified, patches.json group BL, check sites) on Mission::BossBattleMode 23A2DCC / End 23A2F70, Character::Create impl 1180740, MissionFlagSet 70275C, UI::ShowBossGauge 23B8678, SetMissionClearFlag impl 1C1DB88. Logs fight #, timestamps, placement ids (ring of last 16 dumped at fight start), flag id+value in-fight and 20 s after, HP-bar actor id, mission id at clear. Rematch step 1 of notes\boss-fights.md section 9.
+- Game behaviour unchanged (logger runs with arg registers saved, then the original instructions). Not run in game.
+- Undo: `BossLog = 0`, or the 1.7.17 .asi.

@@ -214,6 +214,12 @@ static const uint8_t orig_LG6[] = { 0xE8, 0x83, 0x04, 0xD2, 0xFF };
 static const uint8_t orig_LG7[] = { 0xE8, 0x8F, 0xAD, 0xF0, 0xFF };
 static const uint8_t orig_LG8[] = { 0xE8, 0x1D, 0x05, 0x00, 0x00 };
 static const uint8_t orig_LG9[] = { 0xE8, 0x4E, 0x04, 0x00, 0x00 };
+static const uint8_t orig_BL1[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_BL2[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00 };
+static const uint8_t orig_BL3[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_BL4[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_BL5[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00 };
+static const uint8_t orig_BL6[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -347,6 +353,12 @@ static const Site kSites[] = {
     { "LG7", "LG", 0x3B34F0, 5, orig_LG7, "E8 ?? ?? ?? ?? 84 C0 0F 84 96 00 00 00 41 83", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x2BE284 },
     { "LG8", "LG", 0x3B3506, 5, orig_LG8, "E8 ?? ?? ?? ?? 84 C0 0F 84 80 00 00 00 E8 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B3A28 },
     { "LG9", "LG", 0x3B3559, 5, orig_LG9, "E8 ?? ?? ?? ?? 84 C0 75 0C 48 8D 4C 24 20 E8 1C", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B39AC },
+    { "BL1", "BL", 0x23A2DCC, 5, orig_BL1, "48 89 5C 24 10 55 48 8D AC 24 70 FF FF FF 48 81 EC 90 01 00 00 48 8B 05 48", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BL2", "BL", 0x23A2F70, 9, orig_BL2, "40 53 48 81 EC 60 01 00 00 48 8B 05 B0 4F", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BL3", "BL", 0x1180740, 5, orig_BL3, "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 89 54 24 10 57 48 83 EC 30", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BL4", "BL", 0x70275C, 5, orig_BL4, "48 89 5C 24 08 48 89 6C 24 18 44 88", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BL5", "BL", 0x23B8678, 9, orig_BL5, "40 53 48 81 EC 70 01 00 00 48 8B 05 A8 F8", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BL6", "BL", 0x1C1DB88, 7, orig_BL6, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC 90 00 00 00 8B", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 

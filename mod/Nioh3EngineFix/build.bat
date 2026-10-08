@@ -61,9 +61,12 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem per-load measurement ([Profiler] LoadStats = 0 by default; notes\loading.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\loadstats.obj src\loadstats.cpp || exit /b 1
+rem boss fight logger ([Debug] BossLog = 0 by default; notes\boss-fights.md)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\bosslog.obj src\bosslog.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\memstats.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
+   build\bosslog.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\memstats.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal

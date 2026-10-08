@@ -35,9 +35,10 @@
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
+#include "bosslog.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.17"
+#define MOD_VERSION "1.7.18"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1312,6 +1313,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LW")) return cfg.lw != 0;
         if (!strcmp(g, "SPR")) return cfg.spr != 0;
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
+        if (!strcmp(g, "BL")) return false;  // BossLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
     };
@@ -2199,6 +2201,14 @@ DWORD WINAPI Worker(LPVOID) {
             ls.knownBuild = known;
             ls.loaderCap = g_loaderCap;
             loadstats::Start(ls);
+        }
+        {  // read-only boss fight logger (bosslog.cpp, [Debug] BossLog = 0 by default; notes\boss-fights.md)
+            bosslog::StartInfo bi;
+            bi.log = &Log;
+            bi.iniPath = iniPath.c_str();
+            bi.base = reinterpret_cast<uintptr_t>(g_base);
+            bi.knownBuild = known;
+            bosslog::Start(bi);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;
