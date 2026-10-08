@@ -129,3 +129,6 @@ Notes on the columns:
 - The task count per tick is not known: estimated ~800-1000 tasks from the self time at ~100-160 ns per task. Read
   [[m]+48h][1] live to confirm before building GL1.
 - The PC tick rate in the 12 captures is assumed ~110/s (mainthread-logic.md). The Ally number (44.6) is from the v71 log.
+
+### GL1 live counts (2026-10-08, PC idle gameplay; captures/pc/live_reads_2026-10-08.md)
+Proximity vector ([[0x45B9E40]]+0x48) holds 4380 entries (not 800-1000), constant over 20 s; second vector (+0x60) 314. Mission-object set count not obtained.

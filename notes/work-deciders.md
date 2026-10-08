@@ -149,3 +149,6 @@ table is attached at runtime by a resource load; the live read is the only sourc
   passes it only to CharacterJobsDispatchA 0x31A86C (copies dwords 0..7) and CharacterJobsDispatchB 0x31A2C0 (two
   movaps = 0x20 bytes; the block pointer [rbp+50h] is loaded once). Nothing reads +0x94..+0xAC (or +0x3C).
 - **streaming-anim.md is right; §1/§2 above are corrected.** The rest of this note stands.
+
+### A4 result (live read 2026-10-08, captures/pc/live_reads_2026-10-08.md)
+Table has 8 entries x 0x1C B; 7th dword is an int category key. e0 = 2 for all categories except cat 3 = 8 and cat 4 = 0; e1..e5 = 2,1.5,1,1,1 for every category. At MESHLET_QUALITY=2 (multiplier e3=1) result = {2,2,2,8,0,2,2,2}; scene cfg +8BC=2, +8C0=0. LIGHT would use the 1.5 entry.

@@ -372,3 +372,6 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - `progress_treemap.py` now draws the full-game chart by purpose region and falls back to the old areas if regions.tsv is missing. The perf and GPU charts are unchanged. It also gained short block labels.
 - New doc `docs\code-map.md` has the table, the method and the findings, and is linked from the README. Main finding: 22 % of the code (11.5 MB) is generated RTRig rig programs, reached through the `UnknownRTRig` table.
 - Undo: revert this commit, or delete regions.tsv to get the old chart.
+
+## 2026-10-08 live read-only probes (PC, game running)
+patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (proximity 4380), R1 page-pool counters (0 miss/0 qfull). See captures\pc\live_reads_2026-10-08.md. No game state changed.

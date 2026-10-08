@@ -239,3 +239,6 @@ Proof that no other thread can observe a different state:
   different result and a possible use-after-free. The frame-scoped variant in the table above ("a dep unloaded
   mid-frame is seen next frame") is therefore *not* same-result.
 - Value: not sampled in any PC capture; 0.03-0.17 % of Ally kidsts samples (worker threads). Skipped.
+
+### R1 live counters (2026-10-08, PC idle; captures/pc/live_reads_pagepool.csv)
+Device = [0x45BA588] (g_RenderGlobals); pool = +0x61A0. Per scan ~7k hits, 0 misses, 0 queue-full over 25 s. Budget charging of in-flight requests not determinable from counters; no starvation seen when idle.
