@@ -725,7 +725,8 @@ void HkSavePath(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t* sp) {
 // ---- patching (same scheme as loadstats.cpp) ----
 uint8_t* g_thunks = nullptr;
 size_t g_thunkUsed = 0;
-constexpr size_t kThunkPage = 8192;
+constexpr size_t kThunkPage = 16384;  // 59 hooks x kThunkSize
+constexpr size_t kThunkSize = 176;    // one entry thunk: 131 B + relocated prologue (<= 16) + jmp [rip] + qword (<= 161)
 
 uint8_t* AllocIn(uintptr_t from, uintptr_t to) {
     SYSTEM_INFO si;
@@ -873,24 +874,32 @@ const Hook kRmHooks[] = {
 int Install(const Hook& h) {
     uint8_t* p = (uint8_t*)(g_base + h.rva);
     if (memcmp(p, h.orig, h.n) != 0) return 1;
-    if (g_thunkUsed + 80 > kThunkPage) return 2;
+    if (g_thunkUsed + kThunkSize > kThunkPage) return 2;
     uint8_t* t = g_thunks + g_thunkUsed;
     uint8_t* w = t;
     auto put = [&](std::initializer_list<uint8_t> b) {
         for (uint8_t x : b) *w++ = x;
     };
-    // push rcx, rdx, r8, r9, r10, r11: callers in this LTCG build can keep values in r10/r11 across a call to a function
-    // known not to touch them (1.7.17 LG crash, see loadstats.cpp NewSaveThunk), so the C++ hook must not leak clobbers.
-    put({0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53});
-    put({0x48, 0x83, 0xEC, 0x28});              // sub rsp,28h (entry rsp = 8 mod 16 -> 16-aligned at the call)
-    put({0x48, 0x8D, 0x44, 0x24, 0x58});        // lea rax,[rsp+58h] = the hooked function's entry rsp (&return address)
+    // Callers in this LTCG build keep volatile registers live across a call to a function the compiler knows does not
+    // write them (1.7.17 LG crash: r11, see loadstats.cpp NewSaveThunk). So the C++ hook must not leak any clobber the
+    // original function would not make: save rcx, rdx, r8-r11 AND xmm0-xmm5. notes\hook-register-audit.md: callers of
+    // MissionRecordGet / MissionClearedGet* / MissionUnlockedGet (leaf getters, no xmm writes) keep float values in
+    // xmm0-xmm5 across the call (e.g. 915F0C: divss xmm1,xmm2 / divss xmm0,xmm2 right after it). rax and the flags are
+    // written by every hooked function's own code (hook_entry_audit.py), so they need no save.
+    put({0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53});  // push rcx, rdx, r8, r9, r10, r11
+    put({0x48, 0x81, 0xEC, 0x88, 0x00, 0x00, 0x00});  // sub rsp,88h (entry rsp = 8 mod 16 -> 16-aligned at the call)
+    for (uint8_t i = 0; i < 6; ++i)                    // movdqu [rsp+28h+10h*i], xmm_i
+        put({0xF3, 0x0F, 0x7F, (uint8_t)(0x44 | (i << 3)), 0x24, (uint8_t)(0x28 + 0x10 * i)});
+    put({0x48, 0x8D, 0x84, 0x24, 0xB8, 0x00, 0x00, 0x00});  // lea rax,[rsp+0B8h] = the hooked function's entry rsp
     put({0x48, 0x89, 0x44, 0x24, 0x20});        // mov [rsp+20h],rax -> 5th argument `sp`
     put({0x48, 0xB8});                          // mov rax, imm64
     const uint64_t fn = (uint64_t)h.fn;
     memcpy(w, &fn, 8);
     w += 8;
     put({0xFF, 0xD0});  // call rax
-    put({0x48, 0x83, 0xC4, 0x28});
+    for (uint8_t i = 0; i < 6; ++i)                    // movdqu xmm_i, [rsp+28h+10h*i]
+        put({0xF3, 0x0F, 0x6F, (uint8_t)(0x44 | (i << 3)), 0x24, (uint8_t)(0x28 + 0x10 * i)});
+    put({0x48, 0x81, 0xC4, 0x88, 0x00, 0x00, 0x00});  // add rsp,88h
     put({0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59});  // pop r11, r10, r9, r8, rdx, rcx
     memcpy(w, h.orig, h.n);                     // relocated prologue (rsp is back at its entry value)
     w += h.n;
