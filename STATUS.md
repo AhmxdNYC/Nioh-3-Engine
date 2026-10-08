@@ -47,3 +47,4 @@ ORDER (user): decompile in DESCENDING performance impact - CPU by profiled share
 
 ## PC test rounds (turn-taking with the Ally)
 Steam allows one device at a time. On '[GAME-FREE]' from the Ally: launch a Sonnet agent for the PC round (L1 mod defaults: log+overlay+F10 menu screenshot+PresentMon 60 s; L2 W6=1 GF=1; L3 GPUProf=2 sampled + SP + MemStats 90 s -> gp2_digest/sp tables; restore the ini; captures\pc\), then send '[GAME-RELEASED]'. On '[Q] need game': close Nioh3 within 2 min and release. Save backup: D:\nioh3-re\save-backups\.
+PC round must take the bridge game lock first: py -m uo_bridge.gamelock acquire nioh3 (UO_AGENT_ID=pc), renew during the run, release at the end. Work-deciders done (no same-look change in the quality tables). CPU perf names 99.5 %; GPU passes mapping agent running.
