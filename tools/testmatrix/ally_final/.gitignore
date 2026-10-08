@@ -1,0 +1,4 @@
+runs/
+cfg_backups/
+__pycache__/
+.state
