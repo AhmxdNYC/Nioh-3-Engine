@@ -1743,4 +1743,98 @@ pd_ne:
     jmp     qword ptr [pt1_resD]
 cavePt1D ENDP
 
+; =================================================================================================================
+; 1.7.14: GL1 (software prefetch in the mission task-list walks), LW (loader managers wait on an event instead of
+; Sleep(1)). Both opt-in ([Patches] GL1 / LW, default 0); LC (in-flight cap 16) is a plain byte patch, no cave.
+; notes\gamelogic.md GL1, notes\loading.md section 3 rows 4-5.
+; =================================================================================================================
+PUBLIC caveGl1A, caveGl1B, gl1_resA, gl1_endA, gl1_resB, gl1_endB
+PUBLIC caveLdWait, caveLdSig, lw_event, lw_pWait, lw_pSleep, lw_pSet, lw_resSig, lw_waiting, lw_signals
+
+gldata SEGMENT ALIGN(64) READ WRITE 'DATA'
+gl1_resA    DQ 0                ; Nioh3+E266DB (mov rdi,[rbx+8])
+gl1_endA    DQ 0                ; the je target of E266D5 (loop end)
+gl1_resB    DQ 0                ; Nioh3+E26695 (mov rcx,[rbx+8])
+gl1_endB    DQ 0                ; Nioh3+E266A4 (loop end)
+lw_event    DQ 0                ; auto-reset event (0 -> the wait cave falls back to Sleep)
+lw_pWait    DQ 0                ; WaitForSingleObject
+lw_pSleep   DQ 0                ; Sleep
+lw_pSet     DQ 0                ; SetEvent
+lw_resSig   DQ 0                ; Nioh3+1343D3D
+lw_waiting  DD 0                ; managers currently inside the wait (the signal only costs a syscall when > 0)
+lw_signals  DD 0                ; SetEvent calls issued (stats)
+gldata ENDS
+
+.code
+; ---- GL1 A: E266D1 `cmp rbx,[rbp]` / `je end` (10 bytes) of MissionTaskListProximityPass' loop. rbx = entry (16-byte
+; {?, task*}), rbp = &last. Prefetch the task of entry i+3 (3 lines: +40h/+80h/+C0h hold +50h, +97h, +D9h, +F0h..FAh)
+; when it lies inside [first,last). r10 is never used by this function. No architectural effect.
+caveGl1A PROC
+    cmp     rbx, qword ptr [rbp]
+    je      ga_end
+    lea     r10, [rbx+30h]
+    cmp     r10, qword ptr [rbp]
+    jae     ga_go
+    mov     r10, qword ptr [r10+8]
+    prefetcht0 byte ptr [r10+40h]
+    prefetcht0 byte ptr [r10+80h]
+    prefetcht0 byte ptr [r10+0C0h]
+ga_go:
+    jmp     qword ptr [gl1_resA]
+ga_end:
+    jmp     qword ptr [gl1_endA]
+caveGl1A ENDP
+
+; ---- GL1 B: E26690 `cmp rbx,[rdi]` / `je end` (5 bytes) of the E26680 loop that calls 2866F0 per entry (rbx = entry,
+; rdi = &last). Same prefetch.
+caveGl1B PROC
+    cmp     rbx, qword ptr [rdi]
+    je      gb_end
+    lea     r10, [rbx+30h]
+    cmp     r10, qword ptr [rdi]
+    jae     gb_go
+    mov     r10, qword ptr [r10+8]
+    prefetcht0 byte ptr [r10+40h]
+    prefetcht0 byte ptr [r10+80h]
+    prefetcht0 byte ptr [r10+0C0h]
+gb_go:
+    jmp     qword ptr [gl1_resB]
+gb_end:
+    jmp     qword ptr [gl1_endB]
+caveGl1B ENDP
+
+; ---- LW wait: replaces `call [Sleep]` (ecx = 1) at 1FEE68 / 1FF18C / 1FF371 (ResourceLoadIdlePoll managers A and B).
+; WaitForSingleObject(event, 1 ms): the same 1 ms upper bound, but a finished ResourceStepJob wakes it at once.
+caveLdWait PROC
+    mov     edx, ecx
+    mov     rcx, qword ptr [lw_event]
+    test    rcx, rcx
+    jz      lw_stock
+    sub     rsp, 28h
+    lock inc dword ptr [lw_waiting]
+    call    qword ptr [lw_pWait]
+    lock dec dword ptr [lw_waiting]
+    add     rsp, 28h
+    ret
+lw_stock:
+    mov     ecx, edx
+    jmp     qword ptr [lw_pSleep]
+caveLdWait ENDP
+
+; ---- LW signal: 1343D35 in ResourceStepJob_Run (rbx = job), displaced `or [rbx+24h],1` / `mov rax,[rbx+38h]`.
+; Only signals while a manager is waiting. rsp is 16-aligned here (jmp from the job body, not a call).
+caveLdSig PROC
+    or      dword ptr [rbx+24h], 1
+    cmp     dword ptr [lw_waiting], 0
+    je      ls_out
+    mov     rcx, qword ptr [lw_event]
+    sub     rsp, 20h
+    call    qword ptr [lw_pSet]
+    add     rsp, 20h
+    lock inc dword ptr [lw_signals]
+ls_out:
+    mov     rax, qword ptr [rbx+38h]
+    jmp     qword ptr [lw_resSig]
+caveLdSig ENDP
+
 END

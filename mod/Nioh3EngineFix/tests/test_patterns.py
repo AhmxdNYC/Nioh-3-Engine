@@ -423,6 +423,61 @@ def main():
         check(not bad, "%s: branch(es) land inside the overwritten range: %s" % (st["id"], bad))
     print("SPR branch-into-range scan and trampoline coverage checked")
 
+    # 1.7.14: GL1 / LC / LW. Site starts are RVAs and the dump is laid out raw == RVA, so the dump is scanned directly.
+    def branch_targets_into(rva, ln, win=0x400):
+        """near jumps/calls/jcc (rel8/rel32 forms) in [rva-win, rva+win) that land strictly inside (rva, rva+ln)"""
+        bad = []
+        for fo in range(rva - win, rva + win):
+            b0 = img[fo]
+            tgt = None
+            if b0 in (0xE8, 0xE9):
+                tgt = fo + 5 + struct.unpack_from("<i", img, fo + 1)[0]
+            elif b0 == 0x0F and 0x80 <= img[fo + 1] <= 0x8F:
+                tgt = fo + 6 + struct.unpack_from("<i", img, fo + 2)[0]
+            elif 0x70 <= b0 <= 0x7F or b0 == 0xEB:
+                tgt = fo + 2 + struct.unpack_from("<b", img, fo + 1)[0]
+            if tgt is not None and rva < tgt < rva + ln and fo != rva:
+                bad.append("%X->%X" % (fo, tgt))
+        return bad
+    new_sites = [st for st in doc["sites"] if st["group"] in ("GL1", "LC", "LW")]
+    check(len(new_sites) == 8, "1.7.14: expected 8 GL1/LC/LW sites, found %d" % len(new_sites))
+    # raw byte scan (no disassembler in stdlib): these two hits are mid-instruction byte patterns, not branches - a linear
+    # capstone sweep of E266B0 / E26680 / 1FEE28 / 1FF320 / 1343D00 finds no branch into any of the 8 sites
+    not_branches = {"E2666B->E26691", "1FEECE->1FEE6C"}
+    for st in new_sites:
+        rva, ln = int(st["rva"], 16), st["len"]
+        bad = [x for x in branch_targets_into(rva, ln) if x not in not_branches]
+        check(not bad, "%s: branch(es) land inside the overwritten range: %s" % (st["id"], bad))
+    byid = {s["id"]: s for s in doc["sites"]}
+    hb = bytes.fromhex
+    # GL1: the cave re-implements `cmp rbx,[rbp|rdi]` + `je`; both loop exits and the register roles
+    ga, gb = int(byid["GL1a"]["rva"], 16), int(byid["GL1b"]["rva"], 16)
+    check(img[ga:ga + 6] == hb("483B5D000F84") and ga + 10 + struct.unpack_from("<i", img, ga + 6)[0] == 0xE2686F,
+          "GL1a: not `cmp rbx,[rbp]; je E2686F`")
+    check(img[gb:gb + 4] == hb("483B1F74") and gb + 5 + struct.unpack_from("<b", img, gb + 4)[0] == 0xE266A4,
+          "GL1b: not `cmp rbx,[rdi]; je E266A4`")
+    check(img[ga + 10:ga + 14] == hb("488B7B08") and img[gb + 5:gb + 9] == hb("488B4B08"),
+          "GL1: resume points are not `mov rdi|rcx,[rbx+8]` (entry = {?, task*}, 16 bytes)")
+    check(0xE26699 + 5 + struct.unpack_from("<i", img, 0xE2669A)[0] == 0x2866F0, "GL1b: loop does not call 2866F0")
+    # LC: only the two immediates change (and r15,-9 -> -15; add r15,0Ah -> 10h; mov eax,0Ah -> 10h)
+    oa, na = hb(byid["LCa"]["orig"].replace(" ", "")), hb(byid["LCa"]["new"].replace(" ", ""))
+    ob, nb = hb(byid["LCb"]["orig"].replace(" ", "")), hb(byid["LCb"]["new"].replace(" ", ""))
+    check([i for i in range(len(oa)) if oa[i] != na[i]] == [3, 11] and (oa[3], na[3], oa[11], na[11]) == (0xF7, 0xF1, 0x0A, 0x10),
+          "LCa: must change exactly the and-mask imm8 (F7 -> F1) and the add imm8 (0A -> 10)")
+    check([i for i in range(len(ob)) if ob[i] != nb[i]] == [1] and nb[1] == 0x10, "LCb: must change exactly mov eax,0Ah -> 10h")
+    # cap arithmetic: ((-(f != 0)) & mask) + base -> f = 0: base, f != 0: must stay 1 (the boot-flag cap)
+    check(((-1) & -15) + 16 == 1 and (0 & -15) + 16 == 16 and ((-1) & -9) + 10 == 1, "LC: cap arithmetic")
+    # LW: the three Sleep sites run with ecx = 1; the signal site sits between the done-bit store and `cmp [rax+54h],0`
+    for sid, pre in (("LWa", hb("8D4A01")), ("LWb", hb("418BCD")), ("LWc", hb("B901000000"))):
+        a = int(byid[sid]["rva"], 16)
+        check(img[a - len(pre):a] == pre, "%s: ecx = 1 setup before the Sleep call differs" % sid)
+    ws = int(byid["LWs"]["rva"], 16)
+    check(img[ws:ws + 8] == hb("834B2401488B4338"), "LWs: displaced instructions differ")
+    check(img[ws - 8:ws] == hb("B801000000874334"), "LWs: not preceded by `mov eax,1 / xchg [rbx+34h],eax`")
+    check(img[0x1343D00:0x1343D09] == hb("40534883EC20488BD9"),
+          "LW: ResourceStepJob_Run prologue (push rbx / sub rsp,20h => rsp 16-aligned at the site) differs")
+    print("1.7.14 GL1/LC/LW: %d sites, branch scan, loop exits, cap arithmetic, Sleep ecx = 1, job prologue checked" % len(new_sites))
+
     print()
     if fails:
         print("FAILED (%d):" % len(fails))

@@ -39,6 +39,7 @@ struct StartInfo {
     const wchar_t* iniPath = nullptr;  // [Profiler] LoadStats (0 off / 1 summary / 2 summary + per-second ticks)
     uintptr_t base = 0;                // Nioh3.exe image base
     bool knownBuild = false;           // v2.02 only; other builds refuse
+    int loaderCap = 10;                // resource-load in-flight cap actually in force (16 when the ASI patch LC is applied)
 };
 
 // Reads [Profiler] LoadStats. When != 0 and the build is known: verifies and installs the hooks and starts the sampler.

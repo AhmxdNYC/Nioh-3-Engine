@@ -50,6 +50,7 @@ Steam allows one device at a time. On '[GAME-FREE]' from the Ally: launch a Sonn
 PC round must take the bridge game lock first: py -m uo_bridge.gamelock acquire nioh3 (UO_AGENT_ID=pc), renew during the run, release at the end. Work-deciders done (no same-look change in the quality tables). CPU perf names 99.5 %; GPU passes mapping agent running.
 
 ## QUEUE (refill agents from here; keep 3-4 running, model per job)
+0. [main] ASI 1.7.14 built (GL1/LC/LW, default off, untested in game): install on PC after the current test round, then LoadStats A/B per flag (baseline vs GL1 / LC / LW alone, same load route); same on the Ally next session.
 1. [opus] Ally barrier-trace follow-up: when the 1.7.10 trace CSV arrives -> vkd3d_cost.py -> build/keep R2a/R1 per counts.
 2. [sonnet] PC test round on [GAME-FREE] (see 'PC test rounds').
 3. [opus] RADV prescreen follow-up: when the Ally tool works, screen VCLOUD hoist + SFB dedupe + any new rewrite.

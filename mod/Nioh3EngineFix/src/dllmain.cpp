@@ -37,7 +37,7 @@
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.13"
+#define MOD_VERSION "1.7.14"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -144,6 +144,13 @@ void capPt1Rel();
 void cavePt1B();
 void cavePt1C();
 void cavePt1D();
+// 1.7.14: GL1 (prefetch in the mission task-list walks), LW (loader managers wait on an event); LC is a byte patch
+void caveGl1A();
+void caveGl1B();
+void caveLdWait();
+void caveLdSig();
+extern uint64_t gl1_resA, gl1_endA, gl1_resB, gl1_endB, lw_event, lw_pWait, lw_pSleep, lw_pSet, lw_resSig;
+extern uint32_t lw_waiting, lw_signals;
 extern uint32_t mq_enable, mq_count, dl_count, dl_enable, pt1_enable, pt1_owner, pt1_claims, pt1_saved;
 extern uint64_t mq_resume, mq_calls, dl_fn, dl_resume, dl_skips;
 extern uint64_t pt1_pAcq, pt1_pRel, pt1_ret, pt1_resB, pt1_resC, pt1_resD, pt1_jeD;
@@ -238,6 +245,7 @@ volatile LONG64 g_wgSkipped = 0, g_wgCounted = 0, g_wgStale = 0, g_wgCalls = 0;
 volatile uint32_t g_tgEnable = 0;
 volatile long g_tgState = 0;      // 0 off, 1 governing (cap > 0), 2 refused: L1 not active, 3 VRR not armed, 4 nothing to govern
 int g_tgFloor = 30, g_tgRatioPct = 125;
+int g_loaderCap = 10;            // 1.7.14: resource-load in-flight cap (16 when LC is applied), for LoadStats
 bool g_tgL1 = false;              // L1 installed this session
 volatile double g_tgRendered = 0, g_tgTicks = 0;
 ULONGLONG g_tgLowerSince = 0;
@@ -313,6 +321,7 @@ struct Config {
     int lk = 0, cp = 0, spf = 0;
     int mq = 0, pt1 = 0, dl = 0, cpuStats = 0;  // 1.7.12 (DL rides the CP group)
     int rwb = 0, spr = 0;
+    int gl1 = 0, lc = 0, lw = 0;  // 1.7.14 (loading / game-logic; ini only, next launch)
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
 };
@@ -391,6 +400,9 @@ Config LoadConfig() {
     c.cpuStats = I(L"Patches", L"CpuStats", c.cpuStats);
     c.rwb = I(L"Patches", L"RWb", c.rwb);
     c.spr = I(L"Patches", L"SPR", c.spr);
+    c.gl1 = I(L"Patches", L"GL1", c.gl1);
+    c.lc = I(L"Patches", L"LC", c.lc);
+    c.lw = I(L"Patches", L"LW", c.lw);
     c.wgMaxPending = std::clamp(I(L"Tuning", L"WG_MaxPending", c.wgMaxPending), 1, 8);
     c.wgWindowUs = std::clamp(I(L"Tuning", L"WG_WindowUs", c.wgWindowUs), 100, 100000);
     c.tgFloor = std::clamp(I(L"Tuning", L"TG_Floor", c.tgFloor), 24, 60);
@@ -593,11 +605,15 @@ void* TargetFn(gen::Target t) {
         case gen::Target::cavePt1B: return (void*)&cavePt1B;
         case gen::Target::cavePt1C: return (void*)&cavePt1C;
         case gen::Target::cavePt1D: return (void*)&cavePt1D;
+        case gen::Target::caveGl1A: return (void*)&caveGl1A;
+        case gen::Target::caveGl1B: return (void*)&caveGl1B;
+        case gen::Target::caveLdWait: return (void*)&caveLdWait;
+        case gen::Target::caveLdSig: return (void*)&caveLdSig;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::cavePt1D;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveLdSig;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1291,6 +1307,9 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "PT1")) return cfg.pt1 != 0;
         if (!strcmp(g, "SPF")) return cfg.spf != 0;
         if (!strcmp(g, "RWb")) return cfg.rwb != 0;
+        if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
+        if (!strcmp(g, "LC")) return cfg.lc != 0;
+        if (!strcmp(g, "LW")) return cfg.lw != 0;
         if (!strcmp(g, "SPR")) return cfg.spr != 0;
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
@@ -1567,6 +1586,45 @@ DWORD WINAPI Worker(LPVOID) {
     // RWb (notes\stutter.md 3.5): 22 code bytes at ResStateWaitSwap's cold spin; the wake moves behind the Sleep(0) wrap test
     // (one futile pool-1 wake per 256 spins instead of one per spin). Next launch only; no menu item.
     expGroup("RWb", cfg.rwb != 0, nullptr);
+    // GL1 (1.7.14, notes\gamelogic.md): software prefetch of the task 3 entries ahead in the two mission task-list walks
+    // (E266D1 proximity pass, E26690 task-state pass). No architectural effect. Next launch only; no menu item.
+    if (expGroup("GL1", cfg.gl1 != 0, [&]() {
+            uint8_t* a = findItem("GL1a")->addr;  // cmp rbx,[rbp] (4) / je rel32 (6)
+            uint8_t* b = findItem("GL1b")->addr;  // cmp rbx,[rdi] (3) / je rel8 (2)
+            gl1_resA = (uint64_t)(uintptr_t)(a + 10);
+            gl1_endA = (uint64_t)(uintptr_t)(a + 10 + *(int32_t*)(a + 6));
+            gl1_resB = (uint64_t)(uintptr_t)(b + 5);
+            gl1_endB = (uint64_t)(uintptr_t)(b + 5 + *(int8_t*)(b + 4));
+            if (gl1_endA != (uint64_t)(uintptr_t)(g_base + 0xE2686F) || gl1_endB != (uint64_t)(uintptr_t)(g_base + 0xE266A4)) {
+                Log("GL1: loop exits are not where the cave expects them");
+                return false;
+            }
+            return true;
+        }))
+        Log("GL1: task-list prefetch installed (E266D1 proximity pass, E26690 task-state pass)");
+    // LC (1.7.14, notes\loading.md 3 row 4): resource-load managers keep up to 16 requests in flight instead of 10
+    // (the boot-flag value 1 stays 1). Same requests and queue order, only more of them started at once.
+    if (expGroup("LC", cfg.lc != 0, nullptr)) {
+        g_loaderCap = 16;
+        Log("LC: resource-load managers A/B in-flight cap 10 -> 16");
+    }
+    // LW (1.7.14, notes\loading.md 3 row 5): the managers' Sleep(1) polls wait on an event that finished ResourceStepJobs
+    // set, still with the 1 ms timeout as the upper bound.
+    if (expGroup("LW", cfg.lw != 0, [&]() {
+            HMODULE k = GetModuleHandleW(L"kernel32.dll");
+            auto pw = k ? GetProcAddress(k, "WaitForSingleObject") : nullptr;
+            auto ps = k ? GetProcAddress(k, "Sleep") : nullptr;
+            auto pe = k ? GetProcAddress(k, "SetEvent") : nullptr;
+            HANDLE ev = (pw && ps && pe) ? CreateEventW(nullptr, FALSE, FALSE, nullptr) : nullptr;
+            if (!ev) { Log("LW: kernel32 entry points / event not available"); return false; }
+            lw_event = (uint64_t)(uintptr_t)ev;
+            lw_pWait = (uint64_t)(uintptr_t)pw;
+            lw_pSleep = (uint64_t)(uintptr_t)ps;
+            lw_pSet = (uint64_t)(uintptr_t)pe;
+            lw_resSig = (uint64_t)(uintptr_t)(findItem("LWs")->addr + 8);  // 1343D3D
+            return true;
+        }))
+        Log("LW: loader managers wait on an event (1 ms timeout) instead of Sleep(1); ResourceStepJob completion signals it");
     // SPR (notes\stutter.md): count/time runtime graphics-PSO creates and upload-heap fallbacks. Measurement only.
     static bool s_sprDone = false;
     s_sprDone = expGroup("SPR", cfg.spr != 0, [&]() {
@@ -2138,6 +2196,7 @@ DWORD WINAPI Worker(LPVOID) {
             ls.iniPath = iniPath.c_str();
             ls.base = reinterpret_cast<uintptr_t>(g_base);
             ls.knownBuild = known;
+            ls.loaderCap = g_loaderCap;
             loadstats::Start(ls);
         }
         osd::StartupInfo si;

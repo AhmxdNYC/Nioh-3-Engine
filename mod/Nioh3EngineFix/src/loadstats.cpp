@@ -56,6 +56,7 @@ constexpr uint32_t kPsoTargets[2] = {0x9290D8, 0x58C2B0};
 void (*g_log)(const char*, ...) = nullptr;
 uintptr_t g_base = 0;
 int g_mode = 0;
+int g_loaderCap = 10;  // in-flight cap in force (StartInfo::loaderCap)
 bool g_on = false;
 double g_qpcMs = 0;  // ms per QPC tick
 
@@ -413,7 +414,7 @@ void OpenWindow(uintptr_t gm) {
     g_inflMax.store(g_inflNow.load());
     uint8_t c1 = 0;
     Rd(gm + kGmLoaderCap1, c1);
-    g_w.cap = c1 ? 1 : 10;
+    g_w.cap = c1 ? 1 : g_loaderCap;
     g_w.s0 = TakeSnap(ReadFrames(gm));
     g_w.sLastTick = g_w.s0;
     g_statusT0.store(g_w.s0.qpc);
@@ -542,6 +543,7 @@ bool Start(const StartInfo& info) {
     g_log = info.log;
     g_base = info.base;
     g_mode = (int)GetPrivateProfileIntW(L"Profiler", L"LoadStats", 0, info.iniPath);
+    g_loaderCap = info.loaderCap > 0 ? info.loaderCap : 10;
     if (g_mode <= 0 || !g_log || !g_base) return false;
     if (!info.knownBuild) {
         g_log("LoadStats: refused (unknown build; addresses are v2.02)");

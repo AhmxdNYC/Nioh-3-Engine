@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -149,6 +149,16 @@ static const uint8_t orig_PT1r[] = { 0xFF, 0x15, 0x3C, 0xD9, 0x7C, 0x03 };
 static const uint8_t orig_PT1b[] = { 0x45, 0x01, 0x96, 0x90, 0x75, 0x00, 0x00 };
 static const uint8_t orig_PT1c[] = { 0x48, 0x8B, 0x06, 0x4C, 0x8D, 0x45, 0x60 };
 static const uint8_t orig_PT1d[] = { 0x80, 0x7D, 0x0C, 0x00, 0x0F, 0x84, 0x86, 0x00, 0x00, 0x00 };
+static const uint8_t orig_GL1a[] = { 0x48, 0x3B, 0x5D, 0x00, 0x0F, 0x84, 0x94, 0x01, 0x00, 0x00 };
+static const uint8_t orig_GL1b[] = { 0x48, 0x3B, 0x1F, 0x74, 0x0F };
+static const uint8_t orig_LCa[] = { 0x49, 0x83, 0xE7, 0xF7, 0x48, 0xC1, 0xF8, 0x04, 0x49, 0x83, 0xC7, 0x0A };
+static const uint8_t repl_LCa[] = { 0x49, 0x83, 0xE7, 0xF1, 0x48, 0xC1, 0xF8, 0x04, 0x49, 0x83, 0xC7, 0x10 };
+static const uint8_t orig_LCb[] = { 0xB8, 0x0A, 0x00, 0x00, 0x00 };
+static const uint8_t repl_LCb[] = { 0xB8, 0x10, 0x00, 0x00, 0x00 };
+static const uint8_t orig_LWa[] = { 0xFF, 0x15, 0xCA, 0x34, 0x6E, 0x03 };
+static const uint8_t orig_LWb[] = { 0xFF, 0x15, 0xA6, 0x31, 0x6E, 0x03 };
+static const uint8_t orig_LWc[] = { 0xFF, 0x15, 0xC1, 0x2F, 0x6E, 0x03 };
+static const uint8_t orig_LWs[] = { 0x83, 0x4B, 0x24, 0x01, 0x48, 0x8B, 0x43, 0x38 };
 static const uint8_t orig_SPF[] = { 0x48, 0x8B, 0x05, 0x92, 0xE5, 0x4D, 0x04 };
 static const uint8_t orig_LKO1[] = { 0xF0, 0x0F, 0xB1, 0x1F };
 static const uint8_t repl_LKO1[] = { 0x8B, 0x07, 0x66, 0x90 };
@@ -283,6 +293,14 @@ static const Site kSites[] = {
     { "PT1b", "PT1", 0x129651, 7, orig_PT1b, "45 01 96 90 75 00 00 45 33 C0 8B 45 24 41 B3 FF", 0, Kind::Jmp, nullptr, Target::cavePt1B, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "PT1c", "PT1", 0x12982E, 7, orig_PT1c, "48 8B 06 4C 8D 45 60 41 B9 01 00 00 00 49 8B D6", 0, Kind::Jmp, nullptr, Target::cavePt1C, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "PT1d", "PT1", 0x1298B3, 10, orig_PT1d, "80 7D 0C 00 0F 84 86 00 00 00 0F B6 C2 66 3B 45 1C", 0, Kind::Jmp, nullptr, Target::cavePt1D, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "GL1a", "GL1", 0xE266D1, 10, orig_GL1a, "48 3B 5D 00 0F 84 ?? ?? ?? ?? 48 8B 7B 08 80 BF D9 00 00 00 00 0F 85 ?? ?? ?? ?? 0F B6 97 97 00 00 00", 0, Kind::Jmp, nullptr, Target::caveGl1A, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "GL1b", "GL1", 0xE26690, 5, orig_GL1b, "48 3B 1F 74 0F 48 8B 4B 08 E8 ?? ?? ?? ?? 48 83 C3 10 EB EC 48 8B 5C 24 30", 0, Kind::Jmp, nullptr, Target::caveGl1B, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "LCa", "LC", 0x1FEE98, 12, orig_LCa, "49 83 E7 F7 48 C1 F8 04 49 83 C7 0A 4C 89 7D 77 49 8B CF", 0, Kind::Bytes, repl_LCa, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "LCb", "LC", 0x1FF3BA, 5, orig_LCb, "B8 0A 00 00 00 48 89 B4 24 60 11 00 00 4D 8D BE 18 02 00 00", 0, Kind::Bytes, repl_LCb, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "LWa", "LW", 0x1FEE68, 6, orig_LWa, "88 91 49 02 00 00 8D 4A 01 FF 15 ?? ?? ?? ?? E9 5B 03 00 00 41 BD 01 00", 9, Kind::Call, nullptr, Target::caveLdWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "LWb", "LW", 0x1FF18C, 6, orig_LWb, "41 8B CD FF 15 ?? ?? ?? ?? 41 80 BE 4C 02 00 00 00 0F 85", 3, Kind::Call, nullptr, Target::caveLdWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "LWc", "LW", 0x1FF371, 6, orig_LWc, "41 88 8E 48 02 00 00 B9 01 00 00 00 FF 15 ?? ?? ?? ?? E9", 12, Kind::Call, nullptr, Target::caveLdWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "LWs", "LW", 0x1343D35, 8, orig_LWs, "87 43 34 83 4B 24 01 48 8B 43 38 66 83 78 54 00 75 31 48 8B 43 48", 3, Kind::Jmp, nullptr, Target::caveLdSig, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "SPF", "SPF", 0xDB8BF, 7, orig_SPF, "48 8B 05 ?? ?? ?? ?? 48 8B 73 08", 0, Kind::Jmp, nullptr, Target::caveSPF, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "LKO1", "LK", 0x1A18C9, 4, orig_LKO1, "F0 0F B1 1F A9 FF FF 7F 00", 0, Kind::Bytes, repl_LKO1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "LKO2", "LK", 0x1A1935, 5, orig_LKO2, "F0 0F B1 1C 91 41 85 C0 75 ?? 45 85 C8 74 ?? BA 00 00 00 08 48 8D 8E D8 02 00 00", 0, Kind::Bytes, repl_LKO2, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -367,9 +385,9 @@ static const uint8_t dep_54[] = { 0x48, 0x8B, 0x15, 0xB3, 0x5B, 0xB4, 0x02, 0x0F
 static const uint8_t dep_55[] = { 0x48, 0x8B, 0x4D, 0xA0, 0xEB, 0x08, 0xE8, 0xB1, 0xEB, 0x16, 0xFF, 0x48, 0x63, 0xC8, 0x48, 0x2B, 0xCB, 0x0F, 0x57, 0xC0, 0x78, 0x07, 0xF3, 0x48, 0x0F, 0x2A, 0xC1, 0xEB, 0x15, 0x48, 0x8B, 0xC1, 0x83, 0xE1, 0x01, 0x48, 0xD1, 0xE8, 0x48, 0x0B, 0xC1, 0xF3, 0x48, 0x0F, 0x2A, 0xC0, 0xF3, 0x0F, 0x58, 0xC0, 0x48, 0x8B, 0x15, 0x67, 0x5B, 0xB4, 0x02, 0x0F, 0x57, 0xC9, 0x48, 0x8B, 0x4A, 0x18, 0x48, 0x85, 0xC9, 0x78, 0x07, 0xF3, 0x48, 0x0F, 0x2A, 0xC9, 0xEB, 0x15, 0x48, 0x8B, 0xC1, 0x83, 0xE1, 0x01, 0x48, 0xD1, 0xE8, 0x48, 0x0B, 0xC1, 0xF3, 0x48, 0x0F, 0x2A, 0xC8, 0xF3, 0x0F, 0x58, 0xC9, 0xF3, 0x0F, 0x5E, 0xC1, 0x0F, 0x2F, 0xF0, 0x77, 0x86 };
 static const uint8_t dep_56[] = { 0xF3, 0x0F, 0x10, 0x35, 0x9C, 0x01, 0x16, 0x02 };
 static const uint8_t dep_57[] = { 0x6F, 0x12, 0x83, 0x3A };
-static const uint8_t dep_64[] = { 0x48, 0x83, 0xCB, 0xFF, 0x44, 0x8B, 0xCB, 0xFF, 0x15, 0x01, 0xE4, 0x7C, 0x03, 0x48, 0x8B, 0x8F, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8D, 0x54, 0x24, 0x30, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xC3, 0x66, 0x44, 0x39, 0x34, 0x5A, 0x75, 0xF6, 0x44, 0x8D, 0x0C, 0x1B, 0x8B, 0xD6, 0x4C, 0x8D, 0x44, 0x24, 0x30 };
-static const uint8_t dep_65[] = { 0x48, 0x8B, 0x8B, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8B, 0x01 };
-static const uint8_t dep_66[] = { 0x48, 0x8B, 0x8B, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8B, 0x01 };
+static const uint8_t dep_68[] = { 0x48, 0x83, 0xCB, 0xFF, 0x44, 0x8B, 0xCB, 0xFF, 0x15, 0x01, 0xE4, 0x7C, 0x03, 0x48, 0x8B, 0x8F, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8D, 0x54, 0x24, 0x30, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xC3, 0x66, 0x44, 0x39, 0x34, 0x5A, 0x75, 0xF6, 0x44, 0x8D, 0x0C, 0x1B, 0x8B, 0xD6, 0x4C, 0x8D, 0x44, 0x24, 0x30 };
+static const uint8_t dep_69[] = { 0x48, 0x8B, 0x8B, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8B, 0x01 };
+static const uint8_t dep_70[] = { 0x48, 0x8B, 0x8B, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8B, 0x01 };
 static const Dep kDeps[] = {
     { "PP", 0x2522C4, 6, dep_0, 0 },  // PagePoolScanAll prologue
     { "PP", 0x252303, 7, dep_1, 0 },  // cmp byte [rbx+238h],0 (pool+B28h branch)
@@ -434,10 +452,14 @@ static const Dep kDeps[] = {
     { "MQ", 0x88780, 440, nullptr, 0xE7C27E2D },  // MatrixFromScaleQuatTrans body 88780..88938 (the cave replaces it bit-exactly; fallback re-enters at 8878A)
     { "PT1", 0x129651, 610, nullptr, 0xE60B9FAA },  // TextureStreamRequestTiles phase 2 [129651,1298B3): closed region, the only calls are 114C38 and vfunc +28h
     { "PT1", 0x114C38, 221, nullptr, 0xE71B1F39 },  // 114C38 touch: both SRW calls at frame depth 68h (the capAcq/capRel return-address gate reads [rsp+70h])
+    { "GL1", 0xE266B0, 473, nullptr, 0xAF557464 },  // GL1: MissionTaskListProximityPass walk E266B0..E26888 (rbx = entry, rbp = &last, stride 10h; r9-r11 unused; no branch into the cave site)
+    { "GL1", 0xE26680, 47, nullptr, 0xB451FF9E },  // GL1: E26680 task-state walk (rbx = entry, rdi = &last; calls 2866F0 per entry)
+    { "LW", 0x1343D00, 125, nullptr, 0x68F0AE0B },  // LW: ResourceStepJob_Run (rbx = job; +24h state bits; the cave signals after the done bit, rsp 16-aligned at the site)
+    { "LW", 0x1FEE28, 954, nullptr, 0x96074876 },  // LW/LC: ResourceLoadIdlePoll manager A (Sleep(1) sites with ecx = 1; in-flight cap = and r15,-9 / add r15,0Ah)
     { "SPF", 0xDB8C6, 251, nullptr, 0x7F023EF8 },  // placeable map loop DB8C6..DB9C1 (rbx = entry, r14 = end, stride 10h)
-    { "GP", 0x113F1A, 49, dep_64, 0 },  // SynBeginEvent: name -> UTF-16, list = [SynCtx+580h], Size = 2 x length, Metadata = colour
-    { "GP", 0x113FAF, 10, dep_65, 0 },  // 113F70: EndEvent on [SynCtx+580h]
-    { "GP", 0x11400B, 10, dep_66, 0 },  // SynTokEndEvent: EndEvent on [SynCtx+580h]
+    { "GP", 0x113F1A, 49, dep_68, 0 },  // SynBeginEvent: name -> UTF-16, list = [SynCtx+580h], Size = 2 x length, Metadata = colour
+    { "GP", 0x113FAF, 10, dep_69, 0 },  // 113F70: EndEvent on [SynCtx+580h]
+    { "GP", 0x11400B, 10, dep_70, 0 },  // SynTokEndEvent: EndEvent on [SynCtx+580h]
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

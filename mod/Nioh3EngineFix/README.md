@@ -290,6 +290,22 @@ switched FG on and config.xml had `FRAME_GENERATION` OFF at startup, the mod wri
 Both use the existing config.xml writer (value check, `.Nioh3EngineFix.bak` backup, only that value changed) and log
 `MENU: Proton ...` lines.
 
+### 1.7.14: GL1, LC, LW - queued game-logic and loading patches (all default 0, v2.02 only, next launch, no menu rows)
+From `notes\gamelogic.md` (GL1) and `notes\loading.md` section 3 rows 4-5. Same checks as every patch (pattern, bytes,
+dependency hashes). None of them changes what the game computes or loads, only when memory is fetched or how soon a poll
+notices finished work. The faster zlib inflate (row 6) is not built: a bit-exact drop-in would be a new decoder and is
+not worth the risk for an estimated 0.5-2 s.
+- **GL1** (`[Patches] GL1 = 1`): prefetch of the task 3 entries ahead in the proximity pass (E266D1) and the task-state
+  pass (E26690). `prefetcht0` is only issued while entry i+3 lies inside the vector; it cannot fault. PC: about 2-3 % of one
+  core (MissionThread ~20 % lower); Ally: about 0 fps (GPU-bound). The segmented object walk (20B900) is not touched.
+- **LC** (`LC = 1`): resource-load in-flight cap 10 -> 16 in both managers (two immediates; the boot-flag cap of 1 is kept).
+  LoadStats then logs the cap as 16.
+- **LW** (`LW = 1`): the managers' `Sleep(1)` becomes `WaitForSingleObject(event, 1 ms)`; `ResourceStepJob_Run` signals the
+  event after setting its done bit, and only while a manager waits. A/B with LoadStats (its three manager-Sleep hooks are
+  skipped while LW is on).
+A/B plan: LoadStats baseline, then one flag per load pair on the same route (LoadStats total, stage-ready time, loaders
+last busy, in-flight at cap), plus `Mission` thread CPU at a fixed spot for GL1.
+
 ## Requirements
 
 * Nioh 3 on Steam, **version 2.02**. The mod checks the executable and **refuses to patch any other build**
