@@ -1,0 +1,26 @@
+== site checks (dump)
+  [ok] 88780 bytes = 4C 8B DC 48 81 EC 88 00 00 00 (mov r11,rsp; sub rsp,88h)
+  [ok] two whole instructions (3 + 7 bytes), next starts at 8878A
+  [ok] 88780 is a .pdata function start, end 88938
+== branch-target sweep (all .pdata ranges)
+  direct branches/calls to 88780: 299
+  [ok] no branch into 88781..88789
+  [ok] original body: no branches/calls, only rip-rel operand is 3BD41E0 (1.0f)
+  [ok] original body has no FMA (cave has none either)
+  [ok] 3BD41E0 = 1.0f
+== native equivalence (original bytes from the dump vs cave), own process only
+  cave 504 bytes (code 248)
+  MXCSR RN            1001026 tests, 0 bitwise mismatches (16 dwords + return value), 0 MXCSR status-flag mismatches
+  MXCSR RN+FTZ+DAZ    1001026 tests, 0 bitwise mismatches (16 dwords + return value), 0 MXCSR status-flag mismatches
+  MXCSR RD             251026 tests, 0 bitwise mismatches (16 dwords + return value), 0 MXCSR status-flag mismatches
+  MXCSR RU             251026 tests, 0 bitwise mismatches (16 dwords + return value), 0 MXCSR status-flag mismatches
+  MXCSR RZ             251026 tests, 0 bitwise mismatches (16 dwords + return value), 0 MXCSR status-flag mismatches
+  [ok] bit-identical on 2755130 inputs (random bits, specials, NaN/inf/denormal/-0, 5 MXCSR modes)
+  [ok] MXCSR status flags identical after every call
+  [ok] aliasing (out overlaps s / q / t): 3001 cases, 0 byte diffs
+  [ok] switch off = stock path
+  [ok] switch 3 (on + count): counter = 1000, results identical
+== timing: native loop over 256 bones (like SkelBuildBoneMatrices), 4000 passes, best of 5
+  per call: empty 1.14 ns, stock 4.00 ns, cave 2.49 ns  => stock body 2.86 ns, cave body 1.35 ns (53% less)
+== cave disassembly (at its test address)
+OFFLINE CHECKS: ALL PASSED

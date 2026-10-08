@@ -1,0 +1,117 @@
+== site checks (dump)
+  [ok] 114CA8 bytes = FF-15-7A-D9-7C-03
+  [ok] 114CEE bytes = FF-15-3C-D9-7C-03
+  [ok] 129651 bytes = 45-01-96-90-75-00-00
+  [ok] 12982E bytes = 48-8B-06-4C-8D-45-60
+  [ok] 1298B3 bytes = 80-7D-0C-00-0F-84-86-00-00-00
+  [ok] every site is whole instructions
+  [ok] 114CA8 calls [38E2628] AcquireSRWLockShared, 114CEE calls [38E2630] ReleaseSRWLockShared
+  [ok] 1298B7 is je 129943
+  [ok] no branch lands inside any patched site
+  direct calls/jumps to 114C38: 7C4BCC, 1297F9
+  [ok] 114C38 direct callers = 1297F9 (phase 2) + 7C4BCC (7C463C; stays stock via the return-address gate)
+  [ok] 114C38 frame at both IAT calls = 68h -> its return address is at [rsp+70h] inside capAcq/capRel
+  [ok] 114C38 is never address-taken (rip-relative refs 0, absolute qwords 0)
+  [ok] phase 2 [129651,1298B3) is entered from outside only at 129651
+  calls inside phase 2: 1297F9: call 114C38; 129841: call [RAX+28h]
+  [ok] phase 2 calls only 114C38 (1297F9) and [rax+28h] (129841, right after S_C)
+  [ok] every phase-2 branch stays in [129651,1298B3] (exit only via 1298B3 = S_D)
+  [ok] 114C38 calls: 117B44 [38E2628] 1195E8 [38E2630]
+  117B44 (runs before the lock in stock, under the held lock with PT1) calls: [RAX+50h]; B912E0
+    = vtable+50h of the texture's [rsi+10h] (ID3D12Resource::GetDesc: 1/2/3/4 = D3D12_RESOURCE_DIMENSION, Flags & 3 = RT|DS)
+== lock census: every SRW call on [x+D08h] / [x+6EA8h] (pool lock; +6EA8h = device+61A0h+D08h)
+  49E8A in fn 49D5C  AcquireSRWLockShared  [x+6EA8h]
+  49F00 in fn 49D5C  ReleaseSRWLockShared  [x+6EA8h]
+  4A088 in fn 49F4C  AcquireSRWLockShared  [x+6EA8h]
+  4A0FB in fn 49F4C  ReleaseSRWLockShared  [x+6EA8h]
+  4A20D in fn 4A134  AcquireSRWLockShared  [x+6EA8h]
+  4A280 in fn 4A134  ReleaseSRWLockShared  [x+6EA8h]
+  114CA8 in fn 114C38  AcquireSRWLockShared  [x+D08h]
+  114CEE in fn 114C38  ReleaseSRWLockShared  [x+D08h]
+  116943 in fn 116890  AcquireSRWLockShared  [x+D08h]
+  1169BB in fn 116890  ReleaseSRWLockShared  [x+D08h]
+  128A0F in fn 128844  AcquireSRWLockShared  [x+6EA8h]
+  128A81 in fn 128844  ReleaseSRWLockShared  [x+6EA8h]
+  128D79 in fn 128B0C  AcquireSRWLockShared  [x+6EA8h]
+  128DFF in fn 128B0C  ReleaseSRWLockShared  [x+6EA8h]
+  12A322 in fn 129B70  AcquireSRWLockShared  [x+6EA8h]
+  12A401 in fn 129B70  ReleaseSRWLockShared  [x+6EA8h]
+  12A448 in fn 129B70  ReleaseSRWLockShared  [x+6EA8h]
+  12A5F6 in fn 129B70  AcquireSRWLockShared  [x+6EA8h]
+  12A8B2 in fn 129B70  ReleaseSRWLockShared  [x+6EA8h]
+  250C9C in fn 250BF8  AcquireSRWLockExclusive  [x+D08h]
+  250CDC in fn 250BF8  ReleaseSRWLockExclusive  [x+D08h]
+  25256D in fn 252510  AcquireSRWLockExclusive  [x+D08h]
+  252576 in fn 252510  ReleaseSRWLockExclusive  [x+D08h]
+  48FF8A in fn 48FF40  AcquireSRWLockShared  [x+D08h]
+  48FFC7 in fn 48FF40  ReleaseSRWLockShared  [x+D08h]
+  490435 in fn 4903E0  AcquireSRWLockShared  [x+D08h]
+  490491 in fn 4903E0  ReleaseSRWLockShared  [x+D08h]
+  490743 in fn 4906E8  AcquireSRWLockExclusive  [x+6EA8h]
+  4908BB in fn 490874  AcquireSRWLockShared  [x+D08h]
+  4908E0 in fn 490874  ReleaseSRWLockShared  [x+D08h]
+  491905 in fn 491874  AcquireSRWLockShared  [x+D08h]
+  49197D in fn 491874  ReleaseSRWLockShared  [x+D08h]
+  49236C in fn 492310  AcquireSRWLockExclusive  [x+D08h]
+  49261B in fn 492310  ReleaseSRWLockExclusive  [x+D08h]
+  6BDFAC in fn 6BDF78  AcquireSRWLockShared  [x+D08h]
+  6BDFEE in fn 6BDF78  ReleaseSRWLockShared  [x+D08h]
+  7582D2 in fn 75821C  AcquireSRWLockShared  [x+D08h]
+  758347 in fn 75821C  ReleaseSRWLockShared  [x+D08h]
+  7A584E in fn 7A56B4  AcquireSRWLockShared  [x+6EA8h]
+  7A589B in fn 7A56B4  ReleaseSRWLockShared  [x+6EA8h]
+  7F49FB in fn 7F49B4  AcquireSRWLockShared  [x+6EA8h]
+  7F4A30 in fn 7F49B4  ReleaseSRWLockShared  [x+6EA8h]
+  7F6D0D in fn 7F6CC4  AcquireSRWLockShared  [x+6EA8h]
+  7F6D32 in fn 7F6CC4  ReleaseSRWLockShared  [x+6EA8h]
+  8317B3 in fn 83176C  AcquireSRWLockShared  [x+D08h]
+  8317E2 in fn 83176C  ReleaseSRWLockShared  [x+D08h]
+  1896C7B in fn 1896C34  AcquireSRWLockShared  [x+D08h]
+  1896CA0 in fn 1896C34  ReleaseSRWLockShared  [x+D08h]
+  1896D92 in fn 1896D40  AcquireSRWLockShared  [x+D08h]
+  1896DD3 in fn 1896D40  ReleaseSRWLockShared  [x+D08h]
+  1896EA3 in fn 1896DF8  AcquireSRWLockShared  [x+D08h]
+  1896F0C in fn 1896DF8  ReleaseSRWLockShared  [x+D08h]
+  1896FCA in fn 1896F38  AcquireSRWLockShared  [x+D08h]
+  1897033 in fn 1896F38  ReleaseSRWLockShared  [x+D08h]
+  18970DE in fn 189705C  AcquireSRWLockShared  [x+D08h]
+  1897124 in fn 189705C  ReleaseSRWLockShared  [x+D08h]
+  2EEF83B in fn 2EEF7F4  AcquireSRWLockShared  [x+D08h]
+  2EEF860 in fn 2EEF7F4  ReleaseSRWLockShared  [x+D08h]
+  2EEFA46 in fn 2EEF9A8  AcquireSRWLockExclusive  [x+D08h]
+  2EEFAA3 in fn 2EEF9A8  ReleaseSRWLockExclusive  [x+D08h]
+  2EEFBB9 in fn 2EEFAC8  AcquireSRWLockExclusive  [x+D08h]
+  2EEFC0B in fn 2EEFAC8  ReleaseSRWLockExclusive  [x+D08h]
+  2EEFCA2 in fn 2EEFC30  AcquireSRWLockExclusive  [x+D08h]
+  2EEFCE4 in fn 2EEFC30  ReleaseSRWLockExclusive  [x+D08h]
+  2EEFDAC in fn 2EEFD08  AcquireSRWLockShared  [x+D08h]
+  2EEFE22 in fn 2EEFD08  ReleaseSRWLockShared  [x+D08h]
+== native functional test (caves vs a real SRWLOCK, own process only)
+  cave 603 bytes (code 347)
+  [ok] S_B: claims owner = this thread, resumes, displaced add done ([r14+7590h] += r10d)
+  [ok] capAcq (owner): acquires once, held = lock
+  [ok] capRel (owner): lock stays held
+  [ok] 50 more touches: no re-acquire (saved counter 50), lock still held once
+  [ok] S_C: releases the held lock, held = 0, displaced mov rax,[rsi] done
+  [ok] touch after S_C re-acquires and keeps it
+  [ok] capAcq on a different lock: releases the first, holds the second
+  [ok] S_D: releases, owner = 0, held = 0; [rbp+0Ch] = 0 -> je path (129943)
+  [ok] S_D with nothing owned: no-op; [rbp+0Ch] = 1 -> jne path (1298BD)
+  [ok] not owner: capAcq = plain AcquireSRWLockShared
+  [ok] not owner: capRel = plain ReleaseSRWLockShared
+  [ok] owner, but 114C38 called from the other caller (7C4BCC): capAcq is stock
+  [ok] ... and capRel is stock (lock free again)
+  [ok] switch off: S_B does not claim (stock from the next texture), displaced add still done
+  [ok] another thread owns: S_B does not steal, capAcq is stock
+  [ok] ... and capRel is stock
+  [ok] S_D on a non-owner thread leaves the owner alone
+  [ok] re-entered S_B while owning: owner unchanged, nothing held after S_C
+  [ok] inner + outer S_D: owner = 0, lock free
+== stress: exclusive taker thread vs 200,000 textures x 1-40 touches (+ ~3 % failed touches -> S_C)
+  248 ms, 4095848 touches, 6787 exclusive sections, 4585891 foreign shared sections
+  [ok] no deadlock, no overlap of the held window with an exclusive section, lock free at the end
+== cost per touch (native loop, 4M touches; 'busy' = another thread hammering the same lock shared, like TS_MESHLET_REQ)
+  idle lock: stock 6.6 ns/touch, PT1 3.3 ns/touch
+  busy lock: stock 23.1 ns/touch, PT1 6.8 ns/touch
+== cave disassembly
+OFFLINE CHECKS: ALL PASSED

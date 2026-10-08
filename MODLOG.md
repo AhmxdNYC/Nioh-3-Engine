@@ -321,3 +321,10 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Checks: test_patterns ALL 107 SITES OK; loadstats, gp, psoswap, loadmem, tilestats, wg, r2 harnesses all OK; ls_sites LOADSTATS SITES OK; build.bat clean link.
 - README-ALLY: 1.7.11 load test (title->level x2 + shrine travel x2 with LoadStats=1 baseline, then RWb=1+WG=1, then LM=1 as a separate pair). Docs: README.md section + changelog line. Zip on the Desktop (not committed): Nioh3EngineFix-1.7.11-ally.zip.
 - Undo: revert this commit.
+
+## 2026-10-08 - streaming-anim CPU candidates MQ / PT1 built + proved offline, RR1 skipped (nothing applied, game not run)
+- `patcher\mq_live.fsx` (MQ): bit-exact SSE MatrixFromScaleQuatTrans 88780 (entry jmp, stock fallback on out/scale overlap). Offline vs the original bytes: 2,755,130 inputs incl. NaN/sNaN payloads, +-inf, denormals, -0, 5 MXCSR modes: 0 bitwise diffs, 0 MXCSR-flag diffs, 3,001 aliasing cases OK; body 2.86 -> 1.35 ns/call. Expected ~0.8-0.9 % of each KIDSTaskScheduler thread on the PC; 0 fps on the Ally.
+- `patcher\pt1_live.fsx` (PT1): pool+D08h shared lock held once per texture in 1290B8 phase 2 (5 sites: 114CA8/114CEE IAT calls -> owner+return-address-gated caps, 129651 claim, 12982E release before vfunc+28h, 1298B3 release). Offline: site/branch/closure checks, lock census, 19 native checks on a real SRWLOCK + 2-thread stress (no deadlock, no overlap with exclusive sections). Per touch 6.0 -> 3.3 ns idle, 26.4 -> 6.7 ns contended; <= ~0.3 % of the main thread.
+- RR1 skipped: ResourceIsReady drives loading and its inputs change on loader threads without a choke point; a memo cannot be proven same-result (notes\streaming-anim.md §4.3).
+- Outputs: `re\scripts_cpu\mq_offline.txt`, `re\scripts_cpu\pt1_offline.txt`; notes\streaming-anim.md §4 (results, proofs, ASI-ready caves). Both scripts default off (memory only, `apply` needs FT_ALLOW_WRITE=1).
+- Undo: nothing applied; if applied live: `FT_ALLOW_WRITE=1 dotnet fsi patcher\mq_live.fsx revert` / `pt1_live.fsx revert` (or restart the game).
