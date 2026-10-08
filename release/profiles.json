@@ -44,7 +44,8 @@
       {"section": "Latency", "key": "MaxFrameLatency", "value": "1", "status": "kept", "why": "shipped in Ally zips since 1.1.0; lowest latency, explicit under vkd3d"}
     ],
     "shaders": [
-      {"file": "0x0104840c.file", "name": "GHDM fast shadow depth reduction", "status": "kept", "why": "Ally +6.4 to +8.7 % at MAX, same look (the only Ally-proven fps gain)"}
+      {"file": "0x0104840c.file", "name": "GHDM fast shadow depth reduction", "status": "kept", "why": "Ally +6.4 to +8.7 % at MAX, same look (the only Ally-proven fps gain)"},
+      {"file": "0xa9910db8.file", "name": "fogpar VFSCAT early-exit (bit-exact)", "status": "kept", "why": "Ally S1 USER ABBA +0.15/+0.30 fps (~-0.18 ms), shotdiff within noise (bridge #318, 2026-10-08); sha256 81007b3f"}
     ]
   }
 }
