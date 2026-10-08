@@ -431,3 +431,11 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 1.7.19 (2026-10-08)
 - FIX: 1.7.17 LG probe crashed the game during loads (Ally, 0xC0000005 at Nioh3.exe+3B3A56). LoadIsLoadEnd keeps r11 live across the LG6/LG7 calls (LTCG register allocation) and reuses it as rcx at LG8; the C++ gate hooks clobbered it. Gate call-site thunks now save/restore r10/r11 (NewSaveThunk). BossLog entry thunks also preserve r10/r11. Only affected LoadGates=1 / BossLog=1 (both default off).
+
+## 1.7.20 (2026-10-08)
+- ADD: BossLog ([Debug] BossLog=1, default off, read-only) now also logs boss rewards, tagged with the fight number, while a fight is active and for 30 s after BossBattleModeEnd: Character::AddDropTable/AddDropFixItem/AddDropKeyItemDirectGet/ForceDrop*/EnemyForceKillWithItemDrop, Item::AddItem/AddFixItem/AddMagicItem/AddItemNoNotice/AddEquipment(+BySlot/Preset), Player::AddGuardianSpirit(+NoNotice/WithTimer)/AddSkill/AddSkillDojo/AddMoney, Mission::SetReward/GetGameClearRewardNormal/Hard and GameClearRewardGrant. Script args are read from the VM value stack (SEH-guarded, no game calls); item names are not resolved (ids only). 24 new check sites BL7-BL30 (patches.json), same r10/r11-preserving entry thunk. Undo: BossLog=0 (nothing installed) or revert to 1.7.19.
+
+## 2026-10-08 - Battle Scrolls research (static; nothing installed or patched)
+- `notes/battle-scrolls.md` + `notes/battle-scrolls.csv`: Battle Scroll = shrine item 3 (visible on mission flag 0xAB) = mission replay over the mission table (LFM archive_03 entry 398, 130 x 0x198-B records, `MissionRecordGet` 0x377B38) + Picture Scroll/Emaki half (FeatureUnlocked bit 8 + flag 0x217). 62 listable missions with bosses; 3 duels excluded by flag 0x40.
+- Symbols: `re/symbols/incoming/battlescroll-renames.tsv`. Scripts: `re/scripts_boss/bs_*.py`. LFM archives 02/06/15 extracted to `data/extract/lfm` (git-ignored).
+- Undo: nothing to undo.
