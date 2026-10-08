@@ -1,6 +1,14 @@
 # STATUS (handoff) - rewritten 2026-10-08
 Read this section only; everything older is under '## History' (unchanged). Latest commit when written: 7b4bd34 (ASI 1.7.21).
 
+## HANDOFF 2026-10-08 19:30 (new chat starts here)
+- State: ASI 1.7.39 on main (bin may need a rebuild). Game folder: user's play ini (= Nioh3EngineFix.ini.preboss.bak). Ally took the game lock 19:24 (fog test fogpar, #300).
+- NEXT 1: when the Ally posts GAME-FREE, run the PC re-test per notes/pc-cpu-next.md at -MaxFps 240 with -Input vpad (virtual pad, no focus needed): PP confirm, B, GF, MA, DQ, P1E7, AABB -> update release/profiles.json PC.
+- NEXT 2: tour (tools/tour, 1.7.36) on PC with -Input vpad, then on the Ally; -Passes 2 = leak check.
+- NEXT 3: flip provisional defaults -> final build (release/package.py --final --full) -> send the 'needs' Discord card (universal-optimizer/tools/notify) for the final benchmark + user's boss session (tools/playsession START/STOP; FnProbe covers the last Unknown_ fns, notes/remaining-work.md 10.1).
+- Verdicts so far: Ally loads 94 -> ~37 s (EP+SR auto); PF neutral, LC worse (off). PC: PP keep (+2.9 %, -0.26 ms); B/GF/MQ off. Ally GPU: only fogpar left to test; FG = 34 -> 49 fps shown.
+- Open with the user: bigger fixed page file (ask first); Ally auto-wake (asked in #301, no reply yet); move Avatar Legends to D: via Steam.
+
 ## CURRENT STATE
 - 2026-10-08: ASI 1.7.35: [Debug] PadLatency (controller input->present/GPU-done + poll interval, notes\pad-latency.md); play session kit sets PadLatency=1.
 - 2026-10-08: ASI 1.7.34 in src/bin (FnProbe, remaining-work 10.1) + one-click play session kit tools\playsession (desktop 'Nioh3 Session START'/'STOP'; README there). Not installed in the game folder: START installs it per session and STOP restores.
