@@ -56,3 +56,6 @@ PC round must take the bridge game lock first: py -m uo_bridge.gamelock acquire 
 4. [sonnet] Live read on PC (when free): meshlet LOD per-category values (see work-deciders addendum).
 5. [opus] Next decompile area by impact after the current 4 finish (perf_coverage.py --self gaps, GPU chart grey buckets).
 6. [sonnet] README/charts refresh after each merge; device-specific README pass once the Ally hardware IDs arrive.
+
+## FINAL PHASE (user, 2026-10-08): benchmark rounds on PC + Ally X at the END, with the user present
+When the queue is done and every kept change is checked: prepare a benchmark protocol (same save/spots, stand + move + combat + a level load, MAX and the user's preset, stock vs mod-all-kept, 3 runs each, GPU W/MHz + fps/1 %/p99 + load seconds; PresentMon on PC, MangoHud on the Ally) and ASK the user to schedule it. PC and Ally run one after the other (Steam one device at a time). Results -> README + Discord.
