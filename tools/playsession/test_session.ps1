@@ -59,7 +59,7 @@ Ck ($r.code -eq 1 -and $r.out -match "already running") "second START refused"
 
 # 4. fake game run: PING.EXE copied as Nioh3.exe, a fake mod log in the fake game folder
 Copy-Item "$env:WINDIR\System32\PING.EXE" (Join-Path $root "Nioh3.exe")
-@("[20:00:00.000] Nioh3EngineFix 1.7.34 (built Oct  8 2026) - native port of the live-tested Nioh 3 engine patches",
+@("[20:00:00.000] Nioh3EngineFix 1.7.35 (built Oct  8 2026) - native port of the live-tested Nioh 3 engine patches",
   "[20:00:01.000] FnProbe: 14/14 functions hooked (default 10.1 list; measurement only; report every 30 s, args of the first 8 hits, callers 1 in 16 hits)") |
     Set-Content "$g\Nioh3EngineFix.log" -Encoding ASCII
 $fake = Start-Process (Join-Path $root "Nioh3.exe") -ArgumentList "-n 14 127.0.0.1" -WindowStyle Hidden -PassThru

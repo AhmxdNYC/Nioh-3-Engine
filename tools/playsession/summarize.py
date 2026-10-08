@@ -5,7 +5,8 @@
 
 Inputs in the session dir (any may be missing; the report says what was missing):
   presentmon.csv      PresentMon 2.x --v2_metrics (--date_time) of Nioh3.exe: frame times, CPU/GPU busy+wait, latency columns
-  modlog_run*.log     Nioh3EngineFix.log of each game launch (copied by monitor.ps1 at each exit / by stop_session.ps1)
+  modlog_run*.log     Nioh3EngineFix.log of each game launch (copied by monitor.ps1 at each exit / by stop_session.ps1);
+                      incl. the PadLatency lines (ASI 1.7.35, controller input -> Present / GPU-done, notes\\pad-latency.md)
   sysmon.csv          monitor.ps1: Windows counters every 5 s (CPU %, CPU perf %, GPU 3D %, VRAM, RAM, commit)
   session.json        start_session.ps1: times, versions, ini keys, PresentMon clock bias
   config.xml          the game's settings at session start
@@ -180,6 +181,13 @@ def frame_stats(fr, idx=None):
                       ("DisplayLatency", "display_latency"), ("AllInputToPhotonLatency", "aip_latency"),
                       ("ClickToPhotonLatency", "click_latency"), ("PCLatency", "pc_latency"), ("MsPCLatency", "pc_latency")):
         colstat(name, key)
+    if "DisplayLatency" in fr.present and "CPUBusy" in fr.present:
+        # PresentMon v2: DisplayLatency runs from the frame's CPU start, CPUBusy from the CPU start to the Present call, so
+        # DisplayLatency - CPUBusy = Present call -> on screen (the part after PadLatency's input->present)
+        dl, cb = fr.cols["DisplayLatency"], fr.cols["CPUBusy"]
+        v = sorted(dl[i] - cb[i] for i in ii if not math.isnan(dl[i]) and not math.isnan(cb[i]))
+        if v:
+            o["present_display_p50"], o["present_display_p95"], o["present_display_n"] = pct(v, .5), pct(v, .95), len(v)
     if "AnimationError" in fr.present:
         v = [abs(fr.cols["AnimationError"][i]) for i in ii if not math.isnan(fr.cols["AnimationError"][i])]
         if v:
@@ -307,6 +315,44 @@ def parse_latency(log):
                 d[v] = float(m.group(1))
         rows.append(d)
     return rows
+
+
+PL_TOT_RE = re.compile(
+    r"^PadLatency total: changes (\d+) \(buttons (\d+), triggers (\d+), sticks (\d+)\), matched (\d+), unmatched (\d+) \| "
+    r"input->present p50 (-?[\d.]+) p95 (-?[\d.]+) p99 (-?[\d.]+) ms \(buttons p50 (-?[\d.]+)\) \| "
+    r"input->GPU-done p50 (-?[\d.]+) p95 (-?[\d.]+) p99 (-?[\d.]+) ms \(n (\d+), missing (\d+)\) \| "
+    r"poll interval p50 (-?[\d.]+) p95 (-?[\d.]+) p99 (-?[\d.]+) ms \((\d+) rounds\) \| (.*)$")
+PL_WIN_RE = re.compile(
+    r"^PadLatency (\d+)s: changes (\d+) \(buttons (\d+), triggers (\d+), sticks (\d+)\), matched (\d+), unmatched (\d+) \| "
+    r"input->present p50 (-?[\d.]+) p95 (-?[\d.]+) p99 (-?[\d.]+) ms \(buttons p50 (-?[\d.]+)\) \| "
+    r"input->GPU-done p50 (-?[\d.]+) p95 (-?[\d.]+) p99 (-?[\d.]+) ms \(n (\d+), missing (\d+)\) \| "
+    r"poll interval p50 (-?[\d.]+) p95 (-?[\d.]+) p99 (-?[\d.]+) ms \((\d+) rounds, ([\d.]+) reads/round\)$")
+
+
+def parse_padlat(log):
+    """PadLatency (ASI 1.7.35): window lines + the last 'total' line of each game launch. -1 in the log = no data -> None."""
+    f = lambda x: None if float(x) < 0 else float(x)  # noqa: E731
+    wins, tots, hooked = [], {}, []
+    for t, x, run in log.grep(r"^PadLatency"):
+        m = PL_WIN_RE.match(x)
+        if m:
+            g = m.groups()
+            wins.append({"t": t, "run": run, "sec": int(g[0]), "changes": int(g[1]), "matched": int(g[5]), "unmatched": int(g[6]),
+                         "in_present_p50": f(g[7]), "in_present_p95": f(g[8]), "in_present_p99": f(g[9]), "in_gpu_p50": f(g[11]),
+                         "in_gpu_p99": f(g[13]), "poll_p50": f(g[16]), "poll_p99": f(g[18]), "reads_per_round": float(g[20])})
+            continue
+        m = PL_TOT_RE.match(x)
+        if m:
+            g = m.groups()
+            tots[run] = {"t": t, "run": run, "changes": int(g[0]), "buttons": int(g[1]), "triggers": int(g[2]), "sticks": int(g[3]),
+                         "matched": int(g[4]), "unmatched": int(g[5]), "in_present_p50": f(g[6]), "in_present_p95": f(g[7]),
+                         "in_present_p99": f(g[8]), "buttons_p50": f(g[9]), "in_gpu_p50": f(g[10]), "in_gpu_p95": f(g[11]),
+                         "in_gpu_p99": f(g[12]), "gpu_n": int(g[13]), "gpu_missing": int(g[14]), "poll_p50": f(g[15]),
+                         "poll_p95": f(g[16]), "poll_p99": f(g[17]), "rounds": int(g[18]), "sources": g[19]}
+            continue
+        if x.startswith("PadLatency: hooked"):
+            hooked.append(x)
+    return {"windows": wins, "totals": [tots[k] for k in sorted(tots)], "hooked": hooked}
 
 
 def parse_spr(log):
@@ -495,7 +541,8 @@ def summarize(d):
                 ("pacing: p99 |delta| ms", "ft_delta_p99", 2), ("animation error |avg| ms", "anim_err_abs_avg", 2), ("displayed time avg ms", "displayed_avg", 2),
                 ("CPU busy avg ms", "cpu_busy_avg", 2), ("CPU wait avg ms", "cpu_wait_avg", 2), ("GPU busy avg ms", "gpu_busy_avg", 2),
                 ("GPU wait avg ms", "gpu_wait_avg", 2), ("GPU latency avg ms", "gpu_latency_avg", 2), ("GPU-bound frames % (GPU busy >= 90 % of frame)", "gpu_bound_pct", 1),
-                ("display latency p50 ms", "display_latency_p50", 1), ("all-input-to-photon p50 ms", "aip_latency_p50", 1),
+                ("display latency p50 ms", "display_latency_p50", 1), ("present -> display p50 ms (DisplayLatency - CPUBusy)", "present_display_p50", 1),
+                ("present -> display p95 ms", "present_display_p95", 1), ("all-input-to-photon p50 ms", "aip_latency_p50", 1),
                 ("all-input-to-photon p95 ms", "aip_latency_p95", 1), ("input samples", "aip_latency_n", 0), ("click-to-photon p50 ms", "click_latency_p50", 1),
                 ("click samples", "click_latency_n", 0), ("PC latency p50 ms", "pc_latency_p50", 1)]
         out.append("")
@@ -510,6 +557,47 @@ def summarize(d):
         out.append("Launches seen by PresentMon: %d. Columns present: %s." % (len(pids), ", ".join(sorted(fr.present))))
         if "AllInputToPhotonLatency" in fr.present and not all_s.get("aip_latency_n"):
             out.append("Input latency columns are present but empty: PresentMon saw no input events tied to frames (needs real mouse/keyboard; a pad may not count).")
+    out.append("")
+
+    # controller latency (PadLatency, ASI 1.7.35) next to PresentMon's display latency
+    out.append("## Controller latency (PadLatency)")
+    pl = parse_padlat(log)
+    J["padlat"] = pl
+    if not pl["totals"] and not pl["windows"]:
+        out.append("No PadLatency lines in the log (needs ASI >= 1.7.35 with [Debug] PadLatency = 1, and pad input during the session).")
+    else:
+        pmf = (J.get("frames_play") or J.get("frames_all") or {}) if fr.rows else {}
+        out.append("")
+        out.append("| run | pad changes (buttons / triggers / sticks) | matched / unmatched | input->present p50 / p95 / p99 ms | buttons p50 | input->GPU-done p50 / p95 / p99 ms | game pad poll interval p50 / p95 / p99 ms | sources |")
+        out.append("|---|---|---|---|---|---|---|---|")
+        for T in pl["totals"]:
+            out.append("| %d | %d (%d / %d / %d) | %d / %d | %s / %s / %s | %s | %s / %s / %s | %s / %s / %s | %s |" % (
+                T["run"], T["changes"], T["buttons"], T["triggers"], T["sticks"], T["matched"], T["unmatched"],
+                fnum(T["in_present_p50"], 2), fnum(T["in_present_p95"], 2), fnum(T["in_present_p99"], 2), fnum(T["buttons_p50"], 2),
+                fnum(T["in_gpu_p50"], 2), fnum(T["in_gpu_p95"], 2), fnum(T["in_gpu_p99"], 2),
+                fnum(T["poll_p50"], 2), fnum(T["poll_p95"], 2), fnum(T["poll_p99"], 2), T["sources"]))
+        if pl["windows"]:
+            w = pl["windows"]
+            p50s = [x["in_present_p50"] for x in w if x["in_present_p50"] is not None]
+            p99s = [x["in_present_p99"] for x in w if x["in_present_p99"] is not None]
+            out.append("")
+            out.append("%d report windows with pad input: median of the window input->present p50s %s ms, worst window p99 %s ms; %d changes in total." % (
+                len(p50s), fnum(statistics.median(p50s) if p50s else None, 2), fnum(max(p99s) if p99s else None, 2), sum(x["changes"] for x in w)))
+        T = max(pl["totals"], key=lambda r: r["matched"]) if pl["totals"] else None
+        pd = pmf.get("present_display_p50")
+        out.append("")
+        out.append("PresentMon on the same session: display latency p50 %s ms (frame CPU start -> on screen), present -> display p50 %s / p95 %s ms." % (
+            fnum(pmf.get("display_latency_p50"), 1), fnum(pd, 1), fnum(pmf.get("present_display_p95"), 1)))
+        if T and T["in_present_p50"] is not None and T["poll_p50"] is not None and pd is not None:
+            est = T["poll_p50"] / 2 + T["in_present_p50"] + pd
+            J["pad_to_display_est_ms"] = est
+            out.append("Estimated pad press -> on screen (median): poll interval / 2 %.1f + input->present %.1f + present->display %.1f = **%.1f ms** "
+                       "(+ the pad / USB / Steam Input hop and scanout to the screen middle, not visible to software)." % (
+                           T["poll_p50"] / 2, T["in_present_p50"], pd, est))
+            if pmf.get("aip_latency_p50") is not None:
+                out.append("For comparison, PresentMon's mouse/keyboard all-input-to-photon p50: %s ms." % fnum(pmf.get("aip_latency_p50"), 1))
+        if T and T["matched"] < 0.8 * max(1, T["changes"]):
+            out.append("Note: under 80 %% of the pad changes were matched to a frame (unmatched %d): loads/menus without logic frames, or the TS probes / Present hook were off part of the time." % T["unmatched"])
     out.append("")
 
     # sysmon
@@ -672,6 +760,7 @@ def selftest():
     fsrc = (root / "fnprobe.cpp").read_text(encoding="utf-8")
     bsrc = (root / "bosslog.cpp").read_text(encoding="utf-8")
     dsrc = (root / "dllmain.cpp").read_text(encoding="utf-8")
+    psrc = (root / "padlat.cpp").read_text(encoding="utf-8")
 
     def fmt_of(src, start):
         i = src.index(start)
@@ -698,6 +787,8 @@ def selftest():
     b_gauge = fmt_of(bsrc, '"BossLog #%d: ShowBossGauge')
     b_clear = fmt_of(bsrc, '"BossLog #%d: SetMissionClearFlag')
     s_spr = fmt_of(dsrc, '"stats spr:')
+    p_win = fmt_of(psrc, '"PadLatency %ds: changes')
+    p_tot = fmt_of(psrc, '"PadLatency total: changes')
     tmp = pathlib.Path(tempfile.mkdtemp(prefix="playsession_selftest_"))
     day = dt.datetime(2026, 10, 8, 20, 0, 0)
     L = []
@@ -706,7 +797,7 @@ def selftest():
         t = day + dt.timedelta(seconds=sec)
         L.append("[%s] %s" % (t.strftime("%H:%M:%S.") + "%03d" % (t.microsecond // 1000), text))
 
-    at(0, "Nioh3EngineFix 1.7.34 (built Oct  8 2026) - native port of the live-tested Nioh 3 engine patches")
+    at(0, "Nioh3EngineFix 1.7.35 (built Oct  8 2026) - native port of the live-tested Nioh 3 engine patches")
     at(1, c_printf(f_hdr, 14, 14, "default 10.1", 30, 8, 16, "", ""))
     # real line formats copied from captures (LoadStats / LoadGates / mem / latency / cpu) with times shifted
     at(60, "LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)")
@@ -721,6 +812,9 @@ def selftest():
         at(30 * k, c_printf(f_fn, 0x4F9750, 1000 * k, 1000, 30, 33.3, 120, "20:00:05.120", "20:%02d:%02d.000" % (k // 2, (30 * k) % 60), 4242, 3, "", 640,
                             " 4FA123 61% 2C5AA6C+1F0 20% Nioh3.exe+12 9%"))
         at(30 * k, c_printf(f_never, " 556118 59F498"))
+        at(30 * k, c_printf(p_win, 30, 40, 30, 4, 6, 40, 0, 31.5 + k * 0.01, 38.0, 45.0, 31.0, 40.5, 48.0, 55.0, 40, 0, 16.67, 16.9, 17.5, 1800, 6.0))
+        at(30 * k, c_printf(p_tot, 40 * k, 30 * k, 4 * k, 6 * k, 40 * k, 0, 31.6, 38.1, 45.2, 31.05, 40.6, 48.1, 55.2, 40 * k, 0, 16.67, 16.9, 17.5,
+                            1800 * k, "present=DXGI Present hook, gpu=own fence, frames=TS ring"))
     at(31, c_printf(f_arg, 0x4F9750, 1, "20:00:05.120", 4242, "4FA123", 0x1F2E3D4C5B6A, 0x91A41AD2, 3, 0, " [rcx] 91A41AD2 00000001 3F800000 00000000",
                     " rdx=91A41AD2 [rcx+0]=91A41AD2"))
     at(200, c_printf(b_start, 1, 200.0, 0x12345678, 0))
@@ -754,7 +848,7 @@ def selftest():
         sm.append("%s,1,35.5,104.2,410.0,97.0,95.5,8100,8900,4500,5200,12000,30000" % (day + dt.timedelta(seconds=k)).isoformat())
     (tmp / "sysmon.csv").write_text("\n".join(sm) + "\n", encoding="utf-8")
     (tmp / "session.json").write_text(json.dumps({"start": day.isoformat(), "start_ts": day.timestamp(), "stop": (day + dt.timedelta(seconds=700)).isoformat(),
-                                                  "stop_ts": day.timestamp() + 700, "pm_bias_s": bias, "asi_version": "1.7.34", "asi_version_before": "1.7.33",
+                                                  "stop_ts": day.timestamp() + 700, "pm_bias_s": bias, "asi_version": "1.7.35", "asi_version_before": "1.7.34",
                                                   "capture_keys": ["[Debug] FnProbe=1"]}), encoding="utf-8")
     out, J = summarize(tmp)
     fails = []
@@ -780,6 +874,12 @@ def selftest():
     chk(J["fnprobe"].get("never") == ["556118", "59F498"], "fnprobe never %s" % J["fnprobe"].get("never"))
     chk(J["fnprobe"].get("header", "").startswith("FnProbe: 14/14"), "fnprobe header")
     chk(J.get("system", {}).get("gpu3d_game_pct", {}).get("avg") == 95.5, "sysmon")
+    plt = J.get("padlat", {}).get("totals", [])
+    chk(len(plt) == 1 and plt[0]["changes"] == 760 and plt[0]["in_present_p50"] == 31.6 and plt[0]["poll_p50"] == 16.67
+        and plt[0]["in_gpu_p99"] == 55.2 and plt[0]["sources"].startswith("present=DXGI"), "padlat totals %s" % plt)
+    chk(len(J.get("padlat", {}).get("windows", [])) == 19, "padlat windows")
+    chk(5.0 < (fa.get("present_display_p50") or 0) < 7.0, "present->display %s" % fa.get("present_display_p50"))
+    chk(abs((J.get("pad_to_display_est_ms") or 0) - (16.67 / 2 + 31.6 + fa.get("present_display_p50", 0))) < 0.01, "pad->display estimate")
     chk(not J.get("missing"), "missing %s" % J.get("missing"))
     txt = (tmp / "report.md").read_text(encoding="utf-8")
     chk("Unknown_GridBuild15KStack_4F9750" in txt or "0x4F9750" in txt, "symbol resolution in report")
@@ -791,7 +891,7 @@ def selftest():
         print("report kept in", tmp)
     else:
         shutil.rmtree(tmp, ignore_errors=True)
-    print("SELFTEST OK (%d report lines; PresentMon %d frames, fight, load, FnProbe, mem, latency, SPR, CpuStats, sysmon parsed)" % (len(out), fa["frames"]))
+    print("SELFTEST OK (%d report lines; PresentMon %d frames, fight, load, FnProbe, PadLatency, mem, latency, SPR, CpuStats, sysmon parsed)" % (len(out), fa["frames"]))
     return 0
 
 

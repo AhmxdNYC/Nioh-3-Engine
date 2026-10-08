@@ -18,8 +18,8 @@ If the game crashes, just do step 4. If you click STOP while the game is still o
 - Backs up your saves and settings (`%LOCALAPPDATA%\KoeiTecmo\NIOH3`) to `D:\nioh3-re\save-backups\<date-time>-session`.
 - Takes the game lock for the PC (renewed every 20 min while the session runs, released by STOP).
 - Keeps a copy of the game folder's `Nioh3EngineFix.ini` and `.asi`, installs the current build from `mod\Nioh3EngineFix\bin`
-  (1.7.34, needed for FnProbe), and writes **your own ini** plus these measurement-only keys:
-  `[Debug] FnProbe BossLog RematchLog`, `[Profiler] MemStats LoadStats LoadGates`, `[Patches] CpuStats TS SPR` (all = 1).
+  (1.7.35, needed for FnProbe and PadLatency), and writes **your own ini** plus these measurement-only keys:
+  `[Debug] FnProbe BossLog RematchLog PadLatency`, `[Profiler] MemStats LoadStats LoadGates`, `[Patches] CpuStats TS SPR` (all = 1).
   Everything else in your ini stays as you set it (AutoContinueLoad included).
 - Starts PresentMon (records every frame of Nioh3.exe, follows relaunches) and a small background monitor (Windows counters every
   ~5 s, keeps the mod log of every launch, notes crashes/exit codes).
@@ -36,7 +36,8 @@ Stops PresentMon and the monitor, keeps the last mod log, restores your ini and 
 |---|---|---|
 | Frames | avg fps, 1 % and 0.1 % lows (two definitions), frame time p50/p95/p99/p99.9/max, spikes (> 2x local median and > +8 ms) and per minute, frames > 33/50/100 ms, pacing (stdev, mean and p99 frame-to-frame change, animation error), displayed time | PresentMon 2.6 `--v2_metrics` |
 | CPU / GPU per frame | CPU busy / wait, GPU busy / wait / latency, share of GPU-bound frames | PresentMon |
-| Input latency | all-input-to-photon, click-to-photon, display latency, PC latency (if the game sends PCL markers) | PresentMon |
+| Input latency | all-input-to-photon, click-to-photon, display latency, present -> display (DisplayLatency - CPUBusy), PC latency (if the game sends PCL markers) | PresentMon |
+| Controller latency | pad changes (buttons / triggers / sticks), input->present and input->GPU-done p50/p95/p99, the game's pad poll interval p50/p95/p99, and an estimate pad press -> on screen = poll interval / 2 + input->present + PresentMon's present -> display (the controller path PresentMon cannot see) | mod PadLatency (`notes\pad-latency.md`) + PresentMon |
 | Thread timing | pad sample age, update + limiter, logic -> waitable, render, logic frame, present interval, sample -> present (mod TS probes) | mod log `stats latency` |
 | System | CPU total %, CPU performance % (clock vs base), Nioh3 CPU %, GPU 3D engine % (total and Nioh3), VRAM (Nioh3 and adapter), Nioh3 working set / private bytes, RAM available, commit | Windows counters (monitor.ps1) |
 | Memory | working set, commit, VRAM local used / budget, non-local, system RAM | mod `stats mem` (MemStats) |
@@ -57,6 +58,8 @@ Confirmed:
   STOP restores ini and ASI byte-identical and stops PresentMon and the monitor.
 - The monitor sees a Nioh3.exe start and exit (a stand-in process), copies its mod log, and logs real CPU / GPU 3D / VRAM / RAM
   counters from this PC.
+- PadLatency lines are rendered from the format strings in `padlat.cpp` and parsed back (window + total), the estimate checked;
+  the hook and the frame matching have their own offline harness (`mod\Nioh3EngineFix\tests\run_padlat_harness.py`).
 - PresentMon column names are the real header this PC's PresentMon 2.6.0 writes with `--v2_metrics --date_time`.
   Its date column was 4 h off local time here (it applies the UTC offset twice); the summary corrects that and
   checks the fix against the session times.
@@ -68,7 +71,9 @@ Confirmed:
 Only the game can confirm:
 - FnProbe running live (log line `FnProbe: 14/14 functions hooked`), its hit rates and that the cost is invisible.
 - Real Nioh3 frames in PresentMon, and the input latency columns: they fill only on mouse/keyboard input
-  (a controller is probably not tracked). PC latency appears only if the game sends PCL markers.
+  (a controller is probably not tracked - that is what PadLatency covers). PC latency appears only if the game sends PCL markers.
+- PadLatency running live (log line `PadLatency: hooked the game's XInputGetState`, then `PadLatency 30s:` lines with matched ~= changes).
+  A DualShock/DualSense used without Steam Input goes through the game's own HID path and is not counted.
 - Per-process GPU % / VRAM for Nioh3, boss-fight frame windows (needs a BossLog fight start/end in the log).
 
 ## Files

@@ -117,7 +117,7 @@ try {
 }
 
 Say ""
-Say "READY. Capturing: every frame (fps, lows, frame times, CPU/GPU busy, input latency), loads, boss fight, memory, PSO stutter, FnProbe." Green
+Say "READY. Capturing: every frame (fps, lows, frame times, CPU/GPU busy, input latency), loads, boss fight, memory, PSO stutter, FnProbe, controller latency (PadLatency)." Green
 if ($gfx) { Say "Game settings now: $gfx" }
 Say ""
 Say "What to do:" Cyan

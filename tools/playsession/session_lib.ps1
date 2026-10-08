@@ -24,7 +24,8 @@ $CaptureKeys = @(
     @("Profiler", "LoadGates", "1"),   # which load gate held each load
     @("Patches", "CpuStats", "1"),     # MQ / PT1 / DL counters
     @("Patches", "TS", "1"),           # pad->present thread timing / latency probes
-    @("Patches", "SPR", "1")           # runtime PSO creates (stutter) every 30 s
+    @("Patches", "SPR", "1"),          # runtime PSO creates (stutter) every 30 s
+    @("Debug", "PadLatency", "1")     # controller input -> Present / GPU-done + the game's pad poll interval (1.7.35; also turns TS on)
 )
 
 function Set-IniValue([string[]]$lines, [string]$sec, [string]$key, [string]$val) {
