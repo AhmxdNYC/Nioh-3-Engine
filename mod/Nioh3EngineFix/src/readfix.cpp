@@ -49,13 +49,15 @@ NtQifFn g_ntQif = nullptr;
 wchar_t g_pkg[1024] = {0};  // final path of <game>\package\ (with the trailing backslash)
 size_t g_pkgLen = 0;
 
-int g_rcMode = 0, g_aqMode = 0, g_aqThreads = 4;
+int g_rcMode = 0, g_aqMode = 0, g_aqThreads = 4, g_srMode = 0;
+bool g_priv = false;  // open a private synchronous handle per eligible overlapped game handle (SR, RC block loads, AQ)
 uint32_t g_blkShift = 16, g_maxRead = 64 * 1024;
 uint32_t g_nBlk = 0;
 
 std::atomic<bool> g_live{false};      // Read() routes through the fixes
 std::atomic<bool> g_rcActive{false};  // RC serves (mode 2: always; mode 1: inside a load window)
 std::atomic<bool> g_aqActive{false};  // AQ queues (same rule)
+std::atomic<bool> g_srActive{false};  // SR serves (same rule)
 
 inline ReadFn RealRead() { return *reinterpret_cast<ReadFn*>(g_base + kIatReadFile); }
 
@@ -76,7 +78,7 @@ bool SafeCopy(void* dst, const void* src, size_t n) {
 }
 
 // ---- counters ----
-enum C { cElig, cHit, cHitB, cMiss, cBlk, cBlkB, cBlkT, cBlkFail, cPassBig, cPassEof, cPassInel, cPassBusy, cAqQ, cAqT, cAqFull,
+enum C { cSr, cSrB, cSrT, cSrPass, cPriv, cPrivFail, cElig, cHit, cHitB, cMiss, cBlk, cBlkB, cBlkT, cBlkFail, cPassBig, cPassEof, cPassInel, cPassBusy, cAqQ, cAqT, cAqFull,
          cAqDirect, cClsOk, cClsNo, cN };
 std::atomic<uint64_t> g_c[cN];
 std::atomic<uint32_t> g_aqMaxDepth{0};
@@ -111,6 +113,15 @@ bool OwnRead(HANDLE h, uint64_t off, void* dst, DWORD n, DWORD* got, LONG* st) {
     return r != FALSE;
 }
 
+// A positioned read on the private synchronous handle: returns true only when all n bytes arrived.
+bool PrivRead(HANDLE p, uint64_t off, void* dst, DWORD n) {
+    OVERLAPPED o{};
+    o.Offset = (DWORD)off;
+    o.OffsetHigh = (DWORD)(off >> 32);
+    DWORD g = 0;
+    return ReadFile(p, dst, n, &g, &o) && g == n;
+}
+
 // ---- handle table: 8192 slots, open addressing, never shrinks; an entry is reset by the open/close hooks ----
 enum HState : uint32_t { hUnknown = 0, hElig = 2, hInel = 3 };
 struct HEnt {
@@ -120,6 +131,7 @@ struct HEnt {
     uint32_t fid;
     uint8_t sync, fromOpen, roOpen;
     uint64_t size;
+    HANDLE priv;  // private synchronous handle to the same file (or nullptr), closed when the entry is reset
 };
 constexpr int kHBits = 13, kHSlots = 1 << kHBits;
 HEnt g_h[kHSlots];
@@ -155,7 +167,10 @@ void ResetHandle(HANDLE h, bool open, bool roOpen) {
     e->state.store(hUnknown, std::memory_order_release);
     e->fromOpen = open;
     e->roOpen = open && roOpen;
+    HANDLE p = e->priv;
+    e->priv = nullptr;
     Unlock(*e);
+    if (p) CloseHandle(p);
 }
 
 // Called with the entry locked and state == hUnknown.
@@ -166,10 +181,12 @@ void Classify(HEnt& e, HANDLE h, bool lazy) {
     LARGE_INTEGER sz{};
     wchar_t path[1024];
     path[0] = 0;
-    if (!g_ntQif || g_ntQif(h, &sb, &acc, sizeof(acc), 8 /*FileAccessInformation*/) < 0) {
-        if (!e.roOpen) why = "access unknown";  // a FileOpenWin32 read open (GENERIC_READ, share READ) is known read-only
-    } else if (acc & (FILE_WRITE_DATA | FILE_APPEND_DATA)) {
-        why = "writable";
+    // package\ holds the game's immutable archives; a FileOpenWin32 read open (GENERIC_READ, share READ) is read-only.
+    // If FileAccessInformation is not available (older Wine), a package file is still accepted: nothing writes there.
+    bool accKnown = false;
+    if (g_ntQif && g_ntQif(h, &sb, &acc, sizeof(acc), 8 /*FileAccessInformation*/) >= 0) {
+        accKnown = true;
+        if (acc & (FILE_WRITE_DATA | FILE_APPEND_DATA)) why = "writable";
     }
     if (!why && (!g_ntQif || g_ntQif(h, &sb, &mode, sizeof(mode), 16 /*FileModeInformation*/) < 0)) why = "mode unknown";
     if (!why && !GetFileSizeEx(h, &sz)) why = "no size";
@@ -182,6 +199,16 @@ void Classify(HEnt& e, HANDLE h, bool lazy) {
         e.fid = g_fid.fetch_add(1, std::memory_order_relaxed) + 1;
         e.sync = (mode & 0x30) != 0;  // FILE_SYNCHRONOUS_IO_ALERT | _NONALERT
         e.size = (uint64_t)sz.QuadPart;
+        if (g_priv && !e.sync) {  // same file, synchronous, read-only, sharing like the game's own handles
+            HANDLE p = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (p == INVALID_HANDLE_VALUE) {
+                p = nullptr;
+                Add(cPrivFail);
+            } else {
+                Add(cPriv);
+            }
+            e.priv = p;
+        }
         e.state.store(hElig, std::memory_order_release);
         Add(cClsOk);
     } else {
@@ -191,8 +218,9 @@ void Classify(HEnt& e, HANDLE h, bool lazy) {
     if (g_log && g_logged.fetch_add(1, std::memory_order_relaxed) < 12) {
         char p8[200];
         WideCharToMultiByte(CP_UTF8, 0, path[0] ? path : L"?", -1, p8, sizeof(p8), nullptr, nullptr);
-        g_log("ReadFix: %s handle %s - %s (%s, %llu MB)", lazy ? "lazy" : "opened", p8, why ? "not served" : "eligible",
-              why ? why : (e.sync ? "synchronous" : "overlapped"), (unsigned long long)(sz.QuadPart >> 20));
+        g_log("ReadFix: %s handle %s - %s (%s%s%s, %llu MB)", lazy ? "lazy" : "opened", p8, why ? "not served" : "eligible",
+              why ? why : (e.sync ? "synchronous" : "overlapped"), why || accKnown ? "" : ", access unknown",
+              !why && e.priv ? ", private sync handle" : "", (unsigned long long)(sz.QuadPart >> 20));
     }
 }
 
@@ -200,12 +228,14 @@ struct FileInfo {
     uint32_t fid;
     bool sync;
     uint64_t size;
+    HANDLE priv;
 };
 bool Take(const HEnt& e, int site, FileInfo& fi) {
     if (site == 6 && !e.fromOpen) return false;  // FileStream handles: only those FileOpenWin32 made after the hooks
     fi.fid = e.fid;
     fi.sync = e.sync != 0;
     fi.size = e.size;
+    fi.priv = e.priv;
     return true;
 }
 // Fills fi for an eligible handle. Never blocks on another thread's classification (that read just passes through).
@@ -343,7 +373,13 @@ int32_t Acquire(const FileInfo& e, HANDLE h, uint64_t blk, bool load, bool* miss
     LONG st = 0;
     const uint64_t t0 = Qpc();
     const DWORD le = GetLastError();
-    const bool ok = OwnRead(h, off, Mem(i), want, &got, &st) && got == want;
+    bool ok;
+    if (e.priv) {
+        ok = PrivRead(e.priv, off, Mem(i), want);
+        got = ok ? want : 0;
+    } else {
+        ok = OwnRead(h, off, Mem(i), want, &got, &st) && got == want;
+    }
     SetLastError(le);
     Add(cBlk);
     Add(cBlkB, got);
@@ -466,7 +502,8 @@ DWORD WINAPI AqWorker(LPVOID) {
         if (g_rcMode && RcServe(r.e, r.h, r.off, r.n, r.buf, true) == sServed) {
             got = r.n;
         } else {
-            OwnRead(r.h, r.off, r.buf, r.n, &got, &st);
+            if (r.e.priv && PrivRead(r.e.priv, r.off, r.buf, r.n)) got = r.n;
+            else OwnRead(r.h, r.off, r.buf, r.n, &got, &st);
             Add(cAqDirect);
         }
         r.ov->InternalHigh = got;
@@ -536,6 +573,10 @@ void LogWindow(int n, double secs) {
     }
     const double served = (double)(d[cHit] + d[cMiss]);
     const double all = served + (double)(d[cPassBig] + d[cPassEof] + d[cPassInel] + d[cPassBusy]);
+    g_log("ReadFix #%d SR: %llu reads served (%.0f MB, %.2f s in the private reads), %llu passed to the real call | private handles %llu "
+          "opened, %llu failed", n, (unsigned long long)d[cSr], (double)d[cSrB] / 1048576.0,
+          (double)d[cSrT] * g_sPerTick, (unsigned long long)d[cSrPass],
+          (unsigned long long)d[cPriv], (unsigned long long)d[cPrivFail]);
     g_log("ReadFix #%d (%.1f s): RC served %llu of %llu routed (%.1f %%; %llu hits, %llu via a block read) %.0f MB | blocks %llu read "
           "%.0f MB %.2f s, %llu failed | pass: big %llu eof %llu not-eligible %llu no-block %llu | AQ queued %llu (max depth %u, "
           "%llu full) workers %.2f s, %llu direct | files: %llu eligible, %llu not",
@@ -564,10 +605,12 @@ DWORD WINAPI Gate(LPVOID) {
             if (g_rcMode == 1 && !Commit(true)) g_log("ReadFix: RC could not commit %u MB - cache off for this load", (g_nBlk << g_blkShift) >> 20);
             if (g_rcMode == 1) g_rcActive.store(true, std::memory_order_release);
             if (g_aqMode == 1) g_aqActive.store(true, std::memory_order_release);
+            if (g_srMode == 1) g_srActive.store(true, std::memory_order_release);
             g_log("ReadFix: load window #%d - fixes on", n);
         } else if (!on && was) {
             if (g_rcMode == 1) g_rcActive.store(false, std::memory_order_release);
             if (g_aqMode == 1) g_aqActive.store(false, std::memory_order_release);
+            if (g_srMode == 1) g_srActive.store(false, std::memory_order_release);
             tOff = now;
             decommitPending = g_rcMode == 1;
             LogWindow(n, (double)(now - tOn) * g_sPerTick);
@@ -583,7 +626,7 @@ DWORD WINAPI Gate(LPVOID) {
 bool g_started = false;
 
 // harness entry: everything Start does except the ini, the image checks, the hooks and the gate thread
-bool Init(int rcMode, int rcMB, int rcKB, int rcMaxKB, int aqMode, int aqThreads, const wchar_t* pkgFinalPath) {
+bool Init(int rcMode, int rcMB, int rcKB, int rcMaxKB, int aqMode, int aqThreads, int srMode, bool priv, const wchar_t* pkgFinalPath) {
     LARGE_INTEGER fq;
     QueryPerformanceFrequency(&fq);
     g_sPerTick = 1.0 / (double)fq.QuadPart;
@@ -598,6 +641,8 @@ bool Init(int rcMode, int rcMB, int rcKB, int rcMaxKB, int aqMode, int aqThreads
     g_tls = TlsAlloc();
     g_rcMode = rcMode;
     g_aqMode = aqMode;
+    g_srMode = srMode;
+    g_priv = priv || srMode;
     if (rcMode) {
         uint32_t sh = 14;
         while ((1u << sh) < (uint32_t)rcKB * 1024u && sh < 20) ++sh;
@@ -632,6 +677,7 @@ bool Init(int rcMode, int rcMB, int rcKB, int rcMaxKB, int aqMode, int aqThreads
     }
     g_rcActive.store(rcMode == 2, std::memory_order_release);
     g_aqActive.store(aqMode == 2, std::memory_order_release);
+    g_srActive.store(srMode == 2, std::memory_order_release);
     g_live.store(true, std::memory_order_release);
     return true;
 }
@@ -663,7 +709,8 @@ DWORD WINAPI TsyReport(LPVOID) {
 }  // namespace
 
 bool Wants(const wchar_t* iniPath) {
-    return iniPath && (GetPrivateProfileIntW(L"Patches", L"RC", 0, iniPath) > 0 || GetPrivateProfileIntW(L"Patches", L"AQ", 0, iniPath) > 0);
+    return iniPath && (GetPrivateProfileIntW(L"Patches", L"RC", 0, iniPath) > 0 || GetPrivateProfileIntW(L"Patches", L"AQ", 0, iniPath) > 0 ||
+                       GetPrivateProfileIntW(L"Patches", L"SR", 0, iniPath) > 0);
 }
 
 bool Start(const StartInfo& info) {
@@ -682,6 +729,16 @@ bool Start(const StartInfo& info) {
     const int mx = IniInt(info.iniPath, L"RCMaxReadKB", 64, 1, 1024);
     const int aq = IniInt(info.iniPath, L"AQ", 0, 0, 2);
     const int at = IniInt(info.iniPath, L"AQThreads", 4, 1, 16);
+    int sr = IniInt(info.iniPath, L"SR", 0, 0, 2);
+    HMODULE ntm = GetModuleHandleW(L"ntdll.dll");
+    const bool wine = ntm && GetProcAddress(ntm, "wine_get_version");
+    if (sr && !wine) {
+        g_log("ReadFix: SR refused - not running under Wine/Proton (Windows overlapped reads are already cheap; a synchronous file "
+              "object serializes its I/O)");
+        sr = 0;
+    }
+    if (!rc && !aq && !sr) return false;
+    const bool priv = sr || wine;  // under Wine a synchronous read costs ~2 us vs ~55 us overlapped (Ally 1.7.23 calib)
     // <game>\package\ as GetFinalPathNameByHandleW spells it (same normalization as the handles we compare)
     wchar_t dir[MAX_PATH];
     const DWORD dl = GetModuleFileNameW(nullptr, dir, MAX_PATH);
@@ -699,7 +756,7 @@ bool Start(const StartInfo& info) {
         g_log("ReadFix: no final path for the package folder - off");
         return false;
     }
-    if (!Init(rc, mb, kb, mx, aq, at, fin)) {
+    if (!Init(rc, mb, kb, mx, aq, at, sr, priv, fin)) {
         g_log("ReadFix: no memory for the %d MB cache or no AQ threads - off", mb);
         g_live.store(false);
         return false;
@@ -713,9 +770,9 @@ bool Start(const StartInfo& info) {
         return false;
     }
     if (HANDLE t = CreateThread(nullptr, 0, &Gate, nullptr, 0, nullptr)) CloseHandle(t);
-    g_log("ReadFix: RC %d (%u MB, %u KiB blocks, reads <= %u KiB), AQ %d (%d threads); %s - package %ls", rc, rc ? (g_nBlk << g_blkShift) >> 20 : 0,
-          rc ? (1u << g_blkShift) >> 10 : 0, rc ? g_maxRead >> 10 : 0, aq, aq ? g_aqThreads : 0,
-          (rc == 2 || aq == 2) ? "always on" : "load windows only", g_pkg);
+    g_log("ReadFix: SR %d, RC %d (%u MB, %u KiB blocks, reads <= %u KiB), AQ %d (%d threads), private sync handles %s; mode 1 = load "
+          "windows only, 2 = always - package %ls", sr, rc, rc ? (g_nBlk << g_blkShift) >> 20 : 0, rc ? (1u << g_blkShift) >> 10 : 0,
+          rc ? g_maxRead >> 10 : 0, aq, aq ? g_aqThreads : 0, priv ? "on" : "off", g_pkg);
     return true;
 }
 
@@ -725,7 +782,8 @@ int __stdcall Read(int site, void* hv, void* buf, unsigned long n, unsigned long
     if (!ov || site < 0 || site > 31 || !((kRcSites >> site) & 1)) return RealRead()(h, buf, n, got, ov);
     const bool rc = g_rcMode && g_rcActive.load(std::memory_order_acquire);
     const bool aqOn = g_aqMode && ((kAqSites >> site) & 1) && g_aqActive.load(std::memory_order_acquire);
-    if (!rc && !aqOn) return RealRead()(h, buf, n, got, ov);
+    const bool srOn = g_srMode && g_srActive.load(std::memory_order_acquire);
+    if (!rc && !aqOn && !srOn) return RealRead()(h, buf, n, got, ov);
     const DWORD le0 = GetLastError();
     FileInfo e;
     if (!Eligible(h, site, e)) {
@@ -736,7 +794,19 @@ int __stdcall Read(int site, void* hv, void* buf, unsigned long n, unsigned long
     Add(cElig);
     const uint64_t off = (uint64_t)ov->Offset | (uint64_t)ov->OffsetHigh << 32;
     const bool aq = aqOn && !e.sync && ov->hEvent && n && off < e.size && e.size - off >= n;
-    if (rc && RcServe(e, h, off, n, buf, !aq) == sServed) return CompleteSync(h, e, off, n, got, ov, le0);
+    const bool sr = srOn && !e.sync && e.priv && n && off < e.size && e.size - off >= n;
+    if (rc && RcServe(e, h, off, n, buf, !aq || sr) == sServed) return CompleteSync(h, e, off, n, got, ov, le0);
+    if (sr) {  // SR: the same bytes through the private synchronous handle, completed like a synchronous success
+        const uint64_t t0 = Qpc();
+        const bool ok = PrivRead(e.priv, off, buf, n);
+        Add(cSrT, Qpc() - t0);
+        if (ok) {
+            Add(cSr);
+            Add(cSrB, n);
+            return CompleteSync(h, e, off, n, got, ov, le0);
+        }
+        Add(cSrPass);  // any failure: the real call decides (same error semantics)
+    }
     if (aq) {
         const HANDLE ev = (HANDLE)((uintptr_t)ov->hEvent & ~(uintptr_t)1);
         ResetEvent(ev);

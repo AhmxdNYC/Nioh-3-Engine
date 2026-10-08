@@ -38,10 +38,11 @@
 #include "bosslog.h"
 #include "autocont.h"
 #include "loadonly.h"
+#include "readfix.h"
 #include "readprobe.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.24"
+#define MOD_VERSION "1.7.25"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1256,12 +1257,18 @@ DWORD WINAPI Worker(LPVOID) {
         s_as0Applied = true;
         Log("AS0: slot 0 forced on (async effects queue on a non-NVIDIA GPU; EXPERIMENT - KT disabled it on purpose: faster, slower, one-frame effect lag, corruption or a GPU hang are all possible)");
     };
+    // 1.7.25 TSY (TrySync pool threads) / SH (synchronous archive handles): boot-time like P12/WC (readfix.cpp)
+    readfix::BootCfg rfBoot;
+    bool rfPending = known && readfix::BootWanted(SelfPathWithExt(L".ini").c_str(), rfBoot);
+    const int rfCap = wcPending ? cfg.workerCap : 0;
+    auto tryRF = [&]() { rfPending = readfix::BootTry(reinterpret_cast<uintptr_t>(g_base), rfBoot, rfCap, logical, &Log); };
     const DWORD t0 = GetTickCount();
     bool ready = false;
     while (!ready) {
         if (p12Pending) tryP12();
         if (wcPending) tryWC();
         if (as0Pending) tryAS0();
+        if (rfPending) tryRF();
         if (known) {
             ready = true;
             for (const gen::Site* s : sentinels)
@@ -1271,8 +1278,10 @@ DWORD WINAPI Worker(LPVOID) {
             ready = FindPattern(sentinelPat, ExecRanges(), &f) == 1;
         }
         if (ready || GetTickCount() - t0 > (DWORD)cfg.decryptWaitSec * 1000) break;
-        Sleep((p12Pending || wcPending || as0Pending) ? 0 : known ? 20 : 250);
+        Sleep((p12Pending || wcPending || as0Pending || rfPending) ? 0 : known ? 20 : 250);
     }
+    if (rfPending) tryRF();
+    if (rfPending) readfix::BootGiveUp(rfBoot, &Log);
     if (p12Pending) tryP12();
     if (wcPending) tryWC();
     if (as0Pending) tryAS0();

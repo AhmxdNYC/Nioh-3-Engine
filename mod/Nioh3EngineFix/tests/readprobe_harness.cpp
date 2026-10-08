@@ -25,6 +25,12 @@ void NoteRead(int cls, uint32_t bytes, bool, uint64_t) {
 uint64_t LastFailEvalQpc() { return 0; }
 }  // namespace loadstats
 
+namespace readfix {  // 1.7.25: readprobe.cpp routes to readfix.cpp when RC/AQ/SR are on; tested by run_readfix_harness.py
+bool Wants(const wchar_t*) { return false; }
+bool Start(const StartInfo&) { return false; }
+int __stdcall Read(int, void* h, void* b, unsigned long n, unsigned long* g, void* o) { return ReadFile(h, b, n, g, (LPOVERLAPPED)o); }
+}  // namespace readfix
+
 using namespace readprobe;
 
 static int g_fail = 0;

@@ -187,9 +187,12 @@ static DWORD WINAPI Worker(LPVOID pv) {
     return 0;
 }
 
-static void RunPhase(const char* name, int rc, int aq, int iters) {
+static void RunPhase(const char* name, int rc, int aq, int sr, bool priv, int iters) {
     readfix::g_rcMode = rc;
     readfix::g_aqMode = aq;
+    readfix::g_srMode = sr;
+    readfix::g_priv = priv;
+    readfix::g_srActive.store(sr != 0);
     readfix::g_rcActive.store(rc != 0);
     readfix::g_aqActive.store(aq != 0);
     for (auto& c : readfix::g_c) c.store(0);
@@ -210,11 +213,12 @@ static void RunPhase(const char* name, int rc, int aq, int iters) {
     CloseHandle(lazy);
     using namespace readfix;
     printf("    %s: %llu reads, served %llu (hits %llu, via block read %llu), blocks %llu, pass big %llu eof %llu inel %llu busy %llu, "
-           "AQ %llu (max depth %u, direct %llu)\n",
+           "AQ %llu (max depth %u, direct %llu), SR %llu (passed %llu), private handles %llu\n",
            name, (unsigned long long)g_ops.load(), (unsigned long long)(g_c[cHit] + g_c[cMiss]), (unsigned long long)g_c[cHit].load(),
            (unsigned long long)g_c[cMiss].load(), (unsigned long long)g_c[cBlk].load(), (unsigned long long)g_c[cPassBig].load(),
            (unsigned long long)g_c[cPassEof].load(), (unsigned long long)g_c[cPassInel].load(), (unsigned long long)g_c[cPassBusy].load(),
-           (unsigned long long)g_c[cAqQ].load(), g_aqMaxDepth.exchange(0), (unsigned long long)g_c[cAqDirect].load());
+           (unsigned long long)g_c[cAqQ].load(), g_aqMaxDepth.exchange(0), (unsigned long long)g_c[cAqDirect].load(),
+           (unsigned long long)g_c[cSr].load(), (unsigned long long)g_c[cSrPass].load(), (unsigned long long)g_c[cPriv].load());
     char m[160];
     snprintf(m, sizeof(m), "%s: %llu/%llu reads identical to ReadFile (bytes, result, count, error, event, file pointer)", name,
              (unsigned long long)g_cmp.load(), (unsigned long long)g_ops.load());
@@ -222,7 +226,9 @@ static void RunPhase(const char* name, int rc, int aq, int iters) {
     if (rc) Check(g_c[cHit].load() > 0 && g_c[cMiss].load() > 0, "  RC served hits and block-read misses");
     if (rc) Check(g_c[cPassBig].load() > 0 && g_c[cPassEof].load() > 0 && g_c[cPassInel].load() > 0, "  RC passed big / EOF / not-eligible reads through");
     if (aq) Check(g_c[cAqQ].load() > 0, "  AQ queued reads");
-    if (!rc && !aq) Check(g_c[cHit].load() == 0 && g_c[cAqQ].load() == 0, "  all off: nothing served or queued");
+    if (sr) Check(g_c[cSr].load() > 0 && g_c[cPriv].load() > 0, "  SR served reads through private synchronous handles");
+    if (priv && !sr) Check(g_c[cPriv].load() > 0, "  private synchronous handles opened (block loads / AQ reads)");
+    if (!rc && !aq && !sr) Check(g_c[cHit].load() == 0 && g_c[cAqQ].load() == 0 && g_c[cSr].load() == 0, "  all off: nothing served or queued");
 }
 
 static uintptr_t s_t7[7];
@@ -276,17 +282,21 @@ int main() {
     }
     readfix::g_log = &Log;
     // 16 MB cache of 64 KiB blocks: the 96 MB random-offset workload evicts constantly
-    Check(readfix::Init(2, 16, 64, 64, 2, 4, fin), "Init: RC 16 MB / 64 KiB blocks / reads <= 64 KiB, AQ 4 threads");
+    Check(readfix::Init(2, 16, 64, 64, 2, 4, 2, false, fin), "Init: RC 16 MB / 64 KiB blocks / reads <= 64 KiB, AQ 4 threads, SR");
 
     // ---- 2. random-read equivalence, 8 threads, per configuration ----
-    RunPhase("off", 0, 0, 400);
-    RunPhase("RC", 2, 0, 4000);
-    RunPhase("AQ", 0, 2, 3000);
-    RunPhase("RC+AQ", 2, 2, 4000);
+    RunPhase("off", 0, 0, 0, false, 400);
+    RunPhase("RC", 2, 0, 0, false, 4000);
+    RunPhase("AQ", 0, 2, 0, false, 3000);
+    RunPhase("RC+AQ", 2, 2, 0, false, 4000);
+    RunPhase("SR", 0, 0, 2, true, 4000);
+    RunPhase("RC+SR", 2, 0, 2, true, 4000);
+    RunPhase("RC+AQ private", 2, 2, 0, true, 4000);
 
     // ---- 3. handle reuse: close a.bin, open b.bin (often the same handle value), same offsets -> b.bin's bytes ----
     {
         readfix::g_rcMode = 2;
+        readfix::g_srMode = 0;
         readfix::g_rcActive.store(true);
         readfix::g_aqActive.store(false);
         int reused = 0, good = 0;
