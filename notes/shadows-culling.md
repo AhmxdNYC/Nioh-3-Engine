@@ -1,5 +1,7 @@
 # Shadow-map caching and visibility/culling: what the engine already does, and what is left
 
+> **2026-10-08 corrections (`shadows-redundancy.md`):** H1/A2 is false (phase 2 only re-draws meshlet items: ctx+FCh filter in DrawListWalk); the Ally runs the CPU VSM tile path 1F8340 (mode 5) with a tile budget of 8 at STANDARD+, and its batch loop ignores that budget (S1, the one real redundancy found).
+
 Status 2026-10-07. Static work only: `re\Nioh3.dump.exe` (Steam v2.02), the Ghidra export `D:\nioh3-re\decomp` plus new
 read-only decompiles (`re\scripts_shadow\q1.txt`, `q2.txt`), the r5 RGP trace (`captures/rgp/Nioh3_2026-10-06_19-39-58`,
 RX 9070, HIGH, 1920×1080 render, 10.7 ms GPU) cross-checked against the 14:16 trace, the env DB dump

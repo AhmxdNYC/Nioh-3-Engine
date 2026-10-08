@@ -398,3 +398,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 1.7.16 (2026-10-08)
 - Esc x3 now toggles the mod menu both ways: the press that closes the menu mutes Escape for TapWindowMs, so the 2nd/3rd taps no longer leak to the game (they used to open the pause menu). Controller Start x3 already toggled. Undo: revert menu.cpp g_escMuteUntil.
+
+## 2026-10-08 - Shadow redundancy audit (static only; nothing installed or patched)
+- `notes/shadows-redundancy.md`: one provable same-look saving, S1 (VSM "Batch Tiles" draws past the per-frame tile budget are never sampled: all 356 VSM shader variants gate taps on tile-valid bit 0; Ally est. 0.1-0.4 ms/frame mean, 3-5.7 ms in camera-move bursts). ASI design `VBC` (4 call redirects, default 0) - not built. Write-offs S2-S7 (cascade phase-2 duplicate = false).
+- Symbols: `re/symbols/incoming/shadow-audit-renames.tsv`. Scripts: `re/scripts_shadow/{gp_marker_digest,vsm_batch_waste,vsm_consumers}.py`.
+- Undo: nothing to undo.
