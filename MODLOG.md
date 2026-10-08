@@ -235,3 +235,8 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Research only (changes the look): the embedded FSR3 blobs are min16float (SFI0 MinimumPrecision), likely run as FP32 under vkd3d/RADV.
 - Symbols: `re\symbols\incoming\fsr3.tsv` (31 rows: Fsr3UpscalerExecute 0x18d8898, Fsr3EnsureContext 0x346948c, ffx-api exports, FSR3 globals, RenderSettings FSR fields).
 - Undo: delete the note and the TSV.
+
+## 2026-10-07 - asset audit (analysis only, nothing installed, game not run)
+- `notes\asset-audit.md`: Futamata + SEN_02 base/foliage sample (493 G1M models, 66 G1CO, 417 G1T). Assets are clean: 0.5 % dup verts, ACMR already at Forsyth level, all BCn with full mips, 0 dup textures, collision = 1 % of render tris. Only real inefficiency: meshlets 56 % full (foliage 46 %) because of a 128-vertex cap; the PB2 VS draws 384 lanes per meshlet. A lossless group-preserving repack saves ~22-27 % of meshlets = ~0.04 ms/frame on the Ally; not worth a cluster-DAG rebuild. 262 tiny draws = one-quad decal ModelData (engine-side batching only).
+- Scripts: `re\scripts_assets\*.py` (G1M/G1MG/G1T/G1CO parsers + stage resolvers). Game copies on `D:\nioh3-re\assets\`.
+- Undo: delete the note and the scripts.
