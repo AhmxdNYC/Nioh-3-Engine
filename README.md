@@ -63,6 +63,50 @@ Plain version: the game is limited by different things on each machine, so diffe
 - **What helps here:** the CPU fixes (W3, W6, P12, WL and friends) matter most. Latest numbers (`captures\tm\`, 2026-10-08): stock all-off baseline standing = about 149-153 fps, p99 frame time 14.3-14.7 ms. Per-fix results: **being measured**.
 - **Install:** copy the contents of `mod\Nioh3EngineFix\bin\` next to `Nioh3.exe` with an ASI loader (Ultimate ASI Loader or Nioh3ModLoader), or use the control panel. Note: Smart App Control can block unsigned DLLs.
 
+## Boss research (for a future rematch feature)
+
+**In plain words**
+- Nothing here changes the game yet. It is groundwork for a possible "fight a boss again" feature.
+- We know the game's boss list: 110 boss mission scripts, and 82 of those bosses are identified by name and stats.
+- The cleanest way to refight a boss is the game's own Battle Scrolls (Emaki): a built-in "this stage, this boss only" mission that does not touch story progress.
+- The save-file encryption is solved (we can read and re-write a copy of a save), and the mod can tell when you are in an online session, so a rematch can switch itself off in co-op.
+- Still to do: in-game boss logging (BossLog, written but not yet run in the game) and a save diff of a real boss kill to find where "defeated" is stored.
+
+**Technical detail**
+- Master table: [notes/boss-master.csv](notes/boss-master.csv) (209 rows = 110 script rows + 99 web-only rows; 82 with boss char id / enemy record); how it is built: `notes\boss-master.md`.
+- Rematch paths, ranked: Battle Scrolls = Emaki mission 0xCC96 via `EmakiMissionRequest` (0x10DBED0), then the shrine mission-replay menu, then the raw mission-start queue. Details: `notes\boss-rematch-paths.md`.
+- Save cipher: AES-128 CTR with a custom S-box, round-trips byte-identical on a copy (`notes\save-format.md`, `re\scripts_re\savecrypt.py`, `savediff.py`). The mission-flag block is not located yet.
+- Pending: run BossLog (ASI 1.7.18, `[Debug] BossLog = 1`) in a real fight, and diff a before/after save of one boss kill.
+
+---
+
+## Loading
+
+**In plain words**
+- **PC:** a title-to-game load takes about 26 s, and about 15 s of that is the game waiting after its loading queues are already empty. We have not found what it is waiting for. A probe for it (LG) is in 1.7.19.
+- **ROG Ally X:** the same load takes 118.7 s every time, which looks like a 120 s online-join timeout running out. Not tested yet.
+- The three loading patches from 1.7.14 (GL1, LC, LW) did nothing measurable.
+
+**Technical detail**
+- PC: 25.8 +-0.5 s window; resource managers drain by +9.9..+13.0 s; the remaining 14.6-16.3 s is an unidentified `LoadIsLoadEnd` gate or sequencer state (`notes\loading-bottleneck.md`). `LoadGates = 1` (needs `LoadStats >= 1`) logs which gate holds.
+- Ally: 118.657 / 118.688 / 118.737 s; a wall-clock end, not frames or game ticks. Suspect: P2P session-join timeout of 120000 ms at 0x1356BDC (about 1.3 s lead before the window). Not yet tied to the load-end path (`notes\loading-ally-fixed.md`).
+
+---
+
+## Mod versions (recent)
+| ASI | What |
+|---|---|
+| 1.7.13 | Easier in-game mod menu (Esc x3 / F10 / Start x3) |
+| 1.7.14 | Loading flags GL1, LC, LW (default off; no measurable effect) |
+| 1.7.15 | Mod-menu reminder always on screen (`PauseHint = 2`) |
+| 1.7.16 | Esc x3 toggles the mod menu both ways without opening the pause menu |
+| 1.7.17 | LG load-gate probe and `LoadStats = 3` (measurement only); crashed loads on the Ally |
+| 1.7.18 | BossLog: read-only boss fight logger (default off) |
+| 1.7.19 | Fixes the 1.7.17 LG crash (gate thunks now preserve r10/r11) |
+
+Full history: `MODLOG.md`.
+
+---
 ## Progress 2026-10-08: mod 1.7.13 / 1.7.14, decompile update, what helped
 
 **Device:** ASUS ROG Ally X (RC72LA, BIOS RC72LA.312, Z1 Extreme, Radeon 780M, 24 GB with 8 GB UMA frame buffer, Bazzite + Proton). Full spec in "Your device" above.
