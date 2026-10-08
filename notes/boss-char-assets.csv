@@ -1,0 +1,353 @@
+char_id,name,asset_ids_files,boss_flag_evidence,name_hint
+0d40c7d3,CS_CERBERUS_00,loader=53d29597,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0x53d29597 NOT in package rdb (absent: DLC/unshipped or other layer)",Cerberus
+671c3214,CS_CERBERUS_01,loader=d802e298;setting_db=d1561f9f;model_obj=de02fd4f;n_actions=0,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",Cerberus
+d50ee563,CS_ENKO_00,loader=b278d627;setting_db=4889aeae;model_obj=a7655b1e;n_actions=0,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",monkey (enko)
+4562a931,CS_GUHIN_00,loader=93f63d99,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0x93f63d99 NOT in package rdb (absent: DLC/unshipped or other layer)",Guhin
+7d7fb6f4,CS_HOUOU_HOU,loader=b1934af8,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xb1934af8 NOT in package rdb (absent: DLC/unshipped or other layer)",phoenix (HOU/OU pair)
+734b0ef5,CS_HOUOU_HOU_00,loader=a276355d;setting_db=d38a9936;scene_db=c8d6c89d;model_obj=32aa2e10;n_actions=13,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",phoenix (HOU/OU pair)
+41c2757f,CS_HOUOU_OU_00,loader=31881c43;setting_db=2adb594a;scene_db=bf282103;model_obj=35d85d3a;n_actions=9,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",phoenix (HOU/OU pair)
+9b9ddfc0,CS_HOUOU_OU_01,loader=b5b86944,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xb5b86944 NOT in package rdb (absent: DLC/unshipped or other layer)",phoenix (HOU/OU pair)
+fa707f6b,CS_KINSYACHI_00,loader=eefa0a53,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xeefa0a53 NOT in package rdb (absent: DLC/unshipped or other layer)",golden shachihoko
+dc025d4a,CS_KINSYACHI_01,loader=f0d35d72,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xf0d35d72 NOT in package rdb (absent: DLC/unshipped or other layer)",golden shachihoko
+0b96304d,CS_KONGOJISHI_00,loader=2e4e9211,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0x2e4e9211 NOT in package rdb (absent: DLC/unshipped or other layer)",Kongo guardian lion
+5c400e4e,CS_KONGOJISHI_01,loader=679fa2d2;setting_db=5917ba19;model_obj=f31a4489;n_actions=0,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",Kongo guardian lion
+4b0a7dd0,CS_KURAMATENGU_00,loader=308a39f8;setting_db=6e150b91;scene_db=4112fd38;model_obj=ada8556b;n_actions=16,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",Kurama tengu
+821943e3,CS_KUSANAGI_00,loader=af8b3da7,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xaf8b3da7 NOT in package rdb (absent: DLC/unshipped or other layer)",Kusanagi (sword)
+5fb891ec,CS_KUSANAGI_FINAL_00,loader=d0c021f0,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xd0c021f0 NOT in package rdb (absent: DLC/unshipped or other layer)",Kusanagi (sword)
+6c51876d,CS_KUSANAGI_FINAL_01,loader=e5a8ea31,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xe5a8ea31 NOT in package rdb (absent: DLC/unshipped or other layer)",Kusanagi (sword)
+d25af598,CS_KUSANAGI_NINJA_00,loader=5baade9c,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0x5baade9c NOT in package rdb (absent: DLC/unshipped or other layer)",Kusanagi (sword)
+078a8b3e,CS_KUSANAGI_SAMURAI_00,loader=4d3e2142,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0x4d3e2142 NOT in package rdb (absent: DLC/unshipped or other layer)",Kusanagi (sword)
+51c4d1cd,CS_MURAKUMO_00,loader=34f5ef11,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0x34f5ef11 NOT in package rdb (absent: DLC/unshipped or other layer)",Murakumo (sword/orochi lore)
+aba03c0e,CS_MURAKUMO_01,loader=b9263c12,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xb9263c12 NOT in package rdb (absent: DLC/unshipped or other layer)",Murakumo (sword/orochi lore)
+ed47823c,CS_NARIKAMA_00,loader=a00620c0,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xa00620c0 NOT in package rdb (absent: DLC/unshipped or other layer)",Narikama (ghost cauldron)
+8c8d490b,CS_NEKOTSUKI_00,loader=2d5f4bf3;setting_db=5e73afcc;model_obj=d3b08126;n_actions=0,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",cat possessed
+c6321b55,CS_NEKO_00,loader=ed0ec599;setting_db=831f9e20;scene_db=deef2a59;model_obj=3c742410;n_actions=17,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",cat
+fec86dcf,CS_SHINROKU_00,loader=40eff093;setting_db=3a432d9a;scene_db=ce8ff553;model_obj=5bff0d8a;n_actions=12,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list",Shinroku (person)
+f233e46e,CS_SHIROGARASU_00,loader=bcd27316,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xbcd27316 NOT in package rdb (absent: DLC/unshipped or other layer)",white crow
+45b3c7da,CS_SYAMICHOUROU_00,loader=2f1621de,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0x2f1621de NOT in package rdb (absent: DLC/unshipped or other layer)",Shamichorou (shamisen yokai)
+37b4fa1d,CS_TENGEN_00,loader=a0f16ee1,"CS_ prefix: 27 ids, each a unique named set-piece (Cerberus, Houou, Kusanagi FINAL, Murakumo...), no mob species; many have _00/_01 phase pairs; setting has 0 actions (2788-byte stub) => likely cutscene or boss-class (gameplay moveset elsewhere); MEDIUM-STRONG boss name list | loader DB 0xa0f16ee1 NOT in package rdb (absent: DLC/unshipped or other layer)",Tengen (Oda-era name)
+3896f461,KY_BOSHITSUKI_00,loader=d6084d25,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0xd6084d25 NOT in package rdb (absent: DLC/unshipped or other layer)",Boshi-tsuki
+6cdcc076,KY_DAIDARABOCCHI_00,loader=0742309e;setting_db=0d5efff7;scene_db=18a723de;model_obj=4a3f7d11;n_actions=2,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM",Daidarabotchi (giant)
+7a36b3a8,KY_GAKIDAISHO_00,loader=c9b2dfac;setting_db=bb2af6f3;model_obj=7e12b8e3;n_actions=0,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM",Gaki general
+b7930b9a,KY_GOGANKI_00,loader=77645c42,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0x77645c42 NOT in package rdb (absent: DLC/unshipped or other layer)",Gogan-ki
+20a95df5,KY_HIRUKO_P_00,loader=0c576939,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0x0c576939 NOT in package rdb (absent: DLC/unshipped or other layer)",Hiruko
+cc2a9baa,KY_JAKOTSUBA_00,loader=080923d2;setting_db=391d87ab;scene_db=2e69b712;model_obj=f4714e45;n_actions=98,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM",Jakotsuba
+380dbdc4,KY_MIKOSHI_00,loader=992de1ec,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0x992de1ec NOT in package rdb (absent: DLC/unshipped or other layer)",Mikoshi-nyudo
+d3175f2f,KY_NURIBOTOKE_01,loader=d2940e73,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0xd2940e73 NOT in package rdb (absent: DLC/unshipped or other layer)",Nuribotoke
+22a26812,KY_OTENGU_00,loader=6699ae96;setting_db=bbd6815d;model_obj=614b7c4d;n_actions=0,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM",great tengu
+e94b0481,KY_OTOROSHI_00,loader=f8b350c5,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0xf8b350c5 NOT in package rdb (absent: DLC/unshipped or other layer)",Otoroshi
+ce8347f5,KY_RAIJU_00,loader=5a82375d,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0x5a82375d NOT in package rdb (absent: DLC/unshipped or other layer)",raiju (thunder beast)
+b220e168,KY_SHUSHINKI_00,loader=9869d410,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM | loader DB 0x9869d410 NOT in package rdb (absent: DLC/unshipped or other layer)",Shushinki
+7a551ad6,KY_TSURARAONNA_00,loader=0a50c77e;setting_db=47db9917;model_obj=6e183371;n_actions=0,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM",Tsurara-onna
+bb8c4737,KY_YAGYOHEI_00,loader=7e6127fb;setting_db=77b46502;model_obj=df8022f2;n_actions=0,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM",Yagyu soldier
+7ac93734,KY_YASHA_00,loader=5bb163dc;setting_db=87bb9c35;model_obj=d00258cf;n_actions=0,"KY_ prefix (15 ids, each duplicates a CE_ yokai: named/mini-boss variant?); MEDIUM",Yasha
+b70c5f70,ME_JIGOKU_SHITAI_00,loader=305adf18,"ME_ prefix (2 ids: JIGOKU_SHITAI, SHIEI; mini-event variant?); LOW | loader DB 0x305adf18 NOT in package rdb (absent: DLC/unshipped or other layer)",hell
+dfe7ec92,ME_SHIEI_00,loader=d1ab7bba,"ME_ prefix (2 ids: JIGOKU_SHITAI, SHIEI; mini-event variant?); LOW | loader DB 0xd1ab7bba NOT in package rdb (absent: DLC/unshipped or other layer)",Shiei
+c6fb2806,CE_AKANAME_00,loader=38d4e1ae;setting_db=8b3267c7;scene_db=a8c144ee;model_obj=7db760a1;n_actions=74,,akaname
+3228a4d6,CE_ALCHEMIST_00,loader=2a1ea5fe;setting_db=5b3309d7;model_obj=fa5b0971;n_actions=0,,alchemist
+5e68a0f0,CE_ARACHNE_00,loader=78d7be18;setting_db=cb354431;scene_db=e8c42158;model_obj=5389408b;n_actions=102,,arachne
+2b8fb3f2,CE_ASHIGARU_00,loader=451c26f6,loader DB 0x451c26f6 NOT in package rdb (absent: DLC/unshipped or other layer),ashigaru
+856b1e33,CE_ASHIGARU_01,loader=c94c73f7;setting_db=c29fb0fe;model_obj=5229a3ee;n_actions=0,,ashigaru
+5c2e0314,CE_BAKEGANI_00,loader=21c37398;setting_db=1b16b09f;scene_db=af637858;model_obj=81024e4f;n_actions=81,,bakegani
+05c2cf6f,CE_BAKUMATSUHEI_00,loader=52647333;setting_db=c633d4ba;model_obj=4cf8f72a;n_actions=0,,bakumatsuhei
+f18d9ea3,CE_BANDIT_01,loader=5f02a3e7,loader DB 0x5f02a3e7 NOT in package rdb (absent: DLC/unshipped or other layer),bandit
+e010a524,CE_BANDIT_02,loader=a9343d28;setting_db=fe710fef;model_obj=70fa7c5f;n_actions=0,,bandit
+ce93aba5,CE_BANDIT_03,loader=f365d669;setting_db=48a2a930;model_obj=eed23860;n_actions=0,,bandit
+bd16b226,CE_BANDIT_04,loader=3d976faa;setting_db=92d44271;model_obj=6ca9f461;n_actions=0,,bandit
+7046d61c,CE_BARAGAKI_00,loader=1e561ca0;setting_db=17a959a7;model_obj=103b4d57;n_actions=0,,baragaki
+685b3263,CE_BIWABOKUBOKU_00,loader=cd64b527;setting_db=413416ae;scene_db=cdf459e7;model_obj=0356581e;n_actions=31,,biwabokuboku
+3896a855,CE_BOSHITSUKI_00,loader=f63ea019,loader DB 0xf63ea019 NOT in package rdb (absent: DLC/unshipped or other layer),Boshi-tsuki
+3dc93305,CE_BUSHI_00,loader=75e98e6d,loader DB 0x75e98e6d NOT in package rdb (absent: DLC/unshipped or other layer),bushi
+457ad864,CE_BUSHI_01,loader=fc6f490c;setting_db=28798165;model_obj=e74781ff;n_actions=0,,bushi
+9d57c7da,CE_BUSYO_00,loader=5597dd02;setting_db=81a2155b;model_obj=54d81a75;n_actions=0;color_var=6,,busyo
+a5096d39,CE_BUSYO_01,loader=dc1d97a1;setting_db=0827cffa;model_obj=dd085a54;n_actions=0,,busyo
+5425850b,CE_CHIJIKO_00,loader=d6e67c73,loader DB 0xd6e67c73 NOT in package rdb (absent: DLC/unshipped or other layer),chijiko
+36034eaa,CE_CHIJIKO_01,loader=d2e80b52,loader DB 0xd2e80b52 NOT in package rdb (absent: DLC/unshipped or other layer),chijiko
+1e0fda44,CE_CHIMI_00,loader=0b9372ec;setting_db=379dab45;model_obj=4228d3df;n_actions=0,,chimi
+d346b9d1,CE_DAIDARABOCCHI_LD_00,loader=356b7415,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | loader DB 0x356b7415 NOT in package rdb (absent: DLC/unshipped or other layer),Daidarabotchi (giant)
+0c84bee6,CE_EDOHEI_00,loader=ff6c8c6a;setting_db=54a95f31;model_obj=57522121;n_actions=0,,edohei
+610c0be1,CE_ENENRA_00,loader=78801ba5;setting_db=cdbcee6c;scene_db=73da5065;model_obj=e534229c;n_actions=81,,enenra
+65c7a39b,CE_ENKI_00,loader=0be32e5f;setting_db=a1f406e6;scene_db=fdc3931f;model_obj=f3c8cd56;n_actions=110,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 110 >= 1.3x CE median 82 (rich moveset),Enki
+7a36679c,CE_GAKIDAISHO_00,loader=e9e932a0;setting_db=db6149e7;scene_db=8f9b0760;model_obj=7e04ead7;n_actions=64,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Gaki general
+4fb4d28a,CE_GAKI_00,loader=4b31be8e;setting_db=e1429715;scene_db=3d12234e;model_obj=e4202ec5;n_actions=119,n_actions 119 >= 1.3x CE median 82 (rich moveset),gaki
+7a77e214,CE_GAMA_00,loader=c7f66998;setting_db=5e07421f;model_obj=d03a154f;n_actions=0,,gama
+0f5c94d5,CE_GAMA_01,loader=d48f5f19,loader DB 0xd48f5f19 NOT in package rdb (absent: DLC/unshipped or other layer),gama
+a4414796,CE_GAMA_02,loader=e128549a,loader DB 0xe128549a NOT in package rdb (absent: DLC/unshipped or other layer),gama
+8d7dde22,CE_GEDOUHEI_00,loader=05bf5526;setting_db=ff12922d;scene_db=935f59e6;model_obj=7f34165d;n_actions=123,n_actions 123 >= 1.3x CE median 82 (rich moveset),gedouhei
+4134b2a4,CE_GEDOUHEI_02,loader=0e1fef28;setting_db=07732c2f;model_obj=4ce595df;n_actions=0,,gedouhei
+027dc5e9,CE_GEDOUHEI_07,loader=a311702d;setting_db=9c64ad34;model_obj=4f2154a4;n_actions=0,,gedouhei
+b2922a69,CE_GEDOUHEI_ENKI,loader=371d992d;setting_db=2895b074;scene_db=dccf6ded;model_obj=fb684524;n_actions=7,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Enki
+a2ff99ea,CE_GEDOUHEI_ENKI_00,loader=ce0ac912;setting_db=d427986b;scene_db=df6fbc52;model_obj=78cb1485;n_actions=7,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Enki
+ab754a8c,CE_GEDOUHEI_KAMA,loader=a1dd2990;setting_db=935540d7;scene_db=478efe50;model_obj=7c64f5c7;n_actions=7,,gedouhei_kama
+9be2ba0d,CE_GEDOUHEI_KAMA_00,loader=38ca5975;setting_db=3ee728ce;scene_db=4a2f4cb5;model_obj=f9c7c528;n_actions=7,,gedouhei_kama
+12561873,CE_GEDOUHEI_KANI,loader=6e3f02b7;setting_db=5fb719fe;scene_db=13f0d777;model_obj=8de2ca2e;n_actions=4,,gedouhei_kani
+02c387f4,CE_GEDOUHEI_KANI_00,loader=052c329c;setting_db=0b4901f5;scene_db=169125dc;model_obj=0b45998f;n_actions=4,,gedouhei_kani
+b792bf8e,CE_GOGANKI_00,loader=979aaf36,loader DB 0x979aaf36 NOT in package rdb (absent: DLC/unshipped or other layer),Gogan-ki
+7de4862c,CE_GOKUSOTSU_00,loader=4e0953d4;setting_db=7f1db7ad;scene_db=7469e714;model_obj=c5bee3c7;n_actions=78,,gokusotsu
+5f76640b,CE_GOKUSOTSU_01,loader=4fe2a6f3;setting_db=80f70acc;model_obj=39fe1c26;n_actions=0,,gokusotsu
+410841ea,CE_GOKUSOTSU_02,loader=51bbfa12;setting_db=82d05deb;model_obj=ae3d5485;n_actions=0,,gokusotsu
+229a1fc9,CE_GOKUSOTSU_03,loader=53954d31;setting_db=84a9b10a;model_obj=227c8ce4;n_actions=0,,gokusotsu
+2554a9e1,CE_GOZUKI_00,loader=a91b39a5;setting_db=fe580c6c;scene_db=a4756e65;model_obj=1d01c09c;n_actions=82,,gozuki
+5324e21c,CE_HANBE_00,loader=8c428cc4;setting_db=b84cc51d;scene_db=d66ec004;model_obj=ea837fb7;n_actions=77;color_var=2,,hanbe
+5ad6877b,CE_HANBE_01,loader=12c84763,loader DB 0x12c84763 NOT in package rdb (absent: DLC/unshipped or other layer),hanbe
+6635ba5a,CE_HANRANGUN_00,loader=fa81a682;setting_db=2b960a5b;model_obj=b0ea34f5;n_actions=0,,hanrangun
+47c79839,CE_HANRANGUN_01,loader=fc5af9a1;setting_db=2d6f5d7a;model_obj=25296d54;n_actions=0,,hanrangun
+29597618,CE_HANRANGUN_02,loader=fe344cc0;setting_db=2f48b099;model_obj=9968a5b3;n_actions=0,,hanrangun
+0aeb53f7,CE_HANRANGUN_03,loader=000d9fdf;setting_db=312203b8;model_obj=0da7de12;n_actions=0,,hanrangun
+8467ca63,CE_HINOENMA_00,loader=d043a427;setting_db=c996e12e;scene_db=5de3a8e7;model_obj=1cc6581e;n_actions=80,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Hi-no-Enma (fire Enma)
+2dac7a5a,CE_HIRUKO_00,loader=a20786de;setting_db=f74459a5;model_obj=cf9d9a95;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Hiruko
+20a911e9,CE_HIRUKO_P_00,loader=2c8dbc2d,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | loader DB 0x2c8dbc2d NOT in package rdb (absent: DLC/unshipped or other layer),Hiruko
+3e985c4d,CE_HITOTUME_00,loader=30be5991;setting_db=2a119698;scene_db=be5e5e51;model_obj=05d4d108;n_actions=90;color_var=2,,hitotume
+15235dc3,CE_IBARAKIDOJI_00,loader=c96e062b;setting_db=06f8d7c4;model_obj=aeccbdde;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Ibaraki-doji
+f2da1e40,CE_IBARAKIDOJI_ARM_00,loader=2783c568,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | part/phase suffix (separate body-part or phase character) | loader DB 0x2783c568 NOT in package rdb (absent: DLC/unshipped or other layer),Ibaraki-doji
+76a6d158,CE_ICHIMOKUREN_00,loader=c899c380;setting_db=06249519;scene_db=d92286c0;model_obj=3c1f94f3;n_actions=101,,ichimokuren
+f13613a5,CE_IPPONDATARA_00,loader=5b48498d;setting_db=98d31b26;scene_db=6bd10ccd;model_obj=127baec0;n_actions=139,n_actions 139 >= 1.3x CE median 82 (rich moveset),ippondatara
+2c266c60,CE_ITSUMADE_00,loader=5cf1ade4;setting_db=5644eaeb;scene_db=ea91b2a4;model_obj=1f15199b;n_actions=66,,itsumade
+17b66f64,CE_ITTANMOMEN_00,loader=3af82068;setting_db=2c7037af;scene_db=e0a9f528;model_obj=61bb3e9f;n_actions=52,,ittanmomen
+cc2a4f9e,CE_JAKOTSUBA_00,loader=283f76c6,loader DB 0x283f76c6 NOT in package rdb (absent: DLC/unshipped or other layer),Jakotsuba
+613a4b18,CE_JIGOKUBACHI_00,loader=9b700d40;setting_db=d8faded9;scene_db=abf8d080;model_obj=ddf4aeb3;n_actions=103;color_var=3,,hell
+acfb122c,CE_JIGOKUGURUMA_00,loader=368a2db0,loader DB 0x368a2db0 NOT in package rdb (absent: DLC/unshipped or other layer),hell
+b70c5e3a,CE_JIGOKU_SHITAI_00,loader=e36a6962;setting_db=e98738bb;scene_db=f4cf5ca2;model_obj=1a9a90d5;n_actions=8,,hell
+f1cf1d0e,CE_JIGOKU_SHITAI_S_00,loader=bedb1ab6;setting_db=b10177cf;model_obj=2aab51a9;n_actions=0,,hell
+3e88bfca,CE_KAMAITACHI_00,loader=4e45a94e;setting_db=3fbdc095;scene_db=f3f77e0e;model_obj=bd376005;n_actions=109,n_actions 109 >= 1.3x CE median 82 (rich moveset),kamaitachi
+1a5a574f,CE_KAPPA_00,loader=c4795e37;setting_db=f0839690;scene_db=0ea59177;model_obj=6fe55d6a;n_actions=69;color_var=2,,kappa
+2b6fd0b9,CE_KARAKASA_00,loader=ae5036fd;setting_db=a7a37404;scene_db=3bf03bbd;model_obj=c0f1d774;n_actions=48,,karakasa
+5ff79ce9,CE_KASYA_00,loader=9f97eb51;setting_db=cba223aa;scene_db=e9c41e91;model_obj=9331d204;n_actions=82,,kasya
+4f0758e5,CE_KASYA_WHEEL_00,loader=4533fecd;setting_db=82bed066;scene_db=55bcc20d;model_obj=be35d400;n_actions=37,,kasya_wheel
+13993b04,CE_KASYA_WHEEL_01,loader=3605062c;setting_db=738fd7c5;scene_db=468dc96c;model_obj=1f88709f;n_actions=28,,kasya_wheel
+fd410a1e,CE_KODAIHEI_00,loader=d8e8b622;setting_db=d23bf329;model_obj=87456c59;n_actions=0;color_var=2,,kodaihei
+0269c3ed,CE_KODAMA_00,loader=24d034b1;setting_db=7a0d0778;scene_db=202a6971;model_obj=bdb15ca8;n_actions=92,,kodama
+08350b9a,CE_KONAKIJIJII_00,loader=741d9342;setting_db=b1a864db;scene_db=84a65682;model_obj=61bc1a35;n_actions=81;color_var=2,,konakijijii
+12b9908e,CE_KOROUKA_00,loader=71304036;setting_db=c38dc64f;scene_db=e11ca376;model_obj=53743529;n_actions=71,,korouka
+c0a2cf62,CE_KYOUKOTSU_00,loader=5a7e118a;setting_db=8b927563;scene_db=80dea4ca;model_obj=83c275fd;n_actions=82,,kyoukotsu
+84806f6c,CE_MASAKAGE_00,loader=359c51f0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | loader DB 0x359c51f0 NOT in package rdb (absent: DLC/unshipped or other layer),Masakage
+1498c0b1,CE_MEZUKI_00,loader=f48d0c75;setting_db=49c9df3c;scene_db=efe74135;model_obj=23a64f6c;n_actions=84,,mezuki
+380d71b8,CE_MIKOSHI_00,loader=b96434e0;setting_db=0bc1baf9;scene_db=29509820;model_obj=1225dd53;n_actions=115,n_actions 115 >= 1.3x CE median 82 (rich moveset),Mikoshi-nyudo
+19eb3b57,CE_MIKOSHI_01,loader=b565c3bf,loader DB 0xb565c3bf NOT in package rdb (absent: DLC/unshipped or other layer),Mikoshi-nyudo
+1d764028,CE_MUJINA_00,loader=f826e32c,loader DB 0xf826e32c NOT in package rdb (absent: DLC/unshipped or other layer),mujina
+c7d5b838,CE_NINGYO_00,loader=f9db873c;setting_db=4f185a03;scene_db=f535bbfc;model_obj=1a6b3d73;n_actions=93,,ningyo
+4f17df0e,CE_NINJA_00,loader=a1db8336;setting_db=cde5bb8f;scene_db=ec07b676;model_obj=f3b88fa9;n_actions=303;color_var=2,n_actions 303 >= 1.3x CE median 82 (rich moveset),ninja
+5ae0a8f2,CE_NOBUHARU_00,loader=6f7edbf6;setting_db=68d218fd;scene_db=fd1ee0b6;model_obj=b595592d;n_actions=110;color_var=3,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 110 >= 1.3x CE median 82 (rich moveset),Nobuharu
+86d632ec,CE_NOZUCHI_00,loader=d7640514;setting_db=29c18b2d;scene_db=47506854;model_obj=0d15fc87;n_actions=84,,nozuchi
+d38457a7,CE_NUPPEFUHOFU_00,loader=1d5af30f;setting_db=5ae5c4a8;scene_db=2de3b64f;model_obj=7c31ddc2;n_actions=79,,nuppefuhofu
+bd94b3f6,CE_NUREONNA_00,loader=2873f1fa;setting_db=21c72f01;scene_db=b613f6ba;model_obj=7b39ba31;n_actions=129,n_actions 129 >= 1.3x CE median 82 (rich moveset),nureonna
+826d3522,CE_NURIBOTOKE_00,loader=b97950a6;setting_db=aaf167ed;scene_db=5f2b2566;model_obj=63e3b95d;n_actions=64,,Nuribotoke
+d3171323,CE_NURIBOTOKE_01,loader=f2ca6167;setting_db=e44278ae;scene_db=987c3627;model_obj=778b8cde;n_actions=68,,Nuribotoke
+c85b214b,CE_NURIKABE_00,loader=c3c5790f;setting_db=bd18b616;scene_db=51657dcf;model_obj=b6512b06;n_actions=49,,nurikabe
+b2491a75,CE_ONIBI_00,loader=1902e9dd;setting_db=450d2236;scene_db=632f1d1d;model_obj=26891190;n_actions=52;color_var=4,,oni
+c6700dee,CE_ONI_00,loader=09a6ce96;setting_db=ab65492f;scene_db=5bc6d1d6;model_obj=d3c5da89;n_actions=107;color_var=3,n_actions 107 >= 1.3x CE median 82 (rich moveset),oni
+8bef18b4,CE_ONMORAKI_00,loader=25de0138;setting_db=1f313e3f;scene_db=b37e05f8;model_obj=b20053ef;n_actions=110,n_actions 110 >= 1.3x CE median 82 (rich moveset),onmoraki
+ad10dc22,CE_ONMYOUZI_00,loader=402cd326;setting_db=3980102d;scene_db=cdccd7e6;model_obj=e55c145d;n_actions=35;color_var=4,,onmyouzi
+4d93d2ab,CE_ONRYOKI_00,loader=37884213;setting_db=89e5c82c;scene_db=a774a553;model_obj=79ed46c6;n_actions=85,,onryoki
+22a21c06,CE_OTENGU_00,loader=86d0018a;setting_db=dc0cd451;scene_db=822a364a;model_obj=613dae41;n_actions=87,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,great tengu
+e94ab875,CE_OTOROSHI_00,loader=18e9a3b9;setting_db=123ce0c0;scene_db=a689a879;model_obj=53a78930;n_actions=122,n_actions 122 >= 1.3x CE median 82 (rich moveset),Otoroshi
+ce82fbe9,CE_RAIJU_00,loader=7ab88a51;setting_db=a6c2c2aa;scene_db=c4e4bd91;model_obj=1157b104;n_actions=116,n_actions 116 >= 1.3x CE median 82 (rich moveset),raiju (thunder beast)
+135d1f0c,CE_RYOUMENSUKUNA_00,loader=c565cbb4;setting_db=cb829b0d;scene_db=d6cabef4;model_obj=3c84b4a7;n_actions=113,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 113 >= 1.3x CE median 82 (rich moveset),Ryomen Sukuna (two-faced)
+fafef56b,CE_RYOUMENSUKUNA_01,loader=c6127753;setting_db=cc2f46ac;scene_db=d7776a93;model_obj=93a2a586;n_actions=150,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 150 >= 1.3x CE median 82 (rich moveset),Ryomen Sukuna (two-faced)
+e2a0cbca,CE_RYOUMENSUKUNA_02,loader=c6bf22f2;setting_db=ccdbf24b;model_obj=eac09665;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Ryomen Sukuna (two-faced)
+25d3dadd,CE_SAKIMORI_00,loader=dad8e421;setting_db=d42c2128;scene_db=6878e8e1;model_obj=606f6798;n_actions=32;color_var=2,,sakimori
+7faf451e,CE_SAKIMORI_01,loader=5f093122;setting_db=585c6e29;model_obj=c7482759;n_actions=0,,sakimori
+a3660047,CE_SAMURAI_01,loader=dda31caf;setting_db=3000a2c8;model_obj=431c8e62;n_actions=0;color_var=2,,samurai
+8543c9e6,CE_SAMURAI_02,loader=d9a4ab8e;setting_db=2c0231a7;model_obj=803c5281;n_actions=0;color_var=2,,samurai
+67219385,CE_SAMURAI_03,loader=d5a63a6d;setting_db=2803c086;model_obj=bd5c16a0;n_actions=0;color_var=2,,samurai
+48ff5d24,CE_SAMURAI_04,loader=d1a7c94c;setting_db=24054f65;model_obj=fa7bdabf;n_actions=0;color_var=2,,samurai
+edadb00b,CE_SEAKID_00,loader=5fea134f;setting_db=b526e616;scene_db=5b44480f;model_obj=e5b40dc6;n_actions=74,,seakid
+dfe7eb5c,CE_SHIEI_00,loader=84bb0604;setting_db=b0c53e5d;scene_db=cee73944;model_obj=fea568f7;n_actions=55,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Shiei
+e79990bb,CE_SHIEI_01,loader=0b40c0a3;setting_db=374af8fc;scene_db=556cf3e3;model_obj=86d5a8d6;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Shiei
+c7b50d5d,CE_SHIGURUI_BIG_00,loader=b90c9fa1;setting_db=2cdc0128;scene_db=b99c4461;model_obj=ca9ef218;n_actions=92,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | part/phase suffix (separate body-part or phase character),Shigurui (mad warrior)
+a0d65c80,CE_SHIGURUI_BIG_ARM_00,loader=1daec804;setting_db=70540e0b;scene_db=505e0cc4;model_obj=3a40e9bb;n_actions=75,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | part/phase suffix (separate body-part or phase character),Shigurui (mad warrior)
+896fea37,CE_SHIGURUI_F_00,loader=4f206f7b;setting_db=409886c2;model_obj=040611f2;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Shigurui (mad warrior)
+b6806d90,CE_SHIGURUI_M_00,loader=332b5794;setting_db=24a36edb;model_obj=afe46ecb;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Shigurui (mad warrior)
+45ec134e,CE_SHIGURUI_SHURA_00,loader=10d2d0d2;setting_db=ce4fec99;scene_db=2c0c4592;model_obj=8c2c6189;n_actions=122,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 122 >= 1.3x CE median 82 (rich moveset),Shigurui (mad warrior)
+5bf625b1,CE_SHIGURUI_SHURA_ARM_00,loader=d58c6c75;setting_db=13f84cbc;scene_db=197d8135;model_obj=9b2efc6c;n_actions=106,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | part/phase suffix (separate body-part or phase character),Shigurui (mad warrior)
+23c42b0c,CE_SHIKIGAMI_00,loader=33c860b4;setting_db=64dcc48d;scene_db=5a28f3f4;model_obj=c93b58a7;n_actions=8;color_var=2,,shikigami
+31c8b83b,CE_SHIKIJIROU_00,loader=c4e2887f;setting_db=b65a9fc6;scene_db=6a945d3f;model_obj=584fb5f6;n_actions=123,n_actions 123 >= 1.3x CE median 82 (rich moveset),shikijirou
+7d65791a,CE_SHINGEN_00,loader=712be9c2;setting_db=c3896fdb;scene_db=e1184d02;model_obj=3cc25fb5;n_actions=109;color_var=2,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 109 >= 1.3x CE median 82 (rich moveset),Takeda Shingen
+16e99c30,CE_SHINSENGUMI_00,loader=945ee058;setting_db=d1e9b1f1;model_obj=7a2883cb;n_actions=0;color_var=2,,shinsengumi
+28aea5b8,CE_SHOSETSU_00,loader=69e4193c;setting_db=63375643;scene_db=f7841dfc;model_obj=eadb36f3;n_actions=100,,shosetsu
+72c23a22,CE_SHUNOBON_00,loader=5640b126;setting_db=4f93ee2d;scene_db=e3e0b5e6;model_obj=12b2725d;n_actions=94;color_var=2,,shunobon
+b220955c,CE_SHUSHINKI_00,loader=b8a02704;setting_db=e9b48add;scene_db=df00ba44;model_obj=d70b7af7;n_actions=82,,Shushinki
+d37ef72c,CE_SKELETON_H_00,loader=c9af8e30;setting_db=bb27a577;scene_db=6f6162f0;model_obj=ea7a1267;n_actions=58;color_var=2,,skeleton_h
+3cd3e747,CE_SKELETON_M_00,loader=b5b7588b;setting_db=a72f6fd2;scene_db=5b692d4b;model_obj=1c18e702;n_actions=159;color_var=2,n_actions 159 >= 1.3x CE median 82 (rich moveset),skeleton_m
+c65087dc,CE_SORANAKI_ARM_L_00,loader=9c116be0;setting_db=598e87a7;scene_db=b74ae0a0;model_obj=3ea70317;n_actions=8,part/phase suffix (separate body-part or phase character),soranaki_arm_l
+61bbd496,CE_SORANAKI_ARM_R_00,loader=40f7981a;setting_db=fe74b3e1;scene_db=5c310cda;model_obj=8696aed1;n_actions=6,part/phase suffix (separate body-part or phase character),soranaki_arm_r
+3b9d5c2c,CE_SORANAKI_BG_00,loader=e7cfd554;setting_db=255aa6ed;scene_db=f8589894;model_obj=cd186dc7;n_actions=10,part/phase suffix (separate body-part or phase character),soranaki_bg
+084e3513,CE_SORANAKI_MIN_00,loader=80381bd7;setting_db=f4077d5e;model_obj=06dd22ce;n_actions=0,part/phase suffix (separate body-part or phase character),soranaki_min
+db6f127d,CE_SPIDER_00,loader=aab08f41;setting_db=ffed6208;scene_db=a60ac401;model_obj=930dc338;n_actions=67,,spider
+0d1793af,CE_SUDAMA_00,loader=3d16b9f3;setting_db=92538cba;scene_db=3870eeb3;model_obj=ea4bb76a;n_actions=66,,sudama
+deb91d1f,CE_SUNAKAKEBABA_00,loader=16d964e3;setting_db=8aa8c66a;scene_db=176909a3;model_obj=b9ef8cda;n_actions=97,,sunakakebaba
+ec4f72ac,CE_SUNEKOSURI_00,loader=72bba9b0;setting_db=6433c0f7;scene_db=186d7e70;model_obj=45b9cde7;n_actions=75;color_var=13,,cat
+3cf950ad,CE_SUNEKOSURI_01,loader=ac0cba71;setting_db=9d84d1b8;model_obj=5961a168;n_actions=0,,cat
+5a1b42c4,CE_SUNEKOSURI_2ND,loader=ae705dec;setting_db=ebfb2f85;scene_db=bef9212c;model_obj=b279185f;n_actions=21,part/phase suffix (separate body-part or phase character),cat
+a64e2f0f,CE_TENGU_00,loader=fa5285f7;setting_db=265cbe50;scene_db=447eb937;model_obj=6d3fd52a;n_actions=102,,tengu
+13c0d7c2,CE_TESSO_00,loader=f27c2aea;setting_db=1e866343;model_obj=ddc2265d;n_actions=0,,tesso
+7a54ceca,CE_TSURARAONNA_00,loader=2a871a72;setting_db=6811ec0b;scene_db=3b0fddb2;model_obj=6e0a6565;n_actions=53,,Tsurara-onna
+3e8978a4,CE_UBUME_00,loader=a4e2994c;setting_db=d0ecd1a5;scene_db=ef0ecc8c;model_obj=8d03823f;n_actions=94,,ubume
+787a2c52,CE_WAIRA_00,loader=4f410b7a;setting_db=7b4b43d3;scene_db=996d3eba;model_obj=f29392ed;n_actions=74,,waira
+0372fc78,CE_WANYUDOU_00,loader=1f3afffc;setting_db=188e3d03;scene_db=acdb04bc;model_obj=90d0adb3;n_actions=70,,wanyudou
+cb09dbb6,CE_WILDDOG_00,loader=499ab95e;setting_db=9bf83f77;scene_db=b9871c9e;model_obj=8b975c51;n_actions=191,n_actions 191 >= 1.3x CE median 82 (rich moveset),wilddog
+bb8bfb2b,CE_YAGYOHEI_00,loader=9e977aef;setting_db=97eab7f6;scene_db=2c377faf;model_obj=df7254e6;n_actions=99,,Yagyu soldier
+1567656c,CE_YAGYOHEI_01,loader=22c7c7f0;setting_db=1c1b04f7;model_obj=464b14a7;n_actions=0,,Yagyu soldier
+6f42cfad,CE_YAGYOHEI_02,loader=a6f814f1;setting_db=a04b51f8;model_obj=ad23d468;n_actions=0,,Yagyu soldier
+3ac1bddd,CE_YAGYOHEI_HUMAN_00,loader=c9dbd4a1,loader DB 0xc9dbd4a1 NOT in package rdb (absent: DLC/unshipped or other layer),Yagyu soldier
+cf504a3d,CE_YAGYUSHU_00,loader=d8999b81;setting_db=d1ecd888;model_obj=7fba66f8;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Yagyu group
+542b089b,CE_YAMABIKO_00,loader=fd987c5f;setting_db=f6ebb966;scene_db=8b38811f;model_obj=39f44a56;n_actions=83,,yamabiko
+d0507ad8,CE_YAMAINU_00,loader=c0c65600;setting_db=1323dc19;scene_db=30b2b940;model_obj=dea91673;n_actions=116;color_var=2,n_actions 116 >= 1.3x CE median 82 (rich moveset),yamainu
+a0576155,CE_YAMANBA_00,loader=ed91043d;setting_db=3fee8a56;scene_db=5d7d677d;model_obj=02f0dc70;n_actions=143,n_actions 143 >= 1.3x CE median 82 (rich moveset),yamanba
+7ac8eb28,CE_YASHA_00,loader=7be7b6d0;setting_db=a7f1ef29;scene_db=c613ea10;model_obj=cff48ac3;n_actions=96,,Yasha
+03e94ad8,CE_YORITOMO_00,loader=086ad65c;setting_db=01be1363;scene_db=960adb1c;model_obj=0e700c13;n_actions=104,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM,Minamoto no Yoritomo
+b56b7fb6,CE_YOSHINOBU_00,loader=0b3568de;setting_db=3c49ccb7;scene_db=3195fc1e;model_obj=8f83b451;n_actions=134,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 134 >= 1.3x CE median 82 (rich moveset),Yoshinobu
+7decb1f3,CE_YOSHITSUNE_00,loader=f783bc37;setting_db=e8fbd37e;scene_db=9d3590f7;model_obj=09ada3ae;n_actions=117,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | n_actions 117 >= 1.3x CE median 82 (rich moveset),Minamoto no Yoshitsune
+f4d0915a,CE_YOSHITSUNE_BLADE_00,loader=8038345e;setting_db=d2dd7a65;model_obj=995a2d95;n_actions=0,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | part/phase suffix (separate body-part or phase character),Minamoto no Yoshitsune
+353fc23f,CE_YOSHITSUNE_WING_00,loader=5d47b6a7;setting_db=4f6e13c0;scene_db=a93cd9e7;model_obj=559e745a;n_actions=73,CE_ named person/great yokai with variant parts (ARM/BLADE/WING/_2ND/BIG) => boss-style multi-part; MEDIUM | part/phase suffix (separate body-part or phase character),Minamoto no Yoshitsune
+c94589e7,CE_YOUKI_POWER_00,loader=79f2554f;setting_db=b77d26e8;scene_db=8a7b188f;model_obj=0da37002;n_actions=290,n_actions 290 >= 1.3x CE median 82 (rich moveset),youki_power
+e06f02e9,CE_YOUKI_SPEED_00,loader=b421f3d1;setting_db=f1acc56a;scene_db=c4aab711;model_obj=5b885404;n_actions=402,n_actions 402 >= 1.3x CE median 82 (rich moveset),youki_speed
+396e10cb,CN_FUKU_OLD,loader=cbc06cb3;setting_db=f7caa50c;model_obj=eaf980e6;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for FUKU_OLD); LOW-MEDIUM,fuku_old
+a0eb272b,CN_FUKU_OLD_KIMONO,loader=2c3f4fef;setting_db=a00eb176;model_obj=ffe418e6;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for FUKU_OLD_KIMONO); LOW-MEDIUM,fuku_old_kimono
+745363cb,CN_HANZO_MASANARI,loader=eff42233;setting_db=2d7ef3cc;scene_db=007ce573;model_obj=90856fe6;n_actions=11,CN_ named NPC/historical person (duelist/story boss possible for HANZO_MASANARI); LOW-MEDIUM,hanzo_masanari
+14db04de,CN_HANZO_OLD,loader=f5fdbc62;setting_db=4b3a8f29;model_obj=4701bb19;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for HANZO_OLD); LOW-MEDIUM,hanzo_old
+dbe0c9cb,CN_HIMIKO,loader=ab181a33;setting_db=4cd694cc;scene_db=fd381d73;model_obj=6c9705e6;n_actions=60,CN_ named NPC/historical person (duelist/story boss possible for HIMIKO); LOW-MEDIUM,himiko
+c2ee0c84,CN_HIRUKO,loader=754009ac;setting_db=16fe8445;scene_db=c7600cec;model_obj=d4f8b21f;n_actions=56;color_var=2,CN_ named NPC/historical person (duelist/story boss possible for HIRUKO); LOW-MEDIUM,Hiruko
+5d27af90,CN_HIRUKO_KAGEBOSHI,loader=45288738,CN_ named NPC/historical person (duelist/story boss possible for HIRUKO_KAGEBOSHI); LOW-MEDIUM | loader DB 0x45288738 NOT in package rdb (absent: DLC/unshipped or other layer),Hiruko
+139d80d5,CN_HISAHIDE_HEIFUKU,loader=04f1463d;setting_db=0b0e1596;scene_db=1656397d;model_obj=75e357f0;n_actions=49,CN_ named NPC/historical person (duelist/story boss possible for HISAHIDE_HEIFUKU); LOW-MEDIUM,hisahide_heifuku
+aac8b7b3,CN_IEYASU_YNG,loader=dec87d1b;setting_db=31260334;scene_db=4eb4e05b;model_obj=6d8557ce;n_actions=3,CN_ named NPC/historical person (duelist/story boss possible for IEYASU_YNG); LOW-MEDIUM,ieyasu_yng
+3857731e,CN_JUBE,loader=8bf0cc46;setting_db=bc0f191f;scene_db=f0b89f86;model_obj=1c5b13b9;n_actions=610,CN_ named NPC/historical person (duelist/story boss possible for JUBE); LOW-MEDIUM,jube
+5af6b132,CN_KUNIMATU,loader=7b04f85a;setting_db=a70f30b3;scene_db=c5312b9a;model_obj=a37ce7cd;n_actions=111;color_var=2,CN_ named NPC/historical person (duelist/story boss possible for KUNIMATU); LOW-MEDIUM,kunimatu
+271a4a7e,CN_KUNIMATU_DOGI,loader=6ec06302;setting_db=60387a49;model_obj=032c88b9;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for KUNIMATU_DOGI); LOW-MEDIUM,kunimatu_dogi
+4d53c13e,CN_KUNIMATU_KAGEBOSHI,loader=f2c442e6;setting_db=e4ea9fff;scene_db=3eb96626;model_obj=f623fdd9;n_actions=2,CN_ named NPC/historical person (duelist/story boss possible for KUNIMATU_KAGEBOSHI); LOW-MEDIUM,kunimatu_kageboshi
+a9a96402,CN_MARIA,loader=30481586;setting_db=03f363cd;model_obj=80ba883d;n_actions=0;color_var=2,CN_ named NPC/historical person (duelist/story boss possible for MARIA); LOW-MEDIUM,maria
+cf276d56,CN_MASAKAGE,loader=56a3d77e;setting_db=82ae0fd7;scene_db=a0d00abe;model_obj=397a29f1;n_actions=78,CN_ named NPC/historical person (duelist/story boss possible for MASAKAGE); LOW-MEDIUM,Masakage
+25b9a575,CN_MUNENORI,loader=2d81b4dd;setting_db=598bed36;scene_db=77ade81d;model_obj=8f461c90;n_actions=5,CN_ named NPC/historical person (duelist/story boss possible for MUNENORI); LOW-MEDIUM,munenori
+ab076852,CN_NAOTORA,loader=96b9ba56;setting_db=2cca92dd;scene_db=889a1f16;model_obj=40d6108d;n_actions=11,CN_ named NPC/historical person (duelist/story boss possible for NAOTORA); LOW-MEDIUM,naotora
+02fa7253,CN_ORYO,loader=957a0d3b;setting_db=c5985a14;model_obj=3a33666e;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for ORYO); LOW-MEDIUM,oryo
+d93c09b2,CN_RODRIGO,loader=3e1c23b6;setting_db=d42cfc3d;model_obj=38cc41ed;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for RODRIGO); LOW-MEDIUM,rodrigo
+905236a2,CN_SHINGEN,loader=76d2e4a6;setting_db=0ce3bd2d;scene_db=68b34966;model_obj=a27a96dd;n_actions=111;color_var=2,CN_ named NPC/historical person (duelist/story boss possible for SHINGEN); LOW-MEDIUM,Takeda Shingen
+81af767a,CN_SHINSAKU,loader=799dc3a2;setting_db=a5a7fbfb;scene_db=c3c9f6e2;model_obj=7e263915;n_actions=65;color_var=2,CN_ named NPC/historical person (duelist/story boss possible for SHINSAKU); LOW-MEDIUM,shinsaku
+cbfbf496,CN_SHIZUKAGOZEN,loader=16e145be;setting_db=47f5a997;model_obj=1328f931;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for SHIZUKAGOZEN); LOW-MEDIUM,shizukagozen
+6a992064,CN_SOUJI,loader=c5493f68;setting_db=98f48daf;scene_db=f97bd428;model_obj=9b023f9f;n_actions=85,CN_ named NPC/historical person (duelist/story boss possible for SOUJI); LOW-MEDIUM,souji
+e2e1e0e2,CN_TADAKATSU,loader=51b46366;setting_db=a6f1362d;scene_db=4d0e9826;model_obj=7b666d1d;n_actions=59,CN_ named NPC/historical person (duelist/story boss possible for TADAKATSU); LOW-MEDIUM,tadakatsu
+fe225dfb,CN_TOYO,loader=b20d86e3;setting_db=e22bd3bc;scene_db=16d55a23;model_obj=c998ee16;n_actions=35,CN_ named NPC/historical person (duelist/story boss possible for TOYO); LOW-MEDIUM,toyo
+4e9048c2,CN_YORITOMO,loader=29725bea;setting_db=557c9443;model_obj=1f6f175d;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for YORITOMO); LOW-MEDIUM,Minamoto no Yoritomo
+bfa0497e,CN_YOSHINOBU,loader=7cedb902;setting_db=d22a8bc9;model_obj=5e166fb9;n_actions=0,CN_ named NPC/historical person (duelist/story boss possible for YOSHINOBU); LOW-MEDIUM,Yoshinobu
+8d0ee806,CN_YOSHITSUNE_BORO,loader=6e57fb0a;setting_db=e2275c91;scene_db=6ee79fca;model_obj=fb81de41;n_actions=1,CN_ named NPC/historical person (duelist/story boss possible for YOSHITSUNE_BORO); LOW-MEDIUM,Minamoto no Yoshitsune
+b655de4b,BN_HERO_F_00,loader=c7dd718f,loader DB 0xc7dd718f NOT in package rdb (absent: DLC/unshipped or other layer),hero_f
+6457f624,BN_HERO_M_00,loader=1d4a4e28,loader DB 0x1d4a4e28 NOT in package rdb (absent: DLC/unshipped or other layer),hero_m
+e9711727,C0000_HERO_0,loader=10dc476b,loader DB 0x10dc476b NOT in package rdb (absent: DLC/unshipped or other layer),c0000_hero
+d1b104a2,C9000_HUMAN_COMMON,loader=8f6404a6,loader DB 0x8f6404a6 NOT in package rdb (absent: DLC/unshipped or other layer),c9000_human_common
+0506ddb7,CGB3117_CN_JUBE_Face,loader=be466bfb,loader DB 0xbe466bfb NOT in package rdb (absent: DLC/unshipped or other layer),cgb3117_cn_jube_face
+f57c99e1,CL_CAT_00,loader=5bd746c9;setting_db=fd95c162;model_obj=074feefc;n_actions=0,CL_ animal ambient,cat
+ee685292,CL_CROW_00,loader=66aad496;setting_db=fcbbad1d;scene_db=588b3956;model_obj=0adb5acd;n_actions=16,CL_ animal ambient,crow
+91a314f2,CL_CROW_GROUP_00,loader=3bf5ac76;setting_db=2d6dc3bd;scene_db=e1a78136;model_obj=40bb912d;n_actions=2,CL_ animal ambient,crow_group
+2495bce8,CL_HORSE_00,loader=b8295890;setting_db=e43390e9;model_obj=eee6fc83;n_actions=0,CL_ animal ambient,horse
+3f10311a,CM_CHONIN_F_00,loader=e7a0521e;setting_db=e0f38f25;scene_db=754056de;model_obj=e6973d55;n_actions=14;color_var=4,CM_ common NPC/face,oni
+74ebb6b3,CM_CHONIN_M_00,loader=95486c77;setting_db=8e9ba97e;model_obj=9fe8fc6e;n_actions=0;color_var=8,CM_ common NPC/face,oni
+cec720f4,CM_CHONIN_M_01,loader=1978b978;setting_db=12cbf67f;model_obj=06c1bc2f;n_actions=0;color_var=4,CM_ common NPC/face,oni
+871d0fa6,CM_FACE_F_00,loader=3f66ed2a,CM_ common NPC/face | loader DB 0x3f66ed2a NOT in package rdb (absent: DLC/unshipped or other layer),face_f
+75a01627,CM_FACE_F_01,loader=8998866b,CM_ common NPC/face | loader DB 0x8998866b NOT in package rdb (absent: DLC/unshipped or other layer),face_f
+351f277f,CM_FACE_M_00,loader=94d3c9c3,CM_ common NPC/face | loader DB 0x94d3c9c3 NOT in package rdb (absent: DLC/unshipped or other layer),face_m
+23a22e00,CM_FACE_M_01,loader=df056304,CM_ common NPC/face | loader DB 0xdf056304 NOT in package rdb (absent: DLC/unshipped or other layer),face_m
+12253481,CM_FACE_M_02,loader=2936fc45,CM_ common NPC/face | loader DB 0x2936fc45 NOT in package rdb (absent: DLC/unshipped or other layer),face_m
+00a83b02,CM_FACE_M_03,loader=73689586,CM_ common NPC/face | loader DB 0x73689586 NOT in package rdb (absent: DLC/unshipped or other layer),face_m
+ef2b4183,CM_FACE_M_04,loader=bd9a2ec7,CM_ common NPC/face | loader DB 0xbd9a2ec7 NOT in package rdb (absent: DLC/unshipped or other layer),face_m
+ddae4804,CM_FACE_M_05,loader=07cbc808,CM_ common NPC/face | loader DB 0x07cbc808 NOT in package rdb (absent: DLC/unshipped or other layer),face_m
+e61a06fc,CM_SHISHI_M_00,loader=d209b580;setting_db=cb5cf287;model_obj=126d4e37;n_actions=0;color_var=2,CM_ common NPC/face,shishi_m
+7a1d3674,CP_HERO,loader=5472dc1c;setting_db=849128f5;model_obj=8803d00f;n_actions=0,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",hero
+2ca8bf31,CP_HUMAN_COMMON,loader=2c11ca99;setting_db=5d262e72;scene_db=52725dd9;model_obj=b829684c;n_actions=1232,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_common
+bbc55cd3,CP_HUMAN_HOKOTATE,loader=7728713b;setting_db=b4b342d4;scene_db=87b1347b;model_obj=e10894ee;n_actions=0,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_hokotate
+a4676608,CP_HUMAN_HOKOTATE_NINJA,loader=a4027eb0;setting_db=a605f989;scene_db=c73bd1f0;model_obj=24800da3;n_actions=0,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_hokotate_ninja
+5c8a7292,CP_HUMAN_KAMA,loader=f0616d3a;setting_db=42bef353;scene_db=604dd07a;model_obj=d063ed2d;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_kama
+97a35e47,CP_HUMAN_KAMA_NINJA,loader=c2de7d2f;setting_db=c8fb4c88;scene_db=d443706f;model_obj=6d760862;n_actions=573,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_kama_ninja
+89035586,CP_HUMAN_KATANA,loader=d0983aae;setting_db=01ac9e87;scene_db=f6f8cdee;model_obj=32268221;n_actions=413,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_katana
+619027fb,CP_HUMAN_KATANA_NINJA,loader=f8112163;setting_db=ea377e7c;scene_db=440644a3;model_obj=d31ea416;n_actions=0,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_katana_ninja
+f11aae99,CP_HUMAN_NAGIGAMA,loader=4baec381;setting_db=8939951a;scene_db=5c3786c1;model_obj=3dd947b4;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_nagigama
+0e56319b,CP_HUMAN_NITOU,loader=dea4655f;setting_db=d7f7a266;scene_db=6c446a1f;model_obj=aff0f356;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_nitou
+365abc86,CP_HUMAN_NITOU_NINJA,loader=5bc9540a;setting_db=19466fd1;scene_db=7702c8ca;model_obj=b5223ec1;n_actions=0,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_nitou_ninja
+97d87f0c,CP_HUMAN_ONO,loader=5f02d510;setting_db=b43fa7d7;scene_db=5a5d09d0;model_obj=91fa5247;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_ono
+db903475,CP_HUMAN_SUBWP,loader=7f841fb9;setting_db=78d75cc0;scene_db=0d242479;model_obj=88570530;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_subwp
+c26cdff9,CP_HUMAN_SUDE,loader=2be385e1;setting_db=7e410bfa;scene_db=9bcfe921;model_obj=a358a114;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_sude
+14184a33,CP_HUMAN_TACHI,loader=f2729ff7;setting_db=ebc5dcfe;scene_db=8012a4b7;model_obj=1288cfee;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_tachi
+1dce8bd3,CP_HUMAN_TASETSU,loader=15c6be17;setting_db=073ed55e;scene_db=bb7892d7;model_obj=9cffcd8e;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_tasetsu
+56dc07fe,CP_HUMAN_TASETSU_NINJA,loader=dd6aae02;setting_db=300ff409;scene_db=1019f2c2;model_obj=1b0bea39;n_actions=236,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_tasetsu_ninja
+0a50921c,CP_HUMAN_TEKOU,loader=7464d8a0;setting_db=6db815a7;scene_db=0204dd60;model_obj=a00f0957;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_tekou
+c5398754,CP_HUMAN_TEKOUKAGI,loader=62b650d8;setting_db=d685b25f;scene_db=6345f598;model_obj=51c1ca8f;n_actions=0,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_tekoukagi
+c75a64fb,CP_HUMAN_TEONO,loader=8807e0bf;setting_db=815b1dc6;scene_db=15a7e57f;model_obj=f139b6b6;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_teono
+ef5eefe6,CP_HUMAN_TEONO_NINJA,loader=052ccf6a;setting_db=c2a9eb31;scene_db=2066442a;model_obj=f66b0221;n_actions=226,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_teono_ninja
+2cd9b7aa,CP_HUMAN_TONFA,loader=645ee4ae;setting_db=5db221b5;scene_db=f1fee96e;model_obj=3c6bdbe5;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_tonfa
+54de4295,CP_HUMAN_TONFA_NINJA,loader=e183d359;setting_db=9f00ef20;scene_db=fcbd4819;model_obj=419d2750;n_actions=195,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_tonfa_ninja
+3889a69d,CP_HUMAN_YARI,loader=f3c34f85;setting_db=4620d59e;scene_db=63afb2c5;model_obj=5353adb8;n_actions=2958,"CP_ = player/humanoid weapon-kit (CP_HUMAN_<weapon>), shared humanoid moveset base; not boss",human_yari
+380f88b1,DB_BOUZU_M_00,loader=98b4a899;setting_db=eb122eb2;model_obj=6307bdcc;n_actions=0,DB_ townsfolk NPC,bouzu_m
+19ed5250,DB_BOUZU_M_01,loader=94b63778;setting_db=e713bd91;model_obj=a02781eb;n_actions=0,DB_ townsfolk NPC,bouzu_m
+2b1f4d48,DB_KUGE_M_00,loader=003a084c;setting_db=5576db13;model_obj=cfa7aa83;n_actions=0,DB_ townsfolk NPC,kuge_m
+19a253c9,DB_KUGE_M_01,loader=4a6ba18d;setting_db=9fa87454;model_obj=4d7f6684;n_actions=0,DB_ townsfolk NPC,kuge_m
+08255a4a,DB_KUGE_M_02,loader=949d3ace;setting_db=e9da0d95;model_obj=cb572285;n_actions=0,DB_ townsfolk NPC,kuge_m
+21212d79,DB_NOUMIN_F_00,loader=d684a3bd;setting_db=cfd7e0c4;scene_db=6424a87d;model_obj=5f155434;n_actions=7,DB_ townsfolk NPC,noumin_f
+7afc97ba,DB_NOUMIN_F_01,loader=5ab4f0be;setting_db=54082dc5;model_obj=c5ee13f5;n_actions=0,DB_ townsfolk NPC,noumin_f
+56fcb312,DB_NOUMIN_M_00,loader=842cbe16;setting_db=7d7ffb1d;model_obj=1867134d;n_actions=0,DB_ townsfolk NPC,noumin_m
+b0d81d53,DB_NOUMIN_M_01,loader=085d0b17;setting_db=01b0481e;model_obj=7f3fd30e;n_actions=0,DB_ townsfolk NPC,noumin_m
+af1c0437,DB_SONMIN_F_00,loader=6328a4fb;setting_db=5c7be202;model_obj=62cf5ff2;n_actions=0,DB_ townsfolk NPC,sonmin_f
+e4f789d0,DB_SONMIN_M_00,loader=10d0bf54;setting_db=0a23fc5b;model_obj=1c211f0b;n_actions=0,DB_ townsfolk NPC,sonmin_m
+3dc97314,EV_BUSHI_00,loader=5c0047bc,EV_ event prop | loader DB 0x5c0047bc NOT in package rdb (absent: DLC/unshipped or other layer),bushi
+ea80c7a2,EV_CAP_NAOTORA_7A,loader=cf13e54a;setting_db=0c9eb6e3;model_obj=e999823d;n_actions=0,EV_ event prop,cap_naotora_7a
+af12a9c1,EV_CAP_NAOTORA_7B,loader=bfe4eca9;setting_db=fd6fbe42;model_obj=4aec1edc;n_actions=0,EV_ event prop,cap_naotora_7b
+0685f4ee,EV_CAP_SHIZUKAGOZEN_00,loader=39052ef2,EV_ event prop | loader DB 0x39052ef2 NOT in package rdb (absent: DLC/unshipped or other layer),cap_shizukagozen
+50b78e2f,EV_CAP_SHIZUKAGOZEN_01,loader=b6dceaf3,EV_ event prop | loader DB 0xb6dceaf3 NOT in package rdb (absent: DLC/unshipped or other layer),cap_shizukagozen
+4c6f9a9a,EV_CAP_YORITOMO_00,loader=8e39849e,EV_ event prop | loader DB 0x8e39849e NOT in package rdb (absent: DLC/unshipped or other layer),Minamoto no Yoritomo
+b9e3fc35,EV_CAP_YOSHITSUNE_00,loader=d86604f9,EV_ event prop | loader DB 0xd86604f9 NOT in package rdb (absent: DLC/unshipped or other layer),Minamoto no Yoshitsune
+07f20cc5,EV_COLLISION_00,loader=1e162f2d;setting_db=4f2a9306;model_obj=5f3823e0;n_actions=0,EV_ event prop,collision
+c999a1fa,EV_EFDUMMY_00,loader=106a7aa2;setting_db=62c800bb;model_obj=53295895;n_actions=0,EV_ event prop,efdummy
+ab7c17d6,EV_GOSHO_NEEDLE_01,loader=1f27a6da,EV_ event prop | loader DB 0x1f27a6da NOT in package rdb (absent: DLC/unshipped or other layer),gosho_needle
+79267997,EV_GOSHO_NEEDLE_02,loader=48778b5b,EV_ event prop | loader DB 0x48778b5b NOT in package rdb (absent: DLC/unshipped or other layer),gosho_needle
+b3ce7e1a,EV_HAIR_YORITOMO_00,loader=4f6e3142,EV_ event prop | loader DB 0x4f6e3142 NOT in package rdb (absent: DLC/unshipped or other layer),Minamoto no Yoritomo
+79dec181,EV_JIGOKUKUSABI_00,loader=49ce76c5;setting_db=bd9dd84c;model_obj=20692c3c;n_actions=0,EV_ event prop,hell
+473bf42a,EV_KIMONO_FUKU_00,loader=264707d2,EV_ event prop | loader DB 0x264707d2 NOT in package rdb (absent: DLC/unshipped or other layer),kimono_fuku
+0bcdd649,EV_KIMONO_FUKU_01,loader=17180f31,EV_ event prop | loader DB 0x17180f31 NOT in package rdb (absent: DLC/unshipped or other layer),kimono_fuku
+d05fb868,EV_KIMONO_FUKU_02,loader=07e91690,EV_ event prop | loader DB 0x07e91690 NOT in package rdb (absent: DLC/unshipped or other layer),kimono_fuku
+bbb15d2a,EV_NINJA_M,loader=4379812e;setting_db=d98a59b5;model_obj=ce0d2965;n_actions=0,EV_ event prop,ninja_m
+6cca6584,EV_SAMURAI_M,loader=be810588;setting_db=13bdd84f;model_obj=d8b04cbf;n_actions=0,EV_ event prop,samurai_m
+ef889cb0,EV_SORANAKIROCK_00,loader=7b1f6334;setting_db=eeeec4bb;model_obj=51ac99eb;n_actions=0,EV_ event prop,soranakirock
+bd32fe71,EV_SORANAKIROCK_01,loader=a46f47b5;setting_db=183ea93c;model_obj=1aad912c;n_actions=0,EV_ event prop,soranakirock
+8add6032,EV_SORANAKIROCK_02,loader=cdbf2c36;setting_db=418e8dbd;model_obj=e3ae886d;n_actions=0,EV_ event prop,soranakirock
+ccd62c51,EV_TK_9000,loader=d2fecb95;setting_db=690fa41c;model_obj=7f01df0c;n_actions=0,EV_ event prop,tk
+3b0ecef5,GS_AX_0000,loader=f6d77139,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0xf6d77139 NOT in package rdb (absent: DLC/unshipped or other layer)",ax
+cff381b6,GS_AX_0001,loader=037066ba,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x037066ba NOT in package rdb (absent: DLC/unshipped or other layer)",ax
+24ede663,GS_BK_0000,loader=dc4a9727,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0xdc4a9727 NOT in package rdb (absent: DLC/unshipped or other layer)",bk
+cedc61f2,GS_DK_0000_L,loader=998cd076;setting_db=eec9a33d;model_obj=83a5c62d;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",dk_0000_l
+65ee88f8,GS_DK_0000_R,loader=56b667fc;setting_db=abf33ac3;model_obj=76b42e33;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",dk_0000_r
+348ff97f,GS_GT_0000,loader=8bb47743,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x8bb47743 NOT in package rdb (absent: DLC/unshipped or other layer)",gt
+c974ac40,GS_GT_0001,loader=984d6cc4,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x984d6cc4 NOT in package rdb (absent: DLC/unshipped or other layer)",gt
+be0449c0,GS_HA_0000_L,loader=3147cec4,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x3147cec4 NOT in package rdb (absent: DLC/unshipped or other layer)",ha_0000_l
+551670c6,GS_HA_0000_R,loader=ee71664a,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0xee71664a NOT in package rdb (absent: DLC/unshipped or other layer)",ha_0000_r
+1e995770,GS_KG_0000,loader=7eb9dbf4;setting_db=14cab47b;model_obj=890744ab;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",kg
+1ec39df3,GS_NG_0000,loader=8c4c1ab7,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x8c4c1ab7 NOT in package rdb (absent: DLC/unshipped or other layer)",ng
+a9706ede,GS_NINJA_F,loader=2f2501e2;setting_db=c535da69;model_obj=6a265919;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",ninja_f
+bbb15225,GS_NINJA_M,loader=8753b869;setting_db=1d6490f0;model_obj=fc83d2e0;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",ninja_m
+a3274ce9,GS_PARTS_ARMS_M,loader=17e49251,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x17e49251 NOT in package rdb (absent: DLC/unshipped or other layer)",parts_arms_m
+0de36e5b,GS_PARTS_LEGS_M,loader=10830d43,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x10830d43 NOT in package rdb (absent: DLC/unshipped or other layer)",parts_legs_m
+cf47a890,GS_PARTS_REISHI,loader=08bfc938,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x08bfc938 NOT in package rdb (absent: DLC/unshipped or other layer)",parts_reishi
+50614203,GS_PARTS_WING,loader=3634636b,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x3634636b NOT in package rdb (absent: DLC/unshipped or other layer)",parts_wing
+be89b077,GS_PARTS_WING_K,loader=e8c25c5f,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0xe8c25c5f NOT in package rdb (absent: DLC/unshipped or other layer)",parts_wing_k
+e7352cf8,GS_SAMURAI_F,loader=fb000bfc;setting_db=503cdec3;model_obj=9640d233;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",samurai_f
+6cca5a7f,GS_SAMURAI_M,loader=025b3cc3,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x025b3cc3 NOT in package rdb (absent: DLC/unshipped or other layer)",samurai_m
+25dd75f4,GS_SK_0000,loader=d3dca578,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0xd3dca578 NOT in package rdb (absent: DLC/unshipped or other layer)",sk
+2e65b10f,GS_SP_0000,loader=3bb5fad3,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x3bb5fad3 NOT in package rdb (absent: DLC/unshipped or other layer)",sp
+33843aec,GS_SS_0000,loader=e06b9470;setting_db=767c6cf7;model_obj=c0b99227;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",ss
+f30e974f,GS_SS_0000_TATE,loader=61d69537;setting_db=92eaf910;model_obj=e320056a;n_actions=0,"GS_ weapon/armor ""gear skin"" part; not boss",ss_0000_tate
+25eb8d75,GS_TK_0000,loader=2db80fb9,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x2db80fb9 NOT in package rdb (absent: DLC/unshipped or other layer)",tk
+d4dc63df,GS_TN_0000_L,loader=dbf90e23,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0xdbf90e23 NOT in package rdb (absent: DLC/unshipped or other layer)",tn_0000_l
+6bee8ae5,GS_TN_0000_R,loader=9922a5a9,"GS_ weapon/armor ""gear skin"" part; not boss | loader DB 0x9922a5a9 NOT in package rdb (absent: DLC/unshipped or other layer)",tn_0000_r
+f1a398c5,G_ITEM_BOX_L01,loader=37226009,loader DB 0x37226009 NOT in package rdb (absent: DLC/unshipped or other layer),item_box_l
+8f4014ed,G_KOROUKA_TOUROU_A,loader=d05f7331,loader DB 0xd05f7331 NOT in package rdb (absent: DLC/unshipped or other layer),korouka_tourou_a
+5cea76ae,G_KOROUKA_TOUROU_B,loader=f9af57b2,loader DB 0xf9af57b2 NOT in package rdb (absent: DLC/unshipped or other layer),korouka_tourou_b
+c5e99bf1,G_KOROUKA_TOUROU_E,loader=759f0535;setting_db=e96e66bc;model_obj=c76e6eac;n_actions=0,,korouka_tourou_e
+64580eb9,ST_HERO_M_00,loader=3728707d;setting_db=8c654344;model_obj=1d7a4974;n_actions=0,,hero_m
+52db153a,ST_HERO_M_01,loader=815a09be,loader DB 0x815a09be NOT in package rdb (absent: DLC/unshipped or other layer),hero_m
+a6a6fb86,Test_BN_HERO_forWeapon,loader=a7e0d78a;setting_db=fa861d91;model_obj=8421c9c1;n_actions=0,,test_bn_hero_forweapon
+0b63e210,Test_BaseModel_Male_M_Mob,loader=d2373c38,loader DB 0xd2373c38 NOT in package rdb (absent: DLC/unshipped or other layer),test_basemodel_male_m_mob
+ba4d846f,set_bak_hnj_BOSS_PALLT_GADGET_A,loader=45c87657,loader DB 0x45c87657 NOT in package rdb (absent: DLC/unshipped or other layer),set_bak_hnj_boss_pallt_gadget_a
+00cfff60,set_bak_mib_temple_door_01_PALLT_GADGET_A,loader=7e18d188,loader DB 0x7e18d188 NOT in package rdb (absent: DLC/unshipped or other layer),set_bak_mib_temple_door_01_pallt_gadget_a
+7859ca73,set_s02_dnt_doubledoor_01a_PALLT_GADGET_A,loader=451a20db,loader DB 0x451a20db NOT in package rdb (absent: DLC/unshipped or other layer),set_s02_dnt_doubledoor_01a_pallt_gadget_a
+cef896c6,set_sai_door_PALLT_GADGET_A,loader=90d2d0ee,loader DB 0x90d2d0ee NOT in package rdb (absent: DLC/unshipped or other layer),set_sai_door_pallt_gadget_a
+e9b17382,set_sen_hmm_door_dbl_open_01_PALLT_GADGET_A,loader=2cd2ceaa,loader DB 0x2cd2ceaa NOT in package rdb (absent: DLC/unshipped or other layer),set_sen_hmm_door_dbl_open_01_pallt_gadget_a
+13015803,set_sen_hmm_door_dbl_open_02_PALLT_GADGET_A,loader=f5d3c5eb,loader DB 0xf5d3c5eb NOT in package rdb (absent: DLC/unshipped or other layer),set_sen_hmm_door_dbl_open_02_pallt_gadget_a
+ba8e843a,set_sen_htmt_csl_boss_door_01_PALLT_GADGET_A,loader=f6e000be,loader DB 0xf6e000be NOT in package rdb (absent: DLC/unshipped or other layer),set_sen_htmt_csl_boss_door_01_pallt_gadget_a
+e976da59,set_sen_sks_gate_door_01_PALLT_GADGET_A,loader=cb325dc1,loader DB 0xcb325dc1 NOT in package rdb (absent: DLC/unshipped or other layer),set_sen_sks_gate_door_01_pallt_gadget_a
