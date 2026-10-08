@@ -1,0 +1,5 @@
+# barrier-callers-renames: corrections of existing names. merge_incoming.py keeps existing names, so apply IN PLACE in symbols.tsv (same rva). Evidence: notes/vkd3d-audit.md Addendum B.
+rva	kind	name	signature	description	confidence	source
+0x815db0	function	SynTokBindBufferSrv55	void(SynCtx* c, u8** stream)	tok 0x55: buffer SRV bind, cache c+0x1B98, stamped (twin of 823534); was RenderSubmitHot_815DB0	medium	notes/vkd3d-audit.md Addendum B
+0x116260	function	SynTokSetVertexBufferTracked	void(SynCtx* c, u8** stream)	tok 0x3C: VB slot bind: X=(cur&0xAC3)|vb+48 via SynTransitionResource (stamp vb+28), then IASetVertexBuffers(slot,1) (vtbl+0x160); was SynTokResourceBarrier (it is not a generic barrier token)	high	notes/vkd3d-audit.md Addendum B
+0x6d0	struct_field	SynCtx::ListStamp		per-command-list id, not a frame fence: fence+1 stored by the ring on-close callback 490E50 at every list close; SynTransitionResource and the IB/VB/tok-9B paths reset a tracker to COMMON when its stamp differs	high	notes/vkd3d-audit.md Addendum B

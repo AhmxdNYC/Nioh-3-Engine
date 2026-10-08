@@ -1,0 +1,61 @@
+rva	kind	name	signature	description	confidence	source
+0x490e50	function	SynCmdListOnCloseSetStamp	void(RingCb* cb, u64 fence)	ring on-close callback (CmdListRingClose 490E0F): SynCtx(cb+10h)+0x6D0 = fence+1 = id of the next list; leaf, no pdata	high	notes/vkd3d-audit.md Addendum B
+0x492220	function	SynCmdListOnReset	void(RingCb* cb, ID3D12GraphicsCommandList* l)	ring on-reset callback: l->Reset(allocator, NULL) then SynBeginList 49349C	high	notes/vkd3d-audit.md Addendum B
+0x49349c	function	SynBeginList	void(SynCtx* c, ID3D12GraphicsCommandList* l)	c+0x580 = l; SetDescriptorHeaps, compute/graphics root signatures (c+6E0/6D8), root tables, then SynRebindVbIbAtListBegin 494E00; c+0xB24 = 0x7F	high	notes/vkd3d-audit.md Addendum B
+0x494e00	function	SynRebindVbIbAtListBegin	void(SynCtx* c)	at every list begin re-applies the 32 VB slots (c+0x260) and the IB (c+0x30) with stamped transitions (COMMON resets 494FE8/495001, ResourceBarrier 495036/495074), IASetVertexBuffers/IASetIndexBuffer, SO slots (c+0x2268); marks tables dirty (c+0x1D20=3, c+0x10F0/0x1E38=0xFF)	high	notes/vkd3d-audit.md Addendum B
+0x494fe8	label	SynRebindVb_StampResetCOMMON		VB tracker := COMMON when its stamp != c+0x6D0 (R2 source)	high	notes/vkd3d-audit.md Addendum B
+0x495001	label	SynRebindIb_StampResetCOMMON		IB tracker := COMMON when its stamp != c+0x6D0 (R2 source)	high	notes/vkd3d-audit.md Addendum B
+0x495036	label	SynRebindVb_CallResourceBarrier		ResourceBarrier(1) for a re-bound VB at list begin; missing from gpu-barriers.md sec 3	high	notes/vkd3d-audit.md Addendum B
+0x495074	label	SynRebindIb_CallResourceBarrier		ResourceBarrier(1) for the re-bound IB at list begin	high	notes/vkd3d-audit.md Addendum B
+0x115e61	label	SynTransitionResource_StampResetCOMMON		mov [rbx],r10d: *state = COMMON when *stamp != c+0x6D0; source of every COMMON-origin barrier of the stamped callers	high	notes/vkd3d-audit.md Addendum B
+0x11469a	label	SynSetIndexBufferTracked_StampResetCOMMON		inline stamp reset (IB) in 114614	high	notes/vkd3d-audit.md Addendum B
+0x114abe	label	SynTokSetIndexBuffer_StampResetCOMMON		inline stamp reset (IB) in 114A20	high	notes/vkd3d-audit.md Addendum B
+0x7f5333	label	SynTokTransitionResource_StampResetCOMMON		inline stamp reset in 7F52AC (tok 9B, stamp from the stream)	high	notes/vkd3d-audit.md Addendum B
+0x114c04	function	SynResGetStampPtr	u64* (GpuRes* r)	walks view->parent (+10h), backing (+88h/+90h) and returns root+0x28 = per-list stamp pointer (NULL for unstamped objects); used by the EI and copy callers	high	notes/vkd3d-audit.md Addendum B
+0x113a60	function	SynTokBindUavStamped	void(SynCtx* c, u8** stream)	tok 0x5F: UAV bind, cache c+0x1DB0 (same descriptor: bind and transition skipped; never reset per list), SynTransitionResource(UAV) with stamp from the stream	high	notes/vkd3d-audit.md Addendum B
+0x1140c4	function	SynTokBindUav2Stamped	void(SynCtx* c, ...)	tok 0x5E (via 904464): UAV bind, cache c+0x1D30, transition to UAV with stamp	medium	notes/vkd3d-audit.md Addendum B
+0x11422c	function	SynBindUavTracked	void(SynCtx* c, ...)	UAV bind helper (113A60, 1140C4, 7F7C84): descriptor copy + transition to UAV with stamp	medium	notes/vkd3d-audit.md Addendum B
+0x113ba4	function	SynTokBindBufferSrv4E	void(SynCtx* c, u8** stream)	tok 0x4E: buffer SRV bind, cache c+0x1118, X=(cur&0xA83)|NPSR, stamp from the stream	medium	notes/vkd3d-audit.md Addendum B
+0x114e24	function	SynBindBufferSrvStage	void(SynCtx* c, ...)	toks 0x4F-0x53 (jump stubs): buffer SRV bind per stage, cache c+0x1118, X=(cur&0xAC3)|PSR(stage 4)/NPSR computed before the stamp reset; stamped	medium	notes/vkd3d-audit.md Addendum B
+0x114f68	function	SynBindBufferSrvB	void(SynCtx* c, ...)	buffer SRV bind variant (cache c+0x1118), stamped; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x115664	function	SynBindBufferSrvC	void(SynCtx* c, ...)	buffer SRV bind variant (cache c+0x1118), X and stamp from args; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x115084	function	SynTokBindBufferSrv54	void(SynCtx* c, u8** stream)	tok 0x54: buffer SRV bind, cache c+0x1718, stamped (twin of 8507B0)	medium	notes/vkd3d-audit.md Addendum B
+0x11518c	function	SynBindTextureSrvStage	void(SynCtx* c, ...)	toks 0x57-0x5B (jump stubs): texture SRV bind, cache c+0x1118, X=obj+24, no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x1152a4	function	SynBindTextureSrvB	void(SynCtx* c, ...)	texture SRV bind variant (cache c+0x1118), no stamp; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x115398	function	SynTokBindTextureSrv56	void(SynCtx* c, u8** stream)	tok 0x56: texture SRV bind, cache c+0x1118, no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x8507b0	function	SynTokBindTextureSrv5C	void(SynCtx* c, u8** stream)	tok 0x5C: texture SRV bind, cache c+0x1718, no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x823534	function	SynTokBindTextureSrv5D	void(SynCtx* c, u8** stream)	tok 0x5D: texture SRV bind, cache c+0x1B98, no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x698a44	function	SynTokBindTexture87	void(SynCtx* c, u8** stream)	tok 0x87: texture bind, X=(cur&0xAC3)|stage bit (R1 superset source), no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x698c54	function	SynBindTexture87B	void(SynCtx* c, ...)	twin of 698A44 (R1 superset source), no stamp; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x1163ac	function	SynSetVertexBufferTracked	void(SynCtx* c, ...)	VB bind (45AF68 tok 0x71, 45DDC8): X=(cur&0xAC3)|vb+48, stamp vb+28, IASetVertexBuffers	high	notes/vkd3d-audit.md Addendum B
+0x2efd430	function	SynTokDrawVbIb79	void(SynCtx* c, u8** stream)	tok 0x79 (via 2F0DB02): stamped VB and IB transitions ((cur&0xAC3)|+50), IASetVertexBuffers/IASetIndexBuffer, Draw/DrawIndexed	medium	notes/vkd3d-audit.md Addendum B
+0x58bc74	function	SynTokExecuteIndirectDispatch	void(SynCtx* c, u8** stream)	tok 0x81: SynFlushComputeState, arg buffer -> obj+30 (stamp via 114C04), ExecuteIndirect	high	notes/vkd3d-audit.md Addendum B
+0x58bd2c	function	SynExecuteIndirectDispatchB	void(SynCtx* c, ...)	twin of 58BC74; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x6eb9cc	function	SynExecuteIndirectB	void(SynCtx* c, ...)	twin of SynTokExecuteIndirect 6EB908; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x6ecf48	function	SynTokExecuteIndirect6E	void(SynCtx* c, u8** stream)	tok 0x6E: SynFlushGfxStateForDraw, arg buffer -> obj+30 (stamped), ExecuteIndirect	high	notes/vkd3d-audit.md Addendum B
+0x6ed00c	function	SynExecuteIndirect6EB	void(SynCtx* c, ...)	twin of 6ECF48, called from 2EFD8DC	medium	notes/vkd3d-audit.md Addendum B
+0x2efd138	function	SynTokExecuteIndirect80	void(SynCtx* c, u8** stream)	tok 0x80 (via 2F0D9E7): arg buffer transition (stamped) + ExecuteIndirect	medium	notes/vkd3d-audit.md Addendum B
+0x2efd8dc	function	SynTokGpuDrivenBatch89	void(SynCtx* c, u8** stream)	tok 0x89: buffer SRV (cur&0xA83)|NPSR + buffer -> obj+48 (stamped), UAV barrier 83BBD8, ExecuteIndirect via 6ED00C	medium	notes/vkd3d-audit.md Addendum B
+0x2f00468	function	SynTokSetPredication	void(SynCtx* c, u8** stream)	tok 0xB8: predication buffer -> PREDICATION (0x200), inline tracker +14/stamp +18, SetPredication	high	notes/vkd3d-audit.md Addendum B
+0x2f0abc4	function	SynResolveQueryTracked	void(SynCtx* c, ...)	query resolve target -> COPY_DEST (tracker +14, stamp optional), ResolveQueryData; called from 2EFDC24	medium	notes/vkd3d-audit.md Addendum B
+0x2f0075c	function	SynCopyBufferRegionTracked	void(SynCtx* c, ...)	tok 0x68 (2F0E5AC) and 2F006A4/2F0071C: src -> COPY_SOURCE, dst -> COPY_DEST (stamped), CopyBufferRegion, -> STREAM_OUT, SOSetTargets	medium	notes/vkd3d-audit.md Addendum B
+0x7a5fb8	function	SynBufferCopyTransitions	void(SynCtx* c, ...)	toks 0x99/0x8B (via 7A5DB8/7A5D2C): dst -> COPY_DEST, src -> COPY_SOURCE, stamped	medium	notes/vkd3d-audit.md Addendum B
+0x7f6574	function	SynUpdateBufferCopyA	void(...)	tok 0x95 (via 7F64DC): -> COPY_DEST, CopyBufferRegion, restore saved state; stamped	medium	notes/vkd3d-audit.md Addendum B
+0x7f67ec	function	SynUpdateBufferCopyB	void(...)	tok 0x95 (via 7F64DC): -> COPY_DEST, CopyBufferRegion, restore saved state; stamped	medium	notes/vkd3d-audit.md Addendum B
+0x7b18e4	function	SynClearUavUintTracked	void(SynCtx* c, ...)	tok 0x94 (7B1750) and 2EFBF6C: -> UAV (stamp from arg), ClearUnorderedAccessViewUint	high	notes/vkd3d-audit.md Addendum B
+0x4591dc	function	SynClearRtvDsvTracked	void(SynCtx* c, ...)	tok 0x04 / tok 0x02 (458E34): RT -> RENDER_TARGET, ClearRTV; DSV -> DEPTH_WRITE, ClearDSV; no stamp	high	notes/vkd3d-audit.md Addendum B
+0x2efbda4	function	SynTokClearRtvDsv05	void(SynCtx* c, ...)	tok 0x05 (2F0D814): same pattern as 4591DC; no stamp	high	notes/vkd3d-audit.md Addendum B
+0x45a020	function	SynTokCopyTextureRegion03	void(SynCtx* c, u8** stream)	tok 0x03: src -> COPY_SOURCE, dst -> COPY_DEST, CopyTextureRegion, src restored (depth bits stripped); no stamp	high	notes/vkd3d-audit.md Addendum B
+0x45a190	function	SynCopyTextureRegionTracked2	void(SynCtx* c, ...)	same as 45A020; called from 45C880, 45DDC8, 8F0B5C	medium	notes/vkd3d-audit.md Addendum B
+0x45c880	function	SynGenericCopyTracked	void(SynCtx* c, ...)	tok 0x7A (45C7E8): texture copy with stack-local trackers (COPY_DEST/COPY_SOURCE/RENDER_TARGET); no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x45ddc8	function	SynDepthCopyTracked	void(SynCtx* c, ...)	tok 0x7B (45DD48): depth copy, COPY_* and DEPTH_READ restore; no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x9e2ba4	function	SynCopyTextureRegion91	void(SynCtx* c, ...)	tok 0x91 (9E2A74): src -> COPY_SOURCE, CopyTextureRegion, restore; no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x2efff54	function	SynResolveSubresourceRegionTracked	void(SynCtx* c, ...)	tok 0x93 (2F0DFEC): RESOLVE_DEST / RESOLVE_SOURCE, ResolveSubresourceRegion, restore; no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x2efe094	function	SynTransitionToCommon	void(SynCtx* c, ID3D12Resource* r, u32* state)	tail helper: SynTransitionResource(r, state, COMMON, no stamp); reached by jmp from 2EED2E0	medium	notes/vkd3d-audit.md Addendum B
+0x260	struct_field	SynCtx::BoundVb		32 x 8-byte VB slot objects; re-applied with transitions at every list begin (494E00)	high	notes/vkd3d-audit.md Addendum B
+0x30	struct_field	SynCtx::BoundIb		bound IB object; re-applied at list begin (494E00); 114A20 skips IASetIndexBuffer if unchanged	high	notes/vkd3d-audit.md Addendum B
+0x1718	struct_field	SynCtx::BoundSrv2		SRV bind cache for toks 0x54/0x5C (8 bytes per slot); not reset per list	medium	notes/vkd3d-audit.md Addendum B
+0x1b98	struct_field	SynCtx::BoundSrv3		SRV bind cache for toks 0x55/0x5D; not reset per list	medium	notes/vkd3d-audit.md Addendum B
+0x1d30	struct_field	SynCtx::BoundUav2		UAV bind cache for tok 0x5E; not reset per list	medium	notes/vkd3d-audit.md Addendum B
+0x1db0	struct_field	SynCtx::BoundUav		UAV bind cache for tok 0x5F (113A60): same descriptor -> bind and transition skipped; not reset per list	high	notes/vkd3d-audit.md Addendum B
+0x1d20	struct_field	SynCtx::RootTableDirty		set to 3 at list begin (494E00), |= 2 after a UAV bind	medium	notes/vkd3d-audit.md Addendum B
