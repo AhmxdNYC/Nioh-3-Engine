@@ -283,3 +283,8 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Settled B94230 = `MemcpyErms` (16 B rep movsb stub, reached from Memcpy B94250 for large copies); named the six "?" rows and the eight Unknown_ blocked-wait callers (`re\symbols\incoming\cleanup.tsv`, `cleanup-renames.tsv`, applied + merged); removed a stray line from symbols.tsv.
 - `progress_treemap.py`: prefix rules + `area_overrides.tsv` + stricter neighbour rule, new Math/CRT and Object/scene areas; charts regenerated. Notes: notes\cleanup-decompile-db.md.
 - Undo: revert the script, delete area_overrides.tsv and the two TSVs.
+
+## 2026-10-08 - steady-state streaming + animation deep-dive (RE only; nothing installed, game not run)
+- notes\streaming-anim.md: texture tile request/keep-alive/budget path, PagePool frame update + occupancy controller, resource-readiness re-walk, I/O + inflate, animation pipeline and LOD. Findings: MODEL_QUAL is a no-op in v2.02 (like MOTION_QUALITY); skinning is GPU; ResourceIsReady re-walks dependency trees even for ready resources; PagePoolCountUsed feeds only a >85 % occupancy window. Ranked candidates R1/PP/PT1/RR1/MQ, no patches; none moves Ally fps.
+- Symbols: re\symbols\incoming\streaming-anim.tsv (22 new) + streaming-anim-renames.tsv (9 in-place, incl. 219E80/6D360 -> NodeGraph*), not merged.
+- Undo: delete the note and the two TSVs.
