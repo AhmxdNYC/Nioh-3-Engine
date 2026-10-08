@@ -4,7 +4,12 @@ A small native mod for **Nioh 3 (Steam, v2.02)**. It fixes CPU and power waste i
 run at real speed when your frame rate is below the in-game cap. It patches the game in memory only. No game
 files are changed, and nothing is left behind when the game exits.
 
-> **Status (2026-10-08): version 1.7.14. The 1.7.13 menu and 1.7.14 patches (GL1, LC, LW, all default off) are built and pattern-tested but not yet run in the game. Device: ROG Ally X (TODO: exact model IDs pending). The note below is the original 1.0 status.**
+> **Status (2026-10-08): version 1.7.14. The 1.7.13 menu and 1.7.14 patches (GL1, LC, LW, all default off) are built and pattern-tested but not yet run in the game. Device: ASUS ROG Ally X RC72LA (BIOS RC72LA.312; Z1 Extreme, Radeon 780M, 24 GB / 8 GB UMA, Bazzite + Proton); PC: Ryzen 5 7600X + RX 9070. The note below is the original 1.0 status.**
+
+## Which settings for which device
+
+- **ROG Ally X (RC72LA, Z1 Extreme, Radeon 780M, 24 GB LPDDR5X with an 8 GB UMA frame buffer, Bazzite + Proton):** GPU-bound (about 99 %; stock about 16 fps at MAX in Futamata). Only the GHDM shader gives fps (+6.4 to +8.7 %). CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED) are fps-neutral but save CPU power. R2a (Proton only) is a small unproven candidate. Needs `WINEDLLOVERRIDES="dinput8=n,b" %command%`.
+- **Desktop PC (Ryzen 5 7600X, RX 9070, 1440p, Windows 11):** CPU main-thread-bound, so the CPU fixes are the ones that matter. Stock all-off baseline about 149-153 fps standing, p99 14.3-14.7 ms; per-fix results are being measured (`captures\tm\`, `STATUS.md`).
 >
 > **Original status: built, but not yet load-tested.** The logic is a 1:1 port of memory patches that were applied and
 > measured live on v2.02 with external scripts. This DLL has not yet been run inside the game. Read

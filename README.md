@@ -48,9 +48,24 @@ GPU numbers are stamp-inflated ranking data, not isolated costs. Regenerate with
 
 ---
 
+## Your device: ROG Ally X or desktop PC
+
+Plain version: the game is limited by different things on each machine, so different mod settings matter. The Ally is limited by its graphics chip; the PC by one CPU thread.
+
+### ROG Ally X ("ROG Ally X 2025") - the main target
+- **Hardware (reported by the Ally itself):** ASUS ROG Ally X, product RC72LA (board RC72LA, BIOS RC72LA.312); AMD Ryzen Z1 Extreme (8 cores / 16 threads, Zen 4); Radeon 780M (RDNA3 gfx1103, 12 CUs); 24 GB LPDDR5X, of which 8 GB is set aside as the GPU frame buffer (UMA split), so the OS sees about 15-16 GiB; 1080p 120 Hz panel; Bazzite + Proton (vkd3d-proton / RADV). The 8 GB split is a fact about this unit; we never change hardware or BIOS settings.
+- **What limits it:** the GPU is about 99 % busy. Stock baseline at MAX settings in Futamata is about **16 fps** (16.3-16.8 measured).
+- **What helps here:** the **GHDM shadow shader** is the only confirmed fps gain (+6.4 to +8.7 % at MAX). The CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED ...) are **fps-neutral** (they do cut CPU load and free power for the GPU). **R2a** (barrier rewrite, Proton only) is a small candidate, not yet proven.
+- **Install:** use `mod\ally-package` (see `README-ALLY.txt`): copy `dinput8.dll`, `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini` next to `Nioh3.exe`; Steam launch option `WINEDLLOVERRIDES="dinput8=n,b" %command%`; optionally copy `shader\0x0104840c.file` into `shader_dx12\` (back up the original first). Menu: Esc x3, F10, or Start x3.
+
+### Desktop PC (Ryzen 5 7600X + Radeon RX 9070, 1440p, Windows 11)
+- **What limits it:** the CPU main thread (one core does most of the game's work), not the GPU.
+- **What helps here:** the CPU fixes (W3, W6, P12, WL and friends) matter most. Latest numbers (`captures\tm\`, 2026-10-08): stock all-off baseline standing = about 149-153 fps, p99 frame time 14.3-14.7 ms. Per-fix results: **being measured**.
+- **Install:** copy the contents of `mod\Nioh3EngineFix\bin\` next to `Nioh3.exe` with an ASI loader (Ultimate ASI Loader or Nioh3ModLoader), or use the control panel. Note: Smart App Control can block unsigned DLLs.
+
 ## Progress 2026-10-08: mod 1.7.13 / 1.7.14, decompile update, what helped
 
-**Device:** ROG Ally X. TODO: exact model IDs (CPU/GPU/BIOS/OS build) are pending; fill in once they arrive.
+**Device:** ASUS ROG Ally X (RC72LA, BIOS RC72LA.312, Z1 Extreme, Radeon 780M, 24 GB with 8 GB UMA frame buffer, Bazzite + Proton). Full spec in "Your device" above.
 
 **In plain words**
 - The in-game mod menu is easier now (ASI **1.7.13**). Open it with **Esc three times**, **F10**, or **Start three times** on a controller. Settings have plain names ("CPU waits sleep instead of spinning") with the technical id small beside them, and each row explains itself. There is a "Turn frame gen ON/OFF" row, and the frame-gen status now shows whether it is really running. The overlay sits lower so it no longer covers the health bars, and the "Mod menu: F10 / Esc x3 / Start x3" hint stays up the whole time the game's own menu is open. Not yet verified in the game.
