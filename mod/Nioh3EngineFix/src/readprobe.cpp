@@ -1000,7 +1000,12 @@ bool Start(const StartInfo& info) {
     g_base = info.base;
     if (!g_log || !g_base || !info.iniPath) return false;
     g_mode = (int)GetPrivateProfileIntW(L"Profiler", L"ReadProbe", 0, info.iniPath);
-    bool ep = GetPrivateProfileIntW(L"Patches", L"EP", 0, info.iniPath) != 0;
+    // 1.7.24: EP = -1 auto (default): on under Wine/Proton, off on native Windows; 0 off; 1 on
+    const int epIni = (int)GetPrivateProfileIntW(L"Patches", L"EP", -1, info.iniPath);
+    bool wineHost = false;
+    if (HMODULE nt0 = GetModuleHandleW(L"ntdll.dll")) wineHost = GetProcAddress(nt0, "wine_get_version") != nullptr;
+    bool ep = epIni < 0 ? wineHost : epIni != 0;
+    g_log("EP: ini %d (%s) on %s -> %s", epIni, epIni < 0 ? "auto" : epIni ? "forced on" : "forced off", wineHost ? "Wine/Proton" : "native Windows", ep ? "ON" : "OFF");
     bool rp = g_mode > 0;
     if (rp && !info.loadStatsOn) {
         g_log("ReadProbe: needs [Profiler] LoadStats >= 1 - off");

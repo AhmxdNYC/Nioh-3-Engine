@@ -41,7 +41,7 @@
 #include "readprobe.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.23"
+#define MOD_VERSION "1.7.24"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2237,6 +2237,7 @@ DWORD WINAPI Worker(LPVOID) {
             ri.loadStatsOn = lsOn;
             readprobe::Start(ri);
         }
+        Log("LoadOnlyCpuFixes = %d (%s); user GF %d W6 %d RWb %d", cfg.loadOnly, cfg.loadOnly ? (known ? "gate thread starting" : "refused: unknown build") : "off, GF/W6/RWb follow their own keys", cfg.gfUser, cfg.w6User, cfg.rwbUser);
         if (cfg.loadOnly && known) {  // 1.7.23 LO: GF/W6/RWb only inside the 58A load window (loadonly.cpp)
             loadonly::StartInfo oi;
             oi.log = &Log;

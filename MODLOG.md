@@ -482,3 +482,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - ADD: `[Patches] EP = 0`: event pool for the archive reads' CreateEventA/CloseHandle (only signalled events are reused; others really closed).
 - patches.json RP1-RP18 + 3 deps (ALL 209 SITES OK), ls_sites.py READPROBE SITES OK, new tests/run_readprobe_harness.py ALL OK; other harnesses unchanged OK. notes/loading-ally-fixed.md 8.6.
 - Built, not run in game. Undo: the three keys = 0 (defaults) or the 1.7.22 .asi.
+
+## 1.7.24 (2026-10-08)
+- CHANGE: `[Patches] EP` is now -1 = auto (new default): ON under Wine/Proton (ntdll wine_get_version), OFF on native Windows until the PC A/B; 0/1 force. Logs "EP: ini n (auto|forced ...) on <host> -> ON/OFF". Ally 1.7.23 result: EP=1 load 98.9 -> 50.1 s (CreateEventA 36 -> 0.2 us, CloseHandle 47 -> 1.4 us).
+- FIX (log only): LoadOnlyCpuFixes was not silent: the 1.7.23 c log has "LO: loads-only gating on..." and "LO: on at 58A set #1" (grep "LO:", not the key name). Added an explicit "LoadOnlyCpuFixes = n (...)" line at start.
+- Undo: EP = 0 in the ini, or the 1.7.23 .asi.
