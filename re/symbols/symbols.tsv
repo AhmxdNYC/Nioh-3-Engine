@@ -2,9 +2,12 @@
 rva	kind	name	signature	description	confidence	source
 0x1230	function	IsRunningUnderWine	bool IsRunningUnderWine(void)	GetProcAddress(ntdll,"wine_get_version") != 0, cached in g_IsWine; only caller 0x1300 (nvapi/Streamline loader), not used by input	high	notes/input-thread.md §Wine
 0x1437	label	Sleep100Call_1437		call Sleep(100); pdata fragment start 1400	high	re/out/spinscan.txt §all call sites
+0x35244	function	GpuMemGetDescriptorHandleIncrementSize		GpuMemory subsystem; D3D12: Device.GetDescriptorHandleIncrementSize (sites 3535B)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x35560	function	GpuMemGetDescriptorHandleIncrementSize_35560		GpuMemory subsystem; D3D12: Device.GetDescriptorHandleIncrementSize (sites 355AE)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x359eb	label	Sleep0Call_359EB		call Sleep(0); pdata fragment start 35890	high	re/out/spinscan.txt §all call sites
 0x35b7f	label	Sleep0Call_35B7F		call Sleep(0); pdata fragment start 35A50	high	re/out/spinscan.txt §all call sites
 0x35e8e	label	Sleep0Call_35E8E		call Sleep(0); pdata fragment start 35BE0	high	re/out/spinscan.txt §all call sites
+0x36ef0	function	GpuMemGetDescriptorHandleIncrementSize_36EF0		GpuMemory subsystem; D3D12: Device.GetDescriptorHandleIncrementSize (sites 37380)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x381a8	function	RenderObjSetFlagMask	bool RenderObjSetFlagMask(void* obj, u32 mask, u8* changed)	updates per-object render flag mask (+0x1298 array, sentinel 0xFEDCBA97); adds flag 0x20 when a vtable+0x128 callback is true and g_RenderGlobals+0x7598 (set for SHADOW_QUAL <= HIGH) is set	low	notes/gpu-maxsettings.md §1
 0x39e20	function	DrawListWalk	void(..., DrawList* items /*param_11*/)	draw-list walker (31%): group = consecutive items with equal object+0x18; per group picks pass material, filters via FindParamByName (SSSTransmit/RefractionPrePass/Refraction/IndexedRim/LightMap) + prefix tests "CNS-"/"O?L", binds technique 3C77F4, 1DC2F0 per sub-pass, unbind 3C5D64; self time = item->material misses; body 4310 B (aka MainHot_39E20) || also: Draw-list walker (4310 B, 13 callers in dump, 52 params): groups consecutive draw items, per-group material param lookups (IndexedRim, LightMap, SSSTransmit, Refraction*), technique bind, then DrawEmitSubPasses	high	notes/mainthread-drawprep.md §1; re/scripts_draw/dec_39E20.txt; notes/mainthread-drawprep.md; notes/cpu-profile.md §Top 30 self functions
 0x3a0d8	label	DrawListWalk_HotMissA		hot RIP right after an item->material load (cache miss)	medium	notes/mainthread-drawprep.md §1
@@ -184,10 +187,13 @@ rva	kind	name	signature	description	confidence	source
 0x4dd4c	function	MeshletUploadCopy		CPU shadow buffer -> this frame's mapped upload heap memcpy (double-buffered, with 4DB6C/695328); body 318 B	medium	notes/mainthread-drawprep.md §1; notes/meshlet-mainthread.md §1.2
 0x4e2f8	function	GpuBufferEnsureWidth	void GpuBufferEnsureWidth(GpuBufRef* ref, void* dev, u64 size, void* out)	if ref+18h bit0 and ref->res: ResourceWidthBelow(res,size) -> release (4F0FC) or keep; callers 4D914 (4D8E0) and 62E918; upload/meshlet buffer path	medium	notes/cpu-hotspots-ally.md §3.2
 0x4e390	function	ResourceWidthBelow	bool ResourceWidthBelow(ID3D12Resource* r, u64 n)	r->GetDesc() (vtbl+50h, D3D12_RESOURCE_DESC on the stack) .Width (+10h) < n; upload-buffer capacity check under MeshletUploadBuffers 4DB6C. NOT a DirectInput poll: SP "[DINPUT8]/[ntdll]/[kernel32] <- 4E390" on [App]Game is the ASI loader's Sleep IAT shim inside FenceWait's Sleep(0) loop (stale slot 4E3B3; r = 0.956 with the 1180A4 rows)	high	notes/cpu-hotspots-ally.md §3.2
+0x4e828	function	GpuMemRelease		GpuMemory subsystem; D3D12: Resource.Release (sites 4F0C9)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x4f0fc	function	GpuAllocRelease	bool GpuAllocRelease(RenderGlobals* g, IUnknown* res, Suballoc* a)	frees a suballocation (type 1 page heap 62D934, 2 upload ring [g+4678h] vtbl+20h, 3 readback ring) and Releases the placed resource; 30 callers	medium	notes/stutter.md §3.3
 0x4f180	function	GpuAllocRelease2	bool GpuAllocRelease2(RenderGlobals* g, void* unused, Suballoc* a)	same as 4F0FC without the Release	medium	notes/stutter.md §3.3
+0x4f2e8	function	GpuMemGetDesc		GpuMemory subsystem; D3D12: Resource.GetDesc (sites 4F331)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x4fbd4	function	GpuBufferUnmap	void(Buffer* b)	unmap; GPU copies [B+78h] bytes (whole map size) from staging. drawprep writes 45FBD4 (Ghidra suffix)	high	notes/ui-mainthread.md §E; re/scripts_cpu/q14.txt
 0x4fd84	function	GpuBufferMap	void(Buffer* b, void* obj, int mode, int, void*)	map: staging from 62D688 with upload-heap flag, resource vtbl+0x40 Map, stores ptr+offset only into [obj+358h]; mode via table 3BE29D0. drawprep writes 45FD84 (Ghidra FUN_7ff74f45fd84 suffix) - RVA is 0x4FD84	high	notes/ui-mainthread.md §E; re/scripts_cpu/q14.txt
+0x50468	function	GpuMemAddRef		GpuMemory subsystem; D3D12: Unknown.AddRef (sites 504A8)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x54360	function	SinCosApprox	void SinCosApprox(float a, float* s, float* c)	reduces a by 2*pi then pi (sign flip), polynomial sin/cos; a==0 -> (0,1); 169 callers incl. BoundsFromPartObbs; was Sched0Hot_54360	high	decomp; notes/perf-coverage.md
 0x55c80	function	BgThreadCollectActiveEntityResults	void BgThreadCollectActiveEntityResults(void *mgr, void *out, void *a, void *b, int, int, int *outCount)	6.3 KB; caller Unknown_ThreadProc_1A6C358 (worker thread); clears mgr+210h out records (A0h stride), under shared SRW lock mgr+1B0h walks entity list mgr+30C8h (next +40h, state +68h==2, children +358h vfunc+28h), distance/time scoring (F_697d20, ms*0.001, -1 sentinel), collects via F_61de08/F_a2e088/F_4eb860; per-slot F_757efc on mgr+2DC0h (A8h stride)	low	notes/perf-coverage.md (perf-rename-2)
 0x578e4	function	SoundVoiceUpdate	int SoundVoiceUpdate(Voice *v, int id, code *cb, int *p4, void *p5, u32 p6, int p7, float p8, int p9, float *p10, void **p11)	3.2 KB; returns -4 unless v+68h == 2; walks the processor chain v+358h (next = [n+20h]) calling vfuncs 98h/70h/90h/80h, pushes the level v+2B0h to each via vfunc 110h when it changes (cache v+2A0h), flags v+1E0h bits 1/2 reset, v+6Ch 4100h mask; only caller Unknown_ThreadProc_1A6C358 (subsystem thread); guess: audio voice	low	notes/perf-coverage.md (perf-rename-2)
@@ -348,6 +354,7 @@ rva	kind	name	signature	description	confidence	source
 0x113ba4	function	SynTokBindBufferSrv4E	void(SynCtx* c, u8** stream)	tok 0x4E: buffer SRV bind, cache c+0x1118, X=(cur&0xA83)|NPSR, stamp from the stream	medium	notes/vkd3d-audit.md Addendum B
 0x113ca4	function	GfxEndMarker	void (KtglContext* ctx)	token 0xA6 when byte ctx+2A62h	high	notes/shadows-culling.md §4
 0x113e64	function	SynBeginEvent	void (SynCtx* c, u32 colour, const char* name)	returns unless byte c+542h; marker interface [4BD09C0] if set, else MultiByteToWideChar + ID3D12GraphicsCommandList::BeginEvent (vtbl+1C8h) on c+580h	high	notes/shadows-culling.md §4
+0x113f70	function	SynEndEvent		SynRecord subsystem; D3D12: CL.EndEvent (sites 113FB9)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x113fc8	function	SynTokEndEvent	void (SynCtx* c, u32** p)	token 0xA6: EndEvent (vtbl+1D0h) when byte c+542h	high	notes/shadows-culling.md §4
 0x114024	function	SynTokBeginEvent	void (SynCtx* c, u32** p)	token 0xA5: unpack colour + name, call SynBeginEvent 113E64	high	notes/shadows-culling.md §4
 0x1140c4	function	SynTokBindUav2Stamped	void(SynCtx* c, ...)	tok 0x5E (via 904464): UAV bind, cache c+0x1D30, transition to UAV with stamp	medium	notes/vkd3d-audit.md Addendum B
@@ -380,6 +387,7 @@ rva	kind	name	signature	description	confidence	source
 0x1163ac	function	SynSetVertexBufferTracked	void(SynCtx* c, ...)	VB bind (45AF68 tok 0x71, 45DDC8): X=(cur&0xAC3)|vb+48, stamp vb+28, IASetVertexBuffers	high	notes/vkd3d-audit.md Addendum B
 0x1164c4	function	SynTokSetPipelineLayout	void SynTokSetPipelineLayout(SynCtx* c, u8** stream)	323 B dispatcher token handler: pops a layout/program object L; if != c+48h: SynFlushImmediateDraws when c+2458h, sets dirty c+B24h|=30h, stores L at c+48h/+748h, raises per-table dirty bits when L's required counts (+44h/+48h/+4Ch/+50h and the L+38h {count,slot} list, count +40h) exceed the bound sizes (c+B90h/10F4h/1D24h/1E3Ch, c+F30h[slot]), and copies L+64h*16 bytes of inline constants from c+860h into constant slot L+60h>>28 (dirty bit in c+B70h) - root-signature/layout switch semantics; was RenderSubmitHot_1164C4 (was Unknown_SynTok_1164C4)	medium	notes/perf-coverage.md (perf-rename-2)
 0x1167d4	function	SynTokDrawIndexed	void (SynCtx* c, u16** p)	tok 0x6A: SynFlushGfxStateForDraw then DrawIndexedInstanced(count, 1, start, 0, 0); ++c+0x548	high	notes/d3d12-submission.md §1
+0x11684c	function	SynDrawIndexedInstanced		SynRecord subsystem; D3D12: CL.DrawIndexedInstanced (sites 116881)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x1169ec	function	MeshletRangeWithinSource	bool MeshletRangeWithinSource(Stream*, int64 off, int64 len)	53B; returns vfunc+0x50 (size) >= off+len; callers MeshletChunkIssueLoad	low	notes/perf-coverage.md (perf-rename-2)
 0x116a24	function	StreamPageLookupOrInsert	bool StreamPageLookupOrInsert(Pool* p, ..., char* isNew, ...)	streaming page-pool lookup for a byte range (64 KB pages): SetAssocCacheLookup via 251554 / 2515B0, insert path 491728 / 491B04; called from 49D5C under g+6EA8h shared	medium	notes/worker-threads.md §page pool; notes/perf-coverage.md
 0x116d30	function	WorkQueueConsumerLoop	void WorkQueueConsumerLoop(Queue*)	588B; AcquireSRWLockShared + SleepConditionVariableSRW wait loop then drains queue via 117330	low	notes/perf-coverage.md (perf-rename-2)
@@ -398,11 +406,14 @@ rva	kind	name	signature	description	confidence	source
 0x118519	label	SynFlushGfxStateForDraw_DsvBarrier		depth buffer ResourceBarrier(1, DEPTH_WRITE 0x10 / DEPTH_READ|SRV) before OMSetRenderTargets (RT-dirty path, c+0xB24 & 1); batched by gpuopt	high	notes/gpu-barriers.md §3
 0x118597	label	SynFlushGfxStateForDraw_DsvBarrier2		depth buffer ResourceBarrier(1) on the depth-state-only path (c+0xB24 & 0x10002, no RT change); batched by gpuopt	high	notes/gpu-barriers.md §3
 0x118604	function	SynFlushPsoAndBindings	bool (SynCtx** c)	per draw: CBV/SRV/sampler table flushes (118DA8, 118C10, 118BA0, 1188AC), IASetPrimitiveTopology on change, PSO lookup (119670) + SetPipelineState when dirty (c+0xB24 & 0x20); 5.1 % of the dispatcher	high	notes/d3d12-submission.md §1
+0x118758	function	SynFlushPsoAndTopology		SynRecord subsystem; D3D12: CL.IASetPrimitiveTopology, CL.SetPipelineState (sites 1187FD,118885)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x1188ac	function	SynFlushGfxDescTable		SynRecord subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetGraphicsRootDescriptorTable (sites 118B28,118B47)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x118c10	function	SynFlushSrvTables	void (SynCtx* c, void* tables, void* fence)	for each stage with SRV-table dirty bit (+0x10F0): ring alloc, CopyDescriptorsSimple(table size), SetGraphicsRootDescriptorTable	high	notes/d3d12-submission.md §3
 0x118da8	function	SynFlushCbvTables	void (SynCtx* c, void* tables, void* fence)	for each shader stage with dirty CBVs (+0xB70[stage]) and a non-empty table: SynFlushCbvTable 118E28	high	notes/d3d12-submission.md §3
 0x118e28	function	SynUploadCbvTable	void SynUploadCbvTable(SynCtx* c, int* dirty, int stage, ptr, ptr*)	per dirty CBV: CreateConstantBufferView (device +88h), ShaderVisibleDescRingAlloc, CopyDescriptorsSimple(N) of the table, SetGraphicsRootDescriptorTable; 3rd copy of the constant data (C1); only caller SynFlushCbvTables; was RenderSubmitHot_118E28	high	notes/d3d12-submission.md §C1; notes/perf-coverage.md
 0x1190c0	function	UploadRingAllocate	bool UploadRingAllocate(void *ring, u64 size, u64 fence, u64 completed, void **outCpuGpu, u64 *outRetry)	397 B; walks block chain ring+40h/+38h, retires blocks whose fence <= completed (F_119250), returns cpu (ring+10h)+off and gpu (ring+18h)+off; callers RenderSubmitHot_118E28 and 4 others	medium	notes/perf-coverage.md (perf-rename-2)
 0x1192b0	function	ShaderVisibleDescRingAlloc	i32 ShaderVisibleDescRingAlloc(DescRing* r, u32 n, ptr, u64 fence, u64* out)	allocates n descriptors in the shader-visible descriptor ring before a draw/dispatch (fence-checked against r+30h slots); 20 callers incl. SynFlushSrvTables / SynFlushComputeStateEx; was RenderSubmitHot_1192B0	high	notes/d3d12-submission.md; notes/perf-coverage.md
+0x1193e4	function	SynFlushGfxDescTable_1193E4		SynRecord subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetGraphicsRootDescriptorTable (sites 1194C9,1194EB)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x1195e8	function	PageCacheTouchRange	void PageCacheTouchRange(void* cache, u64 keepUntil, ..., PoolStats* s)	133 B; StreamPagePoolTypeToIndex, walks the type's way-block chain (+30h) calling PageCacheTouch; stats s+28h hits / s+2Ch misses	medium	notes/streaming-anim.md §1.1
 0x119670	function	PsoGetOrCreateGfx	ID3D12PipelineState* PsoGetOrCreateGfx(SynCtx* c, PsoKey* k)	dispatcher per PSO-dirty draw (from SynFlushPsoAndBindings 118604 / 118758): hash the 0x80-byte desc (1199A4), EnterCriticalSection([c+818h]+10h), find in cache c+708h (11976C); on a miss grows the cache if full (1899A54) and CREATES THE PSO SYNCHRONOUSLY (9290D8) while still holding the CS, then inserts (9B05BC); NULL -> draw keeps the old PSO state; SPR site G1 at 11970A	high	notes/stutter.md §3.1
 0x11970a	label	PsoGetOrCreateGfx_CallCreate	E8 rel32 -> 9290D8	the runtime graphics PSO creation on a cache miss (dispatcher thread, PSO-cache CS held); SPR probe site G1	high	notes/stutter.md §3.1; patcher/stutter_probe_live.fsx
@@ -516,6 +527,7 @@ rva	kind	name	signature	description	confidence	source
 0x148514	function	AsyncSlotAddFence	void(AsyncSched* s, key, u32 slot, u64 fence)	appends a context fence handle (ctxIndex<<56 | value) to the slot's pending list s+0xE0[idx]; the graphics side waits on it	medium	notes/gpu-scheduling.md §A.2
 0x14871c	function	VolumetricFogScatterNodeExecute	bool (Node* n, RenderCtx* r, u32, Scene* sc)	slot1, 3.2 KB. view = (n+B13h & 7F) + [[r+F8h]+974h]. Builds RenderParams and binds the LPV/VSM/dust-wind constants. cb+14D0/+14D4 = RenderSystem+960h/+964h (render width/height) x per-view scale (+1F00/+1F04) x dyn-res (+1ECC, clamped to (0,2]); the froxel grid itself is RenderConfig VolumetricFogResolutionX/Z. Async-compute path (AsyncSlotGetCtx(RS+1130h,4)) -> 90749C, else sync 38C1AF8	high	notes/work-deciders.md §1
 0x149468	function	VsmTileMarkRendered	void (PageMgr* pm, TileList* l, u32* tile, u8 flag)	updates the page mapping after a tile render or clear	medium	notes/shadows-culling.md §1.3
+0x151140	function	GpuMemSizeTiledResourceAlloc		GpuMemory subsystem; D3D12: Device.GetResourceTiling x2, Device.GetResourceAllocationInfo x2, Fence.GetCompletedValue, Device.GetDescriptorHandleIncrementSize (sites 151510,1518D5,151914,151B0C,151B6A,151D0B)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x15bae8	function	TypedSlotTableResetAll	void TypedSlotTableResetAll(SlotOwner* o, ptr, ptr, ptr)	1.2 KB reset: count = 1218CC(o+4028h) (lock-free counter at +Ch, bounded by +8), clears every slot via 15BA40 (zeroes 20h-byte entries x [+100h], nulls fields, re-inits 1A5FA0 arrays at +28h/+B0h), then zeroes ~70 state qwords o+3FF0h..+4418h and repeats for a second table at o+4448h; slots are typed entries {type<<28 | idx20, ptr} read by 15BF38 (types 1/2/3, also used by ObjUpdateWorkerBody); only caller 15AE38 (virtual, vtable 40E7860) which resets 32 owners at +180h then many sub-containers; was Unknown_15BAE8	low	notes/perf-coverage.md (perf-rename-2)
 0x15e658	function	EffectManagerUpdateEmitters	void EffectManagerUpdateEmitters(EffectMgr*, void*, float* dt)	2412B; sole caller EffectManagerFrameUpdate; walks 0x18-byte entries under critical section	low	notes/perf-coverage.md (perf-rename-2)
 0x15fc80	function	EffectManagerUpdateInstances	void EffectManagerUpdateInstances(EffectMgr* m, void* scene, EffectPassParams* p)	Per-pass walk over EVERY live effect instance (std::map at [m]) on KIDSTaskScheduler0: removal checks, owner/visibility/display-distance tests -> disp flag; parallel mode: invisible -> EffectNoDispEnqueue (0x160b83), visible -> Disp list (0x160fc0); otherwise inline EffectSystemUpdate	high	notes/effects-animation.md §1.1
@@ -785,6 +797,7 @@ rva	kind	name	signature	description	confidence	source
 0x247708	function	GetFrameLatencyWaitFlag		Returns the per-frame byte that enables the frame-latency spin wait in RenderSubmit (43 B, 22 callers); exact meaning unproven	low	re/out/README.md §Findings: frame pacing
 0x2477ca	label	Sleep0Call_2477CA		call Sleep(0); pdata fragment start 247734	high	re/out/spinscan.txt §all call sites
 0x247950	function	RenderParamsAssign	RenderParams* RenderParamsAssign(RenderParams* dst, const RenderParams* src)	29.6 KB field-by-field copy (operator=) of the render/post parameter block (2477D4 first); 29 callers incl. DlssExecute, PostEffectApply, GetFrameLatencyWaitFlag; 0.10 % of Ally samples; also (work-deciders-2.tsv): RenderParamsCopy - 29.6 KB field-by-field copy of the per-view RenderParams = 0x2F4-byte view header + env RenderConfig block (RenderParams+X = RenderConfig+(X-0x2F4)); 29 callers incl. VolumetricFogScatterNodeExecute	high	notes/perf-coverage.md
+0x24f408	function	GpuMemSizeTiledResource		GpuMemory subsystem; D3D12: Fence.GetCompletedValue x4, Device.GetDescriptorHandleIncrementSize, Device.GetResourceTiling x2 (sites 24F760,24F7AC,24F8A6,24F941,24FAFA,24FEE6,...)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2502b0	function	TextureCtor		texture ctor: tex+0xA8 = (desc+0x24 == 1) persistent-staging flag	high	notes/ui-mainthread.md §C
 0x251528	function	PageCacheTouch	u32 PageCacheTouch(void* sets, u64 keepUntil, u32 key)	41 B; SetAssocCacheLookup, then entry+8 = max(entry+8, keepUntil); returns the entry state (+4) or 0. The stamp is a keep-until frame that PagePoolCountUsed compares with the current frame	high	notes/streaming-anim.md §1.1
 0x251554	function	PageCacheFindOwned	int PageCacheFindOwned(SetAssocCache* c, u64, u32 key, ptr owner, int id)	SetAssocCacheLookup(c, key) then match owner (+28h) and id (+30h); returns entry+4 (page index) or 0; called by StreamPageLookupOrInsert	medium	notes/worker-threads.md §page pool; notes/perf-coverage.md
@@ -1043,9 +1056,10 @@ rva	kind	name	signature	description	confidence	source
 0x44acb4	function	GfxCmdWriteResourceDesc	void GfxCmdWriteResourceDesc(void **cursor, void *res)	174 B leaf (decomp_ro); appends to stream *cursor: res ptr, res+48h, packed u32 from u16 res+3Eh (bits 10-14, 15, 7-9, 0-6), and res+18h/+20h selected by bit15; 17 callers in render 1d46f8..1e25c8, 7da29c	medium	notes/perf-coverage.md (perf-rename-2)
 0x4591dc	function	SynClearRtvDsvTracked	void(SynCtx* c, ...)	tok 0x04 / tok 0x02 (458E34): RT -> RENDER_TARGET, ClearRTV; DSV -> DEPTH_WRITE, ClearDSV; no stamp	high	notes/vkd3d-audit.md Addendum B
 0x45a020	function	SynTokCopyTextureRegion03	void(SynCtx* c, u8** stream)	tok 0x03: src -> COPY_SOURCE, dst -> COPY_DEST, CopyTextureRegion, src restored (depth bits stripped); no stamp	high	notes/vkd3d-audit.md Addendum B
-0x45a190	function	SynCopyTextureRegionTracked2	void(SynCtx* c, ...)	same as 45A020; called from 45C880, 45DDC8, 8F0B5C	medium	notes/vkd3d-audit.md Addendum B
-0x45c880	function	SynGenericCopyTracked	void(SynCtx* c, ...)	tok 0x7A (45C7E8): texture copy with stack-local trackers (COPY_DEST/COPY_SOURCE/RENDER_TARGET); no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x45a190	function	SynCopyTextureRegionTracked2	void(SynCtx* c, ...)	same as 45A020; called from 45C880, 45DDC8, 8F0B5C	high	notes/vkd3d-audit.md Addendum B
+0x45c880	function	SynGenericCopyTracked	void(SynCtx* c, ...)	tok 0x7A (45C7E8): texture copy with stack-local trackers (COPY_DEST/COPY_SOURCE/RENDER_TARGET); no stamp	high	notes/vkd3d-audit.md Addendum B
 0x45ddc8	function	SynDepthCopyTracked	void(SynCtx* c, ...)	tok 0x7B (45DD48): depth copy, COPY_* and DEPTH_READ restore; no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x45f5a0	function	SynAddRef		SynRecord subsystem; D3D12: Unknown.AddRef (sites 45F5C1)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x465384	function	VsmPassNodeExecute	u64 (Node*, RenderCtx* r)	render-node callback (referenced from data 4E520CC); calls VsmPassExecute when [r+F8h]+968h >= 0	medium	notes/shadows-culling.md §1.1
 0x4653b4	function	ParamTableSetU32_85A0BC7F	void ParamTableSetU32_85A0BC7F(u32 v, ParamTable* t, u32 i)	render-node property 85A0BC7F (name unknown; kids hash namespace): node default 4096 (ShadowNodeParamsApply); ApplyShadowQuality rows 1..5: 1024/1024/2048/2048/2048; read by the VSM pass 0x466087/0x4660D5	high	notes/work-deciders.md §A3
 0x465414	function	VsmPassExecute		VSM render pass for modes other than 5 (inferred): page manager base+16C640, clipmap entries view+4730h (0x150 B each, VsmClipmapSetup 32FF074), MeshletInstanceCulling/MeshletPreculling/DrawListWalk; 3144 B	low	notes/shadows-culling.md §1.1
@@ -1055,6 +1069,7 @@ rva	kind	name	signature	description	confidence	source
 0x48dc4c	label	Sleep0Call_48DC4C		call Sleep(0); pdata fragment start 48DAA0	high	re/out/spinscan.txt §all call sites
 0x48ea28	function	PauseSpin_48EA28		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48EAA4..48EC13	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x48ed88	function	PauseSpin_48ED88		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48EDAB..48EF4E	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x48f178	function	CmdListResolveQueryData		CmdListRing subsystem; D3D12: CL.ResolveQueryData (sites 48F209)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x48f3b4	function	EclEmitWait		writes ECL token 8 {queue, fence, value} (queue->Wait on the ECL thread)	medium	notes/gpu-scheduling.md §A.2
 0x48f67c	function	PauseSpin_48F67C		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48F6B3..48F915 48F6FE..48F91D 48F7DE..48F923	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x48fd9c	function	PauseSpin_48FD9C		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48FDA9..48FE3B	medium	re/out/spinscan.txt §fragments containing PAUSE
@@ -1074,12 +1089,23 @@ rva	kind	name	signature	description	confidence	source
 0x492973	label	QpcXCall_492973		call QueryPerformanceCounter(?); pdata fragment start 492954	high	re/out/spinscan.txt §all call sites
 0x4930be	label	Sleep0Call_4930BE		call Sleep(0); pdata fragment start 493050	high	re/out/spinscan.txt §all call sites
 0x4930c8	function	CmdListRingSubmitUpTo	u64 (CmdListRing* r, void* a, u64 fence, u8 f)	hands all pending closed lists up to the given fence value to the ECL ring (EclRingPush 86F760)	high	notes/d3d12-submission.md §1
+0x4931b0	function	CmdListGetGPUVirtualAddress		CmdListRing subsystem; D3D12: Unknown.SetPrivateDataInterface, Resource.GetGPUVirtualAddress (sites 49327A,49335E)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x4933f4	function	CmdListBeginQuery		CmdListRing subsystem; D3D12: CL.BeginQuery (sites 49344E)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x49349c	function	SynBeginList	void(SynCtx* c, ID3D12GraphicsCommandList* l)	c+0x580 = l; SetDescriptorHeaps, compute/graphics root signatures (c+6E0/6D8), root tables, then SynRebindVbIbAtListBegin 494E00; c+0xB24 = 0x7F	high	notes/vkd3d-audit.md Addendum B
+0x493e74	function	CmdListFlushGfxDescTable		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetGraphicsRootDescriptorTable (sites 494087,4940A7)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x494e00	function	SynRebindVbIbAtListBegin	void(SynCtx* c)	at every list begin re-applies the 32 VB slots (c+0x260) and the IB (c+0x30) with stamped transitions (COMMON resets 494FE8/495001, ResourceBarrier 495036/495074), IASetVertexBuffers/IASetIndexBuffer, SO slots (c+0x2268); marks tables dirty (c+0x1D20=3, c+0x10F0/0x1E38=0xFF)	high	notes/vkd3d-audit.md Addendum B
 0x494fe8	label	SynRebindVb_StampResetCOMMON		VB tracker := COMMON when its stamp != c+0x6D0 (R2 source)	high	notes/vkd3d-audit.md Addendum B
 0x495001	label	SynRebindIb_StampResetCOMMON		IB tracker := COMMON when its stamp != c+0x6D0 (R2 source)	high	notes/vkd3d-audit.md Addendum B
 0x495036	label	SynRebindVb_CallResourceBarrier		ResourceBarrier(1) for a re-bound VB at list begin; missing from gpu-barriers.md sec 3	high	notes/vkd3d-audit.md Addendum B
 0x495074	label	SynRebindIb_CallResourceBarrier		ResourceBarrier(1) for the re-bound IB at list begin	high	notes/vkd3d-audit.md Addendum B
+0x4951c8	function	CmdListFlushComputeDescTable		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 4953BF,4953DA)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x495414	function	CmdListFlushComputeDescTable_495414		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 495534,495555)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x4955a0	function	CmdListFlushComputeDescTable_4955A0		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 4956BB,4956DC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x495764	function	CmdListFlushComputeDescTable_495764		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 495846,495866)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x49588c	function	CmdListFlushComputeDescTable_49588C		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 49596E,49598E)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x4959ec	function	CmdListUploadComputeCbvTable		CmdListRing subsystem; D3D12: Device.CreateConstantBufferView, Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 495B28,495C08,495C25)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x495c70	function	CmdListFlushComputeDescTable_495C70		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 495D43,495D63)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x495d9c	function	CmdListFlushComputeDescTable_495D9C		CmdListRing subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetComputeRootDescriptorTable (sites 495E6F,495E8F)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x496078	function	SynCloseCmdList	u64 (SynCtx* c)	flush immediate draws if any, then close the list (490F64 -> 490D5C/4920E0); returns its fence value	high	notes/d3d12-submission.md §1
 0x4a09f0	function	BitsetFindFreeBit	int BitsetFindFreeBit(Bitset* b)	if used b+14h < capacity b+10h, scans the (b+10h + 31)/32 words for a clear bit (4A0A5C); Ally 'other' rows here are stale-stack attributions of idle threads; was Unknown_Bitset_4A09F0	medium	notes/perf-coverage.md (perf-rename-2)
 0x4a2e20	function	StreamPagePoolTypeToIndex	int StreamPagePoolTypeToIndex(void *pool, int type)	36 B leaf; if pool+18h enabled maps type 2->1, 3->2 else 0; 21 callers incl. PagePoolCountUsed, StreamPageLookupOrInsert	medium	notes/perf-coverage.md (perf-rename-2)
@@ -1126,8 +1152,10 @@ rva	kind	name	signature	description	confidence	source
 0x4e4c44	function	AudioEngineProcessPendingCmds	void *AudioEngineProcessPendingCmds(Engine *e, void *p2, int p3, int p4, u32 p5)	4.6 KB, 13.8 KB stack; atomically takes pending lists e+2DF8h / e+2DE8h, builds param blocks tagged 1001h/1002h/1003h (size 18h, gain 1.0), copies per-channel arrays (byte counts <<2) via Memcpy, dispatches via vfuncs 8/10h/18h/30h/38h of [n+20h] processors with mode flags 1000h; shares helper 83B584 with AudioThread; only caller 4E46A0 (<- 4E3300); subsystem inferred, low	low	notes/perf-coverage.md (perf-rename-2)
 0x4e5924	function	AudioVoiceApplyParamChain	int AudioVoiceApplyParamChain(void *obj, uint *chain)	1.7 KB; fn-table slot (3BCD3B8h, table 3BCD278h with 4e4a98=AsyncRequestPollState wrapper); walks chain of tagged blocks (types 0x1000-0x1004, 0x2000-0x2003 with min sizes 20h/38h, else error F_19bdd72), writes obj+1F8h/+200h, resets obj+5Ch..+7Ch and +160h..+178h; same object layout as AsyncRequestPollState (+2Ch/+58h); layout matches F_1952e4 audio voice (format codes 1/3/4 PCM, 0x1000 ADPCM, 0x1001 codec)	low	notes/perf-coverage.md (perf-rename-2)
 0x4f9054	function	EclReplayTokens	void (ID3D12CommandQueue* q, u16** stream, u8 flag)	replays one ECL item through EclTokenHandlerTable 3BD4DF0	high	notes/d3d12-submission.md §1
+0x4f90dc	function	EclSubmitAndSignal		EclSubmit subsystem; D3D12: Queue.ExecuteCommandLists, Queue.Signal (sites 4F9111,4F9124)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x4f91c0	function	EclTokQueueSignal	void (void*, u16** p)	ECL tok7: queue->Signal(fence, value) (vtbl+0x70)	high	notes/d3d12-submission.md §1
 0x4f9214	function	EclTokExecuteCommandList	void (void*, u16** p)	ECL tok6: queue->ExecuteCommandLists(1, &list) (vtbl+0x50); one list per call, ~28 GFX lists per frame	high	notes/d3d12-submission.md §1
+0x4f92a4	function	EclWait		EclSubmit subsystem; D3D12: Queue.Wait (sites 4F9320)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x4f93c8	function	EclTokQueueWait	void (void*, u16** p)	ECL tok8: queue->Wait(fence, value) (vtbl+0x78)	high	notes/d3d12-submission.md §1
 0x4fc330	function	GfxViewParamsCopyConstruct	void *GfxViewParamsCopyConstruct(void *dst, const void *src)	23 KB field-by-field copy ctor (sets vtable, copies 0x170.. block); callers SceneRenderView, XessExecute, Dlss*	low	notes/perf-coverage.md (perf-rename-2)
 0x505a74	function	Vec4ArrayCopyStrided	void Vec4ArrayCopyStrided(int n, float4* dst, int dstIdx, const float4* src, int srcIdx, i64 dstStride, i64 srcStride)	128 B, 115 callers: copies n 16-byte vectors from src[srcIdx] to dst[dstIdx]; one Memcpy when both strides are 1, otherwise a strided loop	high	notes/perf-coverage.md (perf-rename-2)
@@ -1170,8 +1198,9 @@ rva	kind	name	signature	description	confidence	source
 0x58b854	function	NodeTreeVisitVirt48	void NodeTreeVisitVirt48(ptr ctx, Node* n)	62 B recursive visitor: for each sibling (n+18h) calls vfunc +48h on the node and recurses into the first child (n+10h); caller 58B83C	medium	notes/perf-coverage.md (perf-rename-2)
 0x58b8a0	function	MaskedCopyRecordFieldToArray	void MaskedCopyRecordFieldToArray(..., uint i, void *ctx)	60 B leaf loop fragment; for i<ctx+4Ch where bitmask byte ctx+E0h has bit i: dst(ctx+F8h)[i]=src(ctx+188h)[i*50h+30h]	low	notes/perf-coverage.md (perf-rename-2)
 0x58bc74	function	SynTokExecuteIndirectDispatch	void(SynCtx* c, u8** stream)	tok 0x81: SynFlushComputeState, arg buffer -> obj+30 (stamp via 114C04), ExecuteIndirect	high	notes/vkd3d-audit.md Addendum B
-0x58bd2c	function	SynExecuteIndirectDispatchB	void(SynCtx* c, ...)	twin of 58BC74; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x58bd2c	function	SynExecuteIndirectDispatchB	void(SynCtx* c, ...)	twin of 58BC74; no static reference	high	notes/vkd3d-audit.md Addendum B
 0x58bdc4	function	SynTokDispatch	void (SynCtx* c, u16** p)	tok 0x7E: SynFlushComputeState then Dispatch	high	notes/d3d12-submission.md §1
+0x58be38	function	SynDispatch		SynRecord subsystem; D3D12: CL.Dispatch (sites 58BE72)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x58be90	function	SynFlushComputeState	void (SynCtx* c, ...)	compute PSO lookup/SetPipelineState (vtbl+0xC8) and SetComputeRootDescriptorTable flushes (4959EC/495414/495764)	high	notes/d3d12-submission.md §1
 0x58c000	function	PsoGetOrCreateComputeShared	ID3D12PipelineState* PsoGetOrCreateComputeShared(void* owner, void* key)	shared compute PSO cache owner+7D8h under the PSO CS [owner+818h]: miss -> CreateComputePso (58C07A = SPR C4); caller 2EC8BF4	high	notes/stutter.md §3.1
 0x58c0d8	function	PsoComputeCacheFind	bool PsoComputeCacheFind(Cache*, PsoKey*)	58B; lookup via 58c144, copies 24-byte result into key; callers PsoGetOrCreateComputeShared/SynFlushComputeState	medium	notes/perf-coverage.md (perf-rename-2)
@@ -1254,12 +1283,31 @@ rva	kind	name	signature	description	confidence	source
 0x61ef74	function	ParamTableGetU32_BD8BEF28	u32 ParamTableGetU32_BD8BEF28(ParamTable* t)	leaf: linear scan of the {count, 32-byte entries} param table for hash BD8BEF28h with (flags & 0F000000h) == 04000000h (same pattern as ParamTableGetU32_D15EC139); callers ObjUpdateWorkerBody / 32CC308	high	notes/worker-jobs-opt.md §PL; notes/perf-coverage.md
 0x61fda8	function	ObjBatchJobInvokeVirt4C0	u64 ObjBatchJobInvokeVirt4C0(JobItem* it)	virtual 286 B job item: picks entry it+40h of the batch arrays at it+48h (+20h override, +10h, +8h), packs a 70h-byte argument block (it+44h, it+5Ch) and calls the object's (it+38h) vfunc +4C0h; was Unknown_61FDA8	low	notes/perf-coverage.md (perf-rename-2)
 0x61fea8	function	ObjVirtUpdatePerObjectGate	void ObjVirtUpdatePerObjectGate(ptr* o, ...)	virtual (vtable slots 38F1B78 and 38F20A0, 13 slots after 204128): vfunc +418h test, o+378h flags, then ObjUpdatePerObject; was Unknown_ObjUpdate_61FEA8	low	notes/perf-coverage.md Addendum audio/objupdate
-0x62ce7c	function	GpuIndexBufferMap	void GpuIndexBufferMap(void* ib, void** out, int mode, u64 off, u32 size)	maps the UI index buffer (UiVertexBuilder+380h) into +360h with mode 3; size from ib+48h	medium	notes/ui-mainthread.md §E
+0x62a164	function	GpuMemCreateReservedResource		GpuMemory subsystem; D3D12: Device.CreateReservedResource (sites 62A191)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62a214	function	GpuMemAllocResourceMemoryFenced		GpuMemory subsystem; D3D12: Device.GetResourceAllocationInfo, Fence.GetCompletedValue x4, Device.GetDescriptorHandleIncrementSize, Resource.GetDesc, Resource.Release (sites 62A464,62A6ED,62A73D,62A848,62AA31,62AB5E,...)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62b02c	function	GpuMemAllocResourceMemoryFenced_62B02C		GpuMemory subsystem; D3D12: Device.GetResourceAllocationInfo, Fence.GetCompletedValue, Device.GetDescriptorHandleIncrementSize, Resource.Release (sites 62B1AE,62B399,62B3E4,62B4AD)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62b4e4	function	GpuMemSizeTiledResource_62B4E4		GpuMemory subsystem; D3D12: Fence.GetCompletedValue x2, Device.GetResourceTiling x2 (sites 62B839,62B8BB,62B9C6,62BD5D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62c324	function	GpuMemGetDescriptorHandleIncrementSize_62C324		GpuMemory subsystem; D3D12: Device.GetDescriptorHandleIncrementSize (sites 62C359)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62c394	function	GpuMemGetDescriptorHandleIncrementSize_62C394		GpuMemory subsystem; D3D12: Device.GetDescriptorHandleIncrementSize (sites 62C3B8)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62c4dc	function	GpuMemCreateCommittedResource		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 62C53D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62c550	function	GpuMemCreateCommittedResource_62C550		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 62C5B4)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62c8e0	function	GpuMemCreatePlacedResource		GpuMemory subsystem; D3D12: Device.CreatePlacedResource (sites 62C9C8)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62cdf4	function	GpuMemCreateCommittedResource_62CDF4		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 62CE69)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62ce7c	function	GpuIndexBufferMap	void GpuIndexBufferMap(void* ib, void** out, int mode, u64 off, u32 size)	maps the UI index buffer (UiVertexBuilder+380h) into +360h with mode 3; size from ib+48h	high	notes/ui-mainthread.md §E
+0x62d5c8	function	GpuMemCreateCommittedResource_62D5C8		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 62D63D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62d650	function	GpuMemCreateReservedResource_62D650		GpuMemory subsystem; D3D12: Device.CreateReservedResource (sites 62D679)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x62d688	function	UploadHeapSuballoc		suballocates from [dev+4678h] and creates a placed resource in GENERIC_READ (upload heap = WC)	high	notes/ui-mainthread.md §E
 0x62d784	label	UploadHeapSuballoc_CreatePlaced	41 FF 93 E8 00 00 00	device->CreatePlacedResource (vtbl+E8h) for every upload suballocation; SPR probe site UP	high	notes/stutter.md §3.3; patcher/stutter_probe_live.fsx
 0x62d7e7	label	UploadHeapSuballoc_CallDedicatedFallback	E8 rel32 -> 9C2EE0	upload heap ring full or request too big -> CreateCommittedResource per upload (TextureStagingAllocDedicated); SPR probe site UF	high	notes/stutter.md §3.3; patcher/stutter_probe_live.fsx
 0x62d7f0	function	UploadHeapRingAlloc	bool UploadHeapRingAlloc(UploadHeapRing* r, u64 size, u64 align, Suballoc* out)	vtbl+18h of the upload/readback heap ring (vtable 409A748): fails when size > one heap ([r+20h]) or no heap in the ring has room -> caller falls back to a dedicated committed resource	high	notes/stutter.md §3.3
+0x62e2d0	function	GpuMemGetGPUVirtualAddress		GpuMemory subsystem; D3D12: Unknown.AddRef, Resource.GetGPUVirtualAddress (sites 62E309,62E329)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62e3c8	function	GpuMemGetGPUVirtualAddress_62E3C8		GpuMemory subsystem; D3D12: Unknown.AddRef, Resource.GetGPUVirtualAddress (sites 62E401,62E426)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x62e4dc	function	GpuIndexBufferUnmap	void GpuIndexBufferUnmap(void* ib)	unmaps the UI index buffer at the end of UiQuadBuild	medium	notes/ui-mainthread.md §E
+0x62ed60	function	GpuMemMapAndUploadTexture		GpuMemory subsystem; D3D12: Device.GetCopyableFootprints, Resource.Map, Resource.Unmap, Resource.Release (sites 62EEA6,62EF21,62F74A,62F7B7)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x62f86c	function	GpuMemUploadTextureAndUnmap		GpuMemory subsystem; D3D12: Device.GetCopyableFootprints, Resource.Unmap, Resource.Release (sites 62FE96,6300D4,630122)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x6303bc	function	GpuMemUploadTextureAndUnmap_6303BC		GpuMemory subsystem; D3D12: Device.GetCopyableFootprints, Resource.Unmap, Resource.Release (sites 6305CD,6309D9,630A3E)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x630a70	function	GpuMemUploadTextureAndUnmap_630A70		GpuMemory subsystem; D3D12: Device.GetCopyableFootprints, Resource.Unmap, Resource.Release (sites 630C83,630EAC,630EF7)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x630fc4	function	GpuMemPollFence		GpuMemory subsystem; D3D12: Fence.GetCompletedValue, Resource.Release (sites 6312F4,6313B0)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x648482	label	WfsoXCall_648482		call WaitForSingleObject(?); pdata fragment start 648448	high	re/out/spinscan.txt §all call sites
 0x66113e	label	Sleep0Call_66113E		call Sleep(0); pdata fragment start 661070	high	re/out/spinscan.txt §all call sites
 0x6646fe	label	Sleep0Call_6646FE		call Sleep(0); pdata fragment start 6646DC	high	re/out/spinscan.txt §all call sites
@@ -1269,6 +1317,8 @@ rva	kind	name	signature	description	confidence	source
 0x695264	function	GpuParticleGroupRecordStage	bool GpuParticleGroupRecordStage(Group* g, Ctx* c, f32 dt, ...)	if group +0x28&0x20: for each sub-emitter (+0x78[+0x80]) vfunc +0xF0 (records the stage dispatch); returns whether anything was recorded	high	notes/particles.md §1
 0x695328	function	UploadBufferAcquire		upload-buffer side of the double-buffered copy (4DB6C/695328); body 347 B	low	notes/mainthread-drawprep.md §1
 0x69566c	function	GpuCullingRecord	void (...)	"GPUCulling" marker around the GPU culling dispatches (69623C/6958CC/695894); called from 905E10, pointer stored by 62A214	medium	notes/perf-coverage.md (perf-rename-3)
+0x696da8	function	SynOMSetStencilRef		SynRecord subsystem; D3D12: CL.OMSetStencilRef (sites 696E68)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x696e9c	function	SynOMSetStencilRef_696E9C		SynRecord subsystem; D3D12: CL.OMSetStencilRef (sites 696F3F)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x697764	function	SkelBuildFromObjUpdate	void SkelBuildFromObjUpdate(Skel* s, ..., u32* poseFlags, ...)	173 B; from ObjUpdatePerObject (call sites 1AB5B9, 1AF262): if poseFlags bit 4 and a source pose exist, Memcpy bones x 48 B into s+8, then SkelBuildBoneMatrices when the model has a skeleton (+20h)	medium	notes/streaming-anim.md §2.1
 0x698a44	function	SynTokBindTexture87	void(SynCtx* c, u8** stream)	tok 0x87: texture bind, X=(cur&0xAC3)|stage bit (R1 superset source), no stamp	medium	notes/vkd3d-audit.md Addendum B
 0x698c54	function	SynBindTexture87B	void(SynCtx* c, ...)	twin of 698A44 (R1 superset source), no stamp; no static reference	medium	notes/vkd3d-audit.md Addendum B
@@ -1296,21 +1346,24 @@ rva	kind	name	signature	description	confidence	source
 0x6bbccc	function	SaveWriteInventoryArray	void SaveWriteInventoryArray(void* stream, void* unk, u8* src, u8 flag)	writes save field 0x938A61DD (amrita 'inventory'): hash, size 600000, then 600000 bytes (2500 items x 240 B) via SaveStreamWriteU32 + per-byte writer 0x6bbed4	medium	notes/amrita-tools.md §3 Save format in the exe
 0x6bc190	function	SaveStreamWriteU32	void SaveStreamWriteU32(void* stream, u32* value)	appends a u32 to the user-save tagged stream; used for every field hash/size of the {u32 hash,u32 size,data} record format (297 callers)	medium	notes/amrita-tools.md §3 Save format in the exe
 0x6be12c	function	SynTokDraw	void (SynCtx* c, u16** p)	tok 0x69: state flush then DrawInstanced	high	notes/d3d12-submission.md §1
+0x6be1a0	function	SynDrawInstanced		SynRecord subsystem; D3D12: CL.DrawInstanced (sites 6BE1DB)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x6c1ed4	function	RenderConfigCtor		18.9 KB RenderConfig constructor (defaults: +0x19BC EffectLowResoRenderLevel -1, +0x19C4 RenderLevelTable[4] init, +0x19D4 0, +0x19E4 EffectLowResoScale1 0.5)	medium	notes/particles.md §1
 0x6d1d35	label	Sleep0Call_6D1D35		call Sleep(0); pdata fragment start 6D1C80	high	re/out/spinscan.txt §all call sites
 0x6d7018	function	FloatArrayMulAdd	void FloatArrayMulAdd(float *dst, const float *src, uint n, float s)	38 B leaf (decomp_ro); dst[i] += s*src[i] (axpy); same callers as FloatArrayScale (388555c, 3884f4c, e2340, e2610, 193632d)	high	notes/perf-coverage.md (perf-rename-2)
 0x6d7090	function	Texture3DCreate	void* Texture3DCreate(void* dev, u32 w, u32 h, u32 d, u32 mips, u32 fmt, u32 flags)	3D texture create wrapper (13 callers) -> 0x6D70DC	medium	notes/work-deciders.md §A1
+0x6d70dc	function	GpuMemPollFence_6D70DC		GpuMemory subsystem; D3D12: Fence.GetCompletedValue x2, Resource.Release (sites 6D73E0,6D74DB,6D761C)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x6d76e4	function	GpuMemCreateCommittedResource_6D76E4		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 6D774E)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x6d7b88	function	StaticNatureNodeExecute	bool (Node*, RenderCtx*, u32, Scene*)	slot1 thunk -> 6D7B98	high	notes/perf-coverage.md (perf-rename-3)
 0x6d7b98	function	StaticNatureNodeRecord	bool (Node*, RenderCtx*, u32, Scene*)	per-view gate (view < 0x20, scene+180h+8*view), calls StaticNatureRenderView 108590, may call KtglCmdStreamFlush	medium	notes/perf-coverage.md (perf-rename-3)
 0x6da118	function	PostEffectApply		Post-apply (28.6 KB): calls XessExecute at 0x6daeb8 before the post loop, sizes 8 post targets from base size (XeSS input size if POSTEFFECT_RESOLUTION=STANDARD); binds XeSS_OutputDepth as post depth (local_53a8)	high	notes/gpu-copies-postres.md §1, §2
 0x6daeb8	label	PostEffectApply_CallXessExecute		XeSS execute call; upscaler always runs before the post chain	high	notes/gpu-copies-postres.md §2
 0x6dbb6d	label	PostEffectApply_SelectPostBaseSize		cmp [rbp-0x7b],0 (XeSS active) then cmp byte [rbp+0x2e1d],0 (post-res flag); if both, post base = XeSS input size g_XessInputSize (1920x1080) else output size	high	notes/gpu-copies-postres.md §2
 0x6eb908	function	SynTokExecuteIndirect	void (SynCtx* c, u16** p)	tok 0x6F: state flush, transition the argument buffer (115E24), ExecuteIndirect	high	notes/d3d12-submission.md §1
-0x6eb9cc	function	SynExecuteIndirectB	void(SynCtx* c, ...)	twin of SynTokExecuteIndirect 6EB908; no static reference	medium	notes/vkd3d-audit.md Addendum B
+0x6eb9cc	function	SynExecuteIndirectB	void(SynCtx* c, ...)	twin of SynTokExecuteIndirect 6EB908; no static reference	high	notes/vkd3d-audit.md Addendum B
 0x6ec337	label	Sleep0Call_6EC337		call Sleep(0); pdata fragment start 6EC174	high	re/out/spinscan.txt §all call sites
 0x6ec467	label	Sleep0Call_6EC467		call Sleep(0); pdata fragment start 6EC340	high	re/out/spinscan.txt §all call sites
 0x6ecf48	function	SynTokExecuteIndirect6E	void(SynCtx* c, u8** stream)	tok 0x6E: SynFlushGfxStateForDraw, arg buffer -> obj+30 (stamped), ExecuteIndirect	high	notes/vkd3d-audit.md Addendum B
-0x6ed00c	function	SynExecuteIndirect6EB	void(SynCtx* c, ...)	twin of 6ECF48, called from 2EFD8DC	medium	notes/vkd3d-audit.md Addendum B
+0x6ed00c	function	SynExecuteIndirect6EB	void(SynCtx* c, ...)	twin of 6ECF48, called from 2EFD8DC	high	notes/vkd3d-audit.md Addendum B
 0x6ee536	label	Sleep0Call_6EE536		call Sleep(0); pdata fragment start 6EE374	high	re/out/spinscan.txt §all call sites
 0x6ee963	label	Sleep0Call_6EE963		call Sleep(0); pdata fragment start 6EE82C	high	re/out/spinscan.txt §all call sites
 0x716291	label	SleepEx0Call_716291		call SleepEx(0); pdata fragment start 716280	high	re/out/spinscan.txt §all call sites
@@ -1328,7 +1381,10 @@ rva	kind	name	signature	description	confidence	source
 0x754418	function	StdTreeIteratorIncrement	void **StdTreeIteratorIncrement(void **it)	77 B leaf (decomp_ro); MSVC std::map/set iterator ++: if node->_Right (+10h) not nil (_Isnil byte +19h) take leftmost of right subtree else climb _Parent (+8) while node is parent's right; 7 callers (136cd8, 1a723ec, 20b8a54..)	high	notes/perf-coverage.md (perf-rename-2)
 0x79e990	function	PsoKeyNormaliseBlend	u32 PsoKeyNormaliseBlend(PsoDesc80* d, u32 b)	returns 0 for key byte +3Dh when no render target uses blending (d+38h bits), else b; used by the preload (2EFE2A8) and 2EFF9C8	medium	notes/stutter.md §3.1
 0x79f62c	function	OceanThread		References "OceanThread%d" thread-name format (252 B)	medium	re/out/README.md §Findings: frame pacing
-0x7a5fb8	function	SynBufferCopyTransitions	void(SynCtx* c, ...)	toks 0x99/0x8B (via 7A5DB8/7A5D2C): dst -> COPY_DEST, src -> COPY_SOURCE, stamped	medium	notes/vkd3d-audit.md Addendum B
+0x7a1d78	function	GpuMemCreateCommittedResource_7A1D78		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 7A1DDC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x7a1df0	function	GpuMemPollFence_7A1DF0		GpuMemory subsystem; D3D12: Resource.GetDesc, Fence.GetCompletedValue (sites 7A1E87,7A1EC8)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x7a5fb8	function	SynBufferCopyTransitions	void(SynCtx* c, ...)	toks 0x99/0x8B (via 7A5DB8/7A5D2C): dst -> COPY_DEST, src -> COPY_SOURCE, stamped	high	notes/vkd3d-audit.md Addendum B
+0x7a6074	function	SynResourceBarrier		SynRecord subsystem; D3D12: CL.ResourceBarrier (sites 7A6104)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x7a728c	function	SynFlushImmediateDraws	void (SynCtx* c)	draws pending immediate-mode geometry (+0x2458 verts): IASetVertexBuffers + IASetIndexBuffer + DrawIndexedInstanced; called first by 88 handlers	high	notes/d3d12-submission.md §1
 0x7a7ad4	function	ZeroInit40	void* ZeroInit40(void* p)	38 B placement init: memset(p, 0, 40h) when p != null; only caller 7A627C	high	notes/perf-coverage.md (perf-rename-2)
 0x7afe94	function	GetResItemById		Resource item lookup by id (LooseFileLoader helper; AOB E8 ? ? ? ? 49 8B 95 ? ? ? ? 4C 8B C0 E8)	high	notes/game-data.md §2 Hooks
@@ -1337,6 +1393,7 @@ rva	kind	name	signature	description	confidence	source
 0x7b35ec	function	UiVertexProducerC		UI vertex producer advancing the VB cursor	medium	notes/ui-mainthread.md §E; re/scripts_ui/dis_7B3654.txt
 0x7b3d6c	function	PlacementUnitCreate	void* PlacementUnitCreate(void* mem, u8 a, int areaId)	constructs the 0x680-byte procedural-placement stage unit (GrassPlacementCull state 6); unit+0xFC grass density level, +0xF9 dirty, +0xEA pending	medium	notes/work-deciders.md §A2
 0x7b561e	label	Sleep0Call_7B561E		call Sleep(0); pdata fragment start 7B5550	high	re/out/spinscan.txt §all call sites
+0x7c67e0	function	SynResourceBarrier_7C67E0		SynRecord subsystem; D3D12: CL.ResourceBarrier (sites 7C68CC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x7d61a8	function	UiRenderPathEntry		caller of 7D622C from UiTextFrame 254440 (body 119 B)	low	re/scripts_ui/g3.txt
 0x7d622c	function	UiRenderPath		UI render path: calls UiWalkLayer with r9d=0 (7D62A6) and UiDrawLayer 1C0FFC; ~3% outside 1C0FFC; body 305 B	high	notes/ui-mainthread.md §R
 0x7d62a6	label	UiRenderPath_ZeroRasterizeArg		sets r9d=0 before the UiWalkLayer call (call at 7D62B2)	high	notes/ui-mainthread.md §R
@@ -1372,8 +1429,8 @@ rva	kind	name	signature	description	confidence	source
 0x7f6210	label	WfsoXCall_7F6210		call WaitForSingleObject(?); pdata fragment start 7F6200	high	re/out/spinscan.txt §all call sites
 0x7f6312	label	WfsoXCall_7F6312		call WaitForSingleObject(?); pdata fragment start 7F62F4	high	re/out/spinscan.txt §all call sites
 0x7f64dc	function	SynSharedLockedUpdate_7F64DC	void SynSharedLockedUpdate_7F64DC(void* c, void* item, bool f)	SynergisticDispatcher helper under AcquireSRWLockShared(c+CF8h) (calls 7F6904/7F67EC/7F6574/8F1764); "[ntdll] <- 7F64DC" 4.6 % of the dispatcher = waiting for the exclusive holder (blocked)	low	notes/cpu-hotspots-ally.md §6
-0x7f6574	function	SynUpdateBufferCopyA	void(...)	tok 0x95 (via 7F64DC): -> COPY_DEST, CopyBufferRegion, restore saved state; stamped	medium	notes/vkd3d-audit.md Addendum B
-0x7f67ec	function	SynUpdateBufferCopyB	void(...)	tok 0x95 (via 7F64DC): -> COPY_DEST, CopyBufferRegion, restore saved state; stamped	medium	notes/vkd3d-audit.md Addendum B
+0x7f6574	function	SynUpdateBufferCopyA	void(...)	tok 0x95 (via 7F64DC): -> COPY_DEST, CopyBufferRegion, restore saved state; stamped	high	notes/vkd3d-audit.md Addendum B
+0x7f67ec	function	SynUpdateBufferCopyB	void(...)	tok 0x95 (via 7F64DC): -> COPY_DEST, CopyBufferRegion, restore saved state; stamped	high	notes/vkd3d-audit.md Addendum B
 0x7f6a32	label	Sleep0Call_7F6A32		call Sleep(0); pdata fragment start 7F69DC	high	re/out/spinscan.txt §all call sites
 0x7f9bf8	function	SynCopyTextureRegionTracked	void (SynCtx* c, ID3D12Resource* dst, u32* dstState, u32 dstSub, u32 x, u32 y, u32 z, ID3D12Resource* src, u32* srcState, u32 srcSub, D3D12_BOX* box)	tok 0x92 (via 7F9A6C): src -> COPY_SOURCE and dst -> COPY_DEST as two separate ResourceBarrier calls, CopyTextureRegion (vtbl+0x80), then both restored to their previous states as two more calls (2+2 -> 1+1 with gpuopt; the restore is a split-barrier candidate)	high	notes/gpu-barriers.md §3
 0x7f9d27	label	SynCopyTextureRegionTracked_SrcBarrier		ResourceBarrier(1): src -> COPY_SOURCE (0x800)	high	notes/gpu-barriers.md §3
@@ -1386,6 +1443,7 @@ rva	kind	name	signature	description	confidence	source
 0x8291ac	function	PagePoolPushTextureUpdateB	bool PagePoolPushTextureUpdateB(PagePool* p, void* tex)	109 B sibling of PagePoolPushTextureUpdate (same size, callers 1A720B4 and TextureStreamRequestTiles); target list not traced	low	notes/streaming-anim.md §1.1
 0x83a9ba	label	Sleep0Call_83A9BA		call Sleep(0); pdata fragment start 83A8D0	high	re/out/spinscan.txt §all call sites
 0x84187e	label	Sleep0Call_84187E		call Sleep(0); pdata fragment start 84180C	high	re/out/spinscan.txt §all call sites
+0x85033c	function	SynResourceBarrier_85033C		SynRecord subsystem; D3D12: CL.ResourceBarrier (sites 8503BA)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x8507b0	function	SynTokBindTextureSrv5C	void(SynCtx* c, u8** stream)	tok 0x5C: texture SRV bind, cache c+0x1718, no stamp	medium	notes/vkd3d-audit.md Addendum B
 0x850f18	function	UltraMarineRenderView	bool (...)	per-view gate, then UltraMarineRecord 850FE0	medium	notes/perf-coverage.md (perf-rename-3)
 0x850fe0	function	UltraMarineRecord	bool (...)	"UltramarineRender" marker (cold chunk 1A23646, string 40E36B0): per-view slot +188h, binds the water params (2FB8xxx/18A55xx setters), PB2UMAH draws	high	notes/perf-coverage.md (perf-rename-3)
@@ -1401,6 +1459,7 @@ rva	kind	name	signature	description	confidence	source
 0x86f760	function	EclRingPush	void (CmdListRing* r, void* a, void* tokens, u8 f)	pushes one item into the ExecuteCommandListsThread ring (86F828) and ReleaseSemaphore(+0x80)	high	notes/d3d12-submission.md §1
 0x86f828	function	EclRingPushItem	void (Ring* r, void* item)	ring push; blocks (WaitForSingleObject INFINITE) when the ring is full	high	notes/d3d12-submission.md §1
 0x86f84e	label	WfsoXCall_86F84E		call WaitForSingleObject(?); pdata fragment start 86F828	high	re/out/spinscan.txt §all call sites
+0x871acc	function	SynFlushGfxDescTable_871ACC		SynRecord subsystem; D3D12: Device.CopyDescriptorsSimple, CL.SetGraphicsRootDescriptorTable (sites 871BA3,871BC1)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x872014	function	GpuParticleMgrSetTargetsA		mgr+0x52B0/+0x52B8 render targets (ref-counted), viewport scale/offset +0x53A0..+0x53AC	medium	notes/particles.md §1
 0x874f55	label	WfsoXCall_874F55		call WaitForSingleObject(?); pdata fragment start 874F4C	high	re/out/spinscan.txt §all call sites
 0x875380	function	UiVertexProducerD		UI vertex producer advancing the VB cursor	medium	notes/ui-mainthread.md §E; re/scripts_ui/dis_8753BB.txt
@@ -1411,6 +1470,7 @@ rva	kind	name	signature	description	confidence	source
 0x8783b7	label	Sleep100Call_8783B7		call Sleep(100); pdata fragment start 878054	high	re/out/spinscan.txt §all call sites
 0x8789c4	function	WndProcImeHandler	LRESULT WndProcImeHandler(void* ime, HWND hwnd, UINT msg, WPARAM wp)	Handles WM_IME_* (0x10d-0x10f, 0x281, 0x282, 0x286) when g_pImeContext set; DefWindowProcA user	medium	re/out/anchors.md §site 0x8781f8
 0x878b4c	function	WndProcOnDeviceChange	void WndProcOnDeviceChange(WPARAM wp, LPARAM lp)	WM_DEVICECHANGE (0x219) handler	medium	re/out/anchors.md §site 0x8781f8
+0x87a518	function	SynDrawIndexedInstanced_87A518		SynRecord subsystem; D3D12: CL.DrawIndexedInstanced (sites 87A552)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x892db4	label	WfsoXCall_892DB4		call WaitForSingleObject(?); pdata fragment start 892D88	high	re/out/spinscan.txt §all call sites
 0x894344	function	ViewVsmListB	DrawList* (View* v, u32 i)	i < 4: entry 19+i of v+3FF0h (VSM alternative list B)	high	notes/shadows-culling.md §1.2
 0x8988a8	function	SynTokComputeEnd		KTGL tok 0x7D: UAV barrier (1139D4), dirty 0x20, c+0x541 = 0	high	notes/gpu-scheduling.md §A.3
@@ -1428,6 +1488,7 @@ rva	kind	name	signature	description	confidence	source
 0x8ccb80	function	SetParamIndirectRenderScale	bool SetParamIndirectRenderScale(float v, void* params, int idx)	writes float v to render param hash 0xD8A8960F slot idx (IndirectRenderScale; sizes RefProbe#121 dispatch)	medium	notes/gpu-maxsettings.md §3
 0x8ee418	function	PauseSpin_8EE418		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 8EE426..8EE44C	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x8f0b5c	function	SynTokFencePoint		KTGL tok 1 handler body: list boundary + fence on the dispatcher context (list ring c+0x5A0)	medium	notes/gpu-scheduling.md §B.1
+0x8f4548	function	GfxWait		FenceSync subsystem; D3D12: Queue.Wait (sites 8F4580)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x8fe3bc	function	SchedCtxKick	void SchedCtxKick(Ctx* ctx, JobScheduler* s)	if sched+2D8h & 0x187C0000: push the pool context job (31A63C) and JobWakeOne(ctx pool) at 8FE4BD; called from MainLoopFrame 1A746CD / 1A74ACD	medium	notes/stutter.md §3.5
 0x8ffd28	function	ParamTableSetU32_93BCE2C1	void ParamTableSetU32_93BCE2C1(u32 v, ParamTable* t, u32 i)	VsmTilesPerFrameBudget (hash 93BCE2C1, real name unknown): node default 16; ApplyShadowQuality rows 1..5: 2/2/8/8/8	high	notes/work-deciders.md §A3
 0x9039be	label	JmpIat_WaitForMultipleObjects_9039BE		`jmp [IAT WaitForMultipleObjects]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
@@ -1445,6 +1506,7 @@ rva	kind	name	signature	description	confidence	source
 0x9170c8	function	PauseSpin_9170C8		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 9170E8..917170 917163..917177	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x9173f8	function	GetMaxDrawnCharacters	int GetMaxDrawnCharacters(void)	floor(60 (k_Sixty) x 0.5/0.75/1.0) = 30/45/60 for MODEL_DRAW FEW/NORMAL/MANY; caller CharacterDrawBudgetCull	high	notes/work-deciders.md §1
 0x91743c	function	GetModelDrawLevelBias	int GetModelDrawLevelBias(void)	MODEL_DRAW (0x45BAF98) FEW/NORMAL/MANY -> 2/1/0; only caller GetMaxDrawnCharacters	high	notes/work-deciders.md §1
+0x91fa00	function	GfxGetBackBufferIndex		Present subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex (sites 91FA13)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x9261dc	function	UiBufferPoolAcquire	void** UiBufferPoolAcquire(void* pool)	returns the current {VB, IB} GpuBuffer pair of the UI buffer ring (pool+390h, refilled from pool+78h, advanced via pair+10h) under the pool+3A8h lock; called once per frame by UiQuadBuild	high	notes/ui-mainthread.md §E
 0x9290d8	function	CreateGfxPso	ID3D12PipelineState* CreateGfxPso(RenderGlobals* g, PsoDesc80* d)	builds D3D12_GRAPHICS_PIPELINE_STATE_DESC from the 0x80-byte key (shader objects at d+0/d+20h, root signature lookup under CS g+4760h) and calls device(g+4268h)->CreateGraphicsPipelineState (vtbl+50h); if d+30h != 0 (mesh/amplification shaders) uses ID3D12Device2::CreatePipelineState (vtbl+178h) with a 0x268-byte stream; callers 119670 (runtime) and 2EFE440 (preload)	high	notes/stutter.md §3.1
 0x93b720	function	MeshletFrameSetupD		setup callee of MeshletFrameBegin	low	notes/meshlet-mainthread.md §1
@@ -1471,12 +1533,15 @@ rva	kind	name	signature	description	confidence	source
 0x9c0a3c	function	HeapInit	void HeapInit(Heap* h, void* base, size_t size)	sets +20h base, +28h chunk0=(base+8Fh)&~0Fh, +30h end, +38h bins, +40h shift 4, +44h 16 bins, then HeapReset	high	notes/load-memory.md §1
 0x9c0a94	function	HeapReset	void HeapReset(Heap* h)	whole region = one free chunk at [h+28h]; zero bins, used, peak; reached via vtable thunks 30AB828/30AB840/3254080	high	notes/load-memory.md §1
 0x9c2ee0	function	TextureStagingAllocDedicated		dedicated persistent staging buffer kept across maps	high	notes/mainthread-drawprep.md §2 C; notes/ui-mainthread.md §C
-0x9e2ba4	function	SynCopyTextureRegion91	void(SynCtx* c, ...)	tok 0x91 (9E2A74): src -> COPY_SOURCE, CopyTextureRegion, restore; no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x9e2ba4	function	SynCopyTextureRegion91	void(SynCtx* c, ...)	tok 0x91 (9E2A74): src -> COPY_SOURCE, CopyTextureRegion, restore; no stamp	high	notes/vkd3d-audit.md Addendum B
+0x9e7744	function	GpuMemGetTextureCopyFootprints		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints (sites 9E7782,9E77C0)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x9f34e0	function	SynDrawInstanced_9F34E0		SynRecord subsystem; D3D12: CL.DrawInstanced (sites 9F351D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x9f9b9c	label	JmpIat_SleepConditionVariableSRW_9F9B9C		`jmp [IAT SleepConditionVariableSRW]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x9fc2f4	function	ThreadFuncInvoke	void ThreadFuncInvoke(ThreadCtx* c)	9FC318(c, c+24h), then c+20h = c+10h(c+18h); thread-entry thunk on the unnamed threads	medium	notes/perf-coverage.md
 0xa01e58	function	PauseSpin_A01E58		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops A01E78..A01F00 A01EF3..A01F07	medium	re/out/spinscan.txt §fragments containing PAUSE
 0xa09a40	function	ZlibInflateChunk16K_C	bool (void* dst, u32 cap, u64* outLen, i64* src, int csize)	variant with an 8-byte source header and a checksum over the payload (A347D8) before inflating; sites A099DD 324C372 324C4A1	medium	notes/loading.md
 0xa1ec19	label	Sleep0Call_A1EC19		call Sleep(0); pdata fragment start A1EB88	high	re/out/spinscan.txt §all call sites
+0xa2c70c	function	GpuMemCreateCommittedResourceAndDesc		GpuMemory subsystem; D3D12: Device.CreateCommittedResource, Resource.GetDesc (sites A2C7FD,A2C81B)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0xa2d442	label	Sleep0Call_A2D442		call Sleep(0); pdata fragment start A2D398	high	re/out/spinscan.txt §all call sites
 0xa300b0	function	ShaderGroupFileLoad		Loads shader_dx12 group: builds '<root>../../shader_dx12/0x%08x.file' via KTGL file system, falls back to PB2Unknown.file; no checksum -> loose-file shader replacement (GHDM, WDO#28) works	high	notes/gpu-shader-replacement.md §2
 0xa34750	function	PlacementRebuildEnqueue	void PlacementRebuildEnqueue(void* q, void* handle, void* unit)	queues a placement rebuild (0x38-byte entry in q+0x1A8 vector; q = g_pSceneDrawCfg+0x1208); if the resource (+0x348) is missing sets unit+0xEA/+0xF9 instead	high	notes/work-deciders.md §A2
@@ -1714,6 +1779,11 @@ rva	kind	name	signature	description	confidence	source
 0x10e07c0	function	PauseSpin_10E07C0		code with 8 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 10E1AC4..10E1ACE 10E1AE0..10E1AEA 10E1B20..10E1B2A 10E1B40..10E1B4A 10E1B60..10E1B6A 10E1B80..10E1B8A 10E1C20..10E1C2A 10E1C40..10E1C4A 10E0D40..10E1D4A 10E13D8..10E1D86 10E13D8..10E1DA6 10E120F..10E1DBE 10E120F..10E1DDE 10E1229..10E1DF6 10E1229..10E1E51 10E1243..10E1E69 10E1243..10E1E89 10E125D..10E1EA1 10E125D..10E1EC1 10E1277..10E1ED9 10E1277..10E1F34 10E12B9..10E1F4C 10E12B9..10E1F6C 10E1348..10E1F84 10E1348..10E1FA4 10E1362..10E1FBC 10E1362..10E2017 10E137C..10E202F 10E137C..10E204F 10E1396..10E2067 10E1396..10E2087 10E13B0..10E209F 10E13B0..10E20FA	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x10e2200	function	PlaceableVisibilityJob		46-byte caller of PlaceableVisibilityUpdateRange with 0 direct callers (job/callback wrapper)	low	re/out/anchors.md §site 0xde8d0
 0x10e50f0	function	ShaderGroupResourceResolve		Resource-type resolver for type hash 0x7bcd279f (G1SFile shader group); calls ShaderGroupFileLoad	high	notes/gpu-shader-replacement.md §2
+0x10ec9c0	function	GfxGetBackBufferIndex_10EC9C0		Present subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex (sites 10EC9EA)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x10efeab	function	GfxQueryDXGIOutput6		Present subsystem; D3D12: Unknown.QueryInterface(IDXGIOutput6) (sites 10EFECC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x10f1519	function	GfxGetBackBufferIndex_10F1519		Present subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex (sites 10F153F)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x10f185a	function	GfxGetBackBufferIndex_10F185A		Present subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex (sites 10F188B)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x10f25a0	function	GfxGetBackBufferIndex_10F25A0		Present subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex (sites 10F25C9)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x10f6ff0	function	SceneOverrideIsInactive	bool SceneOverrideIsInactive(void *o)	9 B leaf, tail target of F_9bb40c (global [3B68BA0h]); true when o+8 float <= 0 and byte o+10h == 0; F_9bb40c has 13 callers incl. GiRenderScalesApply, 563dc8, 27275f4..2728e14	low	notes/perf-coverage.md (perf-rename-2)
 0x10f7d00	function	EventFpsOverride		Event/cutscene fps override (EVENT_FPS); forces G[620]=30 at 0x10F7DAF; no online condition	medium	notes/frame-timing.md §8.4, §10.2
 0x10f7daf	label	EventFpsOverride_Force30		Event code sets G[620]=30 when event-fps flag (EVENT_FPS) set	high	notes/frame-timing.md §2, §8.4
@@ -1723,6 +1793,7 @@ rva	kind	name	signature	description	confidence	source
 0x1104880	function	WindSensitivityReaderA		Game-side reader of WIND_SENSITIVITY (cloth/foliage wind sim)	medium	notes/settings.md §2 WIND_SENSITIVITY
 0x1104f50	function	WindSensitivityReaderB		Game-side reader of WIND_SENSITIVITY	medium	notes/settings.md §2 WIND_SENSITIVITY
 0x11327fe	label	WfsoXCall_11327FE		call WaitForSingleObject(?); pdata fragment start 1132790	high	re/out/spinscan.txt §all call sites
+0x1135f60	function	GpuMemQueryVideoMemoryInfo		GpuMemory subsystem; D3D12: Unknown.QueryInterface(IDXGIAdapter3), Adapter.QueryVideoMemoryInfo (sites 1135FDA,1136000)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x1137695	label	WfsoXCall_1137695		call WaitForSingleObject(?); pdata fragment start 1137620	high	re/out/spinscan.txt §all call sites
 0x1138fb0	function	PreUpdateMenuThread		References "[App]PreUpdateMenuThread" task name (59 B)	medium	re/out/README.md §Findings: frame pacing
 0x115a3d8	label	InlinedGetFps_115A3D8		Inlined reader of G[614], float x/fps	high	notes/frame-timing.md §3
@@ -1827,10 +1898,17 @@ rva	kind	name	signature	description	confidence	source
 0x1893374	function	EffectDlRecordSimThunk		-> EffectDlRecordSim 2EA7D24 with the render device (g 0x45BA588)	high	notes/particles.md §1
 0x18933d4	function	EffectDlRecordDrawThunk		-> EffectDlRecordDraw 2EA7FCC with the render device	high	notes/particles.md §1
 0x1895274	function	GpuParticleMgrSetTargetsB		mgr+0x53B0/+0x53B8 targets, +0x53C0/+0x53C8	medium	notes/particles.md §1
+0x18956f4	function	GpuMemPollFence_18956F4		GpuMemory subsystem; D3D12: Fence.GetCompletedValue (sites 1895881)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x1895974	function	GpuMemPollFence_1895974		GpuMemory subsystem; D3D12: Fence.GetCompletedValue (sites 1895ACA)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x1895b4c	function	GpuMemPollFence_1895B4C		GpuMemory subsystem; D3D12: Fence.GetCompletedValue (sites 1895C8E)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x1895dbc	function	GpuMemPollFence_1895DBC		GpuMemory subsystem; D3D12: Device.OpenSharedHandle, Fence.GetCompletedValue, Resource.Release (sites 1895E4D,1895F1E,1895FF8)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x1896108	function	GpuMemPollFence_1896108		GpuMemory subsystem; D3D12: Fence.GetCompletedValue (sites 18961EC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x1896810	function	GfxGetDeviceRemovedReason		DeviceLost subsystem; D3D12: Device.GetDeviceRemovedReason (sites 1896834)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x1896ac8	function	KtglCacheShutdown		teardown: CacheFlushOnGfx, release queues/jobs, CacheTileBatchFlushAndSignalGfx	high	notes/gpu-tiles.md
 0x1898f7e	label	WfsoXCall_1898F7E		call WaitForSingleObject(?); pdata fragment start 1898F44	high	re/out/spinscan.txt §all call sites
 0x1899a54	function	PsoCacheGrow	bool PsoCacheGrow(void* cache, int n)	allocates (n+8)/9+4 blocks of 0xAC0 bytes for the PSO cache when count >= capacity (+730h vs +73Ch, step +7D4h); failure -> PSO not created	medium	notes/stutter.md §3.1
 0x189ba34	function	CacheTileBatchFlushRecorded	void (TileBatch* b, Ctx* ctx, Stats* s)	records the batch as ECL token 4 into ctx+5A0h (189BF3C -> 2F150AC) instead of calling D3D12; s+3Ch += n	high	notes/gpu-tiles.md
+0x189babc	function	D3dAddRef		Other subsystem; D3D12: Unknown.AddRef (sites 189BACB)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x189bef4	function	CtxEmitCopyTileMappings		stream = rcx+40h; -> EclEmitCopyTileMappings 2F15010	high	notes/gpu-tiles.md
 0x189bf3c	function	CtxEmitUpdateTileMappings		stream = rcx+40h; -> EclEmitUpdateTileMappings 2F150AC	high	notes/gpu-tiles.md
 0x189bfb0	function	RenderSubmitHot_189BFB0		SynergisticDispatcherTask (D3D12 submission thread) hotspot: 0.6% self (capture 2); render-submit side, role not identified; profiler marked (leaf?) [Ghidra: 114 B, 1 callers]	low	notes/cpu-profile.md §Top 30 self functions
@@ -1874,6 +1952,7 @@ rva	kind	name	signature	description	confidence	source
 0x191f137	label	Sleep0Call_191F137		call Sleep(0); pdata fragment start 191F0EE	high	re/out/spinscan.txt §all call sites
 0x191f1b2	label	Sleep0Call_191F1B2		call Sleep(0); pdata fragment start 191F184	high	re/out/spinscan.txt §all call sites
 0x191fc16	label	Sleep0Call_191FC16		call Sleep(0); pdata fragment start 191FC0A	high	re/out/spinscan.txt §all call sites
+0x191ff16	function	SynDrawVb		SynRecord subsystem; D3D12: CL.IASetVertexBuffers, CL.DrawInstanced (sites 191FF50,191FF6D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x1921a30	label	EclRingPush_FullWait		cold path of EclRingPushItem 86F828: ring full -> WaitForSingleObject(sem, INFINITE) (1921A43); the SynergisticDispatcher's 69 % "[ntdll] <- 4930C8" is this proper block (GPU-bound backpressure)	high	notes/cpu-hotspots-ally.md §6
 0x1921a43	label	WfsoXCall_1921A43		call WaitForSingleObject(?); pdata fragment start 1921A30	high	re/out/spinscan.txt §all call sites
 0x1922060	label	WfsoXCall_1922060		call WaitForSingleObject(?); pdata fragment start 192205A	high	re/out/spinscan.txt §all call sites
@@ -1918,6 +1997,8 @@ rva	kind	name	signature	description	confidence	source
 0x19a51e5	label	Sleep0Call_19A51E5		call Sleep(0); pdata fragment start 19A51C2	high	re/out/spinscan.txt §all call sites
 0x19a529e	label	Sleep0Call_19A529E		call Sleep(0); pdata fragment start 19A51C2	high	re/out/spinscan.txt §all call sites
 0x19a9b2c	label	XInputFindActivePad_Found		cold block: activity test on the returned XINPUT_STATE, sets PadMgr::ActiveXSlot	high	notes/input-thread.md §3
+0x19b085e	function	GfxEndQuery		GpuTiming subsystem; D3D12: CL.EndQuery (sites 19B08A8)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x19b1802	function	GfxGetBackBufferIndex_19B1802		Present subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex (sites 19B180C)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x19b273e	label	Sleep0Call_19B273E		call Sleep(0); pdata fragment start 19B2726	high	re/out/spinscan.txt §all call sites
 0x19cdbf6	label	Sleep0Call_19CDBF6		call Sleep(0); pdata fragment start 19CDBF4	high	re/out/spinscan.txt §all call sites
 0x19cdc10	label	Sleep0Call_19CDC10		call Sleep(0); pdata fragment start 19CDC0E	high	re/out/spinscan.txt §all call sites
@@ -1965,6 +2046,7 @@ rva	kind	name	signature	description	confidence	source
 0x1a444cc	label	Sleep0Call_1A444CC		call Sleep(0); pdata fragment start 1A444CA	high	re/out/spinscan.txt §all call sites
 0x1a445a6	label	Sleep0Call_1A445A6		call Sleep(0); pdata fragment start 1A4459E	high	re/out/spinscan.txt §all call sites
 0x1a60165	label	Sleep1Call_1A60165		call Sleep(1); pdata fragment start 1A60160	high	re/out/spinscan.txt §all call sites
+0x1a6103e	function	GpuMemCreateHeapAndDesc		GpuMemory subsystem; D3D12: Device.CreateHeap, Heap.GetDesc (sites 1A61077,1A61091)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x1a6bb84	function	JobWorkerThreadMain	u32 JobWorkerThreadMain(JobWorker* w)	KIDS worker thread: SetThreadDescription, loop { JobWorkerRunUntilIdle; lock inc pool+30h (idle); set thread+10h bit0; WaitForSingleObject(thread+8, INFINITE); lock dec pool+30h }; Sleep(1) while paused (pool+48h & 50000000h)	high	notes/job-system.md §1
 0x1a6bc15	label	JobWorkerThreadMain_SetSleepBit		CAS sets thread+10h bit0 = "sleeping, wake me" before the INFINITE wait at 1A6BC35	high	notes/job-system.md §1
 0x1a6bc35	label	WfsoXCall_1A6BC35		call WaitForSingleObject(?); pdata fragment start 1A6BB84	high	re/out/spinscan.txt §all call sites
@@ -2080,6 +2162,7 @@ rva	kind	name	signature	description	confidence	source
 0x1fe22f8	function	GetConfigDefaultIdx	int GetConfigDefaultIdx(int key)	Returns ConfigDesc::DefaultIdx (+0x20) or -1	high	re/settings/acc.asm
 0x1fe2314	function	GetConfigValueString	const char* GetConfigValueString(int key, int value)	Option string for enum keys (bounds-checked vs Count) or "%d"-formats int keys into desc FormatBuf (bounds-checked vs Min/Max); "" if invalid	high	re/settings/acc.asm
 0x1fe2424	function	GetPrimaryMonitorIndex	int GetPrimaryMonitorIndex(void)	Fallback monitor index when g_MonitorTable[MONITOR_ID] is null	low	re/out/anchors.md §site 0x8781f8
+0x1fe2830	function	GfxGetDesc		Present subsystem; D3D12: SwapChain.GetDesc (sites 1FE285F)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x1fe2fd4	function	SizeWorkerPools		sizes the engine's 74 worker pools once at boot from the logical CPU count (clamped 6..32); with <13 logical CPUs it takes 3 threads from pool 3 (KIDS_RESOURCE) and pool 5 (StageUpdate) [Ghidra: 357 B, 1 callers] (aka SizeThreadPools) || also: Worker count = clamp(logical,6,32) (12 here), sizes 74 named pools from g_ThreadPoolTable 0x4b722d0; <=12 logical CPUs -> KIDS_RESOURCE and StageUpdate lose 3 threads each (P12 patch lifts it, no fps gain)	high	patcher/pool_patch.fsx; notes/settings.md §4.3; README.md §Second round
 0x1fe300b	label	SizeWorkerPools_BaseClampCmp	cmp r11d,20h	WC (WorkerCap) site A: upper clamp of the logical count -> imm8 = cap	high	notes/job-system.md §2c; re/scripts_jobs/jobs_live.fsx
 0x1fe3011	label	SizeWorkerPools_BaseClampMov	mov al,20h	WC (WorkerCap) site B: clamped value -> imm8 = cap (write before site A)	high	notes/job-system.md §2c; re/scripts_jobs/jobs_live.fsx
@@ -2161,6 +2244,7 @@ rva	kind	name	signature	description	confidence	source
 0x24bcdf8	function	LodScaleCfgRelease	void LodScaleCfgRelease(void)	releases the singleton resource handles (+0xA00, +0xA08 table, +0xA10, +0xA20, +0xA28) and clears g_pLodScaleCfg	medium	notes/work-deciders.md §A4
 0x24ec5ab	label	Sleep0Call_24EC5AB		call Sleep(0); pdata fragment start 24EC580	high	re/out/spinscan.txt §all call sites
 0x255038d	label	Sleep0Call_255038D		call Sleep(0); pdata fragment start 254FAF8	high	re/out/spinscan.txt §all call sites
+0x259f5ac	function	GpuMemGetResourceAllocationInfo		GpuMemory subsystem; D3D12: Device.GetResourceAllocationInfo (sites 259F73D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x25ade2c	function	NatureSkyFactory	Node* (...)	resolves the hashes, then NatureSkyCtor 346D83C	high	notes/perf-coverage.md (perf-rename-3)
 0x25b2850	function	ReflectionProbeDenoiserFactory	Node* (...)	resolves the hashes, then ReflectionProbeDenoiserCtor 367A494	high	notes/perf-coverage.md (perf-rename-3)
 0x25b2ac0	function	ReflectionProbePassFactory		Node factory; resolves 20 RT/shader hashes for ReflectionProbePass (RefProbe-CllPtSfbSplsSslsSsmVsm screen-space GI/reflection gather, ~0.71 ms)	high	notes/invisible-gpu.md §1 CPU side
@@ -2212,6 +2296,7 @@ rva	kind	name	signature	description	confidence	source
 0x297bb74	label	Sleep1Call_297BB74		call Sleep(1); pdata fragment start 297BB64	high	re/out/spinscan.txt §all call sites
 0x298d6c8	function	CreateGameWindow		Registers the window class and creates the game window (sole RegisterClassExA/CreateWindowExA caller); stores WndProc pointer (DATA ref at 0x298dc0f); 2106 B (aka AppInit) || also: App/window init: CPU detect 0x298eda8, pool sizing 0x1fe2fd4, LoadConfig 0x1fe41a0, then window creation using DISP_MODE/MONITOR/output size/WINDOW_POS slots ("Nioh 3" title)	high	re/out/anchors.md §site 0x8781f8; re/out/imports.tsv; re/settings/appinit.asm; re/settings/live_refs.txt
 0x298dc0f	label	CreateGameWindow_SetWndProc		Instruction referencing WndProc (0x878054) as lpfnWndProc	medium	re/out/anchors.md §site 0x8781f8
+0x298e4b8	function	GfxGetDeviceRemovedReason_298E4B8		DeviceLost subsystem; D3D12: Device.GetDeviceRemovedReason (sites 298E567)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x298eda8	function	DetectCpuTopology		GetLogicalProcessorInformationEx CPU detect: physical/logical/P/E core counts (+0x270..+0x27C), IsRyzen (+0x281), IsZen1/Zen+ (+0x282); reads CPU_SPEC_CLASS slot	high	notes/settings.md §4.3; re/settings/cpuspec.asm
 0x298f598	function	WinMain	int WinMain(HINSTANCE, HINSTANCE, char*, int)	called by __scrt_common_main_seh: 134F550 setup, WinMainAppLoop, shutdown; root of the [App]Game thread	high	notes/perf-coverage.md
 0x2998b4c	function	FsrConfigApply		FSR upscaler config callback; writes POSTEFFECT_RESOLUTION flag to S+0x1fff (aka UpscalerParamsA) || also: Upscaler-side code reading POSTEFFECT_RESOLUTION, RESOLUTION_SCALING and FSR sharpness	high	notes/gpu-copies-postres.md §2; notes/settings.md §2 POSTEFFECT_RESOLUTION; re/settings/live_refs.txt
@@ -2258,7 +2343,7 @@ rva	kind	name	signature	description	confidence	source
 0x2ec7ad4	function	GpuParticleInit	bool GpuParticleInit(GpuParticleMgr* m)	creates the GPU particle compute PSOs (27 per-type update CS at +0x538 incl. exe CS 5e771e53, 3x27 at +0x610, more at +0x898) and caches cbuffer var indices (+0x2880, 12 per shader: nMaxParticleNum, dt, nParticleManagerAddress, vViewZ, fFadeParam, ...); called from GpuParticleMgrInit 2EC6318; dispatches recorded by GpuParticleSimRecord 694B38 via sub-emitter vfunc +0xF0	high	notes/particles.md §1; notes/invisible-gpu.md §4b
 0x2ec7b16	label	GpuParticleInit_CreateUpdatePso		PSO creation for particle update CS 5e771e53	high	notes/invisible-gpu.md §4b
 0x2ec881c	function	GpuParticleMgrRelease		releases the 27-entry shader arrays (+0x538.., +0x610.., +0x898..) and buffers, then self	medium	notes/particles.md §1
-0x2ec8bf4	function	ComputePsoWarmOrCache	void (void* p, void* shader)	if [p+53D8h]==0 creates the compute PSO and releases it at once (driver-cache warm-up) else caches it via 58C000; 16 calls from 2EC8AA8 (init)	medium	notes/stutter.md §3.1
+0x2ec8bf4	function	ComputePsoWarmOrCache	void (void* p, void* shader)	if [p+53D8h]==0 creates the compute PSO and releases it at once (driver-cache warm-up) else caches it via 58C000; 16 calls from 2EC8AA8 (init)	high	notes/stutter.md §3.1
 0x2ec91c8	label	Sleep0Call_2EC91C8		call Sleep(0); pdata fragment start 2EC91B4	high	re/out/spinscan.txt §all call sites
 0x2ec91e0	function	EffectDlRecordSimImpl	u32 EffectDlRecordSimImpl(Dl* dl, Ctx* c, ...)	DL frame (+0x4C < +0x40, flag 0x100): tokens 0x7C/0x7D, GpuParticleSimRecord 694B38, then per object (+0xCC bit9) per group (flags 0x20, 0x10000) GpuParticleGroupRecordDraw; g_ViewGpuEffectSimFraction < 1 keeps only that share of type-10 groups; marks the frame entry 2	high	notes/particles.md §1
 0x2ec9580	function	EffectDlRecordDrawImpl	u32 EffectDlRecordDrawImpl(Dl* dl, Ctx* c, ...)	twin of 2EC91E0 for DL flag 0x200 (type-11 groups, g_ViewGpuEffectDrawFraction); also calls 694B38 (guarded once per frame)	high	notes/particles.md §1
@@ -2268,21 +2353,40 @@ rva	kind	name	signature	description	confidence	source
 0x2edaf58	function	GlyphCacheCreate	GlyphAtlas*(void* font, void* p2, Allocator* alloc, uint p4, uint8 persist)	allocates 0x260C8 B (default allocator from g_DefaultAllocatorRoot+0x20), runs GlyphCacheCtor, memsets +0x50 buffer 0x20000; body 225 B	high	notes/ui-mainthread.md §C; re/scripts_ui/g2.txt
 0x2ee090f	label	CallSpinWaitFlagSleep0_2EE090F		one of the 4 callers (call sites) of SpinWaitFlagSleep0 (7D9E90)	high	notes/cpu-profile.md §TL;DR W6
 0x2ee0932	label	WfsoXCall_2EE0932		call WaitForSingleObject(?); pdata fragment start 2EE0694	high	re/out/spinscan.txt §all call sites
+0x2ee1970	function	GpuMemUploadTextureAndUnmap_2EE1970		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints, Resource.Unmap, Resource.Release (sites 2EE19CB,2EE1A07,2EE1B6A,2EE1B90)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2ee1bc0	function	CreateDxgiFactory		Calls CreateDXGIFactory2 via the Streamline interposer (731 B)	high	re/out/README.md §KATANA / engine identification; re/out/imports.tsv
+0x2ee2158	function	GpuMemRelease_2EE2158		GpuMemory subsystem; D3D12: Resource.Release (sites 2EE247D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee2500	function	GfxInitCreateDirectCmdList		DeviceInit subsystem; D3D12: Device.CreateCommandList (sites 2EE253E)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2ee256c	function	AsyncComputeCtxCreate	KtglContext*(GfxDevice* d, cfg*)	allocates a free async context slot d+0x74D8[i] (count d+0x3E28) and initialises it via 2EF8354	high	notes/gpu-scheduling.md §A.2
+0x2ee276c	function	GpuMemAllocResourceMemoryFenced_2EE276C		GpuMemory subsystem; D3D12: Device.GetResourceAllocationInfo, Fence.GetCompletedValue x2, Resource.GetDesc, Resource.Release (sites 2EE299E,2EE2BB3,2EE2CDA,2EE2D51,2EE2ED8)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee2f08	function	GpuMemGetBuffer		GpuMemory subsystem; D3D12: SwapChain.GetBuffer (sites 2EE2F4F)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2ee300c	function	CreateD3D12Device		Calls D3D12CreateDevice and D3D12GetDebugInterface (Streamline sl.interposer.dll imports); 1629 B	high	re/out/README.md §KATANA / engine identification; re/out/imports.tsv
+0x2ee3dcc	function	GpuMemAllocResourceMemoryFenced_2EE3DCC		GpuMemory subsystem; D3D12: Device.GetResourceAllocationInfo, Fence.GetCompletedValue x4, Device.GetDescriptorHandleIncrementSize, Resource.GetDesc, Resource.Release (sites 2EE4014,2EE41FD,2EE424A,2EE4352,2EE4509,2EE4619,...)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee497c	function	GfxInitCreateQueryHeap		DeviceInit subsystem; D3D12: Device.CreateQueryHeap (sites 2EE4A61)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee4b00	function	GpuMemCreateCommittedResource_2EE4B00		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 2EE4C90)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2ee5a38	function	DxgiCreateSwapChain	bool (GfxDevice* d, Desc* desc, Window* w, u32 refreshHz)	CreateDXGIFactory1 (sl.interposer) -> legacy IDXGIFactory::CreateSwapChain(queue +4270h, DXGI_SWAP_CHAIN_DESC: BufferCount = desc+8 (3), Flags = cfg+3Ch (0x842 incl. FRAME_LATENCY_WAITABLE_OBJECT)) -> QI IDXGISwapChain3 into +4278h -> MakeWindowAssociation(hwnd, 3). The game never calls SetMaximumFrameLatency (no swapchain vtbl+F8h call anywhere): waitable max latency stays at its default 1	high	notes/input-latency.md §3
+0x2ee5c58	function	GpuMemSizeTiledResourceAlloc_2EE5C58		GpuMemory subsystem; D3D12: Device.GetResourceTiling x2, Device.GetResourceAllocationInfo x2, Fence.GetCompletedValue (sites 2EE6032,2EE61DA,2EE621A,2EE6366,2EE647D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee6a24	function	GpuMemUploadTextureAndUnmap_2EE6A24		GpuMemory subsystem; D3D12: Device.GetCopyableFootprints, Resource.Unmap, Resource.Release (sites 2EE6BED,2EE6DFB,2EE6E45)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee6e74	function	GpuMemAllocResourceMemoryFenced_2EE6E74		GpuMemory subsystem; D3D12: Device.GetResourceAllocationInfo, Fence.GetCompletedValue, Resource.Release (sites 2EE700E,2EE71FB,2EE72B7)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee7bbc	function	GpuMemCreateCommittedResource_2EE7BBC		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 2EE7C1D)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee7c30	function	GfxCreateDepthStencilView		Views subsystem; D3D12: Device.CreateDepthStencilView (sites 2EE7C48)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2ee8498	function	DebugFpsOverlayFormat		Only function referencing the debug FPS overlay string per strings.tsv (1633 B); role beyond that unverified	high	re/out/strings.tsv
 0x2ee8fe8	function	PagePoolGetPrevUsedCount	u32 (GfxDevice* g)	trivial getter: return [g+6CD0h] (= pool+B30h, previous used-entry count); no direct or vtable refs found (likely an RVA table / binding)	medium	notes/parallel-drawprep.md §5.1
 0x2ee8ff0	function	PagePoolGetPrevFullBuckets	u32 (GfxDevice* g)	trivial getter: return [g+6CD8h] (= pool+B38h, previous full-bucket count)	medium	notes/parallel-drawprep.md §5.1
-0x2ee9de4	function	GfxCreateDirectQueue		CreateCommandQueue(type 0 DIRECT) + allocator + fence + list (the device's GFX queue path)	medium	notes/gpu-scheduling.md §A.1
-0x2ee9ee8	function	GfxCreateCopyQueue8		CreateCommandQueue(type 3 COPY) + 8 copy lists	medium	notes/gpu-scheduling.md §A.1
+0x2ee93d4	function	GfxInitCreateFence		DeviceInit subsystem; D3D12: Device.CreateFence (sites 2EE93F2)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee9424	function	GpuMemAddRef_2EE9424		GpuMemory subsystem; D3D12: Resource.AddRef (sites 2EE9852)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ee9de4	function	GfxCreateDirectQueue		CreateCommandQueue(type 0 DIRECT) + allocator + fence + list (the device's GFX queue path)	high	notes/gpu-scheduling.md §A.1
+0x2ee9ee8	function	GfxCreateCopyQueue8		CreateCommandQueue(type 3 COPY) + 8 copy lists	high	notes/gpu-scheduling.md §A.1
 0x2eea344	function	PresentThreadEntry	u32 (void)	thread entry of the (unnamed) present thread -> PresentThreadLoop	high	notes/d3d12-submission.md §1
 0x2eea690	function	RecreateSwapchainDevice	bool RecreateSwapchainDevice(GfxDevice* d, Desc* desc, void* modes)	4.5 KB swapchain/output (re)create used by DisplayResetRebuildSwapchain; calls CreateDxgiFactory 0x2EE1BC0; internals not traced	high	notes/frame-generation.md §3
+0x2eebccc	function	GfxInitQueryAdapterMemory		DeviceInit subsystem; D3D12: Device.GetAdapterLuid, Factory.EnumAdapterByLuid, Unknown.QueryInterface(IDXGIAdapter3), Adapter.QueryVideoMemoryInfo, Adapter.SetVideoMemoryReservation, Adapter.Release, Factory.Release (sites 2EEBCF6,2EEBD69,2EEBDB3,2EEBDCC,2EEBDE7,2EEBE0F,...)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2eebee4	function	GfxDeviceSetDebugTextConsole	void(GfxDevice* d, DebugTextConsole* c, int level)	leaf: d+76F0 = c, d+76F8 = level; no pdata, zero rel32 and zero absolute-pointer references in the dump -> dead in retail, so the KTGL perf overlay can never be switched on by a flag	high	notes/osd-design.md §A
 0x2eebf3c	label	WfsoXCall_2EEBF3C		call WaitForSingleObject(?); pdata fragment start 2EEBEF4	high	re/out/spinscan.txt §all call sites
+0x2eec044	function	GfxExecuteAndSignal		DeviceInit subsystem; D3D12: Queue.ExecuteCommandLists, Queue.Signal (sites 2EEC088,2EEC0A5)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2eec0f0	function	GfxInitGetContainingOutput		DeviceInit subsystem; D3D12: SwapChain.GetContainingOutput (sites 2EEC229)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2eec4c8	function	GfxDeviceTeardownForReset	void GfxDeviceTeardownForReset(GfxDevice* g, u8 sameMode, u8, char keepPool)	teardown half of RecreateSwapchainDevice 2EEA690: waits present (7D9E90), page pool shutdown/partial (1896AC8 / 2EF0938 on g+61A0), back buffers 2EEDEF8, releases timestamp query heap g+4768, readback g+4770, 16 command allocators g+4290.., g+4698.., render targets g+4718/4720/4728, frame block g+4288 (allocator g+3D90 vtbl+58h). Every object 2EEA690 creates is released here	high	notes/memory-leaks.md §5.2
 0x2eec4f9	label	CallSpinWaitFlagSleep0_2EEC4F9		one of the 4 callers (call sites) of SpinWaitFlagSleep0 (7D9E90)	high	notes/cpu-profile.md §TL;DR W6
+0x2eec664	function	GfxInitRelease		DeviceInit subsystem; D3D12: Unknown.Release (sites 2EEC6A9)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2eec755	label	WfsoXCall_2EEC755		call WaitForSingleObject(?); pdata fragment start 2EEC724	high	re/out/spinscan.txt §all call sites
 0x2eec784	label	WfsoXCall_2EEC784		call WaitForSingleObject(?); pdata fragment start 2EEC724	high	re/out/spinscan.txt §all call sites
 0x2eec9bc	function	PauseSpin_2EEC9BC		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2EEC9CC..2EEC9D4	medium	re/out/spinscan.txt §fragments containing PAUSE
@@ -2296,34 +2400,77 @@ rva	kind	name	signature	description	confidence	source
 0x2ef0c81	label	WfsoXCall_2EF0C81		call WaitForSingleObject(?); pdata fragment start 2EF0C44	high	re/out/spinscan.txt §all call sites
 0x2ef0e00	function	PauseSpin_2EF0E00		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2EF0E11..2EF0E1A	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x2ef0e90	function	PauseSpin_2EF0E90		code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 2EF0EA2..2EF0EAA	medium	re/out/spinscan.txt §fragments containing PAUSE
+0x2ef2c34	function	GpuMemCreateCommittedResource_2EF2C34		GpuMemory subsystem; D3D12: Device.CreateCommittedResource (sites 2EF2CE7)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef2d34	function	GfxInitCopyDescriptorsSimple		DeviceInit subsystem; D3D12: Unknown.GetDevice(ID3D12Device), Device.CopyDescriptorsSimple, Device.Release (sites 2EF2D5C,2EF2D8D,2EF2DA3)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef319c	function	GpuMemGetDesc_2EF319C		GpuMemory subsystem; D3D12: DescHeap.GetDesc (sites 2EF31DA)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef3310	function	GpuMemGetGPUVirtualAddressAndMap		GpuMemory subsystem; D3D12: Resource.GetGPUVirtualAddress, Resource.Map, Device.CreateCommittedResource (sites 2EF3442,2EF3458,2EF3550)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef356c	function	GpuMemGetGPUDescriptorHandleForHeapStart		GpuMemory subsystem; D3D12: DescHeap.GetGPUDescriptorHandleForHeapStart (sites 2EF35DF)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef3724	function	GfxInitWrapDescriptorHeap		DeviceInit subsystem; D3D12: DescHeap.GetDesc, Unknown.GetDevice(ID3D12Device), DescHeap.AddRef, Device.GetDescriptorHandleIncrementSize, DescHeap.GetCPUDescriptorHandleForHeapStart, DescHeap.GetGPUDescriptorHandleForHeapStart, Device.Release (sites 2EF3756,2EF377F,2EF37A4,2EF37BA,2EF37CA,2EF37E7,...)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef3824	function	GfxInitWrapDescriptorHeap_2EF3824		DeviceInit subsystem; D3D12: DescHeap.GetDesc, Unknown.GetDevice(ID3D12Device), DescHeap.AddRef, Device.GetDescriptorHandleIncrementSize, DescHeap.GetCPUDescriptorHandleForHeapStart, DescHeap.GetGPUDescriptorHandleForHeapStart, Device.Release (sites 2EF3862,2EF388B,2EF38B0,2EF38C3,2EF38D3,2EF38F8,...)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef3944	function	GfxInitCreateDescriptorHeapWrap		DeviceInit subsystem; D3D12: Device.CreateDescriptorHeap, Device.GetDescriptorHandleIncrementSize (sites 2EF39AF,2EF39D7)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2ef55c0	function	DebugOverlayUserCallback	void(DebugOverlayCb* cb, DebugTextConsole* c)	calls cb+50(cb, c, cb+30, cb+38, cb+40) under the critical section g_QpcTimer+0x90; reached from DebugFpsOverlayFormat via GfxDevice+7710	medium	notes/osd-design.md §A
 0x2ef596c	function	DebugTextPrintf	void(DebugTextConsole* c, const char* fmt, ...)	_vsnprintf into a 0x400 stack buffer, then DebugTextPuts; 25 callers	high	notes/osd-design.md §A
 0x2ef59dc	function	DebugTextPutsLine	DebugTextConsole*(DebugTextConsole* c, const char* s)	DebugTextPuts then row(+0)++, col(+4)=0	high	notes/osd-design.md §A
 0x2ef8354	function	AsyncComputeCtxInit		AsyncComputeCtxCreateQueue on ctx+0x68; optional own dispatcher backend (vtable 409A3B0) when cfg+0x3D	medium	notes/gpu-scheduling.md §A.2
 0x2ef8448	function	AsyncComputeCtxCreateQueue		CreateCommandQueue(type 2 COMPUTE), N compute allocators + lists, event, compute root signature, CBV/SRV/UAV/sampler heaps	high	notes/gpu-scheduling.md §A.1
+0x2ef9544	function	GfxCreateCbvOrSampler		Views subsystem; D3D12: Device.CreateConstantBufferView, Device.CreateSampler (sites 2EF9558,2EF956C)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef9580	function	GfxCreateCbvOrSampler_2EF9580		Views subsystem; D3D12: Device.CreateConstantBufferView, Device.CreateSampler (sites 2EF9594,2EF95B6)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef9c40	function	GpuMemGetTextureCopyFootprints_2EF9C40		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints (sites 2EF9C9B,2EF9CD9)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2ef9d94	function	GpuMemMapAndUploadTexture_2EF9D94		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints, Resource.Release, Resource.Map (sites 2EF9F2F,2EF9F62,2EFA062,2EFA080)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2efa1a0	function	GpuMemUploadTextureAndUnmap_2EFA1A0		GpuMemory subsystem; D3D12: Resource.Unmap, Resource.GetDesc, Device.GetCopyableFootprints (sites 2EFA1FF,2EFA258,2EFA28F)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2efba1c	function	CacheUnmapOnCtx		token-driven unmap (2F0D774 handler): first use inits the context, then 2EEF5AC -> CacheTileBatchUnmap on the cache GFX batch	medium	notes/gpu-tiles.md
 0x2efbda4	function	SynTokClearRtvDsv05	void(SynCtx* c, ...)	tok 0x05 (2F0D814): same pattern as 4591DC; no stamp	high	notes/vkd3d-audit.md Addendum B
 0x2efc060	function	GfxExecCopyTileMappings		GFX queue [dev+4270h]->CopyTileMappings (vtbl+48h, site 2EFC08B); executor vtable slot +58h	high	notes/gpu-tiles.md
-0x2efd138	function	SynTokExecuteIndirect80	void(SynCtx* c, u8** stream)	tok 0x80 (via 2F0D9E7): arg buffer transition (stamped) + ExecuteIndirect	medium	notes/vkd3d-audit.md Addendum B
-0x2efd430	function	SynTokDrawVbIb79	void(SynCtx* c, u8** stream)	tok 0x79 (via 2F0DB02): stamped VB and IB transitions ((cur&0xAC3)|+50), IASetVertexBuffers/IASetIndexBuffer, Draw/DrawIndexed	medium	notes/vkd3d-audit.md Addendum B
-0x2efd8dc	function	SynTokGpuDrivenBatch89	void(SynCtx* c, u8** stream)	tok 0x89: buffer SRV (cur&0xA83)|NPSR + buffer -> obj+48 (stamped), UAV barrier 83BBD8, ExecuteIndirect via 6ED00C	medium	notes/vkd3d-audit.md Addendum B
+0x2efd0a0	function	SynDispatchMesh		SynRecord subsystem; D3D12: CL.QueryInterface(ID3D12GraphicsCommandList6), CL.DispatchMesh, CL.Release (sites 2EFD0DD,2EFD105,2EFD124)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2efd138	function	SynTokExecuteIndirect80	void(SynCtx* c, u8** stream)	tok 0x80 (via 2F0D9E7): arg buffer transition (stamped) + ExecuteIndirect	high	notes/vkd3d-audit.md Addendum B
+0x2efd430	function	SynTokDrawVbIb79	void(SynCtx* c, u8** stream)	tok 0x79 (via 2F0DB02): stamped VB and IB transitions ((cur&0xAC3)|+50), IASetVertexBuffers/IASetIndexBuffer, Draw/DrawIndexed	high	notes/vkd3d-audit.md Addendum B
+0x2efd898	function	SynDrawIndexedInstanced_2EFD898		SynRecord subsystem; D3D12: CL.DrawIndexedInstanced (sites 2EFD8CC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2efd8dc	function	SynTokGpuDrivenBatch89	void(SynCtx* c, u8** stream)	tok 0x89: buffer SRV (cur&0xA83)|NPSR + buffer -> obj+48 (stamped), UAV barrier 83BBD8, ExecuteIndirect via 6ED00C	high	notes/vkd3d-audit.md Addendum B
 0x2efe094	function	SynTransitionToCommon	void(SynCtx* c, ID3D12Resource* r, u32* state)	tail helper: SynTransitionResource(r, state, COMMON, no stamp); reached by jmp from 2EED2E0	medium	notes/vkd3d-audit.md Addendum B
 0x2efe1cc	function	PsoPreloadComputeCreate	void PsoPreloadComputeCreate(void* owner, void* key)	creates the compute PSO outside the lock (58C2B0, SPR site PC 2EFE1F2), inserts into owner+7D8h if not present and below capacity	high	notes/stutter.md §3.1
 0x2efe2a8	function	PsoPreloadGfx	void PsoPreloadGfx(void* owner, PsoDesc80* d)	PreloadPSO list entry: normalises key byte +3Dh (79E990), skips keys already cached (lookup under CS owner+818h), else 2EFE440	high	notes/stutter.md §3.1
 0x2efe440	function	PsoPreloadGfxCreate	void PsoPreloadGfxCreate(void* owner, PsoDesc80* d, bool force)	creates the graphics PSO OUTSIDE the cache lock (9290D8, SPR site PG 2EFE47C) then inserts under the CS; releases it when the insert fails	high	notes/stutter.md §3.1
+0x2efe5d0	function	GfxWriteViewDescriptors		Views subsystem; D3D12: Device.CopyDescriptorsSimple, Device.CreateConstantBufferView, Device.CreateShaderResourceView, Device.CreateUnorderedAccessView (sites 2EFE73B,2EFE7A0,2EFE7F5,2EFE844)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2efea14	function	SynCtxCreateSignaturesAndQueries		DeviceInit subsystem; D3D12: Device.CreateRootSignature x2, Device.CreateCommandSignature x4, Device.CreateQueryHeap (sites 2EFEFB4,2EFF1A2,2EFF231,2EFF291,2EFF2F5,2EFF350,...)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2eff231	label	CreateEiCommandSignatures	call [device+148h]	CreateCommandSignature x2 (NULL root signature, NodeMask 0, MaxCount 1 use): DRAW stride 0x10 -> SynCtx+0x6E8, DRAW_INDEXED stride 0x14 -> SynCtx+0x6F0; IID lea at 2EFF1ED (3B99B10); plain signatures, so vkd3d needs no state template/DGC	medium	notes/vkd3d-audit.md
 0x2eff9c8	function	PsoKeyBuildGfx	void PsoKeyBuildGfx(SynCtx* c)	builds the runtime graphics PSO key at c+740h..+7BFh from the current shader/state shadow (c+48h.., rasterizer/blend/depth bits into c+780h/+784h) and applies the same normalisation as the preload (79E990); caller 2EFEA14	medium	notes/stutter.md §3.1
-0x2efff54	function	SynResolveSubresourceRegionTracked	void(SynCtx* c, ...)	tok 0x93 (2F0DFEC): RESOLVE_DEST / RESOLVE_SOURCE, ResolveSubresourceRegion, restore; no stamp	medium	notes/vkd3d-audit.md Addendum B
+0x2effcb8	function	GfxCreateSampler		Views subsystem; D3D12: Device.CreateSampler (sites 2EFFE77)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2efff54	function	SynResolveSubresourceRegionTracked	void(SynCtx* c, ...)	tok 0x93 (2F0DFEC): RESOLVE_DEST / RESOLVE_SOURCE, ResolveSubresourceRegion, restore; no stamp	high	notes/vkd3d-audit.md Addendum B
+0x2f000d0	function	SynResourceBarrier_2F000D0		SynRecord subsystem; D3D12: CL.ResourceBarrier (sites 2F0010C)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f00118	function	SynResourceBarrier_2F00118		SynRecord subsystem; D3D12: CL.ResourceBarrier (sites 2F001D6)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f00208	function	SynResourceBarrier_2F00208		SynRecord subsystem; D3D12: CL.ResourceBarrier (sites 2F0024F)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f00468	function	SynTokSetPredication	void(SynCtx* c, u8** stream)	tok 0xB8: predication buffer -> PREDICATION (0x200), inline tracker +14/stamp +18, SetPredication	high	notes/vkd3d-audit.md Addendum B
 0x2f0075c	function	SynCopyBufferRegionTracked	void(SynCtx* c, ...)	tok 0x68 (2F0E5AC) and 2F006A4/2F0071C: src -> COPY_SOURCE, dst -> COPY_DEST (stamped), CopyBufferRegion, -> STREAM_OUT, SOSetTargets	medium	notes/vkd3d-audit.md Addendum B
 0x2f00960	function	CtxEmitSignalGfx	void (Ctx* ctx, ID3D12Fence** f, u64 v)	ctx+5A0h stream, queue = [45BA588]+4270h -> 48FF10 (ECL Signal token)	medium	notes/gpu-tiles.md
 0x2f0103c	function	GfxExecUpdateTileMappings		[[this+8]+4270h] (the GFX DIRECT queue) ->UpdateTileMappings (vtbl+40h, site 2F0109D, Flags 0); slot +50h of the ECL executor vtable 409A620	high	notes/gpu-tiles.md
 0x2f010a8	function	CtxUpdateTileMappings		recording context: stream ctx+5A0h -> 189BF3C (token 4)	high	notes/gpu-tiles.md
+0x2f02fec	function	GpuMemCreateHeap		GpuMemory subsystem; D3D12: Device.CreateHeap (sites 2F03058)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f035c8	function	UploadHeapRingInit	void UploadHeapRingInit(UploadHeapRing* r, void* dev, int type, IAllocator* a, DevParams* p)	vtbl+08h: creates N heaps (p+170h upload / p+180h readback) of size p+168h / p+178h (CreateHeap via 2F02FEC), linked in a ring (0x38-byte entries)	high	notes/stutter.md §3.3
 0x2f03730	function	UploadHeapRingShutdown	void UploadHeapRingShutdown(UploadHeapRing* r)	vtbl+10h: releases every heap of the ring	medium	notes/stutter.md §3.3
+0x2f03f70	function	GpuMemCreateReservedResource_2F03F70		GpuMemory subsystem; D3D12: Device.CreateReservedResource (sites 2F03F9C)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f03f9c	label	CreateReservedResource_Backend	call [vtbl+F0h]	device->CreateReservedResource in the generic backend texture creator (signature-checked candidate; 62A191, 62D679 are the other two candidates)	medium	notes/gpu-tiles.md
+0x2f03fa8	function	GfxCreateShaderResourceView		Views subsystem; D3D12: Device.CreateShaderResourceView (sites 2F03FC0)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f03fd0	function	GfxCreateUnorderedAccessView		Views subsystem; D3D12: Device.CreateUnorderedAccessView (sites 2F03FEE)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f04ad4	function	GpuMemCreatePlacedResource_2F04AD4		GpuMemory subsystem; D3D12: Device.CreatePlacedResource (sites 2F04B31)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f04fb0	function	GfxInitCheckFeatureSupport		DeviceInit subsystem; D3D12: Device.CheckFeatureSupport (sites 2F04FF7)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f052a0	function	GfxInitCheckFeatureSupport_2F052A0		DeviceInit subsystem; D3D12: Device.CheckFeatureSupport (sites 2F052F5)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f056b0	function	GfxInitCheckFeatureSupport_2F056B0		DeviceInit subsystem; D3D12: Device.CheckFeatureSupport (sites 2F056EF)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f05730	function	GfxInitCheckFeatureSupport_2F05730		DeviceInit subsystem; D3D12: Device.CheckFeatureSupport (sites 2F0578B)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f08c90	function	GpuMemGetTextureCopyFootprints_2F08C90		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints (sites 2F08CE3,2F08D1A)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f08e28	function	GpuMemMapAndUploadTexture_2F08E28		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints, Resource.Release, Resource.Map (sites 2F08F33,2F08F66,2F0907F,2F0909B)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f09174	function	GpuMemUploadTextureAndUnmap_2F09174		GpuMemory subsystem; D3D12: Resource.Unmap, Resource.GetDesc, Device.GetCopyableFootprints (sites 2F091F0,2F09249,2F09280)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f09334	function	GpuMemGetTextureCopyFootprints_2F09334		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints (sites 2F0938D,2F093CD)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f09528	function	GpuMemMapAndUploadTexture_2F09528		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints, Resource.Release, Resource.Map (sites 2F09625,2F09658,2F09768,2F09784)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f098d0	function	GpuMemUploadTextureAndUnmap_2F098D0		GpuMemory subsystem; D3D12: Resource.Unmap, Resource.GetDesc, Device.GetCopyableFootprints (sites 2F0994F,2F099AC,2F099E3)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f09a5c	function	GpuMemGetTextureCopyFootprints_2F09A5C		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints (sites 2F09AB1,2F09AF1)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f09c68	function	GpuMemMapAndUploadTexture_2F09C68		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetCopyableFootprints, Resource.Release, Resource.Map (sites 2F09D73,2F09DA6,2F09EAE,2F09ECA)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f0a010	function	GpuMemUploadTextureAndUnmap_2F0A010		GpuMemory subsystem; D3D12: Resource.Unmap, Resource.GetDesc, Device.GetCopyableFootprints (sites 2F0A090,2F0A0EB,2F0A122)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f0abc4	function	SynResolveQueryTracked	void(SynCtx* c, ...)	query resolve target -> COPY_DEST (tracker +14, stamp optional), ResolveQueryData; called from 2EFDC24	medium	notes/vkd3d-audit.md Addendum B
+0x2f0d858	function	SynCopyBufferRegion		SynRecord subsystem; D3D12: CL.CopyBufferRegion (sites 2F0D8D2)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f0df30	function	SynResolveQueryData		SynRecord subsystem; D3D12: CL.ResolveQueryData (sites 2F0DFCD)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f0fa0c	function	GpuMemGetDescAndResourceAllocationInfo		GpuMemory subsystem; D3D12: Resource.GetDesc, Device.GetResourceAllocationInfo (sites 2F0FA48,2F0FA69)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f10b00	function	CacheRingDrainToCtx		ring state 2 -> CacheTileBatchUnmap 2F11318, state 1 -> 2F0F9AC page map -> CachePageMapTile 2F118F8 -> CacheTileBatchMap 2F10FF4	high	notes/gpu-tiles.md
+0x2f10e30	function	GpuMemMapUnmapBuffer		GpuMemory subsystem; D3D12: Resource.Map, Resource.Unmap (sites 2F10EA9,2F10EE0)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f10fa4	function	CacheTileBatchFlushThenCopy		CacheTileBatchFlushRecorded then 2F10F68 -> CtxEmitCopyTileMappings (the only CopyTileMappings user)	medium	notes/gpu-tiles.md
 0x2f10ff4	function	CacheTileBatchMap		flush if CacheTileBatchMapNeedsFlush, then CacheTileBatchAddMap	high	notes/gpu-tiles.md
 0x2f110a8	function	GfxCreateCopyQueueB		CreateCommandQueue(type 3 COPY); falls back to the GFX queue (dev+0x4270) on failure; also (gpu-tiles.tsv): CacheTileQueueCreate - CreateCommandQueue(COPY) into b+40h (falls back to the GFX queue d+4270h on failure), event b+48h, fence b+50h, value b+58h, in-flight ring b+460h	high	notes/gpu-scheduling.md §A.1
@@ -2331,10 +2478,16 @@ rva	kind	name	signature	description	confidence	source
 0x2f1120c	function	CacheTileBatchFlushAndSignalGfx	void (TileBatch* b, Ctx* ctx, Stats* s)	++b+50h; CacheTileBatchFlushRecorded; CtxEmitSignalGfx(ctx, b+48h fence, value); fence->SetEventOnCompletion(value, b+40h event). Runs on every CacheFlushOnGfx, also when no tile changed	high	notes/gpu-tiles.md
 0x2f11297	label	JmpIat_WaitForSingleObject_2F11297		`jmp [IAT WaitForSingleObject]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start)	medium	re/out/spinscan.txt §thunks
 0x2f11318	function	CacheTileBatchUnmap		flush if CacheTileBatchUnmapNeedsFlush, then CacheTileBatchAddUnmap	high	notes/gpu-tiles.md
+0x2f11534	function	GpuMemCreatePlacedResource_2F11534		GpuMemory subsystem; D3D12: Device.CreatePlacedResource (sites 2F115CC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f11614	function	GpuMemEvict		GpuMemory subsystem; D3D12: Device.Evict (sites 2F11634)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f1165c	function	GpuMemCreateHeapWithPriority		GpuMemory subsystem; D3D12: Device.CreateHeap, Device.SetResidencyPriority, Device.Release (sites 2F11711,2F11809,2F11822)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x2f118cc	function	GpuMemMakeResident		GpuMemory subsystem; D3D12: Device.MakeResident (sites 2F118EC)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f118f8	function	CachePageMapTile		page index -> pool heap (+10h) + heap page, -> CacheTileBatchMap	medium	notes/gpu-tiles.md
 0x2f1317e	label	WfsoXCall_2F1317E		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
 0x2f131b2	label	WfsoXCall_2F131B2		call WaitForSingleObject(?); pdata fragment start 2F13148	high	re/out/spinscan.txt §all call sites
+0x2f13228	function	GfxInitCreateCommandAllocator		DeviceInit subsystem; D3D12: Device.CreateCommandAllocator (sites 2F1324A)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f13350	function	GfxCreateCopyQueueC		CreateCommandQueue(type 3 COPY) + N copy lists; also (gpu-tiles.tsv): CacheUploadQueueCreate - CreateCommandQueue(COPY) + N {allocator, list, ...} upload contexts (texture tile data)	high	notes/gpu-scheduling.md §A.1
+0x2f14364	function	GpuMemGetGPUVirtualAddress_2F14364		GpuMemory subsystem; D3D12: Resource.GetGPUVirtualAddress (sites 2F143E8)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x2f14479	label	WfsoXCall_2F14479		call WaitForSingleObject(?); pdata fragment start 2F14448	high	re/out/spinscan.txt §all call sites
 0x2f144b4	function	ExecuteCommandListsThreadEntry	u32 (void* p)	thread entry: SetThreadDescription ExecuteCommandListsThread then ExecuteCommandListsThreadLoop 1A75970	high	notes/d3d12-submission.md §1
 0x2f15010	function	EclEmitCopyTileMappings		writes ECL token 5 (site 2F15021)	high	notes/gpu-tiles.md
@@ -2370,6 +2523,7 @@ rva	kind	name	signature	description	confidence	source
 0x30ac78a	label	Sleep0Call_30AC78A		call Sleep(0); pdata fragment start 30AC758	high	re/out/spinscan.txt §all call sites
 0x30b859f	label	Sleep0Call_30B859F		call Sleep(0); pdata fragment start 30B8578	high	re/out/spinscan.txt §all call sites
 0x30b8e65	label	Sleep0Call_30B8E65		call Sleep(0); pdata fragment start 30B8E14	high	re/out/spinscan.txt §all call sites
+0x30b9340	function	GfxInitFindAdapterByLuid		DeviceInit subsystem; D3D12: Device.GetAdapterLuid, Factory.EnumAdapterByLuid (sites 30B935C,30B93AA)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x30bb3d0	label	WfsoXCall_30BB3D0		call WaitForSingleObject(?); pdata fragment start 30BB3BC	high	re/out/spinscan.txt §all call sites
 0x30bb63c	label	Sleep10Call_30BB63C		call Sleep(10); pdata fragment start 30BB5D4	high	re/out/spinscan.txt §all call sites
 0x30bbbb9	label	QpcXCall_30BBBB9		call QueryPerformanceCounter(?); pdata fragment start 30BBB78	high	re/out/spinscan.txt §all call sites
@@ -2479,21 +2633,26 @@ rva	kind	name	signature	description	confidence	source
 0x340dd8c	label	Sleep0Call_340DD8C		call Sleep(0); pdata fragment start 340DA8C	high	re/out/spinscan.txt §all call sites
 0x340e964	label	Sleep0Call_340E964		call Sleep(0); pdata fragment start 340E124	high	re/out/spinscan.txt §all call sites
 0x341ffd8	label	xellSetSleepModeXCall_341FFD8		call xellSetSleepMode(?); pdata fragment start 341FF94	high	re/out/spinscan.txt §all call sites
+0x34208cc	function	Fsr3ScQuerySwapChainDesc		Fsr3Swapchain subsystem; D3D12: SwapChain.GetDesc1, SwapChain.GetFullscreenDesc, Unknown.QueryInterface(IDXGISwapChain4), SwapChain.AddRef, SwapChain.Release x2, Unknown.GetParent(IDXGIFactory4) (sites 34209DD,34209F0,3420A64,3420B33,3420B7D,3420BAA,...)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x3440b21	label	Sleep0Call_3440B21		call Sleep(0); pdata fragment start 3440AEC	high	re/out/spinscan.txt §all call sites
 0x3440e49	label	SleepXCall_3440E49		call Sleep(?); pdata fragment start 3440E00	high	re/out/spinscan.txt §all call sites
 0x3440fc4	label	SleepXCall_3440FC4		call Sleep(?); pdata fragment start 3440F80	high	re/out/spinscan.txt §all call sites
 0x3447980	function	PostFxDebugParamsB		Second function referencing EnableDebugHistgram / ExposureMask / BloomSoftKneeCurve (3542 B)	medium	re/out/README.md §Findings: config.xml
+0x34520d8	function	Fsr3ScGetBuffer		Fsr3Swapchain subsystem; D3D12: SwapChain.GetBuffer (sites 345214B)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x3453134	function	RenderUiMask		Builds CGraphicsDevice::m_pUIMask (FG UI mask); gated on copy+0x2534 && +0x2524	medium	notes/gpu-copies-postres.md §Bottom line
 0x3453364	function	SaveColorBeforeUiRendering		Copies scene color to CRenderer::m_pHudLessColor before UI (FG input); FG-gated, not the 169us 5e9935b5 copy	high	notes/gpu-copies-postres.md §Bottom line
 0x3457646	label	Sleep0Call_3457646		call Sleep(0); pdata fragment start 3457620	high	re/out/spinscan.txt §all call sites
 0x34576ae	label	Sleep0Call_34576AE		call Sleep(0); pdata fragment start 3457688	high	re/out/spinscan.txt §all call sites
 0x345c58b	label	SleepXCall_345C58B		call Sleep(?); pdata fragment start 345C52C	high	re/out/spinscan.txt §all call sites
+0x345ccec	function	Fsr3ScGetResourceAllocationInfo		Fsr3Swapchain subsystem; D3D12: Device.GetResourceAllocationInfo (sites 345CE28)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x345f12c	function	VolumetricFogScatterPassCtor	Node* (Node* n, ...)	sets vtable 0x40EBA10 and initialises the resource handles (WaitObjectWrapper_167D70)	high	notes/perf-coverage.md (perf-rename-3)
 0x345ff58	function	VolumetricFogScatterPassScalarDtor	void* (Node* n, u32 flags)	slot0: dtor 345F968 + operator delete B91AF8	high	notes/perf-coverage.md (perf-rename-3)
 0x3465960	function	VolumetricFogScatterReleaseResources	void (Node* n)	slot6: ObjHandleRelease over the node's handles	low	notes/perf-coverage.md (perf-rename-3)
 0x34684e0	function	VolumetricFogScatterResourcesReady	bool (Node* n, ...)	slot2: AND of ResourceIsReady over the node resources (lazy creators 38C0D28/38C0C4C/38C1C94)	medium	notes/perf-coverage.md (perf-rename-3)
+0x3469114	function	Fsr3ScGetHwnd		Fsr3Swapchain subsystem; D3D12: SwapChain.GetHwnd, Unknown.GetParent(IDXGIFactory), Factory.Release x2, SwapChain.Release, Unknown.GetParent(IDXGIFactory7) (sites 3469175,34691BF,3469201,3469228,346924A,346927C)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x34692f0	function	Fsr3SaveOpaqueColor	void Fsr3SaveOpaqueColor(void* p1, Gfx* g, PostFrameState* pfs)	Mid-frame CopyRect of scene color into 0x45c4310 (GP2 FSR3:SaveOpaqueColor) for GENERATE_REACTIVE; caller 0x19481ee	high	notes/fsr3-audit.md §1
 0x346948c	function	Fsr3EnsureContext	void Fsr3EnsureContext(void* state, Gfx* g, PostFrameState* pfs, Fsr3CtxParams* p)	Creates FSR3 upscale ctx (flags DEPTH_INVERTED | AUTO_EXPOSURE if RS+0x2000) and FG ctx when FI swapchain exists; re-creates only when sizes, RS+0x1ffe, auto-exposure, FG mode RS+0x2058, FI swapchain ptr, HDR or p+9 change; allocates 0x45c4310/18/20/28/38	high	notes/fsr3-audit.md §1, §2 #5
+0x346a370	function	Fsr3ScQuerySwapChainDesc_346A370		Fsr3Swapchain subsystem; D3D12: SwapChain.GetDesc1, SwapChain.GetFullscreenDesc, Unknown.QueryInterface(IDXGISwapChain4), SwapChain.Release (sites 346A411,346A422,346A499,346A4D3)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x346d7ec	function	MergeNatureCloudAndPatternMapCtor	Node* (Node* n, ...)	sets vtable 0x40EC788	high	notes/perf-coverage.md (perf-rename-3)
 0x346d83c	function	NatureSkyCtor	Node* (Node* n, ...)	sets vtable 0x40EC750	high	notes/perf-coverage.md (perf-rename-3)
 0x346db38	function	SkyAmbientPassCtor	Node* (Node* n, ...)	sets vtable 0x40EC830	high	notes/perf-coverage.md (perf-rename-3)
@@ -2558,6 +2717,10 @@ rva	kind	name	signature	description	confidence	source
 0x36cc21c	label	SleepXCall_36CC21C		call Sleep(?); pdata fragment start 36CC1D8	high	re/out/spinscan.txt §all call sites
 0x36cc2b8	label	SleepXCall_36CC2B8		call Sleep(?); pdata fragment start 36CC274	high	re/out/spinscan.txt §all call sites
 0x36d0a2e	label	Sleep0Call_36D0A2E		call Sleep(0); pdata fragment start 36D09D8	high	re/out/spinscan.txt §all call sites
+0x370f028	function	FfxDx12GetResourceAllocationInfo		FfxDx12Backend subsystem; D3D12: Unknown.GetDevice(ID3D12Device4), Device.GetResourceAllocationInfo, Device.Release (sites 370F073,370F098,370F0AE)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x370f0e8	function	FfxDx12GetParent		FfxDx12Backend subsystem; D3D12: Unknown.GetParent(IDXGIFactory) (sites 370F101)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x370f19c	function	FfxDx12QueryDXGIOutput6		FfxDx12Backend subsystem; D3D12: Output.Release, Unknown.QueryInterface(IDXGIOutput6) (sites 370F2DF,370F2FC)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x370f3ac	function	FfxDx12CheckFeatureSupport		FfxDx12Backend subsystem; D3D12: Unknown.QueryInterface(IDXGIFactory5), Factory.CheckFeatureSupport, Factory.Release (sites 370F3CF,370F3EA,370F3FD)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x370f41c	function	FfxFiWaitFence		FFX/FSR3 frame-interpolation fence wait: spin-polls ID3D12Fence::GetCompletedValue or SetEventOnCompletion+WaitForSingleObject depending on g_FfxFenceWaitMode; 348 B, 11 callers (aka FsrFiPacingHelper_370F41C)	high	re/out/README.md §Findings: frame pacing; re/out/spinscan.txt
 0x370f471	label	QpcXCall_370F471		call QueryPerformanceCounter(?) in FsrFiPacingHelper_370F41C; pdata fragment start 370F41C	high	re/out/spinscan.txt §all call sites
 0x370f4ce	label	QpcXCall_370F4CE		call QueryPerformanceCounter(?) in FsrFiPacingHelper_370F41C; pdata fragment start 370F41C	high	re/out/spinscan.txt §all call sites
@@ -2565,16 +2728,45 @@ rva	kind	name	signature	description	confidence	source
 0x370f578	function	FsrFiWaitUntilQpc	void FsrFiWaitUntilQpc(int64_t t)	FidelityFX FrameInterpolationSwapChain pacing wait: do { QueryPerformanceCounter(&now); } while(now<t) - pure QPC spin, no pause/sleep (W5/S5, ~0.4 core with FG on; 38% of AMD FSR Presenter Thread samples) [Ghidra: 39 B, 1 callers] || also: FidelityFX FrameInterpolationSwapChain (statically linked) presenter pacing: do QPC while now<t (pure spin, ~0.4 core with FG); single caller 0x3777A40 (F1)	high	notes/cpu-profile.md §S5; §TL;DR W5; patcher/fg_cave.fsx
 0x370f58c	label	QpcXCall_370F58C		call QueryPerformanceCounter(?) in FsrFiWaitUntilQpc; pdata fragment start 370F578	high	re/out/spinscan.txt §all call sites
 0x3715894	function	ffxDestroyContext	ffxReturnCode_t ffxDestroyContext(ffxContext* ctx, const ffxAllocationCallbacks* mem)	AMD ffx-api destroy; called by Fsr3DestroyContext	medium	notes/fsr3-audit.md §1
+0x3718240	function	FfxDx12CheckFeatureSupport_3718240		FfxDx12Backend subsystem; D3D12: Device.CheckFeatureSupport x5 (sites 3718291,371831A,3718357,3718385,37183B3)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3718440	function	FfxDx12GetDevice		FfxDx12Backend subsystem; D3D12: Unknown.GetDevice(ID3D12Device4) (sites 3718490)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x374333f	label	Sleep0Call_374333F		call Sleep(0); pdata fragment start 37432C8	high	re/out/spinscan.txt §all call sites
+0x3774304	function	FfxFiGetDeviceAndRelease		FfxFrameInterp subsystem; D3D12: Unknown.GetDevice(ID3D12Device), Device.Release (sites 377436D,3774377)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x37743e4	function	FfxFiRelease		FfxFrameInterp subsystem; D3D12: Unknown.Release (sites 37743FB)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3774450	function	FfxFiRelease_3774450		FfxFrameInterp subsystem; D3D12: Unknown.Release (sites 3774467)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3774c24	function	FfxFiQueueSyncAndWait		FfxFrameInterp subsystem; D3D12: Queue.Wait x2, Queue.Signal x2, Fence.SetEventOnCompletion (sites 3774CCA,3774D2F,3774D60,3774D7B,3774DCA)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x3774d0a	label	WfsoXCall_3774D0A		call WaitForSingleObject(?); pdata fragment start 3774C24	high	re/out/spinscan.txt §all call sites
+0x377524c	function	FfxFiQueueSignalWait		FfxFrameInterp subsystem; D3D12: Queue.Wait, Queue.GetDesc, SwapChain.GetCurrentBackBufferIndex, SwapChain.GetBuffer, Queue.Signal (sites 37752AE,37752D0,377534E,377536F,377558D)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x37755bc	function	FfxFiGetDesc		FfxFrameInterp subsystem; D3D12: Queue.GetDesc (sites 37755FE)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3775784	function	FfxFiSignal		FfxFrameInterp subsystem; D3D12: Fence.Signal x5 (sites 37758A3,37758BC,37758D5,37758EE,3775907)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3775988	function	FfxFiQueueSignalWait_3775988		FfxFrameInterp subsystem; D3D12: Queue.Wait, Queue.Signal x2, Queue.GetDesc (sites 3775AB1,3775AEE,3775B8B,3775DB3)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3775fc0	function	FfxFiGetCurrentBackBuffer		FfxFrameInterp subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex, SwapChain.GetBuffer, Queue.GetDesc (sites 3776018,3776034,377606A)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x37761e4	function	FfxFiSwapChainInit		FfxFrameInterp subsystem; D3D12: Unknown.GetDevice(ID3D12Device8), Device.CreateCommandQueue x2, Unknown.QueryInterface(IDXGISwapChain4), Device.CreateFence x5 (sites 3776269,377632F,37763D4,377644B,3776481,37764B7,...)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x377685c	label	WfsoXCall_377685C		call WaitForSingleObject(?); pdata fragment start 3776790	high	re/out/spinscan.txt §all call sites
 0x3776921	label	QpcXCall_3776921		call QueryPerformanceCounter(?); pdata fragment start 3776790	high	re/out/spinscan.txt §all call sites
 0x3776b47	label	WfsoXCall_3776B47		call WaitForSingleObject(?); pdata fragment start 3776790	high	re/out/spinscan.txt §all call sites
 0x3776bcb	label	WfsoXCall_3776BCB		call WaitForSingleObject(?); pdata fragment start 3776B9C	high	re/out/spinscan.txt §all call sites
+0x3776c34	function	FfxFiQueueSyncAndWait_3776C34		FfxFrameInterp subsystem; D3D12: Queue.Signal, Queue.Wait, Fence.SetEventOnCompletion (sites 3776C91,3776CAC,3777065)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3777098	function	FfxFiPresentFrame		FfxFrameInterp subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex, SwapChain.GetBuffer, Queue.GetDesc, Queue.Signal x3, SwapChain.Present, Queue.Wait (sites 37770D8,37770F2,377710B,3777256,3777271,377728B,...)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x37772fc	function	FfxFiSignal_37772FC		FfxFrameInterp subsystem; D3D12: Queue.Signal (sites 37773C5)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x37773e4	function	FfxFiPresentFrame_37773E4		FfxFrameInterp subsystem; D3D12: Queue.GetDesc, SwapChain.GetCurrentBackBufferIndex, SwapChain.GetBuffer, Queue.Signal x3, SwapChain.Present, Queue.Wait (sites 3777434,37774BC,37774D7,3777808,3777823,377783E,...)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x37778b4	function	FsrFiPresenterLoop		AMD FSR Presenter Thread loop (statically linked FFX frame interpolation swapchain); waits between interpolated and real present [Ghidra: 523 B, 0 callers] (aka FfxSwapchainPresentThread, FsrPresenterThread) || also: FFX frame-interpolation swapchain present thread (523 B, 0 direct callers = thread proc); calls FfxFiWaitFence | 'AMD FSR Presenter Thread' (FSR3 FI proxy swapchain Present) location; exact role/kind not stated	medium	notes/cpu-profile.md §S5; re/out/README.md §Findings: frame pacing; notes/frame-timing.md §1 Loop diagram
 0x377790b	label	WfsoXCall_377790B		call WaitForSingleObject(?) in FsrFiPresenterLoop; pdata fragment start 37778B4	high	re/out/spinscan.txt §all call sites
 0x3777a40	label	FsrPresenterPace_F1		Nioh3EngineFix id F1 group FG len 5 orig E8 33 7B F9 FF (call 0x370F578 waitUntil, rcx=target QPC) -> call fgWait (waitable timer then spin last 1 ms); ~0.2 core saved with FSR FG (aka FsrFiPresenterLoop_CallWaitUntil) || also: single call site of FsrFiWaitUntilQpc: waitUntil(lastPresent+interval); target of the planned hybrid sleep-then-spin cave (F1 in fg_cave.fsx)	high	mod/Nioh3EngineFix/patches.json; patcher/fg_cave.fsx; notes/cpu-profile.md §S5
 0x3777a4a	label	QpcXCall_3777A4A		call QueryPerformanceCounter(?) in FsrFiPresenterLoop; pdata fragment start 37778B4	high	re/out/spinscan.txt §all call sites
+0x3777cb0	function	FfxFiSignal_3777CB0		FfxFrameInterp subsystem; D3D12: Queue.Signal (sites 3777E6E)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3777f58	function	FfxFiGetCurrentBackBuffer_3777F58		FfxFrameInterp subsystem; D3D12: SwapChain.GetCurrentBackBufferIndex, SwapChain.GetBuffer (sites 3777F64,3777F84)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3777fdc	function	FfxFiSignal_3777FDC		FfxFrameInterp subsystem; D3D12: Queue.Signal (sites 3778077)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3778204	function	FfxFiCreatePresentCmdList		FfxFrameInterp subsystem; D3D12: Unknown.GetDevice(ID3D12Device), Device.CreateCommandAllocator, Device.CreateCommandList, Device.CreateFence (sites 3778259,377828B,37782D4,3778313)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3778368	function	FfxFiGetBuffer		FfxFrameInterp subsystem; D3D12: SwapChain.GetBuffer, Unknown.GetDevice(ID3D12Device8), Device.Release (sites 37783B6,37783D7,377855E)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x37785b0	function	FfxFiGetDeviceAndRelease_37785B0		FfxFrameInterp subsystem; D3D12: Unknown.GetDevice(ID3D12Device8), Device.Release (sites 377867B,3778726)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3778908	function	FfxFiQueryDXGIFactory2		FfxFrameInterp subsystem; D3D12: Unknown.QueryInterface(IDXGIFactory2) (sites 377894C)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x377b790	function	FfxFiGetAdapterLuid		FfxFrameInterp subsystem; D3D12: Device.GetAdapterLuid (sites 377B7E2)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x377bdc0	function	FfxFiCreateCommittedResource		FfxFrameInterp subsystem; D3D12: Device.CreateCommittedResource x2 (sites 377BE44,377BEB6)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x378062c	function	FfxFiRelease_378062C		FfxFrameInterp subsystem; D3D12: RootSig.Release (sites 3780642)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3780654	function	FfxFiCreateCompositionPsos		FfxFrameInterp subsystem; D3D12: Device.CreateRootSignature, Device.CreateGraphicsPipelineState x2 (sites 3780786,37809B7,37809F8)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3780a9c	function	FfxFiRecordCompositionPass		FfxFrameInterp subsystem; D3D12: CL.ResourceBarrier x3, CL.CopyResource, CL.SetGraphicsRootSignature, CL.SetDescriptorHeaps, DescHeap.GetGPUDescriptorHandleForHeapStart, Device.GetDescriptorHandleIncrementSize x4, DescHeap.GetCPUDescriptorHandleForHeapStart x2, Device.CreateShaderResourceView x2, CL.SetGraphicsRootDescriptorTable, Device.CreateRenderTargetView, CL.OMSetRenderTargets, CL.IASetPrimitiveTopology, CL.SetPipelineState, CL.RSSetViewports, CL.RSSetScissorRects, CL.DrawInstanced (sites 3780B90,3780BA2,3780C87,3780C9A,3780CC0,3780CEC,...)	medium	notes/d3d12-sites.md (d3d12_sites.tsv)
+0x3781024	function	FfxFiCreateCompositionHeaps		FfxFrameInterp subsystem; D3D12: Device.CreateDescriptorHeap x2 (sites 37810A1,37810E5)	high	notes/d3d12-sites.md (d3d12_sites.tsv)
 0x37d7fc9	label	SleepCvCsCall_37D7FC9		call SleepConditionVariableCS(?); pdata fragment start 37D7FBC	high	re/out/spinscan.txt §all call sites
 0x37d7fda	label	SleepCvCsXCall_37D7FDA		call SleepConditionVariableCS(?); pdata fragment start 37D7FBC	high	re/out/spinscan.txt §all call sites
 0x3838ffa	label	Sleep0Call_3838FFA		call Sleep(0); pdata fragment start 3838FE0	high	re/out/spinscan.txt §all call sites
