@@ -348,3 +348,11 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - `patcher\collprefetch_live.fsx`: main now runs only when it is the invoked script (so CB can `#load` its harness); behaviour unchanged.
 - notes\collision-opt.md (verdict: no algorithmic waste; candidates GP/OP/SI/OM), symbols `re\symbols\incoming\collision-opt.tsv` + `-renames.tsv` (not merged), output `re\scripts_wjobs\cb_offline_out.txt`.
 - Undo: nothing applied; if applied live: `FT_ALLOW_WRITE=1 dotnet fsi --optimize- patcher\collbook_live.fsx revert` (or restart the game).
+
+## 2026-10-08 - gamelogic: MissionThread / GameUpdateTick map (RE notes + symbols only; nothing applied)
+- notes\gamelogic.md:
+  - [App]MissionThread (~14 % of a core on the PC and the Ally) is a fork/join helper of GameUpdateTick (MissionThreadKick 233810 / MissionThreadJoin 233888) and is off the tick's critical path.
+  - Its time is mostly cache-miss-bound walks of the task and object lists (E266B0, 2866F0, 20B900), the script VM (3.2 %) and spawn/despawn passes.
+  - Same-behaviour candidates GL1-GL6, ranked. Only GL1 (prefetch in the three walks, ~2.5-3 % of a core, ~0.05-0.1 W on the Ally) is clean. TG / sub-rating / script-slice skipping are documented as out of scope (they change behaviour).
+- re\symbols\incoming\gamelogic.tsv (41 rows) + gamelogic-renames.tsv (6 description fixes); merge left to the main session.
+- Undo: delete the three files (no game, ASI or data change).
