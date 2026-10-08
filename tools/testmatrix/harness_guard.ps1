@@ -77,23 +77,30 @@ function Start-Sleep {
     $end = (Get-Date).AddSeconds($total)
     do { Assert-Owner; $left = ($end - (Get-Date)).TotalSeconds; if ($left -le 0) { break }; & $script:RealSleep -Milliseconds ([int]([Math]::Min(2, $left) * 1000)) } while ($true)
 }
-function Get-CommitHeadroomGB {
+# The page file is system managed and grows on demand (up to min(3x RAM, free disk)), so the CURRENT commit limit is not the ceiling.
+# effective headroom = min(limit + max(0, C: free - 15 GB reserve), 3 x RAM) - used ; ALSO require current (limit - used) >= 6 GB.
+function Get-CommitNumbers {
     $os = Get-CimInstance Win32_OperatingSystem
-    return [Math]::Round($os.FreeVirtualMemory / 1MB, 1)         # KB -> GB: commit limit minus committed
+    $limit = $os.TotalVirtualMemorySize / 1MB; $used = ($os.TotalVirtualMemorySize - $os.FreeVirtualMemory) / 1MB; $ram = $os.TotalVisibleMemorySize / 1MB
+    $cfree = (Get-PSDrive C).Free / 1GB
+    $grow = [Math]::Max(0, $cfree - 15)
+    $ceiling = [Math]::Min($limit + $grow, 3 * $ram)
+    [pscustomobject]@{ limit = $limit; used = $used; ram = $ram; cfree = $cfree; current = ($limit - $used); effective = ([Math]::Max($limit, $ceiling) - $used) }
 }
-function Get-CommitInfo { $os = Get-CimInstance Win32_OperatingSystem; "commit {0:N1}/{1:N1} GB, headroom {2:N1} GB" -f (($os.TotalVirtualMemorySize - $os.FreeVirtualMemory) / 1MB), ($os.TotalVirtualMemorySize / 1MB), ($os.FreeVirtualMemory / 1MB) }
+function Get-CommitHeadroomGB { [Math]::Round((Get-CommitNumbers).effective, 1) }
+function Get-CommitInfo { $c = Get-CommitNumbers; "commit {0:N1}/{1:N1} GB, current headroom {2:N1} GB, effective headroom {3:N1} GB (C: free {4:N1} GB, RAM {5:N1} GB)" -f $c.used, $c.limit, $c.current, $c.effective, $c.cfree, $c.ram }
 function Wait-Headroom {
-    $need = $global:HG.minHeadroomGB; $maxWait = 300; if ($env:HG_HEADROOM_WAIT_SEC) { $maxWait = [int]$env:HG_HEADROOM_WAIT_SEC }
+    $need = $global:HG.minHeadroomGB; $needCur = 6.0; if ($env:HG_MIN_CURRENT_GB) { $needCur = [double]$env:HG_MIN_CURRENT_GB }
+    $maxWait = 300; if ($env:HG_HEADROOM_WAIT_SEC) { $maxWait = [int]$env:HG_HEADROOM_WAIT_SEC }
     $t0 = Get-Date
     while ($true) {
-        $h = Get-CommitHeadroomGB
-        if ($h -ge $need) { HG-Log "headroom OK ($(Get-CommitInfo), need $need)"; return }
-        if (((Get-Date) - $t0).TotalSeconds -ge $maxWait) { Guard-Fail "commit headroom $h GB < $need GB after ${maxWait}s ($(Get-CommitInfo))" }
-        HG-Log "waiting for commit headroom: $h GB < $need GB"
+        $c = Get-CommitNumbers
+        if ($c.effective -ge $need -and $c.current -ge $needCur) { HG-Log "headroom OK ($(Get-CommitInfo); need effective >= $need, current >= $needCur)"; return }
+        if (((Get-Date) - $t0).TotalSeconds -ge $maxWait) { Guard-Fail "commit headroom too low after ${maxWait}s: $(Get-CommitInfo); need effective >= $need and current >= $needCur" }
+        HG-Log "waiting for commit headroom: $(Get-CommitInfo)"
         Start-Sleep 15
     }
-}
-# Called before EVERY game launch (and cheap enough to call before input bursts too).
+}# Called before EVERY game launch (and cheap enough to call before input bursts too).
 function Assert-Launch {
     if (-not $global:HG) { return }
     Assert-Owner
