@@ -1,8 +1,8 @@
-# pc_retest_1739.ps1 - PC re-test per notes\pc-cpu-next.md s5 (Blocks A, C, B) on ASI 1.7.39, 2026-10-08.
+# pc_retest_1739.ps1 - PC re-test per notes\pc-cpu-next.md s5 (Blocks A, C; B optional) on ASI 1.7.39, 2026-10-08.
 # Takes the nioh3 game lock, installs bin\Nioh3EngineFix.asi (game ASI backed up), runs abba2_pc.ps1 per block,
 # writes each report, then ALWAYS restores the game ASI (abba2 restores ini + config.xml itself), releases the lock
-# and posts GAME-FREE. -Blocks picks/reorders blocks (default A,C,B).
-param([string[]]$Blocks = @("A", "C", "B"), [string]$Tag = "run7")
+# and posts GAME-FREE. -Blocks picks/reorders blocks (default A,C: B's relaunch arms repeat A now that DQ/P1E7 are live rows; universal-optimizer docs/faster-cheaper-testing.md).
+param([string[]]$Blocks = @("A", "C"), [string]$Tag = "run7")
 $ErrorActionPreference = "Stop"
 $ws = "C:\Users\Ahmad Hamza\nioh3-engine"; $here = "$ws\tools\testmatrix"
 $G = "C:\Program Files (x86)\Steam\steamapps\common\Nioh3"; $gameAsi = "$G\Nioh3EngineFix.asi"
@@ -24,7 +24,7 @@ if (Get-Process Nioh3 -ErrorAction SilentlyContinue) { throw "Nioh3 is already r
 $st = Lock "status"; L "lock status: $($st.Trim())"
 if ($st -match "'holder': '(\w+)'" -and $Matches[1] -ne "pc") { throw "game lock held by $($Matches[1])" }
 L ("acquire: " + (Lock "acquire").Trim())
-Send "[FYI] pc: lock taken $(Get-Date -f HH:mm) for the PC re-test on ASI 1.7.39 (pc-cpu-next.md s5: blocks $($Blocks -join ','); ~80 min). Will post [GAME-FREE] when done."
+Send "[FYI] pc: lock taken $(Get-Date -f HH:mm) for the PC re-test on ASI 1.7.39 (pc-cpu-next.md s5: blocks $($Blocks -join ','); ~45 min). Will post [GAME-FREE] when done."
 try {
     if (-not (Test-Path $bak)) { Copy-Item $gameAsi $bak; L "game ASI backed up -> $bak" }
     Copy-Item $newAsi $gameAsi -Force; L "installed 1.7.39 ASI ($((Get-Item $gameAsi).Length) bytes)"
