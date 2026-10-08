@@ -42,7 +42,7 @@
 #include "readprobe.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.26"
+#define MOD_VERSION "1.7.27"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -302,7 +302,7 @@ static bool s_asyncKnown = false, s_as0Applied = false;  // AS0 / async-queue st
 // ---- config ----------------------------------------------------------------------------------------------------
 struct Config {
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
-    int w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
+    int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
     int minF[3] = {20, 24, 48};
     int maxF[3] = {30, 60, 120};
@@ -345,6 +345,7 @@ Config LoadConfig() {
     c.w1 = I(L"Patches", L"W1", c.w1);
     c.w2 = I(L"Patches", L"W2", c.w2);
     c.vrr = I(L"Patches", L"VRR", c.vrr);
+    c.vrrOnline = I(L"Patches", L"VRROnline", c.vrrOnline);
     c.w3 = I(L"Patches", L"W3", c.w3);
     c.r1 = I(L"Patches", L"R1", c.r1);
     c.l1 = I(L"Patches", L"L1", c.l1);
@@ -898,6 +899,52 @@ void TgOnRates(double rendered, double ticks) {
     }
     if (next >= cap) set(4, 0);
     else set(1, (uint32_t)next);
+}
+
+
+// ---- VRR online guard (1.7.27): variable-dt timing is offline-only, so it is suspended while an online / co-op session
+// is detected and restored afterwards. Signals: notes\online-session-detect.md #1 (net manager connected byte) and #2
+// (play-mode object mode word). No hook, no call: only two data loads under SEH and a write of the caves' own
+// vrr_enable switch (the same one the mod menu flips), so no register-safety exposure (notes\hook-register-audit.md).
+static volatile long g_vrrOnlineState = 0;  // 0 offline/not watching, 1 suspended (online), 2 forced on, 3 forced off
+static bool OnlineNow(bool* fault) {
+    *fault = false;
+    __try {
+        const uint8_t* net = *reinterpret_cast<uint8_t* const*>(g_base + 0x45C84F8);
+        if (net && net[0x1DC]) return true;
+        const uint8_t* pm = *reinterpret_cast<uint8_t* const*>(g_base + 0x4709B50);
+        if (pm && *reinterpret_cast<const int32_t*>(pm + 0x34) != 0) return true;
+        return false;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        *fault = true;
+        return true;  // can't read -> treat as online
+    }
+}
+static DWORD WINAPI VrrOnlineWatch(LPVOID) {
+    const int ticksToRearm = 50;  // 5 s of clean polls before restoring (a flicker must not re-arm mid-session)
+    bool suspended = false;
+    uint32_t saved = 1;
+    int clean = 0;
+    for (;;) {
+        Sleep(100);
+        bool fault;
+        const bool on = OnlineNow(&fault);
+        if (on) {
+            clean = 0;
+            if (!suspended) {
+                suspended = true;
+                saved = vrr_enable;
+                vrr_enable = 0;
+                g_vrrOnlineState = 1;
+                Log("VRR: online session detected%s - variable-dt timing suspended (stock timing), will restore when offline", fault ? " (unreadable state)" : "");
+            }
+        } else if (suspended && ++clean >= ticksToRearm) {
+            suspended = false;
+            vrr_enable = saved;
+            g_vrrOnlineState = 0;
+            Log("VRR: back offline - variable-dt timing restored (%s)", saved ? "on" : "off as before");
+        }
+    }
 }
 
 // TG watchdog: drops the cap at once when TG is switched off, L1 goes off, VRR is switched off, or the game's presents
@@ -1912,6 +1959,17 @@ DWORD WINAPI Worker(LPVOID) {
     if (vrrDone) {
         osd::SetRateSink(&TgOnRates);  // the governor runs on the Present-hook thread after each stats window
         if (HANDLE h = CreateThread(nullptr, 0, TgWatchdog, nullptr, 0, nullptr)) CloseHandle(h);
+        if (cfg.vrrOnline == 0) {
+            vrr_enable = 0;
+            g_vrrOnlineState = 3;
+            Log("VRR: VRROnline = 0 - variable-dt timing forced off (stock timing)");
+        } else if (cfg.vrrOnline == 1) {
+            g_vrrOnlineState = 2;
+            Log("VRR: VRROnline = 1 - forced on, online detection ignored (use at your own risk online)");
+        } else {
+            Log("VRR: VRROnline = -1 (auto) - suspended while an online session is detected");
+            if (HANDLE h = CreateThread(nullptr, 0, VrrOnlineWatch, nullptr, 0, nullptr)) CloseHandle(h);
+        }
     }
 
     // periodic stats so a log from a handheld shows the wake rates and the experimental patches working without a

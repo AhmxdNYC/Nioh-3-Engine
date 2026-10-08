@@ -810,7 +810,7 @@ struct ItemDef {
 #define E_CPU "Picture unchanged. Applies now. CPU only: no fps change on the Ally."
 #define E_CPU_NEXT "Picture unchanged. Applies at the next launch (save to ini). CPU only: no fps change on the Ally."
 const ItemDef kItems[kCount] = {
-    {"Smoother frame pacing", "(VRR)", "Game speed stays real below the fps cap instead of the whole game slowing down.", "Changes timing, not the picture. Applies now. Offline only: OFF for online co-op."},
+    {"Smoother frame pacing", "(VRR)", "Game speed stays real below the fps cap instead of the whole game slowing down.", "Changes timing, not the picture. Applies now. Auto-suspended while an online session is detected (VRROnline)."},
     {"Message thread sleeps, not spins", "(W3)", "The window-message thread sleeps (<=1 ms) instead of spinning a CPU core.", E_CPU},
     {"Message wait style (Proton)", "(W3 mode)", "Proton only. Sleep 1 ms = few wake-ups; MsgWait = Windows wait (~24k wakes/s on Wine).", "Picture unchanged. Applies now."},
     {"Render wait timeout", "(R1)", "The game thread waits for the GPU with a timeout per round. 0 = stock busy poll.", "Picture unchanged. Applies now. CPU only: no fps change on the Ally."},

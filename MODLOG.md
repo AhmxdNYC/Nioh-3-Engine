@@ -515,3 +515,7 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `notes\remaining-work.md`: every item left to call the project done (owner, effort, needs-game).
 - `release\`: per-device ini profiles (`profiles.json` -> `make_profiles.py`), regression test `check_release.py` (`--full` = test_patterns + harnesses), `package.py` (per-device zips: loader, asi, profile ini, guide, option reference, optional GHDM shader after a hash check, PROFILE.txt, SHA256SUMS; `-rc` while any default is provisional), `USER_GUIDE.md`.
 - Undo: delete `release\` (no game-side effect).
+
+## 1.7.27 (2026-10-08)
+- ADD: `[Patches] VRROnline = -1` (auto, default): VRR suspended automatically while an online session is detected (net manager connected byte / play-mode mode word, notes\online-session-detect.md), restored after 5 s clean; 1 = force on, 0 = force off. Watcher thread only flips the caves' vrr_enable (no hook, register-safe). Logs "VRR: online session detected" / "back offline".
+- test_patterns ALL 212 SITES OK, harnesses OK. Built, not run in game (co-op test pending, remaining-work 6.5). Undo: VRROnline = 1 or the 1.7.25 .asi.

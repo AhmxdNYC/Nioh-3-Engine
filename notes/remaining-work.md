@@ -60,7 +60,7 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 | 6.2 | Long-session stability: 2 h+ per device with the release profile (mod log + exit code, MemStats=1: handles, VRAM growth across fast travels) | final phase (protocol item 6) | 2 h game/device | y |
 | 6.3 | Hook register safety: BossLog thunk xmm0-5 fix and readfix/prefetch hooks never run in game | covered by 6.2 + Phase 0 | - | y |
 | 6.4 | FG on Proton crash: default stays status-only (FrameGenToggle=1) - keep; re-verify the fgmarker restore once | Ally, 10 min | 10 min | y |
-| 6.5 | VRR fix is offline-only: decide the online default (auto-off when online-session-detect fires?) | free; detection exists (`online-session-detect.md`) | 3 h + co-op test | y |
+| 6.5 | VRR online default: DONE in 1.7.27 (`[Patches] VRROnline = -1` auto-suspends VRR while online-session-detect fires, restores 5 s after, logged "VRR:"). STILL NEEDED in game: co-op session test - confirm log shows "online session detected" on joining/hosting and "back offline" after, game speed stock while online, no false positive in solo hub/missions; if no detection, set VRROnline = 0 for co-op | free; detection exists (`online-session-detect.md`) | 3 h + co-op test | y |
 | 6.6 | Base ini defects: 2 control chars (lines 395, 527: `\v`, `\b` from unescaped paths), duplicated [Memory] block, 6 keys undocumented (InstallDelaySec, PF*) | DONE 1.7.26 (control chars fixed, second [Memory] block removed, InstallDelaySec + PF* documented; check_release 0 ini warnings) | - | n |
 
 ## 7. Final defaults per device
