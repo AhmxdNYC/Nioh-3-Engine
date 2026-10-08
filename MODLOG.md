@@ -224,3 +224,8 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 ## 2026-10-07 - ASI 1.7.9 (unsent): gpuopt barrier trace caller2
 - [GpuOpt] trace CSV gets a caller2_rva column (second Nioh3.exe return address via RtlCaptureStackBackTrace, 16 frames; only while TraceRecords > 0), splitting the SynTransitionResource 115E9D sites across the ~45 real callers. re\scripts_d3d12\vkd3d_cost.py groups its call-site tables by it (selftest OK; old CSVs still load). Trace already carried before/after states, COMMON/read->read (derived), OMSetRenderTargets rows. README recipe 'Ally barrier trace'. Zip on Desktop (not committed, not sent).
 - Undo: replace the .asi with 1.7.8; TraceRecords = 0 is the default.
+
+## 2026-10-07 - audio thread identified + ObjUpdate placeholder renames (analysis only, nothing installed)
+- Thread 1A786A8 = in-house KIDS audio mix thread on XAudio2 (87 % blocked in a 100 ms event wait, no spin; ~0.126 core of real DSP: convolution reverb 5 %, voice decode 4.4 %). Candidate silent-input convolution skip designed, not applied (needs a probe). See `notes\perf-coverage.md` Addendum.
+- `re\symbols\incoming\audio-objupdate.tsv` (+8 rows) and `audio-objupdate-renames.tsv` (18 renames, apply in place). `re\scripts_re\perf_coverage.py` reads both: named coverage 96.5 -> 97.1 %.
+- Undo: delete the two TSVs and the Addendum; revert perf_coverage.py.

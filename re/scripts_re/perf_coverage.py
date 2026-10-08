@@ -25,7 +25,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DUMP = os.path.join(ROOT, 're', 'Nioh3.dump.exe')
 SYMS = os.path.join(ROOT, 're', 'symbols', 'symbols.tsv')
 # pending perf-coverage rows not yet in symbols.tsv (perf-coverage.tsv was merged 2026-10-07 22:41; -2 = placeholder renames)
-INCOMING = [os.path.join(ROOT, 're', 'symbols', 'incoming', f) for f in ('perf-coverage.tsv', 'perf-coverage-2.tsv')]
+INCOMING = [os.path.join(ROOT, 're', 'symbols', 'incoming', f) for f in ('perf-coverage.tsv', 'perf-coverage-2.tsv', 'audio-objupdate.tsv', 'audio-objupdate-renames.tsv')]
 DECOMP = r'D:\nioh3-re\decomp'
 
 B = open(DUMP, 'rb').read()
@@ -81,7 +81,7 @@ def load_names(before):
             f = l.rstrip('\n').split('\t')
             if len(f) > 2 and f[0].startswith('0x') and f[1] == 'function':
                 r = int(f[0], 16)
-                if r not in names or AUTO.match(names[r]):  # an incoming name replaces a placeholder
+                if r not in names or AUTO.match(names[r]) or fn.endswith('-renames.tsv'):  # an incoming name replaces a placeholder
                     names[r] = f[2]
     return names
 
