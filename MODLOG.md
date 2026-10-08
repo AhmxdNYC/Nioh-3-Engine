@@ -494,3 +494,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   only). Design + Ally 1.7.23 data: notes\loading-ally-fixed.md 8.7. ini keys SR/RC/RCMB/RCKB/RCMaxReadKB/AQ/AQThreads/TSY/SH.
 - Tests: READFIX HARNESS ALL OK, READPROBE HARNESS ALL OK, test_patterns ALL 212 SITES OK, READPROBE SITES OK. Built on 1.7.24 (EP auto).
 - Undo: set the keys to 0 (default) or install 1.7.24.
+
+## 2026-10-08 - release tooling (repo only; nothing in the game folder changed)
+- `notes\remaining-work.md`: every item left to call the project done (owner, effort, needs-game).
+- `release\`: per-device ini profiles (`profiles.json` -> `make_profiles.py`), regression test `check_release.py` (`--full` = test_patterns + harnesses), `package.py` (per-device zips: loader, asi, profile ini, guide, option reference, optional GHDM shader after a hash check, PROFILE.txt, SHA256SUMS; `-rc` while any default is provisional), `USER_GUIDE.md`.
+- Undo: delete `release\` (no game-side effect).

@@ -23,6 +23,8 @@ Read this section only; everything older is under '## History' (unchanged). Late
 4. [opus] Rematch build after the Phase 0 logs (notes\boss-rematch-design.md; boss-master.md has the data). Blocked on the user session.
 5. [sonnet] settings-cost.md: fill measured columns when benchmark data exists; README/charts refresh after merges.
 6. FINAL PHASE (end, user present): notes\final-benchmark-protocol.md. First the full re-test matrix (below), then STOCK vs ALL-KEPT, MAX and user preset, 3 runs, interleaved; PC and Ally one after the other; results -> README + Discord. ASK the user to schedule it.
+7. RELEASE tooling DONE (2026-10-08, no game): full to-do list = notes\remaining-work.md (owner / effort / needs-game per item). release\profiles.json = per-device final defaults (PC / ALLY; status kept|provisional|off per key: flip provisional keys from the matrix verdicts); make_profiles.py -> release\profiles\*.ini (generated); check_release.py = regression test (ini lint, src<->ini keys, bin version = src; --full adds test_patterns + 9 harnesses, ~50 s, all pass on 1.7.26) - run it before every build/release; package.py -> release\dist\Nioh3EngineFix-<ver>-<DEV>[-rc].zip (--final refuses provisional keys and warnings); USER_GUIDE.md ships as README.md.
+8. [sonnet, no game, after the read-fix agent releases src/ini] base ini defects found by check_release: control chars at ~lines 395/527 (\v, \b from unescaped paths), duplicate [Memory] block, InstallDelaySec undocumented; sync bin\README.md for EP/SR/RC/AQ/TSY/SH/PF/LoadOnlyCpuFixes. Then 1b (matrix.json load flags).
 
 ## RULES
 - Game-side only: no TDP/boost/governor/env-var/gamescope changes; only how the game uses the hardware.
