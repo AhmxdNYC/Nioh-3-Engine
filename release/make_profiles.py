@@ -1,7 +1,8 @@
 """Build per-device Nioh3EngineFix.ini profiles from the base ini + release\\profiles.json.
 
-  py -I release\\make_profiles.py            write release\\profiles\\Nioh3EngineFix.<DEV>.ini
-  py -I release\\make_profiles.py --check    exit 1 if a profile is stale or an override key is missing
+  py -I release\\make_profiles.py            write release\\profiles\\Nioh3EngineFix.<DEV>.ini (generated, gitignored:
+                                            package.py regenerates them from the base ini of the build it packages)
+  py -I release\\make_profiles.py --check    validate only: exit 1 if an override key is missing from the base ini
   py -I release\\make_profiles.py --list     print the overrides per device with status
 
 Values are replaced in place (the base ini's comments stay), so a profile is the base ini plus a header and the
@@ -80,20 +81,15 @@ def main(argv):
             print(f"ERROR {dev}: override keys not in the base ini: {', '.join(missing)}")
             rc = 1
             continue
+        if check:
+            print(f"OK    profile {dev}: all {len(p['overrides'])} override keys found in the base ini")
+            continue
         text = "\r\n".join(lines) + "\r\n"
         path = OUTDIR / f"Nioh3EngineFix.{dev}.ini"
-        if check:
-            cur = path.read_text(encoding="utf-8", errors="replace") if path.exists() else None
-            if cur is None or cur.replace("\r\n", "\n") != text.replace("\r\n", "\n"):
-                print(f"STALE {path.relative_to(ROOT)} (run release\\make_profiles.py)")
-                rc = 1
-            else:
-                print(f"OK    {path.relative_to(ROOT)}")
-        else:
-            OUTDIR.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(text.encode("utf-8"))
-            prov = sum(o["status"] == "provisional" for o in p["overrides"])
-            print(f"wrote {path.relative_to(ROOT)} ({len(p['overrides'])} overrides, {prov} provisional)")
+        OUTDIR.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(text.encode("utf-8"))
+        prov = sum(o["status"] == "provisional" for o in p["overrides"])
+        print(f"wrote {path.relative_to(ROOT)} ({len(p['overrides'])} overrides, {prov} provisional)")
     return rc
 
 

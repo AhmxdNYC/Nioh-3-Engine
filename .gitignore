@@ -45,3 +45,4 @@ panel/panel.err
 
 # --- release zips (release/package.py) ---
 release/dist/
+release/profiles/
