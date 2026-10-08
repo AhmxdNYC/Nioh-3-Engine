@@ -127,3 +127,22 @@ function Note-Closed { if ($global:HG) { foreach ($g in $global:HG.games) { $g.c
 function Note-Crash([string]$why = "") { if ($global:HG) { $global:HG.crashes++; HG-Log "crash #$($global:HG.crashes): $why"; HG-Save } }
 function Done-Guard([switch]$KeepFile) {   # -KeepFile: a launcher that leaves the game running keeps its pid file so kill_leftovers.ps1 can find the game
     if ($global:HG) { HG-Log "done"; if (-not $KeepFile) { try { Remove-Item $global:HG.file -Force -ErrorAction SilentlyContinue } catch {} }; $global:HG = $null } }
+
+# Foreground-loss policy (coordinator 2026-10-08): when ui.fsx REFUSES input (game not foreground), refocus and retry ONLY if no human
+# touched the PC since our own last input (system idle >= time since our last input, minus 3 s slack); otherwise abort as before.
+$script:lastSent = $null; $script:refocusN = 0
+function Mark-Input { $script:lastSent = Get-Date }
+function Test-NoHumanActive {
+    $o = (dotnet fsi (Join-Path (Split-Path -Parent (Split-Path -Parent $script:HGdir)) "..\ui.fsx") idle 2>&1 | Out-String)
+    if ($o -notmatch 'idle ([\d.]+)') { return $false }
+    $idle = [double]$Matches[1]; $ours = if ($script:lastSent) { ((Get-Date) - $script:lastSent).TotalSeconds } else { 1e9 }
+    HG-Log ("refusal check: system idle {0:N1}s, since our last input {1:N1}s" -f $idle, [Math]::Min($ours, 99999))
+    if (-not $script:lastSent) { return ($idle -ge 60) }
+    return ($idle -ge ($ours - 3))
+}
+function Try-Refocus([string]$ui) {   # returns $true if refocused and a retry is allowed
+    if ($script:refocusN -ge 6) { return $false }
+    if (-not (Test-NoHumanActive)) { return $false }
+    $script:refocusN++; HG-Log "no human active -> refocusing Nioh3 (#$($script:refocusN))"
+    $null = dotnet fsi $ui focus Nioh3 2>&1; Start-Sleep 1; return $true
+}

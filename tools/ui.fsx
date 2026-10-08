@@ -8,6 +8,7 @@
 //                                 DIK_UP/DOWN); wMS = wait MS ms. Used by testmatrix\run_pc.ps1 -LiveMenu
 //   type <text>                   unicode text
 //   scroll <x> <y> <notches>      wheel (negative = down)
+//   idle                          print "idle S" = seconds since the last input from any source (human or synthetic)
 #r "nuget: System.Drawing.Common, 9.0.0"
 open System
 open System.Diagnostics
@@ -24,6 +25,11 @@ open System.Runtime.InteropServices
 [<DllImport("user32.dll")>] extern bool AttachThreadInput(uint32 a, uint32 b, bool attach)
 [<DllImport("user32.dll")>] extern bool BringWindowToTop(nativeint h)
 [<DllImport("kernel32.dll")>] extern uint32 GetCurrentThreadId()
+[<Struct; StructLayout(LayoutKind.Sequential)>]
+type LASTINPUTINFO =
+    val mutable cbSize: uint32
+    val mutable dwTime: uint32
+[<DllImport("user32.dll")>] extern bool GetLastInputInfo(LASTINPUTINFO& p)
 type EnumWindowsProc = delegate of nativeint * nativeint -> bool
 [<DllImport("user32.dll")>] extern bool EnumWindows(EnumWindowsProc cb, nativeint lp)
 [<DllImport("user32.dll")>] extern bool IsWindowVisible(nativeint h)
@@ -104,6 +110,12 @@ match args.[0] with
         true)
     EnumWindows(cb, 0n) |> ignore
     printfn "dialogs: %d %s" found.Count (String.Join(" | ", found))
+| "idle" ->
+    // idle: seconds since the last keyboard/mouse input of ANY source (synthetic input counts too)
+    let mutable li = LASTINPUTINFO()
+    li.cbSize <- 8u
+    GetLastInputInfo(&li) |> ignore
+    printfn "idle %.1f" (float (uint32 Environment.TickCount - li.dwTime) / 1000.0)
 | "fg" ->
     let h = GetForegroundWindow()
     let mutable pid = 0u

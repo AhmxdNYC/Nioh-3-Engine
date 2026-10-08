@@ -27,6 +27,8 @@ function U {
     if ($cmd -ne "shot" -and -not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) {
         T "!! ABORT: Nioh3 is not running (before 'U $($args -join ' ')') - no input sent, exiting"; throw "HARNESS-ABORT: game not running" }
     $o = dotnet fsi $ui @args 2>&1 | Out-String
+    if ($LASTEXITCODE -eq 3 -and $cmd -ne "shot" -and (Try-Refocus $ui)) { $o = dotnet fsi $ui @args 2>&1 | Out-String }
+    if ($LASTEXITCODE -ne 3 -and $cmd -ne "shot") { Mark-Input }
     if ($LASTEXITCODE -eq 3) { T "!! ABORT: $($o.Trim()) - exiting"; throw "HARNESS-ABORT: input refused (game not in foreground)" }
 }
 function Renew { Push-Location $uoBridge; try { py -m uo_bridge.gamelock renew nioh3 --ttl 5400 | Out-Null } finally { Pop-Location } }
