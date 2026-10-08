@@ -37,3 +37,6 @@ Running: runtime post shaders (opus), GI reflection #414 (opus), ASI 1.7.5 = CS 
 
 ## 21:50 - session restart + REGRESSION
 Ally 1.7.5 GP2: all replacements ON = 0.4-0.6 fps SLOWER than all off. Pairs: sync CS 4.82 vs 3.35 ms (likely gi #121/#414), async CS 3.99 vs 3.40 (likely fog). Cause: RGA (Windows AMD compiler) models don't predict vkd3d->dxil-spirv->RADV/ACO. RULE: no shader ships to the default set without an Ally A/B win. AS0 (async slot 0): stable, no gain. GP2 stamps cost ~14 ms (only for attribution). Running: hash mapping + keep/drop table (sonnet). Ally next: 1.7.7 + v6, per-shader A/B w/o GP2. Killed by the restart (resume later): materials/75% (opus, partial gpu-shaders\materials\), vkd3d audit (opus, nothing written).
+
+## 23:00
+Done: vkd3d audit (barrier COMMON->full waits est. 0.2-2 ms Ally; needs a trace: ASI 1.7.9 per-caller trace in progress), perf decompile coverage 56.5->96.6 % of game CPU, materials trim (nothing safe; trvs/pbvs ~0), GP2 sampling (ASI 1.7.8, held). Ally: post-reboot session C0..C5 running; then the barrier trace. 'apply all' banned (contains dropped items). Pending for the RADV pre-screen: VCLOUD hoist, SFB dedupe.
