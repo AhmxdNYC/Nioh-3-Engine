@@ -442,3 +442,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 2026-10-08 - Eternal Rift / Mugen research (static)
 - notes/eternal-rift.md: Mugen::* natives (0x23E4228, 0x23E41CC) are constant-return stubs, no script calls them; Rift = era-1 rows of the mission table (3 teachers x 3 tiers + 3 tutorials), no spawner or floor table. Names: re/symbols/incoming/mugen-renames.tsv. Nothing to undo.
+
+## 2026-10-08 - Boss per mission, all missions (static; nothing installed or patched)
+- Mission record file ids resolve through the shipped id table `archive_08\AE\50B70535...` (`g_LfmFileIdMap` 0x475A1A0, built by 0x29481E8). Enemy table = rec +0x54, mission id = rec u16 +0x158, script = rec +0x50.
+- `notes/boss-map-all.csv` (130 rows: 86 bosses, 24 no flag-4 record, 20 unshipped), `notes/boss-duel-flow.md` §7, generator `re/scripts_re/boss_map_all.py`, names `re/symbols/incoming/placement-renames.tsv`.
+- Undo: nothing to undo.
