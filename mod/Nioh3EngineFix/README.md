@@ -451,7 +451,7 @@ game's pause menu, or on the title screen.
 
 | | Keyboard | Controller (ROG Ally / Steam Deck / Xbox pad) |
 |---|---|---|
-| open / close | **F10** | **triple-tap Start (Menu)** within 0.9 s (`Gesture = Hold` = old 5 s hold, with a countdown) |
+| open / close | **F10**, or press **Esc three times** (1.7.13) | **triple-tap Start (Menu)** within 0.9 s (`Gesture = Hold` = old 5 s hold, with a countdown) |
 | move | Up / Down | D-pad or left stick up / down (hold to repeat) |
 | change a value | Left / Right | D-pad left / right |
 | toggle / run an action | Enter | A |
@@ -460,11 +460,15 @@ game's pause menu, or on the title screen.
 * A short Start press still goes to the game, so its pause menu opens as usual. While the mod menu is open the game
   sees a neutral controller and no arrow, Enter, Esc or Backspace keys. This lasts until you let go of the buttons
   after closing, so B doesn't also back out of the game's menu. The game never sees F10.
-* While the game's pause menu is open, a reminder shows top-right: `F10 / Press Start 3x: Mod menu` (shown the whole time the pause menu is open; `Gesture = Hold` shows the hold text). With `SwallowTaps = 1` the game does not see tap sequences: a lone Start press reaches it after `TapGapMs` (300 ms) as a normal tap, a held Start after the same delay.
+* While **any game menu is open** (pause, options, title, ...), a reminder shows top-right: `Mod menu: F10 / Esc x3 / Start x3` (the whole time, never in gameplay; `Gesture = Hold` shows the hold text). 1.7.13 reads the game's own "a menu is open" signal (the two getters its frame generation uses to pause itself, `0x5A37D4` / `0xD63C0`, bytes checked at start-up). The old engine stop flags (G+58B / 58C) only change in the pause menu and at loads, which is why the reminder never showed on the PC before. `[Menu] PauseHintSource = Menu | StopFlags | Both` (default Both) picks the signal; the log prints `MENU: game menu signal now OPEN/closed`.
+* **Escape x3** (`[Menu] KeyTripleTap = Escape`, `None` = off): same logic as the controller's triple-tap (`TapWindowMs`, `TapGapMs`, `SwallowTaps`). The game reads Escape through DirectInput `GetDeviceState`, which the mod already hooks; the first presses are hidden from the game, a lone Escape (or two) is replayed to it after `TapGapMs` as one short press, and an Escape that is still held after the gap passes at once. So the game's own Esc menu opens ~0.3 s later than without the gesture; set `KeyTripleTap = None` to get the old timing. In the fallback mode (DirectInput not hooked) the presses cannot be hidden. With the mod menu open, a single Esc closes it.
 * All of this is configurable in `[Menu]`: key, hold button or combo (`Back+Start`, `L3+R3`, ...), hold time, text
   size, the reminder, and `FrameGenToggle` (see below).
 
-What it shows:
+What it shows (1.7.13 layout): every row has a **plain name** with the technical id small and dim after it (`CPU waits sleep instead of spinning  (W6)`), grouped under the headers **Display & overlay**, **Frame generation**, **Performance fixes (safe)**, **Experimental** (CPU / GPU Proton), **Diagnostics / logging**, **Next launch** and **Save & exit**. The bottom of the panel explains the selected row in two lines: what it does, then whether it changes the picture or only timing, whether it applies now or at the next launch, and the measured effect where known (for example `CPU only: no fps change on the Ally`, `About 0 on the Ally, 2-3 % on PC`). The list scrolls when it does not fit (`rows a-b of N` in the title).
+* **Game's own performance display:** Nioh 3 has no retail setting for it. The KTGL fps overlay (`GfxDevice+0x76F0`) is compiled out (`notes\osd-design.md` section 1A), so the menu row says `not in this game build`; the mod's own counter is the one to use.
+
+Details by group (older description):
 * **Live fixes, applied at once:** VRR timing, W3 message-pump wait (and its Proton sleep mode), R1 render-wait
   timeout (0 = stock busy poll), L1 frame-limiter sleep, F1 FSR frame-gen presenter sleep, WK job wake gate, Max frame
   latency (game / 1 / 2 / 3; under Proton lowering applies after a swapchain rebuild / restart).
@@ -475,9 +479,8 @@ What it shows:
   A fix that isn't installed this session shows `not installed` or `off (Proton)`, with the reason.
 * **1.6.0 - OPT-IN:** WG, TG (shows `ticks <= N` while it governs, `REFUSED: L1 off` without L1), DS, CP, SPF, MQ, PT1, DL live;
   LK next launch. Items installed with the switch off are saved as 2 (stay installed).
-* **Overlay:** FPS counter, frame time, speed factor, counter position, counter text size.
-* **Game setting:** *Frame generation* (the game's own setting, switched live the way its options menu does it), plus
-  two status rows: *FG running* (real vs presented fps) and the game's *Upscaler* setting. See
+* **Overlay:** Show FPS counter, frame time, game speed, *Move FPS counter* (corner), *Nudge counter right / down*, text size. `[Overlay] OffsetX / OffsetY` are pixels at 1080p (scaled with the screen height) measured from the chosen corner's edges; with no offset keys the TopLeft counter starts **160 px down** so it sits below the game's health / ki bars (other corners 0). The first nudge in the menu takes over the current values; A resets a value. Save to ini writes the keys. With frame generation running the counter shows `FPS: 60 FG | FG FPS: 120`.
+* **Frame generation:** a status row `Frame gen: ON - running (60 -> 120 fps)` (green) / `ON - paused (game menu open | loading | menu/loading/cutscene)` (orange) / `OFF` (grey), a row that literally says **Turn frame gen ON** / **Turn frame gen OFF** (A / Enter; Left / Right picks the type), and the game's *Upscaler* setting. See
   [Frame generation](#frame-generation-status-and-switch).
 * **Next launch:** WorkerCap, P12, and under Proton also L1/F1 on Proton. These are marked `* restart` when changed.
 * **Save to ini** writes everything to `Nioh3EngineFix.ini`. Without saving, changes last until the game exits.
@@ -500,7 +503,7 @@ Notes:
 The startup popup and the menu show:
 * the game's **FRAME_GENERATION** setting (OFF, DLSS, FSR or XeSS) and its **upscaler** setting. FSR frame gen doesn't
   need the FSR upscaler; it also runs with DLSS, XeSS or no upscaler.
-* whether FG **really runs**: generated frames reach the screen when presented fps > 1.4x the real (engine) fps.
+* whether FG **really runs** (1.7.13, counted per thread): the game/render thread's presents are the real fps, the `AMD FSR Presenter Thread`'s presents are the displayed fps (on the PC the presenter presents into the same swapchain as the game, so the old per-swapchain count saw one chain and `x1.00`). FG runs when displayed > 1.15x real. The log prints `FG state: ...` lines with the reason on every change, and the stats line shows `threads game N/s presenter M/s`.
 * a **reason line** when the setting is on but FG doesn't run:
   * `switching - the game is rebuilding its swapchain`: right after a change, for a few seconds.
   * `FSR presenter runs but adds no frames`: the engine pauses FG in menus, cutscenes, the title screen and

@@ -101,6 +101,11 @@ void OnPresent();
 // quads were laid out for (0 = nothing drawn); osd draws them with that scale.
 float Draw(unsigned W, unsigned H);
 bool IsOpen();
+// why the game is paused right now (any thread; set by the Present thread): 0 none, 1 a game menu is open (the engine's own
+// "menu open" getters 0x5A37D4 / 0xD63C0), 2 game time stopped (stop flags 58B / 58C), 3 loading (58A)
+int GamePauseReason();
+// "F10 / Esc x3 / Start x3": all ways to open the menu (startup popup, pause hint)
+const char* OpenHint();
 
 // ---- W3 hookPeek (game's message thread): swallow the menu key (keeps Windows from entering the F10 system-menu
 // mode) and, while the menu is open, the navigation keys. Only WM_KEY*/WM_SYSKEY* are looked at.

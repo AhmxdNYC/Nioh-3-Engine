@@ -49,6 +49,15 @@ LogFn g_log = nullptr;
 constexpr uint32_t kRvaFrameMgrPtr = 0x4759910;  // G
 constexpr uint32_t kOffStopFlags = 0x588;        // 6 latched bytes, from request counters G+0x590+4*i
 constexpr uint32_t kOffFrameCounter = 0x610;
+// "a game menu is open" (1.7.13): the two getters ApplyGraphicsSettings (0x39A39C) ORs into the FG pause flag S+0x2055.
+// 0x5A37D4: [g_45C84A8+0x170] screen object, vfunc 0x100 && vfunc 0x48; 0xD63C0: tail-jumps to vfunc 8 of [0x4758BA0].
+constexpr uint32_t kRvaMenuA = 0x5A37D4, kRvaMenuB = 0xD63C0;
+const uint8_t kMenuABytes[] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x05, 0xC7, 0x4C, 0x02, 0x04, 0x48, 0x8B, 0x98, 0x70, 0x01,
+                               0x00, 0x00, 0x48, 0x85, 0xDB, 0x74, 0x1D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x90, 0x00, 0x01, 0x00,
+                               0x00, 0x84, 0xC0, 0x74, 0x0D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x48, 0x84, 0xC0, 0x75, 0x08,
+                               0x32, 0xC0, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3, 0xB0, 0x01, 0xEB, 0xF6};
+const uint8_t kMenuBBytes[] = {0x48, 0x8B, 0x0D, 0xD9, 0x27, 0x68, 0x04, 0x48, 0x85, 0xC9, 0x74, 0x07,
+                               0x48, 0x8B, 0x01, 0x48, 0xFF, 0x60, 0x08, 0x32, 0xC0, 0xC3};
 constexpr uint32_t kRvaXInputIat = 0x38E2C50;    // XINPUT1_4 ordinal 2 (XInputGetState) on v2.02
 
 // ---- frame generation (v2.02 only; notes\frame-generation.md) ---------------------------------------------------------
@@ -108,6 +117,8 @@ struct Cfg {
     int pauseHint = 1;
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int fgToggle = 1;          // [Menu] FrameGenToggle: 0 status only, 1 switch on Windows, 2 also under Proton (risky)
+    int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
+    uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
 Cfg g_cfg;
 Host g_host;
@@ -145,6 +156,7 @@ volatile LONG64 g_padHeldAt[4] = {};
 volatile LONG g_keyHeld = 0;
 volatile LONG64 g_keyHeldAt = 0;
 volatile LONG g_keyLatch = 0;         // nav keys kept hidden from the game until released
+volatile LONG g_pauseReason = 0;      // 0 none, 1 game menu open, 2 game paused (stop flags), 3 loading (58A)
 volatile LONG64 g_holdSince = 0;      // the open gesture is being held since (0 = not)
 volatile LONG64 g_holdSeen = 0;
 
@@ -160,6 +172,10 @@ struct PadSlot {
 };
 PadSlot g_pad[4];
 uint32_t g_keyPrev = 0;
+// Escape triple-tap (same logic as the pad's Start gesture; DirectInput keyboard state is the only path the game reads Escape through)
+int g_escTaps = 0;
+ULONGLONG g_escTap0 = 0, g_escLast = 0, g_escSynth = 0;
+bool g_escPass = false, g_escPrevDown = false;
 
 ULONGLONG Now() { return GetTickCount64(); }
 bool Alive(ULONGLONG t, ULONGLONG ms) { return t - (ULONGLONG)g_lastPresent < ms; }
@@ -313,7 +329,47 @@ void KeyFeed(uint8_t* keys, bool own) {
     if ((pressed & K_TOGGLE) && Alive(t, 1000)) Request(t, 1);
     if (g_open) InterlockedOr(&g_pressed, (LONG)KeyNav(pressed));
     InterlockedAnd(&g_keyLatch, (LONG)raw);  // released keys leave the latch
+    // Escape x3 opens the menu. The first presses are held back from the game for TapGapMs; a lone press (or two) is replayed
+    // to it afterwards as one short press; a press that is still held after the gap is a real hold and passes at once.
+    bool escHide = false, escSynth = false;
+    if (g_cfg.escDik) {
+        const bool down = (keys[g_cfg.escDik] & 0x80) != 0, wasDown = g_escPrevDown;
+        g_escPrevDown = down;
+        if (g_open || (g_keyLatch & K_ESC)) {  // the open menu (or the press that just opened/closed it) owns Escape
+            g_escTaps = 0;
+            g_escPass = false;
+            g_escSynth = 0;
+        } else {
+            if (g_escTaps && t - g_escLast >= (ULONGLONG)g_cfg.tapGapMs) {
+                if (down && wasDown && g_escTaps == 1) g_escPass = true;
+                else if (g_cfg.swallowTaps) g_escSynth = t + 120;
+                g_escTaps = 0;
+            }
+            if (!down) g_escPass = false;
+            if (down && !wasDown) {
+                if (g_escTaps && t - g_escTap0 > (ULONGLONG)g_cfg.tapWindowMs) g_escTaps = 0;
+                if (g_escTaps == 0) g_escTap0 = t;
+                ++g_escTaps;
+                g_escLast = t;
+                g_escSynth = 0;
+                if (g_escTaps >= 3) {
+                    g_escTaps = 0;
+                    if (Alive(t, 1000)) {
+                        Request(t, 3);
+                        InterlockedOr(&g_keyLatch, (LONG)K_ESC);  // the third press stays hidden until released
+                        escHide = true;
+                    } else {
+                        g_escPass = true;
+                    }
+                }
+            }
+            if (g_cfg.swallowTaps && down && !g_escPass && g_escTaps) escHide = true;
+            else if (t < g_escSynth && !down) escSynth = true;
+        }
+    }
     if (own) return;
+    if (escHide) keys[g_cfg.escDik] = 0;
+    else if (escSynth) keys[g_cfg.escDik] = 0x80;
     if (g_cfg.dik) keys[g_cfg.dik] = 0;  // the menu key belongs to the mod
     const uint32_t hide = (g_open ? K_NAV : 0u) | (uint32_t)g_keyLatch;
     if (hide)
@@ -736,74 +792,105 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL,
           kGpu, kGR2a, kGR2b, kGR1,
-          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler,
+          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXDL - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 bool IsExp(int id) { return id >= kXW6 && id <= kXDL; }
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
                                              L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL"};
 struct ItemDef {
-    const char* section;  // header printed before the item (nullptr = none)
-    const char* label;
-    const char* desc;
+    const char* plain;   // plain-language name
+    const char* tech;    // technical id, drawn small and dim after the name ("" = none)
+    const char* what;    // one line: what it does
+    const char* effect;  // one line: picture / behaviour, when it applies, measured effect where known
 };
+#define E_CPU "Picture unchanged. Applies now. CPU only: no fps change on the Ally."
+#define E_CPU_NEXT "Picture unchanged. Applies at the next launch (save to ini). CPU only: no fps change on the Ally."
 const ItemDef kItems[kCount] = {
-    {"LIVE FIXES - apply at once", "VRR timing", "Real game speed below the fps cap. Offline only: OFF for online co-op."},
-    {nullptr, "W3 message pump wait", "Message thread sleeps (<=1 ms) instead of spinning a CPU core."},
-    {nullptr, "W3 wait mode (Proton)", "Sleep 1 ms: few wake-ups. MsgWait: Windows wait (~24k wakes/s on Wine)."},
-    {nullptr, "R1 render wait", "Game thread waits for the GPU with this timeout per round. 0 = stock busy poll."},
-    {nullptr, "L1 frame limiter sleep", "Frame limiter sleeps on a high-resolution timer instead of spinning."},
-    {nullptr, "F1 FSR-FG presenter", "FSR frame-gen presenter sleeps instead of spinning (FG on only)."},
-    {nullptr, "WK job wake gate", "Skips waking a job worker when no queue holds work (less CPU power)."},
-    {nullptr, "Max frame latency", "Frames queued ahead (game: 1). Proton: lowering applies after swapchain rebuild / restart."},
-    {"EXPERIMENTAL CPU POWER - A/B live", "W6 present wait", "Main thread sleeps while Present blocks, instead of Sleep(0)-spinning a core."},
-    {nullptr, "B gallop search", "Draw-list group length: galloping instead of full binary search (main thread)."},
-    {nullptr, "PP page-pool sweep /N", "Streaming page-pool usage sweep every N-th frame (Tuning PP_Period, default 4)."},
-    {nullptr, "FPC FindParam cache", "Per-frame cache of material parameter lookups on the render thread."},
-    {nullptr, "AABB box math (SSE)", "Character bounding boxes in SSE, bit-identical (game-update thread)."},
-    {nullptr, "M1 meshlet pool sum", "Meshlet-request workers stop re-summing the page-pool capacity per chunk."},
-    {nullptr, "X1 empty pad slots", "Active-pad scan skips XInput slots the game knows are empty."},
-    {nullptr, "E1 hidden effects /N", "Effects nobody can see update every N-th pass with N x the time step (E1_N=2)."},
-    {nullptr, "M2 meshlet atomics", "Meshlet workers read bitmaps with plain loads (code bytes: next launch)."},
-    {nullptr, "J1 job-queue polls", "Idle job workers poll queues with plain loads (code bytes: next launch)."},
-    {nullptr, "S1 drain-spin pause", "PAUSE in the main thread's end-of-frame spin (code bytes: next launch)."},
-    {"INPUT LATENCY", "IK input kick early", "Pad read at the start of the logic frame, not the end (-4..9 ms). Toggle while idle."},
-    {nullptr, "TS input -> display", "Timestamp probes: median button-sample -> frame presented (add half a refresh)."},
-    {"WORKER WAKES", "WakeStats counters", "Counts job-worker wakes and sleeps (log \"stats wakes/s\" every 30 s). Measurement only."},
-    {nullptr, "ED skip empty effect lists", "Effect Disp workers with nothing to update are not woken (same output)."},
-    {"GPU FENCE WAITS", "GF fence wait sleeps", "Main thread / workers sleep until the GPU fence fires instead of Sleep(0)-spinning."},
-    {nullptr, "WL close waitable handles", "Closes the per-frame frame-latency handle the game leaks (Windows; no-op on Proton)."},
-    {"1.6.0 - OPT-IN", "WG wake gate", "No second wake-one while a woken worker of the pool is still on its way (same jobs run)."},
-    {nullptr, "TG tick governor (exp.)", "EXPERIMENT: logic ticks follow rendered fps (floor 30). Step 1/30 s like 30-FPS mode. Needs L1."},
-    {nullptr, "DS retry-spin sleep", "Main loop's 1 ms no-new-frame spin sleeps on a timer (exit test unchanged). Needs L1."},
-    {nullptr, "LK plain loads (18)", "Locked 'atomic loads' in worker code become plain loads (code bytes: next launch)."},
-    {nullptr, "CP collision prefetch", "Collision workers prefetch the next colliders (same results, less memory stall)."},
-    {nullptr, "SPF stage prefetch", "Stage-update worker prefetches placeables 4 ahead (same results, less memory stall)."},
-    {nullptr, "MQ bone matrix SSE", "Skeleton matrix build in SSE, bit-identical (about 1 % of each scheduler thread)."},
-    {nullptr, "PT1 texture pool lock", "Texture tile requests take the pool lock once per texture (same state, fewer lock pairs)."},
-    {nullptr, "DL skip dead lookup", "Collision update skips a part-map search whose result is discarded (CP site group)."},
-    {"GPU", "GPU barrier batching", "Batches the game's D3D12 barriers into fewer calls. ~0 on the Ally, 2-3 % on PC."},
-    {nullptr, "R2a COMMON barriers", "Proton: buffer COMMON->X barriers get their real read state (cheaper wait on RADV). A/B with GPU W/fps."},
-    {nullptr, "R2b COMMON barriers (UAV)", "EXPERIMENT. Same for UAV buffers. May show flicker or stale data: judge with screenshots."},
-    {nullptr, "R1 read->read barriers", "EXPERIMENT. Drops read->read superset barriers. Needs an image compare."},
-    {"OVERLAY", "FPS counter", "Real FPS (engine) and FG FPS (presented, incl. generated frames)."},
-    {nullptr, "Frame time", "Adds the real frame time (ms) to the counter."},
-    {nullptr, "Speed factor", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow."},
-    {nullptr, "Counter position", "Corner of the FPS counter."},
-    {nullptr, "Counter text size", "1.0 = 8x16 px letters (x2 at 4K). Whole numbers look sharpest."},
-    {"GAME SETTING - live, the game's own apply", "Frame generation",
-     "Same as the game's Options > Frame Generation. Screen blinks while it switches."},
-    {nullptr, "  FG running", "Real FPS (engine) vs presented FPS: FG runs when presented > 1.4x real."},
-    {nullptr, "  Upscaler (game setting)", "The game's upscaler setting. FSR frame gen does not need the FSR upscaler."},
-    {"NEXT LAUNCH - saved to the ini", "WorkerCap", "Handhelds: cap the job thread pools at N (try 10, then 8). Off on desktops."},
-    {nullptr, "P12 worker-pool lift", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental."},
-    {nullptr, "L1 on Proton", "Install L1 under Wine/Proton too (Wine may not honour the timer)."},
-    {nullptr, "F1 on Proton", "Install F1 under Wine/Proton too (same timer caveat as L1)."},
-    {"", "Save to ini", "Save to Nioh3EngineFix.ini; FG changed here also goes to the game's config.xml."},
-    {nullptr, "Close menu", "Also: B / Esc / the menu key / the open gesture."},
+    {"Smoother frame pacing", "(VRR)", "Game speed stays real below the fps cap instead of the whole game slowing down.", "Changes timing, not the picture. Applies now. Offline only: OFF for online co-op."},
+    {"Message thread sleeps, not spins", "(W3)", "The window-message thread sleeps (<=1 ms) instead of spinning a CPU core.", E_CPU},
+    {"Message wait style (Proton)", "(W3 mode)", "Proton only. Sleep 1 ms = few wake-ups; MsgWait = Windows wait (~24k wakes/s on Wine).", "Picture unchanged. Applies now."},
+    {"Render wait timeout", "(R1)", "The game thread waits for the GPU with a timeout per round. 0 = stock busy poll.", "Picture unchanged. Applies now. CPU only: no fps change on the Ally."},
+    {"Frame limiter sleeps, not spins", "(L1)", "The frame limiter sleeps on a high-resolution timer instead of spinning.", E_CPU},
+    {"Frame-gen presenter sleeps", "(F1)", "The FSR frame-gen presenter sleeps instead of spinning (only matters with frame gen ON).", E_CPU},
+    {"Fewer worker wake-ups", "(WK)", "Skips waking a job worker when no queue holds work.", E_CPU},
+    {"Frames queued ahead", "(max latency)", "How many frames the game queues (game: 1). Fewer = lower input delay.", "Picture unchanged. Applies now (Proton: after a swapchain rebuild or restart)."},
+    {"CPU waits sleep instead of spinning", "(W6)", "The main thread sleeps while Present blocks, instead of spinning a core.", E_CPU},
+    {"Faster draw-list search", "(B)", "Draw-list group length found by galloping, not a full binary search.", "Picture unchanged. Applies now. About +5 % main-thread headroom on PC."},
+    {"Page-pool sweep less often", "(PP)", "Streaming page-pool usage sweep runs every N-th frame (Tuning PP_Period, default 4).", E_CPU},
+    {"Cache material lookups", "(FPC)", "Per-frame cache of material parameter lookups on the render thread.", E_CPU},
+    {"Faster bounding boxes", "(AABB)", "Character bounding boxes computed in SSE, bit-identical results.", E_CPU},
+    {"Meshlet pool sum cached", "(M1)", "Meshlet workers stop re-summing the page-pool capacity per chunk.", E_CPU},
+    {"Skip empty pad slots", "(X1)", "The active-pad scan skips XInput slots the game knows are empty.", E_CPU},
+    {"Hidden effects update less", "(E1)", "Effects nobody can see update every N-th pass with N x the time step (E1_N=2).", "Visible effects untouched. Applies now. CPU only: no fps change on the Ally."},
+    {"Meshlet plain loads", "(M2)", "Meshlet workers read bitmaps with plain loads instead of locked ones.", E_CPU_NEXT},
+    {"Job-queue plain loads", "(J1)", "Idle job workers poll queues with plain loads instead of locked ones.", E_CPU_NEXT},
+    {"Pause in end-of-frame spin", "(S1)", "A PAUSE instruction in the main thread's end-of-frame spin.", E_CPU_NEXT},
+    {"Read input earlier", "(IK)", "The pad is read at the start of the logic frame, not the end.", "Lower input delay (-4..9 ms), picture unchanged. Applies now: toggle while idle."},
+    {"Input-to-screen timing", "(TS)", "Measures button press to frame shown (median; add half a refresh).", "Measurement only. Applies now."},
+    {"Count worker wakes", "(WakeStats)", "Counts job-worker wakes and sleeps (log line every 30 s).", "Measurement only. Applies now."},
+    {"Skip empty effect lists", "(ED)", "Effect workers with nothing to update are not woken.", "Same output. Applies now. CPU only: no fps change on the Ally."},
+    {"GPU wait fix", "(GF)", "Main thread and workers sleep until the GPU fence fires instead of spinning.", E_CPU},
+    {"Close leaked handles", "(WL)", "Closes the per-frame frame-latency handle the game leaks (Windows; no-op on Proton).", "Picture unchanged. Applies now. Prevents a slow handle leak."},
+    {"Wake gate", "(WG)", "No second wake-one while a woken worker of the pool is still on its way.", E_CPU},
+    {"Logic ticks follow render rate", "(TG)", "EXPERIMENT: logic ticks follow rendered fps (floor 30). Needs the frame-limiter fix (L1).", "Changes timing behaviour. Applies now. Judge by feel; Ally effect not proven."},
+    {"Retry-spin sleeps", "(DS)", "The main loop's 1 ms no-new-frame spin sleeps on a timer. Needs L1.", E_CPU},
+    {"Plain loads in workers", "(LK)", "18 locked 'atomic loads' in worker code become plain loads.", E_CPU_NEXT},
+    {"Collision prefetch", "(CP)", "Collision workers prefetch the next colliders (same results, less memory stall).", E_CPU},
+    {"Stage prefetch", "(SPF)", "The stage-update worker prefetches placeables 4 ahead (same results).", E_CPU},
+    {"Faster matrix math", "(MQ)", "Skeleton matrix build in SSE, bit-identical (about 1 % of each scheduler thread).", E_CPU},
+    {"Texture pool lock once", "(PT1)", "Texture tile requests take the pool lock once per texture (same state, fewer lock pairs).", E_CPU},
+    {"Skip dead collision lookup", "(DL)", "Collision update skips a part-map search whose result is thrown away.", E_CPU},
+    {"Batch GPU barriers", "(GPU)", "Batches the game's D3D12 resource barriers into fewer calls.", "Picture unchanged. Applies now. About 0 on the Ally, 2-3 % on PC."},
+    {"Cheaper barriers A (Proton)", "(R2a)", "Buffer COMMON barriers get their real read state (cheaper wait on RADV).", "Picture unchanged. Applies now. A/B against the GPU ms line."},
+    {"Cheaper barriers B (Proton)", "(R2b)", "EXPERIMENT. Same for UAV buffers. May flicker or show stale data.", "Judge with screenshots. Applies now."},
+    {"Drop read->read barriers", "(R1 gpu)", "EXPERIMENT. Drops read->read superset barriers. Needs an image compare.", "Judge with screenshots. Applies now."},
+    {"Show FPS counter", "", "Real fps (the game's frames) and, with frame gen, the displayed fps incl. generated frames.", "Overlay only. Applies now."},
+    {"Show frame time", "", "Adds the real frame time (ms) to the counter.", "Overlay only. Applies now."},
+    {"Show game speed", "", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow.", "Overlay only. Applies now."},
+    {"Move FPS counter", "(corner)", "Which screen corner the counter sits in. Top-left starts below the game's own health bars.", "Overlay only. Applies now. Save to ini keeps it."},
+    {"FPS counter text size", "", "1.0 = 8x16 px letters (x2 at 4K). Whole numbers look sharpest.", "Overlay only. Applies now."},
+    {"Turn frame gen ON", "(FG)", "Same as the game's Options > Frame Generation. Left/Right picks the type. The screen blinks while it switches.", "Changes the picture (extra frames). Applies now. Proton: ON->OFF applies at the next launch."},
+    {"Frame gen:", "", "Real fps (game thread) vs displayed fps (FSR presenter thread): running when displayed > 1.15x real.", "Status only."},
+    {"Upscaler (game setting)", "", "The game's upscaler setting. FSR frame gen does not need the FSR upscaler.", "Status only."},
+    {"Nudge counter right", "(offset X)", "Moves the counter away from its corner's left/right screen edge (pixels at 1080p).", "Overlay only. Applies now. A resets to 0."},
+    {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
+    {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
+    {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
+    {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
+    {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
+    {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
+    {"Save to ini", "", "Saves these choices to Nioh3EngineFix.ini; a frame-gen change made here also goes to the game's config.xml.", "Applies at the next launch."},
+    {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
 };
 
-int g_sel = 0;
+struct OrderEnt {
+    int id;
+    const char* section;  // header drawn before this item (nullptr = none)
+};
+const OrderEnt kOrder[] = {
+    {kFps, "Display & overlay"}, {kFrameTime, nullptr}, {kSpeed, nullptr}, {kPos, nullptr}, {kOffX, nullptr}, {kOffY, nullptr},
+    {kScale, nullptr}, {kPerfNote, nullptr},
+    {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
+    {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
+    {kLat, nullptr}, {kGpu, nullptr},
+    {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
+    {kXX1, nullptr}, {kXE1, nullptr}, {kXM2, nullptr}, {kXJ1, nullptr}, {kXS1, nullptr}, {kXWG, nullptr}, {kXTG, nullptr},
+    {kXDS, nullptr}, {kXLK, nullptr}, {kXCP, nullptr}, {kXSPF, nullptr}, {kXMQ, nullptr}, {kXPT1, nullptr}, {kXDL, nullptr},
+    {kGR2a, "Experimental (GPU, Proton)"}, {kGR2b, nullptr}, {kGR1, nullptr},
+    {kXTS, "Diagnostics / logging"}, {kXWS, nullptr},
+    {kWorkerCap, "Next launch (saved to the ini)"}, {kP12, nullptr}, {kL1Wine, nullptr}, {kFgWine, nullptr},
+    {kSave, "Save & exit"}, {kClose, nullptr},
+};
+constexpr int kOrderN = (int)(sizeof(kOrder) / sizeof(kOrder[0]));
+static_assert(kOrderN == (int)kCount, "every menu item must be in kOrder exactly once");
+int OrderPos(int id) {
+    for (int i = 0; i < kOrderN; ++i)
+        if (kOrder[i].id == id) return i;
+    return 0;
+}
+
+int g_sel = kFps;  // first row of the menu (kOrder[0]); Up from it wraps to 'Close menu'
 bool g_dirty = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni[kNumExp] = {};  // what Save writes for each experimental patch (live state when installed)
@@ -911,19 +998,13 @@ void FgValue(int id, char* buf, size_t n, uint32_t& color) {
         color = u ? cWhite : cDim;
         return;
     }
-    if (id == kFgState) {
-        if (s.active) {
-            snprintf(buf, n, "yes %.0f -> %.0f fps", s.realFps, s.presentFps);
-            color = cCyan;
-        } else if (s.setting == 0) {
-            snprintf(buf, n, "no (off in game settings)");
-            color = cGray;
-        } else if (!s.measured || (s.sinceSwitch < 12.0 && s.setting > 0)) {
-            snprintf(buf, n, s.measured ? "switching..." : "measuring...");
-            color = cWhite;
-        } else {
-            snprintf(buf, n, "NO");
-            color = cYellow;
+    if (id == kFgState) {  // 'ON - running (R -> D fps)' green / 'ON - paused (...)' orange / 'OFF' grey
+        static const uint32_t kCol[4] = {cGray, cGreen, cOrange, cYellow};
+        const int cls = osd::FgStateText(s, buf, n);
+        color = kCol[cls & 3];
+        if (g_fgNextLaunch && s.setting != 0) {
+            snprintf(buf, n, "ON - turns OFF at next launch");
+            color = cOrange;
         }
         return;
     }
@@ -936,10 +1017,10 @@ void FgValue(int id, char* buf, size_t n, uint32_t& color) {
         snprintf(buf, n, "FG off at next launch");
         color = cOrange;
     } else if (s.setting == 0) {
-        snprintf(buf, n, "OFF%s", ro);
+        snprintf(buf, n, "type: FSR%s", ro);  // what A/Enter would switch on
         color = cGray;
     } else {
-        snprintf(buf, n, "%s%s", name, ro);
+        snprintf(buf, n, "type: %s%s", name, ro);
         color = s.active ? cGreen : cYellow;
     }
 }
@@ -1011,6 +1092,9 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         case kSpeed: onoff(o.speed != 0); break;
         case kPos: snprintf(buf, n, "%s", osd::PositionName(o.pos)); break;
         case kScale: snprintf(buf, n, "%.1f", o.scale); break;
+        case kOffX: snprintf(buf, n, "%d px", osd::OffsetX()); break;
+        case kOffY: snprintf(buf, n, "%d px%s", osd::OffsetY(), o.offUser ? "" : " (default)"); break;
+        case kPerfNote: snprintf(buf, n, "not in this game build"); color = cDim; break;
         case kWorkerCap: {
             const bool ch = g_bootWorkerCap != g_host.workerCap;
             if (g_bootWorkerCap) snprintf(buf, n, "%d threads%s", g_bootWorkerCap, ch ? "  * restart" : "");
@@ -1101,6 +1185,10 @@ void StartSave() {
         add(L"Patches", L"FGOnWine", b(g_bootFgWine != 0));
     }
     osd::OverlaySettings& o = osd::Overlay();
+    if (o.offUser) {
+        add(L"Overlay", L"OffsetX", std::to_wstring(o.offX));
+        add(L"Overlay", L"OffsetY", std::to_wstring(o.offY));
+    }
     add(L"Overlay", L"FpsCounter", b(o.fpsCounter != 0));
     add(L"Overlay", L"FrameTime", b(o.frameTime != 0));
     add(L"Overlay", L"SpeedFactor", b(o.speed != 0));
@@ -1139,14 +1227,14 @@ void StartSave() {
 }
 
 // ---- open / close / change ---------------------------------------------------------------------------------------------
-const char* SrcName(LONG src) { return src == 1 ? g_cfg.keyName : src == 2 ? "controller gesture" : "?"; }
+const char* SrcName(LONG src) { return src == 1 ? g_cfg.keyName : src == 2 ? "controller gesture" : src == 3 ? "Esc x3" : "?"; }
 
 void Open(const char* how) {
     InterlockedExchange(&g_pressed, 0);
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
     MessageBeep(MB_OK);  // audible confirmation of the hold gesture, even if the overlay can't draw
-    if (!Visible(g_sel)) g_sel = 0;
+    if (!Visible(g_sel)) g_sel = kOrder[0].id;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
 
@@ -1278,6 +1366,18 @@ void Change(int id, int dir) {
         case kFrameTime: o.frameTime = !o.frameTime; break;
         case kSpeed: o.speed = !o.speed; break;
         case kPos: o.pos = (o.pos + (dir < 0 ? 3 : 1)) & 3; break;
+        case kOffX: case kOffY: {
+            int& v = id == kOffX ? o.offX : o.offY;
+            if (!o.offUser) {  // first nudge: take over the current effective values
+                o.offX = osd::OffsetX();
+                o.offY = osd::OffsetY();
+                o.offUser = true;
+            }
+            if (dir == 0) v = id == kOffX ? 0 : osd::DefaultOffsetY(o.pos);
+            else v = std::clamp(v + (dir < 0 ? -20 : 20), 0, id == kOffX ? 1900 : 1060);
+            break;
+        }
+        case kPerfNote: return;
         case kScale: {
             float v = o.scale + (dir < 0 ? -0.5f : 0.5f);
             if (dir == 0 && v > 6.0f) v = 0.5f;
@@ -1301,13 +1401,18 @@ void Change(int id, int dir) {
     char v[64];
     uint32_t c;
     Value(id, v, sizeof(v), c);
-    MLOG("%s -> %s", kItems[id].label, v);
+    MLOG("%s%s%s -> %s", kItems[id].plain, kItems[id].tech[0] ? " " : "", kItems[id].tech, v);
 }
 
 void Move(int dir) {
-    for (int k = 0; k < kCount; ++k) {
-        g_sel = (g_sel + dir + kCount) % kCount;
-        if (Visible(g_sel) && !ReadOnly(g_sel)) return;
+    int pos = OrderPos(g_sel);
+    for (int k = 0; k < kOrderN; ++k) {
+        pos = (pos + dir + kOrderN) % kOrderN;
+        const int id = kOrder[pos].id;
+        if (Visible(id) && !ReadOnly(id)) {
+            g_sel = id;
+            return;
+        }
     }
 }
 
@@ -1440,45 +1545,89 @@ void OwnPolling(ULONGLONG t) {
     }
 }
 
+bool g_menuSigOk = false;     // the two "menu open" getters verified (bytes) at Configure
+bool g_menuShown = false, g_stopPaused = false;
+ULONGLONG g_menuSince = 0, g_menuLastOpen = 0;
+int g_menuLogged = -1, g_menuLogs = 0;
+
+// the game's own getters, called on the Present thread inside SEH (tiny virtual-call wrappers that only read UI state)
+bool CallGameBool(uint32_t rva) {
+    __try {
+        return reinterpret_cast<unsigned char (*)()>(g_host.base + rva)() != 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        g_menuSigOk = false;
+        return false;
+    }
+}
+
 void PauseDetect(ULONGLONG t) {
     if (!g_host.knownBuild || !g_host.base) return;
     uint64_t gp = 0;
-    if (!Rd(g_host.base + kRvaFrameMgrPtr, gp) || gp < 0x10000) return;
-    const uint8_t* G = reinterpret_cast<const uint8_t*>((uintptr_t)gp);
-    uint8_t b[6] = {};
-    uint32_t fc = 0;
-    for (int i = 0; i < 6; ++i)
-        if (!Rd(G + kOffStopFlags + i, b[i])) return;
-    if (!Rd(G + kOffFrameCounter, fc)) return;
     uint8_t flags = 0;
-    for (int i = 0; i < 6; ++i)
-        if (b[i]) flags |= (uint8_t)(1u << i);
-    if (flags != g_stopFlags) {  // diagnostic: tells from the first log which byte the pause menu sets
-        if (g_stopLogs < 200) {
-            char list[48] = "";
+    bool haveFlags = false;
+    if (Rd(g_host.base + kRvaFrameMgrPtr, gp) && gp >= 0x10000) {
+        const uint8_t* G = reinterpret_cast<const uint8_t*>((uintptr_t)gp);
+        uint8_t b[6] = {};
+        uint32_t fc = 0;
+        haveFlags = true;
+        for (int i = 0; i < 6; ++i)
+            if (!Rd(G + kOffStopFlags + i, b[i])) haveFlags = false;
+        if (haveFlags && !Rd(G + kOffFrameCounter, fc)) haveFlags = false;
+        if (haveFlags) {
             for (int i = 0; i < 6; ++i)
-                if (flags & (1u << i)) {
-                    char one[8];
-                    snprintf(one, sizeof(one), " %X", (unsigned)(kOffStopFlags + i));
-                    strncat_s(list, one, _TRUNCATE);
+                if (b[i]) flags |= (uint8_t)(1u << i);
+            if (flags != g_stopFlags) {  // diagnostic: tells from the first log which byte the pause menu sets
+                if (g_stopLogs < 200) {
+                    char list[48] = "";
+                    for (int i = 0; i < 6; ++i)
+                        if (flags & (1u << i)) {
+                            char one[8];
+                            snprintf(one, sizeof(one), " %X", (unsigned)(kOffStopFlags + i));
+                            strncat_s(list, one, _TRUNCATE);
+                        }
+                    MLOG("engine stop flags (G+588..58D) now:%s%s", flags ? list : " none", ++g_stopLogs == 200 ? " (no further stop-flag lines)" : "");
                 }
-            MLOG("engine stop flags (G+588..58D) now:%s%s", flags ? list : " none", ++g_stopLogs == 200 ? " (no further stop-flag lines)" : "");
+                g_stopFlags = flags;
+            }
+            if (fc != g_lastFrame) {
+                g_lastFrame = fc;
+                g_frameAdvAt = t;
+            }
         }
-        g_stopFlags = flags;
     }
-    if (fc != g_lastFrame) {
-        g_lastFrame = fc;
-        g_frameAdvAt = t;
-    }
+    // stop-flag path (58B / 58C stop game time; kept as the fallback signal)
     constexpr uint8_t kHard = 0x23;  // 588, 589, 58D: shutdown / system stops - never show the hint for those
-    const bool cand = (flags & g_cfg.pauseMask) && !(flags & kHard & ~g_cfg.pauseMask) && t - g_frameAdvAt < 300;
+    const bool cand = haveFlags && (flags & g_cfg.pauseMask) && !(flags & kHard & ~g_cfg.pauseMask) && t - g_frameAdvAt < 300;
     if (!cand) {
         g_pauseCandSince = 0;
-        if (g_paused) g_paused = false;
-        return;
+        g_stopPaused = false;
+    } else {
+        if (!g_pauseCandSince) g_pauseCandSince = t;
+        if (!g_stopPaused && t - g_pauseCandSince >= 250) g_stopPaused = true;
     }
-    if (!g_pauseCandSince) g_pauseCandSince = t;
-    if (!g_paused && t - g_pauseCandSince >= 250) g_paused = true;
+    // the game's own "a menu is open" signal (the one its frame generation uses to pause itself)
+    bool menuNow = false;
+    if (g_menuSigOk) {
+        const bool a = CallGameBool(kRvaMenuA), bb = g_menuSigOk && CallGameBool(kRvaMenuB);
+        menuNow = a || bb;
+        const int code = (a ? 1 : 0) | (bb ? 2 : 0);
+        if (code != g_menuLogged) {
+            if (g_menuLogs < 200)
+                MLOG("game menu signal now %s (5A37D4=%d D63C0=%d)%s", code ? "OPEN" : "closed", a ? 1 : 0, bb ? 1 : 0,
+                     ++g_menuLogs == 200 ? " (no further lines)" : "");
+            g_menuLogged = code;
+        }
+    }
+    if (menuNow) {
+        if (!g_menuSince) g_menuSince = t;
+        g_menuLastOpen = t;
+    } else {
+        g_menuSince = 0;
+    }
+    g_menuShown = (g_menuSince && t - g_menuSince >= 120) || (g_menuShown && t - g_menuLastOpen < 150);
+    g_pauseReason = g_menuShown ? 1 : g_stopPaused ? 2 : (haveFlags && (flags & 0x04)) ? 3 : 0;
+    const bool useMenu = g_cfg.pauseSrc != 1 && g_menuSigOk, useStop = g_cfg.pauseSrc != 0 || !g_menuSigOk;
+    g_paused = (useMenu && g_menuShown) || (useStop && g_stopPaused);
 }
 
 void OnPresentImpl() {
@@ -1486,7 +1635,7 @@ void OnPresentImpl() {
     g_lastPresent = (LONG64)t;
     OwnPolling(t);
     SampleRates(t);
-    if (g_cfg.pauseHint) PauseDetect(t);
+    PauseDetect(t);  // also feeds the frame-generation status row (why FG is paused)
     if (InterlockedExchange(&g_toggleReq, 0) && t - (ULONGLONG)g_toggleAt < 1000) {
         const LONG src = g_toggleSrc;
         if (g_open) Close(SrcName(src));
@@ -1526,6 +1675,7 @@ void OnPresentImpl() {
 // ---- drawing --------------------------------------------------------------------------------------------------------------
 struct Row {
     char label[128];
+    char tech[24];
     char value[48];
     uint32_t lc, vc;
     bool sel, rule;
@@ -1534,10 +1684,14 @@ struct Row {
 std::string GestureText() {
     std::string s;
     if (g_cfg.vk) s = g_cfg.keyName;
+    if (g_cfg.escDik) {
+        if (!s.empty()) s += " / ";
+        s += "Esc x3";
+    }
     if (g_cfg.holdMask) {
         if (!s.empty()) s += " / ";
         char b[96];
-        if (g_cfg.gesture == 1) snprintf(b, sizeof(b), "Press %s 3x", g_cfg.holdName);
+        if (g_cfg.gesture == 1) snprintf(b, sizeof(b), "%s x3", g_cfg.holdName);
         else if (g_cfg.holdMs > 0) snprintf(b, sizeof(b), "Hold %s %gs", g_cfg.holdName, g_cfg.holdMs / 1000.0);
         else snprintf(b, sizeof(b), "%s", g_cfg.holdName);
         s += b;
@@ -1559,7 +1713,7 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     const osd::OverlaySettings& o = osd::Overlay();
     if (o.pos == 1 && o.fpsCounter) {
         const float csc = osd::CounterScale(H);
-        y += (osd::kGlyphH + 2) * csc + 8 * csc - 2 * csc + 4 * csc;
+        y += (float)osd::OffsetY() * (float)H / 1080.0f + (osd::kGlyphH + 2) * csc + 8 * csc - 2 * csc + 4 * csc;
     }
     const float x = (float)W - margin - w;
     osd::DrawRect(x, y, w, h, cPanel);
@@ -1580,65 +1734,89 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     if (!g_open) {
         if (g_cfg.pauseHint && g_paused) {
-            const std::string s = GestureText() + ": Mod menu";  // drawn every frame while the pause flags are set (not a timed popup)
+            const std::string s = "Mod menu: " + GestureText();  // drawn every frame while a game menu is open (not a timed popup)
             return DrawCornerNote(W, H, s.c_str(), cWhite);
         }
         return 0;
     }
 
-    // ---- the menu panel
-    Row rows[64];
-    int n = 0;
-    auto add = [&](const char* label, const char* value, uint32_t lc, uint32_t vc, bool sel, bool rule) {
-        if (n >= 64) return;
-        Row& r = rows[n++];
+    // ---- the menu panel: title, a scrolling body (section headers + items in kOrder), then the explanation of the selected
+    // row, the diagnostics lines and the footer. Rows are filled by put(); kValueCol keeps the values in one column.
+    Row head;
+    Row body[96], tail[28];
+    int nb = 0, nt = 0, selRow = -1;
+    auto put = [&](Row* a, int& cnt, int cap, const char* label, const char* tech, const char* value, uint32_t lc, uint32_t vc, bool sel,
+                   bool rule) {
+        if (cnt >= cap) return;
+        Row& r = a[cnt++];
         snprintf(r.label, sizeof(r.label), "%s", label);
+        snprintf(r.tech, sizeof(r.tech), "%s", tech ? tech : "");
         snprintf(r.value, sizeof(r.value), "%s", value);
         r.lc = lc;
         r.vc = vc;
         r.sel = sel;
         r.rule = rule;
     };
+    auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
     snprintf(title, sizeof(title), "Nioh3EngineFix v%s - mod menu", g_host.version);
-    add(title, g_dirty ? "unsaved changes" : "", cGold, cYellow, false, true);
-    for (int id = 0; id < kCount; ++id) {
+    {
+        int c = 0;
+        put(&head, c, 1, title, "", "", cGold, cYellow, false, true);
+    }
+    const char* pending = nullptr;
+    for (int oi = 0; oi < kOrderN; ++oi) {
+        const int id = kOrder[oi].id;
+        if (kOrder[oi].section) pending = kOrder[oi].section;
         if (!Visible(id)) continue;
-        if (kItems[id].section) add(kItems[id].section, "", cCyan, cWhite, false, false);
+        if (pending) {
+            put(body, nb, 96, pending, "", "", cCyan, cWhite, false, false);
+            pending = nullptr;
+        }
         char v[64];
         uint32_t vc;
         Value(id, v, sizeof(v), vc);
-        char lab[72];
-        snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kItems[id].label);
-        add(lab, v, id == g_sel ? cWhite : (Available(id) || id >= kSave ? cGray : cDim), vc, id == g_sel, false);
+        char lab[96];
+        const char* plain = kItems[id].plain;
+        if (id == kFg) {
+            const osd::FgStatus fs = osd::FrameGen();
+            plain = (fs.setting > 0 && !g_fgNextLaunch) ? "Turn frame gen OFF" : "Turn frame gen ON";
+        }
+        snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", plain);
+        if (id == g_sel) selRow = nb;
+        const bool avail = Available(id) || id >= kSave || id == kPerfNote;
+        put(body, nb, 96, lab, kItems[id].tech, v, id == g_sel ? cWhite : (avail ? cGray : cDim), vc, id == g_sel, false);
     }
-    // description of the selected item
-    char desc[160];
-    snprintf(desc, sizeof(desc), "%s", kItems[g_sel].desc);
+    // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
+    char what[200], effect[200];
+    snprintf(what, sizeof(what), "%s", kItems[g_sel].what);
+    snprintf(effect, sizeof(effect), "%s", kItems[g_sel].effect);
     if (!Available(g_sel)) {
         if ((g_sel == kL1 && g_host.l1 == FixState::WineSkipped) || (g_sel == kF1 && g_host.f1 == FixState::WineSkipped))
-            snprintf(desc, sizeof(desc), "Skipped under Proton - turn on '%s on Proton' below, save, restart.", g_sel == kL1 ? "L1" : "F1");
+            snprintf(what, sizeof(what), "Skipped under Proton - turn on '%s on Proton' below, save, restart.", g_sel == kL1 ? "L1" : "F1");
         else if (g_sel == kFg)
-            snprintf(desc, sizeof(desc), "%s",
+            snprintf(what, sizeof(what), "%s",
                      !g_cfg.fgToggle ? "Status only ([Menu] FrameGenToggle = 0): switch it in the game's Options."
                      : g_host.wine && g_cfg.fgToggle == 1 ? "Status only on Proton: FG is reported to crash there (FrameGenToggle=2)."
                                                           : "Status only: the game's FG setter did not verify on this build (see the log).");
         else
-            snprintf(desc, sizeof(desc), "Not installed this session (off in the ini or a site was not found - see the log).");
+            snprintf(what, sizeof(what), "Not installed this session (off in the ini or a site was not found - see the log).");
+        effect[0] = 0;
     }
-    add("", "", cWhite, cWhite, false, true);
-    add(desc, "", cWhite, cWhite, false, false);
+    addT("", cWhite, true);
+    addT(what, cWhite);
+    addT(effect[0] ? effect : " ", cGray);
     if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes
         const char* why = osd::FgReason(osd::FrameGen());
-        add(why ? why : "", "", cOrange, cWhite, false, false);
+        addT(why ? why : " ", cOrange);
     }
-    char stats[160];
+    char stats[200];
     const Rates& r = g_rates;
     if (r.rW3 < 0) snprintf(stats, sizeof(stats), "Stats/s: measuring...");
     else
         snprintf(stats, sizeof(stats), "Stats/s: W3 %.0f  L1 %.0f  F1 %.0f  WK kept %.0f skipped %.0f", r.rW3, r.rL1, r.rFg,
                  r.rKk, r.rKs);
-    add(stats, "", cGray, cWhite, false, false);
+    addT(stats, cGray);
     bool anyExp = false;
     for (const ExpFix& x : g_host.exp) anyExp |= x.applied;
     if (anyExp && r.rW3 >= 0) {
@@ -1647,71 +1825,107 @@ float DrawImpl(unsigned W, unsigned H) {
         else snprintf(fpc, sizeof(fpc), "-");
         snprintf(stats, sizeof(stats), "Exp/s: W6 %.0f x %.0fus  GF %.0f x %.0fus  PP skip %.0f  FPC hit %s  M1 %.0f  X1 %.0f  E1 %.0f  WG skip %.0f  DS %.0f",
                  r.rW6, r.w6Us, r.rGf, r.gfUs, r.rPps, fpc, r.rM1, r.rX1, r.rE1, r.rWg, r.rDs);
-        add(stats, "", cGray, cWhite, false, false);
+        addT(stats, cGray);
     }
     if (gpuopt::GetState() != gpuopt::State::Off && g_host.gpuStatus) {
         char gs[120];
         g_host.gpuStatus(gs, sizeof(gs));
-        char line[128];
+        char line[160];
         snprintf(line, sizeof(line), "GPU: %s", gs);
-        add(line, "", cGray, cWhite, false, false);
+        addT(line, cGray);
     }
     if (g_host.gpStatus) {  // GP profiler (1.7.0): GPU frame time and the top 5 passes
         char gs[200];
         g_host.gpStatus(gs, sizeof(gs));
         if (gs[0]) {
-            char line[220];
+            char line[240];
             snprintf(line, sizeof(line), "GP: %s", gs);
-            add(line, "", cCyan, cWhite, false, false);
+            addT(line, cCyan);
         }
     }
     // footer / save status
     const LONG ss = g_saveState;
     if (ss >= 2 && !g_saveShownAt) g_saveShownAt = t;
-    if (holdNote[0]) add(holdNote, "", cGold, cWhite, false, false);
-    else if (ss == 1) add("Saving to Nioh3EngineFix.ini...", "", cYellow, cWhite, false, false);
+    if (holdNote[0]) addT(holdNote, cGold);
+    else if (ss == 1) addT("Saving to Nioh3EngineFix.ini...", cYellow);
     else if (ss >= 2 && t - g_saveShownAt < 4000) {
         char b[96];
         const LONG xml = g_cfgXmlState;
         if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini%s", xml == 1 ? " + game config.xml (FG)" : "");
         else if (xml == 3) snprintf(b, sizeof(b), "config.xml NOT changed (FG) - see the log");
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
-        add(b, "", ss == 2 ? cGreen : cOrange, cWhite, false, false);
+        addT(b, ss == 2 ? cGreen : cOrange);
     } else {
-        add("Up/Down: move   A/Enter: toggle   Left/Right: change   B/Esc: close", "", cDim, cWhite, false, false);
+        addT("Up/Down: move   A/Enter: toggle   Left/Right: change   B/Esc: close", cDim);
     }
 
-    constexpr int kValueCol = 30;
+    // value column: just right of the longest "name (id)", between 30 and 48 characters
+    size_t valueCol = 30;
+    for (int i = 0; i < nb; ++i)
+        if (body[i].value[0]) {
+            const size_t w = strlen(body[i].label) + (body[i].tech[0] ? 1 + strlen(body[i].tech) : 0) + 2;
+            valueCol = std::max(valueCol, std::min<size_t>(w, 48));
+        }
     size_t cols = 0;
-    for (int i = 0; i < n; ++i) {
-        const size_t lc = strlen(rows[i].label), vc = strlen(rows[i].value);
-        cols = std::max(cols, vc ? std::max<size_t>(lc + 2, kValueCol) + vc : lc);
-    }
-    float sc = AutoScale(H);
-    auto fits = [&](float s) {
-        const float lineH = (osd::kGlyphH + 2) * s, pad = 6 * s;
-        return n * lineH + 2 * pad <= 0.94f * (float)H && (float)cols * osd::kGlyphW * s + 2 * pad <= 0.96f * (float)W;
+    auto widen = [&](const Row& rw) {
+        const size_t lc = strlen(rw.label) + (rw.tech[0] ? 1 + strlen(rw.tech) : 0), vc = strlen(rw.value);
+        cols = std::max(cols, vc ? std::max(lc + 2, valueCol) + vc : lc);
     };
-    while (sc > 1.0f && !fits(sc)) sc -= 0.5f;
-    while (!fits(sc) && sc > 0.5f) sc -= 0.25f;  // small back buffers (800p with every row): 0.75, then 0.5
+    for (int i = 0; i < nb; ++i) widen(body[i]);
+    for (int i = 0; i < nt; ++i) widen(tail[i]);
+    widen(head);
+    float sc = AutoScale(H);
+    const int minBody = std::min(nb, 22);
+    auto bodyRows = [&](float s2) {  // body rows that fit under this scale
+        const float lineH = (osd::kGlyphH + 2) * s2, pad = 6 * s2;
+        return (int)std::floor((0.94f * (float)H - 2 * pad) / lineH) - 1 - nt;
+    };
+    auto fitsW = [&](float s2) { return (float)cols * osd::kGlyphW * s2 + 12 * s2 <= 0.96f * (float)W; };
+    while (sc > 1.0f && (!fitsW(sc) || bodyRows(sc) < minBody)) sc -= 0.5f;
+    while (sc > 0.5f && (!fitsW(sc) || bodyRows(sc) < std::min(nb, 12))) sc -= 0.25f;
+    const int avail = std::max(5, bodyRows(sc));
+    int first = 0, shown = nb;
+    char scrollNote[40] = "";
+    if (nb > avail) {  // scroll window: keep the selected row visible with one row of context above and below
+        static int scroll = 0;
+        shown = avail;
+        const int row = selRow < 0 ? 0 : selRow;
+        if (row - 1 < scroll) scroll = std::max(0, row - 1);
+        if (row + 2 > scroll + shown) scroll = row + 2 - shown;
+        scroll = std::clamp(scroll, 0, nb - shown);
+        first = scroll;
+        snprintf(scrollNote, sizeof(scrollNote), "rows %d-%d of %d", first + 1, first + shown, nb);
+    }
+    if (scrollNote[0] || g_dirty) {
+        char tv[64];
+        snprintf(tv, sizeof(tv), "%s%s%s", g_dirty ? "unsaved changes" : "", g_dirty && scrollNote[0] ? "  " : "", scrollNote);
+        snprintf(head.value, sizeof(head.value), "%s", tv);
+    }
+    const int n = 1 + shown + nt;
     const float lineH = (osd::kGlyphH + 2) * sc, pad = 6 * sc, cw = osd::kGlyphW * sc;
-    const float w = (float)cols * cw + 2 * pad, h = n * lineH + 2 * pad;
+    const float w = (float)std::max(cols, strlen(head.label) + 2 + strlen(head.value)) * cw + 2 * pad, h = n * lineH + 2 * pad;
     const float x0 = std::floor(((float)W - w) / 2), y0 = std::floor(((float)H - h) / 2);
     osd::DrawRect(x0, y0, w, h, cMenuPanel);
     osd::DrawRect(x0, y0, w, std::max(1.0f, sc), cRule);
     osd::DrawRect(x0, y0 + h - std::max(1.0f, sc), w, std::max(1.0f, sc), cRule);
-    for (int i = 0; i < n; ++i) {
-        const Row& rw = rows[i];
-        const float y = y0 + pad + i * lineH;
+    int line = 0;
+    auto drawRow = [&](const Row& rw, bool isHead) {
+        const float y = y0 + pad + line * lineH;
         if (rw.sel) osd::DrawRect(x0 + pad / 2, y - sc, w - pad, lineH, cHighlight);
-        if (rw.rule && i > 0) osd::DrawRect(x0 + pad, y + lineH / 2, w - 2 * pad, std::max(1.0f, sc / 2), 0x80808080);
-        if (rw.label[0]) osd::DrawText(x0 + pad, y, rw.label, rw.lc, sc);
+        if (rw.rule && line > 0) osd::DrawRect(x0 + pad, y + lineH / 2, w - 2 * pad, std::max(1.0f, sc / 2), 0x80808080);
+        float lx = x0 + pad;
+        if (rw.label[0]) lx = osd::DrawText(lx, y, rw.label, rw.lc, sc);
+        if (rw.tech[0]) osd::DrawText(lx + cw, y, rw.tech, rw.sel ? cGray : cDim, sc);
         if (rw.value[0]) {
-            const size_t lc = strlen(rw.label);
-            const float vx = x0 + pad + (float)std::max<size_t>(lc + 2, kValueCol) * cw;
-            osd::DrawText(i == 0 ? x0 + w - pad - (float)strlen(rw.value) * cw : vx, y, rw.value, rw.vc, sc);
+            const size_t lc = strlen(rw.label) + (rw.tech[0] ? 1 + strlen(rw.tech) : 0);
+            const float vx = x0 + pad + (float)std::max(lc + 2, valueCol) * cw;
+            osd::DrawText(isHead ? x0 + w - pad - (float)strlen(rw.value) * cw : vx, y, rw.value, rw.vc, sc);
         }
-    }
+        ++line;
+    };
+    drawRow(head, true);
+    for (int i = 0; i < shown; ++i) drawRow(body[first + i], false);
+    for (int i = 0; i < nt; ++i) drawRow(tail[i], false);
     return sc;
 }
 
@@ -1850,6 +2064,17 @@ void Configure(const Host& h) {
     g_cfg.scale = (float)std::clamp(_wtof(b), 0.0, 8.0);
     if (g_cfg.scale > 0 && g_cfg.scale < 0.5f) g_cfg.scale = 0.5f;
     g_cfg.pauseHint = (int)GetPrivateProfileIntW(L"Menu", L"PauseHint", 1, f);
+    GetPrivateProfileStringW(L"Menu", L"PauseHintSource", L"Both", b, 96, f);
+    g_cfg.pauseSrc = !_wcsicmp(b, L"Menu") ? 0 : !_wcsicmp(b, L"StopFlags") ? 1 : 2;
+    GetPrivateProfileStringW(L"Menu", L"KeyTripleTap", L"Escape", b, 96, f);
+    g_cfg.escDik = (!_wcsicmp(b, L"None") || !b[0]) ? 0 : 0x01;
+    if (g_cfg.escDik && _wcsicmp(b, L"Escape") != 0 && _wcsicmp(b, L"Esc") != 0) {
+        MLOG("[Menu] KeyTripleTap=%ls not understood (use Escape or None) - using Escape", b);
+    }
+    g_menuSigOk = g_host.knownBuild && g_host.base && BytesAt(kRvaMenuA, kMenuABytes, sizeof(kMenuABytes)) &&
+                  BytesAt(kRvaMenuB, kMenuBBytes, sizeof(kMenuBBytes));
+    MLOG("game menu signal (5A37D4 / D63C0): %s; pause hint source %s", g_menuSigOk ? "bytes verified" : "not available (stop flags only)",
+         g_cfg.pauseSrc == 0 ? "Menu" : g_cfg.pauseSrc == 1 ? "StopFlags" : "Both");
     GetPrivateProfileStringW(L"Menu", L"PauseHintFlags", L"58B 58C", b, 96, f);
     {
         uint8_t m = 0;
@@ -1933,6 +2158,12 @@ float Draw(unsigned W, unsigned H) {
 }
 
 bool IsOpen() { return g_open != 0 && !g_disabled; }
+int GamePauseReason() { return (int)g_pauseReason; }
+const char* OpenHint() {
+    static char buf[96];
+    snprintf(buf, sizeof(buf), "%s", GestureText().c_str());
+    return buf;
+}
 
 bool SwallowMessage(const tagMSG* m) {
     if (!g_configured || !g_cfg.enabled || g_disabled || !m) return false;

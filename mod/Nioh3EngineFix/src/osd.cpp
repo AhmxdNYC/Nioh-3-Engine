@@ -208,6 +208,8 @@ void (*volatile g_rateSink)(double, double) = nullptr;  // TG governor (dllmain)
 volatile DWORD g_fsrTid = 0;          // the FidelityFX presenter thread (by name), 0 = never seen
 volatile LONG64 g_lastFsrPresent = 0;
 volatile LONG g_fsrSeen = 0;
+volatile LONG64 g_nGame = 0, g_nFsr = 0;  // presents per THREAD role (1.7.13): the game/render thread vs the FSR presenter thread
+thread_local int t_isFsr = 0;        // this thread is the FidelityFX presenter (set by NotePresentThread)
 thread_local int t_named = 0;        // this thread's presents were looked at (name logged / FSR presenter checked)
 
 void CountPresent(IDXGISwapChain* sc, int64_t now) {
@@ -231,14 +233,19 @@ void CountPresent(IDXGISwapChain* sc, int64_t now) {
 void NotePresentThread(int64_t now) {
     const DWORD tid = GetCurrentThreadId();
     if (tid == g_fsrTid) g_lastFsrPresent = now;
-    if (t_named) return;
+    if (t_named) {
+        InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
+        return;
+    }
     t_named = 1;
     std::string name = ThreadName();
     if (name.find("FSR") != std::string::npos || name.find("FrameInterpolation") != std::string::npos) {
         g_fsrTid = tid;
         g_lastFsrPresent = now;
         InterlockedExchange(&g_fsrSeen, 1);
+        t_isFsr = 1;
     }
+    InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
     OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
 }
 
@@ -247,11 +254,13 @@ struct Stats {
     uint32_t frame0 = 0;
     IDXGISwapChain* snapSc[4] = {};
     LONG64 snapN[4] = {};
+    LONG64 snapGame = 0, snapFsr = 0;
     double dtSum = 0;
     int dtN = 0;
     bool haveRates = false, haveReal = false, fgActive = false;
     double realFps = 0, presentFps = 0, tickFps = 0, frameMs = 0, speed = 0, ratio = 0;
     int chains = 0;             // swapchains that presented in the last window
+    double gameThreadFps = 0, presenterFps = 0;  // per-thread present rates of the last window
     int64_t lastLog = 0;
     uint64_t draws = 0, skips = 0;
 };
@@ -266,6 +275,8 @@ void SnapCounts(Stats& s) {
         s.snapSc[i] = g_sc[i].sc;
         s.snapN[i] = g_sc[i].n;
     }
+    s.snapGame = g_nGame;
+    s.snapFsr = g_nFsr;
 }
 
 void UpdateStats(int64_t now) {
@@ -302,8 +313,13 @@ void UpdateStats(int64_t now) {
         if (!chains || r < lo) lo = r;
         ++chains;
     }
+    // per THREAD (1.7.13): on the PC the FSR presenter presents into the SAME swapchain, so per-chain counting sees one chain.
+    // The game/render thread's presents are the real frames, the presenter thread's the displayed ones (real + generated).
+    const double gameR = (double)(g_nGame - g_st.snapGame) / el, fsrR = (double)(g_nFsr - g_st.snapFsr) / el;
     SnapCounts(g_st);
     g_st.chains = chains;
+    g_st.gameThreadFps = gameR;
+    g_st.presenterFps = fsrR;
     g_st.presentFps = hi;  // displayed: the busiest chain (incl. generated frames)
     // rendered: the game's own chain when the FG presenter has its own one; with a single chain that carries
     // generated frames too (presented well above the tick rate), the engine tick rate is the best estimate
@@ -316,7 +332,15 @@ void UpdateStats(int64_t now) {
     g_st.ratio = rendered > 0.5 ? hi / rendered : 0.0;
     // FG runs when the displayed rate is well above the rendered one; a present from the FSR presenter thread counts
     // as FG running unless no extra frames reach the screen (menus/cutscenes: the presenter passes frames through)
-    if (presenterRecent && rendered > 5 && g_st.ratio >= 1.15) g_st.fgActive = true;
+    const bool threadMode = fsrR >= 5.0 && gameR >= 5.0;
+    if (threadMode) {  // both thread roles present: real = game thread, displayed = presenter thread
+        rendered = gameR;
+        g_st.realFps = gameR;
+        g_st.presentFps = fsrR;
+        g_st.frameMs = 1000.0 / gameR;
+        g_st.ratio = fsrR / gameR;
+        g_st.fgActive = g_st.ratio > (g_st.fgActive ? 1.08 : 1.15);
+    } else if (presenterRecent && rendered > 5 && g_st.ratio >= 1.15) g_st.fgActive = true;
     else if (!g_st.fgActive && rendered > 5 && g_st.ratio > 1.4) g_st.fgActive = true;
     else if (g_st.fgActive && (g_st.ratio < 1.2 || rendered <= 5)) g_st.fgActive = false;
     g_st.haveRates = true;
@@ -332,15 +356,27 @@ void UpdateStats(int64_t now) {
             g_upLogged = up;
         }
     }
+    {   // FG state transitions with the reason
+        static int lastState = -1, lastReason = -1;
+        const FgStatus fs = FrameGen();
+        if (fs.state != lastState || (fs.state == kFgPaused && fs.pauseReason != lastReason)) {
+            char txt[96];
+            FgStateText(fs, txt, sizeof(txt));
+            OLOG("FG state: %s [setting %d, game thread %.1f/s, presenter thread %.1f/s, ratio %.2f, pause reason %d]", txt, fs.setting,
+                 g_st.gameThreadFps, g_st.presenterFps, g_st.ratio, fs.pauseReason);
+            lastState = fs.state;
+            lastReason = fs.pauseReason;
+        }
+    }
     g_st.winStart = now;
     g_st.dtSum = 0;
     g_st.dtN = 0;
     if (Secs(now - g_st.lastLog) >= 30.0) {
         g_st.lastLog = now;
-        OLOG("stats: rendered %.1f fps, displayed %.1f fps (x%.2f, FG %s, %d chain(s)%s), game ticks %.1f/s, speed %.2fx, "
+        OLOG("stats: rendered %.1f fps, displayed %.1f fps (x%.2f, FG %s, %d chain(s)%s, threads game %.1f/s presenter %.1f/s), game ticks %.1f/s, speed %.2fx, "
              "vrr tier %u cap %u armed %u, draws %llu, skipped %llu",
              g_st.realFps, g_st.presentFps, g_st.ratio, g_st.fgActive ? "active" : "off", g_st.chains,
-             presenterRecent ? ", FSR presenter" : "", g_st.tickFps, g_st.speed, vrr_tier, vrr_capCur, vrr_fpsOut,
+             presenterRecent ? ", FSR presenter" : "", g_st.gameThreadFps, g_st.presenterFps, g_st.tickFps, g_st.speed, vrr_tier, vrr_capCur, vrr_fpsOut,
              (unsigned long long)g_st.draws, (unsigned long long)g_st.skips);
     }
 }
@@ -447,7 +483,9 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     g_nMain = 0;
     g_menuScale = 0;
     const float sc = CounterScaleImpl(H);
+    const float k1080 = (float)H / 1080.0f;
     const float margin = 8 * sc;
+    const float offX = (float)OffsetX() * k1080, offY = (float)OffsetY() * k1080;
     const bool right = g_cfg.pos == 1 || g_cfg.pos == 3, bottom = g_cfg.pos >= 2;
 
     Line counter;
@@ -463,6 +501,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
             if (g_st.tickFps > 0 && std::fabs(g_st.tickFps - g_st.realFps) > std::max(2.0, 0.1 * g_st.realFps))
                 snprintf(tick, sizeof(tick), " (game %.0f Hz)", g_st.tickFps);
             counter.add(kWhite, "FPS: %.0f", g_st.realFps);
+            if (g_st.fgActive) counter.add(kCyan, " FG");
             if (g_st.fgActive) counter.add(kCyan, " | FG FPS: %.0f", g_st.presentFps);
             else counter.add(kGray, " | FG: off%s", tick);
             if (g_st.fgActive && tick[0]) counter.add(kGray, "%s", tick);
@@ -474,7 +513,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
         }
     }
 
-    Line pop[8];
+    Line pop[10];
     int np = 0;
     float popAlpha = 0;
     if (g_cfg.popup && g_firstDraw && !menu::IsOpen()) {
@@ -520,6 +559,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
             }
             if (ReadCfg(kRvaDynamicFps) == 1)
                 pop[np++].add(kOrange, "WARNING: 'FPS dynamic adjustment' is ON - set it OFF");
+            if (menu::Enabled()) pop[np++].add(kWhite, "Mod menu: %s", menu::OpenHint());
             Line& p = pop[np++];
             if (!g_info.wine.empty())
                 p.add(kWhite, "Proton/Wine %s detected - L1 %s, F1 %s", g_info.wine.c_str(), StateStr(g_info.l1), StateStr(g_info.f1));
@@ -529,9 +569,9 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     }
 
     // stack: counter first, popup next to it (below for top positions, above for bottom positions)
-    const float x = right ? (float)W - margin : margin;
+    const float x = right ? (float)W - margin - offX : margin + offX;
     const float gap = 4 * sc, lineH = (osdfont::kH + 2) * sc, pad = 4 * sc;
-    float y = bottom ? (float)H - margin : margin;
+    float y = bottom ? (float)H - margin - offY : margin + offY;
     auto place = [&](const Line* l, int n, float a) {
         if (n <= 0) return;
         const float h = n * lineH + 2 * pad - 2 * sc;
@@ -1295,6 +1335,10 @@ LatencyStatus Latency() {
     s.state = e->state;
     return s;
 }
+int DefaultOffsetY(int pos) { return pos == 0 ? 160 : 0; }
+int OffsetX() { return g_cfg.offUser ? g_cfg.offX : 0; }
+int OffsetY() { return g_cfg.offUser ? g_cfg.offY : DefaultOffsetY(g_cfg.pos); }
+
 const char* PositionName(int pos) {
     static const char* const k[4] = {"TopLeft", "TopRight", "BottomLeft", "BottomRight"};
     return k[pos & 3];
@@ -1327,9 +1371,32 @@ FgStatus FrameGen() {
     s.presenter = g_fsrTid && g_lastFsrPresent && Secs(now - g_lastFsrPresent) < 2.0;
     s.realFps = g_st.realFps;
     s.presentFps = g_st.presentFps;
+    s.gameThreadFps = g_st.gameThreadFps;
+    s.presenterFps = g_st.presenterFps;
+    s.pauseReason = menu::GamePauseReason();
     s.tickFps = g_st.tickFps;
     if (g_fgSwitchAt) s.sinceSwitch = Secs(now - g_fgSwitchAt);
+    if (s.setting < 0) s.state = kFgUnknown;
+    else if (s.setting == 0) s.state = kFgOff;
+    else if (s.active) s.state = kFgRunning;
+    else if (!s.measured || s.sinceSwitch < 12.0) s.state = kFgStarting;
+    else if (s.pauseReason || s.presenter) s.state = kFgPaused;  // presenter alive, no extra frames: menu / loading / cutscene
+    else s.state = kFgNotRunning;
     return s;
+}
+
+int FgStateText(const FgStatus& s, char* buf, size_t n) {
+    switch (s.state) {
+        case kFgOff: snprintf(buf, n, "OFF"); return 0;
+        case kFgRunning: snprintf(buf, n, "ON - running (%.0f -> %.0f fps)", s.realFps, s.presentFps); return 1;
+        case kFgPaused:
+            snprintf(buf, n, "ON - paused (%s)", s.pauseReason == 1 ? "game menu open" : s.pauseReason == 2 ? "game paused"
+                                                : s.pauseReason == 3 ? "loading" : "menu/loading/cutscene");
+            return 2;
+        case kFgNotRunning: snprintf(buf, n, "ON - NOT running (no presenter thread)"); return 3;
+        case kFgStarting: snprintf(buf, n, "ON - %s", s.measured ? "switching..." : "measuring..."); return 3;
+        default: snprintf(buf, n, "unknown build"); return 0;
+    }
 }
 
 // The setting is only the request: the engine builds the FG swapchain on its display reset (notes\frame-generation.md).
@@ -1378,10 +1445,16 @@ void Start(const StartupInfo& si) {
         GetPrivateProfileStringW(L"Overlay", L"Position", L"TopLeft", pos, 32, f);
         g_cfg.pos = !_wcsicmp(pos, L"TopRight") ? 1 : !_wcsicmp(pos, L"BottomLeft") ? 2 : !_wcsicmp(pos, L"BottomRight") ? 3 : 0;
         g_cfg.maxLatency = std::clamp(I(L"Latency", L"MaxFrameLatency", 0), 0, 16);
+        const int ox = I(L"Overlay", L"OffsetX", -99999), oy = I(L"Overlay", L"OffsetY", -99999);
+        if (ox != -99999 || oy != -99999) {  // pixels at 1080p; a missing key keeps the corner default
+            g_cfg.offUser = true;
+            g_cfg.offX = std::clamp(ox == -99999 ? 0 : ox, 0, 1900);
+            g_cfg.offY = std::clamp(oy == -99999 ? DefaultOffsetY(g_cfg.pos) : oy, 0, 1060);
+        }
     }
     if (g_cfg.maxLatency) OLOG("MaxFrameLatency=%d (applied to waitable swapchains as they present)", g_cfg.maxLatency);
-    OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f", g_cfg.fpsCounter,
-         g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale);
+    OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f Offset=%d,%d (px at 1080p)", g_cfg.fpsCounter,
+         g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale, OffsetX(), OffsetY());
     if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled()) {
         OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0) - no Present hook");
         return;

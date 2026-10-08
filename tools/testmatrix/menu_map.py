@@ -4,13 +4,13 @@
   py -I menu_map.py --selftest
 
 Rules read from the source (menu.cpp: OnPresentImpl / Move / Change / Open / Close):
-  * rows = enum Id (kItems has the labels, same order). A row is selectable when Visible(id) && !ReadOnly(id); both
+  * rows = enum Id (kItems has the labels, same order); navigation order = kOrder (1.7.13 section layout). A row is selectable when Visible(id) && !ReadOnly(id); both
     predicates are PARSED from the source text here, not copied. Rows that are visible but not Available stay selectable.
   * Up/Down: Move() steps to the next selectable row with wrap-around. g_sel is NOT reset when the menu is closed and
     reopened (Open() only resets it when the row became invisible), so the cursor has to be tracked. Invariant used here:
     every sequence ends with the cursor parked on the last row "Close menu" (Enter on it closes the menu). Reopening starts
     there, so "open -> N downs" counts from Close (one Down wraps to the first selectable row). A fresh game starts on
-    row 0 (VRR): `init` = F10, Up (wraps to Close), Enter parks it.
+    row kOrder[0] (Show FPS counter): `init` = F10, Up (wraps to Close), Enter parks it.
   * Enter = Change(sel, 0): flips the row's live switch and logs "MENU: <label> -> <value>" (ON/OFF; R2a/R2b/R1 print
     ON/off, Barriers prints ON / "OFF (hooked)"). A row whose patch is not installed does nothing (live rows) or flips only
     the ini copy ("* restart"): verify by log and abort that item.
@@ -61,9 +61,13 @@ class Menu:
         assert names[-1] == "kCount"
         self.rows = names[:-1]
         m = re.search(r"kItems\[kCount\] = \{(.*?)\n\};", s, re.S)
-        ents = re.findall(r'\{\s*(nullptr|"(?:[^"\\]|\\.)*")\s*,\s*"((?:[^"\\]|\\.)*)"', m.group(1))
-        self.labels = [e[1].replace('\\"', '"') for e in ents]
+        # 1.7.13 entries: {plain, tech, what, effect}; the menu log prints "<plain> <tech> -> <value>"
+        ents = re.findall(r'\{\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*,', m.group(1))
+        self.labels = [(e[0] + (" " + e[1] if e[1] else "")).replace('\\"', '"') for e in ents]
         assert len(self.labels) == len(self.rows), (len(self.labels), len(self.rows))
+        m = re.search(r"kOrder\[\] = \{(.*?)\n\};", s, re.S)  # navigation / display order (not the enum order)
+        self.order = re.findall(r"\{(k\w+),", m.group(1))
+        assert sorted(self.order) == sorted(self.rows), "kOrder must list every row once"
         m = re.search(r"kExpIniKey\[kNumExp\] = \{(.*?)\};", s, re.S)
         keys = re.findall(r'L"([^"]+)"', m.group(1))
         first = self.rows.index("kXW6")
@@ -87,7 +91,7 @@ class Menu:
         return self.vis_default
 
     def selectable(self, env):
-        return [r for r in self.rows if self.visible(r, env) and r not in self.readonly]
+        return [r for r in self.order if self.visible(r, env) and r not in self.readonly]
 
 
 def make_env(ini, wine, known_build):
@@ -173,17 +177,17 @@ class Sim:
         self.state = {r: start_on[r] for r in installed}
 
     def move(self, d):
-        n = len(self.m.rows)
+        n = len(self.m.order)
         for _ in range(n):
             self.sel = (self.sel + d) % n
-            r = self.m.rows[self.sel]
+            r = self.m.order[self.sel]
             if self.m.visible(r, self.env) and r not in self.m.readonly:
                 return
 
     def press(self, vk):
         if vk == VK["open"]:
             self.open = not self.open
-            if self.open and not self.m.visible(self.m.rows[self.sel], self.env):
+            if self.open and not self.m.visible(self.m.order[self.sel], self.env):
                 self.sel = 0
         elif not self.open:
             pass
@@ -192,12 +196,12 @@ class Sim:
         elif vk == VK["up"]:
             self.move(-1)
         elif vk == VK["enter"]:
-            r = self.m.rows[self.sel]
+            r = self.m.order[self.sel]
             if r == "kClose":
                 self.open = False
             elif r in self.installed:
                 self.state[r] = not self.state[r]
-                self.log.append("MENU: %s -> %s" % (self.m.labels[self.sel], "ON" if self.state[r] else "OFF"))
+                self.log.append("MENU: %s -> %s" % (self.m.labels[self.m.rows.index(r)], "ON" if self.state[r] else "OFF"))
 
     def run(self, toks):
         for t in toks:
@@ -215,7 +219,7 @@ def selftest():
         rows = {v["row"] for v in mp["items"].values()}
         sim = Sim(menu, env, rows, {v["row"]: v["start"] == "ON" for v in mp["items"].values()})
         sim.run(mp["init"])
-        if sim.open or menu.rows[sim.sel] != "kClose":
+        if sim.open or menu.order[sim.sel] != "kClose":
             bad += 1
             print("FAIL init does not park the cursor on Close")
         ids = list(mp["items"])
@@ -229,11 +233,11 @@ def selftest():
             exp = "MENU: %s -> %s" % (e["label"], "ON" if sim.state[e["row"]] else "OFF")
             if not (sim.log == [exp] and sim.state[e["row"]] != before[e["row"]]
                     and all(sim.state[r] == before[r] for r in rows if r != e["row"])
-                    and not sim.open and menu.rows[sim.sel] == "kClose"):
+                    and not sim.open and menu.order[sim.sel] == "kClose"):
                 bad += 1
                 print("FAIL %s %s: log=%s" % (device, iid, sim.log))
         print("%s wine=%s: %d items x3 toggled in sim, %d selectable rows, skipped=%s" % (device, wine, len(ids), len(mp["rows"]), list(mp["skipped"])))
-    assert menu.rows[0] == "kVrr" and menu.rows[-1] == "kClose" and {"kFgState", "kUpscaler"} <= menu.readonly
+    assert menu.order[0] == "kFps" and menu.order[-1] == "kClose" and {"kFgState", "kUpscaler"} <= menu.readonly
     print("SELFTEST", "FAILED" if bad else "OK")
     return 1 if bad else 0
 

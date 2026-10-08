@@ -16,6 +16,7 @@ The dump is a memory-layout snapshot of the decrypted image (raw offset == RVA).
     FNV-1a) against the dump
   * src/patches_gen.h is in sync with patches.json
   * mod menu: the XInputGetState IAT slot and the engine stop-flag code it relies on (pause hint)
+  * game 'menu open' getters 0x5A37D4 / 0xD63C0 (pause hint, FG pause reason)
   * frame generation (menu FG item, overlay FG status): FrameGenSettingWrite / IsFrameGenTypeAvailable bytes, the
     SetOptionValue dirty store, the slots/flags they reference, config descriptors 50/54, the config.xml path string
   * (info) any Lyall Nioh3Fix 0.0.6 pattern that lands within 32 bytes of one of our sites
@@ -308,6 +309,18 @@ def main():
     print("menu: XInputGetState IAT slot %s, stop-flag code %s" % (
         ", ".join("0x%X" % x for x in xin) or "MISSING",
         "OK" if all(img[a:a + len(h.split())] == bytes(int(x, 16) for x in h.split()) for a, h in menu_bytes.items()) else "DIFFERS"))
+
+    # "a game menu is open" getters (menu.cpp pause hint + FG pause reason, 1.7.13): called at run time, not patched
+    gm_bytes = {
+        0x5A37D4: "40 53 48 83 EC 20 48 8B 05 C7 4C 02 04 48 8B 98 70 01 00 00 48 85 DB 74 1D 48 8B 03 48 8B CB FF 90 00 01 00 00 "
+                  "84 C0 74 0D 48 8B 03 48 8B CB FF 50 48 84 C0 75 08 32 C0 48 83 C4 20 5B C3 B0 01 EB F6",
+        0xD63C0: "48 8B 0D D9 27 68 04 48 85 C9 74 07 48 8B 01 48 FF 60 08 32 C0 C3",
+    }
+    gm_ok = all(img[a:a + len(h.split())] == bytes(int(x, 16) for x in h.split()) for a, h in gm_bytes.items())
+    check(gm_ok, "menu: game 'menu open' getters 0x5A37D4 / 0xD63C0 differ")
+    gm_ok &= check(0x5A37DA + 7 + struct.unpack_from("<i", img, 0x5A37DA + 3)[0] == 0x45C84A8, "menu: 0x5A37D4 reads [0x45C84A8]")
+    gm_ok &= check(0xD63C0 + 7 + struct.unpack_from("<i", img, 0xD63C0 + 3)[0] == 0x4758BA0, "menu: 0xD63C0 reads [0x4758BA0]")
+    print("menu: game 'menu open' getters 5A37D4 / D63C0 %s" % ("OK" if gm_ok else "DIFFER"))
 
     # frame generation (menu.cpp FG item / osd.cpp FG status) - called / read at run time, not patched
     fg_bytes = {
