@@ -7,6 +7,8 @@
 //   MissionFlagSet 70275C                                        flag id + value, inside the window and 20 s after it
 //   UI::ShowBossGauge 23B8678                                    boss actor id of the HP bar
 //   MissionClear impl 1C1DB88                                    mission id of SetMissionClearFlag
+// 1.7.20 rewards (BL7+): script-native wrappers for drop tables, items/equipment, guardian/skill/money grants, SetReward and the
+//   game-clear reward, plus GameClearRewardGrant 2280FA0; logged as raw VM args (ids) during the fight and 30 s after it.
 // Off (0): nothing is installed.
 #pragma once
 #include <cstdint>

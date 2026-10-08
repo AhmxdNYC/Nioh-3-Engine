@@ -38,7 +38,7 @@
 #include "bosslog.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.19"
+#define MOD_VERSION "1.7.20"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

@@ -104,6 +104,95 @@ void HkClear(uint64_t missionId, uint64_t, uint64_t, uint64_t) {
           InFightOrGrace() ? "fight window" : "no fight window");
 }
 
+// ---- reward grants (1.7.20) ----
+// The reward natives are script bindings: rcx = the script VM context, the arguments live on the VM value stack and are
+// popped by the wrapper's own argument reader (0x139938 -> 0x13BDB0). The hook runs BEFORE the original, so the args are
+// still on the stack; they are read straight from memory (no game call, no mutation): vm = [ctx+8]; nargs = u16
+// [[vm+8]+0xA6]; top = u16 [[vm+0x20]]; entry k = [vm+0x18] + (top - nargs + k) * 8 = {u32 value, u16 type}. Types as in
+// 0x13BDB0: 1 int, 2 float, 3 byte/bool, 4 object pointer (not printed), other raw. Every read is SEH-guarded.
+// Item/guardian/skill ids are logged as ids: the id -> text-id mapping is not known, so TextGetById (0x5A4B04) is not used.
+constexpr double kRewardGrace = 30.0;
+bool RewardWindow() { return g_active.load() || Now() - g_endAt.load() < kRewardGrace; }
+
+const char* const kRewardNames[] = {
+    "Character::AddDropTable",
+    "Character::AddDropFixItem",
+    "Character::AddDropKeyItemDirectGet",
+    "Character::ForceDropAmurita",
+    "Character::ForceDropItem",
+    "Character::ForceDropItemAndGet",
+    "Character::EnemyForceKillWithItemDrop",
+    "Item::AddItem",
+    "Item::AddFixItem",
+    "Item::AddMagicItem",
+    "Item::AddItemNoNotice",
+    "Item::AddEquipment",
+    "Item::AddEquipmentBySlot",
+    "Item::AddEquipmentPreset",
+    "Player::AddGuardianSpirit",
+    "Player::AddGuardianSpiritNoNotice",
+    "Player::AddGuardianSpiritWithTimer",
+    "Player::AddSkill",
+    "Player::AddSkillDojo",
+    "Player::AddMoney",
+    "Mission::SetReward",
+    "Mission::GetGameClearRewardNormal",
+    "Mission::GetGameClearRewardHard",
+};
+
+int ReadVmArgs(uint64_t ctx, uint32_t* val, uint16_t* ty, int maxn) {
+    __try {
+        const uint64_t vm = *(const uint64_t*)(ctx + 8);
+        const uint64_t x = *(const uint64_t*)(vm + 8);
+        const int nargs = *(const uint16_t*)(x + 0xA6);
+        const uint64_t stk = *(const uint64_t*)(vm + 0x20);
+        const int top = *(const uint16_t*)stk;
+        const uint64_t arr = *(const uint64_t*)(vm + 0x18);
+        if (nargs > 32 || top < nargs) return -1;
+        const int base = top - nargs;
+        for (int i = 0; i < nargs && i < maxn; ++i) {
+            val[i] = *(const uint32_t*)(arr + (uint64_t)(base + i) * 8);
+            ty[i] = *(const uint16_t*)(arr + (uint64_t)(base + i) * 8 + 4);
+        }
+        return nargs;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -1;
+    }
+}
+
+void LogReward(int id, uint64_t ctx) {
+    if (!RewardWindow()) return;
+    uint32_t val[8] = {0};
+    uint16_t ty[8] = {0};
+    const int n = ReadVmArgs(ctx, val, ty, 8);
+    char buf[200];
+    size_t bl = 0;
+    for (int i = 0; i < n && i < 8 && bl + 24 < sizeof(buf); ++i) {
+        if (ty[i] == 2) {
+            float f;
+            memcpy(&f, &val[i], 4);
+            bl += (size_t)snprintf(buf + bl, sizeof(buf) - bl, " a%d=%g", i, (double)f);
+        } else if (ty[i] == 4) {
+            bl += (size_t)snprintf(buf + bl, sizeof(buf) - bl, " a%d=<obj>", i);
+        } else {
+            bl += (size_t)snprintf(buf + bl, sizeof(buf) - bl, " a%d=%u%s", i, val[i], ty[i] == 1 ? "" : (ty[i] == 3 ? "(b)" : "(?)"));
+        }
+    }
+    g_log("BossLog #%d: REWARD %s nargs=%d%s t=%.3f s (%s +%.1f s)", g_fight.load(), kRewardNames[id], n, n > 0 ? buf : "", Now(),
+          g_active.load() ? "in fight" : "after fight", g_active.load() ? FightSec() : Now() - g_endAt.load());
+}
+template <int I>
+void HkRew(uint64_t ctx, uint64_t, uint64_t, uint64_t) {
+    LogReward(I, ctx);
+}
+
+// GameClearRewardGrant(cl): 1 = Normal, 2 = Hard (not a script native; cl is a plain argument).
+void HkGrant(uint64_t cl, uint64_t, uint64_t, uint64_t) {
+    if (!RewardWindow()) return;
+    g_log("BossLog #%d: REWARD GameClearRewardGrant difficulty %u (1 normal, 2 hard) t=%.3f s (%s)", g_fight.load(), (uint32_t)(uint8_t)cl,
+          Now(), g_active.load() ? "in fight" : "after fight");
+}
+
 // ---- patching (same scheme as loadstats.cpp) ----
 uint8_t* g_thunks = nullptr;
 size_t g_thunkUsed = 0;
@@ -192,6 +281,30 @@ const Hook kHooks[] = {
     {"SetMissionFlag", 0x70275C, 5, {0x48, 0x89, 0x5C, 0x24, 0x08}, &HkFlag},
     {"ShowBossGauge", 0x23B8678, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkGauge},
     {"SetMissionClearFlag", 0x1C1DB88, 7, {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08}, &HkClear},
+    {"Character::AddDropTable", 0x238B3EC, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<0>},
+    {"Character::AddDropFixItem", 0x238B194, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<1>},
+    {"Character::AddDropKeyItemDirectGet", 0x238B2C0, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<2>},
+    {"Character::ForceDropAmurita", 0x238DD00, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<3>},
+    {"Character::ForceDropItem", 0x238DED0, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<4>},
+    {"Character::ForceDropItemAndGet", 0x238DF64, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<5>},
+    {"Character::EnemyForceKillWithItemDrop", 0x238DAA0, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0xA0, 0x01, 0x00, 0x00}, &HkRew<6>},
+    {"Item::AddItem", 0x23A0A98, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<7>},
+    {"Item::AddFixItem", 0x23A07D4, 7, {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10}, &HkRew<8>},
+    {"Item::AddMagicItem", 0x23A0D48, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<9>},
+    {"Item::AddItemNoNotice", 0x23A0C64, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<10>},
+    {"Item::AddEquipment", 0x23A0208, 7, {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10}, &HkRew<11>},
+    {"Item::AddEquipmentBySlot", 0x23A0414, 7, {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10}, &HkRew<12>},
+    {"Item::AddEquipmentPreset", 0x23A0650, 7, {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10}, &HkRew<13>},
+    {"Player::AddGuardianSpirit", 0x23A7714, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<14>},
+    {"Player::AddGuardianSpiritNoNotice", 0x23A77AC, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<15>},
+    {"Player::AddGuardianSpiritWithTimer", 0x23A783C, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<16>},
+    {"Player::AddSkill", 0x23A7A20, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<17>},
+    {"Player::AddSkillDojo", 0x23A7B68, 5, {0x48, 0x89, 0x5C, 0x24, 0x10}, &HkRew<18>},
+    {"Player::AddMoney", 0x23A79A4, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<19>},
+    {"Mission::SetReward", 0x23A5C5C, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00}, &HkRew<20>},
+    {"Mission::GetGameClearRewardNormal", 0x23A444C, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00}, &HkRew<21>},
+    {"Mission::GetGameClearRewardHard", 0x23A43EC, 9, {0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00}, &HkRew<22>},
+    {"GameClearRewardGrant", 0x2280FA0, 7, {0x48, 0x83, 0xEC, 0x28, 0x80, 0xF9, 0x01}, &HkGrant},
 };
 
 // 0 ok, 1 bytes differ, 2 no room / not atomic.
