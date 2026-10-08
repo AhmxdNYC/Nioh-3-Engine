@@ -263,3 +263,9 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Tests: `tests\r2_harness.cpp` + `run_r2_harness.py` (real device, identical work with every switch combination: buffers + 64x64 render target bit-identical, counters, trace columns): ALL PASSED. test_patterns ALL 107 SITES OK; gp / psoswap / loadmem / tilestats / wg harnesses pass.
 - README: Ally recipe (one launch Barriers = 2 TraceRecords = 300000 for counts, then A/B R2a and R1 live with GPU W/fps + screenshots). Package zip on the Desktop, NOT sent to the Ally.
 - Undo: set R2a / R2b / R1 = 0 (the default), or revert to the 1.7.9 .asi.
+
+## 2026-10-08 - work deciders: quality settings -> pass parameters, LOD, streaming, culling (RE only; nothing installed, game not run)
+- `notes\work-deciders.md`: per-setting table of what each applier writes into RenderConfig, with env defaults. Main findings: RenderConfig field names come from the env schema (`re\scripts_re\renderconfig_fields.py` -> `re\out\renderconfig_fields.tsv`, 1,567 fields); VOLUMETRIC scales VolumetricFogResolutionX/Z (+0x13DC/+0x13E0); VFSCAT cb+14D0/14D4 = render width/height (not the grid); VCLOUD ray samples 32/256 come from env data only (no setting); MODEL_QUAL consumer found (character LOD distances x0.5/0.75/1); MODEL_DRAW = max drawn characters 30/45/60; SHADOW_QUAL column +0x38 is read by CharacterFarCullFlag (20/30/70 m) and +0x14 is the VSM tiles-per-frame budget (2/8).
+- Verdict: no same-look lever in these tables (all authored quality steps).
+- Symbols: `re\symbols\incoming\work-deciders.tsv` (47 rows) + `work-deciders-renames.tsv` (12, apply in place; not merged).
+- Undo: delete the note, the two TSVs, the script and its output.

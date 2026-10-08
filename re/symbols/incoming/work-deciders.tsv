@@ -1,0 +1,48 @@
+rva	kind	name	signature	description	confidence	source
+0x12399d0	function	RenderSystemSyncRenderSize	void RenderSystemSyncRenderSize(void* app)	per-frame (vtable, no direct callers): copies g_RenderResolution 0x45BB028/02C into RenderSystem+0x960/+0x964, runs DisplaySettingsWatcher 0x1350210, rebuilds targets via 0x32F4A40 when the size changed; source of the VolumetricFogScatterNodeExecute cb+14D0/14D4 inputs	medium	notes/work-deciders.md §1
+0x1e2c00	function	RenderConfigSyncShaderParams	void RenderConfigSyncShaderParams(RenderConfig* rc, void* ctx)	copies RenderConfig fields (+0x13DC VolumetricFogResolutionX, +0x13E0 ResolutionZ, +0x13E4.., +0x13F8.., +0x1418..+0x142C, +0x1398 pointer) into the dirty-tracked mirror [rc+0x30], setting change bits (8 = fog X, 0x10 = fog Z, 0x20, 0x40 ...); caller 0x5328DC; 5.2 KB	medium	notes/work-deciders.md §1
+0x244ba8	function	VolumetricFogParamsLoad	void VolumetricFogParamsLoad(RenderConfig* rc)	loads RenderConfig+0x13C0..+0x13FF (fog block incl. VolumetricFogResolutionX/Z, CustomSMResolution, WarmupFrameNum) from the env fog object [[[rc+0x28]+0x68]+0xA0]+0x100; 4 callers	medium	notes/work-deciders.md §1
+0x396e18	function	GetModelQualityLodBias	int GetModelQualityLodBias(void)	MODEL_QUAL (0x45BAF90) LIGHT/STANDARD/HIGH -> 2/1/0; callers ScaleByModelQuality and GetModelQualityLodDistance (the MODEL_QUAL consumer gpu-maxsettings.md could not find)	high	notes/work-deciders.md §1
+0x396d80	function	ScaleByModelQuality	u64 ScaleByModelQuality(u64 n)	n x 1.0/0.75/0.5 by GetModelQualityLodBias (HIGH/STANDARD/LIGHT), only when g_pLodTierProvider != 0; MotionLodParamsBuild passes 800, 800, 1200 (character LOD/motion distances)	high	notes/work-deciders.md §1
+0x397110	function	GetModelQualityLodDistance	float GetModelQualityLodDistance(void)	1400 (HIGH or no g_pLodTierProvider) / 1200 (STANDARD) / 1000 (LIGHT); stored at MotionLodParams +0x94	high	notes/work-deciders.md §1
+0x91743c	function	GetModelDrawLevelBias	int GetModelDrawLevelBias(void)	MODEL_DRAW (0x45BAF98) FEW/NORMAL/MANY -> 2/1/0; only caller GetMaxDrawnCharacters	high	notes/work-deciders.md §1
+0x9173f8	function	GetMaxDrawnCharacters	int GetMaxDrawnCharacters(void)	floor(60 (k_Sixty) x 0.5/0.75/1.0) = 30/45/60 for MODEL_DRAW FEW/NORMAL/MANY; caller CharacterDrawBudgetCull	high	notes/work-deciders.md §1
+0x2814f0	function	CharacterDrawBudgetCull	void CharacterDrawBudgetCull(void* mgr)	collects active characters (sort key +0xAD38), keeps visible ones, then hides the farthest beyond GetMaxDrawnCharacters via 0x6BAC04(c,1) and sets c+0xAE27; caller 0xB05DC	medium	notes/work-deciders.md §1
+0x2375d8	function	MeshletLodScaleParam0Get	u32 MeshletLodScaleParam0Get(ParamList* p, u64 a, u32 def)	ktgl param hash 1A2055FB (type 0x8000000) or default; ApplyMeshletLodScales category 0 base (+0xA108)	medium	notes/work-deciders.md §1
+0x235f30	function	MeshletLodScaleParam1Get	u64 MeshletLodScaleParam1Get(ParamList* p, u64 a, u64 def)	param hash 5AC25A6D or default; ApplyMeshletLodScales category 1 (+0xA10C)	medium	notes/work-deciders.md §1
+0x235ff4	function	MeshletLodScaleParam2Get	u64 MeshletLodScaleParam2Get(ParamList* p, u64 a, u64 def)	param hash 6FAB22AE; category 2 (+0xA110)	medium	notes/work-deciders.md §1
+0x2360b8	function	MeshletLodScaleParam3Get	u64 MeshletLodScaleParam3Get(ParamList* p, u64 a, u64 def)	param hash 8493EAEF; category 3 (+0xA114)	medium	notes/work-deciders.md §1
+0x236458	function	MeshletLodScaleParam4Get	u64 MeshletLodScaleParam4Get(ParamList* p, u64 a, u64 def)	param hash 997CB330; category 4 (+0xA118)	medium	notes/work-deciders.md §1
+0x23617c	function	MeshletLodScaleParam5Get	u64 MeshletLodScaleParam5Get(ParamList* p, u64 a, u64 def)	param hash AE657B71; category 5 (+0xA11C)	medium	notes/work-deciders.md §1
+0x236240	function	MeshletLodScaleParam6Get	u64 MeshletLodScaleParam6Get(ParamList* p, u64 a, u64 def)	param hash C34E43B2; category 6 (+0xA120)	medium	notes/work-deciders.md §1
+0x236304	function	MeshletLodScaleParam7Get	u64 MeshletLodScaleParam7Get(ParamList* p, u64 a, u64 def)	param hash D8370BF3; category 7 (+0xA124)	medium	notes/work-deciders.md §1
+0x235638	function	LodScaleTableFindIndex	u32 LodScaleTableFindIndex(void* map, u8 key)	open-addressing u8-key hash lookup (empty marker map+4) returning an entry index; GetLodScaleEntry uses it to pick a 0x1C-byte entry of g_pLodScaleCfg+0xA08	medium	notes/work-deciders.md §1
+0x18a9f8	function	ShadowQualityRowGet	void* ShadowQualityRowGet(void* out64, int q)	copies ShadowQualityTable row clamp(q,1,5) (64 B); only caller ShadowRenderTargetsCreate	high	notes/work-deciders.md §1
+0x226e918	function	ShadowRenderTargetsCreate	void ShadowRenderTargetsCreate(void* self, void* ctx, int q)	vtable slot (0x4FD254C): reads the SHADOW_QUAL row (+0x1C..+0x30 RT hashes/sizes, published to 0x4B661A4..0x4B661C0) and creates the 4 shadow targets at self+0x8F8/0x900/0x908/0x910 via 0x2267D28	medium	notes/work-deciders.md §1
+0x28a930d	label	TileStreamRequestCap_Set128		mov [g_RenderGlobals+0x75A8], 128: per-frame texture tile request cap read by TextureStreamRequestTiles (in function 0x28A8FD4, 3 callers; only when g_RenderGlobals+0x4268 != 0)	medium	notes/work-deciders.md §3
+0x3978248	data	ShadowQualityTable_CharFarDistance	f32	column +0x38 (stride 0x40) of ShadowQualityTable, indexed by raw SHADOW_QUAL: 2000/2000/2000/2000/3000/7000 cm; only reader CharacterFarCullFlag (the column gpu-maxsettings.md listed as no reader)	high	notes/work-deciders.md §1
+0x960	struct_field	RenderSystem::RenderWidth	i32	render width (g_RenderResolution.w), written by RenderSystemSyncRenderSize; VolumetricFogScatterNodeExecute X input (cb+14D0)	high	notes/work-deciders.md §1
+0x964	struct_field	RenderSystem::RenderHeight	i32	render height (g_RenderResolution.h); VolumetricFogScatterNodeExecute Y input (cb+14D4)	high	notes/work-deciders.md §1
+0x2fc	struct_field	RenderConfig::CloudRayTraceNum	i32	env schema field (16 in env DBs); no quality setting writes it	high	notes/work-deciders.md §0
+0x40c	struct_field	RenderConfig::VolumetricCloudMinRaySampleNum	i32	VCLOUD min ray samples (env 32); no quality setting writes it	high	notes/work-deciders.md §1
+0x410	struct_field	RenderConfig::VolumetricCloudMaxRaySampleNum	i32	VCLOUD max ray samples (env 256); no quality setting writes it	high	notes/work-deciders.md §1
+0x7b4	struct_field	RenderConfig::VolumetricCloudResolution	i32	env 1; ApplyVolumetricQuality forces 2 at every VOLUMETRIC level (VCLOUD quarter-res target)	high	notes/work-deciders.md §1
+0x1398	struct_field	RenderConfig::VolumetricFogScatterScale	f32	x0 at VOLUMETRIC LIGHTEST (fog off)	high	notes/work-deciders.md §1
+0x13dc	struct_field	RenderConfig::VolumetricFogResolutionX	i32	froxel X (env 160): VOLUMETRIC LIGHTEST 0, LIGHT /2 cap 80, STANDARD cap 120, HIGH x1.5 cap 160	high	notes/work-deciders.md §1
+0x13e0	struct_field	RenderConfig::VolumetricFogResolutionZ	i32	froxel depth (env 64 or 32): LIGHTEST 0, LIGHT /2 cap 32, STANDARD cap 48, HIGH x1.5 cap 64	high	notes/work-deciders.md §1
+0x107c	struct_field	RenderConfig::RLRMaxRaySamples	i32	SSR ray steps: env value x 0/0.5/0.75/1/1.5/2 by SSR OFF..HIGHEST (ApplySsrQuality)	high	notes/work-deciders.md §1
+0x109c	struct_field	RenderConfig::RLRResolution	i32	forced 0 by ApplySsrQuality at every level	high	notes/work-deciders.md §1
+0x12d8	struct_field	RenderConfig::SSAOContrast	f32	1.75 at AO LIGHTEST..HIGHEST, 0 at OFF	high	notes/work-deciders.md §1
+0x12e4	struct_field	RenderConfig::SSAOQuality	i32	0 at LIGHTEST, 1 at LIGHT..HIGHEST	high	notes/work-deciders.md §1
+0x12e8	struct_field	RenderConfig::SSAOResolution	i32	0; 1 at AO HIGHEST when render height <= 720	high	notes/work-deciders.md §1
+0x12f0	struct_field	RenderConfig::SSAOUseViewDepth	i32	forced 1 every frame by ApplyGraphicsSettings	high	notes/work-deciders.md §1
+0x12f4	struct_field	RenderConfig::SSAORayNum	i32	AO OFF..HIGHEST 0/2/3/5/7/14 (14 only at render height >= 721, else 7); env 8 overridden	high	notes/work-deciders.md §1
+0x12f8	struct_field	RenderConfig::SSAOStepNum	i32	2 at every AO level (env 6 overridden)	high	notes/work-deciders.md §1
+0x188c	struct_field	RenderConfig::LensSimulationMotionBlur2Enable	i32	cleared by ApplyGraphicsSettings when [g+0x8C] matches	medium	notes/work-deciders.md §1
+0x1898	struct_field	RenderConfig::LensSimulationMotionBlur2SampleCount	i32	MOTION_BLUR 2/4/6/8/10 (env 8 overridden)	high	notes/work-deciders.md §1
+0xaf4	struct_field	RenderConfig::ShadowEraseFarEnd	f32	shadow-caster far cut (env 50000); no quality setting	high	notes/work-deciders.md §4
+0xafc	struct_field	RenderConfig::ShadowCascadeStart	f32	env 2000; no quality setting	high	notes/work-deciders.md §4
+0xb98	struct_field	RenderConfig::ShadowmapKeyLightResolution	i32	ShadowQualityTable +0: 18/18/9/10/8/8 by SHADOW_QUAL row	high	notes/work-deciders.md §1
+0xb9c	struct_field	RenderConfig::ShadowmapCubicResolution	i32	ShadowQualityTable +0xC: 512/512/1024/1024/1024 (rows 1..5)	high	notes/work-deciders.md §1
+0xba0	struct_field	RenderConfig::ShadowmapPlanarResolution	i32	same value as ShadowmapCubicResolution	high	notes/work-deciders.md §1
+0xba8	struct_field	RenderConfig::SubShadowmapResolution	i32	ShadowQualityTable +0x34: 512/1024/2048/2048/2048 (rows 1..5)	high	notes/work-deciders.md §1
