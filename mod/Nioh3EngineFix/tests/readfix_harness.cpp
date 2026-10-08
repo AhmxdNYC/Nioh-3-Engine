@@ -18,6 +18,12 @@
 #include <initializer_list>
 #include <vector>
 
+namespace prefetch {  // 1.7.26 PF observes reads through readprobe.cpp; tested by run_prefetch_harness.py
+bool Wants(const wchar_t*) { return false; }
+bool Start(const StartInfo&) { return false; }
+void Note(int, void*, const void*, unsigned long) {}
+}  // namespace prefetch
+
 namespace loadstats {
 void NoteRead(int, uint32_t, bool, uint64_t) {}
 uint64_t LastFailEvalQpc() { return 0; }

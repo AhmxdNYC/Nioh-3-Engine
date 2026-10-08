@@ -495,6 +495,22 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Tests: READFIX HARNESS ALL OK, READPROBE HARNESS ALL OK, test_patterns ALL 212 SITES OK, READPROBE SITES OK. Built on 1.7.24 (EP auto).
 - Undo: set the keys to 0 (default) or install 1.7.24.
 
+## 2026-10-08 - ASI 1.7.26 (built, not run in game): PF trace prefetch (default off) + base ini fixes
+- ADD: `[Patches] PF = 0` (1 record + prefetch, 2 record only), `PFThreads = 4`, `PFLeadMB = 768`, `PFTraces = 4`,
+  `PFMatchPct = 50`. New src\prefetch.cpp/.h; readprobe.cpp's existing hooks at 631FD5 (ReadFileEx, ResourceLoad) and
+  31305A / 3130D6 (archive chunks) call prefetch::Note (observation only, no new hook site). Each load's package reads are
+  saved to `Nioh3EngineFix_pf<k>.bin` next to the ini; the next load that starts with the same reads gets those ranges read
+  ahead (own read-only handles, <= PFLeadMB ahead of the game) so the game's reads hit the page cache. Game I/O untouched.
+  Static analysis of the two sites + Ally protocol: notes\loading-ally-fixed.md 8.8. Expected Ally ~3-8 s per load (upper
+  bound ~11 thread-s of cold reads), PC ~0.
+- FIX (ini): control chars from unescaped paths (`re\scripts_d3d12\vkd3d_cost.py`, `notes\boss-rematch-design.md`), the
+  duplicated [Memory] block removed (identical keys; Windows reads only the first), `[GpuOpt] InstallDelaySec = 20`
+  documented (was read by gpuopt.cpp but missing). remaining-work 6.6.
+- rp_sim.py: "PF sim" upper bound per site (selftest OK).
+- Tests: PREFETCH HARNESS ALL OK (new tests\run_prefetch_harness.py), READPROBE / READFIX HARNESS ALL OK, test_patterns ALL
+  212 SITES OK, READPROBE SITES OK, release\check_release.py 0 ini warnings.
+- Undo: `PF = 0` (default; pf*.bin files may be deleted) or install 1.7.25.
+
 ## 2026-10-08 - release tooling (repo only; nothing in the game folder changed)
 - `notes\remaining-work.md`: every item left to call the project done (owner, effort, needs-game).
 - `release\`: per-device ini profiles (`profiles.json` -> `make_profiles.py`), regression test `check_release.py` (`--full` = test_patterns + harnesses), `package.py` (per-device zips: loader, asi, profile ini, guide, option reference, optional GHDM shader after a hash check, PROFILE.txt, SHA256SUMS; `-rc` while any default is provisional), `USER_GUIDE.md`.

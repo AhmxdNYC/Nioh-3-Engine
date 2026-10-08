@@ -61,7 +61,7 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 | 6.3 | Hook register safety: BossLog thunk xmm0-5 fix and readfix/prefetch hooks never run in game | covered by 6.2 + Phase 0 | - | y |
 | 6.4 | FG on Proton crash: default stays status-only (FrameGenToggle=1) - keep; re-verify the fgmarker restore once | Ally, 10 min | 10 min | y |
 | 6.5 | VRR fix is offline-only: decide the online default (auto-off when online-session-detect fires?) | free; detection exists (`online-session-detect.md`) | 3 h + co-op test | y |
-| 6.6 | Base ini defects: 2 control chars (lines 395, 527: `\v`, `\b` from unescaped paths), duplicated [Memory] block, 6 keys undocumented (InstallDelaySec, PF*) | ini owner = src owner (1.3); `release\check_release.py` lists them | 15 min | n |
+| 6.6 | Base ini defects: 2 control chars (lines 395, 527: `\v`, `\b` from unescaped paths), duplicated [Memory] block, 6 keys undocumented (InstallDelaySec, PF*) | DONE 1.7.26 (control chars fixed, second [Memory] block removed, InstallDelaySec + PF* documented; check_release 0 ini warnings) | - | n |
 
 ## 7. Final defaults per device
 | # | item | owner / status | effort | game |

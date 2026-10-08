@@ -533,3 +533,94 @@ served count ~= 740392 calls and "private handles n opened, 0 failed", site 7403
 s, work end, MB read within 1 %, screenshot 5 s after the press. Keep if both A-B pairs beat the B-B spread. Then (same or
 next session) A = base + `SR=1 RC=1` vs B = base + `SR=1`. Send back: grep 'LoadStats|LoadGates|ReadProbe|ReadFix|EP:' of
 each log.
+
+## 8.8 The two read sites left after EP / SR, and PF trace prefetch (built in ASI 1.7.26, default off, not run in game)
+
+Static only (capstone over `re\Nioh3.dump.exe` + `D:\nioh3-re\decomp\0x429e4.c`; no Ghidra, game not run). Data: 1.7.23 R1
+logs b/c (EP on), `captures\ally\1723\`.
+
+### 8.8.1 What 631FD5 (ReadFileEx) reads, and who waits
+
+| step | where | fact |
+|---|---|---|
+| owner | RIS resource job **429E4** (string "Failed to read RIS Header ... ResFileID"), ResourceLoad pool (7 threads) | ResFileID -> archive path + entry offset (vt+80h of the resource DB), then one read of the whole IDRK entry ('IDRK0000', 38h header + body) into memory; the header is parsed from memory afterwards (memory stream vtable 38EE630) |
+| open | stream vtable **38EE660** slot +38h = **631EC0** | `CreateFileA` 631F20 (GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, FILE_FLAG_OVERLAPPED \| NORMAL) **per resource**; pos [s+20h] = entry offset. Close = slot +08h 631C84 (CloseHandle 631CBC / 631CFF) |
+| read | slot +40h **631C48** -> **631F70**(req, h, buf, off, n) | OVERLAPPED = req itself; `ReadFileEx` 631FD5 with completion **631C04**; then `GetLastError() == 0` (or 3E4h) is required. 3256310 is a second caller (offset 0) |
+| completion | 631C04 | adds the byte count at req+90h (timing build only) and `xchg [req+20h] -> req+34h = 1` |
+| wait | slot +48h **716280** (inlined in 429E4 at 42A8E) | `SleepEx(0, TRUE)`, then `lock cmpxchg [req+34h] 1 -> 0`. Not done -> job+34h = 1, flags \|= 1, return 0 (the job is re-run later). The APC runs only in the **issuing** ResourceLoad thread's own SleepEx |
+
+- Under Wine the read happens inside ReadFileEx (inline pread + APC queued), so the first poll always succeeds: the
+  ResourceLoad thread sits out the whole device read. On Windows the call returns at once and the job is re-run.
+- Sizes (b): 67 % <= 1 KiB, 10 % 1-4 KiB, 15 % 4-64 KiB, 8 % > 64 KiB (~1000 reads of ~2.7 MB = almost all of the 2.7 GB;
+  probably the raw StreamingTexContext / StreamingMeshletModelData entries, loading.md §2). Durations: 48 % 128-512 us,
+  44 % > 512 us = cold device reads (calib: first-touch 4K 526 us, cached overlapped 58 us).
+- RP's "handles 118, far 86 %" for this site is mostly handle reuse: every resource opens and closes its own handle, so
+  RP's per-handle-value locality mixes files. The real per-file pattern is unknown until a ReadProbe=2 trace.
+- Not thread-bound: the [App] pools are parked most of the window (SP: 57 % in CndWaitSrw B616A4), ReadFileEx is 3 % of
+  the ResourceLoad thread-time. The reads are **latency-bound on resource dependency chains**: resources complete ->
+  ResourceIsReady 1A6030 / ResourceDependenciesReady 1A6820 -> G8 StageAreasObjectsReady (area objects wait for their
+  resources) and G9 LoadCharacterReady; manager A (10 in flight, ~1100 pending) waits on the same requests.
+
+### 8.8.2 31305A
+
+FileReadAsyncSubmit 312F7C (archive layer): 64 KiB chunk reads of the zlib IDRK entries (100 % 4-64 KiB, 1.1 GB), on the
+unnamed step threads (x3), completed by FileReqWaitAll 312754 (WFMO on the per-read event, EP pools it). Long-lived
+handles, so its far 82 % is real. SR (1.7.25) removes the ~50 us Wine bookkeeping; ~150 us of device time per read stays.
+
+### 8.8.3 Options
+
+| option | verdict |
+|---|---|
+| async ReadFileEx (worker + QueueUserAPC to the issuer) | restores the Windows timing, but the pool is idle (no backlog to overlap), and the APC is delivered only when the issuing thread polls again (a later job on that thread): adds latency and a stall risk. Not built |
+| SR-style sync redirect for ReadFileEx | saves the ~60 us bookkeeping x 12.6k = ~0.8 s; device time unchanged; needs the completion run outside an alertable wait (contract change). Not built |
+| bigger merged reads | each call already reads a whole entry; merging needs to know the next entries |
+| skip redundant reads | RP: reread 0 % |
+| **prefetch into the page cache** | the only option that removes device latency, and exact by construction (the game's I/O is untouched) -> **PF** |
+
+### 8.8.4 PF = `[Patches] PF` (src\prefetch.cpp / prefetch.h; keys PF, PFThreads 4, PFLeadMB 768, PFTraces 4, PFMatchPct 50)
+
+- **Observe** (no new hook site): readprobe's existing R1 hooks at 631FD5 (RP14), 31305A (RP3), 3130D6 (RP4) call
+  `prefetch::Note` before the real call. Note keeps the last error, takes the file id from NtQueryInformationFile
+  (FileInternalInformation, immune to the handle reuse), the path once per file (package\ only), the offset from the
+  OVERLAPPED. Inside a 58A window every such read is appended to a RAM list (24 B, cap 262k).
+- **Record**: at the clear the list goes to `Nioh3EngineFix_pf<k>.bin` next to the ini (package-relative paths + reads).
+  Slot = the trace the load matched (>= 50 % of its reads), else a free slot, else the oldest (PFTraces = 4).
+- **Replay** (PF = 1): the first 24 package reads of a load pick the stored trace holding >= PFMatchPct % of them. The trace
+  becomes runs (same file, gap <= 256 KiB, <= 8 MiB). PFThreads workers read the runs in recorded order on their own
+  synchronous read-only handles (share READ|WRITE|DELETE: no game open can fail) into a 4 MiB scratch buffer, at most
+  PFLeadMB ahead of the furthest run the game has asked for; runs the game already read are skipped. The replay stops if
+  < 25 % of the game's reads are in the trace. PF = 2 records only (the B arm). Windows is allowed (~0 there).
+- **Register safety** (hook-register-audit.md): nothing new; Note runs inside HkRead<2/3> / HkReadEx behind the existing
+  save thunks (rcx/rdx/r8-r11 kept, 5th arg forwarded). The sites are FF 15 imports, so the callers already treat every
+  volatile as clobbered (xmm0-5 included); 631FD5's caller reads only eax and the last error after the call.
+- **Cost**: per observed read one NtQif (fd-cached under Wine, ~1-2 us), a hash lookup, 24 B. Device: the same ~3.9 GB is
+  read earlier at queue depth 4. RAM: page cache only, <= PFLeadMB ahead (768 MB of 4.9-5.8 GB available).
+- **Expected (Ally)**: upper bound with every read cached: 631FD5 9.3-10.2 -> ~1 thread-s, 31305A 3.2-3.6 -> ~1 (~0.1 with
+  SR): ~11 thread-s of blocked reads off ResourceLoad and the step threads. Wall clock **~3-8 s** of the load if those
+  chains still gate G8/G9 after SR; 0 if the holder is then CPU work. The first load after turning PF on only records.
+  PC ~0 (notes\pc-vs-ally-load.md).
+- **Proofs**: `tests\run_prefetch_harness.py` -> PREFETCH HARNESS: ALL OK (the game's reads through the real HkReadEx /
+  HkRead<2>: bytes / results / counts / opens exact while recording and prefetching; last error kept; trace round trip;
+  pick / no-match / record-only / corrupt trace / stop rule; run merging; synthetic W2: 96 % of reads prefetched before the
+  game asked, lead <= limit). READPROBE / READFIX harnesses ALL OK, test_patterns ALL 212 SITES OK, READPROBE SITES OK.
+  `rp_sim.py` now prints a "PF sim" upper bound per site (selftest OK); no ReadProbe=2 trace of the Ally exists yet.
+
+### 8.8.5 Ally test protocol (PF; ASI 1.7.26 = 1.7.25 + PF, so R2 can run on it unchanged)
+
+Route and metric as 8.4 (online title -> Load Game -> Level 136, press A at the tip page; metric = work end = last
+LoadGates eval / manager A last busy). Base = the R2 base (1.7.19 L1 ini + `ReadProbe=1`, EP auto) plus SR as R2 decided
+(the same SR value in every arm). Copy the whole `bin\` (asi + ini); PF writes `Nioh3EngineFix_pf0..3.bin` next to the ini.
+
+1. **Prime** (1 launch, not counted): base + `PF=2`, one load (`ReadProbe=2` here too gives rp_sim a trace). Check:
+   "Prefetch: PF 2 (record only)" at start and "Prefetch #1: recorded N package reads (M MB) -> Nioh3EngineFix_pf0.bin
+   saved" (expect N ~30k, M ~3.9k).
+2. **ABBA x 4 launches, 2 loads each**: A = base + `PF=1`, B = base + `PF=2` (records, no prefetch: same hook cost, keeps
+   pf0 fresh). Compare #1 with #1, #2 with #2.
+3. **Check per A load**: "Prefetch #n: trace pf0 picked (>= 12 of the first 24 ...)"; at the clear "in trace pf0 ... (>= 80
+   %): already prefetched >= 60 %", "stop: window end"; ReadProbe site 631FD5 avg us (B 740-810 -> A target < 200) and
+   31305A; LoadGates work end, G8 / G9 held; MemStats RAM available min (must stay > 1.5 GB); LoadStats MB read within 1 %
+   of B; screenshot 5 s after the press.
+4. **Keep** if both A-B pairs beat the B-B spread on the work end. "no trace matches" / "stop: match rate < 25 %" = the
+   route differs from the prime: re-prime and say so.
+5. **Send back**: grep 'LoadStats|LoadGates|ReadProbe|ReadFix|Prefetch|EP:' of each log, plus the size of each pf*.bin.
+   Undo: `PF = 0` (the pf*.bin files can be deleted).

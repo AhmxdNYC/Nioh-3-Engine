@@ -14,6 +14,12 @@
 #include <cstdio>
 #include <initializer_list>
 
+namespace prefetch {  // 1.7.26 PF observes reads through readprobe.cpp; tested by run_prefetch_harness.py
+bool Wants(const wchar_t*) { return false; }
+bool Start(const StartInfo&) { return false; }
+void Note(int, void*, const void*, unsigned long) {}
+}  // namespace prefetch
+
 namespace loadstats {  // stubs for the two calls readprobe.cpp makes into loadstats.cpp
 static int g_noteCalls = 0, g_noteCls = -1;
 static uint32_t g_noteBytes = 0;

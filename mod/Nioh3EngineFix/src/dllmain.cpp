@@ -42,7 +42,7 @@
 #include "readprobe.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.25"
+#define MOD_VERSION "1.7.26"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

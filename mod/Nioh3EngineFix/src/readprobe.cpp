@@ -12,6 +12,7 @@
 #include <cwchar>
 
 #include "loadstats.h"
+#include "prefetch.h"
 #include "readfix.h"
 #include "readprobe.h"
 
@@ -64,6 +65,7 @@ bool g_rp = false;       // probe hooks live
 bool g_ep = false;       // EP live
 bool g_lsFeed = false;   // feed LoadStats' read counters
 bool g_fix = false;      // readfix.cpp (RC / AQ) serves the archive read sites
+bool g_pf = false;       // 1.7.26 prefetch.cpp (PF) observes 31305A / 3130D6 / 631FD5 before the real call
 double g_usPerTick = 0;  // microseconds per QPC tick
 uint64_t g_qpcFreq = 0;
 wchar_t g_iniDir[MAX_PATH] = {0};
@@ -329,6 +331,9 @@ using ReadExFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPOVERLAPPED, LPOVERLAPPED
 // 1.7.24: the R1 hooks also go live with ReadProbe = 0 when readfix (RC / AQ) is on; then only LoadStats is fed.
 template <int S>
 BOOL WINAPI HkRead(HANDLE h, LPVOID buf, DWORD n, LPDWORD got, LPOVERLAPPED ov) {
+    if constexpr (S == 2 || S == 3) {
+        if (g_pf) prefetch::Note(S, h, ov, n);  // observation only, keeps the last error
+    }
     const DWORD le0 = GetLastError();
     Pre p{};
     if (g_rp) Begin(h, ov, p);
@@ -344,6 +349,7 @@ BOOL WINAPI HkRead(HANDLE h, LPVOID buf, DWORD n, LPDWORD got, LPOVERLAPPED ov) 
 }
 
 BOOL WINAPI HkReadEx(HANDLE h, LPVOID buf, DWORD n, LPOVERLAPPED ov, LPOVERLAPPED_COMPLETION_ROUTINE cr) {
+    if (g_pf) prefetch::Note(kNSites - 1, h, ov, n);  // observation only, keeps the last error
     if (!g_rp) return (*reinterpret_cast<ReadExFn*>(g_base + kIatReadFileEx))(h, buf, n, ov, cr);
     const DWORD le0 = GetLastError();
     Pre p;
@@ -986,7 +992,7 @@ DWORD WINAPI Sampler(void*) {
 
 bool WantsReads(const wchar_t* iniPath) {
     return iniPath && (int)GetPrivateProfileIntW(L"Profiler", L"LoadStats", 0, iniPath) > 0 &&
-           ((int)GetPrivateProfileIntW(L"Profiler", L"ReadProbe", 0, iniPath) > 0 || readfix::Wants(iniPath));
+           ((int)GetPrivateProfileIntW(L"Profiler", L"ReadProbe", 0, iniPath) > 0 || readfix::Wants(iniPath) || prefetch::Wants(iniPath));
 }
 
 namespace {
@@ -1012,7 +1018,8 @@ bool Start(const StartInfo& info) {
         rp = false;
     }
     const bool fixWanted = readfix::Wants(info.iniPath);
-    if (!rp && !ep && !fixWanted) return false;
+    const bool pfWanted = prefetch::Wants(info.iniPath);
+    if (!rp && !ep && !fixWanted && !pfWanted) return false;
     if (!info.knownBuild) {
         g_log("ReadProbe/EP/ReadFix: refused (unknown build; addresses are v2.02)");
         return false;
@@ -1045,7 +1052,7 @@ bool Start(const StartInfo& info) {
             ep = false;
         }
     }
-    if (!rp && !ep && !fixWanted) return false;
+    if (!rp && !ep && !fixWanted && !pfWanted) return false;
     const auto* dos = (const IMAGE_DOS_HEADER*)g_base;
     const auto* nth = (const IMAGE_NT_HEADERS64*)(g_base + dos->e_lfanew);
     g_thunks = AllocNear(g_base, g_base + nth->OptionalHeader.SizeOfImage);
@@ -1073,6 +1080,15 @@ bool Start(const StartInfo& info) {
         g_fix = readfix::Start(fi);
         if (!rp) g_lsFeed = info.loadStatsOn;  // LoadStats left its read sites to us (WantsReads): keep feeding it
     }
+    if (pfWanted) {  // 1.7.26 PF: observes the reads, so it must be live before the read sites are hooked
+        prefetch::StartInfo pi;
+        pi.log = g_log;
+        pi.iniPath = info.iniPath;
+        pi.base = g_base;
+        pi.knownBuild = info.knownBuild;
+        g_pf = prefetch::Start(pi);
+        if (!rp) g_lsFeed = info.loadStatsOn;
+    }
     char bad[400] = {0};
     size_t bl = 0;
     auto note = [&](const char* what, uint32_t rva, int r) {
@@ -1081,14 +1097,14 @@ bool Start(const StartInfo& info) {
     };
     int nRead = 0, nLs = 0, nEv = 0;
     bool cacheOk = false;
-    if (rp || fixWanted) {
+    if (rp || fixWanted || g_pf) {
         for (int s = 0; s < kNSites; ++s) {
             const bool ok = note("read", kRS[s].rva, HookIatCall(kRS[s].rva, s == kNSites - 1 ? kIatReadFileEx : kIatReadFile, kReadHooks[s]));
             nRead += ok;
             nLs += ok && kRS[s].ls >= 0;
         }
-        if (!rp) g_log("ReadFix: %d/%d read sites hooked (%d/7 LoadStats sites; fixes %s)%s%s", nRead, kNSites, nLs, g_fix ? "on" : "OFF",
-                       bl ? " - skipped:" : "", bad);
+        if (!rp) g_log("ReadFix: %d/%d read sites hooked (%d/7 LoadStats sites; fixes %s, prefetch %s)%s%s", nRead, kNSites, nLs,
+                       g_fix ? "on" : "OFF", g_pf ? "on" : "OFF", bl ? " - skipped:" : "", bad);
     }
     if (rp) {
         nEv += note("WFMO", kWfmo, HookIatCall(kWfmo, kIatWfmo, (const void*)&HkWfmo));

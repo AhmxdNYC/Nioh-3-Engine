@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """rp_sim.py - replay a ReadProbe=2 trace (Nioh3EngineFix_reads_<n>.bin + .txt sidecar).
-Predicts RC (read cache) hit rate / in-call time per block+cache size, and AQ (async queue) times per depth.
+Predicts RC (read cache) hit rate / in-call time per block+cache size, AQ (async queue) times per depth, and the PF
+(1.7.26 trace prefetch) upper bound: every read at 631FD5 / 31305A / 3130D6 served from the page cache.
 Usage: py -I rp_sim.py TRACE.bin [--log modlog.txt] [--cached-us N --dev-4k-us N --dev-64k-us N --dev-256k-us N]
          [--rc-max-kb 64] [--event-us N --cached-ovl-us N] [--model] [--json] | py -I rp_sim.py --selftest"""
 import sys, os, re, json, struct, argparse, heapq, tempfile, random, io
@@ -10,6 +11,7 @@ HDR = struct.Struct('<8sQQQQII')
 REC = struct.Struct('<QQIIHBBBBBB')  # t0 off n us slot site flags cls inflG inflH loc
 LOC = {0: 'reread', 1: 'seq', 2: 'near', 3: 'inblk', 4: 'far', 255: 'none'}
 SAVE_RVA, AQ_RVAS = '1FD9CA3', ('31305A', '3130D6', '740392')
+PF_RVAS = ('631FD5', '31305A', '3130D6')
 NOOFF = (1 << 64) - 1
 
 
@@ -199,6 +201,21 @@ def summarize(t):
     return S
 
 
+def sim_pf(t, cached_ovl_us, copy_mb_s=8000.0):
+    # PF upper bound: a prefetched read costs the cached overlapped call + the copy, never more than it did
+    by = {}
+    for r in t['recs']:
+        site = t['sites'].get(r[5], str(r[5]))
+        if site not in PF_RVAS:
+            continue
+        n, us = r[2], r[3]
+        e = by.setdefault(site, [0, 0.0, 0.0])
+        e[0] += 1
+        e[1] += us / 1e6
+        e[2] += min(us, cached_ovl_us + n / copy_mb_s) / 1e6
+    return {k: dict(calls=v[0], rec_s=round(v[1], 2), pred_s=round(v[2], 2)) for k, v in by.items()}
+
+
 def run(a, out=sys.stdout):
     t = load(a.trace)
     cal = parse_calib(a.log)
@@ -238,10 +255,14 @@ def run(a, out=sys.stdout):
     for r in aq:
         P(f"  {r['depth']:>5} {r['calls']:>5} {r['submit_s']:>8} {r['rec_in_call_s']:>12} {r['lat_mean_us']:>11} "
           f"{r['lat_p95_us']:>10} {r['makespan_s']:>10} {r['span_rec_s']:>10}")
+    pf = sim_pf(t, cal.get('cached_ovl_us', 60.0))
+    P(f"PF sim (sites {','.join(PF_RVAS)}; every read a page-cache hit at {cal.get('cached_ovl_us', 60.0):g} us + copy):")
+    for k, r in sorted(pf.items()):
+        P(f"  {k:>9}: {r['calls']:>7} calls, in-call {r['rec_s']:>7} s -> {r['pred_s']:>7} s")
     ref = next((r for r in rc if r['block_kb'] == 64 and r['cache_mb'] == 64), None)
     vd, good, far = verdict(S, cal, ref)
     P(f'VERDICT: {vd} (seq+near+inblk {100 * good:.0f}%, far {100 * far:.0f}%)')
-    return dict(summary=S, calib=cal, rc=rc, aq=aq, verdict=vd)
+    return dict(summary=S, calib=cal, rc=rc, aq=aq, pf=pf, verdict=vd)
 
 
 def synth(path, kind, n=20000):
@@ -253,11 +274,12 @@ def synth(path, kind, n=20000):
             off += 4096
         else:
             o = random.randrange(0, 1 << 20) << 12  # 4 GiB file
-        recs.append(REC.pack(1000 + i * 100, o, 4096, 60, 0, 1, 1, 0, 1, 1, 1 if kind == 'seq' else 4))
+        recs.append(REC.pack(1000 + i * 100, o, 4096, 60 if kind == 'seq' else 600, 0, 1 if i % 4 else 2, 1, 0, 1, 1,
+                             1 if kind == 'seq' else 4))
     with open(path, 'wb') as f:
         f.write(HDR.pack(b'RPTRACE1', 1000000, 0, n, 0, REC.size, 1) + b''.join(recs))
     with open(os.path.splitext(path)[0] + '.txt', 'w') as f:
-        f.write('site\t0\t1FD9CA3\nsite\t1\t740392\npool\t0\tTrySync\nhandle\t0\t0\t4294967296\troot.rdb\n')
+        f.write('site\t0\t1FD9CA3\nsite\t1\t740392\nsite\t2\t631FD5\npool\t0\tTrySync\nhandle\t0\t0\t4294967296\troot.rdb\n')
 
 
 def selftest():
@@ -273,6 +295,8 @@ def selftest():
     assert h('seq')['hit_calls'] > .9, h('seq')
     assert h('rnd')['hit_calls'] < .2, h('rnd')
     assert h('seq')['pred_s'] < h('seq')['rec_s']
+    pf = res['rnd']['pf'].get('631FD5')
+    assert pf and pf['calls'] == 5000 and pf['pred_s'] < pf['rec_s'] / 5, pf
     print('RP_SIM SELFTEST OK')
 
 

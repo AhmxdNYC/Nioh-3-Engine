@@ -2,7 +2,7 @@
 Read this section only; everything older is under '## History' (unchanged). Latest commit when written: 7b4bd34 (ASI 1.7.21).
 
 ## CURRENT STATE
-- Latest ASI = 1.7.25 (bin built 2026-10-08 10:34 from 3e8268e, on top of 1.7.24 = EP auto-on under Proton): read fixes SR / RC / AQ / TSY / SH, all default off, not run in game (src\readfix.cpp; notes\loading-ally-fixed.md 8.7). Ally 1.7.23 R1: EP cut the load 98.9 -> 50.1 s (captures\ally\1723\). Older: 1.7.21 RematchLog Phase 0 + BossLog + LoadGates probe LG.
+- Latest ASI = 1.7.26 (2026-10-08): 1.7.25 + PF trace prefetch for the cold ReadFileEx 631FD5 / 31305A reads (default off, not run in game; src\prefetch.cpp, notes\loading-ally-fixed.md 8.8 incl. the Ally protocol) + base ini fixes (remaining-work 6.6). 1.7.25 = read fixes SR / RC / AQ / TSY / SH, all default off, not run in game (src\readfix.cpp; notes\loading-ally-fixed.md 8.7). Ally 1.7.23 R1: EP cut the load 98.9 -> 50.1 s (captures\ally\1723\). Older: 1.7.21 RematchLog Phase 0 + BossLog + LoadGates probe LG.
 - PC game folder: ASI 1.7.21 + full-mod ini with [GpuOpt] Barriers=0 (Barriers=1 measured -7 % on PC). Last PC round was 1.7.16 (captures\tm\results_pc_1716.md).
 - Ally X: 1.7.21 zip delivered. Last Ally run was the 1.7.19 load probe (digest notes\loading-ally-fixed.md section 7).
 - Game holder: the Ally was the last holder (Steam allows one device). Verify before acting: `py -m uo_bridge.gamelock status nioh3`; never assume the PC may launch.
@@ -17,7 +17,7 @@ Read this section only; everything older is under '## History' (unchanged). Late
 ## QUEUE (ranked; model per job; keep 3-4 agents running)
 1. [ally] Session R2 on ASI 1.7.25 (READY: zip mod\Nioh3EngineFix\bin). Base = R1 base (1.7.19 L1 ini + ReadProbe=1, EP auto). ABBA x 4 launches, 2 loads each: A = base + SR=1 (synchronous redirect: site 740392 = 536k reads x 46 us = 24.9 s on one loader thread; overlapped cached read 55 us vs synchronous 2 us under Proton; expected ~20 thread-s off, 47 s load -> ~30 s if that thread holds G8). Then A = SR=1 RC=1 vs B = SR=1. Exact protocol + what to send back: notes\loading-ally-fixed.md 8.7. R1 DONE (EP kept -> auto in 1.7.24); the LoadOnlyCpuFixes A/B is still open (later pair in R2). re\scripts_load\rp_sim.py (selftest OK) replays a ReadProbe=2 trace if one arrives.
 1b. [sonnet] add SR / RC / AQ / TSY / SH (SR and SH are Wine-only) to tools\testmatrix\matrix.json for the final re-test (after the harness owner is done with it).
-1c. Load holders left after SR: ReadFileEx 631FD5 (9-10 s on ResourceLoad, large far reads, 3 in flight, device-bound: next = its caller and request sizes), G5 ObjectListAnyNotReady ~6 s, G9 LoadCharacterReady 3-4 s.
+1c. [ally] PF A/B on 1.7.26 (notes\loading-ally-fixed.md 8.8.5: prime with PF=2, then ABBA A = PF=1 / B = PF=2; R2 can run on 1.7.26 too). 631FD5 = RIS resource job 429E4 reading whole IDRK entries, one CreateFileA per resource, polled by SleepEx(0,TRUE) on the issuing ResourceLoad thread; cold device reads on dependency chains -> PF. Other holders left: G5 ObjectListAnyNotReady ~6 s, G9 LoadCharacterReady 3-4 s.
 2. (merged into 1: LO loads-only gating ships with RP.)
 3. [opus] PC submit filters: PSO/RT redundancy (SF1 + PM key memo, SF3 OM/RS) per notes\pc-submit-overhead.md; build only if the trace shows >= ~200 redundant calls/frame; run submit_redundancy.py on the one trace run first; B draw-loss check by screenshot pair.
 4. [opus] Rematch build after the Phase 0 logs (notes\boss-rematch-design.md; boss-master.md has the data). Blocked on the user session.
