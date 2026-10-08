@@ -452,3 +452,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `notes/pc-submit-overhead.md`: per-frame call volume (PC: 1752 barrier calls, 1354 draws, 1081 dispatches, ~140 EI, >=1327 PSO sets; ~12-25k D3D12 calls), what KTGL already filters, ranked ASI state filters SF1-SF3 + PSO-key memo (exact, default off), why Barriers=1 costs 7 % on PC (dispatcher co-critical at ~180 fps, no GPU gain; R2a/R1 are Wine-only no-ops), B GPUBusy anomaly (-16 %: verify draws/frame before KEEP).
 - New `re/scripts_d3d12/submit_redundancy.py` (gpuopt trace -> calls/frame + exact redundancy, --selftest).
 - Undo: nothing to undo.
+
+## 2026-10-08 - Ally load probe 1.7.19 digest (analysis only; nothing installed or patched)
+- `notes/loading-ally-fixed.md` §7: the work ends at +93 s, with no timeout (manager A latency / Wine-serialized reads); 7.5 cores are an idle spin baseline; G9 hold = tip-page probe artifact; fixes GF+W6+RWb A/B, RC, AQ, TS, event wake; RP probe spec.
+- New `re/scripts_load/ally_load_sp_phases.py`; names in `re/symbols/incoming/ally-load-renames.tsv`. Logs in `D:\nioh3-re\ally-logs\`.
+- Undo: nothing to undo.
