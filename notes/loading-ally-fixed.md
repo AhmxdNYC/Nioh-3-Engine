@@ -467,3 +467,23 @@ PC: one ABBA of the kept fixes on the PC LG route (`loadstats_ab.ps1`) to confir
   - the cave calls JobWakeOneInPool 48B9C by absolute address, because the original E8 rel32 cannot move;
   - the patterns test proves both cave paths match the stock and RWb sequences.
 - Expected: row 1 of §8.3 on the Ally, 0 on PC. In gameplay the words are 0, so the game runs stock code there.
+
+### 8.6 Built in ASI 1.7.23 (2026-10-08; not run in game)
+
+- **RP** = `[Profiler] ReadProbe = 1|2` (needs LoadStats >= 1), `src\readprobe.cpp`. All of 8.2 except `rp_sim.py` (the RP=2
+  trace format is in the `.txt` sidecar; the simulator is the next small job). Deviations: reread is checked before seq;
+  calibration uses the biggest archive seen (root.rdb only as fallback) for all reads; first-touch reads are skipped for
+  files < 64 MB; handle paths are re-read once per window (handle reuse inside one window would mix two files).
+  LoadStats leaves its 7 ReadFile sites to RP (`readsByProbe`) and gets the same counts through `loadstats::NoteRead`.
+  Thunks keep rcx/rdx/r8/r9/r10/r11 and forward the 5th stack argument; the R3 cache counter is an asm thunk that only
+  changes rax/flags. Sites: patches.json RP1-RP18 + 3 deps; `ls_sites.py` -> READPROBE SITES OK (13 ReadFile + 1 ReadFileEx
+  = every such call in .text).
+- **LO** = `[Patches] LoadOnlyCpuFixes = 1` (one key instead of GF/W6/RWb = 2), `src\loadonly.cpp`. GF/W6 installed with
+  their words at the user's value; RWb via a switchable cave that rewrites only the first instruction (6 bytes, one CAS);
+  the RWb order's wrapped case runs `dec ebx` and re-enters the stock tail, so the wake call stays in game code (no
+  relocated call). `test_patterns.py` "LO" interprets the real bytes: cave word 0 == stock, word 1 == RWb, all 256 bl.
+- **EP** = `[Patches] EP = 1` (8.3 row 4, built early: exact by construction). A closed event is pooled only if
+  NtResetEvent reports it was signalled (=> no read pending on it); otherwise it is really closed. Harness
+  `tests\run_readprobe_harness.py` -> READPROBE HARNESS: ALL OK (save-thunk registers, cache thunk, EP reuse/close paths).
+- Ally session R1 (8.4) can run with this build: base = 1.7.19 L1 ini + `ReadProbe=1`; arm A adds `LoadOnlyCpuFixes=1`;
+  launch 1 of the first B arm uses `ReadProbe=2`. EP gets its own ABBA (A = base + `EP=1`) in the same or the next session.

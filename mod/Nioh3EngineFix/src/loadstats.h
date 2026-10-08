@@ -41,6 +41,7 @@ struct StartInfo {
     uintptr_t base = 0;                // Nioh3.exe image base
     bool knownBuild = false;           // v2.02 only; other builds refuse
     int loaderCap = 10;                // resource-load in-flight cap actually in force (16 when the ASI patch LC is applied)
+    bool readsByProbe = false;         // 1.7.23: [Profiler] ReadProbe owns the 7 ReadFile sites and feeds NoteRead (readprobe.cpp)
 };
 
 // Reads [Profiler] LoadStats. When != 0 and the build is known: verifies and installs the hooks and starts the sampler.
@@ -48,6 +49,13 @@ struct StartInfo {
 // loadmem::Start), before the first level load.
 bool Start(const StartInfo& info);
 bool Enabled();
+
+// 1.7.23 (readprobe.cpp): ReadProbe hooks the 7 kRead sites itself (one hook per site) and reports each call here so the
+// LoadStats read counters stay the same. cls 0 = archive layer (311D17 312DD2 31305A 3130D6), 1 = other (740392 1FD9CA3 32562BE).
+void NoteRead(int cls, uint32_t bytes, bool overlapped, uint64_t qpcTicks);
+// LoadGates: QPC of the last LoadIsLoadEnd evaluation that had a failing gate in the current/last 58A window (the "work end"
+// of notes\loading-ally-fixed.md 7); 0 when LoadGates is off or no evaluation failed.
+uint64_t LastFailEvalQpc();
 
 // Menu / OSD: "LS: idle" or "LS: load 12.3 s, A 9/10, 412 MB, PSO 300" (empty when off).
 const char* StatusLine(char* buf, unsigned n);

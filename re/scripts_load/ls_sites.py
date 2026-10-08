@@ -51,3 +51,19 @@ for rva, k, exp in SITES:
     if not good or not fit: print(f'  site {rva:X} {k}: {"bytes OK" if good else "BYTES MISMATCH"}, {"atomic window OK" if fit else ("straddles 16 B -> EB FE fallback" if spin else "NOT PATCHABLE")}')
 print(f'{len(SITES)} sites, {fits} in one atomic window, {len(SITES)-fits} via the EB FE fallback')
 print('LOADSTATS SITES OK' if ok else 'LOADSTATS SITES MISMATCH')
+
+# 1.7.23 RP read probe (src\readprobe.cpp): 13 ReadFile + ReadFileEx sites, the 3 event/wait sites, the game-cache E8.
+RFEX, CREV, CLOSE, WFMO = 0x38E26C8, 0x38E25C8, 0x38E2390, 0x38E25D0
+RP = [(r, 'ff15', READFILE) for r in (0x311D17, 0x312DD2, 0x31305A, 0x3130D6, 0x740392, 0x1FD9CA3, 0x32562BE,
+                                      0xAF5656, 0xBDCC46, 0xBF9485, 0xBF9647, 0xBF98E5, 0xBF9FC7)]
+RP += [(0x631FD5, 'ff15', RFEX), (0x311EE1, 'ff15', CREV), (0x311F89, 'ff15', CLOSE), (0x3127A1, 'ff15', WFMO), (0x198357C, 'e8', 0x2F77A6C)]
+rf_all = set(ff15_in(READFILE, lo, hi)); rok = rf_all == {r for r, k, e in RP if e == READFILE} and ff15_in(RFEX, lo, hi) == [0x631FD5]
+if not rok: print('  RP: ReadFile/ReadFileEx call sites in .text differ from the table:', sorted(hex(x) for x in rf_all))
+for rva, k, exp in RP:
+    if k == 'e8': good = D[rva] == 0xE8 and rva + 5 + struct.unpack_from('<i', D, rva + 1)[0] == exp; n = 5
+    else: good = D[rva] == 0xFF and D[rva+1] == 0x15 and rva + 6 + struct.unpack_from('<i', D, rva + 2)[0] == exp; n = 6
+    w = lambda a, n: (a + n <= (a & ~7) + 8) or (a + n <= (a & ~15) + 16)
+    rok &= good and (w(rva, n) or w(rva, 2))
+    if not good: print(f'  RP site {rva:X}: BYTES MISMATCH')
+print(f'{len(RP)} ReadProbe sites (all ReadFile/ReadFileEx calls in .text: {len(rf_all)} + 1)')
+print('READPROBE SITES OK' if rok else 'READPROBE SITES MISMATCH')

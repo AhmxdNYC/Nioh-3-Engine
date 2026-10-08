@@ -37,9 +37,11 @@
 #include "osd.h"
 #include "bosslog.h"
 #include "autocont.h"
+#include "loadonly.h"
+#include "readprobe.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.22"
+#define MOD_VERSION "1.7.23"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -323,6 +325,8 @@ struct Config {
     int lk = 0, cp = 0, spf = 0;
     int mq = 0, pt1 = 0, dl = 0, cpuStats = 0;  // 1.7.12 (DL rides the CP group)
     int rwb = 0, spr = 0;
+    // 1.7.23 LO (loadonly.cpp): GF/W6/RWb installed but on only inside 58A; *User = the keys as written in the ini
+    int loadOnly = 0, gfUser = 0, w6User = 0, rwbUser = 0;
     int gl1 = 0, lc = 0, lw = 0;  // 1.7.14 (loading / game-logic; ini only, next launch)
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
@@ -412,6 +416,15 @@ Config LoadConfig() {
     c.dsMarginUs = std::clamp(I(L"Tuning", L"DS_MarginUs", c.dsMarginUs), 50, 900);
     c.gpuProf = I(L"Profiler", L"GPUProf", c.gpuProf);
     c.gpuMarkers = I(L"Profiler", L"GPUProf_Markers", c.gpuMarkers);
+    c.loadOnly = I(L"Patches", L"LoadOnlyCpuFixes", c.loadOnly);
+    c.gfUser = c.gf;
+    c.w6User = c.w6;
+    c.rwbUser = c.rwb;
+    if (c.loadOnly) {  // install GF/W6 regardless (their words follow gfUser/w6User outside loads); RWb goes to loadonly's cave
+        if (!c.gf) c.gf = 1;
+        if (!c.w6) c.w6 = 1;
+        c.rwb = 0;
+    }
     return c;
 }
 
@@ -1316,7 +1329,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
         if (!strcmp(g, "BL")) return false;  // BossLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
         if (!strcmp(g, "RM")) return false;  // RematchLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
-        if (!strcmp(g, "AC")) return false;  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
+        if (!strcmp(g, "AC")) return false;
+        if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         return false;  // P12 is handled in the decrypt-wait loop above
     };
@@ -1516,7 +1530,7 @@ DWORD WINAPI Worker(LPVOID) {
             w6_wakeAll = (uint64_t)(uintptr_t)wake;
             g_w6SpinTicks = (int64_t)cfg.w6SpinUs * qf.QuadPart / 1000000;
             g_w6TimeoutMs = (DWORD)cfg.w6TimeoutMs;
-            g_w6Enable = 1;
+            g_w6Enable = cfg.w6User ? 1u : 0u;  // LoadOnlyCpuFixes: off outside loads unless W6 is set in the ini
             return true;
         });
         if (exDone[menu::kExpW6]) {
@@ -1758,7 +1772,7 @@ DWORD WINAPI Worker(LPVOID) {
         g_gfTls = TlsAlloc();
         if (g_gfTls == TLS_OUT_OF_INDEXES) { Log("GF: TlsAlloc failed"); return false; }
         g_gfTimeoutMs = (DWORD)cfg.gfTimeoutMs;
-        g_gfEnable = 1;
+        g_gfEnable = cfg.gfUser ? 1u : 0u;  // LoadOnlyCpuFixes: off outside loads unless GF is set in the ini
         return true;
     });
     exDone[menu::kExpGF] = s_gfDone;
@@ -2121,8 +2135,8 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpMQ] = U(mq_enable);
         sw[menu::kExpPT1] = U(pt1_enable);
         sw[menu::kExpDL] = U(dl_enable);
-        const int iniv[menu::kNumExp] = {cfg.w6, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
-                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gf, cfg.wl,
+        const int iniv[menu::kNumExp] = {cfg.w6User, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
+                                         cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gfUser, cfg.wl,
                                          cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf, cfg.mq, cfg.pt1, cfg.dl};
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
@@ -2212,7 +2226,26 @@ DWORD WINAPI Worker(LPVOID) {
             ls.base = reinterpret_cast<uintptr_t>(g_base);
             ls.knownBuild = known;
             ls.loaderCap = g_loaderCap;
-            loadstats::Start(ls);
+            ls.readsByProbe = known && readprobe::WantsReads(iniPath.c_str());
+            const bool lsOn = loadstats::Start(ls);
+            // 1.7.23: RP read probe ([Profiler] ReadProbe, needs LoadStats) + EP event pool ([Patches] EP); readprobe.cpp
+            readprobe::StartInfo ri;
+            ri.log = &Log;
+            ri.iniPath = iniPath.c_str();
+            ri.base = reinterpret_cast<uintptr_t>(g_base);
+            ri.knownBuild = known;
+            ri.loadStatsOn = lsOn;
+            readprobe::Start(ri);
+        }
+        if (cfg.loadOnly && known) {  // 1.7.23 LO: GF/W6/RWb only inside the 58A load window (loadonly.cpp)
+            loadonly::StartInfo oi;
+            oi.log = &Log;
+            oi.base = reinterpret_cast<uintptr_t>(g_base);
+            oi.knownBuild = known;
+            oi.gf = exDone[menu::kExpGF] ? &g_gfEnable : nullptr;
+            oi.w6 = exDone[menu::kExpW6] ? &g_w6Enable : nullptr;
+            oi.rwbUser = (uint32_t)(cfg.rwbUser != 0);
+            loadonly::Start(oi);
         }
         {  // read-only boss fight logger (bosslog.cpp, [Debug] BossLog = 0 by default; notes\boss-fights.md)
             bosslog::StartInfo bi;

@@ -75,6 +75,7 @@ void (*g_log)(const char*, ...) = nullptr;
 uintptr_t g_base = 0;
 int g_mode = 0;
 bool g_lg = false;  // [Profiler] LoadGates = 1 (needs LoadStats >= 1)
+bool g_rpReads = false;  // 1.7.23: ReadProbe owns the kRead sites (StartInfo::readsByProbe)
 uint64_t g_qpc0 = 0;
 int g_loaderCap = 10;  // in-flight cap in force (StartInfo::loaderCap)
 bool g_on = false;
@@ -770,10 +771,15 @@ bool Start(const StartInfo& info) {
     if (!g_thunks) {
         g_log("LoadStats: no executable page within 2 GB of the image - hooks off, polling only");
     }
-    int ok = 0, differ = 0, skipped = 0;
+    int ok = 0, differ = 0, skipped = 0, toProbe = 0;
     char bad[512] = {0};
     size_t bl = 0;
+    g_rpReads = info.readsByProbe;
     for (const Site& s : kSites) {
+        if (g_rpReads && s.kind == kRead) {  // ReadProbe hooks these and calls NoteRead (one hook per site, no double hook)
+            ++toProbe;
+            continue;
+        }
         const int r = g_thunks ? InstallSite(s) : 2;
         if (r == 0) {
             ++ok;
@@ -798,12 +804,22 @@ bool Start(const StartInfo& info) {
     HANDLE th = CreateThread(nullptr, 0, &Sampler, nullptr, 0, nullptr);
     if (th) CloseHandle(th);
     g_on = th != nullptr;
-    g_log("LoadStats: mode %d, %d/%d sites hooked, %d differ, %d skipped%s%s", g_mode, ok, (int)(sizeof(kSites) / sizeof(kSites[0])),
-          differ, skipped, bl ? " -" : "", bad);
+    g_log("LoadStats: mode %d, %d/%d sites hooked, %d differ, %d skipped%s%s%s", g_mode, ok, (int)(sizeof(kSites) / sizeof(kSites[0])),
+          differ, skipped, toProbe ? ", 7 ReadFile sites left to ReadProbe" : "", bl ? " -" : "", bad);
     return g_on;
 }
 
 bool Enabled() { return g_on; }
+
+void NoteRead(int cls, uint32_t bytes, bool overlapped, uint64_t qpcTicks) {
+    const int c = cls ? 1 : 0;
+    g_c.readCalls[c].fetch_add(1, std::memory_order_relaxed);
+    g_c.readBytes[c].fetch_add(bytes, std::memory_order_relaxed);
+    g_c.readTicks[c].fetch_add(qpcTicks, std::memory_order_relaxed);
+    if (overlapped) g_c.readAsync.fetch_add(bytes, std::memory_order_relaxed);
+}
+
+uint64_t LastFailEvalQpc() { return g_lg ? g_lastFailEvQ.load(std::memory_order_relaxed) : 0; }
 
 const char* StatusLine(char* buf, unsigned n) {
     if (!buf || !n) return "";

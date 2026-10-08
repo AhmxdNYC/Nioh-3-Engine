@@ -2,7 +2,7 @@
 Read this section only; everything older is under '## History' (unchanged). Latest commit when written: 7b4bd34 (ASI 1.7.21).
 
 ## CURRENT STATE
-- Latest ASI = 1.7.21 (built from mod\Nioh3EngineFix\src; RematchLog Phase 0 + BossLog + LoadGates probe LG; all new flags default off, none run in game yet except LG on the Ally in 1.7.19 form).
+- Latest ASI = 1.7.23 (1.7.23: ReadProbe / LoadOnlyCpuFixes / EP, default off, not run; earlier: 1.7.21 built from mod\Nioh3EngineFix\src; RematchLog Phase 0 + BossLog + LoadGates probe LG; all new flags default off, none run in game yet except LG on the Ally in 1.7.19 form).
 - PC game folder: ASI 1.7.21 + full-mod ini with [GpuOpt] Barriers=0 (Barriers=1 measured -7 % on PC). Last PC round was 1.7.16 (captures\tm\results_pc_1716.md).
 - Ally X: 1.7.21 zip delivered. Last Ally run was the 1.7.19 load probe (digest notes\loading-ally-fixed.md section 7).
 - Game holder: the Ally was the last holder (Steam allows one device). Verify before acting: `py -m uo_bridge.gamelock status nioh3`; never assume the PC may launch.
@@ -15,7 +15,7 @@ Read this section only; everything older is under '## History' (unchanged). Late
 4. User-pending on the Ally: the title-screen tip-page press during load tests; the Phase 0 session; scheduling the final benchmark; Discord posts. Ask via the bridge, do not guess.
 
 ## QUEUE (ranked; model per job; keep 3-4 agents running)
-1. [sonnet] BUILD next (after 1.7.21 lands): RP read probe `[Profiler] ReadProbe=1|2` (new readprobe.cpp; 14 ReadFile/ReadFileEx sites, event churn 311EE1/311F89/3127A1, game cache call 198357C, Wine calibration at the title, trace + re\scripts_loadp_sim.py) + LO loads-only GF/W6/RWb=2 gated on G+58Ah (RWb via a switchable cave) + LoadGates tail fix; spec notes\loading-ally-fixed.md §8.2/§8.5, Ally A/B session R1 §8.4. Then [opus] the RP-chosen fix (RC read cache / AQ async archive reads / EP event pool / TSY TrySync 3->6 / SH, §8.3; harness READFIX HARNESS: ALL OK) = session R2.
+1. [ally] Session R1 on ASI 1.7.23 (BUILT 2026-10-08: ReadProbe=1|2 + LoadOnlyCpuFixes=1 + EP=1, all default off; notes\loading-ally-fixed.md 8.4/8.6). Route: same save, online title -> Load Game -> Level 136, press A at the tip page; each launch = 2 loads (#1 cold, #2 warm), 60 s in game between. Base ini = 1.7.19 L1 (LoadStats=3 LoadGates=1 MemStats=1 SP=1) + ReadProbe=1 in EVERY arm. ABBA x 4 launches: B = base, A = base + LoadOnlyCpuFixes=1; first B launch with ReadProbe=2 (send Nioh3EngineFix_reads_*.bin/.txt). Then EP ABBA: A = base + EP=1. Metric = work end (last failing LoadGates eval / A last busy), keep if both A-B pairs beat the B-B spread; check MB read within 1 %, VRAM +60 s within 2 %, screenshot 5 s after the press. Send back: grep 'LoadStats|LoadGates|ReadProbe|LO:|EP:' of each log. Then [opus] the RP-chosen fix (RC / AQ / TSY / SH, 8.3) = session R2; [sonnet] rp_sim.py for the trace.
 2. (merged into 1: LO loads-only gating ships with RP.)
 3. [opus] PC submit filters: PSO/RT redundancy (SF1 + PM key memo, SF3 OM/RS) per notes\pc-submit-overhead.md; build only if the trace shows >= ~200 redundant calls/frame; run submit_redundancy.py on the one trace run first; B draw-loss check by screenshot pair.
 4. [opus] Rematch build after the Phase 0 logs (notes\boss-rematch-design.md; boss-master.md has the data). Blocked on the user session.

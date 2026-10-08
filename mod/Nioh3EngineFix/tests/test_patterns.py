@@ -154,6 +154,94 @@ def xinput_getstate_slots(img):
     return out
 
 
+def lo_sim(img, by_id, iat, check):
+    """Runs 1A3146A..1A31486 (stock, RWb rewrite, LO cave word 0/1) through a tiny interpreter; compares ebx + calls."""
+    src = (ROOT / "src" / "loadonly.cpp").read_text(encoding="utf-8")
+    m = re.search(r"kRwbCave\[0x4C\] = \{(.*?)\};", src, re.S)
+    if not check(m is not None, "LO: kRwbCave not found in src/loadonly.cpp"):
+        return False
+    body = re.sub(r"/\*.*?\*/|//[^\n]*", "", m.group(1), flags=re.S)
+    cave = bytes(int(t, 0) for t in body.replace(",", " ").split())
+    if not check(len(cave) == 0x4C, "LO: kRwbCave is %d bytes, expected 0x4C" % len(cave)):
+        return False
+    SITE, BACK, SKIP, CAVE = 0x1A3146A, 0x1A31470, 0x1A31486, 0x7000000
+    cave = bytearray(cave)
+    for off, val in ((0x15, BACK), (0x31, BACK), (0x3F, SKIP)):  # what InstallRwb fills in (base 0 here)
+        cave[off:off + 8] = struct.pack("<Q", val)
+    sleep_slot = SITE + 22 + 6 + struct.unpack_from("<i", img, SITE + 22 + 2)[0]
+    ok = check(iat.get(sleep_slot) == "KERNEL32.DLL!Sleep", "LO: 1A31480 does not call Sleep")
+
+    def run(mem_patch, word, ebx):
+        def rd(a, n):
+            if CAVE <= a < CAVE + len(cave):
+                b = bytes(cave[a - CAVE:a - CAVE + n])
+                if a - CAVE == 0x48 and n == 4:
+                    return struct.pack("<I", word)
+                return b
+            out = bytearray(img[a:a + n])
+            for pa, pb in mem_patch.items():
+                for k in range(len(pb)):
+                    if a <= pa + k < a + n:
+                        out[pa + k - a] = pb[k]
+            return bytes(out)
+        pc, zf, edx, rcx, ev = SITE, None, None, "?", []
+        for _ in range(64):
+            if pc == SKIP:
+                return ebx & 0xFFFFFFFF, tuple(ev)
+            b = rd(pc, 8)
+            if b[:2] == b"\x83\x3D":
+                d = struct.unpack_from("<i", b, 2)[0]
+                zf = struct.unpack("<I", rd(pc + 7 + d, 4))[0] == b[6]
+                pc += 7
+            elif b[0] == 0x75:
+                pc += 2 + (0 if zf else struct.unpack_from("<b", b, 1)[0])
+            elif b[:2] == b"\x8B\x95":
+                edx = ("[rbp+%X]" % struct.unpack_from("<i", b, 2)[0]); pc += 6
+            elif b[:3] == b"\x48\x8B\xCD":
+                rcx = "rbp"; pc += 3
+            elif b[0] == 0xE8:
+                t = pc + 5 + struct.unpack_from("<i", b, 1)[0]
+                ev.append(("call %X" % t, rcx, edx)); pc += 5; rcx = edx = "clobbered"
+            elif b[:2] == b"\xFF\xC3":
+                ebx += 1; zf = (ebx & 0xFFFFFFFF) == 0; pc += 2
+            elif b[:2] == b"\xFF\xCB":
+                ebx -= 1; zf = (ebx & 0xFFFFFFFF) == 0; pc += 2
+            elif b[:2] == b"\x84\xDB":
+                zf = (ebx & 0xFF) == 0; pc += 2
+            elif b[:2] == b"\x33\xC9":
+                rcx = 0; pc += 2
+            elif b[:2] == b"\xFF\x15":
+                slot = pc + 6 + struct.unpack_from("<i", b, 2)[0]
+                ev.append(("call [%s]" % iat.get(slot), rcx)); pc += 6
+            elif b[:2] == b"\xFF\x25":
+                pc = struct.unpack("<Q", rd(pc + 6 + struct.unpack_from("<i", b, 2)[0], 8))[0]
+            elif b[0] == 0xE9:
+                pc += 5 + struct.unpack_from("<i", b, 1)[0]
+            elif b[0] == 0x90:
+                pc += 1
+            else:
+                return ("undecoded %X: %s" % (pc, b.hex()), ())
+        return ("no exit", ())
+
+    rwb = by_id["RWb"]
+    rwb_patch = {SITE: bytes(int(x, 16) for x in rwb["new"].split())}
+    rel = CAVE - (SITE + 5)
+    lo_patch = {SITE: b"\xE9" + struct.pack("<i", rel) + b"\x90"}
+    for hi in (0x0, 0x1200):
+        for bl in range(256):
+            e0 = hi + bl
+            st, rb = run({}, 0, e0), run(rwb_patch, 0, e0)
+            c0, c1 = run(lo_patch, 0, e0), run(lo_patch, 1, e0)
+            ok &= check(c0 == st, "LO: cave word 0 differs from stock at ebx %X: %s vs %s" % (e0, c0, st))
+            ok &= check(c1 == rb, "LO: cave word 1 differs from RWb at ebx %X: %s vs %s" % (e0, c1, rb))
+            ok &= check(st[1] and st[1][0][0] == "call 48B9C" and st[1][0][1] == "rbp", "LO: stock path does not wake via 48B9C")
+            if not ok:
+                return False
+    # sanity: RWb skips the wake unless bl wraps, stock always wakes
+    ok &= check(len(run(rwb_patch, 0, 5)[1]) == 0 and len(run(rwb_patch, 0, 0xFF)[1]) == 2, "LO: RWb reference semantics unexpected")
+    return ok
+
+
 def main():
     fails = []
 
@@ -477,6 +565,11 @@ def main():
     check(img[0x1343D00:0x1343D09] == hb("40534883EC20488BD9"),
           "LW: ResourceStepJob_Run prologue (push rbx / sub rsp,20h => rsp 16-aligned at the site) differs")
     print("1.7.14 GL1/LC/LW: %d sites, branch scan, loop exits, cap arithmetic, Sleep ecx = 1, job prologue checked" % len(new_sites))
+
+    # 1.7.23 LO: the RWb switchable cave (src/loadonly.cpp kRwbCave) behaves exactly like the stock order with its word = 0
+    # and exactly like the RWb rewrite with word = 1, for every value of bl (small x86 interpreter over the real bytes)
+    lo_ok = lo_sim(img, by_id, iat, check)
+    print("LO: RWb switchable cave == stock (word 0) and == RWb (word 1) for all 256 bl values: %s" % ("OK" if lo_ok else "FAIL"))
 
     print()
     if fails:
