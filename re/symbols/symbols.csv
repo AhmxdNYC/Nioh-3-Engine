@@ -2538,9 +2538,15 @@ rva,kind,name,signature,description,confidence,source
 0x397d6f0,string_table,ScriptBind_Online_IsOnlinePlay,,Script binding table entry for Online::IsOnlinePlay (native 0xA5E83C),high,notes/frame-timing.md §10.1
 0x399ee90,data,FullscreenQuadVsDxbc,DXBC 948 B,"FXC VS a2bd0e86 (ktglViewport cbuffer, POSITION/COLOR/TEXCOORD): shared VS of the exe post/full-screen passes",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/gpu-profile.md §Exact shader-group names
 0x3a24110,data,GBufferEditCopyPsDxbc,DXBC 1200 B,"FXC PS 7c5acaaf: 4-target copy t0->RGBA16F, t1->RGBA16 UNORM, t2[0..1]->RGBA16F; very likely GBufferEdit copy read by SSR; gpu-profile.md first guessed shadow-map conversion",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/gpu-copies-postres.md §1
+0x3a245c0,data,ExeShader_Copy3RT2DArrayPS_1b4a458b,DXBC ps_5_0,3-target copy incl. a 2D-array slice,high,re/scripts_gpu/exe_passes.tsv
 0x3a25640,data,DepthCopyPsDxbc,DXBC 696 B,FXC PS 5fccb795: oDepth = t0 depth copy (PSO 80896c31),high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/invisible-gpu.md §4a
 0x3a277b0,data,RectCopyPsDxbc,DXBC 676 B,"FXC PS d787dbd0: 1-tap rect copy (PSO 5e9935b5, 169us 3-layer output-res copy); not the HUD-less copy, likely final post-output copy (invisible-gpu.md speculated FG/XeSS prep)",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/gpu-copies-postres.md §1
+0x3a2daa0,data,ExeShader_CopyR1ChannelPS_47f71215,DXBC ps_5_0,single-channel 1-tap copy,high,re/scripts_gpu/exe_passes.tsv
+0x3a2f530,data,ExeShader_Volume3DCopyCS_0a509b81,DXBC cs_5_0 4x4x4,texture3D to UAV3D copy,high,re/scripts_gpu/exe_passes.tsv
 0x3a2f790,data,TexelToBufferCsDxbc,DXBC 688 B,"FXC CS 41393a1d [1,1,1]: reads tTexture, writes typed uBuffer (texel readback/copy); role inferred from bindings only",low,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm
+0x3a340f0,data,ExeShader_TessOuterFactorBufferCS_a816e9f5,DXBC cs_5_0 1x1x1,writes uOuterTextureBuffer UAV (tessellation outer factors),medium,re/scripts_gpu/exe_passes.tsv
+0x3a3c6e0,data,ExeShader_CopyOutputRes1TapPS_d787dbd0,DXBC ps_5_0,1-tap rect copy at output res (10.24 ms slot in r5),high,notes/gpu-copies-postres.md
+0x3a3d140,data,ExeShader_UIAlphaFadePS_9a76cbef,DXBC ps_5_0,sprite PS alpha=1+cb0.x*(a-1),high,re/scripts_gpu/exe_passes.tsv
 0x3a3f1c0,data,RcasDxbc,DXBC 7276 B,"FXC shader fbef920b: engine FidelityFX RCAS (Const0..3/Sample cbuffer), PSO d3fd8774",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/gpu-copies-postres.md §1
 0x3a55c20,data,CustomDepthUpscalePsDxbc,DXBC 2408 B,"FXC PS 0cbad2cb: temporal depth upscale (cur depth + prev upscaled depth reprojected by velocity, 4-neighbour clamp) -> XeSS_OutputDepth",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/gpu-copies-postres.md §1
 0x3a56590,data,ThinSurfaceTemporalFilterPsDxbc,DXBC 5324 B,"FXC PS 449cf0ae: 5-tap variance-clip temporal filter, stencil 0x50 edge mode (PrepareThinSurfaceBSDF); gpu-profile.md first guessed DoF/MB/TAA post",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/gpu-copies-postres.md §1
@@ -2636,6 +2642,7 @@ rva,kind,name,signature,description,confidence,source
 0x3be29d0,data,MapModeTable,,"buffer map-mode table; mode 3 = {read 0, write 1} = write-only upload (write-combined)",high,notes/mainthread-drawprep.md §2 E
 0x3be2a20,data,DynFpsTierThresholds,f32[5][2],"Dynamic-fps tier thresholds (CPU load fraction) {0.9,0.5},{1.0,0.8},{1.1,0.8},{1.1,0.8},{1.2,0.8}",high,notes/frame-timing.md §2
 0x3be3780,data,CollisionShapePosFnTable,fnptr[],per-shape-type position function table indexed by byte +0x62 in CollisionShapeGetWorldPos,low,re/scripts_workers/g_coll.txt
+0x3be7a70,data,ExeShader_UITintedQuadPS_030dc802,DXBC ps_5_0,"out=(tex.rgb*COLOR.rgb,COLOR.a) sprite quad PS, paired with shared VS a2bd0e86 @0x399ee90",high,re/scripts_gpu/exe_passes.tsv
 0x3be7d60,data,VertexColorPsDxbc,DXBC 552 B,FXC PS d8498a20: o0 = vertex color (primitive/UI shader),medium,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm
 0x3be7f90,data,TexturedVertexColorPsDxbc,DXBC 724 B,"FXC PS 29ecb6e4: tex(t0,s0) * vertex color (primitive/UI shader)",medium,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm
 0x3be8ec0,data,BuiltinPrimShaderTable,struct { void* dxbc; u64 size; }[],"Table of (DXBC ptr, size) for small built-in shaders: 0x3be7d60/0x228, 0x3be7a70/0x2e8, 0x3be8270/0x304, 0x3be7f90/0x2d4",medium,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm
@@ -2649,6 +2656,7 @@ rva,kind,name,signature,description,confidence,source
 0x3c39000,string_table,FileNameTable,const void* [],"Pointer table of file/format names indexed by 0xfb989c (+0xa8 ""utf-8"", +0xb0 L""config.xml"", +0xb8 ""settings"")",low,re/out/strings.tsv (via column)
 0x3c390c0,data,RenderRatioValueTable,int[],Per-REN_RAT value (likely percent) copied to g_RenderRatioValue,medium,re/out/anchors.md §site 0x1fde43e
 0x3f1aa50,data,GpuParticleUpdateCsDxbc,DXBC 113708 B,"FXC CS 5e771e53: GPU particle update (nMaxParticleNum, dt, ParticleBuffer UAV); runs as 75 1x1x1 dispatches each + UAV barrier (~100us)",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/invisible-gpu.md §4b
+0x3ff2680,data,ExeShader_UISmoothMaskDiscardPS_5747cd78,DXBC ps_5_0,"discard on tex.x + smoothstep mask + colour lerp, 18 ALU",high,re/scripts_gpu/exe_passes.tsv
 0x40358e8,vtable,FrameTask_vftable,,Frame task class vtable (verified live); vf[1]=0x5ACEE8; owner of the QPC limiter in 0x5ACF80,high,"notes/frame-timing.md §1, §4b; patcher/ft_findtask.fsx"
 0x4050898,vtable,FrameProfile_vftable,,"Frame profile object (r13+8) vtable: vf+0x08 SetProfile 0x5AF324, vf+0x10 -> profile, vf+0x20 SetLimiterFps 0x5AF400, vf+0x28 -> &fps",high,"notes/frame-timing.md §1, §4b"
 0x408f940,data,HeapVtable,,vtable of the 0xB0-byte arena sub-heap (variant 408FB78),high,notes/load-memory.md §1
