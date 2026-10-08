@@ -34,3 +34,13 @@ Editing flow: decrypt, patch bytes, recompute checksum (`savecrypt.checksum`) an
 - Mission flag block (6 slots x 0x400 B): NOT located. Checked: the two 6148-B records `bf0a03c7`/`cf552cec` are count=256 x 24-byte entries, not flag
   bytes; no record is exactly 0x400/0x1800 B apart from `8590a652`. The flags may be stored as the per-hash 1-2 byte records instead of one array.
   Next: take two saves of the same timeline before/after one boss kill (copy only), run `savecrypt.py scan` on both and diff records by hash.
+
+## Diffing a boss kill (`re\scripts_re\savediff.py`, stdlib, read-only)
+Work on COPIES under `D:\nioh3-re\save-work\` only. Accepts `SAVEDATA.BIN` or an already-decrypted `.dec` (detected by magic; skips ~15-27 s decrypt;
+make one with `savecrypt.py decrypt`). Records are keyed `(hash, occurrence#)`; header (time/saveCount/random keys) is never diffed.
+1. Copy the save right BEFORE the boss -> `pre.BIN`; kill the boss; copy the save right AFTER -> `post.BIN`.
+2. (Optional, best) copy two saves seconds apart on the same timeline, no gameplay between: `py savediff.py noise s1.BIN s2.BIN -o noise.txt` (play time, RNG, timestamps).
+3. `py re\scripts_re\savediff.py diff pre.BIN post.BIN --noise noise.txt` prints `ADD`/`DEL`/`CHG` lines: records <=32 B (`--max-bytes`) show old->new hex;
+   larger ones show changed byte ranges (`--max-ranges`). Without a noise file, records whose 4/8-byte LE value looks like a unix time are hidden (`--all` shows them). `--hash H` restricts to one record.
+4. `py savediff.py values HASH s1 s2 s3 ...` shows one record's bytes across N saves (track a flag over several kills).
+Caveat: scan tiling only holds while both saves share a timeline; A-vs-B (different timelines, B desyncs after ~0x11249d) runs but its output is meaningless.
