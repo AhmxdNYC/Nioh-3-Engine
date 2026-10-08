@@ -40,3 +40,6 @@ Ally 1.7.5 GP2: all replacements ON = 0.4-0.6 fps SLOWER than all off. Pairs: sy
 
 ## 23:00
 Done: vkd3d audit (barrier COMMON->full waits est. 0.2-2 ms Ally; needs a trace: ASI 1.7.9 per-caller trace in progress), perf decompile coverage 56.5->96.6 % of game CPU, materials trim (nothing safe; trvs/pbvs ~0), GP2 sampling (ASI 1.7.8, held). Ally: post-reboot session C0..C5 running; then the barrier trace. 'apply all' banned (contains dropped items). Pending for the RADV pre-screen: VCLOUD hoist, SFB dedupe.
+
+## STANDING GOAL (user, 2026-10-07): everything performance-related decompiled
+Done = (1) >= 99 % of profiled game CPU self time in functions with REAL names (Unknown_* doesn't count; now 82.0 % real + 14.5 % Unknown_), measured by `py -I re\scripts_re\perf_coverage.py --self`; (2) every engine code path behind each GPU pass in the GP2/RGP tables named (now 55/63); (3) every D3D12 call site (barriers, binds, submits, copies, PSO/heap creation) named; (4) each subsystem that costs >= 0.3 % has a short notes entry (role, data structures, hot loops). Keep 1 RE agent on this until done; new profiles (Ally SP/GP2 logs) re-open it.
