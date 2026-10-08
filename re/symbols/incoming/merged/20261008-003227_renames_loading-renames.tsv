@@ -1,0 +1,7 @@
+# loading-renames: RENAMES of existing symbols.tsv rows (apply in place with apply_renames.py). Evidence: notes/loading.md.
+rva	kind	name	signature	description	confidence	source
+0x1fee28	function	ResourceLoadIdlePoll	void ResourceLoadIdlePoll(Mgr* m, Ctx* c)	manager A poll (job 1343720): pending [m+200h]+[m+210h], active vector [m+230h..+238h) 16-B entries; takes min(pending, cap - active), cap = GameMain+4Dh ? 1 : 10 (1FEE80); steps active requests (vfunc +30h done, 1FF1E4 ready, vfunc +10h step); Sleep(1) when idle (1FEE68), wake pool 1 + Sleep(1) after a pass without progress (1FF18C)	high	notes/loading.md
+0x1fee68	label	ResLoadA_IdleSleep1	call [Sleep]	manager A: Sleep(1) when nothing is pending (FF 15; LoadStats hook site, r14 = manager)	high	notes/loading.md
+0x1ff18c	label	ResLoadA_NoProgressSleep1	call [Sleep]	manager A: Sleep(1) after JobWakeOneInPool(pool 1) when a pass over the active requests made no progress (FF 15 straddles 16 B; LoadStats EB FE path)	high	notes/loading.md
+0x1ff371	label	ResLoadB_IdleSleep1	call [Sleep]	manager B 1FF320: Sleep(1) when nothing is pending (FF 15; LoadStats hook site, r14 = manager)	high	notes/loading.md
+0x45ce800	global	g_pEventCameraState	EventState*	IsEventScene DA7C0: event scene = obj && ([obj] == 8 or [obj] in 11..16) && [obj+1Ch] != 0; polled by LoadStats	high	notes/loading.md
