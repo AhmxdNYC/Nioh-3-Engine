@@ -2678,7 +2678,7 @@ rva	kind	name	signature	description	confidence	source
 0x105ec60	function	SaveUserWriteEquipSection		user-save write path for equipped gear / soul cores / shortcuts (calls SaveWriteEquippedGearBlock-style helpers)	low	notes/amrita-tools.md §3 Save format in the exe
 0x1064eb0	function	SaveUserWriteScrollSection		user-save write path for the Picture Scroll array (field hash 0xD73A7C7F)	low	notes/amrita-tools.md §3 Save format in the exe
 0x10651a0	function	SaveUserWritePresetSection		user-save write path for equipment presets (field hash 0x7D6AB068)	low	notes/amrita-tools.md §3 Save format in the exe
-0x10c6e70	function	Str_emaki_unique_enemy_defeat_flag		str: distinctive string; refs "emaki_unique_enemy_defeat_flag_" (1 string refs, 61 bytes)	medium	re/scripts_re/autoname.py
+0x10c6e70	function	SaveField_EmakiUniqueEnemyDefeatFlag		reflection writer for emaki_unique_enemy_defeat_flag_ (was Str_emaki_unique_enemy_defeat_flag)	medium	notes/boss-rematch-paths.md
 0x10e0537	label	InlinedGetFps_10E0537		Inlined reader of G[614], float x/fps	high	notes/frame-timing.md §3
 0x10e07c0	function	PauseSpin_10E07C0		code with 8 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 10E1AC4..10E1ACE 10E1AE0..10E1AEA 10E1B20..10E1B2A 10E1B40..10E1B4A 10E1B60..10E1B6A 10E1B80..10E1B8A 10E1C20..10E1C2A 10E1C40..10E1C4A 10E0D40..10E1D4A 10E13D8..10E1D86 10E13D8..10E1DA6 10E120F..10E1DBE 10E120F..10E1DDE 10E1229..10E1DF6 10E1229..10E1E51 10E1243..10E1E69 10E1243..10E1E89 10E125D..10E1EA1 10E125D..10E1EC1 10E1277..10E1ED9 10E1277..10E1F34 10E12B9..10E1F4C 10E12B9..10E1F6C 10E1348..10E1F84 10E1348..10E1FA4 10E1362..10E1FBC 10E1362..10E2017 10E137C..10E202F 10E137C..10E204F 10E1396..10E2067 10E1396..10E2087 10E13B0..10E209F 10E13B0..10E20FA	medium	re/out/spinscan.txt §fragments containing PAUSE
 0x10e2200	function	PlaceableVisibilityJob		46-byte caller of PlaceableVisibilityUpdateRange with 0 direct callers (job/callback wrapper)	low	re/out/anchors.md §site 0xde8d0
@@ -7907,7 +7907,7 @@ rva	kind	name	signature	description	confidence	source
 0x23b8678	function	ScriptBind_UI_ShowBossGauge		script binding UI::ShowBossGauge(actorId): if actor exists -> BossGaugeShow 1D115D4	medium	notes/boss-fights.md
 0x23b36a8	function	ScriptBind_UI_HideBossGauge		script binding UI::HideBossGauge	medium	notes/boss-fights.md
 0x1d115d4	function	BossGaugeShow	void(u32 actorId,u32,u32)	forwards to HUD object [0x45C84A8+0xA8] -> BossGaugeSetup 1D05824	medium	notes/boss-fights.md
-0x1d05824	function	BossGaugeSetup	void(HudBossGauge*,u32 actorId,u32,u32)	fills up to 3 boss gauge rows (0x60 B each; screen layout 00_boss_gauge_hud / MENU_ID_BOSS_GAUGE_HUD)	medium	notes/boss-fights.md
+0x1d05824	function	BossGaugeSetup	void(HudBossGauge*,u32 actorId,u32,u32)	fills up to 3 boss gauge rows; row name = TextGetById(row+8) shown in gauge text 0xF5[i]	high	notes/boss-names.md
 0x23e0398	function	ScriptBind_Mission_SetMissionFlag	void(flagId,bool)	-> MissionFlagSet 70275C(g 0x47514D0, id, val)	medium	notes/boss-fights.md
 0x70275c	function	MissionFlagSet	void(MissionMgr*,u32 flagId,u8 val,u8)	writes byte at [[mgr+8]+0x130+slot*0x400+flagIdx]; skips if def locked; calls change notify 702BBC/702974	medium	notes/boss-fights.md
 0x284944	function	MissionFlagGet	bool(MissionMgr*,u32 flagId,int)	reads same byte array; 0xFF -> flag def default (def+0xC); slot from NG-level/difficulty (mgr+8 +0x10/+0x24)	medium	notes/boss-fights.md
@@ -8881,3 +8881,30 @@ rva	kind	name	signature	description	confidence	source
 0x23b8b58	function	ScriptBind_Value_GetBoolean		script VM native binding Value::GetBoolean (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a2278	function	ScriptBind_LeadModeMV_SetLeadModeGeneralVoiceFlag		script VM native binding LeadModeMV::SetLeadModeGeneralVoiceFlag (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a21c0	function	ScriptBind_LeadModeMV_RequestIngameVoice		script VM native binding LeadModeMV::RequestIngameVoice (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x1ce7c6c	function	AddBossGaugeRow	bool AddBossGaugeRow(HudBossGauge* hud, u32 actorId)	adds a 0x60 B boss-gauge row: +4 actor id, +8 name text id (= [charMgr+0xD4] or actor->charParam+0xA0, default 0x3E994F1); skips id 0/dupes/dead	medium	notes/boss-names.md
+0x5a4b04	function	TextGetById	const wchar_t* TextGetById(u32 textId)	looks up text id in current language via g_TextMgr (1309 callers)	high	notes/boss-names.md
+0x63d9c4	function	TextMgrLookup	const wchar_t* TextMgrLookup(TextMgr* m, int lang, u32 id)	lang < 23, map at m+0x1CD0 (id -> wchar_t* at node+0x28), skips "^13~UNUSED~", fallback string 0x52cfe5c4	high	notes/boss-names.md
+0x45c8450	global	g_TextMgr	TextMgr*	text manager: +0x1CD0 id map, +0x1CE4 language index, +0x1CE8 loaded count	high	notes/boss-names.md
+0x10dbed0	function	EmakiMissionRequest	void(u64 ref, EmakiKey* key, int missionId, StartParams* p)	Battle Scroll start: resolves Emaki record ([0x45B9E30]+0xA88), enqueues mission 0xCC96 into g_MissionRequestQueue	medium	notes/boss-rematch-paths.md
+0xf1f060	function	EmakiItemUse_MenuHandler		scroll item use: reads inventory item (+0x20 key,+0x12,+0xF,+0x28) and calls EmakiMissionRequest	medium	notes/boss-rematch-paths.md
+0x1c1425c	function	EmakiRecordGet		Emaki table lookup by 1-byte emaki id, record 0x34 B	medium	notes/boss-rematch-paths.md
+0x1c2794c	function	MissionSetupEmaki		mission load: init charMgr+0x2BD0 emaki state, +0x2C18 from mission rec +0x43 bit0	medium	notes/boss-rematch-paths.md
+0x1c1e470	function	PlacementBuild_EmakiFilter		placement spawn; for mission 0xCC96 skips placements != emakiRecord+0x10	low	notes/boss-rematch-paths.md
+0x223953c	function	MissionRequestEnqueue		push request into 3-slot queue at 0x45BC420 (0x58 B each)	medium	notes/boss-rematch-paths.md
+0x2239600	function	MissionRequestById	void(int missionId, u8 slot, int sub, StartParams* p)	mission start request by id (Mission::ChangeMission path)	medium	notes/boss-rematch-paths.md
+0x22396d8	function	MissionRequestReturn		re-request mission from MissionMgr+8 saved fields +0x18/+0x19/+0x1C	medium	notes/boss-rematch-paths.md
+0x22397ec	function	MissionRequestCore		builds request struct then MissionRequestEnqueue	medium	notes/boss-rematch-paths.md
+0x22398d4	function	MissionRequestFromQuest		quest-based mission 0x86EC request	low	notes/boss-rematch-paths.md
+0x22399b8	function	MissionRequestRegion		region/mission request used by World::WarpOtherWorld* bindings	medium	notes/boss-rematch-paths.md
+0x1c17be4	function	MissionIdRemapForRegion		hard-coded region->mission fallback ids	medium	notes/boss-rematch-paths.md
+0x223af50	function	MissionLoadStep		consumes g_MissionRequestQueue, sets load mode 6	medium	notes/boss-rematch-paths.md
+0x2237244	function	MissionStartFromSave		resume/start mission from MissionMgr fields (+0x24 mode, +0x21848/+0x21850)	low	notes/boss-rematch-paths.md
+0x45bc420	data	g_MissionRequestQueue		3 x 0x58 B pending mission requests (+4 mission id)	medium	notes/boss-rematch-paths.md
+0x1de28e8	function	MenuOpenMissionReplay	void(owner,int,u8 mode)	opens [0x45C84A8]+0x4E0 menu (mission replay), mode 6 from UI::OpenMissionReplayMenu	medium	notes/boss-rematch-paths.md
+0x1dafe64	function	ShrineTopMenu_Select		option 0 opens mission replay, option 1 opens [0x45C84A8]+0x4E8 menu	low	notes/boss-rematch-paths.md
+0x1db6f4c	function	MissionMenu_OnClose		mode 1 -> MissionRequestReturn	low	notes/boss-rematch-paths.md
+0x219feb4	function	ClearMapSet	void(u16 areaId, bool v)	clear-map setter on g_ClearDb [0x4751848]	medium	notes/boss-rematch-paths.md
+0x217e884	function	ClearMapSetEntry	void(db, u16 id, bool v, bool notify)	writes clear-map entry bytes (+0x23/+0x2B slot), trophies for type 1	medium	notes/boss-rematch-paths.md
+0x2845c8	function	ClearMapGet	bool(db, u16 id)	FNV-1a 2-byte id, table [db+8]+0x428, byte +0x23+slot	medium	notes/boss-rematch-paths.md
+0x285808	function	AreaRecordGet		area record lookup in [0x45B9E30]+0x630 (0xC4 B, +0xC0 type)	medium	notes/boss-rematch-paths.md
+0x1ca7468	function	RetryGadget_ResurrectPlayers		revive loop over players (Gadget::Retry::Resurrect)	low	notes/boss-rematch-paths.md
