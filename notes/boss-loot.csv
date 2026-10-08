@@ -1,0 +1,359 @@
+row,char_id,char_id_hex,name_key,enemy_name,seq_col2,flags_col4,soul_core_item_inferred,drop_items_by_name_match_inferred
+0,100,0x64,0x7cfa70,Tokugawa Takechiyo,1,0,,
+1,59966,0xea3e,0x5c291c,Honda Tadakatsu,3,256,Mortal Soul Core,
+2,25843,0x64f3,0x6a57e6,Saika Magoichi,4,256,Mortal Soul Core,"Saika Clan Armour
+"
+3,18541,0x486d,0x4a91e0,Obsidian Samurai,6,256,Mortal Soul Core,"Obsidian Armour
+"
+4,52284,0xcc3c,0x5135f9,Oda Nobunaga,7,256,Mortal Soul Core,
+5,51932,0xcadc,0x76e895,Revenant,11,256,Mortal Soul Core,
+6,45626,0xb23a,0x49de3e,Mujina,12,257,Mujina Soul Core,"Mujina's Scarf
+"
+7,25131,0x622b,0x4d82ed,Onryoki,13,257,Onryoki Soul Core,
+8,64640,0xfc80,0x4852ea,Lesser Umi-bozu,15,257,Lesser Umi-bozu Soul Core,"Lesser Umi-Bozu's Eyestone
+"
+9,17501,0x445d,0x48c3d7,Nurikabe,16,257,Nurikabe Soul Core,"Nurikabe Fragment
+"
+10,30356,0x7694,0x6ddf7a,Outlaw,17,256,Mortal Soul Core,
+11,62092,0xf28c,0x545341,Yoki,18,257,Yoki Soul Core,
+12,29060,0x7184,0x50823d,Rogue,20,256,Mortal Soul Core,
+13,21162,0x52aa,0x6273f7,Onyudo,23,257,Onyudo Soul Core,
+14,3907,0xf43,0x58c52e,Dweller,25,257,Dweller Soul Core,
+15,36511,0x8e9f,0x4a58d1,Oni-bi,26,257,Oni-bi Soul Core,"Oni-bi Core
+"
+16,12342,0x3036,0x586db0,Skeleton Warrior,27,257,Skeleton Warrior Soul Core,
+17,40046,0x9c6e,0x5e65b5,Spider,28,257,Spider Soul Core,"Spider's Leg Husk
+; Spider Silk Ball
+; Red Spider Lily
+"
+18,21713,0x54d1,0x7cd026,Ninja,29,256,Mortal Soul Core,"Ninja's Locks
+"
+19,25732,0x6484,0x5039da,Wheelmonk,30,257,Wheelmonk Soul Core,
+20,64215,0xfad7,0x594844,Karasu Tengu,31,257,Karasu Tengu Soul Core,"Karasu Tengu Feather
+"
+21,38809,0x9799,0x4b1ee5,Onmyo Mage,32,256,Mortal Soul Core,"Onmyo Mage's Locks
+; Onmyo Grotto Key
+"
+22,37407,0x921f,0x668074,One-eyed Imp,33,257,One-eyed Imp Soul Core,"One-Eyed Dragon's Armour
+; One-eyed Imp's Clogs
+; One-eyed Oni Loincloth
+"
+23,11570,0x2d32,0x79afa0,Kappa,35,257,Kappa Soul Core,"Kappa Shell
+; Red Kappa Shell
+"
+24,53401,0xd099,0x640bbf,Nue,36,1,Nue Soul Core,
+25,49736,0xc248,0x712c4e,Giant Toad,38,1,Giant Toad Soul Core,"Giant Toad Spear
+; Giant Toad Oil
+"
+26,54570,0xd52a,0x477523,Flying Bolt,39,257,Flying Bolt Soul Core,"Flying Sword Talisman
+"
+27,17360,0x43d0,0x40e556,One-eyed Oni,42,257,One-eyed Oni Soul Core,"One-Eyed Dragon's Armour
+; One-eyed Imp's Clogs
+; One-eyed Oni Loincloth
+"
+28,38883,0x97e3,0x696699,Saika Clan,43,256,Mortal Soul Core,"Saika Clan Armour
+"
+29,53157,0xcfa5,0x4ed448,Biwa Boku-boku,44,257,Biwa Boku-boku Soul Core,
+30,1744,0x6d0,0x5b916a,Yagyo Soldier,44,257,Yagyo Soldier Soul Core,
+31,31851,0x7c6b,0x560e03,Karakasa Umbrella,45,257,Karakasa Umbrella Soul Core,
+32,26346,0x66ea,0x697063,Warrior,53,256,Mortal Soul Core,"Warrior of the West's Armour
+; Warrior of the East's Armour
+; Unrivalled Warrior's Armour
+; Skeletal Warrior's Sacrum
+"
+33,37970,0x9452,0x42f61f,Hattori Hanzo,55,256,Mortal Soul Core,
+34,30272,0x7640,0x6c03f2,Shisenin Kosen,58,256,Mortal Soul Core,
+35,60268,0xeb6c,0x48ca45,Sakata Kintoki,60,256,Mortal Soul Core,
+36,45137,0xb051,0x428be3,Ashikaga Yoshiteru,61,256,Mortal Soul Core,
+37,20105,0x4e89,0x52adc1,Namahage,63,257,Namahage Soul Core,"Namahage Horn
+"
+38,58064,0xe2d0,0x5e806f,Rokurokubi,64,257,Rokurokubi Soul Core,
+39,3478,0xd96,0x7e9987,Red Kappa,65,257,Red Kappa Soul Core,
+40,18035,0x4673,0x653363,Snowclops,66,257,Snowclops Soul Core,"Snowclops Loincloth
+"
+41,17764,0x4564,0x5aeaf4,Harinobo,71,1,Harinobo Soul Core,
+42,10816,0x2a40,0x4639ae,Fox Spirit,72,1,Fox Spirit Soul Core,
+43,45896,0xb348,0x6de83f,Ninken,73,259,Ninken Soul Core,
+44,57689,0xe159,0x4af10b,Sarutobi Sasuke,74,256,Mortal Soul Core,"Sarutobi's Apparel
+"
+45,43937,0xaba1,0x501b7e,Sanada Yukimura,75,0,,"Sanada's Crimson Armour
+"
+46,27473,0x6b51,0x680b51,Magatsu Warrior,76,257,Magatsu Warrior Soul Core,
+47,15118,0x3b0e,0x47f8bf,Jin Hayabusa,81,0,,
+48,45723,0xb29b,0x6f5ec8,Enenra,82,257,Enenra Soul Core,
+49,32410,0x7e9a,0x789a59,Ippon-Datara,83,257,Ippon-Datara Soul Core,"Ippon-Datara Fang
+"
+50,57911,0xe237,0x7a5ea4,Nure-onna,84,257,Nure-onna Soul Core,
+51,53388,0xd08c,0x78acc4,Yatsu-no-Kami,85,257,Yatsu-no-Kami Soul Core,
+52,27145,0x6a09,0x5ef165,Toxic Slime,86,257,Toxic Slime Soul Core,"Toxic Groundfire
+"
+53,6953,0x1b29,0x449683,Gaki,87,257,Gaki Soul Core,
+54,64752,0xfcf0,0x753235,Waira,88,257,Waira Soul Core,"Waira Claw
+"
+55,16182,0x3f36,0x7b2f7b,Kamaitachi,89,257,Kamaitachi Soul Core,"Kamaitachi's Front Teeth
+"
+56,53361,0xd071,0x65baf6,Sudama,90,1,Sudama Soul Core,
+57,245,0xf5,0x608bdd,Enki,91,257,Enki Soul Core,
+58,31628,0x7b8c,0x564e29,Yamanba,92,257,Yamanba Soul Core,
+59,13154,0x3362,0x486512,Koroka,93,257,Koroka Soul Core,
+60,1295,0x50f,0x5b2663,Ubume,94,257,Ubume Soul Core,
+61,21635,0x5483,0x48e31a,Tesso,95,257,Tesso Soul Core,
+62,2228,0x8b4,0x48df33,Mitsume Yazura,96,257,Mitsume Yazura Soul Core,
+63,13437,0x347d,0x7266e3,Mezuki,97,257,Mezuki Soul Core,
+64,18445,0x480d,0x445007,Gozuki,98,257,Gozuki Soul Core,
+65,63640,0xf898,0x432879,Kasha,99,257,Kasha Soul Core,
+66,32965,0x80c5,0x696f88,Aberrant Soldier,100,257,Aberrant Soldier Soul Core,"Aberrant Spirit Stone
+"
+67,43742,0xaade,0x5f5959,Maeda Toshiie,101,256,Mortal Soul Core,
+68,52371,0xcc93,0x5e6645,The Sohaya,102,256,Mortal Soul Core,
+69,21680,0x54b0,0x4c73e1,Kiryoki,103,1,Kiryoki Soul Core,"Kiryoki Mane
+"
+70,62456,0xf3f8,0x68a308,Imagawa Yoshimoto,104,256,Mortal Soul Core,
+71,57161,0xdf49,0x52d2c3,Saito Yoshitatsu,105,256,Mortal Soul Core,
+72,29138,0x71d2,0x50d39c,Tatarimokke,106,257,Tatarimokke Soul Core,
+73,44230,0xacc6,0x7fab3d,Magara Naotaka,107,256,Mortal Soul Core,
+74,21572,0x5444,0x479e7c,Azai Nagamasa,108,256,Mortal Soul Core,
+75,50360,0xc4b8,0x5d9a18,Gyuki,109,257,Gyuki Soul Core,"Gyuki Wing Membrane
+"
+76,61079,0xee97,0x7d4146,Ryomen Sukuna,110,257,Ryomen Sukuna Soul Core,
+77,61252,0xef44,0x5851c2,Shibata Katsuie,111,256,Mortal Soul Core,
+78,41561,0xa259,0x57f1a3,Tokichiro,112,256,Mortal Soul Core,
+79,55751,0xd9c7,0x54e4c8,Hachisuka Koroku,113,256,Mortal Soul Core,
+80,61817,0xf179,0x7dca68,Daidara Bocchi,114,257,Daidara Bocchi Soul Core,
+81,24686,0x606e,0x7c5ddd,Shuten Doji,115,257,Shuten Doji Soul Core,"Shuten Doji's Red Hair
+"
+82,8557,0x216d,0x62777f,Lady Osakabe,116,257,Lady Osakabe Soul Core,
+83,9436,0x24dc,0x4f18e9,Kashin Koji,117,257,Kashin Koji Soul Core,
+84,63308,0xf74c,0x6819e1,William,118,256,Mortal Soul Core,
+85,55750,0xd9c6,0x401266,Otakemaru,119,257,Otakemaru Soul Core,
+86,21747,0x54f3,0x518946,Tsukahara Bokuden,120,256,Mortal Soul Core,
+87,60313,0xeb99,0x5515bd,Kato Danzo,121,256,Mortal Soul Core,
+88,48931,0xbf23,0x6a8c67,Mumyo,122,256,Mortal Soul Core,
+89,28178,0x6e12,0x73688c,Okabe Motonobu,123,256,Mortal Soul Core,
+90,5280,0x14a0,0x77de0c,Okabe Masatsuna,124,256,Mortal Soul Core,
+91,30436,0x76e4,0x7a5e87,Magara Naotaka,125,256,Mortal Soul Core,
+92,65105,0xfe51,0x65c761,Magara Takamoto,126,256,Mortal Soul Core,
+93,19798,0x4d56,0x74000c,Shimotsuma Rairen,127,256,Mortal Soul Core,
+94,57446,0xe066,0x711c7d,Muni,128,256,Mortal Soul Core,
+95,5857,0x16e1,0x77c639,Kosuzume,129,256,Mortal Soul Core,
+96,21613,0x546d,0x43ac04,Hotaru,130,256,Mortal Soul Core,
+97,59604,0xe8d4,0x794c76,Ikeda Motosuke,131,256,Mortal Soul Core,
+98,29819,0x747b,0x4c51a7,Ikeda Tsuneoki,132,256,Mortal Soul Core,
+99,26354,0x66f2,0x495bbe,Mori Nagayoshi,133,256,Mortal Soul Core,
+100,32584,0x7f48,0x708e7c,Sengoku Hidehisa,134,256,Mortal Soul Core,
+101,22290,0x5712,0x752565,Fukushima Masanori,135,256,Mortal Soul Core,
+102,40274,0x9d52,0x74554e,Katagiri Katsumoto,136,256,Mortal Soul Core,
+103,53693,0xd1bd,0x567030,Hirano Nagayasu,137,256,Mortal Soul Core,
+104,52984,0xcef8,0x6a5721,Wakisaka Yasuharu,138,256,Mortal Soul Core,
+105,63442,0xf7d2,0x4fed81,Kato Yoshiaki,139,256,Mortal Soul Core,
+106,19359,0x4b9f,0x5141c5,Kasuya Takenori,140,256,Mortal Soul Core,
+107,21797,0x5525,0x52d5c4,Kato Kiyomasa,141,256,Mortal Soul Core,
+108,55760,0xd9d0,0x69f6d0,Adachi the Beheader,142,256,Mortal Soul Core,
+109,22555,0x581b,0x5ae011,Momochi Sandayu,143,0,,
+110,59478,0xe856,0x40af4f,Gamo Ujisato,144,0,,
+111,34382,0x864e,0x42d1cc,Maeda Keiji,145,256,Mortal Soul Core,
+112,28772,0x7064,0x7deeb1,Matsunaga Hisahide,146,256,Mortal Soul Core,
+113,22062,0x562e,0x5fd97a,Saito Toshimitsu,147,256,Mortal Soul Core,
+114,581,0x245,0x576062,Uminyudo,119,1,Uminyudo Soul Core,
+115,47004,0xb79c,0x7c52de,Nuppeppo,119,1,Nuppeppo Soul Core,"Nuppeppo Liver
+; Dried Nuppeppo Meat
+"
+116,48945,0xbf31,0x638915,Bakegani,119,1,Bakegani Soul Core,"Bakegani Pincers
+"
+117,38642,0x96f2,0x5f7d8c,Minamoto no Yoshitsune,147,0,,
+118,3928,0xf58,0x58f3c5,Benkei,147,0,,
+119,33956,0x84a4,0x48fd0f,Taira no Kagekiyo,147,0,,
+120,60243,0xeb53,0x59014f,Minamoto no Yorimitsu,146,0,,
+121,63599,0xf86f,0x6f575e,Oboroguruma,147,1,Oboroguruma Soul Core,
+122,2233,0x8b9,0x7e8897,Yasha,119,1,Yasha Soul Core,
+123,41226,0xa10a,0x770bea,Hellish Hag,119,1,Hellish Hag Soul Core,
+124,11410,0x2c92,0x773cf2,Underworld Soldier,119,1,Underworld Soldier Soul Core,"Underworld Veil
+; Underworld Lapis Lazuli
+"
+125,31878,0x7c86,0x6578db,Tsuchigumo,119,1,Tsuchigumo Soul Core,"Large Tsuchigumo Claw
+"
+126,58627,0xe503,0x4a5821,Lightning Gods of Yomi,147,1,Lightning Gods of Yomi Soul Core,"Lightning Amulet
+; Lightning Talisman
+; Lightningstop Talisman
+; Lightning Shot
+; Seimei Lightning Talisman
+; Lightning Shikigami
+; Lightning Familiar Talisman
+"
+127,4728,0x1278,0x6b38be,White Tiger,147,1,White Tiger Soul Core,"White Tiger Fur
+; White Ochoko Cup
+; White Cloth
+"
+128,49958,0xc326,0x5b87c9,Tsuchigumo Clan Member,147,0,,"Large Tsuchigumo Claw
+"
+129,33239,0x81d7,0x5375eb,Tate Eboshi,146,1,Tate Eboshi Soul Core,
+130,231,0xe7,0x4742ef,Nightmare Bringer,147,1,Nightmare Bringer Soul Core,"Nightmare Tusk
+"
+131,35667,0x8b53,0x559ae4,Ancient Nyotengu,119,1,Ancient Nyotengu Soul Core,
+132,17721,0x4539,0x695605,Itsumade,119,1,Itsumade Soul Core,
+133,48132,0xbc04,0x7ddba0,Konaki-Jiji,119,1,Konaki-Jiji Soul Core,"Konaki-Jiji Hair
+"
+134,23086,0x5a2e,0x6d25d0,Kinki,119,1,Kinki Soul Core,
+135,43023,0xa80f,0x44b641,Fuki,147,1,Fuki Soul Core,
+136,46423,0xb557,0x49b7ef,Suiki,147,1,Suiki Soul Core,
+137,22715,0x58bb,0x6399e5,Ongyoki,147,1,Ongyoki Soul Core,
+138,19376,0x4bb0,0x443877,Otakemaru (The First Samurai),147,1,Otakemaru Soul Core,
+139,18268,0x475c,0x40384e,Tokichiro (Twilight),147,0,,
+140,52212,0xcbf4,0x7d03c9,Tokichiro (Dream),147,0,,
+141,56073,0xdb09,0x701775,Ren Hayabusa,148,0,,
+142,41334,0xa176,0x5130c3,Ashiya Doman,149,0,,
+143,46513,0xb5b1,0x773f01,Kukai,150,0,,
+144,22770,0x58f2,0x6192df,Akechi Mitsuhide,151,0,,
+145,6236,0x185c,0x53fca2,Ii Naotora,152,0,,
+146,65434,0xff9a,0x460631,Gaki Chief,153,1,Gaki Chief Soul Core,
+147,10889,0x2a89,0x630671,Baba Nobuharu,154,0,,
+148,48453,0xbd45,0x7f8db0,Nozuchi,155,1,Nozuchi Soul Core,
+149,62399,0xf3bf,0x42f19f,Thorned Gaki,156,1,Thorned Gaki Soul Core,
+150,47772,0xba9c,0x7aacd5,Yamainu,157,1,Yamainu Soul Core,
+151,6599,0x19c7,0x69c631,Sunakake-baba,158,1,Sunakake-baba Soul Core,
+152,2803,0xaf3,0x5890b1,Yamabiko,159,1,Yamabiko Soul Core,
+153,32150,0x7d96,0x43e89f,Takeda Shingen,160,1,Takeda Shingen Soul Core,
+154,51399,0xc8c7,0x43e89f,Takeda Shingen,160,0,,
+155,5510,0x1586,0x7f5d70,Jakotsu-baba,161,1,Jakotsu-baba Soul Core,
+156,21323,0x534b,0x7fa784,Nuribotoke,161,1,Nuribotoke Soul Core,
+157,22655,0x587f,0x707a70,Jailer Oni,162,1,Jailer Oni Soul Core,
+158,59760,0xe970,0x5778b1,Yamagata Masakage,163,0,,
+159,51515,0xc93b,0x5778b1,Yamagata Masakage,163,1,Yamagata Masakage Soul Core,
+160,435,0x1b3,0x70c9ca,Hino-enma,164,1,Hino-enma Soul Core,
+161,4766,0x129e,0x5d8c31,Tokugawa Ieyasu,165,0,,
+162,6668,0x1a0c,0x57c606,Nekomata,166,1,Nekomata Soul Core,
+163,23622,0x5c46,0x66e9de,Yagyu Munenori,167,0,,"Yagyu's Garb
+"
+164,39303,0x9987,0x584172,Saito Fuku,168,0,,
+165,31935,0x7cbf,0x41d5b1,Fox-masked Blacksmith,169,0,,
+166,59005,0xe67d,0x454b9f,Ito Ittosai,0,0,,
+167,59497,0xe869,0x5abab1,Crucible Wasp,171,1,Crucible Wasp Soul Core,
+168,65532,0xfffc,0x407420,Onmoraki,172,1,Onmoraki Soul Core,
+169,46010,0xb3ba,0x4116b1,Grudge Spirit,173,1,Grudge Spirit Soul Core,
+170,40130,0x9cc2,0x7aca91,Joro-gumo,174,1,Joro-gumo Soul Core,
+171,49345,0xc0c1,0x73e9f0,Bloodedge Demon,175,1,Bloodedge Demon Soul Core,
+172,37329,0x91d1,0x753af0,?,176,3,? Soul Core,
+173,36935,0x9047,0x4fb471,Okita Soji,177,0,,
+174,51572,0xc974,0x416fb1,Fuma Kotaro,0,0,,
+175,42166,0xa4b6,0x454b9f,Ito Ittosai,0,0,,
+176,63007,0xf61f,0x7a0ab0,Sugitani Zenjubo,0,0,,
+177,30186,0x75ea,0x6a8171,Taigen Sessai,0,0,,
+178,38489,0x9659,0x416d31,Aggrieved Warrior,0,0,,
+179,6450,0x1932,0x55f3b1,Anayama Nobutada,0,0,,
+180,54460,0xd4bc,0x5429f1,Naito Masatoyo,0,0,,
+181,17858,0x45c2,0x456dde,Kosaka Masanobu,0,0,,
+182,49916,0xc2fc,0x74f670,Tomoe Gozen,0,0,,
+183,54078,0xd33e,0x695b95,Demon Slayer,0,0,,"Demon's Horn
+; Red Demon Armour
+; Demon God Hammer
+; Broken Demon Tile
+"
+184,33040,0x8110,0x48b9f1,Shinran,0,0,,
+185,63077,0xf665,0x75b75e,Nasu no Yoichi,0,0,,
+186,58059,0xe2cb,0x5c1d71,Nagakura Shinpachi,0,0,,
+187,50145,0xc3e1,0x5c425f,Saito Hajime,0,0,,
+188,29268,0x7254,0x4b59be,Kondo Isami,0,0,,
+189,2212,0x8a4,0x4f0efc,Hijikata Toshizo,0,0,,
+190,62220,0xf30c,0x45e75b,Ishikawa Goemon,0,0,,
+191,59000,0xe678,0x626d72,Sawamura Yasusuke,0,0,,
+192,65049,0xfe19,0x56a66a,Takashima Shuhan,0,0,,
+193,55420,0xd87c,0x4f5518,Shishido Kagetoshi,0,0,,
+194,34838,0x8816,0x67bdde,Takahashi Deishu,0,0,,
+195,64968,0xfdc8,0x7101dd,Shizuka Gozen,0,0,,
+196,65352,0xff48,0x77d695,O-Ryo,0,0,,
+197,40025,0x9c59,0x6210de,Todo Heisuke,0,0,,
+198,24446,0x5f7e,0x7ba670,Nakane Masateru,0,0,,
+199,18289,0x4771,0x61a75e,Sakakibara Yasumasa,0,0,,
+200,48877,0xbeed,0x658b95,Sakai Tadatsugu,0,0,,
+201,28887,0x70d7,0x4b1ee5,Onmyo Mage,0,0,,"Onmyo Mage's Locks
+; Onmyo Grotto Key
+"
+202,11939,0x2ea3,0x67eaf1,Thomas Glover,0,0,,
+203,23854,0x5d2e,0x4948f1,Kusumoto Ine,0,0,,
+204,55775,0xd9df,0x6c0532,Demon of Pride,0,1,Demon of Pride Soul Core,"Demon's Horn
+; Red Demon Armour
+; Demon God Hammer
+; Broken Demon Tile
+"
+205,30524,0x773c,0x78cf1b,Demon of Envy,0,1,Demon of Envy Soul Core,"Demon's Horn
+; Red Demon Armour
+; Demon God Hammer
+; Broken Demon Tile
+"
+206,340,0x154,0x77485e,Demon of Obsession,0,1,Demon of Obsession Soul Core,"Demon's Horn
+; Red Demon Armour
+; Demon God Hammer
+; Broken Demon Tile
+"
+207,7225,0x1c39,0x6a2a5b,Mikoshi Nyudo,0,1,Mikoshi Nyudo Soul Core,
+208,44149,0xac75,0x6243a0,Shunobon,0,1,Shunobon Soul Core,
+209,65114,0xfe5a,0x5f3ecf,Kyokotsu,0,1,Kyokotsu Soul Core,
+210,4360,0x1108,0x61f2fb,Sentry,0,1,Sentry Soul Core,
+211,5537,0x15a1,0x7fac72,Mermaid,0,1,Mermaid Soul Core,
+212,20752,0x5110,0x74e9b0,DUMMY,0,0,,
+213,57150,0xdf3e,0x44fd5f,Tatsumaro the Dung Lover,0,0,,
+214,47464,0xb968,0x62f986,Kajiwara Kagetoki,0,0,,
+215,60485,0xec45,0x74e9b0,DUMMY,0,0,,
+216,7855,0x1eaf,0x74e9b0,DUMMY,0,0,,
+217,59734,0xe956,0x74e9b0,DUMMY,0,0,,
+218,50592,0xc5a0,0x74e9b0,DUMMY,0,0,,
+219,57301,0xdfd5,0x74e9b0,DUMMY,0,0,,
+220,13084,0x331c,0x7babc4,Otoroshi,0,1,Otoroshi Soul Core,
+221,22162,0x5692,0x74e9b0,DUMMY,0,0,,
+222,35055,0x88ef,0x74e9b0,DUMMY,0,0,,
+223,10258,0x2812,0x74e9b0,DUMMY,0,0,,
+224,20463,0x4fef,0x74e9b0,DUMMY,0,0,,
+225,11931,0x2e9b,0x5c4ae8,Great Tengu,0,1,Great Tengu Soul Core,"Rippled Greatspear
+; Greater Good Armour
+; Great Kanehira Sword & Nightingale
+; Last Great General's Armour
+; Great Forge Key
+; Use to greatly increase your Anima.
+"
+226,62499,0xf423,0x4a55fa,Minamoto no Yoritomo,0,0,,
+227,26518,0x6796,0x514564,Ibaraki Doji,0,1,Ibaraki Doji Soul Core,
+228,57495,0xe097,0x62f422,Tokugawa Yoshinobu,0,0,,
+229,7116,0x1bcc,0x79b549,Hiruko,0,0,,
+230,5035,0x13ab,0x79b549,Hiruko,0,0,,
+231,61205,0xef15,0x5fb0b1,Death Veil,0,1,Death Veil Soul Core,
+232,44517,0xade5,0x7e4030,Takasugi Shinsaku,0,0,,
+233,52834,0xce62,0x4f7cd5,Himiko,0,0,,
+234,41535,0xa23f,0x6c5c17,Tokugawa Kunimatsu,0,0,,
+235,4332,0x10ec,0x547843,Tsurara-onna,0,1,Tsurara-onna Soul Core,
+236,15841,0x3de1,0x62569e,Raiju,0,1,Raiju Soul Core,
+237,57138,0xdf32,0x4a3645,Usui Sadamitsu,0,0,,
+238,64943,0xfdaf,0x684f97,Kusanagi,0,1,Kusanagi Soul Core,"Kusanagi Tsurugi
+"
+239,11280,0x2c10,0x42f61f,Hattori Hanzo,0,0,,
+240,21251,0x5303,0x470676,Ninja Yoki,18,1,Ninja Yoki Soul Core,"Ninja's Locks
+"
+241,36832,0x8fe0,0x5fdd1f,All-Seeing Mage,0,0,,
+242,29881,0x74b9,0x6d3f31,Blood-Spurting Ogin,0,0,,
+243,50459,0xc51b,0x578855,Green Shadow's Blade,0,0,,
+244,51278,0xc84e,0x51d831,Ichimokuren,0,1,Ichimokuren Soul Core,
+245,37697,0x9341,0x7aa6d5,Yagyu Jubei,0,0,,"Yagyu's Garb
+"
+246,8676,0x21e4,0x5a37b1,Yui Shosetsu,0,1,Yui Shosetsu Soul Core,
+247,64506,0xfbfa,0x5af39f,Kanai Hanbei,0,1,Kanai Hanbei Soul Core,
+248,37462,0x9256,0x55631e,Akaname,0,1,Akaname Soul Core,
+249,19638,0x4cb6,0x5375aa,Alchemist,0,0,,
+250,29230,0x722e,0x62770f,Rodrigo,0,0,,
+251,16463,0x404f,0x7bcf83,Marubashi Chuya,0,0,,
+252,22787,0x5903,0x534528,Araki Mataemon,0,0,,"Harakiri Sword
+"
+253,3443,0xd73,0x403a71,Araki Mataemon,0,0,,"Harakiri Sword
+"
+254,6660,0x1a04,0x5e673a,Anazawa Morihide,0,0,,
+255,55439,0xd88f,0x547804,Yamada Shinryuken,0,0,,
+256,50370,0xc4c2,0x47e0a4,Mori Gentatsu,0,0,,
+257,43768,0xaaf8,0x75aab0,Robust Spear Samurai,0,0,,
+258,45394,0xb152,0x58d5c5,Maeda Mitsutaka,0,0,,
+259,22387,0x5773,0x606962,Matsudaira Nobutsuna,0,0,,
+260,35714,0x8b82,0x665589,Kawara Jurobei,0,0,,
+261,31228,0x79fc,0x5a9c15,Tokugawa Mitsukuni,0,0,,
+262,13809,0x35f1,0x57a772,Denrinbo Raikei,0,0,,
+263,8316,0x207c,0x4ee85c,Kumagai Naoyoshi,0,0,,
+264,48167,0xbc27,0x5366b1,Nakane Masamori,0,0,,
+265,51609,0xc999,0x7b3c30,Gamatsuki,0,1,Gamatsuki Soul Core,
+266,33932,0x848c,0x69e61e,Fabricated Warrior,0,0,,
+267,57493,0xe095,0x5e2d1f,Berenguela the Whimsical,0,0,,
