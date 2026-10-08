@@ -20,6 +20,31 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ---
 
+## Will this work on my PC?
+
+**Short answer: yes. It works on NVIDIA, Intel Arc and any AMD graphics card, and on Intel or AMD processors.** It
+needs Steam Nioh 3 **v2.02**; on any other version the mod does nothing. We have only tested it on AMD hardware (RX 9070
+desktop, ROG Ally X), so we checked the code for anything that depends on the GPU or CPU brand. Nothing switched on by
+default does (details: `notes\hardware-compatibility.md`):
+
+- **Engine fixes** (smooth game speed below the fps cap, the main-thread fixes, the spin-wait fixes): they change the
+  game's own CPU code, not the graphics driver. They use only basic x64 instructions (nothing AVX-only) and make no
+  assumptions about core counts. **They help any PC where the processor is the limit.** A slower CPU gains more.
+- **Faster shadow shader** (optional file): a standard DirectX 12 shader with no AMD-only tricks, and the same picture
+  on every GPU. The fps gain was measured on AMD only; elsewhere expect a small gain, and only when the graphics card
+  is the limit.
+- **Overlay and mod menu (F10):** standard DirectX 12 drawing. They work on every GPU. The "FG FPS" label is tuned for
+  FSR frame generation; with DLSS or XeSS frame generation it may show the wrong frame-gen status (display only).
+- **Frame-gen presenter fix:** helps only with **FSR** frame generation, which also runs on NVIDIA and Intel. It does
+  nothing with DLSS or XeSS frame generation.
+- **Faster loading (EP/SR):** helps only on Linux / Steam Deck / ROG Ally under Proton, with any GPU. On Windows,
+  loading is already fast in that spot, so these stay off by themselves.
+- **Leave these off unless you have an AMD GPU:** `AS0` (risky on Intel Arc, does nothing on NVIDIA),
+  `[GpuOpt] R2a / R2b / R1` (built for the Linux AMD driver) and `[GpuOpt] Barriers` (measured slower). All of them
+  are already off by default.
+
+---
+
 ## What the game does wrong, and what we did (at a glance)
 
 One line per problem: what the game does -> effect -> our fix -> result. Scope: **Ally** = ROG Ally X / Proton only, **PC** = native Windows only, **both**. Details: "What's ruining performance in Nioh 3" below and `MODLOG.md`.
