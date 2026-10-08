@@ -1,0 +1,59 @@
+script,romaji_token,japanese_name,reading,english_name,match_confidence,source
+663667288B5D,hiruko,比留呼,ひるこ,Hiruko,exact,gamewith.jp/nioh3/542341
+663667288B5D,soranaki,空亡,くうもう? (token reads sora-naki),Kuumou/Soranaki (unverified),unknown,search snippet only
+663667288B5D,siroshoin,(白書院 = Edo Castle room; location),しろしょいん,White Shoin hall,likely,inference
+6C05ACE2DDE5,kagetoki,梶原景時,かじわら かげとき,Kajiwara Kagetoki,exact,gamewith.jp/nioh3/542341; gamingbolt
+70D08AB4D345,ibaraki,茨木童子,いばらきどうじ,Ibaraki Doji,exact,gamewith.jp (reading there printed as からき; real reading ibaraki) ; gamingbolt
+70D08AB4D345,kunimatsu,徳川国松,とくがわ くにまつ,Tokugawa Kunimatsu,exact,gamewith.jp/nioh3/542341
+70D08AB4D345,ishibitsu,石櫃 (quest 'Sealed in the Stone Urn'),いしびつ,Stone Urn,likely,gamingbolt mission list
+70D08AB4D345,boshitsuki,unknown,,,unknown,
+F269FE4AD196,masanobu,高坂昌信 (Kosaka Masanobu),こうさか まさのぶ,Kosaka Masanobu,likely,gamingbolt
+F269FE4AD196,nobuharu,馬場信春,ばば のぶはる,Baba Nobuharu,exact,gamewith.jp/nioh3/542341
+F269FE4AD196,masakage,山県昌景,やまがた まさかげ,Yamagata Masakage,exact,gamewith.jp/nioh3/542341
+F269FE4AD196,shingen,武田信玄,たけだ しんげん,Takeda Shingen,exact,gamewith.jp/nioh3/542341
+F54D0C2234EF,masakage,山県昌景,やまがた まさかげ,Yamagata Masakage,exact,gamewith.jp/nioh3/542341
+F54D0C2234EF,shingen,武田信玄,たけだ しんげん,Takeda Shingen,exact,gamewith.jp/nioh3/542341
+F269FE4AD196,masatomo,内藤昌豊? (Naito Masatoyo),ないとう まさとよ,Naito Masatoyo,likely,gamingbolt (Masatoyo vs token masatomo)
+C33DF13FF6D2,yoshitsune,源義経,みなもと の よしつね,Minamoto no Yoshitsune,exact,gamingbolt
+CFB8ECB9CBF1,yoshitsune,源義経,みなもと の よしつね,Minamoto no Yoshitsune,exact,gamingbolt
+D38178C9B28E,youshinobu,徳川慶喜,とくがわ よしのぶ,Tokugawa Yoshinobu,exact,gamewith.jp/nioh3/542341 (token typo)
+D38178C9B28E,souji,沖田総司,おきた そうじ,Okita Soji,exact,gamewith.jp/nioh3/542341
+5DDCEF297989,souji,沖田総司,おきた そうじ,Okita Soji,exact,gamewith.jp/nioh3/542341
+4876530486F4,nuribotoke,塗仏,ぬりぶつ,Nuribotoke,exact,gamewith.jp/nioh3/542341
+5F2E0518FFC8,kappa,河童,かっぱ,Red Kappa,likely,gamingbolt
+586F1EC37255,takasugi,高杉晋作,たかすぎ しんさく,Takasugi Shinsaku,exact,gamewith.jp/nioh3/542341
+C217B8C15062,takasugi,高杉晋作,たかすぎ しんさく,Takasugi Shinsaku,exact,gamewith.jp/nioh3/542341
+586F1EC37255,nagakura,永倉新八,ながくら しんぱち,Nagakura Shinpachi,exact,gamingbolt
+C217B8C15062,ibaraki,茨木童子,いばらきどうじ,Ibaraki Doji,exact,gamingbolt
+526F7C4E6488,kusanagi,草薙,くさなぎ,Kusanagi,exact,gamewith.jp/nioh3/542341
+526F7C4E6488,saigo,西郷隆盛?,さいごう,Saigo (unverified),unknown,
+A5A9F2211EC6,tadakatasu,本多忠勝,ほんだ ただかつ,Honda Tadakatsu,exact,gamingbolt
+A5A9F2211EC6,tadakatasu,本多忠勝,ほんだ ただかつ,Honda Tadakatsu,exact,gamingbolt
+A5A9F2211EC6,kamaitachi,鎌鼬,かまいたち,Kamaitachi,exact,gamingbolt
+679CBE96AA72,kotaro,風魔小太郎,ふうま こたろう,Fuma Kotaro,exact,gamingbolt
+679CBE96AA72,ieyasu,徳川家康,とくがわ いえやす,Tokugawa Ieyasu,likely,inference
+45C15A1FFB1A,toragozen,虎御前 (cf. Tomoe Gozen in gamingbolt),とらごぜん,Tomoe Gozen (?),unknown,
+45C15A1FFB1A,kumagai,熊谷直実,くまがい なおざね,unverified,likely,inference
+45C15A1FFB1A,maria,マリア,まりあ,unverified,unknown,
+45C15A1FFB1A,jube,柳生十兵衛,やぎゅう じゅうべえ,Yagyu Jubei,likely,inference
+2B59B8417AAE,jube,柳生十兵衛,やぎゅう じゅうべえ,Yagyu Jubei,likely,inference
+710C8B93B28A,jubei,柳生十兵衛,やぎゅう じゅうべえ,Yagyu Jubei,likely,inference
+94B9A85DF3C6,chuya,丸橋忠弥?,まるはし ちゅうや,unverified,likely,inference (DLC chokodo)
+5A34CB851898,chuya,丸橋忠弥?,まるはし ちゅうや,unverified,likely,inference
+94B9A85DF3C6,shosetsu,由井正雪?,ゆい しょうせつ,unverified,likely,inference
+94B9A85DF3C6,hanbe,unknown (半兵衛?),,,unknown,
+61079E127596,hanbe,unknown (半兵衛?),,,unknown,
+94B9A85DF3C6,naoyoshi,unknown,,,unknown,
+94B9A85DF3C6,juuroube,十郎兵衛,じゅうろべえ,unverified,unknown,
+9B7E22C510B1,jurobe,十郎兵衛,じゅうろべえ,unverified,unknown,
+9B7E22C510B1,yodomi,淀見?,よどみ,unverified,unknown,
+9B7E22C510B1,oitekebori,置いてけ堀,おいてけぼり,Oitekebori (yokai legend),likely,
+70D08AB4D345,nekomata,猫又,ねこまた,Nekomata,likely,inference
+D7C672847B77,hanzo,服部半蔵,はっとり はんぞう,Hattori Hanzo,exact,gamingbolt
+8EDB00EEC40D,kurama,鞍馬 (Mount Kurama; Great Tengu 大天狗),だいてんぐ,Great Tengu,likely,gamewith.jp/nioh3/542341
+2DB4694D793C,kurama,鞍馬 / 大天狗,,Great Tengu?,unknown,
+057875E8B246,genshin,unknown,,,unknown,
+057875E8B246,morihide,unknown,,,unknown,
+0CA8409CACB7,hyakuman,百万,ひゃくまん,unverified,unknown,
+06D136FFDA4F,onryo,怨霊鬼,おんりょうき,Onryoki,likely,gamingbolt
+AF695E47DE3C,magatsu,禍津,まがつ,Magatsu Warrior,likely,gamingbolt
