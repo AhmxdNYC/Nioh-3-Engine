@@ -333,3 +333,7 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - New: `tools\testmatrix\matrix.json` (all ASI flags with live/next-launch mode, devices, wine-only/handheld-only, risk; 10 shader items incl. dropped gi/fog/toonedge2/trvs/pbvs; 5 post-v1 .dxbc via [ShaderSwap]; measurement runs; BEST combos), `run_pc.ps1` (backup/restore of ini + shaders, game lock, PresentMon stand 2x20 s + move 20 s, resume, -DryRun, verdict vs 3x BASE noise), `tm.py` (stats/report/best), `ally_plan.md` (Ally step list + [RESULT] digest), `notes\final-benchmark-protocol.md`.
 - Tested: `run_pc.ps1 -DryRun` (60 entries, ~6 h; -LiveMenu would save ~1 h but needs menu_map.json, not recorded), ini editor and `tm.py report/best` on synthetic data. Real runs not done. MQ/PT1/RR1 are listed as disabled (not in the ASI yet). tools\ is git-ignored: files added with `git add -f`.
 - Undo: delete `tools\testmatrix`. If a real run ever dies mid-way: `tools\testmatrix\state\Nioh3EngineFix.ini.orig` is the original game ini (run_pc.ps1 restores it on the next start), shaders: `apply_*.ps1 -Revert`.
+
+## 2026-10-08 - autoname (symbols only; nothing installed)
+- `re\scripts_re\autoname.py` -> `re\symbols\incoming\autoname.tsv` (4,738 new auto-named functions, RTTI/strings/thunks; see `notes\autoname.md`, merge pending). `progress_treemap.py` load_syms now folds rows to .pdata function starts (1393 -> 1399).
+- Undo: delete the new files / `git checkout` progress_treemap.py.

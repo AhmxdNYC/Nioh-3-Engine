@@ -124,7 +124,9 @@ def load_syms():
     for l in open(pc.SYMS, encoding='utf-8'):
         f = l.rstrip('\n').split('\t')
         if len(f) > 2 and f[0].startswith('0x') and f[1] == 'function' and f[2]:
-            best[int(f[0], 16)] = f[2]
+            r = pc.fold(int(f[0], 16))   # fold to the .pdata function start so rows inside a function/fragment count
+            if r not in best or (AUTO.match(best[r]) and not AUTO.match(f[2])):
+                best[r] = f[2]
     return best
 
 
