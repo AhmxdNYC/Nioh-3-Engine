@@ -23,7 +23,7 @@ param([switch]$DryRun, [switch]$Force, [switch]$ReportOnly, [switch]$NoLock, [sw
       [string[]]$Configs = @("STOCK", "OPTIMIZED", "OPTIMIZED+FG"), [string[]]$Presets = @("USER", "MAX"),
       [string[]]$Sweep = @(), [string]$SweepConfig = "OPTIMIZED", [int]$SweepRuns = 1, [int]$Runs = 3,
       [int]$StandWindows = 2, [int]$WindowSec = 20, [int]$LatencySec = 30, [int]$Presses = 25, [ValidateSet("click", "key")][string]$PressKind = "click",
-      [string]$KeepSet = "full", [string]$CombatScript = "", [string]$Hwinfo = "", [string]$Rtss = "", [string]$ConfigPath = "")
+      [string]$KeepSet = "full", [string]$CombatScript = "", [string]$Hwinfo = "", [string]$Rtss = "", [string]$ConfigPath = "", [int]$OwnerPid = 0, [int]$MaxMinutes = 90)   # OwnerPid 0 = parent process; see harness_guard.ps1
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 foreach ($n in "Configs", "Presets", "Sweep") { Set-Variable $n @((Get-Variable $n).Value | ForEach-Object { $_ -split "," } | Where-Object { $_ }) }   # -File passes "a,b" as one string
@@ -112,6 +112,8 @@ if ($DryRun) {
 # ---------------- real run (helpers duplicated from run_pc.ps1 on purpose: that script may be mid-matrix) ----------------
 . "$ws\patcher\common.ps1"          # $ws, Ensure-InGame, Test-InGame, U, Close-Game
 foreach ($d in $stateD, $resD, $capD) { New-Item -ItemType Directory -Force $d | Out-Null }
+. "$here\harness_guard.ps1"
+Init-Guard -Name "final_pc" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-Game; if (Test-Path $asiOff) { Move-Item $asiOff $asi -Force }; Set-Shaders @(); Set-Swaps @(); if (Test-Path $iniOrig) { Copy-Item $iniOrig $ini -Force }; Restore-Gfx | Out-Null; Unlock-Game }
 function Set-IniValue([string[]]$lines, [string]$sec, [string]$key, [string]$val) {
     $out = New-Object System.Collections.Generic.List[string]; $cur = ""; $done = $false; $secSeen = $false; $insAt = -1
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -164,9 +166,10 @@ function Lock-Game { if ($NoLock) { return }; Push-Location $uoBridge; try { py 
 function Renew-Lock { if (-not $NoLock) { Push-Location $uoBridge; try { py -m uo_bridge.gamelock renew nioh3 --ttl 5400 | Out-Null } finally { Pop-Location } } }
 function Unlock-Game { if (-not $NoLock) { Push-Location $uoBridge; try { py -m uo_bridge.gamelock release nioh3 | Out-Null } finally { Pop-Location } } }
 function Start-GameToPlay {
-    Close-Game; $t0 = Get-Date
+    Close-Game; Assert-Launch; $t0 = Get-Date
     Start-Process "steam://rungameid/$($M.steam_id)"
     while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 180) { Start-Sleep 3 }
+    Register-Game; if (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { Note-Crash "no game window after launch" }
     Start-Sleep 25
     U focus Nioh3; U click 1280 887; Start-Sleep 22
     U focus Nioh3; U click 1280 1170; Start-Sleep 7
@@ -190,7 +193,7 @@ function Capture-Window([string]$id, [string]$kind, [int]$n) {
     $a = "--process_name Nioh3.exe --output_file `"$csv`" --timed $sec --terminate_after_timed --stop_existing_session --no_console_stats --v2_metrics"
     if ($kind -eq "latency" -and $PcLatency) { $a += " --track_pc_latency" }
     $t0 = Get-Date
-    $pmp = Start-Process $pmExe -PassThru -WindowStyle Hidden -ArgumentList $a
+    $pmp = Start-Process $pmExe -PassThru -WindowStyle Hidden -ArgumentList $a; Register-Child $pmp "PresentMon"
     Start-Sleep 2
     if ($kind -eq "move") { Push-Location "$ws\tools"; U focus Nioh3; for ($k = 0; $k -lt 4; $k++) { U pan 12 220 10; U pan -12 220 10 }; Pop-Location }
     elseif ($kind -eq "combat" -and $CombatScript) { & $CombatScript }
@@ -258,6 +261,7 @@ try {
     if (Test-Path $iniOrig) { Copy-Item $iniOrig $ini -Force }
     Restore-Gfx | Out-Null
     Unlock-Game
+    Done-Guard
 }
 if ($Hwinfo -or $Rtss) { $a = @("ingest", $resD, $Device); if ($Hwinfo) { $a += @("--hwinfo", $Hwinfo) }; if ($Rtss) { $a += @("--rtss", $Rtss) }; py -I "$here\tm.py" @a }
 py -I "$here\tm.py" table $resD $Device | Select-Object -Last 1; py -I "$here\tm.py" latency $resD $Device | Out-Null

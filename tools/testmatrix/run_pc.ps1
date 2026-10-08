@@ -1,4 +1,4 @@
-﻿<#
+<#
   run_pc.ps1 - unattended experiment matrix for Nioh 3 on the Windows PC (final phase).
   Reads matrix.json; per item: set ini/shader state (backed up, always restored), launch via Steam, reach gameplay,
   take the bridge game lock, PresentMon windows (stand 2x20 s + move 20 s), collect the mod's stats lines, restore.
@@ -19,7 +19,7 @@
 #>
 param([switch]$DryRun, [switch]$Force, [switch]$LiveMenu, [switch]$ReportOnly, [switch]$NoLock,
       [string[]]$Only = @(), [int[]]$Groups = @(), [string]$Preset = "USER", [string]$CombatScript = "",
-      [int]$StandWindows = 2, [int]$WindowSec = 20, [double]$NoiseFloor = 0.5, [switch]$AllowRisk)
+      [int]$StandWindows = 2, [int]$WindowSec = 20, [double]$NoiseFloor = 0.5, [switch]$AllowRisk, [int]$OwnerPid = 0, [int]$MaxMinutes = 90)   # OwnerPid 0 = parent process; see harness_guard.ps1
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "C:\Users\Ahmad Hamza\nioh3-engine\patcher\common.ps1"        # $ws, Ensure-InGame, Test-InGame, U, Close-Game
@@ -195,9 +195,11 @@ function Unlock-Game { if (-not $NoLock) { Push-Location $uoBridge; try { py -m 
 
 function Start-GameToPlay {
     Close-Game
+    Assert-Launch
     $t0 = Get-Date
     Start-Process "steam://rungameid/$($M.steam_id)"
     while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 180) { Start-Sleep 3 }
+    Register-Game; if (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { Note-Crash "no game window after launch" }
     Start-Sleep 25
     # same click path as tools\enter_game.ps1 (autosave notice -> title -> Continue -> tip -> popup)
     U focus Nioh3; U click 1280 887; Start-Sleep 22
@@ -212,6 +214,7 @@ function Capture-Window([string]$id, [string]$kind, [int]$n) {
     if (-not (Ensure-InGame)) { return @{ kind = $kind; ok = $false; why = "not in gameplay" } }
     $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList `
         "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
+    Register-Child $pm "PresentMon"
     Start-Sleep 2
     if ($kind -eq "move") {                      # camera sweep, same input path as patcher\bench.ps1
         Push-Location "$ws\tools"; U focus Nioh3
@@ -253,6 +256,8 @@ function Resolve-Combo($it) {
     return @{ triples = $tr; shaders = $sh; swaps = $sw }
 }
 
+. "$here\harness_guard.ps1"
+Init-Guard -Name "run_pc" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-Game; Set-Shaders @(); Set-Swaps @(); if (Test-Path $iniOrig) { Copy-Item $iniOrig $ini -Force }; Unlock-Game }
 # crash safety: if a previous run died with a modified ini, put the original back first
 if (Test-Path $iniOrig) { Copy-Item $iniOrig $ini -Force } else { Copy-Item $ini $iniOrig -Force }
 Lock-Game
@@ -308,5 +313,6 @@ try {
     Set-Shaders @(); Set-Swaps @()
     if (Test-Path $iniOrig) { Copy-Item $iniOrig $ini -Force }
     Unlock-Game
+    Done-Guard
 }
 py -I "$here\tm.py" report $resD $Device --noise-floor $NoiseFloor

@@ -3,9 +3,9 @@ $ws  = "C:\Users\Ahmad Hamza\nioh3-engine"
 $cfg = "$env:LOCALAPPDATA\KoeiTecmo\NIOH3\config.xml"
 $ui  = "$ws\tools\ui.fsx"
 $env:FT_ALLOW_WRITE = "1"
-function Close-Game { Get-Process Nioh3 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 12 }
+function Close-Game { if ($global:HG) { Note-Closed }; Get-Process Nioh3 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 12 }
 function Dialog { $d = dotnet fsi $ui dialog Nioh3 2>&1 | Select-String 'dialogs:'; "$d" }
-function U { dotnet fsi $ui @args 2>&1 | Out-Null }
+function U { if ($global:HG) { Assert-Owner }; dotnet fsi $ui @args 2>&1 | Out-Null }   # harness_guard.ps1 (if loaded): owner must be alive before any input
 
 # Is the game in actual gameplay (HUD bars visible)? Optionally keeps the screenshot.
 function Test-InGame([string]$keep = "") {

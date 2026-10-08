@@ -2,7 +2,8 @@
 #   -Block A : one launch, in-process ABBA-ABBA per item (MQ, PP, B, GF), OFF sentinel after each item.
 #   -Block B : cross-launch BASE,REC,BASE,REC,BASE,REC (stand 2x20 s + move 20 s).
 # Lock: caller holds the nioh3 game lock (renewed here). Results: captures\tm\abba\ ; analysis: abba_report.py
-param([ValidateSet("A","B")][string]$Block = "A", [int]$WindowSec = 30, [int]$Pairs = 3, [switch]$DryRun)
+param([ValidateSet("A","B")][string]$Block = "A", [int]$WindowSec = 30, [int]$Pairs = 3, [switch]$DryRun,
+      [int]$OwnerPid = 0, [int]$MaxMinutes = 90)   # OwnerPid 0 = parent process (the agent shell); see harness_guard.ps1
 $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "C:\Users\Ahmad Hamza\nioh3-engine\patcher\common.ps1"
@@ -14,11 +15,14 @@ $env:UO_BRIDGE_TOKEN_FILE = "$env:APPDATA\uo-bridge\token"; $env:UO_AGENT_ID = "
 $fullmod = "$here\fullmod_ini_1716.ini"
 $script:gamePid = 0
 $trace = "$out\trace_$Block.txt"
+. "$here\harness_guard.ps1"
+if (-not $DryRun) { Init-Guard -Name "abba_$Block" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-GameClean; try { Set-Ini @{ Barriers = 0 } } catch {} } }
 function T([string]$s) { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $trace $l; $l }
 # SAFETY (2026-10-08): never send input unless Nioh3 is running AND in the foreground. ui.fsx re-checks the foreground
 # before every click/key and exits 3 (REFUSED) otherwise; any refusal or a dead game aborts the whole block instead of
 # looping (the old harness kept clicking/typing into VS Code after the game died or lost focus).
 function U {
+    Assert-Owner
     $cmd = [string]$args[0]
     if ($cmd -ne "shot" -and -not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) {
         T "!! ABORT: Nioh3 is not running (before 'U $($args -join ' ')') - no input sent, exiting"; throw "HARNESS-ABORT: game not running" }
@@ -34,6 +38,7 @@ function Set-Ini([hashtable]$kv, [string]$base = $fullmod) {   # kv keys "Key" -
     [IO.File]::WriteAllText($ini, $t, (New-Object Text.UTF8Encoding($false)))
 }
 function Close-GameClean {
+    Note-Closed
     $p = if ($script:gamePid) { Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue } else { $null }
     if ($p) {
         $null = $p.CloseMainWindow(); $p.WaitForExit(25000) | Out-Null
@@ -43,12 +48,13 @@ function Close-GameClean {
     $script:gamePid = 0
 }
 function Start-Play {
+    Assert-Launch
     $t0 = Get-Date
     Start-Process "steam://rungameid/3681010"
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
-    if (-not $p) { return $false }
-    $script:gamePid = $p.Id
+    if (-not $p) { Note-Crash "no game window after launch"; return $false }
+    $script:gamePid = $p.Id; Register-Game
     Start-Sleep 25
     U focus Nioh3; U click 1280 887; Start-Sleep 22
     U focus Nioh3; U click 1280 1170; Start-Sleep 7
@@ -106,6 +112,7 @@ function Toggle([string]$id, [string]$want) {
 function Window([string]$name) {
     $csv = "$out\$name.csv"; $off = Log-Len
     $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
+    Register-Child $pm "PresentMon"
     Start-Sleep ($WindowSec + 1); $pm.WaitForExit(30000) | Out-Null
     Start-Sleep 2
     $wt = Log-From $off; Set-Content "$out\$name.log" $wt
@@ -158,6 +165,7 @@ try {
                 if (Test-InGameR) {
                     $csv = "$out\B_${v}${i}_move1.csv"; $off = Log-Len
                     $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed 20 --terminate_after_timed --stop_existing_session --no_console_stats"
+                    Register-Child $pm "PresentMon"
                     Start-Sleep 2; Push-Location "$ws\tools"; U focus Nioh3
                     for ($k = 0; $k -lt 4; $k++) { U pan 12 220 10; U pan -12 220 10 }
                     Pop-Location; $pm.WaitForExit(40000) | Out-Null; Start-Sleep 2; Log-From $off | Set-Content "$out\B_${v}${i}_move1.log"
@@ -172,4 +180,5 @@ try {
     Close-GameClean
     Set-Ini @{ Barriers = 0 }
     T "ini restored to fullmod_ini_1716 with Barriers=0"
+    Done-Guard
 }
