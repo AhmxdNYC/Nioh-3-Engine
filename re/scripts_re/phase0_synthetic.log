@@ -1,0 +1,21 @@
+[12:00:01] RematchLog: window OPEN (EmakiItemUse) t=100.000
+[12:00:01] RematchLog Q7: EmakiItemUse_MenuHandler caller=+1A2B rcx=1 rdx=2 r8=3 r9=4 [rdx..+40]=00 [r8..+40]=00 net{conn=0 host=0} pm{mode=1 sub=0} t=100.100
+[12:00:02] RematchLog L1: Emaki table T=0x1 B=0x2 count=5 M=0x3 emptyKey=FF mapEntries=5
+[12:00:02] RematchLog L1: EMAKI[0] 01 02 03
+[12:00:02] RematchLog L1: EMAKIMAP[0] byte=05 recordIndex=0
+[12:00:03] RematchLog L2: EmakiMissionRequest caller=+AB ref=0000000000000001 key[12]=00 missionArg=52374 params[24]=00 ch{null} t=101.000
+[12:00:03] RematchLog L3: MissionSetupEmaki caller=+CD charMgr**=0x1 list=0x2 mission=52374 before ch{null} list[+1C..+37]=00 t=101.200
+[12:00:04] RematchLog L4 after-MissionSetupEmaki tick=5 t=101.500 ms{lvl=1 row=2 mission=52374(0xCC96) mode=1} ch{emakiByte=05 key8=05 isEmaki=1 list=1/2/3} net{conn=0 host=0} pm{mode=1 sub=0} invCnt=40
+[12:00:05] RematchLog L4: IN MISSION 52374 (emaki) 3.0 s after the request t=103.000
+[12:00:06] BossLog #1: BossBattleMode start t=110.000 s (script ctx 0x1, last mission-clear id 0)
+[12:00:06] BossLog #1: Character::Create placement ids in the last 60 s: 3025509(-1.0s)
+[12:00:06] BossLog #1: Character::Create placement 3025509 (arg2 1, flag 0, arg4 0) t=110.500 s +0.5 s
+[12:00:07] BossLog #1: ShowBossGauge actor id 38227 t=111.000 s
+[12:00:08] BossLog #1: SetMissionFlag id 6308 value 1 t=150.000 s (in fight)
+[12:00:08] BossLog #1: SetMissionClearFlag mission id 47800 t=150.100 s (fight window)
+[12:00:09] BossLog #1: REWARD Item::AddItem nargs=2 a0=100000200 a1=1 t=151.000 s (after fight +1.0 s)
+[12:00:09] BossLog #1: REWARD GameClearRewardGrant difficulty 1 (1 normal, 2 hard) t=151.200 s (after fight)
+[12:00:10] BossLog #1: BossBattleModeEnd t=150.000 s, fight 40.0 s, 1 mission flag sets inside
+[12:00:11] RematchLog L2: scroll item idx 3 changed: +10:02>01 t=155.000
+[12:00:12] RematchLog L5: ClearMapSetEntry id=47800(0xB9B8) p3=1 p4=0 caller=+1 (scroll/replay mission) t=150.200
+[12:00:20] RematchLog: window CLOSED t=190.000
