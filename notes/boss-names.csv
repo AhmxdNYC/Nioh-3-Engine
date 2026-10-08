@@ -1,0 +1,961 @@
+char_id,name_text_id,english_name,romaji_token,evidence
+20760,5276221,Rogue,,chara_table[2] (archive_03/C4/E1CBAE..+0x738) name@+0xA0 -> EN text group 7662000
+20833,8346992,Jakotsu-baba,,chara_table[3] (archive_03/C4/E1CBAE..+0xad0) name@+0xA0 -> EN text group 7662000
+20843,6489713,Baba Nobuharu,nobuharu,chara_table[4] (archive_03/C4/E1CBAE..+0xe68) name@+0xA0 -> EN text group 7662000; token-match on name word
+20856,6489713,Baba Nobuharu,nobuharu,chara_table[5] (archive_03/C4/E1CBAE..+0x1200) name@+0xA0 -> EN text group 7662000; token-match on name word
+20878,5732529,Yamagata Masakage,masakage,chara_table[6] (archive_03/C4/E1CBAE..+0x1598) name@+0xA0 -> EN text group 7662000; token-match on name word
+20899,4450463,Takeda Shingen,shingen,chara_table[7] (archive_03/C4/E1CBAE..+0x1930) name@+0xA0 -> EN text group 7662000; token-match on name word
+20920,6048488,Great Tengu,,chara_table[8] (archive_03/C4/E1CBAE..+0x1cc8) name@+0xA0 -> EN text group 7662000
+20973,4871674,Minamoto no Yoritomo,,chara_table[10] (archive_03/C4/E1CBAE..+0x23f8) name@+0xA0 -> EN text group 7662000
+20995,8104900,Otoroshi,,chara_table[11] (archive_03/C4/E1CBAE..+0x2790) name@+0xA0 -> EN text group 7662000
+21008,8365956,Nuribotoke,nuribotoke,chara_table[12] (archive_03/C4/E1CBAE..+0x2b28) name@+0xA0 -> EN text group 7662000; token-match on name word
+21027,8365956,Nuribotoke,nuribotoke,chara_table[13] (archive_03/C4/E1CBAE..+0x2ec0) name@+0xA0 -> EN text group 7662000; token-match on name word
+21061,8365956,Nuribotoke,nuribotoke,chara_table[14] (archive_03/C4/E1CBAE..+0x3258) name@+0xA0 -> EN text group 7662000; token-match on name word
+21113,6485026,Tokugawa Yoshinobu,youshinobu,chara_table[15] (archive_03/C4/E1CBAE..+0x35f0) name@+0xA0 -> EN text group 7662000; token-match on name word
+21134,7976265,Hiruko,hiruko,chara_table[16] (archive_03/C4/E1CBAE..+0x3988) name@+0xA0 -> EN text group 7662000; token-match on name word
+21153,7976265,Hiruko,hiruko,chara_table[17] (archive_03/C4/E1CBAE..+0x3d20) name@+0xA0 -> EN text group 7662000; token-match on name word
+21175,5326180,Ibaraki Doji,ibaraki,chara_table[18] (archive_03/C4/E1CBAE..+0x40b8) name@+0xA0 -> EN text group 7662000; token-match on name word
+21188,5326180,Ibaraki Doji,ibaraki,chara_table[19] (archive_03/C4/E1CBAE..+0x4450) name@+0xA0 -> EN text group 7662000; token-match on name word
+21213,5326180,Ibaraki Doji,ibaraki,chara_table[20] (archive_03/C4/E1CBAE..+0x47e8) name@+0xA0 -> EN text group 7662000; token-match on name word
+21232,7079218,Demon of Pride,,chara_table[21] (archive_03/C4/E1CBAE..+0x4b80) name@+0xA0 -> EN text group 7662000
+21254,7917339,Demon of Envy,,chara_table[22] (archive_03/C4/E1CBAE..+0x4f18) name@+0xA0 -> EN text group 7662000
+21334,7817310,Demon of Obsession,,chara_table[24] (archive_03/C4/E1CBAE..+0x5648) name@+0xA0 -> EN text group 7662000
+21356,5960607,Kanai Hanbei,hanbe,chara_table[25] (archive_03/C4/E1CBAE..+0x59e0) name@+0xA0 -> EN text group 7662000; token-match on name word
+21372,6940190,Fabricated Warrior,,chara_table[26] (archive_03/C4/E1CBAE..+0x5d78) name@+0xA0 -> EN text group 7662000
+21385,5912497,Yui Shosetsu,shosetsu,chara_table[27] (archive_03/C4/E1CBAE..+0x6110) name@+0xA0 -> EN text group 7662000; token-match on name word
+21398,6798897,Cerberus,,chara_table[28] (archive_03/C4/E1CBAE..+0x64a8) name@+0xA0 -> EN text group 7662000
+21429,7497443,Mezuki,,chara_table[29] (archive_03/C4/E1CBAE..+0x6840) name@+0xA0 -> EN text group 7662000
+21439,7497443,Mezuki,,chara_table[30] (archive_03/C4/E1CBAE..+0x6bd8) name@+0xA0 -> EN text group 7662000
+21467,7497443,Mezuki,,chara_table[31] (archive_03/C4/E1CBAE..+0x6f70) name@+0xA0 -> EN text group 7662000
+21584,4476935,Gozuki,,chara_table[34] (archive_03/C4/E1CBAE..+0x7a38) name@+0xA0 -> EN text group 7662000
+21594,4476935,Gozuki,,chara_table[35] (archive_03/C4/E1CBAE..+0x7dd0) name@+0xA0 -> EN text group 7662000
+21619,4476935,Gozuki,,chara_table[36] (archive_03/C4/E1CBAE..+0x8168) name@+0xA0 -> EN text group 7662000
+21647,4476935,Gozuki,,chara_table[37] (archive_03/C4/E1CBAE..+0x8500) name@+0xA0 -> EN text group 7662000
+21672,8073083,Kamaitachi,kamaitachi,chara_table[38] (archive_03/C4/E1CBAE..+0x8898) name@+0xA0 -> EN text group 7662000; token-match on name word
+21679,8073083,Kamaitachi,kamaitachi,chara_table[39] (archive_03/C4/E1CBAE..+0x8c30) name@+0xA0 -> EN text group 7662000; token-match on name word
+21695,7391690,Hino-enma,,chara_table[40] (archive_03/C4/E1CBAE..+0x8fc8) name@+0xA0 -> EN text group 7662000
+21705,7298760,Enenra,,chara_table[41] (archive_03/C4/E1CBAE..+0x9360) name@+0xA0 -> EN text group 7662000
+21715,8208710,Ryomen Sukuna,,chara_table[42] (archive_03/C4/E1CBAE..+0x96f8) name@+0xA0 -> EN text group 7662000
+21728,8208710,Ryomen Sukuna,,chara_table[43] (archive_03/C4/E1CBAE..+0x9a90) name@+0xA0 -> EN text group 7662000
+21762,8208710,Ryomen Sukuna,,chara_table[44] (archive_03/C4/E1CBAE..+0x9e28) name@+0xA0 -> EN text group 7662000
+21796,8047249,Joro-gumo,,chara_table[45] (archive_03/C4/E1CBAE..+0xa1c0) name@+0xA0 -> EN text group 7662000
+21809,4401273,Kasha,,chara_table[46] (archive_03/C4/E1CBAE..+0xa558) name@+0xA0 -> EN text group 7662000
+21816,4401273,Kasha,,chara_table[47] (archive_03/C4/E1CBAE..+0xa8f0) name@+0xA0 -> EN text group 7662000
+21841,4401273,Kasha,,chara_table[48] (archive_03/C4/E1CBAE..+0xac88) name@+0xA0 -> EN text group 7662000
+21857,4401273,Kasha,,chara_table[49] (archive_03/C4/E1CBAE..+0xb020) name@+0xA0 -> EN text group 7662000
+21889,4401273,Kasha,,chara_table[50] (archive_03/C4/E1CBAE..+0xb3b8) name@+0xA0 -> EN text group 7662000
+21920,4401273,Kasha,,chara_table[51] (archive_03/C4/E1CBAE..+0xb750) name@+0xA0 -> EN text group 7662000
+21951,4401273,Kasha,,chara_table[52] (archive_03/C4/E1CBAE..+0xbae8) name@+0xA0 -> EN text group 7662000
+21982,4401273,Kasha,,chara_table[53] (archive_03/C4/E1CBAE..+0xbe80) name@+0xA0 -> EN text group 7662000
+22013,4224032,Onmoraki,,chara_table[54] (archive_03/C4/E1CBAE..+0xc218) name@+0xA0 -> EN text group 7662000
+22026,5079789,Onryoki,onryo,chara_table[55] (archive_03/C4/E1CBAE..+0xc5b0) name@+0xA0 -> EN text group 7662000; token-match on name word
+22036,7416910,Giant Toad,,chara_table[56] (archive_03/C4/E1CBAE..+0xc948) name@+0xA0 -> EN text group 7662000
+22046,6258060,Minamoto no Yoshitsune,yoshitsune,chara_table[57] (archive_03/C4/E1CBAE..+0xcce0) name@+0xA0 -> EN text group 7662000; token-match on name word
+22077,6258060,Minamoto no Yoshitsune,yoshitsune,chara_table[58] (archive_03/C4/E1CBAE..+0xd078) name@+0xA0 -> EN text group 7662000; token-match on name word
+22105,5276221,Rogue,,chara_table[59] (archive_03/C4/E1CBAE..+0xd410) name@+0xA0 -> EN text group 7662000
+22178,5732529,Yamagata Masakage,masakage,chara_table[60] (archive_03/C4/E1CBAE..+0xd7a8) name@+0xA0 -> EN text group 7662000; token-match on name word
+22199,4450463,Takeda Shingen,shingen,chara_table[61] (archive_03/C4/E1CBAE..+0xdb40) name@+0xA0 -> EN text group 7662000; token-match on name word
+22220,7086430,Kongojishi,,chara_table[62] (archive_03/C4/E1CBAE..+0xded8) name@+0xA0 -> EN text group 7662000
+22248,6486406,Kajiwara Kagetoki,kagetoki,chara_table[63] (archive_03/C4/E1CBAE..+0xe270) name@+0xA0 -> EN text group 7662000; token-match on name word
+22261,6486406,Kajiwara Kagetoki,kagetoki,chara_table[64] (archive_03/C4/E1CBAE..+0xe608) name@+0xA0 -> EN text group 7662000; token-match on name word
+22307,8273968,Takasugi Shinsaku,takasugi,chara_table[65] (archive_03/C4/E1CBAE..+0xe9a0) name@+0xA0 -> EN text group 7662000; token-match on name word
+22320,4685937,Shami-choro,,chara_table[66] (archive_03/C4/E1CBAE..+0xed38) name@+0xA0 -> EN text group 7662000
+22348,5223537,Okita Soji,souji,chara_table[67] (archive_03/C4/E1CBAE..+0xf0d0) name@+0xA0 -> EN text group 7662000; token-match on name word
+22361,6298353,Okita Soji,souji,chara_table[68] (archive_03/C4/E1CBAE..+0xf468) name@+0xA0 -> EN text group 7662000; token-match on name word
+22389,6836119,Kusanagi,kusanagi,chara_table[69] (archive_03/C4/E1CBAE..+0xf800) name@+0xA0 -> EN text group 7662000; token-match on name word
+22405,4426008,Red-clothed Maiden,,chara_table[70] (archive_03/C4/E1CBAE..+0xfb98) name@+0xA0 -> EN text group 7662000
+22510,7976265,Hiruko,hiruko,chara_table[73] (archive_03/C4/E1CBAE..+0x10660) name@+0xA0 -> EN text group 7662000; token-match on name word
+22529,7101463,Tokugawa Kunimatsu,,chara_table[74] (archive_03/C4/E1CBAE..+0x109f8) name@+0xA0 -> EN text group 7662000
+22536,7101463,Tokugawa Kunimatsu,,chara_table[75] (archive_03/C4/E1CBAE..+0x10d90) name@+0xA0 -> EN text group 7662000
+22550,7101463,Tokugawa Kunimatsu,,chara_table[76] (archive_03/C4/E1CBAE..+0x11128) name@+0xA0 -> EN text group 7662000
+22584,6470107,Murakumo,,chara_table[77] (archive_03/C4/E1CBAE..+0x114c0) name@+0xA0 -> EN text group 7662000
+22600,8038101,Yagyu Jubei,jube,chara_table[78] (archive_03/C4/E1CBAE..+0x11858) name@+0xA0 -> EN text group 7662000; token-match on name word
+22616,6039836,Honda Tadakatsu,,chara_table[79] (archive_03/C4/E1CBAE..+0x11bf0) name@+0xA0 -> EN text group 7662000
+22638,6744542,Yagyu Munenori,,chara_table[80] (archive_03/C4/E1CBAE..+0x11f88) name@+0xA0 -> EN text group 7662000
+22669,6744542,Yagyu Munenori,,chara_table[81] (archive_03/C4/E1CBAE..+0x12320) name@+0xA0 -> EN text group 7662000
+22700,6744542,Yagyu Munenori,,chara_table[82] (archive_03/C4/E1CBAE..+0x126b8) name@+0xA0 -> EN text group 7662000
+22731,6744542,Yagyu Munenori,,chara_table[83] (archive_03/C4/E1CBAE..+0x12a50) name@+0xA0 -> EN text group 7662000
+22762,4388383,Hattori Hanzo,hanzo,chara_table[84] (archive_03/C4/E1CBAE..+0x12de8) name@+0xA0 -> EN text group 7662000; token-match on name word
+22799,4388383,Hattori Hanzo,hanzo,chara_table[85] (archive_03/C4/E1CBAE..+0x13180) name@+0xA0 -> EN text group 7662000; token-match on name word
+22836,4388383,Hattori Hanzo,hanzo,chara_table[86] (archive_03/C4/E1CBAE..+0x13518) name@+0xA0 -> EN text group 7662000; token-match on name word
+22873,4388383,Hattori Hanzo,hanzo,chara_table[87] (archive_03/C4/E1CBAE..+0x138b0) name@+0xA0 -> EN text group 7662000; token-match on name word
+22910,5783922,Saito Fuku,,chara_table[88] (archive_03/C4/E1CBAE..+0x13c48) name@+0xA0 -> EN text group 7662000
+22935,5783922,Saito Fuku,,chara_table[89] (archive_03/C4/E1CBAE..+0x13fe0) name@+0xA0 -> EN text group 7662000
+22960,5276221,Rogue,,chara_table[90] (archive_03/C4/E1CBAE..+0x14378) name@+0xA0 -> EN text group 7662000
+23048,6542043,Enemy A,,chara_table[91] (archive_03/C4/E1CBAE..+0x14710) name@+0xA0 -> EN text group 7662000
+23061,5209301,Himiko,,chara_table[92] (archive_03/C4/E1CBAE..+0x14aa8) name@+0xA0 -> EN text group 7662000
+23080,4486513,Ii Naotora,,chara_table[93] (archive_03/C4/E1CBAE..+0x14e40) name@+0xA0 -> EN text group 7662000
+23093,7406045,Shizuka Gozen,,chara_table[94] (archive_03/C4/E1CBAE..+0x151d8) name@+0xA0 -> EN text group 7662000
+23103,5209301,Himiko,,chara_table[95] (archive_03/C4/E1CBAE..+0x15570) name@+0xA0 -> EN text group 7662000
+23110,7101463,Tokugawa Kunimatsu,,chara_table[96] (archive_03/C4/E1CBAE..+0x15908) name@+0xA0 -> EN text group 7662000
+23145,8273968,Takasugi Shinsaku,takasugi,chara_table[98] (archive_03/C4/E1CBAE..+0x16038) name@+0xA0 -> EN text group 7662000; token-match on name word
+23167,6486406,Kajiwara Kagetoki,kagetoki,chara_table[99] (archive_03/C4/E1CBAE..+0x163d0) name@+0xA0 -> EN text group 7662000; token-match on name word
+23189,6039836,Honda Tadakatsu,,chara_table[100] (archive_03/C4/E1CBAE..+0x16768) name@+0xA0 -> EN text group 7662000
+23208,6039836,Honda Tadakatsu,,chara_table[101] (archive_03/C4/E1CBAE..+0x16b00) name@+0xA0 -> EN text group 7662000
+23230,4388383,Hattori Hanzo,hanzo,chara_table[102] (archive_03/C4/E1CBAE..+0x16e98) name@+0xA0 -> EN text group 7662000; token-match on name word
+23249,4388383,Hattori Hanzo,hanzo,chara_table[103] (archive_03/C4/E1CBAE..+0x17230) name@+0xA0 -> EN text group 7662000; token-match on name word
+23277,6744542,Yagyu Munenori,,chara_table[104] (archive_03/C4/E1CBAE..+0x175c8) name@+0xA0 -> EN text group 7662000
+23290,4388383,Hattori Hanzo,hanzo,chara_table[105] (archive_03/C4/E1CBAE..+0x17960) name@+0xA0 -> EN text group 7662000; token-match on name word
+23309,6130737,Tokugawa Ieyasu,,chara_table[106] (archive_03/C4/E1CBAE..+0x17cf8) name@+0xA0 -> EN text group 7662000
+23322,6258060,Minamoto no Yoshitsune,yoshitsune,chara_table[107] (archive_03/C4/E1CBAE..+0x18090) name@+0xA0 -> EN text group 7662000; token-match on name word
+23350,6258060,Minamoto no Yoshitsune,yoshitsune,chara_table[108] (archive_03/C4/E1CBAE..+0x18428) name@+0xA0 -> EN text group 7662000; token-match on name word
+23372,4871674,Minamoto no Yoritomo,,chara_table[109] (archive_03/C4/E1CBAE..+0x187c0) name@+0xA0 -> EN text group 7662000
+23394,6485026,Tokugawa Yoshinobu,youshinobu,chara_table[110] (archive_03/C4/E1CBAE..+0x18b58) name@+0xA0 -> EN text group 7662000; token-match on name word
+23419,5783922,Saito Fuku,,chara_table[111] (archive_03/C4/E1CBAE..+0x18ef0) name@+0xA0 -> EN text group 7662000
+23426,5783922,Saito Fuku,,chara_table[112] (archive_03/C4/E1CBAE..+0x19288) name@+0xA0 -> EN text group 7662000
+23442,4557233,???,,chara_table[113] (archive_03/C4/E1CBAE..+0x19620) name@+0xA0 -> EN text group 7662000
+23449,8253105,Matsunaga Hisahide,,chara_table[114] (archive_03/C4/E1CBAE..+0x199b8) name@+0xA0 -> EN text group 7662000
+23462,7156849,Tatsumaro,,chara_table[115] (archive_03/C4/E1CBAE..+0x19d50) name@+0xA0 -> EN text group 7662000
+23481,7156849,Tatsumaro,,chara_table[116] (archive_03/C4/E1CBAE..+0x1a0e8) name@+0xA0 -> EN text group 7662000
+23512,6315249,Mysterious Ninja,,chara_table[117] (archive_03/C4/E1CBAE..+0x1a480) name@+0xA0 -> EN text group 7662000
+23537,4288433,Fuma Kotaro,kotaro,chara_table[118] (archive_03/C4/E1CBAE..+0x1a818) name@+0xA0 -> EN text group 7662000; token-match on name word
+23580,6426846,Todo Heisuke,,chara_table[119] (archive_03/C4/E1CBAE..+0x1abb0) name@+0xA0 -> EN text group 7662000
+23593,8103536,Nakane Masateru,,chara_table[120] (archive_03/C4/E1CBAE..+0x1af48) name@+0xA0 -> EN text group 7662000
+23606,6399838,Sakakibara Yasumasa,,chara_table[121] (archive_03/C4/E1CBAE..+0x1b2e0) name@+0xA0 -> EN text group 7662000
+23619,6654869,Sakai Tadatsugu,,chara_table[122] (archive_03/C4/E1CBAE..+0x1b678) name@+0xA0 -> EN text group 7662000
+23632,6810353,Thomas Glover,,chara_table[123] (archive_03/C4/E1CBAE..+0x1ba10) name@+0xA0 -> EN text group 7662000
+23645,4802801,Kusumoto Ine,,chara_table[124] (archive_03/C4/E1CBAE..+0x1bda8) name@+0xA0 -> EN text group 7662000
+23658,6453007,Rodrigo,,chara_table[125] (archive_03/C4/E1CBAE..+0x1c140) name@+0xA0 -> EN text group 7662000
+23680,8089617,Maria,maria,chara_table[126] (archive_03/C4/E1CBAE..+0x1c4d8) name@+0xA0 -> EN text group 7662000; token-match on name word
+23706,8038101,Yagyu Jubei,jube,chara_table[127] (archive_03/C4/E1CBAE..+0x1c870) name@+0xA0 -> EN text group 7662000; token-match on name word
+23731,5457192,Araki Mataemon,,chara_table[128] (archive_03/C4/E1CBAE..+0x1cc08) name@+0xA0 -> EN text group 7662000
+23763,6318434,Matsudaira Nobutsuna,,chara_table[129] (archive_03/C4/E1CBAE..+0x1cfa0) name@+0xA0 -> EN text group 7662000
+23789,5938197,Tokugawa Mitsukuni,,chara_table[130] (archive_03/C4/E1CBAE..+0x1d338) name@+0xA0 -> EN text group 7662000
+23803,7711408,Robust Spear Samurai,,chara_table[131] (archive_03/C4/E1CBAE..+0x1d6d0) name@+0xA0 -> EN text group 7662000
+23826,5276221,Rogue,,chara_table[132] (archive_03/C4/E1CBAE..+0x1da68) name@+0xA0 -> EN text group 7662000
+23905,7792789,Revenant,,chara_table[133] (archive_03/C4/E1CBAE..+0x1de00) name@+0xA0 -> EN text group 7662000
+23915,7792789,Revenant,,chara_table[134] (archive_03/C4/E1CBAE..+0x1e198) name@+0xA0 -> EN text group 7662000
+23942,4288433,Fuma Kotaro,kotaro,chara_table[135] (archive_03/C4/E1CBAE..+0x1e530) name@+0xA0 -> EN text group 7662000; token-match on name word
+23958,4541343,Ito Ittosai,,chara_table[136] (archive_03/C4/E1CBAE..+0x1e8c8) name@+0xA0 -> EN text group 7662000
+23974,7998128,Sugitani Zenjubo,,chara_table[137] (archive_03/C4/E1CBAE..+0x1ec60) name@+0xA0 -> EN text group 7662000
+23990,6979953,Taigen Sessai,,chara_table[138] (archive_03/C4/E1CBAE..+0x1eff8) name@+0xA0 -> EN text group 7662000
+24018,4287793,Aggrieved Warrior,,chara_table[139] (archive_03/C4/E1CBAE..+0x1f390) name@+0xA0 -> EN text group 7662000
+24046,5632945,Anayama Nobutada,,chara_table[140] (archive_03/C4/E1CBAE..+0x1f728) name@+0xA0 -> EN text group 7662000
+24094,5515761,Naito Masatoyo,,chara_table[141] (archive_03/C4/E1CBAE..+0x1fac0) name@+0xA0 -> EN text group 7662000
+24107,4550110,Kosaka Masanobu,masanobu,chara_table[142] (archive_03/C4/E1CBAE..+0x1fe58) name@+0xA0 -> EN text group 7662000; token-match on name word
+24120,5985055,Cavern Ascetic,,chara_table[143] (archive_03/C4/E1CBAE..+0x201f0) name@+0xA0 -> EN text group 7662000
+24157,4434161,Otazu no Kata,,chara_table[144] (archive_03/C4/E1CBAE..+0x20588) name@+0xA0 -> EN text group 7662000
+24200,7665264,Tomoe Gozen,,chara_table[145] (archive_03/C4/E1CBAE..+0x20920) name@+0xA0 -> EN text group 7662000
+24210,6904725,Demon Slayer,,chara_table[146] (archive_03/C4/E1CBAE..+0x20cb8) name@+0xA0 -> EN text group 7662000
+24235,4766193,Shinran,,chara_table[147] (archive_03/C4/E1CBAE..+0x21050) name@+0xA0 -> EN text group 7662000
+24242,7346516,Nasu no Yoichi,,chara_table[148] (archive_03/C4/E1CBAE..+0x213e8) name@+0xA0 -> EN text group 7662000
+24255,4863557,Usui Sadamitsu,,chara_table[149] (archive_03/C4/E1CBAE..+0x21780) name@+0xA0 -> EN text group 7662000
+24268,6036849,Nagakura Shinpachi,nagakura,chara_table[150] (archive_03/C4/E1CBAE..+0x21b18) name@+0xA0 -> EN text group 7662000; token-match on name word
+24281,7750935,Saito Hajime,,chara_table[151] (archive_03/C4/E1CBAE..+0x21eb0) name@+0xA0 -> EN text group 7662000
+24303,6046303,Saito Hajime,,chara_table[152] (archive_03/C4/E1CBAE..+0x22248) name@+0xA0 -> EN text group 7662000
+24328,6533982,Kondo Isami,,chara_table[153] (archive_03/C4/E1CBAE..+0x225e0) name@+0xA0 -> EN text group 7662000
+24350,4938174,Kondo Isami,,chara_table[154] (archive_03/C4/E1CBAE..+0x22978) name@+0xA0 -> EN text group 7662000
+24375,7709296,Hijikata Toshizo,,chara_table[155] (archive_03/C4/E1CBAE..+0x22d10) name@+0xA0 -> EN text group 7662000
+24400,5181180,Hijikata Toshizo,,chara_table[156] (archive_03/C4/E1CBAE..+0x230a8) name@+0xA0 -> EN text group 7662000
+24428,4581211,Ishikawa Goemon,,chara_table[157] (archive_03/C4/E1CBAE..+0x23440) name@+0xA0 -> EN text group 7662000
+24462,6450546,Sawamura Yasusuke,,chara_table[158] (archive_03/C4/E1CBAE..+0x237d8) name@+0xA0 -> EN text group 7662000
+24475,5678698,Takashima Shuhan,,chara_table[159] (archive_03/C4/E1CBAE..+0x23b70) name@+0xA0 -> EN text group 7662000
+24503,5199128,Shishido Kagetoshi,,chara_table[160] (archive_03/C4/E1CBAE..+0x23f08) name@+0xA0 -> EN text group 7662000
+24532,6798814,Takahashi Deishu,,chara_table[161] (archive_03/C4/E1CBAE..+0x242a0) name@+0xA0 -> EN text group 7662000
+24567,5535811,Tsurara-onna,,chara_table[163] (archive_03/C4/E1CBAE..+0x249d0) name@+0xA0 -> EN text group 7662000
+24595,5535811,Tsurara-onna,,chara_table[164] (archive_03/C4/E1CBAE..+0x24d68) name@+0xA0 -> EN text group 7662000
+24622,5736533,Green Shadow's Blade,,chara_table[165] (archive_03/C4/E1CBAE..+0x25100) name@+0xA0 -> EN text group 7662000
+24671,7159601,Blood-Spurting Ogin,,chara_table[166] (archive_03/C4/E1CBAE..+0x25498) name@+0xA0 -> EN text group 7662000
+24720,6282527,All-Seeing Mage,,chara_table[167] (archive_03/C4/E1CBAE..+0x25830) name@+0xA0 -> EN text group 7662000
+24775,7543854,Shinsengumi Member Hattori Takeo,,chara_table[168] (archive_03/C4/E1CBAE..+0x25bc8) name@+0xA0 -> EN text group 7662000
+24824,5960607,Kanai Hanbei,hanbe,chara_table[169] (archive_03/C4/E1CBAE..+0x25f60) name@+0xA0 -> EN text group 7662000; token-match on name word
+24853,8114051,Marubashi Chuya,chuya,chara_table[170] (archive_03/C4/E1CBAE..+0x262f8) name@+0xA0 -> EN text group 7662000; token-match on name word
+24867,5821893,Maeda Mitsutaka,,chara_table[171] (archive_03/C4/E1CBAE..+0x26690) name@+0xA0 -> EN text group 7662000
+24881,7711408,Robust Spear Samurai,,chara_table[172] (archive_03/C4/E1CBAE..+0x26a28) name@+0xA0 -> EN text group 7662000
+24913,6706569,Kawara Jurobei,jurobe;juuroube,chara_table[173] (archive_03/C4/E1CBAE..+0x26dc0) name@+0xA0 -> EN text group 7662000; token-match on name word
+24932,5465777,Nakane Masamori,,chara_table[174] (archive_03/C4/E1CBAE..+0x27158) name@+0xA0 -> EN text group 7662000
+24958,5171292,Kumagai Naoyoshi,kumagai;naoyoshi,chara_table[175] (archive_03/C4/E1CBAE..+0x274f0) name@+0xA0 -> EN text group 7662000; token-match on name word
+24972,6171935,Berenguela the Whimsical,,chara_table[176] (archive_03/C4/E1CBAE..+0x27888) name@+0xA0 -> EN text group 7662000
+24988,8114051,Marubashi Chuya,chuya,chara_table[177] (archive_03/C4/E1CBAE..+0x27c20) name@+0xA0 -> EN text group 7662000; token-match on name word
+25017,4209265,Araki Mataemon,,chara_table[178] (archive_03/C4/E1CBAE..+0x27fb8) name@+0xA0 -> EN text group 7662000
+25052,6186810,Anazawa Morihide,,chara_table[179] (archive_03/C4/E1CBAE..+0x28350) name@+0xA0 -> EN text group 7662000
+25081,5535748,Yamada Shinryuken,,chara_table[180] (archive_03/C4/E1CBAE..+0x286e8) name@+0xA0 -> EN text group 7662000
+25113,4710564,Mori Gentatsu,,chara_table[181] (archive_03/C4/E1CBAE..+0x28a80) name@+0xA0 -> EN text group 7662000
+25142,5744498,Denrinbo Raikei,,chara_table[182] (archive_03/C4/E1CBAE..+0x28e18) name@+0xA0 -> EN text group 7662000
+25174,7196465,Ooka Genzaburo,,chara_table[183] (archive_03/C4/E1CBAE..+0x291b0) name@+0xA0 -> EN text group 7662000
+25205,7196465,Ooka Genzaburo,,chara_table[184] (archive_03/C4/E1CBAE..+0x29548) name@+0xA0 -> EN text group 7662000
+25239,7797333,Rattan-Clad Ninja Oni,,chara_table[185] (archive_03/C4/E1CBAE..+0x298e0) name@+0xA0 -> EN text group 7662000
+25267,7797333,Rattan-Clad Ninja Oni,,chara_table[186] (archive_03/C4/E1CBAE..+0x29c78) name@+0xA0 -> EN text group 7662000
+25298,4906417,Jinnosuke the Shadow Slicer,,chara_table[187] (archive_03/C4/E1CBAE..+0x2a010) name@+0xA0 -> EN text group 7662000
+25329,4906417,Jinnosuke the Shadow Slicer,,chara_table[188] (archive_03/C4/E1CBAE..+0x2a3a8) name@+0xA0 -> EN text group 7662000
+25363,6312606,Iron-Fisted Rogue,,chara_table[189] (archive_03/C4/E1CBAE..+0x2a740) name@+0xA0 -> EN text group 7662000
+25382,5276221,Rogue,,chara_table[190] (archive_03/C4/E1CBAE..+0x2aad8) name@+0xA0 -> EN text group 7662000
+25455,7371376,Jailer Oni,,chara_table[191] (archive_03/C4/E1CBAE..+0x2ae70) name@+0xA0 -> EN text group 7662000
+25507,7371376,Jailer Oni,,chara_table[192] (archive_03/C4/E1CBAE..+0x2b208) name@+0xA0 -> EN text group 7662000
+25574,7371376,Jailer Oni,,chara_table[193] (archive_03/C4/E1CBAE..+0x2b5a0) name@+0xA0 -> EN text group 7662000
+25596,7371376,Jailer Oni,,chara_table[194] (archive_03/C4/E1CBAE..+0x2b938) name@+0xA0 -> EN text group 7662000
+25636,7371376,Jailer Oni,,chara_table[195] (archive_03/C4/E1CBAE..+0x2bcd0) name@+0xA0 -> EN text group 7662000
+25673,7371376,Jailer Oni,,chara_table[196] (archive_03/C4/E1CBAE..+0x2c068) name@+0xA0 -> EN text group 7662000
+25695,7371376,Jailer Oni,,chara_table[197] (archive_03/C4/E1CBAE..+0x2c400) name@+0xA0 -> EN text group 7662000
+25735,7371376,Jailer Oni,,chara_table[198] (archive_03/C4/E1CBAE..+0x2c798) name@+0xA0 -> EN text group 7662000
+25772,7371376,Jailer Oni,,chara_table[199] (archive_03/C4/E1CBAE..+0x2cb30) name@+0xA0 -> EN text group 7662000
+25794,7371376,Jailer Oni,,chara_table[200] (archive_03/C4/E1CBAE..+0x2cec8) name@+0xA0 -> EN text group 7662000
+25834,7371376,Jailer Oni,,chara_table[201] (archive_03/C4/E1CBAE..+0x2d260) name@+0xA0 -> EN text group 7662000
+25871,7371376,Jailer Oni,,chara_table[202] (archive_03/C4/E1CBAE..+0x2d5f8) name@+0xA0 -> EN text group 7662000
+25893,7371376,Jailer Oni,,chara_table[203] (archive_03/C4/E1CBAE..+0x2d990) name@+0xA0 -> EN text group 7662000
+25930,7371376,Jailer Oni,,chara_table[204] (archive_03/C4/E1CBAE..+0x2dd28) name@+0xA0 -> EN text group 7662000
+25949,7371376,Jailer Oni,,chara_table[205] (archive_03/C4/E1CBAE..+0x2e0c0) name@+0xA0 -> EN text group 7662000
+25986,7371376,Jailer Oni,,chara_table[206] (archive_03/C4/E1CBAE..+0x2e458) name@+0xA0 -> EN text group 7662000
+26020,7371376,Jailer Oni,,chara_table[207] (archive_03/C4/E1CBAE..+0x2e7f0) name@+0xA0 -> EN text group 7662000
+26066,8039637,Yamainu,,chara_table[208] (archive_03/C4/E1CBAE..+0x2eb88) name@+0xA0 -> EN text group 7662000
+26073,6444702,Raiju,,chara_table[209] (archive_03/C4/E1CBAE..+0x2ef20) name@+0xA0 -> EN text group 7662000
+26080,8359344,Nozuchi,,chara_table[210] (archive_03/C4/E1CBAE..+0x2f2b8) name@+0xA0 -> EN text group 7662000
+26090,8359344,Nozuchi,,chara_table[211] (archive_03/C4/E1CBAE..+0x2f650) name@+0xA0 -> EN text group 7662000
+26109,6001002,Yagyo Soldier,,chara_table[212] (archive_03/C4/E1CBAE..+0x2f9e8) name@+0xA0 -> EN text group 7662000
+26119,6001002,Yagyo Soldier,,chara_table[213] (archive_03/C4/E1CBAE..+0x2fd80) name@+0xA0 -> EN text group 7662000
+26136,6001002,Yagyo Soldier,,chara_table[214] (archive_03/C4/E1CBAE..+0x30118) name@+0xA0 -> EN text group 7662000
+26153,5804209,Yamabiko,,chara_table[215] (archive_03/C4/E1CBAE..+0x304b0) name@+0xA0 -> EN text group 7662000
+26166,5804209,Yamabiko,,chara_table[216] (archive_03/C4/E1CBAE..+0x30848) name@+0xA0 -> EN text group 7662000
+26197,6932017,Sunakake-baba,,chara_table[217] (archive_03/C4/E1CBAE..+0x30be0) name@+0xA0 -> EN text group 7662000
+26210,5946033,Crucible Wasp,,chara_table[218] (archive_03/C4/E1CBAE..+0x30f78) name@+0xA0 -> EN text group 7662000
+26232,5946033,Crucible Wasp,,chara_table[219] (archive_03/C4/E1CBAE..+0x31310) name@+0xA0 -> EN text group 7662000
+26251,5946033,Crucible Wasp,,chara_table[220] (archive_03/C4/E1CBAE..+0x316a8) name@+0xA0 -> EN text group 7662000
+26273,8367218,Mermaid,,chara_table[221] (archive_03/C4/E1CBAE..+0x31a40) name@+0xA0 -> EN text group 7662000
+26280,8367218,Mermaid,,chara_table[222] (archive_03/C4/E1CBAE..+0x31dd8) name@+0xA0 -> EN text group 7662000
+26296,6957659,Mikoshi Nyudo,,chara_table[223] (archive_03/C4/E1CBAE..+0x32170) name@+0xA0 -> EN text group 7662000
+26312,6957659,Mikoshi Nyudo,,chara_table[224] (archive_03/C4/E1CBAE..+0x32508) name@+0xA0 -> EN text group 7662000
+26343,6957659,Mikoshi Nyudo,,chara_table[225] (archive_03/C4/E1CBAE..+0x328a0) name@+0xA0 -> EN text group 7662000
+26374,6957659,Mikoshi Nyudo,,chara_table[226] (archive_03/C4/E1CBAE..+0x32c38) name@+0xA0 -> EN text group 7662000
+26399,6957659,Mikoshi Nyudo,,chara_table[227] (archive_03/C4/E1CBAE..+0x32fd0) name@+0xA0 -> EN text group 7662000
+26439,6957659,Mikoshi Nyudo,,chara_table[228] (archive_03/C4/E1CBAE..+0x33368) name@+0xA0 -> EN text group 7662000
+26479,6439840,Shunobon,shunobon,chara_table[229] (archive_03/C4/E1CBAE..+0x33700) name@+0xA0 -> EN text group 7662000; token-match on name word
+26498,6439840,Shunobon,shunobon,chara_table[230] (archive_03/C4/E1CBAE..+0x33a98) name@+0xA0 -> EN text group 7662000; token-match on name word
+26517,6439840,Shunobon,shunobon,chara_table[231] (archive_03/C4/E1CBAE..+0x33e30) name@+0xA0 -> EN text group 7662000; token-match on name word
+26536,6439840,Shunobon,shunobon,chara_table[232] (archive_03/C4/E1CBAE..+0x341c8) name@+0xA0 -> EN text group 7662000; token-match on name word
+26555,6439840,Shunobon,shunobon,chara_table[233] (archive_03/C4/E1CBAE..+0x34560) name@+0xA0 -> EN text group 7662000; token-match on name word
+26592,6439840,Shunobon,shunobon,chara_table[234] (archive_03/C4/E1CBAE..+0x348f8) name@+0xA0 -> EN text group 7662000; token-match on name word
+26629,6439840,Shunobon,shunobon,chara_table[235] (archive_03/C4/E1CBAE..+0x34c90) name@+0xA0 -> EN text group 7662000; token-match on name word
+26666,6439840,Shunobon,shunobon,chara_table[236] (archive_03/C4/E1CBAE..+0x35028) name@+0xA0 -> EN text group 7662000; token-match on name word
+26703,4265649,Grudge Spirit,,chara_table[237] (archive_03/C4/E1CBAE..+0x353c0) name@+0xA0 -> EN text group 7662000
+26731,4265649,Grudge Spirit,,chara_table[238] (archive_03/C4/E1CBAE..+0x35758) name@+0xA0 -> EN text group 7662000
+26798,5363761,Ichimokuren,,chara_table[239] (archive_03/C4/E1CBAE..+0x35af0) name@+0xA0 -> EN text group 7662000
+26808,4494979,Gaki,,chara_table[240] (archive_03/C4/E1CBAE..+0x35e88) name@+0xA0 -> EN text group 7662000
+26815,4494979,Gaki,,chara_table[241] (archive_03/C4/E1CBAE..+0x36220) name@+0xA0 -> EN text group 7662000
+26827,4494979,Gaki,,chara_table[242] (archive_03/C4/E1CBAE..+0x365b8) name@+0xA0 -> EN text group 7662000
+26849,4387231,Thorned Gaki,,chara_table[243] (archive_03/C4/E1CBAE..+0x36950) name@+0xA0 -> EN text group 7662000
+26889,4494979,Gaki,,chara_table[244] (archive_03/C4/E1CBAE..+0x36ce8) name@+0xA0 -> EN text group 7662000
+26932,4494979,Gaki,,chara_table[245] (archive_03/C4/E1CBAE..+0x37080) name@+0xA0 -> EN text group 7662000
+26959,4494979,Gaki,,chara_table[246] (archive_03/C4/E1CBAE..+0x37418) name@+0xA0 -> EN text group 7662000
+26987,4387231,Thorned Gaki,,chara_table[247] (archive_03/C4/E1CBAE..+0x377b0) name@+0xA0 -> EN text group 7662000
+27006,4387231,Thorned Gaki,,chara_table[248] (archive_03/C4/E1CBAE..+0x37b48) name@+0xA0 -> EN text group 7662000
+27037,4387231,Thorned Gaki,,chara_table[249] (archive_03/C4/E1CBAE..+0x37ee0) name@+0xA0 -> EN text group 7662000
+27074,4387231,Thorned Gaki,,chara_table[250] (archive_03/C4/E1CBAE..+0x38278) name@+0xA0 -> EN text group 7662000
+27120,4589105,Gaki Chief,,chara_table[251] (archive_03/C4/E1CBAE..+0x38610) name@+0xA0 -> EN text group 7662000
+27154,4589105,Gaki Chief,,chara_table[252] (archive_03/C4/E1CBAE..+0x389a8) name@+0xA0 -> EN text group 7662000
+27228,4589105,Gaki Chief,,chara_table[253] (archive_03/C4/E1CBAE..+0x38d40) name@+0xA0 -> EN text group 7662000
+27302,4589105,Gaki Chief,,chara_table[254] (archive_03/C4/E1CBAE..+0x390d8) name@+0xA0 -> EN text group 7662000
+27376,4589105,Gaki Chief,,chara_table[255] (archive_03/C4/E1CBAE..+0x39470) name@+0xA0 -> EN text group 7662000
+27450,4589105,Gaki Chief,,chara_table[256] (archive_03/C4/E1CBAE..+0x39808) name@+0xA0 -> EN text group 7662000
+27524,4589105,Gaki Chief,,chara_table[257] (archive_03/C4/E1CBAE..+0x39ba0) name@+0xA0 -> EN text group 7662000
+27598,4589105,Gaki Chief,,chara_table[258] (archive_03/C4/E1CBAE..+0x39f38) name@+0xA0 -> EN text group 7662000
+27635,4589105,Gaki Chief,,chara_table[259] (archive_03/C4/E1CBAE..+0x3a2d0) name@+0xA0 -> EN text group 7662000
+27712,4589105,Gaki Chief,,chara_table[260] (archive_03/C4/E1CBAE..+0x3a668) name@+0xA0 -> EN text group 7662000
+27789,4589105,Gaki Chief,,chara_table[261] (archive_03/C4/E1CBAE..+0x3aa00) name@+0xA0 -> EN text group 7662000
+27866,4589105,Gaki Chief,,chara_table[262] (archive_03/C4/E1CBAE..+0x3ad98) name@+0xA0 -> EN text group 7662000
+27943,4589105,Gaki Chief,,chara_table[263] (archive_03/C4/E1CBAE..+0x3b130) name@+0xA0 -> EN text group 7662000
+28020,4589105,Gaki Chief,,chara_table[264] (archive_03/C4/E1CBAE..+0x3b4c8) name@+0xA0 -> EN text group 7662000
+28097,4589105,Gaki Chief,,chara_table[265] (archive_03/C4/E1CBAE..+0x3b860) name@+0xA0 -> EN text group 7662000
+28140,4589105,Gaki Chief,,chara_table[266] (archive_03/C4/E1CBAE..+0x3bbf8) name@+0xA0 -> EN text group 7662000
+28223,4589105,Gaki Chief,,chara_table[267] (archive_03/C4/E1CBAE..+0x3bf90) name@+0xA0 -> EN text group 7662000
+28306,4589105,Gaki Chief,,chara_table[268] (archive_03/C4/E1CBAE..+0x3c328) name@+0xA0 -> EN text group 7662000
+28389,4589105,Gaki Chief,,chara_table[269] (archive_03/C4/E1CBAE..+0x3c6c0) name@+0xA0 -> EN text group 7662000
+28472,4589105,Gaki Chief,,chara_table[270] (archive_03/C4/E1CBAE..+0x3ca58) name@+0xA0 -> EN text group 7662000
+28555,4589105,Gaki Chief,,chara_table[271] (archive_03/C4/E1CBAE..+0x3cdf0) name@+0xA0 -> EN text group 7662000
+28704,5526337,Yoki,,chara_table[275] (archive_03/C4/E1CBAE..+0x3dc50) name@+0xA0 -> EN text group 7662000
+28726,5526337,Yoki,,chara_table[276] (archive_03/C4/E1CBAE..+0x3dfe8) name@+0xA0 -> EN text group 7662000
+28748,5526337,Yoki,,chara_table[277] (archive_03/C4/E1CBAE..+0x3e380) name@+0xA0 -> EN text group 7662000
+28770,5526337,Yoki,,chara_table[278] (archive_03/C4/E1CBAE..+0x3e718) name@+0xA0 -> EN text group 7662000
+28792,4654710,Ninja Yoki,,chara_table[279] (archive_03/C4/E1CBAE..+0x3eab0) name@+0xA0 -> EN text group 7662000
+28814,4654710,Ninja Yoki,,chara_table[280] (archive_03/C4/E1CBAE..+0x3ee48) name@+0xA0 -> EN text group 7662000
+28836,4654710,Ninja Yoki,,chara_table[281] (archive_03/C4/E1CBAE..+0x3f1e0) name@+0xA0 -> EN text group 7662000
+28867,5795248,Skeleton Warrior,,chara_table[282] (archive_03/C4/E1CBAE..+0x3f578) name@+0xA0 -> EN text group 7662000
+28892,5795248,Skeleton Warrior,,chara_table[283] (archive_03/C4/E1CBAE..+0x3f910) name@+0xA0 -> EN text group 7662000
+28923,5795248,Skeleton Warrior,,chara_table[284] (archive_03/C4/E1CBAE..+0x3fca8) name@+0xA0 -> EN text group 7662000
+28954,5795248,Skeleton Warrior,,chara_table[285] (archive_03/C4/E1CBAE..+0x40040) name@+0xA0 -> EN text group 7662000
+28988,5795248,Skeleton Warrior,,chara_table[286] (archive_03/C4/E1CBAE..+0x403d8) name@+0xA0 -> EN text group 7662000
+29013,5795248,Skeleton Warrior,,chara_table[287] (archive_03/C4/E1CBAE..+0x40770) name@+0xA0 -> EN text group 7662000
+29038,5795248,Skeleton Warrior,,chara_table[288] (archive_03/C4/E1CBAE..+0x40b08) name@+0xA0 -> EN text group 7662000
+29072,5795248,Skeleton Warrior,,chara_table[289] (archive_03/C4/E1CBAE..+0x40ea0) name@+0xA0 -> EN text group 7662000
+29112,5795248,Skeleton Warrior,,chara_table[290] (archive_03/C4/E1CBAE..+0x41238) name@+0xA0 -> EN text group 7662000
+29152,5795248,Skeleton Warrior,,chara_table[291] (archive_03/C4/E1CBAE..+0x415d0) name@+0xA0 -> EN text group 7662000
+29195,5795248,Skeleton Warrior,,chara_table[292] (archive_03/C4/E1CBAE..+0x41968) name@+0xA0 -> EN text group 7662000
+29229,5795248,Skeleton Warrior,,chara_table[293] (archive_03/C4/E1CBAE..+0x41d00) name@+0xA0 -> EN text group 7662000
+29263,6241999,Kyokotsu,,chara_table[294] (archive_03/C4/E1CBAE..+0x42098) name@+0xA0 -> EN text group 7662000
+29270,5817646,Dweller,,chara_table[295] (archive_03/C4/E1CBAE..+0x42430) name@+0xA0 -> EN text group 7662000
+29280,5817646,Dweller,,chara_table[296] (archive_03/C4/E1CBAE..+0x427c8) name@+0xA0 -> EN text group 7662000
+29305,5817646,Dweller,,chara_table[297] (archive_03/C4/E1CBAE..+0x42b60) name@+0xA0 -> EN text group 7662000
+29321,5595934,Akaname,,chara_table[298] (archive_03/C4/E1CBAE..+0x42ef8) name@+0xA0 -> EN text group 7662000
+29341,5595934,Akaname,,chara_table[300] (archive_03/C4/E1CBAE..+0x43628) name@+0xA0 -> EN text group 7662000
+29360,5817646,Dweller,,chara_table[301] (archive_03/C4/E1CBAE..+0x439c0) name@+0xA0 -> EN text group 7662000
+29394,5817646,Dweller,,chara_table[302] (archive_03/C4/E1CBAE..+0x43d58) name@+0xA0 -> EN text group 7662000
+29428,4872401,Oni-bi,,chara_table[303] (archive_03/C4/E1CBAE..+0x440f0) name@+0xA0 -> EN text group 7662000
+29441,4872401,Oni-bi,,chara_table[304] (archive_03/C4/E1CBAE..+0x44488) name@+0xA0 -> EN text group 7662000
+29454,4872401,Oni-bi,,chara_table[305] (archive_03/C4/E1CBAE..+0x44820) name@+0xA0 -> EN text group 7662000
+29467,4872401,Oni-bi,,chara_table[306] (archive_03/C4/E1CBAE..+0x44bb8) name@+0xA0 -> EN text group 7662000
+29480,4872401,Oni-bi,,chara_table[307] (archive_03/C4/E1CBAE..+0x44f50) name@+0xA0 -> EN text group 7662000
+29508,4872401,Oni-bi,,chara_table[308] (archive_03/C4/E1CBAE..+0x452e8) name@+0xA0 -> EN text group 7662000
+29536,4872401,Oni-bi,,chara_table[309] (archive_03/C4/E1CBAE..+0x45680) name@+0xA0 -> EN text group 7662000
+29564,4872401,Oni-bi,,chara_table[310] (archive_03/C4/E1CBAE..+0x45a18) name@+0xA0 -> EN text group 7662000
+29592,4872401,Oni-bi,,chara_table[311] (archive_03/C4/E1CBAE..+0x45db0) name@+0xA0 -> EN text group 7662000
+29631,4872401,Oni-bi,,chara_table[312] (archive_03/C4/E1CBAE..+0x46148) name@+0xA0 -> EN text group 7662000
+29670,4872401,Oni-bi,,chara_table[313] (archive_03/C4/E1CBAE..+0x464e0) name@+0xA0 -> EN text group 7662000
+29722,4739818,Lesser Umi-bozu,,chara_table[314] (archive_03/C4/E1CBAE..+0x46878) name@+0xA0 -> EN text group 7662000
+29732,4739818,Lesser Umi-bozu,,chara_table[315] (archive_03/C4/E1CBAE..+0x46c10) name@+0xA0 -> EN text group 7662000
+29760,5851204,Karasu Tengu,,chara_table[316] (archive_03/C4/E1CBAE..+0x46fa8) name@+0xA0 -> EN text group 7662000
+29770,5851204,Karasu Tengu,,chara_table[317] (archive_03/C4/E1CBAE..+0x47340) name@+0xA0 -> EN text group 7662000
+29789,5851204,Karasu Tengu,,chara_table[318] (archive_03/C4/E1CBAE..+0x476d8) name@+0xA0 -> EN text group 7662000
+29825,5257690,Wheelmonk,,chara_table[319] (archive_03/C4/E1CBAE..+0x47a70) name@+0xA0 -> EN text group 7662000
+29835,7903833,Ippon-Datara,,chara_table[320] (archive_03/C4/E1CBAE..+0x47e08) name@+0xA0 -> EN text group 7662000
+29875,7903833,Ippon-Datara,,chara_table[321] (archive_03/C4/E1CBAE..+0x481a0) name@+0xA0 -> EN text group 7662000
+29924,7903833,Ippon-Datara,,chara_table[322] (archive_03/C4/E1CBAE..+0x48538) name@+0xA0 -> EN text group 7662000
+29952,7903833,Ippon-Datara,,chara_table[323] (archive_03/C4/E1CBAE..+0x488d0) name@+0xA0 -> EN text group 7662000
+29995,7903833,Ippon-Datara,,chara_table[324] (archive_03/C4/E1CBAE..+0x48c68) name@+0xA0 -> EN text group 7662000
+30020,6523157,Bakegani,,chara_table[325] (archive_03/C4/E1CBAE..+0x49000) name@+0xA0 -> EN text group 7662000
+30030,6523157,Bakegani,,chara_table[326] (archive_03/C4/E1CBAE..+0x49398) name@+0xA0 -> EN text group 7662000
+30049,6523157,Bakegani,,chara_table[327] (archive_03/C4/E1CBAE..+0x49730) name@+0xA0 -> EN text group 7662000
+30077,6523157,Bakegani,,chara_table[328] (archive_03/C4/E1CBAE..+0x49ac8) name@+0xA0 -> EN text group 7662000
+30114,6523157,Bakegani,,chara_table[329] (archive_03/C4/E1CBAE..+0x49e60) name@+0xA0 -> EN text group 7662000
+30130,6523157,Bakegani,,chara_table[330] (archive_03/C4/E1CBAE..+0x4a1f8) name@+0xA0 -> EN text group 7662000
+30155,6523157,Bakegani,,chara_table[331] (archive_03/C4/E1CBAE..+0x4a590) name@+0xA0 -> EN text group 7662000
+30189,6523157,Bakegani,,chara_table[332] (archive_03/C4/E1CBAE..+0x4a928) name@+0xA0 -> EN text group 7662000
+30232,6542043,Enemy A,,chara_table[333] (archive_03/C4/E1CBAE..+0x4acc0) name@+0xA0 -> EN text group 7662000
+30255,8019620,Nure-onna,,chara_table[334] (archive_03/C4/E1CBAE..+0x4b058) name@+0xA0 -> EN text group 7662000
+30265,6327261,Enki,,chara_table[335] (archive_03/C4/E1CBAE..+0x4b3f0) name@+0xA0 -> EN text group 7662000
+30272,6717556,One-eyed Imp,,chara_table[336] (archive_03/C4/E1CBAE..+0x4b788) name@+0xA0 -> EN text group 7662000
+30295,6717556,One-eyed Imp,,chara_table[337] (archive_03/C4/E1CBAE..+0x4bb20) name@+0xA0 -> EN text group 7662000
+30336,6717556,One-eyed Imp,,chara_table[338] (archive_03/C4/E1CBAE..+0x4beb8) name@+0xA0 -> EN text group 7662000
+30383,6717556,One-eyed Imp,,chara_table[339] (archive_03/C4/E1CBAE..+0x4c250) name@+0xA0 -> EN text group 7662000
+30408,4253014,One-eyed Oni,,chara_table[340] (archive_03/C4/E1CBAE..+0x4c5e8) name@+0xA0 -> EN text group 7662000
+30421,7765616,Saigo Takamori,saigo,chara_table[341] (archive_03/C4/E1CBAE..+0x4c980) name@+0xA0 -> EN text group 7662000; token-match on name word
+30452,6632291,Snowclops,,chara_table[342] (archive_03/C4/E1CBAE..+0x4cd18) name@+0xA0 -> EN text group 7662000
+30462,4253014,One-eyed Oni,,chara_table[343] (archive_03/C4/E1CBAE..+0x4d0b0) name@+0xA0 -> EN text group 7662000
+30484,6632291,Snowclops,,chara_table[344] (archive_03/C4/E1CBAE..+0x4d448) name@+0xA0 -> EN text group 7662000
+30500,6419195,Sentry,,chara_table[345] (archive_03/C4/E1CBAE..+0x4d7e0) name@+0xA0 -> EN text group 7662000
+30507,6419195,Sentry,,chara_table[346] (archive_03/C4/E1CBAE..+0x4db78) name@+0xA0 -> EN text group 7662000
+30520,6903301,Itsumade,,chara_table[347] (archive_03/C4/E1CBAE..+0x4df10) name@+0xA0 -> EN text group 7662000
+30533,6903301,Itsumade,,chara_table[348] (archive_03/C4/E1CBAE..+0x4e2a8) name@+0xA0 -> EN text group 7662000
+30555,8248224,Konaki-Jiji,,chara_table[349] (archive_03/C4/E1CBAE..+0x4e640) name@+0xA0 -> EN text group 7662000
+30568,8248224,Konaki-Jiji,,chara_table[350] (archive_03/C4/E1CBAE..+0x4e9d8) name@+0xA0 -> EN text group 7662000
+30602,5656105,Yamanba,,chara_table[351] (archive_03/C4/E1CBAE..+0x4ed70) name@+0xA0 -> EN text group 7662000
+30609,7680565,Waira,,chara_table[352] (archive_03/C4/E1CBAE..+0x4f108) name@+0xA0 -> EN text group 7662000
+30619,4744466,Koroka,,chara_table[353] (archive_03/C4/E1CBAE..+0x4f4a0) name@+0xA0 -> EN text group 7662000
+30629,4744466,Koroka,,chara_table[354] (archive_03/C4/E1CBAE..+0x4f838) name@+0xA0 -> EN text group 7662000
+30648,5973603,Ubume,,chara_table[355] (archive_03/C4/E1CBAE..+0x4fbd0) name@+0xA0 -> EN text group 7662000
+30658,5973603,Ubume,,chara_table[356] (archive_03/C4/E1CBAE..+0x4ff68) name@+0xA0 -> EN text group 7662000
+30689,5535811,Tsurara-onna,,chara_table[357] (archive_03/C4/E1CBAE..+0x50300) name@+0xA0 -> EN text group 7662000
+30702,4683043,Flying Bolt,,chara_table[358] (archive_03/C4/E1CBAE..+0x50698) name@+0xA0 -> EN text group 7662000
+30715,4683043,Flying Bolt,,chara_table[359] (archive_03/C4/E1CBAE..+0x50a30) name@+0xA0 -> EN text group 7662000
+30743,5639683,Karakasa Umbrella,,chara_table[360] (archive_03/C4/E1CBAE..+0x50dc8) name@+0xA0 -> EN text group 7662000
+30765,5639683,Karakasa Umbrella,,chara_table[361] (archive_03/C4/E1CBAE..+0x51160) name@+0xA0 -> EN text group 7662000
+30787,6818641,Magatsu Warrior,magatsu,chara_table[362] (archive_03/C4/E1CBAE..+0x514f8) name@+0xA0 -> EN text group 7662000; token-match on name word
+30800,6818641,Magatsu Warrior,magatsu,chara_table[363] (archive_03/C4/E1CBAE..+0x51890) name@+0xA0 -> EN text group 7662000; token-match on name word
+30831,7596528,Bloodedge Demon,,chara_table[364] (archive_03/C4/E1CBAE..+0x51c28) name@+0xA0 -> EN text group 7662000
+30844,7596528,Bloodedge Demon,,chara_table[365] (archive_03/C4/E1CBAE..+0x51fc0) name@+0xA0 -> EN text group 7662000
+30875,6186421,Spider,,chara_table[366] (archive_03/C4/E1CBAE..+0x52358) name@+0xA0 -> EN text group 7662000
+30891,6186421,Spider,,chara_table[367] (archive_03/C4/E1CBAE..+0x526f0) name@+0xA0 -> EN text group 7662000
+30907,6186421,Spider,,chara_table[368] (archive_03/C4/E1CBAE..+0x52a88) name@+0xA0 -> EN text group 7662000
+30923,8147678,Nuppeppo,,chara_table[369] (archive_03/C4/E1CBAE..+0x52e20) name@+0xA0 -> EN text group 7662000
+30942,8292503,Yasha,,chara_table[370] (archive_03/C4/E1CBAE..+0x531b8) name@+0xA0 -> EN text group 7662000
+30949,8292503,Yasha,,chara_table[371] (archive_03/C4/E1CBAE..+0x53550) name@+0xA0 -> EN text group 7662000
+30965,4776730,Tesso,,chara_table[372] (archive_03/C4/E1CBAE..+0x538e8) name@+0xA0 -> EN text group 7662000
+30972,8076336,Gamatsuki,,chara_table[373] (archive_03/C4/E1CBAE..+0x53c80) name@+0xA0 -> EN text group 7662000
+30982,6909832,Aberrant Soldier,,chara_table[374] (archive_03/C4/E1CBAE..+0x54018) name@+0xA0 -> EN text group 7662000
+31004,6909832,Aberrant Soldier,,chara_table[375] (archive_03/C4/E1CBAE..+0x543b0) name@+0xA0 -> EN text group 7662000
+31026,6909832,Aberrant Soldier,,chara_table[376] (archive_03/C4/E1CBAE..+0x54748) name@+0xA0 -> EN text group 7662000
+31048,6909832,Aberrant Soldier,,chara_table[377] (archive_03/C4/E1CBAE..+0x54ae0) name@+0xA0 -> EN text group 7662000
+31076,6909832,Aberrant Soldier,,chara_table[378] (archive_03/C4/E1CBAE..+0x54e78) name@+0xA0 -> EN text group 7662000
+31119,6909832,Aberrant Soldier,,chara_table[379] (archive_03/C4/E1CBAE..+0x55210) name@+0xA0 -> EN text group 7662000
+31147,6909832,Aberrant Soldier,,chara_table[380] (archive_03/C4/E1CBAE..+0x555a8) name@+0xA0 -> EN text group 7662000
+31196,6909832,Aberrant Soldier,,chara_table[381] (archive_03/C4/E1CBAE..+0x55940) name@+0xA0 -> EN text group 7662000
+31260,6909832,Aberrant Soldier,,chara_table[382] (archive_03/C4/E1CBAE..+0x55cd8) name@+0xA0 -> EN text group 7662000
+31309,6909832,Aberrant Soldier,,chara_table[383] (archive_03/C4/E1CBAE..+0x56070) name@+0xA0 -> EN text group 7662000
+31337,6909832,Aberrant Soldier,,chara_table[384] (archive_03/C4/E1CBAE..+0x56408) name@+0xA0 -> EN text group 7662000
+31380,6909832,Aberrant Soldier,,chara_table[385] (archive_03/C4/E1CBAE..+0x567a0) name@+0xA0 -> EN text group 7662000
+31408,6909832,Aberrant Soldier,,chara_table[386] (archive_03/C4/E1CBAE..+0x56b38) name@+0xA0 -> EN text group 7662000
+31457,6909832,Aberrant Soldier,,chara_table[387] (archive_03/C4/E1CBAE..+0x56ed0) name@+0xA0 -> EN text group 7662000
+31521,6909832,Aberrant Soldier,,chara_table[388] (archive_03/C4/E1CBAE..+0x57268) name@+0xA0 -> EN text group 7662000
+31570,6909832,Aberrant Soldier,,chara_table[389] (archive_03/C4/E1CBAE..+0x57600) name@+0xA0 -> EN text group 7662000
+31607,6909832,Aberrant Soldier,,chara_table[390] (archive_03/C4/E1CBAE..+0x57998) name@+0xA0 -> EN text group 7662000
+31659,6909832,Aberrant Soldier,,chara_table[391] (archive_03/C4/E1CBAE..+0x57d30) name@+0xA0 -> EN text group 7662000
+31696,6909832,Aberrant Soldier,,chara_table[392] (archive_03/C4/E1CBAE..+0x580c8) name@+0xA0 -> EN text group 7662000
+31724,6909832,Aberrant Soldier,,chara_table[393] (archive_03/C4/E1CBAE..+0x58460) name@+0xA0 -> EN text group 7662000
+31767,6909832,Aberrant Soldier,,chara_table[394] (archive_03/C4/E1CBAE..+0x587f8) name@+0xA0 -> EN text group 7662000
+31795,6909832,Aberrant Soldier,,chara_table[395] (archive_03/C4/E1CBAE..+0x58b90) name@+0xA0 -> EN text group 7662000
+31844,6909832,Aberrant Soldier,,chara_table[396] (archive_03/C4/E1CBAE..+0x58f28) name@+0xA0 -> EN text group 7662000
+31908,6909832,Aberrant Soldier,,chara_table[397] (archive_03/C4/E1CBAE..+0x592c0) name@+0xA0 -> EN text group 7662000
+31957,6001002,Yagyo Soldier,,chara_table[398] (archive_03/C4/E1CBAE..+0x59658) name@+0xA0 -> EN text group 7662000
+31967,5276221,Rogue,,chara_table[399] (archive_03/C4/E1CBAE..+0x599f0) name@+0xA0 -> EN text group 7662000
+32040,7200634,Outlaw,,chara_table[400] (archive_03/C4/E1CBAE..+0x59d88) name@+0xA0 -> EN text group 7662000
+32082,7200634,Outlaw,,chara_table[401] (archive_03/C4/E1CBAE..+0x5a120) name@+0xA0 -> EN text group 7662000
+32136,7200634,Outlaw,,chara_table[402] (archive_03/C4/E1CBAE..+0x5a4b8) name@+0xA0 -> EN text group 7662000
+32187,7200634,Outlaw,,chara_table[403] (archive_03/C4/E1CBAE..+0x5a850) name@+0xA0 -> EN text group 7662000
+32217,7200634,Outlaw,,chara_table[404] (archive_03/C4/E1CBAE..+0x5abe8) name@+0xA0 -> EN text group 7662000
+32259,7200634,Outlaw,,chara_table[405] (archive_03/C4/E1CBAE..+0x5af80) name@+0xA0 -> EN text group 7662000
+32323,7200634,Outlaw,,chara_table[406] (archive_03/C4/E1CBAE..+0x5b318) name@+0xA0 -> EN text group 7662000
+32402,7200634,Outlaw,,chara_table[407] (archive_03/C4/E1CBAE..+0x5b6b0) name@+0xA0 -> EN text group 7662000
+32442,7200634,Outlaw,,chara_table[408] (archive_03/C4/E1CBAE..+0x5ba48) name@+0xA0 -> EN text group 7662000
+32484,7200634,Outlaw,,chara_table[409] (archive_03/C4/E1CBAE..+0x5bde0) name@+0xA0 -> EN text group 7662000
+32532,7200634,Outlaw,,chara_table[410] (archive_03/C4/E1CBAE..+0x5c178) name@+0xA0 -> EN text group 7662000
+32577,7200634,Outlaw,,chara_table[411] (archive_03/C4/E1CBAE..+0x5c510) name@+0xA0 -> EN text group 7662000
+32613,7200634,Outlaw,,chara_table[412] (archive_03/C4/E1CBAE..+0x5c8a8) name@+0xA0 -> EN text group 7662000
+32655,7200634,Outlaw,,chara_table[413] (archive_03/C4/E1CBAE..+0x5cc40) name@+0xA0 -> EN text group 7662000
+32694,7200634,Outlaw,,chara_table[414] (archive_03/C4/E1CBAE..+0x5cfd8) name@+0xA0 -> EN text group 7662000
+32720,7200634,Outlaw,,chara_table[415] (archive_03/C4/E1CBAE..+0x5d370) name@+0xA0 -> EN text group 7662000
+32758,7200634,Outlaw,,chara_table[416] (archive_03/C4/E1CBAE..+0x5d708) name@+0xA0 -> EN text group 7662000
+32790,7200634,Outlaw,,chara_table[417] (archive_03/C4/E1CBAE..+0x5daa0) name@+0xA0 -> EN text group 7662000
+32816,7200634,Outlaw,,chara_table[418] (archive_03/C4/E1CBAE..+0x5de38) name@+0xA0 -> EN text group 7662000
+32854,7200634,Outlaw,,chara_table[419] (archive_03/C4/E1CBAE..+0x5e1d0) name@+0xA0 -> EN text group 7662000
+32886,7200634,Outlaw,,chara_table[420] (archive_03/C4/E1CBAE..+0x5e568) name@+0xA0 -> EN text group 7662000
+32928,7200634,Outlaw,,chara_table[421] (archive_03/C4/E1CBAE..+0x5e900) name@+0xA0 -> EN text group 7662000
+32982,7200634,Outlaw,,chara_table[422] (archive_03/C4/E1CBAE..+0x5ec98) name@+0xA0 -> EN text group 7662000
+33012,7200634,Outlaw,,chara_table[423] (archive_03/C4/E1CBAE..+0x5f030) name@+0xA0 -> EN text group 7662000
+33057,7200634,Outlaw,,chara_table[424] (archive_03/C4/E1CBAE..+0x5f3c8) name@+0xA0 -> EN text group 7662000
+33114,7200634,Outlaw,,chara_table[425] (archive_03/C4/E1CBAE..+0x5f760) name@+0xA0 -> EN text group 7662000
+33147,7200634,Outlaw,,chara_table[426] (archive_03/C4/E1CBAE..+0x5faf8) name@+0xA0 -> EN text group 7662000
+33213,7200634,Outlaw,,chara_table[427] (archive_03/C4/E1CBAE..+0x5fe90) name@+0xA0 -> EN text group 7662000
+33291,7200634,Outlaw,,chara_table[428] (archive_03/C4/E1CBAE..+0x60228) name@+0xA0 -> EN text group 7662000
+33345,7200634,Outlaw,,chara_table[429] (archive_03/C4/E1CBAE..+0x605c0) name@+0xA0 -> EN text group 7662000
+33378,5276221,Rogue,,chara_table[430] (archive_03/C4/E1CBAE..+0x60958) name@+0xA0 -> EN text group 7662000
+33401,5276221,Rogue,,chara_table[431] (archive_03/C4/E1CBAE..+0x60cf0) name@+0xA0 -> EN text group 7662000
+33424,5276221,Rogue,,chara_table[432] (archive_03/C4/E1CBAE..+0x61088) name@+0xA0 -> EN text group 7662000
+33447,5276221,Rogue,,chara_table[433] (archive_03/C4/E1CBAE..+0x61420) name@+0xA0 -> EN text group 7662000
+33473,5276221,Rogue,,chara_table[434] (archive_03/C4/E1CBAE..+0x617b8) name@+0xA0 -> EN text group 7662000
+33499,5276221,Rogue,,chara_table[435] (archive_03/C4/E1CBAE..+0x61b50) name@+0xA0 -> EN text group 7662000
+33525,5276221,Rogue,,chara_table[436] (archive_03/C4/E1CBAE..+0x61ee8) name@+0xA0 -> EN text group 7662000
+33548,5276221,Rogue,,chara_table[437] (archive_03/C4/E1CBAE..+0x62280) name@+0xA0 -> EN text group 7662000
+33571,5276221,Rogue,,chara_table[438] (archive_03/C4/E1CBAE..+0x62618) name@+0xA0 -> EN text group 7662000
+33594,5276221,Rogue,,chara_table[439] (archive_03/C4/E1CBAE..+0x629b0) name@+0xA0 -> EN text group 7662000
+33617,5276221,Rogue,,chara_table[440] (archive_03/C4/E1CBAE..+0x62d48) name@+0xA0 -> EN text group 7662000
+33640,5276221,Rogue,,chara_table[441] (archive_03/C4/E1CBAE..+0x630e0) name@+0xA0 -> EN text group 7662000
+33663,5276221,Rogue,,chara_table[442] (archive_03/C4/E1CBAE..+0x63478) name@+0xA0 -> EN text group 7662000
+33686,5276221,Rogue,,chara_table[443] (archive_03/C4/E1CBAE..+0x63810) name@+0xA0 -> EN text group 7662000
+33709,5276221,Rogue,,chara_table[444] (archive_03/C4/E1CBAE..+0x63ba8) name@+0xA0 -> EN text group 7662000
+33732,5276221,Rogue,,chara_table[445] (archive_03/C4/E1CBAE..+0x63f40) name@+0xA0 -> EN text group 7662000
+33755,5276221,Rogue,,chara_table[446] (archive_03/C4/E1CBAE..+0x642d8) name@+0xA0 -> EN text group 7662000
+33778,5276221,Rogue,,chara_table[447] (archive_03/C4/E1CBAE..+0x64670) name@+0xA0 -> EN text group 7662000
+33804,5276221,Rogue,,chara_table[448] (archive_03/C4/E1CBAE..+0x64a08) name@+0xA0 -> EN text group 7662000
+33830,5276221,Rogue,,chara_table[449] (archive_03/C4/E1CBAE..+0x64da0) name@+0xA0 -> EN text group 7662000
+33856,5276221,Rogue,,chara_table[450] (archive_03/C4/E1CBAE..+0x65138) name@+0xA0 -> EN text group 7662000
+33885,5276221,Rogue,,chara_table[451] (archive_03/C4/E1CBAE..+0x654d0) name@+0xA0 -> EN text group 7662000
+33932,5276221,Rogue,,chara_table[452] (archive_03/C4/E1CBAE..+0x65868) name@+0xA0 -> EN text group 7662000
+33979,5276221,Rogue,,chara_table[453] (archive_03/C4/E1CBAE..+0x65c00) name@+0xA0 -> EN text group 7662000
+34026,5276221,Rogue,,chara_table[454] (archive_03/C4/E1CBAE..+0x65f98) name@+0xA0 -> EN text group 7662000
+34056,5276221,Rogue,,chara_table[455] (archive_03/C4/E1CBAE..+0x66330) name@+0xA0 -> EN text group 7662000
+34101,5276221,Rogue,,chara_table[456] (archive_03/C4/E1CBAE..+0x666c8) name@+0xA0 -> EN text group 7662000
+34148,5276221,Rogue,,chara_table[457] (archive_03/C4/E1CBAE..+0x66a60) name@+0xA0 -> EN text group 7662000
+34196,7003112,Tokugawa Soldier,,chara_table[458] (archive_03/C4/E1CBAE..+0x66df8) name@+0xA0 -> EN text group 7662000
+34228,7003112,Tokugawa Soldier,,chara_table[459] (archive_03/C4/E1CBAE..+0x67190) name@+0xA0 -> EN text group 7662000
+34260,5213791,Tokugawa Soldier,,chara_table[460] (archive_03/C4/E1CBAE..+0x67528) name@+0xA0 -> EN text group 7662000
+34280,5213791,Tokugawa Soldier,,chara_table[461] (archive_03/C4/E1CBAE..+0x678c0) name@+0xA0 -> EN text group 7662000
+34300,5213791,Tokugawa Soldier,,chara_table[462] (archive_03/C4/E1CBAE..+0x67c58) name@+0xA0 -> EN text group 7662000
+34320,5213791,Tokugawa Soldier,,chara_table[463] (archive_03/C4/E1CBAE..+0x67ff0) name@+0xA0 -> EN text group 7662000
+34343,5213791,Tokugawa Soldier,,chara_table[464] (archive_03/C4/E1CBAE..+0x68388) name@+0xA0 -> EN text group 7662000
+34369,5213791,Tokugawa Soldier,,chara_table[465] (archive_03/C4/E1CBAE..+0x68720) name@+0xA0 -> EN text group 7662000
+34401,5213791,Tokugawa Soldier,,chara_table[466] (archive_03/C4/E1CBAE..+0x68ab8) name@+0xA0 -> EN text group 7662000
+34430,5213791,Tokugawa Soldier,,chara_table[467] (archive_03/C4/E1CBAE..+0x68e50) name@+0xA0 -> EN text group 7662000
+34462,5213791,Tokugawa Soldier,,chara_table[468] (archive_03/C4/E1CBAE..+0x691e8) name@+0xA0 -> EN text group 7662000
+34482,5213791,Tokugawa Soldier,,chara_table[469] (archive_03/C4/E1CBAE..+0x69580) name@+0xA0 -> EN text group 7662000
+34502,5213791,Tokugawa Soldier,,chara_table[470] (archive_03/C4/E1CBAE..+0x69918) name@+0xA0 -> EN text group 7662000
+34522,5213791,Tokugawa Soldier,,chara_table[471] (archive_03/C4/E1CBAE..+0x69cb0) name@+0xA0 -> EN text group 7662000
+34545,5213791,Tokugawa Soldier,,chara_table[472] (archive_03/C4/E1CBAE..+0x6a048) name@+0xA0 -> EN text group 7662000
+34571,5213791,Tokugawa Soldier,,chara_table[473] (archive_03/C4/E1CBAE..+0x6a3e0) name@+0xA0 -> EN text group 7662000
+34597,5213791,Tokugawa Soldier,,chara_table[474] (archive_03/C4/E1CBAE..+0x6a778) name@+0xA0 -> EN text group 7662000
+34623,5213791,Tokugawa Soldier,,chara_table[475] (archive_03/C4/E1CBAE..+0x6ab10) name@+0xA0 -> EN text group 7662000
+34655,5213791,Tokugawa Soldier,,chara_table[476] (archive_03/C4/E1CBAE..+0x6aea8) name@+0xA0 -> EN text group 7662000
+34684,5213791,Tokugawa Soldier,,chara_table[477] (archive_03/C4/E1CBAE..+0x6b240) name@+0xA0 -> EN text group 7662000
+34704,5213791,Tokugawa Soldier,,chara_table[478] (archive_03/C4/E1CBAE..+0x6b5d8) name@+0xA0 -> EN text group 7662000
+34724,5213791,Tokugawa Soldier,,chara_table[479] (archive_03/C4/E1CBAE..+0x6b970) name@+0xA0 -> EN text group 7662000
+34744,5213791,Tokugawa Soldier,,chara_table[480] (archive_03/C4/E1CBAE..+0x6bd08) name@+0xA0 -> EN text group 7662000
+34767,5213791,Tokugawa Soldier,,chara_table[481] (archive_03/C4/E1CBAE..+0x6c0a0) name@+0xA0 -> EN text group 7662000
+34793,5213791,Tokugawa Soldier,,chara_table[482] (archive_03/C4/E1CBAE..+0x6c438) name@+0xA0 -> EN text group 7662000
+34819,5213791,Tokugawa Soldier,,chara_table[483] (archive_03/C4/E1CBAE..+0x6c7d0) name@+0xA0 -> EN text group 7662000
+34845,5213791,Tokugawa Soldier,,chara_table[484] (archive_03/C4/E1CBAE..+0x6cb68) name@+0xA0 -> EN text group 7662000
+34877,5213791,Tokugawa Soldier,,chara_table[485] (archive_03/C4/E1CBAE..+0x6cf00) name@+0xA0 -> EN text group 7662000
+34906,5002033,Kamakura Warrior,,chara_table[486] (archive_03/C4/E1CBAE..+0x6d298) name@+0xA0 -> EN text group 7662000
+34926,5002033,Kamakura Warrior,,chara_table[487] (archive_03/C4/E1CBAE..+0x6d630) name@+0xA0 -> EN text group 7662000
+34946,5002033,Kamakura Warrior,,chara_table[488] (archive_03/C4/E1CBAE..+0x6d9c8) name@+0xA0 -> EN text group 7662000
+34966,5002033,Kamakura Warrior,,chara_table[489] (archive_03/C4/E1CBAE..+0x6dd60) name@+0xA0 -> EN text group 7662000
+34989,5002033,Kamakura Warrior,,chara_table[490] (archive_03/C4/E1CBAE..+0x6e0f8) name@+0xA0 -> EN text group 7662000
+35015,5002033,Kamakura Warrior,,chara_table[491] (archive_03/C4/E1CBAE..+0x6e490) name@+0xA0 -> EN text group 7662000
+35047,5002033,Kamakura Warrior,,chara_table[492] (archive_03/C4/E1CBAE..+0x6e828) name@+0xA0 -> EN text group 7662000
+35076,5002033,Kamakura Warrior,,chara_table[493] (archive_03/C4/E1CBAE..+0x6ebc0) name@+0xA0 -> EN text group 7662000
+35108,5002033,Kamakura Warrior,,chara_table[494] (archive_03/C4/E1CBAE..+0x6ef58) name@+0xA0 -> EN text group 7662000
+35128,5002033,Kamakura Warrior,,chara_table[495] (archive_03/C4/E1CBAE..+0x6f2f0) name@+0xA0 -> EN text group 7662000
+35148,5002033,Kamakura Warrior,,chara_table[496] (archive_03/C4/E1CBAE..+0x6f688) name@+0xA0 -> EN text group 7662000
+35168,5002033,Kamakura Warrior,,chara_table[497] (archive_03/C4/E1CBAE..+0x6fa20) name@+0xA0 -> EN text group 7662000
+35191,5002033,Kamakura Warrior,,chara_table[498] (archive_03/C4/E1CBAE..+0x6fdb8) name@+0xA0 -> EN text group 7662000
+35217,5002033,Kamakura Warrior,,chara_table[499] (archive_03/C4/E1CBAE..+0x70150) name@+0xA0 -> EN text group 7662000
+35243,5002033,Kamakura Warrior,,chara_table[500] (archive_03/C4/E1CBAE..+0x704e8) name@+0xA0 -> EN text group 7662000
+35275,5002033,Kamakura Warrior,,chara_table[501] (archive_03/C4/E1CBAE..+0x70880) name@+0xA0 -> EN text group 7662000
+35304,5002033,Kamakura Warrior,,chara_table[502] (archive_03/C4/E1CBAE..+0x70c18) name@+0xA0 -> EN text group 7662000
+35324,5002033,Kamakura Warrior,,chara_table[503] (archive_03/C4/E1CBAE..+0x70fb0) name@+0xA0 -> EN text group 7662000
+35344,5002033,Kamakura Warrior,,chara_table[504] (archive_03/C4/E1CBAE..+0x71348) name@+0xA0 -> EN text group 7662000
+35364,5002033,Kamakura Warrior,,chara_table[505] (archive_03/C4/E1CBAE..+0x716e0) name@+0xA0 -> EN text group 7662000
+35387,5002033,Kamakura Warrior,,chara_table[506] (archive_03/C4/E1CBAE..+0x71a78) name@+0xA0 -> EN text group 7662000
+35413,5002033,Kamakura Warrior,,chara_table[507] (archive_03/C4/E1CBAE..+0x71e10) name@+0xA0 -> EN text group 7662000
+35436,5002033,Kamakura Warrior,,chara_table[508] (archive_03/C4/E1CBAE..+0x721a8) name@+0xA0 -> EN text group 7662000
+35462,5002033,Kamakura Warrior,,chara_table[509] (archive_03/C4/E1CBAE..+0x72540) name@+0xA0 -> EN text group 7662000
+35488,5002033,Kamakura Warrior,,chara_table[510] (archive_03/C4/E1CBAE..+0x728d8) name@+0xA0 -> EN text group 7662000
+35520,5002033,Kamakura Warrior,,chara_table[511] (archive_03/C4/E1CBAE..+0x72c70) name@+0xA0 -> EN text group 7662000
+35549,7362928,Takeda Soldier,,chara_table[512] (archive_03/C4/E1CBAE..+0x73008) name@+0xA0 -> EN text group 7662000
+35572,7362928,Takeda Soldier,,chara_table[513] (archive_03/C4/E1CBAE..+0x733a0) name@+0xA0 -> EN text group 7662000
+35595,7362928,Takeda Soldier,,chara_table[514] (archive_03/C4/E1CBAE..+0x73738) name@+0xA0 -> EN text group 7662000
+35618,7362928,Takeda Soldier,,chara_table[515] (archive_03/C4/E1CBAE..+0x73ad0) name@+0xA0 -> EN text group 7662000
+35644,7362928,Takeda Soldier,,chara_table[516] (archive_03/C4/E1CBAE..+0x73e68) name@+0xA0 -> EN text group 7662000
+35673,7362928,Takeda Soldier,,chara_table[517] (archive_03/C4/E1CBAE..+0x74200) name@+0xA0 -> EN text group 7662000
+35708,7362928,Takeda Soldier,,chara_table[518] (archive_03/C4/E1CBAE..+0x74598) name@+0xA0 -> EN text group 7662000
+35740,7362928,Takeda Soldier,,chara_table[519] (archive_03/C4/E1CBAE..+0x74930) name@+0xA0 -> EN text group 7662000
+35775,7362928,Takeda Soldier,,chara_table[520] (archive_03/C4/E1CBAE..+0x74cc8) name@+0xA0 -> EN text group 7662000
+35835,7362928,Takeda Soldier,,chara_table[521] (archive_03/C4/E1CBAE..+0x75060) name@+0xA0 -> EN text group 7662000
+35858,7362928,Takeda Soldier,,chara_table[522] (archive_03/C4/E1CBAE..+0x753f8) name@+0xA0 -> EN text group 7662000
+35881,7362928,Takeda Soldier,,chara_table[523] (archive_03/C4/E1CBAE..+0x75790) name@+0xA0 -> EN text group 7662000
+35904,7362928,Takeda Soldier,,chara_table[524] (archive_03/C4/E1CBAE..+0x75b28) name@+0xA0 -> EN text group 7662000
+35930,7362928,Takeda Soldier,,chara_table[525] (archive_03/C4/E1CBAE..+0x75ec0) name@+0xA0 -> EN text group 7662000
+35959,7362928,Takeda Soldier,,chara_table[526] (archive_03/C4/E1CBAE..+0x76258) name@+0xA0 -> EN text group 7662000
+35988,7362928,Takeda Soldier,,chara_table[527] (archive_03/C4/E1CBAE..+0x765f0) name@+0xA0 -> EN text group 7662000
+36023,7362928,Takeda Soldier,,chara_table[528] (archive_03/C4/E1CBAE..+0x76988) name@+0xA0 -> EN text group 7662000
+36055,7362928,Takeda Soldier,,chara_table[529] (archive_03/C4/E1CBAE..+0x76d20) name@+0xA0 -> EN text group 7662000
+36093,7362928,Takeda Soldier,,chara_table[530] (archive_03/C4/E1CBAE..+0x770b8) name@+0xA0 -> EN text group 7662000
+36131,7362928,Takeda Soldier,,chara_table[531] (archive_03/C4/E1CBAE..+0x77450) name@+0xA0 -> EN text group 7662000
+36169,7362928,Takeda Soldier,,chara_table[532] (archive_03/C4/E1CBAE..+0x777e8) name@+0xA0 -> EN text group 7662000
+36210,7362928,Takeda Soldier,,chara_table[533] (archive_03/C4/E1CBAE..+0x77b80) name@+0xA0 -> EN text group 7662000
+36254,7362928,Takeda Soldier,,chara_table[534] (archive_03/C4/E1CBAE..+0x77f18) name@+0xA0 -> EN text group 7662000
+36298,7362928,Takeda Soldier,,chara_table[535] (archive_03/C4/E1CBAE..+0x782b0) name@+0xA0 -> EN text group 7662000
+36348,7362928,Takeda Soldier,,chara_table[536] (archive_03/C4/E1CBAE..+0x78648) name@+0xA0 -> EN text group 7662000
+36395,7362928,Takeda Soldier,,chara_table[537] (archive_03/C4/E1CBAE..+0x789e0) name@+0xA0 -> EN text group 7662000
+36418,7362928,Takeda Soldier,,chara_table[538] (archive_03/C4/E1CBAE..+0x78d78) name@+0xA0 -> EN text group 7662000
+36441,7362928,Takeda Soldier,,chara_table[539] (archive_03/C4/E1CBAE..+0x79110) name@+0xA0 -> EN text group 7662000
+36464,7362928,Takeda Soldier,,chara_table[540] (archive_03/C4/E1CBAE..+0x794a8) name@+0xA0 -> EN text group 7662000
+36490,7362928,Takeda Soldier,,chara_table[541] (archive_03/C4/E1CBAE..+0x79840) name@+0xA0 -> EN text group 7662000
+36519,7362928,Takeda Soldier,,chara_table[542] (archive_03/C4/E1CBAE..+0x79bd8) name@+0xA0 -> EN text group 7662000
+36545,7362928,Takeda Soldier,,chara_table[543] (archive_03/C4/E1CBAE..+0x79f70) name@+0xA0 -> EN text group 7662000
+36574,7362928,Takeda Soldier,,chara_table[544] (archive_03/C4/E1CBAE..+0x7a308) name@+0xA0 -> EN text group 7662000
+36609,7362928,Takeda Soldier,,chara_table[545] (archive_03/C4/E1CBAE..+0x7a6a0) name@+0xA0 -> EN text group 7662000
+36641,7362928,Takeda Soldier,,chara_table[546] (archive_03/C4/E1CBAE..+0x7aa38) name@+0xA0 -> EN text group 7662000
+36679,7362928,Takeda Soldier,,chara_table[547] (archive_03/C4/E1CBAE..+0x7add0) name@+0xA0 -> EN text group 7662000
+36717,7362928,Takeda Soldier,,chara_table[548] (archive_03/C4/E1CBAE..+0x7b168) name@+0xA0 -> EN text group 7662000
+36755,7362928,Takeda Soldier,,chara_table[549] (archive_03/C4/E1CBAE..+0x7b500) name@+0xA0 -> EN text group 7662000
+36796,7362928,Takeda Soldier,,chara_table[550] (archive_03/C4/E1CBAE..+0x7b898) name@+0xA0 -> EN text group 7662000
+36840,7362928,Takeda Soldier,,chara_table[551] (archive_03/C4/E1CBAE..+0x7bc30) name@+0xA0 -> EN text group 7662000
+36881,7362928,Takeda Soldier,,chara_table[552] (archive_03/C4/E1CBAE..+0x7bfc8) name@+0xA0 -> EN text group 7662000
+36925,7362928,Takeda Soldier,,chara_table[553] (archive_03/C4/E1CBAE..+0x7c360) name@+0xA0 -> EN text group 7662000
+36975,7362928,Takeda Soldier,,chara_table[554] (archive_03/C4/E1CBAE..+0x7c6f8) name@+0xA0 -> EN text group 7662000
+37022,5370398,Vassal,,chara_table[555] (archive_03/C4/E1CBAE..+0x7ca90) name@+0xA0 -> EN text group 7662000
+37042,5370398,Vassal,,chara_table[556] (archive_03/C4/E1CBAE..+0x7ce28) name@+0xA0 -> EN text group 7662000
+37065,5370398,Vassal,,chara_table[557] (archive_03/C4/E1CBAE..+0x7d1c0) name@+0xA0 -> EN text group 7662000
+37088,5370398,Vassal,,chara_table[558] (archive_03/C4/E1CBAE..+0x7d558) name@+0xA0 -> EN text group 7662000
+37111,5370398,Vassal,,chara_table[559] (archive_03/C4/E1CBAE..+0x7d8f0) name@+0xA0 -> EN text group 7662000
+37137,5370398,Vassal,,chara_table[560] (archive_03/C4/E1CBAE..+0x7dc88) name@+0xA0 -> EN text group 7662000
+37166,5370398,Vassal,,chara_table[561] (archive_03/C4/E1CBAE..+0x7e020) name@+0xA0 -> EN text group 7662000
+37201,5370398,Vassal,,chara_table[562] (archive_03/C4/E1CBAE..+0x7e3b8) name@+0xA0 -> EN text group 7662000
+37233,5370398,Vassal,,chara_table[563] (archive_03/C4/E1CBAE..+0x7e750) name@+0xA0 -> EN text group 7662000
+37268,5370398,Vassal,,chara_table[564] (archive_03/C4/E1CBAE..+0x7eae8) name@+0xA0 -> EN text group 7662000
+37291,5370398,Vassal,,chara_table[565] (archive_03/C4/E1CBAE..+0x7ee80) name@+0xA0 -> EN text group 7662000
+37314,5370398,Vassal,,chara_table[566] (archive_03/C4/E1CBAE..+0x7f218) name@+0xA0 -> EN text group 7662000
+37337,5370398,Vassal,,chara_table[567] (archive_03/C4/E1CBAE..+0x7f5b0) name@+0xA0 -> EN text group 7662000
+37363,5370398,Vassal,,chara_table[568] (archive_03/C4/E1CBAE..+0x7f948) name@+0xA0 -> EN text group 7662000
+37392,5370398,Vassal,,chara_table[569] (archive_03/C4/E1CBAE..+0x7fce0) name@+0xA0 -> EN text group 7662000
+37421,5370398,Vassal,,chara_table[570] (archive_03/C4/E1CBAE..+0x80078) name@+0xA0 -> EN text group 7662000
+37456,5370398,Vassal,,chara_table[571] (archive_03/C4/E1CBAE..+0x80410) name@+0xA0 -> EN text group 7662000
+37488,5370398,Vassal,,chara_table[572] (archive_03/C4/E1CBAE..+0x807a8) name@+0xA0 -> EN text group 7662000
+37511,5370398,Vassal,,chara_table[573] (archive_03/C4/E1CBAE..+0x80b40) name@+0xA0 -> EN text group 7662000
+37534,5370398,Vassal,,chara_table[574] (archive_03/C4/E1CBAE..+0x80ed8) name@+0xA0 -> EN text group 7662000
+37557,5370398,Vassal,,chara_table[575] (archive_03/C4/E1CBAE..+0x81270) name@+0xA0 -> EN text group 7662000
+37583,5370398,Vassal,,chara_table[576] (archive_03/C4/E1CBAE..+0x81608) name@+0xA0 -> EN text group 7662000
+37612,5370398,Vassal,,chara_table[577] (archive_03/C4/E1CBAE..+0x819a0) name@+0xA0 -> EN text group 7662000
+37638,5370398,Vassal,,chara_table[578] (archive_03/C4/E1CBAE..+0x81d38) name@+0xA0 -> EN text group 7662000
+37667,5370398,Vassal,,chara_table[579] (archive_03/C4/E1CBAE..+0x820d0) name@+0xA0 -> EN text group 7662000
+37702,5370398,Vassal,,chara_table[580] (archive_03/C4/E1CBAE..+0x82468) name@+0xA0 -> EN text group 7662000
+37734,6910051,Warrior,,chara_table[581] (archive_03/C4/E1CBAE..+0x82800) name@+0xA0 -> EN text group 7662000
+37772,5370398,Vassal,,chara_table[582] (archive_03/C4/E1CBAE..+0x82b98) name@+0xA0 -> EN text group 7662000
+37810,6910051,Warrior,,chara_table[583] (archive_03/C4/E1CBAE..+0x82f30) name@+0xA0 -> EN text group 7662000
+37851,5370398,Vassal,,chara_table[584] (archive_03/C4/E1CBAE..+0x832c8) name@+0xA0 -> EN text group 7662000
+37889,5317617,Shogunate Soldier,,chara_table[585] (archive_03/C4/E1CBAE..+0x83660) name@+0xA0 -> EN text group 7662000
+37912,5317617,Shogunate Soldier,,chara_table[586] (archive_03/C4/E1CBAE..+0x839f8) name@+0xA0 -> EN text group 7662000
+37935,5317617,Shogunate Soldier,,chara_table[587] (archive_03/C4/E1CBAE..+0x83d90) name@+0xA0 -> EN text group 7662000
+37958,5317617,Shogunate Soldier,,chara_table[588] (archive_03/C4/E1CBAE..+0x84128) name@+0xA0 -> EN text group 7662000
+37984,5317617,Shogunate Soldier,,chara_table[589] (archive_03/C4/E1CBAE..+0x844c0) name@+0xA0 -> EN text group 7662000
+38013,5317617,Shogunate Soldier,,chara_table[590] (archive_03/C4/E1CBAE..+0x84858) name@+0xA0 -> EN text group 7662000
+38048,5317617,Shogunate Soldier,,chara_table[591] (archive_03/C4/E1CBAE..+0x84bf0) name@+0xA0 -> EN text group 7662000
+38080,5317617,Shogunate Soldier,,chara_table[592] (archive_03/C4/E1CBAE..+0x84f88) name@+0xA0 -> EN text group 7662000
+38115,5317617,Shogunate Soldier,,chara_table[593] (archive_03/C4/E1CBAE..+0x85320) name@+0xA0 -> EN text group 7662000
+38138,5317617,Shogunate Soldier,,chara_table[594] (archive_03/C4/E1CBAE..+0x856b8) name@+0xA0 -> EN text group 7662000
+38161,5317617,Shogunate Soldier,,chara_table[595] (archive_03/C4/E1CBAE..+0x85a50) name@+0xA0 -> EN text group 7662000
+38184,5317617,Shogunate Soldier,,chara_table[596] (archive_03/C4/E1CBAE..+0x85de8) name@+0xA0 -> EN text group 7662000
+38210,5317617,Shogunate Soldier,,chara_table[597] (archive_03/C4/E1CBAE..+0x86180) name@+0xA0 -> EN text group 7662000
+38239,5317617,Shogunate Soldier,,chara_table[598] (archive_03/C4/E1CBAE..+0x86518) name@+0xA0 -> EN text group 7662000
+38268,5317617,Shogunate Soldier,,chara_table[599] (archive_03/C4/E1CBAE..+0x868b0) name@+0xA0 -> EN text group 7662000
+38303,5317617,Shogunate Soldier,,chara_table[600] (archive_03/C4/E1CBAE..+0x86c48) name@+0xA0 -> EN text group 7662000
+38335,5317617,Shogunate Soldier,,chara_table[601] (archive_03/C4/E1CBAE..+0x86fe0) name@+0xA0 -> EN text group 7662000
+38358,5317617,Shogunate Soldier,,chara_table[602] (archive_03/C4/E1CBAE..+0x87378) name@+0xA0 -> EN text group 7662000
+38381,5317617,Shogunate Soldier,,chara_table[603] (archive_03/C4/E1CBAE..+0x87710) name@+0xA0 -> EN text group 7662000
+38404,5317617,Shogunate Soldier,,chara_table[604] (archive_03/C4/E1CBAE..+0x87aa8) name@+0xA0 -> EN text group 7662000
+38430,5317617,Shogunate Soldier,,chara_table[605] (archive_03/C4/E1CBAE..+0x87e40) name@+0xA0 -> EN text group 7662000
+38459,5317617,Shogunate Soldier,,chara_table[606] (archive_03/C4/E1CBAE..+0x881d8) name@+0xA0 -> EN text group 7662000
+38485,5317617,Shogunate Soldier,,chara_table[607] (archive_03/C4/E1CBAE..+0x88570) name@+0xA0 -> EN text group 7662000
+38514,5317617,Shogunate Soldier,,chara_table[608] (archive_03/C4/E1CBAE..+0x88908) name@+0xA0 -> EN text group 7662000
+38549,5317617,Shogunate Soldier,,chara_table[609] (archive_03/C4/E1CBAE..+0x88ca0) name@+0xA0 -> EN text group 7662000
+38581,6384305,Shinsengumi Member,shinsen,chara_table[610] (archive_03/C4/E1CBAE..+0x89038) name@+0xA0 -> EN text group 7662000; token-match on name word
+38622,6384305,Shinsengumi Member,shinsen,chara_table[611] (archive_03/C4/E1CBAE..+0x893d0) name@+0xA0 -> EN text group 7662000; token-match on name word
+38645,6384305,Shinsengumi Member,shinsen,chara_table[612] (archive_03/C4/E1CBAE..+0x89768) name@+0xA0 -> EN text group 7662000; token-match on name word
+38668,6384305,Shinsengumi Member,shinsen,chara_table[613] (archive_03/C4/E1CBAE..+0x89b00) name@+0xA0 -> EN text group 7662000; token-match on name word
+38691,6384305,Shinsengumi Member,shinsen,chara_table[614] (archive_03/C4/E1CBAE..+0x89e98) name@+0xA0 -> EN text group 7662000; token-match on name word
+38717,6384305,Shinsengumi Member,shinsen,chara_table[615] (archive_03/C4/E1CBAE..+0x8a230) name@+0xA0 -> EN text group 7662000; token-match on name word
+38746,6384305,Shinsengumi Member,shinsen,chara_table[616] (archive_03/C4/E1CBAE..+0x8a5c8) name@+0xA0 -> EN text group 7662000; token-match on name word
+38775,6384305,Shinsengumi Member,shinsen,chara_table[617] (archive_03/C4/E1CBAE..+0x8a960) name@+0xA0 -> EN text group 7662000; token-match on name word
+38810,6384305,Shinsengumi Member,shinsen,chara_table[618] (archive_03/C4/E1CBAE..+0x8acf8) name@+0xA0 -> EN text group 7662000; token-match on name word
+38842,6384305,Shinsengumi Member,shinsen,chara_table[619] (archive_03/C4/E1CBAE..+0x8b090) name@+0xA0 -> EN text group 7662000; token-match on name word
+38865,6384305,Shinsengumi Member,shinsen,chara_table[620] (archive_03/C4/E1CBAE..+0x8b428) name@+0xA0 -> EN text group 7662000; token-match on name word
+38888,6384305,Shinsengumi Member,shinsen,chara_table[621] (archive_03/C4/E1CBAE..+0x8b7c0) name@+0xA0 -> EN text group 7662000; token-match on name word
+38911,6384305,Shinsengumi Member,shinsen,chara_table[622] (archive_03/C4/E1CBAE..+0x8bb58) name@+0xA0 -> EN text group 7662000; token-match on name word
+38937,6384305,Shinsengumi Member,shinsen,chara_table[623] (archive_03/C4/E1CBAE..+0x8bef0) name@+0xA0 -> EN text group 7662000; token-match on name word
+38966,6384305,Shinsengumi Member,shinsen,chara_table[624] (archive_03/C4/E1CBAE..+0x8c288) name@+0xA0 -> EN text group 7662000; token-match on name word
+38992,6384305,Shinsengumi Member,shinsen,chara_table[625] (archive_03/C4/E1CBAE..+0x8c620) name@+0xA0 -> EN text group 7662000; token-match on name word
+39021,6384305,Shinsengumi Member,shinsen,chara_table[626] (archive_03/C4/E1CBAE..+0x8c9b8) name@+0xA0 -> EN text group 7662000; token-match on name word
+39056,6384305,Shinsengumi Member,shinsen,chara_table[627] (archive_03/C4/E1CBAE..+0x8cd50) name@+0xA0 -> EN text group 7662000; token-match on name word
+39088,7372245,Yamatai Soldier,,chara_table[628] (archive_03/C4/E1CBAE..+0x8d0e8) name@+0xA0 -> EN text group 7662000
+39111,7372245,Yamatai Soldier,,chara_table[629] (archive_03/C4/E1CBAE..+0x8d480) name@+0xA0 -> EN text group 7662000
+39134,7372245,Yamatai Soldier,,chara_table[630] (archive_03/C4/E1CBAE..+0x8d818) name@+0xA0 -> EN text group 7662000
+39157,7372245,Yamatai Soldier,,chara_table[631] (archive_03/C4/E1CBAE..+0x8dbb0) name@+0xA0 -> EN text group 7662000
+39183,7372245,Yamatai Soldier,,chara_table[632] (archive_03/C4/E1CBAE..+0x8df48) name@+0xA0 -> EN text group 7662000
+39212,7372245,Yamatai Soldier,,chara_table[633] (archive_03/C4/E1CBAE..+0x8e2e0) name@+0xA0 -> EN text group 7662000
+39247,7372245,Yamatai Soldier,,chara_table[634] (archive_03/C4/E1CBAE..+0x8e678) name@+0xA0 -> EN text group 7662000
+39270,7372245,Yamatai Soldier,,chara_table[635] (archive_03/C4/E1CBAE..+0x8ea10) name@+0xA0 -> EN text group 7662000
+39293,7372245,Yamatai Soldier,,chara_table[636] (archive_03/C4/E1CBAE..+0x8eda8) name@+0xA0 -> EN text group 7662000
+39316,7372245,Yamatai Soldier,,chara_table[637] (archive_03/C4/E1CBAE..+0x8f140) name@+0xA0 -> EN text group 7662000
+39342,7372245,Yamatai Soldier,,chara_table[638] (archive_03/C4/E1CBAE..+0x8f4d8) name@+0xA0 -> EN text group 7662000
+39371,7372245,Yamatai Soldier,,chara_table[639] (archive_03/C4/E1CBAE..+0x8f870) name@+0xA0 -> EN text group 7662000
+39400,7372245,Yamatai Soldier,,chara_table[640] (archive_03/C4/E1CBAE..+0x8fc08) name@+0xA0 -> EN text group 7662000
+39423,7372245,Yamatai Soldier,,chara_table[641] (archive_03/C4/E1CBAE..+0x8ffa0) name@+0xA0 -> EN text group 7662000
+39446,7372245,Yamatai Soldier,,chara_table[642] (archive_03/C4/E1CBAE..+0x90338) name@+0xA0 -> EN text group 7662000
+39469,7372245,Yamatai Soldier,,chara_table[643] (archive_03/C4/E1CBAE..+0x906d0) name@+0xA0 -> EN text group 7662000
+39495,7372245,Yamatai Soldier,,chara_table[644] (archive_03/C4/E1CBAE..+0x90a68) name@+0xA0 -> EN text group 7662000
+39524,7372245,Yamatai Soldier,,chara_table[645] (archive_03/C4/E1CBAE..+0x90e00) name@+0xA0 -> EN text group 7662000
+39553,7929778,Rebel Ronin,,chara_table[646] (archive_03/C4/E1CBAE..+0x91198) name@+0xA0 -> EN text group 7662000
+39585,7929778,Rebel Ronin,,chara_table[647] (archive_03/C4/E1CBAE..+0x91530) name@+0xA0 -> EN text group 7662000
+39617,7929778,Rebel Ronin,,chara_table[648] (archive_03/C4/E1CBAE..+0x918c8) name@+0xA0 -> EN text group 7662000
+39649,7929778,Rebel Ronin,,chara_table[649] (archive_03/C4/E1CBAE..+0x91c60) name@+0xA0 -> EN text group 7662000
+39684,7929778,Rebel Ronin,,chara_table[650] (archive_03/C4/E1CBAE..+0x91ff8) name@+0xA0 -> EN text group 7662000
+39722,7929778,Rebel Ronin,,chara_table[651] (archive_03/C4/E1CBAE..+0x92390) name@+0xA0 -> EN text group 7662000
+39766,7929778,Rebel Ronin,,chara_table[652] (archive_03/C4/E1CBAE..+0x92728) name@+0xA0 -> EN text group 7662000
+39807,7929778,Rebel Ronin,,chara_table[653] (archive_03/C4/E1CBAE..+0x92ac0) name@+0xA0 -> EN text group 7662000
+39851,7929778,Rebel Ronin,,chara_table[654] (archive_03/C4/E1CBAE..+0x92e58) name@+0xA0 -> EN text group 7662000
+39883,7929778,Rebel Ronin,,chara_table[655] (archive_03/C4/E1CBAE..+0x931f0) name@+0xA0 -> EN text group 7662000
+39915,7929778,Rebel Ronin,,chara_table[656] (archive_03/C4/E1CBAE..+0x93588) name@+0xA0 -> EN text group 7662000
+39947,7929778,Rebel Ronin,,chara_table[657] (archive_03/C4/E1CBAE..+0x93920) name@+0xA0 -> EN text group 7662000
+39982,7929778,Rebel Ronin,,chara_table[658] (archive_03/C4/E1CBAE..+0x93cb8) name@+0xA0 -> EN text group 7662000
+40020,7929778,Rebel Ronin,,chara_table[659] (archive_03/C4/E1CBAE..+0x94050) name@+0xA0 -> EN text group 7662000
+40058,7929778,Rebel Ronin,,chara_table[660] (archive_03/C4/E1CBAE..+0x943e8) name@+0xA0 -> EN text group 7662000
+40102,7929778,Rebel Ronin,,chara_table[661] (archive_03/C4/E1CBAE..+0x94780) name@+0xA0 -> EN text group 7662000
+40143,7929778,Rebel Ronin,,chara_table[662] (archive_03/C4/E1CBAE..+0x94b18) name@+0xA0 -> EN text group 7662000
+40175,7929778,Rebel Ronin,,chara_table[663] (archive_03/C4/E1CBAE..+0x94eb0) name@+0xA0 -> EN text group 7662000
+40207,7929778,Rebel Ronin,,chara_table[664] (archive_03/C4/E1CBAE..+0x95248) name@+0xA0 -> EN text group 7662000
+40239,7929778,Rebel Ronin,,chara_table[665] (archive_03/C4/E1CBAE..+0x955e0) name@+0xA0 -> EN text group 7662000
+40274,7929778,Rebel Ronin,,chara_table[666] (archive_03/C4/E1CBAE..+0x95978) name@+0xA0 -> EN text group 7662000
+40312,7929778,Rebel Ronin,,chara_table[667] (archive_03/C4/E1CBAE..+0x95d10) name@+0xA0 -> EN text group 7662000
+40350,7929778,Rebel Ronin,,chara_table[668] (archive_03/C4/E1CBAE..+0x960a8) name@+0xA0 -> EN text group 7662000
+40394,7929778,Rebel Ronin,,chara_table[669] (archive_03/C4/E1CBAE..+0x96440) name@+0xA0 -> EN text group 7662000
+40435,7929778,Rebel Ronin,,chara_table[670] (archive_03/C4/E1CBAE..+0x967d8) name@+0xA0 -> EN text group 7662000
+40464,7929778,Rebel Ronin,,chara_table[671] (archive_03/C4/E1CBAE..+0x96b70) name@+0xA0 -> EN text group 7662000
+40493,7929778,Rebel Ronin,,chara_table[672] (archive_03/C4/E1CBAE..+0x96f08) name@+0xA0 -> EN text group 7662000
+40522,7929778,Rebel Ronin,,chara_table[673] (archive_03/C4/E1CBAE..+0x972a0) name@+0xA0 -> EN text group 7662000
+40554,7929778,Rebel Ronin,,chara_table[674] (archive_03/C4/E1CBAE..+0x97638) name@+0xA0 -> EN text group 7662000
+40589,7929778,Rebel Ronin,,chara_table[675] (archive_03/C4/E1CBAE..+0x979d0) name@+0xA0 -> EN text group 7662000
+40621,7929778,Rebel Ronin,,chara_table[676] (archive_03/C4/E1CBAE..+0x97d68) name@+0xA0 -> EN text group 7662000
+40653,7929778,Rebel Ronin,,chara_table[677] (archive_03/C4/E1CBAE..+0x98100) name@+0xA0 -> EN text group 7662000
+40688,7929778,Rebel Ronin,,chara_table[678] (archive_03/C4/E1CBAE..+0x98498) name@+0xA0 -> EN text group 7662000
+40729,7929778,Rebel Ronin,,chara_table[679] (archive_03/C4/E1CBAE..+0x98830) name@+0xA0 -> EN text group 7662000
+40767,8179750,Ninja,,chara_table[680] (archive_03/C4/E1CBAE..+0x98bc8) name@+0xA0 -> EN text group 7662000
+40779,8179750,Ninja,,chara_table[681] (archive_03/C4/E1CBAE..+0x98f60) name@+0xA0 -> EN text group 7662000
+40797,8179750,Ninja,,chara_table[682] (archive_03/C4/E1CBAE..+0x992f8) name@+0xA0 -> EN text group 7662000
+40818,8179750,Ninja,,chara_table[683] (archive_03/C4/E1CBAE..+0x99690) name@+0xA0 -> EN text group 7662000
+40833,8179750,Ninja,,chara_table[684] (archive_03/C4/E1CBAE..+0x99a28) name@+0xA0 -> EN text group 7662000
+40852,8179750,Ninja,,chara_table[685] (archive_03/C4/E1CBAE..+0x99dc0) name@+0xA0 -> EN text group 7662000
+40871,8179750,Ninja,,chara_table[686] (archive_03/C4/E1CBAE..+0x9a158) name@+0xA0 -> EN text group 7662000
+40889,8179750,Ninja,,chara_table[687] (archive_03/C4/E1CBAE..+0x9a4f0) name@+0xA0 -> EN text group 7662000
+40937,8179750,Ninja,,chara_table[688] (archive_03/C4/E1CBAE..+0x9a888) name@+0xA0 -> EN text group 7662000
+40955,8179750,Ninja,,chara_table[689] (archive_03/C4/E1CBAE..+0x9ac20) name@+0xA0 -> EN text group 7662000
+40989,8179750,Ninja,,chara_table[690] (archive_03/C4/E1CBAE..+0x9afb8) name@+0xA0 -> EN text group 7662000
+41028,8179750,Ninja,,chara_table[691] (archive_03/C4/E1CBAE..+0x9b350) name@+0xA0 -> EN text group 7662000
+41071,4923109,Onmyo Mage,,chara_table[692] (archive_03/C4/E1CBAE..+0x9b6e8) name@+0xA0 -> EN text group 7662000
+41081,4923109,Onmyo Mage,,chara_table[693] (archive_03/C4/E1CBAE..+0x9ba80) name@+0xA0 -> EN text group 7662000
+41100,4923109,Onmyo Mage,,chara_table[694] (archive_03/C4/E1CBAE..+0x9be18) name@+0xA0 -> EN text group 7662000
+41119,4923109,Onmyo Mage,,chara_table[695] (archive_03/C4/E1CBAE..+0x9c1b0) name@+0xA0 -> EN text group 7662000
+41138,4923109,Onmyo Mage,,chara_table[696] (archive_03/C4/E1CBAE..+0x9c548) name@+0xA0 -> EN text group 7662000
+41157,4923109,Onmyo Mage,,chara_table[697] (archive_03/C4/E1CBAE..+0x9c8e0) name@+0xA0 -> EN text group 7662000
+41176,4923109,Onmyo Mage,,chara_table[698] (archive_03/C4/E1CBAE..+0x9cc78) name@+0xA0 -> EN text group 7662000
+41204,4923109,Onmyo Mage,,chara_table[699] (archive_03/C4/E1CBAE..+0x9d010) name@+0xA0 -> EN text group 7662000
+41232,4923109,Onmyo Mage,,chara_table[700] (archive_03/C4/E1CBAE..+0x9d3a8) name@+0xA0 -> EN text group 7662000
+41260,4923109,Onmyo Mage,,chara_table[701] (archive_03/C4/E1CBAE..+0x9d740) name@+0xA0 -> EN text group 7662000
+41288,4923109,Onmyo Mage,,chara_table[702] (archive_03/C4/E1CBAE..+0x9dad8) name@+0xA0 -> EN text group 7662000
+41313,4923109,Onmyo Mage,,chara_table[703] (archive_03/C4/E1CBAE..+0x9de70) name@+0xA0 -> EN text group 7662000
+41347,4923109,Onmyo Mage,,chara_table[704] (archive_03/C4/E1CBAE..+0x9e208) name@+0xA0 -> EN text group 7662000
+41381,4923109,Onmyo Mage,,chara_table[705] (archive_03/C4/E1CBAE..+0x9e5a0) name@+0xA0 -> EN text group 7662000
+41415,4923109,Onmyo Mage,,chara_table[706] (archive_03/C4/E1CBAE..+0x9e938) name@+0xA0 -> EN text group 7662000
+41449,4923109,Onmyo Mage,,chara_table[707] (archive_03/C4/E1CBAE..+0x9ecd0) name@+0xA0 -> EN text group 7662000
+41474,4923109,Onmyo Mage,,chara_table[708] (archive_03/C4/E1CBAE..+0x9f068) name@+0xA0 -> EN text group 7662000
+41508,4923109,Onmyo Mage,,chara_table[709] (archive_03/C4/E1CBAE..+0x9f400) name@+0xA0 -> EN text group 7662000
+41542,4923109,Onmyo Mage,,chara_table[710] (archive_03/C4/E1CBAE..+0x9f798) name@+0xA0 -> EN text group 7662000
+41576,4923109,Onmyo Mage,,chara_table[711] (archive_03/C4/E1CBAE..+0x9fb30) name@+0xA0 -> EN text group 7662000
+41610,4923109,Onmyo Mage,,chara_table[712] (archive_03/C4/E1CBAE..+0x9fec8) name@+0xA0 -> EN text group 7662000
+41644,4923109,Onmyo Mage,,chara_table[713] (archive_03/C4/E1CBAE..+0xa0260) name@+0xA0 -> EN text group 7662000
+41687,4923109,Onmyo Mage,,chara_table[714] (archive_03/C4/E1CBAE..+0xa05f8) name@+0xA0 -> EN text group 7662000
+41730,4923109,Onmyo Mage,,chara_table[715] (archive_03/C4/E1CBAE..+0xa0990) name@+0xA0 -> EN text group 7662000
+41773,4923109,Onmyo Mage,,chara_table[716] (archive_03/C4/E1CBAE..+0xa0d28) name@+0xA0 -> EN text group 7662000
+41816,4923109,Onmyo Mage,,chara_table[717] (archive_03/C4/E1CBAE..+0xa10c0) name@+0xA0 -> EN text group 7662000
+41856,4923109,Onmyo Mage,,chara_table[718] (archive_03/C4/E1CBAE..+0xa1458) name@+0xA0 -> EN text group 7662000
+41905,4923109,Onmyo Mage,,chara_table[719] (archive_03/C4/E1CBAE..+0xa17f0) name@+0xA0 -> EN text group 7662000
+41954,4923109,Onmyo Mage,,chara_table[720] (archive_03/C4/E1CBAE..+0xa1b88) name@+0xA0 -> EN text group 7662000
+42003,4923109,Onmyo Mage,,chara_table[721] (archive_03/C4/E1CBAE..+0xa1f20) name@+0xA0 -> EN text group 7662000
+42052,4923109,Onmyo Mage,,chara_table[722] (archive_03/C4/E1CBAE..+0xa22b8) name@+0xA0 -> EN text group 7662000
+42071,4923109,Onmyo Mage,,chara_table[723] (archive_03/C4/E1CBAE..+0xa2650) name@+0xA0 -> EN text group 7662000
+42099,4923109,Onmyo Mage,,chara_table[724] (archive_03/C4/E1CBAE..+0xa29e8) name@+0xA0 -> EN text group 7662000
+42127,4923109,Onmyo Mage,,chara_table[725] (archive_03/C4/E1CBAE..+0xa2d80) name@+0xA0 -> EN text group 7662000
+42155,4923109,Onmyo Mage,,chara_table[726] (archive_03/C4/E1CBAE..+0xa3118) name@+0xA0 -> EN text group 7662000
+42183,4923109,Onmyo Mage,,chara_table[727] (archive_03/C4/E1CBAE..+0xa34b0) name@+0xA0 -> EN text group 7662000
+42211,4923109,Onmyo Mage,,chara_table[728] (archive_03/C4/E1CBAE..+0xa3848) name@+0xA0 -> EN text group 7662000
+42248,4923109,Onmyo Mage,,chara_table[729] (archive_03/C4/E1CBAE..+0xa3be0) name@+0xA0 -> EN text group 7662000
+42285,4923109,Onmyo Mage,,chara_table[730] (archive_03/C4/E1CBAE..+0xa3f78) name@+0xA0 -> EN text group 7662000
+42322,4923109,Onmyo Mage,,chara_table[731] (archive_03/C4/E1CBAE..+0xa4310) name@+0xA0 -> EN text group 7662000
+42359,4923109,Onmyo Mage,,chara_table[732] (archive_03/C4/E1CBAE..+0xa46a8) name@+0xA0 -> EN text group 7662000
+42393,4923109,Onmyo Mage,,chara_table[733] (archive_03/C4/E1CBAE..+0xa4a40) name@+0xA0 -> EN text group 7662000
+42436,4923109,Onmyo Mage,,chara_table[734] (archive_03/C4/E1CBAE..+0xa4dd8) name@+0xA0 -> EN text group 7662000
+42479,4923109,Onmyo Mage,,chara_table[735] (archive_03/C4/E1CBAE..+0xa5170) name@+0xA0 -> EN text group 7662000
+42522,4923109,Onmyo Mage,,chara_table[736] (archive_03/C4/E1CBAE..+0xa5508) name@+0xA0 -> EN text group 7662000
+42565,5469610,Alchemist,,chara_table[737] (archive_03/C4/E1CBAE..+0xa58a0) name@+0xA0 -> EN text group 7662000
+42587,5469610,Alchemist,,chara_table[738] (archive_03/C4/E1CBAE..+0xa5c38) name@+0xA0 -> EN text group 7662000
+42609,5469610,Alchemist,,chara_table[739] (archive_03/C4/E1CBAE..+0xa5fd0) name@+0xA0 -> EN text group 7662000
+42631,5469610,Alchemist,,chara_table[740] (archive_03/C4/E1CBAE..+0xa6368) name@+0xA0 -> EN text group 7662000
+42653,5469610,Alchemist,,chara_table[741] (archive_03/C4/E1CBAE..+0xa6700) name@+0xA0 -> EN text group 7662000
+42684,5469610,Alchemist,,chara_table[742] (archive_03/C4/E1CBAE..+0xa6a98) name@+0xA0 -> EN text group 7662000
+42715,5469610,Alchemist,,chara_table[743] (archive_03/C4/E1CBAE..+0xa6e30) name@+0xA0 -> EN text group 7662000
+42746,5469610,Alchemist,,chara_table[744] (archive_03/C4/E1CBAE..+0xa71c8) name@+0xA0 -> EN text group 7662000
+42777,5469610,Alchemist,,chara_table[745] (archive_03/C4/E1CBAE..+0xa7560) name@+0xA0 -> EN text group 7662000
+42817,5469610,Alchemist,,chara_table[746] (archive_03/C4/E1CBAE..+0xa78f8) name@+0xA0 -> EN text group 7662000
+42857,5469610,Alchemist,,chara_table[747] (archive_03/C4/E1CBAE..+0xa7c90) name@+0xA0 -> EN text group 7662000
+42897,5469610,Alchemist,,chara_table[748] (archive_03/C4/E1CBAE..+0xa8028) name@+0xA0 -> EN text group 7662000
+42937,5276221,Rogue,,chara_table[749] (archive_03/C4/E1CBAE..+0xa83c0) name@+0xA0 -> EN text group 7662000
+43010,8351216,Wild Dog,wild,chara_table[750] (archive_03/C4/E1CBAE..+0xa8758) name@+0xA0 -> EN text group 7662000; token-match on name word
+43017,7202879,Ninken,,chara_table[751] (archive_03/C4/E1CBAE..+0xa8af0) name@+0xA0 -> EN text group 7662000
+43068,7202879,Ninken,,chara_table[752] (archive_03/C4/E1CBAE..+0xa8e88) name@+0xA0 -> EN text group 7662000
+43113,7202879,Ninken,,chara_table[753] (archive_03/C4/E1CBAE..+0xa9220) name@+0xA0 -> EN text group 7662000
+43164,5276221,Rogue,,chara_table[754] (archive_03/C4/E1CBAE..+0xa95b8) name@+0xA0 -> EN text group 7662000
+43240,5752326,Nekomata,nekomata,chara_table[755] (archive_03/C4/E1CBAE..+0xa9950) name@+0xA0 -> EN text group 7662000; token-match on name word
+43262,7855051,Tengen Kujaku,,chara_table[756] (archive_03/C4/E1CBAE..+0xa9ce8) name@+0xA0 -> EN text group 7662000
+43290,7269460,Shin-Roku,,chara_table[757] (archive_03/C4/E1CBAE..+0xaa080) name@+0xA0 -> EN text group 7662000
+43312,6429591,Kurama Tengu,kurama,chara_table[758] (archive_03/C4/E1CBAE..+0xaa418) name@+0xA0 -> EN text group 7662000; token-match on name word
+43340,6239214,Ho,,chara_table[759] (archive_03/C4/E1CBAE..+0xaa7b0) name@+0xA0 -> EN text group 7662000
+43359,4964994,Oh,,chara_table[760] (archive_03/C4/E1CBAE..+0xaab48) name@+0xA0 -> EN text group 7662000
+43378,4964994,Oh,,chara_table[761] (archive_03/C4/E1CBAE..+0xaaee0) name@+0xA0 -> EN text group 7662000
+43412,7689772,Ho-oh,,chara_table[762] (archive_03/C4/E1CBAE..+0xab278) name@+0xA0 -> EN text group 7662000
+43434,7689772,Ho-oh,,chara_table[763] (archive_03/C4/E1CBAE..+0xab610) name@+0xA0 -> EN text group 7662000
+43471,5010033,Guhin,,chara_table[764] (archive_03/C4/E1CBAE..+0xab9a8) name@+0xA0 -> EN text group 7662000
+43493,5010033,Guhin,,chara_table[765] (archive_03/C4/E1CBAE..+0xabd40) name@+0xA0 -> EN text group 7662000
+43542,7086430,Kongojishi,,chara_table[766] (archive_03/C4/E1CBAE..+0xac0d8) name@+0xA0 -> EN text group 7662000
+43570,6956522,Kongojishi,,chara_table[767] (archive_03/C4/E1CBAE..+0xac470) name@+0xA0 -> EN text group 7662000
+43613,5416954,Enko,,chara_table[768] (archive_03/C4/E1CBAE..+0xac808) name@+0xA0 -> EN text group 7662000
+43650,5416954,Enko,,chara_table[769] (archive_03/C4/E1CBAE..+0xacba0) name@+0xA0 -> EN text group 7662000
+43672,5442296,Narikama Tanuki,,chara_table[770] (archive_03/C4/E1CBAE..+0xacf38) name@+0xA0 -> EN text group 7662000
+43697,6836119,Kusanagi,kusanagi,chara_table[771] (archive_03/C4/E1CBAE..+0xad2d0) name@+0xA0 -> EN text group 7662000; token-match on name word
+43728,6406641,Kusanagi,kusanagi,chara_table[772] (archive_03/C4/E1CBAE..+0xad668) name@+0xA0 -> EN text group 7662000; token-match on name word
+43765,6849301,Kusanagi,kusanagi,chara_table[773] (archive_03/C4/E1CBAE..+0xada00) name@+0xA0 -> EN text group 7662000; token-match on name word
+43802,6836119,Kusanagi,kusanagi,chara_table[774] (archive_03/C4/E1CBAE..+0xadd98) name@+0xA0 -> EN text group 7662000; token-match on name word
+43854,6836119,Kusanagi,kusanagi,chara_table[775] (archive_03/C4/E1CBAE..+0xae130) name@+0xA0 -> EN text group 7662000; token-match on name word
+43906,4685937,Shami-choro,,chara_table[776] (archive_03/C4/E1CBAE..+0xae4c8) name@+0xA0 -> EN text group 7662000
+43934,4228331,Golden Shachi,,chara_table[777] (archive_03/C4/E1CBAE..+0xae860) name@+0xA0 -> EN text group 7662000
+43956,4228331,Golden Shachi,,chara_table[778] (archive_03/C4/E1CBAE..+0xaebf8) name@+0xA0 -> EN text group 7662000
+43993,6470107,Murakumo,,chara_table[779] (archive_03/C4/E1CBAE..+0xaef90) name@+0xA0 -> EN text group 7662000
+44030,6470107,Murakumo,,chara_table[780] (archive_03/C4/E1CBAE..+0xaf328) name@+0xA0 -> EN text group 7662000
+44067,7876832,Tora Gozen,toragozen,chara_table[781] (archive_03/C4/E1CBAE..+0xaf6c0) name@+0xA0 -> EN text group 7662000; token-match on name word
+44092,7876832,Tora Gozen,toragozen,chara_table[782] (archive_03/C4/E1CBAE..+0xafa58) name@+0xA0 -> EN text group 7662000; token-match on name word
+44144,4311702,Jailer Oni (Hellfire),,chara_table[783] (archive_03/C4/E1CBAE..+0xafdf0) name@+0xA0 -> EN text group 7662000
+44172,8039637,Yamainu,,chara_table[784] (archive_03/C4/E1CBAE..+0xb0188) name@+0xA0 -> EN text group 7662000
+44197,8039637,Yamainu,,chara_table[785] (archive_03/C4/E1CBAE..+0xb0520) name@+0xA0 -> EN text group 7662000
+44237,5804209,Yamabiko,,chara_table[786] (archive_03/C4/E1CBAE..+0xb08b8) name@+0xA0 -> EN text group 7662000
+44268,5804209,Yamabiko,,chara_table[787] (archive_03/C4/E1CBAE..+0xb0c50) name@+0xA0 -> EN text group 7662000
+44314,6932017,Sunakake-baba,,chara_table[788] (archive_03/C4/E1CBAE..+0xb0fe8) name@+0xA0 -> EN text group 7662000
+44345,5946033,Crucible Wasp,,chara_table[789] (archive_03/C4/E1CBAE..+0xb1380) name@+0xA0 -> EN text group 7662000
+44382,5946033,Crucible Wasp,,chara_table[790] (archive_03/C4/E1CBAE..+0xb1718) name@+0xA0 -> EN text group 7662000
+44434,5363761,Ichimokuren,,chara_table[791] (archive_03/C4/E1CBAE..+0xb1ab0) name@+0xA0 -> EN text group 7662000
+44462,4494979,Gaki,,chara_table[792] (archive_03/C4/E1CBAE..+0xb1e48) name@+0xA0 -> EN text group 7662000
+44487,4589105,Gaki Chief,,chara_table[793] (archive_03/C4/E1CBAE..+0xb21e0) name@+0xA0 -> EN text group 7662000
+44518,5526337,Yoki,,chara_table[794] (archive_03/C4/E1CBAE..+0xb2578) name@+0xA0 -> EN text group 7662000
+44543,5795248,Skeleton Warrior,,chara_table[795] (archive_03/C4/E1CBAE..+0xb2910) name@+0xA0 -> EN text group 7662000
+44592,5795248,Skeleton Warrior,,chara_table[796] (archive_03/C4/E1CBAE..+0xb2ca8) name@+0xA0 -> EN text group 7662000
+44656,5817646,Dweller,,chara_table[797] (archive_03/C4/E1CBAE..+0xb3040) name@+0xA0 -> EN text group 7662000
+44684,5595934,Akaname,,chara_table[798] (archive_03/C4/E1CBAE..+0xb33d8) name@+0xA0 -> EN text group 7662000
+44709,7802942,Infernal Oni-bi,,chara_table[799] (archive_03/C4/E1CBAE..+0xb3770) name@+0xA0 -> EN text group 7662000
+44740,6344949,Maelstrom Oni-bi,,chara_table[800] (archive_03/C4/E1CBAE..+0xb3b08) name@+0xA0 -> EN text group 7662000
+44771,5900913,Galestorm Oni-bi,,chara_table[801] (archive_03/C4/E1CBAE..+0xb3ea0) name@+0xA0 -> EN text group 7662000
+44802,7330257,Thunderstorm Oni-bi,,chara_table[802] (archive_03/C4/E1CBAE..+0xb4238) name@+0xA0 -> EN text group 7662000
+44833,4739818,Lesser Umi-bozu,,chara_table[803] (archive_03/C4/E1CBAE..+0xb45d0) name@+0xA0 -> EN text group 7662000
+44864,5257690,Wheelmonk,,chara_table[804] (archive_03/C4/E1CBAE..+0xb4968) name@+0xA0 -> EN text group 7662000
+44892,7903833,Ippon-Datara,,chara_table[805] (archive_03/C4/E1CBAE..+0xb4d00) name@+0xA0 -> EN text group 7662000
+44926,6523157,Bakegani,,chara_table[806] (archive_03/C4/E1CBAE..+0xb5098) name@+0xA0 -> EN text group 7662000
+44954,8019620,Nure-onna,,chara_table[807] (archive_03/C4/E1CBAE..+0xb5430) name@+0xA0 -> EN text group 7662000
+44982,4253014,One-eyed Oni,,chara_table[808] (archive_03/C4/E1CBAE..+0xb57c8) name@+0xA0 -> EN text group 7662000
+45013,6818641,Magatsu Warrior,magatsu,chara_table[809] (archive_03/C4/E1CBAE..+0xb5b60) name@+0xA0 -> EN text group 7662000; token-match on name word
+45044,6818641,Magatsu Warrior,magatsu,chara_table[810] (archive_03/C4/E1CBAE..+0xb5ef8) name@+0xA0 -> EN text group 7662000; token-match on name word
+45084,4476935,Gozuki,,chara_table[811] (archive_03/C4/E1CBAE..+0xb6290) name@+0xA0 -> EN text group 7662000
+45112,7497443,Mezuki,,chara_table[812] (archive_03/C4/E1CBAE..+0xb6628) name@+0xA0 -> EN text group 7662000
+45140,8346992,Jakotsu-baba,,chara_table[813] (archive_03/C4/E1CBAE..+0xb69c0) name@+0xA0 -> EN text group 7662000
+45168,8346992,Jakotsu-baba,,chara_table[814] (archive_03/C4/E1CBAE..+0xb6d58) name@+0xA0 -> EN text group 7662000
+45211,7391690,Hino-enma,,chara_table[815] (archive_03/C4/E1CBAE..+0xb70f0) name@+0xA0 -> EN text group 7662000
+45239,8208710,Ryomen Sukuna,,chara_table[816] (archive_03/C4/E1CBAE..+0xb7488) name@+0xA0 -> EN text group 7662000
+45270,8208710,Ryomen Sukuna,,chara_table[817] (archive_03/C4/E1CBAE..+0xb7820) name@+0xA0 -> EN text group 7662000
+45322,8208710,Ryomen Sukuna,,chara_table[818] (archive_03/C4/E1CBAE..+0xb7bb8) name@+0xA0 -> EN text group 7662000
+45374,7416910,Giant Toad,,chara_table[819] (archive_03/C4/E1CBAE..+0xb7f50) name@+0xA0 -> EN text group 7662000
+45402,8359344,Nozuchi,,chara_table[820] (archive_03/C4/E1CBAE..+0xb82e8) name@+0xA0 -> EN text group 7662000
+45430,6001002,Yagyo Soldier,,chara_table[821] (archive_03/C4/E1CBAE..+0xb8680) name@+0xA0 -> EN text group 7662000
+45458,8367218,Mermaid,,chara_table[822] (archive_03/C4/E1CBAE..+0xb8a18) name@+0xA0 -> EN text group 7662000
+45483,8367218,Mermaid,,chara_table[823] (archive_03/C4/E1CBAE..+0xb8db0) name@+0xA0 -> EN text group 7662000
+45523,4654710,Ninja Yoki,,chara_table[824] (archive_03/C4/E1CBAE..+0xb9148) name@+0xA0 -> EN text group 7662000
+45566,6327261,Enki,,chara_table[825] (archive_03/C4/E1CBAE..+0xb94e0) name@+0xA0 -> EN text group 7662000
+45591,6419195,Sentry,,chara_table[826] (archive_03/C4/E1CBAE..+0xb9878) name@+0xA0 -> EN text group 7662000
+45616,8248224,Konaki-Jiji,,chara_table[827] (archive_03/C4/E1CBAE..+0xb9c10) name@+0xA0 -> EN text group 7662000
+45647,5656105,Yamanba,,chara_table[828] (archive_03/C4/E1CBAE..+0xb9fa8) name@+0xA0 -> EN text group 7662000
+45672,7680565,Waira,,chara_table[829] (archive_03/C4/E1CBAE..+0xba340) name@+0xA0 -> EN text group 7662000
+45700,4744466,Koroka,,chara_table[830] (archive_03/C4/E1CBAE..+0xba6d8) name@+0xA0 -> EN text group 7662000
+45728,5973603,Ubume,,chara_table[831] (archive_03/C4/E1CBAE..+0xbaa70) name@+0xA0 -> EN text group 7662000
+45756,4683043,Flying Bolt,,chara_table[832] (archive_03/C4/E1CBAE..+0xbae08) name@+0xA0 -> EN text group 7662000
+45787,5639683,Karakasa Umbrella,,chara_table[833] (archive_03/C4/E1CBAE..+0xbb1a0) name@+0xA0 -> EN text group 7662000
+45821,8292503,Yasha,,chara_table[834] (archive_03/C4/E1CBAE..+0xbb538) name@+0xA0 -> EN text group 7662000
+45846,8365956,Nuribotoke,nuribotoke,chara_table[835] (archive_03/C4/E1CBAE..+0xbb8d0) name@+0xA0 -> EN text group 7662000; token-match on name word
+45871,8073083,Kamaitachi,kamaitachi,chara_table[836] (archive_03/C4/E1CBAE..+0xbbc68) name@+0xA0 -> EN text group 7662000; token-match on name word
+45896,8073083,Kamaitachi,kamaitachi,chara_table[837] (archive_03/C4/E1CBAE..+0xbc000) name@+0xA0 -> EN text group 7662000; token-match on name word
+45930,7298760,Enenra,,chara_table[838] (archive_03/C4/E1CBAE..+0xbc398) name@+0xA0 -> EN text group 7662000
+45958,8047249,Joro-gumo,,chara_table[839] (archive_03/C4/E1CBAE..+0xbc730) name@+0xA0 -> EN text group 7662000
+45989,4401273,Kasha,,chara_table[840] (archive_03/C4/E1CBAE..+0xbcac8) name@+0xA0 -> EN text group 7662000
+46014,4224032,Onmoraki,,chara_table[841] (archive_03/C4/E1CBAE..+0xbce60) name@+0xA0 -> EN text group 7662000
+46045,5079789,Onryoki,onryo,chara_table[842] (archive_03/C4/E1CBAE..+0xbd1f8) name@+0xA0 -> EN text group 7662000; token-match on name word
+46073,7974816,Kappa,kappa,chara_table[843] (archive_03/C4/E1CBAE..+0xbd590) name@+0xA0 -> EN text group 7662000; token-match on name word
+46111,8296839,Red Kappa,,chara_table[844] (archive_03/C4/E1CBAE..+0xbd928) name@+0xA0 -> EN text group 7662000
+46152,4768727,Nurikabe,,chara_table[845] (archive_03/C4/E1CBAE..+0xbdcc0) name@+0xA0 -> EN text group 7662000
+46183,7079218,Demon of Pride,,chara_table[846] (archive_03/C4/E1CBAE..+0xbe058) name@+0xA0 -> EN text group 7662000
+46211,7917339,Demon of Envy,,chara_table[847] (archive_03/C4/E1CBAE..+0xbe3f0) name@+0xA0 -> EN text group 7662000
+46239,7817310,Demon of Obsession,,chara_table[848] (archive_03/C4/E1CBAE..+0xbe788) name@+0xA0 -> EN text group 7662000
+46267,5160753,Jailer Oni (Cold Hells),,chara_table[849] (archive_03/C4/E1CBAE..+0xbeb20) name@+0xA0 -> EN text group 7662000
+46304,8084766,Jailer Oni (Needle),,chara_table[850] (archive_03/C4/E1CBAE..+0xbeeb8) name@+0xA0 -> EN text group 7662000
+46344,7038295,Jailer Oni (Hell Wind),,chara_table[851] (archive_03/C4/E1CBAE..+0xbf250) name@+0xA0 -> EN text group 7662000
+46381,6957659,Mikoshi Nyudo,,chara_table[852] (archive_03/C4/E1CBAE..+0xbf5e8) name@+0xA0 -> EN text group 7662000
+46415,6439840,Shunobon,shunobon,chara_table[853] (archive_03/C4/E1CBAE..+0xbf980) name@+0xA0 -> EN text group 7662000; token-match on name word
+46443,4387231,Thorned Gaki,,chara_table[854] (archive_03/C4/E1CBAE..+0xbfd18) name@+0xA0 -> EN text group 7662000
+46471,6241999,Kyokotsu,,chara_table[855] (archive_03/C4/E1CBAE..+0xc00b0) name@+0xA0 -> EN text group 7662000
+46496,5851204,Karasu Tengu,,chara_table[856] (archive_03/C4/E1CBAE..+0xc0448) name@+0xA0 -> EN text group 7662000
+46524,6903301,Itsumade,,chara_table[857] (archive_03/C4/E1CBAE..+0xc07e0) name@+0xA0 -> EN text group 7662000
+46555,5535811,Tsurara-onna,,chara_table[858] (archive_03/C4/E1CBAE..+0xc0b78) name@+0xA0 -> EN text group 7662000
+46586,8147678,Nuppeppo,,chara_table[859] (archive_03/C4/E1CBAE..+0xc0f10) name@+0xA0 -> EN text group 7662000
+46623,6909832,Aberrant Soldier,,chara_table[860] (archive_03/C4/E1CBAE..+0xc12a8) name@+0xA0 -> EN text group 7662000
+46651,4776730,Tesso,,chara_table[861] (archive_03/C4/E1CBAE..+0xc1640) name@+0xA0 -> EN text group 7662000
+46676,8076336,Gamatsuki,,chara_table[862] (archive_03/C4/E1CBAE..+0xc19d8) name@+0xA0 -> EN text group 7662000
+46704,7596528,Bloodedge Demon,,chara_table[863] (archive_03/C4/E1CBAE..+0xc1d70) name@+0xA0 -> EN text group 7662000
+46775,8104900,Otoroshi,,chara_table[865] (archive_03/C4/E1CBAE..+0xc24a0) name@+0xA0 -> EN text group 7662000
+46806,5326180,Ibaraki Doji,ibaraki,chara_table[866] (archive_03/C4/E1CBAE..+0xc2838) name@+0xA0 -> EN text group 7662000; token-match on name word
+46874,6444702,Raiju,,chara_table[868] (archive_03/C4/E1CBAE..+0xc2f68) name@+0xA0 -> EN text group 7662000
+46899,6048488,Great Tengu,,chara_table[869] (archive_03/C4/E1CBAE..+0xc3300) name@+0xA0 -> EN text group 7662000
+46927,7976265,Hiruko,hiruko,chara_table[870] (archive_03/C4/E1CBAE..+0xc3698) name@+0xA0 -> EN text group 7662000; token-match on name word
+46967,5403697,Chijiko,,chara_table[871] (archive_03/C4/E1CBAE..+0xc3a30) name@+0xA0 -> EN text group 7662000
+46995,5403697,Chijiko,,chara_table[872] (archive_03/C4/E1CBAE..+0xc3dc8) name@+0xA0 -> EN text group 7662000
+47035,6924094,Kodama,,chara_table[873] (archive_03/C4/E1CBAE..+0xc4160) name@+0xA0 -> EN text group 7662000
+47060,6666998,Sudama,,chara_table[874] (archive_03/C4/E1CBAE..+0xc44f8) name@+0xA0 -> EN text group 7662000
+47085,4656847,Scampuss,,chara_table[875] (archive_03/C4/E1CBAE..+0xc4890) name@+0xA0 -> EN text group 7662000
+47119,4656847,Scampuss,,chara_table[876] (archive_03/C4/E1CBAE..+0xc4c28) name@+0xA0 -> EN text group 7662000
+47171,5166152,Biwa Boku-boku,,chara_table[877] (archive_03/C4/E1CBAE..+0xc4fc0) name@+0xA0 -> EN text group 7662000
+47203,8243816,Daidara Bocchi,,chara_table[878] (archive_03/C4/E1CBAE..+0xc5358) name@+0xA0 -> EN text group 7662000
+47243,4841022,Mujina,,chara_table[879] (archive_03/C4/E1CBAE..+0xc56f0) name@+0xA0 -> EN text group 7662000
+47271,5276221,Rogue,,chara_table[880] (archive_03/C4/E1CBAE..+0xc5a88) name@+0xA0 -> EN text group 7662000
+47340,4656847,Scampuss,,chara_table[881] (archive_03/C4/E1CBAE..+0xc5e20) name@+0xA0 -> EN text group 7662000
+47365,4656847,Scampuss,,chara_table[882] (archive_03/C4/E1CBAE..+0xc61b8) name@+0xA0 -> EN text group 7662000
+47619,7296862,Oboroguruma,,chara_table[894] (archive_03/C4/E1CBAE..+0xc8cd8) name@+0xA0 -> EN text group 7662000
+47626,7296862,Oboroguruma,,chara_table[895] (archive_03/C4/E1CBAE..+0xc9070) name@+0xA0 -> EN text group 7662000
+47654,6924094,Kodama,,chara_table[896] (archive_03/C4/E1CBAE..+0xc9408) name@+0xA0 -> EN text group 7662000
+47661,6666998,Sudama,,chara_table[897] (archive_03/C4/E1CBAE..+0xc97a0) name@+0xA0 -> EN text group 7662000
+47668,6666998,Sudama,,chara_table[898] (archive_03/C4/E1CBAE..+0xc9b38) name@+0xA0 -> EN text group 7662000
+47684,4656847,Scampuss,,chara_table[899] (archive_03/C4/E1CBAE..+0xc9ed0) name@+0xA0 -> EN text group 7662000
+47700,4656847,Scampuss,,chara_table[900] (archive_03/C4/E1CBAE..+0xca268) name@+0xA0 -> EN text group 7662000
+47731,4656847,Scampuss,,chara_table[901] (archive_03/C4/E1CBAE..+0xca600) name@+0xA0 -> EN text group 7662000
+47780,4656847,Scampuss,,chara_table[902] (archive_03/C4/E1CBAE..+0xca998) name@+0xA0 -> EN text group 7662000
+47808,4656847,Scampuss,,chara_table[903] (archive_03/C4/E1CBAE..+0xcad30) name@+0xA0 -> EN text group 7662000
+47842,4656847,Scampuss,,chara_table[904] (archive_03/C4/E1CBAE..+0xcb0c8) name@+0xA0 -> EN text group 7662000
+47876,4656847,Scampuss,,chara_table[905] (archive_03/C4/E1CBAE..+0xcb460) name@+0xA0 -> EN text group 7662000
+47910,4656847,Scampuss,,chara_table[906] (archive_03/C4/E1CBAE..+0xcb7f8) name@+0xA0 -> EN text group 7662000
+47944,4656847,Scampuss,,chara_table[907] (archive_03/C4/E1CBAE..+0xcbb90) name@+0xA0 -> EN text group 7662000
+47978,4656847,Scampuss,,chara_table[908] (archive_03/C4/E1CBAE..+0xcbf28) name@+0xA0 -> EN text group 7662000
+48012,4656847,Scampuss,,chara_table[909] (archive_03/C4/E1CBAE..+0xcc2c0) name@+0xA0 -> EN text group 7662000
+48046,4656847,Scampuss,,chara_table[910] (archive_03/C4/E1CBAE..+0xcc658) name@+0xA0 -> EN text group 7662000
+48080,4656847,Scampuss,,chara_table[911] (archive_03/C4/E1CBAE..+0xcc9f0) name@+0xA0 -> EN text group 7662000
+48114,4656847,Scampuss,,chara_table[912] (archive_03/C4/E1CBAE..+0xccd88) name@+0xA0 -> EN text group 7662000
+48148,4656847,Scampuss,,chara_table[913] (archive_03/C4/E1CBAE..+0xcd120) name@+0xA0 -> EN text group 7662000
+48176,4656847,Scampuss,,chara_table[914] (archive_03/C4/E1CBAE..+0xcd4b8) name@+0xA0 -> EN text group 7662000
+48210,4656847,Scampuss,,chara_table[915] (archive_03/C4/E1CBAE..+0xcd850) name@+0xA0 -> EN text group 7662000
+48253,7974816,Kappa,kappa,chara_table[916] (archive_03/C4/E1CBAE..+0xcdbe8) name@+0xA0 -> EN text group 7662000; token-match on name word
+48260,7974816,Kappa,kappa,chara_table[917] (archive_03/C4/E1CBAE..+0xcdf80) name@+0xA0 -> EN text group 7662000; token-match on name word
+48289,7974816,Kappa,kappa,chara_table[918] (archive_03/C4/E1CBAE..+0xce318) name@+0xA0 -> EN text group 7662000; token-match on name word
+48312,7974816,Kappa,kappa,chara_table[919] (archive_03/C4/E1CBAE..+0xce6b0) name@+0xA0 -> EN text group 7662000; token-match on name word
+48335,7974816,Kappa,kappa,chara_table[920] (archive_03/C4/E1CBAE..+0xcea48) name@+0xA0 -> EN text group 7662000; token-match on name word
+48364,8296839,Red Kappa,,chara_table[921] (archive_03/C4/E1CBAE..+0xcede0) name@+0xA0 -> EN text group 7662000
+48374,8296839,Red Kappa,,chara_table[922] (archive_03/C4/E1CBAE..+0xcf178) name@+0xA0 -> EN text group 7662000
+48390,5166152,Biwa Boku-boku,,chara_table[923] (archive_03/C4/E1CBAE..+0xcf510) name@+0xA0 -> EN text group 7662000
+48404,5166152,Biwa Boku-boku,,chara_table[924] (archive_03/C4/E1CBAE..+0xcf8a8) name@+0xA0 -> EN text group 7662000
+48447,5166152,Biwa Boku-boku,,chara_table[925] (archive_03/C4/E1CBAE..+0xcfc40) name@+0xA0 -> EN text group 7662000
+48490,5166152,Biwa Boku-boku,,chara_table[926] (archive_03/C4/E1CBAE..+0xcffd8) name@+0xA0 -> EN text group 7662000
+48533,5166152,Biwa Boku-boku,,chara_table[927] (archive_03/C4/E1CBAE..+0xd0370) name@+0xA0 -> EN text group 7662000
+48570,5166152,Biwa Boku-boku,,chara_table[928] (archive_03/C4/E1CBAE..+0xd0708) name@+0xA0 -> EN text group 7662000
+48601,4768727,Nurikabe,,chara_table[929] (archive_03/C4/E1CBAE..+0xd0aa0) name@+0xA0 -> EN text group 7662000
+48614,8243816,Daidara Bocchi,,chara_table[930] (archive_03/C4/E1CBAE..+0xd0e38) name@+0xA0 -> EN text group 7662000
+48636,8243816,Daidara Bocchi,,chara_table[931] (archive_03/C4/E1CBAE..+0xd11d0) name@+0xA0 -> EN text group 7662000
+48662,6470107,Murakumo,,chara_table[932] (archive_03/C4/E1CBAE..+0xd1568) name@+0xA0 -> EN text group 7662000
+48673,4841022,Mujina,,chara_table[933] (archive_03/C4/E1CBAE..+0xd1900) name@+0xA0 -> EN text group 7662000
+48683,4841022,Mujina,,chara_table[934] (archive_03/C4/E1CBAE..+0xd1c98) name@+0xA0 -> EN text group 7662000
+48717,6271153,Death Veil,,chara_table[935] (archive_03/C4/E1CBAE..+0xd2030) name@+0xA0 -> EN text group 7662000
+48739,6271153,Death Veil,,chara_table[936] (archive_03/C4/E1CBAE..+0xd23c8) name@+0xA0 -> EN text group 7662000
+48764,6271153,Death Veil,,chara_table[937] (archive_03/C4/E1CBAE..+0xd2760) name@+0xA0 -> EN text group 7662000
+48792,6271153,Death Veil,,chara_table[938] (archive_03/C4/E1CBAE..+0xd2af8) name@+0xA0 -> EN text group 7662000
+48808,6271153,Death Veil,,chara_table[939] (archive_03/C4/E1CBAE..+0xd2e90) name@+0xA0 -> EN text group 7662000
+48921,5276221,Rogue,,chara_table[945] (archive_03/C4/E1CBAE..+0xd4420) name@+0xA0 -> EN text group 7662000
+49083,6542043,Enemy A,,chara_table[948] (archive_03/C4/E1CBAE..+0xd4ee8) name@+0xA0 -> EN text group 7662000
+49099,6542043,Enemy A,,chara_table[949] (archive_03/C4/E1CBAE..+0xd5280) name@+0xA0 -> EN text group 7662000
+49115,6542043,Enemy A,,chara_table[950] (archive_03/C4/E1CBAE..+0xd5618) name@+0xA0 -> EN text group 7662000
+49131,6542043,Enemy A,,chara_table[951] (archive_03/C4/E1CBAE..+0xd59b0) name@+0xA0 -> EN text group 7662000
+49147,6542043,Enemy A,,chara_table[952] (archive_03/C4/E1CBAE..+0xd5d48) name@+0xA0 -> EN text group 7662000
+49172,6542043,Enemy A,,chara_table[953] (archive_03/C4/E1CBAE..+0xd60e0) name@+0xA0 -> EN text group 7662000
+49197,6542043,Enemy A,,chara_table[954] (archive_03/C4/E1CBAE..+0xd6478) name@+0xA0 -> EN text group 7662000
+49222,6542043,Enemy A,,chara_table[955] (archive_03/C4/E1CBAE..+0xd6810) name@+0xA0 -> EN text group 7662000
+49247,6542043,Enemy A,,chara_table[956] (archive_03/C4/E1CBAE..+0xd6ba8) name@+0xA0 -> EN text group 7662000
+49272,6542043,Enemy A,,chara_table[957] (archive_03/C4/E1CBAE..+0xd6f40) name@+0xA0 -> EN text group 7662000
+49309,6542043,Enemy A,,chara_table[958] (archive_03/C4/E1CBAE..+0xd72d8) name@+0xA0 -> EN text group 7662000
+49594,6542043,Enemy A,,chara_table[966] (archive_03/C4/E1CBAE..+0xd8f98) name@+0xA0 -> EN text group 7662000
+49663,6542043,Enemy A,,chara_table[967] (archive_03/C4/E1CBAE..+0xd9330) name@+0xA0 -> EN text group 7662000
+49721,6542043,Enemy A,,chara_table[968] (archive_03/C4/E1CBAE..+0xd96c8) name@+0xA0 -> EN text group 7662000
+49743,6542043,Enemy A,,chara_table[969] (archive_03/C4/E1CBAE..+0xd9a60) name@+0xA0 -> EN text group 7662000
+49768,5297052,Tatarimokke,,chara_table[970] (archive_03/C4/E1CBAE..+0xd9df8) name@+0xA0 -> EN text group 7662000
+49787,6542043,Enemy A,,chara_table[971] (archive_03/C4/E1CBAE..+0xda190) name@+0xA0 -> EN text group 7662000
+49818,6542043,Enemy A,,chara_table[972] (archive_03/C4/E1CBAE..+0xda528) name@+0xA0 -> EN text group 7662000
+49849,6542043,Enemy A,,chara_table[973] (archive_03/C4/E1CBAE..+0xda8c0) name@+0xA0 -> EN text group 7662000
+49871,6542043,Enemy A,,chara_table[974] (archive_03/C4/E1CBAE..+0xdac58) name@+0xA0 -> EN text group 7662000
+49902,6542043,Enemy A,,chara_table[975] (archive_03/C4/E1CBAE..+0xdaff0) name@+0xA0 -> EN text group 7662000
+49918,6542043,Enemy A,,chara_table[976] (archive_03/C4/E1CBAE..+0xdb388) name@+0xA0 -> EN text group 7662000
+49943,6542043,Enemy A,,chara_table[977] (archive_03/C4/E1CBAE..+0xdb720) name@+0xA0 -> EN text group 7662000
+49968,6542043,Enemy A,,chara_table[978] (archive_03/C4/E1CBAE..+0xdbab8) name@+0xA0 -> EN text group 7662000
+49993,6542043,Enemy A,,chara_table[979] (archive_03/C4/E1CBAE..+0xdbe50) name@+0xA0 -> EN text group 7662000
+50027,6542043,Enemy A,,chara_table[980] (archive_03/C4/E1CBAE..+0xdc1e8) name@+0xA0 -> EN text group 7662000
+50061,6542043,Enemy A,,chara_table[981] (archive_03/C4/E1CBAE..+0xdc580) name@+0xA0 -> EN text group 7662000
+50077,6542043,Enemy A,,chara_table[982] (archive_03/C4/E1CBAE..+0xdc918) name@+0xA0 -> EN text group 7662000
+50108,6542043,Enemy A,,chara_table[983] (archive_03/C4/E1CBAE..+0xdccb0) name@+0xA0 -> EN text group 7662000
+50127,6542043,Enemy A,,chara_table[984] (archive_03/C4/E1CBAE..+0xdd048) name@+0xA0 -> EN text group 7662000
+50143,6542043,Enemy A,,chara_table[985] (archive_03/C4/E1CBAE..+0xdd3e0) name@+0xA0 -> EN text group 7662000
+50159,6542043,Enemy A,,chara_table[986] (archive_03/C4/E1CBAE..+0xdd778) name@+0xA0 -> EN text group 7662000
+50184,6542043,Enemy A,,chara_table[987] (archive_03/C4/E1CBAE..+0xddb10) name@+0xA0 -> EN text group 7662000
+50257,6542043,Enemy A,,chara_table[988] (archive_03/C4/E1CBAE..+0xddea8) name@+0xA0 -> EN text group 7662000
+50318,6542043,Enemy A,,chara_table[989] (archive_03/C4/E1CBAE..+0xde240) name@+0xA0 -> EN text group 7662000
+50340,6542043,Enemy A,,chara_table[990] (archive_03/C4/E1CBAE..+0xde5d8) name@+0xA0 -> EN text group 7662000
+50368,6542043,Enemy A,,chara_table[991] (archive_03/C4/E1CBAE..+0xde970) name@+0xA0 -> EN text group 7662000
+50396,6542043,Enemy A,,chara_table[992] (archive_03/C4/E1CBAE..+0xded08) name@+0xA0 -> EN text group 7662000
+50406,6542043,Enemy A,,chara_table[993] (archive_03/C4/E1CBAE..+0xdf0a0) name@+0xA0 -> EN text group 7662000
+50488,7185877,Mysterious Samurai,,chara_table[994] (archive_03/C4/E1CBAE..+0xdf438) name@+0xA0 -> EN text group 7662000
+50537,6542043,Enemy A,,chara_table[995] (archive_03/C4/E1CBAE..+0xdf7d0) name@+0xA0 -> EN text group 7662000
+50556,6542043,Enemy A,,chara_table[996] (archive_03/C4/E1CBAE..+0xdfb68) name@+0xA0 -> EN text group 7662000
+51354,8039637,Yamainu,,chara_table[1017] (archive_03/C4/E1CBAE..+0xe46e0) name@+0xA0 -> EN text group 7662000
+51376,6439840,Shunobon,shunobon,chara_table[1018] (archive_03/C4/E1CBAE..+0xe4a78) name@+0xA0 -> EN text group 7662000; token-match on name word
+51410,8039637,Yamainu,,chara_table[1019] (archive_03/C4/E1CBAE..+0xe4e10) name@+0xA0 -> EN text group 7662000
+51444,5276221,Rogue,,chara_table[1020] (archive_03/C4/E1CBAE..+0xe51a8) name@+0xA0 -> EN text group 7662000

@@ -1,0 +1,6 @@
+rva	kind	name	signature	description	confidence	source
+0x1ce7c6c	function	AddBossGaugeRow	bool AddBossGaugeRow(HudBossGauge* hud, u32 actorId)	adds a 0x60 B boss-gauge row: +4 actor id, +8 name text id (= [charMgr+0xD4] or actor->charParam+0xA0, default 0x3E994F1); skips id 0/dupes/dead	medium	notes/boss-names.md
+0x5a4b04	function	TextGetById	const wchar_t* TextGetById(u32 textId)	looks up text id in current language via g_TextMgr (1309 callers)	high	notes/boss-names.md
+0x63d9c4	function	TextMgrLookup	const wchar_t* TextMgrLookup(TextMgr* m, int lang, u32 id)	lang < 23, map at m+0x1CD0 (id -> wchar_t* at node+0x28), skips "^13~UNUSED~", fallback string 0x52cfe5c4	high	notes/boss-names.md
+0x45c8450	global	g_TextMgr	TextMgr*	text manager: +0x1CD0 id map, +0x1CE4 language index, +0x1CE8 loaded count	high	notes/boss-names.md
+0x1d05824	function	BossGaugeSetup	void(HudBossGauge*,u32 actorId,u32,u32)	fills up to 3 boss gauge rows; row name = TextGetById(row+8) shown in gauge text 0xF5[i]	high	notes/boss-names.md
