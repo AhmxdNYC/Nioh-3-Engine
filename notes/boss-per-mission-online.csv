@@ -1,0 +1,89 @@
+mission_name,mission_type,region,order,bosses,sources,conflicts
+Ceremony / The Fall of Edo Castle,main,Edo 1622 (Edo Castle),1,Tokugawa Kunimatsu (tutorial sparring duel only),GameTrek;Game8;PCGamesN,Boss only in GameTrek; PowerPyx/GamingBolt list no boss here
+The Battle of Hitokoto Slope (obj: Escape from Hitokoto Slope),main,Warring States 1572 (Hitokoto Slope),2,Yamagata Masakage,PowerPyx;Game8;GameTrek;GamingBolt;PCGamesN,none
+The Hamamatsu Incident (obj: Crucible Manifested),main,Warring States 1572 (Hamamatsu Castle Town Crucible),3,Jakotsu-baba (aka Yakotsu-baba),PowerPyx;Game8;GamingBolt;GameTrek,spelling only
+The Battle of Futamata Castle (obj: Mirage Fortress),main,Warring States 1572 (Futamata),4,Baba Nobuharu (Anayama Nobutada + Hattori Hanzo met as mid-mission fights),PowerPyx;Game8;GamingBolt,Anayama listed as field boss by GamingBolt/Game8 only
+The Battle of Mikatagahara (obj: A Fiery Invasion),main,Warring States 1572 (Mikatagahara),5,Yamagata Masakage (horse/yokai form); Takeda Shingen (human),PowerPyx;Game8;GamingBolt;GameTrek,none
+The Battle of Saigagake (obj: Tiger's Cause),main,Warring States 1572 (Saigagake),6,Takeda Shingen (monster form),PowerPyx;GamingBolt;GameTrek;PCGamesN,none
+The Age of Clans Begins (obj: Sacred Mountain Defiled),main,Heian 1190 (Mount Kurama),7,Great Tengu,PowerPyx;GamingBolt;PCGamesN;GameTrek,none
+Heian Befouled (objs: Black Feather Sanctuary / The Oni of Rajomon / Subterfuge at the Abandoned Shrine),main,Heian 1190 (Sagano; Hachijo/Rajomon; Rokuhara),8,Otoroshi; Ibaraki Doji; Kajiwara Kagetoki,PowerPyx;Game8;GamingBolt;PCGamesN,PCGamesN folds all 3 objectives into mission 8 (agrees with Game8); PowerPyx lists them as separate missions and spells Kaiwara
+A Cause Too Great (obj: Frozen City Blazing Tree),main,Heian 1190 (Palace Grounds Crucible),9,Minamoto no Yoritomo,PowerPyx;Game8;GamingBolt;GameTrek,none
+Calamity's Seed (obj: The Spirit Tree Village),main,Antiquity 247,10,Kusanagi (with Red-clothed Maiden support),PowerPyx;Game8;GamingBolt,PowerPyx adds Sorceress as co-boss = the Maiden
+Ill Omen (obj: Dark Roots),main,Antiquity 247,11,Hiruko,PowerPyx;Game8;GamingBolt,none
+To the Beginning (obj: Light of Hope),main,Return to Edo 1622 (Edo Castle),12,Tokugawa Kunimatsu; Gozuki (spiked-club yokai - Game8 only),PowerPyx;Game8;GamingBolt;GameTrek,Gozuki only in Game8
+A New Era (obj: The Sweet Sound of Strings),main,Bakumatsu 1864 (Shimabara),13,Takasugi Shinsaku,PowerPyx;GamingBolt;GameTrek;Game8(order),none
+Those Left Behind (objs: Those Left Behind / Accursed Temple),main,Bakumatsu 1864 (Kamo/Shirakawa; Sanjo Honnoji Crucible),14,Enenra; Nuribotoke,PowerPyx;Game8;GamingBolt,none
+Final Hope (obj: Scion of the Gods),main,Bakumatsu 1864 (Kyoto Imperial Palace Crucible),15,Okita Soji; Tokugawa Yoshinobu,PowerPyx;Game8;GamingBolt;GameTrek,GameTrek lists Final Hope and Scion of the Gods as separate entries; Game8 treats Scion as part of Final Hope
+What Makes a Shogun (obj: A Sinister End),main,Final Battle of Edo 1622 (Edo Castle),16,Death Veil; Hiruko (final form),PowerPyx;Game8;GamingBolt;GameTrek,none
+Kodama Seeker,sub,Warring States (en route to Hamamatsu Castle),1,none,GameTrek,
+Desecrated Hot Spring,sub,Warring States (Tokaido),2,none (clear enemy base),GameTrek,
+Insatiable Hunger,sub,Warring States (Tokaido),3,Gaki Chief,GameTrek;GamingBolt,
+A Drop of Hope,sub,Warring States (Tenryu River),4,Yoki (Ninja Yoki),GameTrek;GamingBolt,
+The Way of the Warrior: Novice,sub,Eternal Rift,5,training partners (unnamed),GameTrek,
+The Way of the Onmyo: Novice,sub,Eternal Rift,6,training partners (unnamed),GameTrek,
+The Way of the Ninja: Novice,sub,Eternal Rift,7,training partners (unnamed),GameTrek,
+Training Ground,sub,Eternal Rift,8,none,GameTrek,
+Basic Controls,sub,Eternal Rift,9,none,GameTrek,
+Expanded Controls,sub,Eternal Rift,10,none,GameTrek,
+Fated Land,sub,Warring States (Hamamatsu / Ryotan Temple),11,Ryomen Sukuna (2 phases),GameTrek;GamingBolt,Same boss and temple as Apparition of Ryotan Temple (Iinoya per GameTrek); region labels differ
+A Fierce Flame,sub,Warring States (Eternal Rift; Lake Sanaru),12,none,GameTrek,
+Abundant Evil,sub,Warring States (Maisaka Post),13,Gaki Chief (+10 yokai),GameTrek,GameTrek wording is "comparable enemy"; GamingBolt lists Gaki Chief at Tokaido
+The Way of the Onmyo: Adept,sub,Eternal Rift,14,3 yokai waves (no named boss),GameTrek,
+The Way of the Warrior: Adept,sub,Eternal Rift,15,Yagyu Munenori,GameTrek;GamingBolt,
+The Way of the Ninja: Adept,sub,Eternal Rift,16,Hattori Hanzo,GameTrek;GamingBolt,
+The Demon of the Haunting Caves,sub,Warring States (Haunting Caves / Maisaka),17,Hino-Enma,GameTrek;GamingBolt,
+Headaches,sub,Warring States (Hamamatsu),18,Nuppeppo,GameTrek;GamingBolt,
+Depicting the Tiger of Kai,sub,Warring States (Futamata Road),19,Baba Nobuharu; Takeda Shingen,GameTrek;GamingBolt(Shingen),Baba as repeat fight only in GameTrek
+Disaster at Lake Hamana,sub,Warring States (Lake Hamana),20,Daidara Bocchi (giant yokai),GameTrek;GamingBolt,GamingBolt lists Taigen Sessai at Lake Hamana - mission link unconfirmed
+Searching for a Spy,sub,Warring States (Futamata),21,no named boss (Takeda soldiers/yokai),GameTrek,
+Princess Tsubaki,sub,Warring States (Hamamatsu),22,Otazu no Kata,GameTrek;GamingBolt,
+Those Who Live in the Shadows,sub,Warring States (Iinoya),23,a yokai and its master (Ninja Yoki per GamingBolt),GameTrek;GamingBolt,GameTrek unnamed
+The Demon's Regimen,sub,Warring States (Hamamatsu),24,Hattori Hanzo,GameTrek,
+Horie's Fleeting Petals,sub,Warring States (Lake Hamana),25,Magatsu Warrior,GameTrek;GamingBolt,
+Follow the Soldier's Shadow,sub,Heian (Funaokayama),26,Yasha (reveals Tomoe Gozen),GameTrek;GamingBolt,
+In Search of Eternal Youth,sub,Heian (Nishiichi / Sagano),27,One-eyed Oni; Gaki,GameTrek;GamingBolt,
+Memories in the Blade,sub,Heian (Eternal Rift / Heian-Kyo),28,Crucible Wraith,GameTrek,
+Becoming Champion of the East,sub,Warring States (Hamamatsu),29,Honda Tadakatsu,GameTrek;GamingBolt,
+Groans in the Valley,sub,Warring States (Saigagake),30,Kamaitachi (upgraded),GameTrek;GamingBolt,
+Takeda's Four Heavenly Kings,sub,Warring States (Saigagake),31,Naito Masatoyo; Kosaka Masanobu; Baba Nobuharu; Yamagata Masakage (yokai); Takeda Shingen,GameTrek;GamingBolt,Earlier CSV (GamingBolt) listed only Kosaka/Naito/Shingen; GameTrek gives 5 sequential fights
+Origin of the Haunting Caves,sub,Warring States (Maisaka),32,Ascetic monk spirit (Cavern Ascetic),GameTrek;GamingBolt,
+Vengeful Blade,sub,Warring States (Futamata),33,Ippon-Datara,GameTrek;GamingBolt,
+Ii's Memento,sub,Warring States (Hamamatsu),34,Aggrieved Warrior,GameTrek;GamingBolt,Destructoid spells Li's Memento
+The Great Shogun of the Heian Era,sub,Warring States (Lake Sanaru),35,Onryoki,GameTrek;GamingBolt,Needs A Fiery Invasion cleared
+Putrid Paradise,sub,Heian (Hachijo),36,none named (Lesser Crucible),GameTrek,
+Shadows on the Capital,sub,Heian (Awawa no Tsuji),37,yokai + Onmyo mages (Shinran per GamingBolt location),GameTrek;GamingBolt,Shinran link inferred by location
+The Box's Guardian,sub,Heian (Hachijo),38,Demon Slayer; Ninja Yoki,GameTrek;GamingBolt,
+The Value of Perfection,sub,Heian (Eternal Rift / Nishiichi),39,none,GameTrek,
+Thoughts Bequeathed,sub,Heian (Rokuhara),40,Magatsu Warrior,GameTrek,
+Triple Triumph,sub,Heian (Mount Kurama),41,Minamoto no Yoshitsune,GameTrek;GamingBolt,
+True Samurai of Kamakura,sub,Heian (Mount Kurama),42,Waira; Kajiwara Kagetoki,GameTrek;GamingBolt,GamingBolt places Waira at Sagano and Kajiwara at Rokuhara; GameTrek says Kurama
+Unwavering Hope,sub,Heian (Sagano),43,Tsurara-Onna,GameTrek;GamingBolt,
+Yokai Horde Picture Scroll,sub,Heian (Kamo Village / Toji Temple),44,Enenra,GameTrek;GamingBolt,
+A Present from Whom?,sub,Bakumatsu (Shichijo),45,Enki,GameTrek;GamingBolt,
+Doctor's Pride,sub,Bakumatsu (Shichijo),46,none named,GameTrek,
+Old Medicine New Problems,sub,Bakumatsu (Shichijo),47,none,GameTrek,
+Peerless Katana,sub,Bakumatsu (Shichijo / Nijo Castle),48,Nagakura Shinpachi,GameTrek;GamingBolt,
+Ryoma's Bequeathment,sub,Bakumatsu (Shichijo / Sanjo),49,Mezuki,GameTrek;GamingBolt,
+Sealed in the Stone Urn,sub,Bakumatsu (Shichijo / Nishi Honganji),50,Ibaraki Doji (2nd fight),GameTrek;GamingBolt,
+Seeking Rare Yokai,sub,Bakumatsu (Kiyomizu),51,Jakotsu-baba,GameTrek;GamingBolt,
+Seeking Spirit Stones,sub,Bakumatsu (Shichijo; Heian time travel),52,Ryomen Sukuna,GameTrek;GamingBolt,
+Shinsengumi Scheme,sub,Bakumatsu (Shimabara / Shichijo),53,Hattori Takeo; Saito Hajime,GameTrek;GamingBolt,
+The Rebels' Whereabouts,sub,Bakumatsu (Shichijo / Kiyomizu),54,none named,GameTrek,
+Well Well Well,sub,Bakumatsu (Sanjo),55,Okiku; Kyokotsu,GameTrek;GamingBolt(Kyokotsu),Okiku only in GameTrek
+The Way of the Warrior: Veteran,sub,Eternal Rift,56,Yagyu Munenori,GameTrek;GamingBolt,
+The Way of the Onmyo: Veteran,sub,Eternal Rift,57,Saito Fuku,GameTrek;GamingBolt,
+The Way of the Ninja: Veteran,sub,Eternal Rift,58,Hattori Hanzo,GameTrek;GamingBolt,
+Shinsengumi: Best of Five,sub,Bakumatsu (Mibu Temple),59,Okita Soji; Kondo Isami; Hijikata Toshizo; Nagakura Shinpachi; Saito Hajime (names from GamingBolt),GamingBolt;GameTrek(unnamed),Names single-source
+Shadows of the Three Oni,sub,Final Battle of Edo 1622,60,UNVERIFIED (battle-scroll gauntlet; unnamed),GameTrek,No source names bosses
+Solitary Blade,sub,Bakumatsu (Mibu Temple),61,Okita Soji,GameTrek;GamingBolt,
+The Apparition of Ryotan Temple,sub,Warring States (Ryotan Temple / Iinoya),62,Ryomen Sukuna,GameTrek;GamingBolt,
+The Mystery of Rajomon,sub,Heian (Rajomon / Rokuhara),63,Ryomen Sukuna (upgraded),GameTrek;GamingBolt,
+Beast of the Underworld,sub,Bakumatsu (Shichijo Abyss),64,Kasha,GameTrek;GamingBolt,
+Beneath a Pure White Flag,sub,Heian (Mount Kurama),65,Tomoe Gozen; Minamoto no Yoshitsune; Nasu no Yoichi; Kajiwara Kagetoki (names from GamingBolt),GamingBolt;GameTrek(unnamed),Names single-source
+Crucible Tour,sub,Bakumatsu (Kiyomizu),66,Gozuki; Onryoki,GameTrek,Needs Kiyomizu Defiled; GameTrek spells Gosuki here vs Gozuki on Game8
+Drawn to Yokai Incense,sub,Bakumatsu (Shimabara),67,boss waves incl. Joro-Gumo (GamingBolt),GameTrek;GamingBolt,GameTrek unnamed
+Kiyomizu Defiled,sub,Bakumatsu (Kiyomizu),68,Hijikata Toshizo; Kondo Isami; Onmoraki,GameTrek;GamingBolt,
+Nobunaga's Blade,sub,Bakumatsu (Sanjo),69,Red Kappa,GameTrek;GamingBolt,
+Demon of Pride,secret post-game,Warring States (Iinoya),opt,Demon of Pride,PowerPyx;GamingBolt,
+Demon of Envy,secret post-game,Heian (Hachijo / Anneibo Temple),opt,Demon of Envy,PowerPyx;GamingBolt,
+Demon of Obsession,secret post-game,Bakumatsu (Nijo Castle / Mibu),opt,Demon of Obsession,PowerPyx;GamingBolt,
