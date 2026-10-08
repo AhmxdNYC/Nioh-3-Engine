@@ -1,0 +1,46 @@
+boss_atom,idx,cat_code,category,name_id,desc_id,name_en,rec_hash
+Great Tengu,44,100000200,weapon,23283841,21430575,Great Tengu Blade,dc250000
+Ippon-Datara,203,100000500,weapon,21817502,24916697,Ippon-Datara's Hammer,36ba0000
+Ryomen Sukuna,216,100000500,weapon,23760185,21631751,Ryomen Sukuna's Axe,ae4f0000
+Yasha,258,100000600,weapon,21301811,25101336,Yasha's Kusarigama,efce0000
+Ippon-Datara,278,100000700,weapon,23460619,21771151,Ippon-Datara's Odachi,4d1e0000
+Ibaraki Doji,279,100000700,weapon,24159655,23610809,Ibaraki Doji's Odachi,a7cd0000
+Ryomen Sukuna,296,100000700,weapon,24730014,24650710,Ryomen Sukuna's Sword,ef740000
+Ryomen Sukuna,580,200010000,bow/firearm,23250951,22420125,Ryomen Sukuna's Bow,364d0000
+Kusanagi,1368,301000000,armor:head,14529599,16528884,Kusanagi Helmet,77430000
+Kusanagi,1442,306000000,accessory(charm),16125899,14656592,Kusanagi Netsuke Charm,c0320000
+Kusanagi,1487,306000000,accessory(charm),16125899,14656592,Kusanagi Netsuke Charm,21050000
+Nuppeppo,1599,400000000,consumable,19566012,19038076,Dried Nuppeppo Meat,47c20000
+Karasu Tengu,1934,500000000,material,17194008,17711211,Karasu Tengu Feather,cb900000
+Joro-Gumo,1937,500000000,material,17041732,17795814,Joro-gumo's Leg Husk,1b680000
+Red Kappa,1945,500000000,material,20898186,20766224,Red Kappa Shell,48b90000
+Ippon-Datara,1954,500000000,material,20694854,18402269,Ippon-datara Fang,8f0d0000
+Waira,1958,500000000,material,17937801,18516247,Waira Claw,ce840000
+Enki,1967,500000000,material,20541128,18418776,Enki Pelt,96a50000
+One-eyed Oni,1982,500000000,material,19465523,20776470,One-Eyed Oni's Loincloth,5d730000
+Nuppeppo,1992,500000000,material,17674515,18386809,Nuppeppo Liver,10960000
+Raiju,2010,500000000,material,17139627,19581362,Raiju Pelt,d3b90000
+Great Tengu,2027,500000000,material,18955922,20268282,Great Tengu Feather,7c840000
+Ibaraki Doji,2029,500000000,material,18843767,19675979,Ibaraki Doji's Thorns,48450000
+Nuribotoke,2030,500000000,material,17506768,18575682,Nuribotoke's Eye,dd840000
+Demon of Pride,2031,500000000,material,19888620,16808684,Demon of Pride's Horn,98ed0000
+Demon of Envy,2032,500000000,material,17966829,17503723,Demon of Envy's Horn,a6230000
+Demon of Obsession,2033,500000000,material,19034097,20049117,Demon of Obsession's Horn,5bf60000
+Hino-Enma,2034,500000000,material,19846426,20053859,Hino-enma's Cloth,02210000
+Bloodedge Demon,2035,500000000,material,17225607,17386014,Bloodedge Demon's Blood,54fc0000
+Takeda Shingen,2093,600000000,key/scroll/box,17387536,18409000,Portrait of Takeda Shingen,fd2b0000
+Kusanagi,2112,600000000,key/scroll/box,20685711,17421736,Painting of Kusanagi,fd140000
+Great Tengu,2607,1100000000,appearance/collection,23283841,17823231,Great Tengu Blade,d7ca0000
+Onryoki,2629,1100000000,appearance/collection,12892528,19934711,Onryoki Helmet,17830000
+Kusanagi,2652,1100000000,appearance/collection,20422342,17823231,Kusanagi Tsurugi,3b840000
+Red Kappa,2710,1100000000,appearance/collection,13964256,19934711,Red Kappa Helmet,94e50000
+Enenra,2781,1100000000,appearance/collection,14730686,19934711,Enenra Mask,3d620000
+Kamaitachi,2782,1100000000,appearance/collection,15173537,19934711,Kamaitachi Helmet,3a840000
+Ippon-Datara,2861,1100000000,appearance/collection,21817502,17823231,Ippon-Datara's Hammer,c2ff0000
+Ryomen Sukuna,2862,1100000000,appearance/collection,23760185,17823231,Ryomen Sukuna's Axe,13020000
+Ippon-Datara,2868,1100000000,appearance/collection,23460619,17823231,Ippon-Datara's Odachi,9d740000
+Ryomen Sukuna,2869,1100000000,appearance/collection,24730014,17823231,Ryomen Sukuna's Sword,b6740000
+Ryomen Sukuna,2881,1100000000,appearance/collection,23250951,17823231,Ryomen Sukuna's Bow,c5990000
+Kusanagi,2905,1100000000,appearance/collection,14529599,19934711,Kusanagi Helmet,cd6f0000
+Ibaraki Doji,2976,1100000000,appearance/collection,24159655,17823231,Ibaraki Doji's Odachi,29d90000
+Demon Slayer,3006,1100000000,appearance/collection,14583243,19793811,Demon Slayer Armor,1fa70000
