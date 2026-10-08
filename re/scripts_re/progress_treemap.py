@@ -193,10 +193,10 @@ def tailcol(tail, tw):
     return sum(c[0] * c[1] for c in tail) / tw
 
 
-def ptext(x, y, s, fs, fill, fw=600):
+def ptext(x, y, s, fs, fill, fw=600, sw=3):
     s = s.replace('&', '&amp;').replace('<', '&lt;')
-    return ('<text x="%.1f" y="%.1f" fill="%s" font-size="%s" font-weight="%d" stroke="#0d1117" stroke-width="3" '
-            'stroke-linejoin="round" paint-order="stroke">%s</text>' % (x, y, fill, fs, fw, s))
+    return ('<text x="%.1f" y="%.1f" fill="%s" font-size="%s" font-weight="%d" stroke="#0d1117" stroke-width="%s" '
+            'stroke-linejoin="round" paint-order="stroke">%s</text>' % (x, y, fill, fs, fw, sw, s))
 
 
 def wcells(cells, x, y, w, h, total, minfrac=0.0002):
@@ -217,14 +217,24 @@ def wcells(cells, x, y, w, h, total, minfrac=0.0002):
                    % (cx, cy, max(cw - .8, .3), max(ch - .8, .3), colour(c[1]),
                       '><title>%s</title></rect>' % c[2] if len(c) > 2 else '/>'))
         lab = c[3] if len(c) > 3 else None
-        if isinstance(lab, tuple) and lab[0] and i < 4 and cw >= 150 and ch >= 34:
+        if isinstance(lab, tuple) and lab[0] and i < 3 and cw >= 110 and ch >= 30:
             fs = 13
             main, sub = lab
-            if len(main) * fs * 0.58 <= cw - 10:
+            words, cap = main.split(' '), int((cw - 10) / (fs * 0.58))
+            while words and len(' '.join(words)) > cap:
+                words.pop()
+            main = ' '.join(words)
+            if len(main) >= 5:
                 out.append(ptext(cx + 5, cy + 16, main, fs, '#fff', 600))
-                if sub and ch >= 50 and len(sub) * 11 * 0.58 <= cw - 10:
-                    out.append(ptext(cx + 5, cy + 31, sub, 11, '#dfe6ee', 400))
+                if sub and ch >= 46 and len(sub) * 11 * 0.58 <= cw - 10:
+                    out.append(ptext(cx + 5, cy + 31, sub, 11, '#fff', 600, 2.5))
     return out
+
+
+SHORT = {'user interface': 'UI', 'animation': 'anim', 'resource streaming': 'streaming', 'main loop & timing': 'main loop',
+         'controls': 'input', '3rd-party upscalers': '3rd party', 'geometry streaming': 'meshlet', 'effects & post': 'fx & post',
+         'GPU submission': 'GPU', 'sky & clouds': 'sky', 'data copies': 'copies', 'post & outlines': 'post', 'unattributed': 'other',
+         'job system': 'jobs', 'game logic': 'logic', 'unexplored code': 'unexplored', 'materials': 'PB2'}
 
 
 def svg(blocks, title, W=1000, H=620, legend='', minfrac=0.0002):
@@ -240,10 +250,11 @@ def svg(blocks, title, W=1000, H=620, legend='', minfrac=0.0002):
         if i not in rects:
             continue
         x, y, w, h = rects[i]
-        fs = 15
         cw_ = lambda s: len(s) * fs * 0.6
-        t = next((s for s in (label, label.split(' / ')[0 if label.startswith('text ') else -1]) if cw_(s) <= w - 12), None)
-        lab = t is not None and h > 34
+        plain = label.split(' / ')[0 if label.startswith('text ') else -1]
+        cands = [(label, 15), (plain, 15), (SHORT.get(plain, plain), 15), (plain, 12), (SHORT.get(plain, plain), 12)]
+        t, fs = next(((s, f) for s, f in cands if len(s) * f * 0.6 <= w - 12), (None, 15))
+        lab = t is not None and w >= 60 and h > 30
         hy = 22 if lab else 0
         if cells and isinstance(cells[0], tuple):
             o += wcells(cells, x + 3, y + 3 + hy, w - 6, h - 6 - hy, tot, minfrac)

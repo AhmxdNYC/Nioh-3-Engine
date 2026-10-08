@@ -4,7 +4,7 @@
 <rect x="8" y="28" width="12" height="12" fill="#2ea043"/><text x="25" y="39" fill="#c9d1d9" font-size="12">named</text><rect x="73" y="28" width="12" height="12" fill="#d4a017"/><text x="90" y="39" fill="#c9d1d9" font-size="12">Unknown_* (role unclear)</text><rect x="263" y="28" width="12" height="12" fill="#444a54"/><text x="280" y="39" fill="#c9d1d9" font-size="12">not named</text>
 <rect x="366.1" y="382.2" width="171.5" height="234.0" fill="#2ea043"><title>MeshletRequestWorker: TS_MESHLET_REQ worker (10 threads, ~13% busy each, ~78% blocked): reads GPU results, loads data, sets entry bit 0x200 via CAS (8.047%)</title></rect>
 <text x="371.1" y="398.2" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">ts_meshlet_req worker</text>
-<text x="371.1" y="413.2" fill="#dfe6ee" font-size="11" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">MeshletRequestWorker</text>
+<text x="371.1" y="413.2" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">MeshletRequestWorker</text>
 <rect x="538.3" y="382.2" width="64.3" height="99.9" fill="#2ea043"><title>MeshletCheckRequestLoad: "MeshletCheckRequestLoad" (2.2-2.8%; drawprep 2.3-2.8%): returns if M+4C0==0 or M+1AC&amp;40000000h; 2 shader passes each scanning all M+4C8 map entries; packs disp (1.305%)</title></rect>
 <rect x="603.5" y="382.2" width="57.2" height="99.9" fill="#2ea043"><title>ObjCountValidSlots: SIMD count of slots != 3FFFFFFFh in the [c+88h]->+30h->+1A0h index list, then 1A6BA0 / AtomicOrFlags; was Unknown_ObjUpdate_425B0 (1.161%)</title></rect>
 <rect x="538.3" y="482.9" width="72.1" height="58.6" fill="#2ea043"><title>MeshletPageCountdownTick: once per MeshletRequestLoadStep: decrements every non-zero u16 per-page countdown (page count = pool bytes [p3+48h] / (unit&lt;&lt;16), 256 KB fast path), then advanc (0.862%)</title></rect>
@@ -24,7 +24,10 @@
 <rect x="630.4" y="594.3" width="30.3" height="21.9" fill="#59564b"><title>59 tiny functions</title></rect>
 <text x="369.1" y="376.2" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">Meshlet / geometry streaming</text>
 <rect x="3.0" y="384.0" width="151.1" height="232.2" fill="#2ea043"><title>CollisionObjectUpdate: per-object collision update run by KIDSTS[s9:CollisionUpdate] x9 (~1 core total): std::map red-black-tree traversals (pointer chasing, algorithmic not a spin) [ (7.024%)</title></rect>
+<text x="8.0" y="400.0" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">per-object</text>
+<text x="8.0" y="415.0" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">CollisionObjectUpdate</text>
 <rect x="154.9" y="384.0" width="143.1" height="120.3" fill="#2ea043"><title>CollisionShapeGetWorldPos: collision hot function (std::map traversal per cpu-profile); returns shape world position via function table at 3BE3780 indexed by type byte +0x62, then adds pa (3.459%)</title></rect>
+<text x="159.9" y="400.0" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">collision hot</text>
 <rect x="298.8" y="384.0" width="60.4" height="120.3" fill="#2ea043"><title>CollisionPartMapFind: lower_bound on a sorted array of 16-byte {u64 key = part pointer, ptr record} at [m+10h], count [m+18h]; returns the record if the key matches, else null. Calle (1.472%)</title></rect>
 <rect x="154.9" y="505.2" width="57.8" height="111.0" fill="#2ea043"><title>CollisionMapFind: std::map lookup used by CollisionObjectUpdate (named with D80B0/D8B70 as the CollisionUpdate pointer-chasing hotspots) [Ghidra: 99 B, 26 callers] (1.300%)</title></rect>
 <rect x="213.5" y="505.2" width="72.1" height="66.2" fill="#2ea043"><title>CollisionGatherInRange: Per frame and collision manager: clears the work vector mgr+150h, walks the grid cells around the player (g_CollisionWorld+1B10h, +1B20h) and pushes every colli (0.969%)</title></rect>
@@ -96,7 +99,10 @@
 <rect x="625.2" y="319.6" width="35.5" height="33.9" fill="#6d6242"><title>222 tiny functions</title></rect>
 <text x="369.1" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">SynCtx·D3D12 / GPU submission</text>
 <rect x="3.0" y="71.0" width="117.0" height="143.8" fill="#2ea043"><title>WaitDispatcherDrainSpin: End-of-frame spin: QpcNow, loop g_DispatcherDrainBusy = DispatcherRingBusy(d) until the SynergisticDispatcher ring is drained, then KtglTimerAccumulate; no PAUS (3.315%)</title></rect>
+<text x="8.0" y="87.0" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">end-of-frame</text>
 <rect x="3.0" y="215.6" width="117.0" height="139.6" fill="#2ea043"><title>JobQueuePoll: queue poll helper used by JobTrySteal; reads queue heads with `lock cmpxchg [x],0` as an atomic load -> cache-line ping-pong between 7+ spinning workers (W7, ~0 (3.219%)</title></rect>
+<text x="8.0" y="231.6" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">queue poll</text>
+<text x="8.0" y="246.6" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">JobQueuePoll</text>
 <rect x="120.8" y="71.0" width="101.6" height="80.4" fill="#2ea043"><title>ObjUpdateWorkerBody: 17.5 KB object update run on KIDSTaskScheduler workers from 1202B0; inline [g+3D30h] param-table scan (1234A0), calls AabbTransformByMatrix 6FED0, ObbToAabb, Pa (1.618%)</title></rect>
 <rect x="223.2" y="71.0" width="81.1" height="80.4" fill="#2ea043"><title>ParamTableGetU32_D15EC139: Linear scan of {u32 count, 32-byte entries*} for hash D15EC139 with (flags &amp; 0F000000h) == 04000000h; returns *[entry+18h] or 7. Called per object from 121FC0 ( (1.294%)</title></rect>
 <rect x="305.1" y="71.0" width="54.2" height="80.4" fill="#2ea043"><title>ParamTableGet_C4984B63: Scans the [o+3D30h] param table for hash C4984B63 (type bits 0) then 8B252323 (type 4); returns *value or 2; called from 121FC0 (124018, 124196); hot loops 1202 (0.869%)</title></rect>
@@ -141,6 +147,8 @@
 <text x="6.0" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">KIDS / job system</text>
 <text x="165.0" y="65.0" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">19.80% of time</text>
 <rect x="852.1" y="71.0" width="144.1" height="97.3" fill="#2ea043"><title>MemcpyAlt: second memcpy entry counted with B94250 (aka CrtMemcpyEntry) || also: 16-byte stub immediately before CrtMemcpy (likely alternate entry e.g. memmove/memset); 1. (2.993%)</title></rect>
+<text x="857.1" y="87.0" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">second memcpy</text>
+<text x="857.1" y="102.0" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">MemcpyAlt</text>
 <rect x="852.1" y="169.1" width="107.8" height="75.0" fill="#2ea043"><title>Memcpy: memcpy (~5% of main thread together with B94230): constants into stream, upload copies, inline blobs; source loads miss (aka CrtMemcpy) (1.734%)</title></rect>
 <rect x="960.7" y="169.1" width="35.5" height="42.2" fill="#2ea043"><title>MemsetBytewise: byte loop fill (CRT small/unaligned path next to memset B93F00) (0.329%)</title></rect>
 <rect x="960.7" y="212.1" width="18.2" height="32.0" fill="#2ea043"><title>memcmp: CRT memcmp (Ghidra library match); used by PsoCacheBTreeFind / Unknown_BTreeFind_58C144 with 128-byte keys (0.131%)</title></rect>
@@ -172,6 +180,7 @@
 <rect x="951.1" y="374.5" width="45.1" height="40.4" fill="#484c51"><title>168 tiny functions</title></rect>
 <text x="838.6" y="266.9" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">effects &amp; post</text>
 <rect x="667.5" y="443.7" width="110.8" height="75.4" fill="#2ea043"><title>SetAssocCacheLookup: bucket = key % c->nsets (127 fast path), linear scan of c->nways 64-byte entries at c+10h for entry[0]==key; NULL on miss; the page lookup of 116A24 on the work (1.813%)</title></rect>
+<text x="672.5" y="459.7" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">bucket = key</text>
 <rect x="667.5" y="519.9" width="58.9" height="96.3" fill="#2ea043"><title>PagePoolCountUsed: counts entries with lastUsedFrame >= frame (2.2%); not debug-only: result feeds device+0x6CD0 heuristic; left alone; body 275 B (aka MainHot_2523FC) || also: [A (1.237%)</title></rect>
 <rect x="727.2" y="519.9" width="51.1" height="31.5" fill="#2ea043"><title>SinCosApprox: reduces a by 2*pi then pi (sign flip), polynomial sin/cos; a==0 -> (0,1); 169 callers incl. BoundsFromPartObbs; was Sched0Hot_54360 (0.358%)</title></rect>
 <rect x="727.2" y="552.2" width="51.1" height="26.8" fill="#2ea043"><title>PlaceableDistanceTest: called from PlaceableVisibilityUpdateRange: distance camera(+10h) -> placeable(+80h), scaled radius (+90h * +70h), sqrt; then ObjPartAcquireShared / 47DF8 (0.305%)</title></rect>
@@ -207,50 +216,53 @@
 <rect x="820.5" y="218.7" width="24.8" height="25.4" fill="#675f45"><title>53 tiny functions</title></rect>
 <text x="670.5" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">audio</text>
 <text x="721.5" y="65.0" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">6.50% of time</text>
-<rect x="667.5" y="250.9" width="86.8" height="68.1" fill="#2ea043"><title>TextureStreamUpdate: feedback-driven material texture streaming: memset visited M+888h; per visible slot i&lt;min(M+124h,buf+48h) get texture group via slot+10h, stamp G+20h vs [g_Rend (1.131%)</title></rect>
-<rect x="755.1" y="250.9" width="73.8" height="68.1" fill="#2ea043"><title>TextureStreamTouchSlot: per-frame stamp (+48h) and check the texture's block-allocator slot is valid; re-acquires/compacts via 1283A8/1286E8 under a critical section; not an LRU; body  (0.962%)</title></rect>
-<rect x="667.5" y="319.8" width="61.1" height="51.4" fill="#2ea043"><title>ObjHandleResolve_1A188C: Object-update helper (from 1A7BF0): first list node whose payload is not 0/1, state word [obj] read with lock cmpxchg (hot RIP 1A18CD), bitmap checks via 4A7A30 (0.606%)</title></rect>
-<rect x="667.5" y="372.1" width="61.1" height="42.9" fill="#2ea043"><title>TextureStreamRequestTiles: per-frame stamp +188h, mip-tile pyramid walk (requested +120h vs resident +D8h), &lt;=16 tile requests per texture per frame under global budget g+7560h/+75A8h/+75 (0.506%)</title></rect>
-<rect x="729.4" y="319.8" width="35.8" height="63.5" fill="#2ea043"><title>ResourceIsReady: Per-resource readiness check used by render nodes (1312 callers) (aka SpinPoll_1A6030) || also: predicate polled by the Sleep(0) spin at 1A742B6; itself contain (0.441%)</title></rect>
-<rect x="729.4" y="384.1" width="35.8" height="30.9" fill="#2ea043"><title>RollingAvgListUpdate: Scheduler0 1.0-1.4 %: rolling-average list update (see notes §4.2 RA); was Sched0Hot_12B440 (0.217%)</title></rect>
-<rect x="766.0" y="319.8" width="31.2" height="33.1" fill="#d4a017"><title>Unknown_Resource_1A6820: ResourceIsReady helper (mutually recursive with it): walks the r+40h dependency list, entries of type (x &amp; F000000h) == E000000h; 0.04 % of Ally samples (0.203%)</title></rect>
-<rect x="798.0" y="319.8" width="30.8" height="33.1" fill="#2ea043"><title>StreamBitmapClaim_130014: Worker function with bitmap/slot claims read via lock cmpxchg loads (hot RIP 13009E); LK rows 130096/1301B4/1301C5/1301E4/130225; role not identified (0.200%)</title></rect>
-<rect x="766.0" y="353.7" width="25.0" height="39.6" fill="#2ea043"><title>StreamPageLookupOrInsert: streaming page-pool lookup for a byte range (64 KB pages): SetAssocCacheLookup via 251554 / 2515B0, insert path 491728 / 491B04; called from 49D5C under g+6EA8h (0.196%)</title></rect>
-<rect x="766.0" y="394.1" width="25.0" height="20.8" fill="#2ea043"><title>ObjGetEntryRecord98: leaf: entry idx of the o+38h[set] table (98h-byte records, low 6 bits of +4 = kind); was Unknown_ObjUpdate_1A3B78 (0.105%)</title></rect>
-<rect x="791.8" y="353.7" width="19.9" height="13.3" fill="#d4a017"><title>Unknown_Res_1A19E0: 301 callers: walks a linked resource list, GetResIdFromRes / 496F0 / 324AE18, returns 1 at the end (0.055%)</title></rect>
-<rect x="812.5" y="353.7" width="16.3" height="13.3" fill="#444a54"><title>FUN_1FDC1C not named (0.045%)</title></rect>
-<rect x="791.8" y="367.8" width="12.3" height="15.2" fill="#444a54"><title>FUN_1A3D3C not named (0.039%)</title></rect>
-<rect x="804.9" y="367.8" width="12.0" height="15.2" fill="#444a54"><title>FUN_1A5EC4 not named (0.038%)</title></rect>
-<rect x="817.7" y="367.8" width="11.1" height="15.2" fill="#444a54"><title>FUN_1A5DA0 not named (0.036%)</title></rect>
-<rect x="791.8" y="383.8" width="10.5" height="15.7" fill="#444a54"><title>FUN_1A5820 not named (0.035%)</title></rect>
-<rect x="791.8" y="400.3" width="10.5" height="14.6" fill="#444a54"><title>FUN_12F22C not named (0.033%)</title></rect>
-<rect x="803.1" y="383.8" width="14.0" height="10.8" fill="#444a54"><title>FUN_117090 not named (0.032%)</title></rect>
-<rect x="817.9" y="383.8" width="10.9" height="10.8" fill="#444a54"><title>FUN_60C760 not named (0.026%)</title></rect>
-<rect x="803.1" y="395.4" width="5.5" height="19.5" fill="#444a54"><title>FUN_117330 not named (0.024%)</title></rect>
-<rect x="809.4" y="395.4" width="19.4" height="19.5" fill="#50514e"><title>43 tiny functions</title></rect>
-<rect x="785.1" y="421.7" width="73.7" height="68.6" fill="#2ea043"><title>MainLoopFrame: [App]Game per-frame function (QPC-timed; 8 QPC call sites); contains Sleep(0) spin loops at 1A74216 (on 877148) and 1A742B6 (on 1A6030) plus Sleep(1) sites; cal (0.987%)</title></rect>
-<rect x="785.1" y="491.2" width="73.7" height="54.2" fill="#2ea043"><title>StageObjLodUpdateRange: KIDSTS StageUpdate worker body: for objects [first,end) of l+10h, distance/sqrt against the camera with g_pLodScaleCfg / g_pSceneDrawCfg / GameMain+530h to upda (0.782%)</title></rect>
-<rect x="859.6" y="421.7" width="59.2" height="29.5" fill="#2ea043"><title>ObjVirtUpdateLocked: 3 KB virtual (vtable slot at 38F16E8); o+550h guard, o+440h/o+552h flags, around 206400; contains the RW write-lock Sleep(0) spin at 206230; was Unknown_ObjUpda (0.347%)</title></rect>
-<rect x="859.6" y="452.0" width="36.0" height="42.9" fill="#2ea043"><title>MaterialBindS2FAcclParams: called from MaterialTechniqueBind: binds slot 10, sets (1/(far-near), -near/(far-near)) from sc+280h/+284h, scans the sc+3D30h param table for fS2FAcclDecayLine (0.307%)</title></rect>
-<rect x="896.4" y="452.0" width="22.4" height="42.9" fill="#d4a017"><title>Unknown_13233B0: virtual; walks the o+40h vector of 16-byte {key, obj} entries, calls 291A128 / 13273E0 / 207BD0 per object (0.193%)</title></rect>
-<rect x="859.6" y="495.8" width="29.0" height="28.3" fill="#2ea043"><title>MaterialParamNameEquals: per-node compare used by MaterialFindParam: hash then strcmp; 0.8-1.2% self (aka MainHot_3C7750) (0.165%)</title></rect>
-<rect x="859.6" y="524.8" width="29.0" height="20.6" fill="#2ea043"><title>ObjVisibilityRecurse: recursive over sub-objects with o+4Ch flags and a 6-byte mask; was Unknown_ObjVis_3BD184 (0.122%)</title></rect>
-<rect x="889.4" y="495.8" width="18.5" height="13.7" fill="#d4a017"><title>Unknown_282574: leaf: o+1 set and [[o+30h]+8]+8 -> +7Ch == +80h (queue empty) (0.054%)</title></rect>
-<rect x="908.8" y="495.8" width="10.1" height="13.7" fill="#444a54"><title>FUN_B36BF0 not named (0.030%)</title></rect>
-<rect x="889.4" y="510.3" width="10.3" height="12.5" fill="#2ea043"><title>Vec3AddKeepW: out.xyz = a.xyz + b.xyz, out.w = a.w (0.028%)</title></rect>
-<rect x="900.5" y="510.3" width="9.7" height="12.5" fill="#444a54"><title>FUN_B38B00 not named (0.027%)</title></rect>
-<rect x="911.1" y="510.3" width="7.7" height="12.5" fill="#444a54"><title>FUN_282320 not named (0.022%)</title></rect>
-<rect x="889.4" y="523.6" width="29.4" height="21.8" fill="#987c2f"><title>56 tiny functions</title></rect>
-<rect x="925.6" y="421.7" width="70.6" height="45.4" fill="#2ea043"><title>GlyphCacheAllocSlot: glyph cache: per-code tree lookup (node valid only if index&lt;=count), shelf-packer slot alloc (x +84, shelf y +88, maxY +8C, W/H +90/+94; key=code|page|palette), (0.658%)</title></rect>
-<rect x="925.6" y="468.0" width="38.9" height="41.1" fill="#2ea043"><title>UiQuadBuild: UI quad/vertex builder (1.1-1.7%; drawprep 1.1-1.6%): maps [obj+378h] via GpuBufferMap mode 3 (write-only WC), base in rbp; per quad (0xB0 B, 4x0x2C vertices) w (0.332%)</title></rect>
-<rect x="925.6" y="509.9" width="38.9" height="19.3" fill="#2ea043"><title>WriteQuadVerticesWC: quad/vertex writer into a WRITE-COMBINED vertex buffer; did `and dword [z],0` (RMW) x4 before `movss [y]`; 3.3% self of main thread (3-6%); 6 callers; patched b (0.159%)</title></rect>
-<rect x="965.3" y="468.0" width="16.0" height="18.8" fill="#d4a017"><title>Unknown_62408: 6.3 KB, reads o+18h+90h, o+A0h, o+B8h; callers 61400 / 74616C / 617D8; 0.01 % of Ally samples (0.066%)</title></rect>
-<rect x="982.1" y="468.0" width="14.1" height="18.8" fill="#d4a017"><title>Unknown_13B590: leaf (no .pdata), 27 callers: q[0]==0 -> index check q[1] &lt; [[o+C8h]+8]+2Ch, else 13B5E0 / 18C4920 (0.058%)</title></rect>
-<rect x="965.3" y="487.6" width="18.5" height="13.9" fill="#d4a017"><title>Unknown_13A830: 1.8 KB state step on [o+8] (+9Ch bit0, +7Ch vs +80h, +A0h), 69 callees; callers 2824EC / 301A7F0 / 3013388 / 1A75EE4 (0.057%)</title></rect>
-<rect x="984.6" y="487.6" width="11.6" height="13.9" fill="#444a54"><title>FUN_138558 not named (0.037%)</title></rect>
-<rect x="965.3" y="502.3" width="7.9" height="15.0" fill="#444a54"><title>FUN_13B18C not named (0.027%)</title></rect>
-<rect x="965.3" y="518.2" width="7.9" height="11.0" fill="#444a54"><title>FUN_605EE4 not named (0.021%)</title></rect>
-<rect x="974.0" y="502.3" width="22.2" height="26.8" fill="#645d46"><title>75 tiny functions</title></rect>
+<rect x="667.5" y="272.9" width="67.0" height="76.4" fill="#2ea043"><title>TextureStreamUpdate: feedback-driven material texture streaming: memset visited M+888h; per visible slot i&lt;min(M+124h,buf+48h) get texture group via slot+10h, stamp G+20h vs [g_Rend (1.131%)</title></rect>
+<rect x="667.5" y="350.1" width="67.0" height="64.9" fill="#2ea043"><title>TextureStreamTouchSlot: per-frame stamp (+48h) and check the texture's block-allocator slot is valid; re-acquires/compacts via 1283A8/1286E8 under a critical section; not an LRU; body  (0.962%)</title></rect>
+<rect x="735.3" y="272.9" width="50.6" height="53.7" fill="#2ea043"><title>ObjHandleResolve_1A188C: Object-update helper (from 1A7BF0): first list node whose payload is not 0/1, state word [obj] read with lock cmpxchg (hot RIP 1A18CD), bitmap checks via 4A7A30 (0.606%)</title></rect>
+<rect x="786.7" y="272.9" width="42.2" height="53.7" fill="#2ea043"><title>TextureStreamRequestTiles: per-frame stamp +188h, mip-tile pyramid walk (requested +120h vs resident +D8h), &lt;=16 tile requests per texture per frame under global budget g+7560h/+75A8h/+75 (0.506%)</title></rect>
+<rect x="735.3" y="327.4" width="33.7" height="58.3" fill="#2ea043"><title>ResourceIsReady: Per-resource readiness check used by render nodes (1312 callers) (aka SpinPoll_1A6030) || also: predicate polled by the Sleep(0) spin at 1A742B6; itself contain (0.441%)</title></rect>
+<rect x="735.3" y="386.6" width="33.7" height="28.4" fill="#2ea043"><title>RollingAvgListUpdate: Scheduler0 1.0-1.4 %: rolling-average list update (see notes §4.2 RA); was Sched0Hot_12B440 (0.217%)</title></rect>
+<rect x="769.7" y="327.4" width="29.4" height="30.4" fill="#d4a017"><title>Unknown_Resource_1A6820: ResourceIsReady helper (mutually recursive with it): walks the r+40h dependency list, entries of type (x &amp; F000000h) == E000000h; 0.04 % of Ally samples (0.203%)</title></rect>
+<rect x="799.9" y="327.4" width="28.9" height="30.4" fill="#2ea043"><title>StreamBitmapClaim_130014: Worker function with bitmap/slot claims read via lock cmpxchg loads (hot RIP 13009E); LK rows 130096/1301B4/1301C5/1301E4/130225; role not identified (0.200%)</title></rect>
+<rect x="769.7" y="358.6" width="23.5" height="36.4" fill="#2ea043"><title>StreamPageLookupOrInsert: streaming page-pool lookup for a byte range (64 KB pages): SetAssocCacheLookup via 251554 / 2515B0, insert path 491728 / 491B04; called from 49D5C under g+6EA8h (0.196%)</title></rect>
+<rect x="769.7" y="395.8" width="23.5" height="19.1" fill="#2ea043"><title>ObjGetEntryRecord98: leaf: entry idx of the o+38h[set] table (98h-byte records, low 6 bits of +4 = kind); was Unknown_ObjUpdate_1A3B78 (0.105%)</title></rect>
+<rect x="794.0" y="358.6" width="18.7" height="12.2" fill="#d4a017"><title>Unknown_Res_1A19E0: 301 callers: walks a linked resource list, GetResIdFromRes / 496F0 / 324AE18, returns 1 at the end (0.055%)</title></rect>
+<rect x="813.5" y="358.6" width="15.3" height="12.2" fill="#444a54"><title>FUN_1FDC1C not named (0.045%)</title></rect>
+<rect x="794.0" y="371.6" width="11.5" height="13.9" fill="#444a54"><title>FUN_1A3D3C not named (0.039%)</title></rect>
+<rect x="806.4" y="371.6" width="11.2" height="13.9" fill="#444a54"><title>FUN_1A5EC4 not named (0.038%)</title></rect>
+<rect x="818.4" y="371.6" width="10.4" height="13.9" fill="#444a54"><title>FUN_1A5DA0 not named (0.036%)</title></rect>
+<rect x="794.0" y="386.3" width="9.8" height="14.4" fill="#444a54"><title>FUN_1A5820 not named (0.035%)</title></rect>
+<rect x="794.0" y="401.5" width="9.8" height="13.4" fill="#444a54"><title>FUN_12F22C not named (0.033%)</title></rect>
+<rect x="804.7" y="386.3" width="13.1" height="9.9" fill="#444a54"><title>FUN_117090 not named (0.032%)</title></rect>
+<rect x="818.6" y="386.3" width="10.3" height="9.9" fill="#444a54"><title>FUN_60C760 not named (0.026%)</title></rect>
+<rect x="804.7" y="397.1" width="5.1" height="17.9" fill="#444a54"><title>FUN_117330 not named (0.024%)</title></rect>
+<rect x="810.6" y="397.1" width="18.2" height="17.9" fill="#50514e"><title>43 tiny functions</title></rect>
+<text x="670.5" y="266.9" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">streaming</text>
+<rect x="785.1" y="443.7" width="73.7" height="56.4" fill="#2ea043"><title>MainLoopFrame: [App]Game per-frame function (QPC-timed; 8 QPC call sites); contains Sleep(0) spin loops at 1A74216 (on 877148) and 1A742B6 (on 1A6030) plus Sleep(1) sites; cal (0.987%)</title></rect>
+<rect x="785.1" y="500.9" width="73.7" height="44.5" fill="#2ea043"><title>StageObjLodUpdateRange: KIDSTS StageUpdate worker body: for objects [first,end) of l+10h, distance/sqrt against the camera with g_pLodScaleCfg / g_pSceneDrawCfg / GameMain+530h to upda (0.782%)</title></rect>
+<rect x="859.6" y="443.7" width="31.0" height="46.2" fill="#2ea043"><title>ObjVirtUpdateLocked: 3 KB virtual (vtable slot at 38F16E8); o+550h guard, o+440h/o+552h flags, around 206400; contains the RW write-lock Sleep(0) spin at 206230; was Unknown_ObjUpda (0.347%)</title></rect>
+<rect x="891.4" y="443.7" width="27.4" height="46.2" fill="#2ea043"><title>MaterialBindS2FAcclParams: called from MaterialTechniqueBind: binds slot 10, sets (1/(far-near), -near/(far-near)) from sc+280h/+284h, scans the sc+3D30h param table for fS2FAcclDecayLine (0.307%)</title></rect>
+<rect x="859.6" y="490.8" width="27.1" height="29.1" fill="#d4a017"><title>Unknown_13233B0: virtual; walks the o+40h vector of 16-byte {key, obj} entries, calls 291A128 / 13273E0 / 207BD0 per object (0.193%)</title></rect>
+<rect x="859.6" y="520.7" width="27.1" height="24.7" fill="#2ea043"><title>MaterialParamNameEquals: per-node compare used by MaterialFindParam: hash then strcmp; 0.8-1.2% self (aka MainHot_3C7750) (0.165%)</title></rect>
+<rect x="887.5" y="490.8" width="31.3" height="15.6" fill="#2ea043"><title>ObjVisibilityRecurse: recursive over sub-objects with o+4Ch flags and a 6-byte mask; was Unknown_ObjVis_3BD184 (0.122%)</title></rect>
+<rect x="887.5" y="507.1" width="19.7" height="10.4" fill="#d4a017"><title>Unknown_282574: leaf: o+1 set and [[o+30h]+8]+8 -> +7Ch == +80h (queue empty) (0.054%)</title></rect>
+<rect x="908.1" y="507.1" width="10.7" height="10.4" fill="#444a54"><title>FUN_B36BF0 not named (0.030%)</title></rect>
+<rect x="887.5" y="518.4" width="11.1" height="9.5" fill="#2ea043"><title>Vec3AddKeepW: out.xyz = a.xyz + b.xyz, out.w = a.w (0.028%)</title></rect>
+<rect x="887.5" y="528.6" width="11.1" height="8.9" fill="#444a54"><title>FUN_B38B00 not named (0.027%)</title></rect>
+<rect x="887.5" y="538.3" width="11.1" height="7.1" fill="#444a54"><title>FUN_282320 not named (0.022%)</title></rect>
+<rect x="899.4" y="518.4" width="19.4" height="27.0" fill="#987c2f"><title>56 tiny functions</title></rect>
+<text x="788.1" y="437.7" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">main loop</text>
+<rect x="925.6" y="443.7" width="70.6" height="36.0" fill="#2ea043"><title>GlyphCacheAllocSlot: glyph cache: per-code tree lookup (node valid only if index&lt;=count), shelf-packer slot alloc (x +84, shelf y +88, maxY +8C, W/H +90/+94; key=code|page|palette), (0.658%)</title></rect>
+<rect x="925.6" y="480.6" width="26.0" height="48.6" fill="#2ea043"><title>UiQuadBuild: UI quad/vertex builder (1.1-1.7%; drawprep 1.1-1.6%): maps [obj+378h] via GpuBufferMap mode 3 (write-only WC), base in rbp; per quad (0xB0 B, 4x0x2C vertices) w (0.332%)</title></rect>
+<rect x="952.4" y="480.6" width="30.7" height="19.4" fill="#2ea043"><title>WriteQuadVerticesWC: quad/vertex writer into a WRITE-COMBINED vertex buffer; did `and dword [z],0` (RMW) x4 before `movss [y]`; 3.3% self of main thread (3-6%); 6 callers; patched b (0.159%)</title></rect>
+<rect x="983.9" y="480.6" width="12.3" height="19.4" fill="#d4a017"><title>Unknown_62408: 6.3 KB, reads o+18h+90h, o+A0h, o+B8h; callers 61400 / 74616C / 617D8; 0.01 % of Ally samples (0.066%)</title></rect>
+<rect x="952.4" y="500.7" width="14.9" height="14.0" fill="#d4a017"><title>Unknown_13B590: leaf (no .pdata), 27 callers: q[0]==0 -> index check q[1] &lt; [[o+C8h]+8]+2Ch, else 13B5E0 / 18C4920 (0.058%)</title></rect>
+<rect x="952.4" y="515.6" width="14.9" height="13.6" fill="#d4a017"><title>Unknown_13A830: 1.8 KB state step on [o+8] (+9Ch bit0, +7Ch vs +80h, +A0h), 69 callees; callers 2824EC / 301A7F0 / 3013388 / 1A75EE4 (0.057%)</title></rect>
+<rect x="968.1" y="500.7" width="11.7" height="10.9" fill="#444a54"><title>FUN_138558 not named (0.037%)</title></rect>
+<rect x="980.6" y="500.7" width="8.6" height="10.9" fill="#444a54"><title>FUN_13B18C not named (0.027%)</title></rect>
+<rect x="990.0" y="500.7" width="6.2" height="10.9" fill="#444a54"><title>FUN_605EE4 not named (0.021%)</title></rect>
+<rect x="968.1" y="512.4" width="28.1" height="16.8" fill="#645d46"><title>75 tiny functions</title></rect>
+<text x="928.6" y="437.7" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">UI</text>
 <rect x="785.1" y="574.2" width="27.0" height="42.0" fill="#2ea043"><title>MissionThreadStep: main work of [App]MissionThread (only caller E64700): locks 4759950/4759940, refreshes the player transform (20A914 / 8A630) and runs the mission task updates ( (0.358%)</title></rect>
 <rect x="812.8" y="574.2" width="24.0" height="42.0" fill="#d4a017"><title>Unknown_Mission_2866F0: MissionThread work item (callers E26620/E26680): skips if t+D9h, otherwise checks g_4751848 state (286B54) and advances the task (0.319%)</title></rect>
 <rect x="837.6" y="574.2" width="21.4" height="42.0" fill="#d4a017"><title>Unknown_Mission_E266B0: MissionThread: walks a task list, skipping entries with +D9h/+97h set, calls 20A300 / 20A298 per task (0.286%)</title></rect>
@@ -261,10 +273,11 @@
 <rect x="897.5" y="602.3" width="13.7" height="13.9" fill="#d4a017"><title>Unknown_E26260: 956 B list walk with a mutex (B614A8 / _Mtx_unlock) and "list too long" growth; only caller 89A328 (sibling of Unknown_Mission_E266B0) (0.064%)</title></rect>
 <rect x="912.0" y="602.3" width="6.8" height="13.9" fill="#444a54"><title>23 tiny functions</title></rect>
 <text x="788.1" y="568.2" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">game logic</text>
-<rect x="925.6" y="536.0" width="34.6" height="42.5" fill="#2ea043"><title>MatrixFromScaleQuatTrans: 4x4 = scale * rotation(quaternion q) with translation t; 238 callers (0.329%)</title></rect>
-<rect x="961.0" y="536.0" width="35.2" height="33.6" fill="#d4a017"><title>Unknown_Anim_889C0: 2.9 KB: clamps time >= 0, converts time * t+18h to 16.16 fixed point against u16 key counts t+1Ch/+20h, SinCosApprox + sqrt (key interpolation); Scheduler0 1.2  (0.266%)</title></rect>
-<rect x="961.0" y="570.3" width="23.3" height="8.1" fill="#d4a017"><title>Unknown_Unpack_8A420: decodes a 128-bit packed vector with shared-exponent fields ((x >> 25h) &amp; 7800000h) + 32000000h, scales by a/b; callers 48C1C4 / 48C4B4 (0.046%)</title></rect>
-<rect x="985.1" y="570.3" width="11.1" height="8.1" fill="#444a54"><title>24 tiny functions</title></rect>
+<rect x="925.6" y="558.0" width="34.6" height="20.5" fill="#2ea043"><title>MatrixFromScaleQuatTrans: 4x4 = scale * rotation(quaternion q) with translation t; 238 callers (0.329%)</title></rect>
+<rect x="961.0" y="558.0" width="27.8" height="20.5" fill="#d4a017"><title>Unknown_Anim_889C0: 2.9 KB: clamps time >= 0, converts time * t+18h to 16.16 fixed point against u16 key counts t+1Ch/+20h, SinCosApprox + sqrt (key interpolation); Scheduler0 1.2  (0.266%)</title></rect>
+<rect x="989.6" y="558.0" width="6.6" height="13.4" fill="#d4a017"><title>Unknown_Unpack_8A420: decodes a 128-bit packed vector with shared-exponent fields ((x >> 25h) &amp; 7800000h) + 32000000h, scales by a/b; callers 48C1C4 / 48C4B4 (0.046%)</title></rect>
+<rect x="989.6" y="572.2" width="6.6" height="6.2" fill="#444a54"><title>24 tiny functions</title></rect>
+<text x="928.6" y="552.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">anim</text>
 <rect x="925.6" y="585.2" width="24.0" height="31.0" fill="#2ea043"><title>PhotoModeCopyGbuffer: "CPhotoModeManager::copy_gbuffer" GPU marker; runs only when m+647h is set; GfxBeginMarker + copy passes (10F14B0 / 10F41A0 / 10F3C20) (0.184%)</title></rect>
 <rect x="950.4" y="585.2" width="22.1" height="23.9" fill="#d4a017"><title>Unknown_12FBDD0: 1.8 KB: locks the 4759BD0 mutex, walks [o]+1F0h..+1F8h, 56E7F8 / 56EA84 / 47968 / 1FF294 per entry; Scheduler0 0.7 %; was Sched0Hot_12FBDD0 (0.132%)</title></rect>
 <rect x="950.4" y="609.9" width="20.1" height="6.3" fill="#444a54"><title>FUN_123BD50 not named (0.035%)</title></rect>
