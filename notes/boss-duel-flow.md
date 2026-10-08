@@ -20,7 +20,7 @@ Static only (decomp_ro, extracted LFM). Game not run, mod untouched. RVAs v2.02.
 Same layout as runtime. Record 0x138: `+0 u32 placementId`, `+4 u32 characterId`, `+8 u32 packed` (0x1f37xx...), `+0x9C u8 flags` (bit 0x4 = boss candidate; final bosses also have 0x8/0x10/0x20), `+0x134 u32 name offset` into the trailing NUL-separated pool (names like `CH08_MAIN03_DOKANYAMA_MIDDLE_BOSS_KUMAGAI`).
 
 ## 4. Mission record -> placement set (the per-mission record)
-- Mission DB = `lfmrchive_03*\BD29D455...` (magic 00 22 04 20, 130 records x 0x198; accessor 0x377B6C `MissionDbGetRecord`, root `*[0x45B9E30]`).
+- Mission DB = `lfm\archive_03\52\BD29D45533CFACBF...` (magic 00 22 04 20, 130 records x 0x198; accessor 0x377B6C `MissionDbGetRecord`, root `*[0x45B9E30]`).
 - 0x1C1D148 builds list A: for each mission record, a placement set from the 6 u32 ids at `+0x54..+0x68` and the u16 at `+0x158`; 0x1C1D288 builds list B (mission scripts) from `+0x6C` (script id, looked up via hashmap `[0x475A1A0]`, 0x3F5C30).
 - Open: these ids are resource ids; the LFM file name is a 256-bit hash whose input is unknown (sha256/sha3/blake2s of the id in 9 encodings: 0 hits over 1,033 ids), so the record -> file join is not yet offline. Ids are not in `load_inf_NN.bin` (that holds sizes).
 
