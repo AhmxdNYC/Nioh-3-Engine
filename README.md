@@ -20,6 +20,27 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ---
 
+## What the game does wrong, and what we did (at a glance)
+
+One line per problem: what the game does -> effect -> our fix -> result. Scope: **Ally** = ROG Ally X / Proton only, **PC** = native Windows only, **both**. Details: "What's ruining performance in Nioh 3" below and `MODLOG.md`.
+
+| Problem (scope) | Effect | Our fix | Result |
+|---|---|---|---|
+| Game time advances a fixed 1/60 or 1/120 s per rendered frame (both) | Below the fps cap the whole game runs in slow motion (0.90x at 108 fps) and the camera judders | VRR / variable-dt frame timing | Game speed 0.90x -> 1.00x (PC, measured) |
+| CPU spin-waits: window message loop, render-start wait, frame limiter, FSR frame-gen pacing thread (both) | Burns CPU, power and heat while waiting | Sleep/wait fixes (W3, W6, GF, R1, L1, DS) | Less CPU and power, fps-neutral |
+| Main thread clears a write-combined GPU buffer with a read-before-write instruction, W12 (both) | Every write stalls: 11-22 % of the main thread | W12 | Measured on PC; see README benchmarks |
+| Frame-latency waitable handle fetched every frame and never closed (PC) | Leaks one handle per frame (216k per hour at 60 fps) | WL | Leak confirmed in a harness; no-op under Proton |
+| Loads do about 540k tiny file reads, each creating and closing a Windows event (both; costly on Ally) | 84 us per event under Proton vs 0.6 us on Windows | EP (event pool, auto-on under Proton) | Ally Level 136 load ~94 s -> ~45-47 s; no PC gain |
+| Cached reads go through overlapped I/O (Ally) | Expensive under Proton | SR (auto-on under Proton) | Ally load -> 38.5 s (-59 % total) |
+| Load queue capped at 10 requests in flight while threads and disk idle (both) | Possible load slowdown | LC (cap 16) | Ally: not yet tested; PC: no change measured |
+| Post-load tip page waits for a button press (both) | Load never ends by itself | AutoContinueLoad | Skips the page; works on PC and Ally |
+| First-use PSO creation under a lock blocks the frame (both) | Hitches on first use of an effect | PJ (PSO journal + prewarm) | Built, not yet tested |
+| GHDM shadow shader is inefficient on the Ally's GPU (Ally) | GPU is ~99 % busy; shadows are a large share | Replacement GHDM shader | +6.4 to +8.7 % fps at MAX (measured) |
+| Barrier batching (PC) | Costs the PC about 7 % | Kept off (`Barriers` / R-series off on PC) | Measured: -7 %, so off |
+| Other CPU waste (DQ, P1E7, GIMerge, wdo14) | Small main-thread/GPU costs | Built | Not yet tested |
+
+---
+
 ## Decompilation progress
 
 ![functions named](https://img.shields.io/badge/functions%20named-3.04%25%20(6427/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-99.74%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-99.99%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
