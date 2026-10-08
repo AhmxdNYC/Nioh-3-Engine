@@ -22,8 +22,13 @@ param(
     [switch]$NoProfile,                # no GP / SP windows (frame / memory lines only)
     [switch]$DryRun, [switch]$NoLock, [switch]$NoPause,
     [int]$StallSec = 240, [int]$ArmWaitMin = 15, [int]$MaxRelaunch = 2, [int]$MaxMinutes = 120, [int]$OwnerPid = 0,
-    [string]$GameDir = "", [string]$SaveRoot = "", [string]$BackupRoot = "", [string]$CaptureRoot = ""
+    [string]$GameDir = "", [string]$SaveRoot = "", [string]$BackupRoot = "", [string]$CaptureRoot = "",
+    # -Input vpad (ASI >= 1.7.37): the title / Continue step is driven through the mod's VirtualPad pipe (tools\testmatrix\vpad.py,
+    # VirtualPad = 1 + KeepRunningUnfocused = 1) - no key press needed from you, the game does not need the foreground.
+    # Default ui = you press Continue at the title (unchanged).
+    [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui"
 )
+$vp = $InputMode -eq "vpad"
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 $ws = (Resolve-Path (Join-Path $here "..\..")).Path
@@ -48,6 +53,7 @@ if (-not $CaptureRoot) { $CaptureRoot = Join-Path $ws "captures\tour" }
 $StateDir = Join-Path $here "state"
 . (Join-Path $ws "tools\playsession\session_lib.ps1")   # Set-IniValue, Get-AsiVersion, Invoke-GameLock, Get-LockHolder ($GameDir/$SaveRoot/$BackupRoot defaults)
 . (Join-Path $ws "tools\testmatrix\harness_guard.ps1")
+. (Join-Path $here "..\testmatrix\vpad.ps1")
 function Say([string]$s, [string]$c = "Gray") { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Write-Host $l -ForegroundColor $c; if ($script:runLog) { Add-Content $script:runLog $l } }
 
 $cap = Join-Path $CaptureRoot "$stamp-tour"
@@ -104,11 +110,20 @@ function Launch-Game([int]$n) {
         return
     }
     $t0 = Get-Date
+    $fgBefore = if ($vp) { VP-ForegroundInfo } else { $null }
     Start-Process "steam://rungameid/3681010"
     while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 180) { Start-Sleep 3 }
     $script:game = Get-Process Nioh3 -ErrorAction SilentlyContinue | Select-Object -First 1
     Register-Game
     if (-not $script:game) { Guard-Fail "the game did not start within 180 s" }
+    if ($vp) {   # title -> Continue -> field through the mod's pipe, in the background (the watch loop below keeps running)
+        Start-Sleep 3; VP-GiveBackFocus $fgBefore
+        $tc = Join-Path $cap ("title_continue_{0:D2}.txt" -f $n)
+        $script:vpTc = Start-Process py -ArgumentList @("-I", "`"$script:VpPy`"", "--owner-pid", $global:HG.ownerPid, "title-continue", "600") -WindowStyle Hidden -PassThru -RedirectStandardOutput $tc
+        Register-Child $script:vpTc "vpad-title"
+        Say "game started (pid $($script:game.Id), launch $n). VirtualPad drives the title -> Continue -> field (log: $tc); hands off." Cyan
+        return
+    }
     Say "game started (pid $($script:game.Id), launch $n). PRESS CONTINUE AT THE TITLE and load your save - nothing else; the tour starts by itself." Cyan
 }
 function Finish-Run {
@@ -158,6 +173,7 @@ try {
     if (-not $DryRun -and -not (Test-Path $binAsi)) { throw "no mod build at $binAsi" }
     $asiVer = if ($DryRun) { "dry" } else { Get-AsiVersion $binAsi }
     if (-not $DryRun -and $asiVer -ne "unknown" -and [version]$asiVer -lt [version]"1.7.36") { throw "the build is $asiVer; Tour needs 1.7.36+" }
+    if ($vp -and -not $DryRun -and $asiVer -ne "unknown" -and [version]$asiVer -lt [version]"1.7.37") { throw "the build is $asiVer; -Input vpad needs 1.7.37+" }
     if (-not $NoLock) {
         $h = Get-LockHolder
         if ($h.ok -and $h.holder -and $h.holder -ne "pc") { throw "the game is in use on '$($h.holder)' (bridge game lock)" }
@@ -192,6 +208,7 @@ try {
     $keys = @(@("Debug", "Tour", "$Mode"), @("Debug", "TourDwellSec", "$DwellSec"), @("Debug", "TourPointsPerStage", "$Points"),
               @("Debug", "TourPasses", "$Passes"), @("Debug", "TourList", $listName), @("General", "AutoContinueLoad", "1"),
               @("Profiler", "MemStats", "1"), @("Profiler", "LoadStats", "1"), @("Profiler", "LoadGates", "1"))
+    if ($vp) { $keys += @(@("Debug", "VirtualPad", "1"), @("Debug", "KeepRunningUnfocused", "1")) }
     if (-not $NoProfile) {
         $keys += @(@("Profiler", "GPUProf", "2"), @("Profiler", "GPUProf2_SampleEvery", "16"), @("Profiler", "GPUProf2_AB", "0"),
                    @("Profiler", "GPUProf2_MinRun", "8"), @("Profiler", "SP", "1"), @("Profiler", "IntervalUs", "5000"),

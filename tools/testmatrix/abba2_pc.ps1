@@ -12,9 +12,15 @@
 #   when Nioh3 is NOT foreground (refusal / focus check): wait 3 s; input inside those 3 s = a human -> abort; else refocus
 #   (max 6). Run it from a HIDDEN console (Start-Process powershell -WindowStyle Hidden) so dotnet children open no window.
 # Lock: caller holds the nioh3 game lock (renewed here).
+# -Input vpad (ASI >= 1.7.37, tools\testmatrix\vpad.ps1): no OS input - the title / Continue step and every menu toggle go
+#   through the mod's VirtualPad pipe (VirtualPad = 1 + KeepRunningUnfocused = 1 in the test ini); no foreground, no idle wait,
+#   no refocus; windows are kept when the user works on the PC (foreground / idle recorded in the manifest as user_active).
+#   Default -Input ui = the SendInput path above, unchanged.
 param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Quads = 3, [int]$QuadsB = 2,
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
-      [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30)
+      [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30,
+      [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui")
+$vp = $InputMode -eq "vpad"
 $ErrorActionPreference = "Continue"
 $Live = @($Live -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" }); $LaunchFlags = @($LaunchFlags -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" })   # -File passes "B,GF" as one string
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -29,6 +35,7 @@ $cfgBak = "$cfg.abba2.bak"
 $script:gamePid = 0
 $trace = "$out\trace.txt"
 . "$here\harness_guard.ps1"
+. "$here\vpad.ps1"
 function T([string]$s) { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; try { [IO.File]::AppendAllText($trace, $l + "`r`n") } catch {}; Write-Host $l }
 
 # ---- ini / config helpers ---------------------------------------------------------------------------------------
@@ -40,6 +47,7 @@ function Make-IniText([hashtable]$kv) {   # base = the user's installed ini (pre
         if ($t -notmatch "(?m)^$k = $([regex]::Escape([string]$kv[$k]))") { throw "ini key $k not set" }
     }
     $t = Force-Acl $t   # off by default since 1.7.33; the harness needs it
+    if ($vp) { $t = Force-Vpad $t }   # -Input vpad: VirtualPad = 1, KeepRunningUnfocused = 1
     $t
 }
 function Set-TestIni([hashtable]$kv) { [IO.File]::WriteAllText($ini, (Make-IniText $kv), (New-Object Text.UTF8Encoding($false))) }
@@ -89,7 +97,7 @@ function Refocus-Policy([string]$why) {
     $null = dotnet fsi $ui focus Nioh3 2>&1; Start-Sleep 2
     $ok = ((Fg-Name) -eq "Nioh3"); T "refocus after idle $([Math]::Round($idle))s: $ok"; return $ok
 }
-function Assert-Focus([string]$why) { if ((Fg-Name) -ne "Nioh3") { if (-not (Refocus-Policy $why)) { throw "HARNESS-ABORT: cannot refocus Nioh3" } } }
+function Assert-Focus([string]$why) { if ($vp) { return }; if ((Fg-Name) -ne "Nioh3") { if (-not (Refocus-Policy $why)) { throw "HARNESS-ABORT: cannot refocus Nioh3" } } }
 # ---- game control ------------------------------------------------------------------------------------------------
 function Renew { Push-Location $uoBridge; try { py -m uo_bridge.gamelock renew nioh3 --ttl 5400 | Out-Null } finally { Pop-Location } }
 function Close-GameClean {
@@ -98,7 +106,24 @@ function Close-GameClean {
     if ($p) { $null = $p.CloseMainWindow(); $p.WaitForExit(25000) | Out-Null; if (-not $p.HasExited) { Stop-Process -Id $script:gamePid -Force }; Start-Sleep 8 }
     $script:gamePid = 0
 }
+function Start-Play-Vpad {   # -Input vpad: no clicks, no focus, no idle wait
+    Assert-Launch
+    $before = VP-ForegroundInfo
+    $t0 = Get-Date
+    Start-Process "steam://rungameid/3681010"
+    $p = $null
+    while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
+    if (-not $p) { Note-Crash "no game window after launch"; return $false }
+    $script:gamePid = $p.Id; Register-Game
+    Start-Sleep 3; VP-GiveBackFocus $before   # the new game window took the foreground once: hand it back to the user
+    if (-not (VP-WaitPipe 180)) { T "!! no VirtualPad pipe (is the ASI >= 1.7.37 installed?)"; return $false }
+    T "vpad: $((VP ping).reply)"
+    $ok = VP-TitleContinue 300 "$out\title_continue.txt"
+    T "vpad title -> field: $ok; $(VP-State)"
+    return $ok
+}
 function Start-Play {
+    if ($vp) { return (Start-Play-Vpad) }
     Assert-Launch
     $t0 = Get-Date; $idle = Idle-Sec   # the boot clicks take focus: only launch when nobody has touched the PC for $IdleNeed s
     while ($idle -lt $IdleNeed) {
@@ -153,9 +178,10 @@ function Window([string]$name, [hashtable]$meta) {   # a window with user input 
         Register-Child $pm "PresentMon"
         Start-Sleep ($WindowSec + 1); $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
         $fgEnd = Fg-Name; $idle = Idle-Sec; $span = ((Get-Date) - $w0).TotalSeconds
-        if ($fgEnd -eq "Nioh3" -and $idle -ge $span) {
+        if ($vp -or ($fgEnd -eq "Nioh3" -and $idle -ge $span)) {   # vpad: user input never reaches the game; recorded, not discarded
             Set-Content "$out\$name.log" (Log-From $off)
             $meta.focus_end = $fgEnd; $meta.idle_end = [Math]::Round($idle, 1); $meta.repeats = $rep
+            if ($vp) { $meta.input = "vpad"; $meta.user_active = ($idle -lt $span) }
             $meta.name = $name; $meta.t = (Get-Date -f HH:mm:ss); Manifest $meta
             T "window $name done"; return
         }
@@ -187,7 +213,10 @@ function Send-MenuKeys([string[]]$keys) {
 function Toggle([string]$id, [string]$want) {   # returns [bool]; confirmed only by the mod's 'MENU: <label> -> <want>' line
     Assert-Focus "before toggle $id"
     $m = $script:menu.items.$id; $off = Log-Len
-    if (-not (Send-MenuKeys @($m.keys))) { T "!! toggle $id -> ${want}: mod menu did not open"; return $false }
+    if ($vp) {   # the mod sets the item on its Present thread (same code + log line as a menu press); no menu navigation
+        $r = VP-MenuSet $id $(if ($want -eq "ON") { "1" } else { "0" })
+        if (-not $r.ok) { T "!! toggle $id -> ${want}: $($r.reply)"; return $false }
+    } elseif (-not (Send-MenuKeys @($m.keys))) { T "!! toggle $id -> ${want}: mod menu did not open"; return $false }
     for ($k = 0; $k -lt 12; $k++) {
         Start-Sleep -Milliseconds 500
         $tx = Log-From $off
@@ -217,7 +246,8 @@ $test = Prepare
 if ($DryRun) {
     $kv = $test + @{ DQ = 1; P1E7 = 0 }
     $txt = Make-IniText $kv
-    "DryRun OK: out=$out"
+    "DryRun OK: out=$out input=$InputMode"
+    if ($vp) { "  vpad ini: " + (("VirtualPad", "KeepRunningUnfocused", "AutoContinueLoad") | ForEach-Object { if ($txt -match "(?m)^$_ = (.*)$") { "$_=$($Matches[1].Trim())" } else { "$_ MISSING" } }) -join " " }
     "  ini: " + (($kv.Keys | Sort-Object | ForEach-Object { $k = $_; if ($txt -match "(?m)^$k = (.*)$") { "$k=$($Matches[1].Trim())" } }) -join " ")
     "  menu rows: " + (($Live | ForEach-Object { "$_ '$($labels[$_])' boot=$($script:bootState[$_]) keys=$(@($script:menu.items.$_.keys).Count)" }) -join "; ")
     $flat = @(); foreach ($a in @("keyseq", @($script:menu.items.MQ.keys))) { foreach ($x in @($a)) { $flat += [string]$x } }
@@ -230,7 +260,7 @@ if ($DryRun) {
 }
 
 Init-Guard -Name "abba2" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-GameClean; Restore-All }
-T "abba2 start: out=$out live=$($Live -join ',') launch=$($LaunchFlags -join ',') window=${WindowSec}s quads=$Quads cfg: FG OFF REN_RAT $RenRat $Upscaler"
+T "abba2 start: input=$InputMode out=$out live=$($Live -join ',') launch=$($LaunchFlags -join ',') window=${WindowSec}s quads=$Quads cfg: FG OFF REN_RAT $RenRat $Upscaler"
 $LaunchFlags = @($LaunchFlags | Where-Object { $_ -and $_ -ne "none" }); $Live = @($Live | Where-Object { $_ -and $_ -ne "none" })   # -LaunchFlags none = live items only (one launch)
 $arms = if ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
 try {
@@ -249,8 +279,10 @@ try {
         }
         if ($L -eq 1 -and $Live.Count -gt 0) {
             $script:liveOff = Log-Len
-            if (-not (Send-MenuKeys @($script:menu.init))) { throw "HARNESS-ABORT: mod menu did not open for init" }; Start-Sleep 1
-            $tx = Log-From $script:liveOff; if ($tx -notmatch "MENU: closed") { throw "HARNESS-ABORT: menu init did not close the menu" }
+            if (-not $vp) {   # vpad sets items by key: no menu cursor to initialise
+                if (-not (Send-MenuKeys @($script:menu.init))) { throw "HARNESS-ABORT: mod menu did not open for init" }; Start-Sleep 1
+                $tx = Log-From $script:liveOff; if ($tx -notmatch "MENU: closed") { throw "HARNESS-ABORT: menu init did not close the menu" }
+            }
             $state = @{}; foreach ($i in $Live) { $state[$i] = $script:bootState[$i] }
             foreach ($item in $Live) {
                 if ($state[$item] -ne "ON") { if (-not (Toggle $item "ON")) { T "!! $item cannot be switched ON - item skipped"; continue }; $state[$item] = "ON" }
