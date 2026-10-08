@@ -58,11 +58,20 @@ for _l in open(os.path.join(ROOT, 're', 'out', 'functions.tsv'), encoding='utf-8
 _o = sorted(range(len(_GS)), key=lambda i: _GS[i]); _GS = [_GS[i] for i in _o]; _GZ = [_GZ[i] for i in _o]
 
 
+_LEAFSYM = set()
+for _l in open(SYMS, encoding='utf-8'):
+    _f = _l.split('	')
+    if len(_f) > 4 and _f[0].startswith('0x') and _f[1] == 'function' and ' leaf (no .pdata)' in _f[4]:
+        _LEAFSYM.add(int(_f[0], 16))
+
+
 def fold(x):
     """function start: .pdata first; leaf functions without .pdata via the Ghidra function table; else x itself."""
     p = primary(x)
     if p is not None:
         return p
+    if x in _LEAFSYM:   # a named leaf row in symbols.tsv wins over a Ghidra function whose size wrongly swallows it
+        return x
     i = bisect.bisect_right(_GS, x) - 1
     if i >= 0 and x < _GS[i] + max(_GZ[i], 1):
         return _GS[i]

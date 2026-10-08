@@ -22,11 +22,12 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ## Decompilation progress
 
-![functions named](https://img.shields.io/badge/functions%20named-2.39%25%20(5048/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-99.51%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-99.52%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
+![functions named](https://img.shields.io/badge/functions%20named-3.04%25%20(6427/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-99.74%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-99.99%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
 
-**In plain words:** we have given a name to 5,048 of the game's 211k functions (2.4 %), but those cover 99.5-99.7 % of the CPU time we measured, and every GPU pass (59 of 59) now points at the engine code that runs it. That is what the speed work needs; it is not a full source rebuild.
+**In plain words:** we have given a name to 6,427 of the game's 211k functions (3.0 %), but those cover 99.74 % of the CPU time we measured (99.99 % counting `Unknown_` functions that are described but not fully understood), and every GPU pass (59 of 59) points at the engine code that runs it. The full-game graph stays mostly empty by design: we only name code that matters for performance, not the whole game. The performance and GPU graphs are full. That is what the speed work needs; it is not a full source rebuild.
 
-**Latest (2026-10-08):** the registry that creates the GPU passes was walked automatically, and **1,142 names** (70 render nodes, 216 shader objects, 483 data objects, plus type-info stubs) were added, so every GPU pass has a named CPU entry point (`notesender-nodes.md`). The charts below were regenerated after that merge.
+**Latest (2026-10-08):** the registry that creates the GPU passes was walked automatically, and **1,142 names** (70 render nodes, 216 shader objects, 483 data objects, plus type-info stubs) were added, so every GPU pass has a named CPU entry point (`notes
+ender-nodes.md`). The charts below were regenerated after that merge.
 
 Every function in `Nioh3.exe` (211k function starts from `.pdata`), grouped by purpose region ([docs/code-map.md](docs/code-map.md)); block size = code size, each cell = 42 functions, green = real name, amber = `Unknown_*` (described, role unclear), grey = not named yet:
 
@@ -56,11 +57,13 @@ Plain version: the game is limited by different things on each machine, so diffe
 - **Hardware (reported by the Ally itself):** ASUS ROG Ally X, product RC72LA (board RC72LA, BIOS RC72LA.312); AMD Ryzen Z1 Extreme (8 cores / 16 threads, Zen 4); Radeon 780M (RDNA3 gfx1103, 12 CUs); 24 GB LPDDR5X, of which 8 GB is set aside as the GPU frame buffer (UMA split), so the OS sees about 15-16 GiB; 1080p 120 Hz panel; Bazzite + Proton (vkd3d-proton / RADV). The 8 GB split is a fact about this unit; we never change hardware or BIOS settings.
 - **What limits it:** the GPU is about 99 % busy. Stock baseline at MAX settings in Futamata is about **16 fps** (16.3-16.8 measured).
 - **What helps here:** the **GHDM shadow shader** is the only confirmed fps gain (+6.4 to +8.7 % at MAX). The CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED ...) are **fps-neutral** (they do cut CPU load and free power for the GPU). **R2a** (barrier rewrite, Proton only) is a small candidate, not yet proven.
+- **Measured 2026-10-08, load time (Level 136):** stock about 94 s -> EP (1.7.24) about 45-47 s -> EP + SR (1.7.25) 38.5 s (-59 %); EP/SR switch on automatically under Proton. Ally GPU budget corrected in `notes\ally-gpu-budget.md`: FSR3 costs 3.5-3.9 ms at REN_RAT 50, the post-process chain 0.46 ms. PF, LC, PJ, DQ, P1E7, GIMerge and wdo14 are built but not yet tested.
 - **Install:** use `mod\ally-package` (see `README-ALLY.txt`): copy `dinput8.dll`, `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini` next to `Nioh3.exe`; Steam launch option `WINEDLLOVERRIDES="dinput8=n,b" %command%`; optionally copy `shader\0x0104840c.file` into `shader_dx12\` (back up the original first). Menu: Esc x3, F10, or Start x3.
 
 ### Desktop PC (Ryzen 5 7600X + Radeon RX 9070, 1440p, Windows 11)
 - **What limits it:** the CPU main thread (one core does most of the game's work), not the GPU.
 - **What helps here:** the CPU fixes (W3, W6, P12, WL and friends) matter most. Latest numbers (`captures\tm\`, 2026-10-08): stock all-off baseline standing = about 149-153 fps, p99 frame time 14.3-14.7 ms. Per-fix results: **being measured**.
+- **Measured 2026-10-08, load time:** about 13.5-15 s warm. EP/SR give no PC gain (a native event costs 0.6 us vs 84 us under Proton). AutoContinueLoad skips the tip page. B was dropped on PC (-0.1 %).
 - **Install:** copy the contents of `mod\Nioh3EngineFix\bin\` next to `Nioh3.exe` with an ASI loader (Ultimate ASI Loader or Nioh3ModLoader), or use the control panel. Note: Smart App Control can block unsigned DLLs.
 
 ## Boss research (for a future rematch feature)
@@ -127,7 +130,8 @@ Full history: `MODLOG.md`.
 **Technical detail**
 - 1.7.13: pause hint from the game's own "menu open" getters (`0x5A37D4`, `0xD63C0`); `[Overlay] OffsetX/OffsetY`; presents counted per thread (game thread = real fps, `AMD FSR Presenter Thread` = displayed fps, FG running when displayed > 1.15x real); `[Menu] KeyTripleTap`, `PauseHintSource`. Pattern tests: 114 sites OK.
 - 1.7.14: GL1 = prefetch in the two mission task-list walks; LC = resource-load in-flight cap 10 -> 16; LW = manager `Sleep(1)` -> event wait. Pattern tests: 122 sites OK. A/B plan: LoadStats baseline, then one flag per load pair.
-- Live PC read (idle, read-only): the proximity list holds 4,380 entries per tick, 4-5x the earlier estimate, so the GL1 saving needs re-checking (`captures\pc\live_reads_2026-10-08.md`). Render-node method and tables: `notesender-nodes.md`.
+- Live PC read (idle, read-only): the proximity list holds 4,380 entries per tick, 4-5x the earlier estimate, so the GL1 saving needs re-checking (`captures\pc\live_reads_2026-10-08.md`). Render-node method and tables: `notes
+ender-nodes.md`.
 - The benchmark that was also captured, a PC all-off baseline, shows 149-153 fps standing; the full stock-vs-mod run is still to do.
 - Details: `MODLOG.md`, `STATUS.md`.
 
