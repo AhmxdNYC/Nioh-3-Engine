@@ -8951,7 +8951,7 @@ rva	kind	name	signature	description	confidence	source
 0x2180aec	function	SetNextJourneyLevel	void SetNextJourneyLevel(Mgr* m, u8 level)	sets st+0x45, raises +0x44, sets mission flags 0x7F (>=2) and 0x190 (>=3)	high	notes/boss-rift-ngplus.md
 0x1c28b84	function	UnlockNextJourneyLevelStep	void UnlockNextJourneyLevelStep()	from +0x44 (1,2,3) picks next level 2/3/4 and calls SetNextJourneyLevel	medium	notes/boss-rift-ngplus.md
 0x1c1db88	function	SetMissionCleared	void SetMissionCleared(u32 missionId)	body of Mission::SetMissionClearFlag: clear db entries, rewards, retry points	high	notes/boss-rift-ngplus.md
-0x23e4228	function	Script_Mugen_IsAllMugenBossesDead	script wrapper	Rift/boss-rush lead; reads one bool	medium	notes/boss-rift-ngplus.md
+0x23e4228	function	Script_Mugen_IsAllMugenBossesDead_STUB	bool f(ScriptCtx*)	script native Mugen::IsAllMugenBossesDead: pushes constant false (0x1398E0 u8 0); only xref is native table 0x397E120; unused stub, no Mugen object exists (was Script_Mugen_IsAllMugenBossesDead)	high	notes/eternal-rift.md
 0x107bb78	function	ClearDbGetClearedU16	u8 ClearDbGetClearedU16(Db* db, u16 id)	FNV-1a over u16 id, byte entry+0x12+slot	high	notes/boss-rift-ngplus.md
 0x2280fa0	func	GameClearRewardGrant	void GetGameClearRewardId(char hard)	boss rewards (notes\boss-rewards.md) (was GetGameClearRewardId)	medium	boss-rewards
 0x2280c84	func	RewardNoticeShowById		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
@@ -9005,5 +9005,8 @@ rva	kind	name	signature	description	confidence	source
 0x1dc8424	function	MissionReplayMenu_Setup	void MissionReplayMenu_Setup(Menu* m, Menu* owner, u32 a, void* params, u32 missionId, u8 journey, u8 b)	stores mission id (+0x24F4), journey (mode 6 -> current), era byte from record +0x160, then vtbl+0x380 (build)	medium	notes/battle-scrolls.md
 0x1dda0e4	function	ShrineMenu_OpenFromMission	void ShrineMenu_OpenFromMission(Menu* m, u32 a, u32 missionId, u8 b)	sets +0x86 when FeatureUnlocked(8) and mission record flags40 & 0x1000000 (emaki-capable)	low	notes/battle-scrolls.md
 0x605300	function	FeatureUnlocked	bool FeatureUnlocked(u8 bit)	bitset at [0x4B6A170]+8; bit 8 gates the Picture Scroll (Emaki) half of Battle Scroll	medium	notes/battle-scrolls.md
-0x23e0094	function	Script_Mission_IsTrainingMission	short Script_Mission_IsTrainingMission(VM* vm)	returns current mission id ([[0x45B9E40]]+0x64) == 0x6F24 (Training Ground record)	high	notes/battle-scrolls.md
+0x23e0094	function	Script_Mission_IsTrainingMission	bool f(ScriptCtx*)	pushes (currentMissionId == 0x6F24 Training Ground)	high	notes/eternal-rift.md
 0x1fd4c00	function	AreaListRefresh		iterates area records, filters type!=3 and +0xBC == current area byte (+0x11)	low	notes/missions.md
+0x23e41cc	function	Script_Mugen_GetPeriodicDamageAreaAppearTimeFrame_STUB	int f(ScriptCtx*)	script native Mugen::GetPeriodicDamageAreaAppearTimeFrame: pushes constant 0 (0x2E5A80); unused stub	high	notes/eternal-rift.md
+0x397e120	data	ScriptNativeEntry_Mugen_IsAllMugenBossesDead	{name*,fn*}	native table entry (name 0x3bf8c60 -> wrapper 0x23E4228)	high	notes/eternal-rift.md
+0x397e130	data	ScriptNativeEntry_Mugen_GetPeriodicDamageAreaAppearTimeFrame	{name*,fn*}	native table entry (name 0x3bf8c80 -> wrapper 0x23E41CC)	high	notes/eternal-rift.md
