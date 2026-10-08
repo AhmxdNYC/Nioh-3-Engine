@@ -1,3 +1,43 @@
+# STATUS (handoff) - rewritten 2026-10-08
+Read this section only; everything older is under '## History' (unchanged). Latest commit when written: 7b4bd34 (ASI 1.7.21).
+
+## CURRENT STATE
+- Latest ASI = 1.7.21 (built from mod\Nioh3EngineFix\src; RematchLog Phase 0 + BossLog + LoadGates probe LG; all new flags default off, none run in game yet except LG on the Ally in 1.7.19 form).
+- PC game folder: ASI 1.7.21 + full-mod ini with [GpuOpt] Barriers=0 (Barriers=1 measured -7 % on PC). Last PC round was 1.7.16 (captures\tm\results_pc_1716.md).
+- Ally X: 1.7.21 zip delivered. Last Ally run was the 1.7.19 load probe (digest notes\loading-ally-fixed.md section 7).
+- Game holder: the Ally was the last holder (Steam allows one device). Verify before acting: `py -m uo_bridge.gamelock status nioh3`; never assume the PC may launch.
+- Findings to rely on: Ally load work ends at +93 s (manager A capped at 10 in flight, 957 pending, 640k ReadFile = 68 s in-call vs 3.2 s PC; no timeout; G9 'held' = tip-page artifact). PC 58A window ~25.8 s, last ~15 s unexplained by the managers. Shaders: no shader ships without an Ally A/B win (RGA model does not predict RADV/ACO). B/PP/GF/MQ 1.7.16 live gains are unconfirmed.
+
+## RUNNING / PENDING (everything here needs the game)
+1. PC (needs game free): ABBA live retest per notes\pc-keep-candidates.md section 4 (MQ, PP, B, GF; OFF sentinels; one launch; CpuStats=1) + LG load test (fullmod_ini_1717_lg.ini, LoadStats=3 LoadGates=1 MemStats=1 SP=1; 1 shrine fast travel + 1 death respawn; loadstats_ab.ps1). Also one gpuopt trace (Barriers=2 TraceRecords=2000000) with B=0 vs B=1.
+2. Ally (needs game): load A/B step 1 - L1 ini vs +GF=1 W6=1 RWb=1, x2 each; metric = last LoadGates eval / manager A last busy. After the read fix is built: read-fix test. Also GF/W6/RWb-during-loads test.
+3. Phase 0 boss session: needs THE USER present (play steps in notes\boss-rematch-design.md "How to run Phase 0": BossLog=1 RematchLog=1, offline; Battle Scroll menu, replay a boss, use a Picture Scroll, die once, quit mid-fight, 10 min normal play). Do not start it unattended.
+4. User-pending on the Ally: the title-screen tip-page press during load tests; the Phase 0 session; scheduling the final benchmark; Discord posts. Ask via the bridge, do not guess.
+
+## QUEUE (ranked; model per job; keep 3-4 agents running)
+1. [sonnet] RP read probe (per-site calls / in-call time / thread pool / offset locality, SRW hold at 312F7C / 7401F0) + LoadGates tail fix, new files. Then [opus] read fix (RC read cache / AQ async archive reads / TS TrySync 3->6) after the design in notes\loading-ally-fixed.md section 7 lands. Needs the Ally digest of step 2 first for the decision.
+2. [sonnet] Loads-only gating of GF/W6/RWb (apply only while a load is active; ini flag, default off) - build then Ally test.
+3. [opus] PC submit filters: PSO/RT redundancy (SF1 + PM key memo, SF3 OM/RS) per notes\pc-submit-overhead.md; build only if the trace shows >= ~200 redundant calls/frame; run submit_redundancy.py on the one trace run first; B draw-loss check by screenshot pair.
+4. [opus] Rematch build after the Phase 0 logs (notes\boss-rematch-design.md; boss-master.md has the data). Blocked on the user session.
+5. [sonnet] settings-cost.md: fill measured columns when benchmark data exists; README/charts refresh after merges.
+6. FINAL PHASE (end, user present): notes\final-benchmark-protocol.md. First the full re-test matrix (below), then STOCK vs ALL-KEPT, MAX and user preset, 3 runs, interleaved; PC and Ally one after the other; results -> README + Discord. ASK the user to schedule it.
+
+## RULES
+- Game-side only: no TDP/boost/governor/env-var/gamescope changes; only how the game uses the hardware.
+- While the PC game runs: max 3-4 agents, NO Ghidra/heavy RE.
+- Take the lock before launching: `py -m uo_bridge.gamelock acquire nioh3` (UO_AGENT_ID=pc), renew, release at the end; '[Q] need game' = close within 2 min.
+- Save backups before each game session (D:\nioh3-re\save-backups\) and back up the ini/asi you replace.
+- Bridge = `py -m uo_bridge` (run from the repo root). Read AGENT_BRIEF.md + token-efficiency.md in every agent brief. 'apply all' is banned; one build per session; no shader ships without an Ally A/B win.
+- Update this top section after each finished item; keep dated detail in MODLOG.md / notes.
+
+## DROPPED-BUT-KEPT (re-test every one on PC and Ally in the final phase, one at a time vs all-off)
+- Experiments: VBC/S1 (not exact), HBAO draw merge (nothing to merge), ZI, RR1 (not provable), OJ/HT/PSO-warmup (load; no timeout), R2a/R2b/R1 (Wine-only no-ops), Barriers=1 (-7 % PC), AS0 (neutral), GL1/LC/LW/WL/DLCP (neutral on PC), W6/PT1/DL (~0 on PC), TG (opt-in, behaviour change), WK WG CP SPF LK ED IK FPC AABB M1 M2 J1 E1 LM.
+- Shaders: gi #121 / #414, fog (VFSCAT), toonedge2, trvs/pbvs, post-v1, VCLOUD hoist, SFB dedupe (RADV prescreen pending).
+- Also in the matrix: B, PP, GF, MQ, MQ/PT1 and any new flags; tools\testmatrix\matrix.json is the list. Verdict per device goes into the README.
+
+## History
+(older sections, unchanged)
+
 # STATUS (handoff) - 2026-10-07 ~14:30
 Shipped to Ally: ASI 1.5.0 (v9: W6, GF, SP profiler, MemStats, WL, ...), shader pack v2 (ghdm, esm, wdo28, mpc23, toonedge2).
 Measured: W6/GF kill main-thread spins (GPU MHz up), fps flat (GPU-bound). GHDM +8.7 % at MAX. MAX native = 16.3-16.8 fps; lightest-50 = 32 fps.
