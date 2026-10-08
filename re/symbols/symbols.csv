@@ -1121,6 +1121,7 @@ rva,kind,name,signature,description,confidence,source
 0x98f3c6,label,TimeEffectFpsOverride_SetRawTarget,,"Sets G[620]=max(30,target/2) while [0x4757480]!=0 (time effect)",high,"notes/frame-timing.md §2, §8.4"
 0x991948,label,Sleep0Call_991948,,call Sleep(0); pdata fragment start 9917B4,high,re/out/spinscan.txt §all call sites
 0x9a2fa8,function,PauseSpin_9A2FA8,,code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 9A3036..9A3117,medium,re/out/spinscan.txt §fragments containing PAUSE
+0x9a63a4,function,Fsr3DestroyContext,"void Fsr3DestroyContext(int, Gfx* g)","Destroys FG ctx 0x47092b0 + upscale ctx 0x45c4300, unregisters UI resource, frees FSR3 textures; callers PostEffectApply, 0x346c424, Fsr3EnsureContext",high,notes/fsr3-audit.md §1
 0x9ac33c,function,MeshletCullBegin,"void (MeshletSys* m, Ctx*, u32 view, ...)",per-view meshlet culling setup before MeshletInstanceCulling/MeshletPreculling,medium,notes/shadows-culling.md §1.2
 0x9afe00,function,GetDisplayRefreshRate,int GetDisplayRefreshRate(),"Returns cached refresh rate g_DisplayRefreshRate 0x45bbcc4 (60 at dump) || also: Display refresh rate source for the REN_FPS refresh gate, cached in [0x45BBCC4]",high,notes/settings.md §4.1; notes/frame-timing.md §9.1
 0x9afed0,function,Unknown_Render_9AFED0,void Unknown_Render_9AFED0(ptr o),if o+24D4h: clears the 58h-byte record of the current frame (g_RenderGlobals+4730h) in o+24F0h and rebuilds it; only caller 8BEDC8,low,notes/perf-coverage.md
@@ -1469,6 +1470,16 @@ rva,kind,name,signature,description,confidence,source
 0x18d68d8,label,XessExecute_CallCustomDepthUpscale,,call CustomDepthUpscaleRecord (0x2953fc),high,notes/gpu-copies-postres.md §1
 0x18d6bfd,label,XessExecute_SharpnessCheck,,cmp byte [rsp+0x50] - XeSS sharpness > 0 gate for engine RCAS,high,notes/gpu-copies-postres.md §1 (RCAS)
 0x18d6c26,label,XessExecute_CallRcas,,"call RcasRecord (0x52e47c): engine RCAS pass d3fd8774 (34.5us, 160x90 groups) = XESS_SHARPNESS 0.3; may double-sharpen with OptiScaler CAS",high,notes/gpu-copies-postres.md §1 (RCAS)
+0x18d8898,function,Fsr3UpscalerExecute,"void Fsr3UpscalerExecute(void* p1, Gfx* g, Fsr3Inputs* in)","Per-frame FSR3 path: Fsr3EnsureContext, GENERATE_REACTIVE (0x10006, when RS+0x1ff8==2), upscale dispatch 0x10001, FG prepare 0x20004 (only if FG ctx+FI swapchain exist), upscaled-depth copy to 0x45c4328, FSR3VelocityViewportFix (render ratio != 1 only); callers PostEffectApply 0x6da118, FSR FG backend 0x34692bc",high,notes/fsr3-audit.md §1
+0x18d8a42,label,Fsr3Execute_ReactiveModeGate,,"cmp dword [rbp+0x2868],2 / jnz: RS+0x1ff8 reactive mode; 2 = generate reactive mask from opaque copy and use it as the reactive input",high,notes/fsr3-audit.md §3
+0x18d8bcd,label,Fsr3Execute_DispatchGenReactive,,"call ffxDispatch(ctx 0x45c4300, desc type 0x10006); out = 0x45c4318",high,notes/fsr3-audit.md §1
+0x18d8d8a,label,Fsr3Execute_ReactiveSlotSelect,,upscale desc reactive = (RS+0x1ff8==2) ? 0x45c4318 : null; T&C always null,high,notes/fsr3-audit.md §1
+0x18d8ff2,label,Fsr3Execute_DispatchUpscale,,"call ffxDispatch(ctx 0x45c4300, desc type 0x10001 at rbp+0x180); public ffx-api layout + 1 extra resource (depth, COMPUTE_READ) before output + 9-dword tail after flags (custom fork)",high,notes/fsr3-audit.md §1
+0x18d9018,label,Fsr3Execute_FgPrepareGate,,skips FG prepare (0x20004) / UI register (0x30002) / interpolation queries unless 0x47092b0 and 0x47092b8 are both non-null,high,notes/fsr3-audit.md §2
+0x18dfd50,function,ffxConfigure,"ffxReturnCode_t ffxConfigure(ffxContext* ctx, const ffxConfigureDescHeader* desc)",AMD ffx-api loader entry (export ord 108),high,notes/fsr3-audit.md §1
+0x18dfd74,function,ffxCreateContext,"ffxReturnCode_t ffxCreateContext(ffxContext* ctx, ffxCreateContextDescHeader* desc, const ffxAllocationCallbacks* mem)",AMD ffx-api loader entry; called by Fsr3EnsureContext,high,notes/fsr3-audit.md §1
+0x18dfdf4,function,ffxDispatch,"ffxReturnCode_t ffxDispatch(ffxContext* ctx, const ffxDispatchDescHeader* desc)","AMD ffx-api loader entry (exe export ordinal 111), statically linked",high,notes/fsr3-audit.md §1
+0x18dfe18,function,ffxQuery,"ffxReturnCode_t ffxQuery(ffxContext* ctx, ffxQueryDescHeader* desc)",AMD ffx-api loader entry; FSR3 path queries 0x10010001 (internal resource 0x33 = upscaled depth source),high,notes/fsr3-audit.md §1
 0x18e376d,label,QpcXCall_18E376D,,call QueryPerformanceCounter(?); pdata fragment start 18E3764,high,re/out/spinscan.txt §all call sites
 0x1906bb1,label,Sleep0Call_1906BB1,,call Sleep(0); pdata fragment start 1906B9C,high,re/out/spinscan.txt §all call sites
 0x190a0ea,label,WfsoXCall_190A0EA,,call WaitForSingleObject(?); pdata fragment start 190A0E4,high,re/out/spinscan.txt §all call sites
@@ -2031,6 +2042,8 @@ rva,kind,name,signature,description,confidence,source
 0x3457646,label,Sleep0Call_3457646,,call Sleep(0); pdata fragment start 3457620,high,re/out/spinscan.txt §all call sites
 0x34576ae,label,Sleep0Call_34576AE,,call Sleep(0); pdata fragment start 3457688,high,re/out/spinscan.txt §all call sites
 0x345c58b,label,SleepXCall_345C58B,,call Sleep(?); pdata fragment start 345C52C,high,re/out/spinscan.txt §all call sites
+0x34692f0,function,Fsr3SaveOpaqueColor,"void Fsr3SaveOpaqueColor(void* p1, Gfx* g, PostFrameState* pfs)",Mid-frame CopyRect of scene color into 0x45c4310 (GP2 FSR3:SaveOpaqueColor) for GENERATE_REACTIVE; caller 0x19481ee,high,notes/fsr3-audit.md §1
+0x346948c,function,Fsr3EnsureContext,"void Fsr3EnsureContext(void* state, Gfx* g, PostFrameState* pfs, Fsr3CtxParams* p)","Creates FSR3 upscale ctx (flags DEPTH_INVERTED | AUTO_EXPOSURE if RS+0x2000) and FG ctx when FI swapchain exists; re-creates only when sizes, RS+0x1ffe, auto-exposure, FG mode RS+0x2058, FI swapchain ptr, HDR or p+9 change; allocates 0x45c4310/18/20/28/38",high,"notes/fsr3-audit.md §1, §2 #5"
 0x3483484,function,PsoListResolveCompute,"int PsoListResolveCompute(void* ctx, void* groups, u64* rec)",compute twin of 34837DC (8-byte records),medium,notes/stutter.md §3.1
 0x34835d4,function,PsoListPreloadJob,int PsoListPreloadJob(Job* j),job body: for records [j+40h..j+44h) resolve (34837DC/3483484) and preload (2EFE2A8/2EFE1CC); counts done in [list+40h],high,notes/stutter.md §3.1
 0x34837dc,function,PsoListResolveGfx,"int PsoListResolveGfx(void* ctx, void* groups, u64* rec, void* map1, void* map2)","resolves the shader slots of one 0x80-byte PSO-list record: each slot = {u32 shader-group file id, u32 index}, FFFFFFFFh = none, 56CB1360h = built-in system shaders; returns 1 when a slot's group is not loaded (record skipped, list marked incomplete), 0 = ready to preload",high,notes/stutter.md §3.1
@@ -2082,6 +2095,7 @@ rva,kind,name,signature,description,confidence,source
 0x370f540,label,WfsoXCall_370F540,,call WaitForSingleObject(?) in FsrFiPacingHelper_370F41C; pdata fragment start 370F41C,high,re/out/spinscan.txt §all call sites
 0x370f578,function,FsrFiWaitUntilQpc,void FsrFiWaitUntilQpc(int64_t t),"FidelityFX FrameInterpolationSwapChain pacing wait: do { QueryPerformanceCounter(&now); } while(now<t) - pure QPC spin, no pause/sleep (W5/S5, ~0.4 core with FG on; 38% of AMD FSR Presenter Thread samples) [Ghidra: 39 B, 1 callers] || also: FidelityFX FrameInterpolationSwapChain (statically linked) presenter pacing: do QPC while now<t (pure spin, ~0.4 core with FG); single caller 0x3777A40 (F1)",high,notes/cpu-profile.md §S5; §TL;DR W5; patcher/fg_cave.fsx
 0x370f58c,label,QpcXCall_370F58C,,call QueryPerformanceCounter(?) in FsrFiWaitUntilQpc; pdata fragment start 370F578,high,re/out/spinscan.txt §all call sites
+0x3715894,function,ffxDestroyContext,"ffxReturnCode_t ffxDestroyContext(ffxContext* ctx, const ffxAllocationCallbacks* mem)",AMD ffx-api destroy; called by Fsr3DestroyContext,medium,notes/fsr3-audit.md §1
 0x374333f,label,Sleep0Call_374333F,,call Sleep(0); pdata fragment start 37432C8,high,re/out/spinscan.txt §all call sites
 0x3774d0a,label,WfsoXCall_3774D0A,,call WaitForSingleObject(?); pdata fragment start 3774C24,high,re/out/spinscan.txt §all call sites
 0x377685c,label,WfsoXCall_377685C,,call WaitForSingleObject(?); pdata fragment start 3776790,high,re/out/spinscan.txt §all call sites
@@ -2389,6 +2403,15 @@ rva,kind,name,signature,description,confidence,source
 0x45c3eaa,global,g_XessFgAvailable,uint8_t,XeSS frame-gen availability flag checked for FRAME_GENERATION==3,low,re/out/anchors.md §site 0x39a758
 0x45c3f40,global,g_XellContext,void*,argument to xellSleep in RenderFrameBegin (latency markers),medium,re/scripts_cpu/q3.txt
 0x45c3f48,global,g_RenderFrameId2,u32,Second render frame id written in RenderFrameBegin 0x4A529C (aka g_XellFrameId) || also: incremented right before xellSleep each frame,medium,notes/frame-timing.md §3; re/scripts_cpu/q3.txt
+0x45c4170,global,g_Fsr3CtxCreated,u8,1 after Fsr3EnsureContext created the context; followed by cached recreate keys 0x45c4171..0x45c4181,high,notes/fsr3-audit.md §1
+0x45c4188,global,g_Fsr3CreateDesc,ffxCreateContextDescUpscale,"type 0x10000; flags at 0x45c4198 (8 | 0x20 auto-exposure), maxRender 0x45c419c, maxUpscale 0x45c41a4",high,notes/fsr3-audit.md §1
+0x45c4300,global,g_Fsr3UpscaleCtx,ffxContext,FSR3 upscaler ffx context,high,notes/fsr3-audit.md §1
+0x45c4310,global,g_Fsr3OpaqueColorCopy,Texture*,render-size opaque-only color copy (GENERATE_REACTIVE input),high,notes/fsr3-audit.md §1
+0x45c4318,global,g_Fsr3GeneratedReactive,Texture*,render-size generated reactive mask; the upscale reactive input when RS+0x1ff8==2,high,notes/fsr3-audit.md §1
+0x45c4320,global,g_Fsr3OutputColor,Texture*,output-size FSR3 upscaled color,high,notes/fsr3-audit.md §1
+0x45c4328,global,g_Fsr3UpscaledDepth,Texture*,output-size depth written by the DebugFSR3CopyUpscaledDepth draw (5fccb795),high,notes/fsr3-audit.md §2 #7
+0x45c4330,global,g_PostChainDepthFsr,Texture*,active post-chain depth (= 0x45c4328 each FSR frame); read by PostEffectApply 0x6db979/0x6df8c1,high,notes/fsr3-audit.md §2 #7
+0x45c4338,global,g_Fsr3VelocityFixTarget,Texture*,render-size MV copy target for FSR3VelocityViewportFix (render ratio != 1 only),high,notes/fsr3-audit.md §2 #6
 0x45c6f80,global,g_ConfigDirty,u8,config changed by an options item (SetOptionValue sets 1); SaveConfigIfDirty 0x283892C writes config.xml and clears it; Nioh3EngineFix sets it after its FG switch (not for FG on under Proton),high,notes/frame-generation.md §3
 0x45c6f9e,global,g_SkipNextWmSize,uint8_t,When 1 WndProc ignores one WM_SIZE and clears the flag,medium,re/out/anchors.md §site 0x8781f8
 0x45c8458,global,g_pDrawDistanceCfg,void*,Draw-distance config; +0x80 passed to GetDrawDistanceLimit,low,re/out/anchors.md §site 0x1774ad
@@ -2398,6 +2421,8 @@ rva,kind,name,signature,description,confidence,source
 0x45ce800,global,g_pEventCameraState,int*,"View-override state: [0] mode (8 or 11..16), +0x1f98 flags, +0x1f9c draw-distance override, +0x1fa0 draw-distance scale; event/photo camera meaning inferred",low,re/out/anchors.md §site 0xde8d0
 0x45ce8a0,global,g_DispatcherDrainBusy,u8,last result of DispatcherRingBusy written each iteration of WaitDispatcherDrainSpin 418F40; only referenced there,high,notes/d3d12-submission.md §6 S1
 0x46d7690,global,g_SlFeatureCaps,u8[0x1a0],"Streamline feature caps static returned by SlGetFeatureSupport 0x6B8E88 (thread-safe magic static): +0x10 Reflex, +0x20 DLSS SR, +0xF0 DLSS-G, +0x19C DLSS-G max multiplier",medium,notes/frame-generation.md §2
+0x47092b0,global,g_FfxFgCtx,ffxContext,FFX frame-generation context; created only when 0x47092b8 exists,high,notes/fsr3-audit.md §2 #1
+0x47092b8,global,g_FfxFiSwapchainCtx,ffxContext,FFX frame-interpolation swapchain context (FSR FG swapchain backend); null with FG OFF,high,notes/fsr3-audit.md §2 #1
 0x4709b50,global,g_NetSession,NetSession*,"Online net session object (KTGL COnlineSessionP2p / CSteamOnlineSessionP2p); +0x34 mode (0 solo, 1/2 online); VRR coopSafe disarms when mode!=0",high,"notes/frame-timing.md §10.1, §10.3; patcher/ft_session.fsx"
 0x4745348,global,g_pLodTierProvider,void*,When null GetLodLevelCount skips the tier query (returns 8),low,re/out/anchors.md §site 0x39722b
 0x474f8a8,global,g_pEffectThreadMgr,EffectThreadMgr*,Effect worker-group manager (EffectThreadManagerInit); read by EffectManagerUpdateInstances for the round-robin list indices,high,notes/effects-animation.md §1.2
@@ -2768,8 +2793,13 @@ rva,kind,name,signature,description,confidence,source
 0x180,struct_field,RenderScene::ViewObjects,void*[],per-view pointer; *(scene+180h+view*8)+4498h = object list,high,notes/meshlet-mainthread.md §1.2
 0x9b4,struct_field,RenderScene::UploadDirtyBits,u32,upload dirty bits 1/2/4/8/10h; clean -> single memcpy from CPU shadow,medium,notes/meshlet-mainthread.md §1.2
 0x4498,struct_field,RenderSceneView::ObjectList,void*,object list iterated by MeshletUpdateSceneBuffers,high,notes/meshlet-mainthread.md §1.2
+0x1f54,struct_field,RenderSettings::FsrEnableSharpening,u8,FSR3 dispatch enableSharpening (ACCUMULATE_SHARPEN + RCAS); copy +0x2424,medium,notes/fsr3-audit.md §1
+0x1f58,struct_field,RenderSettings::FsrSharpness,float,FSR3 dispatch sharpness; copy +0x2428,medium,notes/fsr3-audit.md §1
+0x1ff8,struct_field,RenderSettings::FsrReactiveMode,int,2 = generate reactive mask and use it; else no reactive input; copy +0x24c8,medium,notes/fsr3-audit.md §1
 0x1fff,struct_field,RenderSettings::FsrPostResStandard,u8,FSR POSTEFFECT_RESOLUTION flag (1 = STANDARD); copy at +0x24cf,high,notes/gpu-copies-postres.md §2
+0x2000,struct_field,RenderSettings::FsrAutoExposure,u8,1 = FFX AUTO_EXPOSURE create flag + null exposure resource; copy +0x24d0,medium,notes/fsr3-audit.md §1
 0x2054,struct_field,RenderSettings::FgUiMaskFlagA,u8,"UI-mask flag, set only in FSR-FG branch; copy +0x2524",high,notes/gpu-copies-postres.md §Bottom line
+0x2063,struct_field,RenderSettings::FsrDebugView,u8,FSR3 dispatch flags bit0 (DRAW_DEBUG_VIEW); copy +0x2533,medium,notes/fsr3-audit.md §1
 0x2064,struct_field,RenderSettings::FgUiMaskFlagB,u8,"UI-mask flag, set only in FSR-FG branch; copy +0x2534",high,notes/gpu-copies-postres.md §Bottom line
 0x2091,struct_field,RenderSettings::DlssPostResStandard,u8,DLSS POSTEFFECT_RESOLUTION flag; copy +0x2561,high,notes/gpu-copies-postres.md §2
 0x20bd,struct_field,RenderSettings::XessPostResStandard,u8,XeSS POSTEFFECT_RESOLUTION flag (1 = STANDARD); copy +0x258d (read as [rbp+0x2e1d] in PostEffectApply),high,notes/gpu-copies-postres.md §2
