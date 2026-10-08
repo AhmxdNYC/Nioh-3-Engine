@@ -1,0 +1,48 @@
+{
+  "_doc": [
+    "Per-device final defaults for Nioh3EngineFix.ini. make_profiles.py applies these overrides to mod\\Nioh3EngineFix\\Nioh3EngineFix.ini",
+    "(comments kept) and writes release\\profiles\\Nioh3EngineFix.<DEVICE>.ini. Keys not listed keep the base ini value.",
+    "status: kept = measured on that device (or shipped there and stable) and safe as a default;",
+    "        provisional = recommended but its live A/B on that device is still open (flip to kept/drop after the final re-test);",
+    "        off = deliberately off on this device (measured loss, neutral, or not a default).",
+    "Edit this file when a matrix verdict lands (tools\\testmatrix verdict_<dev>.md), then run make_profiles.py and check_release.py.",
+    "package.py --final refuses any 'provisional' entry."
+  ],
+  "PC": {
+    "title": "Desktop PC (Windows, CPU main-thread bound: 7600X + RX 9070 1440p reference)",
+    "overrides": [
+      {"section": "Patches", "key": "W6", "value": "1", "status": "provisional", "why": "present-wait spin -> WaitOnAddress; PC 1.7.16 ~0, exact; pc-keep-candidates s5"},
+      {"section": "Patches", "key": "GF", "value": "1", "status": "provisional", "why": "GPU fence wait on event; PC 1.7.16 +4.1 % (one window); repeat test open (STATUS RUNNING 1)"},
+      {"section": "Patches", "key": "B", "value": "1", "status": "provisional", "why": "draw-list gallop; PC 1.7.16 +15.6 % but gpu_ms moved -16 % = suspected draw loss; needs gpuopt trace + screenshot pair"},
+      {"section": "Patches", "key": "PP", "value": "1", "status": "provisional", "why": "page-pool sweep every 4th frame; PC +5.3 % (one window); texture-sharpness gate open"},
+      {"section": "Patches", "key": "MQ", "value": "1", "status": "provisional", "why": "bone matrices in SSE, bit-exact; PC p99 -11 % (one window)"},
+      {"section": "Patches", "key": "WorkerCap", "value": "0", "status": "off", "why": "handheld only; costs parallel width on 6c/12t"},
+      {"section": "Patches", "key": "AS0", "value": "0", "status": "off", "why": "neutral on PC (results_pc_1716.md)"},
+      {"section": "GpuOpt", "key": "Barriers", "value": "0", "status": "off", "why": "measured -7 % on PC (results_pc_1716.md)"},
+      {"section": "Latency", "key": "MaxFrameLatency", "value": "0", "status": "off", "why": "game value (1) is already the lowest latency"}
+    ],
+    "shaders": [
+      {"file": "0x0104840c.file", "name": "GHDM fast shadow depth reduction", "status": "kept", "why": "PC +3 % no FG / ~+11 % FG, same image (MODLOG 2026-10-06 19:35)"}
+    ]
+  },
+  "ALLY": {
+    "title": "ROG Ally X / Steam Deck class handheld (Bazzite / Proton, GPU-bound)",
+    "overrides": [
+      {"section": "Patches", "key": "W6", "value": "1", "status": "kept", "why": "shipped in every Ally zip since 1.1.0: kills main-thread spin, fps flat, watts to GPU"},
+      {"section": "Patches", "key": "GF", "value": "1", "status": "kept", "why": "Ally: ~0.6 core of spin removed, GPU clock up, fps flat (pc-keep-candidates s3)"},
+      {"section": "Patches", "key": "MQ", "value": "1", "status": "provisional", "why": "bit-exact, CPU power only; not yet run on the Ally"},
+      {"section": "Patches", "key": "WorkerCap", "value": "10", "status": "kept", "why": "shipped in Ally zips since ASI v3, stable; fewer wake-ups (job-system.md WC)"},
+      {"section": "Patches", "key": "B", "value": "0", "status": "off", "why": "fps-neutral when GPU-bound; hold until the PC confirms"},
+      {"section": "Patches", "key": "PP", "value": "0", "status": "off", "why": "staleness argument weak at 16-30 fps"},
+      {"section": "Patches", "key": "EP", "value": "-1", "status": "kept", "why": "auto = on under Proton; Ally load 98.9 -> 50.1 s (1.7.23 R1)"},
+      {"section": "Patches", "key": "SR", "value": "0", "status": "off", "why": "pending Ally session R2 (1.7.25); flip after the verdict"},
+      {"section": "Patches", "key": "LoadOnlyCpuFixes", "value": "0", "status": "off", "why": "pending Ally A/B (R2 later pair)"},
+      {"section": "Tuning", "key": "W3_TimeoutMs", "value": "3", "status": "provisional", "why": "pc-keep-candidates s5 Ally recommendation; not A/B tested"},
+      {"section": "GpuOpt", "key": "Barriers", "value": "0", "status": "off", "why": "RADV already merges barriers; R2a/R1 trace work only"},
+      {"section": "Latency", "key": "MaxFrameLatency", "value": "1", "status": "kept", "why": "shipped in Ally zips since 1.1.0; lowest latency, explicit under vkd3d"}
+    ],
+    "shaders": [
+      {"file": "0x0104840c.file", "name": "GHDM fast shadow depth reduction", "status": "kept", "why": "Ally +6.4 to +8.7 % at MAX, same look (the only Ally-proven fps gain)"}
+    ]
+  }
+}

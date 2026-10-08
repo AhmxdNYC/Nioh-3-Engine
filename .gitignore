@@ -42,3 +42,6 @@ panel/panel.err
 **/__pycache__/
 *.pyc
 *.zip
+
+# --- release zips (release/package.py) ---
+release/dist/
