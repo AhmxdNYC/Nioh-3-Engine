@@ -48,7 +48,7 @@ Same-look levers left at USER: **fogpar** (VFSCAT early-exit only, bit-exact, BU
 | # | item | owner / status | effort | game |
 |---|---|---|---|---|
 | 4.1 | Ally load after SR (38.5 s; `loading-ally-fixed.md` 8.9): G8 ~15.5 s = manager A draining ~1000 queued requests at in-flight cap 10 while pools / disk / half the CPU idle; G5+G9 ~7 s = its second batch; pre-gate ~14 s (CPU-saturated at +8..+13). Fix built: `LC = N` (cap 11..64, 1.7.30, default off), expected 3-8 s (up to -14 s at 32), 0 if TrySync-bound (then + `TSY = 6`). Next: Ally R4 ABBA LC=32 vs base (protocol 8.9); after it, the pre-gate CPU block (SP cannot see the unnamed TrySync threads: add them before profiling it) | Ally agent (R4); free after | 1-2 h game | y |
-| 4.2 | Add SR/RC/AQ/TSY/SH/EP/PF + LoadOnlyCpuFixes + DQ/P1E7 (1.7.32, 2.5) to `tools\testmatrix\matrix.json` (queue 1b) | free (sonnet); after the harness owner releases it | 1 h | n |
+| 4.2 | DONE on branch matrix42: SR/RC/AQ/TSY/SH/EP/PF + LoadOnlyCpuFixes added to matrix.json (grp 8, load:true; DQ/P1E7 came with 1.7.39; alloff gains SR=0, EP=0) | free (sonnet); after the harness owner releases it | 1 h | n |
 | 4.3 | AutoContinueLoad on death-respawn and fast-travel routes (only title->Continue verified) | free; one check in any session | 15 min game | y |
 | 4.4 | LM load-memory sweeper (3-6 s when a swap burst occurs) - built default off | matrix | in matrix | y |
 
