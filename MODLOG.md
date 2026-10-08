@@ -275,3 +275,6 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - `gp2_digest.py`: new curated `re\scripts_gpu\exe_passes.tsv` (16 exe-embedded / runtime shaders: copies, sprite/UI quads, tessellation CS, TAA filter, EffectMerge) applied in `resolve()`; hash-only fallbacks ("(not in inventory)") no longer count as names. `progress_treemap.py`: new group "sprite quads / UI & effect merge", ExeCopy_/ExeTess_/ExePost_ name rules.
 - Grey buckets of `docs\progress\gpu.svg` (~1.3 ms, 14 rows, mostly shared VS a2bd0e86 + exe PS pairs) are all mapped. Symbols: `re\symbols\incoming\gpu-passes.tsv` (8 rdata shader labels) + `gpu-passes-renames.tsv` (4).
 - Undo: revert the three scripts, delete exe_passes.tsv and the two TSVs.
+
+## 2026-10-08 - docs: subsystem write-ups (goal part 4)
+- Added docs\subsystems\ (13 pages + README index with CPU share, threads, coverage, naming issues) for every area >= 0.3 % of profiled CPU self time; consolidated from notes\*.md and symbols.tsv. Docs only, no game/mod/symbol change. Undo: delete docs\subsystems and the README link.

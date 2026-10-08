@@ -36,6 +36,8 @@ GPU time on the ROG Ally at MAX (one all-original-shaders GP2 capture, top PSO b
 
 ![GPU time identified](docs/progress/gpu.svg)
 
+Per-subsystem write-ups (role, data structures, hot RVAs, threads, cost drivers): [docs/subsystems/README.md](docs/subsystems/README.md).
+
 GPU numbers are stamp-inflated ranking data, not isolated costs. Regenerate with `py -I re\scripts_re\progress_treemap.py` (`--check` prints the numbers only). Area grouping is inferred from symbol names, so it is approximate.
 
 ---
