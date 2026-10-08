@@ -1,0 +1,6 @@
+# Decompile DB cleanup (2026-10-08)
+- B94230/B94250: bytes at B94230 = `push rdi; push rsi; mov rdi,rcx; mov rsi,rdx; mov rcx,r8; rep movsb; pop; pop; ret`. B943C6 is `jne rel32 -19Ch` = B94230 (B946A0 `-4 76h` likewise lands in the same stub family), so Memcpy B94250 tail-jumps to the ERMS stub for large copies. Name: `MemcpyErms` (cpu-hotspots-ally.md was right); Memcpy's own body is the small/medium AVX path.
+- Six unnamed rows named from decompiles (see re\symbols\incoming\cleanup.tsv); BDF238 = double-precision atan2 CRT (pi constants, _handle_nanf), 7403EC = std::map key-exists, 259C4C = any-child virtual test. 371784, AC8D10, 2833F0 are low confidence (role by behaviour).
+- Eight Unknown_ callers of blocked waits (Ally wall view) renamed by behaviour in cleanup-renames.tsv; still low confidence and not CPU work.
+- progress_treemap.py: area rules now = area_overrides.tsv > PREFIX rules > keyword list > neighbour (<=64 KB, or <=192 KB if both neighbours agree). New areas "Math / CRT / containers" and "Object / scene update"; audio ConvReverb/Fft rows are explicit. Also removed a stray fragment line from symbols.tsv that broke merge_incoming.
+- Undo: revert the script, delete area_overrides.tsv and the two TSVs.

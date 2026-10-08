@@ -168,7 +168,7 @@ Order of work: Ally share first (the target device), then combined share. Names 
 
 ### Remaining gaps
 - **Self time:** 0.5 % of game self time remains unnamed, spread over ~850 functions of <= 0.01 % each (largest D0F48, 27E788, 371784, 55378, 866978).
-- **Wall-time view:** Ally still shows ~2.3 % in `Unknown_*` callers of blocked waits (12F5E0, 2665C4, 31DA38, 7E71B0, 37F550, 9AFED0, 394BC8, 5AD560): these are not CPU work.
+- **Wall-time view:** Ally still shows ~2.3 % in callers of blocked waits (12F5E0 SubObjGatedVirtualCall, 2665C4 VirtualTestBranchDispatch, 31DA38 ObjWaitListWalk, 7E71B0 GameMainGuardedCall, 37F550 ObjFloatRangeUpdate, 9AFED0 RenderFrameRecordRebuild, 394BC8 OnceInitStateCall, 5AD560 ChildListVirtualUpdate; renamed 2026-10-08, low confidence): these are not CPU work.
 - **Confidence:** about half of the new names are `low` (role from behaviour and callers, no string or RTTI anchor). Game classes still have no RTTI, so class names (e.g. the `Obj` family) remain inferred.
 - **Duplicates by design:** where an agent and the main pass named the same rva, the main-pass name was kept.
 

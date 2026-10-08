@@ -19,10 +19,10 @@ One page per area costing >= 0.3 % of profiled CPU self time. Shares are the mea
 
 Below the 0.3 % threshold (no page): Input 0.03 %, Shadow (CPU side) 0.01 % (see notes/shadows-culling.md, input-thread.md), and a few 0.01-0.02 % unclassified address buckets. Third-party (XeSS/FSR/Streamline) CPU time is outside game code and not in the self-time profile.
 
-Caveat: the area is inferred from symbol names, and unnamed or generic functions take the area of the nearest named function within 192 KB. Some functions are therefore filed under a neighbouring area; the page for the function's real role says so (e.g. Audio lists PlaceableVisibilityUpdateRange, SinCosApprox, AabbCenter). Self-time profile totals only game-attributed samples (Ally 5.1 %, PC 16 % of all samples; the rest is driver, kernel, waits).
+Caveat: the area is inferred from symbol names, and unnamed functions take the area of the nearest named function only if it is within 64 KB, or within 192 KB when both neighbours agree (explicit name-prefix rules and `area_overrides.tsv` win over neighbours). Some functions are therefore filed under a neighbouring area; the page for the function's real role says so (e.g. Audio lists PlaceableVisibilityUpdateRange, SinCosApprox, AabbCenter). Self-time profile totals only game-attributed samples (Ally 5.1 %, PC 16 % of all samples; the rest is driver, kernel, waits).
 
 ## Naming issues
-- B94230 `MemcpyAlt` vs notes/cpu-hotspots-ally.md `MemcpyErms` (it is the `rep movsb` ERMS path); the symbol description also says "second memcpy entry". Pick one name.
-- B94250 `Memcpy` and B94230 are the same CRT routine's two entries, profiled separately; their descriptions disagree on which is the large-copy path.
-- `Vec4AddInPlace` 6EFD0, `Vec4Scale` 6F010, `Vec3Dot` 6F060, `TransformedBoxAabb` 6FED0 are generic math leaves filed under Streaming by the area heuristic; `PlaceableDistanceTest` 47550 under Memory; `ObjVirtUpdateLocked` 205840 under Main loop. Not wrong names, only misleading area placement.
-- Unnamed rows still carrying share in the coverage list ("?"): BDF238, 371784, AC8D10, 7403EC, 259C4C, 2833F0 (each <= 0.01 %).
+Cleaned up 2026-10-08 (notes/cleanup-decompile-db.md); nothing open.
+- B94230 is `MemcpyErms`: a 16-byte `rep movsb` stub (0 direct callers). B94250 `Memcpy` jumps to it (jne at B943C6) for large copies, so the two are separate routines and both descriptions now say so.
+- Generic math/container leaves (`Vec4AddInPlace`, `Vec4Scale`, `Vec3Dot`, `TransformedBoxAabb`, `SinCosApprox`, `CrtAtan2f`) now sit in the "Math / CRT / containers" area, and `PlaceableDistanceTest`, `ObjVirtUpdateLocked` in "Object / scene update", by prefix rules and `re/scripts_re/area_overrides.tsv`.
+- The six former "?" rows are named: BDF238 `CrtAtan2f`, 371784 `EntityProximityTriggerScan`, AC8D10 `NavOpenListPopExpand`, 7403EC `RbTreeContainsU32`, 259C4C `AnyChildVirtualTrue`, 2833F0 `ShortKeyTableFlagGet` (low/medium confidence except the two CRT/container ones).

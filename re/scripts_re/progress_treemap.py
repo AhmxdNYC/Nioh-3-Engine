@@ -9,7 +9,7 @@ address-range block); block area = function bytes; each cell = N functions, colo
 Performance: functions in the Ally SP + PC CPU profiles (self time, perf_coverage.py weighting), block area = time share.
 Green = real name, amber = Unknown_*, grey = unnamed.
 """
-import bisect, collections, math, os, re, sys
+import bisect, collections, fnmatch, math, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -35,9 +35,37 @@ AREAS = [  # (area, regex on function name); first match wins
     ('Input', r'Input|Pad|Mouse'),
     ('Main loop / timing', r'Frame|WinMain|AppLoop|Sleep|Wfso|Qpc|Pause|Vrr|Fps|Timing|Wine'),
 ]
+# Explicit name-prefix rules, checked BEFORE the keyword list (generic leaves must not inherit a neighbour's area).
+PREFIX = [
+    ('Math / CRT / containers', r'^(Vec\d|Mtx|Matrix|Quat|Aabb|Obb|TransformedBox|SinCos|Crt|_?(Memcpy|Memset|Memmove)|Sort|IntroSort|BTree|RbTree|Rb[A-Z]|Hash|Deque|Dequeue|LowerBound|SortedEntries|SetAssoc|Fnv|Cnd|Mtx[A-Z]|Xtime|Atan|RollingAvg)'),
+    ('Object / scene update', r'^(Obj|Placeable|Stage|BgThread|Bounds|ParamTable|GlobalEntity|Entity)'),
+    ('Audio', r'^(Audio|Sound|Voice|ConvReverb|Fft|Reverb|Biquad|Xaudio)'),
+]
+PREFIX = [(a, re.compile(r)) for a, r in PREFIX]
 AREAS = [(a, re.compile(r)) for a, r in AREAS]
 AUTO = pc.AUTO
 NEAR = 192 * 1024
+NEAR_ONE = 64 * 1024  # an unnamed function takes ONE neighbour's area only if it is this close;
+                      # farther away both neighbours must agree.
+
+
+def load_overrides():
+    """area_overrides.tsv: <0xRVA | name-glob>	<area>; applied before every other rule."""
+    rv, gl = {}, []
+    f = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'area_overrides.tsv')
+    if os.path.exists(f):
+        for l in open(f, encoding='utf-8'):
+            q = l.rstrip(chr(10)).split(chr(9))
+            if len(q) < 2 or q[0].startswith('#') or q[0] == 'key':
+                continue
+            if q[0].lower().startswith('0x'):
+                rv[int(q[0], 16)] = q[1]
+            else:
+                gl.append((q[0], q[1]))
+    return rv, gl
+
+
+OVR_RVA, OVR_GLOB = load_overrides()
 
 
 PLAIN = {  # area -> 'technical name / plain name'
@@ -48,6 +76,7 @@ PLAIN = {  # area -> 'technical name / plain name'
     'Streaming / Resources': 'Stream·RDB / resource streaming', 'Collision / Physics': 'Collision / physics',
     'Animation': 'Anim / animation', 'Audio': 'XAudio2 mixer / audio', 'Mission / Game logic': 'Mission·Schema / game logic',
     'Memory': 'Alloc·Pool / memory', 'Input': 'Input / controls', 'Main loop / timing': 'WinMain·FrameEnd / main loop & timing',
+    'Math / CRT / containers': 'Vec·Aabb·CRT / math & container leaves', 'Object / scene update': 'Obj·Placeable·Stage / object & scene update',
 }
 GPU_PLAIN = {
     'FSR3': 'FFX_FSR3 / upscaler', 'Copies / clears': 'copies/clears / data copies', 'GI / RefProbe': 'RefProbe / lighting (GI)',
@@ -70,8 +99,13 @@ def short_desc(d, n=40):
     return d if len(d) <= n else d[:n - 1].rstrip() + '…'
 
 
-def area_of(name):
-    for a, rx in AREAS:
+def area_of(name, rva=None):
+    if rva in OVR_RVA:
+        return OVR_RVA[rva]
+    for g, a in OVR_GLOB:
+        if fnmatch.fnmatchcase(name, g):
+            return a
+    for a, rx in PREFIX + AREAS:
         if rx.search(name):
             return a
     return None
@@ -113,7 +147,7 @@ def status(names, r):
 def assign_areas(starts, names):
     anchors = []
     for r, n in names.items():
-        a = None if AUTO.match(n) else area_of(n)
+        a = None if AUTO.match(n) else area_of(n, r)
         if a:
             anchors.append((pc.fold(r), a))
     anchors.sort()
@@ -121,12 +155,13 @@ def assign_areas(starts, names):
     out = {}
     for s in starts:
         n = names.get(s)
-        a = area_of(n) if n and not AUTO.match(n) else None
+        a = area_of(n, s) if n and not AUTO.match(n) else OVR_RVA.get(s)
         if a is None and anchors:
             i = bisect.bisect_left(ast, s)
             c = [anchors[j] for j in (i - 1, i) if 0 <= j < len(anchors)]
             r, aa = min(c, key=lambda x: abs(x[0] - s))
-            if abs(r - s) <= NEAR:
+            d = abs(r - s)
+            if d <= NEAR_ONE or (d <= NEAR and all(x[1] == aa for x in c)):
                 a = aa
         out[s] = a or 'unclassified 0x%X-0x%XMB' % ((s >> 22) * 4, (s >> 22) * 4 + 4)
     return out

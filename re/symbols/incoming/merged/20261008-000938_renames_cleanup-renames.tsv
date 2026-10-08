@@ -1,0 +1,11 @@
+rva	kind	name	signature	description	confidence	source
+0xb94230	function	MemcpyErms	void*(void* dst, const void* src, size_t n)	16 B rep movsb stub (push rdi/rsi; mov rdi,rcx; rsi,rdx; rcx,r8; rep movsb; ret), 0 direct callers: Memcpy B94250 reaches it by jne at B943C6 (rel -19Ch) for large copies, so profile time here is the large-copy (ERMS) path; checked in Nioh3.dump.exe bytes	high	notes/cleanup-decompile-db.md
+0xb94250	function	Memcpy		memcpy (5816 callers, 1363 B): small/medium copies inline (AVX 32 B loops), tail-jumps to MemcpyErms B94230 (rep movsb) for large copies; B94230 is a separate stub, not the same routine body	high	notes/cleanup-decompile-db.md
+0x12f5e0	function	SubObjGatedVirtualCall			low	notes/cleanup-decompile-db.md
+0x2665c4	function	VirtualTestBranchDispatch			low	notes/cleanup-decompile-db.md
+0x31da38	function	ObjWaitListWalk			low	notes/cleanup-decompile-db.md
+0x37f550	function	ObjFloatRangeUpdate			low	notes/cleanup-decompile-db.md
+0x394bc8	function	OnceInitStateCall			low	notes/cleanup-decompile-db.md
+0x5ad560	function	ChildListVirtualUpdate			low	notes/cleanup-decompile-db.md
+0x7e71b0	function	GameMainGuardedCall			low	notes/cleanup-decompile-db.md
+0x9afed0	function	RenderFrameRecordRebuild			low	notes/cleanup-decompile-db.md

@@ -278,3 +278,8 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 
 ## 2026-10-08 - docs: subsystem write-ups (goal part 4)
 - Added docs\subsystems\ (13 pages + README index with CPU share, threads, coverage, naming issues) for every area >= 0.3 % of profiled CPU self time; consolidated from notes\*.md and symbols.tsv. Docs only, no game/mod/symbol change. Undo: delete docs\subsystems and the README link.
+
+## 2026-10-08 - decompile DB cleanup + treemap area rules (RE only; nothing installed, game not run)
+- Settled B94230 = `MemcpyErms` (16 B rep movsb stub, reached from Memcpy B94250 for large copies); named the six "?" rows and the eight Unknown_ blocked-wait callers (`re\symbols\incoming\cleanup.tsv`, `cleanup-renames.tsv`, applied + merged); removed a stray line from symbols.tsv.
+- `progress_treemap.py`: prefix rules + `area_overrides.tsv` + stricter neighbour rule, new Math/CRT and Object/scene areas; charts regenerated. Notes: notes\cleanup-decompile-db.md.
+- Undo: revert the script, delete area_overrides.tsv and the two TSVs.
