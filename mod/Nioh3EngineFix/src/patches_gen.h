@@ -292,6 +292,9 @@ static const uint8_t orig_RP15[] = { 0xFF, 0x15, 0xE1, 0x06, 0x5D, 0x03 };
 static const uint8_t orig_RP16[] = { 0xFF, 0x15, 0x01, 0x04, 0x5D, 0x03 };
 static const uint8_t orig_RP17[] = { 0xFF, 0x15, 0x29, 0xFE, 0x5C, 0x03 };
 static const uint8_t orig_RP18[] = { 0xE8, 0xEB, 0x44, 0x5F, 0x01 };
+static const uint8_t orig_RP19[] = { 0xFF, 0x15, 0xD9, 0xE1, 0x5C, 0x03 };
+static const uint8_t orig_RP20[] = { 0xFF, 0x15, 0xA4, 0xE8, 0x5C, 0x03 };
+static const uint8_t orig_RP21[] = { 0x25, 0x00, 0x02, 0x00, 0x00 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -503,6 +506,9 @@ static const Site kSites[] = {
     { "RP16", "RP", 0x311F89, 6, orig_RP16, "FF 15 ?? ?? ?? ?? 48 8D 7F 08", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "RP17", "RP", 0x3127A1, 6, orig_RP17, "FF 15 ?? ?? ?? ?? 85 C0 40 0F B6 F6", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "RP18", "RP", 0x198357C, 5, orig_RP18, "48 8B 49 70 4C 8B 4F 58 89 44 24 20 E8 ?? ?? ?? ?? 85 C0 0F 8E", 12, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x2F77A6C },
+    { "RP19", "RP", 0x314199, 6, orig_RP19, "FF 15 ?? ?? ?? ?? 48 89 07 48 8B C8 48 83 F8 FF", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RP20", "RP", 0x313AE6, 6, orig_RP20, "49 8B CC FF 15 ?? ?? ?? ?? 49 8B CF FF 15", 3, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RP21", "RP", 0x314181, 5, orig_RP21, "25 00 02 00 00 45 33 C9 C1 E0 15", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -567,6 +573,7 @@ static const uint8_t dep_62[] = { 0x6F, 0x12, 0x83, 0x3A };
 static const uint8_t dep_73[] = { 0x48, 0x83, 0xCB, 0xFF, 0x44, 0x8B, 0xCB, 0xFF, 0x15, 0x01, 0xE4, 0x7C, 0x03, 0x48, 0x8B, 0x8F, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8D, 0x54, 0x24, 0x30, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xC3, 0x66, 0x44, 0x39, 0x34, 0x5A, 0x75, 0xF6, 0x44, 0x8D, 0x0C, 0x1B, 0x8B, 0xD6, 0x4C, 0x8D, 0x44, 0x24, 0x30 };
 static const uint8_t dep_74[] = { 0x48, 0x8B, 0x8B, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8B, 0x01 };
 static const uint8_t dep_75[] = { 0x48, 0x8B, 0x8B, 0x80, 0x05, 0x00, 0x00, 0x48, 0x8B, 0x01 };
+static const uint8_t dep_76[] = { 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -644,6 +651,7 @@ static const Dep kDeps[] = {
     { "GP", 0x113F1A, 49, dep_73, 0 },  // SynBeginEvent: name -> UTF-16, list = [SynCtx+580h], Size = 2 x length, Metadata = colour
     { "GP", 0x113FAF, 10, dep_74, 0 },  // 113F70: EndEvent on [SynCtx+580h]
     { "GP", 0x11400B, 10, dep_75, 0 },  // SynTokEndEvent: EndEvent on [SynCtx+580h]
+    { "RP", 0x4B723B4, 8, dep_76, 0 },  // 1.7.24 TSY: PoolTable 4B722D0 pool 9 (TrySync) count u8 = 3, weight i32 = 4 (SizeWorkerPools 1FE2FD4: count = (int)(min(base,12) / 13.0f * weight)); readfix.cpp writes the weight at boot
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

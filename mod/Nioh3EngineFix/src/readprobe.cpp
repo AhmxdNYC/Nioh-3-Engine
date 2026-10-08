@@ -12,6 +12,7 @@
 #include <cwchar>
 
 #include "loadstats.h"
+#include "readfix.h"
 #include "readprobe.h"
 
 namespace readprobe {
@@ -62,6 +63,7 @@ int g_mode = 0;          // ReadProbe 0/1/2
 bool g_rp = false;       // probe hooks live
 bool g_ep = false;       // EP live
 bool g_lsFeed = false;   // feed LoadStats' read counters
+bool g_fix = false;      // readfix.cpp (RC / AQ) serves the archive read sites
 double g_usPerTick = 0;  // microseconds per QPC tick
 uint64_t g_qpcFreq = 0;
 wchar_t g_iniDir[MAX_PATH] = {0};
@@ -324,23 +326,25 @@ void End(int s, const Pre& p, DWORD n, bool ov, BOOL r, DWORD le, uint64_t t0, u
 using ReadFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
 using ReadExFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPOVERLAPPED, LPOVERLAPPED_COMPLETION_ROUTINE);
 
+// 1.7.24: the R1 hooks also go live with ReadProbe = 0 when readfix (RC / AQ) is on; then only LoadStats is fed.
 template <int S>
 BOOL WINAPI HkRead(HANDLE h, LPVOID buf, DWORD n, LPDWORD got, LPOVERLAPPED ov) {
     const DWORD le0 = GetLastError();
-    Pre p;
-    Begin(h, ov, p);
+    Pre p{};
+    if (g_rp) Begin(h, ov, p);
     SetLastError(le0);
-    const ReadFn real = *reinterpret_cast<ReadFn*>(g_base + kIatReadFile);
     const uint64_t t0 = Qpc();
-    const BOOL r = real(h, buf, n, got, ov);
+    const BOOL r = g_fix ? (BOOL)readfix::Read(S, h, buf, n, got, ov) : (*reinterpret_cast<ReadFn*>(g_base + kIatReadFile))(h, buf, n, got, ov);
     const uint64_t t1 = Qpc();
     const DWORD le = GetLastError();
-    End(S, p, n, ov != nullptr, r, le, t0, t1);
+    if (g_rp) End(S, p, n, ov != nullptr, r, le, t0, t1);
+    else if (g_lsFeed && kRS[S].ls >= 0) loadstats::NoteRead(kRS[S].ls, n, ov != nullptr, t1 - t0);
     SetLastError(le);
     return r;
 }
 
 BOOL WINAPI HkReadEx(HANDLE h, LPVOID buf, DWORD n, LPOVERLAPPED ov, LPOVERLAPPED_COMPLETION_ROUTINE cr) {
+    if (!g_rp) return (*reinterpret_cast<ReadExFn*>(g_base + kIatReadFileEx))(h, buf, n, ov, cr);
     const DWORD le0 = GetLastError();
     Pre p;
     Begin(h, ov, p);
@@ -491,6 +495,31 @@ uint8_t* NewSaveThunk(const void* target) {
     return t;
 }
 
+// Same as NewSaveThunk for callees with 7 arguments (CreateFileW): sub rsp,48h, forwards the 3 stack arguments from
+// entry rsp + 28h/30h/38h (= rsp + A0h/A8h/B0h after 6 pushes + 48h) to [rsp+20h/28h/30h]; 16-aligned at the call.
+uint8_t* NewSaveThunk7(const void* target) {
+    static const uint8_t code[74] = {
+        0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53,  // push rcx rdx r8 r9 r10 r11
+        0x48, 0x83, 0xEC, 0x48,                                      // sub rsp,48h
+        0x48, 0x8B, 0x84, 0x24, 0xA0, 0x00, 0x00, 0x00,              // mov rax,[rsp+A0h]
+        0x48, 0x89, 0x44, 0x24, 0x20,                                // mov [rsp+20h],rax
+        0x48, 0x8B, 0x84, 0x24, 0xA8, 0x00, 0x00, 0x00,              // mov rax,[rsp+A8h]
+        0x48, 0x89, 0x44, 0x24, 0x28,                                // mov [rsp+28h],rax
+        0x48, 0x8B, 0x84, 0x24, 0xB0, 0x00, 0x00, 0x00,              // mov rax,[rsp+B0h]
+        0x48, 0x89, 0x44, 0x24, 0x30,                                // mov [rsp+30h],rax
+        0xFF, 0x15, 0x15, 0x00, 0x00, 0x00,                          // call [rip+15h] -> qword at +80
+        0x48, 0x83, 0xC4, 0x48,                                      // add rsp,48h
+        0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59,  // pop r11 r10 r9 r8 rdx rcx
+        0xC3};
+    if (g_thunkUsed + 96 > kThunkPage) return nullptr;
+    uint8_t* t = g_thunks + g_thunkUsed;
+    memset(t, 0xCC, 96);
+    memcpy(t, code, sizeof(code));
+    memcpy(t + 80, &target, 8);
+    g_thunkUsed += 96;
+    return t;
+}
+
 // R3: register-neutral counting thunk around FsReadCacheLookup (only rax and flags change, as across the original call).
 uint8_t* NewCacheThunk(const void* target) {
     static const uint8_t code[45] = {
@@ -561,13 +590,13 @@ bool PatchSpin(uint8_t* p, const uint8_t* bytes, size_t len) {
 bool Patch(uint8_t* p, const uint8_t* bytes, size_t len) { return PatchAtomic(p, bytes, len) || PatchSpin(p, bytes, len); }
 
 // FF 15 [iat] -> E8 save-thunk + NOP. 0 ok, 1 bytes differ (other build / another hook owns it), 2 no room / not atomic.
-int HookIatCall(uint32_t rva, uint32_t iat, const void* hook) {
+int HookIatCall(uint32_t rva, uint32_t iat, const void* hook, int stackArgs = 1) {
     uint8_t* p = (uint8_t*)(g_base + rva);
     if (p[0] != 0xFF || p[1] != 0x15) return 1;
     int32_t rel;
     memcpy(&rel, p + 2, 4);
     if ((uintptr_t)(p + 6 + rel) != g_base + iat) return 1;
-    uint8_t* t = NewSaveThunk(hook);
+    uint8_t* t = stackArgs > 1 ? NewSaveThunk7(hook) : NewSaveThunk(hook);
     if (!t) return 2;
     const intptr_t d = (intptr_t)t - (intptr_t)(p + 5);
     if (d < INT32_MIN || d > INT32_MAX) return 2;
@@ -956,9 +985,15 @@ DWORD WINAPI Sampler(void*) {
 }  // namespace
 
 bool WantsReads(const wchar_t* iniPath) {
-    return iniPath && (int)GetPrivateProfileIntW(L"Profiler", L"ReadProbe", 0, iniPath) > 0 &&
-           (int)GetPrivateProfileIntW(L"Profiler", L"LoadStats", 0, iniPath) > 0;
+    return iniPath && (int)GetPrivateProfileIntW(L"Profiler", L"LoadStats", 0, iniPath) > 0 &&
+           ((int)GetPrivateProfileIntW(L"Profiler", L"ReadProbe", 0, iniPath) > 0 || readfix::Wants(iniPath));
 }
+
+namespace {
+int HookCallForFix(uint32_t rva, uint32_t iat, const void* hook, int stackArgs) {
+    return HookIatCall(rva, iat, hook, stackArgs);
+}
+}  // namespace
 
 bool Start(const StartInfo& info) {
     g_log = info.log;
@@ -971,9 +1006,10 @@ bool Start(const StartInfo& info) {
         g_log("ReadProbe: needs [Profiler] LoadStats >= 1 - off");
         rp = false;
     }
-    if (!rp && !ep) return false;
+    const bool fixWanted = readfix::Wants(info.iniPath);
+    if (!rp && !ep && !fixWanted) return false;
     if (!info.knownBuild) {
-        g_log("ReadProbe/EP: refused (unknown build; addresses are v2.02)");
+        g_log("ReadProbe/EP/ReadFix: refused (unknown build; addresses are v2.02)");
         return false;
     }
     LARGE_INTEGER fq;
@@ -1004,7 +1040,7 @@ bool Start(const StartInfo& info) {
             ep = false;
         }
     }
-    if (!rp && !ep) return false;
+    if (!rp && !ep && !fixWanted) return false;
     const auto* dos = (const IMAGE_DOS_HEADER*)g_base;
     const auto* nth = (const IMAGE_NT_HEADERS64*)(g_base + dos->e_lfanew);
     g_thunks = AllocNear(g_base, g_base + nth->OptionalHeader.SizeOfImage);
@@ -1022,6 +1058,16 @@ bool Start(const StartInfo& info) {
         g_rp = true;  // set before the first hook goes live
     }
     g_ep = ep;
+    if (fixWanted) {  // readfix needs the thunk page (open/close hooks) before the read sites go live
+        readfix::StartInfo fi;
+        fi.log = g_log;
+        fi.iniPath = info.iniPath;
+        fi.base = g_base;
+        fi.knownBuild = info.knownBuild;
+        fi.hookCall = &HookCallForFix;
+        g_fix = readfix::Start(fi);
+        if (!rp) g_lsFeed = info.loadStatsOn;  // LoadStats left its read sites to us (WantsReads): keep feeding it
+    }
     char bad[400] = {0};
     size_t bl = 0;
     auto note = [&](const char* what, uint32_t rva, int r) {
@@ -1030,17 +1076,24 @@ bool Start(const StartInfo& info) {
     };
     int nRead = 0, nLs = 0, nEv = 0;
     bool cacheOk = false;
-    if (rp) {
+    if (rp || fixWanted) {
         for (int s = 0; s < kNSites; ++s) {
             const bool ok = note("read", kRS[s].rva, HookIatCall(kRS[s].rva, s == kNSites - 1 ? kIatReadFileEx : kIatReadFile, kReadHooks[s]));
             nRead += ok;
             nLs += ok && kRS[s].ls >= 0;
         }
+        if (!rp) g_log("ReadFix: %d/%d read sites hooked (%d/7 LoadStats sites; fixes %s)%s%s", nRead, kNSites, nLs, g_fix ? "on" : "OFF",
+                       bl ? " - skipped:" : "", bad);
+    }
+    if (rp) {
         nEv += note("WFMO", kWfmo, HookIatCall(kWfmo, kIatWfmo, (const void*)&HkWfmo));
         cacheOk = note("cache", kCacheCall, HookCacheCall());
     }
-    const bool crOk = note("CreateEventA", kEvCreate, HookIatCall(kEvCreate, kIatCreateEventA, (const void*)&HkCreateEventA));
-    const bool clOk = note("CloseHandle", kEvClose, HookIatCall(kEvClose, kIatCloseHandle, (const void*)&HkCloseEvent));
+    bool crOk = false, clOk = false;
+    if (rp || g_ep) {
+        crOk = note("CreateEventA", kEvCreate, HookIatCall(kEvCreate, kIatCreateEventA, (const void*)&HkCreateEventA));
+        clOk = note("CloseHandle", kEvClose, HookIatCall(kEvClose, kIatCloseHandle, (const void*)&HkCloseEvent));
+    }
     nEv += crOk + clOk;
     if (g_ep && !(crOk && clOk)) {
         // one half alone is still exact (pool empty -> real create; nothing returned -> real close), but useless: say so
@@ -1053,7 +1106,7 @@ bool Start(const StartInfo& info) {
         g_log("ReadProbe: mode %d, %d/%d read sites (%d/7 LoadStats sites%s), events %d/3, game cache call %s%s%s", g_mode, nRead, kNSites,
               nLs, nLs < 7 ? " - LoadStats read counters incomplete" : "", nEv, cacheOk ? "hooked" : "not hooked",
               bl ? " - skipped:" : "", bad);
-    } else if (bl) {
+    } else if (bl && g_ep) {
         g_log("EP: skipped:%s", bad);
     }
     return true;

@@ -419,7 +419,13 @@
     { "id": "RP17", "group": "RP", "rva": "0x3127A1", "len": 6, "orig": "FF 15 29 FE 5C 03", "kind": "check", "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!WaitForMultipleObjects",
       "pattern": "FF 15 ?? ?? ?? ?? 85 C0 40 0F B6 F6", "offset": 0, "what": "RP R2: FileReqWaitAll 312754 WaitForMultipleObjects(n, events, TRUE, INFINITE)" },
     { "id": "RP18", "group": "RP", "rva": "0x198357C", "len": 5, "orig": "E8 EB 44 5F 01", "kind": "check", "callee": "0x2F77A6C",
-      "pattern": "48 8B 49 70 4C 8B 4F 58 89 44 24 20 E8 ?? ?? ?? ?? 85 C0 0F 8E", "offset": 12, "what": "RP R3: call FsReadCacheLookup 2F77A6C (5 args, eax > 0 = hit; jle follows) - counted by a register-neutral asm thunk" }
+      "pattern": "48 8B 49 70 4C 8B 4F 58 89 44 24 20 E8 ?? ?? ?? ?? 85 C0 0F 8E", "offset": 12, "what": "RP R3: call FsReadCacheLookup 2F77A6C (5 args, eax > 0 = hit; jle follows) - counted by a register-neutral asm thunk" },
+    { "id": "RP19", "group": "RP", "rva": "0x314199", "len": 6, "orig": "FF 15 D9 E1 5C 03", "kind": "check", "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!CreateFileW",
+      "pattern": "FF 15 ?? ?? ?? ?? 48 89 07 48 8B C8 48 83 F8 FF", "offset": 0, "what": "1.7.24 ReadFix: FileOpenWin32 314144 CreateFileW (7 args, 7-arg save thunk): resets the handle's table entry (RC handle-reuse guard)" },
+    { "id": "RP20", "group": "RP", "rva": "0x313AE6", "len": 6, "orig": "FF 15 A4 E8 5C 03", "kind": "check", "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!CloseHandle",
+      "pattern": "49 8B CC FF 15 ?? ?? ?? ?? 49 8B CF FF 15", "offset": 3, "what": "1.7.24 ReadFix: file close CloseHandle(old [f+18h]) after `or [f+18h],-1` (RC handle-reuse guard)" },
+    { "id": "RP21", "group": "RP", "rva": "0x314181", "len": 5, "orig": "25 00 02 00 00", "kind": "check",
+      "pattern": "25 00 02 00 00 45 33 C9 C1 E0 15", "offset": 0, "what": "1.7.24 SH: FileOpenWin32 `and eax,200h` (open-mode bit 0x200 -> FILE_FLAG_OVERLAPPED); SH=1 writes imm 0 at boot (Wine only, readfix.cpp)" }
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -497,6 +503,7 @@
     { "group": "SPF", "rva": "0xDB8C6", "len": 251, "fnv1a": "0x7F023EF8", "what": "placeable map loop DB8C6..DB9C1 (rbx = entry, r14 = end, stride 10h)" },
     { "group": "GP", "rva": "0x113F1A", "bytes": "48 83 CB FF 44 8B CB FF 15 01 E4 7C 03 48 8B 8F 80 05 00 00 48 8D 54 24 30 48 8B 01 48 FF C3 66 44 39 34 5A 75 F6 44 8D 0C 1B 8B D6 4C 8D 44 24 30", "what": "SynBeginEvent: name -> UTF-16, list = [SynCtx+580h], Size = 2 x length, Metadata = colour" },
     { "group": "GP", "rva": "0x113FAF", "bytes": "48 8B 8B 80 05 00 00 48 8B 01", "what": "113F70: EndEvent on [SynCtx+580h]" },
-    { "group": "GP", "rva": "0x11400B", "bytes": "48 8B 8B 80 05 00 00 48 8B 01", "what": "SynTokEndEvent: EndEvent on [SynCtx+580h]" }
+    { "group": "GP", "rva": "0x11400B", "bytes": "48 8B 8B 80 05 00 00 48 8B 01", "what": "SynTokEndEvent: EndEvent on [SynCtx+580h]" },
+    { "group": "RP", "rva": "0x4B723B4", "bytes": "03 00 00 00 04 00 00 00", "what": "1.7.24 TSY: PoolTable 4B722D0 pool 9 (TrySync) count u8 = 3, weight i32 = 4 (SizeWorkerPools 1FE2FD4: count = (int)(min(base,12) / 13.0f * weight)); readfix.cpp writes the weight at boot" }
   ]
 }

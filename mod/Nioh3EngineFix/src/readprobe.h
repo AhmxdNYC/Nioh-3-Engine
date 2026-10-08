@@ -34,7 +34,10 @@ struct StartInfo {
     bool loadStatsOn = false;  // RP needs LoadStats running (it feeds LoadStats' read counters at the 7 shared sites)
 };
 
-// True when [Profiler] ReadProbe >= 1 and LoadStats >= 1 (LoadStats then leaves its 7 ReadFile sites to RP).
+// True when LoadStats >= 1 and ([Profiler] ReadProbe >= 1 or readfix wants the read sites: [Patches] RC / AQ); LoadStats then
+// leaves its 7 ReadFile sites to readprobe, which feeds its counters. 1.7.24: with RC / AQ on, readprobe installs its R1
+// read hooks even when ReadProbe = 0 (no probe accounting then) and routes the archive sites through readfix::Read;
+// readfix::Start is called from Start below and borrows the thunk page for its CreateFileW / CloseHandle hooks.
 bool WantsReads(const wchar_t* iniPath);
 // Installs RP and/or EP per the ini. Call after loadstats::Start. Returns true when anything was installed.
 bool Start(const StartInfo& info);
