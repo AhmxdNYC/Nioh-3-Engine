@@ -487,3 +487,49 @@ PC: one ABBA of the kept fixes on the PC LG route (`loadstats_ab.ps1`) to confir
   `tests\run_readprobe_harness.py` -> READPROBE HARNESS: ALL OK (save-thunk registers, cache thunk, EP reuse/close paths).
 - Ally session R1 (8.4) can run with this build: base = 1.7.19 L1 ini + `ReadProbe=1`; arm A adds `LoadOnlyCpuFixes=1`;
   launch 1 of the first B arm uses `ReadProbe=2`. EP gets its own ABBA (A = base + `EP=1`) in the same or the next session.
+
+## 8.7 Ally 1.7.23 R1 data -> the next read fix: SR (built in ASI 1.7.25, default off, not run in game)
+
+Logs: `captures\ally\1723\` (a = base, b/c = EP=1). EP cut the load 98.9 -> 50.1 s (event pair 84 us -> < 2 us per read).
+What is left with EP on (b / c, 47 s window):
+
+| site | calls | in-call | per call | shape | thread |
+|---|---|---|---|---|---|
+| 740392 FileReadOverlappedBatch | 536k | 24.9 s | 46 us (79 % 8-32 us) | <= 1 KiB 99 %, seq 91 %, near 8 %, pending 100 %, in flight 0.2 | one unnamed loader thread |
+| 631FD5 ReadFileEx | 12.6k | 9.3-10.2 s | 740-810 us | 2.7 GB, far 86 %, in flight 3 | ResourceLoad |
+| 31305A FileReadAsyncSubmit | 18k | 3.2-3.6 s | 170-200 us | 4-64 KiB, far 82 % | unnamed |
+| 311D17 | 44k | 0.3-0.4 s | 6-10 us | synchronous handles | KtglFsThread_Hdd |
+
+- Calibration: cached 4K **synchronous 2.0 us, overlapped 52-58 us** (1 B: 2 vs 70 us). "pending 100 %" with in-call ~=
+  device time means Wine does the read inside the call and then pays ~50 us of async completion bookkeeping.
+- LoadGates holder: G8 StageAreasObjectsReady 17.7-19.1 s of 47 s (first fail +18-20 s, last +37-38 s). The 740392
+  loader thread spends 24.9 s in calls over the same window, serially (in flight 0.2): it is the likely G8 critical path.
+- Verdict (8.2 rules): overlapped >= 1.5 x synchronous -> SH-class fix; seq >= 60 % -> RC. Both attack the 46 us x 536k.
+
+**SR (synchronous redirect, `[Patches] SR = 1`, Wine only).** At the archive sites, a read on an OVERLAPPED game handle
+of an eligible package file is done as a positioned synchronous ReadFile on a private read-only handle to the same file
+(opened once at classification with GENERIC_READ + FILE_SHARE_READ, compatible with the game's own share mode; closed
+when the game's handle is closed or its value reopened), then completed like a synchronous success (TRUE, Internal 0,
+InternalHigh n, hEvent signalled, last error unchanged). Any failure, a read past EOF or n = 0 passes the original call
+through (same error semantics). Nothing asynchronous becomes blocking: Wine already did these reads inside the call.
+Unlike SH it leaves the game's handles alone (ReadFileEx 631FD5 and the other subsystems are untouched).
+- Expected: 740392 46 -> ~3-5 us per call (sync read + SetEvent) = **~20 thread-s off the loader thread**; if that thread
+  is G8's holder, the 47 s load drops toward ~30 s. 31305A ~1 s more. PC: refused (Windows).
+- RC on top (`RC = 1`): the <= 1 KiB sequential reads become memcpy from 64 KiB blocks (~98 % hits); block loads use the
+  private handle. Worth a second arm only if SR leaves > ~3 s on 740392.
+- Not addressed: ReadFileEx 631FD5 (9-10 s on ResourceLoad, device-bound large far reads, 3 in flight) - SR would save only
+  ~0.6 s there; G9 LoadCharacterReady 3-4 s and G5 5.8 s are later gates.
+- Also built (default off): AQ (async queue; for a device-bound profile, not this one), TSY (TrySync threads, boot),
+  SH (sync archive handles, boot, Wine only). TSY/SH run in dllmain's decrypt-wait loop like P12/WC.
+
+Proofs: `tests\run_readfix_harness.py` -> READFIX HARNESS: ALL OK (8 threads x 3-4k random reads per config: off, RC, AQ,
+RC+AQ, SR, RC+SR, RC+AQ with private handles; each read compared with the real ReadFile on a twin handle of the same kind:
+bytes, result, count, error, event, file pointer; handle reuse; bad buffer; TSY float formula; SH refused off Wine).
+`test_patterns.py` ALL 212 SITES OK (RP19 CreateFileW 314199, RP20 CloseHandle 313AE6, RP21 SH imm, TSY dep 4B723B4).
+
+**Ally session R2 (ASI 1.7.25).** Base = R1 base (1.7.19 L1 ini + `ReadProbe=1`) with EP auto (on). ABBA x 4 launches,
+2 loads each, route/metric as 8.4: B = base, A = base + `SR=1`. Check: "ReadFix: SR 1 ..." start line, "ReadFix #n SR:"
+served count ~= 740392 calls and "private handles n opened, 0 failed", site 740392 avg us in the ReadProbe line, G8 held
+s, work end, MB read within 1 %, screenshot 5 s after the press. Keep if both A-B pairs beat the B-B spread. Then (same or
+next session) A = base + `SR=1 RC=1` vs B = base + `SR=1`. Send back: grep 'LoadStats|LoadGates|ReadProbe|ReadFix|EP:' of
+each log.
