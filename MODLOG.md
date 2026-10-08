@@ -675,3 +675,4 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   selftest OK, abba2_pc.ps1 -DryRun OK, build OK. Not run in game.
 - Undo: MA = 0 (default), or the 1.7.38 .asi.
 | 2026-10-08 | RE only (no game change): perf-rename-4 symbol rows (110 new + 14 renames, `re\symbols\incoming\perf-rename-4*.tsv`) bring perf_coverage.py named coverage to 100.00 % in the attributed and --self views; new `--precise` flag | none (delete the two incoming files) |
+| 2026-10-08 | Docs only: notes/user-settings.md (ranked user-side PC and Ally settings, labelled measured / community / estimate; nothing applied to any device) and pointer in notes/remaining-work.md 7.4. Undo: delete the note. |

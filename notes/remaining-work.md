@@ -75,6 +75,7 @@ Same-look levers left at USER: **fogpar** (VFSCAT early-exit only, bit-exact, BU
 | 7.1 | Per-device ini profiles PC / ALLY with status per key (kept / provisional / off) | DONE: `release\profiles.json` -> `release\profiles\*.ini` (`make_profiles.py`) | - | n |
 | 7.2 | Flip provisional keys from the matrix verdicts (PC: W6 GF B PP MQ; Ally: MQ, W3_TimeoutMs; + SR/EP/LO/PF after 1.2/1.3) | after 1.1 / 1.2 / final matrix | 30 min | n (edit) |
 | 7.3 | Recommended graphics preset per device (bang-for-buck sweep, `tm.py table`) | final phase | in final run | y |
+| 7.4 | User-side settings the user may choose (TDP, page file, limiter, graphics): see notes/user-settings.md | DONE (note only; nothing applied) | - | n |
 
 ## 8. Final re-test matrix + benchmark
 | # | item | owner / status | effort | game |
