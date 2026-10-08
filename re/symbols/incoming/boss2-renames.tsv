@@ -1,0 +1,11 @@
+rva	kind	name	signature	description	confidence	source
+0x139aac	function	ScriptVmOpPushInt32		script VM op 0x29: reads u32 immediate, pushes typed value (type 1)	medium	notes/boss-fights.md section 7
+0x13b9e0	function	ScriptVmOpLoadVar		script VM op 0x3e: operand {u16 kind,u16 idx}, pushes variable (kind 1 = frame local)	medium	notes/boss-fights.md section 7
+0x13cb80	function	ScriptVmOpStoreVar		script VM op 0x3d: operand {u16 kind,u16 idx}, pops into variable	medium	notes/boss-fights.md section 7
+0x13ec04	function	ScriptVmOpSwitchTable		script VM op 0x35: u16 count then count*8-byte {u32 target,u16 type,u16 id} entries (resume/jump table)	medium	notes/boss-fights.md section 7
+0x8d4b7c	function	ScriptVmOpFuncMarker		script VM op 0x3b: u16 symbol id marking a function/yield entry (id indexes the script name table)	medium	notes/boss-fights.md section 7
+0x13eb2c	function	ScriptVmOpPushIntBlock		script VM op 0x2c: u16 N then N*4 bytes inline, pushes N int values	medium	notes/boss-fights.md section 7
+0x8da3f0	function	ScriptVmOpPushFloatBlock		script VM op 0x2e: u16 N then N*4 bytes inline, pushes N float values	medium	notes/boss-fights.md section 7
+0x13b714	function	ScriptVmOpJumpCond24		script VM op 0x24: rel32 jump (conditional on popped value)	medium	notes/boss-fights.md section 7
+0x13bbc8	function	ScriptVmOpJump23		script VM op 0x23: rel32 jump	medium	notes/boss-fights.md section 7
+0x8adcbc	function	ScriptVmOpJump22		script VM op 0x22: rel32 jump (unconditional, skips function bodies)	medium	notes/boss-fights.md section 7
