@@ -14,7 +14,7 @@
       {"section": "General", "key": "AutoContinueLoad", "value": "0", "status": "off", "why": "user option in the mod menu (Skip loading tip screen); off by default since 1.7.33"},
       {"section": "Patches", "key": "W6", "value": "1", "status": "provisional", "why": "present-wait spin -> WaitOnAddress; PC 1.7.16 ~0, exact; pc-keep-candidates s5"},
       {"section": "Patches", "key": "GF", "value": "1", "status": "provisional", "why": "GPU fence wait on event; PC 1.7.16 +4.1 % (one window); repeat test open (STATUS RUNNING 1)"},
-      {"section": "Patches", "key": "B", "value": "1", "status": "provisional", "why": "draw-list gallop; PC 1.7.16 +15.6 % but gpu_ms moved -16 % = suspected draw loss; needs gpuopt trace + screenshot pair"},
+      {"section": "Patches", "key": "B", "value": "0", "status": "off", "why": "dropped on PC: 2026-10-08 ABBA -0.11 % fps (GPU busy 4.18 ms both), screenshots identical; the 1.7.16 +15.6 % was not reproducible (captures/tm/abba/report_A.txt)"},
       {"section": "Patches", "key": "PP", "value": "1", "status": "provisional", "why": "page-pool sweep every 4th frame; PC +5.3 % (one window); texture-sharpness gate open"},
       {"section": "Patches", "key": "MQ", "value": "1", "status": "provisional", "why": "bone matrices in SSE, bit-exact; PC p99 -11 % (one window)"},
       {"section": "Patches", "key": "WorkerCap", "value": "0", "status": "off", "why": "handheld only; costs parallel width on 6c/12t"},
