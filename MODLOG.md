@@ -403,3 +403,11 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `notes/shadows-redundancy.md`: one provable same-look saving, S1 (VSM "Batch Tiles" draws past the per-frame tile budget are never sampled: all 356 VSM shader variants gate taps on tile-valid bit 0; Ally est. 0.1-0.4 ms/frame mean, 3-5.7 ms in camera-move bursts). ASI design `VBC` (4 call redirects, default 0) - not built. Write-offs S2-S7 (cascade phase-2 duplicate = false).
 - Symbols: `re/symbols/incoming/shadow-audit-renames.tsv`. Scripts: `re/scripts_shadow/{gp_marker_digest,vsm_batch_waste,vsm_consumers}.py`.
 - Undo: nothing to undo.
+
+## 2026-10-08 - S1 / VBC re-check: not exact, not built (static only; nothing installed or patched)
+- `notes/shadows-redundancy.md` §1b. The skipped "Batch Tiles" texels are never sampled, but the redundant work has cross-frame side effects:
+  - the SMTREE2/SM-*Sfb PSOs write `uGeneral_FeedbackMap` (texture-streaming feedback);
+  - the batch culling writes `uCacheCodes` / `uExistsNotLoadedModel` (meshlet streaming).
+- With VBC, a waiting tile could later be marked valid with data that streamed in later than stock. That is not provably the same image.
+- No VBC flag or code was added; the ASI stays 1.7.16.
+- Undo: nothing to undo.

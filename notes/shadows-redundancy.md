@@ -6,7 +6,7 @@ Static audit only. Sources: the decompile `D:\nioh3-re\decomp` plus new read-onl
 
 | # | Candidate | Verdict | Ally GPU ms/frame | Patch |
 |---|---|---|---|---|
-| **S1** | VSM tiles drawn in "Batch Tiles" beyond the per-frame tile budget (drawn, never marked valid, cleared and redrawn next frame) | **Redundant, bit-exact to skip** (for tiles that are invalid at draw time) | **0.1–0.4 mean** over the measured routes; **3–5.7 during movement bursts** (5 of 89 windows) | 4 call-site redirects in the ASI, flag `VBC` default 0 |
+| **S1** | VSM tiles drawn in "Batch Tiles" beyond the per-frame tile budget (drawn, never marked valid, cleared and redrawn next frame) | ~~Redundant, bit-exact to skip~~ **Re-check 2026-10-08 (§1b): NOT provably exact.** The texels are never sampled, but the skipped draws/culls feed texture-streaming sampler feedback and meshlet cache codes, so later frames can differ. **Not implemented.** | 0.1–0.4 mean over the measured routes; 3–5.7 during movement bursts (5 of 89 windows) | none (VBC dropped) |
 | S2 | Cascade phase-2 redraw of direct (dynamic) casters (`shadows-culling.md` H1/A2) | **Written off: does not happen** | 0 | — |
 | S3 | Empty VSM pages cleared/drawn | Already skipped for drawing; the clear is needed | 0 (clear < 0.13) | — |
 | S4 | Depth-only shadow draws with a material PS (`SM-Sfb` + `SM-B0I2mIptrSfb#8`) | PS is an alpha test; a null-PS twin is exact only for draws with CB0[1].x ≤ 0 | ≤ 0.03 | not worth it |
@@ -66,6 +66,46 @@ Measured Ally shadow cost (GP markers, mean over the windows where the row made 
 - Inert in VSM mode 6 (1F8340 returns early) and when batch mode is off (batch loop not entered).
 - **Validation.** Do an Ally A/B on a camera-pan / teleport route and compare GP "Batch Tiles 8" /frame and incl against VBC=0. Visual: shadows must match frame-for-frame, and a screenshot diff on a scripted pan should be bit-exact.
 - **Risk: low.** Output to all sampled texels is proven unchanged. The remaining risks are a wrong thread_local assumption (535188 can run per view) and the scissor inference. Both are covered by the self-check and the screenshot diff.
+
+## 1b. S1 re-check before implementing VBC (2026-10-08): exactness FAILS, VBC not built
+
+The re-check was done before writing any ASI code (Ghidra `decomp.cmd` on the v2.02 dump, plus the Ally PSO dump `D:\nioh3-re\ally-dump\shaderdump_172\asm`). The game folder was not touched. Some parts of the §1 argument hold; the cross-frame side effects break it.
+
+**Holds**
+- **Index.** 149468 marks `40118` at the raw index `((c)*H + y)*W + x`. It is the same index that 1F8094 and 1F8168 read. 796A8 converts only the copy used for the stamp lookup.
+- **Budget.** It comes from 1F7960 at every tile in both loops. Per SHADOW_QUAL row it is 2/2/8/8/8, and the node default is 16. It is never 0, so the "budget tiles always drawn" part holds at every quality level.
+- **Bind order.** 1F96E0/1F7A44 are pure functions of the tile coords (`clip+398/39C`), the clip config (`+828/82C/8A0/8A4/1EC/210/198`) and the RT size. They give the same result in the batch loop and the per-tile loop. `clip+220` and `clip+394` are the same in both loops.
+- **Duplicates.** The design must count **distinct** bound tiles. The 1st-occurrence argument then holds even if the list has duplicates. The notes' plain counter does not handle duplicates.
+- **SceneRenderView draw count.** The count drops under VBC, but its consumers only test `!= 0` (10F060:1828, 33D0CE4) or ignore it (1CFD1C takes 2 args). The first batch is always kept, so `!= 0` is preserved.
+- **Batch readiness.** `local_858` (1F5C2C clears `+1EE358` when `ctx+FEh` is not ready) is the same as long as readiness is monotone within the loop.
+
+**Fails**
+1. **Sampler feedback (decisive).**
+   - The batch-tile PSOs write texture-streaming feedback.
+   - `SMTREE2-BlrMfvMshltvSfb` (3a5c2c88…, the 0.200 ms SMTREE2 under Batch Tiles) and `SMTREE2-I2mSfb` do a `bufferStore` to `uGeneral_FeedbackMap` (u0). So do `SM-BlrMfvMm00MshltvSfb`, `SM-BlrMfvMshltvReSfb`, `SM-SfbUh`, `SM-MdbotSfb` and `SM-BlrMdb5tltotMfvMshltvSfb`. "Sfb" = sampler feedback.
+   - That map drives material texture streaming (`meshlet-mainthread.md` §1: 1290B8 tile requests).
+   - Skipped draws for waiting tiles therefore remove mip requests. A caster that is only in waiting tiles (often off-screen, so no main-view feedback) streams later.
+   - When its tile's turn comes, the VBC tile is rendered and **marked valid** with coarser mips. The alpha test runs through the `sGeneral_MinMipMap` residency clamp, so the leaf silhouettes differ.
+   - Nothing re-dirties the tile for a texture-residency change (20h is the caster stamp only; 10h lifespan comes much later). Valid shadow texels can therefore differ for many frames.
+2. **Meshlet cache codes.**
+   - The culling dispatched per batch (23584C) uses the variants with `tPageFlags`. They write `uCacheCodes` (store 1) and `uExistsNotLoadedModel`.
+   - The streaming pass (`tClusters tMeshletResourceOffsets tG1mVisFlags uRequestCmds uCacheCodes uIsMappedCmds`) reads those codes.
+   - Dropping the culling of waiting tiles delays meshlet requests (and may affect LRU) for geometry seen only there. This has the same "rendered-valid with less resident data" consequence.
+   - Keeping the culling and skipping only the draws would not fix item 1.
+3. **Sub-light shadow throttle (mitigable, listed for completeness).**
+   - `local_818` (DrawListWalk count via `param_2[0xE]`) includes every batch draw, because `local_834` is snapshotted before the batch loop.
+   - At 1F95BF it is compared with node param `37B3FAE9` (5F6C44: default -1 = off; level node data can set it). If it reaches that value, `obj+25Ah` is set, which 542C08 ("SubPointLightShadows") uses to defer sub-light shadow updates.
+   - A VBC would have to stay inert whenever that param is ≥ 0.
+
+**Conclusion**
+- The work past the budget is not observable as texels, but it is observable through streaming. That breaks the project's bit-exact rule.
+- No `VBC` flag, sites or code were added (ASI stays 1.7.16).
+- A "same look within streaming jitter" variant would need an in-game screenshot A/B and an explicit user decision that streaming-timing differences are acceptable. That is not an offline proof.
+- **If it is revisited:**
+  - Bind hook only (asm shim at 1F8AF2 passes `rbx` tile, `r14` pm, `edi` budget), a distinct-tile set, and the entry reset at 538F62 (1F8340 takes 2 args).
+  - Inert when `37B3FAE9 ≥ 0`.
+  - Skip only when there are ≥ budget distinct tiles and `40118` bit 0 is 0.
+  - Do not override 1F80C8. That would also drop the `clip+398/39C` writes that the final flush runs with.
 
 ## 2. Write-offs
 
