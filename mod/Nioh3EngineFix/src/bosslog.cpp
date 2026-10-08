@@ -967,7 +967,7 @@ bool Start(const StartInfo& info) {
             }
             if (rl < sizeof(rbad) - 50) rl += (size_t)snprintf(rbad + rl, sizeof(rbad) - rl, " %s(%s)", h.name, r == 1 ? "bytes" : "atomic/room");
         }
-        g_log("RematchLog: %d/%d hooks installed (log only, Phase 0 of notes\boss-rematch-design.md)%s%s", rok, (int)(sizeof(kRmHooks) / sizeof(kRmHooks[0])),
+        g_log("RematchLog: %d/%d hooks installed (log only, Phase 0 of notes/boss-rematch-design.md)%s%s", rok, (int)(sizeof(kRmHooks) / sizeof(kRmHooks[0])),
               rl ? " - skipped:" : "", rbad);
         ok += rok;
     }

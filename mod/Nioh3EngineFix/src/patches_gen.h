@@ -297,6 +297,20 @@ static const uint8_t orig_RP20[] = { 0xFF, 0x15, 0xA4, 0xE8, 0x5C, 0x03 };
 static const uint8_t orig_RP21[] = { 0x25, 0x00, 0x02, 0x00, 0x00 };
 static const uint8_t orig_DQ[] = { 0x0F, 0x2F, 0xF0, 0x77, 0x86 };
 static const uint8_t orig_P1E7[] = { 0x4D, 0x8B, 0x34, 0x24, 0x4D, 0x8B, 0x83, 0xC8, 0x01, 0x00, 0x00 };
+static const uint8_t orig_FP1[] = { 0x48, 0x89, 0x5C, 0x24, 0x18 };
+static const uint8_t orig_FP2[] = { 0x48, 0x89, 0x5C, 0x24, 0x20 };
+static const uint8_t orig_FP3[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08 };
+static const uint8_t orig_FP4[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_FP5[] = { 0x40, 0x55, 0x53, 0x56, 0x57 };
+static const uint8_t orig_FP6[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x40 };
+static const uint8_t orig_FP7[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+static const uint8_t orig_FP8[] = { 0x48, 0x89, 0x5C, 0x24, 0x18 };
+static const uint8_t orig_FP9[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18 };
+static const uint8_t orig_FP10[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18 };
+static const uint8_t orig_FP11[] = { 0x40, 0x55, 0x53, 0x56, 0x57 };
+static const uint8_t orig_FP12[] = { 0x48, 0x89, 0x5C, 0x24, 0x20 };
+static const uint8_t orig_FP13[] = { 0x48, 0x8B, 0xC4, 0x55, 0x53 };
+static const uint8_t orig_FP14[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x20 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -513,6 +527,20 @@ static const Site kSites[] = {
     { "RP21", "RP", 0x314181, 5, orig_RP21, "25 00 02 00 00 45 33 C9 C1 E0 15", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "DQ", "DQ", 0x1A74C45, 5, orig_DQ, "F3 0F 5E C1 0F 2F F0 77 86 E9 A2 F8 FF FF", 4, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "P1E7", "P1E7", 0x1E72C6, 11, orig_P1E7, "44 3B 7A 18 7D 59 4D 8B 34 24 4D 8B 83 C8 01 00 00 4D 85 F6", 6, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP1", "FP", 0x4F9750, 5, orig_FP1, "48 89 5C 24 18 55 56 57 41 54 41 55 41 56 41 57 B8 C0 3D 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP2", "FP", 0x556118, 5, orig_FP2, "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 30 FF FF FF", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP3", "FP", 0x59F498, 7, orig_FP3, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 60 33 DB 0F", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP4", "FP", 0x383800, 5, orig_FP4, "48 89 5C 24 10 55 56 57 41 54 41 55 41 56 41 57 48 8B EC 48 83 EC 40 4D 8B F8 48 8B D9 E8 6E 6B", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP5", "FP", 0x471E68, 5, orig_FP5, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 C8 C2 FF FF B8 38 3E 00 00 E8 89", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP6", "FP", 0x7D48D4, 6, orig_FP6, "40 53 48 83 EC 40 45 33 D2 0F 29 74", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP7", "FP", 0x167C50, 5, orig_FP7, "48 89 5C 24 08 57 48 83 EC 20 89 11 4C 8D 0D AD", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP8", "FP", 0x57DA04, 5, orig_FP8, "48 89 5C 24 18 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 50 01 00 00 48 8B 05 0E A5", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP9", "FP", 0x398A54, 7, orig_FP9, "48 8B C4 48 89 58 18 4C 89 48 20 48 89 50 10 48 89 48 08 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 C1 48 81 EC F0 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP10", "FP", 0x93AEC4, 7, orig_FP10, "48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 88 48 81 EC 40 01 00 00 0F 29 70 B8 48 8B 05 44 D0 B7 03", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP11", "FP", 0x23BF1C, 5, orig_FP11, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 68 FF FF FF 48 81 EC 98 01 00 00 48 8B 05 F1", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP12", "FP", 0x2002D4, 5, orig_FP12, "48 89 5C 24 20 48 89 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 8B EC 48 83 EC 40", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP13", "FP", 0xF68D8, 5, orig_FP13, "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 B8 F5", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FP14", "FP", 0x2C5AA6C, 7, orig_FP14, "48 8B C4 48 89 58 20 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 08 F3 FF FF 48 81 EC C0 0D 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 44 0F 29 A0 58 FF FF FF 44 0F 29 A8 48 FF FF FF 44 0F 29 B0 38 FF FF FF 44 0F 29 B8 28 FF FF FF 48 8B 05 5B D4 85", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 

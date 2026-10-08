@@ -38,6 +38,7 @@
 #include "menu.h"
 #include "osd.h"
 #include "bosslog.h"
+#include "fnprobe.h"
 #include "autocont.h"
 #include "drawprep.h"
 #include "loadonly.h"
@@ -48,7 +49,8 @@
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
 // 1.7.29: gimerge.cpp (GIProbe / GIMerge, notes\gi-highest-audit.md s6)
 // 1.7.32: drawprep.cpp (DQ retry quantum / P1E7 texture-loop prefetch, notes\mainthread-25.md)
-#define MOD_VERSION "1.7.33"
+// 1.7.34: fnprobe.cpp (FnProbe live function probe, notes\remaining-work.md 10.1; tools\playsession)
+#define MOD_VERSION "1.7.34"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1419,6 +1421,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
         if (!strcmp(g, "BL")) return false;  // BossLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
         if (!strcmp(g, "RM")) return false;  // RematchLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
+        if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
@@ -2378,6 +2381,14 @@ DWORD WINAPI Worker(LPVOID) {
             bi.base = reinterpret_cast<uintptr_t>(g_base);
             bi.knownBuild = known;
             bosslog::Start(bi);
+        }
+        {  // FnProbe (fnprobe.cpp, [Debug] FnProbe = 0 by default; notes\remaining-work.md 10.1): measurement only
+            fnprobe::StartInfo fi;
+            fi.log = &Log;
+            fi.iniPath = iniPath.c_str();
+            fi.base = reinterpret_cast<uintptr_t>(g_base);
+            fi.knownBuild = known;
+            fnprobe::Start(fi);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;
