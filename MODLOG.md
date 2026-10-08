@@ -519,3 +519,11 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 ## 1.7.27 (2026-10-08)
 - ADD: `[Patches] VRROnline = -1` (auto, default): VRR suspended automatically while an online session is detected (net manager connected byte / play-mode mode word, notes\online-session-detect.md), restored after 5 s clean; 1 = force on, 0 = force off. Watcher thread only flips the caves' vrr_enable (no hook, register-safe). Logs "VRR: online session detected" / "back offline".
 - test_patterns ALL 212 SITES OK, harnesses OK. Built, not run in game (co-op test pending, remaining-work 6.5). Undo: VRROnline = 1 or the 1.7.25 .asi.
+
+## 2026-10-08 - item 3.3 post chain closed (repo only; no shader or ASI change, nothing in the game folder)
+- Ally GP2 1.7.5 per-PSO data: game post chain (MB/DOF/bloom/compose/TAA) = 0.17 ms/frame, exe full-screen copies 1.44 ms
+  (bandwidth-bound), FSR3 upscaler 7 ms (user setting). The 8-10 ms was a PC estimate; FSR3 had been labelled "motion blur"
+  (runtime_inventory.py rule order, fixed + inventory / GP2 tables relabelled). No rewrite can show an Ally win, so none written;
+  post-v1 (5 dxbc) stays staged, not shipped. Details + Ally A/B protocol: notes\gpu-post-runtime.md s7-8.
+- New tools\testmatrix\shotdiff.py (screenshot A/B vs an A/A2 noise floor).
+- Undo: none needed (docs/tools only).

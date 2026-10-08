@@ -24,6 +24,8 @@ for what MAX changes; the shader files read-only from the Steam v2.02 install.
     graphs), and **true pointer-chasing culling kernels** with atomics.
   - The full-screen passes that look "serial" in the ISA run 1.6k concurrent waves on the PC and are throughput-bound
     (SSS: 6 `exp` + 16 divisions per tap; PB2MRLR: an early-exit ray march where batching adds fetches).
+  - (2026-10-08 correction: the Ally figure was a PC×6 estimate. Ally GP2 1.7.5 measured the game post chain at
+    0.15-0.17 ms/frame and the exe full-screen PS at 1.4 ms; the 7 ms "exe" block is FSR3. See gpu-post-runtime.md §7.)
   - **~1.4 ms of PC GPU time (≈ 8–10 ms on the Ally) is in shaders embedded in Nioh3.exe**: the whole post chain
     (motion blur with 10 samples at MAX, DOF, bloom, tonemap/compose, the TAA-style filter, CustomDepthUpscale and three
     full-screen copies). A file swap cannot reach them; a `CreatePipelineState` bytecode-swap hook in the ASI could (§5).
@@ -181,7 +183,8 @@ TOONEDGE2 0.8 %. Shaders whose waterfall loops wait for their own fetch: 2.7 % o
    - **Needs:** a pixel-shader port of the DXIL→HLSL decompiler (`gpu-shaders/gi/ll2hlsl.py` is compute-only) and
      `loadInput`/`storeOutput` in `sim.py` (the shader uses no implicit-derivative samples, so pixels interpret
      independently). Plus scenes that drive the VSM path (cbuffer with valid clipmap flags and page tables).
-2. **Exe-embedded post chain** (~1.4 ms PC, ≈8–10 ms Ally).
+2. **Exe-embedded post chain** (~1.4 ms PC, ≈8–10 ms Ally - estimate; measured Ally post chain ≈ 0.17 ms, closed in
+   gpu-post-runtime.md §7).
    - **Shaders:** the MAX motion blur (10 samples), DOF, bloom (17149dca ×4 downsample, 18a4c2bb upsample), compose
      (6a305be4), the 449cf0ae temporal filter, CustomDepthUpscale (0cbad2cb), copies d787dbd0 / 7c5acaaf / 5fccb795, and
      d4974586 (3.7 % of the frame's wave time, compute, no fetches).

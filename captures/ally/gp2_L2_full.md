@@ -4,17 +4,17 @@
 
 | # | ms/frame | % frame | stage | pass/marker | where (shader_dx12 record / exe / runtime) | name | replacement | notes |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 3.688 | 12.2 | cs | FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN | cs exe-embedded @rva 0x3a0c940 (.rdata) | motion blur | no |  |
+| 1 | 3.688 | 12.2 | cs | FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN | cs exe-embedded @rva 0x3a0c940 (.rdata) | fsr/upscale | no |  |
 | 2 | 1.069 | 3.6 | cs | - | cs shader_dx12\0xa9910db8.file record@8213644 (35920 B) | VFSCAT-CllLpvSfbVsm | cs: ORIGINAL replaced in shader_dx12\0xa9910db8.file (fog: VFSCAT #235 (volumetric fog froxel scattering): one merged early-exit) |  |
-| 3 | 0.883 | 2.9 | cs | FFX_FSR3UPSCALER_PASS_PREPARE_REACTIVITY | cs exe-embedded @rva 0x3a09970 (.rdata) | motion blur | no |  |
-| 4 | 0.769 | 2.6 | cs | FFX_FSR3UPSCALER_PASS_PREPARE_INPUTS | cs exe-embedded @rva 0x39f3ea0 (.rdata) | motion blur | no |  |
-| 5 | 0.707 | 2.3 | cs | FFX_FSR3UPSCALER_PASS_LUMA_INSTABILITY | cs exe-embedded @rva 0x3a07a20 (.rdata) | motion blur | no |  |
+| 3 | 0.883 | 2.9 | cs | FFX_FSR3UPSCALER_PASS_PREPARE_REACTIVITY | cs exe-embedded @rva 0x3a09970 (.rdata) | fsr/upscale | no |  |
+| 4 | 0.769 | 2.6 | cs | FFX_FSR3UPSCALER_PASS_PREPARE_INPUTS | cs exe-embedded @rva 0x39f3ea0 (.rdata) | fsr/upscale | no |  |
+| 5 | 0.707 | 2.3 | cs | FFX_FSR3UPSCALER_PASS_LUMA_INSTABILITY | cs exe-embedded @rva 0x3a07a20 (.rdata) | fsr/upscale | no |  |
 | 6 | 0.645 | 2.1 | vs/ps | - | vs shader_dx12\0xfd4f418f.file record@490672 (32610 B); ps shader_dx12\0xdf46710f.file record@60536 (18552 B) | PB2-BlrGbiMm0sMshltvReSfbVl / PB2-BlrGbiMm00MshltPkSfbVl | no |  |
 | 7 | 0.564 | 1.9 | cs | - | cs shader_dx12\0xd070067d.file record@2361406 (26404 B) | RefProbe-CllPtSfbSplsSslsSsmVsm | cs: ORIGINAL replaced in shader_dx12\0xd070067d.file (gi: RefProbe #121 (diffuse probe GI gather) and #414 (reflection probe tra) |  |
 | 8 | 0.548 | 1.8 | - | - | - | - | no |  |
 | 9 | 0.429 | 1.4 | cs | - | cs shader_dx12\0xd070067d.file record@12520830 (47632 B) | RefProbe-CllPtSfbSplsSslsSsmVsm | cs: ORIGINAL replaced in shader_dx12\0xd070067d.file (gi: RefProbe #121 (diffuse probe GI gather) and #414 (reflection probe tra) |  |
 | 10 | 0.386 | 1.3 | cs | DrawSky | cs shader_dx12\0x5f17ca9d.file record@356836 (72884 B) | VCLOUD | no |  |
-| 11 | 0.386 | 1.3 | cs | FFX_FSR3UPSCALER_PASS_SHADING_CHANGE_PYRAMID | cs exe-embedded @rva 0x39f7750 (.rdata) | motion blur | no |  |
+| 11 | 0.386 | 1.3 | cs | FFX_FSR3UPSCALER_PASS_SHADING_CHANGE_PYRAMID | cs exe-embedded @rva 0x39f7750 (.rdata) | fsr/upscale | no |  |
 | 12 | 0.337 | 1.1 | vs/ps | - | vs shader_dx12\0x52c39db0.file record@151636 (47739 B); ps shader_dx12\0xd864e310.file record@42452 (14484 B) | PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDimGbiMshltOcPfnPkSf | no |  |
 | 13 | 0.326 | 1.1 | vs/ps | UltramarineRender | vs shader_dx12\0xef2fa7c0.file record@1536 (17875 B); ps shader_dx12\0xef2fa7c0.file record@19748 (17777 B) | PB2UMAH-GbVl | no |  |
 | 14 | 0.324 | 1.1 | vs/ps | - | vs shader_dx12\0xee5a444b.file record@41752 (3033 B); ps shader_dx12\0xa60921c6.file record@1304136 (12659 B) | WDO_SST-PtSrbVsm / PB2MRLR-AmbSpecMapAngLimitCllLas | no |  |
@@ -34,7 +34,7 @@
 | 28 | 0.219 | 0.7 | vs/ps | - | vs shader_dx12\0xee5a444b.file record@41752 (3033 B); ps shader_dx12\0x618b07e7.file record@5728 (6695 B) | WDO_SST-PtSrbVsm / PB2DUS-GbMasRefprobelt | no |  |
 | 29 | 0.200 | 0.7 | vs/ps | Batch Tiles 8 | vs shader_dx12\0x9992f2ab.file record@410536 (32238 B); ps shader_dx12\0x9992f2ab.file record@549252 (6940 B) | SMTREE2-BlrMfvMshltvReSfb | no |  |
 | 30 | 0.198 | 0.7 | vs/ps | - | vs exe-embedded @rva 0x399ee90 (.rdata); ps exe-embedded @rva 0x3be7a70 (.rdata) | - | no |  |
-| 31 | 0.185 | 0.6 | cs | FFX_FSR3UPSCALER_PASS_LUMA_PYRAMID | cs exe-embedded @rva 0x39ee2e0 (.rdata) | motion blur | no |  |
+| 31 | 0.185 | 0.6 | cs | FFX_FSR3UPSCALER_PASS_LUMA_PYRAMID | cs exe-embedded @rva 0x39ee2e0 (.rdata) | fsr/upscale | no |  |
 | 32 | 0.184 | 0.6 | cs | FFX_FSR3UPSCALER_PASS_RCAS | cs exe-embedded @rva 0x39e0de0 (.rdata) | fsr/upscale | no |  |
 | 33 | 0.183 | 0.6 | vs/ps | - | vs shader_dx12\0xee5a444b.file record@41752 (3033 B); ps shader_dx12\0x1667d3a0.file record@333372 (29431 B) | WDO_SST-PtSrbVsm / WDO-PtSrbSsmVsm | no |  |
 | 34 | 0.167 | 0.6 | vs/ps | - | vs shader_dx12\0x5f066893.file record@1506024 (10547 B); ps shader_dx12\0x5f066893.file record@67266416 (32671 B) | G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP | no |  |
@@ -87,7 +87,7 @@
 | 81 | 0.036 | 0.1 | vs/ps/ds/hs | - | vs shader_dx12\0xdc52fd1c.file record@59224 (10671 B); ps shader_dx12\0xdc52fd1c.file record@10629462 (236183 B); ds shader_dx12\0xdc52fd1c.file record@13507187 (23887 B); hs shader_dx12\0xdc52fd1c.file record@13464058 (9854 B) | PB2LS-GbiSfbVl | no |  |
 | 82 | 0.033 | 0.1 | vs/ps | - | vs runtime-compiled (dump); ps runtime-compiled (dump) | DOF VS / dof | ps: psoswap file post\out\cf792d56ae14e49c093cb5f27a66f871.dxbc (ORIGINAL key it replaces) | cf792d56=gpu-post-runtime.md:100 |
 | 83 | 0.031 | 0.1 | vs/ps | - | vs shader_dx12\0xdd27eab2.file record@6620 (3866 B); ps shader_dx12\0xc5bc597a.file record@237184 (39920 B) | PB2RIPPLE-Cbbl / PB2DECAL-CdlRgbSfb | no |  |
-| 84 | 0.031 | 0.1 | cs | FFX_FSR3UPSCALER_PASS_SHADING_CHANGE | cs exe-embedded @rva 0x39f60b0 (.rdata) | motion blur | no |  |
+| 84 | 0.031 | 0.1 | cs | FFX_FSR3UPSCALER_PASS_SHADING_CHANGE | cs exe-embedded @rva 0x39f60b0 (.rdata) | fsr/upscale | no |  |
 | 85 | 0.031 | 0.1 | vs/ps | - | vs shader_dx12\0x52c39db0.file record@151636 (47739 B); ps shader_dx12\0xd864e310.file record@2472 (39516 B) | PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDimGbiMshltOcPfnPkSf | no |  |
 | 86 | 0.029 | 0.1 | vs/ps | - | vs shader_dx12\0xec36dc74.file record@2288 (3041 B); ps shader_dx12\0x3de2e18a.file record@41024 (5235 B) | GFM / HBAO | no |  |
 | 87 | 0.027 | 0.1 | vs/ps | - | vs exe-embedded @rva 0x399ee90 (.rdata); ps exe-embedded @rva 0x3a245c0 (.rdata) | - | no |  |

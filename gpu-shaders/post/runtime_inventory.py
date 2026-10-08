@@ -25,12 +25,13 @@ DXIL_INDEX = os.path.join(ROOT, "gpu-shaders", "dxil_index.csv")
 EXE_INV = os.path.join(HERE, "out", "inventory.csv")
 KNOWN = {"17149dca": "bloom (r5 131us)", "18a4c2bb": "bloom (r5 40us)", "6a305be4": "compose (r5 47us)",
          "df4adc57": "post df4adc57 (r5 86us)", "c5909527": "post VS (bloom)", "d21b4b07": "post VS"}
-# resource / cbuffer name -> pass guess (first match wins)
-PASS_RULES = [("motion blur", r"(?i)motionblur|\bMB_|velocity|vVelocity|tVelocity|fMotionBlur|nMBSample|MBlur"),
+# resource / cbuffer name -> pass guess (first match wins). fsr/upscale goes first: FSR3 binds velocity / motion-vector
+# resources, and the old order labelled its passes "motion blur" (GP2 tables then read as a 7 ms MB pass on the Ally).
+PASS_RULES = [("fsr/upscale", r"(?i)ffx|fsr|rcas|upscal"),
+              ("motion blur", r"(?i)motionblur|\bMB_|velocity|vVelocity|tVelocity|fMotionBlur|nMBSample|MBlur"),
               ("dof", r"(?i)\bdof|DepthOfField|tCoC|fCoC|bokeh|vFocus|FocalLen|fNearBlur|fFarBlur"),
               ("bloom", r"(?i)bloom|glare|\bfBloom|tBloom|BrightPass|vBloom"),
               ("tonemap/compose", r"(?i)tonemap|ToneMap|\bLUT|tLut|colorgrad|vignette|fExposure|tExposure"),
-              ("fsr/upscale", r"(?i)ffx|fsr|rcas|upscal"),
               ("taa", r"(?i)\btaa|history|tHistory|jitter")]
 
 

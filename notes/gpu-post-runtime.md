@@ -118,3 +118,53 @@ afc8bb78541d7da0a7e39a00ff8318f899a251cd5ebb504aa2aa88b3ecf092ff  e6efc8ff49a9b2
 | `src\*_fast.hlsl`, `src\*_ref.hlsl`, `src\*.hlsli` | replacements and reconstructions (`src\gen\` is generated, gitignored) |
 | `rga_post.py`, `out\rga_post.txt` | RGA gfx1103 VGPR / VMEM comparison |
 | `pso_check.py`, `pso_check.cpp` | D3D12 PSO acceptance on this PC |
+
+## 7. Ally cost (GP2, ASI 1.7.5) and the item-3.3 verdict (2026-10-08)
+Source: `captures\ally\gp2_L2_full.csv` (all replacements off, 38 GP2 windows) vs `gp2_L1_full.csv` (all on; the L1 log shows
+`5 replacement file(s) indexed` and all 5 `replacement loaded`, none REJECTED). Ally config: MOTION_BLUR STANDARD, DOF ON.
+GP2 stamps inflate absolute ms (`ally-replacement-ab.md` caveat), so read ranks and same-key deltas, not sums.
+
+| block (ms/frame, OFF run) | ms | what |
+|---|---|---|
+| FSR3 upscaler, 9 exe-embedded DXIL CS (`FFX_FSR3UPSCALER_*`) | 6.99 | accumulate+sharpen 3.69, prepare reactivity 0.88, prepare inputs 0.77, luma instability 0.71, shading-change pyramid 0.39, ... The user's AA setting (FSR3 native AA). |
+| exe full-screen PS behind VS a2bd0e86 | 1.44 | 5fccb795 depth copy (`ld` -> oDepth, 2 call sites) 0.46, 7c5acaaf 4-MRT copy 0.27, 29ecb6e4 sample x colour 0.25, 030dc802 0.20, 0cc29779 tonemap 0.11, 9a76cbef 0.11 |
+| game post chain (runtime DXBC, this note) | **0.17** | compose 6a305be4 0.093, DOF gather cf792d56 0.033, MB gather 4e13e236 0.025, CA compose e6efc8ff 0.018, TAA filter 449cf0ae 0.005. Bloom, MB tile max, CoC and 04c1052d are below the table floor (< 0.003 ms) or did not run. |
+
+- **The "8-10 ms Ally post chain" (remaining-work 3.3) was a PC x 6 estimate** (`gpu-shader-sweep.md` §2). The old GP2 tables
+  made it look real: `runtime_inventory.py` labelled the FSR3 passes "motion blur" because FSR3 binds velocity / motion-vector
+  resources. Fixed (fsr/upscale rule first; 17 rows of `runtime_inventory.csv`, the cached GP2 index
+  `D:\nioh3-re\gp2_hash_index.json` and the two `gp2_L*_full` tables relabelled).
+- MB and DOF run in 3-5 % of the frames at the test spot (draws/frame 0.03-0.05): MB only on fast camera motion, DOF only in
+  specific shots. When they run, per draw: DOF gather 1.13 -> 1.10 ms, MB gather 0.47 -> 0.42 ms, CA compose e6efc8ff
+  0.35 -> 0.42 ms (slower), untouched compose 6a305be4 0.44 -> 0.42 ms (the noise reference). Very few samples.
+
+**Verdict (3.3 closed, no new shader):**
+- An identical-output rewrite of the game post chain can save at most 0.17 ms/frame (0.3 % of a 59 ms Ally frame), below
+  the fps A/B noise. Nothing was written.
+- The 1.44 ms of exe full-screen PS are 3-30-instruction straight-line copies / blits with 1-4 fetches. They are
+  bandwidth-bound, already minimal, and a PSO swap cannot change the formats or turn a draw into CopyResource. DXBC has no
+  wave-size or occupancy lever (RADV picks the PS wave size) and no bit-preserving precision change.
+- **FSR3 (7 ms) is the only large block.** It is the user's AA choice (STATUS: out of scope). Its only output-identical lever
+  is a recompile of the matching FidelityFX SDK permutation with a different wave size (DXIL `[WaveSize]`, no math change;
+  proof with the `gpu-shaders\sweep` CS interpreter), measurable only on RADV. Not started; it needs the 3.4 RADV prescreen
+  and a user decision first.
+- **post-v1 (the 5 files in §2) do not ship.** Together they touch <= 0.06 ms/frame in gameplay, so no fps A/B can show the
+  win the shader rule requires, and e6efc8ff is slower per draw. That matches the RADV pattern in `ally-replacement-ab.md`
+  (more VGPRs, fewer waves = slower). They stay staged; `tools\testmatrix\ally_plan.md` rows X_* are now GP2-only.
+
+## 8. Ally A/B protocol for any post replacement (fps + screenshot diff)
+Only worth a launch when GP2 shows the pass at >= 0.3 ms/frame **at the test spot**; below that the fps rule cannot resolve it.
+1. **Scene.** Same save, spot and settings as the matrix (`final-benchmark-protocol.md`). First run stock with `[Profiler] GPUProf = 2`
+   and confirm the pass runs every frame (GP2 draws/frame >= 1). If it does not, stop: report GP2 per-draw ms only.
+2. **Install (B).** Copy only `<digest>.dxbc` + `SHA256SUMS` to `<game>/Nioh3EngineFix_shaders/`, run `sha256sum -c SHA256SUMS`
+   (ignore the missing-file lines), set `[ShaderSwap] Enabled = 1`, `DumpMode = 0`, `LogAll = 0`. The log must show
+   `1 replacement file(s) indexed` and `<digest>: replacement loaded`, no `REJECTED`. psoswap keys a file by the original
+   container digest, so it can only replace that exact original shader (the hash check); any other build of the game leaves it unused.
+3. **A** = `Enabled = 0`. Order A B B A (one launch each), GPUProf off. Per launch: MangoHud + `measure.sh` STAND 2 x 20 s,
+   MOVE 1 x 20 s (`ally_plan.md` steps 3-5). Then one extra GPUProf=2 launch per arm for per-draw ms (stamps cost fps; never mix
+   these runs into the fps numbers).
+4. **Screenshots.** Static camera, lossless PNG of the same view in A, B and in the second A launch (A2). On the PC:
+   `py -I tools\testmatrix\shotdiff.py A.png B.png --noise A2.png --out diff.png [--crop x,y,w,h]`. Launches are never
+   bit-identical (temporal AA, particles), so B must stay within the A-vs-A2 floor. `DIFFERENT` = DROP.
+5. **Verdict** (`ally_plan.md` rule): KEEP only if fps > +2 x noise and shotdiff says WITHIN NOISE; otherwise DROP. Undo:
+   `Enabled = 0` or delete the file.

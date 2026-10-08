@@ -87,11 +87,11 @@ Keys: item, dev, fps, low1, p99 (ms), gpuW, gpuMHz, gpubusy, move, combat, load_
 | 49 | S_fog | shader | launch | shaders: fog | med | shot | volumetric fog; image compare |
 | 50 | S_trvs | shader | launch | shaders: trvs | low |  | ~0 if the driver already merges the loads |
 | 51 | S_pbvs | shader | launch | shaders: pbvs | low |  | ~0 |
-| 52 | X_04c1 | swap | launch | swap: 04c1052d | med | shot | post pass; image compare |
-| 53 | X_4e13 | swap | launch | swap: 4e13e236 | med | shot | post pass |
-| 54 | X_cf79 | swap | launch | swap: cf792d56 | med | shot | post pass |
-| 55 | X_e6ef | swap | launch | swap: e6efc8ff | med | shot | post pass |
-| 56 | X_f11a | swap | launch | swap: f11afe97 | med | shot | post pass |
+| 52 | X_04c1 | swap | launch | swap: 04c1052d | skip |  | GP2 only: <= 0.06 ms/frame, fps cannot resolve it (gpu-post-runtime.md s7) |
+| 53 | X_4e13 | swap | launch | swap: 4e13e236 | skip |  | GP2 only: <= 0.06 ms/frame, fps cannot resolve it (gpu-post-runtime.md s7) |
+| 54 | X_cf79 | swap | launch | swap: cf792d56 | skip |  | GP2 only: <= 0.06 ms/frame, fps cannot resolve it (gpu-post-runtime.md s7) |
+| 55 | X_e6ef | swap | launch | swap: e6efc8ff | skip |  | GP2 only: <= 0.06 ms/frame, fps cannot resolve it (gpu-post-runtime.md s7) |
+| 56 | X_f11a | swap | launch | swap: f11afe97 | skip |  | GP2 only: <= 0.06 ms/frame, fps cannot resolve it (gpu-post-runtime.md s7) |
 | 57 | M_GPUP | measure | launch | GPUProf=2 | low |  | per-pass ms; digest the GP2 lines |
 | 58 | M_SP | measure | launch | SP=1 | low |  | hot functions; not compared |
 | 59 | M_WAKE | measure | launch | WakeStats=1 TS=1 SPR=1 TileStats=1 MemStats=1 | low |  | counters only |

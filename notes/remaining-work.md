@@ -32,7 +32,7 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 |---|---|---|---|---|
 | 3.1 | Per-shader Ally A/B of the staged pack: ESM_fast, WDO#28, MPC#23, toonedge2, mshlod, gi #121/#414, VFSCAT fog, post-v1 (RULE: none ships without an Ally win) | matrix / Ally sessions | 2-3 h game | y |
 | 3.2 | GI A0/A1 empty-wave light-group merge (0.7-1.9 ms Ally, `gi-highest-audit.md` s5) - needs an ASI probe first | free (opus); src owned by 1.3 -> new file + integration note | 6-10 h | y |
-| 3.3 | Exe-embedded post chain via psoswap (MB/DOF/bloom/TAA, 8-10 ms Ally) - psoswap built, not integrated | free; dump exists (`shaderdump_172.zip`); RADV prescreen | 8-16 h | y |
+| 3.3 | ~~Exe-embedded post chain via psoswap (MB/DOF/bloom/TAA, 8-10 ms Ally)~~ CLOSED 2026-10-08: the 8-10 ms was a PC x 6 estimate; Ally GP2 1.7.5 = game post chain 0.17 ms/frame, exe full-screen copies 1.44 ms (bandwidth-bound, no identical rewrite), FSR3 7 ms (user setting). No shader written; post-v1 not shipped. Mislabel fixed, A/B protocol + `shotdiff.py` in `gpu-post-runtime.md` s7-8 | DONE | - | n |
 | 3.4 | RADV prescreen tool for VCLOUD hoist + SFB dedupe (+ any new rewrite) | free; blocked on an Ally-side tool | 4 h | y |
 | 3.5 | WDO#14 VSM page-flag dedupe (0.2-0.4 ms Ally) - needs PS port of the DXIL->HLSL tooling | free | 6 h | n (build), y (A/B) |
 | 3.6 | TileStats=2 / TileBatch=2 census (tilestats.cpp built, not wired) | free; integration after 1.3 | 2 h + 1 h game | y |
@@ -96,4 +96,4 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 ## Order to finish
 1.1-1.4 (running) -> 4.2, 6.6, 10.3 (no game, small) -> 2.2 + 6.1 + 4.3 on the next PC/Ally turns -> 3.1 Ally shader A/Bs ->
 8.1 matrix -> 7.2 flip -> 9.3 final build -> 8.2 benchmark with the user -> 6.2 long sessions -> 8.3 / 10.2.
-Larger optional levers if budget remains: 3.2 GI merge, 3.3 post chain, 2.3 submit filters.
+Larger optional levers if budget remains: 3.2 GI merge, 2.3 submit filters (3.3 closed: nothing to gain; the only big post-side block is FSR3, a user setting).

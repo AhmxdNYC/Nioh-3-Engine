@@ -2,6 +2,8 @@
 
 2026-10-07. Inputs: `notes\gpu-shader-sweep.md` §5.2, `notes\invisible-gpu.md` §4a, r5 RGP `pso_map.csv`, `re\Nioh3.dump.exe`. Game not run.
 
+Ally cost and the item-3.3 verdict (2026-10-08, GP2 1.7.5): `notes\gpu-post-runtime.md` §7.
+
 ## 1. Where the "~1.4 ms exe post chain" really lives
 - **Nioh3.exe** has 271 DXBC containers (258 unique) in .rdata: 139 SM5 CS (GPU particles, hair, fluid), 77 SM5 PS, 5 VS,
   3 GS, 2 SM4 PS, and 32 DXIL (embedded FSR3 upscaler + frame interpolation). Inventory with r5 times:
