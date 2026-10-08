@@ -527,3 +527,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   post-v1 (5 dxbc) stays staged, not shipped. Details + Ally A/B protocol: notes\gpu-post-runtime.md s7-8.
 - New tools\testmatrix\shotdiff.py (screenshot A/B vs an A/A2 noise floor).
 - Undo: none needed (docs/tools only).
+
+## 2026-10-08 - crash Nioh3+2526D1 analysed offline (repo only; no ASI change, nothing in the game folder)
+- RenderCmd_WriteToken95 2526C8 (RenderFrameBegin -> WaitSubmitThread -> PagePoolFrameUpdate): the first command-stream token of a frame faults, so dev+3C40 (reset to the stream base every frame end) is bad = stream not allocated/freed (device lifecycle). No patch, hook or switch of the mod writes on this path (W6/PP/R1 nearby keep the game's semantics); the ASI writes code only ~1 s after start. No guard added.
+- The 10/06 15:54 core dump (61BBD, write to 0x1) is the old torn W1 live patch (new bytes in the dump, RIP mid `rep stosd`), already fixed by Mem.fsx safeWrite - a separate crash.
+- Repro protocol (stock / ASI / panel, --enable_output_dump) in remaining-work 6.1; details notes\crash-2526D1.md. Follow-up: ApplyBatch re-snapshot of threads after suspend.

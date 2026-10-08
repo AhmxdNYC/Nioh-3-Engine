@@ -56,7 +56,7 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 ## 6. Stability / crash / leak risks
 | # | item | owner / status | effort | game |
 |---|---|---|---|---|
-| 6.1 | Crash Nioh3+2526D1 (1 in ~60 launches, panel applying fixes during load, SSS off). Not our code; check if mod timing triggers it | free; repro = rapid menu scroll SSS off vs on, stock vs mod | 2 h game | y |
+| 6.1 | Crash Nioh3+2526D1 (1 in ~60 launches, panel applying fixes during load, SSS off) | OFFLINE DONE 2026-10-08 (`crash-2526D1.md`): first cmd-stream token of a frame (dev+3C40 write ptr bad, i.e. stream base unallocated/freed = device lifecycle); no mod code/data on the path, ASI writes code only at ~1 s before any frame -> no guard. Only link = legacy panel whole-process freezes during load (timing). Repro: launch with `--enable_output_dump`, RTSS closed; 30 relaunches each, SSS ON/OFF alternating + 20 s title-menu scroll: A stock, B ASI release profile, C legacy panel apply, (D stock+RTSS). Hit in A/D = game bug; only in C = retire panel live apply. Per dump: rax, thread name, dev+3C30/3C38 | 2 h game (PC) | y |
 | 6.2 | Long-session stability: 2 h+ per device with the release profile (mod log + exit code, MemStats=1: handles, VRAM growth across fast travels) | final phase (protocol item 6) | 2 h game/device | y |
 | 6.3 | Hook register safety: BossLog thunk xmm0-5 fix and readfix/prefetch hooks never run in game | covered by 6.2 + Phase 0 | - | y |
 | 6.4 | FG on Proton crash: default stays status-only (FrameGenToggle=1) - keep; re-verify the fgmarker restore once | Ally, 10 min | 10 min | y |
