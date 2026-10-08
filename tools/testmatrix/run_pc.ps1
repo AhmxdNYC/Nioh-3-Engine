@@ -11,8 +11,10 @@
     .\run_pc.ps1 -Force                       # redo finished items
     .\run_pc.ps1 -LiveMenu                    # batch the live-switchable items in ONE launch via menu_map.json (see below)
     .\run_pc.ps1 -ReportOnly                  # just rebuild summary/verdict from results
-  -LiveMenu needs tools\testmatrix\menu_map.json: { "W6": ["28","0D"], ... } = per item the key chords (hex VKs for tools\ui.fsx
-  `key`, space separated per chord) that move to the item's row and toggle it. Not recorded yet: without it live items relaunch (safe).
+  -LiveMenu needs tools\testmatrix\menu_map.json (generated from the mod's menu.cpp: `py -I menu_map.py -o menu_map.json`, see its header):
+  per item the ui.fsx `keyseq` tokens (open F10, N Down/Up from the parked "Close menu" row, Enter = toggle, back to Close, Enter).
+  After EACH toggle the mod log must show `MENU: <label> -> ON|OFF` (the expected state); otherwise that item is aborted and the rest
+  of the batch is skipped (the menu cursor position is no longer known). Live items without a map entry relaunch individually.
   Never launches while the Ally holds the game: takes `py -m uo_bridge.gamelock acquire nioh3` first (skip with -NoLock for tests).
 #>
 param([switch]$DryRun, [switch]$Force, [switch]$LiveMenu, [switch]$ReportOnly, [switch]$NoLock,
@@ -103,7 +105,8 @@ function Get-Plan {
     $plan.Add(@{ id = "BASE"; it = $base; res = "BASE" })
     $half = [math]::Ceiling($rest.Count / 2); $n = 0
     if ($LiveMenu -and (Test-Path (Join-Path $here "menu_map.json"))) {
-        $live = @($rest | Where-Object { $_.mode -eq "live" }); $rest = @($rest | Where-Object { $_.mode -ne "live" })
+        $mm = Get-Content (Join-Path $here "menu_map.json") -Raw | ConvertFrom-Json
+        $live = @($rest | Where-Object { $_.mode -eq "live" -and $mm.items.($_.id) }); $rest = @($rest | Where-Object { $_ -notin $live })
         $half = [math]::Ceiling($rest.Count / 2)
         foreach ($it in $rest) { if ($n -eq $half) { $plan.Add(@{ id = "BASE#2"; it = $base; res = "BASE#2" }) }; $plan.Add(@{ id = $it.id; it = $it; res = $it.id }); $n++ }
         if ($live.Count) { $plan.Add(@{ id = "LIVE-BATCH"; batch = $live; res = "LIVE-BATCH" }) }
@@ -147,6 +150,15 @@ if ($DryRun) {
     $liveN = @($M.items | Where-Object { $_.mode -eq "live" -and (Test-Applies $_) }).Count
     $save = [int](($liveN * ($T.launch + $T.stats + $T.close + ($StandWindows + 1) * $T.window) - ($T.launch + $liveN * $T.menuItem)) / 60)
     "   -LiveMenu would batch $liveN live items into one launch (needs menu_map.json), saving about $save min."
+    if ($LiveMenu -and (Test-Path (Join-Path $here "menu_map.json"))) {
+        $mm = Get-Content (Join-Path $here "menu_map.json") -Raw | ConvertFrom-Json
+        "   menu_map.json (device $($mm.device), ini $($mm.ini)): init=$(@($mm.init).Count) tokens"
+        foreach ($b in @($M.items | Where-Object { $_.mode -eq "live" -and (Test-Applies $_) })) {
+            $m = $mm.items.($b.id)
+            if ($m) { "     {0,-9} row#{1,-2} '{2}'  start {3}, {4} tokens, verify 'MENU: {2} -> ON|OFF'" -f $b.id, $m.index, $m.label, $m.start, @($m.keys).Count }
+            else { "     {0,-9} no map entry -> relaunch ({1})" -f $b.id, $mm.skipped.($b.id) }
+        }
+    }
     $skipped = @($M.items | Where-Object { -not (Test-Applies $_) } | ForEach-Object id)
     "   not on this device / disabled / filtered: " + ($skipped -join " ")
     return
@@ -154,6 +166,23 @@ if ($DryRun) {
 
 foreach ($d in $stateD, $resD, $capD) { New-Item -ItemType Directory -Force $d | Out-Null }
 if ($ReportOnly) { py -I "$here\tm.py" report $resD $Device --noise-floor $NoiseFloor; return }
+
+# ---------- live menu (menu_map.json) ----------
+function Get-LogLen { if (Test-Path $logf) { (Get-Item $logf).Length } else { 0 } }
+function Read-LogFrom([long]$off) {
+    $fs = [IO.File]::Open($logf, "Open", "Read", "ReadWrite"); try { $null = $fs.Seek($off, "Begin"); $sr = New-Object IO.StreamReader($fs); return $sr.ReadToEnd() } finally { $fs.Dispose() }
+}
+function Test-MenuLine([string]$txt, [string]$label, [string]$want) { return ($txt -match ("MENU: " + [regex]::Escape($label) + " -> " + $want + "")) }
+# one menu toggle + verification against the mod log line "MENU: <label> -> ON|OFF"; $false = mismatch / no line
+function Invoke-MenuToggle($map, [string]$id, [string]$want) {
+    $m = $map.items.$id
+    if (-not $m) { "    !! menu_map has no entry for $id"; return $false }
+    $off = Get-LogLen
+    U keyseq @($m.keys)
+    for ($k = 0; $k -lt 8; $k++) { Start-Sleep -Milliseconds 500; if (Test-MenuLine (Read-LogFrom $off) $m.label $want) { return $true } }
+    "    !! $id : no 'MENU: $($m.label) -> $want' in the mod log after the toggle (item aborted)"
+    return $false
+}
 
 # ---------- real run ----------
 function Lock-Game {
@@ -242,15 +271,21 @@ try {
                 Set-Shaders @(); Set-Swaps @(); Write-IniState $tr
                 $boot = Start-GameToPlay
                 if ($boot.ok) {
+                    U keyseq @($map.init)                # park the menu cursor on "Close menu" (fresh game: cursor on row 0)
+                    Start-Sleep 1
+                    $good = @()                          # items whose all-off toggle verified; once one fails the cursor is unknown -> stop
                     foreach ($b in $e.batch) {          # installed-on items start ON for value 1: toggle once to get all-off
-                        if (-not $b.live_installed_value) { foreach ($c in $map.($b.id)) { U key F10 ; U key ($c -split ' ') ; U key F10 } }
+                        if (-not $b.live_installed_value) { if (-not (Invoke-MenuToggle $map $b.id "OFF")) { "    !! menu desync, remaining live items not run"; break } }
+                        $good += $b
                     }
-                    $w0 = Measure-Item $e.batch[0] "BASE-live" $boot; Save-Result $M.items[0] "BASE-live" $w0 $boot
-                    foreach ($b in $e.batch) {
-                        foreach ($c in $map.($b.id)) { U key F10 ; U key ($c -split ' ') ; U key F10 }     # on
-                        $w = Measure-Item $b $b.id $boot; Save-Result $b $b.id $w $boot
-                        foreach ($c in $map.($b.id)) { U key F10 ; U key ($c -split ' ') ; U key F10 }     # off again
-                        Renew-Lock
+                    if ($good.Count) {
+                        $w0 = Measure-Item $good[0] "BASE-live" $boot; Save-Result $M.items[0] "BASE-live" $w0 $boot
+                        foreach ($b in $good) {
+                            if (-not (Invoke-MenuToggle $map $b.id "ON")) { "    !! $($b.id) not run; menu desync, rest of the batch skipped"; break }
+                            $w = Measure-Item $b $b.id $boot; Save-Result $b $b.id $w $boot
+                            if (-not (Invoke-MenuToggle $map $b.id "OFF")) { "    !! $($b.id) did not switch back off; rest of the batch skipped"; break }
+                            Renew-Lock
+                        }
                     }
                 }
             } else {
