@@ -395,3 +395,6 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 1.7.15 (2026-10-08)
 - Mod-menu reminder top-right is now always on screen by default ([Menu] PauseHint = 2; 1 = only in game menus, 0 = off) and has its own menu row "Mod menu reminder (top-right)" next to "Show FPS counter". Undo: PauseHint = 1.
+
+## 1.7.16 (2026-10-08)
+- Esc x3 now toggles the mod menu both ways: the press that closes the menu mutes Escape for TapWindowMs, so the 2nd/3rd taps no longer leak to the game (they used to open the pause menu). Controller Start x3 already toggled. Undo: revert menu.cpp g_escMuteUntil.

@@ -175,6 +175,7 @@ uint32_t g_keyPrev = 0;
 // Escape triple-tap (same logic as the pad's Start gesture; DirectInput keyboard state is the only path the game reads Escape through)
 int g_escTaps = 0;
 ULONGLONG g_escTap0 = 0, g_escLast = 0, g_escSynth = 0;
+ULONGLONG g_escMuteUntil = 0;  // after Escape closed the menu: the rest of a triple tap stays with the mod (never reaches the game)
 bool g_escPass = false, g_escPrevDown = false;
 
 ULONGLONG Now() { return GetTickCount64(); }
@@ -335,7 +336,9 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (g_cfg.escDik) {
         const bool down = (keys[g_cfg.escDik] & 0x80) != 0, wasDown = g_escPrevDown;
         g_escPrevDown = down;
-        if (g_open || (g_keyLatch & K_ESC)) {  // the open menu (or the press that just opened/closed it) owns Escape
+        if (g_open && down && !wasDown) g_escMuteUntil = t + (ULONGLONG)g_cfg.tapWindowMs;  // Esc x3 toggles: 1st closes
+        if (g_open || (g_keyLatch & K_ESC) || t < g_escMuteUntil) {  // the open menu (or the press that just opened/closed it) owns Escape
+            if (!g_open && down) escHide = true;
             g_escTaps = 0;
             g_escPass = false;
             g_escSynth = 0;
