@@ -100,6 +100,10 @@ struct Cfg {
     uint32_t holdMask = XINPUT_GAMEPAD_START;
     char holdName[48] = "Start";
     int holdMs = 5000;  // 0 = press the button combo (no hold)
+    int gesture = 1;    // [Menu] Gesture: 1 TripleTap (default), 0 Hold
+    int tapWindowMs = 900;
+    int tapGapMs = 300;
+    int swallowTaps = 1;
     float scale = 0;    // 0 = auto
     int pauseHint = 1;
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
@@ -148,6 +152,10 @@ struct PadSlot {
     uint32_t prev = 0;
     ULONGLONG holdStart = 0;
     bool holdFired = false;
+    // triple-tap gesture
+    int nTaps = 0;
+    ULONGLONG tap0 = 0, lastTap = 0, synthUntil = 0;
+    bool passHold = false;  // the press turned out to be a hold: the game sees it from now on
     volatile bool latch = false;  // keep the pad neutral for the game until every button is released
 };
 PadSlot g_pad[4];
@@ -212,7 +220,35 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     const bool alive = Alive(t, 1000);
     // open/close gesture
     const uint32_t hm = g_cfg.holdMask;
-    if (hm) {
+    bool tapModified = false;
+    if (hm && g_cfg.gesture == 1) {
+        const bool down = (raw & hm) == hm, wasDown = (prev & hm) == hm;
+        if (s.nTaps && t - s.lastTap >= (ULONGLONG)g_cfg.tapGapMs) {  // no further press in time: decide what the game sees
+            if (down && wasDown && s.nTaps == 1) s.passHold = true;       // still held: a real hold, the game gets it now
+            else if (!g_open && g_cfg.swallowTaps) s.synthUntil = t + 120;  // finished tap(s): replay one tap
+            s.nTaps = 0;
+        }
+        if (!down) s.passHold = false;
+        if (down && !wasDown) {
+            if (s.nTaps && t - s.tap0 > (ULONGLONG)g_cfg.tapWindowMs) s.nTaps = 0;
+            if (s.nTaps == 0) s.tap0 = t;
+            ++s.nTaps;
+            s.lastTap = t;
+            s.synthUntil = 0;
+            if (s.nTaps >= 3) {
+                s.nTaps = 0;
+                if (alive) Request(t, 2);
+                else s.passHold = true;
+            }
+        }
+        if (!own && g_cfg.swallowTaps && down && !s.passHold && s.nTaps) {
+            g.wButtons &= (WORD)~hm;
+            tapModified = true;
+        } else if (!own && t < s.synthUntil && !down) {
+            g.wButtons |= (WORD)hm;
+            tapModified = true;
+        }
+    } else if (hm) {
         if ((raw & hm) == hm) {
             if (g_cfg.holdMs <= 0) {
                 if ((pressed & hm) && alive) Request(t, 2);
@@ -239,6 +275,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     }
     if (g_open) InterlockedOr(&g_pressed, (LONG)PadNav(pressed));
     if (own) return;
+    if (tapModified) st->dwPacketNumber += 0x40000000u;
     bool blank = g_open != 0;
     if (s.latch) {
         if ((raw & ~B_STICKS) == 0) s.latch = false;
@@ -1478,7 +1515,8 @@ std::string GestureText() {
     if (g_cfg.holdMask) {
         if (!s.empty()) s += " / ";
         char b[96];
-        if (g_cfg.holdMs > 0) snprintf(b, sizeof(b), "Hold %s %gs", g_cfg.holdName, g_cfg.holdMs / 1000.0);
+        if (g_cfg.gesture == 1) snprintf(b, sizeof(b), "Press %s 3x", g_cfg.holdName);
+        else if (g_cfg.holdMs > 0) snprintf(b, sizeof(b), "Hold %s %gs", g_cfg.holdName, g_cfg.holdMs / 1000.0);
         else snprintf(b, sizeof(b), "%s", g_cfg.holdName);
         s += b;
     }
@@ -1520,7 +1558,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     if (!g_open) {
         if (g_cfg.pauseHint && g_paused) {
-            const std::string s = GestureText() + ": Mod menu";
+            const std::string s = GestureText() + ": Mod menu";  // drawn every frame while the pause flags are set (not a timed popup)
             return DrawCornerNote(W, H, s.c_str(), cWhite);
         }
         return 0;
@@ -1778,6 +1816,11 @@ void Configure(const Host& h) {
         g_cfg.holdMask = XINPUT_GAMEPAD_START;
         snprintf(g_cfg.holdName, sizeof(g_cfg.holdName), "Start");
     }
+    GetPrivateProfileStringW(L"Menu", L"Gesture", L"TripleTap", b, 96, f);
+    g_cfg.gesture = (_wcsicmp(b, L"Hold") == 0) ? 0 : 1;
+    g_cfg.tapWindowMs = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"TapWindowMs", 900, f), 300, 3000);
+    g_cfg.tapGapMs = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"TapGapMs", 300, f), 100, 600);
+    g_cfg.swallowTaps = (int)GetPrivateProfileIntW(L"Menu", L"SwallowTaps", 1, f);
     GetPrivateProfileStringW(L"Menu", L"HoldSeconds", L"5", b, 96, f);
     g_cfg.holdMs = (int)std::lround(std::clamp(_wtof(b), 0.0, 30.0) * 1000.0);
     if (g_cfg.holdMs > 0 && g_cfg.holdMs < 500) g_cfg.holdMs = 500;
@@ -1797,7 +1840,7 @@ void Configure(const Host& h) {
         }
         g_cfg.pauseMask = m ? m : 0x18;
     }
-    if (g_cfg.holdMask && g_cfg.holdMask == XINPUT_GAMEPAD_START && g_cfg.holdMs == 0)
+    if (g_cfg.gesture == 0 && g_cfg.holdMask && g_cfg.holdMask == XINPUT_GAMEPAD_START && g_cfg.holdMs == 0)
         MLOG("[Menu] HoldSeconds=0 with HoldButton=Start opens the menu on every Start press - consider a combo");
     g_cfg.fgToggle = (int)GetPrivateProfileIntW(L"Menu", L"FrameGenToggle", 1, f);
     g_fgOk = false;
@@ -1822,6 +1865,7 @@ void Configure(const Host& h) {
     }
     char hold[96];
     if (!g_cfg.holdMask) snprintf(hold, sizeof(hold), "none");
+    else if (g_cfg.gesture == 1) snprintf(hold, sizeof(hold), "triple-tap %s (window %d ms, gap %d ms, swallow %d)", g_cfg.holdName, g_cfg.tapWindowMs, g_cfg.tapGapMs, g_cfg.swallowTaps);
     else if (g_cfg.holdMs > 0) snprintf(hold, sizeof(hold), "hold %s %.1f s", g_cfg.holdName, g_cfg.holdMs / 1000.0);
     else snprintf(hold, sizeof(hold), "press %s", g_cfg.holdName);
     MLOG("enabled - key %s, controller %s, scale %s, pause hint %s (flags mask %02X%s)", g_cfg.keyName, hold,

@@ -406,16 +406,16 @@ game's pause menu, or on the title screen.
 
 | | Keyboard | Controller (ROG Ally / Steam Deck / Xbox pad) |
 |---|---|---|
-| open / close | **F10** | **hold Start (Menu) for 5 s** (a countdown shows top-right after 1 s) |
+| open / close | **F10** | **triple-tap Start (Menu)** within 0.9 s (`Gesture = Hold` = old 5 s hold, with a countdown) |
 | move | Up / Down | D-pad or left stick up / down (hold to repeat) |
 | change a value | Left / Right | D-pad left / right |
 | toggle / run an action | Enter | A |
-| close | Esc, Backspace, F10 | B, or hold Start 5 s again |
+| close | Esc, Backspace, F10 | B, or triple-tap Start again |
 
 * A short Start press still goes to the game, so its pause menu opens as usual. While the mod menu is open the game
   sees a neutral controller and no arrow, Enter, Esc or Backspace keys. This lasts until you let go of the buttons
   after closing, so B doesn't also back out of the game's menu. The game never sees F10.
-* While the game's pause menu is open, a reminder shows top-right: `F10 / Hold Start 5s: Mod menu`.
+* While the game's pause menu is open, a reminder shows top-right: `F10 / Press Start 3x: Mod menu` (shown the whole time the pause menu is open; `Gesture = Hold` shows the hold text). With `SwallowTaps = 1` the game does not see tap sequences: a lone Start press reaches it after `TapGapMs` (300 ms) as a normal tap, a held Start after the same delay.
 * All of this is configurable in `[Menu]`: key, hold button or combo (`Back+Start`, `L3+R3`, ...), hold time, text
   size, the reminder, and `FrameGenToggle` (see below).
 
