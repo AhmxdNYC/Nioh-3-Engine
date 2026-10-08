@@ -8598,9 +8598,9 @@ rva	kind	name	signature	description	confidence	source
 0x23a0190	function	ScriptBind_Hell_StatusUpReward		script VM native binding Hell::StatusUpReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239ff58	function	ScriptBind_Hell_RequestHellStageSetup		script VM native binding Hell::RequestHellStageSetup (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239fb5c	function	ScriptBind_Hell_IsEndHellStageSetup		script VM native binding Hell::IsEndHellStageSetup (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x239faa0	function	ScriptBind_Hell_IsClearMapOnlySmallHell		script VM native binding Hell::IsClearMapOnlySmallHell (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a00f0	function	ScriptBind_Hell_SetClearMapOnlySmallHell		script VM native binding Hell::SetClearMapOnlySmallHell (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x239ffb8	function	ScriptBind_Hell_ResetClearMapOnlySmallHell		script VM native binding Hell::ResetClearMapOnlySmallHell (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x239faa0	function	Script_Hell_IsClearMapOnlySmallHell	script wrapper	reads 0x2845C8 (was ScriptBind_Hell_IsClearMapOnlySmallHell)	high	notes/boss-rift-ngplus.md
+0x23a00f0	function	Script_Hell_SetClearMapOnlySmallHell	script wrapper	sets clear map (was ScriptBind_Hell_SetClearMapOnlySmallHell)	high	notes/boss-rift-ngplus.md
+0x239ffb8	function	Script_Hell_ResetClearMapOnlySmallHell	script wrapper	un-clears hell id if mission record type(+0xC0)==3 (was ScriptBind_Hell_ResetClearMapOnlySmallHell)	high	notes/boss-rift-ngplus.md
 0x23a0058	function	ScriptBind_Hell_ResetSettingHellEntrance		script VM native binding Hell::ResetSettingHellEntrance (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239a368	function	ScriptBind_Emaki_GetStageID		script VM native binding Emaki::GetStageID (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239a2c8	function	ScriptBind_Emaki_GetHellID		script VM native binding Emaki::GetHellID (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
@@ -8855,7 +8855,7 @@ rva	kind	name	signature	description	confidence	source
 0x23a63c4	function	ScriptBind_Online_CloseOnlineMode		script VM native binding Online::CloseOnlineMode (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a6438	function	ScriptBind_Online_GuestReturn		script VM native binding Online::GuestReturn (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23aca2c	function	ScriptBind_Random_GetRand		script VM native binding Random::GetRand (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23b1f48	function	ScriptBind_System_UnlockNextMissionMode		script VM native binding System::UnlockNextMissionMode (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x23b1f48	function	Script_System_UnlockNextMissionMode	script wrapper	st+0x44=max(+0x44,+0x10) then UnlockNextJourneyLevelStep (was ScriptBind_System_UnlockNextMissionMode)	high	notes/boss-rift-ngplus.md
 0x23b1a48	function	ScriptBind_System_GotoTitleMode		script VM native binding System::GotoTitleMode (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23b1968	function	ScriptBind_System_GotoCharacterCreateMode		script VM native binding System::GotoCharacterCreateMode (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23b1900	function	ScriptBind_System_DemoVersionEnd		script VM native binding System::DemoVersionEnd (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
@@ -8903,10 +8903,10 @@ rva	kind	name	signature	description	confidence	source
 0x1de28e8	function	MenuOpenMissionReplay	void(owner,int,u8 mode)	opens [0x45C84A8]+0x4E0 menu (mission replay), mode 6 from UI::OpenMissionReplayMenu	medium	notes/boss-rematch-paths.md
 0x1dafe64	function	ShrineTopMenu_Select		option 0 opens mission replay, option 1 opens [0x45C84A8]+0x4E8 menu	low	notes/boss-rematch-paths.md
 0x1db6f4c	function	MissionMenu_OnClose		mode 1 -> MissionRequestReturn	low	notes/boss-rematch-paths.md
-0x219feb4	function	ClearMapSet	void(u16 areaId, bool v)	clear-map setter on g_ClearDb [0x4751848]	medium	notes/boss-rematch-paths.md
-0x217e884	function	ClearMapSetEntry	void(db, u16 id, bool v, bool notify)	writes clear-map entry bytes (+0x23/+0x2B slot), trophies for type 1	medium	notes/boss-rematch-paths.md
+0x219feb4	function	SetSmallHellClearMap	void SetSmallHellClearMap(u16 id, char v)	toggle clear-map state; v=0 un-clears (was ClearMapSet)	high	notes/boss-rift-ngplus.md
+0x217e884	function	ClearDbSetMissionState	void ClearDbSetMissionState(Db* db, u16 id, char cleared, char notify)	sets/clears per-slot clear bytes (+0x428 map), first-clear rewards (was ClearMapSetEntry)	high	notes/boss-rift-ngplus.md
 0x2845c8	function	ClearMapGet	bool(db, u16 id)	FNV-1a 2-byte id, table [db+8]+0x428, byte +0x23+slot	medium	notes/boss-rematch-paths.md
-0x285808	function	AreaRecordGet		area record lookup in [0x45B9E30]+0x630 (0xC4 B, +0xC0 type)	medium	notes/boss-rematch-paths.md
+0x285808	function	MissionRecordById	Rec* MissionRecordById(Tbl* t, u16 id)	hash lookup, 0xC4-byte records (+0xC0 type byte) (was AreaRecordGet)	high	notes/boss-rift-ngplus.md
 0x1ca7468	function	RetryGadget_ResurrectPlayers		revive loop over players (Gadget::Retry::Resurrect)	low	notes/boss-rematch-paths.md
 0x297f2dc	function	TrophyUnlock	void TrophyUnlock(uint idx, bool flag)	game-side trophy unlock; idx==ACH number; writes record + syncs to Steam via 1fdc0f0	high	notes/boss-achievements.md
 0x297f14c	function	TrophyIsUnlocked	bool TrophyIsUnlocked(uint idx)		high	notes/boss-achievements.md
@@ -8945,3 +8945,12 @@ rva	kind	name	signature	description	confidence	source
 0x45c84a8	global	g_UiManager	UiMgr*	+170h fade widget, +430h blocking widget, +748h loading screen	medium	notes/loading-bottleneck.md
 0x45b9e60	global	g_ObjectManager	ObjMgr*	object list walked by ObjectListAnyNotReady 13335C (object ready byte +2C8h)	medium	notes/loading-bottleneck.md
 0xa429f4	function	Script_Load_Character		mission-script Load::Character (table 3980A40)	high	notes/loading-bottleneck.md
+0x285448	function	MissionSlotIndex	int MissionSlotIndex(Sel* s)	slot 0..5 for flag/clear arrays: kind 6->[mgr+8]+0x10, mode==2 -> 0, else kind 1..5	high	notes/boss-rift-ngplus.md
+0x285d38	function	IsMissionMode2Active	bool IsMissionMode2Active(Mgr* m)	[m+8]+0x28!=0 && +0x24==2	medium	notes/boss-rift-ngplus.md
+0x285ac0	function	FindScalingRowByJourneyLevel	Row* FindScalingRowByJourneyLevel(Tbl* t, u8 key)	row with byte+0xE==key and level<=[st+0x408+slot*4]	medium	notes/boss-rift-ngplus.md
+0x2180aec	function	SetNextJourneyLevel	void SetNextJourneyLevel(Mgr* m, u8 level)	sets st+0x45, raises +0x44, sets mission flags 0x7F (>=2) and 0x190 (>=3)	high	notes/boss-rift-ngplus.md
+0x1c28b84	function	UnlockNextJourneyLevelStep	void UnlockNextJourneyLevelStep()	from +0x44 (1,2,3) picks next level 2/3/4 and calls SetNextJourneyLevel	medium	notes/boss-rift-ngplus.md
+0x1c1db88	function	SetMissionCleared	void SetMissionCleared(u32 missionId)	body of Mission::SetMissionClearFlag: clear db entries, rewards, retry points	high	notes/boss-rift-ngplus.md
+0x23e4228	function	Script_Mugen_IsAllMugenBossesDead	script wrapper	Rift/boss-rush lead; reads one bool	medium	notes/boss-rift-ngplus.md
+0x107bb78	function	ClearDbGetClearedU16	u8 ClearDbGetClearedU16(Db* db, u16 id)	FNV-1a over u16 id, byte entry+0x12+slot	high	notes/boss-rift-ngplus.md
+0x2280fa0	function	GetGameClearRewardId	void GetGameClearRewardId(char hard)	1->(0x4472,0xCD6F) 2->(0x7730,0x2641)	medium	notes/boss-rift-ngplus.md
