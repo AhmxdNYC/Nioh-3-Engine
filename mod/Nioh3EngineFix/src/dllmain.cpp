@@ -41,6 +41,7 @@
 #include "fnprobe.h"
 #include "padlat.h"
 #include "tour.h"
+#include "vpad.h"
 #include "autocont.h"
 #include "drawprep.h"
 #include "loadonly.h"
@@ -54,7 +55,7 @@
 // 1.7.34: fnprobe.cpp (FnProbe live function probe, notes\remaining-work.md 10.1; tools\playsession)
 // 1.7.35: padlat.cpp (PadLatency controller input -> Present / GPU-done latency, notes\pad-latency.md)
 // 1.7.36: tour.cpp (Tour mode: automatic stage / point tour with saves blocked, notes\tour-mode.md)
-#define MOD_VERSION "1.7.36"
+#define MOD_VERSION "1.7.37"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1429,6 +1430,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "RM")) return false;  // RematchLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
+        if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
@@ -2396,6 +2398,19 @@ DWORD WINAPI Worker(LPVOID) {
             fi.base = reinterpret_cast<uintptr_t>(g_base);
             fi.knownBuild = known;
             fnprobe::Start(fi);
+        }
+        {  // VirtualPad / KeepRunningUnfocused (vpad.cpp, [Debug] both 0 by default; notes\virtual-input.md). Before padlat /
+           // osd: our XInputGetState IAT hook then sits innermost, the mod menu and PadLatency see the virtual pad like a real one
+            vpad::StartInfo vi;
+            vi.log = &Log;
+            vi.iniPath = iniPath.c_str();
+            vi.base = g_base;
+            vi.knownBuild = known;
+            vi.version = MOD_VERSION;
+            vi.menuRemote = &menu::Remote;
+            vi.pauseReason = &menu::GamePauseReason;
+            vpad::Start(vi);
+            if (vpad::KeysWanted()) menu::SetKeyFilter(&vpad::KeyFilter);
         }
         {  // PadLatency (padlat.cpp, [Debug] PadLatency = 0 by default; notes\pad-latency.md): measurement only
             padlat::StartInfo li;

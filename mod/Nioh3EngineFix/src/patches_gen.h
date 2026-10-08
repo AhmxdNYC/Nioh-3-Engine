@@ -273,6 +273,10 @@ static const uint8_t orig_RM26[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0
 static const uint8_t orig_RM27[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 static const uint8_t orig_RM28[] = { 0x40, 0x53, 0x48, 0x81, 0xEC, 0x70, 0x01, 0x00, 0x00 };
 static const uint8_t orig_RM29[] = { 0x48, 0x83, 0xEC, 0x48, 0x49, 0x8B, 0x11 };
+static const uint8_t orig_VP0[] = { 0x48, 0x8B, 0x05, 0x11, 0x2C, 0x32, 0x04, 0x48, 0x85, 0xC0, 0x74, 0x07, 0x8A, 0x80, 0xAB, 0x01, 0x00, 0x00, 0xC3, 0xC3 };
+static const uint8_t orig_VP1[] = { 0xE8, 0x9B, 0x05, 0x00, 0x00 };
+static const uint8_t orig_VP2[] = { 0xE8, 0xD3, 0x02, 0x00, 0x00 };
+static const uint8_t orig_VP3[] = { 0xE8, 0xF6, 0xB9, 0xB9, 0xFF };
 static const uint8_t orig_AC1[] = { 0xE8, 0x5E, 0x6E, 0x59, 0xFE };
 static const uint8_t orig_TT1[] = { 0xE8, 0x43, 0xD7, 0xE4, 0xFF };
 static const uint8_t orig_SB1[] = { 0xE8, 0x78, 0x0C, 0x00, 0x00 };
@@ -507,6 +511,10 @@ static const Site kSites[] = {
     { "RM27", "RM", 0x23AB7C4, 5, orig_RM27, "48 89 5C 24 10 57 48 81 EC 70 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 60 01 00 00 48 8B F9", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "RM28", "RM", 0x23AAA64, 9, orig_RM28, "40 53 48 81 EC 70 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 60 01 00 00 48 8B D1 48 8D 4C 24 30 E8 ?? ?? ?? ?? 83 64 24 20 00 48 8D 54 24 20 48 8D 4C 24 30 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 11 8A 8A A6 26 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "RM29", "RM", 0x1FD6DD0, 7, orig_RM29, "48 83 EC 48 49 8B 11 49 83 C8 FF 48 8B 44 24 78", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "VP0", "VP", 0x436CF8, 20, orig_VP0, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 07 8A 80 AB 01 00 00 C3 C3", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "VP1", "VP", 0x436758, 5, orig_VP1, "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F 48 8B 05 ?? ?? ?? ?? 48 85 C0 74 13", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x436CF8 },
+    { "VP2", "VP", 0x436A20, 5, orig_VP2, "48 83 EC 28 E8 ?? ?? ?? ?? 84 C0 75 16 48 8B 05 ?? ?? ?? ?? 48 85 C0 74 0A 80 78 3E 00", 4, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x436CF8 },
+    { "VP3", "VP", 0x89B2FD, 5, orig_VP3, "80 78 3B 00 74 21 84 DB 75 1D E8 ?? ?? ?? ?? 84 C0 75 0C 41 88 A9 08 9B 06 00", 10, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x436CF8 },
     { "AC1", "AC", 0x1CECAED, 5, orig_AC1, "40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 84 C0 74 26 E8 ?? ?? ?? ?? 84 C0 75 1D E8", 9, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x283950 },
     { "TT1", "TR", 0x56529C, 5, orig_TT1, "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B29E4 },
     { "SB1", "TR", 0x5B6F37, 5, orig_SB1, "E8 ?? ?? ?? ?? 44 38 25 ?? ?? ?? ?? 8A D8", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5B7BB4 },

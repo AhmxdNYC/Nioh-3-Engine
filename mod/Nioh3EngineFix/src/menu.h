@@ -109,6 +109,16 @@ int GamePauseReason();
 // "F10 / Esc x3 / Start x3": all ways to open the menu (startup popup, pause hint)
 const char* OpenHint();
 
+// ---- remote control (vpad.cpp pipe thread, 1.7.37): get (set = 0) or set one item by key, executed on the Present thread
+// exactly like a menu press (same 'MENU: <label> -> <value>' log line). Keys: the item's tech id without parentheses / spaces
+// (GF W6 MQ PP B VRR W3 R1 L1 F1 WK GPU R2a AutoContinueLoad PauseHint WorkerCap ...), the [Patches] ini key of an experimental
+// item (WakeStats), or FPS / FrameTime / Speed. Bool items take 0/1, R1 0-16, maxlatency 0-3, PauseHint 0-2. Frame generation
+// and Save are not remote. Returns 0 ok (reply = "<label> = <value>"), < 0 error (reply says why).
+int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs);
+// vpad.cpp: filter for the game's 256-byte DirectInput keyboard reads, called before the menu looks at them (true = report
+// success to the game). Set before osd::Start.
+void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk));
+
 // ---- W3 hookPeek (game's message thread): swallow the menu key (keeps Windows from entering the F10 system-menu
 // mode) and, while the menu is open, the navigation keys. Only WM_KEY*/WM_SYSKEY* are looked at.
 bool SwallowMessage(const tagMSG* m);

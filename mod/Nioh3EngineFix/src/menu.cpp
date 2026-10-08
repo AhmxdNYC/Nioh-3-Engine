@@ -23,6 +23,7 @@
 #include <xinput.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdarg>
 #include <cstdint>
@@ -406,11 +407,15 @@ DWORD WINAPI HkXInputGetState(DWORD idx, XINPUT_STATE* st) {
 using GetDeviceState_t = HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, void*);
 GetDeviceState_t g_gdsW = nullptr, g_gdsA = nullptr;
 thread_local int t_diDepth = 0;
+bool (*volatile g_keyFilter)(uint8_t*, bool) = nullptr;  // vpad.cpp (VirtualPad): virtual keys, real keys hidden while unfocused
 
 HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     ++t_diDepth;  // Wine's A method calls the W one: only the outermost call looks at the data
-    const HRESULT hr = orig(self, cb, data);
+    HRESULT hr = orig(self, cb, data);
     --t_diDepth;
+    if (t_diDepth == 0 && cb == 256 && data)
+        if (auto f = g_keyFilter)
+            if (f(static_cast<uint8_t*>(data), SUCCEEDED(hr))) hr = DI_OK;
     if (t_diDepth == 0 && SUCCEEDED(hr) && cb == 256 && data && !g_disabled) {  // 256 bytes = keyboard state
         g_lastKeyFeed = (LONG64)Now();
         KeyFeedSafe(static_cast<uint8_t*>(data), false);
@@ -1453,6 +1458,128 @@ void Move(int dir) {
     }
 }
 
+// ---- remote control (vpad pipe -> Present thread) ---------------------------------------------------------------------------
+// One request at a time: the caller posts it (state 1), the Present thread takes it (2), runs it and marks it done (3).
+struct RemoteReq {
+    char key[48];
+    int set, value, rc;
+    char reply[200];
+};
+RemoteReq g_rem;
+SRWLOCK g_remLock = SRWLOCK_INIT;  // serialises Remote() callers
+volatile LONG g_remState = 0;
+
+void NormKey(const char* s, char* out, size_t n) {  // drop parentheses / spaces, upper case
+    size_t k = 0;
+    for (; *s && k + 1 < n; ++s)
+        if (*s != '(' && *s != ')' && *s != ' ') out[k++] = (char)toupper((unsigned char)*s);
+    out[k] = 0;
+}
+int FindItem(const char* key) {
+    char want[48], have[48];
+    NormKey(key, want, sizeof(want));
+    if (!strcmp(want, "FPS")) return kFps;
+    if (!strcmp(want, "FRAMETIME")) return kFrameTime;
+    if (!strcmp(want, "SPEED")) return kSpeed;
+    for (int id = 0; id < kCount; ++id) {  // enum order: kL1 / kF1 come before their Proton next-launch twins
+        if (!kItems[id].tech[0]) continue;
+        NormKey(kItems[id].tech, have, sizeof(have));
+        if (!strcmp(want, have)) return id;
+    }
+    for (int e = 0; e < kNumExp; ++e) {
+        char k[48];
+        WideCharToMultiByte(CP_UTF8, 0, kExpIniKey[e], -1, k, (int)sizeof(k), nullptr, nullptr);
+        NormKey(k, have, sizeof(have));
+        if (!strcmp(want, have)) return kXW6 + e;
+    }
+    return -1;
+}
+// current value of a remotely settable item; false = not settable remotely
+bool RemoteValue(int id, int& v) {
+    osd::OverlaySettings& o = osd::Overlay();
+    if (IsExp(id)) {
+        const ExpFix& x = g_host.exp[id - kXW6];
+        v = x.enable ? (*x.enable != 0) : (g_expIni[id - kXW6] != 0);
+        return true;
+    }
+    switch (id) {
+        case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: v = LiveBool(id) ? 1 : 0; return true;
+        case kR1: v = (int)*g_host.r1Timeout; return true;
+        case kLat: v = o.maxLatency; return true;
+        case kGpu: v = gpuopt::Batching() ? 1 : 0; return true;
+        case kGR2a: case kGR2b: case kGR1: v = gpuopt::Rewrite(id - kGR2a) ? 1 : 0; return true;
+        case kFps: v = o.fpsCounter ? 1 : 0; return true;
+        case kFrameTime: v = o.frameTime ? 1 : 0; return true;
+        case kSpeed: v = o.speed ? 1 : 0; return true;
+        case kAutoCont: v = *g_host.autoContinue ? 1 : 0; return true;
+        case kHint: v = g_cfg.pauseHint; return true;
+        case kWorkerCap: v = g_bootWorkerCap; return true;
+        case kP12: v = g_bootP12; return true;
+        case kL1Wine: v = g_bootL1Wine; return true;
+        case kFgWine: v = g_bootFgWine; return true;
+        default: return false;
+    }
+}
+void LogItem(int id) {
+    char v[64];
+    uint32_t c;
+    Value(id, v, sizeof(v), c);
+    MLOG("%s%s%s -> %s", kItems[id].plain, kItems[id].tech[0] ? " " : "", kItems[id].tech, v);
+}
+void RunRemote(RemoteReq& q) {
+    q.rc = -1;
+    const int id = FindItem(q.key);
+    if (id < 0) {
+        snprintf(q.reply, sizeof(q.reply), "no menu item '%s'", q.key);
+        return;
+    }
+    int cur = 0;
+    if (!Visible(id) || ReadOnly(id) || !Available(id) || !RemoteValue(id, cur)) {
+        snprintf(q.reply, sizeof(q.reply), "'%s' (%s) is %s", q.key, kItems[id].plain,
+                 !Visible(id) || !Available(id) ? "not installed / not shown this session" : "not settable remotely");
+        return;
+    }
+    if (q.set) {
+        osd::OverlaySettings& o = osd::Overlay();
+        switch (id) {
+            case kR1:
+                *g_host.r1Timeout = (uint32_t)std::clamp(q.value, 0, 16);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kLat:
+                o.maxLatency = std::clamp(q.value, 0, 3);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kHint:
+                g_cfg.pauseHint = std::clamp(q.value, 0, 2);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kWorkerCap:
+                g_bootWorkerCap = q.value <= 0 ? 0 : std::clamp(q.value, 6, 31);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            default:  // bool items: one menu press when the state differs (logs 'MENU: <label> -> <value>')
+                if ((cur != 0) != (q.value != 0)) Change(id, 0);
+                break;
+        }
+        RemoteValue(id, cur);
+    }
+    char v[64];
+    uint32_t c;
+    Value(id, v, sizeof(v), c);
+    snprintf(q.reply, sizeof(q.reply), "%s%s%s = %s (value %d)", kItems[id].plain, kItems[id].tech[0] ? " " : "", kItems[id].tech, v, cur);
+    q.rc = 0;
+}
+void ProcessRemote() {
+    if (InterlockedCompareExchange(&g_remState, 2, 1) != 1) return;
+    RunRemote(g_rem);
+    InterlockedExchange(&g_remState, 3);
+}
+
 // ---- per-present processing -----------------------------------------------------------------------------------------------
 struct Rates {
     ULONGLONG t0 = 0;
@@ -1673,6 +1800,7 @@ void OnPresentImpl() {
     OwnPolling(t);
     SampleRates(t);
     PauseDetect(t);  // also feeds the frame-generation status row (why FG is paused)
+    ProcessRemote();  // vpad pipe: 'menu get / set' (1.7.37)
     if (InterlockedExchange(&g_toggleReq, 0) && t - (ULONGLONG)g_toggleAt < 1000) {
         const LONG src = g_toggleSrc;
         if (g_open) Close(SrcName(src));
@@ -2196,6 +2324,41 @@ float Draw(unsigned W, unsigned H) {
 
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }
+
+void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk)) { g_keyFilter = filter; }
+
+int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs) {
+    if (!Enabled()) {
+        snprintf(reply, n, "mod menu off ([Menu] Enabled = 0 or disabled this session)");
+        return -1;
+    }
+    AcquireSRWLockExclusive(&g_remLock);
+    snprintf(g_rem.key, sizeof(g_rem.key), "%s", key ? key : "");
+    g_rem.set = set;
+    g_rem.value = value;
+    g_rem.rc = -1;
+    g_rem.reply[0] = 0;
+    InterlockedExchange(&g_remState, 1);
+    const ULONGLONG t0 = Now();
+    while (g_remState == 1 && Now() - t0 < timeoutMs) Sleep(2);
+    int rc;
+    if (InterlockedCompareExchange(&g_remState, 0, 1) == 1) {  // never taken
+        snprintf(reply, n, "timeout: the overlay did not present for %u ms (game minimised / not rendering?)", timeoutMs);
+        rc = -2;
+    } else {
+        while (g_remState != 3 && Now() - t0 < timeoutMs + 2000) Sleep(1);  // taken: RunRemote is short
+        if (g_remState == 3) {
+            snprintf(reply, n, "%s", g_rem.reply);
+            rc = g_rem.rc;
+        } else {
+            snprintf(reply, n, "the Present thread did not finish the request");
+            rc = -3;
+        }
+        InterlockedExchange(&g_remState, 0);
+    }
+    ReleaseSRWLockExclusive(&g_remLock);
+    return rc;
+}
 const char* OpenHint() {
     static char buf[96];
     snprintf(buf, sizeof(buf), "%s", GestureText().c_str());

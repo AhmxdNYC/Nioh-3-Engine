@@ -80,6 +80,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem Tour: automatic stage / point tour, saves blocked ([Debug] Tour = 0 by default; notes\tour-mode.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\tour.obj src\tour.cpp || exit /b 1
+rem VirtualPad / KeepRunningUnfocused: pipe-driven test input, no OS input ([Debug] VirtualPad = KeepRunningUnfocused = 0; notes\virtual-input.md)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\vpad.obj src\vpad.cpp || exit /b 1
 rem skip the post-load "press to continue" tip page ([General] AutoContinueLoad = 0 by default; notes\auto-continue-load.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\autocont.obj src\autocont.cpp || exit /b 1
@@ -100,7 +103,7 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
    /Fobuild\psojournal.obj src\psojournal.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bosslog.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gimerge.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\drawprep.obj build\drawprep_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
+   build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bosslog.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gimerge.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\drawprep.obj build\drawprep_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal
