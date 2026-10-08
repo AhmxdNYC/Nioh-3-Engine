@@ -28,15 +28,20 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 | 2.8 | AS0 / AS-N async slots (AMD), TG tick governor (behaviour change, opt-in only) | matrix (dropped-but-kept) | in matrix | y |
 
 ## 3. GPU side (Ally is GPU-bound: only these move Ally fps)
+Measured Ally budget: `ally-gpu-budget.md` (2026-10-08). USER preset (LIGHTEST, REN_RAT 50) = ~31 ms GPU, FSR3 3.7 ms; MAX native = ~61 ms, FSR3 7.0 ms.
+Old Ally ms from `gp2_L*_full` were menu-diluted (26 of 38 windows = title menu) and the 175 logs are REN_RAT 100, not 540p. M = Ally-measured, E = estimate.
+Top 3 measured targets: FSR3 accumulate 2.1 ms USER (fp16 rebuild 0.2-0.5 E, user decision), culling chain 3.5-4.5 ms USER (0.1-0.5 E), VSM shadows 2.6-3.8 ms USER (3.6 census). ~22 ms of the USER frame has no per-PSO data yet -> GP2 Top=100 session (`ally-gpu-budget.md` s7) first.
+
 | # | item | owner / status | effort | game |
 |---|---|---|---|---|
-| 3.1 | Per-shader Ally A/B of the staged pack: ESM_fast, WDO#28, MPC#23, toonedge2, mshlod, gi #121/#414, VFSCAT fog, post-v1 (RULE: none ships without an Ally win) | matrix / Ally sessions | 2-3 h game | y |
-| 3.2 | GI A0/A1 empty-wave light-group merge (0.7-1.9 ms Ally, `gi-highest-audit.md` s5) - needs an ASI probe first | free (opus); src owned by 1.3 -> new file + integration note | 6-10 h | y |
-| 3.3 | ~~Exe-embedded post chain via psoswap (MB/DOF/bloom/TAA, 8-10 ms Ally)~~ CLOSED 2026-10-08: the 8-10 ms was a PC x 6 estimate; Ally GP2 1.7.5 = game post chain 0.17 ms/frame, exe full-screen copies 1.44 ms (bandwidth-bound, no identical rewrite), FSR3 7 ms (user setting). No shader written; post-v1 not shipped. Mislabel fixed, A/B protocol + `shotdiff.py` in `gpu-post-runtime.md` s7-8 | DONE | - | n |
-| 3.4 | RADV prescreen tool for VCLOUD hoist + SFB dedupe (+ any new rewrite) | free; blocked on an Ally-side tool | 4 h | y |
-| 3.5 | WDO#14 VSM page-flag dedupe (0.2-0.4 ms Ally) - needs PS port of the DXIL->HLSL tooling | free | 6 h | n (build), y (A/B) |
-| 3.6 | TileStats=2 / TileBatch=2 census (tilestats.cpp built, not wired) | free; integration after 1.3 | 2 h + 1 h game | y |
-| 3.7 | ESM 2048->1024 (1.5 ms Ally) - changes the look: only as an opt-in with user visual sign-off | free; user decision | 2 h | y |
+| 3.1 | Per-shader Ally A/B of the staged pack. M: gi #121 +1.5 ms, fog +0.5, toonedge2 >= +0.13 SLOWER (drop confirmed); WDO#28 unresolved (orig still ran). ESM_fast (0-0.9) and MPC#23/mshlod (0.11-0.24) values are PC-scaled E, every target PSO < 0.42 ms at MAX; post-v1 closed by 3.3. RULE: none ships without an Ally win | matrix / Ally sessions; GP2 Top=100 run first | 2-3 h game | y |
+| 3.2 | GI A0/A1 light-group merge. The "0.7-1.9 ms Ally" was PC r5 x 6-8 (E). Re-anchored on measured PSO totals (#121 3.14 + #414 2.36 ms at MAX): ~0.25-0.5 ms at MAX, ~0.02-0.03 ms at the USER preset (E). Low priority; still needs A0 first | free (opus); src owned by 1.3 -> new file + integration note | 6-10 h | y |
+| 3.3 | ~~Exe-embedded post chain via psoswap (MB/DOF/bloom/TAA, 8-10 ms Ally)~~ CLOSED 2026-10-08: the 8-10 ms was a PC x 6 estimate. Gameplay-only recheck: compose 6a305be4 0.46 ms/frame (not 0.17; menu-diluted), DOF/MB/CA rare; exe blits >= 3.2 ms (not 1.44), straight-line. Verdict unchanged; post-v1 not shipped (`gpu-post-runtime.md` s7-8) | DONE | - | n |
+| 3.4 | RADV prescreen tool for VCLOUD hoist + SFB dedupe + FSR3 rebuilds (R1 fp16 / R2 wave size, `ally-gpu-budget.md` s5). M targets: VCLOUD CS 1.50 ms async, PB2 opaque 2.91 ms at MAX (4x the old figures); both rewrites fail the register rule | free; blocked on an Ally-side tool | 4 h | y |
+| 3.5 | WDO#14 VSM page-flag dedupe - needs PS port of the DXIL->HLSL tooling. M: shader 1.08 ms at MAX; win 0.2-0.4 ms MAX, ~0.05-0.1 ms USER (E) | free | 6 h | n (build), y (A/B) |
+| 3.6 | TileStats=2 / TileBatch=2 census (tilestats.cpp built, not wired). Targets a measured block: VirtualShadowmap + Batch Tiles 8 = 2.6-3.8 ms USER, 4.5 ms MAX | free; integration after 1.3 | 2 h + 1 h game | y |
+| 3.7 | ESM 2048->1024 - changes the look: only as an opt-in with user visual sign-off. "1.5 ms Ally" was PC 0.2 ms x 7.5 (E); no ESM PSO reaches 0.42 ms at MAX, likely over-stated | free; user decision; measure first | 2 h | y |
+| 3.8 | FSR3 upscaler (user setting): 3.7 ms USER / 7.0 ms MAX (M); output-res part ~2.6 ms is fixed. Upscaler-mode arms (XeSS, OFF, sharpness 0, FG, REN_RAT 67/100) not measured -> protocol `ally-gpu-budget.md` s7. Only lever > 0.2 ms: R1 fp16 rebuild (near-look, ask the user) | free; Ally session + user decision | 1 h game | y |
 
 ## 4. Loading
 | # | item | owner / status | effort | game |
@@ -96,4 +101,4 @@ Columns: owner/status | effort (agent-hours, game-hours) | needs game. "free" = 
 ## Order to finish
 1.1-1.4 (running) -> 4.2, 6.6, 10.3 (no game, small) -> 2.2 + 6.1 + 4.3 on the next PC/Ally turns -> 3.1 Ally shader A/Bs ->
 8.1 matrix -> 7.2 flip -> 9.3 final build -> 8.2 benchmark with the user -> 6.2 long sessions -> 8.3 / 10.2.
-Larger optional levers if budget remains: 3.2 GI merge, 2.3 submit filters (3.3 closed: nothing to gain; the only big post-side block is FSR3, a user setting).
+Larger optional levers if budget remains: first the Ally GP2 Top=100 session at the USER preset (`ally-gpu-budget.md` s7, fills the ~22 ms unattributed), then 3.6 census, 3.8 R1 (user decision), 2.3 submit filters; 3.2 GI merge is now low value (~0.25-0.5 ms at MAX only, E).

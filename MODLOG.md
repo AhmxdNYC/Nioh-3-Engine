@@ -538,3 +538,15 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Why: Ally R2 ABBA on 1.7.25 (EP auto in every arm): SR=1 47.25 -> 38.45 s (-8.8 s); site 740392 avg 47 -> 17 us per read, ~550k reads served, ~7.6k private handles, 0 failed. Cumulative Ally load ~94 -> ~38.5 s. Logs `captures\ally\1725\`.
 - release\profiles.json ALLY: SR = -1 (kept). test_patterns ALL 212 SITES OK; READFIX / READPROBE / PREFETCH HARNESS ALL OK. Built, not run in game.
 - Undo: SR = 0 in the ini, or the 1.7.27 .asi.
+
+## 2026-10-08 - Ally GPU budget from measured data (repo only; game not run, nothing in the game folder)
+- notes\ally-gpu-budget.md: ranked Ally GPU tables, gameplay windows only, from logs on disk. Two tables: USER preset
+  (LIGHTEST, REN_RAT 50; GP1 markers 1723/1725, ~31 ms frame) and MAX native (175-L2 GP2 per-PSO, ~61 ms frame).
+- Found: the gp2_L*_full tables averaged 26 menu windows of 38. FSR3 dominated them and gameplay PSOs were cut ~5-6x
+  (RefProbe #121 0.56 -> 3.14 ms, compose 0.093 -> 0.46, exe blits 1.44 -> >= 3.2). The 175 logs are REN_RAT 100, not 540p
+  (render-res FSR passes 3.7-4x the 50 % run, output-res passes equal).
+- FSR3 = 3.7 ms at the user's REN_RAT 50 and 7.0 ms at native AA (M). Fit 2.56 + 4.43 r^2 ms; the output-res part ~2.6 ms is fixed.
+- Section 3 re-checked: 3.2 GI merge 0.7-1.9 -> ~0.25-0.5 ms MAX / ~0.03 USER (E, anchored). ESM_fast, MPC#23 and ESM 2048
+  values were PC-scaled. Top targets: FSR3 accumulate 2.1 ms, culling chain 3.5-4.5 ms, VSM 2.6-3.8 ms (USER).
+- New re\scripts_gpu\ally_budget.py (gameplay-window filter for GP1 / GP2 logs). remaining-work s3 updated (+3.8 FSR3 row).
+- Undo: none needed (docs/tools only).
