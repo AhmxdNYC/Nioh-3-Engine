@@ -48,3 +48,8 @@ Static analysis of v2.02 (image base 0x7FF74F410000, RVAs below), via `D:\nioh3-
 
 ## Recommendation
 Build the rematch on **Battle Scrolls**: hook-log `EmakiMissionRequest` once, then a solo-only menu that calls it with a chosen emaki id. Extending to bosses without a scroll needs the Emaki table owner (`[0x45B9E30]+0xA88` loader) traced and one record patched in memory before the call. Fallback: mission replay/queue (section 2/3) for story bosses.
+
+## Open items
+1. Emaki table owner/loader for `[0x45B9E30]+0xA88` (candidate refs to disp 0xA88: 0x102B840, 0x3B35B4) and its source data file; only UI layouts (`20_10_emaki_base`, `_incense_parts`, `_special_effect_swap_*`, `_transference_*`, `00_gauge_emaki`) were found in `data\extract\root\0x6d011726.kidsobjdb`, so scrolls also have incense / effect-swap / transfer customisation.
+2. Scroll unlock/grant (item add) path and the emaki-key -> record-byte hash inside 0x10DBED0 (helper at 0x43BB60 has no .pdata entry).
+3. Live log of one scroll start (hook 0x10DBED0) to confirm record fields `+0x10` (boss placement) and `+0x2C` (hell id).
