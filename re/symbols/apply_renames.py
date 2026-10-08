@@ -30,7 +30,11 @@ def main(paths):
         done = 0
         for k, q in new.items():
             r = index.get(k)
-            if r is None:
+            if r is None:  # not in the DB yet: add it as a new row
+                r = (q + [''] * len(cols))[: len(cols)]
+                data.append(r)
+                index[k] = r
+                done += 1
                 continue
             old = r[2]
             for i in range(1, min(len(q), len(r))):
