@@ -20,6 +20,22 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ---
 
+## Decompilation progress
+
+![functions named](https://img.shields.io/badge/functions%20named-0.33%25%20(688/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-82.03%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-96.56%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-55/63-green)
+
+Every function in `Nioh3.exe` (211k function starts from `.pdata`), grouped by game area; block size = code size, each cell = 42 functions, green = real name, amber = `Unknown_*` (described, role unclear), grey = not named yet:
+
+![Full game decompilation progress](docs/progress/full_game.svg)
+
+Only the functions that show up in our CPU profiles (ROG Ally + PC, self time); block size = share of profiled time:
+
+![Performance-relevant decompilation progress](docs/progress/performance.svg)
+
+Regenerate with `py -I re\scripts_re\progress_treemap.py` (`--check` prints the numbers only). Area grouping is inferred from symbol names, so it is approximate.
+
+---
+
 ## Progress 2026-10-07: ROG Ally X (Proton) + what actually helped
 
 Goal: real 60 fps on the ROG Ally X (Bazzite/Proton, Z1 Extreme, 25 W) at max settings / native 1080p, low input delay; PC gains are a bonus. Rules: optimize the **game** only (no system/driver/TDP tweaks), same look. Everything ships in the ASI mod `mod\Nioh3EngineFix` (now **1.7.7**) plus optional shader files; every result below was measured on the Ally in real gameplay unless marked otherwise.
@@ -265,10 +281,9 @@ Notes:
 
 ## How close are we to "decompiling the whole game"?
 
-Short answer: **we can read all of it, but we only understand a tiny slice, and that's all performance work needs.**
+Short answer: we can read all of it, but we only understand a small slice, and that is all performance work needs. The live numbers (functions named, profiled CPU time covered, GPU passes mapped) are in [Decompilation progress](#decompilation-progress) above. Automatic Ghidra pseudo-code exists for every function, but without names, types or comments; full source reconstruction is not realistic (no debug symbols, RTTI stripped). Targeted reverse engineering of the hot spots is how every fix here was made.
 
-| Level | What it means | Progress |
-|---|---|---|
+---|---|---|
 | 1. Disassembly | Every instruction of the game's code turned into readable assembly | **100%**: 59.6 MB of code, **237,573 functions** found |
 | 2. Automatic decompilation | Any function can be turned into rough C-like pseudo-code on demand (Ghidra, ~10 s each) | **100% available**, but it's machine output with no names, types or comments |
 | 3. Understood and named | We know what a function does and why | **~250 functions, about 0.1%**: frame timing, frame limiter, settings loader, the CPU hotspots and spin loops, the upload-buffer bug, the worker-pool sizing, the frame-gen presenter, the main thread's draw preparation (draw-list walk, per-draw state emitter, meshlet streaming bookkeeping, UI glyph atlas), plus ~60 GPU shader pipelines (shadow filtering, reflection/GI gathers, ESM). |
