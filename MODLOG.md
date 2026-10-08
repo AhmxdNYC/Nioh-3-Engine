@@ -229,3 +229,9 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Thread 1A786A8 = in-house KIDS audio mix thread on XAudio2 (87 % blocked in a 100 ms event wait, no spin; ~0.126 core of real DSP: convolution reverb 5 %, voice decode 4.4 %). Candidate silent-input convolution skip designed, not applied (needs a probe). See `notes\perf-coverage.md` Addendum.
 - `re\symbols\incoming\audio-objupdate.tsv` (+8 rows) and `audio-objupdate-renames.tsv` (18 renames, apply in place). `re\scripts_re\perf_coverage.py` reads both: named coverage 96.5 -> 97.1 %.
 - Undo: delete the two TSVs and the Addendum; revert perf_coverage.py.
+
+## 2026-10-07 - FSR3 waste audit (analysis only, nothing installed, game not run)
+- `notes\fsr3-audit.md`: at Ally MAX (FSR 100 %, sharpness 1.0, FG OFF), no FSR3 work can be removed with an identical image. FG prepare/UI/FI is already skipped (gated on the FG ctx + FI swapchain ctx; no FI passes in GP2). GENERATE_REACTIVE is the only reactive input. RCAS is the single sharpen (no double sharpening). No create flag adds a pass. The context is re-created only on size/mode changes. The velocity-viewport fix is skipped at 100 %. The upscaled-depth copy is consumed by the post chain.
+- Research only (changes the look): the embedded FSR3 blobs are min16float (SFI0 MinimumPrecision), likely run as FP32 under vkd3d/RADV.
+- Symbols: `re\symbols\incoming\fsr3.tsv` (31 rows: Fsr3UpscalerExecute 0x18d8898, Fsr3EnsureContext 0x346948c, ffx-api exports, FSR3 globals, RenderSettings FSR fields).
+- Undo: delete the note and the TSV.

@@ -1,0 +1,31 @@
+rva	kind	name	signature	description	confidence	source
+0x18d8898	function	Fsr3UpscalerExecute	void Fsr3UpscalerExecute(void* p1, Gfx* g, Fsr3Inputs* in)	Per-frame FSR3 path: Fsr3EnsureContext, GENERATE_REACTIVE (0x10006, when RS+0x1ff8==2), upscale dispatch 0x10001, FG prepare 0x20004 (only if FG ctx+FI swapchain exist), upscaled-depth copy to 0x45c4328, FSR3VelocityViewportFix (render ratio != 1 only); callers PostEffectApply 0x6da118, FSR FG backend 0x34692bc	high	notes/fsr3-audit.md §1
+0x18d8a42	label	Fsr3Execute_ReactiveModeGate		cmp dword [rbp+0x2868],2 / jnz: RS+0x1ff8 reactive mode; 2 = generate reactive mask from opaque copy and use it as the reactive input	high	notes/fsr3-audit.md §3
+0x18d8bcd	label	Fsr3Execute_DispatchGenReactive		call ffxDispatch(ctx 0x45c4300, desc type 0x10006); out = 0x45c4318	high	notes/fsr3-audit.md §1
+0x18d8d8a	label	Fsr3Execute_ReactiveSlotSelect		upscale desc reactive = (RS+0x1ff8==2) ? 0x45c4318 : null; T&C always null	high	notes/fsr3-audit.md §1
+0x18d8ff2	label	Fsr3Execute_DispatchUpscale		call ffxDispatch(ctx 0x45c4300, desc type 0x10001 at rbp+0x180); public ffx-api layout + 1 extra resource (depth, COMPUTE_READ) before output + 9-dword tail after flags (custom fork)	high	notes/fsr3-audit.md §1
+0x18d9018	label	Fsr3Execute_FgPrepareGate		skips FG prepare (0x20004) / UI register (0x30002) / interpolation queries unless 0x47092b0 and 0x47092b8 are both non-null	high	notes/fsr3-audit.md §2
+0x346948c	function	Fsr3EnsureContext	void Fsr3EnsureContext(void* state, Gfx* g, PostFrameState* pfs, Fsr3CtxParams* p)	Creates FSR3 upscale ctx (flags DEPTH_INVERTED | AUTO_EXPOSURE if RS+0x2000) and FG ctx when FI swapchain exists; re-creates only when sizes, RS+0x1ffe, auto-exposure, FG mode RS+0x2058, FI swapchain ptr, HDR or p+9 change; allocates 0x45c4310/18/20/28/38	high	notes/fsr3-audit.md §1, §2 #5
+0x9a63a4	function	Fsr3DestroyContext	void Fsr3DestroyContext(int, Gfx* g)	Destroys FG ctx 0x47092b0 + upscale ctx 0x45c4300, unregisters UI resource, frees FSR3 textures; callers PostEffectApply, 0x346c424, Fsr3EnsureContext	high	notes/fsr3-audit.md §1
+0x34692f0	function	Fsr3SaveOpaqueColor	void Fsr3SaveOpaqueColor(void* p1, Gfx* g, PostFrameState* pfs)	Mid-frame CopyRect of scene color into 0x45c4310 (GP2 FSR3:SaveOpaqueColor) for GENERATE_REACTIVE; caller 0x19481ee	high	notes/fsr3-audit.md §1
+0x18dfdf4	function	ffxDispatch	ffxReturnCode_t ffxDispatch(ffxContext* ctx, const ffxDispatchDescHeader* desc)	AMD ffx-api loader entry (exe export ordinal 111), statically linked	high	notes/fsr3-audit.md §1
+0x18dfd50	function	ffxConfigure	ffxReturnCode_t ffxConfigure(ffxContext* ctx, const ffxConfigureDescHeader* desc)	AMD ffx-api loader entry (export ord 108)	high	notes/fsr3-audit.md §1
+0x18dfd74	function	ffxCreateContext	ffxReturnCode_t ffxCreateContext(ffxContext* ctx, ffxCreateContextDescHeader* desc, const ffxAllocationCallbacks* mem)	AMD ffx-api loader entry; called by Fsr3EnsureContext	high	notes/fsr3-audit.md §1
+0x18dfe18	function	ffxQuery	ffxReturnCode_t ffxQuery(ffxContext* ctx, ffxQueryDescHeader* desc)	AMD ffx-api loader entry; FSR3 path queries 0x10010001 (internal resource 0x33 = upscaled depth source)	high	notes/fsr3-audit.md §1
+0x3715894	function	ffxDestroyContext	ffxReturnCode_t ffxDestroyContext(ffxContext* ctx, const ffxAllocationCallbacks* mem)	AMD ffx-api destroy; called by Fsr3DestroyContext	medium	notes/fsr3-audit.md §1
+0x45c4170	global	g_Fsr3CtxCreated	u8	1 after Fsr3EnsureContext created the context; followed by cached recreate keys 0x45c4171..0x45c4181	high	notes/fsr3-audit.md §1
+0x45c4188	global	g_Fsr3CreateDesc	ffxCreateContextDescUpscale	type 0x10000; flags at 0x45c4198 (8 | 0x20 auto-exposure), maxRender 0x45c419c, maxUpscale 0x45c41a4	high	notes/fsr3-audit.md §1
+0x45c4300	global	g_Fsr3UpscaleCtx	ffxContext	FSR3 upscaler ffx context	high	notes/fsr3-audit.md §1
+0x45c4310	global	g_Fsr3OpaqueColorCopy	Texture*	render-size opaque-only color copy (GENERATE_REACTIVE input)	high	notes/fsr3-audit.md §1
+0x45c4318	global	g_Fsr3GeneratedReactive	Texture*	render-size generated reactive mask; the upscale reactive input when RS+0x1ff8==2	high	notes/fsr3-audit.md §1
+0x45c4320	global	g_Fsr3OutputColor	Texture*	output-size FSR3 upscaled color	high	notes/fsr3-audit.md §1
+0x45c4328	global	g_Fsr3UpscaledDepth	Texture*	output-size depth written by the DebugFSR3CopyUpscaledDepth draw (5fccb795)	high	notes/fsr3-audit.md §2 #7
+0x45c4330	global	g_PostChainDepthFsr	Texture*	active post-chain depth (= 0x45c4328 each FSR frame); read by PostEffectApply 0x6db979/0x6df8c1	high	notes/fsr3-audit.md §2 #7
+0x45c4338	global	g_Fsr3VelocityFixTarget	Texture*	render-size MV copy target for FSR3VelocityViewportFix (render ratio != 1 only)	high	notes/fsr3-audit.md §2 #6
+0x47092b0	global	g_FfxFgCtx	ffxContext	FFX frame-generation context; created only when 0x47092b8 exists	high	notes/fsr3-audit.md §2 #1
+0x47092b8	global	g_FfxFiSwapchainCtx	ffxContext	FFX frame-interpolation swapchain context (FSR FG swapchain backend); null with FG OFF	high	notes/fsr3-audit.md §2 #1
+0x1ff8	struct_field	RenderSettings::FsrReactiveMode	int	2 = generate reactive mask and use it; else no reactive input; copy +0x24c8	medium	notes/fsr3-audit.md §1
+0x2000	struct_field	RenderSettings::FsrAutoExposure	u8	1 = FFX AUTO_EXPOSURE create flag + null exposure resource; copy +0x24d0	medium	notes/fsr3-audit.md §1
+0x1f54	struct_field	RenderSettings::FsrEnableSharpening	u8	FSR3 dispatch enableSharpening (ACCUMULATE_SHARPEN + RCAS); copy +0x2424	medium	notes/fsr3-audit.md §1
+0x1f58	struct_field	RenderSettings::FsrSharpness	float	FSR3 dispatch sharpness; copy +0x2428	medium	notes/fsr3-audit.md §1
+0x2063	struct_field	RenderSettings::FsrDebugView	u8	FSR3 dispatch flags bit0 (DRAW_DEBUG_VIEW); copy +0x2533	medium	notes/fsr3-audit.md §1
