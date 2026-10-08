@@ -1,0 +1,4 @@
+rva	kind	name	signature	description	confidence	source
+0x285808	function	AreaRecordById	AreaRec* AreaRecordById(Tbl* t, u16 id)	0xC4-byte area records (archive_03 C0 table), key u16 +0xB8, +0xBC area group, +0xC0 type (3 = hell) (was MissionRecordById)	high	notes/missions.md
+0x377b6c	function	MissionMasterGetRecord	MissionRec* MissionMasterGetRecord(idx)	130 x 0x198 mission master table (archive_03 52): +0x70 name text, +0x158 key, +0x15C area, +0x18A main key	high	notes/missions.md
+0x1fd4c00	function	AreaListRefresh		iterates area records, filters type!=3 and +0xBC == current area byte (+0x11)	low	notes/missions.md
