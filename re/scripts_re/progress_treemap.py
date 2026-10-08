@@ -193,6 +193,12 @@ def tailcol(tail, tw):
     return sum(c[0] * c[1] for c in tail) / tw
 
 
+def ptext(x, y, s, fs, fill, fw=600):
+    s = s.replace('&', '&amp;').replace('<', '&lt;')
+    return ('<text x="%.1f" y="%.1f" fill="%s" font-size="%s" font-weight="%d" stroke="#0d1117" stroke-width="3" '
+            'stroke-linejoin="round" paint-order="stroke">%s</text>' % (x, y, fill, fs, fw, s))
+
+
 def wcells(cells, x, y, w, h, total, minfrac=0.0002):
     """cells [(weight, value)] hottest first -> squarified rects; the tail below 0.02 % of total is merged into one cell."""
     keep = [c for c in cells if c[0] >= minfrac * total]
@@ -210,55 +216,52 @@ def wcells(cells, x, y, w, h, total, minfrac=0.0002):
         out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s"%s'
                    % (cx, cy, max(cw - .8, .3), max(ch - .8, .3), colour(c[1]),
                       '><title>%s</title></rect>' % c[2] if len(c) > 2 else '/>'))
-        lab = c[3] if len(c) > 3 else (c[2] if len(c) > 2 and 'tiny' in c[2] else None)
-        if isinstance(lab, str):
-            lab = (lab, '')
-        if lab and cw > 44 and ch > 13:
-            nm, pl = lab
-            cap = int((cw - 6) / 5.4)
-            fit = lambda s, n: s if len(s) <= n else s[:max(n - 1, 1)] + '…'
-            tx = lambda yy, s: '<text x="%.1f" y="%.1f" fill="#fff" stroke="#000" stroke-opacity=".35" stroke-width=".5" font-size="10">%s</text>' % (
-                cx + 3, yy, fit(s, cap).replace('&', '&amp;').replace('<', '&lt;'))
-            if pl and ch >= 28:
-                out.append(tx(cy + 11, nm)); out.append(tx(cy + 22, '/ ' + pl))
-            else:
-                out.append(tx(cy + 11, nm + (' / ' + pl if pl else '')))
+        lab = c[3] if len(c) > 3 else None
+        if isinstance(lab, tuple) and lab[0] and i < 4 and cw >= 150 and ch >= 34:
+            fs = 13
+            main, sub = lab
+            if len(main) * fs * 0.58 <= cw - 10:
+                out.append(ptext(cx + 5, cy + 16, main, fs, '#fff', 600))
+                if sub and ch >= 50 and len(sub) * 11 * 0.58 <= cw - 10:
+                    out.append(ptext(cx + 5, cy + 31, sub, 11, '#dfe6ee', 400))
     return out
 
 
-def svg(blocks, title, W=1600, H=900, legend='', minfrac=0.0002):
-    """blocks [(label, weight, [cell values], subtitle)]"""
-    top = 34
+def svg(blocks, title, W=1000, H=620, legend='', minfrac=0.0002):
+    """blocks [(label, weight, [cell values], subtitle)]; designed for ~880 px README width"""
+    top = 46
     tot = sum(b[1] for b in blocks)
     order = sorted(enumerate(blocks), key=lambda t: -t[1][1])
     rects = squarify([(i, b[1] / tot * W * (H - top)) for i, b in order], 0, top, W, H - top)
     o = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" style="width:100%%;height:auto" font-family="Segoe UI,Helvetica,Arial,sans-serif">' % (W, H),
          '<rect width="100%" height="100%" fill="#0d1117"/>',
-         '<text x="10" y="22" fill="#e6edf3" font-size="15" font-weight="600">%s</text>' % title, legend]
+         '<text x="8" y="19" fill="#e6edf3" font-size="15" font-weight="700">%s</text>' % title, legend]
     for i, (label, wgt, cells, sub) in enumerate(blocks):
         if i not in rects:
             continue
         x, y, w, h = rects[i]
-        lab = w > 60 and h > 30
-        hy = 17 if lab else 0
+        fs = 15
+        cw_ = lambda s: len(s) * fs * 0.6
+        t = next((s for s in (label, label.split(' / ')[0 if label.startswith('text ') else -1]) if cw_(s) <= w - 12), None)
+        lab = t is not None and h > 34
+        hy = 22 if lab else 0
         if cells and isinstance(cells[0], tuple):
-            o += wcells(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy, tot, minfrac)
+            o += wcells(cells, x + 3, y + 3 + hy, w - 6, h - 6 - hy, tot, minfrac)
         else:
-            o += grid(cells, x + 4, y + 4 + hy, w - 8, h - 8 - hy)
+            o += grid(cells, x + 3, y + 3 + hy, w - 6, h - 6 - hy)
         if lab:
-            t = label if len(label) * 6.6 < w - 10 else label[:max(int((w - 10) / 6.6) - 1, 3)] + '…'
-            s = sub if len(t + sub) * 6.1 < w - 10 else ''
-            o.append('<text x="%.1f" y="%.1f" fill="#e6edf3" font-size="11" font-weight="600">%s<tspan fill="#8b949e" font-weight="400"> %s</tspan></text>' % (
-                x + 6, y + 16, t.replace('&', '&amp;'), s))
+            o.append(ptext(x + 6, y + 19, t, fs, '#fff', 700))
+            if sub and cw_(t + ' ' + sub) * 0.8 <= w - 12:
+                o.append(ptext(x + 6 + cw_(t) + 6, y + 19, sub, 12, '#c9d1d9', 400))
     o.append('</svg>')
     return '\n'.join(o)
 
 
-def legend(W=1600, items=(('named', 1.0), ('Unknown_* (role unclear)', 0.5), ('not named', 0.0)), x0=440):
-    s, x = '', W - x0
+def legend(W=1000, items=(('named', 1.0), ('Unknown_* (role unclear)', 0.5), ('not named', 0.0)), x0=0):
+    s, x = '', 8
     for t, v in items:
-        s += '<rect x="%d" y="10" width="12" height="12" fill="%s"/><text x="%d" y="21" fill="#8b949e" font-size="11">%s</text>' % (x, colour(v), x + 16, t)
-        x += 26 + len(t) * 6.2
+        s += '<rect x="%d" y="28" width="12" height="12" fill="%s"/><text x="%d" y="39" fill="#c9d1d9" font-size="12">%s</text>' % (x, colour(v), x + 17, t)
+        x += 32 + len(t) * 6.6
     return s
 
 
@@ -318,7 +321,7 @@ def gpu_data(minpass=None):
         mk = marker.replace('FFX_FSR3UPSCALER_PASS_', '')
         base = names[0].split('-')[0] if names and not mk.startswith(('FFX_', 'FSR')) and grp != 'FSR3' else ''
         nm = mk if grp == 'FSR3' else (base or (mk if mk != '-' else desc[:10]))
-        lbl = (nm.replace('FSR3:', '').replace('FFX_', ''), GPU_PLAIN[grp].split(' / ')[1] if grp in GPU_PLAIN else '')
+        lbl = (nm.replace('FSR3:', '').replace('FFX_', '').replace('_', ' ').lower(), GPU_PLAIN[grp].split(' / ')[1] if grp in GPU_PLAIN else '')
         title = '%.2f ms: %s %s' % (ms, marker if marker != '-' else '', ' / '.join(dict.fromkeys(names)) or desc[:40])
         rows.append((grp, ms, col, title.replace('&', '&amp;').replace('<', '&lt;'), lbl))
     return span, os.path.basename(log), rows
@@ -377,10 +380,10 @@ def main():
         st = status(names, k)
         fnm = names.get(k, '')
         if st:
-            lbl = (fnm, short_desc(desc.get(k, ''), 30))
+            lbl = (short_desc(desc.get(k, ''), 28).lower() if desc.get(k) else '', fnm)
             ttl = '%s: %s (%.3f%%)' % (fnm, desc.get(k, '')[:160], 100 * v / tot)
         else:
-            lbl = ('FUN_%X' % k, 'not named')
+            lbl = ('', '')
             ttl = 'FUN_%X not named (%.3f%%)' % (k, 100 * v / tot)
         pg[pareas[k]].append((v, st, ttl.replace('&', '&amp;').replace('<', '&lt;'), lbl))
     pblocks = []
