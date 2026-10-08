@@ -320,6 +320,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * `[Patches] WakeStats`, `ED` (worker wakes, 0 = off; ED 2 = installed, switched off) and `[GpuOpt]` (see above).
 * `[Patches] GF` (GPU-fence waits, 0 = off) and `[Tuning] GF_TimeoutMs` (1-1000, default 100).
 * `[Patches] WL` (waitable-handle leak fix, default 1) and `[Profiler] MemStats` (memory line, default 0).
+* 1.7.11: `[Profiler] LoadStats` (0/1/2, next launch, measurement only, default 0; Ally zip 1).
 * 1.6.0, all opt-in (default 0): `[Patches] WG` (0/1/2), `TG` (0/1, experiment), `DS` (0/1/2), `LK` (0/1, next
   launch), `CP` (0/1/2), `SPF` (0/1/2); `[Tuning] WG_MaxPending` (1-8, 1), `WG_WindowUs` (100-100000, 2000),
   `TG_Floor` (24-60, 30), `TG_RatioPct` (100-200, 125), `DS_MarginUs` (50-900, 150).
@@ -407,6 +408,16 @@ it). Main ini 0/0; Ally zip TileStats = 2, TileBatch = 2 (count only, nothing ch
   They call the original with the original arguments and return its result. One `stats spr:` line every 30 s: count (total
   and per 30 s), average and max us, and calls >= 1 ms. Tells whether the PSO-cache or upload-ring fixes in
   `notes\stutter.md` are worth building. Undo: `SPR = 0`.
+
+## Load times: LoadStats (`[Profiler] LoadStats`, 1.7.11, v2.02 only)
+
+Measurement only, default 0 (Ally zip 1). Hooks 25 call sites (resource-manager `Sleep(1)` polls, the zlib inflate
+wrappers, PSO creation, `ReadFile`) with one interlocked write each, and polls the engine's loading stop flag (58A).
+For every loading window the log gets one summary: seconds, frames, process CPU, stage-ready time, loader occupancy
+(in-flight vs the cap of 10), load-end ready wait (timeout or not), event-scene seconds, MB read, inflate CPU time,
+PSOs created, plus the same split at "stage ready". `LoadStats = 2` adds one line per second inside the window.
+Sites another patch already owns are skipped (log "N skipped"). Next launch. `grep LoadStats` of the log is the whole
+result. Background: `notes\loading.md`. Checks: `testsun_loadstats_harness.py`, `re\scripts_load\ls_sites.py`.
 
 ## In-game mod menu
 Change the fixes and the overlay while you play, with no restart. The menu opens at any time: in gameplay, in the

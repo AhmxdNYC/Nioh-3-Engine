@@ -31,12 +31,13 @@
 #include "memstats.h"
 #include "tilestats.h"
 #include "loadmem.h"
+#include "loadstats.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.10"
+#define MOD_VERSION "1.7.11"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2045,6 +2046,14 @@ DWORD WINAPI Worker(LPVOID) {
             li.base = reinterpret_cast<uintptr_t>(g_base);
             li.knownBuild = known;
             loadmem::Start(li);
+        }
+        {  // per-load measurement (loadstats.cpp, [Profiler] LoadStats = 0 by default; notes\loading.md)
+            loadstats::StartInfo ls;
+            ls.log = &Log;
+            ls.iniPath = iniPath.c_str();
+            ls.base = reinterpret_cast<uintptr_t>(g_base);
+            ls.knownBuild = known;
+            loadstats::Start(ls);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;

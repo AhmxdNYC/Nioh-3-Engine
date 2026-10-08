@@ -315,3 +315,9 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Scripts: `re\scripts_d3d12\d3d12_vsites.fsx` (whole-binary vcall + slice dump), `d3d12_iids.py` + `iids.tsv`, `d3d12_sites.py` (IID/holder/param typing + reviewed sites), `d3d12_census.py` -> census `re\scripts_d3d12\d3d12_sites.tsv`.
 - Symbols: `re\symbols\incoming\d3d12-sites.tsv` (192 new names + 80 notes) and `d3d12-sites-renames.tsv` (0 rows); not merged.
 - Undo: revert the commit (new files only).
+
+## 2026-10-08 - ASI 1.7.11: LoadStats integrated (built + tested, NOT sent to the Ally)
+- `src\loadstats.{h,cpp}` wired in per `loadstats_INTEGRATION.md`: build.bat + CMakeLists, dllmain (after loadmem::Start), `[Profiler] LoadStats` in the ini (main 0, Ally zip 1). MOD_VERSION 1.7.11. Measurement only; 25 call sites hooked only when LoadStats > 0.
+- Checks: test_patterns ALL 107 SITES OK; loadstats, gp, psoswap, loadmem, tilestats, wg, r2 harnesses all OK; ls_sites LOADSTATS SITES OK; build.bat clean link.
+- README-ALLY: 1.7.11 load test (title->level x2 + shrine travel x2 with LoadStats=1 baseline, then RWb=1+WG=1, then LM=1 as a separate pair). Docs: README.md section + changelog line. Zip on the Desktop (not committed): Nioh3EngineFix-1.7.11-ally.zip.
+- Undo: revert this commit.
