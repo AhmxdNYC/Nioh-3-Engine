@@ -1,0 +1,10 @@
+# gpu-passes: exe-embedded .rdata DXBC shaders seen in the Ally GP2 chart (digest prefix = gp2 key). Disassembly gpu-shaders/post/out/asm; table also in re/scripts_gpu/exe_passes.tsv. Not-yet-in-symbols rows only.
+rva	kind	name	signature	description	confidence	source
+0x3be7a70	data	ExeShader_UITintedQuadPS_030dc802	DXBC ps_5_0	out=(tex.rgb*COLOR.rgb,COLOR.a) sprite quad PS, paired with shared VS a2bd0e86 @0x399ee90	high	re/scripts_gpu/exe_passes.tsv
+0x3a3d140	data	ExeShader_UIAlphaFadePS_9a76cbef	DXBC ps_5_0	sprite PS alpha=1+cb0.x*(a-1)	high	re/scripts_gpu/exe_passes.tsv
+0x3a2f530	data	ExeShader_Volume3DCopyCS_0a509b81	DXBC cs_5_0 4x4x4	texture3D to UAV3D copy	high	re/scripts_gpu/exe_passes.tsv
+0x3a245c0	data	ExeShader_Copy3RT2DArrayPS_1b4a458b	DXBC ps_5_0	3-target copy incl. a 2D-array slice	high	re/scripts_gpu/exe_passes.tsv
+0x3a3c6e0	data	ExeShader_CopyOutputRes1TapPS_d787dbd0	DXBC ps_5_0	1-tap rect copy at output res (10.24 ms slot in r5)	high	notes/gpu-copies-postres.md
+0x3ff2680	data	ExeShader_UISmoothMaskDiscardPS_5747cd78	DXBC ps_5_0	discard on tex.x + smoothstep mask + colour lerp, 18 ALU	high	re/scripts_gpu/exe_passes.tsv
+0x3a2daa0	data	ExeShader_CopyR1ChannelPS_47f71215	DXBC ps_5_0	single-channel 1-tap copy	high	re/scripts_gpu/exe_passes.tsv
+0x3a340f0	data	ExeShader_TessOuterFactorBufferCS_a816e9f5	DXBC cs_5_0 1x1x1	writes uOuterTextureBuffer UAV (tessellation outer factors)	medium	re/scripts_gpu/exe_passes.tsv

@@ -53,6 +53,7 @@ GPU_PLAIN = {
     'FSR3': 'FFX_FSR3 / upscaler', 'Copies / clears': 'copies/clears / data copies', 'GI / RefProbe': 'RefProbe / lighting (GI)',
     'Fog / volumetrics': 'VFSCAT / fog', 'Sky / clouds': 'VCLOUD / sky & clouds', 'Shadows (WDO/ESM/GHDM)': 'WDO·ESM·GHDM / shadows',
     'Culling (MPC/MshLod)': 'MPC·MshLod / culling', 'Trees / foliage': 'PB2TREE2 / trees', 'Materials / G-buffer (PB2)': 'PB2 / materials',
+    'UI / sprites / effect merge': 'sprite quads / UI & effect merge',
     'Post (blur/DOF/bloom/compose)': 'TOONEDGE2·DOF / post & outlines', 'Other': 'other / unattributed',
 }
 
@@ -278,15 +279,16 @@ def legend(W=1000, items=(('named', 1.0), ('Unknown_* (role unclear)', 0.5), ('n
 
 GPU_GROUPS = [  # (group, regex on 'marker | shader names'); first match wins
     ('FSR3', r'FSR3|FFX_'),
-    ('Copies / clears', r'^\(copy|copy / resolve|CopyMRLR|VideoOut'),
+    ('Copies / clears', r'^\(copy|copy / resolve|CopyMRLR|VideoOut|ExeCopy_'),
     ('GI / RefProbe', r'RefProbe|SDFOCC|LPV'),
     ('Fog / volumetrics', r'VFSCAT|VFOG|Fog|Volum'),
     ('Sky / clouds', r'VCLOUD|DrawSky|Sky|Cloud'),
     ('Shadows (WDO/ESM/GHDM)', r'WDO|ESM|GHDM|Shadow|Cascade'),
     ('Culling (MPC/MshLod)', r'MPC|MshLod|MeshletPre|Preculling'),
     ('Trees / foliage', r'TREE|FOLIAGE|GRASS'),
-    ('Materials / G-buffer (PB2)', r'PB2|Ultramarine|GBuffer'),
-    ('Post (blur/DOF/bloom/compose)', r'DOF|Bloom|Compose|Post|Blur|TOONEDGE|Tonemap|motion blur'),
+    ('Materials / G-buffer (PB2)', r'PB2|Ultramarine|GBuffer|ExeTess_'),
+    ('UI / sprites / effect merge', r'ExeUI_|EffectMerge'),
+    ('Post (blur/DOF/bloom/compose)', r'DOF|Bloom|Compose|Post|ExePost_|Blur|TOONEDGE|Tonemap|motion blur'),
 ]
 GPU_GROUPS = [(g, re.compile(r)) for g, r in GPU_GROUPS]
 G_GREEN, G_BLUE, G_RED, G_GREY = '#2ea043', '#388bfd', '#e5534b', '#444a54'

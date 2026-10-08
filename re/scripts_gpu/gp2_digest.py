@@ -226,6 +226,22 @@ def parse(paths, last_only):
     return wins
 
 
+def exe_passes():
+    """scripts_gpu/exe_passes.tsv: curated names for exe-embedded / runtime shaders no index names (key = 8-hex digest prefix)"""
+    out = {}
+    try:
+        for ln in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'exe_passes.tsv'), encoding='utf-8'):
+            f = ln.rstrip('\r\n').split('\t')
+            if len(f) >= 2 and re.match(r'^[0-9a-f]{8}$', f[0]):
+                out[f[0]] = f[1]
+    except OSError:
+        pass
+    return out
+
+
+EXE_PASSES = exe_passes()
+
+
 def resolve(desc, I):
     idx, reps, notes = I['idx'], I['reps'], I['notes']
     stages, locs, names, rep, nt = [], [], [], [], []
@@ -236,10 +252,12 @@ def resolve(desc, I):
         e = idx.get(h)
         if e:
             locs.append('%s %s' % (st, e.get('loc', '?')))
-            if e.get('name'):
+            if e.get('name') and e['name'] != '(not in inventory)':
                 names.append('%s' % e['name'])
         else:
             locs.append('%s UNKNOWN (not in index)' % st)
+        if h[:8] in EXE_PASSES and not (e and e.get('kind') == 'disk' and e.get('name')):
+            names.append(EXE_PASSES[h[:8]])
         if h in reps:
             rep.append('%s: %s' % (st, reps[h]))
         if h in notes:

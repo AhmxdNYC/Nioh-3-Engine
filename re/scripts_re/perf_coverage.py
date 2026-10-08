@@ -162,6 +162,13 @@ def mean(dicts):
     return out
 
 
+# 0x... tokens in GPU notes that are NOT exe functions (2026-10-08 audit; 4 of the old 63 'functions', 8 of the 'misses'):
+# GFX command-buffer ids in the gpu-profile.md frame-timeline table ('| 0xa9afe |' rows; ids that merely fold into one
+# .pdata range), byte offsets inside ESM/kidsrender graph files ('byte offsets are' line, invisible-gpu.md) and
+# '+0x...' module offsets (D3D12Core vtable offsets, gpu-barriers.md).
+NONFUNC_LINE = re.compile(r'^\| 0xa9|byte offsets are')
+
+
 def gpu_rvas():
     pats = glob.glob(os.path.join(ROOT, 'notes', 'gpu-*.md')) + [os.path.join(ROOT, 'notes', n) for n in
                                                                    ('d3d12-submission.md', 'invisible-gpu.md')]
@@ -169,10 +176,15 @@ def gpu_rvas():
     for p in pats:
         if not os.path.exists(p):
             continue
-        for h in re.findall(r'\b0x([0-9A-Fa-f]{5,7})\b', open(p, encoding='utf-8', errors='replace').read()):
-            fs = primary(int(h, 16))
-            if fs is not None:
-                out[fs] += 1
+        for ln in open(p, encoding='utf-8', errors='replace'):
+            if NONFUNC_LINE.search(ln):
+                continue
+            for pre, h in re.findall(r'([+]?)\b0x([0-9A-Fa-f]{5,7})\b', ln):
+                if pre:
+                    continue
+                fs = primary(int(h, 16))
+                if fs is not None:
+                    out[fs] += 1
     return out
 
 

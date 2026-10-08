@@ -269,3 +269,9 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Verdict: no same-look lever in these tables (all authored quality steps).
 - Symbols: `re\symbols\incoming\work-deciders.tsv` (47 rows) + `work-deciders-renames.tsv` (12, apply in place; not merged).
 - Undo: delete the note, the two TSVs, the script and its output.
+
+## 2026-10-08 - GPU passes mapped made exact + grey buckets of the Ally GPU chart identified (RE only; nothing installed, game not run)
+- `perf_coverage.py` gpu-notes check: ignores non-functions (gpu-profile.md `| 0xa9af..` command-buffer ids, invisible-gpu.md ESM `byte offsets`, `+0x..` D3D12Core offsets). Was 55/63; of the 8 misses 4 were non-functions (0xa9afc, 0x11010, 0x30e830, 0x104c0), 4 real (0x25f15b0, 0x2629194, 0x1197e20, 0x11e8870 = editor env-param schema field-index switches). Now 55/59 measured; 59/59 once `incoming/gpu-passes-renames.tsv` is merged (not merged here).
+- `gp2_digest.py`: new curated `re\scripts_gpu\exe_passes.tsv` (16 exe-embedded / runtime shaders: copies, sprite/UI quads, tessellation CS, TAA filter, EffectMerge) applied in `resolve()`; hash-only fallbacks ("(not in inventory)") no longer count as names. `progress_treemap.py`: new group "sprite quads / UI & effect merge", ExeCopy_/ExeTess_/ExePost_ name rules.
+- Grey buckets of `docs\progress\gpu.svg` (~1.3 ms, 14 rows, mostly shared VS a2bd0e86 + exe PS pairs) are all mapped. Symbols: `re\symbols\incoming\gpu-passes.tsv` (8 rdata shader labels) + `gpu-passes-renames.tsv` (4).
+- Undo: revert the three scripts, delete exe_passes.tsv and the two TSVs.
