@@ -299,6 +299,7 @@ rva,kind,name,signature,description,confidence,source
 0x12b440,function,Sched0Hot_12B440,,"KIDSTaskScheduler0 hotspot: 0.6% self of that thread's samples (capture 2); job work run by the frame-step thread, role not identified [Ghidra: 686 B, 1 callers]; also (mainthread-logic.tsv): RollingAvgListUpdate - per entry: push a sample to a std::list<f32> at entry+58h, trim to ceil(fps*k/60) nodes, then re-walk the WHOLE list to average it into entry+50h (FLT_MAX samples skipped); ~1-1.4% of KIDSTaskScheduler0, hot RIP 12B67D = node load. Only caller FE3AC0. Better name for existing row Sched0Hot_12B440",medium,notes/cpu-profile.md §Top 30 self functions
 0x12b673,label,RollingAvgList_SumLoop,,full std::list walk summing node+10h floats every call (100% of 12B440 self samples at 12B67D),high,notes/mainthread-logic.md §4.2
 0x12dd1d,label,Sleep0Call_12DD1D,,call Sleep(0); pdata fragment start 12D9E0,high,re/out/spinscan.txt §all call sites
+0x12e36c,function,SmallBlockAlloc,"void* SmallBlockAlloc(SmallFront* f, size_t n, ...)","n<=0x80 from a free-list front end at f+20h, else parent heap [f+18h] vtable +28h",medium,notes/load-memory.md §1
 0x12e8bf,label,Sleep0Call_12E8BF,,call Sleep(0); pdata fragment start 12E4D0,high,re/out/spinscan.txt §all call sites
 0x12ee2b,label,Sleep0Call_12EE2B,,call Sleep(0); pdata fragment start 12EC4C,high,re/out/spinscan.txt §all call sites
 0x12f1bc,label,Sleep0Call_12F1BC,,call Sleep(0); pdata fragment start 12EE70,high,re/out/spinscan.txt §all call sites
@@ -315,7 +316,10 @@ rva,kind,name,signature,description,confidence,source
 0x130225,label,StreamBitmapClaim_LockLoadSlot,,"lock cmpxchg [m],zero used as an atomic load ([r9+r11*4+10h]); LK row: becomes a plain mov (+test) of the same length",high,notes/worker-jobs-opt.md §4; patcher/lockload_live.fsx
 0x130374,label,Sleep0Call_130374,,call Sleep(0); pdata fragment start 130014,high,re/out/spinscan.txt §all call sites
 0x130700,label,Sleep0Call_130700,,call Sleep(0); pdata fragment start 1303B8,high,re/out/spinscan.txt §all call sites
+0x130d0c,function,HeapFree,"void HeapFree(Heap* h, void* p)","arena sub-heap free (vtable 408F940 +58h): lock h+60h, size<0 = allocated, coalesce prev/next, push on bin [h+38h]; payload pages stay committed",high,notes/load-memory.md §1
+0x130e8c,label,HeapFree_MtxUnlockJmp,jmp _Mtx_unlock,tail of HeapFree; r10 = final free chunk (header: [0]prev [8]size [10h]binprev [18h]binnext),high,notes/load-memory.md §1
 0x131aeb,label,Sleep0Call_131AEB,,call Sleep(0); pdata fragment start 13179C,high,re/out/spinscan.txt §all call sites
+0x133158,function,HeapUsableSize,"int64 HeapUsableSize(Heap* h, void* p)",negated size field of the chunk header (payload bytes),medium,notes/load-memory.md §1
 0x13347f,label,Sleep0Call_13347F,,call Sleep(0); pdata fragment start 133440,high,re/out/spinscan.txt §all call sites
 0x13393c,label,Sleep0Call_13393C,,call Sleep(0); pdata fragment start 133904,high,re/out/spinscan.txt §all call sites
 0x133980,label,Sleep0Call_133980,,call Sleep(0); pdata fragment start 133958,high,re/out/spinscan.txt §all call sites
@@ -561,6 +565,8 @@ rva,kind,name,signature,description,confidence,source
 0x2f6680,function,KtglEventSet,void KtglEventSet(KtglEvent* e),"KTGL auto-reset event signal: lock, flag +0x99 = 1, notify condvar +0x50, unlock (72 callers); pairs with KtglEventWait 0x3d7cc8",high,notes/effects-animation.md §1.2
 0x30b9cc,function,ReflexFormatLatencyReport,,"Formats Reflex latency report (simDeltaUs, renderDeltaUs, presentDeltaUs ...); 2584 B",high,re/out/README.md §Findings: frame pacing
 0x311b4a,label,WfsoXCall_311B4A,,call WaitForSingleObject(?); pdata fragment start 311B40,high,re/out/spinscan.txt §all call sites
+0x3123b4,function,HeapAlloc,"void* HeapAlloc(Heap* h, size_t n, size_t align, Tag* t)",locked wrapper (vtable +38h) of HeapAllocLocked 31242C,high,notes/load-memory.md §1
+0x31242c,function,HeapAllocLocked,"void* HeapAllocLocked(Heap* h, size_t n, size_t align, Tag* t)",best fit over bins [h+38h]; touches only chunk headers (split writes all 4 header qwords); header size [h+18h]=0x20,high,notes/load-memory.md §2
 0x3127a1,label,WfmoXCall_3127A1,,call WaitForMultipleObjects(?); pdata fragment start 312754,high,re/out/spinscan.txt §all call sites
 0x3159a0,function,LoadAsset,,Asset-load function containing the DeserializeAsset call 0x315c74; hooked by Nioh3FileLoaderLogger (AOB 40 55 56 57 41 54 41 55 41 56 41 57 48 81 EC ... 4D 8B F0),high,notes/game-data.md §2 Hooks
 0x315c74,label,LoadAsset_DeserializeCall,,"call [rbx+0xB0] handler->Deserialize inside 0x3159a0; LooseFileLoader NOPs 6 bytes + mid-hook (rcx handler, rdx loading ctx, r8 AssetReader, r9 arg); AOB FF 93 B0 ? ? ? 48 8D 4D ? 49 89 45",high,notes/game-data.md §2 Hooks
@@ -680,6 +686,7 @@ rva,kind,name,signature,description,confidence,source
 0x438473,label,VrrTicks120_P3c,,"Nioh3EngineFix id P3c group VRR len 6 orig 8D 42 78 41 F7 F0 (120/fps timer, sub from [rsi]) -> mov eax,[ticks120] (aka FtVrrPatchSite_438473, ExtPatchSite_438473) || also: frame-timing (ft_vrr) patch site; listed in cpu_caves.fsx FT_SITES overlap check (see frame-timing notes for role)",high,mod/Nioh3EngineFix/patches.json; notes/frame-timing.md §3; patcher/cpu_caves.fsx; re/scripts_meshlet/meshlet_caves.fsx OTHER_SITES
 0x465384,function,VsmPassNodeExecute,"u64 (Node*, RenderCtx* r)",render-node callback (referenced from data 4E520CC); calls VsmPassExecute when [r+F8h]+968h >= 0,medium,notes/shadows-culling.md §1.1
 0x465414,function,VsmPassExecute,,"VSM render pass for modes other than 5 (inferred): page manager base+16C640, clipmap entries view+4730h (0x150 B each, VsmClipmapSetup 32FF074), MeshletInstanceCulling/MeshletPreculling/DrawListWalk; 3144 B",low,notes/shadows-culling.md §1.1
+0x46f65c,function,RegionCarve,"void* RegionCarve(Region* r, size_t n)","bump allocator over the arena region: base r[0], cursor r[1], end r[2]",high,notes/load-memory.md §1
 0x48dc4c,label,Sleep0Call_48DC4C,,call Sleep(0); pdata fragment start 48DAA0,high,re/out/spinscan.txt §all call sites
 0x48ea28,function,PauseSpin_48EA28,,code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48EAA4..48EC13,medium,re/out/spinscan.txt §fragments containing PAUSE
 0x48ed88,function,PauseSpin_48ED88,,code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops 48EDAB..48EF4E,medium,re/out/spinscan.txt §fragments containing PAUSE
@@ -985,6 +992,8 @@ rva,kind,name,signature,description,confidence,source
 0x9b05bc,function,PsoCacheInsertGfx,"bool PsoCacheInsertGfx(void* cache, PsoKey* k)","inserts k (with PSO at k+88h) into the graphics PSO cache, count +28h",medium,notes/stutter.md §3.1
 0x9b1850,function,GenerateShadowMapHiZ,"u8 (MeshletSys*, Ctx*, ...)",marker GenerateShadowMapHiZ + Hi-Z build between the two shadow occlusion phases,high,notes/shadows-culling.md §1.1
 0x9b5702,label,Sleep0Call_9B5702,,call Sleep(0); pdata fragment start 9B5634,high,re/out/spinscan.txt §all call sites
+0x9c0a3c,function,HeapInit,"void HeapInit(Heap* h, void* base, size_t size)","sets +20h base, +28h chunk0=(base+8Fh)&~0Fh, +30h end, +38h bins, +40h shift 4, +44h 16 bins, then HeapReset",high,notes/load-memory.md §1
+0x9c0a94,function,HeapReset,void HeapReset(Heap* h),"whole region = one free chunk at [h+28h]; zero bins, used, peak; reached via vtable thunks 30AB828/30AB840/3254080",high,notes/load-memory.md §1
 0x9c2ee0,function,TextureStagingAllocDedicated,,dedicated persistent staging buffer kept across maps,high,notes/mainthread-drawprep.md §2 C; notes/ui-mainthread.md §C
 0x9f9b9c,label,JmpIat_SleepConditionVariableSRW_9F9B9C,,`jmp [IAT SleepConditionVariableSRW]` here: a standalone thunk or a tail call at the end of a function (spinscan 'thunks' list; not a Ghidra function start),medium,re/out/spinscan.txt §thunks
 0xa01e58,function,PauseSpin_A01E58,,code with 1 PAUSE instruction(s) (spin-wait candidate); PAUSE loops A01E78..A01F00 A01EF3..A01F07,medium,re/out/spinscan.txt §fragments containing PAUSE
@@ -2106,6 +2115,7 @@ rva,kind,name,signature,description,confidence,source
 0x3f1aa50,data,GpuParticleUpdateCsDxbc,DXBC 113708 B,"FXC CS 5e771e53: GPU particle update (nMaxParticleNum, dt, ParticleBuffer UAV); runs as 75 1x1x1 dispatches each + UAV barrier (~100us)",high,re/scripts_gpu/exe_dxbc.py + out/exe_*.asm; notes/invisible-gpu.md §4b
 0x40358e8,vtable,FrameTask_vftable,,Frame task class vtable (verified live); vf[1]=0x5ACEE8; owner of the QPC limiter in 0x5ACF80,high,"notes/frame-timing.md §1, §4b; patcher/ft_findtask.fsx"
 0x4050898,vtable,FrameProfile_vftable,,"Frame profile object (r13+8) vtable: vf+0x08 SetProfile 0x5AF324, vf+0x10 -> profile, vf+0x20 SetLimiterFps 0x5AF400, vf+0x28 -> &fps",high,"notes/frame-timing.md §1, §4b"
+0x408f940,data,HeapVtable,,vtable of the 0xB0-byte arena sub-heap (variant 408FB78),high,notes/load-memory.md §1
 0x4099fb0,data,Str_DebugFpsOverlay,char[],"""FPS %2.2f(%4.2f)"" debug FPS overlay format; README says no code xref but strings.tsv lists a reference from 0x2ee8498 (aka StrFpsOverlayFmt) || also: ""FPS %2.2f(%4.2f)\n"" debug FPS overlay format; README says no code xref but strings.tsv lists a ref from 0x2ee8498",medium,re/out/README.md §Findings: config.xml; re/out/strings.tsv; re/out/README.md §config.xml; re/out/strings.tsv
 0x409a3b0,vtable,KtglAsyncBackend_vtbl,,"async/deferred context backend: +10 Begin, +18 GetFence (KTGL tok 1), +38 End, +48 IsFenceDone 4F9368, +50 CpuWaitFence 2EF9820, +60 tok 7 2EF9088, +68 tok 6 3D1B5C, +D0 Dispatch",medium,notes/gpu-scheduling.md §A.2
 0x409a620,vtable,GfxQueueExecutorVtbl,,"ECL replay target used by the token handlers: +30h 4F90DC, +38h 2F01150, +40h 4F92A4, +48h 4F9194, +50h 2F0103C UTM, +58h 2EFC060 CTM, +60h 2EFB19C",medium,notes/gpu-tiles.md
@@ -2233,6 +2243,8 @@ rva,kind,name,signature,description,confidence,source
 0x4759090,global,g_GameMain,GameMain,"Static frame-timing / game-main object holding target fps, time scale and dynamic-FPS state; live dump values 60/60/60/60, scale 1.0",high,re/out/README.md §Findings: frame pacing
 0x4759910,global,g_GameMainPtr,GameMain*,"GameManager pointer (matches Kassent 2.0.2.0 default); +0x530 ArchiveManager, +0x210 AssetManager; AOB 48 8B 15 ? ? ? ? 0F 57 D2; first-run benchmark 0x1c33fa8 writes CpuSpecClass through it (+0x284) (aka g_pGameMain, g_FrameMgr) || also: Pointer slot to g_GameMain (0x4759090); read by DynFpsGovernorTick commit (0x5af5c6) and PlaceableVisibilityUpdateRange (deref +0x530) | Frame/time manager object pointer G (vtable 0x3B1F308); fields 0x610..0x62C, 0x7D8 FPS monitor",high,notes/game-data.md §2 Hooks; re/settings/cpuspec.asm; re/out/README.md §Findings: frame pacing; re/out/anchors.md §site 0x5af5c2; notes/frame-timing.md §2; re/scripts_workers/g_coll.txt
 0x475a148,global,g_FpsModeObj,FpsModeObj*,"Object holding 30/120 fps mode flags (+0x1D 120-mode, +0x1E Is30Fps), set by 0x1334980",high,notes/frame-timing.md §8.1
+0x475a440,data,EngineArenaObject,EngineArena,static arena object constructed by 134F550 via EngineArenaInit,high,notes/load-memory.md §1
+0x4b50348,data,g_EngineArena,EngineArena*,"pointer to the static arena object 475A440 (4 MiB, pool registry at +3F5C50, ~62 pools)",high,notes/load-memory.md §1
 0x4b722d0,global,g_WorkerPoolTable,PoolTable,"static worker-pool table: 74 pool entries at +0xC stride 0x18 (u8 thread count, i32 weight at +4), worker base count u8 at +0x740; sized once at boot by SizeWorkerPools (aka g_ThreadPoolTable) || also: Named worker-pool table (74 pools, stride 0x18: char* name + prio/thread-count/weight ints; settings.md: weights at +0xC) sized by 0x1fe2fd4; first record ""[App]Game""; live counts in re/settings/threads.txt (e.g. CharacterUpdate 8, StgGdtUpd 9, KTGLGraph.Cache.UpdateTileMapping 32)",high,patcher/pools.fsx; patcher/pool_patch.fsx; notes/settings.md §4.3; re/settings/threads.txt; re/out/strings.tsv
 0x4b72a11,global,g_WorkerPoolDivisor,u8,"PoolTable+741h: divisor of the pool formula, 13 (static init mov word [4B72A10h],0D01h); 16 when CpuInfo::IsZen1",high,notes/job-system.md §2c
 0x4b72ca0,global,g_SystemSaveFilePathW,wchar_t[],"\Savedata\<steamid>\SYSTEMSAVEDATA00\SAVEDATA.BIN path buffer (refs 0x1fd6dd0, 0x1fe497c)",high,re/out/strings.tsv
