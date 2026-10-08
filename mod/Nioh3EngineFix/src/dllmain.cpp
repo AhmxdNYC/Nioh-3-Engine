@@ -30,12 +30,13 @@
 #include "psoswap.h"
 #include "memstats.h"
 #include "tilestats.h"
+#include "loadmem.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
 
 #define MOD_NAME "Nioh3EngineFix"
-#define MOD_VERSION "1.7.5"
+#define MOD_VERSION "1.7.6"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1845,6 +1846,7 @@ DWORD WINAPI Worker(LPVOID) {
                 }
                 if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
+                if (sec % 30 == 0) loadmem::LogLine();  // no-op unless [Memory] LM = 1
                 if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
                 if (s_wlDone && sec % 30 == 0) {
                     static uint64_t pC = 0;
@@ -2035,6 +2037,14 @@ DWORD WINAPI Worker(LPVOID) {
             ti.log = &Log;
             ti.iniPath = iniPath.c_str();
             tilestats::Start(ti);
+        }
+        {  // load-memory sweeper (loadmem.cpp, [Memory] LM = 0 by default; notesoad-memory.md)
+            loadmem::StartInfo li;
+            li.log = &Log;
+            li.iniPath = iniPath.c_str();
+            li.base = reinterpret_cast<uintptr_t>(g_base);
+            li.knownBuild = known;
+            loadmem::Start(li);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;

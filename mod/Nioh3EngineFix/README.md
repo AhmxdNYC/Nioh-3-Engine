@@ -324,11 +324,21 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
   launch), `CP` (0/1/2), `SPF` (0/1/2); `[Tuning] WG_MaxPending` (1-8, 1), `WG_WindowUs` (100-100000, 2000),
   `TG_Floor` (24-60, 30), `TG_RatioPct` (100-200, 125), `DS_MarginUs` (50-900, 150).
 * 1.7.5: `[Patches] AS0` (0/1, next launch, default 0 everywhere, EXPERIMENT): keeps the engine's async effects compute queue (async slot 0, `KIDS_ASync_LLCulling_Effect`) on for non-NVIDIA GPUs (one byte, `226A497` 74 -> EB, written in the decrypt-wait loop before the renderer initialises; refused if the live slot table at `.bss 0x45C0460` is already filled). Koei Tecmo disabled it on non-NVIDIA on purpose: outcomes may be faster, slower, effects one frame late, corruption or a GPU hang. Log: `AS0: slot 0 forced on`; `stats/s ASYNC: N async compute queue(s)` every 30 s. The culling-skip (CS) idea of notes\gpu-culling-rewrite.md section 3 is NOT in 1.7.5 (the draw-count equality with the shaders' constant buffer could not be proven statically).
+* 1.7.6: `[Memory] LM` load-memory sweeper (default 0 everywhere, see its section below): MEM_RESET of dead free-chunk pages in the engine heaps to cut the load-time swap burst. Self-test at start; `stats lm:` every 30 s.
 * 1.7.4: `[Profiler] GPUProf = 2` (per-PSO GPU attribution), `GPUProf2_MaxStamps` (1024-65536, 8192), `GPUProf2_Top` (5-100, 40), `GPUProf2_AB` (0/1, 1); measurement only, GPUProf stays 0 by default.
 * 1.7.2: `[Patches] RWb` (0/1, next launch), `SPR` (0/1, measurement), `[Profiler] TileStats` (0/1/2), `[GpuOpt] TileBatch` (0/1/2); all default 0.
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
+
+## Load-memory sweeper (`[Memory] LM`, 1.7.6, v2.02 only, default 0)
+
+Nioh 3 commits a 6 GiB arena at boot and never decommits it: when a stage is freed its chunks go back on the engine heap's bins but their pages stay committed and dirty, and on the Ally (RAM = VRAM pool, zram swap) the next stage pushes those dead pages to swap (class A load hitches, `notes\load-memory.md`). LM starts a sweeper thread (`src\loadmem.cpp`) that every `LM_PeriodMs` (1000) takes each engine heap's own mutex (the game's `_Mtx_lock`, heap+60h), walks the free bins and calls `VirtualAlloc(MEM_RESET)` on the page-aligned interior of free chunks of >= `LM_MinKB` (256) whose address and size were identical in the previous sweep (free and unchanged for >= 2 sweeps). The 0x20-byte chunk header and the next chunk's header are never touched, a chunk that changed is skipped until it is stable again, nothing is reset twice, and the lock is held at most `LM_BudgetUs` (1000 us) per bin walk and `LM_SliceMB` (128) per reset call. No game bytes are patched; contents of free memory become undefined (the allocator reads only free-chunk headers, proof + model: `re\scripts_stutter\loadmem_check.py`).
+
+* Self-test at start: 64 MB scratch is touched and reset; if the process working set does not fall by >= 50 % within 1 s, LM turns itself off (`LM: self-test FAILED`). `LM_Force = 1` skips the test (use it if the log says the working set did not fall but swap still drops; on Windows a reset does not shrink the working set at once, so the test fails on the PC).
+* Log: `LM: on ...`, `LM: self-test PASSED|FAILED`, `LM: N engine heaps found`, and every 30 s `stats lm:` (heaps, sweeps, chunks / MB reset with deltas, lock waits > 1 ms and max wait, max lock hold, budget cuts, bad nodes, reset fails, self-test result).
+* Keys (next launch): `LM`, `LM_Force`, `LM_PeriodMs`, `LM_MinKB`, `LM_BudgetUs`, `LM_SliceMB`. Test: `testsun_loadmem_harness.py` (synthetic heap in real memory: stability rule, page-interior bounds, lock held around every reset, real MEM_RESET leaves headers and live data intact).
+* Ally A/B: MangoHud (swap_used, ram, gpu_vram, frametime) + `MemStats = 1` over 3 loads with `LM = 0`, then the same route with `LM = 1`; compare the swap delta per load, the 40-134 ms frames in the first 12 s, load time and the working-set drop after the stage frees. Revert: `LM = 0`.
 
 ## Shader dump / swap (`[ShaderSwap]`, 1.7.1)
 
