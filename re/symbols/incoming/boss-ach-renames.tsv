@@ -1,0 +1,13 @@
+rva	kind	name	signature	description	confidence	source
+0x297f2dc	function	TrophyUnlock	void TrophyUnlock(uint idx, bool flag)	game-side trophy unlock; idx==ACH number; writes record + syncs to Steam via 1fdc0f0	high	notes/boss-achievements.md
+0x297f14c	function	TrophyIsUnlocked	bool TrophyIsUnlocked(uint idx)		high	notes/boss-achievements.md
+0x297f3f8	function	TrophySyncAllToSteam	void TrophySyncAllToSteam()	loops idx 1..63, resyncs to Steam	medium	notes/boss-achievements.md
+0x1fdc0f0	function	SteamSetAchievement	bool SteamSetAchievement(SteamStatsObj* o, int idx)	ISteamUserStats vtbl+0x30 SetAchievement with ACH_%03d, idx<0x40	high	notes/boss-achievements.md
+0x1fdc3b0	function	SteamSetAchievementProgress	bool SteamSetAchievementProgress(SteamStatsObj* o, uint idx, int v)	ISteamUserStats vtbl+0x18 SetStat ACH_%03d_PROGRESS	high	notes/boss-achievements.md
+0x23b1ed0	function	ScriptSystemTrophyRequestUnlock		script wrapper System::Trophy::RequestUnlock	high	notes/boss-achievements.md
+0x215c630	function	TrophyCheckStoryAndBossFlags	void TrophyCheckStoryAndBossFlags(MissionSave* s)	polls main progress ids 1000..6500 (idx4-11: Shingen,Yoritomo,Himiko,Yoshinobu,Hiruko,ending) and mission flags 0x128-0x12A,0x20F-0x211,0x1A6/7 (idx41-50)	high	notes/boss-achievements.md
+0x1c3413c	function	MissionResultUpdate		calls TrophyCheckStoryAndBossFlags and TrophySyncAllToSteam	medium	notes/boss-achievements.md
+0x1075f50	function	MissionFlagReadAllSlots	uint* MissionFlagReadAllSlots(obj* o, uint* out, uint flagId)	bitmask of the 6 NG slots for a mission flag	high	notes/boss-achievements.md
+0x5591e8	function	MissionIdCategory	int MissionIdCategory(int id)	<7000 main, <8000 sub, <9000, else 3	high	notes/boss-achievements.md
+0x217f6c4	function	MasterDefeatedMark	void MasterDefeatedMark(obj* o, uint masterId, char v)	sets master-defeated bit; unlocks Masterful Pupil (idx 0x14)	medium	notes/boss-achievements.md
+0x44b9170	global	g_TrophyTable	struct{u32 ach,u32 flag,u32 target}[64]	Steam achievement table	high	notes/boss-achievements.md

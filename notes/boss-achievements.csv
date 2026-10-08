@@ -1,0 +1,22 @@
+idx,ach_api_name,steam_name,description,boss_or_target,trigger,confidence
+0,ACH_000,You Are Nioh,Unlocked all achievements,-,all other idx unlocked,low
+1,ACH_001,Answering to the People,Completed all Myths,-,counter target 31,medium
+4,ACH_004,Wanderer in Time,First time travel event,story event,main-mission progress >= 1000,medium
+5,ACH_005,Guiding Mirror,Receive Guiding Mirror from Ii Naotora,Ii Naotora (cutscene),main-mission progress >= 1153 (0x481),medium
+6,ACH_006,The Old Tiger Departs,Destroyed Crucinite in Takeda Shingen's Guardian Spirit,Takeda Shingen (Sengoku),main-mission progress >= 2000,medium
+7,ACH_007,Unbreakable Cause,Crucinite in Minamoto no Yoritomo's Guardian Spirit,Minamoto no Yoritomo (Heian),main-mission progress >= 2500 (0x9c4),medium
+8,ACH_008,The Queen's Eyes Open,Crucinite in Himiko's Guardian Spirit,Himiko,main-mission progress >= 3500 (0xdac),medium
+9,ACH_009,What Must Be Done,Crucinite in Tokugawa Yoshinobu's Guardian Spirit,Tokugawa Yoshinobu (Bakumatsu),main-mission progress >= 5300 (0x14b4),medium
+10,ACH_010,Delusion Destroyed,Destroyed Crucinite within Hiruko,Hiruko (final boss),main-mission progress >= 6200 (0x1838),medium
+11,ACH_011,As Shogun,Finish main story / appointed third shogun,ending,main-mission progress >= 6500 (0x1964),medium
+20,ACH_020,Masterful Pupil,Defeated a master for the first time,any master,master-defeated bit set (0x217f6c4) or count>0,medium
+21,ACH_021,A God Among Men,Defeated all masters,all 13 masters,counter target 13,medium
+41,ACH_041,Kunimatsu's Pride,Defeated Demon of Pride,Demon of Pride,mission flag 0x128 (296) in any NG slot,high
+42,ACH_042,Kunimatsu's Envy,Defeated Demon of Envy,Demon of Envy,mission flag 0x129 (297),high
+43,ACH_043,Kunimatsu's Obsession,Defeated Demon of Obsession,Demon of Obsession,mission flag 0x12A (298),high
+44,ACH_044,Senji Toyo,Recovered the blacksmith's memory,-,not in 0x215c630 (other caller),low
+45,ACH_045,Ruckus in the Sanctuary,Black Feather Sanctuary: crows + Otoroshi,Otoroshi,mission flag 0x210 (528),high
+46,ACH_046,Pain Pain Go Away,A Sinister End: repelled Murakumo,Murakumo,mission flag 0x211 (529),high
+47,ACH_047,Distant Memories,Bathed with Himiko + Naotora incident,-,mission flag 0x20F (527),high
+50,ACH_050,Nothing Left to Learn,Veteran missions Muenori + Hanzo,-,flags 0x1A6 AND 0x1A7,high
+51-63,ACH_051..063,Hell Rising DLC set,see md,DLC bosses/masters (e.g. The One-Eyed Master),not traced,low
