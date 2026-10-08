@@ -24,8 +24,8 @@ import bisect, collections, glob, os, re, struct, sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DUMP = os.path.join(ROOT, 're', 'Nioh3.dump.exe')
 SYMS = os.path.join(ROOT, 're', 'symbols', 'symbols.tsv')
-# pending perf-coverage rows not yet in symbols.tsv (perf-coverage.tsv was merged 2026-10-07 22:41; -2 = placeholder renames)
-INCOMING = [os.path.join(ROOT, 're', 'symbols', 'incoming', f) for f in ('perf-coverage.tsv', 'perf-coverage-2.tsv', 'audio-objupdate.tsv', 'audio-objupdate-renames.tsv')]
+# pending rows not yet in symbols.tsv (perf-coverage.tsv was merged 2026-10-07 22:41; -2 = placeholder renames; perf-rename-2* = pass 2)
+INCOMING = [os.path.join(ROOT, 're', 'symbols', 'incoming', f) for f in ('perf-coverage.tsv', 'perf-coverage-2.tsv', 'audio-objupdate.tsv', 'audio-objupdate-renames.tsv', 'perf-rename-2.tsv', 'perf-rename-2-renames.tsv')]  # perf-rename-2: pass-2 self-time names (renames file overrides placeholders)
 DECOMP = r'D:\nioh3-re\decomp'
 
 B = open(DUMP, 'rb').read()

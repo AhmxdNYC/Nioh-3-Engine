@@ -246,3 +246,9 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Designs (gpuopt hook, default off): R2a = COMMON -> (P|NPSR|PSR) for buffers without ALLOW_UNORDERED_ACCESS (exact under D3D12 semantics); R2b (UAV-capable, experimental; may save nothing on RADV); R1 superset drop (RADV-identical, not spec-exact) + engine cave at 115D94 with bytes. Build thresholds and the trace join in B6; ask: add GetDesc Dimension/Flags to the trace.
 - New: `re\scripts_d3d12\barrier_callers.fsx`, `barrier_sites.py`, `barrier_sites.tsv`; symbols `re\symbols\incoming\barrier-callers.tsv` (60) + `barrier-callers-renames.tsv` (3, apply in place).
 - Undo: delete Addendum B and the new files.
+
+## 2026-10-07 - perf-rename-2: profiled CPU self time 87.5 % -> 99.5 % named (RE only; nothing installed, game not run)
+- `re\symbols\incoming\perf-rename-2.tsv` (new rows) and `perf-rename-2-renames.tsv` (renames of `Unknown_*` / `*Hot_*` placeholders; apply in place, merge keeps old names). Role names from the decompile with evidence per row; not merged.
+- `re\scripts_re\perf_coverage.py` reads both: `--self` named coverage combined 87.5 -> 99.5 %, Ally 93.0 -> 99.5 %, PC 85.7 -> 99.5 %, `Unknown_` 9.2 -> 0.0 %; all 99 functions with >= 0.3 % PC inclusive share are named.
+- `notes\perf-coverage.md` "Pass 2": subsystem roles (resource readiness polling, draw-state commit, UI nodes, animation/secondary motion, cloth/soft body, audio mixer, jobs, script VM), one O(n^2) map walk found (1196B70, too small to patch), next step for GPU-pass CPU paths.
+- Undo: delete the two TSVs and the "Pass 2" section; revert the INCOMING line in perf_coverage.py.
