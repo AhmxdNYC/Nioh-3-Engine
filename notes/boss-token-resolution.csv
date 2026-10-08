@@ -1,0 +1,16 @@
+token,status,name_en,name_ja,reading,g1_id_en_ja,evidence
+soranaki,exact,Death Veil,空亡,そらなき,6271153,text_ja ruby 空亡=そらなき; same id text_en "Death Veil"; g36 lore "Death Veil ... above Edo Castle keep"; g7 33232946 gargantuan yokai after Masakage
+boshitsuki,unknown,,,,,no hit in text_ja/en (憑き/ぼし/星月/母子 searched; only 蝦蟇憑 Gamatsuki 8076336 and 地獄憑き titles); not resolved
+maria,likely,Maria,マリア,まりあ,8089617,exact g1 string in ja+en; role as boss unverified
+toragozen,exact,Tora Gozen,虎御前,とらごぜん,7876832,ruby とらごぜん; en "Tora Gozen" (female cat guardian spirit); NOT Tomoe Gozen (7665264) or Shizuka Gozen (7406045) - correct earlier guess
+hanbe,exact,Kanai Hanbei,金井半兵衛,かない はんべえ,5960607,ruby はんべえ; en Kanai Hanbei; g7 29970545/33071718 Chokodo with Shosetsu transformed into yokai (not Takenaka Hanbei 4468391)
+naoyoshi,exact,Kumagai Naoyoshi,熊谷直良?,,5171292,en g1 "Kumagai Naoyoshi"; ja kanji not re-checked (earlier csv guess 直実 is wrong reading)
+yodomi,unknown,,,,,no hit; nearest Yodogimi 淀君 7177979 is different (ruby-less); likely non-name word
+genshin,exact,Genshin the Coward / Genshin the Bale Toppler,臆病者の玄心 / 俵崩しの玄信,,6212253;8236393,en+ja g1 (RED coward 6212253, CYAN bale toppler 8236393, Genshin07 8086896); side-quest enemy names
+morihide,exact,Anazawa Morihide,穴澤盛秀,,6186810,en+ja g1 RED name
+hyakuman,unknown,,,,,only hit 百万石 (Hyakumangoku armor set g3); no boss; probably armor/stage word
+saigo,exact,Saigo Takamori,西郷隆盛,さいごう たかもり,7765616,en+ja g1
+ishibitsu,likely,Stone Urn (quest object not boss),石櫃,いしびつ,,g30 126826270 "Investigate the stone urn" / g8 37101697; quest word
+goganki,unknown,,,,,no hit in ja/en (五眼/ごがん searched)
+masatomo,likely,Naito Masatoyo (token typo),内藤昌豊,ないとう まさとよ,5422160;5515761,no Masatomo string exists; Masatoyo is the only close g1 name
+tadakatasu,exact,Honda Tadakatsu (token typo),本多忠勝,ほんだ ただかつ,6039836,ruby ほんだ/ただかつ; en Honda Tadakatsu
