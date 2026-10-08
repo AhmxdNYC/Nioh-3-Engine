@@ -1,0 +1,8 @@
+D:\nioh3-wt\allygpu\gpu-shaders\gi\scenes.py:243: SyntaxWarning: "\g" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\g"? A raw string is also an option.
+  field + G-buffer, gi\geoscene.py), vfscat (fog)."""
+VFSCAT_235.ll vs vf235_par.ll: 768 seeds, 196608 writes, bit-exact 196608 (100.0000%), max 0 ulp, write-set differences 0, 275s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+ulp histogram: 0:196608
+original block coverage: 137 / 137 (100.0%)
+RESULT: PASS

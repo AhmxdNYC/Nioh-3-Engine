@@ -1,5 +1,7 @@
 # Volumetric fog rewrite (VFSCAT #235), staged, not installed
 
+**2026-10-08:** the full rewrite measured +0.33..0.54 ms SLOWER on the Ally (throughput-bound shader; unpinned RADV build 112-116 VGPR -> 4 waves; +13-18 % VALU; speculative loads). Superseded by **fogpar** = item 1 only (`mkfog.py --no-cl --no-tail`, `build_fogpar.py`; bit-exact; RGA 96 VGPR / 5 waves, loads 101 -> 79). See `ally-gpu-budget.md` s6-s7.
+
 Context: `notes\gpu-maxsettings.md` §6 item 8, `notes\gpu-gi-rewrite.md` (same method). VFSCAT-CllLpvSfbVsm #235 in
 `shader_dx12\0xa9910db8.file` scatters light into the 160×90×64 froxel volume (8×8×4 groups, async queue). It is
 ~1.8–2.3 ms of work on the Ally at VOLUMETRIC HIGH (= max), fixed size.

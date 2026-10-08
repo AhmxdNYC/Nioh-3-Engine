@@ -1619,7 +1619,7 @@
   {
    "id": "S_fog",
    "type": "shader",
-   "label": "VFSCAT#235 fog (dropped before: re-test)",
+   "label": "VFSCAT#235 fogpar (onlypar build 2026-10-08; full rewrite dropped)",
    "shaders": [
     "fog"
    ],

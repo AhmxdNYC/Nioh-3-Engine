@@ -1,56 +1,69 @@
-# Ally GPU budget: measured numbers only (2026-10-08)
+# Ally GPU budget: measured numbers (2026-10-08, updated with the 1.7.31 GP2 session)
 
-Offline analysis of logs already on disk. The game was not run, nothing in the game folder was touched, and no Ghidra was used.
+Offline analysis of Ally logs. The game was not run on the PC and nothing in the game folder was touched.
 Tool: `re\scripts_gpu\ally_budget.py` (`windows` / `gp1` / `gp2 --min-draws N`). It reuses the `gp2_digest.py` labels.
 
 Tags: **M** = measured on the Ally. **M\*** = measured with GP2 per-PSO stamps (single-dispatch passes are not inflated, see §1).
 **E** = estimate (the basis is given). Nothing here is PC-scaled unless it is tagged E.
 
-## 1. Sources, and why the old Ally tables were wrong
+## 1. Sources
 
 | config | what it is | data | frame |
 |---|---|---|---|
-| **USER** | the user's preset: LIGHTEST_PERFORMANCE, REN_RAT 50 (960x540 -> FSR 3.1 -> 1080p), FSR_SHARPNESS 1.0, FG off for profiling | GP1 engine markers (no PSO stamps), ASI 1.7.23 / 1.7.25: `captures\ally\1723\*` (6 steady windows at 30-34 fps), `captures\ally\1725\*` (4 launches) | **30.5-33 ms GPU span, ~32 fps** (M; MangoHud v4 = 30 fps / 33 ms) |
-| **MAX** | MAX preset at REN_RAT 100 (FSR 3.1 native AA) | GP2 per-PSO + GP1 markers, ASI 1.7.5: `nioh3_ally_modlog_175-L2_2112.log` (all replacements OFF = stock shaders; 6 gameplay windows), L1/L3 as controls | ~61 ms unstamped (16.0-16.6 fps, v71 MAX log); 64.3 ms GP2-stamped span |
+| **USER** | the user's config: PRESET LIGHTEST_PERFORMANCE **but VOLUMETRIC STANDARD** (custom), REN_RAT 50 (960x540 -> FSR 3.1 -> 1080p), FSR_SHARPNESS 1.0, FG off | **S1 = GP2 per-PSO, Top 100, 1 frame in 8, ASI 1.7.31** (bridge #293, `captures\ally\gpu_budget_1531\nioh3_ally_modlog_gpub-S1_1500.log`, digest `S1_gp2_top100.txt`); U1-U6 upscaler arms (GP1 markers) in the same folder. Older GP1-only runs: `captures\ally\1723\*`, `1725\*` | **28.7 ms GPU span, 34.9 fps (M\*)**; GP2 covers 27.3 ms (**95 %**), async 3.46 ms; GPUProf=0 control 34.3-34.4 fps |
+| **MAX** | MAX preset at REN_RAT 100 (FSR 3.1 native AA) | GP2 per-PSO + GP1 markers, ASI 1.7.5: `nioh3_ally_modlog_175-L2_2112.log` (stock shaders; 6 gameplay windows) | ~61 ms unstamped (16.0-16.6 fps); 64.3 ms GP2-stamped span |
 
-- **Menu dilution.** `gp2_digest.py` (and so `gp2_L1_full.*` / `gp2_L2_full.*`) averages *every* stamped window. 26 of
-  L2's 38 ON windows are the title/menu: 16.6 ms span and ~56 draws/frame, with FSR3 running every frame and nothing else
-  running. Another 6 are loading/transition windows. So:
-  - FSR3 dominated those tables.
-  - Every gameplay-only PSO is divided by 38 instead of 6, which shrinks it ~5-6x.
-  - The "mean span 30.1 ms" is a mix of 16.6 ms menus and 64 ms gameplay. It only looks like a real frame by coincidence.
-  - Any Ally ms quoted from `gp2_L*_full` is a menu-weighted mean. That covers `gpu-post-runtime.md` §7,
-    `gi-highest-audit.md` §1, `gpu-materials-trim.md`, `render-nodes.md` and `settings-cost.md` "Ally M".
-- **Wrong config label.** `gi-highest-audit.md` calls the 175 logs "~STANDARD/540p". They are REN_RAT 100.
-  - Every render-res FSR pass in L2 gameplay is 3.7-4.0x the USER run: prepare inputs 1.03 vs 0.28 ms, reactivity
-    0.85 vs 0.22, luma instability 0.71 vs 0.19, generate reactive 0.36 vs 0.09.
-  - The output-res passes are equal: RCAS 0.32 vs 0.32, upscaled-depth copy 0.218 vs 0.220, VideoOut 0.38 vs 0.39.
-- **Stamp overhead.** The output-res equality above also shows that GP2 stamps do not inflate single-dispatch passes.
-  - At MAX the whole stamped span is ~5 % over the unstamped frame (64.3 vs ~61 ms).
-  - Many-draw buckets (G-buffer, particles) carry most of that 5 %.
-  - The STATUS "stamps cost ~14 ms" is the menu A/B (30.4 vs 16.7 ms), not gameplay.
-- **Reproducibility.** The untouched single-dispatch PSOs agree within ±0.03 ms across L1, L2 and L3: FSR accumulate
-  2.698 / 2.714 / 2.665. So the MAX table is solid at ≥ 0.42 ms per row.
-- **Cutoffs.** GP2 1.7.5 logged only the top 40 PSOs per window, which puts the gameplay cutoff at 0.40-0.46 ms. The rows
-  below cover 45 of 64 ms. The other ~19 ms are ~650 PSOs under 0.42 ms each (ESM, MshLod, most MPC, HBAO, bloom ...).
-  GP1 marker sums cover only ~10.5 of the 32.5 ms USER frame.
+- **Menu dilution (old tables).** `gp2_digest.py` (`gp2_L*_full.*`) averages every stamped window; 26 of L2's 38 are the
+  title menu. Any Ally ms quoted from `gp2_L*_full` is a menu-weighted mean. `ally_budget.py gp2 --min-draws 2000` keeps
+  gameplay only (S1: windows 6-9, 2470-2610 draws+dispatches/frame).
+- **Stamp overhead.** GP2 1.7.31 measures it live: +0.08 ms/frame at USER. Single-dispatch passes are not inflated
+  (RCAS 0.320 GP2 vs 0.317 GP1 in the same launch).
+- **The "(copy / resolve / clear)" row is partly draws.** Since 1.7.8 an interval is only cut after `GPUProf2_MinRun`
+  (4) draws and a copy counts as a full run, so the bucket also bills up to 3 preceding draws (`gpuprof.cpp` l.369-379).
+  Its "24.3 per frame" are those draws. Real copy/clear time needs one run with `GPUProf2_MinRun = 1` (§7).
+- **Stale labels.** `gp2_hash_index.json` still calls VS be0fa132 "OUR REPLACEMENT (trvs/pbvs)"; it is the stock VS
+  (trvs is not installed on the Ally, pbvs records did not run). Rebuild with `gp2_digest.py --rebuild` before quoting.
+- GP2 logged the top 100 rows per window (109 distinct in gameplay, 308 buckets in total); rows below ~0.03 ms are cut.
 
-## 2. USER preset (REN_RAT 50): engine markers, gameplay, unstamped (M)
-Mean of 6 steady windows (1723 a/b/c, 31.9 fps, span 32.5 ms). Ranges are over all 7 launches (1723 + 1725).
-Markers nest (`incl`), so do not sum them. Only ~10.5 ms of the frame is under a marker; **~22 ms is unattributed at this preset.**
+## 2. USER preset: per-PSO, gameplay (M\*, S1, 4 windows, span 29.2 ms stamped)
 
-| # | marker | ms/frame | range | per frame | note |
-|---|---|---|---|---|---|
-| 1 | **FSR3 (whole upscaler)** | **3.67** | 3.51-3.91 | 1 | 11 % of the frame; breakdown in §5 |
-| 2 | MeshletPreculling | 3.03 | 2.21-3.06 | 3.8-4.7 | GPU culling chain (MPC). A marker interval, so it may include the tail of the preceding work |
-| 3 | VirtualShadowmap (Clipmaps 0-4) | 1.63 | 1.10-2.02 | 0.3 | VSM page rendering; Clipmap 4 0.58, Clipmap 3 0.42, Clipmap 2 0.34 |
-| 4 | Batch Tiles 8 | 1.49 | 0.96-1.81 | 1.2-2.0 | shadow-map tile batches (SM / SMTREE2 draws) |
-| 5 | MeshletResolveLOD | 0.72 | 0.52-0.72 | 1.3 | includes sub-markers 0 / 1 / 2 |
-| 6 | MeshletCheckRequestLoad | 0.63 | 0.35-0.68 | 1 | meshlet streaming requests |
-| 7 | VideoOut | 0.39 | 0.36-0.42 | 1 | output-res final pass |
-| 8 | DebugFSR3CopyUpscaledDepth | 0.22 | 0.21-0.22 | 1 | FSR-only helper (`fsr3-audit.md` #7) |
-| 9 | DrawSky (VCLOUD) | 0.17 | 0.16-0.25 | 1 | |
-| 10 | GenerateSceneHiZ / MeshletInstanceCulling / GPUCulling Setup / MeshletRequestLoad | 0.12 / 0.10 / 0.08 / 0.07 | | | |
+| # | PSO / pass | ms | per frame | note |
+|---|---|---|---|---|
+| 1 | FSR3 ACCUMULATE_SHARPEN e7386840 | **1.97** | 1 | output res; §5 |
+| 2 | VFSCAT volumetric fog CS 641524ee (**async**) | **1.78** | 2 | VOLUMETRIC STANDARD, 120x67x48 froxels; §6 F1 |
+| 3 | PB2 G-buffer VS 1559714c / PS 7dcfe3de | **1.57** | 31 | ~75 % VS (meshlet VS); §6 M1 |
+| 4 | (copy / resolve / clear) + up to 3 draws each | 1.54 | ~37 runs | §1, §6 C |
+| 5 | VCLOUD sky CS b76874bb (**async**, under DrawSky) | **1.52** | 1 | async wall time; §6 V |
+| 6 | RefProbe #121 GI gather CS 4b4c3cbe | 1.26 | 8.1 | stock |
+| 7 | PB2 G-buffer VS 70d0ee9f / PS 05ad1715 | 1.10 | 23 | 55-70 % VS |
+| 8 | MPC 304bac05 (MeshletPreculling) | 1.02 | 9.9 | culling |
+| 9 | PB2 VS be0fa132 / PS a11ff9e5 | 0.77 | 14 | stock VS (label stale) |
+| 10 | PB2LS terrain 55954792 / 7d506745 | 0.77 | 4 | |
+| 11 | post VS d21b4b07 / bloom e6efc8ff | 0.75 | 4 | |
+| 12 | SM shadow-map draws e5190e82 / c4656a8d | 0.67 | 53 | |
+| 13 | MCLRC 864b4941 (MeshletCheckRequestLoad) | 0.65 | 3 | culling |
+| 14 | G1E particles f645c461 / d4ed3fe4 | 0.62 | 127 | |
+| 15 | WDO_SST + PB2DUS 6f7e3409 | 0.61 | 4 | deferred |
+| 16 | PB2DECAL c013d811 | 0.54 | 6.7 | |
+| 17 | PB2TREE2 9429db01 / 92139110 | 0.49 | 41 | |
+| 18 | WDO 0b17198d / PB2MRLR b68c49cd / PB2DS f61e54aa | 0.46 / 0.38 / 0.33 | 2-6 | shadow resolve / deferred |
+| 19 | GVD c6cdf35e / ESM 47ef1c9b / MPC a09d4223 / unnamed CS dfe80724 | 0.36 / 0.35 / 0.35 / 0.34 | | |
+| 20 | motion blur f11afe97 / RCAS db8d59bf / SRIVER2 / ExeUI_AlphaFadeQuad / FSR PREPARE_INPUTS | 0.33 / 0.32 / 0.30 / 0.29 / 0.29 | | |
+
+**Family totals (all 109 logged rows, M\*; async rows overlap, so they sum past the span):**
+
+| family | ms | | family | ms |
+|---|---|---|---|---|
+| G-buffer materials (PB2*) | **7.54** | | copy/resolve/clear (incl. absorbed draws) | 1.79 |
+| FSR3 (all passes + depth copy + save color) | **3.59** | | GI RefProbe / SDFOCC / HBAO | 1.77 |
+| culling (MPC, MshLod, MCLRC, MIC, GVD, HiZ) | **2.88** | | sky VCLOUD (async CS 1.52 + PS 0.14) | 1.66 |
+| deferred / shadow resolve (WDO_SST) | 2.04 | | shadow maps (SM, ESM, tiles, cascades) | 1.38 |
+| fog (VFSCAT async 1.78 + SSFOG 0.22) | 2.00 | | particles (G1E, AMBSL, GFM) | 1.34 |
+| post (bloom, MB, compose, VideoOut, toon edge) | 1.94 | | UI/exe blits 0.39, water 0.29, unnamed CS 0.62, SSR 0.08 | |
+
+GP1 markers in the same launch (5 windows, span 28.65): FSR3 incl 3.65, MeshletPreculling 1.37, VirtualShadowmap 0.66,
+MeshletCheckRequestLoad 0.58, Batch Tiles 8 0.58, MeshletResolveLOD 0.40, VideoOut 0.38, DrawSky (graphics part) 0.25.
+**The "22 ms unattributed" of the old §2 is now attributed:** the frame is G-buffer-heavy (7.5 ms), not upscaler-heavy.
 
 ## 3. MAX (REN_RAT 100): per-PSO, gameplay, stock shaders (M\*, 175-L2, 6 windows)
 
@@ -101,102 +114,144 @@ Markers nest (`incl`), so do not sum them. Only ~10.5 ms of the frame is under a
 - PB2 opaque: "0.645" -> 2.91.
 - VCLOUD CS: "0.386" -> 1.50.
 
-## 4. Section 3 re-checked against measured cost
+## 4. remaining-work §3 re-checked against the USER measurement
 
-| item | claim in remaining-work | where the claim came from | Ally-measured now | verdict |
+| item | USER measured now (M\*) | verdict |
+|---|---|---|
+| 3.1 gi #121 | stock 1.26 ms (8.1 disp) | replacement was +1.5 ms slower at MAX: DROP stands |
+| 3.1 VFSCAT fog | stock 1.78 ms async | full rewrite DROP stands (cause in §6 F1); **`fogpar` built instead** |
+| 3.1 WDO#28 / WDO#14 | WDO rows 0.46 + 0.38 + 0.33 ms; WDO#14 8a013bc7 not in the top 100 | WDO#14 at USER < ~0.1 ms: its win is ~0.01-0.03 ms (E). A/B only at MAX |
+| 3.1 ESM_fast | ESM 47ef1c9b **0.35 ms** | real target exists at USER; ESM_fast win ≤ ~0.1 (E) |
+| 3.1 MPC#23 / mshlod | MPC 304bac05 1.02 + a09d4223 0.35 + 4225b9ff 0.06; MshLod 0.10 + 0.05 | MPC is now a measured 1.4 ms family: the staged mpc item is worth an Ally A/B |
+| 3.2 GI A0/A1 merge | #121 1.26 ms | ~0.05-0.1 ms at USER (E: group-1 share 3-7 % of 1.26) |
+| 3.4 VCLOUD hoist / SFB dedupe | VCLOUD 1.52 async; PB2 opaque rows 1.57 + 1.10 + 0.77 | **VCLOUD hoist: REJECT** (≤ 0.05 ms, +VGPR -> 3 waves). **SFB dedupe: REJECT stands**; the PB2 cost is mostly the meshlet **VS** (§6 M1) |
+| 3.6 TileStats census | VirtualShadowmap 0.66 + Batch Tiles 8 0.58 (GP1) | smaller at this spot than 1723 (2.6-3.8); keep, lower priority |
+| 3.8 FSR3 upscaler | §5 | all arms measured now |
+
+## 5. FSR3 and the upscaler arms (M, bridge #293)
+
+| arm | fps | GP1 span | upscaler | finding |
 |---|---|---|---|---|
-| 3.1 gi #121 | staged | RGA model | replacement **+1.51 ms slower** (gameplay means: L1 4.65 vs L2 3.14) | DROP (confirmed) |
-| 3.1 VFSCAT fog | staged | RGA model | **+0.54 slower** (4.13 vs 3.59, async) | DROP |
-| 3.1 toonedge2 | staged | RGA model | ≥ +0.13 slower (0.55 vs < 0.42) | DROP |
-| 3.1 WDO#28 | staged | model | original 1.08 ms. The L1 log still shows the original 32e8deff (1.07), so the replacement hardly ran | **unresolved**, not a win |
-| 3.1 gi #414 | staged | model | original 2.36 ms (MAX). Never installed on the Ally | unresolved |
-| 3.1 ESM_fast | "0-0.9 ms Ally" | **PC 296 µs x 7.5 (E)** | no ESM PSO reaches the 0.42 ms gameplay cutoff at MAX | **PC-scaled.** Win ≤ ~0.2-0.4 (E); resolve with GP2 Top=100 |
-| 3.1 MPC#23 / mshlod | "0.11-0.24 ms Ally" | **PC x (E)** | culling marker 1.7 (MAX) - 3.0 ms (USER). MPC 1b4b5b75 0.73 is unchanged L1 vs L2 (-0.03), so #23 is a sub-cutoff PSO | **PC-scaled**; unresolved |
-| 3.1 post-v1 | staged | - | targets rare (3.3) | closed by 3.3 |
-| 3.2 GI A0/A1 merge | "0.7-1.9 ms Ally" | **PC r5 x 6-8 (E)**. The audit's "Ally GP2" column is the menu-diluted table with the wrong config | Measured PSO totals at MAX: #121 3.14 (3.9 disp/fr), #414 2.36 (2.9 disp/fr). The dispatch counts match the r5 structure | **Re-anchored: ~0.25-0.5 ms at MAX** (r5 group-1 empty share 3-7 % of #121, 6-12 % of #414, applied to the measured totals; E). **~0.02-0.03 ms at USER** (GI STANDARD x 540p = 1/16 of the gather pixels; E). Priority down; still needs A0 first |
-| 3.4 VCLOUD hoist / SFB dedupe | - | sized from the diluted table (0.386 / 0.645) | VCLOUD CS 1.50 ms async + 0.29 PS at MAX; DrawSky 0.17 ms at USER. PB2 opaque 2.91 ms at MAX | both fail the register rule (`gpu-materials-trim.md`); the targets are 4x bigger than thought, but VCLOUD is async (frame gain < its ms) |
-| 3.5 WDO#14 page-flag dedupe | "0.2-0.4 ms Ally" | shader "0.7-1.1 ms Ally" was PC x (E); the dedupe share is a model | **shader 1.08 ms at MAX (M\*)**, consistent. At USER (render-res, 1/4 the pixels) ~0.27 ms (E) | value stands at MAX (E 0.2-0.4); **~0.05-0.1 ms at USER (E)** |
-| 3.6 TileStats census | no ms claim | - | the block it targets is measured: VirtualShadowmap + Batch Tiles 8 = 2.6-3.8 ms at USER, 4.5 ms at MAX | keep; it is the only lever on a measured multi-ms block |
-| 3.7 ESM 2048->1024 | "1.5 ms Ally" | **PC 0.2 ms x 7.5 (E)** | no ESM PSO ≥ 0.42 ms in gameplay at MAX | **PC-scaled, likely over**; it changes the look anyway. Needs GP2 Top=100 before anyone offers it |
+| U1 FSR, sharpness 1.0 (control) | 34.2 (GPUProf=0: 34.3-34.4) | 28.76 | FSR3 3.65 (ACCUM 2.08, RCAS 0.32) | |
+| U2 FSR, sharpness 0.0 | 34.1 | - | FSR3 3.65, **RCAS still 0.31** | RCAS runs at every sharpness (below) |
+| U3 XeSS | 33.3 | 29.56 | XeSS 4.00 (Execute 3.72) | **~1 fps slower than FSR** on the 780M (DP4a path) |
+| U4 OFF | = U1 | | FSR3 markers present | the game rejected OFF and kept FSR (below) |
+| U5a REN_RAT 67 | = U1 (34.3) | | FSR3 3.63 | **67 is not a legal value** (below) |
+| U5b REN_RAT 100 | 18.0 (p99 59 ms) | 54.56 | FSR3 6.99 (ACCUM 2.60) | the fit **2.56 + 4.43·r²** predicts 3.67 / 6.99: confirmed |
+| U6 FSR + FG on (live switch) | **49.0-49.3 displayed** (from 34.2) | | FSR3 2.02 per displayed frame; OF ~1.27 + interp ~1.35 ms | FG is the only lever that reaches ~50 |
 
-## 5. FSR3: what it costs on the Ally, and what could cut it
+**REN_RAT 67 is not a clamp and not a preset bug.** `REN_RAT` is an enum key, not an int: `ReadConfigKey` (0x1fe4244)
+strcmp's the text against the option list `OptsRatioPercent` 0x3a9b830 = {25,30,...,95,100} (steps of 5). "67" matches
+no entry, the function returns 0 and the slot keeps its previous value (50). U5b proves LIGHTEST does not clamp: 100
+applied. **Use 65 or 70.** (The same rule applies to the sharpness keys: {0.0,0.1,...,1.0}.)
 
-**The 7 ms is MAX/native-AA only.** At the user's REN_RAT 50 the upscaler costs **3.5-3.9 ms (M, 7 launches)**.
-- Whole FSR3 marker in gameplay (M):
-  - MAX (REN_RAT 100): **6.99 ms**.
-  - USER (REN_RAT 50): **3.67 ms**.
-  - In menus at REN_RAT 50 it is 6.0-6.2 ms. There ACCUMULATE alone is 4.4 ms vs 2.1 ms in gameplay, while the other passes
-    are equal. A likely cause is the lower memory clock in menus (MangoHud 686 vs 930 MHz). Ignore menu numbers.
-- Per pass in gameplay (M):
+**RCAS at sharpness 0 is not a no-op, so skipping it would change the image (rejected).**
+- `FsrConfigApply` 0x2998b4c hard-wires `enableSharpening` (RS+0x1f54) = 1 and passes the FSR_SHARPNESS value as the
+  float `sharpness` (RS+0x1f58).
+- FidelityFX FSR 3.1 maps `sharpness` 0..1 to RCAS stops 2..0 (`-2·s + 2`; `FsrRcasCon` scales the lobe by
+  2^-stops). At 0.0 RCAS still sharpens at 1/4 strength. An exact identity exists only with sharpening disabled, and
+  that is a different look (the non-SHARPEN ACCUMULATE writes the output directly).
+- The same-look lever stays R3 (fuse RCAS into its consumer, 0.1-0.2 ms E, engine surgery, low priority).
+- The remap is FFX 3.1 source behaviour; the exe's statically linked FFX code was not disassembled. U2 measured that
+  RCAS still runs, which is consistent with it.
 
-| FSR3 pass | res | USER (REN_RAT 50) | MAX (REN_RAT 100) |
-|---|---|---|---|
-| ACCUMULATE_SHARPEN | output | **2.11** (2.05-2.41) | 2.68 |
-| RCAS (FSR_SHARPNESS 1.0) | output | 0.32 | 0.32 |
-| PREPARE_INPUTS | render | 0.28 | 1.03 |
-| PREPARE_REACTIVITY | render | 0.22 | 0.85 |
-| LUMA_INSTABILITY | render | 0.19 | 0.71 |
-| SHADING_CHANGE_PYRAMID + SHADING_CHANGE | render | 0.12 | 0.42 |
-| GENERATE_REACTIVE | render | 0.09 | 0.36 |
-| LUMA_PYRAMID (2 dispatches) | render | 0.08 | 0.25 |
-| marker self | - | 0.04 | 0.14 |
-| FSR-only helpers: CopyUpscaledDepth / SaveOpaqueColor | output / render | 0.22 / 0.02 | 0.22 / 0.18 |
+**XeSS / OFF:** the game rejected `RESOLUTION_SCALING OFF` and kept FSR (OSD `FSR (2)`), so U4 = U1. XeSS was accepted.
 
-- **Cost per mode.** Through the two measured points, FSR3 ≈ **2.56 + 4.43·r² ms** with r = REN_RAT/100.
-  - Points between them are E: r 0.58 ≈ 4.0 ms, r 0.67 ≈ 4.5 ms, r 0.77 ≈ 5.2 ms.
-  - The **output-res part (~2.6 ms: accumulate, RCAS, depth copy) does not shrink with a lower REN_RAT**. Going 50 -> 40
-    would save only ~0.4 ms in FSR.
-  - XeSS (DP4a on the 780M), RESOLUTION_SCALING OFF, FSR_SHARPNESS 0 and FSR FG: **no Ally data**. Protocol in §7.
-- **Game-side levers that keep the user's choice** (recommendations only, none started):
+FSR levers (unchanged): R1 fp16 rebuild of ACCUMULATE_SHARPEN 0.2-0.5 ms (E, near-look, needs the user's OK); R2
+wave-size rebuild 0 ± 0.2 (E); R3 RCAS fusion 0.1-0.2 (E).
 
-| lever | output | expected win (USER) | note |
-|---|---|---|---|
-| R1 rebuild ACCUMULATE_SHARPEN from the same FidelityFX 3.1 source as the SDK's native-fp16 (ALLOW_FP16, `-enable-16bit-types`) permutation; psoswap by digest | **not bit-identical**. The shipped blob is min-precision (SFI0 0x10), which RADV runs as FP32 (`fsr3-audit.md` §5). On Windows/AMD the same blob likely already runs at fp16 | **0.2-0.5 ms (E**: 10-25 % of 2.1 ms) | best value, but it needs the user's OK on "within FSR's own fp16 tolerance" plus a shotdiff check. Prescreen on RADV (3.4) |
-| R2 same permutation recompiled with an explicit `[WaveSize]` (SM 6.6; FORCE_WAVE64 or a wave32 build) | identical math (provable with the sweep CS interpreter) | **0 ± 0.2 ms (E, sign unknown)**. RADV already picks a CS wave size itself | cheap to try once 3.4 exists; drop unless the Ally shows ≥ 0.1 ms |
-| R3 fuse RCAS into its consumer (FFX dispatched with sharpening off + RCAS math in the consumer PS, emulating the intermediate's storage rounding) | can be bit-exact | **0.1-0.2 ms (E)**: one 1080p write + read saved | engine surgery (ffxDispatch hook + consumer PS swap); low priority |
-| changing REN_RAT, mode or sharpness | changes the user's choice / look | - | out of scope; the cost curve above is for the user to decide |
-| removing GENERATE_REACTIVE / SaveOpaqueColor / CopyUpscaledDepth | changes the image (`fsr3-audit.md` #2, #7) | - | rejected |
+## 6. Top non-FSR items: why they cost what they cost, and same-look fixes ranked
 
-**Recommendation:** R1 is the only lever worth > 0.2 ms. Ask the user. Build it only after the RADV prescreen tool (3.4) exists.
+Sources: `scratch\sky`, `scratch\copies`, `scratch\mat` in the allygpu worktree (untracked RGA / Ghidra / IR output).
 
-## 6. Top 3 real Ally GPU targets (measured ms, expected same-look win)
+**V. DrawSky VCLOUD CS b76874bb (1.52 ms async).** It is not ray-marched at full or output resolution:
+- The dispatch is ceil(w/8) x ceil(h/8) of the VCBayer target (`0x1900E8` -> `0x190350`; sync path `0x2F9BEEC`).
+  `0x93fb3280.kidsobjdb` sizes that target at render/8 (code -3); the reprojection target is render/2.
+  So USER = 15x9 groups (135 waves), MAX = 30x17 (510 waves; the PC RGP shows the same 30x17 at 1080p render).
+- It is already temporally amortized: 1 pixel per 4x4 block per frame (16-frame Bayer, `g_iBayerPosNum`) plus
+  reprojection. The cheapest CloudRes is forced at every VOLUMETRIC level.
+- 32-256 march steps by view angle, early exit at transmittance < 1/255, two layers, no depth input.
+  RGA gfx1103: 108 VGPR, 4 waves.
+- **Why 1.5 ms at both resolutions:** it is async-queue wall time while it overlaps fog and graphics, not ALU cost. The
+  stock shader moved 0.51 -> 1.26 ms when only the fog shader changed (`ally-replacement-ab.md`). Per-window range is
+  0.9-1.6 ms. The MAX number came from another build, session and spot. Real frame cost at USER ≤ ~0.3 ms (E).
+- No same-look fix worth building. Skip on identical inputs is useless (the Bayer index and cloud offsets change every
+  frame). Trimming occluded pixels is not identical (no depth input, history differs). The invariant hoist is ≤ 0.05 ms
+  for -1 wave. Only a wave32 metadata build is left (0-0.1 ms E).
 
-1. **FSR3 ACCUMULATE_SHARPEN: 2.1 ms at USER, 2.7 ms at MAX (M).** This is the largest single dispatch measured at the
-   user's preset. Win: R1 0.2-0.5 ms (E, near-look, user decision); R2 0 ± 0.2 (identical math).
-2. **GPU culling chain** (MeshletPreculling + ResolveLOD + CheckRequestLoad + HiZ + InstanceCulling): **3.5-4.5 ms
-   marker time at USER, ~3.3 ms at MAX (M).**
-   - It is latency-bound: ~4 chains of small dependent dispatches with barriers between them.
-   - Win: 0.1-0.5 ms (E) from the staged MPC#23 / mshlod plus dropping redundant full drains in the chain
-     (`vkd3d-audit.md`).
-   - First get the per-PSO split at USER (§7). The 1.7.5 cutoff hides it.
-3. **Shadows: VSM clipmaps + Batch Tiles 8 = 2.6-3.8 ms at USER (M).** At MAX, 4.5 ms plus the WDO full-screen
-   resolve family at 7.0 ms (WDO#14 1.08).
-   - Win: TileStats census (3.6) for exact empty-tile / batch skips (unknown until the census runs).
-   - WDO#14 dedupe (3.5): 0.2-0.4 ms at MAX, ~0.05-0.1 ms at USER (E).
+**F. VFSCAT fog CS 641524ee (1.78 ms async).** USER runs VOLUMETRIC **STANDARD** (120x67x48, ~6,480 waves, ~270 per
+SIMD), not LIGHTEST (that would be fog off). The bit-exact rewrite lost (+0.33..0.54 ms at MAX) because:
+1. The shader is throughput-bound. 5 resident waves already hide memory latency, so the single-wave x2.7 model did
+   not apply.
+2. Occupancy: what RADV compiles (pins folded) is 112-116 VGPR in RGA -> 4 waves, against 96 / 5 for the original.
+3. +13-18 % VALU.
+4. Speculative spot-light loads and past-end prefetches waste LPDDR5 bandwidth that VCLOUD and graphics share.
 
-At MAX only, **GI RefProbe (7.9 ms M\*)** would be #1 by size, but its exact lever (3.2) is worth only ~0.25-0.5 ms (E).
+**C. copy/resolve/clear 1.54 ms.** It is mostly absorbed draws (§1). The real copies/clears are each needed:
+- VideoOut gamma copy `0x10f17e0`: 0.197 ms copy + draw = 0.395 ms. It is skippable only when gamma x == 1.0, which
+  at BRIGHTNESS 50 happens in cutscenes only (gameplay x = 1.108), so the gameplay gain is 0.
+- MRLR scene copy 0.05 (SSR input). FSR3 SaveOpaqueColor 0.05.
+- ~32 ClearUAVUint at frame start for texture streaming (`0x1284e8`): batchable, not skippable.
+- Full-RT clears: fast clears under vkd3d, ~0 ms. No skippable call is worth > 0.05 ms at USER.
 
-**Honest scale:**
-- All three together are worth ~0.4-1.4 ms at USER (E), +1-5 % fps.
-- 60 fps at the USER preset needs the GPU frame to drop from ~31 to 16.7 ms. No same-look shader work gets near that.
-  At this preset FG is the lever, and it is the user's.
-- The largest unknown is the **~22 ms of the USER frame that has no per-PSO data.**
+**M. PB2 material 1559714c/7dcfe3de (1.57 ms, 31 draws).** ~75 % of it is the meshlet VS, 55-70 % for 70d0ee9f/05ad1715.
+- LOAD-DEDUPE (trvs/pbvs style) saves 0 here.
+- The only same-look lever is scalarizing the ~30 per-meshlet uniform loads (`WaveReadLaneFirst`): 0.3-1.0 ms (E),
+  medium risk. It needs psim wave-op support and an exception to the register rule.
 
-## 7. Ally protocol (one session; fills the gaps above)
-ASI ≥ 1.7.8. Same save and spot as `final-benchmark-protocol.md`. Stand still, 30 s settle, then 2 x 30 s windows.
-Edit config.xml between launches (one launch per arm).
-1. **Per-PSO at USER:** `[Profiler] GPUProf = 2`, `GPUProf2_Top = 100`, `GPUProf2_SampleEvery = 8`, `GPUProf2_AB = 1`,
-   `GPUProf_Top = 60`.
-   - Digest: `py -I re\scripts_gpu\ally_budget.py gp2 LOG --min-draws 1000 --top 100` and `... gp1 LOG`.
-   - Gives the 22 ms unattributed, ESM / MPC / mshlod / WDO#14 at 540p, and the real 3.1 / 3.7 values.
-2. **Upscaler arms, REN_RAT 50**, GPUProf = 1 (markers only, unstamped):
-   - U1 FSR, sharpness 1.0 (control);
-   - U2 FSR, sharpness 0.0 (does RCAS disappear?);
-   - U3 XESS (no FFX markers, so read the frame span plus a GP2 window);
-   - U4 OFF (what the engine runs instead);
-   - U5 FSR at REN_RAT 67 and 100 (checks the 2.56 + 4.43·r² fit);
-   - U6 FSR + FSR FG (FFX_FRAMEINTERPOLATION_* cost).
-3. **fps per arm:** GPUProf = 0, MangoHud 60 s. Stamps change fps, so never mix those runs into the fps numbers.
-4. **Report** per arm: upscaler ms (marker incl or summed PSOs), GPU span, fps. Then update §2, §5 and remaining-work §3.
+| rank | fix | identical output? | expected ms USER | risk | status |
+|---|---|---|---|---|---|
+| 1 | **F1 `fogpar`**: VFSCAT with ONLY the merged early-exit VSM level search (no prefetch / tail reorder) | **bit-exact (proven, below)** | 0.1-0.25 async, **0.05-0.2 frame (E)** | low-med (RADV VGPRs unverifiable offline; RGA 96 / 5 waves = shipped) | **BUILT + STAGED**, Ally A/B §7 |
+| 2 | M1 PB2 meshlet-VS load scalarization | identical (needs proof tooling) | 0.3-1.0 (E) | medium | not built: psim needs wave ops |
+| 3 | F2 / V1 `[WaveSize(32)]` metadata-only builds of VFSCAT / VCLOUD | identical by construction | 0 ± 0.2 / 0-0.1 (E, sign unknown) | low-med | not built: cheap follow-up if F1 shows RADV listens |
+| 4 | VideoOut gamma-copy skip at x == 1.0 | bit-exact | 0 in gameplay (0.395 in cutscenes) | low | not built (no gameplay value) |
+| - | RCAS skip at sharpness 0 | **no** (§5) | 0.31 | - | REJECT |
+| - | VCLOUD hoist / skip-identical / occlusion trim | hoist yes, others no | ≤ 0.05 / 0 / - | high / - / - | REJECT |
 
-Logs `captures\ally\1723\` and `1725\` are local (untracked, owned by the load-test agent).
+**F1 proof (`gpu-shaders\fog\build_fogpar.py`, `fog\vf235_par_src.hlsl` = `mkfog.py --no-cl --no-tail`, pins
+`fog\vf235_pins.txt`):**
+- `gi\verify.py --kind vfscat` vs the shipped DXIL:
+  - 768 coverage seeds: 196,608 writes bit-exact, 0 ulp, 137/137 blocks;
+  - hold-out seeds 768-2303: 393,216 writes bit-exact, 0 ulp, 137/137 blocks;
+  - 256 realistic seeds: 131,072 writes bit-exact (130/137 blocks; rare paths not taken);
+  - 128 heavy-light realistic seeds: 65,536 writes bit-exact. Two builds give the same sha256.
+- Container: SFI0 / ISG1 / OSG1 / PSV0 / bindings identical; 362 other records of the file byte-identical.
+- The packed record dumps to exactly the proven `gi\out\vf235_par.ll`.
+- RGA gfx1103, shipped -> fogpar: pinned 96 VGPR / 5 waves (VALU 2097); unpinned (the RADV view) 96 / 5, VALU
+  1854 -> 1896 (+2 %), VMEM loads 101 -> 79, full waits 56 -> 47. The full rewrite unpinned was 112-116 VGPR.
+- Files:
+  - pack `gpu-shaders\replacement\0xa9910db8.file`, sha256 `81007b3f...767334e` (original `4784aabe...bf4f993`);
+  - record digest 641524ee -> `5473bfb797f181002f6cd88547d207e4` (GP2 shows this hash when it runs);
+  - ASI ShaderSwap file `gpu-shaders\fog\out\psoswap\641524ee74b197c7d8f1535066bb2c1a.dxil` (sha256 `c259803c...d56e7a`).
+- Install:
+  - Ally: `./ally_shaders.sh apply fogpar` / `revert fogpar`. The item replaces the dropped `fog` row and upgrades or
+    reverts its old file.
+  - PC: `apply_fog.ps1` (matrix `S_fog`).
+
+## 7. Ally A/B protocol (fogpar; one session, game-lock as usual)
+
+Setup: the USER config exactly as S1 (LIGHTEST + VOLUMETRIC STANDARD, REN_RAT 50, FSR 1.0, FG OFF). Same save, same
+shrine spot, stand still, same camera pitch: VCLOUD and fog cost depend on the view. ASI 1.7.31 or newer, no other
+shader items installed (`./ally_shaders.sh status all` = ORIGINAL everywhere).
+1. **Confirm it runs** (1 launch, B): `apply fogpar`, `[Profiler] GPUProf = 2`, `GPUProf2_Top = 100`,
+   `GPUProf2_MinRun = 1`.
+   - Expected: the GP2 rows show cs=**5473bfb7** (async) instead of 641524ee, at ≤ 1.78 ms.
+   - If 641524ee still shows, the file was not picked up: stop.
+   - `MinRun = 1` also gives the real copy/resolve/clear time (§1).
+   - In the same launch, at the same spot, read REN_RAT 50 vs 100 (V0, one GP2 window each, edit config.xml between
+     launches). That settles VCLOUD's resolution scaling.
+2. **fps ABBA**, GPUProf = 0, 4 launches: A = `revert fogpar`, B = `apply fogpar`, order A B B A.
+   - Each launch: 30 s settle, 2 x 30 s MangoHud windows. Metric: mean fps and mean GPU frame time per arm.
+   - KEEP if B - A ≥ +0.1 fps (≈ -0.08 ms) in both pairs and no pair is negative. Expected +0.05..+0.25 fps
+     (0.05-0.2 ms of 28.7).
+   - A ±0.1 fps difference is noise: the U1/U1f controls agree within 0.1-0.2 fps.
+3. **Screenshot diff** (same-look check; fog is volumetric, so use a foggy view):
+   - Take one F12/Steam screenshot per launch at the identical pose: A1, B1, A2 (= second stock launch).
+   - Run `py -I tools\testmatrix\shotdiff.py A1.png B1.png --noise A2.png --out fogdiff.png`.
+   - PASS = A-vs-B not worse than A-vs-A2 (FSR/TAA jitter makes launches differ). The shader is bit-exact on the
+     interpreter, so any systematic diff means a driver/compile issue: revert.
+4. **Report** to the bridge: per-arm fps + GPU ms, the GP2 row for 5473bfb7, the shotdiff verdict, and V0's VCLOUD
+   rows. Then `revert fogpar` unless KEEP.
+- The ASI-only alternative (no game file touched): copy `641524ee74b197c7d8f1535066bb2c1a.dxil` into
+  `Nioh3EngineFix_shaders\` and set `[ShaderSwap] Enabled = 1`. The arms then differ by one ini line. Use it only if the
+  file swap fails: psoswap has not run a CS on the Ally yet.

@@ -3,3 +3,5 @@ __pycache__/
 out/rga/
 out/lr/
 out/d16/
+build_par/
+out/psoswap/
