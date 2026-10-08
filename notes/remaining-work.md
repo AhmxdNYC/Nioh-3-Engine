@@ -102,3 +102,8 @@ Top 3 measured targets: FSR3 accumulate 2.1 ms USER (fp16 rebuild 0.2-0.5 E, use
 1.1-1.4 (running) -> 4.2, 6.6, 10.3 (no game, small) -> 2.2 + 6.1 + 4.3 on the next PC/Ally turns -> 3.1 Ally shader A/Bs ->
 8.1 matrix -> 7.2 flip -> 9.3 final build -> 8.2 benchmark with the user -> 6.2 long sessions -> 8.3 / 10.2.
 Larger optional levers if budget remains: first the Ally GP2 Top=100 session at the USER preset (`ally-gpu-budget.md` s7, fills the ~22 ms unattributed), then 3.6 census, 3.8 R1 (user decision), 2.3 submit filters; 3.2 GI merge is now low value (~0.25-0.5 ms at MAX only, E).
+
+## 10. With the user playing (live)
+| # | item | owner / status | effort | game |
+|---|---|---|---|---|
+| 10.1 | Live-probe the last Unknown_ functions during the user's boss mission (hit counts + caller/context per function: when it runs, which objects/hashes it touches) to name them; RVAs: 0x4f9750 0x556118 0x59f498 0x383800 0x471e68 0x7d48d4 0x167c50 0x57da04 0x398a54 0x93aec4 0x23bf1c 0x2002d4 0xf68d8 0x2c5aa6c | next user play session | 15 min setup | y |
