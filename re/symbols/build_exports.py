@@ -19,7 +19,7 @@ COLS = ["rva", "kind", "name", "signature", "description", "confidence", "source
 KINDS = {"function", "label", "global", "data", "struct_field", "vtable", "string_table"}
 MODULE = "Nioh3.exe"
 IMAGE_SIZE = 0x52FB000  # SizeOfImage of the v2.02 dump (mod/Nioh3EngineFix/patches.json)
-NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$")  # C++ RTTI-derived names (Class::vfunc_N) allowed
 FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*$")
 
 

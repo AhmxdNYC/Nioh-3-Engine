@@ -282,8 +282,8 @@ rva	kind	name	signature	description	confidence	source
 0x82be8	label	Sleep0Call_82BE8		call Sleep(0); pdata fragment start 829EC	high	re/out/spinscan.txt §all call sites
 0x82bf0	function	ObjAnimPoseApply	void ObjAnimPoseApply(Obj* o, ptr, ptr ctx, World* w, Pose* src, u32, ptr, char, ptr)	1.1 KB (0.35 % PC inclusive), callers ObjUpdatePerObject / 315664 / 1A7801C / 342D8B4 / 342EC74: on the object's pose instance o+160h (flags +94h: 20h = skip once, 2 = frozen, 8 = no post step) copies min(bone counts) 30h-byte bone records from src (Memcpy), applies the root TRS through o vfuncs +70h/+78h/+80h (scale / rotation / position) when o+4Ch & 8, pushes the pose to 18CD584 (pose+A0h) and runs the post step (18CEAFC with w+3BFC4h, then ObjAnimPosePostUpdate)	low	notes/perf-coverage.md (perf-rename-2)
 0x82f1c	function	ObjAnimPosePostUpdate	void ObjAnimPosePostUpdate(Obj* o, ptr ctx, ...)	1.7 KB (0.33 % PC inclusive), callers ObjAnimPoseApply / 32DD3F8: per pose layer (825E0 weights) runs AnimPoseDynamicsStep, waits its jobs with JobWaitCounter, then 8281C / 83504 finalisation	low	notes/perf-coverage.md (perf-rename-2)
-0x85834	Net_IsOnlinePlay	IsOnlinePlay	bool IsOnlinePlay(void)	obj=[0x4709B50]; online if obj->mode(+0x34)==1 or IsOnlineMode2(); 107 callers	high	notes/frame-timing.md §10.1
-0x85948	Net_IsTokoyoCoopMode	IsOnlineMode2	bool IsOnlineMode2(void)	obj=[0x4709B50] && obj->mode(+0x34)==2	high	notes/frame-timing.md §10.1
+0x85834	function	Net_IsOnlinePlay	bool IsOnlinePlay(void)	obj=[0x4709B50]; online if obj->mode(+0x34)==1 or IsOnlineMode2(); 107 callers	high	notes/frame-timing.md §10.1
+0x85948	function	Net_IsTokoyoCoopMode	bool IsOnlineMode2(void)	obj=[0x4709B50] && obj->mode(+0x34)==2	high	notes/frame-timing.md §10.1
 0x86dec	function	SkelBoneWorldMatrixFromChain	bool SkelBoneWorldMatrixFromChain(void *obj, int bone, float *outMtx)	2 KB; bone -1 -> F_3293e94; else skeleton obj+160h/obj+200h (bone count short +4), collects parent chain via parent idx at +0Ch of 30h-byte bone entries, composes root scale/rot/pos (vfuncs +98h/+90h/+88h) with each bone's quat->matrix (2x terms) + translation	medium	notes/perf-coverage.md (perf-rename-2)
 0x87cf8	function	AnimLayerSampleClip	void AnimLayerSampleClip(...)	1143 B; the main AnimClipSamplePose caller (called 5 times from 407098, the per-character motion update); not decoded further	low	notes/streaming-anim.md §2.1
 0x88780	function	MatrixFromScaleQuatTrans	float* MatrixFromScaleQuatTrans(float* out, const float* s, const float* q, const float* t)	4x4 = scale * rotation(quaternion q) with translation t; 238 callers	high	notes/perf-coverage.md
@@ -901,7 +901,7 @@ rva	kind	name	signature	description	confidence	source
 0x2833f0	function	QuestClearedGet	byte(ClearDb*, u16 questId)	refines ShortKeyTableFlagGet: quest-clear map at [ClearDb+8]+0x320 (FNV-1a of 2-byte key, entry byte [node+0x13+slot]); sibling of MissionClearedGet (4-byte key, +0x2E0, node+0x38+slot)	medium	notes/boss-defeat-checks.md
 0x284b78	function	ProximityTriggerListUpdateA	void ProximityTriggerListUpdateA(Mgr* m, void* a, Pos* p)	862 B, caller 308294 (per tick): erases the 20h-byte entries of m+E9F8h whose content id fails GameContentIdIsAvailable; then per entry |dy| >= m+E768h or sqrt(dx^2+dz^2) >= m+E760h tests (the same sqrt is computed twice for the +E764h test) start/stop slot (< 50h) effects	low	notes/gamelogic.md
 0x284ed4	function	GameContentIdIsAvailable	bool GameContentIdIsAvailable(int id, u64 arg, char checkPaired)	464 B on g_4751848 game state: paired ids (53B2Dh<->548FBh, 5A8C4h<->5C1A8h) recurse on the partner when checkPaired; ids 28CD7h/27A63h/28541h blocked once 283568 progress state > 6; online-host path (g_45C84F8+1DCh, !IsPlayerGuestImpl) defers to 2BC4FC/22D1E70; else FNV-1a(id) lookup in the hash table [state+8]+250h..278h and, if the row's per-mode column (+24h..+34h chosen by state byte 1..5, 6 = from g_4B614D0) is -1 and 4AB128 / 4AB08C both hold, returns 0; 5 callers; was Sched0Hot_284ED4 (was Unknown_GameRule_284ED4)	low	notes/perf-coverage.md (perf-rename-2)
-0x2853d4	Net_IsPlayerGuest	Script_Online_IsPlayerGuest	bool Online::IsPlayerGuest(void)	[0x45C84F8]+0x1DC && !([0x45C84F8]+0x2C8) (via 0x5A9028)	high	notes/frame-timing.md §10.1; patcher/ft_session.fsx
+0x2853d4	function	Net_IsPlayerGuest	bool Online::IsPlayerGuest(void)	[0x45C84F8]+0x1DC && !([0x45C84F8]+0x2C8) (via 0x5A9028)	high	notes/frame-timing.md §10.1; patcher/ft_session.fsx
 0x285df0	function	ProximityTriggerListUpdateB	void ProximityTriggerListUpdateB(Mgr* m, void* a, Pos* p)	890 B, caller 308294: as ProximityTriggerListUpdateA, for the 30h-byte entries of m+EA10h	low	notes/gamelogic.md
 0x2866f0	function	MissionTaskStateUpdate	void MissionTaskStateUpdate(MissionTask* t)	MissionThread work item (callers E26620/E26680), skipped when t+D9h: state t+50h 0 = wait (game-state check 286B54 on g_4751848, entity tests 2871EC/30A390/30A1D4/620EEC, enables the marker 3F9E58 and moves to 1), 2 = finish (286124); then 669110 and a player-distance test (20A914(0) position +110h..+118h vs t[0]) when t+EEh; was Unknown_Mission_2866F0	low	notes/perf-coverage.md (perf-rename-2)
 0x290900	function	CacheTileRingProcessCopyQueue	void (Ring* r, PageTable* pt, TileBatch* b, Stats* s)	drains the cache request ring (0x28-byte entries): state 1 map -> batch (flush on resource/heap change or full), 2 unmap (NULL) -> batch, 3 -> b->queue->Wait(fence,value) (vtbl+78h); flushes via 290F94 into the cache COPY queue; ends with queue->Signal(b+50h fence, ++b+58h) (vtbl+70h); in-flight batches throttled by the ring at b+468h..488h (cap b+470h)	high	notes/gpu-tiles.md
@@ -1322,7 +1322,7 @@ rva	kind	name	signature	description	confidence	source
 0x58dc11	label	Sleep0Call_58DC11		call Sleep(0); pdata fragment start 58DAE0	high	re/out/spinscan.txt §all call sites
 0x5a3c7c	label	OnlineUiStateToggle		IsOnlinePlay user in frame-manager area: UI/online state toggle	medium	notes/frame-timing.md §10.2
 0x5a6e68	label	OnlineAutosaveTimer6s		IsOnlinePlay user in frame-manager area: autosave-style 6 s timer	medium	notes/frame-timing.md §10.2
-0x5a9028	Net_GetHostFlag	IsPlayerGuestImpl	bool fn(void)	Guest check helper used by Online::IsPlayerGuest: +0x1DC && !+0x2C8 on [0x45C84F8]	medium	notes/frame-timing.md §10.1
+0x5a9028	function	Net_GetHostFlag	bool fn(void)	Guest check helper used by Online::IsPlayerGuest: +0x1DC && !+0x2C8 on [0x45C84F8]	medium	notes/frame-timing.md §10.1
 0x5a9c70	function	UiFadeCounters		UI fade counters set once at mode change (tierFps*15, *6 frames); frame-counted fades	medium	notes/frame-timing.md §8.5
 0x5ab644	function	UpdateDispatchB		Update dispatch from dt setup with dtSec/dt60 (one of pair 0x8C8E54/0x5AB644) (aka GameModeUpdate) || also: Game-mode update (180 B) fed dt60 by GameFrameUpdate	medium	notes/frame-timing.md §1 Loop diagram; re/out/README.md §Findings: frame pacing
 0x5ab6cf	label	UpdateDispatchB_CallInputKick		call InputWorkerKick 5AB7B0 at the END of the logic frame (FrameTask_Update -> FrameDtSetup -> UpdateDispatchB), i.e. BEFORE the QPC limiter in FrameEnd: the pad sample used by the next frame is taken here (stock). Site K / IK (E8 DC 00 00 00)	high	notes/input-latency.md §2; patcher/latency_live.fsx
@@ -3504,7 +3504,7 @@ rva	kind	name	signature	description	confidence	source
 0x2200190	function	Str_notice_id		str: distinctive string; refs "notice_id_" (1 string refs, 51 bytes)	medium	re/scripts_re/autoname.py
 0x2200314	function	Str_is_share		str: distinctive string; refs "is_share_" (3 string refs, 131 bytes)	medium	re/scripts_re/autoname.py
 0x2200580	function	Str_story_progress_self		str: distinctive string; refs "story_progress_self_" (3 string refs, 127 bytes)	medium	re/scripts_re/autoname.py
-0x220089c	func	NetSerialize_IsFirstFlag		boss rewards (notes\boss-rewards.md) (was Str_is_first)	medium	boss-rewards
+0x220089c	function	NetSerialize_IsFirstFlag		boss rewards (notes\boss-rewards.md) (was Str_is_first)	medium	boss-rewards
 0x2200e28	function	Str_esoteric_skill_id_2200E28		str: distinctive string; refs "esoteric_skill_id_" (1 string refs, 94 bytes)	medium	re/scripts_re/autoname.py
 0x2200ee8	function	Str_style_form_slot		str: distinctive string; refs "style_form_slot_" (1 string refs, 54 bytes)	medium	re/scripts_re/autoname.py
 0x2200fa0	function	Str_player_sync_data		str: distinctive string; refs "player_sync_data_" (1 string refs, 47 bytes)	medium	re/scripts_re/autoname.py
@@ -8123,9 +8123,9 @@ rva	kind	name	signature	description	confidence	source
 0x238dd98	function	ScriptBind_Character_ForceDropAmuritaPosition		script VM native binding Character::ForceDropAmuritaPosition (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x238dd00	function	ScriptBind_Character_ForceDropAmurita		script VM native binding Character::ForceDropAmurita (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x2394828	function	ScriptBind_Character_SetDropAmritaCoefficient		script VM native binding Character::SetDropAmritaCoefficient (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x238b3ec	func	Script_Character_AddDropTable		boss rewards (notes\boss-rewards.md) (was ScriptBind_Character_AddDropTable)	medium	boss-rewards
+0x238b3ec	function	Script_Character_AddDropTable		boss rewards (notes\boss-rewards.md) (was ScriptBind_Character_AddDropTable)	medium	boss-rewards
 0x238c3c8	function	ScriptBind_Character_ClearDropTable		script VM native binding Character::ClearDropTable (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x238b194	func	Script_Character_AddDropFixItem		boss rewards (notes\boss-rewards.md) (was ScriptBind_Character_AddDropFixItem)	medium	boss-rewards
+0x238b194	function	Script_Character_AddDropFixItem		boss rewards (notes\boss-rewards.md) (was ScriptBind_Character_AddDropFixItem)	medium	boss-rewards
 0x238c1c0	function	ScriptBind_Character_ClearDropFixItem		script VM native binding Character::ClearDropFixItem (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x238b2c0	function	ScriptBind_Character_AddDropKeyItemDirectGet		script VM native binding Character::AddDropKeyItemDirectGet (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x238c2c4	function	ScriptBind_Character_ClearDropKeyItemDirectGet		script VM native binding Character::ClearDropKeyItemDirectGet (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
@@ -8506,8 +8506,8 @@ rva	kind	name	signature	description	confidence	source
 0x23a5c5c	function	ScriptBind_Mission_SetReward		script VM native binding Mission::SetReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a4d14	function	ScriptBind_Mission_IsMissionAlreadyClear		script VM native binding Mission::IsMissionAlreadyClear (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a452c	function	ScriptBind_Mission_GetMissionReward		script VM native binding Mission::GetMissionReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a444c	func	Script_Mission_GetGameClearRewardNormal		boss rewards (notes\boss-rewards.md) (was ScriptBind_Mission_GetGameClearRewardNormal)	medium	boss-rewards
-0x23a43ec	func	Script_Mission_GetGameClearRewardHard		boss rewards (notes\boss-rewards.md) (was ScriptBind_Mission_GetGameClearRewardHard)	medium	boss-rewards
+0x23a444c	function	Script_Mission_GetGameClearRewardNormal		boss rewards (notes\boss-rewards.md) (was ScriptBind_Mission_GetGameClearRewardNormal)	medium	boss-rewards
+0x23a43ec	function	Script_Mission_GetGameClearRewardHard		boss rewards (notes\boss-rewards.md) (was ScriptBind_Mission_GetGameClearRewardHard)	medium	boss-rewards
 0x23a481c	function	ScriptBind_Mission_IsAppearClearGadget		script VM native binding Mission::IsAppearClearGadget (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a3e38	function	ScriptBind_Mission_EndMissionParallelStream		script VM native binding Mission::EndMissionParallelStream (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a3ad0	function	ScriptBind_Mission_DeleteMissionAllCharacter		script VM native binding Mission::DeleteMissionAllCharacter (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
@@ -8590,7 +8590,7 @@ rva	kind	name	signature	description	confidence	source
 0x239fe34	function	ScriptBind_Hell_RequestHellAppearMoment		script VM native binding Hell::RequestHellAppearMoment (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239fc40	function	ScriptBind_Hell_IsHellAppearMoment		script VM native binding Hell::IsHellAppearMoment (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239fbd0	function	ScriptBind_Hell_IsExistStatusUpReward		script VM native binding Hell::IsExistStatusUpReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a0190	func	Script_Hell_StatusUpReward		boss rewards (notes\boss-rewards.md) (was ScriptBind_Hell_StatusUpReward)	medium	boss-rewards
+0x23a0190	function	Script_Hell_StatusUpReward		boss rewards (notes\boss-rewards.md) (was ScriptBind_Hell_StatusUpReward)	medium	boss-rewards
 0x239ff58	function	ScriptBind_Hell_RequestHellStageSetup		script VM native binding Hell::RequestHellStageSetup (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239fb5c	function	ScriptBind_Hell_IsEndHellStageSetup		script VM native binding Hell::IsEndHellStageSetup (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239faa0	function	Script_Hell_IsClearMapOnlySmallHell	script wrapper	reads 0x2845C8 (was ScriptBind_Hell_IsClearMapOnlySmallHell)	high	notes/boss-rift-ngplus.md
@@ -8821,9 +8821,9 @@ rva	kind	name	signature	description	confidence	source
 0x23b9a54	function	ScriptBind_WorldDateTime_SetSceneProgress		script VM native binding WorldDateTime::SetSceneProgress (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23b9b38	function	ScriptBind_WorldDateTime_SetSceneProgressNoEnvChange		script VM native binding WorldDateTime::SetSceneProgressNoEnvChange (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a6ff0	function	ScriptBind_Online_SendSyncEvent		script VM native binding Online::SendSyncEvent (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a68ac	Script_Online_IsOnlinePlay	ScriptBind_Online_IsOnlinePlay		script VM native binding Online::IsOnlinePlay (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x23a68ac	function	ScriptBind_Online_IsOnlinePlay_Wrapper		script VM native binding Online::IsOnlinePlay (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a6994	function	ScriptBind_Online_IsPlayerGuestMode		script VM native binding Online::IsPlayerGuestMode (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a6920	Script_Online_IsPlayerGuest	ScriptBind_Online_IsPlayerGuest		script VM native binding Online::IsPlayerGuest (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x23a6920	function	Script_Online_IsPlayerGuest		script VM native binding Online::IsPlayerGuest (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a6a0c	function	ScriptBind_Online_IsPlayerGuest_1		script VM native binding Online::IsPlayerGuest_1 (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a6aa0	function	ScriptBind_Online_IsPlayerGuest_2		script VM native binding Online::IsPlayerGuest_2 (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a6b34	function	ScriptBind_Online_IsPlayerMarebito		script VM native binding Online::IsPlayerMarebito (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
@@ -8948,9 +8948,9 @@ rva	kind	name	signature	description	confidence	source
 0x1c1db88	function	SetMissionCleared	void SetMissionCleared(u32 missionId)	body of Mission::SetMissionClearFlag: clear db entries, rewards, retry points	high	notes/boss-rift-ngplus.md
 0x23e4228	function	Script_Mugen_IsAllMugenBossesDead_STUB	bool f(ScriptCtx*)	script native Mugen::IsAllMugenBossesDead: pushes constant false (0x1398E0 u8 0); only xref is native table 0x397E120; unused stub, no Mugen object exists (was Script_Mugen_IsAllMugenBossesDead)	high	notes/eternal-rift.md
 0x107bb78	function	ClearDbGetClearedU16	u8 ClearDbGetClearedU16(Db* db, u16 id)	FNV-1a over u16 id, byte entry+0x12+slot	high	notes/boss-rift-ngplus.md
-0x2280fa0	func	GameClearRewardGrant	void GetGameClearRewardId(char hard)	boss rewards (notes\boss-rewards.md) (was GetGameClearRewardId)	medium	boss-rewards
-0x2280c84	func	RewardNoticeShowById		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
-0x2201294	func	NetSerialize_RewardObject		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x2280fa0	function	GameClearRewardGrant	void GetGameClearRewardId(char hard)	boss rewards (notes\boss-rewards.md) (was GetGameClearRewardId)	medium	boss-rewards
+0x2280c84	function	RewardNoticeShowById		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x2201294	function	NetSerialize_RewardObject		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
 0x1c16dc0	function	BossPlacementIdForMission		(missionId) -> first enemy placement with flag 0x4 in the mission placement set; fallback 0x3A	medium	notes/boss-duel-flow.md
 0x1c16934	function	PlacementSetFindByMissionId		list A of [0x47098E0], set+0x118 == id and resources loaded	medium	notes/boss-duel-flow.md
 0xc92fc0	function	PlacementSetResourcesLoaded		6 resource handles loaded check	medium	notes/boss-duel-flow.md
@@ -8972,18 +8972,18 @@ rva	kind	name	signature	description	confidence	source
 0x1eed1ec	function	AmritaMemoryMenuBuildList	void AmritaMemoryMenuBuildList(Menu* m)	builds the Amrita Memory menu list for tab [m+14D0h] in {1,5,6}: filters table rows by category (rec+10h) and unlocked byte, text via DataDb+1D0h table (rec+0Ch), icon +2Ch	medium	notes/boss-codex.md
 0x23dfc40	function	AmritaMemoryUnlockToast	void AmritaMemoryUnlockToast(Arg*)	unlocks one memory id then shows the notice (msg 0xB4D2) with the text of DataDb+1D0h record +0Ch	medium	notes/boss-codex.md
 0x4751860	data	g_PlayerDataMgr		pointer to the player-data object whose +71C8h hash map holds Amrita Memory unlocked bytes and whose +69E4h is a save-dirty flag; ~290 readers	medium	notes/boss-codex.md
-0x85800	Net_GetPlayModeSub					
-0x85930	Net_IsPlayMode1					
-0x85a78	Net_GetCoopPlayerCountMinus1					
-0x1c2c050	PlayMode_SetCurrent					
-0x1c31ab8	PlayMode_ClearCurrent					
-0x12e2438	NetMgr_SetGlobal					
-0x2873288	NetMgr_Destroy					
-0x956eac	Script_Online_IsPlayerHost					
-0x9d4398	Script_Online_IsTokoyoCoopMode					
-0x860fe0	Script_Coop_IsCooperating					
-0x286dec	Coop_QueryCharFlagA					
-0x861088	Coop_QueryCharFlagB					
+0x85800	function	Net_GetPlayModeSub		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x85930	function	Net_IsPlayMode1		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x85a78	function	Net_GetCoopPlayerCountMinus1		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x1c2c050	function	PlayMode_SetCurrent		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x1c31ab8	function	PlayMode_ClearCurrent		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x12e2438	function	NetMgr_SetGlobal		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x2873288	function	NetMgr_Destroy		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x956eac	function	Script_Online_IsPlayerHost		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x9d4398	function	Script_Online_IsTokoyoCoopMode		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x860fe0	function	Script_Coop_IsCooperating		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x286dec	function	Coop_QueryCharFlagA		online-session rename (stub row; details pending)	medium	merge online-session renames
+0x861088	function	Coop_QueryCharFlagB		online-session rename (stub row; details pending)	medium	merge online-session renames
 0x377b38	function	MissionRecordGet	MissionRec* MissionRecordGet(DataMgr* dm, u32 missionId)	mission table lookup: idx = MissionIdToIndex(dm[4], id); returns *dm + 8 + idx*0x198 (table = LFM archive_03 52/BD29..., 130 records); 124 callers	high	notes/battle-scrolls.md
 0x377b8c	function	MissionIdToIndex	int MissionIdToIndex(void* hashmap, u32 missionId)	open-addressing u32->index map at [[0x45B9E30]]+0x20; -1 if absent	high	notes/battle-scrolls.md
 0x378674	function	MissionSelectListBuild	void MissionSelectListBuild(void* menu, vector* out)	walks all 0x198-B mission records; keeps flags40&(1|0x40|0x4000)==0, kind(+0x15a) 0 main/1 sub, era-progress>=+0x17e, MissionUnlockedGet, era byte +0x160 == menu era; emits 0x20-B rows (cat 2 main / 3 sub, status 4 = cleared); callers 0x1E84184, 0x9C4E48	medium	notes/battle-scrolls.md
@@ -9200,8 +9200,8 @@ rva	kind	name	signature	description	confidence	source
 0x1818b8	function	SetOrClearFlagMaskAndNotify	void ObjSetClearFlagMask_568(void)	sets or clears mask bits in flags at +0x568 and calls change notification if target exists (was ObjSetClearFlagMask_568)	medium	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
 0x181f04	function	RenderSlotsFindActive	void CharacterSlotsFindFirstVisibleBounds(void)	scans 0x9f40-byte slot array (stride 0x340) looking for the active entry (was CharacterSlotsFindFirstVisibleBounds)	low	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
 0x195c2c	function	ScaleAnimCurveEvalByType	void ScaleAnimCurveEvalByType(void)	switch on curve type (0..7) evaluating an easing/curve into output block (+8..0x18) with time divided by param_3 (was EmitterShapeInit)	low	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
-0x199a40	function	Vec3CopyW0Pair	void Mat44TwoRowCopyW0(void)	copies two Vec3 into w=0 Vec4s (param_1 and param_1+0x10) (was Mat44TwoRowCopyW0)	medium	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
-0x19ad90	function	Vec3CopyW0Pair	void Vec3CopyW0Pair(void)	copies 8 bytes and zeroes the 4th float, i.e. vec3 from vec2+0 w=0 (returns dest) (was Vec3CopyZeroW)	medium	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
+0x199a40	function	Vec3PairToVec4W0Pair	void Vec3PairToVec4W0Pair(void)	copies two Vec3 into w=0 Vec4s (param_1 and param_1+0x10) (was Mat44TwoRowCopyW0)	medium	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
+0x19ad90	function	Vec4CopyZeroW	void Vec4CopyZeroW(void)	copies 16 bytes (two u64) then zeroes the 4th float (w=0) (returns dest) (was Vec3CopyZeroW)	medium	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
 0x19b9c4	function	ActorGetFollowDistance	void CharacterGetLodRangeFromParts(void)	walks target list for max/valid value, defaults to 50.0 when no target/data (was CharacterGetLodRangeFromParts)	low	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
 0x19cd58	function	ObjResolveSharedInstanceByKey	void ObjResolveSharedInstanceByKey(void)	resolves instance via owner pointer/handle then lower_bound in world rb-tree (DAT_7ff7539c9e58+0x558) keyed by u32 at +0x2cc (was ActorResolveCurrentTargetSlot)	low	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
 0x19dcc0	function	SizeClassAllocatorAllocate	void SmallBlockPoolAlloc2K(void)	1.4 KB size-class allocator: >0x20000 or align>0x800 goes large path, else 0x800-granular bins (was SmallBlockPoolAlloc2K)	medium	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
@@ -9423,8 +9423,8 @@ rva	kind	name	signature	description	confidence	source
 0xbde680	function	SinDoublePrecision	void SinDoublePrecision(void)	double-precision sine/cosine implementation with Payne-Hanek reduction and polynomial (CRT sin) (was CrtSinCosDoubleDispatch)	high	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
 0xbf02ac	function	CrtFdInt	void CrtFdInt(void)	CRT _fd_int (float classification/truncate helper used by truncf/roundf) (was CrtFloatClassifyExponent)	high	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a) + decompile review
 0xc5e6f4	function	CrtFloatTrigReduce	void CrtAtanfOrAsinf(void)	CRT float trig/transcendental front end (handles NaN, tiny exponent <0x65) calling bfbb8c/bfbe0c/bfbf5c (was CrtAtanfOrAsinf)	medium	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
-0xde3058	function	HashMixU32	void HashU32Mix(void)	integer hash mix: (x*9) ^ >>11 *0x8001 + hi16 masked to 31 bits (was HashU32Mix)	high	perf_coverage cpu100-b: decompile/disasm read (no Ghidra)
-0xde31d8	function	HashMixU32	void HashMixU32(void)	integer hash mix: h=x*9; (h>>11 ^ h)*0x8001 + (x>>16) (was HashMixU32_Asm)	high	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a) + decompile review
+0xde3058	function	HashMixU32_A	uint HashMixU32_A(void)	integer hash mix: (x*9) ^ >>11 *0x8001 + hi16 masked to 31 bits (was HashU32Mix)	high	perf_coverage cpu100-b: decompile/disasm read (no Ghidra)
+0xde31d8	function	HashMixU32_B	uint HashMixU32_B(void)	integer hash mix: h=x*9; (h>>11 ^ h)*0x8001 + (x>>16) (was HashMixU32_Asm)	high	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a) + decompile review
 0xfacfd0	function	AttachList_FindFirstHitByTransform	void Unknown_ViewMaskSetup_FACFD0(void)	walks enabled entries of list +0x558..+0x560 (0x20 stride), builds TRS from entry obj vfuncs 88/90/98 and tests D25A4 against +0x110; first hit -> 2F5570 and true; caller ObjWaitListWalk (decompile-verified, cpu100-u1) (was Unknown_RowBatchTransform_FACFD0)	low	re/symbols/incoming/cpu100-u1-renames.tsv
 0xfb3520	function	IsSpecialStageSceneKey	void IsSpecialStageSceneKey(void)	true when world singleton (DAT_7ff7539c9e58) kind==0xb1/-0x4f and id==0xd and key in {0x98b80,0x11e64,0xedd76,0x289f1}; CollisionGatherInRange helper (was Unknown_SpecialIdGate_FB3520)	medium	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
 0xfff6c0	function	ObjAnimBoneBufferCompute	void ObjAnimBoneBufferCompute(void)	1.8 KB per-object bone/skin buffer sizing and computation using sources +0x20/+0x28 (size/32 words) (was Unknown_ListBuildPass_FFF6C0)	low	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
