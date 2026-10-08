@@ -674,3 +674,4 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Tests: test_patterns ALL 261 SITES OK (MA 25/25 + 4 deps), run_drawprep_harness ALL PASSED, run_vpad_harness ALL PASSED, menu_map
   selftest OK, abba2_pc.ps1 -DryRun OK, build OK. Not run in game.
 - Undo: MA = 0 (default), or the 1.7.38 .asi.
+| 2026-10-08 | RE only (no game change): perf-rename-4 symbol rows (110 new + 14 renames, `re\symbols\incoming\perf-rename-4*.tsv`) bring perf_coverage.py named coverage to 100.00 % in the attributed and --self views; new `--precise` flag | none (delete the two incoming files) |

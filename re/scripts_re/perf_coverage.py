@@ -12,6 +12,7 @@ Sources (all rerun from disk, stdlib only):
   incl  the 'incl' (inclusive) view of the same captures: the callers on the hot stacks (not part of the coverage %).
   gpu   function RVAs cited in notes\\gpu-*.md, d3d12-submission.md, invisible-gpu.md (engine code behind GPU passes).
   --self   count only samples whose RIP is in game code (Ally 'fn' rows, PC 'self' rows): CPU work, waits excluded
+  --precise coverage with 2 decimals, and every remaining unnamed function listed with 4 decimals (% of combined game time)
   --before symbols.tsv only (the current DB, without pending incoming/perf-coverage*.tsv rows)
 Every RVA is folded to its primary function start through chained .pdata unwind info in re\\Nioh3.dump.exe.
 'combined' = mean of the ally and pc shares. Coverage = share of profiled game-function time whose function start has a
@@ -25,7 +26,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DUMP = os.path.join(ROOT, 're', 'Nioh3.dump.exe')
 SYMS = os.path.join(ROOT, 're', 'symbols', 'symbols.tsv')
 # pending rows not yet in symbols.tsv (perf-coverage.tsv was merged 2026-10-07 22:41; -2 = placeholder renames; perf-rename-2* = pass 2)
-INCOMING = [os.path.join(ROOT, 're', 'symbols', 'incoming', f) for f in ('perf-coverage.tsv', 'perf-coverage-2.tsv', 'audio-objupdate.tsv', 'audio-objupdate-renames.tsv', 'perf-rename-3.tsv', 'perf-rename-3-renames.tsv')]  # perf-rename-2 merged 23:32; perf-rename-3 = GPU-pass CPU paths (renames file overrides)
+INCOMING = [os.path.join(ROOT, 're', 'symbols', 'incoming', f) for f in ('perf-coverage.tsv', 'perf-coverage-2.tsv', 'audio-objupdate.tsv', 'audio-objupdate-renames.tsv', 'perf-rename-3.tsv', 'perf-rename-3-renames.tsv', 'perf-rename-4.tsv', 'perf-rename-4-renames.tsv')]  # perf-rename-2/3 merged; perf-rename-4 = last unnamed tail of the coverage views (renames file overrides)
 DECOMP = r'D:\nioh3-re\decomp'
 
 B = open(DUMP, 'rb').read()
@@ -239,6 +240,7 @@ def main():
     a = sys.argv[1:]
     before = '--before' in a
     selfonly = '--self' in a
+    precise = '--precise' in a
     nlist = int(a[a.index('--list') + 1]) if '--list' in a else 0
     nincl = int(a[a.index('--incl') + 1]) if '--incl' in a else 0
     names = load_names(before)
@@ -257,9 +259,17 @@ def main():
         for k, v in d.items():
             s[status(names, k)] += v
         nf = sum(1 for k in d if status(names, k) == 'none')
+        pf = (lambda x, w: f'{x:{w + 1}.2f}') if precise else (lambda x, w: f'{x:{w}.1f}')
         print(f'  {label:9s} {len(d):5d} fns, game-attributed time {100 * tot:5.1f} % of samples | covered: named '
-              f'{100 * s["named"] / tot:5.1f} %  +Unknown_ {100 * s["unknown"] / tot:4.1f} %  = '
-              f'{100 * (s["named"] + s["unknown"]) / tot:5.1f} % | unnamed {100 * s["none"] / tot:4.1f} % in {nf} fns')
+              f'{pf(100 * s["named"] / tot, 5)} %  +Unknown_ {100 * s["unknown"] / tot:4.1f} %  = '
+              f'{pf(100 * (s["named"] + s["unknown"]) / tot, 5)} % | unnamed '
+              f'{(f"{100 * s[chr(110) + chr(111) + chr(110) + chr(101)] / tot:.4f}" if precise else f"{100 * s[chr(110) + chr(111) + chr(110) + chr(101)] / tot:4.1f}")} % in {nf} fns')
+    if precise:
+        print('remaining unnamed functions (combined / ally / pc share, % of samples; * = Unknown_ placeholder):')
+        left = [k for k in comb if status(names, k) != 'named']
+        for k in sorted(left, key=lambda k: -comb[k]):
+            print(f'  {k:#x}  {100 * comb[k]:.4f}  {100 * ally.get(k, 0):.4f}  {100 * pc.get(k, 0):.4f}  {"*" if status(names, k) == "unknown" else " "}{names.get(k, "")}')
+        print(f'  total {len(left)} fns, {100 * sum(comb[k] for k in left):.4f} % of samples')
     gr = gpu_rvas()
     gn = sum(1 for k in gr if status(names, k) != 'none')
     print(f'  gpu-notes {len(gr):5d} fns cited in GPU notes, {gn} named ({100 * gn / max(len(gr), 1):.0f} %)')

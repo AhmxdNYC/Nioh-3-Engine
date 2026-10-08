@@ -275,3 +275,17 @@ The same correction applies to notes/invisible-gpu.md §1 "Command objects" (app
 #### Not done / open
 - The copy RS+960h/964h ← ApplyVolumetricQuality S+13DC/13E0 was not traced (corrected 2026-10-08, see work-deciders.md: no such copy exists; RS+960/964 = render width/height).
 - The VCLOUD cloud-step count source inside 5F2A88 was not traced.
+
+## Pass 4 (2026-10-08, `perf-rename-4`): 100.00 % named in every view
+Files: `re\symbols\incoming\perf-rename-4.tsv` (110 new rows) and `perf-rename-4-renames.tsv` (14 renames of `Unknown_*`; apply in place). The name `perf-rename-3` was already taken by the GPU-pass round (merged), hence -4. `perf_coverage.py` reads both and has a new `--precise` flag (2-decimal coverage, every remaining unnamed fn listed with 4 decimals).
+
+| view | before (combined / Ally / PC) | after |
+|---|---|---|
+| attributed (default) | 99.80 / 99.75 / 99.85 %, 110 fns unnamed (0.1994 %) | 100.00 / 100.00 / 100.00 %, 0 unnamed |
+| `--self` | 100.0 % rounded, 15 fns (13 PC, 2 Ally) unnamed or `Unknown_` | 100.00 %, 0 unnamed |
+| GPU-note fns / PC incl >= 0.3 % | 59/59, 99/99 | unchanged |
+
+124 functions in total (union of both views, every RVA with a nonzero share), all folded to function starts: none was a mid-function RVA. 14 are leaf fragments without .pdata (found through `leaf_ranges.tsv`: stubs like `mov al,1; ret`, getters, type-hash getters). Evidence per row is in its description (callers, callees, decomp). 66 had a decompile in D:\nioh3-re\decomp, the other 58 were read with capstone over `Nioh3.dump.exe` (no Ghidra run).
+
+By subsystem: synchronisation/event primitives and spin locks (SpinLockAcquireYield 363 callers, EventSetBool/EventSetStatus, EventPair*), allocators (arena/slab/TLSF wrappers), job-system job functions (JobFn*, Job*SignalDone), resource-handle readiness (ResHandleCheckReadyAndKickLoader, 1315 callers), D3D12 wrapper (Syn* root-slot/state transition, cmd list ring, upload ring), CRT (`_free_base`, `_Mtx_reset_owner`, vsnprintf), input/pad and mouse polling, audio/sound worker, Streamline Reflex, XeSS execute, physics step, UI/draw nodes, character/animation numeric bodies.
+Confidence: 21 high/medium-high on names that are CRT/API wrappers; the large numeric bodies (AnimPoseEvalSkinningBatchHuge 100 KB, FrameTimeFloatSimStepLarge, SceneVisibilityGatherLarge, ResourceFileOpenAndLoadTask, ...) are marked `low`: named by dominant callees/shape, role refinement still possible. No `Unknown_` placeholders were used.
