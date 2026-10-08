@@ -298,3 +298,8 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - Inline "(corrected 2026-10-08, see <note>)" marks added: ui-mainthread.md, mainthread-logic.md (x3), invisible-gpu.md (x3), perf-coverage.md (x4), docs/subsystems/ui.md, gfx-submission.md. Content: 365AA98 = EffectViewRecordSync (UI 6-8 % mostly effects); 3D859C = effect substep latch; particle barriers are per stage not per emitter; 0x410A460/498 are UltraMarine water node vtables; RS+960/964 = render width/height, not froxel grid.
 - Not touched: work-deciders.md, streaming-anim.md (MODEL_QUAL reconcile in progress elsewhere).
 - Undo: git revert this commit.
+
+## 2026-10-08 - work deciders, second pass (RE only; nothing installed, game not run)
+- `notes\work-deciders.md` addendum A1-A5. Fog froxel grid = X x floor(X / view aspect) x Z, created by 0x1478F0 -> 0x38C0C4C (3 x 3D textures) from the per-view RenderParams (= 0x2F4-byte header + env RenderConfig); Ally STANDARD 120 x 67 x 48. GRASS level path traced to the placement unit (+0xFC) and rebuild queue; the arithmetic consumer is still open. Kids property hash found (sum c*31^(i+1); `re\scripts_re\kidshash.py`); the 11 shadow/meshlet param hashes are render-node property overrides with code defaults (4096 / 16 / 0, meshlet 2.0), names not in any static source. Exact live-read recipe for the meshlet LOD table (g_pLodScaleCfg+0xA08). MODEL_QUAL re-verified as a no-op: corrected §1/§2 (streaming-anim.md was right); grass rebuild RVAs fixed (0xA483A4/0xA34750).
+- Symbols: `re\symbols\incoming\work-deciders-2.tsv` (24 rows) + `work-deciders-2-renames.tsv` (7, apply in place; not merged).
+- Undo: revert the note, delete the two TSVs and kidshash.py.
