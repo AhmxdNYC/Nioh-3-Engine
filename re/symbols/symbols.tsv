@@ -8963,11 +8963,11 @@ rva	kind	name	signature	description	confidence	source
 0x2f7378	function	PlacementTableCount		u32 count at data+4	medium	notes/boss-duel-flow.md
 0x2be5a4	function	PlacementTableData		data+8	medium	notes/boss-duel-flow.md
 0xa46580	function	ScriptBind_Mission_GetMissionID		u32 [[[ctx+8]+8]+0x90]+0x120	high	notes/boss-duel-flow.md
-0x1c1d148	function	PlacementSetsBuildFromMissionDb		mission db rec +0x54..+0x68 ids, +0x158 u16	medium	notes/boss-duel-flow.md
-0x1c1d288	function	MissionScriptsBuildFromMissionDb		mission db rec +0x6c script id	medium	notes/boss-duel-flow.md
-0x377b6c	function	MissionMasterGetRecord	MissionRec* MissionMasterGetRecord(idx)	130 x 0x198 mission master table (archive_03 52): +0x70 name text, +0x158 key, +0x15C area, +0x18A main key (was MissionDbGetRecord)	high	notes/missions.md
+0x1c1d148	function	PlacementSetsBuildFromMissionDb		RENAME-IN-PLACE desc: per mission rec, if all 6 file ids (+0x54..+0x68) exist in g_LfmFileIdMap (0xE2E720) -> PlacementSetMake(ids, u16 +0x158); +0x54 = enemy table	high	notes/boss-duel-flow.md §7
+0x1c1d288	function	MissionPointSetsBuildFromMissionDb		RENAME-IN-PLACE (was MissionScriptsBuildFromMissionDb): rec +0x6C is NOT the script; it is a 7th 0x20042200 table (0xA4-byte records with world positions); the script is rec +0x50	medium	notes/boss-duel-flow.md §7
+0x377b6c	function	MissionMasterGetRecord	MissionRec* MissionMasterGetRecord(idx)	ADD to desc: +0x50 = mission script file id (archive_09), +0x54..+0x6C = 7 table file ids (+0x54 enemy placement), resolve via LfmFileIdGetPath	high	notes/boss-duel-flow.md §7
 0x1c2448c	function	BossBgmEventForMission		uses BossPlacementIdForMission + table [0x45B9E30]+0x8D0	low	notes/boss-duel-flow.md
-0x47098e0	data	g_PlacementSetMgr		list A (sets, id +0x118) at +0/+8, list B (mission scripts, id +0x38) at +0x18/+0x20	medium	notes/boss-duel-flow.md
+0x47098e0	data	g_PlacementSetMgr		FIX desc: list B at +0x18/+0x20 is built from rec +0x6C (point table), not mission scripts	medium	notes/boss-duel-flow.md §7
 0x605acc	function	AmritaMemoryFindFlagNode	u8* AmritaMemoryFindFlagNode(PlayerData** pd, int memoryId)	125 B; FNV-1a (basis CBF29CE484222325) over the 4-byte id, bucket mask [[pd]+71E0h], bucket array [[pd]+71C8h] (16 B per bucket, list head +8), node id at +10h, returns node+14h = the unlocked/seen byte (null if absent); 16 callers	high	notes/boss-codex.md
 0x60589c	function	AmritaMemoryIsUnlocked	bool AmritaMemoryIsUnlocked(PlayerData* pd, int id)	returns the node byte from AmritaMemoryFindFlagNode (0 if absent)	high	notes/boss-codex.md
 0x605ab0	function	AmritaMemoryHasNode	bool AmritaMemoryHasNode(PlayerData* pd, int id)	true when id is 0 or a node exists (known/seen, regardless of value)	high	notes/boss-codex.md
@@ -9010,3 +9010,18 @@ rva	kind	name	signature	description	confidence	source
 0x23e41cc	function	Script_Mugen_GetPeriodicDamageAreaAppearTimeFrame_STUB	int f(ScriptCtx*)	script native Mugen::GetPeriodicDamageAreaAppearTimeFrame: pushes constant 0 (0x2E5A80); unused stub	high	notes/eternal-rift.md
 0x397e120	data	ScriptNativeEntry_Mugen_IsAllMugenBossesDead	{name*,fn*}	native table entry (name 0x3bf8c60 -> wrapper 0x23E4228)	high	notes/eternal-rift.md
 0x397e130	data	ScriptNativeEntry_Mugen_GetPeriodicDamageAreaAppearTimeFrame	{name*,fn*}	native table entry (name 0x3bf8c80 -> wrapper 0x23E41CC)	high	notes/eternal-rift.md
+0x3f5ba0	function	LfmFileIdGetPath	wchar_t* LfmFileIdGetPath(u32 fileId)	file id -> index (FileIdMapFind) -> "XX/<62hex>" string from the id table at [g_LfmFileIdMap+0x10]+0x418 (entry {u32 id, i32 rel str}); 407 callers	high	notes/boss-duel-flow.md §7
+0x3f5c30	function	FileIdMapFind	i32 FileIdMapFind(FileIdMap* m, u32 fileId)	open-addressing u32->u32 map (8-byte slots at +8..+0x10, empty key at +4, hash 0x3F5CC0); returns index or -1. Used with [0x475A1A0] for LFM file ids	high	notes/boss-duel-flow.md §7
+0x2947cc4	function	FileIdMapInsert	void FileIdMapInsert(FileIdMap* m, u32 fileId, u32 index)	linear-probe insert into the same map	high	notes/boss-duel-flow.md §7
+0x29481e8	function	LfmFileIdMapBuild	void LfmFileIdMapBuild(void)	creates g_LfmFileIdMap, loads the id table (LfmFileIdTableLoad), waits for it, inserts every {id -> row} of the 8,778-row table	high	notes/boss-duel-flow.md §7
+0x29489d8	function	LfmFileIdTableLoad	void LfmFileIdTableLoad(void)	loads LFM file "AE/50B70535D0ED..." (archive_08) = file-id -> path-hash table, stored at [g_LfmFileIdMap+0x10]	high	notes/boss-duel-flow.md §7
+0x29483f0	function	LfmFileIdExists	bool LfmFileIdExists(u32 fileId)	FileIdMapFind(*g_LfmFileIdMap, id) != -1	high	notes/boss-duel-flow.md §7
+0x2946440	function	LfmFileIdMapCreate	void LfmFileIdMapCreate(void)	destroys then allocates g_LfmFileIdMap	medium	notes/boss-duel-flow.md §7
+0x2946498	function	LfmFileIdMapDestroy	void LfmFileIdMapDestroy(void)	frees g_LfmFileIdMap	medium	notes/boss-duel-flow.md §7
+0x29469c8	function	LfmOrderPathFormat	void LfmOrderPathFormat(char* out, int nn)	"%s%s_%02d.bin" archive dir + \lfm_order	high	notes/boss-duel-flow.md §7
+0x294878c	function	LfmLoadInfLoadAll	bool LfmLoadInfLoadAll(LfmMgr* m)	reads load_inf_NN.bin for every archive into m+0x268[nn] (size table, not ids)	medium	notes/boss-duel-flow.md §7
+0x475a1a0	global	g_LfmFileIdMap	FileIdMap** g_LfmFileIdMap	[g]+0 = FileIdMap (file id -> row), [g]+0x10 = id-table resource (+0x418 data: u32 0, u32 n, n x {u32 id, i32 rel path})	high	notes/boss-duel-flow.md §7
+0x1b17224	function	PlacementSetMake	shared_ptr* PlacementSetMake(shared_ptr* out, u32* ids6, u16 missionId, ...)	allocates (0x130) and constructs a placement set; caller PlacementSetsBuildFromMissionDb	high	notes/boss-duel-flow.md §7
+0x1b779e8	function	PlacementSetCtor	PlacementSet* PlacementSetCtor(PlacementSet* s, ctx, u32* ids6, u32 missionId, ...)	copies the 6 file ids to +0x100..+0x114 and missionId to +0x118, creates the 0x4B8 loader, binds slots	high	notes/boss-duel-flow.md §7
+0x1b0d38c	function	PlacementSetLoaderCreate	PlacementLoader* PlacementSetLoaderCreate(Alloc* a, u32* ids6, ctx)	allocates 0x4B8 loader (0x1B77AB4) that loads the 6 files; per-slot ptrs +0x470..+0x498, ready flags +0x4A0..+0x4B4	medium	notes/boss-duel-flow.md §7
+0xcc7830	function	PlacementSetBindSlots	void PlacementSetBindSlots(PlacementSet* s, loader)	0xC92B00(loader, s+0xD8,+0xB0,+0x88,+0x60,+0x38,+0x10): slot +0xB0 <- loader +0x470 (ids[0] = enemy table)	medium	notes/boss-duel-flow.md §7
