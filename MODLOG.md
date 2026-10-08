@@ -328,3 +328,8 @@ ioh3-re\gp2_hash_index.json; selftest passes; usage in notes\gpu-maxsettings.md.
 - RR1 skipped: ResourceIsReady drives loading and its inputs change on loader threads without a choke point; a memo cannot be proven same-result (notes\streaming-anim.md §4.3).
 - Outputs: `re\scripts_cpu\mq_offline.txt`, `re\scripts_cpu\pt1_offline.txt`; notes\streaming-anim.md §4 (results, proofs, ASI-ready caves). Both scripts default off (memory only, `apply` needs FT_ALLOW_WRITE=1).
 - Undo: nothing applied; if applied live: `FT_ALLOW_WRITE=1 dotnet fsi patcher\mq_live.fsx revert` / `pt1_live.fsx revert` (or restart the game).
+
+## 2026-10-08 - FINAL PHASE tooling: test matrix + benchmark protocol (new files only; game not launched, nothing applied)
+- New: `tools\testmatrix\matrix.json` (all ASI flags with live/next-launch mode, devices, wine-only/handheld-only, risk; 10 shader items incl. dropped gi/fog/toonedge2/trvs/pbvs; 5 post-v1 .dxbc via [ShaderSwap]; measurement runs; BEST combos), `run_pc.ps1` (backup/restore of ini + shaders, game lock, PresentMon stand 2x20 s + move 20 s, resume, -DryRun, verdict vs 3x BASE noise), `tm.py` (stats/report/best), `ally_plan.md` (Ally step list + [RESULT] digest), `notes\final-benchmark-protocol.md`.
+- Tested: `run_pc.ps1 -DryRun` (60 entries, ~6 h; -LiveMenu would save ~1 h but needs menu_map.json, not recorded), ini editor and `tm.py report/best` on synthetic data. Real runs not done. MQ/PT1/RR1 are listed as disabled (not in the ASI yet). tools\ is git-ignored: files added with `git add -f`.
+- Undo: delete `tools\testmatrix`. If a real run ever dies mid-way: `tools\testmatrix\state\Nioh3EngineFix.ini.orig` is the original game ini (run_pc.ps1 restores it on the next start), shaders: `apply_*.ps1 -Revert`.
