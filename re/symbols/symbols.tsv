@@ -6120,7 +6120,7 @@ rva	kind	name	signature	description	confidence	source
 0x4566004	global	g_ViewGpuEffectFraction3	f32	set with the two fractions from view+0x264C	low	notes/particles.md §1
 0x4566008	global	g_ViewGpuEffectSimFraction	f32	per-view share of type-10 GPU particle groups simulated (1.0 = all); from view+0x2650; read 2EC933E, 3DB641	medium	notes/particles.md §1
 0x4569828	global	g_IsWine	u8	cache of IsRunningUnderWine	high	notes/input-thread.md §Wine
-0x45b9e30	global	g_pLodScaleCfg	void* g_pLodScaleCfg	0xB10-byte singleton (LodScaleCfgCreate 0x26F383C): +0xB08 enable byte, +0xA08 keyed LOD scale table handle (runtime resource; no static writer found), +0xE0 used by PlaceableVisibilityUpdateRange	high	notes/work-deciders.md §A4
+0x45b9e30	global	g_DataMgr	DataMgr* g_DataMgr	[g]+0 = mission table bytes (hdr 8 + n*0x198), [g]+0x20 id->index map (was g_pLodScaleCfg)	high	notes/battle-scrolls.md
 0x45b9e40	global	g_pActorManager	void*	Actor/character manager passed to ActorFindById and 0x37a00c	low	re/out/anchors.md §site 0x133d8a; §site 0x39a758
 0x45b9e58	global	g_pSceneDrawCfg	SceneDrawCfg*	Global scene draw/LOD config read by every LOD anchor (+0x8bc/+0x8c0 LOD overrides, +0x11f7 large-object flag, +0x1770/+0x1774 draw-distance override, +0x1bb9) (aka g_CollisionWorld) || also: collision/stage world object read by the CollisionUpdate code (D80B0, D89E0, 319D5C, 319E00)	medium	re/out/anchors.md §site 0x23554f; §site 0xde8d0; §site 0x209edc; §site 0x39a758; re/scripts_workers/g_coll.txt; re/scripts_workers/dis_D80B0.txt
 0x45ba1e0	global	g_pPadMgr	PadMgr*	pad manager (heap); rcx of PadPollDevices and XInputFindActivePad; read by the X1 cave	high	notes/input-thread.md §3
@@ -8901,7 +8901,7 @@ rva	kind	name	signature	description	confidence	source
 0x2237244	function	MissionStartFromSave		resume/start mission from MissionMgr fields (+0x24 mode, +0x21848/+0x21850)	low	notes/boss-rematch-paths.md
 0x45bc420	data	g_MissionRequestQueue		3 x 0x58 B pending mission requests (+4 mission id)	medium	notes/boss-rematch-paths.md
 0x1de28e8	function	MenuOpenMissionReplay	void(owner,int,u8 mode)	opens [0x45C84A8]+0x4E0 menu (mission replay), mode 6 from UI::OpenMissionReplayMenu	medium	notes/boss-rematch-paths.md
-0x1dafe64	function	ShrineTopMenu_Select		option 0 opens mission replay, option 1 opens [0x45C84A8]+0x4E8 menu	low	notes/boss-rematch-paths.md
+0x1dafe64	function	BattleScrollTop_Select	void BattleScrollTop_Select(Menu* m)	option 0 -> MenuOpenMissionReplay(m,0,6) ([g_MenuMgr+0x4E0]); option 1 -> Emaki select [g_MenuMgr+0x4E8] via 0x1DC6810 (was ShrineTopMenu_Select)	medium	notes/battle-scrolls.md
 0x1db6f4c	function	MissionMenu_OnClose		mode 1 -> MissionRequestReturn	low	notes/boss-rematch-paths.md
 0x219feb4	function	SetSmallHellClearMap	void SetSmallHellClearMap(u16 id, char v)	toggle clear-map state; v=0 un-clears (was ClearMapSet)	high	notes/boss-rift-ngplus.md
 0x217e884	function	ClearDbSetMissionState	void ClearDbSetMissionState(Db* db, u16 id, char cleared, char notify)	sets/clears per-slot clear bytes (+0x428 map), first-clear rewards (was ClearMapSetEntry)	high	notes/boss-rift-ngplus.md
@@ -8989,3 +8989,20 @@ rva	kind	name	signature	description	confidence	source
 0x860fe0	Script_Coop_IsCooperating					
 0x286dec	Coop_QueryCharFlagA					
 0x861088	Coop_QueryCharFlagB					
+0x377b38	function	MissionRecordGet	MissionRec* MissionRecordGet(DataMgr* dm, u32 missionId)	mission table lookup: idx = MissionIdToIndex(dm[4], id); returns *dm + 8 + idx*0x198 (table = LFM archive_03 52/BD29..., 130 records); 124 callers	high	notes/battle-scrolls.md
+0x377b8c	function	MissionIdToIndex	int MissionIdToIndex(void* hashmap, u32 missionId)	open-addressing u32->index map at [[0x45B9E30]]+0x20; -1 if absent	high	notes/battle-scrolls.md
+0x378674	function	MissionSelectListBuild	void MissionSelectListBuild(void* menu, vector* out)	walks all 0x198-B mission records; keeps flags40&(1|0x40|0x4000)==0, kind(+0x15a) 0 main/1 sub, era-progress>=+0x17e, MissionUnlockedGet, era byte +0x160 == menu era; emits 0x20-B rows (cat 2 main / 3 sub, status 4 = cleared); callers 0x1E84184, 0x9C4E48	medium	notes/battle-scrolls.md
+0x909218	function	MissionUnlockedGet	bool MissionUnlockedGet(ClearDb* db, u32 missionId)	FNV-1a map [db+8]+0x2E0, entry byte +0x18 (mission available/unlocked)	medium	notes/battle-scrolls.md
+0x702b64	function	MissionClearedGetSlot	bool MissionClearedGetSlot(ClearDb* db, u32 missionId)	map [db+8]+0x2C8, byte entry+0x38+slot (= Mission::IsMissionAlreadyClear)	medium	notes/battle-scrolls.md
+0x702af4	function	MissionClearDbFlag29Get	bool MissionClearDbFlag29Get(ClearDb* db, u32 missionId, u8 slotKind)	map [db+8]+0x2C8, byte entry+0x29+slot	low	notes/battle-scrolls.md
+0x217f9b0	function	MissionClearBitSet	void MissionClearBitSet(ClearDb* db, u32 missionId, bool on)	sets/clears bit0 of entry+0x24+slot in map +0x2C8 (used by SetMissionCleared 0x1C1DB88 and the NG reset 0x215A57C)	medium	notes/battle-scrolls.md
+0x217fff0	function	MissionClearDbByte15Set	void MissionClearDbByte15Set(ClearDb* db, u32 missionId, u8 v)	writes entry+0x15+slot in map +0x2C8	low	notes/battle-scrolls.md
+0x215a57c	function	MissionClearResetLateChapters	void MissionClearResetLateChapters(void)	when mode==1 && journey==2 and missions 0x7B35 cleared: resets clear bit/byte15 of every record with +0x164==1 and +0x166>4000	low	notes/battle-scrolls.md
+0x1d9fbd8	function	ShrineItemVisible	bool ShrineItemVisible(void* menu, int item)	shrine top-menu item visibility by mission flag: 0->0xA0, 1->0x9F, 2->0xAC, 3 (Battle Scroll)->0xAB, 4->0x8C..0x8F, 6->0xC5, 7->0xA1/0xA2/0x183/0x193, 8->0x212	medium	notes/battle-scrolls.md
+0x1d9b374	function	ShrineItemEnabled	bool ShrineItemEnabled(void* menu, int item)	shrine item enable; item 3 offline = inventory count (0x505454) < 2000	medium	notes/battle-scrolls.md
+0x1e1e258	function	ShrineTopMenu_Update	void ShrineTopMenu_Update(ShrineMenu* m)	item 3: if !(FeatureUnlocked(8) && flag 0x217) -> MenuOpenMissionReplay else open BattleScroll top [g_MenuMgr+0x490]	medium	notes/battle-scrolls.md
+0x1dda258	function	MissionReplayMenu_Open	void MissionReplayMenu_Open(Menu* replay, Menu* owner, u32 missionId, u8 mode)	fills an 0x88-B 0xFF param block and calls 0x1DC8424	medium	notes/battle-scrolls.md
+0x1dc8424	function	MissionReplayMenu_Setup	void MissionReplayMenu_Setup(Menu* m, Menu* owner, u32 a, void* params, u32 missionId, u8 journey, u8 b)	stores mission id (+0x24F4), journey (mode 6 -> current), era byte from record +0x160, then vtbl+0x380 (build)	medium	notes/battle-scrolls.md
+0x1dda0e4	function	ShrineMenu_OpenFromMission	void ShrineMenu_OpenFromMission(Menu* m, u32 a, u32 missionId, u8 b)	sets +0x86 when FeatureUnlocked(8) and mission record flags40 & 0x1000000 (emaki-capable)	low	notes/battle-scrolls.md
+0x605300	function	FeatureUnlocked	bool FeatureUnlocked(u8 bit)	bitset at [0x4B6A170]+8; bit 8 gates the Picture Scroll (Emaki) half of Battle Scroll	medium	notes/battle-scrolls.md
+0x23e0094	function	Script_Mission_IsTrainingMission	short Script_Mission_IsTrainingMission(VM* vm)	returns current mission id ([[0x45B9E40]]+0x64) == 0x6F24 (Training Ground record)	high	notes/battle-scrolls.md
