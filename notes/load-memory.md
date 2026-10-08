@@ -1,6 +1,6 @@
 # Level-load swap burst (class A): arena heap free path and the LM sweeper design
 
-Date: 2026-10-07. Static RE only, game not run. Inputs: notes\stutter.md §3.3, notes\memory-leaks.md §5.1. Check: `py -I tools\loadmem_check.py` -> ALL LOADMEM CHECKS OK.
+Date: 2026-10-07. Static RE only, game not run. Inputs: notes\stutter.md §3.3, notes\memory-leaks.md §5.1. Check: `py -I re\scripts_stutter\loadmem_check.py` -> ALL LOADMEM CHECKS OK.
 
 ## 1. Free path (RVAs)
 - `EngineArenaInit` 294C2E0: one `VirtualAlloc(MEM_COMMIT)` of 6 GiB (294D214), then ~62 pool wrappers (registry `arena+3F5C50`, 8 B each; arena object = static 475A440, pointer in `[4B50348]`, flag byte `+3F5F00`).
@@ -13,7 +13,7 @@ Chunk: `[0] prev physical chunk, [8] payload size (negative = allocated, positiv
 
 ## 2. Free payload is never read before it is rewritten
 Decompile of 130D0C, 31242C, 9C0A94 and the vtable slots: the allocator touches **only the four header qwords** of free chunks (size test, bin links, split). A split writes all four fields of the new remainder header (31242C), including the alignment-pad header. HeapFree writes only neighbour headers. Game code reading a block after free is a use-after-free (the old bytes are stale, not zero), and reads of fresh `alloc` memory before writing already see arbitrary old bytes. The residual risk is a latent use-after-free race, so the sweeper only discards chunks that stayed free **unchanged for >= 2 sweeps (>= 1 s)**.
-Model check (tools\loadmem_check.py): 20 seeds x 6000 random alloc/free/split/merge ops, each run twice (with and without zeroing the discard ranges). Returned addresses and all chunk headers are identical, live payloads intact, ranges never touch a header or the next chunk (2.3 GiB zeroed in total).
+Model check (re\scripts_stutter\loadmem_check.py): 20 seeds x 6000 random alloc/free/split/merge ops, each run twice (with and without zeroing the discard ranges). Returned addresses and all chunk headers are identical, live payloads intact, ranges never touch a header or the next chunk (2.3 GiB zeroed in total).
 
 ## 3. Fix design (LM, default OFF, no game bytes patched)
 A sweeper thread in the ASI (snippet in §5):
