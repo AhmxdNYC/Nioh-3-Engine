@@ -1,0 +1,9 @@
+0x23a444c	func	Script_Mission_GetGameClearRewardNormal		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x23a43ec	func	Script_Mission_GetGameClearRewardHard		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x2280fa0	func	GameClearRewardGrant		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x2280c84	func	RewardNoticeShowById		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x238b3ec	func	Script_Character_AddDropTable		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x238b194	func	Script_Character_AddDropFixItem		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x23a0190	func	Script_Hell_StatusUpReward		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x2201294	func	NetSerialize_RewardObject		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x220089c	func	NetSerialize_IsFirstFlag		boss rewards (notes\boss-rewards.md)	medium	boss-rewards

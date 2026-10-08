@@ -3509,7 +3509,7 @@ rva	kind	name	signature	description	confidence	source
 0x2200190	function	Str_notice_id		str: distinctive string; refs "notice_id_" (1 string refs, 51 bytes)	medium	re/scripts_re/autoname.py
 0x2200314	function	Str_is_share		str: distinctive string; refs "is_share_" (3 string refs, 131 bytes)	medium	re/scripts_re/autoname.py
 0x2200580	function	Str_story_progress_self		str: distinctive string; refs "story_progress_self_" (3 string refs, 127 bytes)	medium	re/scripts_re/autoname.py
-0x220089c	function	Str_is_first		str: distinctive string; refs "is_first_" (2 string refs, 129 bytes)	medium	re/scripts_re/autoname.py
+0x220089c	func	NetSerialize_IsFirstFlag		boss rewards (notes\boss-rewards.md) (was Str_is_first)	medium	boss-rewards
 0x2200e28	function	Str_esoteric_skill_id_2200E28		str: distinctive string; refs "esoteric_skill_id_" (1 string refs, 94 bytes)	medium	re/scripts_re/autoname.py
 0x2200ee8	function	Str_style_form_slot		str: distinctive string; refs "style_form_slot_" (1 string refs, 54 bytes)	medium	re/scripts_re/autoname.py
 0x2200fa0	function	Str_player_sync_data		str: distinctive string; refs "player_sync_data_" (1 string refs, 47 bytes)	medium	re/scripts_re/autoname.py
@@ -8128,9 +8128,9 @@ rva	kind	name	signature	description	confidence	source
 0x238dd98	function	ScriptBind_Character_ForceDropAmuritaPosition		script VM native binding Character::ForceDropAmuritaPosition (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x238dd00	function	ScriptBind_Character_ForceDropAmurita		script VM native binding Character::ForceDropAmurita (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x2394828	function	ScriptBind_Character_SetDropAmritaCoefficient		script VM native binding Character::SetDropAmritaCoefficient (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x238b3ec	function	ScriptBind_Character_AddDropTable		script VM native binding Character::AddDropTable (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x238b3ec	func	Script_Character_AddDropTable		boss rewards (notes\boss-rewards.md) (was ScriptBind_Character_AddDropTable)	medium	boss-rewards
 0x238c3c8	function	ScriptBind_Character_ClearDropTable		script VM native binding Character::ClearDropTable (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x238b194	function	ScriptBind_Character_AddDropFixItem		script VM native binding Character::AddDropFixItem (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x238b194	func	Script_Character_AddDropFixItem		boss rewards (notes\boss-rewards.md) (was ScriptBind_Character_AddDropFixItem)	medium	boss-rewards
 0x238c1c0	function	ScriptBind_Character_ClearDropFixItem		script VM native binding Character::ClearDropFixItem (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x238b2c0	function	ScriptBind_Character_AddDropKeyItemDirectGet		script VM native binding Character::AddDropKeyItemDirectGet (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x238c2c4	function	ScriptBind_Character_ClearDropKeyItemDirectGet		script VM native binding Character::ClearDropKeyItemDirectGet (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
@@ -8511,8 +8511,8 @@ rva	kind	name	signature	description	confidence	source
 0x23a5c5c	function	ScriptBind_Mission_SetReward		script VM native binding Mission::SetReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a4d14	function	ScriptBind_Mission_IsMissionAlreadyClear		script VM native binding Mission::IsMissionAlreadyClear (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a452c	function	ScriptBind_Mission_GetMissionReward		script VM native binding Mission::GetMissionReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a444c	function	ScriptBind_Mission_GetGameClearRewardNormal		script VM native binding Mission::GetGameClearRewardNormal (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a43ec	function	ScriptBind_Mission_GetGameClearRewardHard		script VM native binding Mission::GetGameClearRewardHard (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x23a444c	func	Script_Mission_GetGameClearRewardNormal		boss rewards (notes\boss-rewards.md) (was ScriptBind_Mission_GetGameClearRewardNormal)	medium	boss-rewards
+0x23a43ec	func	Script_Mission_GetGameClearRewardHard		boss rewards (notes\boss-rewards.md) (was ScriptBind_Mission_GetGameClearRewardHard)	medium	boss-rewards
 0x23a481c	function	ScriptBind_Mission_IsAppearClearGadget		script VM native binding Mission::IsAppearClearGadget (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a3e38	function	ScriptBind_Mission_EndMissionParallelStream		script VM native binding Mission::EndMissionParallelStream (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x23a3ad0	function	ScriptBind_Mission_DeleteMissionAllCharacter		script VM native binding Mission::DeleteMissionAllCharacter (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
@@ -8595,7 +8595,7 @@ rva	kind	name	signature	description	confidence	source
 0x239fe34	function	ScriptBind_Hell_RequestHellAppearMoment		script VM native binding Hell::RequestHellAppearMoment (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239fc40	function	ScriptBind_Hell_IsHellAppearMoment		script VM native binding Hell::IsHellAppearMoment (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239fbd0	function	ScriptBind_Hell_IsExistStatusUpReward		script VM native binding Hell::IsExistStatusUpReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
-0x23a0190	function	ScriptBind_Hell_StatusUpReward		script VM native binding Hell::StatusUpReward (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
+0x23a0190	func	Script_Hell_StatusUpReward		boss rewards (notes\boss-rewards.md) (was ScriptBind_Hell_StatusUpReward)	medium	boss-rewards
 0x239ff58	function	ScriptBind_Hell_RequestHellStageSetup		script VM native binding Hell::RequestHellStageSetup (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239fb5c	function	ScriptBind_Hell_IsEndHellStageSetup		script VM native binding Hell::IsEndHellStageSetup (wrapper from table at 0x397E770)	medium	notes/boss-exe-strings.md
 0x239faa0	function	Script_Hell_IsClearMapOnlySmallHell	script wrapper	reads 0x2845C8 (was ScriptBind_Hell_IsClearMapOnlySmallHell)	high	notes/boss-rift-ngplus.md
@@ -8953,4 +8953,6 @@ rva	kind	name	signature	description	confidence	source
 0x1c1db88	function	SetMissionCleared	void SetMissionCleared(u32 missionId)	body of Mission::SetMissionClearFlag: clear db entries, rewards, retry points	high	notes/boss-rift-ngplus.md
 0x23e4228	function	Script_Mugen_IsAllMugenBossesDead	script wrapper	Rift/boss-rush lead; reads one bool	medium	notes/boss-rift-ngplus.md
 0x107bb78	function	ClearDbGetClearedU16	u8 ClearDbGetClearedU16(Db* db, u16 id)	FNV-1a over u16 id, byte entry+0x12+slot	high	notes/boss-rift-ngplus.md
-0x2280fa0	function	GetGameClearRewardId	void GetGameClearRewardId(char hard)	1->(0x4472,0xCD6F) 2->(0x7730,0x2641)	medium	notes/boss-rift-ngplus.md
+0x2280fa0	func	GameClearRewardGrant	void GetGameClearRewardId(char hard)	boss rewards (notes\boss-rewards.md) (was GetGameClearRewardId)	medium	boss-rewards
+0x2280c84	func	RewardNoticeShowById		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
+0x2201294	func	NetSerialize_RewardObject		boss rewards (notes\boss-rewards.md)	medium	boss-rewards
