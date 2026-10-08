@@ -22,7 +22,11 @@ Most of the raw fps came from **setup** (the monitor was running at 60 Hz, and t
 
 ## Decompilation progress
 
-![functions named](https://img.shields.io/badge/functions%20named-0.52%25%20(1100/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-99.49%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-99.51%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
+![functions named](https://img.shields.io/badge/functions%20named-2.39%25%20(5048/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-99.51%25-yellowgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-99.52%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
+
+**In plain words:** we have given a name to 5,048 of the game's 211k functions (2.4 %), but those cover 99.5-99.7 % of the CPU time we measured, and every GPU pass (59 of 59) now points at the engine code that runs it. That is what the speed work needs; it is not a full source rebuild.
+
+**Latest (2026-10-08):** the registry that creates the GPU passes was walked automatically, and **1,142 names** (70 render nodes, 216 shader objects, 483 data objects, plus type-info stubs) were added, so every GPU pass has a named CPU entry point (`notesender-nodes.md`). The charts below were regenerated after that merge.
 
 Every function in `Nioh3.exe` (211k function starts from `.pdata`), grouped by purpose region ([docs/code-map.md](docs/code-map.md)); block size = code size, each cell = 42 functions, green = real name, amber = `Unknown_*` (described, role unclear), grey = not named yet:
 
@@ -44,9 +48,35 @@ GPU numbers are stamp-inflated ranking data, not isolated costs. Regenerate with
 
 ---
 
+## Progress 2026-10-08: mod 1.7.13 / 1.7.14, decompile update, what helped
+
+**Device:** ROG Ally X. TODO: exact model IDs (CPU/GPU/BIOS/OS build) are pending; fill in once they arrive.
+
+**In plain words**
+- The in-game mod menu is easier now (ASI **1.7.13**). Open it with **Esc three times**, **F10**, or **Start three times** on a controller. Settings have plain names ("CPU waits sleep instead of spinning") with the technical id small beside them, and each row explains itself. There is a "Turn frame gen ON/OFF" row, and the frame-gen status now shows whether it is really running. The overlay sits lower so it no longer covers the health bars, and the "Mod menu: F10 / Esc x3 / Start x3" hint stays up the whole time the game's own menu is open. Not yet verified in the game.
+- ASI **1.7.14** adds three loading and game-logic patches (GL1, LC, LW). All are **off by default and untested in the game**.
+- The decompile is further along: all GPU passes are mapped to named engine code, CPU time named is 99.5-99.7 %, and the charts above are regenerated.
+
+**What helped and what did not**
+| | Result |
+|---|---|
+| GHDM shadow shader rewrite | **The only confirmed fps win on the Ally**: +8.7 % at MAX |
+| CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED, ...) | Fps-neutral on the Ally, because it is GPU-bound. They free CPU time and power, and help the PC more |
+| GI, fog and toonedge2 shader rewrites | Dropped: slower on the Ally's driver. Kept on disk for a re-test |
+| ESM / WDO28 / culling shaders | Still under one-by-one re-test |
+
+**Technical detail**
+- 1.7.13: pause hint from the game's own "menu open" getters (`0x5A37D4`, `0xD63C0`); `[Overlay] OffsetX/OffsetY`; presents counted per thread (game thread = real fps, `AMD FSR Presenter Thread` = displayed fps, FG running when displayed > 1.15x real); `[Menu] KeyTripleTap`, `PauseHintSource`. Pattern tests: 114 sites OK.
+- 1.7.14: GL1 = prefetch in the two mission task-list walks; LC = resource-load in-flight cap 10 -> 16; LW = manager `Sleep(1)` -> event wait. Pattern tests: 122 sites OK. A/B plan: LoadStats baseline, then one flag per load pair.
+- Live PC read (idle, read-only): the proximity list holds 4,380 entries per tick, 4-5x the earlier estimate, so the GL1 saving needs re-checking (`captures\pc\live_reads_2026-10-08.md`). Render-node method and tables: `notesender-nodes.md`.
+- The benchmark that was also captured, a PC all-off baseline, shows 149-153 fps standing; the full stock-vs-mod run is still to do.
+- Details: `MODLOG.md`, `STATUS.md`.
+
+---
+
 ## Progress 2026-10-07: ROG Ally X (Proton) + what actually helped
 
-Goal: real 60 fps on the ROG Ally X (Bazzite/Proton, Z1 Extreme, 25 W) at max settings / native 1080p, low input delay; PC gains are a bonus. Rules: optimize the **game** only (no system/driver/TDP tweaks), same look. Everything ships in the ASI mod `mod\Nioh3EngineFix` (now **1.7.7**) plus optional shader files; every result below was measured on the Ally in real gameplay unless marked otherwise.
+Goal: real 60 fps on the ROG Ally X (Bazzite/Proton, Z1 Extreme, 25 W) at max settings / native 1080p, low input delay; PC gains are a bonus. Rules: optimize the **game** only (no system/driver/TDP tweaks), same look. Everything ships in the ASI mod `mod\Nioh3EngineFix` (**1.7.14** as of 2026-10-08) plus optional shader files; every result below was measured on the Ally in real gameplay unless marked otherwise.
 
 **Where it stands:** MAX native 1080p = **16.3-16.8 fps**, GPU 99 % busy (lightest preset @ 50 % = ~32 fps). A real 60 at MAX would need ~3.6x the GPU; same-look work gives tens of percent, so the target isn't reachable on a 25 W 780M, but every win lifts all presets.
 

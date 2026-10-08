@@ -4,9 +4,19 @@ A small native mod for **Nioh 3 (Steam, v2.02)**. It fixes CPU and power waste i
 run at real speed when your frame rate is below the in-game cap. It patches the game in memory only. No game
 files are changed, and nothing is left behind when the game exits.
 
-> **Status: built, but not yet load-tested.** The logic is a 1:1 port of memory patches that were applied and
+> **Status (2026-10-08): version 1.7.14. The 1.7.13 menu and 1.7.14 patches (GL1, LC, LW, all default off) are built and pattern-tested but not yet run in the game. Device: ROG Ally X (TODO: exact model IDs pending). The note below is the original 1.0 status.**
+>
+> **Original status: built, but not yet load-tested.** The logic is a 1:1 port of memory patches that were applied and
 > measured live on v2.02 with external scripts. This DLL has not yet been run inside the game. Read
 > `Nioh3EngineFix.log` after your first launch and report what it says.
+
+### What is new in 1.7.13 and 1.7.14 (plain language first)
+- **Open the menu three ways:** F10, Esc three times, or Start three times on a controller.
+- **Easier menu:** plain names with the technical id small beside them, grouped under headings, with a two-line explanation of the selected row. A "Turn frame gen ON/OFF" row sits in the Frame generation group (turning it OFF while running under Proton takes effect on the next launch).
+- **Reliable frame-gen status:** it shows ON running (real -> shown fps), ON paused, or OFF, and now works on the PC too.
+- **Overlay moved down** so it does not cover the health bars; the hint "Mod menu: F10 / Esc x3 / Start x3" stays while the game's own menu is open.
+- **1.7.14** adds GL1, LC and LW (below): default off, untested in game. If a load gets stuck or the game crashes, set the key back to 0.
+- Technical detail is in the 1.7.13 menu section and the 1.7.14 section of this file, and in `MODLOG.md`. What helped: only the GHDM shader gave a confirmed fps gain on the Ally (GPU-bound); the CPU patches here are fps-neutral there.
 
 ## What it does
 
@@ -459,7 +469,8 @@ For every loading window the log gets one summary: seconds, frames, process CPU,
 (in-flight vs the cap of 10), load-end ready wait (timeout or not), event-scene seconds, MB read, inflate CPU time,
 PSOs created, plus the same split at "stage ready". `LoadStats = 2` adds one line per second inside the window.
 Sites another patch already owns are skipped (log "N skipped"). Next launch. `grep LoadStats` of the log is the whole
-result. Background: `notes\loading.md`. Checks: `testsun_loadstats_harness.py`, `re\scripts_load\ls_sites.py`.
+result. Background: `notes\loading.md`. Checks: `tests
+un_loadstats_harness.py`, `re\scripts_load\ls_sites.py`.
 
 ## In-game mod menu
 Change the fixes and the overlay while you play, with no restart. The menu opens at any time: in gameplay, in the
