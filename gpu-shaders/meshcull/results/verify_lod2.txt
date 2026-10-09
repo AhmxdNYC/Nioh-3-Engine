@@ -1,0 +1,1 @@
+EQUIVALENT 400 scenes x 64 threads x 3 guard modes: event logs + UAV state identical (867 events/scene); shipped blocks covered 67/67

@@ -1,0 +1,5 @@
+good rewrite: PASS 100 scenes x 64 threads x 3 guard modes: event logs + UAV state identical (920 events/scene); shipped blocks covered 67/67
+mutant guard inverted   CAUGHT  (scene 0 mode slow thread 0: event 2 differs: ('st', 'u5', 3860005878, 0, (2, 0, 0, 0), 1) vs ('st', 'u5', 0, 0, (2, 0, 0, 0), 1))
+mutant wrong row offset CAUGHT  (scene 1 mode fast thread 0: event 3 differs: ('st', 'u0', 476593475, 0, (15, 0, 0, 0), 1) vs ('ld', 'u5', 0, 0, (0, 1, 0, 0)))
+mutant store dropped    CAUGHT  (scene 30 mode fast thread 0: event 16 differs: ('st', 'u4', 3, 4, (2164326606, 0, 0, 0), 1) vs ('st', 'u4', 4, 0, (0, 0, 0, 0), 1))
+SELFTEST PASS

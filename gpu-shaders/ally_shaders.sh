@@ -2,9 +2,9 @@
 # ally_shaders.sh - status / install / exact revert of the staged Nioh 3 shader swaps on Linux (Bazzite / SteamOS,
 # Proton + vkd3d-proton). Same files and SHA-256 checks as gpu-shaders\apply_{ghdm,esm,wdo28,sweep}.ps1 on Windows.
 #
-#   ./ally_shaders.sh status            [ghdm|esm|wdo28|wdo14|mpc|mshlod|toonedge2|gi|fogpar|trvs|pbvs|all]
-#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|wdo14|mpc|mshlod|toonedge2|gi|fogpar|trvs|pbvs|all]
-#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|wdo14|mpc|mshlod|toonedge2|gi|fogpar|trvs|pbvs|all]
+#   ./ally_shaders.sh status            [ghdm|esm|wdo28|wdo14|mpc|mshlod|lodu|toonedge2|gi|fogpar|trvs|pbvs|msv|all]
+#   ./ally_shaders.sh apply             [ghdm|esm|wdo28|wdo14|mpc|mshlod|lodu|toonedge2|gi|fogpar|trvs|pbvs|msv|all]
+#   ./ally_shaders.sh revert            [ghdm|esm|wdo28|wdo14|mpc|mshlod|lodu|toonedge2|gi|fogpar|trvs|pbvs|msv|all]
 #
 # mpc / toonedge2 = the 2026-10-07 shader sweep (notes/gpu-shader-sweep.md); toonedge2 covers two files.
 # mpc = ONE combined 0x29ee0902.file: MPC#23 + the prefix-sum chain #28-#31 (notes/gpu-culling-rewrite.md). It
@@ -20,6 +20,9 @@
 # msv = 187 files: every meshlet vertex shader with its slot-uniform load chain scalarized (notes/gpu-rewrite-round3.md).
 #   Files come from meshvs/splice_msv.py <msv_all_records.zip> --flat. NOT part of "all": it shares 0x52c39db0 / 0xfd4f418f
 #   with trvs / pbvs (it supersedes them); apply/revert it by name only.
+# lodu = 0x8d9282e6.file: MshLod#2 (63c07c21) wave-uniform fast path (notes/gpu-rewrite-round4.md). SAME FILE as mshlod
+#   (MshLod#3): install one or the other, never both; NOT part of "all" (apply/revert by name). File from
+#   meshvs/splice_msv.py <cull4_records.zip> --flat. RADV note: the kernel already uses wave ops (no NGG concern: CS).
 #
 # Put this script next to the folder "replacement/" (gpu-shaders/replacement/*.file from the build PC).
 # Game folder: auto-detected from the Steam library folders, or set NIOH3_DIR=/path/to/steamapps/common/Nioh3.
@@ -41,6 +44,7 @@ wdo28 0x1fd07cc0.file  197f0c438e05b68cf89d4f3f03e20c0a903bcffa6198a93a43c938e96
 wdo14 0x1667d3a0.file  36bdb485805c15ea16b45321da135e98b386fa639ca76bd215aeca4648272a7c  60e2646cf2e46e9586013ae8ea4fb38ec902de36c176b9d9139a12c4ed328259
 mpc   0x29ee0902.file  42f045c370e99b80626c64e9d8084a4a855bb3baad3b04b8f634114d34b97b16  3947f3d70264920e8cf0514139b715ce6552c6389b0e364ca9fb443cca4f0d73  26417c0ff41b128443ce364a69e68328588abd5f044129fe1a8c2e8dea80cec7
 mshlod 0x8d9282e6.file  ec0f5283660caa64565e17cfb8f2dc4d06ee498278fe1a832db16d27b916ebeb  214ac371d68ff4e258526bd6f1d7cd044347bc8c417410966ae6400a02986c24
+lodu  0x8d9282e6.file  ec0f5283660caa64565e17cfb8f2dc4d06ee498278fe1a832db16d27b916ebeb  5f7f3b120b909c74c0238d7af3f4f3cd43299840b21a5a49e195545ea54150f1
 toonedge2 0x9c481f79.file  7a8171617b2530648e12ce9dd52c091faf31cd4f1026d3b40a7fdde5788ac1ae  d672a5d530f9d1cb49f37ee3de6f626d95e7273eb897e17de3683a8dfb2c2e6d
 toonedge2 0x47bc5cb4.file  07542a8322a617b7783b0c7b79580689339429c1d1e416bf70c8d0f3b0aee99a  9a37b6e45360bb8664746687757c68ebfd33cdeb711a6459bbbe29cee111ef80
 gi    0xd070067d.file  d3cbb484ee3380d337641c8c893aa152f2c8d053afb37f49091609b1d87dc372  59897999a85a03398f060abcc1b6a50ed69036994c3e2a2e4d0e1e06e7f2de4f  c952f39a76bc09668953b1bc483e1434f1cbe121bfe9e907d6f49fc601e0fb97
@@ -268,7 +272,7 @@ for PASS in check act; do
 any=0
 while read -r name file orig repl old; do
   [ -n "$name" ] || continue
-  { [ "$WHICH" = all ] && [ "$name" != msv ]; } || [ "$WHICH" = "$name" ] || continue   # msv: only by name (supersedes trvs/pbvs files)
+  { [ "$WHICH" = all ] && [ "$name" != msv ] && [ "$name" != lodu ]; } || [ "$WHICH" = "$name" ] || continue   # msv / lodu: only by name (share files with trvs/pbvs / mshlod)
   any=1
   g="$SD/$file"; [ -f "$g" ] || die "$name: missing $g"
   hg="$(sha "$g")"
