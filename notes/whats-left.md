@@ -16,6 +16,13 @@ gpu-scheduling.md, stutter.md, mainthread-logic.md, parallel-drawprep.md, STATUS
 
 Tags: **M** measured, **E** estimate. "% main" = share of the SP/cpuprof samples of that thread (wall time).
 
+**Update 2026-10-08 22:00 (real play session, `session-2026-10-08-perf.md`):** at the user's own PC settings (1440p,
+75 %, XeSS, FSR FG, VSync ON) the PC is **GPU-bound** (GPU busy 90-92 %, real 100-118 fps, main thread waits 2.15 ms/frame
+on the waitable), so the PC CPU rows below (#4-#7, #10, #11) are fps-neutral there; they still matter for abba2-like CPU-bound
+settings and the Ally's future CPU ceiling. The only gameplay hitches were **first-use PSO compiles** (boss kill 98-167 ms,
+worst create 153 ms; 25 creates >= 1 ms per session) -> new row **0 (PJ)**. Normal fights cost no more than exploration;
+the boss arena does (GPU 7.1 vs 5.4 ms per presented frame). No SP in that run: no new per-function CPU shares.
+
 ## 0. Five facts the existing notes do not state
 
 1. **Ally main thread at USER is 62 % game code (M, S1):** ~17.8 ms of draw prep per 28.7 ms frame; 31 % blocked in the GF
@@ -39,6 +46,7 @@ Tags: **M** measured, **E** estimate. "% main" = share of the SP/cpuprof samples
 | device / scene | bounding chain (M) | what shortens it |
 |---|---|---|
 | PC abba2 scene, 1080p FSR 50, ~110-118 fps | KIDSTaskScheduler0 logic frame: serial self (ObbToAabb family 0.73 ms, BoundsFromPartObbs 71C60 0.28 + SinCos 54360 0.13 + Vec4CopyW0 0.12, UiNodeUpdateWorldMatrix 66D00 0.18, RollingAvg 0.11, JobQueuePoll 0.17) **+ job-join wait 1.44 ms** (NtWaitForAlertByThreadId 15.8 % of Scheduler0 in r6-A1) -> [App]Game waits 0.6-1.05 ms for the packet (D spin) | AABB (built), BP (new), UI skip (new), and the join: KIDSTaskScheduler1-6 are only **~24 % busy** while Scheduler0 waits, so the join waits on a **tail** (one long job or an uneven split), not on throughput. `JobParallelForSplit` 204584 halves a range until it is <= the grain at job+78h, so leaf cost varies with object mix. Needs JT (below) before any change |
+| PC real play at the user's settings (1440p 75 %, XeSS, FSR FG, VSync ON; 2026-10-08) | GPU 90-92 % busy; rendered 100-118 fps; [App]Game waits 2.15 ms/frame on the waitable; 10-20 % of FG frames discarded by DWM (composed flip) | GPU passes (Ally list applies), PJ for hitches; VSync OFF + VRR is a user setting (user-settings.md PC 12) |
 | PC render-bound scenes (r5) | [App]Game draw prep; 18-26 % of it in "other render-graph nodes" never attributed (535188's 53 KB frame defeats the 32 KB stack read, mainthread-logic.md 5) | deep-stack profile first (R10 below); PP/MA/P1E7/DQ already queued |
 | PC GPU (r5 trace) | device-wide gated stall ~1 ms/frame (gpu-scheduling B2) | TileStats census (remaining-work 3.6, wired in dllmain now) |
 | Ally USER | GPU 28.7 ms (99 %); dispatcher 38.5 % blocked on ring backpressure (CmdListRingSubmitUpTo) = GPU-bound confirmed; GFX-queue gaps 1.67 ms | GPU items only for fps today; main thread (17.8 ms) becomes the bound below ~18 ms GPU |
@@ -48,6 +56,7 @@ Tags: **M** measured, **E** estimate. "% main" = share of the SP/cpuprof samples
 
 | # | candidate | device | measured target | est. saving | evidence | effort | game? |
 |---|---|---|---|---|---|---|---|
+| 0 | **PJ in real play** (built 1.7.31, `[Patches] PJ = 0`, never A/B'd): journal the runtime PSOs of one play session, prewarm them at the title, replay the same mission + boss | PC (Ally: PSO hitches not seen) | 247 runtime PSO creates per 22-min session, 25 >= 1 ms, boss-kill frames 98-167 ms, mission 53-120 ms (M, SPR) | the only > 33 ms gameplay frames: 6 of 6 (M); title prewarm time E | session-2026-10-08-perf.md s0/s1; stutter.md 6.1 | 0 build, 1 PC session pair (journal run, prewarm run) | y |
 | 1 | **R2a/R1 Ally run**: one `[GpuOpt] Barriers=2 TraceRecords=200000` launch -> `vkd3d_cost.py` by caller2_rva (B6 thresholds), then ABBA R2=1 / R1=1 | Ally GPU | GFX gaps 1.67 ms + in-list COMMON drains (PC proxy 485 EOP waits/frame) | 0.2-0.8 ms E (0.25-1 fps) | fact 3/4; vkd3d-audit B4-B6 | 0 build, 1 Ally session | y |
 | 2 | **GQ gap census** (GP2 add-on): per frame, per ECL: gap from previous list end to first stamp, tail after last stamp, marker of the list; log top gaps | Ally GPU (meas.) | 1.4-2.3 ms uncovered | enables ECL merge (vkd3d design 3) / R2; 0.3-1 ms E if gaps are per-submit | fact 4; gpuprof.cpp covered = DIRECT intervals | 3-4 h ASI | y (same session as 1) |
 | 3 | **Ally CPU bundle**: PP + MA (+ AABB after PC verdict) in the ALLY profile, A/B on CPU W / GPU MHz / main busy | Ally power + future fps ceiling | main 1.27 + 3.5 % (+ logic 0.35 % AABB, MAX data) | ~1.3 ms main/frame (E from shares), 0.3-0.6 W E -> GPU MHz | fact 1/2; PP measured -0.26 ms on PC | ini only | y |

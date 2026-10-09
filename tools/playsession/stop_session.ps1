@@ -4,7 +4,7 @@
   they were before START (byte-checked), releases the bridge game lock, then runs summarize.py -> report.md in the session folder.
   Refuses (changes nothing) while Nioh3.exe is still running. Test switches: -NoPause, -StateDir.
 #>
-param([switch]$NoPause, [string]$StateDir = "")
+param([switch]$NoPause, [string]$StateDir = "", [string]$StashRoot = "", [string]$OptiSrc = "")
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "session_lib.ps1")
 $Host.UI.RawUI.WindowTitle = "Nioh 3 play session - STOP"
@@ -12,7 +12,20 @@ function Say([string]$s, [string]$c = "Gray") { Write-Host $s -ForegroundColor $
 
 Say "Nioh 3 play session - STOP" Cyan
 Say "--------------------------------"
+function Report-Restore($rr, [string]$dir) {
+    foreach ($n in $rr.restored) { Say "   restored $n (sha256 verified)" }
+    foreach ($n in $rr.already) { Say "   already in place $n" }
+    if ($rr.problems) { foreach ($p in $rr.problems) { Say "   PROBLEM: $p" Red }; Say "Stash kept (not marked restored): $dir" Red }
+    else { Say ("STOCK stash restored: {0} file(s) put back, {1} already in place; the game folder is as before START" -f $rr.restored.Count, $rr.already.Count) Green }
+}
 if (-not (Test-Path $ActiveFile)) {
+    $lo = @(Get-LeftoverStash)
+    if ($lo.Count) {   # crash / reboot / lost state: the stock stash is still restorable from its manifest
+        if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { Say "Nioh 3 is running. Exit it, then click STOP again to restore the stock stash." Red; Pause-End -NoPause:$NoPause; exit 1 }
+        $bad = 0
+        foreach ($s in $lo) { Say "Unfinished STOCK stash found: $($s.FullName)" Yellow; $rr = Invoke-StockRestore $s.FullName; Report-Restore $rr $s.FullName; if ($rr.problems) { $bad = 1 } }
+        Pause-End -NoPause:$NoPause; exit $bad
+    }
     Say "No session is running (nothing to stop)." Yellow
     $last = Get-ChildItem $CaptureRoot -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($last -and (Test-Path (Join-Path $last.FullName "report.md"))) { Say "Last report: $(Join-Path $last.FullName 'report.md')" }
@@ -39,9 +52,11 @@ if ($mon -and $mon.ProcessName -like "powershell*") { if (-not $mon.WaitForExit(
 Say "capture stopped (PresentMon, monitor)"
 
 # ---- last mod log (monitor copies one per game exit; keep the current one if it is newer and different) ----
+$isStock = ($A.mode -eq "stock")
 $cur = Join-Path $GameDir "Nioh3EngineFix.log"
 $copies = @(Get-ChildItem $sess -Filter "modlog_run*.log" -ErrorAction SilentlyContinue | Sort-Object Name)
-if (Test-Path $cur) {
+if ($isStock) { Say "stock session: no mod log expected" }
+elseif (Test-Path $cur) {
     $startT = [datetime]$A.start
     $isNew = (Get-Item $cur).LastWriteTime -ge $startT
     $same = $false
@@ -49,8 +64,8 @@ if (Test-Path $cur) {
     if ($isNew -and -not $same) { Copy-Item $cur (Join-Path $sess ("modlog_run{0}.log" -f ($copies.Count + 1))) -Force; Say "mod log kept" }
 }
 $copies = @(Get-ChildItem $sess -Filter "modlog_run*.log" -ErrorAction SilentlyContinue)
-Say ("game launches with a mod log: {0}" -f $copies.Count)
-if ($copies.Count -eq 0) { $problems += "no mod log from this session (was the game started?)" }
+if (-not $isStock) { Say ("game launches with a mod log: {0}" -f $copies.Count) }
+if (-not $isStock -and $copies.Count -eq 0) { $problems += "no mod log from this session (was the game started?)" }
 
 # ---- put the user's mod files back ----
 function Restore-One([string]$name, [string]$dst, [bool]$had) {
@@ -61,8 +76,14 @@ function Restore-One([string]$name, [string]$dst, [bool]$had) {
     } elseif (Test-Path $dst) { Remove-Item $dst -Force }
     return $null
 }
+if ($isStock) {
+    $sd = if ($A.stash_dir) { $A.stash_dir } else { "" }
+    if (-not $sd -or -not (Test-Path (Join-Path $sd "manifest.json"))) { $problems += "stock stash manifest not found ($sd)"; Say "PROBLEM: stock stash manifest not found: $sd" Red }
+    else { $rr = Invoke-StockRestore $sd; Report-Restore $rr $sd; foreach ($p in $rr.problems) { $problems += "stock restore: $p" } }
+} else {
 foreach ($p in @((Restore-One "Nioh3EngineFix.ini" $ini ([bool]$A.had_ini)), (Restore-One "Nioh3EngineFix.asi" $asi ([bool]$A.had_asi)))) { if ($p) { $problems += $p } }
 Say ("mod files put back: ASI {0}, your ini (byte-identical)" -f (Get-AsiVersion $asi)) $(if ($problems -match "restore") { "Red" } else { "Gray" })
+}
 
 # ---- lock ----
 if ($A.lock_held) {

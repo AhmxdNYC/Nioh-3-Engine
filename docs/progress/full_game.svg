@@ -541,7 +541,7 @@
 <rect x="563.7" y="181.9" width="7.0" height="6.8" fill="#444a54"/>
 <text x="498.1" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">culling</text>
 <rect x="343.0" y="304.1" width="11.6" height="11.5" fill="#51524e"/>
-<rect x="355.1" y="304.1" width="11.6" height="11.5" fill="#5f5a48"/>
+<rect x="355.1" y="304.1" width="11.6" height="11.5" fill="#665e45"/>
 <rect x="367.3" y="304.1" width="11.6" height="11.5" fill="#6d6242"/>
 <rect x="379.5" y="304.1" width="11.6" height="11.5" fill="#58564b"/>
 <rect x="391.7" y="304.1" width="11.6" height="11.5" fill="#6d6242"/>
@@ -742,7 +742,7 @@
 <rect x="753.2" y="233.3" width="8.3" height="7.4" fill="#6d6242"/>
 <rect x="762.2" y="233.3" width="8.3" height="7.4" fill="#444a54"/>
 <rect x="771.1" y="233.3" width="8.3" height="7.4" fill="#444a54"/>
-<rect x="780.1" y="233.3" width="8.3" height="7.4" fill="#5f5a48"/>
+<rect x="780.1" y="233.3" width="8.3" height="7.4" fill="#665e45"/>
 <rect x="789.0" y="233.3" width="8.3" height="7.4" fill="#444a54"/>
 <rect x="797.9" y="233.3" width="8.3" height="7.4" fill="#444a54"/>
 <rect x="806.9" y="233.3" width="8.3" height="7.4" fill="#58564b"/>
@@ -1664,7 +1664,7 @@
 <text x="607.5" y="319.5" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">post</text>
 <rect x="875.4" y="217.3" width="7.5" height="7.4" fill="#b88f22"/>
 <rect x="883.5" y="217.3" width="7.5" height="7.4" fill="#9d7f2e"/>
-<rect x="891.6" y="217.3" width="7.5" height="7.4" fill="#58564b"/>
+<rect x="891.6" y="217.3" width="7.5" height="7.4" fill="#5f5a48"/>
 <rect x="899.7" y="217.3" width="7.5" height="7.4" fill="#444a54"/>
 <rect x="907.9" y="217.3" width="7.5" height="7.4" fill="#444a54"/>
 <rect x="916.0" y="217.3" width="7.5" height="7.4" fill="#444a54"/>
@@ -4015,7 +4015,7 @@
 <rect x="862.2" y="554.9" width="7.6" height="8.3" fill="#444a54"/>
 <rect x="870.5" y="554.9" width="7.6" height="8.3" fill="#444a54"/>
 <rect x="878.7" y="554.9" width="7.6" height="8.3" fill="#665e45"/>
-<rect x="887.0" y="554.9" width="7.6" height="8.3" fill="#58564b"/>
+<rect x="887.0" y="554.9" width="7.6" height="8.3" fill="#5f5a48"/>
 <rect x="854.0" y="563.8" width="7.6" height="8.3" fill="#51524e"/>
 <rect x="862.2" y="563.8" width="7.6" height="8.3" fill="#4a4e51"/>
 <rect x="870.5" y="563.8" width="7.6" height="8.3" fill="#444a54"/>

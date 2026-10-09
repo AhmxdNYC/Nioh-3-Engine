@@ -150,6 +150,22 @@ Phase 0 sessions (the user plays; we only read logs):
 
 Open questions: **Q1** the key -> byte mapping (0x102BB60/0x102B840; whether a key alone, without the item, works), **Q2** the record field meanings (+0x00..+0x0B, +0x18, +0x2E..+0x30, +0x32/+0x33 unknown), **Q3** whether story bosses need their mission script (phase transitions, invulnerability, cutscenes), **Q4** story flags under a scroll, **Q5** clear calls, **Q6** item consumption, **Q7** where the game allows scroll use (any time in the field, or a shrine only), **Q8** which call grants boss drops, **Q9** whether anything saves between the shrine menu and the mission start (this decides how safe the 0xAB early unlock is), **Q10** the exact replay enqueue arguments (L7).
 
+**Answers from the 2026-10-08 PC session (P0-5, one main replay; `notes\session-2026-10-08-gamedata.md`):**
+- **Q10 answered.** The shrine replay confirm `MissionReplayMenu_Decide` F1FD80 (choice 0) writes the request straight into the queue
+  (no MissionRequestById/Enqueue call). Its bytes equal `MissionRequestById(id, u8 [[47514D0]+8]+10h, 0, {101h, 1000000h, 10100h, 0, 0, 0})`
+  (params 16-aligned); request `+14` = 2 = replay. R-b = that call (built on branch `rematch2`, DirectStart = 0).
+- **Q8:** no script drop/grant native fires for the boss (0 REWARD lines); drops are native. The inventory funnel is `InventoryAddItem`
+  54D324 (InvLog on `rematch2`).
+- **Q5:** `SetMissionClearFlag(52)` x2 at the clear (repeat; 52 was cleared). **Q4 (route R):** flag 118 = 1 inside the fight; outside the
+  fight not captured. The replay start also marks 16 area records cleared (1C27BC4 -> ClearMapSetEntry, notify 0).
+- **Q3 (route R):** the full script runs (placement 76781, BossBattleMode/End, 26.8 s); `ShowBossGauge` is not used by this boss.
+- **Q1/Q2 partly:** Emaki record `+30h` = the map key byte, `+31h` = region byte, `+2Ch` = hell id; `+0Ch/+10h/+14h` hold 17,00x,xxx ids
+  (not a 16-bit mission id at `+0Ch`: s.5.3 must be re-checked before E1). Key-alone start still open.
+- **s.4 getters:** 702B64 == 909218 on all 271 lines; keep 702B64.
+- **Open:** Q6 (no scroll used), Q7 field use, Q9 (BuildSaveFilePath does not fire on shrine saves; hook the save writer 5B6F37 instead),
+  E-route captures (P0-1..P0-3), the normal-clear baseline (P0-4).
+- **Blocker found:** `MissionLoadStep` only ticks during mission loads (2 ticks in 150 s of field play), so it cannot be the s.5.1 pump.
+
 ## 9. Build plan and test cases
 1. **Phase 0 (log-only, ASI 1.7.x).** New files `src\rematchlog.cpp/.h` with hooks L1-L7. Add patches.json group `RM`, run `tests\test_patterns.py` until `ALL N SITES OK`, write a MODLOG entry. Run sessions P0-1..P0-6. Exit criterion: Q1-Q10 answered in an update to this note, plus `tools\rematch_catalog.py` producing the first `Nioh3EngineFix_bosses.tsv` (scroll bosses verified).
 2. **Phase 1 = MVP, route R + UI (`[Rematch] Enable = 1`, default 0).** New `src\rematch.cpp/.h`: catalogue load (R rows generated from `battle-scrolls.csv`), gates, the cleared-mission scan, the game-thread pump, R-a (open the official replay menu), then R-b (direct start with the L7 arguments). Also the hidden-duel un-hide with its restore. menu.cpp: section, row, sub-page, confirm, toasts. The src owner integrates these, one agent at a time.

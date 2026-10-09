@@ -7,9 +7,12 @@
      user's own play ini + measurement-only capture keys (session_lib.ps1 $CaptureKeys; AutoContinueLoad etc. stay as they were)
   5. starts PresentMon (waits for Nioh3.exe; every frame, v2 metrics incl. CPU/GPU busy+wait and input latency) and monitor.ps1
   6. prints the checklist. No input is sent to the game, ever.
+  -Stock (README "Stock mode"): same refusals/lock/backup/PresentMon/monitor, but instead of installing the mod it MOVES the exact allow-list of
+  mod files (session_lib.ps1 $StockModFiles/$StockModDirs/$StockOptiFiles) into D:\nioh3-re\stock-stash\<stamp>-stock with a manifest
+  (name, size, sha256); STOP restores it. -KeepOptiScaler stashes only our mod + dinput8. Refuses while an unfinished stash exists.
   Test switches (tools\playsession\test_session.ps1): -NoLock, -NoPause, -GameDir/-SaveRoot/-BackupRoot/-CaptureRoot/-StateDir.
 #>
-param([switch]$NoPause, [switch]$NoLock, [switch]$NoPopup, [string]$GameDir = "", [string]$SaveRoot = "", [string]$BackupRoot = "", [string]$CaptureRoot = "", [string]$StateDir = "")
+param([switch]$NoPause, [switch]$NoLock, [switch]$NoPopup, [switch]$Stock, [switch]$KeepOptiScaler, [string]$GameDir = "", [string]$SaveRoot = "", [string]$BackupRoot = "", [string]$CaptureRoot = "", [string]$StateDir = "", [string]$StashRoot = "", [string]$OptiSrc = "")
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "session_lib.ps1")
 $Host.UI.RawUI.WindowTitle = "Nioh 3 play session - START"
@@ -24,10 +27,15 @@ if (Test-Path $ActiveFile) {
     Fail "a session is already running (started $($a.start)). Click 'Nioh3 Session STOP' first."
 }
 if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { Fail "Nioh 3 is running. Quit the game to the desktop, then click START again." }
-if (-not (Test-Path $BinAsi)) { Fail "no mod build at $BinAsi" }
+if ($KeepOptiScaler -and -not $Stock) { Fail "-KeepOptiScaler only makes sense with -Stock" }
+$left = @(Get-LeftoverStash)
+if ($left.Count) { Fail "an unfinished STOCK session left its mod files in $($left[0].FullName) (the game folder is missing them). Click 'Nioh3 Session STOP' to restore them first." }
+if (-not $Stock -and -not (Test-Path $BinAsi)) { Fail "no mod build at $BinAsi" }
 if (-not (Test-Path $PmExe)) { Fail "PresentMon is missing ($PmExe)" }
 if (-not (Test-Path $GameDir)) { Fail "game folder not found: $GameDir" }
-$asiNew = Get-AsiVersion $BinAsi
+$asiNew = if ($Stock) { "none (stock)" } else { Get-AsiVersion $BinAsi }
+$mode = if ($Stock) { "stock" } else { "mod" }
+$stashDir = ""
 
 # ---- game lock ----
 $lockHeld = $false
@@ -59,20 +67,33 @@ try {
         Say ("save backup: {0} ({1} files, {2:N0} MB)" -f $bk, $dst.Count, ($dst.Sum / 1MB))
     } else { throw "save folder not found: $SaveRoot" }
 
-    # ---- mod files: keep the user's, install the build + capture keys ----
     $asiBefore = Get-AsiVersion $asi
     $hadAsi = Test-Path $asi; $hadIni = Test-Path $ini
+    $keys = @(); $stashed = @()
+    if ($Stock) {
+        # ---- STOCK: move the exact allow-list (session_lib.ps1) into a stash with a manifest; STOP puts it back ----
+        $stashDir = Join-Path $StashRoot "$stamp-stock"
+        if (Test-Path $stashDir) { $stashDir = Join-Path $StashRoot ("$stamp-stock-" + (Get-Date -Format "ss")) }
+        $changed = $true
+        $res = Invoke-StockStash $GameDir $stashDir ([bool]$KeepOptiScaler)
+        $stashed = $res.names
+        Copy-Item (Join-Path $stashDir "manifest.json") (Join-Path $sess "stash_manifest.json") -Force
+        Say ("STOCK: {0} mod file(s) moved to {1}; the game folder now has none of them (no *.asi, no dinput8.dll{2})" -f $res.count, $stashDir, $(if ($KeepOptiScaler) { "; OptiScaler kept" } else { ", no OptiScaler" }))
+        foreach ($n in $stashed) { Say "   stashed $n" }
+        foreach ($p in $res.problems) { Say "   note: $p" Yellow }
+    } else {
+    # ---- mod files: keep the user's, install the build + capture keys ----
     if ($hadAsi) { Copy-Item $asi (Join-Path $orig "Nioh3EngineFix.asi") -Force }
     if ($hadIni) { Copy-Item $ini (Join-Path $orig "Nioh3EngineFix.ini") -Force }
     $baseIni = if ($hadIni) { $ini } else { Join-Path $ws "mod\Nioh3EngineFix\Nioh3EngineFix.ini" }
     $lines = [IO.File]::ReadAllLines($baseIni)
-    $keys = @()
     foreach ($k in $CaptureKeys) { $lines = Set-IniValue $lines $k[0] $k[1] $k[2]; $keys += "[$($k[0])] $($k[1])=$($k[2])" }
     $changed = $true
     [IO.File]::WriteAllLines($ini, $lines, (New-Object Text.UTF8Encoding($false)))
     Copy-Item $BinAsi $asi -Force
     Copy-Item $ini (Join-Path $sess "ini_used.ini") -Force
     Say "mod: $asiBefore -> $asiNew installed for the session; your ini + $($keys.Count) capture keys"
+    }
 
     # ---- game settings snapshot ----
     $cfg = Join-Path $SaveRoot "config.xml"; $gfx = ""
@@ -104,6 +125,7 @@ try {
     $now = Get-Date
     $bias = [math]::Round(($now - $now.ToUniversalTime()).TotalSeconds)
     $info = [ordered]@{ start = $now.ToString("s"); start_ts = [double]([DateTimeOffset]$now).ToUnixTimeMilliseconds() / 1000; session_dir = $sess; save_backup = $bk
+        mode = $mode; keep_optiscaler = [bool]$KeepOptiScaler; stash_dir = $stashDir; stash_root = $StashRoot; stashed = $stashed
         game_dir = $GameDir; had_asi = $hadAsi; had_ini = $hadIni; asi_version = $asiNew; asi_version_before = $asiBefore; capture_keys = $keys; graphics = $gfx
         pm_pid = $pm.Id; mon_pid = $mon.Id; pm_bias_s = $bias; lock_held = $lockHeld; save_root = $SaveRoot; state_dir = $StateDir }
     Write-Json $info (Join-Path $sess "session.json")
@@ -112,7 +134,12 @@ try {
     Say "!! $_" Red
     if ($pm -and -not $pm.HasExited) { & $PmExe --terminate_existing_session --session_name $PmSession 2>$null | Out-Null; Stop-Process -Id $pm.Id -Force -ErrorAction SilentlyContinue }
     if ($mon -and -not $mon.HasExited) { Stop-Process -Id $mon.Id -Force -ErrorAction SilentlyContinue }
-    if ($changed) {
+    if ($changed -and $Stock) {
+        if ($stashDir -and (Test-Path (Join-Path $stashDir "manifest.json"))) {
+            $rr = Invoke-StockRestore $stashDir
+            Say ("stock stash put back ({0} restored{1})" -f $rr.restored.Count, $(if ($rr.problems) { "; PROBLEMS: " + ($rr.problems -join "; ") } else { "" })) $(if ($rr.problems) { "Red" } else { "Gray" })
+        }
+    } elseif ($changed) {
         if (Test-Path (Join-Path $orig "Nioh3EngineFix.ini")) { Copy-Item (Join-Path $orig "Nioh3EngineFix.ini") $ini -Force } elseif (-not $hadIni) { Remove-Item $ini -Force -ErrorAction SilentlyContinue }
         if (Test-Path (Join-Path $orig "Nioh3EngineFix.asi")) { Copy-Item (Join-Path $orig "Nioh3EngineFix.asi") $asi -Force } elseif (-not $hadAsi) { Remove-Item $asi -Force -ErrorAction SilentlyContinue }
         Say "mod files put back as they were"
@@ -122,7 +149,12 @@ try {
 }
 
 Say ""
+if ($Stock) {
+    Say "READY (STOCK game - no mod, no ASI loader$(if (-not $KeepOptiScaler) { ', no OptiScaler' })). Capturing PresentMon + Windows counters only (no mod log exists)." Green
+    Say "Play the SAME mission as your mod run. STOP puts every stashed file back (also after a crash or reboot)." Yellow
+} else {
 Say "READY. Capturing: every frame (fps, lows, frame times, CPU/GPU busy, input latency), loads, boss fight, memory, PSO stutter, FnProbe, controller latency (PadLatency)." Green
+}
 if ($gfx) { Say "Game settings now: $gfx" }
 Say ""
 Say "What to do:" Cyan

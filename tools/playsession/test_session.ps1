@@ -86,6 +86,88 @@ Ck (-not (Get-Process -Id $A.pm_pid -ErrorAction SilentlyContinue) -and -not (Ge
 Ck (Test-Path (Join-Path $sess "report.md")) "report.md written"
 Ck ((Get-Content (Join-Path $sess "report.md") -Raw) -match "FnProbe: 14/14") "report reads the copied mod log"
 
+# 5b. STOCK mode on a fake game folder (stash / restore round trip, hashes, leftover-stash refusal, crash-safe STOP, newer-file refusal, -KeepOptiScaler)
+$g2 = Join-Path $root "game2"; $st2 = Join-Path $root "state2"; $sh2 = Join-Path $root "stash"; $os2 = Join-Path $root "optisrc"; $c2 = Join-Path $root "captures2"
+New-Item -ItemType Directory -Force $g2, $st2, $sh2, $os2, $c2, "$g2\Nioh3EngineFix_shaders\sub" | Out-Null
+$StashRoot = $sh2      # the dot-sourced lib uses this for Get-LeftoverStash
+$rb = New-Object Random 7
+function Put([string]$path, [int]$n) { $by = New-Object byte[] $n; $rb.NextBytes($by); [IO.File]::WriteAllBytes($path, $by); (Get-Item $path).LastWriteTimeUtc = [datetime]"2026-01-01T10:00:00Z" }
+$modNames = @("dinput8.dll", "Nioh3EngineFix.asi", "Nioh3EngineFix.ini", "Nioh3EngineFix.log", "Nioh3EngineFix.asi.1.7.25.bak", "Nioh3EngineFix.ini.preboss.bak", "Nioh3EngineFix_shaders\a.bin", "Nioh3EngineFix_shaders\sub\b.bin")
+$optNames = @("dxgi.dll", "OptiScaler.ini", "amd_fidelityfx_dx12.dll", "amd_fidelityfx_upscaler_dx12.dll", "amd_fidelityfx_framegeneration_dx12.dll")
+$gameNames = @("Nioh3.exe", "amd_ags_x64.dll", "libxess.dll", "data.pak")      # Steam-shipped files: must never move
+foreach ($n in ($modNames + $optNames + $gameNames)) { Put (Join-Path $g2 $n) (2000 + $rb.Next(5000)) }
+# OptiScaler reference copies (optiscaler\files layout) so the stash can verify dxgi.dll / amd dlls are really the OptiScaler set
+Copy-Item "$g2\dxgi.dll" "$os2\OptiScaler.dll"; foreach ($n in $optNames[2..4]) { Copy-Item "$g2\$n" "$os2\$n" }
+function Snap([string]$dir) { $h = @{}; foreach ($rel in Get-RelFiles $dir "") { $h[$rel] = (Get-FileHash -LiteralPath ([IO.Path]::Combine($dir, $rel))).Hash }; return $h }
+function SameSnap($a, $b) { if ($a.Count -ne $b.Count) { return $false }; foreach ($k in $a.Keys) { if ($a[$k] -ne $b[$k]) { return $false } }; return $true }
+$snap0 = Snap $g2
+$mt0 = (Get-Item "$g2\Nioh3EngineFix.asi").LastWriteTimeUtc
+$sc = @("-NoPause", "-NoPopup", "-NoLock", "-GameDir", $g2, "-SaveRoot", $s, "-BackupRoot", $b, "-CaptureRoot", $c2, "-StateDir", $st2, "-StashRoot", $sh2, "-OptiSrc", $os2)
+$sp = @("-NoPause", "-StateDir", $st2, "-StashRoot", $sh2, "-OptiSrc", $os2)
+function Gone([string[]]$names) { foreach ($n in $names) { if (Test-Path -LiteralPath "$g2\$n") { return $false } }; return $true }
+function Kill-Capture($act) { foreach ($id in @($act.pm_pid, $act.mon_pid)) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }; Start-Process $PmExe -ArgumentList "--terminate_existing_session --session_name $PmSession" -Wait -WindowStyle Hidden }
+
+# (a) START -Stock
+$r = Run "start_session.ps1" ($sc + "-Stock")
+Ck ($r.code -eq 0 -and $r.out -match "READY \(STOCK") "STOCK START ok"
+if ($r.code -ne 0) { Write-Host $r.out }
+$A2 = Get-Content (Join-Path $st2 "active.json") -Raw | ConvertFrom-Json
+Ck ($A2.mode -eq "stock" -and -not $A2.keep_optiscaler) "session state records mode=stock"
+Ck ((Gone ($modNames + $optNames)) -and -not (Get-ChildItem $g2 -Filter "*.asi" -File) -and -not (Test-Path "$g2\Nioh3EngineFix_shaders")) "game folder has no mod / OptiScaler file, no *.asi, no dinput8.dll"
+Ck (@($gameNames | Where-Object { (Get-FileHash "$g2\$_").Hash -ne $snap0[$_] }).Count -eq 0 -and (Get-ChildItem $g2 -Recurse -File).Count -eq $gameNames.Count) "game files untouched, nothing else moved"
+$man = Get-Content (Join-Path $A2.stash_dir "manifest.json") -Raw | ConvertFrom-Json
+Ck ($man.files.Count -eq ($modNames.Count + $optNames.Count) -and -not @($man.files | Where-Object { -not $_.sha256 -or $_.size -le 0 -or $snap0[$_.name] -ne $_.sha256 }).Count -and $man.state -eq "stashed") "manifest lists name/size/sha256 for all $($man.files.Count) files"
+Ck ((Test-Path (Join-Path $A2.session_dir "stash_manifest.json")) -and [bool](Get-Process -Id $A2.pm_pid -ErrorAction SilentlyContinue)) "manifest copied to session; PresentMon running"
+# (b) second START refused; (c) crash: kill capture, drop the state file -> START refuses on the leftover stash, STOP (no state) restores
+$r = Run "start_session.ps1" ($sc + "-Stock")
+Ck ($r.code -eq 1 -and $r.out -match "already running") "STOCK second START refused"
+Kill-Capture $A2; Remove-Item (Join-Path $st2 "active.json") -Force
+$r = Run "start_session.ps1" ($sc + "-Stock")
+Ck ($r.code -eq 1 -and $r.out -match "unfinished STOCK session") "START refuses while an unfinished stock stash exists (after a crash)"
+$r = Run "start_session.ps1" $sc
+Ck ($r.code -eq 1 -and $r.out -match "unfinished STOCK session") "normal START refuses too"
+$r = Run "stop_session.ps1" $sp
+Ck ($r.code -eq 0 -and $r.out -match "STOCK stash restored: $($modNames.Count + $optNames.Count) file") "STOP after a crash (no state) restores the stash"
+Ck (SameSnap $snap0 (Snap $g2)) "all files back byte-identical (sha256), nothing extra"
+Ck ((Get-Item "$g2\Nioh3EngineFix.asi").LastWriteTimeUtc -eq $mt0) "original timestamps restored"
+Ck ((Test-Path (Join-Path $A2.stash_dir "restored.flag")) -and -not (Test-Path (Join-Path $A2.stash_dir "files"))) "stash marked restored"
+# (d) normal stock cycle with a report; the stock report says there is no mod log
+$r = Run "start_session.ps1" ($sc + "-Stock"); Ck ($r.code -eq 0) "STOCK START again after restore"
+$A3 = Get-Content (Join-Path $st2 "active.json") -Raw | ConvertFrom-Json
+Start-Sleep -Seconds 3
+$r = Run "stop_session.ps1" $sp
+Ck ($r.code -eq 0 -and $r.out -match "Done. Report" -and $r.out -match "STOCK stash restored") "STOCK STOP ok"
+Ck (SameSnap $snap0 (Snap $g2)) "round trip: game folder identical to before START"
+$rep = Get-Content (Join-Path $A3.session_dir "report.md") -Raw
+Ck ($rep -match "STOCK session" -and $rep -notmatch "## FnProbe" -and $rep -notmatch "mod log \(modlog") "stock report: PresentMon only, says so"
+# (e) refuse to overwrite a newer, different file
+$r = Run "start_session.ps1" ($sc + "-Stock"); $A4 = Get-Content (Join-Path $st2 "active.json") -Raw | ConvertFrom-Json
+[IO.File]::WriteAllBytes("$g2\dinput8.dll", [byte[]](1..50))      # a different, newer dinput8.dll appears while stashed
+$r = Run "stop_session.ps1" $sp
+Ck ($r.out -match "NEWER file" -and $r.out -match "Stash kept") "STOP reports a newer different file instead of overwriting"
+Ck ((Get-Item "$g2\dinput8.dll").Length -eq 50 -and (Test-Path "$($A4.stash_dir)\files\dinput8.dll") -and -not (Test-Path (Join-Path $A4.stash_dir "restored.flag"))) "newer file kept, stashed copy kept, not marked restored"
+Ck ((Get-FileHash "$g2\Nioh3EngineFix.asi").Hash -eq $snap0["Nioh3EngineFix.asi"]) "other files were still restored"
+$r = Run "start_session.ps1" ($sc + "-Stock"); Ck ($r.code -eq 1 -and $r.out -match "unfinished STOCK") "START still refuses (stash not fully restored)"
+Remove-Item "$g2\dinput8.dll" -Force
+$r = Run "stop_session.ps1" $sp
+Ck ($r.code -eq 0 -and (SameSnap $snap0 (Snap $g2))) "after the newer file is gone, STOP completes the restore"
+# (f) -KeepOptiScaler: only our mod + dinput8
+$r = Run "start_session.ps1" ($sc + "-Stock" + "-KeepOptiScaler"); Ck ($r.code -eq 0) "STOCK -KeepOptiScaler START ok"
+$A5 = Get-Content (Join-Path $st2 "active.json") -Raw | ConvertFrom-Json
+Ck ((Gone $modNames) -and -not (@($optNames | Where-Object { -not (Test-Path "$g2\$_") }).Count) -and $A5.keep_optiscaler) "only mod + dinput8 stashed, OptiScaler files stay"
+$r = Run "stop_session.ps1" $sp
+Ck ($r.code -eq 0 -and (SameSnap $snap0 (Snap $g2))) "KeepOptiScaler round trip identical"
+# (g) a dxgi.dll that is not the OptiScaler one makes START refuse before moving anything; a stray *.asi (would still load the mod) too
+[IO.File]::WriteAllBytes("$g2\dxgi.dll", [byte[]](9..99)); (Get-Item "$g2\dxgi.dll").LastWriteTimeUtc = [datetime]"2026-01-01T10:00:00Z"
+$snap1 = Snap $g2
+$r = Run "start_session.ps1" ($sc + "-Stock")
+Ck ($r.code -eq 1 -and $r.out -match "NOT STARTED" -and $r.out -match "not the OptiScaler-set file" -and (SameSnap $snap1 (Snap $g2)) -and -not @(Get-LeftoverStash).Count) "foreign dxgi.dll: START refuses, nothing moved"
+Copy-Item "$os2\OptiScaler.dll" "$g2\dxgi.dll" -Force; (Get-Item "$g2\dxgi.dll").LastWriteTimeUtc = [datetime]"2026-01-01T10:00:00Z"
+$snap1 = Snap $g2; [IO.File]::WriteAllBytes("$g2\Other.asi", [byte[]](1..9)); $snap1["Other.asi"] = (Get-FileHash "$g2\Other.asi").Hash
+$r = Run "start_session.ps1" ($sc + "-Stock")
+Ck ($r.code -eq 1 -and $r.out -match "NOT STARTED" -and $r.out -match "Other.asi") "an unlisted *.asi makes START fail"
+Ck ((SameSnap $snap1 (Snap $g2)) -and -not (Test-Path (Join-Path $st2 "active.json")) -and -not @(Get-LeftoverStash).Count) "failed START rolled everything back (files identical, no active state, no leftover stash)"
+
 # 6. summarizer against fake capture files with every input
 $o = & py -I (Join-Path $here "summarize.py") --selftest 2>&1 | Out-String
 Ck ($o -match "SELFTEST OK") "summarize.py --selftest"
