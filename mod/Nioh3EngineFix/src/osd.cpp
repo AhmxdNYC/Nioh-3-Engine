@@ -1448,7 +1448,17 @@ void Start(const StartupInfo& si) {
         wchar_t pos[32] = {};
         GetPrivateProfileStringW(L"Overlay", L"Position", L"TopLeft", pos, 32, f);
         g_cfg.pos = !_wcsicmp(pos, L"TopRight") ? 1 : !_wcsicmp(pos, L"BottomLeft") ? 2 : !_wcsicmp(pos, L"BottomRight") ? 3 : 0;
-        g_cfg.maxLatency = std::clamp(I(L"Latency", L"MaxFrameLatency", 0), 0, 16);
+        {  // -1 = auto by OS: 1 under Wine/Proton (lowest latency, explicit under vkd3d), 0 on native Windows (the game's 1 is already lowest)
+            int ml = I(L"Latency", L"MaxFrameLatency", 0);
+            g_cfg.maxLatencyAuto = ml < 0;
+            if (ml < 0) {
+                HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+                const bool wn = nt && GetProcAddress(nt, "wine_get_version");
+                ml = wn ? 1 : 0;
+                OLOG("auto MaxFrameLatency = %d (%s)", ml, wn ? "Proton/Wine" : "native Windows");
+            }
+            g_cfg.maxLatency = std::clamp(ml, 0, 16);
+        }
         const int ox = I(L"Overlay", L"OffsetX", -99999), oy = I(L"Overlay", L"OffsetY", -99999);
         if (ox != -99999 || oy != -99999) {  // pixels at 1080p; a missing key keeps the corner default
             g_cfg.offUser = true;

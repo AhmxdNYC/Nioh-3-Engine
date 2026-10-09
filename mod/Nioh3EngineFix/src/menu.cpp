@@ -914,6 +914,9 @@ int OrderPos(int id) {
 int g_sel = kFps;  // first row of the menu (kOrder[0]); Up from it wraps to 'Close menu'
 bool g_dirty = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
+int g_expIni0[kNumExp] = {};  // value at launch
+bool g_expAuto[kNumExp] = {};  // ini held -1 (auto by OS) at launch
+int g_latBoot = 0;
 int g_expIni[kNumExp] = {};  // what Save writes for each experimental patch (live state when installed)
 
 bool Visible(int id) {
@@ -1008,7 +1011,8 @@ void ExpValue(int id, char* buf, size_t n, uint32_t& color, uint32_t cGreenC, ui
         color = cDimC;
         return;
     }
-    snprintf(buf, n, "%s%s", g_expIni[e] ? "ON" : "OFF", changed ? "  * restart" : (x.applied ? "" : "  (ini)"));
+    snprintf(buf, n, "%s%s%s", g_expIni[e] ? "ON" : "OFF", changed ? "  * restart" : (x.applied ? "" : "  (ini)"),
+             g_expAuto[e] && g_expIni[e] == g_expIni0[e] ? "  (auto)" : "");
     color = changed ? cYellowC : (g_expIni[e] ? cGreenC : cGrayC);
 }
 
@@ -1209,7 +1213,7 @@ void StartSave() {
              e == kExpDQ || e == kExpP1E7 || e == kExpBPO) && g_host.exp[e].enable &&
             !*g_host.exp[e].enable && v == 0)
             v = 2;
-        add(L"Patches", kExpIniKey[e], std::to_wstring(v));
+        add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto
     }
     if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
         add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
@@ -1218,7 +1222,7 @@ void StartSave() {
         add(L"GpuOpt", L"R2b", gpuopt::Rewrite(1) ? L"1" : L"0");
         add(L"GpuOpt", L"R1", gpuopt::Rewrite(2) ? L"1" : L"0");
     }
-    add(L"Latency", L"MaxFrameLatency", std::to_wstring(osd::Overlay().maxLatency));
+    add(L"Latency", L"MaxFrameLatency", osd::Overlay().maxLatencyAuto && osd::Overlay().maxLatency == g_latBoot ? std::wstring(L"-1") : std::to_wstring(osd::Overlay().maxLatency));
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
     if (g_host.wine) {
@@ -2236,6 +2240,11 @@ void Configure(const Host& h) {
     g_bootL1Wine = h.l1OnWine;
     g_bootFgWine = h.fgOnWine;
     for (int e = 0; e < kNumExp; ++e) g_expIni[e] = h.exp[e].enable ? (*h.exp[e].enable ? 1 : 0) : h.exp[e].ini;
+    for (int e = 0; e < kNumExp; ++e) {
+        g_expIni0[e] = g_expIni[e];
+        g_expAuto[e] = GetPrivateProfileIntW(L"Patches", kExpIniKey[e], 0, g_ini.c_str()) < 0;
+    }
+    g_latBoot = osd::Overlay().maxLatency;
     const wchar_t* f = g_ini.c_str();
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
     wchar_t b[96] = {};

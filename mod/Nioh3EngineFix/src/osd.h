@@ -43,6 +43,7 @@ struct OverlaySettings {
     int offX = 0, offY = 0;
     bool offUser = false;
     float scale = 1.0f, popupSeconds = 8.0f, popupDelay = 3.0f, brightness = 1.0f;
+    bool maxLatencyAuto = false;  // ini value was -1 (auto by OS); Save keeps -1 while the value is unchanged
     int maxLatency = 0;  // [Latency] MaxFrameLatency: 0 = the game's value, 1..16 = SetMaximumFrameLatency(N)
 };
 OverlaySettings& Overlay();
