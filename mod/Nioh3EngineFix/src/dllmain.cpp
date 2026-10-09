@@ -350,11 +350,28 @@ struct Config {
     int gpuProf = 0, gpuMarkers = 0;
 };
 
+// OS-auto keys (ini value -1): resolved here, logged right after the version line (the log is not open yet).
+static std::string g_autoNote;
+static bool IsWineHost() {
+    HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+    return nt && GetProcAddress(nt, "wine_get_version") != nullptr;
+}
 Config LoadConfig() {
     Config c;
     std::wstring ini = SelfPathWithExt(L".ini");
     const wchar_t* f = ini.c_str();
     auto I = [&](const wchar_t* sec, const wchar_t* key, int def) { return (int)GetPrivateProfileIntW(sec, key, def, f); };
+    // -1 = auto by OS (one ini for Windows and Proton): wineV under Wine/Proton, winV on native Windows
+    const bool wineHost = IsWineHost();
+    auto A = [&](const wchar_t* sec, const wchar_t* key, int def, int wineV, int winV, const char* why) {
+        const int raw = I(sec, key, def);
+        if (raw >= 0) return raw;
+        const int v = wineHost ? wineV : winV;
+        char b[400];
+        snprintf(b, sizeof(b), "  auto %ls = %d (%s: %s)\n", key, v, wineHost ? "Proton/Wine" : "native Windows", why);
+        g_autoNote += b;
+        return v;
+    };
     c.enabled = I(L"General", L"Enabled", c.enabled);
     c.log = I(L"General", L"Log", c.log);
     c.allowUnknownBuild = I(L"General", L"AllowUnknownBuild", c.allowUnknownBuild);
@@ -384,7 +401,7 @@ Config LoadConfig() {
     }
     c.maxFps = I(L"VRR", L"MaxFps", c.maxFps);
     c.menuQuantize = I(L"VRR", L"MenuQuantize", c.menuQuantize);
-    c.w3Ms = std::clamp(I(L"Tuning", L"W3_TimeoutMs", c.w3Ms), 0, 16);
+    c.w3Ms = std::clamp(A(L"Tuning", L"W3_TimeoutMs", c.w3Ms, 3, 1, "Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1"), 0, 16);
     c.r1Ms = std::clamp(I(L"Tuning", L"R1_TimeoutMs", c.r1Ms), 0, 16);
     c.l1MarginUs = std::clamp(I(L"Tuning", L"L1_MarginUs", c.l1MarginUs), 200, 20000);
     c.l1MinUs = std::clamp(I(L"Tuning", L"L1_MinSleepUs", c.l1MinUs), 0, 20000);
@@ -397,7 +414,7 @@ Config LoadConfig() {
     c.j1 = I(L"Patches", L"J1", c.j1);
     c.x1 = I(L"Patches", L"X1", c.x1);
     c.e1 = I(L"Patches", L"E1", c.e1);
-    c.w6 = I(L"Patches", L"W6", c.w6);
+    c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
     c.s1 = I(L"Patches", L"S1", c.s1);
     c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
     if (c.ppPeriod != 2 && c.ppPeriod != 4 && c.ppPeriod != 8 && c.ppPeriod != 16) c.ppPeriod = 4;
@@ -411,7 +428,7 @@ Config LoadConfig() {
     c.ikCapMs = std::clamp(I(L"Tuning", L"IK_PadWaitCapMs", c.ikCapMs), 0, 8);
     c.wakeStats = I(L"Patches", L"WakeStats", c.wakeStats);
     c.ed = I(L"Patches", L"ED", c.ed);
-    c.gf = I(L"Patches", L"GF", c.gf);
+    c.gf = A(L"Patches", L"GF", c.gf, 1, 0, "Wine: removes ~0.6 core of fence spin; Windows: +0.38 pct fps, below the keep bar");
     c.wl = I(L"Patches", L"WL", c.wl);
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     c.wg = I(L"Patches", L"WG", c.wg);
@@ -421,7 +438,7 @@ Config LoadConfig() {
     c.ma = I(L"Patches", L"MA", c.ma);
     c.cp = I(L"Patches", L"CP", c.cp);
     c.spf = I(L"Patches", L"SPF", c.spf);
-    c.mq = I(L"Patches", L"MQ", c.mq);
+    c.mq = A(L"Patches", L"MQ", c.mq, 1, 0, "Wine: bit-exact, CPU power only; Windows: no fps gain measured");
     c.pt1 = I(L"Patches", L"PT1", c.pt1);
     c.dl = I(L"Patches", L"DL", c.dl);
     c.cpuStats = I(L"Patches", L"CpuStats", c.cpuStats);
@@ -1211,6 +1228,8 @@ DWORD WINAPI Worker(LPVOID) {
         g_log = _wfsopen(lp.c_str(), L"w", _SH_DENYWR);
     }
     Log(MOD_NAME " " MOD_VERSION " (built " __DATE__ ") - native port of the live-tested Nioh 3 engine patches");
+    Log("OS: %s; ini keys set to -1 (auto) resolve by OS%s", IsWineHost() ? "Proton/Wine" : "native Windows", g_autoNote.empty() ? " - none are -1 in this ini" : ":");
+    for (size_t p = 0, q; p < g_autoNote.size(); p = q + 1) { q = g_autoNote.find('\n', p); if (q == std::string::npos) q = g_autoNote.size(); Log("%s", g_autoNote.substr(p, q - p).c_str()); }
     if (!cfg.enabled) { Log("disabled in ini ([General] Enabled=0)"); return 0; }
 
     // one instance per process (e.g. both an ASI loader and Nioh3ModLoader present)
