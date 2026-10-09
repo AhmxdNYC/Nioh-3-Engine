@@ -38,6 +38,7 @@
 #include "menu.h"
 #include "osd.h"
 #include "bosslog.h"
+#include "rematch.h"
 #include "fnprobe.h"
 #include "padlat.h"
 #include "tour.h"
@@ -57,6 +58,7 @@
 // 1.7.36: tour.cpp (Tour mode: automatic stage / point tour with saves blocked, notes\tour-mode.md)
 // 1.7.39: MA (main-thread atomic-load idiom -> plain loads, 25 byte sites; notes\pc-cpu-next.md)
 // 1.7.40: BPO (BoundsFromPartObbs 71C60: quaternion memo + plain ready loads + forwarding copy; notes\bounds-partobbs.md)
+// 1.7.40: rematch.cpp (boss rematch Phase 1 MVP, route R-a, [Rematch] Enable = 0; notes\boss-rematch-build.md)
 #define MOD_VERSION "1.7.40"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
@@ -1450,7 +1452,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "SPR")) return cfg.spr != 0;
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
         if (!strcmp(g, "BL")) return false;  // BossLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
-        if (!strcmp(g, "RM")) return false;  // RematchLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
+        if (!strcmp(g, "RM")) return false;  // RematchLog / Rematch sites: verified offline (test_patterns), hooked by bosslog.cpp / rematch.cpp
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
@@ -2453,6 +2455,16 @@ DWORD WINAPI Worker(LPVOID) {
             bi.base = reinterpret_cast<uintptr_t>(g_base);
             bi.knownBuild = known;
             bosslog::Start(bi);
+        }
+        {  // boss rematch (rematch.cpp, [Rematch] Enable = 0 by default; notes\boss-rematch-build.md). AFTER bosslog: its MissionLoadStep /
+           // BossBattleMode hooks are chained onto bosslog's when BossLog / RematchLog is on
+            rematch::StartInfo ri;
+            ri.log = &Log;
+            ri.iniPath = iniPath.c_str();
+            ri.base = reinterpret_cast<uintptr_t>(g_base);
+            ri.knownBuild = known;
+            ri.pauseReason = &menu::GamePauseReason;
+            rematch::Start(ri);
         }
         {  // FnProbe (fnprobe.cpp, [Debug] FnProbe = 0 by default; notes\remaining-work.md 10.1): measurement only
             fnprobe::StartInfo fi;
