@@ -123,6 +123,9 @@ def log_metrics(path):
     dp = re.findall(r"drawprep: DQ (ON|off|-) \(.*?\), P1E7 (ON|off|-)", tx)
     if dp:
         out["dq_sw"], out["p1e7_sw"] = (None if x == "-" else x.upper() for x in dp[-1])
+    # run8b: the game's own frame cap in the OSD stats line ('vrr tier T cap C armed A'); the lowest (tier, cap) seen in the window
+    vr = [(int(t), int(c)) for t, c in re.findall(r"vrr tier (\d+) cap (\d+)", tx)]
+    out["vrr"] = min(vr, key=lambda x: (x[1], x[0])) if vr else None
     a = re.findall(r"stats/s AS: switch (ON|off)", tx)  # 1.7.44 asyncslots.cpp
     if a:
         out["as_sw"] = a[-1].upper()
@@ -184,6 +187,11 @@ def window_ok(r):
         return False, "no data"
     if not r["lm"]["fg_ok"]:
         return False, r["lm"]["fg_why"]
+    # run8b Block C: every window 60.00 fps with [VRR] MaxFps = 240 - the desktop had fallen to 60 Hz and the game chose its 60 tier.
+    # A window whose log shows the game capped below the run's cap (or below the 120 tier) measures the limiter, not the flag.
+    v = r["lm"].get("vrr")
+    if v and CAP > 0 and (v[0] < 120 or v[1] < CAP):
+        return False, f"game capped at {v[1]} fps (vrr tier {v[0]}) < the run's {CAP:.0f} cap: display refresh / limiter, not measurable"
     # focus_end is sampled right after the window. run5: two windows read 'Code' there, but the focus check before the next
     # step found Nioh3 in front again without a refocus (no 'focus lost' trace line) and their fps matched the neighbours,
     # i.e. a transient flash at the window end. So it only rejects when STRICT_FOCUS is set.
@@ -396,6 +404,10 @@ def report(run):
         open(os.path.join(run, "report.txt"), "w", encoding="utf-8").write(msg + "\n")
         return msg, {}
     txt = [f"abba2 report: {run}", "windows:"] + [win_line(r) for r in rows] + noisy_lines(allrows)
+    capped = [r for r in rows if r["pm"] and (lambda ok_why: not ok_why[0] and ok_why[1].startswith("game capped"))(window_ok(r))]
+    if capped:
+        txt.append(f"CAPPED: {len(capped)} of {len(rows)} windows ran under a game cap below the run's {cap:.0f} fps "
+                   f"(e.g. {capped[0]['name']}: {window_ok(capped[0])[1]}) - check the display refresh, then re-run")
     verdicts = {}
     items = []
     for r in rows:
@@ -512,7 +524,18 @@ def selftest():
     os.remove(os.path.join(d4, "test_base.ini"))   # no ini -> cap 120: the 120.0 fps OFF windows sit at the cap
     s5, v5 = report(d4)
     assert v5["AABB"]["verdict"] == "INVALID" and "at the 120 fps cap" in s5, v5["AABB"]
-    print("SELFTEST OK", got, got3, "cap240/noisy", v4["AABB"]["verdict"], "cap120", v5["AABB"]["verdict"])
+    # run8b Block C: MaxFps 240 in the ini but the game sat in its 60 tier (desktop at 60 Hz) -> every window rejected, INVALID
+    d6 = tempfile.mkdtemp(prefix="abba2_selftest6_")
+    d, man = d6, open(os.path.join(d6, "manifest.jsonl"), "w")
+    open(os.path.join(d6, "test_base.ini"), "w").write("[VRR]\nMaxFps = 240\n")
+    for q in (1, 2, 3):
+        for p, s_ in enumerate(seq, 1):
+            win(f"L1_AABB_q{q}_{p}_{s_}", 60.0, 4.2, 6.0, stats() + "[11:00:20.000] OSD: stats: vrr tier 60 cap 60 armed 60\n",
+                kind="live", item="AABB", quad=q, pos=p, state=s_, toggle_ok=True, launch=1, arm="BASE", fgn_max=0.2)
+    man.close()
+    s6, v6 = report(d6)
+    assert v6["AABB"]["verdict"] == "INVALID" and "game capped at 60 fps (vrr tier 60)" in s6, (v6["AABB"], s6)
+    print("SELFTEST OK", got, got3, "cap240/noisy", v4["AABB"]["verdict"], "cap120", v5["AABB"]["verdict"], "tier60", v6["AABB"]["verdict"])
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ $pjDir = "$G\Nioh3EngineFix_pj"; $pjUser = "$G\Nioh3EngineFix_pj.user_$Tag"
 function L([string]$s) { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Add-Content $log $l; Write-Host $l }
 function Lock([string]$a) { Push-Location $br; try { py -m uo_bridge.gamelock $a nioh3 --ttl 7200 2>&1 | Out-String } finally { Pop-Location } }
 function Send([string]$m) { Push-Location $br; try { py -m uo_bridge send nioh3 $m | Out-Null } finally { Pop-Location } }
+. "$here\harness_guard.ps1"   # display refresh guard (Ensure-/Restore-DisplayRefresh) only; abba2 / run_tour run their own Init-Guard
 function Renew { if (-not $DryRun) { Push-Location $br; try { py -m uo_bridge.gamelock renew nioh3 --ttl 7200 | Out-Null } finally { Pop-Location } } }
 
 $Blocks = @($Blocks -split "," | ForEach-Object { $_.Trim().ToUpper() } | Where-Object { $_ })
@@ -136,6 +137,8 @@ if ($DryRun) {
     L "DRY RUN ($Tag): blocks $($Blocks -join ',') - no game, no lock, no ASI swap"
     if (Get-Process Nioh3 -ErrorAction SilentlyContinue) { L "note: Nioh3 is running (the Ally does not matter here; dry run only)" }
     L ("bin ASI: $newAsi " + $(if (Test-Path $newAsi) { "$((Get-Item $newAsi).Length) bytes, $((Get-Item $newAsi).LastWriteTime)" } else { "MISSING" }))
+    $dok = Ensure-DisplayRefresh 240 { param($m) L $m } -NoForce
+    L ("display check (read-only): " + $(if ($dok) { "OK" } else { "a real run raises it for the run: $script:DisplayWhy" }))
     py -I "$ws\tools\pj_hitch.py" --selftest | Select-Object -Last 1 | ForEach-Object { L "pj_hitch: $_" }
     py -I "$ws\tools\gqjt_digest.py" --selftest | Select-Object -Last 1 | ForEach-Object { L "gqjt_digest: $_" }
     foreach ($b in $Blocks) { if ($b -eq "P") { Run-P } else { Run-Abba $b } }
@@ -147,6 +150,9 @@ if (Get-Process Nioh3 -ErrorAction SilentlyContinue) { throw "Nioh3 is already r
 if (-not (Test-Path "$G\Nioh3EngineFix.ini") -and -not (Test-Path "$G\Nioh3EngineFix.ini.preboss.bak")) { throw "no Nioh3EngineFix.ini in the game dir: it looks stashed by a vanilla play session (tools\playsession\stop_session.ps1 restores it)" }
 if (-not (Test-Path "$G\Nioh3EngineFix.ini.preboss.bak")) { Copy-Item "$G\Nioh3EngineFix.ini" "$G\Nioh3EngineFix.ini.preboss.bak"; L "preboss.bak created from the installed ini (abba2 base + restore point)" }
 if (-not (Test-Path $newAsi)) { throw "no ASI build at $newAsi" }
+# run8b: Block C measured 60.00 fps everywhere - the desktop had fallen to 60 Hz (second monitor unplugged). Raise the game display
+# to 240 Hz once for the whole run (abba2 -MaxFps 240 then finds it OK; each abba2 also checks the in-game 'vrr tier/cap' before every window).
+if (-not (Ensure-DisplayRefresh 240 { param($m) L $m })) { throw "refusing to run: $script:DisplayWhy" }
 $st = Lock "status"; L "lock status: $($st.Trim())"
 if ($st -match "'holder': '(\w+)'" -and $Matches[1] -ne "pc") { throw "game lock held by $($Matches[1])" }
 L ("acquire: " + (Lock "acquire").Trim())
@@ -161,6 +167,7 @@ try {
 } finally {
     Get-Process Nioh3 -ErrorAction SilentlyContinue | ForEach-Object { L "game still running pid $($_.Id) - waiting 60 s"; $_.WaitForExit(60000) | Out-Null }
     if (Test-Path $bak) { Copy-Item $bak $gameAsi -Force; L "game ASI restored from $bak" }
+    Restore-DisplayRefresh { param($m) L $m }
     if (Test-Path $pjUser) { if (-not (Test-Path $pjDir)) { Move-Item $pjUser $pjDir; L "user's PJ journal folder restored" } }
     $para = "run8 (ASI 1.7.40 main, $(Get-Date -f 'yyyy-MM-dd HH:mm')): " + (($summary.GetEnumerator() | ForEach-Object { "Block $($_.Key): $($_.Value)." }) -join " ") +
             " Reports: captures\tm\abba2\${Tag}_{A,C,J,P}\report.txt; runner log ${Tag}_runner.txt."

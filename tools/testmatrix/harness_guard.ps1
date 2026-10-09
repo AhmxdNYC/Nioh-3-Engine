@@ -266,3 +266,105 @@ function Set-WeakAffinity([int]$N, [scriptblock]$Log = { param($m) Write-Host $m
     try { $p.ProcessorAffinity = [IntPtr]$mask; & $Log ("AFFINITY: Nioh3 pid {0} -> {1} logical CPUs, mask 0x{2:X} (cpu list {3}; machine {4} cores / {5} logical, smt {6}); per-process, reverts when the game exits" -f $p.Id, $N, $mask, ($order[0..($N - 1)] -join ","), $cores, $logi, $smt) }
     catch { & $Log "AFFINITY: failed to set mask: $_" }
 }
+
+# ---- display refresh guard (run8b, 2026-10-09: notes\run8b-analysis.md) --------------------------------------------------------------
+# Unplugging the second monitor left the XV272U (240 Hz) desktop at 60 Hz. The game then picks its 60 fps tier (log 'vrr tier 60 cap 60')
+# and every window of Block C read 60.00 fps although [VRR] MaxFps = 240. Get-DisplayModes reads every attached display (current mode +
+# the highest refresh offered at the current resolution); Ensure-DisplayRefresh raises the game's display to >= NeedHz for the run
+# (dynamic mode change, NOT saved to the registry; Restore-DisplayRefresh puts the old mode back) and returns $false with the reason in
+# $script:DisplayWhy when it cannot. Read-only with -NoForce.
+if (-not ("N3Disp" -as [type])) {
+    Add-Type -TypeDefinition @"
+using System; using System.Runtime.InteropServices; using System.Collections.Generic;
+public static class N3Disp {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct DEVMODE {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+        public short dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra; public int dmFields;
+        public int dmPositionX, dmPositionY, dmDisplayOrientation, dmDisplayFixedOutput;
+        public short dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+        public short dmLogPixels; public int dmBitsPerPel, dmPelsWidth, dmPelsHeight, dmDisplayFlags, dmDisplayFrequency;
+        public int dmICMMethod, dmICMIntent, dmMediaType, dmDitherType, dmReserved1, dmReserved2, dmPanningWidth, dmPanningHeight;
+    }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct DISPLAY_DEVICE {
+        public int cb; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceString; public int StateFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceID;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
+    }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool EnumDisplayDevices(string dev, int i, ref DISPLAY_DEVICE dd, int flags);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool EnumDisplaySettings(string dev, int mode, ref DEVMODE dm);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int ChangeDisplaySettingsEx(string dev, ref DEVMODE dm, IntPtr hwnd, int flags, IntPtr lp);
+    public static DEVMODE New() { var d = new DEVMODE(); d.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE)); return d; }
+    public static List<string> Attached() {   // "name|primary 0/1|monitor"
+        var r = new List<string>();
+        for (int i = 0; i < 16; i++) {
+            var dd = new DISPLAY_DEVICE(); dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+            if (!EnumDisplayDevices(null, i, ref dd, 0)) break;
+            if ((dd.StateFlags & 1) == 0) continue;   // DISPLAY_DEVICE_ATTACHED_TO_DESKTOP
+            var mon = new DISPLAY_DEVICE(); mon.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+            string mname = EnumDisplayDevices(dd.DeviceName, 0, ref mon, 0) ? mon.DeviceString : "?";
+            r.Add(dd.DeviceName + "|" + (((dd.StateFlags & 4) != 0) ? "1" : "0") + "|" + mname);
+        }
+        return r;
+    }
+    public static DEVMODE Current(string dev) { var d = New(); EnumDisplaySettings(dev, -1, ref d); return d; }   // ENUM_CURRENT_SETTINGS
+    public static DEVMODE Best(string dev, int w, int h, int bpp) {   // highest refresh offered at this resolution / depth
+        var best = New(); best.dmDisplayFrequency = 0;
+        for (int i = 0; ; i++) { var d = New(); if (!EnumDisplaySettings(dev, i, ref d)) break;
+            if (d.dmPelsWidth == w && d.dmPelsHeight == h && d.dmBitsPerPel == bpp && d.dmDisplayFrequency > best.dmDisplayFrequency) best = d; }
+        return best;
+    }
+}
+"@
+}
+function Get-DisplayModes {   # one object per attached display: dev, primary, monitor, w, h, hz, maxHz (at the current resolution)
+    foreach ($a in [N3Disp]::Attached()) {
+        $f = $a -split '\|', 3; $c = [N3Disp]::Current($f[0]); $b = [N3Disp]::Best($f[0], $c.dmPelsWidth, $c.dmPelsHeight, $c.dmBitsPerPel)
+        [pscustomobject]@{ dev = $f[0]; primary = ($f[1] -eq "1"); monitor = $f[2]; w = $c.dmPelsWidth; h = $c.dmPelsHeight; hz = $c.dmDisplayFrequency; maxHz = $b.dmDisplayFrequency }
+    }
+}
+function Format-DisplayModes { (@(Get-DisplayModes) | ForEach-Object { "{0}{1} {2} {3}x{4} @ {5} Hz (max {6} Hz)" -f $_.dev, $(if ($_.primary) { "*" } else { "" }), $_.monitor, $_.w, $_.h, $_.hz, $_.maxHz }) -join "; " }
+$script:DisplayRestore = $null; $script:DisplayWhy = ""
+function Ensure-DisplayRefresh([int]$NeedHz, [scriptblock]$Say = { param($m) Write-Host $m }, [switch]$NoForce) {
+    $all = @(Get-DisplayModes)
+    & $Say "DISPLAY: $(Format-DisplayModes) - need >= $NeedHz Hz on the game display (primary)"
+    $d = $all | Where-Object primary | Select-Object -First 1
+    if (-not $d) { $script:DisplayWhy = "no primary display found"; return $false }
+    if ($all.Count -gt 1) { & $Say "DISPLAY: $($all.Count) displays attached - the game is assumed on the primary $($d.dev) (config.xml MONITOR_ID decides)" }
+    if ($d.hz -ge $NeedHz) { $script:DisplayWhy = ""; return $true }
+    if ($NoForce -or $d.maxHz -lt $NeedHz) {
+        $script:DisplayWhy = "display $($d.dev) $($d.monitor) runs $($d.w)x$($d.h) @ $($d.hz) Hz (max $($d.maxHz) Hz at this resolution) < $NeedHz Hz needed: the game would cap at a $($d.hz) fps tier$(if ($NoForce) { ' (-NoForceRefresh)' })"
+        return $false
+    }
+    $cur = [N3Disp]::Current($d.dev); $best = [N3Disp]::Best($d.dev, $cur.dmPelsWidth, $cur.dmPelsHeight, $cur.dmBitsPerPel)
+    $best.dmFields = 0x5C0000   # DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY
+    $rc = [N3Disp]::ChangeDisplaySettingsEx($d.dev, [ref]$best, [IntPtr]::Zero, 0, [IntPtr]::Zero)   # flags 0 = dynamic, not saved to the registry
+    & $script:RealSleep -Seconds 3
+    $now = [N3Disp]::Current($d.dev).dmDisplayFrequency
+    if ($rc -ne 0 -or $now -lt $NeedHz) { $script:DisplayWhy = "display $($d.dev) stays at $now Hz after the switch to $($best.dmDisplayFrequency) Hz (ChangeDisplaySettingsEx $rc)"; return $false }
+    if (-not $script:DisplayRestore) { $script:DisplayRestore = @{ dev = $d.dev; mode = $cur } }
+    & $Say "DISPLAY: $($d.dev) $($d.monitor) raised $($d.hz) -> $now Hz for this run (dynamic; the old mode is put back at the end). The desktop was at $($d.hz) Hz: set the refresh in Windows display settings."
+    $script:DisplayWhy = ""; return $true
+}
+function Restore-DisplayRefresh([scriptblock]$Say = { param($m) Write-Host $m }) {
+    if (-not $script:DisplayRestore) { return }
+    $m = $script:DisplayRestore.mode; $m.dmFields = 0x5C0000
+    $rc = [N3Disp]::ChangeDisplaySettingsEx($script:DisplayRestore.dev, [ref]$m, [IntPtr]::Zero, 0, [IntPtr]::Zero)
+    & $Say "DISPLAY: $($script:DisplayRestore.dev) put back to $($m.dmDisplayFrequency) Hz (ChangeDisplaySettingsEx $rc)"
+    $script:DisplayRestore = $null
+}
+# The game's own frame cap as the mod logs it every 30 s ('OSD: stats: ... vrr tier T cap C armed A'): the authoritative check that a run
+# is not capped below -MaxFps (display refresh, REN_FPS, VSync or the VRR tier logic - whatever the cause, the number is what counts).
+function Get-VrrCap([string]$logText) {
+    $m = [regex]::Matches($logText, 'vrr tier (\d+) cap (\d+) armed (\d+)')
+    if ($m.Count -eq 0) { return $null }
+    $g = $m[$m.Count - 1].Groups; [pscustomobject]@{ tier = [int]$g[1].Value; cap = [int]$g[2].Value; armed = [int]$g[3].Value }
+}
+# Which other harnesses ended / ran while our game was up (run8b A: a pc_gpu_session -DryRun's Restore-All closed every Nioh3 by name).
+function Get-ForeignGuardActivity([datetime]$since) {
+    Get-ChildItem $script:HGdir -Filter *.log -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $since -and (-not $global:HG -or $_.FullName -ne $global:HG.logFile) } |
+        ForEach-Object { "$($_.BaseName) (last line: $((Get-Content $_.FullName -Tail 1) -replace '\s+', ' '))" }
+}
