@@ -112,3 +112,6 @@ Matrix: `tools\testmatrix\matrix.json` item `VrrPresent` (pc, launch, grp 2, met
   before use); setter frame `sub rsp,28h ... add rsp,28h; ret`; exactly three `[reg+424Ch]` stores in the code (13503A3,
   2EDFBBD, 2EEBB68); pmode.cpp offsets; GfxDevicePresent hand-off bytes (`mov [rdi+7738h],r13d`, `cmp [rdi+3F80h],sil`).
 - `tools\testmatrix\vrrp_report.py --selftest`: SELFTEST OK (KEEP / DROP / arm-count mismatch).
+- Results 2026-10-09: **test_patterns ALL 221 SITES OK** (PM block OK; the raw-byte hit `2EEBB44->2EEBB6A` is the `74 24`
+  inside `mov rsi,[rsp+48h]`; a capstone sweep of the .pdata functions 2EEA690..2EEBF52 finds no branch into either site),
+  gen_header --check in sync, menu_map --selftest OK, **build OK** (1.7.44, no new warnings).
