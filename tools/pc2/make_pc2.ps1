@@ -14,6 +14,7 @@ foreach ($d in $files.Keys) { foreach ($f in $files[$d]) {
   $t = $t.Replace('$env:UO_AGENT_ID = "pc"', "`$env:UO_AGENT_ID = `"$Agent`"")
   foreach ($n in $all) { $t = [regex]::Replace($t, '(?<![\w])' + [regex]::Escape($n), "pc2_$n") }
   $t = $t.Replace("pc2_pc2_", "pc2_")
+  $t = $t.Replace('[string]$LockKey = "nioh3"', '[string]$LockKey = "nioh3-pc2"')   # pc2 tours: own lock key (#576)
   [IO.File]::WriteAllText("$tools\$d\pc2_$f", $t, (New-Object Text.UTF8Encoding $true))
   "wrote $d\pc2_$f"
 } }
