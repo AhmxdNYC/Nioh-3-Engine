@@ -75,6 +75,8 @@ function Ocr-Window($h) {   # returns @{ rect; lines } for the window's on-scree
 $pids = New-Object 'System.Collections.Generic.HashSet[uint32]'
 Get-Process steam, steamwebhelper -ErrorAction SilentlyContinue | ForEach-Object { [void]$pids.Add([uint32]$_.Id) }
 if ($pids.Count -eq 0) { 'none'; exit 1 }
+$raised = $false
+for ($pass = 1; $pass -le 2; $pass++) {   # pass 2 runs only if pass 1 raised a dialog whose buttons were covered
 foreach ($h in [SCC]::Windows($pids)) {
   $o = Ocr-Window $h; if (-not $o) { continue }
   $all = ($o.lines | ForEach-Object { $_.Text }) -join ' | '
@@ -100,7 +102,14 @@ foreach ($h in [SCC]::Windows($pids)) {
     } } }
   }
   $o.bmp.Dispose()
-  if (-not $btn) { "skipped:dialog found but no 'Play anyway' button (text: $all)"; exit 2 }
+  if (-not $btn) {
+    # Steam's 'Launching...' box can cover the dialog's buttons: raise the window that shows the dialog, then look again once
+    if ($pass -eq 1) {
+      if ($MinIdleSec -gt 0 -and [SCC]::IdleMs() -lt $MinIdleSec * 1000) { "skipped:user active (idle $([int]([SCC]::IdleMs()/1000)) s < $MinIdleSec s)"; exit 2 }
+      [void][SCC]::Focus($h); $raised = $true; break
+    }
+    "skipped:dialog found but no 'Play anyway' button (text: $all)"; exit 2
+  }
   if ($DryRun) { "dryrun: would click 'Play anyway' at $($btn.x),$($btn.y) [$($btn.how)] in window 0x$('{0:X}' -f [int64]$h) (text: $all)"; exit 0 }
   if ($MinIdleSec -gt 0 -and [SCC]::IdleMs() -lt $MinIdleSec * 1000) { "skipped:user active (idle $([int]([SCC]::IdleMs()/1000)) s < $MinIdleSec s)"; exit 2 }
   if (-not [SCC]::Focus($h)) { 'skipped:could not bring the Steam dialog to the foreground'; exit 2 }
@@ -110,6 +119,9 @@ foreach ($h in [SCC]::Windows($pids)) {
   [void][SCC]::SetCursorPos($btn.x, $btn.y); Start-Sleep -Milliseconds 80
   [SCC]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40; [SCC]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
   Start-Sleep -Milliseconds 80; [void][SCC]::SetCursorPos($old.X, $old.Y)
-  "clicked 'Play anyway' at $($btn.x),$($btn.y)"; exit 0
+  "clicked 'Play anyway' at $($btn.x),$($btn.y)$(if ($pass -eq 2) { ' (after raising the dialog)' })"; exit 0
+}
+if (-not $raised) { break }
+Start-Sleep -Milliseconds 600
 }
 'none'; exit 1
