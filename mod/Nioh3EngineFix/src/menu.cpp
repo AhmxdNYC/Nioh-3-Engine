@@ -814,14 +814,16 @@ void NoteFgSwitchProton(int want) {
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL, kXDQ, kXP1E7, kXMA, kXBPO, kXW1B, kXRPA, kXAS, kXPJH, kXTR,
+          kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR,
           kGpu, kGR2a, kGR2b, kGR1,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXTR - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXTR; }
+static_assert(kXCLDR - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXCLDR; }
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
                                              L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL",
-                                             L"DQ", L"P1E7", L"MA", L"BPO", L"W1B", L"RPA", L"AS", L"PJH", L"TR"};
+                                             L"DQ", L"P1E7", L"MA", L"BPO", L"W1B", L"RPA", L"AS", L"PJH", L"TR",
+                                             L"VSMA", L"LPVR", L"SKYR", L"FOGT", L"CLDR"};
 struct ItemDef {
     const char* plain;   // plain-language name
     const char* tech;    // technical id, drawn small and dim after the name ("" = none)
@@ -877,6 +879,16 @@ const ItemDef kItems[kCount] = {
      "Picture unchanged. Applies now. Fewer first-sight hitches from the 2nd launch on. Off = the game compiles them itself."},
     {"Steady timer resolution", "(TR)", "Holds the 1 ms Windows timer for the session instead of the pad-reader threads switching it ~250x/s.",
      "Picture unchanged. Applies now. Windows only (no effect on Proton). Steadier Sleep timing; the log shows the call rate."},
+    {"Fewer shadow tile redraws", "(VSMA)", "Shadow-map tiles still waiting for their turn are redrawn on 1 visit in VSMA_K, not every visit.",
+     "Same shadows (unmarked tiles are never shown). Applies now. Cuts shadow redraw bursts while moving."},
+    {"LPV update rate", "(LPVR)", "EXPERIMENT. Writes LPVUpdateFrequency = LPVR_N into the frame's render config (game: 1).",
+     "Judge with screenshots. Applies now."},
+    {"Sky ambient update rate", "(SKYR)", "EXPERIMENT. Writes SkylightAmbientUpdateFreq = SKYR_V into the render config (game: 1).",
+     "Judge with screenshots. Applies now."},
+    {"Fog temporal factor", "(FOGT)", "EXPERIMENT. Writes VolumetricFogTemporalFactor = FOGT_V (game: 0 = no history blend).",
+     "Judge with screenshots. Applies now. Fog lags moving lights."},
+    {"Cloud reprojection weight", "(CLDR)", "EXPERIMENT. Writes VolumetricCloudReprojectionBlendWeightCurrentFrame = CLDR_V (game: 0).",
+     "Judge with screenshots. Applies now."},
     {"Batch GPU barriers", "(GPU)", "Batches the game's D3D12 resource barriers into fewer calls.", "Picture unchanged. Applies now. About 0 on the Ally, 2-3 % on PC."},
     {"Cheaper barriers A (Proton)", "(R2a)", "Buffer COMMON barriers get their real read state (cheaper wait on RADV).", "Picture unchanged. Applies now. A/B against the GPU ms line."},
     {"Cheaper barriers B (Proton)", "(R2b)", "EXPERIMENT. Same for UAV buffers. May flicker or show stale data.", "Judge with screenshots. Applies now."},
@@ -917,7 +929,8 @@ const OrderEnt kOrder[] = {
     {kXX1, nullptr}, {kXE1, nullptr}, {kXM2, nullptr}, {kXJ1, nullptr}, {kXS1, nullptr}, {kXWG, nullptr}, {kXTG, nullptr},
     {kXDS, nullptr}, {kXLK, nullptr}, {kXCP, nullptr}, {kXSPF, nullptr}, {kXMQ, nullptr}, {kXPT1, nullptr}, {kXDL, nullptr},
     {kXDQ, nullptr}, {kXP1E7, nullptr}, {kXMA, nullptr}, {kXBPO, nullptr}, {kXW1B, nullptr}, {kXRPA, nullptr}, {kXTR, nullptr},
-    {kXAS, "Experimental (GPU, A/B live)"}, {kXPJH, nullptr},
+    {kXAS, "Experimental (GPU, A/B live)"}, {kXPJH, nullptr}, {kXVSMA, nullptr}, {kXLPVR, nullptr}, {kXSKYR, nullptr},
+    {kXFOGT, nullptr}, {kXCLDR, nullptr},
     {kGR2a, "Experimental (GPU, Proton)"}, {kGR2b, nullptr}, {kGR1, nullptr},
     {kXTS, "Diagnostics / logging"}, {kXWS, nullptr},
     {kWorkerCap, "Next launch (saved to the ini)"}, {kP12, nullptr}, {kL1Wine, nullptr}, {kFgWine, nullptr},
@@ -1231,7 +1244,8 @@ void StartSave() {
         // ED / WG / DS / CP / SPF installed with the switch off stay installed (2) so the live A/B keeps working next
         // launch (TG needs no install: its 0 already keeps the live switch)
         if ((e == kExpED || e == kExpWG || e == kExpDS || e == kExpCP || e == kExpSPF || e == kExpMQ || e == kExpPT1 || e == kExpDL ||
-             e == kExpDQ || e == kExpP1E7 || e == kExpBPO || e == kExpAABB || e == kExpW1B || e == kExpRPA || e == kExpAS || e == kExpPJH || e == kExpTR) && g_host.exp[e].enable &&
+             e == kExpDQ || e == kExpP1E7 || e == kExpBPO || e == kExpAABB || e == kExpW1B || e == kExpRPA || e == kExpAS || e == kExpPJH || e == kExpTR ||
+             e == kExpVSMA || e == kExpLPVR || e == kExpSKYR || e == kExpFOGT || e == kExpCLDR) && g_host.exp[e].enable &&
             !*g_host.exp[e].enable && v == 0)
             v = 2;
         add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto

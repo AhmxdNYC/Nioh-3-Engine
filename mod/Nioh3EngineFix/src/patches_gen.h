@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC, caveVsmaEntry, caveVsmaBudget, caveVsmaBind, caveRco };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -348,6 +348,10 @@ static const uint8_t orig_MPCSc[] = { 0x48, 0x8B, 0x06, 0xBA, 0x0B, 0x00, 0x00, 
 static const uint8_t orig_MLP1[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 static const uint8_t orig_MLP2[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 static const uint8_t orig_MLP3[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_VSMA1[] = { 0xE8, 0xD9, 0xF3, 0xCB, 0xFF };
+static const uint8_t orig_VSMA2[] = { 0xE8, 0xA9, 0xEE, 0xFF, 0xFF };
+static const uint8_t orig_VSMA3[] = { 0xE8, 0xE9, 0x0B, 0x00, 0x00 };
+static const uint8_t orig_RCO1[] = { 0xFF, 0x90, 0xB8, 0x04, 0x00, 0x00 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -589,6 +593,10 @@ static const Site kSites[] = {
     { "MLP1", "MLP", 0x531948, 5, orig_MLP1, "48 89 5C 24 10 4C 89 4C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 50 8B", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "MLP2", "MLP", 0x5301FC, 5, orig_MLP2, "48 89 5C 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30 4C 8B BC", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "MLP3", "MLP", 0x53FD3C, 5, orig_MLP3, "48 89 5C 24 10 44 88 4C 24 20 55 56 57 41 54", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "VSMA1", "VSMA", 0x538F62, 5, orig_VSMA1, "48 8D 95 80 50 00 00 E8 ?? ?? ?? ?? 8B 83 40 00 04 00", 7, Kind::Call, nullptr, Target::caveVsmaEntry, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F8340 },
+    { "VSMA2", "VSMA", 0x1F8AB2, 5, orig_VSMA2, "49 8B 8A 30 3D 00 00 E8 ?? ?? ?? ?? 4C 8B C3 49 8B D5 49 8B CE 8B F8", 7, Kind::Call, nullptr, Target::caveVsmaBudget, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F7960 },
+    { "VSMA3", "VSMA", 0x1F8AF2, 5, orig_VSMA3, "85 FF 0F 84 ?? ?? ?? ?? 49 8B D7 48 8B CE E8 ?? ?? ?? ?? 45 33 DB 84 C0 74 5F", 14, Kind::Call, nullptr, Target::caveVsmaBind, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F96E0 },
+    { "RCO1", "RCO", 0x39B7CA, 6, orig_RCO1, "48 8B 06 48 8B CE 49 8B 17 FF 90 B8 04 00 00 48 8B 06 0F 28 D6", 9, Kind::Call, nullptr, Target::caveRco, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -689,6 +697,12 @@ static const uint8_t dep_121[] = { 0x48, 0x8B, 0xCE, 0xFF, 0x90, 0xA8, 0x00, 0x0
 static const uint8_t dep_122[] = { 0x41, 0xBC, 0x8A, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x06, 0xBA, 0x0C, 0x00, 0x00, 0x00 };
 static const uint8_t dep_123[] = { 0xB9, 0xF1, 0xAB, 0xC4, 0x03, 0xE8, 0x88, 0xF7, 0x96, 0xFE, 0x48, 0x8B, 0xD0, 0x48, 0x8D, 0x4D, 0xB0, 0xE8, 0xEC, 0xAF, 0x6D, 0xFE, 0xBE, 0x01, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xD0, 0x44, 0x8A, 0xC6, 0xE8, 0x98, 0x86, 0x23, 0xFF, 0x44, 0x38, 0x6F, 0x55, 0x0F, 0x85, 0xAD, 0x01, 0x00, 0x00, 0xE8, 0x91, 0xE9, 0x3A, 0x00, 0x84, 0xC0, 0x0F, 0x84, 0xA0, 0x01, 0x00, 0x00 };
 static const uint8_t dep_124[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x83, 0x79, 0x18, 0x08, 0x48, 0x8B, 0xD9, 0x72 };
+static const uint8_t dep_125[] = { 0x48, 0x8B, 0xD3, 0x49, 0x8B, 0xCE, 0xE8, 0xD2, 0xF6, 0xFF, 0xFF, 0x84, 0xC0, 0x0F, 0x84, 0xF4, 0x03, 0x00, 0x00 };
+static const uint8_t dep_126[] = { 0x4C, 0x8B, 0xC3, 0x49, 0x8B, 0xD5, 0x49, 0x8B, 0xCE, 0x8B, 0xF8 };
+static const uint8_t dep_127[] = { 0x8B, 0x53, 0x08, 0x8B, 0x4B, 0x04, 0x89, 0x8E, 0x98, 0x03, 0x00, 0x00, 0x89, 0x96, 0x9C, 0x03, 0x00, 0x00, 0x85, 0xFF, 0x0F, 0x84 };
+static const uint8_t dep_128[] = { 0x4C, 0x8B, 0x81, 0x18, 0x01, 0x04, 0x00, 0x4D, 0x85, 0xC0, 0x74, 0x23, 0x8B, 0x02, 0x83, 0xE0, 0x0F, 0x0F, 0xAF, 0x81, 0xE8, 0x00, 0x04, 0x00, 0x03, 0x42, 0x08, 0x0F, 0xAF, 0x81, 0xE4, 0x00, 0x04, 0x00, 0x03, 0x42, 0x04, 0x41, 0xF6, 0x04, 0x80, 0x04, 0x74, 0x03, 0xB0, 0x01, 0xC3, 0x32, 0xC0, 0xC3 };
+static const uint8_t dep_129[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x41, 0x8B, 0xD8, 0x48, 0x85, 0xC9, 0x74, 0x21, 0xBA, 0xE9, 0xFA, 0xB3, 0x37, 0x41, 0xB8, 0x04, 0x00, 0x00, 0x00, 0xE8, 0x46, 0x1B, 0x83, 0xFF, 0x48, 0x85, 0xC0, 0x74, 0x0C, 0x48, 0x8B, 0x40, 0x18, 0x8B, 0x00, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3, 0x8B, 0xC3, 0xEB, 0xF6 };
+static const uint8_t dep_130[] = { 0x4D, 0x8B, 0xC4, 0x48, 0x8B, 0xCD, 0xE8, 0xDB, 0xEB, 0xFF, 0xFF, 0x48, 0x8B, 0x06, 0x48, 0x8B, 0xCE, 0x49, 0x8B, 0x17 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -815,6 +829,12 @@ static const Dep kDeps[] = {
     { "MPCS", 0x5315C5, 14, dep_122, 0 },  // 1.7.47 MPCS: skip target of #26: mov r12d,8Ah then the #27 block (the engine's #26 bind-failed path, je at 531533)
     { "BN", 0x1C35372, 61, dep_123, 0 },  // Boot sequencer state 4: autosave notice text 0x3C4ABF1 -> SystemMessageAdd E6DA30 (rdx = string), then [rdi+55h] / GfxSettingsTooHeavy 1FE3D38 (bootnotice.cpp kSeqBytes)
     { "BN", 0x310C18, 15, dep_124, 0 },  // StringReset 310C18 (wstring tidy: free when cap >= 8): what the BN1 thunk calls on the notice text instead of SystemMessageAdd, which ends with the same call
+    { "VSMA", 0x1F8A8B, 19, dep_125, 0 },  // VSMA: batch loop calls 1F8168(pm = r14, tile = rbx): rbx = tile entry, r14 = page manager (what caveVsmaBind passes)
+    { "VSMA", 0x1F8AB7, 11, dep_126, 0 },  // VSMA: VsmTileIsEmpty(r14 pm, r13 list, rbx tile) after the budget call; edi = budget (live at the bind call 1F8AF2)
+    { "VSMA", 0x1F8AD2, 22, dep_127, 0 },  // VSMA: clip+398/39C = tile x / y written before the bind (kept for skipped tiles), test edi,edi (budget) before the bind
+    { "VSMA", 0x1F8094, 50, dep_128, 0 },  // VSMA: tile index ((t0 & 0xF) * [pm+400E8] + t[2]) * [pm+400E4] + t[1] into the u32 flags [pm+40118] (bit 2 requested, bit 0 valid) - VsmaBindC uses the same index and bit 0
+    { "VSMA", 0x8F041C, 51, dep_129, 0 },  // VSMA: 8F041C(table, -, default) = node param 37B3FAE9 or default (read-only lookup); VsmClipmapRender compares it at 1F95BF (sub-light shadow throttle)
+    { "RCO", 0x39B7B6, 20, dep_130, 0 },  // RCO: ApplyGraphicsSettings 39A39C(app, -, r12) then rax = [rsi] (vtable), rcx = rsi = S, rdx = [r15] before the vfunc +4B8h call
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

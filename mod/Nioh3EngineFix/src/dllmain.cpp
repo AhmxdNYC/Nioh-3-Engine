@@ -53,6 +53,7 @@
 #include "jt.h"
 #include "pmode.h"
 #include "timerres.h"
+#include "samelook.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -77,7 +78,9 @@
 // 1.7.46: PL boot pipeline library ([Patches] PL = 0; psojournal.cpp) + boot-list timing line; notes\boot-shader-compile.md
 // 1.7.47: MLP meshlet front-end probe ([Profiler] MeshletProbe = 0; mlprobe.cpp CPU half + gpuprof.cpp GPU half), MPCS MPC tail skip
 //         ([Patches] MPCS = 0; mpcskip.asm, needs the `mpc` shader build) + MpcCheck self-check (mpccheck.cpp); notes\meshlet-frontend.md
-#define MOD_VERSION "1.7.48"
+// 1.7.49: same-look package (samelook.cpp / .asm, all default off, live rows): VSMA VSM waiting-tile amortisation + the engine
+//         update-rate knobs LPVR / SKYR / FOGT / CLDR (render-config overrides); notes\same-look-package.md
+#define MOD_VERSION "1.7.49"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -751,11 +754,15 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveMpcsA: return (void*)&caveMpcsA;
         case gen::Target::caveMpcsB: return (void*)&caveMpcsB;
         case gen::Target::caveMpcsC: return (void*)&caveMpcsC;
+        case gen::Target::caveVsmaEntry: return (void*)&caveVsmaEntry;
+        case gen::Target::caveVsmaBudget: return (void*)&caveVsmaBudget;
+        case gen::Target::caveVsmaBind: return (void*)&caveVsmaBind;
+        case gen::Target::caveRco: return (void*)&caveRco;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveMpcsC;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveRco;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1314,6 +1321,13 @@ bool SwapImport(const char* fn, void* hook, void** orig) {
 DWORD WINAPI Worker(LPVOID) {
     Config cfg = LoadConfig();
     g_skipOds = cfg.skipOds != 0;
+    {  // 1.7.49 same-look package: ini only here; the VSMA / RCO groups are installed with the experimental patches
+        samelook::StartInfo sl;
+        sl.log = &Log;
+        const std::wstring slIni = SelfPathWithExt(L".ini");
+        sl.iniPath = slIni.c_str();
+        samelook::Configure(sl);
+    }
     if (cfg.log) {
         std::wstring lp = SelfPathWithExt(L".log");
         g_log = _wfsopen(lp.c_str(), L"w", _SH_DENYWR);
@@ -1552,6 +1566,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "RWb")) return cfg.rwb != 0;
         if (!strcmp(g, "ESM1")) return cfg.esm1 != 0;
         if (!strcmp(g, "MPCS")) return cfg.mpcs != 0;
+        if (!strcmp(g, "VSMA")) return samelook::VsmaIni() != 0;  // 1.7.49 same-look package
+        if (!strcmp(g, "RCO")) return samelook::RcoIni() != 0;
         if (!strcmp(g, "MLP")) return false;  // MeshletProbe recorder entry sites: verified offline (test_patterns), hooked by mlprobe.cpp
         if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
         if (!strcmp(g, "LC")) return cfg.lc != 0;
@@ -2173,6 +2189,30 @@ DWORD WINAPI Worker(LPVOID) {
             Log("MPCS: MPC tail skip installed (%s), switch %s: MeshletPreculling drops #28-#31 when 1 <= cnt <= 1024 and #26 when #23 was dispatched",
                 why, mpcs_enable ? "ON" : "off");
     }
+    // 1.7.49 VSMA (samelook.cpp, notes\same-look-package.md): VSM batch-loop draws of waiting tiles past the marked + front tiles
+    // on 1 visit out of VSMA_K. Live row; 2 = installed, switch off. Original call targets verified against the expected RVAs.
+    if (samelook::VsmaIni()) {
+        const bool ok = expGroup("VSMA", true, [&]() {
+            Item* a = findItem("VSMA1");
+            Item* b = findItem("VSMA2");
+            Item* c = findItem("VSMA3");
+            const uintptr_t ta = calleeOf(a->addr), tb = calleeOf(b->addr), tc = calleeOf(c->addr);
+            if (ta != (uintptr_t)(g_base + a->s->expectRva) || tb != (uintptr_t)(g_base + b->s->expectRva) ||
+                tc != (uintptr_t)(g_base + c->s->expectRva)) {
+                Log("VSMA: call targets differ from v2.02");
+                return false;
+            }
+            samelook::SetVsmaTargets(ta, tb, tc, (uintptr_t)(g_base + 0x8F041C));  // 8F041C deps-checked
+            return true;
+        });
+        if (!ok) Log("VSMA: NOT installed");
+    }
+    // 1.7.49 LPVR / SKYR / FOGT / CLDR (samelook.cpp): render-config overrides after ApplyGraphicsSettings. One live row each.
+    if (samelook::RcoIni()) {
+        const bool ok = expGroup("RCO", true, [&]() { return true; });
+        if (ok) samelook::SetRcoInstalled();
+        else Log("RCO: update-rate knobs NOT installed");
+    }
     // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
     // textures (the bytes are never restored mid-loop), so switching off is always safe.
     s_ptDone = exDone[menu::kExpPT1] = expGroup("PT1", cfg.pt1 != 0, [&]() {
@@ -2378,6 +2418,11 @@ DWORD WINAPI Worker(LPVOID) {
                     p28 = a; p26 = b; pSeen = c;
                 }
                 if (sec % 30 == 0) pj::LogLine();        // no-op unless [Patches] PJ != 0
+                if (sec % 30 == 0) {                     // 1.7.49 same-look package: no-op unless VSMA / LPVR / SKYR / FOGT / CLDR != 0
+                    char sb[1024];
+                    samelook::StatusLine(sb, sizeof sb, 30);
+                    if (sb[0]) Log("%s", sb);
+                }
                 if (sec % 30 == 0) {                     // no-op unless [Patches] TR != 0
                     char tb[512];
                     timerres::StatusLine(tb, sizeof tb, 30);
@@ -2614,6 +2659,20 @@ DWORD WINAPI Worker(LPVOID) {
             mh.exp[menu::kExpTR].ini = GetPrivateProfileIntW(L"Patches", L"TR", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpTR].applied = timerres::Switch() != nullptr;
             mh.exp[menu::kExpTR].enable = timerres::Switch();
+        }
+        {  // 1.7.49 same-look package rows (samelook.cpp): VSMA + the four update-rate knobs
+            const struct { int e; int ini; volatile uint32_t* sw; } rows[] = {
+                {menu::kExpVSMA, samelook::VsmaIni(), samelook::VsmaSwitch()},
+                {menu::kExpLPVR, (int)GetPrivateProfileIntW(L"Patches", L"LPVR", 0, iniPath.c_str()), samelook::KnobSwitch(samelook::kLpv)},
+                {menu::kExpSKYR, (int)GetPrivateProfileIntW(L"Patches", L"SKYR", 0, iniPath.c_str()), samelook::KnobSwitch(samelook::kSky)},
+                {menu::kExpFOGT, (int)GetPrivateProfileIntW(L"Patches", L"FOGT", 0, iniPath.c_str()), samelook::KnobSwitch(samelook::kFogT)},
+                {menu::kExpCLDR, (int)GetPrivateProfileIntW(L"Patches", L"CLDR", 0, iniPath.c_str()), samelook::KnobSwitch(samelook::kCloud)},
+            };
+            for (const auto& r : rows) {
+                mh.exp[r.e].ini = r.ini == 1 ? 1 : 0;
+                mh.exp[r.e].applied = r.sw != nullptr;
+                mh.exp[r.e].enable = r.sw;
+            }
         }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:

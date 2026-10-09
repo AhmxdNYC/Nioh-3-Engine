@@ -41,6 +41,7 @@
 #include "osd.h"
 #include "psoswap.h"
 #include "tilestats.h"
+#include "samelook.h"
 #include "osd_font.h"
 #include "osd_shaders.h"
 
@@ -1097,6 +1098,7 @@ void OnPresent(IDXGISwapChain* sc) {
     gpuopt::OnFrame();  // once per frame of the drawing (game) swapchain
     gimerge::OnFrame(); // 1.7.29 GIProbe / GIMerge frame counter
     tilestats::OnFrame();
+    samelook::OnPresent();  // 1.7.49 VSMA: calls per frame in the stats line
     gp::OnFrame();      // GP profiler: reads the timestamps of 6 frames ago
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
     UpdateStats(now);

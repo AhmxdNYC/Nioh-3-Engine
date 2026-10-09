@@ -37,6 +37,7 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpAS,                          // engine async-compute slots (1.7.44, boot slots + live producer switch)
                    kExpPJH,                         // PSO hand-over from the PJ prewarm (2026-10-09, live switch; psojournal.h)
                    kExpTR,                          // timer resolution held once (1.7.45, IAT hooks + live switch)
+                   kExpVSMA, kExpLPVR, kExpSKYR, kExpFOGT, kExpCLDR,  // same-look package (1.7.49, samelook.cpp, live switches)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)
