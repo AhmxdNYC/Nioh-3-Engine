@@ -725,6 +725,44 @@ def main():
                    "JT: notify_one / notify_all do not start with add rcx,8 (the CV the wait cave records)")
     print("1.7.40 JT: 5 sites, IAT jmp names, branch scan, JTc return to mov rsi,rax, STL cv vtable slots 0-3: %s" % ("OK" if jt_ok else "FAIL"))
 
+    # 1.7.44 PM (src/pmode.asm, measurement only): the two SyncInterval stores the caves replace. Each cave must perform the
+    # same store (same base / source register), no branch may land inside either 6-byte site, the setter frame is 28h
+    # (caveSiS reads its caller at [rsp+38h]) and returns right after the site (flags dead), and the watcher's next
+    # flag-reader comes after a flag-writing cmp. The three writers are the only `[reg+424Ch]` stores of the code.
+    pm = {s["id"]: s for s in doc["sites"] if s["group"] == "PM"}
+    pm_ok = check(set(pm) == {"PMw", "PMs"}, "PM: expected sites PMw, PMs, found %s" % sorted(pm))
+    asm = (ROOT / "src" / "pmode.asm").read_text(encoding="utf-8").lower()
+    for sid, reg in (("PMw", "eax"), ("PMs", "edx")):
+        if sid not in pm:
+            continue
+        rva = int(pm[sid]["rva"], 16)
+        # 2EEBB44 is the `74 24` inside `mov rsi,[rsp+48h]` (48 8B 74 24 48 at 2EEBB42), not a branch: a capstone sweep of
+        # the .pdata functions 2EEA690..2EEBF52 finds no branch into either site
+        bad = [x for x in branch_targets_into(rva, 6) if x != "2EEBB44->2EEBB6A"]
+        pm_ok &= check(not bad, "%s: branch(es) land inside the site: %s" % (sid, bad))
+        pm_ok &= check(("mov     dword ptr [rcx+424ch], %s" % reg) in asm, "%s: cave does not repeat `mov [rcx+424Ch],%s`" % (sid, reg))
+    pm_ok &= check(img[0x2EEBB42:0x2EEBB47] == hb("488B742448"), "PMs: 2EEBB42 is not mov rsi,[rsp+48h] (the 74 24 false hit)")
+    pm_ok &= check(img[0x13503A9:0x13503C4] == hb("448B35CCAB26034C8D2549FCCAFE41BD01000000443BB7C8010000"),
+                   "PMw: watcher code after the site is not mov / lea / mov / cmp (flags rewritten before any use)")
+    pm_ok &= check(img[0x2EEBB50:0x2EEBB54] == hb("4883EC28") and img[0x2EEBB6E:0x2EEBB77] == hb("EB0232C04883C428C3"),
+                   "PMs: setter frame is not sub rsp,28h ... add rsp,28h; ret")
+    pm_ok &= check("[rsp+38h]" in asm, "PMs: caveSiS does not read the setter's caller at [rsp+38h]")
+    stores = []
+    for mm in re.finditer(rb"\x4c\x42\x00\x00", img[:0x3A00000]):
+        o = mm.start()
+        if img[o - 2] in (0x89, 0xC7) and (img[o - 1] & 0xC0) == 0x80:
+            stores.append(o - 2)
+    pm_ok &= check(sorted(stores) == [0x13503A3, 0x2EDFBBD, 0x2EEBB68],
+                   "PM: [reg+424Ch] stores in the code are %s, expected watcher 13503A3, ctor 2EDFBBD, setter 2EEBB68"
+                   % [hex(x) for x in sorted(stores)])
+    pmc = (ROOT / "src" / "pmode.cpp").read_text(encoding="utf-8")
+    for tok in ("kRvaGfxDevice = 0x45BA588", "kOffSi = 0x424C", "kOffReqSi = 0x7738", "kRvaVsync = 0x45BAF3C", "kRvaFrameGen = 0x45BB008"):
+        pm_ok &= check(tok in pmc, "pmode.cpp: %s missing" % tok)
+    pm_ok &= check(img[0x3D6545:0x3D654C] == hb("4489AF38770000") and img[0x3D651F:0x3D6526] == hb("4038B7803F0000"),
+                   "PM: GfxDevicePresent hand-off `mov [rdi+7738h],r13d` / `cmp [rdi+3F80h],sil` differ")
+    print("1.7.44 PM: 2 SyncInterval store sites, caves repeat the stores, frames / flags, the 3 writers of +424C, engine fields: %s"
+          % ("OK" if pm_ok else "FAIL"))
+
     print()
     if fails:
         print("FAILED (%d):" % len(fails))

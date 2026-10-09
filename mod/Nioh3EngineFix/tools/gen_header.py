@@ -21,7 +21,7 @@ TARGETS = ["none", "caveFps", "caveScale", "caveLim", "caveTier", "caveMenu", "h
            "caveDL", "caveMQ", "capPt1Acq", "capPt1Rel", "cavePt1B", "cavePt1C", "cavePt1D",
            "caveGl1A", "caveGl1B", "caveLdWait", "caveLdSig",
            "caveBpoQA", "caveBpoQB", "caveBpoL1", "caveBpoL2", "caveBpoV",
-           "caveJtJob", "caveJtWait", "caveJtWake1", "caveJtWakeAll"]
+           "caveJtJob", "caveJtWait", "caveJtWake1", "caveJtWakeAll", "caveSiW", "caveSiS"]
 DATAS = ["none", "ticks120", "ticks60", "r1Timeout"]
 KINDS = {"bytes": "Bytes", "call": "Call", "ripload": "RipLoad", "jmp": "Jmp", "vptr": "VPtr", "check": "Check"}
 READS = {None: "None", "iat_disp32@2": "IatDisp32At2", "callee_rel32@1": "CalleeRel32At1", "callee_rel32@6": "CalleeRel32At6"}

@@ -15,7 +15,7 @@ if(Python3_FOUND)
         COMMENT "Generating patches_gen.h from patches.json")
 endif()
 
-add_library(Nioh3EngineFix SHARED src/dllmain.cpp src/osd.cpp src/menu.cpp src/gpuopt.cpp src/gimerge.cpp src/gpuprof.cpp src/memstats.cpp src/tilestats.cpp src/loadmem.cpp src/loadstats.cpp src/fnprobe.cpp src/padlat.cpp src/tour.cpp src/vpad.cpp src/sp.cpp src/psoswap.cpp src/psojournal.cpp src/autocont.cpp src/readprobe.cpp src/readfix.cpp src/prefetch.cpp src/loadonly.cpp src/drawprep.cpp src/drawprep.asm src/jt.cpp src/jt.asm src/caves.asm src/gpuopt_thunks.asm src/patches_gen.h)
+add_library(Nioh3EngineFix SHARED src/dllmain.cpp src/osd.cpp src/menu.cpp src/gpuopt.cpp src/gimerge.cpp src/gpuprof.cpp src/memstats.cpp src/tilestats.cpp src/loadmem.cpp src/loadstats.cpp src/fnprobe.cpp src/padlat.cpp src/tour.cpp src/vpad.cpp src/sp.cpp src/psoswap.cpp src/psojournal.cpp src/autocont.cpp src/readprobe.cpp src/readfix.cpp src/prefetch.cpp src/loadonly.cpp src/drawprep.cpp src/drawprep.asm src/jt.cpp src/jt.asm src/pmode.cpp src/pmode.asm src/caves.asm src/gpuopt_thunks.asm src/patches_gen.h)
 set_target_properties(Nioh3EngineFix PROPERTIES
     SUFFIX ".asi"
     CXX_STANDARD 17
