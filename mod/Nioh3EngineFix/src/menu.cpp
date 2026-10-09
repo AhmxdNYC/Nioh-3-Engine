@@ -35,6 +35,7 @@
 #include "gpuopt.h"
 #include "menu.h"
 #include "osd.h"
+#include "rematch.h"
 
 namespace menu {
 namespace {
@@ -801,6 +802,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL, kXDQ, kXP1E7, kXMA,
           kGpu, kGR2a, kGR2b, kGR1,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
+          kRematch,  // 1.7.40 boss rematch (rematch.cpp): sub-page
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXMA - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 bool IsExp(int id) { return id >= kXW6 && id <= kXMA; }
@@ -870,6 +872,7 @@ const ItemDef kItems[kCount] = {
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
     {"Skip loading tip screen", "(AutoContinueLoad)", "Presses Continue for you when a load finishes.", "Off by default. Applies now; saved to the ini at once."},
+    {"Boss rematch...", "(Rematch)", "Beaten-boss list; opens the game's own Battle Scroll replay menu. Solo/offline only.", "[Rematch] Enable = 1 (off by default). Nothing is patched unless HiddenDuels = 1 (restored after)."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
@@ -887,6 +890,7 @@ const OrderEnt kOrder[] = {
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kAutoCont, "Gameplay"},
+    {kRematch, "Gameplay (solo/offline)"},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
@@ -919,6 +923,7 @@ bool Visible(int id) {
         case kFg: case kFgState: case kUpscaler: return g_host.knownBuild && g_host.base;  // engine slots: v2.02 only
         case kGpu: return gpuopt::GetState() != gpuopt::State::Off;
         case kGR2a: case kGR2b: case kGR1: return g_host.wine && gpuopt::GetState() != gpuopt::State::Off;
+        case kRematch: return rematch::Installed();
         default: return true;
     }
 }
@@ -936,6 +941,7 @@ bool Available(int id) {
         case kF1: return g_host.fgEnable != nullptr;
         case kWk: return g_host.wkEnable != nullptr;
         case kAutoCont: return g_host.autoContinue != nullptr;
+        case kRematch: return rematch::Installed();  // the gates show in the value column
         case kFg: return g_fgOk;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
@@ -1047,6 +1053,10 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
     color = cWhite;
     if (id == kFg || id == kFgState || id == kUpscaler) {
         FgValue(id, buf, n, color);
+        return;
+    }
+    if (id == kRematch) {
+        rematch::RowValue(buf, n, color);
         return;
     }
     if (IsExp(id)) {
@@ -1273,6 +1283,7 @@ void Open(const char* how) {
 void Close(const char* how) {
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedOr(&g_keyLatch, (LONG)K_NAV);
+    rematch::PageClose();
     InterlockedExchange(&g_open, 0);
     MessageBeep(MB_ICONASTERISK);
     MLOG("closed (%s)%s", how, g_dirty ? " - unsaved changes are active until the game exits" : "");
@@ -1364,6 +1375,14 @@ void ChangeFg(int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
+    if (rematch::PageActive()) {  // boss rematch sub-page: A selects / confirms; a queued request closes the menu
+        if (rematch::PageAct(dir)) Close("boss rematch request");
+        return;
+    }
+    if (id == kRematch) {
+        if (dir == 0 && Available(id)) rematch::PageOpen();
+        return;
+    }
     if (id == kFg) {
         ChangeFg(dir);
         return;
@@ -1453,6 +1472,10 @@ void Change(int id, int dir) {
 }
 
 void Move(int dir) {
+    if (rematch::PageActive()) {
+        rematch::PageMove(dir);
+        return;
+    }
     int pos = OrderPos(g_sel);
     for (int k = 0; k < kOrderN; ++k) {
         pos = (pos + dir + kOrderN) % kOrderN;
@@ -1518,6 +1541,7 @@ bool RemoteValue(int id, int& v) {
         case kFrameTime: v = o.frameTime ? 1 : 0; return true;
         case kSpeed: v = o.speed ? 1 : 0; return true;
         case kAutoCont: v = *g_host.autoContinue ? 1 : 0; return true;
+        case kRematch: v = rematch::StateCode(); return true;  // 0 idle, 1 replay menu open, 2 in replay
         case kHint: v = g_cfg.pauseHint; return true;
         case kWorkerCap: v = g_bootWorkerCap; return true;
         case kP12: v = g_bootP12; return true;
@@ -1566,6 +1590,10 @@ void RunRemote(RemoteReq& q) {
             case kWorkerCap:
                 g_bootWorkerCap = q.value <= 0 ? 0 : std::clamp(q.value, 6, 31);
                 g_dirty = true;
+                LogItem(id);
+                break;
+            case kRematch:  // 1 = R-a (open the game's replay menu), 2 = abort and restore; gates re-checked on the game thread
+                rematch::RemoteRequest(q.value);
                 LogItem(id);
                 break;
             default:  // bool items: one menu press when the state differs (logs 'MENU: <label> -> <value>')
@@ -1840,7 +1868,10 @@ void OnPresentImpl() {
         else Change(g_sel, d == 2 ? -1 : +1);
     }
     if (pressed & N_OK) Change(g_sel, 0);
-    if ((pressed & N_BACK) && g_open) Close("B / Esc");
+    if ((pressed & N_BACK) && g_open) {
+        if (rematch::PageActive()) rematch::PageBack();  // confirm line -> list -> main menu
+        else Close("B / Esc");
+    }
 }
 
 // ---- drawing --------------------------------------------------------------------------------------------------------------
@@ -1904,6 +1935,9 @@ float DrawImpl(unsigned W, unsigned H) {
         if (!g_open) return DrawCornerNote(W, H, holdNote, cGold);
     }
     if (!g_open) {
+        char rt[160];
+        uint32_t rc = cWhite;
+        if (rematch::Toast(rt, sizeof(rt), rc)) return DrawCornerNote(W, H, rt, rc);  // boss rematch: queued / opened / refused
         if (g_cfg.pauseHint == 2 || (g_cfg.pauseHint && g_paused)) {
             const std::string s = "Mod menu: " + GestureText();  // drawn every frame (2 = always, 1 = while a game menu is open)
             return DrawCornerNote(W, H, s.c_str(), cWhite);
@@ -1936,7 +1970,16 @@ float DrawImpl(unsigned W, unsigned H) {
         put(&head, c, 1, title, "", "", cGold, cYellow, false, true);
     }
     const char* pending = nullptr;
-    for (int oi = 0; oi < kOrderN; ++oi) {
+    const bool rmPage = rematch::PageActive();  // boss rematch sub-page replaces the item list
+    if (rmPage) {
+        rematch::PageRow pr[90];
+        const int k = rematch::PageFill(pr, 90);
+        for (int i = 0; i < k; ++i) {
+            if (pr[i].sel) selRow = nb;
+            put(body, nb, 96, pr[i].label, pr[i].tech, pr[i].value, pr[i].lc, pr[i].vc, pr[i].sel, false);
+        }
+    }
+    for (int oi = 0; !rmPage && oi < kOrderN; ++oi) {
         const int id = kOrder[oi].id;
         if (kOrder[oi].section) pending = kOrder[oi].section;
         if (!Visible(id)) continue;
@@ -1974,6 +2017,7 @@ float DrawImpl(unsigned W, unsigned H) {
             snprintf(what, sizeof(what), "Not installed this session (off in the ini or a site was not found - see the log).");
         effect[0] = 0;
     }
+    if (rmPage) rematch::PageHelp(what, sizeof(what), effect, sizeof(effect));
     addT("", cWhite, true);
     addT(what, cWhite);
     addT(effect[0] ? effect : " ", cGray);
@@ -2027,7 +2071,7 @@ float DrawImpl(unsigned W, unsigned H) {
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         addT(b, ss == 2 ? cGreen : cOrange);
     } else {
-        addT("Up/Down: move   A/Enter: toggle   Left/Right: change   B/Esc: close", cDim);
+        addT(rmPage ? "Up/Down: move   A/Enter: select / confirm   B/Esc: back" : "Up/Down: move   A/Enter: toggle   Left/Right: change   B/Esc: close", cDim);
     }
 
     // value column: just right of the longest "name (id)", between 30 and 48 characters

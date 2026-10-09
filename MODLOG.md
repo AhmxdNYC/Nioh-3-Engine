@@ -675,3 +675,17 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   selftest OK, abba2_pc.ps1 -DryRun OK, build OK. Not run in game.
 - Undo: MA = 0 (default), or the 1.7.38 .asi.
 | 2026-10-08 | RE only (no game change): perf-rename-4 symbol rows (110 new + 14 renames, `re\symbols\incoming\perf-rename-4*.tsv`) bring perf_coverage.py named coverage to 100.00 % in the attributed and --self views; new `--precise` flag | none (delete the two incoming files) |
+
+## 2026-10-08 - ASI 1.7.40 (branch `rematch`, not merged): boss rematch Phase 1 MVP, route R-a (default off; nothing in the game folder changed)
+- NEW `src\rematch.cpp/.h` (`[Rematch] Enable = 0`): game-thread pump on MissionLoadStep 223AF50 + BossBattleMode/End (chained onto
+  bosslog's hooks when BossLog / RematchLog is on), s.2 gates, R-a = `MenuOpenMissionReplay(0, 0, 6)` 1DE28E8 (the game's own Battle Scroll
+  replay list), cleared-mission scan (702B64 per catalogue row), `HiddenDuels = 1` un-hide of 0xD22D / 0xB3F8 / 0xFB96 (record +0x40 bit
+  0x4000, snapshot + restore), R-b `DirectStart` path present but always refused (needs the L7 replay capture). No story-flag writes.
+- Menu: section 'Gameplay (solo/offline)', row 'Boss rematch...' -> sub-page (cleared bosses, confirm line, abort row), OSD toasts;
+  VirtualPad `menu get|set Rematch`. Catalogue `Nioh3EngineFix_bosses.tsv` (62 rows) from `tools\rematch_catalog.py`.
+- Byte checks: patches.json RM30-RM36 (call target + code references, check only) + RM1 / BL1 / BL2 / RM14 / RM15 / RM17.
+- `tools\rematch\p0_vpad.ps1`: unattended VirtualPad-only Phase 0 capture (P0-5 replay menu + L7 replay start; optional P0-1), -DryRun OK,
+  not run. Notes: `notes\boss-rematch-build.md` (design corrections: duel bit 0x4000, queue slots are not cleared).
+- Tests: test_patterns ALL 268 SITES OK, run_rematch_harness ALL PASSED (chained thunks, gates, R-a, un-hide / restore lifecycle,
+  refusals, catalogue), run_vpad / padlat / tour harnesses ALL PASSED, build OK. Not run in game.
+- Undo: `[Rematch] Enable = 0` (default), or the 1.7.39 .asi.
