@@ -43,7 +43,9 @@ OSD = re.compile(r'OSD: stats: rendered ([\d.]+) fps')
 
 # what proves an item ran (ASI items log a line; shader items show a new PSO hash) + known GP2 target hashes (notes)
 ASI_PROOF = {'AS0': r'AS0: slot 0 forced on', 'GIM': r'stats/s gimerge: .*merge on: .*, merged (?!0\.00)\d',
-             'mpcs': r'stats/s MPCS: .*tails skipped (?!0\.0)\d'}   # 1.7.47 MPCS (with the mpc file; notes/meshlet-frontend.md)
+             'mpcs': r'stats/s MPCS: .*tails skipped (?!0\.0)\d',   # 1.7.47 MPCS (with the mpc file; notes/meshlet-frontend.md)
+             # notes/gpu-scheduling-sync.md: VCLOUD / fog kept on the graphics queue by the AS row (ASI >= 1.7.44)
+             'vcsync': r'AS: switch ON, .*kept synchronous while ON 3 \|', 'fogsync': r'AS: switch ON, .*kept synchronous while ON 4 \|'}
 TARGETS = {   # original digest prefixes of the records each item replaces (for the target-row delta); new ones are found as novel hashes
     'fogpar': ['641524ee'], 'wdo14': ['8a013bc7'], 'wdo28': ['32e8deff'], 'gi': ['4b4c3cbe', '6ae59bd0'],
     'toonedge2': ['318fa766'], 'GIM': ['4b4c3cbe', '6ae59bd0'],
@@ -52,6 +54,9 @@ TARGETS = {   # original digest prefixes of the records each item replaces (for 
     # MPC prefix-scan chain #23 #28 #29 #30 #31 #26 (notes/gpu-culling-rewrite.md); mpcs = mpc file + MPCS skip (notes/meshlet-frontend.md)
     'mpc': ['34078a28', '4225b9ff', '6b87b43e', '3ecb247d', 'de4d71b0', '5f610a3e'],
     'mpcs': ['34078a28', '4225b9ff', '6b87b43e', '3ecb247d', 'de4d71b0', '5f610a3e'],
+    # VCLOUD b76874bb (+ vc7 variants) moves async -> DIRECT; MshLod#1 e6a62bda / MIC#0 e31c389f are the DIRECT rows it overlapped
+    'vcsync': ['b76874bb', '3b5911ea', '8f4b202a', 'e6a62bda', 'e31c389f'],
+    'fogsync': ['641524ee', '5473bfb7'],
 }
 
 
@@ -279,7 +284,7 @@ def fake_launch(d, launch, arm, seed=None, shot=False):
     rnd = random.Random(seed if seed is not None else launch * 7919)
     ws = [w for w in read_jsonl(os.path.join(d, 'manifest.jsonl')) if w['launch'] == launch]
     eff, newh, oldh = FAKE_EFFECT.get(arm, (0.0, None, None))
-    if arm not in ('BASE', 'AS0', 'GIM') and not newh:
+    if arm not in ('BASE', 'AS0', 'GIM', 'vcsync', 'fogsync') and not newh:
         newh = 'ps=fake%s0000000000000000000000' % arm   # every shader item gets a new PSO hash
     stem = os.path.join(d, 'L%02d_%s' % (launch, arm))
     drift = 0.004 * launch
@@ -302,6 +307,9 @@ def fake_launch(d, launch, arm, seed=None, shot=False):
         if arm == 'GIM':
             f.write('[00:00:01.000] stats/s gimerge: pairs ok 99 bad 0 (window +30/+0) why: | merge on: armed rp121=1(clean 60), '
                     'merged 2.00/frame (12 groups skipped/frame), replays 0.00/frame\n')
+        if arm in ('vcsync', 'fogsync'):
+            f.write('[00:00:01.000] stats/s AS: switch ON, added -, kept synchronous while ON %d | producer calls: - | created slots 3 4 6\n'
+                    % (3 if arm == 'vcsync' else 4))
         if ws:
             a = secs_local(ws[0]['t0_local'])
             for k in range(3):

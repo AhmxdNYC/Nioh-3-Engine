@@ -79,7 +79,9 @@ $runLog = Join-Path $sess "session.log"
 $cfg = Join-Path $SaveRoot "config.xml"; $ini = Join-Path $GameDir "Nioh3EngineFix.ini"; $asi = Join-Path $GameDir "Nioh3EngineFix.asi"
 $modLog = Join-Path $GameDir "Nioh3EngineFix.log"; $binAsi = Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi"
 $ShaderDir = Join-Path $GameDir "shader_dx12"; $ReplDir = Join-Path $ws "gpu-shaders\replacement"; $RealReplDir = $ReplDir
-$AsiItems = @{ AS0 = "Patches.AS0=1"; GIM = "Patches.GIMerge=1;Debug.GIProbe=1"; mpcs = "Patches.MPCS=1" }
+$AsiItems = @{ AS0 = "Patches.AS0=1"; GIM = "Patches.GIMerge=1;Debug.GIProbe=1"; mpcs = "Patches.MPCS=1";
+               # notes\gpu-scheduling-sync.md: VCLOUD (slot 3) / VFSCAT fog (slot 4) on the graphics queue (engine sync path) vs stock async
+               vcsync = "Patches.AS=1;Tuning.AS_Slots=-3"; fogsync = "Patches.AS=1;Tuning.AS_Slots=-4" }
 $ComboShader = @{ mpcs = "mpc" }   # ASI items that need a shader item installed in their arm (MPCS refuses without the mpc file)
 $script:restored = $false; $script:lockHeld = $false; $script:modInstalled = $false; $script:cfgInstalled = $false; $script:savesBacked = $false
 $script:Init = @{}; $script:pm = $null; $script:summary = [ordered]@{}
@@ -110,7 +112,7 @@ function Get-ShaderTable([string]$sh) {
     return $tab
 }
 $RealTab = Get-ShaderTable (Join-Path $ws "gpu-shaders\ally_shaders.sh")
-foreach ($it in $Items) { if (-not $RealTab.ContainsKey($it) -and -not $AsiItems.ContainsKey($it)) { throw "unknown item '$it' (shader: $($RealTab.Keys -join ','); ASI: AS0, GIM)" } }
+foreach ($it in $Items) { if (-not $RealTab.ContainsKey($it) -and -not $AsiItems.ContainsKey($it)) { throw "unknown item '$it' (shader: $($RealTab.Keys -join ','); ASI: $($AsiItems.Keys -join ','))" } }
 $ShaderItems = @(@($Items | Where-Object { $RealTab.ContainsKey($_) }) + @($Items | Where-Object { $ComboShader.ContainsKey($_) } | ForEach-Object { $ComboShader[$_] }) +
                  @(if ($Phases -contains "M") { "mpc" }) | Select-Object -Unique)
 
@@ -243,7 +245,7 @@ function Write-ArmIni([string]$arm) {
     $lines = [IO.File]::ReadAllLines($BaseIniSrc)
     $keys = @("General.AutoContinueLoad=1", "Debug.VirtualPad=1", "Debug.KeepRunningUnfocused=1", "VRR.MaxFps=240",
               "Profiler.GPUProf=2", "Profiler.GPUProf2_SampleEvery=8", "Profiler.GPUProf2_Top=100", "Profiler.GPUProf2_MinRun=$GP2MinRun", "Profiler.GPUProf2_AB=0",
-              "Profiler.SP=0", "Patches.AS0=0", "Patches.GIMerge=0", "Patches.MPCS=0", "Profiler.MeshletProbe=0", "Profiler.MpcCheck=0")
+              "Profiler.SP=0", "Patches.AS0=0", "Patches.AS=0", "Patches.GIMerge=0", "Patches.MPCS=0", "Profiler.MeshletProbe=0", "Profiler.MpcCheck=0")
     if ($AsiItems.ContainsKey($arm)) { $keys += @($AsiItems[$arm] -split ";") }
     foreach ($kv in $keys) { if ($kv -match '^([^.=]+)\.([^=]+)=(.*)$') { $lines = Set-IniValue $lines $Matches[1] $Matches[2] $Matches[3] } }
     [IO.File]::WriteAllLines($ini, $lines, (New-Object Text.UTF8Encoding($false)))
