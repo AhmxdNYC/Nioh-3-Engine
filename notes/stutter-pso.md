@@ -113,3 +113,17 @@ creates >= 1 ms and route hitches with 0 refused, `handed` > 0, and a same-spot 
 - The end-of-load GPU burst (mod ~2x GPU ms per frame on pc2): GPUProf over the last 10 s of a load, mod vs stock.
 - If first-ever sights still matter after PJH: option (c) as an opt-in, or ship a key-only seed list (no game bytes) so the
   prewarm can build PSOs from the game's own shader groups on a fresh install.
+
+### load-end burst (analysis 2026-10-09, pc2 0020 stock vs 0036 mod 1.7.44)
+
+- ini_used vs stock: config.xml identical; no OptiScaler in either (system dxgi). Active mod pieces at loads: W1/W2/W3/R1/L1/WK/WL/TS/VRR,
+  SPR, CpuStats, GpuOpt hooks. GpuOpt Barriers = 0 (no batching), PJ = 0 (no prewarm), FG off, VrrPresent = 0: none add GPU work.
+  Mod log: 0 PSO creates in loads ("PSO gfx 0 rt"), so no prewarm/compile on the GPU queue.
+- PresentMon (UTC-7h = log time): the burst is a monotonic ramp of GPU time per frame over the LAST ~6 s of loads > 20 s
+  (mod #1 17:37:55-38:01: 43 -> 58 -> 83 -> 96 -> 107 -> 117 ms, GPUBusy ~= FrameTime), ends when the stage goes live; the 6 s load
+  (#3) has none. Stock has only ONE comparable load in 0020 (17:32:07-10: 50 -> 66 -> 89 -> 102 ms, still rising when it ends).
+  So the "stock 55-80 vs mod 100-130" comparison rests on one stock sample cut short; peak is ~102 vs 107-117 (~15 %, not 2x).
+- Likeliest reading: the game renders a growing scene under the loading screen; the mod's faster loads (L1/WK/W1/W2, loader cap
+  10) get the scene fully populated before the end, so the ramp lasts longer. No mod component found that adds GPU work.
+  Overlay/OSD draw on the game's DIRECT queue and loose GHDM shaders are the only untested GPU-side differences.
+- Not changed in code. Bisect queued on the bridge (S / M0 / M1 overlay off / M2 loose shaders off, >=3 loads each).
