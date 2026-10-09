@@ -17,6 +17,12 @@
            bridge game lock (holder 'pc'), backups of config.xml / mod ini / ASI / save folder (SHA-256 manifest) / every touched
            shader file, ALWAYS restored and verified (Restore-All, also on guard abort). Refuses while Nioh3, run8 (pc_retest_run8 /
            abba2_pc / run_tour) or a live measuring lock is active; -WaitRun8 waits for them instead (max -WaitMaxMin).
+  Phase U  (-Phases U; notes\gpu-unattributed.md) where the GP2 stamped span goes that the per-PSO table does not attribute. One launch
+           via run_tour: list = the single mission -UStage (default 7292 Mirage Fortress spawn, the heaviest GPU-bound point of Phase A),
+           -Points 1 (spawn only), -UPasses 5 passes x -UDwell 30 s = the same spawn view re-loaded 5 times = 5 GP windows. GPUProf2_AB = 1
+           with SampleEvery = 1: windows 1/3/5 stamp every frame, windows 2/4 stamp nothing (GP2 off on the GPU, PresentMon only) = ABABA
+           overhead A/B in one launch; GQ = 1 (DIRECT gap census: gaps / heads / tails / unmeasured lists). Decode:
+           re\scripts_gpu\gpu_unattr.py -> <session>\U_unattr.txt (idle by cause, unmeasured work by category, profiler overhead).
   -DryRun  no game, no Steam, no lock, no real file changes: temp game/save folders, fake shader table, run_tour -DryRun (fake game),
            fake Phase B launches (pc_gpu_report.py fake-launch) -> the whole wrapper + report path. Read-only checks of the REAL
            replacement files, game shader states, config source and ASI build are printed. Ends with 'DryRun OK'.
@@ -30,7 +36,8 @@ param(
     [string]$UserConfig = "",
     [switch]$KeepFG,
     [string]$TourList = "main", [int]$TourPoints = 3, [int]$TourDwell = 12,
-    [int]$SettleSec = 45, [int]$WindowSec = 20, [int]$Windows = 3, [int]$MinDraws = 1000,
+    [int]$SettleSec = 45, [int]$WindowSec = 20, [int]$Windows = 3, [int]$MinDraws = 1000, [int]$GP2MinRun = 4,
+    [string]$UStage = "7292", [int]$UPasses = 5, [int]$UDwell = 30,
     [switch]$NoShots, [switch]$WaitRun8, [int]$WaitMaxMin = 240,
     [int]$OwnerPid = 0, [int]$MaxMinutes = 300, [switch]$DryRun
 )
@@ -226,7 +233,7 @@ $BaseIniSrc = if (Test-Path (Join-Path $GameDir "Nioh3EngineFix.ini.preboss.bak"
 function Write-ArmIni([string]$arm) {
     $lines = [IO.File]::ReadAllLines($BaseIniSrc)
     $keys = @("General.AutoContinueLoad=1", "Debug.VirtualPad=1", "Debug.KeepRunningUnfocused=1", "VRR.MaxFps=240",
-              "Profiler.GPUProf=2", "Profiler.GPUProf2_SampleEvery=8", "Profiler.GPUProf2_Top=100", "Profiler.GPUProf2_MinRun=4", "Profiler.GPUProf2_AB=0",
+              "Profiler.GPUProf=2", "Profiler.GPUProf2_SampleEvery=8", "Profiler.GPUProf2_Top=100", "Profiler.GPUProf2_MinRun=$GP2MinRun", "Profiler.GPUProf2_AB=0",
               "Profiler.SP=0", "Patches.AS0=0", "Patches.GIMerge=0")
     if ($AsiItems.ContainsKey($arm)) { $keys += @($AsiItems[$arm] -split ";") }
     foreach ($kv in $keys) { if ($kv -match '^([^.=]+)\.([^=]+)=(.*)$') { $lines = Set-IniValue $lines $Matches[1] $Matches[2] $Matches[3] } }
@@ -425,7 +432,7 @@ try {
     if ($Phases -contains "A") {
         Install-Config
         if (-not $DryRun) { $qw = Wait-Quiet "phase A" { param($l) L $l } }
-        $gk = "Profiler.GPUProf=2;Profiler.GPUProf2_SampleEvery=8;Profiler.GPUProf2_Top=100;Profiler.GPUProf2_MinRun=4;Profiler.GPUProf2_AB=0;Profiler.GPUProf_Top=60;Profiler.SP=0"
+        $gk = "Profiler.GPUProf=2;Profiler.GPUProf2_SampleEvery=8;Profiler.GPUProf2_Top=100;Profiler.GPUProf2_MinRun=$GP2MinRun;Profiler.GPUProf2_AB=0;Profiler.GPUProf_Top=60;Profiler.SP=0"
         $ta = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $ws "tools\tour\pc2_run_tour.ps1"), "-Input", "vpad", "-List", $TourList,
                 "-Points", "$TourPoints", "-DwellSec", "$TourDwell", "-NoProfile", "-NoPause", "-CaptureRoot", (Join-Path $sess "A"), "-ExtraKeys", $gk,
                 "-OwnerPid", "$PID", "-MaxMinutes", "90")
@@ -447,6 +454,39 @@ try {
         $hl = @($txt -split "`n" | Where-Object { $_ -match "gameplay windows" } | Select-Object -First 1)
         $script:summary["A"] = "tour $(if ($vd.Success) { $vd.Groups[1].Value } else { '?' }); budget $bud$(if ($hl.Count) { ' - ' + $hl[0].Trim() } else { ' - no gameplay GP2 windows' + $(if ($DryRun) { ' (dry run: fake log)' }) })"
         L "Phase A: $($script:summary['A'])"
+    }
+
+    # ---- Phase U: unattributed GPU time (one launch, ABABA stamps ON/OFF at one re-loaded spawn, GQ on) ----
+    if ($Phases -contains "U") {
+        Install-Config
+        if (-not $DryRun) { $qw = Wait-Quiet "phase U" { param($l) L $l } }
+        $ul = Join-Path $sess "U_tourlist.txt"
+        Set-Content $ul "$UStage   # gpu-unattributed.md: one GPU-bound spawn, re-loaded every pass (window 2 and 4 = stamps OFF)" -Encoding ASCII
+        $gk = "Profiler.GPUProf=2;Profiler.GPUProf2_SampleEvery=1;Profiler.GPUProf2_AB=1;Profiler.GPUProf2_Top=100;Profiler.GPUProf2_MinRun=$GP2MinRun;" +
+              "Profiler.GQ=1;Profiler.GQ_Top=20;Profiler.GPUProf_Top=60;Profiler.SP=0"
+        $ta = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $ws "tools\tour\pc2_run_tour.ps1"), "-Input", "vpad", "-List", $ul,
+                "-Points", "1", "-DwellSec", "$UDwell", "-Passes", "$UPasses", "-NoProfile", "-NoPause", "-CaptureRoot", (Join-Path $sess "U"),
+                "-ExtraKeys", $gk, "-OwnerPid", "$PID", "-MaxMinutes", "45")
+        if ($DryRun) { $ta += "-DryRun" } else { $ta += "-NoLock" }
+        L "Phase U: run_tour (mission $UStage spawn, $UPasses passes x $UDwell s, GP2 A/B every frame + GQ)"
+        Set-TestStatus "Phase U: unattributed GPU time"
+        $o = Run-Native powershell $ta
+        Set-Content (Join-Path $sess "U_console.txt") $o -Encoding UTF8
+        $vd = [regex]::Match($o, "verdict: ([\w-]+)"); $cm = [regex]::Match($o, "capture folder: (.+)")
+        $ut = Join-Path $sess "U_unattr.txt"; $txt = ""; $unPy = Join-Path $ws "re\scripts_gpu\gpu_unattr.py"
+        if ($cm.Success) {
+            $cap = $cm.Groups[1].Value.Trim(); $pmc = Join-Path $cap "presentmon.csv"
+            foreach ($lg in @(Get-ChildItem (Join-Path $cap "logs") -Filter "run*.log" -ErrorAction SilentlyContinue | Sort-Object Name)) {
+                $ua = @("-I", $unPy, $lg.FullName, "--windows")
+                if (Test-Path $pmc) { $ua += @("--pm", $pmc) }
+                $txt += "==== $($lg.Name): gpu_unattr ====`n" + (Run-Native py $ua)
+            }
+        }
+        Set-Content $ut $txt -Encoding UTF8
+        $hl = @($txt -split "`n" | Where-Object { $_ -match "^(bridge:|A/B \(stamps)" } | Select-Object -First 2)
+        $script:summary["U"] = "tour $(if ($vd.Success) { $vd.Groups[1].Value } else { '?' }); $ut$(if ($hl.Count) { ' - ' + (($hl | ForEach-Object { $_.Trim() }) -join ' | ') } else { ' - no GP2 windows decoded' })"
+        L "Phase U: $($script:summary['U'])"
+        Send-Bridge "[RESULT] pc2 Phase U (gpu-unattributed.md) done: $($script:summary['U']). Post U_unattr.txt + the U capture folder (logs\run01.log, presentmon.csv) as one zip."
     }
 
     # ---- Phase B: launch A/B per item ----
