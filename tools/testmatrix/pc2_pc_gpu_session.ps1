@@ -234,18 +234,25 @@ function Write-ArmIni([string]$arm) {
 }
 
 # ---- game control ------------------------------------------------------------------------------------------------------------------
+# Only the games THIS session launched (pid + start time recorded by Register-Game in the guard) - never every Nioh3 by name, and nothing
+# in -DryRun. run8b (2026-10-09): a -DryRun of this script ended at 00:55:39 and its Restore-All closed the game that run8b Block A had
+# launched 34 s earlier (A then aborted 'game dead/hung before L1_BASE_s1'; notes\run8b-analysis.md).
+function Own-Games {
+    if ($DryRun -or -not $global:HG) { return @() }
+    @(foreach ($g in @($global:HG.games)) { $p = Get-Process -Id $g.pid -ErrorAction SilentlyContinue; if ($p) { try { if ($p.StartTime.ToString("o") -eq $g.start) { $p } } catch {} } })
+}
 function Close-Game {
-    $g = @(Get-Process Nioh3 -ErrorAction SilentlyContinue)
+    $g = @(Own-Games)
     if (-not $g.Count) { return }
     Note-Closed
     foreach ($p in $g) { try { $null = $p.CloseMainWindow() } catch {} }
-    for ($i = 0; $i -lt 25 -and (Get-Process Nioh3 -ErrorAction SilentlyContinue); $i++) { & $script:RealSleep -Seconds 2 }
-    Get-Process Nioh3 -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.Id -Force } catch {} }
+    for ($i = 0; $i -lt 25 -and @(Own-Games).Count; $i++) { & $script:RealSleep -Seconds 2 }
+    Own-Games | ForEach-Object { try { Stop-Process -Id $_.Id -Force } catch {} }
     & $script:RealSleep -Seconds 4
 }
 function Stop-Pm {
     if ($script:pm -and -not $script:pm.HasExited) {
-        & $PmExe --terminate_existing_session --session_name Nioh3GpuAB 2>$null | Out-Null; & $script:RealSleep -Seconds 2
+        try { Start-Process $PmExe -ArgumentList "--terminate_existing_session --session_name Nioh3GpuAB" -WindowStyle Hidden -Wait } catch {}; & $script:RealSleep -Seconds 2
         try { Stop-Process -Id $script:pm.Id -Force -ErrorAction SilentlyContinue } catch {}
     }
     $script:pm = $null

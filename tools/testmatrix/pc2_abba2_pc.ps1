@@ -24,7 +24,12 @@ param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Qu
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
       [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30,
       [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui", [string[]]$Arms = @(), [int]$MaxFps = 0,
-      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0, [string]$BaseIniFile = "", [int]$Affinity = 0)   # -Affinity N: weak-CPU simulation, Nioh3 process pinned to N logical CPUs (distinct cores first)
+      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0, [string]$BaseIniFile = "", [int]$Affinity = 0, [switch]$NoForceRefresh)
+# run8b (2026-10-09, notes\run8b-analysis.md): the desktop fell to 60 Hz (second monitor unplugged) and Block C measured 60.00 fps
+#   everywhere ('vrr tier 60 cap 60'). Before the first launch the game display must run >= max(120, -MaxFps) Hz (raised for the run
+#   unless -NoForceRefresh, old mode put back at the end), and before every window the mod's 'vrr tier T cap C' must read
+#   tier >= 120 and cap >= that number - otherwise HARNESS-ABORT with the reason. A dead game logs why (exit code, other harnesses
+#   that ended meanwhile, newest dumps) and the game log is kept as abort_game.log.   # -Affinity N: weak-CPU simulation, Nioh3 process pinned to N logical CPUs (distinct cores first)
 # run7 (2026-10-08, notes\run7-analysis.md):
 #   -SrcRoot <checkout/worktree> = the tree the installed ASI was built from (e.g. D:\nioh3-wt\integ for 1.7.40 BPO): menu rows
 #   come from its mod\...\menu.cpp and live-item install values from its tools\testmatrix\matrix.json (default: this repo).
@@ -55,7 +60,8 @@ $out = "$ws\captures\tm\abba2\$RunName"; New-Item -ItemType Directory -Force $ou
 $uoBridge = "C:\Users\User\projects\universal-optimizer\agent-bridge"
 $env:UO_BRIDGE_TOKEN_FILE = "$env:APPDATA\uo-bridge\token"; $env:UO_AGENT_ID = "pc2"
 $cfgBak = "$cfg.abba2.bak"
-$script:gamePid = 0
+$script:gamePid = 0; $script:gameProc = $null; $script:launchT = Get-Date
+$NeedHz = [Math]::Max(120, $MaxFps)   # display refresh and in-game cap this run needs (tier 120; -MaxFps lifts the cap above it)
 $trace = "$out\trace.txt"
 . "$here\harness_guard.ps1"
 . "$here\vpad.ps1"
@@ -82,8 +88,12 @@ function Set-TestCfg {   # back up the game's config.xml once, then the test con
         if ($n -notmatch "<$($kv[0])>$($kv[1])</$($kv[0])>") { throw "config.xml has no $($kv[0])" }
     }
     [IO.File]::WriteAllText($cfg, $n, (New-Object Text.UTF8Encoding($false)))
+    $g = @{}; foreach ($k in "REN_FPS", "VSYNC", "DISP_MODE", "MONITOR_ID", "SCR_REZ", "DYNAMIC_FPS") { $g[$k] = if ($n -match "<$k>([^<]*)<") { $Matches[1] } else { "?" } }
+    T ("config.xml: " + (($g.Keys | Sort-Object | ForEach-Object { "$_=$($g[$_])" }) -join " "))
+    if ($g.REN_FPS -match '^\d+$' -and [int]$g.REN_FPS -lt 120) { throw "HARNESS-ABORT: config.xml REN_FPS $($g.REN_FPS) < 120: the game would cap below the 120 tier - refusing to measure" }
 }
 function Restore-All {
+    Restore-DisplayRefresh { param($m) T $m }
     if (Test-Path $cfgBak) { Copy-Item $cfgBak $cfg -Force; Remove-Item $cfgBak -Force; T "config.xml restored" }
     if (Test-Path $baseIni) { Copy-Item $baseIni $ini -Force; T "ini restored from preboss.bak" }
 }
@@ -137,7 +147,7 @@ function Start-Play-Vpad {   # -Input vpad: no clicks, no focus, no idle wait
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
     if (-not $p) { Note-Crash "no game window after launch"; return $false }
-    $script:gamePid = $p.Id; Register-Game; if ($Affinity -gt 0) { Set-WeakAffinity $Affinity { param($m) T $m } }
+    $script:gamePid = $p.Id; $script:gameProc = $p; $null = $p.Handle; $script:launchT = $t0; Register-Game;   # Handle kept open: ExitCode stays readable if ($Affinity -gt 0) { Set-WeakAffinity $Affinity { param($m) T $m } }
     Start-Sleep 3; VP-GiveBackFocus $before   # the new game window took the foreground once: hand it back to the user
     if (-not (VP-WaitPipe 180)) { T "!! no VirtualPad pipe (is the ASI >= 1.7.37 installed?)"; return $false }
     T "vpad: $((VP ping).reply)"
@@ -158,7 +168,7 @@ function Start-Play {
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
     if (-not $p) { Note-Crash "no game window after launch"; return $false }
-    $script:gamePid = $p.Id; Register-Game; if ($Affinity -gt 0) { Set-WeakAffinity $Affinity { param($m) T $m } }
+    $script:gamePid = $p.Id; $script:gameProc = $p; $null = $p.Handle; $script:launchT = $t0; Register-Game;   # Handle kept open: ExitCode stays readable if ($Affinity -gt 0) { Set-WeakAffinity $Affinity { param($m) T $m } }
     Start-Sleep 25
     UI focus Nioh3; UI click 1280 887; Start-Sleep 22
     UI focus Nioh3; UI click 1280 1170; Start-Sleep 7
@@ -171,8 +181,28 @@ function Start-Play {
 }
 function Game-Alive {
     $p = if ($script:gamePid) { Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue } else { $null }
-    if (-not $p -or $p.HasExited -or -not $p.Responding) { return $false }
-    return (((Get-Date) - (Get-Item $logf).LastWriteTime).TotalSeconds -lt 45)
+    if (-not $p -or $p.HasExited) {
+        $ec = try { if ($script:gameProc -and $script:gameProc.HasExited) { "exit code 0x{0:X8} at {1:HH:mm:ss}" -f $script:gameProc.ExitCode, $script:gameProc.ExitTime } else { "exit code unknown" } } catch { "exit code unreadable" }
+        T "Game-Alive: process gone (pid $script:gamePid, $ec)"; return $false
+    }
+    if (-not $p.Responding) { T "Game-Alive: process not responding (pid $script:gamePid)"; return $false }
+    $age = ((Get-Date) - (Get-Item $logf).LastWriteTime).TotalSeconds
+    if ($age -ge 45) { T "Game-Alive: log stale for $([int]$age) s ($logf)"; return $false }
+    return $true
+}
+function Assert-NotCapped([string]$where) {   # the mod's 30 s stats line: 'vrr tier T cap C armed A' (last one in the log)
+    $v = Get-VrrCap (Log-From ([Math]::Max(0, (Log-Len) - 65536)))
+    if (-not $v) { T "!! cap check ($where): no 'vrr tier' stats line in the log yet"; return $null }
+    if ($v.tier -lt 120 -or $v.cap -lt $NeedHz) {
+        throw "HARNESS-ABORT: game capped at $($v.cap) fps (vrr tier $($v.tier), armed $($v.armed)) < $NeedHz needed ($where) - refusing to measure. Display now: $(Format-DisplayModes)"
+    }
+    return $v
+}
+function Dead-Report {   # why the game is gone: kept log tail, other harnesses active since the launch, newest dumps
+    try { Copy-Item $logf "$out\abort_game.log" -Force; T "game log kept: $out\abort_game.log; last lines:"; Get-Content $logf -Tail 4 | ForEach-Object { T "   | $_" } } catch {}
+    $fa = @(Get-ForeignGuardActivity $script:launchT); if ($fa.Count) { T "other harnesses active since the launch ($($script:launchT.ToString('HH:mm:ss'))): $($fa -join '; ')" }
+    $d = @(Get-ChildItem "$env:LOCALAPPDATA\KoeiTecmo\NIOH3\dump", "$env:LOCALAPPDATA\CrashDumps" -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $script:launchT })
+    T "crash dumps since the launch: $(if ($d.Count) { ($d | ForEach-Object { $_.FullName }) -join ', ' } else { 'none' })"
 }
 function Log-Len { (Get-Item $logf).Length }
 function Log-From([long]$off) { $fs = [IO.File]::Open($logf, "Open", "Read", "ReadWrite"); try { $null = $fs.Seek($off, "Begin"); (New-Object IO.StreamReader($fs)).ReadToEnd() } finally { $fs.Dispose() } }
@@ -193,16 +223,18 @@ function Boot-Info {   # version + DQ/P1E7 install lines from the first part of 
 }
 function Manifest([hashtable]$h) { Add-Content "$out\manifest.jsonl" ($h | ConvertTo-Json -Compress) }
 function Window([string]$name, [hashtable]$meta) {   # a window with user input or without Nioh3 in front is discarded + repeated
+    $pmRedo = 0
     $nz = 0   # noisy redos (quiet-machine guard), counted apart from the focus/input discards
     for ($rep = 0; $rep -lt 4; ) {
         if (-not (Game-Alive)) { throw "HARNESS-ABORT: game dead/hung before $name" }
+        $null = Assert-NotCapped "before $name"
         Mem-Guard
         Assert-Focus "before window $name"
         $qw = 0
         if ($QuietGuard) { Set-TestStatus "waiting for a quiet machine ($name)"; $qw = Wait-Quiet $name { param($l) T $l } }
         Set-MeasureLock "measuring window $name"
         $csv = "$out\$name.csv"; $off = Log-Len; $w0 = Get-Date; Set-TestStatus "measuring window $name"
-        $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
+        $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --session_name Nioh3Abba2 --stop_existing_session --no_console_stats"   # own session name: a foreign PresentMon --stop_existing_session on the default name cannot kill it (run8b: 6 of 15 csvs missing/truncated)
         Register-Child $pm "PresentMon"
         $smp = @(); $end = $w0.AddSeconds($WindowSec + 1)
         if ($QuietGuard) {   # ~2 s foreign-CPU samples for the whole window (our tree + PresentMon + Nioh3 excluded)
@@ -210,6 +242,12 @@ function Window([string]$name, [hashtable]$meta) {   # a window with user input 
             while (($left = ($end - (Get-Date)).TotalSeconds) -gt 0.3) { $smp += Measure-Foreign ([Math]::Min(2.0, $left)) $ex }
         } else { Start-Sleep ($WindowSec + 1) }
         $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
+        $csvLines = if (Test-Path $csv) { @(Get-Content $csv -TotalCount 40).Count } else { 0 }
+        if ($csvLines -lt 40 -and $pmRedo -lt 2) {   # PresentMon wrote nothing / was cut off (run8b): repeat the window instead of recording NO DATA
+            $pmRedo++; T "!! window ${name}: PresentMon csv missing/truncated ($csvLines lines) - redo $pmRedo/2"
+            if (Test-Path $csv) { Move-Item $csv "$out\${name}_pmfail$pmRedo.csv" -Force -ErrorAction SilentlyContinue }
+            continue
+        }
         $fgEnd = Fg-Name; $idle = Idle-Sec; $span = ((Get-Date) - $w0).TotalSeconds
         $bad = @($smp | Where-Object { $_.noisy }); $fmax = 0.0; foreach ($x in $smp) { if ($x.cores -gt $fmax) { $fmax = $x.cores } }
         $worst = $smp | Sort-Object cores -Descending | Select-Object -First 1
@@ -329,6 +367,8 @@ if ($DryRun) {
     $da = if ($Arms.Count) { $Arms } elseif ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
     "  quiet guard: " + $(if ($QuietGuard) { $m = Measure-Foreign 2.0; "on (max {0} cores, heavy {1} cores, redo {2}); now foreign {3:N2} cores [{4}] -> {5}" -f (QG-MaxCores), (QG-HeavyCores), $MaxNoisyRedo, $m.cores, $m.top, $(if ($m.noisy) { "NOISY" } else { "quiet" }) } else { "off" })
     "  lock file: $script:MeasureLock (now: $(if (Test-MeasureLock) { 'held by pid ' + (Test-MeasureLock).pid } else { 'free' }))"
+    $dok = Ensure-DisplayRefresh $NeedHz { param($m) Write-Host "  $m" } -NoForce
+    "  display check (read-only): " + $(if ($dok) { "OK (>= $NeedHz Hz)" } else { "a real run would $(if ($NoForceRefresh) { 'REFUSE' } else { 'raise the refresh for the run' }): $script:DisplayWhy" })
     "  arms: " + (($da | ForEach-Object -Begin { $n = 0 } -Process { $n++; "L$n $_" + $(if ($n -eq 1) { "(+live $($Live -join ','))" } else { "" }) }) -join " ") + $(if ($MaxFps -gt 0) { "  [VRR] MaxFps $MaxFps" } else { "" })
     Remove-Item $out -Recurse -Force
     return
@@ -342,6 +382,7 @@ $LaunchFlags = @($LaunchFlags | Where-Object { $_ -and $_ -ne "none" }); $Live =
 $arms = if ($Arms.Count) { $Arms } elseif ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
 try {
     Set-TestCfg
+    if (-not (Ensure-DisplayRefresh $NeedHz { param($m) T $m } -NoForce:$NoForceRefresh)) { throw "HARNESS-ABORT: refusing to measure: $script:DisplayWhy" }
     $L = 0
     foreach ($arm in $arms) {
         $L++; Renew
@@ -356,9 +397,10 @@ try {
                 if ($rs -and $rs -ne $script:bootState[$i]) { T "!! $i boots $rs (ini expectation $($script:bootState[$i]))"; $script:bootState[$i] = $rs }
                 if ($script:bootState[$i] -eq "ON") { if (Toggle $i "OFF") { $script:bootState[$i] = "OFF" } else { T "!! $i stays ON for the BASE windows" } }
             }
-            T "L1 live boot state: " + (($Live | ForEach-Object { "$_ $($script:bootState[$_])" }) -join ", ")
+            T ("L1 live boot state: " + (($Live | ForEach-Object { "$_ $($script:bootState[$_])" }) -join ", "))
         }
         T "L$L warm-up 60 s (no input)"; Start-Sleep 60
+        $vc = Assert-NotCapped "L$L after warm-up"; if ($vc) { T "L$L cap check OK: vrr tier $($vc.tier) cap $($vc.cap) (need >= $NeedHz)" }
         for ($s = 1; $s -le 3; $s++) {
             Window "L${L}_${arm}_s$s" @{ kind = "launch"; launch = $L; arm = $arm; state = $(if ($arm -eq "BASE") { "off" } else { "on" }); boot_dq = $bi.dq; boot_p1e7 = $bi.p1e7; boot_ma = $bi.ma; ver = $bi.ver }
         }
@@ -390,6 +432,7 @@ try {
     }
 } catch {
     T "harness aborted: $($_.Exception.Message)"
+    if ($_.Exception.Message -match 'dead/hung') { Dead-Report }
 } finally {
     Close-GameClean
     Restore-All

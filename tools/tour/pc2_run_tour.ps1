@@ -149,7 +149,7 @@ function Finish-Run {
     try { Stop-TestPopup } catch {}
     try { Close-TourGame } catch {}
     try { Save-ModLog } catch {}
-    if ($script:pm -and -not $script:pm.HasExited) { & $PmExe --terminate_existing_session --session_name "Nioh3Tour" 2>$null | Out-Null; & $script:RealSleep -Seconds 2; try { Stop-Process -Id $script:pm.Id -Force -ErrorAction SilentlyContinue } catch {} }
+    if ($script:pm -and -not $script:pm.HasExited) { try { Start-Process $PmExe -ArgumentList "--terminate_existing_session --session_name Nioh3Tour" -WindowStyle Hidden -Wait } catch {}; & $script:RealSleep -Seconds 2; try { Stop-Process -Id $script:pm.Id -Force -ErrorAction SilentlyContinue } catch {} }
     if (Test-Path $progress) { Copy-Item $progress (Join-Path $cap "progress.txt") -Force }
     # ---- save: compare, restore, verify ----
     if ($script:saveBacked) {
