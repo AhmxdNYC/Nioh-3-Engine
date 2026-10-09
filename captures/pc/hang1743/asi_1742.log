@@ -1,0 +1,148 @@
+[00:50:53.485] Nioh3EngineFix 1.7.42 (built Oct  9 2026) - native port of the live-tested Nioh 3 engine patches
+[00:50:53.485] OS: native Windows; ini keys set to -1 (auto) resolve by OS - none are -1 in this ini
+[00:50:53.485] Nioh3.exe at 00007FF783680000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[00:50:53.688] code is decrypted (187 ms after start)
+[00:50:53.688] resolving sites:
+[00:50:53.695]   W1   OK at RVA 61BAC
+[00:50:53.698]   W2a  OK at RVA 13721F
+[00:50:53.709]   W2b  OK at RVA 137269
+[00:50:53.719]   W2c  OK at RVA 1372B4
+[00:50:53.727]   W2d  OK at RVA 1372FE
+[00:50:53.738]   P3a  OK at RVA 43593A
+[00:50:53.752]   P3b  OK at RVA 437EE5
+[00:50:53.762]   P3c  OK at RVA 438473
+[00:50:53.771]   P3d  OK at RVA 55DC56
+[00:50:53.782]   P3e  OK at RVA 5AF6C9
+[00:50:53.792]   P3f  OK at RVA 29770C6
+[00:50:53.802]   P3g  OK at RVA 29771B4
+[00:50:53.810]   P6   OK at RVA 1975BAA
+[00:50:53.826]   P8a  OK at RVA 20E77B
+[00:50:53.838]   P8b  OK at RVA 5AF526
+[00:50:53.855]   P8c  OK at RVA 5AF682
+[00:50:53.872]   P8d  OK at RVA 5AF69F
+[00:50:53.882]   P9   OK at RVA 5AD89B
+[00:50:53.895]   P2   OK at RVA 5AD6AA
+[00:50:53.908]   P4   OK at RVA 5AD860
+[00:50:53.921]   P1   OK at RVA 5AD677
+[00:50:53.936]   W3   OK at RVA 1A6BF2D
+[00:50:53.946]   R1   OK at RVA 4A5346
+[00:50:53.963]   R1j  OK at RVA 4A5357
+[00:50:53.986]   L1   OK at RVA 19DF57E
+[00:50:54.002]   F1   OK at RVA 3777A40
+[00:50:54.011]   WK   OK at RVA 40A4C
+[00:50:54.021]   B    OK at RVA 3BC17
+[00:50:54.045]   PP   OK at RVA 252677
+[00:50:54.052]   AABB OK at RVA 6EA50
+[00:50:54.075]   W6   OK at RVA 7D9EA2
+[00:50:54.090]   W6W  OK at RVA 1A822D9
+[00:50:54.111]   GF1  OK at RVA 7D9E66
+[00:50:54.131]   GF2  OK at RVA 117D9F
+[00:50:54.144]   WL   OK at RVA 4A5338
+[00:50:54.157]   CP   OK at RVA D8180
+[00:50:54.172]   DL   OK at RVA D83F4
+[00:50:54.179]   MQ   OK at RVA 88780
+[00:50:54.199]   PT1a OK at RVA 114CA8
+[00:50:54.216]   PT1r OK at RVA 114CEE
+[00:50:54.226]   PT1b OK at RVA 129651
+[00:50:54.235]   PT1c OK at RVA 12982E
+[00:50:54.242]   PT1d OK at RVA 1298B3
+[00:50:54.248]   BPOQA OK at RVA 71EFE
+[00:50:54.254]   BPOQB OK at RVA 72053
+[00:50:54.266]   BPOL1 OK at RVA 71DB2
+[00:50:54.277]   BPOL2 OK at RVA 1A7AE0
+[00:50:54.302]   BPOV1 OK at RVA 72310
+[00:50:54.327]   BPOV2 OK at RVA 7231C
+[00:50:54.352]   BPOV3 OK at RVA 72346
+[00:50:54.378]   BPOV4 OK at RVA 7250B
+[00:50:54.403]   BPOV5 OK at RVA 72519
+[00:50:54.418]   BPOV6 OK at RVA 72546
+[00:50:54.418] near page at 00007FF783670000
+[00:50:54.448]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[00:50:54.448] W1: applied (1 site(s), 1 attempt(s))
+[00:50:54.478]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[00:50:54.478] W2a: applied (1 site(s), 1 attempt(s))
+[00:50:54.508]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[00:50:54.508] W2b: applied (1 site(s), 1 attempt(s))
+[00:50:54.540]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[00:50:54.540] W2c: applied (1 site(s), 1 attempt(s))
+[00:50:54.574]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[00:50:54.574] W2d: applied (1 site(s), 1 attempt(s))
+[00:50:54.574] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[00:50:54.574] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[00:50:54.574] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[00:50:54.624]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[00:50:54.624]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[00:50:54.624]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[00:50:54.624]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[00:50:54.624]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[00:50:54.624]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[00:50:54.624]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[00:50:54.624]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[00:50:54.624]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[00:50:54.624]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[00:50:54.624]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[00:50:54.624]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[00:50:54.624]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[00:50:54.624]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[00:50:54.624]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[00:50:54.624]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[00:50:54.624] VRR: applied (16 site(s), 1 attempt(s))
+[00:50:54.669]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[00:50:54.669] W3: applied (1 site(s), 1 attempt(s))
+[00:50:54.704]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[00:50:54.704]   R1j  RVA 4A5357   patched: 75 ED 
+[00:50:54.704] R1: applied (2 site(s), 1 attempt(s))
+[00:50:54.745]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[00:50:54.745] L1: applied (1 site(s), 1 attempt(s))
+[00:50:54.781]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[00:50:54.781] F1: applied (1 site(s), 1 attempt(s))
+[00:50:54.821]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[00:50:54.821] WK: applied (1 site(s), 1 attempt(s))
+[00:50:54.868]   W6   RVA 7D9EA2   patched: E8 B9 62 81 FF 0F 1F 00 
+[00:50:54.868] W6: applied (1 site(s), 1 attempt(s))
+[00:50:54.916]   W6W  RVA 1A822D9  patched: E8 92 DE 56 FE 66 90 
+[00:50:54.916] W6W: applied (1 site(s), 1 attempt(s))
+[00:50:54.916] W6: hybrid present wait on (spin 50 us, then WaitOnAddress, 1 ms timeout); waker at the Present thread's flag clear installed
+[00:50:54.956]   B    RVA 3BC17    patched: E9 C4 44 FB FF 
+[00:50:54.956] B: applied (1 site(s), 1 attempt(s))
+[00:50:55.001]   PP   RVA 252677   patched: E8 74 DA D9 FF 
+[00:50:55.001] PP: applied (1 site(s), 1 attempt(s))
+[00:50:55.069]   AABB RVA 6EA50    patched: E9 BB 16 F8 FF 
+[00:50:55.069] AABB: applied (1 site(s), 1 attempt(s))
+[00:50:55.069] AABB: SSE character AABB cave installed, switch off
+[00:50:55.129]   GF1  RVA 7D9E66   patched: E8 05 64 81 FF 0F 1F 00 
+[00:50:55.129]   GF2  RVA 117D9F   patched: E8 DC 84 ED FF 0F 1F 00 
+[00:50:55.129] GF: applied (2 site(s), 1 attempt(s))
+[00:50:55.129] GF: GPU-fence waits use SetEventOnCompletion + an event wait (100 ms rounds) instead of Sleep(0)
+[00:50:55.218]   WL   RVA 4A5338   patched: E8 53 AF B4 FF 90 
+[00:50:55.218] WL: applied (1 site(s), 1 attempt(s))
+[00:50:55.275]   BPOQA RVA 71EFE    patched: E9 9D E4 F7 FF 90 
+[00:50:55.275]   BPOQB RVA 72053    patched: E9 58 E3 F7 FF 66 90 
+[00:50:55.275]   BPOL1 RVA 71DB2    patched: E9 09 E6 F7 FF 
+[00:50:55.275]   BPOL2 RVA 1A7AE0   patched: E9 EB 88 E4 FF 90 
+[00:50:55.275]   BPOV1 RVA 72310    patched: E8 CB E0 F7 FF 
+[00:50:55.275]   BPOV2 RVA 7231C    patched: E8 BF E0 F7 FF 
+[00:50:55.275]   BPOV3 RVA 72346    patched: E8 95 E0 F7 FF 
+[00:50:55.275]   BPOV4 RVA 7250B    patched: E8 D0 DE F7 FF 
+[00:50:55.275]   BPOV5 RVA 72519    patched: E8 C2 DE F7 FF 
+[00:50:55.275]   BPOV6 RVA 72546    patched: E8 95 DE F7 FF 
+[00:50:55.275] BPO: applied (10 site(s), 1 attempt(s))
+[00:50:55.275] BPO: BoundsFromPartObbs caves installed (quaternion memo yes with 16384 entries, plain ready loads yes, Vec4CopyW0 copy yes), switch off
+[00:50:55.318]   CP   RVA D8180    patched: E9 2B 81 F1 FF 66 90 
+[00:50:55.318]   DL   RVA D83F4    patched: E8 F7 7E F1 FF 
+[00:50:55.318] CP: applied (2 site(s), 1 attempt(s))
+[00:50:55.318] CP/SPF: worker prefetch caves installed: CP ON, SPF -
+[00:50:55.318] DL: dead first part-map lookup (D83F4, CP group) switch ON
+[00:50:55.360]   MQ   RVA 88780    patched: E9 7B 7B F6 FF 0F 1F 44 00 00 
+[00:50:55.360] MQ: applied (1 site(s), 1 attempt(s))
+[00:50:55.360] MQ: MatrixFromScaleQuatTrans SSE cave installed, switch ON
+[00:50:55.413]   PT1a RVA 114CA8   patched: E8 63 B6 ED FF 90 
+[00:50:55.413]   PT1r RVA 114CEE   patched: E8 2D B6 ED FF 90 
+[00:50:55.413]   PT1b RVA 129651   patched: E9 DA 6C EC FF 66 90 
+[00:50:55.413]   PT1c RVA 12982E   patched: E9 0D 6B EC FF 66 90 
+[00:50:55.413]   PT1d RVA 1298B3   patched: E9 98 6A EC FF 0F 1F 44 00 00 
+[00:50:55.413] PT1: applied (5 site(s), 1 attempt(s))
+[00:50:55.413] PT1: pool lock held once per texture in TextureStreamRequestTiles, switch ON
+[00:50:55.413] TG: tick governor available (switch off, floor 30 ticks/s, ratio 125 %)
+[00:50:55.413] VRR: VRROnline = -1 (auto) - suspended while an online session is detected
+[00:50:55.413] AutoContinue: installed (tip page confirm check 1CECAED), OFF (stock) - [General] AutoContinueLoad = 0; switch in the mod menu

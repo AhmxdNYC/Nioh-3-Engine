@@ -104,11 +104,18 @@ struct Write {
     uint8_t bytes[24];
     unsigned len;
 };
+// One Write per drawprep group (DQ, P1E7, W1B, RPA). FrozenWrite's saved-protection array is sized from this constant:
+// 1.7.42 grew Start's Write array to 4 while FrozenWrite kept `DWORD oldProt[2]`, so with three or four groups on
+// VirtualProtect wrote past it into the spilled `w` pointer ([rsp+38h] in the 1.7.42 build); the clash check then read
+// through that garbage pointer while every game thread was suspended: access violation in the frozen section = boot hang,
+// no window, 0 CPU (run8 Block A, all four groups on). tests\test_patterns.py checks the sizes.
+constexpr int kMaxWrites = 4;
 
 // Same scheme as dllmain.cpp ApplyBatch: all other threads suspended, none stopped strictly inside a site (a thread at
 // a site's first byte is at an instruction boundary in both encodings). No heap / CRT use while threads are suspended.
 bool FrozenWrite(Write* w, int n) {
-    DWORD oldProt[2] = {};
+    if (n < 0 || n > kMaxWrites) return false;
+    DWORD oldProt[kMaxWrites] = {};
     for (int i = 0; i < n; ++i)
         if (!VirtualProtect(w[i].at, w[i].len, PAGE_EXECUTE_READWRITE, &oldProt[i])) {
             for (int j = 0; j < i; ++j) { DWORD t; VirtualProtect(w[j].at, w[j].len, oldProt[j], &t); }
@@ -277,7 +284,7 @@ void Start(const StartInfo& info) {
     dp_p1e7_enable = pf == 1 ? 1u : 0u;
     dp_w1b_enable = w1b == 1 ? 1u : 0u;
     dp_rpa_enable = rpa == 1 ? 1u : 0u;
-    Write w[4];
+    Write w[kMaxWrites];
     int n = 0;
     bool ok = true;
     if (wantDq && !JmpBytes(w[n++], (uint8_t*)(b + kDqSite), g_page, 5)) ok = false;

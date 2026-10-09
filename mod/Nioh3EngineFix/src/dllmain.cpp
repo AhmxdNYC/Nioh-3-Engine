@@ -62,7 +62,8 @@
 // 1.7.41: the boss logger (BossLog / RematchLog / InvLog) and the boss rematch moved to the separate add-on Nioh3BossRematch.asi
 //         (mod\Nioh3BossRematch, notes\boss-rematch-addon.md): this ASI hooks no boss site any more; old ini keys are logged as moved
 // 1.7.42: W1B (glyph padding clear 61BAC plain stores) + RPA (RenderParamsAssign 247950 range copy), drawprep.cpp; notes\w1b-rpa.md
-#define MOD_VERSION "1.7.42"
+// 1.7.43: fix boot hang with 3-4 drawprep groups on (FrozenWrite oldProt[2] overrun by 1.7.42's 4 writes; drawprep.cpp)
+#define MOD_VERSION "1.7.43"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

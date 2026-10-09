@@ -484,6 +484,17 @@ def main():
     ents = [e.strip() for e in m.group(1).split(",") if e.strip()] if m else []
     m2 = re.search(r"kLastTarget = \(int\)gen::Target::(\w+)", (ROOT / "src" / "dllmain.cpp").read_text(encoding="utf-8"))
     check(bool(ents) and bool(m2) and m2.group(1) == ents[-1], "kLastTarget (%s) is not the last Target enum entry (%s)" % (m2 and m2.group(1), ents and ents[-1]))
+    # 1.7.43: drawprep FrozenWrite's saved-protection array must hold one entry per site write Start can queue (1.7.42 kept
+    # `DWORD oldProt[2]` beside `Write w[4]`: with 3-4 groups on, VirtualProtect overran it, the worker faulted with every
+    # game thread suspended and the game hung at boot). Every array of Writes / old protections is sized kMaxWrites, and
+    # Start queues at most kMaxWrites site writes.
+    dps = re.sub(r"//[^\n]*", "", (ROOT / "src" / "drawprep.cpp").read_text(encoding="utf-8"))
+    mx = re.search(r"constexpr int kMaxWrites = (\d+);", dps)
+    arrs = re.findall(r"\b(?:Write\s+\w+|DWORD\s+oldProt)\[([^\]]*)\]", dps)
+    queued = len(re.findall(r"JmpBytes\(w\[n\+\+\]", dps))
+    check(bool(mx) and len(arrs) >= 2 and all(a.strip() == "kMaxWrites" for a in arrs) and queued <= int(mx.group(1)),
+          "drawprep: Write / oldProt arrays %s must all be [kMaxWrites] (= %s) and Start's %d queued writes must fit"
+          % (arrs, mx and mx.group(1), queued))
     # 1.7.3: no branch may land inside the bytes a call-kind site overwrites (SPR: SPg, SPu); scanned over the +-0x400 window
     for st in doc["sites"]:
         if st.get("kind") != "call" or st.get("group") != "SPR":

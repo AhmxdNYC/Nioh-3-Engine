@@ -776,3 +776,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - BossLog "fight 26.8 s": BossBattleMode fires only after the mid-encounter cutscene + 5 s load that spawns 76781 (Enenra & Jakotsu-baba row); encounter started no later than 21:17:46. Encounter-window fix proposed for `mod\Nioh3BossRematch` (not edited).
 - `notes\user-settings.md` PC row 12 + top 5 updated with the measured mod-vs-stock numbers.
 - Undo: `git revert` of this commit.
+
+## 2026-10-09 - ASI 1.7.43 (main): fix boot hang with 3-4 drawprep groups on (run8 Block A)
+- Root cause: 1.7.42 grew drawprep `Start`'s `Write w[4]` (DQ, P1E7, W1B, RPA) but `FrozenWrite` kept `DWORD oldProt[2]`. With 3-4 groups set (run8 Block A: DQ,P1E7,W1B,RPA = 2) VirtualProtect wrote oldProt[2..3] over the spilled `w` pointer ([rsp+38h]); the clash check then read through it with every game thread suspended -> AV in the frozen section, process frozen: no window, ~3 s CPU, log ends at "AutoContinue: installed" (the next step is drawprep::Start, then the menu). Not menu.cpp; 1-2 groups (and the user's ini, no drawprep keys) were unaffected.
+- Fix (drawprep.cpp): `kMaxWrites = 4` sizes both arrays, FrozenWrite rejects n > kMaxWrites. Regression check in tests\test_patterns.py (fails on the 1.7.42 source): every drawprep Write / oldProt array must be [kMaxWrites] and Start's queued JmpBytes writes must fit.
+- Proof (guarded boots, Block A drawprep keys + user ini, logs `captures\pc\hang1743\`): 1.7.42 TIMEOUT 91 s, no window, cpu 3.5 s, log stops at AutoContinue (reproduced); 1.7.43 `MENU: ready` after 10 s with DQ/P1E7/W1B/RPA installed. test_patterns ALL 219 SITES OK, menu_map --selftest OK. User ini + ASI (pre1739.bak, sha256 dd8b5739...) restored and verified; game not left running.
+- Undo: `git revert` of this commit (reintroduces the hang with 3+ drawprep groups).
