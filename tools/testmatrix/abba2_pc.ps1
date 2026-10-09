@@ -24,7 +24,7 @@ param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Qu
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
       [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30,
       [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui", [string[]]$Arms = @(), [int]$MaxFps = 0,
-      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0)
+      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0, [string]$BaseIniFile = "")
 # run7 (2026-10-08, notes\run7-analysis.md):
 #   -SrcRoot <checkout/worktree> = the tree the installed ASI was built from (e.g. D:\nioh3-wt\integ for 1.7.40 BPO): menu rows
 #   come from its mod\...\menu.cpp and live-item install values from its tools\testmatrix\matrix.json (default: this repo).
@@ -49,6 +49,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "C:\Users\Ahmad Hamza\nioh3-engine\patcher\common.ps1"
 $GameDir = "C:\Program Files (x86)\Steam\steamapps\common\Nioh3"; $ini = "$GameDir\Nioh3EngineFix.ini"; $logf = "$GameDir\Nioh3EngineFix.log"
 $baseIni = "$GameDir\Nioh3EngineFix.ini.preboss.bak"
+if ($BaseIniFile) { $baseIni = $BaseIniFile }   # run8: -DryRun while the game dir is stashed (vanilla play session) has no preboss.bak
 if (-not $RunName) { $RunName = "run_" + (Get-Date -f yyyyMMdd_HHmm) }
 $out = "$ws\captures\tm\abba2\$RunName"; New-Item -ItemType Directory -Force $out | Out-Null
 $uoBridge = "C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge"

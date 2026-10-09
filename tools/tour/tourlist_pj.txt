@@ -1,0 +1,6 @@
+# PJ route (tools/testmatrix/pc_retest_run8.ps1 Block P): 5 stages in 4 areas, first-visit content, ~5 min per launch at 2 points x 4 s.
+7356   # Escape from Hitokoto Slope (area 75)
+52     # Crucible Manifested (area 150)
+50990  # Sacred Mountain Defiled (area 142)
+12009  # Black Feather Sanctuary (area 177)
+13587  # The Spirit Tree Village (area 216)

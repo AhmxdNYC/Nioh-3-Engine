@@ -26,7 +26,11 @@ param(
     # -Input vpad (ASI >= 1.7.37): the title / Continue step is driven through the mod's VirtualPad pipe (tools\testmatrix\vpad.py,
     # VirtualPad = 1 + KeepRunningUnfocused = 1) - no key press needed from you, the game does not need the foreground.
     # Default ui = you press Continue at the title (unchanged).
-    [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui"
+    [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui",
+    # extra ini keys "Section.Key=Value" joined by ";" (e.g. "Patches.PJ=1;Patches.SPR=1"); applied after the tour keys (pc_retest_run8.ps1 Block P)
+    [string[]]$ExtraKeys = @(),
+    # hold the vpad title -> Continue step until the PJ prewarm has finished (log 'PJ: prewarm done' / refused / nothing to do), max -WaitPrewarmSec; stutter.md 6.1 B2
+    [switch]$WaitPrewarm, [int]$WaitPrewarmSec = 300
 )
 $vp = $InputMode -eq "vpad"
 $ErrorActionPreference = "Stop"
@@ -116,6 +120,16 @@ function Launch-Game([int]$n) {
     $script:game = Get-Process Nioh3 -ErrorAction SilentlyContinue | Select-Object -First 1
     Register-Game
     if (-not $script:game) { Guard-Fail "the game did not start within 180 s" }
+    if ($WaitPrewarm -and -not $DryRun) {
+        $tw = Get-Date; $pw = ""
+        while (((Get-Date) - $tw).TotalSeconds -lt $WaitPrewarmSec) {
+            Start-Sleep 3; $lt = Read-Shared $modLog
+            if ($lt -match "(?m)PJ: prewarm (done|skipped|stopped)[^
+]*") { $pw = $Matches[0]; break }
+            if (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { break }
+        }
+        Say ("PJ prewarm wait: " + $(if ($pw) { $pw } else { "no prewarm line within $WaitPrewarmSec s - continuing" })) Cyan
+    }
     if ($vp) {   # title -> Continue -> field through the mod's pipe, in the background (the watch loop below keeps running)
         Start-Sleep 3; VP-GiveBackFocus $fgBefore
         $tc = Join-Path $cap ("title_continue_{0:D2}.txt" -f $n)
@@ -216,6 +230,7 @@ try {
                    @("Profiler", "GPUProf2_MinRun", "8"), @("Profiler", "SP", "1"), @("Profiler", "IntervalUs", "5000"),
                    @("Profiler", "Workers", "1"), @("Profiler", "StartDelaySec", "0"))
     }
+    foreach ($x in @($ExtraKeys -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ })) { if ($x -match '^([^.=]+)\.([^=]+)=(.*)$') { $keys += ,@($Matches[1], $Matches[2].Trim(), $Matches[3].Trim()) } else { throw "bad -ExtraKeys entry '$x' (want Section.Key=Value)" } }
     foreach ($k in $keys) { $lines = Set-IniValue $lines $k[0] $k[1] $k[2] }
     $script:modInstalled = $true
     [IO.File]::WriteAllLines($ini, $lines, (New-Object Text.UTF8Encoding($false)))
