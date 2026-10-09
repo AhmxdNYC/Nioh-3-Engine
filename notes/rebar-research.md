@@ -31,3 +31,37 @@ below are from GPUOpen/Microsoft pages and are flagged where inferred.
 ## Calibrated expected gain
 - Generic ReBAR/SAM whole-frame gain: 5-25% typical, up to ~25% outliers.
 - Nioh 3 has per-pass 9-100x gaps, so the upper bound is the gap to a ReBAR-on card of equal class; realistic recovery of a mirror (extra copy cost + sync) is roughly 50-80% of the ReBAR benefit: expect ~10-25% frame time on GPU-bound scenes, little in CPU-bound ones. Treat >30% as unlikely.
+
+## Real implementations (deep search)
+Searched 2026-10-09; source files were fetched and grepped, not just summarised. Corrections to the earlier section are marked.
+
+### 1. vkd3d-proton (https://github.com/HansKristian-Work/vkd3d-proton)
+- Config: README documents `VKD3D_CONFIG=no_upload_hvv` ("Blocks any attempt to use host-visible VRAM (large/resizable BAR) for the UPLOAD heap"; frees VRAM at the cost of GPU perf). `upload_hvv` does NOT exist (correction: only the opt-out flag exists). Also `force_host_cached`.
+- `libs/vkd3d/memory.c`, `vkd3d_select_memory_flags()` (~L732): `D3D12_HEAP_TYPE_UPLOAD` uses `device->memory_info.upload_heap_memory_properties` (field in `libs/vkd3d/vkd3d_private.h`, ~L4662), i.e. by default UPLOAD is automatically promoted to DEVICE_LOCAL|HOST_VISIBLE|HOST_COHERENT (ReBAR) memory. If the game ever allocates `D3D12_HEAP_TYPE_GPU_UPLOAD`, `has_used_gpu_upload_heap` is set and UPLOAD stops using ReBAR (log: "disabling automatic UPLOAD to ReBar promotion").
+- `D3D12_HEAP_TYPE_GPU_UPLOAD` maps to DEVICE_LOCAL|HOST_VISIBLE|HOST_COHERENT; `GPUUploadHeapSupported` = `memory_info.has_gpu_upload_heap` (device.c ~L9533).
+- Budgeting: `rebar_budget_mask`, `rebar_current`, `rebar_budget` in `vkd3d_allocate_device_memory()` (memory.c ~L905-1060); allocations over the fixed ReBAR budget fall back to sysmem. Same shape as our ring cap + passthrough fallback.
+- There is NO "copy to device-local on submit" path. vkd3d-proton relies on host-visible VRAM; without a BAR, UPLOAD simply stays in sysmem. Nothing to copy from there.
+
+### 2. DXVK (https://github.com/doitsujin/dxvk)
+- `src/d3d11/d3d11_buffer.cpp`, `D3D11Buffer::GetMemoryFlags()` (~L318): DEFAULT + BIND_CONSTANT_BUFFER or CPU access => DEVICE_LOCAL|HOST_VISIBLE; DYNAMIC => HOST_VISIBLE|COHERENT plus DEVICE_LOCAL if any bind flags (so CBs are in VRAM when a BAR exists); STAGING => cached host. `d3d11.cachedDynamicResources` (flags v/i/c/r/a) strips DEVICE_LOCAL for apps that read back.
+- `src/dxvk/dxvk_memory.cpp`, `allocateMemory()` (~L816): for DEVICE_LOCAL requests, only memory types from the first heap are considered "so we avoid falling back to HVV on systems without resizable BAR by accident". `pickChunkSize()` (~L1980) shrinks chunks for small BARs. `DxvkMemoryPool::MaxChunkSize` is the chunk cap.
+- `dxvk.conf`: `d3d9.deviceLocalConstantBuffers` (Auto = discrete GPUs only) streams D3D9 constants into VRAM. This is the closest to our idea: CBs deliberately in VRAM.
+- Wiki developer guidelines (https://github.com/doitsujin/dxvk/wiki/Developer-guidelines) say DXVK puts such resources in host-visible VRAM "especially with Resizable BAR". No upload-then-copy path for CBs; D3D11 Map(DISCARD) renames buffer slices in mapped memory. No ReBAR detection beyond memory-type flags.
+
+### 3. Special K (https://github.com/SpecialKO/SpecialK)
+- Fetched `src/render/d3d12/d3d12.cpp` and grepped for UPLOAD / GPU_UPLOAD / rebar / resizable: no hits. No ReBAR, UPLOAD-heap, or heap-placement feature found. It does not do this.
+
+### 4. D3D12 interception / samples
+- GPU upload heaps spec: https://github.com/microsoft/DirectX-Specs/blob/master/d3d/D3D12GPUUploadHeaps.md . Falls back to sysmem when over budget (WDDM requirement); budget via `QueryVideoMemoryInfo(LOCAL)`; CPU reads are very slow (WC pages).
+- NVIDIA post (https://developer.nvidia.com/blog/optimizing-dx12-resource-uploads-to-the-gpu-using-cpu-visible-vram): Watch Dogs Legion on RTX 3080, one VB draw 0.2 ms -> <0.01 ms, L2 sectors 97.5% from VRAM, but whole frame only -0.9%. Diagnoses with Nsight GPU Trace "L2 misses to system memory" / BAR1 reads. No code; no sample repo.
+- Ring-buffer references (not mirrors): Microsoft fence-based resource management (https://learn.microsoft.com/en-us/windows/win32/direct3d12/fence-based-resource-management); DirectXTK12 `GraphicsMemory` (https://github.com/Microsoft/DirectXTK12/wiki/GraphicsMemory), per-frame UPLOAD alloc with fence-tracked lifetime; GPUOpen Cauldron `DynamicBufferRing` (CBs/VB/IB in UPLOAD ring) and `UploadHeap` (texture staging then CopyBufferRegion to DEFAULT); GPUOpen HelloD3D12 (https://github.com/GPUOpen-LibrariesAndSDKs/HelloD3D12) uses UPLOAD -> DEFAULT, comments that it should run on the copy queue.
+- No open-source D3D12 hook/ReShade add-on that mirrors UPLOAD CBVs into a VRAM ring on a copy queue was found. CbvMirror looks novel (confirms earlier note). GFXReconstruct PR #3227 (reusable UPLOAD heap for trim-load staging) is unrelated to placement.
+
+### 5. Community fixes for "slow without ReBAR"
+- Only firmware-level: ReBarUEFI (https://github.com/MrAnonymous7122/ReBarUEFI), a UEFI DXE driver that enables ReBAR on boards lacking it (needs flashing a modified BIOS; unrelated to our ASI but the only real fix users have). No game-side wrapper/ASI found.
+
+### Techniques worth copying
+1. vkd3d-proton ReBAR budget (`rebar_budget` / `rebar_current`): hard cap on promoted bytes, fallback to sysmem when exceeded. Matches our cap + passthrough.
+2. vkd3d "has used GPU_UPLOAD" flag: if the game itself allocates GPU_UPLOAD heaps (or OPTIONS16 says supported), auto-disable the mirror.
+3. DXVK `d3d9.deviceLocalConstantBuffers = Auto`: enable only on discrete GPUs; same default policy as ours (AMD discrete, no ReBAR).
+4. NVIDIA: choose targets by Nsight "L2 misses to sysmem" per draw; do not mirror everything (whole-frame gain on their case was <1%).
