@@ -845,3 +845,7 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - 1.7.48-1.7.51 VS probe ([Profiler] MemStats = 2): 1 s VRAM / texture page pool / D3D12 residency line, system-memory allocation census by caller, bind census (root CBV/SRV/UAV, VB/IB per marker and per PSO), CBV/SRV/UAV descriptor census; D3D12CreateDevice IAT hook from the decrypt wait. [Profiler] VSForceSysUpload (PC A/B). notes\root-cause-vram-streaming.md.
 - 1.7.52 CM ([GpuOpt] CbvMirror = 0/1 auto/2 force, CbvMirrorMB = 128, CbvMirrorAllSites = 0): per-draw CBVs (recorder 118F89) redirected to a VRAM mirror ring, one UPLOAD -> mirror copy list before each game ExecuteCommandLists (osd hook). Auto only when the UPLOAD heaps are non-local (no ReBAR), never on UMA / Wine.
 - Undo: CbvMirror = 0 / MemStats = 0 (next launch), or the previous .asi.
+
+## 2026-10-09 16:xx - Ally RippleDecal lead (#969) closed: measurement artifact, no fix (nothing applied, no build)
+- `notes/ally-ripple-decal.md`: the skipped PS c013d811 is the clustered-decal G-buffer pass (4 fullscreen stencil-EQUAL draws, 4 MRTs, blending off); skipping it corrupts the G-buffer, so the 1.92 ms includes cheaper downstream lighting. Own cost 0.55 ms on the Ally (S1 GP2) vs 0.216 ms on pc2 = ~4x per pixel = bandwidth (no Infinity Cache), not a RADV/vkd3d slow path. SKY_all and PB2_be0f are visible (sky washes out; the player model vanishes). New tool `re/scripts_gpu/pj_psodesc.py` (PSO state from the PJ journal).
+- Undo: none (analysis only).
