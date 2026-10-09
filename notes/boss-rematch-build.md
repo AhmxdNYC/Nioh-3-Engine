@@ -67,7 +67,18 @@ game close). `-PictureScroll`: second Continue, then the item-menu `-ScrollScrip
 Needs: a save made **standing at a shrine**, Battle Scroll unlocked (flag 0xAB, after "Crucible Manifested"), at least one cleared mission
 in the replay list (the default selection is started), VirtualPad-capable ASI (>= 1.7.37; 1.7.40 for the mod fallback).
 
-## 6. Open, and why
+## 6. Open, and why (updated 2026-10-08 from the PC play session, `notes\session-2026-10-08-gamedata.md`)
+- **BLOCKER - the pump**: `MissionLoadStep` runs only while a mission loads (RematchLog: 2 ticks in 150 s of field play). Every request
+  and the "not in game" gate depend on it, so R-a / R-b never execute in the field. Move the pump to a per-frame game-thread site (the
+  PerFrameUpdater call 56529C, tour TT1, chained) before R-1 / R-11. Not done in `rematch2` (needs a new site + test_patterns change).
+- **R-b direct start (Q10): DONE on branch `rematch2`** (`ExecDirect`, default `DirectStart = 0`): `MissionRequestById(id, u8
+  [[47514D0]+8]+10h, 0, alignas(16) {101h, 1000000h, 10100h, 0, 0, 0})` = the shrine confirm F1FD80's inline write (choice 0, logged byte
+  for byte); refuses uncleared / unverified rows, a full queue, and a call that leaves no slot with the id and mode 2; then the replay
+  tracker. Harness: R-b cases + dump pins of both request writers. The replay marker `+CF8h` is not written (the logged path did not).
+  p0_vpad step B (the L7 capture) is no longer needed; R-13 (3 bosses) stays a game test after the pump fix.
+- **Q7 (field) / +0x48 / hidden duels**: unchanged (below). **Getter conflict: closed** (702B64 == 909218 on all 271 logged lines).
+- `menu.cpp` / ini text still say DirectStart is "not built": update when `rematch2` is merged (the src owner).
+- Superseded (kept for history):
 - **R-b direct start (Q10)**: needs the replay's own enqueue arguments; only the Continue-path enqueue is logged so far. p0_vpad step B.
 - **Q7 / context**: whether `MenuOpenMissionReplay(0, 0, 6)` with no owner menu works in the open field, and what the list returns to on B.
   The script native passes owner 0, the shrine passes its own menu object; R-11 checks both.

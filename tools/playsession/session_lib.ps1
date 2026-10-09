@@ -19,6 +19,7 @@ $CaptureKeys = @(
     @("Debug", "FnProbe", "1"),        # remaining-work 10.1 live function probe (1.7.34)
     @("Debug", "BossLog", "1"),        # boss fight timeline
     @("Debug", "RematchLog", "1"),     # Battle Scroll / replay / retry events
+    @("Debug", "InvLog", "1"),         # every inventory add + its caller (branch rematch2 ASI; older ASIs ignore the key)
     @("Profiler", "MemStats", "1"),    # VRAM / RAM / commit every 30 s
     @("Profiler", "LoadStats", "1"),   # per-load seconds, CPU, MB read, PSOs
     @("Profiler", "LoadGates", "1"),   # which load gate held each load

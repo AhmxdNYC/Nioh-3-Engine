@@ -24,7 +24,13 @@ ERA = [("Sengoku", "Sengoku"), ("Heian", "Heian"), ("Yamatai", "Yamatai"), ("fin
 KEEP_PAREN = {"human", "yokai", "final", "prologue", "duel", "DLC", "yokai, DLC"}
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
-        "region_byte", "verified"]
+        "region_byte", "verified", "seen"]
+# Rows confirmed by an in-game log (RematchLog / BossLog): mission id -> filled columns + "seen" (session). Evidence in
+# notes/session-2026-10-08-gamedata.md: the shrine Battle Scroll replay of mission 52 queued {+8 region 0x96, +0xC stage 72636},
+# BossLog saw placement 76781 created 2.4 s before BossBattleMode, and SetMissionClearFlag(52) at the end.
+LOGGED = {
+    0x34: {"placement_id": "76781", "region_byte": "0x96", "verified": "1", "seen": "2026-10-08-pc-replay"},
+}
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
 
 
@@ -77,8 +83,9 @@ def build(csv_path):
             "replay_mission_id": "0x%04X" % mid, "hidden": "1" if hidden else "0", "story_mission": "0x%04X" % mid,
             "defeat_kind": "clear", "defeat_id": "0x%04X" % mid,
             **{k: "-" for k in COLS[10:21]},
-            "verified": "0" if hidden else "1",
+            "verified": "0" if hidden else "1", "seen": "-",
         })
+        out[-1].update(LOGGED.get(mid, {}))
     # the same boss in several missions (Eternal Rift levels, Hanzo): name the mission too
     seen = {}
     for o in out:
@@ -94,7 +101,7 @@ def build(csv_path):
 
 
 def render(out):
-    lines = ["# Nioh3EngineFix boss-rematch catalogue (tools/rematch_catalog.py from notes/battle-scrolls.csv). Route R only in ASI 1.7.40.",
+    lines = ["# Nioh3EngineFix boss-rematch catalogue (tools/rematch_catalog.py from notes/battle-scrolls.csv). Route R only in ASI 1.7.40; 'seen' = confirmed by an in-game log.",
              "\t".join(COLS)]
     for o in out:
         lines.append("\t".join(o[c] for c in COLS))
