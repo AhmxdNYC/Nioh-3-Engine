@@ -384,7 +384,9 @@ def blank():
 
 def mrow(rt, mid, b, lst, ma):
     names = sorted({n for n, _ in lst})
-    pid = next((p for _, p in sorted(lst) if p), ma.get(mid, {}).get("boss_placement_id", ""))
+    mb = ma.get(mid, {}).get("boss_placement_id", "")
+    pids = [p for _, p in sorted(lst) if p]
+    pid = mb if (mb and (mb in pids or not pids)) else (pids[0] if pids else "")
     o = blank()
     mt = mtitle(b, ma.get(mid, {}).get("boss_name", ""))
     nm = ascii_(" & ".join(names)) if names else mt
