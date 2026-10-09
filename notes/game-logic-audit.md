@@ -139,3 +139,13 @@ ASI 1.7.45 from branch `gamelogic` (merged to main), bridge file in the [QUEUE] 
   g_MissionPending / g_MissionArmed 45C6E82/83, GameModeDrawThreadKick/Join 233810/233888, g_GameModeDrawThreadObj 4709B60,
   CharacterUpdateEventJoin 90CA90, JobFnEventSet FE79C0, PCTimerTick 437F7C, g_HidTimerPeriod 44B68F0.
 - Ally GQ log: bridge file #119 (downloaded on this PC to `captures\ally\gq_1743\`, not committed).
+
+## 3b. TR A/B on the PC (RX 9070, 240 Hz, 2026-10-09, bridge #704)
+Tour-mode vpad, ASI 1.7.46, user ini (PJ=1 SPR=1), tourlist_pj (5 stages), -NoProfile; A = TR=2 (counters only), B = TR=1; order A B B A. Level loads (~89 s/launch) excluded.
+| arm | fps | p99 ms | p99.9 ms | 1% low | 0.1% low | >25 ms | >50 ms | sd ms |
+|---|---|---|---|---|---|---|---|---|
+| A1 | 195.0 | 9.60 | 13.90 | 86.5 | 47.3 | 2 | 0 | 1.77 |
+| B1 | 194.4 | 9.56 | 14.56 | 86.0 | 47.1 | 3 | 0 | 1.77 |
+| B2 | 193.2 | 9.67 | 21.74 | 76.6 | 32.2 | 9 | 0 | 1.93 |
+| A2 | 195.4 | 9.64 | 15.07 | 86.2 | 49.8 | 3 | 0 | 1.76 |
+TR stats: game timeBeginPeriod ~211-217/s. TR off: per-process Sleep(1) median 1.5-2.0 ms in 7/8 windows, but 15.75 / 15.28 ms in the last window of both A arms; TR on: 1.5-2.2 ms in all 16 windows. System timer already 1.000 ms. Verdict on this PC: no measurable gain (B2 tail outlier = noise); the 15.6 ms case exists only when the HID threads idle. Keep default off.

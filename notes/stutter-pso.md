@@ -127,3 +127,7 @@ creates >= 1 ms and route hitches with 0 refused, `handed` > 0, and a same-spot 
   10) get the scene fully populated before the end, so the ramp lasts longer. No mod component found that adds GPU work.
   Overlay/OSD draw on the game's DIRECT queue and loose GHDM shaders are the only untested GPU-side differences.
 - Not changed in code. Bisect queued on the bridge (S / M0 / M1 overlay off / M2 loose shaders off, >=3 loads each).
+
+## PJH 4-launch on the PC (RX 9070, 240 Hz, 2026-10-09, bridge #705)
+tourlist_pj, ASI 1.7.46, pj folder cleared first. N (PJ=0) / J (PJH=1 cold) / W (PJH=1 warm, -WaitPrewarm) / N2.
+PSO creates >= 1 ms: 0 in all four (max 0.6-0.8 ms): no compile hitch on this route/GPU. Hitches >33 ms N 3, J 2, W 1, N2 1; >50 ms 0; 0.1% low 43.5/69.6/67.6/64.9 fps (noise). Runtime creates N 81, J 78, W 43 (-46 %), N2 78. W: prewarm 15732 PSOs in 2.7 s, 0 refused, 0 missing, handed 409, journal 15765 PSOs 63.8 MB. pj_hitch: DROP (nothing to fix on this machine). Keep PJH default off; the pc2 GPU may differ.
