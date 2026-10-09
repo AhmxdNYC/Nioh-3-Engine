@@ -1,0 +1,22 @@
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:79: RuntimeWarning: overflow encountered in cast
+  a16 = np.array(va, dtype=np.float32).astype(np.float16)
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:80: RuntimeWarning: overflow encountered in cast
+  b16 = np.array(vb, dtype=np.float32).astype(np.float16)
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:79: RuntimeWarning: overflow encountered in cast
+  a16 = np.array(va, dtype=np.float32).astype(np.float16)
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:80: RuntimeWarning: overflow encountered in cast
+  b16 = np.array(vb, dtype=np.float32).astype(np.float16)
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:79: RuntimeWarning: overflow encountered in cast
+  a16 = np.array(va, dtype=np.float32).astype(np.float16)
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:80: RuntimeWarning: overflow encountered in cast
+  b16 = np.array(vb, dtype=np.float32).astype(np.float16)
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:79: RuntimeWarning: overflow encountered in cast
+  a16 = np.array(va, dtype=np.float32).astype(np.float16)
+C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders\gi\verify.py:80: RuntimeWarning: overflow encountered in cast
+  b16 = np.array(vb, dtype=np.float32).astype(np.float16)
+vcloud_cs7.ll vs packed.ll: 64 seeds, 32768 writes, bit-exact 25728 (78.5156%), max 23296 ulp, write-set differences 0, 7s
+  largest absolute difference: seed 30 ((10, 14, 0), (10, 14, 0)) orig=(19303.880859375, 5328.58154296875, 7352.00146484375, 0.8491630554199219) new=(19295.53515625, 5326.279296875, 7348.82470703125, 0.8491630554199219)
+after fp16 quantisation: 94 writes differ (max 3 fp16 ulp); max abs diff 8.35
+max relative difference 0.00212; writes with relative difference > 1e-9: 7040
+original block coverage: 88 / 111 (79.3%)
+RESULT: FAIL

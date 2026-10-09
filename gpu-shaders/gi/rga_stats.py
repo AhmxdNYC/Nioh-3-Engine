@@ -8,7 +8,7 @@ import argparse, os, re, shutil, subprocess, sys, tempfile
 
 RGA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools", "rdts",
                    "RadeonDeveloperToolSuite-2026-05-28-1806", "rga.exe")
-VGPR_FILE = {"gfx1103": 1024, "gfx1201": 1536}     # per SIMD, wave32 registers
+VGPR_FILE = {"gfx1103": 1024, "gfx1201": 1536, "gfx1032": 1024, "gfx1030": 1024, "gfx1102": 1024}     # per SIMD, wave32 registers
 
 
 def waves_per_simd(chip, vgprs, wave):

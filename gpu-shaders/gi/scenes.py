@@ -248,4 +248,10 @@ def make(kind, text, seed, realistic=False):
         return geoscene.refprobe_geo_scene(text, seed, realistic=realistic)
     if kind == "vfscat":
         return vfscat_scene(text, seed, realistic=realistic)
+    if kind in ("vcloud", "vcloud-real"):
+        vc = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "vcloud")
+        if vc not in _sys.path:
+            _sys.path.insert(0, vc)
+        import vcscene
+        return vcscene.vcloud_scene(text, seed, realistic=realistic or kind == "vcloud-real")
     raise ValueError(kind)

@@ -99,7 +99,7 @@ def main():
     ap.add_argument("--prune", action="store_true", help="then drop every precise local that is not needed (ddmin)")
     a = ap.parse_args()
     it = mkfast.ITEMS[a.item]
-    kind = a.kind or ("vfscat" if a.item.startswith("vf") else "refprobe")
+    kind = a.kind or ("vfscat" if a.item.startswith("vf") else "vcloud" if a.item.startswith("vc") else "refprobe")
     global REAL
     REAL = a.realistic
     opath = os.path.join(mkfast.ORIG, it["orig"])

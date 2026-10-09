@@ -1,0 +1,5 @@
+vcloud_cs7.ll vs packed.ll: 512 seeds, 114714 writes, bit-exact 114714 (100.0000%), max 0 ulp, write-set differences 0, 6s
+after fp16 quantisation: 0 writes differ (max 0 fp16 ulp); max abs diff 0
+max relative difference 0; writes with relative difference > 1e-9: 0
+original block coverage: 111 / 111 (100.0%)
+RESULT: PASS

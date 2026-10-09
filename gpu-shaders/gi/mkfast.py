@@ -33,6 +33,11 @@ ITEMS = {
     "vf235": dict(orig="VFSCAT_235.ll", collapse="", pin_lo="self", pin_div=True,
                   precise=open(os.path.join(HERE, "..", "fog", "vf235_pins.txt")).read().strip(),
                   src=os.path.join(HERE, "..", "fog", "vf235_src.hlsl")),
+    # vc7: VCLOUD compute (0x5f17ca9d.file record 7): light-march if-conversion + batched samples (vcloud flatten.py,
+    # hoist.py); same pin rules as vf235 (max(x, x), divisions pinned). Source: vcloud/src/vc7_src.hlsl
+    "vc7": dict(orig="VCLOUD_7.ll", collapse="", pin_lo="self", pin_div=True,
+                precise=open(os.path.join(HERE, "..", "vcloud", "vc7_pins.txt")).read().strip(),
+                src=os.path.join(HERE, "..", "vcloud", "src", "vc7_src.hlsl")),
 }
 
 
