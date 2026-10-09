@@ -153,7 +153,11 @@ def report(d, no_diff=False, thresh=8.0):
         gpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cvl_groups.json')
     groups = {g['id']: g for g in json.load(open(gpath, encoding='utf-8-sig'))['groups']}
     order = list(groups)
-    pm = read_pm(os.path.join(d, 'presentmon.csv'))
+    # the harness's own PresentMon (presentmon_cvl_<n>.csv, restarted if it stops) first; run_tour's presentmon.csv as fallback
+    own = sorted(f for f in os.listdir(d) if f.startswith('presentmon_cvl_') and f.endswith('.csv'))
+    pm = sorted(sum((read_pm(os.path.join(d, f)) for f in own), [])) if own else []
+    if not pm:
+        pm = read_pm(os.path.join(d, 'presentmon.csv'))
     if not pm:
         print('WARNING: no presentmon.csv frames - cost columns empty')
     ddir = os.path.join(d, 'diffs')

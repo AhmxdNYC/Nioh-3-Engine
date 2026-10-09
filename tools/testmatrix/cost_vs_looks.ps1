@@ -300,9 +300,16 @@ try {
         if (-not $DryRun) { Remove-Item -LiteralPath $progress -Force -ErrorAction SilentlyContinue }   # no stale B lines from an earlier tour
         $k ="$common;Debug.SkipFx=1;Debug.SkipFxFile=Nioh3EngineFix_skip.ini;Debug.SkipPSO=;Debug.SkipMarker=;Profiler.GPUProf=0;Profiler.GPUProf_Markers=1;Profiler.SP=0"
         $tr = Start-Tour "tour" $dwell $k $nPoints
-        $seen = 0; $n = 0; $tStart = Get-Date
+        $seen = 0; $n = 0; $tStart = Get-Date; $pmN = 0; $script:cpm = $null
         while (-not $tr.proc.HasExited) {
             Start-Sleep -Milliseconds 300
+            # own PresentMon (session Nioh3Cvl) beside run_tour's, restarted if it stops (#560: #126's PresentMon stopped after 6 min)
+            if (-not $DryRun -and (Test-Path $PmExe) -and (Get-Process Nioh3 -ErrorAction SilentlyContinue) -and (-not $script:cpm -or $script:cpm.HasExited)) {
+                $pmN++
+                if ($pmN -gt 1) { L "own PresentMon stopped - restart $pmN" Yellow }
+                $pa = "--process_name Nioh3.exe --output_file `"$(Join-Path $sess "presentmon_cvl_$pmN.csv")`" --v2_metrics --date_time --stop_existing_session --session_name Nioh3Cvl --no_console_stats"
+                $script:cpm = Start-Process $PmExe -ArgumentList $pa -WindowStyle Hidden -PassThru
+            }
             $pl = @((Read-Shared $progress) -split "`r?`n" | Where-Object { $_ -match '^B \d+ \d+ \d+' })
             if ($pl.Count -gt $seen) {
                 $seen = $pl.Count; $n++
@@ -313,6 +320,10 @@ try {
             if (((Get-Date) - $tStart).TotalMinutes -gt $MaxMinutes) { L "max minutes reached" Red; break }
         }
         if (-not $tr.proc.HasExited) { $tr.proc.WaitForExit(600000) | Out-Null }
+        if ($script:cpm -and -not $script:cpm.HasExited) {
+            try { Start-Process $PmExe -ArgumentList "--terminate_existing_session --session_name Nioh3Cvl" -WindowStyle Hidden -Wait } catch {}
+            Start-Sleep 2; try { Stop-Process -Id $script:cpm.Id -Force -ErrorAction SilentlyContinue } catch {}
+        }
         $o = Read-Shared $tr.out
         $vd = [regex]::Match($o, "verdict: ([\w-]+)")
         $tc = Tour-Capture $tr
@@ -340,7 +351,7 @@ try {
         $rows = @(if (Test-Path $manifest) { Get-Content $manifest })
         if ($rows.Count -lt 4) { $chk += "manifest has $($rows.Count) rows" }
         if (-not (Test-Path (Join-Path $sess "cvl_report.md"))) { $chk += "no cvl_report.md" }
-        elseif (-not ((Get-Content (Join-Path $sess "cvl_report.md") -Raw) -match "FOG_all")) { $chk += "report misses FOG_all" }
+        elseif (-not ((Get-Content (Join-Path $sess "cvl_report.md") -Raw) -match "## Ranked[\s\S]*\d\. \*\*")) { $chk += "report has no ranked rows" }
         if ($script:summary.Contains("error")) { $chk += "error: $($script:summary['error'])" }
         if ($chk.Count) { L "DryRun FAILED: $($chk -join '; ')" Red } else { L "DryRun OK (session $sess)" Green }
     }
