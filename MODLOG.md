@@ -849,3 +849,11 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 ## 2026-10-09 16:xx - Ally RippleDecal lead (#969) closed: measurement artifact, no fix (nothing applied, no build)
 - `notes/ally-ripple-decal.md`: the skipped PS c013d811 is the clustered-decal G-buffer pass (4 fullscreen stencil-EQUAL draws, 4 MRTs, blending off); skipping it corrupts the G-buffer, so the 1.92 ms includes cheaper downstream lighting. Own cost 0.55 ms on the Ally (S1 GP2) vs 0.216 ms on pc2 = ~4x per pixel = bandwidth (no Infinity Cache), not a RADV/vkd3d slow path. SKY_all and PB2_be0f are visible (sky washes out; the player model vanishes). New tool `re/scripts_gpu/pj_psodesc.py` (PSO state from the PJ journal).
 - Undo: none (analysis only).
+
+## 2026-10-09 16:30 - ASI 1.7.53 fast testing: LiveCtl + ShaderHot (all default off; notes/fast-testing.md)
+- `[Debug] LiveCtl = 0`: control file `Nioh3EngineFix_live.ini` polled every 100 ms (`[Live]` menu rows by key, `Hot.<set>`, `Tuning.<key>`), `.ack` with Gen/Tag/read-backs + the mod frame clock (frames / qpc_us / hitch counters from the Present hook).
+- Live [Tuning] values (were boot-only): PP_Period, VSMA_K, VSMA_Front, LPVR_N, SKYR_V, FOGT_V, CLDR_V.
+- `[ShaderHot] Enabled = 0` (DIAGNOSTIC, never shipped on): twin PSOs for shaders listed in `Nioh3EngineFix_hot\<set>\`, rebound at SetPipelineState / Reset / ClearState through gpuopt's thunks (GpuOptSlow gets the saved argument registers). The game only sees its own PSOs.
+- Tools: `tools/testmatrix/fastab.ps1` (one-launch ABBA paired windows), `fastab_report.py`, `hotset.py`, `live_keys.py/json`; proof `tests/run_hot_harness.py`.
+- Game folder: fastab.ps1 writes `Nioh3EngineFix_hot\` and the control file for the run and deletes them after; ini/ASI/config.xml/saves are restored by run_tour / fastab.
+- Undo: keys 0 (the defaults); delete `Nioh3EngineFix_hot\` / `Nioh3EngineFix_live.ini*` if a run was killed.
