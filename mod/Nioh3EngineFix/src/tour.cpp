@@ -303,7 +303,7 @@ bool CallFtPost(void* req) {
     }
 }
 bool CallMissionReq(uint32_t key, uint32_t slot) {
-    static const uint32_t params[6] = {0x101, 0x1000000, 0x10100, 0, 0, 0};  // = Mission Replay menu F1FD80
+    alignas(16) static const uint32_t params[6] = {0x101, 0x1000000, 0x10100, 0, 0, 0};  // = Mission Replay menu F1FD80
     __try {
         ((MissionReqById_t)(g_base + kMissionReqById))(key, slot, 0, params);
         return true;
