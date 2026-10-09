@@ -1,5 +1,6 @@
 // rematch_core.h - the pure parts of the rematch (no game calls), shared by rematch.cpp and tests/rematch_harness.cpp:
-// catalogue + verified-results parsing, the E1 Emaki map redirect (snapshot / CRC / restore) and the E lifecycle tracker.
+// catalogue + verified-results parsing, the E1 Emaki map redirect (snapshot / CRC / restore), the E lifecycle tracker and the
+// "Fight now" (E1 straight to the boss) request check.
 #pragma once
 #include <cstdint>
 #include <cstdlib>
@@ -24,6 +25,12 @@ struct Row {
     bool hidden = false;
     bool verifiedCat = false;  // catalogue column
     bool verifiedRun = false;  // Nioh3BossRematch_verified.tsv (verify_all.ps1)
+    // Fight now (R / H / D rows): the mission start point next to the boss (catalogue stage_mission), 0 = not offered
+    uint32_t fightStart = 0;
+    int fightDist = -1;        // metres from the boss placement
+    char fightConf[8] = "";    // high / medium / low
+    char fightKind[20] = "";   // boss retry point / shrine / spawn point / gadget point / mission start
+    float warp[4] = {};        // the start point's spawn x y z yaw (game units / degrees), for the log
     bool Verified() const { return verifiedCat || verifiedRun; }
 };
 
@@ -74,7 +81,9 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
     };
     const int cId = ci("id"), cName = ci("name"), cMis = ci("mission_name"), cReg = ci("region"), cRoute = ci("route"),
               cMid = ci("replay_mission_id"), cHid = ci("hidden"), cVer = ci("verified"), cEi = ci("emaki_index"),
-              cPl = ci("placement_id"), cWhy = ci("reason");
+              cPl = ci("placement_id"), cWhy = ci("reason"), cSt = ci("stage_mission"), cFk = ci("fight_kind"),
+              cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
+              cWyaw = ci("warp_yaw");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -97,6 +106,14 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         r.hidden = col(cHid) == "1";
         r.verifiedCat = col(cVer) == "1";
         if ((r.route == kR || r.route == kH || r.route == kD) && !r.missionId) continue;
+        if ((r.route == kR || r.route == kH || r.route == kD) && !col(cFc).empty() && !col(cSt).empty()) {
+            r.fightStart = (uint32_t)strtoul(col(cSt).c_str(), nullptr, 0);
+            r.fightDist = col(cFd).empty() ? -1 : atoi(col(cFd).c_str());
+            Ascii(r.fightConf, sizeof(r.fightConf), col(cFc));
+            Ascii(r.fightKind, sizeof(r.fightKind), col(cFk));
+            const int wc[4] = {cWx, cWy, cWz, cWyaw};
+            for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+        }
         if (r.route == kE && (r.emakiIndex < 0 || r.emakiIndex > 255)) continue;
         rows.push_back(r);
     }
@@ -116,6 +133,17 @@ inline int ApplyVerified(const std::string& text, std::vector<Row>& rows) {
             }
     }
     return n;
+}
+
+// ---- Fight now: did MissionRequestById(mission, slot, startPoint, params) queue what we asked? (0x58-byte queue slot) ----
+// +4 u32 mission id, +0xC u32 start point (the request's third argument; 0 would have become the mission default), +0x14 u64 mode 2
+inline bool FightSlotOk(const uint8_t* slot, uint16_t mission, uint32_t start) {
+    uint32_t m = 0, sp = 0;
+    uint64_t mode = 0;
+    memcpy(&m, slot + 4, 4);
+    memcpy(&sp, slot + 0xC, 4);
+    memcpy(&mode, slot + 0x14, 8);
+    return m == mission && sp == start && start != 0 && mode == 2;
 }
 
 inline uint32_t Crc32(const void* p, size_t n, uint32_t c = 0) {

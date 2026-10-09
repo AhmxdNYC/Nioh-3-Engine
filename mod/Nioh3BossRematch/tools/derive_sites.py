@@ -117,6 +117,11 @@ SPEC = [
     ("chk:EmakiTable_A88_map20", "EMAKI", "check", 0x10DBF21, 0),
     ("chk:EmakiRecordGet_0x34", "EMAKI", "check", 0x1C1425C, 0),
     ("g:Inventory", "EMAKI", "global", 0x4751530, 0),
+    # FNOW (Fight now = E1 straight to the boss): MissionRequestById's third argument is the request +0xC start point (0 = the
+    # mission default via 1C17D8C), and the mission state +28h / +14h are the mission id / retry point MissionStartFromSave resumes
+    ("chk:ReqById_StartArg_r8", "FNOW", "check", 0x2239628, 0),
+    ("chk:ReqById_Start_to_0xC", "FNOW", "check", 0x22396A3, 0),
+    ("chk:MissionState_28_14", "FNOW", "check", 0x22372BF, 0),
 ]
 # preferred functions to anchor a global's reference in (first hit there wins; else any unique hit in .text)
 PREFER = {"g:DataDb": 0x223963C, "g:ClearDb": 0x378C93, "g:MissionQueue": 0x10DC07A, "g:MenuMgr": 0x1DE28EC}

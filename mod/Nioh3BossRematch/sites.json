@@ -821,6 +821,33 @@
    "addend": 0,
    "refs": 1695,
    "what": "mov rbp, qword ptr [rip + 0x465d009]"
+  },
+  {
+   "name": "chk:ReqById_StartArg_r8",
+   "group": "FNOW",
+   "kind": "check",
+   "rva": 35886632,
+   "head": 0,
+   "pattern": "41 8B D8 44 8A FA 8B F9 45 85 C0 75 07 E8 ?? ??",
+   "offset": 0
+  },
+  {
+   "name": "chk:ReqById_Start_to_0xC",
+   "group": "FNOW",
+   "kind": "check",
+   "rva": 35886755,
+   "head": 0,
+   "pattern": "44 88 7D A0 40 88 75 A8 89 7D A4 89 5D AC E8 ??",
+   "offset": 0
+  },
+  {
+   "name": "chk:MissionState_28_14",
+   "group": "FNOW",
+   "kind": "check",
+   "rva": 35877567,
+   "head": 0,
+   "pattern": "44 8A 69 10 44 8B 79 28 40 8A 79 11 44 8B 71 14",
+   "offset": 0
   }
  ]
 }

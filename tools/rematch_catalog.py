@@ -1,6 +1,7 @@
 """rematch_catalog.py - the all-bosses rematch catalogue (notes/rematch-all-bosses.md).
 
     py -I tools/rematch_catalog.py --index          # once: scan data/extract/lfm -> notes/rematch-enemy-index.csv + notes/rematch-emaki.csv
+    py -I tools/rematch_catalog.py --fight-index    # once: scan data/extract/lfm -> notes/rematch-fight-index.csv (start points, bosses, boss boxes)
     py -I tools/rematch_catalog.py [--out TSV] [--check]
 
 Outputs
@@ -20,6 +21,13 @@ Routes (notes/rematch-all-bosses.md s.1)
   E0  one of the 20 Hundred Demon Realms Picture Scroll records (the Emaki table, mission 0xCC96), started with an owned
       Picture Scroll item; E1 = the same with the carrier's map entry redirected to the chosen record (reverted).
   X   no route: field-only (open-world region mission), unshipped record, not a boss, or no data. 'reason' says which.
+
+Fight now (route E1 "straight to the boss", notes/boss-rematch-build.md s.E1): for every R / H / D row the mission start point
+(mission record +0x6C table, 0xA4-byte records: +0 id, +8 flags, +0xC gadget kind 0/906-909, +0x40 spawn x y z yaw) nearest the boss
+placement (enemy table +0x54, 0x138-byte records, +0x40 x y z yaw) is chosen; MissionRequestById(mission, slot, start point, params)
+starts the mission there (the third argument = request +0xC = what Continue passes for the saved retry point). Columns:
+stage_mission = that start point id, warp_x..warp_yaw = its spawn transform, box_id = the boss-area PlacementBox, fight_kind /
+fight_dist_m / fight_conf = how it was picked and how sure (high / medium / low / - = not offered).
 """
 import argparse
 import collections
@@ -39,6 +47,8 @@ MISSIONDB = ("archive_03", "52", "BD29D45533CFACBFA2D6EC80A3B9F40E07CBF918372735
 EMAKI = ("archive_03", "70", "14FB3450175890EB5F7574DD50BE04684A511B7B4A5B55E00FC2EAF66849FD")
 EMAKI_GADGETS = ("archive_03", "6A", "D9BEDC4195ECC462D419B594BB26EBA7D94A55EC135C7C475910F4D45E7829")
 EMAKI_BOXES = ("archive_03", "87", "9AB5DD3165C199CFB6653605CE156F20F973BB0BD274604B4D9FD59B0580E8")
+FIGHT_IDX = "rematch-fight-index.csv"
+FCOLS = ["mission_id", "kind", "id", "flags", "sub", "x", "y", "z", "yaw", "ex", "ey", "ez", "name"]
 HIDDEN = {0xD22D: "Honda Tadakatsu", 0xB3F8: "Minamoto no Yoshitsune", 0xFB96: "Yagyu Jubei & Marubashi Chuya"}
 TITLE_RECORD = 0x7F16          # "The Battle of Hitokoto Slope": new-game prologue variant (+0x40 bit0)
 EMAKI_TEST = 0xA19A            # "Hundred Demon Realms Picture Scroll" test record (EMAKI_TEST_ENEMY_xx, +0x40 bit1)
@@ -59,7 +69,7 @@ EXTRA = ["Marubashi Chuya"]      # second boss of the Yagyu Principles duel (0xF
 SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement) -> (session, defeat flag); session-2026-10-08-gamedata.md
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
-        "region_byte", "verified", "seen", "emaki_index", "boss", "reason"]
+        "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -165,6 +175,147 @@ def build_index():
     print("wrote notes/rematch-enemy-index.csv (%d rows), notes/rematch-emaki.csv (%d records)" % (len(rows), len(er)))
 
 
+def _idtab_and_files():
+    d = lfm(IDTAB).read_bytes()
+    E = {}
+    for i in range(struct.unpack_from("<I", d, 4)[0]):
+        e = 8 + i * 8
+        k, o = struct.unpack_from("<Ii", d, e)
+        E[k] = d[e + o:d.index(b"\0", e + o)].decode("latin1")
+    files = {}
+    for root, _, fs in os.walk(LFM):
+        for f in fs:
+            p = pathlib.Path(root) / f
+            files["/".join(p.relative_to(LFM).parts[1:])] = p
+    return E, files
+
+
+def build_fight_index():
+    """--fight-index: per mission record, its start points (+0x6C table), boss-area boxes (+0x5C PlacementBox table, names with
+    BOSS) and the boss-like enemy records listed in rematch-enemy-index.csv (positions from its +0x54 table)."""
+    E, files = _idtab_and_files()
+    md = lfm(MISSIONDB).read_bytes()
+    want = collections.defaultdict(set)
+    for r in rd("rematch-enemy-index.csv"):
+        want[int(r["mission_id"], 16)].add(int(r["placement_id"]))
+    internal = {int(r["mission_key_u16(+158)"]) for r in rd("missions.csv") if r["class"] == "internal-stage"}
+
+    def tab(rec, off):
+        nm = E.get(struct.unpack_from("<I", rec, off)[0])
+        p = files.get(nm) if nm else None
+        t = p.read_bytes() if p else b""
+        return t if len(t) >= 8 and t[:4] == b"\x00\x22\x04\x20" else b""
+
+    rows = []
+    for i in range(struct.unpack_from("<I", md, 4)[0]):
+        rec = md[8 + i * 0x198:8 + (i + 1) * 0x198]
+        mid = struct.unpack_from("<H", rec, 0x158)[0]
+        if mid in internal:
+            continue
+        mh = "0x%04X" % mid
+        t = tab(rec, 0x6C)
+        c = struct.unpack_from("<I", t, 4)[0] if t else 0
+        if t and 8 + c * 0xA4 <= len(t):
+            for j in range(c):
+                r = t[8 + j * 0xA4:8 + (j + 1) * 0xA4]
+                x, y, z, yaw = struct.unpack_from("<4f", r, 0x40)
+                rows.append({"mission_id": mh, "kind": "start", "id": struct.unpack_from("<I", r, 0)[0], "flags": "0x%X" % struct.unpack_from("<I", r, 8)[0],
+                             "sub": struct.unpack_from("<I", r, 0xC)[0], "x": "%.0f" % x, "y": "%.0f" % y, "z": "%.0f" % z, "yaw": "%.1f" % yaw,
+                             "ex": "", "ey": "", "ez": "", "name": "#%d" % j})
+        t = tab(rec, 0x5C)
+        c = struct.unpack_from("<I", t, 4)[0] if t else 0
+        if t and 8 + c * 0xA0 <= len(t):
+            pool = 8 + c * 0xA0
+            for j in range(c):
+                r = t[8 + j * 0xA0:8 + (j + 1) * 0xA0]
+                no = struct.unpack_from("<I", r, 0x9C)[0]
+                if pool + no >= len(t):
+                    break
+                nm = t[pool + no:t.index(b"\0", pool + no)].decode("latin1")
+                u = nm.upper()
+                if "BOSS" not in u or not any(k in u for k in ("AREA", "BOX", "BARRIER")) or any(k in u for k in ("BGM", "JUKE", "ITEM")):
+                    continue
+                cx, cy, cz, _w, yaw = struct.unpack_from("<5f", r, 0x10)
+                ex, ey, ez = struct.unpack_from("<3f", r, 0x28)
+                rows.append({"mission_id": mh, "kind": "box", "id": struct.unpack_from("<I", r, 0)[0], "flags": "", "sub": "",
+                             "x": "%.0f" % cx, "y": "%.0f" % cy, "z": "%.0f" % cz, "yaw": "%.1f" % yaw, "ex": "%.0f" % ex,
+                             "ey": "%.0f" % ey, "ez": "%.0f" % ez, "name": ascii_(nm)[:60]})
+        t = tab(rec, 0x54)
+        c = struct.unpack_from("<I", t, 4)[0] if t else 0
+        if t and want.get(mid) and 8 + c * 0x138 <= len(t):
+            for j in range(c):
+                r = t[8 + j * 0x138:8 + (j + 1) * 0x138]
+                pid = struct.unpack_from("<I", r, 0)[0]
+                if pid not in want[mid]:
+                    continue
+                x, y, z, yaw = struct.unpack_from("<4f", r, 0x40)
+                rows.append({"mission_id": mh, "kind": "boss", "id": pid, "flags": "0x%02X" % r[0x9C], "sub": "", "x": "%.0f" % x,
+                             "y": "%.0f" % y, "z": "%.0f" % z, "yaw": "%.1f" % yaw, "ex": "", "ey": "", "ez": "", "name": ""})
+    rows.sort(key=lambda r: (r["mission_id"], r["kind"], int(r["id"])))
+    with open(N / FIGHT_IDX, "w", newline="", encoding="utf-8") as o:
+        w = csv.DictWriter(o, fieldnames=FCOLS, lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
+    c = collections.Counter(r["kind"] for r in rows)
+    print("wrote notes/%s (%s)" % (FIGHT_IDX, ", ".join("%s %d" % kv for kv in sorted(c.items()))))
+
+
+# ---------------------------------------------------------------- fight now (E1 straight to the boss): start point choice
+def load_fight_index():
+    fi = collections.defaultdict(lambda: {"start": [], "box": [], "boss": {}})
+    p = N / FIGHT_IDX
+    if not p.exists():
+        return fi
+    for r in csv.DictReader(open(p, encoding="utf-8")):
+        m = int(r["mission_id"], 16)
+        v = dict(r, id=int(r["id"]), pos=(float(r["x"]), float(r["y"]), float(r["z"])), yawf=float(r["yaw"]))
+        if r["kind"] == "boss":
+            fi[m]["boss"][v["id"]] = v
+        else:
+            fi[m][r["kind"]].append(v)
+    return fi
+
+
+def _dist_m(a, b):
+    return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2) ** 0.5 / 100.0
+
+
+def pick_fight_start(fi, mid, pid):
+    """-> dict(start, kind, dist, conf, pos, yaw, box) or None.  Rules (notes/boss-rematch-build.md s.E1):
+    one start point = the mission already starts at its fight (high);  flags 0x200 = a post-boss / script retry point: never used;
+    flags 0x40 within 40 m = the boss retry point class (Jakotsu-baba's sits 0.6 m outside BOSS_AREA, facing the boss): high;
+    a plain spawn point (kind 0) or gadget point (908) 8..40 m away, or a shrine (906/907/909) 8..60 m away: medium;
+    anything else within 120 m (incl. points < 8 m = probably inside the arena / a post-fight point): low;  farther: not offered."""
+    m = fi.get(mid)
+    if not m or not pid or pid not in m["boss"] or not m["start"]:
+        return None
+    bp = m["boss"][pid]["pos"]
+    st = m["start"]
+    bx = sorted(m["box"], key=lambda b: _dist_m(b["pos"], bp))
+    box = bx[0]["id"] if bx and _dist_m(bx[0]["pos"], bp) < 60 else 0
+    d = lambda s: _dist_m(s["pos"], bp)
+
+    def out(s, kind, conf):
+        return {"start": s["id"], "kind": kind, "dist": d(s), "conf": conf, "pos": s["pos"], "yaw": s["yawf"], "box": box}
+
+    if len(st) == 1:
+        s = st[0]
+        return out(s, "mission start", "high" if d(s) <= 30 else "medium" if d(s) <= 80 else "low")
+    ok = sorted((s for s in st if not int(s["flags"], 16) & 0x200), key=lambda s: (d(s), s["id"]))
+    for s in ok:
+        if int(s["flags"], 16) & 0x40 and d(s) <= 40:
+            return out(s, "boss retry point", "high")
+    for s in ok:
+        k = int(s["sub"])
+        if d(s) >= 8 and ((k in (0, 908) and d(s) <= 40) or (k in (906, 907, 909) and d(s) <= 60)):
+            return out(s, "shrine" if k in (906, 907, 909) else "spawn point" if k == 0 else "gadget point", "medium")
+    for s in ok:
+        if d(s) <= 120:
+            k = int(s["sub"])
+            return out(s, "shrine" if k in (906, 907, 909) else "spawn point" if k == 0 else "gadget point", "low")
+    return None
+
+
 # ---------------------------------------------------------------- catalogue
 def rd(name):
     return list(csv.DictReader(open(N / name, encoding="utf-8")))
@@ -221,6 +372,7 @@ def build():
     cc = rd("boss-online-crosscheck.csv")
     idx = rd("rematch-enemy-index.csv")
     em = rd("rematch-emaki.csv")
+    fi = load_fight_index()
     cnames = collections.defaultdict(set)
     for r in rd("boss-names.csv"):
         cnames[r["english_name"].strip().lower()].add(int(r["char_id"]))
@@ -342,7 +494,7 @@ def build():
             "boss": name, "aliases": c.get("alt_names", "")[:60], "type": btype, "region": region, "route": rt,
             "mission_id": "0x%04X" % m, "mission_name": mtitle(b, rn or ma.get(m, {}).get("boss_name", "")), "mission_class": mi.get(m, {}).get("class", ""),
             "placement_id": pid, "record_name": rn[:40], "stage": (x or {}).get("stage_id", ""),
-            "warp": "mission start (game)", "arena": (x or {}).get("arena_box_ids", ""),
+            "warp": fight_text(pick_fight_start(fi, m, int(pid)) if pid else None), "arena": (x or {}).get("arena_box_ids", ""),
             "defeat_check": "clear 0x%04X (702B64)%s%s" % (m, "; " + dk[:50] if dk else "", "; flag %s seen" % seen[1] if seen else ""),
             "variants": "; ".join(variants), "verified": "1" if seen else "0",
             "unverified": "; ".join(unv), "reason": "", "sources": src + (";crosscheck" if c else "")})
@@ -360,10 +512,10 @@ def build():
         if "(no boss)" in r["boss_or_content"]:
             continue
         rt = "H" if mid in HIDDEN else "R"
-        out.append(mrow(rt, mid, r, byM.get((rt, mid), []), ma))
+        out.append(mrow(rt, mid, r, byM.get((rt, mid), []), ma, fi))
     for (rt, mid) in sorted(byM):
         if rt == "D":
-            out.append(mrow("D", mid, bs[mid], byM[(rt, mid)], ma))
+            out.append(mrow("D", mid, bs[mid], byM[(rt, mid)], ma, fi))
     for e in em:
         out.append(erow(e))
     out.extend(xtsv)
@@ -382,7 +534,13 @@ def blank():
     return {k: "-" for k in COLS}
 
 
-def mrow(rt, mid, b, lst, ma):
+def fight_text(f):
+    if not f:
+        return "mission start (game); fight now: not offered (no start point within 120 m of the boss)"
+    return "fight now: start point %d (%s, %.0f m from the boss, %s confidence)" % (f["start"], f["kind"], f["dist"], f["conf"])
+
+
+def mrow(rt, mid, b, lst, ma, fi):
     names = sorted({n for n, _ in lst})
     mb = ma.get(mid, {}).get("boss_placement_id", "")
     pids = [p for _, p in sorted(lst) if p]
@@ -397,6 +555,11 @@ def mrow(rt, mid, b, lst, ma):
               "verified": "1" if rt == "R" else "0", "boss": ascii_(";".join(names)) or "-"})
     if pid and (mid, int(pid)) in SEEN:
         o["seen"] = SEEN[(mid, int(pid))][0]
+    f = pick_fight_start(fi, mid, int(pid)) if pid else None
+    if f:
+        o.update({"stage_mission": str(f["start"]), "warp_x": "%.0f" % f["pos"][0], "warp_y": "%.0f" % f["pos"][1], "warp_z": "%.0f" % f["pos"][2],
+                  "warp_yaw": "%.1f" % f["yaw"], "box_id": str(f["box"]) if f["box"] else "-", "fight_kind": f["kind"],
+                  "fight_dist_m": "%.0f" % f["dist"], "fight_conf": f["conf"]})
     return o
 
 
@@ -442,11 +605,15 @@ def render_csv(allrows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--index", action="store_true")
+    ap.add_argument("--fight-index", action="store_true")
     ap.add_argument("--out", default=str(ROOT / "mod" / "Nioh3BossRematch" / "Nioh3BossRematch_bosses.tsv"))
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args()
     if a.index:
         build_index()
+        return 0
+    if a.fight_index:
+        build_fight_index()
         return 0
     allrows, out = build()
     csvtext = render_csv(allrows)

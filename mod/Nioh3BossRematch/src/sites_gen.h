@@ -86,6 +86,9 @@ static const Def kDefs[] = {
     {"chk:EmakiTable_A88_map20", "EMAKI", kCheck, 0x10DBF21, 0, "48 8B 05 ?? ?? ?? ?? 4C 8B A0 88 0A 00 00 49 8B", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:EmakiRecordGet_0x34", "EMAKI", kCheck, 0x1C1425C, 0, "40 53 48 83 EC 20 48 8B D9 48 8B 49 20 E8 ?? ?? ?? ?? 48 8B 13 3B 42 04 73 0F 8B C0 48 6B C8 34 48 8D 42 08 48 03 C1 EB 02 33 C0 48 83 C4 20 5B C3 CC CC CC 40 53 48 83 EC 20 48 8B D9 48 8B 49 20 E8 ?? ?? ?? ?? 48 8B 13 3B 42 04 73 10 8B C0 48 8D 04 40 48 8D 40 01", 0, 0, 0, 0, 0x0, nullptr},
     {"g:Inventory", "EMAKI", kGlobal, 0x4751530, 0, "48 8B 2D ?? ?? ?? ?? 45 33 D2 45 8A", 0, 3, 7, 0, 0xF4520, nullptr},
+    {"chk:ReqById_StartArg_r8", "FNOW", kCheck, 0x2239628, 0, "41 8B D8 44 8A FA 8B F9 45 85 C0 75 07 E8 ?? ??", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:ReqById_Start_to_0xC", "FNOW", kCheck, 0x22396A3, 0, "44 88 7D A0 40 88 75 A8 89 7D A4 89 5D AC E8 ??", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:MissionState_28_14", "FNOW", kCheck, 0x22372BF, 0, "44 8A 69 10 44 8B 79 28 40 8A 79 11 44 8B 71 14", 0, 0, 0, 0, 0x0, nullptr},
 };
 constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));
 }  // namespace sites

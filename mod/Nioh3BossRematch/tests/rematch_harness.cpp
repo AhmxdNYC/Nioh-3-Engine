@@ -124,6 +124,35 @@ int main(int argc, char** argv) {
             if (!strcmp(r.id, e0)) ok = r.Verified() && !r.verifiedCat;
         CHECK(ok, "the E row is verified by the run file only");
     }
+    // Fight now (E1 straight to the boss): start points next to the boss, R / H / D rows only
+    {
+        const rcore::Row *y = nullptr, *j = nullptr;
+        int nf = 0, nfe = 0, nbad = 0;
+        for (auto& r : rows) {
+            if (!strcmp(r.id, "R1CBC")) y = &r;
+            if (!strcmp(r.id, "R0034")) j = &r;
+            nf += r.fightStart != 0;
+            nfe += r.fightStart != 0 && (r.route == rcore::kE || r.route == rcore::kX);
+            nbad += r.fightStart != 0 && (!r.fightConf[0] || !r.fightKind[0] || r.fightDist < 0 || r.fightDist > 120);
+        }
+        printf("fight now: %d rows with a start point\n", nf);
+        CHECK(nf >= 60, "fight start points for the replayable rows");
+        CHECK(nfe == 0, "no fight start on E / X rows (E rows keep their Emaki start point in stage_mission)");
+        CHECK(nbad == 0, "every fight row has kind, confidence and a distance <= 120 m");
+        CHECK(y && y->fightStart == 67064 && !strcmp(y->fightKind, "shrine") && y->fightDist == 35, "Yamagata Masakage (0x1CBC): shrine 67064, 35 m");
+        CHECK(j && j->fightStart == 77032 && !strcmp(j->fightConf, "high") && (int)j->warp[2] == 238947,
+              "Jakotsu-baba (0x34): boss retry point 77032, high, spawn z 238947");
+        uint8_t slot[0x58] = {};
+        const uint32_t mis = 0x34, sp = 77032;
+        const uint64_t mode = 2;
+        memcpy(slot + 4, &mis, 4);
+        memcpy(slot + 0xC, &sp, 4);
+        memcpy(slot + 0x14, &mode, 8);
+        CHECK(rcore::FightSlotOk(slot, 0x34, 77032), "queued slot with mission, start point and mode 2 accepted");
+        CHECK(!rcore::FightSlotOk(slot, 0x34, 72636), "a different start point (the default) is reported");
+        CHECK(!rcore::FightSlotOk(slot, 0x1CBC, 77032), "a different mission is reported");
+        CHECK(!rcore::FightSlotOk(slot, 0x34, 0), "start point 0 is never a fight start");
+    }
     CHECK(rcore::ParseCatalogue("garbage\n", rows) == -1, "a file without the header is rejected");
 
     // ---------------- E1 map redirect ----------------

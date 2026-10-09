@@ -98,3 +98,50 @@ New files: `src\rematch.cpp/.h`, `tests\rematch_harness.cpp`, `tests\run_rematch
 DrawImpl: toast when closed, sub-page rows, help, footer), `dllmain.cpp` (include, MOD_VERSION 1.7.40, start block after bosslog, RM comment),
 `build.bat` / `CMakeLists.txt` (rematch.cpp, catalogue copy), `Nioh3EngineFix.ini` (`[Rematch]` at the end), `patches.json` RM30-RM36
 (+ regenerated `patches_gen.h`), `tests\test_patterns.py` (one block before the summary). If another branch also took 1.7.40, renumber.
+
+## E1 straight-to-boss ("Fight now", add-on Nioh3BossRematch 1.1.0, 2026-10-09)
+Built offline, **not run in game yet** (the game was running when it was built: nothing was installed). `[Rematch] FightNow = 0` by default.
+
+**Why not the Emaki record patch.** The design's E1 (point one Emaki record at a story boss, call `EmakiMissionRequest`) cannot spawn a
+story boss: under mission 0xCC96 `PlacementBuild` 1C1E470 walks only 0xCC96's own start-point/gadget table (record +0x6C) and keeps the
+row equal to `EmakiRecordGet(byte)+0x10` (1C1E5AB..1C1E5E4); 0xCC96's enemy table (+0x54) is empty and story bosses live in their own
+mission's +0x54 table, which 0xCC96 never loads (`rematch-all-bosses.md` s.3, re-checked in the disassembly). So E1 is built on the
+mission start point instead, which needs no patch at all.
+
+**Mechanism (static, v2.02).**
+- `MissionRequestById(mission, slotByte, startPoint, params)` 2239600: the third argument is the request's +0xC start point; 0 means
+  "the mission default" (`1C17D8C`: record +0x90, else row 0 of the start-point table). `MissionStartFromSave` passes
+  `[[MissionMgr]+8]+14h` there (22372CB -> 22375A9): that is how Continue resumes a mission at the last shrine. `+28h` of the same state
+  is the running mission id (22372C3). `Player::SetRetryPointIDAndSave` 23AB7C4 writes `+14h`, so `+14h` = the retry point.
+- Start-point table = mission record +0x6C, 0xA4-byte rows: +0 id, +8 flags, +0xC gadget kind (0 none, 906/907/909 shrines, 908 other
+  gadget), +0x10.. gadget transform, **+0x40 spawn x y z yaw**. Boss position = enemy table (+0x54, 0x138-byte rows) +0x40. Boss-area
+  PlacementBoxes = +0x5C table (0xA0 rows, +0x10 centre, +0x20 yaw, +0x28 full size, name pool). Index:
+  `py -I tools\rematch_catalog.py --fight-index` -> `notes\rematch-fight-index.csv` (299 start points, 36 boss boxes, 3152 boss records).
+- Choice (`pick_fight_start`): one start point = the mission already starts at the fight (high); flags 0x200 = post-boss / script retry
+  points, never used; flags 0x40 within 40 m = the boss retry point class (Jakotsu-baba's 77032 sits 0.6 m outside BOSS_AREA, facing the
+  boss) = high; a spawn/gadget point 8-40 m or a shrine 8-60 m = medium; anything else within 120 m (incl. < 8 m, probably inside the
+  arena) = low; farther = not offered. Result: **68 rows: 35 high, 23 medium, 10 low**; 53 rows none (E, X and 4 Novice rows without a
+  boss placement). Catalogue columns: `stage_mission` = start point, `warp_x..warp_yaw` = its spawn transform, `box_id` = boss box,
+  `region_byte`, `fight_kind`, `fight_dist_m`, `fight_conf`.
+
+**Add-on.** Each beaten R / H / D row gets a line `Fight now (straight to the boss)  <kind>, <n> m  [conf]` (A, then A to confirm;
+pipe `fight <id>`). Game thread: the usual gates (solo/offline, no co-op, not loading/paused, no queue change in 10 s, not in a scroll,
+not in a boss fight, nothing active) + cleared on this journey, then `MissionRequestById(id, slot, start, params)`; the queued slot is
+checked (`FightSlotOk`: +4 mission, +0xC start point, +0x14 mode 2). Tracker: after the load it logs `F landed: retry point (+14h) X
+== the requested start point`, counts reloads inside the mission (death / retry come back to the same start point because +14h is that
+point), and ends when `+28h` stops being the mission for 5 s (falls back to the R-b rule if `+28h` did not read the mission id). New
+site group FNOW (3 code checks proving the +0xC argument, the +0xC store and the +28h / +14h state fields; 83 sites OK).
+Log lines: `grep "Rematch: F"`.
+
+**What is written.** The add-on writes nothing (no record, no flag, no save). The game may save inside the mission exactly as in its own
+replay of a cleared mission: the retry point (+14h, via `SetRetryPointIDAndSave` or a shrine rest), inventory / amrita / playtime, and
+repeat (idempotent) defeat / clear flags (session 2026-10-08: flag 118 + clear 52 on the replay). Picture Scroll (E rows) is unchanged:
+there the carrier scroll's clear / unique-defeat flag is the only scroll state written (carrier already cleared).
+
+**Test first (solo, offline, save backup; F7 -> the boss row -> the Fight now line below it):**
+1. **Jakotsu-baba** (Crucible Manifested, 0x34): boss retry point 77032, 23 m, high. The mission is confirmed by the 2026-10-08 log.
+2. **Ryomen Sukuna** (The Apparition of Ryotan Temple, 0x1352): boss retry point 112646, 17 m, high.
+3. **Yamagata Masakage** (Escape from Hitokoto Slope, 0x1CBC): the shrine before the boss, 67064, 35 m, medium (a shrine = the most
+   ordinary resume point; walk ~35 m through the gate at x ~337900).
+Pass = you load next to the arena, the log shows `F landed ... == the requested start point`, the boss fight starts, a death puts you
+back at the same point, and leaving logs `Fight now over`. Report a fail with the `Rematch: F` lines.

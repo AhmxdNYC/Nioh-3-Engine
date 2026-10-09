@@ -9,6 +9,13 @@
 //      is restored when the scroll mission ends (charMgr +0x2C18 back to 0 for 5 s) or 30 s after a request that never loaded.
 //      "Use an owned Picture Scroll (game's pick)" = the same call without the redirect.
 //   X  no route: listed greyed with the reason.
+//   F  "Fight now (straight to the boss)" = route E1 of the build note, for R / H / D rows ([Rematch] FightNow = 1): the same R-b call
+//      with the boss's start point as the third argument, MissionRequestById(id, slot byte, startPoint, params). The argument is
+//      the request's +0xC start point (0 = the mission default, 1C17D8C), the value Continue passes for the saved retry point
+//      (MissionStartFromSave 22375A9: [[MissionMgr]+8]+14h). The start point (catalogue stage_mission) is the one next to the boss
+//      arena (tools/rematch_catalog.py pick_fight_start). Nothing is patched, so nothing has to be restored; a retry reloads at the
+//      same start point because the mission state's retry point (+14h) is that start point. The Emaki-record patch of the design
+//      cannot host a story boss (notes/rematch-all-bosses.md s.3: 0xCC96 only builds its own Picture Scroll placements).
 // Every game call and every write runs on the game thread (the per-frame pump); the UI / pipe only post a request word. No story
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
@@ -32,11 +39,11 @@ ULONGLONG Ms() { return GetTickCount64(); }
 
 // ---- resolved sites ----
 uintptr_t G_DATA, G_CLEAR, G_MS, G_QUEUE, G_PM, G_NET, G_CH, G_GM, G_PT, F_CLEARED, F_REQBYID, F_OPENREPLAY, G_MENUMGR, F_EMAKIREQ, G_INV;
-bool g_live = false, g_raOk = false, g_emakiOk = false;
-const char *g_raWhy = "", *g_emakiWhy = "";
+bool g_live = false, g_raOk = false, g_emakiOk = false, g_fnowOk = false;
+const char *g_raWhy = "", *g_emakiWhy = "", *g_fnowWhy = "";
 
 struct Cfg {
-    bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false;
+    bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = false;
 } g_cfg;
 
 std::vector<Row> g_rows;
@@ -75,12 +82,13 @@ void Result(const char* fmt, ...) {
 }
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5 };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6 };
 std::atomic<uint32_t> g_req{0};  // kind | (row + 1) << 8
 enum State : int { kIdle = 0, kMenuOpen = 1, kInReplay = 2, kEmaki = 3 };
 std::atomic<int> g_state{kIdle};
 std::atomic<int> g_activeRow{-1};
 std::atomic<bool> g_replayIn{false};
+std::atomic<bool> g_fight{false};  // the active replay is a Fight now start
 std::atomic<ULONGLONG> g_lastTick{0}, g_qChangedAt{0};
 uint64_t g_qHash = 0;
 
@@ -88,7 +96,8 @@ const char* RowName(int row) { return row >= 0 && (size_t)row < g_rows.size() ? 
 
 void Post(uint32_t kind, int row, const char* via) {
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
-    static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)"};
+    static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
+                                     "Fight now (E1 straight to the boss)"};
     Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
 }
 
@@ -97,7 +106,8 @@ struct Snap {
     bool gm = false, player = false, msOk = false, queueBusy = false, emaki = false, online = false, guest = false;
     uint64_t qHash = 0;
     uint8_t st[6] = {};
-    uint32_t ms14 = 0;
+    uint32_t ms14 = 0;  // mission state +14h: the retry point = the start point the mission was (re)loaded at
+    uint32_t ms28 = 0;  // mission state +28h: the running mission id (MissionStartFromSave 22372C3 passes it to MissionRequestById)
 };
 Snap ReadSnap() {
     Snap s;
@@ -106,7 +116,7 @@ Snap ReadSnap() {
     uint64_t pt = 0, pl = 0;
     if (Rd(G_PT, pt) && pt && Rd(pt + 0xCD * 0x18, pl) && pl) s.player = true;
     uint64_t g = 0, ms = 0;
-    if (Rd(G_MS, g) && g && Rd(g + 8, ms) && ms) s.msOk = Rd(ms + 0x14, s.ms14);
+    if (Rd(G_MS, g) && g && Rd(g + 8, ms) && ms) s.msOk = Rd(ms + 0x14, s.ms14) && Rd(ms + 0x28, s.ms28);
     uint8_t q[3 * 0x58];
     if (Copy(q, G_QUEUE, sizeof(q))) {
         uint64_t h = 0xCBF29CE484222325ull;
@@ -175,10 +185,11 @@ bool CallCleared(uint64_t db, uint32_t id, uint8_t& out) {
         return false;
     }
 }
-int CallRequestById(uint16_t id, uint8_t slot) {
+// start = 0: the mission's default start point (the shrine replay); else the start point the request carries in +0xC (Fight now)
+int CallRequestById(uint16_t id, uint8_t slot, uint32_t start) {
     alignas(16) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};  // movaps [r9] (2239660): 16-byte aligned
     __try {
-        ((void (*)(uint32_t, uint8_t, uint32_t, const uint32_t*))F_REQBYID)(id, slot, 0, p);
+        ((void (*)(uint32_t, uint8_t, uint32_t, const uint32_t*))F_REQBYID)(id, slot, start, p);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -350,6 +361,10 @@ uint32_t g_pend = 0;
 ULONGLONG g_pendAt = 0, g_openAt = 0, g_closedSince = 0, g_replayAt = 0, g_exitSince = 0, g_loadDoneAt = 0;
 bool g_menuSeen = false, g_loadSeen = false;
 uint32_t g_msAtOpen = 0, g_replayMs = 0;
+uint32_t g_fightMission = 0, g_fightStart = 0;  // Fight now: requested mission + start point
+bool g_fightByMission = false;                   // exit detection on mission state +28h (seen == the mission after the load)
+bool g_fightLoading = false;
+int g_fightLoads = 0;
 uint64_t g_qHashAtOpen = 0;
 
 void Refuse(const char* why) {
@@ -364,6 +379,10 @@ void ToIdle(const char* why) {
     g_state.store(kIdle);
     g_replayIn.store(false);
     g_activeRow.store(-1);
+    g_fight.store(false);
+    g_fightMission = g_fightStart = 0;
+    g_fightByMission = g_fightLoading = false;
+    g_fightLoads = 0;
 }
 
 void ExecOpen(int row, const Snap& s) {
@@ -403,9 +422,16 @@ bool ClearedNow(uint16_t id, const char** why) {
     return true;
 }
 
-void ExecDirect(int row, const Snap& s, ULONGLONG t) {
+void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight) {
     const Row& r = g_rows[(size_t)row];
     const char* why = nullptr;
+    const uint32_t start = fight ? r.fightStart : 0;
+    if (fight) {
+        if (!g_cfg.fightNow) return Refuse("Fight now is off ([Rematch] FightNow = 0)");
+        if (!g_fnowOk) return Refuse(g_fnowWhy);
+        if (!start) return Refuse("no start point next to this boss in the catalogue (use the replay)");
+        Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
+    }
     if (!ClearedNow(r.missionId, &why)) return Refuse(why);
     uint64_t g = 0, ms = 0;
     uint8_t slot = 0;
@@ -419,7 +445,11 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t) {
         if (m == 0 && before[i * 0x58 + 8] == 0) freeSlot = i;
     }
     if (freeSlot < 0) return Refuse("mission queue full");
-    if (CallRequestById(r.missionId, slot) != 0) return Refuse("exception in the game call");
+    if (fight)
+        Log("Rematch: F %s: calling MissionRequestById(0x%04X, slot byte %u, start point %u, {101 1000000 10100 0 0 0}) - %s, %d m from the boss, "
+            "spawn %.0f %.0f %.0f yaw %.0f, confidence %s; queue slot %d free",
+            r.id, r.missionId, slot, start, r.fightKind, r.fightDist, r.warp[0], r.warp[1], r.warp[2], r.warp[3], r.fightConf, freeSlot);
+    if (CallRequestById(r.missionId, slot, start) != 0) return Refuse("exception in the game call");
     const uint8_t* q = after + freeSlot * 0x58;
     uint32_t qid = 0;
     uint64_t mode = 0;
@@ -429,12 +459,26 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t) {
         memcpy(&mode, q + 0x14, 8);
     }
     if (!rd || qid != r.missionId || mode != 2) {
-        Log("Rematch: R-b MissionRequestById(0x%04X, %u, 0, params) left slot %d without the request (id %u, mode %llu)", r.missionId, slot, freeSlot,
-            qid, (unsigned long long)mode);
+        Log("Rematch: R-b MissionRequestById(0x%04X, %u, %u, params) left slot %d without the request (id %u, mode %llu)", r.missionId, slot, start,
+            freeSlot, qid, (unsigned long long)mode);
         return Refuse("the game did not take the request");
     }
     char hb[0x58 * 3 + 4];
     Hex(hb, sizeof(hb), (uint64_t)q, 0x58);
+    if (fight) {
+        uint32_t sp = 0;
+        memcpy(&sp, q + 0xC, 4);
+        if (!rcore::FightSlotOk(q, r.missionId, start))  // queued, but not at our start point: the mission starts there (a plain replay)
+            Log("Rematch: F %s: WARNING the queued request carries start point %u, not %u: the mission will start at that point (a plain replay)",
+                r.id, sp, start);
+        else
+            Log("Rematch: F %s: queued - slot %d +4 mission 0x%04X, +0xC start point %u, +0x14 mode 2", r.id, freeSlot, r.missionId, sp);
+        g_fight.store(true);
+        g_fightMission = r.missionId;
+        g_fightStart = start;
+        g_fightByMission = g_fightLoading = false;
+        g_fightLoads = 0;
+    }
     g_state.store(kInReplay);
     g_activeRow.store(row);
     g_openAt = g_replayAt = t;
@@ -444,10 +488,10 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t) {
     g_exitSince = 0;
     g_loadSeen = s.st[2] != 0;
     g_loadDoneAt = 0;
-    Log("Rematch: R-b %s %s: MissionRequestById(0x%04X, slot byte %u, 0, {101 1000000 10100 0 0 0}) -> queue slot %d req[58]=%s", r.id,
-        rcore::RouteName(r.route), r.missionId, slot, freeSlot, hb);
-    Result("started %s (%s, mission 0x%04X)", r.id, rcore::RouteName(r.route), r.missionId);
-    ToastF(cGreen, 8000, "Rematch: starting %s", r.name);
+    Log("Rematch: %s %s %s: MissionRequestById(0x%04X, slot byte %u, %u, {101 1000000 10100 0 0 0}) -> queue slot %d req[58]=%s", fight ? "F" : "R-b",
+        r.id, fight ? "fight now" : rcore::RouteName(r.route), r.missionId, slot, start, freeSlot, hb);
+    Result("started %s (%s, mission 0x%04X%s)", r.id, fight ? "fight now" : rcore::RouteName(r.route), r.missionId, fight ? ", at the boss" : "");
+    ToastF(cGreen, 8000, fight ? "Rematch: straight to %s..." : "Rematch: starting %s", r.name);
 }
 
 // E (row >= 0: E1 redirect to its record) / game's pick (row < 0)
@@ -543,6 +587,13 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                 g_replayIn.store(true);
                 Log("Rematch: IN replay mission (stage %u) %.1f s after the start", s.ms14, (double)(t - g_replayAt) / 1000.0);
                 Result("in mission %s", RowName(g_activeRow.load()));
+                if (g_fight.load()) {
+                    g_fightByMission = s.ms28 == g_fightMission;
+                    Log("Rematch: F landed: retry point (+14h) %u %s start point %u; mission state +28h = 0x%X (%s)", s.ms14,
+                        s.ms14 == g_fightStart ? "== the requested" : "!= the requested", g_fightStart, s.ms28,
+                        g_fightByMission ? "the requested mission: exit = it changes" : "not the mission id: exit = the retry point changes, as R-b");
+                    if (s.ms14 != g_fightStart) ToastF(cOrange, 8000, "Rematch: the game did not use the boss start point (see the log)");
+                }
             }
         }
         if (!g_replayMs && t - g_replayAt > 180000) {
@@ -551,13 +602,24 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         }
         return;
     }
-    if (s.msOk && s.ms14 == g_replayMs && !s.st[2]) {
+    if (g_fight.load() && g_fightByMission) {  // Fight now: the mission id decides (a retry or a script retry point keeps it)
+        if (s.st[2] && !g_fightLoading) {
+            ++g_fightLoads;
+            Log("Rematch: F load inside the mission #%d (death / retry, or leaving) - retry point %u", g_fightLoads, s.ms14);
+        }
+        g_fightLoading = s.st[2] != 0;
+        if (!s.msOk || s.ms28 == g_fightMission || s.st[2]) {
+            g_exitSince = 0;
+            return;
+        }
+    } else if (s.msOk && s.ms14 == g_replayMs && !s.st[2]) {
         g_exitSince = 0;
         return;
     }
     if (!g_exitSince) g_exitSince = t;
     else if (t - g_exitSince > 5000) {
-        Log("Rematch: replay mission exited (stage now %u)", s.ms14);
+        Log("Rematch: replay mission exited (stage now %u, mission state +28h 0x%X)%s", s.ms14, s.ms28,
+            g_fight.load() ? " - Fight now over (nothing was patched, nothing to restore)" : "");
         Result("exited %s", RowName(g_activeRow.load()));
         ToIdle("replay mission exit");
     }
@@ -625,7 +687,8 @@ void Tick() {
             }
         } else {
             g_pend = 0;
-            if (kind == kReqDirect) ExecDirect(row, s, t);
+            if (kind == kReqDirect) ExecDirect(row, s, t, false);
+            else if (kind == kReqFight) ExecDirect(row, s, t, true);
             else if (kind == kReqEmaki) ExecEmaki(row, t);
             else if (kind == kReqScroll) ExecEmaki(-1, t);
             else ExecOpen(row, s);
@@ -672,12 +735,22 @@ const char* CanStart(int row, uint32_t& kind) {
     kind = kReqOpen;
     return nullptr;
 }
+// Fight now (straight to the boss): R / H / D rows with a start point next to the boss; opt-in, so no 'verified' gate
+const char* CanFight(int row) {
+    const Row& r = g_rows[(size_t)row];
+    if (!g_cfg.fightNow) return "Fight now is off ([Rematch] FightNow = 1 turns it on)";
+    if (!g_fnowOk) return g_fnowWhy;
+    if (r.route != rcore::kR && r.route != rcore::kH && r.route != rcore::kD) return "Fight now is for replayable missions only";
+    if (!r.fightStart) return "no start point next to this boss in the catalogue (use the replay)";
+    return nullptr;
+}
 
 // ---- UI model (any thread) ----
 int g_sel = 0, g_confirm = -9;
 uint32_t g_pageGen0 = 0;
 char g_msg[160] = "";
 constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
+constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (straight to the boss)" under that boss row
 
 int Items(int* out, int cap) {
     int n = 0;
@@ -695,6 +768,7 @@ int Items(int* out, int cap) {
             if (grp == 2 && !g_cfg.showAll) continue;
             if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
             out[n++] = (int)i;
+            if (g_cfg.fightNow && g_fnowOk && r.fightStart && grp != 2 && n < cap) out[n++] = kItFight + (int)i;
         }
     return n;
 }
@@ -711,6 +785,7 @@ bool Start() {
     g_cfg.directStart = IniInt(L"Rematch", L"DirectStart", 0) != 0;
     g_cfg.showAll = IniInt(L"Rematch", L"ShowAll", 1) != 0;
     g_cfg.showUnverified = IniInt(L"Rematch", L"ShowUnverified", 0) != 0;
+    g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 0) != 0;
     const char* why = nullptr;
     if (!GroupOk("CORE", &why) || !GroupOk("FIGHT", &why) || !GroupOk("PUMP", &why)) {
         Log("Rematch: off - %s", why);
@@ -733,6 +808,7 @@ bool Start() {
         G_MENUMGR = Site("g:MenuMgr");
     }
     g_emakiOk = GroupOk("EMAKI", &g_emakiWhy);
+    g_fnowOk = GroupOk("FNOW", &g_fnowWhy);
     if (g_emakiOk) {
         F_EMAKIREQ = Site("fn:EmakiMissionRequest");
         G_INV = Site("g:Inventory");
@@ -757,12 +833,18 @@ bool Start() {
         return false;
     }
     g_live = true;
-    int c[5] = {};
-    for (const Row& r : g_rows) c[r.route]++;
+    int c[5] = {}, nf = 0, nfh = 0;
+    for (const Row& r : g_rows) {
+        c[r.route]++;
+        nf += r.fightStart != 0;
+        nfh += r.fightStart != 0 && !strcmp(r.fightConf, "high");
+    }
     Log("Rematch: on - %zu catalogue rows (R %d, H %d, D %d, E %d, X %d; %d verified by verify_all); R-a %s%s, E %s%s; HiddenDuels %d, DirectStart %d, "
         "ShowAll %d, ShowUnverified %d. Solo/offline only; no story-flag writes.",
         g_rows.size(), c[0], c[1], c[2], c[3], c[4], nv, g_raOk ? "on" : "OFF: ", g_raOk ? "" : g_raWhy, g_emakiOk ? "on" : "OFF: ",
         g_emakiOk ? "" : g_emakiWhy, g_cfg.hiddenDuels, g_cfg.directStart, g_cfg.showAll, g_cfg.showUnverified);
+    Log("Rematch: Fight now (E1 straight to the boss) %s - %d rows with a start point next to the boss (%d high confidence)%s%s", g_cfg.fightNow ? "ON" : "off",
+        nf, nfh, g_fnowOk ? "" : "; sites FNOW failed: ", g_fnowOk ? "" : g_fnowWhy);
     return true;
 }
 
@@ -809,6 +891,23 @@ bool UiAct() {
         Post(kReqScroll, -1, "the menu");
         return true;
     }
+    if (item >= kItFight) {
+        const int row = item - kItFight;
+        if (const char* w = CanFight(row)) {
+            snprintf(g_msg, sizeof(g_msg), "%s", w);
+            return false;
+        }
+        if (g_confirm != item) {
+            g_confirm = item;
+            const Row& r = g_rows[(size_t)row];
+            snprintf(g_msg, sizeof(g_msg), "Fight %s now? Starts at the %s %d m from it. A confirm / B back. Solo only.", r.name, r.fightKind, r.fightDist);
+            return false;
+        }
+        g_confirm = -9;
+        Post(kReqFight, row, "the menu");
+        ToastF(cWhite, 6000, "Rematch: straight to %s...", g_rows[(size_t)row].name);
+        return true;
+    }
     uint32_t kind = 0;
     if (const char* w = CanStart(item, kind)) {
         snprintf(g_msg, sizeof(g_msg), "%s", w);
@@ -848,7 +947,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     const Snap s = ReadSnap();
     const char* gate = g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();
-    add(cCyan, false, "Boss rematch (Nioh3BossRematch " ADDON_VERSION ")  -  %s", st == kMenuOpen ? "active: replay menu" : st == kInReplay ? "active: replay"
+    add(cCyan, false, "Boss rematch (Nioh3BossRematch " ADDON_VERSION ")  -  %s", st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -864,7 +963,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (it[i] == kItOpen) add(sel ? cWhite : cGray, sel, "%s Open the game's Battle Scroll replay menu   (R-a)", mk);
         else if (it[i] == kItScroll) add(sel ? cWhite : cGray, sel, "%s Use an owned Picture Scroll (the game's pick)   (E0)", mk);
         else if (it[i] == kItAbort) add(cYellow, sel, "%s Abort and restore now", mk);
-        else {
+        else if (it[i] >= kItFight) {
+            const Row& r = g_rows[(size_t)(it[i] - kItFight)];
+            const uint8_t stt = g_status[(size_t)(it[i] - kItFight)].load();
+            const uint32_t c = stt == 2 ? (!strcmp(r.fightConf, "high") ? cGreen : !strcmp(r.fightConf, "medium") ? cYellow : cOrange) : cDim;
+            add(sel ? cWhite : c, sel, "%s    Fight now (straight to the boss)   %s, %d m   [%s]", mk, r.fightKind, r.fightDist, r.fightConf);
+        } else {
             const Row& r = g_rows[(size_t)it[i]];
             const uint8_t stt = g_status[(size_t)it[i]].load();
             const char* status = r.route == rcore::kX ? "-" : r.route == rcore::kE ? "" : !scanned ? "?" : stt == 2 ? "beaten" : stt == 1 ? "not beaten" : "error";
@@ -877,7 +981,11 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
         if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
-        else if (item >= 0) {
+        else if (item >= kItFight) {
+            const Row& r = g_rows[(size_t)(item - kItFight)];
+            snprintf(footer, nf, "%s: starts the mission at start point %u (%s, %d m from the boss, %s confidence). A start, B back.",
+                     r.mission[0] ? r.mission : r.name, r.fightStart, r.fightKind, r.fightDist, r.fightConf);
+        } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
             if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
@@ -934,8 +1042,9 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "row")) {  // row <id>: status of one row after a scan
         for (size_t i = 0; i < g_rows.size(); ++i)
             if (!strcmp(g_rows[i].id, arg)) {
-                snprintf(reply, n, "id=%s route=%s mission=0x%04X emaki=%d placement=%u verified=%d status=%u gen=%u", g_rows[i].id, rcore::RouteName(g_rows[i].route),
-                         g_rows[i].missionId, g_rows[i].emakiIndex, g_rows[i].placement, g_rows[i].Verified(), g_status[i].load(), g_scanGen.load());
+                snprintf(reply, n, "id=%s route=%s mission=0x%04X emaki=%d placement=%u verified=%d status=%u gen=%u fight=%u/%s/%d", g_rows[i].id,
+                         rcore::RouteName(g_rows[i].route), g_rows[i].missionId, g_rows[i].emakiIndex, g_rows[i].placement, g_rows[i].Verified(),
+                         g_status[i].load(), g_scanGen.load(), g_rows[i].fightStart, g_rows[i].fightConf[0] ? g_rows[i].fightConf : "-", g_rows[i].fightDist);
                 return;
             }
         snprintf(reply, n, "error no row %s", arg);
@@ -949,6 +1058,20 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "open") || !strcmp(cmd, "scroll")) {
         Post(!strcmp(cmd, "open") ? kReqOpen : kReqScroll, -1, "pipe");
         snprintf(reply, n, "queued");
+        return;
+    }
+    if (!strcmp(cmd, "fight")) {  // fight <id>: Fight now (straight to the boss)
+        for (size_t i = 0; i < g_rows.size(); ++i)
+            if (!strcmp(g_rows[i].id, arg)) {
+                if (const char* w = CanFight((int)i)) {
+                    snprintf(reply, n, "refused %s", w);
+                    return;
+                }
+                Post(kReqFight, (int)i, "pipe");
+                snprintf(reply, n, "queued %s fight start=%u", g_rows[i].id, g_rows[i].fightStart);
+                return;
+            }
+        snprintf(reply, n, "error no row %s", arg);
         return;
     }
     if (!strcmp(cmd, "start")) {
@@ -966,7 +1089,7 @@ void Command(const char* line, char* reply, size_t n) {
         snprintf(reply, n, "error no row %s", arg);
         return;
     }
-    snprintf(reply, n, "error unknown command (ping status scan row start abort open scroll)");
+    snprintf(reply, n, "error unknown command (ping status scan row start fight abort open scroll)");
 }
 
 }  // namespace rematch
