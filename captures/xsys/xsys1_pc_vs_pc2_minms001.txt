@@ -1,0 +1,100 @@
+== inputs ==
+pc2   gp2: run01.log, 8 window(s) 52:1,5631:1,7292:1,7356:1, span 31.60 ms, async 5.76 ms, 2333 draws+dispatches/frame, output 1920x1080, MinRun 1
+      repeatability (pass 1 vs later passes, per shader ms/draw): median x1.06, p90 x1.35 over 97 shaders
+pc    gp2: run01.log, 8 window(s) 52:1,5631:1,7292:1,7356:1, span 8.49 ms, async 0.79 ms, 2362 draws+dispatches/frame, output 2560x1440, MinRun 1
+      repeatability (pass 1 vs later passes, per shader ms/draw): median x1.07, p90 x1.20 over 22 shaders
+
+== speed factors (ms per draw on X / on pc2; >1 = X slower) ==
+pc    x0.27  (median of 90 shared graphics shaders; span ratio x0.27)
+strong anomaly threshold: x2.00 (max(2, same-device p90 repeat noise))
+
+family speed factors (median per-frame ms ratio): pc x0.29
+
+== families: ms (% of span), anomaly vs pc2 after the speed factor ==
+family                                                    pc2 ms (%)       pc ms (%)     anom pc
+meshlet LOD/culling/HiZ                                  6.73 (21.3)      0.58 (6.8)     0.30>>>
+G-buffer geometry (PB2/STD/terrain/trees)                6.57 (20.8)     1.75 (20.6)        0.91
+sky/clouds (VCLOUD) [async]                               2.91 (9.2)      0.49 (5.8)      0.58>>
+GI/reflection gathers (RefProbe/SSR/AO)                   1.23 (3.9)      0.57 (6.8)      1.60<<
+shadow maps (SM/VSM/ESM)                                  2.01 (6.4)      0.30 (3.6)      0.52>>
+FSR3 upscaler                                             1.26 (4.0)      0.35 (4.1)        0.95
+copy/resolve/clear (+absorbed draws)                      1.25 (4.0)      0.23 (2.7)      0.63>>
+volumetric fog (VFSCAT/SSFOG) [async]                     1.25 (4.0)      0.22 (2.6)      0.60>>
+deferred lighting/shadow resolve (WDO/PB2DS/MRLR)         1.21 (3.8)      0.33 (3.9)        0.95
+effects/particles/decals                                  0.91 (2.9)      0.18 (2.1)        0.68
+water/ocean [async]                                       0.81 (2.6)      0.03 (0.3)     0.12>>>
+post (bloom/MB/DOF/compose/SSS)                           0.52 (1.6)      0.19 (2.3)        1.29
+unnamed [async]                                           0.71 (2.2)      0.00 (0.0)           -
+UI/output                                                 0.67 (2.1)      0.17 (2.0)        0.88
+water/ocean                                               0.43 (1.4)      0.15 (1.7)        1.16
+unnamed                                                   0.19 (0.6)      0.08 (1.0)      1.57<<
+volumetric fog (VFSCAT/SSFOG)                             0.10 (0.3)      0.03 (0.3)        0.99
+sky/clouds (VCLOUD)                                       0.07 (0.2)      0.02 (0.3)        1.13
+
+== identical shaders on every system (same DXBC digests), sorted by max |log2 anomaly| ==
+shader                                        pc2 ms/frame x draws   pc ms/frame x draws    anom pc  name / family
+cs=e31c389f                                   1.256 (4.0%) x3.7     0.029 (0.3%) x3.5       0.09>>>  MIC | meshlet LOD/culling/HiZ
+vs=9bf370df ps=a4ab1343                       0.451 (1.4%) x1.9     0.018 (0.2%) x2.0       0.15>>>  PB2EYEC-AleeAtCcroDiGbiRiaexmSfb | G-buffer geometry
+vs=96690c3b ps=d1f13d22                       0.427 (1.4%) x128.4   0.024 (0.3%) x127.3     0.21>>>  STD-DinmGbPdoSfbUhVl | G-buffer geometry
+cs=63c07c21                                   1.500 (4.7%) x4.4     0.015 (0.2%) x0.8       0.22>>>  MshLod | meshlet LOD/culling/HiZ
+vs=0ad688da ps=ff5fcc12                       0.223 (0.7%) x50.9    0.017 (0.2%) x50.8      0.29>>>  AMBSL | UI/output
+vs=355ad1ce ps=98683c8f                       0.079 (0.2%) x0.5     0.065 (0.8%) x0.5       3.07<<<  PB2UMAH-GbVl | water/ocean
+vs=f645c461 ps=d4ed3fe4                       0.148 (0.5%) x33.9    0.011 (0.1%) x25.9      0.38>>>  G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP | effects/particles/decals
+vs=e5190e82 ps=c4656a8d                       0.909 (2.9%) x87.5    0.079 (0.9%) x72.4      0.39>>>  SM-Sfb / SM-B0I2mIptrSfb | shadow maps
+vs=2c6f629c ps=d2fe68c9                       0.557 (1.8%) x126.4   0.060 (0.7%) x125.4     0.40>>>  PB2-AtGbiHho3PdoPfnPkRiaexSfbUhV / PB2-Ccrtov0Di | G-buffer geometry
+cs=a09d4223                                   0.177 (0.6%) x3.9     0.015 (0.2%) x3.1       0.41>>>  MPC | meshlet LOD/culling/HiZ
+cs=18b6fee7                                   0.488 (1.5%) x2.5     0.058 (0.7%) x2.5       0.44>>>  MPC | meshlet LOD/culling/HiZ
+cs=34078a28                                   0.031 (0.1%) x2.0     0.032 (0.4%) x3.7       2.12<<<  MPC | meshlet LOD/culling/HiZ
+cs=cc40b6f0                                   0.124 (0.4%) x1.1     0.013 (0.1%) x0.9       0.47>>>  MPC | meshlet LOD/culling/HiZ
+vs=f311c8e2 ps=e17e0ffc                       0.034 (0.1%) x5.4     0.024 (0.3%) x6.9       2.11<<<  PB2TREE2-BlrGbiMshltvReSfbVl / PB2TREE2-AtBlrGbi | G-buffer geometry
+vs=dda0b143 ps=0e7a9875                       0.301 (1.0%) x10.7    0.117 (1.4%) x7.8       2.01<<<  SMTREE2-BlrMfvMshltvReSfb | shadow maps
+vs=9429db01 ps=4671b4a1                       0.245 (0.8%) x35.6    0.129 (1.5%) x35.9       1.95<<  PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDim | G-buffer geometry
+vs=a2bd0e86 ps=29ecb6e4                       0.088 (0.3%) x3.5     0.072 (0.8%) x5.5        1.94<<  ExeCopy_TintBlit | UI/output
+cs=6ae59bd0                                   0.276 (0.9%) x2.4     0.138 (1.6%) x2.4        1.87<<  RefProbe-CllPtSfbSplsSslsSsmVsm | GI/reflection gathers
+vs=e9af3848 ps=1e0aa40e                       0.080 (0.3%) x23.5    0.011 (0.1%) x23.4       0.54>>  G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP | effects/particles/decals
+vs=2ace2070 ps=388dba68                       0.213 (0.7%) x127.0   0.031 (0.4%) x127.0      0.54>>  DEPTH-Sfb / SM-SfbUh | shadow maps
+cs=1b4b5b75                                   0.761 (2.4%) x3.9     0.339 (4.0%) x3.7        1.80<<  MPC | meshlet LOD/culling/HiZ
+cs=5bad22c4                                   0.165 (0.5%) x1.0     0.024 (0.3%) x1.0        0.56>>  MCLRC | meshlet LOD/culling/HiZ
+vs=26bcdc9d ps=32e8deff                       0.122 (0.4%) x3.0     0.057 (0.7%) x3.0        1.74<<  WDO_SST-PtSrbVsm / WDO-PtSrbVsm | deferred lighting/shadow resolve
+vs=f311c8e2 ps=f10c4d8e                       0.271 (0.9%) x34.0    0.126 (1.5%) x34.2       1.73<<  PB2TREE2-BlrGbiMshltvReSfbVl / PB2TREE2-AtBlrGbi | G-buffer geometry
+vs=f32bf54a ps=05869193                       0.108 (0.3%) x69.8    0.017 (0.2%) x69.0       0.59>>  G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP | effects/particles/decals
+cs=fcc40d4b                                   0.150 (0.5%) x0.9  a  0.027 (0.3%) x1.0  a     0.59>>  VFSCAT-CllLpvSfbVsm | volumetric fog
+vs=b057ed93 ps=ded144fd                       0.034 (0.1%) x0.5     0.022 (0.3%) x0.8        1.65<<  VCLOUD | sky/clouds
+vs=26bcdc9d ps=0b17198d                       0.130 (0.4%) x3.0     0.057 (0.7%) x3.0        1.64<<  WDO_SST-PtSrbVsm / WDO-PtSrbVsm | deferred lighting/shadow resolve
+vs=d064b3d5 ps=c13033b2                       0.073 (0.2%) x0.4     0.031 (0.4%) x0.4        1.60<<  PBRLR | GI/reflection gathers
+cs=b76874bb                                   2.910 (9.2%) x1.0  a  0.494 (5.8%) x1.0  a     0.64>>  VCLOUD | sky/clouds
+vs=35b0e983 ps=244c9d6d                       0.142 (0.4%) x7.5     0.032 (0.4%) x9.9        0.64>>  PB2-BlrGbiMshltvReRiaeSfbSsssTsb / PB2-AtBlrDiGb | G-buffer geometry
+vs=d064b3d5 ps=2de25b1f                       0.110 (0.3%) x0.6     0.045 (0.5%) x0.6        1.55<<  PBRLR | GI/reflection gathers
+vs=f311c8e2 ps=321edd90                       0.027 (0.1%) x19.0    0.015 (0.2%) x25.0       1.54<<  PB2TREE2-BlrGbiMshltvReSfbVl / PB2-BlrGbiMshltvR | G-buffer geometry
+cs=641524ee                                   1.099 (3.5%) x1.0  a  0.191 (2.2%) x1.0  a     0.65>>  VFSCAT-CllLpvSfbVsm | volumetric fog
+cs=4b4c3cbe                                   0.360 (1.1%) x4.1     0.147 (1.7%) x4.1        1.53<<  RefProbe-CllPtSfbSplsSslsSsmVsm | GI/reflection gathers
+vs=563edb9d ps=c013d811                       0.108 (0.3%) x3.4     0.044 (0.5%) x3.4        1.52<<  PB2RIPPLE-Cbbl / PB2DECAL-CdlRgbSfb | effects/particles/decals
+vs=aa4b9882                                   0.051 (0.2%) x2.4     0.023 (0.3%) x2.6        1.52<<  SM-BlrMfvMshltvSfb | shadow maps
+cs=94b88d81                                   0.097 (0.3%) x0.8     0.039 (0.5%) x0.8          1.50  RefProbe-CllPtSfbSplsSslsSsmVsm | GI/reflection gathers
+vs=9429db01 ps=8f702b65                       0.155 (0.5%) x15.4    0.061 (0.7%) x15.3         1.48  PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDim | G-buffer geometry
+vs=42344fa0 ps=7d51c698                       0.019 (0.1%) x0.8     0.030 (0.4%) x3.0          1.46  RefProbe-CllPtSfbSplsSslsSsmVsm | GI/reflection gathers
+vs=35b0e983 ps=57882ea5                       0.083 (0.3%) x17.3    0.021 (0.3%) x24.0         0.69  PB2-BlrGbiMshltvReRiaeSfbSsssTsb / PB2TREE2-AtBl | G-buffer geometry
+vs=4412dc10 ps=85cdbbf7                       0.117 (0.4%) x11.0    0.022 (0.3%) x11.0         0.71  GFM | GI/reflection gathers
+vs=1559714c ps=1dcab6c2                       0.566 (1.8%) x3.1     0.200 (2.4%) x2.9          1.41  PB2-BlrGbiMshltvReSfbVl / PB2-BlrGbiMshltPkSfbT0 | G-buffer geometry
+cs=e238b6d0                                   0.188 (0.6%) x2.5     0.036 (0.4%) x2.5          0.72  GHDM | meshlet LOD/culling/HiZ
+vs=d8fc9faf ps=615daafd                       0.044 (0.1%) x0.5     0.013 (0.2%) x0.8          0.73  motion blur | post
+vs=75de786d ps=b88fa02a                       0.051 (0.2%) x122.4   0.011 (0.1%) x129.3        0.74  PB2-AtB3DiGbiIpthrPkSfbVl / PB2-AtDiGbiI2mIptrPk | G-buffer geometry
+vs=fce25fe6 ps=1c49bbd5                       0.103 (0.3%) x11.0    0.021 (0.2%) x11.0         0.76  GFM | GI/reflection gathers
+cs=8b86a434                                   0.130 (0.4%) x1.0     0.026 (0.3%) x1.0          0.77  fsr/upscale | FSR3 upscaler
+vs=2c6f629c ps=0f1a3e29                       0.081 (0.3%) x30.4    0.017 (0.2%) x30.3         0.77  PB2-AtGbiHho3PdoPfnPkRiaexSfbUhV / PB2-Ccrtov0Di | G-buffer geometry
+vs=1559714c ps=0bd06fb2                       0.034 (0.1%) x5.2     0.012 (0.1%) x5.1          1.30  PB2-BlrGbiMshltvReSfbVl / PB2-AlepmeBlrGbiMshltP | G-buffer geometry
+vs=1559714c ps=7dcfe3de                       0.315 (1.0%) x8.6     0.103 (1.2%) x8.1          1.29  PB2-BlrGbiMshltvReSfbVl / PB2-BlrGbiMshltPkSfbT0 | G-buffer geometry
+vs=8fbd250c ps=d4186138                       0.025 (0.1%) x2.6     0.023 (0.3%) x7.0          1.29  PBRLR | GI/reflection gathers
+cs=318fa766                                   0.060 (0.2%) x0.8     0.017 (0.2%) x1.0          0.79  TOONEDGE2 | effects/particles/decals
+vs=26bcdc9d ps=f61e54aa                       0.211 (0.7%) x4.1     0.045 (0.5%) x4.1          0.79  WDO_SST-PtSrbVsm / PB2DS-AdmCaCllEmHsIribOfPlaSm | deferred lighting/shadow resolve
+vs=d21b4b07 ps=e6efc8ff                       0.085 (0.3%) x0.5     0.018 (0.2%) x0.5          0.79  post VS / bloom | post
+cs=8e8e36dc                                   0.077 (0.2%) x0.8     0.034 (0.4%) x1.0          1.25  fsr/upscale | FSR3 upscaler
+vs=1559714c ps=5320680c                       0.040 (0.1%) x3.6     0.014 (0.2%) x3.6          1.25  PB2-BlrGbiMshltvReSfbVl / PB2-AlepmeBlrGbiMshltS | G-buffer geometry
+vs=26bcdc9d ps=8a013bc7                       0.186 (0.6%) x1.0     0.040 (0.5%) x1.0          0.80  WDO_SST-PtSrbVsm / WDO-PtSrbSsmVsm | deferred lighting/shadow resolve
+vs=be269da6 ps=5eb285c7                       0.056 (0.2%) x3.0     0.018 (0.2%) x3.0          1.24  SRIVER2-GbNRrVl | water/ocean
+vs=26bcdc9d ps=b68c49cd                       0.092 (0.3%) x2.0     0.020 (0.2%) x2.0          0.81  WDO_SST-PtSrbVsm / PB2MRLR-CllLasVf | deferred lighting/shadow resolve
+
+(anomaly on ms per draw: <<< >= 2x relatively more expensive on that system than on pc2, << >= 1.5x; >>> / >> the same, cheaper. a = async queue row: wall time, overlaps graphics.)
+
+== large rows present on one system only (>= 2 % of its span) ==
+pc2   1.661 ms (5.3 %)  cs=e6a62bda  [MshLod]  missing on pc
