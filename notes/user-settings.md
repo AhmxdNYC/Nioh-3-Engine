@@ -57,3 +57,14 @@ Not recommended: **SMT off** (8-thread runs were worse, the 7600X is 6C/12T [C])
 - **PC:** (1) GI at HIGH, (2) free C: and a fixed SSD page file, (3) keep the game on the SSD, (4) external limiter at a tier you hold, (5) a cap you can hold with VRR on. Measured 2026-10-08/09: (6) VSync OFF + FreeSync (row 12; mod-vs-stock: ~7 ms less display latency, 10 % -> 2 % dropped frames), (7) FG on/off by taste (row 11), (8) OptiScaler FSR4 is optional: +0.24 ms GPU per shown frame, not a latency cause (row 7).
 
 Not tested by us: the TDP gain, page-file effect, external-limiter effect, GPU clock floor, UMA size, Adrenalin FSR4 override. Treat them as experiments you run yourself; our final benchmark keeps system settings fixed.
+
+## Resizable BAR / Smart Access Memory (2026-10-09, notes/root-cause-vram-streaming.md)
+- The game puts every per-draw constant buffer (and some particle/UI vertex data) in one 700 MB UPLOAD heap. With Resizable
+  BAR / SAM on, AMD drivers back that heap with VRAM; with it off (common on mid-range PCs, e.g. pc2: B550 + 5600X + RX 6650 XT,
+  BAR0 258 MB) it sits in system RAM and the GPU fetches those constants over PCIe on every draw and dispatch.
+- Measured on the RX 9070 with that layout forced: +3.9 ms GPU per frame (+43 %). On a card without ReBAR this is the biggest
+  single mid-range cost found so far.
+- User-side fix (a machine setting, so the user's decision; the mod never changes it): BIOS "Above 4G Decoding" + "Re-Size BAR
+  Support" on, CSM off, then AMD Adrenalin > Performance > Tuning > Smart Access Memory on. Check: GPU-Z "Resizable BAR: Enabled".
+- Mod-side fix for PCs that cannot: `[GpuOpt] CbvMirror = 1` (ASI >= 1.7.52, auto: only acts when the heaps really are in
+  system memory; off on ReBAR PCs, handhelds and Linux).
