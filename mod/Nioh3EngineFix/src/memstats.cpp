@@ -398,14 +398,16 @@ bool ReadVtable(void* dev, void*** vt) {
     }
 }
 SRWLOCK g_installLock = SRWLOCK_INIT;
-void InstallHooks() {
+const char* g_installedBy = "engine device read";
+void InstallHooks(void* fromCreate = nullptr) {
     AcquireSRWLockExclusive(&g_installLock);
     if (g_hookTried) { ReleaseSRWLockExclusive(&g_installLock); return; }
-    void* dev = nullptr;
-    if (!(g_known && g_base && ReadEnginePtr(g_base, &dev))) {  // device not there yet: retry
+    void* dev = fromCreate;
+    if (!dev && !(g_known && g_base && ReadEnginePtr(g_base, &dev))) {  // device not there yet: retry
         ReleaseSRWLockExclusive(&g_installLock);
         return;
     }
+    if (fromCreate) g_installedBy = "D3D12CreateDevice (IAT)";
     g_hookTried = true;
     void** vt = nullptr;
     if (!ReadVtable(dev, &vt)) {
@@ -422,8 +424,8 @@ void InstallHooks() {
     ReleaseSRWLockExclusive(&g_installLock);
     double lu = -1, lb = 0;
     if (!QueryVram(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &lu, &lb)) lu = -1;
-    MLOG("VS: D3D12 device %p vtable %p: residency/allocation counters %s (slots 27/28/29/30/34/35; VRAM local at install "
-         "%.0f MB)%s", dev, (void*)vt, ok ? "installed" : "FAILED", lu,
+    MLOG("VS: D3D12 device %p vtable %p: residency/allocation counters %s via %s (slots 27/28/29/30/34/35; VRAM local at "
+         "install %.0f MB)%s", dev, (void*)vt, ok ? "installed" : "FAILED", g_installedBy, lu,
          g_forceSys ? "; VSForceSysUpload = 1: UPLOAD heaps -> CUSTOM write-combine L0 (system memory) - A/B ONLY" : "");
     // Resizable BAR / SAM hint: D3D12_OPTIONS16 (feature 43) GPUUploadHeapSupported = CPU-visible VRAM for the whole heap.
     // Raw values so an older SDK header still builds; a runtime without the feature returns E_INVALIDARG (logged as n/a).
@@ -436,6 +438,34 @@ void InstallHooks() {
          SUCCEEDED(hra) ? (arch.CacheCoherentUMA ? "yes" : "no") : "n/a");
 }
 // early install: poll every 2 ms from Start() for up to 10 min so boot-time allocations are counted too
+// Earliest install: the game's only D3D12CreateDevice call (2EE300C) goes through its IAT slot (v2.02 RVA 38E2E18, import
+// from sl.interposer.dll); the wrapper hooks the returned device before the engine creates a single heap.
+constexpr uintptr_t kRvaIatCreateDevice = 0x38E2E18;
+using CreateDeviceFn = HRESULT(WINAPI*)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
+CreateDeviceFn o_createDevice = nullptr;
+HRESULT WINAPI HkCreateDevice(IUnknown* a, D3D_FEATURE_LEVEL fl, REFIID r, void** out) {
+    const HRESULT hr = o_createDevice(a, fl, r, out);
+    if (SUCCEEDED(hr) && out && *out) {
+        ID3D12Device* d = nullptr;
+        if (SUCCEEDED(static_cast<IUnknown*>(*out)->QueryInterface(__uuidof(ID3D12Device), reinterpret_cast<void**>(&d))) && d) {
+            InstallHooks(d);
+            d->Release();
+        }
+    }
+    return hr;
+}
+bool HookCreateDeviceIat() {
+    if (!g_known || !g_base) return false;
+    void** slot = reinterpret_cast<void**>(g_base + kRvaIatCreateDevice);
+    HMODULE m = GetModuleHandleW(L"sl.interposer.dll");
+    void* expect = m ? (void*)GetProcAddress(m, "D3D12CreateDevice") : nullptr;
+    __try {
+        if (!*slot || (expect && *slot != expect)) return false;  // not the import we know (or already wrapped by someone)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+    return Patch(slot, (void*)&HkCreateDevice, (void**)&o_createDevice);
+}
 DWORD WINAPI EarlyThread(void*) {
     for (int i = 0; i < 300000 && !g_hookTried; ++i) {
         InstallHooks();
@@ -475,6 +505,10 @@ bool Start(const StartInfo& info) {
     QueryPerformanceFrequency(&g_qpf);
     if (g_level >= 2) {
         vs::g_forceSys = info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, info.iniPath) : 0;
+        void* dev0 = nullptr;
+        const bool devAlready = g_known && g_base && ReadEnginePtr(g_base, &dev0);
+        const bool iat = !devAlready && vs::HookCreateDeviceIat();
+        MLOG("VS: D3D12CreateDevice IAT hook %s", iat ? "set (device hooked at creation)" : devAlready ? "not needed (device exists)" : "not set - polling the engine device");
         if (HANDLE t = CreateThread(nullptr, 0, vs::EarlyThread, nullptr, 0, nullptr)) CloseHandle(t);
     }
     if (g_on)

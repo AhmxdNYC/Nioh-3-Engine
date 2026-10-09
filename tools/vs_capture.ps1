@@ -12,8 +12,8 @@
 param(
     [string]$Device = "pc", [string]$LockKey = "nioh3-pc", [string]$RunTour = "",
     [int]$Passes = 1, [int]$DwellSec = 20, [int]$Points = 3, [switch]$NoPost, [switch]$DryRun,
-    # -GP2: GPUProf 2 MinRun 1 like XSYS1 (per-kernel ms for the PCIe vs contention split); -Keys: extra "Section.Key=Value;..." (e.g. "Profiler.VSForceSysUpload=1")
-    [switch]$GP2, [string]$Keys = "", [string]$Tag = "",
+    # -GP2: GPUProf 2 MinRun 1 like XSYS1 (per-kernel ms for the PCIe vs contention split); -AddKeys: extra "Section.Key=Value;..." (e.g. "Profiler.VSForceSysUpload=1")
+    [switch]$GP2, [string]$AddKeys = "", [string]$Tag = "",
     [string]$UoBridge = (Join-Path $env:USERPROFILE "universal-optimizer\agent-bridge")
 )
 $ErrorActionPreference = "Stop"
@@ -41,7 +41,7 @@ try {
     if (-not $DryRun) { Copy-Item $matched $cfg -Force; L "matched config.xml installed" }
     $keys = "Profiler.MemStats=2;Profiler.TileStats=1;VRR.MaxFps=240"
     if ($GP2) { $keys += ";Profiler.GPUProf=2;Profiler.GPUProf2_MinRun=1;Profiler.GPUProf2_Top=150;Profiler.GPUProf2_SampleEvery=16;Profiler.GPUProf2_AB=0" }
-    if ($Keys) { $keys += ";" + $Keys }
+    if ($AddKeys) { $keys += ";" + $AddKeys }
     L "keys: $keys"
     $a = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$RunTour`"", "-Input", "vpad", "-List", "`"$list`"", "-Points", "$Points",
            "-Passes", "$Passes", "-DwellSec", "$DwellSec", "-NoPause", "-ExtraKeys", "`"$keys`"")
