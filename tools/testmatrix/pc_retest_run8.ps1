@@ -56,7 +56,7 @@ function Run-Abba([string]$b) {
     L "block $b exit $LASTEXITCODE"
     $rd = "$ab\$rn"
     $ea = $ErrorActionPreference; $ErrorActionPreference = "Continue"   # stderr of a failing report must not abort the block (run8b A: block A FAILED: Traceback)
-    try { $ro = (py -I "$herebba2_report.py" $rd 2>&1 | Out-String); if ($LASTEXITCODE -ne 0) { L "block $b report script failed: $((($ro -split "`n") | Select-Object -Last 3) -join ' | ')" } } finally { $ErrorActionPreference = $ea }
+    try { $ro = (py -I "$here\abba2_report.py" $rd 2>&1 | Out-String); if ($LASTEXITCODE -ne 0) { L "block $b report script failed: $((($ro -split "`n") | Select-Object -Last 3) -join ' | ')" } } finally { $ErrorActionPreference = $ea }
     $rep = "$rd\report.txt"
     L "block $b report: $(if (Test-Path $rep) { 'written' } else { 'MISSING' })"
     if ($b -eq "J") {   # digest the JT launch (L2) with the last window's log
