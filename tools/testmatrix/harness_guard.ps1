@@ -53,6 +53,7 @@ function Guard-Fail([string]$why, [int]$code = 99) {
     if ($global:HG.aborting) { [Environment]::Exit($code) }
     $global:HG.aborting = $true
     HG-Log "ABORT: $why"
+    Clear-MeasureLock
     try { if ($global:HG.cleanup) { & $global:HG.cleanup } } catch { HG-Log "cleanup error: $_" }
     Kill-Registered
     try { Remove-Item $global:HG.file -Force -ErrorAction SilentlyContinue } catch {}
@@ -126,6 +127,7 @@ function Register-Child([System.Diagnostics.Process]$p, [string]$name = "child")
 function Note-Closed { if ($global:HG) { foreach ($g in $global:HG.games) { $g.closed = $true }; HG-Save } }   # WE are closing the game: not a crash
 function Note-Crash([string]$why = "") { if ($global:HG) { $global:HG.crashes++; HG-Log "crash #$($global:HG.crashes): $why"; HG-Save } }
 function Done-Guard([switch]$KeepFile) {   # -KeepFile: a launcher that leaves the game running keeps its pid file so kill_leftovers.ps1 can find the game
+    Clear-MeasureLock
     if ($global:HG) { HG-Log "done"; if (-not $KeepFile) { try { Remove-Item $global:HG.file -Force -ErrorAction SilentlyContinue } catch {} }; $global:HG = $null } }
 
 # Foreground-loss policy (coordinator 2026-10-08): when ui.fsx REFUSES input (game not foreground), refocus and retry ONLY if no human
@@ -152,4 +154,97 @@ function Force-Acl([string]$t) {
     if ($t -match '(?m)^AutoContinueLoad *=') { return ($t -replace '(?m)^AutoContinueLoad *=.*', 'AutoContinueLoad = 1') }
     if ($t -match '(?m)^\[General\]') { return ($t -replace '(?m)^\[General\][ \t]*(\r?)$', "[General]`$1`nAutoContinueLoad = 1`$1") }
     return $t + "`r`n[General]`r`nAutoContinueLoad = 1`r`n"
+}
+
+# ---- quiet-machine guard + measuring lock (2026-10-08, run7: other agents' build.bat / harnesses / dotnet fsi proofs swung fps
+# 107-127 inside one launch and made DQ / P1E7 / MA INVALID). Foreign load = CPU time used by every process EXCEPT Nioh3, the
+# harness's own process tree (its dotnet fsi testpopup / ui / vpad.py children) and its registered children (PresentMon),
+# over a ~2 s interval (TotalProcessorTime deltas; processes we may not read, e.g. MsMpEng, are invisible).
+# 'Noisy' = foreign load > QG_MAX_CORES logical cores (default 1.0 of 12) or one build/analysis-type process (cl, link, msbuild,
+# ml64, java = Ghidra, dotnet, py, node, ...) > QG_HEAVY_CORES (default 0.25). Kernel / game-driven processes (Idle, System,
+# Registry, dwm, audiodg, csrss) are ignored. Harness use: Wait-Quiet before a window, Measure-Foreign samples during it.
+$script:QGHeavy = @("cl", "link", "lib", "msbuild", "ml64", "ml", "cvtres", "rc", "mspdbsrv", "vctip", "cmake", "ninja", "clang", "clang-cl",
+    "lld-link", "rustc", "cargo", "java", "javaw", "dotnet", "fsi", "py", "python", "pythonw", "node", "devenv", "7z", "tar", "git", "rg", "ghidra*", "analyzeHeadless*")
+$script:QGIgnore = @("Idle", "System", "Registry", "dwm", "audiodg", "csrss", "Nioh3", "PresentMon")
+function QG-MaxCores { if ($env:QG_MAX_CORES) { [double]$env:QG_MAX_CORES } else { 1.0 } }
+function QG-HeavyCores { if ($env:QG_HEAVY_CORES) { [double]$env:QG_HEAVY_CORES } else { 0.25 } }
+function QG-IsHeavy([string]$n) { foreach ($h in $script:QGHeavy) { if ($n -like $h) { return $true } }; return $false }
+# pids that are ours: this harness and all its descendants, its registered children, every Nioh3 process
+function Get-QuietExclude([int[]]$extra = @()) {
+    $ex = @{}; $ex[$PID] = 1
+    $all = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId -ErrorAction SilentlyContinue)
+    $kids = @{}
+    foreach ($p in $all) { $k = [int]$p.ParentProcessId; if (-not $kids.ContainsKey($k)) { $kids[$k] = New-Object System.Collections.ArrayList }; [void]$kids[$k].Add([int]$p.ProcessId) }
+    $q = New-Object System.Collections.Queue; $q.Enqueue($PID)
+    while ($q.Count) { $c = $q.Dequeue(); if ($kids.ContainsKey($c)) { foreach ($k in $kids[$c]) { if (-not $ex.ContainsKey($k) -and $k -ne $c) { $ex[$k] = 1; $q.Enqueue($k) } } } }
+    if ($global:HG) { foreach ($c in @($global:HG.children)) { $ex[[int]$c.pid] = 1 } }
+    foreach ($p in @(Get-Process Nioh3 -ErrorAction SilentlyContinue)) { $ex[$p.Id] = 1 }
+    foreach ($e in $extra) { if ($e) { $ex[[int]$e] = 1 } }
+    $ex
+}
+function QG-Snap {
+    $h = @{}
+    foreach ($p in [System.Diagnostics.Process]::GetProcesses()) {
+        try { $h[$p.Id] = @($p.ProcessName, $p.TotalProcessorTime.TotalSeconds, $p.StartTime) } catch {}   # access denied -> invisible
+        $p.Dispose()
+    }
+    $h
+}
+# one sample over ~$sec seconds: @{ cores; top; heavy; noisy }
+function Measure-Foreign([double]$sec = 2.0, $exclude = $null) {
+    if (-not $exclude) { $exclude = Get-QuietExclude }
+    $a = QG-Snap; $sw = [Diagnostics.Stopwatch]::StartNew()
+    Start-Sleep -Milliseconds ([int]($sec * 1000))
+    $b = QG-Snap; $dt = $sw.Elapsed.TotalSeconds
+    $per = @{}
+    foreach ($id in $b.Keys) {
+        if ($exclude.ContainsKey($id)) { continue }
+        $n = $b[$id][0]; if ($script:QGIgnore -contains $n) { continue }
+        $d = if ($a.ContainsKey($id) -and $a[$id][2] -eq $b[$id][2]) { $b[$id][1] - $a[$id][1] } else { $b[$id][1] }   # new process: all of its CPU
+        if ($d -le 0) { continue }
+        if ($per.ContainsKey($n)) { $per[$n] += $d } else { $per[$n] = $d }
+    }
+    $cores = 0.0; foreach ($v in $per.Values) { $cores += $v / $dt }
+    $heavy = @($per.Keys | Where-Object { (QG-IsHeavy $_) -and ($per[$_] / $dt) -gt (QG-HeavyCores) })
+    $top = (($per.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 4 | ForEach-Object { "{0} {1:N2}c" -f $_.Key, ($_.Value / $dt) }) -join ", ")
+    [pscustomobject]@{ cores = [Math]::Round($cores, 2); top = $top; heavy = ($heavy -join ","); noisy = ($cores -gt (QG-MaxCores) -or $heavy.Count -gt 0) }
+}
+# wait until 2 consecutive samples are quiet (logged every 30 s while waiting); returns the seconds waited, -1 = still noisy
+# after QG_WAIT_MIN minutes (default 15; the caller measures anyway and marks the window noisy if it stays noisy)
+function Wait-Quiet([string]$why = "", [scriptblock]$log = $null) {
+    $maxMin = if ($env:QG_WAIT_MIN) { [double]$env:QG_WAIT_MIN } else { 15 }
+    $t0 = Get-Date; $ok = 0; $lastLog = [datetime]::MinValue; $ex = Get-QuietExclude
+    while ($true) {
+        $m = Measure-Foreign 2.0 $ex
+        if (-not $m.noisy) { if (++$ok -ge 2) { break } } else { $ok = 0 }
+        $w = ((Get-Date) - $t0).TotalSeconds
+        if ($m.noisy -and ((Get-Date) - $lastLog).TotalSeconds -ge 30) {
+            $l = "QUIET: waiting $([int]$w) s ($why): foreign {0:N2} cores [{1}]{2}" -f $m.cores, $m.top, $(if ($m.heavy) { " heavy: $($m.heavy)" } else { "" })
+            if ($log) { & $log $l } else { HG-Log $l }
+            $lastLog = Get-Date; Set-MeasureLock "waiting for a quiet machine ($why)"
+        }
+        if ($w -gt $maxMin * 60) {
+            $l = "QUIET: still noisy after $maxMin min ($why) - measuring anyway"
+            if ($log) { & $log $l } else { HG-Log $l }
+            return -1
+        }
+        if ($w -gt 20 -and $ok -eq 0) { $ex = Get-QuietExclude }   # long wait: refresh our own tree
+    }
+    return [Math]::Max(0, [Math]::Round(((Get-Date) - $t0).TotalSeconds - 4, 0))
+}
+# %TEMP%\nioh3_measuring.lock (JSON with the harness pid) while a harness measures: other agents must not start builds / Ghidra /
+# dotnet fsi proofs / long py jobs while it exists AND its pid is alive (Test-MeasureLock). Removed by Done-Guard / Guard-Fail.
+$script:MeasureLock = Join-Path ([IO.Path]::GetTempPath()) "nioh3_measuring.lock"
+function Set-MeasureLock([string]$state = "measuring") {
+    $o = [ordered]@{ pid = $PID; name = $(if ($global:HG) { $global:HG.name } else { "harness" }); owner = $(if ($global:HG) { $global:HG.ownerPid } else { 0 })
+        since = $(if ($global:HG) { $global:HG.t0.ToString("o") } else { (Get-Date).ToString("o") }); updated = (Get-Date).ToString("o"); state = $state
+        rule = "Nioh3 fps measurement running: no build.bat / cl / link / Ghidra / dotnet fsi proofs / long py jobs until this file is gone or its pid is dead" }
+    try { [IO.File]::WriteAllText($script:MeasureLock, ($o | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false))) } catch {}
+}
+function Clear-MeasureLock {
+    try { if (Test-Path $script:MeasureLock) { $o = Get-Content $script:MeasureLock -Raw | ConvertFrom-Json; if ([int]$o.pid -eq $PID) { Remove-Item $script:MeasureLock -Force } } } catch {}
+}
+function Test-MeasureLock {   # for other agents / scripts: the live lock object, or $null (no file, or its pid is gone)
+    try { $o = Get-Content $script:MeasureLock -Raw -ErrorAction Stop | ConvertFrom-Json; if (Get-Process -Id ([int]$o.pid) -ErrorAction SilentlyContinue) { return $o } } catch {}
+    return $null
 }

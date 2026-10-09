@@ -43,5 +43,14 @@ $ok7 = $vDead -and $bAlive -and $gone -and $left.Count -eq 1
 "{0,-4} kill_leftovers: victim killed=$vDead, unregistered bystander untouched=$bAlive, entry removed=$gone" -f $(if ($ok7) { "PASS" } else { "FAIL" })
 if (-not $ok7) { $fail++ }
 Stop-Process -Id $bystander.Id -Force -ErrorAction SilentlyContinue
+# 8 measuring lock: held while running, removed by Done-Guard and by Guard-Fail (run7 quiet-machine guard)
+$lk = Join-Path ([IO.Path]::GetTempPath()) "nioh3_measuring.lock"
+Run "lock_done" "Init-Guard -Name t8 -OwnerPid $PID; Set-MeasureLock x; if ((Test-MeasureLock).pid -ne `$PID) { exit 5 }; Done-Guard; if (Test-Path '$lk') { exit 6 }; 'GUARD: lock cleared'" 0
+Run "lock_fail" "Init-Guard -Name t9 -OwnerPid $PID -MaxMinutes 0.02; Set-MeasureLock x; Start-Sleep 30" 99 @{} 40
+$ok9 = -not (Test-Path $lk); "{0,-4} lock removed after Guard-Fail: $ok9" -f $(if ($ok9) { "PASS" } else { "FAIL" }); if (-not $ok9) { $fail++ }
+# 9 foreign load: a 1-core spin started AFTER the exclude set was taken is foreign -> noisy; with a fresh exclude it is ours -> quiet
+Run "quiet_guard" ("`$ex = Get-QuietExclude; `$p = Start-Process powershell -ArgumentList '-NoProfile -Command `$t=Get-Date; while(((Get-Date)-`$t).TotalSeconds -lt 7){}' -PassThru -WindowStyle Hidden; " +
+    "Start-Sleep -Milliseconds 800; `$a = Measure-Foreign 2 `$ex; `$b = Measure-Foreign 2 (Get-QuietExclude); 'GUARD: foreign ' + `$a.cores + ' noisy=' + `$a.noisy + ' / own ' + `$b.cores + ' noisy=' + `$b.noisy; " +
+    "`$p.WaitForExit(10000) | Out-Null; if (`$a.noisy -and -not `$b.noisy) { exit 0 } else { exit 7 }") 0
 "== $(if ($fail) { "$fail FAILED" } else { 'ALL PASS' })"
 exit $fail
