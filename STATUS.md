@@ -1,5 +1,16 @@
-# STATUS (handoff) - rewritten 2026-10-08
-Read this section only; everything older is under '## History' (unchanged). Latest commit when written: 7b4bd34 (ASI 1.7.21).
+# STATUS (handoff) - rewritten 2026-10-09 04:10
+Read this section only; older handoffs follow below.
+
+## HANDOFF 2026-10-09 04:10 (new chat starts here)
+- MANDATE (user, away for hours): optimize the GAME's GPU side for mid-range GPUs (RX 6650 XT 1080p HIGH FSR65 = ~37 fps GPU-bound, unacceptable). Same-picture GHDM-style rewrites of the costliest passes; decomp/RE allowed; test hands-free (vpad) on pc2/ally. CPU fixes parked (GPU-bound everywhere in real play; Ally CPU bundle = DROP, bridge #386).
+- BUDGET: weekly Claude usage ~98 % (shared account). Sonnet/Haiku, one Opus agent max, no swarms.
+- Devices: pc (this, RX 9070), ally (ROG Ally, Proton), pc2 (5600X + RX 6650 XT 8 GB, 1080p144; tools via tools/pc2/make_pc2.ps1; config configs/pc2-bench-1080-120-high.xml). One Steam account: always `py -m uo_bridge.gamelock enqueue nioh3`.
+- NEXT 1: pc2 posts the GP2 per-PSO top-20 table for RDNA2 (pc_gpu_session Phase A). Pick the top passes, RE + design same-look rewrites (gpu-shaders/, loose shader_dx12 swap like GHDM 0x0104840c), queue pc2 A/B (shotdiff + PresentMon GPU busy).
+- NEXT 2: pc2 warm-cache MOD rerun with minimal capture keys, to separate PSO-compile hitches from the mod (bridge #441: display latency 79 -> 41 ms p50 = big win; hitches 39 -> 94 with a cold cache).
+- NEXT 3: PC run8c (`tools/testmatrix/pc_retest_run8.ps1 -Blocks A,C -Tag run8c`, desktop must be at 240 Hz), VrrPresent A/B (notes/vrr-present.md), pc_weakcpu.ps1, pc_gpu_session on the PC.
+- Built, not yet run in game: 1.7.44 on main = W1B/RPA, BPO, GQ/JT probes, AS async slots, VrrPresent, FGC/FGP Proton FG crash fix. Separate add-on mod/Nioh3BossRematch 1.0.0 (patch-resilient, 96 bosses catalogued). Release rc zip: release/dist/Nioh3EngineFix-1.7.44-rc.zip.
+- Findings 2026-10-08/09: PC mod-vs-stock = fps equal, delay worse from the GAME's own SyncInterval flip (notes/mod-vs-stock-2026-10-09.md; VrrPresent built). FG on the Ally at 34 base fps = worse latency (real 34 -> 24). PC logic-thread wait is released by MissionThread (JT). Ally GPU idle gaps ~1 ms/frame, 0.65 ms = CPU-late submit after GFM_TextureClear (bridge #391).
+- Infra: tasks UoBridgeServer + UoKeepAlive (every 5 min) keep the :8765 bridge and :8766 web app (phone) up; autowake palette retry fix (UO 6517d54).
 
 ## HANDOFF 2026-10-08 19:30 (new chat starts here)
 - State: ASI 1.7.39 on main (bin may need a rebuild). Game folder: user's play ini (= Nioh3EngineFix.ini.preboss.bak). Ally took the game lock 19:24 (fog test fogpar, #300).
