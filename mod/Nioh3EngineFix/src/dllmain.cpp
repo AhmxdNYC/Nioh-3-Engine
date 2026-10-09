@@ -54,6 +54,7 @@
 #include "pmode.h"
 #include "timerres.h"
 #include "samelook.h"
+#include "livectl.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -84,7 +85,9 @@
 //         VB/IB binds into system-memory heaps per engine marker (needs GPUProf = 2); notesoot-cause-vram-streaming.md
 // 1.7.51: VS probe: per-PSO bind attribution (sampled GP2 frames, digests) + CBV/SRV/UAV descriptor census on system memory
 // 1.7.52: CM CbvMirror ([GpuOpt] CbvMirror = 0): per-draw CBVs mirrored from the system-memory UPLOAD ring into VRAM (upmirror.cpp)
-#define MOD_VERSION "1.7.52"
+// 1.7.53: fast testing (notes\fast-testing.md): LiveCtl control file ([Debug] LiveCtl = 0) for one-launch A/B windows + live
+//         [Tuning] values; ShaderHot ([ShaderHot] Enabled = 0, diagnostic): twin PSOs for loose-shader A/Bs in one launch
+#define MOD_VERSION "1.7.53"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1321,6 +1324,24 @@ bool SwapImport(const char* fn, void* hook, void** orig) {
     return true;
 }
 
+// fast-testing LiveCtl 'Tuning.<key> = v': [Tuning] values that the installed code reads at use time. PP_Period is the
+// PP cave's mask (read on every sweep decision); the same-look values are read per clipmap visit / frame (samelook.cpp).
+// Everything else in [Tuning] is consumed at boot (relaunch-required; notes\fast-testing.md has the table).
+static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) {
+    if (!_stricmp(key, "PP_Period")) {
+        const int v = atoi(val);
+        if (v != 2 && v != 4 && v != 8 && v != 16) {
+            snprintf(reply, n, "PP_Period must be 2, 4, 8 or 16 (got %s)", val);
+            return false;
+        }
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&pp_mask), (LONG)(v - 1));
+        snprintf(reply, n, "PP_Period = %d", v);
+        Log("LIVE tuning: %s", reply);
+        return true;
+    }
+    return samelook::SetTuning(key, val, reply, n);
+}
+
 // ---- main worker ------------------------------------------------------------------------------------------------
 DWORD WINAPI Worker(LPVOID) {
     Config cfg = LoadConfig();
@@ -2349,6 +2370,10 @@ DWORD WINAPI Worker(LPVOID) {
                     Log("stats/s gpuopt: %s", GpuOptStatus(b, sizeof(b)));
                 }
                 if (sec % 30 == 0 && gimerge::WantsHooks()) gimerge::LogLine();  // 1.7.29 GIProbe / GIMerge
+                if (sec % 30 == 0 && psoswap::HotEnabled()) {  // fast-testing ShaderHot (diagnostic): per-set state + binds
+                    char hb[1024];
+                    Log("stats/s shaderhot: %s", psoswap::HotStatus(hb, sizeof hb));
+                }
                 if (sec % 30 == 0) {  // 1.7.32 DQ / P1E7 (drawprep.cpp); empty when neither is installed
                     char b[160];
                     drawprep::StatusLine(b, sizeof(b));
@@ -2703,7 +2728,20 @@ DWORD WINAPI Worker(LPVOID) {
             gi.gpuProf = gp::WantsHooks();
             gi.giMerge = gimerge::WantsHooks();  // 1.7.29: GIProbe / GIMerge ride on gpuopt's command-list thunks
             gi.skipFx = skipfx::WantsHooks();
+            gi.shaderHot = psoswap::HotEnabled();  // fast-testing: twin-PSO rebind (diagnostic, default off)
+            if (gi.shaderHot && gimerge::WantsHooks())
+                Log("ShaderHot: WARNING GIProbe / GIMerge is on - a Dispatch it holds and replays keeps the game's own PSO");
             gpuopt::Start(gi);
+        }
+        {  // fast-testing LiveCtl ([Debug] LiveCtl = 0 by default): control-file transport for one-launch A/B windows
+            livectl::StartInfo li;
+            li.log = &Log;
+            li.iniPath = iniPath.c_str();
+            li.remote = &menu::Remote;
+            li.tuning = &LiveTuning;
+            li.hotSet = &psoswap::HotSet;
+            li.hotGet = &psoswap::HotGet;
+            livectl::Start(li);
         }
         {  // sampling profiler (sp.cpp, [Profiler] SP = 0 by default): measurement only
             sp::StartInfo pi;

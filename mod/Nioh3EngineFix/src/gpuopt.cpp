@@ -33,6 +33,7 @@
 #include "gimerge.h"
 #include "gpuprof.h"
 #include "skipfx.h"
+#include "psoswap.h"
 
 #pragma intrinsic(_ReturnAddress)
 
@@ -47,9 +48,11 @@ extern volatile uint8_t gpuopt_hook[96];  // GP profiler (gpuprof.cpp): slots th
 extern volatile uint8_t gpuopt_hook2[96];  // 1.7.29 gimerge.cpp: slots that always take the slow path
 extern void* volatile gpuopt_hold;         // 1.7.29 gimerge.cpp: list with a held Dispatch (all its calls: slow path)
 extern volatile uint8_t gpuopt_hook3[96];  // skipfx.cpp ([Debug] SkipFx diagnostic): slots that always take the slow path
+extern volatile uint8_t gpuopt_hook4[96];  // psoswap ShaderHot (fast-testing): SetPipelineState / Reset / ClearState rebind
 extern void* gpuopt_thunks0[96];
 extern void* gpuopt_thunks1[96];
-int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3);  // != 0: skip the method
+// != 0: skip the method. regs = the saved argument registers {r9, r8, rdx, rcx} the method is called with afterwards
+int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t* regs);
 }
 
 namespace gpuopt {
@@ -141,6 +144,7 @@ volatile LONG g_r2a = 0, g_r2b = 0, g_r1 = 0;  // live switches (Start copies th
 bool g_gpuProf = false;  // the GP profiler needs the hooks even with Barriers = 0 (batching then stays off)
 bool g_giHooks = false;  // 1.7.29: gimerge (GIProbe / GIMerge) needs them too
 bool g_skipFx = false;   // skipfx ([Debug] SkipFx diagnostic) needs them too
+bool g_shaderHot = false;  // psoswap ShaderHot (live shader A/B, fast-testing) needs the PSO-bind slots
 SRWLOCK g_installLock = SRWLOCK_INIT;
 
 uintptr_t g_exeLo = 0, g_exeHi = 0;
@@ -869,7 +873,7 @@ int IniInt(const wchar_t* key, int def, int lo, int hi) {
 // ---- asm slow path ---------------------------------------------------------------------------------------------------------
 }  // namespace gpuopt
 
-extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3) {
+extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t* regs) {
     using namespace gpuopt;
     if (t_inEmit) return 0;
     const int slot = (int)(setSlot & 0xFF), set = (int)(setSlot >> 8);
@@ -880,6 +884,17 @@ extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t 
     if (gpuopt_hook[slot]) gp::OnListCall(self, set, slot, a1, a2, a3);  // GP: after the batch flush, before the method
     // SkipFx diagnostic (cost-vs-looks): after the flush, so a skipped draw / dispatch leaves every resource state as recorded
     if (gpuopt_hook3[slot] && skipfx::OnListCall(self, set, slot, a1, a2, a3)) skip = true;
+    // ShaderHot (diagnostic): LAST, after every observer above saw the game's own PSO (GP2 / SkipFx attribution stay stock):
+    // the method itself is called with the twin when the set's live switch says so. regs: [0] r9, [1] r8, [2] rdx.
+    if (gpuopt_hook4[slot] && regs && !skip) {
+        if (slot == 25 || slot == 11) {          // SetPipelineState(pso) / ClearState(pso): a1 = rdx
+            const uintptr_t n = psoswap::HotMap(a1);
+            if (n != a1) regs[2] = n;
+        } else if (slot == 10) {                 // Reset(allocator, initial pso): a2 = r8
+            const uintptr_t n = psoswap::HotMap(a2);
+            if (n != a2) regs[1] = n;
+        }
+    }
     return skip ? 1 : 0;
 }
 
@@ -906,8 +921,9 @@ void Start(const StartInfo& info) {
     g_gpuProf = info.gpuProf;
     g_giHooks = info.giMerge;
     g_skipFx = info.skipFx;
+    g_shaderHot = info.shaderHot;
     if (!info.wine) g_cfg.r2a = g_cfg.r2b = g_cfg.r1 = 0;  // the rewrites are designed for vkd3d-proton only
-    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_giHooks && !g_skipFx && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
+    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_giHooks && !g_skipFx && !g_shaderHot && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
         g_state = (LONG)State::Off;
         return;
     }
@@ -950,6 +966,10 @@ bool InstallNow() {
             if (g_gpuProf) gp::EnableHooks(gpuopt_hook, kSlots);
             if (g_giHooks) gimerge::EnableHooks(gpuopt_hook2, kSlots, gpuopt_orig0, g_vt[1] ? gpuopt_orig1 : nullptr, &gpuopt_hold);
             if (g_skipFx) skipfx::EnableHooks(gpuopt_hook3, kSlots, gpuopt_orig0, g_vt[1] ? gpuopt_orig1 : nullptr);
+            if (g_shaderHot) {   // Reset 10, ClearState 11, SetPipelineState 25
+                gpuopt_hook4[10] = gpuopt_hook4[11] = gpuopt_hook4[25] = 1;
+                LOG("ShaderHot: PSO-bind slots (SetPipelineState, Reset, ClearState) routed to the twin map");
+            }
             g_state = (LONG)(g_batching ? State::Active : State::Paused);
             LOG("installed - batching %s", g_batching ? "ON" : "off (counters only)");
         } else {

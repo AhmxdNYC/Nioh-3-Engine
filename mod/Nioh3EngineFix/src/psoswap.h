@@ -88,7 +88,7 @@ struct Stats {
     bool late = false;          // hooked by InstallNow after the engine started rendering
 };
 
-// Reads [ShaderSwap]. Enabled = 0: returns, nothing else happens. Otherwise indexes <Folder> and swaps the main module's
+// Reads [ShaderSwap] and [ShaderHot]. Both Enabled = 0 (and no GP2/SkipFx tracking): returns, nothing else happens. Otherwise indexes <Folder> and swaps the main module's
 // IAT slot(s) for D3D12CreateDevice (sl.interposer.dll / d3d12.dll) so the device the engine creates is hooked the moment
 // it exists. Copies everything, never throws, never blocks.
 void Start(const StartInfo& info);
@@ -110,5 +110,29 @@ bool Tracking();
 uint32_t PsoSetId(const void* pso);                   // lock-free; 0 = unknown PSO. Valid ids: 1..SetCount()
 int DescribeSet(uint32_t id, char* buf, size_t n);    // "vs=<32 hex> ps=<32 hex>" (psoswap file-name keys); returns length
 uint32_t SetCount();
+
+// ---- ShaderHot (fast-testing, notes\fast-testing.md): runtime shader A/B in ONE launch. DIAGNOSTIC ONLY. ----------------
+// [ShaderHot] Enabled = 0 by default; never ship it on. With Enabled = 1, <Folder>\<set>\ (one sub-folder per A/B item,
+// max 16) holds alternative bytecode named by the digest of the shader the GAME loads:
+//     on_<key>.dxil|.dxbc|.cso|.bin   bound while the set is ON  (the game runs the stock file; this is the replacement)
+//     off_<key>.dxil|...              bound while the set is OFF (the replacement file is installed; this is the stock one)
+//     <key>.<ext>                     = on_<key>
+// <key> = container digest / HASH digest / f+FNV, as for [ShaderSwap]. For every PSO the engine creates from such a
+// shader, psoswap creates a TWIN PSO from the same desc with that bytecode (cached blob dropped), keeps a reference on
+// the game's PSO (so its address can never be reused while mapped) and files game PSO -> twin. gpuopt's command-list
+// thunks (SetPipelineState / Reset(initial PSO) / ClearState) then bind the twin instead of the game's PSO whenever the
+// set's live switch says so. The game itself only ever sees its own PSOs: GetCachedBlob / pipeline-library stores and
+// the PJ journal never see a twin, so no PSO cache on disk can end up holding the other bytecode.
+// A set starts in the state of the installed files (ON when it has off_ files, else OFF): binding is unchanged until
+// the first HotSet.
+bool HotEnabled();
+int HotSetCount();
+// Switch a set; name = the sub-folder (case-insensitive). Returns false when there is no such set. One volatile store.
+bool HotSet(const char* name, int on, char* reply, size_t n);
+int HotGet(const char* name);  // 1 / 0, -1 = no such set
+// The PSO to bind instead of `pso` (or `pso` itself). Lock-free; called for every SetPipelineState while ShaderHot is on.
+uintptr_t HotMap(uintptr_t pso);
+// "ghdm=ON (1 twin, 0 failed, 1 file)" per set
+const char* HotStatus(char* buf, size_t n);
 
 }  // namespace psoswap

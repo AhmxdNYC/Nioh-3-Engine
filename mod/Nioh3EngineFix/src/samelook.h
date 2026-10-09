@@ -34,6 +34,7 @@
 //   offset check) and, while a knob is on, whether the engine re-filled the field between two frames.
 // 0 = nothing installed, 1 = installed + on, 2 = installed + off (switch with the menu row or `vpad menu set <key> 1`).
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 namespace samelook {
@@ -53,6 +54,8 @@ void SetRcoInstalled();
 volatile uint32_t* VsmaSwitch();
 enum Knob { kLpv, kSky, kFogT, kCloud, kNumKnobs };
 volatile uint32_t* KnobSwitch(int knob);
+// fast-testing LiveCtl: set a [Tuning] value live (VSMA_K, VSMA_Front, LPVR_N, SKYR_V, FOGT_V, CLDR_V); false = unknown key
+bool SetTuning(const char* key, const char* val, char* reply, size_t n);
 // 30 s stats line ("" when nothing is installed)
 void StatusLine(char* buf, unsigned n, unsigned secs);
 void OnPresent();  // osd Present hook: frames for the per-frame rates

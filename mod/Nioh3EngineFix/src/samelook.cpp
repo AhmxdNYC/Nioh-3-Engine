@@ -145,6 +145,37 @@ void SetRcoInstalled() {
          !g_knobIni[kCloud] ? "-" : g_knobOn[kCloud] ? "ON" : "off", (double)g_cloudV);
 }
 
+// fast-testing (LiveCtl 'Tuning.<key> = v'): the [Tuning] values are read at use time (VsmaBindC / RcoApplyC), so a
+// changed value applies from the next clipmap visit / frame. One aligned 32-bit store each.
+bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
+    if (!key || !val) return false;
+    const double d = atof(val);
+    const long v = strtol(val, nullptr, 10);
+    if (!_stricmp(key, "VSMA_K")) {
+        g_vsmaK = (uint32_t)(v < 1 ? 1 : v > 8 ? 8 : v);
+        snprintf(reply, n, "VSMA_K = %u", g_vsmaK);
+    } else if (!_stricmp(key, "VSMA_Front")) {
+        g_vsmaFront = (uint32_t)(v < 0 ? 0 : v > 16 ? 16 : v);
+        snprintf(reply, n, "VSMA_Front = %u", g_vsmaFront);
+    } else if (!_stricmp(key, "LPVR_N")) {
+        g_lpvN = (uint32_t)(v < 1 ? 1 : v > 64 ? 64 : v);
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_knobVal[kLpv]), (LONG)g_lpvN);
+        snprintf(reply, n, "LPVR_N = %u", g_lpvN);
+    } else if (!_stricmp(key, "SKYR_V") || !_stricmp(key, "FOGT_V") || !_stricmp(key, "CLDR_V")) {
+        const int k = !_stricmp(key, "SKYR_V") ? kSky : !_stricmp(key, "FOGT_V") ? kFogT : kCloud;
+        float f = (float)d;
+        (k == kSky ? g_skyV : k == kFogT ? g_fogV : g_cloudV) = f;
+        LONG bits;
+        memcpy(&bits, &f, 4);
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_knobVal[k]), bits);
+        snprintf(reply, n, "%s = %.3f", key, (double)f);
+    } else {
+        return false;
+    }
+    SLOG("LIVE tuning: %s", reply);
+    return true;
+}
+
 volatile uint32_t* VsmaSwitch() { return g_vsmaInstalled ? &g_vsmaOn : nullptr; }
 volatile uint32_t* KnobSwitch(int k) {
     return (g_rcoInstalled && k >= 0 && k < kNumKnobs && g_knobIni[k]) ? &g_knobOn[k] : nullptr;

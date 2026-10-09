@@ -48,6 +48,7 @@ const GUID kIID_Device1 = {0x77acce80, 0x638e, 0x4e65, {0x88, 0x95, 0xc1, 0xf2, 
 const GUID kIID_Device2 = {0x30baa41e, 0xb15b, 0x475c, {0xa0, 0xbb, 0x1a, 0xf5, 0xc5, 0xb6, 0x43, 0x28}};
 const GUID kIID_Library = {0xc64226a8, 0x9201, 0x46af, {0xb4, 0xcc, 0x53, 0xfb, 0x9f, 0xf7, 0x41, 0x4f}};
 const GUID kIID_Library1 = {0x80eabf42, 0x2568, 0x4e5e, {0xbd, 0x82, 0xc3, 0x7f, 0x86, 0x96, 0x1d, 0xc3}};
+const GUID kIID_Pso = {0x765a30f3, 0xf624, 0x4c6f, {0xa8, 0x28, 0xac, 0xe9, 0x48, 0x62, 0x24, 0x45}};  // ID3D12PipelineState
 
 using CreateGfxFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_GRAPHICS_PIPELINE_STATE_DESC*, REFIID, void**);
 using CreateCsFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_COMPUTE_PIPELINE_STATE_DESC*, REFIID, void**);
@@ -67,7 +68,8 @@ struct Cfg {
     int dumpMode = 0;
     int logAll = 0;
     int track = 0;  // [Profiler] GPUProf >= 2: remember which shaders each PSO was built from (GP2, gpuprof.cpp)
-    std::wstring folder;
+    int hot = 0;    // [ShaderHot] Enabled: twin PSOs for the live shader A/B (diagnostic, notes\fast-testing.md)
+    std::wstring folder, hotFolder;
 };
 Cfg g_cfg;
 void (*g_log)(const char*, ...) = nullptr;
@@ -240,8 +242,11 @@ struct Repl {
     std::vector<uint8_t> data;
     BlobInfo info;
     int state = 0;  // 0 not loaded, 1 ready, -1 unusable file, -2 rejected by the runtime this session
+    int hotSet = -1;  // ShaderHot: set index (g_hotRepl entries only)
+    int hotPol = 1;   // ShaderHot: 1 = on_ file (twin bound while the set is ON), 0 = off_ file (twin bound while OFF)
 };
-std::unordered_map<Key, Repl, KeyHash> g_repl;  // filled in Start, only state/data change afterwards (under g_lock)
+std::unordered_map<Key, Repl, KeyHash> g_repl;     // filled in Start, only state/data change afterwards (under g_lock)
+std::unordered_map<Key, Repl, KeyHash> g_hotRepl;  // ShaderHot files (same rules as g_repl)
 std::unordered_set<Key, KeyHash> g_seen;        // shaders already logged / dumped
 
 bool ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& out, size_t maxBytes) {
@@ -259,11 +264,11 @@ bool ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& out, size_t m
 }
 
 // Returns the ready replacement for this shader, or nullptr. Loads the file on first use (outside the lock).
-const Repl* GetRepl(const BlobInfo& orig) {
+const Repl* GetReplIn(std::unordered_map<Key, Repl, KeyHash>& map, const BlobInfo& orig) {
     AcquireSRWLockShared(&g_lock);
-    auto it = g_repl.find(orig.key);
-    if (it == g_repl.end() && orig.hasHash) it = g_repl.find(orig.hkey);
-    if (it == g_repl.end()) {
+    auto it = map.find(orig.key);
+    if (it == map.end() && orig.hasHash) it = map.find(orig.hkey);
+    if (it == map.end()) {
         ReleaseSRWLockShared(&g_lock);
         return nullptr;
     }
@@ -304,26 +309,154 @@ const Repl* GetRepl(const BlobInfo& orig) {
     if (ready && ns == 1) {
         char rk[40];
         KeyName(bi.key, rk);
-        LOG("%s: replacement loaded (%s %s, %u bytes, new digest %s)", kn, StageName(bi.stage), bi.dxil ? "DXIL" : "DXBC",
-            bi.size, rk);
+        LOG("%s%s: replacement loaded (%s %s, %u bytes, new digest %s)", r->hotSet >= 0 ? "hot " : "", kn, StageName(bi.stage),
+            bi.dxil ? "DXIL" : "DXBC", bi.size, rk);
     }
     if (!ready) Add(g_c.skipped);
     return ready ? r : nullptr;
 }
+const Repl* GetRepl(const BlobInfo& orig) { return GetReplIn(g_repl, orig); }
 
-void DisableKey(const Key& k, HRESULT hr) {
+void DisableKeyIn(std::unordered_map<Key, Repl, KeyHash>& map, const Key& k, HRESULT hr) {
     AcquireSRWLockExclusive(&g_lock);
-    auto it = g_repl.find(k);
-    const bool first = it != g_repl.end() && it->second.state == 1;
+    auto it = map.find(k);
+    const bool first = it != map.end() && it->second.state == 1;
     if (first) it->second.state = -2;
     ReleaseSRWLockExclusive(&g_lock);
     if (first) {
         char kn[40];
         KeyName(k, kn);
-        LOG("%s: the runtime REJECTED the PSO with this replacement (hr %08lX) - created from the original desc; key "
-            "disabled for this session",
-            kn, (unsigned long)hr);
+        LOG("%s%s: the runtime REJECTED the PSO with this replacement (hr %08lX) - %s; key disabled for this session",
+            &map == &g_hotRepl ? "hot " : "", kn, (unsigned long)hr,
+            &map == &g_hotRepl ? "no twin, the game's PSO stays bound in both states" : "created from the original desc");
     }
+}
+void DisableKey(const Key& k, HRESULT hr) { DisableKeyIn(g_repl, k, hr); }
+
+struct Use {  // a replacement used in a plan (per-PSO plans below)
+    Key key;
+    int n = 0;
+};
+
+// ---- ShaderHot: sets, live switches, game PSO -> twin map --------------------------------------------------------------
+constexpr int kMaxHotSets = 16;
+constexpr uint32_t kHotTab = 1u << 13;
+struct HotSetInfo {
+    char name[32] = {};
+    volatile LONG on = 0;
+    int files = 0, onFiles = 0, offFiles = 0;
+    volatile LONG twins = 0, fails = 0, logged = 0;
+    volatile LONG64 altBinds = 0, baseBinds = 0;
+};
+HotSetInfo g_hotSets[kMaxHotSets];
+int g_hotN = 0;
+struct HotEnt {
+    volatile uintptr_t p;    // the game's PSO (we hold one reference on it while it is mapped)
+    volatile uintptr_t alt;  // its twin (our reference)
+    volatile LONG set;
+    volatile LONG pol;
+};
+HotEnt* g_hotTab = nullptr;  // [kHotTab] open addressing; alt/set/pol are written before p
+SRWLOCK g_hotLock = SRWLOCK_INIT;  // writers only
+volatile LONG g_hotUsed = 0;
+
+struct HotPlanState {   // thread-local: a twin plan in progress (Consider looks up g_hotRepl, nothing is observed / tracked)
+    bool on = false;
+    int set = -1, conflicts = 0, pol = 1;
+    Key key;
+};
+thread_local HotPlanState t_hp;
+struct HotScope {
+    HotScope() { t_hp = HotPlanState(); t_hp.on = true; }
+    ~HotScope() { t_hp.on = false; }
+};
+
+const Repl* GetHot(const BlobInfo& bi) {
+    const Repl* r = GetReplIn(g_hotRepl, bi);
+    if (!r) return nullptr;
+    if (t_hp.set < 0) {
+        t_hp.set = r->hotSet;
+        t_hp.pol = r->hotPol;
+        t_hp.key = r->key;
+    } else if (r->hotSet != t_hp.set || r->hotPol != t_hp.pol) {
+        ++t_hp.conflicts;  // one twin per PSO: a second set (or the other polarity) in the same PSO is left stock
+        return nullptr;
+    }
+    return r;
+}
+
+uint32_t HotPos(uintptr_t p) { return (uint32_t)(((p >> 4) * 0x9E3779B97F4A7C15ull) >> 40) & (kHotTab - 1); }
+
+// base / alt: one reference each, both handed over (released here when they cannot be filed)
+void HotRegister(IUnknown* base, IUnknown* alt, int set, int pol) {
+    bool filed = false, dup = false;
+    const uintptr_t p = (uintptr_t)base;
+    AcquireSRWLockExclusive(&g_hotLock);
+    uint32_t pos = HotPos(p);
+    for (int probe = 0; probe < 64 && g_hotUsed < (LONG)(kHotTab / 2); ++probe, pos = (pos + 1) & (kHotTab - 1)) {
+        HotEnt& e = g_hotTab[pos];
+        if (e.p == p) {
+            dup = true;
+            break;
+        }
+        if (!e.p) {
+            e.alt = (uintptr_t)alt;
+            e.set = set;
+            e.pol = pol;
+            MemoryBarrier();
+            e.p = p;
+            InterlockedIncrement(&g_hotUsed);
+            filed = true;
+            break;
+        }
+    }
+    ReleaseSRWLockExclusive(&g_hotLock);
+    HotSetInfo& s = g_hotSets[set];
+    if (!filed) {
+        alt->Release();
+        base->Release();
+        if (!dup) {
+            InterlockedIncrement(&s.fails);
+            LOG("HOT: set '%s': twin map full - PSO %p stays stock in both states", s.name, (void*)base);
+        }
+        return;
+    }
+    const LONG n = InterlockedIncrement(&s.twins);
+    if (InterlockedIncrement(&s.logged) <= 8) {
+        char kn[40];
+        KeyName(t_hp.key, kn);
+        LOG("HOT: set '%s': twin %ld ready - game PSO %p (shader %s) <-> twin %p, bound while the set is %s%s", s.name, (long)n,
+            (void*)base, kn, (void*)alt, pol ? "ON" : "OFF", t_hp.conflicts ? " (another hot set in this PSO left stock)" : "");
+    }
+}
+
+// After the game's PSO was created (hr OK): twin from the hot plan. create(desc-ish) is done by the caller-specific lambda.
+template <class CreateTwin>
+void HotFinish(void** pp, CreateTwin create, const Use* uses, int nUses) {
+    if (t_hp.set < 0) return;
+    HotSetInfo& s = g_hotSets[t_hp.set];
+    void* basePtr = nullptr;
+    if (!pp || !SafeCopy(&basePtr, pp, sizeof basePtr) || !basePtr) return;
+    void* alt = nullptr;
+    HRESULT hr;
+    {
+        ++t_depth;
+        hr = create(&alt);
+        --t_depth;
+    }
+    if (FAILED(hr) || !alt) {
+        InterlockedIncrement(&s.fails);
+        for (int i = 0; i < nUses; ++i)
+            if (uses[i].n) DisableKeyIn(g_hotRepl, uses[i].key, hr);
+        return;
+    }
+    void* base = nullptr;   // the pointer the engine binds (ID3D12PipelineState), with our own reference
+    if (FAILED(static_cast<IUnknown*>(basePtr)->QueryInterface(kIID_Pso, &base)) || !base) {
+        static_cast<IUnknown*>(alt)->Release();
+        InterlockedIncrement(&s.fails);
+        return;
+    }
+    HotRegister(static_cast<IUnknown*>(base), static_cast<IUnknown*>(alt), t_hp.set, t_hp.pol);
 }
 
 // ---- observation: log exe-embedded shaders once, dump on request -----------------------------------------------------------
@@ -468,10 +601,6 @@ void TrkCommit(HRESULT hr, void** pp) {
 
 // ---- per-PSO plans -------------------------------------------------------------------------------------------------------
 constexpr int kMaxStages = 8;
-struct Use {
-    Key key;
-    int n = 0;
-};
 struct Kinds {
     int dxbc = 0, dxil = 0;
 };
@@ -481,9 +610,14 @@ const Repl* Consider(const D3D12_SHADER_BYTECODE& bc, Kinds& kinds, Use& use) {
     if (!bc.pShaderBytecode || bc.BytecodeLength < 32) return nullptr;
     BlobInfo bi;
     if (!SafeReadBlob(bc.pShaderBytecode, bc.BytecodeLength, &bi)) return nullptr;
-    if (g_cfg.enabled) Observe(bi, bc.pShaderBytecode);
-    if (g_cfg.track) TrkAdd(bi.stage, bi.key);
-    const Repl* r = g_cfg.enabled ? GetRepl(bi) : nullptr;
+    const Repl* r = nullptr;
+    if (t_hp.on) {  // ShaderHot twin plan: hot files only, nothing observed / tracked a second time
+        r = GetHot(bi);
+    } else {
+        if (g_cfg.enabled) Observe(bi, bc.pShaderBytecode);
+        if (g_cfg.track) TrkAdd(bi.stage, bi.key);
+        r = g_cfg.enabled ? GetRepl(bi) : nullptr;
+    }
     const bool dx = r ? r->info.dxil : bi.dxil;
     (dx ? kinds.dxil : kinds.dxbc)++;
     if (r) {
@@ -654,7 +788,7 @@ struct Depth {  // raised around every call into the runtime: nested hooks pass 
     ~Depth() { --t_depth; }
 };
 
-HRESULT DoGfx(CreateGfxFn orig, ID3D12Device* self, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
+HRESULT DoGfx0(CreateGfxFn orig, ID3D12Device* self, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
     if (t_depth || !d) return orig(self, d, riid, pp);
     Add(g_c.graphics);
     GfxPlan pl;
@@ -672,7 +806,7 @@ HRESULT DoGfx(CreateGfxFn orig, ID3D12Device* self, const D3D12_GRAPHICS_PIPELIN
     if (SUCCEEDED(o)) Rejected(pl, 5, hr);
     return o;
 }
-HRESULT DoCs(CreateCsFn orig, ID3D12Device* self, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
+HRESULT DoCs0(CreateCsFn orig, ID3D12Device* self, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
     if (t_depth || !d) return orig(self, d, riid, pp);
     Add(g_c.compute);
     CsPlan pl;
@@ -693,7 +827,7 @@ HRESULT DoCs(CreateCsFn orig, ID3D12Device* self, const D3D12_COMPUTE_PIPELINE_S
     }
     return o;
 }
-HRESULT DoStream(CreateStreamFn orig, ID3D12Device* self, const D3D12_PIPELINE_STATE_STREAM_DESC* d, REFIID riid, void** pp) {
+HRESULT DoStream0(CreateStreamFn orig, ID3D12Device* self, const D3D12_PIPELINE_STATE_STREAM_DESC* d, REFIID riid, void** pp) {
     if (t_depth || !d) return orig(self, d, riid, pp);
     Add(g_c.stream);
     StreamPlan pl;
@@ -713,6 +847,70 @@ HRESULT DoStream(CreateStreamFn orig, ID3D12Device* self, const D3D12_PIPELINE_S
     const HRESULT o = orig(self, d, riid, pp);
     if (SUCCEEDED(o)) Rejected(pl, kMaxStages, hr);
     return o;
+}
+
+// ---- ShaderHot twins: built from the game's own desc (hot bytecode, cached blob dropped) straight on the runtime's
+// original method, so no other hook (PJ journal, Streamline) ever sees a twin -------------------------------------------
+void HotTwinGfx(CreateGfxFn create, ID3D12Device* dev, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, void** pp) {
+    HotScope hs;
+    GfxPlan pl;
+    if (!create || !PlanGraphics(d, pl)) return;
+    HotFinish(pp, [&](void** alt) { return create(dev, &pl.desc, kIID_Pso, alt); }, pl.uses, 5);
+}
+void HotTwinCs(CreateCsFn create, ID3D12Device* dev, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d, void** pp) {
+    HotScope hs;
+    CsPlan pl;
+    if (!create || !PlanCompute(d, pl)) return;
+    HotFinish(pp, [&](void** alt) { return create(dev, &pl.desc, kIID_Pso, alt); }, &pl.use, 1);
+}
+void HotTwinStream(CreateStreamFn create, ID3D12Device* dev, const D3D12_PIPELINE_STATE_STREAM_DESC* d, void** pp) {
+    HotScope hs;
+    StreamPlan pl;
+    bool planned = false;
+    try {
+        planned = create && PlanStream(d, pl);
+    } catch (...) {
+        planned = false;
+    }
+    if (!planned) return;
+    HotFinish(pp, [&](void** alt) { return create(dev, &pl.desc, kIID_Pso, alt); }, pl.uses, kMaxStages);
+}
+
+HRESULT DoGfx(CreateGfxFn orig, ID3D12Device* self, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
+    const bool top = !t_depth;
+    const HRESULT hr = DoGfx0(orig, self, d, riid, pp);
+    if (top && g_hotN && d && SUCCEEDED(hr)) HotTwinGfx(orig, self, d, pp);
+    return hr;
+}
+HRESULT DoCs(CreateCsFn orig, ID3D12Device* self, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
+    const bool top = !t_depth;
+    const HRESULT hr = DoCs0(orig, self, d, riid, pp);
+    if (top && g_hotN && d && SUCCEEDED(hr)) HotTwinCs(orig, self, d, pp);
+    return hr;
+}
+HRESULT DoStream(CreateStreamFn orig, ID3D12Device* self, const D3D12_PIPELINE_STATE_STREAM_DESC* d, REFIID riid, void** pp) {
+    const bool top = !t_depth;
+    const HRESULT hr = DoStream0(orig, self, d, riid, pp);
+    if (top && g_hotN && d && SUCCEEDED(hr)) HotTwinStream(orig, self, d, pp);
+    return hr;
+}
+
+// the runtime's original create method for this device object (the hooked vtable's saved slot), nullptr if unknown
+template <class Fn>
+Fn DevOrig(void* dev, Fn DevSet::*m) {
+    if (!dev) return nullptr;
+    void** vt = *static_cast<void***>(dev);
+    for (LONG i = 0; i < g_devN; ++i)
+        if (g_dev[i].vt == vt) return g_dev[i].*m;
+    return nullptr;
+}
+// pipeline-library loads: the twin is created on the library's device
+template <class DescT, class Twin>
+void HotTwinLib(ID3D12PipelineLibrary* lib, const DescT* d, void** pp, const GUID& devIid, Twin twin) {
+    void* dev = nullptr;
+    if (FAILED(lib->GetDevice(devIid, &dev)) || !dev) return;
+    twin(dev, d, pp);
+    static_cast<IUnknown*>(dev)->Release();
 }
 
 void HookLibraryObject(IUnknown* lib);
@@ -844,17 +1042,29 @@ HRESULT HkLoadStreamI(ID3D12PipelineLibrary* self, LPCWSTR name, const D3D12_PIP
 }
 
 // GP2: the library hooks above are plain functions; these wrappers file the resulting PSO under its shader set
-#define PSOSWAP_LIB_WRAP(NAME, DESC)                                                                                   \
+// (+ ShaderHot: a twin for every loaded PSO built from a hot shader, created on the library's device)
+void HotLibGfx(void* dev, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, void** pp) {
+    HotTwinGfx(DevOrig(dev, &DevSet::gfx), static_cast<ID3D12Device*>(dev), d, pp);
+}
+void HotLibCs(void* dev, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d, void** pp) {
+    HotTwinCs(DevOrig(dev, &DevSet::cs), static_cast<ID3D12Device*>(dev), d, pp);
+}
+void HotLibStream(void* dev, const D3D12_PIPELINE_STATE_STREAM_DESC* d, void** pp) {
+    HotTwinStream(DevOrig(dev, &DevSet::stream), static_cast<ID3D12Device*>(dev), d, pp);
+}
+#define PSOSWAP_LIB_WRAP(NAME, DESC, HOT, DEVIID)                                                                      \
     template <int S>                                                                                                   \
     HRESULT STDMETHODCALLTYPE NAME(ID3D12PipelineLibrary* self, LPCWSTR name, const DESC* d, REFIID riid, void** pp) { \
+        const bool top = !t_depth;                                                                                     \
         TrkBegin();                                                                                                    \
         const HRESULT hr = NAME##I<S>(self, name, d, riid, pp);                                                        \
         TrkCommit(hr, pp);                                                                                             \
+        if (top && g_hotN && d && SUCCEEDED(hr)) HotTwinLib(self, d, pp, DEVIID, HOT);                                 \
         return hr;                                                                                                     \
     }
-PSOSWAP_LIB_WRAP(HkLoadGfx, D3D12_GRAPHICS_PIPELINE_STATE_DESC)
-PSOSWAP_LIB_WRAP(HkLoadCs, D3D12_COMPUTE_PIPELINE_STATE_DESC)
-PSOSWAP_LIB_WRAP(HkLoadStream, D3D12_PIPELINE_STATE_STREAM_DESC)
+PSOSWAP_LIB_WRAP(HkLoadGfx, D3D12_GRAPHICS_PIPELINE_STATE_DESC, HotLibGfx, kIID_Device)
+PSOSWAP_LIB_WRAP(HkLoadCs, D3D12_COMPUTE_PIPELINE_STATE_DESC, HotLibCs, kIID_Device)
+PSOSWAP_LIB_WRAP(HkLoadStream, D3D12_PIPELINE_STATE_STREAM_DESC, HotLibStream, kIID_Device2)
 
 // ---- vtable patching -------------------------------------------------------------------------------------------------------
 std::string ModuleOfVt(void* p) { return ModuleOfAddr(p); }
@@ -897,7 +1107,7 @@ bool SameVt(IUnknown* o, const GUID& iid, void** vt, bool& sameOut) {
     return true;
 }
 
-// One vtable per set. A device class that answers Device2 through a different vtable (not seen in practice) gets a
+// One vtable per device set. A device class that answers Device2 through a different vtable (not seen in practice) gets a
 // second set for that vtable.
 void HookDeviceVt(IUnknown* obj, const char* via) {
     void** vt = *reinterpret_cast<void***>(obj);
@@ -1078,6 +1288,93 @@ int IniInt(const wchar_t* key, int def, int lo, int hi, const std::wstring& ini)
     return v < lo ? lo : v > hi ? hi : v;
 }
 
+std::wstring ResolveFolder(const std::wstring& ini, const wchar_t* sec, const wchar_t* key, const wchar_t* def) {
+    wchar_t folder[MAX_PATH] = {};
+    GetPrivateProfileStringW(sec, key, def, folder, MAX_PATH, ini.c_str());
+    std::wstring f = folder;
+    const bool absolute = f.size() > 1 && (f[1] == L':' || (f[0] == L'\\' && f[1] == L'\\'));
+    if (!absolute) {
+        const size_t sep = ini.find_last_of(L"\\/");
+        f = (sep == std::wstring::npos ? std::wstring(L".") : ini.substr(0, sep)) + L"\\" + f;
+    }
+    while (!f.empty() && (f.back() == L'\\' || f.back() == L'/')) f.pop_back();
+    return f;
+}
+
+bool ShaderExt(const wchar_t* dot) {
+    return dot && (!_wcsicmp(dot, L".dxbc") || !_wcsicmp(dot, L".dxil") || !_wcsicmp(dot, L".cso") || !_wcsicmp(dot, L".bin"));
+}
+
+// ShaderHot: one sub-folder per set; files on_<key>.<ext> / off_<key>.<ext> / <key>.<ext>
+int IndexHot() {
+    WIN32_FIND_DATAW sd;
+    HANDLE hs = FindFirstFileW((g_cfg.hotFolder + L"\\*").c_str(), &sd);
+    if (hs == INVALID_HANDLE_VALUE) return 0;
+    do {
+        if (!(sd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || sd.cFileName[0] == L'.') continue;
+        if (g_hotN >= kMaxHotSets) {
+            LOG("HOT: more than %d sets in %ls - '%ls' ignored", kMaxHotSets, g_cfg.hotFolder.c_str(), sd.cFileName);
+            continue;
+        }
+        HotSetInfo& s = g_hotSets[g_hotN];
+        int k = 0;
+        for (const wchar_t* c = sd.cFileName; *c && k < 31; ++c) s.name[k++] = (char)((*c >= L'A' && *c <= L'Z') ? *c - L'A' + L'a' : (*c < 127 ? *c : L'?'));
+        s.name[k] = 0;
+        const std::wstring dir = g_cfg.hotFolder + L"\\" + sd.cFileName;
+        WIN32_FIND_DATAW fd;
+        HANDLE h = FindFirstFileW((dir + L"\\*").c_str(), &fd);
+        if (h != INVALID_HANDLE_VALUE) {
+            do {
+                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+                const wchar_t* dot = wcsrchr(fd.cFileName, L'.');
+                if (!ShaderExt(dot)) continue;
+                const wchar_t* nm = fd.cFileName;
+                int pol = 1;
+                if (!_wcsnicmp(nm, L"on_", 3)) nm += 3;
+                else if (!_wcsnicmp(nm, L"off_", 4)) nm += 4, pol = 0;
+                Key key;
+                if (!ParseKeyName(nm, (size_t)(dot - nm), key)) continue;
+                Repl r;
+                r.key = key;
+                r.path = dir + L"\\" + fd.cFileName;
+                r.hotSet = g_hotN;
+                r.hotPol = pol;
+                auto ins = g_hotRepl.emplace(key, std::move(r));
+                if (!ins.second) {
+                    LOG("HOT: %ls: the same shader key is already in set '%s' (%ls) - ignored", fd.cFileName,
+                        g_hotSets[ins.first->second.hotSet].name, ins.first->second.path.c_str());
+                    continue;
+                }
+                ++s.files;
+                ++(pol ? s.onFiles : s.offFiles);
+            } while (FindNextFileW(h, &fd));
+            FindClose(h);
+        }
+        if (!s.files) {
+            LOG("HOT: '%ls' holds no on_/off_ shader files - not a set", sd.cFileName);
+            memset(&s, 0, sizeof s);
+            continue;
+        }
+        s.on = (s.offFiles && !s.onFiles) ? 1 : 0;   // the state of what is installed: binding unchanged until HotSet
+        LOG("HOT: set '%s': %d file(s) (%d on_, %d off_), starts %s%s", s.name, s.files, s.onFiles, s.offFiles, s.on ? "ON" : "OFF",
+            (s.onFiles && s.offFiles) ? " - WARNING: mixed on_/off_ files, each twin follows its own file's polarity" : "");
+        ++g_hotN;
+    } while (FindNextFileW(hs, &sd));
+    FindClose(hs);
+    return g_hotN;
+}
+
+int FindHotSet(const char* name) {
+    if (!name) return -1;
+    char b[32];
+    int k = 0;
+    for (; name[k] && k < 31; ++k) b[k] = (char)((name[k] >= 'A' && name[k] <= 'Z') ? name[k] - 'A' + 'a' : name[k]);
+    b[k] = 0;
+    for (int i = 0; i < g_hotN; ++i)
+        if (!strcmp(g_hotSets[i].name, b)) return i;
+    return -1;
+}
+
 }  // namespace
 
 void Start(const StartInfo& info) {
@@ -1090,7 +1387,21 @@ void Start(const StartInfo& info) {
     g_cfg.track = (GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ||
                    GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini.c_str()) == 1) ? 1 : 0;   // GP2 / SkipFx need the PSO -> shader map
     g_onDevice = info.onDevice;
-    if (!g_cfg.enabled && !g_cfg.track) {
+    g_cfg.hot = GetPrivateProfileIntW(L"ShaderHot", L"Enabled", 0, ini.c_str()) == 1 ? 1 : 0;
+    if (g_cfg.hot) {
+        g_cfg.hotFolder = ResolveFolder(ini, L"ShaderHot", L"Folder", L"Nioh3EngineFix_hot");
+        g_hotTab = static_cast<HotEnt*>(VirtualAlloc(nullptr, sizeof(HotEnt) * kHotTab, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        if (!g_hotTab || !IndexHot()) {
+            LOG("HOT: [ShaderHot] Enabled = 1 but %ls holds no set (sub-folder with on_/off_ shader files) - ShaderHot off",
+                g_cfg.hotFolder.c_str());
+            g_cfg.hot = 0;
+            g_hotN = 0;
+        } else {
+            LOG("HOT: DIAGNOSTIC ON - %d shader set(s) from %ls get twin PSOs; the live switch (LiveCtl 'Hot.<set> = 0/1') picks "
+                "which one SetPipelineState binds. A/B testing only: never ship or play with ShaderHot on.", g_hotN, g_cfg.hotFolder.c_str());
+        }
+    }
+    if (!g_cfg.enabled && !g_cfg.track && !g_cfg.hot) {
         g_state = (LONG)State::Off;
         if (info.observeOnly && info.onDevice) {  // PJ only: arm the device hook, hook nothing here, stay Off
             g_observeOnly = true;
@@ -1104,21 +1415,14 @@ void Start(const StartInfo& info) {
         g_psoTab = static_cast<PsoEnt*>(VirtualAlloc(nullptr, sizeof(PsoEnt) * kPsoTab, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
         if (!g_sets || !g_psoTab) g_cfg.track = 0;
     }
-    wchar_t folder[MAX_PATH] = {};
-    GetPrivateProfileStringW(L"ShaderSwap", L"Folder", L"Nioh3EngineFix_shaders", folder, MAX_PATH, ini.c_str());
-    std::wstring f = folder;
-    const bool absolute = f.size() > 1 && (f[1] == L':' || (f[0] == L'\\' && f[1] == L'\\'));
-    if (!absolute) {
-        const size_t sep = ini.find_last_of(L"\\/");
-        f = (sep == std::wstring::npos ? std::wstring(L".") : ini.substr(0, sep)) + L"\\" + f;
-    }
-    while (!f.empty() && (f.back() == L'\\' || f.back() == L'/')) f.pop_back();
-    g_cfg.folder = f;
+    g_cfg.folder = ResolveFolder(ini, L"ShaderSwap", L"Folder", L"Nioh3EngineFix_shaders");
     uintptr_t lo, hi;
     if (ImageRange(GetModuleHandleW(nullptr), lo, hi)) g_exeLo = lo, g_exeHi = hi;
     const int files = g_cfg.enabled ? IndexFolder() : 0;
     g_state = (LONG)State::Waiting;
-    if (!g_cfg.enabled) LOG("Enabled=0 but [Profiler] GPUProf >= 2: PSO creation is hooked only to map each PSO to its shader hashes (no swap, no dump)");
+    if (!g_cfg.enabled)
+        LOG("Enabled=0 but %s: PSO creation is hooked only for that (no swap, no dump)",
+            g_cfg.track && g_cfg.hot ? "GP2/SkipFx tracking and ShaderHot" : g_cfg.track ? "[Profiler] GPUProf >= 2 / SkipFx (PSO -> shader map)" : "ShaderHot (twin PSOs)");
     LOG("Enabled=%d track=%d DumpMode=%d LogAll=%d Folder=\"%ls\": %d replacement file(s) indexed%s%s", g_cfg.enabled, g_cfg.track, g_cfg.dumpMode, g_cfg.logAll,
         g_cfg.folder.c_str(), files, g_wine.empty() ? "" : ", wine ", g_wine.c_str());
     if (!ArmImportHooksSafe())
@@ -1179,6 +1483,57 @@ int DescribeSet(uint32_t id, char* buf, size_t n) {
     return (int)o;
 }
 uint32_t SetCount() { return (uint32_t)g_setN - 1; }
+
+// ---- ShaderHot public API ---------------------------------------------------------------------------------------------------
+bool HotEnabled() { return g_cfg.hot != 0 && g_hotN > 0; }
+int HotSetCount() { return g_hotN; }
+bool HotSet(const char* name, int on, char* reply, size_t n) {
+    const int i = FindHotSet(name);
+    if (i < 0) {
+        if (reply && n) snprintf(reply, n, "no hot set '%s'%s", name ? name : "", HotEnabled() ? "" : " ([ShaderHot] off)");
+        return false;
+    }
+    HotSetInfo& s = g_hotSets[i];
+    const LONG was = InterlockedExchange(&s.on, on ? 1 : 0);
+    if (was != (on ? 1 : 0))
+        LOG("HOT: set '%s' -> %s (%ld twin(s), %ld failed; alt binds so far %lld)", s.name, on ? "ON" : "OFF", (long)s.twins, (long)s.fails,
+            (long long)s.altBinds);
+    if (reply && n)
+        snprintf(reply, n, "Hot.%s = %s (value %d) twins %ld fails %ld", s.name, on ? "ON" : "OFF", on ? 1 : 0, (long)s.twins, (long)s.fails);
+    return true;
+}
+int HotGet(const char* name) {
+    const int i = FindHotSet(name);
+    return i < 0 ? -1 : (int)g_hotSets[i].on;
+}
+uintptr_t HotMap(uintptr_t p) {
+    const HotEnt* t = g_hotTab;
+    if (!t || !p) return p;
+    uint32_t pos = HotPos(p);
+    for (int probe = 0; probe < 64; ++probe, pos = (pos + 1) & (kHotTab - 1)) {
+        const uintptr_t q = t[pos].p;
+        if (q == p) {
+            HotSetInfo& s = g_hotSets[t[pos].set];
+            const bool alt = t[pos].pol ? s.on != 0 : s.on == 0;
+            InterlockedIncrement64(alt ? &s.altBinds : &s.baseBinds);
+            return alt ? t[pos].alt : p;
+        }
+        if (!q) return p;
+    }
+    return p;
+}
+const char* HotStatus(char* buf, size_t n) {
+    if (!buf || !n) return "";
+    buf[0] = 0;
+    size_t o = 0;
+    for (int i = 0; i < g_hotN && o + 96 < n; ++i) {
+        const HotSetInfo& s = g_hotSets[i];
+        const int w = snprintf(buf + o, n - o, "%s%s=%s (%ld twin, %ld failed, %d file, binds alt %lld / game %lld)", i ? "; " : "", s.name,
+                               s.on ? "ON" : "OFF", (long)s.twins, (long)s.fails, s.files, (long long)s.altBinds, (long long)s.baseBinds);
+        if (w < 0 || (o += (size_t)w) >= n) break;
+    }
+    return buf;
+}
 
 State GetState() { return (State)g_state; }
 const char* StateName(State s) {

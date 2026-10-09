@@ -48,6 +48,7 @@ struct StartInfo {
     bool gpuProf = false;                         // 1.7.0: the GP profiler needs the hooks (installs them with Barriers = 0)
     bool giMerge = false;                         // 1.7.29: gimerge (GIProbe / GIMerge) needs them too
     bool skipFx = false;                          // skipfx ([Debug] SkipFx diagnostic, cost-vs-looks) needs them too
+    bool shaderHot = false;                       // psoswap ShaderHot (fast-testing live shader A/B) rebinds PSOs through them
 };
 
 enum class State : uint8_t {
