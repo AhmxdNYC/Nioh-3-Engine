@@ -525,6 +525,9 @@ def summarize(d):
     logs = sorted(d.glob("modlog_run*.log"))
     for k, p in enumerate(logs, 1):
         log.load(p, day, k)
+    # 1.7.41: BossLog / RematchLog / InvLog live in the Nioh3BossRematch add-on log (stop_session.ps1 keeps it as addonlog.log)
+    for p in sorted(d.glob("addonlog*.log")):
+        log.load(p, day, len(logs))
     if not logs and not stock:
         missing.append("mod log (modlog_run*.log)")
 
@@ -1048,7 +1051,7 @@ def selftest():
     import tempfile
     root = REPO / "mod" / "Nioh3EngineFix" / "src"
     fsrc = (root / "fnprobe.cpp").read_text(encoding="utf-8")
-    bsrc = (root / "bosslog.cpp").read_text(encoding="utf-8")
+    bsrc = (REPO / "mod" / "Nioh3BossRematch" / "src" / "bosslog.cpp").read_text(encoding="utf-8")  # 1.7.41: in the add-on
     dsrc = (root / "dllmain.cpp").read_text(encoding="utf-8")
     psrc = (root / "padlat.cpp").read_text(encoding="utf-8")
 
