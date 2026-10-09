@@ -142,6 +142,17 @@ def pm_gpubusy(csvpath, wins):
                 rows.append((int(h) * 3600 + int(mi) * 60 + float(s), float(r['GPUBusy']), float(r['FrameTime'])))
             except (KeyError, ValueError, IndexError):
                 pass
+    spans = []
+    for w in wins:
+        if w['t_end']:
+            h, mi, s = w['t_end'].split(':')
+            e = int(h) * 3600 + int(mi) * 60 + int(s)
+            spans.append((e - (w['dwell'] or 12), e))
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'testmatrix'))
+    import pm_time
+    off = pm_time.detect_offset_tod([r[0] for r in rows], spans, os.path.basename(csvpath))
+    if off:
+        rows = [((r[0] + off) % 86400, r[1], r[2]) for r in rows]
     out = {}
     for w in wins:
         if not w['t_end']:

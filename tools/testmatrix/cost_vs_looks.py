@@ -86,6 +86,17 @@ def read_pm(p):
     return rows
 
 
+def align_pm(pm, spans, label='presentmon'):
+    """Shift the (t, ...) rows in place by the auto-detected PresentMon clock offset (see pm_time.py)."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import pm_time
+    off = pm_time.detect_offset([r[0] for r in pm], spans, label)
+    if off:
+        pm[:] = [(r[0] + off,) + tuple(r[1:]) for r in pm]
+    window.src = None
+    return off
+
+
 def window(pm, t0, t1):
     import bisect
     ts = window.ts if getattr(window, 'src', None) is pm else None
@@ -160,6 +171,8 @@ def report(d, no_diff=False, thresh=8.0):
         pm = read_pm(os.path.join(d, 'presentmon.csv'))
     if not pm:
         print('WARNING: no presentmon.csv frames - cost columns empty')
+    if pm:
+        align_pm(pm, [(utc_epoch(r['t0_utc']), utc_epoch(r['t1_utc'])) for r in rows], os.path.basename(os.path.normpath(d)))
     ddir = os.path.join(d, 'diffs')
     if not no_diff and np is not None:
         os.makedirs(ddir, exist_ok=True)

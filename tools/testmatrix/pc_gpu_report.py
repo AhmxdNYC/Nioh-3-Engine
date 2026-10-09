@@ -26,6 +26,7 @@ Stdlib + (for shots only) numpy/PIL through shotdiff.py.
 import json
 import math
 import os
+import sys
 import random
 import re
 import statistics
@@ -88,7 +89,7 @@ def pm_stats(csv_path, wins):
     if not os.path.exists(csv_path):
         return None
     spans = [(utc(w['t0_utc']), utc(w['t1_utc'])) for w in wins]
-    gb, ft = [], []
+    gb, ft, allrows = [], [], []
     with open(csv_path, encoding='utf-8-sig', errors='replace') as f:
         head = f.readline().strip().split(',')
         ix = {k: i for i, k in enumerate(head)}
@@ -104,8 +105,14 @@ def pm_stats(csv_path, wins):
                 a, b = float(c[fti]), float(c[gbi])
             except Exception:
                 continue
-            if any(t0 <= t <= t1 for t0, t1 in spans):
-                ft.append(a); gb.append(b)
+            allrows.append((t.timestamp(), a, b))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import pm_time
+    off = pm_time.detect_offset([r[0] for r in allrows], [(x.timestamp(), y.timestamp()) for x, y in spans], os.path.basename(csv_path))
+    for t, a, b in allrows:
+        t += off
+        if any(t0.timestamp() <= t <= t1.timestamp() for t0, t1 in spans):
+            ft.append(a); gb.append(b)
     if len(ft) < 30:
         return None
     return dict(gpu=statistics.fmean(gb), fps=1000.0 / statistics.fmean(ft), frames=len(ft),

@@ -233,6 +233,11 @@ def main():
     pts, stage_info, events, warns, windows, counters, armed, done, span = parse_logs(logs)
     prog = load_progress(cap / "progress.txt")
     pm = load_pm(cap / "presentmon.csv")
+    sys.path.insert(0, str(here.parents[1] / "testmatrix"))
+    import pm_time
+    _off = pm_time.detect_offset([r[0] for r in pm], [((fnum(d.get("t0")) or 0) / 1000.0, (fnum(d.get("t1")) or 0) / 1000.0) for d in pts if fnum(d.get("t0")) and fnum(d.get("t1"))], "tour presentmon", log=False) if pm else 0
+    print("[pm_time] tour presentmon clock offset %+.2f h" % (_off / 3600.0), file=sys.stderr)
+    pm = [(r[0] + _off,) + tuple(r[1:]) for r in pm]
 
     # ---- per point rows
     rows = []

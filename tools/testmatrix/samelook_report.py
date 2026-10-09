@@ -47,6 +47,8 @@ def report(d, thresh=8.0):
     for p in sorted(glob.glob(os.path.join(d, 'presentmon_sl_*.csv'))) or [os.path.join(d, 'presentmon_tour.csv')]:
         pm += cv.read_pm(p)
     pm.sort()
+    if pm and rows:
+        cv.align_pm(pm, [(cv.utc_epoch(r['t0_utc']), cv.utc_epoch(r['t1_utc'])) for r in rows if r.get('t0_utc') and r.get('t1_utc')], os.path.basename(os.path.normpath(d)))
     ts = [r[0] for r in pm]
     out = ['# Same-look A/B report: %s' % os.path.basename(os.path.normpath(d)), '']
     if not rows or not pm:
