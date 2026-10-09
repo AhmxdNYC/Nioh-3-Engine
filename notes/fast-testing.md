@@ -80,6 +80,38 @@ already uses) or a cross-modifying-code protocol with all threads parked; until 
 relaunch-only. Boot lists (PJ, PL, WorkerCap, P12), loader / IO hooks (EP SR RC AQ TSY SH PF RP LG) and profilers are
 consumed at boot by design.
 
-## 5. Measured on the PC (RX 9070)
+## 5. Measured on the PC (RX 9070), 2026-10-09
 
-(see below - filled from the in-game run)
+Config: the user's session config (2560x1440, REN_RAT 75, XeSS -> OptiScaler FSR4, HIGH shadows) with FG OFF, [VRR] MaxFps 240,
+tour mode (saves blocked + restored), stage 7292 spawn, ~102 fps GPU-bound. Sessions in `captures\pc\fastab\`.
+
+| session | item | result (B - A, paired, 4 pairs ABBA, one launch) |
+|---|---|---|
+| 1648-ghdm_vc2 | Hot.ghdm (stock -> fast) | fps **+0.37 % +- 0.09 SE**, frame time -0.036 +- 0.009 ms, GPU busy (sampled) -0.027 +- 0.005 ms -> B better |
+| 1648-ghdm_vc2 | Hot.vcpfu (stock -> VCLOUD pfu) | fps **-0.73 % +- 0.17 SE**, frame time +0.072 +- 0.017 ms, GPU busy +0.073 +- 0.016 ms -> B worse (VCLOUD runs on async compute here) |
+| 1648-ghdm_vc2 | PP (0 -> 1) | fps +0.13 % +- 0.05 SE -> no difference (transport check of a menu row) |
+| 1702-ghdm_vc2 (repeat) | Hot.ghdm / Hot.vcpfu / PP | GPU busy -0.032 +- 0.014 / +0.034 +- 0.021 / -0.007 +- 0.009 ms (same signs; the mod-clock fps was noisier, SE 0.5-0.9 %, while another agent's poller ran) |
+| 1717-ghdm_gp2 | Hot.ghdm, GP2 on | GPU busy -0.021 +- 0.009 ms. The game's GHDM PSO row (GenerateSceneHiZ, attributed by the game's PSO) read **0.077 ms/frame** over a dwell in which the stock twin was bound half the time, against 0.026-0.032 ms in earlier fast-only GP2 windows -> the twin really ran the stock shader (stock ~0.13 ms, fast ~0.03 ms per frame). |
+
+Consistency with the earlier multi-launch result: same direction (the fast GHDM is faster), much smaller size. The 2026-10-06
+multi-launch A/B ("+3 % fps no FG", `captures\rounds2-4.csv`, same config main-240.xml) had identical arms spreading 137-168 fps
+between launches, so +3 % was inside its own noise; the 504 us RGP figure was one capture. One launch resolves the real
+effect at this config: -0.03 ms (+0.4 %). Not a reason to remove GHDM (it is still a win, larger at MAX and on the Ally).
+VCLOUD pfu: first PC measurement, -0.7 % at the user's settings -> do not ship pfu on Windows (pc2 / Ally still pending).
+
+PresentMon note: on this PC both PresentMon sessions (the harness's and run_tour's) recorded only ~1/3 of the game's
+presents, in whole-second gaps (session 1535-ghdm_vc1: 2000 frames/min recorded vs ~6200 rendered), which made the first
+run's windows unusable. Since then the windows are measured by the mod's own frame clock (LiveCtl ack: frames / qpc_us /
+hitch counters from the Present hook); PresentMon GPUBusy stays as a sampled secondary metric (windows with >= 200 frames).
+GP2 under the tour logs one window per dwell (tour SetExternalWindows), so per-arm GP2 rows need a non-tour stage or one
+item per dwell; report.md prints them when they exist.
+
+### Time per A/B, before vs after
+
+| | before: one launch per arm (abba2 run6, 2026-10-08) | after: fastab one launch |
+|---|---|---|
+| launch to first measured window | 2.6 min boot + 1 min warm-up, every arm | 2.5 min (150 s), once per session |
+| one arm | 5.7-5.8 min (launch, warm-up, 3 x 20 s, close) | 25 s window + 5 s warm-up, toggled live |
+| one A/B item | 3 launches = **~17 min** (2 items: 36 min, 18:20-18:56) | **3.4 min** (8 x 20 s windows, 202 s); 3 items in 14.1 min = 4.7 min per item incl. boot; 1 item alone ~6.4 min |
+| precision | launch-to-launch spread 6 % (run6), 137-168 fps (GHDM rounds) | fps SE 0.09 % (good run) - 0.9 % (busy PC); GPU busy SE 0.005-0.014 ms |
+| shader items | file swap + relaunch per arm | ShaderHot, several shader items in the same launch |
