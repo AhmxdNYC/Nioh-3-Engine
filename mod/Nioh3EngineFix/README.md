@@ -338,6 +338,20 @@ installs three parts, picked by `[Tuning] BPO_Mask` (default 7):
 Offline: the whole 71C60 copied from the dump runs stock vs patched on 200k random calls, 4 x 65536 halves and a 4-thread
 stress: 0 bitwise differences. Needs SSE4.1. Est. 0.1-0.2 ms/frame of the update thread on the PC; 0 fps on the GPU-bound Ally.
 
+### 1.7.42: W1B / RPA - two small main-thread copies (default 0, v2.02 only, live rows "Glyph clear plain stores (W1B)",
+"Range copy render params (RPA)")
+From `notes\w1b-rpa.md` (whats-left #3 bundle; `notes\ally-drawprep-2.md` s.3). Both installed by drawprep.cpp, 0 / 1 / 2 as DQ.
+- **W1B** (`[Patches] W1B`): the glyph padding clear 61B1C clears pad = 1 dword per glyph row in the write-combined atlas
+  staging. W1 replaced the game's read-modify-write `and [m],0` with `rep stosd`, which pays a string start-up per row
+  (97-100 % of 61B1C's samples sit right after it). W1B runs the game's own loop with `mov [m],0`: same stores, same
+  order, same registers and flags as the original. Offline on WC memory: original 265, W1 120, W1B 25 ns per row.
+- **RPA** (`[Patches] RPA`): RenderParamsAssign 247950 (operator= of the 0x3D38-byte render params, 29.6 KB of dword
+  moves) copies the same 21 byte ranges with 16-byte moves. The ranges were derived from the original code; the gaps
+  (padding) are never read or written. Offline 463 -> 272 ns per call with the code hot (in the game the 29.6 KB also
+  evicts L1i each call).
+Proof: `py -I tests\run_w1b_rpa_harness.py` runs the original bytes from the dump against the real caves (200k rows,
+300k calls; all bytes, registers) - ALL PASSED. Est. Ally main thread 0.15-0.25 + 0.07-0.1 ms/frame; 0 fps while GPU-bound.
+
 ## Requirements
 
 * Nioh 3 on Steam, **version 2.02**. The mod checks the executable and **refuses to patch any other build**

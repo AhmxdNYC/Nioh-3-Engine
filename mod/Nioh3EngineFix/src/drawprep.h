@@ -11,8 +11,13 @@
 //     Measured target: 1E7050 + 128EF0 + 1290B8 self = 2.5-5.3 % of [App]Game = 0.28-0.46 ms/frame on the PC. Round 9
 //     ran it only together with C419 + P4AA and that bundle measured slower (mesh-on 96.0/104.9 vs off 103.6/108.4 fps),
 //     so it needs its own A/B before it can be KEEP.
+// W1B ([Patches] W1B = 0, 1.7.42): glyph padding clear 61B1C, site 61BAC (W1's in-place bytes or the original). On = the
+//     original loop with its write-combined `and [m],0` turned into `mov [m],0`: no WC read and no per-row `rep stosd`
+//     start-up (pad = 1). Off = what the site held (W1 or the original). notes\w1b-rpa.md
+// RPA ([Patches] RPA = 0, 1.7.42): RenderParamsAssign 247950 (29.6 KB of dword moves) -> 21 exact byte-range copies
+//     derived from the original code; padding untouched. notes\w1b-rpa.md
 // Value per key: 0 = not installed, 1 = installed + on, 2 = installed + off (live switch, for A/B in one launch).
-// v2.02 only; every site and dependency is byte-checked first (patches.json group DQ / PF7, tests\test_patterns.py).
+// v2.02 only; every site and dependency is byte-checked first (patches.json groups DQ / P1E7 / W1B / RPA, tests\test_patterns.py).
 #pragma once
 #include <cstdint>
 
@@ -33,6 +38,8 @@ int64_t DqQuantumUs();
 // Live switches (nullptr when not installed): 0 = stock, 1 = on.
 volatile uint32_t* DqSwitch();
 volatile uint32_t* P1e7Switch();
+volatile uint32_t* W1bSwitch();
+volatile uint32_t* RpaSwitch();
 // One status line for the 30 s stats log ("" when nothing is installed).
 void StatusLine(char* buf, unsigned n);
 

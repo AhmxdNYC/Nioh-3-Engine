@@ -7,6 +7,7 @@ The dump is a memory-layout snapshot of the decrypted image (raw offset == RVA).
   * every pattern matches EXACTLY ONCE in the executable sections (same scan scope as the mod) and
     resolves (match + offset) to the expected RVA
   * the dump's bytes at each site equal `orig`; sites are instruction-aligned in the pattern; no two sites overlap
+    (except a `check` site that `supersedes` a `bytes` site over the same range: W1B over W1)
   * replacement shapes: bytes kind same length; call kind fits (E8 rel32 + nops); ripload is 6 bytes
   * values the mod reads from original bytes resolve to what the scripts hard-coded:
       W3 disp32 -> IAT slot of USER32!PeekMessageA, L1 rel32 -> 0x916EBC, P7 rel32 -> GetDelta60 0x46484,
@@ -310,6 +311,10 @@ def main():
             ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
         elif k == "check":
             pass  # verified like every site (pattern, RVA, bytes), never written (GP marker code, 1.7.0)
+            if "supersedes" in s:  # 1.7.42 W1B: a module cave over another group's in-place bytes (same range; either is accepted)
+                sup = next((t for t in doc["sites"] if t["id"] == s["supersedes"]), None)
+                ok &= check(sup is not None and sup["kind"] == "bytes" and int(sup["rva"], 16) == rva and sup["len"] == ln
+                            and sup["orig"] == s["orig"], "%s: supersedes %s but the ranges / orig differ" % (sid, s["supersedes"]))
         elif k == "ripload":
             ok &= check(ln == 6 and len(s["opcode"].split()) == 2, "%s: ripload must be 6 bytes" % sid)
             ok &= check(s.get("data") in gen_header.DATAS[1:], "%s: unknown data slot" % sid)
@@ -373,8 +378,9 @@ def main():
 
     check(p8_targets == {0x46594}, "P8 call targets %s != {GetFps 0x46594}" % sorted(hex(t) for t in p8_targets))
     ranges.sort()
+    sup_pairs = {frozenset((s["id"], s["supersedes"])) for s in doc["sites"] if "supersedes" in s}
     for (a0, a1, an), (b0, b1, bn) in zip(ranges, ranges[1:]):
-        check(a1 <= b0, "sites %s and %s overlap" % (an, bn))
+        check(a1 <= b0 or (frozenset((an, bn)) in sup_pairs and (a0, a1) == (b0, b1)), "sites %s and %s overlap" % (an, bn))
     ids = [s["id"] for s in doc["sites"]]
     check(len(ids) == len(set(ids)), "duplicate site ids")
 
@@ -568,6 +574,38 @@ def main():
             bad = branch_targets_into(int(st["rva"], 16), st["len"])
             check(not bad, "%s: branch(es) land inside the overwritten range: %s" % (st["id"], bad))
     print("1.7.32 DQ / P1E7: drawprep.cpp byte checks, site RVAs, DS coexistence, branch scan checked")
+    # 1.7.42 W1B / RPA (drawprep.cpp): byte arrays, FNV-1a ranges and RVAs the module checks at run time == dump / patches.json;
+    # the W1 bytes W1B accepts == patches.json W1 new; resumes are the instruction after each site; no branch into either
+    # site (W1B: the loop's own jb 61BC0 is overwritten with it; 61B39 is a byte inside `mov edi,[rcx+7Ch]`, not a branch).
+    def fnv(b):
+        h = 0x811C9DC5
+        for x in b:
+            h = ((h ^ x) * 0x01000193) & 0xFFFFFFFF
+        return h
+    wr_ok = True
+    for arr, rv in (("kW1bOrig", "kW1bSite"), ("kRpaOrig", "kRpaSite")):
+        wr_ok &= check(arr in darr and rv in dval and img[dval[rv]:dval[rv] + len(darr[arr])] == darr[arr],
+                       "drawprep.cpp: %s @%s differs from the dump" % (arr, rv))
+    for pre in ("kW1bHead", "kW1bTail", "kRpaCode"):
+        a, n, h = dval.get(pre + "Rva"), dval.get(pre + "Len"), dval.get(pre + "Fnv")
+        wr_ok &= check(None not in (a, n, h) and fnv(img[a:a + n]) == h, "drawprep.cpp: %s FNV-1a differs from the dump" % pre)
+        wr_ok &= check(any(int(d["rva"], 16) == a and d.get("len") == n and int(d.get("fnv1a", "0"), 16) == h for d in deps),
+                       "drawprep.cpp: %s range is not a patches.json dep" % pre)
+    sw1, sw1b, srpa = by_id.get("W1"), by_id.get("W1B"), by_id.get("RPA")
+    wr_ok &= check(bool(sw1 and sw1b and srpa), "1.7.42: W1 / W1B / RPA sites missing in patches.json")
+    if sw1 and sw1b and srpa:
+        wr_ok &= check(darr.get("kW1bW1") == bytes(int(x, 16) for x in sw1["new"].split()), "drawprep.cpp kW1bW1 != patches.json W1 new")
+        wr_ok &= check(int(sw1b["rva"], 16) == dval["kW1bSite"] and int(srpa["rva"], 16) == dval["kRpaSite"], "W1B / RPA RVAs != patches.json")
+        wr_ok &= check(dval.get("kW1bResume") == dval["kW1bSite"] + 22 and dval.get("kRpaResume") == dval["kRpaSite"] + 5,
+                       "W1B / RPA resume is not the instruction after the site")
+        wr_ok &= check(dval["kW1bHeadRva"] + dval["kW1bHeadLen"] == dval["kW1bSite"] and dval["kW1bTailRva"] == dval["kW1bResume"],
+                       "W1B head / tail ranges must touch the site")
+        wr_ok &= check(dval["kRpaCodeRva"] < dval["kRpaSite"] < dval["kRpaCodeRva"] + dval["kRpaCodeLen"]
+                       and img[dval["kRpaCodeRva"] + dval["kRpaCodeLen"] - 1] == 0xC3, "RPA code range must hold the site and end at its ret")
+        bad = [x for x in branch_targets_into(dval["kW1bSite"], 22) if x not in ("61BC0->61BAE", "61B39->61BB7")]
+        bad += branch_targets_into(dval["kRpaSite"], 5)
+        wr_ok &= check(not bad, "W1B / RPA: branch(es) land inside an overwritten range: %s" % bad)
+    print("1.7.42 W1B / RPA: drawprep.cpp byte + FNV-1a checks, W1 bytes, resumes, branch scan: %s" % ("OK" if wr_ok else "FAIL"))
 
     byid = {s["id"]: s for s in doc["sites"]}
     hb = bytes.fromhex

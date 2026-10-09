@@ -33,6 +33,7 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpDQ, kExpP1E7,                // main-loop retry quantum, texture-loop prefetch (1.7.32 caves; rows 1.7.39)
                    kExpMA,                          // main-thread locked atomic loads -> plain loads (1.7.39, code bytes)
                    kExpBPO,                         // BoundsFromPartObbs quaternion memo / ready loads / copy (1.7.40, live)
+                   kExpW1B, kExpRPA,                // glyph padding clear stores, RenderParamsAssign range copy (1.7.42, live)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)

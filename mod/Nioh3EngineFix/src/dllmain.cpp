@@ -61,7 +61,8 @@
 // 1.7.40: diagnostics: GQ graphics-queue gap census (gpuprof.cpp) + JT job-timing probe (jt.cpp / jt.asm); notes\gq-jt-probes.md
 // 1.7.41: the boss logger (BossLog / RematchLog / InvLog) and the boss rematch moved to the separate add-on Nioh3BossRematch.asi
 //         (mod\Nioh3BossRematch, notes\boss-rematch-addon.md): this ASI hooks no boss site any more; old ini keys are logged as moved
-#define MOD_VERSION "1.7.41"
+// 1.7.42: W1B (glyph padding clear 61BAC plain stores) + RPA (RenderParamsAssign 247950 range copy), drawprep.cpp; notes\w1b-rpa.md
+#define MOD_VERSION "1.7.42"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2361,7 +2362,7 @@ DWORD WINAPI Worker(LPVOID) {
         const int iniv[menu::kNumExp] = {cfg.w6User, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
                                          cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gfUser, cfg.wl,
                                          cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf, cfg.mq, cfg.pt1, cfg.dl,
-                                         0, 0, cfg.ma, cfg.bpo};  // DQ / P1E7: set after drawprep::Start below
+                                         0, 0, cfg.ma, cfg.bpo, 0, 0};  // DQ / P1E7 / W1B / RPA: set after drawprep::Start below
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -2407,7 +2408,8 @@ DWORD WINAPI Worker(LPVOID) {
             drawprep::Start(di);
             // 1.7.39: live menu rows for the two drawprep switches (same in-launch A/B as the other experimental rows)
             const struct { int e; const wchar_t* key; volatile uint32_t* sw; } dpRows[] = {
-                {menu::kExpDQ, L"DQ", drawprep::DqSwitch()}, {menu::kExpP1E7, L"P1E7", drawprep::P1e7Switch()}};
+                {menu::kExpDQ, L"DQ", drawprep::DqSwitch()}, {menu::kExpP1E7, L"P1E7", drawprep::P1e7Switch()},
+                {menu::kExpW1B, L"W1B", drawprep::W1bSwitch()}, {menu::kExpRPA, L"RPA", drawprep::RpaSwitch()}};  // 1.7.42
             for (const auto& r : dpRows) {
                 mh.exp[r.e].ini = GetPrivateProfileIntW(L"Patches", r.key, 0, iniPath.c_str()) ? 1 : 0;
                 mh.exp[r.e].applied = r.sw != nullptr;
