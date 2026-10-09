@@ -1,6 +1,7 @@
 """summarize.py - one play session -> report.md + summary.json (tools\\playsession, see README.md).
 
     py -I tools\\playsession\\summarize.py <session dir>        (stop_session.ps1 runs this)
+    py -I tools\\playsession\\summarize.py compare <mod session dir> <stock session dir>   mod-vs-stock table (STOCK mode, README)
     py -I tools\\playsession\\summarize.py --selftest            fake capture + log built from the real source formats; must end SELFTEST OK
 
 Inputs in the session dir (any may be missing; the report says what was missing):
@@ -10,6 +11,7 @@ Inputs in the session dir (any may be missing; the report says what was missing)
   sysmon.csv          monitor.ps1: Windows counters every 5 s (CPU %, CPU perf %, GPU 3D %, VRAM, RAM, commit)
   session.json        start_session.ps1: times, versions, ini keys, PresentMon clock bias
   config.xml          the game's settings at session start
+A STOCK session (start_session.ps1 -Stock, session.json mode=stock) has no mod log: its report comes from PresentMon + sysmon only.
 """
 import array
 import bisect
@@ -76,6 +78,9 @@ class Frames:
         self.t = array.array("d")    # local POSIX seconds of CPUStartDateTime (or cumulative if absent)
         self.pid = array.array("q")
         self.cols = {c: array.array("d") for c in self.COLS}
+        self.ftype = array.array("b")   # 0 rendered (Application/NotSet), 1 generated (FG: AMD_AFMF, Intel_XEFG, ...), 2 repeated
+        self.shown = array.array("b")   # Displayed column: 1 shown, 0 dropped, -1 unknown
+        self.has_ftype = False
         self.present = set()
         self.rows = 0
         self.header = []
@@ -84,6 +89,7 @@ class Frames:
         with open(path, newline="", encoding="utf-8-sig", errors="replace") as f:
             r = csv.DictReader(f)
             self.header = r.fieldnames or []
+            self.has_ftype = "FrameType" in self.header
             self.present = {c for c in self.COLS if c in self.header}
             # pre-v2 column names as fallbacks
             alias = {"FrameTime": "MsBetweenPresents", "CPUBusy": "MsCPUBusy", "CPUWait": "MsCPUWait", "GPUBusy": "MsGPUBusy",
@@ -109,6 +115,10 @@ class Frames:
                     cum += ft / 1000.0
                     tsec = cum
                 self.t.append(tsec)
+                fty = (row.get("FrameType") or "").strip()
+                self.ftype.append(0 if fty in ("", "NA", "Application", "NotSet", "Unspecified") else (2 if fty == "Repeated" else 1))
+                dsp = (row.get("Displayed") or "").strip().lower()
+                self.shown.append(1 if dsp in ("1", "true") else (0 if dsp in ("0", "false") else -1))
                 try:
                     self.pid.append(int(row.get("ProcessID") or 0))
                 except ValueError:
@@ -456,6 +466,23 @@ def agg(rows, key, fn=None):
     return {"avg": sum(v) / len(v), "max": max(v), "min": min(v), "n": len(v)}
 
 
+def load_frames(d, S):
+    """presentmon.csv of session dir d -> Frames (with the PresentMon --date_time clock-bias check)."""
+    fr = Frames()
+    pm = pathlib.Path(d) / "presentmon.csv"
+    bias = float(S.get("pm_bias_s", 0.0))
+    if pm.exists():
+        fr.load(pm, bias)
+        # PresentMon 2.6 --date_time has printed local time shifted by the UTC offset on this PC; if the shifted clock falls
+        # outside the session but the raw clock fits, the raw clock is right (newer PresentMon builds)
+        if fr.rows and S.get("start_ts") and bias:
+            t0 = fr.t[0]
+            if not (S["start_ts"] - 60 <= t0 <= S.get("stop_ts", t0 + 1) + 60) and (S["start_ts"] - 60 <= t0 + bias <= S.get("stop_ts", t0 + 1) + 60):
+                fr = Frames()
+                fr.load(pm, 0.0)
+    return fr
+
+
 # ---------------------------------------------------------------- report
 def idx_between(fr, t0, t1):
     lo = bisect.bisect_left(fr.t, t0)
@@ -474,8 +501,18 @@ def summarize(d):
     day = dt.datetime.fromisoformat(S["start"]) if S.get("start") else dt.datetime.now()
     out.append("# Nioh 3 play session %s" % d.name)
     out.append("")
-    out.append("Started %s, stopped %s. ASI %s (game folder had %s before; restored after). Graphics: %s." % (
-        S.get("start", "?"), S.get("stop", "?"), S.get("asi_version", "?"), S.get("asi_version_before", "?"), S.get("graphics", "see config.xml")))
+    stock = S.get("mode") == "stock"
+    if stock:
+        out.append("**STOCK session (unmodded game).** Started %s, stopped %s. Our mod, the ASI loader%s were moved out of the game folder for the run and put back by STOP. "
+                   "Graphics: %s." % (S.get("start", "?"), S.get("stop", "?"), "" if S.get("keep_optiscaler") else " and OptiScaler",
+                                      S.get("graphics", "see config.xml")))
+        out.append("")
+        out.append("There is NO mod log in a stock session (nothing to write one), so this report is PresentMon + Windows counters only: no loads, boss fights, "
+                   "PadLatency, memory or PSO sections. Compare with a mod session: `summarize.py compare <mod dir> <this dir>`.")
+        out.append("Stashed (%d): %s." % (len(S.get("stashed") or []), ", ".join(S.get("stashed") or []) or "none"))
+    else:
+        out.append("Started %s, stopped %s. ASI %s (game folder had %s before; restored after). Graphics: %s." % (
+            S.get("start", "?"), S.get("stop", "?"), S.get("asi_version", "?"), S.get("asi_version_before", "?"), S.get("graphics", "see config.xml")))
     fgm = re.search(r"FRAME_GENERATION=(\w+)", S.get("graphics") or "")
     if fgm and fgm.group(1).upper() != "OFF":
         out.append("Frame generation was %s: PresentMon counts generated frames too, so fps here is presented fps (about 2x the rendered rate)." % fgm.group(1))
@@ -488,23 +525,11 @@ def summarize(d):
     logs = sorted(d.glob("modlog_run*.log"))
     for k, p in enumerate(logs, 1):
         log.load(p, day, k)
-    if not logs:
+    if not logs and not stock:
         missing.append("mod log (modlog_run*.log)")
 
     # frames
-    fr = Frames()
-    pm = d / "presentmon.csv"
-    bias = float(S.get("pm_bias_s", 0.0))
-    if pm.exists():
-        fr.load(pm, bias)
-        # PresentMon 2.6 --date_time has printed local time shifted by the UTC offset on this PC; if the shifted clock falls
-        # outside the session but the raw clock fits, the raw clock is right (newer PresentMon builds)
-        if fr.rows and S.get("start_ts") and bias:
-            t0 = fr.t[0]
-            if not (S["start_ts"] - 60 <= t0 <= S.get("stop_ts", t0 + 1) + 60) and (S["start_ts"] - 60 <= t0 + bias <= S.get("stop_ts", t0 + 1) + 60):
-                fr = Frames()
-                fr.load(pm, 0.0)
-                bias = 0.0
+    fr = load_frames(d, S)
     if not fr.rows:
         missing.append("PresentMon frames (presentmon.csv empty or missing)")
     J["pm_columns"] = sorted(fr.present)
@@ -560,6 +585,9 @@ def summarize(d):
     out.append("")
 
     # controller latency (PadLatency, ASI 1.7.35) next to PresentMon's display latency
+    real_out = out
+    if stock:
+        out = []
     out.append("## Controller latency (PadLatency)")
     pl = parse_padlat(log)
     J["padlat"] = pl
@@ -600,6 +628,7 @@ def summarize(d):
             out.append("Note: under 80 %% of the pad changes were matched to a frame (unmatched %d): loads/menus without logic frames, or the TS probes / Present hook were off part of the time." % T["unmatched"])
     out.append("")
 
+    out = real_out
     # sysmon
     out.append("## System (Windows counters every 5 s, monitor.ps1)")
     sm = load_sysmon(d / "sysmon.csv") if (d / "sysmon.csv").exists() else []
@@ -624,6 +653,8 @@ def summarize(d):
         out.append("GPU clock / temperature / board power: not available from Windows counters or PresentMon's console build on this PC (AMD telemetry needs the driver SDK); add an HWiNFO CSV by hand if needed.")
     out.append("")
 
+    if stock:
+        out = []
     # loads
     out.append("## Loads (LoadStats / LoadGates)")
     J["loads"] = loads
@@ -736,6 +767,7 @@ def summarize(d):
             out.append("- " + l)
     out.append("")
 
+    out = real_out
     if missing:
         out.append("## Missing inputs")
         for m in missing:
@@ -744,6 +776,264 @@ def summarize(d):
     (d / "report.md").write_text("\n".join(out) + "\n", encoding="utf-8")
     (d / "summary.json").write_text(json.dumps(J, indent=1, default=str), encoding="utf-8")
     return out, J
+
+
+# ---------------------------------------------------------------- compare (mod session vs STOCK session)
+BIG_FRAME_MS = 250.0     # a frame this long = "loading-like" stall
+EXCL_PAD_S = 2.0         # seconds around a stall cluster that are not "sustained gameplay"
+SEG_MIN_S = 30.0         # a sustained segment is at least this long
+
+
+def phases(fr):
+    """Split one capture, using PresentMon only (the stock run has no mod log), into comparable phases.
+    Returns dict: cum (end time of each frame, s since capture start), events (loading-like stall clusters), gameplay idx list,
+    segments (list of (start_i, end_i_exclusive, seconds), >= SEG_MIN_S, longest first)."""
+    ft = fr.cols["FrameTime"]
+    n = fr.rows
+    cum, s = [], 0.0
+    for x in ft:
+        s += x / 1000.0
+        cum.append(s)
+    events = []     # [start_s, end_s, count, worst_ms]
+    for i in range(n):
+        if ft[i] > BIG_FRAME_MS:
+            st = cum[i] - ft[i] / 1000.0
+            if events and st - events[-1][1] <= 4.0:
+                events[-1][1] = cum[i]
+                events[-1][2] += 1
+                events[-1][3] = max(events[-1][3], ft[i])
+            else:
+                events.append([st, cum[i], 1, ft[i]])
+    gameplay, k = [], 0
+    for i in range(n):
+        a, b = cum[i] - ft[i] / 1000.0, cum[i]
+        while k < len(events) and events[k][1] + EXCL_PAD_S < a:
+            k += 1
+        if k < len(events) and events[k][0] - EXCL_PAD_S <= b:
+            continue
+        gameplay.append(i)
+    segs, run = [], []
+    for i in gameplay:
+        if run and i != run[-1] + 1:
+            segs.append(run)
+            run = []
+        run.append(i)
+    if run:
+        segs.append(run)
+    seglist = []
+    for r in segs:
+        secs = (cum[r[-1]] - (cum[r[0]] - ft[r[0]] / 1000.0))
+        if secs >= SEG_MIN_S:
+            seglist.append((r[0], r[-1] + 1, secs))
+    seglist.sort(key=lambda x: -x[2])
+    return {"cum": cum, "events": events, "gameplay": gameplay, "segments": seglist}
+
+
+def fg_split(fr, idx=None):
+    """Rendered vs generated vs displayed over frames idx. Needs PresentMon FrameType (v2); Displayed is optional."""
+    ii = range(fr.rows) if idx is None else idx
+    ft = fr.cols["FrameTime"]
+    tot = sum(ft[i] for i in ii) / 1000.0
+    if tot <= 0:
+        return None
+    o = {"seconds": tot}
+    if fr.has_ftype:
+        nr = sum(1 for i in ii if fr.ftype[i] == 0)
+        ng = sum(1 for i in ii if fr.ftype[i] == 1)
+        o.update(rendered_fps=nr / tot, generated_share=100.0 * ng / max(1, len(ii)), fg_on=ng > 0)
+    nd = [i for i in ii if fr.shown[i] >= 0]
+    if nd:
+        o["displayed_fps"] = sum(1 for i in nd if fr.shown[i] == 1) / tot
+        o["dropped_pct"] = 100.0 * sum(1 for i in nd if fr.shown[i] == 0) / len(nd)
+    return o
+
+
+def compare_session(d):
+    d = pathlib.Path(d)
+    S = json.loads((d / "session.json").read_text(encoding="utf-8-sig")) if (d / "session.json").exists() else {}
+    fr = load_frames(d, S)
+    sm = load_sysmon(d / "sysmon.csv") if (d / "sysmon.csv").exists() else []
+    R = {"dir": d, "name": d.name, "S": S, "fr": fr, "mode": S.get("mode", "mod"), "sm": sm}
+    if not fr.rows:
+        return R
+    P = phases(fr)
+    R["P"] = P
+    R["all"] = frame_stats(fr)
+    R["all_fg"] = fg_split(fr)
+    R["gameplay"] = frame_stats(fr, P["gameplay"]) if P["gameplay"] else None
+    R["gameplay_fg"] = fg_split(fr, P["gameplay"]) if P["gameplay"] else None
+    # stall list (the "loading-like spikes"): clusters of frames > BIG_FRAME_MS
+    ev = P["events"]
+    ft = fr.cols["FrameTime"]
+    R["stalls"] = {"clusters": len(ev), "frames_gt250": sum(1 for x in ft if x > BIG_FRAME_MS), "frames_gt1000": sum(1 for x in ft if x > 1000.0),
+                   "stall_seconds": sum(e[1] - e[0] for e in ev), "worst_ms": max((e[3] for e in ev), default=None),
+                   "per_hour": len(ev) / max(1e-9, P["cum"][-1] / 3600.0)}
+    R["segments"] = P["segments"]
+    sysrows = [r for r in sm if r.get("game_running", 0) >= 1]
+    R["sys"] = {k: (agg(sysrows, k) or {}).get("avg") for k in ("cpu_total_pct", "gpu3d_total_pct", "gpu3d_game_pct", "vram_game_mb", "game_ws_mb")}
+    padest = None
+    sj = d / "summary.json"
+    if sj.exists():
+        try:
+            padest = json.loads(sj.read_text(encoding="utf-8-sig", errors="replace")).get("pad_to_display_est_ms")
+        except ValueError:
+            pass
+    R["pad_est"] = padest
+    return R
+
+
+def trim_to_seconds(fr, P, seg, secs):
+    """Frame indices of segment `seg` (start_i, end_i, s) covering its first `secs` seconds."""
+    a, b, _ = seg
+    ft = fr.cols["FrameTime"]
+    acc, out = 0.0, []
+    for i in range(a, b):
+        if acc >= secs * 1000.0:
+            break
+        out.append(i)
+        acc += ft[i]
+    return out
+
+
+def compare(mod_dir, stock_dir):
+    M, K = compare_session(mod_dir), compare_session(stock_dir)
+    out = []
+    out.append("# Nioh 3: mod vs stock")
+    out.append("")
+    out.append("- mod   : `%s` (mode=%s, ASI %s, graphics: %s)" % (M["name"], M["mode"], M["S"].get("asi_version", "?"), M["S"].get("graphics", "?")))
+    out.append("- stock : `%s` (mode=%s, OptiScaler %s, graphics: %s)" % (K["name"], K["mode"], "kept" if K["S"].get("keep_optiscaler") else "removed", K["S"].get("graphics", "?")))
+    warn = []
+    if M["mode"] == "stock":
+        warn.append("the first argument is itself a stock session (expected the mod session first)")
+    if K["mode"] != "stock":
+        warn.append("the second argument is not a stock session (session.json mode != stock)")
+    if M["S"].get("graphics") != K["S"].get("graphics"):
+        warn.append("the in-game graphics settings differ between the two sessions (see the two lines above) - not a like-for-like comparison")
+    if not M["fr"].rows or not K["fr"].rows:
+        warn.append("a session has no PresentMon frames: %s" % ", ".join(x["name"] for x in (M, K) if not x["fr"].rows))
+    for w in warn:
+        out.append("- **WARNING**: " + w)
+    out.append("")
+    J = {"mod": M["name"], "stock": K["name"], "warnings": warn}
+    if M["fr"].rows and K["fr"].rows:
+        # ---- phases
+        cols = [("whole session", M["all"], K["all"], M["all_fg"], K["all_fg"])]
+        if M["gameplay"] and K["gameplay"]:
+            cols.append(("gameplay (stalls > %d ms and +-%d s around them removed)" % (BIG_FRAME_MS, EXCL_PAD_S), M["gameplay"], K["gameplay"], M["gameplay_fg"], K["gameplay_fg"]))
+        if M["segments"] and K["segments"]:
+            ms, ks = M["segments"][0], K["segments"][0]
+            T = min(ms[2], ks[2])
+            mi, ki = trim_to_seconds(M["fr"], M["P"], ms, T), trim_to_seconds(K["fr"], K["P"], ks, T)
+            sm_, sk_ = frame_stats(M["fr"], mi), frame_stats(K["fr"], ki)
+            if sm_ and sk_:
+                cols.append(("longest sustained segment, both trimmed to the first %.0f s (mod's is %.0f s, stock's %.0f s)" % (T, ms[2], ks[2]),
+                             sm_, sk_, fg_split(M["fr"], mi), fg_split(K["fr"], ki)))
+        else:
+            out.append("No sustained segment of at least %d s without a stall in %s." % (SEG_MIN_S, "the mod session" if not M["segments"] else "the stock session"))
+            out.append("")
+        # FG on/off: split each whole session by PresentMon FrameType (rendered vs generated) - reported as rows below
+        rows = [("avg fps (presented)", "fps_avg", 1), ("1 % low fps (1000/p99)", "low1_fps", 1), ("0.1 % low fps (1000/p99.9)", "low01_fps", 1),
+                ("1 % low fps (avg of worst 1 %)", "low1_avg_fps", 1), ("frame time p50 ms", "ft_p50", 2), ("frame time p99 ms", "ft_p99", 2),
+                ("frame time max ms", "ft_max", 1), ("spikes (>2x local median, >+8 ms)", "spikes", 0), ("spikes per minute", "spikes_per_min", 2),
+                ("frames > 33 ms", "over_33.4", 0), ("frames > 100 ms", "over_100", 0), ("pacing: frame-time stdev ms", "ft_stdev", 2),
+                ("CPU busy avg ms", "cpu_busy_avg", 2), ("GPU busy avg ms", "gpu_busy_avg", 2), ("GPU-bound frames %", "gpu_bound_pct", 1),
+                ("display latency p50 ms", "display_latency_p50", 1), ("display latency p95 ms", "display_latency_p95", 1),
+                ("present -> display p50 ms", "present_display_p50", 1), ("input-to-photon p50 ms (mouse/keyboard only)", "aip_latency_p50", 1),
+                ("input-to-photon samples", "aip_latency_n", 0)]
+        fgrows = [("rendered fps (FrameType = Application)", "rendered_fps", 1), ("generated frames share %", "generated_share", 1),
+                  ("displayed fps (Displayed = 1)", "displayed_fps", 1), ("dropped (not displayed) %", "dropped_pct", 2)]
+
+        def cell(v, nd):
+            if v is None or (isinstance(v, float) and not math.isfinite(v)):
+                return "-"
+            return ("%.*f" % (nd, v)) if nd else str(int(round(v)))
+
+        def delta(a, b, nd):
+            if a is None or b is None:
+                return "-"
+            d_ = b - a
+            pc = (" (%+.0f %%)" % (100.0 * d_ / a)) if a else ""
+            return ("%+.*f" % (nd, d_)) + pc
+
+        J["phases"] = {}
+        for title, ma, sa, mf, sf in cols:
+            out.append("## %s" % title)
+            out.append("")
+            out.append("| metric | mod | stock | stock - mod |")
+            out.append("|---|---|---|---|")
+            J["phases"][title] = {}
+            for label, key, nd in rows:
+                a, b = ma.get(key), sa.get(key)
+                if a is None and b is None:
+                    continue
+                out.append("| %s | %s | %s | %s |" % (label, cell(a, nd), cell(b, nd), delta(a, b, nd)))
+                J["phases"][title][key] = [a, b]
+            mf, sf = mf or {}, sf or {}
+            for label, key, nd in fgrows:
+                a, b = mf.get(key), sf.get(key)
+                if a is None and b is None:
+                    continue
+                out.append("| %s | %s | %s | %s |" % (label, cell(a, nd), cell(b, nd), delta(a, b, nd)))
+            if title == "whole session" or title.startswith("gameplay"):
+                out.append("| frame generation (PresentMon FrameType) | %s | %s | |" % tuple(
+                    ("-" if x.get("fg_on") is None else ("ON" if x["fg_on"] else "off")) for x in (mf, sf)))
+            out.append("")
+        # ---- stalls
+        ms_, ks_ = M["stalls"], K["stalls"]
+        out.append("## Loading-like stalls (frames > %d ms, clustered within 4 s)" % BIG_FRAME_MS)
+        out.append("")
+        out.append("| metric | mod | stock |")
+        out.append("|---|---|---|")
+        for label, key, nd in (("stall clusters", "clusters", 0), ("frames > 250 ms", "frames_gt250", 0), ("frames > 1 s", "frames_gt1000", 0),
+                               ("seconds inside stall clusters", "stall_seconds", 1), ("worst single frame ms", "worst_ms", 0), ("clusters per hour", "per_hour", 1)):
+            out.append("| %s | %s | %s |" % (label, cell(ms_[key], nd), cell(ks_[key], nd)))
+        J["stalls"] = {"mod": ms_, "stock": ks_}
+        out.append("")
+        out.append("Sustained segments (>= %d s without a stall), longest first - mod: %s; stock: %s." % (
+            SEG_MIN_S, ", ".join("%.0f s" % s_[2] for s_ in M["segments"][:6]) or "none", ", ".join("%.0f s" % s_[2] for s_ in K["segments"][:6]) or "none"))
+        out.append("")
+        # ---- system + pad
+        out.append("## System counters while the game ran (monitor.ps1 every 5 s)")
+        out.append("")
+        out.append("| counter | mod | stock |")
+        out.append("|---|---|---|")
+        for label, key in (("CPU total %", "cpu_total_pct"), ("GPU 3D engine % (all)", "gpu3d_total_pct"), ("GPU 3D engine % (Nioh3)", "gpu3d_game_pct"),
+                           ("VRAM Nioh3 MB", "vram_game_mb"), ("Nioh3 working set MB", "game_ws_mb")):
+            if M["sys"].get(key) is None and K["sys"].get(key) is None:
+                continue
+            out.append("| %s | %s | %s |" % (label, cell(M["sys"].get(key), 1), cell(K["sys"].get(key), 1)))
+        out.append("")
+        out.append("Pad press -> on screen estimate (mod PadLatency only; the stock game has no PadLatency hook): mod %s ms, stock -." % cell(M["pad_est"], 1))
+        out.append("")
+        gfg = [x for x in (M["all_fg"], K["all_fg"]) if x and x.get("fg_on") is not None]
+        if len(gfg) == 2 and gfg[0]["fg_on"] != gfg[1]["fg_on"]:
+            out.append("**Frame generation differs** (mod %s, stock %s): presented fps is not comparable; use the 'rendered fps' row." % (
+                "ON" if gfg[0]["fg_on"] else "off", "ON" if gfg[1]["fg_on"] else "off"))
+        elif not M["fr"].has_ftype or not K["fr"].has_ftype:
+            out.append("Note: FrameType column missing in a capture, so rendered-vs-generated could not be split; with FG on, fps is presented (generated included) fps.")
+        out.append("")
+    out.append("## Caveats (read before trusting a delta)")
+    out.append("")
+    for c in ("These are two separate play-throughs, not a replay: different route, different fights, different camera, different enemy aggro. "
+              "Only the gameplay / sustained-segment columns reduce that, they do not remove it. Treat differences under a few percent as noise.",
+              "Phases come from PresentMon alone (frames > %d ms = stall) so the same rule applies to both runs; the mod session's own LoadStats windows are not used here. "
+              "A real load that still presents at normal speed is not seen as a stall, and a hitch in play counts as one." % BIG_FRAME_MS,
+              "The stock run has no mod log: no PadLatency, boss timeline, memory or PSO numbers. Input-to-photon is PresentMon's mouse/keyboard path only "
+              "(empty with a controller).",
+              "Shader/PSO caches: the first run after changing files can stutter more (cold shader cache, OptiScaler/driver caches). Run the mission once to warm up if the numbers look odd.",
+              "Stock runs without OptiScaler also change the upscaler/FG path (XeSS inputs -> FSR4); use `-KeepOptiScaler` to isolate our ASI only.",
+              "With frame generation on, PresentMon fps includes generated frames; the 'rendered fps' row is the real render rate."):
+        out.append("- " + c)
+    out.append("")
+    txt = "\n".join(out) + "\n"
+    dest = pathlib.Path(stock_dir).parent
+    name = "compare_%s__vs__%s" % (M["name"], K["name"])
+    try:
+        (dest / (name + ".md")).write_text(txt, encoding="utf-8")
+        (dest / (name + ".json")).write_text(json.dumps(J, indent=1, default=str), encoding="utf-8")
+    except OSError:
+        pass
+    return txt, J, dest / (name + ".md")
 
 
 # ---------------------------------------------------------------- selftest (no game)
@@ -883,6 +1173,42 @@ def selftest():
     chk(not J.get("missing"), "missing %s" % J.get("missing"))
     txt = (tmp / "report.md").read_text(encoding="utf-8")
     chk("Unknown_GridBuild15KStack_4F9750" in txt or "0x4F9750" in txt, "symbol resolution in report")
+    # ---- compare mod vs stock (stock = no mod log, FrameType / Displayed columns, frame generation, a few stalls)
+    cmp_root = pathlib.Path(tempfile.mkdtemp(prefix="playsession_selftest_cmp_"))
+    shutil.copytree(tmp, cmp_root / "20261008-2000-session")
+    sd = cmp_root / "20261008-2100-session"
+    sd.mkdir()
+    rows2 = [hdr.replace("CPUStartDateTime,", "CPUStartDateTime,FrameType,Displayed,")]
+    t = 0.0
+    k2 = 0
+    while t < 600:
+        ft = 16.0 + rnd.random() * 1.0
+        if 100 < t < 100.5 or 300 < t < 300.4:
+            ft = 700.0
+        cpu = ft * 0.5
+        gpu = ft * 0.9
+        stamp = day + dt.timedelta(seconds=t + bias)
+        ds = "%d-%d-%d %s.%06d000" % (stamp.year, stamp.month, stamp.day, stamp.strftime("%H:%M:%S"), stamp.microsecond)
+        rows2.append("Nioh3.exe,1234,0x1,DXGI,0,0,1,Hardware Composed: Independent Flip,%s,%s,1,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,NA,NA,NA" % (
+            ds, "Application" if k2 % 2 == 0 else "AMD_AFMF", ft, cpu, ft - cpu, 1.0, gpu, gpu, ft - gpu, 20.0, ft, 0.1, t * 1000))
+        k2 += 1
+        t += ft / 1000.0
+    (sd / "presentmon.csv").write_text("\n".join(rows2) + "\n", encoding="utf-8")
+    shutil.copy(tmp / "sysmon.csv", sd / "sysmon.csv")
+    (sd / "session.json").write_text(json.dumps({"start": day.isoformat(), "start_ts": day.timestamp(), "stop": (day + dt.timedelta(seconds=700)).isoformat(),
+                                                 "stop_ts": day.timestamp() + 700, "pm_bias_s": bias, "asi_version": "none (stock)", "mode": "stock",
+                                                 "stashed": ["Nioh3EngineFix.asi", "dinput8.dll"], "keep_optiscaler": False}), encoding="utf-8")
+    out_s, J_s = summarize(sd)
+    rep_s = "\n".join(out_s)
+    chk(any("STOCK session" in l for l in out_s) and "## Loads" not in rep_s and "## FnProbe" not in rep_s, "stock report: says stock, no mod sections")
+    chk(not J_s.get("missing"), "stock report: nothing 'missing' (no mod log is expected) %s" % J_s.get("missing"))
+    ctxt, cJ, cpath = compare(cmp_root / "20261008-2000-session", sd)
+    chk(cpath.exists() and "# Nioh 3: mod vs stock" in ctxt and "| avg fps (presented) |" in ctxt, "compare: table written")
+    chk("longest sustained segment" in ctxt and "Loading-like stalls" in ctxt and "Caveats" in ctxt, "compare: phases + stalls + caveats")
+    chk(cJ["stalls"]["stock"]["clusters"] == 2 and cJ["stalls"]["mod"]["clusters"] == 0, "compare: stock stall clusters %s" % cJ["stalls"])
+    chk("rendered fps (FrameType = Application)" in ctxt and "| frame generation (PresentMon FrameType) | - | ON |" in ctxt, "compare: FG split from FrameType")
+    chk("FrameType column missing" in ctxt, "compare: missing FrameType noted")
+    shutil.rmtree(cmp_root, ignore_errors=True)
     if fails:
         print("\n".join("FAIL: " + f for f in fails))
         print("report kept in", tmp)
@@ -898,6 +1224,11 @@ def selftest():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--selftest":
         sys.exit(selftest())
+    if len(sys.argv) == 4 and sys.argv[1] == "compare":
+        txt, _, path = compare(sys.argv[2], sys.argv[3])
+        print(txt)
+        print("... saved: %s" % path)
+        sys.exit(0)
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     lines, _ = summarize(sys.argv[1])

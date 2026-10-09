@@ -76,8 +76,48 @@ Only the game can confirm:
   A DualShock/DualSense used without Steam Input goes through the game's own HID path and is not counted.
 - Per-process GPU % / VRAM for Nioh3, boss-fight frame windows (needs a BossLog fight start/end in the log).
 
+## Stock mode (unmodded game, for a mod-vs-stock comparison)
+
+Replay the same mission on the default game: double-click **Nioh3 Session START (stock)** (= `start_session.ps1 -Stock`; add
+`-KeepOptiScaler` by hand to stash only our mod + dinput8 and keep OptiScaler, which isolates the ASI from the upscaler change).
+
+- Same refusals, bridge game lock, save backup, PresentMon and monitor as the normal session. Instead of installing the mod it
+  **moves** a fixed allow-list of non-game files out of the game folder into `D:\nioh3-re\stock-stash\<stamp>-stock\files` and writes
+  `manifest.json` there (name, size, sha256, original timestamp; copied to the session folder as `stash_manifest.json`). Each file is
+  copied, hash-checked, then deleted; the manifest exists before the first move. The session state records `mode=stock`.
+- The allow-list is exact names (never wildcards), derived from `optiscaler\apply.ps1` plus our mod files:
+  `dinput8.dll`, `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini`, `Nioh3EngineFix.log`, `Nioh3EngineFix.asi.1.7.22.bak`,
+  `Nioh3EngineFix.asi.1.7.23xmm.bak`, `Nioh3EngineFix.asi.1.7.25.bak`, `Nioh3EngineFix.asi.1716.bak`, `Nioh3EngineFix.ini.crashed-abba.bak`,
+  `Nioh3EngineFix.ini.pcdefaults.bak`, `Nioh3EngineFix.ini.preboss.bak`, the optional folder `Nioh3EngineFix_shaders\` (file by file), and
+  (unless `-KeepOptiScaler`) the OptiScaler set `dxgi.dll`, `OptiScaler.ini`, `amd_fidelityfx_dx12.dll`, `amd_fidelityfx_upscaler_dx12.dll`,
+  `amd_fidelityfx_framegeneration_dx12.dll`. `Nioh3.exe` and every Steam-shipped file are never touched. To add a name, edit
+  `$StockModFiles` / `$StockOptiFiles` in `session_lib.ps1`.
+- Safety checks: `dxgi.dll` and the three amd dlls must be byte-identical to the OptiScaler files in `optiscaler\files`, otherwise START
+  refuses before moving anything (could be a game/driver file or a different OptiScaler build). After the move START verifies that no
+  allow-listed file and **no `*.asi` at all** is left (the ASI loader would still run it); if anything is wrong it puts everything back
+  and says NOT STARTED.
+- **STOP** restores from the manifest: sha256 verified, original timestamps restored, a different file that is *newer* than the stashed one is
+  never overwritten (reported, stashed copy stays, stash not marked restored). A restored stash gets `restored.flag`.
+- **Crash-safe**: START (stock or normal) refuses while a stash without `restored.flag` exists, and STOP works with no session state at all
+  (after a crash, reboot or a lost `state\active.json`): it finds the unfinished stash and restores it. Just click STOP.
+- The report of a stock session comes from PresentMon + Windows counters only (no mod log exists: no loads, boss fights, PadLatency,
+  memory, PSO or FnProbe sections) and says so.
+
+Compare a mod run with a stock run:
+
+    py -I tools\playsession\summarize.py compare captures\playsession\<mod session> captures\playsession\<stock session>
+
+It prints and saves `compare_<mod>__vs__<stock>.md/.json` next to the sessions: a mod / stock / delta table per phase (whole session; gameplay
+with stalls removed; the longest sustained segment of each, both trimmed to the same length) for fps avg / 1 % / 0.1 % lows, frame-time
+spikes, CPU and GPU busy, display latency, present -> display and input-to-photon, rendered vs generated vs displayed fps from PresentMon
+`FrameType` / `Displayed` (frame generation on/off is flagged), loading-like stalls (frames > 250 ms, clustered) and the Windows counters.
+Phases are cut from PresentMon alone so both runs use the same rule. **Caveats**: two separate play-throughs (different route, fights, camera),
+so small deltas are noise; stock without OptiScaler also changes the upscaler/FG path; the first run after a file change has a cold shader/PSO
+cache; PadLatency exists only in the mod run; input-to-photon is mouse/keyboard only. `test_session.ps1` covers stock mode on a fake game folder
+(round trip, hashes, leftover-stash refusal, crash-safe STOP, newer-file refusal, `-KeepOptiScaler`, foreign dxgi.dll, stray `*.asi`).
+
 ## Files
 
 `start_session.ps1`, `stop_session.ps1`, `monitor.ps1`, `session_lib.ps1` (paths, capture keys), `summarize.py`,
-`test_session.ps1` (dry run), `make_shortcuts.ps1` (recreates the two desktop shortcuts). `state\active.json` exists only
+`test_session.ps1` (dry run), `make_shortcuts.ps1` (recreates the three desktop shortcuts: START, START (stock), STOP). `state\active.json` exists only
 while a session runs. Re-run a report: `py -I tools\playsession\summarize.py captures\playsession\<session>`.
