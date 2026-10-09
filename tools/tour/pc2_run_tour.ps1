@@ -118,7 +118,7 @@ function Launch-Game([int]$n) {
     $t0 = Get-Date
     $fgBefore = if ($vp) { VP-ForegroundInfo } else { $null }
     Start-Process "steam://rungameid/3681010"
-    while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 180) { Start-Sleep 3 }
+    while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 180) { $cc = "$(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '..	estmatrix\steam_cloud_click.ps1') 2>$null | Select-Object -First 1)"; if ($cc -like 'clicked*') { Write-Host "[launch] Steam cloud dialog: $cc" }; Start-Sleep 3 }   # steam_cloud_click: 'Unable to Sync' -> Play anyway (user OK, bridge #602)
     $script:game = Get-Process Nioh3 -ErrorAction SilentlyContinue | Select-Object -First 1
     Register-Game
     if (-not $script:game) { Guard-Fail "the game did not start within 180 s" }
