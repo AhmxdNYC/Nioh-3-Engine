@@ -297,6 +297,16 @@
    "Patches",
    "BPO",
    "0"
+  ],
+  [
+   "Patches",
+   "W1B",
+   "0"
+  ],
+  [
+   "Patches",
+   "RPA",
+   "0"
   ]
  ],
  "shader_apply": {
@@ -1574,6 +1584,48 @@
    ],
    "risk": "low",
    "expected": "game-update thread (KIDSTaskScheduler0): 71C60 subtree, est. 0.1-0.2 ms/frame on PC (notes/bounds-partobbs.md); fps only where [App]Game waits on logic; log 'BPO: BoundsFromPartObbs caves installed'",
+   "grp": 5
+  },
+  {
+   "id": "W1B",
+   "type": "asi",
+   "label": "glyph padding clear 61B1C: game loop with plain stores instead of W1 rep stosd (bit-identical)",
+   "ini": [
+    [
+     "Patches",
+     "W1B",
+     "1"
+    ]
+   ],
+   "mode": "live",
+   "live_installed_value": "2",
+   "devices": [
+    "pc",
+    "ally"
+   ],
+   "risk": "very low",
+   "expected": "main thread ([App]Game) 61B1C row, est. 0.15-0.25 ms/frame on the Ally (notes/w1b-rpa.md); 0 fps while GPU-bound; log 'W1B: glyph padding clear 61BAC -> plain stores'",
+   "grp": 5
+  },
+  {
+   "id": "RPA",
+   "type": "asi",
+   "label": "RenderParamsAssign 247950: 21 exact byte-range copies instead of 29.6 KB of dword moves (bit-identical)",
+   "ini": [
+    [
+     "Patches",
+     "RPA",
+     "1"
+    ]
+   ],
+   "mode": "live",
+   "live_installed_value": "2",
+   "devices": [
+    "pc",
+    "ally"
+   ],
+   "risk": "low",
+   "expected": "main thread 247950 row, est. 0.07-0.1 ms/frame on the Ally plus less L1i eviction (notes/w1b-rpa.md); log 'RPA: RenderParamsAssign 247950 -> 21 range copies'",
    "grp": 5
   },
   {

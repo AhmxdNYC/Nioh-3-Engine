@@ -391,6 +391,8 @@ static const uint8_t orig_JTw[] = { 0xFF, 0x15, 0x8B, 0x0F, 0xD8, 0x02 };
 static const uint8_t orig_JTx[] = { 0xFF, 0x15, 0x4B, 0x0F, 0xD8, 0x02 };
 static const uint8_t orig_JTn1[] = { 0x48, 0xFF, 0x25, 0x7D, 0x10, 0xD8, 0x02 };
 static const uint8_t orig_JTn2[] = { 0x48, 0xFF, 0x25, 0xDD, 0x0F, 0xD8, 0x02 };
+static const uint8_t orig_W1B[] = { 0x33, 0xC9, 0x41, 0x0F, 0xB6, 0x06, 0x41, 0x03, 0xC7, 0x03, 0xC1, 0xFF, 0xC1, 0x83, 0x24, 0x83, 0x00, 0x41, 0x3B, 0xCF, 0x72, 0xEC };
+static const uint8_t orig_RPA[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -676,6 +678,8 @@ static const Site kSites[] = {
     { "JTx", "JT", 0xB616F7, 6, orig_JTx, "48 83 C2 08 48 83 C1 08 45 33 C9 FF 15 ?? ?? ?? ?? 85 C0 0F 95 C0", 11, Kind::Call, nullptr, Target::caveJtWait, 1, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "JTn1", "JT", 0xB61674, 7, orig_JTn1, "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28 48 83 C2 08 48 83 C1 08 41 83 C8 FF FF 15", 5, Kind::Jmp, nullptr, Target::caveJtWake1, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "JTn2", "JT", 0xB6165C, 7, orig_JTn2, "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28", 5, Kind::Jmp, nullptr, Target::caveJtWakeAll, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "W1B", "W1B", 0x61BAC, 22, orig_W1B, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RPA", "RPA", 0x247950, 5, orig_RPA, "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 E8 6F FE FF FF 8B 87 70 01 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -843,6 +847,9 @@ static const Dep kDeps[] = {
     { "JT", 0x1113B4, 249, nullptr, 0xC4E6B59C },  // JT: JobInvokeTimed (the callback call cb vfunc +8)
     { "JT", 0x204584, 288, nullptr, 0xD207E133 },  // JT: JobParallelForSplit head (fn +50h, range [+70h,+74h), grain +78h, split while grain < range)
     { "JT", 0x1753B0, 128, nullptr, 0x96325ADE },  // JT: ObjRangeJobSplitInvoke head (range [+48h,+4Ch), grain +50h)
+    { "W1B", 0x61B1C, 144, nullptr, 0x2F4E6747 },  // W1B: 61B1C head up to the site (r14 = glyph header, r15d = pad != 0 at the site via the je at 61B99, rbx = row)
+    { "W1B", 0x61BC2, 213, nullptr, 0xE3E8707F },  // W1B: 61BC2..61C96 after the site (eax / ecx / edi / flags dead at 61BC2: edi reloaded at 61BD9 before use)
+    { "RPA", 0x2477D4, 29974, nullptr, 0xFAC0A5A1 },  // RPA: 2477D4 / 2478A0 / 2478F4 helpers + RenderParamsAssign 247950..24ECE9, the code the 21 copy ranges were derived from (tests/w1b_rpa_harness.cpp --derive)
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

@@ -567,7 +567,11 @@
     {"id": "JTn1", "group": "JT", "rva": "0xB61674", "len": 7, "orig": "48 FF 25 7D 10 D8 02", "kind": "jmp", "target": "caveJtWake1", "iat_jmp_at": 3, "iat_jmp_name": "KERNEL32.DLL!WakeConditionVariable",
       "pattern": "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28 48 83 C2 08 48 83 C1 08 41 83 C8 FF FF 15", "offset": 5, "what": "JT: STL condition_variable win7 notify_one (vtable 3942338 slot 2) `jmp [WakeConditionVariable]` after `add rcx,8`; fast path unless rcx is the CV the watched thread sleeps on"},
     {"id": "JTn2", "group": "JT", "rva": "0xB6165C", "len": 7, "orig": "48 FF 25 DD 0F D8 02", "kind": "jmp", "target": "caveJtWakeAll", "iat_jmp_at": 3, "iat_jmp_name": "KERNEL32.DLL!WakeAllConditionVariable",
-      "pattern": "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28", "offset": 5, "what": "JT: STL condition_variable win7 notify_all (vtable 3942338 slot 3) `jmp [WakeAllConditionVariable]`"}
+      "pattern": "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28", "offset": 5, "what": "JT: STL condition_variable win7 notify_all (vtable 3942338 slot 3) `jmp [WakeAllConditionVariable]`"},
+    { "id": "W1B", "group": "W1B", "rva": "0x61BAC", "len": 22, "orig": "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", "kind": "check", "supersedes": "W1",
+      "pattern": "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", "offset": 0, "what": "1.7.42 W1B (drawprep.cpp): glyph padding clear 61B1C; the site holds W1's bytes or these at install -> jmp caveW1b + int3 x17 (resume 61BC2); on = original loop with `and [m],0` -> `mov [m],0`" },
+    { "id": "RPA", "group": "RPA", "rva": "0x247950", "len": 5, "orig": "48 89 5C 24 08", "kind": "check",
+      "pattern": "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 E8 6F FE FF FF 8B 87 70 01 00 00", "offset": 0, "what": "1.7.42 RPA (drawprep.cpp): RenderParamsAssign entry `mov [rsp+8],rbx` -> jmp caveRpa (resume 247955); on = 21 exact byte-range copies" }
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -663,6 +667,9 @@
     { "group": "JT", "rva": "0x111184", "len": 232, "fnv1a": "0x9F252D1F", "what": "JT: JobNodeExecute (inner callback = vfunc +8 of [[job+48h]+28h], read by jt.cpp)" },
     { "group": "JT", "rva": "0x1113B4", "len": 249, "fnv1a": "0xC4E6B59C", "what": "JT: JobInvokeTimed (the callback call cb vfunc +8)" },
     { "group": "JT", "rva": "0x204584", "len": 288, "fnv1a": "0xD207E133", "what": "JT: JobParallelForSplit head (fn +50h, range [+70h,+74h), grain +78h, split while grain < range)" },
-    { "group": "JT", "rva": "0x1753B0", "len": 128, "fnv1a": "0x96325ADE", "what": "JT: ObjRangeJobSplitInvoke head (range [+48h,+4Ch), grain +50h)" }
+    { "group": "JT", "rva": "0x1753B0", "len": 128, "fnv1a": "0x96325ADE", "what": "JT: ObjRangeJobSplitInvoke head (range [+48h,+4Ch), grain +50h)" },
+    { "group": "W1B", "rva": "0x61B1C", "len": 144, "fnv1a": "0x2F4E6747", "what": "W1B: 61B1C head up to the site (r14 = glyph header, r15d = pad != 0 at the site via the je at 61B99, rbx = row)" },
+    { "group": "W1B", "rva": "0x61BC2", "len": 213, "fnv1a": "0xE3E8707F", "what": "W1B: 61BC2..61C96 after the site (eax / ecx / edi / flags dead at 61BC2: edi reloaded at 61BD9 before use)" },
+    { "group": "RPA", "rva": "0x2477D4", "len": 29974, "fnv1a": "0xFAC0A5A1", "what": "RPA: 2477D4 / 2478A0 / 2478F4 helpers + RenderParamsAssign 247950..24ECE9, the code the 21 copy ranges were derived from (tests/w1b_rpa_harness.cpp --derive)" }
   ]
 }

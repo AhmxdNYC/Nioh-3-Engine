@@ -1,4 +1,5 @@
-// drawprep.cpp - DQ (main-loop retry quantum) and P1E7 (texture-loop prefetch), both default off. See drawprep.h.
+// drawprep.cpp - DQ (main-loop retry quantum), P1E7 (texture-loop prefetch), W1B (glyph padding clear store) and RPA
+// (RenderParamsAssign range copy), all default off. See drawprep.h.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <tlhelp32.h>
@@ -12,9 +13,13 @@
 extern "C" {
 void caveDq();
 void caveP1e7();
+void caveW1b();
+void caveRpa();
 extern volatile uint32_t dp_dq_enable, dp_p1e7_enable, dp_dq_early;
 extern float dp_dq_quantum;
 extern uint64_t dp_dq_loop, dp_dq_exit, dp_p1e7_resume;
+extern volatile uint32_t dp_w1b_enable, dp_w1b_w1, dp_rpa_enable;  // 1.7.42
+extern uint64_t dp_w1b_resume, dp_rpa_resume;
 }
 
 namespace drawprep {
@@ -50,10 +55,24 @@ const uint8_t kPfLoop[] = {0x44, 0x3B, 0x7A, 0x18, 0x7D, 0x59, 0x4D, 0x8B, 0x34,
                            0x24, 0x90, 0x00, 0x00, 0x00, 0x41, 0xFF, 0xC7, 0x49, 0xFF, 0xC5, 0x49, 0x83, 0xC4, 0x08, 0x4C, 0x3B, 0xE8,
                            0x7C, 0x92};
 constexpr uint32_t kPfLoopRva = 0x1E72C0;
+// W1B (1.7.42): 61BAC..61BC1 glyph padding clear loop of 61B1C (W1's in-place site); the site holds the original or W1's
+// bytes at install. The rest of 61B1C must be v2.02 (FNV-1a of the head and the tail; patches.json deps W1B).
+constexpr uint32_t kW1bSite = 0x61BAC, kW1bResume = 0x61BC2;
+const uint8_t kW1bOrig[] = {0x33, 0xC9, 0x41, 0x0F, 0xB6, 0x06, 0x41, 0x03, 0xC7, 0x03, 0xC1,
+                            0xFF, 0xC1, 0x83, 0x24, 0x83, 0x00, 0x41, 0x3B, 0xCF, 0x72, 0xEC};
+const uint8_t kW1bW1[] = {0x41, 0x0F, 0xB6, 0x06, 0x41, 0x03, 0xC7, 0x48, 0x8D, 0x3C, 0x83,
+                          0x44, 0x89, 0xF9, 0x31, 0xC0, 0xF3, 0xAB, 0x0F, 0x1F, 0x40, 0x00};  // patches.json W1 "new"
+constexpr uint32_t kW1bHeadRva = 0x61B1C, kW1bHeadLen = 0x90, kW1bHeadFnv = 0x2F4E6747;
+constexpr uint32_t kW1bTailRva = 0x61BC2, kW1bTailLen = 0xD5, kW1bTailFnv = 0xE3E8707F;
+// RPA (1.7.42): RenderParamsAssign 247950 entry `mov [rsp+8],rbx`; resume 247955. The copy ranges in the cave were derived
+// from 2477D4..24ECE9 (helpers + the function), so that whole range must be v2.02 (FNV-1a, patches.json deps RPA).
+constexpr uint32_t kRpaSite = 0x247950, kRpaResume = 0x247955;
+const uint8_t kRpaOrig[] = {0x48, 0x89, 0x5C, 0x24, 0x08};
+constexpr uint32_t kRpaCodeRva = 0x2477D4, kRpaCodeLen = 0x7516, kRpaCodeFnv = 0xFAC0A5A1;
 
 void (*g_log)(const char*, ...) = nullptr;
-uint8_t* g_page = nullptr;  // near trampolines: +0 caveDq, +10h caveP1e7 (jmp [rip]; dq target)
-bool g_dq = false, g_pf = false;
+uint8_t* g_page = nullptr;  // near trampolines: +0 caveDq, +10h caveP1e7, +20h caveW1b, +30h caveRpa (jmp [rip]; dq target)
+bool g_dq = false, g_pf = false, g_w1b = false, g_rpa = false;
 int g_dqUs = 200;
 
 uint8_t* AllocIn(uintptr_t from, uintptr_t to, size_t size) {
@@ -82,7 +101,7 @@ uint8_t* AllocNear(uintptr_t lo, uintptr_t hi, size_t size) {
 
 struct Write {
     uint8_t* at;
-    uint8_t bytes[16];
+    uint8_t bytes[24];
     unsigned len;
 };
 
@@ -157,6 +176,7 @@ bool JmpBytes(Write& w, uint8_t* site, const uint8_t* tr, unsigned len) {
     static const uint8_t nop6[] = {0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00};
     if (len == 5) return true;
     if (len == 11) { memcpy(w.bytes + 5, nop6, 6); return true; }
+    if (len == 22) { memset(w.bytes + 5, 0xCC, 17); return true; }  // W1B: never executed (the cave resumes after the site)
     return false;
 }
 
@@ -169,34 +189,59 @@ void Tramp(uint8_t* at, void (*cave)()) {
 
 int Key(const wchar_t* sec, const wchar_t* k, int def, const wchar_t* ini) { return (int)GetPrivateProfileIntW(sec, k, def, ini); }
 
+uint32_t Fnv1a(uintptr_t base, uint32_t rva, uint32_t n) {
+    uint32_t h = 0x811C9DC5u;
+    const uint8_t* p = (const uint8_t*)(base + rva);
+    for (uint32_t i = 0; i < n; ++i) h = (h ^ p[i]) * 0x01000193u;
+    return h;
+}
+
 }  // namespace
 
 int64_t DqQuantumUs() { return (g_dq && dp_dq_enable) ? g_dqUs : 0; }
 volatile uint32_t* DqSwitch() { return g_dq ? &dp_dq_enable : nullptr; }
 volatile uint32_t* P1e7Switch() { return g_pf ? &dp_p1e7_enable : nullptr; }
+volatile uint32_t* W1bSwitch() { return g_w1b ? &dp_w1b_enable : nullptr; }
+volatile uint32_t* RpaSwitch() { return g_rpa ? &dp_rpa_enable : nullptr; }
 
 void StatusLine(char* buf, unsigned n) {
     if (!n) return;
     buf[0] = 0;
-    if (!g_dq && !g_pf) return;
-    snprintf(buf, n, "drawprep: DQ %s (%d us, %lu early retries), P1E7 %s", !g_dq ? "-" : dp_dq_enable ? "ON" : "off", g_dqUs,
-             (unsigned long)dp_dq_early, !g_pf ? "-" : dp_p1e7_enable ? "ON" : "off");
+    if (!g_dq && !g_pf && !g_w1b && !g_rpa) return;
+    snprintf(buf, n, "drawprep: DQ %s (%d us, %lu early retries), P1E7 %s, W1B %s, RPA %s", !g_dq ? "-" : dp_dq_enable ? "ON" : "off",
+             g_dqUs, (unsigned long)dp_dq_early, !g_pf ? "-" : dp_p1e7_enable ? "ON" : "off", !g_w1b ? "-" : dp_w1b_enable ? "ON" : "off",
+             !g_rpa ? "-" : dp_rpa_enable ? "ON" : "off");
 }
 
 void Start(const StartInfo& info) {
     g_log = info.log;
     if (!g_log || !info.iniPath || !info.base) return;
     const int dq = Key(L"Patches", L"DQ", 0, info.iniPath), pf = Key(L"Patches", L"P1E7", 0, info.iniPath);
+    const int w1b = Key(L"Patches", L"W1B", 0, info.iniPath), rpa = Key(L"Patches", L"RPA", 0, info.iniPath);
     int us = Key(L"Tuning", L"DQ_QuantumUs", 200, info.iniPath);
     if (us < 50) us = 50;
     if (us > 1000) us = 1000;
-    if (!dq && !pf) return;
+    if (!dq && !pf && !w1b && !rpa) return;
     if (!info.knownBuild) {
-        g_log("DQ/P1E7: v2.02 only - skipped on this build");
+        g_log("DQ/P1E7/W1B/RPA: v2.02 only - skipped on this build");
         return;
     }
     const uintptr_t b = info.base;
-    bool wantDq = dq != 0, wantPf = pf != 0;
+    bool wantDq = dq != 0, wantPf = pf != 0, wantW1b = w1b != 0, wantRpa = rpa != 0;
+    // W1B: the site holds W1's bytes ([Patches] W1 = 1, the default, applied before this) or the original loop
+    uint32_t w1bW1 = 0;
+    if (wantW1b) {
+        if (Same(b, kW1bSite, kW1bW1, sizeof(kW1bW1))) w1bW1 = 1;
+        else if (!Same(b, kW1bSite, kW1bOrig, sizeof(kW1bOrig))) wantW1b = false;
+        if (!wantW1b || Fnv1a(b, kW1bHeadRva, kW1bHeadLen) != kW1bHeadFnv || Fnv1a(b, kW1bTailRva, kW1bTailLen) != kW1bTailFnv) {
+            g_log("W1B: glyph padding clear 61B1C differs from v2.02 (another mod?) - skipped");
+            wantW1b = false;
+        }
+    }
+    if (wantRpa && (!Same(b, kRpaSite, kRpaOrig, sizeof(kRpaOrig)) || Fnv1a(b, kRpaCodeRva, kRpaCodeLen) != kRpaCodeFnv)) {
+        g_log("RPA: RenderParamsAssign 2477D4..24ECE9 differs from v2.02 (another mod or a probe?) - skipped");
+        wantRpa = false;
+    }
     if (wantDq && !(Same(b, kDqSite, kDqOrig, sizeof(kDqOrig)) && Same(b, kDqXmm6Rva, kDqXmm6, sizeof(kDqXmm6)) &&
                     Same(b, kDqLoop, kDqHead, sizeof(kDqHead)) && Same(b, kDqBodyRva, kDqBody, sizeof(kDqBody)) &&
                     Same(b, kDqExit, kDqTail, sizeof(kDqTail)))) {
@@ -207,39 +252,54 @@ void Start(const StartInfo& info) {
         g_log("P1E7: texture loop of 1E7050 (1E72C0..1E732E) differs from v2.02 (another mod?) - skipped");
         wantPf = false;
     }
-    if (!wantDq && !wantPf) return;
+    if (!wantDq && !wantPf && !wantW1b && !wantRpa) return;
     const auto* dos = (const IMAGE_DOS_HEADER*)b;
     const auto* nt = (const IMAGE_NT_HEADERS64*)(b + dos->e_lfanew);
     g_page = AllocNear(b, b + nt->OptionalHeader.SizeOfImage, 4096);
     if (!g_page) {
-        g_log("DQ/P1E7: no executable page within 2 GB of the image - skipped");
+        g_log("DQ/P1E7/W1B/RPA: no executable page within 2 GB of the image - skipped");
         return;
     }
     Tramp(g_page, &caveDq);
     Tramp(g_page + 0x10, &caveP1e7);
-    FlushInstructionCache(GetCurrentProcess(), g_page, 0x20);
+    Tramp(g_page + 0x20, &caveW1b);
+    Tramp(g_page + 0x30, &caveRpa);
+    FlushInstructionCache(GetCurrentProcess(), g_page, 0x40);
     dp_dq_loop = b + kDqLoop;
     dp_dq_exit = b + kDqExit;
     dp_p1e7_resume = b + kPfResume;
+    dp_w1b_resume = b + kW1bResume;
+    dp_rpa_resume = b + kRpaResume;
+    dp_w1b_w1 = w1bW1;
     dp_dq_quantum = (float)us * 1e-6f;
     g_dqUs = us;
     dp_dq_enable = dq == 1 ? 1u : 0u;
     dp_p1e7_enable = pf == 1 ? 1u : 0u;
-    Write w[2];
+    dp_w1b_enable = w1b == 1 ? 1u : 0u;
+    dp_rpa_enable = rpa == 1 ? 1u : 0u;
+    Write w[4];
     int n = 0;
     bool ok = true;
     if (wantDq && !JmpBytes(w[n++], (uint8_t*)(b + kDqSite), g_page, 5)) ok = false;
     if (wantPf && !JmpBytes(w[n++], (uint8_t*)(b + kPfSite), g_page + 0x10, 11)) ok = false;
+    if (wantW1b && !JmpBytes(w[n++], (uint8_t*)(b + kW1bSite), g_page + 0x20, 22)) ok = false;
+    if (wantRpa && !JmpBytes(w[n++], (uint8_t*)(b + kRpaSite), g_page + 0x30, 5)) ok = false;
     if (!ok || !FrozenWrite(w, n)) {
-        g_log("DQ/P1E7: site write failed (out of rel32 reach, or a thread kept sitting inside a site) - nothing installed");
-        dp_dq_enable = dp_p1e7_enable = 0;
+        g_log("DQ/P1E7/W1B/RPA: site write failed (out of rel32 reach, or a thread kept sitting inside a site) - nothing installed");
+        dp_dq_enable = dp_p1e7_enable = dp_w1b_enable = dp_rpa_enable = 0;
         return;
     }
     g_dq = wantDq;
     g_pf = wantPf;
+    g_w1b = wantW1b;
+    g_rpa = wantRpa;
     if (g_dq)
         g_log("DQ: main-loop retry quantum 1 ms -> %d us at 1A74C45 (switch %s)", us, dp_dq_enable ? "ON" : "off");
     if (g_pf) g_log("P1E7: texture-loop prefetch at 1E72C6 (switch %s)", dp_p1e7_enable ? "ON" : "off");
+    if (g_w1b)
+        g_log("W1B: glyph padding clear 61BAC -> plain stores (switch %s; off = %s)", dp_w1b_enable ? "ON" : "off",
+              w1bW1 ? "W1 rep stosd" : "original read-modify-write loop");
+    if (g_rpa) g_log("RPA: RenderParamsAssign 247950 -> 21 range copies (switch %s)", dp_rpa_enable ? "ON" : "off");
 }
 
 }  // namespace drawprep
