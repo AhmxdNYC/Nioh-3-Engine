@@ -69,12 +69,3 @@ Not tested by us: the TDP gain, page-file effect, external-limiter effect, GPU c
 - No mod-side equivalent: `[GpuOpt] CbvMirror` (1.7.52/1.7.54) copies the constants into VRAM but on an RX 6650 XT the copies
   cost more than they save (+10 to +36 ms on pc2, #988/#1030). Leave it at 0. On pc2 about half of the mid-range excess is
   these PCIe constant reads (~4 ms of 31.6 ms), so ReBAR/SAM is worth turning on where the board supports it.
-
-## Resizable BAR / Smart Access Memory (measured 2026-10-09, pc2 RX 6650 XT)
-Without Resizable BAR the game keeps every per-draw constant buffer in system RAM (its 700 MB upload heap) and the
-GPU reads it over PCIe. On pc2 (RX 6650 XT, PCIe x8, ReBAR off) moving those buffers into VRAM sped the affected
-passes (small props, UI, shadows) up by ~4 ms of a ~31 ms frame (notes/root-cause-vram-streaming.md). A mod-side copy
-can't capture this: the copies cost more than they save (CbvMirror v1/v2, bridge #988/#1030). Recommendation for
-players on discrete GPUs: enable it in the BIOS: "Above 4G Decoding" ON, "Re-Size BAR Support" ON (AMD: "Smart Access
-Memory"), CSM OFF; the GPU driver then shows it as enabled. Expected: up to ~4 ms per frame on mid-range cards like the
-6650 XT; little change on cards/PCs that already have it. Not relevant on handhelds/APUs (shared memory).
