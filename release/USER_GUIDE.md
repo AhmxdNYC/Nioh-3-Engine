@@ -9,12 +9,14 @@ checks the build and does nothing.
 |---|---|
 | `dinput8.dll` | Ultimate ASI Loader (loads `.asi` mods; the same loader Lyall's Nioh3Fix ships - keep only one copy) |
 | `Nioh3EngineFix.asi` | the mod |
-| `Nioh3EngineFix.ini` | settings tuned for this device (PC or handheld zip); `1` = on, `0` = off |
+| `Nioh3EngineFix.ini` | settings for every device; `1` = on, `0` = off, `-1` = auto by OS (chosen at startup) |
 | `optional\shader_dx12\0x0104840c.file` | faster shadow shader, same picture (see "Optional shader") |
 | `README.md` | this guide; `README-MOD.md` full option reference; `SHA256SUMS.txt` checksums; `PROFILE.txt` what this device profile changes and why |
 
-Pick the zip for your device: **PC** (Windows desktop/laptop, usually limited by one CPU thread) or **ALLY**
-(ROG Ally / Steam Deck class handhelds on Bazzite/SteamOS + Proton, limited by the GPU). The only difference is the ini.
+There is one zip for everything: any Windows PC, and any Linux device running the game under Proton (Steam Deck, ROG Ally on
+Bazzite/SteamOS, Linux desktops, other handhelds). The mod detects Windows vs Wine/Proton at startup; the few settings whose
+best value differs by OS are `-1` (auto) in the ini, and the log lists what each one resolved to. `PROFILE.txt` says what
+each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap = 10`) are off by default and listed there.
 
 ## Install - Windows PC
 1. Steam -> right-click Nioh 3 -> Manage -> Browse local files (the folder with `Nioh3.exe`).
@@ -46,7 +48,7 @@ Pick the zip for your device: **PC** (Windows desktop/laptop, usually limited by
   saves the press).
 
 ## Optional shader (same picture, less GPU time)
-Measured: Ally +6.4 to +8.7 % fps at MAX, PC about +3 %. With the game closed:
+Measured: ROG Ally +6.4 to +8.7 % fps at MAX, RX 9070 PC about +3 %. With the game closed:
 1. In the game folder open `shader_dx12\` and **copy the original `0x0104840c.file` somewhere safe**.
 2. Copy `optional\shader_dx12\0x0104840c.file` over it.
 3. Undo: put the original back, or Steam -> Properties -> Installed Files -> Verify integrity.
