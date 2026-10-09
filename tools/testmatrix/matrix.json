@@ -311,6 +311,9 @@
   [
    "Latency",
    "VrrPresent",
+   "0"
+  ],
+  [
    "Patches",
    "AS",
    "0"
