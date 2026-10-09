@@ -5,7 +5,7 @@ param([string]$Ws = "C:\Users\User\projects\nioh3-engine", [string]$Uo = "C:\Use
       [string]$ReDir = "C:\nioh3-re", [string]$Agent = "pc2")
 $ErrorActionPreference = "Stop"
 $tools = Split-Path -Parent $PSScriptRoot
-$files = @{ testmatrix = "pc_gpu_session.ps1","abba2_pc.ps1","pc_weakcpu.ps1","cost_vs_looks.ps1"; tour = "run_tour.ps1"; "..\patcher" = "common.ps1"; "." = "enter_game.ps1","notify.ps1"; playsession = "session_lib.ps1","start_session.ps1","stop_session.ps1","monitor.ps1","test_session.ps1" }
+$files = @{ testmatrix = "pc_gpu_session.ps1","abba2_pc.ps1","pc_weakcpu.ps1","cost_vs_looks.ps1","samelook_ab.ps1"; tour = "run_tour.ps1"; "..\patcher" = "common.ps1"; "." = "enter_game.ps1","notify.ps1"; playsession = "session_lib.ps1","start_session.ps1","stop_session.ps1","monitor.ps1","test_session.ps1" }
 $all = $files.Values | % { $_ }
 foreach ($d in $files.Keys) { foreach ($f in $files[$d]) {
   $t = [IO.File]::ReadAllText("$tools\$d\$f")
