@@ -46,6 +46,7 @@ ASI_PROOF = {'AS0': r'AS0: slot 0 forced on', 'GIM': r'stats/s gimerge: .*merge 
 TARGETS = {   # original digest prefixes of the records each item replaces (for the target-row delta); new ones are found as novel hashes
     'fogpar': ['641524ee'], 'wdo14': ['8a013bc7'], 'wdo28': ['32e8deff'], 'gi': ['4b4c3cbe', '6ae59bd0'],
     'toonedge2': ['318fa766'], 'GIM': ['4b4c3cbe', '6ae59bd0'],
+    'msv': ['1559714c', '70d0ee9f', 'f311c8e2'],   # meshlet VS (notes/gpu-rewrite-round3.md); GP2 rows read vs=...
 }
 
 

@@ -10,6 +10,8 @@ data/physics_work/
 data/foliage_backup/
 gpu-shaders/backup/
 gpu-shaders/replacement/*.file
+gpu-shaders/replacement/msv_*/
+gpu-shaders/meshvs/work/
 re/scripts_gpu/out/wdo28/*.file
 mods/
 optiscaler/files/

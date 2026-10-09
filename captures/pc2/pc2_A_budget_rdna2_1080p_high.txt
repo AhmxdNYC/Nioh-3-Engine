@@ -1,0 +1,159 @@
+﻿==== run01.log: ally_budget gp2 --min-draws 1000 ====
+cache not written: [WinError 3] The system cannot find the path specified: 'D:\\'
+23 gameplay windows (draws >= 1000); mean stamped span 23.20 ms, fps(stamped) [None, 32.6, None, 46.5, 28.1, 68.7, None, 37.3, 66.8, None, 34.2, None, 35.3, None, None, 99.4, 120.1, 81.2, 91.9, None, 106.9, 86.8, 0.0]
+rank|ms|%span|draws|seen|desc|marker|name|replacement
+1|1.730|7.5|27.3|23/23|(copy / resolve / clear)|-|-|no
+2|1.597|6.9|1.0|23/23|cs=b76874bb17bdfc10a0739b74191c68a9 (async compute)|DrawSky|VCLOUD|no
+3|1.040|4.5|2.0|23/23|cs=641524ee74b197c7d8f1535066bb2c1a (async compute)|-|VFSCAT-CllLpvSfbVsm|no
+4|0.812|3.5|1.0|23/23|cs=e73868403411fc81d6c238cf52f018c8|FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN|fsr/upscale|no
+5|0.810|3.5|4.5|19/23|cs=c4a71e16f42622db224b0cde0b60e90b|MeshletResolveLOD|MshLod|no
+6|0.656|2.8|55.3|23/23|vs=e5190e82a274aaa5bfc24b14ca77567a ps=c4656a8d23602c5bacff59efa7950ab0|-|SM-Sfb / SM-B0I2mIptrSfb|no
+7|0.579|2.5|10.7|23/23|cs=4b4c3cbe6724e06841b7ed69d7472a46|-|RefProbe-CllPtSfbSplsSslsSsmVsm|no
+8|0.530|2.3|2.6|21/23|cs=e31c389f6d4a38de7b1b784b87c710d2|MeshletInstanceCulling|MIC|no
+9|0.504|2.2|10.5|21/23|cs=a09d4223be2a00bf1c085a9080e73ac7|MeshletPreculling|MPC|no
+10|0.495|2.1|9.1|21/23|cs=304bac05646e17a2c24d873283d6993c|MeshletPreculling|MPC|no
+11|0.452|1.9|2.4|21/23|cs=c4a71e16f42622db224b0cde0b60e90b|0|MshLod|no
+12|0.422|1.8|3.6|23/23|vs=be0fa132bfceb143348b72df52a8698f ps=169b4ca18e5f12a0e690891eec594dd6|-|PB2-AlepmeDiGbiOcPkRiaSfbVl / PB2-CcroDiGbiPkRiaexmSfbSmSsssTs|no
+13|0.403|1.7|117.7|23/23|vs=2c6f629c71d56f50f15119da34021129 ps=d2fe68c915daa0eae5ada468a161bf14|-|PB2-AtGbiHho3PdoPfnPkRiaexSfbUhV / PB2-Ccrtov0DinmGbiHho3PdoPfnRiae|no
+14|0.399|1.7|6.1|13/23|vs=1559714ca496fffe6ddd3c827e1d962e ps=7dcfe3de3f3fcbc199be405eae1596b4|-|PB2-BlrGbiMshltvReSfbVl / PB2-BlrGbiMshltPkSfbT0Vl|no
+15|0.336|1.5|117.8|23/23|vs=96690c3bc82f249fec0b79d7d08c505e ps=d1f13d22b734ef62bca9d66dff781d6a|-|STD-DinmGbPdoSfbUhVl|no
+16|0.261|1.1|21.1|23/23|vs=fce25fe68f1168016e83d0ccd113a7c4 ps=1c49bbd52d2e7d70deccfabe7d1ae359|-|GFM|no
+17|0.259|1.1|9.7|23/23|vs=26bcdc9dad88df680cc28cc877c71093 ps=6f7e3409d3ef96abb16e05ca28e12824|-|WDO_SST-PtSrbVsm / PB2DUS-GbMasRefprobelt|no
+18|0.248|1.1|9.9|23/23|vs=be0fa132bfceb143348b72df52a8698f ps=60b220a43c6fc6be00af646b44965736|-|PB2-AlepmeDiGbiOcPkRiaSfbVl / PB2-AtDiDt2l3GbiPfnRiaexSfbVlWt1|no
+19|0.235|1.0|53.6|23/23|vs=0ad688da55675a6ffe8559a053a3e61c ps=ff5fcc123b3604887ee29ea3ad87b362|-|AMBSL|no
+20|0.231|1.0|1.0|6/23|cs=2ebe78c928f1a4b6782d8042772d3357 (async compute)|-|IGP|no
+21|0.216|0.9|4.8|18/23|vs=563edb9d654bec6875beb60220e6bf6e ps=c013d8118112cb209196fc7ba5d2f92d|-|PB2RIPPLE-Cbbl / PB2DECAL-CdlRgbSfb|no
+22|0.202|0.9|39.8|23/23|vs=96690c3bc82f249fec0b79d7d08c505e ps=02116918c27a65a96468c3876448c3f6|-|STD-DinmGbPdoSfbUhVl / STD-DinmGbPdoSfbVl|no
+23|0.202|0.9|2.0|16/23|cs=a1426af02a72961478ba0a7c40ae2db6|1|MshLod|no
+24|0.201|0.9|4.0|23/23|vs=d21b4b07960ae581de8586e6caeb02e1 ps=6a305be4d31f072c0a33a20a73e0897b|-|post VS / compose (r5 47us)|no
+25|0.197|0.8|127.4|23/23|vs=2ace20700920118f36d24f392bacf73a ps=388dba686bedc8a5aaf9320d635f3d55|-|DEPTH-Sfb / SM-SfbUh|no
+26|0.196|0.8|2.2|22/23|vs=26bcdc9dad88df680cc28cc877c71093 ps=0b17198d656715ff449183941912bea1|-|WDO_SST-PtSrbVsm / WDO-PtSrbVsm|no
+27|0.190|0.8|2.4|14/23|vs=d21b4b07960ae581de8586e6caeb02e1 ps=e6efc8ff49a9b254151466f9835e8fad|-|post VS / bloom|no
+28|0.179|0.8|34.3|23/23|vs=2c6f629c71d56f50f15119da34021129 ps=0f1a3e294eda58c5a6fd26b27ac1e699|-|PB2-AtGbiHho3PdoPfnPkRiaexSfbUhV / PB2-Ccrtov0DinmGbiHho3PdoPfnRiae|no
+29|0.179|0.8|3.2|23/23|vs=f1a71ab0d014250513502a28b485cecd ps=47ef1c9bcaaef8c3de1497be94c47790|-|ESM|no
+30|0.176|0.8|3.1|23/23|cs=c6cdf35ef4609139f9f2097a22e98c78|-|GVD|no
+31|0.167|0.7|4.3|22/23|vs=26bcdc9dad88df680cc28cc877c71093 ps=f61e54aa0ecac84fdc8280c040a08fa2|-|WDO_SST-PtSrbVsm / PB2DS-AdmCaCllEmHsIribOfPlaSmSpl|no
+32|0.163|0.7|4.0|23/23|cs=318fa766bb0f9ad624957b9f1da0e576|-|TOONEDGE2|no
+33|0.154|0.7|1.4|8/23|vs=55954792b94ef795eaf20489d352a419 ps=7d506745cbc46263c10ca650410188c0|-|PB2LS-GbiSfbVl|no
+34|0.154|0.7|4.8|8/23|vs=70d0ee9feee590f9c48c40b808858e27 ps=db2a9be26f6c7405af29bb9bffca1e9b|-|PB2-BlrGbiMm0sMshltvReSfbVl / PB2-BlrGbiMm00MshltPkSfbVl|no
+35|0.152|0.7|3.6|21/23|vs=d8fc9fafcbf67aeb92ad981bdc2433c3 ps=f11afe97be03915b7284f59eadab1819|-|motion blur|no
+36|0.150|0.6|10.0|23/23|vs=42344fa0cbe479dedf2c5c0f2d7351be ps=78abc2afdcc1fbacc0d3c8268884fd70|-|RefProbe-CllPtSfbSplsSslsSsmVsm / GFM-Hiz|no
+37|0.143|0.6|0.3|8/23|vs=355ad1ce80cc96fe9e4c58ebb41b71ec ps=98683c8f6b0f7e2390e84767823fefff|UltramarineRender|PB2UMAH-GbVl|no
+38|0.139|0.6|12.8|21/23|cs=419354debd2c14ad018b32a7a181f947|GenerateSceneHiZ|GHDM|no
+39|0.132|0.6|33.5|20/23|vs=df1296edfc4afbef0fc3c82643c36fbb ps=2c4db869f3ff31096260c4d31c434264|-|G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP|no
+40|0.127|0.5|5.5|23/23|vs=a2bd0e861c46e2bad6173e7626f3251f ps=9a76cbefdcab3f7b51cb63d5696bbc63|-|ExeUI_AlphaFadeQuad|no
+41|0.127|0.5|3.8|22/23|vs=d8fc9fafcbf67aeb92ad981bdc2433c3 ps=a955f6c3794e8f59de9b268af5cd66a1|-|motion blur|no
+42|0.126|0.5|1.0|23/23|cs=8b86a434076ec26bd7fb223ccd1b2374|FFX_FSR3UPSCALER_PASS_PREPARE_REACTIVITY|fsr/upscale|no
+43|0.126|0.5|4.0|23/23|vs=753ad3fe71e6400e9f80d36bf6233bb6 ps=3f145c1eefeb9b68058dea94f76f805c|-|SSFOG-CllFdHfMpfS2aVf|no
+44|0.123|0.5|1.6|9/23|vs=d21b4b07960ae581de8586e6caeb02e1 ps=04c1052dc24e69dc69ae5c52430f97b5|-|post VS / bloom|no
+45|0.122|0.5|4.0|23/23|vs=42344fa0cbe479dedf2c5c0f2d7351be ps=a42ffb78c82e5857d9d5c347555c17af|-|RefProbe-CllPtSfbSplsSslsSsmVsm / HBAO|no
+46|0.122|0.5|1.3|15/23|cs=5bad22c40878de0457de8ec8c1b02cf3|MeshletCheckRequestLoad|MCLRC|no
+47|0.121|0.5|26.6|17/23|vs=4ddc3a2fbb725f1a4063ef5a54f2600f|-|SM-Mdb5tltotSfb|no
+48|0.120|0.5|1.7|13/23|cs=a1426af02a72961478ba0a7c40ae2db6|2|MshLod|no
+49|0.119|0.5|1.4|8/23|cs=e7ffdc6381a523425f7c22263ec42a09 (async compute)|-|PFB|no
+50|0.114|0.5|0.9|8/23|cs=864b494153fe2d3f476e2cd45abd1076|MeshletCheckRequestLoad|MCLRC|no
+51|0.112|0.5|12.0|23/23|vs=8fbd250c2b10415141d5b84e2041577e ps=0576ae5e02461191b84d117bcca19fc0|-|PBRLR|no
+52|0.111|0.5|3.0|23/23|vs=6612dd5ff15a913920f5399461febd1c ps=e3c6d0aa2db11061d380d428a3ad2d39|DrawSky|VCLOUD|no
+53|0.105|0.5|11.7|8/23|vs=f311c8e29e9822ee8c34d38aba8b5966 ps=f10c4d8ecc68d2fa1a03124c8e6be555|-|PB2TREE2-BlrGbiMshltvReSfbVl / PB2TREE2-AtBlrGbiMshltPfnPkSfbTs|no
+54|0.105|0.5|36.6|7/23|vs=e05d3a1d66339a0b9173759655e9d3e8 ps=4c1f06a5578dfa04a4d7ae5fef572c93|-|G1E-ACsDiFoGbiHMMvNOcP2alePb2Sfb|no
+55|0.103|0.4|4.0|15/23|vs=26bcdc9dad88df680cc28cc877c71093 ps=b68c49cd218439cebc523ad6efa9f2d1|-|WDO_SST-PtSrbVsm / PB2MRLR-CllLasVf|no
+56|0.101|0.4|21.7|12/23|vs=f645c4617ddac2729695c965a7300a6d ps=d4ed3fe49d61aaa118ff8e3f9fe8d5e1|-|G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP|no
+57|0.100|0.4|1.6|11/23|vs=a2bd0e861c46e2bad6173e7626f3251f ps=030dc8025231c963ccd451aa9cc1621d|-|ExeUI_TintedQuad|no
+58|0.096|0.4|6.5|7/23|vs=e5190e82a274aaa5bfc24b14ca77567a ps=c4656a8d23602c5bacff59efa7950ab0|Cascade 0|SM-Sfb / SM-B0I2mIptrSfb|no
+59|0.095|0.4|1.0|23/23|cs=756aff8f97f1ffb1e7919785f5789ac0|FFX_FSR3UPSCALER_PASS_PREPARE_INPUTS|fsr/upscale|no
+60|0.095|0.4|3.9|9/23|vs=be0fa132bfceb143348b72df52a8698f ps=39316a60dae37a9000b68a6bf8e472af|-|PB2-AlepmeDiGbiOcPkRiaSfbVl / PB2-AlepmeAtDiDt2l3GbiPfnPkRiaex|no
+61|0.093|0.4|6.7|6/23|vs=e5190e82a274aaa5bfc24b14ca77567a ps=c4656a8d23602c5bacff59efa7950ab0|Cascade 1|SM-Sfb / SM-B0I2mIptrSfb|no
+62|0.093|0.4|1.0|23/23|cs=8e8e36dc91c2d2713dd500af0566dbff|FFX_FSR3UPSCALER_PASS_SHADING_CHANGE_PYRAMID|fsr/upscale|no
+63|0.092|0.4|2.7|21/23|vs=eb82c3cddf772e9b40220599d9ffbf48 ps=3e598bdabeb967c69493c6496875ded5|-|ARPSSSShader-Hf|no
+64|0.090|0.4|6.0|23/23|vs=c59095273d8508c0ea09842c1a03b581 ps=18a4c2bb2920e201740da86f7d44e771|-|post VS (bloom) / bloom (r5 40us)|no
+65|0.088|0.4|1.0|23/23|cs=3010e631808d16089228a3684b3fcfb8|FFX_FSR3UPSCALER_PASS_LUMA_INSTABILITY|fsr/upscale|no
+66|0.086|0.4|6.6|5/23|vs=1559714ca496fffe6ddd3c827e1d962e ps=5320680c3c331ad02fa60c6097e55a3d|-|PB2-BlrGbiMshltvReSfbVl / PB2-AlepmeBlrGbiMshltSfbT0Vl|no
+67|0.083|0.4|4.7|17/23|vs=c59095273d8508c0ea09842c1a03b581 ps=17149dcafa8138ed066f5fdd69835ce5|-|post VS (bloom) / bloom (r5 131us)|no
+68|0.081|0.3|7.4|5/23|vs=ee36355d65f13f74d0bcbb6d81c174cb ps=1fe1f20854254f8e5ac24faeb71e6ecd|-|PB2-DiDt2l3GbiNbRiaexRnsSfbSmSss / PB2-DiDt2l3GbiNbOcPkRiaexSfbSmSs|no
+69|0.079|0.3|0.3|2/23|cs=e8b8f0e708254406eafd8e5f5e133b66 (async compute)|-|BWVM|no
+70|0.078|0.3|5.8|16/23|vs=ee36355d65f13f74d0bcbb6d81c174cb ps=9cc12279819629d00414157fb26c2369|-|PB2-DiDt2l3GbiNbRiaexRnsSfbSmSss / PB2-DiDt2l3GbiNbPkRiaexRnsSfbSmS|no
+71|0.078|0.3|18.3|21/23|vs=8285f90a33708b84f7889b07b8bc435b ps=c4656a8d23602c5bacff59efa7950ab0|-|SM-CSfb / SM-B0I2mIptrSfb|no
+72|0.077|0.3|1.4|7/23|vs=26bcdc9dad88df680cc28cc877c71093 ps=0b7cbf91d6ad8a64db2c33f71ec8802d|-|WDO_SST-PtSrbVsm / WDO-PtSrbSsmVsm|no
+73|0.074|0.3|0.3|8/23|vs=a05140dbae12592b6be82ee3afcdb6e1 ps=5b6d5b5e74d60f3d0d32e00c2af335d6|UltramarineRenderHeight|UMTV-Gb|no
+74|0.071|0.3|1.1|12/23|vs=1559714ca496fffe6ddd3c827e1d962e ps=1dcab6c2d489f6c4c08f1e3a1a3b4090|-|PB2-BlrGbiMshltvReSfbVl / PB2-BlrGbiMshltPkSfbT0Vl|no
+75|0.070|0.3|1.6|12/23|cs=a1426af02a72961478ba0a7c40ae2db6|3|MshLod|no
+76|0.068|0.3|0.0|23/23|(copy / resolve / clear)|VideoOut|-|no
+77|0.068|0.3|0.5|9/23|vs=b077091ba13982f1217a5f3540933e2d ps=cdda75f6c1eeacaf72eee021707225d3|-|STD-DiGbSfbVl / STD-AtCDiGbSfbVl|no
+78|0.067|0.3|3.8|11/23|vs=5dc3800361f7e3624706b72f7a35dfa2 ps=8a4020d2141422c88486957548e77064|-|SRIVER2-GbNRrVl|no
+79|0.066|0.3|3.0|4/23|vs=70d0ee9feee590f9c48c40b808858e27 ps=05ad17151de4f513fb82c7428874a7f9|-|PB2-BlrGbiMm0sMshltvReSfbVl / PB2-BlrGbiMm00MshltSfbVl|no
+80|0.065|0.3|9.3|20/23|vs=a2bd0e861c46e2bad6173e7626f3251f ps=5747cd78b018b314aa7bdd986fb0764b|-|ExeUI_SmoothMaskDiscard|no
+==== run01.log: ally_budget gp1 ====
+13 gameplay GP1 windows (span >= 4); mean span 28.20, marker sum 9.78, fps [None, None, 68.7, 66.8, None, None, None, 99.4, 120.1, 81.2, None, 106.9, 86.8]
+MeshletResolveLOD                             incl 3.244 self 1.464  1.5/frame  seen 13/13
+MeshletPreculling                             incl 1.682 self 1.682  3.5/frame  seen 13/13
+FSR3                                          incl 1.639 self 0.178  1.0/frame  seen 13/13
+MeshletInstanceCulling                        incl 0.951 self 0.951  3.5/frame  seen 13/13
+FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN      incl 0.818 self 0.818  1.0/frame  seen 13/13
+0                                             incl 0.774 self 0.774  1.5/frame  seen 13/13
+VirtualShadowmap                              incl 0.437 self 0.006  0.2/frame  seen 13/13
+MeshletCheckRequestLoad                       incl 0.372 self 0.372  1.0/frame  seen 13/13
+1                                             incl 0.350 self 0.350  1.5/frame  seen 13/13
+Cascade 2                                     incl 0.319 self 0.259  2.0/frame  seen 13/13
+Cascade 0                                     incl 0.300 self 0.275  2.0/frame  seen 13/13
+Cascade 1                                     incl 0.281 self 0.253  2.0/frame  seen 13/13
+2                                             incl 0.213 self 0.213  1.5/frame  seen 13/13
+NUpdate                                       incl 0.179 self 0.000  1.0/frame  seen 13/13
+DrawSky                                       incl 0.171 self 0.171  1.0/frame  seen 13/13
+GenerateSceneHiZ                              incl 0.153 self 0.153  2.0/frame  seen 13/13
+Clipmap 0                                     incl 0.149 self 0.000  0.1/frame  seen 12/13
+FFX_FSR3UPSCALER_PASS_PREPARE_REACTIVITY      incl 0.132 self 0.132  1.0/frame  seen 13/13
+3                                             incl 0.126 self 0.126  1.5/frame  seen 13/13
+Clipmap 2                                     incl 0.116 self 0.000  0.0/frame  seen 12/13
+Batch Tiles 8                                 incl 0.113 self 0.078  0.1/frame  seen 9/13
+VideoOut                                      incl 0.110 self 0.110  1.0/frame  seen 13/13
+FFX_FSR3UPSCALER_PASS_SHADING_CHANGE_PYRAMID  incl 0.101 self 0.101  1.0/frame  seen 13/13
+FFX_FSR3UPSCALER_PASS_PREPARE_INPUTS          incl 0.097 self 0.097  1.0/frame  seen 13/13
+FFX_FSR3UPSCALER_PASS_LUMA_INSTABILITY        incl 0.092 self 0.092  1.0/frame  seen 13/13
+MeshletRequestLoad                            incl 0.090 self 0.090  1.0/frame  seen 13/13
+4                                             incl 0.086 self 0.086  1.5/frame  seen 13/13
+Clipmap 1                                     incl 0.081 self 0.000  0.0/frame  seen 11/13
+GenerateShadowMapHiZ                          incl 0.078 self 0.078  0.2/frame  seen 2/13
+Batch Tiles 4                                 incl 0.075 self 0.038  0.1/frame  seen 5/13
+CustomHighlightPass                           incl 0.070 self 0.070  1.0/frame  seen 13/13
+FFX_FSR3UPSCALER_PASS_RCAS                    incl 0.065 self 0.065  1.0/frame  seen 13/13
+FFX_FSR3UPSCALER_PASS_LUMA_PYRAMID            incl 0.062 self 0.062  2.0/frame  seen 13/13
+5                                             incl 0.060 self 0.060  1.5/frame  seen 13/13
+Clipmap 3                                     incl 0.059 self 0.000  0.0/frame  seen 7/13
+GPUCulling                                    incl 0.054 self 0.054  1.0/frame  seen 13/13
+DebugFSR3CopyUpscaledDepth?                   incl 0.051 self 0.051  1.0/frame  seen 13/13
+GPUCulling Setup                              incl 0.047 self 0.047  1.0/frame  seen 13/13
+6                                             incl 0.041 self 0.041  1.5/frame  seen 13/13
+7                                             incl 0.036 self 0.036  1.5/frame  seen 13/13
+App_CopyMRLRScene                             incl 0.035 self 0.035  1.0/frame  seen 13/13
+8                                             incl 0.033 self 0.033  1.5/frame  seen 13/13
+UltramarineRenderHeight                       incl 0.033 self 0.033  0.2/frame  seen 2/13
+FFX_FSR3UPSCALER_PASS_GENERATE_REACTIVE       incl 0.032 self 0.032  1.0/frame  seen 13/13
+EffectMergeShrinkBuffer                       incl 0.028 self 0.028  0.9/frame  seen 10/13
+9                                             incl 0.026 self 0.026  1.5/frame  seen 13/13
+UltramarineRender                             incl 0.025 self 0.025  0.2/frame  seen 2/13
+Clipmap 4                                     incl 0.024 self 0.000  0.0/frame  seen 7/13
+App_CopyMRLROcnScene                          incl 0.021 self 0.021  1.0/frame  seen 13/13
+UltramarineCaustics                           incl 0.016 self 0.016  0.2/frame  seen 2/13
+10                                            incl 0.016 self 0.016  1.1/frame  seen 10/13
+FSR3:SaveOpaqueColor                          incl 0.015 self 0.015  1.0/frame  seen 13/13
+11                                            incl 0.013 self 0.013  1.0/frame  seen 9/13
+UltramarineWet                                incl 0.010 self 0.010  0.2/frame  seen 2/13
+FFX_FSR3UPSCALER_PASS_SHADING_CHANGE          incl 0.010 self 0.010  1.0/frame  seen 13/13
+DrawScreenSpaceVelocity                       incl 0.008 self 0.008  1.0/frame  seen 13/13
+Batch Tiles 2                                 incl 0.005 self 0.002  0.0/frame  seen 4/13
+Batch Tiles 6                                 incl 0.004 self 0.003  0.0/frame  seen 3/13
+12                                            incl 0.004 self 0.004  0.4/frame  seen 4/13
+Batch Tiles 5                                 incl 0.004 self 0.003  0.0/frame  seen 3/13
+Clear Tile # #                                incl 0.004 self 0.004  1.2/frame  seen 13/13
+GFM_TextureClear                              incl 0.004 self 0.004  2.0/frame  seen 13/13
+CPointFadeManager::draw                       incl 0.003 self 0.003  0.1/frame  seen 1/13
+13                                            incl 0.002 self 0.002  0.2/frame  seen 2/13
+Batch Tiles 7                                 incl 0.002 self 0.001  0.0/frame  seen 2/13
+Batch Tiles 3                                 incl 0.001 self 0.001  0.0/frame  seen 1/13
+Batch Tiles 1                                 incl 0.001 self 0.000  0.0/frame  seen 2/13
+Tile # #                                      incl 0.000 self 0.000  1.1/frame  seen 12/13
+OffScreenRendering                            incl 0.000 self 0.000  0.9/frame  seen 12/13
+RenderSkyPatternMap                           incl 0.000 self 0.000  0.8/frame  seen 11/13
+AreaManager                                   incl 0.000 self 0.000  0.2/frame  seen 2/13
+WaveManager                                   incl 0.000 self 0.000  0.2/frame  seen 2/13
+

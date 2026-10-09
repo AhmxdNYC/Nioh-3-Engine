@@ -30,7 +30,7 @@ param(
     [string]$UserConfig = "",
     [switch]$KeepFG,
     [string]$TourList = "main", [int]$TourPoints = 3, [int]$TourDwell = 12,
-    [int]$SettleSec = 45, [int]$WindowSec = 20, [int]$Windows = 3, [int]$MinDraws = 1000,
+    [int]$SettleSec = 45, [int]$WindowSec = 20, [int]$Windows = 3, [int]$MinDraws = 1000, [int]$GP2MinRun = 4,
     [switch]$NoShots, [switch]$WaitRun8, [int]$WaitMaxMin = 240,
     [int]$OwnerPid = 0, [int]$MaxMinutes = 300, [switch]$DryRun
 )
@@ -226,7 +226,7 @@ $BaseIniSrc = if (Test-Path (Join-Path $GameDir "Nioh3EngineFix.ini.preboss.bak"
 function Write-ArmIni([string]$arm) {
     $lines = [IO.File]::ReadAllLines($BaseIniSrc)
     $keys = @("General.AutoContinueLoad=1", "Debug.VirtualPad=1", "Debug.KeepRunningUnfocused=1", "VRR.MaxFps=240",
-              "Profiler.GPUProf=2", "Profiler.GPUProf2_SampleEvery=8", "Profiler.GPUProf2_Top=100", "Profiler.GPUProf2_MinRun=4", "Profiler.GPUProf2_AB=0",
+              "Profiler.GPUProf=2", "Profiler.GPUProf2_SampleEvery=8", "Profiler.GPUProf2_Top=100", "Profiler.GPUProf2_MinRun=$GP2MinRun", "Profiler.GPUProf2_AB=0",
               "Profiler.SP=0", "Patches.AS0=0", "Patches.GIMerge=0")
     if ($AsiItems.ContainsKey($arm)) { $keys += @($AsiItems[$arm] -split ";") }
     foreach ($kv in $keys) { if ($kv -match '^([^.=]+)\.([^=]+)=(.*)$') { $lines = Set-IniValue $lines $Matches[1] $Matches[2] $Matches[3] } }
@@ -425,7 +425,7 @@ try {
     if ($Phases -contains "A") {
         Install-Config
         if (-not $DryRun) { $qw = Wait-Quiet "phase A" { param($l) L $l } }
-        $gk = "Profiler.GPUProf=2;Profiler.GPUProf2_SampleEvery=8;Profiler.GPUProf2_Top=100;Profiler.GPUProf2_MinRun=4;Profiler.GPUProf2_AB=0;Profiler.GPUProf_Top=60;Profiler.SP=0"
+        $gk = "Profiler.GPUProf=2;Profiler.GPUProf2_SampleEvery=8;Profiler.GPUProf2_Top=100;Profiler.GPUProf2_MinRun=$GP2MinRun;Profiler.GPUProf2_AB=0;Profiler.GPUProf_Top=60;Profiler.SP=0"
         $ta = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $ws "tools\tour\run_tour.ps1"), "-Input", "vpad", "-List", $TourList,
                 "-Points", "$TourPoints", "-DwellSec", "$TourDwell", "-NoProfile", "-NoPause", "-CaptureRoot", (Join-Path $sess "A"), "-ExtraKeys", $gk,
                 "-OwnerPid", "$PID", "-MaxMinutes", "90")
