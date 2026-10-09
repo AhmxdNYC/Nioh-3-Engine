@@ -307,6 +307,11 @@
    "Patches",
    "RPA",
    "0"
+  ],
+  [
+   "Patches",
+   "AS",
+   "0"
   ]
  ],
  "shader_apply": {
@@ -1627,6 +1632,36 @@
    "risk": "low",
    "expected": "main thread 247950 row, est. 0.07-0.1 ms/frame on the Ally plus less L1i eviction (notes/w1b-rpa.md); log 'RPA: RenderParamsAssign 247950 -> 21 range copies'",
    "grp": 5
+  },
+  {
+   "id": "AS",
+   "type": "asi",
+   "label": "engine async-compute slot 0 (GPU effect simulation) on its own compute queue as on NVIDIA; Ally also 11 (grass displacement) + 12 (tree wind); live switch at the producers (same shaders, engine fences)",
+   "ini": [
+    [
+     "Patches",
+     "AS",
+     "1"
+    ]
+   ],
+   "needs": [
+    [
+     "Tuning",
+     "AS_Slots",
+     "0"
+    ]
+   ],
+   "mode": "live",
+   "live_installed_value": "2",
+   "devices": [
+    "pc",
+    "ally"
+   ],
+   "risk": "high",
+   "expected": "GPU-BOUND ONLY (abba2 -RenRat 75; the default CPU-bound condition hides it and even costs ~0.19 ms, which is why AS0 read 'neutral' in 1.7.16). PC: ~0.13 ms GPU/frame (+1-1.5 % fps; offline overlap harness on this RX 9070: chain 0.30 ms -> saving 0.133 ms after 0.06 ms list splits + 0.13 ms cross-queue sync). Ally: AS_Slots = 0 11 12, est. 0.3-0.5 ms (1-1.5 %) minus power. Logs 'AS: boot: async slots requested ...', 'stats/s AS: switch ON|off ... producer calls: effects(0) N/s'. Ally sync question: AS_Slots = -3 -4 -6. notes/gpu-async-wins.md",
+   "grp": 11,
+   "combat": true,
+   "shot": true
   },
   {
    "id": "S_ghdm",

@@ -43,6 +43,7 @@
 #include "vpad.h"
 #include "autocont.h"
 #include "drawprep.h"
+#include "asyncslots.h"
 #include "loadonly.h"
 #include "readfix.h"
 #include "readprobe.h"
@@ -63,7 +64,8 @@
 //         (mod\Nioh3BossRematch, notes\boss-rematch-addon.md): this ASI hooks no boss site any more; old ini keys are logged as moved
 // 1.7.42: W1B (glyph padding clear 61BAC plain stores) + RPA (RenderParamsAssign 247950 range copy), drawprep.cpp; notes\w1b-rpa.md
 // 1.7.43: fix boot hang with 3-4 drawprep groups on (FrozenWrite oldProt[2] overrun by 1.7.42's 4 writes; drawprep.cpp)
-#define MOD_VERSION "1.7.43"
+// 1.7.44: AS (engine async-compute slots 0 / 11 / 12 at boot + live producer switch, asyncslots.cpp); notes\gpu-async-wins.md
+#define MOD_VERSION "1.7.44"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1388,6 +1390,15 @@ DWORD WINAPI Worker(LPVOID) {
     s_asyncKnown = known;
     bool as0Pending = cfg.as0 && known && as0s;
     if (cfg.as0 && !known) Log("AS0: skipped on an unknown build (it has to be written before the renderer initialises)");
+    // 1.7.44 AS (asyncslots.cpp): engine async slots added before the renderer init (slot 0 = the AS0 byte + 11 / 12 table bytes)
+    static asyncslots::BootCfg asBoot;  // read again by asyncslots::Start after decryption
+    bool asPending = known && asyncslots::BootWanted(SelfPathWithExt(L".ini").c_str(), asBoot, &Log);
+    if (!known && GetPrivateProfileIntW(L"Patches", L"AS", 0, SelfPathWithExt(L".ini").c_str()))
+        Log("AS: skipped on an unknown build (it has to be written before the renderer initialises)");
+    if (as0Pending && asPending && (asBoot.want & 1u)) {
+        as0Pending = false;
+        Log("AS0: superseded by AS (AS_Slots has slot 0)");
+    }
     auto tryAS0 = [&]() {
         uint8_t* a = g_base + as0s->rva;
         if (memcmp(a, as0s->orig, as0s->len) != 0) return;  // still encrypted / not unpacked yet
@@ -1415,6 +1426,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (p12Pending) tryP12();
         if (wcPending) tryWC();
         if (as0Pending) tryAS0();
+        if (asPending) asPending = asyncslots::BootTry(reinterpret_cast<uintptr_t>(g_base), asBoot, &Log);
         if (rfPending) tryRF();
         if (known) {
             ready = true;
@@ -1425,7 +1437,7 @@ DWORD WINAPI Worker(LPVOID) {
             ready = FindPattern(sentinelPat, ExecRanges(), &f) == 1;
         }
         if (ready || GetTickCount() - t0 > (DWORD)cfg.decryptWaitSec * 1000) break;
-        Sleep((p12Pending || wcPending || as0Pending || rfPending) ? 0 : known ? 20 : 250);
+        Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending) ? 0 : known ? 20 : 250);
     }
     if (rfPending) tryRF();
     if (rfPending) readfix::BootGiveUp(rfBoot, &Log);
@@ -1433,6 +1445,9 @@ DWORD WINAPI Worker(LPVOID) {
     if (wcPending) tryWC();
     if (as0Pending) tryAS0();
     if (as0Pending) Log("AS0: site not in its original state after decryption - skipped");
+    if (asPending) asPending = asyncslots::BootTry(reinterpret_cast<uintptr_t>(g_base), asBoot, &Log);
+    if (asPending) Log("AS: gate / AsyncSlotGetCtx / slot table not in the v2.02 state after decryption - boot slots skipped");
+    if (asBoot.gateWritten) s_as0Applied = true;
     if (wcPending) Log("WC: sites not in their original state after decryption - skipped");
     if (p12Pending) Log("P12: site not in its original state after decryption - skipped");
     if (ready) Sleep(200);  // let the unpacker finish whatever it does after the last byte
@@ -2227,6 +2242,9 @@ DWORD WINAPI Worker(LPVOID) {
                     for (int i = 0; i < 13; ++i)
                         if (tb[12 * i] && *reinterpret_cast<const uint32_t*>(tb + 12 * i + 8) == (uint32_t)i) { ++n; o += snprintf(sl + o, sizeof sl - o, " %d", i); }
                     Log("stats/s ASYNC: %d async compute queue(s), slots%s (AS0 %s)", n, n ? sl : " -", s_as0Applied ? "applied" : "off");
+                    char ab[400];
+                    asyncslots::StatusLine(ab, sizeof ab, reinterpret_cast<uintptr_t>(g_base));
+                    if (ab[0]) Log("stats/s %s", ab);
                 }
                 if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
@@ -2363,7 +2381,7 @@ DWORD WINAPI Worker(LPVOID) {
         const int iniv[menu::kNumExp] = {cfg.w6User, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
                                          cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gfUser, cfg.wl,
                                          cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf, cfg.mq, cfg.pt1, cfg.dl,
-                                         0, 0, cfg.ma, cfg.bpo, 0, 0};  // DQ / P1E7 / W1B / RPA: set after drawprep::Start below
+                                         0, 0, cfg.ma, cfg.bpo, 0, 0, 0};  // DQ / P1E7 / W1B / RPA / AS: set after drawprep::Start below
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];
@@ -2416,6 +2434,17 @@ DWORD WINAPI Worker(LPVOID) {
                 mh.exp[r.e].applied = r.sw != nullptr;
                 mh.exp[r.e].enable = r.sw;
             }
+        }
+        {  // 1.7.44 AS (asyncslots.cpp, [Patches] AS = 0): live producer switch for the async slots added at boot
+            asyncslots::StartInfo ai;
+            ai.log = &Log;
+            ai.base = reinterpret_cast<uintptr_t>(g_base);
+            ai.knownBuild = known;
+            ai.boot = &asBoot;
+            asyncslots::Start(ai);
+            mh.exp[menu::kExpAS].ini = asBoot.mode ? 1 : 0;
+            mh.exp[menu::kExpAS].applied = asyncslots::Switch() != nullptr;
+            mh.exp[menu::kExpAS].enable = asyncslots::Switch();
         }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:

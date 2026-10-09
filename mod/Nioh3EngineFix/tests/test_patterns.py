@@ -725,6 +725,74 @@ def main():
                    "JT: notify_one / notify_all do not start with add rcx,8 (the CV the wait cave records)")
     print("1.7.40 JT: 5 sites, IAT jmp names, branch scan, JTc return to mov rsi,rax, STL cv vtable slots 0-3: %s" % ("OK" if jt_ok else "FAIL"))
 
+    # 1.7.44 AS (asyncslots.cpp / .asm): engine async-compute slots. The module's producer-site table == patches.json ASp*;
+    # every site is `call 52BE1C` with edx = its slot set just before; ALL direct callers of 52BE1C are the known 32 (a new
+    # caller would be an unaudited producer); no jmp / jcc / pointer / lea reaches 52BE1C; AsyncSlotGetCtx is the only
+    # `mov r,[x+1CCh]; bt` mask test; the resume is the instruction after its first one; the static slot table has id == i,
+    # ships 3 4 6 (+0) enabled and 11 / 12 off; the slot-0 joins are gated by RS+13ACh (deps); FrozenWrite arrays fit.
+    asrc = re.sub(r"//[^\n]*", "", (ROOT / "src" / "asyncslots.cpp").read_text(encoding="utf-8"))
+    aasm = (ROOT / "src" / "asyncslots.asm").read_text(encoding="utf-8")
+    as_ok = True
+    asites = [(int(a, 16), int(b)) for a, b in re.findall(r"\{0x([0-9A-Fa-f]+), (\d+), \"\w+\"\}", asrc)]
+    jsites = sorted((int(st["rva"], 16), int(st["id"][3:])) for st in doc["sites"] if st["group"] == "AS")
+    as_ok &= check(sorted(asites) == jsites and len(asites) == 6, "AS: asyncslots.cpp kSites %s != patches.json ASp* %s" % (asites, jsites))
+    def as_arr(name):
+        m = re.search(r"const uint8_t %s\[\] = \{([^}]*)\};" % name, asrc)
+        return bytes(int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{2})", m.group(1))) if m else None
+    def as_const(name):
+        m = re.search(r"\b%s = 0x([0-9A-Fa-f]+)" % name, asrc)
+        return int(m.group(1), 16) if m else None
+    gbytes = as_arr("kGetCtxBytes")
+    as_ok &= check(gbytes is not None and img[0x52BE1C:0x52BE1C + len(gbytes)] == gbytes and len(gbytes) == 0x22,
+                   "AS: kGetCtxBytes != dump 52BE1C..52BE3D")
+    as_ok &= check(as_const("kGetCtx") == 0x52BE1C and as_const("kGetCtxResume") == 0x52BE22 and img[0x52BE1C:0x52BE22] == hb("8B81CC010000")
+                   and img[0x52BE22:0x52BE25] == hb("0FA3D0"), "AS: resume must be `bt eax,edx` right after `mov eax,[rcx+1CCh]`")
+    as0 = by_id.get("AS0")
+    as_ok &= check(as0 is not None and as_arr("kGateNew") == bytes(int(x, 16) for x in as0["new"].split())
+                   and as_arr("kGateOrig") == bytes(int(x, 16) for x in as0["orig"].split()) and as_const("kGate") == int(as0["rva"], 16)
+                   and img[as_const("kGateCmp"):as_const("kGateCmp") + 7] == as_arr("kGateCmpBytes"), "AS: gate bytes != patches.json AS0 / dump")
+    tbl, live = as_const("kTable"), as_const("kLive")
+    as_ok &= check(tbl == 0x44C04D0 and live == 0x45C0460, "AS: slot table RVAs")
+    ids = [struct.unpack_from("<I", img, tbl + 12 * i + 8)[0] for i in range(13)]
+    ens = [img[tbl + 12 * i] for i in range(13)]
+    # the dump was taken after the AMD renderer init, which cleared slot 0's enable in place (226A499)
+    as_ok &= check(ids == list(range(13)) and [i for i in range(13) if ens[i]] == [3, 4, 6]
+                   and abs(struct.unpack_from("<f", img, tbl + 12 * 6 + 4)[0] - 0.5) < 1e-6, "AS: static slot table ids / enables (%s %s)" % (ids, ens))
+    callers = []
+    for (sa, sz) in secs:
+        i = img.find(b"\xE8", sa, sa + sz - 5)
+        while i != -1:
+            if i + 5 + struct.unpack_from("<i", img, i + 1)[0] == 0x52BE1C:
+                callers.append(i)
+            i = img.find(b"\xE8", i + 1, sa + sz - 5)
+    known = {0x52853, 0x104B54, 0x1063E6, 0x10D19C, 0x14906E, 0x3D0C67, 0x3D16E1, 0x3D37FD, 0x418643, 0x41A28E, 0x52B142, 0x52B727,
+             0x52C44B, 0x52D65F, 0x544634, 0x5F328D, 0x193DC34, 0x1947180, 0x194E70E, 0x19A6B36, 0x19CB677, 0x19CFAFC, 0x1A25524,
+             0x1A408F4, 0x1A41879, 0x32FA4CC, 0x32FA4EA, 0x32FA505, 0x347AF60, 0x3658C11, 0x3658F73, 0x3675307}
+    # a raw E8 scan also hits E8 bytes inside other instructions; keep the ones that are real call sites (known) and require no
+    # unknown hit whose 5 bytes look like a call into 52BE1C at an instruction boundary (checked by the edx setup rule below)
+    as_ok &= check(known <= set(callers), "AS: known AsyncSlotGetCtx callers missing: %s" % sorted("%X" % x for x in known - set(callers)))
+    extra = sorted(set(callers) - known)
+    as_ok &= check(not extra, "AS: unclassified `call 52BE1C` at %s (audit it: producer / join / init)" % ["%X" % x for x in extra])
+    for rva, slot in asites:
+        pre = img[rva - 0x40:rva]  # edx setup (Tree2Wind: 0x38 bytes before): `xor edx,edx` (slot 0) or `mov edx,imm32` (capstone listing in notes/gpu-async-wins.md)
+        want = b"\x33\xD2" if slot == 0 else b"\xBA" + struct.pack("<I", slot)
+        as_ok &= check(want in pre, "AS: no edx = %d setup before %X" % (slot, rva))
+        as_ok &= check(not branch_targets_into(rva, 5), "AS: branch into producer site %X" % rva)
+    gates = [(int(a, 16), int(n), bytes(int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{2})", body)))
+             for a, n, body in re.findall(r"\{0x([0-9A-Fa-f]+), (\d+), \{([^}]*)\}\}", asrc)]
+    depb = {int(dd["rva"], 16): bytes(int(x, 16) for x in dd["bytes"].split()) for dd in doc["deps"] if dd["group"] == "AS" and "bytes" in dd}
+    as_ok &= check(len(gates) == 5 and all(len(g) == n and img[a:a + n] == g and depb.get(a) == g for a, n, g in gates),
+                   "AS: kSlot0Gates != dump / patches.json deps AS")
+    as_ok &= check(depb.get(0x52BE1C) == gbytes, "AS: GetCtx dep != kGetCtxBytes")
+    for nm in ("caveAs0", "caveAs1", "caveAs2", "caveAs3", "caveAs4", "caveAs5"):
+        as_ok &= check(("%s PROC" % nm) in aasm, "AS: %s missing in asyncslots.asm" % nm)
+    as_ok &= check("mov     eax, dword ptr [rcx+1CCh]" in aasm and aasm.count("jmp     qword ptr [as_resume]") == 2,
+                   "AS: caveAs must run 52BE1C's first instruction and resume through as_resume")
+    as_ok &= check("constexpr int kMaxWrites = kNumSites;" in asrc and "DWORD oldProt[kMaxWrites]" in asrc and "Write w[kMaxWrites];" in asrc,
+                   "AS: FrozenWrite / Start arrays must be [kMaxWrites] = kNumSites")
+    print("1.7.44 AS: 6 producer sites == patches.json, edx = slot, 32 classified callers of 52BE1C, GetCtx bytes / resume, "
+          "gate == AS0, slot table, caves: %s" % ("OK" if as_ok else "FAIL"))
+
     print()
     if fails:
         print("FAILED (%d):" % len(fails))

@@ -49,6 +49,9 @@ noisy=true and rejected here. The 'noisy windows:' section lists both (redone on
 import csv, json, math, os, re, statistics as st, sys
 
 STEP_IN, STEP_OUT, GPU_MOVE = 1.0, 1.5, 3.0
+# 1.7.44: GPU-side live items (AS = async slots) are expected to move GPU busy: the GPU_MOVE scene-change guard does not
+# apply to them (the OFF-OFF / ON-ON drift guards still do). Run them GPU-bound (-RenRat 75/100, notes/gpu-async-wins.md).
+GPU_ITEMS = {"AS"}
 LAUNCH_SPREAD_MAX = 3.0
 LAUNCH_RANGE_MAX, LAUNCH_NOISE_MAX = 8.0, 1.5   # 3+ BASE launches (interpolated baseline)
 CAP_WARN = 4.0   # % below the fps cap at which a verdict is flagged cap-compressed
@@ -120,6 +123,9 @@ def log_metrics(path):
     dp = re.findall(r"drawprep: DQ (ON|off|-) \(.*?\), P1E7 (ON|off|-)", tx)
     if dp:
         out["dq_sw"], out["p1e7_sw"] = (None if x == "-" else x.upper() for x in dp[-1])
+    a = re.findall(r"stats/s AS: switch (ON|off)", tx)  # 1.7.44 asyncslots.cpp
+    if a:
+        out["as_sw"] = a[-1].upper()
     return out
 
 
@@ -134,6 +140,8 @@ def seen_state(item, lm):
         return lm.get("dq_sw")
     if item == "P1E7":
         return lm.get("p1e7_sw")
+    if item == "AS":
+        return lm.get("as_sw")
     return None   # B has no counter: the MENU read-back is the proof
 
 
@@ -218,7 +226,7 @@ def live_verdict(item, ws, min_quads=2):
         why = []
         if step_in > STEP_IN: why.append(f"OFF-OFF step {step_in:.2f}%")
         if step_out > STEP_OUT: why.append(f"ON-ON drift {step_out:.2f}%")
-        if gmove > GPU_MOVE: why.append(f"gpu moved {gmove:.1f}%")
+        if gmove > GPU_MOVE and item not in GPU_ITEMS: why.append(f"gpu moved {gmove:.1f}%")
         tag = "rejected (" + ", ".join(why) + ")" if why else "valid"
         lines.append(f"    q{q}: dfps {d:+.2f}% dp99 {dp99:+.2f}% dcpu_busy {dcpu:+.2f}% (OFF-OFF {step_in:.2f}%, ON-ON {step_out:.2f}%, gpu {gmove:.2f}%) {tag}")
         if not why:
