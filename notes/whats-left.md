@@ -28,6 +28,10 @@ the boss arena does (GPU 7.1 vs 5.4 ms per presented frame). No SP in that run: 
 1. **Ally main thread at USER is 62 % game code (M, S1):** ~17.8 ms of draw prep per 28.7 ms frame; 31 % blocked in the GF
    event wait. So on the Ally the main thread alone caps at **~54-56 fps** at today's CPU clock: reaching 60 needs CPU
    draw-prep cuts too, not only GPU. Main-thread CPU fixes are not "fps-neutral on the Ally" in the long run.
+   **Corrected 2026-10-08 (ally-drawprep-2.md s.1-2, 216 windows):** two rows in that 62 % are waits, not work.
+   `[ntdll] <- 5DA48` (0.66 ms mean) is a stale stack label of the GF fence wait, and `418F40` (0.80 ms) is the frame-end
+   drain spin (dispatcher / GPU backpressure). Real main-thread work is **~17.6 ms** (not 18.4), so the CPU ceiling is
+   **~57 fps**, not 54-56. 10.2 of the 18.4 ms sit below the SP top-25 cut (TopN = 200 run needed to see them).
 2. **The Ally runs none of the PC CPU fixes:** S1 `stats/s exp` reads PP 0/0, FPC 0, M1 0, E1 0; the ALLY profile has
    PP = 0, AABB = 0 while PP is a PC KEEP. Measured targets on Ally main at USER: PP 2523FC 1.27 %, MA sites (4AA34 2.12 +
    419A8 0.75 + 4B104 0.65) 3.5 %, P1E7 family (1E7050 2.03 + 128EF0 1.22 + 1290B8 0.39) 3.6 %.
@@ -65,7 +69,7 @@ the boss arena does (GPU 7.1 vs 5.4 ms per presented frame). No SP in that run: 
 | 6 | **JG** object-update split grain (job+78h at the fan-out root 182000/408FE0) or reorder: kick the longest job first | PC logic | part of the 1.44 ms join | 0.2-0.6 ms E (only if JT shows imbalance) | 204584 decompile: binary split down to a fixed grain | 2 h after JT | y |
 | 7 | **UI skip**: UiNodeUpdateWorldMatrix 66D00 recomputes world = parent x local whenever bit 8 is clear; memo (parent world ptr+version, local) -> skip identical multiply | PC logic (critical) | 0.16-0.18 ms (2.0 % Scheduler0) | 0.06-0.1 ms E | perf-coverage pass 2 (behaviour), 5 notes cite it, none designs a fix | 4 h | y (A/B) |
 | 8 | **R10 deep-stack profile** `cpuprof.fsx 20 <out> 1000 2 24 131072` (mainthread-logic 5; never run) | PC main | 18-26 % of [App]Game unattributed (~1.6-2.3 ms/frame) | measurement; picks the next main-thread target | parallel-drawprep 6 has the command only in a DE script | 20 min game | y |
-| 9 | **SR111**: synchronous resource wait `111064` (`while (!ResourceIsReady) Sleep(1)`, cold chunk 194ADC1) under MeshletExtraDispatch 5DA48 | Ally main; loads; stutter | `[ntdll] <- 5DA48` 3.3 % of Ally main at USER (~0.95 ms/frame), 28 % in load phase G5 | 0-0.9 ms main E; load seconds E | decompiles 0x5da48 / 0x111064; attribution unverified (SP may skip the cold-chunk return) | FnProbe 111064 + 5DA48 first (ini), fix 4 h | y |
+| 9 | **SR111**: synchronous resource wait `111064` (`while (!ResourceIsReady) Sleep(1)`, cold chunk 194ADC1) under MeshletExtraDispatch 5DA48. **Corrected 2026-10-08 (ally-drawprep-2.md s.2): no measured steady-state Ally target.** `<- 5DA48` is a stale label of the GF fence wait (a live 111064 sleep folds to `<- 111064`; r = -0.57 vs the fence row); the G5 load 28 % is the same label | Ally main; loads; stutter | ~~`[ntdll] <- 5DA48` 3.3 % of Ally main at USER (~0.95 ms/frame)~~ = wait, not 111064; real target ~0 (FnProbe 111064 to confirm) | 0-0.9 ms main E; load seconds E | decompiles 0x5da48 / 0x111064; attribution unverified (SP may skip the cold-chunk return) | FnProbe 111064 + 5DA48 first (ini), fix 4 h | y |
 | 10 | **D2 probe**: count StageSlotTableUpdate rewrites whose 0x90-byte slot equals the old one (and the token re-sent) | PC main + dispatcher | 1D8720/1D84A0/1D8220/1D7EB0 0.46 ms PC; Ally 0.72 + 0.60 % main | 0-0.3 ms E | parallel-drawprep 5.3 "largest remaining eliminable block" | 3 h probe | y |
 | 11 | **MC memcpy size histogram** for MemcpyErms B94230 / Memcpy B94250 callers (KTGL stream) -> small-copy AVX path if most copies are < 512 B | PC main, Ally main | PC 0.47 ms; Ally 3.9 % main (1.1 ms) | 0.1-0.25 ms E PC | "none safe" was about copy count, never about copy speed | 2 h probe + 4 h | y |
 | 12 | **AS0 on the Ally** (built; PC "neutral") | Ally GPU | exe CS dfe80724 175.7 dispatches/frame 0.34 ms + effect chains on GFX | 0-0.3 ms E | ally-gpu-budget row 23; gpu-scheduling A4a | 0 build, 1 launch pair | y |
@@ -83,7 +87,7 @@ provably identical, 0.11 ms); PhotoModeCopyGbuffer 1239860 (0.76 % Ally self in 
 | site | share (M) | waste? | lever |
 |---|---|---|---|
 | GF event wait `<- 1180A4` | 30.9 % main | no (blocked since GF) | done |
-| `<- 5DA48` (111064 Sleep(1) loop?) | 3.3 % main | 1 kHz poll if real | #9 |
+| `<- 5DA48` (stale GF fence-wait label, not 111064; ally-drawprep-2.md s.2) | 3.3 % main | wait | #9 |
 | WaitDispatcherDrainSpin 418F40 | 2.7 % main | spin, ~0.03 core | K1 not built; low |
 | JobQueuePoll 411C0 + JobWorkerPoll 40800 | 0.70 + 0.40 % of Scheduler group | poll | J1 built, Ally off: add to bundle #3 |
 | XtimeGetTicks (timed condvar) | 0.52 % Scheduler group | timed waits | none |
