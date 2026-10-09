@@ -1837,4 +1837,195 @@ ls_out:
     jmp     qword ptr [lw_resSig]
 caveLdSig ENDP
 
+; =================================================================================================================
+; 1.7.40: BPO - BoundsFromPartObbs 71C60 (logic thread; notes\bounds-partobbs.md). 1:1 port of the Iced caves in
+; re\scripts_logic\bounds_offline.fsx (offline: whole 71C60 stock vs patched bit-identical, exhaustive half sweep,
+; seqlock stress, liveness of everything the caves leave different). bpo_enable = live switch (menu, 0/1); bpo_mask
+; picks the parts: 1 Q quaternion memo, 2 L plain ready-word loads, 4 V forwarding-friendly Vec4CopyW0.
+; Switch off (or the part's bit clear) = the displaced original instructions.
+; =================================================================================================================
+PUBLIC caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV
+PUBLIC bpo_enable, bpo_mask, bpo_imask, bpo_tbl, bpo_resQS, bpo_resQH, bpo_resQB, bpo_resL1, bpo_resL2, bpo_vStock
+
+bpodata SEGMENT ALIGN(64) READ WRITE 'DATA'
+bpo_enable  DD 0                ; live switch: 0 = every site runs its original instructions
+bpo_mask    DD 7                ; 1 Q, 2 L, 4 V ([Tuning] BPO_Mask)
+bpo_imask   DQ 0                ; quaternion table: entries - 1
+bpo_tbl     DQ 0                ; 32-byte entries { u32 seq (even = stable, 0 = empty), u32 MXCSR & E040h, u64 key, f32 q[4] }
+bpo_one     DD 3F800000h, 0     ; 1.0f (stock xmm1 at 72027)
+bpo_resQS   DQ 0                ; Nioh3+71F04 (after the displaced movzx / mov)
+bpo_resQH   DQ 0                ; Nioh3+7206F (hit: quaternion done, test rax,rax)
+bpo_resQB   DQ 0                ; Nioh3+7206F (after the displaced 4 stores)
+bpo_resL1   DQ 0                ; Nioh3+71DB7
+bpo_resL2   DQ 0                ; Nioh3+1A7AE6
+bpo_vStock  DQ 0                ; Nioh3+174610 Vec4CopyW0
+bpodata ENDS
+
+; key (4 halves) -> r9 bits: one unpacked float (stock: sign<<16 | mant<<13 | (exp ? (exp+70h)<<23 : 0)) back to its half
+BPO_REPACK MACRO SRC
+    mov     ecx, SRC
+    mov     r8d, ecx
+    shr     r8d, 16
+    and     r8d, 8000h
+    mov     edx, ecx
+    shr     edx, 13
+    and     edx, 3FFh
+    or      r8d, edx
+    shr     ecx, 23
+    and     ecx, 0FFh
+    lea     edx, [rcx-112]
+    shl     edx, 10
+    test    ecx, ecx
+    cmovz   edx, ecx
+    or      r8d, edx
+    or      r9, r8
+ENDM
+
+; rcx = &table[((key * K) >> 32) & imask]
+BPO_HASH MACRO KEY
+    mov     rcx, KEY
+    mov     rdx, 9E3779B97F4A7C15h
+    imul    rcx, rdx
+    shr     rcx, 32
+    and     rcx, qword ptr [bpo_imask]
+    shl     rcx, 5
+    add     rcx, qword ptr [bpo_tbl]
+ENDM
+
+.code
+; ---- QA @71EFE (displaced: movzx eax,word ptr [rbx+6] / mov ecx,eax). rbx = part+4, r14 = obj, rsp = 71C60's frame.
+; Hit: the quaternion of the part's 4 halves (rbx+4) from the table into xmm11/xmm12/xmm10/xmm9 and [rsp+40h] exactly as
+; the stock code leaves them at 7206F, plus xmm1 = 1.0 and rax = [r14+3F8h]. Miss / off: the stock code from 71F04.
+caveBpoQA PROC
+    cmp     dword ptr [bpo_enable], 0
+    je      bpoqa_stock
+    test    byte ptr [bpo_mask], 1
+    jz      bpoqa_stock
+    mov     rax, qword ptr [rbx+4]
+    stmxcsr dword ptr [rsp+30h]             ; FTZ / RC / DAZ change the stock result (half denormals unpack to float
+    mov     r8d, dword ptr [rsp+30h]        ; denormals): an entry only serves the MXCSR it was made under.
+    and     r8d, 0E040h                     ; [rsp+30h] is rewritten by the stock code (71FA2) before any read
+    BPO_HASH rax
+    mov     edx, dword ptr [rcx]            ; seq 1
+    test    dl, 1
+    jnz     bpoqa_stock
+    test    edx, edx
+    jz      bpoqa_stock
+    cmp     rax, qword ptr [rcx+8]
+    jne     bpoqa_stock
+    cmp     r8d, dword ptr [rcx+4]
+    jne     bpoqa_stock
+    movups  xmm0, xmmword ptr [rcx+10h]
+    movss   xmm11, dword ptr [rcx+10h]
+    movss   xmm12, dword ptr [rcx+14h]
+    movss   xmm10, dword ptr [rcx+18h]
+    movss   xmm9, dword ptr [rcx+1Ch]
+    cmp     edx, dword ptr [rcx]            ; seq 2 (x86 keeps loads in order)
+    jne     bpoqa_stock
+    movups  xmmword ptr [rsp+40h], xmm0
+    movss   xmm1, dword ptr [bpo_one]
+    mov     rax, qword ptr [r14+3F8h]
+    jmp     qword ptr [bpo_resQH]
+bpoqa_stock:
+    movzx   eax, word ptr [rbx+6]
+    mov     ecx, eax
+    jmp     qword ptr [bpo_resQS]
+caveBpoQA ENDP
+
+; ---- QB @72053 (displaced: the 4 quaternion stores 72053..7206E). Inserts the stock result, keyed by the halves
+; re-packed from the 4 unpacked floats the stock code used ([rbp-20h] x, [rbp-1Ch] y, [rbp-18h] z, [rsp+30h] angle).
+; Seqlock writer: odd seq while writing; a busy or already-filled entry is left alone. rax (= [r14+3F8h]) preserved.
+caveBpoQB PROC
+    movss   dword ptr [rsp+40h], xmm11
+    movss   dword ptr [rsp+44h], xmm12
+    movss   dword ptr [rsp+4Ch], xmm9
+    movss   dword ptr [rsp+48h], xmm10
+    cmp     dword ptr [bpo_enable], 0
+    je      bpoqb_done
+    test    byte ptr [bpo_mask], 1
+    jz      bpoqb_done
+    xor     r9d, r9d
+    BPO_REPACK dword ptr [rsp+30h]
+    shl     r9, 16
+    BPO_REPACK dword ptr [rbp-18h]
+    shl     r9, 16
+    BPO_REPACK dword ptr [rbp-1Ch]
+    shl     r9, 16
+    BPO_REPACK dword ptr [rbp-20h]
+    BPO_HASH r9
+    mov     r8d, dword ptr [rcx]
+    test    r8b, 1
+    jnz     bpoqb_done
+    test    r8d, r8d
+    jz      bpoqb_try
+    cmp     r9, qword ptr [rcx+8]
+    je      bpoqb_done
+bpoqb_try:
+    lea     r11d, [r8+1]
+    push    rax
+    mov     eax, r8d
+    lock cmpxchg dword ptr [rcx], r11d
+    pop     rax
+    jnz     bpoqb_done
+    stmxcsr dword ptr [rbp-30h]             ; [rbp-30h] (SinCos sine) is dead after 71FC1
+    mov     edx, dword ptr [rbp-30h]
+    and     edx, 0E040h
+    mov     dword ptr [rcx+4], edx
+    mov     qword ptr [rcx+8], r9
+    movss   dword ptr [rcx+10h], xmm11
+    movss   dword ptr [rcx+14h], xmm12
+    movss   dword ptr [rcx+18h], xmm10
+    movss   dword ptr [rcx+1Ch], xmm9
+    add     r11d, 1
+    mov     dword ptr [rcx], r11d
+bpoqb_done:
+    jmp     qword ptr [bpo_resQB]
+caveBpoQB ENDP
+
+; ---- L1 @71DB2 (displaced: lock cmpxchg [rcx],r10d with eax = r10d = 0, i.e. an atomic read of the ready word)
+caveBpoL1 PROC
+    cmp     dword ptr [bpo_enable], 0
+    je      bpol1_stock
+    test    byte ptr [bpo_mask], 2
+    jz      bpol1_stock
+    mov     eax, dword ptr [rcx]
+    jmp     qword ptr [bpo_resL1]
+bpol1_stock:
+    lock cmpxchg dword ptr [rcx], r10d
+    jmp     qword ptr [bpo_resL1]
+caveBpoL1 ENDP
+
+; ---- L2 @1A7AE0 in ObjResTreeAllReady 1A7AAC (displaced: xor eax,eax / lock cmpxchg [rdx],ebx with ebx = 0)
+caveBpoL2 PROC
+    xor     eax, eax
+    cmp     dword ptr [bpo_enable], 0
+    je      bpol2_stock
+    test    byte ptr [bpo_mask], 2
+    jz      bpol2_stock
+    mov     eax, dword ptr [rdx]
+    jmp     qword ptr [bpo_resL2]
+bpol2_stock:
+    lock cmpxchg dword ptr [rdx], ebx
+    jmp     qword ptr [bpo_resL2]
+caveBpoL2 ENDP
+
+; ---- V: called instead of Vec4CopyW0 174610 at its 6 call sites in 71C60 (dst rcx, src rdx; returns rax = dst,
+; xmm0 = src as loaded). 4-byte loads forward from the 4-byte stores that just wrote src; one 16-byte store (w = 0)
+; forwards to ObbToAabb's 16-byte loads. Same memory, rax, xmm0; only flags differ (dead at all 6 return sites).
+caveBpoV PROC
+    cmp     dword ptr [bpo_enable], 0
+    je      bpov_stock
+    test    byte ptr [bpo_mask], 4
+    jz      bpov_stock
+    movss   xmm0, dword ptr [rdx]
+    insertps xmm0, dword ptr [rdx+4], 10h
+    insertps xmm0, dword ptr [rdx+8], 20h
+    movups  xmmword ptr [rcx], xmm0
+    insertps xmm0, dword ptr [rdx+0Ch], 30h
+    mov     rax, rcx
+    ret
+bpov_stock:
+    jmp     qword ptr [bpo_vStock]
+caveBpoV ENDP
+
 END

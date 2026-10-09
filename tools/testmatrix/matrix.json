@@ -292,6 +292,11 @@
    "Patches",
    "EP",
    "0"
+  ],
+  [
+   "Patches",
+   "BPO",
+   "0"
   ]
  ],
  "shader_apply": {
@@ -1542,6 +1547,32 @@
    ],
    "risk": "low",
    "expected": "live row since ASI 1.7.39 (launch-only before). 0.3-0.5 ms/frame main thread on PC; log 'P1E7: texture-loop prefetch ... (switch ON)'",
+   "grp": 5
+  },
+  {
+   "id": "BPO",
+   "type": "asi",
+   "label": "BoundsFromPartObbs: per-part rotation memo + plain ready loads + forwarding copy (bit-identical)",
+   "ini": [
+    [
+     "Patches",
+     "BPO",
+     "1"
+    ],
+    [
+     "Tuning",
+     "BPO_Mask",
+     "7"
+    ]
+   ],
+   "mode": "live",
+   "live_installed_value": "2",
+   "devices": [
+    "pc",
+    "ally"
+   ],
+   "risk": "low",
+   "expected": "game-update thread (KIDSTaskScheduler0): 71C60 subtree, est. 0.1-0.2 ms/frame on PC (notes/bounds-partobbs.md); fps only where [App]Game waits on logic; log 'BPO: BoundsFromPartObbs caves installed'",
    "grp": 5
   },
   {

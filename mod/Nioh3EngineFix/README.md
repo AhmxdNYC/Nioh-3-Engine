@@ -328,6 +328,20 @@ not worth the risk for an estimated 0.5-2 s.
 A/B plan: LoadStats baseline, then one flag per load pair on the same route (LoadStats total, stage-ready time, loaders
 last busy, in-flight at cap), plus `Mission` thread CPU at a fixed spot for GL1.
 
+### 1.7.40: BPO - BoundsFromPartObbs (default 0, v2.02 only, live row "Faster part bounds (BPO)")
+From `notes\bounds-partobbs.md`; port of the Iced caves in `re\scripts_logic\bounds_offline.fsx`. The game-update thread
+(KIDSTaskScheduler0) builds every body part's bounds each frame in 71C60. `[Patches] BPO = 1` (2 = installed, switched off)
+installs three parts, picked by `[Tuning] BPO_Mask` (default 7):
+- **1 Q**: each part's rotation quaternion is rebuilt from 4 packed halves (half unpack, SinCosApprox 54360, sqrt, divide).
+  It is a pure function of those 8 bytes, so it is cached in a 16384-entry seqlock table (512 KB): a hit returns exactly what
+  the stock code computes; a miss runs the stock code and stores its result.
+- **2 L**: the two locked reads of the object's ready word per part (71DB2, and 1A7AE2 in ObjResTreeAllReady 1A7AAC, which has 9 other
+  callers) become plain loads (same value; only the StoreLoad fence is lost, as in LK / MA).
+- **4 V**: the 6 Vec4CopyW0 (174610) calls in 71C60 read with 4-byte loads and write one 16-byte store (same bytes), so neither
+  side fails store-to-load forwarding.
+Offline: the whole 71C60 copied from the dump runs stock vs patched on 200k random calls, 4 x 65536 halves and a 4-thread
+stress: 0 bitwise differences. Needs SSE4.1. Est. 0.1-0.2 ms/frame of the update thread on the PC; 0 fps on the GPU-bound Ally.
+
 ## Requirements
 
 * Nioh 3 on Steam, **version 2.02**. The mod checks the executable and **refuses to patch any other build**

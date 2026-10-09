@@ -1,0 +1,244 @@
+== code walk from 71C60 (direct branches + calls; stubs 17452C, 21DC10, 22276C, BE0378, 190CE64)
+  1325 instructions, 6081 code bytes in 13 ranges, 24 rip-relative data refs
+  functions entered: 54360 54528 5458E 545E1 545FD 6D130 6EA50 6F010 71C60 71C8D 71CAA 71CB2 71D1D 72479 724DE 72501 7255D 72573 72574 1A7AAC 74349C 1907C32 1907E61 1907E88 191FC66
+  [ok] every walked rip-relative operand is read-only data (>= 3000000h, no writes)
+== site bytes / instruction boundaries / branch-target sweep
+  [ok] 71EFE bytes = 0F B7 43 06 8B C8
+  [ok] 71EFE: site starts on an instruction and the next instruction starts at +6
+  [ok] 72053 bytes = F3 44 0F 11 5C 24 40
+  [ok] 72053: site starts on an instruction and the next instruction starts at +7
+  [ok] 71DB2 bytes = F0 44 0F B1 11
+  [ok] 71DB2: site starts on an instruction and the next instruction starts at +5
+  [ok] 1A7AE0 bytes = 33 C0 F0 0F B1 1A
+  [ok] 1A7AE0: site starts on an instruction and the next instruction starts at +6
+  [ok] QB displaced = 4 movss stores 72053..7206E
+  [ok] 72310 is call 174610
+  [ok] 7231C is call 174610
+  [ok] 72346 is call 174610
+  [ok] 7250B is call 174610
+  [ok] 72519 is call 174610
+  [ok] 72546 is call 174610
+  [ok] 174610 = movaps xmm0,[rdx]; mov rax,rcx; movdqa [rcx],xmm0; mov dword [rcx+0Ch],0; ret
+  (174610 has 304 direct callers in .text; V redirects only the 6 in 71C60)
+  [ok] no direct branch into the interior of any patched range
+== liveness of everything the caves leave different from the stock run
+  [ok] dead after QA-hit 7206F (RCX,RDX,R8,XMM0,XMM2,XMM3,XMM4,XMM7,flags,[RBP+FFFFFFFFFFFFFFE4],[RBP+FFFFFFFFFFFFFFE8],[RSP+30],[RBP+FFFFFFFFFFFFFFD0],[RBP+FFFFFFFFFFFFFFD4])
+  [ok] dead after QA-stock 71F04 (R8,XMM0,XMM9,XMM10,XMM11,XMM12,flags,[RSP+30])
+  [ok] dead after QB 7206F (RCX,RDX,R8,R9,R11,flags,[RBP+FFFFFFFFFFFFFFD0])
+  [ok] dead after L1 71DB7 (,flags)
+  [ok] dead after V ret 72315 (,flags)
+  [ok] dead after V ret 72321 (,flags)
+  [ok] dead after V ret 7234B (,flags)
+  [ok] dead after V ret 72510 (,flags)
+  [ok] dead after V ret 7251E (,flags)
+  [ok] dead after V ret 7254B (,flags)
+  [ok] L2: 1A7AE6 lea (no flags), 1A7AE9 test dil,al (writes flags)
+  [ok] L2: ebx = 0 (1A7AD9 xor ebx,ebx), no write to ebx/eax before 1A7AE0
+  [ok] L1: r10 writers in 71C60 = 71CDD 72406 (expect 71CDD xor, 72406 mov 0)
+  [ok] L1: 1A7AAC..1A7B11 never writes r10
+  [ok] 1.0 at 3BD41E0 (stock xmm1 at 72027) = cave constant 3F800000
+  caves 868 bytes (code 740) at region+3BF0000; table 16384 entries x 32 B
+== native equivalence: whole 71C60 stock (region 0) vs patched (region 1), output OBB 0x60 bytes bitwise
+  switch 0: 16000 calls, 0 mismatches
+  switch 1: 16000 calls, 0 mismatches
+  switch 2: 16000 calls, 0 mismatches
+  switch 4: 16000 calls, 0 mismatches
+  switch 7: 120000 calls, 0 mismatches
+  [ok] bit-identical output for every switch value (0 off, 1 Q, 2 L, 4 V, 7 all; miss and hit runs)
+== exhaustive half sweep: each lane (ax, ay, az, angle) = every one of the 65536 half codes
+  [ok] 4 x 65536 single-part calls: 0 miss-run mismatches, 0 hit-run mismatches
+  [ok] the entry inserted by QB carries exactly the part's 8 key bytes (re-pack is the inverse of the unpack): 0 wrong
+== seqlock: odd / zero sequence words are ignored
+  [ok] poisoned entries (seq odd or 0, key equal, garbage value): 0 mismatches in 3000 calls
+== MXCSR: FTZ/DAZ and rounding modes (entries carry MXCSR & E040h)
+  [ok] every MXCSR mode alone (7 modes x 3000 calls x miss/hit): 0 mismatches
+  (info) calls whose stock result differs between the two modes, i.e. an untagged cache would be wrong: 1076 of 1600
+  [ok] cross-mode (table filled under mode A, read under mode B): 0 mismatches
+== concurrency: 4 threads, table masked to 4 entries (constant evictions), 64 shared keys
+  [ok] 4 threads x 300000 calls on a 4-entry table: 0 wrong outputs
+== timing: realistic object, 24 half-float parts, ready, offset present, param_6 given (per part, call overhead included)
+  stock region                368.1 ns/part
+  switch 0 (caves, all off)              329.0 ns/part  (-39.1 ns,  -11%)
+  switch 1 Q quaternion memo             377.1 ns/part  ( +9.0 ns,   +2%)
+  switch 2 L plain ready loads           303.6 ns/part  (-64.6 ns,  -18%)
+  switch 4 V forwarding-friendly copy    306.2 ns/part  (-62.0 ns,  -17%)
+  switch 3 Q+L                           257.5 ns/part  (-110.7 ns,  -30%)
+  switch 7 Q+L+V                         236.5 ns/part  (-131.6 ns,  -36%)
+  ALL: 368.1 -> 236.5 ns/part = 36% less per part (in-process, warm caches, uncontended ready word)
+== cave disassembly (test address)
+  QA:  80  cmp dword [rel 1FF114F0000h],0
+       87  je near 000001FF114F0127h
+       8D  test byte [rel 1FF114F0004h],1
+       94  je near 000001FF114F0127h
+       9A  mov rax,[rbx+4]
+       9E  stmxcsr [rsp+30h]
+       A3  mov r8d,[rsp+30h]
+       A8  and r8d,0E040h
+       AF  mov rcx,rax
+       B2  mov rdx,9E3779B97F4A7C15h
+       BC  imul rcx,rdx
+       C0  shr rcx,20h
+       C4  and rcx,[rel 1FF114F0008h]
+       CB  shl rcx,5
+       CF  add rcx,[rel 1FF114F0010h]
+       D6  mov edx,[rcx]
+       D8  test dl,1
+       DB  jne short 000001FF114F0127h
+       DD  test edx,edx
+       DF  je short 000001FF114F0127h
+       E1  cmp rax,[rcx+8]
+       E5  jne short 000001FF114F0127h
+       E7  cmp r8d,[rcx+4]
+       EB  jne short 000001FF114F0127h
+       ED  movups xmm0,[rcx+10h]
+       F1  movss xmm11,[rcx+10h]
+       F7  movss xmm12,[rcx+14h]
+       FD  movss xmm10,[rcx+18h]
+       103  movss xmm9,[rcx+1Ch]
+       109  cmp edx,[rcx]
+       10B  jne short 000001FF114F0127h
+       10D  movups [rsp+40h],xmm0
+       112  movss xmm1,[rel 1FF114F0018h]
+       11A  mov rax,[r14+3F8h]
+       121  jmp qword [rel 1FF114F0028h]
+       127  movzx eax,word [rbx+6]
+       12B  mov ecx,eax
+       12D  jmp qword [rel 1FF114F0020h]
+  QB:  133  movss [rsp+40h],xmm11
+       13A  movss [rsp+44h],xmm12
+       141  movss [rsp+4Ch],xmm9
+       148  movss [rsp+48h],xmm10
+       14F  cmp dword [rel 1FF114F0000h],0
+       156  je near 000001FF114F02DBh
+       15C  test byte [rel 1FF114F0004h],1
+       163  je near 000001FF114F02DBh
+       169  xor r9d,r9d
+       16C  mov ecx,[rsp+30h]
+       170  mov r8d,ecx
+       173  shr r8d,10h
+       177  and r8d,8000h
+       17E  mov edx,ecx
+       180  shr edx,0Dh
+       183  and edx,3FFh
+       189  or r8d,edx
+       18C  shr ecx,17h
+       18F  and ecx,0FFh
+       195  lea edx,[rcx-70h]
+       198  shl edx,0Ah
+       19B  test ecx,ecx
+       19D  cmove edx,ecx
+       1A0  or r8d,edx
+       1A3  or r9,r8
+       1A6  shl r9,10h
+       1AA  mov ecx,[rbp-18h]
+       1AD  mov r8d,ecx
+       1B0  shr r8d,10h
+       1B4  and r8d,8000h
+       1BB  mov edx,ecx
+       1BD  shr edx,0Dh
+       1C0  and edx,3FFh
+       1C6  or r8d,edx
+       1C9  shr ecx,17h
+       1CC  and ecx,0FFh
+       1D2  lea edx,[rcx-70h]
+       1D5  shl edx,0Ah
+       1D8  test ecx,ecx
+       1DA  cmove edx,ecx
+       1DD  or r8d,edx
+       1E0  or r9,r8
+       1E3  shl r9,10h
+       1E7  mov ecx,[rbp-1Ch]
+       1EA  mov r8d,ecx
+       1ED  shr r8d,10h
+       1F1  and r8d,8000h
+       1F8  mov edx,ecx
+       1FA  shr edx,0Dh
+       1FD  and edx,3FFh
+       203  or r8d,edx
+       206  shr ecx,17h
+       209  and ecx,0FFh
+       20F  lea edx,[rcx-70h]
+       212  shl edx,0Ah
+       215  test ecx,ecx
+       217  cmove edx,ecx
+       21A  or r8d,edx
+       21D  or r9,r8
+       220  shl r9,10h
+       224  mov ecx,[rbp-20h]
+       227  mov r8d,ecx
+       22A  shr r8d,10h
+       22E  and r8d,8000h
+       235  mov edx,ecx
+       237  shr edx,0Dh
+       23A  and edx,3FFh
+       240  or r8d,edx
+       243  shr ecx,17h
+       246  and ecx,0FFh
+       24C  lea edx,[rcx-70h]
+       24F  shl edx,0Ah
+       252  test ecx,ecx
+       254  cmove edx,ecx
+       257  or r8d,edx
+       25A  or r9,r8
+       25D  mov rcx,r9
+       260  mov rdx,9E3779B97F4A7C15h
+       26A  imul rcx,rdx
+       26E  shr rcx,20h
+       272  and rcx,[rel 1FF114F0008h]
+       279  shl rcx,5
+       27D  add rcx,[rel 1FF114F0010h]
+       284  mov r8d,[rcx]
+       287  test r8b,1
+       28B  jne short 000001FF114F02DBh
+       28D  test r8d,r8d
+       290  je short 000001FF114F0298h
+       292  cmp r9,[rcx+8]
+       296  je short 000001FF114F02DBh
+       298  lea r11d,[r8+1]
+       29C  push rax
+       29D  mov eax,r8d
+       2A0  lock cmpxchg [rcx],r11d
+       2A5  pop rax
+       2A6  jne short 000001FF114F02DBh
+       2A8  stmxcsr [rbp-30h]
+       2AC  mov edx,[rbp-30h]
+       2AF  and edx,0E040h
+       2B5  mov [rcx+4],edx
+       2B8  mov [rcx+8],r9
+       2BC  movss [rcx+10h],xmm11
+       2C2  movss [rcx+14h],xmm12
+       2C8  movss [rcx+18h],xmm10
+       2CE  movss [rcx+1Ch],xmm9
+       2D4  add r11d,1
+       2D8  mov [rcx],r11d
+       2DB  jmp qword [rel 1FF114F0030h]
+  L1:  2E1  cmp dword [rel 1FF114F0000h],0
+       2E8  je short 000001FF114F02FBh
+       2EA  test byte [rel 1FF114F0004h],2
+       2F1  je short 000001FF114F02FBh
+       2F3  mov eax,[rcx]
+       2F5  jmp qword [rel 1FF114F0038h]
+       2FB  lock cmpxchg [rcx],r10d
+       300  jmp qword [rel 1FF114F0038h]
+  L2:  306  xor eax,eax
+       308  cmp dword [rel 1FF114F0000h],0
+       30F  je short 000001FF114F0322h
+       311  test byte [rel 1FF114F0004h],2
+       318  je short 000001FF114F0322h
+       31A  mov eax,[rdx]
+       31C  jmp qword [rel 1FF114F0040h]
+       322  lock cmpxchg [rdx],ebx
+       326  jmp qword [rel 1FF114F0040h]
+  V:   32C  cmp dword [rel 1FF114F0000h],0
+       333  je short 000001FF114F035Eh
+       335  test byte [rel 1FF114F0004h],4
+       33C  je short 000001FF114F035Eh
+       33E  movss xmm0,[rdx]
+       342  insertps xmm0,[rdx+4],10h
+       349  insertps xmm0,[rdx+8],20h
+       350  movups [rcx],xmm0
+       353  insertps xmm0,[rdx+0Ch],30h
+       35A  mov rax,rcx
+       35D  ret
+       35E  jmp qword [rel 1FF114F0048h]
+OFFLINE CHECKS: ALL PASSED

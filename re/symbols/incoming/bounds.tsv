@@ -1,0 +1,2 @@
+rva	kind	name	signature	description	confidence	source
+0x74349c	function	ObjGetPartDequant	void* ObjGetPartDequant(Obj* o, u8 out[16])	walks the list at [o+430h] for the node with type 2 ([n+8]) and copies its dequant block {f32 offset x, f32 offset z, f32 scale @n+10h..18h, u8 half-path flag @n+1Ch} to out (zeros if none); used by BoundsFromPartObbs 71C60 when param_6 is null; 4 callers	medium	notes/bounds-partobbs.md

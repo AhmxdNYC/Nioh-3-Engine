@@ -680,3 +680,19 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 2026-10-08 release: one mod for every OS
 - release\profiles.json now has a single profile `ALL`; package.py writes ONE zip `Nioh3EngineFix-<ver>[-rc].zip` (PC/ALLY split removed, no other references). OS-dependent keys (W6, GF, MQ, W3_TimeoutMs, MaxFrameLatency) are `-1 = auto by OS`; ASI side on branch `osauto` (pushed, not merged), 261 sites OK. Both DXIL shaders ship in the zip. Details: notes\release-os-profiles.md.
+
+## 2026-10-08 - ASI 1.7.40 (branch `bounds`): BPO BoundsFromPartObbs 71C60 caves (default off; nothing in the game folder changed)
+- notes\bounds-partobbs.md: 71C60 per part = 2 locked ready-word reads (71DB2, 1A7AE2), 6 half unpacks, a quaternion
+  rebuilt from axis-angle halves every frame (SinCosApprox 54360 + sqrt + div; pure function of 8 static bytes), 5
+  Vec4CopyW0 copies whose 16-byte loads fail store forwarding (174613 hot), ObbToAabb. Target 0.27 + 0.10 + 0.12 + 0.045 ms.
+- ADD `[Patches] BPO = 0` (1 on, 2 installed off; live row 'Faster part bounds (BPO)'), `[Tuning] BPO_Mask = 7` (1 Q
+  quaternion memo, 2 L plain ready loads, 4 V forwarding-friendly copy), `BPO_TableBits = 14`. Caves caveBpoQA/QB/L1/L2/V
+  (caves.asm), patches.json group BPO: 10 sites + 4 deps. Q = seqlock table keyed by the 8 halves (re-packed from the
+  floats the stock code used) and tagged with MXCSR & E040h. L2 also changes 1A7AAC's 9 other callers (plain load).
+- Proof: re\scripts_logic\bounds_offline.fsx (whole 71C60 from the dump, stock vs patched): 200k calls x masks, 4 x 65536
+  half sweep, poisoned seq, 7 MXCSR modes + cross-mode, 4-thread stress: 0 bitwise differences; path-sensitive liveness of
+  every register / flag / stack slot the caves leave different; MASM = Iced caves (175 instructions). Harness timing
+  99 -> 84 ns/part (-15 %, Q -11 %). Est. 0.12-0.25 ms/frame of Scheduler0 (Q ~0.10-0.13).
+- Tests: test_patterns ALL 271 SITES OK, menu_map selftest OK, build OK. Not run in game.
+- Test: `abba2_pc.ps1 -Live AABB,BPO -LaunchFlags none -Quads 3 -MaxFps 240 -Input vpad`.
+- Undo: BPO = 0 (default), or the 1.7.39 .asi.
