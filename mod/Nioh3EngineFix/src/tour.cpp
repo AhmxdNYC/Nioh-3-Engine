@@ -240,17 +240,30 @@ int LoadByte() {
     uint8_t f = 0;
     return g && Rd(g + 0x58A, f) ? f : -1;
 }
+// The sequencer states are small enums (FT 0..8, B 0..2). On the Ally (Proton) after a title "Load Game" the global pointers
+// resolve to reused memory and read floats (FT 1148547920 = 0x4475E550, B 1148229280; bridge #745/#748), so the tour never
+// armed. A value outside 0..63 is not a sequencer state: treat it as idle (0) and log it once. Player / 58A / mission queue /
+// pause gates still apply, so a real load or warp keeps blocking the tour.
+static int SaneSeq(int v, const char* which) {
+    if (v >= -1 && v < 64) return v;
+    static volatile LONG once[2] = {0, 0};
+    const int i = which[0] == 'F' ? 0 : 1;
+    if (InterlockedExchange(&once[i], 1) == 0)
+        TLOG("Tour: %s sequencer state reads %d (0x%08X) - not a state (stale pointer after Load Game?), treated as idle", which,
+             v, (unsigned)v);
+    return 0;
+}
 int FtState() {
     uintptr_t s = Ptr(kFtSeqPtr);
     int32_t v = 0;
     if (!s) return -1;
-    return Rd(s, v) ? v : -1;
+    return Rd(s, v) ? SaneSeq(v, "FT") : -1;
 }
 int WarpBState() {
     uintptr_t s = Ptr(kWarpSeqBPtr);
     int32_t v = 0;
     if (!s) return 0;
-    return Rd(s, v) ? v : -1;
+    return Rd(s, v) ? SaneSeq(v, "B") : -1;
 }
 bool QueueEmpty() {
     for (int i = 0; i < 3; ++i) {
