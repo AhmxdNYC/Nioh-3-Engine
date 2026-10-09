@@ -65,7 +65,11 @@ struct Call {
     uint64_t sys, res;
     int levels, roots, cull;   // LOD
     uint32_t cam;              // LOD: FNV of the 32-byte camera block
-    uint8_t flag11;            // LOD param_11
+    uint8_t flag11;            // LOD param_11 (forces the shadow LOD permutation flag, 91BF54)
+    uint32_t p9;               // LOD param_9 (float bits -> ctx+1434h)
+    uint64_t p10;              // LOD param_10 (extra UAV output of the level kernel; 8DA0A8 = VSM clipmap list)
+    uint64_t ctx;              // LOD param_3 (culling context)
+    uint32_t ctx1430;          // LOD ctx+1430h (8DA0A8 writes clipmap << 4 | 1 before the call)
     int cnt, mode;             // PRE
     uint8_t gate;              // PRE: the MPC tail chain is recorded
     int p6;                    // PRE param_6
@@ -153,7 +157,8 @@ void Record(Call& c) {
     if (c.fn == kLod)   // duplicate-resolve test against the earlier LOD calls of this frame
         for (const Call& o : g_cur) {
             if (o.fn != kLod) continue;
-            if (o.sys == c.sys && o.cam == c.cam && o.levels == c.levels && o.roots == c.roots && o.cull == c.cull) {
+            if (o.sys == c.sys && o.cam == c.cam && o.levels == c.levels && o.roots == c.roots && o.cull == c.cull &&
+                o.flag11 == c.flag11 && o.p9 == c.p9 && o.p10 == c.p10 && o.ctx == c.ctx && o.ctx1430 == c.ctx1430) {
                 g_dupIdent++;
                 g_dupPairA = o.caller;
                 g_dupPairB = c.caller;
@@ -225,6 +230,13 @@ void Common(Fn fn, uint64_t rcx, uint64_t /*rdx*/, uint64_t r8, uint64_t r9, con
         uint64_t a11 = 0;
         Rd((uintptr_t)(sp + 11), &a11, 8);
         c.flag11 = (uint8_t)a11;
+        uint64_t a9 = 0, a10 = 0;
+        Rd((uintptr_t)(sp + 9), &a9, 8);
+        Rd((uintptr_t)(sp + 10), &a10, 8);
+        c.p9 = (uint32_t)a9;
+        c.p10 = a10;
+        c.ctx = r8;
+        Rd(r8 + 0x1430, &c.ctx1430, 4);
     } else if (fn == kPre) {
         int mode = 0;
         Rd(rcx + kOffPreMode, &mode, 4);
