@@ -292,3 +292,13 @@ VSM level search) is built and installed with GHDM on pc2's mod run; the full re
 VCLOUD - invariant hoist rejected (+VGPR -> 3 waves), skip-identical/occlusion trim not same-picture, only a
 `[WaveSize(32)]` metadata build left (ally-gpu-budget.md §6 V/F). On pc2 both are async; their frame cost is below the
 1.60 / 1.04 ms wall time shown by GP2.
+
+## 8. MSV DROPPED (2026-10-09 13:02, bridge #812/#814)
+Ally/RADV shotdiff FAILED: with the 187 MSV files, large stretched-triangle streaks appear at both test views (stock clean).
+Cause (most likely): the slot-chain scalarization takes `WaveReadLaneFirst(slot)` and assumes every VS wave covers one
+meshlet slot (384 consecutive vertex ids). D3D12 does not guarantee VS wave packing; RADV/NGG packs vertices from different
+slots into one wave, so lanes read another slot's data. The offline proof modelled consecutive-vid waves only, so it could
+not catch this. The Ally's +0.2-0.4 fps (#732) is void. MSV is not in release/profiles.json and must not be shipped.
+`lodu` (MshLod#2) is different: it is guarded by `WaveActiveAllEqual` and falls back to the original code, so it stays,
+pending its own shotdiff. Lesson for any future wave-uniform rewrite: guard with WaveActiveAllEqual or a waterfall
+loop. Never assume wave composition in vertex/pixel stages.
