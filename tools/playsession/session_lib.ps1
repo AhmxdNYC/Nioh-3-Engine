@@ -1,4 +1,4 @@
-# session_lib.ps1 - shared paths and helpers for start_session.ps1 / stop_session.ps1 / monitor.ps1 (tools\playsession\README.md).
+﻿# session_lib.ps1 - shared paths and helpers for start_session.ps1 / stop_session.ps1 / monitor.ps1 (tools\playsession\README.md).
 # Dot-source after setting the optional overrides ($GameDir, $SaveRoot, $BackupRoot, $CaptureRoot, $StateDir) - the dry-run test points
 # them at temp folders so nothing real is touched.
 $ws = "C:\Users\Ahmad Hamza\nioh3-engine"
@@ -61,7 +61,8 @@ function Invoke-GameLock([string]$action, [int]$ttl = 0) {
     # returns @{ code = exit code; out = text }. Exit 0 ok, 1 held by someone else (acquire), 2 bridge error
     $env:UO_BRIDGE_TOKEN_FILE = Join-Path $env:APPDATA "uo-bridge\token"
     $env:UO_AGENT_ID = "pc"
-    $a = @("-m", "uo_bridge.gamelock", $action, "nioh3")
+    $lk = if ($global:LockKey) { $global:LockKey } else { "nioh3" }   # run_tour -LockKey (tour-mode runs use their own key)
+    $a = @("-m", "uo_bridge.gamelock", $action, $lk)
     if ($ttl -gt 0) { $a += @("--ttl", "$ttl") }
     Push-Location $UoBridge
     try { $o = (& py @a 2>&1 | Out-String).Trim(); $c = $LASTEXITCODE } catch { $o = "$_"; $c = 2 } finally { Pop-Location }

@@ -1,4 +1,4 @@
-<#
+﻿<#
   run_tour.ps1 - the Tour stability / performance run (notes\tour-mode.md). No input is ever sent to the game.
   1. refuses if Nioh3 runs or another device holds the bridge game lock; takes the lock (harness_guard: owner pid, commit headroom,
      max 2 crashes, MaxMinutes)
@@ -32,8 +32,11 @@ param(
     # hold the vpad title -> Continue step until the PJ prewarm has finished (log 'PJ: prewarm done' / refused / nothing to do), max -WaitPrewarmSec; stutter.md 6.1 B2
     [switch]$WaitPrewarm, [int]$WaitPrewarmSec = 300,
     # weak-CPU simulation: pin the Nioh3 process to N logical CPUs (distinct physical cores first), per process, harness-set
-    [int]$Affinity = 0
+    [int]$Affinity = 0,
+    # bridge game-lock key (default nioh3; tour-mode runs with saves blocked may use their own, e.g. nioh3-pc)
+    [string]$LockKey = "nioh3"
 )
+$global:LockKey = $LockKey
 $vp = $InputMode -eq "vpad"
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
