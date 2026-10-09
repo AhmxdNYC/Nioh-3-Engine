@@ -32,7 +32,7 @@ SMT off or fewer cores is **not** advised on the Ally: the game wants ~8 threads
 
 ## Table 2: PC (Windows 11, 7600X + RX 9070, 1440p), ranked by expected benefit
 
-PC is **CPU main-thread bound by a hair and GPU-balanced** (CPU 8.7-9.3 ms, GPU 8.7 ms, ~109 fps [M]). GPU-only settings buy nothing until the CPU is lowered.
+PC is **CPU main-thread bound by a hair and GPU-balanced** (CPU 8.7-9.3 ms, GPU 8.7 ms, ~109 fps [M]). At your own settings with FG on (1440p, 75 %, XeSS; session 2026-10-08) it is **GPU-bound** instead (GPU busy 90-92 % [M]). GPU-only settings buy nothing until the CPU is lowered.
 
 | # | Setting | Where / how | Expected effect | Risk / downside | Undo |
 |---|---|---|---|---|---|
@@ -46,11 +46,14 @@ PC is **CPU main-thread bound by a hair and GPU-balanced** (CPU 8.7-9.3 ms, GPU 
 | 8 | **Game Mode on, High performance power plan** | Settings > Gaming > Game Mode; Power options | Avoids downclock between frames [E] | Slightly more idle power | Back to Balanced |
 | 9 | **Process Lasso: priority High for Nioh3.exe** | Third-party tool | Anecdotal stutter/CPU fixes on some Ryzens [C: [Steam](https://steamcommunity.com/app/3681010/discussions/0/759554831917629321/)]; others saw nothing | Another resident tool | Close/uninstall |
 | 10 | **If you get DEVICE_REMOVED / HUNG**: overlays off, RAM at stock instead of EXPO (3600 -> 3200), GPU max clock 100-200 MHz lower | BIOS, Adrenalin tuning | Community crash fixes [C: [Steam](https://steamcommunity.com/app/3681010/discussions/0/759554462772968080/)]. A stability fix, not a speed-up | Slightly slower RAM/GPU | Re-enable EXPO / reset tuning |
+| 11 | **Frame generation (FSR): your call - on for smoothness, off for the lowest delay** | In-game Graphics > Frame Generation | Your 2026-10-08 session [M] (1440p, render 75 %, XeSS, VSync ON, cap 120): FG on gave **166 fps presented / ~149 on screen** from **~106 real** in the mission, **130 / 104 from ~90 real** in the boss fight; 1 % low ~97 fps, the only hitches were shader compiles. Pad press -> screen ~44 ms [M est.]; FG adds about **4-5 ms** of that [E: menus without FG vs play with FG]. Your PC is GPU-bound with FG on (GPU busy 90-92 % [M]), so turning it off gives ~100-118 real fps with less delay, but fewer frames on screen [E]. No FG-off play was recorded: the game kept FSR the whole session (your toggle did not stick) | FG frames are invented; 10-20 % of them were thrown away by Windows with VSync ON (row 12) | Switch back in the same menu |
+| 12 | **VSync OFF in game, FreeSync/VRR on, keep the 120 cap** | In-game Graphics > VSync; Adrenalin > Display > FreeSync on | With VSync ON every gameplay frame went through Windows composition [M: 100 % `Composed: Flip`]: 8.6 ms from Present to screen vs 1.9 ms for the uncomposed title frames [M], and **10-20 % of the FG frames never reached the screen** [M]. Earlier test on this PC: VSync OFF + VRR saved ~16 ms at a 60 cap [M, input-latency.md]. The 120 cap stays inside the 48-240 Hz FreeSync range, so no tearing [E] | Tearing only if fps exceeds 240 (it cannot with the 120 cap) | Turn VSync back on |
+| 13 | **Keep AMD's shader cache on; expect one hitch on first sight of a new effect** | Adrenalin > Gaming > Graphics > Shader Cache (AMD optimized / on); never 'Reset Shader Cache' | The only long frames in your session were first-use shader builds [M]: 3 frames of 98-167 ms right before the Jakotsu-baba kill (29 builds, worst 153 ms) and 3 frames of 53-120 ms once in the mission. The driver cache makes repeats cheaper [E]; the mod's PSO prewarm (PJ) is the real fix and is next on our list | Disk space | n/a |
 
 Not recommended: **SMT off** (8-thread runs were worse, the 7600X is 6C/12T [C]); capping CPU boost (cooler but slower, for temperature only [C]). Windows update KB5124010 and RGB/fan drivers using inpoutx64.sys are reported crash causes [C: [Windows Latest](https://www.windowslatest.com/2026/10/03/microsoft-confirms-windows-11-26h2-is-crashing-some-games-and-apps-promises-to-fix-it-in-the-next-update/)].
 
 ## Top 5
 - **Ally:** (1) lower render scale to 65-70, (2) try 28-30 W TDP and log it, (3) GI at HIGH or below, (4) motion blur / post / volumetric trims, (5) FSR not XeSS plus a matching external limiter.
-- **PC:** (1) GI at HIGH, (2) free C: and a fixed SSD page file, (3) keep the game on the SSD, (4) external limiter at a tier you hold, (5) a cap you can hold with VRR on.
+- **PC:** (1) GI at HIGH, (2) free C: and a fixed SSD page file, (3) keep the game on the SSD, (4) external limiter at a tier you hold, (5) a cap you can hold with VRR on. Measured 2026-10-08: (6) VSync OFF + FreeSync (row 12), (7) FG on/off by taste (row 11).
 
 Not tested by us: the TDP gain, page-file effect, external-limiter effect, GPU clock floor, UMA size, Adrenalin FSR4 override. Treat them as experiments you run yourself; our final benchmark keeps system settings fixed.

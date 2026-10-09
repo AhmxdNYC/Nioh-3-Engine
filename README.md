@@ -68,7 +68,7 @@ One line per problem: what the game does -> effect -> our fix -> result. Scope: 
 
 ## Decompilation progress
 
-![functions named](https://img.shields.io/badge/functions%20named-3.27%25%20(6909/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-100.00%25-brightgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-100.00%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
+![functions named](https://img.shields.io/badge/functions%20named-3.27%25%20(6913/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-100.00%25-brightgreen) ![perf incl. Unknown_](https://img.shields.io/badge/perf%20incl.%20Unknown_-100.00%25-green) ![GPU time identified](https://img.shields.io/badge/GPU%20time%20identified-100.00%25-green) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green)
 
 **In plain words:** we have given a name to 6,787 of the game's 211k functions (3.2 %), but those cover 99.99 % of the CPU time we measured (100.00 % counting `Unknown_` functions that are described but not fully understood), and every GPU pass (59 of 59) points at the engine code that runs it. The full-game graph stays mostly empty by design: we only name code that matters for performance, not the whole game. The performance and GPU graphs are full. That is what the speed work needs; it is not a full source rebuild.
 
