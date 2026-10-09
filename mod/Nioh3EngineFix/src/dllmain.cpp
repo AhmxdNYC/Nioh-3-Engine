@@ -63,7 +63,7 @@
 //         (mod\Nioh3BossRematch, notes\boss-rematch-addon.md): this ASI hooks no boss site any more; old ini keys are logged as moved
 // 1.7.42: W1B (glyph padding clear 61BAC plain stores) + RPA (RenderParamsAssign 247950 range copy), drawprep.cpp; notes\w1b-rpa.md
 // 1.7.43: fix boot hang with 3-4 drawprep groups on (FrozenWrite oldProt[2] overrun by 1.7.42's 4 writes; drawprep.cpp)
-#define MOD_VERSION "1.7.43"
+#define MOD_VERSION "1.7.44"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -100,6 +100,12 @@ void caveE1B();
 void caveW6();
 void caveW6Wake();
 void W6Wait(uint8_t* ctx);
+// 1.7.44 FSR FG under Proton (notesg-proton-fix.md): FGC copy-job null guard, FGP FG pause switch
+void caveFgcSrc();
+void caveFgcDst();
+void caveFgp();
+extern uint64_t fgc_target, fgp_target;
+extern uint32_t fgc_src, fgc_srcNull, fgc_dstNull, fgp_pause, fgp_hits;
 extern uint32_t gal_enable;
 extern uint64_t gal_resume;
 extern uint32_t pp_enable, pp_mask, pp_ran, pp_skipped;
@@ -370,6 +376,9 @@ struct Config {
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
     int jt = 0;  // 1.7.40 JT job-timing probe ([Profiler] JT; measurement only, sites written only when 1)
+    // 1.7.44: FGC = FG copy-job null guard ([Patches] FGC, default 0); fgToggle = [Menu] FrameGenToggle (3 = Proton safe
+    // FG: FGC + FGP pause installed under Proton, FG kept in config.xml with the crash marker; notesg-proton-fix.md)
+    int fgc = 0, fgToggle = 1;
 };
 
 // OS-auto keys (ini value -1): resolved here, logged right after the version line (the log is not open yet).
@@ -408,6 +417,8 @@ Config LoadConfig() {
     c.l1OnWine = I(L"Patches", L"L1OnWine", c.l1OnWine);
     c.fg = I(L"Patches", L"FG", c.fg);
     c.fgOnWine = I(L"Patches", L"FGOnWine", c.fgOnWine);
+    c.fgc = I(L"Patches", L"FGC", c.fgc);
+    c.fgToggle = I(L"Menu", L"FrameGenToggle", c.fgToggle);
     c.p12 = I(L"Patches", L"P12", c.p12);
     c.w3WineSleep = I(L"Patches", L"W3WineSleep", c.w3WineSleep);
     c.wk = I(L"Patches", L"WK", c.wk);
@@ -697,11 +708,14 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveJtWait: return (void*)&caveJtWait;
         case gen::Target::caveJtWake1: return (void*)&caveJtWake1;
         case gen::Target::caveJtWakeAll: return (void*)&caveJtWakeAll;
+        case gen::Target::caveFgcSrc: return (void*)&caveFgcSrc;
+        case gen::Target::caveFgcDst: return (void*)&caveFgcDst;
+        case gen::Target::caveFgp: return (void*)&caveFgp;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveJtWakeAll;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveFgp;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1219,6 +1233,7 @@ using TerminateProcess_t = BOOL(WINAPI*)(HANDLE, UINT);
 ExitProcess_t g_origExitProcess = nullptr;
 TerminateProcess_t g_origTerminateProcess = nullptr;
 bool g_wineEarly = false;
+bool g_fgcOn = false, g_fgpOn = false;  // 1.7.44 FGC / FGP written this session
 
 void WINAPI HkExitProcess(UINT code) {
     menu::ProtonFgExit("ExitProcess");
@@ -1289,7 +1304,7 @@ DWORD WINAPI Worker(LPVOID) {
     if (HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) g_wineEarly = GetProcAddress(ntdll, "wine_get_version") != nullptr;
     if (g_wineEarly) {
         std::wstring marker = SelfPathWithExt(L".fgmarker");
-        menu::ProtonFgEarly(&Log, marker.c_str());
+        menu::ProtonFgEarly(&Log, marker.c_str(), cfg.fgToggle);
         const bool e = SwapImport("ExitProcess", (void*)&HkExitProcess, (void**)&g_origExitProcess);
         const bool t = SwapImport("TerminateProcess", (void*)&HkTerminateProcess, (void**)&g_origTerminateProcess);
         Log("Proton FG guard: exit hooks ExitProcess %s, TerminateProcess %s", e ? "ok" : "MISSING", t ? "ok" : "MISSING");
@@ -1492,6 +1507,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         if (!strcmp(g, "JT")) return cfg.jt != 0;  // 1.7.40 job-timing probe (measurement only)
+        if (!strcmp(g, "FGC")) return cfg.fgc != 0 || (g_wineEarly && cfg.fgToggle == 3);  // 1.7.44
+        if (!strcmp(g, "FGP")) return g_wineEarly && cfg.fgToggle == 3;                    // 1.7.44
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1676,6 +1693,32 @@ DWORD WINAPI Worker(LPVOID) {
         if (ok && prep) ok = prep();
         return run(g, v, ok);
     };
+    // 1.7.44 FGC / FGP (FSR frame generation under Proton, notesg-proton-fix.md). Not menu rows: FGC is a pure
+    // crash guard (bit-identical while both textures exist), FGP is driven by the menu's frame-generation item.
+    if (cfg.fgc || (g_wineEarly && cfg.fgToggle == 3)) {
+        g_fgcOn = expGroup("FGC", true, [&]() {
+            Item* i1 = findItem("FGC1");
+            Item* i2 = findItem("FGC2");
+            const uintptr_t t = (uintptr_t)(g_base + i1->s->expectRva);
+            if (calleeOf(i1->addr) != t || calleeOf(i2->addr) != t) return false;
+            fgc_target = t;
+            return true;
+        });
+        Log("FGC: frame-generation copy-job null guard %s (%s)", g_fgcOn ? "installed" : "NOT installed",
+            cfg.fgc ? "[Patches] FGC = 1" : "[Menu] FrameGenToggle = 3 under Proton");
+    }
+    if (g_wineEarly && cfg.fgToggle == 3) {
+        g_fgpOn = expGroup("FGP", true, [&]() {
+            Item* i = findItem("FGP");
+            const uintptr_t t = (uintptr_t)(g_base + i->s->expectRva);
+            if (calleeOf(i->addr) != t) return false;
+            fgp_target = t;
+            fgp_pause = 0;
+            return true;
+        });
+        Log("FGP: frame-generation pause switch %s (FG off in the mod menu pauses FSR FG instead of rebuilding the swapchain)",
+            g_fgpOn ? "installed" : "NOT installed - FG off then applies at the next launch only");
+    }
     LARGE_INTEGER qf;
     QueryPerformanceFrequency(&qf);
     // W6 first (the main thread's present wait - the biggest Ally lever)
@@ -2280,7 +2323,27 @@ DWORD WINAPI Worker(LPVOID) {
                     lastEpoch = ep;
                     haveEpoch = g != 0;
                 }
+                if (g_fgcOn) {  // 1.7.44: a skipped null texture = a crash the guard prevented; log it within a second
+                    static uint32_t s_nullSeen = 0;
+                    const uint32_t nn = fgc_srcNull + fgc_dstNull;
+                    if (nn != s_nullSeen) {
+                        Log("FGC: frame-generation copy job with a NULL texture skipped (source %u, destination %u so far) - the "
+                            "stock game reads [0+90h] here and crashes (vkd3d-proton #2845). FG keeps running; if generated "
+                            "frames look wrong, turn FG off", fgc_srcNull, fgc_dstNull);
+                        s_nullSeen = nn;
+                    }
+                }
                 if (sec % 30) continue;
+                if (g_fgcOn || g_fgpOn) {
+                    static uint32_t s_pSrc = 0, s_pHits = 0;
+                    const uint32_t src = fgc_src, hits = fgp_hits;
+                    Log("stats/s FG: copy jobs %u (= frames interpolated/s = real fps while FSR FG runs), NULL textures skipped "
+                        "src %u / dst %u (total) | FGP %s, paused frames %u",
+                        (src - s_pSrc) / 30, fgc_srcNull, fgc_dstNull, !g_fgpOn ? "not installed" : fgp_pause ? "PAUSED" : "off",
+                        (hits - s_pHits) / 30);
+                    s_pSrc = src;
+                    s_pHits = hits;
+                }
                 Snap n = take();
                 Log("stats/s: W3 waits %ld (%s), L1 timer sleeps %ld, F1 timer sleeps %ld, WK wakes kept %u / skipped %u",
                     (n.w3 - p.w3) / 30, g_w3UseSleep ? "Sleep" : "MsgWait", (n.l1 - p.l1) / 30, (n.fg - p.fg) / 30,
@@ -2334,6 +2397,8 @@ DWORD WINAPI Worker(LPVOID) {
         mh.p12 = cfg.p12;
         mh.l1OnWine = cfg.l1OnWine;
         mh.fgOnWine = cfg.fgOnWine;
+        mh.fgPause = g_fgpOn ? &fgp_pause : nullptr;  // 1.7.44 FGP (FrameGenToggle = 3 under Proton)
+        mh.fgcOn = g_fgcOn;
         // experimental patches: live switch when installed (M2/J1/S1 are code bytes only: next launch)
         auto U = [](uint32_t& v) { return reinterpret_cast<volatile uint32_t*>(&v); };
         volatile uint32_t* sw[menu::kNumExp] = {};

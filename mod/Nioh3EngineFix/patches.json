@@ -57,6 +57,12 @@
       "pattern": "41 89 4F 30 E9 ?? ?? ?? ?? 33 D2 48 8B CE E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B D0", "offset": 9 },
     { "id": "F1", "group": "FG", "rva": "0x3777A40", "len": 5, "orig": "E8 33 7B F9 FF", "kind": "call", "target": "fgWait", "call_at": 0,
       "pattern": "48 8B 0F 48 03 4C 24 20 E8 ?? ?? ?? ?? 48 8D 4C 24 20 FF 15 ?? ?? ?? ?? 44 8B C6", "offset": 8 },
+    { "id": "FGC1", "group": "FGC", "rva": "0x3718DD9", "len": 5, "orig": "E8 E6 BA D3 FC", "kind": "call", "target": "caveFgcSrc", "call_at": 0, "callee": "0x4548C4",
+      "pattern": "48 63 82 88 00 00 00 4C 8B D2 4C 8B 59 38 33 D2 48 6B C8 38 49 8B D8 4A 8B 0C 19 E8 ?? ?? ?? ?? 49 63 92 90 00 00 00", "offset": 27 },
+    { "id": "FGC2", "group": "FGC", "rva": "0x3718DF7", "len": 5, "orig": "E8 C8 BA D3 FC", "kind": "call", "target": "caveFgcDst", "call_at": 0, "callee": "0x4548C4",
+      "pattern": "49 63 92 90 00 00 00 4C 8B C8 48 6B CA 38 33 D2 48 89 44 24 40 4A 8B 0C 19 E8 ?? ?? ?? ?? 48 8B F8 4D 85 C9", "offset": 25 },
+    { "id": "FGP", "group": "FGP", "rva": "0x39A865", "len": 5, "orig": "E8 6A 8F 20 00", "kind": "call", "target": "caveFgp", "call_at": 0, "callee": "0x5A37D4",
+      "pattern": "66 89 BB E0 20 00 00 E8 ?? ?? ?? ?? 84 C0 75 0C E8 ?? ?? ?? ?? 41 8A F7 84 C0 74 03 40 8A F7", "offset": 7 },
     { "id": "P12", "group": "P12", "rva": "0x1FE30D5", "len": 4, "orig": "41 83 FB 0C", "kind": "bytes", "new": "41 83 FB 00",
       "pattern": "41 83 FB 0C 7F 2B 41 0F B7 C1 B9 FD FF 00 00", "offset": 0 },
     { "id": "WK", "group": "WK", "rva": "0x40A4C", "len": 7, "orig": "49 8B 8F 40 04 00 00", "kind": "call", "target": "caveWakeGate", "call_at": 0,
@@ -538,6 +544,10 @@
     { "group": "JT", "rva": "0x1753B0", "len": 128, "fnv1a": "0x96325ADE", "what": "JT: ObjRangeJobSplitInvoke head (range [+48h,+4Ch), grain +50h)" },
     { "group": "W1B", "rva": "0x61B1C", "len": 144, "fnv1a": "0x2F4E6747", "what": "W1B: 61B1C head up to the site (r14 = glyph header, r15d = pad != 0 at the site via the je at 61B99, rbx = row)" },
     { "group": "W1B", "rva": "0x61BC2", "len": 213, "fnv1a": "0xE3E8707F", "what": "W1B: 61BC2..61C96 after the site (eax / ecx / edi / flags dead at 61BC2: edi reloaded at 61BD9 before use)" },
-    { "group": "RPA", "rva": "0x2477D4", "len": 29974, "fnv1a": "0xFAC0A5A1", "what": "RPA: 2477D4 / 2478A0 / 2478F4 helpers + RenderParamsAssign 247950..24ECE9, the code the 21 copy ranges were derived from (tests/w1b_rpa_harness.cpp --derive)" }
+    { "group": "RPA", "rva": "0x2477D4", "len": 29974, "fnv1a": "0xFAC0A5A1", "what": "RPA: 2477D4 / 2478A0 / 2478F4 helpers + RenderParamsAssign 247950..24ECE9, the code the 21 copy ranges were derived from (tests/w1b_rpa_harness.cpp --derive)" },
+    { "group": "FGC", "rva": "0x4548C4", "bytes": "4C 8B 81 90 00 00 00 33 C0 4D 85 C0 74 0D 48 63 C2 48 69 C0 68 02 00 00 49 03 C0 C3", "what": "FGC: KtglTextureNative(tex, sub) 4548C4 reads [tex+90h] unchecked (the 0xC0000005 read of 0x90 in vkd3d-proton #2845); returns 0 when [tex+90h] is 0, so the cave's 0 for tex = 0 is the same answer" },
+    { "group": "FGC", "rva": "0x3718DFC", "bytes": "48 8B F8 4D 85 C9 74 48 48 85 C0 74 43", "what": "FGC: FfxKtglExecuteCopyJob 3718DB4 already skips the copy when either result is 0 (r9 = src, rax = dst)" },
+    { "group": "FGP", "rva": "0x39A86A", "bytes": "84 C0 75 0C E8 4D BB D3 FF 41 8A F7 84 C0 74 03", "what": "FGP: al != 0 from the menu-open getter 5A37D4 -> sil = 1 -> FG pause path (the other getter D63C0 is skipped)" },
+    { "group": "FGP", "rva": "0x39A939", "bytes": "44 8A FF 40 8A C7 8B 35 B3 06 22 04 88 83 55 20 00 00", "what": "FGP: pause path stores 1 into RenderConfig S+2055h (FSR FG paused: real frames only, no swapchain rebuild)" }
   ]
 }
