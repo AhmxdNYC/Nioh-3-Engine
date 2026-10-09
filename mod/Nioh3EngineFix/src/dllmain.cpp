@@ -1731,9 +1731,10 @@ DWORD WINAPI Worker(LPVOID) {
     });
     exDone[menu::kExpAABB] = expGroup("AABB", cfg.aabb != 0, [&]() {
         aabb_resume = (uint64_t)(uintptr_t)(findItem("AABB")->addr + 5);  // 6EA55 push rbp
-        aabb_enable = 1;
+        aabb_enable = cfg.aabb == 1 ? 1u : 0u;  // 2 = installed with the switch off (live A/B from the menu / vpad)
         return true;
     });
+    if (exDone[menu::kExpAABB]) Log("AABB: SSE character AABB cave installed, switch %s", aabb_enable ? "ON" : "off");
     exDone[menu::kExpM1] = expGroup("M1", cfg.m1 != 0, [&]() {
         uint8_t* a = findItem("M1")->addr;
         m1_stock = (uint64_t)(uintptr_t)(a + 7);              // 49138

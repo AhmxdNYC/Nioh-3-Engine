@@ -1210,7 +1210,7 @@ void StartSave() {
         // ED / WG / DS / CP / SPF installed with the switch off stay installed (2) so the live A/B keeps working next
         // launch (TG needs no install: its 0 already keeps the live switch)
         if ((e == kExpED || e == kExpWG || e == kExpDS || e == kExpCP || e == kExpSPF || e == kExpMQ || e == kExpPT1 || e == kExpDL ||
-             e == kExpDQ || e == kExpP1E7 || e == kExpBPO) && g_host.exp[e].enable &&
+             e == kExpDQ || e == kExpP1E7 || e == kExpBPO || e == kExpAABB) && g_host.exp[e].enable &&
             !*g_host.exp[e].enable && v == 0)
             v = 2;
         add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto
