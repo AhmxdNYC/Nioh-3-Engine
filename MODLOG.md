@@ -711,15 +711,6 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
   refusals, catalogue), run_vpad / padlat / tour harnesses ALL PASSED, build OK. Not run in game.
 - Undo: `[Rematch] Enable = 0` (default), or the 1.7.39 .asi.
 
-## 2026-10-08 - ASI 1.7.40 integration (branch `integ`): bounds + rematch + osauto in one build (nothing in the game folder changed)
-- One version 1.7.40 for all three: BPO BoundsFromPartObbs caves (`bounds`, default 0), boss rematch Phase 1 MVP (`rematch`,
-  `[Rematch] Enable = 0`), `-1 = auto by OS` for W6 / GF / MQ / W3_TimeoutMs / MaxFrameLatency (`osauto`, base ini -1).
-- Conflicts: MODLOG (both entries kept), dllmain.cpp version comment block (both 1.7.40 lines kept). menu.cpp (kXBPO / kRematch / auto),
-  patches.json (BPO + RM30-36), ini, build files merged clean; patches_gen.h regenerated = checked-in.
-- tools\testmatrix\menu_map.py: Visible() parser maps `rematch::Installed()` to `[Rematch] Enable` on a known build (selftest crashed on it).
-- Tests: test_patterns ALL 278 SITES OK, run_rematch / vpad / padlat / tour / drawprep harnesses ALL PASSED, menu_map selftest OK,
-  build OK (idle priority). Not run in game.
-- Undo: the 1.7.39 .asi.
 ## 2026-10-08 - ASI 1.7.40 (branch diag, merged in integ as 1.7.40): GQ graphics-queue gap census + JT job-timing probe (diagnostics, default off; nothing in the game folder changed)
 - ADD `[Profiler] GQ = 0` / `GQ_Top = 5` (gpuprof.cpp, needs GPUProf = 2, Windows + Proton): per DIRECT list Reset in a sampled frame a
   head timestamp before its first GPU command (ResourceBarrier via gpuopt, BeginEvent, GP2 slots, ExecuteBundle / Discard /
@@ -735,3 +726,17 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Tests: test_patterns ALL 266 SITES OK, run_gp_harness modes 1-4 (new GQ mode) ALL PASSED, run_jt_harness (new) ALL PASSED, r2 / padlat /
   tour / vpad / wg harnesses ALL PASSED, digest selftest OK, build OK. Not run in game.
 - Undo: GQ = 0 and JT = 0 (defaults), or the 1.7.39 .asi.
+
+## 2026-10-08 - ASI 1.7.40 integration (branch `integ`): bounds + rematch + osauto + diag + AABB fix in one build (nothing in the game folder changed)
+- One version 1.7.40 for all: BPO BoundsFromPartObbs caves (`bounds`, default 0), boss rematch Phase 1 MVP (`rematch`,
+  `[Rematch] Enable = 0`), `-1 = auto by OS` for W6 / GF / MQ / W3_TimeoutMs / MaxFrameLatency (`osauto`, base ini -1),
+  GQ gap census + JT job probe (`diag`, built as 1.7.41, renumbered 1.7.40; GQ = 0, JT = 0).
+- Conflicts resolved: MODLOG (all entries kept), dllmain.cpp (version comments; cave Target switch BPO + JT; kLastTarget = caveJtWakeAll),
+  gen_header.py cave list (BPO then JT), patches.json (BPO + JT sites and deps), CMakeLists / build.bat (rematch + jt.cpp/jt.asm),
+  test_patterns.py (Rematch + JT blocks); patches_gen.h regenerated. menu.cpp (kXBPO / kRematch / auto) merged clean.
+- AABB fix (notesun7-analysis.md s2): `AABB = 2` now installs the cave switched OFF (1.7.39 switched it on for any nonzero); boot log
+  line `AABB: ... switch ON/off`; menu Save keeps 2; matrix.json AABB `live_installed_value` 2; ini comment.
+- tools	estmatrix\menu_map.py: Visible() parser maps `rematch::Installed()` to `[Rematch] Enable` on a known build. main 472795b merged.
+- Tests: test_patterns ALL 283 SITES OK, run_rematch / vpad / padlat / tour / drawprep / jt / gp harnesses ALL PASSED, menu_map selftest OK,
+  bounds_offline.fsx OFFLINE CHECKS ALL PASSED, build OK (idle priority). Not run in game.
+- Undo: the 1.7.39 .asi.

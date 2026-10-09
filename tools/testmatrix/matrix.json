@@ -763,6 +763,7 @@
    ],
    "risk": "low",
    "expected": "game-update thread",
+   "live_installed_value": "2",
    "grp": 2
   },
   {
