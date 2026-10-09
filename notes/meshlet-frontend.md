@@ -140,6 +140,9 @@ barriers: ~0 gain. Not built.
 ## 4. Second resolve (§3.1 step 4)
 Decided by the CPU half's duplicate-resolve test (`MLPC: ... identical inputs on the same MeshletSys N`). Nothing built until the
 probe shows identical inputs on the same buffers.
+**Result (pc2 #692, 2026-10-09): not redundant** - 9046AA = main view, 8DA16D = VSM clipmap resolve (param_11 = 1 -> other
+permutation MshLod#7, extra param_10 output, per-clipmap thresholds); the probe's test ignored those inputs (fixed). Ceiling
+~0.1 ms/frame on pc2 anyway. See meshlet-redundant-lod.md.
 
 ## 5. Files
 | file | what |
