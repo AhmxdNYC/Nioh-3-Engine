@@ -82,7 +82,9 @@
 //         update-rate knobs LPVR / SKYR / FOGT / CLDR (render-config overrides); notes\same-look-package.md
 // 1.7.50: VS probe: D3D12CreateDevice IAT hook from the decrypt wait (boot heaps counted) + bind census: root CBV/SRV/UAV,
 //         VB/IB binds into system-memory heaps per engine marker (needs GPUProf = 2); notesoot-cause-vram-streaming.md
-#define MOD_VERSION "1.7.50"
+// 1.7.51: VS probe: per-PSO bind attribution (sampled GP2 frames, digests) + CBV/SRV/UAV descriptor census on system memory
+// 1.7.52: CM CbvMirror ([GpuOpt] CbvMirror = 0): per-draw CBVs mirrored from the system-memory UPLOAD ring into VRAM (upmirror.cpp)
+#define MOD_VERSION "1.7.52"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

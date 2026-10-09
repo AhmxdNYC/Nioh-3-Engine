@@ -13,9 +13,13 @@
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
+#include <intrin.h>
+#pragma intrinsic(_ReturnAddress)
 
 #include "memstats.h"
 #include "gpuprof.h"
+#include "psoswap.h"
+#include "upmirror.h"
 
 namespace memstats {
 namespace {
@@ -244,7 +248,8 @@ volatile LONG64 c_comN = 0, c_comLocal = 0, c_comSys = 0;      // bytes
 volatile LONG64 c_resvN = 0, c_plN = 0, c_plSysN = 0, c_plSys = 0;  // placed resources (bytes = resource size, inside heaps)
 volatile LONG64 c_forced = 0;                                       // VSForceSysUpload conversions
 bool g_hooked = false, g_hookTried = false;
-int g_forceSys = 0;  // [Profiler] VSForceSysUpload (PC A/B only): UPLOAD heaps -> CUSTOM write-combine L0 (= system memory)
+int g_forceSys = 0;
+bool g_uma = false;   // D3D12_FEATURE_ARCHITECTURE.UMA of the game's device (CM auto: never on UMA)  // [Profiler] VSForceSysUpload (PC A/B only): UPLOAD heaps -> CUSTOM write-combine L0 (= system memory)
 
 // per-caller system-memory allocation table (heaps, committed, placed-into-sys-heap): who owns the non-local bytes.
 // Key = return addresses of the hooked call and of its caller (RVAs in Nioh3.exe, 0xFFFFFFFF = outside the exe).
@@ -257,7 +262,7 @@ uint32_t ToRva(void* a) {
     const uintptr_t x = reinterpret_cast<uintptr_t>(a);
     return (g_base && x >= g_base && x < g_base + 0x5000000) ? (uint32_t)(x - g_base) : 0xFFFFFFFFu;
 }
-__declspec(noinline) void NoteSys(char kind, UINT64 bytes) {
+__declspec(noinline) void NoteSys(char kind, UINT64 bytes, int weight = 1) {
     void* fr[10] = {};
     const USHORT n = RtlCaptureStackBackTrace(1, 10, fr, nullptr);  // our own frames are outside the exe and skipped below
     uint32_t ra[3] = {0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu};
@@ -273,8 +278,8 @@ __declspec(noinline) void NoteSys(char kind, UINT64 bytes) {
         if (g_rows[i].ra0 == r0 && g_rows[i].ra1 == r1 && g_rows[i].ra2 == r2 && g_rows[i].kind == kind) break;
     if (i == g_nRows && g_nRows < kRows) g_rows[g_nRows++] = CallerRow{r0, r1, r2, kind, 0, 0, 0};
     if (i < kRows) {
-        ++g_rows[i].n;
-        g_rows[i].bytes += (LONG64)bytes;
+        g_rows[i].n += weight;
+        g_rows[i].bytes += (LONG64)bytes * weight;
         if ((LONG64)bytes > g_rows[i].maxOne) g_rows[i].maxOne = (LONG64)bytes;
     }
     ReleaseSRWLockExclusive(&g_rowLock);
@@ -320,6 +325,23 @@ constexpr int kMk = 2049;   // 2048 names + "no marker"
 volatile LONG64 g_bind[kMk][3];
 volatile LONG64 g_bindKind[8][2];   // per bind slot 37..44: all / sys
 bool g_bindsOn = false;
+// 1.7.51: per bound PSO set (sampled GP2 frames): [0] VB binds, [1] sys VB, [2] IB, [3] sys IB, [4] gCBV, [5] sys gCBV
+struct PsoRow { volatile LONG id; volatile LONG64 c[6]; };
+constexpr int kPso = 4096;
+PsoRow g_pso[kPso];
+volatile LONG64 g_vbSize[4];   // sys VB views by SizeInBytes: <= 64 KB, <= 1 MB, <= 16 MB, larger
+PsoRow* PsoSlot(uint32_t id) {
+    if (!id) return nullptr;
+    uint32_t h = (id * 2654435761u) & (kPso - 1);
+    for (int i = 0; i < 64; ++i, h = (h + 1) & (kPso - 1)) {
+        const LONG cur = g_pso[h].id;
+        if (cur == (LONG)id) return &g_pso[h];
+        if (cur == 0 && InterlockedCompareExchange(&g_pso[h].id, (LONG)id, 0) == 0) return &g_pso[h];
+        if (g_pso[h].id == (LONG)id) return &g_pso[h];
+    }
+    return nullptr;
+}
+
 
 using ResidencyFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, UINT, ID3D12Pageable* const*);
 using CreateHeapFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_HEAP_DESC*, REFIID, void**);
@@ -378,6 +400,7 @@ HRESULT STDMETHODCALLTYPE HkCreateHeap(ID3D12Device* d, const D3D12_HEAP_DESC* h
         const bool sys = SysPool(h->Properties);
         InterlockedAdd64(sys ? &c_heapSys : &c_heapLocal, (LONG64)h->SizeInBytes);
         if (sys) NoteSys(h->Properties.Type == D3D12_HEAP_TYPE_READBACK ? 'h' : 'H', h->SizeInBytes);
+        upmirror::OnHeap(d, static_cast<ID3D12Heap*>(*out), *h);
     }
     return hr;
 }
@@ -433,6 +456,58 @@ HRESULT STDMETHODCALLTYPE HkCreateReserved(ID3D12Device* d, const D3D12_RESOURCE
     if (SUCCEEDED(hr)) InterlockedIncrement64(&c_resvN);
     return hr;
 }
+// 1.7.51 descriptor census: CBV / SRV / UAV descriptors created on system-memory buffers (descriptor tables: the path root
+// binds do not cover, e.g. compute kernels), by caller (callers table kinds V / S / U)
+using CreateCbvFn = void(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_CONSTANT_BUFFER_VIEW_DESC*, D3D12_CPU_DESCRIPTOR_HANDLE);
+using CreateSrvFn = void(STDMETHODCALLTYPE*)(ID3D12Device*, ID3D12Resource*, const D3D12_SHADER_RESOURCE_VIEW_DESC*, D3D12_CPU_DESCRIPTOR_HANDLE);
+using CreateUavFn = void(STDMETHODCALLTYPE*)(ID3D12Device*, ID3D12Resource*, ID3D12Resource*, const D3D12_UNORDERED_ACCESS_VIEW_DESC*,
+                                             D3D12_CPU_DESCRIPTOR_HANDLE);
+CreateCbvFn o_cbv = nullptr;
+CreateSrvFn o_srv = nullptr;
+CreateUavFn o_uav = nullptr;
+volatile LONG64 c_desc[3][2];   // CBV / SRV / UAV: all, on system memory
+bool InSys(uint64_t va);
+uint64_t BufVa(ID3D12Resource* r) {
+    if (!r) return 0;
+    __try {
+        return r->GetGPUVirtualAddress();   // 0 for textures
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+void STDMETHODCALLTYPE HkCbv(ID3D12Device* d, const D3D12_CONSTANT_BUFFER_VIEW_DESC* desc, D3D12_CPU_DESCRIPTOR_HANDLE h) {
+    D3D12_CONSTANT_BUFFER_VIEW_DESC alt;   // 1.7.51 CM: per-draw constants -> the VRAM mirror ring (upmirror.cpp)
+    const bool redir = upmirror::RedirectCbv(d, desc, &alt, _ReturnAddress());
+    o_cbv(d, redir ? &alt : desc, h);
+    if (g_level < 2) return;
+    InterlockedIncrement64(&c_desc[0][0]);
+    if (desc && InSys(desc->BufferLocation)) {
+        // ~400k CBVs/s: the caller census samples 1 in 64 (a stack walk each)
+        if ((InterlockedIncrement64(&c_desc[0][1]) & 63) == 0) NoteSys(redir ? 'M' : 'V', desc->SizeInBytes, 64);
+    }
+}
+void STDMETHODCALLTYPE HkSrv(ID3D12Device* d, ID3D12Resource* r, const D3D12_SHADER_RESOURCE_VIEW_DESC* desc, D3D12_CPU_DESCRIPTOR_HANDLE h) {
+    o_srv(d, r, desc, h);
+    InterlockedIncrement64(&c_desc[1][0]);
+    const uint64_t va = BufVa(r);
+    if (va && InSys(va)) {
+        InterlockedIncrement64(&c_desc[1][1]);
+        uint64_t bytes = 0;
+        if (desc && desc->ViewDimension == D3D12_SRV_DIMENSION_BUFFER)
+            bytes = desc->Buffer.NumElements * (UINT64)(desc->Buffer.StructureByteStride ? desc->Buffer.StructureByteStride : 4);
+        NoteSys('S', bytes);
+    }
+}
+void STDMETHODCALLTYPE HkUav(ID3D12Device* d, ID3D12Resource* r, ID3D12Resource* c, const D3D12_UNORDERED_ACCESS_VIEW_DESC* desc,
+                             D3D12_CPU_DESCRIPTOR_HANDLE h) {
+    o_uav(d, r, c, desc, h);
+    InterlockedIncrement64(&c_desc[2][0]);
+    const uint64_t va = BufVa(r);
+    if (va && InSys(va)) {
+        InterlockedIncrement64(&c_desc[2][1]);
+        NoteSys('U', desc && desc->ViewDimension == D3D12_UAV_DIMENSION_BUFFER ? desc->Buffer.NumElements * 4ull : 0);
+    }
+}
 bool Patch(void** slot, void* hook, void** orig) {
     DWORD old = 0, t = 0;
     if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) return false;
@@ -471,12 +546,14 @@ void InstallHooks(void* fromCreate = nullptr) {
                     Patch(&vt[28], (void*)&HkCreateHeap, (void**)&o_heap) &&
                     Patch(&vt[29], (void*)&HkCreatePlaced, (void**)&o_pl) &&
                     Patch(&vt[30], (void*)&HkCreateReserved, (void**)&o_resv) &&
-                    Patch(&vt[34], (void*)&HkMakeResident, (void**)&o_mr) && Patch(&vt[35], (void*)&HkEvict, (void**)&o_ev);
+                    Patch(&vt[34], (void*)&HkMakeResident, (void**)&o_mr) && Patch(&vt[35], (void*)&HkEvict, (void**)&o_ev) &&
+                    Patch(&vt[17], (void*)&HkCbv, (void**)&o_cbv) && Patch(&vt[18], (void*)&HkSrv, (void**)&o_srv) &&
+                    Patch(&vt[19], (void*)&HkUav, (void**)&o_uav);
     g_hooked = ok;
     ReleaseSRWLockExclusive(&g_installLock);
     double lu = -1, lb = 0;
     if (!QueryVram(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &lu, &lb)) lu = -1;
-    MLOG("VS: D3D12 device %p vtable %p: residency/allocation counters %s via %s (slots 27/28/29/30/34/35; VRAM local at "
+    MLOG("VS: D3D12 device %p vtable %p: residency/allocation counters %s via %s (slots 17-19/27/28/29/30/34/35; VRAM local at "
          "install %.0f MB)%s", dev, (void*)vt, ok ? "installed" : "FAILED", g_installedBy, lu,
          g_forceSys ? "; VSForceSysUpload = 1: UPLOAD heaps -> CUSTOM write-combine L0 (system memory) - A/B ONLY" : "");
     // Resizable BAR / SAM hint: D3D12_OPTIONS16 (feature 43) GPUUploadHeapSupported = CPU-visible VRAM for the whole heap.
@@ -485,6 +562,7 @@ void InstallHooks(void* fromCreate = nullptr) {
     const HRESULT hr16 = static_cast<ID3D12Device*>(dev)->CheckFeatureSupport((D3D12_FEATURE)43, &o16, sizeof(o16));
     D3D12_FEATURE_DATA_ARCHITECTURE arch{};
     const HRESULT hra = static_cast<ID3D12Device*>(dev)->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE, &arch, sizeof(arch));
+    g_uma = SUCCEEDED(hra) && arch.UMA;
     MLOG("VS: GPUUploadHeapSupported (ReBAR/SAM) %s, UMA %s, CacheCoherentUMA %s",
          SUCCEEDED(hr16) ? (o16.gpuUploadHeap ? "YES" : "no") : "n/a", SUCCEEDED(hra) ? (arch.UMA ? "yes" : "no") : "n/a",
          SUCCEEDED(hra) ? (arch.CacheCoherentUMA ? "yes" : "no") : "n/a");
@@ -600,12 +678,38 @@ void LogBinds() {
         o += (size_t)snprintf(kinds + o, sizeof kinds - o, " %s %lld/%lld", kK[k], b, a);
     }
     char line[2400];
-    o = (size_t)snprintf(line, sizeof line, "stats vs binds (30 s; into system memory / all):%s | %d heap ranges | by marker (sys/all binds, sys VB+IB MB):",
-                         kinds, (int)g_nHeapR);
+    o = (size_t)snprintf(line, sizeof line, "stats vs binds (30 s; into system memory / all):%s | descriptors created on system memory (since start) CBV %lld/%lld SRV %lld/%lld UAV %lld/%lld | %d heap ranges | by marker (sys/all binds, sys VB+IB MB):",
+                         kinds, (long long)c_desc[0][1], (long long)c_desc[0][0], (long long)c_desc[1][1], (long long)c_desc[1][0],
+                         (long long)c_desc[2][1], (long long)c_desc[2][0], (int)g_nHeapR);
     for (int i = 0; i < n && i < 30 && o < sizeof line - 120; ++i)
         o += (size_t)snprintf(line + o, sizeof line - o, " %s %lld/%lld %.2f;", rows[i].id == kMk - 1 ? "-" : gp::MarkerName((uint16_t)rows[i].id),
                               rows[i].sys, rows[i].all, rows[i].bytes / kMB);
     MLOG("%s", line);
+    // 1.7.51: per PSO (sampled frames), cumulative since start: sys/all VB, IB, gCBV binds; the digests join the GP2 rows
+    struct PR { uint32_t id; LONG64 c[6]; LONG64 key; };
+    static PR top[24];
+    int nt = 0;
+    for (int i = 0; i < kPso; ++i) {
+        const uint32_t id = (uint32_t)g_pso[i].id;
+        if (!id) continue;
+        PR r{id, {g_pso[i].c[0], g_pso[i].c[1], g_pso[i].c[2], g_pso[i].c[3], g_pso[i].c[4], g_pso[i].c[5]}, 0};
+        r.key = r.c[1] + r.c[3] + r.c[5];
+        if (!r.key) continue;
+        if (nt == 24 && r.key <= top[23].key) continue;
+        int pos = nt < 24 ? nt++ : 23;
+        top[pos] = r;
+        for (int j = pos; j > 0 && top[j].key > top[j - 1].key; --j) { PR t = top[j]; top[j] = top[j - 1]; top[j - 1] = t; }
+    }
+    char pl[3600];
+    size_t po = (size_t)snprintf(pl, sizeof pl, "stats vs pso (sampled frames, since start; sys/all VB | IB | gCBV binds; sys VB view size <=64K/<=1M/<=16M/>16M %lld/%lld/%lld/%lld):",
+                                 (long long)g_vbSize[0], (long long)g_vbSize[1], (long long)g_vbSize[2], (long long)g_vbSize[3]);
+    for (int i = 0; i < nt && po < sizeof pl - 200; ++i) {
+        char d[200] = "?";
+        if ((top[i].id & 0x80000000u) || psoswap::DescribeSet(top[i].id, d, sizeof d) <= 0) snprintf(d, sizeof d, "set %08X", top[i].id);
+        po += (size_t)snprintf(pl + po, sizeof pl - po, " [%s] %lld/%lld | %lld/%lld | %lld/%lld;", d, top[i].c[1], top[i].c[0],
+                               top[i].c[3], top[i].c[2], top[i].c[5], top[i].c[4]);
+    }
+    MLOG("%s", pl);
 }
 }  // namespace vs
 
@@ -619,8 +723,8 @@ bool Start(const StartInfo& info) {
     g_level = info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"MemStats", 0, info.iniPath) : 0;
     g_on = g_level != 0;
     QueryPerformanceFrequency(&g_qpf);
-    if (g_level >= 2) {
-        vs::g_forceSys = info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, info.iniPath) : 0;
+    if (g_level >= 2 || upmirror::Wanted()) {   // 1.7.51: CbvMirror needs the device hooks too
+        vs::g_forceSys = g_level < 2 ? 0 : info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, info.iniPath) : 0;
         void* dev0 = nullptr;
         const bool devAlready = g_known && g_base && ReadEnginePtr(g_base, &dev0);
         (void)devAlready;  // the boot thread (BootIat) owns the IAT hook and logs its outcome
@@ -704,7 +808,7 @@ void LogLine() {
 }
 
 bool BindsWanted() { return g_level >= 2; }
-void OnBind(int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uint16_t marker) {
+void OnBind(int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uint16_t marker, uint32_t psoSet) {
     vs::g_bindsOn = true;
     const int m = marker < vs::kMk - 1 ? marker : vs::kMk - 1;
     const int k = slot - 37;
@@ -725,6 +829,15 @@ void OnBind(int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uint16_t marker)
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return;
     }
+    if (vs::PsoRow* r = (slot == 38 || slot >= 43) ? vs::PsoSlot(psoSet) : nullptr) {
+        const int b = slot == 44 ? 0 : slot == 43 ? 2 : 4;
+        InterlockedIncrement64(&r->c[b]);
+        if (sys) InterlockedIncrement64(&r->c[b + 1]);
+    }
+    if (sys && slot == 44) {
+        const int bucket = bytes <= 65536 ? 0 : bytes <= (1u << 20) ? 1 : bytes <= (16u << 20) ? 2 : 3;
+        InterlockedIncrement64(&vs::g_vbSize[bucket]);
+    }
     InterlockedIncrement64(&vs::g_bind[m][0]);
     InterlockedIncrement64(&vs::g_bindKind[k][0]);
     if (sys) {
@@ -741,8 +854,13 @@ bool BootIat(uintptr_t base, const wchar_t* iniPath, void (*log)(const char*, ..
     static int lvl = -1;
     if (lvl >= 0) return true;
     lvl = iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"MemStats", 0, iniPath) : 0;
-    if (lvl < 2) return true;
-    vs::g_forceSys = (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, iniPath);
+    upmirror::StartInfo ui;   // 1.7.51 CM ([GpuOpt] CbvMirror): reads its keys here, before the device exists
+    ui.log = log;
+    ui.iniPath = iniPath;
+    ui.base = base;
+    upmirror::Start(ui);
+    if (lvl < 2 && !upmirror::Wanted()) return true;
+    vs::g_forceSys = lvl < 2 ? 0 : (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, iniPath);
     g_log = log;
     g_base = base;
     g_known = true;
@@ -755,6 +873,14 @@ bool BootIat(uintptr_t base, const wchar_t* iniPath, void (*log)(const char*, ..
 
 // 1.7.48 VS probe: one 'stats vs:' line per second when MemStats = 2 (stats thread, every second).
 void Tick1s() {
+    if (upmirror::Wanted()) {   // 1.7.51 CM auto decision: are the UPLOAD heaps in system memory on this PC?
+        if (!vs::g_hookTried) vs::InstallHooks();
+        EnsureAdapter();
+        double u = -1, b = 0;
+        if (QueryVram(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &u, &b) && u >= 0) upmirror::SetAuto(u, vs::g_uma);
+        static int t30 = 0;
+        if (++t30 % 30 == 0) upmirror::LogLine();
+    }
     if (g_level < 2) return;
     if (!vs::g_hookTried) vs::InstallHooks();
     EnsureAdapter();

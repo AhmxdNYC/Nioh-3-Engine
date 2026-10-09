@@ -81,7 +81,9 @@ $modLog = Join-Path $GameDir "Nioh3EngineFix.log"; $binAsi = Join-Path $ws "mod\
 $ShaderDir = Join-Path $GameDir "shader_dx12"; $ReplDir = Join-Path $ws "gpu-shaders\replacement"; $RealReplDir = $ReplDir
 $AsiItems = @{ AS0 = "Patches.AS0=1"; GIM = "Patches.GIMerge=1;Debug.GIProbe=1"; mpcs = "Patches.MPCS=1";
                # notes\gpu-scheduling-sync.md: VCLOUD (slot 3) / VFSCAT fog (slot 4) on the graphics queue (engine sync path) vs stock async
-               vcsync = "Patches.AS=1;Tuning.AS_Slots=-3"; fogsync = "Patches.AS=1;Tuning.AS_Slots=-4" }
+               vcsync = "Patches.AS=1;Tuning.AS_Slots=-3"; fogsync = "Patches.AS=1;Tuning.AS_Slots=-4";
+               # notes\root-cause-vram-streaming.md: per-draw CBVs mirrored into VRAM (ASI >= 1.7.52): cm = auto (on without ReBAR), cmforce = always
+               cm = "GpuOpt.CbvMirror=1"; cmforce = "GpuOpt.CbvMirror=2" }
 $ComboShader = @{ mpcs = "mpc" }   # ASI items that need a shader item installed in their arm (MPCS refuses without the mpc file)
 $script:restored = $false; $script:lockHeld = $false; $script:modInstalled = $false; $script:cfgInstalled = $false; $script:savesBacked = $false
 $script:Init = @{}; $script:pm = $null; $script:summary = [ordered]@{}

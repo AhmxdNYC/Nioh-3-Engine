@@ -840,3 +840,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Tests: tests/test_patterns.py ALL 237 SITES OK; tests/run_mpcs_harness.py ALL OK (+ mutation checks); tests/run_gp_harness.py modes 1-5 ALL PASSED (mode 5 = MLP + MpcCheck on the RX 9070; also fixes the harness link for skipfx); verify_culling.py quick 94 scenes PASS.
 - Harness: pc_gpu_session.ps1 Phase M (+ items mpcs / mpc), pc2 copy regenerated; re/scripts_gpu/mlp_report.py.
 - Undo: all keys 0 (default).
+
+## 2026-10-09 14:40 - ASI 1.7.48-1.7.52: VS probe + CM CbvMirror (all default off; built, CM not run in game yet)
+- 1.7.48-1.7.51 VS probe ([Profiler] MemStats = 2): 1 s VRAM / texture page pool / D3D12 residency line, system-memory allocation census by caller, bind census (root CBV/SRV/UAV, VB/IB per marker and per PSO), CBV/SRV/UAV descriptor census; D3D12CreateDevice IAT hook from the decrypt wait. [Profiler] VSForceSysUpload (PC A/B). notes\root-cause-vram-streaming.md.
+- 1.7.52 CM ([GpuOpt] CbvMirror = 0/1 auto/2 force, CbvMirrorMB = 128, CbvMirrorAllSites = 0): per-draw CBVs (recorder 118F89) redirected to a VRAM mirror ring, one UPLOAD -> mirror copy list before each game ExecuteCommandLists (osd hook). Auto only when the UPLOAD heaps are non-local (no ReBAR), never on UMA / Wine.
+- Undo: CbvMirror = 0 / MemStats = 0 (next launch), or the previous .asi.

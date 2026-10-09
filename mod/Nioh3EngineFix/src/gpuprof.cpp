@@ -1050,8 +1050,15 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
             }
             else if (g_cfg.gq && g_inited == 1 && IsIn(kGqHeadSlots, sizeof kGqHeadSlots / sizeof(int), slot))
                 GqHead(list, set, -1);
-            else if (slot >= 37 && slot <= 44)   // 1.7.48 VS: root CBV/SRV/UAV (37-42), IASetIndexBuffer (43), IASetVertexBuffers (44)
-                memstats::OnBind(slot, a1, a2, a3, CurMarker());
+            else if (slot >= 37 && slot <= 44) {   // 1.7.48 VS: root CBV/SRV/UAV (37-42), IASetIndexBuffer (43), IASetVertexBuffers (44)
+                uint32_t pso = 0;   // 1.7.51: the bound PSO set, known in sampled frames only (SetPipelineState is hooked then)
+                if (g_stampOn && g_cfg.prof >= 2 && g_inited == 1) {
+                    AcquireSRWLockExclusive(&g_lsLock);
+                    if (ListState* ls = FindList(list, set, false)) pso = ls->ok ? ls->bound : 0;
+                    ReleaseSRWLockExclusive(&g_lsLock);
+                }
+                memstats::OnBind(slot, a1, a2, a3, CurMarker(), pso);
+            }
             break;
     }
 }
