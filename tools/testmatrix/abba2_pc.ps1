@@ -171,8 +171,11 @@ function Start-Play {
 }
 function Game-Alive {
     $p = if ($script:gamePid) { Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue } else { $null }
-    if (-not $p -or $p.HasExited -or -not $p.Responding) { return $false }
-    return (((Get-Date) - (Get-Item $logf).LastWriteTime).TotalSeconds -lt 45)
+    if (-not $p -or $p.HasExited) { T "Game-Alive: process gone (pid $script:gamePid)"; return $false }
+    if (-not $p.Responding) { T "Game-Alive: process not responding (pid $script:gamePid)"; return $false }
+    $age = ((Get-Date) - (Get-Item $logf).LastWriteTime).TotalSeconds
+    if ($age -ge 45) { T "Game-Alive: log stale for $([int]$age) s ($logf)"; return $false }
+    return $true
 }
 function Log-Len { (Get-Item $logf).Length }
 function Log-From([long]$off) { $fs = [IO.File]::Open($logf, "Open", "Read", "ReadWrite"); try { $null = $fs.Seek($off, "Begin"); (New-Object IO.StreamReader($fs)).ReadToEnd() } finally { $fs.Dispose() } }
@@ -193,6 +196,7 @@ function Boot-Info {   # version + DQ/P1E7 install lines from the first part of 
 }
 function Manifest([hashtable]$h) { Add-Content "$out\manifest.jsonl" ($h | ConvertTo-Json -Compress) }
 function Window([string]$name, [hashtable]$meta) {   # a window with user input or without Nioh3 in front is discarded + repeated
+    $pmRedo = 0
     $nz = 0   # noisy redos (quiet-machine guard), counted apart from the focus/input discards
     for ($rep = 0; $rep -lt 4; ) {
         if (-not (Game-Alive)) { throw "HARNESS-ABORT: game dead/hung before $name" }
@@ -202,7 +206,7 @@ function Window([string]$name, [hashtable]$meta) {   # a window with user input 
         if ($QuietGuard) { Set-TestStatus "waiting for a quiet machine ($name)"; $qw = Wait-Quiet $name { param($l) T $l } }
         Set-MeasureLock "measuring window $name"
         $csv = "$out\$name.csv"; $off = Log-Len; $w0 = Get-Date; Set-TestStatus "measuring window $name"
-        $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
+        $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --session_name Nioh3Abba2 --stop_existing_session --no_console_stats"   # own session name: a foreign PresentMon --stop_existing_session on the default name cannot kill it (run8b: 6 of 15 csvs missing/truncated)
         Register-Child $pm "PresentMon"
         $smp = @(); $end = $w0.AddSeconds($WindowSec + 1)
         if ($QuietGuard) {   # ~2 s foreign-CPU samples for the whole window (our tree + PresentMon + Nioh3 excluded)
@@ -210,6 +214,12 @@ function Window([string]$name, [hashtable]$meta) {   # a window with user input 
             while (($left = ($end - (Get-Date)).TotalSeconds) -gt 0.3) { $smp += Measure-Foreign ([Math]::Min(2.0, $left)) $ex }
         } else { Start-Sleep ($WindowSec + 1) }
         $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
+        $csvLines = if (Test-Path $csv) { @(Get-Content $csv -TotalCount 40).Count } else { 0 }
+        if ($csvLines -lt 40 -and $pmRedo -lt 2) {   # PresentMon wrote nothing / was cut off (run8b): repeat the window instead of recording NO DATA
+            $pmRedo++; T "!! window ${name}: PresentMon csv missing/truncated ($csvLines lines) - redo $pmRedo/2"
+            if (Test-Path $csv) { Move-Item $csv "$out\${name}_pmfail$pmRedo.csv" -Force -ErrorAction SilentlyContinue }
+            continue
+        }
         $fgEnd = Fg-Name; $idle = Idle-Sec; $span = ((Get-Date) - $w0).TotalSeconds
         $bad = @($smp | Where-Object { $_.noisy }); $fmax = 0.0; foreach ($x in $smp) { if ($x.cores -gt $fmax) { $fmax = $x.cores } }
         $worst = $smp | Sort-Object cores -Descending | Select-Object -First 1
@@ -356,7 +366,7 @@ try {
                 if ($rs -and $rs -ne $script:bootState[$i]) { T "!! $i boots $rs (ini expectation $($script:bootState[$i]))"; $script:bootState[$i] = $rs }
                 if ($script:bootState[$i] -eq "ON") { if (Toggle $i "OFF") { $script:bootState[$i] = "OFF" } else { T "!! $i stays ON for the BASE windows" } }
             }
-            T "L1 live boot state: " + (($Live | ForEach-Object { "$_ $($script:bootState[$_])" }) -join ", ")
+            T ("L1 live boot state: " + (($Live | ForEach-Object { "$_ $($script:bootState[$_])" }) -join ", "))
         }
         T "L$L warm-up 60 s (no input)"; Start-Sleep 60
         for ($s = 1; $s -le 3; $s++) {

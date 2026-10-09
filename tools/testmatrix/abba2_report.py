@@ -143,6 +143,8 @@ def pct(a, b):
 
 def load(run):
     rows = []
+    if not os.path.exists(os.path.join(run, "manifest.jsonl")):
+        return rows   # run8b_A: the harness aborted before the first window; report says so instead of a traceback
     with open(os.path.join(run, "manifest.jsonl"), encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -231,7 +233,7 @@ def live_verdict(item, ws, min_quads=2):
     return v, f"median dfps {md:+.2f}% (quads {', '.join(f'{x[0]:+.2f}' for x in res)}), dp99 {mp:+.2f}%, dcpu_busy {mc:+.2f}%", lines, md
 
 
-def launch_fps(ws, flag=None, want=None):
+def launch_fps(ws, flag=None, want=None, minw=2):
     good = []
     for r in ws:
         ok, why = window_ok(r)
@@ -244,9 +246,19 @@ def launch_fps(ws, flag=None, want=None):
             if seen != want:
                 continue
         good.append(r["pm"])
-    if len(good) < 2:
+    if len(good) < minw:
         return None
     return {"fps": st.median(x["fps"] for x in good), "cpu": st.median(x["cpu"] for x in good), "n": len(good)}
+
+
+def launch_fps_any(ws, flag=None, want=None):
+    """>= 2 valid windows, else (run8b: PresentMon dropped windows) the single valid one, flagged degraded."""
+    r = launch_fps(ws, flag, want, 2)
+    if r is None:
+        r = launch_fps(ws, flag, want, 1)
+        if r is not None:
+            r["degraded"] = True
+    return r
 
 
 def launch_verdicts(rows):
@@ -259,18 +271,21 @@ def launch_verdicts(rows):
     base = [L for L in sorted(by) if arms[L] == "BASE"]
     if len(base) < 2:
         return out, ["  launch arms: fewer than 2 BASE launches"]
-    bm = [launch_fps(by[L]) for L in base]
+    bm = [launch_fps_any(by[L]) for L in base]
     for L in sorted(by):
         lines.append(f"  launch L{L} {arms[L]}: " + ", ".join(f"{r['name']} {r['pm']['fps']:.2f}" if r["pm"] else r["name"] + " -" for r in by[L]))
     if None in bm:
-        return out, lines + ["  BASE launch without 2 valid windows -> launch flags INVALID"]
+        lines.append("  BASE launch without any valid window -> launch flags INVALID")
+        for f in sorted(set(arms.values()) - {"BASE"}):
+            out[f] = ("INVALID", "a BASE launch has no valid window")
+        return out, lines
     if len(base) >= 3:
         return launch_verdicts_interp(by, arms, base, bm, out, lines)
     spread = abs(pct(bm[1]["fps"], bm[0]["fps"]))
     lines.append(f"  BASE L{base[0]} {bm[0]['fps']:.2f} / L{base[-1]} {bm[1]['fps']:.2f} fps: spread {spread:.2f}%")
     for f in sorted(set(arms.values()) - {"BASE"}):
         Ls = [L for L in sorted(by) if arms[L] == f]
-        fm = [launch_fps(by[L], f, "ON") for L in Ls]
+        fm = [launch_fps_any(by[L], f, "ON") for L in Ls]
         if len(Ls) != 2 or None in fm:
             out[f] = ("INVALID", "launch missing or switch not read back ON"); continue
         if spread > LAUNCH_SPREAD_MAX:
@@ -303,7 +318,7 @@ def launch_verdicts_interp(by, arms, base, bm, out, lines):
     lines.append("  BASE " + " / ".join(f"L{b} {bf[b]:.2f}" for b in base) + f" fps: range {rng:.2f}%, noise (inner BASE vs line) {noise:.2f}%")
     for f in sorted(set(arms.values()) - {"BASE"}):
         Ls = [L for L in sorted(by) if arms[L] == f]
-        fm = [launch_fps(by[L], f, "ON") for L in Ls]
+        fm = [launch_fps_any(by[L], f, "ON") for L in Ls]
         if len(Ls) < 2 or None in fm or any(interp(L, bf) is None for L in Ls):
             out[f] = ("INVALID", "launch missing, not bracketed by BASE launches, or switch not read back ON"); continue
         if rng > LAUNCH_RANGE_MAX or noise > LAUNCH_NOISE_MAX:
@@ -315,6 +330,12 @@ def launch_verdicts_interp(by, arms, base, bm, out, lines):
         v = "KEEP" if (all(d > 0 for d in ds) and mean >= thr) else "DROP"
         out[f] = (v, "dfps " + " / ".join(f"{d:+.2f}%" for d in ds) + f" (mean {mean:+.2f}%, threshold {thr:.2f}%), dcpu_busy "
                   + " / ".join(f"{c:+.2f}%" for c in cs) + " vs interpolated BASE")
+        deg = [f"L{L}" for L, m in zip(Ls, fm) if m.get("degraded")] + [f"L{b}" for b in base if bm[base.index(b)].get("degraded")]
+        if deg:
+            out[f] = (out[f][0], out[f][1] + f" [DEGRADED: only 1 valid window in {', '.join(deg)}]")
+        allf = [m["fps"] for m in fm] + list(bf.values())
+        if max(allf) - min(allf) < 0.1 and out[f][0] == "DROP":
+            out[f] = (out[f][0], out[f][1] + f" [fps pinned at {allf[0]:.2f} by a limiter: a CPU gain would not show in fps; judge from dcpu_busy only]")
     return out, lines
 
 
@@ -362,6 +383,10 @@ def report(run):
     allrows = load(run)
     rows = [r for r in allrows if r.get("kind") != "noisy_discard"]
     cap = CAP = cap_fps(run)
+    if not allrows:
+        msg = f"abba2 report: {run}\nno windows recorded (manifest.jsonl missing/empty): the run aborted before the first window - see trace.txt"
+        open(os.path.join(run, "report.txt"), "w", encoding="utf-8").write(msg + "\n")
+        return msg, {}
     txt = [f"abba2 report: {run}", "windows:"] + [win_line(r) for r in rows] + noisy_lines(allrows)
     verdicts = {}
     items = []

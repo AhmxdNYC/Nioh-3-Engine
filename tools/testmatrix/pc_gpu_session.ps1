@@ -245,7 +245,7 @@ function Close-Game {
 }
 function Stop-Pm {
     if ($script:pm -and -not $script:pm.HasExited) {
-        & $PmExe --terminate_existing_session --session_name Nioh3GpuAB 2>$null | Out-Null; & $script:RealSleep -Seconds 2
+        try { Start-Process $PmExe -ArgumentList "--terminate_existing_session --session_name Nioh3GpuAB" -WindowStyle Hidden -Wait } catch {}; & $script:RealSleep -Seconds 2
         try { Stop-Process -Id $script:pm.Id -Force -ErrorAction SilentlyContinue } catch {}
     }
     $script:pm = $null
