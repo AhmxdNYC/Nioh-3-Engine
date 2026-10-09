@@ -95,22 +95,25 @@ GPU numbers are stamp-inflated ranking data, not isolated costs. Regenerate with
 
 ---
 
-## Your device: ROG Ally X or desktop PC
+## Your device: one zip for everything
 
-Plain version: the game is limited by different things on each machine, so different mod settings matter. The Ally is limited by its graphics chip; the PC by one CPU thread.
+Plain version: the game is limited by different things on each machine, so a few settings differ. You do not choose a profile: there is **one universal zip** (`release\dist\Nioh3EngineFix-<version>.zip`, install steps in `release\USER_GUIDE.md`). At startup the mod detects Windows vs Wine/Proton and resolves the settings marked `-1` (auto) in the ini; the log lists what each one became.
 
-### ROG Ally X ("ROG Ally X 2025") - the main target
-- **Hardware (reported by the Ally itself):** ASUS ROG Ally X, product RC72LA (board RC72LA, BIOS RC72LA.312); AMD Ryzen Z1 Extreme (8 cores / 16 threads, Zen 4); Radeon 780M (RDNA3 gfx1103, 12 CUs); 24 GB LPDDR5X, of which 8 GB is set aside as the GPU frame buffer (UMA split), so the OS sees about 15-16 GiB; 1080p 120 Hz panel; Bazzite + Proton (vkd3d-proton / RADV). The 8 GB split is a fact about this unit; we never change hardware or BIOS settings.
-- **What limits it:** the GPU is about 99 % busy. Stock baseline at MAX settings in Futamata is about **16 fps** (16.3-16.8 measured).
-- **What helps here:** the **GHDM shadow shader** is the only confirmed fps gain (+6.4 to +8.7 % at MAX). The CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED ...) are **fps-neutral** (they do cut CPU load and free power for the GPU). **R2a** (barrier rewrite, Proton only) is a small candidate, not yet proven.
-- **Measured 2026-10-08, load time (Level 136):** stock about 94 s -> EP (1.7.24) about 45-47 s -> EP + SR (1.7.25) 38.5 s (-59 %); EP/SR switch on automatically under Proton. Ally GPU budget corrected in `notes\ally-gpu-budget.md`: FSR3 costs 3.5-3.9 ms at REN_RAT 50, the post-process chain 0.46 ms. PF, LC, PJ, DQ, P1E7, GIMerge and wdo14 are built but not yet tested.
-- **Install:** use `mod\ally-package` (see `README-ALLY.txt`): copy `dinput8.dll`, `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini` next to `Nioh3.exe`; Steam launch option `WINEDLLOVERRIDES="dinput8=n,b" %command%`; optionally copy `shader\0x0104840c.file` into `shader_dx12\` (back up the original first). Menu: Esc x3, F10, or Start x3.
+### Handhelds and Linux (Proton): ROG Ally X as the reference
+- **Hardware measured:** ASUS ROG Ally X (RC72LA, Ryzen Z1 Extreme 8C/16T, Radeon 780M, 24 GB with 8 GB as GPU memory, 1080p 120 Hz, Bazzite + Proton / vkd3d-proton / RADV). We never change hardware or BIOS settings.
+- **What limits it:** the graphics chip is about 99 % busy. Stock at MAX settings in Futamata is about **16 fps** (16.3-16.8 measured).
+- **What helps:** the **GHDM shadow shader** (+6.4 to +8.7 % fps at MAX) and the **fog shader `0xa9910db8`** (a further +0.15 to +0.30 fps, measured on the Ally). The CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED ...) are fps-neutral there (they cut CPU load and free power for the GPU). R2a/R2b/R1 (barrier rewrites, Proton only) are no-ops.
+- **Loading:** stock about 94 s (Level 136) -> about **37-38 s** with EP + SR, which switch on automatically under Proton.
+- **Tested and not kept:** LC (higher load queue cap) measured worse, so it stays off; PF (load prefetch) was neutral. PJ, DQ, P1E7, GIMerge and wdo14 are built but not yet proven.
 
-### Desktop PC (Ryzen 5 7600X + Radeon RX 9070, 1440p, Windows 11)
+### Windows desktop (reference: Ryzen 5 7600X + Radeon RX 9070, 1440p, Windows 11)
 - **What limits it:** the CPU main thread (one core does most of the game's work), not the GPU.
-- **What helps here:** the CPU fixes (W3, W6, P12, WL and friends) matter most. Latest numbers (`captures\tm\`, 2026-10-08): stock all-off baseline standing = about 149-153 fps, p99 frame time 14.3-14.7 ms. Per-fix results: **being measured**.
-- **Measured 2026-10-08, load time:** about 13.5-15 s warm. EP/SR give no PC gain (a native event costs 0.6 us vs 84 us under Proton). AutoContinueLoad skips the tip page. B was dropped on PC (-0.1 %).
-- **Install:** copy the contents of `mod\Nioh3EngineFix\bin\` next to `Nioh3.exe` with an ASI loader (Ultimate ASI Loader or Nioh3ModLoader), or use the control panel. Note: Smart App Control can block unsigned DLLs.
+- **What helps:** the CPU fixes (W3, W6, P12, WL and friends). Stock all-off baseline standing: about 149-153 fps, p99 frame time 14.3-14.7 ms. Kept on PC: PP (+2.9 %, -0.26 ms); B, GF and MQ were dropped (no gain).
+- **Loading:** about 13.5-15 s warm. EP/SR give no PC gain (a native event costs 0.6 us vs 84 us under Proton), so they stay off on Windows. The "Skip loading tip screen" option (AutoContinueLoad) is off by default.
+- Smart App Control can block unsigned DLLs.
+
+### Install (both)
+Download the zip, copy `dinput8.dll`, `Nioh3EngineFix.asi` and `Nioh3EngineFix.ini` next to `Nioh3.exe`. On Proton add the Steam launch option `WINEDLLOVERRIDES="dinput8=n,b" %command%`. The shader files in `optional\shader_dx12\` are optional (back up the originals first). Menu: Esc x3, F10, or Start x3. Step by step: `release\USER_GUIDE.md`. (`mod\ally-package` is no longer an install path.)
 
 ## Boss research (for a future rematch feature)
 
@@ -132,13 +135,13 @@ Plain version: the game is limited by different things on each machine, so diffe
 ## Loading
 
 **In plain words**
-- **PC:** a title-to-game load takes about 26 s, and about 15 s of that is the game waiting after its loading queues are already empty. We have not found what it is waiting for. A probe for it (LG) is in 1.7.19.
-- **ROG Ally X:** the same load takes 118.7 s every time, which looks like a 120 s online-join timeout running out. Not tested yet.
-- The three loading patches from 1.7.14 (GL1, LC, LW) did nothing measurable.
+- **ROG Ally X (Proton):** a load that took about 94 s (Level 136) now takes about **37-38 s**. The cause was not a timeout (an early theory); the game's file reads are far slower per call under Proton, and the mod now serves them cheaper (EP, SR, switched on automatically under Proton).
+- **Windows PC:** a title-to-game load takes about 13.5-15 s warm (about 26 s cold in earlier tests). EP/SR do not help there. We have not found what the last ~15 s of the cold load waits for; the LG probe logs it.
+- The loading patches GL1 and LW did nothing measurable and LC (queue cap) was worse, so they stay off. PF (prefetch) was neutral.
 
 **Technical detail**
-- PC: 25.8 +-0.5 s window; resource managers drain by +9.9..+13.0 s; the remaining 14.6-16.3 s is an unidentified `LoadIsLoadEnd` gate or sequencer state (`notes\loading-bottleneck.md`). `LoadGates = 1` (needs `LoadStats >= 1`) logs which gate holds.
-- Ally: 118.657 / 118.688 / 118.737 s; a wall-clock end, not frames or game ticks. Suspect: P2P session-join timeout of 120000 ms at 0x1356BDC (about 1.3 s lead before the window). Not yet tied to the load-end path (`notes\loading-ally-fixed.md`).
+- Ally: stock 94 -> EP (1.7.24) about 45-50 s -> EP + SR (1.7.25/1.7.28) 38.5 s. The load work ends at about +93 s stock (resource manager A capped at 10 in flight, ~640k ReadFile calls at 68 s in-call vs 3.2 s on PC); the rest of the old 118.7 s window was the tip page waiting for a button press. Details and digests: `notes\loading-ally-fixed.md`.
+- PC: 25.8 +-0.5 s cold window; resource managers drain by +9.9..+13.0 s; the remaining 14.6-16.3 s is an unidentified `LoadIsLoadEnd` gate or sequencer state (`notes\loading-bottleneck.md`). `LoadGates = 1` (needs `LoadStats >= 1`) logs which gate holds.
 
 ---
 
@@ -152,6 +155,17 @@ Plain version: the game is limited by different things on each machine, so diffe
 | 1.7.17 | LG load-gate probe and `LoadStats = 3` (measurement only); crashed loads on the Ally |
 | 1.7.18 | BossLog: read-only boss fight logger (default off) |
 | 1.7.19 | Fixes the 1.7.17 LG crash (gate thunks now preserve r10/r11) |
+| 1.7.20-1.7.21 | BossLog reward logging; RematchLog (boss-rematch groundwork, read-only, default off) |
+| 1.7.22 | "Skip loading tip screen" (AutoContinueLoad); later made off by default (1.7.33) |
+| 1.7.23-1.7.24 | EP event pool for archive reads; `-1` = auto (on under Proton): Ally load 98.9 -> 50 s |
+| 1.7.25-1.7.28 | Read fixes SR / RC / AQ / TSY / SH; SR auto under Proton: Ally load about 38.5 s |
+| 1.7.26 | PF load prefetch (default off; neutral) |
+| 1.7.27 | `VRROnline = -1`: frame-timing fix pauses itself in online sessions |
+| 1.7.29-1.7.32 | GI light-merge, PJ PSO journal, DQ and P1E7 experiments (all default off) |
+| 1.7.33 | AutoContinueLoad off by default |
+| 1.7.34-1.7.38 | Test tooling: FnProbe, PadLatency, Tour mode (stability tour), VirtualPad (default off, debug) |
+| 1.7.39 | MA main-thread loads, live DQ / P1E7 rows (default off) |
+| 1.7.40 | BPO bounds patch, boss rematch MVP, GQ / JT diagnostics (all default off); Tour fixes |
 
 Full history: `MODLOG.md`.
 
@@ -162,7 +176,7 @@ Full history: `MODLOG.md`.
 
 **In plain words**
 - The in-game mod menu is easier now (ASI **1.7.13**). Open it with **Esc three times**, **F10**, or **Start three times** on a controller. Settings have plain names ("CPU waits sleep instead of spinning") with the technical id small beside them, and each row explains itself. There is a "Turn frame gen ON/OFF" row, and the frame-gen status now shows whether it is really running. The overlay sits lower so it no longer covers the health bars, and the "Mod menu: F10 / Esc x3 / Start x3" hint stays up the whole time the game's own menu is open. Not yet verified in the game.
-- ASI **1.7.14** adds three loading and game-logic patches (GL1, LC, LW). All are **off by default and untested in the game**.
+- ASI **1.7.14** adds three loading and game-logic patches (GL1, LC, LW). All are **off by default**; later measurements showed no gain (LC was worse), so they stay off.
 - The decompile is further along: all GPU passes are mapped to named engine code, CPU time named is 100.00 % (both views, PC and Ally), and the charts above are regenerated.
 
 **What helped and what did not**
@@ -407,7 +421,7 @@ Notes:
 | OptiScaler | ✅ Yes (FSR4 needs an RX 9000) | ✅ Generally works under Proton (`WINEDLLOVERRIDES="dxgi=n,b" %command%`) | FSR4 on Linux depends on driver/Proton version. **Untested here.** |
 | The bugs themselves | Same on every PC | Same | The write-combined bug, the fixed frame step and the spin loops are in the game code, not our hardware. Weaker CPUs (handhelds, 6-core and older) should benefit **more**. |
 | Our engine patches **as currently delivered** | ⚠️ Windows only, needs the .NET 10 SDK, game **v2.02 only** | ❌ Not yet | Today they're scripts that write into the running game. They check every byte first and refuse to run on a different game version. |
-| **Packaged mod `Nioh3EngineFix.asi`** (`mod\Nioh3EngineFix\bin\`): one DLL, byte-pattern search, an INI with a toggle per fix, and the same safe writing | ✅ Expected (load with Ultimate ASI Loader or Nioh3ModLoader) | ✅ Expected (`WINEDLLOVERRIDES="dinput8=n,b" %command%`) | **Built, and all 28 patterns verified against the game (now including F1 and the optional P12), but not yet run in-game**: this PC's Smart App Control blocks unsigned DLLs. Needs a first test on a Deck, an Ally or another PC. The frame-limiter timer fix (L1) is off by default under Wine. |
+| **Packaged mod `Nioh3EngineFix.asi`** (`mod\Nioh3EngineFix\bin\`): one DLL, byte-pattern search, an INI with a toggle per fix, and the same safe writing | ✅ Expected (load with Ultimate ASI Loader or Nioh3ModLoader) | ✅ Expected (`WINEDLLOVERRIDES="dinput8=n,b" %command%`) | **Shipped as one universal zip and run in-game on a Windows PC and on a ROG Ally X (Proton).** Steam Deck and other PCs are expected to work the same but are not measured. Settings that differ by OS are `-1` (auto). Smart App Control can block unsigned DLLs. |
 
 **Online co-op:** the real-time frame step changes how much game time each frame covers, so use it in single-player or offline until it's tested in co-op. The CPU fixes don't change game behaviour.
 
