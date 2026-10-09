@@ -1,0 +1,6 @@
+# Cross-system matched capture (tools/xsys_capture.ps1, notes/cross-system-compare.md). Spawn point only (-Points 1):
+# the warp points of these stages sit outside the level (9074,1050,9625) and are not real scenes.
+7356   # Escape from Hitokoto Slope (area 75)
+52     # Crucible Manifested (area 150)
+7292   # Mirage Fortress (area 150)
+5631   # Tiger's Cause (area 150)
