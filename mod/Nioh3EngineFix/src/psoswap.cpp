@@ -1087,7 +1087,8 @@ void Start(const StartInfo& info) {
     g_cfg.enabled = IniInt(L"Enabled", 0, 0, 1, ini);
     g_cfg.dumpMode = IniInt(L"DumpMode", 0, 0, 2, ini);
     g_cfg.logAll = IniInt(L"LogAll", 0, 0, 1, ini);
-    g_cfg.track = GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ? 1 : 0;
+    g_cfg.track = (GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ||
+                   GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini.c_str()) == 1) ? 1 : 0;   // GP2 / SkipFx need the PSO -> shader map
     g_onDevice = info.onDevice;
     if (!g_cfg.enabled && !g_cfg.track) {
         g_state = (LONG)State::Off;

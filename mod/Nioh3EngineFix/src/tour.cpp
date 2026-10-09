@@ -1140,7 +1140,7 @@ void Start(const StartInfo& info) {
         const int v = (int)GetPrivateProfileIntW(L"Debug", k, def, info.iniPath);
         return v < lo ? lo : v > hi ? hi : v;
     };
-    g_cfg.dwellSec = I(L"TourDwellSec", 4, 1, 120);
+    g_cfg.dwellSec = I(L"TourDwellSec", 4, 1, 1800);   // long dwells: the cost-vs-looks harness cycles SkipFx groups at each point
     g_cfg.pointsPerStage = I(L"TourPointsPerStage", 3, 1, 32);
     g_cfg.passes = I(L"TourPasses", 1, 1, 10);
     g_cfg.loadTimeoutSec = I(L"TourLoadTimeoutSec", 120, 30, 900);

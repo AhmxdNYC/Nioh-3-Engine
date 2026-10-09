@@ -19,7 +19,7 @@ OPTION CASEMAP:NONE
 
 EXTERN GpuOptSlow:PROC
 
-PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_hook2, gpuopt_hold, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
+PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_hook2, gpuopt_hook3, gpuopt_hold, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
 
 GPUOPT_SLOTS EQU 96
 
@@ -32,6 +32,7 @@ gpuopt_flush  db GPUOPT_SLOTS dup(0)      ; 1 = this method must see the deferre
 gpuopt_trace  db 0                        ; 1 = every hooked call goes to GpuOptSlow (trace mode)
 gpuopt_hook   db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (GP profiler: Begin/EndEvent, Close, Reset)
 gpuopt_hook2  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (gimerge: Dispatch, PSO, compute roots, ...)
+gpuopt_hook3  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (skipfx.cpp: [Debug] SkipFx diagnostic)
 ALIGN 8
 gpuopt_hold   dq 0                        ; gimerge: the list with a held Dispatch - every call on it goes to GpuOptSlow
 
@@ -95,6 +96,8 @@ gpuopt_t&S&_&I LABEL PROC
     cmp     byte ptr [gpuopt_hook + I], 0
     jne     slow
     cmp     byte ptr [gpuopt_hook2 + I], 0
+    jne     slow
+    cmp     byte ptr [gpuopt_hook3 + I], 0
     jne     slow
     cmp     rcx, qword ptr [gpuopt_hold]
     je      slow

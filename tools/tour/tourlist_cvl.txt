@@ -1,0 +1,6 @@
+# Cost-vs-looks route (tools/testmatrix/cost_vs_looks.ps1): 4 stage spawns in 4 areas, 1 point each (the arrival spot = same view
+# every run), long dwell (the harness cycles ~35 SkipFx conditions per point). 7356 / 52 = open sky (VCLOUD heavy on pc2 #125).
+7356   # Escape from Hitokoto Slope (area 75)
+52     # Crucible Manifested (area 150)
+12009  # Black Feather Sanctuary (area 177)
+13587  # The Spirit Tree Village (area 216)

@@ -47,6 +47,7 @@ struct StartInfo {
     const char* wine = nullptr;                   // wine_get_version() or nullptr (only logged)
     bool gpuProf = false;                         // 1.7.0: the GP profiler needs the hooks (installs them with Barriers = 0)
     bool giMerge = false;                         // 1.7.29: gimerge (GIProbe / GIMerge) needs them too
+    bool skipFx = false;                          // skipfx ([Debug] SkipFx diagnostic, cost-vs-looks) needs them too
 };
 
 enum class State : uint8_t {

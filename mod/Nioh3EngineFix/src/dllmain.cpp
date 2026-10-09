@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "gimerge.h"
+#include "skipfx.h"
 #include "gpuopt.h"
 #include "gpuprof.h"
 #include "sp.h"
@@ -2572,12 +2573,17 @@ DWORD WINAPI Worker(LPVOID) {
             pi.codeOk = s_gpCodeOk;
             pi.wine = wine;
             gp::Start(pi);
+            skipfx::StartInfo sk;  // [Debug] SkipFx diagnostic (cost-vs-looks skip list; default 0 = nothing installed)
+            sk.log = &Log;
+            sk.iniPath = iniPath.c_str();
+            skipfx::Start(sk);
             gpuopt::StartInfo gi;
             gi.log = &Log;
             gi.iniPath = iniPath.c_str();
             gi.wine = wine;
             gi.gpuProf = gp::WantsHooks();
             gi.giMerge = gimerge::WantsHooks();  // 1.7.29: GIProbe / GIMerge ride on gpuopt's command-list thunks
+            gi.skipFx = skipfx::WantsHooks();
             gpuopt::Start(gi);
         }
         {  // sampling profiler (sp.cpp, [Profiler] SP = 0 by default): measurement only
