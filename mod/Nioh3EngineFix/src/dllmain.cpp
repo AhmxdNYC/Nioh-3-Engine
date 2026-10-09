@@ -56,7 +56,8 @@
 // 1.7.35: padlat.cpp (PadLatency controller input -> Present / GPU-done latency, notes\pad-latency.md)
 // 1.7.36: tour.cpp (Tour mode: automatic stage / point tour with saves blocked, notes\tour-mode.md)
 // 1.7.39: MA (main-thread atomic-load idiom -> plain loads, 25 byte sites; notes\pc-cpu-next.md)
-#define MOD_VERSION "1.7.39"
+// 1.7.40: BPO (BoundsFromPartObbs 71C60: quaternion memo + plain ready loads + forwarding copy; notes\bounds-partobbs.md)
+#define MOD_VERSION "1.7.40"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -173,6 +174,14 @@ extern uint32_t lw_waiting, lw_signals;
 extern uint32_t mq_enable, mq_count, dl_count, dl_enable, pt1_enable, pt1_owner, pt1_claims, pt1_saved;
 extern uint64_t mq_resume, mq_calls, dl_fn, dl_resume, dl_skips;
 extern uint64_t pt1_pAcq, pt1_pRel, pt1_ret, pt1_resB, pt1_resC, pt1_resD, pt1_jeD;
+// 1.7.40: BPO (BoundsFromPartObbs 71C60: quaternion memo, plain ready-word loads, forwarding-friendly Vec4CopyW0)
+void caveBpoQA();
+void caveBpoQB();
+void caveBpoL1();
+void caveBpoL2();
+void caveBpoV();
+extern uint32_t bpo_enable, bpo_mask;
+extern uint64_t bpo_imask, bpo_tbl, bpo_resQS, bpo_resQH, bpo_resQB, bpo_resL1, bpo_resL2, bpo_vStock;
 BOOL WgWake(HANDLE ev, uint8_t* slot);
 DWORD WgSleep(HANDLE ev, DWORD ms, uint8_t* pool, uint8_t* slot);
 BOOL DsQpc(LARGE_INTEGER* now, int64_t start);
@@ -341,6 +350,7 @@ struct Config {
     int ds = 0, dsMarginUs = 150;
     int lk = 0, cp = 0, spf = 0;
     int ma = 0;  // 1.7.39: main-thread locked "atomic loads" (code bytes, next launch)
+    int bpo = 0, bpoMask = 7, bpoTableBits = 14;  // 1.7.40: BoundsFromPartObbs (1 = on, 2 = installed off; mask 1 Q, 2 L, 4 V)
     int mq = 0, pt1 = 0, dl = 0, cpuStats = 0;  // 1.7.12 (DL rides the CP group)
     int rwb = 0, spr = 0;
     // 1.7.23 LO (loadonly.cpp): GF/W6/RWb installed but on only inside 58A; *User = the keys as written in the ini
@@ -419,6 +429,9 @@ Config LoadConfig() {
     c.ds = I(L"Patches", L"DS", c.ds);
     c.lk = I(L"Patches", L"LK", c.lk);
     c.ma = I(L"Patches", L"MA", c.ma);
+    c.bpo = I(L"Patches", L"BPO", c.bpo);
+    c.bpoMask = std::clamp(I(L"Tuning", L"BPO_Mask", c.bpoMask), 1, 7);
+    c.bpoTableBits = std::clamp(I(L"Tuning", L"BPO_TableBits", c.bpoTableBits), 10, 18);
     c.cp = I(L"Patches", L"CP", c.cp);
     c.spf = I(L"Patches", L"SPF", c.spf);
     c.mq = I(L"Patches", L"MQ", c.mq);
@@ -645,11 +658,16 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveGl1B: return (void*)&caveGl1B;
         case gen::Target::caveLdWait: return (void*)&caveLdWait;
         case gen::Target::caveLdSig: return (void*)&caveLdSig;
+        case gen::Target::caveBpoQA: return (void*)&caveBpoQA;
+        case gen::Target::caveBpoQB: return (void*)&caveBpoQB;
+        case gen::Target::caveBpoL1: return (void*)&caveBpoL1;
+        case gen::Target::caveBpoL2: return (void*)&caveBpoL2;
+        case gen::Target::caveBpoV: return (void*)&caveBpoV;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveLdSig;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveBpoV;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1420,6 +1438,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "DS")) return cfg.ds != 0;
         if (!strcmp(g, "LK")) return cfg.lk != 0;
         if (!strcmp(g, "MA")) return cfg.ma != 0;
+        if (!strcmp(g, "BPO")) return cfg.bpo != 0;
         if (!strcmp(g, "CP")) return cfg.cp != 0 || cfg.dl != 0;  // DL is a second site of the CP group
         if (!strcmp(g, "MQ")) return cfg.mq != 0;
         if (!strcmp(g, "PT1")) return cfg.pt1 != 0;
@@ -1924,6 +1943,32 @@ DWORD WINAPI Worker(LPVOID) {
     // residency read in DrawEmit 1E835B. 25 in-place byte sites, all-or-nothing, code bytes (next launch), no menu row.
     if ((exDone[menu::kExpMA] = expGroup("MA", cfg.ma != 0, nullptr)))
         Log("MA: 25 main-thread locked atomic loads -> plain loads (4AA34 x5, 4B104 x3, 419A8 x16, 1E835B x1)");
+    // BPO (1.7.40): BoundsFromPartObbs 71C60 on the logic thread (notes\bounds-partobbs.md). Live switch; 2 = installed off.
+    exDone[menu::kExpBPO] = expGroup("BPO", cfg.bpo != 0, [&]() {
+        if (!IsProcessorFeaturePresent(37 /*PF_SSE4_1_INSTRUCTIONS_AVAILABLE*/)) { Log("BPO: needs SSE4.1"); return false; }
+        // V: the six 71C60 call sites must call Vec4CopyW0 174610 (the cave falls back to it)
+        const uintptr_t v = calleeOf(findItem("BPOV1")->addr);
+        if (v != (uintptr_t)(g_base + findItem("BPOV1")->s->expectRva)) { Log("BPO: 72310 does not call 174610"); return false; }
+        bpo_vStock = v;
+        // quaternion memo: 2^BPO_TableBits x 32-byte seqlock entries, zero = empty (default 16384 = 512 KB, never freed)
+        const uint64_t entries = 1ull << cfg.bpoTableBits;
+        void* tbl = VirtualAlloc(nullptr, (SIZE_T)(entries * 32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        if (!tbl) { Log("BPO: table allocation failed"); return false; }
+        bpo_tbl = (uint64_t)(uintptr_t)tbl;
+        bpo_imask = entries - 1;
+        bpo_resQS = (uint64_t)(uintptr_t)(findItem("BPOQA")->addr + 6);                // 71F04
+        bpo_resQH = (uint64_t)(uintptr_t)(findItem("BPOQA")->addr + (0x7206F - 0x71EFE));  // 7206F
+        bpo_resQB = (uint64_t)(uintptr_t)(findItem("BPOQB")->addr + (0x7206F - 0x72053));  // 7206F
+        bpo_resL1 = (uint64_t)(uintptr_t)(findItem("BPOL1")->addr + 5);                // 71DB7
+        bpo_resL2 = (uint64_t)(uintptr_t)(findItem("BPOL2")->addr + 6);                // 1A7AE6
+        bpo_mask = (uint32_t)cfg.bpoMask;
+        bpo_enable = cfg.bpo == 1 ? 1u : 0u;
+        return true;
+    });
+    if (exDone[menu::kExpBPO])
+        Log("BPO: BoundsFromPartObbs caves installed (quaternion memo %s with %llu entries, plain ready loads %s, Vec4CopyW0 copy %s), "
+            "switch %s", (bpo_mask & 1) ? "yes" : "no", (unsigned long long)(bpo_imask + 1), (bpo_mask & 2) ? "yes" : "no",
+            (bpo_mask & 4) ? "yes" : "no", bpo_enable ? "ON" : "off");
     // CP / SPF: worker loop prefetch caves (live switches; 2 = installed, switched off)
     exDone[menu::kExpCP] = expGroup("CP", cfg.cp != 0 || cfg.dl != 0, [&]() {
         cp_resume = (uint64_t)(uintptr_t)(findItem("CP")->addr + 7);  // D8187
@@ -2268,10 +2313,11 @@ DWORD WINAPI Worker(LPVOID) {
         sw[menu::kExpMQ] = U(mq_enable);
         sw[menu::kExpPT1] = U(pt1_enable);
         sw[menu::kExpDL] = U(dl_enable);
+        sw[menu::kExpBPO] = U(bpo_enable);
         const int iniv[menu::kNumExp] = {cfg.w6User, cfg.b, cfg.pp, cfg.fpc, cfg.aabb, cfg.m1, cfg.x1, cfg.e1, cfg.m2, cfg.j1, cfg.s1,
                                          cfg.ik, cfg.ts, cfg.wakeStats, cfg.ed, cfg.gfUser, cfg.wl,
                                          cfg.wg, cfg.tg, cfg.ds, cfg.lk, cfg.cp, cfg.spf, cfg.mq, cfg.pt1, cfg.dl,
-                                         0, 0, cfg.ma};  // DQ / P1E7: set after drawprep::Start below
+                                         0, 0, cfg.ma, cfg.bpo};  // DQ / P1E7: set after drawprep::Start below
         for (int i = 0; i < menu::kNumExp; ++i) {
             mh.exp[i].ini = iniv[i] ? 1 : 0;
             mh.exp[i].applied = exDone[i];

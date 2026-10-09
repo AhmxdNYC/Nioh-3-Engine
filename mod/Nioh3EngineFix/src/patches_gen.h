@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -369,6 +369,16 @@ static const uint8_t orig_FP11[] = { 0x40, 0x55, 0x53, 0x56, 0x57 };
 static const uint8_t orig_FP12[] = { 0x48, 0x89, 0x5C, 0x24, 0x20 };
 static const uint8_t orig_FP13[] = { 0x48, 0x8B, 0xC4, 0x55, 0x53 };
 static const uint8_t orig_FP14[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x20 };
+static const uint8_t orig_BPOQA[] = { 0x0F, 0xB7, 0x43, 0x06, 0x8B, 0xC8 };
+static const uint8_t orig_BPOQB[] = { 0xF3, 0x44, 0x0F, 0x11, 0x5C, 0x24, 0x40 };
+static const uint8_t orig_BPOL1[] = { 0xF0, 0x44, 0x0F, 0xB1, 0x11 };
+static const uint8_t orig_BPOL2[] = { 0x33, 0xC0, 0xF0, 0x0F, 0xB1, 0x1A };
+static const uint8_t orig_BPOV1[] = { 0xE8, 0xFB, 0x22, 0x10, 0x00 };
+static const uint8_t orig_BPOV2[] = { 0xE8, 0xEF, 0x22, 0x10, 0x00 };
+static const uint8_t orig_BPOV3[] = { 0xE8, 0xC5, 0x22, 0x10, 0x00 };
+static const uint8_t orig_BPOV4[] = { 0xE8, 0x00, 0x21, 0x10, 0x00 };
+static const uint8_t orig_BPOV5[] = { 0xE8, 0xF2, 0x20, 0x10, 0x00 };
+static const uint8_t orig_BPOV6[] = { 0xE8, 0xC5, 0x20, 0x10, 0x00 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -632,6 +642,16 @@ static const Site kSites[] = {
     { "FP12", "FP", 0x2002D4, 5, orig_FP12, "48 89 5C 24 20 48 89 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 8B EC 48 83 EC 40", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "FP13", "FP", 0xF68D8, 5, orig_FP13, "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 B8 F5", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "FP14", "FP", 0x2C5AA6C, 7, orig_FP14, "48 8B C4 48 89 58 20 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 08 F3 FF FF 48 81 EC C0 0D 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 44 0F 29 A0 58 FF FF FF 44 0F 29 A8 48 FF FF FF 44 0F 29 B0 38 FF FF FF 44 0F 29 B8 28 FF FF FF 48 8B 05 5B D4 85", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BPOQA", "BPO", 0x71EFE, 6, orig_BPOQA, "89 45 E0 0F B7 43 06 8B C8 8B D0 C1 E1 10 81 E1 00 00 00 80 81 E2 00 7C 00 00 0F 84", 3, Kind::Jmp, nullptr, Target::caveBpoQA, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BPOQB", "BPO", 0x72053, 7, orig_BPOQB, "F3 44 0F 11 5C 24 40 F3 44 0F 11 64 24 44 F3 44 0F 11 4C 24 4C", 0, Kind::Jmp, nullptr, Target::caveBpoQB, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BPOL1", "BPO", 0x71DB2, 5, orig_BPOL1, "33 C0 F0 44 0F B1 11 A8 02 0F 84", 2, Kind::Jmp, nullptr, Target::caveBpoL1, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BPOL2", "BPO", 0x1A7AE0, 6, orig_BPOL2, "33 C0 F0 0F B1 1A 8D 7B 01 40 84 C7", 0, Kind::Jmp, nullptr, Target::caveBpoL2, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "BPOV1", "BPO", 0x72310, 5, orig_BPOV1, "0F 11 55 3C E8 ?? ?? ?? ?? 48 8D 55 C0", 4, Kind::Call, nullptr, Target::caveBpoV, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x174610 },
+    { "BPOV2", "BPO", 0x7231C, 5, orig_BPOV2, "C0 49 8B C8 E8 ?? ?? ?? ?? 48 8D 54 24", 4, Kind::Call, nullptr, Target::caveBpoV, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x174610 },
+    { "BPOV3", "BPO", 0x72346, 5, orig_BPOV3, "10 48 03 CE E8 ?? ?? ?? ?? 48 83 C2 10", 4, Kind::Call, nullptr, Target::caveBpoV, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x174610 },
+    { "BPOV4", "BPO", 0x7250B, 5, orig_BPOV4, "00 49 8B CD E8 ?? ?? ?? ?? 49 8D 4D 40", 4, Kind::Call, nullptr, Target::caveBpoV, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x174610 },
+    { "BPOV5", "BPO", 0x72519, 5, orig_BPOV5, "8D 54 24 70 E8 ?? ?? ?? ?? 48 8D 55 40", 4, Kind::Call, nullptr, Target::caveBpoV, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x174610 },
+    { "BPOV6", "BPO", 0x72546, 5, orig_BPOV6, "00 49 8D 4D 10 48 03 CA E8 ?? ?? ?? ?? 48 83 C2 10 48 83 EB 01", 8, Kind::Call, nullptr, Target::caveBpoV, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x174610 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -703,6 +723,7 @@ static const uint8_t dep_79[] = { 0x48, 0x8B, 0x4D, 0xA0, 0xEB, 0x08, 0xE8, 0xB1
 static const uint8_t dep_80[] = { 0xE9, 0xA2, 0xF8, 0xFF, 0xFF };
 static const uint8_t dep_81[] = { 0x44, 0x3B, 0x7A, 0x18, 0x7D, 0x59, 0x4D, 0x8B, 0x34, 0x24, 0x4D, 0x8B, 0x83, 0xC8, 0x01, 0x00, 0x00, 0x4D, 0x85, 0xF6, 0x74, 0x49, 0x49, 0x8B, 0x4E, 0x68, 0x48, 0x85, 0xC9, 0x74, 0x40, 0x49, 0x8D, 0x90, 0xE0, 0x74, 0x00, 0x00, 0x48, 0x81, 0xC1, 0x08, 0x01, 0x00, 0x00, 0x4D, 0x8B, 0x80, 0xB0, 0x6E, 0x00, 0x00, 0xE8, 0xF7, 0x1B, 0xF4, 0xFF, 0x49, 0x8B, 0x4E, 0x68, 0xBA, 0xFF, 0x00, 0x00, 0x00, 0x41, 0xB8, 0x10, 0x00, 0x00, 0x00, 0xE8, 0xAB, 0x1D, 0xF4, 0xFF, 0x48, 0x8B, 0x54, 0x24, 0x30, 0x48, 0x8B, 0x44, 0x24, 0x40, 0x4C, 0x8B, 0x9C, 0x24, 0x90, 0x00, 0x00, 0x00, 0x41, 0xFF, 0xC7, 0x49, 0xFF, 0xC5, 0x49, 0x83, 0xC4, 0x08, 0x4C, 0x3B, 0xE8, 0x7C, 0x92 };
 static const uint8_t dep_85[] = { 0x33, 0xD2, 0xF0, 0x0F, 0xB1, 0x11, 0xA8, 0x01 };
+static const uint8_t dep_89[] = { 0x0F, 0x28, 0x02, 0x48, 0x8B, 0xC1, 0x66, 0x0F, 0x7F, 0x01, 0xC7, 0x41, 0x0C, 0x00, 0x00, 0x00, 0x00, 0xC3 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -790,6 +811,10 @@ static const Dep kDeps[] = {
     { "MA", 0x4B104, 1438, nullptr, 0x6F1BA4D0 },  // MA: MeshletRequestLoad 4B104 primary piece (r10d zero at MA1f-h)
     { "MA", 0x419A8, 494, nullptr, 0xFD5C39B9 },  // MA: MeshletUpdateEntryFlags 419A8 (ebp zeroed once at 419C4, never written again)
     { "MA", 0x1E8359, 8, dep_85, 0 },  // MA3: xor edx,edx immediately before the per-draw lock cmpxchg [rcx],edx (DrawEmit 1E80B0)
+    { "BPO", 0x71C60, 2507, nullptr, 0xFA833958 },  // BoundsFromPartObbs 71C60..7262B incl. the QA/QB/L1/V sites (caves resume at 71F04 / 7206F / 71DB7 and rely on its register / stack-slot use; liveness proven by re/scripts_logic/bounds_offline.fsx)
+    { "BPO", 0x1907C32, 611, nullptr, 0xE7F3BF96 },  // BoundsFromPartObbs cold stubs 1907C32..1907E95 (they re-enter 71C60 at 71DDA / 720AD / 72177..)
+    { "BPO", 0x1A7AAC, 101, nullptr, 0x674E1982 },  // ObjResTreeAllReady 1A7AAC: ebx = 0 at the L2 site, flags dead after it (lea / test dil,al)
+    { "BPO", 0x174610, 18, dep_89, 0 },  // Vec4CopyW0 (V stock fallback; the V cave writes the same 16 bytes and leaves rax / xmm0 the same)
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

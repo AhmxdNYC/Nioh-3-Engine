@@ -523,7 +523,27 @@
     {"id": "FP13", "group": "FP", "rva": "0xF68D8", "len": 5, "orig": "48 8B C4 55 53", "kind": "check",
       "pattern": "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 B8 F5", "offset": 0, "what": "FnProbe default entry (remaining-work 10.1, Unknown_Generic_f68d8): first 5 bytes relocated by the probe thunk" },
     {"id": "FP14", "group": "FP", "rva": "0x2C5AA6C", "len": 7, "orig": "48 8B C4 48 89 58 20", "kind": "check",
-      "pattern": "48 8B C4 48 89 58 20 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 08 F3 FF FF 48 81 EC C0 0D 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 44 0F 29 A0 58 FF FF FF 44 0F 29 A8 48 FF FF FF 44 0F 29 B0 38 FF FF FF 44 0F 29 B8 28 FF FF FF 48 8B 05 5B D4 85", "offset": 0, "what": "FnProbe default entry (remaining-work 10.1, Unknown_Math_2c5aa6c): first 7 bytes relocated by the probe thunk" }
+      "pattern": "48 8B C4 48 89 58 20 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 08 F3 FF FF 48 81 EC C0 0D 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 44 0F 29 A0 58 FF FF FF 44 0F 29 A8 48 FF FF FF 44 0F 29 B0 38 FF FF FF 44 0F 29 B8 28 FF FF FF 48 8B 05 5B D4 85", "offset": 0, "what": "FnProbe default entry (remaining-work 10.1, Unknown_Math_2c5aa6c): first 7 bytes relocated by the probe thunk" },
+    { "id": "BPOQA", "group": "BPO", "rva": "0x71EFE", "len": 6, "orig": "0F B7 43 06 8B C8", "kind": "jmp", "target": "caveBpoQA",
+      "pattern": "89 45 E0 0F B7 43 06 8B C8 8B D0 C1 E1 10 81 E1 00 00 00 80 81 E2 00 7C 00 00 0F 84", "offset": 3 },
+    { "id": "BPOQB", "group": "BPO", "rva": "0x72053", "len": 7, "orig": "F3 44 0F 11 5C 24 40", "kind": "jmp", "target": "caveBpoQB",
+      "pattern": "F3 44 0F 11 5C 24 40 F3 44 0F 11 64 24 44 F3 44 0F 11 4C 24 4C", "offset": 0 },
+    { "id": "BPOL1", "group": "BPO", "rva": "0x71DB2", "len": 5, "orig": "F0 44 0F B1 11", "kind": "jmp", "target": "caveBpoL1",
+      "pattern": "33 C0 F0 44 0F B1 11 A8 02 0F 84", "offset": 2 },
+    { "id": "BPOL2", "group": "BPO", "rva": "0x1A7AE0", "len": 6, "orig": "33 C0 F0 0F B1 1A", "kind": "jmp", "target": "caveBpoL2",
+      "pattern": "33 C0 F0 0F B1 1A 8D 7B 01 40 84 C7", "offset": 0 },
+    { "id": "BPOV1", "group": "BPO", "rva": "0x72310", "len": 5, "orig": "E8 FB 22 10 00", "kind": "call", "target": "caveBpoV", "call_at": 0, "callee": "0x174610",
+      "pattern": "0F 11 55 3C E8 ?? ?? ?? ?? 48 8D 55 C0", "offset": 4 },
+    { "id": "BPOV2", "group": "BPO", "rva": "0x7231C", "len": 5, "orig": "E8 EF 22 10 00", "kind": "call", "target": "caveBpoV", "call_at": 0, "callee": "0x174610",
+      "pattern": "C0 49 8B C8 E8 ?? ?? ?? ?? 48 8D 54 24", "offset": 4 },
+    { "id": "BPOV3", "group": "BPO", "rva": "0x72346", "len": 5, "orig": "E8 C5 22 10 00", "kind": "call", "target": "caveBpoV", "call_at": 0, "callee": "0x174610",
+      "pattern": "10 48 03 CE E8 ?? ?? ?? ?? 48 83 C2 10", "offset": 4 },
+    { "id": "BPOV4", "group": "BPO", "rva": "0x7250B", "len": 5, "orig": "E8 00 21 10 00", "kind": "call", "target": "caveBpoV", "call_at": 0, "callee": "0x174610",
+      "pattern": "00 49 8B CD E8 ?? ?? ?? ?? 49 8D 4D 40", "offset": 4 },
+    { "id": "BPOV5", "group": "BPO", "rva": "0x72519", "len": 5, "orig": "E8 F2 20 10 00", "kind": "call", "target": "caveBpoV", "call_at": 0, "callee": "0x174610",
+      "pattern": "8D 54 24 70 E8 ?? ?? ?? ?? 48 8D 55 40", "offset": 4 },
+    { "id": "BPOV6", "group": "BPO", "rva": "0x72546", "len": 5, "orig": "E8 C5 20 10 00", "kind": "call", "target": "caveBpoV", "call_at": 0, "callee": "0x174610",
+      "pattern": "00 49 8D 4D 10 48 03 CA E8 ?? ?? ?? ?? 48 83 C2 10 48 83 EB 01", "offset": 8 }
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -611,6 +631,10 @@
     { "group": "MA", "rva": "0x4AA34", "len": 1569, "fnv1a": "0xD1BCE30E", "what": "MA: MeshletCheckRequestLoad 4AA34 primary piece (r10d zero at every MA1a-e site: re/scripts_cpu/ma_zero.fsx)" },
     { "group": "MA", "rva": "0x4B104", "len": 1438, "fnv1a": "0x6F1BA4D0", "what": "MA: MeshletRequestLoad 4B104 primary piece (r10d zero at MA1f-h)" },
     { "group": "MA", "rva": "0x419A8", "len": 494, "fnv1a": "0xFD5C39B9", "what": "MA: MeshletUpdateEntryFlags 419A8 (ebp zeroed once at 419C4, never written again)" },
-    { "group": "MA", "rva": "0x1E8359", "bytes": "33 D2 F0 0F B1 11 A8 01", "what": "MA3: xor edx,edx immediately before the per-draw lock cmpxchg [rcx],edx (DrawEmit 1E80B0)" }
+    { "group": "MA", "rva": "0x1E8359", "bytes": "33 D2 F0 0F B1 11 A8 01", "what": "MA3: xor edx,edx immediately before the per-draw lock cmpxchg [rcx],edx (DrawEmit 1E80B0)" },
+    { "group": "BPO", "rva": "0x71C60", "len": 2507, "fnv1a": "0xFA833958", "what": "BoundsFromPartObbs 71C60..7262B incl. the QA/QB/L1/V sites (caves resume at 71F04 / 7206F / 71DB7 and rely on its register / stack-slot use; liveness proven by re/scripts_logic/bounds_offline.fsx)" },
+    { "group": "BPO", "rva": "0x1907C32", "len": 611, "fnv1a": "0xE7F3BF96", "what": "BoundsFromPartObbs cold stubs 1907C32..1907E95 (they re-enter 71C60 at 71DDA / 720AD / 72177..)" },
+    { "group": "BPO", "rva": "0x1A7AAC", "len": 101, "fnv1a": "0x674E1982", "what": "ObjResTreeAllReady 1A7AAC: ebx = 0 at the L2 site, flags dead after it (lea / test dil,al)" },
+    { "group": "BPO", "rva": "0x174610", "bytes": "0F 28 02 48 8B C1 66 0F 7F 01 C7 41 0C 00 00 00 00 C3", "what": "Vec4CopyW0 (V stock fallback; the V cave writes the same 16 bytes and leaves rax / xmm0 the same)" }
   ]
 }
