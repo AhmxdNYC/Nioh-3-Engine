@@ -4,16 +4,12 @@ A small native mod for **Nioh 3 (Steam, v2.02)**. It fixes CPU and power waste i
 run at real speed when your frame rate is below the in-game cap. It patches the game in memory only. No game
 files are changed, and nothing is left behind when the game exits.
 
-> **Status (2026-10-08): version 1.7.14. The 1.7.13 menu and 1.7.14 patches (GL1, LC, LW, all default off) are built and pattern-tested but not yet run in the game. Device: ASUS ROG Ally X RC72LA (BIOS RC72LA.312; Z1 Extreme, Radeon 780M, 24 GB / 8 GB UMA, Bazzite + Proton); PC: Ryzen 5 7600X + RX 9070. The note below is the original 1.0 status.**
+> **Status (2026-10-08): version 1.7.40, shipped as one universal zip (Windows and Proton; settings that differ by OS are `-1` = auto). It has run in the game on a Windows PC (Ryzen 5 7600X + RX 9070) and on an ASUS ROG Ally X (Bazzite + Proton). New keys since 1.7.14 (EP, SR, RC, AQ, TSY, SH, PF, LoadOnlyCpuFixes, VRROnline, MA, BPO, AABB, DQ, P1E7, GQ, JT, Tour*, VirtualPad, ...) are documented next to each key in `Nioh3EngineFix.ini`; the player-facing guide is `README.md` in the zip, the full change list is `MODLOG.md` in the project.**
 
 ## Which settings for which device
 
-- **ROG Ally X (RC72LA, Z1 Extreme, Radeon 780M, 24 GB LPDDR5X with an 8 GB UMA frame buffer, Bazzite + Proton):** GPU-bound (about 99 %; stock about 16 fps at MAX in Futamata). Only the GHDM shader gives fps (+6.4 to +8.7 %). CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED) are fps-neutral but save CPU power. R2a (Proton only) is a small unproven candidate. Needs `WINEDLLOVERRIDES="dinput8=n,b" %command%`.
-- **Desktop PC (Ryzen 5 7600X, RX 9070, 1440p, Windows 11):** CPU main-thread-bound, so the CPU fixes are the ones that matter. Stock all-off baseline about 149-153 fps standing, p99 14.3-14.7 ms; per-fix results are being measured (`captures\tm\`, `STATUS.md`).
->
-> **Original status: built, but not yet load-tested.** The logic is a 1:1 port of memory patches that were applied and
-> measured live on v2.02 with external scripts. This DLL has not yet been run inside the game. Read
-> `Nioh3EngineFix.log` after your first launch and report what it says.
+- **ROG Ally X (RC72LA, Z1 Extreme, Radeon 780M, Bazzite + Proton):** GPU-bound (about 99 %; stock about 16 fps at MAX in Futamata). The GHDM shadow shader gives +6.4 to +8.7 % fps and the fogpar fog shader a little more (+0.15 to +0.30 fps). CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED) are fps-neutral but save CPU power. Loads: about 94 s -> 37-38 s with EP + SR (automatic under Proton). Needs `WINEDLLOVERRIDES="dinput8=n,b" %command%`.
+- **Desktop PC (Ryzen 5 7600X, RX 9070, 1440p, Windows 11):** CPU main-thread-bound, so the CPU fixes are the ones that matter. Stock all-off baseline about 149-153 fps standing, p99 14.3-14.7 ms; PP is kept (+2.9 %), B / GF / MQ gave nothing. Both devices use the same zip and ini.
 
 ### What is new in 1.7.13 and 1.7.14 (plain language first)
 - **Open the menu three ways:** F10, Esc three times, or Start three times on a controller.

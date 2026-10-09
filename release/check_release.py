@@ -87,6 +87,7 @@ def src_keys(sections):
         "prefetch.cpp": (r'IniInt\(info\.iniPath,\s*L"(\w+)"', "patches"),
         "sp.cpp": (r'\bI\(L"(\w+)"', "profiler"),
         "gpuprof.cpp": (r'\bI\(L"(\w+)"', "profiler"),
+        "tour.cpp": (r'\bI\(L"(Tour\w+)"', "debug"),
     }
     for f in sorted((MOD / "src").glob("*.cpp")):
         t = f.read_text(encoding="utf-8", errors="replace")

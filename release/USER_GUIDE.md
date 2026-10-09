@@ -10,7 +10,8 @@ checks the build and does nothing.
 | `dinput8.dll` | Ultimate ASI Loader (loads `.asi` mods; the same loader Lyall's Nioh3Fix ships - keep only one copy) |
 | `Nioh3EngineFix.asi` | the mod |
 | `Nioh3EngineFix.ini` | settings for every device; `1` = on, `0` = off, `-1` = auto by OS (chosen at startup) |
-| `optional\shader_dx12\0x0104840c.file` | faster shadow shader, same picture (see "Optional shader") |
+| `optional\shader_dx12\0x0104840c.file` | faster shadow shader (GHDM), same picture (see "Optional shaders") |
+| `optional\shader_dx12\0xa9910db8.file` | faster fog shader (fogpar), same picture (see "Optional shaders") |
 | `README.md` | this guide; `README-MOD.md` full option reference; `SHA256SUMS.txt` checksums; `PROFILE.txt` what this device profile changes and why |
 
 There is one zip for everything: any Windows PC, and any Linux device running the game under Proton (Steam Deck, ROG Ally on
@@ -36,7 +37,7 @@ each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap
 - Set **"FPS dynamic adjustment" OFF** (the mod's frame-timing fix needs it; a warning shows when it is on).
 - Pick an FPS cap you can mostly hold (Ally: 30 or 60; PC: 60 or 120). With the mod the game runs at real speed below
   the cap (no slow motion).
-- **Online co-op:** the frame-timing fix (`[Patches] VRR`) is tested offline only. Set `VRR = 0` before playing online.
+- **Online co-op:** the frame-timing fix (`[Patches] VRR`) was tested offline only. By default (`VRROnline = -1`, auto) the mod pauses it by itself while you are in an online session and brings it back afterwards, so you do not need to change anything. If you want it never active online, set `VRROnline = 0`. Online co-op itself is still untested.
 
 ## Mod menu and overlay
 - Open: **F10**, **Esc three times**, or **triple-tap Start** on a pad. D-pad/stick to move, Left/Right to change, A to
@@ -47,11 +48,11 @@ each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap
 - Loads: turn on "Skip loading tip screen" in the mod menu (or `[General] AutoContinueLoad = 1`) and the "press button" tip page closes by itself when the load is done. Off by default (it only
   saves the press).
 
-## Optional shader (same picture, less GPU time)
-Measured: ROG Ally +6.4 to +8.7 % fps at MAX, RX 9070 PC about +3 %. With the game closed:
-1. In the game folder open `shader_dx12\` and **copy the original `0x0104840c.file` somewhere safe**.
-2. Copy `optional\shader_dx12\0x0104840c.file` over it.
-3. Undo: put the original back, or Steam -> Properties -> Installed Files -> Verify integrity.
+## Optional shaders (same picture, less GPU time)
+Two replacement shader files are included. Both give the same picture; they do the same work with less GPU time. Measured on the ROG Ally: the shadow shader (`0x0104840c`, GHDM) +6.4 to +8.7 % fps at MAX; the fog shader (`0xa9910db8`, fogpar) a further +0.15 to +0.30 fps. On the RX 9070 PC the shadow shader gave about +3 %; the fog shader has not been measured on a PC yet. They are independent: use one or both. With the game closed:
+1. In the game folder open `shader_dx12\` and **copy the original `0x0104840c.file` and `0xa9910db8.file` somewhere safe**.
+2. Copy the files from `optional\shader_dx12\` over them.
+3. Undo: put the originals back, or Steam -> Properties -> Installed Files -> Verify integrity.
 
 ## Is it working?
 `Nioh3EngineFix.log` appears next to the mod after the first launch. Each fix is listed as `applied` or `SKIPPED` with the
@@ -68,8 +69,7 @@ reason. Every 30 s it prints `stats` lines. Send this log with any report.
 
 ## Uninstall
 Delete `dinput8.dll` (unless another mod needs it), `Nioh3EngineFix.asi`, `.ini`, `.log` (and the `Nioh3EngineFix_pj` folder
-if you used PJ); on Proton also clear the launch option. If you installed the shader, restore the original or verify the game files in Steam.
+if you used PJ); on Proton also clear the launch option. If you installed the shaders, restore the originals or verify the game files in Steam.
 
 ## More
 Full option reference: `README-MOD.md` (in the zip). What was measured on which device and why: the project README.
-A zip named `-rc` is a release candidate: some defaults in `PROFILE.txt` still wait for the final device test.
