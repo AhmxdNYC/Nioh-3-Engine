@@ -346,7 +346,9 @@ bool SysPool(const D3D12_HEAP_PROPERTIES& h) {
 D3D12_HEAP_PROPERTIES ForceSys(const D3D12_HEAP_PROPERTIES& h) {
     D3D12_HEAP_PROPERTIES c = h;
     c.Type = D3D12_HEAP_TYPE_CUSTOM;
-    c.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE;
+    // 2 = WRITE_BACK (cache-coherent system memory): a driver cannot back that with BAR-mapped VRAM, so with ReBAR / SAM
+    // this is the only way to make the PC read those buffers over PCIe like a card without ReBAR (snooped: a bit slower)
+    c.CPUPageProperty = g_forceSys >= 2 ? D3D12_CPU_PAGE_PROPERTY_WRITE_BACK : D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE;
     c.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
     return c;
 }
