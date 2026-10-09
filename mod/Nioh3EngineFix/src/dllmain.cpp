@@ -89,7 +89,9 @@
 //         [Tuning] values; ShaderHot ([ShaderHot] Enabled = 0, diagnostic): twin PSOs for loose-shader A/Bs in one launch
 // 1.7.54: CM inline mode (CbvMirrorQueue = 0, default): prologue copy list on the game's own queue in the same ExecuteCommandLists,
 //         no cross-queue waits (1.7.52 own-COPY-queue + waits was +15 ms on pc2); CbvMirrorComputeCopy; GPU_UPLOAD / OPTIONS16 guards
-#define MOD_VERSION "1.7.54"
+// 1.7.55: CM CbvMirrorSites ([GpuOpt], default 1 = per-draw 118F89 only, unchanged): 2 = the compute dispatch constants
+//         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
+#define MOD_VERSION "1.7.55"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

@@ -27,9 +27,14 @@ void (*g_log)(const char*, ...) = nullptr;
 
 int g_mode = 0;           // 0 off, 1 auto, 2 force
 bool g_allSites = false;  // CbvMirrorAllSites: every CBV in the ring, not only the per-draw recorder site
+int g_sites = 1;          // 1.7.55 CbvMirrorSites (bitmask, ignored with AllSites): 1 per-draw recorder 118F89, 2 compute sites
 uint64_t g_ringBytes = 128ull << 20;
 uintptr_t g_base = 0;
 constexpr uint32_t kRvaRecorderCbv = 0x118F89;  // v2.02: return address of the per-draw CreateConstantBufferView (118E1E)
+// 1.7.55 (notes/rdna2-meshlet-slowdown.md): the compute dispatch constants. Both sites memcpy (B94250) the constants into
+// a fresh ring slot right before CreateConstantBufferView (device vtbl+88h), the same "bytes final at create" rule as 118F89.
+constexpr uint32_t kRvaComputeCbvTable = 0x495B2E;  // CmdListUploadComputeCbvTable 4959EC <- SynFlushComputeState 58BE90 (~95 %)
+constexpr uint32_t kRvaComputeCbvSyn = 0x117F20;    // SynFlushComputeDescriptors 117DE8 <- SynFlushComputeStateEx 119C08
 volatile LONG g_active = 0;  // the redirect runs (mode 2, or mode 1 after the auto decision)
 volatile LONG g_failed = 0;
 bool g_wine = false;
@@ -192,6 +197,8 @@ bool Start(const StartInfo& info) {
     if (!info.iniPath) return false;
     g_mode = (int)GetPrivateProfileIntW(L"GpuOpt", L"CbvMirror", 0, info.iniPath);
     g_allSites = GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorAllSites", 0, info.iniPath) != 0;
+    g_sites = (int)GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorSites", 1, info.iniPath) & 3;
+    if (!g_sites) g_sites = 1;
     g_queueMode = (int)GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorQueue", 0, info.iniPath) == 1 ? 1 : 0;
     g_computeCopy = GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorComputeCopy", 1, info.iniPath) != 0;
     int mb = (int)GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorMB", 128, info.iniPath);
@@ -209,7 +216,10 @@ bool Start(const StartInfo& info) {
     if (g_mode)
         ULOG("CM: CbvMirror = %d (%s), mirror ring %d MB in VRAM, sites %s", g_mode,
              g_mode == 2 ? "FORCE - test mode" : "auto: only when the UPLOAD heaps live in system memory",
-             mb, g_allSites ? "all CBVs in the UPLOAD ring" : "per-draw recorder 118F89");
+             mb, g_allSites ? "all CBVs in the UPLOAD ring"
+                 : g_sites == 1 ? "per-draw recorder 118F89"
+                 : g_sites == 2 ? "compute dispatch constants 495B2E + 117F20 (CbvMirrorSites = 2)"
+                                : "per-draw 118F89 + compute 495B2E / 117F20 (CbvMirrorSites = 3)");
     if (g_mode == 2) InterlockedExchange(&g_active, 1);
     return g_mode != 0;
 }
@@ -283,7 +293,10 @@ bool RedirectCbv(ID3D12Device* dev, const D3D12_CONSTANT_BUFFER_VIEW_DESC* in, D
     if (va < g_upBase || va + size > g_upBase + g_upSize || !size) { InterlockedIncrement64(&c_outside); return false; }
     if (!g_allSites) {
         const uintptr_t r = reinterpret_cast<uintptr_t>(ra);
-        if (!g_base || r - g_base != kRvaRecorderCbv) { InterlockedIncrement64(&c_site); return false; }
+        const uintptr_t rva = g_base ? r - g_base : 0;
+        const bool ok = g_base && (((g_sites & 1) && rva == kRvaRecorderCbv) ||
+                                   ((g_sites & 2) && (rva == kRvaComputeCbvTable || rva == kRvaComputeCbvSyn)));
+        if (!ok) { InterlockedIncrement64(&c_site); return false; }
     }
     const uint64_t key = va ^ (size << 44);
     uint64_t off;
