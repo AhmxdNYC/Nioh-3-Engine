@@ -87,7 +87,9 @@
 // 1.7.52: CM CbvMirror ([GpuOpt] CbvMirror = 0): per-draw CBVs mirrored from the system-memory UPLOAD ring into VRAM (upmirror.cpp)
 // 1.7.53: fast testing (notes\fast-testing.md): LiveCtl control file ([Debug] LiveCtl = 0) for one-launch A/B windows + live
 //         [Tuning] values; ShaderHot ([ShaderHot] Enabled = 0, diagnostic): twin PSOs for loose-shader A/Bs in one launch
-#define MOD_VERSION "1.7.53"
+// 1.7.54: CM inline mode (CbvMirrorQueue = 0, default): prologue copy list on the game's own queue in the same ExecuteCommandLists,
+//         no cross-queue waits (1.7.52 own-COPY-queue + waits was +15 ms on pc2); CbvMirrorComputeCopy; GPU_UPLOAD / OPTIONS16 guards
+#define MOD_VERSION "1.7.54"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

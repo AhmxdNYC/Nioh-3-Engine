@@ -49,7 +49,7 @@ uint64_t g_oldest = 0;        // start of the oldest batch the GPU may still rea
 struct Batch { ID3D12Fence* fence; uint64_t value; uint64_t end; int64_t qpc; };
 int64_t g_qpf = 0;
 std::vector<Batch> g_inFlight;
-struct Copy { uint64_t src, dst, size; };
+struct Copy { uint64_t src, dst, size, abs = 0; };   // abs: absolute ring position (slot reuse check)
 std::vector<Copy> g_pending;
 std::unordered_map<uint64_t, uint64_t> g_dedupe;   // (src VA, size) -> mirror offset, this epoch
 
@@ -63,7 +63,24 @@ int g_caNext = 0;
 ID3D12GraphicsCommandList* g_cl = nullptr;
 ID3D12Fence* g_cf = nullptr;
 uint64_t g_cv = 0;
-struct GameQ { ID3D12CommandQueue* q; uint64_t waited; };
+struct GameQ {
+    ID3D12CommandQueue* q;
+    uint64_t waited;
+    // 1.7.54 inline mode: per game queue, our prologue list of the queue's type and a fence signalled after the game's lists
+    D3D12_COMMAND_LIST_TYPE type;
+    ID3D12CommandAllocator* alloc[kAllocs];
+    uint64_t allocFence[kAllocs];
+    int next;
+    ID3D12GraphicsCommandList* list;
+    ID3D12Fence* fence;
+    uint64_t value;
+    uint64_t cursor;   // next g_log sequence number this queue has not copied yet
+    bool ready, tried;
+};
+int g_queueMode = 0;        // [GpuOpt] CbvMirrorQueue: 0 inline prologue on the game's own queue (1.7.54), 1 own COPY queue (1.7.52)
+bool g_computeCopy = true;  // [GpuOpt] CbvMirrorComputeCopy: COMPUTE queues copy the ranges their lists may read too
+std::vector<Copy> g_clog;    // every redirected range (inline mode), sequence g_logSeq0 + index
+uint64_t g_logSeq0 = 0;
 GameQ g_gq[16];
 int g_ngq = 0;
 bool g_copyReady = false, g_copyTried = false;
@@ -159,7 +176,10 @@ GameQ* GameQueue(ID3D12CommandQueue* q) {
     const D3D12_COMMAND_QUEUE_DESC qd = q->GetDesc();
     if (qd.Type != D3D12_COMMAND_LIST_TYPE_DIRECT && qd.Type != D3D12_COMMAND_LIST_TYPE_COMPUTE) return nullptr;
     if (g_ngq >= 16) return nullptr;
-    g_gq[g_ngq] = GameQ{q, 0};
+    g_gq[g_ngq] = GameQ{};
+    g_gq[g_ngq].q = q;
+    g_gq[g_ngq].type = qd.Type;
+    g_gq[g_ngq].cursor = g_logSeq0 + g_clog.size();
     ULOG("CM: game queue %p (%s) waits on the copy fence", (void*)q, qd.Type == D3D12_COMMAND_LIST_TYPE_DIRECT ? "DIRECT" : "COMPUTE");
     return &g_gq[g_ngq++];
 }
@@ -172,6 +192,8 @@ bool Start(const StartInfo& info) {
     if (!info.iniPath) return false;
     g_mode = (int)GetPrivateProfileIntW(L"GpuOpt", L"CbvMirror", 0, info.iniPath);
     g_allSites = GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorAllSites", 0, info.iniPath) != 0;
+    g_queueMode = (int)GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorQueue", 0, info.iniPath) == 1 ? 1 : 0;
+    g_computeCopy = GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorComputeCopy", 1, info.iniPath) != 0;
     int mb = (int)GetPrivateProfileIntW(L"GpuOpt", L"CbvMirrorMB", 128, info.iniPath);
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
@@ -195,7 +217,15 @@ bool Start(const StartInfo& info) {
 bool Wanted() { return g_mode != 0; }
 bool WantsPresentHook() { return g_mode != 0; }
 
+void OnHeapType(int type) {
+    if (type == 5 && g_mode && !g_failed) {   // D3D12_HEAP_TYPE_GPU_UPLOAD: the game itself uses ReBAR memory - stand down
+        InterlockedExchange(&g_failed, 1);
+        ULOG("CM: the game created a GPU_UPLOAD heap (ReBAR path) - CbvMirror off");
+    }
+}
+
 void OnHeap(ID3D12Device* dev, ID3D12Heap* heap, const D3D12_HEAP_DESC& d) {
+    OnHeapType((int)d.Properties.Type);
     if (!g_mode || !heap) return;
     const bool up = d.Properties.Type == D3D12_HEAP_TYPE_UPLOAD ||
                     (d.Properties.Type == D3D12_HEAP_TYPE_CUSTOM && d.Properties.MemoryPoolPreference == D3D12_MEMORY_POOL_L0);
@@ -232,11 +262,11 @@ void OnHeap(ID3D12Device* dev, ID3D12Heap* heap, const D3D12_HEAP_DESC& d) {
          (unsigned long long)g_mirrorVa);
 }
 
-void SetAuto(double nonLocalUsedMB, bool uma) {
+void SetAuto(double nonLocalUsedMB, bool uma, bool gpuUploadHeap) {
     if (g_mode != 1 || g_failed || !g_alias) return;
     static int stable = 0;
     const double sysMB = (double)g_sysHeapBytes / 1048576.0;
-    const bool want = !uma && sysMB >= 256.0 && nonLocalUsedMB >= 0.75 * sysMB;
+    const bool want = !uma && !gpuUploadHeap && sysMB >= 256.0 && nonLocalUsedMB >= 0.75 * sysMB;
     if (want == (g_active != 0)) { stable = 0; return; }
     if (++stable < 3) return;   // 3 s in a row
     stable = 0;
@@ -274,6 +304,7 @@ bool RedirectCbv(ID3D12Device* dev, const D3D12_CONSTANT_BUFFER_VIEW_DESC* in, D
         uint64_t cs = (size + 255) & ~255ull;
         if (va - g_upBase + cs > g_upSize) cs = g_upSize - (va - g_upBase);
         g_pending.push_back(Copy{va - g_upBase, off, cs});
+        if (g_queueMode == 0) g_clog.push_back(Copy{va - g_upBase, off, cs, g_head - ((size + 255) & ~255ull)});
         ReleaseSRWLockExclusive(&g_lock);
     }
     *out = *in;
@@ -282,9 +313,7 @@ bool RedirectCbv(ID3D12Device* dev, const D3D12_CONSTANT_BUFFER_VIEW_DESC* in, D
     return true;
 }
 
-void OnEcl(ID3D12CommandQueue* q, unsigned n, ID3D12CommandList* const* lists, EclFn orig) {
-    (void)n;
-    (void)lists;
+void OnEclCopyQueue(ID3D12CommandQueue* q, EclFn orig) {
     if (!g_mode || !g_alias || g_failed || !orig) return;
     AcquireSRWLockExclusive(&g_lock);
     GameQ* gq = GameQueue(q);
@@ -354,15 +383,139 @@ void OnEcl(ID3D12CommandQueue* q, unsigned n, ID3D12CommandList* const* lists, E
     ReleaseSRWLockExclusive(&g_lock);
 }
 
+// 1.7.54 inline mode: one prologue list on the game's OWN queue, submitted in the SAME ExecuteCommandLists call ahead of the
+// game's lists: copies (implicit promotion COMMON -> COPY_DEST) + one barrier COPY_DEST -> VERTEX_AND_CONSTANT_BUFFER. No
+// cross-queue waits. A DIRECT queue copies every range redirected since its last submission; a COMPUTE queue (async) copies the
+// same ranges again into the same mirror slots (identical bytes; buffers are simultaneous-access) unless CbvMirrorComputeCopy = 0.
+// Returns true when it submitted the game's lists itself.
+bool OnEclInline(ID3D12CommandQueue* q, unsigned n, ID3D12CommandList* const* lists, EclFn orig) {
+    if (!g_mode || !g_alias || g_failed || !orig || n > 62) return false;
+    AcquireSRWLockExclusive(&g_lock);
+    GameQ* gq = GameQueue(q);
+    if (!gq) {
+        ReleaseSRWLockExclusive(&g_lock);
+        return false;
+    }
+    if (!gq->ready) {
+        if (gq->tried) {
+            ReleaseSRWLockExclusive(&g_lock);
+            return false;
+        }
+        gq->tried = true;
+        bool ok = true;
+        for (auto& a : gq->alloc) ok = ok && SUCCEEDED(g_dev->CreateCommandAllocator(gq->type, IID_PPV_ARGS(&a)));
+        ok = ok && SUCCEEDED(g_dev->CreateCommandList(0, gq->type, gq->alloc[0], nullptr, IID_PPV_ARGS(&gq->list)));
+        if (ok) gq->list->Close();
+        ok = ok && SUCCEEDED(g_dev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&gq->fence)));
+        if (!ok) {
+            InterlockedExchange(&g_failed, 1);
+            ReleaseSRWLockExclusive(&g_lock);
+            ULOG("CM: prologue list for queue %p not created - CbvMirror off", (void*)q);
+            return false;
+        }
+        gq->ready = true;
+    }
+    const bool direct = gq->type == D3D12_COMMAND_LIST_TYPE_DIRECT;
+    const uint64_t end = g_logSeq0 + g_clog.size();
+    if (gq->cursor < g_logSeq0) gq->cursor = g_logSeq0;   // trimmed past this (idle) queue
+    if (!direct && !g_computeCopy) gq->cursor = end;
+    if (gq->cursor >= end) {
+        ReleaseSRWLockExclusive(&g_lock);
+        return false;
+    }
+    std::vector<Copy> cp;
+    RetireLocked();
+    for (auto it = g_clog.begin() + (ptrdiff_t)(gq->cursor - g_logSeq0); it != g_clog.end(); ++it)
+        if (direct || it->abs >= g_oldest) cp.push_back(*it);   // a lagging COMPUTE queue never re-copies into a reused slot
+    gq->cursor = end;
+    if (cp.empty()) {
+        ReleaseSRWLockExclusive(&g_lock);
+        return false;
+    }
+    if (direct) {   // the DIRECT queue defines the epoch: dedupe restarts, pending (not yet copied by DIRECT) is cleared
+        g_pending.clear();
+        g_dedupe.clear();
+    }
+    uint64_t minCur = end;   // trim the log to the slowest active cursor
+    for (int i = 0; i < g_ngq; ++i)
+        if (g_gq[i].ready && (g_gq[i].type == D3D12_COMMAND_LIST_TYPE_DIRECT || g_computeCopy)) minCur = std::min(minCur, g_gq[i].cursor);
+    if (g_clog.size() > 200000 && minCur + 100000 < end) minCur = end - 100000;   // a queue that stopped submitting
+    if (minCur > g_logSeq0) {
+        g_clog.erase(g_clog.begin(), g_clog.begin() + (ptrdiff_t)(minCur - g_logSeq0));
+        g_logSeq0 = minCur;
+    }
+    std::sort(cp.begin(), cp.end(), [](const Copy& a, const Copy& b) { return a.dst < b.dst; });
+    std::vector<Copy> m;
+    m.reserve(cp.size());
+    for (const Copy& x : cp) {
+        if (!m.empty() && m.back().dst + m.back().size == x.dst && m.back().src + m.back().size == x.src) m.back().size += x.size;
+        else if (m.empty() || x.dst >= m.back().dst + m.back().size) m.push_back(x);   // drops exact re-copies of one slot
+    }
+    const int k = gq->next;
+    gq->next = (gq->next + 1) % kAllocs;
+    if (gq->allocFence[k] && gq->fence->GetCompletedValue() < gq->allocFence[k]) {
+        InterlockedIncrement64(&c_cpuWaits);
+        HANDLE e = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        if (e && SUCCEEDED(gq->fence->SetEventOnCompletion(gq->allocFence[k], e))) WaitForSingleObject(e, 2000);
+        if (e) CloseHandle(e);
+    }
+    bool ok = SUCCEEDED(gq->alloc[k]->Reset()) && SUCCEEDED(gq->list->Reset(gq->alloc[k], nullptr));
+    uint64_t bytes = 0;
+    if (ok) {
+        for (const Copy& x : m) {
+            gq->list->CopyBufferRegion(g_mirror, x.dst, g_alias, x.src, x.size);
+            bytes += x.size;
+        }
+        D3D12_RESOURCE_BARRIER b{};
+        b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        b.Transition.pResource = g_mirror;
+        b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        b.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+        gq->list->ResourceBarrier(1, &b);
+        ok = SUCCEEDED(gq->list->Close());
+    }
+    if (!ok) {
+        InterlockedExchange(&g_failed, 1);
+        ReleaseSRWLockExclusive(&g_lock);
+        ULOG("CM: prologue record failed - CbvMirror off for the rest of the session");
+        return false;
+    }
+    ID3D12CommandList* arr[64];
+    arr[0] = gq->list;
+    for (unsigned i = 0; i < n; ++i) arr[i + 1] = lists[i];
+    orig(q, n + 1, arr);
+    q->Signal(gq->fence, ++gq->value);   // after the game's lists of this submission: retire tracks the readers too
+    gq->allocFence[k] = gq->value;
+    if (direct) {
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        g_inFlight.push_back(Batch{gq->fence, gq->value, g_head, now.QuadPart});
+    }
+    InterlockedIncrement64(&c_flush);
+    InterlockedAdd64(&c_copies, (LONG64)m.size());
+    InterlockedAdd64(&c_bytes, (LONG64)bytes);
+    if (!direct) InterlockedIncrement64(&c_waits);   // inline mode: counts COMPUTE prologues (no waits exist)
+    ReleaseSRWLockExclusive(&g_lock);
+    return true;
+}
+
+bool OnEcl(ID3D12CommandQueue* q, unsigned n, ID3D12CommandList* const* lists, EclFn orig) {
+    if (g_queueMode == 0) return OnEclInline(q, n, lists, orig);
+    OnEclCopyQueue(q, orig);
+    return false;
+}
+
 void LogLine() {
     if (!g_mode) return;
     static LONG64 p[10] = {};
     const LONG64 v[10] = {c_redir, c_dedup, c_full, c_outside, c_site, c_flush, c_copies, c_bytes, c_waits, c_cpuWaits};
     ULOG("stats/s CM: %s | redirected %lld/s (dedupe %lld), ring full %lld, outside ring %lld, other site %lld | flushes %lld/s, "
-         "copies %lld/s, %.2f MB/s | GPU waits on the copy fence %lld, CPU allocator waits %lld",
+         "copies %lld/s, %.2f MB/s | %s %lld, CPU allocator waits %lld",
          g_failed ? "FAILED (off)" : g_active ? "ON" : g_alias ? "armed (auto: UPLOAD heaps are in VRAM / not decided)" : "no ring heap yet",
          (v[0] - p[0]) / 30, (v[1] - p[1]) / 30, v[2] - p[2], (v[3] - p[3]) / 30, (v[4] - p[4]) / 30, (v[5] - p[5]) / 30,
-         (v[6] - p[6]) / 30, (double)(v[7] - p[7]) / 30.0 / 1048576.0, v[8] - p[8], v[9] - p[9]);
+         (v[6] - p[6]) / 30, (double)(v[7] - p[7]) / 30.0 / 1048576.0,
+         g_queueMode == 0 ? "inline prologues (compute)" : "GPU waits on the copy fence", v[8] - p[8], v[9] - p[9]);
     for (int i = 0; i < 10; ++i) p[i] = v[i];
 }
 

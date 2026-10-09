@@ -249,7 +249,8 @@ volatile LONG64 c_resvN = 0, c_plN = 0, c_plSysN = 0, c_plSys = 0;  // placed re
 volatile LONG64 c_forced = 0;                                       // VSForceSysUpload conversions
 bool g_hooked = false, g_hookTried = false;
 int g_forceSys = 0;
-bool g_uma = false;   // D3D12_FEATURE_ARCHITECTURE.UMA of the game's device (CM auto: never on UMA)  // [Profiler] VSForceSysUpload (PC A/B only): UPLOAD heaps -> CUSTOM write-combine L0 (= system memory)
+bool g_uma = false;
+bool g_gpuUploadHeap = false;   // D3D12_OPTIONS16.GPUUploadHeapSupported (ReBAR exposed to D3D12): CM auto stays off   // D3D12_FEATURE_ARCHITECTURE.UMA of the game's device (CM auto: never on UMA)  // [Profiler] VSForceSysUpload (PC A/B only): UPLOAD heaps -> CUSTOM write-combine L0 (= system memory)
 
 // per-caller system-memory allocation table (heaps, committed, placed-into-sys-heap): who owns the non-local bytes.
 // Key = return addresses of the hooked call and of its caller (RVAs in Nioh3.exe, 0xFFFFFFFF = outside the exe).
@@ -413,6 +414,7 @@ HRESULT STDMETHODCALLTYPE HkCreateCommitted(ID3D12Device* d, const D3D12_HEAP_PR
         alt = ForceSys(*hp);
         use = &alt;
     }
+    if (hp) upmirror::OnHeapType((int)hp->Type);
     HRESULT hr = o_com(d, use, f, rd, st, cv, r, out);
     if (FAILED(hr) && use != hp) hr = o_com(d, hp, f, rd, st, cv, r, out);
     else if (use != hp && SUCCEEDED(hr)) InterlockedIncrement64(&c_forced);
@@ -563,6 +565,7 @@ void InstallHooks(void* fromCreate = nullptr) {
     D3D12_FEATURE_DATA_ARCHITECTURE arch{};
     const HRESULT hra = static_cast<ID3D12Device*>(dev)->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE, &arch, sizeof(arch));
     g_uma = SUCCEEDED(hra) && arch.UMA;
+    g_gpuUploadHeap = SUCCEEDED(hr16) && o16.gpuUploadHeap;
     MLOG("VS: GPUUploadHeapSupported (ReBAR/SAM) %s, UMA %s, CacheCoherentUMA %s",
          SUCCEEDED(hr16) ? (o16.gpuUploadHeap ? "YES" : "no") : "n/a", SUCCEEDED(hra) ? (arch.UMA ? "yes" : "no") : "n/a",
          SUCCEEDED(hra) ? (arch.CacheCoherentUMA ? "yes" : "no") : "n/a");
@@ -877,7 +880,7 @@ void Tick1s() {
         if (!vs::g_hookTried) vs::InstallHooks();
         EnsureAdapter();
         double u = -1, b = 0;
-        if (QueryVram(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &u, &b) && u >= 0) upmirror::SetAuto(u, vs::g_uma);
+        if (QueryVram(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &u, &b) && u >= 0) upmirror::SetAuto(u, vs::g_uma, vs::g_gpuUploadHeap);
         static int t30 = 0;
         if (++t30 % 30 == 0) upmirror::LogLine();
     }

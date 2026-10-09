@@ -41,14 +41,15 @@ bool WantsPresentHook();   // = Wanted() (osd installs its queue/present hooks)
 
 // memstats.cpp device hooks
 void OnHeap(ID3D12Device* dev, ID3D12Heap* heap, const D3D12_HEAP_DESC& desc);
+void OnHeapType(int type);   // every heap / committed resource: GPU_UPLOAD (5) seen -> CM off
 // true: *out holds the redirected desc (create the CBV with it); false: create the original
 bool RedirectCbv(ID3D12Device* dev, const D3D12_CONSTANT_BUFFER_VIEW_DESC* in, D3D12_CONSTANT_BUFFER_VIEW_DESC* out, void* retAddr);
 // memstats Tick1s (every second): auto-mode decision inputs
-void SetAuto(double nonLocalUsedMB, bool uma);
+void SetAuto(double nonLocalUsedMB, bool uma, bool gpuUploadHeap);   // gpuUploadHeap = OPTIONS16 ReBAR flag
 
 // osd.cpp HkExecuteCommandLists, game callers, before the original
 using EclFn = void(__stdcall*)(ID3D12CommandQueue*, unsigned, ID3D12CommandList* const*);
-void OnEcl(ID3D12CommandQueue* q, unsigned n, ID3D12CommandList* const* lists, EclFn orig);
+bool OnEcl(ID3D12CommandQueue* q, unsigned n, ID3D12CommandList* const* lists, EclFn orig);   // true = it submitted the game's lists
 
 void LogLine();   // stats thread, every 30 s
 }  // namespace upmirror

@@ -43,6 +43,7 @@
 #include "psoswap.h"
 #include "tilestats.h"
 #include "samelook.h"
+#include "livectl.h"
 #include "osd_font.h"
 #include "osd_shaders.h"
 
@@ -670,7 +671,8 @@ void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D
         t_lastDirectQ = q;
         g_lastDirectQ = q;
     }
-    upmirror::OnEcl(q, n, lists, reinterpret_cast<upmirror::EclFn>(g_origEcl));   // 1.7.51 CM: mirror copies first (no-op when off)
+    // 1.7.52/54 CM: mirror copies first; the inline mode submits a prologue list + the game's lists itself (true)
+    if (upmirror::OnEcl(q, n, lists, reinterpret_cast<upmirror::EclFn>(g_origEcl))) return;
     g_origEcl(q, n, lists);
 }
 
@@ -1101,6 +1103,7 @@ void OnPresent(IDXGISwapChain* sc) {
     gimerge::OnFrame(); // 1.7.29 GIProbe / GIMerge frame counter
     tilestats::OnFrame();
     samelook::OnPresent();  // 1.7.49 VSMA: calls per frame in the stats line
+    livectl::OnFrame();     // 1.7.53 fast testing: the A/B windows' frame clock (no-op unless [Debug] LiveCtl = 1)
     gp::OnFrame();      // GP profiler: reads the timestamps of 6 frames ago
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
     UpdateStats(now);
