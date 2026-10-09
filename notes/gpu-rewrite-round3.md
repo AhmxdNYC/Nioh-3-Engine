@@ -94,6 +94,9 @@ container ISG1/OSG1/PSV0 byte-identical, SFI0 differs only by WaveOps, dx.op mul
 **Expected gain (E).** pc2: meshlet-VS PSO rows 0.98 ms/frame incl. PS; VS share 55-75 % (Ally finding) -> ~0.55-0.75
 ms of VS; latency chain cut ~40-60 % -> **~0.15-0.4 ms (0.7-1.7 %) on pc2**, more in dense scenes (window 1 of the tour:
 1559714c alone 0.40 ms). Ally USER: PB2 meshlet VS rows 1.57 + 1.10 ms at ~75 % VS -> **0.4-1.0 ms (1.5-3.5 %)**.
+Ally caveat: RADV may skip NGG primitive culling for a VS that uses cross-lane subgroup ops (it repacks lanes); the
+empty meshlet slots emit degenerate triangles that the rasterizer then drops instead - A/B on the Ally separately
+(`./ally_shaders.sh apply msv` after `splice_msv.py --flat`). RGA (PAL) shows no culling-code difference on gfx11.
 Risk: the gain needs the VS to be latency-bound (likely: 10-level dependent chain, the 63.6 % wave-fill finding); if
 the GPU is fetch/ROP bound in those draws the gain is ~0. Picture: identical by construction (shotdiff confirms).
 
