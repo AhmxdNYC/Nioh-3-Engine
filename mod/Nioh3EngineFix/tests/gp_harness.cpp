@@ -10,6 +10,7 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <d3dcompiler.h>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <string>
@@ -31,7 +32,9 @@ static void Log(const char* fmt, ...) {
 }
 
 int main(int argc, char** argv) {
-    const int mode = argc > 1 ? atoi(argv[1]) : 1;   // 1 = marker profiler, 2 = GP2 (every frame, every PSO run), 3 = GP2 sampled 1 in 4, min run 2
+    // 1 = marker profiler, 2 = GP2 (every frame, every PSO run), 3 = GP2 sampled 1 in 4, min run 2,
+    // 4 = GP2 + GQ gap census, sampled 1 in 2: a second list per frame is submitted after the GPU went idle + 3 ms
+    const int mode = argc > 1 ? atoi(argv[1]) : 1;
     printf("=== GPUProf = %d ===\n", mode);
     int fails = 0;
     auto check = [&](bool c, const char* m) { printf("%s %s\n", c ? "OK  " : "FAIL", m); fails += !c; };
@@ -45,7 +48,8 @@ int main(int argc, char** argv) {
     WritePrivateProfileStringW(L"Profiler", L"GPUProf", mode >= 2 ? L"2" : L"1", ini);
     WritePrivateProfileStringW(L"ShaderSwap", L"Enabled", L"0", ini);   // GP2 alone: psoswap only maps PSOs to shader hashes
     WritePrivateProfileStringW(L"Profiler", L"GPUProf2_AB", L"0", ini);
-    WritePrivateProfileStringW(L"Profiler", L"GPUProf2_SampleEvery", mode == 3 ? L"4" : L"1", ini);
+    WritePrivateProfileStringW(L"Profiler", L"GPUProf2_SampleEvery", mode == 3 ? L"4" : mode == 4 ? L"2" : L"1", ini);
+    WritePrivateProfileStringW(L"Profiler", L"GQ", mode == 4 ? L"1" : L"0", ini);
     WritePrivateProfileStringW(L"Profiler", L"GPUProf2_MinRun", mode == 3 ? L"2" : L"1", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"Barriers", L"0", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"InstallDelaySec", L"600", ini);
@@ -169,6 +173,15 @@ int main(int argc, char** argv) {
         check(psoHeavy && psoLight, "two compute PSOs created");
     }
     auto ev16 = [&](const wchar_t* s) { cl->BeginEvent(0xFF336699u, s, (UINT)(wcslen(s) * 2)); };
+    // GQ (mode 4): list C, recorded and submitted after list A finished on the GPU and 3 ms of CPU sleep -> a >= 3 ms queue gap
+    ID3D12CommandAllocator* alC[kInFlight] = {};
+    ID3D12GraphicsCommandList* clC = nullptr;
+    if (mode == 4) {
+        for (auto& a : alC) dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator), (void**)&a);
+        dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, alC[0], nullptr, __uuidof(ID3D12GraphicsCommandList), (void**)&clC);
+        clC->Close();
+    }
+    void* const fakeRa = (void*)&Log;   // not inside the fake image: reported as "ext"
     UINT64 fv = 0;
     UINT64 done[kInFlight] = {};
     const int kFrames = 400;
@@ -208,9 +221,36 @@ int main(int argc, char** argv) {
         }
         if (FAILED(cl->Close())) { ++fails; printf("FAIL Close in frame %d\n", f); }
         ID3D12CommandList* lists[] = {cl};
+        if (mode == 4) gp::OnEcl(q, 1, (void* const*)lists, fakeRa, true);   // what osd's ExecuteCommandLists hook does
         q->ExecuteCommandLists(1, lists);
         q->Signal(fence, ++fv);
         done[k] = fv;
+        if (mode == 4) {
+            fence->SetEventOnCompletion(fv, ev);   // the queue drains ...
+            WaitForSingleObject(ev, 5000);
+            Sleep(3);                              // ... and stays idle >= 3 ms before list C
+            alC[k]->Reset();
+            clC->Reset(alC[k], nullptr);
+            D3D12_RESOURCE_BARRIER ub = {};
+            ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+            ub.UAV.pResource = buf;
+            clC->ResourceBarrier(1, &ub);          // the list's first GPU command: GQ's head stamp goes before it
+            clC->SetDescriptorHeaps(1, &hGpu);
+            clC->BeginEvent(0xFF336699u, L"ListC", 10);
+            D3D12_GPU_DESCRIPTOR_HANDLE gg = hGpu->GetGPUDescriptorHandleForHeapStart();
+            gg.ptr += (UINT64)1 * inc;
+            D3D12_CPU_DESCRIPTOR_HANDLE c1 = hCpu->GetCPUDescriptorHandleForHeapStart();
+            c1.ptr += (SIZE_T)1 * inc;
+            const UINT v1[4] = {7, 7, 7, 7};
+            clC->ClearUnorderedAccessViewUint(gg, c1, buf, v1, 0, nullptr);
+            clC->EndEvent();
+            if (FAILED(clC->Close())) { ++fails; printf("FAIL Close (list C) in frame %d\n", f); }
+            ID3D12CommandList* lc[] = {clC};
+            gp::OnEcl(q, 1, (void* const*)lc, fakeRa, true);
+            q->ExecuteCommandLists(1, lc);
+            q->Signal(fence, ++fv);
+            done[k] = fv;
+        }
         gp::OnFrame();
         if (f == kFrames / 2) gp::LogLine();  // reset the window: the second half is measured clean
     }
@@ -278,6 +318,42 @@ int main(int argc, char** argv) {
         check(hd > 1.9 && hd < 2.1, "GP2: 2 dispatches/frame counted for the heavy PSO");
         check(copyMs > 0, "GP2: clears are billed to the copy/clear bucket");
         check(covered > 0 && span > 0 && covered <= span * 1.001, "GP2: covered <= span");
+    }
+    if (mode == 4) {
+        // "GQ: frame: L DIRECT lists/frame (P % with ECL info) over F sampled frames; span S ms, lists busy B ms, GAPS G ms/frame
+        //  (N gaps/frame; per frame p50 a p90 b max c ms), ... list HEADS H ms ..., lists without GP2 coverage C ms | GP2 uncovered (span
+        //  - covered) U ms (gaps + heads + no-cov = V) | ..."; edge rows "GQ:   1 [prev -> next] | ms | gaps/frame | mean us | max us | ..."
+        double lists = -1, eclPct = -1, gaps = -1, p50 = -1, heads = -1, noCov = -1, unc = -1, sum = -1, edgeMs = -1, edgeMean = -1;
+        unsigned long long frames = 0;
+        bool edgeTop = false, worstC = false;
+        int gapRow = 0;
+        for (const std::string& l : g_lines) {
+            if (l.rfind("GQ: frame: ", 0) == 0) {
+                sscanf_s(l.c_str(), "GQ: frame: %lf DIRECT lists/frame (%lf %% with ECL info) over %llu", &lists, &eclPct, &frames);
+                if (const char* g = strstr(l.c_str(), "GAPS ")) sscanf_s(g, "GAPS %lf ms/frame", &gaps);
+                if (const char* g = strstr(l.c_str(), "p50 ")) sscanf_s(g, "p50 %lf", &p50);
+                if (const char* g = strstr(l.c_str(), "list HEADS ")) sscanf_s(g, "list HEADS %lf", &heads);
+                if (const char* g = strstr(l.c_str(), "without GP2 coverage ")) sscanf_s(g, "without GP2 coverage %lf", &noCov);
+                if (const char* g = strstr(l.c_str(), "(span - covered) ")) sscanf_s(g, "(span - covered) %lf ms (gaps + heads + no-cov = %lf", &unc, &sum);
+            }
+            if (l.rfind("GQ:   1 [", 0) == 0) {
+                edgeTop = l.find("[LightPass -> ListC]") != std::string::npos;
+                const size_t bar = l.find(" | ");
+                if (bar != std::string::npos) sscanf_s(l.c_str() + bar, " | %lf ms | %*f | %lf", &edgeMs, &edgeMean);
+            }
+            if (l.rfind("GQ:   ", 0) == 0 && l.find(" us | ") != std::string::npos && ++gapRow == 1)
+                worstC = l.find("[LightPass] -> [ListC]") != std::string::npos && l.find("ext -> ext") != std::string::npos;
+        }
+        printf("parsed GQ: %.1f lists/frame (%.0f %% ECL) over %llu frames, gaps %.3f ms/frame (p50 %.3f), heads %.3f, no-cov %.3f, "
+               "GP2 uncovered %.3f vs gaps+heads+no-cov %.3f, top edge %s %.3f ms/frame mean %.1f us\n", lists, eclPct, frames, gaps, p50,
+               heads, noCov, unc, sum, edgeTop ? "[LightPass -> ListC]" : "(other)", edgeMs, edgeMean);
+        check(frames >= 90 && frames <= 110, "GQ: about half of the 200 measured frames sampled (SampleEvery 2)");
+        check(lists > 1.99 && lists < 2.01 && eclPct > 99.9, "GQ: 2 DIRECT lists per sampled frame, every one with its ECL submission number");
+        check(gaps >= 2.9 && p50 >= 2.9, "GQ: the >= 3 ms idle stretch before list C is measured as a queue gap (mean and p50)");
+        check(edgeTop && edgeMean >= 2900, "GQ: the top gap edge is [LightPass -> ListC] with a mean >= 2.9 ms");
+        check(worstC, "GQ: the largest single gap names both lists' markers and ECL call sites");
+        check(heads >= 0 && heads < 0.5 && noCov >= 0 && noCov < 0.01, "GQ: list heads small (barrier / marker first), every list covered by GP2");
+        check(unc > 0 && sum > 0 && fabs(unc - sum) < 0.1 + 0.05 * unc, "GQ: GP2 uncovered (span - covered) == gaps + heads + no-cov (within 0.1 ms + 5 %)");
     }
     if (iq) {
         const UINT64 n = iq->GetNumStoredMessages();

@@ -47,6 +47,7 @@
 #include "loadonly.h"
 #include "readfix.h"
 #include "readprobe.h"
+#include "jt.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -56,7 +57,8 @@
 // 1.7.35: padlat.cpp (PadLatency controller input -> Present / GPU-done latency, notes\pad-latency.md)
 // 1.7.36: tour.cpp (Tour mode: automatic stage / point tour with saves blocked, notes\tour-mode.md)
 // 1.7.39: MA (main-thread atomic-load idiom -> plain loads, 25 byte sites; notes\pc-cpu-next.md)
-#define MOD_VERSION "1.7.39"
+// 1.7.41: diagnostics: GQ graphics-queue gap census (gpuprof.cpp) + JT job-timing probe (jt.cpp / jt.asm); notes\gq-jt-probes.md
+#define MOD_VERSION "1.7.41"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -130,6 +132,11 @@ void caveWs5();
 void caveWsSleep();
 void caveEdKick();
 void caveEdJoin();
+// 1.7.41 JT job-timing probe (jt.asm)
+void caveJtJob();
+void caveJtWait();
+void caveJtWake1();
+void caveJtWakeAll();
 extern uint32_t ws_enable, ed_enable;
 extern uint64_t ws_iatSetEvent, ws_iatWait, ws_ret[3], ed_kickFn, ed_joinFn, ed_kicked, ed_skipped;
 extern uint64_t ws_set[48], ws_sleeps, ws_sleepPool[64], ws_chk[32];
@@ -348,6 +355,7 @@ struct Config {
     int gl1 = 0, lc = 0, lw = 0;  // 1.7.14 (loading / game-logic; ini only, next launch)
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
+    int jt = 0;  // 1.7.41 JT job-timing probe ([Profiler] JT; measurement only, sites written only when 1)
 };
 
 Config LoadConfig() {
@@ -437,6 +445,7 @@ Config LoadConfig() {
     c.dsMarginUs = std::clamp(I(L"Tuning", L"DS_MarginUs", c.dsMarginUs), 50, 900);
     c.gpuProf = I(L"Profiler", L"GPUProf", c.gpuProf);
     c.gpuMarkers = I(L"Profiler", L"GPUProf_Markers", c.gpuMarkers);
+    c.jt = I(L"Profiler", L"JT", I(L"Patches", L"JT", c.jt));  // [Patches] JT too: the abba2 harness writes unknown arm keys there
     c.loadOnly = I(L"Patches", L"LoadOnlyCpuFixes", c.loadOnly);
     c.gfUser = c.gf;
     c.w6User = c.w6;
@@ -645,11 +654,15 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveGl1B: return (void*)&caveGl1B;
         case gen::Target::caveLdWait: return (void*)&caveLdWait;
         case gen::Target::caveLdSig: return (void*)&caveLdSig;
+        case gen::Target::caveJtJob: return (void*)&caveJtJob;
+        case gen::Target::caveJtWait: return (void*)&caveJtWait;
+        case gen::Target::caveJtWake1: return (void*)&caveJtWake1;
+        case gen::Target::caveJtWakeAll: return (void*)&caveJtWakeAll;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveLdSig;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveJtWakeAll;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1438,6 +1451,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
+        if (!strcmp(g, "JT")) return cfg.jt != 0;  // 1.7.41 job-timing probe (measurement only)
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -2012,6 +2026,16 @@ DWORD WINAPI Worker(LPVOID) {
     } else if (cfg.gpuProf || cfg.gpuMarkers) {
         Log("GP: v2.02 only - off");
     }
+    // ---- 1.7.41 JT: job-timing / logic-join probe (jt.cpp, jt.asm; notes\gq-jt-probes.md). Measurement only.
+    if (expGroup("JT", cfg.jt != 0, [&]() {
+            const std::wstring jtIni = SelfPathWithExt(L".ini");
+            jt::StartInfo ji;
+            ji.log = &Log;
+            ji.iniPath = jtIni.c_str();   // Prepare reads its keys right away
+            ji.base = g_base;
+            return jt::Prepare(ji, findItem("JTw")->addr, findItem("JTx")->addr, findItem("JTn1")->addr, findItem("JTn2")->addr);
+        }))
+        jt::Start();
 
     static bool s_tgAvail = false;
     s_tgAvail = vrrDone;

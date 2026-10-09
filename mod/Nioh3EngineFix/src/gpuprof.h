@@ -51,4 +51,14 @@ void LogWindow(const char* tag);
 const char* StatusLine(char* buf, size_t n);
 bool Active();
 
+// 1.7.41 GQ ([Profiler] GQ = 1, needs GPUProf = 2): graphics-queue gap census. Per DIRECT list Reset in a sampled frame:
+// a timestamp before its first GPU command (head) and one at Close (end); per sampled frame the idle time between
+// consecutive lists (sorted by GPU time), the list heads (start -> first GP2 stamp) and the top gaps with the lists'
+// markers and ECL call sites. Log lines "GQ: ..." after the GP2 block (notes\gq-jt-probes.md). Cost-free when off: the
+// two calls below test one global first.
+extern volatile long g_gqHeads;   // != 0: GQ on and this frame is sampled (gpuopt's ResourceBarrier hook tests it)
+void OnListHead(void* list, int set);   // gpuopt HkResourceBarrier, before anything is recorded or deferred
+// osd HkExecuteCommandLists, for every caller, before the original: ECL order + call site of the GQ lists
+void OnEcl(void* queue, unsigned n, void* const* lists, void* retAddr, bool gameCaller);
+
 }  // namespace gp

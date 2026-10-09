@@ -680,3 +680,19 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 2026-10-08 release: one mod for every OS
 - release\profiles.json now has a single profile `ALL`; package.py writes ONE zip `Nioh3EngineFix-<ver>[-rc].zip` (PC/ALLY split removed, no other references). OS-dependent keys (W6, GF, MQ, W3_TimeoutMs, MaxFrameLatency) are `-1 = auto by OS`; ASI side on branch `osauto` (pushed, not merged), 261 sites OK. Both DXIL shaders ship in the zip. Details: notes\release-os-profiles.md.
+
+## 2026-10-08 - ASI 1.7.41 (branch diag, not merged): GQ graphics-queue gap census + JT job-timing probe (diagnostics, default off; nothing in the game folder changed)
+- ADD `[Profiler] GQ = 0` / `GQ_Top = 5` (gpuprof.cpp, needs GPUProf = 2, Windows + Proton): per DIRECT list Reset in a sampled frame a
+  head timestamp before its first GPU command (ResourceBarrier via gpuopt, BeginEvent, GP2 slots, ExecuteBundle / Discard /
+  WriteBufferImmediate / BeginRenderPass / Barrier) and an end stamp at Close; ECL order + call site from the overlay's ECL hook. Per
+  frame: GAPS between consecutive lists, list HEADS, gaps around unmeasured submissions, top edges [marker -> marker] and largest gaps
+  with ECL call sites; closure against GP2 span - covered. One-line hooks in gpuopt.cpp (HkResourceBarrier) and osd.cpp (ECL).
+- ADD `[Profiler] JT = 0` / `JT_Thread` / `JT_Top` / `JT_ReportSec` (jt.cpp, jt.asm; `[Patches] JT` accepted too): patches.json group JT,
+  5 sites written only when 1 - JobWorkerPoll job call 40E4E (QPC around every job, inner callback / ParallelFor range + grain), STL
+  condition_variable wait / wait_for B616B7 / B616F7 (watched thread only) and notify_one / notify_all B61674 / B6165C (only for the CV
+  the watched thread sleeps on). Per window: blocked ms per logic tick, wait sites, releasing thread + waker site, critical job, longest
+  overlapping job, other threads' busy %, job table with leaves / grain. Measurement only.
+- tools\gqjt_digest.py (new): names RVAs from symbols.tsv and prints the decisions (merge lists / R2; reorder / split jobs). notes\gq-jt-probes.md.
+- Tests: test_patterns ALL 266 SITES OK, run_gp_harness modes 1-4 (new GQ mode) ALL PASSED, run_jt_harness (new) ALL PASSED, r2 / padlat /
+  tour / vpad / wg harnesses ALL PASSED, digest selftest OK, build OK. Not run in game.
+- Undo: GQ = 0 and JT = 0 (defaults), or the 1.7.39 .asi.

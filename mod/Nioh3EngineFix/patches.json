@@ -523,7 +523,17 @@
     {"id": "FP13", "group": "FP", "rva": "0xF68D8", "len": 5, "orig": "48 8B C4 55 53", "kind": "check",
       "pattern": "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 B8 F5", "offset": 0, "what": "FnProbe default entry (remaining-work 10.1, Unknown_Generic_f68d8): first 5 bytes relocated by the probe thunk" },
     {"id": "FP14", "group": "FP", "rva": "0x2C5AA6C", "len": 7, "orig": "48 8B C4 48 89 58 20", "kind": "check",
-      "pattern": "48 8B C4 48 89 58 20 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 08 F3 FF FF 48 81 EC C0 0D 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 44 0F 29 A0 58 FF FF FF 44 0F 29 A8 48 FF FF FF 44 0F 29 B0 38 FF FF FF 44 0F 29 B8 28 FF FF FF 48 8B 05 5B D4 85", "offset": 0, "what": "FnProbe default entry (remaining-work 10.1, Unknown_Math_2c5aa6c): first 7 bytes relocated by the probe thunk" }
+      "pattern": "48 8B C4 48 89 58 20 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 08 F3 FF FF 48 81 EC C0 0D 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 44 0F 29 A0 58 FF FF FF 44 0F 29 A8 48 FF FF FF 44 0F 29 B0 38 FF FF FF 44 0F 29 B8 28 FF FF FF 48 8B 05 5B D4 85", "offset": 0, "what": "FnProbe default entry (remaining-work 10.1, Unknown_Math_2c5aa6c): first 7 bytes relocated by the probe thunk" },
+    {"id": "JTc", "group": "JT", "rva": "0x40E4E", "len": 5, "orig": "48 8B CB FF D2", "kind": "call", "target": "caveJtJob", "call_at": 0,
+      "pattern": "48 8B CB FF D2 48 8B F0 33 C9 48 89 4B 08", "offset": 0, "what": "JT (1.7.41, measurement only): JobWorkerPoll 40800 job call `mov rcx,rbx; call rdx` (rbx = job, rdx = [[job]+8]); the cave does both with QPC stamps around the call"},
+    {"id": "JTw", "group": "JT", "rva": "0xB616B7", "len": 6, "orig": "FF 15 8B 0F D8 02", "kind": "call", "target": "caveJtWait", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SleepConditionVariableSRW",
+      "pattern": "48 83 C2 08 48 83 C1 08 45 33 C9 41 83 C8 FF FF 15 ?? ?? ?? ?? 85 C0 74 05", "offset": 15, "what": "JT: STL condition_variable win7 wait (vtable 3942338 slot 0, INFINITE); fast path = tail-jump through the IAT slot unless the caller is the watched thread"},
+    {"id": "JTx", "group": "JT", "rva": "0xB616F7", "len": 6, "orig": "FF 15 4B 0F D8 02", "kind": "call", "target": "caveJtWait", "call_at": 1, "iat_disp_at": 2, "iat_name": "KERNEL32.DLL!SleepConditionVariableSRW",
+      "pattern": "48 83 C2 08 48 83 C1 08 45 33 C9 FF 15 ?? ?? ?? ?? 85 C0 0F 95 C0", "offset": 11, "what": "JT: STL condition_variable win7 wait_for (vtable 3942338 slot 1)"},
+    {"id": "JTn1", "group": "JT", "rva": "0xB61674", "len": 7, "orig": "48 FF 25 7D 10 D8 02", "kind": "jmp", "target": "caveJtWake1", "iat_jmp_at": 3, "iat_jmp_name": "KERNEL32.DLL!WakeConditionVariable",
+      "pattern": "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28 48 83 C2 08 48 83 C1 08 41 83 C8 FF FF 15", "offset": 5, "what": "JT: STL condition_variable win7 notify_one (vtable 3942338 slot 2) `jmp [WakeConditionVariable]` after `add rcx,8`; fast path unless rcx is the CV the watched thread sleeps on"},
+    {"id": "JTn2", "group": "JT", "rva": "0xB6165C", "len": 7, "orig": "48 FF 25 DD 0F D8 02", "kind": "jmp", "target": "caveJtWakeAll", "iat_jmp_at": 3, "iat_jmp_name": "KERNEL32.DLL!WakeAllConditionVariable",
+      "pattern": "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28", "offset": 5, "what": "JT: STL condition_variable win7 notify_all (vtable 3942338 slot 3) `jmp [WakeAllConditionVariable]`"}
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -611,6 +621,10 @@
     { "group": "MA", "rva": "0x4AA34", "len": 1569, "fnv1a": "0xD1BCE30E", "what": "MA: MeshletCheckRequestLoad 4AA34 primary piece (r10d zero at every MA1a-e site: re/scripts_cpu/ma_zero.fsx)" },
     { "group": "MA", "rva": "0x4B104", "len": 1438, "fnv1a": "0x6F1BA4D0", "what": "MA: MeshletRequestLoad 4B104 primary piece (r10d zero at MA1f-h)" },
     { "group": "MA", "rva": "0x419A8", "len": 494, "fnv1a": "0xFD5C39B9", "what": "MA: MeshletUpdateEntryFlags 419A8 (ebp zeroed once at 419C4, never written again)" },
-    { "group": "MA", "rva": "0x1E8359", "bytes": "33 D2 F0 0F B1 11 A8 01", "what": "MA3: xor edx,edx immediately before the per-draw lock cmpxchg [rcx],edx (DrawEmit 1E80B0)" }
+    { "group": "MA", "rva": "0x1E8359", "bytes": "33 D2 F0 0F B1 11 A8 01", "what": "MA3: xor edx,edx immediately before the per-draw lock cmpxchg [rcx],edx (DrawEmit 1E80B0)" },
+    { "group": "JT", "rva": "0x111184", "len": 232, "fnv1a": "0x9F252D1F", "what": "JT: JobNodeExecute (inner callback = vfunc +8 of [[job+48h]+28h], read by jt.cpp)" },
+    { "group": "JT", "rva": "0x1113B4", "len": 249, "fnv1a": "0xC4E6B59C", "what": "JT: JobInvokeTimed (the callback call cb vfunc +8)" },
+    { "group": "JT", "rva": "0x204584", "len": 288, "fnv1a": "0xD207E133", "what": "JT: JobParallelForSplit head (fn +50h, range [+70h,+74h), grain +78h, split while grain < range)" },
+    { "group": "JT", "rva": "0x1753B0", "len": 128, "fnv1a": "0x96325ADE", "what": "JT: ObjRangeJobSplitInvoke head (range [+48h,+4Ch), grain +50h)" }
   ]
 }

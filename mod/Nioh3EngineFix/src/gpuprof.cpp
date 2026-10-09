@@ -49,7 +49,11 @@ struct Cfg {
     int prof = 0, markers = 0, maxMarkers = 2048, top = 30;
     int maxStamps = 8192, top2 = 40, ab = 1;   // GPUProf = 2: PSO timestamps per frame, rows in the GP2 log, overhead A/B windows
     int sampleEvery = 8, minRun = 4;           // GPUProf = 2 (1.7.8): stamp 1 frame in N; an interval holds >= minRun draws before it is cut
+    int gq = 0, gqTop = 5;                     // 1.7.41 GQ: graphics-queue gap census (needs GPUProf = 2), rows per table
 };
+// GQ: further list calls that can be a list's first GPU command (besides ResourceBarrier, BeginEvent and the GP2 slots):
+// ExecuteBundle, DiscardResource, WriteBufferImmediate, BeginRenderPass, Barrier (enhanced)
+constexpr int kGqHeadSlots[] = {27, 51, 66, 68, 82};
 Cfg g_cfg;
 void (*g_log)(const char*, ...) = nullptr;
 uint8_t* g_base = nullptr;
@@ -58,6 +62,7 @@ std::string g_wine;
 
 #define GLOG(fmt, ...) do { if (g_log) g_log("GP: " fmt, __VA_ARGS__); } while (0)
 #define GLOG2(fmt, ...) do { if (g_log) g_log("GP2: " fmt, __VA_ARGS__); } while (0)
+#define GQLOG(fmt, ...) do { if (g_log) g_log("GQ: " fmt, __VA_ARGS__); } while (0)
 
 volatile LONG g_on = 0;         // sampling (queries) active
 volatile LONG g_failed = 0;
@@ -177,11 +182,21 @@ struct Rec2 {   // GP2: GPU time between two timestamps of one list, billed to t
     uint16_t draws;    // draws + dispatches recorded in the interval
     uint8_t ctype;     // 0 DIRECT, 1 COMPUTE
 };
+struct GqRec {   // GQ: one DIRECT list Reset in a sampled frame (filed in the frame slot of its head stamp)
+    int32_t qh, qe;      // head (before its first GPU command) / end (at Close) query indices
+    int32_t qw, qc;      // first / last GP2 interval stamp on the list (GP2 coverage), -1 = none
+    uint16_t firstMk, lastMk;   // first / last engine marker begun on the list (name id), kNoMarker = none
+    uint32_t sub;        // 1-based submission number among all DIRECT-queue ECL lists (0 = no ECL seen)
+    uint32_t eclRa0, eclRa1;    // ECL call site: return RVA into Nioh3.exe and the next game frame (0 = none, 1 = not the exe)
+    uint16_t eclN, eclIdx;      // lists in that ECL, position of this one
+};
 struct Slot {
     SRWLOCK lock;
     volatile LONG used;  // queries handed out (in chunks)
     std::vector<Rec> recs;
     std::vector<Rec2> recs2;
+    std::vector<GqRec> gq;
+    uint32_t gen;        // GQ: +1 per ProcessSlot (a late ECL never writes into a reused slot)
 };
 Slot g_slot[kRing];
 
@@ -203,6 +218,10 @@ struct ListState {
     // 1.7.8 coarse stamps: an interval is cut only once it holds >= minRun draws (copies count as minRun); it is billed to its longest run
     uint32_t runBucket; // bucket of the run in progress
     uint32_t runW, bestW, ivW;   // weight (draws) of the run in progress / of the longest run so far / of the whole interval
+    // 1.7.41 GQ: 0 not measured, 1 Reset in a sampled frame (head stamp pending), 2 head stamped
+    int gqState, gqHead, gqWork, gqCov;
+    uint16_t gqFirstMk, gqLastMk;
+    uint32_t gqGen;     // generation of the head's frame slot when the head was stamped
 };
 constexpr int kLists = 64;
 ListState g_ls[kLists];
@@ -229,6 +248,9 @@ ListState* FindList(void* list, int set, bool create) {
     s.draws = 0;
     s.runBucket = kBkNoPso;
     s.runW = s.bestW = s.ivW = 0;
+    s.gqState = 0;
+    s.gqHead = s.gqWork = s.gqCov = -1;
+    s.gqFirstMk = s.gqLastMk = kNoMarker;
     auto cl = (ID3D12GraphicsCommandList*)list;
     const D3D12_COMMAND_LIST_TYPE t = reinterpret_cast<GetTypeFn>(Orig(set, kSlotGetType))(cl);
     s.ctype = t == D3D12_COMMAND_LIST_TYPE_COMPUTE ? 1 : 0;
@@ -290,7 +312,9 @@ void IvClose(ListState& s, int qNow, uint16_t marker) {
         else
             InterlockedIncrement64(&g_rec2Full);
         ReleaseSRWLockExclusive(&S.lock);
+        if (s.gqState == 2) s.gqCov = qNow;   // GQ: last stamp of GP2 coverage on this list
     }
+    if (s.ivQ < 0 && qNow >= 0 && s.gqState == 2 && s.gqWork < 0) s.gqWork = qNow;   // GQ: GP2 coverage starts here
     s.ivQ = qNow;
     s.draws = 0;
 }
@@ -302,6 +326,14 @@ void Finalize(ListState& s) {
 void Restart(ListState& s) {   // after a forced cut the run in progress goes on in a fresh interval
     s.bucket = s.runBucket;
     s.runW = s.bestW = s.ivW = 0;
+}
+
+// GQ: the list's first GPU command is about to be recorded: stamp its head (g_lsLock held)
+void GqHeadLocked(ListState& s, void* list, int set) {
+    if (s.gqState != 1 || !s.ok) return;
+    s.gqHead = StampLocked(s, list, set, false);
+    s.gqState = s.gqHead >= 0 ? 2 : 0;
+    if (s.gqHead >= 0) s.gqGen = *(volatile uint32_t*)&g_slot[s.gqHead / g_qPerSlot].gen;
 }
 
 // closeMarker: -2 = markers only (GPUProf = 1); otherwise GP2: the marker name id the ending interval belongs to
@@ -342,6 +374,63 @@ uint16_t CurMarker() {
     return d <= 0 || d > kMaxDepth ? kNoMarker : (uint16_t)t_stack[d - 1].name;
 }
 
+// ---- GQ (1.7.41): graphics-queue gap census -------------------------------------------------------------------------------
+// A list Reset in a sampled frame is armed (gqState 1); its first GPU command stamps the head (2); Close stamps the end (also
+// in an unsampled frame, so the list is complete) and files a GqRec in the head's frame slot. The ECL hook fills in the
+// submission number and call site. Lock order: g_lsLock -> Slot.lock, g_lsLock -> g_gqLock; OnEcl takes them one at a time.
+struct GqPend { void* list; int slot; uint32_t idx, gen; };
+constexpr int kGqPend = 128;
+GqPend g_gqPend[kGqPend];
+SRWLOCK g_gqLock = SRWLOCK_INIT;
+volatile LONG64 g_gqSub = 0;   // lists submitted on DIRECT queues (all callers): the submission numbers
+volatile LONG64 g_gqArmed = 0, g_gqNoHead = 0, g_gqFull = 0, g_gqPendFull = 0, g_gqLate = 0, g_gqBad = 0;
+uintptr_t g_exeLo = 0, g_exeHi = 0;
+
+uint32_t ExeRva(const void* p) {   // 0 = null, 1 = outside Nioh3.exe, else the RVA
+    const uintptr_t a = (uintptr_t)p;
+    if (!a) return 0;
+    return (a >= g_exeLo && a < g_exeHi) ? (uint32_t)(a - g_exeLo) : 1u;
+}
+
+void GqFileLocked(ListState& s, int qe) {   // g_lsLock held; s.gqState == 2
+    Slot& S = g_slot[s.gqHead / g_qPerSlot];
+    uint32_t idx = ~0u, gen = 0;
+    AcquireSRWLockExclusive(&S.lock);
+    if (S.gen != s.gqGen) {
+        InterlockedIncrement64(&g_gqLate);   // open longer than the read-back delay: its head slot was read already
+    } else if (S.gq.size() < S.gq.capacity()) {
+        idx = (uint32_t)S.gq.size();
+        gen = S.gen;
+        S.gq.push_back(GqRec{s.gqHead, qe, s.gqWork, s.gqCov, s.gqFirstMk, s.gqLastMk, 0, 0, 0, 0, 0});
+    } else {
+        InterlockedIncrement64(&g_gqFull);
+    }
+    ReleaseSRWLockExclusive(&S.lock);
+    if (idx == ~0u) return;
+    AcquireSRWLockExclusive(&g_gqLock);
+    GqPend* freeE = nullptr;
+    for (GqPend& p : g_gqPend) {
+        if (p.list == s.list) { freeE = &p; break; }   // closed again before an ECL: the newer record wins
+        if (!p.list && !freeE) freeE = &p;
+    }
+    if (freeE) *freeE = GqPend{s.list, s.gqHead / g_qPerSlot, idx, gen};
+    else InterlockedIncrement64(&g_gqPendFull);
+    ReleaseSRWLockExclusive(&g_gqLock);
+}
+
+// head events outside Gp2Event (g_lsLock not held). marker >= 0: a BeginEvent with that name id
+void GqHead(void* list, int set, int marker) {
+    AcquireSRWLockExclusive(&g_lsLock);
+    if (ListState* s = FindList(list, set, false)) {
+        if (g_stampOn) GqHeadLocked(*s, list, set);
+        if (marker >= 0 && s->gqState == 2) {
+            if (s->gqFirstMk == kNoMarker) s->gqFirstMk = (uint16_t)marker;
+            s->gqLastMk = (uint16_t)marker;
+        }
+    }
+    ReleaseSRWLockExclusive(&g_lsLock);
+}
+
 // ---- GP2 list events -------------------------------------------------------------------------------------------------------
 bool IsIn(const int* a, size_t n, int v) {
     for (size_t i = 0; i < n; ++i)
@@ -365,6 +454,7 @@ void Gp2Event(void* list, int set, int slot, uintptr_t a1) {
             s->bucket = s->runBucket = kBkNoPso;
             s->runW = s->bestW = s->ivW = 0;
         } else {
+            GqHeadLocked(*s, list, set);   // GQ: before the list's first draw / dispatch / copy / clear stamp
             const uint32_t want = copy ? kBkCopy : s->bound;
             const uint32_t w = copy ? (uint32_t)g_cfg.minRun : 1u;
             if (s->ivQ < 0) {   // no interval open: this stamp opens one
@@ -458,6 +548,7 @@ bool Init(void* list, int set) {
     for (Slot& s : g_slot) {
         s.recs.reserve((size_t)g_cfg.maxMarkers);
         if (g_cfg.prof >= 2) s.recs2.reserve((size_t)(g_cfg.maxStamps + g_cfg.maxMarkers * 2 + 256));
+        if (g_cfg.gq) s.gq.reserve(1024);   // GQ: DIRECT lists per frame slot (the game records ~21-28)
     }
     GLOG("timestamp queries ready: %u queries (%d frame slots x %d markers%s), readback %u KB, GPU clock %llu Hz, list %p "
          "(type %d)",
@@ -486,6 +577,7 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
         case kSlotBeginEvent: {
             InterlockedIncrement64(&g_begins);
             const int name = InternName((UINT)a1, (const void*)a2, (UINT)a3);
+            if (g_cfg.gq) GqHead(list, set, name);   // GQ: a marker can be a list's first command; remember first / last marker
             const int q = Stamp(list, set, g_cfg.prof >= 2 ? (int)CurMarker() : -2);  // GP2: the interval ending here is the outer marker's
             if (t_depth < kMaxDepth) t_stack[t_depth] = Open{q, (int16_t)name};
             ++t_depth;
@@ -523,6 +615,12 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
                     const int q = StampLocked(*s, list, set, true);
                     IvClose(*s, q, CurMarker());
                 }
+                if (s->ok && s->gqState == 2) {   // GQ: list end (also in an unsampled frame: the armed list completes)
+                    const int qe = StampLocked(*s, list, set, false);
+                    if (qe >= 0) GqFileLocked(*s, qe);
+                } else if (s->gqState == 1) {
+                    InterlockedIncrement64(&g_gqNoHead);   // armed, but no hooked GPU command while sampled
+                }
                 if (s->ok) ResolveChunk(*s);  // last commands of the list: every query of the chunk was ended on it
                 s->list = nullptr;
             }
@@ -532,6 +630,13 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
         case kSlotReset: {
             AcquireSRWLockExclusive(&g_lsLock);
             if (ListState* s = FindList(list, set, false)) s->list = nullptr;  // reused without our Close: forget it
+            if (g_cfg.gq && g_inited == 1 && g_stampOn) {   // GQ: arm the list (sampled frame); FindList checks DIRECT + our device
+                ListState* s = FindList(list, set, true);
+                if (s && s->ok && s->ctype == 0) {
+                    s->gqState = 1;
+                    InterlockedIncrement64(&g_gqArmed);
+                }
+            }
             ReleaseSRWLockExclusive(&g_lsLock);
             break;
         }
@@ -540,6 +645,8 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
                 (slot == kSlotSetPso || IsIn(kDrawSlots, sizeof kDrawSlots / sizeof(int), slot) ||
                  IsIn(kCopySlots, sizeof kCopySlots / sizeof(int), slot)))
                 Gp2Event(list, set, slot, a1);
+            else if (g_cfg.gq && g_inited == 1 && IsIn(kGqHeadSlots, sizeof kGqHeadSlots / sizeof(int), slot))
+                GqHead(list, set, -1);
             break;
     }
 }
@@ -566,13 +673,103 @@ SRWLOCK g_aggLock = SRWLOCK_INIT;
 char g_status[256] = "";
 SRWLOCK g_statusLock = SRWLOCK_INIT;
 
+// ---- GQ window (Present thread fills it in ProcessSlot, the stats thread logs it) ----------------------------------------------
+struct GqEdge { double ticks = 0, maxT = 0; uint64_t n = 0; uint32_t ra0 = 0, ra1 = 0; };
+struct GqGap {   // one idle stretch of the DIRECT queues between two consecutive measured lists
+    double t;
+    uint16_t pMk, nMk;        // previous list's last marker, next list's first marker
+    uint32_t pSub, nSub;      // submission numbers (0 = no ECL seen)
+    uint32_t pRa, nRa, nRa1;  // ECL call sites (RVA; 1 = not the exe)
+    uint16_t pPos, nPos, nLists;
+    uint8_t unknown;          // 1: other (unmeasured) submissions lie between the two lists
+};
+struct GqWin {
+    uint64_t frames = 0, lists = 0, listsEcl = 0, listsNoCov = 0, gaps = 0, gapsUnk = 0;
+    double span = 0, busy = 0, gapT = 0, gapUnkT = 0, heads = 0, tails = 0, noCovT = 0;
+    std::vector<float> perFrameGapMs;
+    std::unordered_map<uint32_t, GqEdge> edges;   // prev last marker << 16 | next first marker (known gaps only)
+    std::vector<GqGap> worst;                     // the gqTop largest single gaps, largest first
+};
+GqWin g_gqWin;
+double g_gp2UncovMs = -1;   // GP2 span - covered of the last logged window (for the GQ line)
+
+void GqKeepWorst(std::vector<GqGap>& v, const GqGap& g, size_t n) {
+    if (v.size() >= n && g.t <= v.back().t) return;
+    auto it = std::upper_bound(v.begin(), v.end(), g, [](const GqGap& a, const GqGap& b) { return a.t > b.t; });
+    v.insert(it, g);
+    if (v.size() > n) v.pop_back();
+}
+
+// S.lock and g_aggLock held
+void GqProcess(Slot& S, double maxTicks) {
+    if (S.gq.empty()) return;
+    struct L { uint64_t h, e, w, c; const GqRec* r; };
+    static std::vector<L> v;
+    v.clear();
+    for (const GqRec& rc : S.gq) {
+        const uint64_t h = g_rbMap[rc.qh], e = g_rbMap[rc.qe];
+        if (!(h && e && e >= h && (double)(e - h) < maxTicks)) {
+            InterlockedIncrement64(&g_gqBad);
+            continue;
+        }
+        const uint64_t w = rc.qw >= 0 ? g_rbMap[rc.qw] : 0, c = rc.qc >= 0 ? g_rbMap[rc.qc] : 0;
+        v.push_back(L{h, e, (w >= h && w <= e) ? w : 0, (c >= h && c <= e) ? c : 0, &rc});
+    }
+    if (v.empty()) return;
+    std::sort(v.begin(), v.end(), [](const L& a, const L& b) { return a.h < b.h; });
+    GqWin& W = g_gqWin;
+    const size_t n = v.size();
+    double frameGap = 0, frameUnk = 0;
+    uint64_t curEnd = v[0].e;
+    size_t owner = 0;   // the list that ends last so far
+    for (size_t i = 0; i < n; ++i) {
+        const L& x = v[i];
+        W.lists++;
+        if (x.r->sub) W.listsEcl++;
+        if (x.w) W.heads += (double)(x.w - x.h);
+        else { W.listsNoCov++; W.noCovT += (double)(x.e - x.h); }
+        if (x.c) W.tails += (double)(x.e - x.c);
+        if (i == 0) continue;
+        if (x.h > curEnd) {
+            const double gt = (double)(x.h - curEnd);
+            const GqRec& p = *v[owner].r;
+            const GqRec& q = *x.r;
+            const bool unk = p.sub && q.sub && q.sub != p.sub + 1;
+            GqGap g{gt, p.lastMk, q.firstMk, p.sub, q.sub, p.eclRa0, q.eclRa0, q.eclRa1, (uint16_t)std::min<size_t>(owner, 65535),
+                    (uint16_t)std::min<size_t>(i, 65535), (uint16_t)std::min<size_t>(n, 65535), (uint8_t)(unk ? 1 : 0)};
+            if (unk) {
+                frameUnk += gt;
+                W.gapsUnk++;
+            } else {
+                frameGap += gt;
+                W.gaps++;
+                GqEdge& ed = W.edges[((uint32_t)p.lastMk << 16) | q.firstMk];
+                ed.ticks += gt;
+                ed.n++;
+                if (gt > ed.maxT) { ed.maxT = gt; ed.ra0 = q.eclRa0; ed.ra1 = q.eclRa1; }
+            }
+            GqKeepWorst(W.worst, g, (size_t)g_cfg.gqTop);
+        }
+        if (x.e > curEnd) { curEnd = x.e; owner = i; }
+    }
+    const double span = (double)(curEnd - v[0].h);
+    W.frames++;
+    W.span += span;
+    W.gapT += frameGap;
+    W.gapUnkT += frameUnk;
+    W.busy += span - frameGap - frameUnk;
+    if (W.perFrameGapMs.size() < 65536) W.perFrameGapMs.push_back((float)(frameGap / g_ticksPerMs));
+}
+
 void ProcessSlot(int r) {
     Slot& S = g_slot[r];
     static double childSum[kMaxTid][kMaxDepth + 2];
     memset(childSum, 0, sizeof(childSum));
     double top = 0;
     uint64_t lo = ~0ull, hi = 0;
-    const bool had = g_cfg.prof < 2 || S.used > 0;   // GP2 sampling: only frames that were stamped count
+    // GP2 sampling: only frames that were stamped count. GQ: the end stamp of an armed list may land in an unsampled frame's
+    // slot, so with GQ on a slot counts when it holds GP2 PSO stamps or marker records
+    const bool had = g_cfg.prof < 2 || (g_cfg.gq ? (g_stampsUsed[r] > 0 || !S.recs.empty()) : S.used > 0);
     const double maxTicks = g_ticksPerMs * 1000.0;  // a pass longer than 1 s is a bad sample
     AcquireSRWLockExclusive(&S.lock);
     AcquireSRWLockExclusive(&g_aggLock);
@@ -632,12 +829,15 @@ void ProcessSlot(int r) {
         w.span += h2 > l2 ? (double)(h2 - l2) : 0.0;
         if (had) w.frames++;
     }
+    if (g_cfg.gq) GqProcess(S, maxTicks);
     ReleaseSRWLockExclusive(&g_aggLock);
     const LONG usedNow = S.used;
     const LONG used = std::min<LONG>(usedNow, (LONG)g_qPerSlot);
     if (used > 0) memset((void*)(g_rbMap + (size_t)r * g_qPerSlot), 0, (size_t)used * 8);
     S.recs.clear();
     S.recs2.clear();
+    S.gq.clear();
+    S.gen++;
     InterlockedExchange(&g_stampsUsed[r], 0);
     InterlockedExchange(&S.used, 0);
     ReleaseSRWLockExclusive(&S.lock);
@@ -720,6 +920,7 @@ void LogGp2() {
     std::swap(*w, g_win2);
     ReleaseSRWLockExclusive(&g_aggLock);
     const double fr = w->frames ? (double)w->frames : 1.0, ms = g_ticksPerMs;
+    g_gp2UncovMs = w->frames ? (w->span - w->covered) / fr / ms : -1;   // GQ compares its decomposition with this
     const LONG64 calls = g_hookCalls - pCalls, ticks = g_hookTicks - pTicks;
     const double hookMsFrame = wf ? (double)ticks / (double)qf.QuadPart * 1000.0 / (double)wf : 0.0;
     const double callsFrame = wf ? (double)calls / (double)wf : 0.0;
@@ -786,7 +987,146 @@ void LogGp2() {
     if (!sampling) InterlockedExchange(&g_stampOn, (g_cfg.ab && (window == 1 || window == 3)) ? 0 : 1);
 }
 
+// GQ 30 s log (stats thread), after the GP2 block. Format: notes\gq-jt-probes.md
+void FmtRa(char* b, size_t n, uint32_t ra) {
+    if (ra == 0) _snprintf_s(b, n, _TRUNCATE, "-");
+    else if (ra == 1) _snprintf_s(b, n, _TRUNCATE, "ext");
+    else _snprintf_s(b, n, _TRUNCATE, "%X", ra);
+}
+const char* MkName(uint16_t mk) { return mk == kNoMarker ? "-" : NameOf(mk); }
+
+void LogGq() {
+    static LONG64 pArmed = 0, pNoHead = 0, pFull = 0, pPend = 0, pLate = 0, pBad = 0;
+    GqWin* w = new (std::nothrow) GqWin();
+    if (!w) return;
+    AcquireSRWLockExclusive(&g_aggLock);
+    std::swap(*w, g_gqWin);
+    ReleaseSRWLockExclusive(&g_aggLock);
+    const double fr = w->frames ? (double)w->frames : 1.0, ms = g_ticksPerMs;
+    std::vector<float>& pf = w->perFrameGapMs;
+    std::sort(pf.begin(), pf.end());
+    auto pct = [&](double p) { return pf.empty() ? 0.0 : (double)pf[std::min(pf.size() - 1, (size_t)(p * (double)(pf.size() - 1) + 0.5))]; };
+    const double gapMs = w->gapT / fr / ms, headMs = w->heads / fr / ms, tailMs = w->tails / fr / ms, noCovMs = w->noCovT / fr / ms;
+    const double unkMs = w->gapUnkT / fr / ms;
+    char uncov[96];
+    if (g_gp2UncovMs >= 0)
+        _snprintf_s(uncov, sizeof uncov, _TRUNCATE, "%.3f ms (gaps + heads + no-cov = %.3f)", g_gp2UncovMs, gapMs + unkMs + headMs + noCovMs);
+    else
+        strcpy_s(uncov, "n/a");
+    GQLOG("frame: %.0f DIRECT lists/frame (%.0f %% with ECL info) over %llu sampled frames; span %.3f ms, lists busy %.3f ms, "
+          "GAPS %.3f ms/frame (%.1f gaps/frame; per frame p50 %.3f p90 %.3f max %.3f ms), gaps around unmeasured submissions %.3f ms "
+          "(%.1f/frame, excluded), list HEADS %.3f ms (start -> first GP2 stamp), tails %.3f ms, lists without GP2 coverage %.3f ms | "
+          "GP2 uncovered (span - covered) %s | armed %lld, no head %lld, dropped: rec cap %lld, ECL table %lld, late %lld, bad ts %lld",
+          (double)w->lists / fr, w->lists ? 100.0 * (double)w->listsEcl / (double)w->lists : 0.0, (unsigned long long)w->frames,
+          w->span / fr / ms, w->busy / fr / ms, gapMs, (double)w->gaps / fr, pct(0.5), pct(0.9), pf.empty() ? 0.0 : (double)pf.back(),
+          unkMs, (double)w->gapsUnk / fr, headMs, tailMs, noCovMs, uncov, g_gqArmed - pArmed, g_gqNoHead - pNoHead, g_gqFull - pFull,
+          g_gqPendFull - pPend, g_gqLate - pLate, g_gqBad - pBad);
+    pArmed = g_gqArmed; pNoHead = g_gqNoHead; pFull = g_gqFull; pPend = g_gqPendFull; pLate = g_gqLate; pBad = g_gqBad;
+    struct E { uint32_t key; GqEdge e; };
+    std::vector<E> es;
+    es.reserve(w->edges.size());
+    for (const auto& kv : w->edges) es.push_back(E{kv.first, kv.second});
+    std::sort(es.begin(), es.end(), [](const E& a, const E& b) { return a.e.ticks > b.e.ticks; });
+    GQLOG("top %d of %zu gap edges [previous list's last marker -> next list's first marker] | ms/frame | gaps/frame | mean us | max us | "
+          "ECL call site of the next list at the max (return RVA < next game frame)", g_cfg.gqTop, es.size());
+    int rank = 0;
+    for (const E& x : es) {
+        if (++rank > g_cfg.gqTop) break;
+        char r0[16], r1[16];
+        FmtRa(r0, sizeof r0, x.e.ra0);
+        FmtRa(r1, sizeof r1, x.e.ra1);
+        GQLOG("  %d [%s -> %s] | %.3f ms | %.2f | %.1f | %.1f | %s < %s", rank, MkName((uint16_t)(x.key >> 16)), MkName((uint16_t)(x.key & 0xFFFF)),
+              x.e.ticks / fr / ms, (double)x.e.n / fr, x.e.n ? x.e.ticks / (double)x.e.n / ms * 1000.0 : 0.0, x.e.maxT / ms * 1000.0, r0, r1);
+    }
+    GQLOG("largest %zu single gaps: us | list k-1 -> k of n (GPU order in the frame) | [last marker] -> [first marker] | submissions | "
+          "ECL call sites prev -> next (< next game frame)", w->worst.size());
+    rank = 0;
+    for (const GqGap& g : w->worst) {
+        char a[16], b[16], c[16];
+        FmtRa(a, sizeof a, g.pRa);
+        FmtRa(b, sizeof b, g.nRa);
+        FmtRa(c, sizeof c, g.nRa1);
+        GQLOG("  %d %.1f us | %u -> %u of %u | [%s] -> [%s] | %u -> %u%s | %s -> %s < %s", ++rank, g.t / ms * 1000.0, g.pPos, g.nPos, g.nLists,
+              MkName(g.pMk), MkName(g.nMk), g.pSub, g.nSub, g.unknown ? " (UNMEASURED submissions between)" : "", a, b, c);
+    }
+    delete w;
+}
+
 }  // namespace
+
+volatile long g_gqHeads = 0;
+
+void OnListHead(void* list, int set) {
+    if (!g_gqHeads || !g_stampOn || !g_on || g_inited != 1) return;
+    __try {
+        GqHead(list, set, -1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedExchange(&g_gqHeads, 0);
+        InterlockedExchange(&g_on, 0);
+        InterlockedExchange(&g_failed, 1);
+        GLOG("exception 0x%08lX in the GQ barrier hook - GP switched off", GetExceptionCode());
+    }
+}
+
+static void OnEclImpl(void* queue, unsigned n, void* const* lists, void* retAddr) {
+    static thread_local void* t_q = nullptr;
+    static thread_local bool t_direct = false;
+    if (queue != t_q) {   // GetDesc only when this thread switches queues
+        t_q = queue;
+        t_direct = ((ID3D12CommandQueue*)queue)->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT;
+    }
+    if (!t_direct) return;
+    const LONG64 base = InterlockedExchangeAdd64(&g_gqSub, (LONG64)n);
+    GqPend found[16];
+    int fi[16];
+    int nf = 0;
+    AcquireSRWLockExclusive(&g_gqLock);
+    for (unsigned i = 0; i < n && nf < 16; ++i)
+        for (GqPend& p : g_gqPend)
+            if (p.list && p.list == lists[i]) {
+                found[nf] = p;
+                fi[nf++] = (int)i;
+                p.list = nullptr;
+                break;
+            }
+    ReleaseSRWLockExclusive(&g_gqLock);
+    if (!nf) return;
+    uint32_t ra0 = ExeRva(retAddr), ra1 = 0;
+    void* fr[12];
+    const USHORT nfr = RtlCaptureStackBackTrace(0, 12, fr, nullptr);
+    bool seen = false;
+    for (USHORT k = 0; k < nfr; ++k) {   // the game frame above the ECL call site
+        if (fr[k] == retAddr) { seen = true; continue; }
+        if (seen) { ra1 = ExeRva(fr[k]); break; }
+    }
+    for (int k = 0; k < nf; ++k) {
+        Slot& S = g_slot[found[k].slot];
+        AcquireSRWLockExclusive(&S.lock);
+        if (S.gen == found[k].gen && found[k].idx < S.gq.size()) {
+            GqRec& r = S.gq[found[k].idx];
+            r.sub = (uint32_t)(base + fi[k] + 1);
+            r.eclRa0 = ra0;
+            r.eclRa1 = ra1;
+            r.eclN = (uint16_t)std::min<unsigned>(n, 65535);
+            r.eclIdx = (uint16_t)fi[k];
+        } else {
+            InterlockedIncrement64(&g_gqLate);
+        }
+        ReleaseSRWLockExclusive(&S.lock);
+    }
+}
+
+void OnEcl(void* queue, unsigned n, void* const* lists, void* retAddr, bool gameCaller) {
+    (void)gameCaller;   // our own overlay's lists count too: they occupy the queue like the game's
+    if (!g_cfg.gq || g_inited != 1 || !g_on || !queue || !n || !lists) return;
+    __try {
+        OnEclImpl(queue, n, lists, retAddr);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedExchange(&g_gqHeads, 0);
+        GLOG("exception 0x%08lX in the GQ ECL hook - GQ ECL info off", GetExceptionCode());
+        g_cfg.gq = 0;
+    }
+}
 
 void Start(const StartInfo& info) {
     g_log = info.log;
@@ -807,6 +1147,8 @@ void Start(const StartInfo& info) {
     g_cfg.ab = I(L"GPUProf2_AB", 1, 0, 1);
     g_cfg.sampleEvery = I(L"GPUProf2_SampleEvery", 8, 1, 64);
     g_cfg.minRun = I(L"GPUProf2_MinRun", 4, 1, 64);
+    g_cfg.gq = I(L"GQ", 0, 0, 1);
+    g_cfg.gqTop = I(L"GQ_Top", 5, 1, 20);
     if (!g_cfg.prof && !g_cfg.markers) return;
     if (!g_codeOk || !g_base) {
         GLOG("%s", "marker code not verified on this build - GP off");
@@ -823,6 +1165,23 @@ void Start(const StartInfo& info) {
              g_cfg.sampleEvery, g_cfg.minRun, g_cfg.maxStamps, g_cfg.top2,
              g_cfg.sampleEvery > 1 ? "measured live (sampled vs unsampled frames)" : g_cfg.ab ? "A/B windows 2 and 4 run with PSO stamps off" : "not measured",
              psoswap::Tracking() ? "from the psoswap creation hooks" : "NOT available yet (psoswap starts earlier; check the PSOSWAP lines)");
+    if (g_cfg.gq && g_cfg.prof < 2) {
+        GQLOG("%s", "GQ needs GPUProf = 2 (it reads the GP2 stamps) - GQ off");
+        g_cfg.gq = 0;
+    }
+    if (g_cfg.gq) {
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(g_base);
+        if (dos->e_magic == IMAGE_DOS_SIGNATURE) {
+            const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(g_base + dos->e_lfanew);
+            g_exeLo = (uintptr_t)g_base;
+            g_exeHi = g_exeLo + nt->OptionalHeader.SizeOfImage;
+        }
+        InterlockedExchange(&g_gqHeads, 1);
+        GQLOG("graphics-queue gap census on - DIRECT lists Reset in a sampled frame (1 in %d) get a head stamp before their first GPU "
+              "command and an end stamp at Close; idle time between consecutive lists per frame, top %d edges / gaps per window; "
+              "ECL order and call sites from the overlay's ExecuteCommandLists hook",
+              g_cfg.sampleEvery, g_cfg.gqTop);
+    }
     if (HANDLE h = CreateThread(nullptr, 0, MarkerThread, nullptr, 0, nullptr)) CloseHandle(h);
 }
 
@@ -839,8 +1198,11 @@ void EnableHooks(volatile uint8_t* mask, int slots) {
         mask[kSlotSetPso] = 1;
         for (int v : kDrawSlots) mask[v] = 1;
         for (int v : kCopySlots) mask[v] = 1;
+        if (g_cfg.gq)
+            for (int v : kGqHeadSlots) mask[v] = 1;
         g_hookMask = mask;   // OnFrame clears these slots in unsampled frames
-        GLOG("%s", "command-list hooks: BeginEvent, EndEvent, Close, Reset + GP2: SetPipelineState, Draw*, Dispatch, ExecuteIndirect, DispatchMesh, Copy*, Resolve*, Clear*");
+        GLOG("%s%s", "command-list hooks: BeginEvent, EndEvent, Close, Reset + GP2: SetPipelineState, Draw*, Dispatch, ExecuteIndirect, DispatchMesh, Copy*, Resolve*, Clear*",
+             g_cfg.gq ? " + GQ: ExecuteBundle, DiscardResource, WriteBufferImmediate, BeginRenderPass, Barrier (and ResourceBarrier in gpuopt)" : "");
         return;
     }
     GLOG("%s", "command-list hooks: BeginEvent, EndEvent, Close, Reset");
@@ -881,6 +1243,8 @@ void SetSampled(bool on) {
         g_hookMask[kSlotSetPso] = on;
         for (int v : kDrawSlots) g_hookMask[v] = on;
         for (int v : kCopySlots) g_hookMask[v] = on;
+        if (g_cfg.gq)
+            for (int v : kGqHeadSlots) g_hookMask[v] = on;
     }
     AcquireSRWLockExclusive(&g_lsLock);
     for (ListState& l : g_ls) {
@@ -941,6 +1305,8 @@ void LogWindow(const char* tag) {
         memset(&g_win, 0, sizeof(g_win));
         Win2 empty;
         std::swap(empty, g_win2);
+        GqWin emptyGq;
+        std::swap(emptyGq, g_gqWin);
         ReleaseSRWLockExclusive(&g_aggLock);
         InterlockedExchange64(&g_wallTicks, 0), InterlockedExchange64(&g_wallFrames, 0);
         InterlockedExchange64(&g_wallTicksS, 0), InterlockedExchange64(&g_wallFramesS, 0);
@@ -974,6 +1340,7 @@ static void LogLineImpl() {
              a->self[id] / fr / ms, (double)a->count[id] / fr);
     delete a;
     if (g_cfg.prof >= 2) LogGp2();
+    if (g_cfg.gq) LogGq();
 }
 
 const char* StatusLine(char* buf, size_t n) {

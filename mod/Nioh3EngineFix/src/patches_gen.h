@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -369,6 +369,11 @@ static const uint8_t orig_FP11[] = { 0x40, 0x55, 0x53, 0x56, 0x57 };
 static const uint8_t orig_FP12[] = { 0x48, 0x89, 0x5C, 0x24, 0x20 };
 static const uint8_t orig_FP13[] = { 0x48, 0x8B, 0xC4, 0x55, 0x53 };
 static const uint8_t orig_FP14[] = { 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x20 };
+static const uint8_t orig_JTc[] = { 0x48, 0x8B, 0xCB, 0xFF, 0xD2 };
+static const uint8_t orig_JTw[] = { 0xFF, 0x15, 0x8B, 0x0F, 0xD8, 0x02 };
+static const uint8_t orig_JTx[] = { 0xFF, 0x15, 0x4B, 0x0F, 0xD8, 0x02 };
+static const uint8_t orig_JTn1[] = { 0x48, 0xFF, 0x25, 0x7D, 0x10, 0xD8, 0x02 };
+static const uint8_t orig_JTn2[] = { 0x48, 0xFF, 0x25, 0xDD, 0x0F, 0xD8, 0x02 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -632,6 +637,11 @@ static const Site kSites[] = {
     { "FP12", "FP", 0x2002D4, 5, orig_FP12, "48 89 5C 24 20 48 89 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 8B EC 48 83 EC 40", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "FP13", "FP", 0xF68D8, 5, orig_FP13, "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 B8 F5", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "FP14", "FP", 0x2C5AA6C, 7, orig_FP14, "48 8B C4 48 89 58 20 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 08 F3 FF FF 48 81 EC C0 0D 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 44 0F 29 A0 58 FF FF FF 44 0F 29 A8 48 FF FF FF 44 0F 29 B0 38 FF FF FF 44 0F 29 B8 28 FF FF FF 48 8B 05 5B D4 85", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "JTc", "JT", 0x40E4E, 5, orig_JTc, "48 8B CB FF D2 48 8B F0 33 C9 48 89 4B 08", 0, Kind::Call, nullptr, Target::caveJtJob, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "JTw", "JT", 0xB616B7, 6, orig_JTw, "48 83 C2 08 48 83 C1 08 45 33 C9 41 83 C8 FF FF 15 ?? ?? ?? ?? 85 C0 74 05", 15, Kind::Call, nullptr, Target::caveJtWait, 1, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "JTx", "JT", 0xB616F7, 6, orig_JTx, "48 83 C2 08 48 83 C1 08 45 33 C9 FF 15 ?? ?? ?? ?? 85 C0 0F 95 C0", 11, Kind::Call, nullptr, Target::caveJtWait, 1, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "JTn1", "JT", 0xB61674, 7, orig_JTn1, "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28 48 83 C2 08 48 83 C1 08 41 83 C8 FF FF 15", 5, Kind::Jmp, nullptr, Target::caveJtWake1, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "JTn2", "JT", 0xB6165C, 7, orig_JTn2, "CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 C1 08 48 FF 25 ?? ?? ?? ?? CC 48 83 EC 28", 5, Kind::Jmp, nullptr, Target::caveJtWakeAll, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -790,6 +800,10 @@ static const Dep kDeps[] = {
     { "MA", 0x4B104, 1438, nullptr, 0x6F1BA4D0 },  // MA: MeshletRequestLoad 4B104 primary piece (r10d zero at MA1f-h)
     { "MA", 0x419A8, 494, nullptr, 0xFD5C39B9 },  // MA: MeshletUpdateEntryFlags 419A8 (ebp zeroed once at 419C4, never written again)
     { "MA", 0x1E8359, 8, dep_85, 0 },  // MA3: xor edx,edx immediately before the per-draw lock cmpxchg [rcx],edx (DrawEmit 1E80B0)
+    { "JT", 0x111184, 232, nullptr, 0x9F252D1F },  // JT: JobNodeExecute (inner callback = vfunc +8 of [[job+48h]+28h], read by jt.cpp)
+    { "JT", 0x1113B4, 249, nullptr, 0xC4E6B59C },  // JT: JobInvokeTimed (the callback call cb vfunc +8)
+    { "JT", 0x204584, 288, nullptr, 0xD207E133 },  // JT: JobParallelForSplit head (fn +50h, range [+70h,+74h), grain +78h, split while grain < range)
+    { "JT", 0x1753B0, 128, nullptr, 0x96325ADE },  // JT: ObjRangeJobSplitInvoke head (range [+48h,+4Ch), grain +50h)
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 
