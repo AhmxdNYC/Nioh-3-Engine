@@ -755,3 +755,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Undo: `git revert` of this commit; the branch is separate (`git push origin --delete rematch2` to drop it).
 
 ## 2026-10-08 - ASI 1.7.40 (main): tour.cpp MissionRequestById params[6] now alignas(16) (game reads it with movaps; crash risk). Audited: FillWarpPoint/FtPost req buffers already alignas(16) 0x80; other game calls pass scalars/db ptrs only; autocont/loadonly/etc CONTEXT-like cur[2] already aligned. Nothing in the game folder changed.
+
+## 2026-10-08 - Ally main-thread draw prep, pass 2 (analysis only; game, mod and game folder not touched)
+- `notes\ally-drawprep-2.md`: 216 pooled Ally SP windows (USER, GF on). Game code is 18.4 ms/frame, but 10.2 ms of it is below the per-report top-25 cut. `[ntdll] <- 5DA48` (whats-left #9 SR111) is shown to be a stale label of the GF fence wait (r = -0.57 vs the fence row; a live 111064 Sleep would fold to 111064). 418F40 0.8 ms is backpressure wait, so real work is ~17.6 ms (ceiling ~57 fps). D2 (state-commit skip-unchanged), stream memcpy dedupe and parallel segments: no bit-exact saving. Small candidates: W1b 0.15-0.25 ms, RP (RenderParamsAssign range copy) 0.07-0.1, S2F 0.05. Nothing reached 0.5 ms, so nothing was built and no worktree was made. Next step: Ally SP with TopN 200 / StackBytes 16384 in the #3 bundle session.
+- New tool `re\scripts_cpu\sp_pool_ms.py` (SP rows -> ms/frame using the OSD fps/draws lines).
+- Undo: `git revert` of this commit.
