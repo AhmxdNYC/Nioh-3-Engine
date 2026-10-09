@@ -123,6 +123,8 @@ static const uint8_t orig_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x0F, 0xB
 static const uint8_t repl_S1[] = { 0x88, 0x05, 0x32, 0x59, 0x1B, 0x04, 0x84, 0xC0, 0x74, 0x07, 0xF3, 0x90, 0xEB, 0xEA, 0x0F, 0x1F, 0x00 };
 static const uint8_t orig_RWb[] = { 0x8B, 0x95, 0xA8, 0x03, 0x00, 0x00, 0x48, 0x8B, 0xCD, 0xE8, 0x24, 0x77, 0x61, 0xFE, 0xFF, 0xC3, 0x84, 0xDB, 0x75, 0x08, 0x33, 0xC9 };
 static const uint8_t repl_RWb[] = { 0xFF, 0xC3, 0x84, 0xDB, 0x75, 0x16, 0x8B, 0x95, 0xA8, 0x03, 0x00, 0x00, 0x48, 0x8B, 0xCD, 0xE8, 0x1E, 0x77, 0x61, 0xFE, 0x33, 0xC9 };
+static const uint8_t orig_ESM1[] = { 0x0F, 0x9D, 0xC0 };
+static const uint8_t repl_ESM1[] = { 0x31, 0xC0, 0x90 };
 static const uint8_t orig_SPg[] = { 0xE8, 0xC9, 0xF9, 0x80, 0x00 };
 static const uint8_t orig_SPu[] = { 0xE8, 0xF4, 0x56, 0x39, 0x00 };
 static const uint8_t orig_IK[] = { 0xE8, 0xDC, 0x00, 0x00, 0x00 };
@@ -400,6 +402,7 @@ static const Site kSites[] = {
     { "W6W", "W6W", 0x1A822D9, 7, orig_W6W, "48 8B 05 ?? ?? ?? ?? C6 83 28 77 00 00 00 48 85 C0", 7, Kind::Call, nullptr, Target::caveW6Wake, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "S1", "S1", 0x418F68, 17, orig_S1, "88 05 ?? ?? ?? ?? 0F B6 05 ?? ?? ?? ?? 84 C0 75 E7 48 8D 4C 24 20", 0, Kind::Bytes, repl_S1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "RWb", "RWb", 0x1A3146A, 22, orig_RWb, "8B 95 A8 03 00 00 48 8B CD E8 ?? ?? ?? ?? FF C3 84 DB 75 08 33 C9", 0, Kind::Bytes, repl_RWb, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "ESM1", "ESM1", 0x14733E, 3, orig_ESM1, "8B 91 D8 16 00 00 33 C0 81 FA 00 04 00 00 0F 8C ?? ?? ?? ?? 81 FA 00 08 00 00 0F 9D C0 83 C0 02 C3", 26, Kind::Bytes, repl_ESM1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "SPg", "SPR", 0x11970A, 5, orig_SPg, "48 8B 0D ?? ?? ?? ?? 48 8D 56 08 E8 ?? ?? ?? ?? 48 89 86 88 00 00 00 48 85 C0 74", 11, Kind::Call, nullptr, Target::caveSprG, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x9290D8 },
     { "SPu", "SPR", 0x62D7E7, 5, orig_SPu, "4D 8B CC 44 8A C7 49 8B D7 48 8B CE E8 ?? ?? ?? ?? EB BF CC CC", 12, Kind::Call, nullptr, Target::caveSprU, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x9C2EE0 },
     { "IK", "IK", 0x5AB6CF, 5, orig_IK, "48 8B CF E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B D7 E8 ?? ?? ?? ??", 8, Kind::Call, nullptr, Target::caveIkKick, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5AB7B0 },

@@ -379,6 +379,7 @@ struct Config {
     int bpo = 0, bpoMask = 7, bpoTableBits = 14;  // 1.7.40: BoundsFromPartObbs (1 = on, 2 = installed off; mask 1 Q, 2 L, 4 V)
     int mq = 0, pt1 = 0, dl = 0, cpuStats = 0;  // 1.7.12 (DL rides the CP group)
     int rwb = 0, spr = 0;
+    int esm1 = 0;  // 1.7.44 ESM1: directional ESM render target capped at 1024^2 (code bytes, next launch; notes\gpu-resolution-audit.md)
     // 1.7.23 LO (loadonly.cpp): GF/W6/RWb installed but on only inside 58A; *User = the keys as written in the ini
     int loadOnly = 0, gfUser = 0, w6User = 0, rwbUser = 0;
     int gl1 = 0, lc = 0, lw = 0;  // 1.7.14 (loading / game-logic; ini only, next launch)
@@ -489,6 +490,7 @@ Config LoadConfig() {
     c.dl = I(L"Patches", L"DL", c.dl);
     c.cpuStats = I(L"Patches", L"CpuStats", c.cpuStats);
     c.rwb = I(L"Patches", L"RWb", c.rwb);
+    c.esm1 = I(L"Patches", L"ESM1", c.esm1);
     c.spr = I(L"Patches", L"SPR", c.spr);
     c.gl1 = I(L"Patches", L"GL1", c.gl1);
     c.lc = I(L"Patches", L"LC", c.lc);
@@ -1521,6 +1523,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "PT1")) return cfg.pt1 != 0;
         if (!strcmp(g, "SPF")) return cfg.spf != 0;
         if (!strcmp(g, "RWb")) return cfg.rwb != 0;
+        if (!strcmp(g, "ESM1")) return cfg.esm1 != 0;
         if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
         if (!strcmp(g, "LC")) return cfg.lc != 0;
         if (!strcmp(g, "LW")) return cfg.lw != 0;
@@ -1836,6 +1839,10 @@ DWORD WINAPI Worker(LPVOID) {
     // RWb (notes\stutter.md 3.5): 22 code bytes at ResStateWaitSwap's cold spin; the wake moves behind the Sleep(0) wrap test
     // (one futile pool-1 wake per 256 spins instead of one per spin). Next launch only; no menu item.
     expGroup("RWb", cfg.rwb != 0, nullptr);
+    // ESM1 (notes\gpu-resolution-audit.md): EsmLevelFromRes 147324 maps RS+16D8 (2048 at SHADOW HIGH) to the directional-ESM
+    // array index 3 (2048^2); the 3-byte patch at 14733E (setge al -> xor eax,eax) makes it index 2 (1024^2) for any size >= 1024.
+    // The ESM only feeds volumetric fog in-scattering and LPV indirect. Next launch only; no menu item.
+    expGroup("ESM1", cfg.esm1 != 0, nullptr);
     // GL1 (1.7.14, notes\gamelogic.md): software prefetch of the task 3 entries ahead in the two mission task-list walks
     // (E266D1 proximity pass, E26690 task-state pass). No architectural effect. Next launch only; no menu item.
     if (expGroup("GL1", cfg.gl1 != 0, [&]() {
