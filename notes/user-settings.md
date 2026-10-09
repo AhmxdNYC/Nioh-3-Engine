@@ -62,9 +62,10 @@ Not tested by us: the TDP gain, page-file effect, external-limiter effect, GPU c
 - The game puts every per-draw constant buffer (and some particle/UI vertex data) in one 700 MB UPLOAD heap. With Resizable
   BAR / SAM on, AMD drivers back that heap with VRAM; with it off (common on mid-range PCs, e.g. pc2: B550 + 5600X + RX 6650 XT,
   BAR0 258 MB) it sits in system RAM and the GPU fetches those constants over PCIe on every draw and dispatch.
-- Measured on the RX 9070 with that layout forced: +3.9 ms GPU per frame (+43 %). On a card without ReBAR this is the biggest
+- Measured on the RX 9070 with that layout forced: +3.9 ms GPU per frame (+43 %); on pc2 moving only the constants to VRAM sped the affected passes up by ~4 ms. On a card without ReBAR this is the biggest
   single mid-range cost found so far.
 - User-side fix (a machine setting, so the user's decision; the mod never changes it): BIOS "Above 4G Decoding" + "Re-Size BAR
   Support" on, CSM off, then AMD Adrenalin > Performance > Tuning > Smart Access Memory on. Check: GPU-Z "Resizable BAR: Enabled".
-- Mod-side fix for PCs that cannot: `[GpuOpt] CbvMirror = 1` (ASI >= 1.7.52, auto: only acts when the heaps really are in
-  system memory; off on ReBAR PCs, handhelds and Linux).
+- No mod-side equivalent: `[GpuOpt] CbvMirror` (1.7.52/1.7.54) copies the constants into VRAM but on an RX 6650 XT the copies
+  cost more than they save (+10 to +36 ms on pc2, #988/#1030). Leave it at 0. On pc2 about half of the mid-range excess is
+  these PCIe constant reads (~4 ms of 31.6 ms), so ReBAR/SAM is worth turning on where the board supports it.

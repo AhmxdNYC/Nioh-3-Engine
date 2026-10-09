@@ -22,31 +22,56 @@ CbvMirror`, 1.7.52, default off), measured on the PC with pc2's memory layout fo
    - The texture page pool is sized from the adapter, not from the live budget: **PC 2,342 MB, pc2 1,389 MB** (64 KB pages).
      pc2 occupancy 33-55 % at the dense spawns, page misses 1-7 per frame, queue-full 0. The engine's only pressure
      reaction (a mip bias that grows while occupancy > 85 %, `PagePoolOccupancyCheck 126C64`) never engages.
-2. **The pc2 slowdown is GPU reads of the engine's UPLOAD heaps over PCIe (H1): proven by census + a causal A/B.**
-   - pc2 has **Resizable BAR / SAM off** (BAR0 = 258 MB, pc2 #867). The engine's 700 MB UPLOAD ring heap + 100 MB READBACK +
-     4 x 4 MB (+ transient staging) = pc2's 0.92-1.16 GB non-local. On the PC (ReBAR) the same heaps are counted as local.
+2. **System-memory reads explain PART of the pc2 anomaly, not all of it.**
+   - pc2 has **Resizable BAR / SAM off** (BAR0 = 258 MB, #867). The engine's 700 MB UPLOAD ring heap + 100 MB READBACK +
+     4 x 4 MB (+ transient staging) = pc2's 0.92-1.16 GB non-local. On the PC (ReBAR) the same heaps count as local.
    - **Every CBV the engine creates points into that ring** (PC: 107.7 M of 107.7 M CBV descriptors in 4.5 min, ~2,400 per
-     frame, 98 % from the per-draw recorder site `118F89 <- 118E1E <- 11863D`, avg 2.9 KB; the rest from `495B2E`). So on
-     pc2 every draw and every dispatch fetches its constants from system memory. Also 23 % (pc2) / 26-35 % (PC) of VB binds
-     (particles G1E f32bf54a / f645c461 / df1296ed, UI a2bd0e86 / ExeUI, dbb52433, e9af3848) and 4-10 % of IB binds. Root
-     CBVs < 1 per frame; compute root descriptors 0; SRVs/UAVs on system memory: 4.6 % / 0.15 % of those created.
-   - **Causal A/B on the RX 9070:** `VSForceSysUpload = 2` creates the UPLOAD heaps as write-back system memory, which gives
-     the PC pc2's layout (non-local 0.89-1.04 GB). GP2 frame span **8.90 -> 12.76 ms (+3.86 ms, +43 %)**, same spots, same
-     work (2,355 vs 2,375 draws+dispatches). Stamped draw/dispatch time +0.83 ms (tiny kernels and small draws the most:
-     MIC e31c389f x2.1, MshLod 419354de x2.4 / 63c07c21 x1.8, STD 96690c3b x2-5, UI AMBSL x1.8, post x2), un-stamped time
-     between them (barriers, waits, launch) +3.0 ms. That is the pc2 anomaly pattern. (Write-combined L0, `= 1`, does not
-     move the heaps on a ReBAR PC: unchanged, section 5.)
-   - pc2 is PCIe 4.0 x8 (the RX 9070 is 5.0 x16, same latency class): pc2's share of the ~7.7 ms excess that this explains
-     is at least the PC's +3.9 ms and plausibly most of it; the pc2 CM A/B gives the number.
-3. **pc2 result for the shipped 1.7.52 design: WORSE, +15 ms** (#988, clean A A B A A at spawn 7356: GP2 span 32.2-33.2 ms ->
-   47.7 ms with CM on; picture within noise, so the redirect itself is correct). The own COPY queue + a fence wait before
-   every game ExecuteCommandLists (~10 per frame) serialises the frame on RDNA2. **1.7.54 = inline mode** (section 6): the
-   copies ride in a prologue list of the same submission on the game's own queue, no cross-queue waits - the shape of the
-   first PC build that took back 2.1 ms. pc2 A/B queued (#1001). If it does not beat base, CM stops here.
-4. **Fix built: CM (CbvMirror), 1.7.52 / 1.7.54, default off.** First PC measurement with the pc2 layout forced: span 12.76 ->
-   **10.68 ms (-2.1 ms, 54 % of the penalty back)** with the copies on the DIRECT queue; the COPY-queue version (shipped) is
-   being measured (section 6). Expected on pc2: 2-4 ms of 31.6 ms (6-13 % fps), 0 on the PC (ReBAR) and the Ally (UMA).
-   The VB/IB share (particles/UI) is not covered yet (section 7).
+     frame, 98 % from the per-draw recorder `118F89 <- 118E1E <- 11863D`, avg 2.9 KB). So on pc2 every draw and dispatch
+     fetches its constants from system memory. Also 23 % (pc2) / 26-35 % (PC) of VB binds (particles G1E, UI) and 4-10 % of
+     IB binds. Compute root descriptors 0; SRVs/UAVs created on system memory 4.6 % / 0.15 %.
+   - **PC causal A/B** (`VSForceSysUpload = 2`, the PC gets pc2's layout): GP2 span 8.90 -> 12.76 ms (+3.86 ms, +43 %).
+   - **pc2 per-shader evidence (#1030 arm C vs A: CbvMirror on, DIRECT copies only, same spot 7356; one window each, so single
+     rows below ~x2 are not proven)** - moving the per-draw CBVs to VRAM made these anomaly rows faster:
+     PB2 small props 2c6f629c 0.651 -> 0.185 ms (x3.5), UI quads AMBSL 0.267 -> 0.110 (x2.4), shadow casters SM-Sfb 1.521 ->
+     0.936, MshLod#2 63c07c21 1.633 -> 0.730, eyes PB2EYEC 0.409 -> 0.321; families G-buffer 8.00 -> 5.64, shadows 2.13 -> 1.46,
+     meshlet 6.06 -> 5.27. **About 4 ms of real pass time is CBV-over-PCIe** (~half of the ~7.7 ms excess).
+   - **Not changed by CBVs in VRAM:** MIC e31c389f 1.631 -> 1.756, MshLod#1 e6a62bda (the 8-byte copy kernel) 1.414 -> 1.309,
+     MPC 18b6fee7 / 1b4b5b75 unchanged. The worst meshlet-front-end rows (~3 ms) have another cause (section 0.6).
+3. **CM (CbvMirror) is a dead end as built: two designs, both slower on pc2. STOPPED.**
+   - 1.7.52 (own COPY queue + a fence wait before every game submission): GP2 span 32.2-33.2 -> 47.7 ms (+15 ms, #988).
+   - 1.7.54 inline (prologue list on the game's own queue): +36 ms with async-compute re-copies, **+10.7 ms without** (#1030
+     arm C: 32.08 -> 42.79). Arm C's ledger: passes **-4 ms**, but our copies show as a copy bucket of 1.36 -> **17.48 ms** and
+     async VCLOUD 2.58 -> 15.17 ms wall: `CopyBufferRegion` from system memory on RDNA2 (CP DMA on the graphics queue)
+     moved ~7-8 MB per frame at well under 1 GB/s, i.e. far below the PCIe 4.0 x8 link. Picture fine in every arm.
+   - Why the PC said otherwise: the RX 9070 runs the same copies over PCIe 5.0 x16 with a faster DMA path; its emulation
+     arm got -2.1 ms. The PC is not a stand-in for RDNA2 copy throughput.
+   - Not built (would need a new design, only if ReBAR-ON shows a big ceiling): a compute-shader copy (many waves, full link
+     bandwidth) or copying only the bytes the shaders read (the 2.9 KB average view is mostly padding/palette space).
+4. **The user-side equivalent is ReBAR / SAM** (user-settings.md). The ReBAR-ON run (section 0.7) is the ceiling test for
+   everything system-memory related, CBVs and VB/IB together, with zero copy cost.
+5. **Ranked explanations for the pc2 anomaly (excess ~7.7 ms of 31.6 ms), with one cheap discriminating test each:**
+
+   | rank | explanation | evidence for / against | share | cheap test |
+   |---|---|---|---|---|
+   | 1 | **CBV fetches over PCIe** (no ReBAR) | for: arm C rows above (G-buffer small draws, shadows, MshLod#2, UI); PC emulation +3.9 ms | ~4 ms (measured, arm C pass rows) | done; ReBAR-ON confirms without copy cost |
+   | 2 | **Barrier / cache-flush cost billed to the next tiny kernel** (GP2 MinRun 1 stamps the interval that starts after a barrier; ~250 barriers/frame in the meshlet chain; RDNA2 flushes/invalidates L2 on UAV->SRV barriers) | for: MIC / MshLod#1 / MPC unchanged by CBVs; an 8-byte copy kernel costing ~1 ms is not compute; the PC's emulation showed most growth in UN-stamped time | ~2-3 ms | `[GpuOpt] Barriers = 1` (barrier batching, built) A/B on pc2 at spawn 7356 (queued #769) - if MIC/MshLod#1 rows drop, it is barriers; or one RGP capture on pc2 (barrier durations) |
+   | 3 | **Atomics / writes into system-memory buffers** (meshlet streaming feedback lives in the 100 MB READBACK heap; GPU atomics over PCIe are ~us each) | for: 0.15 % of UAVs and the readback heap are in system memory and stay there even with ReBAR; MIC/MshLod#1 read/write request lists; against: UAV count is small | 0-2 ms | VS probe: log the callers of the 33 system-memory UAVs (callers table, kind U - currently cut at 24 rows) and match them to MIC/MCLRC; ReBAR-ON does NOT move READBACK heaps, so if MIC stays slow with ReBAR ON this rises |
+   | 4 | **RDNA2 occupancy / wave launch cost for 1x1x1 and few-group dispatches** (architecture, not memory) | for: MIC is x56 vs the PC, beyond any memory effect seen; against: the Ally (RDNA3) matched data is still missing | 0-2 ms | Ally XSYS1 matched run (MIC/MshLod#1 rows vs speed factor): if the Ally shows the same per-dispatch blow-up, it is not PCIe |
+   | 5 | **VB/IB dynamic streams over PCIe** (particles G1E, UI) | for: 23 % of VB binds in system memory; arm C left them there and the UI rows still sped up only via CBVs | 0.2-0.5 ms | ReBAR-ON (moves them) vs arm C (does not) on the particle rows f645c461 / f32bf54a |
+   | 6 | GP2 attribution itself (timestamps inflating tiny intervals) | against: PresentMon GPUBusy agrees with the span (27-28 vs 28.6 ms base) | small | GP2 MinRun 4 vs 1 on the same pc2 spot (MinRun 4 merges the tiny intervals) |
+
+6. Bottom line: VRAM is not the problem. About half of pc2's excess is constant-buffer reads over PCIe because ReBAR is off;
+   the mod cannot move them cheaply (copy cost on RDNA2 exceeds the gain), so the practical fix is ReBAR/SAM on the user's
+   PC. The other half (meshlet front-end kernels) is not CBV-bound; barriers (test 2) are the lead.
+7. **ReBAR-ON ceiling arm (pc2, needs the user in the BIOS; spec):**
+   - Same as #1030: ASI 1.7.54 (file #169), CM OFF (`GpuOpt.CbvMirror = 0`), pc2-bench config / XSYS1 spot 7356 spawn,
+     30 s dwell, GP2 MinRun 1, `Profiler.MemStats = 2` (VS probe), ini rebuilt per launch, PresentMon.
+   - Launches: A A with ReBAR OFF (today's state) -> user enables "Above 4G Decoding" + "Re-Size BAR Support" (CSM off) and SAM
+     in Adrenalin -> R R with ReBAR ON -> (optional) back to OFF for one A.
+   - Check in the log: `VS: GPUUploadHeapSupported` (may still say n/a), `stats vs:` non-local must drop from ~1.15 GB to
+     ~0.2 GB (the UPLOAD heaps move to VRAM; READBACK stays), `stats vs binds` unchanged (same engine), BAR0 ~8 GB (#867 method).
+   - Compare per shader (xsys_compare A vs R) and GPUBusy: the R - A delta is the full ceiling of the system-memory branch;
+     rows that stay slow with ReBAR ON (expected MIC / MshLod#1 / MPC) belong to explanations 2-4.
 
 ## 1. Data (MemStats lines, all captures)
 
@@ -150,10 +175,31 @@ x8 link is the other way round. The pc2 A/B is the number that counts.
 
 ## 7. Next
 
-1. pc2: 1.7.54 inline A/B (#1001, file #169): base vs `CbvMirror = 1` (+ optional `CbvMirrorComputeCopy = 0`). Go/stop.
+1. DONE: pc2 1.7.54 inline A/B (#1030) = +10.7 / +36 ms -> CM stopped (section 0.3). Next: the ReBAR-ON arm (0.7) and the tests in 0.5.
 2. PC: the same with pc2's layout forced (`-AddKeys "Profiler.VSForceSysUpload=2;GpuOpt.CbvMirror=2;GpuOpt.CbvMirrorMB=256"`),
    queued behind the other PC sessions.
 3. If CM holds: a VB/IB mirror for the dynamic vertex streams (needs the drawn vertex range per bind, not the view size; the
    1.7.51 histogram shows most sys VB views are 64 KB-1 MB) - the particle/UI share of the excess.
 4. User-side alternative (no code; user-settings.md): enabling Resizable BAR / SAM (BIOS: Above 4G decoding + Re-Size BAR,
    CSM off; AMD Adrenalin SAM) puts these heaps in VRAM on AMD cards; on pc2 that is the user's call (machine change).
+
+## PC no-ReBAR simulation A/B of CbvMirror, 2026-10-09 (pc, tools\testmatrix\cm_sim_pc.ps1 + cm_sim_report.py)
+ASI 1.7.54 (arm 1 = an earlier 1.7.5x build from 15:58, another agent rebuilt bin at 16:06; arms 2-6 = the same hash 068BFBCDD0A4, so A = arm 6 is the clean baseline). run_tour vpad, tourlist_xsys (4 spawns), 2 passes x 30 s each, xsys-1080-high-fsr65 config, MemStats 2, GP2 1-in-8 MinRun 1, MaxFps 240. A = VSForceSysUpload 2 + CbvMirror 0, B = VSForceSysUpload 2 + CbvMirror 2, C = normal (ReBAR). Order A B C C B A. Windows = after Tour ARMED + 25 s (includes the warps/loads between spawns, so p99 is contaminated; p50 and GP2 span are in-field).
+
+| # | arm | exit | frames | GPUBusy p50 | GPUBusy p99 | frame p50 | frame p99 | GP2 span | meshlet rows ms |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | A | 0 | 20021 | 7.20 | 18.22 | 8.88 | 19.44 | 10.10 | 0.517 |
+| 2 | B | 0 | 37801 | 8.22 | 15.43 | 9.94 | 17.54 | 11.29 | 0.815 |
+| 3 | C | 0 | 40085 | 6.93 | 15.17 | 8.88 | 17.15 | 9.35 | 0.434 |
+| 4 | C | 0 | 40357 | 6.96 | 14.88 | 8.82 | 16.17 | 9.34 | 0.432 |
+| 5 | B | 0 | 34672 | 8.38 | 17.25 | 10.47 | 17.94 | 11.59 | 0.743 |
+| 6 | A | 0 | 40253 | 7.44 | 15.69 | 9.04 | 17.21 | 9.86 | 0.501 |
+
+A (n=2): GPUBusy p50 7.32 (+-0.12) p99 16.96 | frame p50 8.96 p99 18.33 | GP2 span 9.98 (+-0.12) | meshlet rows 0.509
+B (n=2): GPUBusy p50 8.30 (+-0.08) p99 16.34 | frame p50 10.21 p99 17.74 | GP2 span 11.44 (+-0.15) | meshlet rows 0.779
+C (n=2): GPUBusy p50 6.94 (+-0.01) p99 15.02 | frame p50 8.85 p99 16.66 | GP2 span 9.34 (+-0.01) | meshlet rows 0.433
+B - A: GPUBusy p50 +0.98 ms, frame p99 -0.58 ms, GP2 span +1.46 ms, meshlet rows +0.270 ms
+C - A: GPUBusy p50 -0.38 ms, frame p99 -1.66 ms, GP2 span -0.63 ms, meshlet rows -0.076 ms
+
+Reading: the forced layout is active (nonlocal 894-953 MB in A/B vs 162-187 MB in C) but costs only +0.6 ms GP2 span here (A 9.86 vs C 9.34), not the +3.9 ms of the earlier 4-spot run. CbvMirror=2 (copy queue) did NOT win: B is +0.9..1.0 ms GPUBusy p50 and +1.5 ms GP2 span WORSE than A (meshlet rows +0.27 ms). No shotdiff: tour mode takes no screenshots (pc2's cm A/B found shots within noise). Verdict on the PC sim: no gain from CbvMirror; the copy-queue version adds cost.
+
