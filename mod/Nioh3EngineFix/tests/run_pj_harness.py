@@ -6,7 +6,8 @@ Builds tests/pj_harness.cpp with the real src/psojournal.cpp + src/psoswap.cpp (
 psoswap's observe-only D3D12CreateDevice IAT hook, as in the mod; same cl flags as build.bat; MSVC on PATH or
 ..\..\tools\msvc\setup_x64.bat) into build/pjtest and runs six "launches" against one journal folder:
 rec (journal), warm (prewarm; descs below PJ equal the engine's), again (no growth), then on copies: trunc (cut tail),
-badsh (corrupt shader chunk), build (other exe stamp -> new journal). Must end "ALL PJ CHECKS OK".
+badsh (corrupt shader chunk), build (other exe stamp -> new journal), hand / handoff (PJH = 1 / 2: prewarmed PSOs
+handed to the engine's creates, or kept but not handed). Must end "ALL PJ CHECKS OK".
 """
 import pathlib
 import shutil
@@ -115,5 +116,12 @@ def other_build(b):
 
 
 variant("build", other_build)
+
+# PJH hand-over on copies of the warm journal (3 records): on, then installed + off
+for m in ("hand", "handoff"):
+    d = OUT / m
+    shutil.rmtree(d, ignore_errors=True)
+    shutil.copytree(base, d)
+    run(m, d)
 print("ALL PJ CHECKS OK" if not fails else "PJ CHECKS FAILED: %d" % fails)
 sys.exit(1 if fails else 0)

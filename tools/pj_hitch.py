@@ -159,7 +159,12 @@ def analyse(d):
             n_att += 1
             s_att += v
     r.update(hitches=n_all, hitch_ms=s_all, att=n_att, att_ms=s_att, worst_ms=worst)
-    r["frames"] = sum(1 for t in ts if t_arm <= t <= t_end and not in_load(t))
+    route = sorted(v for t, v in zip(ts, ft) if t_arm <= t <= t_end and not in_load(t))
+    r["frames"] = len(route)
+    # 2026-10-09 (notes/stutter-pso.md): the user-visible numbers - frames > 50 / > 100 ms and the 0.1 % low (1000 / p99.9)
+    r["gt50"] = sum(1 for v in route if v > 50.0)
+    r["gt100"] = sum(1 for v in route if v > 100.0)
+    r["low01"] = 1000.0 / route[min(len(route) - 1, int(0.999 * len(route)))] if route else 0.0
     pj = [x for _, x in log if x.startswith("PJ:") or "stats/s PJ:" in x]
     pd = next((x for x in pj if "prewarm done" in x), "")
     r["prewarm"] = pd
@@ -172,9 +177,10 @@ def fmt(label, r):
     if "error" in r:
         return "  %-3s ERROR %s" % (label, r["error"])
     return ("  %-3s route %4.0f s (%s, loads %3.0f s excluded) | SPR lines %2d: creates %4d, >=1 ms %3d, in-create %6.0f ms, max %6.1f ms | "
-            "hitches >33 ms: %3d (%6.0f ms, worst %5.0f) | PSO-attributed: %3d (%6.0f ms)" %
+            "hitches >33 ms: %3d (%6.0f ms, worst %5.0f) | PSO-attributed: %3d (%6.0f ms) | >50 ms %3d, >100 ms %3d, 0.1%% low %5.1f fps" %
             (label, r["route_s"], "DONE" if r["done"] else "no DONE", r["load_s"], r["spr_lines"], r["creates"], r["creates_ge1ms"],
-             r["create_ms"], r["max_create_ms"], r["hitches"], r["hitch_ms"], r["worst_ms"], r["att"], r["att_ms"]))
+             r["create_ms"], r["max_create_ms"], r["hitches"], r["hitch_ms"], r["worst_ms"], r["att"], r["att_ms"], r.get("gt50", 0),
+             r.get("gt100", 0), r.get("low01", 0.0)))
 
 
 def verdict(R):

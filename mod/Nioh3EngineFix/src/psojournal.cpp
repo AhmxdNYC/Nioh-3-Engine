@@ -39,7 +39,7 @@ constexpr int kSlotCreateRootSignature = 16;   // ID3D12Device::CreateRootSignat
 constexpr int kSlotCreatePipelineState = 47;   // ID3D12Device2::CreatePipelineState
 constexpr int kMaxSets = 4;
 constexpr uint32_t kMagic = 0x4A50334E;        // "N3PJ"
-constexpr uint32_t kVersion = 1;
+constexpr uint32_t kVersion = 2;        // 2 (2026-10-09): runtime PSOs only (after the boot PSO list); v1 files start over
 constexpr uint32_t kTagShader = 0x52444853;    // "SHDR"
 constexpr uint32_t kTagRootSig = 0x47495352;   // "RSIG"
 constexpr uint32_t kTagPso = 0x314F5350;       // "PSO1"
@@ -71,7 +71,10 @@ struct Cfg {
     uintptr_t base = 0;
     bool known = false, wine = false;
     std::wstring folder;
+    int handover = 0;           // PJH: 0 off, 1 on, 2 installed + off (live switch)
+    uint32_t keepMax = 4096;    // PJ_KeepMax: prewarmed PSOs held for the hand-over
 } g_cfg;
+volatile uint32_t g_pjhSwitch = 0;  // PJH live switch (menu row): 1 = hand prewarmed PSOs to the engine's creates
 void (*g_log)(const char*, ...) = nullptr;
 
 #define LOG(...)                                  \
@@ -113,11 +116,16 @@ struct KeyHash {
 };
 
 // hook-side knowledge (g_lock): what is in the journal or queued, what the engine created in this session
-constexpr uint8_t kKnown = 1, kCreated = 2;
+constexpr uint8_t kKnown = 1, kCreated = 2, kEngine = 4;  // kCreated: by the engine or the prewarm; kEngine: by the engine
 SRWLOCK g_lock = SRWLOCK_INIT;
 std::unordered_set<Key, KeyHash> g_shKnown, g_rsKnown;
 std::unordered_map<const void*, Key> g_rsPtr;
 std::unordered_map<Key, uint8_t, KeyHash> g_rec;
+std::unordered_map<Key, IUnknown*, KeyHash> g_kept;  // PJH: prewarmed PSOs waiting for the engine's create (one reference each)
+std::unordered_map<Key, IUnknown*, KeyHash> g_rsObj;  // PJH: the engine's root signatures by blob key (one reference held each)
+constexpr size_t kMaxRsObj = 256;
+std::atomic<bool> g_bootDone{false};  // the boot PSO list is done (title idle + quiet): from now on creates are journaled
+void* volatile g_gameDev2 = nullptr;  // ID3D12Device2 interface of g_gameDev (the stream creates arrive on it)
 
 // writer queue (g_qLock)
 struct Item {
@@ -133,7 +141,8 @@ std::atomic<uint64_t> g_enq{0}, g_done{0};
 std::atomic<bool> g_full{false}, g_loaded{false};
 
 // counters
-std::atomic<uint64_t> g_seen{0}, g_skipped{0}, g_dropped{0};
+std::atomic<uint64_t> g_seen{0}, g_skipped{0}, g_dropped{0}, g_bootCreates{0};
+std::atomic<uint64_t> g_handed{0}, g_handMiss{0}, g_keptN{0}, g_keepRefused{0};
 std::atomic<uint32_t> g_fileRecs{0}, g_newRecs{0}, g_shaders{0}, g_rootSigs{0};
 std::atomic<uint64_t> g_fileBytes{0};
 std::atomic<int> g_pwState{0};
@@ -536,13 +545,11 @@ bool Enqueue(uint32_t tag, const Key& key, std::vector<uint8_t>&& data) {
     return true;
 }
 
-void RecordPso(const Ser& s) {
-    std::vector<uint8_t> rec = Encode(s);
-    if (rec.size() > kMaxRecord) {
-        g_skipped.fetch_add(1);
-        return;
-    }
-    const Key id = Hash128(rec.data(), rec.size());
+// rec / id = Encode(s) and its key (computed by the hook before the engine's create). Before the boot PSO list is done the
+// desc is only marked as created by the engine (the game creates its boot list in every launch: nothing to prewarm);
+// after it, every new desc is journaled (the runtime first-use creates that hitch).
+void RecordPso(const Ser& s, std::vector<uint8_t>&& rec, const Key& id) {
+    const bool boot = !g_bootDone.load(std::memory_order_acquire);
     bool fresh;
     AcquireSRWLockExclusive(&g_lock);
     auto it = g_rec.find(id);
@@ -550,10 +557,11 @@ void RecordPso(const Ser& s) {
         fresh = false;  // bookkeeping full: neither journaled nor marked
     } else {
         uint8_t& f = g_rec[id];
-        fresh = !(f & kKnown);
-        f |= kKnown | kCreated;
+        fresh = !boot && !(f & kKnown);
+        f |= kCreated | kEngine | (boot ? 0 : kKnown);
     }
     ReleaseSRWLockExclusive(&g_lock);
+    if (boot) g_bootCreates.fetch_add(1, std::memory_order_relaxed);
     if (!fresh) return;
     if (g_full.load(std::memory_order_relaxed)) {
         g_dropped.fetch_add(1);
@@ -582,23 +590,47 @@ void NoteCreate(ID3D12Device* self) {
     g_seen.fetch_add(1, std::memory_order_relaxed);
 }
 
-void OnPso(int kind, const void* desc) {
+// Serializes an engine desc before its create: false = not journaled (reason counted)
+bool Prepare(int kind, const void* desc, Ser& s, std::vector<uint8_t>& rec, Key& id) {
     try {
-        Ser s;
         bool ok = false;
         if (kind == 1) ok = SerGfx(static_cast<const D3D12_GRAPHICS_PIPELINE_STATE_DESC*>(desc), s);
         if (kind == 2) ok = SerCs(static_cast<const D3D12_COMPUTE_PIPELINE_STATE_DESC*>(desc), s);
         if (kind == 3) ok = SerStream(static_cast<const D3D12_PIPELINE_STATE_STREAM_DESC*>(desc), s);
-        if (!ok) {
-            g_skipped.fetch_add(1);
-            InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_skipWhy[s.why & 3]));
-            return;
+        if (ok) {
+            rec = Encode(s);
+            if (rec.size() > kMaxRecord) {
+                s.why = 2;
+                return false;
+            }
+            id = Hash128(rec.data(), rec.size());
         }
-        RecordPso(s);
+        return ok;
     } catch (...) {
-        g_skipped.fetch_add(1);
-        InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_skipWhy[3]));
+        s.why = 3;
+        return false;
     }
+}
+void CountSkip(const Ser& s) {
+    g_skipped.fetch_add(1);
+    InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_skipWhy[s.why & 3]));
+}
+
+// PJH: the prewarmed PSO for this desc, if one is waiting (it leaves the map; the caller owns its reference). A miss
+// marks the desc as created by the engine before the engine's create runs, so a prewarm racing with it does not keep a
+// second copy.
+IUnknown* TakeKept(const Key& id) {
+    IUnknown* p = nullptr;
+    AcquireSRWLockExclusive(&g_lock);
+    auto it = g_kept.find(id);
+    if (it != g_kept.end()) {
+        p = it->second;
+        g_kept.erase(it);
+    }
+    if (g_rec.size() < kMaxRecKeys || g_rec.count(id)) g_rec[id] |= kCreated | kEngine;
+    ReleaseSRWLockExclusive(&g_lock);
+    if (p) g_keptN.fetch_sub(1, std::memory_order_relaxed);
+    return p;
 }
 
 void OnRootSig(const void* blob, size_t len, UINT node, void* obj) {
@@ -611,11 +643,19 @@ void OnRootSig(const void* blob, size_t len, UINT node, void* obj) {
         memcpy(data.data() + 16, &node, 4);
         void* rs = nullptr;
         if (FAILED(static_cast<IUnknown*>(obj)->QueryInterface(kIID_RootSig, &rs)) || !rs) return;
-        static_cast<IUnknown*>(rs)->Release();  // only the pointer value is kept (it is what the PSO descs carry)
+        // the pointer value is what the PSO descs carry; with PJH one reference to the first object per blob is kept so
+        // the prewarm builds its PSOs on the engine's own root signature (a hand-over then carries the exact pointer
+        // the engine would have passed)
+        bool hold = false;
         AcquireSRWLockExclusive(&g_lock);
         if (g_rsPtr.size() < kMaxRsPtrs || g_rsPtr.count(rs)) g_rsPtr[rs] = k;
         const bool need = g_rsKnown.insert(k).second;
+        if (g_cfg.handover && !g_rsObj.count(k) && g_rsObj.size() < kMaxRsObj) {
+            g_rsObj[k] = static_cast<IUnknown*>(rs);
+            hold = true;
+        }
         ReleaseSRWLockExclusive(&g_lock);
+        if (!hold) static_cast<IUnknown*>(rs)->Release();
         if (need && !Enqueue(kTagRootSig, k, std::move(data))) {
             AcquireSRWLockExclusive(&g_lock);
             g_rsKnown.erase(k);
@@ -626,38 +666,56 @@ void OnRootSig(const void* blob, size_t len, UINT node, void* obj) {
 }
 
 // ---- device hooks --------------------------------------------------------------------------------------------------------
+// One engine PSO create (graphics 1 / compute 2 / stream 3). The desc is serialized BEFORE the call: with PJH on, a
+// prewarmed PSO for the same desc (same device method, same shaders, the engine's root signature) is handed back instead
+// of a second compile, as a fresh reference of the requested interface; otherwise the engine's own call runs unchanged.
+template <class Call>
+HRESULT EngineCreate(int kind, ID3D12Device* self, const void* d, REFIID riid, void** pp, Call call) {
+    Ser s;
+    std::vector<uint8_t> rec;
+    Key id;
+    const bool ok = d && Prepare(kind, d, s, rec, id);
+    if (ok && pp && g_pjhSwitch && g_bootDone.load(std::memory_order_acquire) &&
+        (self == g_gameDev || self == g_gameDev2)) {
+        if (IUnknown* k = TakeKept(id)) {
+            void* out = nullptr;
+            const HRESULT q = k->QueryInterface(riid, &out);
+            k->Release();
+            if (SUCCEEDED(q) && out) {
+                *pp = out;
+                NoteCreate(self);
+                g_handed.fetch_add(1, std::memory_order_relaxed);
+                return S_OK;
+            }
+        } else {
+            g_handMiss.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+    const HRESULT hr = call();
+    if (hr == S_OK && d && pp && *pp) {
+        NoteCreate(self);
+        if (ok) RecordPso(s, std::move(rec), id);
+        else CountSkip(s);
+    }
+    return hr;
+}
 template <int S>
 HRESULT STDMETHODCALLTYPE HkGfx(ID3D12Device* self, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
     if (t_depth) return g_set[S].gfx(self, d, riid, pp);
     Depth g;
-    const HRESULT hr = g_set[S].gfx(self, d, riid, pp);
-    if (hr == S_OK && d && pp && *pp) {
-        NoteCreate(self);
-        OnPso(1, d);
-    }
-    return hr;
+    return EngineCreate(1, self, d, riid, pp, [&]() { return g_set[S].gfx(self, d, riid, pp); });
 }
 template <int S>
 HRESULT STDMETHODCALLTYPE HkCs(ID3D12Device* self, const D3D12_COMPUTE_PIPELINE_STATE_DESC* d, REFIID riid, void** pp) {
     if (t_depth) return g_set[S].cs(self, d, riid, pp);
     Depth g;
-    const HRESULT hr = g_set[S].cs(self, d, riid, pp);
-    if (hr == S_OK && d && pp && *pp) {
-        NoteCreate(self);
-        OnPso(2, d);
-    }
-    return hr;
+    return EngineCreate(2, self, d, riid, pp, [&]() { return g_set[S].cs(self, d, riid, pp); });
 }
 template <int S>
 HRESULT STDMETHODCALLTYPE HkStream(ID3D12Device* self, const D3D12_PIPELINE_STATE_STREAM_DESC* d, REFIID riid, void** pp) {
     if (t_depth) return g_set[S].stream(self, d, riid, pp);
     Depth g;
-    const HRESULT hr = g_set[S].stream(self, d, riid, pp);
-    if (hr == S_OK && d && pp && *pp) {
-        NoteCreate(self);
-        OnPso(3, d);
-    }
-    return hr;
+    return EngineCreate(3, self, d, riid, pp, [&]() { return g_set[S].stream(self, d, riid, pp); });
 }
 template <int S>
 HRESULT STDMETHODCALLTYPE HkRs(ID3D12Device* self, UINT node, const void* blob, SIZE_T len, REFIID riid, void** pp) {
@@ -960,7 +1018,8 @@ struct Prewarm {
     const Set* set2 = nullptr;  // the set holding CreatePipelineState (Device2 vtable)
     ID3D12Device* dev2 = nullptr;
     std::unordered_map<Key, std::vector<uint8_t>, KeyHash> sh;  // shader blobs read so far (payload incl. key)
-    std::unordered_map<Key, void*, KeyHash> rs;                // root signatures created for the prewarm
+    std::unordered_map<Key, void*, KeyHash> rs;                // root signatures created for the prewarm (own reference)
+    bool ownRs = false;                                        // the record being built uses a root signature of ours
 
     bool Payload(const std::unordered_map<Key, Loc, KeyHash>& idx, const Key& k, std::vector<uint8_t>& out) {
         Loc l;
@@ -984,6 +1043,12 @@ struct Prewarm {
         return v.empty() ? nullptr : &v;
     }
     void* RootSig(const Key& k) {
+        AcquireSRWLockShared(&g_lock);  // the engine's own object for this blob (PJH holds a reference)
+        auto eo = g_rsObj.find(k);
+        void* eng = eo != g_rsObj.end() ? eo->second : nullptr;
+        ReleaseSRWLockShared(&g_lock);
+        if (eng) return eng;
+        ownRs = true;
         auto it = rs.find(k);
         if (it != rs.end()) return it->second;
         void* r = nullptr;
@@ -1002,6 +1067,7 @@ struct Prewarm {
         const uint8_t* p = rec.data();
         const size_t n = rec.size();
         size_t pos = 0;
+        ownRs = false;
         uint8_t ver, nSh, hasIl;
         uint32_t flen, rsOff, zero;
         Key rsKey;
@@ -1053,7 +1119,8 @@ struct Prewarm {
         }
         return pos == n ? 0 : 2;
     }
-    HRESULT Create(uint8_t kind, std::vector<uint64_t>& fixed) {
+    // keep: PJH holds the new PSO for the engine's create of the same desc (id) instead of releasing it at once
+    HRESULT Create(uint8_t kind, std::vector<uint64_t>& fixed, const Key& id, bool keep) {
         void* pso = nullptr;
         HRESULT hr = E_FAIL;
         if (kind == 1) hr = set->gfx(dev, reinterpret_cast<const D3D12_GRAPHICS_PIPELINE_STATE_DESC*>(fixed.data()), kIID_Pso, &pso);
@@ -1063,7 +1130,20 @@ struct Prewarm {
             const D3D12_PIPELINE_STATE_STREAM_DESC sd = {fixed.size() * 8, fixed.data()};
             hr = set2->stream(dev2, &sd, kIID_Pso, &pso);
         }
-        if (SUCCEEDED(hr) && pso) static_cast<IUnknown*>(pso)->Release();
+        if (SUCCEEDED(hr) && pso) {
+            IUnknown* o = static_cast<IUnknown*>(pso);
+            bool kept = false;
+            if (keep && !ownRs) {
+                AcquireSRWLockExclusive(&g_lock);
+                auto f = g_rec.find(id);
+                const bool engineHas = f != g_rec.end() && (f->second & kEngine);
+                if (!engineHas && g_kept.size() < g_cfg.keepMax && g_kept.emplace(id, o).second) kept = true;
+                ReleaseSRWLockExclusive(&g_lock);
+                if (kept) g_keptN.fetch_add(1, std::memory_order_relaxed);
+                else if (!engineHas) g_keepRefused.fetch_add(1, std::memory_order_relaxed);
+            }
+            if (!kept) o->Release();
+        }
         return hr;
     }
 };
@@ -1085,6 +1165,7 @@ void RunPrewarm() {
     if (SUCCEEDED(pw.dev->QueryInterface(kIID_Device2, &d2)) && d2) {
         pw.dev2 = static_cast<ID3D12Device*>(d2);
         pw.set2 = SetOf(d2);
+        InterlockedExchangePointer(&g_gameDev2, d2);  // no reference: the device lives as long as the game renders
     }
     pw.file = CreateFileW(g_path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
                           FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -1120,7 +1201,7 @@ void RunPrewarm() {
                 continue;
             }
             const int64_t c0 = Qpc();
-            const HRESULT hr = pw.Create(kind, fixed);
+            const HRESULT hr = pw.Create(kind, fixed, id, g_cfg.handover != 0);
             const double ms = (double)(Qpc() - c0) * g_qpcMs;
             if (SUCCEEDED(hr)) {
                 ++g_pwOk;
@@ -1146,16 +1227,20 @@ void RunPrewarm() {
 
 DWORD WINAPI PrewarmMain(LPVOID) {
     WaitForSingleObject(g_loadedEvent, INFINITE);
-    if (g_cfg.mode != 1 || g_startRecs.empty() || g_file == INVALID_HANDLE_VALUE) {
-        std::vector<std::vector<uint8_t>>().swap(g_startRecs);
-        g_pwState = 2;
-        return 0;
-    }
-    // title gate: the engine has created PSOs (boot list done), none for quietMs, and no level load is running
+    // boot gate (every mode): the engine has created PSOs (its boot list), none for quietMs, and no level load is running.
+    // Creates before it are the boot list (made in every launch, not journaled); creates after it are journaled.
     for (;;) {
         const int64_t last = g_lastCreate;
         if (last && (double)(Qpc() - last) * g_qpcMs >= g_cfg.quietMs && TitleIdle()) break;
         Sleep(250);
+    }
+    g_bootDone.store(true, std::memory_order_release);
+    LOG("boot PSO list done: %llu engine creates so far (not journaled); runtime creates are journaled from now on",
+        (unsigned long long)g_bootCreates.load());
+    if (g_cfg.mode != 1 || g_startRecs.empty() || g_file == INVALID_HANDLE_VALUE) {
+        std::vector<std::vector<uint8_t>>().swap(g_startRecs);
+        g_pwState = 2;
+        return 0;
     }
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
     t_depth = 1;  // our own creates are not journaled (and pass through every PJ hook)
@@ -1171,15 +1256,24 @@ DWORD WINAPI PrewarmMain(LPVOID) {
 }  // namespace
 
 // ---- API ---------------------------------------------------------------------------------------------------------------------
-bool Wanted(const wchar_t* iniPath) { return iniPath && GetPrivateProfileIntW(L"Patches", L"PJ", 0, iniPath) != 0; }
+bool Wanted(const wchar_t* iniPath) {
+    return iniPath && (GetPrivateProfileIntW(L"Patches", L"PJ", 0, iniPath) != 0 || GetPrivateProfileIntW(L"Patches", L"PJH", 0, iniPath) != 0);
+}
 
 void Start(const StartInfo& info) {
     g_log = info.log;
     const wchar_t* ini = info.iniPath ? info.iniPath : L"";
     int mode = (int)GetPrivateProfileIntW(L"Patches", L"PJ", 0, ini);
     if (mode < 0 || mode > 2) mode = 0;
+    int pjh = (int)GetPrivateProfileIntW(L"Patches", L"PJH", 0, ini);
+    if (pjh < 0 || pjh > 2) pjh = 0;
+    if (pjh && mode != 1) mode = 1;  // the hand-over needs the journal + prewarm
     g_cfg.mode = mode;
+    g_cfg.handover = pjh;
+    g_pjhSwitch = pjh == 1 ? 1u : 0u;
     if (!mode) return;
+    int keep = (int)GetPrivateProfileIntW(L"Patches", L"PJ_KeepMax", 4096, ini);
+    g_cfg.keepMax = (uint32_t)(keep < 0 ? 0 : keep > 16384 ? 16384 : keep);
     int mb = (int)GetPrivateProfileIntW(L"Patches", L"PJ_MaxMB", 64, ini);
     mb = mb < 4 ? 4 : mb > 512 ? 512 : mb;
     g_cfg.maxBytes = (uint64_t)mb << 20;
@@ -1205,9 +1299,10 @@ void Start(const StartInfo& info) {
     HANDLE p = CreateThread(nullptr, 0, PrewarmMain, nullptr, 0, nullptr);
     if (w) CloseHandle(w);
     if (p) CloseHandle(p);
-    LOG("PJ = %d (%s), journal folder %ls, max %d MB, quiet %d ms, title gate %s", mode,
+    LOG("PJ = %d (%s), journal folder %ls, max %d MB, quiet %d ms, title gate %s; PJH = %d (%s, keep <= %u)", mode,
         mode == 1 ? "journal + title-screen prewarm" : "journal only", g_cfg.folder.c_str(), mb, g_cfg.quietMs,
-        g_cfg.known && g_cfg.base ? "G+58Ah" : "off (quiet time only)");
+        g_cfg.known && g_cfg.base ? "G+58Ah" : "off (quiet time only)", pjh,
+        pjh == 1 ? "hand-over ON" : pjh == 2 ? "installed, switch OFF" : "off", g_cfg.keepMax);
 }
 
 void OnDevice(void* device) {
@@ -1239,6 +1334,24 @@ void GetStats(Stats& o) {
     o.pwMissing = g_pwMissing;
     o.pwMs = g_pwMs;
     o.pwMaxMs = g_pwMaxMs;
+    o.bootDone = g_bootDone;
+    o.bootCreates = g_bootCreates;
+    o.handover = g_cfg.handover;
+    o.handed = g_handed;
+    o.handMiss = g_handMiss;
+    o.kept = g_keptN;
+    o.keepRefused = g_keepRefused;
+}
+
+volatile uint32_t* HandoverSwitch() { return g_cfg.mode && g_cfg.handover ? &g_pjhSwitch : nullptr; }
+
+bool WaitBootForTest(unsigned long ms) {
+    const ULONGLONG until = GetTickCount64() + ms;
+    while (GetTickCount64() < until) {
+        if (g_bootDone) return true;
+        Sleep(10);
+    }
+    return false;
 }
 
 const char* StatusLine(char* buf, size_t n) {
@@ -1249,18 +1362,26 @@ const char* StatusLine(char* buf, size_t n) {
     if (!s.mode) return buf;
     const char* st = s.mode == 2 ? "off (PJ = 2)" : s.prewarmState == 0 ? "waiting for the title" : s.prewarmState == 1 ? "running" : "done";
     snprintf(buf, n,
-             "journal %u PSOs (+%u new), %u shaders, %u root sigs, %.1f MB; engine creates %llu, not journaled %llu (rs %u, "
-             "unsupported %u, fault %u) + dropped %llu | prewarm %s: %u/%u created, %u already, %u refused, %u missing, "
+             "journal %u PSOs (+%u new), %u shaders, %u root sigs, %.1f MB; engine creates %llu (boot list %llu%s), not journaled "
+             "%llu (rs %u, unsupported %u, fault %u) + dropped %llu | prewarm %s: %u/%u created, %u already, %u refused, %u missing, "
              "%.0f ms (max %.1f)",
              s.fileRecs, s.newRecs, s.shaders, s.rootSigs, (double)s.fileBytes / 1048576.0, (unsigned long long)s.seen,
-             (unsigned long long)s.skipped, g_skipWhy[1], g_skipWhy[2], g_skipWhy[0] + g_skipWhy[3],
-             (unsigned long long)s.dropped, st, s.pwOk, s.pwCandidates, s.pwAlready, s.pwFailed, s.pwMissing, s.pwMs, s.pwMaxMs);
+             (unsigned long long)s.bootCreates, s.bootDone ? "" : ", still running", (unsigned long long)s.skipped, g_skipWhy[1],
+             g_skipWhy[2], g_skipWhy[0] + g_skipWhy[3], (unsigned long long)s.dropped, st, s.pwOk, s.pwCandidates, s.pwAlready,
+             s.pwFailed, s.pwMissing, s.pwMs, s.pwMaxMs);
+    if (s.handover) {
+        const size_t u = strlen(buf);
+        if (u + 1 < n)
+            snprintf(buf + u, n - u, " | PJH %s: handed %llu, runtime creates without one %llu, waiting %llu, not kept %llu",
+                     g_pjhSwitch ? "on" : "off", (unsigned long long)s.handed, (unsigned long long)s.handMiss,
+                     (unsigned long long)s.kept, (unsigned long long)s.keepRefused);
+    }
     return buf;
 }
 
 void LogLine() {
     if (!g_cfg.mode || !g_log) return;
-    char b[512];
+    char b[900];
     g_log("stats/s PJ: %s", StatusLine(b, sizeof b));
 }
 

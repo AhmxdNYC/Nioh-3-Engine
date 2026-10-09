@@ -67,7 +67,8 @@
 // 1.7.43: fix boot hang with 3-4 drawprep groups on (FrozenWrite oldProt[2] overrun by 1.7.42's 4 writes; drawprep.cpp)
 // 1.7.44: present mode log ([Debug] PresentModeLog = 1, PM SyncInterval writer probes) + [Latency] VrrPresent (pmode.cpp; notes\vrr-present.md)
 // 1.7.44: AS (engine async-compute slots 0 / 11 / 12 at boot + live producer switch, asyncslots.cpp); notes\gpu-async-wins.md
-#define MOD_VERSION "1.7.44"
+// 1.7.45: PJ journal v2 (runtime PSOs only; the boot list filled v1) + PJH PSO hand-over (live row); notes\stutter-pso.md
+#define MOD_VERSION "1.7.45"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2531,6 +2532,11 @@ DWORD WINAPI Worker(LPVOID) {
             mh.exp[menu::kExpAS].ini = asBoot.mode ? 1 : 0;
             mh.exp[menu::kExpAS].applied = asyncslots::Switch() != nullptr;
             mh.exp[menu::kExpAS].enable = asyncslots::Switch();
+        }
+        {  // PJH (psojournal.h, [Patches] PJH = 0): live switch of the PSO hand-over (pj::Start ran with psoswap, above)
+            mh.exp[menu::kExpPJH].ini = GetPrivateProfileIntW(L"Patches", L"PJH", 0, iniPath.c_str()) == 1 ? 1 : 0;
+            mh.exp[menu::kExpPJH].applied = pj::HandoverSwitch() != nullptr;
+            mh.exp[menu::kExpPJH].enable = pj::HandoverSwitch();
         }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:

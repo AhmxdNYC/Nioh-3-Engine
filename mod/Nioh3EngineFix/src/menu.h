@@ -35,6 +35,7 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpBPO,                         // BoundsFromPartObbs quaternion memo / ready loads / copy (1.7.40, live)
                    kExpW1B, kExpRPA,                // glyph padding clear stores, RenderParamsAssign range copy (1.7.42, live)
                    kExpAS,                          // engine async-compute slots (1.7.44, boot slots + live producer switch)
+                   kExpPJH,                         // PSO hand-over from the PJ prewarm (2026-10-09, live switch; psojournal.h)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)

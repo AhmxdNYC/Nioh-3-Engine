@@ -9,6 +9,11 @@
 //   pj_harness trunc <dir>  the file's last chunk was cut by the runner: tail dropped, 2 records, prewarm still works.
 //   pj_harness badsh <dir>  a shader chunk was corrupted by the runner: its PSOs are reported missing, nothing crashes.
 //   pj_harness build <dir>  the header's exe stamp was changed by the runner: a new journal is started.
+//   pj_harness hand  <dir>  PJH = 1: the prewarm keeps its 3 PSOs; the engine's creates of the same descs get them back
+//                           (no create reaches the spy below PJ), and each handed object works (SetPipelineState + Close).
+//   pj_harness handoff <dir> PJH = 2 (installed, switch off): kept but not handed; the engine's own creates run.
+// Journal v2: every launch first creates a "boot list" PSO (made in every launch, never journaled) and a boot-only PSO
+// before the boot gate (quiet 200 ms); only creates after the gate are journaled.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -59,6 +64,7 @@ static RsFn s_rs;
 static StreamFn s_stream;
 static SRWLOCK s_lock = SRWLOCK_INIT;
 static std::set<std::string> s_seen;
+static volatile LONG s_spyCreates = 0;  // PSO creates that reached the spy (below PJ)
 static std::vector<std::pair<const void*, unsigned long long>> s_rsMap;
 
 static unsigned long long Fnv(const void* p, size_t n) {
@@ -123,6 +129,7 @@ static void Seen(std::string s) {
     ReleaseSRWLockExclusive(&s_lock);
 }
 static HRESULT STDMETHODCALLTYPE SpyGfx(ID3D12Device* d, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* p, REFIID r, void** pp) {
+    InterlockedIncrement(&s_spyCreates);
     const HRESULT hr = s_gfx(d, p, r, pp);
     if (SUCCEEDED(hr) && p)
         Seen("GFX " + Rs(p->pRootSignature) + Sh("vs", p->VS) + Sh("ps", p->PS) + Sh("ds", p->DS) + Sh("hs", p->HS) +
@@ -134,6 +141,7 @@ static HRESULT STDMETHODCALLTYPE SpyGfx(ID3D12Device* d, const D3D12_GRAPHICS_PI
     return hr;
 }
 static HRESULT STDMETHODCALLTYPE SpyCs(ID3D12Device* d, const D3D12_COMPUTE_PIPELINE_STATE_DESC* p, REFIID r, void** pp) {
+    InterlockedIncrement(&s_spyCreates);
     const HRESULT hr = s_cs(d, p, r, pp);
     if (SUCCEEDED(hr) && p) Seen("CS " + Rs(p->pRootSignature) + Sh("cs", p->CS) + F("node %u flags %d", p->NodeMask, p->Flags));
     return hr;
@@ -148,6 +156,7 @@ static HRESULT STDMETHODCALLTYPE SpyRs(ID3D12Device* d, UINT n, const void* b, S
     return hr;
 }
 static HRESULT STDMETHODCALLTYPE SpyStream(ID3D12Device* d, const D3D12_PIPELINE_STATE_STREAM_DESC* p, REFIID r, void** pp) {
+    InterlockedIncrement(&s_spyCreates);
     const HRESULT hr = s_stream(d, p, r, pp);
     if (SUCCEEDED(hr) && p) {
         std::string s = "STREAM ";
@@ -248,6 +257,28 @@ struct Engine {
         if (FAILED(hr)) { printf("CreateRootSignature failed %08lx\n", (unsigned long)hr); exit(2); }
         b->Release();
     }
+    int used = 0, useFail = 0;  // handed objects exercised by Use()
+    // the returned PSO must be a working object of this device: SetPipelineState on a fresh list + Close
+    void Use(ID3D12PipelineState* p, bool compute) {
+        ID3D12Device* d = nullptr;
+        if (FAILED(p->GetDevice(__uuidof(ID3D12Device), (void**)&d)) || d != dev) ++useFail;
+        if (d) d->Release();
+        const D3D12_COMMAND_LIST_TYPE t = compute ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT;
+        ID3D12CommandAllocator* a = nullptr;
+        ID3D12GraphicsCommandList* l = nullptr;
+        if (FAILED(dev->CreateCommandAllocator(t, __uuidof(ID3D12CommandAllocator), (void**)&a)) ||
+            FAILED(dev->CreateCommandList(0, t, a, p, __uuidof(ID3D12GraphicsCommandList), (void**)&l))) {
+            ++useFail;
+        } else {
+            l->SetPipelineState(p);
+            if (FAILED(l->Close())) ++useFail;
+        }
+        if (l) l->Release();
+        if (a) a->Release();
+        ++used;
+    }
+    bool use = false;
+    DXGI_FORMAT rt1 = DXGI_FORMAT_R8G8B8A8_UNORM;  // the boot-list PSO differs in this format only
     // garbage = the byte the desc memory holds before the fields are set (padding stays garbage, as on the engine's stack)
     HRESULT Gfx(unsigned char garbage) {
         static D3D12_GRAPHICS_PIPELINE_STATE_DESC d;
@@ -282,7 +313,7 @@ struct Engine {
         d.NumRenderTargets = 2;
         for (auto& f : d.RTVFormats) f = DXGI_FORMAT_UNKNOWN;
         d.RTVFormats[0] = DXGI_FORMAT_R11G11B10_FLOAT;
-        d.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        d.RTVFormats[1] = rt1;
         d.DSVFormat = DXGI_FORMAT_D32_FLOAT;
         d.SampleDesc = {1, 0};
         d.NodeMask = 0;
@@ -290,6 +321,7 @@ struct Engine {
         d.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
         ID3D12PipelineState* p = nullptr;
         const HRESULT hr = dev->CreateGraphicsPipelineState(&d, __uuidof(ID3D12PipelineState), (void**)&p);
+        if (p && use) Use(p, false);
         if (p) p->Release();
         return hr;
     }
@@ -303,6 +335,7 @@ struct Engine {
         d.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
         ID3D12PipelineState* p = nullptr;
         const HRESULT hr = dev->CreateComputePipelineState(&d, __uuidof(ID3D12PipelineState), (void**)&p);
+        if (p && use) Use(p, true);
         if (p) p->Release();
         return hr;
     }
@@ -329,6 +362,7 @@ struct Engine {
         const D3D12_PIPELINE_STATE_STREAM_DESC sd = {sizeof s, &s};
         ID3D12PipelineState* p = nullptr;
         const HRESULT hr = dev2->CreatePipelineState(&sd, __uuidof(ID3D12PipelineState), (void**)&p);
+        if (p && use) Use(p, false);
         if (p) p->Release();
         return hr;
     }
@@ -347,6 +381,7 @@ int main(int argc, char** argv) {
     const std::wstring ini = dir + L"\\test.ini";
     WritePrivateProfileStringW(L"Patches", L"PJ", L"1", ini.c_str());
     WritePrivateProfileStringW(L"Patches", L"PJ_MaxMB", L"8", ini.c_str());
+    WritePrivateProfileStringW(L"Patches", L"PJH", mode == "hand" ? L"1" : mode == "handoff" ? L"2" : L"0", ini.c_str());
 
     Engine e;
     e.Init();
@@ -379,6 +414,14 @@ int main(int argc, char** argv) {
     CHECK(g_logText.find("PSOSWAP: hooked device") == std::string::npos, "psoswap hooked nothing itself");
     pj::Stats st;
     e.CreateRs();  // every launch, as the engine does (the D3D12 runtime returns the same object for the same blob)
+    // the boot PSO list: created in every launch before the title, never journaled
+    e.rt1 = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    CHECK(SUCCEEDED(e.Gfx(0x77)), "boot-list gfx");
+    e.rt1 = DXGI_FORMAT_R8G8B8A8_UNORM;
+    // the runtime PSO the engine already created in this launch before the gate (the prewarm must skip it)
+    if (mode == "warm" || mode == "again") CHECK(SUCCEEDED(e.Gfx(0x11)), "gfx (engine, same desc, before the prewarm)");
+    if (mode == "trunc" || mode == "badsh") CHECK(SUCCEEDED(e.Cs()), "cs (engine, before the prewarm)");
+    CHECK(pj::WaitBootForTest(10000), "boot gate opened");
 
     if (mode == "rec") {
         CHECK(SUCCEEDED(e.Gfx(0xCD)), "gfx");
@@ -389,7 +432,8 @@ int main(int argc, char** argv) {
         CHECK(pj::WaitPrewarmForTest(10000), "prewarm finished (nothing to do on the first launch)");
         pj::GetStats(st);
         CHECK(st.hooked, "hooked via psoswap's D3D12CreateDevice hook");
-        CHECK(st.seen == 4, "engine creates seen %llu (want 4)", (unsigned long long)st.seen);
+        CHECK(st.seen == 5 && st.bootCreates == 1, "engine creates seen %llu boot %llu (want 5/1)", (unsigned long long)st.seen,
+              (unsigned long long)st.bootCreates);
         CHECK(st.fileRecs == 0 && st.newRecs == 3, "records file %u new %u (want 0/3: padding garbage must not split a desc)",
               st.fileRecs, st.newRecs);
         CHECK(st.shaders == 3 && st.rootSigs == 1, "shaders %u root sigs %u (want 3/1)", st.shaders, st.rootSigs);
@@ -401,9 +445,8 @@ int main(int argc, char** argv) {
         for (const auto& s : s_seen)
             if (f) fprintf(f, "%s\n", s.c_str());
         if (f) fclose(f);
-        CHECK(s_seen.size() == 3, "spy saw %zu distinct descs (want 3)", s_seen.size());
+        CHECK(s_seen.size() == 4, "spy saw %zu distinct descs (want 4: 3 journaled + the boot-list one)", s_seen.size());
     } else if (mode == "warm" || mode == "again") {
-        CHECK(SUCCEEDED(e.Gfx(0x11)), "gfx (engine, same desc)");
         CHECK(pj::WaitPrewarmForTest(20000), "prewarm finished");
         CHECK(pj::WaitIdleForTest(10000), "writer idle");
         pj::GetStats(st);
@@ -420,20 +463,18 @@ int main(int argc, char** argv) {
             rec.insert(line);
         }
         if (f) fclose(f);
-        CHECK(rec.size() == 3, "spy_rec.txt has %zu descs", rec.size());
+        CHECK(rec.size() == 4, "spy_rec.txt has %zu descs", rec.size());
         CHECK(s_seen == rec, "the prewarm's descs (seen below PJ) differ from the engine's (launch 1)");
         if (s_seen != rec)
             for (const auto& s : s_seen)
                 if (!rec.count(s)) printf("  only now: %s\n", s.c_str());
     } else if (mode == "trunc") {
-        CHECK(SUCCEEDED(e.Cs()), "cs (engine)");
         CHECK(pj::WaitPrewarmForTest(20000), "prewarm finished");
         pj::GetStats(st);
         CHECK(st.fileRecs == 2, "records %u (want 2: the cut stream record is dropped)", st.fileRecs);
         CHECK(st.pwAlready == 1 && st.pwOk == 1 && st.pwMissing == 0, "already %u ok %u missing %u (want 1/1/0)", st.pwAlready,
               st.pwOk, st.pwMissing);
     } else if (mode == "badsh") {
-        CHECK(SUCCEEDED(e.Cs()), "cs (engine)");
         CHECK(pj::WaitPrewarmForTest(20000), "prewarm finished");
         pj::GetStats(st);
         CHECK(st.fileRecs == 3 && st.pwAlready == 1 && st.pwOk == 0 && st.pwMissing == 2 && st.pwFailed == 0,
@@ -446,10 +487,38 @@ int main(int argc, char** argv) {
         pj::GetStats(st);
         CHECK(st.fileRecs == 0 && st.newRecs == 1 && st.pwOk == 0, "records file %u new %u ok %u (want 0/1/0: new journal)",
               st.fileRecs, st.newRecs, st.pwOk);
+    } else if (mode == "hand" || mode == "handoff") {
+        const bool on = mode == "hand";
+        CHECK(pj::WaitPrewarmForTest(20000), "prewarm finished");
+        pj::GetStats(st);
+        CHECK(st.handover == (on ? 1 : 2) && (pj::HandoverSwitch() != nullptr), "PJH %d, switch installed", st.handover);
+        CHECK(st.pwOk == 3 && st.kept == 3 && st.keepRefused == 0, "prewarm ok %u kept %llu refused %llu (want 3/3/0)", st.pwOk,
+              (unsigned long long)st.kept, (unsigned long long)st.keepRefused);
+        const LONG before = s_spyCreates;
+        e.use = true;
+        CHECK(SUCCEEDED(e.Gfx(0x33)), "gfx (engine)");
+        CHECK(SUCCEEDED(e.Cs()), "cs (engine)");
+        CHECK(SUCCEEDED(e.Stream()), "stream (engine)");
+        CHECK(SUCCEEDED(e.Gfx(0x44)), "gfx again (engine: a second create of a handed desc compiles as usual)");
+        e.use = false;
+        const LONG reached = s_spyCreates - before;
+        pj::GetStats(st);
+        if (on) {
+            CHECK(st.handed == 3 && st.kept == 0, "handed %llu waiting %llu (want 3/0)", (unsigned long long)st.handed,
+                  (unsigned long long)st.kept);
+            CHECK(reached == 1, "%ld creates reached the driver (want 1: only the repeated gfx)", reached);
+            CHECK(st.handMiss == 1, "runtime creates without a prewarmed PSO %llu (want 1)", (unsigned long long)st.handMiss);
+        } else {
+            CHECK(st.handed == 0 && st.kept == 3, "handed %llu waiting %llu (want 0/3: switch off)", (unsigned long long)st.handed,
+                  (unsigned long long)st.kept);
+            CHECK(reached == 4, "%ld creates reached the driver (want 4)", reached);
+        }
+        CHECK(e.used == 4 && e.useFail == 0, "handed / created objects used %d, failed %d (want 4/0)", e.used, e.useFail);
+        CHECK(st.newRecs == 0, "nothing new journaled (%u)", st.newRecs);
     } else {
         return 2;
     }
-    char line[600];
+    char line[900];
     printf("  status: %s\n", pj::StatusLine(line, sizeof line));
     printf(g_fail ? "%s: %d FAILED\n" : "%s: OK\n", mode.c_str(), g_fail);
     fflush(stdout);

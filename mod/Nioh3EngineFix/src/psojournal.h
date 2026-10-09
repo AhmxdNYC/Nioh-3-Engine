@@ -27,7 +27,20 @@
 // prewarm reads blobs on demand from the file and frees everything when done. Register-safe: COM vtable hooks (plain
 // Win64 ABI, notes\hook-register-audit.md).
 //
-// ini ([Patches]):  PJ = 0 off | 1 journal + prewarm | 2 journal only;  PJ_MaxMB = 64;  PJ_QuietMs = 3000
+// 2026-10-09 (journal v2, notes\stutter-pso.md): only RUNTIME creates are journaled. The boot PSO list (PreloadPSOMode,
+// ~17,000 creates in the first ~15 s, made again in every launch) filled the v1 journal (64 MB / 14,399 PSOs) before the
+// title, so the runtime first-use PSOs that hitch were never journaled ("dropped"). Boot = until the engine has created
+// no PSO for PJ_QuietMs and no level load runs (the prewarm gate); creates before it are only marked, not written.
+//
+// PJH (hand-over, [Patches] PJH = 0 off | 1 on | 2 installed + off; live menu row "PSO hand-over (PJH)"): the prewarm
+// KEEPS the PSOs it creates (<= PJ_KeepMax, built on the engine's own root-signature objects) instead of releasing them,
+// and when the engine later creates the same desc (serialized before its call, same key) it gets that object (a fresh
+// reference of the requested interface) at once: no driver compile on the dispatcher, whatever state the driver's shader
+// cache is in. Same PSO: same device method, same desc bytes, same shaders, same root signature. Misses and the switch
+// off run the engine's own call unchanged. PJH != 0 implies PJ = 1.
+//
+// ini ([Patches]):  PJ = 0 off | 1 journal + prewarm | 2 journal only;  PJ_MaxMB = 64;  PJ_QuietMs = 3000;
+//                   PJH = 0 | 1 | 2;  PJ_KeepMax = 4096
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -71,13 +84,26 @@ struct Stats {
     uint32_t pwFailed = 0;       // the device refused it (desc journaled on another device class / driver)
     uint32_t pwMissing = 0;      // a shader / root-signature blob missing or corrupt in the journal
     double pwMs = 0, pwMaxMs = 0;  // total / slowest create
+    // journal v2 / PJH
+    bool bootDone = false;       // the boot PSO list is over (runtime creates are journaled)
+    uint64_t bootCreates = 0;    // engine creates during the boot list (not journaled)
+    int handover = 0;            // PJH value (0 off)
+    uint64_t handed = 0;         // engine creates answered with a prewarmed PSO
+    uint64_t handMiss = 0;       // engine creates after boot with the switch on and no prewarmed PSO (compiled as usual)
+    uint64_t kept = 0;           // prewarmed PSOs waiting for the engine
+    uint64_t keepRefused = 0;    // prewarmed but released: PJ_KeepMax reached
 };
 void GetStats(Stats& out);
 const char* StatusLine(char* buf, size_t n);  // "journal 1834 PSOs (+12) 41.2 MB | prewarm done 220 ok ..." ("" when off)
 void LogLine();                               // "stats/s PJ: ..." (stats thread, every 30 s); no-op when off
 
-// tests: wait until the writer queue is drained / the prewarm has finished (true) or the timeout expired (false)
+// PJH live switch (menu row; 1 = hand prewarmed PSOs over); nullptr when PJH = 0 or PJ is off
+volatile uint32_t* HandoverSwitch();
+
+// tests: wait until the writer queue is drained / the prewarm has finished / the boot gate opened (true) or the timeout
+// expired (false)
 bool WaitIdleForTest(unsigned long ms);
+bool WaitBootForTest(unsigned long ms);
 bool WaitPrewarmForTest(unsigned long ms);
 
 }  // namespace pj
