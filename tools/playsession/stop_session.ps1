@@ -82,6 +82,10 @@ if ($isStock) {
     else { $rr = Invoke-StockRestore $sd; Report-Restore $rr $sd; foreach ($p in $rr.problems) { $problems += "stock restore: $p" } }
 } else {
 foreach ($p in @((Restore-One "Nioh3EngineFix.ini" $ini ([bool]$A.had_ini)), (Restore-One "Nioh3EngineFix.asi" $asi ([bool]$A.had_asi)))) { if ($p) { $problems += $p } }
+if ($A.had_addon_ini) {  # 1.7.41 add-on ini (boss loggers); its log is kept like the mod log
+    $aLog = Join-Path $GameDir "Nioh3BossRematch.log"; if (Test-Path $aLog) { Copy-Item $aLog (Join-Path $sess "addonlog.log") -Force }
+    if ($p = Restore-One "Nioh3BossRematch.ini" (Join-Path $GameDir "Nioh3BossRematch.ini") $true) { $problems += $p }
+}
 Say ("mod files put back: ASI {0}, your ini (byte-identical)" -f (Get-AsiVersion $asi)) $(if ($problems -match "restore") { "Red" } else { "Gray" })
 }
 

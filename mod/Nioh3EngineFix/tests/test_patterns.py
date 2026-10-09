@@ -646,26 +646,10 @@ def main():
     print("1.7.39 MA: %d sites = lock cmpxchg [m],<zero reg> -> mov eax,[m] + NOP (zero-source proof: re/scripts_cpu/ma_zero.fsx): %s"
           % (len(ma), "OK" if ma_ok else "FAIL"))
 
-    # 1.7.40 boss rematch (rematch.cpp kSites): every site's bytes must equal the dump; every RVA must be a patches.json site
-    # (group RM or BL); a hooked site's relocated head must be that site's len (bosslog.cpp hooks the same entries with the same
-    # length, so a chained hook sees E9 rel32 + NOPs over exactly `head`); check-only sites must equal their patches.json orig.
-    rsrc = (ROOT / "src" / "rematch.cpp").read_text(encoding="utf-8")
-    rsites = re.findall(r'\{"(\w+)", 0x([0-9A-Fa-f]+), (\d+), (\d+), \{([^}]*)\}, (&\w+|nullptr)\}', rsrc)
-    check(len(rsites) >= 12, "rematch.cpp: kSites not parsed (%d entries)" % len(rsites))
-    by_rva = {int(st["rva"], 16): st for st in doc["sites"]}
-    for name, rv, head, ln, arr, fn in rsites:
-        a, head, ln = int(rv, 16), int(head), int(ln)
-        b = bytes(int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{2})", arr))
-        check(len(b) == ln and head <= ln, "rematch.cpp %s: %d bytes listed, len %d, head %d" % (name, len(b), ln, head))
-        check(img[a:a + len(b)] == b, "rematch.cpp %s @0x%X differs from the dump" % (name, a))
-        st = by_rva.get(a)
-        if not check(st is not None and st["group"] in ("RM", "BL"), "rematch.cpp %s @0x%X is not an RM/BL site in patches.json" % (name, a)):
-            continue
-        if fn != "nullptr" or head:
-            check(head == st["len"], "rematch.cpp %s: head %d != %s len %d" % (name, head, st["id"], st["len"]))
-        else:
-            check(bytes.fromhex(st["orig"]) == b, "rematch.cpp %s: bytes != %s orig" % (name, st["id"]))
-    print("1.7.40 Rematch: %d rematch.cpp sites (hooks + call targets + code references) checked against the dump and patches.json" % len(rsites))
+    # 1.7.41: the boss rematch / BossLog / RematchLog / InvLog sites moved to the add-on mod\Nioh3BossRematch (its own
+    # patch-resilient site table and tests\test_sites.py); no BL / RM group is left in patches.json.
+    check(not any(st["group"] in ("BL", "RM") for st in doc["sites"]), "BL / RM sites belong to Nioh3BossRematch now")
+    check(not (ROOT / "src" / "rematch.cpp").exists() and not (ROOT / "src" / "bosslog.cpp").exists(), "boss code is in the add-on")
     # 1.7.40 JT (job-timing probe, measurement only; src/jt.asm). JTc replaces two instructions (`mov rcx,rbx` | `call rdx`):
     # no branch may land on 40E51, and the call must return to `mov rsi,rax` (the job's result). JTw / JTx sit inside the STL
     # condition_variable win7 wait / wait_for, JTn1 / JTn2 are its notify_one / notify_all tail jumps (`48 FF 25` jmp [IAT]);

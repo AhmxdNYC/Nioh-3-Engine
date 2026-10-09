@@ -93,6 +93,15 @@ try {
     Copy-Item $BinAsi $asi -Force
     Copy-Item $ini (Join-Path $sess "ini_used.ini") -Force
     Say "mod: $asiBefore -> $asiNew installed for the session; your ini + $($keys.Count) capture keys"
+    $addonIni = Join-Path $GameDir "Nioh3BossRematch.ini"; $hadAddonIni = Test-Path $addonIni
+    if ($hadAddonIni) {  # the boss loggers moved to the add-on (1.7.41): its ini gets the logger keys, restored by STOP
+        Copy-Item $addonIni (Join-Path $orig "Nioh3BossRematch.ini") -Force
+        $al = [IO.File]::ReadAllLines($addonIni)
+        foreach ($k in $AddonCaptureKeys) { $al = Set-IniValue $al $k[0] $k[1] $k[2]; $keys += "[Nioh3BossRematch $($k[0])] $($k[1])=$($k[2])" }
+        [IO.File]::WriteAllLines($addonIni, $al, (New-Object Text.UTF8Encoding($false)))
+        Copy-Item $addonIni (Join-Path $sess "addon_ini_used.ini") -Force
+        Say "add-on Nioh3BossRematch: BossLog / RematchLog / InvLog on for the session"
+    } else { Say "add-on Nioh3BossRematch not installed: no boss / inventory log this session" Yellow }
     }
 
     # ---- game settings snapshot ----
@@ -126,7 +135,7 @@ try {
     $bias = [math]::Round(($now - $now.ToUniversalTime()).TotalSeconds)
     $info = [ordered]@{ start = $now.ToString("s"); start_ts = [double]([DateTimeOffset]$now).ToUnixTimeMilliseconds() / 1000; session_dir = $sess; save_backup = $bk
         mode = $mode; keep_optiscaler = [bool]$KeepOptiScaler; stash_dir = $stashDir; stash_root = $StashRoot; stashed = $stashed
-        game_dir = $GameDir; had_asi = $hadAsi; had_ini = $hadIni; asi_version = $asiNew; asi_version_before = $asiBefore; capture_keys = $keys; graphics = $gfx
+        game_dir = $GameDir; had_asi = $hadAsi; had_ini = $hadIni; had_addon_ini = [bool]$hadAddonIni; asi_version = $asiNew; asi_version_before = $asiBefore; capture_keys = $keys; graphics = $gfx
         pm_pid = $pm.Id; mon_pid = $mon.Id; pm_bias_s = $bias; lock_held = $lockHeld; save_root = $SaveRoot; state_dir = $StateDir }
     Write-Json $info (Join-Path $sess "session.json")
     Write-Json $info $ActiveFile

@@ -17,9 +17,6 @@ $ActiveFile = Join-Path $StateDir "active.json"
 # including AutoContinueLoad). All are measurement-only switches of the mod.
 $CaptureKeys = @(
     @("Debug", "FnProbe", "1"),        # remaining-work 10.1 live function probe (1.7.34)
-    @("Debug", "BossLog", "1"),        # boss fight timeline
-    @("Debug", "RematchLog", "1"),     # Battle Scroll / replay / retry events
-    @("Debug", "InvLog", "1"),         # every inventory add + its caller (branch rematch2 ASI; older ASIs ignore the key)
     @("Profiler", "MemStats", "1"),    # VRAM / RAM / commit every 30 s
     @("Profiler", "LoadStats", "1"),   # per-load seconds, CPU, MB read, PSOs
     @("Profiler", "LoadGates", "1"),   # which load gate held each load
@@ -27,6 +24,14 @@ $CaptureKeys = @(
     @("Patches", "TS", "1"),           # pad->present thread timing / latency probes
     @("Patches", "SPR", "1"),          # runtime PSO creates (stutter) every 30 s
     @("Debug", "PadLatency", "1")     # controller input -> Present / GPU-done + the game's pad poll interval (1.7.35; also turns TS on)
+)
+
+# 1.7.41: the boss loggers live in the separate add-on Nioh3BossRematch.asi; these keys go into the game folder's
+# Nioh3BossRematch.ini when the add-on is installed there (backed up to orig\ and restored by STOP like the mod ini)
+$AddonCaptureKeys = @(
+    @("Debug", "BossLog", "1"),        # boss fight timeline
+    @("Debug", "RematchLog", "1"),     # Battle Scroll / replay / retry events
+    @("Debug", "InvLog", "1")          # every inventory add + its caller
 )
 
 function Set-IniValue([string[]]$lines, [string]$sec, [string]$key, [string]$val) {
@@ -81,6 +86,7 @@ if (-not $StashRoot) { $StashRoot = "D:\nioh3-re\stock-stash" }
 if (-not $OptiSrc) { $OptiSrc = Join-Path $ws "optiscaler\files" }
 # our mod + ASI loader (names as found in the game folder; the .bak copies do not load but are listed so a stock folder is clean)
 $StockModFiles = @("dinput8.dll", "Nioh3EngineFix.asi", "Nioh3EngineFix.ini", "Nioh3EngineFix.log",
+    "Nioh3BossRematch.asi", "Nioh3BossRematch.ini", "Nioh3BossRematch.log", "Nioh3BossRematch_bosses.tsv", "Nioh3BossRematch_verified.tsv",
     "Nioh3EngineFix.asi.1.7.22.bak", "Nioh3EngineFix.asi.1.7.23xmm.bak", "Nioh3EngineFix.asi.1.7.25.bak", "Nioh3EngineFix.asi.1716.bak",
     "Nioh3EngineFix.ini.crashed-abba.bak", "Nioh3EngineFix.ini.pcdefaults.bak", "Nioh3EngineFix.ini.preboss.bak")
 $StockModDirs = @("Nioh3EngineFix_shaders")     # optional folder, moved file by file (every file hashed)

@@ -37,8 +37,6 @@
 #include "patches_gen.h"
 #include "menu.h"
 #include "osd.h"
-#include "bosslog.h"
-#include "rematch.h"
 #include "fnprobe.h"
 #include "padlat.h"
 #include "tour.h"
@@ -61,7 +59,9 @@
 // 1.7.40: BPO (BoundsFromPartObbs 71C60: quaternion memo + plain ready loads + forwarding copy; notes\bounds-partobbs.md)
 // 1.7.40: rematch.cpp (boss rematch Phase 1 MVP, route R-a, [Rematch] Enable = 0; notes\boss-rematch-build.md)
 // 1.7.40: diagnostics: GQ graphics-queue gap census (gpuprof.cpp) + JT job-timing probe (jt.cpp / jt.asm); notes\gq-jt-probes.md
-#define MOD_VERSION "1.7.40"
+// 1.7.41: the boss logger (BossLog / RematchLog / InvLog) and the boss rematch moved to the separate add-on Nioh3BossRematch.asi
+//         (mod\Nioh3BossRematch, notes\boss-rematch-addon.md): this ASI hooks no boss site any more; old ini keys are logged as moved
+#define MOD_VERSION "1.7.41"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1483,8 +1483,6 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LW")) return cfg.lw != 0;
         if (!strcmp(g, "SPR")) return cfg.spr != 0;
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
-        if (!strcmp(g, "BL")) return false;  // BossLog entry sites: verified offline (test_patterns), hooked by bosslog.cpp
-        if (!strcmp(g, "RM")) return false;  // RematchLog / Rematch sites: verified offline (test_patterns), hooked by bosslog.cpp / rematch.cpp
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
@@ -2492,23 +2490,11 @@ DWORD WINAPI Worker(LPVOID) {
             oi.rwbUser = (uint32_t)(cfg.rwbUser != 0);
             loadonly::Start(oi);
         }
-        {  // read-only boss fight logger (bosslog.cpp, [Debug] BossLog = 0 by default; notes\boss-fights.md)
-            bosslog::StartInfo bi;
-            bi.log = &Log;
-            bi.iniPath = iniPath.c_str();
-            bi.base = reinterpret_cast<uintptr_t>(g_base);
-            bi.knownBuild = known;
-            bosslog::Start(bi);
-        }
-        {  // boss rematch (rematch.cpp, [Rematch] Enable = 0 by default; notes\boss-rematch-build.md). AFTER bosslog: its MissionLoadStep /
-           // BossBattleMode hooks are chained onto bosslog's when BossLog / RematchLog is on
-            rematch::StartInfo ri;
-            ri.log = &Log;
-            ri.iniPath = iniPath.c_str();
-            ri.base = reinterpret_cast<uintptr_t>(g_base);
-            ri.knownBuild = known;
-            ri.pauseReason = &menu::GamePauseReason;
-            rematch::Start(ri);
+        {  // 1.7.41: BossLog / RematchLog / InvLog and [Rematch] moved to Nioh3BossRematch.asi (its own ini); say so if the old keys are set
+            const wchar_t* moved[][2] = {{L"Debug", L"BossLog"}, {L"Debug", L"RematchLog"}, {L"Debug", L"InvLog"}, {L"Rematch", L"Enable"}};
+            for (auto& k : moved)
+                if (GetPrivateProfileIntW(k[0], k[1], 0, iniPath.c_str()))
+                    Log("[%ls] %ls: moved to Nioh3BossRematch (set it in Nioh3BossRematch.ini; this ASI has no boss hooks since 1.7.41)", k[0], k[1]);
         }
         {  // FnProbe (fnprobe.cpp, [Debug] FnProbe = 0 by default; notes\remaining-work.md 10.1): measurement only
             fnprobe::StartInfo fi;

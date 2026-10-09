@@ -1,3 +1,5 @@
+# SUPERSEDED (2026-10-08, Nioh3EngineFix 1.7.41): BossLog / RematchLog / the rematch moved to the add-on Nioh3BossRematch.asi, so
+# this script's perf-ini keys no longer log anything. Use tools/rematch/verify_all.ps1 (add-on pipe) instead. Kept for reference.
 # p0_vpad.ps1 - UNATTENDED Phase 0 log capture for the boss rematch (notes\boss-rematch-build.md s.6, design s.8 P0-5 / P0-1).
 # PC game turn only. Drives Nioh 3 ONLY through the mod's VirtualPad pipe (no SendInput, no clicks, game never needs the
 # foreground). Pure log capture: it opens menus and starts ONE cleared mission replay, waits for its stage, then leaves; the
