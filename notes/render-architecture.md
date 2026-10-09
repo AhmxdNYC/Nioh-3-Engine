@@ -213,7 +213,16 @@ that is one engine-level project (the meshlet front-end). There is no further hi
   Metric: PresentMon GPUBusy (primary), GP2 MPC / MshLod rows (MinRun 1 also gives the per-kernel split the round-4 work needs),
   shotdiff. Expected 0.2-0.5 ms where the chain is heavy, ~0 at a light spawn.
 
-(Bridge message ids and results are appended below when they arrive.)
+Queued 2026-10-09 05:31: **bridge #564** ([QUEUE] pc2, after pc2's existing queue); files: **bridge #138**
+`nioh3-cull-mpc-mshlod.zip` (the two culling files + README). No ASI or harness change was needed: Q1 uses the AS live row
+built in 1.7.44 (asyncslots.cpp: `AS_Slots = -N` keeps slot N synchronous while ON), Q2 uses the existing `mpc` / `mshlod`
+items of pc_gpu_session.ps1. Results are appended here when they arrive.
+
+Why no new ASI patch this round: the only ASI-sized architectural cut found (skip MPC #28-#31/#26 when cnt <= 1024, 5 dispatches
++ their UAV barriers per chain) still needs proof that the CPU `cnt` equals the cbuffer's `nVSDrawPrm.y`
+(gpu-culling-rewrite.md section 3; re-read of MeshletPreculling 5301FC this session: the count reaches the GPU through the buffer-view
+setter 52F8EC and the compute-context commit vf+C8h, cbuffer source still not located). Shipping it unproven could drop meshlets.
+Q2's MinRun = 1 rows will show whether those 5 stages are worth the proof work on RDNA2.
 
 ## 7. Files
 - `re\scripts_gpu\frame_graph.py` - render graph -> ordered nodes with bound textures (size, format code, MB); `--md` table.
