@@ -115,3 +115,12 @@ Matrix: `tools\testmatrix\matrix.json` item `VrrPresent` (pc, launch, grp 2, met
 - Results 2026-10-09: **test_patterns ALL 221 SITES OK** (PM block OK; the raw-byte hit `2EEBB44->2EEBB6A` is the `74 24`
   inside `mov rsi,[rsp+48h]`; a capstone sweep of the .pdata functions 2EEA690..2EEBF52 finds no branch into either site),
   gen_header --check in sync, menu_map --selftest OK, **build OK** (1.7.44, no new warnings).
+
+## PC A/B result 2026-10-09 (pc, ASI 1.7.52, tools\testmatrix\vrrp_ab_pc.ps1, run_tour vpad, user config, 5 x 60 s in the field, ABBA)
+Arms run: A, B, B(never armed: title/Continue stall, 15 min, no frames), A. So A n=2, B n=1. Window = first ~100 s dropped, <= 300 s (includes 4 warp hops).
+| launch | presented fps | PresentMode | SI0 | tearing | DisplayLatency p50 / p95 | AllInputToPhoton |
+|---|---|---|---|---|---|---|
+| A1 (VrrPresent 0) | 71.3 | Composed: Flip 100 % | 0 % | 0 % | 10.05 / 15.37 ms | NA (tour sends no input) |
+| B1 (VrrPresent 1) | 47.2 | Composed: Flip 100 % | 100 % | 0 % | 8.54 / 15.91 ms | NA |
+| A2 (VrrPresent 0) | 43.5 | Composed: Flip 99 % | 1 % | 1 % | 8.31 / 15.72 ms | NA |
+A mean DisplayLatency p50 9.18 ms vs B 8.54 ms = -0.63 ms (report verdict DROP, KEEP needs >= 3 ms). Findings: (1) A launches did sit at SI 1 (log: engine SyncInterval 1 from the VSync slot ON watcher, FSR presenter and game both SI 1); (2) B did send SI 0 (100 %) but PresentMon still shows Composed: Flip, NOT independent flip, so the expected fast path did not appear on this PC in this state (borderless, user config); (3) DisplayedTime is NA in every row (columns blank under this PresentMon 2.6 capture), so displayed-fps could not be computed; (4) fps 43-71 is the tour (warps, loads, GP2 off), not gameplay. Verdict: no latency gain measured; INCONCLUSIVE-leaning DROP. Needs a launch with a real fps window and AllInputToPhoton (input presses) before a final call.

@@ -350,6 +350,24 @@ int main() {
         d1->Release();
     }
 
+    // LiveCtl frame clock: one frame, a 400 ms gap (one hitch > 50 ms), then 60 frames ~5 ms apart
+    {
+        livectl::OnFrame();
+        Sleep(400);
+        const std::string a0 = ReadText(ack);
+        for (int i = 0; i < 60; ++i) {
+            livectl::OnFrame();
+            Sleep(5);
+        }
+        Sleep(600);
+        const std::string a1 = ReadText(ack);
+        auto d = [&](const char* k) { return atoll(AckField(a1, k).c_str()) - atoll(AckField(a0, k).c_str()); };
+        printf("     clock: %lld frames in %lld us, h20 %lld h33 %lld h50 %lld\n", d("frames"), d("qpc_us"), d("h20"), d("h33"), d("h50"));
+        // Sleep(5) may take a whole 15.6 ms timer tick, so only the 400 ms gap is a sure hitch
+        CHECK(d("frames") == 60 && d("qpc_us") > 250000 && d("qpc_us") < 5000000 && d("h50") >= 1 && d("h33") >= d("h50") &&
+                  d("h20") >= d("h33") && d("h20") < 60,
+              "ack frame clock: frames / qpc_us / hitch counters");
+    }
     // LiveCtl: one apply with good and bad keys
     {
         const char* txt = "[Live]\r\nGen = 7\r\nTag = t1 on q1\r\nHot.t1 = 1\r\nTuning.PP_Period = 8\r\nPP = 1\r\nHot.nope = 1\r\nTuning.Bogus = 3\r\n";

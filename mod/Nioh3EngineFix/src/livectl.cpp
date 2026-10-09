@@ -18,6 +18,34 @@ StartInfo g_si;
 std::wstring g_ctl, g_ack;
 volatile LONG g_on = 0;
 
+// frame clock (OnFrame, Present-hook thread = the only writer; seqlock for the ack thread's consistent snapshot)
+struct Clock {
+    volatile LONG seq = 0;
+    long long frames = 0, lastQpc = 0, qpc = 0;
+    unsigned long long sq = 0;  // sum of (frame time us)^2 / 1000
+    long long h20 = 0, h33 = 0, h50 = 0;
+} g_clk;
+long long g_qpf = 0;
+
+void Snapshot(Clock& out) {
+    for (int i = 0; i < 1000; ++i) {
+        const LONG s0 = g_clk.seq;
+        if (s0 & 1) {
+            YieldProcessor();
+            continue;
+        }
+        MemoryBarrier();
+        out.frames = g_clk.frames;
+        out.qpc = g_clk.qpc;
+        out.sq = g_clk.sq;
+        out.h20 = g_clk.h20;
+        out.h33 = g_clk.h33;
+        out.h50 = g_clk.h50;
+        MemoryBarrier();
+        if (g_clk.seq == s0) return;
+    }
+}
+
 // last apply (written by the control thread only)
 struct Last {
     std::string gen = "-", tag = "-", kv;  // kv: " KEY=readback ..." in file order
@@ -111,7 +139,12 @@ void WriteAck() {
                               g_last.tag.c_str(), g_last.tApplyUnixMs, g_last.tApplyTick ? GetTickCount64() - g_last.tApplyTick : 0ull,
                               g_last.ok, g_last.fail);
     if (n <= 0) return;
-    std::string line = head + g_last.kv + "\n";
+    Clock c;
+    Snapshot(c);
+    char clk[200];
+    _snprintf_s(clk, sizeof clk, _TRUNCATE, " frames=%lld qpc_us=%lld ft_sq_us=%llu h20=%lld h33=%lld h50=%lld", c.frames,
+                g_qpf ? (long long)((double)c.qpc * 1e6 / (double)g_qpf) : 0ll, c.sq, c.h20, c.h33, c.h50);
+    std::string line = head + std::string(clk) + g_last.kv + "\n";
     const std::wstring tmp = g_ack + L".tmp";
     HANDLE h = CreateFileW(tmp.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) return;
@@ -180,7 +213,7 @@ DWORD WINAPI CtlThread(void*) {
             }
         }
         const ULONGLONG now = GetTickCount64();
-        if (now - lastAck >= 500) {
+        if (now - lastAck >= 250) {
             lastAck = now;
             WriteAck();
         }
@@ -212,6 +245,9 @@ void Start(const StartInfo& info) {
         return;
     }
     CloseHandle(h);
+    LARGE_INTEGER qf;
+    QueryPerformanceFrequency(&qf);
+    g_qpf = qf.QuadPart;
     InterlockedExchange(&g_on, 1);
     LLOG("ON - control file %s (polled every 100 ms, [Live] KEY = value: menu rows, Hot.<set>, Tuning.<key>), ack %s.ack. "
          "Test harness transport; leave it off for play.",
@@ -219,5 +255,23 @@ void Start(const StartInfo& info) {
 }
 
 bool Enabled() { return g_on != 0; }
+
+void OnFrame() {
+    if (!g_on) return;
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    InterlockedIncrement(&g_clk.seq);  // odd: being written
+    if (g_clk.lastQpc && g_qpf) {
+        const double us = (double)(q.QuadPart - g_clk.lastQpc) * 1e6 / (double)g_qpf;
+        g_clk.sq += (unsigned long long)(us * us / 1000.0);
+        g_clk.h20 += us > 20000.0;
+        g_clk.h33 += us > 33333.0;
+        g_clk.h50 += us > 50000.0;
+    }
+    g_clk.lastQpc = q.QuadPart;
+    g_clk.qpc = q.QuadPart;
+    ++g_clk.frames;
+    InterlockedIncrement(&g_clk.seq);  // even: consistent
+}
 
 }  // namespace livectl

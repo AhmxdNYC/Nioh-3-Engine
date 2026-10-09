@@ -34,5 +34,10 @@ struct StartInfo {
 
 void Start(const StartInfo& info);  // reads [Debug] LiveCtl; 0 -> returns, nothing runs
 bool Enabled();
+// osd Present hook, once per frame of the game's swapchain: the mod's own frame clock for the A/B windows. The ack
+// carries cumulative 'frames= qpc_us= ft_sq_us= h20= h33= h50=' (frames, QPC microseconds, sum of squared frame times
+// in us^2 / 1e3, frames longer than 20 / 33.3 / 50 ms), so a window's fps and hitches come from two acks, independent
+// of PresentMon (which loses present events on some PCs). No-op unless LiveCtl is on.
+void OnFrame();
 
 }  // namespace livectl

@@ -11,12 +11,18 @@ shots/*.png. Outputs: cvl_report.md (table + ranked list + per-point detail), cv
 Per point:
   cost  = BASE GPUBusy interpolated to the condition's slot (BASE runs at the start, middle and end of the cycle) - condition GPUBusy
           (mean ms/frame over the measuring window); noise = spread of the point's BASE windows.
-  looks = condition shot vs the nearest BASE shot: mean abs diff (0-255), % pixels whose max channel differs by > --thresh, SSIM
-          (grey, 8x8 box windows); the BASE-vs-BASE values of the same point are the noise floor (TAA jitter, wind, idle animation);
-          'excess %' = % changed minus that floor.
+  looks = condition shot vs the nearest BASE shot: mean abs diff (0-255), % pixels whose max channel differs by > --thresh and the
+          MAX REGIONAL change (16x16 grid, worst cell's % changed pixels). NOT whole-frame SSIM (it hid a corrupted G-buffer on the Ally,
+          notes/ally-ripple-decal.md). The BASE-vs-BASE values of the same point are the noise floor (TAA jitter, wind, idle animation);
+          'excess %' / 'reg excess' = value minus that floor. Black / white / flat shots are INVALID (left out, flagged).
+  cost  (dbed8a1): the OWN cost of a group = its GP2 per-PSO time (mod-log 'GP2:' tables, run with GPUProf = 2; rows matched by the
+          group's shader hashes / markers). The frame delta (PresentMon GPUBusy) is reported next to it; a frame delta far above the own
+          cost is a DOWNSTREAM effect (skipping corrupts what later passes read and makes them cheaper), not a real saving: flagged
+          DOWNSTREAM and never WASTE.
   present = the mod's ack counted skipped draws/dispatches at that point (0 = the effect is not in that scene: the row is left out).
 Verdicts (averaged over the points where the effect is present):
-  WASTE        ms >= 0.15 and > 2x noise, excess < 1 % and SSIM within 0.01 of BASE-vs-BASE   -> candidate optional toggle / cheaper rewrite first
+  WASTE        cost >= 0.15 and > 2x noise, excess < 1 % and regional excess < 10 points   -> candidate optional toggle / cheaper rewrite first
+               (cost = own GP2 time when known, else the frame delta; DOWNSTREAM rows are never WASTE)
   REWRITE      ms >= 0.15, excess < 5 %                                    -> candidate cheaper rewrite (small visible change)
   KEEP-visible ms >= 0.15, excess >= 5 %                                   -> keep; only a same-look rewrite helps
   KEEP-cheap   saving below max(0.1 ms, 2x noise)
@@ -28,6 +34,7 @@ import csv
 import json
 import math
 import os
+import re
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -146,11 +153,88 @@ def compare(a, b, thresh):
         return None
     d = np.abs(a - b)
     px = d.max(axis=2)
-    return dict(mad=float(d.mean()), pct=float((px > thresh).mean() * 100.0), ssim=ssim(a, b), diff=d)
+    return dict(mad=float(d.mean()), pct=float((px > thresh).mean() * 100.0), maxreg=max_regional(px > thresh), diff=d)
+
+
+def max_regional(mask, n=16):
+    """worst cell of an n x n grid: % of its pixels that changed"""
+    h, w = mask.shape
+    hh, ww = h // n * n, w // n * n
+    if hh == 0 or ww == 0:
+        return float(mask.mean() * 100.0)
+    cells = mask[:hh, :ww].reshape(n, hh // n, n, ww // n).mean(axis=(1, 3))
+    return float(cells.max() * 100.0)
+
+
+def invalid_shot(a):
+    """black / white / flat frame = a capture failure, not a picture"""
+    if a is None:
+        return None
+    m, s = float(a.mean()), float(a.std())
+    if m < 3.0:
+        return 'black'
+    if m > 252.0:
+        return 'white'
+    if s < 2.0:
+        return 'flat'
+    return None
+
+
+# ---- own cost: GP2 tables in the mod log ---------------------------------------------------------------------------------------
+GP2_ROW = re.compile(r'GP2:\s+\d+\s+(.*?)\s*\|\s*([\d.]+) ms\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*\[(.*?)\]')
+DOWNSTREAM_X = 2.0   # frame delta > this x own cost (and > 0.3 ms above it) = downstream effect
+
+
+def gp2_blocks(d):
+    """*.log files under the session dir -> list of GP2 table snapshots, each a list of (hashes_text, ms, marker)"""
+    blocks = []
+    for root, _, files in os.walk(d):
+        for f in sorted(files):
+            if not f.lower().endswith('.log'):
+                continue
+            cur = None
+            for ln in open(os.path.join(root, f), encoding='utf-8-sig', errors='replace'):
+                if 'GP2: top ' in ln and 'buckets' in ln:
+                    cur = []
+                    blocks.append(cur)
+                elif cur is not None:
+                    m = GP2_ROW.search(ln)
+                    if m:
+                        cur.append((m.group(1), float(m.group(2)), m.group(5)))
+                    elif 'GP2:' not in ln:
+                        cur = None
+    return [b for b in blocks if b]
+
+
+def group_match(g, hashes, marker):
+    h = hashes.lower()
+    for frag in g.get('pso', []):
+        f = frag.lower()
+        if f.startswith(('ps=', 'vs=', 'cs=')):
+            if f in h:
+                return True
+        elif f in h:
+            return True
+    for mk in g.get('markers', []):
+        pre = mk.rstrip('*')
+        if marker == mk or (mk.endswith('*') and marker.startswith(pre)):
+            return True
+    return False
+
+
+def own_costs(d, groups):
+    """group id -> mean ms/frame over the GP2 snapshots; {} when the session has no GP2 tables (then the frame delta is the only cost).
+    Snapshots that include a window where the group is skipped dilute the mean slightly."""
+    blocks = gp2_blocks(d)
+    if not blocks:
+        return {}
+    return {gid: sum(sum(ms for h, ms, mk in b if group_match(g, h, mk)) for b in blocks) / len(blocks) for gid, g in groups.items()}
 
 
 # ---- report ----------------------------------------------------------------------------------------------------------------------
 def fnum(v, nd=2, dash='-'):
+    if isinstance(v, str):
+        return v
     return dash if v is None or (isinstance(v, float) and math.isnan(v)) else ('%.*f' % (nd, v))
 
 
@@ -188,13 +272,16 @@ def report(d, no_diff=False, thresh=8.0):
             r['gpu'] = w['gpu'] if w else None
             r['fps'] = w['fps'] if w else None
             r['img'] = load_img(os.path.join(d, r['shot'])) if r.get('shot') else None
+            r['inv'] = invalid_shot(r['img'])
+            if r['inv']:
+                r['img'] = None   # INVALID frame (black / white / flat): no looks number from it
         bases = [r for r in pr if r['cond'] == 'BASE' and r['ok'] and r['gpu'] is not None]
         bimgs = [r for r in pr if r['cond'] == 'BASE' and r['ok'] and r['img'] is not None]
         noise_ms = (max(b['gpu'] for b in bases) - min(b['gpu'] for b in bases)) if len(bases) >= 2 else None
         nf = [compare(bimgs[i]['img'], bimgs[i + 1]['img'], thresh) for i in range(len(bimgs) - 1)]
         nf = [x for x in nf if x]
         noise_pct = sum(x['pct'] for x in nf) / len(nf) if nf else 0.0
-        noise_ssim = min(x['ssim'] for x in nf) if nf else None
+        noise_ssim = max(x['maxreg'] for x in nf) if nf else None   # (name kept) worst regional change BASE-vs-BASE
         detail.append(('BASE', p, None, noise_ms, noise_pct, noise_ssim, len(bases)))
         for r in pr:
             if r['cond'] == 'BASE' or not r['ok']:
@@ -217,16 +304,17 @@ def report(d, no_diff=False, thresh=8.0):
             ackless = all(int(r.get(k, -1)) < 0 for k in ('skipped_draws', 'skipped_dispatches'))
             present = skipped > 0 or ackless
             ent = dict(point=p, saved=saved, gpu=r['gpu'], base=base, noise_ms=noise_ms, present=present, skipped=skipped,
-                       mad=cmp['mad'] if cmp else None, pct=cmp['pct'] if cmp else None, ssim=cmp['ssim'] if cmp else None,
-                       excess=(cmp['pct'] - noise_pct) if cmp else None, shot=r.get('shot', ''), tag=r['tag'],
-                       drop=(noise_ssim - cmp['ssim']) if (cmp and noise_ssim is not None) else None)
+                       mad=cmp['mad'] if cmp else None, pct=cmp['pct'] if cmp else None, ssim=cmp['maxreg'] if cmp else None,
+                       excess=(cmp['pct'] - noise_pct) if cmp else None, shot=r.get('shot', ''), tag=r['tag'], inv=r.get('inv'),
+                       drop=(cmp['maxreg'] - (noise_ssim or 0.0)) if cmp else None)   # ssim/drop now = max regional % / its excess over BASE-vs-BASE
             per.setdefault(r['cond'], []).append(ent)
-            detail.append((r['cond'], p, saved, noise_ms, cmp['pct'] if cmp else None, cmp['ssim'] if cmp else None, skipped))
+            detail.append((r['cond'], p, saved, noise_ms, cmp['pct'] if cmp else None, cmp['maxreg'] if cmp else (r.get('inv') or None), skipped))
 
     def mean(v):
         v = [x for x in v if x is not None]
         return sum(v) / len(v) if v else None
 
+    own = own_costs(d, groups)
     table = []
     for cid in order + [c for c in per if c not in groups]:
         if cid not in per:
@@ -235,67 +323,83 @@ def report(d, no_diff=False, thresh=8.0):
         es = per[cid]
         pres = [e for e in es if e['present']]
         use = pres if pres else []
-        ms = mean([e['saved'] for e in use])
+        ms = mean([e['saved'] for e in use])           # frame delta (PresentMon GPUBusy)
         noise = mean([e['noise_ms'] for e in use])
         pct = mean([e['pct'] for e in use])
         exc = mean([e['excess'] for e in use])
         ss = [e['ssim'] for e in use if e['ssim'] is not None]
-        smin = min(ss) if ss else None
+        smin = max(ss) if ss else None                 # worst regional change (16x16 cell, % of its pixels)
         drops = [e['drop'] for e in use if e.get('drop') is not None]
-        dmax = max(drops) if drops else None
+        dmax = max(drops) if drops else None           # ... above the BASE-vs-BASE floor (points)
+        invs = sorted({e['inv'] for e in es if e.get('inv')})
+        ocost = own.get(cid) or None                   # 0 = not in the GP2 top-N tables: unknown, not "free"
+        cost = ocost if ocost is not None else ms      # the number the verdict is judged on
+        downstream = (ocost is not None and ms is not None and ms > DOWNSTREAM_X * ocost and ms - ocost > 0.3)
         if not pres:
             verdict = 'ABSENT (not drawn at these points)'
         elif cid in COST_REF:
             verdict = 'COST-REF (price tag, not removable)'
-        elif ms is None:
+        elif use and len(invs) and all(e.get('inv') or e['pct'] is None for e in use) and exc is None:
+            verdict = 'INVALID (black/white/flat shot: %s)' % '/'.join(invs)
+        elif cost is None:
             verdict = '? (no PresentMon frames)'
-        elif ms < max(0.1, 2 * (noise or 0)):
+        elif downstream:
+            verdict = 'DOWNSTREAM (frame delta %.2f ms >> own GP2 cost %.2f ms: corrupts later passes, not a real saving)' % (ms, ocost)
+        elif cost < max(0.1, 2 * (noise or 0)) and ocost is None:
             verdict = 'KEEP-cheap'
-        elif ms >= 0.15 and exc is not None and exc < 1.0 and (dmax is None or dmax <= 0.01):
+        elif cost < 0.1:
+            verdict = 'KEEP-cheap'
+        elif cost >= 0.15 and exc is not None and exc < 1.0 and (dmax is None or dmax < 10.0):
             verdict = 'WASTE: optional toggle / cheaper rewrite' + (' (stale-risk: check diff)' if g.get('stale_risk') else '')
-        elif ms >= 0.15 and exc is not None and exc < 5.0:
+        elif cost >= 0.15 and exc is not None and exc < 5.0:
             verdict = 'REWRITE candidate (small visible change)'
         elif exc is None:
             verdict = 'cost only (no shots)'
         else:
             verdict = 'KEEP-visible (same-look rewrite only)'
-        score = (ms / ((exc if exc and exc > 0 else 0) + 0.5)) if (ms is not None and pres and cid not in COST_REF) else None
-        table.append(dict(id=cid, label=g.get('label', cid), ms=ms, noise=noise, gp2=g.get('gp2_ms'), pct=pct, excess=exc, ssim=smin, drop=dmax,
+        if invs and not verdict.startswith('INVALID'):
+            verdict += ' [INVALID shots dropped: %s]' % '/'.join(invs)
+        score = (cost / ((exc if exc and exc > 0 else 0) + 0.5)) if (cost is not None and pres and cid not in COST_REF and not downstream) else None
+        table.append(dict(id=cid, label=g.get('label', cid), ms=ms, own=ocost, noise=noise, gp2=g.get('gp2_ms'), pct=pct, excess=exc, ssim=smin, drop=dmax,
                           present='%d/%d' % (len(pres), len(es)), looks=g.get('expect_looks', ''), verdict=verdict,
                           repl=g.get('replacement', ''), repl_ms=g.get('repl_ms'), repl_risk=g.get('repl_risk', ''), score=score,
                           stale=bool(g.get('stale_risk')), shot=(pres[0]['tag'] if pres else '')))
 
     with open(os.path.join(d, 'cvl_table.csv'), 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
-        w.writerow(['id', 'ms_saved', 'noise_ms', 'gp2_ms_125', 'pct_changed', 'excess_pct', 'ssim_min', 'present', 'verdict', 'waste_score',
-                    'stale_risk', 'replacement', 'repl_est_ms', 'repl_visual_risk', 'label'])
+        w.writerow(['id', 'ms_saved', 'noise_ms', 'gp2_ms_125', 'pct_changed', 'excess_pct', 'max_regional_pct', 'present', 'verdict', 'waste_score',
+                    'stale_risk', 'replacement', 'repl_est_ms', 'repl_visual_risk', 'label', 'own_gp2_ms', 'regional_excess'])
         for t in table:
-            w.writerow([t['id'], fnum(t['ms'], 3), fnum(t['noise'], 3), t['gp2'], fnum(t['pct'], 2), fnum(t['excess'], 2), fnum(t['ssim'], 4),
-                        t['present'], t['verdict'], fnum(t['score'], 3), t['stale'], t['repl'], t['repl_ms'], t['repl_risk'], t['label']])
+            w.writerow([t['id'], fnum(t['ms'], 3), fnum(t['noise'], 3), t['gp2'], fnum(t['pct'], 2), fnum(t['excess'], 2), fnum(t['ssim'], 2),
+                        t['present'], t['verdict'], fnum(t['score'], 3), t['stale'], t['repl'], t['repl_ms'], t['repl_risk'], t['label'],
+                        fnum(t['own'], 3), fnum(t['drop'], 2)])
 
     bl = [x for x in detail if x[0] == 'BASE']
     L = []
     L.append('# Cost vs looks - %s' % os.path.basename(os.path.abspath(d)))
     L.append('')
-    L.append('Points: %d; BASE noise per point (GPUBusy spread ms / %% px changed BASE-vs-BASE / SSIM): %s' % (
-        len(points), '; '.join('P%d %s / %s %% / %s' % (x[1], fnum(x[3]), fnum(x[4], 1), fnum(x[5], 3)) for x in bl)))
-    L.append('ms saved = BASE GPUBusy (PresentMon, interpolated) minus skipped; %% px = pixels whose max channel moved > %g/255 vs the nearest '
-             'BASE shot; excess = %% px above the BASE-vs-BASE floor; SSIM = worst point. stale = compute producer (looks is a lower bound).' % thresh)
+    L.append('Points: %d; BASE noise per point (GPUBusy spread ms / %% px changed BASE-vs-BASE / worst 16x16 cell %% BASE-vs-BASE): %s' % (
+        len(points), '; '.join('P%d %s / %s %% / %s %%' % (x[1], fnum(x[3]), fnum(x[4], 1), fnum(x[5], 1)) for x in bl)))
+    L.append("own GP2 = the group's own per-PSO GPU time (mod-log GP2 tables; '-' = the session had no GP2, cost falls back to the frame delta); "
+             'frame delta = BASE GPUBusy (PresentMon, interpolated) minus skipped. A frame delta >> own GP2 is DOWNSTREAM (later passes got '
+             'cheaper because their input was corrupted), never a saving. looks: %% px = pixels whose max channel moved > %g/255 vs the nearest '
+             "BASE shot, excess = above the BASE-vs-BASE floor; max cell = the worst 16x16 grid cell's %% changed px (reg+ = above its floor). "
+             'Black / white / flat shots are INVALID and dropped. stale = compute producer (looks is a lower bound).' % thresh)
     L.append('')
-    L.append('| effect | ms saved | GP2 #125 | % px changed (excess) | SSIM | what it looks like | verdict | replacement idea | est. ms | visual risk |')
-    L.append('|---|---|---|---|---|---|---|---|---|---|')
+    L.append('| effect | own GP2 ms | frame delta ms | GP2 #125 | % px changed (excess) | max cell % (reg+) | what it looks like | verdict | replacement idea | est. ms | visual risk |')
+    L.append('|---|---|---|---|---|---|---|---|---|---|---|')
     for t in table:
         look = t['looks'] + (' **[stale-risk]**' if t['stale'] else '') + (' (shot %s, diff diffs/%s_x8.png)' % (t['shot'], t['shot']) if t['shot'] else '')
-        L.append('| %s | %s (+-%s) | %s | %s (%s) | %s | %s | %s | %s | %s | %s |' % (
-            t['id'], fnum(t['ms']), fnum(t['noise']), fnum(t['gp2']) if isinstance(t['gp2'], (int, float)) else '-', fnum(t['pct'], 1),
-            fnum(t['excess'], 1), fnum(t['ssim'], 3) + (' (-%s)' % fnum(t['drop'], 3) if t.get('drop') is not None else ''), look.replace('|', '/'), t['verdict'] + ' [%s pts]' % t['present'],
+        L.append('| %s | %s | %s (+-%s) | %s | %s (%s) | %s (%s) | %s | %s | %s | %s | %s |' % (
+            t['id'], fnum(t['own']), fnum(t['ms']), fnum(t['noise']), fnum(t['gp2']) if isinstance(t['gp2'], (int, float)) else '-', fnum(t['pct'], 1),
+            fnum(t['excess'], 1), fnum(t['ssim'], 1), fnum(t['drop'], 1), look.replace('|', '/'), t['verdict'] + ' [%s pts]' % t['present'],
             str(t['repl']).replace('|', '/'), fnum(t['repl_ms']) if isinstance(t['repl_ms'], (int, float)) else '-', t['repl_risk']))
     L.append('')
     L.append('## Ranked: most ms per unit of visible change (removal / rewrite candidates first; COST-REF and absent rows left out)')
     rk = sorted([t for t in table if t['score'] is not None], key=lambda t: -t['score'])
     for i, t in enumerate(rk, 1):
-        L.append('%d. **%s** - %s ms for %s %% excess px (SSIM %s): %s. Replacement: %s (%s ms, risk %s)' % (
-            i, t['id'], fnum(t['ms']), fnum(t['excess'], 1), fnum(t['ssim'], 3), t['verdict'], t['repl'],
+        L.append('%d. **%s** - %s ms (%s) for %s %% excess px (max cell %s %%): %s. Replacement: %s (%s ms, risk %s)' % (
+            i, t['id'], fnum(t['own'] if t['own'] is not None else t['ms']), 'own GP2' if t['own'] is not None else 'frame delta', fnum(t['excess'], 1), fnum(t['ssim'], 1), t['verdict'], t['repl'],
             fnum(t['repl_ms']) if isinstance(t['repl_ms'], (int, float)) else '?', t['repl_risk']))
     L.append('')
     L.append('## Cost references (structural; not removable)')
@@ -304,10 +408,10 @@ def report(d, no_diff=False, thresh=8.0):
             L.append('- %s: %s ms (GP2 #125 %s) - %s' % (t['id'], fnum(t['ms']), t['gp2'], t['label']))
     L.append('')
     L.append('## Per point')
-    L.append('| cond | point | ms saved | BASE noise ms | % px | SSIM | skipped calls |')
+    L.append('| cond | point | frame delta ms | BASE noise ms | % px | max cell % (or INVALID kind) | skipped calls |')
     L.append('|---|---|---|---|---|---|---|')
     for x in detail:
-        L.append('| %s | %s | %s | %s | %s | %s | %s |' % (x[0], x[1], fnum(x[2]), fnum(x[3]), fnum(x[4], 1), fnum(x[5], 3), x[6]))
+        L.append('| %s | %s | %s | %s | %s | %s | %s |' % (x[0], x[1], fnum(x[2]), fnum(x[3]), fnum(x[4], 1), fnum(x[5], 1), x[6]))
     open(os.path.join(d, 'cvl_report.md'), 'w', encoding='utf-8').write('\n'.join(L) + '\n')
     waste = [t['id'] for t in rk if t['verdict'].startswith('WASTE')]
     print('cvl report: %d effects, %d points; WASTE: %s; top by score: %s -> %s' % (
@@ -325,13 +429,24 @@ def selftest():
         {'id': 'BIGWASTE', 'label': 'costly + invisible', 'gp2_ms': 1.0, 'stale_risk': False},
         {'id': 'VISIBLE', 'label': 'costly + visible', 'gp2_ms': 1.0, 'stale_risk': False},
         {'id': 'CHEAP', 'label': 'cheap', 'gp2_ms': 0.02, 'stale_risk': False},
-        {'id': 'GONE', 'label': 'absent', 'gp2_ms': 0.5, 'stale_risk': False}]}
+        {'id': 'GONE', 'label': 'absent', 'gp2_ms': 0.5, 'stale_risk': False},
+        {'id': 'DOWN', 'label': 'frame delta 1.5 but own cost 0.2', 'pso': ['ps=dd00dd00'], 'stale_risk': False},
+        {'id': 'BLACK', 'label': 'black shot', 'pso': ['ps=bb00bb00'], 'stale_risk': False}]}
+    for g in groups['groups']:
+        g.setdefault('pso', [])
     json.dump(groups, open(os.path.join(d, 'cvl_groups.json'), 'w'))
     rng = np.random.default_rng(3)
     scene = (rng.random((180, 320, 3)) * 200).astype(np.uint8)
     t = datetime(2026, 10, 9, 12, 0, 0, tzinfo=timezone.utc).timestamp()
-    plan = ['BASE', 'BIGWASTE', 'VISIBLE', 'BASE', 'CHEAP', 'GONE', 'BASE']
-    cost = {'BIGWASTE': 1.0, 'VISIBLE': 1.0, 'CHEAP': 0.02, 'GONE': 0.0}
+    plan = ['BASE', 'BIGWASTE', 'VISIBLE', 'BASE', 'CHEAP', 'GONE', 'DOWN', 'BLACK', 'BASE']
+    cost = {'BIGWASTE': 1.0, 'VISIBLE': 1.0, 'CHEAP': 0.02, 'GONE': 0.0, 'DOWN': 1.5, 'BLACK': 0.5}
+    os.makedirs(os.path.join(d, 'logs'))
+    with open(os.path.join(d, 'logs', 'run.log'), 'w') as f:   # GP2 tables: BIGWASTE's cs=... costs 1.0, DOWN's ps only 0.2
+        f.write('[12:00:00.000] GP2: top 40 of 9 (PSO shader set, marker) buckets - hash stage(s) | ms/frame | draws+dispatches/frame | intervals/frame | [marker]\n'
+                '[12:00:00.000] GP2:    1 vs=11111111 ps=dd00dd00aaaa |   0.200 ms |     3.0 |     1.0 | [-]\n'
+                '[12:00:00.000] GP2:    2 cs=ffff0000 |   0.900 ms |     3.0 |     1.0 | [-]\n')
+    groups['groups'][0]['pso'] = ['cs=ffff0000']
+    json.dump(groups, open(os.path.join(d, 'cvl_groups.json'), 'w'))
     man, pmrows = [], []
     for p in (1, 2):
         for i, c in enumerate(plan, 1):
@@ -339,6 +454,8 @@ def selftest():
             img[rng.integers(0, 180, 30), rng.integers(0, 320, 30)] = 255   # noise
             if c == 'VISIBLE':
                 img[0:90] = 0
+            if c == 'BLACK':
+                img[:] = 0
             tag = '%d_%02d_%s' % (p, i, c)
             Image.fromarray(img).save(os.path.join(d, 'shots', tag + '.png'))
             t0, t1 = t + 2, t + 5
@@ -360,7 +477,8 @@ def selftest():
     rows = {r['id']: r for r in csv.DictReader(open(os.path.join(d, 'cvl_table.csv'), encoding='utf-8'))}
     ok = (rows['BIGWASTE']['verdict'].startswith('WASTE') and rows['VISIBLE']['verdict'].startswith('KEEP-visible')
           and rows['CHEAP']['verdict'] == 'KEEP-cheap' and rows['GONE']['verdict'].startswith('ABSENT')
-          and abs(float(rows['BIGWASTE']['ms_saved']) - 1.0) < 0.1)
+          and abs(float(rows['BIGWASTE']['ms_saved']) - 1.0) < 0.1
+          and rows['DOWN']['verdict'].startswith('DOWNSTREAM') and rows['BLACK']['verdict'].startswith('INVALID'))
     print('SELFTEST', 'OK' if ok else 'FAILED', {k: (v['verdict'], v['ms_saved'], v['excess_pct']) for k, v in rows.items()})
     return 0 if ok else 1
 

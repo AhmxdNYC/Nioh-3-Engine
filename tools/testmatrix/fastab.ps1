@@ -149,15 +149,18 @@ New-Item -ItemType Directory -Force (Split-Path $prog) | Out-Null
 Set-Content $prog ""; $last = ""; $script:a = "gen=- tag=- ok=0 fail=0"
 Start-Sleep 2
 Add-Content $prog "A 0 0 7292 ok"; Add-Content $prog "B 0 0 0"
-$t0 = Get-Date
+$t0 = Get-Date; $frames = 0.0; $tPrev = Get-Date; $rng = New-Object Random 9
 while (((Get-Date) - $t0).TotalSeconds -lt $Dwell) {
   $t = if (Test-Path $ctl) { [IO.File]::ReadAllText($ctl) } else { "" }
+  $now = Get-Date; $ms = 8.5 - $(if ($t -match '(?m)^Hot\.\w+ = 1') { 0.4 } else { 0 }) + ($rng.NextDouble() - 0.5) * 0.2
+  $frames += ($now - $tPrev).TotalMilliseconds / $ms; $tPrev = $now
+  $clk = " frames=$([int64]$frames) qpc_us=$([int64](($now - $t0).TotalMilliseconds * 1000)) ft_sq_us=0 h20=0 h33=0 h50=0"
   if ($t -ne $last) { $last = $t
     $g = if ($t -match 'Gen = (\S+)') { $Matches[1] } else { "-" }; $tg = if ($t -match 'Tag = (\S+)') { $Matches[1] } else { "-" }
     $kv = ""; $ok = 0; $fail = 0
     foreach ($m in [regex]::Matches($t, '(?m)^(?!Gen|Tag)(\S+) = (\S+)')) { $v = $m.Groups[2].Value; if ($m.Groups[1].Value -eq "Hot.nope") { $v = "err"; $fail++ } else { $ok++ }; $kv += " $($m.Groups[1].Value)=$v" }
-    $script:a = "gen=$g tag=$tg t_apply_unix_ms=0 age_ms=0 ok=$ok fail=$fail$kv" }
-  [IO.File]::WriteAllText("$ack.tmp", $script:a); Move-Item "$ack.tmp" $ack -Force
+    $script:a = "gen=$g tag=$tg t_apply_unix_ms=0 age_ms=0 ok=$ok fail=$fail"; $script:kv = $kv }
+  [IO.File]::WriteAllText("$ack.tmp", "$($script:a)$clk$($script:kv)"); Move-Item "$ack.tmp" $ack -Force
   Start-Sleep -Milliseconds 100
 }
 Add-Content $prog "D 0 0 0"; Add-Content $prog "E"
@@ -294,14 +297,16 @@ try {
                 $wtag = "{0}_q{1}_{2}" -f ($p.key -replace '[^\w.]', '_'), $q, $arm
                 $ak = Set-Values @{ $p.key = $v } $wtag
                 Start-Sleep -Milliseconds ([int]($WarmSec * 1000))
-                $w0 = Utc
+                $w0 = Utc; $c0 = Read-Ack   # the mod's frame clock (LiveCtl ack: frames / qpc_us / hitch counters, refreshed every 250 ms)
                 Start-Sleep -Seconds $WindowSec
-                $w1 = Utc
+                $w1 = Utc; $c1 = Read-Ack
                 $ended = Dwell-Ended
                 if (-not $DryRun -and -not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { throw "the game exited during $wtag" }
+                $clk = [ordered]@{}
+                foreach ($k in "frames", "qpc_us", "ft_sq_us", "h20", "h33", "h50") { if ($c0.ContainsKey($k) -and $c1.ContainsKey($k)) { $clk["mod_$k"] = [double]$c1[$k] - [double]$c0[$k] } }
                 Add-Jsonl ([ordered]@{ kind = "window"; item = $p.id; key = $p.key; pair = $q; arm = $arm; value = $v; a_value = $p.a; b_value = $p.b
                     tag = $wtag; gen = $script:gen; t0_utc = $w0; t1_utc = $w1; ack_ok = [bool]$ak.good; readback = $(if ($ak.ContainsKey($p.key)) { $ak[$p.key] } else { "" })
-                    warm_s = $WarmSec; dwell_ended = $ended })
+                    warm_s = $WarmSec; dwell_ended = $ended; clock = $clk })
                 L ("  {0}: {1} = {2} (ack gen {3} {4})" -f $wtag, $p.key, $v, $ak.gen, $(if ($ak.good) { "ok" } else { "NOT OK" }))
                 if ($ended) { L "  the tour dwell ended - schedule cut here (raise -SettleSec margin / fewer items)" Yellow; break }
             }
@@ -347,7 +352,7 @@ try {
         if (@($rows | Where-Object { -not $_.ack_ok }).Count) { $chk += "unacknowledged toggles" }
         $rp = Join-Path $sess "report.md"
         if (-not (Test-Path $rp)) { $chk += "no report.md" }
-        elseif ((Get-Content $rp -Raw) -notmatch "\[RESULT\] pc $Tag`: Hot\.\w+ 0->1: GPU busy -0\.[345]") { $chk += "report misses the fake -0.4 ms effect" }
+        elseif ((Get-Content $rp -Raw) -notmatch "Hot\.\w+ 0->1: fps \+[45]\.\d+ % .*frame time -0.[34]") { $chk += "report misses the fake -0.4 ms effect" }
         if ($summary.Contains("error")) { $chk += "error: $($summary['error'])" }
         if ($chk.Count) { L "DryRun FAILED: $($chk -join '; ')" Red } else { L "DryRun OK (session $sess)" Green }
     }

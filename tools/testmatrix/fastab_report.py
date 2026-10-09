@@ -4,8 +4,12 @@ r"""fastab_report.py - analysis of a one-launch A/B session (tools\testmatrix\fa
     py -I tools\testmatrix\fastab_report.py selftest
 
 Inputs in the session dir: manifest.jsonl (fastab.ps1: one 'window' row per measuring window with item / pair / arm /
-t0_utc / t1_utc, plus 'event' rows for the wall-time budget) and presentmon*.csv (PresentMon v2 --date_time:
+t0_utc / t1_utc and the mod's frame clock deltas 'clock' {mod_frames, mod_qpc_us, mod_ft_sq_us, mod_h20/33/50} read from
+two LiveCtl acks, plus 'event' rows for the wall-time budget) and presentmon*.csv (PresentMon v2 --date_time:
 CPUStartDateTime, FrameTime, GPUBusy). PresentMon's clock offset is detected as in cost_vs_looks.py (pm_time.py).
+Primary metrics come from the mod clock (every presented frame of the game swapchain counted in the Present hook):
+on the PC PresentMon lost ~2/3 of the present events in whole-second gaps (2026-10-09), so its frame rate is unusable;
+its per-frame GPUBusy is kept as a SAMPLED secondary metric (windows with >= 200 recorded frames).
 
 Method: windows come in pairs (A then B, or B then A: the order alternates ABBA so a linear drift cancels); each pair gives
 one paired delta d_i = mean(B window) - mean(A window) per metric. Reported: mean delta, its standard error sd(d)/sqrt(n),
@@ -25,7 +29,8 @@ import cost_vs_looks as cvl  # noqa: E402  (read_pm / align_pm / utc_epoch / rea
 
 T95 = [12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228, 2.201, 2.179, 2.160, 2.145, 2.131, 2.120,
        2.110, 2.101, 2.093, 2.086, 2.080, 2.074, 2.069, 2.064, 2.060, 2.056, 2.052, 2.048, 2.045, 2.042]
-METRICS = [("gpu_ms", "GPU busy ms", -1), ("frame_ms", "frame time ms", -1), ("fps", "fps", +1)]
+METRICS = [("fps", "fps (mod clock)", +1), ("frame_ms", "frame time ms (mod clock)", -1), ("rms_ms", "rms frame time ms", -1),
+           ("h33", "frames > 33 ms / window", -1), ("gpu_ms", "GPU busy ms (PresentMon, sampled)", -1)]
 
 
 def t95(df):
@@ -38,11 +43,22 @@ def win_stats(pm, t0, t1):
     win_stats.ts, win_stats.src = ts, pm
     a, b = bisect.bisect_left(ts, t0), bisect.bisect_right(ts, t1)
     seg = pm[a:b]
-    if len(seg) < 30:
-        return None
-    g = sum(r[1] for r in seg) / len(seg)
-    f = sum(r[2] for r in seg) / len(seg)
-    return dict(gpu_ms=g, frame_ms=f, fps=1000.0 / f if f > 0 else float("nan"), frames=len(seg))
+    if len(seg) < 200:
+        return {}
+    return dict(gpu_ms=sum(r[1] for r in seg) / len(seg), pm_frames=len(seg))
+
+
+def clock_stats(c):
+    """the mod frame clock of one window -> fps / mean / rms frame time / hitches (None without a clock)."""
+    n, us = (c or {}).get("mod_frames", 0), (c or {}).get("mod_qpc_us", 0)
+    if not n or n < 50 or not us:
+        return {}
+    out = dict(fps=n * 1e6 / us, frame_ms=us / 1000.0 / n, frames=int(n))
+    if c.get("mod_ft_sq_us") is not None:
+        out["rms_ms"] = math.sqrt(max(0.0, c["mod_ft_sq_us"] * 1000.0 / n)) / 1000.0
+    if c.get("mod_h33") is not None:
+        out["h33"] = c["mod_h33"]
+    return out
 
 
 def paired(rows, key):
@@ -90,11 +106,13 @@ def report(d):
     pm.sort()
     if not wins:
         raise SystemExit("no window rows in %s" % d)
-    if not pm:
-        raise SystemExit("no PresentMon rows in %s" % d)
-    cvl.align_pm(pm, [(cvl.utc_epoch(r["t0_utc"]), cvl.utc_epoch(r["t1_utc"])) for r in wins], os.path.basename(os.path.normpath(d)))
+    if pm:
+        cvl.align_pm(pm, [(cvl.utc_epoch(r["t0_utc"]), cvl.utc_epoch(r["t1_utc"])) for r in wins], os.path.basename(os.path.normpath(d)))
     for r in wins:
-        r["stats"] = win_stats(pm, cvl.utc_epoch(r["t0_utc"]), cvl.utc_epoch(r["t1_utc"]))
+        s = clock_stats(r.get("clock"))
+        if pm:
+            s.update(win_stats(pm, cvl.utc_epoch(r["t0_utc"]), cvl.utc_epoch(r["t1_utc"])))
+        r["stats"] = s
     items, res = [], {}
     for r in wins:
         if r["item"] not in items:
@@ -151,11 +169,13 @@ def report(d):
     L.append("")
     L.append("```")
     for it in items:
-        g, f = res[it]["gpu_ms"], res[it]["fps"]
-        if g and f:
-            L.append("[RESULT] %s %s: %s %s->%s: GPU busy %s ms +- %.3f SE (%s %%), fps %s %% +- %.2f; %d pairs, one launch -> %s" % (
-                meta.get("device", "pc"), meta.get("tag", "fastab"), it, res[it]["a_label"], res[it]["b_label"], fmt(g["delta"]),
-                g["se"], fmt(g["pct"], 2), fmt(f["pct"], 2), 100.0 * f["se"] / f["a"] if f["a"] else float("nan"), g["n"], g["verdict"]))
+        f, ft, g = res[it]["fps"], res[it]["frame_ms"], res[it]["gpu_ms"]
+        if not f:
+            continue
+        gtxt = ", GPU busy (sampled) %s ms +- %.3f SE" % (fmt(g["delta"]), g["se"]) if g and g["n"] > 1 else ""
+        L.append("[RESULT] %s %s: %s %s->%s: fps %s %% +- %.2f SE (%.1f -> %.1f), frame time %s ms +- %.3f SE%s; %d pairs, one launch -> %s" % (
+            meta.get("device", "pc"), meta.get("tag", "fastab"), it, res[it]["a_label"], res[it]["b_label"], fmt(f["pct"], 2),
+            100.0 * f["se"] / f["a"] if f["a"] else float("nan"), f["a"], f["b"], fmt(ft["delta"]), ft["se"], gtxt, f["n"], f["verdict"]))
     L.append("```")
     open(os.path.join(d, "report.md"), "w", encoding="utf-8").write("\n".join(L) + "\n")
     json.dump(dict(items=res, budget=budget, meta=meta), open(os.path.join(d, "results.json"), "w"), indent=1, default=str)
@@ -181,12 +201,17 @@ def selftest():
             for arm in (("A", "B") if p % 2 == 0 else ("B", "A")):
                 cur += 5
                 t0, t1 = cur, cur + 20
+                fts = []
                 for k in range(int(20 / 0.008)):
                     tt = t0 + k * 0.008
                     g = 7.0 + 0.3 * (tt - t) / 400.0 + (eff if arm == "B" else 0) + random.gauss(0, 0.4)
-                    pmrows.append("%s,%.3f,%.3f" % (datetime.fromtimestamp(tt, timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3], g + 1.0, g))
+                    fts.append(g + 1.0)
+                    if k % 3 == 0:   # PresentMon keeps only a third of the frames (as on the PC)
+                        pmrows.append("%s,%.3f,%.3f" % (datetime.fromtimestamp(tt, timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3], g + 1.0, g))
+                clk = dict(mod_frames=len(fts), mod_qpc_us=sum(fts) * 1000.0, mod_ft_sq_us=sum((x * 1000.0) ** 2 for x in fts) / 1000.0,
+                           mod_h33=0)
                 man.append(dict(kind="window", item=it, pair=p, arm=arm, t0_utc=iso(t0), t1_utc=iso(t1), ack_ok=True, warm_s=5,
-                                a_value="0", b_value="1"))
+                                a_value="0", b_value="1", clock=clk))
                 cur = t1
     man.append(dict(kind="event", event="last_window", t_utc=iso(cur)))
     man.append(dict(kind="event", event="end", t_utc=iso(cur + 30)))
@@ -198,10 +223,13 @@ def selftest():
     gx, gy = res["Hot.x"]["gpu_ms"], res["PP"]["gpu_ms"]
     assert abs(gx["delta"] + 0.50) < 0.05 and gx["verdict"] == "B better", gx
     assert abs(gy["delta"]) < 0.05 and gy["verdict"] == "no difference", gy
+    fx, fy = res["Hot.x"]["frame_ms"], res["PP"]["frame_ms"]
     assert gx["se"] < 0.03 and res["Hot.x"]["fps"]["verdict"] == "B better"
+    assert abs(fx["delta"] + 0.50) < 0.03 and fx["verdict"] == "B better" and fy["verdict"] == "no difference", (fx, fy)
+    assert abs(res["Hot.x"]["rms_ms"]["a"] - math.sqrt(fx["a"] ** 2 + 0.16)) < 0.05, res["Hot.x"]["rms_ms"]
     assert budget["launch_to_first_window_s"] == 150.0 and budget["per_item_s"]["Hot.x"] > 190
     txt = open(os.path.join(d, "report.md"), encoding="utf-8").read()
-    assert "[RESULT] pc selftest: Hot.x 0->1: GPU busy -0.5" in txt, txt
+    assert "[RESULT] pc selftest: Hot.x 0->1: fps +" in txt and "frame time -0.5" in txt, txt
     print("fastab_report selftest OK (%s)" % d)
 
 

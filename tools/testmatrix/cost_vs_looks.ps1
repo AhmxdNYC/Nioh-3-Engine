@@ -3,7 +3,8 @@
   Mode cvl (default): ONE launch through tools\tour\run_tour.ps1 -Input vpad (lock, save backup + restore, ini/ASI install + restore,
        PresentMon, title -> Continue by VirtualPad) on a short tour list (tourlist_cvl.txt: 4 stage spawns, 1 point each, long dwell).
        Extra ini keys: [Debug] SkipFx = 1, [Profiler] GPUProf_Markers = 1 (engine markers for the marker groups), OSD counters off
-       (clean screenshots), GPUProf = 0 (no profiler overhead in GPU busy). While the tour dwells at a point this script cycles the
+       (clean screenshots), GPUProf = 2 sampled 1 frame in 8, MinRun 1, Top 100 (since dbed8a1: the group's OWN GP2 cost is the cost,
+       the PresentMon frame delta is reported beside it; frame delta >> own = DOWNSTREAM, not a saving; same overhead in every condition). While the tour dwells at a point this script cycles the
        effect groups of cvl_groups.json through the mod's live control file (Nioh3EngineFix_skip.ini):
            BASE, groups 1..k, BASE, groups k+1..n, BASE        (BASE = nothing skipped; the report interpolates BASE for drift)
        Per condition: write the control file, wait for the mod's ack (gen/tag), settle -SettleSec, measure -MeasureSec (window times in
@@ -298,7 +299,7 @@ try {
         L "cvl plan per point ($($plan.Count) conditions, dwell $dwell s, $nPoints points): $(($plan | ForEach-Object { $_.id }) -join ' ')" Cyan
         Remove-Item -LiteralPath $ctl, $ack -Force -ErrorAction SilentlyContinue
         if (-not $DryRun) { Remove-Item -LiteralPath $progress -Force -ErrorAction SilentlyContinue }   # no stale B lines from an earlier tour
-        $k ="$common;Debug.SkipFx=1;Debug.SkipFxFile=Nioh3EngineFix_skip.ini;Debug.SkipPSO=;Debug.SkipMarker=;Profiler.GPUProf=0;Profiler.GPUProf_Markers=1;Profiler.SP=0"
+        $k ="$common;Debug.SkipFx=1;Debug.SkipFxFile=Nioh3EngineFix_skip.ini;Debug.SkipPSO=;Debug.SkipMarker=;Profiler.GPUProf=2;Profiler.GPUProf2_SampleEvery=8;Profiler.GPUProf2_Top=100;Profiler.GPUProf2_MinRun=1;Profiler.GPUProf2_AB=0;Profiler.GPUProf_Markers=1;Profiler.SP=0"   # dbed8a1: GP2 on (1 frame in 8) = the groups' OWN per-PSO cost next to the frame delta (cost_vs_looks.py own_costs)
         $tr = Start-Tour "tour" $dwell $k $nPoints
         $seen = 0; $n = 0; $tStart = Get-Date; $pmN = 0; $script:cpm = $null
         while (-not $tr.proc.HasExited) {
