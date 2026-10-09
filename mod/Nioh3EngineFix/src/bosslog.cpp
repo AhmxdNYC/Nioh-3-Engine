@@ -648,7 +648,16 @@ void LogItemUse(const char* nm, uint64_t a, uint64_t b, uint64_t c, uint64_t d, 
           (unsigned long long)a, (unsigned long long)b, (unsigned long long)c, (unsigned long long)d, hb, hc, on, Now());
 }
 void HkItemUse(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) { LogItemUse("EmakiItemUse_MenuHandler", a, b, c, d, sp); }
-void HkItemUse2(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) { LogItemUse("ItemUse_F1FD80", a, b, c, d, sp); }
+// F1FD80 is MissionReplayMenu_Decide (the replay confirm callback; rcx = closure {menu*, bool}, edx = choice), not an item use. Choice 0
+// writes the start request straight into the queue (no MissionRequestById / Enqueue call, so nothing opened the replay window in the
+// 2026-10-08 session and flags / rewards outside the fight window were not logged): open the window here with menu+0x24F4 (mission id).
+void HkItemUse2(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
+    LogItemUse("MissionReplayMenu_Decide(F1FD80)", a, b, c, d, sp);
+    uint64_t menu = 0;
+    uint32_t mission = 0;
+    if ((uint32_t)b == 0 && Rd(a, menu) && Plaus(menu) && Rd(menu + 0x24F4, mission) && mission && mission < 0x10000)
+        NoteRequest(mission, false, "MissionReplayMenu_Decide choice 0 (inline queue write)");
+}
 
 // MissionRecordGet(rcx db, edx id): first occurrence of each id per window, with the caller
 void HkRecordGet(uint64_t, uint64_t id, uint64_t, uint64_t, const uint64_t* sp) {
