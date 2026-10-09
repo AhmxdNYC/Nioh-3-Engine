@@ -43,6 +43,7 @@
 #include "psoswap.h"
 #include "tilestats.h"
 #include "samelook.h"
+#include "livectl.h"
 #include "osd_font.h"
 #include "osd_shaders.h"
 
@@ -1102,6 +1103,7 @@ void OnPresent(IDXGISwapChain* sc) {
     gimerge::OnFrame(); // 1.7.29 GIProbe / GIMerge frame counter
     tilestats::OnFrame();
     samelook::OnPresent();  // 1.7.49 VSMA: calls per frame in the stats line
+    livectl::OnFrame();     // 1.7.53 fast testing: the A/B windows' frame clock (no-op unless [Debug] LiveCtl = 1)
     gp::OnFrame();      // GP profiler: reads the timestamps of 6 frames ago
     if (!g_firstDraw) g_firstDraw = now;  // popup clock starts at the first hooked game frame
     UpdateStats(now);
