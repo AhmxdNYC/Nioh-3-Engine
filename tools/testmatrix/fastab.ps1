@@ -245,13 +245,20 @@ try {
         if (Get-Process Nioh3 -ErrorAction SilentlyContinue) { throw "Nioh 3 is running - quit it first" }
         $asiText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($BinAsi))
         if ($asiText -notmatch "LiveCtl") { throw "the ASI at $BinAsi has no LiveCtl (build >= the fast-testing commit)" }
+        # several PC agents share the bridge id 'pc', so a 'pc' holder may be us (run_when_idle.ps1 takes the lock before it starts
+        # this script): then the only guard is that no other harness runs. Any other holder (pc2 / ally) = refuse.
         $global:LockKey = $LockKey; $h = Get-LockHolder
-        if ($h.holder) { throw "the game lock '$LockKey' is held by '$($h.holder)' - wait for it (py -m uo_bridge.gamelock status $LockKey)" }
-        L "ASI $BinAsi = $asiVer (LiveCtl present); lock '$LockKey' free"
+        if ($h.holder -and $h.holder -ne "pc") { throw "the game lock '$LockKey' is held by '$($h.holder)' - wait for it (py -m uo_bridge.gamelock status $LockKey)" }
+        $par = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
+        $other = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'powershell.exe' -and $_.ProcessId -ne $PID -and $_.ProcessId -ne $par -and
+            $_.CommandLine -match 'fastab\.ps1|run_tour|abba2_pc|pc_gpu_session|cost_vs_looks|pc_weakcpu|weakcpu_stock|final_pc|pc_retest|cm_sim_pc|vrrp_ab_pc|load_pc' -and $_.CommandLine -notmatch 'run_when_idle' })
+        if ($other.Count) { throw "another test harness is running (pid $($other[0].ProcessId)): $($other[0].CommandLine.Substring(0, [Math]::Min(120, $other[0].CommandLine.Length)))" }
+        L "ASI $BinAsi = $asiVer (LiveCtl present); lock '$LockKey' $(if ($h.holder) { "held by 'pc' (assumed ours, no other harness running)" } else { 'free' })"
     }
-    Add-Jsonl ([ordered]@{ kind = "meta"; tag = $Tag; device = "pc"; asi = $asiVer; stage = $Stage; windows_per_item = $nWin; window_s = $WindowSec; warm_s = $WarmSec; items = @($plan.id); config = "" })
     Install-Config
     Build-HotSets
+    $hk = [ordered]@{}; if (Test-Path $hotDir) { foreach ($d in Get-ChildItem $hotDir -Directory) { $hk[$d.Name] = @(Get-ChildItem $d.FullName -File | ForEach-Object { $_.BaseName -replace "^(on|off)_", "" }) } }
+    Add-Jsonl ([ordered]@{ kind = "meta"; tag = $Tag; device = "pc"; asi = $asiVer; stage = $Stage; windows_per_item = $nWin; window_s = $WindowSec; warm_s = $WarmSec; items = @($plan.id); config = "$($script:cfgText)"; extra = ($ExtraKeys -join ";"); hot_keys = $hk })
     Remove-Item -LiteralPath $ctl, $ack -Force -ErrorAction SilentlyContinue
     if (-not $DryRun) { Remove-Item -LiteralPath $progress -Force -ErrorAction SilentlyContinue }
     # boot values: every item at A (Hot sets start in the installed state; the first Set-Values puts them at A)

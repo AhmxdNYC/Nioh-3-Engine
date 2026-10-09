@@ -96,6 +96,61 @@ def fmt(v, nd=3):
     return "-" if v is None or (isinstance(v, float) and math.isnan(v)) else ("%+.*f" % (nd, v) if nd >= 0 else str(v))
 
 
+def gp2_windows(d, day_utc):
+    """GP2 window reports in the session's mod logs -> [(t_start, t_end, {row text: ms/frame})] (epoch seconds).
+    The mod log stamps local time; the date comes from the first window (sessions do not cross midnight)."""
+    import re
+    import time
+    out = []
+    for f in sorted(os.listdir(d)):
+        if not (f.startswith("mod_") and f.endswith(".log")):
+            continue
+        cur, prev = None, None
+        for ln in open(os.path.join(d, f), encoding="utf-8", errors="replace"):
+            m = re.match(r"\[(\d\d):(\d\d):(\d\d)\.(\d+)\] GP2: (.*)", ln)
+            if not m:
+                continue
+            body = m.group(5)
+            lt = datetime.fromtimestamp(day_utc).replace(hour=int(m.group(1)), minute=int(m.group(2)), second=int(m.group(3)), microsecond=0)
+            t = time.mktime(lt.timetuple()) + float("0." + m.group(4))
+            if body.startswith("frame "):
+                cur = (prev, t, {})
+                out.append(cur)
+                prev = t
+            elif cur is not None:
+                r = re.match(r"\s*\d+ (.*?) \|\s+([\d.]+) ms", body)
+                if r:
+                    cur[2][r.group(1)] = cur[2].get(r.group(1), 0.0) + float(r.group(2))
+    return [w for w in out if w[0] is not None]
+
+
+def gp2_section(d, wins, meta):
+    """Hot items: per-arm GPU ms/frame of the GP2 rows built from the set's shader (GP2 attributes by the game's PSO, so the
+    row shows whichever bytecode the bound PSO ran) -> markdown lines ([] when the session has no GP2 windows)."""
+    keys = meta.get("hot_keys") or {}
+    if not wins or not keys:
+        return []
+    gw = gp2_windows(d, cvl.utc_epoch(wins[0]["t0_utc"]))
+    if not gw:
+        return []
+    L = ["", "GP2 per-PSO GPU time of the swapped shader (GP2 windows that fall entirely inside one arm):", "",
+         "| item | arm | GP2 windows | ms/frame (rows with the hot shader) |", "|---|---|---|---|"]
+    for it in dict.fromkeys(r["item"] for r in wins):
+        if not it.lower().startswith("hot."):
+            continue
+        ks = [k.lower() for k in keys.get(it[4:].lower(), [])]
+        for arm in ("A", "B"):
+            vals = []
+            for r in (w for w in wins if w["item"] == it and w["arm"] == arm):
+                a0 = cvl.utc_epoch(r["t0_utc"]) - float(r.get("warm_s", 0)) + 1.0
+                a1 = cvl.utc_epoch(r["t1_utc"])
+                for s, e, rows in gw:
+                    if s >= a0 and e <= a1:
+                        vals.append(sum(v for k, v in rows.items() if any(x in k.lower() for x in ks)))
+            L.append("| %s | %s | %d | %s |" % (it, arm, len(vals), ", ".join("%.3f" % v for v in vals) if vals else "-"))
+    return L
+
+
 def report(d):
     man = cvl.read_jsonl(os.path.join(d, "manifest.jsonl"))
     wins = [r for r in man if r.get("kind") == "window"]
@@ -160,6 +215,10 @@ def report(d):
             L.append("| %s (%s/%s) | %s | %.3f | %.3f | %s | %.3f | %.3f | %s | %d | %s | %s |" % (
                 it, res[it]["a_label"], res[it]["b_label"], lab, s["a"], s["b"], fmt(s["delta"]), s["se"], s["ci"],
                 fmt(s["pct"], 2), s["n"], fmt(s["drift"]), s["verdict"]))
+    try:
+        L += gp2_section(d, wins, meta)
+    except Exception as e:  # the GP2 view is extra; never lose the main table over it
+        L.append("(GP2 section failed: %s)" % e)
     L.append("")
     L.append("Wall time: " + ", ".join("%s %s" % (k, v) for k, v in budget.items() if k != "per_item_s") +
              "; per item (windows + toggles): " + ", ".join("%s %s s" % (k, v) for k, v in per.items()))
