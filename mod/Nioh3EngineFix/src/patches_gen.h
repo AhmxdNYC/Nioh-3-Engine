@@ -332,6 +332,12 @@ static const uint8_t orig_W1B[] = { 0x33, 0xC9, 0x41, 0x0F, 0xB6, 0x06, 0x41, 0x
 static const uint8_t orig_RPA[] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
 static const uint8_t orig_PMw[] = { 0x89, 0x81, 0x4C, 0x42, 0x00, 0x00 };
 static const uint8_t orig_PMs[] = { 0x89, 0x91, 0x4C, 0x42, 0x00, 0x00 };
+static const uint8_t orig_ASp0[] = { 0xE8, 0xB0, 0xB1, 0x15, 0x00 };
+static const uint8_t orig_ASp3[] = { 0xE8, 0x8A, 0x8B, 0xF3, 0xFF };
+static const uint8_t orig_ASp4[] = { 0xE8, 0xA9, 0x2D, 0x3E, 0x00 };
+static const uint8_t orig_ASp6[] = { 0xE8, 0xF3, 0x68, 0xB0, 0xFE };
+static const uint8_t orig_ASp11[] = { 0xE8, 0xD5, 0x0C, 0x00, 0x00 };
+static const uint8_t orig_ASp12[] = { 0xE8, 0xD4, 0x37, 0x11, 0x00 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -558,6 +564,12 @@ static const Site kSites[] = {
     { "RPA", "RPA", 0x247950, 5, orig_RPA, "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 E8 6F FE FF FF 8B 87 70 01 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "PMw", "PM", 0x13503A3, 6, orig_PMw, "39 99 44 25 00 00 7D 0B 85 C0 0F 48 C3 89 81 4C 42 00 00 44 8B 35", 13, Kind::Call, nullptr, Target::caveSiW, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "PMs", "PM", 0x2EEBB68, 6, orig_PMs, "85 D2 B0 01 41 0F 48 D0 89 91 4C 42 00 00 EB 02 32 C0", 8, Kind::Call, nullptr, Target::caveSiS, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "ASp0", "AS", 0x3D0C67, 5, orig_ASp0, "8E 30 11 00 00 89 45 7F E8 B0 B1 15 00 4C 8B E0 48 85 C0", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
+    { "ASp3", "AS", 0x5F328D, 5, orig_ASp3, "00 48 8B C8 48 89 45 48 E8 8A 8B F3 FF 48 8B C8 48 89 45", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
+    { "ASp4", "AS", 0x14906E, 5, orig_ASp4, "BA 04 00 00 00 48 8B CB E8 A9 2D 3E 00 4C 8B E8 48 85 C0", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
+    { "ASp6", "AS", 0x1A25524, 5, orig_ASp6, "C8 48 89 85 90 01 00 00 E8 F3 68 B0 FE 48 89 45 B8 48 8B", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
+    { "ASp11", "AS", 0x52B142, 5, orig_ASp11, "BA 0B 00 00 00 49 8B CF E8 D5 0C 00 00 45 33 E4 48 8B F0", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
+    { "ASp12", "AS", 0x418643, 5, orig_ASp12, "50 44 89 BD 88 00 00 00 E8 D4 37 11 00 48 8B D8 48 85 C0", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -640,6 +652,13 @@ static const uint8_t dep_103[] = { 0x8B, 0x05, 0xC1, 0xAB, 0x26, 0x03, 0x3B, 0x8
 static const uint8_t dep_104[] = { 0x48, 0x83, 0xEC, 0x28, 0xE8, 0x93, 0x0B, 0xB9, 0xFE, 0x45, 0x33, 0xC0, 0x84, 0xC0, 0x75, 0x10, 0x85, 0xD2, 0xB0, 0x01, 0x41, 0x0F, 0x48, 0xD0 };
 static const uint8_t dep_105[] = { 0xEB, 0x02, 0x32, 0xC0, 0x48, 0x83, 0xC4, 0x28, 0xC3 };
 static const uint8_t dep_106[] = { 0x33, 0xC0, 0x48, 0x39, 0x81, 0x38, 0x25, 0x00, 0x00, 0x74, 0x0A, 0x39, 0x81, 0x44, 0x25, 0x00, 0x00, 0x7C, 0x02, 0xB0, 0x01, 0xC3 };
+static const uint8_t dep_107[] = { 0x8B, 0x81, 0xCC, 0x01, 0x00, 0x00, 0x0F, 0xA3, 0xD0, 0x72, 0x03, 0x33, 0xC0, 0xC3, 0x8B, 0xC2, 0x48, 0x63, 0x94, 0x81, 0x7C, 0x01, 0x00, 0x00, 0x85, 0xD2, 0x78, 0xEF, 0x48, 0x8B, 0x44, 0xD1, 0x10, 0xC3 };
+static const uint8_t dep_108[] = { 0x81, 0x7D, 0x70, 0xDE, 0x10, 0x00, 0x00 };
+static const uint8_t dep_109[] = { 0x41, 0x3B, 0x9D, 0x98, 0x13, 0x00, 0x00, 0x75, 0x0D, 0x41, 0x38, 0xB5, 0xAC, 0x13, 0x00, 0x00, 0x0F, 0x85, 0x5D, 0x02, 0x00, 0x00 };
+static const uint8_t dep_110[] = { 0x3B, 0x87, 0x98, 0x13, 0x00, 0x00, 0x0F, 0x85, 0xC5, 0x00, 0x00, 0x00, 0x41, 0x38, 0xBF, 0xAC, 0x13, 0x00, 0x00, 0x0F, 0x84, 0xB8, 0x00, 0x00, 0x00 };
+static const uint8_t dep_111[] = { 0x44, 0x3B, 0xBF, 0x98, 0x13, 0x00, 0x00, 0x75, 0x0D, 0x80, 0xBF, 0xAC, 0x13, 0x00, 0x00, 0x00, 0x0F, 0x85, 0x33, 0x5D, 0x80, 0x01 };
+static const uint8_t dep_112[] = { 0x45, 0x3B, 0x8E, 0x98, 0x13, 0x00, 0x00, 0x75, 0x0D, 0x41, 0x38, 0x9E, 0xAC, 0x13, 0x00, 0x00, 0x0F, 0x85, 0xBB, 0x83, 0x48, 0x01 };
+static const uint8_t dep_113[] = { 0xC6, 0x86, 0xAC, 0x13, 0x00, 0x00, 0x01 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -748,6 +767,13 @@ static const Dep kDeps[] = {
     { "PM", 0x2EEBB50, 24, dep_104, 0 },  // PM: setter head before PMs: sub rsp,28h (caller return at [rsp+38h] inside caveSiS), guard 1A7C6EC, max(edx,0)
     { "PM", 0x2EEBB6E, 9, dep_105, 0 },  // PM: setter tail after PMs (flags dead: ret)
     { "PM", 0x1A7C6EC, 22, dep_106, 0 },  // PM: setter guard (true = d+2538 != 0 && d+2544 >= 0 -> the setter refuses to write)
+    { "AS", 0x52BE1C, 34, dep_107, 0 },  // AS: AsyncSlotGetCtx; caveAs runs its first instruction (mov eax,[rcx+1CCh]) with the AND-mask and resumes at 52BE22 (bt eax,edx); the only reader of the slot mask (scan)
+    { "AS", 0x226A490, 7, dep_108, 0 },  // AS: vendor gate cmp [rbp+70h],10DEh before the AS0 byte 226A497 (slot 0 at boot)
+    { "AS", 0x5443B7, 22, dep_109, 0 },  // AS: slot-0 join in ReflectionProbePassRecord only when RS+13ACh != 0 (deferred effect batch set by the producer)
+    { "AS", 0x3D37DA, 25, dep_110, 0 },  // AS: slot-0 join in EffectViewPrepare only when RS+13ACh != 0
+    { "AS", 0x1489B7, 22, dep_111, 0 },  // AS: slot-0 join (fog node cold chunk 194E700) only when RS+13ACh != 0
+    { "AS", 0x547721, 22, dep_112, 0 },  // AS: slot-0 join (cold chunk 19CFAF2) only when RS+13ACh != 0
+    { "AS", 0x3D0D3A, 7, dep_113, 0 },  // AS: the producer's async branch sets RS+13ACh = 1 (only byte writer of 1)
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

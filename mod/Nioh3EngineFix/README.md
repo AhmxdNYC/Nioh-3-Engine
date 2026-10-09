@@ -362,6 +362,24 @@ From `notes\w1b-rpa.md` (whats-left #3 bundle; `notes\ally-drawprep-2.md` s.3). 
 Proof: `py -I tests\run_w1b_rpa_harness.py` runs the original bytes from the dump against the real caves (200k rows,
 300k calls; all bytes, registers) - ALL PASSED. Est. Ally main thread 0.15-0.25 + 0.07-0.1 ms/frame; 0 fps while GPU-bound.
 
+### 1.7.44: AS - the engine's async-compute slots, live (default 0, v2.02 only, live row "Async compute slots (AS)")
+From `notes\gpu-async-wins.md`. KTGL runs selected compute passes on their own D3D12 COMPUTE queues ("async slots"); each
+user is written twice by KT (graphics-queue path / async path with the engine's fences: the async context waits on the
+graphics fence of that point, the consumer waits on the async fence right before it reads). Stock: 3 (sky clouds), 4 (fog),
+6 (ocean) async; 0 (GPU effect simulation) only on NVIDIA; 11 (grass displacement) and 12 (tree wind) nowhere.
+- `[Patches] AS` 0 / 1 / 2 and `[Tuning] AS_Slots` (default `0`; Ally `0 11 12`; `-3 -4 -6` keeps shipped passes synchronous while ON).
+  At startup (decrypt-wait loop, before the renderer init, like AS0) slot 0 gets the AS0 byte and 11 / 12 their table
+  enable byte, so the engine creates their queues. Live: the one producer call of each switchable slot (`call
+  AsyncSlotGetCtx`; all 32 callers classified) goes through a cave that ANDs the slot mask: OFF = the stock slot set,
+  ON = AS's set. Slot 0's deferred joins (RS+13ACh) stay stock, so a toggle mid-frame is safe.
+- Log: `AS: boot: async slots requested 0 11 12 -> added 0 11 12 ...`, `AS: live switch at the producers effects(0) GVD(11)
+  Tree2Wind(12) ...`, every 30 s `stats/s AS: switch ON|off, ... producer calls: effects(0) N/s ...` and `stats/s ASYNC: 6
+  async compute queue(s), slots 0 3 4 6 11 12`.
+- Gain only when GPU-bound (A/B with the GPU as the limit, not in a CPU-bound scene; the 1.7.16 AS0 "neutral" was CPU-bound).
+Proof: `py -I tests\run_asyncslots_harness.py` (the original AsyncSlotGetCtx bytes from the dump vs the cave path, 1.2M
+random scheduler states, all GPRs / xmm) and `py -I tests\run_async_overlap_harness.py` (real D3D12 device: the same
+compute chain on the graphics queue vs a compute queue with the engine's fence pattern, bit-identical output, overlap gain).
+
 ## Requirements
 
 * Nioh 3 on Steam, **version 2.02**. The mod checks the executable and **refuses to patch any other build**

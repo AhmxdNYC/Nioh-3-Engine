@@ -31,6 +31,10 @@ rem GPU barrier batching (gpuopt.cpp): per-slot command-list thunks
 ml64 /nologo /c /W3 /Fobuild\gpuopt_thunks.obj src\gpuopt_thunks.asm || exit /b 1
 rem DQ / P1E7 caves (drawprep.cpp; [Patches] DQ = P1E7 = 0; notes\remaining-work.md 2.5)
 ml64 /nologo /c /W3 /Fobuild\drawprep_caves.obj src\drawprep.asm || exit /b 1
+rem AS async-slot producer caves (asyncslots.cpp; [Patches] AS = 0; notes\gpu-async-wins.md)
+ml64 /nologo /c /W3 /Fobuild\asyncslots_caves.obj src\asyncslots.asm || exit /b 1
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\asyncslots.obj src\asyncslots.cpp || exit /b 1
 rem JT job-timing probe caves (jt.cpp; [Profiler] JT = 0; notes\gq-jt-probes.md)
 ml64 /nologo /c /W3 /Fobuild\jt_caves.obj src\jt.asm || exit /b 1
 rem PM SyncInterval writer probes (pmode.cpp; [Debug] PresentModeLog = 1; notes\vrr-present.md)
@@ -109,7 +113,7 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
    /Fobuild\pmode.obj src\pmode.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gimerge.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
+   build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gimerge.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj buildsyncslots.obj buildsyncslots_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal
