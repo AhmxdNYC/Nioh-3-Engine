@@ -38,7 +38,12 @@ CbvMirror`, 1.7.52, default off), measured on the PC with pc2's memory layout fo
      move the heaps on a ReBAR PC: unchanged, section 5.)
    - pc2 is PCIe 4.0 x8 (the RX 9070 is 5.0 x16, same latency class): pc2's share of the ~7.7 ms excess that this explains
      is at least the PC's +3.9 ms and plausibly most of it; the pc2 CM A/B gives the number.
-3. **Fix built: CM (CbvMirror), 1.7.52, default off.** First PC measurement with the pc2 layout forced: span 12.76 ->
+3. **pc2 result for the shipped 1.7.52 design: WORSE, +15 ms** (#988, clean A A B A A at spawn 7356: GP2 span 32.2-33.2 ms ->
+   47.7 ms with CM on; picture within noise, so the redirect itself is correct). The own COPY queue + a fence wait before
+   every game ExecuteCommandLists (~10 per frame) serialises the frame on RDNA2. **1.7.54 = inline mode** (section 6): the
+   copies ride in a prologue list of the same submission on the game's own queue, no cross-queue waits - the shape of the
+   first PC build that took back 2.1 ms. pc2 A/B queued (#1001). If it does not beat base, CM stops here.
+4. **Fix built: CM (CbvMirror), 1.7.52 / 1.7.54, default off.** First PC measurement with the pc2 layout forced: span 12.76 ->
    **10.68 ms (-2.1 ms, 54 % of the penalty back)** with the copies on the DIRECT queue; the COPY-queue version (shipped) is
    being measured (section 6). Expected on pc2: 2-4 ms of 31.6 ms (6-13 % fps), 0 on the PC (ReBAR) and the Ally (UMA).
    The VB/IB share (particles/UI) is not covered yet (section 7).
@@ -112,7 +117,7 @@ CbvMirror`, 1.7.52, default off), measured on the PC with pc2's memory layout fo
 | VSForceSysUpload = 1 (write-combined L0) | 0.19 GB | 8.9 | - | - | identical to base: the driver keeps the heaps in BAR VRAM |
 | **VSForceSysUpload = 2 (write-back L0) = pc2 layout** | **0.89-1.04 GB** | **12.76** | 6.97 | 5.79 | **+3.86 ms** |
 | = 2 + CbvMirror = 2, copies on DIRECT (first build) | ~1 GB | **10.68** | 6.78 | 3.90 | **-2.08 ms**; 296k CBVs/s redirected, 0.66-0.82 GB/s copied |
-| = 2 + CbvMirror = 2, own COPY queue (1.7.52) | | pending | | | section 6 |
+| = 2 + CbvMirror = 2, own COPY queue (1.7.52) | | not measured | | | first try deadlocked its ring on a loading screen (fixed); PC busy since |
 
 Write-back system memory is snooped, so the PC arm is a slightly pessimistic stand-in for pc2's write-combined memory; pc2's
 x8 link is the other way round. The pc2 A/B is the number that counts.
@@ -132,15 +137,22 @@ x8 link is the other way round. The pc2 A/B is the number that counts.
 - Assumption A1: a recorder CBV's bytes are final when its descriptor is created (draw prep writes constants on the main
   thread before the dispatcher records). The picture check (shotdiff in the GPU-session flow, item `cm` / `cmforce`) is the
   proof; nothing visual was checked yet (the PC's user was active, no screenshot taken).
+- **1.7.54 inline mode (`CbvMirrorQueue = 0`, default):** no own queue. At a game ExecuteCommandLists on a DIRECT / COMPUTE
+  queue, one prologue list of that queue's type (copies from the alias, then one barrier COPY_DEST -> VERTEX_AND_CONSTANT_
+  BUFFER) goes in front of the game's lists in the SAME call; a per-queue fence is signalled after them (retire). A shared log
+  of redirected ranges with a cursor per queue: DIRECT copies everything since its last submission; async COMPUTE queues copy
+  the same ranges again into the same slots (identical bytes, buffers are simultaneous-access), skipping retired slots, unless
+  `CbvMirrorComputeCopy = 0`. `CbvMirrorQueue = 1` keeps the 1.7.52 path for comparison. CM also stands down if the game
+  creates a GPU_UPLOAD heap or OPTIONS16 reports GPU upload heaps (ReBAR exposed to D3D12).
 - Development notes: the first ring-retire rule (only "a later copy completed") deadlocked on a loading screen (no traffic ->
   ring full forever, run wbcmq): fixed with the 250 ms idle rule. At 150 fps the PC needs `CbvMirrorMB = 256`; pc2 at
   35 fps moves ~4x fewer bytes per second.
 
 ## 7. Next
 
-1. PC: the COPY-queue CM arm (`-AddKeys "Profiler.VSForceSysUpload=2;GpuOpt.CbvMirror=2;GpuOpt.CbvMirrorMB=256"`).
-2. pc2: `tools\testmatrix\pc2_pc_gpu_session.ps1 -Phases B -Items cm` (ABBA, GPUBusy + shots + shotdiff) on 1.7.52; and VS1
-   with CM on to see the per-PSO rows drop.
+1. pc2: 1.7.54 inline A/B (#1001, file #169): base vs `CbvMirror = 1` (+ optional `CbvMirrorComputeCopy = 0`). Go/stop.
+2. PC: the same with pc2's layout forced (`-AddKeys "Profiler.VSForceSysUpload=2;GpuOpt.CbvMirror=2;GpuOpt.CbvMirrorMB=256"`),
+   queued behind the other PC sessions.
 3. If CM holds: a VB/IB mirror for the dynamic vertex streams (needs the drawn vertex range per bind, not the view size; the
    1.7.51 histogram shows most sys VB views are 64 KB-1 MB) - the particle/UI share of the excess.
 4. User-side alternative (no code; user-settings.md): enabling Resizable BAR / SAM (BIOS: Above 4G decoding + Re-Size BAR,
