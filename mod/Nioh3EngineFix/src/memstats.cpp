@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <cwchar>
 
 #include "memstats.h"
@@ -25,6 +26,7 @@ void (*g_log)(const char*, ...) = nullptr;
     } while (0)
 
 bool g_on = false;
+int g_level = 0;  // [Profiler] MemStats: 1 = 30 s line, 2 = + 1 s 'stats vs:' line (VS probe, 1.7.48)
 uintptr_t g_base = 0;
 bool g_known = false;
 void* (*g_getDev)() = nullptr;
@@ -194,6 +196,273 @@ int CountThreads() {
     return n;
 }
 
+// ---- 1.7.48 VS probe (MemStats = 2): 1 s VRAM / texture page pool / residency line (notes\root-cause-vram-streaming.md) ---
+// Reads only. Engine fields (v2.02):
+//   pool object P = [[[[base+4759910]+530h]+F8h]+70h] (PagePoolOccupancyCheck 126C64's own path; compared with
+//   [base+45BA588]); size in 64 KB pages = (P+40ECh - P+40F0h) x P+40CCh; used = P+6CD0h; reserved = max(+756Ch,+7570h) +
+//   +7584h + +757Ch + +7578h; the engine's controller tests (used - reserved) x 100 / size > 85. Tile-request pool:
+//   free = +7560h - (reserved + this frame's +7590h), per-frame cap +75A8h. Page-pool stats of the last scanned frame
+//   (PagePoolFrameUpdate copies P+61A0h+8F8h -> +A10h): touches +A18h, queue-full +A24h, hits +A30h, misses +A34h.
+// D3D12: the engine device's vtable (GfxDevice+4268h) slots 27 CreateCommittedResource, 28 CreateHeap,
+//   30 CreateReservedResource, 34 MakeResident, 35 Evict are counted (calls, objects, bytes per memory pool). Installed when
+//   the device is first readable, so boot-time allocations made before that are not in the totals.
+namespace vs {
+constexpr uintptr_t kRvaPoolRoot = 0x4759910;
+struct PoolRead {
+    uintptr_t p = 0, gdev = 0;
+    uint32_t sets = 0, setsLo = 0, ways = 0, used = 0, r756c = 0, r7570 = 0, r7584 = 0, r757c = 0, r7578 = 0;
+    uint32_t cap = 0, frameReq = 0, frameCap = 0;
+    uint32_t touches = 0, qfull = 0, hits = 0, misses = 0;
+};
+uint32_t U32(uintptr_t a) { return *reinterpret_cast<volatile uint32_t*>(a); }
+uintptr_t Ptr(uintptr_t a) { return *reinterpret_cast<volatile uintptr_t*>(a); }
+bool ReadPool(uintptr_t base, PoolRead* r) {
+    __try {
+        uintptr_t a = Ptr(base + kRvaPoolRoot);
+        if (!a || !(a = Ptr(a + 0x530)) || !(a = Ptr(a + 0xF8))) return false;
+        const uintptr_t p = Ptr(a + 0x70);
+        if (!p) return false;
+        r->p = p;
+        r->gdev = Ptr(base + kRvaGfxDevice);
+        r->sets = U32(p + 0x40EC); r->setsLo = U32(p + 0x40F0); r->ways = U32(p + 0x40CC); r->used = U32(p + 0x6CD0);
+        r->r756c = U32(p + 0x756C); r->r7570 = U32(p + 0x7570); r->r7584 = U32(p + 0x7584);
+        r->r757c = U32(p + 0x757C); r->r7578 = U32(p + 0x7578);
+        r->cap = U32(p + 0x7560); r->frameReq = U32(p + 0x7590); r->frameCap = U32(p + 0x75A8);
+        r->touches = U32(p + 0x61A0 + 0xA18); r->qfull = U32(p + 0x61A0 + 0xA24);
+        r->hits = U32(p + 0x61A0 + 0xA30); r->misses = U32(p + 0x61A0 + 0xA34);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+// counters: hook threads add, the stats thread reads and diffs
+volatile LONG64 c_mrCalls = 0, c_mrObjs = 0, c_evCalls = 0, c_evObjs = 0;
+volatile LONG64 c_heapN = 0, c_heapLocal = 0, c_heapSys = 0;  // bytes
+volatile LONG64 c_comN = 0, c_comLocal = 0, c_comSys = 0;      // bytes
+volatile LONG64 c_resvN = 0, c_plN = 0, c_plSysN = 0, c_plSys = 0;  // placed resources (bytes = resource size, inside heaps)
+volatile LONG64 c_forced = 0;                                       // VSForceSysUpload conversions
+bool g_hooked = false, g_hookTried = false;
+int g_forceSys = 0;  // [Profiler] VSForceSysUpload (PC A/B only): UPLOAD heaps -> CUSTOM write-combine L0 (= system memory)
+
+// per-caller system-memory allocation table (heaps, committed, placed-into-sys-heap): who owns the non-local bytes.
+// Key = return addresses of the hooked call and of its caller (RVAs in Nioh3.exe, 0xFFFFFFFF = outside the exe).
+struct CallerRow { uint32_t ra0, ra1; char kind; LONG64 n, bytes, maxOne; };
+constexpr int kRows = 96;
+CallerRow g_rows[kRows];
+volatile LONG g_nRows = 0;
+SRWLOCK g_rowLock = SRWLOCK_INIT;
+uint32_t ToRva(void* a) {
+    const uintptr_t x = reinterpret_cast<uintptr_t>(a);
+    return (g_base && x >= g_base && x < g_base + 0x5000000) ? (uint32_t)(x - g_base) : 0xFFFFFFFFu;
+}
+__declspec(noinline) void NoteSys(char kind, UINT64 bytes) {
+    void* fr[8] = {};
+    const USHORT n = RtlCaptureStackBackTrace(1, 8, fr, nullptr);  // our own frames are outside the exe and skipped below
+    uint32_t r0 = 0xFFFFFFFFu, r1 = 0xFFFFFFFFu;
+    for (USHORT i = 0; i < n; ++i) {  // first frames inside the exe (skips wrappers such as OptiScaler / sl.interposer)
+        const uint32_t r = ToRva(fr[i]);
+        if (r == 0xFFFFFFFFu) continue;
+        if (r0 == 0xFFFFFFFFu) r0 = r;
+        else { r1 = r; break; }
+    }
+    AcquireSRWLockExclusive(&g_rowLock);
+    int i = 0;
+    for (; i < g_nRows; ++i)
+        if (g_rows[i].ra0 == r0 && g_rows[i].ra1 == r1 && g_rows[i].kind == kind) break;
+    if (i == g_nRows && g_nRows < kRows) g_rows[g_nRows++] = CallerRow{r0, r1, kind, 0, 0, 0};
+    if (i < kRows) {
+        ++g_rows[i].n;
+        g_rows[i].bytes += (LONG64)bytes;
+        if ((LONG64)bytes > g_rows[i].maxOne) g_rows[i].maxOne = (LONG64)bytes;
+    }
+    ReleaseSRWLockExclusive(&g_rowLock);
+}
+
+using ResidencyFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, UINT, ID3D12Pageable* const*);
+using CreateHeapFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_HEAP_DESC*, REFIID, void**);
+using CreateCommittedFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_HEAP_PROPERTIES*, D3D12_HEAP_FLAGS,
+                                                      const D3D12_RESOURCE_DESC*, D3D12_RESOURCE_STATES,
+                                                      const D3D12_CLEAR_VALUE*, REFIID, void**);
+using CreatePlacedFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, ID3D12Heap*, UINT64, const D3D12_RESOURCE_DESC*,
+                                                   D3D12_RESOURCE_STATES, const D3D12_CLEAR_VALUE*, REFIID, void**);
+using CreateReservedFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_RESOURCE_DESC*, D3D12_RESOURCE_STATES,
+                                                     const D3D12_CLEAR_VALUE*, REFIID, void**);
+ResidencyFn o_mr = nullptr, o_ev = nullptr;
+CreateHeapFn o_heap = nullptr;
+CreateCommittedFn o_com = nullptr;
+CreatePlacedFn o_pl = nullptr;
+CreateReservedFn o_resv = nullptr;
+
+// true = system memory on a discrete GPU: UPLOAD / READBACK, or CUSTOM with MemoryPoolPreference L0
+bool SysPool(const D3D12_HEAP_PROPERTIES& h) {
+    if (h.Type == D3D12_HEAP_TYPE_UPLOAD || h.Type == D3D12_HEAP_TYPE_READBACK) return true;
+    return h.Type == D3D12_HEAP_TYPE_CUSTOM && h.MemoryPoolPreference == D3D12_MEMORY_POOL_L0;
+}
+// VSForceSysUpload: D3D12 defines UPLOAD as CUSTOM {WRITE_COMBINE, L0} on a discrete (NUMA) adapter, so the conversion keeps
+// the API contract; it only takes away a driver's freedom to put UPLOAD heaps in CPU-visible VRAM (ReBAR / SAM). PC A/B.
+D3D12_HEAP_PROPERTIES ForceSys(const D3D12_HEAP_PROPERTIES& h) {
+    D3D12_HEAP_PROPERTIES c = h;
+    c.Type = D3D12_HEAP_TYPE_CUSTOM;
+    c.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE;
+    c.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+    return c;
+}
+HRESULT STDMETHODCALLTYPE HkMakeResident(ID3D12Device* d, UINT n, ID3D12Pageable* const* o) {
+    InterlockedIncrement64(&c_mrCalls);
+    InterlockedAdd64(&c_mrObjs, n);
+    return o_mr(d, n, o);
+}
+HRESULT STDMETHODCALLTYPE HkEvict(ID3D12Device* d, UINT n, ID3D12Pageable* const* o) {
+    InterlockedIncrement64(&c_evCalls);
+    InterlockedAdd64(&c_evObjs, n);
+    return o_ev(d, n, o);
+}
+HRESULT STDMETHODCALLTYPE HkCreateHeap(ID3D12Device* d, const D3D12_HEAP_DESC* h, REFIID r, void** out) {
+    D3D12_HEAP_DESC alt;
+    const D3D12_HEAP_DESC* use = h;
+    if (g_forceSys && h && h->Properties.Type == D3D12_HEAP_TYPE_UPLOAD) {
+        alt = *h;
+        alt.Properties = ForceSys(h->Properties);
+        use = &alt;
+    }
+    HRESULT hr = o_heap(d, use, r, out);
+    if (FAILED(hr) && use != h) hr = o_heap(d, h, r, out);  // never let the A/B break the game
+    else if (use != h && SUCCEEDED(hr)) InterlockedIncrement64(&c_forced);
+    if (SUCCEEDED(hr) && h && out) {
+        InterlockedIncrement64(&c_heapN);
+        const bool sys = SysPool(h->Properties);
+        InterlockedAdd64(sys ? &c_heapSys : &c_heapLocal, (LONG64)h->SizeInBytes);
+        if (sys) NoteSys(h->Properties.Type == D3D12_HEAP_TYPE_READBACK ? 'h' : 'H', h->SizeInBytes);
+    }
+    return hr;
+}
+HRESULT STDMETHODCALLTYPE HkCreateCommitted(ID3D12Device* d, const D3D12_HEAP_PROPERTIES* hp, D3D12_HEAP_FLAGS f,
+                                            const D3D12_RESOURCE_DESC* rd, D3D12_RESOURCE_STATES st,
+                                            const D3D12_CLEAR_VALUE* cv, REFIID r, void** out) {
+    D3D12_HEAP_PROPERTIES alt;
+    const D3D12_HEAP_PROPERTIES* use = hp;
+    if (g_forceSys && hp && hp->Type == D3D12_HEAP_TYPE_UPLOAD) {
+        alt = ForceSys(*hp);
+        use = &alt;
+    }
+    HRESULT hr = o_com(d, use, f, rd, st, cv, r, out);
+    if (FAILED(hr) && use != hp) hr = o_com(d, hp, f, rd, st, cv, r, out);
+    else if (use != hp && SUCCEEDED(hr)) InterlockedIncrement64(&c_forced);
+    if (SUCCEEDED(hr) && hp && rd && out) {
+        UINT64 bytes = rd->Width;  // buffers: exact; textures: the driver's allocation size
+        if (rd->Dimension != D3D12_RESOURCE_DIMENSION_BUFFER) bytes = d->GetResourceAllocationInfo(0, 1, rd).SizeInBytes;
+        InterlockedIncrement64(&c_comN);
+        const bool sys = SysPool(*hp);
+        InterlockedAdd64(sys ? &c_comSys : &c_comLocal, (LONG64)bytes);
+        if (sys) NoteSys(hp->Type == D3D12_HEAP_TYPE_READBACK ? 'c' : 'C', bytes);
+    }
+    return hr;
+}
+HRESULT STDMETHODCALLTYPE HkCreatePlaced(ID3D12Device* d, ID3D12Heap* heap, UINT64 off, const D3D12_RESOURCE_DESC* rd,
+                                         D3D12_RESOURCE_STATES st, const D3D12_CLEAR_VALUE* cv, REFIID r, void** out) {
+    const HRESULT hr = o_pl(d, heap, off, rd, st, cv, r, out);
+    if (SUCCEEDED(hr) && heap && rd && out) {
+        InterlockedIncrement64(&c_plN);
+        const D3D12_HEAP_DESC hd = heap->GetDesc();
+        if (SysPool(hd.Properties)) {
+            const UINT64 bytes = rd->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER ? rd->Width
+                                                                                  : d->GetResourceAllocationInfo(0, 1, rd).SizeInBytes;
+            InterlockedIncrement64(&c_plSysN);
+            InterlockedAdd64(&c_plSys, (LONG64)bytes);
+            NoteSys(hd.Properties.Type == D3D12_HEAP_TYPE_READBACK ? 'p' : 'P', bytes);
+        }
+    }
+    return hr;
+}
+HRESULT STDMETHODCALLTYPE HkCreateReserved(ID3D12Device* d, const D3D12_RESOURCE_DESC* rd, D3D12_RESOURCE_STATES st,
+                                           const D3D12_CLEAR_VALUE* cv, REFIID r, void** out) {
+    const HRESULT hr = o_resv(d, rd, st, cv, r, out);
+    if (SUCCEEDED(hr)) InterlockedIncrement64(&c_resvN);
+    return hr;
+}
+bool Patch(void** slot, void* hook, void** orig) {
+    DWORD old = 0, t = 0;
+    if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) return false;
+    *orig = *slot;
+    *slot = hook;
+    VirtualProtect(slot, sizeof(void*), old, &t);
+    return true;
+}
+bool ReadVtable(void* dev, void*** vt) {
+    __try {
+        *vt = *reinterpret_cast<void** volatile*>(dev);
+        return *vt != nullptr;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+SRWLOCK g_installLock = SRWLOCK_INIT;
+void InstallHooks() {
+    AcquireSRWLockExclusive(&g_installLock);
+    if (g_hookTried) { ReleaseSRWLockExclusive(&g_installLock); return; }
+    void* dev = nullptr;
+    if (!(g_known && g_base && ReadEnginePtr(g_base, &dev))) {  // device not there yet: retry
+        ReleaseSRWLockExclusive(&g_installLock);
+        return;
+    }
+    g_hookTried = true;
+    void** vt = nullptr;
+    if (!ReadVtable(dev, &vt)) {
+        MLOG("VS: device vtable not readable - D3D12 counters off");
+        ReleaseSRWLockExclusive(&g_installLock);
+        return;
+    }
+    const bool ok = Patch(&vt[27], (void*)&HkCreateCommitted, (void**)&o_com) &&
+                    Patch(&vt[28], (void*)&HkCreateHeap, (void**)&o_heap) &&
+                    Patch(&vt[29], (void*)&HkCreatePlaced, (void**)&o_pl) &&
+                    Patch(&vt[30], (void*)&HkCreateReserved, (void**)&o_resv) &&
+                    Patch(&vt[34], (void*)&HkMakeResident, (void**)&o_mr) && Patch(&vt[35], (void*)&HkEvict, (void**)&o_ev);
+    g_hooked = ok;
+    ReleaseSRWLockExclusive(&g_installLock);
+    double lu = -1, lb = 0;
+    if (!QueryVram(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &lu, &lb)) lu = -1;
+    MLOG("VS: D3D12 device %p vtable %p: residency/allocation counters %s (slots 27/28/29/30/34/35; VRAM local at install "
+         "%.0f MB)%s", dev, (void*)vt, ok ? "installed" : "FAILED", lu,
+         g_forceSys ? "; VSForceSysUpload = 1: UPLOAD heaps -> CUSTOM write-combine L0 (system memory) - A/B ONLY" : "");
+    // Resizable BAR / SAM hint: D3D12_OPTIONS16 (feature 43) GPUUploadHeapSupported = CPU-visible VRAM for the whole heap.
+    // Raw values so an older SDK header still builds; a runtime without the feature returns E_INVALIDARG (logged as n/a).
+    struct Opt16 { BOOL dynDepthBias; BOOL gpuUploadHeap; } o16{};
+    const HRESULT hr16 = static_cast<ID3D12Device*>(dev)->CheckFeatureSupport((D3D12_FEATURE)43, &o16, sizeof(o16));
+    D3D12_FEATURE_DATA_ARCHITECTURE arch{};
+    const HRESULT hra = static_cast<ID3D12Device*>(dev)->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE, &arch, sizeof(arch));
+    MLOG("VS: GPUUploadHeapSupported (ReBAR/SAM) %s, UMA %s, CacheCoherentUMA %s",
+         SUCCEEDED(hr16) ? (o16.gpuUploadHeap ? "YES" : "no") : "n/a", SUCCEEDED(hra) ? (arch.UMA ? "yes" : "no") : "n/a",
+         SUCCEEDED(hra) ? (arch.CacheCoherentUMA ? "yes" : "no") : "n/a");
+}
+// early install: poll every 2 ms from Start() for up to 10 min so boot-time allocations are counted too
+DWORD WINAPI EarlyThread(void*) {
+    for (int i = 0; i < 300000 && !g_hookTried; ++i) {
+        InstallHooks();
+        if (!g_hookTried) Sleep(2);
+    }
+    return 0;
+}
+void LogCallers() {
+    CallerRow rows[kRows];
+    int n;
+    AcquireSRWLockShared(&g_rowLock);
+    n = g_nRows;
+    memcpy(rows, g_rows, sizeof(CallerRow) * n);
+    ReleaseSRWLockShared(&g_rowLock);
+    for (int i = 0; i < n; ++i)  // biggest first
+        for (int j = i + 1; j < n; ++j)
+            if (rows[j].bytes > rows[i].bytes) { CallerRow t = rows[i]; rows[i] = rows[j]; rows[j] = t; }
+    char line[1400];
+    size_t o = (size_t)snprintf(line, sizeof line, "stats vs callers (system memory; H heap / C committed / P placed-in-sys-heap, "
+                                                   "lower case = READBACK; rva0<-rva1: n, MB, max MB):");
+    for (int i = 0; i < n && i < 24 && o < sizeof line - 80; ++i)
+        o += (size_t)snprintf(line + o, sizeof line - o, " %c %X<-%X: %lld, %.1f, %.2f;", rows[i].kind, rows[i].ra0, rows[i].ra1,
+                              rows[i].n, rows[i].bytes / kMB, rows[i].maxOne / kMB);
+    MLOG("%s", line);
+}
+}  // namespace vs
+
 }  // namespace
 
 bool Start(const StartInfo& info) {
@@ -201,11 +470,17 @@ bool Start(const StartInfo& info) {
     g_base = info.base;
     g_known = info.knownBuild;
     g_getDev = info.getD3D12Device;
-    g_on = info.iniPath && GetPrivateProfileIntW(L"Profiler", L"MemStats", 0, info.iniPath) != 0;
+    g_level = info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"MemStats", 0, info.iniPath) : 0;
+    g_on = g_level != 0;
     QueryPerformanceFrequency(&g_qpf);
+    if (g_level >= 2) {
+        vs::g_forceSys = info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, info.iniPath) : 0;
+        if (HANDLE t = CreateThread(nullptr, 0, vs::EarlyThread, nullptr, 0, nullptr)) CloseHandle(t);
+    }
     if (g_on)
-        MLOG("MEM: MemStats on - one 'stats mem:' line per stats period (process memory, handles, threads, VRAM)%s",
-             g_getDev || g_known ? "" : "; no D3D12 device source, VRAM from the first hardware adapter");
+        MLOG("MEM: MemStats on - one 'stats mem:' line per stats period (process memory, handles, threads, VRAM)%s%s",
+             g_getDev || g_known ? "" : "; no D3D12 device source, VRAM from the first hardware adapter",
+             g_level >= 2 ? "; MemStats = 2: + one 'stats vs:' line per second (VRAM, texture page pool, D3D12 residency)" : "");
     return g_on;
 }
 
@@ -277,6 +552,50 @@ void LogLine() {
 
     MLOG("stats mem: private %.0f MB, working set %.0f MB (peak %.0f), commit %.0f MB, handles %.0f, threads %.0f, %s%s%s",
          s.priv, s.ws, peakWs, s.commit, s.handles, s.threads, vram, sys, delta);
+}
+
+// 1.7.48 VS probe: one 'stats vs:' line per second when MemStats = 2 (stats thread, every second).
+void Tick1s() {
+    if (g_level < 2) return;
+    if (!vs::g_hookTried) vs::InstallHooks();
+    EnsureAdapter();
+    double lu = -1, lb = 0, nu = -1, nb = 0;
+    if (!QueryVram(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &lu, &lb)) lu = -1;
+    if (!QueryVram(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nu, &nb)) nu = -1;
+    static double plu = -1;
+    const double dlu = (plu >= 0 && lu >= 0) ? lu - plu : 0.0;
+    plu = lu;
+    char pool[360] = "pool n/a";
+    vs::PoolRead r;
+    if (g_known && g_base && vs::ReadPool(g_base, &r)) {
+        const long long size = (long long)((int)r.sets - (int)r.setsLo) * (long long)r.ways;
+        const unsigned resv = (r.r756c > r.r7570 ? r.r756c : r.r7570) + r.r7584 + r.r757c + r.r7578;
+        const double occ = size > 0 ? ((double)r.used - (double)resv) * 100.0 / (double)size : -1.0;
+        const long long freeReq = (long long)r.cap - ((long long)resv + r.frameReq);
+        snprintf(pool, sizeof(pool),
+                 "pool %lld pages (%.0f MB) used %u reserved %u occ %.1f%%%s | req-pool %u free %lld frame %u/%u | "
+                 "lastframe touches %u hits %u misses %u qfull %u | P%s45BA588",
+                 size, (double)size / 16.0, r.used, resv, occ, occ > 85.0 ? " OVER85" : "", r.cap, freeReq, r.frameReq,
+                 r.frameCap, r.touches, r.hits, r.misses, r.qfull, r.p == r.gdev ? "==" : "!=");
+    }
+    static LONG64 p[10] = {};
+    const LONG64 c[10] = {vs::c_mrCalls, vs::c_mrObjs, vs::c_evCalls, vs::c_evObjs, vs::c_heapN,
+                          vs::c_heapLocal, vs::c_heapSys, vs::c_comN, vs::c_comLocal, vs::c_comSys};
+    char d3d[480] = "d3d12 n/a";
+    if (vs::g_hooked)
+        snprintf(d3d, sizeof(d3d),
+                 "d3d12/s MakeResident %lld (%lld obj) Evict %lld (%lld obj) CreateHeap %lld (+%.1f MB vram, +%.1f MB sys) "
+                 "Committed %lld (+%.1f MB vram, +%.1f MB sys) | since hook: heaps %.0f/%.0f MB, committed %.0f/%.0f MB "
+                 "(vram/sys), reserved res %lld, MakeResident obj %lld, Evict obj %lld, placed %lld (in sys heaps %lld, %.0f MB), "
+                 "forced-sys %lld",
+                 c[0] - p[0], c[1] - p[1], c[2] - p[2], c[3] - p[3], c[4] - p[4], (c[5] - p[5]) / kMB, (c[6] - p[6]) / kMB,
+                 c[7] - p[7], (c[8] - p[8]) / kMB, (c[9] - p[9]) / kMB, c[5] / kMB, c[6] / kMB, c[8] / kMB, c[9] / kMB,
+                 (long long)vs::c_resvN, c[1], c[3], (long long)vs::c_plN, (long long)vs::c_plSysN, vs::c_plSys / kMB,
+                 (long long)vs::c_forced);
+    for (int i = 0; i < 10; ++i) p[i] = c[i];
+    MLOG("stats vs: local %.0f/%.0f MB (%+.0f MB/s), nonlocal %.0f/%.0f MB | %s | %s", lu, lb, dlu, nu, nb, pool, d3d);
+    static int ticks = 0;
+    if (vs::g_hooked && ++ticks % 30 == 0) vs::LogCallers();
 }
 
 }  // namespace memstats

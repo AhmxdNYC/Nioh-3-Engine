@@ -66,6 +66,7 @@
 // 1.7.40: diagnostics: GQ graphics-queue gap census (gpuprof.cpp) + JT job-timing probe (jt.cpp / jt.asm); notes\gq-jt-probes.md
 // 1.7.41: the boss logger (BossLog / RematchLog / InvLog) and the boss rematch moved to the separate add-on Nioh3BossRematch.asi
 //         (mod\Nioh3BossRematch, notes\boss-rematch-addon.md): this ASI hooks no boss site any more; old ini keys are logged as moved
+// 1.7.48: VS probe ([Profiler] MemStats = 2: 1 s VRAM / texture page pool / D3D12 residency line; notes\root-cause-vram-streaming.md)
 // 1.7.42: W1B (glyph padding clear 61BAC plain stores) + RPA (RenderParamsAssign 247950 range copy), drawprep.cpp; notes\w1b-rpa.md
 // 1.7.43: fix boot hang with 3-4 drawprep groups on (FrozenWrite oldProt[2] overrun by 1.7.42's 4 writes; drawprep.cpp)
 // 1.7.44: present mode log ([Debug] PresentModeLog = 1, PM SyncInterval writer probes) + [Latency] VrrPresent (pmode.cpp; notes\vrr-present.md)
@@ -75,7 +76,7 @@
 // 1.7.46: PL boot pipeline library ([Patches] PL = 0; psojournal.cpp) + boot-list timing line; notes\boot-shader-compile.md
 // 1.7.47: MLP meshlet front-end probe ([Profiler] MeshletProbe = 0; mlprobe.cpp CPU half + gpuprof.cpp GPU half), MPCS MPC tail skip
 //         ([Patches] MPCS = 0; mpcskip.asm, needs the `mpc` shader build) + MpcCheck self-check (mpccheck.cpp); notes\meshlet-frontend.md
-#define MOD_VERSION "1.7.47"
+#define MOD_VERSION "1.7.48"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2363,6 +2364,7 @@ DWORD WINAPI Worker(LPVOID) {
                 }
                 if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
+                memstats::Tick1s();                      // 1.7.48 VS: no-op unless [Profiler] MemStats = 2
                 if (sec % 30 == 0) loadmem::LogLine();  // no-op unless [Memory] LM = 1
                 if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
                 if (sec % 30 == 0) mlprobe::LogLine();   // no-op unless [Profiler] MeshletProbe = 1 (CPU half)

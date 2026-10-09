@@ -42,5 +42,9 @@ bool Enabled();
 void LogLine();
 // 1.7.36 (Tour): VRAM local / non-local used and budget in MB (any thread); false until the adapter is known (MemStats = 1).
 bool Vram(double* localUsed, double* localBudget, double* nonLocalUsed, double* nonLocalBudget);
+// 1.7.48 VS probe ([Profiler] MemStats = 2): one 'stats vs:' line per second - VRAM local / non-local, the engine's texture
+// page pool (size, used, occupancy vs its 85 % controller threshold, last-frame hits / misses / queue-full) and D3D12
+// MakeResident / Evict / CreateHeap / CreateCommittedResource counts and bytes per memory pool. Call every second.
+void Tick1s();
 
 }  // namespace memstats
