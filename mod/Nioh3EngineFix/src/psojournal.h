@@ -39,8 +39,14 @@
 // cache is in. Same PSO: same device method, same desc bytes, same shaders, same root signature. Misses and the switch
 // off run the engine's own call unchanged. PJH != 0 implies PJ = 1.
 //
+// PL (1.7.46, [Patches] PL = 0 off | 1 on | 2 installed + off = boot-list timing line only; notes\boot-shader-compile.md):
+// a persistent ID3D12PipelineLibrary for the BOOT PSO list only (creates before the boot gate). Lookup by the PJ desc key
+// with the engine's own desc (the runtime refuses a differing desc), miss -> the engine's call + StorePipeline; at the
+// gate the library is serialized when it grew and released. Invalidation: exe build, device class, adapter ids, UMD
+// driver version, size, Hash128 of the blob, and D3D12's own check (DRIVER_VERSION_MISMATCH / ADAPTER_NOT_FOUND). Off on
+// Wine and when ShaderSwap / GPUProf 2 / GIProbe / GIMerge hook PSO creation. Works with or without PJ.
 // ini ([Patches]):  PJ = 0 off | 1 journal + prewarm | 2 journal only;  PJ_MaxMB = 64;  PJ_QuietMs = 3000;
-//                   PJH = 0 | 1 | 2;  PJ_KeepMax = 4096
+//                   PJH = 0 | 1 | 2;  PJ_KeepMax = 4096;  PL = 0 | 1 | 2;  PL_MaxMB = 1024
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -92,6 +98,16 @@ struct Stats {
     uint64_t handMiss = 0;       // engine creates after boot with the switch on and no prewarmed PSO (compiled as usual)
     uint64_t kept = 0;           // prewarmed PSOs waiting for the engine
     uint64_t keepRefused = 0;    // prewarmed but released: PJ_KeepMax reached
+    // PL (boot pipeline library) + boot-list timing
+    int pl = 0;                  // PL value (0 off; 2 also when PL = 1 was refused: Wine / ShaderSwap / GPUProf 2 / GI hooks)
+    int plPhase = 0;             // 0 opening, 1 open, 2 closed, -1 off
+    bool plFromFile = false;     // the library came from the file (boot creates are loaded)
+    bool plRebuilt = false;      // a file existed but was refused (stale / corrupt / D3D12 said no)
+    uint32_t plFileEntries = 0;  // pipelines in the file at start
+    uint64_t plLoaded = 0, plMiss = 0, plStored = 0, plEarly = 0, plErrors = 0;
+    bool plDone = false;         // closed at the boot gate (and written when it grew)
+    uint64_t bootN = 0;          // engine creates before the boot gate
+    uint32_t bootThreads = 0;    // distinct threads that created them
 };
 void GetStats(Stats& out);
 const char* StatusLine(char* buf, size_t n);  // "journal 1834 PSOs (+12) 41.2 MB | prewarm done 220 ok ..." ("" when off)
@@ -105,5 +121,7 @@ volatile uint32_t* HandoverSwitch();
 bool WaitIdleForTest(unsigned long ms);
 bool WaitBootForTest(unsigned long ms);
 bool WaitPrewarmForTest(unsigned long ms);
+bool WaitPlReadyForTest(unsigned long ms);  // the PL library is open (or PL decided it is off)
+bool WaitPlDoneForTest(unsigned long ms);   // PL closed at the boot gate (library written when it grew)
 
 }  // namespace pj

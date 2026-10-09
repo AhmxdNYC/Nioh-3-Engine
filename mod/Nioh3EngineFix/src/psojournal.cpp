@@ -14,10 +14,21 @@
 //           fixed bytes (the desc / stream with every pointer zeroed and every padding byte zero),
 //           shader count x {u32 offset, u32 length, key(16)},
 //           [input layout: u32 offset, u32 n, n x {6 x u32 element fields, u8 name length, name}]
+//
+// PL (1.7.46, notes\boot-shader-compile.md): a persistent ID3D12PipelineLibrary for the BOOT PSO list (the ~17,000 PSOs
+// the game creates before the title in every launch). Every engine create before the boot gate is first looked up in the
+// library (LoadGraphics/Compute/Pipeline with the engine's own desc; the D3D12 runtime refuses a desc that differs from the
+// stored one); a miss runs the engine's own call and stores the result. At the gate the library is serialized (only when
+// something new was stored) and released. File: <ini folder>\Nioh3EngineFix_pj\pl_<os>_<gpu>_sm<NN>.bin = 128-byte header
+// (exe build, device class, adapter ids, UMD driver version, blob size + Hash128) + the D3D12 blob. The blob is mapped
+// read-only for the whole session (file-backed pages, no commit charge); a rewrite while it is mapped goes to .new and is
+// promoted at the next launch. Any mismatch (exe, driver, adapter, size, checksum) or a D3D12 refusal starts a new library;
+// any load error falls back to the engine's own call. After the gate nothing changes: runtime creates belong to PJ / PJH.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 #include <d3d12.h>
+#include <dxgi1_4.h>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -73,6 +84,8 @@ struct Cfg {
     std::wstring folder;
     int handover = 0;           // PJH: 0 off, 1 on, 2 installed + off (live switch)
     uint32_t keepMax = 4096;    // PJ_KeepMax: prewarmed PSOs held for the hand-over
+    int pl = 0;                 // PL: 0 off, 1 boot pipeline library, 2 installed + off (boot timing line only)
+    uint64_t plMaxBytes = 1024ull << 20;  // PL_MaxMB: largest library written
 } g_cfg;
 volatile uint32_t g_pjhSwitch = 0;  // PJH live switch (menu row): 1 = hand prewarmed PSOs to the engine's creates
 void (*g_log)(const char*, ...) = nullptr;
@@ -665,18 +678,70 @@ void OnRootSig(const void* blob, size_t len, UINT node, void* obj) {
     }
 }
 
+// ---- boot PSO list timing (every engine create before the boot gate; PJ or PL on) + PL hooks (defined below) -------------
+std::atomic<uint64_t> g_bN{0}, g_bTicks{0}, g_bMax{0};
+std::atomic<int64_t> g_bFirst{0}, g_bLast{0};
+std::atomic<uint32_t> g_bThreads{0};
+thread_local bool t_bootSeen = false;
+int64_t g_qpcStart = 0;                // QPC at process creation (log times are "+s after process start")
+std::atomic<int64_t> g_devQpc{0};      // QPC when the first device was reported
+void BootNote(int64_t t0, int64_t t1) {
+    const uint64_t dt = (uint64_t)(t1 - t0);
+    g_bN.fetch_add(1, std::memory_order_relaxed);
+    g_bTicks.fetch_add(dt, std::memory_order_relaxed);
+    for (uint64_t m = g_bMax.load(std::memory_order_relaxed); dt > m && !g_bMax.compare_exchange_weak(m, dt);) {
+    }
+    int64_t z = 0;
+    g_bFirst.compare_exchange_strong(z, t0);
+    for (int64_t m = g_bLast.load(std::memory_order_relaxed); t1 > m && !g_bLast.compare_exchange_weak(m, t1);) {
+    }
+    if (!t_bootSeen) {
+        t_bootSeen = true;
+        g_bThreads.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+std::atomic<int> g_plPhase{0};  // 0 not ready, 1 open (boot creates are loaded / stored), 2 closed, -1 off
+bool PlTryLoad(int kind, ID3D12Device* self, const void* d, const Key& id, REFIID riid, void** pp);
+void PlStore(int kind, const Key& id, IUnknown* obj);
+std::atomic<uint64_t> g_plEarly{0};  // boot creates before the library was ready (not looked up, not stored)
+
 // ---- device hooks --------------------------------------------------------------------------------------------------------
 // One engine PSO create (graphics 1 / compute 2 / stream 3). The desc is serialized BEFORE the call: with PJH on, a
 // prewarmed PSO for the same desc (same device method, same shaders, the engine's root signature) is handed back instead
 // of a second compile, as a fresh reference of the requested interface; otherwise the engine's own call runs unchanged.
+// Before the boot gate (the boot PSO list) every create is timed, and with PL = 1 it is first loaded from the pipeline
+// library (the engine's own desc; the runtime refuses a desc that differs from the stored one) or stored after the call.
 template <class Call>
 HRESULT EngineCreate(int kind, ID3D12Device* self, const void* d, REFIID riid, void** pp, Call call) {
     Ser s;
     std::vector<uint8_t> rec;
     Key id;
-    const bool ok = d && Prepare(kind, d, s, rec, id);
-    if (ok && pp && g_pjhSwitch && g_bootDone.load(std::memory_order_acquire) &&
-        (self == g_gameDev || self == g_gameDev2)) {
+    const bool boot = !g_bootDone.load(std::memory_order_acquire);
+    const bool plOn = boot && g_cfg.pl == 1;
+    const bool ok = d && (g_cfg.mode || plOn) && Prepare(kind, d, s, rec, id);
+    if (boot) {
+        const int64_t t0 = Qpc();
+        bool loaded = false;
+        HRESULT hr = E_FAIL;
+        if (plOn && ok && pp) {
+            if (g_plPhase.load(std::memory_order_acquire) == 1) loaded = PlTryLoad(kind, self, d, id, riid, pp);
+            else if (g_plPhase.load(std::memory_order_relaxed) == 0) g_plEarly.fetch_add(1, std::memory_order_relaxed);
+        }
+        if (loaded) hr = S_OK;
+        else hr = call();
+        BootNote(t0, Qpc());
+        if (hr == S_OK && d && pp && *pp) {
+            NoteCreate(self);
+            if (plOn && ok && !loaded) PlStore(kind, id, static_cast<IUnknown*>(*pp));
+            if (g_cfg.mode) {
+                if (ok) RecordPso(s, std::move(rec), id);
+                else CountSkip(s);
+            }
+        }
+        return hr;
+    }
+    if (!g_cfg.mode) return call();  // PL only: after the gate every create is the engine's own, untouched
+    if (ok && pp && g_pjhSwitch && (self == g_gameDev || self == g_gameDev2)) {
         if (IUnknown* k = TakeKept(id)) {
             void* out = nullptr;
             const HRESULT q = k->QueryInterface(riid, &out);
@@ -1010,6 +1075,449 @@ DWORD WINAPI WriterMain(LPVOID) {
     }
 }
 
+// ---- PL: boot pipeline library ---------------------------------------------------------------------------------------------
+constexpr uint32_t kPlMagic = 0x4C50334E;  // "N3PL"
+constexpr uint32_t kPlVersion = 1;
+struct PlHeader {
+    uint32_t magic, version, exeStamp, exeSize;
+    char devClass[32];
+    uint32_t vendor, device, subsys, revision;  // DXGI adapter ids
+    uint64_t umd;                               // user-mode driver version (IDXGIAdapter::CheckInterfaceSupport)
+    uint64_t blobSize;                          // D3D12 blob bytes after the header
+    uint64_t sumA, sumB;                        // Hash128 of the blob
+    uint32_t entries, flags;
+    uint64_t reserved[3];
+};
+static_assert(sizeof(PlHeader) == 128, "PL header");
+constexpr size_t kPlIdent = offsetof(PlHeader, blobSize);  // the part that must equal this session's
+
+struct PlState {
+    ID3D12PipelineLibrary* lib = nullptr;
+    ID3D12PipelineLibrary1* lib1 = nullptr;  // stream (mesh-shader) PSOs
+    void* dev = nullptr;                     // the device the library belongs to (no reference) and its Device2 pointer
+    void* dev2 = nullptr;
+    bool fromFile = false;  // holds a previous session's pipelines: boot creates are looked up first
+    bool rebuilt = false;   // a file existed but was refused: the new library is written at the gate
+    uint32_t fileEntries = 0;
+    HANDLE file = INVALID_HANDLE_VALUE, map = nullptr;  // kept for the whole session (the blob must outlive the library)
+    const uint8_t* view = nullptr;
+    std::wstring path;
+    PlHeader want{};
+} g_pl;
+SRWLOCK g_plLock = SRWLOCK_INIT;  // shared: one load / store; exclusive: close
+SRWLOCK g_plStripe[64] = {};      // per name: loads of the same PSO must not run concurrently (D3D12 docs)
+std::atomic<uint64_t> g_plLoaded{0}, g_plLoadTicks{0}, g_plMiss{0}, g_plLoadErr{0}, g_plStored{0}, g_plStoreErr{0};
+std::atomic<bool> g_plInit{false}, g_plBroken{false};
+std::atomic<int> g_plDone{0};  // 1 = closed (and saved when needed)
+char g_plCache[160] = "";      // driver shader-cache support line
+
+void PlName(const Key& k, wchar_t* n, size_t cap) { swprintf(n, cap, L"%016llx%016llx", (unsigned long long)k.a, (unsigned long long)k.b); }
+
+HRESULT PlLoadRaw(ID3D12PipelineLibrary* lib, ID3D12PipelineLibrary1* lib1, int kind, const void* d, const wchar_t* name,
+                  REFIID riid, void** out) {
+    __try {
+        if (kind == 1) return lib->LoadGraphicsPipeline(name, static_cast<const D3D12_GRAPHICS_PIPELINE_STATE_DESC*>(d), riid, out);
+        if (kind == 2) return lib->LoadComputePipeline(name, static_cast<const D3D12_COMPUTE_PIPELINE_STATE_DESC*>(d), riid, out);
+        if (kind == 3 && lib1) return lib1->LoadPipeline(name, static_cast<const D3D12_PIPELINE_STATE_STREAM_DESC*>(d), riid, out);
+        return E_NOTIMPL;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return E_UNEXPECTED;
+    }
+}
+HRESULT PlStoreRaw(ID3D12PipelineLibrary* lib, const wchar_t* name, ID3D12PipelineState* p) {
+    __try {
+        return lib->StorePipeline(name, p);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return E_UNEXPECTED;
+    }
+}
+
+bool PlTryLoad(int kind, ID3D12Device* self, const void* d, const Key& id, REFIID riid, void** pp) {
+    if (!g_pl.fromFile || g_plBroken.load(std::memory_order_relaxed) || (self != g_pl.dev && self != g_pl.dev2)) return false;
+    wchar_t name[40];
+    PlName(id, name, 40);
+    bool got = false;
+    AcquireSRWLockShared(&g_plLock);
+    if (g_plPhase.load(std::memory_order_acquire) == 1) {
+        SRWLOCK* st = &g_plStripe[id.a & 63];
+        void* out = nullptr;
+        AcquireSRWLockExclusive(st);
+        const int64_t t0 = Qpc();
+        const HRESULT h = PlLoadRaw(g_pl.lib, g_pl.lib1, kind, d, name, riid, &out);
+        const int64_t t1 = Qpc();
+        ReleaseSRWLockExclusive(st);
+        if (SUCCEEDED(h) && out) {
+            *pp = out;
+            got = true;
+            g_plLoaded.fetch_add(1, std::memory_order_relaxed);
+            g_plLoadTicks.fetch_add((uint64_t)(t1 - t0), std::memory_order_relaxed);
+        } else {
+            if (out) static_cast<IUnknown*>(out)->Release();
+            if (h == E_INVALIDARG) {
+                g_plMiss.fetch_add(1, std::memory_order_relaxed);  // not in the library (or stored with another desc)
+            } else {
+                if (g_plLoadErr.fetch_add(1) < 4) LOG("PL: a library load failed (hr %08lX) - the game's own create runs", (unsigned long)h);
+                if (h == E_UNEXPECTED) g_plBroken = true;  // an exception inside the runtime: no more library calls
+            }
+        }
+    }
+    ReleaseSRWLockShared(&g_plLock);
+    return got;
+}
+
+void PlStore(int kind, const Key& id, IUnknown* obj) {
+    if (g_plPhase.load(std::memory_order_acquire) != 1 || g_plBroken.load(std::memory_order_relaxed) || (kind == 3 && !g_pl.lib1))
+        return;
+    ID3D12PipelineState* ps = nullptr;
+    if (FAILED(obj->QueryInterface(kIID_Pso, reinterpret_cast<void**>(&ps))) || !ps) return;
+    ID3D12Device* owner = nullptr;  // only PSOs of the library's device
+    const bool mine = SUCCEEDED(ps->GetDevice(kIID_Device, reinterpret_cast<void**>(&owner))) && owner && owner == g_pl.dev;
+    if (owner) owner->Release();
+    if (mine) {
+        wchar_t name[40];
+        PlName(id, name, 40);
+        AcquireSRWLockShared(&g_plLock);
+        if (g_plPhase.load(std::memory_order_acquire) == 1) {
+            SRWLOCK* st = &g_plStripe[id.a & 63];
+            AcquireSRWLockExclusive(st);
+            const HRESULT h = PlStoreRaw(g_pl.lib, name, ps);
+            ReleaseSRWLockExclusive(st);
+            if (SUCCEEDED(h)) g_plStored.fetch_add(1, std::memory_order_relaxed);
+            else if (g_plStoreErr.fetch_add(1) < 4) LOG("PL: storing a boot PSO failed (hr %08lX)", (unsigned long)h);
+            if (h == E_UNEXPECTED) g_plBroken = true;
+        }
+        ReleaseSRWLockShared(&g_plLock);
+    }
+    ps->Release();
+}
+
+// adapter ids + UMD driver version through the SYSTEM dxgi.dll (not a proxy in the game folder); zeros when unavailable
+// (the D3D12 runtime still refuses a library blob from another driver: D3D12_ERROR_DRIVER_VERSION_MISMATCH)
+void PlAdapter(LUID luid, PlHeader& h) {
+    __try {
+        wchar_t sys[MAX_PATH];
+        const UINT n = GetSystemDirectoryW(sys, MAX_PATH);
+        if (!n || n > MAX_PATH - 16) return;
+        wcscat_s(sys, L"\\dxgi.dll");
+        HMODULE m = LoadLibraryW(sys);
+        auto cf = m ? reinterpret_cast<HRESULT(WINAPI*)(REFIID, void**)>(GetProcAddress(m, "CreateDXGIFactory1")) : nullptr;
+        IDXGIFactory4* f = nullptr;
+        if (!cf || FAILED(cf(__uuidof(IDXGIFactory4), reinterpret_cast<void**>(&f))) || !f) return;
+        IDXGIAdapter1* a = nullptr;
+        if (SUCCEEDED(f->EnumAdapterByLuid(luid, __uuidof(IDXGIAdapter1), reinterpret_cast<void**>(&a))) && a) {
+            DXGI_ADAPTER_DESC1 ds{};
+            if (SUCCEEDED(a->GetDesc1(&ds))) {
+                h.vendor = ds.VendorId;
+                h.device = ds.DeviceId;
+                h.subsys = ds.SubSysId;
+                h.revision = ds.Revision;
+            }
+            LARGE_INTEGER umd{};
+            if (SUCCEEDED(a->CheckInterfaceSupport(__uuidof(IDXGIDevice), &umd))) h.umd = (uint64_t)umd.QuadPart;
+            a->Release();
+        }
+        f->Release();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
+// verifies the mapped blob; false on a mismatch or an in-page error
+bool PlVerify(const uint8_t* blob, uint64_t n, const PlHeader& h) {
+    __try {
+        const Key k = Hash128(blob, (size_t)n);
+        return k.a == h.sumA && k.b == h.sumB;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+HRESULT PlCreate(ID3D12Device1* d1, const void* blob, SIZE_T n, ID3D12PipelineLibrary** out) {
+    __try {
+        return d1->CreatePipelineLibrary(blob, n, __uuidof(ID3D12PipelineLibrary), reinterpret_cast<void**>(out));
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return E_UNEXPECTED;
+    }
+}
+void PlUnmap() {
+    if (g_pl.view) UnmapViewOfFile(g_pl.view);
+    if (g_pl.map) CloseHandle(g_pl.map);
+    if (g_pl.file != INVALID_HANDLE_VALUE) CloseHandle(g_pl.file);
+    g_pl.view = nullptr;
+    g_pl.map = nullptr;
+    g_pl.file = INVALID_HANDLE_VALUE;
+}
+const char* HrName(HRESULT h) {
+    switch ((unsigned long)h) {
+        case 0x887E0001: return "D3D12_ERROR_ADAPTER_NOT_FOUND";
+        case 0x887E0002: return "D3D12_ERROR_DRIVER_VERSION_MISMATCH";
+        case 0x80070057: return "E_INVALIDARG";
+        case 0x887A0004: return "DXGI_ERROR_UNSUPPORTED";
+        case 0x8000FFFF: return "E_UNEXPECTED";
+        default: return "error";
+    }
+}
+
+void DevClass(ID3D12Device* d, char* out, size_t n);
+Header MakeHeader(const char* devClass);
+
+// Opens (validates, maps) or creates the library. PL init thread, once, for the first device.
+void PlOpen(ID3D12Device* dev) {
+    const int64_t t0 = Qpc();
+    D3D12_FEATURE_DATA_SHADER_CACHE sc{};
+    const bool scOk = SUCCEEDED(dev->CheckFeatureSupport(D3D12_FEATURE_SHADER_CACHE, &sc, sizeof sc));
+    const UINT f = scOk ? (UINT)sc.SupportFlags : 0;
+    PlHeader& w = g_pl.want;
+    PlAdapter(dev->GetAdapterLuid(), w);
+    snprintf(g_plCache, sizeof g_plCache, "driver shader cache flags %X (%s%s%s%s%s), adapter %04X:%04X rev %X, UMD %u.%u.%u.%u", f,
+             f & D3D12_SHADER_CACHE_SUPPORT_LIBRARY ? "library " : "", f & D3D12_SHADER_CACHE_SUPPORT_AUTOMATIC_INPROC_CACHE ? "in-proc " : "",
+             f & D3D12_SHADER_CACHE_SUPPORT_AUTOMATIC_DISK_CACHE ? "disk " : "", f & D3D12_SHADER_CACHE_SUPPORT_DRIVER_MANAGED_CACHE ? "driver-managed " : "",
+             f ? "" : "none", w.vendor, w.device, w.revision, (unsigned)(w.umd >> 48), (unsigned)(w.umd >> 32) & 0xFFFF,
+             (unsigned)(w.umd >> 16) & 0xFFFF, (unsigned)w.umd & 0xFFFF);
+    LOG("PL: %s", g_plCache);
+    if (g_cfg.pl != 1) {
+        g_plPhase = -1;
+        return;
+    }
+    if (!(f & D3D12_SHADER_CACHE_SUPPORT_LIBRARY)) {
+        LOG("PL: the driver has no pipeline-library support - PL off for this session");
+        g_plPhase = -1;
+        return;
+    }
+    ID3D12Device1* d1 = nullptr;
+    if (FAILED(dev->QueryInterface(__uuidof(ID3D12Device1), reinterpret_cast<void**>(&d1))) || !d1) {
+        LOG("PL: no ID3D12Device1 - PL off for this session");
+        g_plPhase = -1;
+        return;
+    }
+    char cls[32];
+    DevClass(dev, cls, sizeof cls);
+    const Header jh = MakeHeader(cls);
+    w.magic = kPlMagic;
+    w.version = kPlVersion;
+    w.exeStamp = jh.exeStamp;
+    w.exeSize = jh.exeSize;
+    memcpy(w.devClass, jh.devClass, sizeof w.devClass);
+    CreateDirectoryW(g_cfg.folder.c_str(), nullptr);
+    wchar_t wcls[32];
+    MultiByteToWideChar(CP_UTF8, 0, cls + 3, -1, wcls, 32);  // "pj_win_dgpu_sm68" -> pl_win_dgpu_sm68.bin
+    g_pl.path = g_cfg.folder + L"\\pl_" + wcls + L".bin";
+    const std::wstring fresh = g_pl.path + L".new";
+    // a library written while the old one was mapped (previous session): promote it when its header is whole
+    if (GetFileAttributesW(fresh.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        HANDLE h = CreateFileW(fresh.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        PlHeader nh{};
+        LARGE_INTEGER sz{};
+        const bool good = h != INVALID_HANDLE_VALUE && GetFileSizeEx(h, &sz) && ReadAt(h, 0, &nh, sizeof nh) && nh.magic == kPlMagic &&
+                          (uint64_t)sz.QuadPart == sizeof nh + nh.blobSize;
+        if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+        if (!good || !MoveFileExW(fresh.c_str(), g_pl.path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+            DeleteFileW(fresh.c_str());
+    }
+    ID3D12PipelineLibrary* lib = nullptr;
+    const char* why = "no library file yet";
+    uint64_t blobBytes = 0;
+    HANDLE fh = CreateFileW(g_pl.path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (fh != INVALID_HANDLE_VALUE) {
+        g_pl.file = fh;
+        PlHeader have{};
+        LARGE_INTEGER sz{};
+        if (!GetFileSizeEx(fh, &sz) || (uint64_t)sz.QuadPart < sizeof have || !ReadAt(fh, 0, &have, sizeof have)) {
+            why = "file too short";
+        } else if (have.magic != kPlMagic || have.version != kPlVersion) {
+            why = "not a PL file / other PL version";
+        } else if (have.exeStamp != w.exeStamp || have.exeSize != w.exeSize) {
+            why = "other game build";
+        } else if (memcmp(&have, &w, kPlIdent) != 0) {
+            why = "other GPU / driver version / device class";
+        } else if ((uint64_t)sz.QuadPart != sizeof have + have.blobSize || !have.blobSize || have.blobSize > g_cfg.plMaxBytes) {
+            why = "size mismatch (cut or over PL_MaxMB)";
+        } else {
+            g_pl.map = CreateFileMappingW(fh, nullptr, PAGE_READONLY, 0, 0, nullptr);
+            g_pl.view = g_pl.map ? static_cast<const uint8_t*>(MapViewOfFile(g_pl.map, FILE_MAP_READ, 0, 0, 0)) : nullptr;
+            if (!g_pl.view) {
+                why = "cannot map the file";
+            } else if (!PlVerify(g_pl.view + sizeof have, have.blobSize, have)) {
+                why = "checksum mismatch (corrupt file)";
+            } else {
+                const HRESULT h = PlCreate(d1, g_pl.view + sizeof have, (SIZE_T)have.blobSize, &lib);
+                if (SUCCEEDED(h) && lib) {
+                    g_pl.fromFile = true;
+                    g_pl.fileEntries = have.entries;
+                    blobBytes = have.blobSize;
+                } else {
+                    lib = nullptr;
+                    static char b[96];
+                    snprintf(b, sizeof b, "D3D12 refused the blob: %s (hr %08lX)", HrName(h), (unsigned long)h);
+                    why = b;
+                }
+            }
+        }
+        if (!g_pl.fromFile) {
+            g_pl.rebuilt = true;
+            PlUnmap();
+        }
+    }
+    if (!lib) {
+        const HRESULT h = PlCreate(d1, nullptr, 0, &lib);
+        if (FAILED(h) || !lib) {
+            LOG("PL: CreatePipelineLibrary failed (%s, hr %08lX) - PL off for this session", HrName(h), (unsigned long)h);
+            d1->Release();
+            PlUnmap();
+            g_plPhase = -1;
+            return;
+        }
+    }
+    d1->Release();
+    ID3D12PipelineLibrary1* lib1 = nullptr;
+    if (FAILED(lib->QueryInterface(__uuidof(ID3D12PipelineLibrary1), reinterpret_cast<void**>(&lib1)))) lib1 = nullptr;
+    void* d2 = nullptr;
+    if (SUCCEEDED(dev->QueryInterface(kIID_Device2, &d2)) && d2) static_cast<IUnknown*>(d2)->Release();  // pointer only
+    g_pl.lib = lib;
+    g_pl.lib1 = lib1;
+    g_pl.dev = dev;
+    g_pl.dev2 = d2;
+    int expect = 0;
+    if (!g_plPhase.compare_exchange_strong(expect, 1)) {  // the boot gate passed while opening: nothing to do any more
+        g_pl.lib = nullptr;
+        g_pl.lib1 = nullptr;
+        if (lib1) lib1->Release();
+        lib->Release();
+        LOG("PL: the boot list ended before the library was ready - unused this session");
+        return;
+    }
+    const double ms = (double)(Qpc() - t0) * g_qpcMs;
+    if (g_pl.fromFile)
+        LOG("PL: library %ls: %u boot pipelines, %.1f MB, mapped + verified in %.0f ms (+%.1f s after process start)", g_pl.path.c_str(),
+            g_pl.fileEntries, (double)blobBytes / 1048576.0, ms, (double)(Qpc() - g_qpcStart) * g_qpcMs / 1000.0);
+    else
+        LOG("PL: new library (%s); boot pipelines are stored and written at the title (+%.1f s after process start)", why,
+            (double)(Qpc() - g_qpcStart) * g_qpcMs / 1000.0);
+}
+
+DWORD WINAPI PlInitMain(LPVOID p) {
+    ID3D12Device* dev = static_cast<ID3D12Device*>(p);
+    try {
+        PlOpen(dev);
+    } catch (...) {
+        LOG("PL: out of memory while opening the library - PL off for this session");
+        int e = 0;
+        g_plPhase.compare_exchange_strong(e, -1);
+    }
+    dev->Release();
+    return 0;
+}
+
+HRESULT PlSerializeRaw(ID3D12PipelineLibrary* lib, void* buf, SIZE_T n) {
+    __try {
+        return lib->Serialize(buf, n);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return E_UNEXPECTED;
+    }
+}
+SIZE_T PlSizeRaw(ID3D12PipelineLibrary* lib) {
+    __try {
+        return lib->GetSerializedSize();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+
+// writes the library (header + blob) to <path>.tmp, then renames it to <path> (or <path>.new while <path> is mapped)
+void PlSave() {
+    const uint64_t stored = g_plStored.load();
+    if (!stored) return;
+    const int64_t t0 = Qpc();
+    const SIZE_T sz = PlSizeRaw(g_pl.lib);
+    if (!sz || sz > g_cfg.plMaxBytes) {
+        LOG("PL: library not written: %.1f MB (PL_MaxMB = %llu)", (double)sz / 1048576.0, (unsigned long long)(g_cfg.plMaxBytes >> 20));
+        return;
+    }
+    ULARGE_INTEGER freeB{};
+    if (GetDiskFreeSpaceExW(g_cfg.folder.c_str(), &freeB, nullptr, nullptr) && freeB.QuadPart < (uint64_t)sz + (256ull << 20)) {
+        LOG("PL: library not written: %.1f MB needed, the disk has %.1f MB free", (double)sz / 1048576.0, (double)freeB.QuadPart / 1048576.0);
+        return;
+    }
+    uint8_t* buf = static_cast<uint8_t*>(VirtualAlloc(nullptr, sz, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!buf) {
+        LOG("PL: library not written: no memory for %.1f MB", (double)sz / 1048576.0);
+        return;
+    }
+    const HRESULT h = PlSerializeRaw(g_pl.lib, buf, sz);
+    bool ok = SUCCEEDED(h);
+    if (!ok) LOG("PL: Serialize failed (%s, hr %08lX) - library not written", HrName(h), (unsigned long)h);
+    const std::wstring tmp = g_pl.path + L".tmp", target = g_pl.view ? g_pl.path + L".new" : g_pl.path;
+    if (ok) {
+        PlHeader hd = g_pl.want;
+        hd.blobSize = sz;
+        const Key k = Hash128(buf, sz);
+        hd.sumA = k.a;
+        hd.sumB = k.b;
+        hd.entries = (uint32_t)std::min<uint64_t>(0xFFFFFFFFull, (g_pl.fromFile ? g_pl.fileEntries : 0) + stored);
+        HANDLE fh = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        ok = fh != INVALID_HANDLE_VALUE && WriteAll(fh, 0, &hd, sizeof hd);
+        for (uint64_t off = 0; ok && off < sz; off += 16u << 20) {
+            const size_t n = (size_t)std::min<uint64_t>(16u << 20, sz - off);
+            ok = WriteAll(fh, sizeof hd + off, buf + off, n);
+        }
+        if (ok) ok = FlushFileBuffers(fh) != 0;
+        if (fh != INVALID_HANDLE_VALUE) CloseHandle(fh);
+        if (ok) ok = MoveFileExW(tmp.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+        if (!ok) {
+            LOG("PL: writing %ls failed (error %lu) - library not written", target.c_str(), GetLastError());
+            DeleteFileW(tmp.c_str());
+        } else {
+            LOG("PL: library written: %u boot pipelines, %.1f MB in %.0f ms -> %ls%s", hd.entries, (double)sz / 1048576.0,
+                (double)(Qpc() - t0) * g_qpcMs, target.c_str(), g_pl.view ? " (replaces the current file at the next launch)" : "");
+        }
+    }
+    VirtualFree(buf, 0, MEM_RELEASE);
+}
+
+void LogBoot() {
+    const double s = g_qpcMs / 1000.0;
+    const uint64_t n = g_bN.load(), loaded = g_plLoaded.load();
+    const int64_t first = g_bFirst.load(), last = g_bLast.load(), dev = g_devQpc.load();
+    LOG("boot PSO list: %llu engine creates on %u thread(s), first +%.2f s, last +%.2f s after process start (device +%.2f s, gate "
+        "+%.2f s) = %.2f s wall; create calls %.2f thread-s (avg %.2f ms, max %.1f ms)",
+        (unsigned long long)n, g_bThreads.load(), first ? (double)(first - g_qpcStart) * s : 0.0,
+        last ? (double)(last - g_qpcStart) * s : 0.0, dev ? (double)(dev - g_qpcStart) * s : 0.0, (double)(Qpc() - g_qpcStart) * s,
+        first && last ? (double)(last - first) * s : 0.0, (double)g_bTicks.load() * s, n ? (double)g_bTicks.load() * g_qpcMs / (double)n : 0.0,
+        (double)g_bMax.load() * g_qpcMs);
+    if (g_cfg.pl)
+        LOG("PL = %d: %llu loaded from the library (avg %.3f ms), %llu not in it, %llu stored, %llu before the library was ready, "
+            "%llu load / %llu store errors%s",
+            g_cfg.pl, (unsigned long long)loaded, loaded ? (double)g_plLoadTicks.load() * g_qpcMs / (double)loaded : 0.0,
+            (unsigned long long)g_plMiss.load(), (unsigned long long)g_plStored.load(), (unsigned long long)g_plEarly.load(),
+            (unsigned long long)g_plLoadErr.load(), (unsigned long long)g_plStoreErr.load(),
+            g_cfg.pl == 2 ? " (installed + off: timing only)" : g_plBroken ? " - stopped after an exception" : "");
+}
+
+// the boot gate passed: close the library (no more loads / stores), log the boot list, write the library when it grew
+DWORD WINAPI PlCloseMain(LPVOID) {
+    SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
+    AcquireSRWLockExclusive(&g_plLock);
+    const int was = g_plPhase.exchange(2);
+    ReleaseSRWLockExclusive(&g_plLock);
+    LogBoot();
+    if (was == 1) {
+        try {
+            if (!g_plBroken) PlSave();
+        } catch (...) {
+            LOG("PL: out of memory while writing the library");
+        }
+        if (g_pl.lib1) g_pl.lib1->Release();
+        if (g_pl.lib) g_pl.lib->Release();  // the mapped blob stays (PSOs loaded from it may still refer to it)
+        g_pl.lib1 = nullptr;
+        g_pl.lib = nullptr;
+    }
+    g_plDone = 1;
+    return 0;
+}
+void OnBootDone() {
+    if (!g_cfg.pl) return;
+    HANDLE t = CreateThread(nullptr, 0, PlCloseMain, nullptr, 0, nullptr);
+    if (t) CloseHandle(t);
+}
+
 // ---- prewarm ---------------------------------------------------------------------------------------------------------------
 struct Prewarm {
     HANDLE file = INVALID_HANDLE_VALUE;
@@ -1225,16 +1733,29 @@ void RunPrewarm() {
     std::vector<std::vector<uint8_t>>().swap(g_startRecs);
 }
 
-DWORD WINAPI PrewarmMain(LPVOID) {
-    WaitForSingleObject(g_loadedEvent, INFINITE);
-    // boot gate (every mode): the engine has created PSOs (its boot list), none for quietMs, and no level load is running.
-    // Creates before it are the boot list (made in every launch, not journaled); creates after it are journaled.
+// boot gate (every mode): the engine has created PSOs (its boot list), none for quietMs, and no level load is running.
+// Creates before it are the boot list (made in every launch: not journaled; PL loads / stores them); creates after it are
+// runtime creates (journaled; PJH).
+void BootGate() {
     for (;;) {
         const int64_t last = g_lastCreate;
         if (last && (double)(Qpc() - last) * g_qpcMs >= g_cfg.quietMs && TitleIdle()) break;
         Sleep(250);
     }
     g_bootDone.store(true, std::memory_order_release);
+    if (g_cfg.pl) OnBootDone();  // logs the boot list + closes / writes the library on its own thread
+    else LogBoot();
+}
+// PL without PJ: only the gate
+DWORD WINAPI GateMain(LPVOID) {
+    while (!g_gameDev) Sleep(50);
+    BootGate();
+    return 0;
+}
+
+DWORD WINAPI PrewarmMain(LPVOID) {
+    WaitForSingleObject(g_loadedEvent, INFINITE);
+    BootGate();
     LOG("boot PSO list done: %llu engine creates so far (not journaled); runtime creates are journaled from now on",
         (unsigned long long)g_bootCreates.load());
     if (g_cfg.mode != 1 || g_startRecs.empty() || g_file == INVALID_HANDLE_VALUE) {
@@ -1257,7 +1778,8 @@ DWORD WINAPI PrewarmMain(LPVOID) {
 
 // ---- API ---------------------------------------------------------------------------------------------------------------------
 bool Wanted(const wchar_t* iniPath) {
-    return iniPath && (GetPrivateProfileIntW(L"Patches", L"PJ", 0, iniPath) != 0 || GetPrivateProfileIntW(L"Patches", L"PJH", 0, iniPath) != 0);
+    return iniPath && (GetPrivateProfileIntW(L"Patches", L"PJ", 0, iniPath) != 0 || GetPrivateProfileIntW(L"Patches", L"PJH", 0, iniPath) != 0 ||
+                       GetPrivateProfileIntW(L"Patches", L"PL", 0, iniPath) != 0);
 }
 
 void Start(const StartInfo& info) {
@@ -1271,7 +1793,22 @@ void Start(const StartInfo& info) {
     g_cfg.mode = mode;
     g_cfg.handover = pjh;
     g_pjhSwitch = pjh == 1 ? 1u : 0u;
-    if (!mode) return;
+    int pl = (int)GetPrivateProfileIntW(L"Patches", L"PL", 0, ini);
+    if (pl < 0 || pl > 2) pl = 0;
+    const char* plWhy = nullptr;  // PL = 1 refused: another hook below would see different creates, or not Windows
+    if (pl == 1) {
+        if (info.wine) plWhy = "Proton/Wine (vkd3d-proton keeps its own pipeline cache)";
+        else if (GetPrivateProfileIntW(L"ShaderSwap", L"Enabled", 0, ini) || GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini) >= 2)
+            plWhy = "[ShaderSwap] Enabled or [Profiler] GPUProf >= 2 hooks PSO creation (library loads would bypass it)";
+        else if (GetPrivateProfileIntW(L"Debug", L"GIProbe", 0, ini) || GetPrivateProfileIntW(L"Patches", L"GIMerge", 0, ini))
+            plWhy = "GIProbe / GIMerge hook PSO creation";
+        if (plWhy) pl = 2;
+    }
+    g_cfg.pl = pl;
+    int plMb = (int)GetPrivateProfileIntW(L"Patches", L"PL_MaxMB", 1024, ini);
+    plMb = plMb < 16 ? 16 : plMb > 4000 ? 4000 : plMb;
+    g_cfg.plMaxBytes = (uint64_t)plMb << 20;
+    if (!mode && !pl) return;
     int keep = (int)GetPrivateProfileIntW(L"Patches", L"PJ_KeepMax", 4096, ini);
     g_cfg.keepMax = (uint32_t)(keep < 0 ? 0 : keep > 16384 ? 16384 : keep);
     int mb = (int)GetPrivateProfileIntW(L"Patches", L"PJ_MaxMB", 64, ini);
@@ -1293,24 +1830,55 @@ void Start(const StartInfo& info) {
     LARGE_INTEGER fq;
     QueryPerformanceFrequency(&fq);
     g_qpcMs = 1000.0 / (double)fq.QuadPart;
-    g_qEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    g_loadedEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    HANDLE w = CreateThread(nullptr, 0, WriterMain, nullptr, 0, nullptr);
-    HANDLE p = CreateThread(nullptr, 0, PrewarmMain, nullptr, 0, nullptr);
-    if (w) CloseHandle(w);
-    if (p) CloseHandle(p);
-    LOG("PJ = %d (%s), journal folder %ls, max %d MB, quiet %d ms, title gate %s; PJH = %d (%s, keep <= %u)", mode,
-        mode == 1 ? "journal + title-screen prewarm" : "journal only", g_cfg.folder.c_str(), mb, g_cfg.quietMs,
-        g_cfg.known && g_cfg.base ? "G+58Ah" : "off (quiet time only)", pjh,
-        pjh == 1 ? "hand-over ON" : pjh == 2 ? "installed, switch OFF" : "off", g_cfg.keepMax);
+    {  // process start on the QPC scale (the boot line reports seconds after process start)
+        FILETIME c{}, e{}, k{}, u{}, now{};
+        GetSystemTimePreciseAsFileTime(&now);
+        const int64_t qNow = Qpc();
+        int64_t ago = 0;
+        if (GetProcessTimes(GetCurrentProcess(), &c, &e, &k, &u)) {
+            const int64_t n100 = ((int64_t)now.dwHighDateTime << 32 | now.dwLowDateTime) - ((int64_t)c.dwHighDateTime << 32 | c.dwLowDateTime);
+            if (n100 > 0 && n100 < 36000000000ll) ago = (int64_t)((double)n100 / 10000.0 / g_qpcMs);
+        }
+        g_qpcStart = qNow - ago;
+    }
+    if (mode) {
+        g_qEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        g_loadedEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        HANDLE w = CreateThread(nullptr, 0, WriterMain, nullptr, 0, nullptr);
+        HANDLE p = CreateThread(nullptr, 0, PrewarmMain, nullptr, 0, nullptr);
+        if (w) CloseHandle(w);
+        if (p) CloseHandle(p);
+        LOG("PJ = %d (%s), journal folder %ls, max %d MB, quiet %d ms, title gate %s; PJH = %d (%s, keep <= %u)", mode,
+            mode == 1 ? "journal + title-screen prewarm" : "journal only", g_cfg.folder.c_str(), mb, g_cfg.quietMs,
+            g_cfg.known && g_cfg.base ? "G+58Ah" : "off (quiet time only)", pjh,
+            pjh == 1 ? "hand-over ON" : pjh == 2 ? "installed, switch OFF" : "off", g_cfg.keepMax);
+    } else {
+        HANDLE g = CreateThread(nullptr, 0, GateMain, nullptr, 0, nullptr);
+        if (g) CloseHandle(g);
+    }
+    if (pl)
+        LOG("PL = %d (%s), folder %ls, max %d MB, boot gate = quiet %d ms + %s", pl,
+            pl == 1 ? "boot pipeline library" : plWhy ? plWhy : "installed + off: boot-list timing only", g_cfg.folder.c_str(), plMb,
+            g_cfg.quietMs, g_cfg.known && g_cfg.base ? "G+58Ah clear" : "quiet time only");
 }
 
 void OnDevice(void* device) {
-    if (!g_cfg.mode || !device) return;
+    if ((!g_cfg.mode && !g_cfg.pl) || !device) return;
+    int64_t z = 0;
+    g_devQpc.compare_exchange_strong(z, Qpc());
     __try {
         OnDeviceImpl(device);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         LOG("exception 0x%08lX while hooking a device - this device is not journaled", GetExceptionCode());
+        return;
+    }
+    // PL: the first device reported gets the library (opened on its own thread: the engine's thread is not held)
+    if (g_cfg.pl && !g_plInit.exchange(true)) {
+        void* dev = nullptr;
+        if (FAILED(static_cast<IUnknown*>(device)->QueryInterface(kIID_Device, &dev)) || !dev) return;
+        HANDLE t = CreateThread(nullptr, 0, PlInitMain, dev, 0, nullptr);
+        if (t) CloseHandle(t);
+        else static_cast<IUnknown*>(dev)->Release();
     }
 }
 
@@ -1341,6 +1909,36 @@ void GetStats(Stats& o) {
     o.handMiss = g_handMiss;
     o.kept = g_keptN;
     o.keepRefused = g_keepRefused;
+    o.pl = g_cfg.pl;
+    o.plPhase = g_plPhase;
+    o.plFromFile = g_pl.fromFile;
+    o.plRebuilt = g_pl.rebuilt;
+    o.plFileEntries = g_pl.fileEntries;
+    o.plLoaded = g_plLoaded;
+    o.plMiss = g_plMiss;
+    o.plStored = g_plStored;
+    o.plEarly = g_plEarly;
+    o.plErrors = g_plLoadErr + g_plStoreErr;
+    o.plDone = g_plDone != 0;
+    o.bootN = g_bN;
+    o.bootThreads = g_bThreads;
+}
+
+bool WaitPlDoneForTest(unsigned long ms) {
+    const ULONGLONG until = GetTickCount64() + ms;
+    while (GetTickCount64() < until) {
+        if (g_plDone) return true;
+        Sleep(10);
+    }
+    return false;
+}
+bool WaitPlReadyForTest(unsigned long ms) {
+    const ULONGLONG until = GetTickCount64() + ms;
+    while (GetTickCount64() < until) {
+        if (g_plPhase != 0) return true;
+        Sleep(5);
+    }
+    return false;
 }
 
 volatile uint32_t* HandoverSwitch() { return g_cfg.mode && g_cfg.handover ? &g_pjhSwitch : nullptr; }
@@ -1359,7 +1957,15 @@ const char* StatusLine(char* buf, size_t n) {
     buf[0] = 0;
     Stats s;
     GetStats(s);
-    if (!s.mode) return buf;
+    if (!s.mode) {
+        if (s.pl)
+            snprintf(buf, n, "PL %d: boot creates %llu on %u thread(s), library %s, loaded %llu, not in it %llu, stored %llu, early %llu, errors %llu",
+                     s.pl, (unsigned long long)s.bootN, s.bootThreads,
+                     s.plPhase == 1 ? "open" : s.plPhase == 2 ? "closed" : s.plPhase < 0 ? "off" : "opening", (unsigned long long)s.plLoaded,
+                     (unsigned long long)s.plMiss, (unsigned long long)s.plStored, (unsigned long long)s.plEarly,
+                     (unsigned long long)s.plErrors);
+        return buf;
+    }
     const char* st = s.mode == 2 ? "off (PJ = 2)" : s.prewarmState == 0 ? "waiting for the title" : s.prewarmState == 1 ? "running" : "done";
     snprintf(buf, n,
              "journal %u PSOs (+%u new), %u shaders, %u root sigs, %.1f MB; engine creates %llu (boot list %llu%s), not journaled "
@@ -1380,7 +1986,7 @@ const char* StatusLine(char* buf, size_t n) {
 }
 
 void LogLine() {
-    if (!g_cfg.mode || !g_log) return;
+    if (!g_cfg.mode || !g_log) return;  // PL logs its own boot lines (one at the gate)
     char b[900];
     g_log("stats/s PJ: %s", StatusLine(b, sizeof b));
 }

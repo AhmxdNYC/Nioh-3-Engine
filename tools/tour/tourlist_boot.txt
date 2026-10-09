@@ -1,0 +1,2 @@
+# Boot-time route (notes/boot-shader-compile.md): one stage, so a launch is title -> Continue -> field -> 1 point -> quit.
+7356   # Escape from Hitokoto Slope (area 75)

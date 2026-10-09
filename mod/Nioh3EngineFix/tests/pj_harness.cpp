@@ -374,10 +374,130 @@ static std::wstring W(const char* s) {
     return b;
 }
 
+// ---- PL (boot pipeline library) launches: every create before the boot gate is a boot-list create --------------------------
+//   plrec     PL = 1, no file: gfx + cs + stream are compiled and stored; the library is written at the gate
+//   plwarm    the 3 are loaded from the library (no create reaches the spy below PJ; each object works); one new desc is
+//             compiled + stored -> written to .new (the current file is mapped)
+//   plwarm2   .new promoted: all 4 loaded, nothing written
+//   plbad     blob byte flipped (runner): checksum refuses it -> new library, 3 stored, file rewritten
+//   plstale   header driver version changed (runner): refused -> new library
+//   plgarb    blob replaced by garbage with a matching checksum (runner): D3D12 refuses it -> new library, nothing crashes
+//   plpj      PJ = 1 + PL = 1: boot creates loaded; a create after the gate is journaled by PJ and not touched by PL
+//   pl2       PL = 2: timing only, no library, no file
+static int PlMain(const std::string& mode, const std::wstring& dir) {
+    const std::wstring ini = dir + L"\\test.ini";
+    WritePrivateProfileStringW(L"Patches", L"PJ", mode == "plpj" ? L"1" : L"0", ini.c_str());
+    WritePrivateProfileStringW(L"Patches", L"PJH", L"0", ini.c_str());
+    WritePrivateProfileStringW(L"Patches", L"PL", mode == "pl2" ? L"2" : L"1", ini.c_str());
+    Engine e;
+    e.Init();
+    void** vt = *reinterpret_cast<void***>(e.dev);
+    PatchSlot(vt, 10, (void*)&SpyGfx, (void**)&s_gfx);
+    PatchSlot(vt, 11, (void*)&SpyCs, (void**)&s_cs);
+    PatchSlot(vt, 16, (void*)&SpyRs, (void**)&s_rs);
+    PatchSlot(vt, 47, (void*)&SpyStream, (void**)&s_stream);
+    pj::StartInfo si;
+    si.log = &Log;
+    si.iniPath = ini.c_str();
+    si.folder = dir.c_str();
+    si.quietMs = 300;
+    pj::Start(si);
+    psoswap::StartInfo pi;
+    pi.log = &Log;
+    pi.iniPath = ini.c_str();
+    pi.onDevice = &pj::OnDevice;
+    pi.observeOnly = pj::Wanted(ini.c_str());
+    psoswap::Start(pi);
+    ID3D12Device* again = e.CreateAgain();
+    if (again) again->Release();
+    CHECK(pj::WaitPlReadyForTest(10000), "PL ready");
+    pj::Stats st;
+    pj::GetStats(st);
+    const bool warm = mode == "plwarm" || mode == "plwarm2" || mode == "plpj";
+    if (mode == "pl2") CHECK(st.pl == 2 && st.plPhase == -1, "PL %d phase %d (want 2/-1)", st.pl, st.plPhase);
+    else CHECK(st.pl == 1 && st.plPhase == 1 && st.plFromFile == warm, "PL %d phase %d fromFile %d (want 1/1/%d)", st.pl, st.plPhase,
+               st.plFromFile, warm);
+    e.CreateRs();
+    const LONG before = s_spyCreates;
+    e.use = true;
+    e.rt1 = DXGI_FORMAT_R8G8B8A8_UNORM;
+    CHECK(SUCCEEDED(e.Gfx(0x21)), "boot gfx");
+    CHECK(SUCCEEDED(e.Cs()), "boot cs");
+    CHECK(SUCCEEDED(e.Stream()), "boot stream");
+    if (mode == "plwarm" || mode == "plwarm2") {
+        e.rt1 = DXGI_FORMAT_R16G16B16A16_FLOAT;  // new in plwarm, from the library in plwarm2
+        CHECK(SUCCEEDED(e.Gfx(0x63)), "boot gfx (other RT format)");
+        e.rt1 = DXGI_FORMAT_R8G8B8A8_UNORM;
+    }
+    const LONG reached = s_spyCreates - before;
+    CHECK(pj::WaitBootForTest(10000), "boot gate opened");
+    LONG after = 0;
+    if (mode == "plpj") {
+        const LONG b2 = s_spyCreates;
+        CHECK(SUCCEEDED(e.Gfx(0x44)), "runtime gfx after the gate");
+        after = s_spyCreates - b2;
+        CHECK(pj::WaitIdleForTest(10000), "writer idle");
+    }
+    e.use = false;
+    if (mode != "pl2") CHECK(pj::WaitPlDoneForTest(20000), "PL closed");
+    else Sleep(300);
+    pj::GetStats(st);
+    CHECK(e.useFail == 0, "loaded / created objects failed to work: %d of %d", e.useFail, e.used);
+    CHECK(st.plErrors == 0 && st.plEarly == 0, "PL errors %llu early %llu", (unsigned long long)st.plErrors, (unsigned long long)st.plEarly);
+    WIN32_FIND_DATAW fd;
+    auto exists = [&](const wchar_t* pat) {
+        HANDLE h = FindFirstFileW((dir + pat).c_str(), &fd);
+        if (h == INVALID_HANDLE_VALUE) return false;
+        FindClose(h);
+        return true;
+    };
+    if (mode == "plrec" || mode == "plbad" || mode == "plstale" || mode == "plgarb") {
+        CHECK(st.plLoaded == 0 && st.plStored == 3, "loaded %llu stored %llu (want 0/3)", (unsigned long long)st.plLoaded,
+              (unsigned long long)st.plStored);
+        CHECK(reached == 3, "%ld creates reached the driver (want 3)", reached);
+        CHECK(st.plRebuilt == (mode != "plrec"), "rebuilt %d", st.plRebuilt);
+        CHECK(exists(L"\\pl_*.bin") && !exists(L"\\pl_*.new"), "library written in place");
+        CHECK(st.bootN == 3 && st.bootThreads == 1, "boot creates %llu threads %u (want 3/1)", (unsigned long long)st.bootN, st.bootThreads);
+    } else if (mode == "plwarm") {
+        CHECK(st.plLoaded == 3 && st.plMiss == 1 && st.plStored == 1, "loaded %llu miss %llu stored %llu (want 3/1/1)",
+              (unsigned long long)st.plLoaded, (unsigned long long)st.plMiss, (unsigned long long)st.plStored);
+        CHECK(reached == 1, "%ld creates reached the driver (want 1: the new desc only)", reached);
+        CHECK(exists(L"\\pl_*.new"), "grown library written to .new (current file mapped)");
+    } else if (mode == "plwarm2") {
+        CHECK(st.plLoaded == 4 && st.plMiss == 0 && st.plStored == 0, "loaded %llu miss %llu stored %llu (want 4/0/0)",
+              (unsigned long long)st.plLoaded, (unsigned long long)st.plMiss, (unsigned long long)st.plStored);
+        CHECK(st.plFileEntries == 4, "file entries %u (want 4)", st.plFileEntries);
+        CHECK(reached == 0, "%ld creates reached the driver (want 0)", reached);
+        CHECK(!exists(L"\\pl_*.new"), ".new promoted, nothing new written");
+    } else if (mode == "plpj") {
+        CHECK(st.plLoaded == 3 && st.plStored == 0, "loaded %llu stored %llu (want 3/0)", (unsigned long long)st.plLoaded,
+              (unsigned long long)st.plStored);
+        CHECK(reached == 0 && after == 1, "driver creates boot %ld after gate %ld (want 0/1)", reached, after);
+        CHECK(st.newRecs == 1 && st.bootCreates == 3, "PJ journaled %u boot %llu (want 1/3)", st.newRecs, (unsigned long long)st.bootCreates);
+    } else if (mode == "pl2") {
+        CHECK(st.plLoaded == 0 && st.plStored == 0 && reached == 3, "loaded %llu stored %llu reached %ld (want 0/0/3)",
+              (unsigned long long)st.plLoaded, (unsigned long long)st.plStored, reached);
+        CHECK(!exists(L"\\pl_*"), "no library file with PL = 2");
+        CHECK(st.bootN == 3, "boot creates %llu (want 3)", (unsigned long long)st.bootN);
+        CHECK(g_logText.find("boot PSO list: 3 engine creates") != std::string::npos, "boot timing line");
+    } else {
+        return 2;
+    }
+    if (mode == "plgarb") CHECK(g_logText.find("D3D12 refused the blob") != std::string::npos, "D3D12 refusal logged");
+    if (mode == "plbad") CHECK(g_logText.find("checksum mismatch") != std::string::npos, "checksum refusal logged");
+    if (mode == "plstale") CHECK(g_logText.find("other GPU / driver version") != std::string::npos, "stale refusal logged");
+    char line[900];
+    printf("  status: %s\n", pj::StatusLine(line, sizeof line));
+    printf(g_fail ? "%s: %d FAILED\n" : "%s: OK\n", mode.c_str(), g_fail);
+    fflush(stdout);
+    ExitProcess(g_fail ? 1 : 0);
+}
+
 int main(int argc, char** argv) {
     if (argc < 3) return 2;
     const std::string mode = argv[1];
     const std::wstring dir = W(argv[2]);
+    if (mode.compare(0, 2, "pl") == 0) return PlMain(mode, dir);
     const std::wstring ini = dir + L"\\test.ini";
     WritePrivateProfileStringW(L"Patches", L"PJ", L"1", ini.c_str());
     WritePrivateProfileStringW(L"Patches", L"PJ_MaxMB", L"8", ini.c_str());

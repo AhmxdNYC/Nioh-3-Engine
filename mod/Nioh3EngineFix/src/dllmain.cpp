@@ -70,7 +70,8 @@
 // 1.7.44: AS (engine async-compute slots 0 / 11 / 12 at boot + live producer switch, asyncslots.cpp); notes\gpu-async-wins.md
 // 1.7.45: PJ journal v2 (runtime PSOs only; the boot list filled v1) + PJH PSO hand-over (live row); notes\stutter-pso.md
 // 1.7.45: TR timer-resolution hold (timerres.cpp, live row) + [Debug] SkipDebugString; notes\game-logic-audit.md
-#define MOD_VERSION "1.7.45"
+// 1.7.46: PL boot pipeline library ([Patches] PL = 0; psojournal.cpp) + boot-list timing line; notes\boot-shader-compile.md
+#define MOD_VERSION "1.7.46"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

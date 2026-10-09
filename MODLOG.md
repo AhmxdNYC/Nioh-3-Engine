@@ -825,3 +825,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Symbols: MissionThreadJoin/Kick/Arm, g_MissionThreadObj 47098F0, GameModeDrawThreadKick/Join (was MissionThreadKick/Join), g_GameModeDrawThreadObj 4709B60, CharacterUpdateEventJoin 90CA90, JobFnEventSet FE79C0, PCTimerTick 437F7C, g_HidTimerPeriod 44B68F0. matrix.json: TR item (live), GL1 note (A/B with JT in every arm).
 - Tests: tests/test_patterns.py ALL 231 SITES OK; tests/run_timerres_harness.py ALL PASSED; check_release PASS.
 - Undo: TR = 0 / SkipDebugString = 0 (defaults), or the 1.7.44 .asi.
+
+## 2026-10-09 - ASI 1.7.46: PL boot pipeline library (default off; game not run)
+- notes/boot-shader-compile.md: the boot PSO list (PreloadPsoBootLoad 1101B90 -> PsoListLoad 3483E04) is already split over the pool's workers (PsoListPreloadJob 34835D4 x min(N, pool workers), JobGroupWait join), creates outside the PSO-cache lock; pc2 boot 5-8 cores busy, ~25 s first launch at a config vs ~10 s next launch (driver cache works). Skipping list PSOs rejected (gameplay hitches).
+- ADD [Patches] PL = 0, PL_MaxMB = 1024 (src/psojournal.cpp; 1 = ID3D12PipelineLibrary for the engine's creates before the boot gate, file Nioh3EngineFix_pj\pl_*.bin checked against exe/GPU/driver/size/Hash128 + D3D12's own check, written at the gate when it grew; 2 = boot timing line only). Off on Proton and with ShaderSwap/GPUProf2/GIProbe/GIMerge. Boot timing line also with PJ on.
+- Tests: tests/run_pj_harness.py ALL PJ CHECKS OK (+8 PL launches on WARP: rec/warm/.new promote/corrupt/stale/garbage blob/PJ+PL/PL=2); tests/test_patterns.py ALL 231 SITES OK.
+- Undo: PL = 0 (default); delete <game>\Nioh3EngineFix_pj\pl_* to drop the library file.
