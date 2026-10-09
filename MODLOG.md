@@ -789,3 +789,4 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `tools\testmatrix\pc_gpu_report.py`: verdicts KEEP / DROP / NEUTRAL / INVALID against BASE interpolated for drift; `selftest` ALL PASSED.
 - Run (after run8): `powershell -NoProfile -ExecutionPolicy Bypass -File tools\testmatrix\pc_gpu_session.ps1 -WaitRun8` (~3 h: A ~22 min, B 29 launches ~160 min; `-Items wdo28,esm,gi,AS0` ~72 min for B).
 - Undo: `git revert` of this commit. A real run restores every file it touched by itself.
+- 2026-10-09 notes/game-size-and-memory.md: game disk/memory reduction audit (research only). 135.8 GB install is 99.9 percent irreducible streamed art, no separable language/voice depot, realistic disk saving 0.1-0.2 GB; memory flat after load, only LM sweeper (0.75-1.1 GB transient swap on Ally, estimate, LM=0) is a look-neutral win.
