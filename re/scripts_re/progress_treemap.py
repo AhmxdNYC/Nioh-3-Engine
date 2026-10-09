@@ -501,7 +501,7 @@ def main():
             l, l.replace('-', '--').replace(' ', '%20'), v.replace('-', '--').replace('%', '%25').replace(' ', '%20'), c)
     badges = ' '.join([
         badge('functions named', '%.2f%% (%d/%d)' % (100 * nm / nfun, nm, nfun), 'orange'),
-        badge('perf CPU time named', pct(pn), 'yellowgreen'),
+        badge('perf CPU time named', pct(pn), 'brightgreen' if pct(pn) == '100.00%' else 'yellowgreen'),
         badge('perf incl. Unknown_', pct(pn + pu), 'green'),
         badge('GPU time identified', pct(gid), 'green'),
         badge('GPU passes mapped', gpu, 'green')])
