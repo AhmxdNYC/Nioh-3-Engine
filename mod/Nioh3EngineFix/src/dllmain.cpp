@@ -44,6 +44,7 @@
 #include "tour.h"
 #include "vpad.h"
 #include "autocont.h"
+#include "bootnotice.h"
 #include "drawprep.h"
 #include "asyncslots.h"
 #include "loadonly.h"
@@ -1559,6 +1560,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "LG")) return false;  // LoadGates probe sites: verified offline (test_patterns), hooked by loadstats.cpp
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
+        if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
@@ -2749,6 +2751,15 @@ DWORD WINAPI Worker(LPVOID) {
             ti.base = reinterpret_cast<uintptr_t>(g_base);
             ti.knownBuild = known;
             tour::Start(ti);
+        }
+        {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
+           // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state
+            bootnotice::StartInfo bi;
+            bi.log = &Log;
+            bi.iniPath = iniPath.c_str();
+            bi.base = reinterpret_cast<uintptr_t>(g_base);
+            bi.knownBuild = known;
+            bootnotice::Start(bi);
         }
         {  // 1.7.44 present mode log + [Latency] VrrPresent (pmode.cpp; before osd::Start: osd asks pmode::WantsPresentHook())
             pmode::StartInfo pmi;

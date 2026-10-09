@@ -274,6 +274,8 @@ static const uint8_t orig_VP1[] = { 0xE8, 0x9B, 0x05, 0x00, 0x00 };
 static const uint8_t orig_VP2[] = { 0xE8, 0xD3, 0x02, 0x00, 0x00 };
 static const uint8_t orig_VP3[] = { 0xE8, 0xF6, 0xB9, 0xB9, 0xFF };
 static const uint8_t orig_AC1[] = { 0xE8, 0x5E, 0x6E, 0x59, 0xFE };
+static const uint8_t orig_BN1[] = { 0xE8, 0x98, 0x86, 0x23, 0xFF };
+static const uint8_t orig_BN2[] = { 0xE8, 0x91, 0xE9, 0x3A, 0x00 };
 static const uint8_t orig_TT1[] = { 0xE8, 0x43, 0xD7, 0xE4, 0xFF };
 static const uint8_t orig_SB1[] = { 0xE8, 0x78, 0x0C, 0x00, 0x00 };
 static const uint8_t orig_SB2[] = { 0xE8, 0x73, 0xA7, 0xFF, 0xFF };
@@ -513,6 +515,8 @@ static const Site kSites[] = {
     { "VP2", "VP", 0x436A20, 5, orig_VP2, "48 83 EC 28 E8 ?? ?? ?? ?? 84 C0 75 16 48 8B 05 ?? ?? ?? ?? 48 85 C0 74 0A 80 78 3E 00", 4, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x436CF8 },
     { "VP3", "VP", 0x89B2FD, 5, orig_VP3, "80 78 3B 00 74 21 84 DB 75 1D E8 ?? ?? ?? ?? 84 C0 75 0C 41 88 A9 08 9B 06 00", 10, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x436CF8 },
     { "AC1", "AC", 0x1CECAED, 5, orig_AC1, "40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 84 C0 74 26 E8 ?? ?? ?? ?? 84 C0 75 1D E8", 9, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x283950 },
+    { "BN1", "BN", 0x1C35393, 5, orig_BN1, "B9 F1 AB C4 03 E8 ?? ?? ?? ?? 48 8B D0 48 8D 4D B0 E8 ?? ?? ?? ?? BE 01 00 00 00 48 8B D0 44 8A C6 E8 ?? ?? ?? ?? 44 38 6F 55", 33, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0xE6DA30 },
+    { "BN2", "BN", 0x1C353A2, 5, orig_BN2, "44 38 6F 55 0F 85 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 0F 84", 10, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1FE3D38 },
     { "TT1", "TR", 0x56529C, 5, orig_TT1, "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B29E4 },
     { "SB1", "TR", 0x5B6F37, 5, orig_SB1, "E8 ?? ?? ?? ?? 44 38 25 ?? ?? ?? ?? 8A D8", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5B7BB4 },
     { "SB2", "TR", 0x1FDF2D0, 5, orig_SB2, "E8 ?? ?? ?? ?? 4D 8B C7 49 8B D6 48 8B CE E8 ?? ?? ?? ?? 48 8B 07", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1FD9A48 },
@@ -683,6 +687,8 @@ static const uint8_t dep_119[] = { 0x0F, 0x84, 0xDE, 0x00, 0x00, 0x00 };
 static const uint8_t dep_120[] = { 0x45, 0x84, 0xE4, 0x0F, 0x84, 0xBA, 0x02, 0x00, 0x00 };
 static const uint8_t dep_121[] = { 0x48, 0x8B, 0xCE, 0xFF, 0x90, 0xA8, 0x00, 0x00, 0x00, 0x84, 0xC0, 0x0F, 0x84, 0x8C, 0x00, 0x00, 0x00 };
 static const uint8_t dep_122[] = { 0x41, 0xBC, 0x8A, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x06, 0xBA, 0x0C, 0x00, 0x00, 0x00 };
+static const uint8_t dep_123[] = { 0xB9, 0xF1, 0xAB, 0xC4, 0x03, 0xE8, 0x88, 0xF7, 0x96, 0xFE, 0x48, 0x8B, 0xD0, 0x48, 0x8D, 0x4D, 0xB0, 0xE8, 0xEC, 0xAF, 0x6D, 0xFE, 0xBE, 0x01, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xD0, 0x44, 0x8A, 0xC6, 0xE8, 0x98, 0x86, 0x23, 0xFF, 0x44, 0x38, 0x6F, 0x55, 0x0F, 0x85, 0xAD, 0x01, 0x00, 0x00, 0xE8, 0x91, 0xE9, 0x3A, 0x00, 0x84, 0xC0, 0x0F, 0x84, 0xA0, 0x01, 0x00, 0x00 };
+static const uint8_t dep_124[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x83, 0x79, 0x18, 0x08, 0x48, 0x8B, 0xD9, 0x72 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -807,6 +813,8 @@ static const Dep kDeps[] = {
     { "MPCS", 0x531517, 9, dep_120, 0 },  // 1.7.47 MPCS: r12b gate (#23 chain recorded) in front of the #26 block
     { "MPCS", 0x531528, 17, dep_121, 0 },  // 1.7.47 MPCS: resume after the displaced mov rax,[rsi]; mov edx,0Bh: the #26 PSO bind call
     { "MPCS", 0x5315C5, 14, dep_122, 0 },  // 1.7.47 MPCS: skip target of #26: mov r12d,8Ah then the #27 block (the engine's #26 bind-failed path, je at 531533)
+    { "BN", 0x1C35372, 61, dep_123, 0 },  // Boot sequencer state 4: autosave notice text 0x3C4ABF1 -> SystemMessageAdd E6DA30 (rdx = string), then [rdi+55h] / GfxSettingsTooHeavy 1FE3D38 (bootnotice.cpp kSeqBytes)
+    { "BN", 0x310C18, 15, dep_124, 0 },  // StringReset 310C18 (wstring tidy: free when cap >= 8): what the BN1 thunk calls on the notice text instead of SystemMessageAdd, which ends with the same call
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

@@ -332,6 +332,10 @@
       "pattern": "80 78 3B 00 74 21 84 DB 75 1D E8 ?? ?? ?? ?? 84 C0 75 0C 41 88 A9 08 9B 06 00", "offset": 10, "what": "KeepRunningUnfocused: 89B230 (FrameDtSetup) focus-loss pause: options+3Bh set and inactive -> PadMgr+69B08 = 1 -> pause menu; r9/r10/r11 live across the call; vpad.cpp retargets it to the thunk (al + flags only)" },
     { "id": "AC1", "group": "AC", "rva": "0x1CECAED", "len": 5, "orig": "E8 5E 6E 59 FE", "kind": "check", "callee": "0x283950",
       "pattern": "40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 84 C0 74 26 E8 ?? ?? ?? ?? 84 C0 75 1D E8", "offset": 9, "what": "AutoContinueLoad: TipPageConfirmCheck 1CECAE4 call -> ConfirmPressed 283950 (GameMain+3Eh||+3Fh); autocont.cpp retargets it to a thunk that answers 1 while the switch is on" },
+    { "id": "BN1", "group": "BN", "rva": "0x1C35393", "len": 5, "orig": "E8 98 86 23 FF", "kind": "check", "callee": "0xE6DA30",
+      "pattern": "B9 F1 AB C4 03 E8 ?? ?? ?? ?? 48 8B D0 48 8D 4D B0 E8 ?? ?? ?? ?? BE 01 00 00 00 48 8B D0 44 8A C6 E8 ?? ?? ?? ?? 44 38 6F 55", "offset": 33, "what": "SkipBootNotice: boot sequencer 1C35188 state 4 -> SystemMessageAdd E6DA30 (text 0x3C4ABF1 'This game has an autosave feature', every boot); bootnotice.cpp retargets it to a thunk that resets the string (310C18) instead while the switch is on" },
+    { "id": "BN2", "group": "BN", "rva": "0x1C353A2", "len": 5, "orig": "E8 91 E9 3A 00", "kind": "check", "callee": "0x1FE3D38",
+      "pattern": "44 38 6F 55 0F 85 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 0F 84", "offset": 10, "what": "SkipBootNotice: boot sequencer state 4 -> GfxSettingsTooHeavy 1FE3D38 (true = queue the Yes/No 'reset all settings to the defaults?' warning); bootnotice.cpp answers 0 (= No) while the switch is on" },
     { "id": "TT1", "group": "TR", "rva": "0x56529C", "len": 5, "orig": "E8 43 D7 E4 FF", "kind": "check", "callee": "0x3B29E4",
       "pattern": "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", "offset": 0, "what": "Tour tick: PerFrameUpdater 5651D0 -> FastTravelSeqTickCall 3B29E4 (game thread, once per pass); tour.cpp retargets it to a thunk that saves rcx/rdx/r8-r11/rax/xmm0-5, runs the tour state machine and jumps to the original ([Debug] Tour != 0 only)" },
     { "id": "SB1", "group": "TR", "rva": "0x5B6F37", "len": 5, "orig": "E8 78 0C 00 00", "kind": "check", "callee": "0x5B7BB4",
@@ -600,6 +604,8 @@
     { "group": "MPCS", "rva": "0x5312E1", "bytes": "0F 84 DE 00 00 00", "what": "1.7.47 MPCS: #31 bind failed -> 5313C5: the skip target is an engine path" },
     { "group": "MPCS", "rva": "0x531517", "bytes": "45 84 E4 0F 84 BA 02 00 00", "what": "1.7.47 MPCS: r12b gate (#23 chain recorded) in front of the #26 block" },
     { "group": "MPCS", "rva": "0x531528", "bytes": "48 8B CE FF 90 A8 00 00 00 84 C0 0F 84 8C 00 00 00", "what": "1.7.47 MPCS: resume after the displaced mov rax,[rsi]; mov edx,0Bh: the #26 PSO bind call" },
-    { "group": "MPCS", "rva": "0x5315C5", "bytes": "41 BC 8A 00 00 00 48 8B 06 BA 0C 00 00 00", "what": "1.7.47 MPCS: skip target of #26: mov r12d,8Ah then the #27 block (the engine's #26 bind-failed path, je at 531533)" }
+    { "group": "MPCS", "rva": "0x5315C5", "bytes": "41 BC 8A 00 00 00 48 8B 06 BA 0C 00 00 00", "what": "1.7.47 MPCS: skip target of #26: mov r12d,8Ah then the #27 block (the engine's #26 bind-failed path, je at 531533)" },
+    { "group": "BN", "rva": "0x1C35372", "bytes": "B9 F1 AB C4 03 E8 88 F7 96 FE 48 8B D0 48 8D 4D B0 E8 EC AF 6D FE BE 01 00 00 00 48 8B D0 44 8A C6 E8 98 86 23 FF 44 38 6F 55 0F 85 AD 01 00 00 E8 91 E9 3A 00 84 C0 0F 84 A0 01 00 00", "what": "Boot sequencer state 4: autosave notice text 0x3C4ABF1 -> SystemMessageAdd E6DA30 (rdx = string), then [rdi+55h] / GfxSettingsTooHeavy 1FE3D38 (bootnotice.cpp kSeqBytes)" },
+    { "group": "BN", "rva": "0x310C18", "bytes": "40 53 48 83 EC 20 48 83 79 18 08 48 8B D9 72", "what": "StringReset 310C18 (wstring tidy: free when cap >= 8): what the BN1 thunk calls on the notice text instead of SystemMessageAdd, which ends with the same call" }
   ]
 }
