@@ -1,4 +1,4 @@
-"""Build per-device Nioh3EngineFix.ini profiles from the base ini + release\\profiles.json.
+"""Build Nioh3EngineFix.ini profiles (today one: ALL = every Windows PC and Linux/Proton device) from the base ini + release\\profiles.json.
 
   py -I release\\make_profiles.py            write release\\profiles\\Nioh3EngineFix.<DEV>.ini (generated, gitignored:
                                             package.py regenerates them from the base ini of the build it packages)

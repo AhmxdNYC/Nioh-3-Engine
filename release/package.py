@@ -1,6 +1,6 @@
-"""Build the release zips (one per device profile) from the built ASI. No game needed, nothing in the game folder is touched.
+"""Build the release zip (ONE zip for every Windows PC and Linux/Proton device) from the built ASI. No game needed, nothing in the game folder is touched.
 
-  py -I release\\package.py                 release\\dist\\Nioh3EngineFix-<ver>-<DEV>[-rc].zip for every profile
+  py -I release\\package.py                 release\\dist\\Nioh3EngineFix-<ver>[-rc].zip (profiles.json ALL; optional zip_suffix per profile)
   py -I release\\package.py --final         refuse 'provisional' profile entries and any check_release ERROR/WARN
   py -I release\\package.py --full          also run the harness/pattern tests first (check_release.py --full)
   py -I release\\package.py --allow-stale   package even if bin\\ was built from an older src version (testing only)
@@ -25,7 +25,7 @@ MOD = ROOT / "mod" / "Nioh3EngineFix"
 LOADER = [ROOT / "mod" / "ally-package" / "dinput8.dll"]
 SHADERS = [ROOT / "gpu-shaders" / "replacement", ROOT / "mod" / "ally-package" / "shader"]
 # GHDM fast shader as shipped since 2026-10-06 (MODLOG 19:35); a different file must be re-proven first.
-KNOWN_SHADER_SHA = {"0x0104840c.file": "129f03a0971e0a073b34"}
+KNOWN_SHADER_SHA = {"0x0104840c.file": "129f03a0971e0a073b34", "0xa9910db8.file": "81007b3f"}
 
 
 def sha(p):
@@ -60,6 +60,9 @@ def main(argv):
     if not loader:
         print("missing loader dinput8.dll (Ultimate ASI Loader) at mod\\ally-package\\")
         return 1
+    if b"ini keys set to -1 (auto)" not in asi.read_bytes() and not stale:
+        print("the ASI predates '-1 = auto by OS' (branch osauto): W6/GF/MQ = -1 would read as ON everywhere. Rebuild from a tree that has it.")
+        return 1
     guide = REL / "USER_GUIDE.md"
     modref = MOD / "bin" / "README.md"
     profiles = {k: v for k, v in json.loads((REL / "profiles.json").read_text(encoding="utf-8")).items()
@@ -92,16 +95,19 @@ def main(argv):
                 print(f"{dev}: shader {s['file']} hash {sha(src)[:20]} != shipped {want} - skipped (re-prove it first)")
                 continue
             files[f"optional/shader_dx12/{s['file']}"] = src
-        lines = [f"Nioh3EngineFix {ver} - {dev}: {p['title']}", "", "Changed from the default ini (status: why):"]
+        lines = [f"Nioh3EngineFix {ver} - {p['title']}", "", "Changed from the default ini (status: why):"]
         lines += [f"  [{o['section']}] {o['key']} = {o['value']}   {o['status']}: {o['why']}" for o in p["overrides"]]
         lines += ["", "Optional shaders:"] + [f"  {s['file']} ({s['name']})  {s['status']}: {s['why']}"
                                               for s in p.get("shaders", [])]
+        if p.get("optin"):
+            lines += ["", "Off by default, opt-in in the ini or mod menu:"] + [f"  {o['key']}  ({o['for']}): {o['why']}" for o in p["optin"]]
         if prov:
             lines += ["", "RELEASE CANDIDATE: still waiting for the final device re-test: " + ", ".join(prov)]
         profile_txt = "\r\n".join(lines) + "\r\n"
         sums = [f"{sha(src)}  {name}" for name, src in files.items()]
         sums.append(f"{hashlib.sha256(profile_txt.encode()).hexdigest()}  PROFILE.txt")
-        name = f"Nioh3EngineFix-{ver}-{dev}{'-rc' if prov else ''}.zip"
+        sfx = p.get("zip_suffix", f"-{dev}")
+        name = f"Nioh3EngineFix-{ver}{sfx}{'-rc' if prov else ''}.zip"
         zp = out / name
         with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as z:
             for arc, src in files.items():
