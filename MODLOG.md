@@ -770,3 +770,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - drawprep.cpp/.asm: `[Patches] W1B` (61BAC: game loop with `mov [m],0` instead of W1's `rep stosd`; off = W1 or the original) and `[Patches] RPA` (247950: the 21 byte ranges the original copies, 16-byte moves). 0/1/2, live menu rows. patches.json sites W1B (supersedes W1) + RPA, 3 FNV deps; matrix.json items W1B / RPA.
 - Offline proof `mod\Nioh3EngineFix\tests\run_w1b_rpa_harness.py` (dump bytes vs real caves) ALL PASSED; test_patterns ALL 285 SITES OK; build OK. Not run in the game. Note `notes\w1b-rpa.md`. Version 1.7.42 because main took 1.7.41 meanwhile.
 - Undo: keep `W1B = 0`, `RPA = 0` (default), or drop the branch (`git push origin --delete w1b`).
+
+## 2026-10-09 - Mod vs stock latency + BossLog fight-start analysis (analysis only; game, mod src and game folder not touched)
+- `notes\mod-vs-stock-2026-10-09.md`: the modded run's extra delay is the present mode, not rendering. MOD presented SyncInterval 1 -> `Composed: Flip` from the hub load on (21:00:52); STOCK presented SyncInterval 0 + tearing -> independent flip all session. DisplayLatency p50 14.9 vs 7.6 ms, dropped 10 % vs 2 %; GPU +0.24 ms/presented frame (FSR4 + OSD). ASI ruled out (never writes SyncInterval/flags/VSync); OptiScaler not the trigger (SI1 seen without it in round 3); engine SyncInterval writers located (2EDFBBD ctor, 13503A3 VSync watcher, 2EEBB50 setter). Proposals: OSD present-mode logger (A), opt-in `[Latency] VrrPresent` (B), test plan T1-T4.
+- BossLog "fight 26.8 s": BossBattleMode fires only after the mid-encounter cutscene + 5 s load that spawns 76781 (Enenra & Jakotsu-baba row); encounter started no later than 21:17:46. Encounter-window fix proposed for `mod\Nioh3BossRematch` (not edited).
+- `notes\user-settings.md` PC row 12 + top 5 updated with the measured mod-vs-stock numbers.
+- Undo: `git revert` of this commit.
