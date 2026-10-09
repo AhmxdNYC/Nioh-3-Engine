@@ -831,3 +831,12 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - ADD [Patches] PL = 0, PL_MaxMB = 1024 (src/psojournal.cpp; 1 = ID3D12PipelineLibrary for the engine's creates before the boot gate, file Nioh3EngineFix_pj\pl_*.bin checked against exe/GPU/driver/size/Hash128 + D3D12's own check, written at the gate when it grew; 2 = boot timing line only). Off on Proton and with ShaderSwap/GPUProf2/GIProbe/GIMerge. Boot timing line also with PJ on.
 - Tests: tests/run_pj_harness.py ALL PJ CHECKS OK (+8 PL launches on WARP: rec/warm/.new promote/corrupt/stale/garbage blob/PJ+PL/PL=2); tests/test_patterns.py ALL 231 SITES OK.
 - Undo: PL = 0 (default); delete <game>\Nioh3EngineFix_pj\pl_* to drop the library file.
+
+## 2026-10-09 - ASI 1.7.47: MLP meshlet front-end probe, MPCS MPC tail skip + MpcCheck self-check (all default off; game not run)
+- notes/meshlet-frontend.md. pc2 GP2 MinRun 1 (#140): 5.9 ms meshlet culling family in dense windows, 4.5 ms of it in five kernels (MshLod#1 1.5 ms = anomaly for an 8-byte copy kernel, MIC#0, MPC#27, MshLod#2 L0-L2, MPC#20); MPC #28-#31/#26 and LOD levels >= 4 are small (~0.1 ms each family) -> MPCS ~0.05-0.1 ms, LOD tail collapse not built (bindings + <= 0.1 ms).
+- ADD [Profiler] MeshletProbe = 0 (+ _Stats, _Top, _Dump, _Barriers): GPU half in gpuprof.cpp (per-dispatch / per-barrier stamps in the meshlet markers, CS invocations via pipeline statistics in alternate sampled frames, "GP: MLP:" lines, raw CSV), CPU half mlprobe.cpp (entry thunks 531948 / 5301FC / 53FD3C, "MLPC:" lines: callers, duplicate-resolve test, MPC cnt histogram). Needs GPUProf = 2, Barriers = 0.
+- ADD [Patches] MPCS = 0 (src/mpcskip.asm, patches.json group MPCS): drops MPC #28-#31 (1 <= cnt <= 1024) and #26 (#23 recorded, cnt <= 32768) in MeshletPreculling via the engine's bind-failed paths; refused unless shader_dx12\0x29ee0902.file is the proven mpc build (sha256 3947f3d7).
+- ADD [Profiler] MpcCheck = 0, MpcCheckMaxMB = 64 (src/mpccheck.cpp): runtime self-check, buffer snapshots before / after the skippable stages compared on the CPU ("MPCK:" lines).
+- Tests: tests/test_patterns.py ALL 237 SITES OK; tests/run_mpcs_harness.py ALL OK (+ mutation checks); tests/run_gp_harness.py modes 1-5 ALL PASSED (mode 5 = MLP + MpcCheck on the RX 9070; also fixes the harness link for skipfx); verify_culling.py quick 94 scenes PASS.
+- Harness: pc_gpu_session.ps1 Phase M (+ items mpcs / mpc), pc2 copy regenerated; re/scripts_gpu/mlp_report.py.
+- Undo: all keys 0 (default).

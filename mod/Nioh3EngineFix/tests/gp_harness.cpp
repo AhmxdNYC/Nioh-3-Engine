@@ -34,7 +34,12 @@ static void Log(const char* fmt, ...) {
 int main(int argc, char** argv) {
     // 1 = marker profiler, 2 = GP2 (every frame, every PSO run), 3 = GP2 sampled 1 in 4, min run 2,
     // 4 = GP2 + GQ gap census, sampled 1 in 2: a second list per frame is submitted after the GPU went idle + 3 ms
+    // 5 = GP2 + MLP meshlet probe + MpcCheck (1.7.47): a fake "MeshletPreculling" region (K23, 2x K28, K24, K26, K27 compute PSOs whose
+    //     digests are mapped to MPC kernels through [Profiler] MpcCheckKeys); K28 is a no-op except in "bad" frames (f % 16 >= 8),
+    //     where it changes one dword -> MpcCheck must count equal AND mismatching chains, #26 (rewrites K23's value) always equal
     const int mode = argc > 1 ? atoi(argv[1]) : 1;
+    const bool ctl = argc > 2 && !strcmp(argv[2], "ctl");   // mode 5 control run: the same region, MLP and MpcCheck off (probe overhead)
+    const bool light = argc > 2 && !strcmp(argv[2], "light");   // mode 5 with MeshletProbe_Barriers = 0 (dispatch stamps only)
     printf("=== GPUProf = %d ===\n", mode);
     int fails = 0;
     auto check = [&](bool c, const char* m) { printf("%s %s\n", c ? "OK  " : "FAIL", m); fails += !c; };
@@ -53,6 +58,35 @@ int main(int argc, char** argv) {
     WritePrivateProfileStringW(L"Profiler", L"GPUProf2_MinRun", mode == 3 ? L"2" : L"1", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"Barriers", L"0", ini);
     WritePrivateProfileStringW(L"GpuOpt", L"InstallDelaySec", L"600", ini);
+    WritePrivateProfileStringW(L"Profiler", L"MeshletProbe", mode == 5 && !ctl ? L"1" : L"0", ini);
+    WritePrivateProfileStringW(L"Profiler", L"MpcCheck", mode == 5 && !ctl ? L"100000" : L"0", ini);
+    WritePrivateProfileStringW(L"Profiler", L"MpcCheckKeys", L"", ini);
+    WritePrivateProfileStringW(L"Profiler", L"MeshletProbe_Barriers", light ? L"0" : L"1", ini);
+    if (mode == 5) WritePrivateProfileStringW(L"Profiler", L"GPUProf2_SampleEvery", L"2", ini);
+    // mode 5: the fake MPC kernels (compiled before gp::Start: MpcCheck reads their digests from MpcCheckKeys)
+    const char* const kMpcSrc[6] = {
+        "RWByteAddressBuffer u : register(u0);\n[numthreads(64,1,1)] void main(uint3 t : SV_DispatchThreadID) { u.Store(t.x * 4, t.x + 1000u); }\n",
+        "RWByteAddressBuffer u : register(u0);\n[numthreads(64,1,1)] void main(uint3 t : SV_DispatchThreadID) { if (u.Load(0) == 0xFFFFFFFFu) u.Store(4, 7u); }\n",
+        "RWByteAddressBuffer u : register(u0);\n[numthreads(64,1,1)] void main(uint3 t : SV_DispatchThreadID) { if (t.x == 0) u.Store(32, u.Load(32) + 1u); }\n",
+        "RWByteAddressBuffer u : register(u0);\n[numthreads(64,1,1)] void main(uint3 t : SV_DispatchThreadID) { u.Store(4096 + t.x * 4, t.x); }\n",
+        "RWByteAddressBuffer u : register(u0);\n[numthreads(64,1,1)] void main(uint3 t : SV_DispatchThreadID) { if (t.x == 0) u.Store(4, 1001u); }\n",
+        "RWByteAddressBuffer u : register(u0);\n[numthreads(64,1,1)] void main(uint3 t : SV_DispatchThreadID) { u.Store(8192 + t.x * 4, t.x * 3u); }\n"};
+    ID3DBlob* mpcCs[6] = {};
+    if (mode == 5) {
+        wchar_t keys[256] = L"";
+        const int kk[6] = {23, 28, 28, 24, 26, 27};
+        for (int i = 0; i < 6; ++i) {
+            ID3DBlob* er = nullptr;
+            D3DCompile(kMpcSrc[i], strlen(kMpcSrc[i]), nullptr, nullptr, nullptr, "main", "cs_5_0", 0, 0, &mpcCs[i], &er);
+            if (!mpcCs[i]) return 3;
+            const uint8_t* d = (const uint8_t*)mpcCs[i]->GetBufferPointer();
+            const uint32_t key = (uint32_t)d[4] << 24 | (uint32_t)d[5] << 16 | (uint32_t)d[6] << 8 | d[7];
+            wchar_t e[32];
+            swprintf_s(e, L"%s%d=%08x", i ? L"," : L"", kk[i], key);
+            wcscat_s(keys, e);
+        }
+        WritePrivateProfileStringW(L"Profiler", L"MpcCheckKeys", keys, ini);
+    }
 
     ID3D12Debug* dbg = nullptr;
     const bool debug = SUCCEEDED(D3D12GetDebugInterface(__uuidof(ID3D12Debug), (void**)&dbg)) && dbg;
@@ -173,6 +207,21 @@ int main(int argc, char** argv) {
         check(psoHeavy && psoLight, "two compute PSOs created");
     }
     auto ev16 = [&](const wchar_t* s) { cl->BeginEvent(0xFF336699u, s, (UINT)(wcslen(s) * 2)); };
+    ID3D12PipelineState* mpcPso[6] = {};
+    ID3D12Resource* bufM = nullptr;
+    if (mode == 5 && rs) {
+        for (int i = 0; i < 6; ++i) {
+            D3D12_COMPUTE_PIPELINE_STATE_DESC pd = {};
+            pd.pRootSignature = rs;
+            pd.CS = {mpcCs[i]->GetBufferPointer(), mpcCs[i]->GetBufferSize()};
+            dev->CreateComputePipelineState(&pd, __uuidof(ID3D12PipelineState), (void**)&mpcPso[i]);
+        }
+        D3D12_RESOURCE_DESC rm = rd;
+        rm.Width = 64 * 1024;
+        dev->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rm, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, __uuidof(ID3D12Resource),
+                                     (void**)&bufM);
+        check(mpcPso[0] && mpcPso[1] && mpcPso[2] && mpcPso[3] && mpcPso[4] && mpcPso[5] && bufM, "MLP: six fake MPC PSOs + 64 KB buffer");
+    }
     // GQ (mode 4): list C, recorded and submitted after list A finished on the GPU and 3 ms of CPU sleep -> a >= 3 ms queue gap
     ID3D12CommandAllocator* alC[kInFlight] = {};
     ID3D12GraphicsCommandList* clC = nullptr;
@@ -217,6 +266,22 @@ int main(int argc, char** argv) {
             ev16(L"LightPass");
             cl->SetPipelineState(psoLight);
             cl->Dispatch(1024, 1, 1);
+            cl->EndEvent();
+        }
+        if (mode == 5 && bufM) {   // fake MeshletPreculling region: #23, #28 x2, #24, #26, #27 with a UAV barrier after each
+            const bool bad = (f % 16) >= 8;
+            D3D12_RESOURCE_BARRIER ub = {};
+            ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+            ub.UAV.pResource = bufM;
+            cl->SetComputeRootSignature(rs);
+            cl->SetComputeRootUnorderedAccessView(0, bufM->GetGPUVirtualAddress());
+            ev16(L"MeshletPreculling");
+            const int seq[6] = {0, bad ? 2 : 1, bad ? 2 : 1, 3, 4, 5};
+            for (int i = 0; i < 6; ++i) {
+                cl->SetPipelineState(mpcPso[seq[i]]);
+                cl->Dispatch(1, 1, 1);
+                cl->ResourceBarrier(1, &ub);
+            }
             cl->EndEvent();
         }
         if (FAILED(cl->Close())) { ++fails; printf("FAIL Close in frame %d\n", f); }
@@ -276,6 +341,8 @@ int main(int argc, char** argv) {
             if (n == "Big pass") big = a, bigSelf = b;
             if (n == "Cascade 0") casc = a;
             if (n == "Tile # #") tile = a, tilePerFrame = c;
+            if (n == "MeshletPreculling") printf("parsed: GP marker MeshletPreculling incl %.4f ms/frame (all frames; %s)\n", a,
+                                                 ctl ? "control: no MLP stamps" : "1 in 4 frames carries MLP stamps, 1 in 4 stats queries + MpcCheck copies");
         }
         if (sscanf_s(l.c_str(), "GP: frame %lf ms", &frameMs) == 1) {
             const char* u = strstr(l.c_str(), "unmatched ends ");
@@ -354,6 +421,35 @@ int main(int argc, char** argv) {
         check(worstC, "GQ: the largest single gap names both lists' markers and ECL call sites");
         check(heads >= 0 && heads < 0.5 && noCov >= 0 && noCov < 0.01, "GQ: list heads small (barrier / marker first), every list covered by GP2");
         check(unc > 0 && sum > 0 && fabs(unc - sum) < 0.1 + 0.05 * unc, "GQ: GP2 uncovered (span - covered) == gaps + heads + no-cov (within 0.1 ms + 5 %)");
+    }
+    if (mode == 5 && !ctl) {
+        double mlpRegions = -1, mlpD = -1, mlpBc = -1, tinyN = -1, tot = -1, disp = -1, bar = -1;
+        long long eq = -1, mm = -1, eq26 = -1, mm26 = -1;
+        bool threads64 = false;
+        for (const std::string& l : g_lines) {
+            const char* h = strstr(l.c_str(), "GP: MLP: ");
+            if (h) {
+                if (const char* fe = strstr(h, "front-end "))
+                    sscanf_s(fe, "front-end %lf ms/frame = dispatch %lf + barrier %lf", &tot, &disp, &bar);
+                if (strstr(h, " regions, "))
+                    if (const char* r = strstr(h, " + gap ")) sscanf_s(r, " + gap %*f | %lf regions, %lf Dispatch", &mlpRegions, &mlpD);
+                if (const char* b = strstr(h, "ExecuteIndirect, ")) sscanf_s(b, "ExecuteIndirect, %lf barrier calls", &mlpBc);
+                if (const char* w = strstr(h, "threads): ")) sscanf_s(w, "threads): %lf dispatches", &tinyN);
+                if (strstr(h, " | D ") && strstr(h, "| 64 | 100% |")) threads64 = true;
+            }
+            if (const char* t = strstr(l.c_str(), "TOTAL: #28-#31 equal "))
+                sscanf_s(t, "TOTAL: #28-#31 equal %lld / MISMATCH %lld, #26 equal %lld / MISMATCH %lld", &eq, &mm, &eq26, &mm26);
+        }
+        printf("parsed MLP: front-end %.3f ms (dispatch %.3f, barrier %.3f), %.2f regions, %.2f Dispatch, %.2f barrier calls, %.2f one-wave "
+               "dispatches /frame; MPCK #28-#31 equal %lld mismatch %lld, #26 equal %lld mismatch %lld\n", tot, disp, bar, mlpRegions, mlpD, mlpBc,
+               tinyN, eq, mm, eq26, mm26);
+        check(tot > 0 && disp > 0 && bar >= 0 && tot >= disp + bar - 1e-3, "MLP: region time split into dispatch + barrier + gap");
+        check(mlpRegions > 0.99 && mlpRegions < 1.01, "MLP: one MeshletPreculling region per timing frame");
+        check(mlpD > 5.99 && mlpD < 6.01, "MLP: 6 dispatches per region");
+        check(light ? mlpBc < 0.01 : (mlpBc > 5.99 && mlpBc < 6.01), "MLP: 6 barrier calls per region (pre + post stamped; 0 with Barriers = 0)");
+        check(tinyN > 5.5 && tinyN < 6.5 && threads64, "MLP: stats frames count 64 CS threads per dispatch (one wave)");
+        check(eq > 0 && mm > 0, "MPCK: no-op K28 chains compare equal, chains with the changing K28 are reported as MISMATCH");
+        check(eq26 > 0 && mm26 == 0, "MPCK: #26 (rewrites K23's value) always equal");
     }
     if (iq) {
         const UINT64 n = iq->GetNumStoredMessages();

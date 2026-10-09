@@ -621,7 +621,10 @@ void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, 
         FlushList(cl, -1, kSlotResourceBarrier);
         if (gpuopt_trace)
             for (UINT k = 0; k < n && b; ++k) TraceBarrier(cl, S, 2, b[k], true);
+        const bool mlp = gp::g_mlpBarriers != 0;   // 1.7.47 MLP / MpcCheck: stamps around the barrier call (meshlet regions only)
+        if (mlp) gp::OnBarrier(cl, S, n, b, false);
         g_origRB[S](cl, n, b);
+        if (mlp) gp::OnBarrier(cl, S, n, b, true);
         Add(g_c.passthrough, n);
         Add(g_c.passCalls);
         return;

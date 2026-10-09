@@ -42,12 +42,16 @@ GP2R = re.compile(r'GP2:\s+(\d+) (.*?) \| +([\d.]+) ms \| +([\d.]+) \| +([\d.]+)
 OSD = re.compile(r'OSD: stats: rendered ([\d.]+) fps')
 
 # what proves an item ran (ASI items log a line; shader items show a new PSO hash) + known GP2 target hashes (notes)
-ASI_PROOF = {'AS0': r'AS0: slot 0 forced on', 'GIM': r'stats/s gimerge: .*merge on: .*, merged (?!0\.00)\d'}
+ASI_PROOF = {'AS0': r'AS0: slot 0 forced on', 'GIM': r'stats/s gimerge: .*merge on: .*, merged (?!0\.00)\d',
+             'mpcs': r'stats/s MPCS: .*tails skipped (?!0\.0)\d'}   # 1.7.47 MPCS (with the mpc file; notes/meshlet-frontend.md)
 TARGETS = {   # original digest prefixes of the records each item replaces (for the target-row delta); new ones are found as novel hashes
     'fogpar': ['641524ee'], 'wdo14': ['8a013bc7'], 'wdo28': ['32e8deff'], 'gi': ['4b4c3cbe', '6ae59bd0'],
     'toonedge2': ['318fa766'], 'GIM': ['4b4c3cbe', '6ae59bd0'],
     'lodu': ['63c07c21', 'c4a71e16'],   # MshLod#2 fast path (notes/gpu-rewrite-round4.md); MinRun=4 hides it in c4a71e16 buckets
     'msv': ['1559714c', '70d0ee9f', 'f311c8e2'],   # meshlet VS (notes/gpu-rewrite-round3.md); GP2 rows read vs=...
+    # MPC prefix-scan chain #23 #28 #29 #30 #31 #26 (notes/gpu-culling-rewrite.md); mpcs = mpc file + MPCS skip (notes/meshlet-frontend.md)
+    'mpc': ['34078a28', '4225b9ff', '6b87b43e', '3ecb247d', 'de4d71b0', '5f610a3e'],
+    'mpcs': ['34078a28', '4225b9ff', '6b87b43e', '3ecb247d', 'de4d71b0', '5f610a3e'],
 }
 
 

@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -340,6 +340,12 @@ static const uint8_t orig_ASp4[] = { 0xE8, 0xA9, 0x2D, 0x3E, 0x00 };
 static const uint8_t orig_ASp6[] = { 0xE8, 0xF3, 0x68, 0xB0, 0xFE };
 static const uint8_t orig_ASp11[] = { 0xE8, 0xD5, 0x0C, 0x00, 0x00 };
 static const uint8_t orig_ASp12[] = { 0xE8, 0xD4, 0x37, 0x11, 0x00 };
+static const uint8_t orig_MPCSa[] = { 0x48, 0x83, 0x87, 0x40, 0x3C, 0x00, 0x00, 0x08, 0xEB, 0x07 };
+static const uint8_t orig_MPCSb[] = { 0x48, 0x8B, 0x06, 0xBA, 0x0E, 0x00, 0x00, 0x00 };
+static const uint8_t orig_MPCSc[] = { 0x48, 0x8B, 0x06, 0xBA, 0x0B, 0x00, 0x00, 0x00 };
+static const uint8_t orig_MLP1[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_MLP2[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_MLP3[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -573,6 +579,12 @@ static const Site kSites[] = {
     { "ASp6", "AS", 0x1A25524, 5, orig_ASp6, "C8 48 89 85 90 01 00 00 E8 F3 68 B0 FE 48 89 45 B8 48 8B", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
     { "ASp11", "AS", 0x52B142, 5, orig_ASp11, "BA 0B 00 00 00 49 8B CF E8 D5 0C 00 00 45 33 E4 48 8B F0", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
     { "ASp12", "AS", 0x418643, 5, orig_ASp12, "50 44 89 BD 88 00 00 00 E8 D4 37 11 00 48 8B D8 48 85 C0", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x52BE1C },
+    { "MPCSa", "MPCS", 0x530FD3, 10, orig_MPCSa, "48 83 87 40 3C 00 00 08 EB 07 8B 9C 24 A8 00 00 00 48 8B 06 BA 0E 00 00 00", 0, Kind::Jmp, nullptr, Target::caveMpcsA, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "MPCSb", "MPCS", 0x530FE4, 8, orig_MPCSb, "8B 9C 24 A8 00 00 00 48 8B 06 BA 0E 00 00 00 48 8B CE FF 90 A8 00 00 00 84 C0 0F 84 E4 00 00 00 45", 7, Kind::Jmp, nullptr, Target::caveMpcsB, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "MPCSc", "MPCS", 0x531520, 8, orig_MPCSc, "45 84 E4 0F 84 BA 02 00 00 48 8B 06 BA 0B 00 00 00 48 8B CE FF 90 A8 00 00 00 84 C0 0F 84 8C 00 00 00", 9, Kind::Jmp, nullptr, Target::caveMpcsC, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "MLP1", "MLP", 0x531948, 5, orig_MLP1, "48 89 5C 24 10 4C 89 4C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 50 8B", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "MLP2", "MLP", 0x5301FC, 5, orig_MLP2, "48 89 5C 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30 4C 8B BC", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "MLP3", "MLP", 0x53FD3C, 5, orig_MLP3, "48 89 5C 24 10 44 88 4C 24 20 55 56 57 41 54", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -662,6 +674,15 @@ static const uint8_t dep_110[] = { 0x3B, 0x87, 0x98, 0x13, 0x00, 0x00, 0x0F, 0x8
 static const uint8_t dep_111[] = { 0x44, 0x3B, 0xBF, 0x98, 0x13, 0x00, 0x00, 0x75, 0x0D, 0x80, 0xBF, 0xAC, 0x13, 0x00, 0x00, 0x00, 0x0F, 0x85, 0x33, 0x5D, 0x80, 0x01 };
 static const uint8_t dep_112[] = { 0x45, 0x3B, 0x8E, 0x98, 0x13, 0x00, 0x00, 0x75, 0x0D, 0x41, 0x38, 0x9E, 0xAC, 0x13, 0x00, 0x00, 0x0F, 0x85, 0xBB, 0x83, 0x48, 0x01 };
 static const uint8_t dep_113[] = { 0xC6, 0x86, 0xAC, 0x13, 0x00, 0x00, 0x01 };
+static const uint8_t dep_114[] = { 0x42, 0x8B, 0x1C, 0x38, 0x41, 0x89, 0x9E, 0x80, 0x02, 0x00, 0x00, 0x4C, 0x89, 0xB6, 0xF0, 0x12, 0x00, 0x00, 0x89, 0x9C, 0x24, 0xA8, 0x00, 0x00, 0x00 };
+static const uint8_t dep_115[] = { 0x8B, 0x9C, 0x24, 0xA8, 0x00, 0x00, 0x00 };
+static const uint8_t dep_116[] = { 0x8B, 0x9C, 0x24, 0xA8, 0x00, 0x00, 0x00 };
+static const uint8_t dep_117[] = { 0x48, 0x8B, 0xCE, 0xFF, 0x90, 0xA8, 0x00, 0x00, 0x00, 0x84, 0xC0, 0x0F, 0x84, 0xE4, 0x00, 0x00, 0x00 };
+static const uint8_t dep_118[] = { 0x33, 0xDB, 0x45, 0x84, 0xFF, 0x0F, 0x84, 0x47, 0x01, 0x00, 0x00 };
+static const uint8_t dep_119[] = { 0x0F, 0x84, 0xDE, 0x00, 0x00, 0x00 };
+static const uint8_t dep_120[] = { 0x45, 0x84, 0xE4, 0x0F, 0x84, 0xBA, 0x02, 0x00, 0x00 };
+static const uint8_t dep_121[] = { 0x48, 0x8B, 0xCE, 0xFF, 0x90, 0xA8, 0x00, 0x00, 0x00, 0x84, 0xC0, 0x0F, 0x84, 0x8C, 0x00, 0x00, 0x00 };
+static const uint8_t dep_122[] = { 0x41, 0xBC, 0x8A, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x06, 0xBA, 0x0C, 0x00, 0x00, 0x00 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -777,6 +798,15 @@ static const Dep kDeps[] = {
     { "AS", 0x1489B7, 22, dep_111, 0 },  // AS: slot-0 join (fog node cold chunk 194E700) only when RS+13ACh != 0
     { "AS", 0x547721, 22, dep_112, 0 },  // AS: slot-0 join (cold chunk 19CFAF2) only when RS+13ACh != 0
     { "AS", 0x3D0D3A, 7, dep_113, 0 },  // AS: the producer's async branch sets RS+13ACh = 1 (only byte writer of 1)
+    { "MPCS", 0x5302F2, 25, dep_114, 0 },  // 1.7.47 MPCS: cnt = [param_5+20h|1Ch] -> ebx, ctx+280h and [rsp+0A8h] (the value the caves test)
+    { "MPCS", 0x530EEE, 7, dep_115, 0 },  // 1.7.47 MPCS: ebx = cnt reloaded from [rsp+0A8h] on the #23-dispatched path (cave A sees cnt in ebx)
+    { "MPCS", 0x530FDD, 7, dep_116, 0 },  // 1.7.47 MPCS: ebx = cnt reloaded from [rsp+0A8h] on the #23 bind-failed path (falls into site MPCSb)
+    { "MPCS", 0x530FEC, 17, dep_117, 0 },  // 1.7.47 MPCS: resume after the displaced mov rax,[rsi]; mov edx,0Eh: the #28 PSO bind call
+    { "MPCS", 0x5313C5, 11, dep_118, 0 },  // 1.7.47 MPCS: skip target of the #28-#31 tail: xor ebx,ebx then the #24 section (the engine's own path when the #31 bind fails, je at 5312E1)
+    { "MPCS", 0x5312E1, 6, dep_119, 0 },  // 1.7.47 MPCS: #31 bind failed -> 5313C5: the skip target is an engine path
+    { "MPCS", 0x531517, 9, dep_120, 0 },  // 1.7.47 MPCS: r12b gate (#23 chain recorded) in front of the #26 block
+    { "MPCS", 0x531528, 17, dep_121, 0 },  // 1.7.47 MPCS: resume after the displaced mov rax,[rsi]; mov edx,0Bh: the #26 PSO bind call
+    { "MPCS", 0x5315C5, 14, dep_122, 0 },  // 1.7.47 MPCS: skip target of #26: mov r12d,8Ah then the #27 block (the engine's #26 bind-failed path, je at 531533)
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

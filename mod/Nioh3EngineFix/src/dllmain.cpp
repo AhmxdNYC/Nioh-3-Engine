@@ -39,6 +39,7 @@
 #include "menu.h"
 #include "osd.h"
 #include "fnprobe.h"
+#include "mlprobe.h"
 #include "padlat.h"
 #include "tour.h"
 #include "vpad.h"
@@ -72,7 +73,9 @@
 // 1.7.45: PJ journal v2 (runtime PSOs only; the boot list filled v1) + PJH PSO hand-over (live row); notes\stutter-pso.md
 // 1.7.45: TR timer-resolution hold (timerres.cpp, live row) + [Debug] SkipDebugString; notes\game-logic-audit.md
 // 1.7.46: PL boot pipeline library ([Patches] PL = 0; psojournal.cpp) + boot-list timing line; notes\boot-shader-compile.md
-#define MOD_VERSION "1.7.46"
+// 1.7.47: MLP meshlet front-end probe ([Profiler] MeshletProbe = 0; mlprobe.cpp CPU half + gpuprof.cpp GPU half), MPCS MPC tail skip
+//         ([Patches] MPCS = 0; mpcskip.asm, needs the `mpc` shader build) + MpcCheck self-check (mpccheck.cpp); notes\meshlet-frontend.md
+#define MOD_VERSION "1.7.47"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -160,6 +163,12 @@ void caveJtWakeAll();
 // 1.7.44 PM: SyncInterval writer probes (pmode.asm)
 void caveSiW();
 void caveSiS();
+// 1.7.47 MPCS: MPC tail skip (mpcskip.asm)
+void caveMpcsA();
+void caveMpcsB();
+void caveMpcsC();
+extern uint32_t mpcs_enable;
+extern uint64_t mpcs_resB, mpcs_skipB, mpcs_resC, mpcs_skipC, mpcs_n28, mpcs_n26, mpcs_seen;
 extern uint32_t ws_enable, ed_enable;
 extern uint64_t ws_iatSetEvent, ws_iatWait, ws_ret[3], ed_kickFn, ed_joinFn, ed_kicked, ed_skipped;
 extern uint64_t ws_set[48], ws_sleeps, ws_sleepPool[64], ws_chk[32];
@@ -388,6 +397,7 @@ struct Config {
     int bpo = 0, bpoMask = 7, bpoTableBits = 14;  // 1.7.40: BoundsFromPartObbs (1 = on, 2 = installed off; mask 1 Q, 2 L, 4 V)
     int mq = 0, pt1 = 0, dl = 0, cpuStats = 0;  // 1.7.12 (DL rides the CP group)
     int rwb = 0, spr = 0;
+    int mpcs = 0;  // 1.7.47 MPCS: MPC tail skip in MeshletPreculling (code caves, next launch; needs the mpc shader build; notes\meshlet-frontend.md)
     int esm1 = 0;  // 1.7.44 ESM1: directional ESM render target capped at 1024^2 (code bytes, next launch; notes\gpu-resolution-audit.md)
     // 1.7.23 LO (loadonly.cpp): GF/W6/RWb installed but on only inside 58A; *User = the keys as written in the ini
     int loadOnly = 0, gfUser = 0, w6User = 0, rwbUser = 0;
@@ -501,6 +511,7 @@ Config LoadConfig() {
     c.cpuStats = I(L"Patches", L"CpuStats", c.cpuStats);
     c.rwb = I(L"Patches", L"RWb", c.rwb);
     c.esm1 = I(L"Patches", L"ESM1", c.esm1);
+    c.mpcs = I(L"Patches", L"MPCS", c.mpcs);
     c.spr = I(L"Patches", L"SPR", c.spr);
     c.gl1 = I(L"Patches", L"GL1", c.gl1);
     c.lc = I(L"Patches", L"LC", c.lc);
@@ -735,11 +746,14 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveFgp: return (void*)&caveFgp;
         case gen::Target::caveSiW: return (void*)&caveSiW;
         case gen::Target::caveSiS: return (void*)&caveSiS;
+        case gen::Target::caveMpcsA: return (void*)&caveMpcsA;
+        case gen::Target::caveMpcsB: return (void*)&caveMpcsB;
+        case gen::Target::caveMpcsC: return (void*)&caveMpcsC;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveSiS;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveMpcsC;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1535,6 +1549,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "SPF")) return cfg.spf != 0;
         if (!strcmp(g, "RWb")) return cfg.rwb != 0;
         if (!strcmp(g, "ESM1")) return cfg.esm1 != 0;
+        if (!strcmp(g, "MPCS")) return cfg.mpcs != 0;
+        if (!strcmp(g, "MLP")) return false;  // MeshletProbe recorder entry sites: verified offline (test_patterns), hooked by mlprobe.cpp
         if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
         if (!strcmp(g, "LC")) return cfg.lc != 0;
         if (!strcmp(g, "LW")) return cfg.lw != 0;
@@ -2106,6 +2122,7 @@ DWORD WINAPI Worker(LPVOID) {
         return true;
     });
     static bool s_dlDone = false, s_mqDone = false, s_ptDone = false, s_cpuStats = false;
+    static bool s_mpcsDone = false;
     s_cpuStats = cfg.cpuStats != 0;
     s_dlDone = exDone[menu::kExpDL] = exDone[menu::kExpCP];
     exDone[menu::kExpSPF] = expGroup("SPF", cfg.spf != 0, [&]() {
@@ -2130,6 +2147,29 @@ DWORD WINAPI Worker(LPVOID) {
         return true;
     });
     if (exDone[menu::kExpMQ]) Log("MQ: MatrixFromScaleQuatTrans SSE cave installed, switch %s", mq_enable ? "ON" : "off");
+    // MPCS (1.7.47, notes\meshlet-frontend.md 3): with the `mpc` build of 0x29ee0902.file MeshletPreculling 5301FC records MPC #28-#31
+    // (1 <= cnt <= 1024) and #26 (#23 dispatched) only as no-ops; the caves drop those dispatches + their UAV barrier tokens via the
+    // engine's own bind-failed paths. Refused without that exact file (sha256). Next launch only; no menu item. 2 = installed, switch off.
+    if (cfg.mpcs) {
+        char why[200];
+        const bool fileOk = mlprobe::MpcFileOk(why, sizeof why);
+        if (!fileOk) Log("MPCS: NOT installed - %s (install the mpc item first: gpu-shaders\\apply_sweep.ps1 -Item mpc)", why);
+        s_mpcsDone = expGroup("MPCS", fileOk, [&]() {
+            uint8_t* a = findItem("MPCSa")->addr;
+            uint8_t* b = findItem("MPCSb")->addr;
+            uint8_t* c = findItem("MPCSc")->addr;
+            if (a + 0x11 != b || c - b != 0x53C) { Log("MPCS: sites are not where the caves expect them"); return false; }
+            mpcs_resB = (uint64_t)(uintptr_t)(b + 8);                // 530FEC: #28 PSO bind
+            mpcs_skipB = (uint64_t)(uintptr_t)(g_base + 0x5313C5);  // deps-checked: the #24 section
+            mpcs_resC = (uint64_t)(uintptr_t)(c + 8);                // 531528: #26 PSO bind
+            mpcs_skipC = (uint64_t)(uintptr_t)(g_base + 0x5315C5);  // deps-checked: the #26 bind-failed path
+            mpcs_enable = cfg.mpcs == 1 ? 1u : 0u;
+            return true;
+        });
+        if (s_mpcsDone)
+            Log("MPCS: MPC tail skip installed (%s), switch %s: MeshletPreculling drops #28-#31 when 1 <= cnt <= 1024 and #26 when #23 was dispatched",
+                why, mpcs_enable ? "ON" : "off");
+    }
     // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
     // textures (the bytes are never restored mid-loop), so switching off is always safe.
     s_ptDone = exDone[menu::kExpPT1] = expGroup("PT1", cfg.pt1 != 0, [&]() {
@@ -2325,6 +2365,14 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
                 if (sec % 30 == 0) loadmem::LogLine();  // no-op unless [Memory] LM = 1
                 if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
+                if (sec % 30 == 0) mlprobe::LogLine();   // no-op unless [Profiler] MeshletProbe = 1 (CPU half)
+                if (s_mpcsDone && sec % 30 == 0) {       // 1.7.47 MPCS
+                    static uint64_t p28 = 0, p26 = 0, pSeen = 0;
+                    const uint64_t a = mpcs_n28, b = mpcs_n26, c = mpcs_seen;
+                    Log("stats/s MPCS: MPC tail decisions %.1f/s, #28-#31 tails skipped %.1f/s (4 dispatches + 8 UAV barriers each), #26 skipped %.1f/s "
+                        "(switch %s)", (double)(c - pSeen) / 30.0, (double)(a - p28) / 30.0, (double)(b - p26) / 30.0, mpcs_enable ? "ON" : "off");
+                    p28 = a; p26 = b; pSeen = c;
+                }
                 if (sec % 30 == 0) pj::LogLine();        // no-op unless [Patches] PJ != 0
                 if (sec % 30 == 0) {                     // no-op unless [Patches] TR != 0
                     char tb[512];
@@ -2649,6 +2697,14 @@ DWORD WINAPI Worker(LPVOID) {
             for (auto& k : moved)
                 if (GetPrivateProfileIntW(k[0], k[1], 0, iniPath.c_str()))
                     Log("[%ls] %ls: moved to Nioh3BossRematch (set it in Nioh3BossRematch.ini; this ASI has no boss hooks since 1.7.41)", k[0], k[1]);
+        }
+        {  // 1.7.47 MLP CPU half (mlprobe.cpp, [Profiler] MeshletProbe = 0 by default; notes\meshlet-frontend.md): measurement only
+            mlprobe::StartInfo mi;
+            mi.log = &Log;
+            mi.iniPath = iniPath.c_str();
+            mi.base = reinterpret_cast<uintptr_t>(g_base);
+            mi.knownBuild = known;
+            mlprobe::Start(mi);
         }
         {  // FnProbe (fnprobe.cpp, [Debug] FnProbe = 0 by default; notes\remaining-work.md 10.1): measurement only
             fnprobe::StartInfo fi;

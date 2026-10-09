@@ -23,6 +23,12 @@
            with SampleEvery = 1: windows 1/3/5 stamp every frame, windows 2/4 stamp nothing (GP2 off on the GPU, PresentMon only) = ABABA
            overhead A/B in one launch; GQ = 1 (DIRECT gap census: gaps / heads / tails / unmeasured lists). Decode:
            re\scripts_gpu\gpu_unattr.py -> <session>\U_unattr.txt (idle by cause, unmeasured work by category, profiler overhead).
+  Phase M  (-Phases M; notes\meshlet-frontend.md, ASI >= 1.7.47) meshlet front-end probe. Two run_tour launches at -MStage (default 7292
+           Mirage Fortress spawn), -MPasses x -MDwell s each, GP2 MinRun 1 + [Profiler] MeshletProbe = 1 (per-dispatch / per-barrier
+           stamps, CS invocations in alternate sampled frames, raw dump) + MpcCheck = -MpcCheckChains: M1 with the SHIPPED MPC file
+           (MpcCheck = negative control, must report mismatches), M2 with the `mpc` file (MpcCheck must report none). Decode:
+           re\scripts_gpu\mlp_report.py -> <session>\M_report.txt. Phase B items for the changes: mpc (file only) and mpcs (mpc file +
+           [Patches] MPCS = 1).
   -DryRun  no game, no Steam, no lock, no real file changes: temp game/save folders, fake shader table, run_tour -DryRun (fake game),
            fake Phase B launches (pc_gpu_report.py fake-launch) -> the whole wrapper + report path. Read-only checks of the REAL
            replacement files, game shader states, config source and ASI build are printed. Ends with 'DryRun OK'.
@@ -38,6 +44,7 @@ param(
     [string]$TourList = "main", [int]$TourPoints = 3, [int]$TourDwell = 12,
     [int]$SettleSec = 45, [int]$WindowSec = 20, [int]$Windows = 3, [int]$MinDraws = 1000, [int]$GP2MinRun = 4,
     [string]$UStage = "7292", [int]$UPasses = 5, [int]$UDwell = 30,
+    [string]$MStage = "7292", [int]$MPasses = 3, [int]$MDwell = 30, [int]$MpcCheckChains = 400,
     [switch]$NoShots, [switch]$WaitRun8, [int]$WaitMaxMin = 240,
     [int]$OwnerPid = 0, [int]$MaxMinutes = 300, [switch]$DryRun
 )
@@ -72,7 +79,8 @@ $runLog = Join-Path $sess "session.log"
 $cfg = Join-Path $SaveRoot "config.xml"; $ini = Join-Path $GameDir "Nioh3EngineFix.ini"; $asi = Join-Path $GameDir "Nioh3EngineFix.asi"
 $modLog = Join-Path $GameDir "Nioh3EngineFix.log"; $binAsi = Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi"
 $ShaderDir = Join-Path $GameDir "shader_dx12"; $ReplDir = Join-Path $ws "gpu-shaders\replacement"; $RealReplDir = $ReplDir
-$AsiItems = @{ AS0 = "Patches.AS0=1"; GIM = "Patches.GIMerge=1;Debug.GIProbe=1" }
+$AsiItems = @{ AS0 = "Patches.AS0=1"; GIM = "Patches.GIMerge=1;Debug.GIProbe=1"; mpcs = "Patches.MPCS=1" }
+$ComboShader = @{ mpcs = "mpc" }   # ASI items that need a shader item installed in their arm (MPCS refuses without the mpc file)
 $script:restored = $false; $script:lockHeld = $false; $script:modInstalled = $false; $script:cfgInstalled = $false; $script:savesBacked = $false
 $script:Init = @{}; $script:pm = $null; $script:summary = [ordered]@{}
 
@@ -103,7 +111,8 @@ function Get-ShaderTable([string]$sh) {
 }
 $RealTab = Get-ShaderTable (Join-Path $ws "gpu-shaders\ally_shaders.sh")
 foreach ($it in $Items) { if (-not $RealTab.ContainsKey($it) -and -not $AsiItems.ContainsKey($it)) { throw "unknown item '$it' (shader: $($RealTab.Keys -join ','); ASI: AS0, GIM)" } }
-$ShaderItems = @($Items | Where-Object { $RealTab.ContainsKey($_) })
+$ShaderItems = @(@($Items | Where-Object { $RealTab.ContainsKey($_) }) + @($Items | Where-Object { $ComboShader.ContainsKey($_) } | ForEach-Object { $ComboShader[$_] }) +
+                 @(if ($Phases -contains "M") { "mpc" }) | Select-Object -Unique)
 
 function State-Of($e, [string]$h) { if ($h -eq $e.orig) { "orig" } elseif ($h -eq $e.repl) { "repl" } elseif ($e.old -contains $h) { "superseded" } elseif (-not $h) { "missing" } else { "unknown" } }
 # read-only check of the REAL files (also printed in -DryRun): replacement sha256 + what the game folder has now
@@ -234,7 +243,7 @@ function Write-ArmIni([string]$arm) {
     $lines = [IO.File]::ReadAllLines($BaseIniSrc)
     $keys = @("General.AutoContinueLoad=1", "Debug.VirtualPad=1", "Debug.KeepRunningUnfocused=1", "VRR.MaxFps=240",
               "Profiler.GPUProf=2", "Profiler.GPUProf2_SampleEvery=8", "Profiler.GPUProf2_Top=100", "Profiler.GPUProf2_MinRun=$GP2MinRun", "Profiler.GPUProf2_AB=0",
-              "Profiler.SP=0", "Patches.AS0=0", "Patches.GIMerge=0")
+              "Profiler.SP=0", "Patches.AS0=0", "Patches.GIMerge=0", "Patches.MPCS=0", "Profiler.MeshletProbe=0", "Profiler.MpcCheck=0")
     if ($AsiItems.ContainsKey($arm)) { $keys += @($AsiItems[$arm] -split ";") }
     foreach ($kv in $keys) { if ($kv -match '^([^.=]+)\.([^=]+)=(.*)$') { $lines = Set-IniValue $lines $Matches[1] $Matches[2] $Matches[3] } }
     [IO.File]::WriteAllLines($ini, $lines, (New-Object Text.UTF8Encoding($false)))
@@ -285,7 +294,8 @@ function Run-Launch([int]$n, [string]$arm) {
     $name = "L{0:D2}_{1}" -f $n, $arm; $stem = Join-Path $BDir $name
     $rec = [ordered]@{ launch = $n; arm = $arm; ok = $false; why = ""; shot = "" }
     try {
-        foreach ($it in $ShaderItems) { Set-ItemState $it ($it -eq $arm) }
+        $need = if ($ComboShader.ContainsKey($arm)) { $ComboShader[$arm] } else { $arm }
+        foreach ($it in $ShaderItems) { Set-ItemState $it ($it -eq $need) }
         Write-ArmIni $arm
         Copy-Item $ini "$stem.ini" -Force
         Set-TestStatus "launch $n/$($script:plan.Count): $arm"
@@ -425,7 +435,8 @@ try {
     Set-MeasureLock "starting"
     # ---- backups ----
     Backup-Saves
-    $ShaderItems = @(Backup-Shaders); $Items = @($Items | Where-Object { $AsiItems.ContainsKey($_) -or $ShaderItems -contains $_ })
+    $ShaderItems = @(Backup-Shaders)
+    $Items = @($Items | Where-Object { ($AsiItems.ContainsKey($_) -or $ShaderItems -contains $_) -and (-not $ComboShader.ContainsKey($_) -or $ShaderItems -contains $ComboShader[$_]) })
     L "shader snapshot: $($script:Init.Count) files; testable items: $($Items -join ',')"
 
     # ---- Phase A: GP2 budget on the tour route, FG as the user has it ----
@@ -487,6 +498,45 @@ try {
         $script:summary["U"] = "tour $(if ($vd.Success) { $vd.Groups[1].Value } else { '?' }); $ut$(if ($hl.Count) { ' - ' + (($hl | ForEach-Object { $_.Trim() }) -join ' | ') } else { ' - no GP2 windows decoded' })"
         L "Phase U: $($script:summary['U'])"
         Send-Bridge "[RESULT] pc2 Phase U (gpu-unattributed.md) done: $($script:summary['U']). Post U_unattr.txt + the U capture folder (logs\run01.log, presentmon.csv) as one zip."
+    }
+
+    # ---- Phase M: meshlet front-end probe (notes\meshlet-frontend.md): M1 shipped MPC file, M2 the mpc file; MpcCheck in both ----
+    if ($Phases -contains "M") {
+        if ($ShaderItems -notcontains "mpc") { throw "Phase M needs the mpc shader item (replacement file / game file state, see above)" }
+        Install-Config
+        $ml = Join-Path $sess "M_tourlist.txt"
+        Set-Content $ml "$MStage   # meshlet-frontend.md: one GPU-bound spawn, re-loaded every pass" -Encoding ASCII
+        $mtxt = ""; $mPy = Join-Path $ws "re\scripts_gpu\mlp_report.py"
+        foreach ($arm in @(@{ n = "M1"; mpc = $false }, @{ n = "M2"; mpc = $true })) {
+            Set-ItemState "mpc" $arm.mpc
+            if (-not $DryRun) { $qw = Wait-Quiet "phase $($arm.n)" { param($l) L $l } }
+            $gk = "Profiler.GPUProf=2;Profiler.GPUProf2_SampleEvery=4;Profiler.GPUProf2_AB=0;Profiler.GPUProf2_Top=100;Profiler.GPUProf2_MinRun=1;" +
+                  "Profiler.MeshletProbe=1;Profiler.MeshletProbe_Stats=1;Profiler.MeshletProbe_Top=80;Profiler.MeshletProbe_Dump=60;" +
+                  "Profiler.MpcCheck=$MpcCheckChains;Profiler.MpcCheckMaxMB=64;GpuOpt.Barriers=0;Patches.MPCS=0;Profiler.GPUProf_Top=60;Profiler.SP=0"
+            $ta = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $ws "tools\tour\run_tour.ps1"), "-Input", "vpad", "-List", $ml,
+                    "-Points", "1", "-DwellSec", "$MDwell", "-Passes", "$MPasses", "-NoProfile", "-NoPause", "-CaptureRoot", (Join-Path $sess $arm.n),
+                    "-ExtraKeys", $gk, "-OwnerPid", "$PID", "-MaxMinutes", "45")
+            if ($DryRun) { $ta += "-DryRun" } else { $ta += "-NoLock" }
+            L "Phase $($arm.n): run_tour (mission $MStage spawn, $MPasses passes x $MDwell s, MeshletProbe + MpcCheck, MPC file $(if ($arm.mpc) { 'mpc' } else { 'SHIPPED' }))"
+            Set-TestStatus "Phase $($arm.n): meshlet probe"
+            $o = Run-Native powershell $ta
+            Set-Content (Join-Path $sess "$($arm.n)_console.txt") $o -Encoding UTF8
+            $cm = [regex]::Match($o, "capture folder: (.+)")
+            if ($cm.Success) {
+                $cap = $cm.Groups[1].Value.Trim()
+                $csv = Join-Path $GameDir "Nioh3EngineFix_mlp.csv"
+                if (Test-Path $csv) { Move-Item -LiteralPath $csv -Destination (Join-Path $cap "mlp_events.csv") -Force }
+                foreach ($lg in @(Get-ChildItem (Join-Path $cap "logs") -Filter "run*.log" -ErrorAction SilentlyContinue | Sort-Object Name)) {
+                    $mtxt += "==== $($arm.n) $($lg.Name): mlp_report ====`n" + (Run-Native py @("-I", $mPy, $lg.FullName))
+                }
+            }
+        }
+        Set-ItemState "mpc" $false
+        $mr = Join-Path $sess "M_report.txt"
+        Set-Content $mr $mtxt -Encoding UTF8
+        $hl = @($mtxt -split "`n" | Where-Object { $_ -match "^(front-end|MPCK total)" } | Select-Object -First 4)
+        $script:summary["M"] = "$mr$(if ($hl.Count) { ' - ' + (($hl | ForEach-Object { $_.Trim() }) -join ' | ') } else { ' - no MLP windows decoded' })"
+        L "Phase M: $($script:summary['M'])"
     }
 
     # ---- Phase B: launch A/B per item ----

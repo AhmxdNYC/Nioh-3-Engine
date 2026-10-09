@@ -61,4 +61,14 @@ void OnListHead(void* list, int set);   // gpuopt HkResourceBarrier, before anyt
 // osd HkExecuteCommandLists, for every caller, before the original: ECL order + call site of the GQ lists
 void OnEcl(void* queue, unsigned n, void* const* lists, void* retAddr, bool gameCaller);
 
+// 1.7.47 MLP ([Profiler] MeshletProbe = 0, needs GPUProf = 2; notes\meshlet-frontend.md): meshlet front-end probe. Inside the meshlet
+// markers (MeshletResolveLOD, MeshletPreculling, MeshletInstanceCulling, MeshletCheckRequestLoad, MeshletRequestLoad, GenerateSceneHiZ,
+// GenerateShadowMapHiZ) of a sampled frame: a timestamp before every Dispatch / ExecuteIndirect and before + after every ResourceBarrier
+// call -> per region dispatch / barrier / gap time and per-dispatch rows; every other sampled frame CS invocations per dispatch from
+// pipeline-statistics queries instead (MeshletProbe_Stats = 1). Regions carry the recorder caller from mlprobe.cpp (the CPU half).
+// Log lines "GP: MLP: ..." after the GP2 block; MeshletProbe_Dump = N writes the raw events of N sampled frames to
+// Nioh3EngineFix_mlp.csv next to the ini. MpcCheck (mpccheck.cpp) uses the same region tracking.
+extern volatile long g_mlpBarriers;   // != 0: MLP or MpcCheck on (gpuopt's pass-through ResourceBarrier path calls OnBarrier)
+void OnBarrier(void* list, int set, unsigned n, const void* barriers, bool post);
+
 }  // namespace gp

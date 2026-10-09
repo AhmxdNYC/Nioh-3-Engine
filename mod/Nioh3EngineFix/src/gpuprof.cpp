@@ -6,11 +6,14 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "gpuprof.h"
+#include "mlprobe.h"
+#include "mpccheck.h"
 #include "psoswap.h"
 
 extern "C" {
@@ -50,6 +53,11 @@ struct Cfg {
     int maxStamps = 8192, top2 = 40, ab = 1;   // GPUProf = 2: PSO timestamps per frame, rows in the GP2 log, overhead A/B windows
     int sampleEvery = 8, minRun = 4;           // GPUProf = 2 (1.7.8): stamp 1 frame in N; an interval holds >= minRun draws before it is cut
     int gq = 0, gqTop = 5;                     // 1.7.40 GQ: graphics-queue gap census (needs GPUProf = 2), rows per table
+    // 1.7.47 MLP (notes\meshlet-frontend.md): meshlet front-end probe (needs GPUProf = 2): per-dispatch / per-barrier stamps inside the
+    // meshlet markers, CS invocations per dispatch from pipeline-statistics queries in alternate sampled frames, raw event dump
+    int mlp = 0, mlpTop = 40, mlpStats = 1, mlpDump = 0;
+    int mlpBarriers = 1;                       // MeshletProbe_Barriers: 1 stamps before + after every barrier call, 0 dispatch stamps only
+    int mpcCheck = 0;                          // MpcCheck (mpccheck.cpp): MPC tail-skip self-check, chains to verify (needs GPUProf = 2)
 };
 // GQ: further list calls that can be a list's first GPU command (besides ResourceBarrier, BeginEvent and the GP2 slots):
 // ExecuteBundle, DiscardResource, WriteBufferImmediate, BeginRenderPass, Barrier (enhanced)
@@ -190,6 +198,27 @@ struct GqRec {   // GQ: one DIRECT list Reset in a sampled frame (filed in the f
     uint32_t eclRa0, eclRa1;    // ECL call site: return RVA into Nioh3.exe and the next game frame (0 = none, 1 = not the exe)
     uint16_t eclN, eclIdx;      // lists in that ECL, position of this one
 };
+// 1.7.47 MLP: one stamp inside a meshlet region (kind: MlpKind) and one record per region instance (notes\meshlet-frontend.md)
+struct MlpEv {
+    int32_t q;          // timestamp query (timing frames), -1 = none
+    int32_t qs;         // pipeline-statistics query (stats frames; dispatches only), -1 = none
+    uint32_t rid;       // region instance
+    uint32_t key;       // dispatches: first 32 bits of the CS container digest (psoswap key), 0 = unknown
+    uint32_t dims;      // Dispatch: x*y*z groups; ExecuteIndirect: MaxCommandCount; barriers: structs in the call
+    uint16_t seq;       // order inside the region
+    uint16_t marker;    // innermost engine marker at the event (LOD levels "0".."13")
+    uint8_t kind;
+    uint8_t uav;        // barriers: UAV-type structs in the call
+};
+struct MlpReg {
+    uint32_t rid;
+    uint32_t tag;       // caller RVA of the recorder call (mlprobe), 0 = unknown
+    uint16_t parent;    // marker enclosing the region marker
+    uint8_t reg;        // index into kMlpRegions
+    uint8_t ord;        // region ordinal of that kind in the frame (0-based, 15 = 15 or more)
+    uint8_t stats;      // 1: stats frame (CS invocations, no timing)
+    uint8_t exact;      // tag matched on the first UAV barrier resource
+};
 struct Slot {
     SRWLOCK lock;
     volatile LONG used;  // queries handed out (in chunks)
@@ -197,6 +226,9 @@ struct Slot {
     std::vector<Rec2> recs2;
     std::vector<GqRec> gq;
     uint32_t gen;        // GQ: +1 per ProcessSlot (a late ECL never writes into a reused slot)
+    std::vector<MlpEv> mlp;      // MLP: events of the meshlet regions (timing and stats frames)
+    std::vector<MlpReg> mlpReg;  // MLP: one per region instance
+    volatile LONG mlpStats;             // MLP: pipeline-statistics queries handed out in this slot
 };
 Slot g_slot[kRing];
 
@@ -222,6 +254,7 @@ struct ListState {
     int gqState, gqHead, gqWork, gqCov;
     uint16_t gqFirstMk, gqLastMk;
     uint32_t gqGen;     // generation of the head's frame slot when the head was stamped
+    int mlpStatsQ;      // MLP: open pipeline-statistics query (absolute index), -1 = none
 };
 constexpr int kLists = 64;
 ListState g_ls[kLists];
@@ -251,6 +284,7 @@ ListState* FindList(void* list, int set, bool create) {
     s.gqState = 0;
     s.gqHead = s.gqWork = s.gqCov = -1;
     s.gqFirstMk = s.gqLastMk = kNoMarker;
+    s.mlpStatsQ = -1;
     auto cl = (ID3D12GraphicsCommandList*)list;
     const D3D12_COMMAND_LIST_TYPE t = reinterpret_cast<GetTypeFn>(Orig(set, kSlotGetType))(cl);
     s.ctype = t == D3D12_COMMAND_LIST_TYPE_COMPUTE ? 1 : 0;
@@ -481,6 +515,344 @@ void Gp2Event(void* list, int set, int slot, uintptr_t a1) {
     ReleaseSRWLockExclusive(&g_lsLock);
 }
 
+// ---- 1.7.47 MLP: meshlet front-end probe, GPU half (notes\meshlet-frontend.md) ------------------------------------------------------
+// Inside the meshlet markers (kMlpRegions) of a sampled frame, every Dispatch / ExecuteIndirect gets a timestamp before it and every
+// ResourceBarrier call one before and one after it (gpuopt's pass-through path), so the region's GPU time splits exactly into
+// dispatch (pre-dispatch stamp -> next stamp), barrier (pre -> post) and gap (post-barrier / region start -> next command) time.
+// Alternate sampled frames (MeshletProbe_Stats = 1) take no timestamps but wrap each dispatch in a pipeline-statistics query
+// (CSInvocations = threads launched: 0 = empty dispatch, <= 64 = at most one wave) - the timing frames stay unperturbed.
+// Regions are labelled with their ordinal in the frame and, for LOD / PRE / MIC, the recorder's caller from mlprobe.cpp.
+enum MlpKind : uint8_t { kMkRB, kMkD, kMkEI, kMkBB, kMkBE, kMkRE, kMkLE };
+const char* const kMlpRegions[] = {"MeshletResolveLOD", "MeshletPreculling", "MeshletInstanceCulling", "MeshletCheckRequestLoad",
+                                   "MeshletRequestLoad", "GenerateSceneHiZ", "GenerateShadowMapHiZ"};
+const char* const kMlpShort[] = {"LOD", "PRE", "MIC", "MCLRC", "MRL", "HiZ", "SHiZ"};
+constexpr int kNumMlpReg = 7;
+constexpr int kRegPre = 1, kRegMic = 2, kRegMclrc = 3;
+constexpr int kMlpStatsPer = 512;          // pipeline-statistics queries per frame slot
+constexpr int kStatsWords = 11;            // D3D12_QUERY_DATA_PIPELINE_STATISTICS: 11 x UINT64, CSInvocations = [10]
+volatile int8_t g_mlpRegOf[kMaxNames];     // 0 not classified yet, -1 not a region, 1..7 = region index + 1
+ID3D12QueryHeap* g_mlpHeap = nullptr;
+ID3D12Resource* g_mlpRb = nullptr;
+volatile uint64_t* g_mlpRbMap = nullptr;
+volatile LONG g_mlpOn = 0;                 // MLP or MpcCheck active (region tracking in the hooks)
+volatile LONG g_mlpStatsFrame = 0;         // the current sampled frame: 1 = CS invocations (+ MpcCheck), 0 = timestamps
+volatile LONG g_mlpRid = 0;
+volatile LONG64 g_mlpStatsFull = 0, g_mlpXFrame = 0, g_mlpXList = 0, g_mlpRegions = 0;
+int g_mlpOrdN[kNumMlpReg];
+LONG64 g_mlpOrdFrame = -1, g_mlpMclrcFrame = -1000;   // ordinals restart at MeshletCheckRequestLoad (frame begin), else on a new frame
+SRWLOCK g_mlpOrdLock = SRWLOCK_INIT;
+std::wstring g_mlpDumpPath;
+int g_mlpDumped = 0;
+
+int MlpRegionOf(int name) {
+    if (name <= 0 || name >= kMaxNames) return -1;
+    int8_t v = g_mlpRegOf[name];
+    if (!v) {
+        v = -1;
+        for (int i = 0; i < kNumMlpReg; ++i)
+            if (!strcmp(g_names[name].s, kMlpRegions[i])) {
+                v = (int8_t)(i + 1);
+                break;
+            }
+        g_mlpRegOf[name] = v;
+    }
+    return v > 0 ? v - 1 : -1;
+}
+
+struct TReg {
+    bool open, stats, check, bad;
+    int reg, depth, slot;
+    uint32_t rid;
+    uint16_t seq, parent;
+    uint8_t ord;
+    void* list;
+    const void* firstRes;   // first UAV barrier resource (recorder tag join, mlprobe::CallerOf)
+};
+thread_local TReg t_reg;
+
+std::unordered_map<uint32_t, uint32_t> g_keyCache;   // PSO shader-set id -> first 32 bits of the CS digest
+SRWLOCK g_keyLock = SRWLOCK_INIT;
+uint32_t KeyOfSet(uint32_t id) {
+    if (!id || (id & 0x80000000u) || id == kBkNoPso || id == kBkCopy) return 0;
+    AcquireSRWLockShared(&g_keyLock);
+    auto it = g_keyCache.find(id);
+    const bool hit = it != g_keyCache.end();
+    const uint32_t k = hit ? it->second : 0;
+    ReleaseSRWLockShared(&g_keyLock);
+    if (hit) return k;
+    char d[360];
+    uint32_t key = 0;
+    if (psoswap::DescribeSet(id, d, sizeof d))
+        if (const char* p = strstr(d, "cs=")) {
+            char h[9] = {};
+            memcpy(h, p + 3, 8);
+            key = (uint32_t)strtoul(h, nullptr, 16);
+        }
+    AcquireSRWLockExclusive(&g_keyLock);
+    g_keyCache[id] = key;
+    ReleaseSRWLockExclusive(&g_keyLock);
+    return key;
+}
+
+using BeginQueryFn = void(STDMETHODCALLTYPE*)(ID3D12GraphicsCommandList*, ID3D12QueryHeap*, D3D12_QUERY_TYPE, UINT);
+constexpr int kSlotBeginQuery = 52;
+
+// g_lsLock held: close the open pipeline-statistics query of this list and resolve it into the readback buffer
+void MlpEndStatsLocked(ListState& s) {
+    if (s.mlpStatsQ < 0) return;
+    auto cl = (ID3D12GraphicsCommandList*)s.list;
+    reinterpret_cast<EndQueryFn>(Orig(s.set, kSlotEndQuery))(cl, g_mlpHeap, D3D12_QUERY_TYPE_PIPELINE_STATISTICS, (UINT)s.mlpStatsQ);
+    reinterpret_cast<ResolveFn>(Orig(s.set, kSlotResolve))(cl, g_mlpHeap, D3D12_QUERY_TYPE_PIPELINE_STATISTICS, (UINT)s.mlpStatsQ, 1, g_mlpRb,
+                                                          (UINT64)s.mlpStatsQ * kStatsWords * 8);
+    s.mlpStatsQ = -1;
+}
+
+// recording thread, t_reg.open: one event of the open region (timestamp in timing frames; stats query around dispatches otherwise)
+void MlpEvent(void* list, int set, uint8_t kind, uint32_t key, uint32_t dims, uint8_t uav) {
+    AcquireSRWLockExclusive(&g_lsLock);
+    ListState* s = FindList(list, set, true);
+    if (s && s->ok) {
+        if (s->mlpStatsQ >= 0) MlpEndStatsLocked(*s);   // the previous dispatch on this list has ended
+        if (t_reg.list && t_reg.list != list && kind != kMkRB) InterlockedIncrement64(&g_mlpXList);
+        t_reg.list = list;
+        int q = -1, qs = -1;
+        if (!t_reg.stats) {
+            q = StampLocked(*s, list, set, false);
+            if (q < 0 || q / g_qPerSlot != t_reg.slot) t_reg.bad = true;   // no query, or the region straddles a frame slot
+        } else if ((kind == kMkD || kind == kMkEI) && g_mlpHeap) {
+            const LONG k = InterlockedIncrement(&g_slot[t_reg.slot].mlpStats) - 1;
+            if (k < kMlpStatsPer) {
+                qs = t_reg.slot * kMlpStatsPer + k;
+                reinterpret_cast<BeginQueryFn>(Orig(set, kSlotBeginQuery))((ID3D12GraphicsCommandList*)list, g_mlpHeap,
+                                                                          D3D12_QUERY_TYPE_PIPELINE_STATISTICS, (UINT)qs);
+                s->mlpStatsQ = qs;
+            } else {
+                InterlockedIncrement64(&g_mlpStatsFull);
+            }
+        }
+        Slot& S = g_slot[t_reg.slot];
+        AcquireSRWLockExclusive(&S.lock);
+        if (S.mlp.size() < S.mlp.capacity())
+            S.mlp.push_back(MlpEv{q, qs, t_reg.rid, key, dims, t_reg.seq, CurMarker(), kind, uav});
+        else
+            t_reg.bad = true;
+        ReleaseSRWLockExclusive(&S.lock);
+        t_reg.seq++;
+    }
+    ReleaseSRWLockExclusive(&g_lsLock);
+}
+
+// BeginEvent (before the marker is pushed): opens a region when the marker is a meshlet region marker in a sampled frame
+void MlpBegin(void* list, int set, int name) {
+    if (t_reg.open || !g_stampOn) return;
+    const int reg = MlpRegionOf(name);
+    if (reg < 0) return;
+    t_reg = TReg{};
+    t_reg.open = true;
+    t_reg.reg = reg;
+    t_reg.stats = !g_cfg.mlp || g_mlpStatsFrame != 0;
+    t_reg.check = t_reg.stats && reg == kRegPre && g_cfg.mpcCheck && mpcck::Wanted();
+    t_reg.depth = t_depth;
+    t_reg.parent = (t_depth > 0 && t_depth <= kMaxDepth) ? (uint16_t)t_stack[t_depth - 1].name : kNoMarker;
+    t_reg.slot = (int)(g_frame % kRing);
+    t_reg.rid = (uint32_t)InterlockedIncrement(&g_mlpRid);
+    AcquireSRWLockExclusive(&g_mlpOrdLock);
+    const LONG64 fr = g_frame;
+    if (reg == kRegMclrc) {   // MeshletCheckRequestLoad runs once, at frame begin (P0)
+        memset(g_mlpOrdN, 0, sizeof g_mlpOrdN);
+        g_mlpMclrcFrame = fr;
+    } else if (fr - g_mlpMclrcFrame > 2 && fr != g_mlpOrdFrame) {   // no frame-begin region seen lately: restart per presented frame
+        memset(g_mlpOrdN, 0, sizeof g_mlpOrdN);
+    }
+    g_mlpOrdFrame = fr;
+    const int o = g_mlpOrdN[reg]++;
+    ReleaseSRWLockExclusive(&g_mlpOrdLock);
+    t_reg.ord = (uint8_t)(o > 15 ? 15 : o);
+    if (g_cfg.mlp) MlpEvent(list, set, kMkRB, 0, 0, 0);
+    if (t_reg.check) mpcck::OnRegion(list, set, true);
+}
+
+// EndEvent of the region marker (t_depth already back at the region's depth)
+void MlpEnd(void* list, int set) {
+    if (g_cfg.mlp) MlpEvent(list, set, kMkRE, 0, 0, 0);
+    if (t_reg.check) mpcck::OnRegion(list, set, false);
+    if (g_cfg.mlp) {
+        uint32_t tag = 0;
+        bool exact = false;
+        if (t_reg.reg <= kRegMic && mlprobe::Active())
+            tag = mlprobe::CallerOf((mlprobe::Fn)t_reg.reg, t_reg.ord, t_reg.firstRes, &exact);
+        Slot& S = g_slot[t_reg.slot];
+        AcquireSRWLockExclusive(&S.lock);
+        if (t_reg.bad) InterlockedIncrement64(&g_mlpXFrame);
+        else if (S.mlpReg.size() < S.mlpReg.capacity())
+            S.mlpReg.push_back(MlpReg{t_reg.rid, tag, t_reg.parent, (uint8_t)t_reg.reg, t_reg.ord, (uint8_t)(t_reg.stats ? 1 : 0), (uint8_t)(exact ? 1 : 0)});
+        ReleaseSRWLockExclusive(&S.lock);
+        InterlockedIncrement64(&g_mlpRegions);
+    }
+    t_reg.open = false;
+}
+
+void MlpDispatch(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3) {
+    uint32_t key = 0;
+    AcquireSRWLockExclusive(&g_lsLock);
+    if (ListState* s = FindList(list, set, true))
+        if (s->ok) key = KeyOfSet(s->bound);
+    ReleaseSRWLockExclusive(&g_lsLock);
+    const bool ei = slot == 59;
+    if (t_reg.check) mpcck::OnDispatch(list, set, key, ei ? 0 : (uint32_t)a1, ei ? 0 : (uint32_t)a2, ei ? 0 : (uint32_t)a3, ei);
+    if (g_cfg.mlp) {
+        const uint64_t g = ei ? (uint64_t)(uint32_t)a2 : (uint64_t)(uint32_t)a1 * (uint32_t)a2 * (uint32_t)a3;
+        MlpEvent(list, set, ei ? kMkEI : kMkD, key, (uint32_t)std::min<uint64_t>(g, 0xFFFFFFFFull), 0);
+    }
+}
+
+// ---- MLP aggregation (Present thread, ProcessSlot) and 30 s log --------------------------------------------------------------------
+struct MlpRegA {
+    double tot = 0, disp = 0, bar = 0, gap = 0;
+    uint64_t n = 0, nd = 0, ne = 0, nbc = 0, nbs = 0, nbu = 0, exact = 0, ns = 0;
+};
+struct MlpOpA {
+    double t = 0;             // timing frames: dispatch time (ticks)
+    uint64_t n = 0;           // timed calls
+    double inv = 0;           // stats frames: CS invocations
+    uint64_t ns = 0, zero = 0, tiny = 0;
+    double dims = 0;
+    uint64_t rkey = 0;
+    uint32_t key = 0;
+    uint16_t marker = 0, op = 0;
+    uint8_t kind = 0;
+};
+struct MlpWin {
+    uint64_t framesT = 0, framesS = 0, bad = 0;
+    std::map<uint64_t, MlpRegA> reg;          // reg | ord << 8 | parent << 16 | tag << 32
+    std::unordered_map<uint64_t, MlpOpA> ops; // FNV(rkey, op, key, marker)
+};
+MlpWin g_mlpWin;
+
+uint64_t MlpRKey(const MlpReg& r) { return (uint64_t)r.reg | (uint64_t)r.ord << 8 | (uint64_t)r.parent << 16 | (uint64_t)r.tag << 32; }
+uint64_t MlpOKey(uint64_t rkey, uint16_t op, uint32_t key, uint16_t marker) {
+    uint64_t h = 1469598103934665603ull;
+    for (uint64_t v : {rkey, (uint64_t)op, (uint64_t)key, (uint64_t)marker}) h = (h ^ v) * 1099511628211ull;
+    return h;
+}
+const char* MkName(uint16_t mk);
+
+// S.lock and g_aggLock held
+void MlpProcess(Slot& S, int r, double maxTicks) {
+    if (S.mlpReg.empty()) return;
+    std::sort(S.mlp.begin(), S.mlp.end(), [](const MlpEv& a, const MlpEv& b) { return a.rid != b.rid ? a.rid < b.rid : a.seq < b.seq; });
+    MlpWin& W = g_mlpWin;
+    bool anyT = false, anyS = false;
+    std::string dump;
+    const bool doDump = g_cfg.mlpDump > 0 && g_mlpDumped < g_cfg.mlpDump && !g_mlpDumpPath.empty();
+    for (const MlpReg& R : S.mlpReg) {
+        auto lo = std::lower_bound(S.mlp.begin(), S.mlp.end(), R.rid, [](const MlpEv& e, uint32_t rid) { return e.rid < rid; });
+        auto hi = lo;
+        while (hi != S.mlp.end() && hi->rid == R.rid) ++hi;
+        if (lo == hi) continue;
+        const uint64_t rk = MlpRKey(R);
+        if (R.stats) {
+            anyS = true;
+            uint16_t op = 0;
+            for (auto e = lo; e != hi; ++e) {
+                if (e->kind != kMkD && e->kind != kMkEI) continue;
+                const uint16_t thisOp = op++;
+                if (e->qs < 0 || e->qs / kMlpStatsPer != r || !g_mlpRbMap) continue;
+                const uint64_t inv = g_mlpRbMap[(size_t)e->qs * kStatsWords + 10];
+                MlpOpA& a = W.ops[MlpOKey(rk, thisOp, e->key, e->marker)];
+                a.rkey = rk; a.key = e->key; a.marker = e->marker; a.op = thisOp; a.kind = e->kind;
+                a.inv += (double)inv;
+                a.ns++;
+                if (inv == 0) a.zero++;
+                if (inv <= 64) a.tiny++;
+                if (doDump) {
+                    char b[200];
+                    _snprintf_s(b, sizeof b, _TRUNCATE, "%d,S,%u,%s,%u,%X,%u,%u,%s,%08X,%u,,%llu\n", g_mlpDumped, R.rid, kMlpShort[R.reg], R.ord, R.tag,
+                                e->seq, e->kind, MkName(e->marker), e->key, e->dims, (unsigned long long)inv);
+                    dump += b;
+                }
+            }
+            W.reg[rk].ns++;
+            continue;
+        }
+        // timing region: every event stamped, monotonic, < 1 s
+        bool ok = true;
+        uint64_t prev = 0;
+        for (auto e = lo; e != hi && ok; ++e) {
+            const uint64_t t = e->q >= 0 ? g_rbMap[e->q] : 0;
+            if (!t || t < prev) ok = false;
+            prev = t;
+        }
+        if (!ok || (double)(prev - g_rbMap[lo->q]) > maxTicks) {
+            W.bad++;
+            continue;
+        }
+        anyT = true;
+        MlpRegA& A = W.reg[rk];
+        A.n++;
+        A.exact += R.exact;
+        const uint64_t t0 = g_rbMap[lo->q];
+        A.tot += (double)(prev - t0);
+        uint16_t op = 0;
+        for (auto e = lo; e != hi; ++e) {
+            auto nx = e + 1;
+            const double dt = nx != hi ? (double)(g_rbMap[nx->q] - g_rbMap[e->q]) : 0.0;
+            switch (e->kind) {
+                case kMkD:
+                case kMkEI: {
+                    A.disp += dt;
+                    (e->kind == kMkD ? A.nd : A.ne)++;
+                    MlpOpA& a = W.ops[MlpOKey(rk, op, e->key, e->marker)];
+                    a.rkey = rk; a.key = e->key; a.marker = e->marker; a.op = op; a.kind = e->kind;
+                    a.t += dt;
+                    a.n++;
+                    a.dims += e->dims;
+                    ++op;
+                    break;
+                }
+                case kMkBB:
+                    A.bar += dt;
+                    A.nbc++;
+                    A.nbs += e->dims;
+                    A.nbu += e->uav;
+                    break;
+                default:   // region begin, post-barrier, list end: state setup / idle until the next command
+                    A.gap += dt;
+                    break;
+            }
+            if (doDump) {
+                char b[200];
+                _snprintf_s(b, sizeof b, _TRUNCATE, "%d,T,%u,%s,%u,%X,%u,%u,%s,%08X,%u,%.2f,\n", g_mlpDumped, R.rid, kMlpShort[R.reg], R.ord, R.tag,
+                            e->seq, e->kind, MkName(e->marker), e->key, e->dims, (double)(g_rbMap[e->q] - t0) / g_ticksPerMs * 1000.0);
+                dump += b;
+            }
+        }
+    }
+    if (anyT) W.framesT++;
+    if (anyS) W.framesS++;
+    if (doDump && !dump.empty()) {
+        HANDLE f = CreateFileW(g_mlpDumpPath.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (f != INVALID_HANDLE_VALUE) {
+            DWORD w;
+            if (g_mlpDumped == 0 && GetFileSize(f, nullptr) == 0) {
+                const char* h = "frame,mode,rid,region,ord,caller,seq,kind(0RB 1D 2EI 3BB 4BE 5RE 6LE),marker,cs,groups_or_structs,t_us,cs_invocations\n";
+                WriteFile(f, h, (DWORD)strlen(h), &w, nullptr);
+            }
+            WriteFile(f, dump.data(), (DWORD)dump.size(), &w, nullptr);
+            CloseHandle(f);
+        }
+        g_mlpDumped++;
+    }
+}
+
+void MlpTagStr(uint32_t tag, char* b, size_t n) {
+    if (!tag) _snprintf_s(b, n, _TRUNCATE, "?");
+    else if (tag == 1) _snprintf_s(b, n, _TRUNCATE, "ext");
+    else _snprintf_s(b, n, _TRUNCATE, "%X", tag);
+}
+
+void LogMlp();
+
 // ---- init (first BeginEvent, recording thread) ----------------------------------------------------------------------------------
 bool Init(void* list, int set) {
     auto cl = (ID3D12GraphicsCommandList*)list;
@@ -545,7 +917,30 @@ bool Init(void* list, int set) {
     }
     g_ticksPerMs = (double)freq / 1000.0;
     g_dev = dev;  // keep the reference: the heap and buffer belong to it
+    if (g_cfg.mlp && g_cfg.mlpStats) {   // 1.7.47 MLP: pipeline-statistics queries for the stats frames (CS invocations per dispatch)
+        D3D12_QUERY_HEAP_DESC sd = {};
+        sd.Type = D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
+        sd.Count = (UINT)(kMlpStatsPer * kRing);
+        D3D12_RESOURCE_DESC sr = rd;
+        sr.Width = (UINT64)sd.Count * kStatsWords * 8;
+        void* sp = nullptr;
+        D3D12_RANGE sall = {0, (SIZE_T)sr.Width};
+        if (SUCCEEDED(dev->CreateQueryHeap(&sd, __uuidof(ID3D12QueryHeap), (void**)&g_mlpHeap)) && g_mlpHeap &&
+            SUCCEEDED(dev->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &sr, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, __uuidof(ID3D12Resource),
+                                                   (void**)&g_mlpRb)) && g_mlpRb && SUCCEEDED(g_mlpRb->Map(0, &sall, &sp)) && sp) {
+            g_mlpRbMap = (volatile uint64_t*)sp;
+            memset(sp, 0, (size_t)sr.Width);
+        } else {
+            g_mlpHeap = nullptr;   // (leaked on failure: once per process)
+            GLOG("%s", "MLP: pipeline-statistics query heap not available - CS invocation counts off, timing only");
+            g_cfg.mlpStats = 0;
+        }
+    }
     for (Slot& s : g_slot) {
+        if (g_cfg.mlp || g_cfg.mpcCheck) {
+            s.mlp.reserve(8192);
+            s.mlpReg.reserve(512);
+        }
         s.recs.reserve((size_t)g_cfg.maxMarkers);
         if (g_cfg.prof >= 2) s.recs2.reserve((size_t)(g_cfg.maxStamps + g_cfg.maxMarkers * 2 + 256));
         if (g_cfg.gq) s.gq.reserve(1024);   // GQ: DIRECT lists per frame slot (the game records ~21-28)
@@ -579,6 +974,7 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
             const int name = InternName((UINT)a1, (const void*)a2, (UINT)a3);
             if (g_cfg.gq) GqHead(list, set, name);   // GQ: a marker can be a list's first command; remember first / last marker
             const int q = Stamp(list, set, g_cfg.prof >= 2 ? (int)CurMarker() : -2);  // GP2: the interval ending here is the outer marker's
+            if (g_mlpOn) MlpBegin(list, set, name);   // 1.7.47 MLP / MpcCheck: a meshlet region marker opens a region
             if (t_depth < kMaxDepth) t_stack[t_depth] = Open{q, (int16_t)name};
             ++t_depth;
             break;
@@ -590,6 +986,7 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
                 break;
             }
             --t_depth;
+            if (t_reg.open && t_depth == t_reg.depth) MlpEnd(list, set);   // 1.7.47 MLP: the region marker ends
             if (t_depth >= kMaxDepth) break;  // inside an overflowed region: not sampled
             const Open o = t_stack[t_depth];
             if (o.q < 0) break;
@@ -608,6 +1005,8 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
         }
         case kSlotClose: {
             if (g_inited != 1) break;
+            if (t_reg.open && t_reg.list == list && g_cfg.mlp) MlpEvent(list, set, kMkLE, 0, 0, 0);   // MLP: region continues on the next list
+            if (t_reg.check && t_reg.list == list) mpcck::OnClose(list, set);
             AcquireSRWLockExclusive(&g_lsLock);
             if (ListState* s = FindList(list, set, false)) {
                 if (s->ok && g_cfg.prof >= 2 && g_stampOn && s->ivQ >= 0) {  // GP2: list end
@@ -621,6 +1020,7 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
                 } else if (s->gqState == 1) {
                     InterlockedIncrement64(&g_gqNoHead);   // armed, but no hooked GPU command while sampled
                 }
+                if (s->ok && s->mlpStatsQ >= 0) MlpEndStatsLocked(*s);   // MLP: a stats query still open at the list's end
                 if (s->ok) ResolveChunk(*s);  // last commands of the list: every query of the chunk was ended on it
                 s->list = nullptr;
             }
@@ -643,8 +1043,10 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
         default:
             if (g_cfg.prof >= 2 && g_inited == 1 &&
                 (slot == kSlotSetPso || IsIn(kDrawSlots, sizeof kDrawSlots / sizeof(int), slot) ||
-                 IsIn(kCopySlots, sizeof kCopySlots / sizeof(int), slot)))
+                 IsIn(kCopySlots, sizeof kCopySlots / sizeof(int), slot))) {
                 Gp2Event(list, set, slot, a1);
+                if (t_reg.open && (slot == 14 || slot == 59)) MlpDispatch(list, set, slot, a1, a2, a3);   // 1.7.47 MLP / MpcCheck
+            }
             else if (g_cfg.gq && g_inited == 1 && IsIn(kGqHeadSlots, sizeof kGqHeadSlots / sizeof(int), slot))
                 GqHead(list, set, -1);
             break;
@@ -830,6 +1232,7 @@ void ProcessSlot(int r) {
         if (had) w.frames++;
     }
     if (g_cfg.gq) GqProcess(S, maxTicks);
+    if (g_cfg.mlp) MlpProcess(S, r, maxTicks);
     ReleaseSRWLockExclusive(&g_aggLock);
     const LONG usedNow = S.used;
     const LONG used = std::min<LONG>(usedNow, (LONG)g_qPerSlot);
@@ -837,6 +1240,13 @@ void ProcessSlot(int r) {
     S.recs.clear();
     S.recs2.clear();
     S.gq.clear();
+    S.mlp.clear();
+    S.mlpReg.clear();
+    if (g_mlpRbMap) {
+        const LONG ns = std::min<LONG>((LONG)S.mlpStats, (LONG)kMlpStatsPer);
+        if (ns > 0) memset((void*)(g_mlpRbMap + (size_t)r * kMlpStatsPer * kStatsWords), 0, (size_t)ns * kStatsWords * 8);
+    }
+    InterlockedExchange(&S.mlpStats, 0);
     S.gen++;
     InterlockedExchange(&g_stampsUsed[r], 0);
     InterlockedExchange(&S.used, 0);
@@ -896,6 +1306,92 @@ DWORD WINAPI MarkerThread(LPVOID) {
     }
 }
 
+
+void LogMlp() {
+    MlpWin* w = new (std::nothrow) MlpWin();
+    if (!w) return;
+    AcquireSRWLockExclusive(&g_aggLock);
+    std::swap(*w, g_mlpWin);
+    ReleaseSRWLockExclusive(&g_aggLock);
+    const double ms = g_ticksPerMs, fT = w->framesT ? (double)w->framesT : 1.0;
+    // floor: median us/call of the dispatch rows that launch at most one wave (stats frames) = the fixed cost of a dependent stage
+    std::vector<double> tinyUs;
+    double tinyMs = 0, zeroMs = 0, tinyN = 0, zeroN = 0;
+    for (const auto& kv : w->ops) {
+        const MlpOpA& a = kv.second;
+        if (!a.n || !a.ns) continue;
+        const double us = a.t / (double)a.n / ms * 1000.0;
+        const double ft = (double)a.tiny / (double)a.ns, fz = (double)a.zero / (double)a.ns;
+        if (ft >= 0.9) tinyUs.push_back(us);
+        tinyMs += a.t / fT / ms * ft;
+        zeroMs += a.t / fT / ms * fz;
+        tinyN += (double)a.n / fT * ft;
+        zeroN += (double)a.n / fT * fz;
+    }
+    std::sort(tinyUs.begin(), tinyUs.end());
+    const double floorUs = tinyUs.empty() ? 0.0 : tinyUs[tinyUs.size() / 2];
+    MlpRegA T;
+    for (const auto& kv : w->reg) {
+        const MlpRegA& a = kv.second;
+        T.tot += a.tot; T.disp += a.disp; T.bar += a.bar; T.gap += a.gap; T.nd += a.nd; T.ne += a.ne; T.nbc += a.nbc; T.nbs += a.nbs; T.nbu += a.nbu; T.n += a.n;
+    }
+    // structural share: barriers + gaps + the per-dispatch floor; the rest of the dispatch time is work above the floor
+    double workMs = 0;
+    for (const auto& kv : w->ops) {
+        const MlpOpA& a = kv.second;
+        if (!a.n) continue;
+        const double per = a.t / (double)a.n / ms * 1000.0;
+        workMs += std::max(0.0, per - floorUs) * (double)a.n / fT / 1000.0;
+    }
+    const double totMs = T.tot / fT / ms;
+    GLOG("MLP: %llu timing + %llu stats frames; meshlet front-end %.3f ms/frame = dispatch %.3f + barrier %.3f + gap %.3f | %.1f regions, %.1f Dispatch + "
+         "%.1f ExecuteIndirect, %.1f barrier calls (%.1f structs, %.1f UAV)/frame | <= 1 wave (<= 64 threads): %.1f dispatches %.3f ms/frame, empty (0 threads): "
+         "%.1f dispatches %.3f ms/frame | floor (median us of <= 1-wave dispatches) %.1f us -> structural (barrier + gap + floor x dispatches) %.3f ms, work above "
+         "the floor %.3f ms | dropped: straddling/unstamped regions %lld, bad %llu, stats queries full %lld, list switches inside regions %lld",
+         (unsigned long long)w->framesT, (unsigned long long)w->framesS, totMs, T.disp / fT / ms, T.bar / fT / ms, T.gap / fT / ms, (double)T.n / fT,
+         (double)T.nd / fT, (double)T.ne / fT, (double)T.nbc / fT, (double)T.nbs / fT, (double)T.nbu / fT, tinyN, tinyMs, zeroN, zeroMs, floorUs,
+         std::max(0.0, totMs - workMs), workMs, (long long)g_mlpXFrame, (unsigned long long)w->bad, (long long)g_mlpStatsFull, (long long)g_mlpXList);
+    GLOG("%s", "MLP: regions: region#ordinal @caller [parent marker] | per frame | ms/frame total | dispatch | barrier | gap | us/instance | Dispatch+EI | "
+               "barrier calls | caller match on the first UAV barrier");
+    struct RR { uint64_t k; const MlpRegA* a; };
+    std::vector<RR> rr;
+    for (const auto& kv : w->reg) rr.push_back(RR{kv.first, &kv.second});
+    std::sort(rr.begin(), rr.end(), [](const RR& x, const RR& y) { return x.a->tot > y.a->tot; });
+    int rank = 0;
+    for (const RR& x : rr) {
+        if (++rank > 30) break;
+        const MlpRegA& a = *x.a;
+        const int reg = (int)(x.k & 0xFF), ord = (int)((x.k >> 8) & 0xFF);
+        const uint16_t par = (uint16_t)((x.k >> 16) & 0xFFFF);
+        char tg[16];
+        MlpTagStr((uint32_t)(x.k >> 32), tg, sizeof tg);
+        GLOG("MLP:   %s#%d @%s [%s] | %.2f | %.3f | %.3f | %.3f | %.3f | %.1f | %.1f+%.1f | %.1f | %.0f%%", kMlpShort[reg < kNumMlpReg ? reg : 0], ord, tg,
+             MkName(par), (double)a.n / fT, a.tot / fT / ms, a.disp / fT / ms, a.bar / fT / ms, a.gap / fT / ms,
+             a.n ? a.tot / (double)a.n / ms * 1000.0 : 0.0, a.n ? (double)a.nd / (double)a.n : 0.0, a.n ? (double)a.ne / (double)a.n : 0.0,
+             a.n ? (double)a.nbc / (double)a.n : 0.0, a.n ? 100.0 * (double)a.exact / (double)a.n : 0.0);
+    }
+    struct OR { const MlpOpA* a; };
+    std::vector<OR> ov;
+    for (const auto& kv : w->ops) ov.push_back(OR{&kv.second});
+    std::sort(ov.begin(), ov.end(), [](const OR& x, const OR& y) { return x.a->t > y.a->t; });
+    GLOG("MLP: top %d dispatches: region#ordinal @caller op | cs | [marker] | ms/frame | us/call | calls/frame | Dispatch groups or EI max | avg threads | "
+         "<= 1 wave %% | empty %%", g_cfg.mlpTop);
+    rank = 0;
+    for (const OR& x : ov) {
+        if (++rank > g_cfg.mlpTop) break;
+        const MlpOpA& a = *x.a;
+        const int reg = (int)(a.rkey & 0xFF), ord = (int)((a.rkey >> 8) & 0xFF);
+        char tg[16];
+        MlpTagStr((uint32_t)(a.rkey >> 32), tg, sizeof tg);
+        char inv[64] = "-";
+        if (a.ns) _snprintf_s(inv, sizeof inv, _TRUNCATE, "%.0f | %.0f%% | %.0f%%", a.inv / (double)a.ns, 100.0 * (double)a.tiny / (double)a.ns,
+                              100.0 * (double)a.zero / (double)a.ns);
+        GLOG("MLP:   %s#%d @%s op%u | %s %08x | [%s] | %.3f | %.1f | %.2f | %.0f | %s", kMlpShort[reg < kNumMlpReg ? reg : 0], ord, tg, a.op,
+             a.kind == kMkEI ? "EI" : "D", a.key, MkName(a.marker), a.t / fT / ms, a.n ? a.t / (double)a.n / ms * 1000.0 : 0.0, (double)a.n / fT,
+             a.n ? a.dims / (double)a.n : 0.0, inv);
+    }
+    delete w;
+}
 
 // GP2 30 s log (stats thread)
 void LogGp2() {
@@ -1068,6 +1564,36 @@ void OnListHead(void* list, int set) {
     }
 }
 
+volatile long g_mlpBarriers = 0;
+
+// 1.7.47 MLP / MpcCheck: gpuopt's pass-through ResourceBarrier path, before (post = false) and after (post = true) the original call
+static void OnBarrierImpl(void* list, int set, unsigned n, const void* bp, bool post) {
+    const D3D12_RESOURCE_BARRIER* b = (const D3D12_RESOURCE_BARRIER*)bp;
+    if (!post) {
+        uint8_t uav = 0;
+        for (unsigned i = 0; i < n && b; ++i)
+            if (b[i].Type == D3D12_RESOURCE_BARRIER_TYPE_UAV) {
+                if (uav < 255) ++uav;
+                if (!t_reg.firstRes && b[i].UAV.pResource) t_reg.firstRes = b[i].UAV.pResource;
+            }
+        if (g_cfg.mlp && g_cfg.mlpBarriers) MlpEvent(list, set, kMkBB, 0, n, uav);
+    } else {
+        if (g_cfg.mlp && g_cfg.mlpBarriers) MlpEvent(list, set, kMkBE, 0, 0, 0);
+        if (t_reg.check) mpcck::OnBarrier(list, set, n, b);
+    }
+}
+void OnBarrier(void* list, int set, unsigned n, const void* barriers, bool post) {
+    if (!t_reg.open || !g_on || g_inited != 1) return;
+    __try {
+        OnBarrierImpl(list, set, n, barriers, post);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedExchange(&g_mlpBarriers, 0);
+        InterlockedExchange(&g_on, 0);
+        InterlockedExchange(&g_failed, 1);
+        GLOG("exception 0x%08lX in the MLP barrier hook - GP switched off", GetExceptionCode());
+    }
+}
+
 static void OnEclImpl(void* queue, unsigned n, void* const* lists, void* retAddr) {
     static thread_local void* t_q = nullptr;
     static thread_local bool t_direct = false;
@@ -1149,6 +1675,12 @@ void Start(const StartInfo& info) {
     g_cfg.minRun = I(L"GPUProf2_MinRun", 4, 1, 64);
     g_cfg.gq = I(L"GQ", 0, 0, 1);
     g_cfg.gqTop = I(L"GQ_Top", 5, 1, 20);
+    g_cfg.mlp = I(L"MeshletProbe", 0, 0, 1);
+    g_cfg.mlpTop = I(L"MeshletProbe_Top", 40, 5, 200);
+    g_cfg.mlpStats = I(L"MeshletProbe_Stats", 1, 0, 1);
+    g_cfg.mlpDump = I(L"MeshletProbe_Dump", 0, 0, 2000);
+    g_cfg.mlpBarriers = I(L"MeshletProbe_Barriers", 1, 0, 1);
+    g_cfg.mpcCheck = I(L"MpcCheck", 0, 0, 1000000);
     if (!g_cfg.prof && !g_cfg.markers) return;
     if (!g_codeOk || !g_base) {
         GLOG("%s", "marker code not verified on this build - GP off");
@@ -1168,6 +1700,33 @@ void Start(const StartInfo& info) {
     if (g_cfg.gq && g_cfg.prof < 2) {
         GQLOG("%s", "GQ needs GPUProf = 2 (it reads the GP2 stamps) - GQ off");
         g_cfg.gq = 0;
+    }
+    if ((g_cfg.mlp || g_cfg.mpcCheck) && g_cfg.prof < 2) {
+        GLOG("%s", "MLP: [Profiler] MeshletProbe / MpcCheck need GPUProf = 2 (they ride on the GP2 command-list hooks) - GPU half off");
+        g_cfg.mlp = g_cfg.mpcCheck = 0;
+    }
+    if (g_cfg.mpcCheck) {
+        mpcck::StartInfo ci;
+        ci.log = g_log;
+        ci.iniPath = ini;
+        ci.chains = g_cfg.mpcCheck;
+        if (!mpcck::Start(ci)) g_cfg.mpcCheck = 0;
+    }
+    if (g_cfg.mlp || g_cfg.mpcCheck) {
+        InterlockedExchange(&g_mlpOn, 1);
+        InterlockedExchange(&g_mlpBarriers, 1);
+        if (g_cfg.mlpDump) {
+            std::wstring d(ini);
+            const size_t sl = d.find_last_of(L"\\/");
+            g_mlpDumpPath = (sl == std::wstring::npos ? std::wstring() : d.substr(0, sl + 1)) + L"Nioh3EngineFix_mlp.csv";
+        }
+        if (g_cfg.mlp)
+            GLOG("MLP: meshlet front-end probe on - in sampled frames (1 in %d), inside MeshletResolveLOD / MeshletPreculling / MeshletInstanceCulling / "
+                 "MeshletCheckRequestLoad / MeshletRequestLoad / GenerateSceneHiZ / GenerateShadowMapHiZ: a timestamp before every Dispatch / "
+                 "ExecuteIndirect and before + after every ResourceBarrier call%s; top %d dispatch rows%s. Needs [GpuOpt] Barriers = 0 (pass-through "
+                 "barriers) for the barrier split",
+                 g_cfg.sampleEvery, g_cfg.mlpStats ? "; every other sampled frame CS invocations per dispatch (pipeline statistics) instead" : "",
+                 g_cfg.mlpTop, g_cfg.mlpDump ? "; raw events of the first sampled frames -> Nioh3EngineFix_mlp.csv" : "");
     }
     if (g_cfg.gq) {
         const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(g_base);
@@ -1259,6 +1818,7 @@ void SetSampled(bool on) {
 
 void OnFrame() {
     const LONG64 f = InterlockedIncrement64(&g_frame);
+    mlprobe::OnFrame();   // 1.7.47 MLP CPU half: frame boundary of the recorder call sequences (no-op when off)
     if (!g_on || g_inited != 1) return;
     if (g_cfg.prof >= 2) {   // wall time between presents (the game is GPU-bound, so this tracks GPU frame time)
         static LARGE_INTEGER last = {};
@@ -1279,7 +1839,12 @@ void OnFrame() {
             if (want != (g_stampOn != 0)) SetSampled(want);
             if (want) InterlockedIncrement64(&g_sampledFrames);
         }
+        if (g_mlpOn) {   // 1.7.47 MLP: sampled frames alternate timestamps / CS-invocation stats (+ MpcCheck); MpcCheck alone: all stats
+            const LONG64 k = g_cfg.sampleEvery > 1 ? g_sampledFrames : f;
+            InterlockedExchange(&g_mlpStatsFrame, !g_cfg.mlp ? 1 : (g_cfg.mlpStats ? (LONG)(k & 1) : 0));
+        }
     }
+    if (g_cfg.mpcCheck) mpcck::OnFrame();
     __try {
         ProcessSlot((int)((f + 2) % kRing));  // the slot that was current 6 frames ago; current again 2 frames from now
     } __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -1341,6 +1906,8 @@ static void LogLineImpl() {
     delete a;
     if (g_cfg.prof >= 2) LogGp2();
     if (g_cfg.gq) LogGq();
+    if (g_cfg.mlp) LogMlp();
+    if (g_cfg.mpcCheck) mpcck::LogLine();
 }
 
 const char* StatusLine(char* buf, size_t n) {
