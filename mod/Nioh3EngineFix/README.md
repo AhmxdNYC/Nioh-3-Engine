@@ -88,6 +88,16 @@ swapchain is rebuilt or the game restarts** (the menu says so). For an A/B set i
 value is logged; the setting is re-checked every 2 s, so rebuilt swapchains get it again. Live menu item *Max frame
 latency*: game / 1 / 2 / 3.
 
+`[Latency] VrrPresent` (1.7.44, default 0, Windows only; notes\vrr-present.md): the engine's Present SyncInterval
+(GfxDevice+424Ch) sometimes stays 1 for a whole launch, which turns VRR's independent flip into composed flip (+~7 ms
+display latency, 8-20 % presented frames never shown). 1 = the bottom-most Present hook sends SyncInterval 0 +
+`DXGI_PRESENT_ALLOW_TEARING` on swapchains created with ALLOW_TEARING that are not exclusive fullscreen (the exact
+call the stock game makes when it is not stuck); -1 = auto, only while the game's VSync setting is OFF. Only the two
+Present arguments change: no timing, no image change; a call DXGI refuses is re-sent with the game's arguments and that
+swapchain is left alone. `[Debug] PresentModeLog` (default 1, measurement only) logs every change of the arguments per
+Present caller and every change of the engine's SyncInterval with its writer (PM group: watcher 13503A3 / setter
+2EEBB68 caves that repeat the original store; ctor 2EDFBBD by inference). grep `PresentMode` / `VrrPresent`.
+
 ### Handle leak fix + memory line (1.5.0) - notes\memory-leaks.md
 **WL** (ini `WL`, **default 1**; live menu switch): `RenderFrameBegin` 4A529C calls
 `IDXGISwapChain2::GetFrameLatencyWaitableObject` (vtbl+108h at 4A5338) every frame and never closes the handle. DXGI
@@ -418,6 +428,7 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * 1.7.40 (diagnostics, measurement only, default 0): `[Profiler] GQ` (0/1, needs `GPUProf = 2`; graphics-queue gap census), `GQ_Top` (1-20, 5); `[Profiler] JT` (0/1, v2.02; job-timing / logic-join probe, 5 code sites written only when 1), `JT_Thread` (thread description, KIDSTaskScheduler0), `JT_Top` (1-20, 6), `JT_ReportSec` (5-600, = ReportSec). Log format and the decisions they feed: notes\gq-jt-probes.md.
 * 1.7.2: `[Patches] RWb` (0/1, next launch), `SPR` (0/1, measurement), `[Profiler] TileStats` (0/1/2), `[GpuOpt] TileBatch` (0/1/2); all default 0.
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
+* 1.7.44: `[Latency] VrrPresent` (-1 auto / 0 off / 1 on, default 0, next launch, Windows only) and `[Debug] PresentModeLog` (0/1/2, default 1, measurement only; 2 = 30 s summary); see Input latency.
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
 

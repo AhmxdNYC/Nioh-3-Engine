@@ -445,7 +445,11 @@
     { "id": "W1B", "group": "W1B", "rva": "0x61BAC", "len": 22, "orig": "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", "kind": "check", "supersedes": "W1",
       "pattern": "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", "offset": 0, "what": "1.7.42 W1B (drawprep.cpp): glyph padding clear 61B1C; the site holds W1's bytes or these at install -> jmp caveW1b + int3 x17 (resume 61BC2); on = original loop with `and [m],0` -> `mov [m],0`" },
     { "id": "RPA", "group": "RPA", "rva": "0x247950", "len": 5, "orig": "48 89 5C 24 08", "kind": "check",
-      "pattern": "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 E8 6F FE FF FF 8B 87 70 01 00 00", "offset": 0, "what": "1.7.42 RPA (drawprep.cpp): RenderParamsAssign entry `mov [rsp+8],rbx` -> jmp caveRpa (resume 247955); on = 21 exact byte-range copies" }
+      "pattern": "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9 E8 6F FE FF FF 8B 87 70 01 00 00", "offset": 0, "what": "1.7.42 RPA (drawprep.cpp): RenderParamsAssign entry `mov [rsp+8],rbx` -> jmp caveRpa (resume 247955); on = 21 exact byte-range copies" },
+    {"id": "PMw", "group": "PM", "rva": "0x13503A3", "len": 6, "orig": "89 81 4C 42 00 00", "kind": "call", "target": "caveSiW", "call_at": 0,
+      "pattern": "39 99 44 25 00 00 7D 0B 85 C0 0F 48 C3 89 81 4C 42 00 00 44 8B 35", "offset": 13, "what": "PM (1.7.44, measurement only; notes/vrr-present.md): DisplaySettingsWatcher 1350210 store of the VSync slot into GfxDevice+424Ch (Present SyncInterval) `mov [rcx+424Ch],eax` -> call caveSiW (same store, then value/device/sequence recorded; flags and registers preserved)"},
+    {"id": "PMs", "group": "PM", "rva": "0x2EEBB68", "len": 6, "orig": "89 91 4C 42 00 00", "kind": "call", "target": "caveSiS", "call_at": 0,
+      "pattern": "85 D2 B0 01 41 0F 48 D0 89 91 4C 42 00 00 EB 02 32 C0", "offset": 8, "what": "PM: SyncInterval setter 2EEBB50 (no static reference: called through a pointer) store `mov [rcx+424Ch],edx` -> call caveSiS (same store, then value/device/caller return address [rsp+38h] recorded)"}
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -548,6 +552,12 @@
     { "group": "FGC", "rva": "0x4548C4", "bytes": "4C 8B 81 90 00 00 00 33 C0 4D 85 C0 74 0D 48 63 C2 48 69 C0 68 02 00 00 49 03 C0 C3", "what": "FGC: KtglTextureNative(tex, sub) 4548C4 reads [tex+90h] unchecked (the 0xC0000005 read of 0x90 in vkd3d-proton #2845); returns 0 when [tex+90h] is 0, so the cave's 0 for tex = 0 is the same answer" },
     { "group": "FGC", "rva": "0x3718DFC", "bytes": "48 8B F8 4D 85 C9 74 48 48 85 C0 74 43", "what": "FGC: FfxKtglExecuteCopyJob 3718DB4 already skips the copy when either result is 0 (r9 = src, rax = dst)" },
     { "group": "FGP", "rva": "0x39A86A", "bytes": "84 C0 75 0C E8 4D BB D3 FF 41 8A F7 84 C0 74 03", "what": "FGP: al != 0 from the menu-open getter 5A37D4 -> sil = 1 -> FG pause path (the other getter D63C0 is skipped)" },
-    { "group": "FGP", "rva": "0x39A939", "bytes": "44 8A FF 40 8A C7 8B 35 B3 06 22 04 88 83 55 20 00 00", "what": "FGP: pause path stores 1 into RenderConfig S+2055h (FSR FG paused: real frames only, no swapchain rebuild)" }
+    { "group": "FGP", "rva": "0x39A939", "bytes": "44 8A FF 40 8A C7 8B 35 B3 06 22 04 88 83 55 20 00 00", "what": "FGP: pause path stores 1 into RenderConfig S+2055h (FSR FG paused: real frames only, no swapchain rebuild)" },
+    { "group": "PM", "rva": "0x2EDFBBD", "len": 10, "bytes": "C7 87 4C 42 00 00 01 00 00 00", "what": "PM: GfxDevice ctor default `mov dword [rdi+424Ch],1` (the third writer, attributed by the C++ side, not hooked)" },
+    { "group": "PM", "rva": "0x3D64ED", "len": 20, "bytes": "45 84 2E 74 08 45 8A E5 44 8B EE EB 0A 44 8B AF 4C 42 00 00", "what": "PM: GfxDevicePresent SyncInterval = (params bit0) ? 0 : GfxDevice+424Ch (r13d -> Present edx / present-thread +7738h)" },
+    { "group": "PM", "rva": "0x1350375", "len": 46, "bytes": "8B 05 C1 AB 26 03 3B 87 C0 01 00 00 74 26 89 87 C0 01 00 00 49 8B 4F 70 48 39 99 38 25 00 00 74 08 39 99 44 25 00 00 7D 0B 85 C0 0F 48 C3", "what": "PM: watcher head before PMw: VSync slot 45BAF3C vs cache w+1C0 (cache updated BEFORE the guard), guard d+2538 != 0 && d+2544 >= 0 skips the store (rcx = d = g+70h, eax = slot, rbx = 0)" },
+    { "group": "PM", "rva": "0x2EEBB50", "len": 24, "bytes": "48 83 EC 28 E8 93 0B B9 FE 45 33 C0 84 C0 75 10 85 D2 B0 01 41 0F 48 D0", "what": "PM: setter head before PMs: sub rsp,28h (caller return at [rsp+38h] inside caveSiS), guard 1A7C6EC, max(edx,0)" },
+    { "group": "PM", "rva": "0x2EEBB6E", "len": 9, "bytes": "EB 02 32 C0 48 83 C4 28 C3", "what": "PM: setter tail after PMs (flags dead: ret)" },
+    { "group": "PM", "rva": "0x1A7C6EC", "len": 22, "bytes": "33 C0 48 39 81 38 25 00 00 74 0A 39 81 44 25 00 00 7C 02 B0 01 C3", "what": "PM: setter guard (true = d+2538 != 0 && d+2544 >= 0 -> the setter refuses to write)" }
   ]
 }

@@ -307,6 +307,11 @@
    "Patches",
    "RPA",
    "0"
+  ],
+  [
+   "Latency",
+   "VrrPresent",
+   "0"
   ]
  ],
  "shader_apply": {
@@ -2314,6 +2319,32 @@
    "expected": "Ally loads 3-10 s faster, PC 0; Ally ABBA pair pending (R2 later pair). log 'LO: on at 58A set #n' / 'LO: off at 58A clear #n'",
    "grp": 8,
    "load": true
+  },
+  {
+   "id": "VrrPresent",
+   "type": "asi",
+   "label": "present SyncInterval 0 + ALLOW_TEARING on the game's tearing-capable swapchain (independent flip under VRR; same image)",
+   "ini": [
+    [
+     "Latency",
+     "VrrPresent",
+     "1"
+    ],
+    [
+     "Debug",
+     "PresentModeLog",
+     "2"
+    ]
+   ],
+   "mode": "launch",
+   "devices": [
+    "pc"
+   ],
+   "risk": "low",
+   "expected": "PC, user settings, FG on (FSR), VSync ON, FreeSync, cap 120: PresentMon PresentMode 'Hardware Composed: Independent Flip' >= 95 %, SyncInterval 0, DisplayLatency p50 -3..-8 ms, displayed/presented >= 97 %, AllInputToPhotonLatency p50 lower. KEEP if DisplayLatency p50 drops >= 3 ms and displayed fps rises, no tearing seen in the VRR range. Windows only (ignored under Proton). log 'VrrPresent = 1', 'PresentMode: ... -> sent SI 0 flags 0x200' (notes/vrr-present.md)",
+   "grp": 2,
+   "metric": "latency",
+   "presentmon": true
   }
  ]
 }

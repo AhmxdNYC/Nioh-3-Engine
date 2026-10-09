@@ -37,6 +37,7 @@
 #include "gpuprof.h"
 #include "menu.h"
 #include "padlat.h"
+#include "pmode.h"
 #include "osd.h"
 #include "psoswap.h"
 #include "tilestats.h"
@@ -1133,10 +1134,23 @@ void Hooked(IDXGISwapChain* sc, UINT flags) {
     ReleaseSRWLockExclusive(&g_lock);
 }
 
+// 1.7.44 pmode (present mode log + [Latency] VrrPresent): outermost call only, never DXGI_PRESENT_TEST. Thread role from
+// NotePresentThread (1 = FidelityFX presenter, 0 = other, -1 = not looked at yet).
+bool PresentArgs(IDXGISwapChain* sc, UINT& sync, UINT& flags, const void* caller) {
+    if (t_depth != 1 || (flags & DXGI_PRESENT_TEST)) return false;
+    return pmode::Filter(sc, sync, flags, caller, t_named ? t_isFsr : -1);
+}
+
 HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     ++t_depth;
     Hooked(sc, flags);
-    HRESULT hr = g_origPresent(sc, sync, flags);
+    UINT s2 = sync, f2 = flags;
+    const bool rw = PresentArgs(sc, s2, f2, _ReturnAddress());
+    HRESULT hr = g_origPresent(sc, s2, f2);
+    if (rw && hr == DXGI_ERROR_INVALID_CALL) {  // validation refused the rewrite: nothing was presented - present as the game asked
+        pmode::Refused(sc, hr);
+        hr = g_origPresent(sc, sync, flags);
+    }
     --t_depth;
     return hr;
 }
@@ -1144,7 +1158,13 @@ HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
 HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
     ++t_depth;
     Hooked(sc, flags);
-    HRESULT hr = g_origPresent1(sc, sync, flags, p);
+    UINT s2 = sync, f2 = flags;
+    const bool rw = PresentArgs(sc, s2, f2, _ReturnAddress());
+    HRESULT hr = g_origPresent1(sc, s2, f2, p);
+    if (rw && hr == DXGI_ERROR_INVALID_CALL) {
+        pmode::Refused(sc, hr);
+        hr = g_origPresent1(sc, sync, flags, p);
+    }
     --t_depth;
     return hr;
 }
@@ -1470,8 +1490,9 @@ void Start(const StartupInfo& si) {
     if (g_cfg.maxLatency) OLOG("MaxFrameLatency=%d (applied to waitable swapchains as they present)", g_cfg.maxLatency);
     OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f Offset=%d,%d (px at 1080p)", g_cfg.fpsCounter,
          g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale, OffsetX(), OffsetY());
-    if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled() && !padlat::WantsPresentHook()) {
-        OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0) - no Present hook");
+    if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled() && !padlat::WantsPresentHook() && !pmode::WantsPresentHook()) {
+        OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0, [Debug] PresentModeLog=0, "
+             "[Latency] VrrPresent=0) - no Present hook");
         return;
     }
     if (HANDLE h = CreateThread(nullptr, 0, InstallThread, nullptr, 0, nullptr)) CloseHandle(h);

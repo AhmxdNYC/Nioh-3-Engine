@@ -47,6 +47,7 @@
 #include "readfix.h"
 #include "readprobe.h"
 #include "jt.h"
+#include "pmode.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -63,6 +64,7 @@
 //         (mod\Nioh3BossRematch, notes\boss-rematch-addon.md): this ASI hooks no boss site any more; old ini keys are logged as moved
 // 1.7.42: W1B (glyph padding clear 61BAC plain stores) + RPA (RenderParamsAssign 247950 range copy), drawprep.cpp; notes\w1b-rpa.md
 // 1.7.43: fix boot hang with 3-4 drawprep groups on (FrozenWrite oldProt[2] overrun by 1.7.42's 4 writes; drawprep.cpp)
+// 1.7.44: present mode log ([Debug] PresentModeLog = 1, PM SyncInterval writer probes) + [Latency] VrrPresent (pmode.cpp; notes\vrr-present.md)
 #define MOD_VERSION "1.7.44"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
@@ -148,6 +150,9 @@ void caveJtJob();
 void caveJtWait();
 void caveJtWake1();
 void caveJtWakeAll();
+// 1.7.44 PM: SyncInterval writer probes (pmode.asm)
+void caveSiW();
+void caveSiS();
 extern uint32_t ws_enable, ed_enable;
 extern uint64_t ws_iatSetEvent, ws_iatWait, ws_ret[3], ed_kickFn, ed_joinFn, ed_kicked, ed_skipped;
 extern uint64_t ws_set[48], ws_sleeps, ws_sleepPool[64], ws_chk[32];
@@ -361,6 +366,8 @@ struct Config {
     int gf = 0, gfTimeoutMs = 100;
     // waitable-handle leak fix (1.5.0): on by default (Windows leaks one handle per frame; never triggers under Proton)
     int wl = 1;
+    // 1.7.44 [Debug] PresentModeLog (pmode.cpp): 1 = present-mode change lines + the PM SyncInterval writer probes (measurement only)
+    int pmLog = 1;
     // 1.6.0 (notes\cpu-hotspots-ally.md, notes\worker-jobs-opt.md): all opt-in, 0 = off / not installed
     int wg = 0, wgMaxPending = 1, wgWindowUs = 2000;
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
@@ -463,6 +470,7 @@ Config LoadConfig() {
     c.ed = I(L"Patches", L"ED", c.ed);
     c.gf = A(L"Patches", L"GF", c.gf, 1, 0, "Wine: removes ~0.6 core of fence spin; Windows: +0.38 pct fps, below the keep bar");
     c.wl = I(L"Patches", L"WL", c.wl);
+    c.pmLog = std::clamp(I(L"Debug", L"PresentModeLog", c.pmLog), 0, 2);
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     c.wg = I(L"Patches", L"WG", c.wg);
     c.tg = I(L"Patches", L"TG", c.tg);
@@ -711,11 +719,13 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveFgcSrc: return (void*)&caveFgcSrc;
         case gen::Target::caveFgcDst: return (void*)&caveFgcDst;
         case gen::Target::caveFgp: return (void*)&caveFgp;
+        case gen::Target::caveSiW: return (void*)&caveSiW;
+        case gen::Target::caveSiS: return (void*)&caveSiS;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveFgp;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveSiS;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1486,6 +1496,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "ED")) return cfg.ed != 0;
         if (!strcmp(g, "GF")) return cfg.gf != 0;
         if (!strcmp(g, "WL")) return cfg.wl != 0;
+        if (!strcmp(g, "PM")) return cfg.pmLog != 0;
         if (!strcmp(g, "DS")) return cfg.ds != 0;
         if (!strcmp(g, "LK")) return cfg.lk != 0;
         if (!strcmp(g, "MA")) return cfg.ma != 0;
@@ -2146,6 +2157,9 @@ DWORD WINAPI Worker(LPVOID) {
             return jt::Prepare(ji, findItem("JTw")->addr, findItem("JTx")->addr, findItem("JTn1")->addr, findItem("JTn2")->addr);
         }))
         jt::Start();
+    // ---- 1.7.44 PM: who writes the engine's Present SyncInterval (GfxDevice+424Ch). Measurement only: the two caves do the
+    // original store and record it; pmode.cpp reports it with the present-mode change lines (notes\vrr-present.md).
+    pmode::SetWriterProbes(expGroup("PM", cfg.pmLog != 0, nullptr));
 
     static bool s_tgAvail = false;
     s_tgAvail = vrrDone;
@@ -2605,6 +2619,15 @@ DWORD WINAPI Worker(LPVOID) {
             ti.base = reinterpret_cast<uintptr_t>(g_base);
             ti.knownBuild = known;
             tour::Start(ti);
+        }
+        {  // 1.7.44 present mode log + [Latency] VrrPresent (pmode.cpp; before osd::Start: osd asks pmode::WantsPresentHook())
+            pmode::StartInfo pmi;
+            pmi.log = &Log;
+            pmi.iniPath = iniPath.c_str();
+            pmi.base = g_base;
+            pmi.knownBuild = known;
+            pmi.wine = wine;
+            pmode::Start(pmi);
         }
         osd::StartupInfo si;
         si.version = MOD_VERSION;
