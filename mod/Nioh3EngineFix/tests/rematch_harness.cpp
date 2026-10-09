@@ -45,6 +45,40 @@ static int FakePause() { return g_fakeReason; }
 static volatile uint8_t g_busyFlag = 0;
 static struct { uint64_t rcx; uint32_t edx; uint8_t r8b; } volatile g_openArgs;
 static volatile LONG g_openCalls = 0;
+// MissionRequestById stand-in (R-b): records the arguments and, like 2239600 -> 223953C offline, writes the request into the first
+// free queue slot (u32 +4 == 0 && u8 +8 == 0); g_byIdTake = false models a call that enqueues nothing.
+static struct {
+    LONG calls;
+    uint32_t id, sub;
+    uint8_t slot;
+    bool aligned;
+    uint32_t p[6];
+} g_byId;
+static bool g_byIdTake = true;
+static void FakeById(uint32_t id, uint8_t slot, uint32_t sub, const uint32_t* p) {
+    ++g_byId.calls;
+    g_byId.id = id;
+    g_byId.slot = slot;
+    g_byId.sub = sub;
+    g_byId.aligned = ((uintptr_t)p & 15) == 0;
+    memcpy(g_byId.p, p, sizeof(g_byId.p));
+    if (!g_byIdTake) return;
+    for (int i = 0; i < 3; ++i) {
+        uint8_t* q = B + kRvaQueue + i * 0x58;
+        if (*(uint32_t*)(q + 4) != 0 || q[8] != 0) continue;
+        memset(q, 0, 0x58);
+        q[0] = slot;
+        *(uint32_t*)(q + 4) = id;
+        q[8] = 0x96;                    // record +0x15C
+        *(uint32_t*)(q + 0xC) = 72636;  // 1C17D8C(id)
+        *(uint64_t*)(q + 0x14) = 2;
+        *(uint32_t*)(q + 0x24) = 1;
+        *(uint16_t*)(q + 0x28) = 1;
+        *(uint64_t*)(q + 0x30) = ~0ull;
+        memcpy(q + 0x40, p, 0x18);
+        return;
+    }
+}
 
 constexpr uint64_t oG = 0x4800000, oPT = 0x4801000, oPl = 0x4802000, oMs0 = 0x4803000, oMs = 0x4804000, oCh0 = 0x4805000, oCh = 0x4806000,
                    oDb = 0x4807000, oDm = 0x4808000, oTab = 0x4810000, oMm = 0x4830000, oMenu = 0x4831000, oVt = 0x4832000, oBusy = 0x4833000;
@@ -84,6 +118,9 @@ static void BuildWorld() {
                          0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xF0, 0xFF, 0x00, 0xC3});                               // lock inc dword [rax]; ret
     PutAbs(kRvaOpenReplay, (const void*)&g_openArgs);
     PutAbs(kRvaOpenReplay + 20, (const void*)&g_openCalls);
+    Put(kRvaRequestById, {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0});  // mov rax, FakeById; jmp rax
+    PutAbs(kRvaRequestById, (const void*)&FakeById);
+    At<uint8_t>(oMs + kOffMsSlot) = 1;  // journey / slot byte (L4 lvl=1 in the 2026-10-08 session)
     Put(kRvaClearedGet, {0x89, 0xD0, 0x83, 0xE0, 0x01, 0xC3});  // cleared = odd mission id
     Put(kRvaUnlockedGet, {0xB0, 0x01, 0xC3});
 }
@@ -317,11 +354,66 @@ static void TestFlow() {
     Tick();
     CHECK(g_openCalls == c1 && StateCode() == kIdle, "replay menu busy (+0x48): refused, not called");
     g_busyFlag = 0;
+
+    printf("[R-b direct start]\n");
     g_cfg.directStart = true;
-    Post(kReqDirect, 0, "harness");
+    int rOdd = -1, rEven = -1, rHid = -1;
+    for (size_t i = 0; i < g_rows.size(); ++i) {
+        const Row& r = g_rows[i];
+        if (r.hidden) {
+            if (rHid < 0) rHid = (int)i;
+            continue;
+        }
+        if (!r.verified) continue;
+        if ((r.missionId & 1) && rOdd < 0) rOdd = (int)i;
+        if (!(r.missionId & 1) && rEven < 0) rEven = (int)i;
+    }
+    CHECK(rOdd >= 0 && rEven >= 0 && rHid >= 0, "catalogue has rows for the R-b cases (%d %d %d)", rOdd, rEven, rHid);
+    const ULONGLONG quiet = GetTickCount64() - kQueueQuietMs - 10;
+    Post(kReqDirect, rEven, "harness");  // fake clear getter: even id = not cleared
     Tick();
-    CHECK(g_openCalls == c1 && StateCode() == kIdle, "R-b is refused in this build");
-    CHECK(Toast(tb, sizeof(tb), tc) && strstr(tb, "L7"), "R-b refusal names the missing capture");
+    CHECK(g_byId.calls == 0 && StateCode() == kIdle, "R-b: an uncleared mission is refused, nothing called");
+    CHECK(Toast(tb, sizeof(tb), tc) && strstr(tb, "not cleared"), "R-b refusal says not cleared (%s)", tb);
+    Post(kReqDirect, rHid, "harness");
+    Tick();
+    CHECK(g_byId.calls == 0 && Toast(tb, sizeof(tb), tc) && strstr(tb, "unverified"), "R-b: an unverified hidden duel is refused (%s)", tb);
+    for (int i = 0; i < 3; ++i) At<uint8_t>(kRvaQueue + i * 0x58 + 8) = 0xE0;  // all three slots taken
+    Tick();
+    g_qChangedAt.store(quiet);
+    Post(kReqDirect, rOdd, "harness");
+    Tick();
+    CHECK(g_byId.calls == 0 && Toast(tb, sizeof(tb), tc) && strstr(tb, "queue full"), "R-b: full queue refused before the call (%s)", tb);
+    memset(B + kRvaQueue, 0, 3 * 0x58);
+    At<uint8_t>(kRvaQueue + 8) = 0xE0;  // slot 0 holds the load's request (as in the session), 1 and 2 free
+    Tick();
+    g_qChangedAt.store(quiet);
+    g_byIdTake = false;
+    Post(kReqDirect, rOdd, "harness");
+    Tick();
+    CHECK(g_byId.calls == 1 && StateCode() == kIdle && Toast(tb, sizeof(tb), tc) && strstr(tb, "did not take"),
+          "R-b: a call that enqueues nothing is refused and stays idle (%s)", tb);
+    g_byIdTake = true;
+    Post(kReqDirect, rOdd, "harness");
+    Tick();
+    const uint16_t mid = g_rows[(size_t)rOdd].missionId;
+    CHECK(g_byId.calls == 2 && g_byId.id == mid && g_byId.slot == 1 && g_byId.sub == 0, "MissionRequestById(id 0x%X, slot byte %u, sub %u)",
+          g_byId.id, g_byId.slot, g_byId.sub);
+    CHECK(g_byId.aligned, "params 16-byte aligned (movaps [r9] in 2239660)");
+    CHECK(g_byId.p[0] == 0x101 && g_byId.p[1] == 0x1000000 && g_byId.p[2] == 0x10100 && !g_byId.p[3] && !g_byId.p[4] && !g_byId.p[5],
+          "params = the replay confirm's {101, 1000000, 10100, 0, 0, 0}");
+    CHECK(At<uint32_t>(kRvaQueue + 0x58 + 4) == mid && At<uint64_t>(kRvaQueue + 0x58 + kReqMode) == 2, "request in slot 1 with mode 2");
+    CHECK(StateCode() == kInReplay && g_openCalls == c1, "R-b: in replay, the replay menu was not opened");
+    CHECK(Toast(tb, sizeof(tb), tc) && strstr(tb, "starting '"), "R-b toast names the mission (%s)", tb);
+    SetSt(2, 1);
+    Wait(100);
+    At<uint32_t>(oMs + 0x14) = 72636;
+    SetSt(2, 0);
+    Wait(3400);
+    CHECK(g_replayIn.load() && g_replayMs == 72636, "R-b: replay mission recognised after its load");
+    At<uint32_t>(oMs + 0x14) = 0x500;
+    Wait(5500);
+    CHECK(StateCode() == kIdle, "R-b: mission exit -> idle");
+    g_qChangedAt.store(GetTickCount64() - kQueueQuietMs - 10);
     g_cfg.directStart = false;
     // abort before the start
     RemoteRequest(1);

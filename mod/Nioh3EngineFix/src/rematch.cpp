@@ -38,6 +38,12 @@ constexpr uint32_t kRecSize = 0x198, kRecFlags = 0x40, kRecId = 0x158, kFlagHidd
 constexpr uint32_t kRvaPm = 0x4709B50;            // online session: +0x34 == 1 / 2 = online (IsOnlinePlay 85834)
 constexpr uint32_t kRvaNet = 0x45C84F8;           // net: +0x1DC != 0 = in a co-op session
 constexpr uint32_t kRvaQueue = 0x45BC420;         // mission-start queue: 3 x 0x58 (free-slot scan 2239549: +4 == 0 && u8 +8 == 0)
+// !! 2026-10-08 PC session (notes\session-2026-10-08-gamedata.md s.5): MissionLoadStep is the game-state-5 handler of the dispatcher
+// 5A29F0 (19DBAC0 is one case of a switch on [rcx+4]), NOT a per-frame call: RematchLog counted ticks 1..1093 during the save load, then
+// 2 ticks in the next 150 s of field play and none during 15 min of mission play. So this pump (and the "not in game (no mission tick)"
+// gate) only runs while a mission loads: R-a / R-b requests made in the field are never executed. Move the pump to a per-frame
+// game-thread site (e.g. the PerFrameUpdater call 56529C that tour.cpp retargets, TT1, chained) before any in-game test.
+// The same session's replay start wrote slot 0 although slot 0 last read {+8 E0} (the claim below is not proven either way).
 // A consumed slot is NOT cleared: every RematchLog capture shows slot 0 = {+0 1, +8 E0, +C stage} from the save load for the
 // whole session. So "busy" here = the slot bytes changed within the last kQueueQuietMs (a request was just made), and a replay
 // start is detected as any change of the 3 slots after the menu opened.
@@ -46,6 +52,13 @@ constexpr uint32_t kRvaChMgr = 0x45B9E40;         // [[..]] char manager: +0x2C1
 constexpr uint32_t kRvaGameMain = 0x4759910;      // G: +0x588.. stop flags (58A loading, 58B / 58C paused)
 constexpr uint32_t kRvaPlayerTab = 0x4745348;     // player 0 = [P + 0xCD * 0x18] (vpad.cpp / tour.cpp)
 constexpr uint32_t kRvaMissionState = 0x47514D0;  // [[..]+8] mission state: +0x14 running mission id
+constexpr uint32_t kOffMsSlot = 0x10;             // mission state +0x10 = the request slot byte (journey/cycle; L4 "lvl")
+// R-b: MissionRequestById(u32 id, u8 slotByte, u32 sub = 0 -> stage = 1C17D8C(id), params* (movaps: 16-aligned)) -> builds the 0x58
+// request {+0 slot, +4 id, +8 record+0x15C, +0xC stage, +0x14 u64 2, +0x24 1, +0x28 u16 1, +0x30 -1, +0x40 params} -> Enqueue 223953C.
+// notes\session-2026-10-08-gamedata.md s.1: the shrine Battle Scroll replay confirm (F1FD80, result 0) writes exactly these bytes
+// inline (offline), and its other branch calls this function with the same arguments.
+constexpr uint32_t kRvaRequestById = 0x2239600;
+constexpr uint32_t kReqMode = 0x14;               // request u64 +0x14: 2 = replay (mission state +0x24 becomes 2), 1 = continue/return
 const uint16_t kHiddenIds[3] = {0xD22D, 0xB3F8, 0xFB96};  // Honda Tadakatsu, Yoshitsune, Jubei/Chuya (record +0x40 bit 0x4000)
 
 constexpr uint32_t cWhite = 0xFFFFFFFF, cGray = 0xFFB4B4B4, cDim = 0xFF8C8C8C, cGreen = 0xFF6CFF6C, cYellow = 0xFF40E6FF,
@@ -387,16 +400,100 @@ void ExecOpen(int row, const Snap& s) {
     else ToastF(cGreen, 5000, "Rematch: replay menu opened");
 }
 
-// R-b (DirectStart = 1). Design s.5.5: replay the official request verbatim, MissionRequestEnqueue(params.lo8, &req58) 0x223953C (or
-// MissionRequestById 0x2239600), with the 0x58-byte request copied from the L7 log of a MENU-started replay of the same mission and only
-// the mission id changed; success = a queue slot holds the id at +4.
-// TODO(Phase 0, Q10): only the Continue/load path has been logged so far (L7 MissionRequestEnqueue from the save load). Needs an
-// `RematchLog L7: MissionRequestById / MissionRequestEnqueue` capture from a real Battle Scroll replay start (tools\rematch\p0_vpad.ps1),
-// then a request template + mission-id offset here, and test R-13. Until then this path refuses and starts nothing.
-void ExecDirect(int row) {
-    g_log("Rematch: R-b direct start for %s (mission 0x%04X) not built: no L7 capture of a menu-started replay yet (Q10)", RowName(row),
-          row >= 0 ? g_rows[(size_t)row].missionId : 0);
-    Refuse("direct start needs the L7 replay capture (set DirectStart = 0 to use the replay menu)");
+// R-b (DirectStart = 1), Q10 answered by the 2026-10-08 PC session (notes\session-2026-10-08-gamedata.md s.1): the shrine replay
+// confirm F1FD80 (result 0) did NOT call MissionRequestEnqueue; it wrote the 0x58-byte request into the first free queue slot itself:
+// {+0 slot byte [menu+2588] = [[47514D0]+8]+10h (era arg 6, 1DC849C), +4 id, +8 record+15Ch, +C 1C17D8C(id), +14 u64 2, +20 {0,1},
+// +28 u16 1, +30 -1, +38/+3C 0 offline, +40 params {101h, 1000000h, 10100h, 0, 0, 0}} (logged: slot0 = 52 / 96 / 72636 / 2). The
+// confirm's other branch calls MissionRequestById(id, slot byte, 0, params) = the same bytes (2239600 builds the request field by field,
+// Enqueue's 2239C94 fills +38/+3C the same way). So R-b = that call, nothing else; the replay marker [[4751848]+8]+CF8 is written only
+// on that other branch and NOT on the path the session took, so it is not written here either.
+int CallRequestById(uint16_t id, uint8_t slot) {
+    alignas(16) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};  // read with movaps [r9] (2239660): must be 16-aligned
+    __try {
+        ((void (*)(uint32_t, uint8_t, uint32_t, const uint32_t*))(g_base + kRvaRequestById))(id, slot, 0, p);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+void ExecDirect(int row, const Snap& s, ULONGLONG t) {
+    if (row < 0 || (size_t)row >= g_rows.size()) {
+        Refuse("direct start needs a boss row");
+        return;
+    }
+    const Row& r = g_rows[(size_t)row];
+    if (!r.verified && !g_cfg.showUnverified) {
+        Refuse("this row is unverified (ShowUnverified = 0)");
+        return;
+    }
+    uint64_t db = 0;
+    uint8_t c = 0;
+    if (!Rd(g_base + kRvaClearDb, db) || !db || !CallGetter(kRvaClearedGet, db, r.missionId, c)) {
+        Refuse("clear db not readable");
+        return;
+    }
+    if (!(c & 1)) {  // the game's replay list only offers cleared missions (378674 -> 702B64)
+        Refuse("mission not cleared on this journey");
+        return;
+    }
+    uint64_t g = 0, ms = 0;
+    uint8_t slot = 0;
+    if (!Rd(g_base + kRvaMissionState, g) || !g || !Rd(g + 8, ms) || !ms || !Rd(ms + kOffMsSlot, slot)) {
+        Refuse("mission state not readable");
+        return;
+    }
+    uint8_t before[3 * 0x58], after[3 * 0x58];
+    if (!Copy(before, g_base + kRvaQueue, sizeof(before))) {
+        Refuse("mission queue not readable");
+        return;
+    }
+    int freeSlot = -1;  // the game's own free test (2239553): u32 +4 == 0 && u8 +8 == 0
+    for (int i = 0; i < 3 && freeSlot < 0; ++i) {
+        uint32_t m = 0;
+        memcpy(&m, before + i * 0x58 + 4, 4);
+        if (m == 0 && before[i * 0x58 + 8] == 0) freeSlot = i;
+    }
+    if (freeSlot < 0) {
+        Refuse("mission queue full");
+        return;
+    }
+    if (CallRequestById(r.missionId, slot) != 0) {
+        Refuse("exception in the game call");
+        return;
+    }
+    const uint8_t* q = after + freeSlot * 0x58;
+    uint32_t qid = 0;
+    uint64_t mode = 0;
+    const bool rd = Copy(after, g_base + kRvaQueue, sizeof(after));
+    if (rd) {
+        memcpy(&qid, q + 4, 4);
+        memcpy(&mode, q + kReqMode, 8);
+    }
+    if (!rd || qid != r.missionId || mode != 2 || !memcmp(before + freeSlot * 0x58, q, 0x58)) {
+        g_log("Rematch: R-b MissionRequestById(0x%04X, %u, 0, params) left queue slot %d without the request (id %u, mode %llu)", r.missionId, slot,
+              freeSlot, qid, (unsigned long long)mode);
+        Refuse("the game did not take the request");
+        return;
+    }
+    char hb[0x58 * 3 + 4];
+    size_t hl = 0;
+    for (int i = 0; i < 0x58; ++i) hl += (size_t)snprintf(hb + hl, sizeof(hb) - hl, i ? " %02X" : "%02X", q[i]);
+    uint32_t stage = 0;
+    memcpy(&stage, q + 0xC, 4);
+    g_state.store(kInReplay);
+    g_activeRow.store(row);
+    g_openAt = t;
+    g_msAtOpen = s.ms14;
+    g_qHashAtOpen = s.qHash;
+    g_replayAt = t;
+    g_replayMs = 0;
+    g_exitSince = 0;
+    g_loadSeen = s.st[2] != 0;
+    g_loadDoneAt = 0;
+    g_log("Rematch: R-b MissionRequestById(0x%04X, slot byte %u, 0, {101 1000000 10100 0 0 0}) -> queue slot %d: stage %u region %02X mode 2 "
+          "(row %d %s, '%s'; mission now %u) req[58]=%s",
+          r.missionId, slot, freeSlot, stage, q[8], row, r.name, r.mission, s.ms14, hb);
+    ToastF(cGreen, 8000, "Rematch: starting '%s'", r.mission);
 }
 
 void Track(const Snap& s, ULONGLONG t) {
@@ -512,7 +609,7 @@ void Tick() {
             }
         } else {
             g_pend = 0;
-            if (kind == kReqDirect) ExecDirect(row);
+            if (kind == kReqDirect) ExecDirect(row, s, t);
             else ExecOpen(row, s);
         }
     }
@@ -551,6 +648,8 @@ const Site kSites[] = {
     {"MissionTableRef_RequestById", 0x223963C, 0, 15, {0x48, 0x8B, 0x0D, 0xED, 0x07, 0x38, 0x02, 0x8B, 0xD7, 0x41, 0x8A, 0xF4, 0x48, 0x8B, 0x09}, nullptr},
     {"ListFilterRef_ListBuild", 0x378B83, 0, 23, {0x41, 0xF6, 0x03, 0x01, 0x4C, 0x89, 0x45, 0x80, 0x75, 0x55, 0x41, 0xF6, 0x03, 0x40, 0x75, 0x4F, 0x41, 0xF7, 0x03, 0x00, 0x40, 0x00, 0x00}, nullptr},
     {"MissionIdRef_ShrineItem", 0x1D9FDD5, 0, 15, {0x0F, 0xB7, 0x93, 0x58, 0x01, 0x00, 0x00, 0x48, 0x8B, 0xC8, 0xE8, 0x80, 0x2D, 0x96, 0xFE}, nullptr},
+    // R-b call target (RM4). head 7: RematchLog (bosslog.cpp) hooks this entry with E9 rel32 + NOPs; calling through that hook is fine.
+    {"MissionRequestById", 0x2239600, 7, 48, {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8B, 0xEC, 0x48, 0x81, 0xEC, 0x80, 0x00, 0x00, 0x00, 0x45, 0x33, 0xE4, 0x4D, 0x8B, 0xF1, 0x41, 0x8B, 0xD8, 0x44, 0x8A, 0xFA, 0x8B, 0xF9}, nullptr},
 };
 
 // 0 = original bytes, 1 = another module's entry hook over `head` (*prev = its thunk), -1 = mismatch
@@ -849,7 +948,7 @@ bool Start(const StartInfo& info) {
     }
     g_live = true;
     g_log("Rematch: on (route R-a: the game's own Battle Scroll replay menu; solo/offline gates; %d catalogue rows from %ls; HiddenDuels %d, "
-          "DirectStart %d (refused in this build), ShowAll %d, ShowUnverified %d). Hooks:%s",
+          "DirectStart %d (R-b: MissionRequestById as the replay confirm), ShowAll %d, ShowUnverified %d). Hooks:%s",
           nrows, cpath.c_str(), g_cfg.hiddenDuels, g_cfg.directStart, g_cfg.showAll, g_cfg.showUnverified, how);
     return true;
 }
