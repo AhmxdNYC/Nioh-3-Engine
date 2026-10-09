@@ -870,6 +870,91 @@ const Hook kRmHooks[] = {
     {"BuildSaveFilePath", 0x1FD6DD0, 7, {0x48, 0x83, 0xEC, 0x48, 0x49, 0x8B, 0x11}, &HkSavePath},
 };
 
+// =====================================================================================================================
+// InvLog ([Debug] InvLog = 1): every inventory add, session-wide (no fight window). Why: the 2026-10-08 session (chests, enemy and
+// boss drops, pickups) logged ZERO BossLog REWARD lines - the reward hooks are script natives (Item::AddItem ..., only mission
+// scripts call them) and they only log inside the fight window. All of those natives, and 80+ engine callers, funnel into
+// InventoryAddItem 54D324(rcx save [4751530], rdx out, r8 ItemDesc* (0xE8 B = the inventory record: +0 u16 id, +2 u16 base id,
+// +0xF u8, +0x18 flags, +0x28 serial, +0x30 u8 from item record +0x184), r9, [rsp+28h] u8 notify), notes\session-2026-10-08-gamedata.md
+// s.3. Logs id, the first 0x48 desc bytes, r9, notify, the caller + its function start (pdata) and up to 3 earlier return addresses
+// found on the stack (source classification offline). Rate limit 30 lines/s; suppressed calls are counted on the next line.
+uintptr_t g_imgEnd = 0;
+std::atomic<uint32_t> g_invN{0}, g_invSup{0};
+std::atomic<int64_t> g_invSec{-1};
+std::atomic<int> g_invInSec{0};
+uint32_t FnStart(uint64_t addr) {  // primary function start RVA of a code address (follows chained unwind info), 0 = none
+    __try {
+        DWORD64 ib = 0;
+        PRUNTIME_FUNCTION rf = RtlLookupFunctionEntry(addr, &ib, nullptr);
+        for (int k = 0; rf && k < 8; ++k) {
+            const uint8_t* ui = (const uint8_t*)(ib + rf->UnwindData);
+            if (!((ui[0] >> 3) & 4)) return ib == g_base ? rf->BeginAddress : 0;  // UNW_FLAG_CHAININFO
+            rf = (PRUNTIME_FUNCTION)(ui + 4 + ((ui[2] + 1) & ~1) * 2);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+    return 0;
+}
+bool LooksLikeRet(uint64_t v) {  // v is in the image and the bytes before it are a call
+    if (v < g_base + 0x1000 || v >= g_imgEnd) return false;
+    uint8_t b[7] = {};
+    if (!CopySafe(b, v - 7, 7)) return false;
+    return b[2] == 0xE8                                       // call rel32
+           || (b[5] == 0xFF && (b[6] & 0xF8) == 0xD0)         // call reg
+           || (b[4] == 0xFF && (b[5] & 0xF8) == 0x50)         // call [reg+d8]
+           || (b[1] == 0xFF && (b[2] == 0x15 || (b[2] & 0xF8) == 0x90));  // call [rip+d32] / [reg+d32]
+}
+const char* InvSource(uint32_t fn) {
+    switch (fn) {
+        case 0x23A0A98: return "script Item::AddItem";
+        case 0x23A0C64: return "script Item::AddItemNoNotice";
+        case 0x23A07D4: return "script Item::AddFixItem";
+        case 0x23A0414: return "script Item::AddEquipmentBySlot";
+        case 0x23A0208: return "script Item::AddEquipment";
+        case 0x2280C84: return "game-clear reward (RewardNoticeShowById)";
+        case 0x54CD9C: case 0x54EFA0: case 0x54E574: return "inventory internal (see via)";
+        default: return "?";
+    }
+}
+void HkInvAdd(uint64_t save, uint64_t out, uint64_t desc, uint64_t r9, const uint64_t* sp) {
+    const uint32_t n = g_invN.fetch_add(1) + 1;
+    const double t = Now();
+    const int64_t sec = (int64_t)t;
+    if (g_invSec.exchange(sec) != sec) g_invInSec.store(0);
+    if (g_invInSec.fetch_add(1) >= 30) {
+        g_invSup.fetch_add(1);
+        return;
+    }
+    uint16_t id = 0, base = 0;
+    uint8_t rar = 0;
+    Rd(desc, id);
+    Rd(desc + 2, base);
+    Rd(desc + 0x30, rar);
+    const uint64_t ret = StackArg(sp, 0);
+    const uint8_t notify = (uint8_t)StackArg(sp, 5);
+    const uint32_t fn = FnStart(ret);
+    char via[160] = "";
+    size_t vl = 0;
+    int found = 0;
+    for (int k = 6; k < 72 && found < 3; ++k) {  // above our 4 shadow slots + the 5th arg
+        const uint64_t v = StackArg(sp, k);
+        if (!LooksLikeRet(v)) continue;
+        vl += (size_t)snprintf(via + vl, sizeof(via) - vl, " +%llX(fn %X)", (unsigned long long)(v - g_base), FnStart(v));
+        ++found;
+    }
+    char hb[0x48 * 3 + 4];
+    HexSafe(hb, sizeof(hb), desc, 0x48);
+    const uint32_t sup = g_invSup.exchange(0);
+    g_log("InvLog #%u: add item id=%u(0x%X) base=%u b30=%u notify=%u r9=%llX caller=+%llX fn=%X src=%s via%s desc[48]=%s t=%.3f", n, id, id,
+          base, rar, notify, (unsigned long long)r9, (unsigned long long)(ret - g_base), fn, InvSource(fn), vl ? via : " -", hb, t);
+    if (sup) g_log("InvLog: %u calls suppressed by the 30/s limit before #%u", sup, n);
+    (void)save;
+    (void)out;
+}
+const Hook kInvHooks[] = {
+    {"InventoryAddItem", 0x54D324, 5, {0x40, 0x55, 0x53, 0x56, 0x57}, &HkInvAdd},  // push rbp/rbx/rsi/rdi (BL31)
+};
+
 // 0 ok, 1 bytes differ, 2 no room / not atomic.
 int Install(const Hook& h) {
     uint8_t* p = (uint8_t*)(g_base + h.rva);
@@ -926,7 +1011,8 @@ bool Start(const StartInfo& info) {
     if (!g_log || !g_base || !info.iniPath) return false;
     const bool wantBoss = GetPrivateProfileIntW(L"Debug", L"BossLog", 0, info.iniPath) != 0;
     const bool wantRm = GetPrivateProfileIntW(L"Debug", L"RematchLog", 0, info.iniPath) != 0;  // implies the BossLog hooks (fight/rewards/flags)
-    if (!wantBoss && !wantRm) return false;
+    const bool wantInv = GetPrivateProfileIntW(L"Debug", L"InvLog", 0, info.iniPath) != 0;     // inventory adds only (independent)
+    if (!wantBoss && !wantRm && !wantInv) return false;
     if (!info.knownBuild) {
         g_log("BossLog: refused (unknown build; addresses are v2.02)");
         return false;
@@ -942,18 +1028,28 @@ bool Start(const StartInfo& info) {
         g_log("BossLog: no executable page within 2 GB of the image - off");
         return false;
     }
+    g_imgEnd = g_base + nt->OptionalHeader.SizeOfImage;
     int ok = 0;
+    if (wantInv) {
+        const int r = Install(kInvHooks[0]);
+        ok += r == 0;
+        g_log("InvLog: %s (inventory adds, session-wide, log only; grep InvLog)",
+              r == 0 ? "InventoryAddItem 54D324 hooked" : r == 1 ? "OFF - bytes differ at 54D324" : "OFF - could not patch 54D324");
+    }
+    if (!wantBoss && !wantRm) return ok > 0;
     char bad[160] = {0};
     size_t bl = 0;
+    int bok = 0;
     for (const Hook& h : kHooks) {
         const int r = Install(h);
         if (r == 0) {
-            ++ok;
+            ++bok;
             continue;
         }
         if (bl < sizeof(bad) - 40) bl += (size_t)snprintf(bad + bl, sizeof(bad) - bl, " %s(%s)", h.name, r == 1 ? "bytes" : "atomic");
     }
-    g_log("BossLog: %d/%d hooks installed (log only)%s%s", ok, (int)(sizeof(kHooks) / sizeof(kHooks[0])), bl ? " - skipped:" : "", bad);
+    ok += bok;
+    g_log("BossLog: %d/%d hooks installed (log only)%s%s", bok, (int)(sizeof(kHooks) / sizeof(kHooks[0])), bl ? " - skipped:" : "", bad);
     if (wantRm) {
         g_rm = true;
         int rok = 0;

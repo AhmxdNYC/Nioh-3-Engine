@@ -10,7 +10,9 @@
 // 1.7.20 rewards (BL7+): script-native wrappers for drop tables, items/equipment, guardian/skill/money grants, SetReward and the
 //   game-clear reward, plus GameClearRewardGrant 2280FA0; logged as raw VM args (ids) during the fight and 30 s after it.
 // 1.7.21 [Debug] RematchLog = 1: Phase 0 of notes/boss-rematch-design.md (rematch hooks RM1..RM29, patches.json group RM), also installs the
-//   BossLog hooks above. Read only. Off (both 0): nothing is installed.
+//   BossLog hooks above. Read only. Off (all 0): nothing is installed.
+// [Debug] InvLog = 1 (rematch2 branch): InventoryAddItem 54D324 (BL31), every inventory add of the session (chests, drops, pickups,
+//   rewards, script grants) with the caller, its function start and earlier return addresses; independent of BossLog. Read only.
 #pragma once
 #include <cstdint>
 
@@ -18,7 +20,7 @@ namespace bosslog {
 
 struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;
-    const wchar_t* iniPath = nullptr;  // [Debug] BossLog
+    const wchar_t* iniPath = nullptr;  // [Debug] BossLog / RematchLog / InvLog
     uintptr_t base = 0;                // Nioh3.exe image base
     bool knownBuild = false;           // v2.02 only
 };

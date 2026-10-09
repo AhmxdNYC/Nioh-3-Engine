@@ -374,6 +374,8 @@
       "pattern": "40 53 48 81 EC 60 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 50 01 00 00 48 8B D1 48 8D 4C 24 20 E8 ?? ?? ?? ?? B1 02", "offset": 0, "what": "GetGameClearRewardHard script native entry (BossLog reward log): prologue relocated by the logger thunk" },
     { "id": "BL30", "group": "BL", "rva": "0x2280FA0", "len": 7, "orig": "48 83 EC 28 80 F9 01", "kind": "check",
       "pattern": "48 83 EC 28 80 F9 01 75 0C BA 6F CD", "offset": 0, "what": "GameClearRewardGrant script native entry (BossLog reward log): prologue relocated by the logger thunk" },
+    { "id": "BL31", "group": "BL", "rva": "0x54D324", "len": 5, "orig": "40 55 53 56 57", "kind": "check",
+      "pattern": "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 F8 FE FF FF 48 81 EC 08 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 F0 00 00 00 4C 8B E9 4C 89 4C 24 50 33 C9 48 89 54 24 58 49 8B F8 E8", "offset": 0, "what": "InvLog: InventoryAddItem(save, out, ItemDesc*, r9, notify) entry - the funnel of every inventory add (87 callers incl. the Item::Add* script natives); prologue (push rbp/rbx/rsi/rdi) relocated by the logger thunk ([Debug] InvLog = 1 only)" },
     { "id": "RM1", "group": "RM", "rva": "0x223AF50", "len": 10, "orig": "48 89 5C 24 18 48 89 6C 24 20", "kind": "check",
       "pattern": "48 89 5C 24 18 48 89 6C 24 20 56 57 41 56 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 A0 00 00 00 48 8B F1", "offset": 0, "what": "MissionLoadStep entry (per-frame tick of RematchLog; consumer of the mission request queue): two mov [rsp+..] stores relocated" },
     { "id": "RM2", "group": "RM", "rva": "0x10DBED0", "len": 5, "orig": "48 89 5C 24 08", "kind": "check",
