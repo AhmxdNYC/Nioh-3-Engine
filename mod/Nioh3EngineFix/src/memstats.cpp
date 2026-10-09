@@ -15,6 +15,7 @@
 #include <cwchar>
 
 #include "memstats.h"
+#include "gpuprof.h"
 
 namespace memstats {
 namespace {
@@ -247,7 +248,7 @@ int g_forceSys = 0;  // [Profiler] VSForceSysUpload (PC A/B only): UPLOAD heaps 
 
 // per-caller system-memory allocation table (heaps, committed, placed-into-sys-heap): who owns the non-local bytes.
 // Key = return addresses of the hooked call and of its caller (RVAs in Nioh3.exe, 0xFFFFFFFF = outside the exe).
-struct CallerRow { uint32_t ra0, ra1; char kind; LONG64 n, bytes, maxOne; };
+struct CallerRow { uint32_t ra0, ra1, ra2; char kind; LONG64 n, bytes, maxOne; };
 constexpr int kRows = 96;
 CallerRow g_rows[kRows];
 volatile LONG g_nRows = 0;
@@ -257,20 +258,20 @@ uint32_t ToRva(void* a) {
     return (g_base && x >= g_base && x < g_base + 0x5000000) ? (uint32_t)(x - g_base) : 0xFFFFFFFFu;
 }
 __declspec(noinline) void NoteSys(char kind, UINT64 bytes) {
-    void* fr[8] = {};
-    const USHORT n = RtlCaptureStackBackTrace(1, 8, fr, nullptr);  // our own frames are outside the exe and skipped below
-    uint32_t r0 = 0xFFFFFFFFu, r1 = 0xFFFFFFFFu;
-    for (USHORT i = 0; i < n; ++i) {  // first frames inside the exe (skips wrappers such as OptiScaler / sl.interposer)
+    void* fr[10] = {};
+    const USHORT n = RtlCaptureStackBackTrace(1, 10, fr, nullptr);  // our own frames are outside the exe and skipped below
+    uint32_t ra[3] = {0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu};
+    int k = 0;
+    for (USHORT i = 0; i < n && k < 3; ++i) {  // first 3 frames inside the exe (skips wrappers such as OptiScaler / sl.interposer)
         const uint32_t r = ToRva(fr[i]);
-        if (r == 0xFFFFFFFFu) continue;
-        if (r0 == 0xFFFFFFFFu) r0 = r;
-        else { r1 = r; break; }
+        if (r != 0xFFFFFFFFu) ra[k++] = r;
     }
+    const uint32_t r0 = ra[0], r1 = ra[1], r2 = ra[2];
     AcquireSRWLockExclusive(&g_rowLock);
     int i = 0;
     for (; i < g_nRows; ++i)
-        if (g_rows[i].ra0 == r0 && g_rows[i].ra1 == r1 && g_rows[i].kind == kind) break;
-    if (i == g_nRows && g_nRows < kRows) g_rows[g_nRows++] = CallerRow{r0, r1, kind, 0, 0, 0};
+        if (g_rows[i].ra0 == r0 && g_rows[i].ra1 == r1 && g_rows[i].ra2 == r2 && g_rows[i].kind == kind) break;
+    if (i == g_nRows && g_nRows < kRows) g_rows[g_nRows++] = CallerRow{r0, r1, r2, kind, 0, 0, 0};
     if (i < kRows) {
         ++g_rows[i].n;
         g_rows[i].bytes += (LONG64)bytes;
@@ -278,6 +279,47 @@ __declspec(noinline) void NoteSys(char kind, UINT64 bytes) {
     }
     ReleaseSRWLockExclusive(&g_rowLock);
 }
+
+// GPU VA ranges of system-memory resources (1.7.48 bind census): one range per system-memory heap (heap base = placed buffer
+// VA - heap offset) plus committed system-memory buffers (ring of the latest kCom). Read lock-free by the bind hooks.
+struct VaRange { volatile uint64_t lo, hi; };
+constexpr int kHeapRanges = 64, kComRanges = 64;
+VaRange g_heapR[kHeapRanges], g_comR[kComRanges];
+volatile LONG g_nHeapR = 0, g_comNext = 0;
+SRWLOCK g_rangeLock = SRWLOCK_INIT;
+void AddHeapRange(uint64_t lo, uint64_t hi) {
+    AcquireSRWLockExclusive(&g_rangeLock);
+    bool have = false;
+    for (LONG i = 0; i < g_nHeapR; ++i)
+        if (g_heapR[i].lo == lo) { have = true; if (hi > g_heapR[i].hi) g_heapR[i].hi = hi; break; }
+    if (!have && g_nHeapR < kHeapRanges) {
+        g_heapR[g_nHeapR].lo = lo;
+        g_heapR[g_nHeapR].hi = hi;
+        MemoryBarrier();
+        InterlockedIncrement(&g_nHeapR);
+    }
+    ReleaseSRWLockExclusive(&g_rangeLock);
+}
+void AddComRange(uint64_t lo, uint64_t hi) {
+    const LONG i = (InterlockedIncrement(&g_comNext) - 1) % kComRanges;
+    g_comR[i].hi = 0;
+    g_comR[i].lo = lo;
+    g_comR[i].hi = hi;
+}
+bool InSys(uint64_t va) {
+    if (!va) return false;
+    const LONG n = g_nHeapR;
+    for (LONG i = 0; i < n; ++i)
+        if (va >= g_heapR[i].lo && va < g_heapR[i].hi) return true;
+    for (int i = 0; i < kComRanges; ++i)
+        if (va >= g_comR[i].lo && va < g_comR[i].hi) return true;
+    return false;
+}
+// per engine marker (gpuprof name id) bind counters: [0] all binds, [1] binds into system memory, [2] sys VB/IB bytes
+constexpr int kMk = 2049;   // 2048 names + "no marker"
+volatile LONG64 g_bind[kMk][3];
+volatile LONG64 g_bindKind[8][2];   // per bind slot 37..44: all / sys
+bool g_bindsOn = false;
 
 using ResidencyFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, UINT, ID3D12Pageable* const*);
 using CreateHeapFn = HRESULT(STDMETHODCALLTYPE*)(ID3D12Device*, const D3D12_HEAP_DESC*, REFIID, void**);
@@ -356,6 +398,10 @@ HRESULT STDMETHODCALLTYPE HkCreateCommitted(ID3D12Device* d, const D3D12_HEAP_PR
         const bool sys = SysPool(*hp);
         InterlockedAdd64(sys ? &c_comSys : &c_comLocal, (LONG64)bytes);
         if (sys) NoteSys(hp->Type == D3D12_HEAP_TYPE_READBACK ? 'c' : 'C', bytes);
+        if (sys && rd->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
+            const uint64_t va = static_cast<ID3D12Resource*>(*out)->GetGPUVirtualAddress();
+            AddComRange(va, va + rd->Width);
+        }
     }
     return hr;
 }
@@ -365,6 +411,10 @@ HRESULT STDMETHODCALLTYPE HkCreatePlaced(ID3D12Device* d, ID3D12Heap* heap, UINT
     if (SUCCEEDED(hr) && heap && rd && out) {
         InterlockedIncrement64(&c_plN);
         const D3D12_HEAP_DESC hd = heap->GetDesc();
+        if (SysPool(hd.Properties) && rd->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
+            const uint64_t va = static_cast<ID3D12Resource*>(*out)->GetGPUVirtualAddress();
+            if (va >= off) AddHeapRange(va - off, va - off + hd.SizeInBytes);
+        }
         if (SysPool(hd.Properties)) {
             const UINT64 bytes = rd->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER ? rd->Width
                                                                                   : d->GetResourceAllocationInfo(0, 1, rd).SizeInBytes;
@@ -454,17 +504,48 @@ HRESULT WINAPI HkCreateDevice(IUnknown* a, D3D_FEATURE_LEVEL fl, REFIID r, void*
     }
     return hr;
 }
+bool g_iatDone = false;
+char g_iatMod[64] = "?";
+// The import is resolved when the slot holds a pointer into a loaded module (before that it holds the hint/name RVA).
+// Whatever module that is (sl.interposer, a proxy) is what the game calls: it is wrapped as is.
 bool HookCreateDeviceIat() {
+    if (g_iatDone) return true;
     if (!g_known || !g_base) return false;
     void** slot = reinterpret_cast<void**>(g_base + kRvaIatCreateDevice);
-    HMODULE m = GetModuleHandleW(L"sl.interposer.dll");
-    void* expect = m ? (void*)GetProcAddress(m, "D3D12CreateDevice") : nullptr;
+    void* cur = nullptr;
     __try {
-        if (!*slot || (expect && *slot != expect)) return false;  // not the import we know (or already wrapped by someone)
+        cur = *slot;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
-    return Patch(slot, (void*)&HkCreateDevice, (void**)&o_createDevice);
+    HMODULE m = nullptr;
+    if (!cur || !GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                    reinterpret_cast<LPCWSTR>(cur), &m) || !m)
+        return false;
+    wchar_t wn[MAX_PATH] = L"";
+    GetModuleFileNameW(m, wn, MAX_PATH);
+    const wchar_t* b = wcsrchr(wn, L'\\');
+    WideCharToMultiByte(CP_UTF8, 0, b ? b + 1 : wn, -1, g_iatMod, sizeof(g_iatMod), nullptr, nullptr);
+    g_iatDone = Patch(slot, (void*)&HkCreateDevice, (void**)&o_createDevice);
+    return g_iatDone;
+}
+// polls the IAT every 1 ms from the start of the decrypt wait until hooked or the engine device exists (max 60 s)
+DWORD WINAPI IatThread(void*) {
+    for (int i = 0; i < 60000; ++i) {
+        if (HookCreateDeviceIat()) {
+            void* dev = nullptr;
+            const bool late = ReadEnginePtr(g_base, &dev);
+            MLOG("VS: D3D12CreateDevice IAT hook set (import from %s)%s%s", g_iatMod,
+                 late ? " - the engine device already existed, boot heaps may be missed" : "",
+                 g_forceSys ? "; VSForceSysUpload = 1" : "");
+            return 0;
+        }
+        void* dev = nullptr;
+        if (ReadEnginePtr(g_base, &dev)) break;
+        Sleep(1);
+    }
+    MLOG("VS: D3D12CreateDevice IAT hook not set (import not resolved before the device appeared)");
+    return 0;
 }
 DWORD WINAPI EarlyThread(void*) {
     for (int i = 0; i < 300000 && !g_hookTried; ++i) {
@@ -483,12 +564,45 @@ void LogCallers() {
     for (int i = 0; i < n; ++i)  // biggest first
         for (int j = i + 1; j < n; ++j)
             if (rows[j].bytes > rows[i].bytes) { CallerRow t = rows[i]; rows[i] = rows[j]; rows[j] = t; }
-    char line[1400];
+    char line[2000];
     size_t o = (size_t)snprintf(line, sizeof line, "stats vs callers (system memory; H heap / C committed / P placed-in-sys-heap, "
-                                                   "lower case = READBACK; rva0<-rva1: n, MB, max MB):");
+                                                   "lower case = READBACK; rva0<-rva1<-rva2: n, MB placed (cumulative), max MB):");
     for (int i = 0; i < n && i < 24 && o < sizeof line - 80; ++i)
-        o += (size_t)snprintf(line + o, sizeof line - o, " %c %X<-%X: %lld, %.1f, %.2f;", rows[i].kind, rows[i].ra0, rows[i].ra1,
+        o += (size_t)snprintf(line + o, sizeof line - o, " %c %X<-%X<-%X: %lld, %.1f, %.2f;", rows[i].kind, rows[i].ra0, rows[i].ra1, rows[i].ra2,
                               rows[i].n, rows[i].bytes / kMB, rows[i].maxOne / kMB);
+    MLOG("%s", line);
+}
+void LogBinds() {
+    if (!g_bindsOn) return;
+    static LONG64 prev[kMk][3];
+    static LONG64 prevK[8][2];
+    struct Row { int id; LONG64 all, sys, bytes; };
+    Row rows[kMk];
+    int n = 0;
+    LONG64 tAll = 0, tSys = 0;
+    for (int i = 0; i < kMk; ++i) {
+        const LONG64 a = g_bind[i][0] - prev[i][0], b = g_bind[i][1] - prev[i][1], c = g_bind[i][2] - prev[i][2];
+        prev[i][0] = g_bind[i][0]; prev[i][1] = g_bind[i][1]; prev[i][2] = g_bind[i][2];
+        tAll += a; tSys += b;
+        if (b > 0) rows[n++] = Row{i, a, b, c};
+    }
+    for (int i = 0; i < n; ++i)
+        for (int j = i + 1; j < n; ++j)
+            if (rows[j].sys > rows[i].sys) { Row t = rows[i]; rows[i] = rows[j]; rows[j] = t; }
+    static const char* const kK[8] = {"cCBV", "gCBV", "cSRV", "gSRV", "cUAV", "gUAV", "IB", "VB"};
+    char kinds[256];
+    size_t o = 0;
+    for (int k = 0; k < 8; ++k) {
+        const LONG64 a = g_bindKind[k][0] - prevK[k][0], b = g_bindKind[k][1] - prevK[k][1];
+        prevK[k][0] = g_bindKind[k][0]; prevK[k][1] = g_bindKind[k][1];
+        o += (size_t)snprintf(kinds + o, sizeof kinds - o, " %s %lld/%lld", kK[k], b, a);
+    }
+    char line[2400];
+    o = (size_t)snprintf(line, sizeof line, "stats vs binds (30 s; into system memory / all):%s | %d heap ranges | by marker (sys/all binds, sys VB+IB MB):",
+                         kinds, (int)g_nHeapR);
+    for (int i = 0; i < n && i < 30 && o < sizeof line - 120; ++i)
+        o += (size_t)snprintf(line + o, sizeof line - o, " %s %lld/%lld %.2f;", rows[i].id == kMk - 1 ? "-" : gp::MarkerName((uint16_t)rows[i].id),
+                              rows[i].sys, rows[i].all, rows[i].bytes / kMB);
     MLOG("%s", line);
 }
 }  // namespace vs
@@ -507,8 +621,7 @@ bool Start(const StartInfo& info) {
         vs::g_forceSys = info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, info.iniPath) : 0;
         void* dev0 = nullptr;
         const bool devAlready = g_known && g_base && ReadEnginePtr(g_base, &dev0);
-        const bool iat = !devAlready && vs::HookCreateDeviceIat();
-        MLOG("VS: D3D12CreateDevice IAT hook %s", iat ? "set (device hooked at creation)" : devAlready ? "not needed (device exists)" : "not set - polling the engine device");
+        (void)devAlready;  // the boot thread (BootIat) owns the IAT hook and logs its outcome
         if (HANDLE t = CreateThread(nullptr, 0, vs::EarlyThread, nullptr, 0, nullptr)) CloseHandle(t);
     }
     if (g_on)
@@ -588,6 +701,56 @@ void LogLine() {
          s.priv, s.ws, peakWs, s.commit, s.handles, s.threads, vram, sys, delta);
 }
 
+bool BindsWanted() { return g_level >= 2; }
+void OnBind(int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uint16_t marker) {
+    vs::g_bindsOn = true;
+    const int m = marker < vs::kMk - 1 ? marker : vs::kMk - 1;
+    const int k = slot - 37;
+    if (k < 0 || k > 7) return;
+    bool sys = false;
+    uint64_t bytes = 0;
+    __try {
+        if (slot <= 42) {
+            sys = vs::InSys((uint64_t)a2);   // (RootParameterIndex, BufferLocation)
+        } else if (slot == 43) {
+            const auto* v = reinterpret_cast<const D3D12_INDEX_BUFFER_VIEW*>(a1);
+            if (v && vs::InSys(v->BufferLocation)) { sys = true; bytes = v->SizeInBytes; }
+        } else {
+            const auto* v = reinterpret_cast<const D3D12_VERTEX_BUFFER_VIEW*>(a3);   // (StartSlot, NumViews, pViews)
+            for (UINT i = 0; v && i < (UINT)a2 && i < 16; ++i)
+                if (vs::InSys(v[i].BufferLocation)) { sys = true; bytes += v[i].SizeInBytes; }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return;
+    }
+    InterlockedIncrement64(&vs::g_bind[m][0]);
+    InterlockedIncrement64(&vs::g_bindKind[k][0]);
+    if (sys) {
+        InterlockedIncrement64(&vs::g_bind[m][1]);
+        InterlockedIncrement64(&vs::g_bindKind[k][1]);
+        if (bytes) InterlockedAdd64(&vs::g_bind[m][2], (LONG64)bytes);
+    }
+}
+
+// 1.7.48 VS: boot-time half, called from the Worker's decrypt-wait loop (known build only) before the engine creates its
+// D3D12 device: hooks D3D12CreateDevice in the game's IAT so every heap (incl. the boot-time UPLOAD heaps) is counted and
+// VSForceSysUpload can apply. Returns true when done or not wanted (MemStats < 2).
+bool BootIat(uintptr_t base, const wchar_t* iniPath, void (*log)(const char*, ...)) {
+    static int lvl = -1;
+    if (lvl >= 0) return true;
+    lvl = iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"MemStats", 0, iniPath) : 0;
+    if (lvl < 2) return true;
+    vs::g_forceSys = (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, iniPath);
+    g_log = log;
+    g_base = base;
+    g_known = true;
+    if (HANDLE t = CreateThread(nullptr, 0, vs::IatThread, nullptr, 0, nullptr)) {
+        SetThreadPriority(t, THREAD_PRIORITY_ABOVE_NORMAL);
+        CloseHandle(t);
+    }
+    return true;
+}
+
 // 1.7.48 VS probe: one 'stats vs:' line per second when MemStats = 2 (stats thread, every second).
 void Tick1s() {
     if (g_level < 2) return;
@@ -629,7 +792,10 @@ void Tick1s() {
     for (int i = 0; i < 10; ++i) p[i] = c[i];
     MLOG("stats vs: local %.0f/%.0f MB (%+.0f MB/s), nonlocal %.0f/%.0f MB | %s | %s", lu, lb, dlu, nu, nb, pool, d3d);
     static int ticks = 0;
-    if (vs::g_hooked && ++ticks % 30 == 0) vs::LogCallers();
+    if (vs::g_hooked && ++ticks % 30 == 0) {
+        vs::LogCallers();
+        vs::LogBinds();
+    }
 }
 
 }  // namespace memstats

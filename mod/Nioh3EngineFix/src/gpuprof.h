@@ -49,6 +49,7 @@ void SetExternalWindows(bool on);
 void LogWindow(const char* tag);
 // menu: "GP: <frame ms> | top 5 ..." (thread-safe; empty when GP is off)
 const char* StatusLine(char* buf, size_t n);
+const char* MarkerName(uint16_t id);   // 1.7.48 VS: name of a marker id from the command-list hooks ("-" = none)
 bool Active();
 
 // 1.7.40 GQ ([Profiler] GQ = 1, needs GPUProf = 2): graphics-queue gap census. Per DIRECT list Reset in a sampled frame:

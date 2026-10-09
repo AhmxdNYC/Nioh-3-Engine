@@ -46,5 +46,11 @@ bool Vram(double* localUsed, double* localBudget, double* nonLocalUsed, double* 
 // page pool (size, used, occupancy vs its 85 % controller threshold, last-frame hits / misses / queue-full) and D3D12
 // MakeResident / Evict / CreateHeap / CreateCommittedResource counts and bytes per memory pool. Call every second.
 void Tick1s();
+// 1.7.48 VS bind census (from gpuprof's command-list hook, GPUProf = 2): root CBV/SRV/UAV (slots 37-42), IASetIndexBuffer (43),
+// IASetVertexBuffers (44) whose GPU address lies in a system-memory heap / buffer, counted per engine marker.
+bool BindsWanted();
+void OnBind(int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uint16_t marker);
+// 1.7.48 VS boot half: from the decrypt-wait loop; hooks D3D12CreateDevice in the IAT. true = done / not wanted.
+bool BootIat(uintptr_t base, const wchar_t* iniPath, void (*log)(const char*, ...));
 
 }  // namespace memstats

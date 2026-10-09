@@ -80,7 +80,9 @@
 //         ([Patches] MPCS = 0; mpcskip.asm, needs the `mpc` shader build) + MpcCheck self-check (mpccheck.cpp); notes\meshlet-frontend.md
 // 1.7.49: same-look package (samelook.cpp / .asm, all default off, live rows): VSMA VSM waiting-tile amortisation + the engine
 //         update-rate knobs LPVR / SKYR / FOGT / CLDR (render-config overrides); notes\same-look-package.md
-#define MOD_VERSION "1.7.49"
+// 1.7.50: VS probe: D3D12CreateDevice IAT hook from the decrypt wait (boot heaps counted) + bind census: root CBV/SRV/UAV,
+//         VB/IB binds into system-memory heaps per engine marker (needs GPUProf = 2); notesoot-cause-vram-streaming.md
+#define MOD_VERSION "1.7.50"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1488,9 +1490,12 @@ DWORD WINAPI Worker(LPVOID) {
     bool rfPending = known && readfix::BootWanted(SelfPathWithExt(L".ini").c_str(), rfBoot);
     const int rfCap = wcPending ? cfg.workerCap : 0;
     auto tryRF = [&]() { rfPending = readfix::BootTry(reinterpret_cast<uintptr_t>(g_base), rfBoot, rfCap, logical, &Log); };
+    bool vsPending = known;  // 1.7.48 VS: D3D12CreateDevice IAT hook before the device exists ([Profiler] MemStats = 2)
+    const std::wstring vsIni = SelfPathWithExt(L".ini");
     const DWORD t0 = GetTickCount();
     bool ready = false;
     while (!ready) {
+        if (vsPending) vsPending = !memstats::BootIat(reinterpret_cast<uintptr_t>(g_base), vsIni.c_str(), &Log);
         if (p12Pending) tryP12();
         if (wcPending) tryWC();
         if (as0Pending) tryAS0();
@@ -1507,6 +1512,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (ready || GetTickCount() - t0 > (DWORD)cfg.decryptWaitSec * 1000) break;
         Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending) ? 0 : known ? 20 : 250);
     }
+    if (vsPending) vsPending = !memstats::BootIat(reinterpret_cast<uintptr_t>(g_base), vsIni.c_str(), &Log);
     if (rfPending) tryRF();
     if (rfPending) readfix::BootGiveUp(rfBoot, &Log);
     if (p12Pending) tryP12();

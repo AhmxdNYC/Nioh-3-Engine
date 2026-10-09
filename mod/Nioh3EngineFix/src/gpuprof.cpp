@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "gpuprof.h"
+#include "memstats.h"   // 1.7.48 VS: root-descriptor / VB / IB binds that point into system memory
 #include "mlprobe.h"
 #include "mpccheck.h"
 #include "psoswap.h"
@@ -1049,6 +1050,8 @@ void OnListCallImpl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, u
             }
             else if (g_cfg.gq && g_inited == 1 && IsIn(kGqHeadSlots, sizeof kGqHeadSlots / sizeof(int), slot))
                 GqHead(list, set, -1);
+            else if (slot >= 37 && slot <= 44)   // 1.7.48 VS: root CBV/SRV/UAV (37-42), IASetIndexBuffer (43), IASetVertexBuffers (44)
+                memstats::OnBind(slot, a1, a2, a3, CurMarker());
             break;
     }
 }
@@ -1759,6 +1762,10 @@ void EnableHooks(volatile uint8_t* mask, int slots) {
         for (int v : kCopySlots) mask[v] = 1;
         if (g_cfg.gq)
             for (int v : kGqHeadSlots) mask[v] = 1;
+        if (memstats::BindsWanted()) {   // 1.7.48 VS (MemStats = 2): every frame, not only sampled ones
+            for (int v = 37; v <= 44; ++v) mask[v] = 1;
+            GLOG("%s", "command-list hooks: + VS root CBV/SRV/UAV, IASetIndexBuffer, IASetVertexBuffers (system-memory read census)");
+        }
         g_hookMask = mask;   // OnFrame clears these slots in unsampled frames
         GLOG("%s%s", "command-list hooks: BeginEvent, EndEvent, Close, Reset + GP2: SetPipelineState, Draw*, Dispatch, ExecuteIndirect, DispatchMesh, Copy*, Resolve*, Clear*",
              g_cfg.gq ? " + GQ: ExecuteBundle, DiscardResource, WriteBufferImmediate, BeginRenderPass, Barrier (and ResourceBarrier in gpuopt)" : "");
@@ -1908,6 +1915,12 @@ static void LogLineImpl() {
     if (g_cfg.gq) LogGq();
     if (g_cfg.mlp) LogMlp();
     if (g_cfg.mpcCheck) mpcck::LogLine();
+}
+
+// 1.7.48 VS: engine marker name for a CurMarker() id ("-" = none / unknown)
+const char* MarkerName(uint16_t id) {
+    if (id == kNoMarker || id >= kMaxNames || (LONG)id >= g_nameCount) return "-";
+    return g_names[id].s[0] ? g_names[id].s : "(other)";
 }
 
 const char* StatusLine(char* buf, size_t n) {
