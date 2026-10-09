@@ -1669,6 +1669,26 @@
    "shot": true
   },
   {
+   "id": "TR",
+   "type": "asi",
+   "label": "timer resolution held at 1 ms once; the game's HID-thread timeBeginPeriod/timeEndPeriod pairs skipped (balanced per thread)",
+   "ini": [
+    [
+     "Patches",
+     "TR",
+     "1"
+    ]
+   ],
+   "mode": "live",
+   "live_installed_value": "2",
+   "devices": [
+    "pc"
+   ],
+   "risk": "low",
+   "expected": "Windows only. Read 'stats/s TR: game timeBeginPeriod N/s' first (N ~ 0 = the HID reader threads are idle on this PC: nothing to fix). Then frame-time p99 / stdev ON vs OFF; fps ~0. notes/game-logic-audit.md 3",
+   "grp": 8
+  },
+  {
    "id": "S_ghdm",
    "type": "shader",
    "label": "GHDM fast",
@@ -2086,7 +2106,7 @@
     "pc"
    ],
    "risk": "low",
-   "expected": "LoadStats seconds vs baseline",
+   "expected": "LoadStats seconds vs baseline; 2026-10-09: the MissionThread IS on the logic critical path (JT run8b site 1, 0.33 ms/tick): A/B it with [Profiler] JT = 1 in every arm and compare the JT site [3D7D14 < 5AAEED < 5ACA61] ms/tick (notes/game-logic-audit.md 1)",
    "grp": 8
   },
   {

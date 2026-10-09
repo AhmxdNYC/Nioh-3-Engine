@@ -49,6 +49,7 @@
 #include "readprobe.h"
 #include "jt.h"
 #include "pmode.h"
+#include "timerres.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -68,6 +69,7 @@
 // 1.7.44: present mode log ([Debug] PresentModeLog = 1, PM SyncInterval writer probes) + [Latency] VrrPresent (pmode.cpp; notes\vrr-present.md)
 // 1.7.44: AS (engine async-compute slots 0 / 11 / 12 at boot + live producer switch, asyncslots.cpp); notes\gpu-async-wins.md
 // 1.7.45: PJ journal v2 (runtime PSOs only; the boot list filled v1) + PJH PSO hand-over (live row); notes\stutter-pso.md
+// 1.7.45: TR timer-resolution hold (timerres.cpp, live row) + [Debug] SkipDebugString; notes\game-logic-audit.md
 #define MOD_VERSION "1.7.45"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
@@ -230,6 +232,7 @@ uint8_t* g_base = nullptr;
 size_t g_imageSize = 0;
 uint8_t* g_near = nullptr;
 FILE* g_log = nullptr;
+bool g_skipOds = false;  // 1.7.45 [Debug] SkipDebugString: log lines go to the file only (no OutputDebugStringA)
 
 // W3 / L1 runtime state (the W3/L1/F1/WK/VRR/R1 switches below are also flipped live by the mod menu, menu.cpp)
 using PeekMessageA_t = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
@@ -329,7 +332,9 @@ void Log(const char* fmt, ...) {
     GetLocalTime(&st);
     char line[1100];
     snprintf(line, sizeof(line), "[%02u:%02u:%02u.%03u] %s\n", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, buf);
-    OutputDebugStringA(line);
+    // 1.7.45 SkipDebugString: under Proton every OutputDebugStringA is a raised exception + a DBWIN mapping lookup through
+    // wineserver (91 calls/s in the Ally PROTON_LOG run, all from this function); keep it only when a debugger listens
+    if (!g_skipOds || IsDebuggerPresent()) OutputDebugStringA(line);
     if (g_log) {
         fputs(line, g_log);
         fflush(g_log);
@@ -370,6 +375,7 @@ struct Config {
     // waitable-handle leak fix (1.5.0): on by default (Windows leaks one handle per frame; never triggers under Proton)
     int wl = 1;
     // 1.7.44 [Debug] PresentModeLog (pmode.cpp): 1 = present-mode change lines + the PM SyncInterval writer probes (measurement only)
+    int skipOds = 0;  // 1.7.45 [Debug] SkipDebugString (notes\game-logic-audit.md 4)
     int pmLog = 1;
     // 1.6.0 (notes\cpu-hotspots-ally.md, notes\worker-jobs-opt.md): all opt-in, 0 = off / not installed
     int wg = 0, wgMaxPending = 1, wgWindowUs = 2000;
@@ -475,6 +481,7 @@ Config LoadConfig() {
     c.gf = A(L"Patches", L"GF", c.gf, 1, 0, "Wine: removes ~0.6 core of fence spin; Windows: +0.38 pct fps, below the keep bar");
     c.wl = I(L"Patches", L"WL", c.wl);
     c.pmLog = std::clamp(I(L"Debug", L"PresentModeLog", c.pmLog), 0, 2);
+    c.skipOds = I(L"Debug", L"SkipDebugString", c.skipOds);
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     c.wg = I(L"Patches", L"WG", c.wg);
     c.tg = I(L"Patches", L"TG", c.tg);
@@ -1288,6 +1295,7 @@ bool SwapImport(const char* fn, void* hook, void** orig) {
 // ---- main worker ------------------------------------------------------------------------------------------------
 DWORD WINAPI Worker(LPVOID) {
     Config cfg = LoadConfig();
+    g_skipOds = cfg.skipOds != 0;
     if (cfg.log) {
         std::wstring lp = SelfPathWithExt(L".log");
         g_log = _wfsopen(lp.c_str(), L"w", _SH_DENYWR);
@@ -2316,6 +2324,11 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) loadmem::LogLine();  // no-op unless [Memory] LM = 1
                 if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
                 if (sec % 30 == 0) pj::LogLine();        // no-op unless [Patches] PJ != 0
+                if (sec % 30 == 0) {                     // no-op unless [Patches] TR != 0
+                    char tb[512];
+                    timerres::StatusLine(tb, sizeof tb, 30);
+                    if (tb[0]) Log("stats/s %s", tb);
+                }
                 if (s_wlDone && sec % 30 == 0) {
                     static uint64_t pC = 0;
                     const uint64_t cl = wl_closed;
@@ -2537,6 +2550,16 @@ DWORD WINAPI Worker(LPVOID) {
             mh.exp[menu::kExpPJH].ini = GetPrivateProfileIntW(L"Patches", L"PJH", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpPJH].applied = pj::HandoverSwitch() != nullptr;
             mh.exp[menu::kExpPJH].enable = pj::HandoverSwitch();
+        }
+        {  // 1.7.45 TR (timerres.cpp, [Patches] TR = 0): hold 1 ms once, skip the HID threads' per-loop timeBeginPeriod pairs
+            timerres::StartInfo ti;
+            ti.log = &Log;
+            ti.iniPath = iniPath.c_str();
+            ti.base = reinterpret_cast<uintptr_t>(g_base);
+            timerres::Start(ti);
+            mh.exp[menu::kExpTR].ini = GetPrivateProfileIntW(L"Patches", L"TR", 0, iniPath.c_str()) == 1 ? 1 : 0;
+            mh.exp[menu::kExpTR].applied = timerres::Switch() != nullptr;
+            mh.exp[menu::kExpTR].enable = timerres::Switch();
         }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:
