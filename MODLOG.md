@@ -734,9 +734,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Conflicts resolved: MODLOG (all entries kept), dllmain.cpp (version comments; cave Target switch BPO + JT; kLastTarget = caveJtWakeAll),
   gen_header.py cave list (BPO then JT), patches.json (BPO + JT sites and deps), CMakeLists / build.bat (rematch + jt.cpp/jt.asm),
   test_patterns.py (Rematch + JT blocks); patches_gen.h regenerated. menu.cpp (kXBPO / kRematch / auto) merged clean.
-- AABB fix (notesun7-analysis.md s2): `AABB = 2` now installs the cave switched OFF (1.7.39 switched it on for any nonzero); boot log
+- AABB fix (notes\run7-analysis.md s2): `AABB = 2` now installs the cave switched OFF (1.7.39 switched it on for any nonzero); boot log
   line `AABB: ... switch ON/off`; menu Save keeps 2; matrix.json AABB `live_installed_value` 2; ini comment.
-- tools	estmatrix\menu_map.py: Visible() parser maps `rematch::Installed()` to `[Rematch] Enable` on a known build. main 472795b merged.
+- tools\testmatrix\menu_map.py: Visible() parser maps `rematch::Installed()` to `[Rematch] Enable` on a known build. main 472795b merged.
 - Tests: test_patterns ALL 283 SITES OK, run_rematch / vpad / padlat / tour / drawprep / jt / gp harnesses ALL PASSED, menu_map selftest OK,
   bounds_offline.fsx OFFLINE CHECKS ALL PASSED, build OK (idle priority). Not run in game.
 - Undo: the 1.7.39 .asi.
