@@ -235,6 +235,12 @@ try {
     }
     foreach ($x in @($ExtraKeys -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ })) { if ($x -match '^([^.=]+)\.([^=]+)=(.*)$') { $keys += ,@($Matches[1], $Matches[2].Trim(), $Matches[3].Trim()) } else { throw "bad -ExtraKeys entry '$x' (want Section.Key=Value)" } }
     foreach ($k in $keys) { $lines = Set-IniValue $lines $k[0] $k[1] $k[2] }
+    # 2026-10-09 (bridge #988) carry-over guard: log every key this run changes vs the base ini it started from; a base that still holds a
+    # previous run's Tour/probe keys (unrestored crash) shows up here instead of silently polluting this arm's A/B.
+    $baseLines = [IO.File]::ReadAllLines($baseIni); $chg = @()
+    foreach ($k in $keys) { $o = @($baseLines | Where-Object { $_ -match ('^\s*' + [regex]::Escape($k[1]) + '\s*=\s*(.*?)\s*$') } | Select-Object -First 1); if ($o.Count) { $ov = ($o[0] -split '=', 2)[1].Trim() } else { $ov = '<absent>' }; if ($ov -ne $k[2]) { $chg += "$($k[0]).$($k[1]) $ov->$($k[2])" } }
+    Say "ini diff vs base ($baseIni): $($chg.Count) keys changed: $($chg -join ' | ')"
+    foreach ($tk in "Tour", "TourList") { $lv = @($baseLines | Where-Object { $_ -match ('^\s*' + $tk + '\s*=\s*(\S+)') } | Select-Object -First 1); if ($lv.Count -and ($lv[0] -notmatch '=\s*(0)?\s*$')) { Say "!! base ini already has '$($lv[0].Trim())' - left over from an unrestored earlier run? (carry-over risk)" Yellow } }
     $script:modInstalled = $true
     [IO.File]::WriteAllLines($ini, $lines, (New-Object Text.UTF8Encoding($false)))
     if (-not $DryRun) { Copy-Item $binAsi $asi -Force }

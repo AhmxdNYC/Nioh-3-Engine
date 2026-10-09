@@ -243,13 +243,42 @@ function Restore-Mod {
     L "mod ini / ASI back as they were" Green
 }
 $BaseIniSrc = if (Test-Path (Join-Path $GameDir "Nioh3EngineFix.ini.preboss.bak")) { Join-Path $GameDir "Nioh3EngineFix.ini.preboss.bak" } elseif (Test-Path $ini) { $ini } else { Join-Path $ws "mod\Nioh3EngineFix\Nioh3EngineFix.ini" }
-function Write-ArmIni([string]$arm) {
-    $lines = [IO.File]::ReadAllLines($BaseIniSrc)
+# Every arm starts from the PRISTINE ini (snapshot taken ONCE at the first arm, before any arm ini is written) + only that arm's keys.
+# Bridge #988: $BaseIniSrc used to be the live $ini, which the previous arm had overwritten -> BASE arms carried CbvMirror etc.
+function Get-PristineLines {
+    if (-not $script:PristineLines) {
+        $script:PristineLines = [string[]][IO.File]::ReadAllLines($BaseIniSrc)
+        try { [IO.File]::WriteAllLines((Join-Path $orig "pristine_arm_base.ini"), $script:PristineLines, (New-Object Text.UTF8Encoding($false))) } catch {}
+        L "pristine ini snapshot: $BaseIniSrc ($($script:PristineLines.Count) lines)"
+    }
+    return ,$script:PristineLines
+}
+function Get-IniMap([string[]]$lines) {
+    $m = @{}; $cur = ""
+    foreach ($l in $lines) { if ($l -match '^\s*\[(.+?)\]') { $cur = $Matches[1]; continue }; if ($l -match '^\s*([^;#=\s][^=]*?)\s*=\s*(.*?)\s*$') { $k = "$cur.$($Matches[1])"; if (-not $m.ContainsKey($k)) { $m[$k] = $Matches[2] } } }
+    return $m
+}
+function Get-ArmKeys([string]$arm) {
     $keys = @("General.AutoContinueLoad=1", "Debug.VirtualPad=1", "Debug.KeepRunningUnfocused=1", "VRR.MaxFps=240",
               "Profiler.GPUProf=2", "Profiler.GPUProf2_SampleEvery=8", "Profiler.GPUProf2_Top=100", "Profiler.GPUProf2_MinRun=$GP2MinRun", "Profiler.GPUProf2_AB=0",
               "Profiler.SP=0", "Patches.AS0=0", "Patches.AS=0", "Patches.GIMerge=0", "Patches.MPCS=0", "Profiler.MeshletProbe=0", "Profiler.MpcCheck=0")
     if ($AsiItems.ContainsKey($arm)) { $keys += @($AsiItems[$arm] -split ";") }
-    foreach ($kv in $keys) { if ($kv -match '^([^.=]+)\.([^=]+)=(.*)$') { $lines = Set-IniValue $lines $Matches[1] $Matches[2] $Matches[3] } }
+    return $keys
+}
+# Guard: log the diff of the written ini vs pristine; fail the arm if any key outside the arm's own key set differs from pristine.
+function Test-ArmIni([string]$arm, [string[]]$written, [string[]]$pristine) {
+    $w = Get-IniMap $written; $p = Get-IniMap $pristine
+    $own = @{}; foreach ($kv in (Get-ArmKeys $arm)) { if ($kv -match '^([^=]+)=') { $own[$Matches[1].Trim()] = $true } }
+    $diff = @(foreach ($k in (@($w.Keys) + @($p.Keys) | Sort-Object -Unique)) { if ($w[$k] -ne $p[$k]) { "$k : $(if ($p.ContainsKey($k)) { $p[$k] } else { '<absent>' }) -> $(if ($w.ContainsKey($k)) { $w[$k] } else { '<absent>' })" } })
+    L "arm $arm ini diff vs pristine ($($diff.Count) keys): $($diff -join ' | ')"
+    $bad = @(foreach ($d in $diff) { $k = ($d -split ' : ')[0]; if (-not $own.ContainsKey($k)) { $d } })
+    if ($bad.Count) { throw "arm $arm ini is contaminated: keys outside its own set differ from the pristine ini: $($bad -join '; ')" }
+}
+function Write-ArmIni([string]$arm) {
+    $pristine = Get-PristineLines
+    $lines = $pristine
+    foreach ($kv in (Get-ArmKeys $arm)) { if ($kv -match '^([^.=]+)\.([^=]+)=(.*)$') { $lines = Set-IniValue $lines $Matches[1] $Matches[2] $Matches[3] } }
+    Test-ArmIni $arm ([string[]]$lines) $pristine
     [IO.File]::WriteAllLines($ini, $lines, (New-Object Text.UTF8Encoding($false)))
 }
 
