@@ -100,6 +100,8 @@ Same-look levers left at USER: **fogpar** (VFSCAT early-exit only, bit-exact, BU
 | 10.3 | `bin\README.md` (option reference) - sync with 1.7.2x keys (EP, SR, RC, AQ, TSY, SH, PF, LoadOnlyCpuFixes) | free (sonnet), after 1.3 | 1 h | n |
 | 10.4 | settings-cost.md measured columns (queue 5) | after 8.1 | 1 h | n |
 
+**What is left beyond this list (2026-10-08 audit): `notes/whats-left.md`** - ranked NEW candidates (critical path, unstudied hot fns, Ally watts, GPU gaps, boss-session capture settings, stutter). Top 3: Ally R2a/R1 trace + GFX gap census (1.67 ms/frame uncovered), PC JT critical-path probe + BP (71C60 SIMD), Ally CPU bundle PP/MA/J1 (Ally main = 62 % game code at USER, caps ~55 fps).
+
 ## Order to finish
 1.1-1.4 (running) -> 4.2, 6.6, 10.3 (no game, small) -> 2.2 + 6.1 + 4.3 on the next PC/Ally turns -> 3.1 Ally shader A/Bs ->
 8.1 matrix -> 7.2 flip -> 9.3 final build -> 8.2 benchmark with the user -> 6.2 long sessions -> 8.3 / 10.2.
