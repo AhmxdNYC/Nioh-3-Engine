@@ -2028,4 +2028,63 @@ bpov_stock:
     jmp     qword ptr [bpo_vStock]
 caveBpoV ENDP
 
+; =================================================================================================================
+; 1.7.44 (branch fgproton) - FSR frame generation under Proton (notes\fg-proton-fix.md)
+; FGC: the game's FidelityFX backend (KTGL) copy-job executor 3718DB4 calls KtglTextureNative 4548C4(tex, 0) on the
+;      source and destination textures WITHOUT the null check its clear (37187EE) and compute (371899D) executors have.
+;      When an FG internal texture was not created (CreateResource 3715CCC swallows a failed create and returns FFX_OK
+;      with a null entry), the first frame-interpolation dispatch reads [0+90h] -> 0xC0000005 on [App]Game: the crash
+;      in vkd3d-proton issue 2845 (Nioh3+BA2AC <- 356DD58 <- 356D0C6 <- FI dispatch 35DC9EE in that build = 4548C4 /
+;      3718DFC / 371816A / 3789A76 in v2.02). The caves return 0 for a null texture (what 4548C4 returns for a texture
+;      without a native resource); 3718DFF then skips the copy. Non-null: tail jump to 4548C4, bit-identical.
+;      fgc_src counts every copy job = one per FI dispatch = one per real frame while FG interpolates.
+; FGP: replaces the call of the menu-open getter 5A37D4 in ApplyGraphicsSettings (39A865). fgp_pause = 1 answers
+;      "menu open" -> the engine's own FG pause (RenderConfig S+2055h = 1): FSR FG stops interpolating without a
+;      swapchain rebuild. fgp_pause = 0: tail jump to 5A37D4 (stock).
+; =================================================================================================================
+PUBLIC caveFgcSrc, caveFgcDst, caveFgp
+PUBLIC fgc_target, fgc_src, fgc_srcNull, fgc_dstNull, fgp_target, fgp_pause, fgp_hits
+
+fgdata SEGMENT ALIGN(64) READ WRITE 'DATA'
+fgc_target  DQ 0                ; Nioh3+4548C4 KtglTextureNative
+fgp_target  DQ 0                ; Nioh3+5A37D4 menu-open getter
+fgc_src     DD 0                ; copy jobs executed (source lookups)
+fgc_srcNull DD 0                ; copy jobs whose source texture was null (skipped instead of crashing)
+fgc_dstNull DD 0                ; copy jobs whose destination texture was null (skipped instead of crashing)
+fgp_pause   DD 0                ; live switch: 1 = FSR FG paused by the mod
+fgp_hits    DD 0                ; frames answered "paused" by the cave
+fgdata ENDS
+
+.code
+caveFgcSrc PROC
+    lock inc dword ptr [fgc_src]
+    test    rcx, rcx
+    jz      fgcSrcNull
+    jmp     qword ptr [fgc_target]
+fgcSrcNull:
+    lock inc dword ptr [fgc_srcNull]
+    xor     eax, eax
+    ret
+caveFgcSrc ENDP
+
+caveFgcDst PROC
+    test    rcx, rcx
+    jz      fgcDstNull
+    jmp     qword ptr [fgc_target]
+fgcDstNull:
+    lock inc dword ptr [fgc_dstNull]
+    xor     eax, eax
+    ret
+caveFgcDst ENDP
+
+caveFgp PROC
+    cmp     dword ptr [fgp_pause], 0
+    je      fgpStock
+    lock inc dword ptr [fgp_hits]
+    mov     eax, 1
+    ret
+fgpStock:
+    jmp     qword ptr [fgp_target]
+caveFgp ENDP
+
 END

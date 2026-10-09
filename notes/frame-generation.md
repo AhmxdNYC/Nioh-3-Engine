@@ -82,3 +82,7 @@ Proton, the rebuild with the FSR backend is the step reported to crash.
 * "Save to ini" also writes FRAME_GENERATION into config.xml when it was changed from the mod menu: only that value,
   after verifying the game's descriptor strings, with a copy to `config.xml.Nioh3EngineFix.bak` first, via a temp
   file + MoveFileEx. The game's own SaveConfigIfDirty would write the same value when its options screen closes.
+
+## 5. Update 1.7.44 (branch fgproton)
+
+The Proton crash is decoded in `notesg-proton-fix.md`: the game's FFX backend copy job (3718DB4) reads a null FG texture (4548C4, [0+90h]); FSR -> OFF is the live rebuild that crashed on the Ally. `[Menu] FrameGenToggle = 3` adds the FGC guard, the FGP pause (FG off without a rebuild) and a crash-guarded launch-time FG.

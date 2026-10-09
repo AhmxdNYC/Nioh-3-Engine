@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -72,6 +72,9 @@ static const uint8_t orig_R1j[] = { 0x75, 0xEF };
 static const uint8_t repl_R1j[] = { 0x75, 0xED };
 static const uint8_t orig_L1[] = { 0x33, 0xD2, 0x48, 0x8B, 0xCE, 0xE8, 0x34, 0x79, 0xF3, 0xFE };
 static const uint8_t orig_F1[] = { 0xE8, 0x33, 0x7B, 0xF9, 0xFF };
+static const uint8_t orig_FGC1[] = { 0xE8, 0xE6, 0xBA, 0xD3, 0xFC };
+static const uint8_t orig_FGC2[] = { 0xE8, 0xC8, 0xBA, 0xD3, 0xFC };
+static const uint8_t orig_FGP[] = { 0xE8, 0x6A, 0x8F, 0x20, 0x00 };
 static const uint8_t orig_P12[] = { 0x41, 0x83, 0xFB, 0x0C };
 static const uint8_t repl_P12[] = { 0x41, 0x83, 0xFB, 0x00 };
 static const uint8_t orig_WK[] = { 0x49, 0x8B, 0x8F, 0x40, 0x04, 0x00, 0x00 };
@@ -356,6 +359,9 @@ static const Site kSites[] = {
     { "R1j", "R1", 0x4A5357, 2, orig_R1j, "FF 15 ?? ?? ?? ?? 85 C0 75 EF 48 8D 54 24 40 E8 ?? ?? ?? ??", 8, Kind::Bytes, repl_R1j, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "L1", "L1", 0x19DF57E, 10, orig_L1, "41 89 4F 30 E9 ?? ?? ?? ?? 33 D2 48 8B CE E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B D0", 9, Kind::Call, nullptr, Target::caveL1, 0, { 0x00, 0x00 }, Data::none, Reads::CalleeRel32At6, 0x0 },
     { "F1", "FG", 0x3777A40, 5, orig_F1, "48 8B 0F 48 03 4C 24 20 E8 ?? ?? ?? ?? 48 8D 4C 24 20 FF 15 ?? ?? ?? ?? 44 8B C6", 8, Kind::Call, nullptr, Target::fgWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "FGC1", "FGC", 0x3718DD9, 5, orig_FGC1, "48 63 82 88 00 00 00 4C 8B D2 4C 8B 59 38 33 D2 48 6B C8 38 49 8B D8 4A 8B 0C 19 E8 ?? ?? ?? ?? 49 63 92 90 00 00 00", 27, Kind::Call, nullptr, Target::caveFgcSrc, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x4548C4 },
+    { "FGC2", "FGC", 0x3718DF7, 5, orig_FGC2, "49 63 92 90 00 00 00 4C 8B C8 48 6B CA 38 33 D2 48 89 44 24 40 4A 8B 0C 19 E8 ?? ?? ?? ?? 48 8B F8 4D 85 C9", 25, Kind::Call, nullptr, Target::caveFgcDst, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x4548C4 },
+    { "FGP", "FGP", 0x39A865, 5, orig_FGP, "66 89 BB E0 20 00 00 E8 ?? ?? ?? ?? 84 C0 75 0C E8 ?? ?? ?? ?? 41 8A F7 84 C0 74 03 40 8A F7", 7, Kind::Call, nullptr, Target::caveFgp, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5A37D4 },
     { "P12", "P12", 0x1FE30D5, 4, orig_P12, "41 83 FB 0C 7F 2B 41 0F B7 C1 B9 FD FF 00 00", 0, Kind::Bytes, repl_P12, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "WK", "WK", 0x40A4C, 7, orig_WK, "45 84 C0 0F 84 ?? ?? ?? ?? 49 8B 8F 40 04 00 00 33 C0 F0 0F B1 71 2C", 9, Kind::Call, nullptr, Target::caveWakeGate, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "WCa", "WC", 0x1FE300B, 4, orig_WCa, "41 83 FB 20 7E 04 B0 20 EB 0A 44 3B DD 41 0F B6 C3 0F 4C C5 88 87 40 07 00 00", 0, Kind::Bytes, repl_WCa, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -620,6 +626,10 @@ static const uint8_t dep_80[] = { 0xE9, 0xA2, 0xF8, 0xFF, 0xFF };
 static const uint8_t dep_81[] = { 0x44, 0x3B, 0x7A, 0x18, 0x7D, 0x59, 0x4D, 0x8B, 0x34, 0x24, 0x4D, 0x8B, 0x83, 0xC8, 0x01, 0x00, 0x00, 0x4D, 0x85, 0xF6, 0x74, 0x49, 0x49, 0x8B, 0x4E, 0x68, 0x48, 0x85, 0xC9, 0x74, 0x40, 0x49, 0x8D, 0x90, 0xE0, 0x74, 0x00, 0x00, 0x48, 0x81, 0xC1, 0x08, 0x01, 0x00, 0x00, 0x4D, 0x8B, 0x80, 0xB0, 0x6E, 0x00, 0x00, 0xE8, 0xF7, 0x1B, 0xF4, 0xFF, 0x49, 0x8B, 0x4E, 0x68, 0xBA, 0xFF, 0x00, 0x00, 0x00, 0x41, 0xB8, 0x10, 0x00, 0x00, 0x00, 0xE8, 0xAB, 0x1D, 0xF4, 0xFF, 0x48, 0x8B, 0x54, 0x24, 0x30, 0x48, 0x8B, 0x44, 0x24, 0x40, 0x4C, 0x8B, 0x9C, 0x24, 0x90, 0x00, 0x00, 0x00, 0x41, 0xFF, 0xC7, 0x49, 0xFF, 0xC5, 0x49, 0x83, 0xC4, 0x08, 0x4C, 0x3B, 0xE8, 0x7C, 0x92 };
 static const uint8_t dep_85[] = { 0x33, 0xD2, 0xF0, 0x0F, 0xB1, 0x11, 0xA8, 0x01 };
 static const uint8_t dep_89[] = { 0x0F, 0x28, 0x02, 0x48, 0x8B, 0xC1, 0x66, 0x0F, 0x7F, 0x01, 0xC7, 0x41, 0x0C, 0x00, 0x00, 0x00, 0x00, 0xC3 };
+static const uint8_t dep_97[] = { 0x4C, 0x8B, 0x81, 0x90, 0x00, 0x00, 0x00, 0x33, 0xC0, 0x4D, 0x85, 0xC0, 0x74, 0x0D, 0x48, 0x63, 0xC2, 0x48, 0x69, 0xC0, 0x68, 0x02, 0x00, 0x00, 0x49, 0x03, 0xC0, 0xC3 };
+static const uint8_t dep_98[] = { 0x48, 0x8B, 0xF8, 0x4D, 0x85, 0xC9, 0x74, 0x48, 0x48, 0x85, 0xC0, 0x74, 0x43 };
+static const uint8_t dep_99[] = { 0x84, 0xC0, 0x75, 0x0C, 0xE8, 0x4D, 0xBB, 0xD3, 0xFF, 0x41, 0x8A, 0xF7, 0x84, 0xC0, 0x74, 0x03 };
+static const uint8_t dep_100[] = { 0x44, 0x8A, 0xFF, 0x40, 0x8A, 0xC7, 0x8B, 0x35, 0xB3, 0x06, 0x22, 0x04, 0x88, 0x83, 0x55, 0x20, 0x00, 0x00 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -718,6 +728,10 @@ static const Dep kDeps[] = {
     { "W1B", 0x61B1C, 144, nullptr, 0x2F4E6747 },  // W1B: 61B1C head up to the site (r14 = glyph header, r15d = pad != 0 at the site via the je at 61B99, rbx = row)
     { "W1B", 0x61BC2, 213, nullptr, 0xE3E8707F },  // W1B: 61BC2..61C96 after the site (eax / ecx / edi / flags dead at 61BC2: edi reloaded at 61BD9 before use)
     { "RPA", 0x2477D4, 29974, nullptr, 0xFAC0A5A1 },  // RPA: 2477D4 / 2478A0 / 2478F4 helpers + RenderParamsAssign 247950..24ECE9, the code the 21 copy ranges were derived from (tests/w1b_rpa_harness.cpp --derive)
+    { "FGC", 0x4548C4, 28, dep_97, 0 },  // FGC: KtglTextureNative(tex, sub) 4548C4 reads [tex+90h] unchecked (the 0xC0000005 read of 0x90 in vkd3d-proton #2845); returns 0 when [tex+90h] is 0, so the cave's 0 for tex = 0 is the same answer
+    { "FGC", 0x3718DFC, 13, dep_98, 0 },  // FGC: FfxKtglExecuteCopyJob 3718DB4 already skips the copy when either result is 0 (r9 = src, rax = dst)
+    { "FGP", 0x39A86A, 16, dep_99, 0 },  // FGP: al != 0 from the menu-open getter 5A37D4 -> sil = 1 -> FG pause path (the other getter D63C0 is skipped)
+    { "FGP", 0x39A939, 18, dep_100, 0 },  // FGP: pause path stores 1 into RenderConfig S+2055h (FSR FG paused: real frames only, no swapchain rebuild)
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

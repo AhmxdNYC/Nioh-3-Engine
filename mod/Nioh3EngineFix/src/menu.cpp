@@ -757,6 +757,10 @@ std::wstring g_cfgPathEarly;    // %LOCALAPPDATA%\KoeiTecmo\NIOH3\config.xml
 std::string g_fgAtStart;        // FRAME_GENERATION in config.xml when the mod started ("" = unknown)
 volatile LONG g_fgMarkerSet = 0;
 volatile LONG g_fgExitDone = 0;
+// 1.7.44 [Menu] FrameGenToggle = 3 ("Proton safe FG", notes\fg-proton-fix.md)
+int g_fgToggleEarly = 1;        // [Menu] FrameGenToggle as read by dllmain before Configure (ProtonFgEarly)
+std::string g_fgExitWant;       // FRAME_GENERATION config.xml must hold at a clean exit ("" = OFF, the FrameGenToggle 2 rule)
+bool g_fgSoft = false;          // FSR FG paused by the mod (FGP): the setting stays FSR, no frames are interpolated
 
 std::string ReadGameConfigFg(const std::wstring& path) {
     HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -779,13 +783,24 @@ std::string ReadGameConfigFg(const std::wstring& path) {
 void SetFgMarker() {
     if (g_fgMarker.empty() || InterlockedExchange(&g_fgMarkerSet, 1)) return;
     HANDLE h = CreateFileW(g_fgMarker.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    static const char kText[] = "FG switched on by the mod under Proton; config.xml had FRAME_GENERATION OFF at startup.\r\n"
-                                "Nioh3EngineFix puts OFF back at exit, or at the next start if this file is still here.\r\n";
+    static const char kText[] = "Frame generation is on in this Proton session (switched on by the mod, or launched with it).\r\n"
+                                "If this file is still here at the next start, the session did not end cleanly and\r\n"
+                                "Nioh3EngineFix puts FRAME_GENERATION OFF back into config.xml before the game reads it.\r\n";
     DWORD wr = 0;
     const bool ok = h != INVALID_HANDLE_VALUE && WriteFile(h, kText, (DWORD)sizeof(kText) - 1, &wr, nullptr) && FlushFileBuffers(h);
     if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
-    MLOG("Proton: FG switched on by the mod - marker %ls %s (config.xml gets FRAME_GENERATION OFF back at exit / next start)",
-         g_fgMarker.c_str(), ok ? "written" : "COULD NOT be written");
+    MLOG("Proton: FG on this session - marker %ls %s (a crash puts FRAME_GENERATION OFF back at the next start; clean exit: %s)",
+         g_fgMarker.c_str(), ok ? "written" : "COULD NOT be written", g_fgExitWant.empty() ? "OFF" : g_fgExitWant.c_str());
+}
+
+// 1.7.44 FrameGenToggle = 3: a launch with FG on in config.xml (and no crash marker left, or after ProtonFgEarly put OFF
+// back) arms the marker before the game reads config.xml; a clean exit keeps the value, a crash reverts it to OFF.
+void ProtonFgArmAtLaunch() {
+    if (g_fgToggleEarly != 3 || g_fgAtStart.empty() || g_fgAtStart == "OFF") return;
+    g_fgExitWant = g_fgAtStart;
+    SetFgMarker();
+    MLOG("Proton safe FG ([Menu] FrameGenToggle = 3): launching with FRAME_GENERATION %s - crash guard armed before the game "
+         "reads config.xml", g_fgAtStart.c_str());
 }
 
 // called from ChangeFg on the Present thread after a switch
@@ -1030,6 +1045,10 @@ void FgValue(int id, char* buf, size_t n, uint32_t& color) {
             snprintf(buf, n, "ON - turns OFF at next launch");
             color = cOrange;
         }
+        if (g_fgSoft && s.setting != 0) {
+            snprintf(buf, n, "OFF - paused by the mod (no rebuild)");
+            color = cGray;
+        }
         return;
     }
     // kFg
@@ -1040,6 +1059,9 @@ void FgValue(int id, char* buf, size_t n, uint32_t& color) {
     } else if (g_fgNextLaunch && s.setting != 0) {
         snprintf(buf, n, "FG off at next launch");
         color = cOrange;
+    } else if (g_fgSoft && s.setting != 0) {
+        snprintf(buf, n, "type: FSR (paused)%s", ro);
+        color = cGray;
     } else if (s.setting == 0) {
         snprintf(buf, n, "type: FSR%s", ro);  // what A/Enter would switch on
         color = cGray;
@@ -1311,12 +1333,75 @@ void SetLiveBool(int id, bool v) {
     }
 }
 
+// 1.7.44 [Menu] FrameGenToggle = 3 under Proton ("Proton safe FG", notes\fg-proton-fix.md). OFF <-> FSR only.
+//   * on: from a paused FG (FGP) = resume, no swapchain rebuild. From OFF = the game's setter (the live OFF -> FSR rebuild
+//     ran 3/3 on the Ally). Then the crash marker is armed FIRST and config.xml gets FSR, so the next launch starts with
+//     FG, and a crash in this or a later FG session puts OFF back at the next start (ProtonFgEarly).
+//   * off: never the game's FSR -> OFF rebuild (it crashed the game ~2 s later on the Ally, v9 log). FGP pauses FSR FG at
+//     once (the engine's own menu pause: real frames only); config.xml gets OFF, so the next launch has no FG swapchain.
+//     Without FGP: config.xml OFF only, FG stays until the next launch (the FrameGenToggle 2 behaviour).
+void ChangeFgSafe(ULONGLONG t) {
+    const int cur = FgSetting();
+    if (cur < 0) return;
+    const int eff = (g_fgSoft || g_fgNextLaunch) ? 0 : cur;
+    const std::wstring path = GameConfigPath();
+    g_fgChangedAt = t;
+    if (eff != 0) {  // -> OFF
+        if (g_host.fgPause) {
+            *g_host.fgPause = 1;
+            g_fgSoft = true;
+        }
+        g_fgExitWant = "OFF";
+        SetFgMarker();  // the clean-exit OFF rule needs the marker (no-op when already armed)
+        const int r = path.empty() ? 3 : WriteGameConfigFg(path, "OFF");
+        g_fgNextLaunch = !g_host.fgPause;
+        g_dirty = true;
+        MLOG("Frame generation %s -> OFF (Proton safe FG): %s; config.xml %s", osd::FgTypeName(cur),
+             g_host.fgPause ? "FSR FG paused now through the engine's own FG pause (FGP) - no swapchain rebuild"
+                            : "FGP not installed - FG keeps running until the next launch",
+             r == 3 ? "could NOT be written (OFF is still forced at a clean exit)" : "set to OFF for the next launch");
+        return;
+    }
+    // -> FSR
+    if (cur == 2 && (g_fgSoft || g_fgNextLaunch)) {
+        if (g_fgSoft) *g_host.fgPause = 0;
+        MLOG("Frame generation back ON (Proton safe FG): %s - no swapchain rebuild",
+             g_fgSoft ? "FGP pause cleared" : "the 'off at next launch' is cancelled");
+        g_fgSoft = false;
+    } else if (cur == 0) {
+        const int got = CallFgWrite(2);
+        if (got != 2) {
+            MLOG("Frame generation OFF -> FSR (Proton safe FG): the game's setter left it at %s", osd::FgTypeName(got) ? osd::FgTypeName(got) : "?");
+            return;
+        }
+        osd::NoteFgSwitch();
+        MLOG("Frame generation OFF -> FSR (Proton safe FG) via the game's FrameGenSettingWrite; the game rebuilds its swapchain "
+             "in a few frames%s", g_host.fgcOn ? " (FGC copy-job guard installed)" : " - WARNING: FGC guard not installed");
+    } else {
+        MLOG("Frame generation: Proton safe FG switches only OFF <-> FSR (the setting is %s) - nothing changed", osd::FgTypeName(cur));
+        return;
+    }
+    g_fgLastOn = 2;
+    g_fgNextLaunch = false;
+    g_fgExitWant = "FSR";
+    SetFgMarker();  // armed BEFORE config.xml holds FSR (a crash from here on puts OFF back at the next start)
+    const int r = path.empty() ? 3 : WriteGameConfigFg(path, "FSR");
+    g_dirty = true;
+    MLOG("Proton safe FG: config.xml FRAME_GENERATION %s", r == 3 ? "could NOT be set to FSR (FG is on for this session only)"
+                                                                : "= FSR - the next launch starts with FG (crash guard: marker)");
+    if (r == 3) g_fgExitWant.clear();
+}
+
 // Frame generation: A/Enter = OFF <-> last type (FSR), Left/Right = cycle OFF / FSR / XeSS / DLSS (available ones).
 // One switch per 2 s: every change makes the game rebuild its swapchain.
 void ChangeFg(int dir) {
     if (!Available(kFg)) return;
     const ULONGLONG t = Now();
     if (g_fgChangedAt && t - g_fgChangedAt < 2000) return;
+    if (g_host.wine && g_cfg.fgToggle == 3) {
+        ChangeFgSafe(t);
+        return;
+    }
     const int cur = FgSetting();
     if (cur < 0) return;
     int want = cur;
@@ -1960,7 +2045,7 @@ float DrawImpl(unsigned W, unsigned H) {
         const char* plain = kItems[id].plain;
         if (id == kFg) {
             const osd::FgStatus fs = osd::FrameGen();
-            plain = (fs.setting > 0 && !g_fgNextLaunch) ? "Turn frame gen OFF" : "Turn frame gen ON";
+            plain = (fs.setting > 0 && !g_fgNextLaunch && !g_fgSoft) ? "Turn frame gen OFF" : "Turn frame gen ON";
         }
         snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", plain);
         if (id == g_sel) selRow = nb;
@@ -2156,8 +2241,9 @@ bool ParseHold(const wchar_t* s, uint32_t& mask, char* name, size_t nameLen) {
 }  // namespace
 
 // ---- public ------------------------------------------------------------------------------------------------------------------
-void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath) {
+void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath, int fgToggle) {
     if (!g_log) g_log = log;
+    g_fgToggleEarly = fgToggle;
     g_fgMarker = markerPath ? markerPath : L"";
     wchar_t e[MAX_PATH] = {};
     const DWORD n = ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\KoeiTecmo\\NIOH3\\config.xml", e, MAX_PATH);
@@ -2166,7 +2252,10 @@ void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath)
     const bool marker = !g_fgMarker.empty() && GetFileAttributesW(g_fgMarker.c_str()) != INVALID_FILE_ATTRIBUTES;
     MLOG("Proton: config.xml %ls: FRAME_GENERATION %s at startup%s", g_cfgPathEarly.empty() ? L"(no path)" : g_cfgPathEarly.c_str(),
          g_fgAtStart.empty() ? "?" : g_fgAtStart.c_str(), marker ? "; FG marker from the last session found" : "");
-    if (!marker) return;
+    if (!marker) {
+        ProtonFgArmAtLaunch();
+        return;
+    }
     if (!g_fgAtStart.empty() && g_fgAtStart != "OFF") {
         MLOG("Proton: the last session ended with FG switched on by the mod (crash?) and config.xml has %s - putting OFF back "
              "before the game reads it", g_fgAtStart.c_str());
@@ -2174,6 +2263,7 @@ void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath)
         if (r == 1 || r == 2) g_fgAtStart = "OFF";
     }
     DeleteFileW(g_fgMarker.c_str());
+    ProtonFgArmAtLaunch();
 }
 
 void ProtonFgExit(const char* how) {
@@ -2181,10 +2271,13 @@ void ProtonFgExit(const char* how) {
     std::wstring path = g_host.base && g_host.knownBuild ? GameConfigPath() : g_cfgPathEarly;
     if (path.empty()) path = g_cfgPathEarly;
     const std::string cur = ReadGameConfigFg(path);
-    MLOG("Proton exit (%s): config.xml FRAME_GENERATION is %s", how, cur.empty() ? "?" : cur.c_str());
-    if (cur != "OFF") {
-        const int r = WriteGameConfigFg(path, "OFF");
-        MLOG("Proton exit: FRAME_GENERATION OFF %s", r == 1 ? "restored" : r == 2 ? "already set" : "NOT restored - the marker stays for the next start");
+    // FrameGenToggle 2: always OFF. 3 (Proton safe FG): what the user chose last (FSR stays for the next launch, OFF after
+    // a mod-menu FG off - the game may have written its in-memory FSR back when its Options menu closed)
+    const std::string want = g_fgExitWant.empty() ? std::string("OFF") : g_fgExitWant;
+    MLOG("Proton exit (%s): config.xml FRAME_GENERATION is %s, wanted %s", how, cur.empty() ? "?" : cur.c_str(), want.c_str());
+    if (cur != want) {
+        const int r = WriteGameConfigFg(path, want);
+        MLOG("Proton exit: FRAME_GENERATION %s %s", want.c_str(), r == 1 ? "restored" : r == 2 ? "already set" : "NOT restored - the marker stays for the next start");
         if (r == 3) return;
     }
     DeleteFileW(g_fgMarker.c_str());
@@ -2283,13 +2376,19 @@ void Configure(const Host& h) {
         // Proton: FG is reported to crash the game on Steam Deck / Linux (vkd3d-proton issue 2845, notes\community)
         g_fgOk = code && (g_cfg.fgToggle >= 2 || (g_cfg.fgToggle == 1 && !g_host.wine));
         MLOG("frame generation: %s", !code ? "the game's FG setter bytes differ - status only"
-                                     : g_fgOk ? (g_host.wine ? "live switch enabled under Proton ([Menu] FrameGenToggle = 2); FG on is "
-                                                               "never saved to the game's config here"
+                                     : g_fgOk ? (g_host.wine ? (g_cfg.fgToggle == 3 ? "Proton safe FG ([Menu] FrameGenToggle = 3): OFF <-> FSR; "
+                                                                "off = engine FG pause (FGP), on = resume or one OFF -> FSR rebuild; FG is "
+                                                                "kept in config.xml behind the crash marker"
+                                                              : "live switch enabled under Proton ([Menu] FrameGenToggle = 2); FG on is "
+                                                                "never saved to the game's config here")
                                                              : "live switch through the game's FrameGenSettingWrite (0x1FDDFCC) verified")
                                      : g_cfg.fgToggle ? "status only under Proton (FG is reported to crash there; FrameGenToggle = 2 "
                                                         "allows the switch)"
                                                       : "status only ([Menu] FrameGenToggle = 0)");
     }
+    if (g_host.wine && g_cfg.fgToggle == 3)
+        MLOG("Proton safe FG: FGC copy-job guard %s, FGP pause switch %s", g_host.fgcOn ? "installed" : "NOT installed",
+             g_host.fgPause ? "installed" : "NOT installed (FG off applies at the next launch)");
     g_configured = true;
     if (!g_cfg.enabled) {
         MLOG("off in ini ([Menu] Enabled=0)");

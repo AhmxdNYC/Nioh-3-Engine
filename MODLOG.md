@@ -789,3 +789,10 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - `tools\testmatrix\pc_gpu_report.py`: verdicts KEEP / DROP / NEUTRAL / INVALID against BASE interpolated for drift; `selftest` ALL PASSED.
 - Run (after run8): `powershell -NoProfile -ExecutionPolicy Bypass -File tools\testmatrix\pc_gpu_session.ps1 -WaitRun8` (~3 h: A ~22 min, B 29 launches ~160 min; `-Items wdo28,esm,gi,AS0` ~72 min for B).
 - Undo: `git revert` of this commit. A real run restores every file it touched by itself.
+
+## 2026-10-09 - ASI 1.7.44 (branch fgproton): FSR frame generation under Proton - root cause + "Proton safe FG" (default off; game not run)
+- Root cause (`notesg-proton-fix.md`): vkd3d-proton #2845's crash log decoded onto v2.02. The game's FidelityFX KTGL backend copy-job executor 3718DB4 calls KtglTextureNative 4548C4 on a null FG texture (reads [0+90h]); its clear / compute executors null-check, and CreateResource 3715CCC returns FFX_OK for a failed texture. It is game code, not vkd3d. Ally: live OFF -> FSR worked 3/3, FSR -> OFF crashed 1/1 (v9), boot with FG never tried.
+- New (all default off): `[Patches] FGC` = copy-job null guard (sites FGC1 3718DD9 / FGC2 3718DF7, bit-identical while textures exist, logs + `stats/s FG:` generated frames/s). `[Menu] FrameGenToggle = 3` (Proton): FGC + FGP (39A865 menu-open getter -> engine FG pause), FG off = pause without a swapchain rebuild + config.xml OFF next launch, FG on = resume or one OFF -> FSR rebuild, FG kept in config.xml behind the crash marker (armed before the game reads config.xml; a crash reverts to OFF at the next start; clean exit writes the user's last choice).
+- FG on the Ally (U6 data): 48.5 fps displayed but the FSR upscaler runs every 2nd displayed frame: real fps 34.3 -> ~24.3, ~7 ms GPU per real frame for FG + one held frame. Worth it only at >= ~40 real fps with FG.
+- Ally test protocol: notesg-proton-fix.md section 3 (max 3 launches, config.xml backup/restore).
+- Undo: `[Menu] FrameGenToggle = 1` and `[Patches] FGC = 0` (the default), or `git revert`. config.xml: the mod keeps `config.xml.Nioh3EngineFix.bak` before each FRAME_GENERATION write.
