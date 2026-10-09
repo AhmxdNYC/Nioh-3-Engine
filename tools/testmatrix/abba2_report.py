@@ -38,7 +38,13 @@ missing/unverified/not bracketed, the BASE range > 8 % or noise > 1.5 %; KEEP = 
 Cap check (2026-10-08, run5/run6): the test scene ran at 116-118.5 fps against the 120 cap ([VRR] MaxFps, read from
 test_base.ini), so at most +1.3..3 % was reachable. When the median OFF / BASE fps is within CAP_WARN % of the cap the
 verdict says "cap-compressed": a DROP there is not evidence that the flag does nothing. Run CPU A/Bs with -MaxFps 240
-(the engine's internal tier stays 120).
+(the engine's internal tier stays 120). A single window is rejected as 'at the fps cap' only when its fps is within 1 %
+of THAT cap (run7: the old rule hard-coded 120 and rejected 119.5 / 120.05 fps windows of a -MaxFps 240 run, whose log
+reads 'vrr tier 120 cap 240' and whose other windows ran 125-127 fps).
+Quiet machine (2026-10-08, run7): foreign CPU load (other agents' builds / harnesses / dotnet fsi) swung fps 107-127 inside
+one launch. The harness samples every process's CPU time around and during each window (harness_guard.ps1 Measure-Foreign)
+and writes noisy / noise / fgn_max into the manifest; a noisy window is redone, one that stays noisy is kept with
+noisy=true and rejected here. The 'noisy windows:' section lists both (redone ones come from kind=noisy_discard rows).
 """
 import csv, json, math, os, re, statistics as st, sys
 
@@ -46,6 +52,7 @@ STEP_IN, STEP_OUT, GPU_MOVE = 1.0, 1.5, 3.0
 LAUNCH_SPREAD_MAX = 3.0
 LAUNCH_RANGE_MAX, LAUNCH_NOISE_MAX = 8.0, 1.5   # 3+ BASE launches (interpolated baseline)
 CAP_WARN = 4.0   # % below the fps cap at which a verdict is flagged cap-compressed
+CAP = 120.0   # the run's fps cap ([VRR] MaxFps of test_base.ini), set by report()
 STRICT_FOCUS = False   # see window_ok
 
 
@@ -142,6 +149,9 @@ def load(run):
             if line:
                 rows.append(json.loads(line))
     for r in rows:
+        if r.get("kind") == "noisy_discard":   # a redone window: listed in 'noisy windows', never measured
+            r["pm"], r["lm"] = None, log_metrics("")
+            continue
         pm = os.path.join(run, r["name"] + ".csv")
         r["pm"] = pm_metrics(pm) if os.path.exists(pm) else None
         r["lm"] = log_metrics(os.path.join(run, r["name"] + ".log"))
@@ -155,7 +165,8 @@ def win_line(r):
     opf = "-" if lm["ovl_per_frame"] is None else f"{lm['ovl_per_frame']:.2f}"
     return (f"  {r['name']:<28} {r.get('state', ''):<3} fps {pm['fps']:7.2f} p99 {pm['p99']:6.2f} cpu {pm['cpu'] or 0:5.2f} "
             f"gpu {pm['gpu'] or 0:5.2f} n {pm['n']:5d} ovl/frame {opf} fg {'ok' if lm['fg_ok'] else 'BAD ' + lm['fg_why']}{'' if r.get('focus_end') in (None, 'Nioh3') else ' focus_end=' + r['focus_end']}"
-            f" seen {seen_state(r.get('item'), lm) or '-'} tog {'ok' if r.get('toggle_ok', True) else 'FAIL'}")
+            f" seen {seen_state(r.get('item'), lm) or '-'} tog {'ok' if r.get('toggle_ok', True) else 'FAIL'}"
+            + ("" if r.get("fgn_max") is None else f" fgn {r['fgn_max']:.2f}c") + (" NOISY" if r.get("noisy") else ""))
 
 
 def window_ok(r):
@@ -168,8 +179,10 @@ def window_ok(r):
     # i.e. a transient flash at the window end. So it only rejects when STRICT_FOCUS is set.
     if STRICT_FOCUS and r.get("focus_end") not in (None, "Nioh3"):
         return False, f"focus lost to {r['focus_end']}"
-    if abs(r["pm"]["fps"] - 120.0) < 1.0:
-        return False, "at the 120 fps cap (not CPU/GPU limited)"
+    if r.get("noisy"):
+        return False, f"noisy machine ({r.get('noise') or 'foreign CPU load'})"
+    if abs(r["pm"]["fps"] - CAP) < CAP / 120.0:   # within 1 % of the run's real cap (120 -> +-1 fps, as before)
+        return False, f"at the {CAP:.0f} fps cap (not CPU/GPU limited)"
     if not r.get("toggle_ok", True):
         return False, "toggle not confirmed"
     s = seen_state(r.get("item"), r["lm"])
@@ -332,11 +345,25 @@ def cap_note(rows, item, cap):
     return f" [cap-compressed: {f:.1f} fps vs cap {cap:.0f}, only {room:+.1f}% headroom]"
 
 
+def noisy_lines(allrows):
+    out = []
+    for r in allrows:
+        if r.get("kind") == "noisy_discard":
+            out.append(f"  {r['name']:<28} redone   max foreign {r.get('fgn_max', 0):.2f} cores: {r.get('noise', '')}")
+        elif r.get("noisy"):
+            out.append(f"  {r['name']:<28} KEPT (still noisy after {r.get('noisy_redos', 0)} redo(s), rejected)  {r.get('noise', '')}")
+        elif r.get("quiet_wait_s"):
+            out.append(f"  {r['name']:<28} quiet after waiting {r['quiet_wait_s']:.0f} s")
+    return ["noisy windows:"] + (out or ["  none"])
+
+
 def report(run):
-    rows = load(run)
-    txt = [f"abba2 report: {run}", "windows:"] + [win_line(r) for r in rows]
+    global CAP
+    allrows = load(run)
+    rows = [r for r in allrows if r.get("kind") != "noisy_discard"]
+    cap = CAP = cap_fps(run)
+    txt = [f"abba2 report: {run}", "windows:"] + [win_line(r) for r in rows] + noisy_lines(allrows)
     verdicts = {}
-    cap = cap_fps(run)
     items = []
     for r in rows:
         if r.get("kind") == "live" and r["item"] not in items:
@@ -430,7 +457,29 @@ def selftest():
     print(s3)
     got3 = {k: v3[k]["verdict"] for k in ("DQ", "P1E7")}
     assert got3 == {"DQ": "KEEP", "P1E7": "DROP"}, got3
-    print("SELFTEST OK", got, got3)
+    # run7 cases: -MaxFps 240 (test_base.ini) -> a 120.0 fps window is NOT 'at the cap'; the same data with the 120 cap is.
+    # A noisy window (kept after its redos) rejects its quad and is listed; a redone window (noisy_discard) is listed only.
+    d4 = tempfile.mkdtemp(prefix="abba2_selftest4_")
+    d, man = d4, open(os.path.join(d4, "manifest.jsonl"), "w")
+    open(os.path.join(d4, "test_base.ini"), "w").write("[VRR]\nMaxFps = 240\n")
+    man.write(json.dumps(dict(name="L1_AABB_q1_1_on_noisy0", kind="noisy_discard", fgn_max=3.1, noise="cl.exe 2.40c")) + "\n")
+    for q in (1, 2, 3):
+        for p, s_ in enumerate(seq, 1):
+            f = 120.0 * (1.03 if s_ == "on" else 1.0)
+            kw = dict(kind="live", item="AABB", quad=q, pos=p, state=s_, toggle_ok=True, launch=1, arm="BASE", fgn_max=0.2)
+            if q == 3 and p == 2:
+                kw.update(noisy=True, noise="java 1.80c", noisy_redos=2, fgn_max=1.9)
+            win(f"L1_AABB_q{q}_{p}_{s_}", f, 4.2, 6.0, stats(), **kw)
+    man.close()
+    s4, v4 = report(d4)
+    print(s4)
+    assert v4["AABB"]["verdict"] == "KEEP", v4["AABB"]
+    assert "at the 240 fps cap" not in s4 and "q3: rejected (L1_AABB_q3_2_off: noisy machine (java 1.80c))" in s4, s4
+    assert "L1_AABB_q1_1_on_noisy0" in s4 and "KEPT (still noisy after 2 redo(s)" in s4
+    os.remove(os.path.join(d4, "test_base.ini"))   # no ini -> cap 120: the 120.0 fps OFF windows sit at the cap
+    s5, v5 = report(d4)
+    assert v5["AABB"]["verdict"] == "INVALID" and "at the 120 fps cap" in s5, v5["AABB"]
+    print("SELFTEST OK", got, got3, "cap240/noisy", v4["AABB"]["verdict"], "cap120", v5["AABB"]["verdict"])
 
 
 if __name__ == "__main__":

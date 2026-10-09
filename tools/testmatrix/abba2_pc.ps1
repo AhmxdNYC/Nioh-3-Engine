@@ -23,7 +23,20 @@
 param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Quads = 3, [int]$QuadsB = 2,
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
       [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30,
-      [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui", [string[]]$Arms = @(), [int]$MaxFps = 0)
+      [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui", [string[]]$Arms = @(), [int]$MaxFps = 0,
+      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0)
+# run7 (2026-10-08, notes\run7-analysis.md):
+#   -SrcRoot <checkout/worktree> = the tree the installed ASI was built from (e.g. D:\nioh3-wt\integ for 1.7.40 BPO): menu rows
+#   come from its mod\...\menu.cpp and live-item install values from its tools\testmatrix\matrix.json (default: this repo).
+#   Live items missing from the base ini are installed at the matrix's live_installed_value (2 = installed, switch off) ONLY
+#   when the item has one; items whose ASI ignores 2 (AABB, B, PP, GF, ... in 1.7.39: any nonzero = installed ON) get 1 and
+#   boot ON. With -Input vpad the real boot state is read back ('menu get') before the first toggle, and a 'menu set' whose
+#   read-back value already equals the target counts as confirmed (the mod logs no MENU line for a no-op).
+#   Quiet-machine guard (harness_guard.ps1): before each window wait until foreign CPU load is quiet; sample it during the
+#   window; a noisy window is redone (max -MaxNoisyRedo) or kept with noisy=true (rejected + listed by abba2_report.py).
+#   %TEMP%\nioh3_measuring.lock holds the harness pid while the run is active. -NoQuietGuard disables the wait/sampling.
+if ($QuietMaxCores -gt 0) { $env:QG_MAX_CORES = [string]$QuietMaxCores }
+$QuietGuard = -not $NoQuietGuard
 $vp = $InputMode -eq "vpad"
 $ErrorActionPreference = "Continue"
 $Arms = @($Arms -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -179,24 +192,46 @@ function Boot-Info {   # version + DQ/P1E7 install lines from the first part of 
 }
 function Manifest([hashtable]$h) { Add-Content "$out\manifest.jsonl" ($h | ConvertTo-Json -Compress) }
 function Window([string]$name, [hashtable]$meta) {   # a window with user input or without Nioh3 in front is discarded + repeated
-    for ($rep = 0; $rep -lt 4; $rep++) {
+    $nz = 0   # noisy redos (quiet-machine guard), counted apart from the focus/input discards
+    for ($rep = 0; $rep -lt 4; ) {
         if (-not (Game-Alive)) { throw "HARNESS-ABORT: game dead/hung before $name" }
         Mem-Guard
         Assert-Focus "before window $name"
+        $qw = 0
+        if ($QuietGuard) { Set-TestStatus "waiting for a quiet machine ($name)"; $qw = Wait-Quiet $name { param($l) T $l } }
+        Set-MeasureLock "measuring window $name"
         $csv = "$out\$name.csv"; $off = Log-Len; $w0 = Get-Date; Set-TestStatus "measuring window $name"
         $pm = Start-Process "$ws\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$csv`" --timed $WindowSec --terminate_after_timed --stop_existing_session --no_console_stats"
         Register-Child $pm "PresentMon"
-        Start-Sleep ($WindowSec + 1); $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
+        $smp = @(); $end = $w0.AddSeconds($WindowSec + 1)
+        if ($QuietGuard) {   # ~2 s foreign-CPU samples for the whole window (our tree + PresentMon + Nioh3 excluded)
+            $ex = Get-QuietExclude @($pm.Id)
+            while (($left = ($end - (Get-Date)).TotalSeconds) -gt 0.3) { $smp += Measure-Foreign ([Math]::Min(2.0, $left)) $ex }
+        } else { Start-Sleep ($WindowSec + 1) }
+        $pm.WaitForExit(30000) | Out-Null; Start-Sleep 1
         $fgEnd = Fg-Name; $idle = Idle-Sec; $span = ((Get-Date) - $w0).TotalSeconds
+        $bad = @($smp | Where-Object { $_.noisy }); $fmax = 0.0; foreach ($x in $smp) { if ($x.cores -gt $fmax) { $fmax = $x.cores } }
+        $worst = $smp | Sort-Object cores -Descending | Select-Object -First 1
+        # noisy: >= 2 noisy samples, or one sample above twice the core limit (a lone short blip is tolerated)
+        $noisy = $bad.Count -ge 2 -or ($bad.Count -ge 1 -and $fmax -gt 2 * (QG-MaxCores))
+        $nzTxt = if ($bad.Count) { "{0}/{1} samples noisy, max {2:N2} cores [{3}]{4}" -f $bad.Count, $smp.Count, $fmax, $worst.top, $(if ($worst.heavy) { " heavy: $($worst.heavy)" } else { "" }) } else { "" }
         if ($vp -or ($fgEnd -eq "Nioh3" -and $idle -ge $span)) {   # vpad: user input never reaches the game; recorded, not discarded
+            if ($noisy -and $nz -lt $MaxNoisyRedo) {
+                Move-Item $csv "$out\${name}_noisy$nz.csv" -Force -ErrorAction SilentlyContinue
+                Manifest @{ name = "${name}_noisy$nz"; kind = "noisy_discard"; window = $name; fgn_max = $fmax; noise = $nzTxt; t = (Get-Date -f HH:mm:ss) }
+                T "!! window $name noisy ($nzTxt) - redo"; $nz++; continue
+            }
             Set-Content "$out\$name.log" (Log-From $off)
             $meta.focus_end = $fgEnd; $meta.idle_end = [Math]::Round($idle, 1); $meta.repeats = $rep
             if ($vp) { $meta.input = "vpad"; $meta.user_active = ($idle -lt $span) }
+            if ($QuietGuard) { $meta.fgn_max = $fmax; $meta.noisy = $noisy; $meta.noise = $nzTxt; $meta.noisy_redos = $nz; $meta.quiet_wait_s = $qw }
             $meta.name = $name; $meta.t = (Get-Date -f HH:mm:ss); Manifest $meta
-            T "window $name done"; return
+            if ($noisy) { T "!! window $name kept NOISY after $nz redo(s) ($nzTxt) - the report rejects it" } else { T "window $name done$(if ($fmax -gt 0) { ' (foreign max {0:N2} cores)' -f $fmax })" }
+            return
         }
         Move-Item $csv "$out\${name}_discarded$rep.csv" -Force -ErrorAction SilentlyContinue
         T ("!! window $name discarded (foreground at end {0}, input {1:N1}s ago inside the {2:N0}s window) - repeat" -f $fgEnd, $idle, $span)
+        $rep++
     }
     throw "HARNESS-ABORT: window $name disturbed 4 times"
 }
@@ -223,16 +258,28 @@ function Send-MenuKeys([string[]]$keys) {
 function Toggle([string]$id, [string]$want) {   # returns [bool]; confirmed only by the mod's 'MENU: <label> -> <want>' line
     Assert-Focus "before toggle $id"
     $m = $script:menu.items.$id; $off = Log-Len
+    $rv = $null
     if ($vp) {   # the mod sets the item on its Present thread (same code + log line as a menu press); no menu navigation
         $r = VP-MenuSet $id $(if ($want -eq "ON") { "1" } else { "0" })
         if (-not $r.ok) { T "!! toggle $id -> ${want}: $($r.reply)"; return $false }
+        if ($r.reply -match '\(value (-?\d+)\)') { $rv = [int]$Matches[1] }   # menu::RunRemote re-reads the live switch after the set
     } elseif (-not (Send-MenuKeys @($m.keys))) { T "!! toggle $id -> ${want}: mod menu did not open"; return $false }
     for ($k = 0; $k -lt 12; $k++) {
         Start-Sleep -Milliseconds 500
         $tx = Log-From $off
         if ($tx -match ("MENU: " + [regex]::Escape($m.label) + " -> " + $want)) { Add-Content "$out\menu_lines.txt" "[$(Get-Date -f HH:mm:ss)] $id -> $want"; return $true }
     }
-    T "!! toggle $id -> $want NOT confirmed"; return $false
+    # run7: AABB = 2 boots ON in ASI 1.7.39 (only ED/WG/DS/CP/SPF/MQ/PT1/DL/DQ/P1E7 honour 2), so 'menu set AABB 1' was a no-op:
+    # RunRemote presses only when the state differs, hence no MENU line. The read-back value is the live switch itself.
+    if ($null -ne $rv -and (($rv -ne 0) -eq ($want -eq "ON"))) {
+        T "toggle $id -> ${want}: no MENU line, switch already $want (read-back '$($r.reply)') - accepted"
+        Add-Content "$out\menu_lines.txt" "[$(Get-Date -f HH:mm:ss)] $id -> $want (read-back, no-op)"; return $true
+    }
+    T "!! toggle $id -> $want NOT confirmed$(if ($vp) { " (reply '$($r.reply)')" })"; return $false
+}
+function VP-ItemState([string]$id) {   # live switch state via 'menu get' (vpad): "ON" / "OFF" / $null
+    $r = VP menu get $id
+    if ($r.ok -and $r.reply -match '\(value (-?\d+)\)') { if ([int]$Matches[1] -ne 0) { "ON" } else { "OFF" } } else { T "!! menu get $id failed: $($r.reply)"; $null }
 }
 
 # ---- dry run: everything except launching/input --------------------------------------------------------------------
@@ -242,20 +289,27 @@ function Prepare {
     if ($MaxFps -gt 0) { $test.MaxFps = $MaxFps }
     foreach ($f in $LaunchFlags) { if ($Live -contains $f) { throw "$f is both -Live and a launch flag" } }
     $base0 = [IO.File]::ReadAllText($baseIni)
-    foreach ($i in $Live) {   # not installed in the base ini -> installed switched off for this run
-        if (-not ($base0 -match "(?m)^$i\s*=\s*[12]")) { $test[$i] = 2 }
+    $root = if ($SrcRoot) { $SrcRoot } else { $ws }
+    $menuCpp = "$root\mod\Nioh3EngineFix\src\menu.cpp"; $matrix = "$root\tools\testmatrix\matrix.json"
+    if (-not (Test-Path $menuCpp)) { throw "no menu.cpp under -SrcRoot $root" }
+    if (-not (Test-Path $matrix)) { $matrix = "$here\matrix.json" }
+    $mx = @{}; foreach ($it in (Get-Content $matrix -Raw | ConvertFrom-Json).items) { $mx[$it.id] = $it }
+    $two = @{}   # items whose ASI honours 2 = installed with the switch off (matrix live_installed_value)
+    foreach ($i in $Live) { if ($mx[$i] -and $mx[$i].live_installed_value -eq "2") { $two[$i] = $true } }
+    foreach ($i in $Live) {   # not installed in the base ini -> installed for this run: switched off when the ASI supports it
+        if (-not ($base0 -match "(?m)^$i\s*=\s*[12]")) { $test[$i] = $(if ($two[$i]) { 2 } else { 1 }) }
     }
     $off = @{}; foreach ($f in @("DQ", "P1E7") + $LaunchFlags) { if ($Live -notcontains $f) { $off[$f] = 0 } }
     $tmpIni = "$out\test_base.ini"; [IO.File]::WriteAllText($tmpIni, (Make-IniText ($test + $off)), (New-Object Text.UTF8Encoding($false)))
-    py -I "$here\menu_map.py" --ini $tmpIni --no-batch --device pc -o "$out\menu_map.json" | Out-Null
+    py -I "$here\menu_map.py" --ini $tmpIni --no-batch --device pc --menu-cpp $menuCpp --matrix $matrix -o "$out\menu_map.json" | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "menu_map.py failed" }
     $script:menu = Get-Content "$out\menu_map.json" -Raw | ConvertFrom-Json
     $bt = [IO.File]::ReadAllText($tmpIni)
-    foreach ($i in $Live) {   # boot state from the ini (1 = installed+ON, 2 = installed+OFF, 0 = not installed: cannot be switched live)
-        if (-not $script:menu.items.$i) { throw "no menu row for $i" }; $labels[$i] = $script:menu.items.$i.label
+    foreach ($i in $Live) {   # boot state from the ini (1 = installed+ON, 2 = installed+OFF where supported, 0 = not installed)
+        if (-not $script:menu.items.$i) { throw "no menu row for $i (installed ASI newer than $($root)? pass -SrcRoot)" }; $labels[$i] = $script:menu.items.$i.label
         $v = if ($bt -match "(?m)^$i\s*=\s*(\d)") { $Matches[1] } else { "0" }
         if ($v -eq "0") { throw "$i = 0 in the base ini: not installed, cannot toggle live" }
-        $script:bootState[$i] = $(if ($v -eq "2") { "OFF" } else { "ON" })
+        $script:bootState[$i] = $(if ($v -eq "2" -and $two[$i]) { "OFF" } else { "ON" })   # 2 on an item without 2-support = ON
     }
     return $test
 }
@@ -272,6 +326,8 @@ if ($DryRun) {
     $c = [IO.File]::ReadAllText($cfg); "  config.xml now: " + (("FRAME_GENERATION", "REN_RAT", "RESOLUTION_SCALING" | ForEach-Object { if ($c -match "<$_>([^<]+)<") { "$_=$($Matches[1])" } }) -join " ") + " -> test: FRAME_GENERATION=OFF REN_RAT=$RenRat RESOLUTION_SCALING=$Upscaler"
     "  foreground now: $(Fg-Name)"
     $da = if ($Arms.Count) { $Arms } elseif ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
+    "  quiet guard: " + $(if ($QuietGuard) { $m = Measure-Foreign 2.0; "on (max {0} cores, heavy {1} cores, redo {2}); now foreign {3:N2} cores [{4}] -> {5}" -f (QG-MaxCores), (QG-HeavyCores), $MaxNoisyRedo, $m.cores, $m.top, $(if ($m.noisy) { "NOISY" } else { "quiet" }) } else { "off" })
+    "  lock file: $script:MeasureLock (now: $(if (Test-MeasureLock) { 'held by pid ' + (Test-MeasureLock).pid } else { 'free' }))"
     "  arms: " + (($da | ForEach-Object -Begin { $n = 0 } -Process { $n++; "L$n $_" + $(if ($n -eq 1) { "(+live $($Live -join ','))" } else { "" }) }) -join " ") + $(if ($MaxFps -gt 0) { "  [VRR] MaxFps $MaxFps" } else { "" })
     Remove-Item $out -Recurse -Force
     return
@@ -279,6 +335,7 @@ if ($DryRun) {
 
 Init-Guard -Name "abba2" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-GameClean; Restore-All; Stop-TestPopup }
 Start-TestPopup -Name "abba2 flag A/B" -InputMode $InputMode   # status popup; input blocking only if the user clicks it
+Set-MeasureLock "starting"   # %TEMP%\nioh3_measuring.lock until Done-Guard / Guard-Fail
 T "abba2 start: input=$InputMode out=$out live=$($Live -join ',') launch=$($LaunchFlags -join ',') window=${WindowSec}s quads=$Quads cfg: FG OFF REN_RAT $RenRat $Upscaler"
 $LaunchFlags = @($LaunchFlags | Where-Object { $_ -and $_ -ne "none" }); $Live = @($Live | Where-Object { $_ -and $_ -ne "none" })   # -LaunchFlags none = live items only (one launch)
 $arms = if ($Arms.Count) { $Arms } elseif ($LaunchFlags.Count) { @("BASE") + $LaunchFlags + $LaunchFlags[($LaunchFlags.Count - 1)..0] + @("BASE") } else { @("BASE") }
@@ -292,6 +349,14 @@ try {
         T "launch L$L $arm"; Set-TestStatus "launch L$L of $($arms.Count) ($arm)"
         if (-not (Start-Play)) { T "boot failed L$L - abort (no relaunch loop)"; break }
         $bi = Boot-Info; T "L$L boot: ver $($bi.ver) DQ $($bi.dq) P1E7 $($bi.p1e7) MA $($bi.ma)"
+        if ($L -eq 1 -and $vp -and $Live.Count -gt 0) {   # read the real boot state back; live items that boot ON go OFF so the BASE windows are stock
+            foreach ($i in $Live) {
+                $rs = VP-ItemState $i
+                if ($rs -and $rs -ne $script:bootState[$i]) { T "!! $i boots $rs (ini expectation $($script:bootState[$i]))"; $script:bootState[$i] = $rs }
+                if ($script:bootState[$i] -eq "ON") { if (Toggle $i "OFF") { $script:bootState[$i] = "OFF" } else { T "!! $i stays ON for the BASE windows" } }
+            }
+            T "L1 live boot state: " + (($Live | ForEach-Object { "$_ $($script:bootState[$_])" }) -join ", ")
+        }
         T "L$L warm-up 60 s (no input)"; Start-Sleep 60
         for ($s = 1; $s -le 3; $s++) {
             Window "L${L}_${arm}_s$s" @{ kind = "launch"; launch = $L; arm = $arm; state = $(if ($arm -eq "BASE") { "off" } else { "on" }); boot_dq = $bi.dq; boot_p1e7 = $bi.p1e7; boot_ma = $bi.ma; ver = $bi.ver }
