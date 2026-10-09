@@ -87,6 +87,7 @@ class Menu:
             if row in rows:
                 e = expr.replace("&&", " and ").replace("||", " or ").replace("g_host.", "")
                 e = re.sub(r"gpuopt::GetState\(\)\s*!=\s*gpuopt::State::Off", "gpuopt_on", e)
+                e = re.sub(r"rematch::Installed\(\)", "rematch_on", e)  # 1.7.40 boss rematch row ([Rematch] Enable, v2.02)
                 return bool(eval(e, {"__builtins__": {}}, env))
         return self.vis_default
 
@@ -100,7 +101,8 @@ def make_env(ini, wine, known_build):
     rew = wine and (g("GpuOpt", "R2a") or g("GpuOpt", "R2b") or g("GpuOpt", "R1"))
     return {"wine": wine, "knownBuild": known_build, "base": known_build,
             "w3Enable": bool(g("Patches", "W3")), "w3UseSleep": bool(wine and g("Patches", "W3")),
-            "gpuopt_on": bool(g("GpuOpt", "Barriers") or g("GpuOpt", "TraceRecords") or g("Profiler", "GPUProf") or rew)}
+            "gpuopt_on": bool(g("GpuOpt", "Barriers") or g("GpuOpt", "TraceRecords") or g("Profiler", "GPUProf") or rew),
+            "rematch_on": bool(known_build and g("Rematch", "Enable"))}
 
 
 def row_for_item(menu, item):
