@@ -666,6 +666,31 @@ def main():
         else:
             check(bytes.fromhex(st["orig"]) == b, "rematch.cpp %s: bytes != %s orig" % (name, st["id"]))
     print("1.7.40 Rematch: %d rematch.cpp sites (hooks + call targets + code references) checked against the dump and patches.json" % len(rsites))
+    # 1.7.40 JT (job-timing probe, measurement only; src/jt.asm). JTc replaces two instructions (`mov rcx,rbx` | `call rdx`):
+    # no branch may land on 40E51, and the call must return to `mov rsi,rax` (the job's result). JTw / JTx sit inside the STL
+    # condition_variable win7 wait / wait_for, JTn1 / JTn2 are its notify_one / notify_all tail jumps (`48 FF 25` jmp [IAT]);
+    # all four functions are slots 0-3 of the vtable at 3942338.
+    jt = [s for s in doc["sites"] if s["group"] == "JT"]
+    jt_ok = check(len(jt) == 5, "JT: expected 5 sites, found %d" % len(jt))
+    for s in jt:
+        rva, ln = int(s["rva"], 16), s["len"]
+        o = bytes(int(x, 16) for x in s["orig"].split())
+        if "iat_jmp_name" in s:
+            at = int(s["iat_jmp_at"])
+            slot = rva + at + 4 + struct.unpack_from("<i", o, at)[0]
+            jt_ok &= check(o[at - 3:at] == hb("48FF25") and iat.get(slot, "").upper() == s["iat_jmp_name"].upper(),
+                           "%s: jmp [rip+disp] -> 0x%X = %s, expected %s" % (s["id"], slot, iat.get(slot), s["iat_jmp_name"]))
+        bad = branch_targets_into(rva, ln)
+        jt_ok &= check(not bad, "%s: branch(es) land inside the overwritten range: %s" % (s["id"], bad))
+    jt_ok &= check(img[0x40E4E:0x40E56] == hb("488BCBFFD2488BF0"), "JTc: not `mov rcx,rbx; call rdx; mov rsi,rax`")
+    vt = 0x3942338
+    for k, (fn, site) in enumerate(((0xB616A4, "JTw"), (0xB616E8, "JTx"), (0xB61670, "JTn1"), (0xB61658, "JTn2"))):
+        st = by_id.get(site)
+        jt_ok &= check(struct.unpack_from("<Q", img, vt + 8 * k)[0] == ib0 + fn and st is not None
+                       and fn <= int(st["rva"], 16) < fn + 0x20, "JT: vtable 3942338 slot %d is not %X containing %s" % (k, fn, site))
+    jt_ok &= check(img[0xB61670:0xB61674] == hb("4883C108") and img[0xB61658:0xB6165C] == hb("4883C108"),
+                   "JT: notify_one / notify_all do not start with add rcx,8 (the CV the wait cave records)")
+    print("1.7.40 JT: 5 sites, IAT jmp names, branch scan, JTc return to mov rsi,rax, STL cv vtable slots 0-3: %s" % ("OK" if jt_ok else "FAIL"))
 
     print()
     if fails:

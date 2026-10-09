@@ -600,6 +600,7 @@ void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, 
         g_origRB[S](cl, n, b);
         return;
     }
+    if (gp::g_gqHeads) gp::OnListHead(cl, S);  // 1.7.40 GQ: a barrier is often a list's first GPU command (stamp before it)
     if (g_giHooks) gimerge::OnBarrier(cl, S, n, b);  // 1.7.29: a transition on a list with a held Dispatch replays it first
     void* const ra = _ReturnAddress();
     Add(g_c.calls);

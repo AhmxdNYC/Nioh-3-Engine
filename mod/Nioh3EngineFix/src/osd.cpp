@@ -654,6 +654,7 @@ bool CallerIsGame(const void* ra) {
 void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D12CommandList* const* lists) {
     static thread_local bool lastIsDirect = false;
     tilestats::OnEcl(q, n, CallerIsGame(_ReturnAddress()));  // before g_origEcl for EVERY caller (TileBatch correctness)
+    if (gp::g_gqHeads) gp::OnEcl(q, n, (void* const*)lists, _ReturnAddress(), CallerIsGame(_ReturnAddress()));  // 1.7.40 GQ
     if (!CallerIsGame(_ReturnAddress())) {
         g_origEcl(q, n, lists);
         return;
