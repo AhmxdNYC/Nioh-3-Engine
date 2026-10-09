@@ -1,5 +1,5 @@
 # pc_retest_run8.ps1 - PC re-test run8 on ASI 1.7.40 (main: BPO row, AABB=2 fixed), 2026-10-08. One go, no fiddling.
-#   A  live quads  AABB,BPO,DQ,P1E7            abba2_pc.ps1 -Live ... -LaunchFlags none -Quads 3        (pc-cpu-next.md s5 Block A)
+#   A  live quads  AABB,BPO,DQ,P1E7,W1B,RPA        abba2_pc.ps1 -Live ... -LaunchFlags none -Quads 3        (pc-cpu-next.md s5 Block A)
 #   C  MA launch arms                          abba2_pc.ps1 -Arms BASE,MA,BASE,MA,BASE -Live none        (Block C)
 #   J  JT probe, one launch, log-only          abba2_pc.ps1 -Arms BASE,JT,BASE -Live none ; tools\gqjt_digest.py on the JT launch log
 #   P  PJ prewarm A/B on a fixed tour route    tools\tour\run_tour.ps1 x4 (tourlist_pj.txt: 5 stages, 2 points x 4 s), SPR = 1, vpad:
@@ -31,7 +31,7 @@ function Renew { if (-not $DryRun) { Push-Location $br; try { py -m uo_bridge.ga
 $Blocks = @($Blocks -split "," | ForEach-Object { $_.Trim().ToUpper() } | Where-Object { $_ })
 foreach ($b in $Blocks) { if ($b -notin "A", "C", "J", "P") { throw "unknown block $b (A, C, J, P)" } }
 $abbaArgs = @{
-    A = @("-Live", "AABB,BPO,DQ,P1E7", "-LaunchFlags", "none", "-Quads", "3")
+    A = @("-Live", "AABB,BPO,DQ,P1E7,W1B,RPA", "-LaunchFlags", "none", "-Quads", "3")
     C = @("-Arms", "BASE,MA,BASE,MA,BASE", "-Live", "none")
     J = @("-Arms", "BASE,JT,BASE", "-Live", "none")
 }
