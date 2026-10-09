@@ -248,3 +248,21 @@ function Test-MeasureLock {   # for other agents / scripts: the live lock object
     try { $o = Get-Content $script:MeasureLock -Raw -ErrorAction Stop | ConvertFrom-Json; if (Get-Process -Id ([int]$o.pid) -ErrorAction SilentlyContinue) { return $o } } catch {}
     return $null
 }
+
+# Set-WeakAffinity - optional "weak CPU" simulation (-Affinity N). Per-process affinity of the Nioh3 process only (dies with the process;
+# no system-wide setting, power plan or clock change). Picks N logical CPUs on distinct physical cores first (SMT siblings are assumed
+# adjacent: logical 2k,2k+1 = core k when logical = 2 x cores), then siblings if N > cores. Logs the mask.
+function Set-WeakAffinity([int]$N, [scriptblock]$Log = { param($m) Write-Host $m }) {
+    if ($N -le 0) { return }
+    $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $p) { & $Log "AFFINITY: no Nioh3 process, nothing set"; return }
+    $cpu = @(Get-CimInstance Win32_Processor)
+    $cores = ($cpu | Measure-Object NumberOfCores -Sum).Sum; $logi = ($cpu | Measure-Object NumberOfLogicalProcessors -Sum).Sum
+    if ($logi -gt 64) { $logi = 64 }
+    $smt = if ($cores -gt 0 -and $logi -ge 2 * $cores) { [int]($logi / $cores) } else { 1 }
+    $order = @(); for ($s = 0; $s -lt $smt; $s++) { for ($c = 0; $c -lt $cores; $c++) { $order += ($c * $smt + $s) } }
+    if ($N -gt $order.Count) { $N = $order.Count }
+    $mask = [int64]0; foreach ($i in $order[0..($N - 1)]) { $mask = $mask -bor ([int64]1 -shl $i) }
+    try { $p.ProcessorAffinity = [IntPtr]$mask; & $Log ("AFFINITY: Nioh3 pid {0} -> {1} logical CPUs, mask 0x{2:X} (cpu list {3}; machine {4} cores / {5} logical, smt {6}); per-process, reverts when the game exits" -f $p.Id, $N, $mask, ($order[0..($N - 1)] -join ","), $cores, $logi, $smt) }
+    catch { & $Log "AFFINITY: failed to set mask: $_" }
+}

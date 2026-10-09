@@ -30,7 +30,9 @@ param(
     # extra ini keys "Section.Key=Value" joined by ";" (e.g. "Patches.PJ=1;Patches.SPR=1"); applied after the tour keys (pc_retest_run8.ps1 Block P)
     [string[]]$ExtraKeys = @(),
     # hold the vpad title -> Continue step until the PJ prewarm has finished (log 'PJ: prewarm done' / refused / nothing to do), max -WaitPrewarmSec; stutter.md 6.1 B2
-    [switch]$WaitPrewarm, [int]$WaitPrewarmSec = 300
+    [switch]$WaitPrewarm, [int]$WaitPrewarmSec = 300,
+    # weak-CPU simulation: pin the Nioh3 process to N logical CPUs (distinct physical cores first), per process, harness-set
+    [int]$Affinity = 0
 )
 $vp = $InputMode -eq "vpad"
 $ErrorActionPreference = "Stop"
@@ -120,6 +122,7 @@ function Launch-Game([int]$n) {
     $script:game = Get-Process Nioh3 -ErrorAction SilentlyContinue | Select-Object -First 1
     Register-Game
     if (-not $script:game) { Guard-Fail "the game did not start within 180 s" }
+    if ($Affinity -gt 0) { Set-WeakAffinity $Affinity { param($m) Say $m } }
     if ($WaitPrewarm -and -not $DryRun) {
         $tw = Get-Date; $pw = ""
         while (((Get-Date) - $tw).TotalSeconds -lt $WaitPrewarmSec) {

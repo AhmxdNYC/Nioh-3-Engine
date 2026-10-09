@@ -24,7 +24,7 @@ param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Qu
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
       [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30,
       [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui", [string[]]$Arms = @(), [int]$MaxFps = 0,
-      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0, [string]$BaseIniFile = "")
+      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0, [string]$BaseIniFile = "", [int]$Affinity = 0)   # -Affinity N: weak-CPU simulation, Nioh3 process pinned to N logical CPUs (distinct cores first)
 # run7 (2026-10-08, notes\run7-analysis.md):
 #   -SrcRoot <checkout/worktree> = the tree the installed ASI was built from (e.g. D:\nioh3-wt\integ for 1.7.40 BPO): menu rows
 #   come from its mod\...\menu.cpp and live-item install values from its tools\testmatrix\matrix.json (default: this repo).
@@ -137,7 +137,7 @@ function Start-Play-Vpad {   # -Input vpad: no clicks, no focus, no idle wait
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
     if (-not $p) { Note-Crash "no game window after launch"; return $false }
-    $script:gamePid = $p.Id; Register-Game
+    $script:gamePid = $p.Id; Register-Game; if ($Affinity -gt 0) { Set-WeakAffinity $Affinity { param($m) T $m } }
     Start-Sleep 3; VP-GiveBackFocus $before   # the new game window took the foreground once: hand it back to the user
     if (-not (VP-WaitPipe 180)) { T "!! no VirtualPad pipe (is the ASI >= 1.7.37 installed?)"; return $false }
     T "vpad: $((VP ping).reply)"
@@ -158,7 +158,7 @@ function Start-Play {
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
     if (-not $p) { Note-Crash "no game window after launch"; return $false }
-    $script:gamePid = $p.Id; Register-Game
+    $script:gamePid = $p.Id; Register-Game; if ($Affinity -gt 0) { Set-WeakAffinity $Affinity { param($m) T $m } }
     Start-Sleep 25
     UI focus Nioh3; UI click 1280 887; Start-Sleep 22
     UI focus Nioh3; UI click 1280 1170; Start-Sleep 7
