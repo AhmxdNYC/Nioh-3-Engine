@@ -1,0 +1,92 @@
+Proton log: 5168147 lines, 311.3 s
+  Proton:         1790839227 experimental-11.0-20261001-x86_64
+  SteamGameId:    3681010
+  Command:        ['/var/home/bazzite/.local/share/Steam/steamapps/common/Nioh3/Nioh3.exe']
+  Options:        {'gamedrive', 'forcelgadd'}
+  depot:          4.0.20260805.254769
+  pressure-vessel: 0.20260805.0
+  scripts:        0.20260805.0
+  Kernel:         Linux 7.2.7-ogc1.1.fc44.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Sep 25 06:00:41 UTC 2026 x86_64
+  sync:           ntsync: up and running.
+  graphics:       dxvk v3.1.1-47-g685301564ea3486, wined3d loaded, vkd3d 44cf7c2042168f3, runtime_hlsl builtin d3dcompiler loaded
+  driver:         Driver   : radv 26.2.2
+
+DLLs: 24 native from the game/mod folders, 10 native from system32 (DXVK/vkd3d/vcredist), 114 builtin
+  native  C:\Program Files (x86)\Steam\gameoverlayrenderer64.dll
+  native  C:\Program Files (x86)\Steam\steamclient64.dll
+  native  S:\steamapps\common\Nioh3\DINPUT8.dll   <- proxy
+  native  S:\steamapps\common\Nioh3\Nioh3.exe
+  native  S:\steamapps\common\Nioh3\Nioh3EngineFix.asi
+  native  S:\steamapps\common\Nioh3\dxcompiler.dll
+  native  S:\steamapps\common\Nioh3\libxell.dll
+  native  S:\steamapps\common\Nioh3\libxess.dll
+  native  S:\steamapps\common\Nioh3\libxess_fg.dll
+  native  S:\steamapps\common\Nioh3\sl.common.dll
+  native  S:\steamapps\common\Nioh3\sl.dlss.dll
+  native  S:\steamapps\common\Nioh3\sl.dlss_g.dll
+  native  S:\steamapps\common\Nioh3\sl.interposer.dll
+  native  S:\steamapps\common\Nioh3\sl.pcl.dll
+  native  S:\steamapps\common\Nioh3\sl.reflex.dll
+  native  S:\steamapps\common\Nioh3\steam_api64.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\wine\mono\wine-mono\lib\mono\4.5\Facades\netstandard.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\wine\mono\wine-mono\lib\mono\4.5\mscorlib.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\wine\mono\wine-mono\lib\mono\gac\System.Core\4.0.0.0__b77a5c561934e089\System.Core.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\wine\mono\wine-mono\lib\mono\gac\System.Numerics\4.0.0.0__b77a5c561934e089\System.Numerics.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\wine\mono\wine-mono\lib\mono\gac\System\4.0.0.0__b77a5c561934e089\System.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\xalia\Superpower.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\xalia\Tmds.DBus.Protocol.dll
+  native  S:\steamapps\common\Proton - Experimental\files\share\xalia\xalia.exe
+  OVERRIDE MISSING: amd_ags_x64.dll
+
+Problems (1)
+  [override_missing] amd_ags_x64.dll is in the game folder but Wine loaded its builtin
+
+Exceptions (+seh), per code
+  c0000005 access violation                     379119  1320.0/s
+  40010006 OutputDebugStringA                    28260  91.5/s
+  406d1388 set thread name (MSVC)                  135  0.4/s
+  80000001                                          40  0.1/s
+
+Debug strings (top)
+     9009  "[N:N:N] SP main       N %  fn #\n"
+      778  "[N:N:N] SP kidsts     N %  fn #\n"
+      726  "[N:N:N] SP kidsTS     N %  fn #\n"
+      676  "[N:N:N] SP main       N %  [ntdll.dll] <- fn #\n"
+      226  "[N:N:N] SP main       N %  [winevulkan.dll] <- fn #\n"
+      193  "[N:N:N] SP app        N %  [ntdll.dll] <- fn #\n"
+      178  "[N:N:N] SP app        N %  fn #\n"
+      170  "[N:N:N] SP kidsts     N %  [ntdll.dll] <- fn #\n"
+      154  "[N:N:N] SP kidsTS     N %  [ntdll.dll] <- fn #\n"
+      130  "[N:N:N] LoadStats tick #N +N s: frames N, CPU N cores, A act N, read N MB, inflate N ms, PSO N, stage N, acc N\n"
+
+fixme/err/warn by channel:function (top)
+    72163  fixme:d3dcompiler:skip_u32_unknown               Skipping N unknown u32s:
+    34489  fixme:d3dcompiler:d3dcompiler_shader_reflection_ iface #, desc # partial stub!
+     8121  fixme:d3dcompiler:d3dcompiler_shader_reflection_ Unhandled section 'SFI0'!
+     2017  fixme:d3dcompiler:d3dcompiler_parse_stat         Unhandled size N.
+      367  warn:threadname:NtSetInformationThread           Thread renamed to L"wine_rpcrt4_server"
+       89  warn:threadname:dispatch_exception               Thread renamed to "DeviceHotplugThread"
+       12  fixme:cryptasn:CryptDecodeObjectEx               Unsupported decoder for lpszStructType N.N.N.N.N
+       12  fixme:crypt:ProvStore_release                    Unimplemented flags N
+       12  fixme:crypt:MemStore_release                     Unimplemented flags N
+       10  fixme:process:NtQueryInformationProcess          ProcessHandleCount (#,#,#,(nil)) stub
+
+DXVK / vkd3d-proton warnings (top)
+     1390  warn vkd3d-proton: Empty box (N, N, N)-(N, N, N).
+      237  warn vkd3d-proton: DSV format is DXGI_FORMAT_UNKNOWN.
+       71  warn vkd3d-proton: Event completion for native sync handle is already in the list.
+        5  warn dxvk: CreateDXGIFactory2: Ignoring flags
+        4  warn vkd3d-proton: Failed to wait for VR registry key ready.
+        4  warn vkd3d-proton: Failed to get OpenXR extensions size from wineopenxr.
+        4  warn vkd3d-proton: {#-ab10-N-b03b-#} not implemented, returning E_NOINTERFACE.
+        4  warn vkd3d-proton: {#-6e51-45b3-90ee-#} not implemented, returning E_NOINTERFACE.
+        3  warn vkd3d-proton: {#-ac77-4e88-N-#} not implemented, returning E_NOINTERFACE.
+        2  warn dxvk: OpenXR: Unable to get required Vulkan instance extensions size
+
+Thread names: 38=wine_rpcrt4_server, 44=wine_rpcrt4_io, 48=wine_threadpool_worker, 50=wine_sechost_service, 6c=wine_rpcrt4_io, 74=wine_sechost_service, 78=wine_rpcrt4_server, 84=wine_rpcrt4_io, 8c=wine_sechost_service, 90=wine_nsi_notification, a0=wine_rpcrt4_io, a8=wine_sechost_service, c0=wine_rpcrt4_io, c4=wine_threadpool_worker, d8=wine_threadpool_worker, ec=wine_explorer_display_settings_restorer, f0=wine_rpcrt4_server, f4=wine_rpcrt4_io, 100=wine_rpcrt4_io, 108=wine_sechost_service
+
+Hints
+  - a proxy DLL exists in the game folder but Wine loaded its own builtin: add WINEDLLOVERRIDES="<name>=n,b" %command% (modcheck.py launch prints the line).
+  - wined3d (OpenGL translation) is in use instead of DXVK/vkd3d-proton: far slower; check why (Vulkan init failure lines, PROTON_USE_WINED3D in the launch options) before measuring anything.
+  - an exception code fires at a high rate: every exception goes through Wine's dispatcher; if it is a thread-name or debug-string exception in a hot loop, the game-side fix is to skip it under Wine (detect wine_get_version), measured with an A/B.
+  - the game loaded d3dcompiler_*: it compiles HLSL at run time; Wine's builtin compiler is vkd3d-shader based: watch for compile errors and stalls at first use of an effect.
