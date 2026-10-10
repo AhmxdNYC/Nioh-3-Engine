@@ -234,65 +234,65 @@ deeper ECL ring (it already grows with the list ring), splitting the KtglCache l
 
 ## 8. KTGL token table (3C02220, 185 entries)
 
-64 of 185 handlers named (S: decompile / disassembly; payload layouts in the symbol descriptions). Handler signature `void h(SynCtx* c, u8** cursor)`.
+185 of 185 handlers named (S: decompile / disassembly; payload layouts in the symbol descriptions). Handler signature `void h(SynCtx* c, u8** cursor)`.
 
 | op | handler | name | D3D12 command-list methods reached (vcalls) | what it does |
 |---|---|---|---|---|
-| 00 | 7D9A60 | ? | - |  |
-| 01 | 8F0B44 | ? | - |  |
+| 00 | 7D9A60 | SynTokBeginRenderPass00 | - | tok 0x00: hdr = RT count (b0), flag (b1), byte2/hi16 args; reads 2 dwords + qword DSV + n qword RTVs and hands them to SynBeginRenderPass (push pas... |
+| 01 | 8F0B44 | SynTokFencePoint01 | - | tok 0x01: adv4, reads one u32 and tail-jumps to SynTokFencePoint (list boundary + state reset) |
 | 02 | 458E34 | SynCmdReplaySetRenderTargets | ClearRenderTargetView, ResourceBarrier | 463 B command-stream decoder (no direct callers, handler table): header u32 = RTV count (low byte) / flag (byte 1) / ...; reads up to 8 RTV handles... |
 | 03 | 45A020 | SynTokCopyTextureRegion03 | CopyTextureRegion, ResourceBarrier | tok 0x03: src -> COPY_SOURCE, dst -> COPY_DEST, CopyTextureRegion, src restored (depth bits stripped); no stamp |
-| 04 | 866638 | ? | ClearRenderTargetView, ResourceBarrier |  |
-| 05 | 2F0D814 | ? | ClearRenderTargetView, ResourceBarrier |  |
-| 06 | 2F0E420 | ? | - |  |
+| 04 | 866638 | SynTokClearRtvDsv04 | ClearRenderTargetView, ResourceBarrier | tok 0x04: hdr byte2 = slot, byte3 = flag, 2 dwords; calls SynClearRtvDsvTracked (ClearRenderTargetView/ClearDepthStencilView with RENDER_TARGET/DEP... |
+| 05 | 2F0D814 | SynTokClearRtvDsv05Entry | ClearRenderTargetView, ResourceBarrier | tok 0x05: hdr byte2/byte3, 4 dwords color/depth-stencil values + 1 dword, calls SynTokClearRtvDsv05 (2EFBDA4); consumes 24 B |
+| 06 | 2F0E420 | SynTokResetDefaultRenderState06 | - | tok 0x06: adv4, tail-jumps SynSetDefaultRenderState (resets the cached fixed-function state to defaults) |
 | 07 | 45A42C | SynTokReadDescriptorList384 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | decodes token header, memsets 0x180 bytes and reads up to N entries from token stream (was SynTokReadStateBlock384) |
 | 08 | 45D020 | SynTokFlushDrawsIfStateChanged | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token handler: reads packed token, flushes pending draws (+0x2458) if per-slot state (+0x170) differs (was SynTokFlushThenBindDraw) |
 | 09 | 699B18 | SynTokSetPerRtValue09 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | KTGL tok 0x09: per-render-target u32 at c+0xA4[8] (slot 0xFF = all 8), mirrored to c+0x79C for enabled RTs (c+0x794), dirty c+0xB24 /= 0x20; flushe... |
 | 0A | 111B3C | SynCmdReplaySetStateVariant16E | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | 152 B command-stream decoder (no direct callers); reads u32, flag = hi16 != 0; if it differs from ctx+16Eh: SynFlushImmediateDraws when +2458h pend... |
-| 0B | 111CBC | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
+| 0B | 111CBC | SynTokSetAlphaTest0B | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x0B: hdr byte2 = alpha func (ctx+0xE0), byte3 = alpha ref (ctx+0xE4); flushes immediate draws on change and calls SynUpdateAlphaTestConstant |
 | 0C | 45B208 | SynTokSetFlag16F | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token handler: when bit16 of the token changes the flag +16Fh, flushes immediate draws, updates +780h bit0 and marks state dirty (+B24h/20h) (cpu10... |
-| 0D | 45E52C | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
+| 0D | 45E52C | SynTokSetStateE8_0D | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x0D: hdr hi16 -> ctx+0xE8; low 3 bits packed into ctx+0x780 bits 2-4, dirty OR 0x20 (likely a 3-bit raster/blend mode) |
 | 0E | 45E5E0 | SynTokFlushDrawsIfStateChangedB | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token handler: flushes draws if flag byte (+0x188) differs from token bit, clears bit1 of +0x780 (was SynTokFlushThenSetState) |
 | 0F | 797384 | SynTokFlushDrawsIfStateChangedC | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token handler: flushes draws if flag byte (+0x16d) differs from token bit (was SynTokFlushThenSetStateB) |
 | 10 | 696DA8 | SynOMSetStencilRef | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, OMSetStencilRef, RSSetScissorRects, RSSetViewports, ResourceBarrier | SynRecord subsystem; D3D12: CL.OMSetStencilRef (sites 696E68) |
 | 11 | 79E6B8 | SynCmdSetStencilOps | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | 375 B command-stream handler: reads packed u32 (fail b0, depth-fail b1, pass hi16), if changed vs cache +0xD0/+0xD4/+0xD8 flushes SynFlushImmediate... |
-| 12 | 79E5E8 | ? | - |  |
-| 13 | 2F0E1D8 | ? | - |  |
-| 14 | 45B154 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 15 | 861294 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
+| 12 | 79E5E8 | SynTokSetStateDC_12 | - | tok 0x12: hdr hi16 -> ctx+0xDC; updates ctx+0x785 byte (gated by 0x780 mode bits) and dirty flags |
+| 13 | 2F0E1D8 | SynTokSetRasterMode9C_13 | - | tok 0x13: hdr hi16 -> SynSetRasterModeAt9C (ctx+0x9C validated against a mode table; bit 16 of ctx+0x784 when mode==2) |
+| 14 | 45B154 | SynTokSetStateBits98_14 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x14: hdr hi16 -> ctx+0x98, low 2 bits into ctx+0x784 bits 17-18, dirty OR 0x20 |
+| 15 | 861294 | SynTokSetFlag189_15 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x15: boolean = (hdr hi16 != 0) stored at ctx+0x189, dirty OR 8; flushes immediate draws first |
 | 16 | 458CC0 | SynTokReadDescriptorList256 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | decodes token header, memsets 0x100 bytes and reads up to N descriptor entries from token stream (was SynTokReadStateBlock256) |
-| 17 | 45BB70 | ? | - |  |
-| 18 | 45BB8C | ? | - |  |
-| 19 | 7865F4 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 1A | 2F0DCEC | ? | - |  |
-| 1B | A19564 | ? | - |  |
-| 1C | 9B48F0 | ? | - |  |
-| 1D | 2F0DD08 | ? | - |  |
-| 1E | 2F0E48C | ? | - |  |
-| 1F | 2F0E444 | ? | - |  |
-| 20 | 2F0E42C | ? | - |  |
+| 17 | 45BB70 | SynTokSetPolygonOffsetEnable17 | - | tok 0x17: boolean from hdr hi16, tail-jumps SynSetPolygonOffsetEnable (ctx+0x18B) |
+| 18 | 45BB8C | SynTokSetPolygonOffset18 | - | tok 0x18: reads 2 floats (slope scale, constant bias) and tail-jumps SynSetPolygonOffset (ctx+0x198/0x19C) |
+| 19 | 7865F4 | SynTokSetRtColorWriteMask19 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x19: hdr byte2 = RT index, byte3 bits 0-2 = RGB write mask, hi nibble flag = alpha; stores ctx+0x178/0x180[idx] and packs 4 bits per RT into c... |
+| 1A | 2F0DCEC | SynTokSetStateFlag16C_1A | - | tok 0x1A: boolean from hdr hi16 -> SynSetStateFlag16C (ctx+0x16C, ctx+0x784 bit 19) |
+| 1B | A19564 | SynTokSetClipPlaneMask1B | - | tok 0x1B: adv4, one u32 mask -> SynSetClipPlaneMask (ctx+0x1A0) |
+| 1C | 9B48F0 | SynTokSetClipPlane1C | - | tok 0x1C: hdr hi16 = plane index, 4 dwords plane equation (20 B) -> SynSetClipPlaneVec4 |
+| 1D | 2F0DD08 | SynTokSetStateFlag18A_1D | - | tok 0x1D: boolean from hdr hi16 -> SynSetStateFlag18A (ctx+0x18A, ctx+0x780 bit 30) |
+| 1E | 2F0E48C | SynTokSetStateAt190_1E | - | tok 0x1E: adv4, one u32 -> SynSetStateAt190 (ctx+0x190; -1/0xFFFF sentinel handling, ctx+0x780 bit 31) |
+| 1F | 2F0E444 | SynTokSetPointModeAt230_1F | - | tok 0x1F: hdr hi16 -> SynSetPointModeAt230 (ctx+0x230, pushed to stage-3 constant slot) |
+| 20 | 2F0E42C | SynTokSetPointSizeAt234_20 | - | tok 0x20: reads float at +4 -> SynSetPointSizeAt234 (ctx+0x234, pushed to stage-3 constant slot) |
 | 21 | 45D148 | SynTokSetRenderStateMode | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token handler: mode = token>>16 plus object; when changed flushes immediate draws, stores +194h/+60h and binds the matching render-state object (Sy... |
-| 22 | 2F0E164 | ? | - |  |
+| 22 | 2F0E164 | SynTokSetShaderProgramAt50_22 | - | tok 0x22: adv4, qword pointer -> SynSetShaderProgramAt50 (ctx+0x50) |
 | 23 | 1164C4 | SynTokSetPipelineLayout | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | 323 B dispatcher token handler: pops a layout/program object L; if != c+48h: SynFlushImmediateDraws when c+2458h, sets dirty c+B24h/=30h, stores L ... |
-| 24 | 45C7C4 | ? | - |  |
-| 25 | 45C7A0 | ? | - |  |
-| 26 | 45BC2C | ? | - |  |
-| 27 | 2F0E210 | ? | - |  |
-| 28 | 2F0E274 | ? | - |  |
+| 24 | 45C7C4 | SynTokSetStageProgramAt68_24 | - | tok 0x24: adv4, qword pointer -> SynSetStageProgramAt68 (stage slot 1) |
+| 25 | 45C7A0 | SynTokSetStageProgramAt70_25 | - | tok 0x25: adv4, qword pointer -> SynSetStageProgramAt70 (stage slot 2) |
+| 26 | 45BC2C | SynTokSetStageProgramAt78_26 | - | tok 0x26: adv4, qword pointer -> SynSetStageProgramAt78 (stage slot 3) |
+| 27 | 2F0E210 | SynTokSetStageProgramAt88_27 | - | tok 0x27: adv4, qword pointer -> SynSetStageProgramAt88 (stage slot 5) |
+| 28 | 2F0E274 | SynTokSetStageProgramAt90_28 | - | tok 0x28: adv4, qword pointer -> SynSetStageProgramAt90 (stage slot 6) |
 | 29 | 114750 | SynCmdSetRootSignature | - | 294 B; decodes pointer from cmd stream, if changed marks dirty flags (+0xb24 /0x20 etc.) comparing per-table counts (0x44..0x50) |
 | 2A | 1134E4 | SynTokSetProgramAt80 | - | Syn command-token handler (table 3C02370, next to SynCmdSetRootSignature): pops a program/layout ptr P; if != ctx+80h: dirty B24h/=40h, stores P at... |
 | 2B | 115988 | SynTokSetCbDataSlot | - | token handler: reads {size<<18, slot<<28 / offset} and copies the inline blob into the per-slot constant shadow c+BB0h[slot]+offset, sets dirty bit... |
 | 2C | 1146DC | SynTokUploadConstants2C_Stage0 | - | KTGL tok 0x2C (handler table 0x3C02220 slot 0x2C): decodes header and calls SynUploadConstantsToRing(stage 0) (decompile-verified, cpu100-u1) (was ... |
-| 2D | 907384 | ? | - |  |
-| 2E | 2F0E264 | ? | - |  |
-| 2F | 9055A0 | ? | - |  |
-| 30 | 900824 | ? | - |  |
-| 31 | 9061A4 | ? | - |  |
-| 32 | 2F0E254 | ? | - |  |
-| 33 | 2F0E234 | ? | - |  |
-| 34 | 2F0E244 | ? | - |  |
-| 35 | 2F0E298 | ? | - |  |
-| 36 | 2F0E2A8 | ? | - |  |
+| 2D | 907384 | SynTokCbShadowWrite_Stage1_2D | - | tok 0x2D: stub, stage=1, tail-jumps SynCbShadowWriteStage |
+| 2E | 2F0E264 | SynTokUploadConstants_Stage1_2E | - | tok 0x2E: stub, stage=1, tail-jumps SynUploadConstantsStageWorker |
+| 2F | 9055A0 | SynTokCbShadowWrite_Stage2_2F | - | tok 0x2F: stub, stage=2, tail-jumps SynCbShadowWriteStage |
+| 30 | 900824 | SynTokUploadConstants_Stage2_30 | - | tok 0x30: stub, stage=2, tail-jumps SynUploadConstantsStageWorker |
+| 31 | 9061A4 | SynTokCbShadowWrite_Stage3_31 | - | tok 0x31: stub, stage=3, tail-jumps SynCbShadowWriteStage |
+| 32 | 2F0E254 | SynTokUploadConstants_Stage3_32 | - | tok 0x32: stub, stage=3, tail-jumps SynUploadConstantsStageWorker |
+| 33 | 2F0E234 | SynTokCbShadowWrite_Stage5_33 | - | tok 0x33: stub, stage=5, tail-jumps SynCbShadowWriteStage |
+| 34 | 2F0E244 | SynTokUploadConstants_Stage5_34 | - | tok 0x34: stub, stage=5, tail-jumps SynUploadConstantsStageWorker |
+| 35 | 2F0E298 | SynTokCbShadowWrite_Stage6_35 | - | tok 0x35: stub, stage=6, tail-jumps SynCbShadowWriteStage |
+| 36 | 2F0E2A8 | SynTokUploadConstants_Stage6_36 | - | tok 0x36: stub, stage=6, tail-jumps SynUploadConstantsStageWorker |
 | 37 | 115EA4 | SynTokSetCbData_Tok37 | - | KtglTokenHandlerTable[0x37]: decodes header (size = w0>>18 dwords), slot = w1>>28, offset = w1&0xFFFF; Memcpy inline blob into SynCtx+0xD70[slot] s... |
 | 38 | 11579C | SynTokUploadConstants38_Stage4 | - | KTGL tok 0x38 (handler table 0x3C02220 slot 0x38): decodes count/stride header and calls SynUploadConstantsToRing(stage 4) (decompile-verified, cpu... |
 | 39 | 11676C | SynTokSetCbData_Tok39 | - | KtglTokenHandlerTable[0x39]: same as tok 0x37 but into per-slot shadow SynCtx+0xEC0[slot] with dirty bit in +0xB8C (another stage's CbvDirtyMask wo... |
@@ -301,128 +301,128 @@ deeper ECL ring (it already grows with the list ring), splitting the KtglCache l
 | 3C | 116260 | SynTokSetVertexBufferTracked | IASetVertexBuffers, ResourceBarrier | tok 0x3C: VB slot bind: X=(cur&0xAC3)/vb+48 via SynTransitionResource (stamp vb+28), then IASetVertexBuffers(slot,1) (vtbl+0x160); was SynTokResour... |
 | 3D | 114A20 | SynTokSetIndexBuffer | IASetIndexBuffer, ResourceBarrier | dispatcher token 0x3D: reads the IB object from the stream, skips if unchanged (c+30h), else IASetIndexBuffer view; was RenderSubmitHot_114A20 |
 | 3E | 8DAEEC | SynTokBindTexturesStage0 | - | Syn command-token handler (table 3C02410): tail-calls 115B08(stage 0, ctx, ip), which decodes the slot list and calls SynBindTextureSlot; leaf (no ... |
-| 3F | 2F0E2C8 | ? | - |  |
-| 40 | 9142FC | ? | - |  |
-| 41 | 2F0E200 | ? | - |  |
-| 42 | 2F0E1B8 | ? | - |  |
-| 43 | 2F0E308 | ? | - |  |
+| 3F | 2F0E2C8 | SynTokBindTextureSlotState_Stage1_3F | - | tok 0x3F: stub, stage=1, tail-jumps SynBindTextureSlotStateBlockStage |
+| 40 | 9142FC | SynTokBindTextureSlotState_Stage2_40 | - | tok 0x40: stub, stage=2, tail-jumps SynBindTextureSlotStateBlockStage |
+| 41 | 2F0E200 | SynTokBindTextureSlotState_Stage3_41 | - | tok 0x41: stub, stage=3, tail-jumps SynBindTextureSlotStateBlockStage |
+| 42 | 2F0E1B8 | SynTokBindTextureSlotState_Stage5_42 | - | tok 0x42: stub, stage=5, tail-jumps SynBindTextureSlotStateBlockStage |
+| 43 | 2F0E308 | SynTokBindTextureSlotState_Stage6_43 | - | tok 0x43: stub, stage=6, tail-jumps SynBindTextureSlotStateBlockStage |
 | 44 | 115A70 | SynTokReadStateBlock128Dispatch | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | decodes 128-byte state block from token stream into RenderSubmitHot_115B9C (was SynTokBindTextureSlotRead) |
-| 45 | 84196C | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 46 | 747190 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 47 | 2F0D7F4 | ? | - |  |
-| 48 | 747180 | ? | - |  |
-| 49 | 2F0D7E4 | ? | - |  |
-| 4A | 2F0D7D4 | ? | - |  |
-| 4B | 2F0D804 | ? | - |  |
-| 4C | 7471E8 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
+| 45 | 84196C | SynTokBindTextureSlotState_Stage7_45 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x45: stage 7 inline variant: hdr hi16 = slot, memset 128 B state block, SynTokReadStateBlock128 then SynBindTextureSlot(stage 7) |
+| 46 | 747190 | SynTokClearTextureSlot_Stage0_46 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x46: hdr hi16 = slot; SynBindTextureSlot(stage 0, slot, null, null) |
+| 47 | 2F0D7F4 | SynTokClearTextureSlot_Stage1_47 | - | tok 0x47: stub, stage=1, tail-jumps SynClearTextureSlotStage |
+| 48 | 747180 | SynTokClearTextureSlot_Stage2_48 | - | tok 0x48: stub, stage=2, tail-jumps SynClearTextureSlotStage |
+| 49 | 2F0D7E4 | SynTokClearTextureSlot_Stage3_49 | - | tok 0x49: stub, stage=3, tail-jumps SynClearTextureSlotStage |
+| 4A | 2F0D7D4 | SynTokClearTextureSlot_Stage5_4A | - | tok 0x4A: stub, stage=5, tail-jumps SynClearTextureSlotStage |
+| 4B | 2F0D804 | SynTokClearTextureSlot_Stage6_4B | - | tok 0x4B: stub, stage=6, tail-jumps SynClearTextureSlotStage |
+| 4C | 7471E8 | SynTokClearTextureSlot_Stage4_4C | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x4C: hdr hi16 = slot; SynBindTextureSlot(stage 4, slot, null, null) |
 | 4D | 7471BC | SynCmdClearTextureSlotStage7 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | 43 B command-stream handler: reads u32 from the cursor, advances 4 B, SynBindTextureSlot(c, stage 7, slot = v >> 16, null, 0) i.e. unbinds that tex... |
 | 4E | 113BA4 | SynTokBindBufferSrv4E | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x4E: buffer SRV bind, cache c+0x1118, X=(cur&0xA83)/NPSR, stamp from the stream |
-| 4F | 989F2C | ? | - |  |
-| 50 | 90FA3C | ? | - |  |
-| 51 | 9E5858 | ? | - |  |
-| 52 | 2F0E188 | ? | - |  |
-| 53 | 2F0E2D8 | ? | - |  |
+| 4F | 989F2C | SynTokBindBufferSrv_Stage1_4F | - | tok 0x4F: stub, stage=1, tail-jumps SynBindBufferSrvStage |
+| 50 | 90FA3C | SynTokBindBufferSrv_Stage2_50 | - | tok 0x50: stub, stage=2, tail-jumps SynBindBufferSrvStage |
+| 51 | 9E5858 | SynTokBindBufferSrv_Stage3_51 | - | tok 0x51: stub, stage=3, tail-jumps SynBindBufferSrvStage |
+| 52 | 2F0E188 | SynTokBindBufferSrv_Stage5_52 | - | tok 0x52: stub, stage=5, tail-jumps SynBindBufferSrvStage |
+| 53 | 2F0E2D8 | SynTokBindBufferSrv_Stage6_53 | - | tok 0x53: stub, stage=6, tail-jumps SynBindBufferSrvStage |
 | 54 | 115084 | SynTokBindBufferSrv54 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x54: buffer SRV bind, cache c+0x1718, stamped (twin of 8507B0) |
 | 55 | 815DB0 | SynCmdBindResourceSlot | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | 262 B; decodes cmd (slot=hi16), flushes immediate draws, SynCopyDescriptorSimple1 + SynTransitionResource; skips if slot unchanged; was RenderSubmi... |
 | 56 | 115398 | SynTokBindTextureSrv56 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x56: texture SRV bind, cache c+0x1118, no stamp |
-| 57 | 2F0E2B8 | ? | - |  |
-| 58 | 2F0E1C8 | ? | - |  |
-| 59 | 2F0E1F0 | ? | - |  |
-| 5A | 2F0E1A8 | ? | - |  |
-| 5B | 2F0E2F8 | ? | - |  |
+| 57 | 2F0E2B8 | SynTokBindTextureSrv_Stage1_57 | - | tok 0x57: stub, stage=1, tail-jumps SynBindTextureSrvStage |
+| 58 | 2F0E1C8 | SynTokBindTextureSrv_Stage2_58 | - | tok 0x58: stub, stage=2, tail-jumps SynBindTextureSrvStage |
+| 59 | 2F0E1F0 | SynTokBindTextureSrv_Stage3_59 | - | tok 0x59: stub, stage=3, tail-jumps SynBindTextureSrvStage |
+| 5A | 2F0E1A8 | SynTokBindTextureSrv_Stage5_5A | - | tok 0x5A: stub, stage=5, tail-jumps SynBindTextureSrvStage |
+| 5B | 2F0E2F8 | SynTokBindTextureSrv_Stage6_5B | - | tok 0x5B: stub, stage=6, tail-jumps SynBindTextureSrvStage |
 | 5C | 8507B0 | SynTokBindTextureSrv5C | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x5C: texture SRV bind, cache c+0x1718, no stamp |
 | 5D | 823534 | SynTokBindTextureSrv5D | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x5D: texture SRV bind, cache c+0x1B98, no stamp |
-| 5E | 90445C | ? | - |  |
+| 5E | 90445C | SynTokBindUav2Stamped_Stage0_5E | - | tok 0x5E: stub, stage=0, tail-jumps SynTokBindUav2Stamped |
 | 5F | 113A60 | SynTokBindUavStamped | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x5F: UAV bind, cache c+0x1DB0 (same descriptor: bind and transition skipped; never reset per list), SynTransitionResource(UAV) with stamp from... |
-| 60 | 698DC0 | ? | - |  |
-| 61 | 698DD0 | ? | - |  |
-| 62 | 698DE0 | ? | - |  |
-| 63 | 698DF0 | ? | - |  |
-| 64 | 2F0E198 | ? | - |  |
-| 65 | 2F0E2E8 | ? | - |  |
+| 60 | 698DC0 | SynTokSetCbData_Stage0_60 | - | tok 0x60: stub, stage=0, tail-jumps SynSetCbDataStage |
+| 61 | 698DD0 | SynTokSetCbData_Stage1_61 | - | tok 0x61: stub, stage=1, tail-jumps SynSetCbDataStage |
+| 62 | 698DE0 | SynTokSetCbData_Stage2_62 | - | tok 0x62: stub, stage=2, tail-jumps SynSetCbDataStage |
+| 63 | 698DF0 | SynTokSetCbData_Stage3_63 | - | tok 0x63: stub, stage=3, tail-jumps SynSetCbDataStage |
+| 64 | 2F0E198 | SynTokSetCbData_Stage5_64 | - | tok 0x64: stub, stage=5, tail-jumps SynSetCbDataStage |
+| 65 | 2F0E2E8 | SynTokSetCbData_Stage6_65 | - | tok 0x65: stub, stage=6, tail-jumps SynSetCbDataStage |
 | 66 | 698EAC | SynTokSetCbData | - | tok 0x66: copies the inline constant blob into the per-slot shadow c+0xD70[slot] (2nd copy) and sets dirty bit c+0xB80 |
-| 67 | 698E00 | ? | - |  |
-| 68 | 2F0E5AC | ? | CopyBufferRegion, ResourceBarrier, SOSetTargets |  |
+| 67 | 698E00 | SynTokSetCbData_Stage7_67 | - | tok 0x67: stage 7 inline variant of SynSetCbDataStage (hdr hi16 = slot, u32 size, inline data copied into shadow at ctx+0xEC0 + slot*8, dirty bit i... |
+| 68 | 2F0E5AC | SynTokCopyBufferRegion68 | CopyBufferRegion, ResourceBarrier, SOSetTargets | tok 0x68: hdr b2 (7 bits), u32, 3 qwords; calls SynCopyBufferRegionTracked (CopyBufferRegion + SOSetTargets) |
 | 69 | 6BE12C | SynTokDraw | DrawInstanced, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x69: state flush then DrawInstanced |
 | 6A | 1167D4 | SynTokDrawIndexed | DrawIndexedInstanced, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x6A: SynFlushGfxStateForDraw then DrawIndexedInstanced(count, 1, start, 0, 0); ++c+0x548 |
-| 6B | 87A4F4 | ? | - |  |
-| 6C | 2F0DC54 | ? | DrawIndexedInstanced, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 6D | 9F3484 | ? | DrawInstanced, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
+| 6B | 87A4F4 | SynTokDrawIndexedBoundIB6B | - | tok 0x6B: hdr hi16 + one u32 (instance count); calls SynDrawIndexedFromBoundIB (DrawIndexedInstanced with the bound index buffer's count) |
+| 6C | 2F0DC54 | SynTokDrawIndexedInstanced6C | DrawIndexedInstanced, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x6C: hdr hi16 + 5 dwords; calls SynDrawIndexedInstanced_2EFD898 (DrawIndexedInstanced, vtbl+0x68) |
+| 6D | 9F3484 | SynTokDrawInstanced6D | DrawInstanced, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x6D: hdr hi16 + 4 dwords; calls SynDrawInstanced_9F34E0 (DrawInstanced, vtbl+0x60) |
 | 6E | 6ECF48 | SynTokExecuteIndirect6E | ExecuteIndirect, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x6E: SynFlushGfxStateForDraw, arg buffer -> obj+30 (stamped), ExecuteIndirect |
 | 6F | 6EB908 | SynTokExecuteIndirect | ExecuteIndirect, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x6F: state flush, transition the argument buffer (115E24), ExecuteIndirect |
-| 70 | 45B670 | ? | - |  |
-| 71 | 45B67C | ? | - |  |
+| 70 | 45B670 | SynTokBeginBlitCopyPass70 | - | tok 0x70: adv4, tail-jumps SynBeginBlitCopyPass |
+| 71 | 45B67C | SynTokFlushTrackedCopyPrelude71 | - | tok 0x71: adv4, tail-jumps SynFlushTrackedCopyPrelude |
 | 72 | 8741EC | FlushPendingDrawsIfAny | - | if immediate-draw count (+0x2458) nonzero tail-jumps to flush routine (was SynFlushImmediateDrawsIfPending); function start 0x8741ec (row moved fro... |
-| 73 | 115F0C | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 74 | 2F0DA40 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers |  |
-| 75 | 7A6AB0 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 76 | 2F0DBB8 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers |  |
-| 77 | 2F0DB08 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 78 | 2F0D9EC | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 79 | 2F0DAD0 | ? | - |  |
+| 73 | 115F0C | SynTokImmediateQuad73 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x73: reads 10 dwords (rect corners / UVs / colour) and queues an immediate quad via SynEnsureImmediateDrawSpace |
+| 74 | 2F0DA40 | SynTokImmediateQuad74 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers | tok 0x74: adv4, two 20-B vertex blocks (Copy20ByteFromPtrPtr) + 2 dwords, queues an immediate quad (SynImmediateQuadThunk -> SynEnsureImmediateDraw... |
+| 75 | 7A6AB0 | SynTokImmediateQuad75 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x75: adv4, two 20-B vertex blocks + 5 dwords, queues an immediate quad via SynEnsureImmediateDrawSpace |
+| 76 | 2F0DBB8 | SynTokImmediateTriangle76 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers | tok 0x76: adv4, two 24-B vertex blocks + 2 dwords; SynImmediateTriangleUniform -> SynImmediateTriangleAppend (3 verts into immediate VB/IB) |
+| 77 | 2F0DB08 | SynTokImmediateTriangleVc77 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x77: adv4, two 24-B blocks + 12-B per-vertex data + dword; SynImmediateTriangleAppend |
+| 78 | 2F0D9EC | SynTokImmediateLine78 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x78: 7 dwords (x0,y0,x1,y1 floats + 2 args); SynImmediateLineAppend (2 verts at +0.5 offset) |
+| 79 | 2F0DAD0 | SynTokDrawVbIb79Entry | - | tok 0x79: adv4, 4 dwords + qword; tail-jumps SynTokDrawVbIb79 (2EFD430) |
 | 7A | 45C7E8 | SynTokCopyTrackedResource | CopyTextureRegion, DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | reads two handles from token stream and calls SynGenericCopyTracked, cookie-protected (was SynTokGenericCopyTrackedRead) |
-| 7B | 45DD48 | ? | CopyTextureRegion, DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
+| 7B | 45DD48 | SynTokDepthCopy7B | CopyTextureRegion, DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x7B: adv4, two 16-B boxes + qword; calls SynDepthCopyTracked (CopyTextureRegion with depth transitions) |
 | 7C | 8BB170 | SynTokComputeBegin | - | KTGL tok 0x7C: compute section begins on the graphics list (c+0x541 = 1, dirty 0x40) |
 | 7D | 8988A8 | SynTokComputeEnd | ResourceBarrier | KTGL tok 0x7D: UAV barrier (1139D4), dirty 0x20, c+0x541 = 0 |
 | 7E | 58BDC4 | SynTokDispatch | Dispatch, SetComputeRootDescriptorTable, SetPipelineState | tok 0x7E: SynFlushComputeState then Dispatch |
-| 7F | 2F0D970 | ? | +0, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 80 | 2F0D9B4 | ? | - |  |
+| 7F | 2F0D970 | SynTokDispatchMesh7F | +0, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x7F: adv4, 4 dwords (x,y,z + flags); calls SynDispatchMesh |
+| 80 | 2F0D9B4 | SynTokExecuteIndirect80Entry | - | tok 0x80: adv4, 2 dwords + qword; tail-jumps SynTokExecuteIndirect80 (2EFD138) |
 | 81 | 58BC74 | SynTokExecuteIndirectDispatch | ExecuteIndirect, ResourceBarrier, SetComputeRootDescriptorTable, SetPipelineState | tok 0x81: SynFlushComputeState, arg buffer -> obj+30 (stamp via 114C04), ExecuteIndirect |
-| 82 | 9AFDF0 | ? | - |  |
-| 83 | 9A62FC | ? | - |  |
-| 84 | 2F0DCBC | ? | - |  |
-| 85 | 2F0DCD4 | ? | - |  |
+| 82 | 9AFDF0 | SynTokPagePoolBegin82 | - | tok 0x82: adv4; sets ctx+0x543=1 and ctx+0x544=0 (opens a tile page-pool update batch) |
+| 83 | 9A62FC | SynTokPagePoolEnd83 | - | tok 0x83: adv4; if ctx+0x544 then SynPagePoolEndBatch (PagePool+61A0 flush); clears ctx+0x543 |
+| 84 | 2F0DCBC | SynTokSetStateFlag482_84 | - | tok 0x84: boolean from hdr hi16 -> SynSetStateFlag482 (ctx+0x482, ctx+0x784 bit 20) |
+| 85 | 2F0DCD4 | SynTokSetStateFlag483_85 | - | tok 0x85: boolean from hdr hi16 -> SynSetStateFlag483 (ctx+0x483, ctx+0x784 bit 31) |
 | 86 | 7F6118 | SynTokReadStateBlock128DispatchB | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | twin of 115a70: decodes 128-byte state block, calls RenderSubmitHot_115B9C with mode 1 (was SynTokBindTextureSlotReadB) |
 | 87 | 698A44 | SynTokBindTexture87 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x87: texture bind, X=(cur&0xAC3)/stage bit (R1 superset source), no stamp |
 | 88 | 698B90 | SynTokBindSrvDescriptor | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | reads packed token (slot/stage), flushes immediate draws and copies descriptors (SynCopyDescriptorSimple1) (was SynBindUavSlotIfChanged) |
-| 89 | 2F0DCA4 | ? | - |  |
+| 89 | 2F0DCA4 | SynTokGpuDrivenBatch89Entry | - | tok 0x89: hdr hi16 -> tail-jumps SynTokGpuDrivenBatch89 (2EFD8DC) |
 | 8A | 113A0C | SynTokUavBarrier | ResourceBarrier | tok 0x8A: ResourceBarrier(1, UAV, resource from token; NULL = global); emitted by GpuParticleSimRecord 694B38 once after each non-empty GPU-particl... |
 | 8B | 7A5D2C | SynTokBufferCopyTransitions | ResourceBarrier | KtglTokenHandlerTable[0x8B]: decodes 3 u32 + 2 u64 from the token stream and calls SynBufferCopyTransitions (was Unknown_Gfx_7a5d2c) |
 | 8C | 2F0D858 | SynCopyBufferRegion | CopyBufferRegion | SynRecord subsystem; D3D12: CL.CopyBufferRegion (sites 2F0D8D2) |
-| 8D | 2F0D8EC | ? | - |  |
+| 8D | 2F0D8EC | SynTokCopyResource8D | - | tok 0x8D: adv4, two qwords (dst, src); tail-jumps SynCopyResource -> CopyResource (cmd list vtbl+0x88) |
 | 8E | A96D90 | SynTokSetMarkerIface | - | token 0x8E: [4BD09C0] = qword from the stream |
-| 8F | 6B8884 | ? | - |  |
+| 8F | 6B8884 | SynTokCallbackWithCmdList8F | - | tok 0x8F: adv4, qword fn + qword arg; calls fn({ID3D12GraphicsCommandList* (ctx+0x580), ctx}, arg) on the replay thread |
 | 90 | 3D4FC4 | CmdSubStreamRun | - | token handler: reads {object, begin, end} from the stream and runs the u16 opcodes of [begin,end) through the handler table 3C02800 on object+68h (... |
-| 91 | 9E2A74 | ? | CopyTextureRegion, ResourceBarrier |  |
-| 92 | 7F9A6C | ? | ResourceBarrier |  |
-| 93 | 2F0DFEC | ? | +0, ResourceBarrier |  |
+| 91 | 9E2A74 | SynTokCopyTextureRegion91Entry | CopyTextureRegion, ResourceBarrier | tok 0x91: adv4, qword + 32-B struct + qword + 20 B; calls SynCopyTextureRegion91 (CopyTextureRegion with src/dst transitions) |
+| 92 | 7F9A6C | SynTokCopyTextureRegion92 | ResourceBarrier | tok 0x92: adv4, 2 qwords + ~14 dwords (subresources, xyz, box); calls SynCopyTextureRegionTracked (ResourceBarrier x2, CopyTextureRegion, restore) |
+| 93 | 2F0DFEC | SynTokResolveSubresourceRegion93Entry | +0, ResourceBarrier | tok 0x93: hdr hi16 flag (optional 16-B rect), 2 qwords + ~10 dwords; calls SynResolveSubresourceRegionTracked (ResolveSubresourceRegion) |
 | 94 | 7B1750 | SynTokClearUavUint | ClearUAVUint, ResourceBarrier | reads clear value/handles from token stream and calls SynClearUavUintTracked with __chkstk locals (was SynTokClearUavUintRead) |
-| 95 | 7F64B4 | ? | - |  |
-| 96 | 2F0D750 | ? | - |  |
-| 97 | 2F0D774 | ? | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier |  |
-| 98 | 891F24 | ? | - |  |
-| 99 | 981220 | ? | - |  |
-| 9A | 2F0D684 | ? | - |  |
+| 95 | 7F64B4 | SynTokPagePoolUpdate95 | - | tok 0x95: adv4; calls SynSharedLockedUpdate_7F64DC(PagePool=device+61A0, ctx, false) |
+| 96 | 2F0D750 | SynTokPagePoolTouch96 | - | tok 0x96: adv4, 2 dwords; SynPagePoolTouch (lazy-opens cmd list ring, then PagePool cache copy + dirty-bit mark) |
+| 97 | 2F0D774 | SynTokCacheTileUnmap97 | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | tok 0x97: adv4, 3 dwords + 16 B; calls CacheUnmapOnCtx (tile cache unmap batch) |
+| 98 | 891F24 | SynTokPagePoolPushRecord98 | - | tok 0x98: hdr b2/b3 flags, 3 dwords; SynPagePoolPushRecord appends {u64,u32} to PagePool record list under SRW lock |
+| 99 | 981220 | SynTokFlushPendingTransitions99 | - | tok 0x99: adv4; tail-jumps SynFlushPendingTransitions (batched resource state init via obj+0x6870 / ctx+0x6D0) |
+| 9A | 2F0D684 | SynTokCacheTileMap9A | - | tok 0x9A: adv4, qword, 16-B coord, 2 dwords, 16-B coord, 20-B region; SynCacheTileMapOnCtx -> tile cache batch map |
 | 9B | 7F52AC | SynTokTransitionResource | ResourceBarrier | tok 0x9B: explicit state-tracked transition from the stream (resource, state slot, new state, stamp, subresource); skips equal states |
 | 9C | 7C67E0 | SynResourceBarrier_7C67E0 | - | SynRecord subsystem; D3D12: CL.ResourceBarrier (sites 7C68CC) |
-| 9D | 84EFF4 | ? | - |  |
-| 9E | 8F2C90 | ? | - |  |
-| 9F | 8962D8 | ? | - |  |
+| 9D | 84EFF4 | SynTokResourceBarrierBlob9D | - | tok 0x9D: adv4, count + count*16 B barrier blob; replays it with SynResourceBarrier_85033C on ctx+0x580 |
+| 9E | 8F2C90 | SynTokWriteDwordToPtr9E | - | tok 0x9E: adv4, qword ptr + dword; stores the dword to CPU address (replay-side readback/fence flag) |
+| 9F | 8962D8 | SynTokDiscardResource9F | - | tok 0x9F: adv4, qword resource; DiscardResource(resource, NULL) (cmd list vtbl+0x198) |
 | A0 | A96D70 | SynTokSetMarkerReplay | - | token 0xA0: c+542h = byte from the stream (the engine's own replay switch) |
-| A1 | 2F0E318 | ? | - |  |
-| A2 | 2F0E39C | ? | - |  |
-| A3 | 2F0E4A4 | ? | - |  |
-| A4 | 2F0E528 | ? | - |  |
+| A1 | 2F0E318 | SynTokSetMarkerAnsiA1 | - | tok 0xA1: hdr hi16 = byte len, u32 colour, ANSI string; strncpy_s to 1 KB buffer, SynSetMarkerAnsi (SetMarker vtbl+0x1C0) |
+| A2 | 2F0E39C | SynTokSetMarkerWideA2 | - | tok 0xA2: hdr hi16 = wchar count, u32 colour, wide string; wcsncpy_s, SynSetMarkerWide (SetMarker vtbl+0x1C0) |
+| A3 | 2F0E4A4 | SynTokSetMarkerAnsiA3 | - | tok 0xA3: same layout as A1 (ANSI string), second copy -> SynSetMarkerAnsiB (SetMarker vtbl+0x1C0) |
+| A4 | 2F0E528 | SynTokSetMarkerWideA4 | - | tok 0xA4: same layout as A2 (wide string), second copy -> SynSetMarkerWideB (SetMarker vtbl+0x1C0) |
 | A5 | 114024 | SynTokBeginEvent | BeginEvent, DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token 0xA5: unpack colour + name, call SynBeginEvent 113E64 |
 | A6 | 113FC8 | SynTokEndEvent | DrawIndexedInstanced, EndEvent, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token 0xA6: EndEvent (vtbl+1D0h) when byte c+542h |
 | A7 | 8CEBC0 | SynTokWriteMarkerBBBB | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | token handler: flushes immediate draws and overwrites the next stream dword with 0xBBBBBBBB (cpu100-u0, decompile-read) (was Unknown_Draw_8cebc0) |
 | A8 | 495FC4 | SynTokCloseCmdListAndHash | DrawIndexedInstanced, IASetIndexBuffer, IASetVertexBuffers, OMSetRenderTargets, RSSetScissorRects, RSSetViewports, ResourceBarrier | reads handle from tokens, SynCloseCmdList then hash-bucket stores the list (was SynTokCloseCmdListAndStore) |
-| A9 | 905480 | ? | - |  |
-| AA | 2F0E650 | ? | - |  |
+| A9 | 905480 | SynTokCloseListAndPushEclA9 | - | tok 0xA9: adv4, qword; tail-jumps SynCloseListAndPushEclTok2 (close cmd list, push ECL token 2 with the u64) |
+| AA | 2F0E650 | SynTokCloseListIfFenceBehindAA | - | tok 0xAA: adv4, pointer to u64; if *ptr != 0 calls SynSubmitIfBehindFence (closes list/executes if ctx+0x2510 < value) |
 | AB | 8C16AC | SynTokReadThreeQwordsDispatch | - | reads 3 qwords from command stream and calls 0x8a00b8 with two state sub-objects at +0x5a0/+0x588 (was SynTokReadThreeQwordArgs) |
-| AC | 2F0D634 | ? | - |  |
-| AD | 2F0DD80 | ? | - |  |
+| AC | 2F0D634 | SynTokBeginQueryAC | - | tok 0xAC: adv4, 2 dwords (type,index) + qword heap; BeginQuery (cmd list vtbl+0x1A0) |
+| AD | 2F0DD80 | SynTokEndQueryAD | - | tok 0xAD: adv4, 2 dwords (type,index) + qword heap; EndQuery (cmd list vtbl+0x1A8) |
 | AE | 2F0DF30 | SynResolveQueryData | - | SynRecord subsystem; D3D12: CL.ResolveQueryData (sites 2F0DFCD) |
-| AF | 7543BC | ? | - |  |
-| B0 | 2F0D678 | ? | - |  |
-| B1 | 2F0DDC4 | ? | - |  |
-| B2 | 2F0D5FC | ? | - |  |
-| B3 | 2F0DD54 | ? | - |  |
-| B4 | 2F0D5D8 | ? | - |  |
-| B5 | 2F0DD30 | ? | - |  |
-| B6 | 2F0D608 | ? | - |  |
-| B7 | 2F0DD60 | ? | - |  |
-| B8 | 2F0E45C | ? | - |  |
+| AF | 7543BC | SynTokEndQueryTimestampAF | - | tok 0xAF: adv4, dword index + qword heap; EndQuery(heap, type=2 TIMESTAMP, index) (vtbl+0x1A8) |
+| B0 | 2F0D678 | SynTokBeginPipelineStatsB0 | - | tok 0xB0: adv4; tail-jumps SynBeginPipelineStatsQuery (BeginQuery type 3 on ctx+0x24D8 ring) |
+| B1 | 2F0DDC4 | SynTokEndPipelineStatsB1 | - | tok 0xB1: adv4; tail-jumps SynEndPipelineStatsQuery (EndQuery type 3) |
+| B2 | 2F0D5FC | SynTokQueryScopeBeginDefaultB2 | - | tok 0xB2: adv4; tail-jumps SynQueryScopeBeginDefault (query object at ctx+0x2500) |
+| B3 | 2F0DD54 | SynTokQueryScopeEndDefaultB3 | - | tok 0xB3: adv4; tail-jumps SynQueryScopeEndDefault (query object at ctx+0x2500) |
+| B4 | 2F0D5D8 | SynTokQueryScopeBeginObjB4 | - | tok 0xB4: adv4, qword query object; SynQueryScopeSetCurrentAndBegin (AddRef, store ctx+0x2508, reset+begin) |
+| B5 | 2F0DD30 | SynTokQueryScopeEndObjB5 | - | tok 0xB5: adv4, qword query object; SynQueryScopeEndAndClearCurrent |
+| B6 | 2F0D608 | SynTokQueryObjBeginSlotB6 | - | tok 0xB6: adv4, qword query object + u32 index; SynQueryObjBeginSlot (BeginQuery on obj via vtbl+0x1A0 of ctx+0x590 list) |
+| B7 | 2F0DD60 | SynTokQueryObjEndSlotB7 | - | tok 0xB7: adv4, qword query object; tail-jumps SynQueryObjEndSlot (EndQuery vtbl+0x1A8) |
+| B8 | 2F0E45C | SynTokSetPredicationB8 | - | tok 0xB8: adv4, qword buffer + dword offset index; tail-jumps SynTokSetPredication (2F00468) |
 
 ## 9. Files
 
