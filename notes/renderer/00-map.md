@@ -302,6 +302,8 @@ gpuopt.cpp, osd.cpp and psoswap.cpp. Commit 89b7e52; clean build 5281c1e is brid
 **Bug found in the first run (pc2 FCAP1, bridge #189):**
 - `dllmain` verifies the GP code sites only when `GPUProf` or `GPUProf_Markers` is set. With `FrameCap = 1` alone, gp therefore had
   no `codeOk`, gpuopt installed no command-list hooks, and all 5 captures hold queue rows only (0 list calls).
+- The Ally's run (#1213, vkd3d-proton) was empty for the same reason, not a vkd3d problem. Re-queued with the key (#1217, reply
+  after #1213). Its tour does not arm after Load Game (#982), so it uses the timed trigger (FrameCap_AtSec / EverySec / Max).
 - **Fix: add `Profiler.GPUProf_Markers=1`.** It is now in `fcap_capture.ps1` and the spec below. No rebuild was needed. Later source
   builds also log a warning in this case.
 
