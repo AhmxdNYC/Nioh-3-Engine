@@ -226,8 +226,45 @@ reproduced); `tests/test_patterns.py` ALL 245 SITES OK.
 (Stage 3 go). If the sync-point wait is several ms (main already waiting for the GPU every frame), the prize shrinks by that amount
 and B7 (3 scene-buffer sets) becomes step 1.
 
-## 7. Files
+## 7. Stage 3 prototype: FO 1.7.59-fo1 (branch frame-overlap fc1fad8)
 
+`src/frameoverlap.{h,cpp}`; `[GpuOpt] FrameOverlap = 0` (default: nothing installed), 1 = installed + ON, 2 = installed + OFF;
+live `Tuning.FO = 0/1` (sampled at the next frame end), `Tuning.FO_Pct = 0..90` (barrier position). Log: `FO: frame overlap
+installed (13 code sites, 7 token handlers, 2 vtable slots)`, `FO: armed: stream halves ...` at the first overlapped frame,
+`stats/s FO:` every 30 s (FO / stock frames, barrier wait, GPU-lead wait, TAIL time, PP-lock waits, skipped sub-stream resets,
+previous-generation handle checks, back-buffer checks), `FO: OFF for this session (reason)` on a hard fallback.
+
+| patch (v2.02, all byte-checked before anything is written) | what |
+|---|---|
+| `jmp` 5DAF3 (GfxDevicePresentVfn -> 3D62E4) | E (FoPresent): stock path or the overlapped frame end |
+| `jmp`/`call` 30A6931, 32FAE39, 32FBDBE (the other GfxDevicePresent callers) | wait TAIL, then stock |
+| `call` 7D9B91 / 7D9BA3 / 7D9C07, `call [rax+120h]` 7D9BC7 (WaitSubmitThread) | present spin skipped after an FO frame, PagePoolFrameUpdate / 7D9C24 under the PP lock, predicted back-buffer index |
+| `call` 4A53D0 (RenderFrameBeginCacheFlush), 2EE8B92 (CmdStreamEndFrame in 2EE8B70), 2EEC4F9 (teardown spin) | wait TAIL first (stock situation) |
+| entry 58C434 / 58B76C (12-byte absolute jmp, functions rebuilt) | handle checks with the previous generation |
+| Renderer vtables 40D4A78 / 3AAF600 slot +130h (113150) | barrier B at node index >= K |
+| token table 3C02220 entries 82 83 95 96 97 98 9A | PP lock around the PagePool handlers |
+
+Engine functions the TAIL / E call (unchanged engine code): DispatcherRingPush 25426C, SynTransitionResource 115E24,
+GfxSubmitFrameCmdList 252758, 8CDA94, SpinWaitFlagSleep0 7D9E90, GfxWaitFenceValue 7D9E1C (own events), 9AFED0, 2EFB73C,
+KtglCache pieces 1263F0 1264F0 126480 250650 12645C 126744 1280C8 126984 126A40 1269D4, 253F2C; D3D12 / DXGI vtable calls as stock
+(ResolveQueryData, Map / Unmap, GetTimestampFrequency, allocator Reset, Present, GetCurrentBackBufferIndex) plus
+`GfxQueue->Signal(g_ovFence, N)`.
+
+Offline proof: `tests/run_frameoverlap_harness.py` ALL PASSED - a fake replay thread that replays a sequence-numbered token stream
+slower than it is recorded (any token overwritten before replay breaks the sequence): 40 overlapped frames with zero sequence
+errors, every TAIL after its frame's tokens, sub-stream resets only after TAIL N, PagePool handler vs main PP work never
+concurrent, allocator reset per TAIL, KtglCache tag = {forward fence holder, frame number} and the real D3D12 fence reaching it
+on a real queue; a frame that wraps in the high half and runs past the middle takes the stock path and overlap resumes; live
+switch off / on; a previous-generation 0xA7 handle is "not freed" while TAIL is pending and "freed" after; an injected
+back-buffer index jump switches FO off for the session. `tests/test_patterns.py` ALL 245 SITES OK, `run_bkstats_harness.py` ALL
+PASSED.
+
+Runs: pc2 FO1 queued (bridge #1260): boot FrameOverlap = 2, live `Tuning.FO = 0/1` and `Tuning.FO_Pct = 0/25` ABBA x4 at the
+CPU-bound Continue spot, screenshots per arm, 10-min FO = 1 watch.
+
+## 8. Files
+
+- `mod/Nioh3EngineFix/src/frameoverlap.{h,cpp}`, `tests/frameoverlap_harness.cpp`, `tests/run_frameoverlap_harness.py` (FO).
 - `mod/Nioh3EngineFix/src/bkstats.cpp` (fov line), `tests/bkstats_harness.cpp`, `src/dllmain.cpp` (version 1.7.58-fov1), ini comment.
 - Emitter map used for section 2 (tokemit.py, all tokens): 0x8F <- 6B64D8 FF2759 18D66E0 191E88E 32F58C8 341F704; 0x90 <- 253F8C;
   0x9E <- 298990 2998B0 299AB8 454F7C 922DB0 38C730C; 0xAA <- 18C313C; 0xA9 <- 4F8F84; 0xA8 <- 418DD0 FF29F6; 0x96 <- 2F121D8 2F14F34;
