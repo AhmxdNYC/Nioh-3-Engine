@@ -870,3 +870,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Harness `tests/run_sbm_harness.py` (RX 9070, no game): all OK; system-memory copy 25.7 GB/s (COPY queue) / 24.0 GB/s (DIRECT) for 4 MB per frame.
 - Not run in the game yet; pc2 A/B queued. Game folder untouched.
 - Undo: keys 0 (the defaults).
+
+## 2026-10-10 - RE only: notes/renderer/01b-replay-handlers.md (replay-side handlers, no game or ASI change)
+- All 185 KTGL token handlers + the 23-entry async sub-stream table 3C02800: role, payload layout, D3D12 calls, SynCtx state, per-call waste. Section 0 = the 6A / 69 per-draw path (pc2 cause: full-size constant-buffer copies into the BAR-mapped UPLOAD ring, Memcpy 118F4D) with fixes F1-F7.
+- symbols.tsv `# renderer/backend`: +72 names, 1 heuristic rename, 7 role notes; package 01 11.76 -> 11.96 %; README renderer table regenerated, regenerate-command typo fixed.
+- Undo: n/a (documentation and symbols only).
