@@ -54,11 +54,31 @@ static std::atomic<int> g_seqErrors{0}, g_tails{0}, g_submits{0};
 static std::atomic<int> g_inPP{0}, g_ppViolations{0}, g_ppCalls{0};
 static uint64_t g_seqWritten = 0;
 
+// engine locks of the KtglCache (g+61A0h): +CF8h shared by tok 0x95 (7F64DC) and the tile job 492310, +CC0h / +CD0h exclusive in
+// the KtglCache frame end (12682C: blocking acquire on the v == 0 path, try-acquire otherwise)
+static PSRWLOCK CacheLock(uintptr_t off) { return reinterpret_cast<PSRWLOCK>(dev + 0x61A0 + off); }
 static void PPOrig(uintptr_t, uint8_t**) {  // a PagePool token handler on the replay thread
     if (g_inPP.exchange(1)) ++g_ppViolations;
     ++g_ppCalls;
+    AcquireSRWLockShared(CacheLock(0xCF8));
     Sleep(0);
+    ReleaseSRWLockShared(CacheLock(0xCF8));
     g_inPP = 0;
+}
+static std::atomic<bool> g_jobPause{false};
+static std::atomic<int> g_jobRuns{0};
+static void TileJobThread() {  // 492310's tail: +CF8h shared around the update list
+    while (!g_stop) {
+        if (g_jobPause) {
+            Sleep(1);
+            continue;
+        }
+        AcquireSRWLockShared(CacheLock(0xCF8));
+        Sleep(0);
+        ReleaseSRWLockShared(CacheLock(0xCF8));
+        ++g_jobRuns;
+        Sleep(1);
+    }
 }
 static void ReplayThread() {
     void* lc[2] = {nullptr, nullptr};
@@ -138,6 +158,10 @@ static HRESULT STDMETHODCALLTYPE ScPresent(void*, UINT, UINT) {
     else g_scIdx = (g_scIdx + 1) % 3;
     return S_OK;
 }
+static HRESULT STDMETHODCALLTYPE ScLastPresentCount(void*, UINT* c) {
+    *c = (UINT)g_presents.load();
+    return S_OK;
+}
 static HRESULT STDMETHODCALLTYPE ScDesc(void*, DXGI_SWAP_CHAIN_DESC* d) {
     memset(d, 0, sizeof *d);
     d->BufferCount = 3;
@@ -171,10 +195,12 @@ static HRESULT STDMETHODCALLTYPE AllocReset(void*) {
     ++g_allocResets;
     return S_OK;
 }
+static std::atomic<int> g_presentMs{2};  // longer than the fake drain in the switch phases (the in-game ratio)
 static void PresentThread() {
     while (!g_stop) {
         if (WaitForSingleObject(F<HANDLE>(dev + 0x7720), 20) != WAIT_OBJECT_0) continue;
         void* sc = F<void*>(dev + 0x7730);
+        Sleep(g_presentMs.load());  // a real Present blocks for milliseconds (frame latency / vblank); the drain is ~0.3 ms
         ScPresent(sc, 0, 0);
         F<volatile uint8_t>(dev + 0x7728) = 0;
     }
@@ -186,23 +212,36 @@ static std::atomic<int> g_waitBad{0}, g_waits{0}, g_tagBad{0}, g_tags{0}, g_subR
     g_ppMainViolations{0};
 static uint64_t g_lastTag = 0;
 
-static void StockPresent(uintptr_t d, uintptr_t) {  // stock GfxDevicePresent: final kick + drain + reset to base + present + slot
-    uint64_t it[2] = {F<uint64_t>(d + 0x3C48), F<uint64_t>(d + 0x3C40)};
+static std::atomic<int> g_stockIdxPending{0};
+static void StockPresent(uintptr_t d, uintptr_t) {  // stock GfxDevicePresent 3D62E4, in its real order
+    uint64_t it[2] = {F<uint64_t>(d + 0x3C48), F<uint64_t>(d + 0x3C40)};  // CmdStreamEndFrame: final kick, drain, reset to base
     FakeRingPush(0, it, 1, 0);
     WaitIdle();
     F<uintptr_t>(d + 0x3C40) = F<uintptr_t>(d + 0x3C30);
     F<uintptr_t>(d + 0x3C48) = F<uintptr_t>(d + 0x3C30);
     F<uint32_t>(d + 0x3C60) += 1;
-    for (int i = 0; i < 2; ++i) F<uintptr_t>(g_subRec[i] + 0x28) = F<uintptr_t>(g_subRec[i] + 0x18);
-    {
-        const uint32_t s = F<uint32_t>(d + 0x4730);
-        F<uint32_t>(d + 0x4788 + s * 16) = 0xFFFFFFFFu;
-        F<uint32_t>(d + 0x478C + s * 16) = 0;
-        g_tsBits[s][0] = 0;
-    }
-    F<uint32_t>(d + 0x4730) = (F<uint32_t>(d + 0x4730) + 1) % 3;
+    for (int i = 0; i < 2; ++i) F<uintptr_t>(g_subRec[i] + 0x28) = F<uintptr_t>(g_subRec[i] + 0x18);  // 253F2C
+    const uint32_t s = F<uint32_t>(d + 0x4730);
+    F<uint32_t>(d + 0x4788 + s * 16) = 0xFFFFFFFFu;  // timestamp resolve of the slot
+    F<uint32_t>(d + 0x478C + s * 16) = 0;
+    g_tsBits[s][0] = 0;
+    // 3D6474: GetCurrentBackBufferIndex BEFORE the present spin (stock relies on WaitSubmitThread's spin at frame begin)
+    if (F<volatile uint8_t>(d + 0x7728)) ++g_stockIdxPending;
+    (void)ScGetIdx(&g_sc);
+    const uint64_t fence = ++g_fenceCounter;  // GfxSubmitFrameCmdList
+    F<uint64_t>(d + 0x4320 + s * 8) = fence;
+    AcquireSRWLockExclusive(CacheLock(0xCD0));  // 12682C (v == 0 path: blocking)
+    AcquireSRWLockExclusive(CacheLock(0xCC0));
+    ReleaseSRWLockExclusive(CacheLock(0xCC0));
+    ReleaseSRWLockExclusive(CacheLock(0xCD0));
+    while (F<volatile uint8_t>(d + 0x7728)) Sleep(0);  // SpinWaitFlagSleep0, then hand present N to the present thread
+    F<uint8_t>(d + 0x7728) = 1;
+    F<void*>(d + 0x7730) = &g_sc;
+    SetEvent(F<HANDLE>(d + 0x7720));
+    F<uint32_t>(d + 0x4730) = (s + 1) % 3;  // GfxFrameSlotAdvance: slot ++, wait its fence, 8BEDC8, allocator reset
+    if (F<uint64_t>(d + 0x4320 + ((s + 1) % 3) * 8ull) > g_fenceCounter.load()) ++g_waitBad;
     F<uint32_t>(d + 0x3C1C) += 1;
-    ScPresent(&g_sc, 0, 0);
+    ++g_allocResets;
     ++g_stockPresents;
 }
 static void FakeSubReset(uintptr_t sub) {
@@ -228,7 +267,8 @@ static uint64_t FakeQpc() {
     QueryPerformanceCounter(&q);
     return (uint64_t)q.QuadPart;
 }
-static uint64_t FakeTry(uintptr_t) { return 0; }
+static uint64_t FakeTry(uintptr_t srw) { return TryAcquireSRWLockExclusive(reinterpret_cast<PSRWLOCK>(srw)) ? 1 : 0; }
+static void FakeUnlockWake(uintptr_t srw) { ReleaseSRWLockExclusive(reinterpret_cast<PSRWLOCK>(srw)); }
 static void FakeNoop2(uintptr_t, uintptr_t) {}
 static void FakeTag(uintptr_t, uintptr_t fdev, uint64_t v) {  // stock tag: {dev+4310h, the frame's own fence}, after its last list
     ++g_tags;
@@ -265,16 +305,25 @@ static void Emit(uint32_t n, uint32_t nodes, uint32_t kickEvery = 64) {
         }
         if (nodes && i % (n / nodes) == 0) {
             F<uint32_t>((uintptr_t)g_renderer.data() + 0x1EE568) = i / (n / nodes);
-            TestNode((uintptr_t)g_renderer.data());
+            if (TestInstalled()) TestNode((uintptr_t)g_renderer.data());
         }
     }
 }
 static int g_bbMismatchMain = 0;
 static std::vector<uint32_t> g_recSlots;
+static std::atomic<int> g_framesDone{0};
 static void Frame(uint32_t tokens, uint32_t nodes = 100) {
-    // WaitSubmitThread: present spin is FO's business, back-buffer index, PagePoolFrameUpdate
-    TestGetBB(&g_sc);
-    TestPPUpdate(dev + 0x61A0, dev);
+    const bool fo = TestInstalled();  // false after the watchdog restored every patch: the pure stock engine
+    // WaitSubmitThread 7D9B6C: present spin (FO skips it after an FO frame), PagePoolFrameUpdate, back-buffer index
+    if (fo) {
+        TestPresentSpin(dev);
+        TestPPUpdate(dev + 0x61A0, dev);
+        TestGetBB(&g_sc);
+    } else {
+        while (F<volatile uint8_t>(dev + 0x7728)) Sleep(0);
+        FakePP(dev + 0x61A0, dev);
+        (void)ScGetIdx(&g_sc);
+    }
     {  // 6B42B0 on main: slot = +4730h at record time
         const uint32_t s = F<uint32_t>(dev + 0x4730);
         F<uint32_t>(dev + 0x4788 + s * 16) = std::min(F<uint32_t>(dev + 0x4788 + s * 16), 5u);
@@ -286,7 +335,9 @@ static void Frame(uint32_t tokens, uint32_t nodes = 100) {
     Emit(tokens / 2, nodes);
     for (int i = 0; i < 2; ++i) F<uintptr_t>(g_subRec[i] + 0x28) += 64;
     Emit(tokens - tokens / 2, 0);
-    TestPresent(dev);
+    if (fo) TestPresent(dev);
+    else StockPresent(dev, 0);
+    ++g_framesDone;
 }
 
 int main() {
@@ -328,6 +379,7 @@ int main() {
     F<HANDLE>(dev + 0x7720) = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     F<uint8_t>(dev + 0x61A0 + 0xD20) = 1;  // KtglCache enabled
     F<uint32_t>(dev + 0x61A0 + 0x6B0) = 1;
+    F<uint32_t>(dev + 0x61A0 + 0x8D0) = 1;  // KtglCache frame end takes the try-lock path (+CD0h / +CC0h)
     // sub-streams
     for (int i = 0; i < 2; ++i) {
         g_sub[i] = (uintptr_t)g_subMem.data() + i * 0x100;
@@ -343,6 +395,7 @@ int main() {
     F<uint32_t>(dev + 0x3E28) = 2;
     g_scVt[8] = (void*)&ScPresent;
     g_scVt[12] = (void*)&ScDesc;
+    g_scVt[17] = (void*)&ScLastPresentCount;
     g_scVt[36] = (void*)&ScGetIdx;
     g_allocVt[8] = (void*)&AllocReset;
     g_listVt[54] = (void*)&ListResolve;
@@ -372,7 +425,7 @@ int main() {
     e.tryX2 = &FakeTry;
     e.tryX1 = &FakeTry;
     e.cacheCompact = &FakeNoop2;
-    e.unlockWake = &FakeNoop1;
+    e.unlockWake = &FakeUnlockWake;
     e.tagFence = &FakeTag;
     e.retire = &FakeRetire;
     e.kick = &FakeNoop1;
@@ -386,8 +439,50 @@ int main() {
     e.gfxGlobal = (uintptr_t)&gfxGlobal;
     e.slCb[0] = e.slCb[1] = e.slCb[2] = (uintptr_t)&cbNull;
     TestInstall(0x10000, &e);
-    std::thread rt(ReplayThread), pt(PresentThread);
+    std::thread rt(ReplayThread), pt(PresentThread), jt(TileJobThread);
+    std::atomic<const char*> phase{"setup"};
+    std::thread hang([&] {  // a frame that never ends = the in-game hang: fail loudly instead of blocking the test run
+        int last = -1;
+        DWORD since = GetTickCount();
+        while (!g_stop) {
+            Sleep(200);
+            const int f = g_framesDone.load();
+            if (f != last) {
+                last = f;
+                since = GetTickCount();
+            } else if (GetTickCount() - since > 20000) {
+                printf("  [FAIL] HANG: no frame completed for 20 s in phase '%s' (CF8h %llX CC0h %llX CD0h %llX, FO PP free %d, "
+                       "present pending %u)\nFAILED (hang)\n",
+                       phase.load(), F<unsigned long long>(dev + 0x61A0 + 0xCF8), F<unsigned long long>(dev + 0x61A0 + 0xCC0),
+                       F<unsigned long long>(dev + 0x61A0 + 0xCD0), (int)TestPPFree(), F<uint8_t>(dev + 0x7728));
+                fflush(stdout);
+                ExitProcess(3);
+            }
+        }
+    });
     char rep[256];
+    // the stock situation after a switch: nothing of FO left behind (locks, TAIL, stream / sub-stream extents, present state)
+    auto StockClean = [&](const char* what) {
+        WaitIdle();
+        g_jobPause = true;
+        Sleep(20);
+        const bool locks = F<uint64_t>(dev + 0x61A0 + 0xCF8) == 0 && F<uint64_t>(dev + 0x61A0 + 0xCC0) == 0 &&
+                           F<uint64_t>(dev + 0x61A0 + 0xCD0) == 0 && TestPPFree();
+        g_jobPause = false;
+        char m[256];
+        snprintf(m, sizeof m, "%s: no lock held (cache +CF8h / +CC0h / +CD0h, FO PP)", what);
+        Check(locks, m);
+        snprintf(m, sizeof m, "%s: no TAIL pending", what);
+        Check(TestTailDone() >= TestIssued(), m);
+        snprintf(m, sizeof m, "%s: main stream end and sub-stream recorders at full extent", what);
+        Check(F<uintptr_t>(dev + 0x3C38) == send_ && F<uintptr_t>(g_subRec[0] + 0x20) - F<uintptr_t>(g_subRec[0] + 0x18) == 65536 &&
+                  F<uintptr_t>(g_subRec[1] + 0x20) - F<uintptr_t>(g_subRec[1] + 0x18) == 65536,
+              m);
+        snprintf(m, sizeof m, "%s: stock Present never read the back-buffer index while a present was pending", what);
+        Check(g_stockIdxPending == 0, m);
+        snprintf(m, sizeof m, "%s: token sequence intact", what);
+        Check(g_seqErrors == 0 && g_seqReplayed == g_seqWritten, m);
+    };
 
     printf("phase 1: 40 overlapped frames, FO_Pct 25\n");
     SetTuning("FO_Pct", "25", rep, sizeof rep);
@@ -419,10 +514,13 @@ int main() {
     Check(g_tails.load() >= tails1 + 4, "overlap resumed after the fallback");
 
     printf("phase 3: live switch off / on\n");
+    g_presentMs = 60;
     SetTuning("FO", "0", rep, sizeof rep);
     const int t3 = g_tails, s3 = g_stockPresents;
     for (int f = 0; f < 5; ++f) Frame(6000);
     Check(g_tails == t3 && g_stockPresents == s3 + 5, "switch off: stock frame ends only");
+    StockClean("live switch off");
+    g_presentMs = 2;
     SetTuning("FO", "1", rep, sizeof rep);
     for (int f = 0; f < 5; ++f) Frame(6000);
     WaitIdle();
@@ -504,15 +602,96 @@ int main() {
         Check(diff == 0, "stub = stock answer when no TAIL is pending (64 cases)");
     }
 
-    printf("phase 5: back-buffer prediction mismatch -> FO off for the session\n");
-    g_skipNext = 1;
-    for (int f = 0; f < 4; ++f) Frame(6000);
+    phase = "5";
+    printf("phase 5: back-buffer index jumps (a present that rotates by 2) and a forced wrong prediction: tolerated, re-anchored\n");
+    {
+        const int64_t m0 = TestMisses();
+        const int t5 = g_tails;
+        g_skipNext = 1;
+        for (int f = 0; f < 6; ++f) Frame(6000);
+        WaitIdle();
+        const int64_t m1 = TestMisses();
+        Check(m1 - m0 >= 1 && m1 - m0 <= 2, "a chain jump costs at most two mispredicted frames");
+        TestAct(4);
+        for (int f = 0; f < 6; ++f) Frame(6000);
+        WaitIdle();
+        Check(TestMisses() - m1 == 1, "forced wrong prediction: exactly one miss");
+        Check(!TestDisabled() && g_tails >= t5 + 10, "FO stays on through the misses");
+        Check(g_seqErrors == 0 && g_seqReplayed == g_seqWritten, "token sequence intact");
+    }
+
+    phase = "6";
+    printf("phase 6: a prediction that keeps missing -> FO off for the session, stock frames continue\n");
+    for (int f = 0; f < 12; ++f) {
+        g_skipNext = 1;
+        Frame(6000);
+    }
     WaitIdle();
-    Check(TestDisabled(), "mismatch detected by TAIL, FO off");
-    const int s5 = g_stockPresents;
-    for (int f = 0; f < 3; ++f) Frame(6000);
-    Check(g_stockPresents == s5 + 3, "stock frame ends after the session-off");
-    Check(g_seqErrors == 0 && g_seqReplayed == g_seqWritten, "token sequence intact to the end");
+    Check(TestDisabled(), "7 misses within 1000 frames: session OFF");
+    {
+        const int s6 = g_stockPresents;
+        for (int f = 0; f < 5; ++f) Frame(6000);
+        Check(g_stockPresents == s6 + 5, "stock frame ends after the session OFF");
+    }
+    StockClean("after the persistent-miss OFF");
+
+    phase = "7";
+    g_presentMs = 60;
+    printf("phase 7: mid-session session OFF from the TAIL (Tuning.FO_Test 1, the fo6pc path) with the engine locks busy\n");
+    TestAct(9);
+    for (int f = 0; f < 8; ++f) Frame(6000);
+    {
+        const int t7 = g_tails, s7 = g_stockPresents;
+        Check(!TestDisabled() && t7 > 0, "re-armed: overlapping");
+        TestAct(1);
+        for (int f = 0; f < 10; ++f) Frame(6000);
+        Check(TestDisabled(), "session OFF");
+        Check(g_tails >= t7 + 1 && g_stockPresents >= s7 + 8, "the TAIL-issued OFF ends in stock frames that keep coming");
+    }
+    StockClean("after the TAIL-issued OFF");
+
+    phase = "8";
+    printf("phase 8: wrong prediction + session OFF at the same TAIL (Tuning.FO_Test 2, exactly fo6pc)\n");
+    TestAct(9);
+    for (int f = 0; f < 8; ++f) Frame(6000);
+    {
+        const int64_t m8 = TestMisses();
+        const int s8 = g_stockPresents;
+        TestAct(2);
+        for (int f = 0; f < 10; ++f) Frame(6000);
+        Check(TestDisabled() && TestMisses() == m8 + 1, "miss + session OFF");
+        Check(g_stockPresents >= s8 + 8, "stock frames keep coming");
+    }
+    StockClean("after the fo6pc sequence");
+
+    phase = "9";
+    g_presentMs = 2;
+    printf("phase 9: watchdog (Tuning.FO_Test 3: 5.6 s main stall) -> session OFF + patches restored -> pure stock frames\n");
+    TestAct(9);
+    for (int f = 0; f < 8; ++f) Frame(6000);
+    {
+        TestAct(3);
+        const int s9 = g_stockPresents;
+        for (int f = 0; f < 6; ++f) Frame(6000);  // the first one stalls 5.6 s inside FO
+        Check(TestWatchdogFired() && TestDisabled(), "watchdog fired, session OFF");
+        Check(!TestInstalled(), "every patch restored (the stalled frame was not inside a TAIL)");
+        Check(g_stockPresents >= s9 + 6, "frames continue on the stock engine");
+    }
+    StockClean("after the watchdog");
+
+    phase = "10";
+    printf("phase 10: re-arm after the watchdog (reinstall) -> overlap again\n");
+    {
+        TestAct(9);
+        const int t10 = g_tails;
+        for (int f = 0; f < 8; ++f) Frame(6000);
+        WaitIdle();
+        Check(TestInstalled() && !TestDisabled() && g_tails >= t10 + 6, "reinstalled, overlapping");
+        SetTuning("FO", "0", rep, sizeof rep);
+        for (int f = 0; f < 3; ++f) Frame(6000);
+    }
+    StockClean("live switch off after re-arm");
+    Check(g_jobRuns > 0, "tile-job thread exercised +CF8h shared throughout");
 
     char sl[1024];
     StatusLine(sl, sizeof sl, 30);
@@ -520,6 +699,8 @@ int main() {
     g_stop = true;
     rt.join();
     pt.join();
+    jt.join();
+    hang.join();
     printf("presents %d (stock %d), tails %d, submits %d, PP handler calls %d\n", g_presents.load(), g_stockPresents.load(),
            g_tails.load(), g_submits.load(), g_ppCalls.load());
     printf(g_fails ? "FAILED (%d)\n" : "ALL PASSED\n", g_fails);

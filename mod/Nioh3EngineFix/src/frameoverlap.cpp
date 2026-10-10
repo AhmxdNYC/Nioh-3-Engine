@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -65,6 +66,12 @@ uint32_t g_bufCount = 0, g_mainIdx = 0;
 uint64_t g_bbFrame = ~0ull;  // frame whose back-buffer index FoGetBB already chose (RenderFrameBegin can run without a Present)
 bool g_lastWasFO = false;
 std::atomic<uint64_t> g_presents{0};  // every GfxDevicePresent through FO's entry points (watchdog)
+// Back-buffer anchor (fo7): the last REAL index and the frame it belongs to, {frame << 8 | idx}. Written by TAIL N (the index it
+// read for frame N after present N-1 retired) and by FoGetBB whenever it reads the real index (frame begin after a stock frame).
+// An FO frame begin predicts idx(anchor) + (F - frame(anchor)): re-anchored every frame, so one present that does not rotate the
+// chain (fo6pc: predicted 0, real 2 after 3556 good frames) costs at most two mispredicted frames instead of drifting forever.
+std::atomic<uint64_t> g_bbAnchor{~0ull};
+DWORD g_mainTid = 0, g_replayTid = 0;  // for the watchdog's thread dump
 
 struct FrameRec {
     uint64_t frame;
@@ -74,9 +81,17 @@ struct FrameRec {
     volatile LONG fenceValid;
     LONG predValid;
     uint32_t predIdx;
-    uint32_t pad;
+    uint8_t forceOff;  // test (Tuning.FO_Test 1 / 2): TAIL of this frame switches FO off for the session
+    uint8_t forced;    // test (Tuning.FO_Test 2 / 4): the prediction of this frame was deliberately wrong
+    uint16_t pad;
 };
 FrameRec g_rec[4] = {};
+void ClearRec(uint64_t f) {
+    FrameRec& r = g_rec[f & 3];
+    r.predValid = 0;
+    r.forceOff = 0;
+    r.forced = 0;
+}
 uint64_t g_frame = 0;                       // last frame number given by E (FO or stock)
 std::atomic<uint64_t> g_issued{0};          // last frame whose TAIL was issued
 std::atomic<uint64_t> g_tailDone{0};        // last frame whose TAIL finished (replay thread)
@@ -142,7 +157,16 @@ SRWLOCK g_pp = SRWLOCK_INIT;  // PagePool frame protocol lock (main: E7 / PagePo
 std::atomic<int64_t> s_noAdvance{0};
 std::atomic<int64_t> s_fo{0}, s_stock{0}, s_span{0}, s_barrierTicks{0}, s_leadTicks{0}, s_tailTicks{0}, s_ppWaitTicks{0},
     s_ppWaits{0}, s_subSkip{0}, s_barrierEarly{0}, s_barrierLate{0}, s_prevGenHits{0}, s_bbChecks{0};
+std::atomic<int64_t> s_bbMiss{0}, s_stockOff{0}, s_stockOther{0}, s_stockSpin{0}, s_direct{0};
 double g_tickMs = 0.0;
+
+// ---- live test actions (Tuning.FO_Test; notes\renderer\frame-overlap.md section 7 fo7) ---------------------------------------
+// 1 = session OFF from the next TAIL (replay thread), the path fo6pc took; 2 = deliberately wrong back-buffer prediction at the
+// next FO frame begin AND session OFF at that frame's TAIL (fo6pc exactly); 3 = the main thread stalls 5.6 s at the next FO frame
+// end -> the watchdog fires (session OFF + every patch removed) -> stock; 4 = wrong prediction only (must be tolerated);
+// 5 / 6 = switch off / on (as live Tuning.FO); 9 = re-arm (TEST ONLY: clears the session OFF / watchdog state, reinstalls,
+// switch ON); 100 = self-test sequence 5 6 4 1 9 2 9 3 9 with a frames-advance check after each step.
+std::atomic<int> g_tForceOff{0}, g_tMispredict{0}, g_tStall{0};
 
 uint64_t Now() {
     LARGE_INTEGER q;
@@ -303,8 +327,36 @@ void SlotAdvanceMain(uintptr_t dev) {
     InterlockedExchange(reinterpret_cast<volatile LONG*>(dev + kSlot), (LONG)slot);
 }
 
+// A back-buffer index the frame begin predicted wrong (TAIL, replay thread). The frame was recorded into BB[pred]; BB[real] gets the
+// PRESENT transition and is presented (it holds an older frame: one repeated frame, no hazard - the engine's state tracker issues
+// every barrier from its own tracked state, so BB[pred] simply stays in its render state until its next use). The anchor is
+// corrected by this TAIL, so frame N+1 (already begun) is the only other frame that can miss. Only a prediction that keeps missing
+// (> 6 misses within 1000 frames) switches FO off for the session.
+using U32PtrFn = HRESULT(STDMETHODCALLTYPE*)(void*, UINT*);
+uint32_t g_lastPresentCount = 0;
+uint64_t g_missFrames[8] = {};
+void BackBufferMiss(uintptr_t dev, const FrameRec* r, UINT idx, void* sc, UINT presentCount) {
+    const int64_t n = ++s_bbMiss;
+    const uint64_t a = g_bbAnchor.load();
+    if (n <= 8 || (n & (n - 1)) == 0) {
+        DXGI_SWAP_CHAIN_DESC d{};
+        using DescFn = HRESULT(STDMETHODCALLTYPE*)(void*, DXGI_SWAP_CHAIN_DESC*);
+        const UINT bufs = SUCCEEDED(V<DescFn>(sc, 0x60)(sc, &d)) ? d.BufferCount : 0;
+        FLOG("FO: back-buffer prediction miss #%lld at frame %llu: predicted %u, real %u%s | anchor frame %llu idx %u | DXGI present "
+             "count %u (previous TAIL %u) | buffers %u (cached %u) | present flags %08X sync %d, present thread %u, offscreen %p - "
+             "re-anchored, FO stays on",
+             (long long)n, (unsigned long long)r->frame, r->predIdx, idx, r->forced ? " (test: forced)" : "",
+             (unsigned long long)(a >> 8), (unsigned)(a & 0xFF), presentCount, g_lastPresentCount, bufs, g_bufCount,
+             F<uint32_t>(dev + kPresentParams), F<int>(dev + kSyncInterval), F<uint8_t>(dev + kPresentThr), F<void*>(dev + kOffscreen));
+    }
+    if (n > 6 && !r->forced && r->frame - g_missFrames[(n - 6) % 8] < 1000)  // misses n-6 .. n = 7 within 1000 frames
+        Disable(4, "back-buffer index prediction keeps missing (7 misses within 1000 frames)");
+    g_missFrames[n % 8] = r->frame;
+}
+
 void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
     const uintptr_t dev = g_dev;
+    g_replayTid = GetCurrentThreadId();
     const uint64_t t0 = Now(), q0 = E.qpc();
     if (F<uint8_t>(dev + kPresentThr)) E.spinPresent(dev);  // present N-1 retired: GetCurrentBackBufferIndex = frame N's buffer
     TimestampResolve(dev, r->slot);
@@ -314,16 +366,17 @@ void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
     if (!res) {
         void* sc = F<void*>(dev + kSwap);
         const UINT idx = V<GetIdxFn>(sc, 0x120)(sc);
+        UINT pc = 0;
+        V<U32PtrFn>(sc, 0x88)(sc, &pc);  // IDXGISwapChain::GetLastPresentCount (diagnostics for a miss)
         if (r->predValid) {
             ++s_bbChecks;
-            if (idx != r->predIdx) {
-                FLOG("FO: back-buffer prediction mismatch at frame %llu (predicted %u, real %u)", (unsigned long long)r->frame,
-                     r->predIdx, idx);
-                Disable(4, "back-buffer index prediction mismatch");
-            }
+            if (idx != r->predIdx) BackBufferMiss(dev, r, idx, sc, pc);
         }
+        g_bbAnchor.store((r->frame << 8) | (idx & 0xFF), std::memory_order_release);
+        g_lastPresentCount = pc;
         res = F<uintptr_t>(dev + kBB + idx * 8ull);
     }
+    if (r->forceOff) Disable(10, "test: forced by Tuning.FO_Test (from the TAIL, as fo6pc)");
     E.transition(dev + kCtx, F<uint64_t>(res + 0x10), F<uint64_t>(res + 0x18), 0, 0, 0xFFFFFFFFull);
     const uint64_t fence = E.submitFrame(dev + kListRing, dev + kListPool, 0);
     const uint32_t slot = r->slot;
@@ -391,22 +444,51 @@ bool Init(uintptr_t dev) {
     return true;
 }
 
-void StockPresent(uintptr_t dev, uintptr_t p2) {
+// Put the device back in the exact stock situation before a stock GfxDevicePresent (every stock frame end: switch off, session
+// OFF, fallbacks, the other Present callers):
+//  - TAIL of the last FO frame done (barrier),
+//  - present of the last FO frame retired when the present thread is used: stock GfxDevicePresent reads GetCurrentBackBufferIndex
+//    (3D6474) BEFORE its own present spin, relying on WaitSubmitThread's spin at frame begin - which FO skipped for the frame
+//    that follows an FO frame. Without this the first stock Present after an FO frame read the index while present N was still
+//    being presented on the present thread (fo7 finding),
+//  - main stream end and sub-stream recorders back to their full extent (FO confined them to a half).
+void PrepareStock(uintptr_t dev) {
+    const bool afterFO = g_lastWasFO;
     FlushAll();
+    if (dev != g_dev) return;
+    if (afterFO && F<uint8_t>(dev + kPresentThr)) {
+        ++s_stockSpin;
+        E.spinPresent(dev);
+    }
+    if (g_init && F<uintptr_t>(dev + kEnd) == g_sMid) F<uintptr_t>(dev + kEnd) = g_sEnd;  // FO frames use one half each
     for (int k = 0; k < g_subHN; ++k) {  // full extent again; stock's Present resets write to the base after its drain
         F<uintptr_t>(g_subH[k].rec + 0x18) = g_subH[k].lo;
         F<uintptr_t>(g_subH[k].rec + 0x20) = g_subH[k].hi;
     }
+}
+
+void StockPresent(uintptr_t dev, uintptr_t p2) {
+    PrepareStock(dev);
     ++s_stock;
     E.present(dev, p2);
     ++g_frame;
-    g_rec[(g_frame + 1) & 3].predValid = 0;
+    ClearRec(g_frame + 1);
 }
 
 void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     ++g_presents;
     if (!g_dev) g_dev = dev;
+    g_mainTid = GetCurrentThreadId();
+    if (g_tStall.load() && g_lastWasFO && g_on.load() && !g_disabled.load() && g_tStall.exchange(0)) {
+        // test (Tuning.FO_Test 3): a 5.6 s main-thread stall at an FO frame end -> the watchdog fires (session OFF, every patch
+        // restored while this thread sleeps in FO code, outside every patched byte); afterwards this frame ends on the stock path
+        FLOG("FO: test: main thread stalls 5.6 s at the end of frame %llu (watchdog test)", (unsigned long long)(g_frame + 1));
+        Barrier(false);
+        Sleep(5600);
+    }
     if (p2 || dev != g_dev || !g_on.load() || g_disabled.load() || !Init(dev)) {
+        if (p2 || dev != g_dev) ++s_stockOther;
+        else ++s_stockOff;
         StockPresent(dev, p2);
         return;
     }
@@ -463,6 +545,7 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     r.slot = frameSlot;
     r.fence = 0;
     r.fenceValid = 0;
+    r.forceOff = (uint8_t)(r.forceOff || g_tForceOff.exchange(0));  // (FO_Test 2 marks it at frame begin, 1 here)
     {
         uint32_t* w = reinterpret_cast<uint32_t*>(write);
         const uint64_t fn = (uint64_t)(uintptr_t)&TailFn, arg = (uint64_t)(uintptr_t)&r;
@@ -496,7 +579,7 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     memcpy(reinterpret_cast<void*>(dev + kSnap), reinterpret_cast<void*>(dev + kStats), 0x88);
     memset(reinterpret_cast<void*>(dev + kStats), 0, 0x88);
     g_frame = N;
-    g_rec[(N + 1) & 3].predValid = 0;
+    ClearRec(N + 1);  // the next frame's record: FoGetBB fills it at frame begin
     g_barrierPending = true;
     g_lastWasFO = true;
     g_K = (uint32_t)((uint64_t)g_maxIdx * (uint32_t)std::clamp(g_pct.load(), 0, 90) / 100u);
@@ -507,9 +590,11 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
 // ---- call-site wrappers -------------------------------------------------------------------------------------------------
 void __fastcall FoPresentDirect(uintptr_t dev, uintptr_t p2) {  // other GfxDevicePresent callers (init / loading paths)
     ++g_presents;
-    FlushAll();
+    ++s_direct;
+    PrepareStock(dev);
     E.present(dev, p2);
     ++g_frame;
+    ClearRec(g_frame + 1);
 }
 void __fastcall FoPresentSpin(uintptr_t dev) {  // WaitSubmitThread 7D9B91
     if (g_lastWasFO) return;                     // TAIL N spins for present N-1 itself before it hands off present N
@@ -518,9 +603,22 @@ void __fastcall FoPresentSpin(uintptr_t dev) {  // WaitSubmitThread 7D9B91
 UINT __fastcall FoGetBB(void* sc) {  // WaitSubmitThread 7D9BC7 (was call [rax+120h] = GetCurrentBackBufferIndex)
     if (g_bbFrame == g_frame) return g_mainIdx;  // second frame begin without a Present in between: same buffer
     g_bbFrame = g_frame;
+    const uint64_t F1 = g_frame + 1;  // the frame being begun
+    const uint64_t a = g_bbAnchor.load(std::memory_order_acquire);
     if (g_lastWasFO && g_bufCount) {
-        const uint32_t idx = (g_mainIdx + 1) % g_bufCount;
-        FrameRec& r = g_rec[(g_frame + 1) & 3];
+        // frame N = F1-1 is an FO frame: its present has not happened yet (TAIL N does it), so the index is predicted from the
+        // newest real one (TAIL N-1's, TAIL N's when it already ran, or the last frame-begin read): one rotation per frame since.
+        // Without a recent anchor (frames without a back-buffer read in between) fall back to the previous prediction + 1.
+        const bool anchored = a != ~0ull && (a >> 8) < F1 && F1 - (a >> 8) <= 3;
+        uint32_t idx = anchored ? (uint32_t)(((a & 0xFF) + (F1 - (a >> 8))) % g_bufCount) : (g_mainIdx + 1) % g_bufCount;
+        FrameRec& r = g_rec[F1 & 3];
+        if (const int m = g_tMispredict.load() ? g_tMispredict.exchange(0) : 0) {  // test (FO_Test 2 / 4)
+            idx = (idx + 1) % g_bufCount;
+            r.forced = 1;
+            if (m == 2) r.forceOff = 1;
+            FLOG("FO: test: frame %llu begins with a deliberately wrong back-buffer index %u%s", (unsigned long long)F1, idx,
+                 m == 2 ? " + session OFF at its TAIL (the fo6pc sequence)" : "");
+        }
         r.predIdx = idx;
         r.predValid = 1;
         g_mainIdx = idx;
@@ -531,6 +629,7 @@ UINT __fastcall FoGetBB(void* sc) {  // WaitSubmitThread 7D9BC7 (was call [rax+1
     using DescFn = HRESULT(STDMETHODCALLTYPE*)(void*, DXGI_SWAP_CHAIN_DESC*);
     if (SUCCEEDED(V<DescFn>(sc, 0x60)(sc, &d))) g_bufCount = d.BufferCount;
     g_mainIdx = idx;
+    g_bbAnchor.store((F1 << 8) | (idx & 0xFF), std::memory_order_release);
     return idx;
 }
 void __fastcall FoPPUpdate(uintptr_t pool, uintptr_t dev) {  // 7D9BA3 PagePoolFrameUpdate
@@ -743,7 +842,7 @@ struct Site {
     const char* name;
 };
 
-uintptr_t g_base = 0;
+uintptr_t g_base = 0, g_imgSize = 0x5000000;
 uint8_t* g_relays = nullptr;
 int g_nRelay = 0;
 uint8_t* Relay(void* fn) {  // mov rax, imm64 ; jmp rax
@@ -777,6 +876,7 @@ CRITICAL_SECTION g_instCs;
 std::atomic<int> g_wdFired{0};
 
 DWORD WINAPI Watchdog(LPVOID);
+bool g_wdStarted = false;
 bool Install() {  // under g_instCs
     if (g_installed) return true;
     if (!g_ready) return false;
@@ -793,7 +893,10 @@ bool Install() {  // under g_instCs
         g_disReason = "partial install";
     }
     FLOG("FO: frame overlap installed (%d code sites, %d table / vtable slots)", g_nPatch, g_nPtr);
-    if (HANDLE h = CreateThread(nullptr, 0, Watchdog, nullptr, 0, nullptr)) CloseHandle(h);
+    if (!g_wdStarted) {
+        g_wdStarted = true;
+        if (HANDLE h = CreateThread(nullptr, 0, Watchdog, nullptr, 0, nullptr)) CloseHandle(h);
+    }
     return true;
 }
 void Restore(const char* why) {  // put every original byte / pointer back
@@ -801,20 +904,124 @@ void Restore(const char* why) {  // put every original byte / pointer back
     if (g_installed) {
         for (int i = 0; i < g_nPatch; ++i) FrozenWrite(g_patch[i].at, g_patch[i].orig, g_patch[i].n);
         for (int i = 0; i < g_nPtr; ++i) WritePtr(g_ptr[i].at, g_ptr[i].orig);
+        g_installed = false;
         FLOG("FO: all FO patches removed (%s)", why);
     }
     LeaveCriticalSection(&g_instCs);
 }
+
+// ---- hang diagnostics: every game thread's stack (watchdog) -------------------------------------------------------------
+// Each thread is suspended only for GetThreadContext, then resumed; the unwind (RtlVirtualUnwind over the modules' .pdata) runs
+// on the resumed thread's stack: a hung thread's stack does not move, a running one may give a garbage tail (SEH-guarded).
+size_t ModName(uintptr_t a, char* out, size_t n, uintptr_t* base) {
+    HMODULE m = nullptr;
+    *base = 0;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)a, &m) || !m)
+        return (size_t)snprintf(out, n, "?");
+    wchar_t w[MAX_PATH];
+    const DWORD k = GetModuleFileNameW(m, w, MAX_PATH);
+    const wchar_t* s = w;
+    for (DWORD i = 0; i < k; ++i)
+        if (w[i] == L'\\' || w[i] == L'/') s = w + i + 1;
+    size_t j = 0;
+    for (; *s && *s != L'.' && j + 1 < n && j < 24; ++s) out[j++] = (char)(*s < 128 ? *s : '_');
+    out[j] = 0;
+    *base = (uintptr_t)m;
+    return j;
+}
+int Unwind(CONTEXT* c, uintptr_t* frames, int max) {  // plain C: SEH only
+    int n = 0;
+    __try {
+        frames[n++] = c->Rip;
+        for (; n < max;) {
+            DWORD64 imageBase = 0;
+            PRUNTIME_FUNCTION fe = RtlLookupFunctionEntry(c->Rip, &imageBase, nullptr);
+            if (!fe) {  // leaf
+                c->Rip = *reinterpret_cast<DWORD64*>(c->Rsp);
+                c->Rsp += 8;
+            } else {
+                void* hd = nullptr;
+                DWORD64 ef = 0;
+                RtlVirtualUnwind(UNW_FLAG_NHANDLER, imageBase, c->Rip, fe, c, &hd, &ef, nullptr);
+            }
+            if (!c->Rip) break;
+            frames[n++] = c->Rip;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+    return n;
+}
+void DumpThreads(const char* why) {
+    const DWORD self = GetCurrentThreadId(), pid = GetCurrentProcessId();
+    static DWORD tids[1024];
+    int nt = 0;
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) return;
+    THREADENTRY32 te{};
+    te.dwSize = sizeof(te);
+    for (BOOL ok = Thread32First(snap, &te); ok && nt < 1024; ok = Thread32Next(snap, &te))
+        if (te.th32OwnerProcessID == pid && te.th32ThreadID != self) tids[nt++] = te.th32ThreadID;
+    CloseHandle(snap);
+    const uintptr_t pool = g_dev ? g_dev + kPool : 0;
+    auto W = [&](uintptr_t off) -> unsigned long long { return pool ? (unsigned long long)F<uint64_t>(pool + off) : 0ull; };
+    FLOG("FO: thread dump (%s): %d threads; main %lu, replay %lu | lock words: FO PP %llX, cache +CC0h %llX +CD0h %llX +CE8h %llX "
+         "+CF8h %llX +D00h %llX +D08h %llX | present pending %u, TAIL issued %llu done %llu",
+         why, nt, g_mainTid, g_replayTid, (unsigned long long)(uintptr_t)g_pp.Ptr, W(0xCC0), W(0xCD0), W(0xCE8), W(0xCF8), W(0xD00),
+         W(0xD08), g_dev ? F<uint8_t>(g_dev + kPresentPending) : 0u, (unsigned long long)g_issued.load(),
+         (unsigned long long)g_tailDone.load());
+    int shown = 0;
+    for (int i = 0; i < nt && shown < 80; ++i) {
+        HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, tids[i]);
+        if (!h) continue;
+        CONTEXT c{};
+        c.ContextFlags = CONTEXT_FULL;
+        bool got = false;
+        if (SuspendThread(h) != (DWORD)-1) {
+            got = GetThreadContext(h, &c) != 0;
+            ResumeThread(h);
+        }
+        CloseHandle(h);
+        if (!got) continue;
+        uintptr_t fr[28];
+        const int n = Unwind(&c, fr, 28);
+        bool game = tids[i] == g_mainTid || tids[i] == g_replayTid;
+        for (int k = 0; k < n && !game; ++k) game = g_base && fr[k] >= g_base && fr[k] < g_base + g_imgSize;
+        if (!game) continue;  // driver / OS worker threads without a game frame
+        char line[2400];
+        size_t o = (size_t)snprintf(line, sizeof line, "FO:  tid %lu%s:", tids[i],
+                                    tids[i] == g_mainTid ? " (main)" : tids[i] == g_replayTid ? " (replay)" : "");
+        for (int k = 0; k < n && o + 48 < sizeof line; ++k) {
+            char mn[32];
+            uintptr_t mb = 0;
+            if (g_base && fr[k] >= g_base && fr[k] < g_base + g_imgSize) {
+                o += (size_t)snprintf(line + o, sizeof line - o, " %llX", (unsigned long long)(fr[k] - g_base));
+                continue;
+            }
+            ModName(fr[k], mn, sizeof mn, &mb);
+            o += (size_t)snprintf(line + o, sizeof line - o, " %s+%llX", mn, (unsigned long long)(fr[k] - mb));
+        }
+        FLOG("%s", line);
+        ++shown;
+    }
+}
+
+// frames rendered: the engine's sync-point frame counter +3C1Ch (stock GfxFrameRecordTick 8BEDC8 and FO's E both advance it once
+// per frame) - still counts after the watchdog removed every FO entry point; before the first frame end, FO's own count
+uint64_t FrameCount() { return g_dev ? (uint64_t)F<volatile uint32_t>(g_dev + kSyncFrame) + 1 : g_presents.load(); }
+
 DWORD WINAPI Watchdog(LPVOID) {
-    uint64_t last = g_presents.load();
+    uint64_t last = FrameCount();
     DWORD lastChange = GetTickCount();
+    int dumps = 0;  // thread dumps in the current no-frame episode
     for (;;) {
         Sleep(250);
-        const uint64_t p = g_presents.load();
+        const uint64_t p = FrameCount();
         const DWORD now = GetTickCount();
         if (p != last || p == 0) {
+            if (dumps && p != last) FLOG("FO: WATCHDOG: frames again");
             last = p;
             lastChange = now;
+            dumps = 0;
             continue;
         }
         if (now - lastChange > 5000 && !g_wdFired.exchange(1)) {
@@ -822,11 +1029,89 @@ DWORD WINAPI Watchdog(LPVOID) {
                  "FO off for the session",
                  (unsigned long)(now - lastChange), g_on.load(), (long long)s_fo.load(), (long long)s_stock.load(),
                  (unsigned long long)g_issued.load(), (unsigned long long)g_tailDone.load(), g_barrierPending ? "pending" : "done");
+            DumpThreads("watchdog");
+            dumps = 1;
             Disable(8, "watchdog: no frame for 5 s");
             if (g_tailDone.load() >= g_issued.load()) Restore("watchdog, no TAIL pending");
             else FLOG("FO: WATCHDOG: TAIL %llu still pending - patches kept so the pending frame can finish", (unsigned long long)g_issued.load());
+        } else if (now - lastChange > 15000 && dumps == 1) {  // still nothing 15 s on: a second dump shows what is really stuck
+            DumpThreads("watchdog +15 s");
+            dumps = 2;
         }
     }
+}
+
+// ---- Tuning.FO_Test (live test actions + self-test) -------------------------------------------------------------------------
+void Rearm() {  // TEST ONLY: back to "installed + ON" after a session OFF / watchdog
+    EnterCriticalSection(&g_instCs);
+    g_disabled = 0;
+    g_disReason = "";
+    g_wdFired = 0;
+    Install();
+    LeaveCriticalSection(&g_instCs);
+    g_on = g_installed ? 1 : 0;
+    FLOG("FO: test: re-armed (installed %d, switch %d)", (int)g_installed, g_on.load());
+}
+void TestAction(int v) {
+    switch (v) {
+    case 1: g_tForceOff = 1; break;
+    case 2: g_tMispredict = 2; break;
+    case 3: g_tStall = 1; break;
+    case 4: g_tMispredict = 4; break;
+    case 5: g_on = 0; break;  // = live Tuning.FO 0
+    case 6: g_on = g_installed && !g_disabled.load() ? 1 : 0; break;
+    case 9: Rearm(); break;
+    default: break;
+    }
+}
+std::atomic<int> g_selftest{0};
+DWORD WINAPI SelfTest(LPVOID) {
+    struct Step {
+        int action;
+        const char* what;
+    };
+    static const Step steps[] = {{5, "live switch off -> stock"},
+                                 {6, "live switch on -> overlap"},
+                                 {4, "wrong back-buffer prediction, tolerated"},
+                                 {1, "session OFF from the TAIL"},
+                                 {9, "re-arm"},
+                                 {2, "wrong prediction + session OFF at its TAIL (fo6pc sequence)"},
+                                 {9, "re-arm"},
+                                 {3, "5.6 s main stall -> watchdog -> patches removed -> stock"},
+                                 {9, "re-arm (reinstall)"}};
+    int fails = 0;
+    FLOG("FO: selftest: start (9 steps, each must keep frames coming)");
+    if (!g_on.load() || g_disabled.load()) Rearm();
+    for (const Step& s : steps) {
+        const int64_t fo0 = s_fo.load(), st0 = s_stock.load();
+        const int64_t miss0 = s_bbMiss.load();
+        TestAction(s.action);
+        // let the action take effect (the watchdog step needs > 5 s of stall + the restore)
+        Sleep(s.action == 3 ? 9000 : 1500);
+        const uint64_t p1 = FrameCount();
+        Sleep(3000);
+        const uint64_t frames = FrameCount() - p1;
+        const int64_t dfo = s_fo.load() - fo0, dst = s_stock.load() - st0;
+        bool ok = frames >= 60;  // rendering continues (>= 20 fps over 3 s)
+        switch (s.action) {
+        case 4: ok = ok && s_bbMiss.load() > miss0 && !g_disabled.load() && dfo >= 60; break;
+        case 1:
+        case 2: ok = ok && g_disabled.load() != 0 && dst >= 60; break;
+        case 3: ok = ok && g_wdFired.load() && !g_installed && dst >= 60; break;
+        case 5: ok = ok && dst >= 60; break;
+        case 6:
+        case 9: ok = ok && g_installed && !g_disabled.load() && dfo >= 60; break;
+        default: break;
+        }
+        if (!ok) ++fails;
+        FLOG("FO: selftest: step %d (%s): %s - %llu frames in 3 s, FO frames +%lld, stock +%lld, misses +%lld, session %s, patches %s",
+             s.action, s.what, ok ? "PASS" : "FAIL", (unsigned long long)frames, (long long)dfo, (long long)dst,
+             (long long)(s_bbMiss.load() - miss0), g_disabled.load() ? "OFF" : "on", g_installed ? "installed" : "removed");
+    }
+    if (fails) FLOG("FO: selftest: FAILED (%d steps)", fails);
+    else FLOG("FO: selftest: ALL PASS");
+    g_selftest = 0;
+    return 0;
 }
 
 }  // namespace
@@ -936,6 +1221,7 @@ void Start(const StartInfo& info) {
     }
     const auto* dos = (const IMAGE_DOS_HEADER*)b;
     const auto* nt = (const IMAGE_NT_HEADERS64*)(b + dos->e_lfanew);
+    g_imgSize = nt->OptionalHeader.SizeOfImage;
     g_relays = AllocNear(b, b + nt->OptionalHeader.SizeOfImage, 4096);
     if (!g_relays) {
         FLOG("FO: not installed (no executable page within 2 GB of the image)");
@@ -989,15 +1275,28 @@ void Start(const StartInfo& info) {
 }
 
 bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
-    const bool isFo = !_stricmp(key, "FO"), isPct = !_stricmp(key, "FO_Pct");
-    if (!isFo && !isPct) return false;
+    const bool isFo = !_stricmp(key, "FO"), isPct = !_stricmp(key, "FO_Pct"), isTest = !_stricmp(key, "FO_Test");
+    if (!isFo && !isPct && !isTest) return false;
     if (!g_ready) {
         snprintf(reply, n, "%s: FO not available ([GpuOpt] FrameOverlap = 1 or 2 at boot, v2.02, byte checks)", key);
         return true;
     }
     const int v = atoi(val);
-    if (isFo) {
-        if (v && !g_installed) {
+    if (isTest) {  // edge-triggered: the same value written again (fastab re-sends the whole state) does nothing
+        static int last = 0;
+        const bool edge = v != last;
+        last = v;
+        if (edge && v == 100) {
+            if (!g_selftest.exchange(1)) {
+                if (HANDLE h = CreateThread(nullptr, 0, SelfTest, nullptr, 0, nullptr)) CloseHandle(h);
+                else g_selftest = 0;
+            }
+        } else if (edge && v) {
+            TestAction(v);
+        }
+        snprintf(reply, n, "FO_Test = %d%s", v, edge && v ? " (started)" : "");
+    } else if (isFo) {
+        if (v && !g_installed && !g_disabled.load()) {
             EnterCriticalSection(&g_instCs);
             Install();
             LeaveCriticalSection(&g_instCs);
@@ -1020,27 +1319,44 @@ void StatusLine(char* buf, unsigned n, unsigned secs) {
     if (!n) return;
     buf[0] = 0;
     if (!g_installed) return;
-    static int64_t p[13] = {};
-    const int64_t c[13] = {s_fo, s_stock, s_span, s_barrierTicks, s_leadTicks, s_tailTicks, s_ppWaitTicks, s_ppWaits, s_subSwitch.load(),
-                           s_barrierEarly, s_barrierLate, s_prevGenHits, s_bbChecks};
-    int64_t d[13];
-    for (int i = 0; i < 13; ++i) d[i] = c[i] - p[i], p[i] = c[i];
+    constexpr int kN = 19;
+    static int64_t p[kN] = {};
+    const int64_t c[kN] = {s_fo, s_stock, s_span, s_barrierTicks, s_leadTicks, s_tailTicks, s_ppWaitTicks, s_ppWaits, s_subSwitch.load(),
+                           s_barrierEarly, s_barrierLate, s_prevGenHits, s_bbChecks, s_bbMiss, s_stockOff, s_stockOther, s_noAdvance,
+                           s_stockSpin, s_direct};
+    int64_t d[kN];
+    for (int i = 0; i < kN; ++i) d[i] = c[i] - p[i], p[i] = c[i];
     const double fo = d[0] ? (double)d[0] : 1.0;
     snprintf(buf, n,
-             "FO: switch %s%s | frames FO %.1f/s stock %.1f/s (span-fallback %lld) | per FO frame: barrier wait %.2f ms, GPU-lead wait "
+             "FO: switch %s%s | frames FO %.1f/s stock %.1f/s (switch/session off %lld, TEST present %lld, span %lld, other device "
+             "%lld; other Present callers %lld; present spins before stock %lld) | per FO frame: barrier wait %.2f ms, GPU-lead wait "
              "%.2f ms, TAIL %.2f ms | barrier at K (node %u) %lld, at frame end %lld | PP lock waits %lld (%.2f ms) | sub-stream "
-             "half switches %lld | prev-gen handle checks %lld | back-buffer checks %lld",
+             "half switches %lld | prev-gen handle checks %lld | back-buffer checks %lld, misses %lld (session %lld)",
              g_on.load() ? "ON" : "off", g_disabled.load() ? " (session OFF)" : "", d[0] / (double)std::max(1u, secs),
-             d[1] / (double)std::max(1u, secs), (long long)d[2], d[3] * g_tickMs / fo, d[4] * g_tickMs / fo, d[5] * g_tickMs / fo, g_K,
-             (long long)d[9], (long long)d[10], (long long)d[7], d[6] * g_tickMs, (long long)d[8], (long long)d[11], (long long)d[12]);
+             d[1] / (double)std::max(1u, secs), (long long)d[14], (long long)d[16], (long long)d[2], (long long)d[15], (long long)d[18],
+             (long long)d[17], d[3] * g_tickMs / fo, d[4] * g_tickMs / fo, d[5] * g_tickMs / fo, g_K, (long long)d[9], (long long)d[10],
+             (long long)d[7], d[6] * g_tickMs, (long long)d[8], (long long)d[11], (long long)d[12], (long long)d[13],
+             (long long)s_bbMiss.load());
 }
 
 #ifdef FO_TEST
+static void TestLog(const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    printf("    log: ");
+    vprintf(fmt, ap);
+    putchar('\n');
+    va_end(ap);
+}
 void TestInstall(uintptr_t fakeBase, const Engine* e) {
     E = *e;
+    g_log = &TestLog;
     g_base = fakeBase;
+    InitializeCriticalSection(&g_instCs);
     g_installed = true;
     g_ready = true;
+    g_wdStarted = true;
+    if (HANDLE h = CreateThread(nullptr, 0, Watchdog, nullptr, 0, nullptr)) CloseHandle(h);
     uint8_t* page = (uint8_t*)VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     BuildNotFreedStub(page, &g_prevGen8, reinterpret_cast<volatile uint64_t*>(&g_issued), reinterpret_cast<volatile uint64_t*>(&g_tailDone));
     FlushInstructionCache(GetCurrentProcess(), page, 4096);
@@ -1053,6 +1369,7 @@ void TestInstall(uintptr_t fakeBase, const Engine* e) {
 void TestPresent(uintptr_t dev) { FoPresent(dev, 0); }
 void TestNode(uintptr_t renderer) { FoNode(renderer, 0); }
 uint32_t TestGetBB(void* swapchain) { return FoGetBB(swapchain); }
+void TestPresentSpin(uintptr_t dev) { FoPresentSpin(dev); }
 void TestPPUpdate(uintptr_t pool, uintptr_t dev) { FoPPUpdate(pool, dev); }
 uint64_t TestNotFreed(int64_t* p, uint64_t h) { return g_notFreed(p, h); }
 const uint8_t* TestStub(size_t* n) {
@@ -1069,6 +1386,15 @@ void TestPPHandler(uintptr_t ctx, uint8_t** cur, void (*orig)(uintptr_t, uint8_t
 uint64_t TestIssued() { return g_issued.load(); }
 uint32_t TestPrevGen() { return g_prevGen; }
 bool TestDisabled() { return g_disabled.load() != 0; }
+void TestAct(int v) { TestAction(v); }
+bool TestInstalled() { return g_installed; }
+bool TestWatchdogFired() { return g_wdFired.load() != 0; }
+int64_t TestMisses() { return s_bbMiss.load(); }
+bool TestPPFree() {
+    if (!TryAcquireSRWLockExclusive(&g_pp)) return false;
+    ReleaseSRWLockExclusive(&g_pp);
+    return true;
+}
 #endif
 
 }  // namespace frameoverlap

@@ -20,8 +20,14 @@
 //      handlers 82 83 95 96 97 98 9A.
 //   Handles (HandleSlotIsNotFreed 58C434, replaced by a register-exact machine-code stub: LTCG callers keep r9-r11 live across
 //      it): a handle of the previous generation is "not freed" while TAIL N is pending and its 0xA7 marker is still unreplayed.
+//   Back-buffer index (fo7): predicted from the newest REAL index (TAIL's, or a frame-begin read) + one rotation per frame since;
+//      a miss is tolerated (one repeated frame, re-anchored), 7 misses within 1000 frames switch FO off for the session.
+//   Stock frame end after an FO frame (switch off, session OFF, fallbacks): wait the pending present first (stock Present reads
+//      GetCurrentBackBufferIndex before its own present spin), stream / sub-stream extents back to full.
 // Nothing is patched until the switch first goes ON (FrameOverlap = 1 at boot, or live Tuning.FO = 1 with FrameOverlap = 2).
-// Watchdog: no frame for 5 s -> FO off for the session and all patches restored (if no TAIL is pending).
+// Watchdog: no frame (engine frame counter +3C1Ch) for 5 s -> thread dump, FO off for the session, all patches restored (if no
+// TAIL is pending); a second dump at 15 s. Live Tuning.FO_Test (tests): 1 session OFF from the TAIL, 2 wrong prediction + OFF,
+// 3 watchdog (5.6 s stall), 4 wrong prediction, 5 / 6 switch off / on, 9 re-arm, 100 self-test of all of them.
 // Fallbacks (stock path for the frame, or FO off for the session): switch off, frame data spanning both stream halves,
 // sync tables < 3, timestamp / pipeline-statistics queries in use, back-buffer prediction mismatch, render-size change and
 // device reset / teardown / other Present callers (wait TAIL first, then stock).
@@ -84,6 +90,7 @@ void TestInstall(uintptr_t fakeBase, const Engine* e);
 void TestPresent(uintptr_t dev);
 void TestNode(uintptr_t renderer);
 uint32_t TestGetBB(void* swapchain);
+void TestPresentSpin(uintptr_t dev);  // WaitSubmitThread's present spin (7D9B91)
 void TestPPUpdate(uintptr_t pool, uintptr_t dev);
 uint64_t TestNotFreed(int64_t* p, uint64_t h);
 const uint8_t* TestStub(size_t* n);
@@ -93,6 +100,11 @@ uint64_t TestIssued();
 uint32_t TestPrevGen();
 uint64_t TestTailDone();
 bool TestDisabled();
+void TestAct(int v);          // Tuning.FO_Test actions 1 2 3 4 9
+bool TestInstalled();         // false after the watchdog restored every patch
+bool TestWatchdogFired();
+int64_t TestMisses();
+bool TestPPFree();            // FO's PP lock is not held
 #endif
 
 }  // namespace frameoverlap

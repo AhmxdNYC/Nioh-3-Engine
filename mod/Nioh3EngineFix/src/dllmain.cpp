@@ -99,6 +99,10 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
+// 1.7.59-fo7: FO stock frame end after an FO frame waits for the pending present first (stock GfxDevicePresent reads
+//   GetCurrentBackBufferIndex before its own present spin; fo6pc hung on the first FO->stock switch), back-buffer index
+//   re-anchored on the last real index every frame (a miss is tolerated, 7 misses in 1000 frames = session OFF), watchdog
+//   thread dump + engine frame counter, live Tuning.FO_Test (forced switch / watchdog / self-test 100).
 // 1.7.59-fo6: FO splits every sub-stream recorder in two halves and switches at each frame end (stock resets them at Present;
 //   without a reset they filled after 260 frames and their never-used wrap path replayed overwritten data -> AV 119B54).
 // 1.7.59-fo5: FO no longer resets sub-streams at the barrier (effect workers append before it; PC fo4pc: AV replaying a 0x90
@@ -115,7 +119,7 @@
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.59-fo6"
+#define MOD_VERSION "1.7.59-fo7"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
