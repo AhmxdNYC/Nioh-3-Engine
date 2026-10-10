@@ -187,7 +187,49 @@ bool CallSiteOk(uint32_t site, uint32_t callee) {
     memcpy(&rel, s + 1, 4);
     return s[0] == 0xE8 && (uintptr_t)(s + 5 + rel) == g_base + callee;
 }
-bool Retarget(uint32_t site, const uint8_t* thunk) {
+// Coexisting with another ASI (Nioh3BossRematch.asi loads BEFORE this one, alphabetically): it may already have
+// rewritten the E8 rel32 at the tick site to its own thunk (which chains to the stock callee), and put an
+// E9 rel32 + NOPs entry hook over the head of MissionRequestById. Both shapes are verified byte-for-byte below;
+// anything else is "another patch" and only that feature is skipped.
+bool InImage(uintptr_t a) {
+    const auto* dos = (const IMAGE_DOS_HEADER*)g_base;
+    const auto* nt = (const IMAGE_NT_HEADERS64*)(g_base + dos->e_lfanew);
+    return a >= g_base && a < g_base + nt->OptionalHeader.SizeOfImage;
+}
+bool ExecutableAt(uintptr_t a) {
+    MEMORY_BASIC_INFORMATION mbi;
+    if (!VirtualQuery((const void*)a, &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT) return false;
+    return (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
+}
+// E8 rel32 whose target is the stock callee, or (chained) another module's thunk in executable memory outside the image.
+// *target = where the call goes now; *chained = it is not the stock callee.
+bool CallSiteTarget(uint32_t site, uint32_t callee, uint64_t* target, bool* chained) {
+    const uint8_t* s = (const uint8_t*)(g_base + site);
+    if (s[0] != 0xE8) return false;
+    int32_t rel = 0;
+    memcpy(&rel, s + 1, 4);
+    const uintptr_t t = (uintptr_t)(s + 5 + rel);
+    *chained = t != g_base + callee;
+    if (*chained && (InImage(t) || !ExecutableAt(t))) return false;
+    *target = t;
+    return true;
+}
+// function head: the stock bytes, or another module's E9 rel32 (+ NOPs) entry hook over the first 5..8 bytes with the stock tail intact
+bool HeadOk(uint32_t rva, const uint8_t* want, size_t n, bool* hooked) {
+    const uint8_t* p = (const uint8_t*)(g_base + rva);
+    *hooked = false;
+    if (memcmp(p, want, n) == 0) return true;
+    if (p[0] != 0xE9 || n < 9) return false;
+    int32_t rel = 0;
+    memcpy(&rel, p + 1, 4);
+    const uintptr_t t = (uintptr_t)(p + 5 + rel);
+    if (InImage(t) || !ExecutableAt(t)) return false;
+    size_t i = 5;
+    while (i < 8 && p[i] == 0x90) ++i;
+    if (memcmp(p + i, want + i, n - i) != 0) return false;
+    *hooked = true;
+    return true;
+}bool Retarget(uint32_t site, const uint8_t* thunk) {
     uint8_t* s = (uint8_t*)(g_base + site);
     const intptr_t d = (intptr_t)thunk - (intptr_t)(s + 5);
     if (d < INT32_MIN || d > INT32_MAX) return false;
@@ -1176,16 +1218,23 @@ void Start(const StartInfo& info) {
 
     // verify every byte we rely on before touching anything
     for (const HeadCheck& h : kHeads)
-        if (memcmp((const void*)(g_base + h.rva), h.b, h.n) != 0) {
+    {
+        bool hooked = false;
+        if (!HeadOk(h.rva, h.b, h.n, &hooked)) {
             TLOG("Tour: not installed (code at %X differs - another build or patch); saves are NOT blocked, the tour does not run",
                  h.rva);
             return;
         }
-    if (!CallSiteOk(kTickSite, kTickCallee) || !CallSiteOk(kSb1Site, kSb1Callee) || !CallSiteOk(kSb2Site, kSbBackupCallee) ||
-        !CallSiteOk(kSb3Site, kSbBackupCallee)) {
+        if (hooked) TLOG("Tour: %X carries another module's entry hook (E9 rel32, e.g. Nioh3BossRematch) - verified, the tour calls through it", h.rva);
+    }
+    uint64_t tickTarget = 0;
+    bool tickChained = false;
+    if (!CallSiteTarget(kTickSite, kTickCallee, &tickTarget, &tickChained) || !CallSiteOk(kSb1Site, kSb1Callee) ||
+        !CallSiteOk(kSb2Site, kSbBackupCallee) || !CallSiteOk(kSb3Site, kSbBackupCallee)) {
         TLOG("Tour: not installed (TT1 / SB1-SB3 call sites differ); saves are NOT blocked, the tour does not run");
         return;
     }
+    if (tickChained) TLOG("Tour: tick site 56529C already retargeted by another module (thunk at %p) - chaining onto it", (void*)tickTarget);
     const auto* dos = (const IMAGE_DOS_HEADER*)g_base;
     const auto* nt = (const IMAGE_NT_HEADERS64*)(g_base + dos->e_lfanew);
     g_page = AllocNear(g_base, g_base + nt->OptionalHeader.SizeOfImage, 4096);
@@ -1193,7 +1242,7 @@ void Start(const StartInfo& info) {
         TLOG("Tour: not installed (no executable page within 2 GB of the image)");
         return;
     }
-    const Thunks th = BuildThunks(g_page, g_base + kTickCallee, g_base + kSb1Callee, g_base + kSbBackupCallee, &TourTick);
+    const Thunks th = BuildThunks(g_page, tickTarget, g_base + kSb1Callee, g_base + kSbBackupCallee, &TourTick);
     uint8_t* t = th.tick;
     uint8_t* s1 = th.sb1;
     uint8_t* s2 = th.sb2;
