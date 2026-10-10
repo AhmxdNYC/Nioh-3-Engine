@@ -41,8 +41,10 @@ SUBS = [
      r'Vsm|Shadow|Cascade|Esm[A-Z]|RefProbe|ReflectionProbe|Probe|^Gi[A-Z]|Gi[A-Z][a-z]|Lpv|Oboro|Light|Ssao|Hbao|Ssr|Rlr|Deferred|Sdf|Denois|Occlusion'),
     ('FX', 'Effects / particles / decals',
      r'Effect|Particle|Vfx|Trail|Decal|G1e'),
-    ('SCENE', 'Scene representation & visibility (meshlets, culling, LOD, draw lists)',
-     r'Meshlet|Cull|Lod[A-Z]|Lod$|HiZ|Hiz|DrawList|DrawEmit|DrawSubmit|DrawState|SceneRender|Visib|G1m|Skinning|Terrain|StageSlot|ObjEntry'),
+    ('DRAW', 'Scene draw lists & CPU draw prep (views, draw-list walk, draw emit, stage slots)',
+     r'DrawList|DrawEmit|DrawSubmit|DrawState|SceneRender|StageSlot|ObjEntry|ObjCount|Skinning|ModelDraw|DrawPacket'),
+    ('SCENE', 'Scene representation & GPU visibility (meshlets, culling, LOD, Hi-Z, terrain/grass)',
+     r'Meshlet|Cull|Lod[A-Z]|Lod$|HiZ|Hiz|Visib|G1m|Terrain|Grass'),
     ('PSO', 'PSO / shader / material system',
      r'Pso|Shader|Material|Technique|Pb2|RootSig|Pipeline|Sampler|Dxc|D3DCompile|ShaderConst'),
     ('RESOURCE', 'GPU resources & memory (heaps, rings, residency, streaming, RTs)',
@@ -53,6 +55,9 @@ SUBS = [
      r'RenderGraph|RenderNode|RenderFrame|RenderView|RenderParams|Kidsrender|GraphWalk|FrameRenderViews|Render[A-Z]|CompoundRender'),
 ]
 KEYS = [s[0] for s in SUBS]
+PACKAGE = {'PRESENT': 'post', 'POST': 'post', 'UI': 'ui', 'VOLNAT': 'volumetrics', 'LIGHT': 'lighting', 'FX': 'effects',
+           'DRAW': 'drawlists', 'SCENE': 'meshlet', 'PSO': 'materials', 'RESOURCE': 'resources', 'BACKEND': 'backend',
+           'FRAME': 'frame-graph'}
 TITLE = {s[0]: s[1] for s in SUBS}
 SRX = [(s[0], re.compile(s[2])) for s in SUBS]
 # hand-picked roots from the notes (RVA -> subsystem); they win over name rules
@@ -72,8 +77,8 @@ ENTRY = {
     # pso
     0x119820: 'PSO', 0x58c144: 'PSO', 0x3c77f4: 'PSO', 0x1d7340: 'PSO',
     # scene
-    0x535188: 'SCENE', 0x1e80b0: 'SCENE', 0x1d2f60: 'SCENE', 0x39e20: 'SCENE', 0x3bc0c: 'SCENE', 0x5301fc: 'SCENE',
-    0x53fd3c: 'SCENE', 0x4aa34: 'SCENE', 0x4bbec: 'SCENE', 0x1daf6c: 'SCENE',
+    0x535188: 'DRAW', 0x1e80b0: 'DRAW', 0x1d2f60: 'DRAW', 0x39e20: 'DRAW', 0x3bc0c: 'DRAW', 0x5301fc: 'SCENE',
+    0x53fd3c: 'SCENE', 0x4aa34: 'SCENE', 0x4bbec: 'SCENE', 0x1daf6c: 'DRAW',
     # lighting
     0x465384: 'LIGHT', 0x465414: 'LIGHT', 0x7e92b4: 'LIGHT', 0x1f8340: 'LIGHT', 0x1f7960: 'LIGHT', 0x1872c4: 'LIGHT',
     0x54762c: 'LIGHT',

@@ -10022,6 +10022,27 @@ rva	kind	name	signature	description	confidence	source
 0x10	struct_field	WorkerThread::SleepFlags	u32	bit0 = sleeping/wake me; set by the worker before waiting, CAS-cleared by the waker before SetEvent	high	notes/job-system.md §1
 0x1c	struct_field	WorkerThread::PendingPriority	i32	-16 none / -17 claimed; other value = SetThreadPriority request applied by the worker itself	medium	notes/job-system.md §1
 0x28	struct_field	WorkerThread::Handle	HANDLE	thread handle	medium	notes/job-system.md §1
+# renderer/frame-graph (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is frame-graph go between this line and the END line)
+# END renderer/frame-graph
+#
+# renderer/resources (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is resources go between this line and the END line)
+# END renderer/resources
+#
+# renderer/drawlists (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is drawlists go between this line and the END line)
+# END renderer/drawlists
+#
+# renderer/meshlet (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is meshlet go between this line and the END line)
+# END renderer/meshlet
+#
+# renderer/volumetrics (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is volumetrics go between this line and the END line)
+# END renderer/volumetrics
+#
+# renderer/effects (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is effects go between this line and the END line)
+# END renderer/effects
+#
+# renderer/ui (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is ui go between this line and the END line)
+# END renderer/ui
+#
 # renderer/post
 0x3788ba4	function	FfxFiDispatch		FidelityFX frame-interpolation dispatch (Clear Reconstructed Depth Interpolated Frame ...); call [ctx+0A8h] at 3789A70	medium	notes/renderer/post.md
 0x3718db4	function	FfxBackendCopyJobExec		FFX KTGL backend copy-job executor; 2nd texture lookup unchecked -> crash when FG texture is null	medium	notes/renderer/post.md

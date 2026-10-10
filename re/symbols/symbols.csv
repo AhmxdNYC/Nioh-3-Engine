@@ -10021,3 +10021,11 @@ rva,kind,name,signature,description,confidence,source
 0x10,struct_field,WorkerThread::SleepFlags,u32,"bit0 = sleeping/wake me; set by the worker before waiting, CAS-cleared by the waker before SetEvent",high,notes/job-system.md §1
 0x1c,struct_field,WorkerThread::PendingPriority,i32,-16 none / -17 claimed; other value = SetThreadPriority request applied by the worker itself,medium,notes/job-system.md §1
 0x28,struct_field,WorkerThread::Handle,HANDLE,thread handle,medium,notes/job-system.md §1
+0x3788ba4,function,FfxFiDispatch,,FidelityFX frame-interpolation dispatch (Clear Reconstructed Depth Interpolated Frame ...); call [ctx+0A8h] at 3789A70,medium,notes/renderer/post.md
+0x3718db4,function,FfxBackendCopyJobExec,,FFX KTGL backend copy-job executor; 2nd texture lookup unchecked -> crash when FG texture is null,medium,notes/renderer/post.md
+0x371811c,function,FfxBackendExecuteGpuJobs,,FFX KTGL backend fpExecuteGpuJobs (interface +90h),medium,notes/renderer/post.md
+0x3715ccc,function,FfxBackendCreateTexture2D,,FFX backend Texture2D create; on KTGL failure stores null and returns FFX_OK,medium,notes/renderer/post.md
+0x3719384,function,FfxBackendFillInterface,,fills the FFX backend function table,medium,notes/renderer/post.md
+0x34692b4,function,FsrFgBackendDesc,,FSR FG back-end pointer passed to DisplayResetRebuildSwapchain,medium,notes/renderer/post.md
+0x2eebb50,function,GfxSetSyncInterval,"void(GfxDevice*,int)","setter: [d+424Ch]=max(v,0) unless guard 1A7C6EC; no static caller",medium,notes/renderer/post.md
+0x6d89d4,label,HdrOutputNode_BodyStart,,HdrOutput node body after 6D8928 entry,medium,notes/renderer/post.md
