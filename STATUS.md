@@ -2,7 +2,7 @@
 Read this section only; older handoffs follow below.
 
 ## NOTE 2026-10-10 01:02 (auto-wake chat 8f5f4d69, standing down)
-- An auto-wake chat started while the main chat 338c6105 was still alive; its duplicate 05/07/08/12 agents were stopped (no commits, scratch files removed). The 05/07/08/12 renderer packages belong to 338c6105's agents. Ally FCAP1 zip = bridge file #194 (channel nioh3-captures); pc2 = #193. PC FCAP1 run (captures/fcap/pc-20261010-0055) died after its first line: not captured yet.
+- An auto-wake chat started while the main chat 338c6105 was still alive; its duplicate 05/07/08/12 agents were stopped (no commits, scratch files removed). The 05/07/08/12 renderer packages belong to 338c6105's agents. Ally FCAP1 zip = bridge file #194 (channel nioh3-captures); pc2 = #193. PC FCAP1 run (captures/fcap/pc-20261010-0055, 338c6105's) is running via run_tour; 338c6105's bridge watcher is live too.
 
 ## HANDOFF 2026-10-09 17:35 (new chat starts here)
 - MANDATE: noticeable, feelable gains (user: ~1 fps gains go to notes/backlog-small-wins.md, NOT prioritised; priority = >=~5 % fps or feelable smoothness/latency/loading). Investigate root causes, then fix; every Windows win also gets a Linux (Ally) check (bridge #954). Budget normal (weekly reset 2026-10-09).
