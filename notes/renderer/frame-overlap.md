@@ -262,6 +262,58 @@ PASSED.
 Runs: pc2 FO1 queued (bridge #1260): boot FrameOverlap = 2, live `Tuning.FO = 0/1` and `Tuning.FO_Pct = 0/25` ABBA x4 at the
 CPU-bound Continue spot, screenshots per arm, 10-min FO = 1 watch.
 
+fo2..fo6 (handle stub, slot split, KtglCache frame end on the TAIL, sub-stream halves): see the commit messages 5253423..37806b7.
+fo6pc: 3556 FO frames clean, then `back-buffer prediction mismatch (predicted 0, real 2)` -> session OFF -> 0 frames, watchdog,
+`cache SRW +CF8h held 100 %`.
+
+### 7.1 fo7 (1.7.59-fo7, branch frame-overlap 350738c..): the fo6pc hang, back buffer, watchdog
+
+PC test vehicle: live `Tuning.FO_Test` (1 session OFF from the TAIL, 2 wrong prediction + OFF = the fo6pc sequence, 3 / 10
+5.6 s / 8 s main stall -> watchdog, 4 wrong prediction, 5 / 6 switch off / on, 7 stall with the watchdog suppressed, 8 the
+watchdog's restore while rendering, 11 the restore in groups with a frames check per group, 9 re-arm, **100 = self-test of all**,
+each step checks the engine frame counter +3C1Ch). Watchdog: thread dump of every game thread (RtlVirtualUnwind; Nioh3 RVAs),
+KtglCache / FO lock words, `GetDeviceRemovedReason`, at 5 s and 15 s. Root causes, all found in game with it:
+
+1. **A frame recorded for a non-current back buffer removes the D3D12 device (the fo6pc "hang").** Forced wrong prediction with
+   FO staying ON (no switch at all): 0 frames within 2 frames; main in FrameStepRender 112F6E -> ... -> 4DF64
+   `ID3D12Resource::Map` failed -> GfxGetDeviceRemovedReason -> fatal 18956D0 -> RaiseException -> crash dialog modal loop
+   (USER32); the tile job (492310 -> 4F610 -> 4DF64 -> 18956D0) parked in the same handler **holding +CF8h shared** (lock word
+   0x11) = fo6pc's "CF8h held 100 %". Reason code (later runs) 887A002B ACCESS_DENIED: the GPU wrote a compositor-owned buffer.
+   The FO->stock switch was never the problem (live switch off/on and TAIL-issued OFF pass). **Fix: no predicted index reaches
+   the GPU unverified.** Frame N+1's tokens replay only after TAIL N, so TAIL N waits for present N to retire and reads frame
+   N+1's real index (per-frame CAS handshake `FrameRec.bbState`): main uses it if TAIL N was first; else main predicts (newest
+   real index + one rotation per frame since) and TAIL N verifies before anything of N+1 replays; a wrong one is fixed by
+   presenting the current, PRESENT-state buffer again (one repeated older image) until the chain stands on the predicted index
+   (max 6, then session OFF: a chain that will not rotate is the one case left). TAIL presents with params snapshotted at E;
+   swapchain / resource overrides take the stock path. Why fo6 drifted: the old predictor was a running +1 per frame begin,
+   wrong after any frame end without a frame-begin index read (or one non-rotating present); the anchored predictor is immune
+   to the first, the verify step to both. PC self-test: forced misses caught + resynced with 1 extra present, 0 frames in a
+   wrong buffer.
+2. **Stock Present after an FO frame** read `GetCurrentBackBufferIndex` (3D6474) before its own present spin (stock relies on
+   WaitSubmitThread's spin, skipped after an FO frame): PrepareStock now waits for the pending present and restores the stream
+   end / sub-stream extents (harness: removing the spin makes 6 checks fail).
+3. **Watchdog restore broke rendering** (device removed even without a stall, 887A002B), bisected in game (restore in 8 groups):
+   FoGetBB cached the index per FO frame number; with FoPresent (5DAF3) restored first that number froze and the still-patched
+   FoGetBB returned a stale index while the chain rotated. Cache now only on the predicted path; Restore puts 5DAF3 back last
+   (session already OFF; the last frame still gets PrepareStock). Mirror bug at install: 5DAF3 was written first, so an FO frame
+   could end while WaitSubmitThread still read the index the stock way -> **5DAF3 is written last** ("the switch that creates FO
+   frames"). The 6-byte site 7D9BC7 is now `nop; call` (return address = site end, never inside bytes a restore rewrites).
+4. Test infrastructure: Tour head check accepts Nioh3BossRematch's 14-byte entry hook at 909218 (E9 + NOP padding); fo6pc did
+   not hit it (load-order race between the two add-ons).
+
+PC results (RX 9070, tour mode 7292, user config 2560x1440 XeSS, FG off; captures/pc/fastab/2026101x-*-fo7pc*):
+- fo7pc-selftest7: **ALL 17 steps PASS** (switch off/on, forced miss resynced, TAIL-issued OFF, fo6pc sequence, staged restore,
+  all-at-once restore, 5.6 s stall -> watchdog -> main wakes mid-restore -> stock, stall without watchdog, 8 s stall, re-arm
+  after each). Harness ALL PASSED (phases 1-10 + 9b), test_patterns ALL 245 SITES OK.
+- fo7pc (`captures/pc/fastab/20261010-0720-fo7pc`): FO = 1 for 10.8 min (settle 600 s) then `Tuning.FO = 1/0` ABBA x4:
+  **0 OFF / watchdog / ERROR events**, ~75.7 k FO frames, back buffer: real index published by TAIL before the frame began on
+  ~87 % of frames, the rest predicted + verified, 0 resyncs, 0 wrong; 4 live FO->stock and 4 stock->FO switches clean; TAIL
+  0.8 ms per FO frame on the replay thread (it now waits for its present). **FO 1 -> 0: fps -0.51 % +- 0.17 SE (100.2 -> 99.7),
+  frame time +0.051 ms** = FO +0.5 % on this GPU-bound PC (expected ~0, section 5.3). Game exited by the tour, user files
+  (ASI 946688 B DD8B5739.., ini Tour = 0, Nioh3BossRematch.*) verified byte-identical after every run.
+- Left: a swapchain that refuses to rotate for 7 presents in a row (session OFF, that frame is not saved); FG / proxy
+  swapchains untested (present-param overrides take the stock path); pc2 (CPU-bound, where FO should pay) and Ally not run.
+
 ## 8. Files
 
 - `mod/Nioh3EngineFix/src/frameoverlap.{h,cpp}`, `tests/frameoverlap_harness.cpp`, `tests/run_frameoverlap_harness.py` (FO).

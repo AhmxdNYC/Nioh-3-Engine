@@ -870,3 +870,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Harness `tests/run_sbm_harness.py` (RX 9070, no game): all OK; system-memory copy 25.7 GB/s (COPY queue) / 24.0 GB/s (DIRECT) for 4 MB per frame.
 - Not run in the game yet; pc2 A/B queued. Game folder untouched.
 - Undo: keys 0 (the defaults).
+
+## 2026-10-10 07:40 - ASI 1.7.59-fo7 (branch frame-overlap; [GpuOpt] FrameOverlap = 0 default, nothing installed)
+- FO fixes for the fo6pc hang: a frame recorded for a non-current back buffer REMOVES THE D3D12 DEVICE on the PC (the engine's fatal handler then sits in a modal box = the 'hang'); the next frame's back-buffer index is now read/verified by the TAIL before that frame replays (wrong prediction -> extra present of the current buffer). Stock Present after an FO frame waits for the pending present. Watchdog: thread dump + removed reason; restore fixed (stale index cache, FoPresent site written last / restored last). Live Tuning.FO_Test (tests, incl. 100 = self-test).
+- PC: self-test ALL 17 steps PASS; 10.8 min FO ON + ABBA x4 with 0 OFF events; FO +0.5 % +- 0.17 SE (GPU-bound). Game folder: only the tour harness's temporary ASI/ini, restored and verified after every run.
+- Undo: [GpuOpt] FrameOverlap = 0 (default) or live Tuning.FO = 0.

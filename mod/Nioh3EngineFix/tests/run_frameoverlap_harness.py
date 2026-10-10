@@ -6,7 +6,12 @@
    thread replaying a sequence-checked token stream (a token overwritten before replay breaks the sequence), a fake present
    thread, fake sub-streams, a real D3D12 device / queue for the forward fence. Phases: 40 overlapped frames; a frame larger than
    a stream half (stock fallback, then overlap again); live switch off / on; a previous-generation 0xA7 handle while TAIL is
-   pending; a back-buffer index mismatch (FO off for the session).
+   pending; (fo7) the stock Present modelled in its real order (back-buffer index read before its present spin, hand-off to
+   the present thread) with the KtglCache locks (+CF8h shared by the 0x95 handler and a tile-job thread, +CC0h / +CD0h in the
+   frame end) and a hang detector: chain jump + forced wrong prediction resynced before the frame replays (0 frames rendered
+   into a non-current back buffer), a chain that will not rotate (session OFF), TAIL-issued session OFF, the fo6pc sequence,
+   watchdog (5.6 s stall -> restore -> pure stock), partial restore (FoPresent gone, frame-begin hooks still patched),
+   re-arm; after every switch: no lock held, no TAIL pending, full stream / sub-stream extents.
 2. Source wiring: build.bat / CMakeLists build frameoverlap.cpp, dllmain starts it, routes Tuning keys and logs its status line,
    the ini documents FrameOverlap = 0 and FO_Pct, live_keys.py lists Tuning.FO / Tuning.FO_Pct.
 Must end ALL PASSED.
