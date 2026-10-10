@@ -99,6 +99,8 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
+// 1.7.59-fo4: FO KtglCache frame end back on the TAIL with the frame's own fence (the forward fence deadlocked the GPU on the PC:
+//   replay-side tile requests of frame N queued behind the tag, COPY waited GFX(N) while GFX(N) waited for them).
 // 1.7.59-fo3: FO record/replay slot split - main advances the frame slot at E (timestamp allocator 6B42B0 records with
 //   +4730h on main), TAIL resolves / stores for the frame's own slot; timestamp queries no longer switch FO off.
 // 1.7.59-fo2: FO fix - HandleSlotIsNotFreed replacement is now a register-exact stub (LTCG callers keep r9-r11 live across it;
@@ -109,7 +111,7 @@
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.59-fo3"
+#define MOD_VERSION "1.7.59-fo4"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

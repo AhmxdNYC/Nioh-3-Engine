@@ -185,7 +185,6 @@ static std::atomic<uint64_t> g_fenceCounter{0};
 static std::atomic<int> g_waitBad{0}, g_waits{0}, g_tagBad{0}, g_tags{0}, g_subResets{0}, g_subResetEarly{0}, g_stockPresents{0},
     g_ppMainViolations{0};
 static uint64_t g_lastTag = 0;
-static ID3D12Fence** g_expectHolder = nullptr;
 
 static void StockPresent(uintptr_t d, uintptr_t) {  // stock GfxDevicePresent: final kick + drain + reset to base + present + slot
     uint64_t it[2] = {F<uint64_t>(d + 0x3C48), F<uint64_t>(d + 0x3C40)};
@@ -231,12 +230,9 @@ static uint64_t FakeQpc() {
 }
 static uint64_t FakeTry(uintptr_t) { return 0; }
 static void FakeNoop2(uintptr_t, uintptr_t) {}
-static void FakeTag(uintptr_t, uintptr_t fdev, uint64_t v) {
+static void FakeTag(uintptr_t, uintptr_t fdev, uint64_t v) {  // stock tag: {dev+4310h, the frame's own fence}, after its last list
     ++g_tags;
-    ID3D12Fence** h = reinterpret_cast<ID3D12Fence**>(fdev + 0x4310);
-    if (h != g_expectHolder && g_expectHolder) ++g_tagBad;
-    if (!g_expectHolder) g_expectHolder = h;
-    if (!*h || v != g_lastTag + 1) ++g_tagBad;
+    if (fdev != dev || v <= g_lastTag || v > g_fenceCounter.load()) ++g_tagBad;
     g_lastTag = v;
 }
 static void FakeRetire(uintptr_t, uintptr_t, uintptr_t, uintptr_t) {}
@@ -403,15 +399,12 @@ int main() {
     Check(TestTailDone() == TestIssued(), "last TAIL done");
     Check(!TestDisabled(), "no fallback to session-off (back-buffer prediction held)");
     Check(g_waitBad == 0 && g_waits > 0, "GPU-lead / slot waits only for submitted fence values");
-    Check(g_tagBad == 0 && g_tags == tails1, "KtglCache tag per FO frame = {forward fence holder, frame number}");
+    Check(g_tagBad == 0 && g_tags == tails1, "KtglCache tag per FO frame in TAIL = {dev+4310h, the frame's submitted fence}");
     Check(g_subResetEarly == 0, "sub-stream reset only after TAIL N (barrier)");
     Check(g_ppViolations == 0 && g_ppMainViolations == 0 && g_ppCalls > 0, "PagePool handlers never run concurrently with main PP work");
     Check(g_allocResets >= tails1, "frame-slot allocator reset at every FO frame end (main, before the slot switch)");
     Check(g_resolves >= tails1 - 1 && g_resolveBad == 0, "timestamps: TAIL resolved index 5 of a slot range every frame");
     Check(!TestDisabled(), "timestamp queries in use do not switch FO off");
-    for (int i = 0; i < 400 && (*g_expectHolder)->GetCompletedValue() < g_lastTag; ++i) Sleep(5);
-    Check(g_expectHolder && *g_expectHolder && (*g_expectHolder)->GetCompletedValue() >= g_lastTag,
-          "forward fence reached the last frame number on the GPU queue");
 
     printf("phase 2: a frame that wraps in the high half and then runs past the middle -> stock frame end, then FO again\n");
     if (F<uintptr_t>(dev + 0x3C40) < sbase + g_stream.size() / 2) Frame(6000);  // start the test frame in the high half

@@ -60,8 +60,6 @@ bool g_init = false, g_initFailed = false;
 uintptr_t g_sBase = 0, g_sMid = 0, g_sEnd = 0;  // stream halves
 uint32_t g_genAtStart = 0xFFFFFFFFu;
 uintptr_t g_frameStart = 0;
-ID3D12Fence* volatile g_ovFence = nullptr;     // forward fence (TAIL signals frame numbers)
-uintptr_t g_ovFenceHolder = 0;                 // *(&holder) = the fence: the cache job derefs entry+10h
 HANDLE g_waitEv = nullptr;   // main thread's fence waits
 uint32_t g_bufCount = 0, g_mainIdx = 0;
 uint64_t g_bbFrame = ~0ull;  // frame whose back-buffer index FoGetBB already chose (RenderFrameBegin can run without a Present)
@@ -296,11 +294,12 @@ void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
     F<uint64_t>(dev + kSlotFence + slot * 8ull) = fence;
     r->fence = fence;
     InterlockedExchange(&r->fenceValid, 1);
-    if (ID3D12Fence* f = g_ovFence) {
-        void* q = F<void*>(dev + kQueue);
-        V<SignalFn>(q, 0x70)(q, f, r->frame);  // the tile job's COPY Wait(g_ovFence, N) = "GPU done with frame N"
-    }
     E.psoMaint(dev + kCtx, slot, F<uint64_t>(dev + kSlotFence + slot * 8ull));
+    // KtglCache frame end (12682C) exactly as stock: after the frame's last list, tagged with the frame's own fence. Under the PP
+    // lock against main's PagePoolFrameUpdate / 7D9C24 of frame N+1 (no common engine lock; stock relied on the drain).
+    AcquireSRWLockExclusive(&g_pp);
+    CacheFrameEnd(dev + kPool, dev, fence, dev);
+    ReleaseSRWLockExclusive(&g_pp);
     // present hand-off (stock 3D62E4 tail)
     const bool noVsyncFlag = (F<uint32_t>(p) & 1) == 0;
     const int sync = noVsyncFlag ? F<int>(dev + kSyncInterval) : 0;
@@ -345,18 +344,6 @@ bool Init(uintptr_t dev) {
     if (!g_sBase || size < (4u << 20) || reserve > size / 8 || g_sEnd != g_sBase + F<uint32_t>(dev + kStreamSize)) {
         FLOG("FO: not used (stream %p..%p, size %u, reserve %u: unexpected layout)", (void*)g_sBase, (void*)g_sEnd,
              F<uint32_t>(dev + kStreamSize), reserve);
-        g_initFailed = true;
-        return false;
-    }
-    if (ID3D12Device* d = F<ID3D12Device*>(dev + kDevice)) {
-        ID3D12Fence* f = nullptr;
-        if (SUCCEEDED(d->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence), reinterpret_cast<void**>(&f))) && f) {
-            g_ovFence = f;
-            g_ovFenceHolder = (uintptr_t)f;
-        }
-    }
-    if (!g_ovFence) {
-        FLOG("FO: not used (CreateFence failed)");
         g_initFailed = true;
         return false;
     }
@@ -413,10 +400,6 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     // final kick exactly as stock (submit = 1)
     uint64_t item[2] = {F<uint64_t>(dev + kLastKick), (uint64_t)write};
     E.ringPush(dev + kRing, item, 1, dev + kStats);
-    // KtglCache frame end, forward fence = frame number
-    AcquireSRWLockExclusive(&g_pp);
-    CacheFrameEnd(dev + kPool, dev, N, (uintptr_t)&g_ovFenceHolder - 0x4310);
-    ReleaseSRWLockExclusive(&g_pp);
     // sync-point table tick (first half of 8BEDC8)
     {
         const uint32_t n = ++F<uint32_t>(dev + kSyncFrame);
