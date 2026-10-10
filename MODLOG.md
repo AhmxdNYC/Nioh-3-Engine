@@ -875,3 +875,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - FO fixes for the fo6pc hang: a frame recorded for a non-current back buffer REMOVES THE D3D12 DEVICE on the PC (the engine's fatal handler then sits in a modal box = the 'hang'); the next frame's back-buffer index is now read/verified by the TAIL before that frame replays (wrong prediction -> extra present of the current buffer). Stock Present after an FO frame waits for the pending present. Watchdog: thread dump + removed reason; restore fixed (stale index cache, FoPresent site written last / restored last). Live Tuning.FO_Test (tests, incl. 100 = self-test).
 - PC: self-test ALL 17 steps PASS; 10.8 min FO ON + ABBA x4 with 0 OFF events; FO +0.5 % +- 0.17 SE (GPU-bound). Game folder: only the tour harness's temporary ASI/ini, restored and verified after every run.
 - Undo: [GpuOpt] FrameOverlap = 0 (default) or live Tuning.FO = 0.
+
+## 2026-10-10 09:45 - ASI 1.7.59-fo8 (branch frame-overlap; [GpuOpt] FrameOverlap = 0 default)
+- pc2 fo2 'hang' = the replay thread crashed when it lags (CPU-bound): B6 PagePool page ops (7D9C24) of frame N+1 ran while frame N still replayed. New default [Tuning] FO_PPWait = 2 (B6 waits for TAIL N). Sub-stream crossing guard, replay-fault report, full thread dump, FO_ReplayDelayUs lag emulator (test only).
+- PC with an 8 ms emulated replay lag: 35 k FO frames, 0 faults (fo7: fault after 71 / 160 frames). Game folder: only the tour harness's temporary ASI/ini, restored + verified after every run.
+- Undo: [GpuOpt] FrameOverlap = 0 (default) or live Tuning.FO = 0.

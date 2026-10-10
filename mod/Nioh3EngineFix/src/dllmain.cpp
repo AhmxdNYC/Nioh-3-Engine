@@ -99,6 +99,9 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
+// 1.7.59-fo8: FO PagePool frame begin (B4 PagePoolFrameUpdate / B6 7D9C24) waits for TAIL N by default ([Tuning] FO_PPWait;
+//   overlapping it with frame N's replay corrupted / freed data that frame N still replays when the replay lags = pc2 fo2 hang),
+//   sub-stream crossing guard, replay-fault report (vectored handler), full thread dump, FO_ReplayDelayUs lag emulator.
 // 1.7.59-fo7: FO stock frame end after an FO frame waits for the pending present first (stock GfxDevicePresent reads
 //   GetCurrentBackBufferIndex before its own present spin; fo6pc hung on the first FO->stock switch), back-buffer index
 //   re-anchored on the last real index every frame (a miss is tolerated, 7 misses in 1000 frames = session OFF), watchdog
@@ -119,7 +122,7 @@
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.59-fo7"
+#define MOD_VERSION "1.7.59-fo8"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

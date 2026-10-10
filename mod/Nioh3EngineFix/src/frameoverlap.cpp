@@ -122,9 +122,16 @@ struct SubHalves {
 SubHalves g_subH[kMaxSub] = {};
 int g_subHN = 0;
 std::atomic<int64_t> s_subSwitch{0};
-bool SubStreamsSwitch(uintptr_t dev) {  // main, at E (workers idle, as at stock's Present reset); false = do not overlap
+std::atomic<int64_t> s_subCross{0};
+// 1 = switched; 0 = a recorder too small to split (FO off); -1 = a recorder's frame data crosses its middle (stock frame end)
+int SubStreamsSwitchPass(uintptr_t dev, bool apply);
+int SubStreamsSwitch(uintptr_t dev) {
+    const int r = SubStreamsSwitchPass(dev, false);  // check every recorder before switching any
+    return r == 1 ? SubStreamsSwitchPass(dev, true) : r;
+}
+int SubStreamsSwitchPass(uintptr_t dev, bool apply) {  // main, at E (workers idle, as at stock's Present reset)
     const uintptr_t arr = F<uintptr_t>(dev + 0x74D8);
-    if (!arr) return true;
+    if (!arr) return 1;
     const uint32_t cnt = std::min<uint32_t>(F<uint32_t>(dev + 0x3E28), kMaxSub);
     for (uint32_t i = 0; i < cnt; ++i) {
         const uintptr_t sub = F<uintptr_t>(arr + i * 8ull);
@@ -135,27 +142,34 @@ bool SubStreamsSwitch(uintptr_t dev) {  // main, at E (workers idle, as at stock
         for (int k = 0; k < g_subHN; ++k)
             if (g_subH[k].rec == rec) h = &g_subH[k];
         if (!h) {  // first sight: the recorder is still stock-sized; split it
-            if (g_subHN >= kMaxSub) return false;
+            if (g_subHN >= kMaxSub) return 0;
             const uintptr_t lo = F<uintptr_t>(rec + 0x18), hi = F<uintptr_t>(rec + 0x20);
             const uint32_t reserve = F<uint32_t>(rec + 0x14);
             if (hi <= lo || (hi - lo) / 2 < 8ull * reserve + 4096) {
                 FLOG("FO: sub-stream %u recorder %p too small to split (%llu bytes, reserve %u) - no overlap", i, (void*)rec,
                      (unsigned long long)(hi - lo), reserve);
-                return false;
+                return 0;
             }
             h = &g_subH[g_subHN++];
             *h = {rec, lo, lo + (((hi - lo) / 2) & ~(uintptr_t)0xF), hi};
             FLOG("FO: sub-stream %u recorder %p split %p | %p | %p (reserve %u)", i, (void*)rec, (void*)h->lo, (void*)h->mid, (void*)h->hi,
                  reserve);
         }
-        const uintptr_t w = F<uintptr_t>(rec + 0x28);
-        const bool inLo = w < h->mid;
+        const uintptr_t w = F<uintptr_t>(rec + 0x28), b0 = F<uintptr_t>(rec + 0x18);
+        if (b0 < h->mid && w > h->mid) {  // this frame's data [base, write) crosses the middle (first FO frame after stock
+            if (++s_subCross <= 4)        // frames: full extent) - either half may still hold unreplayed data: stock frame end
+                FLOG("FO: sub-stream %u data %p..%p crosses its middle %p - stock frame end (no overlap this frame)", i, (void*)b0, (void*)w,
+                     (void*)h->mid);
+            return -1;
+        }
+        if (!apply) continue;
+        const bool inLo = w <= h->mid && b0 < h->mid;
         F<uintptr_t>(rec + 0x18) = inLo ? h->mid : h->lo;
         F<uintptr_t>(rec + 0x20) = inLo ? h->hi : h->mid;
         E.subReset(sub);  // stock 253F2C -> 2543A0: write = last kick = the new base, per-frame stats rolled
         ++s_subSwitch;
     }
-    return true;
+    return 1;
 }
 
 
@@ -510,9 +524,23 @@ void PrepareStock(uintptr_t dev) {
     }
 }
 
+// last frame ends, for the replay-fault report (main thread writes, the fault handler reads)
+struct EndRec {
+    uint64_t frame;
+    uintptr_t start, write, tail;
+    uint32_t fo, gen;
+};
+EndRec g_ends[8] = {};
+volatile LONG g_endN = 0;
+void NoteEnd(uint64_t frame, uintptr_t start, uintptr_t write, uintptr_t tail, uint32_t fo, uint32_t gen) {
+    const LONG i = InterlockedIncrement(&g_endN);
+    g_ends[i & 7] = {frame, start, write, tail, fo, gen};
+}
+
 void StockPresent(uintptr_t dev, uintptr_t p2) {
     PrepareStock(dev);
     ++s_stock;
+    if (dev == g_dev) NoteEnd(g_frame + 1, 0, F<uintptr_t>(dev + kWrite), 0, 0, F<uint32_t>(dev + kGen));
     E.present(dev, p2);
     ++g_frame;
     ClearRec(g_frame + 1);
@@ -576,8 +604,8 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     const uint64_t N = g_frame + 1;
     // sub-streams: switch every active recorder to its other half (frame N's 0x90 data stays until TAIL N); a recorder too small
     // to split -> stock frame end (it resets them) and FO off
-    if (!SubStreamsSwitch(dev)) {
-        Disable(9, "a sub-stream is too small to split");
+    if (const int ss = SubStreamsSwitch(dev); ss != 1) {
+        if (ss == 0) Disable(9, "a sub-stream is too small to split");
         StockPresent(dev, p2);
         return;
     }
@@ -614,6 +642,7 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
         w[4] = (uint32_t)(arg >> 32);
     }
     const uintptr_t write2 = write + 20;
+    NoteEnd(N, start, write, write, 1, gen);
     g_issued.store(N, std::memory_order_relaxed);
     uint64_t item2[2] = {(uint64_t)write, (uint64_t)write2};
     E.ringPush(dev + kRing, item2, 0, dev + kStats);
@@ -709,12 +738,15 @@ UINT __fastcall FoGetBB(void* sc) {  // WaitSubmitThread 7D9BC7 (was call [rax+1
     g_bbAnchor.store((F1 << 8) | (idx & 0xFF), std::memory_order_release);
     return idx;
 }
+std::atomic<int> g_ppWaitTail{2};  // Tuning.FO_PPWait: 2 = B6 waits for TAIL N (default), 1 = B4 + B6, 0 = no wait (unsafe)
 void __fastcall FoPPUpdate(uintptr_t pool, uintptr_t dev) {  // 7D9BA3 PagePoolFrameUpdate
+    if (g_ppWaitTail.load() & 1) Barrier(true);  // FO_PPWait: 1 = B4 + B6 wait for TAIL N, 2 = B6 only
     AcquireSRWLockExclusive(&g_pp);
     E.ppUpdate(pool, dev);
     ReleaseSRWLockExclusive(&g_pp);
 }
 void __fastcall FoPPOps(uintptr_t pool, uintptr_t dev) {  // 7D9C07 7D9C24
+    if (g_ppWaitTail.load()) Barrier(true);  // FO_PPWait 1 or 2
     AcquireSRWLockExclusive(&g_pp);
     E.ppOps(pool, dev);
     ReleaseSRWLockExclusive(&g_pp);
@@ -825,8 +857,15 @@ bool PPLock() {
     s_ppWaitTicks += (int64_t)(Now() - t0);
     return true;
 }
+std::atomic<int> g_replayDelayUs{0};  // test: Tuning.FO_ReplayDelayUs - replay-thread lag like a CPU-bound pc2 (busy wait)
 template <int I>
 void __fastcall PPWrap(uintptr_t ctx, uint8_t** cur) {
+    if constexpr (I == 0) {  // tok 0x82 = start of every frame's PagePool ops, i.e. near the start of each frame's replay
+        if (const int us = g_replayDelayUs.load()) {
+            const uint64_t t0 = Now(), wait = (uint64_t)((double)us / (g_tickMs * 1000.0));
+            while (Now() - t0 < wait) YieldProcessor();
+        }
+    }
     const bool locked = PPLock();
     g_ppOrig[I](ctx, cur);
     if (locked) ReleaseSRWLockExclusive(&g_pp);
@@ -952,6 +991,94 @@ bool g_ready = false;          // verified at boot, patches prepared
 CRITICAL_SECTION g_instCs;
 std::atomic<int> g_wdFired{0};
 
+const char* Where(uintptr_t a, char* buf, size_t n) {
+    if (a >= g_sBase && a < g_sEnd) {
+        snprintf(buf, n, "main stream %s half +%llX", a < g_sMid ? "LOW" : "HIGH", (unsigned long long)(a - (a < g_sMid ? g_sBase : g_sMid)));
+        return buf;
+    }
+    for (int k = 0; k < g_subHN; ++k)
+        if (a >= g_subH[k].lo && a < g_subH[k].hi) {
+            snprintf(buf, n, "sub-stream recorder %d %s half +%llX (recorder base %p end %p write %p)", k, a < g_subH[k].mid ? "LOW" : "HIGH",
+                     (unsigned long long)(a - (a < g_subH[k].mid ? g_subH[k].lo : g_subH[k].mid)), F<void*>(g_subH[k].rec + 0x18),
+                     F<void*>(g_subH[k].rec + 0x20), F<void*>(g_subH[k].rec + 0x28));
+            return buf;
+        }
+    snprintf(buf, n, "outside the main stream and the split sub-streams");
+    return buf;
+}
+int Unwind(CONTEXT* c, uintptr_t* frames, int max);
+std::atomic<int> g_vehLogged{0};
+LONG CALLBACK ReplayFault(PEXCEPTION_POINTERS ep) {
+    CONTEXT* c = ep->ContextRecord;
+    __try {
+        if (!g_base || ep->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION) return EXCEPTION_CONTINUE_SEARCH;
+        const uintptr_t ret = *reinterpret_cast<uintptr_t*>(c->Rsp);
+        bool atCall = ret == g_base + 0x1A7C467;
+        if (!atCall && GetCurrentThreadId() != g_replayTid) return EXCEPTION_CONTINUE_SEARCH;
+        uintptr_t dispRbp = atCall ? c->Rbp : 0;
+        if (!atCall && c->Rip >= g_base + 0x1A7C3E0 && c->Rip < g_base + 0x1A7C4C0) {  // in the dispatcher loop itself (e.g. the
+            dispRbp = c->Rbp;                                                            // table read of a garbage opcode)
+            atCall = true;
+        }
+        if (!atCall) {  // a fault deeper in a token handler: unwind to the dispatcher frame (its rbp holds the cursor pair)
+            CONTEXT u = *c;
+            uintptr_t fr[40];
+            for (int k = 0; k < 40; ++k) {
+                if (Unwind(&u, fr, 2) < 2) break;  // one step: fr[1] = the caller's rip, u = the caller's context
+                if (u.Rip == g_base + 0x1A7C467) {
+                    dispRbp = u.Rbp;
+                    atCall = true;
+                    break;
+                }
+            }
+        }
+        if (g_vehLogged.exchange(1)) return EXCEPTION_CONTINUE_SEARCH;
+        FLOG("FO: REPLAY FAULT on tid %lu: code %08lX at %p (return %p%s) | FO frame %llu, TAIL issued %llu done %llu, session %s",
+             GetCurrentThreadId(), (unsigned long)ep->ExceptionRecord->ExceptionCode, (void*)c->Rip, (void*)ret,
+             atCall ? " = dispatcher token call 1A7C463" : "", (unsigned long long)g_frame, (unsigned long long)g_issued.load(),
+             (unsigned long long)g_tailDone.load(), g_disabled.load() ? "OFF" : "on");
+        if (atCall) {
+            const uintptr_t rbp = dispRbp;
+            const uintptr_t cur = F<uintptr_t>(rbp - 0x30), pair = F<uintptr_t>(rbp - 0x28), beg = F<uintptr_t>(rbp - 0x18),
+                            end = F<uintptr_t>(rbp - 0x10), ctx = F<uintptr_t>(rbp - 0x20);
+            char w1[256], w2[256], w3[256];
+            FLOG("FO:   token %04X at %p [%s] | pair %p (%s) -> end %p | ring item ctx %p begin %p [%s] end %p [%s]",
+                 F<uint16_t>(cur), (void*)cur, Where(cur, w1, sizeof w1), (void*)pair, pair == rbp - 0x18 ? "main stream item" : "redirected (sub-stream)",
+                 F<void*>(pair + 8), (void*)ctx, (void*)beg, Where(beg, w2, sizeof w2), (void*)end, Where(end, w3, sizeof w3));
+            char hex[600];
+            size_t o = 0;
+            for (int k = -48; k < 48 && o + 12 < sizeof hex; k += 4)
+                o += (size_t)snprintf(hex + o, sizeof hex - o, "%s%08X", k == 0 ? " >" : " ", F<uint32_t>(cur + k));
+            FLOG("FO:   bytes around the cursor:%s", hex);
+            // the first pointer-looking qwords of the token payload (texture / resource objects for binds): their first bytes
+            for (int k = 4, shownp = 0; k < 64 && shownp < 3; k += 4) {
+                const uintptr_t q = F<uintptr_t>(cur + k);
+                if (q < 0x10000 || q > 0x7FFFFFFFFFFFull || (q & 7)) continue;
+                o = 0;
+                for (int m = 0; m < 64 && o + 20 < sizeof hex; m += 8) o += (size_t)snprintf(hex + o, sizeof hex - o, " %016llX", F<unsigned long long>(q + m));
+                FLOG("FO:   payload +%d -> %p:%s", k, (void*)q, hex);
+                ++shownp;
+            }
+        }
+        FLOG("FO:   main stream: write %p last kick %p end %p gen %u | halves %p %p %p", F<void*>(g_dev + kWrite), F<void*>(g_dev + kLastKick),
+             F<void*>(g_dev + kEnd), F<uint32_t>(g_dev + kGen), (void*)g_sBase, (void*)g_sMid, (void*)g_sEnd);
+        for (int k = 0; k < g_subHN; ++k)
+            FLOG("FO:   sub-stream recorder %d: split %p | %p | %p, now base %p end %p write %p last kick %p high %p", k, (void*)g_subH[k].lo,
+                 (void*)g_subH[k].mid, (void*)g_subH[k].hi, F<void*>(g_subH[k].rec + 0x18), F<void*>(g_subH[k].rec + 0x20),
+                 F<void*>(g_subH[k].rec + 0x28), F<void*>(g_subH[k].rec + 0x30), F<void*>(g_subH[k].rec + 0x38));
+        const LONG n = g_endN;
+        for (LONG i = n - 7; i <= n; ++i) {
+            const EndRec& e = g_ends[i & 7];
+            if (!e.frame) continue;
+            char w4[256];
+            FLOG("FO:   frame end %llu %s gen %u: data %p..%p [%s]%s", (unsigned long long)e.frame, e.fo ? "FO" : "stock", e.gen, (void*)e.start,
+                 (void*)e.write, Where(e.write, w4, sizeof w4), e.fo ? " + TAIL token" : "");
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 DWORD WINAPI Watchdog(LPVOID);
 bool g_wdStarted = false;
 bool Install() {  // under g_instCs
@@ -976,6 +1103,7 @@ bool Install() {  // under g_instCs
     if (!g_wdStarted) {
         g_wdStarted = true;
         if (HANDLE h = CreateThread(nullptr, 0, Watchdog, nullptr, 0, nullptr)) CloseHandle(h);
+        AddVectoredExceptionHandler(1, &ReplayFault);  // logs a replay-thread fault (pc2 fo2: invisible behind the crash box)
     }
     return true;
 }
@@ -1057,8 +1185,15 @@ void DumpThreads(const char* why) {
         void* d = F<void*>(g_dev + kDevice);
         FLOG("FO: D3D12 GetDeviceRemovedReason = %08lX", (unsigned long)V<HrFn>(d, 0x128)(d));  // ID3D12Device slot 37
     }
+    if (g_dev)
+        FLOG("FO: dispatcher ring: cap %u write %u read %u in flight %u | stream write %p last kick %p end %p gen %u",
+             F<uint32_t>(g_dev + 0x3C00), F<uint32_t>(g_dev + 0x3C04), F<uint32_t>(g_dev + 0x3C08), F<uint32_t>(g_dev + 0x3C10),
+             F<void*>(g_dev + kWrite), F<void*>(g_dev + kLastKick), F<void*>(g_dev + kEnd), F<uint32_t>(g_dev + kGen));
+    // main and replay first (pc2 fo2: the replay thread fell behind an 80-line cap), then every thread with a game frame
+    for (int i = 0, j = 0; i < nt; ++i)
+        if (tids[i] == g_mainTid || tids[i] == g_replayTid) std::swap(tids[i], tids[j++]);
     int shown = 0;
-    for (int i = 0; i < nt && shown < 80; ++i) {
+    for (int i = 0; i < nt && shown < 400; ++i) {
         HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, tids[i]);
         if (!h) continue;
         CONTEXT c{};
@@ -1121,6 +1256,9 @@ DWORD WINAPI Watchdog(LPVOID) {
             dumps = 1;
             Disable(8, "watchdog: no frame for 5 s");
             if (g_tailDone.load() >= g_issued.load()) Restore("watchdog, no TAIL pending");
+            else if (g_vehLogged.load())
+                FLOG("FO: WATCHDOG: TAIL %llu can never finish: the replay thread FAULTED (REPLAY FAULT above) and sits in the engine's crash "
+                     "handler - not recoverable from FO; patches kept", (unsigned long long)g_issued.load());
             else FLOG("FO: WATCHDOG: TAIL %llu still pending - patches kept so the pending frame can finish", (unsigned long long)g_issued.load());
         } else if (now - lastChange > 15000 && dumps == 1) {  // still nothing 15 s on: a second dump shows what is really stuck
             DumpThreads("watchdog +15 s");
@@ -1270,6 +1408,10 @@ void Start(const StartInfo& info) {
     InitializeCriticalSection(&g_instCs);
     if (key != 1 && key != 2) return;
     g_pct = std::clamp((int)GetPrivateProfileIntW(L"Tuning", L"FO_Pct", 25, info.iniPath), 0, 90);
+    g_replayDelayUs = std::clamp((int)GetPrivateProfileIntW(L"Tuning", L"FO_ReplayDelayUs", 0, info.iniPath), 0, 50000);  // test only
+    // B6 (7D9C24 PagePool page ops) waits for TAIL N by default: overlapping it with frame N's replay corrupted / freed data frame N
+    // still replays (fo8 lag tests); 0 = unsafe overlap (diagnosis only), 1 = B4 + B6 wait
+    g_ppWaitTail = std::clamp((int)GetPrivateProfileIntW(L"Tuning", L"FO_PPWait", 2, info.iniPath), 0, 2);
     if (!info.knownBuild) {
         FLOG("FO: not installed (unknown build; the sites are v2.02)");
         return;
@@ -1438,6 +1580,18 @@ void Start(const StartInfo& info) {
 
 bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
     const bool isFo = !_stricmp(key, "FO"), isPct = !_stricmp(key, "FO_Pct"), isTest = !_stricmp(key, "FO_Test");
+    if (!_stricmp(key, "FO_PPWait")) {  // 0 = PagePool frame begin overlaps frame N's replay (UNSAFE when the replay lags), 1 = B4 + B6
+        g_ppWaitTail = std::clamp(atoi(val), 0, 2);  // wait for TAIL N (default), 2 = B6 only
+        snprintf(reply, n, "FO_PPWait = %d", g_ppWaitTail.load());
+        if (g_log) g_log("LIVE tuning: %s", reply);
+        return true;
+    }
+    if (!_stricmp(key, "FO_ReplayDelayUs")) {  // test only: replay-thread lag (us per frame, busy wait in the 0x82 handler)
+        g_replayDelayUs = std::clamp(atoi(val), 0, 50000);
+        snprintf(reply, n, "FO_ReplayDelayUs = %d%s", g_replayDelayUs.load(), g_installed ? "" : " (active once FO is installed)");
+        if (g_log) g_log("LIVE tuning: %s", reply);
+        return true;
+    }
     if (!isFo && !isPct && !isTest) return false;
     if (!g_ready) {
         snprintf(reply, n, "%s: FO not available ([GpuOpt] FrameOverlap = 1 or 2 at boot, v2.02, byte checks)", key);
@@ -1551,6 +1705,7 @@ uint32_t TestPrevGen() { return g_prevGen; }
 bool TestDisabled() { return g_disabled.load() != 0; }
 void TestAct(int v) { TestAction(v); }
 bool TestInstalled() { return g_installed; }
+void TestWatchdogSuppress(int on) { g_wdSuppress = on; }
 bool TestWatchdogFired() { return g_wdFired.load() != 0; }
 int64_t TestMisses() { return s_bbMiss.load(); }
 int64_t TestResyncs() { return s_bbResync.load(); }

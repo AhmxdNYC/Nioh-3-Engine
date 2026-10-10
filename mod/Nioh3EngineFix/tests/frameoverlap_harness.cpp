@@ -54,6 +54,8 @@ static std::atomic<int> g_seqErrors{0}, g_tails{0}, g_submits{0};
 static std::atomic<int> g_inPP{0}, g_ppViolations{0}, g_ppCalls{0};
 static uint64_t g_seqWritten = 0;
 
+static uint32_t g_subSeqW[2] = {}, g_subSeqR[2] = {};
+static std::atomic<int> g_subErr{0};
 // engine locks of the KtglCache (g+61A0h): +CF8h shared by tok 0x95 (7F64DC) and the tile job 492310, +CC0h / +CD0h exclusive in
 // the KtglCache frame end (12682C: blocking acquire on the v == 0 path, try-acquire otherwise)
 static PSRWLOCK CacheLock(uintptr_t off) { return reinterpret_cast<PSRWLOCK>(dev + 0x61A0 + off); }
@@ -121,6 +123,15 @@ static void ReplayThread() {
                     do QueryPerformanceCounter(&t);
                     while (t.QuadPart - t0.QuadPart < 300);
                 }
+            } else if (op == 0x90) {  // sub-stream segment {recorder, begin, end}: replay its (sequence-numbered) data
+                const uint32_t ri = p[1];
+                const uint32_t* sb = reinterpret_cast<const uint32_t*>(p[2] | (uint64_t)p[3] << 32);
+                const uint32_t* se = reinterpret_cast<const uint32_t*>(p[4] | (uint64_t)p[5] << 32);
+                for (; sb < se; ++sb) {
+                    if (*sb != g_subSeqR[ri] + 1) ++g_subErr;
+                    g_subSeqR[ri] = *sb;
+                }
+                p += 6;
             } else if (op == 0xA7) {
                 p[1] = 0xBBBBBBBBu;
                 p += 2;
@@ -290,7 +301,7 @@ static void FakePP(uintptr_t, uintptr_t) {
 static void FakeNode(uintptr_t, uintptr_t) {}
 
 // ---- main-thread recording emulation -----------------------------------------------------------------------------------
-static void Emit(uint32_t n, uint32_t nodes, uint32_t kickEvery = 64) {
+static void Emit(uint32_t n, uint32_t nodes, uint32_t kickEvery) {
     for (uint32_t i = 0; i < n; ++i) {
         if (F<uintptr_t>(dev + 0x3C38) - F<uintptr_t>(dev + 0x3C40) < kReserve) {  // stock wrap: marker, kick, wait, reset
             uint64_t it[2] = {F<uint64_t>(dev + 0x3C48), F<uint64_t>(dev + 0x3C40)};
@@ -317,6 +328,24 @@ static void Emit(uint32_t n, uint32_t nodes, uint32_t kickEvery = 64) {
 static int g_bbMismatchMain = 0;
 static std::vector<uint32_t> g_recSlots;
 static std::atomic<int> g_framesDone{0};
+static void Emit(uint32_t n, uint32_t nodes, uint32_t kickEvery = 64);
+static void SubWrite(int i, uint32_t dwords) {  // an effect worker appends to sub-stream i, main records the 0x90 token
+    uint32_t* w = F<uint32_t*>(g_subRec[i] + 0x28);
+    uint32_t* const b0 = w;
+    for (uint32_t k = 0; k < dwords; ++k) *w++ = ++g_subSeqW[i];
+    F<uintptr_t>(g_subRec[i] + 0x28) = (uintptr_t)w;
+    if (F<uintptr_t>(dev + 0x3C38) - F<uintptr_t>(dev + 0x3C40) < kReserve) Emit(0, 0, 64);  // (no-op: Emit handles wraps)
+    uint32_t* t = F<uint32_t*>(dev + 0x3C40);
+    const uint64_t bb = (uint64_t)(uintptr_t)b0, ee = (uint64_t)(uintptr_t)w;
+    t[0] = 0x90;
+    t[1] = (uint32_t)i;
+    t[2] = (uint32_t)bb;
+    t[3] = (uint32_t)(bb >> 32);
+    t[4] = (uint32_t)ee;
+    t[5] = (uint32_t)(ee >> 32);
+    F<uintptr_t>(dev + 0x3C40) += 24;
+}
+static uint32_t g_earlySubDwords = 0;  // > 0: workers also write this much BEFORE the barrier (effects do, every frame)
 static void Frame(uint32_t tokens, uint32_t nodes = 100) {
     const bool fo = TestInstalled();  // false after the watchdog restored every patch: the pure stock engine
     // WaitSubmitThread 7D9B6C: present spin (FO skips it after an FO frame), PagePoolFrameUpdate, back-buffer index
@@ -336,9 +365,10 @@ static void Frame(uint32_t tokens, uint32_t nodes = 100) {
         g_tsBits[s][0] |= 1ull << 5;
         g_recSlots.push_back(s);
     }
-    // sub-stream workers write after the barrier only (like effects late in the frame)
+    if (g_earlySubDwords)
+        for (int i = 0; i < 2; ++i) SubWrite(i, g_earlySubDwords);  // before the barrier (frame N may still be replaying)
     Emit(tokens / 2, nodes);
-    for (int i = 0; i < 2; ++i) F<uintptr_t>(g_subRec[i] + 0x28) += 64;
+    for (int i = 0; i < 2; ++i) SubWrite(i, 16);
     Emit(tokens - tokens / 2, 0);
     if (fo) TestPresent(dev);
     else StockPresent(dev, 0);
@@ -511,7 +541,9 @@ int main() {
     printf("phase 2: a frame that wraps in the high half and then runs past the middle -> stock frame end, then FO again\n");
     if (F<uintptr_t>(dev + 0x3C40) < sbase + g_stream.size() / 2) Frame(6000);  // start the test frame in the high half
     const int stock0 = g_stockPresents;
+    TestWatchdogSuppress(1);  // this frame is seconds long on purpose
     Frame(1200000);  // 9.6 MB: wraps at the end of the high half, continues from the base past the middle
+    TestWatchdogSuppress(0);
     for (int f = 0; f < 5; ++f) Frame(6000);
     WaitIdle();
     Check(g_stockPresents > stock0, "spanning frame took the stock path");
@@ -708,6 +740,33 @@ int main() {
         }
         while (F<volatile uint8_t>(dev + 0x7728)) Sleep(0);
         Check(stale == 0, "FoGetBB returned the current back buffer on every frame without FoPresent");
+    }
+
+    phase = "11";
+    printf("phase 11 (pc2 fo2 ordering): switch on after stock frames while the replay lags; effect workers write early and the "
+           "first FO frame's sub-stream data crosses the recorder's middle -> that frame must end stock, nothing overwritten "
+           "before replay\n");
+    TestAct(9);
+    SetTuning("FO", "0", rep, sizeof rep);
+    for (int f = 0; f < 3; ++f) Frame(6000);
+    WaitIdle();
+    {
+        const int e0 = g_subErr.load(), s0 = g_stockPresents;
+        SetTuning("FO", "1", rep, sizeof rep);
+        g_earlySubDwords = 9000;  // 36 KB per recorder > its 32 KB half: the first FO frame crosses the middle
+        g_pause = true;           // the replay lags: nothing of this frame is replayed until the next frame has begun
+        std::thread([] {
+            Sleep(150);
+            g_pause = false;
+        }).detach();
+        Frame(6000);
+        g_earlySubDwords = 600;   // later frames: workers write before the barrier while frame N still replays
+        for (int f = 0; f < 8; ++f) Frame(60000);
+        g_earlySubDwords = 0;
+        WaitIdle();
+        Check(g_subErr.load() == e0, "no sub-stream data overwritten before it was replayed");
+        Check(g_stockPresents >= s0 + 1, "the crossing frame ended on the stock path");
+        Check(g_tails >= 1 && !TestDisabled(), "overlap continues after it");
     }
 
     phase = "10";

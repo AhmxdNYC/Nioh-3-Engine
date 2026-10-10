@@ -105,6 +105,7 @@ uint64_t TestTailDone();
 bool TestDisabled();
 void TestAct(int v);          // Tuning.FO_Test actions 1 2 3 4 9
 bool TestInstalled();         // false after the watchdog restored every patch
+void TestWatchdogSuppress(int on);  // for frames that are slow on purpose
 bool TestWatchdogFired();
 int64_t TestMisses();         // frames rendered into a non-current back buffer (must stay 0)
 int64_t TestResyncs();        // wrong predictions fixed before the frame replayed

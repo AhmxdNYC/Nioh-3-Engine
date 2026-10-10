@@ -314,6 +314,39 @@ PC results (RX 9070, tour mode 7292, user config 2560x1440 XeSS, FG off; capture
 - Left: a swapchain that refuses to rotate for 7 presents in a row (session OFF, that frame is not saved); FG / proxy
   swapchains untested (present-param overrides take the stock path); pc2 (CPU-bound, where FO should pay) and Ally not run.
 
+### 7.2 fo8 (1.7.59-fo8): pc2 fo2 gate failure = the replay thread CRASHED when it lags; PagePool page ops are the cause
+
+pc2 FO2 (fo7, 5600X / 6650 XT, ~38 fps, drain 5.9 ms/f): self-test step 6 (switch on) -> 0 frames after 30 FO frames, TAIL
+pending forever, main in the sync-point wait 3D2B90 -> GfxWaitFenceValue (null event = Sleep(0) poll of a list fence). The
+replay thread was missing from the dump (80-line display cap). **Reproduced on the PC** with a replay-lag emulator
+(`[Tuning] FO_ReplayDelayUs` = busy wait in the 0x82 handler, i.e. at the start of each frame's replay; 8000 us ~ pc2's
+backlog): the replay thread is in the engine's crash dialog (dispatcher 2EEDFC2 -> 1A7C467 -> fault). Not a deadlock: main
+polls a fence only the dead replay thread could submit. A vectored handler now reports replay faults (token, cursor, stream /
+half / sub-stream recorder, bytes, payload objects, last 8 frame ends): garbage opcodes in frame N's main-stream data (twice:
+token 5850 in the FIRST segment of frame N, the frame-begin page tokens' region) and binds of wiped objects (tok 0x45 texture
+-> driver AV in ResourceBarrier; tok 0x5F UAV object zeroed). All with main in the frame-begin of N+1 while frame N replays.
+
+Bisect under the 8 ms lag (PC, tour 7292): K 25 % -> fault after 71 / 160 FO frames; K 0 -> after 1529; **B4 + B6 wait for
+TAIL N (`FO_PPWait = 1`): 30.8 k FO frames, 0 faults; only B6 waits (`= 2`, B4 PagePoolFrameUpdate still overlapped), K 0:
+28.7 k, 0; `= 2` with K 25 %: ~31 k, 0.** So the PagePool page ops (B6, 7D9C24: tokens 0x82 / page ops / 0x83 under SRW
++D08h) must not run while frame N replays - the section-4 "reader audit" was never done and the PP lock only serialises
+handler execution, not the frame-to-frame data. Default now `[Tuning] FO_PPWait = 2` (B6 waits for TAIL N; B4, B5 and the
+graph up to K stay overlapped). Proper fix (let B6 overlap) needs RE of 7D9C24 / 2EF0D20 and the 0x82/0x83/0x95 handlers.
+
+Also: sub-stream crossing guard (the first FO frame after stock frames could have sub-stream data past the recorder's middle;
+the next frame then reused the half it started in - harness phase 11 reproduces it with a lagging replay: without the guard
+2 FAILs), thread dump prints main + replay first and every game thread, dispatcher ring state, removed reason; watchdog says
+when the replay thread faulted (nothing FO can recover: the engine's crash handler owns the game). Harness ALL PASSED,
+test_patterns ALL 245 SITES OK.
+
+PC fo8 results (8 ms emulated replay lag): fo8 default (B6 waits, K 25 %) ~35 k FO frames, 0 faults, ABBA x3 FO 1 -> 0
+-0.16 % +- 0.07 SE (64.4 -> 64.3 fps) - no gain, as expected: the emulator makes the replay thread the bottleneck, which FO
+cannot hide; it reproduces pc2's lag for safety, not pc2's main-bound shape (main 20.5 ms + drain 6 ms). Self-test with the
+lag (fo7 build + crossing guard): ALL 17 PASS once, but the hazard is intermittent (the B6 bisect above is the evidence).
+**Expect a smaller gain than section 5.3 on pc2:** with B6 waiting, only frame begin up to B6 (B1-B5, incl. B4
+PagePoolFrameUpdate) overlaps frame N's tail; the graph up to K still overlaps only the time after B6. Making B6 overlappable
+(RE of the page-op recording + the 0x82/0x83/0x95 replay; or deferring B6 to the barrier) is the next FO work item.
+
 ## 8. Files
 
 - `mod/Nioh3EngineFix/src/frameoverlap.{h,cpp}`, `tests/frameoverlap_harness.cpp`, `tests/run_frameoverlap_harness.py` (FO).
