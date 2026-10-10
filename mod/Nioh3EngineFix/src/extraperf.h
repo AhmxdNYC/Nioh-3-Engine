@@ -87,4 +87,5 @@ void caveFxDraw();    // EPF2: replaces movss [g_ViewGpuEffectDrawFraction], xmm
 void ExtraPerfLodC(uint8_t* obj);
 extern uintptr_t ep_giOrig, ep_lodOrig, ep_pSimFrac, ep_pDrawFrac;
 extern float ep_giMul, ep_giMin, ep_fxMul;
+extern float ep_giLastIn, ep_giLastOut;  // caveGiScale read-back (stats line)
 }

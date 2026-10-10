@@ -8,7 +8,10 @@ if (-not $BackupRoot) { $BackupRoot = "D:\nioh3-re\save-backups" }
 if (-not $CaptureRoot) { $CaptureRoot = Join-Path $ws "captures\playsession" }
 if (-not $StateDir) { $StateDir = Join-Path $PSScriptRoot "state" }
 $BinAsi = Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi"
+if ($env:NIOH3_ASI) { $BinAsi = $env:NIOH3_ASI }   # a branch-worktree build (fastab -Asi); default = the main tree's bin
 $PmExe = Join-Path $ws "tools\PresentMon.exe"
+# bridge lock identity: $env:NIOH3_LOCK_ID (e.g. pc-xp when several PC agents test the game), default pc
+$LockId = if ($env:NIOH3_LOCK_ID) { $env:NIOH3_LOCK_ID } else { "pc" }
 $PmSession = "Nioh3PlaySession"
 $UoBridge = "C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge"
 $ActiveFile = Join-Path $StateDir "active.json"
@@ -60,7 +63,7 @@ function Get-AsiVersion([string]$path) {
 function Invoke-GameLock([string]$action, [int]$ttl = 0) {
     # returns @{ code = exit code; out = text }. Exit 0 ok, 1 held by someone else (acquire), 2 bridge error
     $env:UO_BRIDGE_TOKEN_FILE = Join-Path $env:APPDATA "uo-bridge\token"
-    $env:UO_AGENT_ID = "pc"
+    $env:UO_AGENT_ID = $LockId
     $lk = if ($global:LockKey) { $global:LockKey } else { "nioh3" }   # run_tour -LockKey (tour-mode runs use their own key)
     $a = @("-m", "uo_bridge.gamelock", $action, $lk)
     if ($ttl -gt 0) { $a += @("--ttl", "$ttl") }

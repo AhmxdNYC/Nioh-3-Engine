@@ -870,3 +870,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Harness `tests/run_sbm_harness.py` (RX 9070, no game): all OK; system-memory copy 25.7 GB/s (COPY queue) / 24.0 GB/s (DIRECT) for 4 MB per frame.
 - Not run in the game yet; pc2 A/B queued. Game folder untouched.
 - Undo: keys 0 (the defaults).
+
+## 2026-10-10 - ASI 1.7.59 [ExtraPerf] extra performance settings (branch extra-perf, not merged)
+- New opt-in settings that trade look for fps: XCLD XFOG XGI XSHD XSHF XLOD XTER XPRT XAO XPOST + Preset (Performance / Potato); all default off ([ExtraPerf] Enabled = 1 installs the hooks). Menu section "Extra performance (changes the look)". Table + measurements: notes\extra-performance-settings.md.
+- Presets re-tuned after screenshot pairs: fog cuts changed 15-23 % of pixels (Potato replaced the volumetric glow with a brown haze) -> Performance leaves fog alone, Potato uses the 48x16 grid. Log lines per override ("EXTRA: S+410 ... engine X -> written Y"), GI / particle / LOD read-backs in the 30 s stats line. fastab.ps1 -Shots / -Asi, shotpairs.py, extraperf_table.py, extraperf_ab.py (pc2 / Ally scheduler); fastab writes only XPRE while a preset is active.
+- Undo: [ExtraPerf] Enabled = 0 (installs nothing) or Preset = 0 / all levels 0 (hooks pass the game's values through).

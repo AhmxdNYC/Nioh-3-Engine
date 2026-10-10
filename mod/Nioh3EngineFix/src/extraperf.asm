@@ -9,7 +9,7 @@
 ;   caveFxSim    EPF1 4A5B76: `movss dword ptr [g_ViewGpuEffectSimFraction], xmm1` (8 bytes -> E8 rel32 + 3-byte nop).
 ;   caveFxDraw   EPF2 4A5B7E: `movss dword ptr [g_ViewGpuEffectDrawFraction], xmm2`.
 ;                Both store xmm * ep_fxMul to the global (address decoded from the original instruction at install) and
-;                leave every register and the flags as they were (xmm1 / xmm2 saved whole, rax saved).
+;                leave every register and the flags as they were (xmm1 / xmm2 saved whole, rax saved; lea, not sub/add, moves rsp).
 OPTION CASEMAP:NONE
 
 EXTERN ExtraPerfLodC:PROC
@@ -20,14 +20,18 @@ EXTERN ep_pDrawFrac:QWORD
 EXTERN ep_giMul:DWORD
 EXTERN ep_giMin:DWORD
 EXTERN ep_fxMul:DWORD
+EXTERN ep_giLastIn:DWORD
+EXTERN ep_giLastOut:DWORD
 PUBLIC caveGiScale, caveMeshLod, caveFxSim, caveFxDraw
 
 .code
 caveGiScale PROC
     sub     rsp, 28h                    ; entry 8 mod 16 -> 0 mod 16, 20h shadow space
     call    qword ptr [ep_giOrig]
+    movss   dword ptr [ep_giLastIn], xmm0     ; read-back for the stats line
     mulss   xmm0, dword ptr [ep_giMul]
     maxss   xmm0, dword ptr [ep_giMin]
+    movss   dword ptr [ep_giLastOut], xmm0
     add     rsp, 28h
     ret
 caveGiScale ENDP
@@ -45,7 +49,7 @@ caveMeshLod PROC
 caveMeshLod ENDP
 
 caveFxSim PROC
-    sub     rsp, 28h
+    lea     rsp, [rsp-28h]              ; lea: flags untouched (the replaced movss sets none)
     movups  xmmword ptr [rsp], xmm1
     mov     qword ptr [rsp+10h], rax
     mulss   xmm1, dword ptr [ep_fxMul]
@@ -53,12 +57,12 @@ caveFxSim PROC
     movss   dword ptr [rax], xmm1
     mov     rax, qword ptr [rsp+10h]
     movups  xmm1, xmmword ptr [rsp]
-    add     rsp, 28h
+    lea     rsp, [rsp+28h]
     ret
 caveFxSim ENDP
 
 caveFxDraw PROC
-    sub     rsp, 28h
+    lea     rsp, [rsp-28h]              ; lea: flags untouched (the replaced movss sets none)
     movups  xmmword ptr [rsp], xmm2
     mov     qword ptr [rsp+10h], rax
     mulss   xmm2, dword ptr [ep_fxMul]
@@ -66,7 +70,7 @@ caveFxDraw PROC
     movss   dword ptr [rax], xmm2
     mov     rax, qword ptr [rsp+10h]
     movups  xmm2, xmmword ptr [rsp]
-    add     rsp, 28h
+    lea     rsp, [rsp+28h]
     ret
 caveFxDraw ENDP
 

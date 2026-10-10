@@ -12,6 +12,7 @@
 extern "C" {
 uintptr_t ep_giOrig = 0, ep_lodOrig = 0, ep_pSimFrac = 0, ep_pDrawFrac = 0;
 float ep_giMul = 1.0f, ep_giMin = 0.0f, ep_fxMul = 1.0f;
+float ep_giLastIn = 0.0f, ep_giLastOut = 0.0f;  // caveGiScale: the last GiScaleLookup result and what the cave returned (stats read-back)
 }
 
 namespace extraperf {
@@ -42,9 +43,11 @@ const OptDef kOpt[kNumOpts] = {
 };
 // presets: level per option (kClouds .. kPost)
 const int kPresetLv[kNumPresets][kNumOpts] = {
+    // XCLD XFOG XGI XSHD XSHF XLOD XTER XPRT XAO XPOST - tuned on the PC measurements (notes\extra-performance-settings.md 3):
+    // XTER (visible flatter ground, no gain), XPRT (no measurable effect) and XPOST (no gain) are left to the player.
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},  // game
-    {2, 1, 1, 1, 0, 1, 1, 1, 0, 1},  // Performance: moderate, keeps AO / bloom / shadow filtering
-    {3, 3, 3, 3, 2, 3, 3, 3, 1, 2},  // Potato: everything to its lowest; particles stay at 25 % (attack tells are effects)
+    {2, 0, 2, 1, 0, 1, 0, 0, 0, 0},  // Performance: clouds, GI, shadow distance, LOD only (all inside the A-vs-A screenshot noise); any fog cut visibly dims the glow
+    {3, 2, 3, 3, 2, 2, 0, 0, 1, 1},  // Potato: + coarser fog grid (glow kept: fog off was a big look change for +1.3 %), AO off, 1-tap shadows, blur / DOF off
 };
 const char* const kPresetName[kNumPresets] = {"game (all off)", "Performance", "Potato"};
 
@@ -67,15 +70,32 @@ const float kFxMul[5] = {1.0f, 0.75f, 0.5f, 0.25f, 0.0f};
 // kept otherwise, so a scaled value never compounds. Off: put the base back if nobody re-filled the field.
 struct Field {
     uint32_t off;
+    const char* name;
+    bool flt;           // float field (else int) - for the log line only
     bool wrote = false;
+    int logs = 0;       // value-change log lines since the override started (max 4)
     uint32_t last = 0;  // bits we wrote
     uint32_t base = 0;  // engine bits
     uint64_t writes = 0, refills = 0;
 };
 enum FieldId { fCloudMax, fCloudMin, fFogX, fFogZ, fFogScatter, fEraseEnd, fEraseStart, fShadowTaps, fTessDist, fTessRate,
                fAoRays, fAoSteps, fAoContrast, fMb, fDof, fBloom, kNumFields };
-Field g_f[kNumFields] = {{0x410}, {0x40C}, {0x13DC}, {0x13E0}, {0x1398}, {0xAF4}, {0xAF8}, {0xB44}, {0x1970}, {0x1978},
-                         {0x12F4}, {0x12F8}, {0x12D8}, {0x188C}, {0x1700}, {0x30}};
+Field g_f[kNumFields] = {{0x410, "VolumetricCloudMaxRaySampleNum", false}, {0x40C, "VolumetricCloudMinRaySampleNum", false},
+                         {0x13DC, "VolumetricFogResolutionX", false}, {0x13E0, "VolumetricFogResolutionZ", false},
+                         {0x1398, "VolumetricFogScatterScale", true}, {0xAF4, "ShadowEraseFarEnd", true},
+                         {0xAF8, "ShadowEraseFarStart", true}, {0xB44, "ShadowSampleNum", false},
+                         {0x1970, "TerrainTessellationMaxDistance", true}, {0x1978, "TerrainTessellationDistanceAdaptRate", true},
+                         {0x12F4, "SSAORayNum", false}, {0x12F8, "SSAOStepNum", false}, {0x12D8, "SSAOContrast", true},
+                         {0x188C, "LensSimulationMotionBlur2Enable", false}, {0x1700, "LensSimulationDOFFlag", false},
+                         {0x30, "BloomWeight", true}};
+
+// "S+410 VolumetricCloudMaxRaySampleNum 256" (value as the field's type)
+void FieldText(const Field& f, uint32_t bits, char* buf, size_t n) {
+    float x;
+    memcpy(&x, &bits, 4);
+    if (f.flt) snprintf(buf, n, "%g", (double)x);
+    else snprintf(buf, n, "%d", (int)bits);
+}
 
 inline uint32_t Bits(float f) {
     uint32_t u;
@@ -98,6 +118,13 @@ uint32_t Base(uint8_t* S, Field& f) {
     return f.base;
 }
 void Put(uint8_t* S, Field& f, uint32_t v) {
+    if ((!f.wrote || v != f.last) && f.logs < 4) {  // override starts / its value changes: engine value -> written value (max 4 lines)
+        ++f.logs;
+        char a[24], b[24];
+        FieldText(f, f.base, a, sizeof a);
+        FieldText(f, v, b, sizeof b);
+        XLOG("EXTRA: S+%X %s: engine %s -> written %s", f.off, f.name, a, b);
+    }
     *reinterpret_cast<uint32_t*>(S + f.off) = v;
     f.last = v;
     f.wrote = true;
@@ -108,6 +135,10 @@ void Off(uint8_t* S, Field& f) {
     uint32_t* p = reinterpret_cast<uint32_t*>(S + f.off);
     if (*p == f.last) *p = f.base;  // not re-filled since our last write: give the engine its value back
     f.wrote = false;
+    f.logs = 0;
+    char a[24];
+    FieldText(f, *p, a, sizeof a);
+    XLOG("EXTRA: S+%X %s: override off (engine value %s)", f.off, f.name, a);
 }
 void PutMinInt(uint8_t* S, Field& f, int v) {
     const int b = (int)Base(S, f);
@@ -307,6 +338,14 @@ void StatusLine(char* buf, unsigned n) {
         if (g_f[i].writes)
             k += snprintf(buf + k, n - k, " %X %llu/%llu", g_f[i].off, (unsigned long long)g_f[i].writes,
                           (unsigned long long)g_f[i].refills);
+    // read-backs of the non-render-config hooks: what the engine actually got
+    if (k > 0 && (unsigned)k < n && g_gi)
+        k += snprintf(buf + k, n - k, "; GI scale engine %.3f -> used %.3f", (double)ep_giLastIn, (double)ep_giLastOut);
+    if (k > 0 && (unsigned)k < n && g_fx && ep_pSimFrac && ep_pDrawFrac)
+        k += snprintf(buf + k, n - k, "; GPU particle fractions sim %.3f draw %.3f", (double)*reinterpret_cast<float*>(ep_pSimFrac),
+                      (double)*reinterpret_cast<float*>(ep_pDrawFrac));
+    if (k > 0 && (unsigned)k < n && g_lod && g_lodState.wrote)
+        k += snprintf(buf + k, n - k, "; meshlet LOD scale[0] engine %.3f -> %.3f", (double)g_lodState.base[0], (double)g_lodState.last[0]);
     pr = r;
     pl = l;
 }

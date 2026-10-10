@@ -29,7 +29,9 @@ param(
     [string]$ShaderRoot = "C:\Users\Ahmad Hamza\nioh3-engine\gpu-shaders",
     [string[]]$ExtraKeys = @(),
     [string]$LockKey = "nioh3-pc",
-    [int]$OwnerPid = 0, [int]$MaxMinutes = 90, [switch]$DryRun
+    [int]$OwnerPid = 0, [int]$MaxMinutes = 90, [switch]$DryRun,
+    [string]$Asi = "",                 # a branch build to install (default: the main tree's bin); run_tour gets it as $env:NIOH3_ASI
+    [switch]$Shots, [int]$ShotIdleSec = 60   # screenshot after the pair-0 A and B windows of each item (shots\<item>_A/B.png; PC idle + Nioh3 in front)
 )
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
@@ -48,7 +50,9 @@ if ($DryRun) {
 . (Join-Path $wsHere "tools\playsession\session_lib.ps1")   # $GameDir / $SaveRoot defaults, $PmExe, $BinAsi, Get-AsiVersion, Get-LockHolder ($ws = main repo)
 if (-not $DryRun) { $sess = Join-Path $ws "captures\pc\fastab\$stamp-$Tag" }
 if (-not $UserConfig) { $UserConfig = Join-Path $ws "captures\playsession\20261008-2059-session\config.xml" }
-$runTour = Join-Path $ws "tools\tour\run_tour.ps1"
+$runTour = Join-Path $wsHere "tools\tour\run_tour.ps1"   # this checkout's run_tour (honours $env:NIOH3_ASI)
+if ($Asi) { $Asi = (Resolve-Path $Asi).Path; $env:NIOH3_ASI = $Asi; $BinAsi = $Asi }
+$ui = Join-Path $ws "tools\ui.fsx"
 $reportPy = Join-Path $here "fastab_report.py"
 $hotPy = Join-Path $here "hotset.py"
 New-Item -ItemType Directory -Force $sess | Out-Null
@@ -105,9 +109,12 @@ if (Test-Path $lk) {
 
 # ---- control file / ack ------------------------------------------------------------------------------------------------------
 $script:state = @{}   # key -> current value written
+# LiveCtl applies every line of the file in order on each gen: a preset row (XPRE) goes FIRST, or 'XPRE = 0' after 'XCLD = 1'
+# would reset the level rows to the game's values (bug in the 2026-10-10 xp3 / xp4sky sessions).
+$script:epLv = "XCLD", "XFOG", "XGI", "XSHD", "XSHF", "XLOD", "XTER", "XPRT", "XAO", "XPOST"   # a non-zero preset in the file must not be followed by level rows (they would override it; xp5sky bug)
 function Write-Control([string]$tag) {
     $script:gen++
-    $t = "[Live]`r`nGen = $($script:gen)`r`nTag = $tag`r`n" + (($script:state.Keys | Sort-Object | ForEach-Object { "$_ = $($script:state[$_])" }) -join "`r`n") + "`r`n"
+    $t = "[Live]`r`nGen = $($script:gen)`r`nTag = $tag`r`n" + (($script:state.Keys | Where-Object { -not ($script:state["XPRE"] -and $script:state["XPRE"] -ne "0" -and $script:epLv -contains $_) } | Sort-Object { $(if ($_ -eq "XPRE") { 0 } else { 1 }) }, { $_ } | ForEach-Object { "$_ = $($script:state[$_])" }) -join "`r`n") + "`r`n"
     $tmp = "$ctl.w"
     [IO.File]::WriteAllText($tmp, $t, [Text.Encoding]::ASCII)
     Move-Item -LiteralPath $tmp -Destination $ctl -Force
@@ -219,6 +226,31 @@ function Build-HotSets {
     }
 }
 
+# ---- screenshots (-Shots; same capture as cost_vs_looks.ps1) ------------------------------------------------------------------
+if ($Shots -and -not $DryRun) {
+    Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+    if (-not ("FabDpi" -as [type])) { Add-Type -Name FabDpi -Namespace "" -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();' }
+    $null = [FabDpi]::SetProcessDPIAware()
+}
+$shotDir = Join-Path $sess "shots"
+function Fg-Name { $o = Run-Native dotnet @("fsi", $ui, "fg"); if ($o -match 'foreground: pid=\d+ (\S+)') { $Matches[1] } else { "" } }
+function Idle-Sec { $o = Run-Native dotnet @("fsi", $ui, "idle"); if ($o -match 'idle ([\d.]+)') { [double]$Matches[1] } else { 0 } }
+function Take-Shot([string]$name) {   # -> "shots/<name>.png" or "" (PC in use / game not in front / failed)
+    if (-not $Shots -or $DryRun) { return "" }
+    if ((Idle-Sec) -lt $ShotIdleSec) { L "  shot ${name}: PC in use - skipped" Yellow; return "" }
+    if ((Fg-Name) -ne "Nioh3") { $null = Run-Native dotnet @("fsi", $ui, "focus", "Nioh3"); Start-Sleep 2; if ((Fg-Name) -ne "Nioh3") { L "  shot ${name}: Nioh3 not in front - skipped" Yellow; return "" } }
+    New-Item -ItemType Directory -Force $shotDir | Out-Null
+    $png = Join-Path $shotDir "$name.png"
+    try {
+        $b = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $bmp = New-Object Drawing.Bitmap $b.Width, $b.Height
+        $g = [Drawing.Graphics]::FromImage($bmp)
+        $g.CopyFromScreen($b.Location, [Drawing.Point]::Empty, $b.Size)
+        $bmp.Save($png, [Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose()
+        return "shots/$name.png"
+    } catch { L "  shot ${name}: $_" Yellow; return "" }
+}
+
 # ---- run_tour child ------------------------------------------------------------------------------------------------------------
 function Start-Tour([int]$dwell, [string]$keys) {
     $cap = Join-Path $sess "tour"; New-Item -ItemType Directory -Force $cap | Out-Null
@@ -237,7 +269,7 @@ $summary = [ordered]@{}
 $tr = $null; $script:pmp = $null
 try {
     $nWin = 2 * $Pairs
-    $dwell = [int][Math]::Ceiling($SettleSec + $plan.Count * $nWin * ($WarmSec + $WindowSec + 1.5) + 45)
+    $dwell = [int][Math]::Ceiling($SettleSec + $plan.Count * $nWin * ($WarmSec + $WindowSec + 1.5) + 45 + $(if ($Shots) { $plan.Count * 25 } else { 0 }))   # -Shots: 2 shots per item (~10 s each incl. the idle / foreground checks)
     if ($dwell -gt 1800) { throw "schedule needs a $dwell s dwell (> 1800 s, the TourDwellSec limit): fewer items or pairs per launch" }
     L "fastab $Tag$(if ($DryRun) { ' - DRY RUN' }): items $($plan.id -join ', '); $Pairs pairs (ABBA) x 2 windows x $WindowSec s + $WarmSec s warm-up; stage $Stage; dwell $dwell s; session $sess" Cyan
     $asiVer = if ($DryRun) { "dry" } else { Get-AsiVersion $BinAsi }
@@ -248,7 +280,7 @@ try {
         # several PC agents share the bridge id 'pc', so a 'pc' holder may be us (run_when_idle.ps1 takes the lock before it starts
         # this script): then the only guard is that no other harness runs. Any other holder (pc2 / ally) = refuse.
         $global:LockKey = $LockKey; $h = Get-LockHolder
-        if ($h.holder -and $h.holder -ne "pc") { throw "the game lock '$LockKey' is held by '$($h.holder)' - wait for it (py -m uo_bridge.gamelock status $LockKey)" }
+        if ($h.holder -and $h.holder -ne $LockId) { throw "the game lock '$LockKey' is held by '$($h.holder)' - wait for it (py -m uo_bridge.gamelock status $LockKey)" }
         $par = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
         $other = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'powershell.exe' -and $_.ProcessId -ne $PID -and $_.ProcessId -ne $par -and
             $_.CommandLine -match 'fastab\.ps1|run_tour|abba2_pc|pc_gpu_session|cost_vs_looks|pc_weakcpu|weakcpu_stock|final_pc|pc_retest|cm_sim_pc|vrrp_ab_pc|load_pc' -and $_.CommandLine -notmatch 'run_when_idle' })
@@ -268,7 +300,9 @@ try {
     if (@($plan | Where-Object { $_.kind -eq "hot" }).Count) { $keys += @("ShaderHot.Enabled=1", "ShaderHot.Folder=Nioh3EngineFix_hot") }
     $mx = @{}; try { foreach ($it in (Get-Content (Join-Path $here "matrix.json") -Raw | ConvertFrom-Json).items) { $mx[$it.id] = $it } } catch {}
     $baseTxt = if (Test-Path (Join-Path $GameDir "Nioh3EngineFix.ini")) { [IO.File]::ReadAllText((Join-Path $GameDir "Nioh3EngineFix.ini")) } else { "" }
-    foreach ($p in $plan | Where-Object { $_.kind -eq "menu" }) {   # a live row that is not installed in the play ini: install it for the run
+    $epRows = "XPRE", "XCLD", "XFOG", "XGI", "XSHD", "XSHF", "XLOD", "XTER", "XPRT", "XAO", "XPOST"   # [ExtraPerf] level rows (extraperf.h)
+    if (@($plan | Where-Object { $epRows -contains $_.key }).Count) { $keys += "ExtraPerf.Enabled=1", "ExtraPerf.Preset=0" }
+    foreach ($p in $plan | Where-Object { $_.kind -eq "menu" -and $epRows -notcontains $_.key }) {   # a live row that is not installed in the play ini: install it for the run
         if ($baseTxt -notmatch "(?m)^$([regex]::Escape($p.key))\s*=\s*[12]") { $keys += "Patches.$($p.key)=$(if ($mx[$p.key] -and $mx[$p.key].live_installed_value -eq '2') { 2 } else { 1 })" }
     }
     $keys += $ExtraKeys
@@ -308,12 +342,13 @@ try {
                 Start-Sleep -Seconds $WindowSec
                 $w1 = Utc; $c1 = Read-Ack
                 $ended = Dwell-Ended
+                $shot = if ($q -eq 0) { Take-Shot ("{0}_{1}" -f ($p.id -replace '[^\w.]', '_'), $arm) } else { "" }   # after the window: outside every measured span
                 if (-not $DryRun -and -not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { throw "the game exited during $wtag" }
                 $clk = [ordered]@{}
                 foreach ($k in "frames", "qpc_us", "ft_sq_us", "h20", "h33", "h50") { if ($c0.ContainsKey($k) -and $c1.ContainsKey($k)) { $clk["mod_$k"] = [double]$c1[$k] - [double]$c0[$k] } }
                 Add-Jsonl ([ordered]@{ kind = "window"; item = $p.id; key = $p.key; pair = $q; arm = $arm; value = $v; a_value = $p.a; b_value = $p.b
                     tag = $wtag; gen = $script:gen; t0_utc = $w0; t1_utc = $w1; ack_ok = [bool]$ak.good; readback = $(if ($ak.ContainsKey($p.key)) { $ak[$p.key] } else { "" })
-                    warm_s = $WarmSec; dwell_ended = $ended; clock = $clk })
+                    warm_s = $WarmSec; dwell_ended = $ended; clock = $clk; shot = $shot })
                 L ("  {0}: {1} = {2} (ack gen {3} {4})" -f $wtag, $p.key, $v, $ak.gen, $(if ($ak.good) { "ok" } else { "NOT OK" }))
                 if ($ended) { L "  the tour dwell ended - schedule cut here (raise -SettleSec margin / fewer items)" Yellow; break }
             }

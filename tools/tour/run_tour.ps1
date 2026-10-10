@@ -191,14 +191,14 @@ if (-not $DryRun) { Start-TestPopup -Name "Tour (mode $Mode, list $List)" -Input
 try {
     Say "Nioh 3 tour - mode $Mode, list $List, $Points points x $DwellSec s, $Passes pass(es)$(if ($DryRun) { ' - DRY RUN' })" Cyan
     if (-not $DryRun -and (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue)) { throw "Nioh 3 is running - quit it first" }
-    $binAsi = Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi"
+    $binAsi = if ($env:NIOH3_ASI) { $env:NIOH3_ASI } else { Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi" }   # fastab -Asi: a branch build
     if (-not $DryRun -and -not (Test-Path $binAsi)) { throw "no mod build at $binAsi" }
     $asiVer = if ($DryRun) { "dry" } else { Get-AsiVersion $binAsi }
     if (-not $DryRun -and $asiVer -ne "unknown" -and [version]$asiVer -lt [version]"1.7.36") { throw "the build is $asiVer; Tour needs 1.7.36+" }
     if ($vp -and -not $DryRun -and $asiVer -ne "unknown" -and [version]$asiVer -lt [version]"1.7.37") { throw "the build is $asiVer; -Input vpad needs 1.7.37+" }
     if (-not $NoLock) {
         $h = Get-LockHolder
-        if ($h.ok -and $h.holder -and $h.holder -ne "pc") { throw "the game is in use on '$($h.holder)' (bridge game lock)" }
+        if ($h.ok -and $h.holder -and $h.holder -ne $LockId) { throw "the game is in use on '$($h.holder)' (bridge game lock)" }
         $r = Invoke-GameLock "acquire" ([Math]::Max(3600, $MaxMinutes * 60))
         if ($r.code -eq 1) { throw "the game lock is held by another device: $($r.out)" }
         if ($r.code -eq 0) { $script:lockHeld = $true; Say "game lock taken" } else { Say "game lock: bridge not reachable ($($r.out)) - continuing" Yellow }
