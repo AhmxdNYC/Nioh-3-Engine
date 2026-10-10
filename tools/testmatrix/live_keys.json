@@ -614,7 +614,23 @@
    "section": "Tuning",
    "cls": "live-tuning",
    "via": "Tuning.CBMODE = v",
-   "why": "cbvupload: bitmask for one-key A/B of combinations: 1 CBS, 2 CBN, 4 CBT, 8 CBS without sfence, 16 census (1.7.60-cbu1)",
+   "why": "cbvupload: bitmask for one-key A/B of combinations: 1 CBS, 2 CBN, 4 CBT, 8 CBS without sfence, 16 census, 32 CBF, 64 CBF on the COPY queue (1.7.60-cbu2)",
+   "class": "live"
+  },
+  {
+   "key": "CBF",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBF = v",
+   "why": "cbvstage: CB ring staged in system memory + one copy per submission into a VRAM ring, switch read per table flush (1.7.60-cbu2; needs [Patches] CBF = 1 or 2 at boot)",
+   "class": "live"
+  },
+  {
+   "key": "CBF_QUEUE",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBF_QUEUE = v",
+   "why": "cbvstage: CBF copies in a DIRECT prologue list 0 / on a COPY queue + Wait 1, read per submission (1.7.60-cbu2)",
    "class": "live"
   },
   {
@@ -963,6 +979,14 @@
   },
   {
    "key": "CBT",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CBF",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
