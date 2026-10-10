@@ -4,7 +4,7 @@ Read this section only; older handoffs follow below.
 ## PAUSED 2026-10-10 17:10 by the user (save weekly limit) - detailed: notes/handoff-2026-10-10-1710.md
 - Do NOT resume or start agents until the user says so. Devices told [HOLD] (#1758).
 - DONE: CBN+CBT upload fix (pc2 +15.9 %, PC/Ally no harm; cbv-upload c5183c2 default on), Extra Performance presets (PC +4.3/+10.5 %, Ally +3.5/+9.6 %; extra-perf cba1fbc), Boss Rematch 1.4.0 arena spawn (rematch-instant b2cfe09, light test PASS).
-- OPEN: fo9 frame overlap faulted on pc2 (#1746) -> fo10 fix; CBF held until pc2's GPU moves from the chipset slot (0.8 GB/s, #1736 - USER ACTION); main-thread renderer candidates; rematch full test plan; merge cbv-upload + extra-perf into the next build.
+- OPEN: fo9 frame overlap faulted on pc2 (#1746) -> fo10 fix; CBF off (pc2 GPU stuck on a 0.8 GB/s chipset slot, #1736; cannot be moved - pc2 = slow-link test machine); main-thread renderer candidates; rematch full test plan; merge cbv-upload + extra-perf into the next build.
 
 ## UPDATE 2026-10-10 05:20 (auto-wake chat 92d3daad, after the 03:10 session limit)
 - FO fo2..fo6 built + PC-tested by the old chat (branch frame-overlap 37806b7). fo6pc (captures/pc/fastab/20261010-0259-fo6pc): 3556 FO frames OK, then back-buffer prediction mismatch (pred 0, real 2) -> session OFF -> game HUNG (watchdog fired, patches removed, 0 frames; BKS 'cache SRW +CF8h held' 100 % = lock left held). Opus agent on fo7 (fix both, force-switch test on PC, report; no pc2/Ally queueing by the agent).
