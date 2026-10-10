@@ -140,13 +140,15 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
 }
 
 // Captured arena positions (Nioh3BossRematch_arenas.tsv, written at BossBattleMode start with [Rematch] ArenaCapture = 1):
-// "mission<TAB>placements<TAB>x<TAB>y<TAB>z<TAB>when" (mission hex/dec, placements space separated). A capture overrides the
-// catalogue arena point of every R / H / D row of that mission whose boss placement was created before that fight (last line wins).
+// "mission<TAB>placements<TAB>x<TAB>y<TAB>z<TAB>when<TAB>src" (mission hex/dec, placements space separated, src before-load /
+// fight-start). A capture overrides the catalogue arena point of every R / H / D row of that mission whose boss placement was
+// created before that fight (last line wins). Lines without src (add-on 1.2.0) hold the position AFTER the boss intro moved the
+// player (Yamagata: 334650, outside the trigger box) and are ignored.
 inline int ApplyArenas(const std::string& text, std::vector<Row>& rows) {
     int n = 0;
     for (const auto& line : Lines(text)) {
         const auto f = SplitTab(line);
-        if (f.size() < 5 || f[0] == "mission") continue;
+        if (f.size() < 7 || f[0] == "mission" || (f[6] != "before-load" && f[6] != "fight-start")) continue;
         const uint32_t mis = (uint32_t)strtoul(f[0].c_str(), nullptr, 0);
         const std::string pl = " " + f[1] + " ";
         for (auto& r : rows) {
@@ -160,7 +162,7 @@ inline int ApplyArenas(const std::string& text, std::vector<Row>& rows) {
             r.arenaOk = true;
             r.atFight = false;
             snprintf(r.arenaConf, sizeof(r.arenaConf), "captured");
-            snprintf(r.arenaSrc, sizeof(r.arenaSrc), "captured %s", f.size() > 5 ? f[5].c_str() : "");
+            snprintf(r.arenaSrc, sizeof(r.arenaSrc), "captured %s %s", f[5].c_str(), f[6].c_str());
             ++n;
         }
     }

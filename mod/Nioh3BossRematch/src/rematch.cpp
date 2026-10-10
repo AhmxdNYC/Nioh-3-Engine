@@ -224,27 +224,36 @@ bool PlayerPos(float out[4]) {  // character +0x110 = position (Player::SetPos r
     return ch && Copy(out, ch + 0x110, 16);
 }
 // The tail of Player::SetPos 23AB4DC (23AB658..23AB6F4) with our values: CharacterSetPositionYaw(ch, pos, yawDeg), the physics
-// controller vcall +D0h, actor manager +48h -> +D0h = pos + 42A9B4 sync, 1C2A3CC(pos), scene cfg +10B0h = pos / +10C0h = 1 +
+// controller vcall +D0h, actor manager [[45B9E40]] +48h -> +D0h = pos + A429B4(manager) sync, 1C2A3CC(pos), scene cfg +10B0h = pos / +10C0h = 1 +
 // 3A083C(cfg+500h, cfg+10B0h), StagePathInitStep(cfg+500h, 1) (stage streaming around the new position).
+int g_warpStep = 0;  // the last CallWarp step reached (for the log when it fails)
 int CallWarp(float x, float y, float z, float yawDeg) {
     const uint64_t ch = PlayerChar();
     if (!ch) return 1;
     alignas(16) float pos[4] = {x, y, z, 1.0f};
+    g_warpStep = 0;
     __try {
+        g_warpStep = 1;
         ((void (*)(uint64_t, const float*, float))F_SETPOSYAW)(ch, pos, yawDeg);
         const uint64_t a = *(const uint64_t*)(ch + 0x3B0);
         uint64_t c = *(const uint64_t*)(a + 0x28);
         if (!c) c = *(const uint64_t*)(a + 0x18);
         const uint64_t vt = *(const uint64_t*)c;
+        g_warpStep = 2;
         ((void (*)(uint64_t)) * (const uint64_t*)(vt + 0xD0))(c);
-        const uint64_t am = *(const uint64_t*)G_CH;
+        g_warpStep = 3;
+        const uint64_t am = *(const uint64_t*)*(const uint64_t*)G_CH;  // 23AB685: mov rax,[rip+g]; 23AB693: mov rcx,[rax] (1.2.0 missed this load)
         memcpy((void*)(*(const uint64_t*)(am + 0x48) + 0xD0), (const void*)(ch + 0x110), 16);
+        g_warpStep = 4;
         ((void (*)(uint64_t))F_ACTORSYNC)(am);
+        g_warpStep = 5;
         ((void (*)(uint64_t))F_POSNOTIFY)(ch + 0x110);
         const uint64_t sc = *(const uint64_t*)G_SCENE;
         memcpy((void*)(sc + 0x10B0), (const void*)(ch + 0x110), 16);
         *(volatile uint8_t*)(sc + 0x10C0) = 1;
+        g_warpStep = 6;
         ((void (*)(uint64_t, uint64_t))F_SCENEPOS)(sc + 0x500, sc + 0x10B0);
+        g_warpStep = 7;
         ((void (*)(uint64_t, uint8_t))F_STAGEPATH)(sc + 0x500, 1);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -438,6 +447,11 @@ ULONGLONG g_pendAt = 0, g_openAt = 0, g_closedSince = 0, g_replayAt = 0, g_exitS
 bool g_menuSeen = false, g_loadSeen = false;
 uint32_t g_msAtOpen = 0, g_replayMs = 0;
 uint32_t g_fightMission = 0, g_fightStart = 0;  // Fight now: requested mission + start point
+// player position on the last frame before the latest load began (the game's boss intro can load + move the player after the
+// arena trigger: Yamagata 2026-10-09 trigger at ~337700 -> load -> BossBattleMode at 334650), for the arena capture
+float g_posLive[4] = {}, g_posAtLoad[4] = {};
+bool g_posLiveOk = false, g_posAtLoadOk = false, g_wasLoading = false;
+ULONGLONG g_loadRiseAt = 0;
 bool g_fightByMission = false;                   // exit detection on mission state +28h (seen == the mission after the load)
 bool g_fightLoading = false;
 int g_fightLoads = 0;
@@ -661,9 +675,9 @@ void DoWarp(const Snap& s, ULONGLONG t) {
     const int rc = CallWarp(r.arena[0], r.arena[1], r.arena[2], r.arena[3]);
     PlayerPos(after);
     ++g_warps;
-    Log("Rematch: F %s: warp #%d into the arena (%s): Player::SetPos path -> %s; player %.0f %.0f %.0f -> %.0f %.0f %.0f (target %.0f %.0f %.0f yaw %.0f) %.1f s "
+    Log("Rematch: F %s: warp #%d into the arena (%s): Player::SetPos path -> %s (step %d); player %.0f %.0f %.0f -> %.0f %.0f %.0f (target %.0f %.0f %.0f yaw %.0f) %.1f s "
         "after the start",
-        r.id, g_warps, r.arenaSrc, rc == 0 ? "ok" : rc == 1 ? "NO PLAYER" : "EXCEPTION", before[0], before[1], before[2], after[0], after[1], after[2],
+        r.id, g_warps, r.arenaSrc, rc == 0 ? "ok" : rc == 1 ? "NO PLAYER" : "EXCEPTION", g_warpStep, before[0], before[1], before[2], after[0], after[1], after[2],
         r.arena[0], r.arena[1], r.arena[2], r.arena[3], (double)(t - g_replayAt) / 1000.0);
     if (rc != 0) {
         g_fightWarp = false;
@@ -714,7 +728,10 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             g_loadDoneAt = 0;
         } else if (g_loadSeen && s.player && s.msOk) {
             if (!g_loadDoneAt) g_loadDoneAt = t;
-            else if (t - g_loadDoneAt > 3000) {
+            else if (g_fight.load() && g_fightWarp && !g_warps && t - g_loadDoneAt > 1000 && s.ms28 == g_fightMission && s.ms14 == g_fightStart &&
+                     !fight::g_active && !s.online && !s.guest)
+                DoWarp(s, t);  // into the arena 1 s after the load (the player exists, no load, no pause: DoWarp re-checks)
+            if (g_loadDoneAt && t - g_loadDoneAt > 3000) {
                 g_replayMs = s.ms14;
                 g_replayIn.store(true);
                 Log("Rematch: IN replay mission (stage %u) %.1f s after the start", s.ms14, (double)(t - g_replayAt) / 1000.0);
@@ -725,9 +742,9 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                         s.ms14 == g_fightStart ? "== the requested" : "!= the requested", g_fightStart, s.ms28,
                         g_fightByMission ? "the requested mission: exit = it changes" : "not the mission id: exit = the retry point changes, as R-b");
                     if (s.ms14 != g_fightStart) ToastF(cOrange, 8000, "Rematch: the game did not use the boss start point (see the log)");
-                    if (g_fightWarp) {
+                    if (g_fightWarp && !g_warps) {
                         g_warpPending = true;
-                        g_warpDue = t + 1500;
+                        g_warpDue = t;
                     }
                 }
             }
@@ -798,6 +815,13 @@ void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
     Snap s = ReadSnap();
+    if (s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
+        memcpy(g_posAtLoad, g_posLive, sizeof(g_posAtLoad));
+        g_posAtLoadOk = g_posLiveOk;
+        g_loadRiseAt = t;
+    }
+    g_wasLoading = s.st[2] != 0;
+    if (!s.st[2]) g_posLiveOk = s.player && PlayerPos(g_posLive);
     if (s.qHash != g_qHash) {
         if (g_qHash) g_qChangedAt.store(t);
         g_qHash = s.qHash;
@@ -863,8 +887,13 @@ std::wstring ArenaPath() { return Beside(L"Arenas", L"Nioh3BossRematch_arenas.ts
 
 // BossBattleMode entry (game thread): the player position at every fight start; ArenaCapture = 1 appends it to the arenas file
 void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
-    float p[4] = {};
-    const bool ok = PlayerPos(p);
+    float p[4] = {}, cur[4] = {};
+    const bool curOk = PlayerPos(cur);
+    const bool beforeLoad = g_posAtLoadOk && Ms() - g_loadRiseAt < 5000;  // the fight began right after a load: the intro moved the player
+    if (beforeLoad) memcpy(p, g_posAtLoad, sizeof(p));
+    else memcpy(p, cur, sizeof(p));
+    const bool ok = beforeLoad || curOk;
+    const char* src = beforeLoad ? "before-load" : "fight-start";
     uint64_t g = 0, ms = 0;
     uint32_t mis = 0, rp = 0;
     if (Rd(G_MS, g) && g && Rd(g + 8, ms) && ms) {
@@ -874,8 +903,9 @@ void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     char pl[256];
     fight::LastFightPlacements(pl, sizeof(pl));
     const int fr = g_fightRow;
-    Log("Rematch: arena: BossBattleMode start - player %s%.0f %.0f %.0f, mission 0x%X, retry point %u, placements created:%s%s%s", ok ? "" : "(not readable) ",
-        p[0], p[1], p[2], mis, rp, pl[0] ? pl : " none", fr >= 0 ? " - Fight now row " : "", fr >= 0 ? g_rows[(size_t)fr].id : "");
+    Log("Rematch: arena: BossBattleMode start - player now %.0f %.0f %.0f; %s %.0f %.0f %.0f (%s); mission 0x%X, retry point %u, placements created:%s%s%s",
+        cur[0], cur[1], cur[2], beforeLoad ? "before the intro load" : "trigger point = now", p[0], p[1], p[2], src, mis, rp, pl[0] ? pl : " none",
+        fr >= 0 ? " - Fight now row " : "", fr >= 0 ? g_rows[(size_t)fr].id : "");
     if (!g_cfg.arenaCapture || !ok || !mis) return;
     char ids[256] = "";
     size_t k = 0;
@@ -891,8 +921,8 @@ void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     SYSTEMTIME st;
     GetLocalTime(&st);
     char line[400];
-    const int n = snprintf(line, sizeof(line), "0x%04X\t%s\t%.0f\t%.0f\t%.0f\t%04u-%02u-%02u_%02u:%02u\r\n", mis, ids, p[0], p[1], p[2], st.wYear, st.wMonth,
-                           st.wDay, st.wHour, st.wMinute);
+    const int n = snprintf(line, sizeof(line), "0x%04X\t%s\t%.0f\t%.0f\t%.0f\t%04u-%02u-%02u_%02u:%02u\t%s\r\n", mis, ids, p[0], p[1], p[2], st.wYear,
+                           st.wMonth, st.wDay, st.wHour, st.wMinute, src);
     const std::wstring path = ArenaPath();
     const bool fresh = GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES;
     HANDLE h = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -900,7 +930,9 @@ void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     DWORD w = 0;
     if (fresh) {
         static const char kHdr[] = "# Nioh3BossRematch arena captures ([Rematch] ArenaCapture = 1): the player position at BossBattleMode start. Read at launch; "
-                                   "overrides the catalogue arena point of that mission's boss.\r\nmission\tplacements\tx\ty\tz\twhen\r\n";
+                                   "overrides the catalogue arena point of that mission's boss. src before-load = where the player stood when the boss intro load began "
+                                   "(= at the trigger); fight-start = no load before the fight. Lines without src (1.2.0) are ignored.\r\n"
+                                   "mission\tplacements\tx\ty\tz\twhen\tsrc\r\n";
         WriteFile(h, kHdr, (DWORD)strlen(kHdr), &w, nullptr);
     }
     WriteFile(h, line, (DWORD)n, &w, nullptr);

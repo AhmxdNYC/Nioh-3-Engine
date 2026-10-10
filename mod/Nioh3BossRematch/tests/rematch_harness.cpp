@@ -168,8 +168,9 @@ int main(int argc, char** argv) {
             if (!strcmp(r.id, "RC362")) hz = &r;
         CHECK(hz && hz->atFight && hz->FightNowReady(), "Hanzo (Demon's Regimen): one start point at the fight = ready without a warp");
         std::vector<rcore::Row> v = rows;
-        const std::string cap = "# x\nmission\tplacements\tx\ty\tz\twhen\n0x0034\t76770 76781 1\t204600\t12390\t237500\t2026-10-09_20:00\n0x0034\t5 6\t1\t2\t3\tx\n";
-        CHECK(rcore::ApplyArenas(cap, v) == 1, "a capture applies to the row whose placement was created before the fight");
+        const std::string cap = "# x\nmission\tplacements\tx\ty\tz\twhen\tsrc\n0x0034\t76770 76781 1\t204600\t12390\t237500\t2026-10-09_20:00\tbefore-load\n"
+                                "0x0034\t5 6\t1\t2\t3\tx\tfight-start\n0x1CBC\t65092\t334650\t10100\t206713\t2026-10-09_20:08\n";
+        CHECK(rcore::ApplyArenas(cap, v) == 1, "a capture applies to the row whose placement was created before the fight; 1.2.0 lines (no src) ignored");
         const rcore::Row* jc = nullptr;
         for (auto& r : v)
             if (!strcmp(r.id, "R0034")) jc = &r;

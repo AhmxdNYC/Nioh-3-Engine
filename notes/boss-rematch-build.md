@@ -172,3 +172,19 @@ CH02_MAIN01_HITOKOTO_BOSSAREABOX)` and then sets flag 456: **the arena trigger i
   catalogue point of the row whose boss placement is in its list (conf `captured`, y + 0.5 m). So playing a boss once fills its row.
 - ini: `FightNowWarp = 0`, `ArenaCapture = 0` (repo defaults); pipe `fight <id>` (arena) / `shrine <id>`. Harness 54 checks, 85 sites OK.
 - Open: the warp itself (physics / camera after `CallWarp`), the arena y on uneven floors, the yaw convention (0 = +z assumed).
+
+### E1 v2.1 (add-on 1.2.1): the 1.2.0 test, diagnosed (2026-10-09 20:08, Yamagata Masakage)
+- **(a) Exception = our bug, not the game's warp.** Player::SetPos reads the actor manager with two loads (`mov rax,[rip+45B9E40]` 23AB685,
+  `mov rcx,[rax]` 23AB693); 1.2.0 used one, so it wrote 16 bytes at the wrong object's `[+48h]+D0h` and called A429B4 on it -> exception
+  after `CharacterSetPositionYaw` had already moved the player (log: player -> target). Fixed (`**g:CharMgr`); the log now names the
+  failing step. Not a timing / thread / nav-mesh problem: the pump is the game thread and the position write itself succeeded.
+- **(b) The "reload" was the game's boss intro, not our warp.** Order: warp 15.690 -> `SetMissionFlag 456` 16.788 (= the BOSSAREABOX
+  trigger fired from the warp point) -> loading flag 16.795 -> Create 65092 17.124 -> BossBattleMode 17.518 with the player at
+  334650 10100 206713, 15 m behind the boss's placement. The script's `HITOKOTO_RTM_RELOAD` box (centre 337537, 104 x 13 x 38 m) covers
+  the arena: the trigger plays an intro (RTM) with a load and places the player at the fight start. A death / out-of-bounds would
+  not set 456 first, and the fight then ran 24.1 s normally.
+- **(c) Keep the trigger warp; do not warp to 334650.** 334650 is outside BOSSAREABOX (x 336834..337898), so a warp there skips the
+  trigger, and the fight (flag 456, Create, BossBattleMode) would not start. The capture now records the position on the last frame
+  before the intro load (`src before-load` = at the trigger) or the current one when no load preceded the fight (`fight-start`);
+  1.2.0 lines (no src column, post-intro position) are ignored.
+- Warp now 1 s after the load (was 3 s settle + 1.5 s): shrine visible ~1 s, then the trigger -> the game's intro -> the fight.
