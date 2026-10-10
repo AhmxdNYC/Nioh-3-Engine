@@ -104,7 +104,7 @@ void FormatStart(uintptr_t a, char* buf, size_t n) {
 // TSTATE census
 // ======================================================================================================================
 struct Cfg {
-    int us = 20000, sec = 30, top = 14, delay = 20;
+    int us = 100000, sec = 30, top = 14, delay = 20;
 } g_cfg;
 
 // SYSTEM_PROCESS_INFORMATION / SYSTEM_THREAD_INFORMATION (x64 layouts, stable since Windows Vista)
@@ -373,14 +373,13 @@ void Report(double secs, const std::vector<uint32_t>& cost) {
 DWORD WINAPI CensusThread(LPVOID) {
     Sleep((DWORD)g_cfg.delay * 1000);
     g_selfTid = GetCurrentThreadId();
-    const DWORD ncpu = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
-    if (ncpu > 1 && ncpu <= 64 && GetActiveProcessorGroupCount() == 1)
-        SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)1 << (ncpu - 1));  // the one thread we preempt is always on this CPU
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);              // sample on time even when every core is busy
+    // not pinned: pc2 CPU1 (1.7.58 first build) pinned it to the last CPU, which was [App]Game's ideal processor, and the
+    // ~16 ms snapshots there distorted the main thread's profile. HIGHEST so it samples on time when every core is busy.
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
     g_buf.resize(2 * 1024 * 1024);
     HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, 0x00000002 /*HIGH_RESOLUTION*/, TIMER_ALL_ACCESS);
-    TLOG("TSTATE: census every %d us (%s timer), report every %d s, top %d other threads, sampler pinned to CPU %lu at HIGHEST priority",
-         g_cfg.us, timer ? "high-resolution" : "Sleep", g_cfg.sec, g_cfg.top, (unsigned long)(ncpu ? ncpu - 1 : 0));
+    TLOG("TSTATE: census every %d us (%s timer), report every %d s, top %d other threads, sampler at HIGHEST priority (not pinned)",
+         g_cfg.us, timer ? "high-resolution" : "Sleep", g_cfg.sec, g_cfg.top);
     LARGE_INTEGER f, t0, now, a, b;
     QueryPerformanceFrequency(&f);
     QueryPerformanceCounter(&t0);

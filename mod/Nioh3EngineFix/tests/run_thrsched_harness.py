@@ -57,7 +57,7 @@ check("src/thrsched.cpp" in cm, "CMakeLists has thrsched.cpp")
 check("thrsched::Start(ti)" in dm and "thrsched::RtpStatusLine" in dm and "kExpRTP" in dm, "dllmain starts thrsched, logs RTP, wires the row")
 check("kExpRTP" in mh and "kXRTP" in mc and 'L"RTP"' in mc and "(RTP)" in mc, "menu row RTP")
 check("GamePresentTid" in oh, "osd exports GamePresentTid")
-for k in ("RTP = 0", "RTP_Level = 1", "ThreadState = 0", "ThreadStateUs = 20000", "Focus = 0"):
+for k in ("RTP = 0", "RTP_Level = 1", "ThreadState = 0", "ThreadStateUs = 100000", "Focus = 0"):
     check(("\n" + k) in ini.replace("\r\n", "\n"), "ini documents " + k)
 
 print("\n".join("FAIL: " + f for f in fails) if fails else "ALL PASSED")

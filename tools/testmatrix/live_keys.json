@@ -402,6 +402,14 @@
    "class": "live"
   },
   {
+   "key": "PCM",
+   "section": "Patches",
+   "cls": "live",
+   "via": "PCM = 0/1 (install with PCM = 2 or 1)",
+   "why": "menu row: Picture unchanged (same pipelines). Applies now. CPU-bound PCs: shorter submit tail per fr",
+   "class": "live"
+  },
+  {
    "key": "Barriers",
    "section": "GpuOpt",
    "cls": "live",
@@ -1450,6 +1458,22 @@
    "class": "relaunch"
   },
   {
+   "key": "SceneBufMirror",
+   "section": "GpuOpt",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "SceneBufMirrorQueue",
+   "section": "GpuOpt",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "MemStats",
    "section": "Profiler",
    "cls": "relaunch",
@@ -1459,6 +1483,14 @@
   },
   {
    "key": "VSForceSysUpload",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "SceneBufProbe",
    "section": "Profiler",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -2187,6 +2219,14 @@
   },
   {
    "key": "RP",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "SBM",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms",

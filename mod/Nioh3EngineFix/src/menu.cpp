@@ -814,16 +814,16 @@ void NoteFgSwitchProton(int want) {
 enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXW6, kXB, kXPP, kXFPC, kXAABB, kXM1, kXX1, kXE1, kXM2, kXJ1, kXS1, kXIK, kXTS, kXWS, kXED, kXGF, kXWL,  // order = menu::ExpId
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL, kXDQ, kXP1E7, kXMA, kXBPO, kXW1B, kXRPA, kXAS, kXPJH, kXTR,
-          kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP,
+          kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
-static_assert(kXRTP - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-bool IsExp(int id) { return id >= kXW6 && id <= kXRTP; }
+static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+bool IsExp(int id) { return id >= kXW6 && id <= kXPCM; }
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
                                              L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL",
                                              L"DQ", L"P1E7", L"MA", L"BPO", L"W1B", L"RPA", L"AS", L"PJH", L"TR",
-                                             L"VSMA", L"LPVR", L"SKYR", L"FOGT", L"CLDR", L"RTP"};
+                                             L"VSMA", L"LPVR", L"SKYR", L"FOGT", L"CLDR", L"RTP", L"PCM"};
 struct ItemDef {
     const char* plain;   // plain-language name
     const char* tech;    // technical id, drawn small and dim after the name ("" = none)
@@ -891,6 +891,8 @@ const ItemDef kItems[kCount] = {
      "Judge with screenshots. Applies now."},
     {"Render threads first", "(RTP)", "Draw prep, D3D12 submit and Present threads get a higher Windows priority than the logic workers.",
      "Picture unchanged. Applies now. For CPUs that are fully busy (6 cores and less); the logic ticks on the CPU time left."},
+    {"Faster pipeline lookup", "(PCM)", "The D3D12 submit thread remembers the last pipelines it found instead of searching the cache each draw.",
+     "Picture unchanged (same pipelines). Applies now. CPU-bound PCs: shorter submit tail per frame."},
     {"Batch GPU barriers", "(GPU)", "Batches the game's D3D12 resource barriers into fewer calls.", "Picture unchanged. Applies now. About 0 on the Ally, 2-3 % on PC."},
     {"Cheaper barriers A (Proton)", "(R2a)", "Buffer COMMON barriers get their real read state (cheaper wait on RADV).", "Picture unchanged. Applies now. A/B against the GPU ms line."},
     {"Cheaper barriers B (Proton)", "(R2b)", "EXPERIMENT. Same for UAV buffers. May flicker or show stale data.", "Judge with screenshots. Applies now."},
@@ -932,7 +934,7 @@ const OrderEnt kOrder[] = {
     {kXDS, nullptr}, {kXLK, nullptr}, {kXCP, nullptr}, {kXSPF, nullptr}, {kXMQ, nullptr}, {kXPT1, nullptr}, {kXDL, nullptr},
     {kXDQ, nullptr}, {kXP1E7, nullptr}, {kXMA, nullptr}, {kXBPO, nullptr}, {kXW1B, nullptr}, {kXRPA, nullptr}, {kXTR, nullptr},
     {kXAS, "Experimental (GPU, A/B live)"}, {kXPJH, nullptr}, {kXVSMA, nullptr}, {kXLPVR, nullptr}, {kXSKYR, nullptr},
-    {kXFOGT, nullptr}, {kXCLDR, nullptr}, {kXRTP, "Experimental (CPU scheduling, A/B live)"},
+    {kXFOGT, nullptr}, {kXCLDR, nullptr}, {kXRTP, "Experimental (CPU scheduling, A/B live)"}, {kXPCM, nullptr},
     {kGR2a, "Experimental (GPU, Proton)"}, {kGR2b, nullptr}, {kGR1, nullptr},
     {kXTS, "Diagnostics / logging"}, {kXWS, nullptr},
     {kWorkerCap, "Next launch (saved to the ini)"}, {kP12, nullptr}, {kL1Wine, nullptr}, {kFgWine, nullptr},
@@ -1247,7 +1249,7 @@ void StartSave() {
         // launch (TG needs no install: its 0 already keeps the live switch)
         if ((e == kExpED || e == kExpWG || e == kExpDS || e == kExpCP || e == kExpSPF || e == kExpMQ || e == kExpPT1 || e == kExpDL ||
              e == kExpDQ || e == kExpP1E7 || e == kExpBPO || e == kExpAABB || e == kExpW1B || e == kExpRPA || e == kExpAS || e == kExpPJH || e == kExpTR ||
-             e == kExpVSMA || e == kExpLPVR || e == kExpSKYR || e == kExpFOGT || e == kExpCLDR || e == kExpRTP) && g_host.exp[e].enable &&
+             e == kExpVSMA || e == kExpLPVR || e == kExpSKYR || e == kExpFOGT || e == kExpCLDR || e == kExpRTP || e == kExpPCM) && g_host.exp[e].enable &&
             !*g_host.exp[e].enable && v == 0)
             v = 2;
         add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto

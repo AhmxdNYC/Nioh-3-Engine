@@ -46,10 +46,11 @@ for l in open(SYMS, encoding='utf-8'):
     if len(f) > 2 and f[0].startswith('0x') and f[1] in ('function', 'label'):
         names.setdefault(int(f[0], 16), f[2])
 
-HDR = re.compile(r'SP (main \[App\]Game|KIDSTaskScheduler|KIDSTS|SynergisticDispatcher|\[App\] other): (\d+) samples in \d+ s from (\d+) thread\(s\), RIP in Nioh3.exe ([\d.]+) %')
+HDR = re.compile(r'SP (main \[App\]Game|KIDSTaskScheduler|KIDSTS|SynergisticDispatcher|\[App\] other|logic KIDSTaskScheduler0): (\d+) samples in \d+ s from (\d+) thread\(s\), RIP in Nioh3.exe ([\d.]+) %')
 ROW = re.compile(r'SP (\w+)\s+([\d.]+) %\s+(.*)$')
 GM = {'main [App]Game': 'main', 'KIDSTaskScheduler': 'kidsTS', 'KIDSTS': 'kidsts',
-      'SynergisticDispatcher': 'dispatch', '[App] other': 'app'}
+      'SynergisticDispatcher': 'dispatch', '[App] other': 'app',
+      'logic KIDSTaskScheduler0': 'logic'}  # 1.7.58 [Profiler] Focus = 1
 
 def main():
     log = sys.argv[1]
@@ -71,7 +72,7 @@ def main():
             cur[m.group(1)][3].append((float(m.group(2)), m.group(3).strip()))
     sel = profs[lo:(hi + 1 if hi >= 0 else None)]
     print(f'{len(profs)} profiles in the log, aggregating {len(sel)} (index {lo}..{hi if hi >= 0 else len(profs) - 1})')
-    for g in ('main', 'kidsTS', 'kidsts', 'dispatch', 'app'):
+    for g in ('main', 'logic', 'dispatch', 'kidsTS', 'kidsts', 'app'):
         tot = thr = 0; rip = 0.0; agg = collections.Counter()
         for p in sel:
             if g not in p:

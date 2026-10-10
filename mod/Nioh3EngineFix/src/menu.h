@@ -39,6 +39,7 @@ enum ExpId : int { kExpW6, kExpB, kExpPP, kExpFPC, kExpAABB, kExpM1, kExpX1, kEx
                    kExpTR,                          // timer resolution held once (1.7.45, IAT hooks + live switch)
                    kExpVSMA, kExpLPVR, kExpSKYR, kExpFOGT, kExpCLDR,  // same-look package (1.7.49, samelook.cpp, live switches)
                    kExpRTP,                         // render threads at a higher scheduling priority (1.7.58, thrsched.cpp, live)
+                   kExpPCM,                         // graphics-PSO lookup memo on the replay thread (1.7.58, psomemo.cpp, live)
                    kNumExp };
 struct ExpFix {
     volatile uint32_t* enable = nullptr;  // live switch; nullptr = not installed this session or code-only (next launch)

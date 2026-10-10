@@ -54,6 +54,7 @@
 #include "pmode.h"
 #include "timerres.h"
 #include "thrsched.h"
+#include "psomemo.h"
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
@@ -95,7 +96,7 @@
 // 1.7.55: CM CbvMirrorSites ([GpuOpt], default 1 = per-draw 118F89 only, unchanged): 2 = the compute dispatch constants
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
-//         row); notes\cpu-bound-midrange.md
+//         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
 #define MOD_VERSION "1.7.58"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
@@ -1616,6 +1617,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
         if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
+        if (!strcmp(g, "PCM")) return false;  // 1.7.58 PSO lookup memo call site: verified offline (test_patterns), hooked by psomemo.cpp
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
@@ -2472,6 +2474,11 @@ DWORD WINAPI Worker(LPVOID) {
                     timerres::StatusLine(tb, sizeof tb, 30);
                     if (tb[0]) Log("stats/s %s", tb);
                 }
+                if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] PCM != 0
+                    char pb[512];
+                    psomemo::StatusLine(pb, sizeof pb, 30);
+                    if (pb[0]) Log("stats/s %s", pb);
+                }
                 if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
                     char rb[768];
                     thrsched::RtpStatusLine(rb, sizeof rb);
@@ -2731,6 +2738,15 @@ DWORD WINAPI Worker(LPVOID) {
             ti.base = reinterpret_cast<uintptr_t>(g_base);
             ti.presentTid = &osd::GamePresentTid;
             thrsched::Start(ti);
+            psomemo::StartInfo pmi;  // 1.7.58 PCM graphics-PSO lookup memo ([Patches] PCM = 0; psomemo.cpp, live row)
+            pmi.log = &Log;
+            pmi.iniPath = iniPath.c_str();
+            pmi.base = reinterpret_cast<uintptr_t>(g_base);
+            pmi.knownBuild = known;
+            psomemo::Start(pmi);
+            mh.exp[menu::kExpPCM].ini = GetPrivateProfileIntW(L"Patches", L"PCM", 0, iniPath.c_str()) == 1 ? 1 : 0;
+            mh.exp[menu::kExpPCM].applied = psomemo::Switch() != nullptr;
+            mh.exp[menu::kExpPCM].enable = psomemo::Switch();
             mh.exp[menu::kExpRTP].ini = GetPrivateProfileIntW(L"Patches", L"RTP", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpRTP].applied = thrsched::RtpSwitch() != nullptr;
             mh.exp[menu::kExpRTP].enable = thrsched::RtpSwitch();
