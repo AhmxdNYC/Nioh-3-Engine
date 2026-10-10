@@ -10021,6 +10021,42 @@ rva,kind,name,signature,description,confidence,source
 0x10,struct_field,WorkerThread::SleepFlags,u32,"bit0 = sleeping/wake me; set by the worker before waiting, CAS-cleared by the waker before SetEvent",high,notes/job-system.md §1
 0x1c,struct_field,WorkerThread::PendingPriority,i32,-16 none / -17 claimed; other value = SetThreadPriority request applied by the worker itself,medium,notes/job-system.md §1
 0x28,struct_field,WorkerThread::Handle,HANDLE,thread handle,medium,notes/job-system.md §1
+0x147324,function,EsmLevelFromRes,int EsmLevelFromRes(void),"leaf: reads RS+16D8 (ESM size) and returns the index into the 5-entry ExponentialShadowmapTextureObjectNameHash array [256,512,1024,2048,4096]: >=800h 3, >=400h 2, >=200h 1, >0 0, else -1; callers DeferredIndirectPassExecuteImpl 149AC4, 1473C8, VolumetricFogScatter 194859A",high,notes/gpu-resolution-audit.md §3.1; notes/renderer/lighting.md §4.3
+0x14733e,label,EsmLevelFromRes_SetgeSite,,"setge al (0F 9D C0) of the >=800h test; patch ESM1 writes xor eax,eax; nop (1024^2 ESM)",high,notes/gpu-resolution-audit.md §3.1
+0x14b740,function,DeferredIndirectPassRecordDraws,,"3.5 KB, only caller DeferredIndirectPassExecuteImpl 149AC4; walks view draw lists (view+4028h) with ViewGetShadowObj + DrawBindMaterialParams for the DeferredIndirectPass sub-pass draws",low,notes/renderer/lighting.md §2
+0x1f7a44,function,VsmTileBuildViewport,,"VSM tile view / viewport setup called from VsmTileBindViewport 1F96E0 and 45D3D8; writes clip+390h..39Ch (the bind outputs VSMA keeps stock), 2x Mat44MulTranslation",medium,notes/renderer/lighting.md §4.1; notes/same-look-package.md §1
+0x365b2d8,function,TileLightCullingRecord,,"only body callee of TileLightCullingNodeExecute 3672030 (legacy tiled path, used only by graph 0x7d27d0cb); binds the nClearValue clear and records the tile light-list compute",medium,notes/renderer/lighting.md §3
+0x367c990,function,LocalLightShadowDrawFilterA,,"208-line per-item filter called by LocalLightShadowmapRender 7E92B4: light type 1/3 tests, caster-count limits (param_12/param_14 vs counters), DrawListCount; twin of 367CE58",low,notes/renderer/lighting.md §4.2
+0x367ce58,function,LocalLightShadowDrawFilterB,,"twin of LocalLightShadowDrawFilterA 367C990 (same structure, reads item+50h flags), called by LocalLightShadowmapRender 7E92B4",low,notes/renderer/lighting.md §4.2
+0x3680d20,function,DeferredIndirectPassEnsureSubObject,,"lazily creates the DeferredIndirectPass sub-object at node+380h (gate 14B224, create 3753F04, then two setters); caller 149AC4",medium,notes/renderer/lighting.md §10
+0x3680da4,function,DeferredIndirectPassSubObjectUpdate,,"307 B, updates the node+378h/+380h sub-object each frame; caller 149AC4",low,notes/renderer/lighting.md §10
+0x368117c,function,DeferredIndirectPassRecordIllustration,,"3.2 KB sub-recorder of 149AC4 (called last), looks up the Illustration feature block and sets ilaScale",low,notes/renderer/lighting.md §10
+0x3682d2c,function,DeferredIndirectPassRecordTargetA,,"3.4 KB per-target sub-recorder of 149AC4, called in a loop with 3754150 (twin 3683A4C); DO / ESM split not yet tied to a shader hash",low,notes/renderer/lighting.md §10
+0x3683a4c,function,DeferredIndirectPassRecordTargetB,,"twin of DeferredIndirectPassRecordTargetA 3682D2C, second loop in 149AC4",low,notes/renderer/lighting.md §10
+0x368b878,function,VsmPassRecordDrawLists,,"270 lines, only caller VsmPassExecute 465414: walks view draw lists (view+4028h / +3FFCh count), 6-iteration list loop, gated by base+1AC700h",low,notes/renderer/lighting.md §4.1
+0x3c3518,function,MaterialBindIndexedRampParams,,"binds the IndexedRamp (toon ramp) lighting params by name (IRAFade, IRDFade, IRLocalLightParam, IRShadowFade, rampHHLtDir, rampSDOccFade, maskRotCS/maskScale, occThresForIRShadow); callers MaterialTechniqueBind 3C77F4 and ClusteredDeferredShadingPassExecute 3677264",high,notes/renderer/lighting.md §3
+0x144,struct_field,RenderConfig::SkylightAmbientUpdateFreq,f32,"sky-ambient update rate, env 1.0; SKYR knob measured no saving (pass already sliced)",high,notes/same-look-package.md §2
+0x7c0,struct_field,RenderConfig::VolumetricCloudReprojectionBlendWeightCurrentFrame,f32,"cloud history blend weight (not a rate), env 0",high,notes/same-look-package.md §2
+0x1394,struct_field,RenderConfig::LPVUpdateFrequency,u32,"LPV update rate, env 1; no per-frame LPV GPU pass exists",high,notes/same-look-package.md §2
+0x13c0,struct_field,RenderConfig::VolumetricFogTemporalFactor,f32,"froxel fog history blend weight gInjectionDesc.y, env 0",high,notes/same-look-package.md §2
+0x18,struct_field,ShadowObj::CascadeCount,u32,cascade count looped by SceneRenderView (S = view+4328h -> +20h -> [0]),high,notes/shadows-culling.md §1.1
+0x914,struct_field,ShadowObj::DepthRangeMode,f32,0.5 / 1.0 passed to ShadowSetDepthRange 86B8A4 per cascade,medium,notes/shadows-culling.md §1.1
+0x940,struct_field,ShadowObj::CascadeMatrices,f32,cascade c matrix (4x4) at S+(25h+c)*40h (CascadeMatrixGet 147F60),high,notes/shadows-culling.md §1.2
+0x4730,struct_field,View::VsmClipmapEntries,u8,"VSM clipmap entries, 150h bytes each (VsmClipmapSetup 32FF074)",medium,notes/shadows-culling.md §1.1
+0x40040,struct_field,VsmPageMgr::FrameSlot,u32,index into the per-frame GPU flag buffers +40108,medium,notes/shadows-redundancy.md §3
+0x40044,struct_field,VsmPageMgr::ForcedMask,u32,per-clipmap forced-invalidate bits (tile state 40h/80h),medium,notes/shadows-redundancy.md §3
+0x400d8,struct_field,VsmPageMgr::ClipmapCount,u32,clipmap count (min with +400F8),medium,notes/shadows-redundancy.md §3
+0x400e4,struct_field,VsmPageMgr::TilesW,u32,tiles per clipmap row,high,notes/shadows-culling.md §1.3
+0x400e8,struct_field,VsmPageMgr::TilesH,u32,tiles per clipmap column,high,notes/shadows-culling.md §1.3
+0x400f8,struct_field,VsmPageMgr::ClipmapCountB,u32,second clipmap count bound used by VsmClipmapUpdateLevels,medium,notes/shadows-redundancy.md §3
+0x400fc,struct_field,VsmPageMgr::BaseLevel,u32,level extent = (1<<(base+i))*0.5,medium,VsmClipmapUpdateLevels 77AB0
+0x40100,struct_field,VsmPageMgr::FirstClipmap,u32,first active clipmap,medium,notes/shadows-redundancy.md §3
+0x40108,struct_field,VsmPageMgr::GpuFlagBuffers,ptr,per-frame GPU buffers = tVirtualShadowMapFlags (VsmFlagsUpload 912A2C),high,notes/shadows-redundancy.md §3
+0x40118,struct_field,VsmPageMgr::TileFlags,ptr,"per tile u32: bits 0,1 valid, 2 requested; uploaded every frame",high,notes/shadows-redundancy.md §3
+0x401c0,struct_field,VsmPageMgr::LevelRecords,u8,per-level 140h records,medium,VsmClipmapUpdateLevels 77AB0
+0x41718,struct_field,VsmPageMgr::TileCasterStamp,ptr,per tile u32 caster stamp at render (vs TileList+38h),medium,notes/shadows-redundancy.md §3
+0x41720,struct_field,VsmPageMgr::TileState,ptr,"per tile u32: 0 dirty, 1 rendered-valid, 4 lifespan, 5 stamp changed, 8 out of window, 18 in frustum",high,notes/shadows-redundancy.md §3
+0x41728,struct_field,VsmPageMgr::TileAge,ptr,"per tile u32: bits 0-11 age, 12-23 frames since stamp change",medium,notes/shadows-redundancy.md §3
 0x9295ac,function,InputLayoutCacheGetOrCreate,"bool InputLayoutCacheGetOrCreate(VsSignature* sig, D3D12_INPUT_LAYOUT_DESC* out, VertexDecl* decl, u32* elemEnable32, CRITICAL_SECTION* lock)","from CreateGfxPso: under the lock walks sig+20h list {next, decl} for decl; miss -> InputLayoutCreateForDecl 929AF0; then InputLayoutFillDesc 929644 with the 32 element-enable flags from PsoKey+78h",high,notes/renderer/materials.md §4.2
 0x929644,function,InputLayoutFillDesc,,fills desc.InputLayout from a cached {VS signature x vertex declaration} node and the PsoKey+78h element-enable flags (role from the only call site 9295AC; body not read),low,notes/renderer/materials.md §4.2
 0x929a44,function,PsoDescFillShaderBytecode,"void PsoDescFillShaderBytecode(D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, PsoKeyGfx* k)","copies {+10h ptr, +18h size} of the stage objects: k+0 -> VS, k+8 -> PS, k+10h -> HS, k+18h -> DS, k+20h -> GS",high,notes/renderer/materials.md §4.1
