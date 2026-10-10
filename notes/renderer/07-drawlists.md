@@ -225,7 +225,7 @@ zeroes the View list headers). No FCAP1 check yet: per-marker draw counts in FCA
 (capture-check, package 12).
 
 ## 6. Open questions / hand-offs
-- **Q1 (05 frame-graph):** where are the lists sorted? Candidates are the 3 jobs of 57DB88 (vtables 3909D80 / 390A108 /
+- **Q1 (answered in 13-main-submit.md §2):** sorted on the KIDS worker inside 57DB88 (ViewSortAllDrawLists 18D3AAC -> DrawListDedupeAndSort 3B3B4 -> e.g. DrawListSortByMaterialKey 54A94C + RadixSortRecsByKeyAtC 54AB78), not on the main thread; main lists 0/1 sort site still open. Original question: where are the lists sorted? Candidates are the 3 jobs of 57DB88 (vtables 3909D80 / 390A108 /
   3909000) and the ViewParam sort methods. Also: which View-node parameters select SceneRenderView's bucket and pass
   slot (`param_12` pass kind, `param_15` slot, `param_40` refraction mode)?
 - **Q2 (01 backend):** 39A80 is the DrawList append (suggested name DrawListAppendRecords). Proposed KtglContext
@@ -260,6 +260,11 @@ the per-packet state of §3.3. Recording order may change only if the state is f
 ## 8. Files
 - `notes/renderer/07-drawlists.md` (this note).
 - `re/symbols/symbols.tsv`, block `# renderer/drawlists`. 534A98 was moved there and renamed.
+
+## Main-thread submission (2026-10-10)
+
+The end-to-end main-thread path (walk -> emit -> tokens -> kick), the sort, the stream / kick-ring fields, the UI layer
+build, the meshlet scene-buffer sync wait and the ranked CPU-ms candidates are in **13-main-submit.md**.
 
 ## Capture-check (package 12, 2026-10-10)
 

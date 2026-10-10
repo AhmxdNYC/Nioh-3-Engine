@@ -875,3 +875,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - All 185 KTGL token handlers + the 23-entry async sub-stream table 3C02800: role, payload layout, D3D12 calls, SynCtx state, per-call waste. Section 0 = the 6A / 69 per-draw path (pc2 cause: full-size constant-buffer copies into the BAR-mapped UPLOAD ring, Memcpy 118F4D) with fixes F1-F7.
 - symbols.tsv `# renderer/backend`: +72 names, 1 heuristic rename, 7 role notes; package 01 11.76 -> 11.96 %; README renderer table regenerated, regenerate-command typo fixed.
 - Undo: n/a (documentation and symbols only).
+
+## 2026-10-10 17:15 - RE + prototype: main-thread render submission (notes/renderer/13-main-submit.md), WIP stopped for the weekly limit
+- Decompiled the main-thread submit path: SceneRenderView -> DrawListWalk -> DrawEmit -> DrawSubmit -> tokens 69/6A/6B/6C -> KtglCmdStreamFlush kick ring. The list sort runs on the KIDS worker (3B3B4 / 54A94C radix), not on main. Also the meshlet scene-buffer sync wait (sets swapped in 5D214, wait in 4BBEC, record in 5E370 = F waits for F-2; 3-set and reorder options).
+- symbols.tsv: +100 functions, +37 fields, 2 renames (blocks renderer/drawlists, renderer/meshlet). Renderer core named 39.0 -> 40.2 %, bytes 20.5 -> 20.7 %. Charts and the README table regenerated.
+- Prototype UQS (UI quad build in a cached scratch, branch rdraw-main 4884e33 + tour fix 2482b2a, ASI 1.7.58-rdm1, default off, live Tuning.UQS): harness ALL PASSED, ALL 249 SITES OK. PC A/B uqs4 ran, not yet analysed. Test build branch rdraw-main-fo9 15fab3c (not queued).
+- Undo: n/a on main (documentation / symbols). The ASI change is only on branch rdraw-main, default off. The main tree's bin ASI was restored to what it was before the runs.
