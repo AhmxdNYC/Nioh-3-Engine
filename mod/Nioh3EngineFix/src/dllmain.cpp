@@ -55,6 +55,7 @@
 #include "timerres.h"
 #include "thrsched.h"
 #include "psomemo.h"
+#include "bkstats.h"
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
@@ -97,7 +98,9 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
-#define MOD_VERSION "1.7.58"
+// 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
+//         notes/renderer/backend.md
+#define MOD_VERSION "1.7.58-bk1"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1349,6 +1352,7 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
         Log("LIVE tuning: %s", reply);
         return true;
     }
+    if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
     return samelook::SetTuning(key, val, reply, n);
 }
 
@@ -2744,6 +2748,12 @@ DWORD WINAPI Worker(LPVOID) {
             pmi.base = reinterpret_cast<uintptr_t>(g_base);
             pmi.knownBuild = known;
             psomemo::Start(pmi);
+            bkstats::StartInfo bki;  // 1.7.58-bk1 BKS back-end census ([Profiler] Backend = 0) + KL ([Tuning] KL_Div = 0, live)
+            bki.log = &Log;
+            bki.iniPath = iniPath.c_str();
+            bki.base = reinterpret_cast<uintptr_t>(g_base);
+            bki.knownBuild = known;
+            bkstats::Start(bki);
             mh.exp[menu::kExpPCM].ini = GetPrivateProfileIntW(L"Patches", L"PCM", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpPCM].applied = psomemo::Switch() != nullptr;
             mh.exp[menu::kExpPCM].enable = psomemo::Switch();

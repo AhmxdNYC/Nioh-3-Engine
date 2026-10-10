@@ -554,6 +554,14 @@
    "class": "live"
   },
   {
+   "key": "KL_Div",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.KL_Div = v",
+   "why": "bkstats KL: CmdFlushLimit data write, compared per draw by the engine (1.7.58-bk1)",
+   "class": "live"
+  },
+  {
    "key": "SkipPSO",
    "section": "Debug",
    "cls": "live-diag",
@@ -1779,6 +1787,22 @@
   },
   {
    "key": "ThreadStateTop",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Backend",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "BackendSampleUs",
    "section": "Profiler",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",

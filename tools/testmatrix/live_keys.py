@@ -33,6 +33,7 @@ LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning /
     "PP_Period": "PP cave mask (pp_mask), read on every sweep decision", "VSMA_K": "VsmaBindC, per clipmap visit",
     "VSMA_Front": "VsmaBindC, per clipmap visit", "LPVR_N": "RcoApplyC, per frame", "SKYR_V": "RcoApplyC, per frame",
     "FOGT_V": "RcoApplyC, per frame", "CLDR_V": "RcoApplyC, per frame",
+    "KL_Div": "bkstats KL: CmdFlushLimit data write, compared per draw by the engine (1.7.58-bk1)",
 }
 HOT_SETS = ["ghdm", "esm", "wdo28", "mpc", "mshlod", "gi", "fogpar", "vcu", "vcp", "vcpfu", "vcpfp"]
 
