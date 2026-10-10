@@ -880,3 +880,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - pc2 fo2 'hang' = the replay thread crashed when it lags (CPU-bound): B6 PagePool page ops (7D9C24) of frame N+1 ran while frame N still replayed. New default [Tuning] FO_PPWait = 2 (B6 waits for TAIL N). Sub-stream crossing guard, replay-fault report, full thread dump, FO_ReplayDelayUs lag emulator (test only).
 - PC with an 8 ms emulated replay lag: 35 k FO frames, 0 faults (fo7: fault after 71 / 160 frames). Game folder: only the tour harness's temporary ASI/ini, restored + verified after every run.
 - Undo: [GpuOpt] FrameOverlap = 0 (default) or live Tuning.FO = 0.
+
+## 2026-10-10 14:20 - ASI 1.7.60-cbu1 (branch cbv-upload; [Patches] CBS / CBN / CBT = 0 default)
+- CBU per-draw constant uploads (notes/renderer/cbv-upload.md): CBS streaming copy into the UPLOAD ring (118F4D + 495AF2), CBN skip same-list no-op CB uploads (20 % on the PC), CBT reuse the stage CBV table (16 %); CbvStats / CbvRecord census. Harness byte-exact vs relocated v2.02 code incl. a recorded game trace; PC fps unchanged (GPU-bound), pc2 spec pending.
+- Game folder: only the tour harness temporary ASI/ini during cbu1pc, restored + verified (user ASI DD8B5739, Tour = 0, Nioh3BossRematch.* identical); the trace file moved to captures.
+- Undo: keys 0 (default) or live Tuning.CBMODE = 0.
