@@ -29,7 +29,8 @@
 // Nothing is patched until the switch first goes ON (FrameOverlap = 1 at boot, or live Tuning.FO = 1 with FrameOverlap = 2).
 // Watchdog: no frame (engine frame counter +3C1Ch) for 5 s -> thread dump, FO off for the session, all patches restored (if no
 // TAIL is pending); a second dump at 15 s. Live Tuning.FO_Test (tests): 1 session OFF from the TAIL, 2 wrong prediction + OFF,
-// 3 watchdog (5.6 s stall), 4 wrong prediction, 5 / 6 switch off / on, 9 re-arm, 100 self-test of all of them.
+// 3 watchdog (5.6 s stall), 4 wrong prediction, 5 / 6 switch off / on, 7 stall with the watchdog suppressed, 8 the
+// watchdog's restore while rendering, 9 re-arm, 10 8 s stall, 100 self-test of all of them.
 // Fallbacks (stock path for the frame, or FO off for the session): switch off, frame data spanning both stream halves,
 // sync tables < 3, timestamp / pipeline-statistics queries in use, back-buffer prediction mismatch, render-size change and
 // device reset / teardown / other Present callers (wait TAIL first, then stock).

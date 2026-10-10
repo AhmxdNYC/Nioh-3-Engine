@@ -174,7 +174,7 @@ double g_tickMs = 0.0;
 // end -> the watchdog fires (session OFF + every patch removed) -> stock; 4 = wrong prediction only (must be tolerated);
 // 5 / 6 = switch off / on (as live Tuning.FO); 9 = re-arm (TEST ONLY: clears the session OFF / watchdog state, reinstalls,
 // switch ON); 100 = self-test sequence 5 6 4 1 9 2 9 3 9 with a frames-advance check after each step.
-std::atomic<int> g_tForceOff{0}, g_tMispredict{0}, g_tStall{0};
+std::atomic<int> g_tForceOff{0}, g_tMispredict{0}, g_tStall{0}, g_wdSuppress{0};
 
 uint64_t Now() {
     LARGE_INTEGER q;
@@ -522,12 +522,18 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     ++g_presents;
     if (!g_dev) g_dev = dev;
     g_mainTid = GetCurrentThreadId();
-    if (g_tStall.load() && g_lastWasFO && g_on.load() && !g_disabled.load() && g_tStall.exchange(0)) {
-        // test (Tuning.FO_Test 3): a 5.6 s main-thread stall at an FO frame end -> the watchdog fires (session OFF, every patch
-        // restored while this thread sleeps in FO code, outside every patched byte); afterwards this frame ends on the stock path
-        FLOG("FO: test: main thread stalls 5.6 s at the end of frame %llu (watchdog test)", (unsigned long long)(g_frame + 1));
+    if (g_tStall.load() && g_lastWasFO && g_on.load() && !g_disabled.load()) {
+        // test (Tuning.FO_Test 3 / 7 / 10): a main-thread stall at an FO frame end -> the watchdog fires (session OFF, every patch
+        // restored while this thread sleeps in FO code, outside every patched byte); afterwards this frame ends on the stock path.
+        // 7 = the same stall with the watchdog suppressed (is a stall alone harmful?), 10 = 8 s (main wakes after the restore)
+        const int m = g_tStall.exchange(0);
+        const DWORD ms = m == 3 ? 8000 : 5600;
+        if (m == 2) g_wdSuppress = 1;
+        FLOG("FO: test: main thread stalls %lu ms at the end of frame %llu%s", (unsigned long)ms, (unsigned long long)(g_frame + 1),
+             m == 2 ? " (watchdog suppressed)" : " (watchdog test)");
         Barrier(false);
-        Sleep(5600);
+        Sleep(ms);
+        g_wdSuppress = 0;
     }
     if (p2 || dev != g_dev || !g_on.load() || g_disabled.load() || !Init(dev)) {
         if (p2 || dev != g_dev) ++s_stockOther;
@@ -652,7 +658,10 @@ void __fastcall FoPresentSpin(uintptr_t dev) {  // WaitSubmitThread 7D9B91
     E.spinPresent(dev);
 }
 UINT __fastcall FoGetBB(void* sc) {  // WaitSubmitThread 7D9BC7 (was call [rax+120h] = GetCurrentBackBufferIndex)
-    if (g_bbFrame == g_frame) return g_mainIdx;  // second frame begin without a Present in between: same buffer
+    // a second frame begin without a frame end in between keeps the predicted buffer. ONLY on the predicted path: g_frame is FO's own
+    // count of frame ends - once the watchdog restored 5DAF3 (FoPresent) it stops, and a cached index then went stale while the
+    // chain rotated (fo7pc-selftest4/5: frames rendered into a compositor-owned buffer -> device removed, 887A002B ACCESS_DENIED)
+    if (g_lastWasFO && g_bbFrame == g_frame) return g_mainIdx;
     g_bbFrame = g_frame;
     const uint64_t F1 = g_frame + 1;  // the frame being begun
     const uint64_t a = g_bbAnchor.load(std::memory_order_acquire);
@@ -967,11 +976,13 @@ bool Install() {  // under g_instCs
     }
     return true;
 }
-void Restore(const char* why) {  // put every original byte / pointer back
+void Restore(const char* why) {  // put every original byte / pointer back, in the exact reverse order of Install
     EnterCriticalSection(&g_instCs);
     if (g_installed) {
-        for (int i = 0; i < g_nPatch; ++i) FrozenWrite(g_patch[i].at, g_patch[i].orig, g_patch[i].n);
-        for (int i = 0; i < g_nPtr; ++i) WritePtr(g_ptr[i].at, g_ptr[i].orig);
+        // code sites last-installed first, so GfxDevicePresentVfn 5DAF3 (FoPresent, index 0) is restored LAST: until then every
+        // frame end still goes through FO (stock path) and FO's frame-begin hooks see consistent frame numbers
+        for (int i = g_nPatch - 1; i >= 0; --i) FrozenWrite(g_patch[i].at, g_patch[i].orig, g_patch[i].n);
+        for (int i = g_nPtr - 1; i >= 0; --i) WritePtr(g_ptr[i].at, g_ptr[i].orig);
         g_installed = false;
         FLOG("FO: all FO patches removed (%s)", why);
     }
@@ -1037,6 +1048,11 @@ void DumpThreads(const char* why) {
          why, nt, g_mainTid, g_replayTid, (unsigned long long)(uintptr_t)g_pp.Ptr, W(0xCC0), W(0xCD0), W(0xCE8), W(0xCF8), W(0xD00),
          W(0xD08), g_dev ? F<uint8_t>(g_dev + kPresentPending) : 0u, (unsigned long long)g_issued.load(),
          (unsigned long long)g_tailDone.load());
+    if (g_dev && F<void*>(g_dev + kDevice)) {
+        using HrFn = HRESULT(STDMETHODCALLTYPE*)(void*);
+        void* d = F<void*>(g_dev + kDevice);
+        FLOG("FO: D3D12 GetDeviceRemovedReason = %08lX", (unsigned long)V<HrFn>(d, 0x128)(d));  // ID3D12Device slot 37
+    }
     int shown = 0;
     for (int i = 0; i < nt && shown < 80; ++i) {
         HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, tids[i]);
@@ -1085,7 +1101,7 @@ DWORD WINAPI Watchdog(LPVOID) {
         Sleep(250);
         const uint64_t p = FrameCount();
         const DWORD now = GetTickCount();
-        if (p != last || p == 0) {
+        if (p != last || p == 0 || g_wdSuppress.load()) {
             if (dumps && p != last) FLOG("FO: WATCHDOG: frames again");
             last = p;
             lastChange = now;
@@ -1125,6 +1141,46 @@ void TestAction(int v) {
     case 1: g_tForceOff = 1; break;
     case 2: g_tMispredict = 2; break;
     case 3: g_tStall = 1; break;
+    case 7: g_tStall = 2; break;
+    case 10: g_tStall = 3; break;
+    case 11: {  // the watchdog's restore in groups while rendering, a frames check after each group: which restore breaks it?
+        g_on = 0;
+        Sleep(500);
+        Disable(13, "test: staged restore");
+        struct G {
+            const char* name;
+            int p[3];
+            int q[7];
+        };
+        static const G groups[] = {{"rare sites 4A53D0 2EE8B92 2EEC4F9", {8, 9, 10}, {-1}},
+                                   {"other Present callers 30A6931 32FAE39 32FBDBE", {1, 2, 3}, {-1}},
+                                   {"Renderer vtable slots (FoNode)", {-1}, {7, 8, -1}},
+                                   {"token table PP wrappers 82 83 95 96 97 98 9A", {-1}, {0, 1, 2, 3, 4, 5, 6}},
+                                   {"PagePoolFrameUpdate / 7D9C24 sites 7D9BA3 7D9C07", {5, 7, -1}, {-1}},
+                                   {"present spin 7D9B91 + back-buffer index 7D9BC7", {4, 6, -1}, {-1}},
+                                   {"HandleSlotIsNotFreed 58C434 stub", {11, -1}, {-1}},
+                                   {"GfxDevicePresentVfn 5DAF3 (FoPresent)", {0, -1}, {-1}}};
+        for (const G& g : groups) {
+            EnterCriticalSection(&g_instCs);
+            for (int k = 0; k < 3 && g.p[k] >= 0; ++k) FrozenWrite(g_patch[g.p[k]].at, g_patch[g.p[k]].orig, g_patch[g.p[k]].n);
+            for (int k = 0; k < 7 && g.q[k] >= 0; ++k) WritePtr(g_ptr[g.q[k]].at, g_ptr[g.q[k]].orig);
+            LeaveCriticalSection(&g_instCs);
+            const uint64_t f0 = FrameCount();
+            Sleep(2000);
+            const uint64_t df = FrameCount() - f0;
+            FLOG("FO: test: staged restore: %s -> %llu frames in 2 s%s", g.name, (unsigned long long)df, df < 30 ? " <- FRAMES STOPPED" : "");
+            if (df < 30) break;
+        }
+        g_installed = false;
+        break;
+    }
+    case 8: {  // the watchdog's own path (session OFF + every patch restored) while the game renders normally, no stall
+        g_on = 0;
+        Sleep(500);  // stock frames: no TAIL pending
+        Disable(12, "test: watchdog path without a stall");
+        if (g_tailDone.load() >= g_issued.load()) Restore("test: watchdog path without a stall");
+        break;
+    }
     case 4: g_tMispredict = 4; break;
     case 5: g_on = 0; break;  // = live Tuning.FO 0
     case 6: g_on = g_installed && !g_disabled.load() ? 1 : 0; break;
@@ -1145,17 +1201,25 @@ DWORD WINAPI SelfTest(LPVOID) {
                                  {9, "re-arm"},
                                  {2, "wrong prediction (resynced) + session OFF at its TAIL (fo6pc sequence)"},
                                  {9, "re-arm"},
-                                 {3, "5.6 s main stall -> watchdog -> patches removed -> stock"},
+                                 {11, "watchdog restore in groups while rendering"},
+                                 {9, "re-arm (reinstall)"},
+                                 {8, "watchdog path (session OFF + all patches restored at once) while rendering, no stall"},
+                                 {9, "re-arm (reinstall)"},
+                                 {3, "5.6 s main stall -> watchdog -> main wakes during the restore -> stock"},
+                                 {9, "re-arm (reinstall)"},
+                                 {7, "5.6 s main stall, watchdog suppressed"},
+                                 {9, "re-arm"},
+                                 {10, "8 s main stall -> watchdog restores during the stall -> stock"},
                                  {9, "re-arm (reinstall)"}};
     int fails = 0;
-    FLOG("FO: selftest: start (9 steps, each must keep frames coming)");
+    FLOG("FO: selftest: start (%d steps, each must keep frames coming)", (int)(sizeof steps / sizeof steps[0]));
     if (!g_on.load() || g_disabled.load()) Rearm();
     for (const Step& s : steps) {
         const int64_t fo0 = s_fo.load(), st0 = s_stock.load();
         const int64_t miss0 = s_bbMiss.load(), rs0 = s_bbResync.load();
         TestAction(s.action);
         // let the action take effect (the watchdog step needs > 5 s of stall + the restore)
-        Sleep(s.action == 3 ? 9000 : 1500);
+        Sleep(s.action == 3 ? 9000 : s.action == 7 ? 8000 : s.action == 10 ? 11000 : s.action == 11 ? 500 : 1500);
         const uint64_t p1 = FrameCount();
         Sleep(3000);
         const uint64_t frames = FrameCount() - p1;
@@ -1165,19 +1229,25 @@ DWORD WINAPI SelfTest(LPVOID) {
         case 4: ok = ok && s_bbResync.load() > rs0 && !g_disabled.load() && dfo >= 60; break;  // caught + fixed before replay
         case 1: ok = ok && g_disabled.load() != 0 && dst >= 60; break;
         case 2: ok = ok && s_bbResync.load() > rs0 && g_disabled.load() != 0 && dst >= 60; break;
-        case 3: ok = ok && g_wdFired.load() && !g_installed && dst >= 60; break;
+        case 3:
+        case 10:
+        case 11:
+        case 8: ok = ok && g_disabled.load() && !g_installed; break;  // pure stock engine afterwards (FO's entry points gone)
+        case 7: ok = ok && !g_wdFired.load(); break;
         case 5: ok = ok && dst >= 60; break;
         case 6:
         case 9: ok = ok && g_installed && !g_disabled.load() && dfo >= 60; break;
         default: break;
         }
-        if (!ok) ++fails;
         ok = ok && s_bbMiss.load() == miss0;  // no frame ever rendered into a non-current back buffer
+        if (!ok) ++fails;
+        const bool stop = !ok;
         FLOG("FO: selftest: step %d (%s): %s - %llu frames in 3 s, FO frames +%lld, stock +%lld, resyncs +%lld, wrong back buffer +%lld, "
              "session %s, patches %s",
              s.action, s.what, ok ? "PASS" : "FAIL", (unsigned long long)frames, (long long)dfo, (long long)dst,
              (long long)(s_bbResync.load() - rs0), (long long)(s_bbMiss.load() - miss0), g_disabled.load() ? "OFF" : "on",
              g_installed ? "installed" : "removed");
+        if (stop) break;  // a failed step leaves nothing meaningful to test after it
     }
     if (fails) FLOG("FO: selftest: FAILED (%d steps)", fails);
     else FLOG("FO: selftest: ALL PASS");

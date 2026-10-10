@@ -688,6 +688,28 @@ int main() {
     }
     StockClean("after the watchdog");
 
+    phase = "9b";
+    printf("phase 9b: partial restore - GfxDevicePresentVfn already stock, frame-begin hooks still patched: the back-buffer index "
+           "must stay the real one every frame\n");
+    TestAct(9);
+    for (int f = 0; f < 4; ++f) Frame(6000);
+    SetTuning("FO", "0", rep, sizeof rep);
+    for (int f = 0; f < 2; ++f) Frame(6000);
+    {
+        int stale = 0;
+        for (int f = 0; f < 6; ++f) {
+            TestPresentSpin(dev);
+            TestPPUpdate(dev + 0x61A0, dev);
+            const uint32_t got = TestGetBB(&g_sc);
+            if (got != g_scIdx.load()) ++stale;
+            Emit(6000, 0);
+            StockPresent(dev, 0);  // FoPresent is no longer called (its site was restored first)
+            ++g_framesDone;
+        }
+        while (F<volatile uint8_t>(dev + 0x7728)) Sleep(0);
+        Check(stale == 0, "FoGetBB returned the current back buffer on every frame without FoPresent");
+    }
+
     phase = "10";
     printf("phase 10: re-arm after the watchdog (reinstall) -> overlap again\n");
     {
