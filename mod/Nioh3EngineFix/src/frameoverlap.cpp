@@ -959,7 +959,10 @@ bool Install() {  // under g_instCs
     if (!g_ready) return false;
     int ok = 0;
     for (int i = 0; i < g_nPtr; ++i) ok += WritePtr(g_ptr[i].at, g_ptr[i].neu);
-    for (int i = 0; i < g_nPatch; ++i) {
+    // GfxDevicePresentVfn 5DAF3 (FoPresent, index 0) is the switch that creates FO frames: written LAST, so no FO frame can end
+    // before FO's frame-begin hooks (present spin, back-buffer index, PP lock) are in place (fo7pc-selftest6: installed first,
+    // an FO frame ended while WaitSubmitThread still read the index the stock way -> next frame in a non-current buffer)
+    for (int i = g_nPatch - 1; i >= 0; --i) {
         if (FrozenWrite(g_patch[i].at, g_patch[i].neu, g_patch[i].n)) ++ok;
         else FLOG("FO: WARNING: site %s write failed", g_patch[i].name);
     }
@@ -976,11 +979,12 @@ bool Install() {  // under g_instCs
     }
     return true;
 }
-void Restore(const char* why) {  // put every original byte / pointer back, in the exact reverse order of Install
+void Restore(const char* why) {  // put every original byte / pointer back (only with the session OFF and no TAIL pending)
     EnterCriticalSection(&g_instCs);
     if (g_installed) {
-        // code sites last-installed first, so GfxDevicePresentVfn 5DAF3 (FoPresent, index 0) is restored LAST: until then every
-        // frame end still goes through FO (stock path) and FO's frame-begin hooks see consistent frame numbers
+        // GfxDevicePresentVfn 5DAF3 (FoPresent, index 0) restored LAST: until then every frame end still goes through FO's stock
+        // path (PrepareStock: present retired, full stream / sub-stream extents) and its frame-begin hooks see consistent frame
+        // numbers; the session is OFF, so it creates no FO frame in between
         for (int i = g_nPatch - 1; i >= 0; --i) FrozenWrite(g_patch[i].at, g_patch[i].orig, g_patch[i].n);
         for (int i = g_nPtr - 1; i >= 0; --i) WritePtr(g_ptr[i].at, g_ptr[i].orig);
         g_installed = false;
@@ -1127,6 +1131,7 @@ DWORD WINAPI Watchdog(LPVOID) {
 
 // ---- Tuning.FO_Test (live test actions + self-test) -------------------------------------------------------------------------
 void Rearm() {  // TEST ONLY: back to "installed + ON" after a session OFF / watchdog
+    g_on = 0;  // no FO frame while (re)installing
     EnterCriticalSection(&g_instCs);
     g_disabled = 0;
     g_disReason = "";
