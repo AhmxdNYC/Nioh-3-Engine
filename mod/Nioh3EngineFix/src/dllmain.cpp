@@ -57,6 +57,7 @@
 #include "psomemo.h"
 #include "bkstats.h"
 #include "frameoverlap.h"
+#include "replayprof.h"
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
@@ -122,7 +123,7 @@
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.59-fo8"
+#define MOD_VERSION "1.7.59-rpf1"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1376,6 +1377,7 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
     }
     if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
     if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
+    if (replayprof::SetTuning(key, val, reply, n)) return true;  // 1.7.59-rpf1 RPF on/off (replayprof.cpp)
     return samelook::SetTuning(key, val, reply, n);
 }
 
@@ -2788,6 +2790,12 @@ DWORD WINAPI Worker(LPVOID) {
             foi.base = reinterpret_cast<uintptr_t>(g_base);
             foi.knownBuild = known;
             frameoverlap::Start(foi);
+            replayprof::StartInfo rpi;  // 1.7.59-rpf1 RPF replay-thread profiler ([Profiler] ReplayProf = 0; replayprof.cpp)
+            rpi.log = &Log;
+            rpi.iniPath = iniPath.c_str();
+            rpi.base = reinterpret_cast<uintptr_t>(g_base);
+            rpi.knownBuild = known;
+            replayprof::Start(rpi);
             mh.exp[menu::kExpPCM].ini = GetPrivateProfileIntW(L"Patches", L"PCM", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpPCM].applied = psomemo::Switch() != nullptr;
             mh.exp[menu::kExpPCM].enable = psomemo::Switch();

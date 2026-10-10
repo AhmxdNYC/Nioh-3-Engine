@@ -36,6 +36,7 @@ LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning /
     "KL_Div": "bkstats KL: CmdFlushLimit data write, compared per draw by the engine (1.7.58-bk1)",
     "FO": "frameoverlap switch, sampled at the next frame end (1.7.59-fo1; needs [GpuOpt] FrameOverlap = 1 or 2 at boot)",
     "FO_Pct": "frameoverlap barrier position, read at every frame end (1.7.59-fo1)",
+    "RPF": "replayprof: removes / re-installs the replay-profiler hooks (1.7.59-rpf1; needs [Profiler] ReplayProf = 1 or 2 at boot)",
 }
 HOT_SETS = ["ghdm", "esm", "wdo28", "mpc", "mshlod", "gi", "fogpar", "vcu", "vcp", "vcpfu", "vcpfp"]
 
