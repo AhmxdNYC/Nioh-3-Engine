@@ -347,6 +347,46 @@ lag (fo7 build + crossing guard): ALL 17 PASS once, but the hazard is intermitte
 PagePoolFrameUpdate) overlaps frame N's tail; the graph up to K still overlaps only the time after B6. Making B6 overlappable
 (RE of the page-op recording + the 0x82/0x83/0x95 replay; or deferring B6 to the barrier) is the next FO work item.
 
+### 7.3 Verdict: FO's measured ceiling on pc2 and what +15-25 % would take (pc2 FO3, fo8; captures/pc2/fo3)
+
+Measured (5600X / 6650 XT, CPU-bound spot, 3 ABBA pairs): **FO +0.4 % (38.83 vs 38.68 fps, SE 0.02)**, 46.9 k FO frames stable,
+FO_PPWait 2 vs 1 +0.5 % (overlapping B4 is worth nothing measurable). Per frame (25.7 ms):
+
+| | stock (FO 0) | FO 1 |
+|---|---|---|
+| main thread waits | drain 5.75 ms | B6 wait for TAIL N 3.29 ms + effect sync-point GPU wait 2.27 ms = **5.56 ms** |
+| replay thread busy (1 - starved) | 80 % = 20.5 ms | 84 % = 21.6 ms (incl. TAIL 0.5 ms) |
+| GPU busy (PresentMon GPUBusy) | 19.4 ms | 19.6 ms (GPUTime 22.5 = +2.8 ms GPUWait: idle gaps, GPU waiting for work) |
+| GPULatency / DisplayLatency | 21.8 / 46.0 ms | 19.4 / 46.2 ms |
+
+Critical path: the drain did not disappear, it moved. At E(N) the single replay thread still has ~5.8 ms of frame N to replay
+(backlog ~13 segments; it is busy 84 % and starved only while waiting for main's kicks). With B6 waiting (fo8 safety), main
+only overlaps B1-B5 (~2.5 ms) and then waits 3.3 ms for TAIL N. The 2.5 ms it gained is then lost at the **effect system's
+per-frame GPU->CPU sync point**: a task (3D2198 -> 3D21D4 -> 3D2650, run from 1A749D0) records a sync point every frame
+(5F17C -> 418DD0, token A8) and first waits for the PREVIOUS frame's one (3D2B90 -> GfxWaitFenceValue, Sleep(0) poll). So
+main in frame N+1 cannot pass that task before the GPU has executed frame N up to its effect point, and the GPU gets frame N's
+last lists only after the replay thread finishes N. In stock the drain hid exactly this wait (sync-point GPU wait 0.00 ms/f);
+with FO main arrives 2.5 ms earlier and waits 2.3 ms. The sum of the waits equals the old drain: **FO's ceiling on pc2 is the
+single replay thread feeding the GPU, chained to main by a one-frame GPU->CPU dependency. Moving work around main cannot beat it.**
+Floors: main work 20.0 ms, replay 21.6 ms, GPU 19.5 ms -> the best a perfectly overlapped pipeline could reach is ~21.6 ms
+(46 fps, +19 %), and only if both chains below are cut.
+
+Screenshot pair (FO 1 A1 vs FO 0 B2): PSNR 24.9 dB, 4.6 % of pixels differ by > 32, all on animated content (bamboo, effect
+aura, particles); two FO 1 shots 15 min apart differ the same (24.8 dB); static sky / ground ~0; no blocks, tearing or wrong
+buffer. No FO artefact visible, but a live animated scene cannot prove bit-equivalence.
+
+| option | expected pc2 gain | effort | verdict |
+|---|---|---|---|
+| FO as built (fo8), any FO_Pct | +0.4 % measured | done | **NO-GO** as a feature: keep default off; the code stays as infrastructure (it is stable: gate 17/17, 47 k frames) |
+| defer B6 to the barrier / move K (FO_Pct) | ~0-1 %: main then waits at the effect sync point instead (same GPU(N) event) | 2-4 days RE (page-op protocol) | **NO-GO** alone |
+| B6 overlap + relax the effect sync to frame N-1 (two-frame GPU readback) | up to ~+15-19 %, capped by the replay thread (21.6 ms) | RE of the effect readback (consumer, buffer count) + B6 protocol, 1-2 weeks; same-look proof needed (effects would see GPU results one frame later) | **NO-GO for now**: risky for looks, and the gain is CPU-only |
+| faster single-thread replay (cut D3D12 API / state / barrier / descriptor cost of the ~21 ms replay; helps stock too, since drain = replay tail) | ~1 ms frame per 1 ms of replay tail removed (stock and FO alike) | profile the replay thread first (which handlers / API calls), then targeted fixes like PCM / GB / KL; days each | **GO (small, measured steps)**: the only lever that also works without FO |
+| parallel replay = new back end (N dispatcher threads recording command lists from stream segments, per-thread SynCtx, cross-list resource state, descriptor rings) | the +20-25 % of section 5.3 (frame -> max(main 20, GPU 19.5)) | weeks to months, very high risk (185 handlers, LTCG state, vkd3d on the Ally) | **NO-GO** |
+
+Context for all of it: the project goal is the Ally, which is GPU-bound at 99 % (AGENT_BRIEF), so any of these CPU-side gains is
+fps-neutral there. FO's original +15-25 % estimate assumed the drain was pure waste; it is the replay thread's real work, and
+a GPU->CPU dependency pins main to it.
+
 ## 8. Files
 
 - `mod/Nioh3EngineFix/src/frameoverlap.{h,cpp}`, `tests/frameoverlap_harness.cpp`, `tests/run_frameoverlap_harness.py` (FO).
