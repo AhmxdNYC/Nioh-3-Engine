@@ -278,4 +278,43 @@ bool InstallPump(void (*tick)(), const char** why) {
     return true;
 }
 
+// retarget an E8 rel32 call site (kind "call") to `fn` (same signature and ABI as the callee); *orig = the previous callee
+bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why) {
+    uint8_t* p = (uint8_t*)Site(site);
+    uint8_t b[5];
+    if (!p || !Copy(b, (uint64_t)p, 5) || b[0] != 0xE8) {
+        if (why) *why = "call site not resolved / not a call";
+        return false;
+    }
+    int32_t rel = 0;
+    memcpy(&rel, b + 1, 4);
+    *orig = (void*)(p + 5 + rel);
+    if (!Thunks() || g_used + 16 > kPage) {
+        if (why) *why = "no thunk room";
+        return false;
+    }
+    uint8_t* t = g_thunks + g_used;
+    const uint8_t jmp[6] = {0xFF, 0x25, 0, 0, 0, 0};  // jmp [rip+0] ; abs64
+    memcpy(t, jmp, 6);
+    const uint64_t f = (uint64_t)fn;
+    memcpy(t + 6, &f, 8);
+    FlushInstructionCache(GetCurrentProcess(), t, 14);
+    g_used += 16;
+    const intptr_t dd = (intptr_t)t - (intptr_t)(p + 5);
+    if (dd < INT32_MIN || dd > INT32_MAX) {
+        if (why) *why = "thunk out of rel32 range";
+        return false;
+    }
+    uint8_t nb[5] = {0xE8};
+    const int32_t r2 = (int32_t)dd;
+    memcpy(nb + 1, &r2, 4);
+    if (!Patch(p, nb, 5)) {
+        if (why) *why = "atomic write failed";
+        return false;
+    }
+    Log("Hook: call +%llX (%s) now goes through the add-on, then +%llX", (unsigned long long)((uintptr_t)p - g_img.base), site,
+        (unsigned long long)((uintptr_t)*orig - g_img.base));
+    return true;
+}
+
 }  // namespace addon

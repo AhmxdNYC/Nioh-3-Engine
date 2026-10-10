@@ -77,7 +77,7 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -226,15 +226,46 @@ def _script_box_calls(d):
         ops.append((o, d[i + 2:i + 2 + ln]))
         i += 2 + ln
     out = collections.defaultdict(set)
+    sym = lambda x: names[syms[struct.unpack("<H", x)[0]]] if struct.unpack("<H", x)[0] in syms and syms[struct.unpack("<H", x)[0]] < len(names) else ""
+    funcs, cur = [], None
     for k, (o, x) in enumerate(ops):
+        if o == 0x3b and len(x) == 2:
+            cur = {"name": sym(x), "calls": []}
+            funcs.append(cur)
+            continue
         if o in (0x1b, 0x1f) and len(x) == 2:
-            sid = struct.unpack("<H", x)[0]
-            nm = names[syms[sid]] if sid in syms and syms[sid] < len(names) else ""
+            nm = sym(x)
+            ints = [struct.unpack("<i", ops[j][1])[0] for j in range(max(0, k - 5), k) if ops[j][0] == 0x29]
+            if cur is not None:
+                cur["calls"].append((nm, ints))
             if not nm.startswith(TRIG_CALLS) or not ("Box" in nm or "Invade" in nm):
                 continue
-            for j in range(max(0, k - 5), k):
-                if ops[j][0] == 0x29:
-                    out[struct.unpack("<i", ops[j][1])[0]].add(nm)
+            for v in ints:
+                out[v].add(nm)
+    # boss gates: the id a mission-specific function waits on with Function::WaitWarpStart before it creates the boss / starts
+    # BossBattleMode; 'door' = some function opens it with Function::StartWarpByGadgetRights (the boss gate gadget), 'box' = with
+    # Function::StartWarp (an arena box check). Both are the game's exclusive-rights warp (Online::RequestExclusiveRights).
+    door, boxw, gates = set(), set(), []
+    for f in funcs:
+        if f["name"].startswith("Function::"):
+            continue
+        for nm, ints in f["calls"]:
+            if ints and nm == "Function::StartWarpByGadgetRights":
+                door.add(ints[-1] & 0xFFFFFFFF)
+            if ints and nm == "Function::StartWarp":
+                boxw.add(ints[-1] & 0xFFFFFFFF)
+    for f in funcs:
+        if f["name"].startswith("Function::"):
+            continue
+        cn = [nm for nm, _ in f["calls"]]
+        if "Function::WaitWarpStart" not in cn or not ("Mission::BossBattleMode" in cn or any(c.startswith("Character::Create") for c in cn)):
+            continue
+        creates = sorted({v for nm, ints in f["calls"] if nm.startswith("Character::Create") for v in ints if v > 0})
+        for nm, ints in f["calls"]:
+            if nm == "Function::WaitWarpStart" and ints:
+                gates.append((f["name"], ints[-1] & 0xFFFFFFFF, creates))
+                break
+    out[None] = [(fn, g, "door" if g in door else "box" if g in boxw else "other", cr) for fn, g, cr in gates]
     return out
 
 
@@ -289,6 +320,9 @@ def build_fight_index():
         snm = E.get(struct.unpack_from("<I", rec, 0x50)[0])
         sp = files.get(snm) if snm else None
         trig = _script_box_calls(sp.read_bytes()) if sp else {}
+        for fn, g, kind, cr in trig.pop(None, []):
+            rows.append({"mission_id": mh, "kind": "gate", "id": g, "flags": kind, "sub": " ".join(str(c) for c in cr[:12]), "x": "0", "y": "0",
+                         "z": "0", "yaw": "0", "ex": "", "ey": "", "ez": "", "name": ascii_(fn)[:60]})
         t = tab(rec, 0x5C)
         c = struct.unpack_from("<I", t, 4)[0] if t else 0
         if t and 8 + c * 0xA0 <= len(t):
@@ -336,7 +370,7 @@ def build_fight_index():
 
 # ---------------------------------------------------------------- fight now (E1 straight to the boss): start point choice
 def load_fight_index():
-    fi = collections.defaultdict(lambda: {"start": [], "box": [], "trig": [], "boss": {}})
+    fi = collections.defaultdict(lambda: {"start": [], "box": [], "trig": [], "gate": [], "boss": {}})
     p = N / FIGHT_IDX
     if not p.exists():
         return fi
@@ -377,7 +411,9 @@ def pick_fight_start(fi, mid, pid):
     if len(st) == 1:
         s = st[0]
         return out(s, "mission start", "high" if d(s) <= 30 else "medium" if d(s) <= 80 else "low")
-    ok = sorted((s for s in st if not int(s["flags"], 16) & 0x200), key=lambda s: (d(s), s["id"]))
+    # same floor as the boss first (Takeda Shingen: a gadget point 20 m below the arena tied with a spawn point on its level;
+    # self-test 2026-10-09), then the distance
+    ok = sorted((s for s in st if not int(s["flags"], 16) & 0x200), key=lambda s: (abs(s["pos"][1] - bp[1]) > 500, d(s), s["id"]))
     for s in ok:
         if int(s["flags"], 16) & 0x40 and d(s) <= 40:
             return out(s, "boss retry point", "high")
@@ -389,6 +425,21 @@ def pick_fight_start(fi, mid, pid):
         if d(s) <= 120:
             k = int(s["sub"])
             return out(s, "shrine" if k in (906, 907, 909) else "spawn point" if k == 0 else "gadget point", "low")
+    return None
+
+
+def pick_gate(fi, mid, pid):
+    """-> (gate id, kind) the boss's start function waits on (WaitWarpStart), or None. One gate in the mission = that one; several =
+    the one whose function creates the boss placement."""
+    m = fi.get(mid)
+    if not m or not m["gate"]:
+        return None
+    gs = m["gate"]
+    if len({g["id"] for g in gs}) == 1:
+        return gs[0]["id"], gs[0]["flags"]
+    for g in gs:
+        if str(pid) in g["sub"].split():
+            return g["id"], g["flags"]
     return None
 
 
@@ -432,6 +483,11 @@ def pick_arena(fi, mid, pid, f):
     hs = math.hypot(sp[0] - wx, sp[2] - wz)
     hb = math.hypot(bp[0] - wx, bp[2] - wz)
     wy = (sp[1] * hb + bp[1] * hs) / (hs + hb if hs + hb else 1) + 100
+    if abs(sp[1] - bp[1]) > 500:  # start point on another floor: use the boss's floor (Takeda: 9443 vs 11492 -> fell below the arena)
+        wy = bp[1] + 100
+    lo, hi = c[1] - ext[1] / 2, c[1] + ext[1] / 2
+    if not lo <= wy <= hi and lo <= bp[1] + 100 <= hi:
+        wy = bp[1] + 100
     yaw = math.degrees(math.atan2(bp[0] - wx, bp[2] - wz))
     geo = "%.0f_%.0f_%.0f_%.1f_%.0f_%.0f_%.0f" % (c[0], c[1], c[2], b["yawf"], ext[0], ext[1], ext[2])
     return {"x": wx, "y": wy, "z": wz, "yaw": yaw, "box": b["id"], "src": "%s %d %s" % (src, b["id"], b["name"][-40:]), "conf": conf, "geo": geo}
@@ -677,6 +733,9 @@ def mrow(rt, mid, b, lst, ma, fi):
     if pid and (mid, int(pid)) in SEEN:
         o["seen"] = SEEN[(mid, int(pid))][0]
     f = pick_fight_start(fi, mid, int(pid)) if pid else None
+    gt = pick_gate(fi, mid, int(pid)) if pid else None
+    if f and gt:
+        o.update({"gate_id": str(gt[0]), "gate_kind": gt[1]})
     if f:
         o.update({"stage_mission": str(f["start"]), "warp_x": "%.0f" % f["pos"][0], "warp_y": "%.0f" % f["pos"][1], "warp_z": "%.0f" % f["pos"][2],
                   "warp_yaw": "%.1f" % f["yaw"], "box_id": str(f["box"]) if f["box"] else "-", "fight_kind": f["kind"],

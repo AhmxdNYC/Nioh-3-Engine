@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.2.2"
+#define ADDON_VERSION "1.3.1"
 
 namespace addon {
 
@@ -59,6 +59,8 @@ void OnEntry(const char* site, Handler h);
 bool InstallGroup(const char* group, const char** why);
 // retarget the per-frame call site (PUMP) to call `tick` first, then whatever it called before (chains onto another module)
 bool InstallPump(void (*tick)(), const char** why);
+// retarget an E8 call site (kind "call") to fn (same signature); *orig = the callee it had
+bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why);
 
 // ---- features ----
 namespace bosslog {

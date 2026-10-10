@@ -49,6 +49,33 @@ const char *g_raWhy = "", *g_emakiWhy = "", *g_fnowWhy = "", *g_warpWhy = "";
 // WARP: Player::SetPos tail (sites chk:SetPos_tail_a / _b): call targets read from the two matches
 uintptr_t F_SETPOSYAW, F_ACTORSYNC, F_POSNOTIFY, F_SCENEPOS, F_STAGEPATH, G_SCENE;
 uintptr_t F_REQRETURN;  // EXIT: MissionRequestReturn 22396D8
+// GATE: the boss gate's exclusive right (Fight now for gate bosses). The check core 3B2354 is called from Online::IsExclusiveRightsValue
+// (3B2323) while the boss start function waits in Function::WaitWarpStart(gate); the key it polls is copied here and requested with
+// RightsRequest 1CA52C4(slot, key) = what the door interaction (StartWarpByGadgetRights) / StartWarp do. Mission-local runtime state.
+uintptr_t F_RIGHTSREQ;
+bool g_gateOk = false;
+const char* g_gateWhy = "";
+using RightsCheckFn = uint8_t (*)(uint32_t, const uint8_t*, uint8_t);
+RightsCheckFn g_rightsCheckOrig = nullptr;
+std::atomic<uint32_t> g_gateWant{0}, g_gateChecks{0};
+std::atomic<int> g_gateSlot{-1};
+std::atomic<bool> g_gateSeen{false};
+alignas(16) uint8_t g_gateKey[16];
+uint8_t RightsCheckHook(uint32_t slot, const uint8_t* key, uint8_t mode) {
+    const uint32_t want = g_gateWant.load(std::memory_order_relaxed);
+    if (want && key) {
+        uint32_t a = 0, b = 0;
+        memcpy(&a, key + 4, 4);
+        memcpy(&b, key + 8, 4);
+        if ((a == want || b == want) && !g_gateSeen.load()) {
+            memcpy(g_gateKey, key, 16);
+            g_gateSlot.store((int)slot);
+            g_gateSeen.store(true);
+        }
+        g_gateChecks.fetch_add(1, std::memory_order_relaxed);
+    }
+    return g_rightsCheckOrig(slot, key, mode);
+}
 bool g_exitOk = false;
 const char* g_exitWhy = "";
 
@@ -450,6 +477,8 @@ ULONGLONG g_pendAt = 0, g_openAt = 0, g_closedSince = 0, g_replayAt = 0, g_exitS
 bool g_menuSeen = false, g_loadSeen = false;
 uint32_t g_msAtOpen = 0, g_replayMs = 0;
 uint32_t g_fightMission = 0, g_fightStart = 0;  // Fight now: requested mission + start point
+bool g_gateReq = false;      // the gate right was requested for this start
+ULONGLONG g_gateDue = 0;     // when to request it (landing + 1 s, after the arena warp when there is one)
 // player position on the last frame before the latest load began (the game's boss intro can load + move the player after the
 // arena trigger: Yamagata 2026-10-09 trigger at ~337700 -> load -> BossBattleMode at 334650), for the arena capture
 float g_posLive[4] = {}, g_posAtLoad[4] = {};
@@ -494,6 +523,8 @@ void ToIdle(const char* why) {
     g_warps = 0;
     g_fightRow = -1;
     if (g_fn.load() == kFnArmed || g_fn.load() == kFnWarped) g_fn.store(kFnIdle);
+    g_gateWant.store(0);
+    g_gateReq = false;
 }
 
 void ExecOpen(int row, const Snap& s) {
@@ -541,7 +572,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         if (!g_cfg.fightNow) return Refuse("Fight now is off ([Rematch] FightNow = 0)");
         if (!g_fnowOk) return Refuse(g_fnowWhy);
         if (!start) return Refuse("no start point next to this boss in the catalogue (use the replay)");
-        if (warp && !r.atFight && (!g_cfg.fightWarp || !g_warpOk || !r.arenaOk))
+        if (warp && !r.atFight && !(r.GateDoor() && g_gateOk) && (!g_cfg.fightWarp || !g_warpOk || !r.arenaOk))
             return Refuse(!g_cfg.fightWarp ? "the arena warp is off ([Rematch] FightNowWarp = 0)" : !g_warpOk ? g_warpWhy : "no arena position for this boss yet");
         Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
     }
@@ -592,7 +623,15 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         g_fightByMission = g_fightLoading = false;
         g_fightLoads = 0;
         g_fightRow = row;
-        g_fightWarp = warp && !r.atFight && r.arenaOk;
+        g_fightWarp = warp && !r.atFight && r.arenaOk && g_cfg.fightWarp && g_warpOk;
+        g_gateSeen.store(false);
+        g_gateSlot.store(-1);
+        g_gateChecks.store(0);
+        g_gateReq = false;
+        g_gateDue = 0;
+        g_gateWant.store(warp && !r.atFight && r.GateDoor() && g_gateOk ? r.gateId : 0);
+        if (g_gateWant.load())
+            Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, r.gateId, r.gateKind);
         g_warpPending = false;
         g_warps = 0;
         g_fn.store(warp ? kFnArmed : kFnIdle);
@@ -751,7 +790,8 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         float p[4] = {};
         PlayerPos(p);
         g_fn.store(kFnFail);
-        Log("Rematch: F FAIL %s: no BossBattleMode within %s (%d warps); player %.0f %.0f %.0f %s the trigger box (%s)", r.id, g_fightWarp ? "8 s of warp #1" : "20 s of the landing", g_warps, p[0], p[1],
+        Log("Rematch: F FAIL %s: no BossBattleMode within %s (%d warps, gate %s); player %.0f %.0f %.0f %s the trigger box (%s)", r.id, g_gateReq ? "60 s of the gate request" : g_fightWarp ? "8 s of warp #1" : "20 s of the landing", g_warps,
+            g_gateReq ? "requested" : g_gateWant.load() ? "never polled" : "-", p[0], p[1],
             p[2], rcore::InTriggerBox(r, p) ? "inside" : "outside", r.arenaSrc);
         Result("fight now FAIL %s: no fight in 8 s (warps=%d)", r.id, g_warps);
         return;
@@ -761,12 +801,65 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         if (!PlayerPos(p)) return;
         const float dx = p[0] - r.arena[0], dz = p[2] - r.arena[2];
         const bool in = rcore::InTriggerBox(r, p) || dx * dx + dz * dz < 600.0f * 600.0f;
-        if (!in && g_fightWarp && g_warps < 3 && !fight::g_active) {
+        if (!in && g_fightWarp && !g_gateReq && g_warps < 3 && !fight::g_active) {
             Log("Rematch: F %s: player %.0f %.0f %.0f is not in the trigger box 1.5 s after warp #%d - warping again", r.id, p[0], p[1], p[2], g_warps);
             g_warpPending = true;
             g_warpDue = t;
         }
         g_fnCheckAt = t + 1500;
+    }
+}
+
+// game thread, inside the Fight now mission: open the boss gate the way the game does (door / StartWarp), once
+void GateTick(const Snap& s, ULONGLONG t) {
+    const uint32_t want = g_gateWant.load();
+    if (!want || g_gateReq || !g_gateDue || t < g_gateDue || g_fightRow < 0) return;
+    if (s.st[2] || s.st[3] || s.st[4] || !s.player || fight::g_active) {
+        static ULONGLONG last = 0;
+        if (last && t > last && t - last < 1000) g_gateDue += t - last;  // loading / paused time does not count
+        last = t;
+        return;
+    }
+    const Row& r = g_rows[(size_t)g_fightRow];
+    if (s.online || s.guest || s.ms28 != g_fightMission) {
+        g_gateWant.store(0);
+        return;
+    }
+    if (!g_gateSeen.load()) {
+        if (t - g_gateDue > 30000) {
+            g_gateWant.store(0);
+            Log("Rematch: F %s: the boss start never waited for gate %u in 30 s of play (%u exclusive-right checks seen) - not requesting", r.id, want,
+                g_gateChecks.load());
+            if (g_fn.load() == kFnArmed || (g_fn.load() == kFnWarped && !g_fightWarp)) {
+                g_fn.store(kFnFail);
+                Result("fight now FAIL %s: boss start not waiting for gate %u", r.id, want);
+            }
+        }
+        return;
+    }
+    g_gateReq = true;
+    alignas(16) uint8_t key[16];
+    memcpy(key, g_gateKey, 16);
+    const int slot = g_gateSlot.load();
+    char hb[64];
+    Hex(hb, sizeof(hb), (uint64_t)key, 16);
+    int rc = 0;
+    __try {
+        ((void (*)(uint32_t, const uint8_t*))F_RIGHTSREQ)((uint32_t)slot, key);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        rc = 1;
+    }
+    Log("Rematch: F %s: requested the boss gate's exclusive right (slot %d, key %s) as the %s would -> %s", r.id, slot, hb,
+        r.GateDoor() ? "boss door" : "arena box", rc ? "EXCEPTION" : "ok");
+    if (g_fn.load() == kFnArmed) {
+        g_fn.store(kFnWarped);
+        g_fnFirst = g_fnLastT = t;
+        g_fnCheckAt = t + 3600000;
+    }
+    if (g_fn.load() == kFnWarped) g_fnDeadline = t + 60000;  // the gate intro: fade, RTM (cutscene time counts, loading does not), create
+    if (rc) {
+        g_fn.store(kFnFail);
+        Result("fight now FAIL %s: gate request exception", r.id);
     }
 }
 
@@ -837,6 +930,10 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                     if (g_fightWarp && !g_warps) {  // landed (3 s with no load and a player) + 1 s settle
                         g_warpPending = true;
                         g_warpDue = t + 1000;
+                    }
+                    if (g_gateWant.load()) g_gateDue = t + (g_fightWarp ? 2500 : 1000);
+                    if (!g_fightWarp && g_gateWant.load()) {
+                        // gate only: GateTick requests the right and starts the verification
                     } else if (!g_fightWarp && g_fn.load() == kFnArmed) {  // the mission starts at the fight: no warp, just verify
                         g_fn.store(kFnWarped);
                         g_fnFirst = g_fnLastT = t;
@@ -846,8 +943,9 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                 }
             }
         }
-        if (!g_replayMs && t - g_replayAt > 180000) {
-            Log("Rematch: no mission load within 180 s - idle");
+        // state-based: give up only when no load began within 120 s of the request, or a begun load never finished in 20 min
+        if (!g_replayMs && ((!g_loadSeen && t - g_replayAt > 120000) || t - g_replayAt > 1200000)) {
+            Log("Rematch: %s - idle", g_loadSeen ? "the mission load did not finish in 20 min" : "no mission load began within 120 s of the request");
             ToIdle("replay load timeout");
         }
         return;
@@ -863,6 +961,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         }
         g_fightLoading = s.st[2] != 0;
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
+        GateTick(s, t);
         FnVerify(s, t);
         if (!s.msOk || s.ms28 == g_fightMission || s.st[2]) {
             g_exitSince = 0;
@@ -870,6 +969,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         }
     } else if (s.msOk && s.ms14 == g_replayMs && !s.st[2]) {
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
+        GateTick(s, t);
         FnVerify(s, t);
         g_exitSince = 0;
         return;
@@ -910,6 +1010,96 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
     }
 }
 
+// ---- [Rematch] SelfTest = R1CBC,REA75,...: the add-on runs Fight now on each row by itself (no pipe, no input; for the Ally /
+// Proton and any device without the pipe). Per row: wait until idle in the field for 8 s -> fight -> PASS / FAIL (the Fight now
+// verification) -> 4 s -> leave the mission (MissionRequestReturn) -> next. Log lines 'SELFTEST ...'; never runs online.
+struct SelfTest {
+    std::vector<int> rows;
+    size_t next = 0;
+    int phase = 0;  // 0 wait idle, 1 started, 2 result seen -> exit, 3 left, 4 done
+    ULONGLONG since = 0, idleSince = 0;
+    int pass = 0, fail = 0, skip = 0;
+    bool exitSent = false;
+    char table[600] = "";
+} g_st;
+void SelfTestTick(const Snap& s, ULONGLONG t) {
+    SelfTest& st = g_st;
+    if (st.rows.empty() || st.phase == 4) return;
+    const int stt = g_state.load();
+    if (st.phase == 0) {
+        if (st.next >= st.rows.size()) {
+            st.phase = 4;
+            Log("Rematch: SELFTEST DONE pass=%d fail=%d skip=%d:%s", st.pass, st.fail, st.skip, st.table);
+            ToastF(cCyan, 15000, "Rematch self-test: %d pass, %d fail, %d skip (see the log)", st.pass, st.fail, st.skip);
+            return;
+        }
+        const bool idle = stt == kIdle && !Gates(s, false);
+        if (!idle) {
+            st.idleSince = 0;
+            return;
+        }
+        if (!st.idleSince) st.idleSince = t;
+        if (t - st.idleSince < 8000) return;
+        const int row = st.rows[st.next];
+        const Row& r = g_rows[(size_t)row];
+        const char* why = nullptr;
+        if (!ClearedNow(r.missionId, &why)) {
+            Log("Rematch: SELFTEST %s SKIP: %s", r.id, why);
+            const size_t k = strlen(st.table);
+            snprintf(st.table + k, sizeof(st.table) - k, " %s=skip", r.id);
+            ++st.skip;
+            ++st.next;
+            st.idleSince = 0;
+            return;
+        }
+        Log("Rematch: SELFTEST %s (%zu/%zu): Fight now", r.id, st.next + 1, st.rows.size());
+        Post(kReqFight, row, "self-test");
+        st.phase = 1;
+        st.since = t;
+        return;
+    }
+    const Row& r = g_rows[(size_t)st.rows[st.next]];
+    if (st.phase == 1) {
+        const int fn = g_fn.load();
+        const bool over = fn == kFnPass || fn == kFnFail;
+        const bool gaveUp = (stt == kIdle && t - st.since > 15000 && fn != kFnWarped && fn != kFnArmed) || t - st.since > 300000;
+        if (!over && !gaveUp) return;
+        const bool ok = fn == kFnPass;
+        float p[4] = {};
+        PlayerPos(p);
+        Log("Rematch: SELFTEST %s %s (%.1f s after the request, %d warp%s, player %.0f %.0f %.0f)", r.id, ok ? "PASS" : "FAIL", (double)(t - st.since) / 1000.0,
+            g_warps, g_warps == 1 ? "" : "s", p[0], p[1], p[2]);
+        const size_t k = strlen(st.table);
+        snprintf(st.table + k, sizeof(st.table) - k, " %s=%s", r.id, ok ? "PASS" : "FAIL");
+        (ok ? st.pass : st.fail)++;
+        st.exitSent = false;
+        st.phase = stt == kIdle ? 3 : 2;
+        st.since = t;
+        return;
+    }
+    if (st.phase == 2) {
+        if (t - st.since < 4000) return;
+        if (stt == kIdle) {
+            st.phase = 3;
+            st.since = t;
+            return;
+        }
+        if (!st.exitSent) {
+            st.exitSent = true;
+            Post(kReqExit, -1, "self-test");
+        } else if (t - st.since > 120000) {  // never left: try again
+            Post(kReqExit, -1, "self-test (again)");
+            st.since = t - 4000;
+        }
+        return;
+    }
+    if (st.phase == 3) {
+        ++st.next;
+        st.phase = 0;
+        st.idleSince = 0;
+    }
+}
+
 void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
@@ -921,6 +1111,18 @@ void Tick() {
     }
     g_wasLoading = s.st[2] != 0;
     if (!s.st[2]) g_posLiveOk = s.player && PlayerPos(g_posLive);
+    // leaving a mission during a boss fight (the menu's leave, quit to title) never runs BossBattleModeEnd: the "in a boss fight"
+    // gate would stay set for the rest of the session (self-test 2026-10-09 21:14). A mission change ends any fight.
+    {
+        static uint32_t lastMission = 0;
+        if (s.msOk && s.ms28 != lastMission) {
+            if (fight::g_active && lastMission) {
+                InterlockedExchange(&fight::g_active, 0);
+                Log("Rematch: the mission changed (0x%X -> 0x%X) during a boss fight without BossBattleModeEnd - fight flag cleared", lastMission, s.ms28);
+            }
+            lastMission = s.ms28;
+        }
+    }
     if (s.qHash != g_qHash) {
         if (g_qHash) g_qChangedAt.store(t);
         g_qHash = s.qHash;
@@ -972,6 +1174,7 @@ void Tick() {
         }
     }
     TrackReplay(s, t);
+    SelfTestTick(s, t);
     TrackEmaki(s, t);
 }
 
@@ -1082,6 +1285,7 @@ const char* CanArena(int row) {
     if (const char* w = CanFight(row)) return w;
     const Row& r = g_rows[(size_t)row];
     if (r.atFight) return nullptr;
+    if (r.GateDoor() && g_gateOk) return nullptr;
     if (!g_cfg.fightWarp) return "arena warp off ([Rematch] FightNowWarp = 1 turns it on)";
     if (!g_warpOk) return g_warpWhy;
     if (!r.arenaOk) return "no arena position yet (fight it once with [Rematch] ArenaCapture = 1)";
@@ -1133,6 +1337,8 @@ bool Start() {
     g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 0) != 0;
     g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 0) != 0;
     g_cfg.arenaCapture = IniInt(L"Rematch", L"ArenaCapture", 0) != 0;
+    wchar_t stw[512] = {};
+    GetPrivateProfileStringW(L"Rematch", L"SelfTest", L"", stw, 512, ini);
     const char* why = nullptr;
     if (!GroupOk("CORE", &why) || !GroupOk("FIGHT", &why) || !GroupOk("PUMP", &why)) {
         Log("Rematch: off - %s", why);
@@ -1158,6 +1364,13 @@ bool Start() {
     g_fnowOk = GroupOk("FNOW", &g_fnowWhy);
     g_warpOk = GroupOk("WARP", &g_warpWhy) && ResolveWarp(&g_warpWhy);
     g_exitOk = GroupOk("EXIT", &g_exitWhy);
+    g_gateOk = GroupOk("GATE", &g_gateWhy);
+    if (g_gateOk) {
+        F_RIGHTSREQ = Site("fn:RightsRequest");
+        void* orig = nullptr;
+        if (!InstallCallRetarget("call:RightsCheck", (void*)&RightsCheckHook, &orig, &g_gateWhy)) g_gateOk = false;
+        else g_rightsCheckOrig = (RightsCheckFn)orig;
+    }
     if (g_exitOk) F_REQRETURN = Site("fn:MissionRequestReturn");
     if (g_emakiOk) {
         F_EMAKIREQ = Site("fn:EmakiMissionRequest");
@@ -1179,6 +1392,20 @@ bool Start() {
     if (ReadText(ArenaPath(), at)) na = rcore::ApplyArenas(at, g_rows);
     if (na) Log("Rematch: %d rows take their arena point from %ls (captured)", na, ArenaPath().c_str());
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
+    if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
+        char st8[512] = {};
+        WideCharToMultiByte(CP_ACP, 0, stw, -1, st8, sizeof(st8), nullptr, nullptr);
+        if (!_stricmp(st8, "arena")) {
+            for (size_t i = 0; i < g_rows.size(); ++i)
+                if (g_rows[i].FightNowReady() && g_rows[i].route != rcore::kX) g_st.rows.push_back((int)i);
+        } else {
+            char* ctx = nullptr;
+            for (char* tok = strtok_s(st8, ", ", &ctx); tok; tok = strtok_s(nullptr, ", ", &ctx))
+                for (size_t i = 0; i < g_rows.size(); ++i)
+                    if (!_stricmp(g_rows[i].id, tok)) g_st.rows.push_back((int)i);
+        }
+        Log("Rematch: SELFTEST armed: %zu rows (%ls); starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw);
+    }
     if (!InstallGroup("FIGHT", &why)) {
         Log("Rematch: off - FIGHT hooks: %s", why);
         return false;
@@ -1204,6 +1431,7 @@ bool Start() {
         "start at the fight)%s%s; ArenaCapture %d",
         g_cfg.fightNow ? "ON" : "off", nf, nfh, g_fnowOk ? "" : "; sites FNOW failed: ", g_fnowOk ? "" : g_fnowWhy, g_cfg.fightWarp ? "ON" : "off", nar, nat,
         g_warpOk ? "" : "; WARP: ", g_warpOk ? "" : g_warpWhy, g_cfg.arenaCapture);
+    Log("Rematch: boss gates (door / box exclusive rights) %s%s", g_gateOk ? "on" : "OFF: ", g_gateOk ? "" : g_gateWhy);
     return true;
 }
 
@@ -1253,6 +1481,10 @@ bool UiAct() {
     if (item >= kItFight) {
         const bool arena = item < kItShrine;
         const int row = item - (arena ? kItFight : kItShrine);
+        if (g_status[(size_t)row].load() != 2) {
+            snprintf(g_msg, sizeof(g_msg), "Not beaten on this journey: Fight now only replays bosses you have beaten.");
+            return false;
+        }
         if (const char* w = arena ? CanArena(row) : CanFight(row)) {
             snprintf(g_msg, sizeof(g_msg), "%s", w);
             return false;
@@ -1330,7 +1562,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
             const uint8_t stt = g_status[(size_t)(it[i] - kItShrine)].load();
             const uint32_t c = stt == 2 ? (!strcmp(r.fightConf, "high") ? cGreen : !strcmp(r.fightConf, "medium") ? cYellow : cOrange) : cDim;
-            add(sel ? cWhite : c, sel, "%s    Shrine before the boss   %s, %d m   [%s]", mk, r.fightKind, r.fightDist, r.fightConf);
+            if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Shrine before the boss   - not beaten on this journey", mk);
+            else add(sel ? cWhite : c, sel, "%s    Shrine before the boss   %s, %d m   [%s]", mk, r.fightKind, r.fightDist, r.fightConf);
         } else if (it[i] >= kItFight) {
             const int row = it[i] - kItFight;
             const Row& r = g_rows[(size_t)row];
@@ -1338,7 +1571,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* why = CanArena(row);
             const char* conf = r.atFight ? r.fightConf : r.arenaConf;
             const uint32_t c = why || stt != 2 ? cDim : (!strcmp(conf, "high") || !strcmp(conf, "captured")) ? cGreen : !strcmp(conf, "medium") ? cYellow : cOrange;
-            if (why) add(sel ? cWhite : c, sel, "%s    Fight now (in the arena)   - %s", mk, why);
+            if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Fight now (in the arena)   - not beaten on this journey", mk);
+            else if (why) add(sel ? cWhite : c, sel, "%s    Fight now (in the arena)   - %s", mk, why);
             else add(sel ? cWhite : c, sel, "%s    Fight now (in the arena)   %s   [%s]", mk, r.atFight ? "the mission starts at the fight" : "warp into the trigger", conf);
         } else {
             const Row& r = g_rows[(size_t)it[i]];

@@ -14,7 +14,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\rematch\fightnow_test.ps1 -OwnerPid <agent pid> [-Rows R1CBC,R15FF]
 #        [-IncludeAtFight] [-WaitMinutes 480] [-MaxMinutes 240] [-LoadWaitSec 240] [-DryRun]
 param([int]$OwnerPid = 0, [string[]]$Rows = @(), [switch]$IncludeAtFight, [int]$WaitMinutes = 480, [int]$MaxMinutes = 240,
-      [int]$LoadWaitSec = 240, [bool]$KeepBuild = $true, [switch]$DryRun)
+      [int]$LoadWaitSec = 240, [bool]$KeepBuild = $true, [string]$PerfAsi = "", [switch]$DryRun)
 $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tm = Join-Path (Split-Path -Parent $here) "testmatrix"
@@ -25,6 +25,8 @@ $perfIni = "$GameDir\Nioh3EngineFix.ini"
 $aAsi = "$GameDir\Nioh3BossRematch.asi"; $aIni = "$GameDir\Nioh3BossRematch.ini"; $aCat = "$GameDir\Nioh3BossRematch_bosses.tsv"; $aLog = "$GameDir\Nioh3BossRematch.log"
 $srcAsi = Join-Path $AddonDir "bin\Nioh3BossRematch.asi"; $srcCat = Join-Path $AddonDir "Nioh3BossRematch_bosses.tsv"
 $saveDir = "$env:LOCALAPPDATA\KoeiTecmo\NIOH3"
+# VirtualPad needs the perf ASI >= 1.7.37: the test installs this one for its run and puts the user's back afterwards
+if (-not $PerfAsi) { $PerfAsi = Join-Path $repo "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi" }
 $stamp = Get-Date -f yyyyMMdd-HHmmss
 $out = Join-Path $repo "captures\rematch\fightnow-$stamp"; New-Item -ItemType Directory -Force "$out\orig" | Out-Null
 $csv = Join-Path $repo "captures\rematch\fightnow-$stamp.csv"
@@ -107,12 +109,12 @@ function Close-Game {
 }
 function Restore {
     if ($script:installed) {
-        foreach ($n in @("Nioh3EngineFix.ini", "Nioh3BossRematch.ini", "Nioh3BossRematch.asi", "Nioh3BossRematch_bosses.tsv")) {
+        foreach ($n in @("Nioh3EngineFix.ini", "Nioh3EngineFix.asi", "Nioh3BossRematch.ini", "Nioh3BossRematch.asi", "Nioh3BossRematch_bosses.tsv")) {
             if ($KeepBuild -and $n -in @("Nioh3BossRematch.asi", "Nioh3BossRematch_bosses.tsv")) { continue }
             $dst = Join-Path $GameDir $n
             if ($script:had[$n]) { Copy-Item "$out\orig\$n" $dst -Force } else { Remove-Item $dst -Force -ErrorAction SilentlyContinue }
         }
-        $script:installed = $false; T "game folder restored (inis$(if (-not $KeepBuild) { ', asi, catalogue' })); arena captures kept"
+        $script:installed = $false; T "game folder restored (inis, perf ASI$(if (-not $KeepBuild) { ', add-on asi, catalogue' })); arena captures kept"
     }
     if ($script:saved -and -not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) {
         $o = robocopy $saveBak $saveDir /MIR /R:2 /W:2 /NFL /NDL /NP /NJH; $code = $LASTEXITCODE
@@ -132,8 +134,8 @@ $cat = Get-Content $srcCat | Where-Object { $_ -and -not $_.StartsWith("#") }
 $hdr = $cat[0] -split "`t"; $ix = @{}; for ($i = 0; $i -lt $hdr.Count; $i++) { $ix[$hdr[$i]] = $i }
 $all = foreach ($l in ($cat | Select-Object -Skip 1)) {
     $c = $l -split "`t"
-    [pscustomobject]@{ id = $c[$ix.id]; name = $c[$ix.name]; route = $c[$ix.route]; arena = ($c[$ix.arena_x] -ne '-'); atfight = ($c[$ix.arena_src] -like 'mission start*');
-                       conf = $c[$ix.arena_conf]; src = $c[$ix.arena_src] }
+    [pscustomobject]@{ id = $c[$ix.id]; name = $c[$ix.name]; route = $c[$ix.route]; arena = ($c[$ix.arena_x] -ne '-' -or ($c[$ix.gate_id] -ne '-' -and $c[$ix.gate_kind] -ne 'box')); atfight = ($c[$ix.arena_src] -like 'mission start*');
+                       conf = $c[$ix.arena_conf]; src = "$($c[$ix.arena_src]) gate=$($c[$ix.gate_id])/$($c[$ix.gate_kind])" }
 }
 $Rows = @($Rows | ForEach-Object { $_ -split "," } | Where-Object { $_ })
 $sel = @($all | Where-Object { $_.route -in @("R", "H", "D") -and ($_.arena -or ($IncludeAtFight -and $_.atfight)) -and ($Rows.Count -eq 0 -or $Rows -contains $_.id) })
@@ -143,7 +145,7 @@ Init-Guard -Name "fightnow_test" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cl
 $sum = [ordered]@{ rows = $sel.Count; pass = 0; fail = 0; skip = 0 }
 try {
     T "fightnow_test: $($sel.Count) rows: $(($sel | ForEach-Object id) -join ' '); out=$out csv=$csv"
-    foreach ($f in @($srcAsi, $srcCat, $perfIni)) { if (-not (Test-Path $f)) { throw "missing: $f" } }
+    foreach ($f in @($srcAsi, $srcCat, $perfIni, $PerfAsi)) { if (-not (Test-Path $f)) { throw "missing: $f" } }
     if ($DryRun) { T "[dry] would: lock, back up $saveDir -> $saveBak, install $srcAsi, test inis, launch, run $($sel.Count) rows, close, restore"; return }
     if (Get-Process Nioh3 -ErrorAction SilentlyContinue) { throw "Nioh3 is running" }
     $r = Lock "acquire"; if ($r.code -ne 0) { throw "lock: $($r.out)" }; $script:locked = $true; T "lock: $($r.out)"
@@ -151,7 +153,7 @@ try {
     $o = robocopy $saveDir $saveBak /MIR /R:2 /W:2 /NFL /NDL /NP /NJH; T "save folder backed up to $saveBak (robocopy exit $LASTEXITCODE)"
     if ($LASTEXITCODE -ge 8) { throw "save backup failed" }
     $script:saved = $true
-    foreach ($n in @("Nioh3EngineFix.ini", "Nioh3BossRematch.ini", "Nioh3BossRematch.asi", "Nioh3BossRematch_bosses.tsv")) {
+    foreach ($n in @("Nioh3EngineFix.ini", "Nioh3EngineFix.asi", "Nioh3BossRematch.ini", "Nioh3BossRematch.asi", "Nioh3BossRematch_bosses.tsv")) {
         $p = Join-Path $GameDir $n; $script:had[$n] = Test-Path $p; if ($script:had[$n]) { Copy-Item $p "$out\orig\" -Force }
     }
     $aText = if (Test-Path $aIni) { [IO.File]::ReadAllText($aIni) } else { [IO.File]::ReadAllText((Join-Path $AddonDir "Nioh3BossRematch.ini")) }
@@ -162,8 +164,8 @@ try {
     $pText = Force-Acl (Force-Vpad ([IO.File]::ReadAllText($perfIni)))
     $script:installed = $true
     [IO.File]::WriteAllText($aIni, $aText, (New-Object Text.UTF8Encoding($false))); [IO.File]::WriteAllText($perfIni, $pText, (New-Object Text.UTF8Encoding($false)))
-    Copy-Item $srcAsi $aAsi -Force; Copy-Item $srcCat $aCat -Force
-    T "installed $srcAsi + catalogue; test inis: FightNow/FightNowWarp/ArenaCapture/Pipe/BossLog = 1, Overlay = 0; perf VirtualPad/KeepRunningUnfocused"
+    Copy-Item $srcAsi $aAsi -Force; Copy-Item $srcCat $aCat -Force; Copy-Item $PerfAsi "$GameDir\Nioh3EngineFix.asi" -Force
+    T "installed $srcAsi + catalogue, perf ASI $PerfAsi (VirtualPad; the user's comes back after); test inis: FightNow/FightNowWarp/ArenaCapture/Pipe/BossLog = 1, Overlay = 0; perf VirtualPad/KeepRunningUnfocused"
     Start-TestPopup -Name "Fight now self-test" -InputMode vpad
     $null = Launch
     $n = 0

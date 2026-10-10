@@ -131,6 +131,12 @@ SPEC = [
     # EXIT (pipe 'exit', the self-test): MissionRequestReturn(params, 1) = what the mission menu's leave does (MissionMenu_OnClose
     # 1DB70B0, params from 1BF7D68 = {101h, 1000000h, 10100h, 0, 0})
     ("fn:MissionRequestReturn", "EXIT", "fn", 0x22396D8, 0),
+    # GATE (Fight now for gate bosses): the boss start function waits in Function::WaitWarpStart(gate) =
+    # Online::IsExclusiveRightsValue -> the check core 3B2354(slot, key{u8, u32 mission, u32 gate, u32 value}, 1), called at 3B2323;
+    # the door / box opens it with Online::RequestExclusiveRights -> 1CA52C4(slot, key) (23A6F03). The add-on watches the checks of
+    # the Fight now mission for the row's gate id and requests exactly that key, as the door interaction / StartWarp would.
+    ("call:RightsCheck", "GATE", "call", 0x3B2323, 0),
+    ("fn:RightsRequest", "GATE", "fn", 0x1CA52C4, 0),
 ]
 # preferred functions to anchor a global's reference in (first hit there wins; else any unique hit in .text)
 PREFER = {"g:DataDb": 0x223963C, "g:ClearDb": 0x378C93, "g:MissionQueue": 0x10DC07A, "g:MenuMgr": 0x1DE28EC}
