@@ -10149,6 +10149,8 @@ rva	kind	name	signature	description	confidence	source
 # END renderer/meshlet
 #
 # renderer/volumetrics (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is volumetrics go between this line and the END line)
+0x147f98	function	VolumetricFogUploadLightLists	void (VolFogRing* r, u32* a, u32* b, u32* c)	loops 3 light-list kinds (strides 0x1B0 / 0x80,0x40 / 0xD0,0x70) writing entries into the per-frame upload ring (r+58+(kind+vf[D4]*6)*8); only caller VolumetricFogScatterNodeExecute 14871C	medium	notes/renderer/09-volumetrics.md §2
+0x1479e4	function	VolumetricFogCascadeSetup	bool (...)	447 lines: cascade matrices (CascadeMatrixGet 147F60) plus ViewGetShadowObj for the VFSCAT constants; caller VolumetricFogScatterNodeExecute 14871C	low	notes/renderer/09-volumetrics.md §2
 # END renderer/volumetrics
 #
 # renderer/effects (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is effects go between this line and the END line)
