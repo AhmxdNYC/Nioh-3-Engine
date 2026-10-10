@@ -99,13 +99,15 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
+// 1.7.59-fo2: FO fix - HandleSlotIsNotFreed replacement is now a register-exact stub (LTCG callers keep r9-r11 live across it;
+//   the C++ version hung pc2 FO1 at the title), nothing is patched until the switch goes ON, 5 s no-frame watchdog.
 // 1.7.59-fo1 (branch frame-overlap): FO frame overlap ([GpuOpt] FrameOverlap = 0, live Tuning.FO / Tuning.FO_Pct):
 //   frame N's replay tail + Present run on the replay thread while the main thread records N+1 (frameoverlap.cpp).
 // 1.7.58-fov1 (branch frame-overlap): BKS "fov:" line = frame-overlap viability gate (main-thread handle / sync-point GPU waits,
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.59-fo1"
+#define MOD_VERSION "1.7.59-fo2"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

@@ -16,6 +16,7 @@
 #include <deque>
 #include <mutex>
 #include <thread>
+#include <initializer_list>
 #include <vector>
 
 #include "../src/frameoverlap.h"
@@ -401,10 +402,65 @@ int main() {
     TestPresent(dev);
     Check((TestPrevGen() & 0xF) == (h >> 60), "handle generation = previous generation after E");
     Check(TestNotFreed(reinterpret_cast<int64_t*>(dev + 0x3C58), h) == 0, "pending TAIL + unreplayed marker -> not freed (stock would say freed)");
-    Check(TestIsLive(reinterpret_cast<int64_t*>(dev + 0x3C58), h) == 1, "previous-generation handle needs no kick");
     g_pause = false;
     WaitIdle();
     Check(TestNotFreed(reinterpret_cast<int64_t*>(dev + 0x3C58), h) == 1, "after replay -> freed");
+
+    printf("phase 4b: the HandleSlotIsNotFreed stub keeps r9 / r10 / r11 (LTCG callers keep live values there)\n");
+    {
+        size_t sn = 0;
+        const uint8_t* sb = TestStub(&sn);
+        FILE* f = nullptr;
+        if (!fopen_s(&f, "build/fotest/notfreed_stub.bin", "wb") && f) {
+            fwrite(sb, 1, sn, f);
+            fclose(f);
+        }
+        uint8_t* code = (uint8_t*)VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        size_t k = 0;
+        auto B = [&](std::initializer_list<uint8_t> l) {
+            for (uint8_t v : l) code[k++] = v;
+        };
+        auto Q = [&](uint64_t v) {
+            memcpy(code + k, &v, 8);
+            k += 8;
+        };
+        uint8_t* stub = code + 1024;
+        memcpy(stub, sb, sn);
+        B({0x49, 0xB9});
+        Q(0x0102030405060708ull);  // mov r9, ...
+        B({0x49, 0xBA});
+        Q(0x1111111111111111ull);  // mov r10, ...
+        B({0x49, 0xBB});
+        Q(0xA5A5A5A5A5A5A5A5ull);  // mov r11, ...
+        B({0x48, 0x83, 0xEC, 0x28});  // sub rsp, 28h
+        B({0x48, 0xB8});
+        Q((uint64_t)(uintptr_t)stub);  // mov rax, stub
+        B({0xFF, 0xD0});               // call rax
+        B({0x48, 0x83, 0xC4, 0x28});   // add rsp, 28h
+        B({0x4C, 0x89, 0xC8});         // mov rax, r9
+        B({0x4C, 0x31, 0xD0});         // xor rax, r10
+        B({0x4C, 0x31, 0xD8});         // xor rax, r11
+        B({0xC3});
+        FlushInstructionCache(GetCurrentProcess(), code, 4096);
+        using W = uint64_t(__fastcall*)(int64_t*, uint64_t);
+        const uint64_t want = 0x0102030405060708ull ^ 0x1111111111111111ull ^ 0xA5A5A5A5A5A5A5A5ull;
+        bool same = true;
+        const uint64_t hs[3] = {0, h, (h & 0x0FFFFFFFFFFFFFFFull) | (uint64_t)((F<uint32_t>(dev + 0x3C60) + 7) & 0xF) << 60};
+        for (uint64_t hh : hs) same = same && ((W)code)(reinterpret_cast<int64_t*>(dev + 0x3C58), hh) == want;
+        Check(same, "r9 / r10 / r11 unchanged across the stub");
+        // stock equivalence when nothing is pending: same answer as the original's logic for current / other generations
+        int diff = 0;
+        uint32_t* mk = reinterpret_cast<uint32_t*>(sbase + 4096);
+        for (int i = 0; i < 64; ++i) {
+            mk[0] = (i & 1) ? 0xAAAAAAAAu : 0xBBBBBBBBu;
+            const uint32_t gcur = F<uint32_t>(dev + 0x3C60) & 0xF;
+            const uint64_t g = (i & 2) ? gcur : (gcur + 1 + i % 5) & 0xF;
+            const uint64_t hh = (4096 / 4) | g << 60;
+            const uint64_t stock = (g == gcur && mk[0] == 0xAAAAAAAAu) ? 0 : 1;
+            if ((TestNotFreed(reinterpret_cast<int64_t*>(dev + 0x3C58), hh) & 0xFF) != stock) ++diff;
+        }
+        Check(diff == 0, "stub = stock answer when no TAIL is pending (64 cases)");
+    }
 
     printf("phase 5: back-buffer prediction mismatch -> FO off for the session\n");
     g_skipNext = 1;

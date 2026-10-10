@@ -42,9 +42,27 @@ if r.returncode:
     sys.exit("compile failed")
 warn = [l for l in r.stdout.splitlines() if "warning" in l]
 check(not warn, "compiler warnings: %s" % warn[:3])
-r = subprocess.run([str(OUT / "frameoverlap_harness.exe")], capture_output=True, text=True, timeout=600)
+r = subprocess.run([str(OUT / "frameoverlap_harness.exe")], capture_output=True, text=True, timeout=600, cwd=str(ROOT))
 print(r.stdout[-6000:])
 check(r.returncode == 0 and "ALL PASSED" in r.stdout, "harness failed")
+# the HandleSlotIsNotFreed stub may only write rax / rcx / rdx / r8 (+ flags), exactly like the original 58C434
+try:
+    from capstone import Cs, CS_ARCH_X86, CS_MODE_64
+    from capstone.x86 import X86_OP_REG
+    stub = (OUT / "notfreed_stub.bin").read_bytes()
+    md = Cs(CS_ARCH_X86, CS_MODE_64)
+    md.detail = True
+    allowed = {"rax", "eax", "al", "rcx", "rdx", "r8", "r8b", "rip", "rflags", "rsp"}
+    bad = []
+    for ins in md.disasm(stub, 0):
+        _, written = ins.regs_access()
+        names = {ins.reg_name(x) for x in written}
+        if names - allowed:
+            bad.append("%x %s %s writes %s" % (ins.address, ins.mnemonic, ins.op_str, names - allowed))
+        print("  stub: %3x %-6s %s" % (ins.address, ins.mnemonic, ins.op_str))
+    check(not bad and len(stub) > 40, "stub writes only rax/rcx/rdx/r8: %s" % bad)
+except ImportError:
+    check(False, "capstone not installed (py -m pip install capstone)")
 
 src = lambda n: (ROOT / "src" / n).read_text(encoding="utf-8", errors="replace")
 bb = (ROOT / "build.bat").read_text(encoding="utf-8", errors="replace")

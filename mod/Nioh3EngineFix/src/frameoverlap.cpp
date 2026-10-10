@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 
 #include "frameoverlap.h"
 
@@ -66,6 +67,7 @@ HANDLE g_tailEv = nullptr;   // TAIL's slot-fence wait (stock uses dev+4318h fro
 uint32_t g_bufCount = 0, g_mainIdx = 0;
 uint64_t g_bbFrame = ~0ull;  // frame whose back-buffer index FoGetBB already chose (RenderFrameBegin can run without a Present)
 bool g_lastWasFO = false;
+std::atomic<uint64_t> g_presents{0};  // every GfxDevicePresent through FO's entry points (watchdog)
 
 struct FrameRec {
     uint64_t frame;
@@ -81,6 +83,7 @@ std::atomic<uint64_t> g_issued{0};          // last frame whose TAIL was issued
 std::atomic<uint64_t> g_tailDone{0};        // last frame whose TAIL finished (replay thread)
 bool g_barrierPending = false;
 uint32_t g_prevGen = 0xFFu;
+volatile uint8_t g_prevGen8 = 0xFF;  // read by the HandleSlotIsNotFreed stub
 uint32_t g_maxIdx = 0, g_K = 0;
 // sub-stream recorders captured at E
 constexpr int kMaxSub = 64;
@@ -373,6 +376,7 @@ void StockPresent(uintptr_t dev, uintptr_t p2) {
 }
 
 void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
+    ++g_presents;
     if (!g_dev) g_dev = dev;
     if (p2 || dev != g_dev || !g_on.load() || g_disabled.load() || !Init(dev)) {
         StockPresent(dev, p2);
@@ -463,6 +467,7 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     F<uintptr_t>(dev + kLastKick) = nextStart;
     F<uintptr_t>(dev + kLastSubmit) = nextStart;
     g_prevGen = gen & 0xF;
+    g_prevGen8 = (uint8_t)(gen & 0xF);
     F<uint32_t>(dev + kGen) = gen + 1;
     F<uint32_t>(dev + kSinceFlush) = 0;
     g_genAtStart = gen + 1;
@@ -481,6 +486,7 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
 
 // ---- call-site wrappers -------------------------------------------------------------------------------------------------
 void __fastcall FoPresentDirect(uintptr_t dev, uintptr_t p2) {  // other GfxDevicePresent callers (init / loading paths)
+    ++g_presents;
     FlushAll();
     E.present(dev, p2);
     ++g_frame;
@@ -536,25 +542,68 @@ void __fastcall FoNode(uintptr_t r, uintptr_t entry) {  // Renderer vfn+130h, be
     E.node130(r, entry);
 }
 
-// handles: accept the previous generation while TAIL is pending (stock otherwise)
-uint64_t __fastcall FoNotFreed(int64_t* p, uint64_t h) {  // HandleSlotIsNotFreed 58C434: 0 = marker not replayed yet
-    if (!h) return 1;
-    const uint32_t g = (uint32_t)(h >> 60) & 0xF, cur = (uint32_t)p[1] & 0xF;
-    const uint32_t* m = reinterpret_cast<const uint32_t*>(F<uintptr_t>((uintptr_t)p[0] + 8)) + (h & 0x0FFFFFFFFFFFFFFFull);
-    if (g == cur) return *m == kMarkerPending ? 0 : 1;
-    if (g == g_prevGen && g_tailDone.load(std::memory_order_acquire) < g_issued.load(std::memory_order_acquire)) {
-        ++s_prevGenHits;
-        return *m == kMarkerPending ? 0 : 1;
-    }
-    return 1;
+// handles: HandleSlotIsNotFreed 58C434 accepts the previous generation while TAIL is pending (stock otherwise).
+// MUST be machine code with the original's clobber set (rax rcx rdx r8 + flags): the engine is built with LTCG, and callers keep
+// live values in r9 / r10 / r11 across this leaf call (7D9F38: r9 = handle, r10 = device, r11 = &+3C58h; 3D2BFE: r9). A C++
+// replacement clobbered them -> the handle wait spun on a garbage handle (pc2 FO1, 1.7.59-fo1). HandlePoolSlotIsLive 58B76C is
+// left stock: for a previous-generation handle it already answers "no kick needed".
+//   rcx = handle pool {desc*, u32 gen}, rdx = handle (offset | gen << 60); al = 0 not freed (marker unreplayed), 1 freed
+size_t BuildNotFreedStub(uint8_t* s, const volatile uint8_t* prevGen, const volatile uint64_t* issued, const volatile uint64_t* done) {
+    size_t n = 0;
+    auto B = [&](std::initializer_list<uint8_t> l) {
+        for (uint8_t v : l) s[n++] = v;
+    };
+    auto Q = [&](uint64_t v) {
+        memcpy(s + n, &v, 8);
+        n += 8;
+    };
+    B({0x48, 0x85, 0xD2});                    // test rdx, rdx
+    B({0x74, 0x00});                          // je ret1                     (patched)
+    const size_t jeRet0 = n - 1;
+    B({0x8B, 0x41, 0x08});                    // mov eax, [rcx+8]
+    B({0x83, 0xE0, 0x0F});                    // and eax, 0Fh
+    B({0x4C, 0x8B, 0xC2});                    // mov r8, rdx
+    B({0x49, 0xC1, 0xE8, 0x3C});              // shr r8, 3Ch
+    B({0x44, 0x3A, 0xC0});                    // cmp r8b, al
+    B({0x74, 0x00});                          // je check                    (patched)
+    const size_t jeCheck = n - 1;
+    B({0x48, 0xB8});                          // mov rax, &prevGen
+    Q((uint64_t)(uintptr_t)prevGen);
+    B({0x44, 0x3A, 0x00});                    // cmp r8b, [rax]
+    B({0x75, 0x00});                          // jne ret1                    (patched)
+    const size_t jneRet1 = n - 1;
+    B({0x48, 0xB8});                          // mov rax, &issued
+    Q((uint64_t)(uintptr_t)issued);
+    B({0x4C, 0x8B, 0x00});                    // mov r8, [rax]
+    B({0x48, 0xB8});                          // mov rax, &tailDone
+    Q((uint64_t)(uintptr_t)done);
+    B({0x4C, 0x39, 0x00});                    // cmp [rax], r8
+    B({0x73, 0x00});                          // jae ret1  (tailDone >= issued: nothing pending -> stock answer "freed")
+    const size_t jaeRet1 = n - 1;
+    const size_t check = n;
+    B({0x4C, 0x8B, 0x01});                    // mov r8, [rcx]        desc
+    B({0x4D, 0x8B, 0x40, 0x08});              // mov r8, [r8+8]       stream base
+    B({0x48, 0xB8});                          // mov rax, 0FFFFFFFFFFFFFFFh
+    Q(0x0FFFFFFFFFFFFFFFull);
+    B({0x48, 0x23, 0xD0});                    // and rdx, rax
+    B({0x41, 0x81, 0x3C, 0x90, 0xAA, 0xAA, 0xAA, 0xAA});  // cmp dword [r8+rdx*4], 0AAAAAAAAh
+    B({0x75, 0x00});                          // jne ret1                    (patched)
+    const size_t jneRet2 = n - 1;
+    B({0x32, 0xC0});                          // xor al, al
+    B({0xC3});                                // ret
+    const size_t ret1 = n;
+    B({0xB0, 0x01});                          // mov al, 1
+    B({0xC3});                                // ret
+    auto fix = [&](size_t at, size_t to) { s[at] = (uint8_t)(int8_t)((intptr_t)to - (intptr_t)(at + 1)); };
+    fix(jeRet0, ret1);
+    fix(jeCheck, check);
+    fix(jneRet1, ret1);
+    fix(jaeRet1, ret1);
+    fix(jneRet2, ret1);
+    return n;
 }
-uint64_t __fastcall FoIsLive(int64_t* p, uint64_t h) {  // HandlePoolSlotIsLive 58B76C: 0 = marker past the last kick
-    if (h && ((uint32_t)(h >> 60) & 0xF) == ((uint32_t)p[1] & 0xF)) {
-        const uint32_t* m = reinterpret_cast<const uint32_t*>(F<uintptr_t>((uintptr_t)p[0] + 8)) + (h & 0x0FFFFFFFFFFFFFFFull);
-        if (*m != kMarkerDone && F<const uint32_t*>((uintptr_t)p[0] + 0x20) < m && *m == kMarkerPending) return 0;
-    }
-    return 1;
-}
+using NotFreedFn = uint8_t(__fastcall*)(int64_t* p, uint64_t h);
+NotFreedFn g_notFreed = nullptr;  // the stub (also called by the harness)
 
 // PagePool token handlers on the replay thread take the PP lock
 using Handler = void(__fastcall*)(uintptr_t ctx, uint8_t** cur);
@@ -688,6 +737,78 @@ uint8_t* Relay(void* fn) {  // mov rax, imm64 ; jmp rax
     return r;
 }
 
+// ---- lazy install / restore / watchdog --------------------------------------------------------------------------------
+struct Patch {
+    uint8_t* at;
+    size_t n;
+    uint8_t orig[16];
+    uint8_t neu[16];
+    const char* name;
+};
+struct PtrPatch {
+    uintptr_t at, orig, neu;
+};
+Patch g_patch[16];
+int g_nPatch = 0;
+PtrPatch g_ptr[16];
+int g_nPtr = 0;
+bool g_ready = false;          // verified at boot, patches prepared
+CRITICAL_SECTION g_instCs;
+std::atomic<int> g_wdFired{0};
+
+DWORD WINAPI Watchdog(LPVOID);
+bool Install() {  // under g_instCs
+    if (g_installed) return true;
+    if (!g_ready) return false;
+    int ok = 0;
+    for (int i = 0; i < g_nPtr; ++i) ok += WritePtr(g_ptr[i].at, g_ptr[i].neu);
+    for (int i = 0; i < g_nPatch; ++i) {
+        if (FrozenWrite(g_patch[i].at, g_patch[i].neu, g_patch[i].n)) ++ok;
+        else FLOG("FO: WARNING: site %s write failed", g_patch[i].name);
+    }
+    g_installed = true;
+    if (ok != g_nPatch + g_nPtr) {
+        FLOG("FO: ERROR: %d of %d patches written - FO stays OFF for this session", ok, g_nPatch + g_nPtr);
+        g_disabled = 7;
+        g_disReason = "partial install";
+    }
+    FLOG("FO: frame overlap installed (%d code sites, %d table / vtable slots)", g_nPatch, g_nPtr);
+    if (HANDLE h = CreateThread(nullptr, 0, Watchdog, nullptr, 0, nullptr)) CloseHandle(h);
+    return true;
+}
+void Restore(const char* why) {  // put every original byte / pointer back
+    EnterCriticalSection(&g_instCs);
+    if (g_installed) {
+        for (int i = 0; i < g_nPatch; ++i) FrozenWrite(g_patch[i].at, g_patch[i].orig, g_patch[i].n);
+        for (int i = 0; i < g_nPtr; ++i) WritePtr(g_ptr[i].at, g_ptr[i].orig);
+        FLOG("FO: all FO patches removed (%s)", why);
+    }
+    LeaveCriticalSection(&g_instCs);
+}
+DWORD WINAPI Watchdog(LPVOID) {
+    uint64_t last = g_presents.load();
+    DWORD lastChange = GetTickCount();
+    for (;;) {
+        Sleep(250);
+        const uint64_t p = g_presents.load();
+        const DWORD now = GetTickCount();
+        if (p != last || p == 0) {
+            last = p;
+            lastChange = now;
+            continue;
+        }
+        if (now - lastChange > 5000 && !g_wdFired.exchange(1)) {
+            FLOG("FO: WATCHDOG: no frame for %lu ms (switch %d, FO frames %lld, stock %lld, TAIL issued %llu done %llu, barrier %s) - "
+                 "FO off for the session",
+                 (unsigned long)(now - lastChange), g_on.load(), (long long)s_fo.load(), (long long)s_stock.load(),
+                 (unsigned long long)g_issued.load(), (unsigned long long)g_tailDone.load(), g_barrierPending ? "pending" : "done");
+            Disable(8, "watchdog: no frame for 5 s");
+            if (g_tailDone.load() >= g_issued.load()) Restore("watchdog, no TAIL pending");
+            else FLOG("FO: WATCHDOG: TAIL %llu still pending - patches kept so the pending frame can finish", (unsigned long long)g_issued.load());
+        }
+    }
+}
+
 }  // namespace
 
 // ---- public -------------------------------------------------------------------------------------------------------------
@@ -695,6 +816,7 @@ void Start(const StartInfo& info) {
     g_log = info.log;
     if (!info.iniPath || !info.base) return;
     const int key = (int)GetPrivateProfileIntW(L"GpuOpt", L"FrameOverlap", 0, info.iniPath);
+    InitializeCriticalSection(&g_instCs);
     if (key != 1 && key != 2) return;
     g_pct = std::clamp((int)GetPrivateProfileIntW(L"Tuning", L"FO_Pct", 25, info.iniPath), 0, 90);
     if (!info.knownBuild) {
@@ -771,9 +893,8 @@ void Start(const StartInfo& info) {
     }
     // HandleSlotIsNotFreed 58C434 / HandlePoolSlotIsLive 58B76C: test rdx,rdx; je; mov eax,[rcx+8]; mov r8,rdx; shr r8,3Ch
     static const uint8_t kNotFreed[] = {0x48, 0x85, 0xD2, 0x74, 0x32, 0x8B, 0x41, 0x08, 0x4C, 0x8B, 0xC2, 0x49, 0xC1, 0xE8, 0x3C};
-    static const uint8_t kIsLive[] = {0x48, 0x85, 0xD2, 0x74, 0x3C, 0x8B, 0x41, 0x08, 0x4C, 0x8B, 0xC2, 0x49, 0xC1, 0xE8, 0x3C};
-    if (memcmp((void*)(b + 0x58C434), kNotFreed, sizeof kNotFreed) || memcmp((void*)(b + 0x58B76C), kIsLive, sizeof kIsLive)) {
-        FLOG("FO: handle functions 58C434 / 58B76C bytes differ");
+    if (memcmp((void*)(b + 0x58C434), kNotFreed, sizeof kNotFreed)) {
+        FLOG("FO: HandleSlotIsNotFreed 58C434 bytes differ");
         ok = false;
     }
     const uintptr_t vt[2] = {b + 0x40D4A78 + 0x130, b + 0x3AAF600 + 0x130};
@@ -800,59 +921,68 @@ void Start(const StartInfo& info) {
         FLOG("FO: not installed (no executable page within 2 GB of the image)");
         return;
     }
-    // ---- install: tables and vtables first (data), then code ----
+    g_notFreed = (NotFreedFn)(g_relays + 2048);
+    BuildNotFreedStub(g_relays + 2048, &g_prevGen8, reinterpret_cast<volatile uint64_t*>(&g_issued),
+                      reinterpret_cast<volatile uint64_t*>(&g_tailDone));
+    for (const Site& s : sites) {
+        Patch& pt = g_patch[g_nPatch++];
+        pt.at = (uint8_t*)(b + s.rva);
+        pt.n = s.op == 0xFF ? 6 : 5;
+        memcpy(pt.orig, pt.at, pt.n);
+        uint8_t* r = Relay(s.fn);
+        const int32_t rel = (int32_t)((intptr_t)r - (intptr_t)(pt.at + 5));
+        pt.neu[0] = s.op == 0xFF ? (uint8_t)0xE8 : s.op;
+        memcpy(pt.neu + 1, &rel, 4);
+        pt.neu[5] = 0x90;
+        pt.name = s.name;
+    }
+    {
+        Patch& pt = g_patch[g_nPatch++];
+        pt.at = (uint8_t*)(b + 0x58C434);
+        pt.n = 12;
+        memcpy(pt.orig, pt.at, 12);
+        uint8_t j[12] = {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0};  // mov rax, stub; jmp rax (rax is clobbered by the original)
+        const uint64_t a2 = (uint64_t)(uintptr_t)g_notFreed;
+        memcpy(j + 2, &a2, 8);
+        memcpy(pt.neu, j, 12);
+        pt.name = "HandleSlotIsNotFreed 58C434";
+    }
     for (int i = 0; i < kNPP; ++i) {
         g_ppOrig[i] = (Handler)(b + kPPRva[i]);
-        if (!WritePtr(tab + kPPToks[i] * 8ull, (uintptr_t)kPPWraps[i])) FLOG("FO: WARNING: token table %02X write failed", kPPToks[i]);
+        g_ptr[g_nPtr++] = {tab + kPPToks[i] * 8ull, b + kPPRva[i], (uintptr_t)kPPWraps[i]};
     }
-    for (uintptr_t v : vt)
-        if (!WritePtr(v, (uintptr_t)&FoNode)) FLOG("FO: WARNING: vtable write failed");
-    auto absJmp = [&](uint32_t rva, void* to) {
-        uint8_t j[12] = {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0};
-        const uint64_t a = (uint64_t)(uintptr_t)to;
-        memcpy(j + 2, &a, 8);
-        return FrozenWrite((uint8_t*)(b + rva), j, sizeof j);
-    };
-    int nOk = 0;
-    nOk += absJmp(0x58C434, (void*)&FoNotFreed);
-    nOk += absJmp(0x58B76C, (void*)&FoIsLive);
-    for (const Site& s : sites) {
-        uint8_t* at = (uint8_t*)(b + s.rva);
-        uint8_t* r = Relay(s.fn);
-        FlushInstructionCache(GetCurrentProcess(), r, 16);
-        const intptr_t d = (intptr_t)r - (intptr_t)(at + 5);
-        uint8_t nb[6] = {s.op == 0xFF ? (uint8_t)0xE8 : s.op, 0, 0, 0, 0, 0x90};
-        const int32_t rel = (int32_t)d;
-        memcpy(nb + 1, &rel, 4);
-        if (FrozenWrite(at, nb, s.op == 0xFF ? 6 : 5)) ++nOk;
-        else FLOG("FO: WARNING: site %X (%s) write failed", s.rva, s.name);
-    }
-    const int want = 2 + (int)(sizeof sites / sizeof sites[0]);
-    if (nOk != want) {
-        FLOG("FO: ERROR: %d of %d code sites written - FO stays OFF (switch locked)", nOk, want);
-        g_disabled = 7;
-        g_disReason = "partial install";
-    }
+    for (uintptr_t v : vt) g_ptr[g_nPtr++] = {v, b + 0x113150, (uintptr_t)&FoNode};
+    FlushInstructionCache(GetCurrentProcess(), g_relays, 4096);
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
     g_tickMs = 1000.0 / (double)f.QuadPart;
-    g_installed = true;
-    g_on = key == 1 ? 1 : 0;
-    FLOG("FO: frame overlap installed (%d code sites, 7 token handlers, 2 vtable slots), switch %s, FO_Pct %d (live: Tuning.FO / "
-         "Tuning.FO_Pct)",
-         nOk, g_on.load() ? "ON" : "off", g_pct.load());
+    g_ready = true;
+    FLOG("FO: frame overlap ready (%d code sites, 7 token handlers, 2 vtable slots verified); nothing is patched until the switch "
+         "is ON; FO_Pct %d (live: Tuning.FO / Tuning.FO_Pct)",
+         g_nPatch, g_pct.load());
+    if (key == 1) {
+        EnterCriticalSection(&g_instCs);
+        Install();
+        LeaveCriticalSection(&g_instCs);
+        g_on = g_installed ? 1 : 0;
+    }
 }
 
 bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
     const bool isFo = !_stricmp(key, "FO"), isPct = !_stricmp(key, "FO_Pct");
     if (!isFo && !isPct) return false;
-    if (!g_installed) {
-        snprintf(reply, n, "%s: FO not installed ([GpuOpt] FrameOverlap = 1 or 2 at boot)", key);
+    if (!g_ready) {
+        snprintf(reply, n, "%s: FO not available ([GpuOpt] FrameOverlap = 1 or 2 at boot, v2.02, byte checks)", key);
         return true;
     }
     const int v = atoi(val);
     if (isFo) {
-        g_on = v ? 1 : 0;  // sampled at the next frame end
+        if (v && !g_installed) {
+            EnterCriticalSection(&g_instCs);
+            Install();
+            LeaveCriticalSection(&g_instCs);
+        }
+        g_on = v && g_installed ? 1 : 0;  // sampled at the next frame end
         snprintf(reply, n, "FO = %d%s", g_on.load(), g_disabled.load() ? " (but OFF for this session: see log)" : "");
     } else {
         if (v < 0 || v > 90) {
@@ -890,6 +1020,11 @@ void TestInstall(uintptr_t fakeBase, const Engine* e) {
     E = *e;
     g_base = fakeBase;
     g_installed = true;
+    g_ready = true;
+    uint8_t* page = (uint8_t*)VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    BuildNotFreedStub(page, &g_prevGen8, reinterpret_cast<volatile uint64_t*>(&g_issued), reinterpret_cast<volatile uint64_t*>(&g_tailDone));
+    FlushInstructionCache(GetCurrentProcess(), page, 4096);
+    g_notFreed = (NotFreedFn)page;
     g_on = 1;
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
@@ -899,8 +1034,12 @@ void TestPresent(uintptr_t dev) { FoPresent(dev, 0); }
 void TestNode(uintptr_t renderer) { FoNode(renderer, 0); }
 uint32_t TestGetBB(void* swapchain) { return FoGetBB(swapchain); }
 void TestPPUpdate(uintptr_t pool, uintptr_t dev) { FoPPUpdate(pool, dev); }
-uint64_t TestNotFreed(int64_t* p, uint64_t h) { return FoNotFreed(p, h); }
-uint64_t TestIsLive(int64_t* p, uint64_t h) { return FoIsLive(p, h); }
+uint64_t TestNotFreed(int64_t* p, uint64_t h) { return g_notFreed(p, h); }
+const uint8_t* TestStub(size_t* n) {
+    static uint8_t tmp[256];
+    *n = BuildNotFreedStub(tmp, &g_prevGen8, reinterpret_cast<volatile uint64_t*>(&g_issued), reinterpret_cast<volatile uint64_t*>(&g_tailDone));
+    return tmp;
+}
 void TestTail(void* lc, void* rec) { TailFn(lc, static_cast<FrameRec*>(rec)); }
 uint64_t TestTailDone() { return g_tailDone.load(); }
 void TestPPHandler(uintptr_t ctx, uint8_t** cur, void (*orig)(uintptr_t, uint8_t**)) {

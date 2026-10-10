@@ -18,8 +18,10 @@
 //   Frame begin (WaitSubmitThread 7D9B6C call sites): no present-pending spin, predicted back-buffer index (verified by
 //      TAIL), PagePoolFrameUpdate / 7D9C24 under the PP lock; the replay thread takes the PP lock in the PagePool token
 //      handlers 82 83 95 96 97 98 9A.
-//   Handles (HandleSlotIsNotFreed 58C434 / HandlePoolSlotIsLive 58B76C, replaced): a handle of the previous generation is
-//      "not freed" while TAIL N is pending and its 0xA7 marker is still unreplayed.
+//   Handles (HandleSlotIsNotFreed 58C434, replaced by a register-exact machine-code stub: LTCG callers keep r9-r11 live across
+//      it): a handle of the previous generation is "not freed" while TAIL N is pending and its 0xA7 marker is still unreplayed.
+// Nothing is patched until the switch first goes ON (FrameOverlap = 1 at boot, or live Tuning.FO = 1 with FrameOverlap = 2).
+// Watchdog: no frame for 5 s -> FO off for the session and all patches restored (if no TAIL is pending).
 // Fallbacks (stock path for the frame, or FO off for the session): switch off, frame data spanning both stream halves,
 // sync tables < 3, timestamp / pipeline-statistics queries in use, back-buffer prediction mismatch, render-size change and
 // device reset / teardown / other Present callers (wait TAIL first, then stock).
@@ -84,7 +86,7 @@ void TestNode(uintptr_t renderer);
 uint32_t TestGetBB(void* swapchain);
 void TestPPUpdate(uintptr_t pool, uintptr_t dev);
 uint64_t TestNotFreed(int64_t* p, uint64_t h);
-uint64_t TestIsLive(int64_t* p, uint64_t h);
+const uint8_t* TestStub(size_t* n);
 void TestTail(void* lc, void* rec);
 void TestPPHandler(uintptr_t ctx, uint8_t** cur, void (*orig)(uintptr_t, uint8_t**));
 uint64_t TestIssued();
