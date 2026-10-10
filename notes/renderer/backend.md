@@ -20,20 +20,22 @@ Experiment: ASI branch `renderer-backend` (1.7.58-bk1), section 7.
    submit everything, and only then **resets the stream to its base** and starts the next frame. So main-thread recording of frame
    N+1 and dispatcher replay of frame N never overlap. That is why main-thread savings vanish into the drain (W1B +0.1 %) and only
    the part of the dispatcher's work that falls in its backlogged tail reaches the frame (PCM: 0.7 ms saved, 0.13 ms gained).
-3. **The "shared lock" (S):** SRWLOCK at **KtglCache+CF8h** (GfxDevice+61A0h+CF8h; the texture-streaming tile cache). The dispatcher
-   takes it **shared once per frame** in token 0x95 (emitted by PagePoolFrameUpdate at frame begin): 7F64DC holds it across an
-   upload-ring allocation that can submit the list and spin on a GPU fence (945610), two CopyBufferRegion batches and per-object
-   virtual updates. **Exclusive** holders are cache insert/evict: 250ADC (around the +6D0h list edit) and 2EEF440 (tile-mapping job,
-   under +CF0h too). The main thread takes it shared in CacheFlushOnGfx 2EF0938, streaming code in 828898 / 8291AC / 891F80.
-   An SRW lock blocks new shared acquirers once an exclusive waiter queues, so one streaming thread waiting for exclusive access
-   stalls the dispatcher behind a shared holder. The note's "[ntdll] <- 7F6904" is the SP stack scan finding a stale return slot
-   of 7F6904's previous call (same as the known 1180A4 case); the real wait site is AcquireSRWLockShared at 7F650E.
-4. **The "full submit queue" (S):** the ECL ring's capacity equals the command-list ring size (2F1416C / 2F142BC), and the list ring
-   grows instead of waiting when its oldest list is still on the GPU (4931B0). The ECL thread is 98 % waiting with 74 context
-   switches per second on pc2 (M, CPU1 TSTATE), i.e. it is not busy. Two readings fit, and BKS (section 7) separates them with the
-   engine's own timer (CmdListRing+B0h): (a) the ECL thread is blocked **inside** ExecuteCommandLists / UpdateTileMappings (a kernel
-   wait counts as "wait"), or (b) "[ntdll] <- 86F760" is not a full ring at all but the **ReleaseSemaphore** at 86F7BA (its return
-   address 86F7C0 is in 86F760; a real full-ring wait would show its own frame 86F828 / cold chunk 1921A30).
+3. **The three "blocked" rows are not locks, barriers or a full queue: they are the dispatcher's own idle wait (M, pc2 CPU5).**
+   SP Focus 2 names the system export: all three are `ntdll!NtWaitForSingleObject` (<- 1139D4 7.9 %, <- 7F6904 7.6 %, <- 86F760 5.8 %
+   of ticks = 21.3 %). An SRW wait would be NtWaitForAlertByThreadId, and the engine's own timers say ECL ring full = **0 waits**,
+   KtglCache lock contended = **0.0 %** of samples (held 0.2 %). The only INFINITE NtWaitForSingleObject on that thread is the
+   dispatcher's semaphore wait in its loop (1A7C3E0); the SP stack scan attributes it to stale return slots of the deepest recent calls
+   (barrier / tok 0x95 / ECL push), as it already did for 1180A4. BKS measures the same thing directly: **dispatcher starved 20.5 %
+   of samples** (ring empty, nothing in flight) - the same 21 %. So the replay thread is idle ~5 ms per frame, mostly while the main
+   thread is still recording (starved in 25.6 % of the recording-phase samples), and backlogged at the end (main in drain 20.4 %,
+   engine drain timer 5.09 ms/frame).
+   The SRW lock itself (S): KtglCache+CF8h, shared once per frame by token 0x95 (7F64DC; across an upload-ring allocation that can
+   submit + spin on a fence, two CopyBufferRegion batches and per-object updates), exclusive in cache insert/evict 250ADC and the
+   tile-mapping commit 2EEF440. Correct but not a bottleneck on pc2.
+4. **So the wall is the frame structure, not blocking (M + S):** the dispatcher has ~15 ms of real work per frame, sits idle ~5 ms
+   while the main thread prepares, then the main thread waits ~5 ms for it to finish. KL (hand-off every 16 instead of 64 draws)
+   gave **+1.2 % fps (SE 0.04, 4/4 pairs positive)** and drain 5.09 -> 4.61 ms; starvation did not change (25.0 %), i.e. the idle time
+   comes from stretches where the main thread produces no tokens, which only overlap of frames can fill.
 5. **FCAP1 confirms the queue model and adds one fact (M, section 4.1):** 18-22 DIRECT ExecuteCommandLists per frame, all from the ECL
    thread, and **all of a frame's DIRECT and COMPUTE lists are submitted in two bursts in the last ~11 % of the CPU frame**: closed
    lists are held in the list ring until a submit point.
@@ -41,8 +43,8 @@ Experiment: ASI branch `renderer-backend` (1.7.58-bk1), section 7.
    win comes from **pipelining** (letting frame N+1's recording overlap frame N's replay), not from parallel recording alone.
    On pc2 that is worth up to ~+25-30 % (38 -> ~48-50 fps); parallel recording adds little on pc2 because the main thread
    (~19.7 ms) becomes the bound. Effort 4-8 agent-weeks for an A/B-able ASI mode; the risk is lifetime bugs in token payloads.
-7. **First experiment built and queued (section 7):** BKS census (no hooks: the engine's own wait timers + 1 kHz queue sampler) and
-   **KL**, a live data knob for the hand-off granularity (CmdFlushLimit / n). pc2 CPU5 is queued behind FCAP1 (bridge #1193, ASI #188).
+7. **First experiment built and measured (section 7):** BKS census (no hooks: the engine's own wait timers + 1 kHz queue sampler) and
+   **KL**, a live data knob for the hand-off granularity (CmdFlushLimit / n): pc2 CPU5 +1.2 % at KL_Div 4 (stock limit 64 -> 16).
 
 ## 1. Threads and the queues between them (S)
 
@@ -171,36 +173,40 @@ with thread id and caller, which is what this model needs:
   GPU idle when the CPU frame is long), and the ECL thread sees ~20 items arrive at once (the ECL-ring-full / ReleaseSemaphore
   rows of section 5 fall in these bursts). Early submission (push each list when it is closed) is a cheap complement to option 1.
 
-## 5. What blocks the replay thread: reading the three SP rows correctly
+## 5. What blocks the replay thread: reading the three SP rows correctly (S + M CPU5)
 
 The SP sampler attributes a sample whose RIP is outside the exe to the **first return address into the exe found on the copied
-stack** (sp.cpp). Stale return slots below the live frames therefore win when the system frames do not overwrite them:
-- **`[ntdll] <- 7F6904` (6.8 %)**: 7F6904 cannot call into ntdll by itself (it calls 7F6A64, 7F6964, QpcNow, 492954). Its caller
-  7F64DC calls AcquireSRWLockShared at 7F650E *before* calling 7F6904, so the stale slot is from the previous frame's 7F6904 call at the
-  same stack depth. Conclusion: tok 0x95 waits for the cache lock (S, probable). Fix shape: keep the shared section short (snapshot the
-  +6D0h lists under the lock, do the upload / copies / possible fence wait after releasing it), or make 250ADC / 2EEF440 not need
-  exclusive access for their list edit.
-- **`[ntdll] <- 1139D4` (7.5 %)**: 1139D4 is a 0x48-byte leaf that only calls ResourceBarrier; the driver (amdxc64) blocks inside it
-  (allocation of command-buffer space, a driver lock, or residency). Not fixable from the engine except by fewer / batched barriers.
-- **`[ntdll] <- 86F760` (5.5 %)**: see section 0.4. BKS's ECL-stall timer (CmdListRing+B0h) and SP Focus 2's per-export census
-  (SPW: NtReleaseSemaphore vs NtWaitForSingleObject) decide which it is.
+stack** (sp.cpp). Stale return slots below the live frames win when the system frames do not overwrite them. CPU5 (pc2, SP Focus 2 +
+BKS, diag window) settles all three rows:
+
+| SP row (CPU3) | export (SPW, CPU5) | engine timer / BKS sample (CPU5) | verdict |
+|---|---|---|---|
+| `[ntdll] <- 1139D4` 7.5 % | NtWaitForSingleObject 7.9 % | - | stale slot: 1139D4 only calls ResourceBarrier; a driver wait would sit under amdxc64 frames |
+| `[ntdll] <- 7F6904` 6.8 % | NtWaitForSingleObject 7.6 % | cache SRW +CF8h waiters **0.0 %**, held 0.2 % | stale slot (7F6904 never calls ntdll; an SRW wait is NtWaitForAlertByThreadId) |
+| `[ntdll] <- 86F760` 5.5 % | NtWaitForSingleObject 5.8 % | ECL stall **0.00 ms/frame, 0 waits**; ECL high water 4 of 128 | stale slot; the ECL ring is never full |
+| sum 19.8 % | 21.3 % | **dispatcher starved 20.5 %** of samples | = the dispatcher's own semaphore wait in 1A7C3E0 (idle, no work) |
+
+Other CPU5 numbers (KL_Div 0, 10 s, 38.6 fps): dispatcher ring cap 256, never full; CmdFlushLimit 64 (36 kicks, 1660 draws, 10 MB of
+stream per frame, buffer 48 MB); list ring 128 lists; drain 5.09 ms/frame (engine timer, max 10 ms); main in drain 20.4 % of samples;
+in flight 12 segments on average. The dispatcher's real work is therefore ~15 ms/frame (~59 % run), idle ~5 ms, and the frame is
+main-thread preparation (~20 ms, during which the dispatcher idles a quarter of the time) + the dispatcher's backlogged tail (~5 ms).
 
 ## 6. Rewrite feasibility: a new back end on the same token stream
 
 **What the engine guarantees today:** one replay thread, tokens in order, resource states tracked by replaying in submission order,
 all per-frame CPU data alive until the drain, 3 engine frame slots for GPU lifetime.
 
-**Options (E; pc2 numbers from cpu-bound-midrange.md: main 19.7 ms busy + 6.1 ms drain, dispatcher ~20 ms incl. ~5-6 ms blocked):**
+**Options (E; pc2 CPU5: main ~20.5 ms busy + 5.1 ms drain, dispatcher ~15 ms work + ~5 ms idle, no lock / queue blocking):**
 
 | # | change | what it needs | pc2 frame (fps) | effort | risk |
 |---|---|---|---|---|---|
-| 0 | KL: smaller hand-off granularity (built) | data write | 0 to -1 ms if the dispatcher starves mid-frame (BKS shows it) | done | none |
+| 0 | KL: smaller hand-off granularity (built) | data write | **M: +1.2 % (KL_Div 4: limit 64 -> 16), drain -0.5 ms** | done | none |
 | 1 | **Pipelined frame end** (keep the replay thread): double-buffer the stream (+3C30h base), move the post-drain main-thread work (query resolves, PRESENT barrier, close / submit, present hand-off) into tokens the dispatcher executes, let RenderFrameBegin start N+1 while the dispatcher finishes N | lifetime audit of every pointer payload (185 tokens) against what the main thread frees / rewrites at frame begin; the frame-slot allocators (3 slots) already keep GPU-lifetime data; tok 0x95 / PagePoolFrameUpdate ordering; FFX / Streamline markers per frame | 26 -> ~20-21 ms (**38 -> ~48 fps, +25 %**): frame = max(main 19.7, dispatcher ~20) | 3-5 agent-weeks | medium-high: a missed lifetime = rare corruption / device removal |
 | 2 | Parallel replay (new back end): N replay threads on consecutive segments, each with its own SynCtx copy, list and descriptor / upload ring; lists submitted in order by the existing ECL thread | per-segment state reconstruction (SynBeginList already re-binds everything at list start), **barrier tracking moved to submit time** (record "needed state" per resource per list, resolve sequentially at submit with a small fix-up list), thread-safe PSO cache (has a CS), per-thread rings | with the drain kept: tail ~6 -> ~2 ms (**~+15-20 %**); with 1: no extra gain on pc2 (main becomes the bound), +gain only where the main thread is faster than replay (PC at high fps) | 4-8 agent-weeks (00-map.md 5a) | high: 185 handlers' side effects on SynCtx state, driver-specific behaviour, vkd3d |
-| 3 | Dispatcher waits (no new thread): batch barriers inside the engine (no COM proxy: append in SynTransitionResource, flush at the next draw / dispatch / copy / close), shorten the KtglCache shared section, ECL wake batching | small caves | 1-3 ms of dispatcher time; only the backlogged-tail share reaches the frame (PCM: ~20 %) -> **+1-3 %** unless combined with 1 | 1-2 agent-weeks | low-medium (proxy batching cost +0.37 ms on the PC: pc-submit-overhead.md 3) |
+| 3 | Cheaper replay (no new thread): PCM-style memos, CBV / descriptor path, engine-side barrier batching, early submission of closed lists | small caves | CPU5 shows **no blocking to remove**; only replay work in the backlogged tail reaches the frame (PCM: ~20 % of the saving) -> **+1-3 %** unless combined with 1 | 1-2 agent-weeks | low-medium |
 | 4 | Fully new renderer / frame graph | see 00-map.md 5 b/c | same CPU ceiling as 1+2 | months-years | very high |
 
-**Recommendation:** measure first (CPU5), then prototype **option 1** behind a default-off key, because it attacks the cause (no
+**Recommendation (after CPU5):** prototype **option 1** behind a default-off key, because it attacks the cause (no
 overlap) with the smallest code surface; it is also the prerequisite that makes option 2 pay on any CPU. Option 2 alone is the
 expensive way to get a smaller share of the same prize on pc2. The token-lifetime audit for option 1 is the main work item:
 - tokens whose payload is inline (constants 0x66, state values) are safe by construction once the stream is double-buffered;
@@ -212,7 +218,7 @@ expensive way to get a smaller share of the same prize on pc2. The token-lifetim
 Gain on other machines (E): the PC (RX 9070) is co-critical at high fps (pc-submit-overhead.md 3): option 1 helps there too; the Ally is
 GPU-bound (~0).
 
-## 7. First experiment: BKS census + KL kick limit (built, queued)
+## 7. First experiment: BKS census + KL kick limit (built, measured)
 
 Branch `renderer-backend` (commit 8e30fc2; ASI 1.7.58-bk1, bridge #188 merged with CPU4's SP Focus 2 build):
 - **`[Profiler] Backend = 1`** (default 0), `BackendSampleUs = 1000`, `BackendSec`: no hooks, no code bytes. Reads the engine's own
@@ -224,10 +230,15 @@ Branch `renderer-backend` (commit 8e30fc2; ASI 1.7.58-bk1, bridge #188 merged wi
   if the engine rewrites the field. Same tokens, lists and order; only the hand-off granularity changes (every reader compares at use time).
 - Offline proof: `tests/run_bkstats_harness.py` (fake v2.02 image + fake engine thread: all report values reproduced, KL write / clamp /
   re-assert / restore / refuse) ALL PASSED; `tests/test_patterns.py` ALL 245 SITES OK.
-- **pc2 CPU5** (bridge #1193): Continue spot (CPU-bound), CPU4's SP Focus 2 keys + Backend = 1, cpu_live_sched `Tuning.KL_Div=0/4`
-  ABBA x4. Decision rules: KL keeps if B - A >= +1 % with SE < 0.3; "starved-while-recording" >= 15 % says the hand-off granularity
-  matters; ECL stall ms/frame vs SPW's NtReleaseSemaphore share decides section 0.4; drain ms/frame from the engine timer replaces the SP
-  share as the option-1 prize.
+- **pc2 CPU5** (bridge #1193 -> #1211, files #190 / #191): Continue spot (CPU-bound), CPU4's SP Focus 2 keys + Backend = 1,
+  cpu_live_sched `Tuning.KL_Div=0/4` ABBA x4 (M):
+  - **KL_Div 4: +0.48 fps = +1.2 % of 38.72, SE 0.04, every pair positive** (windows A 38.71 / 38.68 / 38.71 / 38.79, B 39.09 / 39.21 /
+    39.27 / 39.24). `LIVE tuning: KL_Div = 4 (CmdFlushLimit 16, stock 64)`. Kicks 36 -> 85 per frame, drain 5.09 -> 4.61 ms/frame,
+    starved-while-recording 25.6 -> 25.0 %. Passes the >= 1 % / SE < 0.3 rule: **KL is a keep candidate** (pure data, live, same
+    output); next: KL_Div 2 / 8 and the Ally / PC no-harm check before any profile ships it.
+  - Section 5's table comes from this run. BKS bug seen there (underflowed recycle / idle-spin / tok95 timers when the engine resets
+    them) fixed in 384844e (reset-safe deltas, harness case added). The `submits/f` field reads 0: CmdListRing+11Ch is not a
+    cumulative submit counter (it is reset per frame); treat it as unknown.
 
 Not chosen as the first experiment: a deeper dispatcher ring (no evidence the main thread ever finds it full; BKS measures it), a
 deeper ECL ring (it already grows with the list ring), splitting the KtglCache lock (needs the lock census first; option 3).
