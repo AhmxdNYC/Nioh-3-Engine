@@ -20,8 +20,10 @@
 //      handlers 82 83 95 96 97 98 9A.
 //   Handles (HandleSlotIsNotFreed 58C434, replaced by a register-exact machine-code stub: LTCG callers keep r9-r11 live across
 //      it): a handle of the previous generation is "not freed" while TAIL N is pending and its 0xA7 marker is still unreplayed.
-//   Back-buffer index (fo7): predicted from the newest REAL index (TAIL's, or a frame-begin read) + one rotation per frame since;
-//      a miss is tolerated (one repeated frame, re-anchored), 7 misses within 1000 frames switch FO off for the session.
+//   Back-buffer index (fo7): a frame recorded for a non-current back buffer REMOVES THE DEVICE on the PC (fo6pc / fo7pc), so no
+//      prediction reaches the GPU unverified. TAIL N waits for present N to retire and publishes frame N+1's real index; main
+//      uses it when TAIL N was first, else predicts (newest real index + one rotation per frame) and TAIL N verifies before N+1
+//      replays; a wrong prediction is fixed by presenting the current (PRESENT-state, older) buffer until the chain matches.
 //   Stock frame end after an FO frame (switch off, session OFF, fallbacks): wait the pending present first (stock Present reads
 //      GetCurrentBackBufferIndex before its own present spin), stream / sub-stream extents back to full.
 // Nothing is patched until the switch first goes ON (FrameOverlap = 1 at boot, or live Tuning.FO = 1 with FrameOverlap = 2).
@@ -103,7 +105,9 @@ bool TestDisabled();
 void TestAct(int v);          // Tuning.FO_Test actions 1 2 3 4 9
 bool TestInstalled();         // false after the watchdog restored every patch
 bool TestWatchdogFired();
-int64_t TestMisses();
+int64_t TestMisses();         // frames rendered into a non-current back buffer (must stay 0)
+int64_t TestResyncs();        // wrong predictions fixed before the frame replayed
+int64_t TestExactFirst();     // TAIL published the real index before the frame began
 bool TestPPFree();            // FO's PP lock is not held
 #endif
 

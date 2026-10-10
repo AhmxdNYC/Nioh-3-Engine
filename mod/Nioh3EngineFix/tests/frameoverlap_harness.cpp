@@ -152,8 +152,13 @@ struct FakeCom {
 static void* g_scVt[64];
 static FakeCom g_sc{g_scVt};
 static UINT STDMETHODCALLTYPE ScGetIdx(void*) { return g_scIdx.load(); }
+static std::atomic<int> g_noRotate{0};
 static HRESULT STDMETHODCALLTYPE ScPresent(void*, UINT, UINT) {
     ++g_presents;
+    if (g_noRotate.load() > 0) {  // injected: presents that do not rotate the chain (e.g. an occluded window)
+        --g_noRotate;
+        return S_OK;
+    }
     if (g_skipNext.exchange(0)) g_scIdx = (g_scIdx + 2) % 3;  // injected: the next frame's index is not (i+1)%3
     else g_scIdx = (g_scIdx + 1) % 3;
     return S_OK;
@@ -603,37 +608,41 @@ int main() {
     }
 
     phase = "5";
-    printf("phase 5: back-buffer index jumps (a present that rotates by 2) and a forced wrong prediction: tolerated, re-anchored\n");
+    printf("phase 5: a present that rotates the chain by 2, and a forced wrong prediction: caught by TAIL N and resynced before "
+           "frame N+1 replays (never rendered into a non-current back buffer)\n");
     {
-        const int64_t m0 = TestMisses();
+        const int64_t m0 = TestMisses(), r0 = TestResyncs();
         const int t5 = g_tails;
         g_skipNext = 1;
         for (int f = 0; f < 6; ++f) Frame(6000);
         WaitIdle();
-        const int64_t m1 = TestMisses();
-        Check(m1 - m0 >= 1 && m1 - m0 <= 2, "a chain jump costs at most two mispredicted frames");
+        const int64_t r1 = TestResyncs();
+        Check(r1 - r0 >= 1, "chain jump: the prediction was resynced");
         TestAct(4);
         for (int f = 0; f < 6; ++f) Frame(6000);
         WaitIdle();
-        Check(TestMisses() - m1 == 1, "forced wrong prediction: exactly one miss");
-        Check(!TestDisabled() && g_tails >= t5 + 10, "FO stays on through the misses");
+        Check(TestResyncs() - r1 >= 1, "forced wrong prediction: resynced");
+        Check(TestMisses() == m0, "no frame rendered into a non-current back buffer");
+        Check(!TestDisabled() && g_tails >= t5 + 10, "FO stays on");
         Check(g_seqErrors == 0 && g_seqReplayed == g_seqWritten, "token sequence intact");
+        printf("  (TAIL published the real index before the frame began: %lld frames)\n", (long long)TestExactFirst());
     }
 
     phase = "6";
-    printf("phase 6: a prediction that keeps missing -> FO off for the session, stock frames continue\n");
-    for (int f = 0; f < 12; ++f) {
-        g_skipNext = 1;
-        Frame(6000);
-    }
+    printf("phase 6: presents that do not rotate the chain: resync gives up -> FO off for the session, stock frames continue\n");
+    for (int f = 0; f < 4; ++f) Frame(6000);
     WaitIdle();
-    Check(TestDisabled(), "7 misses within 1000 frames: session OFF");
+    g_noRotate = 12;
+    for (int f = 0; f < 6; ++f) Frame(6000);
+    WaitIdle();
+    g_noRotate = 0;
+    Check(TestDisabled(), "chain stuck: session OFF");
     {
         const int s6 = g_stockPresents;
         for (int f = 0; f < 5; ++f) Frame(6000);
         Check(g_stockPresents == s6 + 5, "stock frame ends after the session OFF");
     }
-    StockClean("after the persistent-miss OFF");
+    StockClean("after the stuck-chain OFF");
 
     phase = "7";
     g_presentMs = 60;
@@ -655,11 +664,11 @@ int main() {
     TestAct(9);
     for (int f = 0; f < 8; ++f) Frame(6000);
     {
-        const int64_t m8 = TestMisses();
+        const int64_t m8 = TestMisses(), r8 = TestResyncs();
         const int s8 = g_stockPresents;
         TestAct(2);
         for (int f = 0; f < 10; ++f) Frame(6000);
-        Check(TestDisabled() && TestMisses() == m8 + 1, "miss + session OFF");
+        Check(TestDisabled() && TestResyncs() == r8 + 1 && TestMisses() == m8, "wrong prediction resynced, then session OFF");
         Check(g_stockPresents >= s8 + 8, "stock frames keep coming");
     }
     StockClean("after the fo6pc sequence");

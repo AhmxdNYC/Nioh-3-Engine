@@ -84,6 +84,12 @@ struct FrameRec {
     uint8_t forceOff;  // test (Tuning.FO_Test 1 / 2): TAIL of this frame switches FO off for the session
     uint8_t forced;    // test (Tuning.FO_Test 2 / 4): the prediction of this frame was deliberately wrong
     uint16_t pad;
+    // back-buffer handshake for THIS frame (fo7): 0 = nothing yet; 1 = main began the frame with predIdx (TAIL of the previous
+    // frame must verify it before this frame replays); 2 = TAIL of the previous frame published realIdx first (main uses it)
+    volatile LONG bbState;
+    uint32_t realIdx;
+    uint32_t pflags;  // present params snapshot taken at E (flags u32 at +4220h, sync interval +424Ch): TAIL presents with these
+    int psync;
 };
 FrameRec g_rec[4] = {};
 void ClearRec(uint64_t f) {
@@ -91,6 +97,8 @@ void ClearRec(uint64_t f) {
     r.predValid = 0;
     r.forceOff = 0;
     r.forced = 0;
+    r.realIdx = 0;
+    InterlockedExchange(&r.bbState, 0);
 }
 uint64_t g_frame = 0;                       // last frame number given by E (FO or stock)
 std::atomic<uint64_t> g_issued{0};          // last frame whose TAIL was issued
@@ -327,55 +335,92 @@ void SlotAdvanceMain(uintptr_t dev) {
     InterlockedExchange(reinterpret_cast<volatile LONG*>(dev + kSlot), (LONG)slot);
 }
 
-// A back-buffer index the frame begin predicted wrong (TAIL, replay thread). The frame was recorded into BB[pred]; BB[real] gets the
-// PRESENT transition and is presented (it holds an older frame: one repeated frame, no hazard - the engine's state tracker issues
-// every barrier from its own tracked state, so BB[pred] simply stays in its render state until its next use). The anchor is
-// corrected by this TAIL, so frame N+1 (already begun) is the only other frame that can miss. Only a prediction that keeps missing
-// (> 6 misses within 1000 frames) switches FO off for the session.
+// ---- back buffer: verified BEFORE the next frame replays (fo7) ----------------------------------------------------------------
+// PC fo6pc / fo7pc: a frame recorded into a back buffer that is not the swapchain's current one removes the D3D12 device within two
+// frames (ID3D12Resource::Map -> DXGI_ERROR_DEVICE_REMOVED in 4DF64 -> the engine's fatal handler 18956D0 sits in a modal error
+// box on the main thread; the tile job waits in the same handler holding the cache SRW +CF8h shared = fo6pc's "hang"). So a
+// predicted index is never allowed to reach the GPU unverified: frame N+1's tokens replay only after TAIL N, and TAIL N, after
+// present N has retired, reads the REAL index of frame N+1. Main either uses it (TAIL N was first) or began N+1 with a prediction
+// that TAIL N now checks; a wrong prediction is fixed before anything of N+1 replays by presenting the current buffer again (it is
+// in PRESENT state and holds an older frame: one repeated image) until the chain stands on the predicted buffer.
 using U32PtrFn = HRESULT(STDMETHODCALLTYPE*)(void*, UINT*);
-uint32_t g_lastPresentCount = 0;
-uint64_t g_missFrames[8] = {};
-void BackBufferMiss(uintptr_t dev, const FrameRec* r, UINT idx, void* sc, UINT presentCount) {
-    const int64_t n = ++s_bbMiss;
-    const uint64_t a = g_bbAnchor.load();
-    if (n <= 8 || (n & (n - 1)) == 0) {
-        DXGI_SWAP_CHAIN_DESC d{};
-        using DescFn = HRESULT(STDMETHODCALLTYPE*)(void*, DXGI_SWAP_CHAIN_DESC*);
-        const UINT bufs = SUCCEEDED(V<DescFn>(sc, 0x60)(sc, &d)) ? d.BufferCount : 0;
-        FLOG("FO: back-buffer prediction miss #%lld at frame %llu: predicted %u, real %u%s | anchor frame %llu idx %u | DXGI present "
-             "count %u (previous TAIL %u) | buffers %u (cached %u) | present flags %08X sync %d, present thread %u, offscreen %p - "
-             "re-anchored, FO stays on",
-             (long long)n, (unsigned long long)r->frame, r->predIdx, idx, r->forced ? " (test: forced)" : "",
-             (unsigned long long)(a >> 8), (unsigned)(a & 0xFF), presentCount, g_lastPresentCount, bufs, g_bufCount,
-             F<uint32_t>(dev + kPresentParams), F<int>(dev + kSyncInterval), F<uint8_t>(dev + kPresentThr), F<void*>(dev + kOffscreen));
+std::atomic<int64_t> s_bbResync{0}, s_bbExtraPresents{0}, s_bbExact{0};
+
+UINT CurrentIdx(void* sc) { return V<GetIdxFn>(sc, 0x120)(sc); }
+
+// one present of the current back buffer (replay thread, TAIL), retired before it returns
+void ExtraPresent(uintptr_t dev, void* sc, const FrameRec* r) {
+    const int flags = (int)(r->pflags & ~1u);  // never DXGI_PRESENT_TEST: it must rotate the chain
+    ++s_bbExtraPresents;
+    if (!F<uint8_t>(dev + kPresentThr)) {
+        const HRESULT hr = V<PresentFn>(sc, 0x40)(sc, 0, (UINT)flags);
+        if (FAILED(hr)) FLOG("FO: extra present failed (%08lX)", (unsigned long)hr);
+        return;
     }
-    if (n > 6 && !r->forced && r->frame - g_missFrames[(n - 6) % 8] < 1000)  // misses n-6 .. n = 7 within 1000 frames
-        Disable(4, "back-buffer index prediction keeps missing (7 misses within 1000 frames)");
-    g_missFrames[n % 8] = r->frame;
+    E.spinPresent(dev);
+    F<uint8_t>(dev + kPresentPending) = 1;
+    F<void*>(dev + kPresentSc) = sc;
+    F<int>(dev + kPresentA) = 0;
+    F<int>(dev + kPresentB) = flags;
+    SetEvent(F<HANDLE>(dev + kPresentEv));
+    E.spinPresent(dev);
+}
+
+// TAIL N, after present N was handed off: publish / verify frame N+1's index
+void VerifyNext(uintptr_t dev, void* sc, const FrameRec* r) {
+    if (F<uint8_t>(dev + kPresentThr)) E.spinPresent(dev);  // present N retired: the index now is frame N+1's
+    FrameRec& n = g_rec[(r->frame + 1) & 3];
+    UINT idx = CurrentIdx(sc);
+    if (g_tMispredict.load()) {  // test: let main predict first, so the injected wrong prediction is caught here (never rendered)
+        for (int i = 0; i < 2000 && n.bbState == 0; ++i) Sleep(0);
+    }
+    n.realIdx = idx;
+    const LONG prev = InterlockedCompareExchange(&n.bbState, 2, 0);
+    if (prev == 1) {  // main began N+1 with a prediction: it must be right before N+1 replays
+        if (n.predIdx != idx) {
+            const int64_t k = ++s_bbResync;
+            const UINT before = idx;
+            UINT pc0 = 0;
+            V<U32PtrFn>(sc, 0x88)(sc, &pc0);
+            int presents = 0;
+            for (; presents < 6 && idx != n.predIdx; ++presents) {
+                ExtraPresent(dev, sc, r);
+                idx = CurrentIdx(sc);
+            }
+            UINT pc1 = 0;
+            V<U32PtrFn>(sc, 0x88)(sc, &pc1);
+            if (k <= 8 || (k & (k - 1)) == 0)
+                FLOG("FO: back-buffer resync #%lld before frame %llu replays: predicted %u, real %u%s -> %d extra present(s) -> %u (%s) | "
+                     "DXGI present count %u -> %u | buffers %u | present flags %08X sync %d, present thread %u",
+                     (long long)k, (unsigned long long)(r->frame + 1), n.predIdx, before, n.forced ? " (test: forced)" : "", presents, idx,
+                     idx == n.predIdx ? "matches" : "STILL WRONG", pc0, pc1, g_bufCount, r->pflags, r->psync, F<uint8_t>(dev + kPresentThr));
+            if (idx != n.predIdx) Disable(11, "back-buffer chain could not be brought to the predicted index");
+            n.realIdx = idx;
+        }
+    } else {
+        ++s_bbExact;
+    }
+    g_bbAnchor.store(((r->frame + 1) << 8) | (idx & 0xFF), std::memory_order_release);
 }
 
 void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
     const uintptr_t dev = g_dev;
     g_replayTid = GetCurrentThreadId();
     const uint64_t t0 = Now(), q0 = E.qpc();
-    if (F<uint8_t>(dev + kPresentThr)) E.spinPresent(dev);  // present N-1 retired: GetCurrentBackBufferIndex = frame N's buffer
+    if (F<uint8_t>(dev + kPresentThr)) E.spinPresent(dev);  // present N-1 retired (normally already by TAIL N-1)
     TimestampResolve(dev, r->slot);
-    const uintptr_t p = dev + kPresentParams;
-    const bool scOverride = F<uintptr_t>(p + 8) != 0;
-    uintptr_t res = scOverride ? F<uintptr_t>(p + 0x10) : 0;
-    if (!res) {
-        void* sc = F<void*>(dev + kSwap);
-        const UINT idx = V<GetIdxFn>(sc, 0x120)(sc);
-        UINT pc = 0;
-        V<U32PtrFn>(sc, 0x88)(sc, &pc);  // IDXGISwapChain::GetLastPresentCount (diagnostics for a miss)
-        if (r->predValid) {
-            ++s_bbChecks;
-            if (idx != r->predIdx) BackBufferMiss(dev, r, idx, sc, pc);
+    void* sc = F<void*>(dev + kSwap);  // FO frames never carry a swapchain / resource override (E sends those to the stock path)
+    const UINT idx = CurrentIdx(sc);
+    if (r->predValid) {
+        ++s_bbChecks;
+        if (idx != r->predIdx) {  // cannot happen after VerifyNext (TAIL N-1 checked it): the frame is already on the GPU
+            ++s_bbMiss;
+            FLOG("FO: ERROR: frame %llu was recorded for back buffer %u but the current one is %u - FO off for the session",
+                 (unsigned long long)r->frame, r->predIdx, idx);
+            Disable(4, "back buffer differs from the verified index");
         }
-        g_bbAnchor.store((r->frame << 8) | (idx & 0xFF), std::memory_order_release);
-        g_lastPresentCount = pc;
-        res = F<uintptr_t>(dev + kBB + idx * 8ull);
     }
+    const uintptr_t res = F<uintptr_t>(dev + kBB + idx * 8ull);
     if (r->forceOff) Disable(10, "test: forced by Tuning.FO_Test (from the TAIL, as fo6pc)");
     E.transition(dev + kCtx, F<uint64_t>(res + 0x10), F<uint64_t>(res + 0x18), 0, 0, 0xFFFFFFFFull);
     const uint64_t fence = E.submitFrame(dev + kListRing, dev + kListPool, 0);
@@ -389,12 +434,9 @@ void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
     AcquireSRWLockExclusive(&g_pp);
     CacheFrameEnd(dev + kPool, dev, fence, dev);
     ReleaseSRWLockExclusive(&g_pp);
-    // present hand-off (stock 3D62E4 tail)
-    const bool noVsyncFlag = (F<uint32_t>(p) & 1) == 0;
-    const int sync = noVsyncFlag ? F<int>(dev + kSyncInterval) : 0;
-    const bool flagged = !noVsyncFlag;
-    const int flags = (scOverride && flagged) ? 0 : F<int>(p);
-    void* sc = scOverride ? F<void*>(p + 8) : F<void*>(dev + kSwap);
+    // present hand-off (stock 3D62E4 tail) with the params E snapshotted (E keeps TEST presents and overrides on the stock path)
+    const int sync = r->psync;
+    const int flags = (int)r->pflags;
     if (!F<uint8_t>(dev + kPresentThr)) {
         using Cb = void (*)();
         if (Cb cb = F<Cb>(E.slCb[0])) cb();
@@ -413,6 +455,7 @@ void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
         F<int>(dev + kPresentB) = flags;
         SetEvent(F<HANDLE>(dev + kPresentEv));
     }
+    VerifyNext(dev, sc, r);
     E.recRebuild(dev + kCtx);  // pipeline-statistics readback (early-outs when unused; FO falls back when used)
     E.recycle(dev + kCtx);     // CmdListRingFlushAndRecycle on SynCtx (2EFB73C)
     F<uint64_t>(dev + kPresentTime) = E.qpc() - q0;
@@ -510,10 +553,16 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
         F<uintptr_t>(dev + kEnd) = g_sMid;  // stock reset to base: the next frame records in the low half
         return;
     }
-    {  // stock does not advance the slot when the present flag bit 0 is set without a swapchain override: keep stock there
-        const uintptr_t pp = dev + kPresentParams;
+    const uintptr_t pp = dev + kPresentParams;
+    {  // stock does not advance the slot when the present flag bit 0 is set without a swapchain override: keep stock there.
+       // A swapchain / resource override (+4228h) presents elsewhere: the main chain would not rotate -> stock frame end too.
         if ((F<uint32_t>(pp) & 1) && !F<uintptr_t>(pp + 8)) {
             ++s_noAdvance;
+            StockPresent(dev, p2);
+            return;
+        }
+        if (F<uintptr_t>(pp + 8)) {
+            ++s_stockOther;
             StockPresent(dev, p2);
             return;
         }
@@ -546,6 +595,9 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     r.fence = 0;
     r.fenceValid = 0;
     r.forceOff = (uint8_t)(r.forceOff || g_tForceOff.exchange(0));  // (FO_Test 2 marks it at frame begin, 1 here)
+    r.pflags = F<uint32_t>(pp);  // TAIL presents with what E saw (bit 0 / TEST is excluded above)
+    r.psync = F<int>(dev + kSyncInterval);
+    ClearRec(N + 1);  // the next frame's record, BEFORE the TAIL token exists: TAIL N publishes frame N+1's index into it
     {
         uint32_t* w = reinterpret_cast<uint32_t*>(write);
         const uint64_t fn = (uint64_t)(uintptr_t)&TailFn, arg = (uint64_t)(uintptr_t)&r;
@@ -579,7 +631,6 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     memcpy(reinterpret_cast<void*>(dev + kSnap), reinterpret_cast<void*>(dev + kStats), 0x88);
     memset(reinterpret_cast<void*>(dev + kStats), 0, 0x88);
     g_frame = N;
-    ClearRec(N + 1);  // the next frame's record: FoGetBB fills it at frame begin
     g_barrierPending = true;
     g_lastWasFO = true;
     g_K = (uint32_t)((uint64_t)g_maxIdx * (uint32_t)std::clamp(g_pct.load(), 0, 90) / 100u);
@@ -605,19 +656,36 @@ UINT __fastcall FoGetBB(void* sc) {  // WaitSubmitThread 7D9BC7 (was call [rax+1
     g_bbFrame = g_frame;
     const uint64_t F1 = g_frame + 1;  // the frame being begun
     const uint64_t a = g_bbAnchor.load(std::memory_order_acquire);
-    if (g_lastWasFO && g_bufCount) {
-        // frame N = F1-1 is an FO frame: its present has not happened yet (TAIL N does it), so the index is predicted from the
-        // newest real one (TAIL N-1's, TAIL N's when it already ran, or the last frame-begin read): one rotation per frame since.
-        // Without a recent anchor (frames without a back-buffer read in between) fall back to the previous prediction + 1.
-        const bool anchored = a != ~0ull && (a >> 8) < F1 && F1 - (a >> 8) <= 3;
-        uint32_t idx = anchored ? (uint32_t)(((a & 0xFF) + (F1 - (a >> 8))) % g_bufCount) : (g_mainIdx + 1) % g_bufCount;
+    if (g_lastWasFO) {
+        // frame N = F1-1 is an FO frame: present N has not happened yet (TAIL N does it). TAIL N publishes the real index of F1
+        // after present N retired; if it did already, use it. Otherwise predict from the newest real index (one rotation per frame
+        // since) and leave it to TAIL N to verify - and fix - before anything of F1 replays (VerifyNext).
         FrameRec& r = g_rec[F1 & 3];
-        if (const int m = g_tMispredict.load() ? g_tMispredict.exchange(0) : 0) {  // test (FO_Test 2 / 4)
-            idx = (idx + 1) % g_bufCount;
-            r.forced = 1;
-            if (m == 2) r.forceOff = 1;
-            FLOG("FO: test: frame %llu begins with a deliberately wrong back-buffer index %u%s", (unsigned long long)F1, idx,
-                 m == 2 ? " + session OFF at its TAIL (the fo6pc sequence)" : "");
+        uint32_t idx = 0;
+        if (r.bbState == 2 || !g_bufCount) {
+            while (r.bbState != 2) Sleep(0);  // (no buffer count yet: wait for TAIL N - never on the hot path)
+            idx = r.realIdx;
+        } else {
+            const bool anchored = a != ~0ull && (a >> 8) < F1 && F1 - (a >> 8) <= 3;
+            idx = anchored ? (uint32_t)(((a & 0xFF) + (F1 - (a >> 8))) % g_bufCount) : (g_mainIdx + 1) % g_bufCount;
+            const int m = g_tMispredict.load() ? g_tMispredict.exchange(0) : 0;  // test (FO_Test 2 / 4)
+            if (m) {
+                idx = (idx + 1) % g_bufCount;
+                r.forced = 1;
+                if (m == 2) r.forceOff = 1;
+            }
+            r.predIdx = idx;
+            if (InterlockedCompareExchange(&r.bbState, 1, 0) == 2) {  // TAIL N was faster: take the real one
+                idx = r.realIdx;
+                if (m) {  // the test needs a frame where main predicts first: try again next frame
+                    r.forced = 0;
+                    r.forceOff = 0;
+                    g_tMispredict = m;
+                }
+            } else if (m) {
+                FLOG("FO: test: frame %llu begins with a deliberately wrong back-buffer index %u%s", (unsigned long long)F1, idx,
+                     m == 2 ? " + session OFF at its TAIL (the fo6pc sequence)" : "");
+            }
         }
         r.predIdx = idx;
         r.predValid = 1;
@@ -1072,10 +1140,10 @@ DWORD WINAPI SelfTest(LPVOID) {
     };
     static const Step steps[] = {{5, "live switch off -> stock"},
                                  {6, "live switch on -> overlap"},
-                                 {4, "wrong back-buffer prediction, tolerated"},
+                                 {4, "wrong back-buffer prediction -> caught and resynced before the frame replays"},
                                  {1, "session OFF from the TAIL"},
                                  {9, "re-arm"},
-                                 {2, "wrong prediction + session OFF at its TAIL (fo6pc sequence)"},
+                                 {2, "wrong prediction (resynced) + session OFF at its TAIL (fo6pc sequence)"},
                                  {9, "re-arm"},
                                  {3, "5.6 s main stall -> watchdog -> patches removed -> stock"},
                                  {9, "re-arm (reinstall)"}};
@@ -1084,7 +1152,7 @@ DWORD WINAPI SelfTest(LPVOID) {
     if (!g_on.load() || g_disabled.load()) Rearm();
     for (const Step& s : steps) {
         const int64_t fo0 = s_fo.load(), st0 = s_stock.load();
-        const int64_t miss0 = s_bbMiss.load();
+        const int64_t miss0 = s_bbMiss.load(), rs0 = s_bbResync.load();
         TestAction(s.action);
         // let the action take effect (the watchdog step needs > 5 s of stall + the restore)
         Sleep(s.action == 3 ? 9000 : 1500);
@@ -1094,9 +1162,9 @@ DWORD WINAPI SelfTest(LPVOID) {
         const int64_t dfo = s_fo.load() - fo0, dst = s_stock.load() - st0;
         bool ok = frames >= 60;  // rendering continues (>= 20 fps over 3 s)
         switch (s.action) {
-        case 4: ok = ok && s_bbMiss.load() > miss0 && !g_disabled.load() && dfo >= 60; break;
-        case 1:
-        case 2: ok = ok && g_disabled.load() != 0 && dst >= 60; break;
+        case 4: ok = ok && s_bbResync.load() > rs0 && !g_disabled.load() && dfo >= 60; break;  // caught + fixed before replay
+        case 1: ok = ok && g_disabled.load() != 0 && dst >= 60; break;
+        case 2: ok = ok && s_bbResync.load() > rs0 && g_disabled.load() != 0 && dst >= 60; break;
         case 3: ok = ok && g_wdFired.load() && !g_installed && dst >= 60; break;
         case 5: ok = ok && dst >= 60; break;
         case 6:
@@ -1104,9 +1172,12 @@ DWORD WINAPI SelfTest(LPVOID) {
         default: break;
         }
         if (!ok) ++fails;
-        FLOG("FO: selftest: step %d (%s): %s - %llu frames in 3 s, FO frames +%lld, stock +%lld, misses +%lld, session %s, patches %s",
+        ok = ok && s_bbMiss.load() == miss0;  // no frame ever rendered into a non-current back buffer
+        FLOG("FO: selftest: step %d (%s): %s - %llu frames in 3 s, FO frames +%lld, stock +%lld, resyncs +%lld, wrong back buffer +%lld, "
+             "session %s, patches %s",
              s.action, s.what, ok ? "PASS" : "FAIL", (unsigned long long)frames, (long long)dfo, (long long)dst,
-             (long long)(s_bbMiss.load() - miss0), g_disabled.load() ? "OFF" : "on", g_installed ? "installed" : "removed");
+             (long long)(s_bbResync.load() - rs0), (long long)(s_bbMiss.load() - miss0), g_disabled.load() ? "OFF" : "on",
+             g_installed ? "installed" : "removed");
     }
     if (fails) FLOG("FO: selftest: FAILED (%d steps)", fails);
     else FLOG("FO: selftest: ALL PASS");
@@ -1319,11 +1390,11 @@ void StatusLine(char* buf, unsigned n, unsigned secs) {
     if (!n) return;
     buf[0] = 0;
     if (!g_installed) return;
-    constexpr int kN = 19;
+    constexpr int kN = 22;
     static int64_t p[kN] = {};
     const int64_t c[kN] = {s_fo, s_stock, s_span, s_barrierTicks, s_leadTicks, s_tailTicks, s_ppWaitTicks, s_ppWaits, s_subSwitch.load(),
                            s_barrierEarly, s_barrierLate, s_prevGenHits, s_bbChecks, s_bbMiss, s_stockOff, s_stockOther, s_noAdvance,
-                           s_stockSpin, s_direct};
+                           s_stockSpin, s_direct, s_bbExact, s_bbResync, s_bbExtraPresents};
     int64_t d[kN];
     for (int i = 0; i < kN; ++i) d[i] = c[i] - p[i], p[i] = c[i];
     const double fo = d[0] ? (double)d[0] : 1.0;
@@ -1331,12 +1402,13 @@ void StatusLine(char* buf, unsigned n, unsigned secs) {
              "FO: switch %s%s | frames FO %.1f/s stock %.1f/s (switch/session off %lld, TEST present %lld, span %lld, other device "
              "%lld; other Present callers %lld; present spins before stock %lld) | per FO frame: barrier wait %.2f ms, GPU-lead wait "
              "%.2f ms, TAIL %.2f ms | barrier at K (node %u) %lld, at frame end %lld | PP lock waits %lld (%.2f ms) | sub-stream "
-             "half switches %lld | prev-gen handle checks %lld | back-buffer checks %lld, misses %lld (session %lld)",
+             "half switches %lld | prev-gen handle checks %lld | back buffer: checks %lld, real index first %lld, prediction resynced "
+             "%lld (extra presents %lld), WRONG %lld (session %lld)",
              g_on.load() ? "ON" : "off", g_disabled.load() ? " (session OFF)" : "", d[0] / (double)std::max(1u, secs),
              d[1] / (double)std::max(1u, secs), (long long)d[14], (long long)d[16], (long long)d[2], (long long)d[15], (long long)d[18],
              (long long)d[17], d[3] * g_tickMs / fo, d[4] * g_tickMs / fo, d[5] * g_tickMs / fo, g_K, (long long)d[9], (long long)d[10],
-             (long long)d[7], d[6] * g_tickMs, (long long)d[8], (long long)d[11], (long long)d[12], (long long)d[13],
-             (long long)s_bbMiss.load());
+             (long long)d[7], d[6] * g_tickMs, (long long)d[8], (long long)d[11], (long long)d[12], (long long)d[19],
+             (long long)d[20], (long long)d[21], (long long)d[13], (long long)s_bbMiss.load());
 }
 
 #ifdef FO_TEST
@@ -1390,6 +1462,8 @@ void TestAct(int v) { TestAction(v); }
 bool TestInstalled() { return g_installed; }
 bool TestWatchdogFired() { return g_wdFired.load() != 0; }
 int64_t TestMisses() { return s_bbMiss.load(); }
+int64_t TestResyncs() { return s_bbResync.load(); }
+int64_t TestExactFirst() { return s_bbExact.load(); }
 bool TestPPFree() {
     if (!TryAcquireSRWLockExclusive(&g_pp)) return false;
     ReleaseSRWLockExclusive(&g_pp);
