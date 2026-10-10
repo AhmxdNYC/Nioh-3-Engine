@@ -45,6 +45,37 @@ default does (details: `notes\hardware-compatibility.md`):
 
 ---
 
+## Biggest free fps boost: Resizable BAR
+
+**If you have a desktop graphics card, turn on Resizable BAR (AMD: Smart Access Memory / SAM) in your BIOS.** Nioh 3
+keeps its per-frame data (every draw's constants, the meshlet culling lists, instance data) in "upload" memory. With
+Resizable BAR on, the driver puts that memory on the graphics card; with it off, it sits in system RAM and the GPU has to
+fetch it over PCIe for every draw and every culling pass.
+
+Measured on our mid-range PC (Ryzen 5 5600X, **Radeon RX 6650 XT 8 GB**, PCIe 4.0 x8, 1080p HIGH, FSR 65 %), same spot,
+ASI 1.7.55, GPU time per frame from the mod's GPU profiler:
+
+| | ReBAR off | ReBAR on |
+|---|---|---|
+| GPU time per frame | 32.5 ms | **24.0 ms (-26 %, about +35 % fps)** |
+| system-memory ("non-local") usage | 919 MB | 212 MB |
+| volumetric clouds (async) | 2.4-2.7 ms | 0.48 ms |
+| meshlet culling / LOD kernels (MIC, MshLod#1/#2) | 1.2-1.7 ms each | below 0.1 ms each |
+
+This explains the "40-100x slower on mid-range cards" passes we were chasing (`notes\rdna2-meshlet-slowdown.md`,
+`notes\root-cause-vram-streaming.md`). The mod's earlier attempts to copy that data into video memory itself (CbvMirror)
+cost more than they saved on that card; a narrower copy for players who cannot enable ReBAR is described and tested in
+`notes\rebar-fix-v3.md` (off by default). ReBAR itself costs nothing, so the mod checks once at startup and, when it is off
+on a desktop GPU, shows a one-time notice (`[General] ReBarNotice = 0` turns it off).
+
+**How:** update the BIOS if it is old; in the BIOS set **Above 4G Decoding = Enabled** and **Re-Size BAR Support =
+Enabled** (AMD boards may call it Smart Access Memory); set **CSM = Disabled** (needs Windows installed in UEFI mode:
+`msinfo32` -> "BIOS Mode: UEFI" - check this first). Boot, then check AMD Adrenalin -> Performance -> Tuning -> Smart
+Access Memory, or GPU-Z -> "Resizable BAR: Enabled". Needs roughly Ryzen 3000 / Intel 10th gen and an RX 5000 / RTX 30 /
+Arc or newer GPU. Handhelds and APUs (ROG Ally, Steam Deck) share memory with the CPU; it does not apply to them.
+
+---
+
 ## What the game does wrong, and what we did (at a glance)
 
 One line per problem: what the game does -> effect -> our fix -> result. Scope: **Ally** = ROG Ally X / Proton only, **PC** = native Windows only, **both**. Details: "What's ruining performance in Nioh 3" below and `MODLOG.md`.

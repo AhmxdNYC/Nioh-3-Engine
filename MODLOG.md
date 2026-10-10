@@ -857,3 +857,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Tools: `tools/testmatrix/fastab.ps1` (one-launch ABBA paired windows), `fastab_report.py`, `hotset.py`, `live_keys.py/json`; proof `tests/run_hot_harness.py`.
 - Game folder: fastab.ps1 writes `Nioh3EngineFix_hot\` and the control file for the run and deletes them after; ini/ASI/config.xml/saves are restored by run_tour / fastab.
 - Undo: keys 0 (the defaults); delete `Nioh3EngineFix_hot\` / `Nioh3EngineFix_live.ini*` if a run was killed.
+
+## 2026-10-09 21:00 - ASI 1.7.56: RB Resizable BAR check + one-time notice ([General] ReBarNotice = 1; notes/rebar-fix-v3.md)
+- `[General] ReBarNotice = 1` (default): ~40 s after the game first renders, one check: the game's adapter (engine device LUID), D3D12 UMA + OPTIONS16 GPUUploadHeapSupported, DXGI non-local usage (median of 10 samples, 2 s apart). Discrete GPU + UPLOAD heaps in system memory (non-local >= 600 MB) = no ReBAR -> log line `RB: Resizable BAR / Smart Access Memory is off: ...` and a 25 s overlay toast, ONCE: the file `Nioh3EngineFix.rebarnotice` next to the ASI is written after it was on screen (or dismissed by opening the mod menu). Skipped on UMA / APUs, under Wine / Proton, with `[Profiler] VSForceSysUpload` A/B runs, and (toast only) in Tour / VirtualPad sessions.
+- Measured reason (bridge #1091): pc2 RX 6650 XT ReBAR OFF -> ON = GP2 span 32.5 -> 24.0 ms at the same spot.
+- Writes nothing else; the BIOS setting is the player's choice.
+- Undo: `ReBarNotice = 0`; delete `Nioh3EngineFix.rebarnotice` to see the notice again.

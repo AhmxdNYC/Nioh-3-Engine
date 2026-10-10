@@ -39,6 +39,26 @@ each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap
   the cap (no slow motion).
 - **Online co-op:** the frame-timing fix (`[Patches] VRR`) was tested offline only. By default (`VRROnline = -1`, auto) the mod pauses it by itself while you are in an online session and brings it back afterwards, so you do not need to change anything. If you want it never active online, set `VRROnline = 0`. Online co-op itself is still untested.
 
+## Biggest free fps boost: Resizable BAR
+If your PC has a desktop graphics card and **Resizable BAR** (AMD calls it **Smart Access Memory**, SAM) is off, the game
+reads a lot of its per-frame data from system RAM over PCIe instead of from the card's own memory. Turning it on is a
+BIOS setting, costs nothing and is the largest single gain we measured on a mid-range PC: on an **RX 6650 XT** (Ryzen 5
+5600X, 1080p HIGH) the GPU time per frame at the same spot went from **32.5 ms to 24.0 ms (-26 %, about +35 % fps)**; the
+40-100x slowdowns of the meshlet culling and volumetric-cloud passes disappeared. The mod checks this once at startup and,
+if it is off, shows a one-time notice (log line `RB:`; `[General] ReBarNotice = 0` turns the check off).
+
+How to turn it on (wording differs per board maker; check your motherboard manual):
+1. Update the motherboard BIOS and the graphics driver if they are old (ReBAR needs Ryzen 3000 / Intel 10th gen or newer,
+   a 400/500-series AMD or 400-series Intel board or newer, and an RX 5000 / RTX 30 / Arc or newer graphics card).
+2. In the BIOS: **Above 4G Decoding = Enabled**, then **Re-Size BAR Support = Enabled** (or Auto). On AMD boards it may be
+   called "Smart Access Memory".
+3. **CSM (Compatibility Support Module) = Disabled** (ReBAR needs UEFI boot; Windows must be installed in UEFI/GPT mode -
+   check with `msinfo32` -> "BIOS Mode: UEFI" before you switch CSM off, or Windows will not boot).
+4. Save, boot Windows. AMD: Adrenalin -> Performance -> Tuning -> Smart Access Memory should now say enabled. NVIDIA / Intel:
+   GPU-Z -> "Resizable BAR: Enabled". The mod's log then says `RB: ... UPLOAD heaps in VRAM`.
+
+Handhelds and APUs (ROG Ally, Steam Deck) share memory with the processor; this does not apply to them.
+
 ## Mod menu and overlay
 - Open: **F10**, **Esc three times**, or **triple-tap Start** on a pad. D-pad/stick to move, Left/Right to change, A to
   toggle, B (or triple-tap Start) to close. The game ignores the pad while the menu is open.

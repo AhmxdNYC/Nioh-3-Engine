@@ -55,6 +55,7 @@
 #include "timerres.h"
 #include "samelook.h"
 #include "livectl.h"
+#include "rebar.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -91,7 +92,7 @@
 //         no cross-queue waits (1.7.52 own-COPY-queue + waits was +15 ms on pc2); CbvMirrorComputeCopy; GPU_UPLOAD / OPTIONS16 guards
 // 1.7.55: CM CbvMirrorSites ([GpuOpt], default 1 = per-draw 118F89 only, unchanged): 2 = the compute dispatch constants
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
-#define MOD_VERSION "1.7.55"
+#define MOD_VERSION "1.7.56"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2893,6 +2894,17 @@ DWORD WINAPI Worker(LPVOID) {
         si.l1 = l1State;
         si.f1 = f1State;
         osd::Start(si);  // copies everything; returns at once
+        {  // 1.7.56 RB: Resizable BAR / SAM check + one-time notice ([General] ReBarNotice = 1; rebar.cpp, notes\rebar-fix-v3.md)
+            const std::wstring rbMarker = SelfPathWithExt(L".rebarnotice");
+            rebar::StartInfo ri;
+            ri.log = &Log;
+            ri.iniPath = iniPath.c_str();
+            ri.markerPath = rbMarker.c_str();
+            ri.base = reinterpret_cast<uintptr_t>(g_base);
+            ri.knownBuild = known;
+            ri.wine = wine;
+            rebar::Start(ri);  // copies the strings; returns at once
+        }
     }
     Log("done: %d group(s) applied, %d skipped. Patches live until the game exits (nothing is written to disk).", applied, skipped);
     return 0;

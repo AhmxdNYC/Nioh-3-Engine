@@ -447,6 +447,11 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
 * 1.7.2: `[Patches] RWb` (0/1, next launch), `SPR` (0/1, measurement), `[Profiler] TileStats` (0/1/2), `[GpuOpt] TileBatch` (0/1/2); all default 0.
 * `[Latency] MaxFrameLatency`: 0 = the game's value, 1-16 frames (see Input latency).
 * 1.7.44: `[Latency] VrrPresent` (-1 auto / 0 off / 1 on, default 0, next launch, Windows only) and `[Debug] PresentModeLog` (0/1/2, default 1, measurement only; 2 = 30 s summary); see Input latency.
+* 1.7.56: `[General] ReBarNotice` (1 default / 0): one Resizable BAR / SAM check ~40 s after the game first renders (log `RB:`);
+  when a desktop GPU's UPLOAD heaps sit in system memory (no ReBAR), a 25 s overlay notice is shown ONCE (marker file
+  `Nioh3EngineFix.rebarnotice` next to the ASI; delete it to see it again). Never on UMA / handhelds, under Proton, with
+  `VSForceSysUpload` A/B runs or (toast only) in Tour / VirtualPad sessions. Measured reason: RX 6650 XT ReBAR off -> on =
+  32.5 -> 24.0 ms GPU per frame (notes\user-settings.md, notes\rebar-fix-v3.md).
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
 

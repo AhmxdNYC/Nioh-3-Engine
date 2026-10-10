@@ -62,10 +62,21 @@ Not tested by us: the TDP gain, page-file effect, external-limiter effect, GPU c
 - The game puts every per-draw constant buffer (and some particle/UI vertex data) in one 700 MB UPLOAD heap. With Resizable
   BAR / SAM on, AMD drivers back that heap with VRAM; with it off (common on mid-range PCs, e.g. pc2: B550 + 5600X + RX 6650 XT,
   BAR0 258 MB) it sits in system RAM and the GPU fetches those constants over PCIe on every draw and dispatch.
-- Measured on the RX 9070 with that layout forced: +3.9 ms GPU per frame (+43 %); on pc2 moving only the constants to VRAM sped the affected passes up by ~4 ms. On a card without ReBAR this is the biggest
-  single mid-range cost found so far.
+- **MEASURED 2026-10-09 (bridge #1091, pc2 = 5600X + RX 6650 XT 8 GB, PCIe 4.0 x8, 1080p HIGH FSR 65 %, ASI 1.7.55, spawn 7356
+  x 30 s, GP2 MinRun 1, MemStats 2): ReBAR OFF -> ON = GP2 span 32.5 -> 24.0 ms (-26 % frame time, ~+35 % fps) at the same
+  spot.** DXGI non-local usage 919 -> 212 MB (the UPLOAD heaps moved into VRAM; READBACK stays). Per pass: async VCLOUD
+  b76874bb 2.4-2.7 -> 0.48 ms (-80 %), MIC e31c389f 1.66-1.72 and MshLod#1/#2 1.2-1.4 each -> out of the top 100 (< ~0.1 ms),
+  MPC 18b6fee7 0.35-0.39 -> 0.09 ms. This replaces the earlier estimate (RX 9070 with the layout forced: +3.9 ms / +43 %; pc2
+  per-draw constants ~4 ms of 31.6 ms): the real ceiling is ~8.5 ms of 32.5, about twice the estimate, because the meshlet
+  kernels and the async clouds read UPLOAD-heap data too (notes/rdna2-meshlet-slowdown.md, notes/rebar-fix-v3.md).
+  The save-spot session (BASE 27.2 ms / ~36 fps without ReBAR) was running when this was written.
+- The single biggest mid-range gain found in the whole project, and free.
 - User-side fix (a machine setting, so the user's decision; the mod never changes it): BIOS "Above 4G Decoding" + "Re-Size BAR
-  Support" on, CSM off, then AMD Adrenalin > Performance > Tuning > Smart Access Memory on. Check: GPU-Z "Resizable BAR: Enabled".
-- No mod-side equivalent: `[GpuOpt] CbvMirror` (1.7.52/1.7.54) copies the constants into VRAM but on an RX 6650 XT the copies
-  cost more than they save (+10 to +36 ms on pc2, #988/#1030). Leave it at 0. On pc2 about half of the mid-range excess is
-  these PCIe constant reads (~4 ms of 31.6 ms), so ReBAR/SAM is worth turning on where the board supports it.
+  Support" on, CSM off (Windows must boot in UEFI mode), then AMD Adrenalin > Performance > Tuning > Smart Access Memory on.
+  Check: GPU-Z "Resizable BAR: Enabled", or the mod's log line `RB: ... UPLOAD heaps in VRAM`. Note: on pc2 the Windows
+  resource list still showed a 256 MB window after the switch (not a reliable check); GPUUploadHeapSupported read "n/a" there.
+- The mod (1.7.56) checks once (`[General] ReBarNotice = 1`, default) and shows a one-time overlay notice when a desktop GPU's
+  UPLOAD heaps are in system memory (README "Biggest free fps boost: Resizable BAR").
+- Mod-side equivalents: `[GpuOpt] CbvMirror` (1.7.52/1.7.54) copies the per-draw constants into VRAM, but on an RX 6650 XT the
+  copies cost more than they save (+10 to +36 ms on pc2, #988/#1030); CbvMirrorSites = 2 (compute constants, #1080) left the
+  meshlet kernels flat. Leave CM at 0. The narrower scene-buffer mirror for boards without ReBAR is in notes/rebar-fix-v3.md.

@@ -479,6 +479,13 @@ float DrawBlock(const Line* lines, int count, float x, float y, bool alignRight,
 
 int64_t g_firstDraw = 0;
 
+// 1.7.56 one-time notice toast (rebar.cpp). The strings are written before the state goes 0 -> 1 (interlocked = barrier).
+std::string g_noticeText[4];
+int g_noticeLines = 0;
+float g_noticeSecs = 25.0f;
+volatile LONG g_noticeState = 0;   // 0 none, 1 pending (waits for the startup popup), 2 on screen, 3 done
+int64_t g_noticeStart = 0;
+
 float CounterScaleImpl(UINT H) {
     const float autoMul = (float)std::max(1u, (H + 540) / 1080);  // 1080p/1440p: 1, 4K: 2
     return std::clamp(g_cfg.scale * autoMul, 0.5f, 8.0f);
@@ -574,6 +581,27 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
         }
     }
 
+    Line note[4];
+    int nn = 0;
+    float noteAlpha = 0;
+    const LONG nst = g_noticeState;
+    if (nst == 1 && g_firstDraw && !menu::IsOpen()) {
+        const bool popupBusy = g_cfg.popup && Secs(now - g_firstDraw) < (double)g_cfg.popupDelay + g_cfg.popupSeconds;
+        if (!popupBusy) {
+            g_noticeStart = now;
+            InterlockedExchange(&g_noticeState, 2);
+        }
+    } else if (nst == 2) {
+        const double t = Secs(now - g_noticeStart);
+        if (menu::IsOpen() || t >= g_noticeSecs) {
+            InterlockedExchange(&g_noticeState, 3);
+        } else {
+            noteAlpha = (float)std::min({1.0, t / 0.3, ((double)g_noticeSecs - t) / 1.5});
+            for (int i = 0; i < g_noticeLines && nn < 4; ++i)
+                note[nn++].add(i == 0 ? kOrange : i == 1 ? kWhite : kGray, "%s", g_noticeText[i].c_str());
+        }
+    }
+
     // stack: counter first, popup next to it (below for top positions, above for bottom positions)
     const float x = right ? (float)W - margin - offX : margin + offX;
     const float gap = 4 * sc, lineH = (osdfont::kH + 2) * sc, pad = 4 * sc;
@@ -592,6 +620,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     };
     if (counter.n) place(&counter, 1, 1.0f);
     if (np && popAlpha > 0) place(pop, np, popAlpha);
+    if (nn && noteAlpha > 0) place(note, nn, noteAlpha);
     g_nMain = g_n;
     g_menuScale = menu::Draw(W, H);  // mod menu / pause hint / hold indicator (menu.cpp), drawn at its own scale
     if (g_menuScale <= 0) g_n = g_nMain;
@@ -1348,6 +1377,17 @@ int64_t LastPresentQpc() {
     }
     return last;
 }
+
+void ShowNotice(const char* const* lines, int n, float seconds) {
+    if (g_noticeState != 0 || !lines || n <= 0) return;
+    n = std::min(n, 4);
+    for (int i = 0; i < n; ++i) g_noticeText[i] = lines[i] ? lines[i] : "";
+    g_noticeLines = n;
+    g_noticeSecs = std::clamp(seconds, 3.0f, 120.0f);
+    InterlockedCompareExchange(&g_noticeState, 1, 0);
+}
+
+bool NoticeDone() { return g_noticeState == 3; }
 LatencyStatus Latency() {
     LatencyStatus s;
     s.want = g_cfg.maxLatency;
