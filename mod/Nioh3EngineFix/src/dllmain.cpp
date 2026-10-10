@@ -127,7 +127,11 @@
 // 1.7.60-cbu1 (branch cbv-upload): CBU per-draw constant uploads ([Patches] CBS / CBN / CBT = 0, live Tuning.CBS / CBN / CBT;
 //   [Profiler] CbvStats / CbvRecord): streaming copy into the UPLOAD ring, skip no-op uploads, CBV table reuse (cbvupload.cpp,
 //   notes/renderer/cbv-upload.md)
-#define MOD_VERSION "1.7.60-cbu1"
+// 1.7.60-cbu2: CBN + CBT default ON in the ini (pc2 +15.9 %), CBS off; CBN re-uploads its skipped slots after a ring-full
+//   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
+//   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
+//   into a VRAM ring the CBVs point at (cbvstage.cpp)
+#define MOD_VERSION "1.7.60-cbu2"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

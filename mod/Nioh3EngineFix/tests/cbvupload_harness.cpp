@@ -31,6 +31,7 @@
 
 #define CBU_HARNESS 1
 #include "../src/cbvupload.h"
+#include "../src/cbvstage.h"
 
 static int g_fail = 0;
 #define CHECK(c, ...)                                   \
@@ -122,6 +123,7 @@ struct MockObj {
 struct View {
     uint64_t va = 0;
     uint32_t size = 0;
+    uint64_t ser = 0;  // allocation serial of the CBV's block
 };
 struct BindRec {
     uint32_t root = 0;
@@ -130,6 +132,7 @@ struct BindRec {
     std::vector<View> views;       // layout slots only
     std::vector<std::vector<uint8_t>> bytes;
     std::vector<int> safe;  // SafeOf at bind time
+    std::vector<char> deferred;  // CBF: the view is on the VRAM ring, its bytes are what the copy left there at list close
     bool cut = false;       // this arm cut the list inside this table flush (ring full)
 };
 
@@ -137,6 +140,9 @@ struct Sim {
     uint8_t* c = nullptr;
     // upload ring
     uint8_t* ring = nullptr;
+    uint8_t* sys = nullptr;   // CBF: staging (CPU writes) and VRAM ring (CBVs), same offsets as the ring
+    uint8_t* vram = nullptr;
+    bool f8 = false;
     uint64_t ringCap = 0, head = 0;
     struct Blk {
         uint64_t off, size, tag;
@@ -159,7 +165,7 @@ struct Sim {
     std::vector<uint32_t> curLayoutSizes;  // per bind: declared size per table entry (0 = not in layout)
     const std::vector<std::pair<uint32_t, uint32_t>>* curEnt = nullptr;
     int curStage = 0;
-    uint64_t closes = 0, cutsInside = 0, ringFails = 0;
+    uint64_t closes = 0, cutsInside = 0, ringFails = 0, redoBinds = 0;
     bool checkClose = true;
     bool tainted = false;  // a ring-full cut opened a list that was not re-dirtied yet (until the next normal close)
     const char* name = "";
@@ -173,21 +179,48 @@ static void FreeDone(Sim& s) {
         const auto& b = s.live.front();
         for (uint64_t g = b.off / 256; g < (b.off + b.size) / 256; ++g) s.granTag[g] = 0, s.granSer[g] = 0;
         memset(s.ring + b.off, 0xCD, b.size);  // poison: a freed block's bytes are gone
+        if (s.f8) memset(s.sys + b.off, 0xCE, b.size), memset(s.vram + b.off, 0xCF, b.size);
         s.live.erase(s.live.begin());
     }
 }
 
 // 1 = the CBV's own ring block is alive and belongs to the open list (or a later one), 0 = alive but older (the engine's
 // cross-list reuse of untouched slots), -1 = the block the CBV was made on is gone (freed / reused), -2 = no CBV
+// ring offset of a GPU address on the UPLOAD ring or (CBF) on the VRAM ring
+static bool OffOf(Sim& s, uint64_t va, uint64_t size, uint64_t& off) {
+    if (va >= (uint64_t)s.ring && va + size <= (uint64_t)s.ring + s.ringCap) return off = va - (uint64_t)s.ring, true;
+    if (s.vram && va >= (uint64_t)s.vram && va + size <= (uint64_t)s.vram + s.ringCap) return off = va - (uint64_t)s.vram, true;
+    return false;
+}
 static int SafeOf(Sim& s, uint64_t va, uint32_t size, uint64_t ser) {
-    if (va < (uint64_t)s.ring || va + size > (uint64_t)s.ring + s.ringCap) return -2;
-    const uint64_t off = va - (uint64_t)s.ring;
+    uint64_t off;
+    if (!OffOf(s, va, size, off)) return -2;
     uint64_t t = s.granTag[off / 256];
     if (!t || s.granSer[off / 256] != ser) return -1;
     return t >= s.Tag() ? 1 : 0;
 }
 
+static Sim* g_flushSim = nullptr;
+static void F8Copy(uint64_t off, uint64_t len) { memcpy(g_flushSim->vram + off, g_flushSim->sys + off, len); }
+
 static void CloseList(Sim& s) {
+    if (s.f8) {  // the submission: CBF copies every noted staging range into the VRAM ring before the lists run
+        g_flushSim = &s;
+        cbvstage::TestFlush(&F8Copy);
+        for (size_t bi : s.openBinds) {
+            BindRec& b = s.binds[bi];
+            for (size_t j = 0; j < b.views.size(); ++j)
+                if (b.deferred[j] && b.safe[j] >= 0) {
+                    // an older list's block (safe 0, the engine's cross-list reuse) may be gone by now: unguaranteed in
+                    // stock too (stock's bind-time capture hides it), so such a view is not compared
+                    if (SafeOf(s, b.views[j].va, b.views[j].size, b.views[j].ser) < 0) {
+                        b.safe[j] = -1;
+                        continue;
+                    }
+                    b.bytes[j].assign((uint8_t*)b.views[j].va, (uint8_t*)b.views[j].va + b.views[j].size);
+                }
+        }
+    }
     // the GPU "executes" the list now: every bind made in it must still read what it read at bind time
     if (s.checkClose)
         for (size_t bi : s.openBinds) {
@@ -195,7 +228,7 @@ static void CloseList(Sim& s) {
             CHECK(memcmp(&s.sv[(size_t)b.svIdx * kDescSz], b.svBytes.data(), b.svBytes.size()) == 0, "%s: bound table %zu changed before list close",
                   s.name, bi);
             for (size_t j = 0; j < b.views.size(); ++j)
-                if (b.safe[j] == 1)
+                if (b.safe[j] == 1 && !b.deferred[j])
                     CHECK(memcmp((void*)b.views[j].va, b.bytes[j].data(), b.bytes[j].size()) == 0, "%s: bind %zu view %zu overwritten before close",
                           s.name, bi, j);
         }
@@ -209,7 +242,6 @@ static void CloseList(Sim& s) {
 extern "C" {
 static bool MockRingAlloc(uint8_t* ringStruct, uint64_t size, uint64_t tag, uint64_t completed, uint64_t* out, uint64_t* retry) {
     Sim& s = *g_cur;
-    (void)ringStruct;
     if (completed > s.completed) completed = s.completed;
     FreeDone(s);
     uint64_t at = s.head;
@@ -228,8 +260,8 @@ static bool MockRingAlloc(uint8_t* ringStruct, uint64_t size, uint64_t tag, uint
     for (uint64_t g = at / 256; g < (at + size) / 256; ++g) s.granTag[g] = tag, s.granSer[g] = s.serial;
     s.live.push_back({at, size, tag});
     s.head = at + size;
-    out[0] = (uint64_t)(s.ring + at);
-    out[1] = (uint64_t)(s.ring + at);
+    out[0] = *(uint64_t*)(ringStruct + 0x10) + at;  // the ring's CPU / GPU bases (CBF swaps them)
+    out[1] = *(uint64_t*)(ringStruct + 0x18) + at;
     return true;
 }
 static void MockSubmit(uint8_t* listRing, uint8_t*, uint64_t fence, uint8_t) {
@@ -259,7 +291,8 @@ static void __stdcall MockCreateCbv(MockObj* self, const uint64_t* desc, uint64_
     const uint32_t sz = (uint32_t)desc[1];
     memcpy(d + 8, &sz, 4);
     uint64_t ser = 0;  // harness only: the allocation serial of the block (lifetime check)
-    if (desc[0] >= (uint64_t)s.ring && desc[0] < (uint64_t)s.ring + s.ringCap) ser = s.granSer[(desc[0] - (uint64_t)s.ring) / 256];
+    uint64_t off;
+    if (OffOf(s, desc[0], 1, off)) ser = s.granSer[off / 256];
     memcpy(d + 16, &ser, 8);
     memcpy((void*)cpu, d, kDescSz);
 }
@@ -306,6 +339,9 @@ static void InitSim(Sim& s, const char* name, uint64_t ringCap, uint32_t svCap) 
     *(MockObj**)(c + 0x8E8) = &s.dev;
     *(uint32_t*)(c + 0x938) = kDescSz;
     *(uint64_t*)(c + 0x940) = (uint64_t)s.staging.data();
+    uint64_t* cb = (uint64_t*)(c + 0xB28);  // CB ring struct: [1] size, [2] CPU base, [3] GPU base (UploadRingAllocate reads them)
+    cb[1] = ringCap;
+    cb[2] = cb[3] = (uint64_t)s.ring;
     uint8_t* r = c + 0x980;
     *(uint64_t**)(r + 0x30) = s.stamps.data();
     *(uint32_t*)(r + 0x38) = 0;       // base
@@ -347,6 +383,17 @@ static void Flush(Sim& s, bool patched, int stage, Layout& L, int rootBase) {
     else
         ((cbvupload::UploadFn)g_stockCode.mem)(s.c, &root, stage, L.obj, &fence);
     mask = 0;
+    if (patched && s.binds.size() == before + 2) {
+        // CBN after an in-call cut: the skipped slots were uploaded again and the table bound a second time; the first bind
+        // is replaced before any draw -> drop it (it is still checked at its list's close only if that list closed between)
+        s.binds.erase(s.binds.begin() + (ptrdiff_t)before);
+        for (size_t i = 0; i < s.openBinds.size();) {
+            if (s.openBinds[i] == before) { s.openBinds.erase(s.openBinds.begin() + (ptrdiff_t)i); continue; }
+            if (s.openBinds[i] > before) --s.openBinds[i];
+            ++i;
+        }
+        ++s.redoBinds;
+    }
     CHECK(s.binds.size() == before + 1, "%s: %zu binds in one table flush", s.name, s.binds.size() - before);
     if (s.binds.size() != before + 1) return;
     BindRec& b = s.binds.back();
@@ -364,10 +411,12 @@ static void Flush(Sim& s, bool patched, int stage, Layout& L, int rootBase) {
         uint64_t ser;
         memcpy(&ser, &b.svBytes[(size_t)slot * kDescSz + 16], 8);
         v.size = size;
+        v.ser = ser;
         b.views.push_back(v);
         const int sf = v.va ? SafeOf(s, v.va, size, ser) : -2;
+        b.deferred.push_back(s.vram && v.va >= (uint64_t)s.vram && v.va < (uint64_t)s.vram + s.ringCap);
         b.safe.push_back(sf);
-        if (sf >= 0) {
+        if (sf >= 0 && !b.deferred.back()) {
             CHECK(cbvSize >= size, "%s: CBV size %u < declared %u", s.name, cbvSize, size);
             b.bytes.emplace_back((uint8_t*)v.va, (uint8_t*)v.va + size);
         } else {
@@ -394,7 +443,7 @@ static void SetLayout(Sim& s, int stage, const Layout& L) {
 static void CompareBinds(Sim& a, Sim& b, const char* what) {
     CHECK(a.binds.size() == b.binds.size(), "%s: bind count %zu vs %zu", what, a.binds.size(), b.binds.size());
     const size_t n = a.binds.size() < b.binds.size() ? a.binds.size() : b.binds.size();
-    uint64_t views = 0, cmp = 0, cutSkip = 0, oldGone = 0;
+    uint64_t views = 0, cmp = 0, cutSkip = 0, oldGone = 0, cutGone = 0;
     for (size_t i = 0; i < n; ++i) {
         const BindRec &x = a.binds[i], &y = b.binds[i];
         CHECK(x.root == y.root && x.n == y.n && x.views.size() == y.views.size(), "%s: bind %zu shape", what, i);
@@ -404,7 +453,7 @@ static void CompareBinds(Sim& a, Sim& b, const char* what) {
             if (x.safe[j] < 0) continue;  // stock: no CBV yet, or its block is gone (the engine's own cut / cross-list hazard)
             if (y.cut || x.cut) {         // a ring-full cut inside this flush in either arm: the arms cut at different
                 ++cutSkip;                // points (CBN / CBS allocate less), so pre-cut views legitimately differ in age
-                if (y.safe[j] < 0) continue;
+                if (y.safe[j] < 0) { ++cutGone; continue; }
             }
             // stock reads a block of an older list (0): the engine's cross-list reuse of untouched slots; how long such a
             // block lives depends on ring consumption, which CBN / CBS change -> compare bytes only while it lives in both
@@ -416,8 +465,8 @@ static void CompareBinds(Sim& a, Sim& b, const char* what) {
             if (x.safe[j] == 1 && !x.cut && !y.cut) CHECK(y.safe[j] == 1, "%s: bind %zu view %zu safe in stock, not in patched (%d)", what, i, j, y.safe[j]);
         }
     }
-    printf("  %-34s binds %zu, views %llu, compared %llu (after ring-full cuts: %llu; older-list block gone in patched only: %llu)\n", what, n,
-           (unsigned long long)views, (unsigned long long)cmp, (unsigned long long)cutSkip, (unsigned long long)oldGone);
+    printf("  %-34s binds %zu, views %llu, compared %llu (after ring-full cuts: %llu, patched view gone there: %llu; older-list block gone in patched only: %llu)\n", what, n,
+           (unsigned long long)views, (unsigned long long)cmp, (unsigned long long)cutSkip, (unsigned long long)cutGone, (unsigned long long)oldGone);
 }
 
 // ---------------------------------------------------------------- synthetic streams
@@ -429,7 +478,28 @@ struct SynCfg {
     bool redirtyOnNewList;  // the engine's safe usage for small rings (all layout slots re-dirtied when a list opens)
     int cbs, cbn, cbt;
     uint64_t seed;
+    int f8 = 0;  // 1 = CBF on, 2 = CBF toggled on / off at random during the stream
 };
+
+static void FreeSim(Sim& s) {  // each run maps up to 3 rings of 512 MB per arm: give them back
+    if (s.ring) VirtualFree(s.ring, 0, MEM_RELEASE);
+    if (s.sys) VirtualFree(s.sys, 0, MEM_RELEASE);
+    if (s.vram) VirtualFree(s.vram, 0, MEM_RELEASE);
+    for (int i = 0; i < 112; ++i) free(*(uint8_t**)(s.c + 0xBB0 + i * 8));
+    free(s.c);
+    s.ring = s.sys = s.vram = s.c = nullptr;
+}
+
+static void SetupF8(Sim& B, int f8) {
+    cbvstage::TestReset();
+    if (!f8) return;
+    B.sys = (uint8_t*)VirtualAlloc(nullptr, B.ringCap, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    B.vram = (uint8_t*)VirtualAlloc(nullptr, B.ringCap, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    memset(B.sys, 0xCE, B.ringCap);
+    memset(B.vram, 0xCF, B.ringCap);
+    B.f8 = true;
+    cbvstage::TestSetup(B.sys, B.vram, B.ringCap);
+}
 
 static void RunSynthetic(const SynCfg& cfg) {
     Sim A, B;
@@ -437,6 +507,7 @@ static void RunSynthetic(const SynCfg& cfg) {
     InitSim(B, "patched", cfg.ringCap, cfg.svCap);
     A.checkClose = B.checkClose = true;
     cbvupload::TestReset();
+    SetupF8(B, cfg.f8);
     cbvupload::TestSetup((cbvupload::UploadFn)g_patchCode.mem, cfg.cbs, cfg.cbn, cfg.cbt, 1);
     const cbvupload::TestCounts c0 = cbvupload::TestGet();
     std::mt19937_64 rng(cfg.seed);
@@ -491,6 +562,7 @@ static void RunSynthetic(const SynCfg& cfg) {
         if (R(8) == 0) {  // flush another stage untouched (bit-31 / empty masks)
         }
         Flush(A, false, stage, L, 3);
+        if (cfg.f8 == 2 && R(300) == 0) *cbvstage::Switch() ^= 1u;  // live CBF on / off
         Flush(B, true, stage, L, 3);
         if (R(25) == 0) {  // list close; the GPU lags 0..3 lists behind
             const uint64_t lag = R(4);  // one draw for both arms
@@ -511,6 +583,9 @@ static void RunSynthetic(const SynCfg& cfg) {
     for (Sim* s : {&A, &B}) CloseList(*s);
     const cbvupload::TestCounts c1 = cbvupload::TestGet();
     CompareBinds(A, B, cfg.name);
+    cbvstage::TestReset();
+    FreeSim(A);
+    FreeSim(B);
     printf("  %-34s uploads %llu, no-op same list %llu, skipped %llu, table hits %llu, CBS copies %llu, cuts inside %llu/%llu, ring fails %llu/%llu\n",
            "", (unsigned long long)(c1.uploads - c0.uploads), (unsigned long long)(c1.noopSame - c0.noopSame),
            (unsigned long long)(c1.skipped - c0.skipped), (unsigned long long)(c1.tblHit - c0.tblHit), (unsigned long long)(c1.copies - c0.copies),
@@ -560,7 +635,7 @@ static bool LoadTrace(const char* path, std::vector<TCall>& out) {
     return true;
 }
 
-static void RunTrace(const char* path, int cbs, int cbn, int cbt, uint64_t ringCap, uint32_t svCap, const char* label) {
+static void RunTrace(const char* path, int cbs, int cbn, int cbt, uint64_t ringCap, uint32_t svCap, const char* label, int f8 = 0) {
     std::vector<TCall> calls;
     if (!LoadTrace(path, calls)) {
         CHECK(false, "trace %s unreadable", path);
@@ -577,6 +652,7 @@ static void RunTrace(const char* path, int cbs, int cbn, int cbt, uint64_t ringC
     InitSim(A, "stock", ringCap, svCap);
     InitSim(B, "patched", ringCap, svCap);
     cbvupload::TestReset();
+    SetupF8(B, f8);
     cbvupload::TestSetup((cbvupload::UploadFn)g_patchCode.mem, cbs, cbn, cbt, 1);
     const cbvupload::TestCounts c0 = cbvupload::TestGet();
     std::vector<Layout> lays;
@@ -620,6 +696,9 @@ static void RunTrace(const char* path, int cbs, int cbn, int cbt, uint64_t ringC
     char what[160];
     snprintf(what, sizeof what, "trace %s", label);
     CompareBinds(A, B, what);
+    cbvstage::TestReset();
+    FreeSim(A);
+    FreeSim(B);
     const double up = (double)(c1.uploads - c0.uploads);
     printf("  %-34s calls %zu (of %zu), lists %llu, dirty slots %llu (%.1f MB), no-op any %.1f %%, same list %.1f %%, skipped %llu, table cand %llu hits %llu\n",
            "", used, calls.size(), (unsigned long long)lists, (unsigned long long)dirty, dirtyBytes / 1048576.0,
@@ -652,6 +731,7 @@ static void TestCopy() {
 }
 
 int main(int argc, char** argv) {
+    setvbuf(stdout, nullptr, _IONBF, 0);
     const char* dump = argc > 1 ? argv[1] : nullptr;
     FILE* f = nullptr;
     if (!dump || fopen_s(&f, dump, "rb") || !f) {
@@ -683,6 +763,10 @@ int main(int argc, char** argv) {
         {"small rings, CBS+CBN+CBT", 1ull << 20, 160, 20000, true, 1, 1, 1, 16},
         {"tiny rings (cuts), CBS+CBN+CBT", 256ull << 10, 64, 20000, true, 1, 1, 1, 17},
         {"tiny rings (cuts), CBT only", 256ull << 10, 64, 20000, true, 0, 0, 1, 18},
+        {"big ring, CBF", 512ull << 20, 4096, 20000, false, 0, 0, 0, 21, 1},
+        {"big ring, CBF + CBS+CBN+CBT", 512ull << 20, 4096, 20000, false, 1, 1, 1, 22, 1},
+        {"small rings, CBF toggled live", 1ull << 20, 160, 20000, true, 1, 1, 1, 23, 2},
+        {"tiny rings (cuts), CBF + all", 256ull << 10, 64, 20000, true, 1, 1, 1, 24, 1},
     };
     for (const auto& c : cfgs) RunSynthetic(c);
     for (int i = 2; i < argc; ++i) {
@@ -691,6 +775,8 @@ int main(int argc, char** argv) {
         RunTrace(argv[i], 0, 1, 0, 1024ull << 20, 8192, "big ring, CBN");
         RunTrace(argv[i], 1, 1, 1, 64ull << 20, 1024, "small rings, CBS+CBN+CBT");
         RunTrace(argv[i], 0, 1, 1, 1024ull << 20, 8192, "big ring, CBN+CBT");
+        RunTrace(argv[i], 0, 0, 0, 1024ull << 20, 8192, "big ring, CBF", 1);
+        RunTrace(argv[i], 1, 1, 1, 64ull << 20, 1024, "small rings, CBF + all", 1);
     }
     if (g_fail) {
         printf("FAILED: %d checks\n", g_fail);

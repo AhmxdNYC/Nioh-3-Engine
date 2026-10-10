@@ -23,7 +23,7 @@ if not setup.exists():
     setup = pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine\tools\msvc\setup_x64.bat")
 pre = ('call "%s" >nul && ' % setup) if setup.exists() else ""
 cmd = pre + (
-    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DCBU_HARNESS "{t}\\cbvupload_harness.cpp" "{s}\\cbvupload.cpp" '
+    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DCBU_HARNESS "{t}\\cbvupload_harness.cpp" "{s}\\cbvupload.cpp" "{s}\\cbvstage.cpp" '
     '/Fo"{o}\\\\" /Fe"{o}\\cbvupload_harness.exe" /link kernel32.lib'
 ).format(o=OUT, s=ROOT / "src", t=ROOT / "tests")
 r = subprocess.run('cmd /s /c "' + cmd + '"', capture_output=True, text=True)

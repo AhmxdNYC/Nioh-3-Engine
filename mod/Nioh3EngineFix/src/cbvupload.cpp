@@ -12,6 +12,7 @@
 #include <new>
 
 #include "cbvupload.h"
+#include "cbvstage.h"
 
 namespace cbvupload {
 namespace {
@@ -71,7 +72,7 @@ struct Tbl {  // last CBV table copy of one stage
 };
 struct Counts {
     uint64_t calls = 0, uploads = 0, bytes = 0, noopAny = 0, noopSame = 0, noopSameBytes = 0, skipped = 0, skippedBytes = 0, tblCand = 0, tblHit = 0,
-             cuts = 0;
+             cuts = 0, cutRedo = 0;
 };
 struct Ctx {
     uint8_t* c = nullptr;
@@ -241,19 +242,22 @@ inline void CallOrig(uint8_t* c, int* rootIdx, int stage, uint8_t* layout, uint6
 }  // namespace
 
 extern "C" void* CbuStreamCopy(void* dst, const void* src, size_t n) {
-    if (!StreamBody(dst, src, n)) return memcpy(dst, src, n);
-    t_fence = true;
+    if (!StreamBody(dst, src, n)) memcpy(dst, src, n);
+    else t_fence = true;
+    cbvstage::NoteWrite(dst, n);  // CBF: ranges written into the staging ring (no-op otherwise)
     return dst;
 }
 extern "C" void* CbuStreamCopyCs(void* dst, const void* src, size_t n) {
-    if (!StreamBody(dst, src, n)) return memcpy(dst, src, n);
-    if (g_cbsFence) _mm_sfence();
+    if (!StreamBody(dst, src, n)) memcpy(dst, src, n);
+    else if (g_cbsFence) _mm_sfence();
+    cbvstage::NoteWrite(dst, n);
     return dst;
 }
 
 // F1 / F4 / stats / record: replaces the call SynFlushCbvTables -> SynUploadCbvTable (118E19).
 extern "C" void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layout, uint64_t* fenceCache) {
     if (g_recWant > 0 && g_recState != 2) Record(c, rootIdx, stage, layout);
+    cbvstage::OnTable(c);  // CBF: learns the list, creates the rings, swaps / restores the ring bases (no-op unless installed)
     const uint32_t cbn = g_cbn, cbt = g_cbt, st = g_stats;
     Ctx* x = (cbn || cbt || st) && stage >= 0 && stage < kStages ? Find(c) : nullptr;
     if (!x) {
@@ -320,10 +324,20 @@ extern "C" void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layou
     CallOrig(c, rootIdx, stage, layout, fenceCache);
     const uint64_t tag2 = At<uint64_t>(c, kTag), list2 = At<uint64_t>(c, kList);
     if (tag2 != tag || list2 != list) {
-        // the list was cut inside (ring full): blocks made before the cut belong to the old list -> forget this stage
+        // the list was cut inside (ring full): blocks made before the cut belong to the old list -> forget this stage.
+        // A slot CBN skipped still points at its block of the OLD list, which the cut has just retired, while the table
+        // bound in the new list reads it (stock would have uploaded it again, after the cut for every slot behind the cut
+        // point). Upload exactly the skipped slots once more in the new list and bind the table again (the second bind
+        // replaces the first before any draw): afterwards every skipped slot is on a block of the new list.
         ++k.cuts;
         for (int s = 0; s < kSlots; ++s) x->rec[stage * kSlots + s].epoch = 0;
         t.epoch = 0;
+        const uint32_t redo = mask0 & ~mask & 0x7FFFFFFFu;
+        if (redo) {
+            ++k.cutRedo;
+            *maskp = redo;
+            CallOrig(c, rootIdx, stage, layout, fenceCache);
+        }
         return;
     }
     for (uint32_t i = 0; i < count; ++i) {
@@ -476,7 +490,7 @@ Counts Sum() {
         if (!x) break;
         s.calls += x->n.calls, s.uploads += x->n.uploads, s.bytes += x->n.bytes, s.noopAny += x->n.noopAny;
         s.noopSame += x->n.noopSame, s.noopSameBytes += x->n.noopSameBytes, s.skipped += x->n.skipped, s.skippedBytes += x->n.skippedBytes;
-        s.tblCand += x->n.tblCand, s.tblHit += x->n.tblHit, s.cuts += x->n.cuts;
+        s.tblCand += x->n.tblCand, s.tblHit += x->n.tblHit, s.cuts += x->n.cuts, s.cutRedo += x->n.cutRedo;
     }
     return s;
 }
@@ -494,6 +508,11 @@ DWORD WINAPI StatsThread(LPVOID) {
         t0 = t1;
         const Counts c = Sum();
         const LONG64 cc = g_copies, cb = g_copyBytes;
+        if (cbvstage::Installed() && g_log) {
+            char fb[384];
+            cbvstage::StatsLine(fb, sizeof fb, s);
+            if (fb[0]) g_log("CBU %s", fb);
+        }
         if (!g_stats) {
             p = c, pc = cc, pb = cb;
             continue;
@@ -504,11 +523,11 @@ DWORD WINAPI StatsThread(LPVOID) {
         if (g_log)
             g_log("CBU: %.1f s | switches CBS %u CBN %u CBT %u fence %u | tables %.0f/s, uploads %.0f/s (%.2f MB/s, avg %.0f B) | no-op uploads: "
                   "any list %.1f %%, same list %.1f %% (%.2f MB/s) | skipped %.0f/s (%.2f MB/s) | table reuse candidates %.1f %% of "
-                  "tables, hits %.0f/s | list cuts in a table %.0f | CBS copies %.0f/s (%.2f MB/s)",
+                  "tables, hits %.0f/s | list cuts in a table %.0f (re-uploaded %.0f) | CBS copies %.0f/s (%.2f MB/s)",
                   s, g_cbs, g_cbn, g_cbt, g_cbsFence, tb / s, up / s, by / s / 1048576.0, up > 0 ? by / up : 0.0, pct((double)(c.noopAny - p.noopAny), up),
                   pct((double)(c.noopSame - p.noopSame), up), (double)(c.noopSameBytes - p.noopSameBytes) / s / 1048576.0,
                   (double)(c.skipped - p.skipped) / s, (double)(c.skippedBytes - p.skippedBytes) / s / 1048576.0,
-                  pct((double)(c.tblCand - p.tblCand), tb), (double)(c.tblHit - p.tblHit) / s, (double)(c.cuts - p.cuts),
+                  pct((double)(c.tblCand - p.tblCand), tb), (double)(c.tblHit - p.tblHit) / s, (double)(c.cuts - p.cuts), (double)(c.cutRedo - p.cutRedo),
                   (double)(cc - pc) / s, (double)(cb - pb) / s / 1048576.0);
         p = c, pc = cc, pb = cb;
     }
@@ -549,10 +568,12 @@ bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
     else if (!_stricmp(key, "CBT")) sw = &g_cbt, inst = g_instCbt, name = "CBT";
     else if (!_stricmp(key, "CBSTATS")) sw = &g_stats, inst = g_instTbl, name = "CBSTATS";
     else if (!_stricmp(key, "CBS_FENCE")) sw = &g_cbsFence, inst = g_instCbs, name = "CBS_FENCE";
+    else if (!_stricmp(key, "CBF")) sw = cbvstage::Switch(), inst = sw != nullptr, name = "CBF";
+    else if (!_stricmp(key, "CBF_QUEUE")) sw = cbvstage::QueueSwitch(), inst = sw != nullptr, name = "CBF_QUEUE";
     else if (!_stricmp(key, "CBMODE")) {  // one key for one-launch A/B of combinations: 1 CBS, 2 CBN, 4 CBT, 8 CBS without sfence, 16 stats
         const int v = atoi(val);
-        if (v < 0 || v > 31) {
-            snprintf(reply, n, "CBMODE must be 0..31 (got %s)", val);
+        if (v < 0 || v > 127) {
+            snprintf(reply, n, "CBMODE must be 0..127 (got %s)", val);
             return true;
         }
         InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbsFence), (v & 8) ? 0 : 1);
@@ -560,8 +581,12 @@ bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
         if (g_instCbn) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbn), (v & 2) ? 1 : 0);
         if (g_instCbt) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbt), (v & 4) ? 1 : 0);
         if (g_instTbl) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_stats), (v & 16) ? 1 : 0);
+        if (volatile uint32_t* f = cbvstage::Switch()) InterlockedExchange(reinterpret_cast<volatile LONG*>(f), (v & 32) ? 1 : 0);
+        if (volatile uint32_t* f = cbvstage::QueueSwitch()) InterlockedExchange(reinterpret_cast<volatile LONG*>(f), (v & 64) ? 1 : 0);
         snprintf(reply, n, "CBMODE = %d", v);
-        if (g_log) g_log("LIVE tuning: %s (CBS %u fence %u, CBN %u, CBT %u, stats %u)", reply, g_cbs, g_cbsFence, g_cbn, g_cbt, g_stats);
+        if (g_log)
+            g_log("LIVE tuning: %s (CBS %u fence %u, CBN %u, CBT %u, stats %u, CBF %u queue %u)", reply, g_cbs, g_cbsFence, g_cbn, g_cbt, g_stats,
+                  cbvstage::Switch() ? *cbvstage::Switch() : 0u, cbvstage::QueueSwitch() ? *cbvstage::QueueSwitch() : 0u);
         return true;
     }
     else if (!_stricmp(key, "CBALL")) {  // every installed CBU switch at once (CBS + CBN + CBT)
@@ -583,7 +608,7 @@ bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
         snprintf(reply, n, "%s must be 0 or 1 (got %s)", name, val);
         return true;
     }
-    if (!inst) {
+    if (!inst || !sw) {
         snprintf(reply, n, "%s = 0 (not installed: [Patches] / [Profiler] key is 0 at boot, or the sites differ)", name);
         if (g_log) g_log("LIVE tuning: %s", reply);
         return true;
@@ -608,7 +633,7 @@ void Start(const StartInfo& info) {
     const wchar_t* ini = info.iniPath;
     const int cbs = Key(L"Patches", L"CBS", 0, ini), cbn = Key(L"Patches", L"CBN", 0, ini), cbt = Key(L"Patches", L"CBT", 0, ini);
     const int stats = Key(L"Profiler", L"CbvStats", 0, ini), rec = Key(L"Profiler", L"CbvRecord", 0, ini);
-    if (!cbs && !cbn && !cbt && !stats && rec <= 0) return;
+    if (!cbs && !cbn && !cbt && !stats && rec <= 0 && !Key(L"Patches", L"CBF", 0, ini)) return;
     if (!info.knownBuild) {
         g_log("CBU: v2.02 only - not installed");
         return;
@@ -626,8 +651,19 @@ void Start(const StartInfo& info) {
         g_log("CBU: CBN / CBT not installed: [GpuOpt] CbvMirror != 0 (mirror CBVs have their own lifetime)");
         wantCbn = wantCbt = false;
     }
-    const bool wantTbl = wantCbs || wantCbn || wantCbt || stats != 0 || rec > 0;  // CBS: the wrapper issues the sfence
-    if (!wantCbs && !wantTbl) return;
+    int cbf = Key(L"Patches", L"CBF", 0, ini);
+    if (cbf != 1 && cbf != 2) cbf = 0;
+    if (cbf && !csOk) {
+        g_log("CBU: CBF not installed: CmdListUploadComputeCbvTable 4959EC differs (its ring writes could not be noted)");
+        cbf = 0;
+    }
+    if (cbf && Key(L"GpuOpt", L"CbvMirror", 0, ini) != 0) {
+        g_log("CBU: CBF not installed: [GpuOpt] CbvMirror != 0");
+        cbf = 0;
+    }
+    const bool wantCbf = cbf != 0;
+    const bool wantTbl = wantCbs || wantCbf || wantCbn || wantCbt || stats != 0 || rec > 0;  // CBS: the wrapper issues the sfence
+    if (!wantCbs && !wantTbl) return;  // (wantTbl covers CBF)
     const auto* dos = (const IMAGE_DOS_HEADER*)b;
     const auto* nt = (const IMAGE_NT_HEADERS64*)(b + dos->e_lfanew);
     uint8_t* page = AllocNear(b, b + nt->OptionalHeader.SizeOfImage, 4096);
@@ -664,14 +700,24 @@ void Start(const StartInfo& info) {
             g_recWant = 0;
         }
     }
-    if (wantCbs) {
+    bool relays = false;
+    if (wantCbs || wantCbf) {
         bool ok = Retarget(b, kGfxCopy, page + 0x20, (const void*)&CbuStreamCopy);
-        if (ok && !g_instTbl) ok = false;  // the graphics copies need the wrapper's sfence
+        if (ok && !g_instTbl) ok = false;  // the graphics copies need the wrapper's sfence / CBF its table hook
+        const bool okGfx = ok;
         if (ok && csOk) ok = Retarget(b, kCsCopy, page + 0x40, (const void*)&CbuStreamCopyCs);
-        g_instCbs = ok;
-        if (!ok) g_cbs = 0;
-        g_log("CBU: CBS streaming copy %s at 118F4D%s (switch %s)", ok ? "installed" : "NOT installed", csOk ? " + 495AF2" : " (compute 4959EC differs: graphics only)",
-              g_cbs ? "ON" : "off");
+        relays = ok && csOk;
+        g_instCbs = wantCbs && ok;
+        if (!g_instCbs) g_cbs = 0;
+        if (wantCbs)
+            g_log("CBU: CBS streaming copy %s at 118F4D%s (switch %s)", g_instCbs ? "installed" : "NOT installed",
+                  csOk ? " + 495AF2" : " (compute 4959EC differs: graphics only)", g_cbs ? "ON" : "off");
+        if (wantCbf && !(okGfx && relays)) g_log("CBU: CBF not installed: copy relays not written");
+    }
+    if (wantCbf && relays) {
+        cbvstage::Configure(g_log, cbf, Key(L"Tuning", L"CBF_Queue", 0, ini));
+        g_log("CBU: CBF staging ring installed (switch %s, %s); rings are made at the first table call after the game queue is known",
+              cbf == 1 ? "ON" : "off", Key(L"Tuning", L"CBF_Queue", 0, ini) ? "COPY queue + wait" : "DIRECT prologue");
     }
     if (g_instTbl)
         g_log("CBU: table wrapper at 118E19: CBN %s, CBT %s, stats %s (every %d s), record %d calls after %d s", !g_instCbn ? "-" : g_cbn ? "ON" : "off",
