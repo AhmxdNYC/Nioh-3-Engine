@@ -170,8 +170,7 @@ with thread id and caller, which is what this model needs:
   CmdListRingFlushAndRecycle 4920E0 pushes only up to the slot it reuses), so mid-frame cuts close lists but do not submit them.
   The same pattern is in the RX 9070 RGP trace ("all GFX lists within a 2.5-3.2 ms burst at the end of the CPU frame",
   d3d12-submission.md 5). Consequences: the GPU starts frame N only after the dispatcher has replayed almost all of it (latency, and
-  GPU idle when the CPU frame is long), and the ECL thread sees ~20 items arrive at once (the ECL-ring-full / ReleaseSemaphore
-  rows of section 5 fall in these bursts). Early submission (push each list when it is closed) is a cheap complement to option 1.
+  GPU idle when the CPU frame is long), and the ECL thread sees ~20 items arrive at once (its ring still never fills: CPU5, section 5). Early submission (push each list when it is closed) is a cheap complement to option 1.
 
 ## 5. What blocks the replay thread: reading the three SP rows correctly (S + M CPU5)
 
