@@ -12,8 +12,8 @@ RVAs are image offsets (base 0x7FF74F410000). Node numbers and L-markers come fr
 | VolumetricFogScatter (162) | VolumetricFogScatterNodeExecute 14871C (3.2 KB) | froxel light scatter (VFSCAT) | **async slot 4** |
 | StaticNature (275 / 288) | StaticNatureNodeExecute 6D7B88 -> Record 6D7B98 -> StaticNatureRenderView 108590 (6.4 KB) | SSFog apply, static-nature draws, VFSCAT join (peek slot 4) | DIRECT |
 | UltraMarine (138) | UltraMarineNodeExecute 852620 -> RenderViews 852650 -> UltraMarineRecord 850FE0 | ocean (game thread `OceanThread%d` feeds it) | **async slot 6** |
-| SkyAmbient | SkyAmbientNodeExecute 145C60 | sky-ambient bake, time-sliced | DIRECT (compute) |
-| RainDrop | RainDropNodeExecute 419F54 (2.4 KB) | rain / drop simulation | **async slot 8** |
+| SkyAmbient (node 8) | SkyAmbientNodeExecute 145C60 | sky-ambient bake, time-sliced | DIRECT (compute) |
+| RainDrop (nodes 5, 332-334) | RainDropNodeExecute 419F54 (2.4 KB) | rain / drop simulation | **async slot 8** |
 | Tree2Wind | Tree2WindNodeExecute 41805C -> 418284 | wind field for vegetation | DIRECT ? |
 | PrepareStaticNatureReflection | 1528B4 | static-nature reflection prepare, `CopyRectCommand` | DIRECT |
 
