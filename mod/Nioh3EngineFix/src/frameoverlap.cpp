@@ -86,10 +86,6 @@ volatile uint8_t g_prevGen8 = 0xFF;  // read by the HandleSlotIsNotFreed stub
 uint32_t g_maxIdx = 0, g_K = 0;
 // sub-stream recorders captured at E
 constexpr int kMaxSub = 64;
-uintptr_t g_sub[kMaxSub] = {};
-uintptr_t g_subRec[kMaxSub] = {};
-uintptr_t g_subWrite[kMaxSub] = {};
-int g_subN = 0;
 
 SRWLOCK g_pp = SRWLOCK_INIT;  // PagePool frame protocol lock (main: E7 / PagePoolFrameUpdate / 7D9C24; replay: PP tokens)
 
@@ -137,15 +133,6 @@ void WaitTail(uint64_t n) {
 void Barrier(bool early) {
     if (!g_barrierPending) return;
     WaitTail(g_issued.load(std::memory_order_relaxed));
-    for (int i = 0; i < g_subN; ++i) {
-        const uintptr_t rec = g_subRec[i];
-        if (!rec) continue;
-        if (F<uintptr_t>(rec + 0x28) != g_subWrite[i]) {  // written since E: keep appending (its own wrap path resets it)
-            ++s_subSkip;
-            continue;
-        }
-        E.subReset(g_sub[i]);  // 253F2C(sub): if sub+55h, reset the recorder sub+60h (2543A0)
-    }
     g_barrierPending = false;
     if (early) ++s_barrierEarly;
     else ++s_barrierLate;
@@ -410,20 +397,6 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     // record slot for frame N+1 (GfxFrameSlotAdvance's main-thread part); TAIL N uses the frame's own slot
     const uint32_t frameSlot = F<uint32_t>(dev + kSlot);
     SlotAdvanceMain(dev);
-    // sub-stream recorders (reset at B)
-    g_subN = 0;
-    if (const uintptr_t arr = F<uintptr_t>(dev + kSubArr)) {
-        const uint32_t cnt = std::min<uint32_t>(F<uint32_t>(dev + kSubCount), kMaxSub);
-        for (uint32_t i = 0; i < cnt; ++i) {
-            const uintptr_t sub = F<uintptr_t>(arr + i * 8ull);
-            uintptr_t rec = 0;
-            if (sub && F<uint8_t>(sub + 0x55)) rec = F<uintptr_t>(sub + 0x60);
-            g_sub[g_subN] = sub;
-            g_subRec[g_subN] = rec;
-            g_subWrite[g_subN] = rec ? F<uintptr_t>(rec + 0x28) : 0;
-            ++g_subN;
-        }
-    }
     // TAIL token in its own stretch (submit = 0)
     FrameRec& r = g_rec[N & 3];
     r.frame = N;

@@ -400,7 +400,7 @@ int main() {
     Check(!TestDisabled(), "no fallback to session-off (back-buffer prediction held)");
     Check(g_waitBad == 0 && g_waits > 0, "GPU-lead / slot waits only for submitted fence values");
     Check(g_tagBad == 0 && g_tags == tails1, "KtglCache tag per FO frame in TAIL = {dev+4310h, the frame's submitted fence}");
-    Check(g_subResetEarly == 0, "sub-stream reset only after TAIL N (barrier)");
+    Check(g_subResets == 0, "FO never resets a sub-stream (workers append before the barrier; stock wrap path only)");
     Check(g_ppViolations == 0 && g_ppMainViolations == 0 && g_ppCalls > 0, "PagePool handlers never run concurrently with main PP work");
     Check(g_allocResets >= tails1, "frame-slot allocator reset at every FO frame end (main, before the slot switch)");
     Check(g_resolves >= tails1 - 1 && g_resolveBad == 0, "timestamps: TAIL resolved index 5 of a slot range every frame");
