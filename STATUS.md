@@ -1,5 +1,10 @@
-# STATUS (handoff) - rewritten 2026-10-09 17:35
+# STATUS (handoff) - rewritten 2026-10-10 00:58
 Read this section only; older handoffs follow below.
+
+## HANDOFF 2026-10-10 00:58 (new chat starts here)
+- WORK: renderer decomp (notes/renderer/00-map.md = plan; section 3 = package table + rules). DONE: 01 backend, 02 materials, 03 lighting, 04 post. RUNNING (Opus, started 00:56): 05 frame-graph, 07 drawlists, 08 meshlet (incl. a same-look meshlet front-end restructure design, est. 2-3.5 ms pc2). NEXT: 06 resources, 09 volumetrics, 10 effects, 11 ui (max 3 at once); 12 capture-check when the FCAP1b [RESULT]s land.
+- DEVICES: pc2 + Ally hold their locks running FCAP1b (bridge #1216 / #1217: GPUProf_Markers=1 fix, same ASI #187). PC game not running. Bridge cursor 1221.
+- RESUME: Monitor on universal-optimizer/agent-bridge/deploy/watch_inbox.py --channel nioh3 (UO_AGENT_ID=pc, 30 min, re-arm); handoff below (10-09 17:35) still holds for mandate/rules.
 
 ## HANDOFF 2026-10-09 17:35 (new chat starts here)
 - MANDATE: noticeable, feelable gains (user: ~1 fps gains go to notes/backlog-small-wins.md, NOT prioritised; priority = >=~5 % fps or feelable smoothness/latency/loading). Investigate root causes, then fix; every Windows win also gets a Linux (Ally) check (bridge #954). Budget normal (weekly reset 2026-10-09).
