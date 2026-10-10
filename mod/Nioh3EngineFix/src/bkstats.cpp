@@ -26,6 +26,19 @@ constexpr uintptr_t kStreamSize = 0x3C28, kStreamGen = 0x3C60, kFlushLimit = 0x3
 constexpr uintptr_t kSnapDraws = 0x3D00, kSnapKicks = 0x3D04, kSnapBytes = 0x3D0C;
 constexpr uintptr_t kSnapFullTot = 0x3D10, kSnapFullCnt = 0x3D20, kSnapDrainTot = 0x3D28, kSnapDrainMax = 0x3D30,
                     kSnapDrainCnt = 0x3D38;
+// FOV (frame-overlap viability, notes/renderer/frame-overlap.md): the other main-thread waits of the same snapshot block
+//   +3CB8h stat (owner not identified)                       -> snapshot +3D40h tot / +3D50h cnt
+//   +3CD0h handle wait 7D99FC (spin until the dispatcher has replayed past an 0xA7 marker; sub-stream wrap, sync points)
+//                                                             -> snapshot +3D58h tot / +3D60h max / +3D68h cnt
+//   +3CE8h sync-point GPU wait 3D2B90 (handle replayed, then GfxWaitFenceValue on that list's fence; e.g. the meshlet
+//          scene-buffer set reuse in MeshletUpdateSceneBuffers 4BBEC)  -> snapshot +3D70h tot / +3D78h max / +3D80h cnt
+constexpr uintptr_t kSnapX3Tot = 0x3D40, kSnapX3Cnt = 0x3D50, kSnapHwTot = 0x3D58, kSnapHwMax = 0x3D60, kSnapHwCnt = 0x3D68,
+                    kSnapSwTot = 0x3D70, kSnapSwMax = 0x3D78, kSnapSwCnt = 0x3D80;
+// frame-boundary sizes the overlap design depends on
+constexpr uintptr_t kSyncTables = 0x3C18;   // u32 per-frame sync-point tables (ring indexed by frame counter +3C1Ch)
+constexpr uintptr_t kFrameSlots = 0x4240;   // u32 engine frame slots (BufferCount)
+constexpr uintptr_t kPresentThr = 0x3F80;   // u8 present on the present thread
+constexpr uintptr_t kSubStreams = 0x3E28;   // u32 sub-streams (+74D8h array, token 0x90, reset at Present)
 // SynCtx = g+10h; CmdListRing = SynCtx+5A0h = g+5B0h
 constexpr uintptr_t kListRing = 0x5B0;
 constexpr uintptr_t kLrCount = kListRing + 0x18;      // u32 command lists in the ring (grows on demand, 4931B0)
@@ -149,6 +162,7 @@ struct Acc {
     // per-frame snapshots
     uint32_t frames = 0;
     uint64_t draws = 0, kicks = 0, bytes = 0, fullTot = 0, fullCnt = 0, drainTot = 0, drainMax = 0;
+    uint64_t x3Tot = 0, x3Cnt = 0, hwTot = 0, hwMax = 0, hwCnt = 0, swTot = 0, swMax = 0, swCnt = 0, swFrames = 0;
     // sampler
     uint64_t n = 0, nDrain = 0, nRec = 0, nStarvedRec = 0, nStarved = 0, nFull = 0, backlog = 0, nEclFull = 0, nLockHeld = 0,
              nLockWait = 0, nLockExcl = 0;
@@ -212,6 +226,18 @@ DWORD WINAPI CensusThread(LPVOID) {
                     a.fullCnt += fc;
                     a.drainTot += dt;
                     a.drainMax = std::max<uint64_t>(a.drainMax, dm);
+                    uint64_t v = 0;
+                    uint32_t c = 0;
+                    if (RdU64(g + kSnapX3Tot, v) && RdU32(g + kSnapX3Cnt, c)) a.x3Tot += v, a.x3Cnt += c;
+                    if (RdU64(g + kSnapHwTot, v) && RdU32(g + kSnapHwCnt, c)) {
+                        a.hwTot += v, a.hwCnt += c;
+                        if (RdU64(g + kSnapHwMax, v)) a.hwMax = std::max(a.hwMax, v);
+                    }
+                    if (RdU64(g + kSnapSwTot, v) && RdU32(g + kSnapSwCnt, c)) {
+                        a.swTot += v, a.swCnt += c;
+                        if (c) ++a.swFrames;
+                        if (RdU64(g + kSnapSwMax, v)) a.swMax = std::max(a.swMax, v);
+                    }
                     lastSnapDraws = d;
                     lastSnapDrain = dt;
                     lastSnapCnt = dc;
@@ -288,6 +314,20 @@ DWORD WINAPI CensusThread(LPVOID) {
               Ms(b7, 16, perF(D(rc.tot, s0Rec.tot))), (unsigned)D(rc.cnt, s0Rec.cnt), Ms(b8, 16, perF(D(t.tot, s0Tok.tot))),
               Ms(b9, 16, perF(D(j.tot, s0Job.tot))), pct(a.nLockHeld, a.n), pct(a.nLockExcl, a.n), pct(a.nLockWait, a.n),
               (unsigned long long)a.n);
+        {
+            uint32_t st = 0, fs = 0, ns = 0;
+            uint8_t pt = 0;
+            RdU32(g + kSyncTables, st);
+            RdU32(g + kFrameSlots, fs);
+            RdU32(g + kSubStreams, ns);
+            RdU8(g + kPresentThr, pt);
+            char c1[16], c2[16], c3[16], c4[16], c5[16];
+            g_log("BKS: fov: handle wait %s ms/f (n/f %.2f, max %s) | sync-point GPU wait %s ms/f (n/f %.2f, in %.0f %% of frames, max %s) | "
+                  "stat3CB8 %s ms/f (n/f %.2f) | sync tables %u frame slots %u sub-streams %u present thread %u",
+                  Ms(c1, 16, perF(a.hwTot)), a.hwCnt / fr, Ms(c2, 16, (double)a.hwMax * g_tickMs), Ms(c3, 16, perF(a.swTot)), a.swCnt / fr,
+                  pct(a.swFrames, a.frames), Ms(c4, 16, (double)a.swMax * g_tickMs), Ms(c5, 16, perF(a.x3Tot)), a.x3Cnt / fr, st, fs, ns,
+                  (unsigned)pt);
+        }
         s0Ecl = e;
         s0Idle = i;
         s0Rec = rc;

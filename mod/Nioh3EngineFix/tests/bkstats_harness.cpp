@@ -61,6 +61,8 @@ int main() {
     F<uint32_t>(g + 0x3C00) = 64;          // ring cap
     F<uint32_t>(g + 0x3C28) = 8u << 20;    // stream buffer
     F<uint32_t>(g + 0x3C70) = 256;         // CmdFlushLimit (engine value)
+    F<uint32_t>(g + 0x3C18) = 3;           // sync-point tables
+    F<uint32_t>(g + 0x4240) = 3;           // frame slots
     F<uint32_t>(g + 0x5B0 + 0x18) = 40;    // lists
     F<uint32_t>(g + 0x5B0 + 0x98) = 40;    // ECL cap
     F<uint32_t>(g + 0x5B0 + 0xA8) = 9;     // ECL high-water
@@ -121,6 +123,13 @@ int main() {
             F<uint64_t>(g + 0x3D28) = (uint64_t)(6.0 * tps) + fr % 3;
             F<uint64_t>(g + 0x3D30) = (uint64_t)(6.0 * tps);
             F<uint32_t>(g + 0x3D38) = 1;
+            // FOV: handle wait 0.4 ms x2, sync-point GPU wait 1.5 ms x1 on every other frame, stat3CB8 0.2 ms x1
+            F<uint64_t>(g + 0x3D40) = (uint64_t)(0.2 * tps); F<uint32_t>(g + 0x3D50) = 1;
+            F<uint64_t>(g + 0x3D58) = (uint64_t)(0.8 * tps); F<uint64_t>(g + 0x3D60) = (uint64_t)(0.4 * tps);
+            F<uint32_t>(g + 0x3D68) = 2;
+            F<uint64_t>(g + 0x3D70) = (fr & 1) ? (uint64_t)(1.5 * tps) : 0;
+            F<uint64_t>(g + 0x3D78) = (fr & 1) ? (uint64_t)(1.5 * tps) : 0;
+            F<uint32_t>(g + 0x3D80) = (fr & 1) ? 1 : 0;
         }
     });
 
@@ -146,12 +155,13 @@ int main() {
     stop = true;
     eng.join();
 
-    std::string a, b;
+    std::string a, b, fv;
     {
         std::lock_guard<std::mutex> l(g_mx);
         for (auto& s : g_lines) {
             if (s.rfind("BKS: ", 0) == 0 && s.find("| main:") != std::string::npos) a = s;
             if (s.rfind("BKS: disp:", 0) == 0) b = s;
+            if (s.rfind("BKS: fov:", 0) == 0) fv = s;
         }
     }
     Check(!a.empty() && !b.empty(), "two report lines");
@@ -177,6 +187,13 @@ int main() {
     Check(approx(sub, 28.0, 1.5), "submits per frame ~28");
     Check(approx(held, 20.0, 4.0) && approx(excl, 20.0, 4.0), "cache lock held / exclusive ~20 %");
     Check(approx(lists, 40.0, 0.1), "lists");
+    const double hw = num(fv, "handle wait "), sw = num(fv, "sync-point GPU wait "), swin = num(fv, "in "),
+                 x3 = num(fv, "stat3CB8 "), stab = num(fv, "sync tables "), slots = num(fv, "frame slots ");
+    printf("parsed fov: hw %.2f sw %.2f in %.0f%% x3 %.2f tables %.0f slots %.0f\n", hw, sw, swin, x3, stab, slots);
+    Check(!fv.empty(), "fov line");
+    Check(approx(hw, 0.8, 0.02) && approx(sw, 0.75, 0.05) && approx(swin, 50.0, 5.0) && approx(x3, 0.2, 0.02),
+          "fov waits per frame");
+    Check(approx(stab, 3.0, 0.1) && approx(slots, 3.0, 0.1), "fov sizes");
     printf(fails ? "FAILED (%d)\n" : "ALL PASSED\n", fails);
     return fails ? 1 : 0;
 }
