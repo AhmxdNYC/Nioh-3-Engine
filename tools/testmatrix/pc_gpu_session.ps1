@@ -85,7 +85,11 @@ $AsiItems = @{ AS0 = "Patches.AS0=1"; GIM = "Patches.GIMerge=1;Debug.GIProbe=1";
                # notes\root-cause-vram-streaming.md: per-draw CBVs mirrored into VRAM (ASI >= 1.7.52): cm = auto (on without ReBAR), cmforce = always
                cm = "GpuOpt.CbvMirror=1"; cmforce = "GpuOpt.CbvMirror=2";
                # notes\gpu-barriers.md: D3D12 barrier batching (bb = on, bbc = hooks + counters only)
-               bb = "GpuOpt.Barriers=1"; bbc = "GpuOpt.Barriers=2" }
+               bb = "GpuOpt.Barriers=1"; bbc = "GpuOpt.Barriers=2";
+               # notes\rebar-fix-v3.md (ASI >= 1.7.57): no-ReBAR layout forced on a ReBAR PC; sbmbase = census only, sbm = scene-buffer mirror (own COPY queue), sbmd = mirror on the DIRECT queue
+               sbmbase = "Profiler.MemStats=2;Profiler.VSForceSysUpload=2;Profiler.SceneBufProbe=1";
+               sbm = "Profiler.MemStats=2;Profiler.VSForceSysUpload=2;Profiler.SceneBufProbe=1;GpuOpt.SceneBufMirror=2";
+               sbmd = "Profiler.MemStats=2;Profiler.VSForceSysUpload=2;Profiler.SceneBufProbe=1;GpuOpt.SceneBufMirror=2;GpuOpt.SceneBufMirrorQueue=0" }
 $ComboShader = @{ mpcs = "mpc" }   # ASI items that need a shader item installed in their arm (MPCS refuses without the mpc file)
 $script:restored = $false; $script:lockHeld = $false; $script:modInstalled = $false; $script:cfgInstalled = $false; $script:savesBacked = $false
 $script:Init = @{}; $script:pm = $null; $script:summary = [ordered]@{}
