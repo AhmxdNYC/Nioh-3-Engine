@@ -12,7 +12,7 @@ import sys
 from collections import defaultdict
 
 TS = re.compile(r"^\[(\d\d):(\d\d):(\d\d)\.(\d+)\] (.*)$")
-LIVE = re.compile(r"LIVE tuning: (CBS_FENCE|CBSTATS|CBMODE|CBALL|CBS|CBN|CBT) = (\d+)")
+LIVE = re.compile(r"LIVE tuning: (CBS_FENCE|CBSTATS|CBMODE|CBALL|CBF_QUEUE|CBF|CBS|CBN|CBT) = (\d+)")
 HDR = re.compile(r"RPF: ([\d.]+) s, (\d+) frames \(([\d.]+)/s by token 95\); replay thread ms/frame: wall ([\d.]+) = handlers ([\d.]+) "
                  r"\[self CPU ([-\d.]+), D3D12 ([\d.]+)")
 TOK = re.compile(r"RPF tok +\d+ ([0-9A-F]{2}) (\S+) +n/f +([\d.]+) self +([-\d.]+) \( *[-\d.]+ %\) incl +([\d.]+) cpu +([-\d.]+) "
@@ -28,7 +28,7 @@ def secs(m):
 
 
 def main(path):
-    state = {"CBS": None, "CBN": None, "CBT": None, "CBSTATS": None, "CBS_FENCE": 1}
+    state = {"CBS": None, "CBN": None, "CBT": None, "CBSTATS": None, "CBS_FENCE": 1, "CBF": 0, "CBF_QUEUE": 0}
     changes = []  # (t, state copy)
     wins = []
     cur = None
@@ -53,7 +53,7 @@ def main(path):
                     state[kk] = v
             elif k == "CBMODE":
                 state.update(CBS=1 if v & 9 else 0, CBN=1 if v & 2 else 0, CBT=1 if v & 4 else 0, CBSTATS=1 if v & 16 else 0,
-                             CBS_FENCE=0 if v & 8 else 1)
+                             CBS_FENCE=0 if v & 8 else 1, CBF=1 if v & 32 else 0, CBF_QUEUE=1 if v & 64 else 0)
             else:
                 state[k] = v
             changes.append((t, dict(state)))
@@ -93,7 +93,7 @@ def main(path):
         s0, s1 = state_at(t0 - 0.5), state_at(w["t"])
         if s0 is None or s0 != s1:
             continue
-        key = "CBS %s fence %s CBN %s CBT %s stats %s" % (s1["CBS"], s1["CBS_FENCE"], s1["CBN"], s1["CBT"], s1["CBSTATS"])
+        key = "CBS %s fence %s CBN %s CBT %s stats %s CBF %s q %s" % (s1["CBS"], s1["CBS_FENCE"], s1["CBN"], s1["CBT"], s1["CBSTATS"], s1["CBF"], s1["CBF_QUEUE"])
         arms[key].append(w)
     print("RPF windows per CBU state (frame-weighted; windows straddling a switch dropped)")
     for key in sorted(arms):
