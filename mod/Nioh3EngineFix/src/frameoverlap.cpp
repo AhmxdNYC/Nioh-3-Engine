@@ -63,7 +63,6 @@ uintptr_t g_frameStart = 0;
 ID3D12Fence* volatile g_ovFence = nullptr;     // forward fence (TAIL signals frame numbers)
 uintptr_t g_ovFenceHolder = 0;                 // *(&holder) = the fence: the cache job derefs entry+10h
 HANDLE g_waitEv = nullptr;   // main thread's fence waits
-HANDLE g_tailEv = nullptr;   // TAIL's slot-fence wait (stock uses dev+4318h from one thread only)
 uint32_t g_bufCount = 0, g_mainIdx = 0;
 uint64_t g_bbFrame = ~0ull;  // frame whose back-buffer index FoGetBB already chose (RenderFrameBegin can run without a Present)
 bool g_lastWasFO = false;
@@ -72,6 +71,8 @@ std::atomic<uint64_t> g_presents{0};  // every GfxDevicePresent through FO's ent
 struct FrameRec {
     uint64_t frame;
     uint64_t fence;
+    uint32_t slot;  // the frame slot the frame was recorded in (main advances +4730h at E; TAIL resolves / stores for this one)
+    uint32_t pad2;
     volatile LONG fenceValid;
     LONG predValid;
     uint32_t predIdx;
@@ -95,6 +96,7 @@ int g_subN = 0;
 SRWLOCK g_pp = SRWLOCK_INIT;  // PagePool frame protocol lock (main: E7 / PagePoolFrameUpdate / 7D9C24; replay: PP tokens)
 
 // stats
+std::atomic<int64_t> s_noAdvance{0};
 std::atomic<int64_t> s_fo{0}, s_stock{0}, s_span{0}, s_barrierTicks{0}, s_leadTicks{0}, s_tailTicks{0}, s_ppWaitTicks{0},
     s_ppWaits{0}, s_subSkip{0}, s_barrierEarly{0}, s_barrierLate{0}, s_prevGenHits{0}, s_bbChecks{0};
 double g_tickMs = 0.0;
@@ -206,12 +208,10 @@ inline Fn V(void* obj, size_t off) {
     return *reinterpret_cast<Fn*>(*reinterpret_cast<uintptr_t*>(obj) + off);
 }
 
-void TimestampResolve(uintptr_t dev) {
-    const uint32_t slot = F<uint32_t>(dev + kSlot);
+void TimestampResolve(uintptr_t dev, uint32_t slot) {
     uint32_t i = F<uint32_t>(dev + kTsFirst + slot * 16ull);
     const uint32_t last = F<uint32_t>(dev + kTsLast + slot * 16ull);
     if (i > last) return;
-    Disable(3, "timestamp queries in use");
     const uint32_t base = slot * F<uint32_t>(dev + kTsPer);
     uint64_t* bits = F<uint64_t*>(dev + kTsBits + slot * 16ull);
     void* list = F<void*>(dev + kCtxListPtr);
@@ -236,15 +236,17 @@ void TimestampResolve(uintptr_t dev) {
     if (run) flush();
 }
 
-void SlotAdvanceTail(uintptr_t dev, bool advance) {
-    uint32_t slot = F<uint32_t>(dev + kSlot);
-    if (advance) {
-        slot = (slot + 1) % std::max(1u, F<uint32_t>(dev + kSlotCount));
-        F<uint32_t>(dev + kSlot) = slot;
-    }
-    E.waitFence(dev, F<uint64_t>(dev + kSlotFence + slot * 8ull), g_tailEv ? (void*)g_tailEv : F<void*>(dev + kFenceEv));
-    E.recRebuild(dev + kCtx);  // second half of 8BEDC8 (the +3C1Ch tick ran on main at E)
-    slot = F<uint32_t>(dev + kSlot);
+// GfxFrameSlotAdvance 8BEC48 minus the parts that stay on the replay thread, run by MAIN at E (stock: main, after Present).
+// The timestamp allocator 6B42B0 runs on main at record time with index slot * per + i and the slot's range / bitset, so the
+// record slot must advance before frame N+1 records. Order matters for the replay thread, which resets every new command list with
+// allocator +4290h[+4730h] (SynCmdListOnReset 492220): the next slot's allocator is reset (after its fence = frame N-2 done)
+// BEFORE +4730h changes, so a list of frame N recorded after the switch starts on a freshly reset allocator; that allocator is
+// next reset only after the fence of frame N+1 (covers frame N).
+void SlotAdvanceMain(uintptr_t dev) {
+    const uint32_t slot = (F<uint32_t>(dev + kSlot) + 1) % std::max(1u, F<uint32_t>(dev + kSlotCount));
+    const uint64_t t0 = Now();
+    E.waitFence(dev, F<uint64_t>(dev + kSlotFence + slot * 8ull), g_waitEv);  // GPU done with frame N-2
+    s_leadTicks += (int64_t)(Now() - t0);
     const uint32_t first = F<uint32_t>(dev + kTsFirst + slot * 16ull), last = F<uint32_t>(dev + kTsLast + slot * 16ull);
     if (first <= last) {
         const uint32_t per = F<uint32_t>(dev + kTsPer), cnt = last - first + 1;
@@ -261,18 +263,17 @@ void SlotAdvanceTail(uintptr_t dev, bool advance) {
         F<uint32_t>(dev + kTsFirst + slot * 16ull) = 0xFFFFFFFFu;
         F<uint32_t>(dev + kTsLast + slot * 16ull) = 0;
         memset(F<void*>(dev + kTsBits + slot * 16ull), 0, ((uint64_t)per + 0x3F & ~0x3Full) >> 3);
-        slot = F<uint32_t>(dev + kSlot);
     }
     void* alloc = F<void*>(dev + kAlloc + slot * 8ull);
     V<ResetFn>(alloc, 0x40)(alloc);
-    E.recycle(dev + kCtx);
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(dev + kSlot), (LONG)slot);
 }
 
 void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
     const uintptr_t dev = g_dev;
     const uint64_t t0 = Now(), q0 = E.qpc();
     if (F<uint8_t>(dev + kPresentThr)) E.spinPresent(dev);  // present N-1 retired: GetCurrentBackBufferIndex = frame N's buffer
-    TimestampResolve(dev);
+    TimestampResolve(dev, r->slot);
     const uintptr_t p = dev + kPresentParams;
     const bool scOverride = F<uintptr_t>(p + 8) != 0;
     uintptr_t res = scOverride ? F<uintptr_t>(p + 0x10) : 0;
@@ -291,7 +292,7 @@ void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
     }
     E.transition(dev + kCtx, F<uint64_t>(res + 0x10), F<uint64_t>(res + 0x18), 0, 0, 0xFFFFFFFFull);
     const uint64_t fence = E.submitFrame(dev + kListRing, dev + kListPool, 0);
-    const uint32_t slot = F<uint32_t>(dev + kSlot);
+    const uint32_t slot = r->slot;
     F<uint64_t>(dev + kSlotFence + slot * 8ull) = fence;
     r->fence = fence;
     InterlockedExchange(&r->fenceValid, 1);
@@ -324,7 +325,8 @@ void __fastcall TailFn(void* /*{list, ctx}*/, FrameRec* r) {
         F<int>(dev + kPresentB) = flags;
         SetEvent(F<HANDLE>(dev + kPresentEv));
     }
-    SlotAdvanceTail(dev, !flagged || scOverride);
+    E.recRebuild(dev + kCtx);  // pipeline-statistics readback (early-outs when unused; FO falls back when used)
+    E.recycle(dev + kCtx);     // CmdListRingFlushAndRecycle on SynCtx (2EFB73C)
     F<uint64_t>(dev + kPresentTime) = E.qpc() - q0;
     s_tailTicks += (int64_t)(Now() - t0);
     g_tailDone.store(r->frame, std::memory_order_release);
@@ -359,7 +361,6 @@ bool Init(uintptr_t dev) {
         return false;
     }
     g_waitEv = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    g_tailEv = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     g_init = true;
     FLOG("FO: armed: stream halves %p | %p | %p (reserve %u), sync tables %u, frame slots %u, present thread %u, K %d %%",
          (void*)g_sBase, (void*)g_sMid, (void*)g_sEnd, reserve, F<uint32_t>(dev + kSyncN), F<uint32_t>(dev + kSlotCount),
@@ -400,16 +401,15 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
         F<uintptr_t>(dev + kEnd) = g_sMid;  // stock reset to base: the next frame records in the low half
         return;
     }
-    const uint64_t N = g_frame + 1;
-    // CPU lead as stock: GPU done with frame N-2 before frame N+1 records
-    if (N >= 2) {
-        FrameRec& r2 = g_rec[(N - 2) & 3];
-        if (r2.frame == N - 2 && r2.fenceValid) {
-            const uint64_t t0 = Now();
-            E.waitFence(dev, r2.fence, g_waitEv);
-            s_leadTicks += (int64_t)(Now() - t0);
+    {  // stock does not advance the slot when the present flag bit 0 is set without a swapchain override: keep stock there
+        const uintptr_t pp = dev + kPresentParams;
+        if ((F<uint32_t>(pp) & 1) && !F<uintptr_t>(pp + 8)) {
+            ++s_noAdvance;
+            StockPresent(dev, p2);
+            return;
         }
     }
+    const uint64_t N = g_frame + 1;
     // final kick exactly as stock (submit = 1)
     uint64_t item[2] = {F<uint64_t>(dev + kLastKick), (uint64_t)write};
     E.ringPush(dev + kRing, item, 1, dev + kStats);
@@ -424,6 +424,9 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
         F<uint32_t>(t + 8) = 0;
         F<uint32_t>(t + 0x10) = n;
     }
+    // record slot for frame N+1 (GfxFrameSlotAdvance's main-thread part); TAIL N uses the frame's own slot
+    const uint32_t frameSlot = F<uint32_t>(dev + kSlot);
+    SlotAdvanceMain(dev);
     // sub-stream recorders (reset at B)
     g_subN = 0;
     if (const uintptr_t arr = F<uintptr_t>(dev + kSubArr)) {
@@ -441,6 +444,7 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
     // TAIL token in its own stretch (submit = 0)
     FrameRec& r = g_rec[N & 3];
     r.frame = N;
+    r.slot = frameSlot;
     r.fence = 0;
     r.fenceValid = 0;
     {

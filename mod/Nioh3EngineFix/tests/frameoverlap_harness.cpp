@@ -9,6 +9,7 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -123,6 +124,7 @@ static void WaitIdle() {
 
 // ---- fake swapchain / present thread -----------------------------------------------------------------------------------
 static std::atomic<uint32_t> g_scIdx{0};
+static std::atomic<uint32_t> g_lastResolvedSlot{99};
 static std::atomic<int> g_presents{0}, g_skipNext{0};
 struct FakeCom {
     void** vt;
@@ -141,6 +143,27 @@ static HRESULT STDMETHODCALLTYPE ScDesc(void*, DXGI_SWAP_CHAIN_DESC* d) {
     d->BufferCount = 3;
     return S_OK;
 }
+// timestamps: main allocates at record time in slot +4730h (6B42B0); TAIL must resolve exactly that slot's range
+constexpr uint32_t kPer = 64;
+static uint64_t g_tsBits[3][1] = {};
+static std::atomic<int> g_resolves{0}, g_resolveBad{0};
+static std::atomic<uint32_t> g_expectSlotForFrame[4096] = {};
+static void* g_listVt[64];
+static FakeCom g_list{g_listVt};
+static void STDMETHODCALLTYPE ListResolve(void*, void*, int type, UINT start, UINT num, void*, UINT64 off) {
+    ++g_resolves;
+    if (type != 2 || num != 1 || off != (UINT64)start * 8 || start % kPer != 5) ++g_resolveBad;
+    g_lastResolvedSlot = start / kPer;
+}
+static void* g_rbVt[16];
+static FakeCom g_rb{g_rbVt};
+static uint8_t g_rbMem[3 * kPer * 8] = {};
+static HRESULT STDMETHODCALLTYPE RbMap(void*, UINT, const D3D12_RANGE*, void** pp) {
+    *pp = g_rbMem;
+    return S_OK;
+}
+static void STDMETHODCALLTYPE RbUnmap(void*, UINT, const D3D12_RANGE*) {}
+static std::vector<uint8_t> g_tsCopy(3 * kPer * 8);
 static void* g_allocVt[16];
 static FakeCom g_alloc{g_allocVt};
 static std::atomic<int> g_allocResets{0};
@@ -172,6 +195,12 @@ static void StockPresent(uintptr_t d, uintptr_t) {  // stock GfxDevicePresent: f
     F<uintptr_t>(d + 0x3C48) = F<uintptr_t>(d + 0x3C30);
     F<uint32_t>(d + 0x3C60) += 1;
     for (int i = 0; i < 2; ++i) F<uintptr_t>(g_subRec[i] + 0x28) = F<uintptr_t>(g_subRec[i] + 0x18);
+    {
+        const uint32_t s = F<uint32_t>(d + 0x4730);
+        F<uint32_t>(d + 0x4788 + s * 16) = 0xFFFFFFFFu;
+        F<uint32_t>(d + 0x478C + s * 16) = 0;
+        g_tsBits[s][0] = 0;
+    }
     F<uint32_t>(d + 0x4730) = (F<uint32_t>(d + 0x4730) + 1) % 3;
     F<uint32_t>(d + 0x3C1C) += 1;
     ScPresent(&g_sc, 0, 0);
@@ -245,10 +274,18 @@ static void Emit(uint32_t n, uint32_t nodes, uint32_t kickEvery = 64) {
     }
 }
 static int g_bbMismatchMain = 0;
+static std::vector<uint32_t> g_recSlots;
 static void Frame(uint32_t tokens, uint32_t nodes = 100) {
     // WaitSubmitThread: present spin is FO's business, back-buffer index, PagePoolFrameUpdate
     TestGetBB(&g_sc);
     TestPPUpdate(dev + 0x61A0, dev);
+    {  // 6B42B0 on main: slot = +4730h at record time
+        const uint32_t s = F<uint32_t>(dev + 0x4730);
+        F<uint32_t>(dev + 0x4788 + s * 16) = std::min(F<uint32_t>(dev + 0x4788 + s * 16), 5u);
+        F<uint32_t>(dev + 0x478C + s * 16) = std::max(F<uint32_t>(dev + 0x478C + s * 16), 5u);
+        g_tsBits[s][0] |= 1ull << 5;
+        g_recSlots.push_back(s);
+    }
     // sub-stream workers write after the barrier only (like effects late in the frame)
     Emit(tokens / 2, nodes);
     for (int i = 0; i < 2; ++i) F<uintptr_t>(g_subRec[i] + 0x28) += 64;
@@ -289,6 +326,7 @@ int main() {
         F<uintptr_t>(dev + 0x4698 + i * 8) = (uintptr_t)res[i];
         F<void*>(dev + 0x4290 + i * 8) = &g_alloc;
         F<uint32_t>(dev + 0x4788 + i * 16) = 0xFFFFFFFFu;
+        F<uint64_t*>(dev + 0x4790 + i * 16) = g_tsBits[i];
         F<uint32_t>(dev + 0x478C + i * 16) = 0;
     }
     F<HANDLE>(dev + 0x7720) = CreateEventW(nullptr, FALSE, FALSE, nullptr);
@@ -310,6 +348,13 @@ int main() {
     g_scVt[12] = (void*)&ScDesc;
     g_scVt[36] = (void*)&ScGetIdx;
     g_allocVt[8] = (void*)&AllocReset;
+    g_listVt[54] = (void*)&ListResolve;
+    g_rbVt[8] = (void*)&RbMap;
+    g_rbVt[9] = (void*)&RbUnmap;
+    F<void*>(dev + 0x590) = &g_list;
+    F<void*>(dev + 0x4770) = &g_rb;
+    F<uint8_t*>(dev + 0x4778) = g_tsCopy.data();
+    F<uint32_t>(dev + 0x4034) = kPer;
 
     static uintptr_t gfxGlobal = 0, cbNull = 0;
     Engine e{};
@@ -361,7 +406,9 @@ int main() {
     Check(g_tagBad == 0 && g_tags == tails1, "KtglCache tag per FO frame = {forward fence holder, frame number}");
     Check(g_subResetEarly == 0, "sub-stream reset only after TAIL N (barrier)");
     Check(g_ppViolations == 0 && g_ppMainViolations == 0 && g_ppCalls > 0, "PagePool handlers never run concurrently with main PP work");
-    Check(g_allocResets >= tails1, "frame-slot allocator reset in every TAIL");
+    Check(g_allocResets >= tails1, "frame-slot allocator reset at every FO frame end (main, before the slot switch)");
+    Check(g_resolves >= tails1 - 1 && g_resolveBad == 0, "timestamps: TAIL resolved index 5 of a slot range every frame");
+    Check(!TestDisabled(), "timestamp queries in use do not switch FO off");
     for (int i = 0; i < 400 && (*g_expectHolder)->GetCompletedValue() < g_lastTag; ++i) Sleep(5);
     Check(g_expectHolder && *g_expectHolder && (*g_expectHolder)->GetCompletedValue() >= g_lastTag,
           "forward fence reached the last frame number on the GPU queue");
