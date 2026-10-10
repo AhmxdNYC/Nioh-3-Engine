@@ -4,6 +4,8 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <algorithm>
+#include <cctype>
+#include <intrin.h>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -1575,6 +1577,19 @@ void OnListHead(void* list, int set) {
 }
 
 volatile long g_mlpBarriers = 0;
+volatile long g_fcCap = 0;
+volatile long g_fcEcl = 0;
+#include "fcap.h"   // FC frame capture (namespace gp::fc)
+void FcListCall(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t* regs) {
+    if (!g_fcCap) return;
+    __try {
+        fc::ListCall(list, set, slot, a1, a2, a3, regs);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedExchange(&g_fcCap, 0);
+        InterlockedExchange(&fc::s_capOn, 0);
+        GLOG("FC: exception 0x%08lX in the command-list hook (slot %d) - capture aborted", GetExceptionCode(), slot);
+    }
+}
 
 // 1.7.47 MLP / MpcCheck: gpuopt's pass-through ResourceBarrier path, before (post = false) and after (post = true) the original call
 static void OnBarrierImpl(void* list, int set, unsigned n, const void* bp, bool post) {
@@ -1592,7 +1607,15 @@ static void OnBarrierImpl(void* list, int set, unsigned n, const void* bp, bool 
         if (t_reg.check) mpcck::OnBarrier(list, set, n, b);
     }
 }
-void OnBarrier(void* list, int set, unsigned n, const void* barriers, bool post) {
+void OnBarrier(void* list, int set, unsigned n, const void* barriers, bool post, void* ra) {
+    if (g_fcCap && !post) {
+        __try {
+            fc::Barrier(list, set, n, barriers, ra);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            InterlockedExchange(&g_fcCap, 0);
+            GLOG("FC: exception 0x%08lX in the barrier hook - capture aborted", GetExceptionCode());
+        }
+    }
     if (!t_reg.open || !g_on || g_inited != 1) return;
     __try {
         OnBarrierImpl(list, set, n, barriers, post);
@@ -1653,6 +1676,14 @@ static void OnEclImpl(void* queue, unsigned n, void* const* lists, void* retAddr
 }
 
 void OnEcl(void* queue, unsigned n, void* const* lists, void* retAddr, bool gameCaller) {
+    if (g_fcEcl && queue) {
+        __try {
+            fc::Ecl(queue, n, lists, retAddr);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            InterlockedExchange(&g_fcEcl, 0);
+            GLOG("FC: exception 0x%08lX in the ECL hook - FC queue rows off", GetExceptionCode());
+        }
+    }
     (void)gameCaller;   // our own overlay's lists count too: they occupy the queue like the game's
     if (!g_cfg.gq || g_inited != 1 || !g_on || !queue || !n || !lists) return;
     __try {
@@ -1691,6 +1722,8 @@ void Start(const StartInfo& info) {
     g_cfg.mlpDump = I(L"MeshletProbe_Dump", 0, 0, 2000);
     g_cfg.mlpBarriers = I(L"MeshletProbe_Barriers", 1, 0, 1);
     g_cfg.mpcCheck = I(L"MpcCheck", 0, 0, 1000000);
+    fc::Start(ini, g_cfg.prof);   // FC: markers on (pass names in the capture), hooks via WantsHooks
+    if (fc::c.on && g_codeOk) g_cfg.markers = 1;
     if (!g_cfg.prof && !g_cfg.markers) return;
     if (!g_codeOk || !g_base) {
         GLOG("%s", "marker code not verified on this build - GP off");
@@ -1754,11 +1787,12 @@ void Start(const StartInfo& info) {
     if (HANDLE h = CreateThread(nullptr, 0, MarkerThread, nullptr, 0, nullptr)) CloseHandle(h);
 }
 
-bool WantsHooks() { return g_cfg.prof != 0 && g_codeOk; }
+bool WantsHooks() { return (g_cfg.prof != 0 || fc::c.on != 0) && g_codeOk; }
 bool Active() { return g_on != 0 && g_inited == 1; }
 
 void EnableHooks(volatile uint8_t* mask, int slots) {
     if (!WantsHooks() || !mask || slots <= kSlotEndEvent) return;
+    if (fc::c.on && slots >= 86) fc::s_mask = mask;   // FC arms every list slot in its capture windows only
     mask[kSlotClose] = 1;
     mask[kSlotReset] = 1;
     mask[kSlotBeginEvent] = 1;
@@ -1832,6 +1866,7 @@ void SetSampled(bool on) {
 
 void OnFrame() {
     const LONG64 f = InterlockedIncrement64(&g_frame);
+    fc::OnFrame();        // FC capture windows (no-op when off)
     mlprobe::OnFrame();   // 1.7.47 MLP CPU half: frame boundary of the recorder call sequences (no-op when off)
     if (!g_on || g_inited != 1) return;
     if (g_cfg.prof >= 2) {   // wall time between presents (the game is GPU-bound, so this tracks GPU frame time)
@@ -1878,6 +1913,7 @@ void LogLine() {
     LogLineImpl();
 }
 void LogWindow(const char* tag) {
+    if (tag) fc::TourTag(tag); else fc::TourDwell();   // FC: one capture per tour dwell
     if (!g_cfg.prof) return;
     if (!tag) {  // discard everything gathered so far (the time between two dwells)
         AcquireSRWLockExclusive(&g_aggLock);

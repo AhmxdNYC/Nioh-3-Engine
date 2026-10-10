@@ -70,6 +70,14 @@ void OnEcl(void* queue, unsigned n, void* const* lists, void* retAddr, bool game
 // Log lines "GP: MLP: ..." after the GP2 block; MeshletProbe_Dump = N writes the raw events of N sampled frames to
 // Nioh3EngineFix_mlp.csv next to the ini. MpcCheck (mpccheck.cpp) uses the same region tracking.
 extern volatile long g_mlpBarriers;   // != 0: MLP or MpcCheck on (gpuopt's pass-through ResourceBarrier path calls OnBarrier)
-void OnBarrier(void* list, int set, unsigned n, const void* barriers, bool post);
+void OnBarrier(void* list, int set, unsigned n, const void* barriers, bool post, void* ra = nullptr);
+
+// FC ([Profiler] FrameCap = 0; fcap.h, notes\renderer\00-map.md section 4): one-frame D3D12 command-stream capture. Needs GPUProf = 0,
+// [GpuOpt] Barriers = 0 and the OSD. g_fcCap != 0 only inside a capture window: gpuopt then sends every armed list slot to FcListCall
+// (with the thunk's saved registers, for the caller RVA and stack arguments) and its pass-through barriers to OnBarrier; osd sends
+// ExecuteCommandLists to OnEcl while g_fcEcl != 0 (the first call also installs FC's queue Signal / Wait / UpdateTileMappings hooks).
+extern volatile long g_fcCap;
+extern volatile long g_fcEcl;
+void FcListCall(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t* regs);
 
 }  // namespace gp

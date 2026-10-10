@@ -625,10 +625,10 @@ void STDMETHODCALLTYPE HkResourceBarrier(ID3D12GraphicsCommandList* cl, UINT n, 
         FlushList(cl, -1, kSlotResourceBarrier);
         if (gpuopt_trace)
             for (UINT k = 0; k < n && b; ++k) TraceBarrier(cl, S, 2, b[k], true);
-        const bool mlp = gp::g_mlpBarriers != 0;   // 1.7.47 MLP / MpcCheck: stamps around the barrier call (meshlet regions only)
-        if (mlp) gp::OnBarrier(cl, S, n, b, false);
+        const bool mlp = gp::g_mlpBarriers != 0 || gp::g_fcCap != 0;   // 1.7.47 MLP / MpcCheck stamps; FC barrier rows
+        if (mlp) gp::OnBarrier(cl, S, n, b, false, ra);
         g_origRB[S](cl, n, b);
-        if (mlp) gp::OnBarrier(cl, S, n, b, true);
+        if (mlp) gp::OnBarrier(cl, S, n, b, true, ra);
         Add(g_c.passthrough, n);
         Add(g_c.passCalls);
         return;
@@ -882,6 +882,7 @@ extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t 
     bool skip = (gpuopt_hook2[slot] || self == gpuopt_hold) && gimerge::OnListCall(self, set, slot, a1, a2, a3);
     if (gpuopt_flush[slot]) FlushList(self, -1, slot);
     if (gpuopt_hook[slot]) gp::OnListCall(self, set, slot, a1, a2, a3);  // GP: after the batch flush, before the method
+    if (gp::g_fcCap && gpuopt_hook[slot]) gp::FcListCall(self, set, slot, a1, a2, a3, regs);  // FC frame capture
     // SkipFx diagnostic (cost-vs-looks): after the flush, so a skipped draw / dispatch leaves every resource state as recorded
     if (gpuopt_hook3[slot] && skipfx::OnListCall(self, set, slot, a1, a2, a3)) skip = true;
     // ShaderHot (diagnostic): LAST, after every observer above saw the game's own PSO (GP2 / SkipFx attribution stay stock):

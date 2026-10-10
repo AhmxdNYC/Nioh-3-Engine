@@ -1385,7 +1385,8 @@ void Start(const StartInfo& info) {
     g_cfg.dumpMode = IniInt(L"DumpMode", 0, 0, 2, ini);
     g_cfg.logAll = IniInt(L"LogAll", 0, 0, 1, ini);
     g_cfg.track = (GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ||
-                   GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini.c_str()) == 1) ? 1 : 0;   // GP2 / SkipFx need the PSO -> shader map
+                   GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini.c_str()) == 1 ||
+                   GetPrivateProfileIntW(L"Profiler", L"FrameCap", 0, ini.c_str()) != 0) ? 1 : 0;   // GP2 / SkipFx / FC need the PSO -> shader map
     g_onDevice = info.onDevice;
     g_cfg.hot = GetPrivateProfileIntW(L"ShaderHot", L"Enabled", 0, ini.c_str()) == 1 ? 1 : 0;
     if (g_cfg.hot) {
