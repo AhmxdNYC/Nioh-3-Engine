@@ -885,3 +885,10 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - CBU per-draw constant uploads (notes/renderer/cbv-upload.md): CBS streaming copy into the UPLOAD ring (118F4D + 495AF2), CBN skip same-list no-op CB uploads (20 % on the PC), CBT reuse the stage CBV table (16 %); CbvStats / CbvRecord census. Harness byte-exact vs relocated v2.02 code incl. a recorded game trace; PC fps unchanged (GPU-bound), pc2 spec pending.
 - Game folder: only the tour harness temporary ASI/ini during cbu1pc, restored + verified (user ASI DD8B5739, Tour = 0, Nioh3BossRematch.* identical); the trace file moved to captures.
 - Undo: keys 0 (default) or live Tuning.CBMODE = 0.
+
+## 2026-10-10 16:45 - ASI 1.7.60-cbu2 (branch cbv-upload; CBN + CBT default ON, CBF test-only)
+- Default change: `[Patches] CBN = 1, CBT = 1` (skip byte-identical per-draw constant uploads of the same command list + reuse the stage's CBV table), CBS = 0. pc2 +15.9 % (38.3 -> 44.3 fps, #1609), Ally Proton/RADV no-harm (#1668), PC RX 9070 no-harm (cbu2pc: +0.49 % +- 1.78, GPU busy -0.02 ms, #1707). profiles.json CBN / CBT kept.
+- CBN: after a ring-full list cut inside SynUploadCbvTable the skipped slots are uploaded again in the new list (insurance; 0 cuts seen in the game).
+- CBF (`[Patches] CBF = 0`, test only): CB ring written in system memory, one copy per game submission into a VRAM ring (src/cbvstage.cpp). PC: the first run (cbu2pc) rendered black in the CBF windows (RPF's ECL thunk hid the submissions) - fixed (osd hook passes non-game callers through cbvstage) + a no-flush watchdog; the rerun (cbu2pcf) renders correctly, +0.17 ms GPU, +0.7 ms/f CreateCBV cost. pc2 CBU2 queued.
+- Game folder: only the tour harness temporary ASI/ini during cbu2pc / cbu2pcf; saves unchanged + verified, user ini / ASI restored by run_tour (Tour = 0). Note: run_tour warned that the base ini already carried a `TourList =` line before cbu2pcf (left by an earlier run, Tour = 0, harmless) - not removed.
+- Undo: `[Patches] CBN = 0, CBT = 0` (or live Tuning.CBMODE = 0); CBF is 0 by default.
