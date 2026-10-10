@@ -7,9 +7,10 @@
 //
 // Keys (each 0 = not installed, 1 = installed + on, 2 = installed + off; live 'Tuning.<key> = 0/1'):
 //   [Patches] CBS (F3) streaming copy: the memcpy call sites 118F4D (graphics) and 495AF2 (compute CBV table 4959EC) call
-//       CbuStreamCopy: forward, 16-byte non-temporal stores (movntdq), whole 64-byte lines in order, then sfence. Same
-//       bytes [0, size) as memcpy; nothing outside [dst, dst + size) is written. Falls back to memcpy if dst is not
-//       16-byte aligned (never seen: ring blocks are 256-aligned).
+//       CbuStreamCopy: forward, 16-byte non-temporal stores (movntdq), whole 64-byte lines in order. Same bytes [0, size)
+//       as memcpy; nothing outside [dst, dst + size) is written. One sfence per table (CbuTableCall, so CBS installs the
+//       wrapper too) / per compute copy; an sfence per copy cost ~+400 ns per upload on the RX 9070 (tests/cbs_bench.cpp).
+//       Falls back to memcpy if dst is not 16-byte aligned (never seen: ring blocks are 256-aligned).
 //   [Patches] CBN (F1) skip no-op uploads: the SynFlushCbvTables -> SynUploadCbvTable call (118E19) goes through
 //       CbuTableCall. A dirty slot whose shadow bytes equal the bytes of that slot's last upload, made in the SAME open
 //       command list (SynCtx+6D0h fence tag and SynCtx+580h list unchanged) with the same declared size and staging heap,
@@ -58,6 +59,7 @@ TestCounts TestGet();
 }  // namespace cbvupload
 
 extern "C" {
-void* CbuStreamCopy(void* dst, const void* src, size_t n);
+void* CbuStreamCopy(void* dst, const void* src, size_t n);    // graphics site: CbuTableCall fences after the table
+void* CbuStreamCopyCs(void* dst, const void* src, size_t n);  // compute site: sfence after the copy
 void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layout, uint64_t* fenceCache);
 }

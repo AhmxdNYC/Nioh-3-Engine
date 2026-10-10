@@ -191,11 +191,17 @@ bool Store(Rec& r, const uint8_t* src, uint32_t size) {
 
 using namespace cbvupload;
 
+namespace {
+thread_local bool t_fence = false;  // CbuStreamCopy streamed since the last sfence (graphics site: CbuTableCall fences)
+
 // F3: forward non-temporal copy. dst is a ring block (256-aligned in practice); src is the shadow (any alignment).
-// Only [dst, dst + n) is written; the sfence makes the stores globally visible (in order) before the caller goes on to
-// create the CBV / close and submit the list.
-extern "C" void* CbuStreamCopy(void* dst, const void* src, size_t n) {
-    if (!g_cbs || ((uintptr_t)dst & 15) != 0) return memcpy(dst, src, n);
+// Only [dst, dst + n) is written. No fence here: tests/cbs_bench.cpp on the RX 9070 measured an sfence after every copy at
+// ~+400 ns per upload (it waits for the write-combining buffers to reach the BAR); the graphics site fences once per table
+// (CbuTableCall, after SynUploadCbvTable returns: before the table can be used by a closed / submitted list), the compute
+// site after each copy (CbuStreamCopyCs). A ring-full cut inside SynUploadCbvTable submits through the driver
+// (ExecuteCommandLists: serialising), the same ordering the original's regular write-combined memcpy stores rely on.
+inline bool StreamBody(void* dst, const void* src, size_t n) {
+    if (!g_cbs || ((uintptr_t)dst & 15) != 0) return false;
     uint8_t* d = static_cast<uint8_t*>(dst);
     const uint8_t* s = static_cast<const uint8_t*>(src);
     size_t left = n;
@@ -217,11 +223,30 @@ extern "C" void* CbuStreamCopy(void* dst, const void* src, size_t n) {
         d += 16, s += 16, left -= 16;
     }
     for (; left; --left) *d++ = *s++;  // cbuffer sizes are multiples of 16: never in practice
-    _mm_sfence();
     if (g_stats) {
         InterlockedIncrement64(&g_copies);
         InterlockedAdd64(&g_copyBytes, (LONG64)n);
     }
+    return true;
+}
+
+inline void CallOrig(uint8_t* c, int* rootIdx, int stage, uint8_t* layout, uint64_t* fenceCache) {
+    g_orig(c, rootIdx, stage, layout, fenceCache);
+    if (t_fence) {
+        _mm_sfence();
+        t_fence = false;
+    }
+}
+}  // namespace
+
+extern "C" void* CbuStreamCopy(void* dst, const void* src, size_t n) {
+    if (!StreamBody(dst, src, n)) return memcpy(dst, src, n);
+    t_fence = true;
+    return dst;
+}
+extern "C" void* CbuStreamCopyCs(void* dst, const void* src, size_t n) {
+    if (!StreamBody(dst, src, n)) return memcpy(dst, src, n);
+    _mm_sfence();
     return dst;
 }
 
@@ -237,7 +262,7 @@ extern "C" void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layou
             if (!z) break;
             if (z->c == c) z->tracking = false;
         }
-        g_orig(c, rootIdx, stage, layout, fenceCache);
+        CallOrig(c, rootIdx, stage, layout, fenceCache);
         return;
     }
     if (!x->tracking) {
@@ -290,7 +315,7 @@ extern "C" void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layou
     *maskp = mask;
     uint8_t* ring = c + kRing;
     const uint32_t cur0 = At<uint32_t>(ring, 0x44), wraps0 = At<uint32_t>(ring, 0x4C);
-    g_orig(c, rootIdx, stage, layout, fenceCache);
+    CallOrig(c, rootIdx, stage, layout, fenceCache);
     const uint64_t tag2 = At<uint64_t>(c, kTag), list2 = At<uint64_t>(c, kList);
     if (tag2 != tag || list2 != list) {
         // the list was cut inside (ring full): blocks made before the cut belong to the old list -> forget this stage
@@ -512,6 +537,19 @@ bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
     else if (!_stricmp(key, "CBN")) sw = &g_cbn, inst = g_instCbn, name = "CBN";
     else if (!_stricmp(key, "CBT")) sw = &g_cbt, inst = g_instCbt, name = "CBT";
     else if (!_stricmp(key, "CBSTATS")) sw = &g_stats, inst = g_instTbl, name = "CBSTATS";
+    else if (!_stricmp(key, "CBALL")) {  // every installed CBU switch at once (CBS + CBN + CBT)
+        const int v = atoi(val);
+        if (v != 0 && v != 1) {
+            snprintf(reply, n, "CBALL must be 0 or 1 (got %s)", val);
+            return true;
+        }
+        if (g_instCbs) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbs), v);
+        if (g_instCbn) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbn), v);
+        if (g_instCbt) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbt), v);
+        snprintf(reply, n, "CBALL = %d", v);
+        if (g_log) g_log("LIVE tuning: %s (CBS %u, CBN %u, CBT %u)", reply, g_cbs, g_cbn, g_cbt);
+        return true;
+    }
     else return false;
     const int v = atoi(val);
     if (v != 0 && v != 1) {
@@ -561,7 +599,7 @@ void Start(const StartInfo& info) {
         g_log("CBU: CBN / CBT not installed: [GpuOpt] CbvMirror != 0 (mirror CBVs have their own lifetime)");
         wantCbn = wantCbt = false;
     }
-    const bool wantTbl = wantCbn || wantCbt || stats != 0 || rec > 0;
+    const bool wantTbl = wantCbs || wantCbn || wantCbt || stats != 0 || rec > 0;  // CBS: the wrapper issues the sfence
     if (!wantCbs && !wantTbl) return;
     const auto* dos = (const IMAGE_DOS_HEADER*)b;
     const auto* nt = (const IMAGE_NT_HEADERS64*)(b + dos->e_lfanew);
@@ -600,7 +638,8 @@ void Start(const StartInfo& info) {
     }
     if (wantCbs) {
         bool ok = Retarget(b, kGfxCopy, page + 0x20, (const void*)&CbuStreamCopy);
-        if (ok && csOk) ok = Retarget(b, kCsCopy, page + 0x40, (const void*)&CbuStreamCopy);
+        if (ok && !g_instTbl) ok = false;  // the graphics copies need the wrapper's sfence
+        if (ok && csOk) ok = Retarget(b, kCsCopy, page + 0x40, (const void*)&CbuStreamCopyCs);
         g_instCbs = ok;
         if (!ok) g_cbs = 0;
         g_log("CBU: CBS streaming copy %s at 118F4D%s (switch %s)", ok ? "installed" : "NOT installed", csOk ? " + 495AF2" : " (compute 4959EC differs: graphics only)",

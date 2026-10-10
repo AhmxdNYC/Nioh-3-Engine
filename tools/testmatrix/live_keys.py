@@ -40,7 +40,8 @@ LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning /
     "CBS": "cbvupload: streaming CB copy switch, read per copy (1.7.60-cbu1; needs [Patches] CBS = 1 or 2 at boot)",
     "CBN": "cbvupload: no-op CB upload skip switch, read per table flush (1.7.60-cbu1; needs [Patches] CBN = 1 or 2 at boot)",
     "CBT": "cbvupload: CBV table reuse switch, read per table flush (1.7.60-cbu1; needs [Patches] CBT = 1 or 2 at boot)",
-    "CBSTATS": "cbvupload: upload census switch (1.7.60-cbu1; needs a CBU key or [Profiler] CbvStats at boot)",
+    "CBALL": "cbvupload: CBS + CBN + CBT switches together (1.7.60-cbu1; each needs its [Patches] key = 1 or 2 at boot)",
+    "CBSTATS":"cbvupload: upload census switch (1.7.60-cbu1; needs a CBU key or [Profiler] CbvStats at boot)",
 }
 HOT_SETS = ["ghdm", "esm", "wdo28", "mpc", "mshlod", "gi", "fogpar", "vcu", "vcp", "vcpfu", "vcpfp"]
 

@@ -610,6 +610,14 @@
    "class": "live"
   },
   {
+   "key": "CBALL",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBALL = v",
+   "why": "cbvupload: CBS + CBN + CBT switches together (1.7.60-cbu1; each needs its [Patches] key = 1 or 2 at boot)",
+   "class": "live"
+  },
+  {
    "key": "CBSTATS",
    "section": "Tuning",
    "cls": "live-tuning",
