@@ -106,15 +106,15 @@
         "section": "Patches",
         "key": "CBN",
         "value": "1",
-        "status": "provisional",
-        "why": "skip byte-identical per-draw constant uploads (same command list): pc2 CPU-bound +15.6 % (CBU1 #1609, ABBA x3, SE 0.07), offline byte-exact vs stock; PC RX 9070 no-harm A/B cbu2pc; Ally Proton/RADV CBU-A1 #1626 neutral but contaminated (two sessions drove one launch, #1630): clean rerun queued"
+        "status": "kept",
+        "why": "skip byte-identical per-draw constant uploads (same command list): pc2 CPU-bound +15.6 % (CBU1 #1609, ABBA x3, SE 0.07), offline byte-exact vs stock; Ally Proton/RADV no-harm (clean CBU-A1 rerun #1668: CBMODE 0/6 -0.16 % +- 0.16, no faults, no visible difference); PC RX 9070 no-harm A/B cbu2pc"
       },
       {
         "section": "Patches",
         "key": "CBT",
         "value": "1",
-        "status": "provisional",
-        "why": "with CBN: reuse the stage's CBV table of the same list when nothing changed; pc2 CBN+CBT +15.9 % (CBU1 #1609, +0.1 fps over CBN alone); Ally clean rerun of CBU-A1 queued (#1626 contaminated)"
+        "status": "kept",
+        "why": "with CBN: reuse the stage's CBV table of the same list when nothing changed; pc2 CBN+CBT +15.9 % (CBU1 #1609, +0.1 fps over CBN alone); Ally Proton/RADV no-harm (CBU-A1 rerun #1668)"
       },
       {
         "section": "GpuOpt",
