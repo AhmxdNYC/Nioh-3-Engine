@@ -562,6 +562,22 @@
    "class": "live"
   },
   {
+   "key": "FO",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.FO = v",
+   "why": "frameoverlap switch, sampled at the next frame end (1.7.59-fo1; needs [GpuOpt] FrameOverlap = 1 or 2 at boot)",
+   "class": "live"
+  },
+  {
+   "key": "FO_Pct",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.FO_Pct = v",
+   "why": "frameoverlap barrier position, read at every frame end (1.7.59-fo1)",
+   "class": "live"
+  },
+  {
    "key": "SkipPSO",
    "section": "Debug",
    "cls": "live-diag",
@@ -1332,6 +1348,14 @@
   {
    "key": "VrrPresent",
    "section": "Latency",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "FrameOverlap",
+   "section": "GpuOpt",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
    "why": "read once at boot (install / hook / thread / boot list)",

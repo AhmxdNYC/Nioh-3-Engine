@@ -34,6 +34,8 @@ LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning /
     "VSMA_Front": "VsmaBindC, per clipmap visit", "LPVR_N": "RcoApplyC, per frame", "SKYR_V": "RcoApplyC, per frame",
     "FOGT_V": "RcoApplyC, per frame", "CLDR_V": "RcoApplyC, per frame",
     "KL_Div": "bkstats KL: CmdFlushLimit data write, compared per draw by the engine (1.7.58-bk1)",
+    "FO": "frameoverlap switch, sampled at the next frame end (1.7.59-fo1; needs [GpuOpt] FrameOverlap = 1 or 2 at boot)",
+    "FO_Pct": "frameoverlap barrier position, read at every frame end (1.7.59-fo1)",
 }
 HOT_SETS = ["ghdm", "esm", "wdo28", "mpc", "mshlod", "gi", "fogpar", "vcu", "vcp", "vcpfu", "vcpfp"]
 

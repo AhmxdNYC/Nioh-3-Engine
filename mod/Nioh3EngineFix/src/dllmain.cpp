@@ -56,6 +56,7 @@
 #include "thrsched.h"
 #include "psomemo.h"
 #include "bkstats.h"
+#include "frameoverlap.h"
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
@@ -98,11 +99,13 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
+// 1.7.59-fo1 (branch frame-overlap): FO frame overlap ([GpuOpt] FrameOverlap = 0, live Tuning.FO / Tuning.FO_Pct):
+//   frame N's replay tail + Present run on the replay thread while the main thread records N+1 (frameoverlap.cpp).
 // 1.7.58-fov1 (branch frame-overlap): BKS "fov:" line = frame-overlap viability gate (main-thread handle / sync-point GPU waits,
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.58-fov1"
+#define MOD_VERSION "1.7.59-fo1"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1355,6 +1358,7 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
         return true;
     }
     if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
+    if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
     return samelook::SetTuning(key, val, reply, n);
 }
 
@@ -2485,6 +2489,11 @@ DWORD WINAPI Worker(LPVOID) {
                     psomemo::StatusLine(pb, sizeof pb, 30);
                     if (pb[0]) Log("stats/s %s", pb);
                 }
+                if (sec % 30 == 0) {                     // 1.7.59-fo1 no-op unless [GpuOpt] FrameOverlap != 0
+                    char fb[768];
+                    frameoverlap::StatusLine(fb, sizeof fb, 30);
+                    if (fb[0]) Log("stats/s %s", fb);
+                }
                 if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
                     char rb[768];
                     thrsched::RtpStatusLine(rb, sizeof rb);
@@ -2756,6 +2765,12 @@ DWORD WINAPI Worker(LPVOID) {
             bki.base = reinterpret_cast<uintptr_t>(g_base);
             bki.knownBuild = known;
             bkstats::Start(bki);
+            frameoverlap::StartInfo foi;  // 1.7.59-fo1 FO frame overlap ([GpuOpt] FrameOverlap = 0; frameoverlap.cpp)
+            foi.log = &Log;
+            foi.iniPath = iniPath.c_str();
+            foi.base = reinterpret_cast<uintptr_t>(g_base);
+            foi.knownBuild = known;
+            frameoverlap::Start(foi);
             mh.exp[menu::kExpPCM].ini = GetPrivateProfileIntW(L"Patches", L"PCM", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpPCM].applied = psomemo::Switch() != nullptr;
             mh.exp[menu::kExpPCM].enable = psomemo::Switch();
