@@ -99,6 +99,8 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
+// 1.7.59-fo6: FO splits every sub-stream recorder in two halves and switches at each frame end (stock resets them at Present;
+//   without a reset they filled after 260 frames and their never-used wrap path replayed overwritten data -> AV 119B54).
 // 1.7.59-fo5: FO no longer resets sub-streams at the barrier (effect workers append before it; PC fo4pc: AV replaying a 0x90
 //   sub-stream after 260 overlapped frames). Sub-streams are reset only by their own wrap path.
 // 1.7.59-fo4: FO KtglCache frame end back on the TAIL with the frame's own fence (the forward fence deadlocked the GPU on the PC:
@@ -113,7 +115,7 @@
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.59-fo5"
+#define MOD_VERSION "1.7.59-fo6"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {

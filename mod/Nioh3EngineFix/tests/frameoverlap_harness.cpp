@@ -335,6 +335,7 @@ int main() {
         F<uint8_t>(g_sub[i] + 0x55) = 1;
         F<uintptr_t>(g_sub[i] + 0x60) = g_subRec[i];
         F<uintptr_t>(g_subRec[i] + 0x18) = (uintptr_t)g_subBuf.data() + i * 65536;
+        F<uintptr_t>(g_subRec[i] + 0x20) = (uintptr_t)g_subBuf.data() + i * 65536 + 65536;
         F<uintptr_t>(g_subRec[i] + 0x28) = F<uintptr_t>(g_subRec[i] + 0x18);
     }
     static uintptr_t subArr[2] = {g_sub[0], g_sub[1]};
@@ -400,7 +401,8 @@ int main() {
     Check(!TestDisabled(), "no fallback to session-off (back-buffer prediction held)");
     Check(g_waitBad == 0 && g_waits > 0, "GPU-lead / slot waits only for submitted fence values");
     Check(g_tagBad == 0 && g_tags == tails1, "KtglCache tag per FO frame in TAIL = {dev+4310h, the frame's submitted fence}");
-    Check(g_subResets == 0, "FO never resets a sub-stream (workers append before the barrier; stock wrap path only)");
+    Check(g_subResets >= 2 * tails1, "sub-streams switch halves at every FO frame end (stock 2543A0 reset on the other half)");
+    Check(F<uintptr_t>(g_subRec[0] + 0x20) - F<uintptr_t>(g_subRec[0] + 0x18) == 32768, "sub-stream recorder works on a half");
     Check(g_ppViolations == 0 && g_ppMainViolations == 0 && g_ppCalls > 0, "PagePool handlers never run concurrently with main PP work");
     Check(g_allocResets >= tails1, "frame-slot allocator reset at every FO frame end (main, before the slot switch)");
     Check(g_resolves >= tails1 - 1 && g_resolveBad == 0, "timestamps: TAIL resolved index 5 of a slot range every frame");

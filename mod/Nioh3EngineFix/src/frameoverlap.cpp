@@ -86,6 +86,55 @@ volatile uint8_t g_prevGen8 = 0xFF;  // read by the HandleSlotIsNotFreed stub
 uint32_t g_maxIdx = 0, g_K = 0;
 // sub-stream recorders captured at E
 constexpr int kMaxSub = 64;
+// Sub-streams (GfxDevice+74D8h[+3E28h], recorder = sub+60h when sub+55h; recorder +14h reserve, +18h base, +20h end, +28h write,
+// +30h last kick). Stock resets every active recorder at Present (253F2C -> 2543A0: write = last kick = base + per-frame stats),
+// so a sub-stream never reaches its own wrap path in practice. FO cannot reset at E (frame N's 0x90 tokens still reference the
+// data until TAIL N) and must not reset later (effect workers append for frame N+1 before the barrier). So each recorder is split
+// in two halves like the main stream: at E the recorder switches to its other half (+18h / +20h moved, then the stock 2543A0
+// reset), the old half stays intact until TAIL N is done (always true at the next E). PC fo4pc / fo5pc: without this the
+// sub-streams filled after 260 frames and the never-used wrap path replayed overwritten data (AV in 119B54).
+struct SubHalves {
+    uintptr_t rec, lo, mid, hi;
+};
+SubHalves g_subH[kMaxSub] = {};
+int g_subHN = 0;
+std::atomic<int64_t> s_subSwitch{0};
+bool SubStreamsSwitch(uintptr_t dev) {  // main, at E (workers idle, as at stock's Present reset); false = do not overlap
+    const uintptr_t arr = F<uintptr_t>(dev + 0x74D8);
+    if (!arr) return true;
+    const uint32_t cnt = std::min<uint32_t>(F<uint32_t>(dev + 0x3E28), kMaxSub);
+    for (uint32_t i = 0; i < cnt; ++i) {
+        const uintptr_t sub = F<uintptr_t>(arr + i * 8ull);
+        if (!sub || !F<uint8_t>(sub + 0x55)) continue;
+        const uintptr_t rec = F<uintptr_t>(sub + 0x60);
+        if (!rec) continue;
+        SubHalves* h = nullptr;
+        for (int k = 0; k < g_subHN; ++k)
+            if (g_subH[k].rec == rec) h = &g_subH[k];
+        if (!h) {  // first sight: the recorder is still stock-sized; split it
+            if (g_subHN >= kMaxSub) return false;
+            const uintptr_t lo = F<uintptr_t>(rec + 0x18), hi = F<uintptr_t>(rec + 0x20);
+            const uint32_t reserve = F<uint32_t>(rec + 0x14);
+            if (hi <= lo || (hi - lo) / 2 < 8ull * reserve + 4096) {
+                FLOG("FO: sub-stream %u recorder %p too small to split (%llu bytes, reserve %u) - no overlap", i, (void*)rec,
+                     (unsigned long long)(hi - lo), reserve);
+                return false;
+            }
+            h = &g_subH[g_subHN++];
+            *h = {rec, lo, lo + (((hi - lo) / 2) & ~(uintptr_t)0xF), hi};
+            FLOG("FO: sub-stream %u recorder %p split %p | %p | %p (reserve %u)", i, (void*)rec, (void*)h->lo, (void*)h->mid, (void*)h->hi,
+                 reserve);
+        }
+        const uintptr_t w = F<uintptr_t>(rec + 0x28);
+        const bool inLo = w < h->mid;
+        F<uintptr_t>(rec + 0x18) = inLo ? h->mid : h->lo;
+        F<uintptr_t>(rec + 0x20) = inLo ? h->hi : h->mid;
+        E.subReset(sub);  // stock 253F2C -> 2543A0: write = last kick = the new base, per-frame stats rolled
+        ++s_subSwitch;
+    }
+    return true;
+}
+
 
 SRWLOCK g_pp = SRWLOCK_INIT;  // PagePool frame protocol lock (main: E7 / PagePoolFrameUpdate / 7D9C24; replay: PP tokens)
 
@@ -344,6 +393,10 @@ bool Init(uintptr_t dev) {
 
 void StockPresent(uintptr_t dev, uintptr_t p2) {
     FlushAll();
+    for (int k = 0; k < g_subHN; ++k) {  // full extent again; stock's Present resets write to the base after its drain
+        F<uintptr_t>(g_subH[k].rec + 0x18) = g_subH[k].lo;
+        F<uintptr_t>(g_subH[k].rec + 0x20) = g_subH[k].hi;
+    }
     ++s_stock;
     E.present(dev, p2);
     ++g_frame;
@@ -384,6 +437,13 @@ void __fastcall FoPresent(uintptr_t dev, uintptr_t p2) {
         }
     }
     const uint64_t N = g_frame + 1;
+    // sub-streams: switch every active recorder to its other half (frame N's 0x90 data stays until TAIL N); a recorder too small
+    // to split -> stock frame end (it resets them) and FO off
+    if (!SubStreamsSwitch(dev)) {
+        Disable(9, "a sub-stream is too small to split");
+        StockPresent(dev, p2);
+        return;
+    }
     // final kick exactly as stock (submit = 1)
     uint64_t item[2] = {F<uint64_t>(dev + kLastKick), (uint64_t)write};
     E.ringPush(dev + kRing, item, 1, dev + kStats);
@@ -961,7 +1021,7 @@ void StatusLine(char* buf, unsigned n, unsigned secs) {
     buf[0] = 0;
     if (!g_installed) return;
     static int64_t p[13] = {};
-    const int64_t c[13] = {s_fo, s_stock, s_span, s_barrierTicks, s_leadTicks, s_tailTicks, s_ppWaitTicks, s_ppWaits, s_subSkip,
+    const int64_t c[13] = {s_fo, s_stock, s_span, s_barrierTicks, s_leadTicks, s_tailTicks, s_ppWaitTicks, s_ppWaits, s_subSwitch.load(),
                            s_barrierEarly, s_barrierLate, s_prevGenHits, s_bbChecks};
     int64_t d[13];
     for (int i = 0; i < 13; ++i) d[i] = c[i] - p[i], p[i] = c[i];
@@ -969,7 +1029,7 @@ void StatusLine(char* buf, unsigned n, unsigned secs) {
     snprintf(buf, n,
              "FO: switch %s%s | frames FO %.1f/s stock %.1f/s (span-fallback %lld) | per FO frame: barrier wait %.2f ms, GPU-lead wait "
              "%.2f ms, TAIL %.2f ms | barrier at K (node %u) %lld, at frame end %lld | PP lock waits %lld (%.2f ms) | sub-stream "
-             "resets skipped %lld | prev-gen handle checks %lld | back-buffer checks %lld",
+             "half switches %lld | prev-gen handle checks %lld | back-buffer checks %lld",
              g_on.load() ? "ON" : "off", g_disabled.load() ? " (session OFF)" : "", d[0] / (double)std::max(1u, secs),
              d[1] / (double)std::max(1u, secs), (long long)d[2], d[3] * g_tickMs / fo, d[4] * g_tickMs / fo, d[5] * g_tickMs / fo, g_K,
              (long long)d[9], (long long)d[10], (long long)d[7], d[6] * g_tickMs, (long long)d[8], (long long)d[11], (long long)d[12]);
