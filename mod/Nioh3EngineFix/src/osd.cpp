@@ -695,6 +695,9 @@ void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D
     tilestats::OnEcl(q, n, CallerIsGame(_ReturnAddress()));  // before g_origEcl for EVERY caller (TileBatch correctness)
     if (gp::g_gqHeads) gp::OnEcl(q, n, (void* const*)lists, _ReturnAddress(), CallerIsGame(_ReturnAddress()));  // 1.7.40 GQ
     if (!CallerIsGame(_ReturnAddress())) {
+        // 1.7.60-cbu2 CBF: the game's own submissions arrive here too when another hook sits in front of this one (RPF's
+        // ExecuteCommandLists thunk: the return address is in the ASI); copying staged constants early is always safe
+        if (cbvstage::OnEcl(q, n, lists, reinterpret_cast<cbvstage::EclFn>(g_origEcl))) return;
         g_origEcl(q, n, lists);
         return;
     }

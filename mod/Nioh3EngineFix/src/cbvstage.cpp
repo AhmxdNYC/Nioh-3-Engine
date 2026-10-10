@@ -43,6 +43,8 @@ volatile LONG g_recentIdx = 0;
 ID3D12CommandQueue* volatile g_q = nullptr;
 
 volatile LONG64 c_notes = 0, c_flush = 0, c_runs = 0, c_bytes = 0, c_waits = 0, c_other = 0, c_overflow = 0, c_swaps = 0;
+volatile LONG64 g_notesAtTake = 0;   // c_notes when the runs were last taken by a submission (watchdog in OnTable)
+constexpr LONG64 kNoFlushNotes = 100000;  // ~0.3 s of the game's uploads with no submission taking them: CBF off
 
 bool Recent(const void* l) {
     for (void* r : g_recent)
@@ -55,6 +57,7 @@ void TakeRuns(Run* out, int& n) {
     n = g_nRuns;
     memcpy(out, g_runs, sizeof(Run) * (size_t)n);
     g_nRuns = 0;
+    g_notesAtTake = c_notes;
     ReleaseSRWLockExclusive(&g_runLock);
 }
 
@@ -210,11 +213,18 @@ void OnTable(uint8_t* c) {
     if (c != g_c) return;
     g_recent[InterlockedIncrement(&g_recentIdx) & 3] = *reinterpret_cast<void**>(c + kList);
     uint64_t* ring = reinterpret_cast<uint64_t*>(c + kRing);
+    if (g_swapped && g_on && c_notes - g_notesAtTake > kNoFlushNotes) {
+        // the noted ranges are not reaching any submission (a hook in front of ours, a queue we do not see): the VRAM ring
+        // would serve stale bytes -> back to the UPLOAD ring for the rest of the session
+        g_on = 0;
+        g_failed = true;
+        if (g_log) g_log("CBU: CBF OFF for this session - %lld ring writes and no game submission took them (watchdog)", (long long)(c_notes - g_notesAtTake));
+    }
     if (g_on && !g_swapped) {
 #ifndef CBU_HARNESS
         if (!g_ready && !g_failed && g_q) Create(c);
 #endif
-        if (g_ready && ring[1] <= g_size) {
+        if (g_ready && !g_failed && ring[1] <= g_size) {
             g_origCpu = ring[2];
             g_origGpu = ring[3];
             ring[2] = (uint64_t)(uintptr_t)g_sys;
