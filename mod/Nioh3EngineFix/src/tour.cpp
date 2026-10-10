@@ -219,13 +219,24 @@ bool HeadOk(uint32_t rva, const uint8_t* want, size_t n, bool* hooked) {
     const uint8_t* p = (const uint8_t*)(g_base + rva);
     *hooked = false;
     if (memcmp(p, want, n) == 0) return true;
-    if (p[0] != 0xE9 || n < 9) return false;
-    int32_t rel = 0;
-    memcpy(&rel, p + 1, 4);
-    const uintptr_t t = (uintptr_t)(p + 5 + rel);
+    // another module's entry hook: E9 rel32 or FF 25 00000000 abs64 (14 bytes), padded with NOPs up to the next instruction
+    // boundary (909218: 4 + 10 bytes before the first boundary after 5, so a hook there is E9 + 9 NOPs or the 14-byte form)
+    if (n < 9) return false;
+    uintptr_t t = 0;
+    size_t i = 0;
+    if (p[0] == 0xE9) {
+        int32_t rel = 0;
+        memcpy(&rel, p + 1, 4);
+        t = (uintptr_t)(p + 5 + rel);
+        i = 5;
+    } else if (p[0] == 0xFF && p[1] == 0x25 && !p[2] && !p[3] && !p[4] && !p[5] && n >= 14) {
+        memcpy(&t, p + 6, 8);
+        i = 14;
+    } else {
+        return false;
+    }
     if (InImage(t) || !ExecutableAt(t)) return false;
-    size_t i = 5;
-    while (i < 8 && p[i] == 0x90) ++i;
+    while (i < n && p[i] == 0x90) ++i;
     if (memcmp(p + i, want + i, n - i) != 0) return false;
     *hooked = true;
     return true;
