@@ -436,6 +436,7 @@ static void RunSynthetic(const SynCfg& cfg) {
     InitSim(A, "stock", cfg.ringCap, cfg.svCap);
     InitSim(B, "patched", cfg.ringCap, cfg.svCap);
     A.checkClose = B.checkClose = true;
+    cbvupload::TestReset();
     cbvupload::TestSetup((cbvupload::UploadFn)g_patchCode.mem, cfg.cbs, cfg.cbn, cfg.cbt, 1);
     const cbvupload::TestCounts c0 = cbvupload::TestGet();
     std::mt19937_64 rng(cfg.seed);
@@ -575,6 +576,7 @@ static void RunTrace(const char* path, int cbs, int cbn, int cbt, uint64_t ringC
     Sim A, B;
     InitSim(A, "stock", ringCap, svCap);
     InitSim(B, "patched", ringCap, svCap);
+    cbvupload::TestReset();
     cbvupload::TestSetup((cbvupload::UploadFn)g_patchCode.mem, cbs, cbn, cbt, 1);
     const cbvupload::TestCounts c0 = cbvupload::TestGet();
     std::vector<Layout> lays;
@@ -588,6 +590,7 @@ static void RunTrace(const char* path, int cbs, int cbn, int cbt, uint64_t ringC
         if (lastTag && t.tag != lastTag)
             for (Sim* s : {&A, &B}) {  // the engine opened a new list between these calls; GPU lags one list
                 CloseList(*s);
+                s->tainted = false;
                 ++lists;
                 const uint64_t done = s->Tag() >= 2 ? s->Tag() - 2 : 0;
                 if (done > s->completed) s->completed = done;
@@ -686,7 +689,8 @@ int main(int argc, char** argv) {
         printf("recorded trace %s\n", argv[i]);
         RunTrace(argv[i], 1, 1, 1, 1024ull << 20, 8192, "big ring, CBS+CBN+CBT");
         RunTrace(argv[i], 0, 1, 0, 1024ull << 20, 8192, "big ring, CBN");
-        RunTrace(argv[i], 1, 1, 1, 8ull << 20, 512, "small rings, CBS+CBN+CBT");
+        RunTrace(argv[i], 1, 1, 1, 64ull << 20, 1024, "small rings, CBS+CBN+CBT");
+        RunTrace(argv[i], 0, 1, 1, 1024ull << 20, 8192, "big ring, CBN+CBT");
     }
     if (g_fail) {
         printf("FAILED: %d checks\n", g_fail);

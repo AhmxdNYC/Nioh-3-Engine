@@ -55,6 +55,7 @@ using UploadFn = void (*)(uint8_t* c, int* rootIdx, int stage, uint8_t* layout, 
 void (*g_log)(const char*, ...) = nullptr;
 UploadFn g_orig = nullptr;
 volatile uint32_t g_cbs = 0, g_cbn = 0, g_cbt = 0, g_stats = 0;
+volatile uint32_t g_cbsFence = 1;  // [Tuning] CBS_Fence (live): 0 = no sfence (the driver's next serialising instruction drains, as for the stock memcpy)
 bool g_instCbs = false, g_instTbl = false, g_instCbn = false, g_instCbt = false;
 int g_statsSec = 10;
 
@@ -233,7 +234,7 @@ inline bool StreamBody(void* dst, const void* src, size_t n) {
 inline void CallOrig(uint8_t* c, int* rootIdx, int stage, uint8_t* layout, uint64_t* fenceCache) {
     g_orig(c, rootIdx, stage, layout, fenceCache);
     if (t_fence) {
-        _mm_sfence();
+        if (g_cbsFence) _mm_sfence();
         t_fence = false;
     }
 }
@@ -246,7 +247,7 @@ extern "C" void* CbuStreamCopy(void* dst, const void* src, size_t n) {
 }
 extern "C" void* CbuStreamCopyCs(void* dst, const void* src, size_t n) {
     if (!StreamBody(dst, src, n)) return memcpy(dst, src, n);
-    _mm_sfence();
+    if (g_cbsFence) _mm_sfence();
     return dst;
 }
 
@@ -275,7 +276,7 @@ extern "C" void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layou
     uint32_t* maskp = &At<uint32_t>(c, kMask + stage * 4);
     const uint32_t mask0 = *maskp, count = At<uint32_t>(layout, 0x40), n = At<uint32_t>(layout, 0x44);
     const uint32_t* ent = At<uint32_t*>(layout, 0x38);
-    uint32_t mask = mask0;
+    uint32_t mask = mask0, maskWould = mask0;  // maskWould: as if CBN were on (CBT candidates in the census)
     for (uint32_t i = 0; i < count; ++i) {
         const uint32_t size = ent[2 * i], slot = ent[2 * i + 1];
         if (!(mask0 >> (slot & 31) & 1) || slot >= (uint32_t)kSlots) continue;
@@ -290,6 +291,7 @@ extern "C" void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layou
         if (r.tag != tag || r.list != list || r.stag != stag || At<uint32_t>(c, kSizes + idx * 4) != size) continue;
         ++k.noopSame;
         k.noopSameBytes += size;
+        maskWould &= ~(1u << (slot & 31));
         if (cbn) {
             mask &= ~(1u << (slot & 31));
             ++k.skipped;
@@ -299,10 +301,10 @@ extern "C" void CbuTableCall(uint8_t* c, int* rootIdx, int stage, uint8_t* layou
     // F4: nothing to upload any more -> reuse the stage's last table copy (same list, same content)
     Tbl& t = x->tbl[stage];
     const int root = *rootIdx;
-    if ((mask & 0x7FFFFFFFu) == 0 && n && t.epoch == x->epoch && t.tag == tag && t.list == list && t.stag == stag && t.n == n &&
+    if ((maskWould & 0x7FFFFFFFu) == 0 && n && t.epoch == x->epoch && t.tag == tag && t.list == list && t.stag == stag && t.n == n &&
         t.root == root) {
         ++k.tblCand;
-        if (cbt) {
+        if (cbt && (mask & 0x7FFFFFFFu) == 0) {
             ++k.tblHit;
             void* l = reinterpret_cast<void*>(list);
             using SetTbl = void(__stdcall*)(void*, uint32_t, uint64_t);
@@ -500,10 +502,10 @@ DWORD WINAPI StatsThread(LPVOID) {
         const double tb = (double)(c.calls - p.calls);
         auto pct = [](double a, double b) { return b > 0 ? 100.0 * a / b : 0.0; };
         if (g_log)
-            g_log("CBU: %.1f s | switches CBS %u CBN %u CBT %u | tables %.0f/s, uploads %.0f/s (%.2f MB/s, avg %.0f B) | no-op uploads: "
+            g_log("CBU: %.1f s | switches CBS %u CBN %u CBT %u fence %u | tables %.0f/s, uploads %.0f/s (%.2f MB/s, avg %.0f B) | no-op uploads: "
                   "any list %.1f %%, same list %.1f %% (%.2f MB/s) | skipped %.0f/s (%.2f MB/s) | table reuse candidates %.1f %% of "
                   "tables, hits %.0f/s | list cuts in a table %.0f | CBS copies %.0f/s (%.2f MB/s)",
-                  s, g_cbs, g_cbn, g_cbt, tb / s, up / s, by / s / 1048576.0, up > 0 ? by / up : 0.0, pct((double)(c.noopAny - p.noopAny), up),
+                  s, g_cbs, g_cbn, g_cbt, g_cbsFence, tb / s, up / s, by / s / 1048576.0, up > 0 ? by / up : 0.0, pct((double)(c.noopAny - p.noopAny), up),
                   pct((double)(c.noopSame - p.noopSame), up), (double)(c.noopSameBytes - p.noopSameBytes) / s / 1048576.0,
                   (double)(c.skipped - p.skipped) / s, (double)(c.skippedBytes - p.skippedBytes) / s / 1048576.0,
                   pct((double)(c.tblCand - p.tblCand), tb), (double)(c.tblHit - p.tblHit) / s, (double)(c.cuts - p.cuts),
@@ -517,6 +519,15 @@ int Key(const wchar_t* sec, const wchar_t* k, int def, const wchar_t* ini) { ret
 }  // namespace
 
 #ifdef CBU_HARNESS
+void TestReset() {  // forget every context (each harness run uses fresh mock SynCtx objects)
+    for (int i = 0; i < kMaxCtx; ++i) {
+        if (Ctx* x = g_ctx[i]) {
+            for (Rec& r : x->rec) free(r.bytes);
+            delete x;
+        }
+        g_ctx[i] = nullptr;
+    }
+}
 void TestSetup(UploadFn orig, int cbs, int cbn, int cbt, int stats) {
     g_orig = orig;
     g_cbs = (uint32_t)cbs, g_cbn = (uint32_t)cbn, g_cbt = (uint32_t)cbt, g_stats = (uint32_t)stats;
@@ -537,6 +548,22 @@ bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
     else if (!_stricmp(key, "CBN")) sw = &g_cbn, inst = g_instCbn, name = "CBN";
     else if (!_stricmp(key, "CBT")) sw = &g_cbt, inst = g_instCbt, name = "CBT";
     else if (!_stricmp(key, "CBSTATS")) sw = &g_stats, inst = g_instTbl, name = "CBSTATS";
+    else if (!_stricmp(key, "CBS_FENCE")) sw = &g_cbsFence, inst = g_instCbs, name = "CBS_FENCE";
+    else if (!_stricmp(key, "CBMODE")) {  // one key for one-launch A/B of combinations: 1 CBS, 2 CBN, 4 CBT, 8 CBS without sfence, 16 stats
+        const int v = atoi(val);
+        if (v < 0 || v > 31) {
+            snprintf(reply, n, "CBMODE must be 0..31 (got %s)", val);
+            return true;
+        }
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbsFence), (v & 8) ? 0 : 1);
+        if (g_instCbs) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbs), (v & 9) ? 1 : 0);
+        if (g_instCbn) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbn), (v & 2) ? 1 : 0);
+        if (g_instCbt) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_cbt), (v & 4) ? 1 : 0);
+        if (g_instTbl) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_stats), (v & 16) ? 1 : 0);
+        snprintf(reply, n, "CBMODE = %d", v);
+        if (g_log) g_log("LIVE tuning: %s (CBS %u fence %u, CBN %u, CBT %u, stats %u)", reply, g_cbs, g_cbsFence, g_cbn, g_cbt, g_stats);
+        return true;
+    }
     else if (!_stricmp(key, "CBALL")) {  // every installed CBU switch at once (CBS + CBN + CBT)
         const int v = atoi(val);
         if (v != 0 && v != 1) {
@@ -609,7 +636,8 @@ void Start(const StartInfo& info) {
         return;
     }
     g_orig = (UploadFn)(b + kUpload);
-    g_statsSec = stats ? (Key(L"Profiler", L"CbvStatsSec", 10, ini) < 2 ? 2 : Key(L"Profiler", L"CbvStatsSec", 10, ini)) : 10;
+    g_statsSec = Key(L"Profiler", L"CbvStatsSec", 10, ini) < 2 ? 2 : Key(L"Profiler", L"CbvStatsSec", 10, ini);
+    g_cbsFence = Key(L"Tuning", L"CBS_Fence", 1, ini) ? 1u : 0u;
     if (rec > 0) {
         g_recWant = rec;
         g_recDelay = Key(L"Profiler", L"CbvRecordDelaySec", 60, ini);

@@ -610,6 +610,22 @@
    "class": "live"
   },
   {
+   "key": "CBMODE",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBMODE = v",
+   "why": "cbvupload: bitmask for one-key A/B of combinations: 1 CBS, 2 CBN, 4 CBT, 8 CBS without sfence, 16 census (1.7.60-cbu1)",
+   "class": "live"
+  },
+  {
+   "key": "CBS_FENCE",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBS_FENCE = v",
+   "why": "cbvupload: CBS sfence per table 1 / none 0 (1.7.60-cbu1; [Tuning] CBS_Fence)",
+   "class": "live"
+  },
+  {
    "key": "CBALL",
    "section": "Tuning",
    "cls": "live-tuning",

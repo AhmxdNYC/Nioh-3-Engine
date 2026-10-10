@@ -50,6 +50,7 @@ void StatusLine(char* buf, unsigned n);
 #ifdef CBU_HARNESS  // tests\cbvupload_harness.cpp: the real wrapper / copy against relocated v2.02 code on a mock SynCtx
 using UploadFn = void (*)(uint8_t* c, int* rootIdx, int stage, uint8_t* layout, uint64_t* fenceCache);
 void TestSetup(UploadFn orig, int cbs, int cbn, int cbt, int stats);
+void TestReset();
 struct TestCounts {
     uint64_t calls, uploads, bytes, noopAny, noopSame, skipped, skippedBytes, tblCand, tblHit, copies, copyBytes;
 };
