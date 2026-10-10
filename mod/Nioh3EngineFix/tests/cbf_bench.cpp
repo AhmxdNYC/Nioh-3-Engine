@@ -128,6 +128,37 @@ int main(int argc, char** argv) {
         x.rb->Unmap(0, &none);
         return us;
     };
+    // CPU cost of CreateConstantBufferView on the three ring kinds (cbu2pc: 27 ns/call on the game's UPLOAD ring, 245 on the
+    // CBF VRAM ring): 3 KB views walking each buffer, into a CPU-only CBV heap
+    {
+        D3D12_HEAP_PROPERTIES up{D3D12_HEAP_TYPE_UPLOAD};
+        ID3D12Resource* upl = nullptr;
+        CK(dev->CreateCommittedResource(&up, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&upl)));
+        D3D12_DESCRIPTOR_HEAP_DESC hd{D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 0};
+        ID3D12DescriptorHeap* dh = nullptr;
+        CK(dev->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&dh)));
+        const UINT inc = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        const D3D12_CPU_DESCRIPTOR_HANDLE h0 = dh->GetCPUDescriptorHandleForHeapStart();
+        struct {
+            const char* name;
+            ID3D12Resource* r;
+        } kinds[] = {{"UPLOAD", upl}, {"CUSTOM WC L0 (CBF staging)", src}, {"DEFAULT (CBF VRAM ring)", dst}};
+        LARGE_INTEGER f, a, b;
+        QueryPerformanceFrequency(&f);
+        for (auto& k : kinds) {
+            const uint64_t va = k.r->GetGPUVirtualAddress();
+            constexpr int kN = 200000;
+            QueryPerformanceCounter(&a);
+            for (int i = 0; i < kN; ++i) {
+                D3D12_CONSTANT_BUFFER_VIEW_DESC cd{va + ((uint64_t)i * 3328) % (size - 4096), 3328};
+                D3D12_CPU_DESCRIPTOR_HANDLE h{h0.ptr + (SIZE_T)(i & 1023) * inc};
+                dev->CreateConstantBufferView(&cd, h);
+            }
+            QueryPerformanceCounter(&b);
+            printf("  CreateConstantBufferView on %-28s %.0f ns/call\n", k.name, (double)(b.QuadPart - a.QuadPart) * 1e9 / (double)f.QuadPart / kN);
+        }
+    }
+    if (argc > 3) return 0;  // 3rd argument (any): CPU-only CBV timing, no GPU copies (safe while another app uses the GPU)
     const uint64_t per = (uint64_t)(mbPerFrame * 1048576.0 / subs) & ~255ull;
     struct Case {
         const char* name;
