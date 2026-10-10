@@ -440,3 +440,12 @@ deeper ECL ring (it already grows with the list ring), splitting the KtglCache l
 - Scripts used (scratch, not committed): capstone disassembly / IAT scans for the SRW holders (srwscan), token emitters (tokemit),
   token-handler classification (tokclass: payload advance, CL methods from `D:\nioh3-re\d3d12\vcalls.tsv`, callees, tail targets).
 - Existing: `re\scripts_d3d12\toktab.py` (table dump), `vcalls.fsx`, `d3d12_sites.tsv`.
+
+## Capture-check (package 12, 2026-10-10; table in 12-capture-check.md section 2)
+
+Re-captured with list calls (pc2 #193, Ally #194, PC run) on three GPUs:
+- **Confirmed:** two DIRECT bursts (pc2 89 % / 99 %, Ally 88 % / 99 %, PC 82-84 % / 99 %), 18-27 DIRECT ECL per frame each followed by its Signal, one list per ECL, COMPUTE through 4F925F / 4F908B, the lists are cut at the marker boundaries listed in 12 section 2 (B4), the G-buffer phase 1 is a single 537-draw list. Burst 1 holds every list up to the `App_CopyMRLRScene` list **plus all COMPUTE lists**; burst 2 starts at `EffectMergeShrinkBuffer` (FSR3, post, UI, VideoOut).
+- **Contradicted (4.1 and 00-map section 4): GfxWait 8F4548 / return 8F4583 are not "the async joins".** Their fences are signalled by the COPY queues (Signal rows at 892E19 and 5C315): DIRECT waits for streaming uploads. The async-compute joins are the 4F9323 waits (fences signalled at 4F908B). 3 of each per frame.
+- **Refined:** the 2 foreign ECL per frame (ra ffffffff) sit at the start of the next frame's window (0.4 ms), i.e. they are the previous present's FFX / present-path lists, not mid-frame work. UpdateTileMappings: 0 on DIRECT everywhere; the COPY queue 290B91 waits on the DIRECT Signal 4F9127.
+- On the PC the `ecl` rows carry ra ffffffff (the OSD hook sits under another layer on that machine); the Signal / Wait rows keep the engine RVAs. Do not read ECL callers from PC captures.
+- Caller RVA table per D3D12 method: 12-capture-check.md section 7 (for 01-backend to map to tokens).

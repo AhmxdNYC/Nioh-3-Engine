@@ -229,3 +229,14 @@ Q2's MinRun = 1 rows will show whether those 5 stages are worth the proof work o
 - `re\scripts_gpu\arch_budget.py` - GP2 rows -> families for heavy / light windows, with the GP1 markers of the same windows.
 - Inputs: `data\dumps\kgk_0x102dd706.kidsrender.txt`, `data\dumps\0x93fb3280.kidsobjdb.txt`, `captures\pc2\phaseA\tour\logs\run01.log`,
   `captures\pc2\phaseA\tour\presentmon.csv`.
+
+## Capture-check (package 12, 2026-10-10; full table in renderer/12-capture-check.md)
+
+FCAP1 frame captures on pc2 (RDNA2), the Ally (RADV / vkd3d-proton) and the PC (RX 9070), 14 captures x 2 frames. Contradictions and refinements of this note:
+- **Render resolution is 1280x720** at REN_RAT 65 (all device captures; VCLOUD 20x12x1 groups, not 20x11), not 1248x702. Every render-res size / byte figure here is ~5 % low.
+- **2.1 queues / P0 / F10: UpdateTileMappings never runs on DIRECT.** All calls are on a COPY queue from 290FFF (0-79 per capture); the COPY queue waits on the DIRECT fence instead.
+- **2.1 async slots:** the VCLOUD dispatch is replayed at the `DrawSky` marker (node 267), not at node 4, and its queue has no wait on DIRECT; VFSCAT is replayed right after `GenerateSceneHiZ`. All COMPUTE lists reach their queue in the first of the two end-of-frame bursts (~82-89 % of the frame), so the early kick has no effect on this build. DIRECT joins both after the DrawSky list (4F9323 waits).
+- **2.2 P7:** `GenerateSceneHiZ` is 7 dispatches per run; the PC runs it twice (14), pc2 / Ally once. **F1:** the meshlet chain is 32-100 dispatch + 12-34 ExecuteIndirect and 191-540 barriers depending on scene, not a fixed ~100 / ~250.
+- **2.3 / section 1 formats:** 14 distinct render-res RGBA16 (8 B) surfaces were touched vs ~1-2 assumed; the cascade atlas is 4096x4096 D16 (R16_TYPELESS); depth is R32G8X24 (D32S8) at render res and half res; velocity RG16; the scene HDR is R11G11B10F or RGBA16 (not resolvable without RTV -> resource mapping). Full list in 12-capture-check section 6.1.
+- **F6:** TOONEDGE2 shaders appear in none of the 18 captured frames.
+- Confirmed: 18-27 DIRECT lists per frame, 4-6 COMPUTE lists on 2-3 queues, ~1360 barriers per frame (PC 1203-1532), the phase order P0 < P2 < P4 < P5 < P6 < P7 < P13 (DrawSky) < FSR3 < post < UI, 7-RT G-buffer + D32S8, ~50 % of dispatches are 1x1x1 (F2).

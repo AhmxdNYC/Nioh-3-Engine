@@ -428,3 +428,11 @@ Not needed to reuse the shaders: the KTGL token stream, the B-tree caches, the d
 - Decode the `.sid` group layout and the exact object-database path from a model to its per-pass G1S KTIDs.
 - Name the s1..s5 selector setters (they are virtual methods on the Material; ~190 callers each).
 - 0x10003 parameter `type` codes (5 = int, 1 = float seen) and how the engine maps them to the cbuffer at draw time.
+
+## Capture-check (package 12, 2026-10-10; table in 12-capture-check.md section 5)
+
+The three checks listed in section 8 against FCAP1 (pc2, Ally, PC):
+- (a) **few distinct root signatures: confirmed.** One engine graphics root signature (set once per list: 32-35 `SetGraphicsRootSignature` per frame pair), plus 2-4 sets from foreign modules (FFX / present layers); one compute root signature on pc2 and the PC, three on the Ally (two are FFX-owned).
+- (b) **PSO sets far below draws in G-buffer passes: confirmed.** G-buffer phase 1 is one list: pc2 537 draws + 156 ExecuteIndirect -> 195 PSO sets; PC 675 + 101 -> 185. Whole frame ~0.5 PSO sets per launch (Ally ~1.3, with 1039 dispatches in one list).
+- (c) **shader digests: confirmed.** The vs / ps / cs ids in the PSO sets are MD5s and the 8-hex ids quoted in post.md, lighting.md and render-architecture match their prefixes.
+- SetPipelineState callers: 118737 (graphics, inside SynFlushPsoAndBindings 118604, 1235 per frame pair), 58BFEF (compute, 371), 119C95 (6). SetGraphicsRootDescriptorTable: 119094, 118D68, 118B4D (~2.8 table sets per draw, i.e. a fresh CBV table plus SRV / sampler tables per draw as in section 5).

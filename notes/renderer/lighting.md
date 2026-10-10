@@ -236,3 +236,10 @@ compiler has already turned one "faster" GI shader into +0.9 ms, so every Ally f
 - LightPass per-frame update budget and the light+BBh / +DBh bit 10h semantics (static-cache vs dynamic) need a decompile of
   7E92B4 (export timed out) or a marker capture.
 - Which stencil class each CDS2 node draws (needs FCAP1 per-node draw counts).
+
+## Capture-check (package 12, 2026-10-10; table in 12-capture-check.md sections 3 and 5)
+
+- **Confirmed:** G-buffer = 7 colour RTs + D32S8 at render res (`OMSetRenderTargets` 7 RTVs, R32G8X24_TYPELESS depth); cascades (3, viewports 4096x2048 / 2048x2048 into a 4096x4096 depth) run before MIC / MPC and the G-buffer; VFSCAT dispatch is 20x12x16 groups = 160x90x64; VFSCAT < VCLOUD (DrawSky) < thin-surface temporal filter (449cf0ae, node 270) in replay order on all three devices.
+- **Contradicted:** render res is 1280x720, so VCLOUD is 20x12 = 240 groups (not 220 / 156x88 px).
+- **New format facts:** cascade atlas depth is 4096x4096 R16_TYPELESS (D16); half-res depth 640x360 D32S8; top-down depth 1024x1024 R32 colour RT; the key-light ESM 2048^2 R32F was not touched in any capture window (unverifiable).
+- **Unverifiable:** the nine ClusteredDeferredShading2Pass draws, node 134 / 149 / 150 passes and SSAO have no marker, and the RTV -> resource mapping is not captured; the GBufferEdit copy shader 7c5acaaf is first used before `GPUCulling Setup` (node placement vs 101-120 needs 05-frame-graph node ids).

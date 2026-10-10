@@ -357,3 +357,11 @@ Mark the 3,336 unknown and 5,364 tiny region-fill rows as "unassigned" rather th
 - **05 frame-graph:** for M4, at which node are all phase-1 meshlet views of a frame known (before the first MIC)?
 - **12 capture-check (FCAP1):** per frame, count tok 7E / 81 / 8A under the markers `MeshletResolveLOD` / `MeshletPreculling`
   (expected ~100 dispatches, ~200 UAV barriers), and the pc2-ReBAR front-end total (the 1.8-2.5 ms estimate in §7.4).
+
+## Capture-check (package 12, 2026-10-10; answers the hand-off above)
+
+Under the markers `MeshletCheckRequestLoad`, `MeshletResolveLOD*`, `MeshletInstanceCulling`, `MeshletPreculling`, `GPUCulling*`, `GenerateSceneHiZ`, `MeshletRequestLoad`, per frame:
+- pc2 point 1: 32 Dispatch + 12 ExecuteIndirect, 191 barriers; pc2 point 3: 52 + 17, 280; Ally: 52 + 16, 270; PC point 1: 56 + 15, 264; PC point 3 (dense): 100 + 34, **540**. So "~100 dispatches / ~200 barriers" holds for a dense scene only; the light points are about half.
+- LOD resolve: one `MeshletResolveLOD` scope per frame (two in 2 of 9 analysed frames), 10-14 level children, each 1 dispatch + 1 ExecuteIndirect and ~20 barriers (121-151 per resolve). MIC / MPC chains per frame 1-5; MPC chain 9-18 dispatch + 2-5 EI + 45-93 barriers.
+- `GenerateSceneHiZ` = 7 dispatches per run; the PC runs it twice per frame (phase 2 re-test follows the first HiZ), pc2 and the Ally once.
+- Counts are per frame on the replay thread (calls at 58BE1B Dispatch, 6ECFF4 / 6EB9B4 / 58BD13 ExecuteIndirect); the token numbers are for 01-backend.

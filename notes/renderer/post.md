@@ -111,3 +111,13 @@ the FFX KTGL backend and FI proxy swapchain (use the stock ffx-api D3D12 backend
 4. Skip TOONEDGE2 when no stencil-8 pixel exists (0.05-0.2 ms); per-target post scale (bloom/histogram at render res, compose at output res: E 0.3-0.45 ms); CustomDepthUpscale -> plain depth copy where DOF/MB tolerate it (<= 0.06 ms).
 5. FSR3 CS are MinimumPrecision DXIL: native fp16 + wave size for RDNA2/Ally (accumulate+sharpen is 3.7 ms there; E large, changes rounding).
 6. Null-check every FG job and fall back when a UAV texture cannot be created, so a failed format cannot hit the copy executor 0x3718db4.
+
+## Capture-check (package 12, 2026-10-10; table in 12-capture-check.md section 6)
+
+Measured order on pc2, the Ally and the PC (shader digests in this note match the PS md5 prefixes in the PSO sets, so the ids are right; the order is not):
+- **Section 2 order is contradicted.** Real order after the FSR3 RCAS: upscaled-depth copy (5fccb795) -> **motion blur** (615daafd decode, 76a3c427 + a955f6c3 pyramid 960x540..240x135, f11afe97 / ee6f48b2 tile max at 34x19, 4e13e236 gather) -> **bloom** (7139b08f bright at 960x540, b5b4638c at 480x270, 17149dca down, 18a4c2bb 9-tap blur back up) -> **compose 6a305be4** -> exposure CS (d7040592, 6ee82656, a1712355) -> **second compose, CA variant** (04c1052d or e6efc8ff) -> heat haze (f3596c47, 9ea0865d) -> eye-adaptation resolve (d787dbd0 at 2x1 + CS 41393a1d) -> UI (`OffScreenRendering`) -> `VideoOut`. Exposure is not before bloom; MB is not after bloom.
+- **Compose is two passes in one frame**, not "6a305be4 or the CA variants". The CA digest follows the scene (tour points 1 / 4: 04c1052d; 2 / 3: e6efc8ff); 660f2f60 never appears.
+- **Bloom depth** is 6 down + 7 blur on Windows (RDNA2 and RDNA4), 4 + 5 on the Ally under Proton; `ab11dcd7` never appears.
+- **Confirmed:** the upscaler runs first (FSR3 GENERATE_REACTIVE first, then PREPARE_INPUTS .. RCAS), post runs at output res (bloom starts at 960x540), UI after Apply at 1920x1080, `VideoOut` last, FSR3 output is one 1920x1080 RGBA16 surface.
+- **Unverifiable / absent:** DOF, lens flare, radial blur (no CoC / flare digests drawn at the 4 tour points); TOONEDGE2 shaders appear in no capture.
+- New format facts: post work targets at output res are R11G11B10F (3 RT + 1 UAV), the UI uses a 3840x3240 BGRA8 offscreen target; see 12-capture-check section 6.1.

@@ -260,3 +260,7 @@ the per-packet state of §3.3. Recording order may change only if the state is f
 ## 8. Files
 - `notes/renderer/07-drawlists.md` (this note).
 - `re/symbols/symbols.tsv`, block `# renderer/drawlists`. 534A98 was moved there and renamed.
+
+## Capture-check (package 12, 2026-10-10)
+
+Per-marker draw counts from FCAP1 (pc2 / PC): per frame 1217-2068 draws (+ 185-785 ExecuteIndirect) on the replay thread; the G-buffer phase 1 is a single list (537 draws pc2, 675 PC). Cascades: 33-42 draws each for cascade 0/1, 211 for cascade 2 at pc2 point 1 (2 instances per frame). A like-for-like check against section 4's per-view item counts needs the view -> marker map from 05-frame-graph (the G-buffer views have no marker); not done.
