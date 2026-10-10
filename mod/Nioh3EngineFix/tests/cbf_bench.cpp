@@ -145,6 +145,21 @@ int main(int argc, char** argv) {
         } kinds[] = {{"UPLOAD", upl}, {"CUSTOM WC L0 (CBF staging)", src}, {"DEFAULT (CBF VRAM ring)", dst}};
         LARGE_INTEGER f, a, b;
         QueryPerformanceFrequency(&f);
+        // a game-like population: thousands of other resources, and the CBF rings made LAST (as in the game)
+        const int extra = argc > 4 ? atoi(argv[4]) : 0;
+        D3D12_RESOURCE_DESC sd = rd;
+        sd.Width = 65536;
+        for (int i = 0; i < extra; ++i) {
+            ID3D12Resource* x = nullptr;
+            D3D12_HEAP_PROPERTIES hp{i & 1 ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT};
+            dev->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &sd, i & 1 ? D3D12_RESOURCE_STATE_GENERIC_READ : D3D12_RESOURCE_STATE_COMMON, nullptr,
+                                         IID_PPV_ARGS(&x));
+        }
+        ID3D12Resource *lateD = nullptr, *lateS = nullptr;
+        CK(dev->CreateCommittedResource(&vram, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&lateD)));
+        CK(dev->CreateCommittedResource(&sys, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&lateS)));
+        if (extra) printf("  (%d other resources created, then a DEFAULT + CUSTOM ring)\n", extra);
+        kinds[1].r = lateS, kinds[2].r = lateD;
         for (auto& k : kinds) {
             const uint64_t va = k.r->GetGPUVirtualAddress();
             constexpr int kN = 200000;
