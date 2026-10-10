@@ -85,7 +85,7 @@ pc2 (RX 6650 XT, 1080p, CPU-bound, bridge #1691 / file #217): fps about 0, but G
 (-9.4 %), XGI -3.1 %, XFOG -3.5 %, XAO -1.6 %, XPOST -1.1 %. Look: Performance no visible change; Potato loses AO / contact darkening.
 Harness fix from pc2: the live ack could be read mid-replace ({} -> fps 0); Read-Ack / read_ack now retry up to 25 x 20 ms until frames / qpc_us
 are present (fastab.ps1, cpu_live_sched.ps1, extraperf_ab.py). Ally results: see the bridge (XPERF1).
-Ally (bridge #1723, GPU-bound 98 %, ~41 fps): Potato +9.57 % +- 0.17 (40.7 -> 44.6, -2.15 ms); Performance +3.48 % +- 0.07 (41.1 -> 42.5, -0.82 ms). Singles: XCLD3 +2.5 %, XGI3 +2.1 %, XPOST1 +2.1 %, XAO1 +2.0 %, XFOG2 +0.1 %, XSHD3 +0.1 %, XLOD2 -0.4 % (none). Look: Performance makes distant haze / sky lighter and flatter (it ran with the older XFOG 1; the shipped table has fog 0); Potato has slightly flatter ground lighting and less contact shadow, no artifacts. Ship fastab_report.py together with cost_vs_looks.py (it imports it).
+Ally (bridge #1723, GPU-bound 98 %, ~41 fps): Potato +9.57 % +- 0.17 (40.7 -> 44.6, -2.15 ms); Performance +3.48 % +- 0.07 (41.1 -> 42.5, -0.82 ms). Singles: XCLD3 +2.5 %, XGI3 +2.1 %, XPOST1 +2.1 %, XAO1 +2.0 %, XFOG2 +0.1 %, XSHD3 +0.1 %, XLOD2 -0.4 % (none). Look: Performance makes distant haze / sky lighter and flatter; Potato has slightly flatter ground lighting and less contact shadow, no artifacts. Ship fastab_report.py together with cost_vs_looks.py (it imports it).
 Caveat: PC is GPU-bound at ~100 fps with a cheap sky scene; heavy-fog / heavy-cloud scenes and the Ally (GPU 98 %) should gain more.
 
 ## 4. Verdict
