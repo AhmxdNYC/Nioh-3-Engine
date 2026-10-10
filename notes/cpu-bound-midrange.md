@@ -1,5 +1,7 @@
 # CPU-bound mid-range PCs with Resizable BAR: what holds pc2 at ~26 ms (2026-10-09, ASI 1.7.58 / 1.7.58b)
 
+> **CORRECTION 2026-10-10 (notes/renderer/backend.md):** the replay thread is NOT blocked on barriers, a lock or a full submit queue. pc2 measured 0 queue-full waits and an uncontended lock; the replay thread is ~20 % idle, and the earlier '~19 % blocked' was the profiler misattributing its own idle wait. The real wall: the engine command buffer is wiped at every frame end, so the main thread waits ~5 ms for replay and frames never overlap. Fix direction = frame overlap (notes/renderer/frame-overlap.md).
+
 Question (#1096): pc2 (Ryzen 5 5600X, RX 6650 XT) with ReBAR ON at the standard Continue save spot runs GPUBusy 19.1 ms but
 frames ~26 ms (38 fps, 73-75 % GPU-bound). Which thread or sync holds the frame, and what is fixable mod-side?
 Tags: **M** measured on pc2, **S** static (dump / disassembly), **E** estimate.
