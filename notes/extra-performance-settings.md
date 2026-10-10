@@ -71,7 +71,7 @@ Sessions: xp5sky (stage 7356 open sky, ASI 1.7.59) and xp4sky / xp6sky (7356); x
 | XTER terrain | 2 (x0.4) | +0.6 % +- 0.1 | -0.06 | none (3.7 %) |
 | XLOD meshlet LOD | 2 (x2) | +3.8 % +- 2.9 (not significant) | -0.03 | none (3.8 %) |
 | XSHD / XSHF / XPRT | 3 / 2 / 4 | 0.0 / -0.1 / +0.1 % | 0 | none (3 %) |
-| **Performance** (XPRE 1) | 2,0,2,1,0,1,0,0,0,0 | pending xp7sky (the xp6sky run of the earlier table with XFOG 1: +5.7 % +- 0.6) | pending (xp6: -0.49) | pending (xp6 with XFOG 1: 15 % px) |
+| **Performance** (XPRE 1) | 2,0,2,1,0,1,0,0,0,0 | +4.3 % +- 0.6 (101.3 -> 105.6; xp9sky, final table) | -0.36 | none (2.5 % px = noise, mean diff 2.1) |
 | **Potato** (XPRE 2) | 3,2,3,3,2,2,0,0,1,1 | +10.5 % +- 0.1 (102.1 -> 112.8) | -0.93 | 20 % px, mean diff 6.2: coarser fog, volumetric glow kept |
 
 Why the presets look like this (2026-10-10): the first preset table (xp4sky) put XFOG at 1 / 3 and measured +5.0 % / +9.5 % but
