@@ -122,6 +122,12 @@ SPEC = [
     ("chk:ReqById_StartArg_r8", "FNOW", "check", 0x2239628, 0),
     ("chk:ReqById_Start_to_0xC", "FNOW", "check", 0x22396A3, 0),
     ("chk:MissionState_28_14", "FNOW", "check", 0x22372BF, 0),
+    # WARP (Fight now in the arena): the tail of the script native Player::SetPos 23AB4DC = the game's own player warp
+    # (CharacterSetPositionYaw 1C27010, physics vcall +D0h, actor manager +48h/+D0h, 1C2A3CC, scene cfg +10B0h/+10C0h/+500h, 3A083C,
+    # StagePathInitStep 3B35B4). The add-on replays it with its own x y z yaw; the call targets are read from these two matches.
+    # head = minimum pattern length for a check (80: both windows cover every call / offset the add-on uses).
+    ("chk:SetPos_tail_a", "WARP", "check", 0x23AB658, 80),
+    ("chk:SetPos_tail_b", "WARP", "check", 0x23AB6A7, 80),
 ]
 # preferred functions to anchor a global's reference in (first hit there wins; else any unique hit in .text)
 PREFER = {"g:DataDb": 0x223963C, "g:ClearDb": 0x378C93, "g:MissionQueue": 0x10DC07A, "g:MenuMgr": 0x1DE28EC}
@@ -299,7 +305,7 @@ def build(img):
                 e.update(kind="native", native=natives[rva], pattern=to_str(list(img[rva:rva + head])), offset=0)
                 sites.append(e)
                 continue
-            pat, back = derive(img, secs, rva, 16 if kind != "call" else 12)
+            pat, back = derive(img, secs, rva, (head or 16) if kind == "check" else 16 if kind != "call" else 12)
             e.update(pattern=to_str(pat), offset=back)
             if kind == "call":
                 if img[rva] != 0xE8:

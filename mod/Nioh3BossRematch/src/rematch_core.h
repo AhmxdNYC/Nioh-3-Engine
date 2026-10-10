@@ -4,6 +4,7 @@
 #pragma once
 #include <cstdint>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -31,6 +32,14 @@ struct Row {
     char fightConf[8] = "";    // high / medium / low
     char fightKind[20] = "";   // boss retry point / shrine / spawn point / gadget point / mission start
     float warp[4] = {};        // the start point's spawn x y z yaw (game units / degrees), for the log
+    // Fight now v2 (in the arena): a point just inside the arena trigger box (catalogue arena_x..arena_yaw) or a captured position
+    bool arenaOk = false;      // arena[] valid: warp there after the load
+    bool atFight = false;      // the mission already starts at the fight (one start point <= 30 m): no warp needed
+    float arena[4] = {};
+    uint32_t arenaBox = 0;
+    char arenaConf[12] = "";   // high / medium / low / captured
+    char arenaSrc[72] = "";
+    bool FightNowReady() const { return fightStart && (arenaOk || atFight); }
     bool Verified() const { return verifiedCat || verifiedRun; }
 };
 
@@ -83,7 +92,8 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cMid = ci("replay_mission_id"), cHid = ci("hidden"), cVer = ci("verified"), cEi = ci("emaki_index"),
               cPl = ci("placement_id"), cWhy = ci("reason"), cSt = ci("stage_mission"), cFk = ci("fight_kind"),
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
-              cWyaw = ci("warp_yaw");
+              cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
+              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -113,11 +123,48 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
             Ascii(r.fightKind, sizeof(r.fightKind), col(cFk));
             const int wc[4] = {cWx, cWy, cWz, cWyaw};
             for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+            Ascii(r.arenaConf, sizeof(r.arenaConf), col(cAconf));
+            Ascii(r.arenaSrc, sizeof(r.arenaSrc), col(cAsrc));
+            r.atFight = col(cAsrc).rfind("mission start", 0) == 0;
+            if (!col(cAx).empty() && !col(cAy).empty() && !col(cAz).empty()) {
+                const int ac[4] = {cAx, cAy, cAz, cAyaw};
+                for (int k = 0; k < 4; ++k) r.arena[k] = (float)atof(col(ac[k]).c_str());
+                r.arenaBox = (uint32_t)strtoul(col(cAbox).c_str(), nullptr, 0);
+                r.arenaOk = true;
+            }
         }
         if (r.route == kE && (r.emakiIndex < 0 || r.emakiIndex > 255)) continue;
         rows.push_back(r);
     }
     return (int)rows.size();
+}
+
+// Captured arena positions (Nioh3BossRematch_arenas.tsv, written at BossBattleMode start with [Rematch] ArenaCapture = 1):
+// "mission<TAB>placements<TAB>x<TAB>y<TAB>z<TAB>when" (mission hex/dec, placements space separated). A capture overrides the
+// catalogue arena point of every R / H / D row of that mission whose boss placement was created before that fight (last line wins).
+inline int ApplyArenas(const std::string& text, std::vector<Row>& rows) {
+    int n = 0;
+    for (const auto& line : Lines(text)) {
+        const auto f = SplitTab(line);
+        if (f.size() < 5 || f[0] == "mission") continue;
+        const uint32_t mis = (uint32_t)strtoul(f[0].c_str(), nullptr, 0);
+        const std::string pl = " " + f[1] + " ";
+        for (auto& r : rows) {
+            if (r.missionId != mis || !r.fightStart || !r.placement) continue;
+            const std::string key = " " + std::to_string(r.placement) + " ";
+            const std::string key2 = " " + std::to_string(r.placement) + "(";
+            if (pl.find(key) == std::string::npos && pl.find(key2) == std::string::npos) continue;
+            r.arena[0] = (float)atof(f[2].c_str());
+            r.arena[1] = (float)atof(f[3].c_str()) + 50.0f;  // the player's feet at the trigger + 0.5 m
+            r.arena[2] = (float)atof(f[4].c_str());
+            r.arenaOk = true;
+            r.atFight = false;
+            snprintf(r.arenaConf, sizeof(r.arenaConf), "captured");
+            snprintf(r.arenaSrc, sizeof(r.arenaSrc), "captured %s", f.size() > 5 ? f[5].c_str() : "");
+            ++n;
+        }
+    }
+    return n;
 }
 
 // verify_all.ps1 results: "id<TAB>verified<TAB>..." (header line "id\tverified..."); returns rows marked

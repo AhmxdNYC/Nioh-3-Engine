@@ -28,6 +28,10 @@ placement (enemy table +0x54, 0x138-byte records, +0x40 x y z yaw) is chosen; Mi
 starts the mission there (the third argument = request +0xC = what Continue passes for the saved retry point). Columns:
 stage_mission = that start point id, warp_x..warp_yaw = its spawn transform, box_id = the boss-area PlacementBox, fight_kind /
 fight_dist_m / fight_conf = how it was picked and how sure (high / medium / low / - = not offered).
+Fight now v2 (in the arena): arena_x..arena_yaw = a point just inside the boss's arena trigger box (the PlacementBox the mission
+script tests with Player::IsEnterPlacementBox* / Wait_InvadeBox* / Loop_*EnterPlacementBox*, name with BOSS, <= 40 m from the boss;
+else a BOSS area box of the table), on the side the start point approaches from; arena_box / arena_src / arena_conf say which. The
+add-on warps the player there after the load (the game's own Player::SetPos path) so the game's trigger starts the fight.
 """
 import argparse
 import collections
@@ -48,6 +52,9 @@ EMAKI = ("archive_03", "70", "14FB3450175890EB5F7574DD50BE04684A511B7B4A5B55E00F
 EMAKI_GADGETS = ("archive_03", "6A", "D9BEDC4195ECC462D419B594BB26EBA7D94A55EC135C7C475910F4D45E7829")
 EMAKI_BOXES = ("archive_03", "87", "9AB5DD3165C199CFB6653605CE156F20F973BB0BD274604B4D9FD59B0580E8")
 FIGHT_IDX = "rematch-fight-index.csv"
+# arena trigger boxes confirmed by an in-game trace: (mission, box) -> source
+ARENA_SEEN = {(0x1CBC, 66599): "2026-10-09 PC trace: SetMissionFlag 456 -> Create 65092 -> BossBattleMode after this box"}
+TRIG_CALLS = ("Player::IsEnter", "Function::Wait_Invade", "Function::Loop_")
 FCOLS = ["mission_id", "kind", "id", "flags", "sub", "x", "y", "z", "yaw", "ex", "ey", "ez", "name"]
 HIDDEN = {0xD22D: "Honda Tadakatsu", 0xB3F8: "Minamoto no Yoshitsune", 0xFB96: "Yagyu Jubei & Marubashi Chuya"}
 TITLE_RECORD = 0x7F16          # "The Battle of Hitokoto Slope": new-game prologue variant (+0x40 bit0)
@@ -69,7 +76,8 @@ EXTRA = ["Marubashi Chuya"]      # second boss of the Yagyu Principles duel (0xF
 SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement) -> (session, defeat flag); session-2026-10-08-gamedata.md
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
-        "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf"]
+        "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -175,6 +183,61 @@ def build_index():
     print("wrote notes/rematch-enemy-index.csv (%d rows), notes/rematch-emaki.csv (%d records)" % (len(rows), len(er)))
 
 
+def _script_box_calls(d):
+    """mission script bytes -> {int constant: set(native names)} for constants pushed (op 0x29) right before a native call."""
+    try:
+        ln = d[0]
+        q = 1 + ln
+        cnt = struct.unpack_from("<H", d, q)[0]
+        q += 2
+        names = []
+        for _ in range(cnt):
+            n = struct.unpack_from("<H", d, q)[0]
+            names.append(d[q + 6:q + 6 + n].decode("latin1"))
+            q += 6 + n + 1
+        n = struct.unpack_from("<H", d, q)[0]
+        q += 2
+        syms = {struct.unpack_from("<HHH", d, q + 6 * i)[1]: struct.unpack_from("<HHH", d, q + 6 * i)[0] for i in range(n)}
+        q += 6 * n
+        ms = list(re.finditer(rb"[\x20-\x7e\x80-\xff]{3,}\x00", d[q:]))
+        pe = q + ms[0].end() if ms else q
+        for m in ms[1:]:
+            if q + m.start() - pe > 5:
+                break
+            pe = q + m.end()
+        i = d.index(b"\x35\x00", pe)
+    except (ValueError, IndexError, struct.error):
+        return {}
+    ops = []
+    while i + 2 <= len(d):
+        o = struct.unpack_from("<H", d, i)[0]
+        if o in (0x1b, 0x1f, 0x3b, 0x3a, 0x01, 0x2f, 0x50, 0x51):
+            ln = 2
+        elif o in (0x29, 0x2d, 0x22, 0x23, 0x24, 0x30, 0x31, 0x05, 0x11, 0x3e, 0x3d):
+            ln = 4
+        elif o in (0x35, 0x2c, 0x2e):
+            if i + 4 > len(d):
+                break
+            ln = 2 + (8 if o == 0x35 else 4) * struct.unpack_from("<H", d, i + 2)[0]
+        else:
+            ln = 0
+        if o > 0x5f or i + 2 + ln > len(d):
+            break
+        ops.append((o, d[i + 2:i + 2 + ln]))
+        i += 2 + ln
+    out = collections.defaultdict(set)
+    for k, (o, x) in enumerate(ops):
+        if o in (0x1b, 0x1f) and len(x) == 2:
+            sid = struct.unpack("<H", x)[0]
+            nm = names[syms[sid]] if sid in syms and syms[sid] < len(names) else ""
+            if not nm.startswith(TRIG_CALLS) or not ("Box" in nm or "Invade" in nm):
+                continue
+            for j in range(max(0, k - 5), k):
+                if ops[j][0] == 0x29:
+                    out[struct.unpack("<i", ops[j][1])[0]].add(nm)
+    return out
+
+
 def _idtab_and_files():
     d = lfm(IDTAB).read_bytes()
     E = {}
@@ -192,7 +255,8 @@ def _idtab_and_files():
 
 def build_fight_index():
     """--fight-index: per mission record, its start points (+0x6C table), boss-area boxes (+0x5C PlacementBox table, names with
-    BOSS) and the boss-like enemy records listed in rematch-enemy-index.csv (positions from its +0x54 table)."""
+    BOSS), the script's player-enter trigger boxes (kind trig: boxes the mission script (+0x50) tests with Player::IsEnter* /
+    Wait_Invade* / Loop_*) and the boss-like enemy records listed in rematch-enemy-index.csv (positions from its +0x54 table)."""
     E, files = _idtab_and_files()
     md = lfm(MISSIONDB).read_bytes()
     want = collections.defaultdict(set)
@@ -222,6 +286,9 @@ def build_fight_index():
                 rows.append({"mission_id": mh, "kind": "start", "id": struct.unpack_from("<I", r, 0)[0], "flags": "0x%X" % struct.unpack_from("<I", r, 8)[0],
                              "sub": struct.unpack_from("<I", r, 0xC)[0], "x": "%.0f" % x, "y": "%.0f" % y, "z": "%.0f" % z, "yaw": "%.1f" % yaw,
                              "ex": "", "ey": "", "ez": "", "name": "#%d" % j})
+        snm = E.get(struct.unpack_from("<I", rec, 0x50)[0])
+        sp = files.get(snm) if snm else None
+        trig = _script_box_calls(sp.read_bytes()) if sp else {}
         t = tab(rec, 0x5C)
         c = struct.unpack_from("<I", t, 4)[0] if t else 0
         if t and 8 + c * 0xA0 <= len(t):
@@ -233,6 +300,13 @@ def build_fight_index():
                     break
                 nm = t[pool + no:t.index(b"\0", pool + no)].decode("latin1")
                 u = nm.upper()
+                bid = struct.unpack_from("<I", r, 0)[0]
+                if bid in trig:
+                    cx, cy, cz, _w, yaw = struct.unpack_from("<5f", r, 0x10)
+                    ex, ey, ez = struct.unpack_from("<3f", r, 0x28)
+                    rows.append({"mission_id": mh, "kind": "trig", "id": bid, "flags": "", "sub": ascii_(" ".join(sorted(trig[bid])))[:80],
+                                 "x": "%.0f" % cx, "y": "%.0f" % cy, "z": "%.0f" % cz, "yaw": "%.1f" % yaw, "ex": "%.0f" % ex,
+                                 "ey": "%.0f" % ey, "ez": "%.0f" % ez, "name": ascii_(nm)[:60]})
                 if "BOSS" not in u or not any(k in u for k in ("AREA", "BOX", "BARRIER")) or any(k in u for k in ("BGM", "JUKE", "ITEM")):
                     continue
                 cx, cy, cz, _w, yaw = struct.unpack_from("<5f", r, 0x10)
@@ -262,13 +336,15 @@ def build_fight_index():
 
 # ---------------------------------------------------------------- fight now (E1 straight to the boss): start point choice
 def load_fight_index():
-    fi = collections.defaultdict(lambda: {"start": [], "box": [], "boss": {}})
+    fi = collections.defaultdict(lambda: {"start": [], "box": [], "trig": [], "boss": {}})
     p = N / FIGHT_IDX
     if not p.exists():
         return fi
     for r in csv.DictReader(open(p, encoding="utf-8")):
         m = int(r["mission_id"], 16)
         v = dict(r, id=int(r["id"]), pos=(float(r["x"]), float(r["y"]), float(r["z"])), yawf=float(r["yaw"]))
+        if r["ex"]:
+            v["ext"] = (float(r["ex"]), float(r["ey"]), float(r["ez"]))
         if r["kind"] == "boss":
             fi[m]["boss"][v["id"]] = v
         else:
@@ -314,6 +390,50 @@ def pick_fight_start(fi, mid, pid):
             k = int(s["sub"])
             return out(s, "shrine" if k in (906, 907, 909) else "spawn point" if k == 0 else "gadget point", "low")
     return None
+
+
+BAD_TRIG = ("BGM", "JUKE", "ITEM", "GUEST", "INV", "SILENCE", "CLEAR", "VOICE", "TALK", "NOKATANA", "NO_KATANA")
+
+
+def pick_arena(fi, mid, pid, f):
+    """-> dict(x, y, z, yaw, box, src, conf) = a point just inside the arena trigger, or None.  f = pick_fight_start() result.
+    Box: a script trigger box (kind trig) with BOSS in its name <= 40 m from the boss (conf medium; high when ARENA_SEEN), else a
+    BOSS area box of the table <= 40 m (low, not seen as a trigger in the script).  Point: from the box centre towards the start
+    point, 60 % of the way to the box edge (box +0x28 = full size, rotated by +0x20 yaw about y), so it is inside the box under
+    either size convention; y = the start / boss heights interpolated + 1 m (the player drops onto the floor); yaw faces the boss
+    (yaw 0 = +z, as Jakotsu-baba's boss retry point (yaw -180, north of the boss) shows)."""
+    import math
+    m = fi.get(mid)
+    if not m or not f or pid not in m["boss"]:
+        return None
+    bp = m["boss"][pid]["pos"]
+    cands, src, conf = [], "", ""
+    for b in m["trig"]:
+        u = b["name"].upper()
+        if "BOSS" in u and not any(k in u for k in BAD_TRIG) and _dist_m(b["pos"], bp) <= 40:
+            cands.append(b)
+    if cands:
+        src, conf = "script trigger", "medium"
+    else:
+        cands = [b for b in m["box"] if _dist_m(b["pos"], bp) <= 40 and not any(k in b["name"].upper() for k in BAD_TRIG)]
+        src, conf = "boss area box", "low"
+    if not cands:
+        return None
+    b = sorted(cands, key=lambda b: (_dist_m(b["pos"], bp), b["id"]))[0]
+    if (mid, b["id"]) in ARENA_SEEN:
+        conf = "high"
+    c, ext, a = b["pos"], b["ext"], math.radians(b["yawf"])
+    sp = f["pos"]
+    dx, dz = sp[0] - c[0], sp[2] - c[2]
+    lx, lz = dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a)   # into box-local axes
+    hx, hz = ext[0] / 2, ext[2] / 2
+    t = min(hx / abs(lx) if lx else 1e9, hz / abs(lz) if lz else 1e9, 1.0)      # ray centre -> start point leaves the box at t
+    wx, wz = c[0] + dx * t * 0.6, c[2] + dz * t * 0.6
+    hs = math.hypot(sp[0] - wx, sp[2] - wz)
+    hb = math.hypot(bp[0] - wx, bp[2] - wz)
+    wy = (sp[1] * hb + bp[1] * hs) / (hs + hb if hs + hb else 1) + 100
+    yaw = math.degrees(math.atan2(bp[0] - wx, bp[2] - wz))
+    return {"x": wx, "y": wy, "z": wz, "yaw": yaw, "box": b["id"], "src": "%s %d %s" % (src, b["id"], b["name"][-40:]), "conf": conf}
 
 
 # ---------------------------------------------------------------- catalogue
@@ -560,6 +680,13 @@ def mrow(rt, mid, b, lst, ma, fi):
         o.update({"stage_mission": str(f["start"]), "warp_x": "%.0f" % f["pos"][0], "warp_y": "%.0f" % f["pos"][1], "warp_z": "%.0f" % f["pos"][2],
                   "warp_yaw": "%.1f" % f["yaw"], "box_id": str(f["box"]) if f["box"] else "-", "fight_kind": f["kind"],
                   "fight_dist_m": "%.0f" % f["dist"], "fight_conf": f["conf"]})
+        if f["kind"] == "mission start" and f["dist"] <= 30:
+            o.update({"arena_src": "mission start (the mission already starts at the fight)", "arena_conf": f["conf"]})
+        else:
+            ar = pick_arena(fi, mid, int(pid), f)
+            if ar:
+                o.update({"arena_x": "%.0f" % ar["x"], "arena_y": "%.0f" % ar["y"], "arena_z": "%.0f" % ar["z"], "arena_yaw": "%.1f" % ar["yaw"],
+                          "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"]})
     return o
 
 

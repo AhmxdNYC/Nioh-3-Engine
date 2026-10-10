@@ -145,3 +145,30 @@ there the carrier scroll's clear / unique-defeat flag is the only scroll state w
    ordinary resume point; walk ~35 m through the gate at x ~337900).
 Pass = you load next to the arena, the log shows `F landed ... == the requested start point`, the boss fight starts, a death puts you
 back at the same point, and leaving logs `Fight now over`. Report a fail with the `Rematch: F` lines.
+
+### E1 v2: "Fight now (in the arena)" + "Shrine before the boss" (add-on 1.2.0, 2026-10-09, built, not run)
+First game test of 1.1.0 (19:51, Yamagata Masakage): loaded at shrine 67064, walked in; trace = `SetMissionFlag 456` (42.06 s) ->
+`Character::Create 65092` (42.36) -> `BossBattleMode` (42.78). The 0x1CBC script tests `Player::IsEnterPlacementBox(66599
+CH02_MAIN01_HITOKOTO_BOSSAREABOX)` and then sets flag 456: **the arena trigger is that box**.
+- **Warp = the game's own path.** Script native `Player::SetPos` 23AB4DC (x, y, z, yaw deg) ends with: `CharacterSetPositionYaw(ch, pos,
+  yaw)` 1C27010, the physics vcall `[[ch+3B0h]+28h|18h]->+D0h`, actor manager `[[45B9E40]+48h]+D0h = ch+110h` + 42A9B4, 1C2A3CC(ch+110h),
+  scene cfg `[45B9E58]` +10B0h = pos / +10C0h = 1 / 3A083C(+500h, +10B0h), `StagePathInitStep(+500h, 1)` 3B35B4. The add-on replays that
+  tail with its own values (`CallWarp`); ch = `PlayerCharacterGet(0)` = `[[4745348]+0xCD*0x18]`; position = ch+110h. Site group WARP
+  (2 checks of 80 bytes over 23AB658 / 23AB6A7; call targets read from their rel32s, the actor-manager global must equal g:CharMgr).
+- **Arena point** (catalogue `arena_x..arena_yaw`, `arena_box`, `arena_src`, `arena_conf`; `--fight-index` adds `trig` rows = boxes the
+  mission script tests with Player::IsEnter* / Wait_Invade* / Loop_*): the trigger box with BOSS in its name <= 40 m from the boss
+  (medium; high when seen in a trace), else a BOSS area box of the table (low). Point = from the box centre towards the start point,
+  60 % of the way to the edge (inside under either size convention), y = start/boss heights interpolated + 1 m, yaw toward the boss.
+  Yamagata: 337691 10244 206714 (2 m inside the gate edge x 337898), high.
+- **Rows:** 16 with an arena point (Yamagata high; Takeda Shingen, Hino-enma, Ippon-Datara, Magatsu Warrior, Ibaraki Doji, Kiyomizu
+  (Hijikata/Kondo/Onmoraki), Scion of the Gods (Okita/Yoshinobu) medium; Jakotsu-baba, Yoritomo, Kunimatsu (Light of Hope), Bakumatsu
+  wave 0x6351... low) + 30 that already start at the fight (duels, rushes, teacher missions: no warp). The rest: "Fight now" greyed
+  with "no arena position yet"; "Shrine before the boss" stays available.
+- **Flow:** `F landed` -> 1.5 s -> warp (only if not loading / paused, player present, no fight running, mission +28h and retry point +14h
+  still the Fight now ones, solo). After every reload inside the mission (death) it warps again 4.5 s after the load. Log: `Rematch: F
+  ... warp #n into the arena ... player a b c -> x y z`. No flag, no spawn, no save by the add-on: the game's trigger does the rest.
+- **Capture:** every BossBattleMode start logs `Rematch: arena: ... player x y z, mission, retry point, placements`. `[Rematch]
+  ArenaCapture = 1` appends `mission placements x y z when` to `Nioh3BossRematch_arenas.tsv`; at launch a capture overrides the
+  catalogue point of the row whose boss placement is in its list (conf `captured`, y + 0.5 m). So playing a boss once fills its row.
+- ini: `FightNowWarp = 0`, `ArenaCapture = 0` (repo defaults); pipe `fight <id>` (arena) / `shrine <id>`. Harness 54 checks, 85 sites OK.
+- Open: the warp itself (physics / camera after `CallWarp`), the arena y on uneven floors, the yaw convention (0 = +z assumed).

@@ -152,6 +152,29 @@ int main(int argc, char** argv) {
         CHECK(!rcore::FightSlotOk(slot, 0x34, 72636), "a different start point (the default) is reported");
         CHECK(!rcore::FightSlotOk(slot, 0x1CBC, 77032), "a different mission is reported");
         CHECK(!rcore::FightSlotOk(slot, 0x34, 0), "start point 0 is never a fight start");
+        // v2: arena points
+        int nar = 0, nat = 0;
+        for (auto& r : rows) {
+            nar += r.arenaOk;
+            nat += r.atFight;
+        }
+        printf("fight now v2: %d rows with an arena point, %d start at the fight\n", nar, nat);
+        CHECK(y && y->arenaOk && y->arenaBox == 66599 && !strcmp(y->arenaConf, "high") && y->arena[0] > 337000 && y->arena[0] < 337898 &&
+                  y->arena[1] > 10100 && y->arena[1] < 10400,
+              "Yamagata: arena point inside BOSSAREABOX 66599 (x < 337898, the box's gate edge), high (trace)");
+        CHECK(nar >= 10 && nat >= 20, "arena points + start-at-fight rows");
+        const rcore::Row* hz = nullptr;
+        for (auto& r : rows)
+            if (!strcmp(r.id, "RC362")) hz = &r;
+        CHECK(hz && hz->atFight && hz->FightNowReady(), "Hanzo (Demon's Regimen): one start point at the fight = ready without a warp");
+        std::vector<rcore::Row> v = rows;
+        const std::string cap = "# x\nmission\tplacements\tx\ty\tz\twhen\n0x0034\t76770 76781 1\t204600\t12390\t237500\t2026-10-09_20:00\n0x0034\t5 6\t1\t2\t3\tx\n";
+        CHECK(rcore::ApplyArenas(cap, v) == 1, "a capture applies to the row whose placement was created before the fight");
+        const rcore::Row* jc = nullptr;
+        for (auto& r : v)
+            if (!strcmp(r.id, "R0034")) jc = &r;
+        CHECK(jc && jc->arenaOk && !strcmp(jc->arenaConf, "captured") && jc->arena[0] == 204600.0f && jc->arena[1] == 12440.0f,
+              "captured point overrides the catalogue (+0.5 m on y)");
     }
     CHECK(rcore::ParseCatalogue("garbage\n", rows) == -1, "a file without the header is rejected");
 
