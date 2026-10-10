@@ -18,7 +18,7 @@ Small items run only when a machine would otherwise sit idle.
 | barrier batching retest (GPU-bound) | pc2 | <= 0.3 ms est. | backlog |
 | MPCS meshlet tail skip | pc2 | est. 0.05-0.1 ms | backlog |
 | PL boot pipeline library | PC | seconds at boot, est. | backlog |
-| GHDM | Ally / PC | +7.5 % Ally, +11 % PC with FG | SHIPPED (big enough to feel) |
+| GHDM | Ally / PC | fastab: +0.5 % Ally USER preset (#1178), +0.4 % PC no FG (#1063); old multi-launch +7.5 % Ally MAX / +11 % PC FG not re-verified | shipped; small win (re-check MAX + FG with fastab) |
 
 Priority list (feelable): PCIe/no-ReBAR fix (CbvMirror v2), display latency (VrrPresent), weak-CPU gains,
 stutter (PJH, needs a boss-fight route), cost-vs-looks only for items >= 1 ms.

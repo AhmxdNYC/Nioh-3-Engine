@@ -94,7 +94,7 @@ One line per problem: what the game does -> effect -> our fix -> result. Scope: 
 | Load queue capped at 10 requests in flight while threads and disk idle (both) | Possible load slowdown | LC (cap 16) | Ally: not yet tested; PC: no change measured |
 | Post-load tip page waits for a button press (both) | Load never ends by itself | AutoContinueLoad | Optional (off by default): mod-menu row "Skip loading tip screen" skips the page; works on PC and Ally |
 | First-use PSO creation under a lock blocks the frame (both) | Hitches on first use of an effect | PJ (PSO journal + prewarm) | Built, not yet tested |
-| GHDM shadow shader is inefficient on the Ally's GPU (Ally) | GPU is ~99 % busy; shadows are a large share | Replacement GHDM shader | +6.4 to +8.7 % fps at MAX (measured) |
+| GHDM shadow shader is inefficient on the Ally's GPU (Ally) | GPU is ~99 % busy; shadows are a large share | Replacement GHDM shader | +6.4 to +8.7 % fps at MAX (older multi-launch result, not yet re-verified; the precise one-launch method gives +0.5 % on the Ally at the USER preset and +0.4 % on the RX 9070 without frame gen, bridge #1178/#1063) |
 | Barrier batching (PC) | Costs the PC about 7 % | Kept off (`Barriers` / R-series off on PC) | Measured: -7 %, so off |
 | Other CPU waste (DQ, P1E7, GIMerge, wdo14) | Small main-thread/GPU costs | Built | Not yet tested |
 
@@ -136,7 +136,7 @@ Plain version: the game is limited by different things on each machine, so a few
 ### Handhelds and Linux (Proton): ROG Ally X as the reference
 - **Hardware measured:** ASUS ROG Ally X (RC72LA, Ryzen Z1 Extreme 8C/16T, Radeon 780M, 24 GB with 8 GB as GPU memory, 1080p 120 Hz, Bazzite + Proton / vkd3d-proton / RADV). We never change hardware or BIOS settings.
 - **What limits it:** the graphics chip is about 99 % busy. Stock at MAX settings in Futamata is about **16 fps** (16.3-16.8 measured).
-- **What helps:** the **GHDM shadow shader** (+6.4 to +8.7 % fps at MAX) and the **fog shader `0xa9910db8`** (a further +0.15 to +0.30 fps, measured on the Ally). The CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED ...) are fps-neutral there (they cut CPU load and free power for the GPU). R2a/R2b/R1 (barrier rewrites, Proton only) are no-ops.
+- **What helps:** the **GHDM shadow shader** (+6.4 to +8.7 % fps at MAX (older multi-launch result, not yet re-verified; the precise one-launch method gives +0.5 % on the Ally at the USER preset and +0.4 % on the RX 9070 without frame gen, bridge #1178/#1063)) and the **fog shader `0xa9910db8`** (a further +0.15 to +0.30 fps, measured on the Ally). The CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED ...) are fps-neutral there (they cut CPU load and free power for the GPU). R2a/R2b/R1 (barrier rewrites, Proton only) are no-ops.
 - **Loading:** stock about 94 s (Level 136) -> about **37-38 s** with EP + SR, which switch on automatically under Proton.
 - **Tested and not kept:** LC (higher load queue cap) measured worse, so it stays off; PF (load prefetch) was neutral. PJ, DQ, P1E7, GIMerge and wdo14 are built but not yet proven.
 
@@ -216,7 +216,7 @@ Full history: `MODLOG.md`.
 **What helped and what did not**
 | | Result |
 |---|---|
-| GHDM shadow shader rewrite | **The only confirmed fps win on the Ally**: +8.7 % at MAX |
+| GHDM shadow shader rewrite | +8.7 % at MAX (older multi-launch result, not yet re-verified; the precise one-launch method gives +0.5 % on the Ally at the USER preset and +0.4 % on the RX 9070 without frame gen, bridge #1178/#1063) |
 | CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED, ...) | Fps-neutral on the Ally, because it is GPU-bound. They free CPU time and power, and help the PC more |
 | GI, fog and toonedge2 shader rewrites | Dropped: slower on the Ally's driver. Kept on disk for a re-test |
 | ESM / WDO28 / culling shaders | Still under one-by-one re-test |
@@ -239,7 +239,7 @@ Goal: real 60 fps on the ROG Ally X (Bazzite/Proton, Z1 Extreme, 25 W) at max se
 
 | What | Result on the Ally | Status |
 |---|---|---|
-| **GHDM** shadow depth-reduction shader rewrite | **+8.7 % fps at MAX** (15.0 -> 16.3), better p99 | kept - the biggest fps win |
+| **GHDM** shadow depth-reduction shader rewrite | +8.7 % fps at MAX (15.0 -> 16.3) (older multi-launch result, not yet re-verified; the precise one-launch method gives +0.5 % on the Ally at the USER preset and +0.4 % on the RX 9070 without frame gen, bridge #1178/#1063) | kept (small win at normal presets) |
 | **W6** present-wait spin -> sleep (0x7D9E90) | main thread 98 % -> 23 %, GPU clock +37 %, +7-12 % fps at the time | kept |
 | **GF** GPU-fence-wait spin -> SetEventOnCompletion (0x7D9E1C/117D6C) | main thread 85 % -> 32 % at MAX, GPU +70 MHz; fps-neutral (GPU-bound) | kept |
 | ESM / WDO28 shadow blurs, culling chain (mpc/mshlod) | GPU power 23.1 -> ~20.5 W at the same fps (VSync slots hide small ms savings) | under one-by-one re-test |

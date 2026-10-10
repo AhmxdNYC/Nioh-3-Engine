@@ -69,7 +69,7 @@ Handhelds and APUs (ROG Ally, Steam Deck) share memory with the processor; this 
   saves the press).
 
 ## Optional shaders (same picture, less GPU time)
-Two replacement shader files are included. Both give the same picture; they do the same work with less GPU time. Measured on the ROG Ally: the shadow shader (`0x0104840c`, GHDM) +6.4 to +8.7 % fps at MAX; the fog shader (`0xa9910db8`, fogpar) a further +0.15 to +0.30 fps. On the RX 9070 PC the shadow shader gave about +3 %; the fog shader has not been measured on a PC yet. They are independent: use one or both. With the game closed:
+Two replacement shader files are included. Both give the same picture; they do the same work with less GPU time. Measured on the ROG Ally: the shadow shader (`0x0104840c`, GHDM) ~+0.5 % at normal presets (precise re-test; older multi-launch tests showed +6.4 to +8.7 % at MAX) - fps at MAX; the fog shader (`0xa9910db8`, fogpar) a further +0.15 to +0.30 fps. On the RX 9070 PC the shadow shader gave about +3 %; the fog shader has not been measured on a PC yet. They are independent: use one or both. With the game closed:
 1. In the game folder open `shader_dx12\` and **copy the original `0x0104840c.file` and `0xa9910db8.file` somewhere safe**.
 2. Copy the files from `optional\shader_dx12\` over them.
 3. Undo: put the originals back, or Steam -> Properties -> Installed Files -> Verify integrity.
