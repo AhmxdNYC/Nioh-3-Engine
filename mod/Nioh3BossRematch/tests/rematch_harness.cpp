@@ -167,6 +167,17 @@ int main(int argc, char** argv) {
             const float post[3] = {334650, 10100, 206713}, pre[3] = {337042, 10100, 206691}, shrine[3] = {339660, 10192, 206266};
             CHECK(y && y->boxOk && rcore::InTriggerBox(*y, y->arena) && rcore::InTriggerBox(*y, pre), "Yamagata: warp point and the captured trigger point are inside BOSSAREABOX");
             CHECK(y && !rcore::InTriggerBox(*y, post) && !rcore::InTriggerBox(*y, shrine), "Yamagata: the post-intro position and the shrine are outside it");
+            // 1.4.0 SPAWN: shrine 67064's shipped record spawns at 339659.9 10191.8 206266.3 yaw -145.5, flags 4 (arrival camera)
+            const float rec[4] = {339659.9f, 10191.8f, 206266.3f, -145.5f}, other[4] = {343783, 11114, 198363, -90};
+            CHECK(y && rcore::SpawnRecordMatches(*y, rec) && !rcore::SpawnRecordMatches(*y, other), "spawn: only the catalogue's start point record is patched");
+            CHECK(rcore::SpawnFlags(4) == 0 && rcore::SpawnFlags(0x44) == 0x40 && rcore::SpawnFlags(0x40) == 0x40, "spawn: only the arrival-camera bit is cleared");
+            const float landed[3] = {339660, 10195, 206265};  // 1.3.3 log: the player on the first frame at shrine 67064
+            CHECK(y && rcore::AtStartPoint(*y, landed) && !rcore::AtStartPoint(*y, y->arena) && !rcore::AtStartPoint(*y, post),
+                  "spawn: at the shrine = override did not take (warp fallback); the arena point / the post-intro spot = spawned in the arena");
+            int nsp = 0;
+            for (auto& r : rows) nsp += r.arenaOk && r.fightStart && !r.atFight && !rcore::AtStartPoint(r, r.arena);
+            printf("spawn override: %d rows spawn more than 5 m from their start point\n", nsp);
+            CHECK(nsp >= 10, "spawn: most arena rows are more than 5 m from their start point (a closer one keeps the plain warp)");
         }
         const rcore::Row* hz = nullptr;
         for (auto& r : rows)

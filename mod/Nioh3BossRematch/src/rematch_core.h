@@ -227,6 +227,20 @@ inline bool FightSlotOk(const uint8_t* slot, uint16_t mission, uint32_t start) {
     return m == mission && sp == start && start != 0 && mode == 2;
 }
 
+// ---- Fight now SPAWN (1.4.0): the start point's warp-point record (0xA4 B: +8 flags, +40h spawn x y z yaw) gets the arena point ----
+// Only a record that still spawns where the catalogue says (warp_x..z, the shipped +40h, within 1 m) is patched; bit 4 of the flags
+// (the arrival-camera preset +7Ch/+80h, aimed for the start point) is cleared while it spawns in the arena.
+inline bool SpawnRecordMatches(const Row& r, const float cur[4]) {
+    const float dx = cur[0] - r.warp[0], dy = cur[1] - r.warp[1], dz = cur[2] - r.warp[2];
+    return dx * dx + dy * dy + dz * dz <= 100.0f * 100.0f;
+}
+inline uint32_t SpawnFlags(uint32_t flags) { return flags & ~4u; }
+// a player within 5 m (horizontal) of the start point's spawn = the override did not take (the warp fallback runs)
+inline bool AtStartPoint(const Row& r, const float p[3]) {
+    const float dx = p[0] - r.warp[0], dz = p[2] - r.warp[2];
+    return dx * dx + dz * dz <= 500.0f * 500.0f;
+}
+
 inline uint32_t Crc32(const void* p, size_t n, uint32_t c = 0) {
     c = ~c;
     const uint8_t* b = (const uint8_t*)p;

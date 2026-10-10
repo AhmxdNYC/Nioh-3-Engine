@@ -13,8 +13,14 @@
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\rematch\fightnow_test.ps1 -OwnerPid <agent pid> [-Rows R1CBC,R15FF]
 #        [-IncludeAtFight] [-WaitMinutes 480] [-MaxMinutes 240] [-LoadWaitSec 240] [-DryRun]
+#        [-AgentId pc-rematch -PcLock nioh3-pc] [-SaveCopy D:\nioh3-re\save-backups] [-AsiPath <other build>]
+# -PcLock: also queue for and hold the PC's own game lock (other PC agents' harnesses use it); -AgentId: the bridge id to hold the
+# locks as (a distinct id per agent, or the lock tool treats another 'pc' holder as us). -SaveCopy: a second copy of the save backup.
+# CSV column 'spawn' (1.4.0): arena = the load ended with the player in the arena (start point override), start = at the start point
+# (warp fallback), - = no override for that row.
 param([int]$OwnerPid = 0, [string[]]$Rows = @(), [switch]$IncludeAtFight, [int]$WaitMinutes = 480, [int]$MaxMinutes = 240,
-      [int]$LoadWaitSec = 240, [bool]$KeepBuild = $true, [string]$PerfAsi = "", [switch]$DryRun)
+      [int]$LoadWaitSec = 240, [bool]$KeepBuild = $true, [string]$PerfAsi = "", [switch]$DryRun, [string]$AgentId = "pc",
+      [string]$PcLock = "", [string]$SaveCopy = "", [string]$AsiPath = "")
 $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tm = Join-Path (Split-Path -Parent $here) "testmatrix"
@@ -23,7 +29,7 @@ $AddonDir = Join-Path $repo "mod\Nioh3BossRematch"
 $GameDir = "C:\Program Files (x86)\Steam\steamapps\common\Nioh3"
 $perfIni = "$GameDir\Nioh3EngineFix.ini"
 $aAsi = "$GameDir\Nioh3BossRematch.asi"; $aIni = "$GameDir\Nioh3BossRematch.ini"; $aCat = "$GameDir\Nioh3BossRematch_bosses.tsv"; $aLog = "$GameDir\Nioh3BossRematch.log"
-$srcAsi = Join-Path $AddonDir "bin\Nioh3BossRematch.asi"; $srcCat = Join-Path $AddonDir "Nioh3BossRematch_bosses.tsv"
+$srcAsi = if ($AsiPath) { $AsiPath } else { Join-Path $AddonDir "bin\Nioh3BossRematch.asi" }; $srcCat = Join-Path $AddonDir "Nioh3BossRematch_bosses.tsv"
 $saveDir = "$env:LOCALAPPDATA\KoeiTecmo\NIOH3"
 # VirtualPad needs the perf ASI >= 1.7.37: the test installs this one for its run and puts the user's back afterwards
 if (-not $PerfAsi) { $PerfAsi = Join-Path $repo "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi" }
@@ -48,8 +54,19 @@ if (-not $DryRun -and (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { T "Ni
 . "$tm\harness_guard.ps1"
 . "$tm\vpad.ps1"
 $uo = "C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge"
-$env:UO_BRIDGE_TOKEN_FILE = "$env:APPDATA\uo-bridge\token"; $env:UO_AGENT_ID = "pc"
-function Lock([string]$a) { Push-Location $uo; try { $o = (py -m uo_bridge.gamelock $a nioh3 --ttl 14400 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } } finally { Pop-Location } }
+$env:UO_BRIDGE_TOKEN_FILE = "$env:APPDATA\uo-bridge\token"; $env:UO_AGENT_ID = $AgentId
+function Lock([string]$a, [string]$key = "nioh3") { Push-Location $uo; try { $o = (py -m uo_bridge.gamelock $a $key --ttl 14400 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } } finally { Pop-Location } }
+function Wait-PcLock {   # queue behind the other PC agents: enqueue, then acquire when it is our turn (a lock held by another id = wait)
+    $q = Lock "enqueue" $PcLock; T "queued for '$PcLock' as $AgentId : $($q.out)"; $t0 = Get-Date
+    while ($true) {
+        $r = Lock "acquire" $PcLock
+        if ($r.code -eq 0 -and -not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { $script:pcLocked = $true; T "lock '$PcLock': $($r.out)"; return }
+        if ($r.code -eq 0) { $null = Lock "release" $PcLock }   # got it but a game is still open: give it back and wait
+        if (((Get-Date) - $t0).TotalMinutes -gt $WaitMinutes) { $null = Lock "dequeue" $PcLock; throw "no turn on '$PcLock' in $WaitMinutes min ($($r.out))" }
+        if ($OwnerPid -and -not (Get-Process -Id $OwnerPid -ErrorAction SilentlyContinue)) { $null = Lock "dequeue" $PcLock; throw "owner gone while queued" }
+        Start-Sleep 30
+    }
+}
 function Set-IniKey([string]$t, [string]$sec, [string]$key, [string]$val) {
     $nl = "`r`n"
     $m = [regex]::Match($t, "(?ms)^\[$([regex]::Escape($sec))\][^\r\n]*\r?\n(.*?)(?=^\[|\z)")
@@ -79,7 +96,7 @@ function Wait-RM([scriptblock]$cond, [int]$sec, [int]$poll = 1) {
     return $null
 }
 
-$script:gamePid = 0; $script:locked = $false; $script:installed = $false; $script:saved = $false; $script:had = @{}; $script:launchN = 0
+$script:gamePid = 0; $script:locked = $false; $script:pcLocked = $false; $script:installed = $false; $script:saved = $false; $script:had = @{}; $script:launchN = 0
 function Launch {
     Assert-Launch
     $before = VP-ForegroundInfo
@@ -127,6 +144,8 @@ function Restore {
         $script:saved = $false
     }
     if ($script:locked) { $r = Lock "release"; $script:locked = $false; T "lock released: $($r.out)" }
+    if ($script:pcLocked) { $r = Lock "release" $PcLock; $script:pcLocked = $false; T "lock '$PcLock' released: $($r.out)" }
+    elseif ($PcLock -and -not $DryRun) { $null = Lock "dequeue" $PcLock }   # stopped while still in the line: leave it
 }
 
 # ---- rows: every R / H / D row with an arena point (+ the 'mission starts at the fight' rows with -IncludeAtFight) ----
@@ -141,18 +160,20 @@ $Rows = @($Rows | ForEach-Object { $_ -split "," } | Where-Object { $_ })
 $sel = @($all | Where-Object { $_.route -in @("R", "H", "D") -and ($_.arena -or ($IncludeAtFight -and $_.atfight)) -and ($Rows.Count -eq 0 -or $Rows -contains $_.id) })
 
 Init-Guard -Name "fightnow_test" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-Game; Restore; Stop-TestPopup }
-"id,name,arena_conf,result,fnow,warps,load_s,seconds_to_fight,player_at_fight,note" | Set-Content $csv
+"id,name,arena_conf,result,fnow,warps,spawn,load_s,seconds_to_fight,player_at_fight,note" | Set-Content $csv
 $sum = [ordered]@{ rows = $sel.Count; pass = 0; fail = 0; skip = 0 }
 try {
     T "fightnow_test: $($sel.Count) rows: $(($sel | ForEach-Object id) -join ' '); out=$out csv=$csv"
     foreach ($f in @($srcAsi, $srcCat, $perfIni, $PerfAsi)) { if (-not (Test-Path $f)) { throw "missing: $f" } }
     if ($DryRun) { T "[dry] would: lock, back up $saveDir -> $saveBak, install $srcAsi, test inis, launch, run $($sel.Count) rows, close, restore"; return }
+    if ($PcLock) { Wait-PcLock }
     if (Get-Process Nioh3 -ErrorAction SilentlyContinue) { throw "Nioh3 is running" }
     $r = Lock "acquire"; if ($r.code -ne 0) { throw "lock: $($r.out)" }; $script:locked = $true; T "lock: $($r.out)"
     New-Item -ItemType Directory -Force $saveBak | Out-Null
     $o = robocopy $saveDir $saveBak /MIR /R:2 /W:2 /NFL /NDL /NP /NJH; T "save folder backed up to $saveBak (robocopy exit $LASTEXITCODE)"
     if ($LASTEXITCODE -ge 8) { throw "save backup failed" }
     $script:saved = $true
+    if ($SaveCopy) { $sc = Join-Path $SaveCopy "$stamp-fightnow-test"; $o = robocopy $saveDir $sc /MIR /R:2 /W:2 /NFL /NDL /NP /NJH; T "second save copy: $sc (robocopy exit $LASTEXITCODE)"; if ($LASTEXITCODE -ge 8) { throw "save copy failed" } }
     foreach ($n in @("Nioh3EngineFix.ini", "Nioh3EngineFix.asi", "Nioh3BossRematch.ini", "Nioh3BossRematch.asi", "Nioh3BossRematch_bosses.tsv")) {
         $p = Join-Path $GameDir $n; $script:had[$n] = Test-Path $p; if ($script:had[$n]) { Copy-Item $p "$out\orig\" -Force }
     }
@@ -172,7 +193,7 @@ try {
     foreach ($row in $sel) {
         $n++; Set-TestStatus "row $n/$($sel.Count): $($row.id) $($row.name)"
         T "== $n/$($sel.Count) $($row.id) $($row.name) [arena $($row.conf): $($row.src)]"
-        $res = [ordered]@{ id = $row.id; name = $row.name; arena_conf = $row.conf; result = ""; fnow = ""; warps = ""; load = ""; seconds = ""; pos = ""; note = "" }
+        $res = [ordered]@{ id = $row.id; name = $row.name; arena_conf = $row.conf; result = ""; fnow = ""; warps = ""; spawn = ""; load = ""; seconds = ""; pos = ""; note = "" }
         # wait for the add-on to be idle and the player in the field
         $idle = Wait-RM { param($x) (F $x 'state') -eq '0' -and (F $x 'player') -eq '1' -and (F $x 'loading') -eq '0' -and (F $x 'gate') -eq 'ok' } 90
         if (-not $idle) { T "  not idle: $(RMP status) - relaunching"; Close-Game; $null = Launch }
@@ -189,11 +210,11 @@ try {
                 if ((LastOf $st) -notmatch '^started') { $res.result = "FAIL"; $res.note = "game thread: $(LastOf $st)"; $sum.fail++ }
                 else {
                     $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass', 'fail') -or ((F $x 'state') -eq '0' -and (F $x 'fnow') -ne 'armed' -and (F $x 'fnow') -ne 'warped') } ($LoadWaitSec + 60) 1
-                    $res.fnow = F $end 'fnow'; $res.warps = F $end 'warps'; $res.pos = F $end 'pos'; $lm = F $end 'loadms'; if ($lm) { $res.load = [math]::Round([int]$lm / 1000.0, 1) }
+                    $res.fnow = F $end 'fnow'; $res.warps = F $end 'warps'; $res.spawn = F $end 'spawn'; $res.pos = F $end 'pos'; $lm = F $end 'loadms'; if ($lm) { $res.load = [math]::Round([int]$lm / 1000.0, 1) }
                     $res.seconds = [math]::Round(((Get-Date) - $tq).TotalSeconds, 1)
                     if ($res.fnow -eq 'pass') { $res.result = "PASS"; $sum.pass++ }
                     else { $res.result = "FAIL"; $res.note = if ($end) { LastOf $end } else { "no result in $($LoadWaitSec + 60) s: $(RMP status)" }; $sum.fail++ }
-                    T "  -> $($res.result) fnow=$($res.fnow) warps=$($res.warps) load=$($res.load) s pos=$($res.pos) after $($res.seconds) s; $(LastOf $end)"
+                    T "  -> $($res.result) fnow=$($res.fnow) warps=$($res.warps) spawn=$($res.spawn) load=$($res.load) s pos=$($res.pos) after $($res.seconds) s; $(LastOf $end)"
                     Start-Sleep 4
                     $x = RMP "exit"; T "  exit: $x"
                     $back = Wait-RM { param($y) (F $y 'state') -eq '0' -and (F $y 'loading') -eq '0' -and (F $y 'player') -eq '1' } 150 2
@@ -205,7 +226,7 @@ try {
                 }
             }
         }
-        '"{0}","{1}","{2}","{3}","{4}","{5}","{6}","{7}","{8}","{9}"' -f $res.id, $res.name, $res.arena_conf, $res.result, $res.fnow, $res.warps, $res.load, $res.seconds, $res.pos, ($res.note -replace '"', "'") | Add-Content $csv
+        '"{0}","{1}","{2}","{3}","{4}","{5}","{6}","{7}","{8}","{9}","{10}"' -f $res.id, $res.name, $res.arena_conf, $res.result, $res.fnow, $res.warps, $res.spawn, $res.load, $res.seconds, $res.pos, ($res.note -replace '"', "'") | Add-Content $csv
     }
 } catch {
     T "!! $($_.Exception.Message)"; $sum.error = $_.Exception.Message

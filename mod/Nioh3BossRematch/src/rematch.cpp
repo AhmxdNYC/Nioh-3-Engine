@@ -79,9 +79,17 @@ uint8_t RightsCheckHook(uint32_t slot, const uint8_t* key, uint8_t mode) {
 }
 bool g_exitOk = false;
 const char* g_exitWhy = "";
+// SPAWN (1.4.0): appear in the arena from the first frame. The game places the player (1C0F24C) and centres the stage streaming
+// (223B8F0) on the warp-point record of the retry point = our start point; the add-on writes the arena point into that record's
+// spawn x y z yaw (+40h..+4Fh) and clears its arrival-camera bit (+8 bit 4, 2239C3C) while the Fight now runs. In memory only:
+// the start point id (the retry point the game may save) never changes, and the record is restored when the Fight now ends.
+uintptr_t F_WPFIND;
+bool g_spawnOk = false;
+const char* g_spawnWhy = "";
 
 struct Cfg {
-    bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = false, fightWarp = false, arenaCapture = false;
+    bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = false, fightWarp = false, arenaCapture = false,
+         fightSpawn = true;
 } g_cfg;
 
 std::vector<Row> g_rows;
@@ -324,6 +332,105 @@ bool ResolveWarp(const char** why) {
     return true;
 }
 
+// SPAWN sites: the player placement's WarpPointFind / pos / yaw calls and the arrival camera's lookup must be the ones we patch for
+bool ResolveSpawn(const char** why) {
+    F_WPFIND = Site("fn:WarpPointFind");
+    const uintptr_t pos = Site("chk:WarpPointPos_40"), yaw = Site("chk:WarpPointYaw_4C"), pr = Site("chk:PlayerPlace_Retry14"),
+                    pf = Site("chk:PlayerPlace_Find"), cam = Site("chk:CamFlag4_Retry14");
+    if (!F_WPFIND || !pos || !yaw || !pr || !pf || !cam) {
+        *why = "a SPAWN site is missing";
+        return false;
+    }
+    // 3B271C (pos) starts 0xA bytes before its +48h read, 3B2678 (yaw) 0xD bytes before its +4Ch read (sites_gen.h windows)
+    if (Rel32(pf, 1, 5) != F_WPFIND || Rel32(pf + 0x18, 1, 5) != pos - 0xA || Rel32(pf + 0x2B, 1, 5) != yaw - 0xD) {
+        *why = "the player placement does not call WarpPointFind / the record pos / yaw getters";
+        return false;
+    }
+    if (Rel32(cam + 0xE, 1, 5) != F_WPFIND || Rel32(pr, 3, 7) != G_MS || Rel32(cam, 3, 7) != G_MS) {
+        *why = "the placement / arrival camera do not read the retry point of g:MissionMgr";
+        return false;
+    }
+    return true;
+}
+uint64_t CallWpFind(uint32_t id) {  // WarpPointFind 137DCC: a pure lookup in the point-set registry, 0 when not loaded
+    __try {
+        return ((uint64_t (*)(uint32_t))F_WPFIND)(id);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+struct Spawn {
+    int st = 0;            // 0 off, 1 wanted (record not patched yet), 2 applied
+    uint64_t rec = 0;      // the patched warp-point record
+    uint32_t point = 0;    // its id = the Fight now start point
+    float orig[4] = {}, mine[4] = {};
+    uint32_t origFlags = 0, mineFlags = 0;
+    int reapplied = 0;
+    bool landCheck = false;  // log where the first frame after a load put the player
+    ULONGLONG nextCheck = 0;
+    char last[12] = "-";     // status 'spawn': - / pending / applied / arena / start / failed
+} g_sp;
+void SpawnLast(const char* v) { strncpy_s(g_sp.last, v, _TRUNCATE); }
+bool SpawnWrite(uint64_t rec, const float* xyzw, uint32_t flags) { return WrBytes(rec + 0x40, xyzw, 16) && WrBytes(rec + 8, &flags, 4); }
+// game thread: patch the record (again if the game reloaded / rewrote it)
+void SpawnApply(const Row& r, const char* when) {
+    const uint64_t rec = CallWpFind(g_sp.point);
+    if (!rec) return;  // the point set is not loaded (yet): retried every tick
+    uint32_t id = 0, flags = 0;
+    float cur[4] = {};
+    if (!Rd(rec, id) || id != g_sp.point || !Rd(rec + 8, flags) || !Copy(cur, rec + 0x40, 16)) {
+        g_sp.st = 0;
+        SpawnLast("failed");
+        Log("Rematch: F %s: spawn override NOT applied - warp-point record %u at %016llX is not readable as expected (id %u)", r.id, g_sp.point,
+            (unsigned long long)rec, id);
+        return;
+    }
+    if (rec == g_sp.rec && g_sp.st == 2 && !memcmp(cur, g_sp.mine, 16) && flags == g_sp.mineFlags) return;  // still ours
+    if (g_sp.st != 2) {  // first time: the record must be the catalogue's start point (catalogue warp_x.. = the shipped +40h)
+        if (!rcore::SpawnRecordMatches(r, cur)) {
+            g_sp.st = 0;
+            SpawnLast("failed");
+            Log("Rematch: F %s: spawn override NOT applied - record %u spawns at %.0f %.0f %.0f, the catalogue says %.0f %.0f %.0f (warp fallback)", r.id,
+                g_sp.point, cur[0], cur[1], cur[2], r.warp[0], r.warp[1], r.warp[2]);
+            return;
+        }
+    } else
+        ++g_sp.reapplied;
+    memcpy(g_sp.orig, cur, 16);
+    g_sp.origFlags = flags;
+    memcpy(g_sp.mine, r.arena, 16);
+    g_sp.mineFlags = rcore::SpawnFlags(flags);  // no arrival-camera preset (it is aimed for the start point); the camera follows the player
+    if (!SpawnWrite(rec, g_sp.mine, g_sp.mineFlags)) {
+        WrBytes(rec + 0x40, g_sp.orig, 16);
+        g_sp.st = 0;
+        SpawnLast("failed");
+        Log("Rematch: F %s: spawn override NOT applied - record %u not writable (warp fallback)", r.id, g_sp.point);
+        return;
+    }
+    g_sp.rec = rec;
+    g_sp.st = 2;
+    SpawnLast("applied");
+    Log("Rematch: F %s: spawn override %s (%s): start point %u record %016llX spawn %.0f %.0f %.0f yaw %.0f flags %X -> arena %.0f %.0f %.0f yaw %.0f flags %X",
+        r.id, g_sp.reapplied ? "RE-applied (the game rewrote the record)" : "applied", when, g_sp.point, (unsigned long long)rec, g_sp.orig[0], g_sp.orig[1],
+        g_sp.orig[2], g_sp.orig[3], g_sp.origFlags, g_sp.mine[0], g_sp.mine[1], g_sp.mine[2], g_sp.mine[3], g_sp.mineFlags);
+}
+void SpawnRestore(const char* why) {
+    if (g_sp.st == 2) {
+        float cur[4] = {};
+        uint32_t flags = 0;
+        const bool rd = CallWpFind(g_sp.point) == g_sp.rec && Copy(cur, g_sp.rec + 0x40, 16) && Rd(g_sp.rec + 8, flags);
+        if (rd && !memcmp(cur, g_sp.mine, 16) && flags == g_sp.mineFlags) {
+            const bool ok = SpawnWrite(g_sp.rec, g_sp.orig, g_sp.origFlags);
+            Log("Rematch: spawn override restored (%s): record %u spawn %.0f %.0f %.0f yaw %.0f flags %X%s", why, g_sp.point, g_sp.orig[0], g_sp.orig[1],
+                g_sp.orig[2], g_sp.orig[3], g_sp.origFlags, ok ? "" : " - WRITE FAILED");
+        } else
+            Log("Rematch: spawn override (%s): record %u is no longer ours (reloaded or changed by the game) - left as the game has it", why, g_sp.point);
+    }
+    g_sp.st = 0;
+    g_sp.rec = 0;
+    g_sp.landCheck = false;
+}
+
 // ---- mission records + hidden duel un-hide (game thread) ----
 uint64_t FindMissionRecord(uint16_t id) {
     uint64_t dm = 0, tab = 0;
@@ -512,6 +619,7 @@ void Refuse(const char* why) {
 }
 void ToIdle(const char* why) {
     UnhideRestore(why);
+    SpawnRestore(why);
     MapRestoreNow(why);
     g_et.st = rcore::kEIdle;
     g_state.store(kIdle);
@@ -641,6 +749,17 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         if (g_fightWarp)
             Log("Rematch: F %s: arena warp armed: %.0f %.0f %.0f yaw %.0f (%s, %s) after the load", r.id, r.arena[0], r.arena[1], r.arena[2], r.arena[3],
                 r.arenaSrc, r.arenaConf);
+        SpawnRestore("new Fight now");
+        SpawnLast("-");
+        g_sp.reapplied = 0;
+        if (g_fightWarp && g_cfg.fightSpawn && g_spawnOk) {  // appear there from the first frame; the warp stays as the fallback
+            g_sp.st = 1;
+            g_sp.point = start;
+            SpawnLast("pending");
+            Log("Rematch: F %s: spawn override armed: start point %u will spawn at the arena point once the load begins (record %s now)", r.id, start,
+                CallWpFind(start) ? "loaded" : "not loaded yet");
+        } else if (g_fightWarp)
+            Log("Rematch: F %s: no spawn override (%s) - warp after the landing", r.id, !g_cfg.fightSpawn ? "[Rematch] FightNowSpawn = 0" : g_spawnWhy);
         else if (warp)
             Log("Rematch: F %s: no warp needed - the mission starts at the fight", r.id);
     }
@@ -720,6 +839,25 @@ void DoWarp(const Snap& s, ULONGLONG t) {
             Result("fight now PASS %s (fight before the warp)", r.id);
         }
         return;
+    }
+    if (g_sp.st == 2) {  // spawned in the arena: only a player still standing at the start point (override did not take) is warped
+        float p[4] = {};
+        if (!PlayerPos(p)) return;  // the controller is not readable yet: try next frame
+        const float sx = p[0] - r.warp[0], sz = p[2] - r.warp[2], ax = p[0] - r.arena[0], az = p[2] - r.arena[2];
+        if (!rcore::AtStartPoint(r, p)) {
+            g_warpPending = false;
+            Log("Rematch: F %s: no warp - the player spawned in the arena (start point override): %.0f %.0f %.0f, %.1f m from the arena point, %.1f m from "
+                "the start point",
+                r.id, p[0], p[1], p[2], sqrtf(ax * ax + az * az) / 100.0f, sqrtf(sx * sx + sz * sz) / 100.0f);
+            if (g_fn.load() == kFnArmed) {
+                g_fn.store(kFnWarped);
+                g_fnFirst = g_fnLastT = t;
+                g_fnDeadline = t + 60000;
+                g_fnCheckAt = t + 1500;
+            }
+            return;
+        }
+        Log("Rematch: F %s: the player is at the start point despite the spawn override - warping as before", r.id);
     }
     if (s.ms28 != g_fightMission || s.ms14 != g_fightStart) {
         g_warpPending = false;
@@ -950,7 +1088,8 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                     Log("Rematch: F landed: retry point (+14h) %u %s start point %u; mission state +28h = 0x%X (%s)", s.ms14,
                         s.ms14 == g_fightStart ? "== the requested" : "!= the requested", g_fightStart, s.ms28,
                         g_fightByMission ? "the requested mission: exit = it changes" : "not the mission id: exit = the retry point changes, as R-b");
-                    if (s.ms14 != g_fightStart) ToastF(cOrange, 8000, "Rematch: the game did not use the boss start point (see the log)");
+                    if (s.ms14 != g_fightStart && strcmp(g_sp.last, "arena") != 0)
+                        ToastF(cOrange, 8000, "Rematch: the game did not use the boss start point (see the log)");
                     if (g_fightWarp && !g_warps) {  // landed (3 s with no load and a player) + 1 s settle
                         g_warpPending = true;
                         g_warpDue = t + 1000;
@@ -1001,7 +1140,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
     if (!g_exitSince) g_exitSince = t;
     else if (t - g_exitSince > 5000) {
         Log("Rematch: replay mission exited (stage now %u, mission state +28h 0x%X)%s", s.ms14, s.ms28,
-            g_fight.load() ? " - Fight now over (nothing was patched, nothing to restore)" : "");
+            g_fight.load() ? (g_sp.st == 2 ? " - Fight now over (the spawn record is restored next)" : " - Fight now over (nothing was patched, nothing to restore)") : "");
         Result("exited %s", RowName(g_activeRow.load()));
         ToIdle("replay mission exit");
     }
@@ -1091,8 +1230,8 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         const bool ok = fn == kFnPass;
         float p[4] = {};
         PlayerPos(p);
-        Log("Rematch: SELFTEST %s %s (%.1f s after the request, %d warp%s, player %.0f %.0f %.0f)", r.id, ok ? "PASS" : "FAIL", (double)(t - st.since) / 1000.0,
-            g_warps, g_warps == 1 ? "" : "s", p[0], p[1], p[2]);
+        Log("Rematch: SELFTEST %s %s (%.1f s after the request, %d warp%s, spawn %s, player %.0f %.0f %.0f)", r.id, ok ? "PASS" : "FAIL",
+            (double)(t - st.since) / 1000.0, g_warps, g_warps == 1 ? "" : "s", g_sp.last, p[0], p[1], p[2]);
         const size_t k = strlen(st.table);
         snprintf(st.table + k, sizeof(st.table) - k, " %s=%s", r.id, ok ? "PASS" : "FAIL");
         (ok ? st.pass : st.fail)++;
@@ -1124,6 +1263,44 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
     }
 }
 
+// game thread, every tick while a spawn override is armed / applied
+void SpawnTick(const Snap& s, ULONGLONG t, bool loadEnded) {
+    if (!g_sp.st || g_fightRow < 0 || !g_fight.load()) return;
+    const Row& r = g_rows[(size_t)g_fightRow];
+    if (s.online || s.guest) {
+        Log("Rematch: F %s: online / co-op during Fight now - spawn override removed", r.id);
+        SpawnRestore("online");
+        SpawnLast("failed");
+        return;
+    }
+    if (g_sp.st == 1) {
+        if (s.st[2]) SpawnApply(r, "load began");  // apply once the mission load runs (never in the mission we are leaving)
+        else if (loadEnded) {
+            g_sp.st = 0;
+            SpawnLast("failed");
+            Log("Rematch: F %s: spawn override NOT applied - warp-point record %u was never found during the load (warp fallback)", r.id, g_sp.point);
+        }
+        return;
+    }
+    if (loadEnded) g_sp.landCheck = true;
+    if (s.st[2] || t >= g_sp.nextCheck) {  // keep it ours while loading (death / retry reload) and once a second otherwise
+        g_sp.nextCheck = t + 1000;
+        SpawnApply(r, "check");
+    }
+    if (g_sp.landCheck && !s.st[2] && s.player) {
+        float p[4] = {};
+        if (!PlayerPos(p)) return;
+        g_sp.landCheck = false;
+        const float ax = p[0] - r.arena[0], az = p[2] - r.arena[2], sx = p[0] - r.warp[0], sz = p[2] - r.warp[2];
+        const bool atStart = rcore::AtStartPoint(r, p);
+        if (strcmp(g_sp.last, "failed") != 0) SpawnLast(atStart ? "start" : "arena");
+        Log("Rematch: F %s: first frame after the load (#%d in the mission): player %.0f %.0f %.0f - %s (%.1f m from the arena point, %.1f m from the start "
+            "point)",
+            r.id, g_fightLoads, p[0], p[1], p[2], atStart ? "AT THE START POINT (override did not take)" : "in the arena", sqrtf(ax * ax + az * az) / 100.0f,
+            sqrtf(sx * sx + sz * sz) / 100.0f);
+    }
+}
+
 void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
@@ -1133,8 +1310,10 @@ void Tick() {
         g_posAtLoadOk = g_posLiveOk;
         g_loadRiseAt = t;
     }
+    const bool loadEnded = g_wasLoading && !s.st[2];
     g_wasLoading = s.st[2] != 0;
     if (!s.st[2]) g_posLiveOk = s.player && PlayerPos(g_posLive);
+    SpawnTick(s, t, loadEnded);
     // leaving a mission during a boss fight (the menu's leave, quit to title) never runs BossBattleModeEnd: the "in a boss fight"
     // gate would stay set for the rest of the session (self-test 2026-10-09 21:14). A mission change ends any fight.
     {
@@ -1244,6 +1423,13 @@ void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
         cur[0], cur[1], cur[2], beforeLoad ? "before the intro load" : "trigger point = now", p[0], p[1], p[2], src, mis, rp, pl[0] ? pl : " none",
         fr >= 0 ? " - Fight now row " : "", fr >= 0 ? g_rows[(size_t)fr].id : "");
     if (!g_cfg.arenaCapture || !ok || !mis) return;
+    // 1.4.0: with the spawn override the player starts on the arena point itself, and a long intro load (Yamagata 2026-10-10: 6.5 s,
+    // past the 5 s window) made the capture take the post-intro spot 334650 (outside BOSSAREABOX) as 'fight-start' - a capture
+    // there would break the row. The point is known already: no capture while the override is on.
+    if (g_sp.st == 2) {
+        Log("Rematch: arena: not captured - the player spawned on the arena point (start point override)");
+        return;
+    }
     char ids[256] = "";
     size_t k = 0;
     for (const char* q = pl; *q && k + 12 < sizeof(ids);) {  // " 65092(-0.4s) ..." -> "65092 ..."
@@ -1361,6 +1547,7 @@ bool Start() {
     g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 0) != 0;
     g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 0) != 0;
     g_cfg.arenaCapture = IniInt(L"Rematch", L"ArenaCapture", 0) != 0;
+    g_cfg.fightSpawn = IniInt(L"Rematch", L"FightNowSpawn", 1) != 0;
     wchar_t stw[512] = {};
     GetPrivateProfileStringW(L"Rematch", L"SelfTest", L"", stw, 512, ini);
     const char* why = nullptr;
@@ -1388,6 +1575,7 @@ bool Start() {
     g_fnowOk = GroupOk("FNOW", &g_fnowWhy);
     g_warpOk = GroupOk("WARP", &g_warpWhy) && ResolveWarp(&g_warpWhy);
     g_exitOk = GroupOk("EXIT", &g_exitWhy);
+    g_spawnOk = GroupOk("SPAWN", &g_spawnWhy) && ResolveSpawn(&g_spawnWhy);
     g_gateOk = GroupOk("GATE", &g_gateWhy);
     if (g_gateOk) {
         F_RIGHTSREQ = Site("fn:RightsRequest");
@@ -1456,6 +1644,7 @@ bool Start() {
         g_cfg.fightNow ? "ON" : "off", nf, nfh, g_fnowOk ? "" : "; sites FNOW failed: ", g_fnowOk ? "" : g_fnowWhy, g_cfg.fightWarp ? "ON" : "off", nar, nat,
         g_warpOk ? "" : "; WARP: ", g_warpOk ? "" : g_warpWhy, g_cfg.arenaCapture);
     Log("Rematch: boss gates (door / box exclusive rights) %s%s", g_gateOk ? "on" : "OFF: ", g_gateOk ? "" : g_gateWhy);
+    Log("Rematch: arena spawn (start point override, FightNowSpawn %d) %s%s", g_cfg.fightSpawn, g_spawnOk ? "on" : "OFF: ", g_spawnOk ? "" : g_spawnWhy);
     return true;
 }
 
@@ -1666,10 +1855,10 @@ void Command(const char* line, char* reply, size_t n) {
         const char* gate = Gates(s, true);
         float pp[4] = {};
         const bool pok = PlayerPos(pp);
-        snprintf(reply, n, "state=%d row=%s fights=%ld infight=%ld emaki=%d loading=%u player=%d stage=%u mission=0x%X fnow=%s warps=%d loadms=%u pos=%.0f,%.0f,%.0f gate=%s "
+        snprintf(reply, n, "state=%d row=%s fights=%ld infight=%ld emaki=%d loading=%u player=%d stage=%u mission=0x%X fnow=%s warps=%d loadms=%u spawn=%s pos=%.0f,%.0f,%.0f gate=%s "
                  "placements=[%s] last=%s",
                  g_state.load(), g_activeRow.load() >= 0 ? g_rows[(size_t)g_activeRow.load()].id : "-", fight::g_fights, fight::g_active, s.emaki,
-                 s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, g_loadMs.load(), pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
+                 s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, g_loadMs.load(), g_sp.last, pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
         return;
     }
     if (!strcmp(cmd, "scan")) {

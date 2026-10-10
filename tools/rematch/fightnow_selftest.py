@@ -168,7 +168,7 @@ def main():
             new = text[pos:]
             pos = len(text)
             for ln in new.splitlines():
-                if "SELFTEST" in ln or "IN replay mission" in ln or "F FAIL" in ln or "F PASS" in ln:
+                if "SELFTEST" in ln or "IN replay mission" in ln or "F FAIL" in ln or "F PASS" in ln or "first frame after the load" in ln:
                     lines.append(ln)
                     log("  " + ln.split("] ", 1)[-1])
                 if "SELFTEST DONE" in ln:

@@ -875,3 +875,16 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - All 185 KTGL token handlers + the 23-entry async sub-stream table 3C02800: role, payload layout, D3D12 calls, SynCtx state, per-call waste. Section 0 = the 6A / 69 per-draw path (pc2 cause: full-size constant-buffer copies into the BAR-mapped UPLOAD ring, Memcpy 118F4D) with fixes F1-F7.
 - symbols.tsv `# renderer/backend`: +72 names, 1 heuristic rename, 7 role notes; package 01 11.76 -> 11.96 %; README renderer table regenerated, regenerate-command typo fixed.
 - Undo: n/a (documentation and symbols only).
+
+## 2026-10-10 16:45 - Nioh3BossRematch 1.4.0: Fight now spawns in the arena (no shrine first), branch `rematch-instant` (not merged)
+- "Fight now (in the arena)" rows with an arena point: while the Fight now runs, the start point's warp-point record (game data in
+  memory: spawn x y z yaw `+40h`, arrival-camera bit `+8 & 4`) holds the arena point, so the game's own placement / streaming / death
+  reload put the player in the arena; restored when the Fight now ends; the start point id (what the game may save) is unchanged.
+  Warp after the landing stays as the fallback. New ini key `[Rematch] FightNowSpawn = 1` (0 = 1.3.x behaviour). Site group SPAWN
+  (6 sites, ALL 94 SITES OK), harness ALL PASSED (60). Arena capture skipped while the override is on (it had captured a wrong point).
+- Tested: one in-game check on the PC (Yamagata Masakage): spawned exactly on the arena point, fight started with 0 warps, record
+  restored on exit; saves backed up (`D:\nioh3-re\save-backups\20261010-161939-fightnow-test`) and restored byte for byte. Full test
+  plan queued in `notes/boss-rematch-build.md` (E1 v4).
+- Game folder: `Nioh3BossRematch.asi` 1.4.0 left installed by the test (`-KeepBuild`, as with 1.3.x); the inis / perf ASI restored;
+  one wrong line (0x1CBC 334650 ... 16:24 fight-start) removed from `Nioh3BossRematch_arenas.tsv`.
+- Undo: `[Rematch] FightNowSpawn = 0`, or reinstall the 1.3.3 `Nioh3BossRematch.asi`; `git branch -D rematch-instant`.
