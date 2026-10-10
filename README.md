@@ -62,6 +62,9 @@ ASI 1.7.55, GPU time per frame from the mod's GPU profiler:
 | volumetric clouds (async) | 2.4-2.7 ms | 0.48 ms |
 | meshlet culling / LOD kernels (MIC, MshLod#1/#2) | 1.2-1.7 ms each | below 0.1 ms each |
 
+At a busier save spot the GPU time fell 27.2 -> 19.1 ms (-29 %), but fps rose only 6 % there because that PC then waited on
+its CPU (Ryzen 5 5600X) instead: how much fps you gain depends on whether your graphics card was the limit.
+
 This explains the "40-100x slower on mid-range cards" passes we were chasing (`notes\rdna2-meshlet-slowdown.md`,
 `notes\root-cause-vram-streaming.md`). The mod's earlier attempts to copy that data into video memory itself (CbvMirror)
 cost more than they saved on that card; a narrower copy for players who cannot enable ReBAR is described and tested in

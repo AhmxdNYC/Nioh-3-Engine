@@ -452,6 +452,11 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
   `Nioh3EngineFix.rebarnotice` next to the ASI; delete it to see it again). Never on UMA / handhelds, under Proton, with
   `VSForceSysUpload` A/B runs or (toast only) in Tour / VirtualPad sessions. Measured reason: RX 6650 XT ReBAR off -> on =
   32.5 -> 24.0 ms GPU per frame (notes\user-settings.md, notes\rebar-fix-v3.md).
+* 1.7.57 (EXPERIMENT, default 0, next launch, v2.02 only): `[GpuOpt] SceneBufMirror` (0 off / 1 auto = only without
+  Resizable BAR, never UMA / Proton / 2 force) copies the meshlet scene buffers the CPU writes every frame (instances, LOD root
+  lists, offsets) from UPLOAD memory into VRAM once per frame on its own COPY queue and points the game's views of them there;
+  `SceneBufMirrorQueue` (1 own COPY queue / 0 the game's DIRECT queue); `[Profiler] SceneBufProbe` (0/1, census of those buffers
+  + late-write check). Log `SBM`. notes\rebar-fix-v3.md. Turning ReBAR on in the BIOS is the real fix.
 * `[General] AllowUnknownBuild = 1` makes the mod try pattern matching on other builds. Each site is still
   verified, and anything unexpected is skipped. Not recommended.
 

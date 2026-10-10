@@ -20,6 +20,7 @@
 #include "gpuprof.h"
 #include "psoswap.h"
 #include "upmirror.h"
+#include "scenemirror.h"
 
 namespace memstats {
 namespace {
@@ -489,7 +490,9 @@ void STDMETHODCALLTYPE HkCbv(ID3D12Device* d, const D3D12_CONSTANT_BUFFER_VIEW_D
     }
 }
 void STDMETHODCALLTYPE HkSrv(ID3D12Device* d, ID3D12Resource* r, const D3D12_SHADER_RESOURCE_VIEW_DESC* desc, D3D12_CPU_DESCRIPTOR_HANDLE h) {
-    o_srv(d, r, desc, h);
+    ID3D12Resource* use = r;   // 1.7.57 SBM: buffer SRVs inside a mirrored meshlet scene buffer go to its VRAM twin
+    scenemirror::OnSrv(d, r, desc, h, &use);
+    o_srv(d, use, desc, h);
     InterlockedIncrement64(&c_desc[1][0]);
     const uint64_t va = BufVa(r);
     if (va && InSys(va)) {
@@ -552,6 +555,10 @@ void InstallHooks(void* fromCreate = nullptr) {
                     Patch(&vt[17], (void*)&HkCbv, (void**)&o_cbv) && Patch(&vt[18], (void*)&HkSrv, (void**)&o_srv) &&
                     Patch(&vt[19], (void*)&HkUav, (void**)&o_uav);
     g_hooked = ok;
+    if (ok) {   // 1.7.57 SBM: unhooked SRV creation for its rewrites, system-memory test for placed resources
+        scenemirror::SetSrvOriginal(reinterpret_cast<scenemirror::SrvFn>(o_srv));
+        scenemirror::SetSysVaTest(&InSys);
+    }
     ReleaseSRWLockExclusive(&g_installLock);
     double lu = -1, lb = 0;
     if (!QueryVram(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &lu, &lb)) lu = -1;
@@ -726,7 +733,7 @@ bool Start(const StartInfo& info) {
     g_level = info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"MemStats", 0, info.iniPath) : 0;
     g_on = g_level != 0;
     QueryPerformanceFrequency(&g_qpf);
-    if (g_level >= 2 || upmirror::Wanted()) {   // 1.7.51: CbvMirror needs the device hooks too
+    if (g_level >= 2 || upmirror::Wanted() || scenemirror::Wanted()) {   // 1.7.51 / 1.7.57: CbvMirror and SBM need the device hooks too
         vs::g_forceSys = g_level < 2 ? 0 : info.iniPath ? (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, info.iniPath) : 0;
         void* dev0 = nullptr;
         const bool devAlready = g_known && g_base && ReadEnginePtr(g_base, &dev0);
@@ -862,7 +869,8 @@ bool BootIat(uintptr_t base, const wchar_t* iniPath, void (*log)(const char*, ..
     ui.iniPath = iniPath;
     ui.base = base;
     upmirror::Start(ui);
-    if (lvl < 2 && !upmirror::Wanted()) return true;
+    scenemirror::Configure(iniPath, log);   // 1.7.57 SBM keys (its SRV hook must see the views created at load)
+    if (lvl < 2 && !upmirror::Wanted() && !scenemirror::Wanted()) return true;
     vs::g_forceSys = lvl < 2 ? 0 : (int)GetPrivateProfileIntW(L"Profiler", L"VSForceSysUpload", 0, iniPath);
     g_log = log;
     g_base = base;

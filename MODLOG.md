@@ -863,3 +863,10 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Measured reason (bridge #1091): pc2 RX 6650 XT ReBAR OFF -> ON = GP2 span 32.5 -> 24.0 ms at the same spot.
 - Writes nothing else; the BIOS setting is the player's choice.
 - Undo: `ReBarNotice = 0`; delete `Nioh3EngineFix.rebarnotice` to see the notice again.
+
+## 2026-10-09 22:30 - ASI 1.7.57: SBM meshlet scene-buffer mirror + census (all default off; notes/rebar-fix-v3.md)
+- `[GpuOpt] SceneBufMirror = 0` (EXPERIMENT, for PCs without Resizable BAR): hook on the call 5D417 (MeshletFrameBegin -> MeshletUpdateSceneBuffers; patches.json SBM1). After the CPU wrote the current scene-buffer set, its UPLOAD buffers' written bytes go into VRAM twins with ONE copy list per frame on an own COPY queue (`SceneBufMirrorQueue = 1`; 0 = the game's DIRECT queue), one fence; each game DIRECT / COMPUTE queue waits once; the engine's SRVs of those buffers are re-created on the twins. 1 = auto (only when the RB check found the UPLOAD heaps in system memory), 2 = force (test).
+- `[Profiler] SceneBufProbe = 0`: `SBM set` census lines (per slot usage / heap / bytes / views) + a late-CPU-write check while the mirror runs (mismatch -> SBM off, views restored).
+- Harness `tests/run_sbm_harness.py` (RX 9070, no game): all OK; system-memory copy 25.7 GB/s (COPY queue) / 24.0 GB/s (DIRECT) for 4 MB per frame.
+- Not run in the game yet; pc2 A/B queued. Game folder untouched.
+- Undo: keys 0 (the defaults).

@@ -69,7 +69,9 @@ Not tested by us: the TDP gain, page-file effect, external-limiter effect, GPU c
   MPC 18b6fee7 0.35-0.39 -> 0.09 ms. This replaces the earlier estimate (RX 9070 with the layout forced: +3.9 ms / +43 %; pc2
   per-draw constants ~4 ms of 31.6 ms): the real ceiling is ~8.5 ms of 32.5, about twice the estimate, because the meshlet
   kernels and the async clouds read UPLOAD-heap data too (notes/rdna2-meshlet-slowdown.md, notes/rebar-fix-v3.md).
-  The save-spot session (BASE 27.2 ms / ~36 fps without ReBAR) was running when this was written.
+  Save spot (#1096, 5 launches): GPUBusy 27.2-27.4 -> 19.1-19.5 ms (-29 %), but fps 35.8-36.0 -> 38.0-38.4 (+6 %): with ReBAR
+  pc2 is CPU / main-thread bound there (frame ~26 ms vs GPU 19 ms, GPU-bound share 98 % -> 73-75 %). The fps gain is up to
+  ~+35 % where the GPU limits, small where the CPU does.
 - The single biggest mid-range gain found in the whole project, and free.
 - User-side fix (a machine setting, so the user's decision; the mod never changes it): BIOS "Above 4G Decoding" + "Re-Size BAR
   Support" on, CSM off (Windows must boot in UEFI mode), then AMD Adrenalin > Performance > Tuning > Smart Access Memory on.

@@ -348,6 +348,7 @@ static const uint8_t orig_MPCSc[] = { 0x48, 0x8B, 0x06, 0xBA, 0x0B, 0x00, 0x00, 
 static const uint8_t orig_MLP1[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 static const uint8_t orig_MLP2[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 static const uint8_t orig_MLP3[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
+static const uint8_t orig_SBM1[] = { 0xE8, 0xD0, 0xE7, 0xFE, 0xFF };
 static const uint8_t orig_VSMA1[] = { 0xE8, 0xD9, 0xF3, 0xCB, 0xFF };
 static const uint8_t orig_VSMA2[] = { 0xE8, 0xA9, 0xEE, 0xFF, 0xFF };
 static const uint8_t orig_VSMA3[] = { 0xE8, 0xE9, 0x0B, 0x00, 0x00 };
@@ -593,6 +594,7 @@ static const Site kSites[] = {
     { "MLP1", "MLP", 0x531948, 5, orig_MLP1, "48 89 5C 24 10 4C 89 4C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 50 8B", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "MLP2", "MLP", 0x5301FC, 5, orig_MLP2, "48 89 5C 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30 4C 8B BC", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "MLP3", "MLP", 0x53FD3C, 5, orig_MLP3, "48 89 5C 24 10 44 88 4C 24 20 55 56 57 41 54", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "SBM1", "SBM", 0x5D417, 5, orig_SBM1, "44 88 44 24 20 45 8B C6 E8 ?? ?? ?? ?? 48 8B 06 48 8B CE 4C 8B B3 C0 01 00 00", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x4BBEC },
     { "VSMA1", "VSMA", 0x538F62, 5, orig_VSMA1, "48 8D 95 80 50 00 00 E8 ?? ?? ?? ?? 8B 83 40 00 04 00", 7, Kind::Call, nullptr, Target::caveVsmaEntry, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F8340 },
     { "VSMA2", "VSMA", 0x1F8AB2, 5, orig_VSMA2, "49 8B 8A 30 3D 00 00 E8 ?? ?? ?? ?? 4C 8B C3 49 8B D5 49 8B CE 8B F8", 7, Kind::Call, nullptr, Target::caveVsmaBudget, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F7960 },
     { "VSMA3", "VSMA", 0x1F8AF2, 5, orig_VSMA3, "85 FF 0F 84 ?? ?? ?? ?? 49 8B D7 48 8B CE E8 ?? ?? ?? ?? 45 33 DB 84 C0 74 5F", 14, Kind::Call, nullptr, Target::caveVsmaBind, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F96E0 },

@@ -231,7 +231,7 @@ void Start(const StartInfo& info) {
     g_ini = info.iniPath;
     if (info.markerPath) g_marker = info.markerPath;
     g_notice = (int)GetPrivateProfileIntW(L"General", L"ReBarNotice", 1, info.iniPath) != 0 ? 1 : 0;
-    const bool mirrorAuto = false;   // set by a later module that needs the verdict without the notice
+    const bool mirrorAuto = GetPrivateProfileIntW(L"GpuOpt", L"SceneBufMirror", 0, info.iniPath) == 1;   // SBM auto needs the verdict
     g_testSession = GetPrivateProfileIntW(L"Debug", L"Tour", 0, info.iniPath) != 0 ||
                     GetPrivateProfileIntW(L"Debug", L"VirtualPad", 0, info.iniPath) != 0;
     g_forceSys = GetPrivateProfileIntW(L"Profiler", L"MemStats", 0, info.iniPath) >= 2

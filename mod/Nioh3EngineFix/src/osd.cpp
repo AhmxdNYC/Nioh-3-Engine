@@ -39,6 +39,7 @@
 #include "padlat.h"
 #include "pmode.h"
 #include "upmirror.h"
+#include "scenemirror.h"
 #include "osd.h"
 #include "psoswap.h"
 #include "tilestats.h"
@@ -700,6 +701,7 @@ void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D
         t_lastDirectQ = q;
         g_lastDirectQ = q;
     }
+    scenemirror::OnEcl(q);  // 1.7.57 SBM: this queue waits for the latest scene-buffer copy (once per copy)
     // 1.7.52/54 CM: mirror copies first; the inline mode submits a prologue list + the game's lists itself (true)
     if (upmirror::OnEcl(q, n, lists, reinterpret_cast<upmirror::EclFn>(g_origEcl))) return;
     g_origEcl(q, n, lists);
@@ -1538,7 +1540,7 @@ void Start(const StartupInfo& si) {
     OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f Offset=%d,%d (px at 1080p)", g_cfg.fpsCounter,
          g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale, OffsetX(), OffsetY());
     if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled() && !padlat::WantsPresentHook() && !pmode::WantsPresentHook() &&
-        !upmirror::WantsPresentHook()) {
+        !upmirror::WantsPresentHook() && !scenemirror::Wanted()) {
         OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0, [Debug] PresentModeLog=0, "
              "[Latency] VrrPresent=0) - no Present hook");
         return;

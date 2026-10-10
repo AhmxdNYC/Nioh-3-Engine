@@ -56,6 +56,7 @@
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
+#include "scenemirror.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -92,7 +93,7 @@
 //         no cross-queue waits (1.7.52 own-COPY-queue + waits was +15 ms on pc2); CbvMirrorComputeCopy; GPU_UPLOAD / OPTIONS16 guards
 // 1.7.55: CM CbvMirrorSites ([GpuOpt], default 1 = per-draw 118F89 only, unchanged): 2 = the compute dispatch constants
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
-#define MOD_VERSION "1.7.56"
+#define MOD_VERSION "1.7.57"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1611,6 +1612,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
+        if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
         if (!strcmp(g, "RP")) return false;  // ReadProbe / EP sites: verified offline (test_patterns), hooked by readprobe.cpp  // AutoContinueLoad tip-page site: verified offline (test_patterns), hooked by autocont.cpp
@@ -2448,6 +2450,7 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) loadmem::LogLine();  // no-op unless [Memory] LM = 1
                 if (sec % 30 == 0) gp::LogLine();        // no-op unless [Profiler] GPUProf = 1
                 if (sec % 30 == 0) mlprobe::LogLine();   // no-op unless [Profiler] MeshletProbe = 1 (CPU half)
+                if (sec % 30 == 0) scenemirror::LogLine();   // no-op unless SceneBufMirror / SceneBufProbe != 0
                 if (s_mpcsDone && sec % 30 == 0) {       // 1.7.47 MPCS
                     static uint64_t p28 = 0, p26 = 0, pSeen = 0;
                     const uint64_t a = mpcs_n28, b = mpcs_n26, c = mpcs_seen;
@@ -2819,6 +2822,15 @@ DWORD WINAPI Worker(LPVOID) {
             mi.base = reinterpret_cast<uintptr_t>(g_base);
             mi.knownBuild = known;
             mlprobe::Start(mi);
+        }
+        {  // 1.7.57 SBM meshlet scene-buffer mirror ([GpuOpt] SceneBufMirror = 0, [Profiler] SceneBufProbe = 0; scenemirror.cpp,
+           // notes\rebar-fix-v3.md): installs the 5D417 call-site hook only when one of the keys is on
+            scenemirror::StartInfo si2;
+            si2.log = &Log;
+            si2.iniPath = iniPath.c_str();
+            si2.base = reinterpret_cast<uintptr_t>(g_base);
+            si2.knownBuild = known;
+            scenemirror::Start(si2);
         }
         {  // FnProbe (fnprobe.cpp, [Debug] FnProbe = 0 by default; notes\remaining-work.md 10.1): measurement only
             fnprobe::StartInfo fi;

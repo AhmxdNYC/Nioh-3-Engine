@@ -126,6 +126,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem RB Resizable BAR check + one-time notice ([General] ReBarNotice = 1; notes\rebar-fix-v3.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\rebar.obj src\rebar.cpp || exit /b 1
+rem SBM meshlet scene-buffer mirror ([GpuOpt] SceneBufMirror = 0, [Profiler] SceneBufProbe = 0; notes\rebar-fix-v3.md)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\scenemirror.obj src\scenemirror.cpp || exit /b 1
 rem MLP meshlet probe CPU half + MpcCheck self-check + MPCS caves (mlprobe.cpp / mpccheck.cpp / mpcskip.asm; notes\meshlet-frontend.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\mlprobe.obj src\mlprobe.cpp || exit /b 1
@@ -141,7 +144,7 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 ml64 /nologo /c /W3 /Fobuild\samelook_caves.obj src\samelook.asm || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\samelook.obj build\samelook_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
+   build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\samelook.obj build\samelook_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal
