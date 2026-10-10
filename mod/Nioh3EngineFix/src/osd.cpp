@@ -237,10 +237,13 @@ void CountPresent(IDXGISwapChain* sc, int64_t now) {
     }
 }
 
+volatile DWORD g_gamePresentTid = 0;  // 1.7.58: the thread that presents the game's real frames (thrsched RTP / TSTATE)
+
 void NotePresentThread(int64_t now) {
     const DWORD tid = GetCurrentThreadId();
     if (tid == g_fsrTid) g_lastFsrPresent = now;
     if (t_named) {
+        if (!t_isFsr) g_gamePresentTid = tid;
         InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
         return;
     }
@@ -252,6 +255,7 @@ void NotePresentThread(int64_t now) {
         InterlockedExchange(&g_fsrSeen, 1);
         t_isFsr = 1;
     }
+    if (!t_isFsr) g_gamePresentTid = tid;
     InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
     OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
 }
@@ -1370,6 +1374,8 @@ float IniFloat(const wchar_t* ini, const wchar_t* sec, const wchar_t* key, float
 OverlaySettings& Overlay() { return g_cfg; }
 
 void SetRateSink(void (*fn)(double rendered, double ticks)) { g_rateSink = fn; }
+
+unsigned long GamePresentTid() { return g_gamePresentTid; }
 
 int64_t LastPresentQpc() {
     int64_t last = 0;

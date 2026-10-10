@@ -394,6 +394,14 @@
    "class": "live"
   },
   {
+   "key": "RTP",
+   "section": "Patches",
+   "cls": "live",
+   "via": "RTP = 0/1 (install with RTP = 2 or 1)",
+   "why": "menu row: Picture unchanged. Applies now. For CPUs that are fully busy (6 cores and less); the logic",
+   "class": "live"
+  },
+  {
    "key": "Barriers",
    "section": "GpuOpt",
    "cls": "live",
@@ -587,6 +595,14 @@
   },
   {
    "key": "StartupPopup",
+   "section": "General",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ReBarNotice",
    "section": "General",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -1274,6 +1290,14 @@
    "class": "relaunch"
   },
   {
+   "key": "RTP_Level",
+   "section": "Tuning",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "DS_MarginUs",
    "section": "Tuning",
    "cls": "relaunch",
@@ -1395,6 +1419,30 @@
   },
   {
    "key": "CbvMirrorAllSites",
+   "section": "GpuOpt",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CbvMirrorSites",
+   "section": "GpuOpt",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CbvMirrorQueue",
+   "section": "GpuOpt",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CbvMirrorComputeCopy",
    "section": "GpuOpt",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -1667,6 +1715,38 @@
   },
   {
    "key": "StartDelaySec",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Focus",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ThreadState",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ThreadStateUs",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ThreadStateTop",
    "section": "Profiler",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",

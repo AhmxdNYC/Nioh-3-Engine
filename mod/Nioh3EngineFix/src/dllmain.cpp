@@ -53,6 +53,7 @@
 #include "jt.h"
 #include "pmode.h"
 #include "timerres.h"
+#include "thrsched.h"
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
@@ -93,7 +94,9 @@
 //         no cross-queue waits (1.7.52 own-COPY-queue + waits was +15 ms on pc2); CbvMirrorComputeCopy; GPU_UPLOAD / OPTIONS16 guards
 // 1.7.55: CM CbvMirrorSites ([GpuOpt], default 1 = per-draw 118F89 only, unchanged): 2 = the compute dispatch constants
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
-#define MOD_VERSION "1.7.57"
+// 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
+//         row); notes\cpu-bound-midrange.md
+#define MOD_VERSION "1.7.58"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2469,6 +2472,11 @@ DWORD WINAPI Worker(LPVOID) {
                     timerres::StatusLine(tb, sizeof tb, 30);
                     if (tb[0]) Log("stats/s %s", tb);
                 }
+                if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
+                    char rb[768];
+                    thrsched::RtpStatusLine(rb, sizeof rb);
+                    if (rb[0]) Log("stats %s", rb);
+                }
                 if (s_wlDone && sec % 30 == 0) {
                     static uint64_t pC = 0;
                     const uint64_t cl = wl_closed;
@@ -2714,6 +2722,18 @@ DWORD WINAPI Worker(LPVOID) {
                 mh.exp[r.e].applied = r.sw != nullptr;
                 mh.exp[r.e].enable = r.sw;
             }
+        }
+        {  // 1.7.58 TSTATE census ([Profiler] ThreadState = 0) + RTP render-thread priority ([Patches] RTP = 0, live row);
+           // thrsched.cpp, notes\cpu-bound-midrange.md
+            thrsched::StartInfo ti;
+            ti.log = &Log;
+            ti.iniPath = iniPath.c_str();
+            ti.base = reinterpret_cast<uintptr_t>(g_base);
+            ti.presentTid = &osd::GamePresentTid;
+            thrsched::Start(ti);
+            mh.exp[menu::kExpRTP].ini = GetPrivateProfileIntW(L"Patches", L"RTP", 0, iniPath.c_str()) == 1 ? 1 : 0;
+            mh.exp[menu::kExpRTP].applied = thrsched::RtpSwitch() != nullptr;
+            mh.exp[menu::kExpRTP].enable = thrsched::RtpSwitch();
         }
         menu::Configure(mh);  // copies everything; must run before osd::Start (which asks menu::Enabled)
         {  // GPU barrier batching (gpuopt.cpp, [GpuOpt]); returns at once, does nothing with Barriers = 0. Before osd::Start:

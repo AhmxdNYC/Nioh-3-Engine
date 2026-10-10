@@ -25,6 +25,7 @@ void (*g_log)(const char*, ...) = nullptr;
 
 struct Cfg {
     int intervalUs = 1000, workers = 1, reportSec = 30, topN = 25, stackBytes = 2048, startDelaySec = 20;
+    int focus = 0;  // 1.7.57: 1 = KIDSTaskScheduler0 (logic) gets its own group and, with the dispatcher, is sampled every tick
 } g_cfg;
 
 // 1.7.36 Tour: windows follow the tour's dwells (sampling only inside a dwell, one report per dwell)
@@ -136,9 +137,12 @@ uint32_t ModIndex(uintptr_t a) {
 }
 
 // ---- threads ----------------------------------------------------------------------------------------------------------
-enum Group : int { kMain = 0, kKidsTS, kKidsTs2, kDispatch, kAppOther, kNumGroups };
-const char* kGroupName[kNumGroups] = {"main [App]Game", "KIDSTaskScheduler", "KIDSTS", "SynergisticDispatcher", "[App] other"};
-const char* kGroupShort[kNumGroups] = {"main", "kidsTS", "kidsts", "dispatch", "app"};
+enum Group : int { kMain = 0, kKidsTS, kKidsTs2, kDispatch, kAppOther, kLogic, kNumGroups };
+const char* kGroupName[kNumGroups] = {"main [App]Game", "KIDSTaskScheduler", "KIDSTS", "SynergisticDispatcher", "[App] other",
+                                      "logic KIDSTaskScheduler0"};
+const char* kGroupShort[kNumGroups] = {"main", "kidsTS", "kidsts", "dispatch", "app", "logic"};
+// groups sampled every tick (Focus = 1: main + logic + dispatcher; else main only)
+bool EveryTick(int g) { return g == kMain || (g_cfg.focus && (g == kLogic || g == kDispatch)); }
 
 struct Thr {
     DWORD tid;
@@ -151,6 +155,7 @@ GetDescFn g_getDesc = nullptr;
 
 int Classify(const wchar_t* d) {
     if (!wcscmp(d, L"[App]Game")) return kMain;
+    if (g_cfg.focus && !wcscmp(d, L"KIDSTaskScheduler0")) return kLogic;
     if (!wcsncmp(d, L"KIDSTaskSchedul", 15)) return kKidsTS;
     if (!wcsncmp(d, L"KIDSTS", 6)) return kKidsTs2;
     if (!wcsncmp(d, L"Synergistic", 11)) return kDispatch;
@@ -190,7 +195,7 @@ void RefreshThreads() {
             LocalFree(d);
         }
         CloseHandle(q);
-        if (grp < 0 || (grp != kMain && !g_cfg.workers)) continue;
+        if (grp < 0 || (!EveryTick(grp) && !g_cfg.workers)) continue;
         HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_LIMITED_INFORMATION, FALSE, te.th32ThreadID);
         if (h) g_thr.push_back({te.th32ThreadID, h, grp});
     }
@@ -312,9 +317,9 @@ DWORD WINAPI SamplerThread(LPVOID) {
     }
     g_stack.resize((size_t)g_cfg.stackBytes);
     HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, 0x00000002 /*CREATE_WAITABLE_TIMER_HIGH_RESOLUTION*/, TIMER_ALL_ACCESS);
-    SLOG("SP: sampling every %d us (%s timer), workers %s, report every %d s, %zu .pdata entries",
+    SLOG("SP: sampling every %d us (%s timer), workers %s, report every %d s, %zu .pdata entries%s",
          g_cfg.intervalUs, timer ? "high-resolution" : "Sleep", g_cfg.workers ? "on (round-robin)" : "off",
-         g_cfg.reportSec, g_pdataN);
+         g_cfg.reportSec, g_pdataN, g_cfg.focus ? ", Focus: [App]Game + KIDSTaskScheduler0 + dispatcher every tick" : "");
     LARGE_INTEGER f, t0, now;
     QueryPerformanceFrequency(&f);
     QueryPerformanceCounter(&t0);
@@ -348,18 +353,18 @@ DWORD WINAPI SamplerThread(LPVOID) {
             if (!loggedThreads && !g_thr.empty()) {
                 int c[kNumGroups] = {};
                 for (const Thr& t : g_thr) ++c[t.group];
-                SLOG("SP: threads found - main %d, KIDSTaskScheduler %d, KIDSTS %d, dispatcher %d, other [App] %d", c[kMain],
-                     c[kKidsTS], c[kKidsTs2], c[kDispatch], c[kAppOther]);
+                SLOG("SP: threads found - main %d, KIDSTaskScheduler %d, KIDSTS %d, dispatcher %d, other [App] %d, logic (Focus) %d", c[kMain],
+                     c[kKidsTS], c[kKidsTs2], c[kDispatch], c[kAppOther], c[kLogic]);
                 loggedThreads = c[kMain] > 0;
             }
         }
-        // the main thread every tick, plus one other thread round-robin
+        // the main thread (+ logic + dispatcher with Focus) every tick, plus one other thread round-robin
         for (const Thr& t : g_thr)
-            if (t.group == kMain) SampleOne(t);
+            if (EveryTick(t.group)) SampleOne(t);
         if (g_thr.size() > 1) {
             for (size_t k = 0; k < g_thr.size(); ++k) {
                 const Thr& t = g_thr[(rr + k) % g_thr.size()];
-                if (t.group != kMain) {
+                if (!EveryTick(t.group)) {
                     SampleOne(t);
                     rr = (rr + k + 1) % g_thr.size();
                     break;
@@ -406,6 +411,7 @@ void Start(const StartInfo& info) {
     g_cfg.topN = std::clamp(I(L"TopN", g_cfg.topN), 5, 200);
     g_cfg.stackBytes = std::clamp(I(L"StackBytes", g_cfg.stackBytes), 256, 16384) & ~7;
     g_cfg.startDelaySec = std::clamp(I(L"StartDelaySec", g_cfg.startDelaySec), 0, 600);
+    g_cfg.focus = I(L"Focus", 0) == 1 ? 1 : 0;
     InitImage(info.base);
     HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
     HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
