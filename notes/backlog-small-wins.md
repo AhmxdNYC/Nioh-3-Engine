@@ -18,6 +18,8 @@ Small items run only when a machine would otherwise sit idle.
 | barrier batching retest (GPU-bound) | pc2 | <= 0.3 ms est. | backlog |
 | MPCS meshlet tail skip | pc2 | est. 0.05-0.1 ms | backlog |
 | PL boot pipeline library | PC | seconds at boot, est. | backlog |
+| KL_Div (back-end segment hand-off every 16 draws, branch renderer-backend) | pc2 / Ally | pc2 +1.2..+1.3 % (SE 0.02-0.04, twice); Ally KLA1 #1381 inconclusive (scene got heavier mid-run, fps 29-37 swing; KL 4 -5.9 % +-1.5, KL 2 +1.0 % +-3.8) | backlog, default off; Ally no-harm needs a stable spot + more pairs before it could ship |
+| FO frame overlap (branch frame-overlap, fo8) | pc2 / PC | pc2 +0.4 % (SE 0.02), PC +0.5 %; stable (17/17 self-test, 47k frames) | NO-GO as a feature (notes/renderer/frame-overlap.md 7.3), kept default off as infrastructure |
 | GHDM | Ally / PC | fastab: +0.5 % Ally USER preset (#1178), +0.4 % PC no FG (#1063); old multi-launch +7.5 % Ally MAX / +11 % PC FG not re-verified | shipped; small win (re-check MAX + FG with fastab) |
 
 Priority list (feelable): PCIe/no-ReBAR fix (CbvMirror v2), display latency (VrrPresent), weak-CPU gains,
