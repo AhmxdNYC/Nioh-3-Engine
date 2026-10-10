@@ -1724,6 +1724,9 @@ void Start(const StartInfo& info) {
     g_cfg.mpcCheck = I(L"MpcCheck", 0, 0, 1000000);
     fc::Start(ini, g_cfg.prof);   // FC: markers on (pass names in the capture), hooks via WantsHooks
     if (fc::c.on && g_codeOk) g_cfg.markers = 1;
+    if (fc::c.on && !g_codeOk)
+        GLOG("%s", "FC: no command-list hooks - the GP code sites were not verified (set [Profiler] GPUProf_Markers = 1 with FrameCap); "
+                   "captures will hold queue rows (ECL / Signal / Wait) only");
     if (!g_cfg.prof && !g_cfg.markers) return;
     if (!g_codeOk || !g_base) {
         GLOG("%s", "marker code not verified on this build - GP off");

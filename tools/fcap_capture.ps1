@@ -4,7 +4,8 @@
   Spec (identical on every device; same matched settings as XSYS1, notes\cross-system-compare.md):
     config.xml  configs\xsys-1080-high-fsr65.xml (1920x1080, custom HIGH, REN_RAT 65, FSR 3.1, FG OFF, VSync OFF)
     tour        tools\tour\tourlist_xsys.txt = 7356 / 52 / 7292 / 5631, spawn point only, 1 pass, 40 s dwell
-    ini keys    Profiler.GPUProf=0 (FC owns the hook mask), Profiler.FrameCap=1, FrameCap_Frames=2, FrameCap_TourDelay=300,
+    ini keys    Profiler.GPUProf=0 (FC owns the hook mask), GPUProf_Markers=1 (makes dllmain verify the GP code sites; without it
+                FC gets no command-list hooks, only queue rows - FCAP1 on pc2 #189), Profiler.FrameCap=1, FrameCap_Frames=2, FrameCap_TourDelay=300,
                 FrameCap_Max=8, FrameCap_MaxEvents=600000, GpuOpt.Barriers=0, VRR.MaxFps=240
     ASI         -Asi <file> (the FC build from the bridge) is put into mod\Nioh3EngineFix\bin for the run and the old one restored
   Output: captures\fcap\<device>-<stamp>\ with Nioh3EngineFix_fcap_<n>_<tour tag>.csv (one per point), the mod log, run_tour files,
@@ -71,7 +72,7 @@ $before = @(Get-ChildItem (Join-Path $ws "captures\tour") -Directory -ErrorActio
 $rc = -1
 try {
     if (-not $DryRun) { Copy-Item $matched $cfg -Force; L "matched config.xml installed" }
-    $keys = "Profiler.GPUProf=0;Profiler.FrameCap=1;Profiler.FrameCap_Frames=2;Profiler.FrameCap_TourDelay=$TourDelay;Profiler.FrameCap_Max=8;" +
+    $keys = "Profiler.GPUProf=0;Profiler.GPUProf_Markers=1;Profiler.FrameCap=1;Profiler.FrameCap_Frames=2;Profiler.FrameCap_TourDelay=$TourDelay;Profiler.FrameCap_Max=8;" +
             "Profiler.FrameCap_MaxEvents=600000;GpuOpt.Barriers=0;VRR.MaxFps=240"
     $a = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$RunTour`"", "-Input", "vpad", "-List", "`"$list`"", "-Points", "1",
            "-Passes", "1", "-DwellSec", "$DwellSec", "-NoPause", "-ExtraKeys", "`"$keys`"")

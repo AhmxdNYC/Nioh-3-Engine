@@ -42,13 +42,20 @@ note owns the detail. Static work only, no game launched on this PC. Tags: **M**
   (`targets.txt` = the partition in depth order; the previous list is kept as `targets_base_20261008.txt`).
   `re\scripts_renderer\export_renderer.ps1` runs it in 12-minute chunks, so the read-only copy's mutex is free between chunks.
   It then retries timeouts at 600 s and runs `apply_names.py`. Renderer agents should **grep the export first**:
-  `rg -l "pattern" D:\nioh3-re\decomp`. Use `decomp_ro.cmd` only for `asm:` / `x:` queries.
+  `rg -l "pattern" D:\nioh3-re\decomp`. Use `decomp_pool.cmd` (4 parallel read-only copies) only for `asm:` / `x:` queries.
 - Caveat: indirect calls through runtime-filled tables are seen only through a ctor/vtable `lea`. That covers render-node Execute,
   KTGL token handlers in table 3C02220 and job callbacks. Region-fill membership is "mostly render" (hold-out: 79 % right at the
   coarse class for low-confidence regions, code-map.md).
 
-### 1.1 Export run
-See §6. The numbers are appended when the run finishes.
+### 1.1 Export run (2026-10-10 00:29-00:44)
+- Targets: **54,294 partition functions**. 5,158 were already exported, so **52,621 were new**.
+- Main pass: one Ghidra instance on the read-only copy, threads = 6, timeout 120 s. It exported 52,621 in **272 s** (~200
+  functions/s), with 2 failed and 14 timeouts.
+- Retry pass: threads = 2, timeout 600 s, 279 s. It recovered 4 more. Among them is **PostEffectApply 6DA118 (28.6 KB, now ok)**.
+  **4 timeouts remain**; use `decomp_pool.cmd asm:` for those.
+- `apply_names.py` took 4 min (9,553 names, 18,764 files rewritten).
+- **Total wall time 15 min.** `D:\nioh3-re\decomp` now holds 57,775 ok functions (renderer + the earlier 5k).
+- For anything the export does not answer, use `D:\nioh3-re\decomp_pool.cmd` (4 read-only copies, parallel) instead of `decomp_ro.cmd`.
 
 ## 2. Module map
 
@@ -240,7 +247,7 @@ Rules for every package:
 - **Symbols:** add rows inside your block in `re\symbols\symbols.tsv`, between `# renderer/<name>` and `# END renderer/<name>`.
   The blocks are pre-created in that file before `# renderer/post`. New names must be unique.
   Run `py re\symbols\build_exports.py` before committing.
-- **Decompile:** grep `D:\nioh3-re\decomp` first; the whole partition is exported. Use `decomp_ro.cmd` for asm / xrefs. The main
+- **Decompile:** grep `D:\nioh3-re\decomp` first; the whole partition is exported. Use `decomp_pool.cmd` for asm / xrefs. The main
   project's `re\decomp.cmd` is for names applied after the copy.
 - **Note:** `notes/renderer/<file>`, with these sections: entry points, data structures (offsets), per-frame flow, what the GPU gets
   (check it against FCAP1 when it lands), dependencies, keep / replace verdict for a new renderer.
@@ -292,6 +299,25 @@ gpuopt.cpp, osd.cpp and psoswap.cpp. Commit 89b7e52; clean build 5281c1e is brid
 - **Not yet verified in game (first runs are pc2 / Ally FCAP1).** Built clean, `test_patterns.py` 252/252 OK.
   (`run_gp_harness.py` fails to link on memstats::OnBind / BindsWanted. That failure predates FC: the harness was not updated for 1.7.48.)
 
+**Bug found in the first run (pc2 FCAP1, bridge #189):**
+- `dllmain` verifies the GP code sites only when `GPUProf` or `GPUProf_Markers` is set. With `FrameCap = 1` alone, gp therefore had
+  no `codeOk`, gpuopt installed no command-list hooks, and all 5 captures hold queue rows only (0 list calls).
+- **Fix: add `Profiler.GPUProf_Markers=1`.** It is now in `fcap_capture.ps1` and the spec below. No rebuild was needed. Later source
+  builds also log a warning in this case.
+
+**What the queue rows already show** (pc2, RDNA2 Windows; one frame between the first two presents of each capture, 4 tour points):
+- **DIRECT: 19-23 ExecuteCommandLists per frame, 1 list each.** That matches the 21-23 of render-architecture §2.1.
+  - 17-21 come from the ECL thread's handler at **4F9114** (+ Signal at 4F9127, so every DIRECT list gets its own fence Signal).
+  - 2 come from another module (ra ffffffff: the Streamline / FFX present path).
+  - DIRECT Waits: 7-8 per frame, at **8F4583** x3 and **4F9323** x3 (ECL-thread Wait token) + 2 foreign.
+- **COMPUTE: 4-6 ECLs per frame on 2-3 distinct compute queues** (async slots 3 / 4 / 6: VCLOUD, VFSCAT, ocean), all from **4F925F**
+  with Signal 4F908B, and 1-2 COMPUTE Waits. This confirms the async-slot model.
+- **COPY: 3-4 distinct copy queues active.**
+  - Streaming submits at **4DB03**, **5C305** and **892E04**, each followed by a Signal.
+  - **UpdateTileMappings runs on a COPY-type queue at 290FFF: 2-87 calls per frame.** render-architecture §2.1 puts the frame-begin
+    tile updates on DIRECT (CacheFlushOnGfx). Tile updates run on copy queues as well; that is for packages 06 / 12 to reconcile.
+  - The first capture (60 s timer, before the tour armed) shows 49 COPY ECLs + 54 tile maps in one frame: the load-in burst.
+
 **Digest:** `py -I re\scripts_renderer\fcap_digest.py "<dir>\Nioh3EngineFix_fcap_*.csv" --device X` prints:
 - ECL batches per queue, in order;
 - the fence / tile-map op sequence;
@@ -304,7 +330,7 @@ gpuopt.cpp, osd.cpp and psoswap.cpp. Commit 89b7e52; clean build 5281c1e is brid
 - config `configs/xsys-1080-high-fsr65.xml`: 1080p, custom HIGH, REN_RAT 65, FSR 3.1, FG off, VSync off;
 - tour points 7356 / 52 / 7292 / 5631 (`tools/tour/tourlist_xsys.txt`), spawn point only, 1 pass, 40 s dwell;
 - capture 300 frames into each dwell, 2 presents per capture;
-- ini keys `Profiler.GPUProf=0; FrameCap=1; FrameCap_Frames=2; FrameCap_TourDelay=300; FrameCap_Max=8; FrameCap_MaxEvents=600000;
+- ini keys `Profiler.GPUProf=0; GPUProf_Markers=1; FrameCap=1; FrameCap_Frames=2; FrameCap_TourDelay=300; FrameCap_Max=8; FrameCap_MaxEvents=600000;
   GpuOpt.Barriers=0; VRR.MaxFps=240`.
 
 Each device runs it as follows:
@@ -358,4 +384,4 @@ Recommendation:
 - `mod/Nioh3EngineFix/src/fcap.h` (+ hooks in gpuprof / gpuopt / osd / psoswap);
 - `captures/fcap/` (local builds, not committed).
 
-Export run: see §1.1 (appended after the run).
+

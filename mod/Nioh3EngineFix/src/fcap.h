@@ -9,7 +9,8 @@
 // Cost model: nothing while not capturing. FrameCap != 0 only makes gp ask gpuopt for its command-list hooks (pass-through, the
 // GPUProf = 1 configuration) and psoswap for its PSO -> shader-set map. In a capture window every hookable list slot goes to
 // GpuOptSlow (one 128-byte record per call, no lock), so those 2 frames run slower; the file is written by a background thread.
-// Needs: [Profiler] GPUProf = 0 (FC owns the hook mask), [GpuOpt] Barriers = 0 (barriers pass through, one row per barrier),
+// Needs: [Profiler] GPUProf_Markers = 1 (dllmain verifies the GP code sites only when GPUProf or GPUProf_Markers is set; without
+// it gp gets no command-list hooks and a capture holds queue rows only), [Profiler] GPUProf = 0 (FC owns the hook mask), [GpuOpt] Barriers = 0 (barriers pass through, one row per barrier),
 // the OSD on (its ExecuteCommandLists hook feeds the ECL rows).
 //
 // ini [Profiler]:
