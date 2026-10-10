@@ -1307,11 +1307,27 @@ void Start(const StartInfo& info) {
         pt.n = s.op == 0xFF ? 6 : 5;
         memcpy(pt.orig, pt.at, pt.n);
         uint8_t* r = Relay(s.fn);
-        const int32_t rel = (int32_t)((intptr_t)r - (intptr_t)(pt.at + 5));
-        pt.neu[0] = s.op == 0xFF ? (uint8_t)0xE8 : s.op;
-        memcpy(pt.neu + 1, &rel, 4);
-        pt.neu[5] = 0x90;
+        if (s.op == 0xFF) {
+            // 6-byte 'call [rax+120h]': NOP first, then the call, so the return address stays at+6 = the original next
+            // instruction. (fo7pc: 'call; nop' returned to at+5; the watchdog's restore wrote the original bytes back while the
+            // main thread was inside FoGetBB, which then returned into the last byte of the restored instruction -> garbage
+            // executed -> device removed.)
+            const int32_t rel = (int32_t)((intptr_t)r - (intptr_t)(pt.at + 6));
+            pt.neu[0] = 0x90;
+            pt.neu[1] = 0xE8;
+            memcpy(pt.neu + 2, &rel, 4);
+        } else {
+            const int32_t rel = (int32_t)((intptr_t)r - (intptr_t)(pt.at + 5));
+            pt.neu[0] = s.op;
+            memcpy(pt.neu + 1, &rel, 4);
+        }
         pt.name = s.name;
+        // every patched call must return exactly to at+n (never into bytes a later restore rewrites)
+        const size_t callAt = pt.neu[0] == 0xE8 ? 0 : pt.neu[1] == 0xE8 ? 1 : 99;
+        if (pt.neu[0] != 0xE9 && callAt + 5 != pt.n) {
+            FLOG("FO: not installed (site %s: patched call would return inside the patch)", s.name);
+            return;
+        }
     }
     {
         Patch& pt = g_patch[g_nPatch++];
