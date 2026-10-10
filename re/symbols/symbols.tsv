@@ -2408,7 +2408,7 @@ rva	kind	name	signature	description	confidence	source
 0x7580d8	function	UintMap_ContainsMember68		std::map<u32,...> lookup (rb-tree at +0x68, key +0x1C, isnil +0x19), returns found (decompile-verified, cpu100-u1) (was Unknown_LoopHelper_7580d8)	high	re/symbols/incoming/cpu100-u1-renames.tsv
 0x797384	function	SynTokFlushDrawsIfStateChangedC	void SynTokFlushDrawsIfStateChangedC(void)	token handler: flushes draws if flag byte (+0x16d) differs from token bit (was SynTokFlushThenSetStateB)	medium	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a) + decompile review
 0x79e6b8	function	SynCmdSetStencilOps	void SynCmdSetStencilOps(SynCtx* c, u32** cursor)	375 B command-stream handler: reads packed u32 (fail b0, depth-fail b1, pass hi16), if changed vs cache +0xD0/+0xD4/+0xD8 flushes SynFlushImmediateDraws, packs three 3-bit ops into the depth-stencil word +0x780 bits 6..14 (mirrored to back face bits 18..26 when two-sided flag +0x480 == 0), derives stencil enable from +0xDC into +0x785 and marks dirty +0xB24 |= 0x20 (was Unknown_Draw_79e6b8)	medium	re/symbols/incoming/cpu100-u3-renames.tsv (decomp D:\nioh3-re\decomp)
-0x79e990	function	PsoKeyNormaliseBlend	u32 PsoKeyNormaliseBlend(PsoDesc80* d, u32 b)	returns 0 for key byte +3Dh when no render target uses blending (d+38h bits), else b; used by the preload (2EFE2A8) and 2EFF9C8	medium	notes/stutter.md §3.1
+0x79e990	function	PsoKeyNormaliseStencilWriteMask	u32 PsoKeyNormaliseStencilWriteMask(PsoKeyGfx* k, u32 writeMask)	returns 0 for the stencil write mask (key byte +3Dh) when no stencil op in k+38h writes (all KEEP), else writeMask; used by PsoPreloadGfx 2EFE2A8 and 2EFF9C8 (was PsoKeyNormaliseBlend: byte +3Dh is the stencil write mask, see PsoDescFillDepthStencilState)	high	notes/stutter.md §3.1; notes/renderer/materials.md §4.1
 0x79ee1c	function	EffectLayerGroupsUpdateChildren	void EffectLayerGroupsUpdateChildren(void)	for each group (0xf0 stride, count at +0xc8) calls vcall +0xa0 on every member with dt; EffectManagerUpdateInstances (was EffectInstanceSlotsForEach)	medium	reconcile cpu100-a vs b: re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-a)
 0x79f2c8	function	ktgl::CResource::ctor_or_dtor_79F2C8		rtti: stores vtable of ktgl::CResource (lea of vtbl; constructor/destructor)	high	re/scripts_re/autoname.py
 0x79f62c	function	OceanThread		References "OceanThread%d" thread-name format (252 B)	medium	re/out/README.md §Findings: frame pacing
@@ -10042,6 +10042,85 @@ rva	kind	name	signature	description	confidence	source
 #
 # renderer/ui (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is ui go between this line and the END line)
 # END renderer/ui
+#
+# renderer/materials (package 02, notes/renderer/materials.md)
+0x9295ac	function	InputLayoutCacheGetOrCreate	bool InputLayoutCacheGetOrCreate(VsSignature* sig, D3D12_INPUT_LAYOUT_DESC* out, VertexDecl* decl, u32* elemEnable32, CRITICAL_SECTION* lock)	from CreateGfxPso: under the lock walks sig+20h list {next, decl} for decl; miss -> InputLayoutCreateForDecl 929AF0; then InputLayoutFillDesc 929644 with the 32 element-enable flags from PsoKey+78h	high	notes/renderer/materials.md §4.2
+0x929644	function	InputLayoutFillDesc		fills desc.InputLayout from a cached {VS signature x vertex declaration} node and the PsoKey+78h element-enable flags (role from the only call site 9295AC; body not read)	low	notes/renderer/materials.md §4.2
+0x929a44	function	PsoDescFillShaderBytecode	void PsoDescFillShaderBytecode(D3D12_GRAPHICS_PIPELINE_STATE_DESC* d, PsoKeyGfx* k)	copies {+10h ptr, +18h size} of the stage objects: k+0 -> VS, k+8 -> PS, k+10h -> HS, k+18h -> DS, k+20h -> GS	high	notes/renderer/materials.md §4.1
+0x929af0	function	InputLayoutCreateForDecl		creates the input-layout cache node for one vertex declaration on a VS signature (miss path of InputLayoutCacheGetOrCreate; body not read)	low	notes/renderer/materials.md §4.2
+0x9297b0	function	PsoDescFillDepthStencilState	void PsoDescFillDepthStencilState(D3D12_DEPTH_STENCIL_DESC* o, PsoKeyGfx* k)	DepthEnable = k+38h b0 && DSV fmt k+49h; write b1; func b2-4; StencilEnable b5; front ops b6-14 / func b15-17; back ops b18-26 / func b27-29; read/write masks = bytes k+3Ch/+3Dh; via g_PsoCompareFuncTable / g_PsoStencilOpTable	high	notes/renderer/materials.md §4.1
+0x9298b8	function	PsoDescFillRasterizerState	void PsoDescFillRasterizerState(D3D12_RASTERIZER_DESC* o, PsoKeyGfx* k)	Fill = WIREFRAME if k+3Ch b16 else SOLID; Cull = g_PsoCullModeTable[b17-18]; FrontCCW 1; DepthBias = sext26(k+40h); clamp 0; slope k+74h; DepthClip 1; MSAA b19; AA lines b20; ForcedSampleCount 0; ConservativeRaster b31	high	notes/renderer/materials.md §4.1
+0x92992c	function	PsoDescFillBlendState	void PsoDescFillBlendState(D3D12_BLEND_DESC* o, PsoKeyGfx* k)	AlphaToCoverage k+3Ch b30, IndependentBlend 1; per RT i<8: BlendEnable k+48h bit i, LogicOp NOOP off, k+54h[i]: op b0-3, opA b4-7, src b8-11, srcA b12-15, dst b16-19, dstA b20-23 (g_PsoBlendFactorTable / Alpha / Op), write mask nibble i of k+44h	high	notes/renderer/materials.md §4.1
+0x2eebc98	function	PsoStreamFillMeshShaders	void PsoStreamFillMeshShaders(PsoStream* s, PsoKeyGfx* k)	mesh-shader path of CreateGfxPso (k+30h != 0): MS bytecode from k+30h, AS from k+28h, PS from k+8 into the pipeline-state stream (subobjects 0x19 / 0x18 / 2)	high	notes/renderer/materials.md §4.1
+0x3033124	function	ShaderGroupGetStageObject	ShaderObj* ShaderGroupGetStageObject(ShaderGroup* g, u32 index, void* stageTable)	shared body of the per-stage getters 30345EC..303465C: returns the stage shader object (bytecode +10h/+18h) for a record index of a loaded S2G group (group+30h != 0)	medium	notes/renderer/materials.md §4.4
+0x30345ec	function	ShaderGroupGetAS		thunk -> ShaderGroupGetStageObject; PsoListResolveGfx slot 5 (count at group+164h = payload 0x124)	medium	notes/renderer/materials.md §4.4
+0x303460c	function	ShaderGroupGetDS		thunk -> ShaderGroupGetStageObject; PsoListResolveGfx slot 3 (count group+108h = payload 0xC8)	medium	notes/renderer/materials.md §4.4
+0x303461c	function	ShaderGroupGetGS		thunk -> ShaderGroupGetStageObject; PsoListResolveGfx slot 4 (count group+10Ch = payload 0xCC)	medium	notes/renderer/materials.md §4.4
+0x303462c	function	ShaderGroupGetHS		thunk -> ShaderGroupGetStageObject; PsoListResolveGfx slot 2 (count group+104h = payload 0xC4)	medium	notes/renderer/materials.md §4.4
+0x303463c	function	ShaderGroupGetMS		thunk -> ShaderGroupGetStageObject; PsoListResolveGfx slot 6 (count group+160h = payload 0x120)	medium	notes/renderer/materials.md §4.4
+0x303464c	function	ShaderGroupGetPS		thunk -> ShaderGroupGetStageObject; PsoListResolveGfx slot 1 (count group+ACh = payload 0x6C)	medium	notes/renderer/materials.md §4.4
+0x303465c	function	ShaderGroupGetVS		thunk -> ShaderGroupGetStageObject; PsoListResolveGfx slot 0 (count group+A8h = payload 0x68)	medium	notes/renderer/materials.md §4.4
+0x348370c	function	PsoListFindShaderGroup	ShaderGroup* PsoListFindShaderGroup(PsoList* l, u32 groupKtid)	finds a loaded S2G group by KTID for the boot PSO list resolve (PsoListResolveGfx 34837DC)	medium	notes/renderer/materials.md §4.4
+0x3483750	function	PsoListGetBuiltinShaderGroup	ShaderGroup* PsoListGetBuiltinShaderGroup(void)	engine built-in shader table used when a boot-list slot names group 0x56CB1360 (per-stage arrays at +A8h VS, +B0h PS, +B8h GS, +C0h HS, +C8h DS)	medium	notes/renderer/materials.md §4.4
+0x3bea100	data	g_PsoCompareFuncTable	i32[8]	KTGL compare index 0..7 -> D3D12_COMPARISON_FUNC NEVER..ALWAYS (1..8)	high	notes/renderer/materials.md §4.1
+0x3bea250	data	g_PsoSampleCountTable	i32[4]	PsoKey+3Ch b24-25 -> SampleDesc.Count {1,2,4,0}	high	notes/renderer/materials.md §4.1
+0x3c49be0	data	g_PsoBlendOpTable	i32[6]	KTGL blend op -> D3D12_BLEND_OP {ADD,SUBTRACT,REV_SUBTRACT,MIN,MAX,0}	high	notes/renderer/materials.md §4.1
+0x3c49bf8	data	g_PsoStencilOpTable	i32[8]	KTGL stencil op -> D3D12_STENCIL_OP {KEEP,ZERO,REPLACE,INCR_SAT,DECR_SAT,INVERT,KEEP,0}	high	notes/renderer/materials.md §4.1
+0x3c49c20	data	g_PsoTopologyTypeTable	i32[12]	KTGL topology -> PsoKey+3Ch b21-23 primitive topology type {POINT,LINE,LINE,TRI,TRI,TRI,0,0,PATCH,...}; used by SynFlushPsoAndBindings	high	notes/renderer/materials.md §4.1
+0x3fd28c8	data	g_PsoBlendFactorTable	i32[12]	KTGL blend factor -> D3D12_BLEND {ZERO,ONE,SRC_COLOR,INV_SRC_COLOR,SRC_ALPHA,INV_SRC_ALPHA,DEST_COLOR,INV_DEST_COLOR,DEST_ALPHA,INV_DEST_ALPHA,SRC_ALPHA_SAT}	high	notes/renderer/materials.md §4.1
+0x3fd28f8	data	g_PsoBlendAlphaFactorTable	i32[12]	alpha-channel twin of g_PsoBlendFactorTable (colour factors mapped to SRC_ALPHA / DEST_ALPHA equivalents)	high	notes/renderer/materials.md §4.1
+0x3fd2924	data	g_PsoCullModeTable	i32[4]	PsoKey+3Ch b17-18 -> D3D12_CULL_MODE {0,NONE,BACK,FRONT}	high	notes/renderer/materials.md §4.1
+0x0	struct_field	PsoKeyGfx::VS	ptr	VS stage object (+10h bytecode, +18h size, +58h input signature)	high	notes/renderer/materials.md §4.1
+0x8	struct_field	PsoKeyGfx::PS	ptr	PS stage object	high	notes/renderer/materials.md §4.1
+0x10	struct_field	PsoKeyGfx::HS	ptr	HS stage object (-> desc+38h)	high	notes/renderer/materials.md §4.1
+0x18	struct_field	PsoKeyGfx::DS	ptr	DS stage object (-> desc+28h)	high	notes/renderer/materials.md §4.1
+0x20	struct_field	PsoKeyGfx::GS	ptr	GS stage object; +58h = stream-output decl	high	notes/renderer/materials.md §4.1
+0x28	struct_field	PsoKeyGfx::AS	ptr	amplification shader (mesh path)	high	notes/renderer/materials.md §4.1
+0x30	struct_field	PsoKeyGfx::MS	ptr	mesh shader; non-zero selects the pipeline-state-stream path	high	notes/renderer/materials.md §4.1
+0x38	struct_field	PsoKeyGfx::DepthStencilBits	u32	b0 depth, b1 write, b2-4 func, b5 stencil, b6-17 front ops+func, b18-29 back ops+func, b30 strip cut, b31 cut 32-bit	high	notes/renderer/materials.md §4.1
+0x3c	struct_field	PsoKeyGfx::StateBits	u32	b0-7 stencil read, b8-15 stencil write, b16 wireframe, b17-18 cull, b19 MSAA, b20 AA line, b21-23 topology type, b24-25 samples, b26-29 NumRT, b30 alpha-to-coverage, b31 conservative	high	notes/renderer/materials.md §4.1
+0x40	struct_field	PsoKeyGfx::DepthBias	i32	26-bit signed depth bias	high	notes/renderer/materials.md §4.1
+0x44	struct_field	PsoKeyGfx::RtWriteMasks	u32	4 bits per RT	high	notes/renderer/materials.md §4.1
+0x48	struct_field	PsoKeyGfx::RtBlendEnable	u8	bit per RT	high	notes/renderer/materials.md §4.1
+0x49	struct_field	PsoKeyGfx::DsvFormat	u8	DXGI format of the DSV (0 = none, depth forced off)	high	notes/renderer/materials.md §4.1
+0x4c	struct_field	PsoKeyGfx::RtvFormats	u8[8]	DXGI RTV formats	high	notes/renderer/materials.md §4.1
+0x54	struct_field	PsoKeyGfx::RtBlend	u32[8]	per RT: op b0-3, opA b4-7, src b8-11, srcA b12-15, dst b16-19, dstA b20-23	high	notes/renderer/materials.md §4.1
+0x74	struct_field	PsoKeyGfx::SlopeScaledDepthBias	f32	rasterizer slope bias	high	notes/renderer/materials.md §4.1
+0x78	struct_field	PsoKeyGfx::ElementEnableMask	u32	32 per-element flags for the input layout	medium	notes/renderer/materials.md §4.2
+0x7c	struct_field	PsoKeyGfx::VertexDeclId	u32	vertex declaration id (GfxDevice+4750h list); 0 = none	high	notes/renderer/materials.md §4.2
+0x0	struct_field	S2GPayload::Magic	char[8]	_S2G7000; the runtime group object holds the payload at +40h	high	notes/renderer/materials.md §1.3
+0x10	struct_field	S2GPayload::Name	char[32]	technique + feature abbreviations, e.g. PB2-GbiSfbTsspdVl	high	notes/renderer/materials.md §1.3
+0x3c	struct_field	S2GPayload::PassesPerPermutation	u32	stride of the permutation table (Material+12E4h selects)	high	notes/renderer/materials.md §1.3
+0x4c	struct_field	S2GPayload::SelectorRadix	u32[6]	radices of selectors s1..s6 (0 = 1)	high	notes/renderer/materials.md §3
+0x64	struct_field	S2GPayload::VariantConstSize	u32	bytes per s6 variant constant block	high	notes/renderer/materials.md §3
+0x68	struct_field	S2GPayload::VsCount	u32	VS records	high	notes/renderer/materials.md §1.3
+0x6c	struct_field	S2GPayload::PsCount	u32	PS records	high	notes/renderer/materials.md §1.3
+0x90	struct_field	S2GPayload::VariantConstOff	u32	offset of the s6 variant constant blocks	high	notes/renderer/materials.md §3
+0x94	struct_field	S2GPayload::PermTableOff	u32	offset of the 0x14-byte permutation entries {u16 vs,ps; u32 programOff; u16 hs,ds,gs,cs,ms,as}	high	notes/renderer/materials.md §1.3
+0x98	struct_field	S2GPayload::VsListOff	u32	VS record list {u32 off,size} (rel. to blob base)	high	notes/renderer/materials.md §1.3
+0x9c	struct_field	S2GPayload::PsListOff	u32	PS record list	high	notes/renderer/materials.md §1.3
+0xa0	struct_field	S2GPayload::PropertyTreeOff	u32	technique feature/property records (names hashed h*27+c)	high	notes/renderer/materials.md §1.5
+0xb0	struct_field	S2GPayload::BlobBase	u32	start of the record blobs	high	notes/renderer/materials.md §1.3
+0xb4	struct_field	S2GPayload::BlobBytes	u32	size of the record blobs	high	notes/renderer/materials.md §1.3
+0xc4	struct_field	S2GPayload::HsCount	u32	HS records	high	notes/renderer/materials.md §1.3
+0xc8	struct_field	S2GPayload::DsCount	u32	DS records	high	notes/renderer/materials.md §1.3
+0xcc	struct_field	S2GPayload::GsCount	u32	GS records	high	notes/renderer/materials.md §1.3
+0xe0	struct_field	S2GPayload::CsCount	u32	CS records (list at +E4h)	high	notes/renderer/materials.md §1.3
+0x120	struct_field	S2GPayload::MsCount	u32	MS records (list at +128h)	high	notes/renderer/materials.md §1.3
+0x124	struct_field	S2GPayload::AsCount	u32	AS records (list at +12Ch)	high	notes/renderer/materials.md §1.3
+0x20	struct_field	Material::ShaderGroup	ptr	S2G group object (payload at +40h)	high	notes/renderer/materials.md §2.3
+0x128	struct_field	Material::SamplerNames	ptr[16]	register-slot sampler/texture names (sStage*, sShadow*, sJitter, program-block names)	high	notes/renderer/materials.md §1.4
+0x11d0	struct_field	Material::ProgramBlock	ptr	current permutation entry's program block (texture slot list)	high	notes/renderer/materials.md §1.4
+0x1290	struct_field	Material::VariantConst	ptr	current s6 variant constant block (copy at +1298h)	high	notes/renderer/materials.md §3
+0x12b0	struct_field	Material::PermSelectors	u32[7]	permutation selectors s0..s6	high	notes/renderer/materials.md §3
+0x12d0	struct_field	Material::PermEntry	ptr	current 0x14-byte permutation entry	high	notes/renderer/materials.md §3
+0x12e4	struct_field	Material::PassIndex	u32	pass inside the permutation stride	high	notes/renderer/materials.md §3
+0x12e8	struct_field	Material::DirtyFlags	u32	0x10 permutation, 0x40 binding set, 0x08/0x20 constants, 0x400 sampler layout	high	notes/renderer/materials.md §2.3
+0x6e8	struct_field	GfxDevice::GfxRootSignature	ptr	ID3D12RootSignature of every classic graphics PSO and of the mesh stream (CreateGfxPso)	high	notes/renderer/materials.md §4.1
+0x4750	struct_field	GfxDevice::VertexDeclList	ptr	linked list of vertex declarations {+10h next, +18h id} (lock [+4760h]+10h)	high	notes/renderer/materials.md §4.2
+0x708	struct_field	SynCtx::GfxPsoCache	ptr	graphics PSO B-tree (count +730h, capacity +73Ch, grow step +7D4h)	high	notes/renderer/materials.md §4.3
+0x740	struct_field	SynCtx::PsoKeyRecord	u32	{u32 hash, pad, PsoKeyGfx key @+748h, ID3D12PipelineState* @+7C8h}	high	notes/renderer/materials.md §4.1
+# END renderer/materials
 #
 # renderer/post
 0x3788ba4	function	FfxFiDispatch		FidelityFX frame-interpolation dispatch (Clear Reconstructed Depth Interpolated Frame ...); call [ctx+0A8h] at 3789A70	medium	notes/renderer/post.md
