@@ -350,6 +350,9 @@ static const uint8_t orig_MLP2[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 static const uint8_t orig_MLP3[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };
 static const uint8_t orig_SBM1[] = { 0xE8, 0xD0, 0xE7, 0xFE, 0xFF };
 static const uint8_t orig_PCM1[] = { 0xE8, 0xAA, 0x00, 0x00, 0x00 };
+static const uint8_t orig_CBU1[] = { 0xE8, 0x0A, 0x00, 0x00, 0x00 };
+static const uint8_t orig_CBU2[] = { 0xE8, 0xFE, 0xB2, 0xA7, 0x00 };
+static const uint8_t orig_CBU3[] = { 0xE8, 0x59, 0xE7, 0x6F, 0x00 };
 static const uint8_t orig_VSMA1[] = { 0xE8, 0xD9, 0xF3, 0xCB, 0xFF };
 static const uint8_t orig_VSMA2[] = { 0xE8, 0xA9, 0xEE, 0xFF, 0xFF };
 static const uint8_t orig_VSMA3[] = { 0xE8, 0xE9, 0x0B, 0x00, 0x00 };
@@ -597,6 +600,9 @@ static const Site kSites[] = {
     { "MLP3", "MLP", 0x53FD3C, 5, orig_MLP3, "48 89 5C 24 10 44 88 4C 24 20 55 56 57 41 54", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "SBM1", "SBM", 0x5D417, 5, orig_SBM1, "44 88 44 24 20 45 8B C6 E8 ?? ?? ?? ?? 48 8B 06 48 8B CE 4C 8B B3 C0 01 00 00", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x4BBEC },
     { "PCM1", "PCM", 0x1196BD, 5, orig_PCM1, "48 8D AB 08 07 00 00 48 8B D6 48 8B CD E8 ?? ?? ?? ?? 33 FF 84 C0", 13, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x11976C },
+    { "CBU1", "CBU", 0x118E19, 5, orig_CBU1, "48 8B CF 48 89 6C 24 20 E8 ?? ?? ?? ?? 83 A4 9F 70 0B 00 00 00", 8, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x118E28 },
+    { "CBU2", "CBU", 0x118F4D, 5, orig_CBU2, "46 8B 04 3E 48 8B 94 DF B0 0B 00 00 E8 ?? ?? ?? ?? 44 8B 45 9F", 12, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0xB94250 },
+    { "CBU3", "CBU", 0x495AF2, 5, orig_CBU3, "46 8B 04 2E 48 8B 94 DF C0 0E 00 00 E8 ?? ?? ?? ?? 44 8B 45 BF", 12, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0xB94250 },
     { "VSMA1", "VSMA", 0x538F62, 5, orig_VSMA1, "48 8D 95 80 50 00 00 E8 ?? ?? ?? ?? 8B 83 40 00 04 00", 7, Kind::Call, nullptr, Target::caveVsmaEntry, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F8340 },
     { "VSMA2", "VSMA", 0x1F8AB2, 5, orig_VSMA2, "49 8B 8A 30 3D 00 00 E8 ?? ?? ?? ?? 4C 8B C3 49 8B D5 49 8B CE 8B F8", 7, Kind::Call, nullptr, Target::caveVsmaBudget, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F7960 },
     { "VSMA3", "VSMA", 0x1F8AF2, 5, orig_VSMA3, "85 FF 0F 84 ?? ?? ?? ?? 49 8B D7 48 8B CE E8 ?? ?? ?? ?? 45 33 DB 84 C0 74 5F", 14, Kind::Call, nullptr, Target::caveVsmaBind, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F96E0 },

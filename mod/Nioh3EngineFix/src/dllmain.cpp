@@ -58,6 +58,7 @@
 #include "bkstats.h"
 #include "frameoverlap.h"
 #include "replayprof.h"
+#include "cbvupload.h"
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
@@ -123,7 +124,10 @@
 //   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
 // 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
 //         notes/renderer/backend.md
-#define MOD_VERSION "1.7.59-rpf1"
+// 1.7.60-cbu1 (branch cbv-upload): CBU per-draw constant uploads ([Patches] CBS / CBN / CBT = 0, live Tuning.CBS / CBN / CBT;
+//   [Profiler] CbvStats / CbvRecord): streaming copy into the UPLOAD ring, skip no-op uploads, CBV table reuse (cbvupload.cpp,
+//   notes/renderer/cbv-upload.md)
+#define MOD_VERSION "1.7.60-cbu1"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1378,6 +1382,7 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
     if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
     if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
     if (replayprof::SetTuning(key, val, reply, n)) return true;  // 1.7.59-rpf1 RPF on/off (replayprof.cpp)
+    if (cbvupload::SetTuning(key, val, reply, n)) return true;  // 1.7.60-cbu1 CBS / CBN / CBT / CBSTATS (cbvupload.cpp)
     return samelook::SetTuning(key, val, reply, n);
 }
 
@@ -1646,6 +1651,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
         if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
+        if (!strcmp(g, "CBU")) return false;  // 1.7.60-cbu1 CBV upload call sites: verified offline (test_patterns), hooked by cbvupload.cpp
         if (!strcmp(g, "PCM")) return false;  // 1.7.58 PSO lookup memo call site: verified offline (test_patterns), hooked by psomemo.cpp
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
@@ -2508,6 +2514,11 @@ DWORD WINAPI Worker(LPVOID) {
                     psomemo::StatusLine(pb, sizeof pb, 30);
                     if (pb[0]) Log("stats/s %s", pb);
                 }
+                if (sec % 30 == 0) {                     // 1.7.60-cbu1 no-op unless a CBU key is set
+                    char cb[256];
+                    cbvupload::StatusLine(cb, sizeof cb);
+                    if (cb[0]) Log("stats/s %s", cb);
+                }
                 if (sec % 30 == 0) {                     // 1.7.59-fo1 no-op unless [GpuOpt] FrameOverlap != 0
                     char fb[768];
                     frameoverlap::StatusLine(fb, sizeof fb, 30);
@@ -2796,6 +2807,12 @@ DWORD WINAPI Worker(LPVOID) {
             rpi.base = reinterpret_cast<uintptr_t>(g_base);
             rpi.knownBuild = known;
             replayprof::Start(rpi);
+            cbvupload::StartInfo cbi;  // 1.7.60-cbu1 CBU constant uploads ([Patches] CBS / CBN / CBT = 0; cbvupload.cpp)
+            cbi.log = &Log;
+            cbi.iniPath = iniPath.c_str();
+            cbi.base = reinterpret_cast<uintptr_t>(g_base);
+            cbi.knownBuild = known;
+            cbvupload::Start(cbi);
             mh.exp[menu::kExpPCM].ini = GetPrivateProfileIntW(L"Patches", L"PCM", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpPCM].applied = psomemo::Switch() != nullptr;
             mh.exp[menu::kExpPCM].enable = psomemo::Switch();

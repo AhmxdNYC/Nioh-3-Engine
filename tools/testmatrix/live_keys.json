@@ -578,6 +578,46 @@
    "class": "live"
   },
   {
+   "key": "RPF",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.RPF = v",
+   "why": "replayprof: removes / re-installs the replay-profiler hooks (1.7.59-rpf1; needs [Profiler] ReplayProf = 1 or 2 at boot)",
+   "class": "live"
+  },
+  {
+   "key": "CBS",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBS = v",
+   "why": "cbvupload: streaming CB copy switch, read per copy (1.7.60-cbu1; needs [Patches] CBS = 1 or 2 at boot)",
+   "class": "live"
+  },
+  {
+   "key": "CBN",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBN = v",
+   "why": "cbvupload: no-op CB upload skip switch, read per table flush (1.7.60-cbu1; needs [Patches] CBN = 1 or 2 at boot)",
+   "class": "live"
+  },
+  {
+   "key": "CBT",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBT = v",
+   "why": "cbvupload: CBV table reuse switch, read per table flush (1.7.60-cbu1; needs [Patches] CBT = 1 or 2 at boot)",
+   "class": "live"
+  },
+  {
+   "key": "CBSTATS",
+   "section": "Tuning",
+   "cls": "live-tuning",
+   "via": "Tuning.CBSTATS = v",
+   "why": "cbvupload: upload census switch (1.7.60-cbu1; needs a CBU key or [Profiler] CbvStats at boot)",
+   "class": "live"
+  },
+  {
    "key": "SkipPSO",
    "section": "Debug",
    "cls": "live-diag",
@@ -875,6 +915,30 @@
   },
   {
    "key": "MPCS",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CBS",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CBN",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CBT",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -1834,6 +1898,30 @@
    "class": "relaunch"
   },
   {
+   "key": "ReplayProf",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CbvStats",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CbvRecord",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "Enabled",
    "section": "ShaderSwap",
    "cls": "relaunch",
@@ -2195,6 +2283,14 @@
   },
   {
    "key": "BN",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "CBU",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms",

@@ -37,6 +37,10 @@ LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning /
     "FO": "frameoverlap switch, sampled at the next frame end (1.7.59-fo1; needs [GpuOpt] FrameOverlap = 1 or 2 at boot)",
     "FO_Pct": "frameoverlap barrier position, read at every frame end (1.7.59-fo1)",
     "RPF": "replayprof: removes / re-installs the replay-profiler hooks (1.7.59-rpf1; needs [Profiler] ReplayProf = 1 or 2 at boot)",
+    "CBS": "cbvupload: streaming CB copy switch, read per copy (1.7.60-cbu1; needs [Patches] CBS = 1 or 2 at boot)",
+    "CBN": "cbvupload: no-op CB upload skip switch, read per table flush (1.7.60-cbu1; needs [Patches] CBN = 1 or 2 at boot)",
+    "CBT": "cbvupload: CBV table reuse switch, read per table flush (1.7.60-cbu1; needs [Patches] CBT = 1 or 2 at boot)",
+    "CBSTATS": "cbvupload: upload census switch (1.7.60-cbu1; needs a CBU key or [Profiler] CbvStats at boot)",
 }
 HOT_SETS = ["ghdm", "esm", "wdo28", "mpc", "mshlod", "gi", "fogpar", "vcu", "vcp", "vcpfu", "vcpfp"]
 
