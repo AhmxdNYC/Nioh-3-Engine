@@ -1,6 +1,10 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read this section only; older handoffs follow below.
 
+## UPDATE 2026-10-10 05:20 (auto-wake chat 92d3daad, after the 03:10 session limit)
+- FO fo2..fo6 built + PC-tested by the old chat (branch frame-overlap 37806b7). fo6pc (captures/pc/fastab/20261010-0259-fo6pc): 3556 FO frames OK, then back-buffer prediction mismatch (pred 0, real 2) -> session OFF -> game HUNG (watchdog fired, patches removed, 0 frames; BKS 'cache SRW +CF8h held' 100 % = lock left held). Opus agent on fo7 (fix both, force-switch test on PC, report; no pc2/Ally queueing by the agent).
+- Ally KLA1 #1256 ACKed 02:59, never reported; pinged #1291. Discord progress 66 % posted. Usage weekly 62 %.
+
 ## HANDOFF 2026-10-10 01:25 (new chat starts here) - detailed: notes/handoff-2026-10-10-0125.md
 - MANDATE: decompile the WHOLE rendering engine + assess/build a new renderer (user 00:10). Discord update for each part (#1246); new README graph for renderer-decompilation progress (#1248). Priority >= ~5 % or feelable; Linux check rule #954.
 - DONE: boss rematch add-on 1.3.3 (33 PASS / 0 FAIL); all renderer packages (notes/renderer/*.md: map, backend, materials, lighting, post, frame-graph, resources, drawlists, meshlet, volumetrics, effects, ui, capture-check).
