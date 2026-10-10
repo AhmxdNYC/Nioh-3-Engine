@@ -59,3 +59,202 @@ objects are the command allocators of the frame-slot work and the query read-bac
      the CPU in place is safe only if something else keeps the GPU within one frame (the frame-latency wait in RenderWaitForFrame
      4A3334 / the swapchain waitable, input-latency.md). Not proven statically; a deeper CPU lead must re-check the meshlet sets.
 
+
+### 1.3 Ring allocator details (S)
+
+- **UploadRing** (structs at SynCtx+B28h / +2390h / +23D8h, KtglCache u+10h), created by SynUploadRingCreate 2EF3310 (was
+  GpuMemGetGPUVirtualAddressAndMap): one UPLOAD buffer in state GENERIC_READ (AC3h), first tried as a placed resource from the GpuMem
+  pool (62C618, section 2.2), else CreateCommittedResource. It is **persistently mapped** at creation.
+  - Layout: +0 resource, +8 size, +10h CPU base, +18h GPU VA base, +28h node array (N x 28h B: {offset, free bytes, fence tag,
+    prev, next}), +30h free-node list, +38h first node, +40h current node.
+  - UploadRingAllocate 1190C0(ring, size, tag, completed, out {cpu, gpu}, out retryFence) allocates from the current node if its
+    tag <= completed; otherwise it returns the tag to wait for. It merges following nodes whose tag <= completed
+    (UploadRingConsumeBytes 119250), splits the remainder (UploadRingBlockSplit 7D7204), and goes back to the first node at the end.
+  - CBV sizes are rounded up to 256 B (118E28).
+- **DescRing** (SynCtx+980h): base index +38h, capacity +3Ch, max request +40h, cursor +44h, one u64 tag per descriptor at +30h,
+  wrap count +4Ch. SynComputeStateReserveDescRingRange 11A08C is the compute variant.
+- Fence tag source: SynCtx+6D0h = SynCtx+5D0h (list-ring fence counter) + 1. That is the value the open list signals when it closes
+  (CmdListRingClose 490D5C: ++fence). The completed value is SynCtx+2510h, refreshed by FenceValueReachedOrPoll 4920A0.
+- Async-compute slots (AsyncComputeCtxCreateQueue 2EF8448) own their rings, heaps and fences (backend.md) and use the same allocator.
+
+## 2. Heaps and placement
+
+### 2.1 Usage -> heap (S)
+- GpuBuffer usage table `3BEA260` (12 B {heap type, initial state, CPU-mappable}): usage 0/1 DEFAULT, **2 UPLOAD (GENERIC_READ AC3h,
+  mapped in place)**, **3 READBACK (COPY_DEST 400h)** (rebar-fix-v3 §2).
+- Map modes `MapModeTable 3BE29D0` (2 B per mode {needs a read-back copy, needs an upload copy at unmap}): 0 {1,0}, 1 {1,1},
+  2 {1,1}, 3 {0,1}, 4 and 5 {0,0}. Mode 4 means no staging, and its unmap is a no-op.
+
+### 2.2 The GpuMem pool (DEFAULT / UPLOAD / READBACK placement) (S)
+- The pool manager is `[GfxDevice+4610h]`. Every "committed" creation first tries **GpuMemTryPlaceFromPool 62C618**. It is skipped
+  when GfxDevice+3F65h is set and the resource flags have any of bits 0-2.
+  - GpuMemPoolPlaceByClass 62C664 picks a pool by resource class. GpuMemResourceHeapClass 50194 returns buffer 0, non-RT/DS
+    texture 1, RT/DS texture 2, anything else 3 (not poolable).
+  - It checks the size limit: pool+38h when unified, pool+40h+8*class per class.
+  - Then GpuMemCreatePlacedResource 62C8E0 takes the pool's critical section, sub-allocates (62DD8C) and calls CreatePlacedResource
+    (vfn E8h), or vfn 230h when a castable-format list is given.
+  - On failure, CreateCommittedResource (vfn D8h) with the same desc.
+- Pool heaps come from GpuMemCreateHeapWithPriority 2F1165C:
+  - size = pages x 64 KB;
+  - flags = `GpuMemHeapClassFlags 3C027E8`[class] | **800h CREATE_NOT_ZEROED**, where the classes are 0 any (tier 2), C0h buffers
+    only, 44h non-RT/DS textures only, 84h RT/DS textures only (the tier-1 split, kept on a tier-2 device);
+  - optional SetResidencyPriority (ID3D12Device1 vfn 170h) with a class-dependent priority.
+- Release goes through GpuAllocRelease 4F0FC, by allocation kind, and then Release() of the resource. The kinds are:
+  - 1 pool (`[GfxDevice+4688h][idx]`, 62D934 under the pool CS);
+  - 2 UPLOAD heap ring (`[+4678h]`);
+  - 3 READBACK heap ring (`[+4680h]`).
+- **No deferred-free queue was found.** Callers release only after their own fence wait (synchronous staging) or at object
+  teardown.
+
+### 2.3 UPLOAD / READBACK heap rings (S)
+- `UploadHeapRing_vtbl 409A748` {+8 Init 2F035C8, +10h Shutdown 2F03730, +18h Alloc 62D7F0, +20h Free 501C4 -> 878B70}.
+  - Objects: GfxDevice+4618h (UPLOAD, pointer at +4678h) and +4648h (READBACK, pointer at +4680h).
+  - N heaps (params +170h / +180h) of params +168h / +178h bytes each, linked in a circle of 38h-byte entries.
+  - Measured totals: **UPLOAD 700 MB, READBACK 100 MB** (VS probe).
+- Each heap is a **lock-free bump arena with a live count**. The state u64 at +8 holds the offset in the low bits (mask +18h =
+  next power of two minus 1) and the count in the high bits (unit +20h).
+  - UploadHeapBumpAlloc 62D8C0 aligns, bumps the offset and increments the count in one CAS.
+  - UploadHeapFree 878B70 decrements the count and **resets the offset to 0 when the count reaches 0**.
+  - Alloc walks the circle from the last heap that succeeded (+10h). A request larger than one heap, or no room anywhere, falls
+    back to **TextureStagingAllocDedicated 9C2EE0, a CreateCommittedResource on the calling thread** (stutter.md §3.3).
+- Consequences:
+  - One long-lived allocation pins its heap, because the offset never resets. Persistent UPLOAD buffers placed here shrink the
+    usable ring.
+  - On no-ReBAR cards both rings sit in system memory. With ReBAR the UPLOAD ring moves to VRAM; the READBACK ring never does.
+
+### 2.4 Transient RTs: VideoMemoryKeeper (S; answers 05-frame-graph's open question)
+- A keeper is a KIDS object of type "VideoMemoryKeeper" (VideoMemoryKeeperRegisterType 244EE60). Its handler-table factory 259F5AC
+  (slot 22 of 3B5B838) builds it when the owning graph asset loads, which is why it is not in the objdbs.
+- The factory reads 7 params (PropTableReadParamsBatch16 2F3D08): byte size, screen-relative flag, x / y shift, two counts and the
+  PixelFormat. For a screen-relative keeper it calls GetResourceAllocationInfo for a (W >> sx, H >> sy) texture of that format
+  (W / H from R+960h / 964h); size = max(param, result).
+- Memory comes from the GpuMem pool (VideoMemoryKeeperHeapAlloc 1896024 -> pool alloc 2F04B60) and is wrapped in a 28h-byte heap
+  object (vtable 40EB360). The keeper (50h B) goes into the transient set R+1EE530h (TransientSetAddKeeper 32F1FF4, capacity +18h,
+  count +1Ch).
+- Resize: when W, H or the scale changed, RenderFrameBegin calls TransientSetResize 94541C(R+1EE530h, ..., W, H, scale). That calls
+  345CCEC for each keeper: w = floor((W >> sx) * scale + 0.5), h likewise, then the resources are placed again.
+- Per frame: activation at the first-use node index (05-frame-graph §4); 12 alias barriers + 12 discards per frame (FCAP1).
+
+## 3. Texture and buffer creation paths (S)
+
+| path | entry | memory | notes |
+|---|---|---|---|
+| textures (load / streaming) | GpuMemAllocResourceMemoryFenced 62B02C, the texture creator (callers 631AA4, GpuMemSizeTiledResourceAlloc 151140, GpuMemUploadTextureAndUnmap 62F86C) | pool placed or committed | tries the **4 KB small-resource alignment** (GetResourceAllocationInfo; accepted when alignment == 1000h); format through the table in 3.1 |
+| streamed textures | reserved resources (CreateReservedResource 2F03F9C) + UpdateTileMappings | 64 KB tiles from the KtglCache page pool (`[45BA588]+61A0h`) | gpu-tiles.md; section 4 |
+| render targets (objdb) | KIDS RT objects | RT/DS class pool, or committed | whole session |
+| transient RTs | VideoMemoryKeeper (2.4) | pool | aliased |
+| buffers | GpuBuffer {+30h staging, +58h size, +64h CPU-visible, +68h map mode, +70h/+78h range}; GpuBufferEnsureWidth 4E2F8 re-creates on growth | by the usage table | UPLOAD buffers are mapped in place |
+| per-draw / immediate data | SynCtx rings (1.3) | UPLOAD buffer | retired per list |
+
+### 3.1 KTGL PixelFormat -> DXGI (S; found: `KtglPixelFormatDxgiTable 3BEA400`)
+- 28-byte entries indexed by the KTGL PixelFormat byte: {resource (typeless) format, SRV, SRV sRGB, RTV/DSV, RTV sRGB, stencil SRV,
+  bits per pixel}.
+- Readers: the texture creator 62B02C (`+0` = 0 means unsupported) and VideoMemoryKeeper (`+0Ch`, the RTV/DSV format).
+- Decoded with DXGI numbering. Entries 0-8 repeat at 9-13 / 16-19 and the BC blocks repeat at 89-102.
+
+| PixelFormat | DXGI (resource / SRV / RTV-DSV) | meaning |
+|---|---|---|
+| 0, 9 | 27 / 28 (29 sRGB) / 28 | RGBA8 |
+| 1, 10 | 90 / 87 (91) / 87 | BGRA8 |
+| 2, 11 | 39 / 41 / 41 | R32_FLOAT colour |
+| 3, 12 / 4, 13 | 9 / 10 ; 1 / 2 | RGBA16F ; RGBA32F |
+| 5, 19 | 44 / 46 / DSV 45, stencil 47 | D24S8 |
+| 108, 109 | 19 / 21 / DSV 20, stencil 22 | D32S8 |
+| 78, 79 | 39 / 41 / DSV 40 | D32 |
+| 20, 21 / 22, 23 | 53 / 56 / DSV 55 ; 53 / 56 / 56 | D16 ; R16_UNORM |
+| 6-8, 16-18, 89-91, 96-98 | 70-78 | BC1 / BC2 / BC3 (+sRGB) |
+| 92, 99 / 93, 100 | 79 / 80 ; 82 / 83 | BC4 ; BC5 |
+| 94, 101 / 37, 43 | 94 / 95 ; 94 / 96 | BC6H UF16 ; SF16 |
+| 95, 102 | 97 / 98 (99) | BC7 |
+| 15, 24 / 42, 114 | 65 ; 61 | A8 ; R8_UNORM |
+| 25, 28 / 26, 29 | 85 ; 86 | B5G6R5 ; B5G5R5A1 |
+| 33, 34 | 92 / 88 (93) | BGRX8 |
+| 35, 36 / 105, 118 | 33 / 35 ; 33 / 34 | RG16_UNORM ; RG16F |
+| 64, 66 | 24 | R10G10B10A2 |
+| 65, 67 | 9 / 11 | RGBA16_UNORM |
+| 70, 115 / 104, 117 | 49 ; 48 / 50 | RG8_UNORM ; RG8_UINT |
+| 76, 77 | 15 / 16 | RG32F |
+| 103, 116 | 27 / 30 | RGBA8_UINT |
+| 106, 119 | 53 / 54 | R16F |
+| 107, 120 | 26 | R11G11B10F |
+
+- Not mapped yet: the PixelFormat enum names (the RT table, KIDS object 0x93fb3280). This table is the DXGI side.
+
+## 4. Residency and the streaming budget (S + M, mostly from root-cause-vram-streaming.md §2)
+
+- The DXGI budget is read in three places only: at device init (GfxInitQueryAdapterMemory 2EEBCCC: SetVideoMemoryReservation), by
+  the boot "settings too heavy" dialog and by the options VRAM meter. **No pool is sized from the live budget.**
+- Texture page pool (KtglCache `[45BA588]+61A0h`): 64 KB pages. Its size comes from the device create parameters and depends on the
+  adapter (PC 2,342 MB, pc2 1,389 MB); it is fixed for the session.
+- Request flow:
+  1. TextureStreamUpdate 1E7050 runs per frame, called from MeshletUpdateSceneBuffers 4BBEC.
+  2. TextureStreamTouchSlot 128EF0, TextureStreamVisitedCheck 129A28, then **TextureStreamRequestTiles 1290B8: <= 16 tiles per
+     texture per frame, global cap +75A8h = 128.**
+  3. The cache request ring feeds the tile-mapping job (UpdateTileMappings on the cache COPY queue, 2F110A8). At frame begin,
+     CacheFlushOnGfx 2EF0938 takes what is left (ECL token 4 on DIRECT).
+  4. Tile data goes through the cache upload COPY queue (2F13350) and tokens 0x95 / 0x96 on the dispatcher (the KtglCache upload
+     ring, 1.1).
+- Pressure: PagePoolOccupancyCheck 126C64 raises a mip bias while occupancy > 85 %. It never engaged on the measured devices.
+- Residency API: GpuMemMakeResident 2F118CC (ID3D12Device vfn 110h, one object) / GpuMemEvict 2F11614.
+  - Users: the page cache 491D70, the texture block allocator 127AEC / 128294, and pool heap create / destroy (2F0F5xx, 2F11534,
+    2F109B0, 2EF0D20).
+  - Measured: 30-37 MakeResident and 50-65 Evict per 8-minute run, at boot and loads only. There is no residency churn in gameplay.
+
+## 5. Readback (S)
+- The READBACK heap ring (100 MB, UploadHeapSuballoc with param 0) serves two users:
+  - read-back maps of buffers / textures: copy GPU -> staging on the copy context, CPU wait, then map;
+  - the **meshlet streaming feedback** (uRequestCmds M+370h, ~30 KB/frame, read two frames later).
+- Committed READBACK buffers: timestamp results (GfxDevice+4770h), pipeline statistics (SynCtx+24E0h), occlusion (query object +28h).
+- GPU atomics and writes into the READBACK heap stay in system memory even with ReBAR (root-cause-vram-streaming §0, hypothesis 3).
+
+## 6. Staging and copy paths (S)
+
+- **Copy-context pool** at GfxDevice+43E8h. GfxCopyCtxPoolAcquire 7F6200 waits on the pool semaphore (+18h), then takes a context.
+  Each context is one COPY list over an 8-entry allocator / fence ring (CmdListRingCloseAndSubmit 5C268), on the COPY queue of
+  GfxCreateCopyQueue8 2EE9EE8.
+- Buffer path:
+  1. GpuBufferMap 4FD84 / GpuIndexBufferMap 62CE7C take staging from UploadHeapSuballoc (or the READBACK ring for read modes).
+  2. The CPU writes.
+  3. GpuBufferUnmap 4FBD4 / GpuIndexBufferUnmap 62E4DC call GfxCopyCtxSubmitBufferCopiesAndWait 5C0D4: CopyBufferRegion, close,
+     submit, then **GfxFencePollWorker 117D6C spins with Sleep(0) until the copy fence completes**.
+  4. GpuAllocRelease frees the staging.
+- Texture path:
+  1. TextureMap 69A36C / TextureMapSubresource 69A494 take staging from TextureStagingAlloc 69A720 (heap ring, else dedicated).
+  2. TextureUploadRect 699EC8 / TextureCopyRegion 69A1B4 do the same submit + wait.
+  3. TextureStagingRelease 69A0B4 frees it, except persistent dedicated staging (tex+A8h = 1, e.g. the glyph atlas).
+- Load-time uploads: GpuMemUploadTextureAndUnmap 62F86C / GpuMemMapAndUploadTexture 62ED60 call
+  GfxCopyCtxSubmitTextureCopiesAndWait 5A830 (one CopyTextureRegion per subresource, footprints from 9E7744, submit + wait).
+- In-frame copies on DIRECT: tokens 0x03 / 0x91 (SynCopyTextureRegion*, tracked states) and the CopyColorRenderTarget nodes.
+- Cost model: every staging copy is a CPU-blocking round trip on the calling thread (the streaming jobs; [App]Game for UI and
+  dynamic buffers). A full ring falls back to a committed allocation on that thread (stutter.md §3.3).
+
+## 7. What a new backend would need from this layer
+
+1. **Allocators to re-implement 1:1 (or replace):**
+   - the fence-tagged UploadRing and DescRing, one per replay thread, tagged by that thread's list fence;
+   - the per-heap bump arenas of the UPLOAD / READBACK rings;
+   - the GpuMem pool (class-split placed heaps, CREATE_NOT_ZEROED, 64 KB pages) and its committed fallback.
+2. **The lifetime contract (section 1):** list-fence retirement for rings, frame-end reset of the token stream, 3 frame slots for
+   allocators and query read-back, single-copy transient RTs, synchronous staging. A pipelined or parallel backend must add a second
+   token stream and per-thread rings. Nothing else in this layer is frame-scoped.
+3. **Format and state tables:** KtglPixelFormatDxgiTable 3BEA400 (resource / SRV / RTV / DSV / stencil formats), the usage table
+   3BEA260, MapModeTable 3BE29D0 and the heap-class flags 3C027E8.
+4. **Transient aliasing:** keeper heaps + first-use node index + ALIASING(NULL) + Discard. A backend with its own barrier planner
+   can keep the placement and replace the NULL-before barrier with explicit before/after pairs.
+5. **Streaming interfaces to keep:**
+   - reserved textures + UpdateTileMappings (cache COPY queue and the DIRECT frame-begin flush);
+   - the page pool (it has no live-budget feedback);
+   - the meshlet READBACK feedback with its 2-frame latency.
+6. **Cheap wins this layer offers a new backend:**
+   - asynchronous staging (retired by fence instead of a CPU spin);
+   - GPU-upload heaps when ReBAR is exposed (OPTIONS16, never queried today);
+   - more UPLOAD-ring heaps, to avoid the committed fallback;
+   - CBVs in VRAM or as root constants. Caution: on pc2, rebar-fix-v3 / CbvMirror measured that copying them costs more than it
+     saves.
+
+## 8. Open items
+- Exact byte sizes of the SynCtx rings (params +88h, +10Ch, +4Ch, +50h) and the UPLOAD heap count x size. They need one read of the
+  live params blocks (the SynCtx create params, device params +168h..+180h). Statically only the 700 / 100 MB totals are known (M).
+- Whether any keeper (transient) RT is used on an async-compute slot, which would be a cross-queue aliasing hazard.
+- The PixelFormat enum names (RT table KIDS object 0x93fb3280), to label 3.1.
+- The frame-lag bound for owner-double-buffered UPLOAD buffers (1.2 item 6).
