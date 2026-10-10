@@ -266,6 +266,9 @@ DWORD WINAPI CensusThread(LPVOID) {
         RdU32(g + kLrEclHigh, eh);
         RdU32(g + kFlushLimit, lim);
         RdU32(g + kStreamSize, ssz);
+        // engine counters that the engine itself resets (per frame / per snapshot) go backwards: count from 0 then (CPU5 showed
+        // underflowed values for the recycle / idle-spin / tok95 timers)
+        auto D = [](uint64_t cur, uint64_t prev) { return cur >= prev ? cur - prev : cur; };
         const double fr = a.frames ? (double)a.frames : 1.0;
         auto perF = [&](uint64_t ticks) { return (double)ticks * g_tickMs / fr; };
         auto pct = [&](uint64_t k, uint64_t of) { return of ? 100.0 * (double)k / (double)of : 0.0; };
@@ -274,16 +277,16 @@ DWORD WINAPI CensusThread(LPVOID) {
               "KL_Div %ld) | ring cap %u full %s ms/f (n %llu) | drain %s ms/f (max %s) | submit ECL-idle spin %s ms/f",
               el, a.frames, a.frames / el, a.kicks / fr, a.draws / fr, a.bytes / fr / 1024.0, ssz / 1024u, lim, g_klStock, g_klDiv,
               cap, Ms(b1, 16, perF(a.fullTot)), (unsigned long long)a.fullCnt, Ms(b2, 16, perF(a.drainTot)),
-              Ms(b3, 16, (double)a.drainMax * g_tickMs), Ms(b4, 16, perF(i.tot - s0Idle.tot)));
+              Ms(b3, 16, (double)a.drainMax * g_tickMs), Ms(b4, 16, perF(D(i.tot, s0Idle.tot))));
         g_log("BKS: disp: starved-while-recording %.1f %% (of %llu recording samples) | starved %.1f %% | main in drain %.1f %% | "
               "backlog %.2f segments | ring full %.1f %% | ECL stall %s ms/f (n %u, max %s ms) ECL full %.1f %% | lists %u ECL hw %u "
               "submits/f %.1f | recycle wait %s ms/f (n %u) | tok95 cache upload %s ms/f | tile job %s ms/f | cache SRW +CF8h held %.1f %% "
               "excl %.1f %% waiters %.1f %% | samples %llu",
               pct(a.nStarvedRec, a.nRec), (unsigned long long)a.nRec, pct(a.nStarved, a.n), pct(a.nDrain, a.n),
-              a.n ? (double)a.backlog / (double)a.n : 0.0, pct(a.nFull, a.n), Ms(b5, 16, perF(e.tot - s0Ecl.tot)), e.cnt - s0Ecl.cnt,
-              Ms(b6, 16, (double)e.max * g_tickMs), pct(a.nEclFull, a.n), lists, eh, (sub - sub0) / fr,
-              Ms(b7, 16, perF(rc.tot - s0Rec.tot)), rc.cnt - s0Rec.cnt, Ms(b8, 16, perF(t.tot - s0Tok.tot)),
-              Ms(b9, 16, perF(j.tot - s0Job.tot)), pct(a.nLockHeld, a.n), pct(a.nLockExcl, a.n), pct(a.nLockWait, a.n),
+              a.n ? (double)a.backlog / (double)a.n : 0.0, pct(a.nFull, a.n), Ms(b5, 16, perF(D(e.tot, s0Ecl.tot))), (unsigned)D(e.cnt, s0Ecl.cnt),
+              Ms(b6, 16, (double)e.max * g_tickMs), pct(a.nEclFull, a.n), lists, eh, D(sub, sub0) / fr,
+              Ms(b7, 16, perF(D(rc.tot, s0Rec.tot))), (unsigned)D(rc.cnt, s0Rec.cnt), Ms(b8, 16, perF(D(t.tot, s0Tok.tot))),
+              Ms(b9, 16, perF(D(j.tot, s0Job.tot))), pct(a.nLockHeld, a.n), pct(a.nLockExcl, a.n), pct(a.nLockWait, a.n),
               (unsigned long long)a.n);
         s0Ecl = e;
         s0Idle = i;

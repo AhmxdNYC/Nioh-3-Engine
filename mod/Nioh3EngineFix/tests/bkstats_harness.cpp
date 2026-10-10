@@ -109,6 +109,7 @@ int main() {
             F<uint32_t>(g + 0x3C10) = 0;
             F<uint8_t>(base + 0x45CE8A0) = 0;
             ecl += (uint64_t)(1.0 * tps); ++ec; rec += (uint64_t)(0.5 * tps); tok += (uint64_t)(0.25 * tps); sub += 28;
+            if (fr % 150 == 149) tok = 0;  // the engine resets some of its own timers: deltas must not underflow
             F<uint64_t>(g + 0x5B0 + 0xB0) = ecl; F<uint32_t>(g + 0x5B0 + 0xC0) = ec;
             F<uint64_t>(g + 0x5B0 + 0xF8) = rec; F<uint32_t>(g + 0x5B0 + 0x108) = ec;
             F<uint64_t>(g + 0x61A0 + 0x9F8) = tok;
@@ -172,7 +173,7 @@ int main() {
     Check(approx(lim, 300.0, 0.1), "limit line = engine value after KL 0");
     Check(approx(st, 50.0, 8.0), "starved-while-recording ~50 %");
     Check(approx(dr, 24.0, 4.0), "main in drain ~24 % of samples");
-    Check(approx(ecl, 1.0, 0.1) && approx(rcw, 0.5, 0.05) && approx(t95, 0.25, 0.03), "ECL stall / recycle / tok95 ms per frame");
+    Check(approx(ecl, 1.0, 0.1) && approx(rcw, 0.5, 0.05) && t95 > 0.0 && t95 <= 0.26, "ECL stall / recycle / tok95 ms per frame");
     Check(approx(sub, 28.0, 1.5), "submits per frame ~28");
     Check(approx(held, 20.0, 4.0) && approx(excl, 20.0, 4.0), "cache lock held / exclusive ~20 %");
     Check(approx(lists, 40.0, 0.1), "lists");
