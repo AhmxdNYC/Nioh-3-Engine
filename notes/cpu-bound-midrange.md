@@ -123,3 +123,23 @@ spot; cap 120 (#441) kept speed 1.00x.
 3. PCM compute twin (58C0D8 / 58C144) only with item 1 done (same ~0.5 % class).
 4. When the drain spin is near 0, the main-thread UI items bound the frame: W1B (built), E, C (ui-mainthread.md).
 5. TG for 6-core players as an opt-in recommendation (+3 %, behaviour change, docs only).
+
+## 7. pc2 GPU with ReBAR ON: new top costs and what is still anomalous vs the RX 9070
+
+Data: the #1096 session already ran GP2 per-PSO (MinRun 1, Top 100) at the Continue spot (bridge #179, `B_L03_BASE.log`,
+7 gameplay windows). Digest: `py -I re\scripts_gpu\ally_budget.py gp2 <log> --min-draws 2000`; cross-system:
+`py -I tools\xsys_compare.py --in pc=captures\xsys\pc-20261009-0638\run01.log --in pc2r=<B_L03> --in pc2off=captures\xsys\pc2-20261009-0616\run01.log --min-draws 2000 --base pc2r`.
+
+- **Span 26.7 ms, covered only ~17.8 ms (66 %)**: ~9 ms per frame the graphics queue has no work = the CPU-side tail
+  above. No single PSO is above 1.5 ms; the profile is flat.
+- Top rows (ms/frame): copy/resolve/clear 1.47, FSR3 accumulate 0.81, meshlet G-buffer PB2 (70d0ee9f/05ad1715) 0.67,
+  async cs 5473bfb7 0.62 (unnamed, only at this spot), VCLOUD b76874bb 0.62 (was 2.4-2.9 without ReBAR), main PB2 0.52,
+  RefProbe 0.43 + 0.33 (gi replacement), MPC 0.40 + 0.33, G1E particles 0.36 (120 draws).
+- **Family anomaly vs RX 9070 (speed-normalised, 1.0 = scales like the GPU):** meshlet LOD/culling 1.20 (was 5.6 without
+  ReBAR), G-buffer 1.17 (1.77), shadow maps 0.97 (2.6), VCLOUD 1.9 (4.5): **the PCIe anomaly is gone.**
+- **Still flagged (spot-confounded, needs the matched run):** copy/resolve/clear **1.73 ms vs 0.23 ms on the PC = ~3x worse
+  than raw speed** (largest single row 0.40 ms, 9.8 per frame, no marker), and 0.97 ms of unnamed graphics rows (5x).
+  Per-shader rows that differ (MPC a09d4223 0.33 ms, PB2TREE2 92139110 0.24 ms) have different draw counts at this spot.
+- Queued: **XSYS2** (#1125) = the XSYS1 matched tour on pc2 with ReBAR ON, after the PC's 'nioh3' lock is released. If the
+  copy family stays ~3x, the next step is a GP2 MinRun 1 split of the copy rows by marker / caller (gpu-unattributed.md).
+- GPU work is not the frame's bound on pc2 today (section 0); GPU savings there pay only after the dispatcher tail shrinks.
