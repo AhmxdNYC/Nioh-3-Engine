@@ -56,6 +56,7 @@
 #include "thrsched.h"
 #include "psomemo.h"
 #include "samelook.h"
+#include "extraperf.h"
 #include "livectl.h"
 #include "rebar.h"
 #include "scenemirror.h"
@@ -97,7 +98,7 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
-#define MOD_VERSION "1.7.58"
+#define MOD_VERSION "1.7.59"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -775,11 +776,15 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveVsmaBudget: return (void*)&caveVsmaBudget;
         case gen::Target::caveVsmaBind: return (void*)&caveVsmaBind;
         case gen::Target::caveRco: return (void*)&caveRco;
+        case gen::Target::caveGiScale: return (void*)&caveGiScale;  // 1.7.59 Extra performance (extraperf.asm)
+        case gen::Target::caveMeshLod: return (void*)&caveMeshLod;
+        case gen::Target::caveFxSim: return (void*)&caveFxSim;
+        case gen::Target::caveFxDraw: return (void*)&caveFxDraw;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveRco;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveFxDraw;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1362,6 +1367,10 @@ DWORD WINAPI Worker(LPVOID) {
         const std::wstring slIni = SelfPathWithExt(L".ini");
         sl.iniPath = slIni.c_str();
         samelook::Configure(sl);
+        extraperf::StartInfo ep;  // 1.7.59 Extra performance: [ExtraPerf] levels (installed with the experimental groups)
+        ep.log = &Log;
+        ep.iniPath = slIni.c_str();
+        extraperf::Configure(ep);
     }
     if (cfg.log) {
         std::wstring lp = SelfPathWithExt(L".log");
@@ -1606,7 +1615,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "ESM1")) return cfg.esm1 != 0;
         if (!strcmp(g, "MPCS")) return cfg.mpcs != 0;
         if (!strcmp(g, "VSMA")) return samelook::VsmaIni() != 0;  // 1.7.49 same-look package
-        if (!strcmp(g, "RCO")) return samelook::RcoIni() != 0;
+        if (!strcmp(g, "RCO")) return samelook::RcoIni() != 0 || extraperf::Wanted();  // 1.7.59: Extra performance rides on RCO
+        if (!strcmp(g, "GIS") || !strcmp(g, "EPL") || !strcmp(g, "EPF")) return extraperf::Wanted();  // 1.7.59 XGI / XLOD / XPRT
         if (!strcmp(g, "MLP")) return false;  // MeshletProbe recorder entry sites: verified offline (test_patterns), hooked by mlprobe.cpp
         if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
         if (!strcmp(g, "LC")) return cfg.lc != 0;
@@ -2249,10 +2259,56 @@ DWORD WINAPI Worker(LPVOID) {
         if (!ok) Log("VSMA: NOT installed");
     }
     // 1.7.49 LPVR / SKYR / FOGT / CLDR (samelook.cpp): render-config overrides after ApplyGraphicsSettings. One live row each.
-    if (samelook::RcoIni()) {
+    if (samelook::RcoIni() || extraperf::Wanted()) {
         const bool ok = expGroup("RCO", true, [&]() { return true; });
-        if (ok) samelook::SetRcoInstalled();
-        else Log("RCO: update-rate knobs NOT installed");
+        if (ok) {
+            if (samelook::RcoIni()) samelook::SetRcoInstalled();
+            if (extraperf::Wanted()) extraperf::SetRcoInstalled();
+        } else {
+            Log("RCO: render-config overrides NOT installed (update-rate knobs / Extra performance render-config options)");
+        }
+    }
+    // 1.7.59 Extra performance (extraperf.cpp, notes\extra-performance-settings.md): GI gather scale, meshlet LOD scale, GPU
+    // particle share. All levels 0 = pass-through; the menu rows switch them live. Callees verified against the v2.02 RVAs.
+    if (extraperf::Wanted()) {
+        const bool gi = expGroup("GIS", true, [&]() {
+            const char* ids[4] = {"GIS1", "GIS2", "GIS3", "GIS4"};
+            for (const char* id : ids) {
+                Item* it = findItem(id);
+                if (calleeOf(it->addr) != (uintptr_t)(g_base + it->s->expectRva)) {
+                    Log("XGI: %s callee differs from v2.02", id);
+                    return false;
+                }
+            }
+            extraperf::SetGiInstalled(calleeOf(findItem("GIS1")->addr));
+            return true;
+        });
+        if (!gi) Log("XGI: GI gather scale NOT installed");
+        const bool lod = expGroup("EPL", true, [&]() {
+            Item* it = findItem("EPL1");
+            const uintptr_t t = calleeOf(it->addr);
+            if (t != (uintptr_t)(g_base + it->s->expectRva)) {
+                Log("XLOD: EPL1 callee differs from v2.02");
+                return false;
+            }
+            extraperf::SetLodInstalled(t);
+            return true;
+        });
+        if (!lod) Log("XLOD: meshlet LOD scale NOT installed");
+        const bool fx = expGroup("EPF", true, [&]() {
+            // movss dword ptr [rip+disp32], xmmN (F3 0F 11 /r, 8 bytes): the global = site + 8 + disp32
+            uint8_t* a = findItem("EPF1")->addr;
+            uint8_t* b = findItem("EPF2")->addr;
+            void* sim = a + 8 + *(int32_t*)(a + 4);
+            void* draw = b + 8 + *(int32_t*)(b + 4);
+            if (sim != (void*)(g_base + 0x4566008) || draw != (void*)(g_base + 0x4566000)) {
+                Log("XPRT: fraction globals differ from v2.02");
+                return false;
+            }
+            extraperf::SetFxInstalled(sim, draw);
+            return true;
+        });
+        if (!fx) Log("XPRT: GPU particle share NOT installed");
     }
     // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
     // textures (the bytes are never restored mid-loop), so switching off is always safe.
@@ -2467,6 +2523,8 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) {                     // 1.7.49 same-look package: no-op unless VSMA / LPVR / SKYR / FOGT / CLDR != 0
                     char sb[1024];
                     samelook::StatusLine(sb, sizeof sb, 30);
+                    if (sb[0]) Log("%s", sb);
+                    extraperf::StatusLine(sb, sizeof sb);  // 1.7.59 Extra performance levels + field write / refill counts
                     if (sb[0]) Log("%s", sb);
                 }
                 if (sec % 30 == 0) {                     // no-op unless [Patches] TR != 0
