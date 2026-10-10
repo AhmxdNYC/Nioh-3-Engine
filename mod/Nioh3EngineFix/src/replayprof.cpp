@@ -27,6 +27,8 @@ extern void* rp_orig[];
 extern uint64_t rp_id[];
 extern uint64_t rp_mat[];
 extern uint8_t rp_grp[];
+extern uint8_t rp_pk[];
+extern uint64_t rp_psoRed[];
 extern void* rp_thunks[];
 extern void* rp_tokthunks[];
 void RpTok(void* c, uint8_t** cur, uint32_t op);
@@ -286,6 +288,8 @@ uintptr_t Rel(uintptr_t at, uintptr_t end) { return end + (intptr_t) * (const in
 // ---- token wrapper (asm thunk: mov r8d, op; jmp RpTok) -----------------------------------------------------------------
 }  // namespace replayprof
 
+extern "C" bool RpForwards(const void* slotValue, const void* want) { return replayprof::Forwards(slotValue, want); }
+
 extern "C" void RpTok(void* c, uint8_t** cur, uint32_t op) {
     using namespace replayprof;
     const Handler fn = g_tokOrig[op];
@@ -334,6 +338,10 @@ int HookVtable(const char* label, int kind, void** vt, int slots) {
     for (int i = 0; i < n; ++i) {
         const int id = s * kSlots + i;
         rp_grp[id] = (uint8_t)GroupOf(kind, names[i]);
+        rp_pk[id] = kind != kKindList ? 0
+                    : !strcmp(names[i], "SetPipelineState")                            ? 1
+                    : (!strcmp(names[i], "Reset") || !strcmp(names[i], "ClearState")) ? 2
+                                                                                      : 0;
         rp_orig[id] = vt[i];
     }
     MemoryBarrier();
@@ -453,6 +461,8 @@ Counters Read() {
     c.idle = g_idleTicks;
     c.idleN = g_idleN;
     c.tid = rp_tid;
+    c.psoRedT = rp_psoRed[0];
+    c.psoRedN = rp_psoRed[1];
     return c;
 }
 
@@ -559,6 +569,20 @@ int Report(const Counters& a, const Counters& b, double msPerTick, double sec, d
             p += snprintf(buf + p, sizeof buf - p, " %s %.3f (%.0f);", kGroupNames[g], gT[g] * k, gN[g] / F);
         }
         log("%s", buf);
+        ++lines;
+    }
+    {
+        double psoN = 0, psoT = 0;
+        for (int s = 0; s < g_nSets; ++s)
+            for (int i = 0; i < g_set[s].n; ++i)
+                if (rp_pk[s * kSlots + i] == 1) {
+                    psoT += D(a.id[(s * kSlots + i) * 2], b.id[(s * kSlots + i) * 2]);
+                    psoN += D(a.id[(s * kSlots + i) * 2 + 1], b.id[(s * kSlots + i) * 2 + 1]);
+                }
+        const double rn = D(a.psoRedN, b.psoRedN), rt = D(a.psoRedT, b.psoRedT);
+        log("RPF pso: SetPipelineState %.0f/f %.3f ms/f, redundant (same list, same PSO, no Reset / ClearState between) %.0f/f "
+            "(%.1f %%) %.3f ms/f",
+            psoN / F, psoT * k, rn / F, psoN > 0 ? 100.0 * rn / psoN : 0.0, rt * k);
         ++lines;
     }
     // top methods
@@ -870,6 +894,13 @@ DWORD WINAPI Thread(LPVOID) {
 }
 
 }  // namespace
+
+bool Forwards(const void* slotValue, const void* want) {  // also extern "C" RpForwards (gpuopt.cpp)
+    for (int s = 0; s < g_nSets; ++s)
+        for (int i = 0; i < g_set[s].n; ++i)
+            if (rp_thunks[s * kSlots + i] == slotValue) return rp_orig[s * kSlots + i] == want;
+    return false;
+}
 
 bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
     if (_stricmp(key, "RPF") != 0) return false;

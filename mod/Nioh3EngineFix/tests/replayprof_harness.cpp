@@ -34,6 +34,7 @@ void hl_loop_ret();
 DWORD hl_wait(void** slot, HANDLE h, DWORD ms);
 void hl_wait_ret();
 extern volatile uint32_t rp_tid;
+bool RpForwards(const void* slotValue, const void* want);
 }
 
 static std::vector<std::string> g_lines;
@@ -321,6 +322,25 @@ int main() {
         ((NopFn)g_list.vt[kSlotRootTable])(&g_list);
     };
     rp_tid = GetCurrentThreadId();
+    {  // SetPipelineState redundancy + Forwards (gpuopt watch)
+        Switch(true);
+        using PsoFn = void(__stdcall*)(FakeList*, uintptr_t);
+        const Counters p0 = Read();
+        FakeList other;
+        other.vt = g_vt;
+        ((PsoFn)g_vt[25])(&g_list, 0x1234);
+        ((PsoFn)g_vt[25])(&g_list, 0x1234);   // redundant
+        ((PsoFn)g_vt[25])(&other, 0x1234);    // other list: new
+        ((PsoFn)g_vt[25])(&other, 0x1234);    // redundant
+        ((NopFn)g_vt[10])(&other);            // Reset
+        ((PsoFn)g_vt[25])(&other, 0x1234);    // after Reset: new
+        ((PsoFn)g_vt[25])(&other, 0x5678);    // other PSO: new
+        const Counters p1 = Read();
+        Check(p1.psoRedN - p0.psoRedN == 2 && p1.id[25 * 2 + 1] - p0.id[25 * 2 + 1] == 6, "redundant SetPipelineState: 2 of 6");
+        Check(RpForwards(g_vt[kSlotBarrier], (void*)&MSpin) && !RpForwards(g_vt[kSlotBarrier], (void*)&MNop) &&
+                  !RpForwards((void*)&MSpin, (void*)&MSpin),
+              "RpForwards: our thunk in front of the wanted method");
+    }
     auto costRun = [&](bool on, uint32_t tok) {
         Switch(on);
         const int N = 200000;

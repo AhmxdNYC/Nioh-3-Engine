@@ -17,7 +17,7 @@ OPTION CASEMAP:NONE
 
 EXTERN RpTok:PROC
 
-PUBLIC rp_orig, rp_grp, rp_id, rp_mat, rp_curOp, rp_tid, rp_busy, rp_on, rp_thunks, rp_tokthunks
+PUBLIC rp_pk, rp_psoRed, rp_orig, rp_grp, rp_id, rp_mat, rp_curOp, rp_tid, rp_busy, rp_on, rp_thunks, rp_tokthunks
 
 RP_SETS   EQU 10
 RP_SLOTS  EQU 128
@@ -37,30 +37,58 @@ rp_orig   dq RP_IDS dup(0)              ; original method per ID
 rp_id     dq RP_IDS * 2 dup(0)          ; {ticks, calls} per ID (replay thread only)
 rp_mat    dq RP_OPS * RP_GROUPS * 2 dup(0)  ; {ticks, calls} per (token handler, call group)
 rp_grp    db RP_IDS dup(0)              ; call group per ID
+rp_pk     db RP_IDS dup(0)              ; 1 = list SetPipelineState, 2 = list Reset / ClearState
+ALIGN 16
+rp_psoList dq 0                         ; list of the last SetPipelineState (0 after a Reset / ClearState)
+rp_psoLast dq 0                         ; its PSO
+rp_psoRed  dq 2 dup(0)                  ; {ticks, calls} of redundant SetPipelineState (same list, same PSO)
 
 .code
 
 rp_body PROC FRAME
-    sub     rsp, 78h                    ; entry rsp = 8 mod 16 -> 0 mod 16 for the call below
-    .allocstack 78h
+    sub     rsp, 88h                    ; entry rsp = 8 mod 16 -> 0 mod 16 for the call below
+    .allocstack 88h
     .endprolog
-    ; frame: [rsp+0..1Fh] home area of the call, [rsp+20h..5Fh] stack args 5..12, [rsp+60h] ID, [rsp+68h] t0, [rsp+70h] rax
+    ; frame: [rsp+0..1Fh] home area of the call, [rsp+20h..5Fh] stack args 5..12, [rsp+60h] ID, [rsp+68h] t0, [rsp+70h] rax,
+    ;        [rsp+78h] 1 = redundant SetPipelineState
     mov     qword ptr [rsp+60h], r11
-    mov     rax, qword ptr [rsp+0A0h]   ; entry rsp + 28h = caller's 5th argument
+    ; SetPipelineState redundancy (rp_pk[ID]: 1 = SetPipelineState, 2 = Reset / ClearState): same list (rcx) and same PSO (rdx)
+    ; as the last SetPipelineState, with no Reset / ClearState of a list in between
+    mov     qword ptr [rsp+78h], 0
+    lea     rax, rp_pk
+    movzx   eax, byte ptr [rax + r11]
+    test    eax, eax
+    jz      pk_done
+    cmp     eax, 1
+    jne     pk_reset
+    cmp     rcx, qword ptr [rp_psoList]
+    jne     pk_new
+    cmp     rdx, qword ptr [rp_psoLast]
+    jne     pk_new
+    mov     qword ptr [rsp+78h], 1
+    jmp     pk_done
+pk_new:
+    mov     qword ptr [rp_psoList], rcx
+    mov     qword ptr [rp_psoLast], rdx
+    jmp     pk_done
+pk_reset:
+    mov     qword ptr [rp_psoList], 0
+pk_done:
+    mov     rax, qword ptr [rsp+0B0h]   ; entry rsp + 28h = caller's 5th argument
     mov     qword ptr [rsp+20h], rax
-    mov     rax, qword ptr [rsp+0A8h]
-    mov     qword ptr [rsp+28h], rax
-    mov     rax, qword ptr [rsp+0B0h]
-    mov     qword ptr [rsp+30h], rax
     mov     rax, qword ptr [rsp+0B8h]
-    mov     qword ptr [rsp+38h], rax
+    mov     qword ptr [rsp+28h], rax
     mov     rax, qword ptr [rsp+0C0h]
-    mov     qword ptr [rsp+40h], rax
+    mov     qword ptr [rsp+30h], rax
     mov     rax, qword ptr [rsp+0C8h]
-    mov     qword ptr [rsp+48h], rax
+    mov     qword ptr [rsp+38h], rax
     mov     rax, qword ptr [rsp+0D0h]
-    mov     qword ptr [rsp+50h], rax
+    mov     qword ptr [rsp+40h], rax
     mov     rax, qword ptr [rsp+0D8h]
+    mov     qword ptr [rsp+48h], rax
+    mov     rax, qword ptr [rsp+0E0h]
+    mov     qword ptr [rsp+50h], rax
+    mov     rax, qword ptr [rsp+0E8h]
     mov     qword ptr [rsp+58h], rax
     mov     r10, rdx                    ; rdtsc writes edx
     rdtsc
@@ -91,9 +119,14 @@ rp_body PROC FRAME
     lea     rdx, rp_mat
     add     qword ptr [rdx + r10], rax
     add     qword ptr [rdx + r10 + 8], 1
+    cmp     qword ptr [rsp+78h], 0
+    je      no_red
+    add     qword ptr [rp_psoRed], rax
+    add     qword ptr [rp_psoRed + 8], 1
+no_red:
     mov     byte ptr [rp_busy], 0
     mov     rax, qword ptr [rsp+70h]
-    add     rsp, 78h
+    add     rsp, 88h
     ret
 rp_body ENDP
 

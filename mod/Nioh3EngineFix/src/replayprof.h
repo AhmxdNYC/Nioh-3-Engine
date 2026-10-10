@@ -34,5 +34,8 @@ struct StartInfo {
 void Start(const StartInfo& info);
 // LiveCtl 'Tuning.RPF = 0/1'. true = key handled.
 bool SetTuning(const char* key, const char* val, char* reply, size_t n);
+// true when `slotValue` (a vtable slot) is an RPF thunk that calls `want` (gpuopt's watch thread: RPF chained in front of
+// its thunk is not a slot restore, batching stays on).
+bool Forwards(const void* slotValue, const void* want);
 
 }  // namespace replayprof

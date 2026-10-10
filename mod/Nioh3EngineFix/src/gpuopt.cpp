@@ -30,6 +30,11 @@
 #include <string>
 
 #include "gpuopt.h"
+// 1.7.59-rpf1: RPF (replayprof.cpp) may chain its timing thunk in front of ours; RpForwards(slot, want) says the slot still
+// reaches `want`. Resolves to a 'false' stub when replayprof.cpp is not linked (harnesses).
+extern "C" bool RpForwards(const void* slotValue, const void* want);
+extern "C" bool RpForwardsNone(const void*, const void*) { return false; }
+#pragma comment(linker, "/alternatename:RpForwards=RpForwardsNone")
 #include "gimerge.h"
 #include "gpuprof.h"
 #include "skipfx.h"
@@ -841,7 +846,7 @@ DWORD WINAPI WatchThread(LPVOID) {
                 const void* want = k == kBarrier ? (s ? (void*)&HkResourceBarrier<1> : (void*)&HkResourceBarrier<0>)
                                    : (k == kFlush || k == kBind) ? thunks[i]
                                                                  : nullptr;
-                if (want && g_vt[s][i] != want && g_batching) {
+                if (want && g_vt[s][i] != want && !RpForwards(g_vt[s][i], want) && g_batching) {
                     InterlockedExchange(&g_batching, 0);
                     InterlockedExchange(&g_state, (LONG)State::Paused);
                     LOG("vtable set %d slot %d (%s) was replaced by %s - batching switched OFF for safety", s, i,

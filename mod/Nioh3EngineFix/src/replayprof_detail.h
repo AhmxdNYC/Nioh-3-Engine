@@ -32,6 +32,7 @@ struct Counters {
     uint64_t n[kOps], incl[kOps], child[kOps], other[185];
     uint64_t id[kIds * 2], mat[kOps * kGroups * 2];
     uint64_t outer, idle, idleN;
+    uint64_t psoRedT, psoRedN;
     uint32_t tid;
 };
 Counters Read();
