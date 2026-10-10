@@ -121,6 +121,10 @@ GPU time on the ROG Ally at MAX (one all-original-shaders GP2 capture, top PSO b
 
 ![GPU time identified](docs/progress/gpu.svg)
 
+The renderer on its own (the full rendering decompilation, plan in [notes/renderer/00-map.md](notes/renderer/00-map.md), one note per package in [notes/renderer/](notes/renderer/)): each package's core functions, green = named, grey = not named; the thin bar = nearby region-filled functions that are only guessed to be renderer code. Regenerate with `py re\scripts_renderer\progress_chart.py` after each symbols merge:
+
+![Renderer decompilation progress](docs/progress/renderer.svg)
+
 Per-subsystem write-ups (role, data structures, hot RVAs, threads, cost drivers): [docs/subsystems/README.md](docs/subsystems/README.md).
 
 What each block of the full-game chart is for (label, size, share, confidence, method): [docs/code-map.md](docs/code-map.md).

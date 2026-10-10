@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 644" style="width:100%;height:auto" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="100%" height="100%" fill="#0d1117"/>
+<text x="8" y="19" fill="#e6edf3" font-size="15" font-weight="700">Renderer decompilation: 5,932 core functions in 11 packages, 1,484 named (25.0 %)</text>
+<rect x="8" y="28" width="12" height="12" fill="#2ea043"/><text x="25" y="39" fill="#c9d1d9" font-size="12">named</text><rect x="73" y="28" width="12" height="12" fill="#d4a017"/><text x="90" y="39" fill="#c9d1d9" font-size="12">Unknown_* (role unclear)</text><rect x="263" y="28" width="12" height="12" fill="#444a54"/><text x="280" y="39" fill="#c9d1d9" font-size="12">not named</text>
+<text x="8" y="62" fill="#8b949e" font-size="12">Thick bar = core functions (seeds + call-graph neighbours); thin bar = 48,363 region-filled neighbours (unverified, 2.6 % named). Sorted by core size.</text>
+<text x="8" y="106" fill="#e6edf3" font-size="13" font-weight="600">08 meshlet</text>
+<text x="8" y="121" fill="#8b949e" font-size="11">geometry LOD + culling</text>
+<rect x="235.0" y="95" width="48.2" height="16" fill="#2ea043" opacity="1"><title>meshlet named: 156 of 1555</title></rect>
+<rect x="285.2" y="95" width="449.8" height="16" fill="#444a54" opacity="1"><title>meshlet not named: 1399 of 1555</title></rect>
+<rect x="235.0" y="115" width="1.9" height="5" fill="#2ea043" opacity="0.75"><title>meshlet named (region-filled): 77 of 9888</title></rect>
+<rect x="238.9" y="115" width="496.1" height="5" fill="#444a54" opacity="0.75"><title>meshlet not named (region-filled): 9811 of 9888</title></rect>
+<text x="747" y="107" fill="#c9d1d9" font-size="12"><tspan font-weight="600">10 %</tspan> named <tspan fill="#8b949e">(156 of 1,555)</tspan></text>
+<text x="747" y="122" fill="#8b949e" font-size="11">+9,888 region-filled, 0.8 % named</text>
+<text x="8" y="152" fill="#e6edf3" font-size="13" font-weight="600">09 volumetrics</text>
+<text x="8" y="167" fill="#8b949e" font-size="11">fog, clouds, sky, water</text>
+<rect x="235.0" y="141" width="120.4" height="16" fill="#2ea043" opacity="1"><title>volumetrics named: 190 of 776</title></rect>
+<rect x="357.4" y="141" width="377.6" height="16" fill="#444a54" opacity="1"><title>volumetrics not named: 586 of 776</title></rect>
+<rect x="235.0" y="161" width="16.1" height="5" fill="#2ea043" opacity="0.75"><title>volumetrics named (region-filled): 227 of 6265</title></rect>
+<rect x="253.1" y="161" width="481.9" height="5" fill="#444a54" opacity="0.75"><title>volumetrics not named (region-filled): 6038 of 6265</title></rect>
+<text x="747" y="153" fill="#c9d1d9" font-size="12"><tspan font-weight="600">24 %</tspan> named <tspan fill="#8b949e">(190 of 776)</tspan></text>
+<text x="747" y="168" fill="#8b949e" font-size="11">+6,265 region-filled, 3.6 % named</text>
+<text x="8" y="198" fill="#e6edf3" font-size="13" font-weight="600">03 lighting</text>
+<text x="8" y="213" fill="#8b949e" font-size="11">G-buffer, shadows, GI, AO</text>
+<rect x="235.0" y="187" width="151.6" height="16" fill="#2ea043" opacity="1"><title>lighting named: 223 of 726</title></rect>
+<rect x="388.6" y="187" width="346.4" height="16" fill="#444a54" opacity="1"><title>lighting not named: 503 of 726</title></rect>
+<rect x="235.0" y="207" width="14.6" height="5" fill="#2ea043" opacity="0.75"><title>lighting named (region-filled): 140 of 4206</title></rect>
+<rect x="251.6" y="207" width="483.4" height="5" fill="#444a54" opacity="0.75"><title>lighting not named (region-filled): 4066 of 4206</title></rect>
+<text x="747" y="199" fill="#c9d1d9" font-size="12"><tspan font-weight="600">31 %</tspan> named <tspan fill="#8b949e">(223 of 726)</tspan></text>
+<text x="747" y="214" fill="#8b949e" font-size="11">+4,206 region-filled, 3.3 % named</text>
+<text x="8" y="244" fill="#e6edf3" font-size="13" font-weight="600">04 post</text>
+<text x="8" y="259" fill="#8b949e" font-size="11">upscaler, post chain, FG, present</text>
+<rect x="235.0" y="233" width="93.4" height="16" fill="#2ea043" opacity="1"><title>post named: 134 of 702</title></rect>
+<rect x="330.4" y="233" width="404.6" height="16" fill="#444a54" opacity="1"><title>post not named: 568 of 702</title></rect>
+<rect x="235.0" y="253" width="17.2" height="5" fill="#2ea043" opacity="0.75"><title>post named (region-filled): 260 of 6777</title></rect>
+<rect x="254.2" y="253" width="480.8" height="5" fill="#444a54" opacity="0.75"><title>post not named (region-filled): 6517 of 6777</title></rect>
+<text x="747" y="245" fill="#c9d1d9" font-size="12"><tspan font-weight="600">19 %</tspan> named <tspan fill="#8b949e">(134 of 702)</tspan></text>
+<text x="747" y="260" fill="#8b949e" font-size="11">+6,777 region-filled, 3.8 % named</text>
+<text x="8" y="290" fill="#e6edf3" font-size="13" font-weight="600">01 backend</text>
+<text x="8" y="305" fill="#8b949e" font-size="11">D3D12 submission, token replay</text>
+<rect x="235.0" y="279" width="262.6" height="16" fill="#2ea043" opacity="1"><title>backend named: 262 of 495</title></rect>
+<rect x="499.6" y="279" width="235.4" height="16" fill="#444a54" opacity="1"><title>backend not named: 233 of 495</title></rect>
+<rect x="235.0" y="299" width="20.5" height="5" fill="#2ea043" opacity="0.75"><title>backend named (region-filled): 200 of 4436</title></rect>
+<rect x="257.5" y="299" width="477.5" height="5" fill="#444a54" opacity="0.75"><title>backend not named (region-filled): 4236 of 4436</title></rect>
+<text x="747" y="291" fill="#c9d1d9" font-size="12"><tspan font-weight="600">53 %</tspan> named <tspan fill="#8b949e">(262 of 495)</tspan></text>
+<text x="747" y="306" fill="#8b949e" font-size="11">+4,436 region-filled, 4.5 % named</text>
+<text x="8" y="336" fill="#e6edf3" font-size="13" font-weight="600">10 effects</text>
+<text x="8" y="351" fill="#8b949e" font-size="11">particles, decals, effect lights</text>
+<rect x="235.0" y="325" width="127.9" height="16" fill="#2ea043" opacity="1"><title>effects named: 119 of 458</title></rect>
+<rect x="364.9" y="325" width="370.1" height="16" fill="#444a54" opacity="1"><title>effects not named: 339 of 458</title></rect>
+<rect x="235.0" y="345" width="6.3" height="5" fill="#2ea043" opacity="0.75"><title>effects named (region-filled): 86 of 5155</title></rect>
+<rect x="243.3" y="345" width="491.7" height="5" fill="#444a54" opacity="0.75"><title>effects not named (region-filled): 5069 of 5155</title></rect>
+<text x="747" y="337" fill="#c9d1d9" font-size="12"><tspan font-weight="600">26 %</tspan> named <tspan fill="#8b949e">(119 of 458)</tspan></text>
+<text x="747" y="352" fill="#8b949e" font-size="11">+5,155 region-filled, 1.7 % named</text>
+<text x="8" y="382" fill="#e6edf3" font-size="13" font-weight="600">11 ui</text>
+<text x="8" y="397" fill="#8b949e" font-size="11">HUD / menus, glyphs</text>
+<rect x="235.0" y="371" width="145.6" height="16" fill="#2ea043" opacity="1"><title>ui named: 116 of 393</title></rect>
+<rect x="382.6" y="371" width="352.4" height="16" fill="#444a54" opacity="1"><title>ui not named: 277 of 393</title></rect>
+<rect x="235.0" y="391" width="11.7" height="5" fill="#2ea043" opacity="0.75"><title>ui named (region-filled): 143 of 5202</title></rect>
+<rect x="248.7" y="391" width="486.3" height="5" fill="#444a54" opacity="0.75"><title>ui not named (region-filled): 5059 of 5202</title></rect>
+<text x="747" y="383" fill="#c9d1d9" font-size="12"><tspan font-weight="600">30 %</tspan> named <tspan fill="#8b949e">(116 of 393)</tspan></text>
+<text x="747" y="398" fill="#8b949e" font-size="11">+5,202 region-filled, 2.7 % named</text>
+<text x="8" y="428" fill="#e6edf3" font-size="13" font-weight="600">02 materials</text>
+<text x="8" y="443" fill="#8b949e" font-size="11">shaders, PSOs, material binds</text>
+<rect x="235.0" y="417" width="136.5" height="16" fill="#2ea043" opacity="1"><title>materials named: 72 of 260</title></rect>
+<rect x="373.5" y="417" width="361.5" height="16" fill="#444a54" opacity="1"><title>materials not named: 188 of 260</title></rect>
+<rect x="235.0" y="437" width="9.0" height="5" fill="#2ea043" opacity="0.75"><title>materials named (region-filled): 142 of 6434</title></rect>
+<rect x="246.0" y="437" width="489.0" height="5" fill="#444a54" opacity="0.75"><title>materials not named (region-filled): 6292 of 6434</title></rect>
+<text x="747" y="429" fill="#c9d1d9" font-size="12"><tspan font-weight="600">28 %</tspan> named <tspan fill="#8b949e">(72 of 260)</tspan></text>
+<text x="747" y="444" fill="#8b949e" font-size="11">+6,434 region-filled, 2.2 % named</text>
+<text x="8" y="474" fill="#e6edf3" font-size="13" font-weight="600">06 resources</text>
+<text x="8" y="489" fill="#8b949e" font-size="11">heaps, render targets, uploads</text>
+<rect x="235.0" y="463" width="298.0" height="16" fill="#2ea043" opacity="1"><title>resources named: 141 of 235</title></rect>
+<rect x="535.0" y="463" width="200.0" height="16" fill="#444a54" opacity="1"><title>resources not named: 94 of 235</title></rect>
+<text x="747" y="475" fill="#c9d1d9" font-size="12"><tspan font-weight="600">60 %</tspan> named <tspan fill="#8b949e">(141 of 235)</tspan></text>
+<text x="8" y="520" fill="#e6edf3" font-size="13" font-weight="600">05 frame-graph</text>
+<text x="8" y="535" fill="#8b949e" font-size="11">render graph build + walk</text>
+<rect x="235.0" y="509" width="108.8" height="16" fill="#2ea043" opacity="1"><title>frame-graph named: 47 of 212</title></rect>
+<rect x="345.8" y="509" width="389.2" height="16" fill="#444a54" opacity="1"><title>frame-graph not named: 165 of 212</title></rect>
+<text x="747" y="521" fill="#c9d1d9" font-size="12"><tspan font-weight="600">22 %</tspan> named <tspan fill="#8b949e">(47 of 212)</tspan></text>
+<text x="8" y="566" fill="#e6edf3" font-size="13" font-weight="600">07 drawlists</text>
+<text x="8" y="581" fill="#8b949e" font-size="11">views, draw lists, per-draw record</text>
+<rect x="235.0" y="555" width="98.0" height="16" fill="#2ea043" opacity="1"><title>drawlists named: 24 of 120</title></rect>
+<rect x="335.0" y="555" width="400.0" height="16" fill="#444a54" opacity="1"><title>drawlists not named: 96 of 120</title></rect>
+<text x="747" y="567" fill="#c9d1d9" font-size="12"><tspan font-weight="600">20 %</tspan> named <tspan fill="#8b949e">(24 of 120)</tspan></text>
+<text x="8" y="630" fill="#8b949e" font-size="11">Package 12 (capture-check) has no functions: it checks these notes against D3D12 frame captures from the PC, pc2 and the ROG Ally. Plan + rules: notes/renderer/00-map.md.</text>
+</svg>
