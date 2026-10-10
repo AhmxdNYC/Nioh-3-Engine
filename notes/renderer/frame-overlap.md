@@ -24,7 +24,7 @@ Branch `frame-overlap` (worktree D:\nioh3-wt\overlap, from `renderer-backend` 38
    its scene-buffer set (2 sets, `+16A0B0` parity, 08-meshlet.md). With overlap the main thread reaches it earlier relative to
    the GPU, so it waits longer unless the sets go to 3. The engine times these waits itself (GfxDevice+3CD0h handle wait,
    +3CE8h sync-point GPU wait); BKS now reports them ("BKS: fov:", built, section 6). **This is the go/no-go gate for Stage 3.**
-4. **Verdict: GO for design + gate, not yet for the prototype.** Estimate revised: **5-7 agent-weeks** (was 3-5), risk
+4. **Verdict: GO for design + gate (gate cleared 2026-10-10, pc2 FOV1: 0.00 ms/f main-thread GPU waits -> Stage 3 GO).** Estimate revised: **5-7 agent-weeks** (was 3-5), risk
    medium-high, concentrated in the PagePool / KtglCache frame protocol and FG / Streamline present handling. Gain on pc2 if the
    gate is clean: **+15-25 % (38 -> ~44-48 fps), central ~+18 %** (the moved tail adds ~0.5-1.5 ms to the replay thread);
    Ally ~0 (GPU-bound); PC RX 9070 some, at high fps only.
@@ -130,28 +130,89 @@ replay 0x95 (7F64DC under +CF8h shared: 7F6904, 2F15A34-style record consumption
 - (b) keep them on main and make main wait for "tail N done" before B4: no overlap (B4 is at the very start of the frame).
 Design choice: (a).
 
-## 5. Stage 2 design (summary; detail grows with the prototype)
+## 5. Stage 2 design (FO, `[GpuOpt] FrameOverlap = 0`)
 
-- **Key** `[GpuOpt] FrameOverlap = 0` (default), boot-only. Hard fallback to stock (full drain) on: render-size change (B2),
-  device reset / teardown (2EEC4C8), stage load / pause screens (loading flag), FG on/off switch, any hook self-check failure, and
-  a watchdog (replay of N not done after 250 ms -> drain).
-- **Stream:** two halves of the existing buffer; at E1 main pushes the final kick plus a **TAIL item** (a 0x8F token whose fn is
-  the ASI's tail routine), waits until the replay of N-1 (incl. its tail) is done, swaps halves, returns. The handle scheme encodes
-  the half in the generation nibble.
-- **Tail on the replay thread (in order):** E2' (release N's sub-stream half), E3, E4, E5 (submit; on the replay thread
-  GfxSubmitFrameCmdList's ECL idle spin is the same), E6, E7, B4/B6 (section 4a), E8 (Present via the engine's present thread to keep
-  the replay thread short), E9-tail (allocator reset, list-ring recycle, record rebuild, readback) with the **replay slot**.
-- **Main side:** E9-main (record slot ++, wait slot fence N-2), B3 waits for present N-1, B5 predicted index, B7 with 3 sets.
-- **Slot split:** the ASI keeps `recordSlot` (main) and `replaySlot` (tail); the 6 dispatcher reads of +4730h (4933F4, 48F178,
-  492220, 490F3C, 9AFED0, E3) are redirected to `replaySlot` by caves; main-side readers keep +4730h = recordSlot.
-- **0x8F args:** per-frame 2-deep copies of the three upscaler globals (sizes from the emitters), the token arg rewritten at
-  record time by a cave after the store.
-- **Sync points:** sync-table ring >= 3 (raise +3C18h if smaller at init), meshlet sets 2 -> 3.
-- **Latency (E):** frame N's pipeline is unchanged (record -> replay tail -> GPU -> present); main simply starts N+1 up to ~5 ms
-  earlier. While CPU-bound, input-to-photon stays about equal per frame and the higher rate cuts the average sampling wait (pc2:
-  half of 26 -> 20 ms frames = ~-3 ms). When GPU-bound, one more CPU frame can be queued behind the GPU (+1 frame of latency, up
-  to ~+10-17 ms at 60-100 fps) unless MaxLatency / the waitable object limits it; the A/B must report PresentMon
-  AllInputToPhotonLatency for both arms and FrameOverlap should auto-disable when GPU-bound (slot-fence wait > 1 ms per frame).
+Inputs since Stage 1: pc2 FOV1 (bridge #1255): main-thread handle wait **0.00 ms/f**, sync-point GPU wait **0.00 ms/f**, present
+thread 1, drain ~6.0 ms/f, PresentMon CPUBusy 20.45 / GPUTime 17.64 ms. 06-resources.md 1: every GPU ring retires per command-list
+fence, staging is synchronous, only the token stream is reset at frame end, 3 frame slots, transient RTs single-copy and DIRECT-only.
+
+### 5.1 Shape: "tail on the replay thread + a mid-frame barrier"
+
+```
+ main      | rec N .........................| E | rec N+1 (part 1) ......| B | rec N+1 (part 2) ...............| E |
+ dispatcher|    replay N ......................| TAIL N |  replay N+1 part 1 ...  replay N+1 part 2 ........| TAIL N+1|
+                                                ^ Present N                     ^ B = barrier: main waits "TAIL N done"
+```
+- **E (main, frame end N), replaces GfxDevicePresent 3D62E4** (patched at its only per-frame entry, the `jmp 3D62E4` at the end of
+  GfxDevicePresentVfn 5DAF3; `param_2` is always NULL there -> the default present params at dev+4220h):
+  1. wait TAIL N-1 done (normally already true), then wait the GPU fence of frame N-2 (the same CPU lead as stock: stock waits it in
+     GfxFrameSlotAdvance right after Present).
+  2. **E7 on main with a forward fence** (section 4): reimplementation of 12682C in which the cache job's fence tag
+     (126744 writes `{3, &fence, value}`) points at the ASI's own `ID3D12Fence` `g_ovFence` with value N instead of the frame-slot
+     fence `[dev+4310h] / +4320h[slot]` (not known before TAIL N submits). TAIL N signals `g_ovFence = N` on the GFX queue right
+     after the frame's last list, so the COPY-queue `Wait` of the tile job means exactly "GPU finished frame N", as stock. Keeps the
+     stock order E7(N) -> PagePoolFrameUpdate(N+1) -> 7D9C24(N+1) on the main thread.
+  3. sync-point table advance (first half of 8BEDC8: `+3C1Ch++`, zero the new table) on main, same position as stock.
+  4. stream: final kick exactly as stock (stretch, submit = 1), then a **0x8F token `{TailFn, &frame[N & 3]}`** in its own stretch
+     (submit = 0), then **switch halves** (below) instead of drain + reset, generation += 1, the stock stats bookkeeping
+     (+3C84h / +3D88h / +3C74h, the CmdStreamEndFrame snapshot +3D00h and zeroing of +3C78h..).
+- **TAIL N (replay thread, inside the 0x8F handler, list L2 open exactly as stock main sees it):** the stock body of
+  GfxDevicePresent after CmdStreamEndFrame minus the parts moved to main: E3 timestamp resolve, E4 back buffer -> PRESENT (index
+  from the real GetCurrentBackBufferIndex = frame N's, checked against main's prediction), E5 GfxSubmitFrameCmdList (close + submit
+  + ECL idle), slot fence +4320h[slot], `GfxQueue->Signal(g_ovFence, N)`, E6 8CDA94, E8 present hand-off (present thread when +3F80h,
+  else direct Present + Streamline callbacks, as stock), E9 GfxFrameSlotAdvance without the +3C1Ch part (slot ++, slot-fence wait,
+  9AFED0, timestamp read-back, allocator +4290h[slot] Reset, list-ring recycle 2EFB73C), +7708h timer. Then `tailDone = N`.
+  Everything that touches SynCtx / the slot index / the allocators stays on the replay thread, so it never races (the slot index
+  +4730h is read by the replay thread at every list reset, SynCmdListOnReset 492220: it must only change between frames there).
+- **B (main, barrier) in frame N+1:** at the first node whose global index (R+1EE568h) >= K, via the Renderer vfn+130h slot
+  (transient activation 113150, called before every node by FrameStepRender 112DD8), and at the latest at E of N+1: wait
+  `tailDone >= N`, then reset the sub-streams (E2, 2543A0 per active +74D8h entry) that stock reset at Present. Main never writes a
+  sub-stream before B (checked: write pointer unchanged since E, else log + fallback).
+  **Everything main does after B is in the stock situation** (frame N fully replayed, presented, slot advanced). K is the knob:
+  `Tuning.FO_Pct` (live, % of last frame's node count, default 25, 0 = no overlap but the tail still runs on the replay thread
+  = the correctness arm P0). Late-frame code (upscalers' 0x8F globals, FG, UI glyph atlas, post) is always after B.
+- **Frame begin N+1 (before B), call-site patches in WaitSubmitThread 7D9B6C:** skip the present-pending spin (TAIL owns present
+  ordering); **predicted back-buffer index** `(idx(N) + 1) % BufferCount` (flip model and vkd3d / dxvk DXGI are round-robin; TAIL
+  verifies every frame); PagePoolFrameUpdate and 7D9C24 run under the **PP lock** (below).
+- **PP lock** (one SRWLOCK of the ASI): main takes it around E7 / PagePoolFrameUpdate / 7D9C24; the replay thread takes it in
+  wrappers around the PagePool token handlers 0x82 0x83 0x95 0x96 0x97 0x98 0x9A (handler table 3C02220 patched). This restores
+  the mutual exclusion the drain gave (the CPU page-table mirror +590h, the +6A8h job ring and +D28h list are touched by both sides
+  without a common engine lock). Order effect: PagePool tokens of frame N that replay after E7(N) see frame stamp N+1 and are
+  tagged behind fence N (more conservative), maps arrive up to one frame later (streaming latency, no visual hazard).
+- **Handles:** HandleSlotIsNotFreed 58C434 and HandlePoolSlotIsLive 58B76C (entry jmp) accept the previous generation while
+  TAIL N is not done (marker still 0xAAAAAAAA in the other half = not replayed); stock behaviour for everything else.
+- **Stream halves:** base +3C30h stays the full buffer start (handles stay `offset from base | gen`), `end` +3C38h = end of the
+  current half (2 x 24 MB on pc2: 10 MB/frame). A mid-frame wrap (stock: marker + wait + reset to base) still works; at E, if the
+  frame's data spans both halves, that frame takes the stock drain path.
+
+### 5.2 Fallbacks (hard, all to the stock code path)
+Key 0 (default) = no patch at all. With 1: per-frame stock path (drain) when: RenderFrameBeginCacheFlush runs (render-size change;
+patched call waits tailDone first), device teardown / reset paths 2EE8B70 / 2EEC4C8 (wait tailDone, then stock), timestamp or
+pipeline-statistics queries in use (+4788h range or SynCtx+24D4h non-zero: FO off for the session, logged), back-buffer prediction
+mismatch (FO off), sub-stream written before B (FO off), frame data spanning both halves, TAIL watchdog (> 500 ms: log + wait).
+Self-check of every patched byte run at boot or nothing is installed.
+
+### 5.3 What each device should gain, and why (E)
+
+| device | bound today | what FO removes | expected avg | expected 1 % low / p99 | latency |
+|---|---|---|---|---|---|
+| **pc2** (5600X + 6650 XT, ReBAR, Windows) | CPU: main 20.5 ms + drain 6 ms = 26 ms; GPU 17.6 ms | the drain: main records N+1 while the replay thread finishes N | 26 -> ~20.5-21.5 ms: **+20-25 %** (38 -> 46-48 fps) | better: replay-side spikes (PSO creation on the dispatcher, ring-full submit spins, tile cache work in tok 0x95) no longer stall main up to K; p99 improves at least as much as the mean | per frame pipeline unchanged; main starts N+1 up to ~6 ms earlier, frames 5-6 ms shorter: input-to-photon about equal (+-3 ms) while CPU-bound |
+| **Ally** (25 W, Proton / vkd3d-proton) | CPU at low TDP: both threads slower, and the frame tail is heavier under vkd3d (ExecuteCommandLists = vkQueueSubmit through the ECL thread, the ECL idle spin in GfxSubmitFrameCmdList, Present = vkQueuePresentKHR) | the same drain **plus** the tail (submit spin + present hand-off) leaves the main thread | **+10-25 %** at 25 W when CPU-bound (the larger the tail, the larger the gain); ~0 at settings where the GPU binds | the vkd3d submit / present hitches move off the main thread: 1 % lows should gain more than the mean | as pc2; when GPU-bound keep MaxLatency so the extra CPU lead does not queue a frame |
+| **PC** (RX 9070, Windows) | GPU-bound at the user's settings (~100 fps); CPU-bound at high fps / low res / FG | drain share at high fps (replay thread ~ main) | **0 when GPU-bound**, +10-20 % where CPU-bound | CPU-bound spikes as pc2 | GPU-bound: auto-off (slot-fence wait > 1 ms/f on main -> K = 0) so no added queueing |
+
+Portability: no Windows-only mechanism. The forward fence is a plain ID3D12Fence: `Signal` on the GFX queue after the frame's
+lists, `Wait` on the COPY queue issued by the engine's job (vkd3d-proton: timeline semaphores, wait-before-signal supported).
+Queue calls from the replay thread are already the stock pattern (ECL thread). The back-buffer prediction relies only on the
+documented round-robin GetCurrentBackBufferIndex (DXGI flip model, dxvk/vkd3d swapchain, FSR / Streamline proxies) and is
+verified every frame.
+
+### 5.4 Test plan (Stage 3)
+1. Offline: harness with a fake engine (stream halves + handle generations + tail ordering + PP lock + fallbacks), test_patterns.
+2. pc2 fastab (one launch, tour mode, CPU-bound spot): items `Tuning.FO_Pct=0/25` (P0 tail-only vs overlap) and FrameOverlap
+   boot arms (BASE vs FO) by abba; fps, frametime p99 / 1 % low, PresentMon AllInputToPhotonLatency; screenshot diff A vs B at
+   fixed spots; 30-min tour crash / device-removed / log-error watch.
+3. **Ally gain test** (not only no-harm): 25 W, user config, same fastab items; report avg, 1 % low, latency.
+4. PC no-harm at the user's settings (GPU-bound) + one CPU-bound config (FG off, low res) for the gain.
 
 ## 6. Gate built: BKS "fov:" line (1.7.58-fov1, branch frame-overlap)
 
