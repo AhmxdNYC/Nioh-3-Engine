@@ -77,7 +77,7 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -734,6 +734,9 @@ def mrow(rt, mid, b, lst, ma, fi):
         o["seen"] = SEEN[(mid, int(pid))][0]
     f = pick_fight_start(fi, mid, int(pid)) if pid else None
     gt = pick_gate(fi, mid, int(pid)) if pid else None
+    if f and fi.get(mid) and int(pid) in fi[mid]["boss"]:
+        bp = fi[mid]["boss"][int(pid)]["pos"]
+        o["boss_pos"] = "%.0f_%.0f_%.0f" % bp
     if f and gt:
         o.update({"gate_id": str(gt[0]), "gate_kind": gt[1]})
     if f:

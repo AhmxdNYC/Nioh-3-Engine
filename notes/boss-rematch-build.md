@@ -188,3 +188,41 @@ CH02_MAIN01_HITOKOTO_BOSSAREABOX)` and then sets flag 456: **the arena trigger i
   before the intro load (`src before-load` = at the trigger) or the current one when no load preceded the fight (`fight-start`);
   1.2.0 lines (no src column, post-intro position) are ignored.
 - Warp now 1 s after the load (was 3 s settle + 1.5 s): shrine visible ~1 s, then the trigger -> the game's intro -> the fight.
+
+### E1 v3 (add-on 1.3.x): self-tested on the PC; boss gates, duels, state-based timing (2026-10-09 21:05-23:30)
+**Self-test** `tools\rematch\fightnow_test.ps1 -OwnerPid <pid> [-IncludeAtFight] [-Rows ...]`: waits until Nioh3 is closed, takes the
+bridge game lock `nioh3`, copies the save folder to `captures\save-backups\<stamp>-fightnow-test`, installs the build + test inis
+(and a VirtualPad perf ASI: the user's 1.7.32 has none), launches (Steam cloud dialog via steam_cloud_click), title -> Continue
+by VirtualPad, then per row: `row <id>` (uncleared on this journey = `skip`, never started) -> `fight <id>` -> status `fnow=pass|fail`
+-> `exit` (MissionRequestReturn = the mission menu's leave) -> next. At the end it closes the game, restores the inis + perf ASI and
+the save folder (robocopy /MIR, verified byte for byte) and releases the lock. CSV `captures\rematch\fightnow-<stamp>.csv` (id, result,
+warps, load_s, seconds, player position). No-pipe variant for Linux / Proton: `[Rematch] SelfTest = arena` (the add-on runs the rows
+itself, `SELFTEST <id> PASS|FAIL|SKIP`, `SELFTEST DONE`) wrapped by `tools\rematch\fightnow_selftest.py`.
+
+**What starts a story boss (mission scripts, `--fight-index` kind `gate`).** The boss start function waits in
+`Function::WaitWarpStart(gate)` = `Online::IsExclusiveRightsValue(slot, flag, mission, gate, value)`. 27 rows: the gate is a
+**boss door** gadget (`door_state_change` -> `Function::StartWarpByGadgetRights`, 22 missions: Jakotsu-baba, Takeda Shingen,
+Yoritomo, Kunimatsu, Okita/Yoshinobu, Kasha, ...) or an **arena box** (`sub_event_check_boss_area`: `Player::IsEnterPlacementBox` ->
+`Function::StartWarp`, 5: Yamagata, Hino-enma, Ibaraki Doji, Magatsu, Kiyomizu). After it the script itself fades, `Player::SetPos`
+into the arena, plays the intro (RTM), creates the boss and calls `BossBattleMode`. The area-box warp alone could never open a door.
+**1.3.0:** the call 3B2323 (native -> check core 3B2354(slot, key)) is retargeted (site group GATE): while a Fight now runs, the
+first polled key whose id is the row's gate is copied, and `RightsRequest 1CA52C4(slot, key)` requests exactly that key, as the door
+interaction / StartWarp do (key seen: `01 .. .. .. <mission> <gate> 01`). Mission-local runtime state only.
+**Duels** (master duels, teacher / hidden duels; `Function::DuelCommonFlow`): `WaitPlayerPrepareDuel` = the player within 8 m
+(800 units), then the boss's awareness. Fuma Kotaro and Tomoe Gozen start 8-9 m away: 1.3.2 warps once to 4 m in front of the boss
+(catalogue `boss_pos`) when no fight began 10 s after the landing. Kneeling masters (`IsKneelDownFlag`) would need a talk prompt;
+none of the cleared ones on this save did.
+
+**Timing is state-based** (the user's question about HDD / slow PCs): landing = no load + a player + mission state readable for 3 s
+in a row (a load that pauses and resumes restarts that), then 1 s; the warp re-checks loading / pause / player and is retried next
+frame if the player cannot be read; the gate request waits for the boss start's own poll (up to 30 s of play, loading and pause time
+not counted); verification (PASS = a BossBattleMode after the warp / request) stops its clock while loading or paused (60 s after a
+warp, 180 s after a gate request: Okita's unskipped intro takes ~60 s); a re-warp happens only when a load put the player back at the
+start point and never during a gate intro; the request -> load timeout counts only "no load began in 120 s" (a running load may take
+up to 20 min). The status reports `loadms` (request -> load end) and the CSV `load_s`, for the slow-load check on other machines.
+Fixed delays left: the 3 s / 1 s settles after a load has finished, 1.5 s between the re-warp checks, the 10 s duel wait: all start
+after the game reports the load done, so a slow disk only delays them.
+
+**Results on this PC (save of the user, journey 1; 68 catalogue rows with a start point, 59 of them Fight-now capable):**
+run 4 (1.3.0): 19 PASS, 1 FAIL (Solitary Blade: deadline shorter than its intro), 9 not cleared. Run 5 (1.3.1, all 59): 30 PASS,
+3 FAIL (Solitary Blade, Fuma Kotaro, Tomoe Gozen), 26 not cleared. Run 6 (1.3.2): the 3 + Yamagata all PASS. Final run 7: below.

@@ -141,7 +141,7 @@ $Rows = @($Rows | ForEach-Object { $_ -split "," } | Where-Object { $_ })
 $sel = @($all | Where-Object { $_.route -in @("R", "H", "D") -and ($_.arena -or ($IncludeAtFight -and $_.atfight)) -and ($Rows.Count -eq 0 -or $Rows -contains $_.id) })
 
 Init-Guard -Name "fightnow_test" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-Game; Restore; Stop-TestPopup }
-"id,name,arena_conf,result,fnow,warps,seconds_to_fight,player_at_fight,note" | Set-Content $csv
+"id,name,arena_conf,result,fnow,warps,load_s,seconds_to_fight,player_at_fight,note" | Set-Content $csv
 $sum = [ordered]@{ rows = $sel.Count; pass = 0; fail = 0; skip = 0 }
 try {
     T "fightnow_test: $($sel.Count) rows: $(($sel | ForEach-Object id) -join ' '); out=$out csv=$csv"
@@ -172,7 +172,7 @@ try {
     foreach ($row in $sel) {
         $n++; Set-TestStatus "row $n/$($sel.Count): $($row.id) $($row.name)"
         T "== $n/$($sel.Count) $($row.id) $($row.name) [arena $($row.conf): $($row.src)]"
-        $res = [ordered]@{ id = $row.id; name = $row.name; arena_conf = $row.conf; result = ""; fnow = ""; warps = ""; seconds = ""; pos = ""; note = "" }
+        $res = [ordered]@{ id = $row.id; name = $row.name; arena_conf = $row.conf; result = ""; fnow = ""; warps = ""; load = ""; seconds = ""; pos = ""; note = "" }
         # wait for the add-on to be idle and the player in the field
         $idle = Wait-RM { param($x) (F $x 'state') -eq '0' -and (F $x 'player') -eq '1' -and (F $x 'loading') -eq '0' -and (F $x 'gate') -eq 'ok' } 90
         if (-not $idle) { T "  not idle: $(RMP status) - relaunching"; Close-Game; $null = Launch }
@@ -189,11 +189,11 @@ try {
                 if ((LastOf $st) -notmatch '^started') { $res.result = "FAIL"; $res.note = "game thread: $(LastOf $st)"; $sum.fail++ }
                 else {
                     $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass', 'fail') -or ((F $x 'state') -eq '0' -and (F $x 'fnow') -ne 'armed' -and (F $x 'fnow') -ne 'warped') } ($LoadWaitSec + 60) 1
-                    $res.fnow = F $end 'fnow'; $res.warps = F $end 'warps'; $res.pos = F $end 'pos'
+                    $res.fnow = F $end 'fnow'; $res.warps = F $end 'warps'; $res.pos = F $end 'pos'; $lm = F $end 'loadms'; if ($lm) { $res.load = [math]::Round([int]$lm / 1000.0, 1) }
                     $res.seconds = [math]::Round(((Get-Date) - $tq).TotalSeconds, 1)
                     if ($res.fnow -eq 'pass') { $res.result = "PASS"; $sum.pass++ }
                     else { $res.result = "FAIL"; $res.note = if ($end) { LastOf $end } else { "no result in $($LoadWaitSec + 60) s: $(RMP status)" }; $sum.fail++ }
-                    T "  -> $($res.result) fnow=$($res.fnow) warps=$($res.warps) pos=$($res.pos) after $($res.seconds) s; $(LastOf $end)"
+                    T "  -> $($res.result) fnow=$($res.fnow) warps=$($res.warps) load=$($res.load) s pos=$($res.pos) after $($res.seconds) s; $(LastOf $end)"
                     Start-Sleep 4
                     $x = RMP "exit"; T "  exit: $x"
                     $back = Wait-RM { param($y) (F $y 'state') -eq '0' -and (F $y 'loading') -eq '0' -and (F $y 'player') -eq '1' } 150 2
@@ -205,7 +205,7 @@ try {
                 }
             }
         }
-        '"{0}","{1}","{2}","{3}","{4}","{5}","{6}","{7}","{8}"' -f $res.id, $res.name, $res.arena_conf, $res.result, $res.fnow, $res.warps, $res.seconds, $res.pos, ($res.note -replace '"', "'") | Add-Content $csv
+        '"{0}","{1}","{2}","{3}","{4}","{5}","{6}","{7}","{8}","{9}"' -f $res.id, $res.name, $res.arena_conf, $res.result, $res.fnow, $res.warps, $res.load, $res.seconds, $res.pos, ($res.note -replace '"', "'") | Add-Content $csv
     }
 } catch {
     T "!! $($_.Exception.Message)"; $sum.error = $_.Exception.Message

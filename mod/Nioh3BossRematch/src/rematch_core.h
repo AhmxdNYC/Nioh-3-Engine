@@ -43,6 +43,8 @@ struct Row {
     bool boxOk = false;
     float box[7] = {};         // the trigger box: centre x y z, yaw deg, full size x y z (catalogue arena_boxgeo)
     // the boss gate: the id the boss start function waits on (Function::WaitWarpStart); door = the boss gate gadget, box = an arena box
+    bool bossOk = false;
+    float boss[3] = {};        // the boss placement position (catalogue boss_pos)
     uint32_t gateId = 0;
     char gateKind[8] = "";
     bool GateDoor() const { return gateId && strcmp(gateKind, "box") != 0; }
@@ -100,7 +102,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cPl = ci("placement_id"), cWhy = ci("reason"), cSt = ci("stage_mission"), cFk = ci("fight_kind"),
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
-              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind");
+              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -140,6 +142,12 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
                 r.arenaOk = true;
             }
             r.gateId = (uint32_t)strtoul(col(cGid).c_str(), nullptr, 0);
+            {
+                std::string bp = col(cBp);
+                for (auto& ch : bp)
+                    if (ch == '_') ch = ' ';
+                r.bossOk = !bp.empty() && sscanf_s(bp.c_str(), "%f %f %f", &r.boss[0], &r.boss[1], &r.boss[2]) == 3;
+            }
             Ascii(r.gateKind, sizeof(r.gateKind), col(cGk));
             const std::string geo = col(cAgeo);
             if (!geo.empty()) {

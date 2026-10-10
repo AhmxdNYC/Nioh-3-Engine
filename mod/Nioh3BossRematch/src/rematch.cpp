@@ -27,6 +27,7 @@
 #include "rematch_core.h"
 
 #include <atomic>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -126,6 +127,7 @@ std::atomic<int> g_state{kIdle};
 std::atomic<int> g_activeRow{-1};
 std::atomic<bool> g_replayIn{false};
 std::atomic<bool> g_fight{false};  // the active replay is a Fight now start
+std::atomic<uint32_t> g_loadMs{0};  // request -> mission load finished, last Fight now / replay (status 'loadms', the slow-load check)
 std::atomic<ULONGLONG> g_lastTick{0}, g_qChangedAt{0};
 uint64_t g_qHash = 0;
 
@@ -743,7 +745,7 @@ void DoWarp(const Snap& s, ULONGLONG t) {
     if (g_fn.load() == kFnArmed) {
         g_fn.store(kFnWarped);
         g_fnFirst = t;
-        g_fnDeadline = t + 8000;
+        g_fnDeadline = t + 60000;  // an intro cutscene after the trigger can be long; loading / paused time is added on top
     }
     g_fnCheckAt = t + 1500;
     g_fnLastT = t;
@@ -790,18 +792,38 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         float p[4] = {};
         PlayerPos(p);
         g_fn.store(kFnFail);
-        Log("Rematch: F FAIL %s: no BossBattleMode within %s (%d warps, gate %s); player %.0f %.0f %.0f %s the trigger box (%s)", r.id, g_gateReq ? "60 s of the gate request" : g_fightWarp ? "8 s of warp #1" : "20 s of the landing", g_warps,
+        Log("Rematch: F FAIL %s: no BossBattleMode within %s (%d warps, gate %s); player %.0f %.0f %.0f %s the trigger box (%s)", r.id, g_gateReq ? "180 s of the gate request" : g_fightWarp ? "60 s of warp #1" : "60 s of the landing", g_warps,
             g_gateReq ? "requested" : g_gateWant.load() ? "never polled" : "-", p[0], p[1],
             p[2], rcore::InTriggerBox(r, p) ? "inside" : "outside", r.arenaSrc);
-        Result("fight now FAIL %s: no fight in 8 s (warps=%d)", r.id, g_warps);
+        Result("fight now FAIL %s: no fight in time (warps=%d)", r.id, g_warps);
         return;
+    }
+    if (!g_fightWarp && !g_gateReq && r.atFight && r.bossOk && !g_warps && t - g_fnFirst > 10000 && !fight::g_active) {
+        float p[4] = {};
+        if (PlayerPos(p)) {
+            float dx = p[0] - r.boss[0], dz = p[2] - r.boss[2];
+            const float d = sqrtf(dx * dx + dz * dz);
+            if (d > 600.0f) {  // farther than 6 m: the duel range is 8 m
+                dx /= d;
+                dz /= d;
+                const float x = r.boss[0] + dx * 400.0f, z = r.boss[2] + dz * 400.0f, y = r.boss[1] + 100.0f;
+                const float yaw = atan2f(r.boss[0] - x, r.boss[2] - z) * 57.2957795f;
+                const int rc = g_warpOk ? CallWarp(x, y, z, yaw) : 9;
+                ++g_warps;
+                Log("Rematch: F %s: no fight 10 s after the landing at %.1f m from the boss (a duel starts inside 8 m) - %s to 4 m in front of it", r.id,
+                    d / 100.0f, rc == 0 ? "warped" : "warp FAILED");
+            }
+        }
     }
     if (t >= g_fnCheckAt) {
         float p[4] = {};
         if (!PlayerPos(p)) return;
         const float dx = p[0] - r.arena[0], dz = p[2] - r.arena[2];
         const bool in = rcore::InTriggerBox(r, p) || dx * dx + dz * dz < 600.0f * 600.0f;
-        if (!in && g_fightWarp && !g_gateReq && g_warps < 3 && !fight::g_active) {
+        // re-warp only when a load put the player back at the start point (the 1.2.1 failure), never when the game's own intro moved them
+        const float sx = p[0] - r.warp[0], sz = p[2] - r.warp[2];
+        const bool backAtStart = sx * sx + sz * sz < 500.0f * 500.0f;
+        if (!in && backAtStart && g_fightWarp && !g_gateReq && g_warps < 3 && !fight::g_active) {
             Log("Rematch: F %s: player %.0f %.0f %.0f is not in the trigger box 1.5 s after warp #%d - warping again", r.id, p[0], p[1], p[2], g_warps);
             g_warpPending = true;
             g_warpDue = t;
@@ -856,7 +878,7 @@ void GateTick(const Snap& s, ULONGLONG t) {
         g_fnFirst = g_fnLastT = t;
         g_fnCheckAt = t + 3600000;
     }
-    if (g_fn.load() == kFnWarped) g_fnDeadline = t + 60000;  // the gate intro: fade, RTM (cutscene time counts, loading does not), create
+    if (g_fn.load() == kFnWarped) g_fnDeadline = t + 180000;  // the gate intro: fade, RTM cutscene (Okita, Solitary Blade: ~60 s unskipped), create
     if (rc) {
         g_fn.store(kFnFail);
         Result("fight now FAIL %s: gate request exception", r.id);
@@ -919,7 +941,9 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             else if (t - g_loadDoneAt > 3000) {
                 g_replayMs = s.ms14;
                 g_replayIn.store(true);
-                Log("Rematch: IN replay mission (stage %u) %.1f s after the start", s.ms14, (double)(t - g_replayAt) / 1000.0);
+                Log("Rematch: IN replay mission (stage %u) %.1f s after the start (the load itself ended %.1f s after it)", s.ms14,
+                    (double)(t - g_replayAt) / 1000.0, (double)(g_loadDoneAt - g_replayAt) / 1000.0);
+                g_loadMs.store((uint32_t)(g_loadDoneAt - g_replayAt));
                 Result("in mission %s", RowName(g_activeRow.load()));
                 if (g_fight.load()) {
                     g_fightByMission = s.ms28 == g_fightMission;
@@ -937,7 +961,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                     } else if (!g_fightWarp && g_fn.load() == kFnArmed) {  // the mission starts at the fight: no warp, just verify
                         g_fn.store(kFnWarped);
                         g_fnFirst = g_fnLastT = t;
-                        g_fnDeadline = t + 20000;
+                        g_fnDeadline = t + 60000;
                         g_fnCheckAt = t + 3600000;
                     }
                 }
@@ -955,7 +979,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             ++g_fightLoads;
             Log("Rematch: F load inside the mission #%d (death / retry, or leaving) - retry point %u", g_fightLoads, s.ms14);
         }
-        if (!s.st[2] && g_fightLoading && g_fightWarp) {  // a reload inside the mission (death / retry) ended: back into the arena
+        if (!s.st[2] && g_fightLoading && g_fightWarp && !(g_gateReq && g_fn.load() == kFnWarped)) {  // a reload (death / retry) ended: back into the arena; never during a gate intro
             g_warpPending = true;
             g_warpDue = t + 4500;  // 1.5 s after the 3 s settle the landing uses
         }
@@ -1642,10 +1666,10 @@ void Command(const char* line, char* reply, size_t n) {
         const char* gate = Gates(s, true);
         float pp[4] = {};
         const bool pok = PlayerPos(pp);
-        snprintf(reply, n, "state=%d row=%s fights=%ld infight=%ld emaki=%d loading=%u player=%d stage=%u mission=0x%X fnow=%s warps=%d pos=%.0f,%.0f,%.0f gate=%s "
+        snprintf(reply, n, "state=%d row=%s fights=%ld infight=%ld emaki=%d loading=%u player=%d stage=%u mission=0x%X fnow=%s warps=%d loadms=%u pos=%.0f,%.0f,%.0f gate=%s "
                  "placements=[%s] last=%s",
                  g_state.load(), g_activeRow.load() >= 0 ? g_rows[(size_t)g_activeRow.load()].id : "-", fight::g_fights, fight::g_active, s.emaki,
-                 s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
+                 s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, g_loadMs.load(), pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
         return;
     }
     if (!strcmp(cmd, "scan")) {
