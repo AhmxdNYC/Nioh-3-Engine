@@ -133,6 +133,31 @@ GPU numbers are stamp-inflated ranking data, not isolated costs. Regenerate with
 
 ---
 
+## Rendering engine decompilation
+
+![renderer decompiled](docs/progress/renderer_badge.svg)
+
+As of 2026-10-10, 18.6 % of the renderer's code (by bytes, 54,295 functions in 11 packages) has a real function name; regenerate with `py -I re\scripts_reenderer_progress.py` after each symbols merge.
+
+![Rendering engine decompilation: % understood by package](docs/progress/renderer_understood.svg)
+
+| Package | Functions | Code | Understood (bytes) | Note | Capture-checked |
+|---|--:|--:|--:|:-:|:-:|
+| 01 backend | 4,931 | 1494 KB | 11.2% | yes | yes |
+| 02 materials | 6,694 | 1575 KB | 7.5% | yes | yes |
+| 03 lighting | 4,932 | 1002 KB | 23.5% | yes | yes |
+| 04 post | 7,479 | 1683 KB | 9.0% | yes | yes |
+| 05 frame-graph | 212 | 181 KB | 59.8% | yes | no |
+| 06 resources | 235 | 61 KB | 76.1% | yes | no |
+| 07 drawlists | 120 | 109 KB | 72.2% | yes | no |
+| 08 meshlet | 11,443 | 1792 KB | 5.5% | yes | no |
+| 09 volumetrics | 7,041 | 2830 KB | 41.8% | yes | no |
+| 10 effects | 5,613 | 1312 KB | 10.1% | yes | no |
+| 11 ui | 5,595 | 944 KB | 10.6% | yes | no |
+| **Total** | **54,295** | **12983 KB** | **18.6%** | | |
+
+---
+
 ## Your device: one zip for everything
 
 Plain version: the game is limited by different things on each machine, so a few settings differ. You do not choose a profile: there is **one universal zip** (`release\dist\Nioh3EngineFix-<version>.zip`, install steps in `release\USER_GUIDE.md`). At startup the mod detects Windows vs Wine/Proton and resolves the settings marked `-1` (auto) in the ini; the log lists what each one became.
