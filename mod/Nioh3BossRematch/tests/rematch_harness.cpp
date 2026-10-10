@@ -163,6 +163,11 @@ int main(int argc, char** argv) {
                   y->arena[1] > 10100 && y->arena[1] < 10400,
               "Yamagata: arena point inside BOSSAREABOX 66599 (x < 337898, the box's gate edge), high (trace)");
         CHECK(nar >= 10 && nat >= 20, "arena points + start-at-fight rows");
+        {
+            const float post[3] = {334650, 10100, 206713}, pre[3] = {337042, 10100, 206691}, shrine[3] = {339660, 10192, 206266};
+            CHECK(y && y->boxOk && rcore::InTriggerBox(*y, y->arena) && rcore::InTriggerBox(*y, pre), "Yamagata: warp point and the captured trigger point are inside BOSSAREABOX");
+            CHECK(y && !rcore::InTriggerBox(*y, post) && !rcore::InTriggerBox(*y, shrine), "Yamagata: the post-intro position and the shrine are outside it");
+        }
         const rcore::Row* hz = nullptr;
         for (auto& r : rows)
             if (!strcmp(r.id, "RC362")) hz = &r;

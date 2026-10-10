@@ -91,6 +91,7 @@ static const Def kDefs[] = {
     {"chk:MissionState_28_14", "FNOW", kCheck, 0x22372BF, 0, "44 8A 69 10 44 8B 79 28 40 8A 79 11 44 8B 71 14", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:SetPos_tail_a", "WARP", kCheck, 0x23AB658, 80, "0F 28 D6 48 8D 54 24 50 48 8B CB E8 ?? ?? ?? ?? 48 8B 83 B0 03 00 00 48 8B 48 28 48 85 C9 75 04 48 8B 48 18 48 8B 01 FF 90 D0 00 00 00 48 8B 05 ?? ?? ?? ?? 0F 28 83 10 01 00 00 48 8B 08 48 8B 41 48 F3 0F 7F 80 D0 00 00 00 E8 ?? ?? ?? ?? 48", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:SetPos_tail_b", "WARP", kCheck, 0x23AB6A7, 80, "48 8D 8B 10 01 00 00 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 0F 28 83 10 01 00 00 48 8D 91 B0 10 00 00 C6 81 C0 10 00 00 01 48 81 C1 00 05 00 00 F3 0F 7F 02 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? B2 01 48 81 C1 00 05 00 00 E8 ?? ?? ?? ?? 0F B7 5D", 0, 0, 0, 0, 0x0, nullptr},
+    {"fn:MissionRequestReturn", "EXIT", kFn, 0x22396D8, 0, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 50 48 8B 05 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
 };
 constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));
 }  // namespace sites

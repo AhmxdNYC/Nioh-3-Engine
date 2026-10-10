@@ -48,6 +48,9 @@ bool g_live = false, g_raOk = false, g_emakiOk = false, g_fnowOk = false, g_warp
 const char *g_raWhy = "", *g_emakiWhy = "", *g_fnowWhy = "", *g_warpWhy = "";
 // WARP: Player::SetPos tail (sites chk:SetPos_tail_a / _b): call targets read from the two matches
 uintptr_t F_SETPOSYAW, F_ACTORSYNC, F_POSNOTIFY, F_SCENEPOS, F_STAGEPATH, G_SCENE;
+uintptr_t F_REQRETURN;  // EXIT: MissionRequestReturn 22396D8
+bool g_exitOk = false;
+const char* g_exitWhy = "";
 
 struct Cfg {
     bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = false, fightWarp = false, arenaCapture = false;
@@ -89,7 +92,7 @@ void Result(const char* fmt, ...) {
 }
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7 };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8 };
 std::atomic<uint32_t> g_req{0};  // kind | (row + 1) << 8
 enum State : int { kIdle = 0, kMenuOpen = 1, kInReplay = 2, kEmaki = 3 };
 std::atomic<int> g_state{kIdle};
@@ -104,7 +107,7 @@ const char* RowName(int row) { return row >= 0 && (size_t)row < g_rows.size() ? 
 void Post(uint32_t kind, int row, const char* via) {
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
-                                     "Fight now (in the arena)", "Shrine before the boss"};
+                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)"};
     Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
 }
 
@@ -459,6 +462,16 @@ bool g_fightWarp = false;        // "Fight now (in the arena)": warp after the l
 bool g_warpPending = false;      // a warp is due once the mission is idle (load done, player, no fight)
 ULONGLONG g_warpDue = 0;
 int g_warps = 0, g_fightRow = -1;
+// Fight now verification (per start): armed -> warped -> PASS (a BossBattleMode after the first warp) / FAIL (none within 8 s of
+// the first warp, loading time not counted; up to 3 warps when the player is not inside the trigger box 1.5 s after a warp)
+enum FnState : int { kFnIdle = 0, kFnArmed = 1, kFnWarped = 2, kFnPass = 3, kFnFail = 4 };
+std::atomic<int> g_fn{kFnIdle};
+LONG g_fnFights0 = 0;
+ULONGLONG g_fnFirst = 0, g_fnCheckAt = 0, g_fnDeadline = 0, g_fnLastT = 0;
+const char* FnName(int v) {
+    static const char* const n[] = {"idle", "armed", "warped", "pass", "fail"};
+    return v >= 0 && v <= 4 ? n[v] : "?";
+}
 uint64_t g_qHashAtOpen = 0;
 
 void Refuse(const char* why) {
@@ -480,6 +493,7 @@ void ToIdle(const char* why) {
     g_fightWarp = g_warpPending = false;
     g_warps = 0;
     g_fightRow = -1;
+    if (g_fn.load() == kFnArmed || g_fn.load() == kFnWarped) g_fn.store(kFnIdle);
 }
 
 void ExecOpen(int row, const Snap& s) {
@@ -581,6 +595,8 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         g_fightWarp = warp && !r.atFight && r.arenaOk;
         g_warpPending = false;
         g_warps = 0;
+        g_fn.store(warp ? kFnArmed : kFnIdle);
+        g_fnFights0 = fight::g_fights;
         if (g_fightWarp)
             Log("Rematch: F %s: arena warp armed: %.0f %.0f %.0f yaw %.0f (%s, %s) after the load", r.id, r.arena[0], r.arena[1], r.arena[2], r.arena[3],
                 r.arenaSrc, r.arenaConf);
@@ -657,33 +673,112 @@ void DoWarp(const Snap& s, ULONGLONG t) {
     if (fight::g_active) {
         g_warpPending = false;
         Log("Rematch: F %s: the fight is already on - no warp", r.id);
+        if (g_fn.load() == kFnArmed) {
+            g_fn.store(kFnPass);
+            Log("Rematch: F PASS %s: the fight began before the warp", r.id);
+            Result("fight now PASS %s (fight before the warp)", r.id);
+        }
         return;
     }
     if (s.ms28 != g_fightMission || s.ms14 != g_fightStart) {
         g_warpPending = false;
         Log("Rematch: F %s: not warping - mission 0x%X / retry point %u is not the Fight now start (the script moved the retry point)", r.id, s.ms28,
             s.ms14);
+        if (g_fn.load() == kFnArmed) {
+            g_fn.store(kFnFail);
+            Result("fight now FAIL %s: not at the start point (mission 0x%X, retry point %u)", r.id, s.ms28, s.ms14);
+        }
         return;
     }
     if (s.online || s.guest) {
         g_warpPending = false;
+        if (g_fn.load() == kFnArmed) g_fn.store(kFnFail);
         return Refuse("online / co-op during Fight now: no warp");
     }
-    g_warpPending = false;
     float before[4] = {}, after[4] = {};
-    PlayerPos(before);
+    if (!PlayerPos(before)) return;  // the controller is not readable yet: try next frame
+    g_warpPending = false;
     const int rc = CallWarp(r.arena[0], r.arena[1], r.arena[2], r.arena[3]);
     PlayerPos(after);
     ++g_warps;
+    if (g_fn.load() == kFnArmed) {
+        g_fn.store(kFnWarped);
+        g_fnFirst = t;
+        g_fnDeadline = t + 8000;
+    }
+    g_fnCheckAt = t + 1500;
+    g_fnLastT = t;
     Log("Rematch: F %s: warp #%d into the arena (%s): Player::SetPos path -> %s (step %d); player %.0f %.0f %.0f -> %.0f %.0f %.0f (target %.0f %.0f %.0f yaw %.0f) %.1f s "
         "after the start",
         r.id, g_warps, r.arenaSrc, rc == 0 ? "ok" : rc == 1 ? "NO PLAYER" : "EXCEPTION", g_warpStep, before[0], before[1], before[2], after[0], after[1], after[2],
         r.arena[0], r.arena[1], r.arena[2], r.arena[3], (double)(t - g_replayAt) / 1000.0);
     if (rc != 0) {
         g_fightWarp = false;
+        if (g_fn.load() == kFnWarped) {
+            g_fn.store(kFnFail);
+            Log("Rematch: F FAIL %s: the warp call failed (step %d)", r.id, g_warpStep);
+            Result("fight now FAIL %s: warp call failed (step %d)", r.id, g_warpStep);
+        }
         ToastF(cRed, 8000, "Rematch: the arena warp failed (see the log); you are at the start point");
-    } else
+    } else {
+        Log("Rematch: F %s: after warp #%d the player is %s the trigger box", r.id, g_warps, rcore::InTriggerBox(r, after) ? "inside" : r.boxOk ? "OUTSIDE" : "(no box data)");
         ToastF(cGreen, 5000, "Rematch: into the arena - %s", r.name);
+    }
+}
+
+// game thread, every tick inside the Fight now mission: PASS = a BossBattleMode after the first warp; re-warp (<= 3) when the
+// player is not in the trigger box 1.5 s after a warp; FAIL = no fight 8 s after the first warp (loading time not counted)
+void FnVerify(const Snap& s, ULONGLONG t) {
+    if (g_fn.load() != kFnWarped || g_fightRow < 0) return;
+    const Row& r = g_rows[(size_t)g_fightRow];
+    const ULONGLONG dt = g_fnLastT ? t - g_fnLastT : 0;
+    g_fnLastT = t;
+    if (fight::g_fights > g_fnFights0) {
+        float p[4] = {};
+        PlayerPos(p);
+        g_fn.store(kFnPass);
+        Log("Rematch: F PASS %s: BossBattleMode %.1f s after warp #1 (%d warp%s), player %.0f %.0f %.0f", r.id, (double)(t - g_fnFirst) / 1000.0, g_warps,
+            g_warps == 1 ? "" : "s", p[0], p[1], p[2]);
+        Result("fight now PASS %s %.1fs warps=%d", r.id, (double)(t - g_fnFirst) / 1000.0, g_warps);
+        return;
+    }
+    if (s.st[2] || s.st[3] || s.st[4]) {  // loading (a boss intro) / paused: the clock stops
+        g_fnDeadline += dt;
+        g_fnCheckAt += dt;
+        return;
+    }
+    if (t >= g_fnDeadline) {
+        float p[4] = {};
+        PlayerPos(p);
+        g_fn.store(kFnFail);
+        Log("Rematch: F FAIL %s: no BossBattleMode within %s (%d warps); player %.0f %.0f %.0f %s the trigger box (%s)", r.id, g_fightWarp ? "8 s of warp #1" : "20 s of the landing", g_warps, p[0], p[1],
+            p[2], rcore::InTriggerBox(r, p) ? "inside" : "outside", r.arenaSrc);
+        Result("fight now FAIL %s: no fight in 8 s (warps=%d)", r.id, g_warps);
+        return;
+    }
+    if (t >= g_fnCheckAt) {
+        float p[4] = {};
+        if (!PlayerPos(p)) return;
+        const float dx = p[0] - r.arena[0], dz = p[2] - r.arena[2];
+        const bool in = rcore::InTriggerBox(r, p) || dx * dx + dz * dz < 600.0f * 600.0f;
+        if (!in && g_fightWarp && g_warps < 3 && !fight::g_active) {
+            Log("Rematch: F %s: player %.0f %.0f %.0f is not in the trigger box 1.5 s after warp #%d - warping again", r.id, p[0], p[1], p[2], g_warps);
+            g_warpPending = true;
+            g_warpDue = t;
+        }
+        g_fnCheckAt = t + 1500;
+    }
+}
+
+// pipe 'exit' (the self-test): leave the mission the way the mission menu's leave does
+int CallReturn() {
+    alignas(16) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};  // 1BF7D68's defaults; movaps [rcx] at 2239757
+    __try {
+        ((void (*)(const uint32_t*, uint8_t))F_REQRETURN)(p, 1);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
 }
 
 void TrackReplay(const Snap& s, ULONGLONG t) {
@@ -728,10 +823,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             g_loadDoneAt = 0;
         } else if (g_loadSeen && s.player && s.msOk) {
             if (!g_loadDoneAt) g_loadDoneAt = t;
-            else if (g_fight.load() && g_fightWarp && !g_warps && t - g_loadDoneAt > 1000 && s.ms28 == g_fightMission && s.ms14 == g_fightStart &&
-                     !fight::g_active && !s.online && !s.guest)
-                DoWarp(s, t);  // into the arena 1 s after the load (the player exists, no load, no pause: DoWarp re-checks)
-            if (g_loadDoneAt && t - g_loadDoneAt > 3000) {
+            else if (t - g_loadDoneAt > 3000) {
                 g_replayMs = s.ms14;
                 g_replayIn.store(true);
                 Log("Rematch: IN replay mission (stage %u) %.1f s after the start", s.ms14, (double)(t - g_replayAt) / 1000.0);
@@ -742,9 +834,14 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                         s.ms14 == g_fightStart ? "== the requested" : "!= the requested", g_fightStart, s.ms28,
                         g_fightByMission ? "the requested mission: exit = it changes" : "not the mission id: exit = the retry point changes, as R-b");
                     if (s.ms14 != g_fightStart) ToastF(cOrange, 8000, "Rematch: the game did not use the boss start point (see the log)");
-                    if (g_fightWarp && !g_warps) {
+                    if (g_fightWarp && !g_warps) {  // landed (3 s with no load and a player) + 1 s settle
                         g_warpPending = true;
-                        g_warpDue = t;
+                        g_warpDue = t + 1000;
+                    } else if (!g_fightWarp && g_fn.load() == kFnArmed) {  // the mission starts at the fight: no warp, just verify
+                        g_fn.store(kFnWarped);
+                        g_fnFirst = g_fnLastT = t;
+                        g_fnDeadline = t + 20000;
+                        g_fnCheckAt = t + 3600000;
                     }
                 }
             }
@@ -766,12 +863,14 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         }
         g_fightLoading = s.st[2] != 0;
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
+        FnVerify(s, t);
         if (!s.msOk || s.ms28 == g_fightMission || s.st[2]) {
             g_exitSince = 0;
             return;
         }
     } else if (s.msOk && s.ms14 == g_replayMs && !s.st[2]) {
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
+        FnVerify(s, t);
         g_exitSince = 0;
         return;
     }
@@ -837,7 +936,18 @@ void Tick() {
     if (g_pend) {
         const uint32_t kind = g_pend & 0xFF;
         const int row = (int)(g_pend >> 8) - 1;
-        if (kind == kReqAbort) {
+        if (kind == kReqExit) {
+            g_pend = 0;
+            if (!g_exitOk) Refuse(g_exitWhy);
+            else if (s.online || s.guest) Refuse("online / co-op: not leaving");
+            else if (s.st[2]) Refuse("loading");
+            else if (!s.msOk || !s.ms28) Refuse("not in a mission");
+            else {
+                const int rc = CallReturn();
+                Log("Rematch: exit: MissionRequestReturn(params, 1) from mission 0x%X (retry point %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
+                Result(rc ? "exit failed" : "exit requested");
+            }
+        } else if (kind == kReqAbort) {
             g_pend = 0;
             if (g_state.load() == kIdle) Refuse("nothing active");
             else if (g_replayIn.load() || g_et.st == rcore::kEIn) Refuse("inside the mission (it restores on exit)");
@@ -1047,6 +1157,8 @@ bool Start() {
     g_emakiOk = GroupOk("EMAKI", &g_emakiWhy);
     g_fnowOk = GroupOk("FNOW", &g_fnowWhy);
     g_warpOk = GroupOk("WARP", &g_warpWhy) && ResolveWarp(&g_warpWhy);
+    g_exitOk = GroupOk("EXIT", &g_exitWhy);
+    if (g_exitOk) F_REQRETURN = Site("fn:MissionRequestReturn");
     if (g_emakiOk) {
         F_EMAKIREQ = Site("fn:EmakiMissionRequest");
         G_INV = Site("g:Inventory");
@@ -1294,9 +1406,12 @@ void Command(const char* line, char* reply, size_t n) {
         memcpy(last, g_last, sizeof(last));
         ReleaseSRWLockShared(&g_lock);
         const char* gate = Gates(s, true);
-        snprintf(reply, n, "state=%d row=%s fights=%ld infight=%ld emaki=%d loading=%u player=%d stage=%u gate=%s placements=[%s] last=%s",
+        float pp[4] = {};
+        const bool pok = PlayerPos(pp);
+        snprintf(reply, n, "state=%d row=%s fights=%ld infight=%ld emaki=%d loading=%u player=%d stage=%u mission=0x%X fnow=%s warps=%d pos=%.0f,%.0f,%.0f gate=%s "
+                 "placements=[%s] last=%s",
                  g_state.load(), g_activeRow.load() >= 0 ? g_rows[(size_t)g_activeRow.load()].id : "-", fight::g_fights, fight::g_active, s.emaki,
-                 s.st[2], s.player, s.ms14, gate ? gate : "ok", pl, last);
+                 s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
         return;
     }
     if (!strcmp(cmd, "scan")) {
@@ -1310,9 +1425,16 @@ void Command(const char* line, char* reply, size_t n) {
                 snprintf(reply, n, "id=%s route=%s mission=0x%04X emaki=%d placement=%u verified=%d status=%u gen=%u fight=%u/%s/%d", g_rows[i].id,
                          rcore::RouteName(g_rows[i].route), g_rows[i].missionId, g_rows[i].emakiIndex, g_rows[i].placement, g_rows[i].Verified(),
                          g_status[i].load(), g_scanGen.load(), g_rows[i].fightStart, g_rows[i].fightConf[0] ? g_rows[i].fightConf : "-", g_rows[i].fightDist);
+                const size_t k = strlen(reply);
+                snprintf(reply + k, n - k, " arena=%d atfight=%d arenaconf=%s", g_rows[i].arenaOk, g_rows[i].atFight, g_rows[i].arenaConf[0] ? g_rows[i].arenaConf : "-");
                 return;
             }
         snprintf(reply, n, "error no row %s", arg);
+        return;
+    }
+    if (!strcmp(cmd, "exit")) {  // leave the running mission (MissionRequestReturn, as the mission menu does)
+        Post(kReqExit, -1, "pipe");
+        snprintf(reply, n, "queued");
         return;
     }
     if (!strcmp(cmd, "abort")) {
@@ -1355,7 +1477,7 @@ void Command(const char* line, char* reply, size_t n) {
         snprintf(reply, n, "error no row %s", arg);
         return;
     }
-    snprintf(reply, n, "error unknown command (ping status scan row start fight shrine abort open scroll)");
+    snprintf(reply, n, "error unknown command (ping status scan row start fight shrine exit abort open scroll)");
 }
 
 }  // namespace rematch

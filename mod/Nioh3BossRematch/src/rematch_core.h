@@ -2,6 +2,7 @@
 // catalogue + verified-results parsing, the E1 Emaki map redirect (snapshot / CRC / restore), the E lifecycle tracker and the
 // "Fight now" (E1 straight to the boss) request check.
 #pragma once
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
@@ -39,6 +40,8 @@ struct Row {
     uint32_t arenaBox = 0;
     char arenaConf[12] = "";   // high / medium / low / captured
     char arenaSrc[72] = "";
+    bool boxOk = false;
+    float box[7] = {};         // the trigger box: centre x y z, yaw deg, full size x y z (catalogue arena_boxgeo)
     bool FightNowReady() const { return fightStart && (arenaOk || atFight); }
     bool Verified() const { return verifiedCat || verifiedRun; }
 };
@@ -93,7 +96,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cPl = ci("placement_id"), cWhy = ci("reason"), cSt = ci("stage_mission"), cFk = ci("fight_kind"),
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
-              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf");
+              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -131,6 +134,13 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
                 for (int k = 0; k < 4; ++k) r.arena[k] = (float)atof(col(ac[k]).c_str());
                 r.arenaBox = (uint32_t)strtoul(col(cAbox).c_str(), nullptr, 0);
                 r.arenaOk = true;
+            }
+            const std::string geo = col(cAgeo);
+            if (!geo.empty()) {
+                std::string g = geo;
+                for (auto& ch : g)
+                    if (ch == '_') ch = ' ';
+                r.boxOk = sscanf_s(g.c_str(), "%f %f %f %f %f %f %f", &r.box[0], &r.box[1], &r.box[2], &r.box[3], &r.box[4], &r.box[5], &r.box[6]) == 7;
             }
         }
         if (r.route == kE && (r.emakiIndex < 0 || r.emakiIndex > 255)) continue;
@@ -182,6 +192,14 @@ inline int ApplyVerified(const std::string& text, std::vector<Row>& rows) {
             }
     }
     return n;
+}
+
+// ---- Fight now: is a position inside the row's trigger box? (box +0x28 = full size, rotated by its yaw about y; 1 m margin) ----
+inline bool InTriggerBox(const Row& r, const float p[3]) {
+    if (!r.boxOk) return false;
+    const float dx = p[0] - r.box[0], dz = p[2] - r.box[2], a = r.box[3] * 0.01745329252f;
+    const float lx = dx * cosf(a) - dz * sinf(a), lz = dx * sinf(a) + dz * cosf(a);
+    return fabsf(lx) <= r.box[4] / 2 + 100 && fabsf(lz) <= r.box[6] / 2 + 100 && fabsf(p[1] - r.box[1]) <= r.box[5] / 2 + 300;
 }
 
 // ---- Fight now: did MissionRequestById(mission, slot, startPoint, params) queue what we asked? (0x58-byte queue slot) ----

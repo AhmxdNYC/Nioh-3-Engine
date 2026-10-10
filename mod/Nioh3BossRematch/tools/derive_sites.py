@@ -128,6 +128,9 @@ SPEC = [
     # head = minimum pattern length for a check (80: both windows cover every call / offset the add-on uses).
     ("chk:SetPos_tail_a", "WARP", "check", 0x23AB658, 80),
     ("chk:SetPos_tail_b", "WARP", "check", 0x23AB6A7, 80),
+    # EXIT (pipe 'exit', the self-test): MissionRequestReturn(params, 1) = what the mission menu's leave does (MissionMenu_OnClose
+    # 1DB70B0, params from 1BF7D68 = {101h, 1000000h, 10100h, 0, 0})
+    ("fn:MissionRequestReturn", "EXIT", "fn", 0x22396D8, 0),
 ]
 # preferred functions to anchor a global's reference in (first hit there wins; else any unique hit in .text)
 PREFER = {"g:DataDb": 0x223963C, "g:ClearDb": 0x378C93, "g:MissionQueue": 0x10DC07A, "g:MenuMgr": 0x1DE28EC}

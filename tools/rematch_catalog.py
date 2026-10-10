@@ -77,7 +77,7 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -433,7 +433,8 @@ def pick_arena(fi, mid, pid, f):
     hb = math.hypot(bp[0] - wx, bp[2] - wz)
     wy = (sp[1] * hb + bp[1] * hs) / (hs + hb if hs + hb else 1) + 100
     yaw = math.degrees(math.atan2(bp[0] - wx, bp[2] - wz))
-    return {"x": wx, "y": wy, "z": wz, "yaw": yaw, "box": b["id"], "src": "%s %d %s" % (src, b["id"], b["name"][-40:]), "conf": conf}
+    geo = "%.0f_%.0f_%.0f_%.1f_%.0f_%.0f_%.0f" % (c[0], c[1], c[2], b["yawf"], ext[0], ext[1], ext[2])
+    return {"x": wx, "y": wy, "z": wz, "yaw": yaw, "box": b["id"], "src": "%s %d %s" % (src, b["id"], b["name"][-40:]), "conf": conf, "geo": geo}
 
 
 # ---------------------------------------------------------------- catalogue
@@ -686,7 +687,8 @@ def mrow(rt, mid, b, lst, ma, fi):
             ar = pick_arena(fi, mid, int(pid), f)
             if ar:
                 o.update({"arena_x": "%.0f" % ar["x"], "arena_y": "%.0f" % ar["y"], "arena_z": "%.0f" % ar["z"], "arena_yaw": "%.1f" % ar["yaw"],
-                          "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"]})
+                          "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"],
+                          "arena_boxgeo": ar["geo"]})
     return o
 
 
