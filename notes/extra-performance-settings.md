@@ -81,6 +81,10 @@ measured gain here (XCLD, XSHD, XSHF, XPRT, XTER) stay in the presets only where
 cloudless or distant content) because they may pay on other scenes / the Ally; XTER and XPRT are left to the player.
 A harness bug hid the presets in xp5sky (XPRE=1/2 followed by XCLD=0 ... lines in the same control file reset the levels): fixed in
 fastab.ps1, which now writes only XPRE when it is non-zero. xp6sky / xp7sky are the valid preset runs.
+pc2 (RX 6650 XT, 1080p, CPU-bound, bridge #1691 / file #217): fps about 0, but GPU time drops: Performance -0.52 ms (-2.7 %), Potato -1.82 ms
+(-9.4 %), XGI -3.1 %, XFOG -3.5 %, XAO -1.6 %, XPOST -1.1 %. Look: Performance no visible change; Potato loses AO / contact darkening.
+Harness fix from pc2: the live ack could be read mid-replace ({} -> fps 0); Read-Ack / read_ack now retry up to 25 x 20 ms until frames / qpc_us
+are present (fastab.ps1, cpu_live_sched.ps1, extraperf_ab.py). Ally results: see the bridge (XPERF1).
 Caveat: PC is GPU-bound at ~100 fps with a cheap sky scene; heavy-fog / heavy-cloud scenes and the Ally (GPU 98 %) should gain more.
 
 ## 4. Verdict

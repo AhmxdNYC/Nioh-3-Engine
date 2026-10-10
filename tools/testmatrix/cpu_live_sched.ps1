@@ -27,9 +27,13 @@ $man = Join-Path $Out "manifest.jsonl"; $rep = Join-Path $Out "report.txt"
 function L([string]$s) { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Write-Host $l; Add-Content (Join-Path $Out "sched.log") $l }
 function Utc { (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") }
 function Read-Ack {
-    $h = @{}
-    try { $t = [IO.File]::ReadAllText($ack) } catch { return $h }
-    foreach ($kv in ($t.Trim() -split '\s+')) { if ($kv -match '^([^=]+)=(.*)$') { $h[$Matches[1]] = $Matches[2] } }
+    for ($i = 0; $i -lt 25; $i++) {   # retry a read that caught the ack mid-replace (pc2 finding)
+        $h = @{}
+        $t = ""; try { $t = [IO.File]::ReadAllText($ack) } catch {}
+        foreach ($kv in ($t.Trim() -split '\s+')) { if ($kv -match '^([^=]+)=(.*)$') { $h[$Matches[1]] = $Matches[2] } }
+        if ($h.ContainsKey("frames") -and $h.ContainsKey("qpc_us")) { return $h }
+        Start-Sleep -Milliseconds 20
+    }
     return $h
 }
 $script:gen = [int](Get-Date -UFormat %s) % 100000   # never equal to an older control file's Gen

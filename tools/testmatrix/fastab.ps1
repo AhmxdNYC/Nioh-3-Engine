@@ -120,8 +120,12 @@ function Write-Control([string]$tag) {
     Move-Item -LiteralPath $tmp -Destination $ctl -Force
 }
 function Read-Ack {
-    $h = @{}
-    foreach ($kv in ((Read-Shared $ack).Trim() -split '\s+')) { if ($kv -match '^([^=]+)=(.*)$') { $h[$Matches[1]] = $Matches[2] } }
+    for ($i = 0; $i -lt 25; $i++) {   # the ack is rewritten every 250-500 ms: retry a read that caught it mid-replace (empty / no clock fields; pc2 finding)
+        $h = @{}
+        foreach ($kv in ((Read-Shared $ack).Trim() -split '\s+')) { if ($kv -match '^([^=]+)=(.*)$') { $h[$Matches[1]] = $Matches[2] } }
+        if ($h.ContainsKey("frames") -and $h.ContainsKey("qpc_us")) { return $h }
+        Start-Sleep -Milliseconds 20
+    }
     return $h
 }
 function Wait-Ack([double]$sec = 6) {

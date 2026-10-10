@@ -40,15 +40,20 @@ class Live:
         self.log = log
 
     def read_ack(self):
-        try:
-            t = open(self.ack, encoding="utf-8", errors="replace").read()
-        except OSError:
-            return {}
         h = {}
-        for kv in t.split():
-            if "=" in kv:
-                k, v = kv.split("=", 1)
-                h[k] = v
+        for _ in range(25):  # the ack is rewritten every 500 ms: retry a read that caught it mid-replace (missing / empty)
+            try:
+                t = open(self.ack, encoding="utf-8", errors="replace").read()
+            except OSError:
+                t = ""
+            h = {}
+            for kv in t.split():
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    h[k] = v
+            if "frames" in h and "qpc_us" in h:
+                return h
+            time.sleep(0.02)
         return h
 
     def set(self, kv, tag, wait=8.0):
