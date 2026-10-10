@@ -2023,7 +2023,6 @@ rva	kind	name	signature	description	confidence	source
 0x5313c5	label	MeshletPrecull_Mpc24Section	xor ebx,ebx; test r15b; je 531517	end of the #28-#31 records / start of the MPC#24 section (bind idx 9 at 5313D3, Dispatch((cnt+1023)>>10,1,1) at 531488)	high	notes/gpu-culling-rewrite.md §3
 0x531517	label	MeshletPrecull_Mpc26Record	test r12b; bind idx 0Bh; Dispatch(1,1,1) at 531570	MPC#26 record (u9[1] = max(1, ceil(u9[0]/2048))); skippable when cnt<=1024 with the mpc replacement file	high	notes/gpu-culling-rewrite.md §3
 0x533e88	function	ViewGetShadowObj	ShadowObj* (View* v)	[[v+4328h]+20h]; shadow object: +18h cascade count, +914h/+918h/+920h depth-range inputs, vtbl+0x88/0x90 begin/end cascade	high	notes/shadows-culling.md §1.1
-0x534a98	function	DrawListEmitBatches	void Unknown_DrawListBuildPass_534A98(void)	1.5 KB emits batches (DrawListCount callee) with lock helpers 33dc7b8/33dc868 (was Unknown_DrawListBuildPass_534A98)	low	re/scripts_re/perf_coverage.py --self unnamed list + decomp D:/nioh3-re/decomp (cpu100-b, decompile-reviewed)
 0x535080	function	DrawListCount	u32 (DrawList* l)	locked read of l+0Ch; negative = -(n)-1 clamped to l+08h	high	notes/shadows-culling.md §1.2
 0x535188	function	SceneRenderView		model/scene renderer for one view (35% incl): per render bucket (HighlightStencilOnly_*, SpecificStencil_Character, CustomHighlightPass, shadow "Cascade %d") -> 25 call sites of DrawListWalk; body 39366 B (aka SceneModelRender) || also: Scene/model renderer; caller of DrawListWalk (535188 -> 39E20 -> 1DC2F0 -> 1E80B0 ~35% of main thread)	high	notes/mainthread-drawprep.md §1; re/scripts_draw/dec_39E20.txt callers; notes/mainthread-drawprep.md
 0x5384aa	label	SceneRenderView_CallCascadeLoop1	call 1F5C2Ch	cascade loop 1 (first shadow occlusion phase) call of ShadowCascadeRender; marker 'Cascade %d' before it	medium	notes/shadows-culling.md §1.1
@@ -10068,6 +10067,26 @@ rva	kind	name	signature	description	confidence	source
 # END renderer/resources
 #
 # renderer/drawlists (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is drawlists go between this line and the END line)
+0x534a98	function	ViewComputeShadowWorkMasks	void (View* v)	per view after SceneViewBuildDrawLists jobs: walks the shadow-mapper entries v+4028h (kind 1) and the per-view extra renderers (+42D0/+4308/+4310/+42E8/+42F0) and writes cascade work masks v+3FFCh/+4000h/+4004h/+4008h and the any-shadow-work flag v+4010h (DrawListCount on lists 2..14); emits nothing (was DrawListEmitBatches)	medium	notes/renderer/07-drawlists.md
+0x5ead78	function	DrawEmitObjectMajor	int (DrawState*, ..., DrawList* L, DisplaySet* first, Material* m, u32 passes, u32 s, u32 n, int* outLen, ...)	DrawListWalk variant chosen when material+12E8h bit 0: per object all technique passes (BeginPass vtbl+A8h / EndPass +B8h around DrawEmit), instead of DrawEmitSubPasses pass-major order	high	notes/renderer/07-drawlists.md
+0x0	struct_field	DrawRec::DisplaySet	DisplaySet*	16-byte per-frame draw record that a DrawList item points to; [0] = the display set	high	notes/renderer/07-drawlists.md
+0x8	struct_field	DrawRec::SortKey	u32	sort key written at append: main lists (dist+View::SortKeyBias)*View::SortKeyScale, shadow lists (depth+100)*100 (ObjUpdateWorkerBody 121FC0)	medium	notes/renderer/07-drawlists.md
+0x8	struct_field	DrawList::Capacity	i32	item capacity of the list (append fails when full)	high	notes/renderer/07-drawlists.md
+0xc	struct_field	DrawList::Count	i32	atomic; while open it holds ~n (negative), appenders CAS it down by n (39A80, 121FC0); DrawListCount 535080 returns -(v)-1 clamped to Capacity	high	notes/renderer/07-drawlists.md
+0x18	struct_field	DrawList::Flags	u32	atomic flags; bit 0 = list holds meshlet items (DisplaySet+80h != 0), set at append	high	notes/renderer/07-drawlists.md
+0x0	struct_field	DrawObj::IndexBuffers	TypedVal*	type 0Dh array; packet+0Ch bits 27..30 select one -> token 3Dh SetIndexBuffer (shadow KtglContext+2550h)	high	notes/renderer/07-drawlists.md
+0x8	struct_field	DrawObj::VertexLayouts	TypedVal*	type 0Eh array; packet+10h bits 0..3 select one -> token 3Bh (shadow KtglContext+2558h)	high	notes/renderer/07-drawlists.md
+0x10	struct_field	DrawObj::VertexStreams	TypedVal*	type 0Fh (or 1Fh = 0x18-byte stream sets); packet+10h bits 4..11 / 12..15 = set / stream count -> token 3Ch per VB slot	medium	notes/renderer/07-drawlists.md
+0x40	struct_field	DrawObj::ParamOverrides	TypedVal*	type 15h hash-tagged param blocks (hash 09C8B32Eh -> 3 dwords copied out by DrawListWalk); packet+0Ch low 13 bits index it in DrawEmit	medium	notes/renderer/07-drawlists.md
+0x58	struct_field	DrawObj::Packets	TypedVal*	type 16h array of 0x40-byte DrawPackets (count = draws of this set; 0 -> DrawEmit returns)	high	notes/renderer/07-drawlists.md
+0x60	struct_field	DrawObj::RenderStates	TypedVal*	type 0Ah array of u64 raster/depth-bias state words; packet+12h low 4 bits select -> tokens 14h/13h/17h/85h; null = DrawState default	high	notes/renderer/07-drawlists.md
+0x80	struct_field	DrawObj::MeshletRecord	TypedVal*	type 20h meshlet object; non-null = GPU-culled meshlet item (DrawState+FCh/FDh filters, phase-2 re-draw)	high	notes/renderer/07-drawlists.md
+0x38	struct_field	DrawPacket::SubObject	void*	optional attached object; when set DrawSubmit runs its own pass loop (vtbl+130h..168h) instead of token 6Ah	medium	notes/renderer/07-drawlists.md
+0x3ff8	struct_field	View::DrawListNum	u32	number of DrawList headers at View::DrawLists	high	notes/renderer/07-drawlists.md
+0x4010	struct_field	View::ShadowWorkAny	u32	1 when any shadow list / extra renderer / VSM tile has work (ViewComputeShadowWorkMasks 534A98)	medium	notes/renderer/07-drawlists.md
+0x4018	struct_field	View::SortKeyBias	f32	distance bias of the main-list sort key (ObjUpdateWorkerBody)	medium	notes/renderer/07-drawlists.md
+0x401c	struct_field	View::SortKeyScale	f32	scale of the main-list sort key	medium	notes/renderer/07-drawlists.md
+0x4028	struct_field	View::ShadowMappers	ptr	atomic-count list (cap +4030h, count +4034h) of shadow-mapper entries {u64 hdr (kind in bits 60..63, 1 = light), obj*}; obj+10h/+18h own DrawList headers (count obj+100h), obj+108h class bits	medium	notes/renderer/07-drawlists.md
 # END renderer/drawlists
 #
 # renderer/meshlet (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is meshlet go between this line and the END line)
