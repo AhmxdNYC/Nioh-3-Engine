@@ -1,5 +1,13 @@
-# STATUS (handoff) - rewritten 2026-10-09 17:35
+# STATUS (handoff) - rewritten 2026-10-10 01:25
 Read this section only; older handoffs follow below.
+
+## HANDOFF 2026-10-10 01:25 (new chat starts here) - detailed: notes/handoff-2026-10-10-0125.md
+- MANDATE: decompile the WHOLE rendering engine + assess/build a new renderer (user 00:10). Discord update for each part (#1246); new README graph for renderer-decompilation progress (#1248). Priority >= ~5 % or feelable; Linux check rule #954.
+- DONE: boss rematch add-on 1.3.3 (33 PASS / 0 FAIL); all renderer packages (notes/renderer/*.md: map, backend, materials, lighting, post, frame-graph, resources, drawlists, meshlet, volumetrics, effects, ui, capture-check).
+- KEY: CPU wall on mid-range = engine command buffer wiped each frame -> no frame overlap (main waits ~5 ms). Frame overlap = conditional GO (est. +15-25 % pc2), branch frame-overlap, waits on pc2 FOV1 (ASI #195). ReBAR ON = -26..-29 % GPU on pc2 (player tip + in-mod notice). Full new renderer not worth it; meshlet replacement < 5 %.
+- DEVICES: pc agents; pc2 ReBAR on, idle + FOV1 queued; ally idle. Lock 'nioh3' free. Bridge cursor 1249.
+- UNCOMMITTED in main tree: paused extra-perf settings (src/extraperf.*, dllmain/menu/patches.json edits) - do not commit blindly.
+- INFRA: Monitor watcher command + resume steps in the detailed note; autowake relay/auto-handoff/new-chat-on-wake live.
 
 ## NOTE 2026-10-10 01:02 (auto-wake chat 8f5f4d69, standing down)
 - An auto-wake chat started while the main chat 338c6105 was still alive; its duplicate 05/07/08/12 agents were stopped (no commits, scratch files removed). The 05/07/08/12 renderer packages belong to 338c6105's agents. Ally FCAP1 zip = bridge file #194 (channel nioh3-captures); pc2 = #193. PC FCAP1 run (captures/fcap/pc-20261010-0055, 338c6105's) is running via run_tour; 338c6105's bridge watcher is live too.
