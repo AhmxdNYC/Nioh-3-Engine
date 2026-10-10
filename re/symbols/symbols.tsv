@@ -10090,6 +10090,38 @@ rva	kind	name	signature	description	confidence	source
 # END renderer/drawlists
 #
 # renderer/meshlet (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is meshlet go between this line and the END line)
+0x237044	function	MeshletSceneViewNodeRecord		scene-view node: per view LOD (904610) + CullBegin + MIC + MPC + CullEnd; view index < 32	high	notes/renderer/08-meshlet.md
+0x904610	function	MeshletResolveLodMainView		main-view LOD wrapper: reset bit -> param_10 = set+70h, permutation 1 (8DA1BC); calls 531948(...,-1,0,10h,..)	high	notes/renderer/08-meshlet.md
+0x8da0a8	function	MeshletResolveLodClipmap		VSM clipmap LOD wrapper: ctx+1430h/1438h, SM>=0Ch toggles ctx+1298h+8, param_10 default set+68h; calls 531948	high	notes/renderer/08-meshlet.md
+0x4667c0	function	MeshletResolveLodCtxGet		shader object by name hash 7ED01E3Fh from MeshletSys+169D70h (default +169DA0h) via 111064	high	notes/renderer/08-meshlet.md
+0x5d1b0	function	MeshletMclrcCtxGet		shader object hash 4EA130F9h from MeshletSys+169D90h (default +169DC0h)	high	notes/renderer/08-meshlet.md
+0x5d160	function	MeshletApplyStreamQualityLevel		per entry (flag 400h): re-request when loaded level (obj+D0h>>24) differs from the view level (M+4E8h)	medium	notes/renderer/08-meshlet.md
+0x5c708	function	MeshletRequestBuffersClear		clears the 2 x 2 request buffers (count*4 B) of M at frame begin	medium	notes/renderer/08-meshlet.md
+0x5da0c	function	ShaderCtxBindSlot1318		refcounted bind of a buffer object into ShaderCtx+1318h (MeshletExtraDispatch input 16A1C8)	high	notes/renderer/08-meshlet.md
+0x53fc14	function	MicBindHiZ		MIC ctx+12F0h = Hi-Z texture, +1420h = UV rect	high	notes/renderer/08-meshlet.md
+0x53fcb8	function	MicBindInstanceVisOut		MIC ctx+13B0h = MeshletSys+16A1C8 (u1 output)	high	notes/renderer/08-meshlet.md
+0x540244	function	MicBindCullCodes		MIC ctx+12F8h = 16A160 cull/LOD codes	high	notes/renderer/08-meshlet.md
+0x96a280	function	MpcBindNonVsDrawOut		MPC param block +128h = 16A1B8 (non-VS draw output)	high	notes/renderer/08-meshlet.md
+0x52f2f0	function	MpcBindPhase2Args		MPC param block +140h = 16A1C0 (two-phase indirect args)	high	notes/renderer/08-meshlet.md
+0x52f8ec	function	MpcBindCullPayloads		MPC param block +D8h = 16A170 S_PAYLOAD_TO_MSHLTCULL (+250h mode, +254h count)	high	notes/renderer/08-meshlet.md
+0x52fc3c	function	MpcBindVsDrawArgs		MPC param block +E0h = 16A178 uVSDrawArguments (+278h Hi-Z mode, +27Ch flag)	high	notes/renderer/08-meshlet.md
+0x52fb08	function	MpcBindMtrOffsets		MPC bind 16A188 uVSDrawMshltMtrOffsets (u11)	medium	notes/renderer/08-meshlet.md
+0x52f3ac	function	MpcBindVsDrawInfo		MPC bind 16A198 S_VS_DRAW_MSHLT_INFO (u12)	medium	notes/renderer/08-meshlet.md
+0x52f3e8	function	MpcBindDrawPayloads		MPC bind 16A190 S_PAYLOAD_TO_MSHLTDRAW (u3)	medium	notes/renderer/08-meshlet.md
+0x52f8b0	function	MpcBindArguments		MPC bind 16A180 uArguments / meshlet index buffer	medium	notes/renderer/08-meshlet.md
+0x52f32c	function	MpcBindPrefixTable		MPC bind scene set +38h (or +20h when MeshletSys+169D48h = 4)	medium	notes/renderer/08-meshlet.md
+0x898fec	function	MpcBindViewCb		MPC bind cbuffer source MeshletSys+16A0C0 (count +16A2ACh+1)	medium	notes/renderer/08-meshlet.md
+0x91fd44	function	MpcBindMrlodScratch		MPC bind 16A1A0 S_PAYLOAD_TO_MRLOD scratch	medium	notes/renderer/08-meshlet.md
+0x540394	function	MicBindViewCb		MIC bind cbuffer source MeshletSys+16A0C0	medium	notes/renderer/08-meshlet.md
+0x54031c	function	MicBindInstanceData		MIC bind scene set +18h (48 B per instance)	medium	notes/renderer/08-meshlet.md
+0x5402d8	function	MicBindInstanceOffsets		MIC bind scene set +30h S_INSTANCE_OFFSET	medium	notes/renderer/08-meshlet.md
+0x540280	function	MicBindDispatchOffsets		MIC bind scene set +50h S_DISPATCH_OFFSET	medium	notes/renderer/08-meshlet.md
+0x540358	function	MicBindSceneSrv1F8		MIC bind MeshletSys+16A1F8 (scene SRV, G1M offset table (i))	medium	notes/renderer/08-meshlet.md
+0x91fd80	function	MpcBindSceneSrv1F8		MPC bind MeshletSys+16A1F8	medium	notes/renderer/08-meshlet.md
+0x1d3a08	function	KtglEmitUavBarrier		writes token 8Ah + ID3D12Resource* into KtglContext+3C40h	high	notes/renderer/08-meshlet.md
+0x52ffb0	function	ShaderCtxPermFlagB		*(ctx+1298h)+8 == 1: MPC two-phase passes enabled	high	notes/renderer/08-meshlet.md
+0x540428	function	ShaderCtxPermFlagA		*(ctx+1298h) == 1: MIC pass 1 enabled	high	notes/renderer/08-meshlet.md
+0x32f520c	function	MeshletDrawDirect		DrawMeshletPathAux direct draw of (n+31)/32 (non-VS path)	medium	notes/renderer/08-meshlet.md
 # END renderer/meshlet
 #
 # renderer/volumetrics (package, notes/renderer/00-map.md section 3: rows for functions whose partition.tsv package is volumetrics go between this line and the END line)
