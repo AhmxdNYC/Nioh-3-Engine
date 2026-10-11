@@ -2,6 +2,8 @@
 
 Codex continuation remains enabled. **Do not call or wake Claude. Only the user resumes Claude after the ownership transfer below.** User phone instruction1786 requires keeping this file, STATUS top, the Codex ledger and progress report current at every checkpoint.
 
+Latest automation correction2026-10-11: the installing lead's2milliondaily cap stopped ready work after the first worker. User reported the stall; monitor stopped cleanly with no active worker, and daily caps now default null (optional user settings). Actual usage remains tracked and the single-writer/game guards remain. Tooling regression13checksPASS; restart follows repository checks/commits, then lead-active release. Rendering-first priority is unchanged. Earlier cap-hold observations below are historical and superseded by this correction.
+
 ## Verified repository and build state
 
 - Main audit checkpoint: `a68a2c4` pushed, documentation only. Tested engine remains **1.7.61**, integrated at the earlier step1 checkpoint; defaults FO0 / ExtraPerf0, CBN1 CBT1 CBS0 CBF0. ASI SHA256 `4734152ACAFDC13FA417C23EE60C8F6579B023D7F93FE73A763D862446A7AD00`. This handoff adds documentation after a68a2c4; use `git log -1` for its own documentation commit.

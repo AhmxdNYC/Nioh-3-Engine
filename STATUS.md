@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Codex daily-cap stall corrected; rendering continuation resumes
+- User reported that auto-wake was not continuing work. Monitor was alive/enabled but the self-imposed2milliondaily input+output cap held launches after the first unit's2,590,276tokens. No worker or game test was active; took lead-active and stopped the monitor cleanly before the tooling fix.
+- Daily worker/token caps now default to null and apply only when explicitly configured. Actual usage remains tracked, cached input included; single-writer/game guards, waiting checkpoints and failure backoff remain. Added regression for continuation above old thresholds; controller13checksPASS. Narrower worker units requested to reduce repeated context. Repo checks/restart follow before releasing ownership.
+- Rendering-first priority remains: fail-closed FO availability, then queue/bounds/lifetime proof; keep experimental work isolated and main1.7.61/FO0 usable. Training is a researched plan. User's queued phone request1791 asks for a Discord update on this choice; post after the worker is actually running. Keep the Claude return handoff current and do not wake/call Claude.
+
 ## UPDATE 2026-10-11 - Rendering first; clean Claude return
 - User delegated rendering versus training-mode priority to Codex. Decision: finish rendering safety and release readiness first; training remains a concise researched plan. Ledger/Claude return handoff updated; this supersedes older training-priority phone item1789.
 - First serial worker finished/pushed audit406b19d and main handoffae77b38. Eleven negative-control checks reproduced hazards, not release safety. Next concrete unit: fail-closed FO emitter availability, then queue/bounds/lifetime closure with proof. Main1.7.61/FO0 remains usable; remote gates unchanged.
