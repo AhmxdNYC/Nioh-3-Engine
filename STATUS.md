@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:46 - Whole-build FPS comparisons prioritized
+- No fresh large gain. Measured component results remain pc2 constant uploads+16.50% +/-0.16% SE (slow-link-specific), Ally optional quality preset+4.16% +/-0.18% SE measured separately; full default-stack A/B absent. High-level Discord/phone1916 sent; major measured Ally/pc2 gains should be notified promptly with scope and uncertainty.
+- Ally1917 confirms compatible EngineFix-only/manual controls. Queue1919 conditionally allows normal saves/sync only after current-entry restoration/sync postconditions are confirmed; no Cloud/network/OS changes or Tour/AutoContinue substitutions. READY and actual run/results pending. PC held by1920, headroom still insufficient; pc2 status requested1915 with no fresh ACK/result. Details: notes/codex-device-benchmark-queue-2026-10-11.md.
+- NEXT: actionable device results/decisions first; otherwise one bounded fogpar missing-proof-input reconciliation, retaining pinned builds/staging. Default-OFF training observer follows as another ready unit. No new shader queue until existing baseline tests finish; no large-gain deadline, static-audit-as-FPS claim or unchanged local retry. Stable1.7.61, FO NO-GO and unmerged guard PR1 unchanged.
+
 
 ## UPDATE 2026-10-11 14:44 - CBV registry protocol bounded
 - New offline VS registry-protocol audit PASS: three pinned windows/302 bytes,53 instruction checks and six memory-only truncated/corrupted rejection controls. Evidence: notes/handoff-codex-cbv-registry-protocol.md; tools/bench/audit_cbv_registry_protocol.py.

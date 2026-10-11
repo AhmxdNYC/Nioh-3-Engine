@@ -33,5 +33,37 @@ arm because EngineFix is absent. Archive raw captures, exact windows, schemas,
 observations and hash restoration evidence. Standing results do not establish
 combat/load/latency/visual equality/full-protocol performance.
 
-ACK, results and blockers are pending at bridge1884. Consume fresh replies rather
-than infer device availability; never launch PC and Ally simultaneously.
+## Lead checkpoint - 2026-10-11 14:46
+
+- PC preflight1886: NOT READY at5.4GB commit headroom below6GB guard; no
+  launch. Holds1891/1920 reserve the shared PC/Ally Steam account for Ally.
+  No unchanged launch retry or closing unrelated apps to rescue the test.
+- Ally1894/1917: compatible manual route and EngineFix-only removal established;
+  entry GHDM/fogpar shaders stay identical in both arms. Exact kit223 default INI
+  in B; no Tour/TourList/AutoContinue/LiveCtl substitutions. FG must be observed
+  in the actual menu; displayed/rendered equality was only an inference.
+- Ally MangoHud is a100ms sampler in both arms. Mean FPS and sampled tail
+  statistics are allowed; these are not per-frame p99 measurements. Filename
+  local EDT plus elapsed-ns origin and observed window offsets must be archived.
+- Queue1919 permits normal automatic save/sync writes within authorized testing,
+  with no Cloud/network/OS changes. Owner must first confirm CURRENT-entry
+  local file/save restoration after every arm and normal Steam sync completion
+  consistent with restored files before another launch/final account release.
+  Keep backups and entry Cloud/cache metadata externally. Local hashes and
+  cache/sync attestations are different evidence; no remote-server hash claim.
+  Conflict prompts, unavailable restoration/sync postconditions or failure mean
+  BLOCKED/no further launches, with ownership retained for recovery. READY and
+  actual launch/result remain pending; conditional clearance is not a run.
+- pc2 queue1882 status requested again by1915; no fresh ACK/result observed
+  through1918. Do not infer availability or call it running.
+- Device questions must lead with[Q], blockers with[BLOCKED], results with
+  [RESULT]. ACK-only metadata does not wake the Codex continuation worker.
+
+User wants substantial measured pc2/Ally performance gains sent to Discord and
+the phone through the existing notifier/bridge. Include baseline, scene/config,
+paired units/SE, visual/default scope and restoration limits. Static audits,
+title-menu FPS and estimated shader savings are not new gameplay gains. Latest
+high-level Discord card and phone1916 report no new large gain.
+
+Consume fresh replies after1918 and the lead queues1919/1920; never launch PC
+and Ally simultaneously. Stable pinned builds remain unchanged.
