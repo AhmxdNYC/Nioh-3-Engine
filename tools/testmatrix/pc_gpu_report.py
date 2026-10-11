@@ -37,6 +37,19 @@ from datetime import datetime, timedelta, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHOTDIFF = os.path.join(HERE, 'shotdiff.py')
 
+# Exact replacement execution is required for these queued native candidates.
+# An unrelated newly visible PSO is not evidence that the selected shader ran.
+EXACT_COMPUTE_PROOF = {
+    'lodu': 'd5a1a069857feee3a6589f1c788aca52',
+    'fogpar': '5473bfb797f181002f6cd88547d207e4',
+}
+
+
+def exact_compute_ran(item, launches):
+    digest = EXACT_COMPUTE_PROOF[item]
+    pattern = re.compile(r'(?:^|\s)cs=' + digest + r'(?=\s|$)')
+    return bool(launches) and all(L.get('gp2') and any(pattern.search(k) for k in L['gp2']['rows']) for L in launches)
+
 GP2F = re.compile(r'^\[(\d\d):(\d\d):(\d\d)\.(\d+)\] GP2: frame ([\d.]+) ms GPU span \(wall ([\d.]+) ms\); covered ([\d.]+) ms.*?'
                   r'async-compute ([\d.]+) ms; (\d+) intervals/frame, (\d+) draws\+dispatches/frame, PSO stamps (ON|OFF)')
 GP2R = re.compile(r'GP2:\s+(\d+) (.*?) \| +([\d.]+) ms \| +([\d.]+) \| +([\d.]+) \| \[(.*)\]\s*$')
@@ -239,7 +252,11 @@ def report(d, min_draws=1000, out=None, shots=True):
                     shotv.append(shot_verdict(launches[b0[0]]['shot'], L['shot'], launches[b0[1]]['shot'],
                                               os.path.join(d, 'diff_L%02d_%s.png' % (L['launch'], item))))
         ran = None
-        if item in ASI_PROOF:
+        if item in EXACT_COMPUTE_PROOF:
+            ran = exact_compute_ran(item, [L for _, L in il])
+            if not ran:
+                notes.append('exact replacement cs=%s missing in at least one launch' % EXACT_COMPUTE_PROOF[item])
+        elif item in ASI_PROOF:
             ran = all(re.search(ASI_PROOF[item], L['log']) for _, L in il if L['log'])
             if not ran:
                 notes.append('log proof missing: /%s/' % ASI_PROOF[item])
