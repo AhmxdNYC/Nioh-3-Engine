@@ -144,6 +144,21 @@ function Finish-C72 {
 }
 # Guard's default forced-kill policy is overridden for this pilot. Exact owned process, graceful only.
 function Kill-Registered { try { Close-Owned } catch { Write-Warning "$_" } }
+# The shared abort path deletes its record even when cleanup throws and closes again.
+# This pilot must retain recovery ownership until Finish-C72 verifies all restoration.
+function Guard-Fail([string]$why, [int]$code = 99) {
+    if (-not $global:HG) { Write-Host "GUARD-FAIL (no guard): $why"; [Environment]::Exit($code) }
+    if ($global:HG.aborting) { [Environment]::Exit($code) }
+    $global:HG.aborting = $true
+    HG-Log "ABORT: $why"
+    try { if ($global:HG.cleanup) { & $global:HG.cleanup } } catch { HG-Log "cleanup error; recovery record retained: $_" }
+    if ($script:cleaned) {
+        Clear-MeasureLock
+        Remove-Item -LiteralPath $global:HG.file -Force -ErrorAction SilentlyContinue
+    }
+    # No second close: it could succeed after failed cleanup without restoring saves/INIs.
+    [Environment]::Exit($code)
+}
 Init-Guard -Name c72e_native_pilot -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -MaxCrashes 1 -Cleanup { Finish-C72 }
 try {
     foreach ($key in @('nioh3-pc','nioh3')) {

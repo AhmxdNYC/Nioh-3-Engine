@@ -96,3 +96,28 @@ proof jobs, retain the same pinned ASIs and inspect current game/process state.
 Death/retry acceptance and exact first-controllable visual acceptance remain
 separate future work. The script-tuple spawn override alternative remains gated
 by the known SpawnRestore ownership hazard; this harness performs no such writes.
+
+## Recovery abort fix - 2026-10-11 successor
+
+Reproduced the inherited Guard-Fail failure in an isolated child PowerShell:
+cleanup threw, exit99 followed, but guard.json was deleted. The shared abort
+also called Kill-Registered after cleanup, allowing a second close without a
+subsequent restoration attempt. The pilot now overrides Guard-Fail locally:
+cleanup runs once; only verified Finish-C72 completion permits record removal;
+failed cleanup retains ownership metadata, result and held shared locks. No
+second close/kill occurs on that path. Shared harness behavior is unchanged.
+
+Verification: test_c72e_abort.ps1 imports the actual Guard-Fail and Finish-C72
+functions without executing the launcher. Four child-process cases PASS:
+graceful-close failure, a remaining foreign game, tampered-backup restoration
+failure, and successful cleanup. Assertions cover exit99, one cleanup/close,
+owner PID/start metadata, save bytes, no restoration while a game remains,
+INI restoration order and lock release only after successful restoration.
+The existing 20 save-sharing/restore/telemetry/parser fixtures also PASS.
+Both A/B plans pass with pinned installed ASIs and catalog hashes. No live
+launch, installed-file edit, hold change or controller input occurred.
+
+Live gates still open: title Continue, save-lock load compatibility, continuous
+first-controllable/combat evidence, and exact exit/restoration. The automated
+pilot still cannot establish actual combat or first control from status alone;
+its immediate exit after BossBattleMode is not playable-training acceptance.
