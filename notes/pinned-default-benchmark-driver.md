@@ -1,5 +1,16 @@
 # Pinned default benchmark driver
 
+Actual attempt 2026-10-11: the existing headroom guard waited 300 seconds and
+aborted before game/capture at 5.8 GB commit headroom (minimum 6 GB). The retained
+output is D:/nioh3-re/bench/pc-default1761-observed. Root verified restored entry
+save/ASI/INI/log hashes and released the marker/lock; no performance result.
+PB-Recover now releases its owned marker in the cleanup callback itself, because
+the guard can exit without executing finally. All 14 actual callback checks pass.
+For interrupted recovery use recover_pinned.ps1 with StatePath and
+SourceOwnershipConfirmed only after confirming source ownership; it refuses a
+stale or foreign marker, acquires the game lock and verifies restoration before
+releasing the hold. Failed restoration retains recovery evidence and the hold.
+
 Private Windows tooling, no game run during implementation. The existing
 `final_pc.ps1 -OptimizedIni ... -AsiPath ... -NoLatency` forwards to the new
 `pinned_final_pc.ps1`; the historical BEST/sweep path is not used. This separate

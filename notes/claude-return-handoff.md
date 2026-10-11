@@ -1,5 +1,14 @@
 # User-controlled return to Claude - 2026-10-11
 
+## Current return state - 2026-10-11 13:50
+- Codex source/build integration, device-only Claude testing through bridge. Stable main/bin 1.7.61 remains tested baseline with all three component smokes passed; no complete default-stack A/B yet. Current README and progress report scope measured gains and preserve older withdrawn claims in an archive.
+- Combined private 1.7.65 guard candidate 5736bdb builds and passes 37 full harnesses/255 patterns/artifact check; repaired production checks 143 and 207, pinned old hazards 11 and 12. Draft private PR https://github.com/AhmxdNYC/nioh3-engine/pull/1 unmerged pending native smoke. PCM defaults 0; memo-serving logic unchanged. Private raw ASI cee81fbbfc76df810660de0d5ea9e7a701a651c4bbf407c2a1938e9d5b88d5df must be scrubbed before any sharing.
+- Observed local default benchmark attempted but guard aborted before game/capture after 300 seconds at 5.8 GB commit headroom (<6 GB). Verified entry saves/ASI/INI/log restored, marker and game lock released; output D:/nioh3-re/bench/pc-default1761-observed records restored=true, complete=false. No benchmark result. Root fixed guard-cleanup callback bypass of finally, 14 actual-code checks pass; ownership-checked manual recovery tool added. Do not relaunch unchanged headroom.
+- Corrected parser and observed prompt tooling are integrated: 13 parser, 32 operator/FG and 29 restoration/ownership checks pass. FO primary fence identity, normal reset waits and earlier primary destructor wait traced; producer closure/resource lifetime still NO-GO. Old kit 225 cancelled.
+- Three isolated bounded workers finish PDB scrub tooling, modeled CBU recreation witness and native CBU generation reachability. Root holds lead-active until writers/checkpoint finish, then releases to the enabled monitor. Next runtime queue is scrubbed private candidate to pc2: default startup and separate PCM2 installation-only smoke. No public edits/uploads, Claude CLI/API invocation or wake toggle.
+
+The sections below are historical checkpoints; this section and the newest STATUS entry define current gates.
+
 ## Current return state - parallel checkpoint
 - Source/builds/docs remain Codex-owned; Claude-PC/pc2/Ally test their own devices. Main/bin stable1.7.61, FO0, exact default INI; all three component smokes PASS, archived metrics audited. Full default-vs-EngineFix-absent benchmark is still absent. No public edits/uploads.
 - Main has the pinned benchmark driver; root adds observed nonce-based file prompts because Claude-PC's shell cannot answer console prompts.29 recovery/ownership plus32 operator/FG checks pass. PC queue1848 updated to USER4launch ABBA/SkipCombat,1849 hold pending tool commit. No blind confirmations, fake combat or full-protocol claim. Parser corrections are isolated and pending review.

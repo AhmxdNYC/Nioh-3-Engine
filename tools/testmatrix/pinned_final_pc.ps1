@@ -68,6 +68,7 @@ if (Test-Path -LiteralPath $OutputDir) { throw 'Output directory already exists;
 $bridgeDir = 'C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge'
 $script:pbLocked = $false; $script:pbState = $null; $script:pbRestoreOk = $false; $script:pbMarker = $null
 $script:pbOperator = $null
+$script:pbSuccess = $false
 function PB-Ask([string]$Stage, [string]$Prompt, $Context) {
     if (-not $FilePrompts) { return (Read-Host $Prompt) }
     $answer = Wait-PBOperatorAnswer $script:pbOperator $Stage $Prompt $Context $OperatorTimeoutSec { Assert-Owner }
@@ -101,6 +102,13 @@ function PB-Recover {
     }
     if ($script:pbState) { Restore-PBState $script:pbState; $script:pbRestoreOk = $true }
     PB-Unlock
+    # harness_guard may call this cleanup then Environment.Exit, bypassing finally.
+    # Mark successful restoration and release our hold here, on that path too.
+    if ($script:pbRestoreOk -or -not $script:pbState) {
+        if ($script:pbRestoreOk) { 'Entry save/ASI/INI/log hashes restored' | Set-Content -LiteralPath (Join-Path $OutputDir 'restored.txt') }
+        if ($script:pbMarker) { Remove-PBMarker $script:pbMarker; $script:pbMarker=$null }
+    }
+    if ($script:pbOperator) { Write-PBOperatorJson (Join-Path $script:pbOperator.directory 'finished.json') @{session=$script:pbOperator.session;restored=$script:pbRestoreOk;complete=$script:pbSuccess;finished=(Get-Date).ToString('o')} }
 }
 function PB-RequireQuit {
     $null = PB-Ask 'quit' 'Quit Nioh3 through its menu; acknowledge only after it exits' @{cell=$cell.id}
@@ -184,12 +192,8 @@ try {
         Restore-PBState $script:pbState
         if (-not $valid) { throw 'Required window invalid; stop instead of reporting a partial benchmark as valid' }
     }
+    $script:pbSuccess=$true
 } finally {
     PB-Recover
-    if ($script:pbRestoreOk) {
-        'Entry save/ASI/INI/log hashes restored' | Set-Content -LiteralPath (Join-Path $OutputDir 'restored.txt')
-        if ($script:pbMarker) { Remove-PBMarker $script:pbMarker }
-    }
-    if ($script:pbOperator) { Write-PBOperatorJson (Join-Path $script:pbOperator.directory 'finished.json') @{session=$script:pbOperator.session;restored=$script:pbRestoreOk;finished=(Get-Date).ToString('o')} }
     if ($global:HG) { Done-Guard }
 }

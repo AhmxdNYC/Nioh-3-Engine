@@ -1,5 +1,19 @@
 # Codex work on Nioh 3
 
+## Current result - 2026-10-11 13:50
+
+The stable 1.7.61 component smokes passed on PC, pc2 and Ally. Measured constant-upload gain is +16.50% +/-0.16% SE on pc2's slow GPU link, with neutral PC/Ally results. The optional preset measures +3.14% +/-0.08% SE on PC and +4.16% +/-0.18% SE on Ally; pc2 is neutral. These are fixed-spot component A/Bs, not a whole-mod improvement.
+
+The combined private 1.7.65 installation safety candidate is built: 37 full harnesses, 255 patterns and the actual artifact check pass. ApplyBatch has 143 repaired production checks; FrozenWrite5 has 207; 11 and 12 pinned pre-fix witnesses reproduce the old hazards. [Draft private PR 1](https://github.com/AhmxdNYC/nioh3-engine/pull/1) remains unmerged pending native smoke. Stable main/bin stays 1.7.61.
+
+The local whole-mod benchmark attempted preparation, then the existing launch guard aborted after 300 seconds at 5.8 GB commit headroom (minimum 6 GB). No game or capture launched and there is no new FPS result. Entry save/ASI/INI/log hashes were restored and verified. The discovered callback cleanup gap is fixed, with 14 checks against its actual code and an ownership-checked recovery tool; the output records restored=true and complete=false.
+
+We have concrete optimization directions, but no complete cost-versus-picture verdict. Existing device profiles put substantial work into volumetric fog/clouds, shadow filtering and post-processing, while upload/descriptor overhead matters on the slow-link device. Pass timings can overlap, so their costs cannot simply be added as expected FPS savings. The older cost-versus-looks table contains predictions and stale-output risks; skipping a producer can also corrupt downstream rendering. The next GPU unit must audit current evidence and measure own-pass cost plus regional visual change before choosing a rewrite. Keep defaults visually identical and make quality changes opt-in. Sources: [Ally pass budget](ally-gpu-budget.md), [cost-versus-looks method and limits](cost-vs-looks.md), [current scoped results](../README.md).
+
+FO stays NO-GO despite new fence/reset/destructor proofs. Three parallel units are working on native CBU generation reachability, a deliberately modeled recreation counterexample, and removal of PDB home paths from a private candidate copy. Renderer export/naming coverage is unchanged. Codex continuation is enabled, with root's temporary ownership hold until those writers and the checkpoint finish; no Claude CLI/API call, wake toggle or public publication.
+
+The sections below are earlier checkpoints; use this section and the newest STATUS entry for current gates.
+
 ## Current result - 2026-10-11 parallel checkpoint
 
 Step1 stable1.7.61 now passes all three device component smokes. The archive audit reproduces pc2 CBMODE +16.50% +/-0.16% SE and Ally XPRE +4.16% +/-0.18% SE; their counterpart tests are neutral. These are fixed-spot feature tests, not a complete default-mod gain. A guarded pinned whole-mod benchmark is implemented;29 restoration/ownership checks and32 observed-operator/FG configuration checks pass. PC execution is queued and held until the non-interactive observed prompt path is committed; no new whole-mod result exists.
