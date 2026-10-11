@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - Private RC72E native arena pilot tooling
+
+Diagnosed shrine-first door fallback in BossRematch1.4.0 and prepared a bounded native334140 request A/B kit.15 lightweight data/isolation/mutation checks PASS; no installed/default/runtime change or instant-rematch acceptance. See notes/handoff-codex-c72e-native-arena.md.
+
 ## 2026-10-11 Codex - FO98 concrete allocator trace
 
 Resolved execute/signal and old-slot reuse targets; ten static provenance checks PASS. Context and graphics-owner fence timeline still unresolved. FO NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-allocator.md.
