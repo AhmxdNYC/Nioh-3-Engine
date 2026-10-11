@@ -1,3 +1,9 @@
+## 2026-10-11 Codex - private EngineFix 1.7.68 / BossRematch 1.4.10 hosted practice candidate
+
+The EngineFix DX12 menu now hosts Boss Rematch / Practice through a versioned, bounded snapshot/action bridge. The addon UI worker owns its model; the renderer performs no synchronous pipe, file or native mission operation. Hosted mode suppresses the separate addon window/input owner, rejects stale actions, prioritizes close and releases the host menu on worker heartbeat/action timeout.
+
+Practice Yamagata is one allowlisted, cleared-current-journey native shrine replay with an owned return. Normal rewards, drops and progression apply; walking, fighting and death/retry remain native player actions. This is an initial practice route, not the requested full training mode or arbitrary enemy sandbox. Warp/spawn overrides and gate injection stay off for this route. Offline builds, pattern/site checks and actual-source menu/bridge/admission/recovery checks pass; no handheld visibility, controller or native practice acceptance claim. See notes/rematch-hosted-menu-implementation.md. Undo: close the hosted menu; restoring the archived Engine 1.7.67/addon 1.4.9 pair restores the prior menu implementation. No deployment performed by this checkpoint.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.9 safety integration
 
 Integrates native-admission quarantine, retained map recovery, standalone return settling, and mission/retry guards for duel verification effects. Only readable proven-solo PlayMode0 permits native operations. Actual-source regressions reproduced cross-mission warp and unsafe unknown-mode admission before the fixes. Private build and required offline checks pass; not deployed or native accepted, and not yet playable training. See notes/training-native-attempt-quarantine.md for exact evidence and remaining limits.
