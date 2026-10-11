@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - Private unified test catalog
+
+Integrated71-entry test inventory, including existing map tours, plus explicit lightweight offline command.5/5 checks PASS in main; native/release/device suites remain plan-only. Private tooling is not copied into the public repo. See tools/testhub/README.md and notes/test-hub-inventory.md.
+
 ## 2026-10-11 Codex - Bound fog shader preflight mode
 
 Added explicit input-binding-only mode;19 pinned inputs/tool files and fresh disassembly identity controls PASS, including the stock BOM comparison. Zero equivalence seeds, GPU tests or measured gains. See notes/handoff-codex-fogpar-bound-validation.md.
