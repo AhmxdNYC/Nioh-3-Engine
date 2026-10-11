@@ -1,5 +1,12 @@
 # Codex work on Nioh 3
 
+## Latest checkpoint - ApplyBatch negative controls and RC1761 reports
+- Production-body audit at main8c45cd0 reproduces nine fail-open inspection paths: each writes both sites and flushes despite failed inspection; cleanup balanced. Seventeen cases, /W4 /WX compile, audit exit0; this is hazard reproduction, not repaired-installer safety. Evidence: notes/handoff-codex-applybatch-failure-audit.md; runner tests/run_applybatch_failure_audit.py.
+- Another writer changed D:/nioh3-wt/codex-install-guard to installguard::Write during this unit. Serial lead stopped source edits and isolated only its own tests on main. No repair merge/build/deployment; ownership clarification pending. Do not edit that worktree concurrently. No Claude call/wake or controller-state modification.
+- Phone1831/1835 report main1.7.61 smoke1768 Ally /1767 pc2 PASS, graceful closure and save/ASI/INI/config hash restoration. Device-reported paired A/Bs recorded in the audit note; archives not independently verified here. Defaults unchanged; animation screenshots are not offline visual-equivalence proof. FO5 kit225/1781 remains HELD/CANCELLED; FO NO-GO.
+- No local game observed at entry/checkpoint; no game/Ghidra/settings/hardware/installed-file changes. Inbox unchanged1831/1835, no user steering. No prior passed suites repeated; the harness rerun only followed new witness assertions.
+- Next independent ready unit: reconcile per-device stock-vs-default whole-mod benchmark recipe/results and archive verification; keep installguard source work with its current writer pending ownership resolution. Player Rematch/co-op/VRR gates remain external.
+
 Updated 2026-10-11. This report separates completed work, measured results, and work still pending.
 
 Takeover-to-now rendering summary and exact coverage census: [codex-rendering-progress-2026-10-11.md](codex-rendering-progress-2026-10-11.md). All54,295 catalogued renderer functions have generated C exports; named core40.2% and broader named bytes20.71% are unchanged. Parallel audits identified patch-installation failure paths and clarified native/Proton lifetime requirements, without new runtime/gain claims. The user resumed device Claudes for testing; Codex retains source ownership. Public mod-source staging is separate and follows the newly committed private publication handoff.

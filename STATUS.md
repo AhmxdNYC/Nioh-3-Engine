@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - ApplyBatch negative controls and RC1761 reports
+- Production-body audit at main8c45cd0 reproduces nine fail-open inspection paths: each writes both sites and flushes despite failed inspection; cleanup balanced. Seventeen cases, /W4 /WX compile, audit exit0; this is hazard reproduction, not repaired-installer safety. Evidence: notes/handoff-codex-applybatch-failure-audit.md; runner tests/run_applybatch_failure_audit.py.
+- Another writer changed D:/nioh3-wt/codex-install-guard to installguard::Write during this unit. Serial lead stopped source edits and isolated only its own tests on main. No repair merge/build/deployment; ownership clarification pending. Do not edit that worktree concurrently. No Claude call/wake or controller-state modification.
+- Phone1831/1835 report main1.7.61 smoke1768 Ally /1767 pc2 PASS, graceful closure and save/ASI/INI/config hash restoration. Device-reported paired A/Bs recorded in the audit note; archives not independently verified here. Defaults unchanged; animation screenshots are not offline visual-equivalence proof. FO5 kit225/1781 remains HELD/CANCELLED; FO NO-GO.
+- No local game observed at entry/checkpoint; no game/Ghidra/settings/hardware/installed-file changes. Inbox unchanged1831/1835, no user steering. No prior passed suites repeated; the harness rerun only followed new witness assertions.
+- Next independent ready unit: reconcile per-device stock-vs-default whole-mod benchmark recipe/results and archive verification; keep installguard source work with its current writer pending ownership resolution. Player Rematch/co-op/VRR gates remain external.
+
 ## UPDATE 2026-10-11 - Codex progress audit and device testing split
 - Renderer census:54,295/54,295 catalogued functions have C exports; named core2,382/5,932=40.2%, broader named bytes20.71%, unchanged from takeover996ee73. Names/exports do not establish semantic completion. Report:notes/codex-rendering-progress-2026-10-11.md.
 - Parallel static audits found ApplyBatch writes after failed thread inspection; allocator Reset success is insufficient lifetime proof. Evidence/next proof:notes/handoff-codex-parallel-safety.md. No source/ASI/game/settings change; no new runtime or performance result. FO remains NO-GO; main1.7.61/FO0 remains the tested baseline.

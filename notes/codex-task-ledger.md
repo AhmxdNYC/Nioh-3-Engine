@@ -1,5 +1,12 @@
 # Codex continuation ledger
 
+## Latest checkpoint - ApplyBatch negative controls and RC1761 reports
+- Production-body audit at main8c45cd0 reproduces nine fail-open inspection paths: each writes both sites and flushes despite failed inspection; cleanup balanced. Seventeen cases, /W4 /WX compile, audit exit0; this is hazard reproduction, not repaired-installer safety. Evidence: notes/handoff-codex-applybatch-failure-audit.md; runner tests/run_applybatch_failure_audit.py.
+- Another writer changed D:/nioh3-wt/codex-install-guard to installguard::Write during this unit. Serial lead stopped source edits and isolated only its own tests on main. No repair merge/build/deployment; ownership clarification pending. Do not edit that worktree concurrently. No Claude call/wake or controller-state modification.
+- Phone1831/1835 report main1.7.61 smoke1768 Ally /1767 pc2 PASS, graceful closure and save/ASI/INI/config hash restoration. Device-reported paired A/Bs recorded in the audit note; archives not independently verified here. Defaults unchanged; animation screenshots are not offline visual-equivalence proof. FO5 kit225/1781 remains HELD/CANCELLED; FO NO-GO.
+- No local game observed at entry/checkpoint; no game/Ghidra/settings/hardware/installed-file changes. Inbox unchanged1831/1835, no user steering. No prior passed suites repeated; the harness rerun only followed new witness assertions.
+- Next independent ready unit: reconcile per-device stock-vs-default whole-mod benchmark recipe/results and archive verification; keep installguard source work with its current writer pending ownership resolution. Player Rematch/co-op/VRR gates remain external.
+
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
 **Ownership update2026-10-11:** the user resumed Claude sessions on PC,pc2,Ally and explicitly asked everyone to benchmark/optimize. Accepted bridge1817/1820/1821 split via1824-1826: Codex owns all source/builds/symbols/STATUS/ledger; each Claude tests only its device and writes notes/claude-*.md. Do not invoke Claude CLI/API or toggle its auto-wake. PC launch waits for Ally shared-account run. Main smoke1767/1768 now claimed; FO5 kit225 explicitly HELD/CANCELLED until a proven replacement. Follow new publication handoff before touching public staging; never copy private handoffs there.
@@ -116,8 +123,8 @@ Compute candidate gate now researched in notes/handoff-codex-compute-cache.md:58
 
 ## Waiting for external results
 
-- Main1.7.61 smoke: pc2 queue1767 and Ally1768, kit223. Latest bounded bridge check through1785: only known user/Codex phone exchanges after1781, no new remote results. Ally watcher is stopped; do not invoke Claude to wake it. One Ally session only.
-- Native pc2 FO5 queue1781, kit225, only AFTER1767PASS. Exact plan branch notes/fo5-pc2-test.md. No emulator delay on pc2. Capture transition stress, soak and four-pair A/Bs, faults/counters, config/save restoration; then HOLD.
+- Main1.7.61 smoke1767/1768 REPORTED PASS via phone1835/1831; both games gracefully closed/restored. Archive verification and stock-vs-default benchmarks remain pending. Ally HOLD; pc2 idle. Do not invoke Claude to wake it.
+- Native pc2 FO5 queue1781/kit225 remains HELD/CANCELLED by1825. Smoke1767 PASS does not authorize this obsolete unsafe build; replacement requires proven repair and fresh release gates.
 - Rematch full validation, co-op/VRR tests: need player involvement where the documented plan requires it. Independent engine work continues while these wait. Never pretend these are complete.
 
 ## Completed; do not repeat without new evidence
