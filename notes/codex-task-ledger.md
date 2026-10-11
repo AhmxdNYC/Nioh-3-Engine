@@ -1,5 +1,15 @@
 # Codex continuation ledger
 
+## Lead transfer - 2026-10-11 16:41 - Fresh Astra handoff
+
+Read `notes/handoff-codex-astra-2026-10-11.md` instead of old task history. User explicitly requests a fresh gpt-6-astra chat. Old local model6.1-sol; successor identity must be verified. No game/Ghidra/writer active; bridge1952/sharedlock free; rootlead-active held during transfer, enabled monitor worker_pid=null.
+
+Full fog bound proof PASS:2400cases/638976writes, zero strict trace/final-state diffs/maxULP0, coverage/holdout137blocks, both output mutations and altered LL rejected, original19hashes unchanged. Manifest scratch/fogpar-bound-full-20261011.json SHA a900ae644883792e7905b7f96f68b7466b039a5ba11d83b00055d71eb5780a08; exec56226 exited0. Finite synthetic scope only; native GPU/images/FPS gates open.
+
+Private candidates stopped/clean/pushed: codex-settings-menu-v4 0870530 (331catalogued/308typed/23manual gaps; final lightPASS; prior C++PASS before finalmetadata => finalHEAD rerun/fullbuild/release/patterns/runtime open), codex/c72e-pilot-harness3a61cb8 (20fixtures and A/Bread-onlyplans PASS; unchanged installedhashes; livecompatibility/titleContinue/firstcontrollable visual gate open). Main production remains stable1.7.61, installedrecordingpair1.7.32/1.4.0 unchanged. Neither candidate merged/deployed.
+
+NEXT: review guarded native334140 C72E pilot after fresh backup/headroom/lock and safe title handling, obtain honest first-controllable/combat evidence and exactrestore; review/menufinalHEAD gates; consume pc2recovery+clock/Allyraw+FG receipts and isolate CPUAABB/GPUfog-lodu A/B. Performance triage note avoids wrong MPC20 cost; FO remainsNO-GO. Preserve user's latest progress, notoldrecordingbackup. NoClaude invocation/wake toggles/public sync.
+
 ## Lead checkpoint - 2026-10-11 - Recording finished, active validation
 - User confirmation received; rootclosed18068 gracefully, watcherphasegame-exited and sharedlockfree. Preserve userprogress: oldrecordingentrybackup was NOT restored. Freshentrybackup required for every next nativepilot. Source/heavyvalidation resumed withrootlead-active held.
 - CPU AABB control compiled/executed PASS after Windowsrunnerquotingfix; sourcehash and falseACK/7toggle results at notes/handoff-codex-cpu-ready-aabb.md. Full input-bound fogpar proof active rootexecsession56226/jobs4; doNOToverlap native game while this heavy proof runs. Waitresultthenheadroom.

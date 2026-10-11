@@ -1,5 +1,26 @@
 # Codex work on Nioh 3
 
+## Current result - 2026-10-11 16:41
+
+The clean transfer document is `notes/handoff-codex-astra-2026-10-11.md`.
+The full fresh fog proof passed2400cases/638976writes with zero strict
+trace/final-resource differences,137/137blocks in coverage/holdout and both
+mutations rejected; unchanged19input/toolhashes. Native GPU/images/FPS remain
+open. Native AABB control also compiled and passed; this is not a game gain.
+
+Menus now have a private source checkpoint with331visible settings,
+308typed controls and23explicit manual gaps. Both real-source C++harnesses
+passed before final metadata/text edits; final-HEAD rerun/fullrelease/live
+controller tests remain. The request-only native-arena pilot has20passing
+fixtures and A/Bread-onlyplans but has not launched the game or confirmed
+instant entry. Both branches are pushed/unmerged; userprogress and installed
+1.7.32/1.4.0 are preserved. No active game/proof/childwriter at transfer.
+
+Stable1.7.61, FO NO-GO and unmergedguardPR1 retained. No new general FPS claim;
+pc2recovery/clock and Allyraw/actualFG receipts still needed. Training remains
+default-off observation groundwork. Fresh gpt-6-astra chat requested by user;
+no Claude/API/wake toggles or public changes.
+
 ## Current result - 2026-10-11 14:22
 
 Three agents completed training-mode research and their results are integrated.

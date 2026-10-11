@@ -1,5 +1,25 @@
 # User-controlled return to Claude - 2026-10-11
 
+## Current return state - 2026-10-11 16:41
+
+User requests a fresh Astra chat. Canonical clean handoff:
+`notes/handoff-codex-astra-2026-10-11.md`. Stable1.7.61 remains tested baseline,
+FO stays NO-GO and guard PR1 unmerged. No game or child writer active, current
+user progression preserved; shared lock free and bridge reviewed through1952.
+
+Full input-bound fog finite interpretation PASS (2400cases/638976writes,
+zero strict output/resource differences, all137blocks in coverage/holdout,
+mutation rejection and unchanged19hashes). No native GPU/image/FPS acceptance.
+AABB native control compiled/PASS; no live performance result.
+
+Both private candidates checkpointed/clean/pushed and unmerged: menus0870530
+(331 visible/308 typed/23manual-only; final lightPASS; final-HEAD C++rerun plus
+release/runtime gates), C72Epilot3a61cb8 (20fixtures and read-only A/BplansPASS;
+live save compatibility and first-controllable visual/combat acceptance open).
+Installed1.7.32/1.4.0 untouched. Training1.4.6 remains default-off observations,
+not playable spawning/stage switching. Rootlead-active protects transfer;
+no Claude invocation or wake toggle. See canonical note for exact resume order.
+
 ## Current return state - 2026-10-11 15:41
 - User priorities: more performance optimization and agents, plus controller/submenus for BOTH independent menus. Three agents checkpointed isolated work; all stopped safely and no tests/builds remain active. Main integrates only fog/CPU prepared proof tools/notes, not unvalidated UI source. See ledger top for exact commits, owners and resumption gates.
 - User is recording installed BossRematch1.4.0 with EngineFix1.7.32, both ASIs rehashed unchanged; game18068/window responding. Guard passed after memory recovered, Steam Play-anyway clicked with explicit user authorization and existing validated helper. External entry backup D:/nioh3-re/save-backups/20261011-153623-user-recording. Watcher17652 renews nioh3 lock as codex-user-recording and releases on exact process exit; no forced termination/input/save rollback. Do not disturb user play or restore earned progress from backup.

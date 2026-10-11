@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 16:41 - Clean handoff to a fresh Astra chat
+- Start at `notes/handoff-codex-astra-2026-10-11.md`: tested outcomes, pending candidates, exact device gates and ordered resume steps. User requested a new gpt-6-astra chat; old locally recorded chat was gpt-6.1-sol.
+- Full fresh input-bound fog proof PASS: 2,400 cases/638,976 writes, max ULP0, zero strict trace/final-resource differences, coverage+holdout137/137 blocks, mutation controls rejected, all19 hashes unchanged. Manifest SHA a900ae644883792e7905b7f96f68b7466b039a5ba11d83b00055d71eb5780a08; exec56226 exited0, no remaining proof processes. Finite interpretation only; native GPU/images/FPS still open.
+- Both source writers stopped, clean candidate branches pushed: settings-menu-v4 0870530 (Engine1.7.67/addon1.4.7;331 visible/308 typed/23 manual-only keys;final light PASS,C++ final-HEAD rerun required); guarded C72E pilot3a61cb8 (20fixtures/A+B DryRun PASS, live save locks/title/first-controllable acceptance open). Neither merged/built/deployed here.
+- No game/Ghidra or child writer running; user progress preserved, never restore old recording-entry backup. Shared lock free, bridge reviewed through1952. pc2 recovery/clock and Ally raw/actual-FG receipts still pending. Rootlead-active held while preparing the successor; monitor enabled/no active worker. Stable1.7.61 retained, FO NO-GO, guard PR1 unmerged; instant rematch/playable training not confirmed.
+
 ## UPDATE 2026-10-11 - Recording finished; native/offline validation resumed
 - User explicitly confirmed recording finished. Game18068 closed gracefully, watcher phasegame-exited/sharedlock released; no user-progress restoration. Rootlead-active stays held for coordinated work, PC/Ally native launches still serialized.
 - AABB source-path control actually compiled/executed PASS after runner cmd quoting/current-directory fix. Reproduces false uninstalled/skipped ACK and7 installed/OFF readbacks; no live-game or FPSclaim. Full bound fogpar proof running root session56226/jobs4; inputbinding-only already passed, full result pending.

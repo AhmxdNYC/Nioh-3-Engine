@@ -1,4 +1,23 @@
-# Fogpar input-binding preflight passed; full proof reserved
+# Fogpar full input-bound finite proof passed
+
+Lead result 2026-10-11 16:41 EDT: full `--jobs 4` run **PASS**, exit 0,
+1,010.679 seconds. Coverage 768 + holdout 1,536 + realistic 64 + heavy 32 =
+**2,400 cases /638,976 writes**, max ULP 0, zero strict trace/resource/final-resource
+differences. Coverage and holdout each hit all137 blocks; realistic lanes130/137.
+Both output-value and removed-store mutation controls were REJECTED (two seeds
+each); truncated/appended/alternate LL rejected, comment-header accepted.
+All19 original input/tool hashes unchanged. Comparator controls cover signed
+zero, represented NaN payload, masks, resource keys and addresses.
+
+Manifest: `scratch/fogpar-bound-full-20261011.json`, SHA256
+`a900ae644883792e7905b7f96f68b7466b039a5ba11d83b00055d71eb5780a08`.
+Scope is **finite synthetic DXIL interpretation**; NaN comparison is bounded by
+Python/interpreter representation. Native GPU, image equality and FPS A/B remain
+unvalidated. No game launch, deployment, shader source change or claimed gain.
+The pinned scenes.py docstring emitted an invalid-escape SyntaxWarning; it did
+not affect the passing proof and the original inputs were not altered.
+
+The preflight history below precedes this completed full run.
 
 Lead follow-up 2026-10-11: added `--preflight-only` to perform hash/snapshot,
 fresh DXC disassembly and identity controls without executing interpretation
