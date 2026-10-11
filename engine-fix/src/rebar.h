@@ -3,9 +3,10 @@
 //
 // Why: the engine keeps a 700 MB UPLOAD ring (every per-draw / per-dispatch constant buffer) and the meshlet scene buffers
 // (instances, LOD root lists, offsets; written by the CPU every frame) in UPLOAD heaps. With Resizable BAR / SAM the driver
-// backs them with VRAM; without it they sit in system RAM and the GPU reads them over PCIe. Measured on pc2 (RX 6650 XT,
-// PCIe 4.0 x8, 1080p HIGH): ReBAR OFF -> ON = GP2 span 32.5 -> 24.0 ms at the same spot (-26 % frame time, ~+35 % fps;
-// bridge #1091). Nothing the mod can do in memory gets close to that, so the mod tells the player once.
+// backs them with VRAM; without it they sit in system RAM and the GPU reads them over PCIe. Measured on pc2 (RX 6650 XT in
+// a slow ~0.8 GB/s chipset slot, 1080p HIGH): ReBAR OFF -> ON = GPU time 32.5 -> 24.0 ms at spawn, 27.2 -> 19.1 ms at a busier
+// spot, but measured fps only +6 % there because the CPU became the limit. Size on a normal x16 PC is unmeasured. It is a
+// BIOS setting the mod cannot change, so the mod tells the player once.
 //
 // Detection (background thread, once, ~40 s after the game first renders): the game's adapter by LUID (engine device,
 // v2.02) or the hardware adapter with the most dedicated VRAM; D3D12 ARCHITECTURE.UMA and OPTIONS16.GPUUploadHeapSupported
