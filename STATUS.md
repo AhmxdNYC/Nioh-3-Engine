@@ -1,6 +1,14 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 15:17 - Training observed generations verified
+- Owned codex-training-pump ce5c7e3 pushed, private add-on1.4.5: default-OFF observed loading and separately readable mission/play-mode/connection tuple generations. Valid raw changes and readable unknown/skipped recovery advance once; unknown retains counters with explicit gaps. No native session/attempt/readiness identity claim.
+- Actual source/production SEH Rd44 checks PASS (/W4 /WX), lifecycle143/startup wiring, existing add-on60 and ALL94 SITES OK including shifted-image simulation PASS. Warning-free isolated release build/diff check PASS. Evidence: notes/handoff-codex-training-generations.md. No deployment/public sync or performance/visual/runtime acceptance claim.
+- Sequential reads/skipped intervals cannot prove coherent native sessions or complete transitions; reactivation may expose aged cached samples. Bounded scalar events/loss and consumer transport remain unfinished; v4 restore mutation gate separate.
+- No local game/PresentMon/Ghidra or restoration needed. Installed/pinned inputs, saves/settings/hardware/controller/holds/Claude and other writers untouched. Checkpoint phone empty, no user steering. Discord neutral result posted via existing notifier. Stable EngineFix1.7.61, FO NO-GO, guard PR1 unmerged retained; external Ally/default-stack/player and pc2 recovery/clock calibration gates remain.
+- NEXT ready independent unit: bounded scalar create/begin/end entry events tagged with copied observation generations and explicit contention/capacity loss on owned ce5c7e3, then query consumer. No unchanged game retry, pinned-build replacement or passed-suite repetition.
+
+
 ## UPDATE 2026-10-11 15:13 - Training loading/session scalars verified
 - Owned codex-training-pump dfc134c pushed, private add-on1.4.4: default-OFF independently valid loading/play-mode/connection raw scalars, per-field unknown/recovery gaps and sampled publication losses. Skips mark new scalar gaps and missionGap on next publication. Single dispatcher/observer-only isolation preserved; no retained native pointers/calls/writes.
 - Actual source/SEH Rd31 checks PASS (/W4 /WX), lifecycle143/startup wiring, existing add-on60 and ALL94 SITES OK including shifted-image simulation PASS. Warning-free isolated release build/diff check PASS. Evidence: notes/handoff-codex-training-session-scalars.md. No deployment/public sync or performance/visual/runtime acceptance claim.
