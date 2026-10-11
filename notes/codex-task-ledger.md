@@ -1,5 +1,11 @@
 # Codex continuation ledger
 
+## Latest checkpoint - 2026-10-11 14:06 - guard1765 archive evidence audited
+- Bridge230 transport hash/ZIP CRC/exact INIs PASS; only INI delta line332 PCM0->2. Both1.7.65 native logs have required installer/CBU/Present evidence; PCM2 memo hook installed switch OFF, zero lookups/hits. No serving or field/default-stack/performance verdict. Evidence: notes/handoff-codex-guard1765-evidence.md; tools/bench/audit_guard1765.py.
+- CSV audit resolves zero-frame FAIL narrowly: PCM0/PCM2 have7937/7943 complete matching-game records plus one incomplete tail each. Reported7939/7945 are physical line counts with header/tail. Finished frames/OSD contradict zero-frame failure; buffering cause not independently proved. Installed ASI identity, graceful exits/restored entry files/saves/lock release remain archived log attestations; binary/full restoration comparisons absent.
+- Stable1.7.61 retained, draft PR1 unmerged, FO NO-GO. No local game/capture/Ghidra/build/deployment; no hardware/settings/controller/hold change or Claude invocation/wake. Other writers/device-pinned files untouched. Phone checkpoint inspected for sender=user steering; no new user item.
+- NEXT independent ready unit: prove or bound native first active CBV layout positive-size dirty-slot invariant. Guard integration decision may now consume audited startup evidence but broader field/player/default-stack gates remain external. Do not replace pinned device builds while queues are active.
+
 ## Latest checkpoint - 2026-10-11 14:04 - GPU candidate provenance
 - Offline artifact audit PASS: lodu changes only #2 (31 other records identical), fogpar only #235 (362 identical); documented full pack hashes/digests reproduced. lodu transport CRC/manifest/retained DXIL match. Evidence: notes/handoff-codex-gpu-candidate-provenance.md; tools/bench/audit_gpu_candidates.py.
 - Flat mesh replacement is still mshlod, while replacement/cull4 contains correct lodu. Do not overwrite flat staging or combine those items. Fogpar pack is correct, but gi/out/vf235_par.ll and standalone ShaderSwap DXIL are absent; archived proofs do not establish a fresh packed-to-proof comparison. No runtime/equivalence/gain claim, no device queue added.

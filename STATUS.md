@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:06 - guard1765 startup archive audited
+- Bridge230 hash/CRC/exact INIs and native1.7.65 installation/frame evidence PASS; PCM0->2 is one line, PCM2 memo serving OFF. Auditor/evidence: tools/bench/audit_guard1765.py; notes/handoff-codex-guard1765-evidence.md.
+- Zero-row live FAIL contradicted by7937/7943 complete game-frame rows and OSD; each CSV has one incomplete tail excluded. Reported7939/7945 counted header/tail. Installed ASI and graceful exit/restoration/lock release remain log attestations; binaries/full restoration hash records absent. No field/visual-equivalence/serving/default-stack/performance verdict.
+- Stable1.7.61, unmerged draft PR1 and FO NO-GO retained. No local game/capture or deployment/settings/hardware/controller/hold/Claude changes; device-pinned files untouched. Checkpoint phone has no new user steering. Next ready: native first active CBV layout positive-size invariant; broader runtime/player gates external.
+
 ## UPDATE 2026-10-11 14:04 - lodu/fogpar staged provenance audited
 - Read-only audit PASS: correct staged pack hashes and target digests; lodu #2 alone changed/31 records unchanged, fogpar #235 alone/362 unchanged. lodu ZIP/manifest/retained DXIL match. See notes/handoff-codex-gpu-candidate-provenance.md and tools/bench/audit_gpu_candidates.py.
 - Flat mesh staging still mshlod; correct lodu is in replacement/cull4. Fogpar proof-input LL and standalone ShaderSwap record absent despite correct file pack. Do not overwrite shared staging or claim a new proof/runtime win. Existing proof logs inspected, no suite repeated; no game/deployment/controller/hold changes.
