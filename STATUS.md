@@ -1,6 +1,10 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 18:17 - User requests shorter device tests
+- Bridge1995 instructs Ally/pc2 to shorten remaining work: single smoke/control gate first, then short settled representative window and one matched A/B pair for provisional triage. Expand repeats only for a justified candidate; no redundant full tours/matrices or unnecessary sleeps. Preserve actual execution/control/clock/restore/headroom checks. Do not restart or force-kill an active capture to shorten it. Early phase/result/blocker receipts required.
+- Ally followup remains one original-fog profiling launch plus offline missing-slice upload. pc2 first AABB installed/off/on proof then short comparison. Short/noisy evidence is inconclusive, not confirmed gain. Receipt1995 sent; device acknowledgement pending. Training agents and root implementation/research continue; earlier checkpoints below remain applicable.
+
 ## UPDATE 2026-10-11 - Training agents active; read-validity fix integrated privately
 - User explicitly requested training agents: training_requests implements native safety prerequisites in isolated training-read-gates; training_contract traces native queue/lifetime evidence. No source collision, live/deploy or Claude/wake action.
 - Candidate settings-menu-v4 2231864 pushed: unknown reads block new native start/return and active warp/duel/gate/spawn actions; invalid observations cannot fabricate queue/load edges or settled entry. Actual-source83 fault checks plus7 source integration assertions PASS; agent also passed existing suites/build. Per-frame gate only: unfamiliar readable mode semantics, latched disarm, late request quarantine and playable training remain unresolved.
