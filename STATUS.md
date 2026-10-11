@@ -2,10 +2,11 @@
 Read the newest UPDATE section only; older handoffs follow below.
 
 ## UPDATE 2026-10-11 14:51 - Fogpar retained proof-input comparison closed
+- New pc2 result1928 reports PRELIMINARY default1761 two-pair shrine gain: A30.12/B45.06FPS, +14.94FPS (+49.6%), SE0.07FPS. Stock launch5 crashed; third pair incomplete. Valid graceful exits/final restoration/lock release reported; archive231 unverified. Major reported gain sent to Discord with limitations. Engine-only/current-shader/slow-link scope; no combat/load/latency/visual/universal verdict.
 - Offline audit PASS: missing inputs found read-only in original allygpu worktree. Packed #235 equals retained par DXIL/ShaderSwap bytes and all3170 normalized LL lines; three mismatched-input controls rejected, comment-header control passes. Evidence: notes/handoff-codex-fogpar-proof-bridge.md; tools/bench/audit_fogpar_proof_bridge.py.
 - Current artifact identity established; archived proof execution lacks input hashes and was not rerun. No fresh equivalence, image-equality or FPS claim. No staging/deployment/build changes; pinned queues preserved. Stable1.7.61, FO NO-GO, guard PR1 unmerged.
-- Final phone inbox empty. No local game/capture/Ghidra/restoration or controller/hold/settings/hardware/Claude changes. Ally1922 reported acceptance/start; measured result and pc2 ACK/result still pending. PC account hold retained.
-- NEXT ready: default-OFF read-only training observer on owned codex-training-pump c297a20, per ledger scope; actionable device evidence first. Runtime/default-stack/player gates remain external; no unchanged PC retry or new shader queue.
+- Final phone old Ally1917/new pc2 result1928; no user steering. No local game/capture/Ghidra/restoration or controller/hold/settings/hardware/Claude changes. Ally1922 reported acceptance/start; measured result pending. PC account hold retained.
+- NEXT ready: audit pc2 archive231 frames/statistics/arm identity/crash/restoration before missing-pair retry decision. Default-OFF observer on owned codex-training-pump c297a20 follows. Runtime/player gates remain external; no unchanged PC retry or new shader queue.
 
 ## UPDATE 2026-10-11 14:46 - Whole-build FPS comparisons prioritized
 - Ally1922 now ACKs single owner/backups and reported six-run ABBAAB start. No measured result yet. Lead1923 permits a separate unmeasured guarded title launch only for final restored-save sync; entry restoration and sync checks precede account release. PC remains held.

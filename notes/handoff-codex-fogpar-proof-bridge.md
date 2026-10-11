@@ -28,13 +28,25 @@ No fresh equivalence, shader-execution, image-equality or performance verdict.
 Main's missing standalone/LL files remain missing; the audit deliberately
 does not restore staging while device queues are outstanding.
 
-Final phone inbox empty; no sender=user steering. No local Nioh3/PresentMon/
+Final phone checkpoint contains old Ally1917 and new pc2 result1928; no
+sender=user steering. No local Nioh3/PresentMon/
 Ghidra process observed, hence no local test/restoration to finish. The temporary
 extraction was cleaned by TemporaryDirectory. Existing shaders, pinned builds,
 other writers/worktrees, saves/settings/hardware/controller/holds unchanged.
 No Claude invocation or auto-wake. Stable1.7.61, FO NO-GO and guard PR1 unmerged.
 
-Next independent unit: default-OFF read-only training observer on owned
-`codex-training-pump` c297a20, following its ledger prerequisites. Consume
-fresh actionable device evidence first. Whole-default A/B and runtime/player
-acceptance remain external; no new shader device queue during baseline testing.
+New pc2 result1928 reports preliminary default1761 engine-only comparison:
+two valid adjacent pairs, A30.12/B45.06 FPS, +14.94 FPS (+49.6%), SE0.07 FPS;
+PresentMon CPU present intervals at a standing shrine, current shaders held
+constant. Stock launch5 crashed at startup, stopping the third pair. Valid
+launches reportedly closed gracefully; crashed PID needed termination after
+fatal driver error. Entry hash restoration and lock release reported, archive
+bridge231 not yet independently audited. No combat/load/latency/visual claim
+or universal gain; slow-link pc2 scope applies. Do not approve an unchanged
+crash retry before auditing the evidence and recovery.
+
+Next independent unit: audit bridge231 raw frame windows, paired statistics,
+arm identity and recovery/restoration evidence; then decide missing-pair retry.
+Default-OFF observer on owned `codex-training-pump` c297a20 remains another
+ready unit. Ally/default-stack/runtime/player acceptance gates remain external;
+no new shader device queue during baseline testing.
