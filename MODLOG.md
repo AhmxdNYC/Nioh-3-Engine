@@ -934,3 +934,6 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 ## 2026-10-11 - Codex step 2 fo10 PC NO-GO (experimental branch only)
 - Offline 255 sites / 36 harnesses PASS, but PC fixed arm hangs after 19 combined transitions on the 20th stock apply. Unsafe control confirms off-main cache frame-end writer and faults at FO frame68. No measured FPS A/B; no FO5 queue or main merge.
 - Main stays 1.7.61. Saves unchanged / ASI / INI / config restored and verified; game closed. codex-fo10 cb2b970 pushed, evidence bridge224, Discord result sent. See notes/handoff-codex-step2.md.
+
+## 2026-10-11 - Experimental fo11 PC follow-up (main unchanged)
+- codex-fo10 ddabf46 / ASI1.7.63-fo11 fixes reproduced async release starvation and passes 20 combined transitions + three test14 cycles; full release checks and final flush regression PASS. 8ms emulator ABBA3 +11.74% +/-1.54% SE (60.9->68.1), not native performance. Saves/user files restored; shutdown-only watchdog retained. Conditional pc2 FO5 queue1781 / kit225 follows main smoke1767. No FO merge/release; main remains1.7.61, FrameOverlapoff. See notes/handoff-codex-step2b.md.

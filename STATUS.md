@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 00:32 New York - Codex fo11 PC PASS; native pc2 FO5 queued
+- User asked to continue past the initial NO-GO. Experimental codex-fo10 ddabf46 (code1a84a3a), ASI1.7.63-fo11, fixes async EfxLag2->1 release starvation by merging into the current staged pair; synchronous/flush uses pending, B38-only calls leave BA8 alone. Old model retains31 contexts; new at most3 after /4 before consume, exactly-once/GPU ordering including empty staged pair + flush. 255 patterns and full release PASS, zero errors/3 known warnings; final flush regression ALL PASSED.
+- PC same stage7292 / 8ms game-side lag / CBMODE6: 20 combined applies + three test14 cycles PASS, 47 ACKs /44 advancing dwells /6299 frames. No runtime replay fault/hang/watchdog; last counters1675 off-main, 761 due=written, pending0/full0. ABBA3 FO0/1 with Fo9=1: +11.74% +/-1.54% SE (60.9->68.1), frame delta-1.732 +/-0.255ms; sampled GPU delta neutral. Emulator result only, not native PC/pc2 claim. Screenshots within sampled A/A variation, no obvious corruption; not universal picture proof.
+- Game exited naturally after graceful close; eight saves unchanged, ASI/INI/config independently hash-verified, lock released. One shutdown-only watchdog after Tour DONE/renderer teardown (ring cap0, stream0, TAIL complete, main KtglCacheShutdown thread join) retained in evidence. Optional summarize_tour failed PM alignment; primary fastab report succeeded.
+- Test kit225 sha9687120d; pc2 FO5 queue1781 CONDITIONAL on RC1761 smoke1767 PASS; does not cancel Ally smoke1768. Remote results still pending. Discord result card sent; experimental branch pushed. Main remains1.7.61 / FO off, no RC until both main smokes pass, no FO merge/release. No Claude calls or auto-wake.
+- Read notes/handoff-codex-step2b.md. Native pc2 validation and queue-full/bounds/fail-closed audits remain before FO shipping; ordered next renderer candidates remain in the original brief.
+
 ## UPDATE 2026-10-11 00:03 New York - Codex step 2 fo10 NO-GO; main 1.7.61 remains
 - User resumed after step 1. Isolated codex-fo10 branch cb2b970 (D:/nioh3-wt/codex-fo10), experimental ASI 1.7.62-fo10; original fo-efxlag worktree untouched. Offline 255 sites + all 36 harnesses PASS, 0 errors / 3 known warnings.
 - PC unsafe control confirms off-main cache frame end 12682C and faults at FO frame 68. Fixed arm acknowledges 19 combined applies, then hangs on 20th return to stock: 1060 FO / 654 stock frames, TAIL complete, replay ring empty, main waiting copy-context pool. Exact cause unproven. FO_Test14 / measured A/B never reached; NO FPS claim. No FO5 build/queue and no FO merge into main.
