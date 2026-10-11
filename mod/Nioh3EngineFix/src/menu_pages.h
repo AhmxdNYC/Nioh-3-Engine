@@ -9,7 +9,8 @@ enum MenuPage { pRoot, pSettings, pDisplay, pFrameGen, pGameplay, pSafe, pExtra,
 constexpr int kPageRow = kCount;
 constexpr int kBackRow = kPageRow + pCount;
 constexpr int kSettingRow = kBackRow + 1;
-constexpr int kMenuRowCap = kCount + pCount + kConfigN + 2;
+constexpr int kRematchRow = kSettingRow + kConfigN;
+constexpr int kMenuRowCap = kCount + pCount + kConfigN + 3;
 const char* const kPageNames[] = {"Mod menu", "Settings", "Display & overlay", "Frame generation", "Gameplay",
     "Performance fixes", "Extra performance (changes the look)", "Experimental settings", "CPU experiments",
     "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section"};

@@ -1,4 +1,6 @@
-// ui.cpp - the add-on's own small overlay menu: a topmost layered GDI window over the game window (no graphics hook, so a game
+// ui.cpp - single UI worker, hosted through EngineFix's DX12 overlay when available.
+// Hosted mode publishes snapshots/actions and relinquishes pad ownership; no Ui* method runs on Present.
+// Standalone fallback: a topmost layered GDI window over the game window (no graphics hook, so a game
 // patch cannot break it and it never meets the perf ASI's Present hooks), input from the game's own XInputGetState (IAT slot
 // swapped; the previous pointer is always called, so the Steam overlay / the perf ASI's menu stay in the chain) and the keyboard.
 //   open / close: [Menu] Hotkey (default F7) or hold View + D-pad Up for 1 s ([Menu] PadGesture = 1)
@@ -6,6 +8,7 @@
 // [Menu] Overlay = 0 disables the window and the input hook (pipe / log only).
 #include "addon.h"
 #include "ui_input.h"
+#include "../../rematch_menu_bridge.h"
 
 #include <xinput.h>
 
@@ -19,6 +22,7 @@ namespace ui {
 namespace {
 
 std::atomic<bool> g_open{false};
+std::atomic<bool> g_hostRequested{false};
 HWND g_wnd = nullptr, g_game = nullptr;
 UINT g_hotkey = VK_F7;
 bool g_gesture = true;
@@ -33,6 +37,7 @@ std::atomic<unsigned> g_latchEpoch{0};
 
 DWORD WINAPI HkGetState(DWORD user, XINPUT_STATE* st) {
     const DWORD r = g_prevGet ? g_prevGet(user, st) : ERROR_DEVICE_NOT_CONNECTED;
+    if (g_hostRequested.load()) return r; // preserve chain; the EngineFix host owns input
     if (user >= 4) return r;
     if (r != ERROR_SUCCESS || !st) {
         int expected = (int)user;
@@ -214,6 +219,8 @@ void Toggle(bool open) {
     Log("Menu %s", open ? "opened" : "closed");
 }
 
+#include "menu_bridge_impl.h"
+
 DWORD WINAPI UiThread(void*) {
     WNDCLASSEXW wc = {sizeof(wc)};
     wc.lpfnWndProc = WndProc;
@@ -225,12 +232,14 @@ DWORD WINAPI UiThread(void*) {
                             0, 100, 100, nullptr, nullptr, wc.hInstance, nullptr);
     if (!g_wnd) {
         Log("Menu: overlay window could not be created (%lu) - pipe / log only", GetLastError());
-        return 0;
+        g_hostRequested.store(true);
+        return HostedThread(nullptr); // still allow a later compatible in-game host
     }
     SetLayeredWindowAttributes(g_wnd, kKey, 235, LWA_COLORKEY | LWA_ALPHA);
     g_font = CreateFontW(-18, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, FIXED_PITCH, L"Consolas");
     bool shown = false;
     for (;;) {
+        if (g_hostRequested.load()) { HostedTick(); Sleep(33); continue; }
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
@@ -304,12 +313,25 @@ bool Start() {
         return false;
     }
     rematch::UiSettingsPrepare();
+    // Both ASIs are normally loaded before their workers run. With the DX12
+    // host present, never create a second window or install a second pad hook.
+    const HMODULE engine = GetModuleHandleW(L"Nioh3EngineFix.asi");
+    const auto hostVersion = engine ? reinterpret_cast<uint32_t (*)()>(GetProcAddress(engine, "Nioh3EngineMenuHostVersion")) : nullptr;
+    if (hostVersion && hostVersion() == rematch_menu_bridge::kVersion) {
+        g_hostRequested.store(true);
+        if (HANDLE th = CreateThread(nullptr, 0, HostedThread, nullptr, 0, nullptr)) {
+            CloseHandle(th); g_bridgeAvailable.store(true);
+            Log("Menu: awaiting EngineFix in-game host; standalone window/pad hook skipped");
+            return true;
+        }
+        Log("Menu: hosted UI worker unavailable"); return false;
+    }
     wchar_t hk[16] = {};
     GetPrivateProfileStringW(L"Menu", L"Hotkey", L"F7", hk, 16, IniPath());
     g_hotkey = VkFromName(hk);
     g_gesture = IniInt(L"Menu", L"PadGesture", 1) != 0;
     const bool pad = HookPad();
-    if (HANDLE th = CreateThread(nullptr, 0, UiThread, nullptr, 0, nullptr)) CloseHandle(th);
+    if (HANDLE th = CreateThread(nullptr, 0, UiThread, nullptr, 0, nullptr)) { CloseHandle(th); g_bridgeAvailable.store(true); }
     Log("Menu: overlay on (%ls%s; pad %s)", hk, g_gesture ? " or hold View + D-pad Up 1 s" : "",
         pad ? "via the game's XInputGetState (masked while the menu is open)" : "NOT hooked (no xinput import) - keyboard only");
     return true;
@@ -317,3 +339,11 @@ bool Start() {
 
 }  // namespace ui
 }  // namespace addon
+
+extern "C" __declspec(dllexport) int Nioh3RematchMenuGetApi(uint32_t version, uint32_t bytes, rematch_menu_bridge::Api* out) {
+    namespace mb = rematch_menu_bridge;
+    if (!out || version != mb::kVersion || bytes != sizeof(*out)) return mb::BadVersion;
+    *out = {sizeof(*out), mb::kVersion, mb::kRequiredCapabilities, 0,
+        &addon::ui::BridgeAttach, &addon::ui::BridgeDetach, &addon::ui::BridgePost, &addon::ui::BridgeSnapshot};
+    return mb::Accepted;
+}

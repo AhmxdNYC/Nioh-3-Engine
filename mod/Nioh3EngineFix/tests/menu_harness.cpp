@@ -40,6 +40,20 @@ int MatchPreset() { return 0; }
 }
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
+namespace host_fixture {
+namespace mb = rematch_menu_bridge;
+mb::Snapshot view{};
+uint32_t posted = 999;
+bool closeBusy = false;
+int Attach(uint64_t, uint64_t*) { return mb::Accepted; }
+int Detach(uint64_t) { return mb::Accepted; }
+int Post(uint64_t, uint64_t, uint32_t action) {
+    if (closeBusy && action == mb::CloseMenu) return mb::Busy;
+    posted = action; return mb::Accepted;
+}
+int Copy(uint64_t, mb::Snapshot* out, uint32_t) { *out = view; return mb::Accepted; }
+void Complete(bool open) { ++view.generation; view.flags = mb::HostedReady | (open ? mb::Open : 0u); view.workerTickMs=GetTickCount64(); }
+}
 int main() {
     using namespace menu;
     g_cfg.holdMask = 0;
@@ -164,6 +178,36 @@ int main() {
     int writes = 0;
     g_configValues.Save(kConfigSettings, [&](const wchar_t*, const wchar_t*, const std::wstring&) { ++writes; });
     CHECK(writes == 2);  // only explicitly edited, controller-supported rows
+    // Actual host page routing: worker acknowledgement, Back priority, close
+    // retry, and no fallthrough into a performance setting or native command.
+    namespace hf = host_fixture;
+    hf::view.size=sizeof(hf::view); hf::view.version=rmb::kVersion;
+    hf::view.session=7; hf::view.generation=1; hf::view.flags=rmb::HostedReady;
+    hf::view.workerTickMs=Now();
+    g_rematchApi={sizeof(rmb::Api),rmb::kVersion,rmb::kRequiredCapabilities,0,hf::Attach,hf::Detach,hf::Post,hf::Copy};
+    g_rematchSession=7;
+    Open("host fixture");
+    n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
+    CHECK(found);
+    Change(kRematchRow,0);
+    CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenMenu);
+    hf::Complete(true); g_pressed=0; OnPresentImpl();
+    CHECK(g_rematchOpened && !g_rematchAwait);
+    g_pressed=N_BACK|N_OK; OnPresentImpl();
+    CHECK(hf::posted==rmb::Back && g_rematchAwait);
+    hf::Complete(false); g_pressed=0; OnPresentImpl();
+    CHECK(!g_rematchPage && g_open); // addon root Back returns to the host root
+    Change(kRematchRow,0); hf::Complete(true); OnPresentImpl();
+    g_pressed=N_OK; OnPresentImpl(); CHECK(hf::posted==rmb::Accept);
+    hf::Complete(false); hf::closeBusy=true; OnPresentImpl();
+    CHECK(!g_open && !g_rematchPage && g_rematchClosePending);
+    hf::closeBusy=false; OnPresentImpl(); CHECK(!g_rematchClosePending && hf::posted==rmb::CloseMenu);
+    Open("frozen worker"); Change(kRematchRow,0); hf::Complete(true); OnPresentImpl();
+    hf::view.workerTickMs=Now()-2000; OnPresentImpl(); CHECK(!g_open && !g_rematchPage);
+    hf::Complete(false); Open("pending timeout"); Change(kRematchRow,0);
+    g_rematchAwaitAt=Now()-2000; OnPresentImpl(); CHECK(!g_open && !g_rematchPage);
+    hf::Complete(false); hf::view.workerTickMs=Now()+5000; CHECK(!RefreshRematchHost(Now()));
+    g_rematchSession=0;
     puts("ALL PASSED: real settings pages, legacy order, back priority, paging, keys and pad isolation");
     return 0;
 }

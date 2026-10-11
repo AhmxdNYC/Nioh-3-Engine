@@ -23,6 +23,7 @@
 #include <xinput.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstdarg>
@@ -38,9 +39,11 @@
 #include "../../settings/store.h"
 #include "../../menu_navigation.h"
 #include "osd.h"
+#include "../../rematch_menu_bridge.h"
 
 namespace menu {
 namespace {
+#include "menu_rematch_host.h"
 
 using LogFn = void (*)(const char*, ...);
 LogFn g_log = nullptr;
@@ -1018,10 +1021,14 @@ int PageRows(int* out, bool selectable) {
     if (!g_cfg.layout) {
         for (const auto& row : kOrder)
             if (Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+        if (g_rematchSession.load()) add(kRematchRow);
         return n;
     }
     const int page = g_pages.page;
-    if (page == pRoot) add(kPageRow + pSettings);
+    if (page == pRoot) {
+        add(kPageRow + pSettings);
+        if (g_rematchSession.load()) add(kRematchRow);
+    }
     else if (page == pSettings) {
         for (int p : {pDisplay, pFrameGen, pGameplay, pSafe, pExtra, pExperimental, pDiagnostics, pBoot, pAll, pConfig}) {
             bool visible = p == pExperimental || p == pAll || p == pConfig;
@@ -1442,6 +1449,7 @@ void Open(const char* how) {
 }
 
 void Close(const char* how) {
+    CloseRematchHostPage();
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedOr(&g_keyLatch, (LONG)K_NAV);
     InterlockedExchange(&g_open, 0);
@@ -1648,6 +1656,13 @@ void ChangeConfig(int index, int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
+    if (id == kRematchRow) {
+        if (dir == 0 && RefreshRematchHost(Now()) && PostRematchAction(rmb::OpenMenu)) {
+            g_rematchPage = true; g_rematchOpened = false;
+            for (auto& repeat : g_rep) repeat = 0;
+        }
+        return;
+    }
     if (id >= kSettingRow) { ChangeConfig(id - kSettingRow, dir); return; }
     if (id >= kCount) {
         if (dir != 0) return;
@@ -2127,6 +2142,8 @@ void PauseDetect(ULONGLONG t) {
 
 void OnPresentImpl() {
     const ULONGLONG t = Now();
+    g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present
+    const bool rematchReady = RefreshRematchHost(t);
     g_lastPresent = (LONG64)t;
     OwnPolling(t);
     SampleRates(t);
@@ -2143,6 +2160,33 @@ void OnPresentImpl() {
         return;
     }
     const uint32_t pressed = (uint32_t)InterlockedExchange(&g_pressed, 0);
+    if (g_rematchPage) {
+        if (!rematchReady) {
+            Close("rematch worker stale/unavailable");
+            return; // fail closed; ordinary neutral-release latches still apply
+        }
+        if (g_rematchOpened && !(g_rematchView.flags & rmb::Open) && !g_rematchAwait) {
+            const bool back = g_rematchLastAction == rmb::Back;
+            CloseRematchHostPage();
+            if (!back) Close("rematch action");
+            return;
+        }
+        if (g_rematchAwait || !(g_rematchView.flags & rmb::Open)) {
+            if (pressed & N_BACK) CloseRematchHostPage();
+            return;
+        }
+        // One normalized edge per frame; Back wins, then paging/navigation.
+        // The addon worker rechecks the displayed generation before dispatch.
+        if (pressed & N_BACK) PostRematchAction(rmb::Back);
+        else if (pressed & N_PAGEUP) PostRematchAction(rmb::PageUp);
+        else if (pressed & N_PAGEDOWN) PostRematchAction(rmb::PageDown);
+        else if (pressed & N_UP) PostRematchAction(rmb::Up);
+        else if (pressed & N_DOWN) PostRematchAction(rmb::Down);
+        else if (pressed & N_LEFT) PostRematchAction(rmb::Left);
+        else if (pressed & N_RIGHT) PostRematchAction(rmb::Right);
+        else if (pressed & N_OK) PostRematchAction(rmb::Accept);
+        return;
+    }
     // Back owns a mixed input frame: cancelling a confirmation/page must never
     // activate the row being left, even if A arrives in the same Present.
     if (pressed & N_BACK) {
@@ -2227,6 +2271,36 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     return sc;
 }
 
+float DrawRematchHost(unsigned W, unsigned H) {
+    const float scale = std::max(0.5f, std::min(AutoScale(H), ((float)W - 32.f) / (112.f * osd::kGlyphW + 16.f)));
+    const float line = (osd::kGlyphH + 3.f) * scale, pad = 8.f * scale;
+    const float width = std::min((float)W - 16.f, (112.f * osd::kGlyphW + 16.f) * scale);
+    const float x = ((float)W - width) * 0.5f, y0 = 12.f;
+    osd::DrawRect(x, y0, width, std::min((float)H - 24.f, line * 32.f + pad * 2.f), cPanel);
+    float y = y0 + pad;
+    auto text = [&](const char* value, uint32_t color) {
+        while (*value) {
+            size_t n = std::min(strlen(value), (size_t)111);
+            if (value[n] && n > 1) { size_t space = n; while (space && value[space] != ' ') --space; if (space) n = space; }
+            char part[112]{}; memcpy(part, value, n);
+            osd::DrawText(x + pad, y, part, color, scale); y += line;
+            value += n; while (*value == ' ') ++value;
+        }
+    };
+    if (!g_rematchFreshAt || Now() - g_rematchFreshAt >= 1500 || !(g_rematchView.flags & rmb::Open)) {
+        text("Boss Rematch / Practice: waiting for the menu worker. B: back.", cWhite);
+        return scale;
+    }
+    for (uint32_t i = 0; i < g_rematchView.rowCount; ++i) {
+        const auto& row = g_rematchView.rows[i];
+        text(row.text, row.color | 0xFF000000u);
+    }
+    y += line * 0.5f;
+    text(g_rematchView.footer, cGray);
+    if (g_rematchView.toast[0]) { y += line * 0.5f; text(g_rematchView.toast, g_rematchView.toastColor | 0xFF000000u); }
+    return scale;
+}
+
 float DrawImpl(unsigned W, unsigned H) {
     const ULONGLONG t = Now();
     // hold progress of the controller gesture (opening: corner note; closing: menu footer). All quads of this module
@@ -2246,6 +2320,7 @@ float DrawImpl(unsigned W, unsigned H) {
         return 0;
     }
 
+    if (g_rematchPage) return DrawRematchHost(W, H);
     // ---- the menu panel: title, a scrolling body (section headers + items in kOrder), then the explanation of the selected
     // row, the diagnostics lines and the footer. Rows are filled by put(); kValueCol keeps the values in one column.
     Row head;
@@ -2275,6 +2350,11 @@ float DrawImpl(unsigned W, unsigned H) {
     const int pageN = PageRows(pageRows, false);
     for (int oi = 0; oi < pageN; ++oi) {
         const int id = pageRows[oi];
+        if (id == kRematchRow) {
+            if (id == g_sel) selRow = nb;
+            put(body, nb, 128, id == g_sel ? "> Boss Rematch / Practice" : "  Boss Rematch / Practice", "", "A: open", cWhite, cCyan, id == g_sel, false);
+            continue;
+        }
         if (id >= kSettingRow) {
             const int index = id - kSettingRow;
             const auto& d = kConfigSettings[index];
@@ -2329,7 +2409,10 @@ float DrawImpl(unsigned W, unsigned H) {
     char what[200], effect[200];
     snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? "Settings keep their current values when you change pages." : kItems[g_sel].effect);
-    if (g_sel >= kSettingRow) {
+    if (g_sel == kRematchRow) {
+        snprintf(what, sizeof(what), "Boss rematches and native Yamagata practice, inside this overlay.");
+        snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
+    } else if (g_sel >= kSettingRow) {
         const int index = g_sel - kSettingRow;
         const auto& d = kConfigSettings[index];
         snprintf(what, sizeof(what), "[%s] %s: %s", d.section, d.key, d.help);
@@ -2583,6 +2666,7 @@ void Configure(const Host& h) {
     const wchar_t* f = g_ini.c_str();
     g_configValues.Load(kConfigSettings, f);
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
+    if (g_cfg.enabled) StartRematchHostResolver();
     g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 1, f) != 0;
     wchar_t b[96] = {};
     GetPrivateProfileStringW(L"Menu", L"Key", L"F10", b, 96, f);
@@ -2781,3 +2865,8 @@ bool SwallowMessage(const tagMSG* m) {
 }
 
 }  // namespace menu
+
+extern "C" __declspec(dllexport) uint32_t Nioh3EngineMenuHostVersion() {
+    const uint64_t tick = menu::g_rematchRendererTick.load();
+    return menu::Enabled() && tick && GetTickCount64() - tick < 1500 ? rematch_menu_bridge::kVersion : 0u;
+}

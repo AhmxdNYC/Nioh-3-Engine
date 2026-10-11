@@ -9,6 +9,8 @@
 //     menu is open (plus until the buttons are released after closing).
 //   * the Present hook thread (osd.cpp, under the osd lock) runs OnPresent() + Draw(): all menu state changes and
 //     every runtime switch write happen there.
+//   * the optional boss/practice page posts bounded actions and copies snapshots;
+//     its addon UI model and native request handling stay on their existing workers.
 // Fail-safe: any exception in a hook disables the menu (the hooks keep passing through), and the input hooks
 // stop blanking by themselves when the overlay has not presented for 1.5 s.
 // See notes\osd-design.md section 10.

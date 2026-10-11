@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.9"
+#define ADDON_VERSION "1.4.10"
 
 namespace addon {
 
@@ -114,7 +114,7 @@ bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live
 void SetPumpLive(bool installed);  // Init publishes pump installation outcome
 void Pump();  // shared dispatcher callback; no work until successfully prepared + live
 bool Live();
-// ui side (any thread; snapshots / atomics only)
+// UI model: one UI worker only. The in-game renderer uses the snapshot/action ABI.
 struct UiRow {
     char text[112];
     uint32_t color;
