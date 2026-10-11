@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.8 recovery candidate
+
+Failed spawn restoration now retains its record and blocks new replay/mission/scroll admission. Partial transform/flags restoration can retry independently and must read back the originals before clearing ownership. Apply records recovery before either write. Observed foreign data or replacement latches a refusal; automatic reload/reapply is deliberately suspended until native lifetime identity is proven. Actual-source fault checks and existing rematch/lifecycle checks pass; private only, not deployed or live accepted.
+
 ## 2026-10-11 Codex - private grouped settings candidate (EngineFix 1.7.67 / BossRematch 1.4.7)
 
 Grouped controller pages retain original setting/action IDs, flat order, keys, Remote behavior and native v4 routes. A per-key catalog shows every shipped ini option; reviewed numeric/choice controls edit explicit preferences, with startup/live/requested distinctions and ini-only gaps. Addon settings remain available with Rematch disabled; Training Observe stays default OFF and reserved mutation is unavailable. Gate-only shrine fallback is labelled honestly. No DLL build, deployment, native acceptance or performance/direct-arena claim. Actual-source offline menu harnesses passed before final metadata/version edits; final catalog/default/source and menu-map checks passed. Undo: leave startup preferences unchanged; Engine Menu Layout=0 restores original traversal. Evidence/gates: notes/settings-menu-v4-candidate.md.

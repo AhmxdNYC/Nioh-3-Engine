@@ -364,7 +364,7 @@ uint64_t CallWpFind(uint32_t id) {  // WarpPointFind 137DCC: a pure lookup in th
     }
 }
 struct Spawn {
-    int st = 0;            // 0 off, 1 wanted (record not patched yet), 2 applied
+    int st = 0;            // 0 off, 1 wanted, 2 applied, 3 recovery pending, 4 conflict latched
     uint64_t rec = 0;      // the patched warp-point record
     uint32_t point = 0;    // its id = the Fight now start point
     float orig[4] = {}, mine[4] = {};
@@ -376,20 +376,32 @@ struct Spawn {
 } g_sp;
 void SpawnLast(const char* v) { strncpy_s(g_sp.last, v, _TRUNCATE); }
 bool SpawnWrite(uint64_t rec, const float* xyzw, uint32_t flags) { return WrBytes(rec + 0x40, xyzw, 16) && WrBytes(rec + 8, &flags, 4); }
-// game thread: patch the record (again if the game reloaded / rewrote it)
+bool SpawnRestore(const char* why);
+// Game thread: apply once; ambiguous reload/rewrite retains recovery ownership.
 void SpawnApply(const Row& r, const char* when) {
+    if (g_sp.st >= 3) return;
     const uint64_t rec = CallWpFind(g_sp.point);
-    if (!rec) return;  // the point set is not loaded (yet): retried every tick
+    if (!rec) {
+        if (g_sp.st == 2) g_sp.st = 3;
+        return;  // lookup failure cannot discard an existing recovery record
+    }
     uint32_t id = 0, flags = 0;
     float cur[4] = {};
     if (!Rd(rec, id) || id != g_sp.point || !Rd(rec + 8, flags) || !Copy(cur, rec + 0x40, 16)) {
-        g_sp.st = 0;
+        g_sp.st = g_sp.st == 2 ? 3 : 0;
         SpawnLast("failed");
         Log("Rematch: F %s: spawn override NOT applied - warp-point record %u at %016llX is not readable as expected (id %u)", r.id, g_sp.point,
             (unsigned long long)rec, id);
         return;
     }
     if (rec == g_sp.rec && g_sp.st == 2 && !memcmp(cur, g_sp.mine, 16) && flags == g_sp.mineFlags) return;  // still ours
+    if (g_sp.st == 2) {
+        // Reload/rewrite does not prove the old object's lifetime. Retain its
+        // recovery record rather than adopting game-owned bytes as originals.
+        g_sp.st = 4;
+        SpawnLast("recovery");
+        return;
+    }
     if (g_sp.st != 2) {  // first time: the record must be the catalogue's start point (catalogue warp_x.. = the shipped +40h)
         if (!rcore::SpawnRecordMatches(r, cur)) {
             g_sp.st = 0;
@@ -404,9 +416,12 @@ void SpawnApply(const Row& r, const char* when) {
     g_sp.origFlags = flags;
     memcpy(g_sp.mine, r.arena, 16);
     g_sp.mineFlags = rcore::SpawnFlags(flags);  // no arrival-camera preset (it is aimed for the start point); the camera follows the player
-    if (!SpawnWrite(rec, g_sp.mine, g_sp.mineFlags)) {
-        WrBytes(rec + 0x40, g_sp.orig, 16);
-        g_sp.st = 0;
+    g_sp.rec = rec;
+    g_sp.st = 3;  // retain recovery BEFORE either write, including partial failure
+    if (!SpawnWrite(rec, g_sp.mine, g_sp.mineFlags) || CallWpFind(g_sp.point) != rec ||
+        !Rd(rec, id) || id != g_sp.point || !Copy(cur, rec + 0x40, 16) ||
+        !Rd(rec + 8, flags) || memcmp(cur, g_sp.mine, 16) || flags != g_sp.mineFlags) {
+        SpawnRestore("apply failed");
         SpawnLast("failed");
         Log("Rematch: F %s: spawn override NOT applied - record %u not writable (warp fallback)", r.id, g_sp.point);
         return;
@@ -418,21 +433,32 @@ void SpawnApply(const Row& r, const char* when) {
         r.id, g_sp.reapplied ? "RE-applied (the game rewrote the record)" : "applied", when, g_sp.point, (unsigned long long)rec, g_sp.orig[0], g_sp.orig[1],
         g_sp.orig[2], g_sp.orig[3], g_sp.origFlags, g_sp.mine[0], g_sp.mine[1], g_sp.mine[2], g_sp.mine[3], g_sp.mineFlags);
 }
-void SpawnRestore(const char* why) {
-    if (g_sp.st == 2) {
+bool SpawnRestore(const char* why) {
+    if (g_sp.st == 4) return false;
+    if (g_sp.st >= 2) {
+        g_sp.st = 3;
+        g_sp.landCheck = false;
         float cur[4] = {};
-        uint32_t flags = 0;
-        const bool rd = CallWpFind(g_sp.point) == g_sp.rec && Copy(cur, g_sp.rec + 0x40, 16) && Rd(g_sp.rec + 8, flags);
-        if (rd && !memcmp(cur, g_sp.mine, 16) && flags == g_sp.mineFlags) {
-            const bool ok = SpawnWrite(g_sp.rec, g_sp.orig, g_sp.origFlags);
-            Log("Rematch: spawn override restored (%s): record %u spawn %.0f %.0f %.0f yaw %.0f flags %X%s", why, g_sp.point, g_sp.orig[0], g_sp.orig[1],
-                g_sp.orig[2], g_sp.orig[3], g_sp.origFlags, ok ? "" : " - WRITE FAILED");
-        } else
-            Log("Rematch: spawn override (%s): record %u is no longer ours (reloaded or changed by the game) - left as the game has it", why, g_sp.point);
+        uint32_t flags = 0, id = 0;
+        const uint64_t current = CallWpFind(g_sp.point);
+        if (!current) return false;
+        if (current != g_sp.rec) { g_sp.st = 4; return false; }
+        if (!Rd(current, id) || !Copy(cur, current + 0x40, 16) || !Rd(current + 8, flags)) return false;
+        if (id != g_sp.point ||
+            (memcmp(cur, g_sp.mine, 16) && memcmp(cur, g_sp.orig, 16)) ||
+            (flags != g_sp.mineFlags && flags != g_sp.origFlags)) { g_sp.st = 4; return false; }
+        // Each field may already have been restored by a partial attempt.
+        if (memcmp(cur, g_sp.orig, 16) && !WrBytes(current + 0x40, g_sp.orig, 16)) return false;
+        if (flags != g_sp.origFlags && !WrBytes(current + 8, &g_sp.origFlags, 4)) return false;
+        if (CallWpFind(g_sp.point) != current || !Rd(current, id) || id != g_sp.point ||
+            !Copy(cur, current + 0x40, 16) || !Rd(current + 8, flags) ||
+            memcmp(cur, g_sp.orig, 16) || flags != g_sp.origFlags) return false;
+        Log("Rematch: spawn override restored and verified (%s): record %u", why, g_sp.point);
     }
     g_sp.st = 0;
     g_sp.rec = 0;
     g_sp.landCheck = false;
+    return true;
 }
 
 // ---- mission records + hidden duel un-hide (game thread) ----
@@ -642,6 +668,7 @@ void ToIdle(const char* why) {
 }
 
 void ExecOpen(int row, const Snap& s) {
+    if (!SpawnRestore("before replay menu")) return Refuse("spawn recovery unresolved; no new replay admitted");
     if (!g_raOk) return Refuse(g_raWhy);
     const bool unh = g_cfg.hiddenDuels;
     if (unh) UnhideApply();
@@ -679,6 +706,7 @@ bool ClearedNow(uint16_t id, const char** why) {
 }
 
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
+    if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
     const Row& r = g_rows[(size_t)row];
     const char* why = nullptr;
     const uint32_t start = fight ? r.fightStart : 0;
@@ -785,6 +813,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
 
 // E (row >= 0: E1 redirect to its record) / game's pick (row < 0)
 void ExecEmaki(int row, ULONGLONG t) {
+    if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
     if (!g_emakiOk) return Refuse(g_emakiWhy);
     Scroll sc;
     if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
@@ -1269,6 +1298,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
 
 // game thread, every tick while a spawn override is armed / applied
 void SpawnTick(const Snap& s, ULONGLONG t, bool loadEnded) {
+    if (g_sp.st >= 3) return;  // no automatic mutation/reapply during recovery
     if (!g_sp.st || g_fightRow < 0 || !g_fight.load()) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     if (s.online || s.guest) {
