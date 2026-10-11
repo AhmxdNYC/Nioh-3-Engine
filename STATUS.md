@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:12 - CBV first-layout consumer bound audited
+- Three bounded native windows/12 instruction checks PASS; memory-only truncated-image rejection PASS. Growth sentinel and positive-size dirtiness are independent; stage5 binder has no extra constants. See notes/handoff-codex-cbv-first-layout-bound.md; tools/bench/audit_cbv_first_layout.py.
+- Native positive-size producer invariant remains open; conditional empty/zero-size layout inputs are not observed defects. Next ready: target shader layout constructor/parser writes+38/+40/+44 or independent generation invalidation. Export scan stopped at owned PID without coverage claim; no prior suite repeated.
+- Stable1.7.61 and unmerged guard PR1 retained; FO NO-GO. No local game/capture or restoration needed, no runtime/build/deployment/Ghidra/settings/hardware/controller/hold/Claude changes; other writers/device-pinned builds untouched. Phone checkpoint empty. External field/default-stack/player gates remain pending.
+
 ## UPDATE 2026-10-11 14:06 - guard1765 startup archive audited
 - Bridge230 hash/CRC/exact INIs and native1.7.65 installation/frame evidence PASS; PCM0->2 is one line, PCM2 memo serving OFF. Auditor/evidence: tools/bench/audit_guard1765.py; notes/handoff-codex-guard1765-evidence.md.
 - Zero-row live FAIL contradicted by7937/7943 complete game-frame rows and OSD; each CSV has one incomplete tail excluded. Reported7939/7945 counted header/tail. Installed ASI and graceful exit/restoration/lock release remain log attestations; binaries/full restoration hash records absent. No field/visual-equivalence/serving/default-stack/performance verdict.

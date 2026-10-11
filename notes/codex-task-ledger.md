@@ -1,5 +1,11 @@
 # Codex continuation ledger
 
+## Latest checkpoint - 2026-10-11 14:12 - CBV first-layout admission bounded
+- New native audit PASS: three bounded provenance windows and12 instruction checks; memory-only truncated-image rejection PASS. Binder table growth sets sentinel independently of positive-size slot dirtiness; stage5 out-of-line body calls helper then returns without extra constants. Evidence: notes/handoff-codex-cbv-first-layout-bound.md; tools/bench/audit_cbv_first_layout.py.
+- Consumer code cannot establish universal positive-size first layout. Conditional zero-entry/zero-size inputs remain producer obligations, not observed native defects. Export write search stopped at exact owned PID with no result/coverage claim. No existing passed suite repeated; no performance/visual/safety completion claim.
+- Stable1.7.61, draft guard PR1 unmerged and FO NO-GO retained. No local game/capture at entry/checkpoint, no restoration needed; no build/deployment/Ghidra/hardware/settings/controller/hold/Claude change. Other writers/device-pinned builds untouched; checkpoint phone inbox empty.
+- NEXT independent ready unit: locate shader metadata layout constructor/parser by targeted reference/vtable ownership; trace layout+38/+40/+44 and prove or bound n>0 implies a positive declared entry, or independent generation invalidation before first serving. Broader field/default-stack/player gates remain external.
+
 ## Latest checkpoint - 2026-10-11 14:06 - guard1765 archive evidence audited
 - Bridge230 transport hash/ZIP CRC/exact INIs PASS; only INI delta line332 PCM0->2. Both1.7.65 native logs have required installer/CBU/Present evidence; PCM2 memo hook installed switch OFF, zero lookups/hits. No serving or field/default-stack/performance verdict. Evidence: notes/handoff-codex-guard1765-evidence.md; tools/bench/audit_guard1765.py.
 - CSV audit resolves zero-frame FAIL narrowly: PCM0/PCM2 have7937/7943 complete matching-game records plus one incomplete tail each. Reported7939/7945 are physical line counts with header/tail. Finished frames/OSD contradict zero-frame failure; buffering cause not independently proved. Installed ASI identity, graceful exits/restored entry files/saves/lock release remain archived log attestations; binary/full restoration comparisons absent.
