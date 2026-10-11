@@ -1,6 +1,14 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+
+## UPDATE 2026-10-11 15:02 - Private training entry groundwork verified
+- Owned codex-training-pump b68377a pushed, private add-on1.4.2: default-OFF Training Observe prerequisite registration and atomic create/begin/end entry counts. Known build plus CORE/FIGHT/PUMP required; passive until FIGHT/pump success. One dispatcher; observer-only skips rematch Prepare/Tick and UI. Entry totals are not live actors, session snapshots or runtime acceptance.
+- Actual observer/dispatcher lifecycle143 checks PASS (/W4 /WX), existing add-on60 checks and ALL94 SITES OK PASS; isolated release build without warnings and diff check PASS. Evidence: notes/handoff-codex-training-entry-observer.md. No deployment/public sync or new performance/visual claim.
+- Complete observer remains unfinished: copied valid-or-unknown scalar snapshots, mission/load/session epochs, bounded scalar events/loss and runtime gates. Counts are independent atomics with no coherent-session/order/attempt guarantee. Current hook capacity fits; OnEntry has no admission result. v4 restore mutation gate remains separate.
+- No local game/PresentMon/Ghidra/restoration needed. No installed/pinned builds, saves/settings/hardware/controller/holds/Claude changes; other writers untouched. Final phone empty, no user steering. Stable EngineFix1.7.61, FO NO-GO and guard PR1 unmerged retained. Ally/default-stack/player gates external; pc2 recovery/clock calibration limits unchanged.
+- NEXT ready independent unit: continue owned training branch b68377a with validity-aware read-only pump snapshots and mission/load/session epochs, then bounded event telemetry. Preserve default-OFF/observer-only isolation; no native mutations, pinned-build replacement, unchanged game retry or passed-suite repetition.
+
 ## UPDATE 2026-10-11 14:57 - pc2 preliminary archive audited; recovery boundary retained
 - Bridge231 transport SHA256/ZIP CRC and independent CSV arithmetic PASS: eight windows, two adjacent launch pairs, A30.1176/B45.0581FPS; B-A+14.940526 (+49.6073%), SE0.073337. Conditional on reported +14h clock alignment; coverage reproduced, origin not independently calibrated. Present cadence only, engine-only/current-shader/slow-link fixed shrine scope; no combat/load/latency/visual/universal verdict.
 - Recovery evidence gap: archive L5 cell/log still says left running / NOT RESTORED and no release; driver STOP, no L6. Later result1928 reports crash-PID cleanup, entry restoration and lock release. Final recovery is message attestation, not archive proof. L1-L4 graceful exits/restoration and arm hashes also attestations; installed binaries/backups absent. Evidence: notes/handoff-codex-default1761-pc2-evidence.md; tools/bench/audit_default1761_pc2.py.
