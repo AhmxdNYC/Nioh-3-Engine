@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:04 - lodu/fogpar staged provenance audited
+- Read-only audit PASS: correct staged pack hashes and target digests; lodu #2 alone changed/31 records unchanged, fogpar #235 alone/362 unchanged. lodu ZIP/manifest/retained DXIL match. See notes/handoff-codex-gpu-candidate-provenance.md and tools/bench/audit_gpu_candidates.py.
+- Flat mesh staging still mshlod; correct lodu is in replacement/cull4. Fogpar proof-input LL and standalone ShaderSwap record absent despite correct file pack. Do not overwrite shared staging or claim a new proof/runtime win. Existing proof logs inspected, no suite repeated; no game/deployment/controller/hold changes.
+- Stable1.7.61 retained; phone1877 pc2 reports default/PCM2 guard installation-only menu runs PASS with graceful exits/restoration; archive230 unverified, pre-flush frame-check discrepancy requires audit. FO NO-GO. No user steering/local game/capture. Next ready unit: verify archive230 before guard merge decision; native CBV positive-size invariant remains independent. No new device queue or public write.
+
 ## UPDATE 2026-10-11 13:58 - Offline units integrated; private pc2 smoke queued
 - Root reviewed/integrated native CBU reset proof, recreation witness, PDB scrub tooling and GPU cost audit. Native reset advances C+6D0, forcing cache misses; fresh positive-size initialization also forces stock upload. Two modeled identity counterexamples reproduced with four controls; native reachability remains unproved. Twelve native provenance windows independently hash-verified. No cache source change justified.
 - Scrubber's 8 focused tests pass. Root independently verified the actual 1.7.65 copy differs only within 84-byte RSDS pathname storage (83 changed bytes), raw preserved and common home-path scan clean. Scrubbed ASI SHA256997c1c0e92bab3e936c033deeca4e53b8b37dd3a3866fb2e2c31eb1cb0c85537. Four-member private ZIP bridge file229, SHA2561a0e1dc42aba41a80065bd2ff1081d33e2ee85a83f2ca4e8b46ebc6e303d985e, queued pc2 by1863 for default startup then separate PCM2 installation-only smoke. ACK/results pending; draft PR1 unmerged; main/bin1.7.61 retained.
