@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.9 safety integration
+
+Integrates native-admission quarantine, retained map recovery, standalone return settling, and mission/retry guards for duel verification effects. Only readable proven-solo PlayMode0 permits native operations. Actual-source regressions reproduced cross-mission warp and unsafe unknown-mode admission before the fixes. Private build and required offline checks pass; not deployed or native accepted, and not yet playable training. See notes/training-native-attempt-quarantine.md for exact evidence and remaining limits.
+
 ## 2026-10-11 Codex - native-attempt review fixes
 
 Standalone manual return now has a bounded observation path to normal cleanup; unreadable GameMain frames reset exit settling. Scroll-map restoration retains ownership across read/write/readback failure, refuses foreign/replaced storage, and blocks new starts until verified cleanup. Three actual-source regressions reproduced the previous failures and now pass, with additional recovery/settling checks. Private candidate only; see notes/training-native-attempt-quarantine.md.

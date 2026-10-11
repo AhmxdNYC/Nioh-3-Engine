@@ -21,3 +21,30 @@ Standalone return retains the source mission/retry, waits for a valid load, then
 Map recovery validates the current map allocation address/length, uses guarded reads and exact original/written bytes, and verifies the original bytes after restoration. Failed read/write/readback keeps ownership; foreign bytes/allocation mismatch latch conflict and cannot be forgotten when the old address/bytes reappear. Redirect snapshots/publishes ownership before its possibly partial write. All native start entries restore or refuse pending map recovery, and normal transaction completion waits for successful map restoration. A partial write whose bytes no longer exactly match either full original or full owned output remains conflicted; no speculative overwrite or public reset is introduced. These address/length checks are not native allocation-generation proof.
 
 Current checks: 67 original transaction checks plus 4 standalone-return, 1 exit-gap and 15 map-recovery checks (87 total); 83 read gates plus 7 integration assertions; 23 restoration plus 3 admission; 53 observer; 143 lifecycle. The corrected pure rematch suite now expects foreign map bytes to be preserved, not overwritten. The last full private release build passed before the final stable-destination observer adjustment; a further full build is deferred at the lead's request during its independent local pilot. Production observer/body extraction still compiles with /W4 /WX. No live candidate deployment or native acceptance evidence.
+
+## Integrated final private1.4.9 checkpoint
+
+Candidate worktree integrates12a8507/6fe593b/2005b8e (donor0e5aac4/b4ade34/8820684).
+Independent review reproduced a stale-mission duel-approach warp before fixing
+FnVerify's mission guard and retry guards on warp/rewarp effects. DoWarp now
+checks mission identity before crediting a fight. Readable unknown PlayMode
+values also refused/quarantined: only raw0 has current native solo evidence;
+raw1/2 remain online. This closes the earlier numeric-mode admission gap,
+without claiming exhaustive native enum/lifetime proof.
+
+Final candidate tests:8 verifier-identity checks;72 transaction checks plus
+4 standalone-return,1 read-gap and15 map-recovery cases;86 read-gate cases
+plus7 integration assertions;23 spawn-restoration plus3 entry guards;60 pure
+rematch;143 lifecycle/startup;94 addon sites including shifted-image check.
+Addon1.4.9 full build passes without compiler warnings; SHA256
+50484e3b0e39c5621fb7b829122f92380db017fd87d64ed0e2f96a1acb3b9b07.
+Core1.7.67 check_release --full passes with0 errors/3 existing metadata warnings,
+including255 pattern sites and every listed harness. The initial worktree run
+failed19 harnesses because cl/ml64 were absent from PATH; rerunning after the
+existing portable MSVC setup fixed the environment and all harnesses passed.
+
+No candidate deployment or live acceptance. The independent old-binary C72E
+launch timed out before a game process appeared, with exact entry restoration;
+it provides no native arena/transaction evidence. Queue-consumer identity,
+actor lifetime/uniqueness, native reload/retry, and actual playable training
+remain open. Default picture and public release are unchanged.
