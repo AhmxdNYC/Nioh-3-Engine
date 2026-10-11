@@ -2,6 +2,7 @@
 
 | When | Change | Undo |
 |---|---|---|
+| 2026-10-11 | Experimental24494d5 adds actual-code epoch/lifecycle negative controls: 12 new witnesses, zero failures/compiler warnings; Restore/FlushAll pending-record gaps reproduced. No production repair, game test or FPS claim; FO held. | No installed game change; revert isolated audit commit if needed. |
 | 2026-10-11 | FO lifecycle ordering and explicit admission/epoch/publication/closure/lifetime contract recorded; no repair, build, new runtime test or performance claim. Epoch audit witnesses next; FO remains held. | Documentation only; installed main1.7.61/FO0 unchanged. |
 | 2026-10-11 | Read-only training inventory/prototype plan; 88 add-on sites, 121 catalogue rows, explicit spawn/reset safety gaps. Documentation only; renderer lifecycle work next. | No game change to undo; revert documentation commit if needed. |
 | 2026-10-11 | Isolated experimental FO startup availability repaired3b89c04; 18 cases, pre-fix control, 255patterns and FO/stub harness PASS. No installed ASI/game changes. Handoff/ledger updated; FO release still held. | Keep main1.7.61/FO0; revert experimental commit if needed. |
