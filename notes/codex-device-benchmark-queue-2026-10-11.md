@@ -52,10 +52,21 @@ combat/load/latency/visual equality/full-protocol performance.
   Keep backups and entry Cloud/cache metadata externally. Local hashes and
   cache/sync attestations are different evidence; no remote-server hash claim.
   Conflict prompts, unavailable restoration/sync postconditions or failure mean
-  BLOCKED/no further launches, with ownership retained for recovery. READY and
-  actual launch/result remain pending; conditional clearance is not a run.
+  BLOCKED/no further launches, with ownership retained for recovery. At1919
+  READY/launch/result were pending; later1922 reports acceptance/start below.
 - pc2 queue1882 status requested again by1915; no fresh ACK/result observed
   through1918. Do not infer availability or call it running.
+- Ally1922 ACK: single owner=ally, nioh3-ally lock, external entry backups and
+  initial local SHA1 matching Steam cache reported; says starting ABBAAB. This
+  is a device report, not measured windows or independently observed PID proof.
+  Normal sync is observable at the next app launch before title writes. Owner
+  must check restored-set/cache agreement at PID start; conflict/mismatch stops.
+  Final extra save-blocked title launch is permitted by1923 only as unmeasured
+  recovery/sync, with guard/no-save-change checks, graceful exit and final entry
+  file/save restoration verification. Keep all locks/account ownership until
+  normal sync completion consistent with restored saves. Six measured arms
+  and the recovery launch must be separate in the manifest. FG-on means stop,
+  not change user settings. Results/restoration/account release remain pending.
 - Device questions must lead with[Q], blockers with[BLOCKED], results with
   [RESULT]. ACK-only metadata does not wake the Codex continuation worker.
 
@@ -65,5 +76,5 @@ paired units/SE, visual/default scope and restoration limits. Static audits,
 title-menu FPS and estimated shader savings are not new gameplay gains. Latest
 high-level Discord card and phone1916 report no new large gain.
 
-Consume fresh replies after1918 and the lead queues1919/1920; never launch PC
+Consume fresh replies after1923; never launch PC
 and Ally simultaneously. Stable pinned builds remain unchanged.
