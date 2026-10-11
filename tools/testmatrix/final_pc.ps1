@@ -23,7 +23,18 @@ param([switch]$DryRun, [switch]$Force, [switch]$ReportOnly, [switch]$NoLock, [sw
       [string[]]$Configs = @("STOCK", "OPTIMIZED", "OPTIMIZED+FG"), [string[]]$Presets = @("USER", "MAX"),
       [string[]]$Sweep = @(), [string]$SweepConfig = "OPTIMIZED", [int]$SweepRuns = 1, [int]$Runs = 3,
       [int]$StandWindows = 2, [int]$WindowSec = 20, [int]$LatencySec = 30, [int]$Presses = 25, [ValidateSet("click", "key")][string]$PressKind = "click",
-      [string]$KeepSet = "full", [string]$CombatScript = "", [string]$Hwinfo = "", [string]$Rtss = "", [string]$ConfigPath = "", [int]$OwnerPid = 0, [int]$MaxMinutes = 90)   # OwnerPid 0 = parent process; see harness_guard.ps1
+      [string]$KeepSet = "full", [string]$CombatScript = "", [string]$Hwinfo = "", [string]$Rtss = "", [string]$ConfigPath = "", [int]$OwnerPid = 0, [int]$MaxMinutes = 90,
+      [string]$OptimizedIni = "", [string]$AsiPath = "", [switch]$SourceOwnershipConfirmed)   # Explicit pinned mode uses the independent state-safe driver.
+if ($OptimizedIni -or $AsiPath) {
+    if ($NoLock -or $ReportOnly -or $Sweep.Count -or $CombatScript -or $Hwinfo -or $Rtss -or $PcLatency -or -not $NoLatency) {
+        throw 'Pinned mode supports the guarded manual gameplay benchmark with -NoLatency; no historical sweeps, scripts or -NoLock'
+    }
+    $pinnedConfigs = if ($PSBoundParameters.ContainsKey('Configs')) { $Configs } else { @('STOCK','OPTIMIZED') }
+    & (Join-Path $PSScriptRoot 'pinned_final_pc.ps1') -OptimizedIni $OptimizedIni -AsiPath $AsiPath -DryRun:$DryRun `
+        -Configs $pinnedConfigs -Presets $Presets -Runs $Runs -StandWindows $StandWindows -WindowSec $WindowSec `
+        -ConfigPath $ConfigPath -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -SourceOwnershipConfirmed:$SourceOwnershipConfirmed
+    return
+}
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 foreach ($n in "Configs", "Presets", "Sweep") { Set-Variable $n @((Get-Variable $n).Value | ForEach-Object { $_ -split "," } | Where-Object { $_ }) }   # -File passes "a,b" as one string
