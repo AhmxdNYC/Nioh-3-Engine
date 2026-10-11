@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 event/worker evidence
+
+Traced completion/wake event initialization, atomic flags and native callback arguments. Eight new static provenance checks; no production change or safety/performance claim. FO remains NO-GO. See notes/handoff-codex-fo98-event-worker.md.
+
 ## 2026-10-11 Codex - FO98 native removal/retirement trace
 
 Documentation/static provenance only: three swap-removal branches and locked retirement enqueue/fallback traced;4identity checks PASS. Lifetime/capacity/admission remain unproven; FO remains NO-GO. No installed game, defaults or performance change. See notes/handoff-codex-fo98-retirement.md.

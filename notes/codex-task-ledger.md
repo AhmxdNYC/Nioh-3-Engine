@@ -2,11 +2,11 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
-## Latest checkpoint - FO98 retirement queue growth corrected
-- Corrected native2EEF3B0: queue growth/repacking, not an object drain. Traced allocation, wait helper, semaphore replacement and preservation of queued24-byte triples. No queued-object release in the resize routine; downstream wait effects/worker ownership remain unproven. Evidence: notes/handoff-codex-fo98-queue-growth.md.
-- Five new static provenance checks PASS; no runtime/lifetime/safety or performance verdict. FO stays NO-GO; previous passed suites not repeated. Main parent a16449d; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged.
-- No local game at entry/checkpoint, no test/lock/build/deployment or installed ASI/INI/config/save/settings/hardware change; prior restoration retained. Controller untouched; no Claude call/wake. Phone1802 asks whether work is ongoing: acknowledged in commentary and Discord result. Remote1767/1768/1781 still pending at last known bridge1785, no fresh query.
-- Next ready unit: trace queue+10 worker creation and126984/1266FC/126A14, then the actual retirement consumer/GPU ordering. ResList capacity,D20 transitions and emitter caller modes still open before combined FO queue repair. Serial ownership until exit; topic committed/pushed with Codex attribution, Discord result through existing notifier after push.
+## Latest checkpoint - FO98 event and worker protocol traced
+- Traced queue event/worker protocol: queue+10 is a manual-reset completion event; thread handle is queue+0. Native worker1A71FDC calls descriptor callback with context and queue+18, then signals completion.1266FC/126A14 atomically set/clear a bit. Auto-reset wake probes can consume a signal. Evidence: notes/handoff-codex-fo98-event-worker.md.
+- Eight new static provenance checks PASS; no runtime/lifetime/safety or performance verdict. FO remains NO-GO; prior passed suites not repeated. Parent c38358f; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged.
+- No local game at entry/checkpoint; no test/lock/build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone1802 acknowledged, no new steering. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: follow2EEF6D4 descriptor/context into2EEFEB0 to identify retirement callback and queue+18 bit contract, then consumer/GPU ordering. ResList capacity,D20 transitions and emitter caller modes remain open. Serial ownership until exit; commit/push with Codex attribution and Discord result via existing notifier after push.
 
 
 ## Ready work, in priority order
