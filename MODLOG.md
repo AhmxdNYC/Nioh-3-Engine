@@ -937,3 +937,7 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 2026-10-11 - Experimental fo11 PC follow-up (main unchanged)
 - codex-fo10 ddabf46 / ASI1.7.63-fo11 fixes reproduced async release starvation and passes 20 combined transitions + three test14 cycles; full release checks and final flush regression PASS. 8ms emulator ABBA3 +11.74% +/-1.54% SE (60.9->68.1), not native performance. Saves/user files restored; shutdown-only watchdog retained. Conditional pc2 FO5 queue1781 / kit225 follows main smoke1767. No FO merge/release; main remains1.7.61, FrameOverlapoff. See notes/handoff-codex-step2b.md.
+
+## 2026-10-11 - Tour report diagnostic handling (tools only)
+- Completed tours previously logged summary failure because PowerShell Stop treated Python's normal stderr clock-offset diagnostic as an exception. New tools/tour/report_tour.ps1 captures both streams and checks the actual reporter exit code; run_tour calls it after restoration. Missing logs still fail explicitly, and caller error preferences are restored.
+- Saved fo11 capture: old path reproduces failure on +4h diagnostic; new path writes tour_report.md and tour_points.csv. Missing-log negative control, PowerShell parsing and tour harness (44 checks) PASS. No game launch, ASI/default/performance change. Undo: revert this tooling commit.

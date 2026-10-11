@@ -1,6 +1,10 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 00:40 New York - Tour report failure fixed; remote gates unchanged
+- User requested more useful work. Fixed run_tour's false report failure on Python stderr clock-offset diagnostics; helper checks native exit code and preserves caller error policy. Recovered fo11 tour report offline; missing-log failure stays a failure. PowerShell parse + tour harness44checks PASS; no game launch or ASI change.
+- Main ASI stays1.7.61 / FOoff. codex-fo10 ddabf46 remains experimental; pc2 FO5 queue1781 follows smoke1767 PASS, Ally smoke1768 unchanged. No remote results through1781. No Claude calls or auto-wake. Detailed fo11 evidence/gates: notes/handoff-codex-step2b.md; tooling follow-up: notes/handoff-codex-tour-report.md.
+
 ## UPDATE 2026-10-11 00:32 New York - Codex fo11 PC PASS; native pc2 FO5 queued
 - User asked to continue past the initial NO-GO. Experimental codex-fo10 ddabf46 (code1a84a3a), ASI1.7.63-fo11, fixes async EfxLag2->1 release starvation by merging into the current staged pair; synchronous/flush uses pending, B38-only calls leave BA8 alone. Old model retains31 contexts; new at most3 after /4 before consume, exactly-once/GPU ordering including empty staged pair + flush. 255 patterns and full release PASS, zero errors/3 known warnings; final flush regression ALL PASSED.
 - PC same stage7292 / 8ms game-side lag / CBMODE6: 20 combined applies + three test14 cycles PASS, 47 ACKs /44 advancing dwells /6299 frames. No runtime replay fault/hang/watchdog; last counters1675 off-main, 761 due=written, pending0/full0. ABBA3 FO0/1 with Fo9=1: +11.74% +/-1.54% SE (60.9->68.1), frame delta-1.732 +/-0.255ms; sampled GPU delta neutral. Emulator result only, not native PC/pc2 claim. Screenshots within sampled A/A variation, no obvious corruption; not universal picture proof.

@@ -180,7 +180,7 @@ function Finish-Run {
     }
     if ($script:lockHeld) { $null = Invoke-GameLock "release"; Say "game lock released" }
     try {
-        $rep = & py -I (Join-Path $here "summarize_tour.py") $cap 2>&1 | Out-String
+        $rep = & (Join-Path $here "report_tour.ps1") -Capture $cap
         Say "report: $($rep.Trim())" Green
     } catch { Say "summarize_tour.py failed: $_" Yellow }
     Say "verdict: $($script:verdict); capture folder: $cap" Cyan
