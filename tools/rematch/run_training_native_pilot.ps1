@@ -8,7 +8,8 @@ param([switch]$Run,[switch]$DryRun,[int]$OwnerPid=0,
     [string]$SaveRoot='',
     [string]$Kit='D:\nioh3-re\rematch-pilots\C72E-native334140-20261011',
     [string]$CandidateRoot='D:\nioh3-wt\codex-settings-menu-v4',
-    [ValidateSet('Tree','Flat')][string]$CandidateLayout='Tree')
+    [ValidateSet('Tree','Flat')][string]$CandidateLayout='Tree',
+    [switch]$Hosted)
 $ErrorActionPreference='Stop'
 if (($Run -and $DryRun) -or ($ApproveStage -and ($Run -or $DryRun))) { throw 'Choose plan, Run, or one stage approval' }
 . (Join-Path $PSScriptRoot 'training_pilot_lib.ps1')
@@ -18,6 +19,8 @@ Training-CheckDependencies $repo
 . (Join-Path $PSScriptRoot 'c72e_binary_lib.ps1')
 $hashes=@{'Nioh3EngineFix.asi'='dd8b5739062e364dfc708bd1f0f89dfc2b97477d66ae1fbfdfb6f50b0d4f2891';'Nioh3BossRematch.asi'='02d763e76037365e8814820fc1ef9d3d713710435f63099d04d617e05966d4d1'}
 $runtimeHashes=@{'Nioh3EngineFix.asi'='6890c0605e3346d915f7f2263337716ea1ddad6c0b4ea36efebb2c4d4aa8e32d';'Nioh3BossRematch.asi'='50484e3b0e39c5621fb7b829122f92380db017fd87d64ed0e2f96a1acb3b9b07'}
+$gateHashes=$runtimeHashes.Clone()
+if ($Hosted) { $runtimeHashes=@{'Nioh3EngineFix.asi'='d15605a7e51f007fbbffb6e572efc5e9ec591db8fc1b59e608a4bfaffba78145';'Nioh3BossRematch.asi'='1d543289aeced5f52e3c8ff73f8417cda3057c6fb6ee20170e2b715533d5513a'} }
 $catalog=Join-Path $Kit 'C72E-A-control.tsv'
 $plan=[ordered]@{mode='PLAN_ONLY_NO_MUTATION';route='shrine R1CBC';mission='0x1CBC';start=67064;placement=65092;trigger='box66599, manual walk';
     candidate_layout=$CandidateLayout;candidate_root=$CandidateRoot;versions='Engine1.7.67/addon1.4.9';runtime_asi_hashes=$runtimeHashes;entry_asi_hashes=$hashes;
@@ -27,6 +30,12 @@ $plan=[ordered]@{mode='PLAN_ONLY_NO_MUTATION';route='shrine R1CBC';mission='0x1C
     gate='Requires completed C72E native-entry receipt, root_control_confirmed and native_return_confirmed true and all restoration true. No live readiness implied by plan.';
     recovery='Reuses pinned C72E finalizer/abort path; fresh entry save locks and exact restore, retained recovery record on failure';
     limits='Status/position never proves control; pending gate masks fresh network diagnostics. Native wrappers remain authoritative.'}
+if ($Hosted) {
+    $plan.route='hosted Practice Yamagata (not full training)'
+    $plan.versions='Engine1.7.68/addon1.4.10'
+    $plan.gate='EXPLICIT_DERIVATIVE_ADMISSION_NOT_TRANSFERRED_PASS; ONE_GUARDED_HOSTED_PRACTICE_PILOT_NEW_UI_UNTESTED'
+    $plan.stages=@('Root confirms Continue; runner settles and scans', 'Root opens Engine menu > Boss Rematch / Practice > Practice Yamagata > Start and confirms while runner observes continuously', 'Root confirms shrine control; manually enters arena and confirms boss/combat', 'One manual native death/retry', 'Root uses owned Return from practice menu while runner observes native return')
+}
 if ($ApproveStage) {
     if (-not $OutDir -or $OwnerPid -le 0 -or -not $Evidence.Trim()) { throw 'Approval needs session OutDir, explicit root OwnerPid and evidence' }
     $OutDir=C72-Full $OutDir
@@ -53,7 +62,16 @@ if ($env:HG_MIN_HEADROOM_GB -and [double]$env:HG_MIN_HEADROOM_GB -lt 18) { throw
 if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { throw 'Game already active; nothing touched' }
 $gate=Get-Content -LiteralPath $RequestGateReceipt -Raw|ConvertFrom-Json
 $gateManifest=Get-Content -LiteralPath (Join-Path (Split-Path -Parent (C72-Full $RequestGateReceipt)) 'entry-manifest.json') -Raw|ConvertFrom-Json
-Training-CheckGate $gate $gateManifest $runtimeHashes
+Training-CheckGate $gate $gateManifest $gateHashes
+$hostedAdmission=$null
+if ($Hosted) {
+    if ($CandidateLayout -ne 'Tree') { throw 'Hosted source lineage requires the reviewed candidate source tree' }
+    $modTree=(& git -C $CandidateRoot rev-parse HEAD:mod).Trim()
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot bind candidate mod tree' }
+    & git -C $CandidateRoot diff --quiet HEAD -- mod
+    if ($LASTEXITCODE -ne 0) { throw 'Candidate tracked mod source changed after review' }
+    $hostedAdmission=Training-HostedAdmission (C72-BinaryHash $RequestGateReceipt) $modTree $runtimeHashes
+}
 $BackupRoot='';$CaptureRoot='';$StateDir='';$StashRoot='';$OptiSrc='';$global:LockKey=''
 . (Join-Path $repo 'tools\playsession\session_lib.ps1')
 . (Join-Path $repo 'tools\testmatrix\harness_guard.ps1')
@@ -71,10 +89,11 @@ $OutDir=C72-Full $OutDir
 if (Test-Path -LiteralPath $OutDir) { throw 'Session directory must be new' }
 foreach ($root in @($GameDir,$SaveRoot,$Kit,$repo,$CandidateRoot)) { if ($OutDir -eq (C72-Full $root) -or (C72-Inside $root $OutDir) -or (C72-Inside $OutDir $root)) { throw 'Session overlaps protected root' } }
 $null=New-Item -ItemType Directory -Path $OutDir
+if ($Hosted) { $hostedAdmission.runner_pid=$PID;$hostedAdmission.owner_pid=$OwnerPid;$hostedAdmission.session=$OutDir;C72-Json (Join-Path $OutDir 'hosted-admission.json') $hostedAdmission }
 $script:HGdir=Join-Path $OutDir 'guard';$entryDir=Join-Path $OutDir 'entry-saves';$iniDir=Join-Path $OutDir 'entry-inis';$events=Join-Path $OutDir 'events.jsonl'
 $script:owned=$null;$script:saveHandles=$null;$script:entry=$null;$script:touched=$false;$script:cleaned=$false;$script:binaryRecord=$null
 $script:held=New-Object 'System.Collections.Generic.List[string]';$script:watch=[Diagnostics.Stopwatch]::StartNew()
-$script:result=[ordered]@{route='R1CBC';status='PREPARING';error=$null;saves_restored=$false;inis_restored=$false;binaries_restored=$false;control_verdict='ROOT_CONFIRMATIONS_REQUIRED';retry_observed=$false;return_observed=$false}
+$script:result=[ordered]@{route='R1CBC';hosted_practice=[bool]$Hosted;feature_scope='NATIVE_PRACTICE_NOT_FULL_TRAINING';ui_verdict=$(if ($Hosted) {'NEW_UI_UNTESTED_ROOT_EVIDENCE_REQUIRED'} else {'NOT_EXERCISED'});status='PREPARING';error=$null;saves_restored=$false;inis_restored=$false;binaries_restored=$false;control_verdict='ROOT_CONFIRMATIONS_REQUIRED';retry_observed=$false;return_observed=$false}
 $LockId="pc-training-$PID"
 function Training-FreshLog { return Training-LogTail $script:requestLogBefore (C72-ReadShared $addonLog) }
 function Training-WaitStage([string]$Stage) {
@@ -120,7 +139,7 @@ try {
     $script:binaryRecord=C72-BinaryPrepare $binaryPlan (Join-Path $OutDir 'entry-binaries');C72-BinaryStage $script:binaryRecord
     $empty=Join-Path $OutDir 'empty-arenas.tsv';[IO.File]::WriteAllText($empty,"# no arena overrides`r`n")
     $lines=[IO.File]::ReadAllLines($rematchIni);C72-UniqueIni $lines @('Rematch','Remote','Menu','Debug')
-    foreach ($kv in @(@('Rematch','Enable','1'),@('Rematch','FightNow','1'),@('Rematch','FightNowWarp','0'),@('Rematch','FightNowSpawn','0'),@('Rematch','ArenaCapture','0'),@('Rematch','SelfTest',''),@('Rematch','Catalog',$catalog),@('Rematch','Arenas',$empty),@('Remote','Pipe','1'),@('Menu','Overlay','0'),@('Debug','BossLog','1'),@('Debug','RematchLog','0'))) { $lines=Set-IniValue $lines $kv[0] $kv[1] $kv[2] }
+    foreach ($kv in @(@('Rematch','Enable','1'),@('Rematch','FightNow','1'),@('Rematch','FightNowWarp','0'),@('Rematch','FightNowSpawn','0'),@('Rematch','ArenaCapture','0'),@('Rematch','SelfTest',''),@('Rematch','Catalog',$catalog),@('Rematch','Arenas',$empty),@('Remote','Pipe','1'),@('Menu','Overlay',$(if ($Hosted) {'1'} else {'0'})),@('Debug','BossLog','1'),@('Debug','RematchLog','0'))) { $lines=Set-IniValue $lines $kv[0] $kv[1] $kv[2] }
     $perf=[IO.File]::ReadAllLines($engineIni);C72-UniqueIni $perf @('General','Debug');$perf=Set-IniValue $perf 'General' 'AutoContinueLoad' '1';$perf=Set-IniValue $perf 'Debug' 'Tour' '0'
     $script:touched=$true;[IO.File]::WriteAllLines($rematchIni,$lines,(New-Object Text.UTF8Encoding($false)));[IO.File]::WriteAllLines($engineIni,$perf,(New-Object Text.UTF8Encoding($false)))
     Check-Asis $runtimeHashes;Assert-Launch;if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { throw 'Refusing second launch' }
@@ -146,8 +165,12 @@ try {
     do { $row=Invoke-C72Pipe 'row R1CBC';$gen=C72-Field $row 'gen';$cleared=(C72-Field $row 'status') -eq '2' -and $gen -match '^\d+$' -and [uint64]$gen -gt [uint64]$beforeGen;if (-not $cleared) { Start-Sleep -Milliseconds 200 } } while (-not $cleared -and [DateTime]::UtcNow -lt $until)
     if (-not $cleared -or $row -notmatch 'mission=0x1CBC\b' -or $row -notmatch 'placement=65092\b' -or $row -notmatch 'fight=67064/') { throw 'Cleared current-journey tuple not confirmed' }
     Shot 'before-shrine';$script:requestLogBefore=C72-ReadShared $addonLog
-    $reply=Invoke-C72Pipe 'shrine R1CBC';if ($reply -notmatch '^queued') { throw "Shrine submission refused: $reply" }
+    if ($Hosted) {
+        Write-Host 'READY FOR ROOT UI START: open Engine menu > Boss Rematch / Practice > Practice Yamagata > Start at boss shrine, then confirm. Observing load now; no shrine pipe command.'
+    } else { $reply=Invoke-C72Pipe 'shrine R1CBC';if ($reply -notmatch '^queued') { throw "Shrine submission refused: $reply" } }
     $null=Training-Wait 'shrine';if (-not (Training-QueueWitness (Training-FreshLog))) { throw 'Exact mission/start/mode queue witness absent' };Shot 'shrine-observed'
+    if ($Hosted -and -not (Training-HostedRequestWitness (Training-FreshLog) 'start')) { throw 'Practice start did not originate in the hosted practice menu' }
+    if ($Hosted) { Write-Host 'EnterArena root evidence must include visible Engine-hosted menu, successful controller selection, and visible controllable shrine; telemetry alone does not accept the UI.' }
     Training-WaitStage 'EnterArena' # root confirms visible shrine/control before manual walking
     Write-Host 'Root/player may now walk into native box66599. The runner sends no movement.'
     $null=Training-Wait 'boss';if ((Training-FreshLog) -notmatch 'arena: BossBattleMode start[^\r\n]*mission 0x1CBC[^\r\n]*65092') { throw 'Fresh Yamagata battle event absent' };Shot 'native-boss-observed'
@@ -158,8 +181,11 @@ try {
     $s=Invoke-C72Pipe 'status';Training-CheckStatus $s
     if (-not (Training-AtShrine $s $true)) { throw 'Retry shrine state changed before native return' }
     $script:returnLogBefore=C72-ReadShared $addonLog
-    $reply=Invoke-C72Pipe 'exit';if ($reply -notmatch '^queued') { throw "Native return submission refused: $reply" }
+    if ($Hosted) {
+        Write-Host 'READY FOR ROOT UI RETURN: open Engine menu > Boss Rematch / Practice > Practice Yamagata > Return from practice and confirm. Observing now; no exit pipe command.'
+    } else { $reply=Invoke-C72Pipe 'exit';if ($reply -notmatch '^queued') { throw "Native return submission refused: $reply" } }
     $null=Training-Wait 'return';$script:result.return_observed=$true;Shot 'returned'
+    if ($Hosted -and -not (Training-HostedRequestWitness (Training-LogTail $script:returnLogBefore (C72-ReadShared $addonLog)) 'return')) { throw 'Return did not originate in the owned practice menu' }
     $script:result.status='MANUAL_NATIVE_ROUTE_COMPLETED_REVIEW_REQUIRED'
 } catch { $script:result.status='TRIAL_FAILED';$script:result.error="$_";Write-Warning "$_" }
 finally { try { Finish-C72 } finally { Done-Guard -KeepFile:(-not $script:cleaned) } }
