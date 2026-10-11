@@ -1,5 +1,13 @@
 # Codex continuation ledger
 
+## Latest checkpoint 2026-10-11 15:22 - Training bounded entry records verified
+- Owned codex-training-pump 0b25b2b pushed, private add-on1.4.6: default-OFF bounded64 create/begin/end records copy cached scalar validity/gaps/generations/time. Entry publication never waits; separate contention/overwrite losses. Oldest-first bounded copy does not drain. No native session membership/readiness/order claim.
+- Actual source/production SEH Rd53 checks PASS (/W4 /WX), lifecycle143/startup wiring, existing add-on60 and ALL94 SITES OK including shifted-image simulation PASS. Warning-free isolated release build/diff check PASS. Evidence: notes/handoff-codex-training-events.md. No deployment/public sync or performance/visual/runtime acceptance claim.
+- Cached tags may be unknown/aged; sequence orders publications only. Query copies can contend with entry/pump publication; independent atomic loss samples can lag. Consumer cursor/transport and v4 restore mutation ownership remain unfinished.
+- No local game/PresentMon/Ghidra or restoration needed. Installed/pinned inputs, saves/settings/hardware/controller/holds/Claude and other writers untouched. Checkpoint phone empty, no user steering. Discord neutral result sent via existing notifier. Stable EngineFix1.7.61, FO NO-GO, guard PR1 unmerged retained; external Ally/default-stack/player and pc2 recovery/clock calibration gates remain.
+- NEXT ready independent unit: cached training query consumer exposing cursor/retention/loss and observation age on owned 0b25b2b. Preserve default-OFF/observer-only isolation; no native mutations, unchanged game retry or pinned-build replacement.
+
+
 ## Latest checkpoint 2026-10-11 15:17 - Training observed generations verified
 - Owned codex-training-pump ce5c7e3 pushed, private add-on1.4.5: default-OFF observed loading and separately readable mission/play-mode/connection tuple generations. Valid raw changes and readable unknown/skipped recovery advance once; unknown retains counters with explicit gaps. No native session/attempt/readiness identity claim.
 - Actual source/production SEH Rd44 checks PASS (/W4 /WX), lifecycle143/startup wiring, existing add-on60 and ALL94 SITES OK including shifted-image simulation PASS. Warning-free isolated release build/diff check PASS. Evidence: notes/handoff-codex-training-generations.md. No deployment/public sync or performance/visual/runtime acceptance claim.
