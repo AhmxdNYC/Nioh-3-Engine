@@ -8,13 +8,15 @@
   ingest  <results_dir> <device> [--hwinfo f.csv] [--rtss f.csv] -> attach sensor stats to every final_<device>_* window by its t0/t1
   latency <results_dir> <device>              -> latency_<device>.md : STOCK vs OPTIMIZED vs OPTIMIZED+FG block
   table   <results_dir> <device> [out.md]     -> results_table_<device>.md : README tables (preset x config, sweep bang-for-buck)
+  paired  <results_dir> <device>             -> read-only pinned launch-pair/block JSON; no significance verdict
 """
-import csv, json, os, re, statistics, sys
+import csv, json, math, os, re, statistics, sys
 
 
 def pct(xs, p):
+    """Discrete nearest-rank percentile; low1 is 1000/p99, not a tail mean."""
     xs = sorted(xs)
-    return xs[min(len(xs) - 1, int(len(xs) * p))] if xs else float("nan")
+    return xs[max(0, min(len(xs) - 1, math.ceil(len(xs) * p) - 1))] if xs else float("nan")
 
 
 def col(row, *names):
@@ -22,36 +24,76 @@ def col(row, *names):
         v = row.get(n)
         if v not in (None, "", "NA"):
             try:
-                return float(v)
+                x = float(v)
+                if math.isfinite(x):
+                    return x
             except ValueError:
                 pass
     return None
 
 
 def stats(path):
-    rows = list(csv.DictReader(open(path, newline="", encoding="utf-8-sig")))
+    """One Nioh3 process/swapchain; submission and display metrics stay separate.
+
+    The first recorded row is excluded by the benchmark's boundary/startup
+    policy from every metric. Later positive outliers stay. No mod log is read.
+    Missing FrameType does not establish that frame generation was disabled.
+    """
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        fields = reader.fieldnames or []
+        raw = list(reader)
+    identity = ("Application", "ProcessID", "SwapChainAddress")
+    if not all(k in fields for k in identity):
+        return {"ok": False, "reason": "missing process/swapchain identity"}
+    rows = [r for r in raw if (r.get("Application") or "").casefold() == "nioh3.exe"]
+    if any(None in r or any(v is None for v in r.values()) for r in rows):
+        return {"ok": False, "reason": "malformed target CSV row"}
+    streams = {(r["ProcessID"], r["SwapChainAddress"]) for r in rows}
+    if len(streams) != 1 or any(not v for stream in streams for v in stream):
+        return {"ok": False, "reason": "expected one target process/swapchain", "streams": sorted(streams)}
+    rows = rows[1:]
     app = [r for r in rows if r.get("FrameType", "Application") in ("Application", "NotSet", "")]
-    disp = [v for r in rows if (v := col(r, "MsBetweenDisplayChange")) is not None and v > 0]
-    pres = [v for r in rows if (v := col(r, "MsBetweenPresents", "FrameTime")) is not None]
-    xs = disp or pres
-    gpu = [v for r in app if (v := col(r, "MsGPUBusy", "GPUBusy", "MsGPUTime")) is not None]
-    cpu = [v for r in app if (v := col(r, "MsCPUBusy", "CPUBusy")) is not None]
-    if not xs:
-        return {"ok": False}
+    frame_col = next((k for k in ("FrameTime", "MsBetweenPresents") if k in fields), None)
+    if frame_col is None:
+        return {"ok": False, "reason": "missing submission frame interval"}
+    xs = [v for r in app if (v := col(r, frame_col)) is not None and v > 0]
+    if len(xs) != len(app) or not xs:
+        return {"ok": False, "reason": "invalid application frame interval", "valid_frames": len(xs), "invalid_frames": len(app)-len(xs)}
+    display_col = next((k for k in ("DisplayedTime", "MsBetweenDisplayChange") if k in fields), None)
+    disp = [v for r in rows if display_col and (v := col(r, display_col)) is not None and v > 0]
+    def busy(*names):
+        return [v for r in app if (v := col(r, *names)) is not None and v >= 0]
+    gpu = busy("MsGPUBusy", "GPUBusy")
+    gpu_time = busy("MsGPUTime", "GPUTime")
+    cpu = busy("MsCPUBusy", "CPUBusy")
     avg = statistics.mean(xs)
     p99 = pct(xs, .99)
     lat = {}        # PresentMon 2.x latency columns (need --v2_metrics + input during the window); NA rows are skipped
-    for key, name in (("lat_aip", "MsAllInputToPhotonLatency"), ("lat_click", "MsClickToPhotonLatency"), ("lat_pcl", "MsPCLatency"),
-                      ("lat_disp", "MsDisplayLatency")):
-        v = [x for r in rows if (x := col(r, name)) is not None and x > 0]
+    for key, names in (("lat_aip", ("MsAllInputToPhotonLatency", "AllInputToPhotonLatency")),
+                       ("lat_click", ("MsClickToPhotonLatency", "ClickToPhotonLatency")),
+                       ("lat_pcl", ("MsPCLatency", "PCLatency")),
+                       ("lat_disp", ("MsDisplayLatency", "DisplayLatency"))):
+        v = [x for r in rows if (x := col(r, *names)) is not None and x > 0]
         if v:
             lat[key] = round(statistics.median(v), 2)
             lat[key + "_p95"] = round(pct(v, .95), 2)
             lat[key + "_n"] = len(v)
-    appx = [v for r in app if (v := col(r, "MsBetweenPresents", "FrameTime")) is not None and v > 0]
     ftypes = sorted({r.get("FrameType") for r in rows if r.get("FrameType")})
-    return {"ok": True, **lat, "app_fps": round(1000 / statistics.mean(appx), 2) if appx else None, "frame_types": ftypes, "frames": len(xs), "fps": round(1000 / avg, 2), "low1": round(1000 / p99, 2), "p99": round(p99, 2),
-            "gpu_ms": round(statistics.mean(gpu), 2) if gpu else None, "cpu_ms": round(statistics.mean(cpu), 2) if cpu else None}
+    fps = round(1000 / avg, 2)
+    return {"ok": True, **lat, "app_fps": fps, "frame_types": ftypes, "frames": len(xs), "fps": fps,
+            "low1": round(1000 / p99, 2), "p99": round(p99, 2), "percentile_method": "nearest-rank",
+            "capture_duration_s": sum(xs)/1000,
+            "fps_metric": frame_col, "low1_definition": "1000/p99_ms",
+            "display_fps": round(1000 / statistics.mean(disp), 2) if disp else None,
+            "display_p99": round(pct(disp, .99), 2) if disp else None,
+            "display_frames": len(disp), "display_metric": display_col,
+            "gpu_ms": round(statistics.mean(gpu), 2) if gpu else None,
+            "gpu_time_ms": round(statistics.mean(gpu_time), 2) if gpu_time else None,
+            "cpu_ms": round(statistics.mean(cpu), 2) if cpu else None,
+            "boundary_rows_excluded": 1, "foreign_rows_excluded": len(raw)-len(rows)-1,
+            "stream": dict(zip(identity, ("Nioh3.exe", *next(iter(streams))))),
+            "frame_type_tracking": "FrameType" in fields, "fg_off_verified": False}
 
 
 KEEP_RE = re.compile(r"(stats[ /]|^GP2?:|^SP |stats lm|stats mem|stats latency|stats wakes|stats spr|stats tiles|ASYNC)")
@@ -247,7 +289,8 @@ def load_final(d, device):
     pre = f"final_{device}_"
     for fn in sorted(os.listdir(d)) if os.path.isdir(d) else []:
         if fn.startswith(pre) and fn.endswith(".json"):
-            j = json.load(open(os.path.join(d, fn), encoding="utf-8-sig"))
+            with open(os.path.join(d, fn), encoding="utf-8-sig") as f:
+                j = json.load(f)
             j["_file"] = fn
             res.append(j)
     return res
@@ -297,7 +340,7 @@ def run_summary(j):
     lt = [w for w in W if w["kind"] == "latency" or w.get("lat_aip") is not None or w.get("lat_click") is not None]
     gm = lambda ws, k: med([w.get(k) for w in ws])
     r = {"fps": gm(st, "fps"), "low1": gm(st, "low1"), "p99": gm(st, "p99"), "gpu_ms": gm(st, "gpu_ms"), "cpu_ms": gm(st, "cpu_ms"),
-         "app_fps": gm(st, "app_fps"), "move_fps": gm(mv, "fps"), "combat_fps": gm(cb, "fps"),
+         "app_fps": gm(st, "app_fps"), "display_fps": gm(st, "display_fps"), "move_fps": gm(mv, "fps"), "combat_fps": gm(cb, "fps"),
          "lat_aip": gm(lt, "lat_aip"), "lat_click": gm(lt, "lat_click"), "lat_pcl": gm(lt, "lat_pcl"),
          "lat_n": sum(w.get("lat_aip_n") or w.get("lat_click_n") or 0 for w in lt),
          "load1_s": j.get("load1_s"), "load2_s": j.get("load2_s"), "hitches": j.get("hitches"), "valid": bool(j.get("valid", True)) and bool(st)}
@@ -354,7 +397,7 @@ def latency_block(d, device):
             dl = ""
             if base and c.get("lat_aip") is not None and base.get("lat_aip"):
                 dl = f"{c['lat_aip'] - base['lat_aip']:+.1f} ms ({(c['lat_aip'] / base['lat_aip'] - 1) * 100:+.0f}%)"
-            lines.append(f"| {p} | {cfg} | {c['runs']} | {f1(c['fps'])} | {f1(c['app_fps'])} | {f1(c['lat_aip'])} | {f1(c['lat_click'])} | {f1(c['lat_pcl'])} | {c['lat_n']} | {dl} |")
+            lines.append(f"| {p} | {cfg} | {c['runs']} | {f1(c['display_fps'])} | {f1(c['app_fps'])} | {f1(c['lat_aip'])} | {f1(c['lat_click'])} | {f1(c['lat_pcl'])} | {c['lat_n']} | {dl} |")
     if len(lines) == n0:
         lines.append("| (no results yet) | | | | | | | | | |")
     lines += ["", "FG note: with frame generation `fps shown` counts generated frames, `fps app` only the rendered ones; read latency together with `fps app`.", ""]
@@ -365,7 +408,7 @@ def table_md(d, device):
     C = cells(d, device)
     L = [f"# Results ({device})", "",
          f"Generated by `py -I tm.py table`; {sum(c['runs'] for c in C.values())} valid runs in {len(C)} cells. Medians over runs, [min-max] fps. "
-         "`d fps` is vs STOCK of the same preset and counts as real only when larger than the larger run spread of the two cells (control = STOCK vs STOCK).", ""]
+         "`d fps` is a descriptive comparison with STOCK of the same preset. Run ranges are not confidence intervals; this table does not retain ABBA pairing. Use `tm.py paired` for pinned launch pairs. New parser fps uses submission intervals; display fps is separate. Archived summaries are not silently recalculated.", ""]
     presets = sorted({k[1] for k in C if not k[2]}, key=lambda p: (p != "MAX", p != "USER", p))
     hdr = "| config | fps [min-max] | 1% low | p99 ms | move fps | combat fps | GPU ms | CPU ms | GPU % | CPU % | GPU C | CPU C | GPU W | CPU W | fps/GPU W | d fps vs STOCK |"
     for p in presets:
@@ -379,7 +422,7 @@ def table_md(d, device):
             if base and cfg != "STOCK" and base["fps"]:
                 dd = (c["fps"] / base["fps"] - 1) * 100
                 real = abs(dd) > max(base["spread_pct"], c["spread_pct"])
-                dv = f"{dd:+.1f}%" + ("" if real else " (noise)")
+                dv = f"{dd:+.1f}%" + ("" if real else " (within run spread)")
             eff = c["fps"] / c["gpu_w"] if c.get("gpu_w") and c.get("fps") else None
             L.append(f"| {cfg} | {f1(c['fps'])} [{f1(c['fps_min'])}-{f1(c['fps_max'])}] | {f1(c['low1'])} | {f1(c['p99'])} | {f1(c['move_fps'])} | {f1(c['combat_fps'])} | "
                      f"{f1(c['gpu_ms'], 2)} | {f1(c['cpu_ms'], 2)} | {f1(c['gpu_pct'], 0)} | {f1(c['cpu_pct'], 0)} | {f1(c['gpu_temp'], 0)} | {f1(c['cpu_temp'], 0)} | "
@@ -415,9 +458,111 @@ def table_md(d, device):
     return "\n".join(L) + "\n"
 
 
+def paired_runs(records):
+    """Fresh launches are the statistical units. An ABBA quartet is one block.
+
+    Adjacent pairs are descriptive; neither frame counts nor two pairs within
+    one quartet are independent replications. No CI or performance verdict is
+    inferred from a preliminary block. Ordering alone cannot establish equal
+    wall-time spacing or cancel nonlinear scene drift.
+    """
+    import xml.etree.ElementTree as ET
+    grouped = {}
+    for j in records:
+        if j.get("cfg") not in ("STOCK", "OPTIMIZED") or j.get("sweep"):
+            raise ValueError("paired accepts pinned STOCK/OPTIMIZED without sweeps")
+        try:
+            root = ET.fromstring(j["graphics_xml"])
+            fg = root.findall(".//FRAME_GENERATION")
+            if len(fg) != 1 or (fg[0].text or "").strip() != "OFF":
+                raise ValueError("missing, duplicated or non-OFF FRAME_GENERATION")
+            header = j["input"]
+            pins = tuple(header[k].lower() for k in ("asi_sha256", "ini_sha256"))
+            if any(not re.fullmatch(r"[0-9a-f]{64}", p) for p in pins):
+                raise ValueError("missing pinned artifact hashes")
+            windows = j["windows"]
+            st = [w for w in windows if w["kind"] == "stand"]
+            if len(st) != header["stand_windows"] or not all(w.get("ok") for w in windows):
+                raise ValueError("missing or invalid required windows")
+            expected = {"stand": header["stand_windows"], "move": 1,
+                        "combat": int(bool(j.get("window_protocol_complete")))}
+            if any(sum(w["kind"] == k for w in windows) != n for k, n in expected.items()) or any(w["kind"] not in expected for w in windows):
+                raise ValueError("required window counts differ")
+            for w in windows:
+                seconds = 25 if w["kind"] == "combat" else header["window_s"]
+                if w.get("requested_s") != seconds or not math.isfinite(w.get("duration_s", float("nan"))) or w.get("duration_s", 0) < .9*seconds:
+                    raise ValueError("short or unverified capture coverage")
+            if any(w.get("fps_metric") not in ("FrameTime", "MsBetweenPresents") for w in windows):
+                raise ValueError("recompute CSVs with the audited submission parser")
+            if any(set(w.get("frame_types", [])) - {"Application", "NotSet", ""} for w in windows):
+                raise ValueError("generated/unknown frame types contradict FG OFF control")
+            summary = run_summary(j)
+            if not summary["valid"]:
+                raise ValueError("invalid launch")
+            first = min(_dt.datetime.fromisoformat(w["t0"]).timestamp() for w in st)
+            signature = (pins, j["graphics_xml"], tuple(w["fps_metric"] for w in windows),
+                         j.get("full_protocol", False), j.get("window_protocol_complete", False))
+            key = (j["preset"], int(j["run"]))
+        except (KeyError, TypeError, ET.ParseError) as exc:
+            raise ValueError("incomplete pinned launch provenance") from exc
+        arms = grouped.setdefault(key, {})
+        if j["cfg"] in arms:
+            raise ValueError("duplicate launch arm")
+        arms[j["cfg"]] = (summary, first, signature)
+    presets = {}
+    metrics = ("fps", "low1", "p99", "gpu_ms", "cpu_ms")
+    for (preset, run), arms in sorted(grouped.items()):
+        if set(arms) != {"STOCK", "OPTIMIZED"}:
+            raise ValueError("missing paired launch arm")
+        a, ta, sa = arms["STOCK"]; b, tb, sb = arms["OPTIMIZED"]
+        if sa != sb:
+            raise ValueError("paired artifacts, picture, metrics or protocol differ")
+        entry = presets.setdefault(preset, {"signature": sa, "pairs": [], "blocks": []})
+        if entry["signature"] != sa:
+            raise ValueError("mixed release/settings/protocol within preset")
+        entry["pairs"].append({"run": run, "order": "AB" if ta < tb else "BA", "a_t0": ta, "b_t0": tb,
+            "delta": {k: b[k]-a[k] if a[k] is not None and b[k] is not None else None for k in metrics}})
+    for entry in presets.values():
+        pairs = entry["pairs"]
+        if [p["run"] for p in pairs] != list(range(1, len(pairs)+1)):
+            raise ValueError("missing launch pair in sequence")
+        for i in range(0, len(pairs)-1, 2):
+            p, q = pairs[i:i+2]
+            if p["order"] == q["order"]:
+                raise ValueError("launch pairs are not balanced ABBA/BAAB")
+            entry["blocks"].append({"runs": [p["run"], q["run"]],
+                "mean_delta": {k: (p["delta"][k]+q["delta"][k])/2 if p["delta"][k] is not None and q["delta"][k] is not None else None for k in metrics},
+                "time_center_delta_s": (p["b_t0"]+q["b_t0"]-p["a_t0"]-q["a_t0"])/2})
+        entry["unbalanced_tail_pairs"] = len(pairs) % 2
+        entry["balanced_blocks"] = len(entry["blocks"])
+        entry["full_protocol"], entry["window_protocol_complete"] = entry.pop("signature")[-2:]
+    return {"unit": "fresh launch; two opposite adjacent pairs form one balanced block",
+            "runtime_fg_off_verified": False, "ci95": None, "significance_verdict": None,
+            "note": "Descriptive pairing only. Frame counts are not replications; order does not prove scene or wall-time balance.",
+            "presets": presets}
+
+
+def paired(d, device):
+    records = load_final(d, device)
+    if not records:
+        raise ValueError("no pinned launch records")
+    for j in records:
+        for w in j.get("windows", []):
+            path = w["csv"]
+            if not os.path.isabs(path):
+                path = os.path.join(d, path)
+            result = stats(path)
+            observed = bool(w.get("ok"))
+            w.update(result)
+            w["ok"] = observed and result["ok"]
+            w["duration_s"] = result.get("capture_duration_s", 0)
+    return paired_runs(records)
+
+
 if __name__ == "__main__":
     a = sys.argv[1:]
     if a[0] == "stats": print(json.dumps(stats(a[1])))
+    elif a[0] == "paired": print(json.dumps(paired(a[1], a[2]), allow_nan=False))
     elif a[0] == "logtail": logtail(a[1], a[2], a[3])
     elif a[0] == "report": sys.exit(report(a[1], a[2], float(a[a.index("--noise-floor") + 1]) if "--noise-floor" in a else 0.5))
     elif a[0] == "best": best(a[1], a[2], a[3], len(a) > 4 and a[4] == "low")
