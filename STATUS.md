@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:40 - CBV registry consumers bounded
+- New offline registry-consumer audit PASS: pinned .text supported-form census21 candidates/one writer30345E3, three native windows/17 instruction checks, memory-only truncated/corrupted rejection and four scanner controls. Evidence: notes/handoff-codex-cbv-registry-consumers.md; tools/bench/audit_cbv_registry_consumers.py.
+- Two additional consumers test registry presence; one nonnull branch builds eight handle-array pointers and passes registry in RCX to3032CFC. No supported-form setter address reference found; byte candidates/limited encodings do not prove exhaustive xrefs or absence of another writer. Initialization/concrete vtable and returned-object/bound-layout identity remain open. No safety/defect/performance/visual claim.
+- No local game/capture/Ghidra or restoration needed; no build/deployment/settings/hardware/controller/hold/Claude changes. Other writers/worktrees/device-pinned inputs untouched. Phone checkpoint empty. Stable1.7.61, guard PR1 unmerged, FO NO-GO; external default-stack/player gates pending.
+- NEXT ready independent unit: trace3032CFC handle registration and its registry virtual calls, then resolve concrete implementation and bound-layout+38/+40/+44 producer/invalidation. Default-OFF training observer remains ready on owned codex-training-pump c297a20. No unchanged local retry or passed-suite repetition.
+
+
 ## UPDATE 2026-10-11 14:35 - CBV stage registry seam
 - Native stage-record registry seam pinned: three windows/62 instruction checks and truncated/corrupted memory-only rejection PASS. VS getter dispatches indexed handle/kind0 via global4BD0A38 vtable+10; adjacent helpers use distinct kinds. Setter30345DC swaps registry pointer without local invalidation. Evidence: notes/handoff-codex-cbv-stage-registry.md; tools/bench/audit_cbv_stage_registry.py.
 - Producer discovery only; returned-object-to-bound-layout link, concrete registry implementation and positive-size/generation guarantee remain open. Zero direct-branch setter matches do not cover indirect calls/address-taking. No native defect/safety/performance/visual claim.
