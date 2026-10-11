@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 retirement work publication
+
+Pending versus active counts, work tokens and scheduler edge traced; six static provenance checks PASS. Native fourth context argument recovered; GPU boundary and producer closure remain open. FO stays NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-work-publication.md.
+
 ## 2026-10-11 Codex - FO98 retirement ring rebuild
 
 Capacity growth, FIFO migration and semaphore/counter replacement traced; four static provenance checks PASS. CPU completion is not a proven GPU fence; failure branches restore saved handles. FO stays NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-ring-rebuild.md.

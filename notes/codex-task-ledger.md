@@ -2,6 +2,12 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
+## Latest checkpoint - FO98 retirement work publication traced
+- Traced 25208C pending+40 enqueue and 1267A8 active+48/work-token publication via 250650 under owner+D00; scheduler 2EF0938 reaches this path. Evidence: notes/handoff-codex-fo98-work-publication.md.
+- Six new static provenance checks PASS. Native 1278D8 carries a fourth context argument omitted by decomp; record[1] vtable+B8 and pre-publication helpers identify the next GPU-ordering trace. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent 1a65b12; experimental 24494d5 and tested 1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game at entry/checkpoint; no test/lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace 12796C/127CDC/127B4C/127A80 and record[1] vtable+B8 into submission/fence ordering, then producer closure and ring restart. Serial ownership until exit; commit/push with Codex attribution and Discord result through existing notifier after push. Static evidence only; use git log -1 for checkpoint commit.
+
 ## Latest checkpoint - FO98 retirement ring rebuild traced
 - Traced2EEF3B0 capacity growth and2EF01F4 FIFO ring rebuild, semaphore replacement and counter reset;2EEF950 frees the old buffer. Evidence: notes/handoff-codex-fo98-ring-rebuild.md.
 - Four new static provenance checks PASS. CPU worker completion is not a GPU fence; GPU timing remains unresolved. Semaphore-creation failure branches restore saved handles; initial closed-handle suspicion corrected after following the common failure jump. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent3d27386; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
