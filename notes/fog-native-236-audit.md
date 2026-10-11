@@ -33,3 +33,25 @@ historical recovery timing or independent old clock calibration. Original
 failed L5 record remains intact. Fresh AABB timing must use new anchors.
 
 Reproduce bounded audit: py tools/bench/audit_fog_native_236.py.
+
+## Exact slices received and independently bound, 19:07
+
+Bridge237 SHA256 ee4a116f1d47fee75334dafa9003884f3c0458901ee972a80c5fe62eebf6c315
+contains all24 retained windows for default232 and fog236. Each200-row window
+matches one exact contiguous source interval in the corresponding full CSV;
+all timestamps are monotonic and sample intervals checked. CRC and all archive
+SHA pins pass. Three window pairs in EACH queue share one boundary row. Treat
+these as repeated samples; do not claim24 independent observations.
+
+Exact unrounded launch-pair reconstruction: default232 +2.956726% with
+SE0.432609%; fog236 +0.083129% with SE0.312534%. Deduplicating the shared rows
+gives +2.957191%/SE0.426613% and +0.083132%/SE0.307401%, respectively. Fog remains
+neutral. These are three launch pairs per queue, based on100ms sampled FPS;
+no pooled per-frame tails, causal isolation or universal gain is established.
+The earlier default232 missing actual FG-menu observation is not resolved by
+receiving CSV slices. Fog236 has its own inspected FG-Off screenshot.
+
+Reproduce: `py -I tools/bench/audit_ally_slices_237.py`.
+Detailed exact source-line/timestamp windows are emitted to ignored
+`scratch/ally-slices-237-audit.json`. Original-cost archive238 also downloaded
+and SHA-verified; its different profile span is not a matched FPS comparison.
