@@ -13,6 +13,10 @@ bool g_seenMission = false, g_missionGap = false;
 uint32_t g_lastMission = 0;
 uintptr_t g_missionSite = 0, g_gameMainSite = 0, g_playModeSite = 0, g_netSite = 0;
 bool g_loadingGap = false, g_playModeGap = false, g_connectionGap = false;
+bool g_seenLoading = false, g_seenSession = false;
+uint8_t g_lastLoading = 0, g_lastConnection = 0;
+int32_t g_lastPlayMode = 0;
+uint32_t g_lastSessionMission = 0;
 template<class T> bool ReadScalar(uintptr_t site, uint64_t offset, T& out) {
     uint64_t object = 0;
     T value{};
@@ -100,6 +104,26 @@ void Pump() {
         g_missionGap = false;
     } else {
         g_missionGap = true;
+    }
+    next.loadGeneration = g_snapshot.loadGeneration;
+    if (next.loadingValid) {
+        if (!g_seenLoading || next.loadingGap || next.loading != g_lastLoading)
+            ++next.loadGeneration;
+        g_seenLoading = true;
+        g_lastLoading = next.loading;
+    }
+    // A separately readable tuple, not an atomic native session snapshot.
+    next.sessionValid = next.missionValid && next.playModeValid && next.connectionValid;
+    next.sessionGap = next.missionGap || next.playModeGap || next.connectionGap;
+    next.sessionGeneration = g_snapshot.sessionGeneration;
+    if (next.sessionValid) {
+        if (!g_seenSession || next.sessionGap || next.mission != g_lastSessionMission ||
+            next.playMode != g_lastPlayMode || next.connection != g_lastConnection)
+            ++next.sessionGeneration;
+        g_seenSession = true;
+        g_lastSessionMission = next.mission;
+        g_lastPlayMode = next.playMode;
+        g_lastConnection = next.connection;
     }
     g_snapshot = next;
     ReleaseSRWLockExclusive(&g_snapshotLock);

@@ -135,6 +135,48 @@ int main() {
     Pump();
     if(!check(Snapshot(out) && out.retryValid && out.retry==67064 && out.missionEpoch==5)) return 1;
     before=out;
+    // Disjoint storage for generation witnesses: no accidental scalar aliasing.
+    unsigned char loadObject[0x600]{}, modeObject[0x40]{}, netObject[0x200]{};
+    gameMainSlot=reinterpret_cast<uint64_t>(loadObject);
+    playModeSlot=reinterpret_cast<uint64_t>(modeObject);
+    netSlot=reinterpret_cast<uint64_t>(netObject);
+    Pump(); Snapshot(out);
+    if(!check(out.loadingValid && out.sessionValid && out.loadGeneration>0 &&
+              out.sessionGeneration>0 && out.loadingGap && out.sessionGap)) return 1;
+    before=out; Pump(); Snapshot(out);
+    if(!check(out.loadGeneration==before.loadGeneration && out.sessionGeneration==before.sessionGeneration &&
+              !out.loadingGap && !out.sessionGap)) return 1;
+    before=out; loadObject[0x58A]=1; Pump(); Snapshot(out);
+    if(!check(out.loadGeneration==before.loadGeneration+1 && out.sessionGeneration==before.sessionGeneration &&
+              out.missionEpoch==before.missionEpoch && !out.loadingGap)) return 1;
+    before=out; loadObject[0x58A]=0; Pump(); Snapshot(out);
+    if(!check(out.loadGeneration==before.loadGeneration+1 && out.sessionGeneration==before.sessionGeneration)) return 1;
+    before=out; mode=17; memcpy(modeObject+0x34,&mode,4); netObject[0x1DC]=9; Pump(); Snapshot(out);
+    if(!check(out.sessionGeneration==before.sessionGeneration+1 && out.loadGeneration==before.loadGeneration &&
+              out.sessionValid && !out.sessionGap)) return 1;
+    before=out; gameMainSlot=0; playModeSlot=0; Pump(); Snapshot(out);
+    if(!check(!out.sessionValid && out.sessionGap && out.sessionGeneration==before.sessionGeneration &&
+              !out.loadingValid && out.loadGeneration==before.loadGeneration)) return 1;
+    Pump(); Snapshot(out);
+    if(!check(out.sessionGeneration==before.sessionGeneration && out.loadGeneration==before.loadGeneration)) return 1;
+    gameMainSlot=reinterpret_cast<uint64_t>(loadObject);
+    playModeSlot=reinterpret_cast<uint64_t>(modeObject); Pump(); Snapshot(out);
+    if(!check(out.sessionValid && out.sessionGap && out.loadingGap &&
+              out.sessionGeneration==before.sessionGeneration+1 && out.loadGeneration==before.loadGeneration+1)) return 1;
+    before=out; Pump(); Snapshot(out);
+    if(!check(!out.sessionGap && !out.loadingGap && out.sessionGeneration==before.sessionGeneration &&
+              out.loadGeneration==before.loadGeneration)) return 1;
+    AcquireSRWLockShared(&g_snapshotLock); Pump(); ReleaseSRWLockShared(&g_snapshotLock);
+    Pump(); Snapshot(out);
+    if(!check(out.sessionValid && out.sessionGap && out.loadingGap &&
+              out.sessionGeneration==before.sessionGeneration+1 && out.loadGeneration==before.loadGeneration+1)) return 1;
+    before=out; Pump(); Snapshot(out);
+    if(!check(!out.sessionGap && out.sessionGeneration==before.sessionGeneration && out.loadGeneration==before.loadGeneration)) return 1;
+    write(0x1CBD,67064); Pump(); Snapshot(out);
+    if(!check(out.sessionGeneration==before.sessionGeneration+1 && out.loadGeneration==before.loadGeneration)) return 1;
+    before=out; write(0x1CBD,67065); Pump(); Snapshot(out);
+    if(!check(out.sessionGeneration==before.sessionGeneration && out.loadGeneration==before.loadGeneration)) return 1;
+    before=out;
     SetPumpLive(false); Pump(); out.mission=123;
     if(!check(!Snapshot(out) && out.sequence==0 && out.mission==0)) return 1;
     SetPumpLive(true);

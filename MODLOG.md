@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.5 observed generations
+
+Default-OFF Training Observe adds loading and mission/play-mode/connection tuple generations for valid raw changes and unknown/skipped recovery. Unknown retains counters; gaps remain explicit. These are observation boundaries, not native session/attempt identities or readiness. Offline validation only; no deployment/performance/visual claim. Undo: Observe=0. Evidence: notes/handoff-codex-training-generations.md.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.4 loading/session scalar observation
 
 Default-OFF Training Observe now caches independently valid loading/play-mode/connection raw scalars, per-field unknown/recovery gaps and sampled publication losses. Skipped samples also mark missionGap. Read-only offline validation; no readiness/performance/visual/native runtime claim or deployment. Undo: Observe=0. Evidence: notes/handoff-codex-training-session-scalars.md.

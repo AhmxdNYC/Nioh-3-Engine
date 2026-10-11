@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.4"
+#define ADDON_VERSION "1.4.5"
 
 namespace addon {
 
@@ -88,6 +88,9 @@ struct MissionSnapshot {
     uint8_t loading = 0, connection = 0;
     bool loadingValid = false, playModeValid = false, connectionValid = false;
     bool loadingGap = false, playModeGap = false, connectionGap = false;
+    // Observed raw changes/recovery boundaries, never native attempts/session IDs.
+    uint64_t loadGeneration = 0, sessionGeneration = 0;
+    bool sessionValid = false, sessionGap = false;
 };
 bool Prepare();
 void SetPumpLive(bool installed);
