@@ -156,6 +156,7 @@ void Post(uint32_t kind, int row, const char* via) {
 struct Snap {
     bool gm = false, player = false, msOk = false, queueBusy = false, emaki = false, online = false, guest = false;
     bool queueOk = false, emakiOk = false, onlineOk = false, guestOk = false;
+    int32_t playMode = 0;  // meaningful only with onlineOk; only native mode 0 is proven solo
     uint64_t qHash = 0;
     uint8_t st[6] = {};
     uint32_t ms14 = 0;  // mission state +14h: the retry point = the start point the mission was (re)loaded at
@@ -182,10 +183,9 @@ Snap ReadSnap() {
     s.emakiOk = Rd(G_CH, a) && a && Rd(a, ch) && ch && Rd(ch + 0x2C18, e);
     if (s.emakiOk) s.emaki = e != 0;
     uint64_t pm = 0, net = 0;
-    int32_t mode = 0;
     uint8_t conn = 0;
-    s.onlineOk = Rd(G_PM, pm) && pm && Rd(pm + 0x34, mode);
-    if (s.onlineOk) s.online = mode == 1 || mode == 2;
+    s.onlineOk = Rd(G_PM, pm) && pm && Rd(pm + 0x34, s.playMode);
+    if (s.onlineOk) s.online = s.playMode == 1 || s.playMode == 2;
     s.guestOk = Rd(G_NET, net) && net && Rd(net + 0x1DC, conn);
     if (s.guestOk) s.guest = conn != 0;
     return s;
@@ -273,6 +273,7 @@ const char* SessionGate(const Snap& s) {
     if (!s.onlineOk || !s.guestOk) return "session state unreadable";
     if (s.online) return "online";
     if (s.guest) return "co-op session";
+    if (s.playMode != 0) return "unsupported session mode";
     return nullptr;
 }
 const char* NativeGate(const Snap& s) {
@@ -1036,6 +1037,7 @@ void ExecEmaki(int row, ULONGLONG t) {
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
 void DoWarp(const Snap& s, ULONGLONG t) {
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
+    if (s.ms28 != g_fightMission) return;  // a different mission cannot supply fight/position evidence
     if (g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     if (s.st[2] || !s.player || s.st[3] || s.st[4]) return;  // loading / no player / paused: wait
@@ -1118,6 +1120,7 @@ void DoWarp(const Snap& s, ULONGLONG t) {
 // player is not in the trigger box 1.5 s after a warp; FAIL = no fight 8 s after the first warp (loading time not counted)
 void FnVerify(const Snap& s, ULONGLONG t) {
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
+    if (s.ms28 != g_fightMission) return;  // replay exit settles later; never act on the destination mission
     if (g_fn.load() != kFnWarped || g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     const ULONGLONG dt = g_fnLastT ? t - g_fnLastT : 0;
@@ -1146,7 +1149,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         Result("fight now FAIL %s: no fight in time (warps=%d)", r.id, g_warps);
         return;
     }
-    if (!g_fightWarp && !g_gateReq && r.atFight && r.bossOk && !g_warps && t - g_fnFirst > 10000 && !fight::g_active) {
+    if (s.ms14 == g_fightStart && !g_fightWarp && !g_gateReq && r.atFight && r.bossOk && !g_warps && t - g_fnFirst > 10000 && !fight::g_active) {
         float p[4] = {};
         if (PlayerPos(p)) {
             float dx = p[0] - r.boss[0], dz = p[2] - r.boss[2];
@@ -1171,7 +1174,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         // re-warp only when a load put the player back at the start point (the 1.2.1 failure), never when the game's own intro moved them
         const float sx = p[0] - r.warp[0], sz = p[2] - r.warp[2];
         const bool backAtStart = sx * sx + sz * sz < 500.0f * 500.0f;
-        if (!in && backAtStart && g_fightWarp && !g_gateReq && g_warps < 3 && !fight::g_active) {
+        if (s.ms14 == g_fightStart && !in && backAtStart && g_fightWarp && !g_gateReq && g_warps < 3 && !fight::g_active) {
             Log("Rematch: F %s: player %.0f %.0f %.0f is not in the trigger box 1.5 s after warp #%d - warping again", r.id, p[0], p[1], p[2], g_warps);
             g_warpPending = true;
             g_warpDue = t;

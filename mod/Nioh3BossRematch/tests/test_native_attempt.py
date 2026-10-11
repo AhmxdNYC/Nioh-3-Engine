@@ -242,6 +242,19 @@ int main(int argc,char** argv) {
     g_gateWant=1; g_gateDue=1; g_gateSeen=true; g_gateReq=false; g_sp.st=1;
     DoWarp(fixtureSnap,now); FnVerify(fixtureSnap,now); GateTick(fixtureSnap,now); fixtureSnap.st[2]=1; SpawnTick(fixtureSnap,now,false);
     if(!check(!warps && !rights && !writes)) return 1;
+    // A different mission's live boss must not satisfy the old replay verifier.
+    fresh(); start(); g_fn=kFnArmed; fight::g_active=true;
+    fixtureSnap.ms28=0x1111; DoWarp(fixtureSnap,now);
+    if(!check(g_fn==kFnArmed && !warps)) return 1;
+    fixtureSnap.ms28=g_fightMission; fixtureSnap.ms14=g_fightStart+1;
+    DoWarp(fixtureSnap,now);
+    if(!check(g_fn==kFnPass && !warps)) return 1;
+    // Readable but unproven session modes quarantine; returning to zero is not release.
+    for(int32_t mode:{-1,3,INT32_MAX}) {
+        fresh(); start(); fixtureSnap.playMode=mode; Tick();
+        fixtureSnap.playMode=0; Tick();
+        if(!check(g_attemptPhase==aQuarantined && !returns && !warps && !rights && !writes)) return 1;
+    }
     for(bool connected:{false,true}) {
         fresh(); start(false); fixtureSnap.online=!connected; fixtureSnap.guest=connected; Tick();
         fixtureSnap.online=fixtureSnap.guest=false; Tick();

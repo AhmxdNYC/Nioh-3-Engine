@@ -103,7 +103,7 @@ int main() {
         seed(); put<uint64_t>(address,0); s=ReadSnap();
         if(!check(Gates(s,false)!=nullptr)) return 1;
     }
-    for(int32_t mode:{1,2}) {
+    for(int32_t mode:{1,2,-1,3,INT32_MAX}) {
         seed(); put<int32_t>(80000+0x34,mode); s=ReadSnap(); ExitDispatch(s);
         if(!check(Gates(s,false) && nativeReturns==0 && NativeGate(s))) return 1;
     }
