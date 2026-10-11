@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Codex continuation and phone chat configured
+- User authorized ownership of all remaining tasks, Codex auto-continuation, phone chat, and direct Claude API assistance. Claude Code was not called; its existing auto-wake stays disabled. These new instructions supersede older stop-after-each-step and Codex-auto-wake restrictions.
+- universal-optimizer main94e62bd: serial fresh-worker controller, hidden logon task CodexNiohContinuation, local phone /status /stop /resume, task ledger, one-writer hold, existing-game guard, failure cooldowns and daily between-worker caps. Ten controller checks plus tools/bridge/nexus suites and applicable selftests PASS. Read-only CLI smoke and live phone route1784/1785 PASS; API-key transcript redaction PASS. Phone project Nioh 3 — Codex / PC Codex on existing port8766. Installing lead will release ownership only after committing this handoff.
+- Bounded Claude API helper authenticated successfully in memory; no credential retained. Incomplete review notes/claude-api-fo-review.md includes setup failures, actual available usage, model attribution and lead corrections. No engine fix or performance claim follows from the review. Future API use needs a private rotated process credential; do not recover it from chat logs.
+- Main1.7.61/FO0 unchanged; pc2 smoke1767, Ally1768 and conditional pc2 FO5 queue1781 still pending. No new remote result at last read. Next independent unit: FO queue-full, stream-bounds and unavailable-hook safety audit in D:/nioh3-wt/codex-fo10, then reconcile remaining tasks and proceed with small renderer candidates.
+- Read notes/codex-task-ledger.md for active work and notes/codex-progress-report.md for the user report. No new game launch during this tooling work. Before manual edits while automation runs: /stop, wait for current worker, then create runtime lead-active.
+
 ## UPDATE 2026-10-11 00:40 New York - Tour report failure fixed; remote gates unchanged
 - User requested more useful work. Fixed run_tour's false report failure on Python stderr clock-offset diagnostics; helper checks native exit code and preserves caller error policy. Recovered fo11 tour report offline; missing-log failure stays a failure. PowerShell parse + tour harness44checks PASS; no game launch or ASI change.
 - Main ASI stays1.7.61 / FOoff. codex-fo10 ddabf46 remains experimental; pc2 FO5 queue1781 follows smoke1767 PASS, Ally smoke1768 unchanged. No remote results through1781. No Claude calls or auto-wake. Detailed fo11 evidence/gates: notes/handoff-codex-step2b.md; tooling follow-up: notes/handoff-codex-tour-report.md.

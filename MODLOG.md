@@ -2,6 +2,7 @@
 
 | When | Change | Undo |
 |---|---|---|
+| 2026-10-11 | User-authorized Codex continuation/phone tooling in universal-optimizer94e62bd; ten controller checks, repo suites and live phone route PASS. Added task ledger/progress report and attributed incomplete API safety review. No ASI or game-setting change; Claude auto-wake remains disabled, no credential retained. | Phone Codex /stop; let active worker finish; disable CodexNiohContinuation and use monitor.stop. See universal tools/codex-autowake/README.md. |
 | 2026-10-06 13:34 | Backup of `%LOCALAPPDATA%\KoeiTecmo\NIOH3` (config.xml + saves) + Nioh3.exe sha256 → `backups\20261006-1334-pristine\` | — |
 | 2026-10-06 ~14:10 | OptiScaler 0.9.4 installed into game folder: `dxgi.dll` (OptiScaler, signed), `OptiScaler.ini`, `amd_fidelityfx_{dx12,upscaler_dx12,framegeneration_dx12}.dll` (AMD-signed). Game's own libxess/libxell untouched (identical versions). ini: Dx12Upscaler=fsr31 + Fsr4Update=true (→ FSR4), XeSS inputs only, OptiScaler FG off. | `powershell -File optiscaler\apply.ps1 -Revert` |
 
