@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - FO98 retirement queue growth corrected
+- Corrected native2EEF3B0: queue growth/repacking, not an object drain. Traced allocation, wait helper, semaphore replacement and preservation of queued24-byte triples. No queued-object release in the resize routine; downstream wait effects/worker ownership remain unproven. Evidence: notes/handoff-codex-fo98-queue-growth.md.
+- Five new static provenance checks PASS; no runtime/lifetime/safety or performance verdict. FO stays NO-GO; previous passed suites not repeated. Main parent a16449d; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged.
+- No local game at entry/checkpoint, no test/lock/build/deployment or installed ASI/INI/config/save/settings/hardware change; prior restoration retained. Controller untouched; no Claude call/wake. Phone1802 asks whether work is ongoing: acknowledged in commentary and Discord result. Remote1767/1768/1781 still pending at last known bridge1785, no fresh query.
+- Next ready unit: trace queue+10 worker creation and126984/1266FC/126A14, then the actual retirement consumer/GPU ordering. ResList capacity,D20 transitions and emitter caller modes still open before combined FO queue repair. Serial ownership until exit; topic committed/pushed with Codex attribution, Discord result through existing notifier after push.
+
 ## UPDATE 2026-10-11 - FO98 list removal and retirement enqueue traced
 - Native removal252104 and all three cold branches196CA82/98/AE traced: at most one matching pointer per each16-byte list is swap-removed; no reference operation in removal. Caller250ADC holds CF8 exclusive, then D00 exclusive for retirement enqueue25208C; failure/retry path may decrement object+8 and call vtable+18 when prior count is1. Evidence: notes/handoff-codex-fo98-retirement.md.
 - New provenance utility:4static identity checks PASS; no runtime/lifetime/safety verdict. Removal does not inspect the mod deferred queue. Capacity, D20 transitions, retirement drain/GPU ordering and emitter caller modes remain unproven. No production repair or performance claim; FO remains NO-GO. Previously passed suites not repeated.
