@@ -4,6 +4,12 @@ Codex continuation remains enabled. **Do not call or wake Claude. Only the user 
 
 Latest automation correction2026-10-11: the installing lead's2milliondaily cap stopped ready work after the first worker. User reported the stall; monitor stopped cleanly with no active worker, and daily caps now default null (optional user settings). Actual usage remains tracked and the single-writer/game guards remain. Tooling regression13checksPASS; restart follows repository checks/commits, then lead-active release. Rendering-first priority is unchanged. Earlier cap-hold observations below are historical and superseded by this correction.
 
+## Latest checkpoint - FO98 concrete resource vtable traced
+- Resolved record[1] for two allocation paths through constructor 254BA4/vtable 38EB460: +B8 is accounting via 127A48; +B0 is the object+178 non-null predicate. The same class +28 emits 1010098 via 2F06AB4; cache-object identity remains unresolved. Evidence: notes/handoff-codex-fo98-resource-vtable.md.
+- Nine new static provenance checks PASS; 490B44 is bitmap bookkeeping. No GPU completion, runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent b18b055; experimental 24494d5 and tested 1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game/test at entry/checkpoint; no lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace 2F06AB4 helpers 12B0D0/152D48/12AF40 and caller modes for producer exclusion/closure; resolve cache+20 object separately. GPU completion and ring restart remain open. Commit/push with Codex attribution and Discord result after push; use git log -1 for checkpoint commit.
+
 ## Latest checkpoint - FO98 pre-publication resource cleanup traced
 - Traced pre-publication sorted resource membership, cache invalidation, typed-ring cleanup and three-list record cleanup before retirement publication. Evidence: notes/handoff-codex-fo98-prepublication-cleanup.md.
 - Eight new static provenance checks PASS. Native 127B4C supplies the membership argument omitted by decomp; cleanup virtual calls and actual GPU completion remain unresolved. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent d66de6d; experimental 24494d5 and tested 1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
