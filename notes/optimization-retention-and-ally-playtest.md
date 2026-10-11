@@ -42,8 +42,19 @@ Do not touch an active user game. Record exact installed hashes and accessible
 menu actions before sending the requested **ready to try** webhook.
 
 Current state: private Engine1.7.67/addon1.4.9 is built/offline checked. Local
-C72E native start334140 reached expected mission/boss333550 with zero warps;
-the harness discarded an early landing proxy and stopped during the intro,
-so root control/return acceptance is still open. Native Yamagata practice
-tooling is under review; arbitrary enemy spawning/stage switching is not yet
-implemented. No handheld feature deployment or ready notice has occurred.
+C72E native start334140 reached expected mission/boss333550 with zero warps.
+Root visually confirmed camera response and reviewed the native return to the
+exact original overworld tuple in run193651-24196. Its original failed result
+is preserved: the old oracle incorrectly rejected valid mission0; corrected
+offline review and a separately hashed root-accepted result record the outcome.
+First-controllable timing and broader combat/retry acceptance remain open.
+Native Yamagata practice tooling is being repinned, and a genuine native replay
+menu action is implemented privately. Arbitrary enemy spawning/stage switching
+is not yet implemented. No handheld feature deployment or ready notice occurred.
+
+User now reports the current Ally rematch controller shortcut fails. Addon
+default is hold View+D-pad Up1s; exact current installation and logs are pending
+read-only bridge2046. Its separate Windows GDI overlay may not be composited in
+Game Mode, but that is not a verified diagnosis. A versioned bridge into the
+EngineFix in-game DX12 overlay is under implementation and needs actual handheld
+visibility/input acceptance before delivery.
