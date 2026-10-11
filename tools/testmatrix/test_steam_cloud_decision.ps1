@@ -15,6 +15,7 @@ Check (SCC-RevealDecision $true $true $false $false $false 20000 20) 'refuse-rev
 Check (SCC-Decision $true $false $true $true $false 20000 20) 'unverified-background' 'covered pixels cannot authorize click'
 Check (SCC-Decision $true $true $true $true $false 20000 20) 'click-candidate' 'fresh foreground exact OCR'
 Check (SCC-Decision $true $true $false $false $false 20000 20) 'no-dialog' 'blank CEF after reveal still refused'
+Check (SCC-Decision $true $true $false $true $false 20000 20) 'no-dialog' 'button without header refused'
 Check (SCC-Decision $true $true $true $false $false 20000 20) 'no-exact-button' 'header plus color not enough'
 Check (SCC-Decision $true $true $true $true $false 19999 20) 'user-active' 'fresh click idle gate'
 Check (SCC-Decision $true $true $true $true $true 0 20) 'dryrun' 'read-only plan allowed while active'

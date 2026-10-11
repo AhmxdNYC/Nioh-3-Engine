@@ -45,3 +45,38 @@ the decision path, not actual Windows focus success, CEF rendering or OCR/live
 dialog acceptance. Foreground checks are observations, not an OS lock against
 an external focus change between the last check and mouse-down. English titles
 and OCR text remain required; no localization claim or launch retry was added.
+
+## Retained embedded-dialog OCR repair
+
+Root subsequently identified the real prompt embedded in the foreground main
+Steam Library window, not a separate Launching HWND. Its retained1919x1032 PNG
+`D:/nioh3-re/steam-inspection-20261011/play-anyway-foreground.png` has SHA256
+`3e3857f14389db3971859c8096c4aba01443681a502dc1121ca012f31b047524`.
+The original WinRT full-image OCR finds the heading but misses the small white
+Play anyway label. That failure was reproduced on the retained file.
+
+`steam_cloud_ocr.ps1` adds a second bitmap-only recognition pass when the exact
+adjacent button words were absent. It locates one exact Unable to Sync heading,
+derives a bounded1000x450 region from that heading's bounding boxes, clips to
+the image and scales2x with bicubic sampling. The new crop must again OCR the
+heading and exact adjacent Play/anyway words. Coordinates are transformed back
+through scale, crop offset and window offset. Color never authorizes input;
+there are no stored live click coordinates. Original ownership, foreground,
+idle and post-focus fresh-capture gates remain. A foreground main Steam window
+works through ordinary detection; the restricted optional launch-window reveal
+title rule was not broadened to generic main/settings windows.
+
+Offline retained-image test PASS: baselineExact=False, enhancedExact=True,
+detected centre1066,608 inside the visually reviewed retained button. The test
+also rejects missing-header evidence and verifies nonzero/negative window
+coordinate translation. These geometry assertions are test-only. No live
+focus/click/launch action occurred and there is no general OCR success claim.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/testmatrix/test_steam_cloud_retained_ocr.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/testmatrix/test_steam_cloud_decision.ps1
+```
+
+Result: retained-image checks PASS and21 pure decision/integration checks PASS.
+The new helper performs at most one crop OCR per fresh capture and refuses
+missing/ambiguous headings or missing exact text. Blank CEF remains unresolved.
