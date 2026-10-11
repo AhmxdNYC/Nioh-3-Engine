@@ -4,5 +4,6 @@
 - Same look: no quality reductions; prove equivalence offline (bit-exact or within output quantization).
 - Tools: decomp D:\nioh3-re\decomp (grep), re\symbols\symbols.tsv (+ incoming/<area>.tsv; merge_incoming.py has no --help), re\Nioh3.dump.exe, Ghidra headless <=4 GB heap, C: >= 3 GB free. Game not runnable on PC while the Ally plays.
 - ASI: mod\Nioh3EngineFix (build.bat, tests\test_patterns.py must end ALL N SITES OK). Only ONE agent edits src at a time; others add new files + integration notes.
-- Deliverables: notes\<topic>.md (concise), MODLOG.md entry, commit only own files ("Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"), push. Don't launch the game; don't use the bridge.
+- Deliverables: notes\<topic>.md (concise), MODLOG.md entry for a feature, commit only own files with Codex attribution when Codex did the work ("Co-Authored-By: OpenAI Codex <noreply@openai.com>"). Commit identity: AhmxdNYC <104233015+AhmxdNYC@users.noreply.github.com>. Static agents don't launch the game or use the bridge; the authorized lead coordinates device tests.
 - Token rules: universal-optimizer\docs\token-efficiency.md (read narrowly, digest logs with scripts, short reports).
+- Public staging: before touching C:\Users\Ahmad Hamza\nioh3-public, read notes\handoff-claude-public-repo.md. Never publish private history/handoffs/tooling, game dumps, extracted text or shader .file containers; scrub PDB paths from built ASIs and follow its privacy/benchmark rules.

@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Codex progress audit and device testing split
+- Renderer census:54,295/54,295 catalogued functions have C exports; named core2,382/5,932=40.2%, broader named bytes20.71%, unchanged from takeover996ee73. Names/exports do not establish semantic completion. Report:notes/codex-rendering-progress-2026-10-11.md.
+- Parallel static audits found ApplyBatch writes after failed thread inspection; allocator Reset success is insufficient lifetime proof. Evidence/next proof:notes/handoff-codex-parallel-safety.md. No source/ASI/game/settings change; no new runtime or performance result. FO remains NO-GO; main1.7.61/FO0 remains the tested baseline.
+- User unpaused device Claudes: Codex retains source/build ownership, Claude-PC/pc2/Ally test their own device. pc2/Ally claimed main smoke1767/1768; obsolete FO5 kit225 explicitly HELD/CANCELLED by reply1825. PC waits for Ally shared-account run; stock-vs-default plan follows. Do not call Claude CLI or enable its auto-wake. Fresh bridge read1817-1822 and replies1824-1826.
+- Read and commit private notes/handoff-claude-public-repo.md; public staging76d85ac is a curated mod-source copy, not game source. No public edits/uploads. No-reply author identity set for this private repository; publication rules added to AGENT_BRIEF. Next source unit: isolated ApplyBatch failure-policy repair/proof; correlate device smoke results and prepare whole-mod baseline benchmark. Existing FO trace15c9e2d remains recorded below.
+
 ## UPDATE 2026-10-11 - FO98 concrete allocator submit/reuse traced
 - Identified embedded allocator vtable409A620 and concrete +10/+18/+28/+30 targets. Token0 executes the list then signals context+6C8; reuse cold path waits on graphics owner+6D8. Evidence: notes/handoff-codex-fo98-allocator.md.
 - Ten new static provenance windows PASS. Fence identity/shared timeline remains unresolved; no retirement/producer-closure/safety/performance verdict. FO NO-GO. Parent9d27938; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.

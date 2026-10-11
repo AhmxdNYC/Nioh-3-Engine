@@ -2,6 +2,13 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
+**Ownership update2026-10-11:** the user resumed Claude sessions on PC,pc2,Ally and explicitly asked everyone to benchmark/optimize. Accepted bridge1817/1820/1821 split via1824-1826: Codex owns all source/builds/symbols/STATUS/ledger; each Claude tests only its device and writes notes/claude-*.md. Do not invoke Claude CLI/API or toggle its auto-wake. PC launch waits for Ally shared-account run. Main smoke1767/1768 now claimed; FO5 kit225 explicitly HELD/CANCELLED until a proven replacement. Follow new publication handoff before touching public staging; never copy private handoffs there.
+
+## Latest checkpoint - parallel coverage and safety audit
+- Coverage unchanged: core2,382/5,932 named; broader bytes20.71%; all54,295 renderer catalog functions have generated C exports. Evidence and takeover-to-now results:notes/codex-rendering-progress-2026-10-11.md.
+- ApplyBatch fail-open thread-inspection paths verified statically; no runtime crash attribution or repair yet. Native/Proton allocator contracts and existing FO harness limits checked. See notes/handoff-codex-parallel-safety.md. No source/build/game changes; no new gain claim; FO remains NO-GO.
+- Next bounded source unit supersedes older trace-only next steps: repair/prove ApplyBatch failure policy on a separate experimental branch with production-code injected failures and pre-fix negative control. Do not change installed ASI or sync public code until appropriate full checks pass. Keep remaining thread-creation race and post-write cleanup limits explicit; don't claim whole patch installation safe from this partial repair.
+
 ## Latest checkpoint - FO98 concrete allocator submit/reuse traced
 - Identified embedded allocator vtable409A620 and concrete +10/+18/+28/+30 targets. Token0 executes the list then signals context+6C8; reuse cold path waits on graphics owner+6D8. Evidence: notes/handoff-codex-fo98-allocator.md.
 - Ten new static provenance windows PASS. Fence identity/shared timeline remains unresolved; no retirement/producer-closure/safety/performance verdict. FO NO-GO. Parent9d27938; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
@@ -85,6 +92,10 @@ Owner: one serial Codex lead. User authorized all remaining work and Codex auto-
 
 
 ## Ready work, in priority order
+
+**Immediate implementation priority after this root checkpoint:** the bounded ApplyBatch fail-closed repair/proof above, isolated from main. It improves rendering release readiness while device Claudes run smoke/whole-mod benchmarks. Parallel read-only candidate research and exact benchmark recipes may be incorporated after root verifies them. Finish actual proof/code rather than another bookkeeping-only checkpoint. Then resume the FO lifetime trace at15c9e2d and existing priorities below. Public source maintenance requires notes/handoff-claude-public-repo.md and no-reply identity; never publish this ledger.
+
+Compute candidate gate now researched in notes/handoff-codex-compute-cache.md:58C144 is lookup, insert58BA50->58BAA0; count/cap/root are insufficient compute lifetime invalidation. No serving-hit port until a mutation-generation proof; compare-only prototype first. No new compute gain claimed. Also audit psomemo FrozenWrite5 inspection failures separately; ApplyBatch repair does not cover every installer.
 
 **Continuation correction (2026-10-11):** user asked why work had stopped. The installing lead's unrequested daily cap caused it; that default is removed. Daily caps are now optional null values, with actual usage still recorded. Monitor stopped cleanly, no active worker, temporary lead-active protects this update; after tooling checks and commits the lead restarts and releases ownership. Next worker must perform the concrete rendering-first unit below, not merely rewrite status. Keep each unit narrow, checkpoint its actual evidence, and select the next ready unit. Phone1791 asks for a webhook update on the chosen work; the lead will post after successful restart. No new Claude API calls.
 

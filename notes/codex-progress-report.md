@@ -2,6 +2,8 @@
 
 Updated 2026-10-11. This report separates completed work, measured results, and work still pending.
 
+Takeover-to-now rendering summary and exact coverage census: [codex-rendering-progress-2026-10-11.md](codex-rendering-progress-2026-10-11.md). All54,295 catalogued renderer functions have generated C exports; named core40.2% and broader named bytes20.71% are unchanged. Parallel audits identified patch-installation failure paths and clarified native/Proton lifetime requirements, without new runtime/gain claims. The user resumed device Claudes for testing; Codex retains source ownership. Public mod-source staging is separate and follows the newly committed private publication handoff.
+
 ## Latest checkpoint - FO98 concrete allocator submit/reuse traced
 - Identified embedded allocator vtable409A620 and concrete +10/+18/+28/+30 targets. Token0 executes the list then signals context+6C8; reuse cold path waits on graphics owner+6D8. Evidence: notes/handoff-codex-fo98-allocator.md.
 - Ten new static provenance windows PASS. Fence identity/shared timeline remains unresolved; no retirement/producer-closure/safety/performance verdict. FO NO-GO. Parent9d27938; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
