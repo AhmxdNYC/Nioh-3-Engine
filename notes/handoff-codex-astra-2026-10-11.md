@@ -19,6 +19,10 @@ He authorized multiple agents, bridge coordination with the existing device
 Claude chats, graceful game closure for tests, Discord result cards, and Codex
 continuation. He explicitly said **recording finished**. His latest request is
 a good handoff and a **new chat using `gpt-6-astra`**.
+Latest steering while this handoff was saved: **tell him when further game
+optimization opportunities are found**. Prioritize the finite fog candidate,
+AABB CPU-bound pilot and correctly isolated material/culling costs; distinguish
+a candidate from a measured gain and notify real results.
 
 The prior chat's locally recorded model was `gpt-6.1-sol`. Do not describe that
 chat as Astra. The installed Codex model cache lists `gpt-6-astra`; the new
@@ -251,3 +255,10 @@ automatic worker from overlapping. The continuation controller/model defaults
 are unchanged; this explicit chat uses Astra. The new lead owns future safe
 checkpoint/release decisions. No promise of unlimited background operation or
 account availability is made.
+
+Notification receipts: the high-level Discord handoff/fog-proof card was sent
+successfully. Bridge FYI **1953** advertises the handoff and candidate commits,
+with PC/Ally launch HOLD until the successor queues a bounded test. No new
+device recovery/clock/raw/FG evidence arrived. Main handoff commit **eb35ea3**
+was pushed; Git's automatic packing finished cleanly before transfer. All old
+lead tool sessions/proof/writers are closed, and no game is running.
