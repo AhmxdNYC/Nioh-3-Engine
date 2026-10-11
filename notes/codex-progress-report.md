@@ -1,5 +1,15 @@
 # Codex work on Nioh 3
 
+## Current result - 2026-10-11 parallel checkpoint
+
+Step1 stable1.7.61 now passes all three device component smokes. The archive audit reproduces pc2 CBMODE +16.50% +/-0.16% SE and Ally XPRE +4.16% +/-0.18% SE; their counterpart tests are neutral. These are fixed-spot feature tests, not a complete default-mod gain. A guarded pinned whole-mod benchmark is implemented;29 restoration/ownership checks and32 observed-operator/FG configuration checks pass. PC execution is queued and held until the non-interactive observed prompt path is committed; no new whole-mod result exists.
+
+ApplyBatch inspection failures now abort before byte writes in the isolated production guard.143 repaired checks and11 pre-fix witnesses pass;36 harnesses/255 patterns passed, private1.7.64 builds and passes its artifact check. Native smoke/integration remain pending. A second writer audit reproduces12 FrozenWrite5 hazards; its serving-cache logic stays untouched while a bounded combined1.7.65 repair is prepared.
+
+Frame-overlap research proves the primary graphics owner's+6D8 and context's+6C8 are literally the same fence slot. This closes one pointer-identity question; producer, last-use, retirement and reset safety remain open. FO stays NO-GO. Renderer naming/export percentages remain unchanged from takeover; see [the precise coverage report](codex-rendering-progress-2026-10-11.md).
+
+Continuation/phone coordination is enabled, with one serial source lead, isolated parallel work and benchmark preparation/restoration holds. Root currently owns the temporary source hold. Device chats communicate through the bridge; no Claude CLI/API invocation or wake toggle. The current README now scopes measured results and archives withdrawn claims. Public staging has not changed.
+
 ## Latest checkpoint - RC1761 archive evidence verified
 - Read-only archive audit PASS: ZIP CRCs, 1.7.61 log versions, all24 valid mod-clock windows and three-pair FPS arithmetic per item. Evidence/script: notes/handoff-codex-rc1761-evidence.md; tools/bench/verify_rc1761.py. No previously passed test rerun.
 - CBMODE Ally neutral / pc2 +16.50% +/-0.16% SE; XPRE Ally +4.16% +/-0.18% SE / pc2 neutral, fixed spot only. XPRE measured with CBMODE0; combined CBMODE6/XPRE1 smoke is compatibility, not a default-stack A/B. No whole-mod or new visual verdict.

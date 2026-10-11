@@ -1,6 +1,14 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Parallel source safety and observable benchmark operation
+- Stable1.7.61 component runtime smokes now PASS on PC,pc2,Ally. CBMODE pc2 +16.50% +/-0.16% SE; Ally neutral. Opt-in XPRE Ally +4.16% +/-0.18% SE; pc2 neutral. Archived mod-clock arithmetic verified; hardware/scene/clock-alignment and device-attestation limits remain. No whole-default-stack result yet.
+- Main1701217 includes the pinned benchmark driver and primary graphics fence identity note. Root's observed file-prompt addition passes32 checks;29 restoration/ownership checks still pass. PC queue1848 is four-launch USER ABBA, SkipCombat, then1849 HOLD until non-interactive observed prompts are committed. No local game launched; no benchmark result claimed. Parser correction is in an isolated tools branch.
+- Private installguard branch39c6073 builds1.7.64 SHA256ad25060c9a2a08b719d211abcbcb30df51b9f3fd5a97ce012573c8cb5727eda7. Production guard143 checks and11 pre-fix witnesses PASS;36 harnesses/255 patterns PASS; actual artifact check0 errors/3 inherited warnings. Default INI unchanged. No native smoke/main source merge/public deployment yet. A separate bounded FrozenWrite5 repair is now authorized as combined1.7.65;12 pinned hazards reproduced, PCM remains0.
+- FO primary owner+6D8/context+6C8 identity CLOSED: literally one slot/fence for the constructed primary context. Producer closure, other contexts, retirement and reset-generation safety remain open; FO NO-GO, kit225 cancelled/held. Read notes/handoff-codex-fo98-fence-identity.md and Claude's owned producer note.
+- Codex owns source/builds/checkpoint docs; Claude device chats own observed tests. Continuation monitor is enabled and currently idle under root lead-active; no new automatic source unit until root releases ownership. Benchmark marker prevents auto units during preparation/restoration. No Claude CLI/API call, Claude auto-wake toggle, Ghidra, hardware change or public write.
+- Next gates: commit observed operator tooling/parser repair, run preliminary PC1.7.61 comparison with verified restoration, then isolated combined guard-candidate native smoke. Keep shared main/bin1.7.61 pinned until candidate smoke passes. README now separates measured component results from archived/retracted claims.
+
 
 ## UPDATE 2026-10-11 - RC1761 external capture audit
 - Read-only external-capture audit PASS: pc2 sampled GPUBusy A/B arithmetic reproduced for all12 windows; uniquely inferred +14h overlap offset, 7,306 samples. Evidence/script: notes/handoff-codex-rc1761-capture.md; tools/bench/audit_rc1761_capture.py. No prior passed CRC/mod-clock suite repeated.

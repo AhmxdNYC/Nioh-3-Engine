@@ -1,4 +1,10 @@
-# Codex step 1 handoff - 2026-10-10 (PC portion complete; remote validation pending)
+# Codex step 1 handoff - 2026-10-10 (historical checkpoint)
+
+Update2026-10-11: both remote runtime smokes now PASS. Independently verified
+captures/metrics and attestation boundaries are in
+`notes/handoff-codex-rc1761-evidence.md`. Later user messages authorized continued
+work and Codex auto-continuation; the step1 stop/auto-wake instructions below
+describe the original scope. No Claude CLI/API calls or Claude auto-wake toggles.
 
 User authorized lead takeover and step 1 only; stop after its result. No Claude calls and auto-wake stays off.
 

@@ -145,6 +145,11 @@ function Get-PBCaptureDuration([string]$Csv) {
     }
     return $duration
 }
+function Assert-PBFgOff([string]$Graphics) {
+    $matches=[regex]::Matches($Graphics,'<FRAME_GENERATION>([^<]*)</FRAME_GENERATION>')
+    if ($matches.Count -ne 1 -or $matches[0].Groups[1].Value -cne 'OFF') { throw 'FG OFF readback failed; missing/duplicate/unknown FRAME_GENERATION refused' }
+    return 'OFF'
+}
 function New-PBMarker([string]$Directory) {
     New-Item -ItemType Directory -Path $Directory -Force | Out-Null
     $path = Join-Path $Directory 'pc-benchmark-active'

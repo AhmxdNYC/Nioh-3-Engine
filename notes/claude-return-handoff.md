@@ -1,5 +1,12 @@
 # User-controlled return to Claude - 2026-10-11
 
+## Current return state - parallel checkpoint
+- Source/builds/docs remain Codex-owned; Claude-PC/pc2/Ally test their own devices. Main/bin stable1.7.61, FO0, exact default INI; all three component smokes PASS, archived metrics audited. Full default-vs-EngineFix-absent benchmark is still absent. No public edits/uploads.
+- Main has the pinned benchmark driver; root adds observed nonce-based file prompts because Claude-PC's shell cannot answer console prompts.29 recovery/ownership plus32 operator/FG checks pass. PC queue1848 updated to USER4launch ABBA/SkipCombat,1849 hold pending tool commit. No blind confirmations, fake combat or full-protocol claim. Parser corrections are isolated and pending review.
+- ApplyBatch source repair/private1.7.64 branch39c6073:143 production checks,11 pre-fix witnesses,36 harnesses/255 patterns, build/artifact check PASS; native smoke pending. Separate FrozenWrite5 repair authorized as combined1.7.65, PCM0, serving logic untouched. Keep tested main/bin1.7.61 until candidate native smoke. Source writer owns isolated branches; do not edit them concurrently.
+- FO primary fence identity is closed; reset/retirement/producer obligations remain NO-GO. Read notes/handoff-codex-fo98-fence-identity.md. Claude-PC owns its producer-caller note; Codex reset-lifetime trace is disjoint. Kit225 cancelled; no new FO runtime queue.
+- Codex continuation enabled with root lead-active hold, current worker idle. Root removes hold after checkpoint/ownership clear; pc-benchmark-active remains until verified restore. Never invoke Claude CLI/API or toggle its wake. README archives old withdrawn gains and presents scoped measurements; don't reintroduce setup/shader/cross-launch numbers as default-mod gains.
+
 ## Latest checkpoint - RC1761 archive evidence verified
 - Read-only archive audit PASS: ZIP CRCs, 1.7.61 log versions, all24 valid mod-clock windows and three-pair FPS arithmetic per item. Evidence/script: notes/handoff-codex-rc1761-evidence.md; tools/bench/verify_rc1761.py. No previously passed test rerun.
 - CBMODE Ally neutral / pc2 +16.50% +/-0.16% SE; XPRE Ally +4.16% +/-0.18% SE / pc2 neutral, fixed spot only. XPRE measured with CBMODE0; combined CBMODE6/XPRE1 smoke is compatibility, not a default-stack A/B. No whole-mod or new visual verdict.

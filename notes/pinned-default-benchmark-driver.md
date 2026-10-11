@@ -62,3 +62,41 @@ restoration after changed/deleted/new saves and temporary ASI/INI/log installati
 persisted recovery, damaged backups, existing-game/stale-stockoff guards, ABBA IDs,
 partial windows, first-interval false coverage, actual dry-run no writes, exclusive
 marker ownership and controller blocking; also parses all four PowerShell files.
+
+## Observed non-interactive operation
+
+Direct `pinned_final_pc.ps1` accepts `-FilePrompts -OperatorTimeoutSec 600` and
+an explicit fresh `-OutputDir`. The persistent owner shell must stay alive.
+Requests appear in `<OutputDir>/operator/request.json`; the device worker
+observes the screen/game state, performs the requested guarded navigation,
+then atomically writes `response.json`. This avoids console interaction while
+preserving an explicit observation for each prompt. Never pre-feed answers.
+
+Copy protocol, session, sequence and nonce from the **current waiting request**.
+Add `answer`, `observed: true` and a non-empty `evidence` describing that
+observation or linking its screenshot/process check. Answers: READY for
+gameplay-ready/window-ready; YES or NO for window-confirm; DONE for quit.
+ABORT triggers recovery. A stale nonce, foreign session, wrong sequence,
+malformed JSON or missing observation cannot acknowledge a request. Each
+accepted request/response is archived. Attestation is not visual proof.
+
+Example response (read the live request; these identifiers are placeholders):
+
+```json
+{"protocol":1,"session":"from-request","sequence":1,"nonce":"from-request","answer":"READY","observed":true,"evidence":"Current HUD screenshot at the recorded reference view"}
+```
+
+For preliminary USER coverage use `-Runs 2 -SkipCombat`: four launches in
+STOCK,OPTIMIZED,OPTIMIZED,STOCK order, two20s STAND windows and one20s camera
+window each. Reuse the guarded camera sweep only with the same captured timing
+and view in both arms. There is no compatible bundled timed combat route;
+combat, LOAD2/hitches and latency remain separate gates. A copied8-command
+FSI sweep has startup overhead, so its full duration must not be assumed to
+fit20s. Both protocol-completion fields remain false in this preliminary run.
+
+FG OFF is now read back from the saved graphics XML before each launch;
+missing, duplicate or other values abort. `fg_configured=OFF` records that
+configuration observation; it does not independently verify runtime generated
+frames or OptiScaler overrides. The worker must also record the actual setup.
+The file-prompt/regression suite has32 offline checks; the29 restoration and
+ownership checks still pass after this driver change. No live run yet.
