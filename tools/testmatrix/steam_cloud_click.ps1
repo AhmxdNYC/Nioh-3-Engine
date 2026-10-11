@@ -9,8 +9,15 @@
 # The user decided (bridge #602/#603): save copies exist, launching without cloud sync is fine (single-player).
 # Exit / output: 'clicked' (0), 'none' (1: no dialog found), 'skipped:<why>' (2).
 #   -DryRun   : find + report the button rectangle, no click.   -Once is implied; callers poll it in their launch-wait loop.
-param([switch]$DryRun, [int]$MinIdleSec = 20, [string]$SaveShot = '')
+# Background CopyFromScreen pixels are untrusted. Optional ExpectedLaunchHwnd/Pid
+# identify root's pending launch; only a Steam Launching/Unable to Sync title may
+# be raised once after the idle gate. DryRun never raises. Fresh foreground OCR
+# must still identify both exact texts; a blank CEF window remains unconfirmed.
+param([switch]$DryRun, [ValidateRange(0,2147483)][int]$MinIdleSec = 20, [string]$SaveShot = '',
+  [long]$ExpectedLaunchHwnd = 0, [int]$ExpectedLaunchPid = 0)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'steam_cloud_decision.ps1')
+if (($ExpectedLaunchHwnd -ne 0) -ne ($ExpectedLaunchPid -ne 0)) { throw 'Expected launch HWND and PID must be supplied together' }
 Add-Type -AssemblyName System.Drawing, System.Runtime.WindowsRuntime
 Add-Type @'
 using System; using System.Text; using System.Runtime.InteropServices; using System.Collections.Generic;
@@ -20,6 +27,8 @@ public static class SCC {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int size);
+  public static string Title(IntPtr h) { var s=new StringBuilder(1024); GetWindowText(h,s,s.Capacity); return s.ToString(); }
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
@@ -72,56 +81,72 @@ function Ocr-Window($h) {   # returns @{ rect; lines } for the window's on-scree
   @{ rect = $r; lines = @($res.Lines); bmp = $bmp }
 }
 
+function Steam-Owned($h,$pids) {
+  [uint32]$windowPid=0
+  [void][SCC]::GetWindowThreadProcessId($h,[ref]$windowPid)
+  if (-not $pids.Contains($windowPid) -or -not [SCC]::IsWindowVisible($h)) { return $false }
+  if ($ExpectedLaunchHwnd -and ($h -ne [IntPtr]$ExpectedLaunchHwnd -or $windowPid -ne $ExpectedLaunchPid)) { return $false }
+  $p=Get-Process -Id $windowPid -ErrorAction SilentlyContinue
+  return $p -and $p.ProcessName -in @('steam','steamwebhelper')
+}
+function Read-Candidate($h,$pids,[bool]$PlanOnly) {
+  $owned=Steam-Owned $h $pids
+  $foreground=[SCC]::GetForegroundWindow() -eq $h
+  if (-not $owned -or -not $foreground) {
+    return @{decision=(SCC-Decision $owned $foreground $false $false $PlanOnly 0 $MinIdleSec);button=$null;text=''}
+  }
+  $o=Ocr-Window $h
+  if (-not $o) { return @{decision='no-dialog';button=$null;text=''} }
+  try {
+    $all=($o.lines | ForEach-Object { $_.Text }) -join ' | '
+    $button=SCC-Button $o
+    # OCR can outlast a foreground change. Never attribute those pixels to Steam.
+    $owned=Steam-Owned $h $pids
+    $foreground=[SCC]::GetForegroundWindow() -eq $h
+    $decision=SCC-Decision $owned $foreground ($all -match '(?i)unable to sync') ([bool]$button) $PlanOnly ([SCC]::IdleMs()) $MinIdleSec
+    return @{decision=$decision;button=$button;text=$all}
+  } finally { $o.bmp.Dispose() }
+}
 $pids = New-Object 'System.Collections.Generic.HashSet[uint32]'
 Get-Process steam, steamwebhelper -ErrorAction SilentlyContinue | ForEach-Object { [void]$pids.Add([uint32]$_.Id) }
 if ($pids.Count -eq 0) { 'none'; exit 1 }
-$raised = $false
-for ($pass = 1; $pass -le 2; $pass++) {   # pass 2 runs only if pass 1 raised a dialog whose buttons were covered
+if ($ExpectedLaunchHwnd) {
+  # Root must supply the HWND/PID from its own pending launch. Never pick Steam main/settings by OCR.
+  $expected=[IntPtr]$ExpectedLaunchHwnd; [uint32]$windowPid=0
+  [void][SCC]::GetWindowThreadProcessId($expected,[ref]$windowPid)
+  $reveal=SCC-RevealDecision (Steam-Owned $expected $pids) ($windowPid -eq $ExpectedLaunchPid) `
+    ([SCC]::Title($expected) -match '^(?i)(Launching\b|Unable to Sync\b)') `
+    ([SCC]::GetForegroundWindow() -eq $expected) ([bool]$DryRun) ([SCC]::IdleMs()) $MinIdleSec
+  if ($reveal -eq 'dryrun-reveal') { 'dryrun: would raise the explicitly identified Steam launch window once; dialog/button remain unconfirmed'; exit 2 }
+  if ($reveal -eq 'reveal-once') {
+    if (-not [SCC]::Focus($expected)) { 'skipped:expected Steam launch window could not be raised'; exit 2 }
+    Start-Sleep -Milliseconds 300
+  } elseif ($reveal -ne 'already-foreground') { "skipped:$reveal"; exit 2 }
+}
+$unverified=0
 foreach ($h in [SCC]::Windows($pids)) {
-  $o = Ocr-Window $h; if (-not $o) { continue }
-  $all = ($o.lines | ForEach-Object { $_.Text }) -join ' | '
-  if ($all -notmatch '(?i)unable to sync') { continue }
-  $btn = $null
-  foreach ($ln in $o.lines) {
-    $ws = @($ln.Words)
-    for ($i = 0; $i -lt $ws.Count - 1; $i++) {
-      if ($ws[$i].Text -match '^(?i)play$' -and $ws[$i + 1].Text -match '^(?i)anyway$') {
-        $a = $ws[$i].BoundingRect; $b = $ws[$i + 1].BoundingRect
-        $btn = @{ x = [int]($o.rect.L + ($a.X + $b.X + $b.Width) / 2); y = [int]($o.rect.T + $a.Y + $a.Height / 2) }
-      }
-    }
+  if ($ExpectedLaunchHwnd -and $h -ne [IntPtr]$ExpectedLaunchHwnd) { continue }
+  $candidate=Read-Candidate $h $pids ([bool]$DryRun)
+  if ($candidate.decision -eq 'unverified-background') { $unverified++; continue }
+  if ($candidate.decision -in @('foreign','no-dialog')) { continue }
+  if ($candidate.decision -eq 'dryrun') {
+    "dryrun: exact 'Play anyway' at $($candidate.button.x),$($candidate.button.y) in foreground Steam window 0x$('{0:X}' -f [int64]$h)"; exit 0
   }
-  if (-not $btn) {   # OCR often misses white-on-blue 'Play anyway': find 'Cancel', then the blue button left of it on the same row
-    foreach ($ln in $o.lines) { foreach ($wd in @($ln.Words)) { if ($wd.Text -match '^(?i)cancel$') {
-      $cy = [int]($wd.BoundingRect.Y + $wd.BoundingRect.Height / 2); $x = [int]$wd.BoundingRect.X - 4; $run = @()
-      for (; $x -gt [Math]::Max(0, $wd.BoundingRect.X - 500); $x--) {
-        $c = $o.bmp.GetPixel($x, $cy); $blue = ($c.B -gt 170 -and $c.R -lt 110 -and $c.B -gt $c.G + 40)
-        if ($blue) { $run += $x } elseif ($run.Count -gt 40) { break }
-      }
-      if ($run.Count -gt 40) { $btn = @{ x = [int]($o.rect.L + (($run | Measure-Object -Minimum -Maximum) | ForEach-Object { ($_.Minimum + $_.Maximum) / 2 })); y = [int]($o.rect.T + $cy); how = "blue button left of Cancel ($($run.Count) px)" } }
-    } } }
-  }
-  $o.bmp.Dispose()
-  if (-not $btn) {
-    # Steam's 'Launching...' box can cover the dialog's buttons: raise the window that shows the dialog, then look again once
-    if ($pass -eq 1) {
-      if ($MinIdleSec -gt 0 -and [SCC]::IdleMs() -lt $MinIdleSec * 1000) { "skipped:user active (idle $([int]([SCC]::IdleMs()/1000)) s < $MinIdleSec s)"; exit 2 }
-      [void][SCC]::Focus($h); $raised = $true; break
-    }
-    "skipped:dialog found but no 'Play anyway' button (text: $all)"; exit 2
-  }
-  if ($DryRun) { "dryrun: would click 'Play anyway' at $($btn.x),$($btn.y) [$($btn.how)] in window 0x$('{0:X}' -f [int64]$h) (text: $all)"; exit 0 }
-  if ($MinIdleSec -gt 0 -and [SCC]::IdleMs() -lt $MinIdleSec * 1000) { "skipped:user active (idle $([int]([SCC]::IdleMs()/1000)) s < $MinIdleSec s)"; exit 2 }
-  if (-not [SCC]::Focus($h)) { 'skipped:could not bring the Steam dialog to the foreground'; exit 2 }
+  if ($candidate.decision -ne 'click-candidate') { "skipped:$($candidate.decision)"; exit 2 }
+  if (-not [SCC]::Focus($h)) { 'skipped:could not verify foreground Steam dialog'; exit 2 }
   Start-Sleep -Milliseconds 300
-  if ([SCC]::GetForegroundWindow() -ne $h) { 'skipped:Steam dialog lost the foreground'; exit 2 }
-  $old = New-Object SCC+POINT; [void][SCC]::GetCursorPos([ref]$old)
-  [void][SCC]::SetCursorPos($btn.x, $btn.y); Start-Sleep -Milliseconds 80
-  [SCC]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 40; [SCC]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
-  Start-Sleep -Milliseconds 80; [void][SCC]::SetCursorPos($old.X, $old.Y)
-  "clicked 'Play anyway' at $($btn.x),$($btn.y)$(if ($pass -eq 2) { ' (after raising the dialog)' })"; exit 0
+  # Re-read after focus/wait; previous rectangles are never used for input.
+  $candidate=Read-Candidate $h $pids $false
+  if ($candidate.decision -ne 'click-candidate') { "skipped:recheck $($candidate.decision)"; exit 2 }
+  $btn=$candidate.button
+  $old=New-Object SCC+POINT; [void][SCC]::GetCursorPos([ref]$old)
+  try {
+    [void][SCC]::SetCursorPos($btn.x,$btn.y); Start-Sleep -Milliseconds 80
+    if (-not (Steam-Owned $h $pids) -or [SCC]::GetForegroundWindow() -ne $h) { 'skipped:Steam dialog lost ownership/foreground'; exit 2 }
+    [SCC]::mouse_event(0x0002,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 40
+    [SCC]::mouse_event(0x0004,0,0,0,[UIntPtr]::Zero)
+  } finally { [void][SCC]::SetCursorPos($old.X,$old.Y) }
+  "clicked 'Play anyway' at $($btn.x),$($btn.y)"; exit 0
 }
-if (-not $raised) { break }
-Start-Sleep -Milliseconds 600
-}
+if ($unverified) { "skipped:$unverified background Steam windows cannot be verified by screen OCR; covered or blank dialogs are unconfirmed"; exit 2 }
 'none'; exit 1
