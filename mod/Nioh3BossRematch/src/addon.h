@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.2"
+#define ADDON_VERSION "1.4.3"
 
 namespace addon {
 
@@ -76,13 +76,21 @@ bool PlacementSeenRecently(uint32_t id, double withinSec);
 double Now();
 }
 namespace training {
-// Entry-count groundwork only; no session snapshot, epochs or mutation API yet.
+// Copied read-only evidence; no native readiness or mutation API.
 struct EntryCounts { uint64_t create, begin, end, pumps; };
+struct MissionSnapshot {
+    uint64_t sequence = 0, monotonicMs = 0, missionEpoch = 0;
+    uint32_t mission = 0, retry = 0;
+    bool missionValid = false, retryValid = false;
+    bool missionGap = false; // unreadable mission since the previous valid identity
+};
 bool Prepare();
 void SetPumpLive(bool installed);
 void Pump();
 bool Live();
 EntryCounts Counts();  // independent atomic totals, not a coherent session snapshot
+bool Snapshot(MissionSnapshot& out); // cached copy only; false before publication/when off
+uint64_t SnapshotLosses(); // contended pump publications; not native event loss
 }
 namespace rematch {
 bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live

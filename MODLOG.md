@@ -896,3 +896,6 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Game folder: `Nioh3BossRematch.asi` 1.4.0 left installed by the test (`-KeepBuild`, as with 1.3.x); the inis / perf ASI restored;
   one wrong line (0x1CBC 334650 ... 16:24 fight-start) removed from `Nioh3BossRematch_arenas.tsv`.
 - Undo: `[Rematch] FightNowSpawn = 0`, or reinstall the 1.3.3 `Nioh3BossRematch.asi`; `git branch -D rematch-instant`.
+
+## 2026-10-11 - Private BossRematch 1.4.3 mission observer (Codex)
+- Default-OFF read-only pump snapshots copy independent valid-or-unknown mission/retry scalars, publication sequence/time and observed mission epoch/gap. Cached SRW-protected publication skips contention with an explicit loss count. No native mutations/deployment or runtime/performance claim; load/session/events remain unfinished. Evidence: notes/handoff-codex-training-mission-snapshot.md.

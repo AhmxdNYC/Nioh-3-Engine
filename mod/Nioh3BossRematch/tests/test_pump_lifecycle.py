@@ -34,8 +34,9 @@ assert config.getint('Training','Observe') == 0
 assert config.getint('Training','Enable') == 0
 assert config.getint('Rematch','Enable') == 0
 training = (ROOT / "src/training.cpp").read_text()
-assert not any(x in training for x in ('Rd(', 'Copy(', 'Wr', 'Site(', 'rematch::', 'sp['))
+assert not any(x in training for x in ('Copy(', 'Wr', 'rematch::', 'sp['))
 code = r"""
+#include "addon.h"
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -43,9 +44,8 @@ code = r"""
 #include <cstring>
 #include <initializer_list>
 namespace addon {
-using Handler=void (*)(uint64_t,uint64_t,uint64_t,uint64_t,const uint64_t*);
-struct Image { bool knownBuild=true; } g_img;
-namespace training { struct EntryCounts { uint64_t create,begin,end,pumps; }; bool Live(); }
+Image g_img{0,0,0,0,true};
+uintptr_t Site(const char*) { return 0; }
 int ticks=0, installs=0, prepares=0, fights=0, groups=0, nh=0, failedGroup=0;
 bool observe=false, want=false, succeed=false, fightSuccess=true, prepareSuccess=true;
 bool g_prepared=false;
@@ -137,6 +137,7 @@ setup = Path(r"C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat")
 with tempfile.TemporaryDirectory(prefix="nioh3-pump-") as tmp:
     directory=Path(tmp)
     source=directory / "lifecycle.cpp"
+    (directory / "addon.h").write_text((ROOT / "src/addon.h").read_text())
     exe=directory / "lifecycle.exe"
     source.write_text(code)
     command = f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /Fo"{directory / "lifecycle.obj"}" /Fe"{exe}" "{source}"'
