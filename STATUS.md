@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Active renderer research; Discord opportunity card sent
+- User explicitly wants this PC analyzing/decompiling rendering while devices test, including same-picture optimizations AND labelled optional quality tradeoffs. Keep default picture unchanged; no Claude/wake toggles.
+- New renderer checkpoint6ed4da3 pushed: compute-PSO compare-only offline core,159 MSVC/W4/WX checks PASS. Always returns stock result, never serves/dereferences cached PSOs; catches3 injected stale-result cases. Native trim2EFA3FA releases before removal2EFA407, confirming need for pre-release mutation exclusion. Complete native lifecycle/hooks/compare-only device integration still pending; no FPSgain.
+- FO resource helpers12B0D0/12AF40 independently resolved against native imports: SRW resource+198, mode1 shared/mode2 exclusive/other no helper lock. Bounded audit PASS; these helpers alone do not establish context-stream producer closure. FO remainsNO-GO/defaultOFF. Next exact trace: caller modes/outer locks for2F06AB4 and complete cache mutation/lifetime coverage.
+- Ranked opportunities and evidence in notes/renderer-opportunities-2026-10-11.md. Discord result card SENT successfully via existing notifier. Historical XPRE PC+3.14%/Ally+4.16% remains scene-specific optional quality, not new/additive gain. Artificial FO11+11.74% is not native gain.
+- Ally owns fog queue1954; request1965 asks exact culling20/33/22/24 rows from its existing MinRun1 gate without extra launch/config changes. No later messages through1965. pc2 AABB queue1955 still awaits ACK/recovery. Local game/Ghidra absent; core/native audits complete, no background local build/proof left running. lead-active retained.
+
 ## UPDATE 2026-10-11 - Successor recovery fix, menu validation and device queues
 - Took over after main1eaee7c/eb35ea3; old workers stopped. lead-active retained; controller enabled/worker_pid null/monitor22568 observed. No local game/Ghidra; no Claude invocation or wake changes.
 - C72E abort record loss reproduced (cleanup throws -> exit99 deleted guard). Pilot-only Guard-Fail override now removes ownership record only after verified cleanup and never performs a second close after failure. Candidate5b37442 pushed; integrated main4ce7d0b (pilot9eaae94/fix83add11). Four actual-function child-process failure/success cases PASS on candidate and main;20 existing save-sharing/restoration/telemetry checks PASS; A/B plans PASS. No local live pilot: first-control/video/combat/save-lock compatibility gates remain open.

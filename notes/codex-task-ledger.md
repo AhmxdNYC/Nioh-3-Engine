@@ -356,3 +356,8 @@ Phone steering1786 acknowledged at final checkpoint; progress report and clean C
 - Training next: preserve mutation ownership on failed SpawnRestore and prove admission/late-load/exit failure contracts before exposing mutation controls. No arbitrary spawn/stage/reward-free practice claim.
 - Final menu receipt: full release36 harnesses+patterns PASS0 errors/3 existing warnings; private candidateab4a5eb pushed. Both binaries remain uninstalled/unshared.
 - Ally ACK1962 owns both locks for native fog gate; root1963 confirms fresh backup/user-stack scope. Archive232 audited: rounded result reproduced, exact window slices still missing/requested1964; pc2 not acknowledged. See ally-default1761-successor-audit.md.
+
+## Renderer research checkpoint - 2026-10-11
+-6ed4da3 pushed: offline compute shadow159 checks, native compute-release and FO resource-lock audit PASS; scope/next gates in renderer-opportunities-2026-10-11.md.
+- User requested unchanged-picture and optional-quality opportunities plus Discord; result card sent successfully. No production cached hits, FO enablement, installed edit or new FPS claim.
+- Ally culling-row request1965 piggybacks current fog gate; pc2 awaiting ACK. Continue exact native lifecycle/producer tracing and device evidence review.
