@@ -181,6 +181,38 @@ int main() {
     if(!check(!Snapshot(out) && out.sequence==0 && out.mission==0)) return 1;
     SetPumpLive(true);
     if(!check(Snapshot(out) && out.sequence==before.sequence && siteCalls==4)) return 1;
+    EntryEvent events[64];
+    SetPumpLive(false);
+    Create(0,0,0,0,nullptr); // disabled remains passive
+    if(!check(Events(events,64)==0 && Counts().create==0)) return 1;
+    SetPumpLive(true);
+    if(!check(Events(nullptr,64)==0 && Events(events,0)==0)) return 1;
+    Create(UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX,nullptr);
+    Begin(0,0,0,0,nullptr); End(0,0,0,0,nullptr);
+    if(!check(Events(events,64)==3 && events[0].kind==EntryKind::Create &&
+              events[1].kind==EntryKind::Begin && events[2].kind==EntryKind::End &&
+              events[0].sequence==1 && events[2].sequence==3)) return 1;
+    if(!check(events[0].observation.sequence==before.sequence &&
+              events[0].observation.sessionGeneration==before.sessionGeneration &&
+              events[0].observation.loadGeneration==before.loadGeneration &&
+              events[0].monotonicMs>=events[0].observation.monotonicMs)) return 1;
+    AcquireSRWLockShared(&g_snapshotLock);
+    Create(0,0,0,0,nullptr);
+    ReleaseSRWLockShared(&g_snapshotLock);
+    if(!check(EventLosses().contention==1 && EventLosses().capacity==0 &&
+              Counts().create==2 && Events(events,64)==3)) return 1;
+    for(int i=0;i<65;++i) Begin(0,0,0,0,nullptr);
+    if(!check(Events(events,64)==64 && events[0].sequence==5 && events[63].sequence==68 &&
+              EventLosses().capacity==4 && EventLosses().contention==1)) return 1;
+    if(!check(Events(events,2)==2 && events[0].sequence==5 && events[1].sequence==6 &&
+              Events(events,64)==64 && Counts().begin==66 && Counts().end==1)) return 1;
+    const auto saved=events[63].observation;
+    Pump();
+    if(!check(Events(events,64)==64 && events[63].observation.sequence==saved.sequence &&
+              events[63].observation.sessionGeneration==saved.sessionGeneration)) return 1;
+    SetPumpLive(false);
+    End(0,0,0,0,nullptr);
+    if(!check(Events(events,64)==0 && Counts().end==1 && EventLosses().capacity==4)) return 1;
     VirtualFree(telemetryPages,0,MEM_RELEASE);
     VirtualFree(pages,0,MEM_RELEASE);
     printf("%d actual snapshot checks ALL PASSED\n",checks);

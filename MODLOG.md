@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.6 bounded observer events
+
+Default-OFF Training Observe retains 64 copied create/begin/end entry records with cached scalar validity/generations/time. Nonblocking entry publication reports contention and overwrite loss separately; read-only oldest-first copies do not drain. Publication order and cached tags do not prove native session membership/readiness. Offline verification only; no deployment/performance/visual claim. Undo: Observe=0. Evidence: notes/handoff-codex-training-events.md.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.5 observed generations
 
 Default-OFF Training Observe adds loading and mission/play-mode/connection tuple generations for valid raw changes and unknown/skipped recovery. Unknown retains counters; gaps remain explicit. These are observation boundaries, not native session/attempt identities or readiness. Offline validation only; no deployment/performance/visual claim. Undo: Observe=0. Evidence: notes/handoff-codex-training-generations.md.

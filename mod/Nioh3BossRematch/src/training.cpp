@@ -9,6 +9,33 @@ std::atomic<uint64_t> g_create{0}, g_begin{0}, g_end{0}, g_pumps{0};
 std::atomic<uint64_t> g_snapshotLosses{0};
 SRWLOCK g_snapshotLock = SRWLOCK_INIT;
 MissionSnapshot g_snapshot;
+constexpr size_t kEventCapacity = 64;
+EntryEvent g_events[kEventCapacity];
+size_t g_eventHead = 0, g_eventSize = 0;
+uint64_t g_eventSequence = 0;
+std::atomic<uint64_t> g_eventContention{0}, g_eventCapacityLoss{0};
+void Record(EntryKind kind, std::atomic<uint64_t>& count) {
+    if (!Live()) return;
+    count.fetch_add(1, std::memory_order_relaxed);
+    // Never wait on a game entry; pump and queries share this local copy lock.
+    if (!TryAcquireSRWLockExclusive(&g_snapshotLock)) {
+        g_eventContention.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+    EntryEvent event;
+    event.sequence = ++g_eventSequence; // publication order, not native entry order
+    event.monotonicMs = GetTickCount64();
+    event.kind = kind;
+    event.observation = g_snapshot;
+    if (g_eventSize == kEventCapacity) {
+        g_eventHead = (g_eventHead + 1) % kEventCapacity;
+        --g_eventSize;
+        g_eventCapacityLoss.fetch_add(1, std::memory_order_relaxed);
+    }
+    g_events[(g_eventHead + g_eventSize) % kEventCapacity] = event;
+    ++g_eventSize;
+    ReleaseSRWLockExclusive(&g_snapshotLock);
+}
 bool g_seenMission = false, g_missionGap = false;
 uint32_t g_lastMission = 0;
 uintptr_t g_missionSite = 0, g_gameMainSite = 0, g_playModeSite = 0, g_netSite = 0;
@@ -31,13 +58,13 @@ bool Gap(bool valid, bool skipped, bool& pending) {
     return gap;
 }
 void Create(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
-    if (Live()) g_create.fetch_add(1, std::memory_order_relaxed);
+    Record(EntryKind::Create, g_create);
 }
 void Begin(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
-    if (Live()) g_begin.fetch_add(1, std::memory_order_relaxed);
+    Record(EntryKind::Begin, g_begin);
 }
 void End(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
-    if (Live()) g_end.fetch_add(1, std::memory_order_relaxed);
+    Record(EntryKind::End, g_end);
 }
 }
 bool Prepare() {
@@ -135,6 +162,18 @@ bool Snapshot(MissionSnapshot& out) {
     out = g_snapshot;
     ReleaseSRWLockShared(&g_snapshotLock);
     return out.sequence != 0;
+}
+size_t Events(EntryEvent* out, size_t capacity) {
+    if (!out || !capacity || !Live()) return 0;
+    AcquireSRWLockShared(&g_snapshotLock);
+    const size_t n = capacity < g_eventSize ? capacity : g_eventSize;
+    for (size_t i = 0; i < n; ++i) out[i] = g_events[(g_eventHead + i) % kEventCapacity];
+    ReleaseSRWLockShared(&g_snapshotLock);
+    return n;
+}
+EventLossCounts EventLosses() {
+    return {g_eventContention.load(std::memory_order_relaxed),
+            g_eventCapacityLoss.load(std::memory_order_relaxed)};
 }
 uint64_t SnapshotLosses() { return g_snapshotLosses.load(std::memory_order_relaxed); }
 EntryCounts Counts() {

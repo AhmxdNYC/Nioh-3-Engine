@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.5"
+#define ADDON_VERSION "1.4.6"
 
 namespace addon {
 
@@ -92,6 +92,15 @@ struct MissionSnapshot {
     uint64_t loadGeneration = 0, sessionGeneration = 0;
     bool sessionValid = false, sessionGap = false;
 };
+enum class EntryKind : uint8_t { Create, Begin, End };
+struct EntryEvent {
+    uint64_t sequence = 0, monotonicMs = 0;
+    EntryKind kind = EntryKind::Create;
+    MissionSnapshot observation; // cached before entry; age/validity remain explicit
+};
+struct EventLossCounts { uint64_t contention, capacity; };
+size_t Events(EntryEvent* out, size_t capacity); // retained oldest-first copy, no drain
+EventLossCounts EventLosses(); // independent totals; not native event loss
 bool Prepare();
 void SetPumpLive(bool installed);
 void Pump();
