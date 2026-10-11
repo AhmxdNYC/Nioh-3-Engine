@@ -1,4 +1,14 @@
-# Fogpar fresh proof runner prepared; execution reserved
+# Fogpar input-binding preflight passed; full proof reserved
+
+Lead follow-up 2026-10-11: added `--preflight-only` to perform hash/snapshot,
+fresh DXC disassembly and identity controls without executing interpretation
+seeds. Actual run PASS_INPUT_BINDING_ONLY,19 input/tool files,4.42s; all original
+hashes unchanged. Truncated/appended/alternate LL rejected; comment-only header
+accepted. The stock UTF-8 BOM comparison fix executed successfully. AST and
+comparator self-tests PASS. Manifest `scratch/fogpar-input-binding-20261011.json`,
+SHA256 `1a69e11450245ae80130ceaa30fbf2aeedd31bf72105431a057203abe2230167`.
+The manifest has **zero equivalence passes**: this is no bit-exact, native GPU,
+image-equality or performance claim. Full seed/mutation runs remain reserved.
 
 2026-10-11, OpenAI Codex. Private offline unit in `codex-fogpar-validation`.
 

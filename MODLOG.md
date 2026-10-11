@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - Bound fog shader preflight mode
+
+Added explicit input-binding-only mode;19 pinned inputs/tool files and fresh disassembly identity controls PASS, including the stock BOM comparison. Zero equivalence seeds, GPU tests or measured gains. See notes/handoff-codex-fogpar-bound-validation.md.
+
 ## 2026-10-11 Codex - Private RC72E native arena pilot tooling
 
 Diagnosed shrine-first door fallback in BossRematch1.4.0 and prepared a bounded native334140 request A/B kit.15 lightweight data/isolation/mutation checks PASS; no installed/default/runtime change or instant-rematch acceptance. See notes/handoff-codex-c72e-native-arena.md.

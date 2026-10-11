@@ -223,6 +223,16 @@ def runtime_files():
             "files": [file_info(path) for path in sorted(paths)]}
 
 
+def finish_manifest(manifest, output, start):
+    manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
+    manifest["elapsed_seconds"] = round(time.monotonic() - start, 3)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps({"result": manifest["result"], "manifest": str(output),
+                      "manifest_sha256": sha(output.read_bytes()), "error": manifest.get("error")}), flush=True)
+    return 0 if manifest["result"] in ("PASS", "PASS_SMOKE", "PASS_INPUT_BINDING_ONLY") else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--staging", type=Path, default=MAIN / "gpu-shaders")
@@ -234,11 +244,14 @@ def main():
     parser.add_argument("--jobs", type=int, default=8)
     parser.add_argument("--timeout", type=int, default=1200, help="seconds per pass")
     parser.add_argument("--smoke", action="store_true", help="two seeds/pass; never full coverage")
+    parser.add_argument("--preflight-only", action="store_true",
+                        help="snapshot/hash/disassemble/identity controls only; no interpretation, GPU or equivalence claim")
     args = parser.parse_args()
     if args.self_test:
         print(comparator_self_tests())
         return 0
     require(1 <= args.jobs <= 16 and args.timeout > 0, "invalid bounds")
+    require(not (args.preflight_only and args.smoke), "choose preflight-only or smoke, not both")
     require(args.output is not None, "--output is required for shader proof runs")
     output = args.output.resolve()
     require(output.is_relative_to(ROOT), "manifest must stay in the owned checkout")
@@ -248,9 +261,11 @@ def main():
     manifest = {"schema": "nioh3-private-fogpar-bound-proof-v1", "result": "ERROR",
                 "started_utc": datetime.now(timezone.utc).isoformat(),
                 "command": [str(Path(__file__).resolve()), *sys.argv[1:]],
-                "smoke": args.smoke, "jobs": args.jobs, "timeout_seconds_per_pass": args.timeout,
+                "smoke": args.smoke, "preflight_only": args.preflight_only,
+                "jobs": args.jobs, "timeout_seconds_per_pass": args.timeout,
                 "pins": PINS, "files": {}, "passes": {}, "controls": {},
-                "scope": "Fresh finite synthetic DXIL interpretation; no native GPU execution, image equality or performance claim.",
+                "scope": "Input/tool identity checks only; no interpretation, equivalence, native GPU execution, image equality or performance claim."
+                         if args.preflight_only else "Fresh finite synthetic DXIL interpretation; no native GPU execution, image equality or performance claim.",
                 "strict_comparison": "All UAV resource keys, per-thread/address ordered writes including masks and float32 bits, plus final contents. NaN payloads are limited to Python float/interpreter representation."}
     try:
         manifest["comparator_self_tests"] = comparator_self_tests()
@@ -328,6 +343,13 @@ def main():
                     raise ValueError("identity control accepted: " + name)
             same_body(dumped["candidate"], "; ignored header\n" + candidate_text)
             manifest["controls"]["comment_header"] = "ACCEPTED"
+            if args.preflight_only:
+                watched = list(manifest["files"].values()) + manifest["runtime"]["files"]
+                require(all(sha(Path(info["path"]).read_bytes()) == info["sha256"] for info in watched),
+                        "input/tool changed during preflight")
+                manifest["all_source_hashes_unchanged_after_run"] = True
+                manifest["result"] = "PASS_INPUT_BINDING_ONLY"
+                return finish_manifest(manifest, output, start)
             specifications = [("coverage", 0, 768, False, "moderate"),
                               ("holdout", 768, 2304, False, "moderate"),
                               ("realistic", 0, 64, True, "moderate"),
@@ -370,13 +392,7 @@ def main():
             manifest["result"] = "PASS_SMOKE" if args.smoke else "PASS"
     except Exception as error:
         manifest["error"] = type(error).__name__ + ": " + str(error)
-    manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
-    manifest["elapsed_seconds"] = round(time.monotonic() - start, 3)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"result": manifest["result"], "manifest": str(output),
-                      "manifest_sha256": sha(output.read_bytes()), "error": manifest.get("error")}), flush=True)
-    return 0 if manifest["result"] in ("PASS", "PASS_SMOKE") else 1
+    return finish_manifest(manifest, output, start)
 
 
 if __name__ == "__main__":
