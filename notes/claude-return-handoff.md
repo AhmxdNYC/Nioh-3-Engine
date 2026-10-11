@@ -4,11 +4,11 @@ Codex continuation remains enabled. **Do not call or wake Claude. Only the user 
 
 Latest automation correction2026-10-11: the installing lead's2milliondaily cap stopped ready work after the first worker. User reported the stall; monitor stopped cleanly with no active worker, and daily caps now default null (optional user settings). Actual usage remains tracked and the single-writer/game guards remain. Tooling regression13checksPASS; restart follows repository checks/commits, then lead-active release. Rendering-first priority is unchanged. Earlier cap-hold observations below are historical and superseded by this correction.
 
-## Latest checkpoint - FO emitter lock selectors traced; consumer ownership next
-- Completed read-only native emitter ownership trace: notes/handoff-codex-fo98-emitter-locks.md. Both emitter sequences verified; helpers select mode1 shared, mode2 exclusive, other modes no lock at obj+198. Native PE imports and four byte-window SHA256 hashes recorded. Update routines differ; call-site modes and retirement remain unproven.
-- Fo98 forwards the mode, but the original releases the object lock before deferred publication. Object locking alone does not establish device epoch, queue publication or resource lifetime safety. No production repair; FO remains NO-GO. No new runtime failure or performance claim; passed suites not repeated.
-- Main parent af88e7a; experimental24494d5 unchanged. Installed/tested1.7.61/FO0 and default visuals preserved; no game at entry/checkpoint, test/lock, build, deployment or ASI/INI/config/save/settings/hardware changes. Prior restoration retained. Phone inbox empty; read-only controller enabled/working monitor45016/worker29784, serial ownership until exit. No controller write or Claude call/wake. Remote1767/1768/1781 pending at last known bridge1785; not freshly queried.
-- Next ready unit: resolve caller modes for both emitter slots and locate the 0x98 consumer, then PagePool registration/retirement ownership. Prove admission/lifetime before combined queue/space/producer-closure repair. No count-only/second-flush-only fix. Main docs committed/pushed with Codex attribution (git log -1); Discord result through existing notifier after push.
+## Latest checkpoint - FO98 consumer registration traced; retirement next
+- Native token98 table and consumer891F24 ->891F80 verified. Cursor advances12bytes; pool+D20 gates append; shared CF8 lock protects registration of pointer/flag into pool+6E0, count+6F4. Downstream7F6964/8F1764 dereference objects through vtable+90/+98 before clearing the list. Evidence: notes/handoff-codex-fo98-consumer.md.
+- New reproducible provenance utility:5static identity checks PASS; no runtime/lifetime/safety verdict. Caller modes, list retirement/capacity and D20 admission remain unproven. No production repair or performance claim; FO remains NO-GO. Previously passed suites not repeated.
+- Main parent5609017; experimental24494d5 unchanged; tested1.7.61/FO0 and default visuals preserved. No game at entry/checkpoint, lock/test/build/deployment or ASI/INI/config/save/settings/hardware change; prior restoration retained. Phone inbox empty. Read-only controller enabled/working monitor45016/worker38044; serial ownership until exit, no state write or Claude call/wake. Remote1767/1768/1781 pending at last known bridge1785, no fresh query.
+- Next ready unit: trace pool+6D0 list removal/retirement252104/250ADC and out-of-line branches, capacity and D20 transitions; then resolve emitter caller modes before combined queue/space/producer-closure repair. Main topic committed/pushed with Codex attribution (git log -1); Discord through existing notifier after push.
 
 ## Verified repository and build state
 
@@ -44,4 +44,4 @@ Controller instructions: `C:/Users/Ahmad Hamza/universal-optimizer/tools/codex-a
 
 ## Exact next independent unit
 
-Use the latest checkpoint above: trace caller-mode/consumer/retirement ownership before a combined repair; emitter locks are traced and epoch witnesses complete24494d5. Lifecycle contract is complete; startup repair3b89c04 remains verified. User pause sequence above remains required before Claude resumes.
+Use the latest checkpoint above: trace list retirement/capacity/D20 admission and emitter caller modes before a combined repair; consumer registration and emitter locks are traced, epoch witnesses complete24494d5. Lifecycle contract is complete; startup repair3b89c04 remains verified. User pause sequence above remains required before Claude resumes.

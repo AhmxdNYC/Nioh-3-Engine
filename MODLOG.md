@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 consumer registration trace
+
+Documentation/static provenance only: native token98 registration and downstream object virtual calls traced;5identity checks PASS. FO remains NO-GO pending lifetime/admission/caller-mode proof. No runtime or performance claim, deployment or defaults change. See notes/handoff-codex-fo98-consumer.md.
+
 # MODLOG — every change made to the game, and how to undo it
 
 | When | Change | Undo |
