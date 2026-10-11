@@ -165,7 +165,13 @@ int main() {
         cpp, exe = folder / "control.cpp", folder / "control.exe"
         cpp.write_text(code, encoding="utf-8")
         command = f'call "{args.setup}" >nul && cl /nologo /Od /MT /EHsc /std:c++17 /W4 "{cpp}" /Fo"{folder / "control.obj"}" /Fe"{exe}" /link kernel32.lib'
-        result = subprocess.run(["cmd.exe", "/d", "/s", "/c", command], cwd=folder,
+        # A quoted command passed as one Windows argv item acquires backslash
+        # escapes from list2cmdline; cmd.exe does not interpret those as quotes.
+        # Run an explicit relative batch path so current-directory executable
+        # lookup policy cannot block it; paths with spaces stay inside the file.
+        batch = folder / "build_control.cmd"
+        batch.write_text("@echo off\n" + command + "\n", encoding="utf-8", newline="\r\n")
+        result = subprocess.run(["cmd.exe", "/d", "/c", ".\\" + batch.name], cwd=folder,
                                 capture_output=True, text=True)
         if result.returncode:
             print(result.stdout[-5000:], result.stderr[-1000:])

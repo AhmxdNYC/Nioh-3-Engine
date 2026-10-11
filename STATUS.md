@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Recording finished; native/offline validation resumed
+- User explicitly confirmed recording finished. Game18068 closed gracefully, watcher phasegame-exited/sharedlock released; no user-progress restoration. Rootlead-active stays held for coordinated work, PC/Ally native launches still serialized.
+- AABB source-path control actually compiled/executed PASS after runner cmd quoting/current-directory fix. Reproduces false uninstalled/skipped ACK and7 installed/OFF readbacks; no live-game or FPSclaim. Full bound fogpar proof running root session56226/jobs4; inputbinding-only already passed, full result pending.
+- settings_menu_completion remains soleASI sourcewriter, aligning EngineFix8fcb81b plus addon0b25b2b and UI donor88af4b9b. rematch_shrine_audit now prepares a separate tools-only guardednative334140 pilot; no agent launches or installed edits. Root reviews/runs after heavyproof/headroom gates. No instant/training confirmation yet. Last Discord fullcheckpoint sent; private main03122f3 pushed.
+
 ## UPDATE 2026-10-11 - Test hub, native arena pilot and CPU/GPU follow-up
 - User target is playable ordinary midrange PCs and Ally, CPU AND GPU; all user-facing settings in controller/submenus. New settings_menu_completion agent is sole ASI editor on isolated codex-settings-menu-v4: native/training addon0b25b2b plus current EngineFix8fcb81b subtree, UI donor88af4b9b. No build/install/runtime claim. Root edits tools/notes only.
 - Test hub integrated6f9a786 (agent8f9a211): catalog71 current entries including native, release, analysis and map tour. `py -I -B tools/testhub/hub.py run offline` PASS5/5 again in main, report scratch/testhub-offline-20261011.json. Other lanes plan-only; public unchanged and private helper/history/game-owned inputs remain private.

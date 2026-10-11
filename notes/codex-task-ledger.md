@@ -1,5 +1,10 @@
 # Codex continuation ledger
 
+## Lead checkpoint - 2026-10-11 - Recording finished, active validation
+- User confirmation received; rootclosed18068 gracefully, watcherphasegame-exited and sharedlockfree. Preserve userprogress: oldrecordingentrybackup was NOT restored. Freshentrybackup required for every next nativepilot. Source/heavyvalidation resumed withrootlead-active held.
+- CPU AABB control compiled/executed PASS after Windowsrunnerquotingfix; sourcehash and falseACK/7toggle results at notes/handoff-codex-cpu-ready-aabb.md. Full input-bound fogpar proof active rootexecsession56226/jobs4; doNOToverlap native game while this heavy proof runs. Waitresultthenheadroom.
+- settings_menu_completion is soleASI sourceeditor/currentEngineFix8fcb81b +nativeaddon0b25b2b +UI88af4b9b; no deploymentuntilpatterns/fullrelease/nativeharnesses/build. rematch_shrine_audit prepares guardedtools-only native334140 first-landing pilot; rootalone willreview/launch. Needverifiedfreshsave/cloudrestoration, AutoContinue support1.7.32 andactualfirstlanding telemetry. No instant/training acceptanceclaim.
+
 ## Lead checkpoint - 2026-10-11 - Native arena pilot and unified test entry
 - User priorities: ordinary midrange+Ally playability, CPU+GPU optimizations, actual first landing in boss fight, training mode, controller/submenus and user-adjustable settings. Discord full checkpoint requested; notify only after instant/training actual in-game acceptance.
 - New tools integrated: test hub6f9a786/agent8f9a211,71-entry inventory and offline PASS5/5 on main; native RC72E request-only pilot7debfd6/agent audit + rootf602021,15 light data controls PASS. External kit D:/nioh3-re/rematch-pilots/C72E-native334140-20261011, not installed/tested. Native334140 near exactintro destination; avoid importing current before-load shrine capture. Current F PASS only establishes eventual fight.

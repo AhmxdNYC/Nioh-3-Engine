@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - Native AABB control runner corrected
+
+Fixed Windows batch quoting/current-directory lookup; actual source-path control compiled and executed PASS, including uninstalled ACK counterexamples and7 installed/OFF toggles. No live-game or FPS acceptance. See notes/handoff-codex-cpu-ready-aabb.md.
+
 ## 2026-10-11 Codex - Private unified test catalog
 
 Integrated71-entry test inventory, including existing map tours, plus explicit lightweight offline command.5/5 checks PASS in main; native/release/device suites remain plan-only. Private tooling is not copied into the public repo. See tools/testhub/README.md and notes/test-hub-inventory.md.

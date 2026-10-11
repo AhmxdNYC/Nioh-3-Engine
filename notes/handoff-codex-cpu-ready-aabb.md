@@ -1,5 +1,17 @@
 # One next pc2 CPU test: AABB, stable1.7.61
 
+Lead follow-up 2026-10-11 after user recording finished: native source-path
+control compiled and executed PASS. It reproduces uninstalled/skipped-install
+ACK success with only INI preference and no live cave, then7 exact installed/OFF
+set/readbacks (including no-ops), unrelated DQ/P1E7/MA unchanged and missing
+row/transport fail-closed checks. Selected-source SHA256
+`1bb1d7809f6a296e9171a1b7b1024c76a3096f6270d24e03178a2e3a6935d1c3`.
+The runner initially failed before compiling because cmd.exe received backslash
+escaped quotes around the setup path. Fixed by writing a temporary batch and
+running its explicit relative path; this also handles disabled implicit current
+directory executable lookup. No game, installed patch, picture or FPS claim.
+The actual installed/live-state gates below remain required for device A/B.
+
 Select **AABB only**. Historical r5-r7 logic-thread target is 0.6-0.8 ms/frame;
 offline body saving is about 87%, suggesting 0.5-0.6 ms where logic constrains the
 frame. These are prior-machine measurements and an estimate, **not a pc2 gain**.
