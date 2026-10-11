@@ -171,3 +171,23 @@ function C72-Event([string]$Path, [string]$Kind, [string]$Reply, [double]$Elapse
     $v = @{ utc = [DateTime]::UtcNow.ToString('o'); elapsed_ms = [Math]::Round($ElapsedMs,3); kind = $Kind; reply = $Reply }
     [IO.File]::AppendAllText($Path, ($v | ConvertTo-Json -Compress) + "`r`n", (New-Object Text.UTF8Encoding($false)))
 }
+
+function C72-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,[int]$Start) {
+    $refusal=C72-NewRefusal $Before $After # also validates captured prefix
+    if ($refusal) { throw "Native return refused: $refusal; no retry" }
+    $tail=$After.Substring($Before.Length)
+    if ($tail -match 'Rematch: exit:[^\r\n]*EXCEPTION' -or $Reply -match 'gate=native request uncertain') { throw 'Native return exception/quarantine; no retry' }
+    $request=[regex]::Match($tail,('Rematch: exit: MissionRequestReturn\(params, 1\) from mission 0xC72E \(retry point '+$Start+'\) -> requested'))
+    $confirmed=$false;$disposition='QUEUED_ACK_ONLY'
+    if ($request.Success) {
+        $disposition='NATIVE_RETURN_REQUESTED'
+        $afterRequest=$tail.Substring($request.Index+$request.Length)
+        $exited=$afterRequest -match 'Rematch: replay mission exited \(stage now \d+, mission state \+28h 0x[0-9A-Fa-f]+\)'
+        $mission=C72-Field $Reply 'mission'
+        $confirmed=$exited -and $mission -match '^0x[0-9A-Fa-f]+$' -and [Convert]::ToUInt32($mission.Substring(2),16) -ne 0 -and $mission -ne '0xC72E' -and
+            (C72-Field $Reply 'state') -eq '0' -and (C72-Field $Reply 'loading') -eq '0' -and (C72-Field $Reply 'player') -eq '1' -and
+            (C72-Field $Reply 'warps') -eq '0' -and (C72-Field $Reply 'spawn') -eq '-' -and $Reply -match 'gate=ok(?: |$)'
+        if ($confirmed) { $disposition='NATIVE_RETURN_OBSERVED' }
+    }
+    return @{confirmed=[bool]$confirmed;disposition=$disposition;reply=$Reply;kind='ORDERED_NATIVE_RETURN_AND_REPLAY_EXIT_LOG_PLUS_IDLE_DIFFERENT_MISSION'}
+}
