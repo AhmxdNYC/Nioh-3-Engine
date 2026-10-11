@@ -1,5 +1,12 @@
 # Codex continuation ledger
 
+## Latest checkpoint - 2026-10-11 14:35 - CBV stage registry seam
+- Native stage-record registry seam pinned: three windows/62 instruction checks and truncated/corrupted memory-only rejection PASS. VS getter dispatches indexed handle/kind0 via global4BD0A38 vtable+10; adjacent helpers use distinct kinds. Setter30345DC swaps registry pointer without local invalidation. Evidence: notes/handoff-codex-cbv-stage-registry.md; tools/bench/audit_cbv_stage_registry.py.
+- Producer discovery only; returned-object-to-bound-layout link, concrete registry implementation and positive-size/generation guarantee remain open. Zero direct-branch setter matches do not cover indirect calls/address-taking. No native defect/safety/performance/visual claim.
+- No local game/capture/Ghidra or restoration needed; no build/deployment/settings/hardware/controller/hold/Claude changes. Other writers/worktrees/device-pinned inputs untouched. Phone checkpoint empty. Stable1.7.61, guard PR1 unmerged, FO NO-GO; external default-stack/player gates pending.
+- NEXT ready independent rendering unit: find pointer references to30345DC or initialization writer of4BD0A38, resolve concrete vtable+10, then trace returned layout+38/+40/+44 producer and invalidation. Default-OFF training observer remains another ready unit on owned codex-training-pump c297a20. No unchanged local benchmark retry or passed-suite repetition.
+
+
 ## Latest checkpoint - 2026-10-11 14:31 - v4 restore ownership witnesses
 - Pinned actual-body SpawnRestore audit at c297a20: MSVC /W4 /WX and33 checks PASS; five failure witnesses plus success/three foreign controls. Failed/partial writes, unreadable fields and transient missing lookup erase st/rec; recovered retry writes nothing. Evidence: notes/handoff-codex-spawn-restore-ownership.md; tools/bench/audit_spawn_restore_ownership.py.
 - Hazard reproduction only; no repair/native reachability/safety/performance claim. Partial flag failure leaves original coordinates plus override flags. Different-record controls refuse writes but do not prove retirement. ToIdle/new Fight-now and SpawnApply rollback/resnapshot remain integration obligations.
