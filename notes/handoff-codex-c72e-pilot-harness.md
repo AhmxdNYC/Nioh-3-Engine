@@ -1,0 +1,98 @@
+# C72E guarded pilot harness checkpoint
+
+2026-10-11. Tools-only branch `codex/c72e-pilot-harness`, worktree
+`D:/nioh3-wt/c72e-pilot-harness`, based on main `03122f3`. No live launch, bridge
+call, installed write, ASI/source build, Ghidra, Claude or game input performed.
+User recording has finished; preserve CURRENT progress, never a pre-recording save.
+
+## Commands and boundaries
+
+Read-only plan (default; no output directory/guard/lock/file mutations):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\nioh3-wt\c72e-pilot-harness\tools\rematch\run_c72e_native_pilot.ps1 -DryRun
+```
+
+Root-only future one-arm pilot, after current proof jobs finish and guard headroom
+is available; replace owner PID with the live coordinator process:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\nioh3-wt\c72e-pilot-harness\tools\rematch\run_c72e_native_pilot.ps1 -Run -Arm B -OwnerPid <root-pid>
+```
+
+Optional original-shrine control: separate invocation with `-Arm A`, one launch
+and its own NEW entry snapshot. Do not run both concurrently. The script never
+relaunches, kills an unowned process or forcibly kills its owned game.
+
+Both ASIs are pinned to the current installed binaries: EngineFix1.7.32 SHA256
+`dd8b5739062e364dfc708bd1f0f89dfc2b97477d66ae1fbfdfb6f50b0d4f2891`;
+BossRematch1.4.0 `02d763e76037365e8814820fc1ef9d3d713710435f63099d04d617e05966d4d1`.
+The external kit is `D:/nioh3-re/rematch-pilots/C72E-native334140-20261011`.
+B catalogue hash is `4025b610a6babf9e7d3b18f3b3af2aab69c1edc5f2a0baf4519d30ce71895c24`.
+The installed catalogue/arena tables and both ASIs are never changed. Only the
+two user INIs receive a reversible overlay. Warp/Spawn/Capture/SelfTest/Tour are
+off; Catalog/Arenas use absolute external paths, with a fresh empty Arenas file.
+Existing gate538668029 remains armed. The pipe queues `fight RC72E` exactly once,
+then one native `exit` after observing the fight.
+
+Existing session helpers provide INI merging and shared game locks; existing
+harness_guard provides PID/start-time ownership, deadline and headroom. Both
+`nioh3-pc` and shared PC/Ally `nioh3` locks are held. Guard's forced-kill function
+is overridden locally to graceful close only. If the game remains alive or
+restoration fails, the run retains its recovery manifest/guard file and does not
+restore underneath a running game. Never start a second launch to recover it.
+
+## Progress protection and evidence
+
+After locks and before either INI changes, copy the CURRENT full save tree to a
+new external directory and verify relative paths, lengths and SHA256. Reject
+reparse roots/children. Hold read-only FileShare.Read handles on every existing
+file: reads remain allowed, overwrite/delete/replace is denied. New files remain
+possible, so after graceful exit release the handles, restore missing/changed
+files, remove only individually verified added files, and verify the exact tree
+twice. No recursive delete/move, Steam setting toggle or cloud approval gate.
+Remote Steam Cloud state is not independently verified; local current-entry
+preservation is concrete. Real-game loading compatibility with these sharing
+locks is untested and a potential early trial failure, followed by cleanup.
+
+Original Engine1.7.32 source commit `350911e` autocont.cpp/h verifies
+`[General] AutoContinueLoad=1` closes post-load tip screens through their native
+confirmation path. Installed binary contains that key in UTF16. It does NOT
+automate initial title Continue. Root manually selects Continue once; this
+checkpoint deliberately supplies no title input automation or engine upgrade.
+
+`events.jsonl` records pipe status and screenshot times. `first-observed.json`
+requires a seen load, C72E, requested retry334140 (A335814), player/loading/pause
+proxy, target proximity within2m horizontal/3m vertical, and `fnow=armed` before
+the gate request. Later BossBattleMode/script destination cannot substitute for
+this first landing. The correct fight placement333550 is checked separately.
+Screenshots capture the monitor containing the owned game before the request,
+at the first observed player, and at BossBattleMode, without focusing or sending
+input. Root must keep the game visible and inspect them; other windows may be
+included. For exact first-controllable-frame evidence, record video beginning
+before the fight request. The ASI lacks a control-enabled flag and frame-boundary
+telemetry: every automated result retains
+`instant_verdict=UNCONFIRMED_CONTROL_NOT_EXPOSED`. Existing F PASS/zero warps are
+never accepted as instant entry proof.
+
+## Verification and next chat
+
+Completed: **20 fixture checks PASS**, A/B read-only plans PASS with requested
+starts335814/334140, installed INI/catalogue hashes unchanged, no game running,
+PowerShell parsing PASS and `git diff --check` clean. No live path executed.
+
+Light fixtures cover fresh backup, actual Windows read/write/delete sharing,
+added/missing/changed save restoration, path escape/tampered-backup rejection,
+pre-load/paused/wrong-mission/wrong-position/post-gate telemetry, nonfinite data,
+duplicate INI keys and PowerShell parsing. Run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\nioh3-wt\c72e-pilot-harness\tools\rematch\test_c72e_pilot.ps1
+```
+
+No native candidate runtime validation yet. Before a future live pilot the new
+coordinator must review this tools-only checkpoint, finish unrelated full-fog
+proof jobs, retain the same pinned ASIs and inspect current game/process state.
+Death/retry acceptance and exact first-controllable visual acceptance remain
+separate future work. The script-tuple spawn override alternative remains gated
+by the known SpawnRestore ownership hazard; this harness performs no such writes.
