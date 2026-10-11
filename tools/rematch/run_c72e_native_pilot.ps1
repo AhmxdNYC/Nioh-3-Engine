@@ -237,11 +237,12 @@ try {
     $until=[DateTime]::Now.AddSeconds(180); $ready=$false
     $readyTracker=@{since=$null;last=$null}
     do {
-        try { $s=Invoke-C72Pipe 'status'; $ready=C72-ReadySettled $readyTracker $script:watch.ElapsedMilliseconds $s $true }
-        catch { $ready=C72-ReadySettled $readyTracker $script:watch.ElapsedMilliseconds '' $false; Assert-Owned }
+        try { $s=Invoke-C72Pipe 'status'; $ready=C72-EntrySettled $readyTracker $script:watch.ElapsedMilliseconds $s $true }
+        catch { $ready=C72-EntrySettled $readyTracker $script:watch.ElapsedMilliseconds '' $false; Assert-Owned }
         if (-not $ready) { Start-Sleep -Milliseconds 250 }
     } while (-not $ready -and [DateTime]::Now -lt $until)
     if (-not $ready) { throw 'No continuously ready offline field for12s within180s after manual Continue' }
+    $script:result.entry_tuple=@{mission=(C72-Field $s 'mission');stage=(C72-Field $s 'stage');reply=$s}
     $null=Invoke-C72Pipe 'scan'; $cleared=$false; $until=[DateTime]::Now.AddSeconds(15)
     do { $s=Invoke-C72Pipe 'row RC72E'; $cleared=(C72-Field $s 'status') -eq '2'; if (-not $cleared) { Start-Sleep -Milliseconds 200 } } while (-not $cleared -and [DateTime]::Now -lt $until)
     if (-not $cleared) { throw 'RC72E is not cleared on this journey' }
@@ -306,7 +307,7 @@ try {
     do {
         $s=Invoke-C72Pipe 'status'
         $returnLog=C72-ReadShared $addonLog
-        try { $returnEvidence=C72-ReturnEvidence $returnLogBefore $returnLog $s $start }
+        try { $returnEvidence=C72-ReturnEvidence $returnLogBefore $returnLog $s $start $script:result.entry_tuple }
         catch { $script:result.return_disposition='REFUSED_OR_UNCERTAIN';throw }
         $script:result.return_disposition=$returnEvidence.disposition
         if ($returnEvidence.confirmed) {

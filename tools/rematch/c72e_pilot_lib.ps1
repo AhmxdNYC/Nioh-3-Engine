@@ -172,7 +172,8 @@ function C72-Event([string]$Path, [string]$Kind, [string]$Reply, [double]$Elapse
     [IO.File]::AppendAllText($Path, ($v | ConvertTo-Json -Compress) + "`r`n", (New-Object Text.UTF8Encoding($false)))
 }
 
-function C72-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,[int]$Start) {
+function C72-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,[int]$Start,$Entry) {
+    if (-not $Entry -or $Entry.mission -notmatch "^0x[0-9A-Fa-f]+$" -or [string]$Entry.stage -notmatch "^\d+$") { throw "Bound original entry tuple required" }
     $refusal=C72-NewRefusal $Before $After # also validates captured prefix
     if ($refusal) { throw "Native return refused: $refusal; no retry" }
     $tail=$After.Substring($Before.Length)
@@ -182,12 +183,21 @@ function C72-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,[int]$
     if ($request.Success) {
         $disposition='NATIVE_RETURN_REQUESTED'
         $afterRequest=$tail.Substring($request.Index+$request.Length)
-        $exited=$afterRequest -match 'Rematch: replay mission exited \(stage now \d+, mission state \+28h 0x[0-9A-Fa-f]+\)'
+        $exited=$afterRequest -match ('Rematch: replay mission exited \(stage now '+[regex]::Escape([string]$Entry.stage)+', mission state \+28h '+[regex]::Escape([string]$Entry.mission)+'\)')
         $mission=C72-Field $Reply 'mission'
-        $confirmed=$exited -and $mission -match '^0x[0-9A-Fa-f]+$' -and [Convert]::ToUInt32($mission.Substring(2),16) -ne 0 -and $mission -ne '0xC72E' -and
+        $confirmed=$exited -and $mission -eq $Entry.mission -and (C72-Field $Reply 'stage') -eq [string]$Entry.stage -and $mission -ne '0xC72E' -and
             (C72-Field $Reply 'state') -eq '0' -and (C72-Field $Reply 'loading') -eq '0' -and (C72-Field $Reply 'player') -eq '1' -and
             (C72-Field $Reply 'warps') -eq '0' -and (C72-Field $Reply 'spawn') -eq '-' -and $Reply -match 'gate=ok(?: |$)'
         if ($confirmed) { $disposition='NATIVE_RETURN_OBSERVED' }
     }
-    return @{confirmed=[bool]$confirmed;disposition=$disposition;reply=$Reply;kind='ORDERED_NATIVE_RETURN_AND_REPLAY_EXIT_LOG_PLUS_IDLE_DIFFERENT_MISSION'}
+    return @{confirmed=[bool]$confirmed;disposition=$disposition;reply=$Reply;kind='ORDERED_NATIVE_RETURN_AND_REPLAY_EXIT_LOG_PLUS_IDLE_EXACT_ENTRY_TUPLE'}
+}
+
+function C72-EntrySettled($Tracker,[long]$NowMs,[string]$Reply,[bool]$ReadOk) {
+    $mission=C72-Field $Reply 'mission';$stage=C72-Field $Reply 'stage'
+    $valid=$ReadOk -and $mission -match '^0x[0-9A-Fa-f]+$' -and $stage -match '^\d+$'
+    $key=$mission+':'+$stage
+    if (-not $valid -or ($Tracker.ContainsKey('identity') -and $Tracker.identity -ne $key)) { $Tracker.since=$null }
+    $Tracker.identity=$key
+    return C72-ReadySettled $Tracker $NowMs $Reply $valid
 }
