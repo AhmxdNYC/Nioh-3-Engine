@@ -1,6 +1,6 @@
 # Private PDB-path scrub tooling - 2026-10-11
 
-Branch `codex-pdb-scrub` based on combined candidate `5736bdb04373456c35c81d2a0e603cd370313c9e`. No mod/src, version, defaults, build or runtime changes. Native PC benchmark aborted before launch at its free-space guard; no runtime result is claimed. Raw private 1.7.65 remains untouched, pending lead-owned smoke/integration.
+Branch `codex-pdb-scrub` based on combined candidate `5736bdb04373456c35c81d2a0e603cd370313c9e`. No mod/src, version, defaults, build or runtime changes. Native PC benchmark aborted before launch at its commit-memory headroom guard; no runtime result is claimed. Raw private 1.7.65 remains untouched, pending lead-owned smoke/integration.
 
 Read the public handoff's exact rule in main `notes/handoff-claude-public-repo.md`: replace the built ASI's PDB path with the bare filename plus zero padding; "only the debug-directory string changes; code bytes stay identical." Nothing was written to the public repo or a shared bin.
 

@@ -1,5 +1,15 @@
 # Codex work on Nioh 3
 
+## Current result - 2026-10-11 13:58
+
+All parallel offline units are reviewed and integrated. Native CBU reset advances the actual cache tag, and fresh positive-size initialization forces a miss; two deliberately modeled recreation counterexamples are not reachable-game defect findings. Twelve native byte windows were independently verified. No cache source/default change was made.
+
+Private 1.7.65 is queued to pc2 in bridge kit229/message1863 for default startup and separate PCM2 installation-only smoke. The PDB pathname was removed from a distinct copy: 8 scrubber tests pass and root independently verified every other byte unchanged. Native ACK/results are pending, so [draft PR1](https://github.com/AhmxdNYC/nioh3-engine/pull/1) stays unmerged and stable main/bin1.7.61 remains. Local whole-mod benchmark is blocked before launch at the existing memory guard; verified entry restoration is complete and no new FPS result exists.
+
+The [GPU cost audit](handoff-codex-gpu-cost-audit.md) gives a more specific answer about the picture: an archived Ally USER profile attributes 7.54ms to G-buffer materials, 3.59ms to FSR and 2.88ms to culling. Fog, lighting, shadows and post add work, but async timings overlap. Clouds already use temporal reuse; several proposed knobs/replacements were neutral or slower, and some apparent savings corrupted rendering. We know much of where the time goes, but have no validated visual-value ranking or demonstrated large remaining image-preserving win. The documented next candidates are lodu/fogpar validation and an MPC count/view proof, with estimates explicitly separated from gains.
+
+Discord progress sent. Root finishes this checkpoint, then releases its temporary lead hold to the enabled serial continuation monitor. All child writers have finished; device queues and proof work continue without invoking Claude CLI/API or enabling its wake. Public staging remains untouched. Earlier sections below are historical.
+
 ## Current result - 2026-10-11 13:50
 
 The stable 1.7.61 component smokes passed on PC, pc2 and Ally. Measured constant-upload gain is +16.50% +/-0.16% SE on pc2's slow GPU link, with neutral PC/Ally results. The optional preset measures +3.14% +/-0.08% SE on PC and +4.16% +/-0.18% SE on Ally; pc2 is neutral. These are fixed-spot component A/Bs, not a whole-mod improvement.
