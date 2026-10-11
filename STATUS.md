@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 00:03 New York - Codex step 2 fo10 NO-GO; main 1.7.61 remains
+- User resumed after step 1. Isolated codex-fo10 branch cb2b970 (D:/nioh3-wt/codex-fo10), experimental ASI 1.7.62-fo10; original fo-efxlag worktree untouched. Offline 255 sites + all 36 harnesses PASS, 0 errors / 3 known warnings.
+- PC unsafe control confirms off-main cache frame end 12682C and faults at FO frame 68. Fixed arm acknowledges 19 combined applies, then hangs on 20th return to stock: 1060 FO / 654 stock frames, TAIL complete, replay ring empty, main waiting copy-context pool. Exact cause unproven. FO_Test14 / measured A/B never reached; NO FPS claim. No FO5 build/queue and no FO merge into main.
+- Both lock-owned runs closed; 8 saves unchanged, original ASI/INI/config restored and independently hash-compared. One hung test required PID termination after graceful shutdown stuck. Evidence bridge #224, Discord NO-GO card sent. No Claude calls; auto-wake OFF.
+- Main 1.7.61 and step 1 results remain valid; pc2/Ally RC1761 queues #1767/#1768 still pending (no ACK/results as of 00:02). RC remains held until both smoke tests pass.
+- Read notes/handoff-codex-step2.md. Branch notes/renderer/frame-overlap.md section 8.6 has failure numbers and next diagnostic targets. Stop after this step; do not start step 3 or another game test automatically.
+
 ## UPDATE 2026-10-10 23:22 New York - Codex lead, step 1 PC PASS; remote smokes queued
 - Merged cbv-upload c5183c2 and extra-perf cba1fbc into main as ASI 1.7.61. Defaults: CBN=1 CBT=1 CBS=0 CBF=0; ExtraPerf preset/all levels=0; FrameOverlap=0. No Claude calls; auto-wake remains OFF.
 - Validation: ALL 255 SITES OK; CBU recorded-trace + ExtraPerf harnesses PASS; check_release --full PASS (all 36 harnesses, 0 errors, 3 warnings). Fixed FnProbe 66-prefixed immediate lengths + stale GPU/R2 harness dependencies exposed by full checks.
