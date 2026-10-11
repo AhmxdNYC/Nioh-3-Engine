@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:57 - pc2 preliminary archive audited; recovery boundary retained
+- Bridge231 transport SHA256/ZIP CRC and independent CSV arithmetic PASS: eight windows, two adjacent launch pairs, A30.1176/B45.0581FPS; B-A+14.940526 (+49.6073%), SE0.073337. Conditional on reported +14h clock alignment; coverage reproduced, origin not independently calibrated. Present cadence only, engine-only/current-shader/slow-link fixed shrine scope; no combat/load/latency/visual/universal verdict.
+- Recovery evidence gap: archive L5 cell/log still says left running / NOT RESTORED and no release; driver STOP, no L6. Later result1928 reports crash-PID cleanup, entry restoration and lock release. Final recovery is message attestation, not archive proof. L1-L4 graceful exits/restoration and arm hashes also attestations; installed binaries/backups absent. Evidence: notes/handoff-codex-default1761-pc2-evidence.md; tools/bench/audit_default1761_pc2.py.
+- No local game/Ghidra/capture/restoration needed; no build/deployment/save/settings/hardware/controller/hold/Claude changes. Other writers/worktrees/device-pinned inputs untouched. Checkpoint phone inspected, no sender=user steering. Stable1.7.61, guard PR1 unmerged, FO NO-GO retained; Ally result external.
+- NEXT ready independent unit: default-OFF training observer on owned codex-training-pump c297a20 under14:22/14:27 scope. Separate pc2 evidence gates: post-crash recovery/hash/release record and clock calibration before upgrading result or missing-pair retry; no unchanged retry authorized.
+
 ## UPDATE 2026-10-11 14:51 - Fogpar retained proof-input comparison closed
 - New pc2 result1928 reports PRELIMINARY default1761 two-pair shrine gain: A30.12/B45.06FPS, +14.94FPS (+49.6%), SE0.07FPS. Stock launch5 crashed; third pair incomplete. Valid graceful exits/final restoration/lock release reported; archive231 unverified. Major reported gain sent to Discord with limitations. Engine-only/current-shader/slow-link scope; no combat/load/latency/visual/universal verdict.
 - Offline audit PASS: missing inputs found read-only in original allygpu worktree. Packed #235 equals retained par DXIL/ShaderSwap bytes and all3170 normalized LL lines; three mismatched-input controls rejected, comment-header control passes. Evidence: notes/handoff-codex-fogpar-proof-bridge.md; tools/bench/audit_fogpar_proof_bridge.py.
