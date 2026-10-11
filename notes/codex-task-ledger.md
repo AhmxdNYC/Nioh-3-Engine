@@ -2,6 +2,12 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
+## Latest checkpoint - FO98 live-map references traced
+- Traced251660 live-map insertion: stores both pointers, calls record[0] vtable+8, and lock-increments optional record[1]+8. Allocation2509EC publishes under owner+CE8; explicit caller2F03E80 confirmed. Evidence: notes/handoff-codex-fo98-live-map.md.
+- Three new static provenance checks PASS. Correction: record[0] vtable+10 is release-shaped, not a proven wait; concrete vtable/GPU completion boundary still unresolved. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent32b8109; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game at entry/checkpoint; no game test/lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace retirement admission2EEF3B0 ->2EEE310/2EF01F4 ->2EEF950 to locate GPU completion before callback dispatch; then producer closure/ring rebuild proof. Concrete vtable and map replacement invariants remain open. Serial ownership until exit; commit/push with Codex attribution and Discord result via existing notifier after push. Documentation/static evidence only; use git log -1 for checkpoint commit.
+
 ## Latest checkpoint - FO98 retirement pool return traced
 - Traced251B5C/251CB4 key removal and251B88 free-range insertion/coalescing under owner+CE8. Optional532C64 releases object+8 reference and calls vtable+18 at zero. Evidence: notes/handoff-codex-fo98-pool-return.md.
 - Nine new static provenance checks PASS; record[0] comes from owner+38 map entry+8, but its vtable+10 CPU/GPU wait target remains unresolved. No runtime/lifetime/safety or performance verdict; FO remains NO-GO. Parent94b359f; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.

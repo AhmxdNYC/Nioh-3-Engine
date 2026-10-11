@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 live-map ownership
+
+Insertion reference acquisition traced; three new static provenance checks PASS. Earlier vtable+10 wait wording corrected to release-shaped inference; GPU timing and concrete vtable remain unproven. FO stays NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-live-map.md.
+
 ## 2026-10-11 Codex - FO98 retirement pool return
 
 Pool key removal/free-range coalescing and optional object reference release traced; nine static provenance checks PASS. Record vtable wait and producer lifecycle remain unresolved; FO stays NO-GO. No production/defaults/performance change. See notes/handoff-codex-fo98-pool-return.md.
