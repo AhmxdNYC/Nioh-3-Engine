@@ -216,3 +216,6 @@ the actual retained trace (no post-intro evidence exists) followed by labeled
 synthetic continuations, root receipt mutation rejects and return-proxy resets.
 Existing20 save/telemetry/parser,43 admission and18 identity/finalization checks
 PASS. No new live test or installed change was performed by the author.
+## 2026-10-11 native return acceptance correction
+
+The observation deadline now requires the current complete observation, not merely accumulated pre-intro player and later loading boss evidence. One exit command records its acknowledgement and then waits at most90s for the exact fresh C72E/start MissionRequestReturn requested log followed by native replay mission exited, with idle/player/nonloading/different nonzero mission and gate=ok. Refusal, exception, quarantine or replaced log prefix fails without retry. `native_return_confirmed` is required for successful harness acceptance; this is operational return evidence, not native cancellation proof or exact first-control timing. Native source TrackReplay requires >5s settled exit and ToIdle restores ownership; gate=ok excludes a retained attempt quarantine. Tests:20 return/timeout,226 intro/review/proxy,43ready/refusal,20pilot fixtures PASS. No game/UI actions in this correction.

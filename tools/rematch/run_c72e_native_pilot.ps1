@@ -76,7 +76,7 @@ $script:owned = $null; $script:saveHandles = $null; $script:entry = $null; $scri
 $script:binaryRecord = $null
 $script:held = New-Object 'System.Collections.Generic.List[string]'
 $script:result = [ordered]@{ arm=$Arm; start=$start; status='PREPARING'; instant_verdict='UNCONFIRMED_CONTROL_NOT_EXPOSED'
-    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; native_start=$null; battle_observed=$false; battle_evidence=$null; root_control_confirmed=$false; control_review=$null; saves_restored=$false; inis_restored=$false; binaries_restored=$false; request_disposition='NOT_SENT'; error=$null }
+    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; native_start=$null; battle_observed=$false; battle_evidence=$null; native_return_confirmed=$false; return_disposition='NOT_SENT'; root_control_confirmed=$false; control_review=$null; saves_restored=$false; inis_restored=$false; binaries_restored=$false; request_disposition='NOT_SENT'; error=$null }
 $entryDir = Join-Path $OutDir 'entry-saves'; $iniDir = Join-Path $OutDir 'entry-inis'
 $events = Join-Path $OutDir 'events.jsonl'; $script:watch = [Diagnostics.Stopwatch]::StartNew()
 $LockId = "pc-c72e-$PID"
@@ -273,7 +273,7 @@ try {
         if ((C72-Field $s 'fnow') -eq 'fail') { throw 'Native gate/encounter verifier failed' }
         Start-Sleep -Milliseconds 25
     } while ([DateTime]::Now -lt $until)
-    if (-not $script:result.first_observed -or -not $script:result.battle_observed) { throw 'Bounded observation incomplete' }
+    if (-not $observed -or -not $script:result.first_observed -or -not $script:result.battle_observed) { throw 'Bounded observation incomplete' }
     Shot 'boss-observed'
     $log=(C72-ReadShared $addonLog)
     $null=C72-NewRefusal $requestLogBefore $log # verifies the pre-request log prefix still belongs to this run
@@ -297,11 +297,30 @@ try {
     if (-not $returnReady) { throw 'Return observation proxy did not settle; no return command sent' }
     $script:result.return_gate_evidence='FOUR_SECOND_TELEMETRY_PROXY_NATIVE_WRAPPER_AUTHORITATIVE'
     $script:result.status=if ($script:result.first_observed.before_gate -and $script:result.first_observed.near_target) { 'LANDING_PROXY_AND_BOSS_OBSERVED' } else { 'ROOT_CONFIRMED_NATIVE_ENTRY_FIRST_CONTROL_TIME_UNKNOWN' }
-    $null=Invoke-C72Pipe 'exit' # One native mission return; no retry or relaunch.
-    Start-Sleep -Seconds 2
+    $returnLogBefore=C72-ReadShared $addonLog
+    $exitAck=Invoke-C72Pipe 'exit' # One native mission return; no retry or relaunch.
+    $script:result.return_ack=$exitAck
+    if ($exitAck -notmatch '^queued') { $script:result.return_disposition='COMMAND_REFUSED';throw "Return command refused: $exitAck" }
+    $script:result.return_disposition='QUEUED_ACK_ONLY'
+    $returnUntil=[DateTime]::UtcNow.AddSeconds(90)
+    do {
+        $s=Invoke-C72Pipe 'status'
+        $returnLog=C72-ReadShared $addonLog
+        try { $returnEvidence=C72-ReturnEvidence $returnLogBefore $returnLog $s $start }
+        catch { $script:result.return_disposition='REFUSED_OR_UNCERTAIN';throw }
+        $script:result.return_disposition=$returnEvidence.disposition
+        if ($returnEvidence.confirmed) {
+            $script:result.native_return_confirmed=$true
+            $script:result.native_return_evidence=$returnEvidence
+            Shot 'native-return-observed'
+            break
+        }
+        Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $returnUntil)
+    if (-not $script:result.native_return_confirmed) { throw 'Native return not observed within90s; no retry' }
 } catch { $script:result.status='TRIAL_FAILED'; $script:result.error="$_"; Write-Warning "$_" }
 finally {
     try { Finish-C72 } finally { Done-Guard -KeepFile:(-not $script:cleaned) }
 }
 Write-Host "Result: $(Join-Path $OutDir 'result.json'); instant entry remains unconfirmed until root checks visual evidence."
-if ($script:result.status -notin @('LANDING_PROXY_AND_BOSS_OBSERVED','ROOT_CONFIRMED_NATIVE_ENTRY_FIRST_CONTROL_TIME_UNKNOWN') -or -not $script:result.root_control_confirmed -or -not $script:cleaned) { exit 1 }
+if ($script:result.status -notin @('LANDING_PROXY_AND_BOSS_OBSERVED','ROOT_CONFIRMED_NATIVE_ENTRY_FIRST_CONTROL_TIME_UNKNOWN') -or -not $script:result.root_control_confirmed -or -not $script:result.native_return_confirmed -or -not $script:cleaned) { exit 1 }
