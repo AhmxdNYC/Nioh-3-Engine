@@ -4,6 +4,12 @@ Codex continuation remains enabled. **Do not call or wake Claude. Only the user 
 
 Latest automation correction2026-10-11: the installing lead's2milliondaily cap stopped ready work after the first worker. User reported the stall; monitor stopped cleanly with no active worker, and daily caps now default null (optional user settings). Actual usage remains tracked and the single-writer/game guards remain. Tooling regression13checksPASS; restart follows repository checks/commits, then lead-active release. Rendering-first priority is unchanged. Earlier cap-hold observations below are historical and superseded by this correction.
 
+## Latest checkpoint - FO98 dispatcher consumer completion traced
+- Native dispatcher copies records before advancing read+28; token handlers and optional submit return before lock-decrementing in-flight+30. ECL enqueue/capacity wait traced. Evidence: notes/handoff-codex-fo98-dispatcher-completion.md.
+- Six new static provenance windows PASS; recovered handler cursor argument and close-wrapper return use omitted by decomp. No GPU/producer-closure/safety/performance verdict; FO NO-GO. Parent 5eaca34; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
+- No local game/test or Ghidra; no lock/build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace close target1A7C4FC and downstream ECL consumer/fence ordering, then bounded resource vtable+28 callers/modes. Producer closure, cache+20 identity and retirement restart remain open. Serial ownership until exit; commit/push with Codex attribution and Discord result after push; checkpoint commit via git log -1.
+
 ## Latest checkpoint - FO98 end-frame drain/reset boundary traced
 - Traced native 418C70 final range publication -> 418F40/418F90 CPU dispatcher drain -> stream cursor reset. Idle predicate requires ring+24 == ring+28 and ring+30 == 0; no producer closure or GPU completion follows. Evidence: notes/handoff-codex-fo98-endframe-boundary.md.
 - Five new static provenance windows PASS, including 419028 cold tail19A6724. Broad indirect-caller scan cancelled without a result; caller modes remain open. FO remains NO-GO; no runtime/safety/performance verdict. Parent57328f3; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
