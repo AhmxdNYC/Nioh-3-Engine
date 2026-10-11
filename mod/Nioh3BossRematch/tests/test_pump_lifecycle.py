@@ -24,7 +24,9 @@ assert prepare.index('return false;') < prepare.index('g_cfg.hiddenDuels')
 assert 'g_prepared = true;' in prepare
 assert main.count('InstallPump(') == 1
 assert main.index('const bool live = StartRematchPump();') < main.index('Feature("BossLog", "FIGHT")')
-assert 'if (live) ui::Start();' in main
+# Settings remain available with Rematch off; this must not gate or activate the pump.
+assert '\n    ui::Start();' in main
+assert main.index('const bool live = StartRematchPump();') < main.index('ui::Start();')
 assert 'training::Prepare()' in main
 
 import configparser

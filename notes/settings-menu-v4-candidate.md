@@ -24,3 +24,38 @@ Verification completed: `mod/settings/test_catalog.py` PASS on the final metadat
 Outstanding gates before sharing any ASI: final actual-source menu harness rerun; both DLL release builds (including ui.cpp/main.cpp compilation); addon lifecycle/training/rematch harnesses; site resolution and EngineFix patterns (`ALL N SITES OK`); strict `check_release.py --full` on this hybrid worktree with current ignored release inputs; root source review. No candidate ASI was built or shared. Build/harness outputs stay ignored in this worktree. Use main's read-only `tools/msvc/setup_x64.bat` in a child shell; do not copy its relative setup without the toolchain. No new game/native/release/build work was started after the handoff request.
 
 Runtime gates remain: PC/Ally panel fit/readability, controller slots 1–3 and disconnect/reconnect, held buttons/triggers/sticks after close, mixed Back/confirm input, coexistence with EngineFix hooks in both load orders, keyboard fallback/foreground behavior, actual save failure/restart reload, installed-versus-uninstalled tuning replies. The addon still uses asynchronous keyboard polling. EngineFix fallback polling can expose input if its hook is unavailable. There is no playable-training, direct arena, same-look/performance, input-latency or fps claim. Root owns the separate native arena pilot and any device/bridge/public/deployment work.
+
+## Successor validation - 2026-10-11
+
+The successor reran both actual-source C++ menu harnesses on 0870530: PASS,
+zero warnings. Catalog/default/protected-native-source checks PASS (331 rows,
+308 typed and 23 explicit manual-only); menu-map selftest PASS in both layouts
+and both PC/Wine modes. Engine patterns255/255 and addon sites94/94 PASS.
+Addon rematch60, training snapshot53 and lifecycle143 checks PASS.
+
+The lifecycle test still expected UI startup to depend on Rematch being live.
+Updated that stale wiring expectation to the reviewed settings-while-disabled
+behavior; pump enable/install/failure checks remain intact. Restored main's
+current tools/testmatrix/live_keys.py so diagnostics and CB upload controls
+match the already aligned1.7.61 core. Its selftest passes. No native route,
+training mutation, setting default or runtime source was changed in this unit.
+
+Both release ASIs built locally (not installed/shared):
+- Engine1.7.67 SHA2566890c0605e3346d915f7f2263337716ea1ddad6c0b4ea36efebb2c4d4aa8e32d.
+- Addon1.4.7 SHA256532712864032b70337d0b58d77ac0baa33da001799317e7e61199b4981c38d1e.
+Engine build reports inherited C4456 shadowing in dllmain.cpp:1467 (unchanged
+from1.7.61); addon build has no warnings. These remain private candidate builds.
+
+Initial full-release attempt lacked compiler environment for older runners,
+used an old live-control key list, and started before the binary existed.
+Rerun uses main's setup_x64.bat in a child shell and corrected live_keys.
+Full-suite final receipt follows. Existing quick check has0 errors/3 warnings:
+undocumented/defaulted keys, menu-read keys and provisional ALL-profile flags.
+Strict warning-free release acceptance is not claimed. Runtime/controller,
+source integration and public packaging gates remain open.
+
+Final full-suite receipt: check_release.py --full PASS,0 errors/3 warnings,
+36 actual harness runners plus patterns255/255, on the candidate with aligned
+live_keys and both built ASIs. Log remains private/ignored at
+mod/Nioh3EngineFix/build/successor-release-full.log. No runtime acceptance or
+strict warning-free result implied. No remaining validation process from this run.
