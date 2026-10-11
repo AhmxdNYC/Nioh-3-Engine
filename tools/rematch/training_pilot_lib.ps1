@@ -92,3 +92,20 @@ function Training-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,$
         (C72-Field $Reply 'player') -eq '1' -and (C72-Field $Reply 'state') -eq '0' -and
         (C72-Field $Reply 'warps') -eq '0' -and (C72-Field $Reply 'spawn') -eq '-' -and $Reply -match 'gate=ok(?: |$)'
 }
+function Training-HostedAdmission([string]$ReceiptHash,[string]$ModTree,$Hashes) {
+    $expected=@{'Nioh3EngineFix.asi'='d15605a7e51f007fbbffb6e572efc5e9ec591db8fc1b59e608a4bfaffba78145';'Nioh3BossRematch.asi'='1d543289aeced5f52e3c8ff73f8417cda3057c6fb6ee20170e2b715533d5513a'}
+    if ($ReceiptHash -cne '9043b96c237aecfdb63613c3be6e8b9a62394c176a64f5f11f67abe8dbcc4aff') { throw 'Hosted admission requires exact root-accepted C72E receipt' }
+    if ($ModTree -cne '05a8f9e7a5ca7afd74bdf5f2cea1d5e549217898') { throw 'Hosted source mod tree changed; new review required' }
+    foreach($name in $expected.Keys){if($Hashes[$name] -cne $expected[$name]){throw "Hosted candidate hash changed: $name"}}
+    return @{kind='EXPLICIT_DERIVATIVE_ADMISSION_NOT_TRANSFERRED_PASS';scope='ONE_GUARDED_HOSTED_PRACTICE_PILOT_NEW_UI_UNTESTED';
+        prior_receipt_sha256=$ReceiptHash;prior_source='9eeb174cb71e785e2d0b315d50a9a8fc5ed49df2';
+        reviewed_new_source='3db5bc4';reviewed_code_equivalent='0c4a334';mod_tree=$ModTree;runtime_asi_hashes=$expected;
+        unchanged_native_contract='ExecDirect/CallRequestById/CallReturn/TrackReplay/ReadSnap/gates/8Attempt functions/SpawnRestore/SpawnTick/MapRestoreNow/FnVerify/DoWarp/GateTick/Pump/Prepare text equal';
+        changed_contract='New hosted UI and practice dispatch untested live; ToIdle additionally clears practice ownership after normal restored exit';
+        exclusions='Not full training; no first-control timing, new native semantics, repeated sessions or handheld compatibility acceptance';max_launches=1}
+}
+function Training-HostedRequestWitness([string]$Log,[string]$Kind) {
+    if($Kind -eq 'start'){return $Log -match 'Rematch: request Practice Yamagata \(native shrine\)[^\r\n]*queued from the practice menu'}
+    if($Kind -eq 'return'){return $Log -match 'Rematch: request return from practice[^\r\n]*queued from the practice menu'}
+    throw 'Unknown hosted request witness'
+}

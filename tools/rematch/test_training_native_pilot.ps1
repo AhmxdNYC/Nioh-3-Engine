@@ -123,3 +123,34 @@ Check ((Training-Wait 'return' 1) -eq $ret)
 $script:logText='prefix'+'[19:00:00.000] Rematch: refused: native replay has not settled'
 Refuses { Training-Wait 'shrine' 1 }
 Write-Host "PASS $script:checks including actual wait adapter and fail-fast refusal"
+# Hosted mode is a distinct derivative admission, never a rewritten old PASS.
+$hp=(& $runner -DryRun -Hosted -OutDir $absent -GameDir $absent -SaveRoot $absent -CandidateRoot $absent -Kit $absent)|ConvertFrom-Json
+Check ($hp.gate -match 'NEW_UI_UNTESTED' -and $hp.route -match 'not full training' -and $hp.versions -eq 'Engine1.7.68/addon1.4.10')
+Check ($hp.runtime_asi_hashes.'Nioh3EngineFix.asi' -ne $plan.runtime_asi_hashes.'Nioh3EngineFix.asi')
+Check (-not (Test-Path -LiteralPath $absent))
+$receipt='9043b96c237aecfdb63613c3be6e8b9a62394c176a64f5f11f67abe8dbcc4aff';$tree='05a8f9e7a5ca7afd74bdf5f2cea1d5e549217898'
+$newHashes=@{'Nioh3EngineFix.asi'=$hp.runtime_asi_hashes.'Nioh3EngineFix.asi';'Nioh3BossRematch.asi'=$hp.runtime_asi_hashes.'Nioh3BossRematch.asi'}
+$admit=Training-HostedAdmission $receipt $tree $newHashes
+Check ($admit.kind -eq 'EXPLICIT_DERIVATIVE_ADMISSION_NOT_TRANSFERRED_PASS' -and $admit.max_launches -eq 1)
+Refuses { Training-HostedAdmission ('0'*64) $tree $newHashes }
+Refuses { Training-HostedAdmission $receipt ('0'*40) $newHashes }
+foreach($key in $newHashes.Keys){$bad=$newHashes.Clone();$bad[$key]='0'*64;Refuses {Training-HostedAdmission $receipt $tree $bad}}
+Check (Training-HostedRequestWitness 'Rematch: request Practice Yamagata (native shrine) for R1CBC queued from the practice menu' 'start')
+Check (Training-HostedRequestWitness 'Rematch: request return from practice queued from the practice menu' 'return')
+Check (-not (Training-HostedRequestWitness 'Rematch: request Shrine before the boss for R1CBC queued from pipe' 'start'))
+Check (-not (Training-HostedRequestWitness 'Rematch: request leave the mission (return) queued from pipe' 'return'))
+# Execute actual conditional submission blocks from the runner in both modes.
+$script:submitted=New-Object 'System.Collections.Generic.List[string]'
+function Invoke-C72Pipe([string]$Command){$script:submitted.Add($Command);return 'queued'}
+foreach($command in @('shrine R1CBC','exit')){
+ $call=$calls|Where-Object{$_.CommandElements[1].Value -eq $command}|Select-Object -First 1
+ $parent=$call.Parent
+ while($parent -and $parent -isnot [Management.Automation.Language.IfStatementAst]){$parent=$parent.Parent}
+ Check ($parent -and $parent.Extent.Text -match '^if \(\$Hosted\)')
+ $Hosted=$true;Invoke-Expression $parent.Extent.Text
+ Check ($script:submitted.Count -eq 0)
+ $Hosted=$false;Invoke-Expression $parent.Extent.Text
+ Check ($script:submitted.Count -eq 1 -and $script:submitted[0] -eq $command)
+ $script:submitted.Clear()
+}
+Write-Host "PASS $script:checks including explicit hosted admission and no hosted pipe mutations"
