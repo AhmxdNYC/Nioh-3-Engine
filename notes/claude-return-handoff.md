@@ -1,6 +1,7 @@
 # User-controlled return to Claude - 2026-10-11
 
 ## Latest checkpoint - ApplyBatch negative controls and RC1761 reports
+- Final inbox1840/1842: pc2 and Ally additionally attest full test ASI SHA2564734152ACAFDC13FA417C23EE60C8F6579B023D7F93FE73A763D862446A7AD00. Device-reported provenance/restoration only; archives still unverified. Ally confirms SIGTERM exit without forced kill and6/6 saves unchanged. No sender=user steering. Audit5da4c64 pushed and Discord sent.
 - Production-body audit at main8c45cd0 reproduces nine fail-open inspection paths: each writes both sites and flushes despite failed inspection; cleanup balanced. Seventeen cases, /W4 /WX compile, audit exit0; this is hazard reproduction, not repaired-installer safety. Evidence: notes/handoff-codex-applybatch-failure-audit.md; runner tests/run_applybatch_failure_audit.py.
 - Another writer changed D:/nioh3-wt/codex-install-guard to installguard::Write during this unit. Serial lead stopped source edits and isolated only its own tests on main. No repair merge/build/deployment; ownership clarification pending. Do not edit that worktree concurrently. No Claude call/wake or controller-state modification.
 - Phone1831/1835 report main1.7.61 smoke1768 Ally /1767 pc2 PASS, graceful closure and save/ASI/INI/config hash restoration. Device-reported paired A/Bs recorded in the audit note; archives not independently verified here. Defaults unchanged; animation screenshots are not offline visual-equivalence proof. FO5 kit225/1781 remains HELD/CANCELLED; FO NO-GO.
