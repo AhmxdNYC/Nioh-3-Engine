@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Renderer caller audit and rematch failure reproduction
+- This PC completed native renderer work: four reviewed vtable+28 sites pass mode1; one has an outer context+6EA8 exclusive lock and another lies on a cache-shutdown path. Extended native audit PASS; no complete producer closure, FO safety or FPS claim. Details: notes/renderer-producer-callers-2026-10-11.md. FO remains NO-GO/defaultOFF.
+- Actual candidate SpawnRestore/SpawnWrite C++ extracted and compiled /W4 /WX: normal restore succeeds, but first-write failure, second-write failure and unreadable record all lose recovery ownership. Three defects REPRODUCED, not safety PASS. Candidate production code unchanged; notes/rematch-spawn-restore-failure-2026-10-11.md records required transactional/admission repair. Separate C72E guard fix remains completed.
+- Shared lock rechecked: Ally holder, no newer device messages through1966; no local game/java. No game launch, installed/default-picture/save/controller/hold/wake/Claude/public changes. Next concrete rematch work is per-field restoration ownership and pre-native-request admission blocking; renderer work can continue while device results are pending.
+
 ## UPDATE 2026-10-11 - Active renderer research; Discord opportunity card sent
 - User explicitly wants this PC analyzing/decompiling rendering while devices test, including same-picture optimizations AND labelled optional quality tradeoffs. Keep default picture unchanged; no Claude/wake toggles.
 - New renderer checkpoint6ed4da3 pushed: compute-PSO compare-only offline core,159 MSVC/W4/WX checks PASS. Always returns stock result, never serves/dereferences cached PSOs; catches3 injected stale-result cases. Native trim2EFA3FA releases before removal2EFA407, confirming need for pre-release mutation exclusion. Complete native lifecycle/hooks/compare-only device integration still pending; no FPSgain.
