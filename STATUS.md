@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - FO lifecycle contract complete; epoch witnesses next
+- Completed bounded producer/flush/endFrame/drain ordering and explicit admission, epoch, publication, closure and lifetime contract: notes/handoff-codex-fo-lifecycle.md. New static finding: emitter stamps obj+190 before publication; pointer-only queue retains no epoch/owner. TailDone, stream generation, use epoch and GPU fence are distinct. No combined repair or new test PASS claimed; FO remains NO-GO.
+- Main parent88f317b / experimental3b89c04 unchanged; tested1.7.61/FO0 and default visuals preserved. No game running, lock/test/build/deployment/settings change; prior restoration untouched. Phone inbox empty at entry/checkpoint. Controller observed read-only enabled/working monitor45016/worker22552; serial ownership until exit, no state writes or Claude call/wake. Remote1767/1768/1781 pending at last known bridge1785, not freshly queried.
+- Next ready unit: add actual-code epoch-stamping audit fixtures for duplicate suppression, epoch advance before publication, late FlushAll/reset enqueue and restore eligibility. Then trace original emitter lock/update and 0x98 retirement ownership before selecting a combined repair. No count-only/second-flush-only safety patch. This documentation topic uses Codex attribution; Discord result via existing notifier after commit/push.
+
 ## UPDATE 2026-10-11 - Training inventory complete; rendering lifecycle next
 - Read-only BossRematch inventory and isolated prototype plan completed: notes/training-mode-inventory.md. Tracked88sites,121catalogue rows; Create activates a placement,65092 is an ID, reset/cleanup/streaming/ABI/reward proofs missing. Catalogue tags are not new runtime validation. Native-arena reload/restart before one gated summon; no implementation/build/game test/performance claim.
 - Main parent7977cb9; tested1.7.61/FO0 unchanged. FO startup3b89c04 remains verified; FO release NO-GO. Remote1767/1768/1781 pending at last bridge1785 (no fresh bridge query). No game running/test lock acquired, no deployed changes; restoration unchanged. Controller read-only enabled/working monitor45016/worker51100; no state writes. Phone inbox empty at checkpoint. Serial ownership until exit; no Claude call/wake.
