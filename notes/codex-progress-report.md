@@ -1,5 +1,28 @@
 # Codex work on Nioh 3
 
+## Current result - 2026-10-11 14:22
+
+Three agents completed training-mode research and their results are integrated.
+We can reuse native mission/arena entry from BossRematch; arbitrary enemies,
+cross-stage boss placement, in-place revive/despawn and reward-free practice still
+need contracts. The audit corrected unsafe assumptions about VM reset bindings,
+activation success, cold-block despawn and load cancellation. Root independently
+checked eleven native stage/pump windows plus the reset binding. See the concise
+[training progress](training-mode-progress.md) and its linked contracts/design.
+No training source or runtime change has shipped. The next bounded unit is a
+default-off read-only observer on an isolated addon1.4.0 branch.
+
+User-authorized benchmark requests now go to device Claude chats: pc2 queue1882
+for an exact1.7.61 whole-default-vs-EngineFix-absent preliminary ABBAAB; PC1883 and
+Ally1884 for readiness/capture preflight. Their launches retain lock/save/hash
+restoration and shared-account rules. Replies/results are pending at1884; see
+[the exact delegated recipe](codex-device-benchmark-queue-2026-10-11.md).
+High-level performance-testing Discord update sent. Complete default-stack gain
+still unmeasured; pc2 guard1.7.65 audit covers title installation only. Stable
+perf1.7.61 retained, guard PR1 unmerged and FO NO-GO. No public/OS/game changes or
+Claude CLI/API/wake toggle. Root releases the temporary lead hold after checkpoint
+so enabled serial continuation can implement the observer and consume replies.
+
 ## Current result - 2026-10-11 13:58
 
 All parallel offline units are reviewed and integrated. Native CBU reset advances the actual cache tag, and fresh positive-size initialization forces a miss; two deliberately modeled recreation counterexamples are not reachable-game defect findings. Twelve native byte windows were independently verified. No cache source/default change was made.

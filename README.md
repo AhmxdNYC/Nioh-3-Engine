@@ -28,6 +28,10 @@ All 54,295 renderer catalog entries have local C exports. Core naming coverage i
 
 Frame overlap remains experimental and **NO-GO**. The +11.74% +/-1.54% SE experiment used an artificial 8 ms replay delay; it is not a native game gain. Producer closure, resource lifetime and retirement ordering still need proof before another candidate can be shared. See [the continuation ledger](notes/codex-task-ledger.md).
 
+## Training mode research
+
+Three parallel research units traced enemy activation, mission/arena loading and add-on integration. Existing BossRematch provides native mission-based arena entry; arbitrary spawning, cross-stage boss placement, in-place resets and reward-free practice remain unproved. The next implementation is a default-off read-only observer. See [training progress and contracts](notes/training-mode-progress.md); no operational training mode has shipped.
+
 ## Development and validation
 
 Read [AGENT_BRIEF](AGENT_BRIEF.md), the newest [STATUS](STATUS.md) section and the relevant handoff before editing. Codex owns source/build integration; device agents own their tests. Only one writer changes EngineFix source at a time.
