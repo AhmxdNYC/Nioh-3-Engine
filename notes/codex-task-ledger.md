@@ -1,5 +1,11 @@
 # Codex continuation ledger
 
+## Latest checkpoint - 2026-10-11 14:51 - Fogpar proof-input bridge recovered
+- Read-only donor discovery found missing par LL/DXIL/ShaderSwap files in original allygpu worktree. New audit PASS: packed #235 equals both retained binary files; all3170 normalized disassembly lines equal pinned retained LL. Three memory-only mismatch rejections plus comment-header control PASS. Evidence: notes/handoff-codex-fogpar-proof-bridge.md; tools/bench/audit_fogpar_proof_bridge.py.
+- Current artifact bridge closed; historical proof reports lack input hashes, so their execution cannot be cryptographically rebound. No fresh equivalence/runtime/visual/FPS claim or proof-suite repetition. Main standalone/LL remain absent; no staging copy, shader rebuild/replacement or new queue.
+- Final phone inbox empty; no user steering. No local game/PresentMon/Ghidra or restoration needed. No saves/settings/hardware/controller/hold/Claude changes; other writers/worktrees and device-pinned inputs untouched. Stable1.7.61, FO NO-GO, guard PR1 unmerged. Ally1922 acceptance/start remains latest report; measured results and pc2 ACK/results pending.
+- NEXT ready independent unit: implement default-OFF read-only observer on owned codex-training-pump c297a20 under14:22/14:27 scope. Consume fresh actionable device evidence first; PC/Ally account remains reserved and no unchanged local retry. Whole-default/player gates remain external.
+
 ## Lead checkpoint - 2026-10-11 14:46 - Measured FPS and device gates first
 - New device1922: Ally ACK single owner/backups/cache agreement and reported ABBAAB start; no measured result yet. Lead1923 permits the final save-blocked title launch only as unmeasured recovery/sync, with guard verification, entry restoration and normal sync postcondition before account release. Read latest device-queue checkpoint; PC remains held. Do not reinterpret this as altered B defaults or a seventh measured arm.
 - User asks how close we are to a large FPS gain and wants major Ally/pc2 gains notified. No fresh gain: pc2 constant-upload component+16.50% +/-0.16% SE is slow-link-specific; Ally optional quality preset+4.16% +/-0.18% SE was measured separately with CBMODE0. Complete default-stack A/B remains absent; no additive, visual or large-win deadline claim. Discord card and phone1916 sent.

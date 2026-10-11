@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:51 - Fogpar retained proof-input comparison closed
+- Offline audit PASS: missing inputs found read-only in original allygpu worktree. Packed #235 equals retained par DXIL/ShaderSwap bytes and all3170 normalized LL lines; three mismatched-input controls rejected, comment-header control passes. Evidence: notes/handoff-codex-fogpar-proof-bridge.md; tools/bench/audit_fogpar_proof_bridge.py.
+- Current artifact identity established; archived proof execution lacks input hashes and was not rerun. No fresh equivalence, image-equality or FPS claim. No staging/deployment/build changes; pinned queues preserved. Stable1.7.61, FO NO-GO, guard PR1 unmerged.
+- Final phone inbox empty. No local game/capture/Ghidra/restoration or controller/hold/settings/hardware/Claude changes. Ally1922 reported acceptance/start; measured result and pc2 ACK/result still pending. PC account hold retained.
+- NEXT ready: default-OFF read-only training observer on owned codex-training-pump c297a20, per ledger scope; actionable device evidence first. Runtime/default-stack/player gates remain external; no unchanged PC retry or new shader queue.
+
 ## UPDATE 2026-10-11 14:46 - Whole-build FPS comparisons prioritized
 - Ally1922 now ACKs single owner/backups and reported six-run ABBAAB start. No measured result yet. Lead1923 permits a separate unmeasured guarded title launch only for final restored-save sync; entry restoration and sync checks precede account release. PC remains held.
 - No fresh large gain. Measured component results remain pc2 constant uploads+16.50% +/-0.16% SE (slow-link-specific), Ally optional quality preset+4.16% +/-0.18% SE measured separately; full default-stack A/B absent. High-level Discord/phone1916 sent; major measured Ally/pc2 gains should be notified promptly with scope and uncertainty.
