@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - FO98 concrete allocator submit/reuse traced
+- Identified embedded allocator vtable409A620 and concrete +10/+18/+28/+30 targets. Token0 executes the list then signals context+6C8; reuse cold path waits on graphics owner+6D8. Evidence: notes/handoff-codex-fo98-allocator.md.
+- Ten new static provenance windows PASS. Fence identity/shared timeline remains unresolved; no retirement/producer-closure/safety/performance verdict. FO NO-GO. Parent9d27938; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
+- No local game/test or Ghidra; no lock/build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace creation/assignment and signal ordering for owner+6D8 versus context+6C8 to establish the old-slot wait timeline. Producer closure, resource caller modes, cache+20 identity and retirement restart remain open. Serial ownership until exit; commit/push with Codex attribution and Discord result after push; checkpoint commit via git log -1.
+
+
 ## UPDATE 2026-10-11 - FO98 close/recycle and ECL boundary traced
 - Traced context close1A7C4FC ->490F64 close/recycle; native token0 dispatches allocator vtable+30. ECL item completion is CPU replay/capacity accounting. Evidence: notes/handoff-codex-fo98-close-ecl.md.
 - Twelve new static provenance windows PASS; recovered sequence argument omitted by decomp. Concrete allocator reuse/fence contract unresolved; no GPU/producer-closure/safety/performance verdict. FO NO-GO. Parent5059eb1; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.

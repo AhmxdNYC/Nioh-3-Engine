@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 concrete allocator trace
+
+Resolved execute/signal and old-slot reuse targets; ten static provenance checks PASS. Context and graphics-owner fence timeline still unresolved. FO NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-allocator.md.
+
 ## 2026-10-11 Codex - FO98 dispatcher completion trace
 
 ## 2026-10-11 Codex: FO98 close/ECL static boundary
