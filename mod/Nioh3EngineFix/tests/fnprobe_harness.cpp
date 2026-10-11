@@ -171,6 +171,17 @@ static int RunThunkTests() {
         const uint8_t ok1[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57};           // mov [rsp+8],rbx
         const uint8_t ok2[] = {0x40, 0x53, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00};  // push rbx; sub rsp,160h
         const uint8_t mov3[] = {0x4C, 0x8B, 0xDC, 0x49, 0x89, 0x5B, 0x08};      // mov r11,rsp; mov [r11+8],rbx
+        // 9AFDF0: the word immediate must not swallow the following ret/padding.
+        const uint8_t wordStore[] = {0x48, 0x83, 0x02, 0x04, 0x66, 0xC7, 0x81, 0x43, 0x05, 0, 0, 1, 0, 0xC3, 0xCC};
+        const uint8_t wordAlu[] = {0x66, 0x81, 0xEC, 0x60, 0x01};
+        const uint8_t wordMov[] = {0x66, 0xB8, 0x01, 0x02};
+        const uint8_t rexAlu[] = {0x66, 0x48, 0x81, 0xEC, 0x60, 0x01, 0, 0};
+        const uint8_t rexMov[] = {0x66, 0x48, 0xB8, 1, 2, 3, 4, 5, 6, 7, 8};
+        CHECK(fnprobe::PrologueLen(wordStore) == 13, "word store includes ret/padding");
+        CHECK(fnprobe::InsnLen(wordAlu) == 5, "word ALU immediate width");
+        CHECK(fnprobe::InsnLen(wordMov) == 4, "word MOV immediate width");
+        CHECK(fnprobe::InsnLen(rexAlu) == 8, "REX.W must override 66 for ALU");
+        CHECK(fnprobe::InsnLen(rexMov) == 11, "REX.W must override 66 for MOV");
         CHECK(fnprobe::PrologueLen(rip) == -1, "decoder accepted rip-relative");
         CHECK(fnprobe::PrologueLen(jmp) == -1, "decoder accepted jmp");
         CHECK(fnprobe::PrologueLen(sub) == -1, "decoder accepted a call in the first 5 bytes");

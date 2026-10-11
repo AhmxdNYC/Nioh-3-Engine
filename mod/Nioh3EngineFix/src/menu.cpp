@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 
+#include "extraperf.h"
 #include "gpuopt.h"
 #include "menu.h"
 #include "osd.h"
@@ -816,10 +817,13 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXWG, kXTG, kXDS, kXLK, kXCP, kXSPF, kXMQ, kXPT1, kXDL, kXDQ, kXP1E7, kXMA, kXBPO, kXW1B, kXRPA, kXAS, kXPJH, kXTR,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
+          kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
+static_assert(kEp9 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
 bool IsExp(int id) { return id >= kXW6 && id <= kXPCM; }
+bool IsEp(int id) { return id >= kEp0 && id <= kEp9; }  // one Extra performance option each (level row)
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
                                              L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL",
                                              L"DQ", L"P1E7", L"MA", L"BPO", L"W1B", L"RPA", L"AS", L"PJH", L"TR",
@@ -897,6 +901,29 @@ const ItemDef kItems[kCount] = {
     {"Cheaper barriers A (Proton)", "(R2a)", "Buffer COMMON barriers get their real read state (cheaper wait on RADV).", "Picture unchanged. Applies now. A/B against the GPU ms line."},
     {"Cheaper barriers B (Proton)", "(R2b)", "EXPERIMENT. Same for UAV buffers. May flicker or show stale data.", "Judge with screenshots. Applies now."},
     {"Drop read->read barriers", "(R1 gpu)", "EXPERIMENT. Drops read->read superset barriers. Needs an image compare.", "Judge with screenshots. Applies now."},
+    // 1.7.59 Extra performance (changes the look): extraperf.h; gains = notes\extra-performance-settings.md (pc2 RX 6650 XT 1080p / Ally)
+    {"Preset", "(XPRE)", "Game = all rows off. Performance = cuts that are hard to see (clouds, GI, LOD, shadow distance; fog untouched). Potato = + coarser fog, AO off, 1-tap shadows.",
+     "Changes the look. Applies now. Left/Right picks the next preset. Gains: see each row."},
+    {"Cloud quality", "(XCLD)", "Fewer ray-march steps for the volumetric clouds (game: up to 256 per pixel).",
+     "Blockier / noisier cloud edges. Applies now. PC RX 9070 (GPU-bound): no gain; Ally: untested."},
+    {"Volumetric fog detail", "(XFOG)", "Coarser fog light grid than the game's lowest (LIGHT = 80x32); 'off' = VOLUMETRIC LIGHTEST.",
+     "Blurrier god rays and fog lighting; off = no volumetric fog. Applies now. PC +1.5 % (48x16) / +2.8 % (off: glow gone, big look change)."},
+    {"Global illumination resolution", "(XGI)", "The bounce-light / reflection gathers run at this share of the GI setting's resolution.",
+     "Softer, laggier indirect light and reflections. Applies now. PC +3.6 % (x0.35)."},
+    {"Shadow distance", "(XSHD)", "Sun shadows fade out and stop drawing casters closer to the camera (game: 250-500 m).",
+     "Distant objects lose their shadows. Applies now. PC: no gain at the spawn tested."},
+    {"Shadow filtering", "(XSHF)", "Fewer soft-shadow filter taps (game: 4).",
+     "Harder, more jagged shadow edges. Applies now. PC: no gain measured."},
+    {"Geometry detail", "(XLOD)", "Meshes switch to their simpler versions sooner (game MESHLET_QUALITY LIGHT = x2).",
+     "Visible pop-in and simpler distant models. Applies now. PC: GPU time unchanged (CPU-side)."},
+    {"Terrain detail", "(XTER)", "Shorter terrain tessellation distance and rate than LANDSCAPE LIGHTEST.",
+     "Flatter, blockier ground in the distance. Applies now. PC: not measured."},
+    {"GPU particles", "(XPRT)", "Share of GPU particle groups simulated and drawn (the engine's own per-view fraction).",
+     "Thinner sparks, embers, mist; off hides GPU particles (attack tells may be effects). Applies now. PC: no gain measured."},
+    {"Ambient occlusion off", "(XAO)", "Same values as the game's AMBIENT_OCCLUSION OFF, here so presets and A/B can switch it.",
+     "Flatter contact shadows. Applies now. PC +1.8 %."},
+    {"Camera effects off", "(XPOST)", "1 = motion blur + depth of field off, 2 = also bloom off (the game's own OFF values).",
+     "No blur / no glow around lights. Applies now. PC GPU -2.8 % (fps noisy)."},
     {"Show FPS counter", "", "Real fps (the game's frames) and, with frame gen, the displayed fps incl. generated frames.", "Overlay only. Applies now."},
     {"Show frame time", "", "Adds the real frame time (ms) to the counter.", "Overlay only. Applies now."},
     {"Show game speed", "", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow.", "Overlay only. Applies now."},
@@ -927,6 +954,8 @@ const OrderEnt kOrder[] = {
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kAutoCont, "Gameplay"},
+    {kEpPre, "Extra performance (changes the look)"}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
+    {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
@@ -981,11 +1010,14 @@ bool Available(int id) {
         case kF1: return g_host.fgEnable != nullptr;
         case kWk: return g_host.wkEnable != nullptr;
         case kAutoCont: return g_host.autoContinue != nullptr;
+        case kEpPre: return extraperf::AnyAvailable();
         case kFg: return g_fgOk;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
             return gpuopt::GetState() == gpuopt::State::Active || gpuopt::GetState() == gpuopt::State::Paused;
-        default: return true;
+        default:
+            if (IsEp(id)) return extraperf::Available(id - kEp0);
+            return true;
     }
 }
 
@@ -1135,6 +1167,18 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         color = cDim;
         return;
     }
+    if (IsEp(id)) {  // 1.7.59 Extra performance level rows
+        const int e = id - kEp0, l = extraperf::Level(e);
+        snprintf(buf, n, "%s", extraperf::LevelName(e, l));
+        color = l ? cCyan : cGray;
+        return;
+    }
+    if (id == kEpPre) {
+        const int m = extraperf::MatchPreset();
+        snprintf(buf, n, "%s", extraperf::PresetName(m));
+        color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
+        return;
+    }
     osd::OverlaySettings& o = osd::Overlay();
     auto onoff = [&](bool v) {
         snprintf(buf, n, "%s", v ? "ON" : "OFF");
@@ -1253,6 +1297,14 @@ void StartSave() {
             !*g_host.exp[e].enable && v == 0)
             v = 2;
         add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto
+    }
+    if (extraperf::AnyAvailable()) {  // 1.7.59 Extra performance: every level explicitly; Preset 0 so the levels are what loads
+        for (int e = 0; e < extraperf::kNumOpts; ++e) {
+            wchar_t k[16];
+            swprintf(k, 16, L"%hs", extraperf::Key(e));
+            add(L"ExtraPerf", k, std::to_wstring(extraperf::Level(e)));
+        }
+        add(L"ExtraPerf", L"Preset", L"0");
     }
     if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
         add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
@@ -1504,6 +1556,13 @@ void Change(int id, int dir) {
         } else {
             g_expIni[e] = !g_expIni[e];
         }
+    } else if (IsEp(id)) {  // 1.7.59: Left/Right step the level, A cycles (wraps to the game's value)
+        const int e = id - kEp0, nl = extraperf::Levels(e), l = extraperf::Level(e);
+        extraperf::SetLevel(e, dir == 0 ? (l + 1) % nl : std::clamp(l + dir, 0, nl - 1));
+    } else if (id == kEpPre) {  // next / previous preset, applied at once
+        int m = extraperf::MatchPreset();
+        if (m < 0) m = 0;
+        extraperf::ApplyPreset((m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets);
     } else if (id == kGpu) {
         gpuopt::SetBatching(!gpuopt::Batching());
     } else if (id == kGR2a || id == kGR2b || id == kGR1) {
@@ -1625,6 +1684,14 @@ bool RemoteValue(int id, int& v) {
         v = x.enable ? (*x.enable != 0) : (g_expIni[id - kXW6] != 0);
         return true;
     }
+    if (IsEp(id)) {
+        v = extraperf::Level(id - kEp0);
+        return true;
+    }
+    if (id == kEpPre) {
+        v = extraperf::MatchPreset();  // -1 = custom
+        return true;
+    }
     switch (id) {
         case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: v = LiveBool(id) ? 1 : 0; return true;
         case kR1: v = (int)*g_host.r1Timeout; return true;
@@ -1685,7 +1752,19 @@ void RunRemote(RemoteReq& q) {
                 g_dirty = true;
                 LogItem(id);
                 break;
-            default:  // bool items: one menu press when the state differs (logs 'MENU: <label> -> <value>')
+            case kEpPre:  // 1.7.59: 0 game, 1 Performance, 2 Potato
+                extraperf::ApplyPreset(std::clamp(q.value, 0, extraperf::kNumPresets - 1));
+                g_dirty = true;
+                LogItem(id);
+                break;
+            default:
+                if (IsEp(id)) {  // 1.7.59 Extra performance level (0 = game)
+                    extraperf::SetLevel(id - kEp0, q.value);
+                    g_dirty = true;
+                    LogItem(id);
+                    break;
+                }
+                // bool items: one menu press when the state differs (logs 'MENU: <label> -> <value>')
                 if ((cur != 0) != (q.value != 0)) Change(id, 0);
                 break;
         }

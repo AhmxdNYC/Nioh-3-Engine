@@ -55,7 +55,12 @@
 #include "timerres.h"
 #include "thrsched.h"
 #include "psomemo.h"
+#include "bkstats.h"
+#include "frameoverlap.h"
+#include "replayprof.h"
+#include "cbvupload.h"
 #include "samelook.h"
+#include "extraperf.h"
 #include "livectl.h"
 #include "rebar.h"
 #include "scenemirror.h"
@@ -97,7 +102,37 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
-#define MOD_VERSION "1.7.58"
+// 1.7.59-fo8: FO PagePool frame begin (B4 PagePoolFrameUpdate / B6 7D9C24) waits for TAIL N by default ([Tuning] FO_PPWait;
+//   overlapping it with frame N's replay corrupted / freed data that frame N still replays when the replay lags = pc2 fo2 hang),
+//   sub-stream crossing guard, replay-fault report (vectored handler), full thread dump, FO_ReplayDelayUs lag emulator.
+// 1.7.59-fo7: FO stock frame end after an FO frame waits for the pending present first (stock GfxDevicePresent reads
+//   GetCurrentBackBufferIndex before its own present spin; fo6pc hung on the first FO->stock switch), back-buffer index
+//   re-anchored on the last real index every frame (a miss is tolerated, 7 misses in 1000 frames = session OFF), watchdog
+//   thread dump + engine frame counter, live Tuning.FO_Test (forced switch / watchdog / self-test 100).
+// 1.7.59-fo6: FO splits every sub-stream recorder in two halves and switches at each frame end (stock resets them at Present;
+//   without a reset they filled after 260 frames and their never-used wrap path replayed overwritten data -> AV 119B54).
+// 1.7.59-fo5: FO no longer resets sub-streams at the barrier (effect workers append before it; PC fo4pc: AV replaying a 0x90
+//   sub-stream after 260 overlapped frames). Sub-streams are reset only by their own wrap path.
+// 1.7.59-fo4: FO KtglCache frame end back on the TAIL with the frame's own fence (the forward fence deadlocked the GPU on the PC:
+//   replay-side tile requests of frame N queued behind the tag, COPY waited GFX(N) while GFX(N) waited for them).
+// 1.7.59-fo3: FO record/replay slot split - main advances the frame slot at E (timestamp allocator 6B42B0 records with
+//   +4730h on main), TAIL resolves / stores for the frame's own slot; timestamp queries no longer switch FO off.
+// 1.7.59-fo2: FO fix - HandleSlotIsNotFreed replacement is now a register-exact stub (LTCG callers keep r9-r11 live across it;
+//   the C++ version hung pc2 FO1 at the title), nothing is patched until the switch goes ON, 5 s no-frame watchdog.
+// 1.7.59-fo1 (branch frame-overlap): FO frame overlap ([GpuOpt] FrameOverlap = 0, live Tuning.FO / Tuning.FO_Pct):
+//   frame N's replay tail + Present run on the replay thread while the main thread records N+1 (frameoverlap.cpp).
+// 1.7.58-fov1 (branch frame-overlap): BKS "fov:" line = frame-overlap viability gate (main-thread handle / sync-point GPU waits,
+//   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
+// 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
+//         notes/renderer/backend.md
+// 1.7.60-cbu1 (branch cbv-upload): CBU per-draw constant uploads ([Patches] CBS / CBN / CBT = 0, live Tuning.CBS / CBN / CBT;
+//   [Profiler] CbvStats / CbvRecord): streaming copy into the UPLOAD ring, skip no-op uploads, CBV table reuse (cbvupload.cpp,
+//   notes/renderer/cbv-upload.md)
+// 1.7.60-cbu2: CBN + CBT default ON in the ini (pc2 +15.9 %), CBS off; CBN re-uploads its skipped slots after a ring-full
+//   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
+//   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
+//   into a VRAM ring the CBVs point at (cbvstage.cpp)
+#define MOD_VERSION "1.7.61"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -775,11 +810,15 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveVsmaBudget: return (void*)&caveVsmaBudget;
         case gen::Target::caveVsmaBind: return (void*)&caveVsmaBind;
         case gen::Target::caveRco: return (void*)&caveRco;
+        case gen::Target::caveGiScale: return (void*)&caveGiScale;  // 1.7.59 Extra performance (extraperf.asm)
+        case gen::Target::caveMeshLod: return (void*)&caveMeshLod;
+        case gen::Target::caveFxSim: return (void*)&caveFxSim;
+        case gen::Target::caveFxDraw: return (void*)&caveFxDraw;
         default: return nullptr;
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveRco;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveFxDraw;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1349,6 +1388,10 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
         Log("LIVE tuning: %s", reply);
         return true;
     }
+    if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
+    if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
+    if (replayprof::SetTuning(key, val, reply, n)) return true;  // 1.7.59-rpf1 RPF on/off (replayprof.cpp)
+    if (cbvupload::SetTuning(key, val, reply, n)) return true;  // 1.7.60-cbu1 CBS / CBN / CBT / CBSTATS (cbvupload.cpp)
     return samelook::SetTuning(key, val, reply, n);
 }
 
@@ -1362,6 +1405,10 @@ DWORD WINAPI Worker(LPVOID) {
         const std::wstring slIni = SelfPathWithExt(L".ini");
         sl.iniPath = slIni.c_str();
         samelook::Configure(sl);
+        extraperf::StartInfo ep;  // 1.7.59 Extra performance: [ExtraPerf] levels (installed with the experimental groups)
+        ep.log = &Log;
+        ep.iniPath = slIni.c_str();
+        extraperf::Configure(ep);
     }
     if (cfg.log) {
         std::wstring lp = SelfPathWithExt(L".log");
@@ -1606,7 +1653,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "ESM1")) return cfg.esm1 != 0;
         if (!strcmp(g, "MPCS")) return cfg.mpcs != 0;
         if (!strcmp(g, "VSMA")) return samelook::VsmaIni() != 0;  // 1.7.49 same-look package
-        if (!strcmp(g, "RCO")) return samelook::RcoIni() != 0;
+        if (!strcmp(g, "RCO")) return samelook::RcoIni() != 0 || extraperf::Wanted();  // 1.7.59: Extra performance rides on RCO
+        if (!strcmp(g, "GIS") || !strcmp(g, "EPL") || !strcmp(g, "EPF")) return extraperf::Wanted();  // 1.7.59 XGI / XLOD / XPRT
         if (!strcmp(g, "MLP")) return false;  // MeshletProbe recorder entry sites: verified offline (test_patterns), hooked by mlprobe.cpp
         if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
         if (!strcmp(g, "LC")) return cfg.lc != 0;
@@ -1617,6 +1665,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
         if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
+        if (!strcmp(g, "CBU")) return false;  // 1.7.60-cbu1 CBV upload call sites: verified offline (test_patterns), hooked by cbvupload.cpp
         if (!strcmp(g, "PCM")) return false;  // 1.7.58 PSO lookup memo call site: verified offline (test_patterns), hooked by psomemo.cpp
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
@@ -2249,10 +2298,56 @@ DWORD WINAPI Worker(LPVOID) {
         if (!ok) Log("VSMA: NOT installed");
     }
     // 1.7.49 LPVR / SKYR / FOGT / CLDR (samelook.cpp): render-config overrides after ApplyGraphicsSettings. One live row each.
-    if (samelook::RcoIni()) {
+    if (samelook::RcoIni() || extraperf::Wanted()) {
         const bool ok = expGroup("RCO", true, [&]() { return true; });
-        if (ok) samelook::SetRcoInstalled();
-        else Log("RCO: update-rate knobs NOT installed");
+        if (ok) {
+            if (samelook::RcoIni()) samelook::SetRcoInstalled();
+            if (extraperf::Wanted()) extraperf::SetRcoInstalled();
+        } else {
+            Log("RCO: render-config overrides NOT installed (update-rate knobs / Extra performance render-config options)");
+        }
+    }
+    // 1.7.59 Extra performance (extraperf.cpp, notes\extra-performance-settings.md): GI gather scale, meshlet LOD scale, GPU
+    // particle share. All levels 0 = pass-through; the menu rows switch them live. Callees verified against the v2.02 RVAs.
+    if (extraperf::Wanted()) {
+        const bool gi = expGroup("GIS", true, [&]() {
+            const char* ids[4] = {"GIS1", "GIS2", "GIS3", "GIS4"};
+            for (const char* id : ids) {
+                Item* it = findItem(id);
+                if (calleeOf(it->addr) != (uintptr_t)(g_base + it->s->expectRva)) {
+                    Log("XGI: %s callee differs from v2.02", id);
+                    return false;
+                }
+            }
+            extraperf::SetGiInstalled(calleeOf(findItem("GIS1")->addr));
+            return true;
+        });
+        if (!gi) Log("XGI: GI gather scale NOT installed");
+        const bool lod = expGroup("EPL", true, [&]() {
+            Item* it = findItem("EPL1");
+            const uintptr_t t = calleeOf(it->addr);
+            if (t != (uintptr_t)(g_base + it->s->expectRva)) {
+                Log("XLOD: EPL1 callee differs from v2.02");
+                return false;
+            }
+            extraperf::SetLodInstalled(t);
+            return true;
+        });
+        if (!lod) Log("XLOD: meshlet LOD scale NOT installed");
+        const bool fx = expGroup("EPF", true, [&]() {
+            // movss dword ptr [rip+disp32], xmmN (F3 0F 11 /r, 8 bytes): the global = site + 8 + disp32
+            uint8_t* a = findItem("EPF1")->addr;
+            uint8_t* b = findItem("EPF2")->addr;
+            void* sim = a + 8 + *(int32_t*)(a + 4);
+            void* draw = b + 8 + *(int32_t*)(b + 4);
+            if (sim != (void*)(g_base + 0x4566008) || draw != (void*)(g_base + 0x4566000)) {
+                Log("XPRT: fraction globals differ from v2.02");
+                return false;
+            }
+            extraperf::SetFxInstalled(sim, draw);
+            return true;
+        });
+        if (!fx) Log("XPRT: GPU particle share NOT installed");
     }
     // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
     // textures (the bytes are never restored mid-loop), so switching off is always safe.
@@ -2468,6 +2563,8 @@ DWORD WINAPI Worker(LPVOID) {
                     char sb[1024];
                     samelook::StatusLine(sb, sizeof sb, 30);
                     if (sb[0]) Log("%s", sb);
+                    extraperf::StatusLine(sb, sizeof sb);  // 1.7.59 Extra performance levels + field write / refill counts
+                    if (sb[0]) Log("%s", sb);
                 }
                 if (sec % 30 == 0) {                     // no-op unless [Patches] TR != 0
                     char tb[512];
@@ -2478,6 +2575,16 @@ DWORD WINAPI Worker(LPVOID) {
                     char pb[512];
                     psomemo::StatusLine(pb, sizeof pb, 30);
                     if (pb[0]) Log("stats/s %s", pb);
+                }
+                if (sec % 30 == 0) {                     // 1.7.60-cbu1 no-op unless a CBU key is set
+                    char cb[256];
+                    cbvupload::StatusLine(cb, sizeof cb);
+                    if (cb[0]) Log("stats/s %s", cb);
+                }
+                if (sec % 30 == 0) {                     // 1.7.59-fo1 no-op unless [GpuOpt] FrameOverlap != 0
+                    char fb[768];
+                    frameoverlap::StatusLine(fb, sizeof fb, 30);
+                    if (fb[0]) Log("stats/s %s", fb);
                 }
                 if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
                     char rb[768];
@@ -2744,6 +2851,30 @@ DWORD WINAPI Worker(LPVOID) {
             pmi.base = reinterpret_cast<uintptr_t>(g_base);
             pmi.knownBuild = known;
             psomemo::Start(pmi);
+            bkstats::StartInfo bki;  // 1.7.58-bk1 BKS back-end census ([Profiler] Backend = 0) + KL ([Tuning] KL_Div = 0, live)
+            bki.log = &Log;
+            bki.iniPath = iniPath.c_str();
+            bki.base = reinterpret_cast<uintptr_t>(g_base);
+            bki.knownBuild = known;
+            bkstats::Start(bki);
+            frameoverlap::StartInfo foi;  // 1.7.59-fo1 FO frame overlap ([GpuOpt] FrameOverlap = 0; frameoverlap.cpp)
+            foi.log = &Log;
+            foi.iniPath = iniPath.c_str();
+            foi.base = reinterpret_cast<uintptr_t>(g_base);
+            foi.knownBuild = known;
+            frameoverlap::Start(foi);
+            replayprof::StartInfo rpi;  // 1.7.59-rpf1 RPF replay-thread profiler ([Profiler] ReplayProf = 0; replayprof.cpp)
+            rpi.log = &Log;
+            rpi.iniPath = iniPath.c_str();
+            rpi.base = reinterpret_cast<uintptr_t>(g_base);
+            rpi.knownBuild = known;
+            replayprof::Start(rpi);
+            cbvupload::StartInfo cbi;  // 1.7.60-cbu1 CBU constant uploads ([Patches] CBS / CBN / CBT = 0; cbvupload.cpp)
+            cbi.log = &Log;
+            cbi.iniPath = iniPath.c_str();
+            cbi.base = reinterpret_cast<uintptr_t>(g_base);
+            cbi.knownBuild = known;
+            cbvupload::Start(cbi);
             mh.exp[menu::kExpPCM].ini = GetPrivateProfileIntW(L"Patches", L"PCM", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpPCM].applied = psomemo::Switch() != nullptr;
             mh.exp[menu::kExpPCM].enable = psomemo::Switch();
