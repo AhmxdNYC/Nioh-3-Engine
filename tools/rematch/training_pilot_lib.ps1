@@ -1,7 +1,7 @@
 # Pure route/approval validation and pinned import. No work on import.
 function Training-CheckDependencies([string]$Repo) {
     $pins=@{
-        'tools/rematch/c72e_pilot_lib.ps1'='8ce34b9ac175d0f58285c803ca08a57194d8cdb9aac8006943d9097f6fea52cc'
+        'tools/rematch/c72e_pilot_lib.ps1'='03fd4554849f23eba0f69992b60d1723352b854cbf306ca1f1361b0525e0d94d'
         'tools/rematch/c72e_binary_lib.ps1'='ae16d3011b0966ec156aed2218eaa3e86d6a1b690279776babc29feb570617b6'
         'tools/testmatrix/harness_guard.ps1'='e2e6034c240e74806a2885ea053b23bf8d3c37aed89f0b4e9fa72b30447c6c81'
         'tools/playsession/session_lib.ps1'='98324e91ce8410edc2d519ac0855534d7e78495eb5582d297277c12fd5a248ee'
@@ -24,7 +24,7 @@ function Training-LogTail([string]$Before,[string]$After) {
     return $After.Substring($Before.Length)
 }
 function Training-ImportLifecycle([string]$Path) {
-    $pin='36470d21a95aa4432302b5fa7ce50f446ae96139ac5bf0b049cea9164106d33f'
+    $pin='1ec842c76ce070fa711f40b8b0be8d2915228dc73637aff25b51302df6a255e0'
     if ((C72-BinaryHash $Path) -ne $pin) { throw 'C72E lifecycle changed; review and repin before training' }
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile($Path,[ref]$tokens,[ref]$errors)
@@ -69,4 +69,26 @@ function Training-CheckApproval($Request,$Approval) {
     }
     if ([string]::IsNullOrWhiteSpace([string]$Approval.evidence)) { throw 'Root visual/stage evidence is required' }
     if ([string]$Approval.stage -notin @('ShrineRequest','EnterArena','NativeRetry','NativeReturn')) { throw 'Unknown manual stage' }
+}
+
+function Training-CandidatePath([string]$Root,[string]$Name,[string]$Layout) {
+    if ($Name -notin @('Nioh3EngineFix','Nioh3BossRematch')) { throw 'Unknown candidate binary' }
+    if ($Layout -eq 'Flat') { return Join-Path $Root ($Name+'.asi') }
+    if ($Layout -ne 'Tree') { throw 'Unknown candidate layout' }
+    return Join-Path $Root ('mod\'+$Name+'\bin\'+$Name+'.asi')
+}
+function Training-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,$Entry) {
+    if (-not $Entry -or $Entry.mission -notmatch '^0x[0-9A-Fa-f]+$' -or [string]$Entry.stage -notmatch '^\d+$') { throw 'Original entry tuple required' }
+    $refused=C72-NewRefusal $Before $After
+    if ($refused) { throw "Native return refused: $refused; no retry" }
+    $tail=Training-LogTail $Before $After
+    if ($tail -match 'Rematch: exit:[^\r\n]*EXCEPTION') { throw 'Native return uncertain; no retry' }
+    $request=[regex]::Match($tail,'Rematch: exit: MissionRequestReturn\(params, 1\) from mission 0x1CBC \(retry point 67064\) -> requested')
+    if (-not $request.Success) { return $false }
+    $afterRequest=$tail.Substring($request.Index+$request.Length)
+    $exited=$afterRequest -match ('Rematch: replay mission exited \(stage now '+[regex]::Escape([string]$Entry.stage)+', mission state \+28h '+[regex]::Escape([string]$Entry.mission)+'\)')
+    return $exited -and (C72-Field $Reply 'mission') -eq $Entry.mission -and $Entry.mission -ne '0x1CBC' -and
+        (C72-Field $Reply 'stage') -eq [string]$Entry.stage -and (C72-Field $Reply 'loading') -eq '0' -and
+        (C72-Field $Reply 'player') -eq '1' -and (C72-Field $Reply 'state') -eq '0' -and
+        (C72-Field $Reply 'warps') -eq '0' -and (C72-Field $Reply 'spawn') -eq '-' -and $Reply -match 'gate=ok(?: |$)'
 }

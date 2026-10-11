@@ -7,7 +7,8 @@ param([switch]$Run,[switch]$DryRun,[int]$OwnerPid=0,
     [string]$GameDir='C:\Program Files (x86)\Steam\steamapps\common\Nioh3',
     [string]$SaveRoot='',
     [string]$Kit='D:\nioh3-re\rematch-pilots\C72E-native334140-20261011',
-    [string]$CandidateRoot='D:\nioh3-wt\codex-settings-menu-v4')
+    [string]$CandidateRoot='D:\nioh3-wt\codex-settings-menu-v4',
+    [ValidateSet('Tree','Flat')][string]$CandidateLayout='Tree')
 $ErrorActionPreference='Stop'
 if (($Run -and $DryRun) -or ($ApproveStage -and ($Run -or $DryRun))) { throw 'Choose plan, Run, or one stage approval' }
 . (Join-Path $PSScriptRoot 'training_pilot_lib.ps1')
@@ -19,7 +20,7 @@ $hashes=@{'Nioh3EngineFix.asi'='dd8b5739062e364dfc708bd1f0f89dfc2b97477d66ae1fbf
 $runtimeHashes=@{'Nioh3EngineFix.asi'='6890c0605e3346d915f7f2263337716ea1ddad6c0b4ea36efebb2c4d4aa8e32d';'Nioh3BossRematch.asi'='50484e3b0e39c5621fb7b829122f92380db017fd87d64ed0e2f96a1acb3b9b07'}
 $catalog=Join-Path $Kit 'C72E-A-control.tsv'
 $plan=[ordered]@{mode='PLAN_ONLY_NO_MUTATION';route='shrine R1CBC';mission='0x1CBC';start=67064;placement=65092;trigger='box66599, manual walk';
-    versions='Engine1.7.67/addon1.4.9';runtime_asi_hashes=$runtimeHashes;entry_asi_hashes=$hashes;
+    candidate_layout=$CandidateLayout;candidate_root=$CandidateRoot;versions='Engine1.7.67/addon1.4.9';runtime_asi_hashes=$runtimeHashes;entry_asi_hashes=$hashes;
     catalog=$catalog;catalog_sha256='7c0c158df9b7c5bc0ce89b6b6fee3ee384c7db94bde892eb38ad78741aad221b';
     launches=1;relaunch=$false;warp=$false;spawn=$false;automatic_movement=$false;automatic_fighting=$false;
     stages=@('Root approves ShrineRequest after Continue','Root confirms shrine control then approves EnterArena','Root confirms visible Yamagata/combat then approves one NativeRetry','Root confirms native death/retry at67064 then approves NativeReturn');
@@ -59,8 +60,8 @@ $BackupRoot='';$CaptureRoot='';$StateDir='';$StashRoot='';$OptiSrc='';$global:Lo
 Training-ImportLifecycle (Join-Path $PSScriptRoot 'run_c72e_native_pilot.ps1')
 $GameDir=C72-Full $GameDir;$SaveRoot=C72-Full $SaveRoot;$Kit=C72-Full $Kit
 $binaryPlan=@(C72-BinaryPlan $GameDir $hashes @{
-    'Nioh3EngineFix.asi'=@{path=(Join-Path $CandidateRoot 'mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi');hash=$runtimeHashes['Nioh3EngineFix.asi']};
-    'Nioh3BossRematch.asi'=@{path=(Join-Path $CandidateRoot 'mod\Nioh3BossRematch\bin\Nioh3BossRematch.asi');hash=$runtimeHashes['Nioh3BossRematch.asi']}})
+    'Nioh3EngineFix.asi'=@{path=(Training-CandidatePath $CandidateRoot 'Nioh3EngineFix' $CandidateLayout);hash=$runtimeHashes['Nioh3EngineFix.asi']};
+    'Nioh3BossRematch.asi'=@{path=(Training-CandidatePath $CandidateRoot 'Nioh3BossRematch' $CandidateLayout);hash=$runtimeHashes['Nioh3BossRematch.asi']}})
 if ((C72-BinaryHash $catalog) -ne $plan.catalog_sha256) { throw 'Reviewed catalogue changed' }
 if (-not (Test-Path -LiteralPath $SaveRoot -PathType Container)) { throw 'Entry save root missing' }
 $engineIni=Join-Path $GameDir 'Nioh3EngineFix.ini';$rematchIni=Join-Path $GameDir 'Nioh3BossRematch.ini';$addonLog=Join-Path $GameDir 'Nioh3BossRematch.log'
@@ -96,10 +97,12 @@ function Training-Wait([string]$Kind,[int]$Seconds=180) {
     $until=[DateTime]::UtcNow.AddSeconds($Seconds);$sawLoad=$false
     do {
         $s=Invoke-C72Pipe 'status';Training-CheckStatus $s
+        $refused=C72-NewRefusal $script:requestLogBefore (C72-ReadShared $addonLog)
+        if ($refused) { throw "Native request refused: $refused; no retry" }
         if ((C72-Field $s 'loading') -eq '1') { $sawLoad=$true }
         if ($Kind -eq 'shrine' -and (Training-AtShrine $s $sawLoad)) { return $s }
         if ($Kind -eq 'boss' -and (C72-Field $s 'mission') -eq '0x1CBC' -and (C72-Field $s 'infight') -eq '1' -and $s -match 'placements=\[[^\]]*\b65092(?:\(|\s|\])') { return $s }
-        if ($Kind -eq 'return' -and (C72-Field $s 'mission') -ne '0x1CBC' -and (C72-Field $s 'loading') -eq '0' -and (C72-Field $s 'player') -eq '1' -and (C72-Field $s 'state') -eq '0' -and $s -match 'gate=ok(?: |$)') { return $s }
+        if ($Kind -eq 'return' -and (Training-ReturnEvidence $script:returnLogBefore (C72-ReadShared $addonLog) $s $script:result.entry_tuple)) { return $s }
         Start-Sleep -Milliseconds 100
     } while ([DateTime]::UtcNow -lt $until)
     throw "Bounded $Kind observation incomplete; no second request"
@@ -133,10 +136,11 @@ try {
         $readable=$true
         try { $s=Invoke-C72Pipe 'status' } catch { $readable=$false;$s='';Assert-Owned }
         if ($readable) { Training-CheckStatus $s }
-        $ready=C72-ReadySettled $readyTracker $script:watch.ElapsedMilliseconds $s $readable
+        $ready=C72-EntrySettled $readyTracker $script:watch.ElapsedMilliseconds $s $readable
         if (-not $ready) { Start-Sleep -Milliseconds 250 }
     } while (-not $ready -and [DateTime]::UtcNow -lt $until)
     if (-not $ready) { throw 'No continuously ready offline field for 12s within 180s after root confirmation' }
+    $script:result.entry_tuple=@{mission=(C72-Field $s 'mission');stage=(C72-Field $s 'stage');reply=$s}
     $beforeGen=Training-BeginScan
     $cleared=$false;$until=[DateTime]::UtcNow.AddSeconds(15)
     do { $row=Invoke-C72Pipe 'row R1CBC';$gen=C72-Field $row 'gen';$cleared=(C72-Field $row 'status') -eq '2' -and $gen -match '^\d+$' -and [uint64]$gen -gt [uint64]$beforeGen;if (-not $cleared) { Start-Sleep -Milliseconds 200 } } while (-not $cleared -and [DateTime]::UtcNow -lt $until)
@@ -153,6 +157,7 @@ try {
     Training-WaitStage 'NativeReturn' # root confirms death/retry and controllable67064 landing
     $s=Invoke-C72Pipe 'status';Training-CheckStatus $s
     if (-not (Training-AtShrine $s $true)) { throw 'Retry shrine state changed before native return' }
+    $script:returnLogBefore=C72-ReadShared $addonLog
     $reply=Invoke-C72Pipe 'exit';if ($reply -notmatch '^queued') { throw "Native return submission refused: $reply" }
     $null=Training-Wait 'return';$script:result.return_observed=$true;Shot 'returned'
     $script:result.status='MANUAL_NATIVE_ROUTE_COMPLETED_REVIEW_REQUIRED'

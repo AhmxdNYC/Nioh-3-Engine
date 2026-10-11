@@ -92,3 +92,34 @@ foreach ($relative in $dependencies) {
     Copy-Item -LiteralPath (Join-Path $repo $relative) -Destination $target -Force
 }
 Write-Host "PASS $script:checks offline training runner checks; no live route exercised"
+# Exact original-entry return, including the valid overworld mission zero.
+$entry=@{mission='0x0';stage='4019512'}
+$ret='state=0 infight=0 mission=0x0 stage=4019512 loading=0 player=1 warps=0 spawn=- gate=ok'
+$requested="Rematch: exit: MissionRequestReturn(params, 1) from mission 0x1CBC (retry point 67064) -> requested`n"
+$exited="Rematch: replay mission exited (stage now 4019512, mission state +28h 0x0)`n"
+Check (Training-ReturnEvidence 'prefix' ('prefix'+$requested+$exited) $ret $entry)
+foreach($tail in @('', $requested, $exited, ($exited+$requested), ($requested.Replace('67064','0')+$exited), ($requested+$exited.Replace('4019512','1')))) {
+ Check (-not (Training-ReturnEvidence 'prefix' ('prefix'+$tail) $ret $entry))
+}
+foreach($bad in @($ret.Replace('mission=0x0','mission=0x2'),$ret.Replace('stage=4019512','stage=9'),$ret.Replace('loading=0','loading=1'),$ret.Replace('player=1','player=0'),$ret.Replace('gate=ok','gate=native request uncertain'))) {
+ Check (-not (Training-ReturnEvidence 'prefix' ('prefix'+$requested+$exited) $bad $entry))
+}
+Refuses { Training-ReturnEvidence 'prefix' ('foreign'+$requested+$exited) $ret $entry }
+Refuses { Training-ReturnEvidence '' $requested $ret $null }
+Refuses { Training-ReturnEvidence '' $requested.Replace('requested','EXCEPTION') $ret $entry }
+Refuses { Training-ReturnEvidence '' '[19:00:00.000] Rematch: refused: loading' $ret $entry }
+Check ((Training-CandidatePath 'D:\archive' 'Nioh3EngineFix' 'Flat') -eq 'D:\archive\Nioh3EngineFix.asi')
+Check ((Training-CandidatePath 'D:\archive' 'Nioh3BossRematch' 'Tree') -eq 'D:\archive\mod\Nioh3BossRematch\bin\Nioh3BossRematch.asi')
+Refuses { Training-CandidatePath 'D:\archive' 'unknown' 'Flat' }
+Refuses { Training-CandidatePath 'D:\archive' 'Nioh3EngineFix' 'auto' }
+Write-Host "PASS $script:checks including bound original return and explicit archive layout"
+# Exercise the actual runner adapter, not only its helper.
+$wait=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Training-Wait'},$true)
+Invoke-Expression $wait.Extent.Text
+$script:result=@{entry_tuple=$entry};$script:returnLogBefore='prefix';$script:requestLogBefore='prefix'
+$script:logText='prefix'+$requested+$exited;$script:returnStatus=$ret
+function Invoke-C72Pipe([string]$Command) { if($Command -ne 'status'){throw 'Unexpected mutation'};return $script:returnStatus }
+Check ((Training-Wait 'return' 1) -eq $ret)
+$script:logText='prefix'+'[19:00:00.000] Rematch: refused: native replay has not settled'
+Refuses { Training-Wait 'shrine' 1 }
+Write-Host "PASS $script:checks including actual wait adapter and fail-fast refusal"

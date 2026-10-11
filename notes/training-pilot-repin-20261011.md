@@ -1,0 +1,9 @@
+# Training pilot repin and return oracle review — 2026-10-11
+
+Reviewed lifecycle at main ff77631. Supporting lifecycle hashes were repinned; imported nine lifecycle functions are unchanged by the exact-entry return correction. The archived9eeb174 ASIs retain the reviewed Engine1.7.67/addon1.4.9 hashes. Use `-CandidateRoot D:\nioh3-re\candidates\menu-9eeb174 -CandidateLayout Flat`; default Tree layout is unchanged. Exact hash validation still precedes staging.
+
+Concrete correction: the training runner formerly accepted any idle mission outside1CBC after an exit acknowledgement. It now captures the continuously settled original mission/stage and requires an ordered fresh native MissionRequestReturn(1CBC,67064) requested log followed by replay mission exited to that exact original tuple and idle player telemetry. Original mission0 is valid only when bound to entry. A new explicit native refusal fails immediately without a second request.
+
+Review bounds: initial scan uses pre-post generation and requires a newer clear-status row with mission1CBC/placement65092/start67064. Shrine/retry require observed loading followed by player at67064, with zero warps/spawn. Boss requires placement65092 and fresh native battle log; boss telemetry during an intro is not control proof. Nonce-bound root confirmations still establish visible shrine/control, actual boss/combat, and native death/retry; a generic load alone is not claimed to prove death. No automatic movement, combat or retry was added.
+
+85 offline checks pass, including the actual runner wait adapter and fail-fast refusal. The actual root-accepted C72E receipt in193651-24196 passes Training-CheckGate against its original manifest; both archived binary hashes match the pins. No game launch, device/controller action or installed-file mutation occurred in this task.
