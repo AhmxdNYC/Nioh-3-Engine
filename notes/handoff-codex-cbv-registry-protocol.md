@@ -51,4 +51,4 @@ performance or visual-equivalence claim. Stable1.7.61, private guard PR1
 unmerged, FO NO-GO; external default-stack/player gates remain pending.
 No local game/capture/Ghidra or restoration needed; no build/deployment,
 save/settings/hardware/controller/hold/Claude changes. Other writers,
-worktrees and device-pinned inputs untouched. Phone checkpoint empty.
+worktrees and device-pinned inputs untouched. Initial phone check empty; final item1917 (sender=ally) reports save/Cloud gate BLOCKED with no launch. No sender=user steering; no device-launch decision made.
