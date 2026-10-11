@@ -26,7 +26,7 @@ Before your first use, copy your Nioh 3 save folder somewhere safe. The folder l
    - With `FightNowWarp = 1` you also get **Fight now (in the arena)** and **Shrine before the boss**.
    - **New in 1.4.0:** with `FightNowSpawn = 1` (the default value of that key, but it only matters when `FightNow = 1` and `FightNowWarp = 1`), you spawn in the arena from the first frame. There is no shrine stop first. A death reload puts you back in the arena. The change is in memory only.
 
-The catalogue (`Nioh3BossRematch_bosses.tsv`) has 121 rows: 59 replay, 10 duel, 3 hidden duel, 20 Picture Scroll, 29 with no route. Only 16 rows have a stored arena point so far. Rows without one cannot use the in-arena option.
+The catalogue (`Nioh3BossRematch_bosses.tsv`) has 121 rows: 59 replay, 10 direct (duel-master records), 3 hidden duel, 20 Picture Scroll, 29 with no route. Only 16 rows have a stored arena point so far. Rows without one cannot use the in-arena option.
 
 ## What is tested
 
@@ -73,8 +73,8 @@ It compiles `src\*.cpp` with `cl /O2 /MT` and links `bin\Nioh3BossRematch.asi`. 
 
 Tests:
 
-- `py -I tests\run_rematch_harness.py` builds and runs the offline harness.
+- `tests\run_rematch_harness.py` (offline harness) still depends on helper scripts that are not in this repo yet, so it does not run here.
 - `py -I tests\test_sites.py <path\to\Nioh3.dump.exe>` checks every site against the game executable. You supply the executable.
-- `tools\derive_sites.py` regenerates `src\sites_gen.h` from `sites.json`.
+- `tools\derive_sites.py` rebuilds both `sites.json` and `src\sites_gen.h` from your game executable.
 
 Notes on how the game replays bosses (Battle Scrolls, the shrine replay menu, the mission-start queue) are in the project notes. This README does not repeat them.

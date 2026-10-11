@@ -1,5 +1,5 @@
 # UI (text, glyph atlas, quad builder)
-CPU share 2.4 % (Ally 3.1 %, PC 1.7 %) as profiled in the UI area; coverage 98.8 %. The dominant UI cost WcUploadZeroFill 61B1C (3.7 %) is counted on the GFX page. Threads: [App]Game (UI is ~6-8 % inclusive of the main thread via 365AA98 -> ... -> 253C68 -> 254440) (corrected 2026-10-08, see notes/particles.md section 6: 365AA98 is EffectViewRecordSync, so the 6-8 % is mostly effects).
+CPU share 2.4 % (Ally 3.1 %, PC 1.7 %) as profiled in the UI area; coverage 98.8 %. The dominant UI cost WcUploadZeroFill 61B1C (3.7 %) is counted on the GFX page. Threads: [App]Game (UI is ~6-8 % inclusive of the main thread via 365AA98 -> ... -> 253C68 -> 254440) (365AA98 is EffectViewRecordSync, so the 6-8 % is mostly effects).
 
 ## Role
 KIDS UI node tree (1750-slot UI vtable block at 38E7188), text layout, a shelf-packed glyph atlas, and a quad/vertex builder that writes into write-combined upload buffers.

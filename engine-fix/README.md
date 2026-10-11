@@ -2,7 +2,7 @@
 
 A small native mod for **Nioh 3 (Steam, version 2.02 only)**. It removes wasted CPU work in the engine. It also keeps the game at real speed when your frame rate is below the in-game cap.
 
-It patches the game in memory only. No game file is changed. Close the game and the mod is gone.
+It patches the game in memory only. Close the game and the mod is gone. The one file it can change: if you change frame generation in the mod menu and press **Save to ini**, it also writes that one value into the game's `config.xml` (the old file is kept as `config.xml.Nioh3EngineFix.bak`).
 
 On any other game version the mod checks the build and does nothing.
 
@@ -16,9 +16,9 @@ Each line is one fix. The names in brackets are the keys in `Nioh3EngineFix.ini`
 - **VRR:** Variable frame timing. In stock Nioh 3 the whole game slows down when you run below your FPS cap. With this fix the game runs at real speed at any frame rate inside the limits set in the `[VRR]` section.
 - **W3:** The window-message thread sleeps instead of spinning a CPU core.
 - **R1:** The game thread waits for the frame-latency signal with a timeout instead of a busy loop.
-- **L1:** The frame limiter sleeps on a high-resolution timer, then spins only for the last millisecond. Needs Windows 10 1803 or newer. It turns itself off where that timer is missing.
+- **L1:** The frame limiter sleeps on a high-resolution timer, then spins only for the last millisecond. Needs Windows 10 1803 or newer. It turns itself off where that timer is missing. Under Proton it is off unless you set `L1OnWine = 1`.
 - **WK:** The job system does not wake a worker when no queue has work.
-- **FG:** With in-game FSR frame generation on, its presenter thread sleeps instead of spinning. No effect with frame generation off.
+- **FG:** With in-game FSR frame generation on, its presenter thread sleeps instead of spinning. No effect with frame generation off. Under Proton it is off unless you set `FGOnWine = 1`.
 - **WL:** The game never closed the swapchain's frame-latency handle, so it leaked one per frame on Windows. This closes it.
 - **CBN, CBT:** Skip constant-buffer uploads whose bytes did not change since the last upload in the same command list. The GPU receives the same bytes. (Default since 1.7.60.)
 - **W6, GF, MQ, EP, SR** are set to `-1` (auto). Auto means on under Proton and off on native Windows. The log says what each one chose.
@@ -32,10 +32,10 @@ All of these are off by default. Change them in the ini, or live in the mod menu
 
 - **Extra performance** (`[ExtraPerf]`, 1.7.59). These **change the picture** to gain speed: cloud steps, fog grid, GI resolution, shadow distance, shadow filter, LOD, terrain, particles, ambient occlusion, motion blur and bloom. `Preset = 1` is Performance, `Preset = 2` is Potato. With `Preset = 0` and every key at `0`, the game's own values are used.
 - **Skip loading tip screen** (`AutoContinueLoad = 1`). The "press a button" page closes itself when the load finishes.
-- **Frame overlap** (`[GpuOpt] FrameOverlap`). Experimental. Leave it at `0`. It is not released.
+- **Frame overlap** (`[GpuOpt] FrameOverlap`). Experimental. It is built into the ASI but off by default; leave it at `0`. It has known safety problems and is not ready for use.
 - **CBS, CBF** (constant-upload variants). Off. CBF is test-only.
 - **WorkerCap = 10.** Handheld-only worker-pool cap.
-- **VRROnline.** `-1` (default) pauses VRR by itself in online sessions. `0` means never use VRR online.
+- **VRROnline.** `-1` (default) pauses VRR by itself in online sessions. `0` turns the frame-timing fix off everywhere, offline too.
 - Profiling and debug sections (`[Profiler]`, `[Debug]`, `[GpuOpt]` probes) are for modders. Leave them alone.
 
 The ini documents every key next to it.
@@ -89,7 +89,7 @@ On a desktop graphics card with Resizable BAR (Smart Access Memory on AMD) switc
 
 ## Uninstall
 
-Delete `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini`, `Nioh3EngineFix.log`, and `dinput8.dll` (unless another mod needs it). Delete the `Nioh3EngineFix_pj` folder if it exists. On Proton, clear the launch option.
+Delete `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini`, `Nioh3EngineFix.log`, `Nioh3EngineFix.rebarnotice` (if present), and `dinput8.dll` (unless another mod needs it). Delete the `Nioh3EngineFix_pj` folder if it exists. On Proton, clear the launch option.
 
 ## Tested hardware
 
@@ -102,7 +102,7 @@ Delete `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini`, `Nioh3EngineFix.log`, and `di
 
 ## Known issues
 
-- "Frame overlap" is experimental and not shipped.
+- "Frame overlap" is experimental and off by default. Do not turn it on.
 - Under Proton, frame generation can crash the game. Keep it off.
 - Slow motion or judder below your cap usually means "FPS dynamic adjustment" is still on.
 - A row marked `REFUSED` needs another fix switched on first.

@@ -25,7 +25,7 @@ The header is `rva	kind	name	signature	description	confidence	source`. Lines sta
 |---|---|
 | `rva` | Lower-case hex with `0x`. An **RVA**, not a full address. Add your module base. In Ghidra with image base `0x7FF74F410000`, `FUN_7ff74f9bf410` is `0x5af410`. For `struct_field` rows it holds the **field offset**. |
 | `kind` | `function` (an entry point), `label` (a spot inside code, such as a patch site), `global` (a variable or pointer slot), `data` (constants, IAT slots), `vtable`, `string_table`, `struct_field`. |
-| `name` | Engine-style CamelCase. **Unique in the whole file.** Functions: verb plus object, such as `DynFpsGovernorTick`. Globals start with `g_`. A label is the function name plus what happens there. A struct field is `Struct::Field`. Identifier characters only. |
+| `name` | Engine-style CamelCase. **Unique in the whole file.** Functions: verb plus object, such as `DynFpsGovernorTick`. Globals start with `g_`. A label is the function name plus what happens there. A struct field is `Struct::Field`. Identifier characters only, plus `::`. |
 | `signature` | A C prototype for functions, or a type for data: `u8 u16 u32 i32 u64 i64 f32 f64 bool ptr T*`, or an array like `u32[10]`. Type first. |
 | `description` | One line, no tabs. What it does or holds, and which patches touch it. |
 | `confidence` | `high`: confirmed by decompilation, a working patch or a live probe. `medium`: strong inference. `low`: a guess. |
@@ -35,7 +35,7 @@ There is one row per address. `struct_field` rows are unique per struct and offs
 
 ## Using the exports
 
-**x64dbg.** Attach to the running game. Run `scriptload "path\to\symbols_x64dbg.txt"` then `scriptrun`, or use the Script tab. Lines look like `lbl Nioh3.exe:$5AF410, "DynFpsGovernorTick"`. Struct fields are not exported to x64dbg.
+**x64dbg.** Attach to the running game. Run `scriptload "path\to\symbols_x64dbg.txt"` then `scriptrun`, or use the Script tab. Lines look like `lbl Nioh3.exe:$5AF4E4, "DynFpsGovernorTick"`. Struct fields are not exported to x64dbg.
 
 **IDA 7.x to 9.x.** File, Script file, `symbols_ida.py`. It applies names and comments at `imagebase + rva`, so a rebased database works. It creates missing functions for `function` rows and declares the structs.
 

@@ -22,7 +22,7 @@ Two things live here. (1) The GPU page pool bookkeeping run each frame by the ma
 | 12FBDD0 | ObjPoolReuseIdleForTypeIds | 0.09 |
 
 ## What drives the cost
-Page-pool size x types x slots scanned every frame (2.2-3.0 % of main); candidate PP runs it every 4th frame (default OFF, A/B pending). Allocation itself is cheap.
+Page-pool size x types x slots scanned every frame (2.2-3.0 % of main); the PP option runs it every 4th frame (default OFF; paired A/B tests on PC showed no measurable change). Allocation itself is cheap.
 
 ## Deeper notes
 notes/load-memory.md (heap layout, sweeper), memory-leaks.md (page pool is bounded LRU), parallel-drawprep.md (PP), mainthread-drawprep.md (2523FC), stutter.md.

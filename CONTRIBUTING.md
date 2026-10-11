@@ -46,7 +46,7 @@ Gameplay systems (AI, missions, items, the save format) are open territory too.
 
 Good first contributions:
 
-- Rename an `Unknown_*` function once you know what it does.
+- Replace a placeholder name (`PauseSpin_*`, `MainHot_*`, `ScalarDeletingDtor_*` stubs) with a real one once you know what the code does.
 - Raise a `low` row to `medium` or `high` after you verify it, and say how in the description.
 - Add `struct_field` rows for a structure you mapped.
 - Name the callers or callees of an already-named hot function.

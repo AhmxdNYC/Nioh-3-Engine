@@ -14,7 +14,7 @@ The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draw
    - Consecutive slots of each vtable, and a ctor's `lea` of its vtable.
    - **Shared module-local globals**: functions that reference the same static, vtable or constant, where only 2-30 functions reference it, are almost always in the same `.cpp`.
 4. **Propagation**: labels flow caller → callee at full weight (a helper used only by module X belongs to X). They flow callee → caller at 0.3, and never for service labels such as CRT, math, memory, jobs and zlib, because calling `malloc` does not make a function an allocator. Hubs are damped by their degree. Address neighbours then smooth the result over ±6, ±48 and ±256 functions, because MSVC links code roughly per object file. Three rounds feed the provisional labels back in as a weak prior.
-5. **Regions**: contiguous runs of one label in address order. Runs under 2 KB with no direct evidence are folded into the larger neighbour. The result is 3,023 rows with `start end label confidence evidence funcs code_bytes`.
+5. **Regions**: contiguous runs of one label in address order. Runs under 2 KB with no direct evidence are folded into the larger neighbour. The result is 3,022 rows with `start end label confidence evidence funcs code_bytes`.
 
 **Confidence** (per region, by code bytes):
 - **high**: ≥ 25 % of its bytes carry their own evidence for this label.
@@ -22,9 +22,8 @@ The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draw
 - **low**: the label comes from wider graph and address context.
 - **none**: the code is not linked to any evidence. Those regions are labelled `unknown`, and the `evidence` column shows the address-only guess.
 
-**Validation (hold-out)**: we hid the evidence of a random 20 % of the evidence-bearing functions (1,754) and re-inferred their labels. Medium-confidence inferences were right 91 % of the time. Low-confidence ones matched the exact label (out of 41) 53 % of the time, and the coarse class (render / gameplay / library) 79 % of the time. Read a "low" block as "mostly this, with neighbours mixed in".
 
-Commands:
+Commands (these scripts live in the private development repo and are not published yet):
 - `py -I re\scripts_re\regions.py [--md]` rewrites `regions.tsv` and prints this table.
 - `py -I re\scripts_re\regions.py --why 0xRVA` prints all raw evidence for the region holding the RVA: strings, imports, names, and the labels it calls and is called from.
 - `py -I re\scripts_re\regions.py --survey` prints a per-MB evidence digest, for writing new rules.
@@ -76,7 +75,7 @@ Commands:
 | PhotoMode / photo mode | 0.04 | 0.1 % | **low** (10 / 35 / 54 %) |
 
 ## Notable findings
-- **22 % of all code is the RTRig code generator's output, about 11.5 MB.** Most of it sits in two runs, 0x1352470-0x1821CA1 and 0x29AE720-0x2E1BC28, plus some smaller ones. Each function is a huge machine-generated body: up to 1.9 MB, a big `__chkstk` frame, almost only calls into a handful of float4-array primitives (0x504D7C, 0x504EA0, 0x50521C, 0x53B38 and others). None has a direct caller. They are reached through the 124-entry `UnknownRTRig` table, often via `jmp` thunks. The string `AutomatonRigScriptCodeObjectHash` points the same way: these are compiled "automaton rig" programs, procedural or secondary animation rigs turned into native code. The table membership is certain. The "animation" purpose is read off those names, so it is rated **medium**.
+- **22 % of all code is the RTRig code generator's output, about 11.5 MB.** Most of it sits in two runs, 0x1352470-0x1821CA1 and 0x29AE720-0x2E1BC28, plus some smaller ones. Each function is a huge machine-generated body: up to 1.9 MB, a big `__chkstk` frame, almost only calls into a handful of float4-array primitives (unnamed helpers around 0x504D7C-0x50521C and others). None has a direct caller. They are reached through the 124-entry `UnknownRTRig` table, often via `jmp` thunks. The string `AutomatonRigScriptCodeObjectHash` points the same way: these are compiled "automaton rig" programs, procedural or secondary animation rigs turned into native code. The table membership is certain. The "animation" purpose is read off those names, so it is rated **medium**.
 - **The libraries are linked together at 0xB2D000-0xC60000**: zlib 1.1.4 (0xB2D110), the ktul codepage/serializer, the MSVC CRT and locale code (0xB65074-0xBB4BB5), and libvorbis 1.3.7 (0xC0E960).
 - **Menu screens are about 6.4 MB.** They build their text with `^01~WHITE~` / `^05~STYLE_SAMURAI~` markup and sit mainly at 0x1D30EC4-0x1F77751 (about 2.1 MB in one stretch), plus 0x22A9558-0x2340FA9 and 0x2778278-0x27E26EA. They are separate from the ktgl ScreenLayout library (`Scl*`, 0.9 MB) that draws them.
 - **Online is about 2.9 MB**: the ktgl Online/P2P session layer plus the `Online::` co-op gameplay sync (`Online::SynchroObject*`, `Online::Player*`).

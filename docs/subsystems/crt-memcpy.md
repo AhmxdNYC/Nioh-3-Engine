@@ -7,8 +7,8 @@ Statically linked MSVC CRT block at B90000-BEFFFF. Not a game system, but it sho
 ## Functions
 | RVA | name | % | note |
 |---|---|---|---|
-| B94230 | MemcpyAlt (the `rep movsb` ERMS path, called MemcpyErms in cpu-hotspots-ally.md) | 4.94 | large copies |
-| B94250 | Memcpy | 2.13 | small/medium path; together ~5 % of main thread |
+| B94230 | MemcpyErms (the `rep movsb` ERMS stub, reached from Memcpy B94250 for large copies) | 4.94 | large copies |
+| B94250 | Memcpy | 2.13 | small/medium path; together about 7 % of profiled self time |
 | B93EE0 | MemsetBytewise | 0.61 | byte-loop small/unaligned fill next to memset B93F00 |
 | B94150 | memcmp | 0.09 | 128-byte keys (PSO cache B-tree find) |
 | BE6740 | PowfAvx | 0.05 | libm powf, FMA path gated by flag 45B9D5C |

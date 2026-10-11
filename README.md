@@ -27,19 +27,22 @@ Honest summary. Every number is in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) with
 
 - **Fixes slow motion below your fps cap.** Stock Nioh 3 runs the whole game slower when it cannot hold its cap
   (0.83-0.90x speed, which also causes the camera judder people report). With the mod the game runs at 1.00x speed
-  at any frame rate.
-- **Much faster loading on Linux / Steam Deck / ROG Ally (Proton).** A save load on the ROG Ally went from about
-  99 s to about 38 s. Windows loading is unchanged.
+  down to a floor: 48 fps at the 120 cap, 24 at the 60 cap, 20 at the 30 cap (adjustable in the ini). Below the floor
+  it slows down like stock. It pauses itself in online sessions.
+- **Much faster loading under Proton (Linux).** A save load on the ROG Ally X went from about 96 s to about 38 s (measured across two builds).
+  Only the Ally was measured; other Proton devices (such as the Steam Deck) are expected to gain too, but untested.
+  Windows loading is unchanged.
 - **Less wasted CPU.** Several engine threads spin a CPU core while they wait; the mod makes them sleep.
   This frees CPU time and power, which mostly matters on handhelds and slower CPUs.
-- **Raw fps: small.** With the picture unchanged, the measured fps gain on our Windows test PC (RX 9070, 1440p,
-  GPU-limited) is about **0-2.5 %**. Do not expect a big fps jump on a strong desktop.
+- **Raw fps: small at best on a strong desktop.** With the picture unchanged, our Windows test PC (RX 9070, 1440p,
+  GPU-limited) measured between no change and about +2.5 %, mostly within test noise. Do not install it for an fps
+  jump there.
 - **Optional Extra Performance presets** trade a little image quality for fps: about +3 % (Performance) and
   +10 % (Potato) on our test PC and the ROG Ally. Off by default.
 
-Earlier versions of this README claimed "+74 %" and "+49 %". Those gains came from the test PC's setup
-(a 60 Hz desktop, settings, and the in-game "FPS dynamic adjustment" option), not from the mod. The details are in
-the "Numbers we no longer use" section of the benchmarks.
+The development notes once claimed "+74 %" and "+49 %". Those gains came from the test PC's setup (a 60 Hz desktop,
+settings, and the in-game "FPS dynamic adjustment" option), not from the mod. Details: the "Numbers we no longer use"
+section of the benchmarks.
 
 ### The free wins you can do yourself
 
@@ -56,8 +59,8 @@ a test. Reports from other hardware are welcome; please attach `Nioh3EngineFix.l
 
 ## Reverse-engineering progress
 
-About 3 % of the game's 211k functions have names, but those cover essentially all of the CPU time we profiled, and
-every GPU pass we captured maps to named engine code. The goal is understanding performance, not a full source rebuild.
+About 6 % of the game's 211k functions have names (12,679 in `symbols.tsv`), but those cover essentially all of the
+CPU time we profiled, and every GPU pass we captured maps to named engine code. The goal is understanding performance, not a full source rebuild.
 
 ![Performance-relevant decompilation progress](docs/progress/performance.svg)
 
