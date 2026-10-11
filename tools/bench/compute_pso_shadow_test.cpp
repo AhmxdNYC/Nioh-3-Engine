@@ -43,6 +43,27 @@ int main() {
     Shadow other; other.Bind(2,1); Record q=record(7,0,55,0);
     other.Find(2,1,q,stock); check(other.counts.stock==1,"separate cache has separate observer state");
     check(s.counts.stock+other.counts.stock==calls,"no lookup served from shadow");
+    // Native calls can reenter a serialized observer: scope changes during
+    // the stock lookup must invalidate the outer lookup's admission too.
+    for(unsigned action=0;action<3;++action) {
+        Shadow reentrant; reentrant.Bind(9,1);
+        Record value=record(3,0,77,10), q2=value;
+        auto plain=[&](Record& out) { out=value; return true; };
+        reentrant.Find(9,1,q2,plain);
+        const auto before=reentrant.counts.predicted;
+        auto mutate=[&](Record& out) {
+            out=value;
+            if(action==0) { reentrant.BeginMutation(); reentrant.EndMutation(); }
+            if(action==1) reentrant.Retire();
+            if(action==2) reentrant.Bind(9,1); // even reused caller token is a new binding
+            return true;
+        };
+        check(reentrant.Find(9,1,q2,mutate) && q2==value,"reentrant stock result retained");
+        check(reentrant.counts.predicted==before,"scope changed inside stock suppresses outer comparison");
+        value=record(3,0,77,20);
+        reentrant.Find(9,1,q2,plain);
+        check(reentrant.counts.mismatch==0,"scope changed inside stock prevents stale refill");
+    }
     std::printf("PASS %u checks; stock=%llu predicted=%llu equal=%llu expected_mismatches=%llu suppressed=%llu\n",checks,
         (unsigned long long)s.counts.stock,(unsigned long long)s.counts.predicted,(unsigned long long)s.counts.equal,
         (unsigned long long)s.counts.mismatch,(unsigned long long)s.counts.suppressed);

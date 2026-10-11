@@ -9,7 +9,10 @@ pointer. Thus the compute-cache clear is conditional while lock-pointer
 cleanup is not conditional on that flag. A lifetime epoch tied only to
 clear/remove would miss this boundary. Retire comparison state at teardown
 entry regardless of the flag; do not infer cache preservation implies a
-usable lock or ongoing context lifetime.
+usable lock or ongoing context lifetime. Follow-up read of256810 resolves
+this as reference-count release under a global critical section, invoking
+vtable+18 only at zero. It does not prove unconditional destruction of the
+lock object; the context unconditionally drops its own nonnull pointer.
 
 Native direct destructor caller2EFB020 passes zero for both flags at2EFB03B/
 2EFB03E and calls teardown at2EFB046. Wrapper2EEDEF8 retains caller flags,
@@ -24,3 +27,15 @@ Verification added to tools/bench/audit_renderer_cache_locks.py: exact
 decoded flag propagation, branch target, clear call and lock cleanup sites.
 No CPU/FPS claim; compare-only core remains offline and serving hits stays
 NO-GO pending mutation/lifetime and native integration proof.
+
+## Reentrant comparison repair
+
+Added actual offline core cases where the stock callback completes a mutation
+scope, retires the cache, or rebinds using the same caller token. Before repair,
+the first case failed: admission was cached before invoking stock and the
+outer callback compared/refilled after its scope had changed. Every lifetime/
+mutation boundary now increments an internal revision; a changed revision
+suppresses both comparison and refill after stock returns. Native return value
+and all output bytes are preserved. MSVC /W4 /WX suite now168 checks PASS,
+including9 new reentrant checks. This is a demonstrated prototype defect,
+not an observed game race. Native integration remains uninstalled.

@@ -14,6 +14,7 @@ class Shadow {
     std::array<Slot,16> slots_{};
     uintptr_t cache_=0;
     uint64_t lifetime_=0;
+    uint64_t revision_=0;
     unsigned mutationDepth_=0;
     void Clear() { for (auto& s:slots_) s.valid=false; }
     static bool KeyEqual(const Record& a,const Record& b) {
@@ -22,21 +23,22 @@ class Shadow {
 public:
     Counts counts{};
     void Bind(uintptr_t cache,uint64_t lifetime) {
-        Clear(); cache_=cache; lifetime_=lifetime; mutationDepth_=0;
+        Clear(); ++revision_; cache_=cache; lifetime_=lifetime; mutationDepth_=0;
     }
-    void BeginMutation() { Clear(); ++mutationDepth_; }
-    void EndMutation() { Clear(); if (mutationDepth_) --mutationDepth_; }
-    void Retire() { Clear(); cache_=0; lifetime_=0; mutationDepth_=0; }
+    void BeginMutation() { Clear(); ++revision_; ++mutationDepth_; }
+    void EndMutation() { Clear(); ++revision_; if (mutationDepth_) --mutationDepth_; }
+    void Retire() { Clear(); ++revision_; cache_=0; lifetime_=0; mutationDepth_=0; }
     template<class Stock> bool Find(uintptr_t cache,uint64_t lifetime,Record& inout,Stock stock) {
         const Record input=inout;
         uint32_t hash=0; std::memcpy(&hash,input.data(),4);
         Slot& s=slots_[(hash^(hash>>12))&15];
         const bool admitted=cache_ && cache==cache_ && lifetime==lifetime_ && !mutationDepth_;
+        const uint64_t revision=revision_;
         const bool predicted=admitted && s.valid && KeyEqual(input,s.record);
         const Record prediction=s.record;
         ++counts.stock;
         const bool result=stock(inout); // always native result/output, even on mismatch
-        if (!admitted) { ++counts.suppressed; return result; }
+        if (!admitted || revision!=revision_) { ++counts.suppressed; return result; }
         if (predicted) {
             ++counts.predicted;
             if (result && prediction==inout) ++counts.equal;
