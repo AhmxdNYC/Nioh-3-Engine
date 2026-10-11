@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Training agents active; read-validity fix integrated privately
+- User explicitly requested training agents: training_requests implements native safety prerequisites in isolated training-read-gates; training_contract traces native queue/lifetime evidence. No source collision, live/deploy or Claude/wake action.
+- Candidate settings-menu-v4 2231864 pushed: unknown reads block new native start/return and active warp/duel/gate/spawn actions; invalid observations cannot fabricate queue/load edges or settled entry. Actual-source83 fault checks plus7 source integration assertions PASS; agent also passed existing suites/build. Per-frame gate only: unfamiliar readable mode semantics, latched disarm, late request quarantine and playable training remain unresolved.
+- Admission design checkpoint62103c2 documents actual-source failure matrix; implementing transaction/quarantine next in isolated branch, queue-consumer proof in parallel. Do not treat Idle/timeout/empty queue as native cancellation.
+- Root renderer checkpointe433216: compute teardown may skip cache clear while still disposing lock pointer, so observer lifetime must retire on teardown entry regardless of flag. Native audit PASS, not full lifetime closure or FPS gain.
+- Fog archive auditfacb4d3 reproduces neutral+0.08228% +/-0.31010SE from summaries, verifies archived control/save receipts and actual FG Off screenshot.12 exact slices requested1993; pc2 recovery current-state receipt consistency PASS, historical clocks unresolved. Ally original-cost followup acknowledged1992. Device status requests continue; sent queue is not proof of running game.
+
 ## UPDATE 2026-10-11 18:07 - Spawn recovery repaired privately; device queues continue
 - Private settings-menu-v4 61764b8 pushed, addon1.4.8: retains failed/partial spawn recovery, verifies original fields before clearing, blocks all three native replay entry routes while unresolved. Apply records recovery before writing. Foreign/replaced records latch refusal; ambiguous reload/reapply deliberately suspended pending native lifetime proof. Same-address ABA/native validity remain open; no deployment or playable-training acceptance.
 - Actual-source23 fault/retry/apply checks +3 admission-source guards PASS (/W4 /WX); existing60 rematch,143 lifecycle/startup and94 sites PASS; warning-free release build. Candidate note notes/spawn-recovery-candidate.md in D:/nioh3-wt/codex-settings-menu-v4; ASI5729de354c7776e32f4350bd59db0f56e1cda99e4db951b661e6134049043bf5. Main source unchanged.
