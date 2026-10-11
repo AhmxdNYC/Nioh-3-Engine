@@ -1,6 +1,6 @@
-# Nioh3BossRematch 1.3.3
+# Nioh3BossRematch 1.4.0 (BETA)
 
-**Tested build.** It passed 33 of 33 in-game Fight now checks. Not every boss row has been played through by hand yet, so read "What is tested" first.
+**BETA, not fully tested yet.** Only a light in-game test of the new arena spawn has passed. The tested version is **1.3.3** (on the Releases page). Read "What is tested" before you use it on a save you care about.
 
 A separate add-on for **Nioh 3 (Steam, version 2.02)**. It adds an overlay menu that lists the bosses you have beaten and lets you fight them again. It also has an optional boss-fight logger for modders.
 
@@ -24,13 +24,14 @@ Before your first use, copy your Nioh 3 save folder somewhere safe. The folder l
    - Bosses with no route are listed greyed with the reason (`ShowAll = 1`).
 5. **Fight now** (`FightNow = 1`): each beaten boss gets a line that starts its mission at the start point near the boss arena.
    - With `FightNowWarp = 1` you also get **Fight now (in the arena)** and **Shrine before the boss**.
+   - **New in 1.4.0:** with `FightNowSpawn = 1` (the default value of that key, but it only matters when `FightNow = 1` and `FightNowWarp = 1`), you spawn in the arena from the first frame. There is no shrine stop first. A death reload puts you back in the arena. The change is in memory only.
 
 The catalogue (`Nioh3BossRematch_bosses.tsv`) has 121 rows: 59 replay, 10 duel, 3 hidden duel, 20 Picture Scroll, 29 with no route. Only 16 rows have a stored arena point so far. Rows without one cannot use the in-arena option.
 
 ## What is tested
 
-- **Passed:** offline harness tests (no game): catalogue merge, redirect and restore, lifecycle, hook chaining. Site-table tests against the v2.02 executable.
-- **Passed in game:** a self-test that ran Fight now on catalogued rows (33 pass, 0 fail).
+- **Passed:** offline harness tests (no game): catalogue merge, redirect and restore, lifecycle, hook chaining. Site-table tests against the v2.02 executable. A light in-game test of the 1.4.0 arena spawn.
+- **Passed on 1.3.3:** an in-game self-test that ran Fight now on catalogued rows (33 pass, 0 fail in the project log).
 - **Not done:** full per-boss validation of every row. Many rows are marked unverified, and by default they stay hidden (`ShowUnverified = 0`). A full test plan is still open.
 - **Untested:** Proton and Steam Deck, and any use with a New Game Plus cycle you care about. Consider every route other than a plain replay experimental.
 
@@ -53,7 +54,7 @@ If the game is not exactly v2.02, the add-on finds each game site by byte patter
 
 All in `Nioh3BossRematch.ini`. Every key is described there.
 
-- `[Rematch] Enable`, `DirectStart`, `HiddenDuels`, `ShowAll`, `ShowUnverified`, `FightNow`, `FightNowWarp`. All off by default except `ShowAll`.
+- `[Rematch] Enable`, `DirectStart`, `HiddenDuels`, `ShowAll`, `ShowUnverified`, `FightNow`, `FightNowWarp`, `FightNowSpawn`. All off by default except `ShowAll` and `FightNowSpawn`.
 - `ArenaCapture = 1` appends your position at each boss fight start to `Nioh3BossRematch_arenas.tsv`. Use it to add arena points.
 - `SelfTest` plays real missions by itself on your loaded save. Back up first. Leave it empty.
 - `[Menu] Overlay`, `Hotkey` (F7), `PadGesture`.

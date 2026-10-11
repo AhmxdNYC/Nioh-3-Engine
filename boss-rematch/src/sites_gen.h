@@ -94,6 +94,12 @@ static const Def kDefs[] = {
     {"fn:MissionRequestReturn", "EXIT", kFn, 0x22396D8, 0, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 50 48 8B 05 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
     {"call:RightsCheck", "GATE", kCall, 0x3B2323, 0, "E8 ?? ?? ?? ?? 48 8D 4C 24 40 88 44 24 20 48 8D 54 24 20 E8 ?? ?? ?? ?? 0F B7 45 4C 48 8B 4D 50 48 33 CC E8 ?? ?? ?? ?? 48 81 C4 60 01 00 00 5D C3 48 8B 05", 0, 0, 0, 0, 0x0, nullptr},
     {"fn:RightsRequest", "GATE", kFn, 0x1CA52C4, 0, "48 83 EC 38 0F 28 02 45 33 C0 48 8D 54 24 20 66", 0, 0, 0, 0, 0x0, nullptr},
+    {"fn:WarpPointFind", "SPAWN", kFn, 0x137DCC, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B 05 ?? ?? ?? ?? 8B F1 48 8B 58 18 48 8B 78 20 EB 25 48 8B 03 48 85 C0 74 19 48 8D 48 10 E8 ?? ?? ?? ?? 84 C0 74 0C 8B D6 E8 ?? ?? ?? ?? 48 85 C0 75 0B 48 83 C3 10 48", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:WarpPointPos_40", "SPAWN", kCheck, 0x3B2726, 20, "F3 0F 10 49 48 48 8B FA F3 0F 10 41 44 48 8B D9 8B 41 40 F3", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:WarpPointYaw_4C", "SPAWN", kCheck, 0x3B2685, 0, "F3 0F 10 41 4C 48 8B D9 F3 0F 11 45 18 85 D2 74", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:PlayerPlace_Retry14", "SPAWN", kCheck, 0x1C0F2BD, 28, "48 8B 05 ?? ?? ?? ?? 48 8B 71 48 48 8B 48 08 0F B7 96 10 01 00 00 8B 49 14 66 85 D2", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:PlayerPlace_Find", "SPAWN", kCheck, 0x1C0F363, 48, "E8 ?? ?? ?? ?? 48 8B F8 48 85 C0 74 26 44 8B C3 48 8D 54 24 20 48 8B C8 E8 ?? ?? ?? ?? 8B D3 48 8B CF 0F 28 00 66 0F 7F 44 24 30 E8 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
+    {"chk:CamFlag4_Retry14", "SPAWN", kCheck, 0x2239C49, 48, "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 8B 49 14 E8 ?? ?? ?? ?? 48 85 C0 74 2B F6 40 08 04 74 25 F3 0F 10 88 80 00 00 00 41 B0 01 F3 0F 10 40 7C F3 0F", 0, 0, 0, 0, 0x0, nullptr},
 };
 constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));
 }  // namespace sites
