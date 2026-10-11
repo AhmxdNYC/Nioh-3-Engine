@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - FO98 retirement pool return traced
+- Traced251B5C/251CB4 key removal and251B88 free-range insertion/coalescing under owner+CE8. Optional532C64 releases object+8 reference and calls vtable+18 at zero. Evidence: notes/handoff-codex-fo98-pool-return.md.
+- Nine new static provenance checks PASS; record[0] comes from owner+38 map entry+8, but its vtable+10 CPU/GPU wait target remains unresolved. No runtime/lifetime/safety or performance verdict; FO remains NO-GO. Parent94b359f; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game at entry/checkpoint; no game test/lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace insertion into owner+38 live map to resolve record[0] vtable+10 and CPU/GPU wait semantics; then producer closure/ring rebuild proof. Serial ownership until exit; commit/push with Codex attribution and Discord result via existing notifier after push. This checkpoint is documentation/static evidence only; use git log -1 for its commit.
+
+
 ## UPDATE 2026-10-11 - FO98 retirement callback traced
 - Traced descriptor/context2EEF6D4 ->2EEFEB0 -> callback2EEF8F4 -> consumer1A757B8. Callback replaces the worker flag argument; consumer calls record vtable+10, invokes pool helper under owner+CE8 exclusive, clears24bytes and releases capacity. Evidence: notes/handoff-codex-fo98-callback.md.
 - Five new static provenance checks PASS; vtable GPU-wait, helper ownership, ring restart and producer closure remain unproven. No runtime/lifetime/safety or performance verdict; FO remains NO-GO. Parent65cdf23; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.

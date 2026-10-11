@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 retirement pool return
+
+Pool key removal/free-range coalescing and optional object reference release traced; nine static provenance checks PASS. Record vtable wait and producer lifecycle remain unresolved; FO stays NO-GO. No production/defaults/performance change. See notes/handoff-codex-fo98-pool-return.md.
+
 ## 2026-10-11 Codex - FO98 retirement callback trace
 
 Descriptor/context, callback flag replacement and retirement consumer order traced; five static provenance checks PASS. Vtable GPU-wait, pool helper ownership and producer closure remain unproven. FO remains NO-GO; no production or performance change. See notes/handoff-codex-fo98-callback.md.
