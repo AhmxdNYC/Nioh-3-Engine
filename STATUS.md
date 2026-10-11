@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 17:58 - Concurrent device testing authorized; PC launch passed
+- User explicitly superseded shared-account serialization: work/test on all3 devices concurrently, retain device-local ownership. Latest clarification is to skip Unable to Sync using existing steam_cloud_click.ps1, NOT change Steam Cloud settings. No Cloud setting changed. Do not use this helper for unrelated account/session conflicts.
+- Local installed-baseline launch under nioh3-pc succeeded after helper clicked Play anyway: PID43256 responsive/window present; EngineFix1.7.32, existing rematch initialized. Forty-second startup observation then graceful close completed17:58:07, local lease released. ASI/INI entry hashes unchanged; no FPS, combat or training acceptance. Entry backup D:/nioh3-re/save-backups/20261011-175717-concurrent-baseline; no save rollback. Game now closed.
+- Ally returned requested existing MinRun1 culling row20 last0.166ms across11 rows; rows33/24/22 absent from Top100, not zero-cost. Fog queue continues. pc2 Codex accepted AABB1955/1973; recovery file235 attests CURRENT file/save equality and old PID absent, historical recovery time/clock anchor remain unknown. Root acknowledged ownership1978; sole local writer and fresh capture anchors being checked before launch. Do not claim all3 games currently running.
+- Spawn transactional repair and FO closure remain open as below; concurrent authorization does not turn unverified candidates into accepted features. No Claude/wake/controller changes.
+
 ## UPDATE 2026-10-11 - Renderer caller audit and rematch failure reproduction
 - This PC completed native renderer work: four reviewed vtable+28 sites pass mode1; one has an outer context+6EA8 exclusive lock and another lies on a cache-shutdown path. Extended native audit PASS; no complete producer closure, FO safety or FPS claim. Details: notes/renderer-producer-callers-2026-10-11.md. FO remains NO-GO/defaultOFF.
 - Actual candidate SpawnRestore/SpawnWrite C++ extracted and compiled /W4 /WX: normal restore succeeds, but first-write failure, second-write failure and unreadable record all lose recovery ownership. Three defects REPRODUCED, not safety PASS. Candidate production code unchanged; notes/rematch-spawn-restore-failure-2026-10-11.md records required transactional/admission repair. Separate C72E guard fix remains completed.
