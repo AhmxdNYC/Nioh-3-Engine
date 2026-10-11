@@ -881,3 +881,24 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - symbols.tsv: +100 functions, +37 fields, 2 renames (blocks renderer/drawlists, renderer/meshlet). Renderer core named 39.0 -> 40.2 %, bytes 20.5 -> 20.7 %. Charts and the README table regenerated.
 - Prototype UQS (UI quad build in a cached scratch, branch rdraw-main 4884e33 + tour fix 2482b2a, ASI 1.7.58-rdm1, default off, live Tuning.UQS): harness ALL PASSED, ALL 249 SITES OK. PC A/B uqs4 ran, not yet analysed. Test build branch rdraw-main-fo9 15fab3c (not queued).
 - Undo: n/a on main (documentation / symbols). The ASI change is only on branch rdraw-main, default off. The main tree's bin ASI was restored to what it was before the runs.
+## 2026-10-10 07:40 - ASI 1.7.59-fo7 (branch frame-overlap; [GpuOpt] FrameOverlap = 0 default, nothing installed)
+- FO fixes for the fo6pc hang: a frame recorded for a non-current back buffer REMOVES THE D3D12 DEVICE on the PC (the engine's fatal handler then sits in a modal box = the 'hang'); the next frame's back-buffer index is now read/verified by the TAIL before that frame replays (wrong prediction -> extra present of the current buffer). Stock Present after an FO frame waits for the pending present. Watchdog: thread dump + removed reason; restore fixed (stale index cache, FoPresent site written last / restored last). Live Tuning.FO_Test (tests, incl. 100 = self-test).
+- PC: self-test ALL 17 steps PASS; 10.8 min FO ON + ABBA x4 with 0 OFF events; FO +0.5 % +- 0.17 SE (GPU-bound). Game folder: only the tour harness's temporary ASI/ini, restored and verified after every run.
+- Undo: [GpuOpt] FrameOverlap = 0 (default) or live Tuning.FO = 0.
+
+## 2026-10-10 09:45 - ASI 1.7.59-fo8 (branch frame-overlap; [GpuOpt] FrameOverlap = 0 default)
+- pc2 fo2 'hang' = the replay thread crashed when it lags (CPU-bound): B6 PagePool page ops (7D9C24) of frame N+1 ran while frame N still replayed. New default [Tuning] FO_PPWait = 2 (B6 waits for TAIL N). Sub-stream crossing guard, replay-fault report, full thread dump, FO_ReplayDelayUs lag emulator (test only).
+- PC with an 8 ms emulated replay lag: 35 k FO frames, 0 faults (fo7: fault after 71 / 160 frames). Game folder: only the tour harness's temporary ASI/ini, restored + verified after every run.
+- Undo: [GpuOpt] FrameOverlap = 0 (default) or live Tuning.FO = 0.
+
+## 2026-10-10 14:20 - ASI 1.7.60-cbu1 (branch cbv-upload; [Patches] CBS / CBN / CBT = 0 default)
+- CBU per-draw constant uploads (notes/renderer/cbv-upload.md): CBS streaming copy into the UPLOAD ring (118F4D + 495AF2), CBN skip same-list no-op CB uploads (20 % on the PC), CBT reuse the stage CBV table (16 %); CbvStats / CbvRecord census. Harness byte-exact vs relocated v2.02 code incl. a recorded game trace; PC fps unchanged (GPU-bound), pc2 spec pending.
+- Game folder: only the tour harness temporary ASI/ini during cbu1pc, restored + verified (user ASI DD8B5739, Tour = 0, Nioh3BossRematch.* identical); the trace file moved to captures.
+- Undo: keys 0 (default) or live Tuning.CBMODE = 0.
+
+## 2026-10-10 16:45 - ASI 1.7.60-cbu2 (branch cbv-upload; CBN + CBT default ON, CBF test-only)
+- Default change: `[Patches] CBN = 1, CBT = 1` (skip byte-identical per-draw constant uploads of the same command list + reuse the stage's CBV table), CBS = 0. pc2 +15.9 % (38.3 -> 44.3 fps, #1609), Ally Proton/RADV no-harm (#1668), PC RX 9070 no-harm (cbu2pc: +0.49 % +- 1.78, GPU busy -0.02 ms, #1707). profiles.json CBN / CBT kept.
+- CBN: after a ring-full list cut inside SynUploadCbvTable the skipped slots are uploaded again in the new list (insurance; 0 cuts seen in the game).
+- CBF (`[Patches] CBF = 0`, test only): CB ring written in system memory, one copy per game submission into a VRAM ring (src/cbvstage.cpp). PC: the first run (cbu2pc) rendered black in the CBF windows (RPF's ECL thunk hid the submissions) - fixed (osd hook passes non-game callers through cbvstage) + a no-flush watchdog; the rerun (cbu2pcf) renders correctly, +0.17 ms GPU, +0.7 ms/f CreateCBV cost. pc2 CBU2 queued.
+- Game folder: only the tour harness temporary ASI/ini during cbu2pc / cbu2pcf; saves unchanged + verified, user ini / ASI restored by run_tour (Tour = 0). Note: run_tour warned that the base ini already carried a `TourList =` line before cbu2pcf (left by an earlier run, Tour = 0, harmless) - not removed.
+- Undo: `[Patches] CBN = 0, CBT = 0` (or live Tuning.CBMODE = 0); CBF is 0 by default.

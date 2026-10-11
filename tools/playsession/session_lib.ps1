@@ -8,6 +8,7 @@ if (-not $BackupRoot) { $BackupRoot = "D:\nioh3-re\save-backups" }
 if (-not $CaptureRoot) { $CaptureRoot = Join-Path $ws "captures\playsession" }
 if (-not $StateDir) { $StateDir = Join-Path $PSScriptRoot "state" }
 $BinAsi = Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi"
+if ($env:NIOH3_ASI) { $BinAsi = $env:NIOH3_ASI }   # a branch-worktree build (fastab -Asi); default = the main tree's bin
 $PmExe = Join-Path $ws "tools\PresentMon.exe"
 $PmSession = "Nioh3PlaySession"
 $UoBridge = "C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge"

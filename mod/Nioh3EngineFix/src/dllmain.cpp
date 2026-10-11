@@ -55,6 +55,10 @@
 #include "timerres.h"
 #include "thrsched.h"
 #include "psomemo.h"
+#include "bkstats.h"
+#include "frameoverlap.h"
+#include "replayprof.h"
+#include "cbvupload.h"
 #include "samelook.h"
 #include "livectl.h"
 #include "rebar.h"
@@ -97,7 +101,37 @@
 //         (495B2E / 117F20, never mirrored before - the meshlet front-end kernels read them over PCIe on no-ReBAR PCs), 3 = both
 // 1.7.58: TSTATE thread-state census ([Profiler] ThreadState) + SP Focus + RTP render-thread priority ([Patches] RTP, live
 //         row) + PCM graphics-PSO lookup memo on the D3D12 replay thread ([Patches] PCM, live row); notes\cpu-bound-midrange.md
-#define MOD_VERSION "1.7.58"
+// 1.7.59-fo8: FO PagePool frame begin (B4 PagePoolFrameUpdate / B6 7D9C24) waits for TAIL N by default ([Tuning] FO_PPWait;
+//   overlapping it with frame N's replay corrupted / freed data that frame N still replays when the replay lags = pc2 fo2 hang),
+//   sub-stream crossing guard, replay-fault report (vectored handler), full thread dump, FO_ReplayDelayUs lag emulator.
+// 1.7.59-fo7: FO stock frame end after an FO frame waits for the pending present first (stock GfxDevicePresent reads
+//   GetCurrentBackBufferIndex before its own present spin; fo6pc hung on the first FO->stock switch), back-buffer index
+//   re-anchored on the last real index every frame (a miss is tolerated, 7 misses in 1000 frames = session OFF), watchdog
+//   thread dump + engine frame counter, live Tuning.FO_Test (forced switch / watchdog / self-test 100).
+// 1.7.59-fo6: FO splits every sub-stream recorder in two halves and switches at each frame end (stock resets them at Present;
+//   without a reset they filled after 260 frames and their never-used wrap path replayed overwritten data -> AV 119B54).
+// 1.7.59-fo5: FO no longer resets sub-streams at the barrier (effect workers append before it; PC fo4pc: AV replaying a 0x90
+//   sub-stream after 260 overlapped frames). Sub-streams are reset only by their own wrap path.
+// 1.7.59-fo4: FO KtglCache frame end back on the TAIL with the frame's own fence (the forward fence deadlocked the GPU on the PC:
+//   replay-side tile requests of frame N queued behind the tag, COPY waited GFX(N) while GFX(N) waited for them).
+// 1.7.59-fo3: FO record/replay slot split - main advances the frame slot at E (timestamp allocator 6B42B0 records with
+//   +4730h on main), TAIL resolves / stores for the frame's own slot; timestamp queries no longer switch FO off.
+// 1.7.59-fo2: FO fix - HandleSlotIsNotFreed replacement is now a register-exact stub (LTCG callers keep r9-r11 live across it;
+//   the C++ version hung pc2 FO1 at the title), nothing is patched until the switch goes ON, 5 s no-frame watchdog.
+// 1.7.59-fo1 (branch frame-overlap): FO frame overlap ([GpuOpt] FrameOverlap = 0, live Tuning.FO / Tuning.FO_Pct):
+//   frame N's replay tail + Present run on the replay thread while the main thread records N+1 (frameoverlap.cpp).
+// 1.7.58-fov1 (branch frame-overlap): BKS "fov:" line = frame-overlap viability gate (main-thread handle / sync-point GPU waits,
+//   sync-table / slot / sub-stream counts; notes/renderer/frame-overlap.md). Measurement only.
+// 1.7.58-bk1 (branch renderer-backend): BKS back-end census ([Profiler] Backend) + KL kick limit (Tuning.KL_Div, live);
+//         notes/renderer/backend.md
+// 1.7.60-cbu1 (branch cbv-upload): CBU per-draw constant uploads ([Patches] CBS / CBN / CBT = 0, live Tuning.CBS / CBN / CBT;
+//   [Profiler] CbvStats / CbvRecord): streaming copy into the UPLOAD ring, skip no-op uploads, CBV table reuse (cbvupload.cpp,
+//   notes/renderer/cbv-upload.md)
+// 1.7.60-cbu2: CBN + CBT default ON in the ini (pc2 +15.9 %), CBS off; CBN re-uploads its skipped slots after a ring-full
+//   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
+//   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
+//   into a VRAM ring the CBVs point at (cbvstage.cpp)
+#define MOD_VERSION "1.7.60-cbu2"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1349,6 +1383,10 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
         Log("LIVE tuning: %s", reply);
         return true;
     }
+    if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
+    if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
+    if (replayprof::SetTuning(key, val, reply, n)) return true;  // 1.7.59-rpf1 RPF on/off (replayprof.cpp)
+    if (cbvupload::SetTuning(key, val, reply, n)) return true;  // 1.7.60-cbu1 CBS / CBN / CBT / CBSTATS (cbvupload.cpp)
     return samelook::SetTuning(key, val, reply, n);
 }
 
@@ -1617,6 +1655,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
         if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
+        if (!strcmp(g, "CBU")) return false;  // 1.7.60-cbu1 CBV upload call sites: verified offline (test_patterns), hooked by cbvupload.cpp
         if (!strcmp(g, "PCM")) return false;  // 1.7.58 PSO lookup memo call site: verified offline (test_patterns), hooked by psomemo.cpp
         if (!strcmp(g, "VP")) return false;  // KeepRunningUnfocused IsAppActive call sites: verified offline (test_patterns), hooked by vpad.cpp
         if (!strcmp(g, "TR")) return false;  // Tour tick + save-writer sites: verified offline (test_patterns), hooked by tour.cpp
@@ -2479,6 +2518,16 @@ DWORD WINAPI Worker(LPVOID) {
                     psomemo::StatusLine(pb, sizeof pb, 30);
                     if (pb[0]) Log("stats/s %s", pb);
                 }
+                if (sec % 30 == 0) {                     // 1.7.60-cbu1 no-op unless a CBU key is set
+                    char cb[256];
+                    cbvupload::StatusLine(cb, sizeof cb);
+                    if (cb[0]) Log("stats/s %s", cb);
+                }
+                if (sec % 30 == 0) {                     // 1.7.59-fo1 no-op unless [GpuOpt] FrameOverlap != 0
+                    char fb[768];
+                    frameoverlap::StatusLine(fb, sizeof fb, 30);
+                    if (fb[0]) Log("stats/s %s", fb);
+                }
                 if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
                     char rb[768];
                     thrsched::RtpStatusLine(rb, sizeof rb);
@@ -2744,6 +2793,30 @@ DWORD WINAPI Worker(LPVOID) {
             pmi.base = reinterpret_cast<uintptr_t>(g_base);
             pmi.knownBuild = known;
             psomemo::Start(pmi);
+            bkstats::StartInfo bki;  // 1.7.58-bk1 BKS back-end census ([Profiler] Backend = 0) + KL ([Tuning] KL_Div = 0, live)
+            bki.log = &Log;
+            bki.iniPath = iniPath.c_str();
+            bki.base = reinterpret_cast<uintptr_t>(g_base);
+            bki.knownBuild = known;
+            bkstats::Start(bki);
+            frameoverlap::StartInfo foi;  // 1.7.59-fo1 FO frame overlap ([GpuOpt] FrameOverlap = 0; frameoverlap.cpp)
+            foi.log = &Log;
+            foi.iniPath = iniPath.c_str();
+            foi.base = reinterpret_cast<uintptr_t>(g_base);
+            foi.knownBuild = known;
+            frameoverlap::Start(foi);
+            replayprof::StartInfo rpi;  // 1.7.59-rpf1 RPF replay-thread profiler ([Profiler] ReplayProf = 0; replayprof.cpp)
+            rpi.log = &Log;
+            rpi.iniPath = iniPath.c_str();
+            rpi.base = reinterpret_cast<uintptr_t>(g_base);
+            rpi.knownBuild = known;
+            replayprof::Start(rpi);
+            cbvupload::StartInfo cbi;  // 1.7.60-cbu1 CBU constant uploads ([Patches] CBS / CBN / CBT = 0; cbvupload.cpp)
+            cbi.log = &Log;
+            cbi.iniPath = iniPath.c_str();
+            cbi.base = reinterpret_cast<uintptr_t>(g_base);
+            cbi.knownBuild = known;
+            cbvupload::Start(cbi);
             mh.exp[menu::kExpPCM].ini = GetPrivateProfileIntW(L"Patches", L"PCM", 0, iniPath.c_str()) == 1 ? 1 : 0;
             mh.exp[menu::kExpPCM].applied = psomemo::Switch() != nullptr;
             mh.exp[menu::kExpPCM].enable = psomemo::Switch();

@@ -191,7 +191,7 @@ if (-not $DryRun) { Start-TestPopup -Name "Tour (mode $Mode, list $List)" -Input
 try {
     Say "Nioh 3 tour - mode $Mode, list $List, $Points points x $DwellSec s, $Passes pass(es)$(if ($DryRun) { ' - DRY RUN' })" Cyan
     if (-not $DryRun -and (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue)) { throw "Nioh 3 is running - quit it first" }
-    $binAsi = Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi"
+    $binAsi = if ($env:NIOH3_ASI) { $env:NIOH3_ASI } else { Join-Path $ws "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi" }   # fastab -Asi: a branch build
     if (-not $DryRun -and -not (Test-Path $binAsi)) { throw "no mod build at $binAsi" }
     $asiVer = if ($DryRun) { "dry" } else { Get-AsiVersion $binAsi }
     if (-not $DryRun -and $asiVer -ne "unknown" -and [version]$asiVer -lt [version]"1.7.36") { throw "the build is $asiVer; Tour needs 1.7.36+" }

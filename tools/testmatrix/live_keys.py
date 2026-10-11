@@ -33,6 +33,19 @@ LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning /
     "PP_Period": "PP cave mask (pp_mask), read on every sweep decision", "VSMA_K": "VsmaBindC, per clipmap visit",
     "VSMA_Front": "VsmaBindC, per clipmap visit", "LPVR_N": "RcoApplyC, per frame", "SKYR_V": "RcoApplyC, per frame",
     "FOGT_V": "RcoApplyC, per frame", "CLDR_V": "RcoApplyC, per frame",
+    "KL_Div": "bkstats KL: CmdFlushLimit data write, compared per draw by the engine (1.7.58-bk1)",
+    "FO": "frameoverlap switch, sampled at the next frame end (1.7.59-fo1; needs [GpuOpt] FrameOverlap = 1 or 2 at boot)",
+    "FO_Pct": "frameoverlap barrier position, read at every frame end (1.7.59-fo1)",
+    "RPF": "replayprof: removes / re-installs the replay-profiler hooks (1.7.59-rpf1; needs [Profiler] ReplayProf = 1 or 2 at boot)",
+    "CBS": "cbvupload: streaming CB copy switch, read per copy (1.7.60-cbu1; needs [Patches] CBS = 1 or 2 at boot)",
+    "CBN": "cbvupload: no-op CB upload skip switch, read per table flush (1.7.60-cbu1; needs [Patches] CBN = 1 or 2 at boot)",
+    "CBT": "cbvupload: CBV table reuse switch, read per table flush (1.7.60-cbu1; needs [Patches] CBT = 1 or 2 at boot)",
+    "CBMODE": "cbvupload: bitmask for one-key A/B of combinations: 1 CBS, 2 CBN, 4 CBT, 8 CBS without sfence, 16 census, 32 CBF, 64 CBF on the COPY queue (1.7.60-cbu2)",
+    "CBF": "cbvstage: CB ring staged in system memory + one copy per submission into a VRAM ring, switch read per table flush (1.7.60-cbu2; needs [Patches] CBF = 1 or 2 at boot)",
+    "CBF_QUEUE": "cbvstage: CBF copies in a DIRECT prologue list 0 / on a COPY queue + Wait 1, read per submission (1.7.60-cbu2)",
+    "CBS_FENCE": "cbvupload: CBS sfence per table 1 / none 0 (1.7.60-cbu1; [Tuning] CBS_Fence)",
+    "CBALL":"cbvupload: CBS + CBN + CBT switches together (1.7.60-cbu1; each needs its [Patches] key = 1 or 2 at boot)",
+    "CBSTATS":"cbvupload: upload census switch (1.7.60-cbu1; needs a CBU key or [Profiler] CbvStats at boot)",
 }
 HOT_SETS = ["ghdm", "esm", "wdo28", "mpc", "mshlod", "gi", "fogpar", "vcu", "vcp", "vcpfu", "vcpfp"]
 
