@@ -82,5 +82,5 @@
 <rect x="235.0" y="555" width="435.5" height="16" fill="#2ea043" opacity="1"><title>drawlists named: 105 of 120</title></rect>
 <rect x="672.5" y="555" width="62.5" height="16" fill="#444a54" opacity="1"><title>drawlists not named: 15 of 120</title></rect>
 <text x="747" y="567" fill="#c9d1d9" font-size="12"><tspan font-weight="600">88 %</tspan> named <tspan fill="#8b949e">(105 of 120)</tspan></text>
-<text x="8" y="630" fill="#8b949e" font-size="11">Package 12 (capture-check) has no functions: it checks these notes against D3D12 frame captures from the PC, pc2 and the ROG Ally. Plan + rules: notes/renderer/00-map.md.</text>
+<text x="8" y="630" fill="#8b949e" font-size="11">Package 12 (capture-check) has no functions: it checks these notes against D3D12 frame captures from two PCs and the ROG Ally. Plan: research/renderer/00-map.md.</text>
 </svg>

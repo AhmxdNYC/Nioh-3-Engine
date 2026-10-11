@@ -1,0 +1,1 @@
+numpy>=1.24  # tools/progress/regions.py only; every other script is stdlib

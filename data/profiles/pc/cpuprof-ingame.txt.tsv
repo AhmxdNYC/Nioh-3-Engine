@@ -1,0 +1,2435 @@
+tid	-	view	count	-	-	function
+21452		self	1116			Nioh3+61B1C
+21452		self	657			Nioh3+1371D0 428
+21452		self	495			Nioh3+1E80B0 10863
+21452		self	223			Nioh3+B94250 1363
+21452		self	209			Nioh3+2523FC 275
+21452		self	196			Nioh3+4AA34
+21452		self	175			Nioh3+B94230 16
+21452		self	170			Nioh3+1D8720 625
+21452		self	164			Nioh3+1D84A0 665
+21452		self	159			Nioh3+39E20
+21452		self	155			Nioh3+1E7050 835
+21452		self	154			Nioh3+128EF0 231
+21452		self	146			Nioh3+1CD690 811
+21452		self	120			Nioh3+1D7340 2255
+21452		self	119			Nioh3+1DAF6C 2009
+21452		self	102			Nioh3+419A8
+21452		self	92			Nioh3+418F40 73
+21452		self	92			Nioh3+3BC0C
+21452		self	91			Nioh3+4DB6C
+21452		self	84			Nioh3+1290B8 2280
+21452		self	77			Nioh3+1D7EB0 614
+21452		self	75			Nioh3+4B104
+21452		self	72			Nioh3+3C7750(leaf?)
+21452		self	71			Nioh3+1E0B64 1984
+21452		self	71			Nioh3+1D8220 637
+21452		self	68			Nioh3+4D5F8
+21452		self	64			Nioh3+5DF70
+21452		self	63			Nioh3+1E8040(leaf?) 21
+21452		self	59			Nioh3+3C4B74 606
+21452		attr	1116			Nioh3+61B1C
+21452		attr	657			Nioh3+1371D0 428
+21452		attr	495			Nioh3+1E80B0 10863
+21452		attr	280			Nioh3+7D9E90 41
+21452		attr	223			Nioh3+B94250 1363
+21452		attr	209			Nioh3+2523FC 275
+21452		attr	196			Nioh3+4AA34
+21452		attr	175			Nioh3+B94230 16
+21452		attr	170			Nioh3+1D8720 625
+21452		attr	164			Nioh3+1D84A0 665
+21452		attr	159			Nioh3+39E20
+21452		attr	155			Nioh3+1E7050 835
+21452		attr	154			Nioh3+128EF0 231
+21452		attr	146			Nioh3+1CD690 811
+21452		attr	137			Nioh3+4DB6C
+21452		attr	120			Nioh3+1D7340 2255
+21452		attr	119			Nioh3+1DAF6C 2009
+21452		attr	102			Nioh3+419A8
+21452		attr	92			Nioh3+418F40 73
+21452		attr	92			Nioh3+3BC0C
+21452		incl	3365			Nioh3+1A74130 3875
+21452		incl	3365			Nioh3+27049CC 1834
+21452		incl	3365			Nioh3+134EBD0 135
+21452		incl	3365			Nioh3+5B6670 77
+21452		incl	3365			Nioh3+BDB740 95
+21452		incl	3356			Nioh3+3D1F20 681
+21452		incl	3246			Nioh3+112DD8 856
+21452		incl	2938			Nioh3+113204 457
+21452		incl	2914			Nioh3+535188 39366
+21452		incl	2478			Nioh3+39E20
+21452		incl	2403			Nioh3+253C68 1407
+21452		incl	2399			Nioh3+254440 684
+21452		incl	1444			Nioh3+1DC2F0 1024
+21452		incl	1378			Nioh3+1E80B0 10863
+21452		incl	1191			Nioh3+1CE818 500
+21452		incl	1168			Nioh3+61EA0
+21452		incl	1165			Nioh3+62000
+21452		incl	1164			Nioh3+7D622C 305
+21452		incl	1164			Nioh3+7D61A8 119
+21452		incl	1118			Nioh3+61B1C
+21452		incl	868			Nioh3+4A529C 1113
+21452		incl	853			Nioh3+1C0FFC 920
+21452		incl	840			Nioh3+1CD690 811
+21452		incl	657			Nioh3+1371D0 428
+21452		incl	607			Nioh3+137434 1946
+21452		incl	590			Nioh3+1D2F60 1649
+21452		incl	568			Nioh3+365AA98 1172
+21452		incl	548			Nioh3+1893374 93
+21760		self	358			Nioh3+6EFD0(leaf?)
+21760		self	252			Nioh3+71C60
+21760		self	218			Nioh3+66D00
+21760		self	215			Nioh3+6EA50
+21760		self	195			Nioh3+411C0
+21760		self	125			Nioh3+54360
+21760		self	123			Nioh3+6F010
+21760		self	117			Nioh3+889C0
+21760		self	113			Nioh3+174610(leaf?) 18
+21760		self	109			Nioh3+E32D90 219
+21760		self	99			Nioh3+6F060(leaf?)
+21760		self	84			Nioh3+12FBDD0 1780
+21760		self	83			Nioh3+16BA70 1372
+21760		self	79			Nioh3+F33A0
+21760		self	66			Nioh3+284ED4 464
+21760		self	65			Nioh3+6642C
+21760		self	65			Nioh3+16CFF0 4710
+21760		self	62			Nioh3+1675F0 812
+21760		self	58			Nioh3+CC940
+21760		self	56			Nioh3+40800
+21760		self	53			Nioh3+199180 1207
+21760		self	53			Nioh3+121E70(leaf?)
+21760		self	52			Nioh3+426FE8 1088
+21760		self	51			Nioh3+12B440 686
+21760		self	49			Nioh3+121FC0 17455
+21760		self	49			Nioh3+425B0
+21760		self	48			Nioh3+1A7BF0 44635
+21760		attr	1886			Nioh3+B616A4 39
+21760		attr	358			Nioh3+6EFD0(leaf?)
+21760		attr	252			Nioh3+71C60
+21760		attr	218			Nioh3+66D00
+21760		attr	215			Nioh3+6EA50
+21760		attr	195			Nioh3+411C0
+21760		attr	129			Nioh3+40800
+21760		attr	125			Nioh3+54360
+21760		attr	124			Nioh3+B61524 38
+21760		attr	123			Nioh3+6F010
+21760		attr	117			Nioh3+889C0
+21760		attr	113			Nioh3+174610(leaf?) 18
+21760		attr	109			Nioh3+E32D90 219
+21760		attr	99			Nioh3+6F060(leaf?)
+21760		attr	84			Nioh3+12FBDD0 1780
+21760		attr	83			Nioh3+16BA70 1372
+21760		attr	79			Nioh3+F33A0
+21760		attr	66			Nioh3+284ED4 464
+21760		attr	65			Nioh3+6642C
+21760		attr	65			Nioh3+16CFF0 4710
+21760		incl	6954			Nioh3+40800
+21760		incl	6159			Nioh3+1113B4 249
+21760		incl	6157			Nioh3+111184 232
+21760		incl	6154			Nioh3+3FE14
+21760		incl	6151			Nioh3+1A6BB84 272
+21760		incl	6141			Nioh3+BDB740 95
+21760		incl	5777			Nioh3+5AC664 649
+21760		incl	5769			Nioh3+5AC9EC 844
+21760		incl	5723			Nioh3+5ACF80 1734
+21760		incl	5627			Nioh3+5AC628 59
+21760		incl	3156			Nioh3+564F60 565
+21760		incl	3156			Nioh3+564F40 29
+21760		incl	3155			Nioh3+5651D0 446
+21760		incl	3082			Nioh3+39E4E4 899
+21760		incl	1889			Nioh3+3D7CC8 85
+21760		incl	1886			Nioh3+B616A4 39
+21760		incl	1886			Nioh3+B618E8 84
+21760		incl	1744			Nioh3+1A7BF0 44635
+21760		incl	1677			Nioh3+3E7CC
+21760		incl	1668			Nioh3+403A0
+21760		incl	1271			Nioh3+252C54 176
+21760		incl	1267			Nioh3+F2E68
+21760		incl	1256			Nioh3+71C60
+21760		incl	1228			Nioh3+F317C
+21760		incl	817			Nioh3+B05DC
+2472		self	235			Nioh3+119820 288
+2472		self	156			Nioh3+B94250 1363
+2472		self	152			Nioh3+B94230 16
+2472		self	116			Nioh3+58C144 221
+2472		self	99			Nioh3+1192B0 180
+2472		self	69			Nioh3+189BFB0(leaf?) 114
+2472		self	65			Nioh3+115B9C 585
+2472		self	55			Nioh3+1164C4 323
+2472		self	49			Nioh3+B94150 198
+2472		self	46			Nioh3+114A20 223
+2472		self	45			Nioh3+815DB0 262
+2472		attr	4882			Nioh3+1A7C3E0 232
+2472		attr	484			Nioh3+118604 337
+2472		attr	283			Nioh3+115E24 125
+2472		attr	276			Nioh3+1167D4 119
+2472		attr	235			Nioh3+119820 288
+2472		attr	221			Nioh3+1180D0 1270
+2472		attr	201			Nioh3+115DE8 41
+2472		attr	191			Nioh3+58BE90 365
+2472		attr	182			Nioh3+58BDC4 114
+2472		attr	156			Nioh3+B94250 1363
+2472		attr	152			Nioh3+B94230 16
+2472		attr	135			Nioh3+4591DC 559
+2472		attr	130			Nioh3+492220 87
+2472		attr	130			Nioh3+118E28 663
+2472		attr	116			Nioh3+58C144 221
+2472		attr	113			Nioh3+6BE12C 114
+2472		attr	103			Nioh3+341F65C 40
+2472		attr	99			Nioh3+1192B0 180
+2472		attr	86			Nioh3+490D5C 230
+2472		incl	9858			Nioh3+1A7C3E0 232
+2472		incl	9840			Nioh3+2EEDFA0 42
+2472		incl	9833			Nioh3+BDB740 95
+2472		incl	1528			Nioh3+1180D0 1270
+2472		incl	1304			Nioh3+118604 337
+2472		incl	1027			Nioh3+1167D4 119
+2472		incl	684			Nioh3+58BDC4 114
+2472		incl	542			Nioh3+6BE12C 114
+2472		incl	519			Nioh3+58BE90 365
+2472		incl	319			Nioh3+118DA8 128
+2472		incl	314			Nioh3+119670 251
+2472		incl	313			Nioh3+115B9C 585
+2472		incl	290			Nioh3+115A70 151
+21920		self	150			Nioh3+70230
+21920		self	126			Nioh3+1A7BF0 44635
+21920		self	93			Nioh3+121FC0 17455
+21920		self	89			Nioh3+121E70(leaf?)
+21920		self	69			Nioh3+425B0
+21920		self	57			Nioh3+6EFD0(leaf?)
+21920		self	57			Nioh3+204584 2077
+21920		self	53			Nioh3+120120(leaf?)
+21920		self	52			Nioh3+166F20 1700
+21920		self	47			Nioh3+CE1E0
+21920		self	45			Nioh3+1A188C 298
+21920		self	41			Nioh3+6642C
+21920		self	40			Nioh3+203BD4 538
+21920		self	37			Nioh3+4DBA00 2434
+21920		self	36			Nioh3+6EA50
+21920		self	35			Nioh3+199180 1207
+21920		self	35			Nioh3+13233B0 472
+21920		self	35			Nioh3+3AF00
+21920		self	35			Nioh3+204128 504
+21920		self	35			Nioh3+2040A0 161
+21920		self	35			Nioh3+165088 1402
+21920		self	33			Nioh3+6FED0
+21920		self	30			Nioh3+54360
+21920		self	30			Nioh3+1A6FC4 892
+21920		self	29			Nioh3+71C60
+21920		self	29			Nioh3+8A420
+21920		self	26			Nioh3+42154
+21920		self	26			Nioh3+40800
+21920		attr	7237			Nioh3+1A6BB84 272
+21920		attr	150			Nioh3+70230
+21920		attr	126			Nioh3+1A7BF0 44635
+21920		attr	93			Nioh3+121FC0 17455
+21920		attr	89			Nioh3+121E70(leaf?)
+21920		attr	70			Nioh3+40800
+21920		attr	69			Nioh3+425B0
+21920		attr	68			Nioh3+204584 2077
+21920		attr	57			Nioh3+6EFD0(leaf?)
+21920		attr	53			Nioh3+120120(leaf?)
+21920		attr	52			Nioh3+166F20 1700
+21920		attr	47			Nioh3+CE1E0
+21920		attr	45			Nioh3+1A188C 298
+21920		attr	41			Nioh3+6642C
+21920		attr	40			Nioh3+203BD4 538
+21920		attr	37			Nioh3+4DBA00 2434
+21920		attr	36			Nioh3+6EA50
+21920		attr	35			Nioh3+199180 1207
+21920		attr	35			Nioh3+13233B0 472
+21920		attr	35			Nioh3+3AF00
+21920		incl	8693			Nioh3+1A6BB84 272
+21920		incl	8690			Nioh3+BDB740 95
+21920		incl	1549			Nioh3+1A7BF0 44635
+21920		incl	1495			Nioh3+40800
+21920		incl	1458			Nioh3+3FE14
+21920		incl	546			Nioh3+1202B0 1014
+21920		incl	518			Nioh3+121FC0 17455
+21920		incl	448			Nioh3+403A0
+21920		incl	448			Nioh3+3E7CC
+21920		incl	401			Nioh3+204DB0 2073
+21920		incl	366			Nioh3+5795B8 2100
+21920		incl	365			Nioh3+182000 2900
+21920		incl	365			Nioh3+7E35E4 370
+21920		incl	312			Nioh3+451E4
+21920		incl	312			Nioh3+111184 232
+21920		incl	310			Nioh3+1113B4 249
+21920		incl	305			Nioh3+855E48 242
+21920		incl	281			Nioh3+4032E8 79
+21920		incl	264			Nioh3+204584 2077
+21920		incl	182			Nioh3+47192C 1154
+21920		incl	178			Nioh3+471854 192
+21920		incl	174			Nioh3+403388 4993
+21920		incl	174			Nioh3+70230
+21920		incl	136			Nioh3+71C60
+21920		incl	135			Nioh3+205840 3007
+21920		incl	125			Nioh3+211194 508
+5388		self	130			Nioh3+1A7BF0 44635
+5388		self	129			Nioh3+121FC0 17455
+5388		self	72			Nioh3+121E70(leaf?)
+5388		self	70			Nioh3+120120(leaf?)
+5388		self	65			Nioh3+425B0
+5388		self	63			Nioh3+204584 2077
+5388		self	54			Nioh3+6EFD0(leaf?)
+5388		self	46			Nioh3+1A188C 298
+5388		self	40			Nioh3+6FED0
+5388		self	40			Nioh3+2040A0 161
+5388		self	38			Nioh3+3AF00
+5388		self	34			Nioh3+6642C
+5388		self	33			Nioh3+13233B0 472
+5388		self	33			Nioh3+203B74 231
+5388		self	32			Nioh3+6EA50
+5388		self	32			Nioh3+4DBA00 2434
+5388		self	31			Nioh3+204128 504
+5388		self	30			Nioh3+166F20 1700
+5388		self	29			Nioh3+88780
+5388		self	28			Nioh3+70230
+5388		self	26			Nioh3+B94250 1363
+5388		self	25			Nioh3+1A7408 3332
+5388		self	23			Nioh3+40800
+5388		self	22			Nioh3+71C60
+5388		self	22			Nioh3+1A6FC4 892
+5388		self	22			Nioh3+1218EC 1408
+5388		self	21			Nioh3+207BD0 1456
+5388		self	21			Nioh3+6F060(leaf?)
+5388		attr	7681			Nioh3+1A6BB84 272
+5388		attr	130			Nioh3+1A7BF0 44635
+5388		attr	129			Nioh3+121FC0 17455
+5388		attr	79			Nioh3+40800
+5388		attr	72			Nioh3+121E70(leaf?)
+5388		attr	71			Nioh3+204584 2077
+5388		attr	70			Nioh3+120120(leaf?)
+5388		attr	65			Nioh3+425B0
+5388		attr	54			Nioh3+6EFD0(leaf?)
+5388		attr	46			Nioh3+1A188C 298
+5388		attr	40			Nioh3+6FED0
+5388		attr	40			Nioh3+2040A0 161
+5388		attr	38			Nioh3+3AF00
+5388		attr	34			Nioh3+6642C
+5388		attr	33			Nioh3+13233B0 472
+5388		attr	33			Nioh3+203B74 231
+5388		attr	32			Nioh3+6EA50
+5388		attr	32			Nioh3+4DBA00 2434
+5388		attr	31			Nioh3+204128 504
+5388		attr	30			Nioh3+166F20 1700
+5388		incl	8711			Nioh3+1A6BB84 272
+5388		incl	8710			Nioh3+BDB740 95
+5388		incl	1537			Nioh3+1A7BF0 44635
+5388		incl	1039			Nioh3+40800
+5388		incl	1031			Nioh3+3FE14
+5388		incl	589			Nioh3+1202B0 1014
+5388		incl	545			Nioh3+121FC0 17455
+5388		incl	327			Nioh3+3E7CC
+5388		incl	325			Nioh3+403A0
+5388		incl	320			Nioh3+204DB0 2073
+5388		incl	303			Nioh3+5795B8 2100
+5388		incl	303			Nioh3+7E35E4 370
+5388		incl	302			Nioh3+182000 2900
+5388		incl	279			Nioh3+204584 2077
+5388		incl	171			Nioh3+211194 508
+5388		incl	166			Nioh3+82BF0
+5388		incl	158			Nioh3+82F1C
+5388		incl	158			Nioh3+1A7408 3332
+5388		incl	155			Nioh3+7FE68
+5388		incl	124			Nioh3+111EA4 2207
+5388		incl	118			Nioh3+6EA50
+5388		incl	110			Nioh3+817F8
+5388		incl	106			Nioh3+71C60
+5388		incl	104			Nioh3+205840 3007
+5388		incl	102			Nioh3+81B28
+5388		incl	91			Nioh3+C94A4
+29344		self	162			Nioh3+1A7BF0 44635
+29344		self	134			Nioh3+121FC0 17455
+29344		self	123			Nioh3+121E70(leaf?)
+29344		self	90			Nioh3+120120(leaf?)
+29344		self	69			Nioh3+204584 2077
+29344		self	65			Nioh3+425B0
+29344		self	53			Nioh3+6EFD0(leaf?)
+29344		self	50			Nioh3+1A188C 298
+29344		self	40			Nioh3+2040A0 161
+29344		self	34			Nioh3+166F20 1700
+29344		self	30			Nioh3+13233B0 472
+29344		self	29			Nioh3+1218EC 1408
+29344		self	28			Nioh3+1A6FC4 892
+29344		self	27			Nioh3+3AF00
+29344		self	27			Nioh3+205840 3007
+29344		self	27			Nioh3+203BD4 538
+29344		self	25			Nioh3+88780
+29344		self	24			Nioh3+411C0
+29344		self	24			Nioh3+6FED0
+29344		self	23			Nioh3+204128 504
+29344		self	21			Nioh3+6EA50
+29344		self	21			Nioh3+6F010
+29344		self	20			Nioh3+B94250 1363
+29344		self	19			Nioh3+1A3B78 456
+29344		self	18			Nioh3+6642C
+29344		self	17			Nioh3+203B74 231
+29344		self	16			Nioh3+3311FC 395
+29344		self	16			Nioh3+71130
+29344		attr	8033			Nioh3+1A6BB84 272
+29344		attr	162			Nioh3+1A7BF0 44635
+29344		attr	134			Nioh3+121FC0 17455
+29344		attr	123			Nioh3+121E70(leaf?)
+29344		attr	90			Nioh3+120120(leaf?)
+29344		attr	83			Nioh3+204584 2077
+29344		attr	65			Nioh3+425B0
+29344		attr	53			Nioh3+6EFD0(leaf?)
+29344		attr	50			Nioh3+1A188C 298
+29344		attr	40			Nioh3+2040A0 161
+29344		attr	37			Nioh3+40800
+29344		attr	34			Nioh3+166F20 1700
+29344		attr	30			Nioh3+13233B0 472
+29344		attr	29			Nioh3+1218EC 1408
+29344		attr	28			Nioh3+1A6FC4 892
+29344		attr	27			Nioh3+3AF00
+29344		attr	27			Nioh3+205840 3007
+29344		attr	27			Nioh3+203BD4 538
+29344		attr	25			Nioh3+88780
+29344		attr	24			Nioh3+411C0
+29344		incl	8742			Nioh3+1A6BB84 272
+29344		incl	8741			Nioh3+BDB740 95
+29344		incl	1523			Nioh3+1A7BF0 44635
+29344		incl	729			Nioh3+40800
+29344		incl	709			Nioh3+3FE14
+29344		incl	665			Nioh3+1202B0 1014
+29344		incl	624			Nioh3+121FC0 17455
+29344		incl	276			Nioh3+204584 2077
+29344		incl	263			Nioh3+403A0
+29344		incl	263			Nioh3+3E7CC
+29344		incl	232			Nioh3+204DB0 2073
+29344		incl	224			Nioh3+7E35E4 370
+29344		incl	223			Nioh3+5795B8 2100
+29344		incl	222			Nioh3+182000 2900
+29344		incl	178			Nioh3+211194 508
+29344		incl	152			Nioh3+1A7408 3332
+29344		incl	143			Nioh3+82BF0
+29344		incl	137			Nioh3+7FE68
+29344		incl	137			Nioh3+82F1C
+29344		incl	123			Nioh3+121E70(leaf?)
+29344		incl	105			Nioh3+205840 3007
+29344		incl	100			Nioh3+111EA4 2207
+29344		incl	97			Nioh3+6EA50
+29344		incl	95			Nioh3+817F8
+29344		incl	90			Nioh3+120120(leaf?)
+29344		incl	88			Nioh3+C94A4
+10064		self	134			Nioh3+121FC0 17455
+10064		self	124			Nioh3+1A7BF0 44635
+10064		self	115			Nioh3+121E70(leaf?)
+10064		self	72			Nioh3+120120(leaf?)
+10064		self	61			Nioh3+425B0
+10064		self	50			Nioh3+2040A0 161
+10064		self	49			Nioh3+1A188C 298
+10064		self	46			Nioh3+6EFD0(leaf?)
+10064		self	45			Nioh3+204584 2077
+10064		self	43			Nioh3+203B74 231
+10064		self	38			Nioh3+6EA50
+10064		self	29			Nioh3+1218EC 1408
+10064		self	26			Nioh3+88780
+10064		self	26			Nioh3+1A6FC4 892
+10064		self	26			Nioh3+3AF00
+10064		self	24			Nioh3+205840 3007
+10064		self	24			Nioh3+6FED0
+10064		self	23			Nioh3+BE6740 3476
+10064		self	23			Nioh3+166F20 1700
+10064		self	22			Nioh3+13233B0 472
+10064		self	22			Nioh3+1A7408 3332
+10064		self	21			Nioh3+204128 504
+10064		self	19			Nioh3+1A7B38 189
+10064		self	18			Nioh3+6FA30
+10064		self	17			Nioh3+61EF80(leaf?)
+10064		self	17			Nioh3+203BD4 538
+10064		self	17			Nioh3+411C0
+10064		self	17			Nioh3+6642C
+10064		attr	8152			Nioh3+1A6BB84 272
+10064		attr	134			Nioh3+121FC0 17455
+10064		attr	124			Nioh3+1A7BF0 44635
+10064		attr	115			Nioh3+121E70(leaf?)
+10064		attr	72			Nioh3+120120(leaf?)
+10064		attr	61			Nioh3+425B0
+10064		attr	55			Nioh3+204584 2077
+10064		attr	50			Nioh3+2040A0 161
+10064		attr	49			Nioh3+1A188C 298
+10064		attr	46			Nioh3+6EFD0(leaf?)
+10064		attr	44			Nioh3+40800
+10064		attr	43			Nioh3+203B74 231
+10064		attr	38			Nioh3+6EA50
+10064		attr	29			Nioh3+1218EC 1408
+10064		attr	26			Nioh3+88780
+10064		attr	26			Nioh3+1A6FC4 892
+10064		attr	26			Nioh3+3AF00
+10064		attr	24			Nioh3+205840 3007
+10064		attr	24			Nioh3+6FED0
+10064		attr	23			Nioh3+BE6740 3476
+10064		incl	8764			Nioh3+1A6BB84 272
+10064		incl	8764			Nioh3+BDB740 95
+10064		incl	1505			Nioh3+1A7BF0 44635
+10064		incl	659			Nioh3+40800
+10064		incl	639			Nioh3+1202B0 1014
+10064		incl	617			Nioh3+121FC0 17455
+10064		incl	612			Nioh3+3FE14
+10064		incl	245			Nioh3+204584 2077
+10064		incl	230			Nioh3+3E7CC
+10064		incl	229			Nioh3+403A0
+10064		incl	173			Nioh3+204DB0 2073
+10064		incl	171			Nioh3+182000 2900
+10064		incl	171			Nioh3+5795B8 2100
+10064		incl	171			Nioh3+7E35E4 370
+10064		incl	163			Nioh3+211194 508
+10064		incl	154			Nioh3+82BF0
+10064		incl	150			Nioh3+82F1C
+10064		incl	145			Nioh3+7FE68
+10064		incl	128			Nioh3+1A7408 3332
+10064		incl	115			Nioh3+121E70(leaf?)
+10064		incl	101			Nioh3+6EA50
+10064		incl	96			Nioh3+817F8
+10064		incl	95			Nioh3+205840 3007
+10064		incl	95			Nioh3+C94A4
+10064		incl	94			Nioh3+81B28
+10064		incl	85			Nioh3+8D690
+25244		self	43			Nioh3+47990
+25244		self	41			Nioh3+1A6BD18 1222
+25244		self	9			Nioh3+B912E0 30
+25244		self	8			Nioh3+878054 2415
+25244		self	4			Nioh3+71B770 133
+25244		attr	10041			Nioh3+1A6BD18 1222
+25244		attr	153			Nioh3+47990
+25244		attr	71			Nioh3+878054 2415
+25244		attr	9			Nioh3+B912E0 30
+25244		attr	5			Nioh3+6B8A48 164
+25244		attr	4			Nioh3+71B770 133
+25244		attr	1			Nioh3+6B9154 205
+25244		attr	1			Nioh3+6B8E88 96
+25244		incl	10275			Nioh3+1A6BD18 1222
+25244		incl	10273			Nioh3+298F598 147
+25244		incl	10273			Nioh3+B92008 342
+25244		incl	162			Nioh3+47990
+25244		incl	72			Nioh3+878054 2415
+18944		self	788			Nioh3+D80B0
+18944		self	383			Nioh3+D8B70
+18944		self	380			Nioh3+411C0
+18944		self	184			Nioh3+D8700(leaf?)
+18944		self	169			Nioh3+D8C40(leaf?)
+18944		self	128			Nioh3+43CEC
+18944		self	78			Nioh3+168E80(leaf?) 18
+18944		self	63			Nioh3+40800
+18944		self	54			Nioh3+403A0
+18944		self	49			Nioh3+D89E0
+18944		self	22			Nioh3+2D9EE0 48
+18944		self	6			Nioh3+3E7CC
+18944		self	6			Nioh3+12E4D0 1009
+18944		self	4			Nioh3+43AEC
+18944		self	3			Nioh3+3CD7C0(leaf?)
+18944		self	3			Nioh3+368A24 90
+18944		self	3			Nioh3+31A514 303
+18944		self	2			Nioh3+D8B24
+18944		self	2			Nioh3+FA08D0 598
+18944		self	1			Nioh3+D6E9C
+18944		self	1			Nioh3+899320 46
+18944		self	1			Nioh3+B617E8 24
+18944		self	1			Nioh3+12F830(leaf?)
+18944		self	1			Nioh3+19CED0(leaf?) 309
+18944		self	1			Nioh3+7464F8 1387
+18944		self	1			Nioh3+368980 107
+18944		attr	7914			Nioh3+1A6BB84 272
+18944		attr	788			Nioh3+D80B0
+18944		attr	383			Nioh3+D8B70
+18944		attr	380			Nioh3+411C0
+18944		attr	184			Nioh3+D8700(leaf?)
+18944		attr	169			Nioh3+D8C40(leaf?)
+18944		attr	128			Nioh3+43CEC
+18944		attr	78			Nioh3+168E80(leaf?) 18
+18944		attr	73			Nioh3+40800
+18944		attr	54			Nioh3+403A0
+18944		attr	49			Nioh3+D89E0
+18944		attr	22			Nioh3+2D9EE0 48
+18944		attr	11			Nioh3+48B9C
+18944		attr	9			Nioh3+B61524 38
+18944		attr	6			Nioh3+3E7CC
+18944		attr	6			Nioh3+12E4D0 1009
+18944		attr	4			Nioh3+43AEC
+18944		attr	3			Nioh3+3CD7C0(leaf?)
+18944		attr	3			Nioh3+368A24 90
+18944		attr	3			Nioh3+31A514 303
+18944		incl	10285			Nioh3+1A6BB84 272
+18944		incl	10285			Nioh3+BDB740 95
+18944		incl	2371			Nioh3+3FE14
+18944		incl	2368			Nioh3+40800
+18944		incl	2367			Nioh3+319E00 582
+18944		incl	2337			Nioh3+3E7CC
+18944		incl	2331			Nioh3+403A0
+18944		incl	1679			Nioh3+D80B0
+18944		incl	1679			Nioh3+319D5C 164
+18944		incl	512			Nioh3+D89E0
+18944		incl	486			Nioh3+D8B70
+18944		incl	380			Nioh3+411C0
+18944		incl	184			Nioh3+D8700(leaf?)
+18944		incl	169			Nioh3+D8C40(leaf?)
+18944		incl	147			Nioh3+7464BC 60
+18944		incl	146			Nioh3+43CEC
+18944		incl	100			Nioh3+2D9EE0 48
+18944		incl	78			Nioh3+168E80(leaf?) 18
+18944		incl	26			Nioh3+D6E9C
+18944		incl	11			Nioh3+48B9C
+18944		incl	11			Nioh3+368980 107
+18944		incl	10			Nioh3+368A24 90
+20500		self	127			Nioh3+1A7BF0 44635
+20500		self	122			Nioh3+121FC0 17455
+20500		self	115			Nioh3+121E70(leaf?)
+20500		self	77			Nioh3+425B0
+20500		self	71			Nioh3+120120(leaf?)
+20500		self	49			Nioh3+1A188C 298
+20500		self	48			Nioh3+2040A0 161
+20500		self	46			Nioh3+204584 2077
+20500		self	31			Nioh3+3AF00
+20500		self	31			Nioh3+205840 3007
+20500		self	29			Nioh3+1218EC 1408
+20500		self	28			Nioh3+6FED0
+20500		self	26			Nioh3+204128 504
+20500		self	25			Nioh3+1A6FC4 892
+20500		self	24			Nioh3+1A7408 3332
+20500		self	24			Nioh3+6EFD0(leaf?)
+20500		self	24			Nioh3+203BD4 538
+20500		self	21			Nioh3+203B74 231
+20500		self	20			Nioh3+B94250 1363
+20500		self	20			Nioh3+40800
+20500		self	19			Nioh3+88780
+20500		self	18			Nioh3+6EA50
+20500		self	16			Nioh3+1A7B38 189
+20500		self	16			Nioh3+CC940
+20500		self	15			Nioh3+6F010
+20500		self	15			Nioh3+61EF80(leaf?)
+20500		self	14			Nioh3+6642C
+20500		self	14			Nioh3+411C0
+20500		attr	8413			Nioh3+1A6BB84 272
+20500		attr	127			Nioh3+1A7BF0 44635
+20500		attr	122			Nioh3+121FC0 17455
+20500		attr	115			Nioh3+121E70(leaf?)
+20500		attr	77			Nioh3+425B0
+20500		attr	71			Nioh3+120120(leaf?)
+20500		attr	53			Nioh3+204584 2077
+20500		attr	49			Nioh3+1A188C 298
+20500		attr	48			Nioh3+2040A0 161
+20500		attr	31			Nioh3+3AF00
+20500		attr	31			Nioh3+205840 3007
+20500		attr	29			Nioh3+1218EC 1408
+20500		attr	28			Nioh3+6FED0
+20500		attr	26			Nioh3+204128 504
+20500		attr	25			Nioh3+1A6FC4 892
+20500		attr	24			Nioh3+1A7408 3332
+20500		attr	24			Nioh3+6EFD0(leaf?)
+20500		attr	24			Nioh3+203BD4 538
+20500		attr	21			Nioh3+203B74 231
+20500		attr	21			Nioh3+40800
+20500		incl	8898			Nioh3+1A6BB84 272
+20500		incl	8898			Nioh3+BDB740 95
+20500		incl	1372			Nioh3+1A7BF0 44635
+20500		incl	613			Nioh3+1202B0 1014
+20500		incl	604			Nioh3+121FC0 17455
+20500		incl	534			Nioh3+40800
+20500		incl	485			Nioh3+3FE14
+20500		incl	255			Nioh3+204584 2077
+20500		incl	205			Nioh3+403A0
+20500		incl	205			Nioh3+3E7CC
+20500		incl	166			Nioh3+204DB0 2073
+20500		incl	162			Nioh3+211194 508
+20500		incl	160			Nioh3+182000 2900
+20500		incl	160			Nioh3+5795B8 2100
+20500		incl	160			Nioh3+7E35E4 370
+20500		incl	141			Nioh3+1A7408 3332
+20500		incl	123			Nioh3+82BF0
+20500		incl	120			Nioh3+82F1C
+20500		incl	119			Nioh3+7FE68
+20500		incl	115			Nioh3+121E70(leaf?)
+20500		incl	102			Nioh3+205840 3007
+20500		incl	84			Nioh3+817F8
+20500		incl	81			Nioh3+C94A4
+20500		incl	78			Nioh3+204128 504
+20500		incl	77			Nioh3+425B0
+20500		incl	74			Nioh3+81B28
+29292		self	141			Nioh3+1A7BF0 44635
+29292		self	109			Nioh3+121FC0 17455
+29292		self	103			Nioh3+121E70(leaf?)
+29292		self	74			Nioh3+120120(leaf?)
+29292		self	67			Nioh3+425B0
+29292		self	56			Nioh3+204584 2077
+29292		self	50			Nioh3+1A188C 298
+29292		self	45			Nioh3+6EFD0(leaf?)
+29292		self	42			Nioh3+2040A0 161
+29292		self	39			Nioh3+3AF00
+29292		self	28			Nioh3+205840 3007
+29292		self	28			Nioh3+203B74 231
+29292		self	28			Nioh3+6FED0
+29292		self	28			Nioh3+6EA50
+29292		self	26			Nioh3+1A6FC4 892
+29292		self	26			Nioh3+B94250 1363
+29292		self	25			Nioh3+88780
+29292		self	22			Nioh3+1A7408 3332
+29292		self	21			Nioh3+204128 504
+29292		self	20			Nioh3+203BD4 538
+29292		self	19			Nioh3+411C0
+29292		self	19			Nioh3+1A7B38 189
+29292		self	19			Nioh3+61EF80(leaf?)
+29292		self	19			Nioh3+13233B0 472
+29292		self	18			Nioh3+3F364
+29292		self	16			Nioh3+166F20 1700
+29292		self	16			Nioh3+71C60
+29292		self	15			Nioh3+120C28 548
+29292		attr	8327			Nioh3+1A6BB84 272
+29292		attr	141			Nioh3+1A7BF0 44635
+29292		attr	109			Nioh3+121FC0 17455
+29292		attr	103			Nioh3+121E70(leaf?)
+29292		attr	74			Nioh3+120120(leaf?)
+29292		attr	67			Nioh3+425B0
+29292		attr	63			Nioh3+204584 2077
+29292		attr	50			Nioh3+1A188C 298
+29292		attr	45			Nioh3+6EFD0(leaf?)
+29292		attr	42			Nioh3+2040A0 161
+29292		attr	39			Nioh3+3AF00
+29292		attr	28			Nioh3+205840 3007
+29292		attr	28			Nioh3+203B74 231
+29292		attr	28			Nioh3+6FED0
+29292		attr	28			Nioh3+6EA50
+29292		attr	26			Nioh3+1A6FC4 892
+29292		attr	26			Nioh3+B94250 1363
+29292		attr	25			Nioh3+88780
+29292		attr	24			Nioh3+3F364
+29292		attr	23			Nioh3+40800
+29292		incl	8838			Nioh3+1A6BB84 272
+29292		incl	8838			Nioh3+BDB740 95
+29292		incl	1435			Nioh3+1A7BF0 44635
+29292		incl	602			Nioh3+1202B0 1014
+29292		incl	575			Nioh3+121FC0 17455
+29292		incl	543			Nioh3+40800
+29292		incl	511			Nioh3+3FE14
+29292		incl	228			Nioh3+204584 2077
+29292		incl	197			Nioh3+3E7CC
+29292		incl	195			Nioh3+403A0
+29292		incl	178			Nioh3+211194 508
+29292		incl	150			Nioh3+204DB0 2073
+29292		incl	147			Nioh3+182000 2900
+29292		incl	147			Nioh3+5795B8 2100
+29292		incl	147			Nioh3+7E35E4 370
+29292		incl	131			Nioh3+1A7408 3332
+29292		incl	112			Nioh3+82BF0
+29292		incl	107			Nioh3+82F1C
+29292		incl	104			Nioh3+7FE68
+29292		incl	103			Nioh3+121E70(leaf?)
+29292		incl	92			Nioh3+205840 3007
+29292		incl	80			Nioh3+6EA50
+29292		incl	74			Nioh3+120120(leaf?)
+29292		incl	73			Nioh3+1A188C 298
+29292		incl	68			Nioh3+C94A4
+29292		incl	67			Nioh3+425B0
+20044		self	482			Nioh3+411C0
+20044		self	125			Nioh3+469C0
+20044		self	84			Nioh3+40800
+20044		self	74			Nioh3+484C0(leaf?)
+20044		self	73			Nioh3+403A0
+20044		self	67			Nioh3+1196B70 924
+20044		self	67			Nioh3+DDC70
+20044		self	56			Nioh3+D8E00
+20044		self	51			Nioh3+47550
+20044		self	35			Nioh3+DBA70
+20044		self	31			Nioh3+47DF8
+20044		self	27			Nioh3+DBB90
+20044		self	25			Nioh3+130014 939
+20044		self	25			Nioh3+DA830
+20044		self	20			Nioh3+3BD184 699
+20044		self	19			Nioh3+DD7AC
+20044		self	18			Nioh3+1772B4 693
+20044		self	15			Nioh3+DA6E0
+20044		self	13			Nioh3+3E7CC
+20044		self	11			Nioh3+21FF9C 827
+20044		self	11			Nioh3+71130
+20044		self	11			Nioh3+178494 2554
+20044		self	10			Nioh3+6A9E0
+20044		self	10			Nioh3+6F450
+20044		self	9			Nioh3+6FA30
+20044		self	9			Nioh3+D6FF8
+20044		self	9			Nioh3+169500 6837
+20044		self	8			Nioh3+71BC24 99
+20044		attr	8628			Nioh3+1A6BB84 272
+20044		attr	482			Nioh3+411C0
+20044		attr	125			Nioh3+469C0
+20044		attr	108			Nioh3+40800
+20044		attr	74			Nioh3+484C0(leaf?)
+20044		attr	73			Nioh3+403A0
+20044		attr	67			Nioh3+1196B70 924
+20044		attr	67			Nioh3+DDC70
+20044		attr	56			Nioh3+D8E00
+20044		attr	51			Nioh3+47550
+20044		attr	35			Nioh3+DBA70
+20044		attr	31			Nioh3+47DF8
+20044		attr	27			Nioh3+DBB90
+20044		attr	25			Nioh3+130014 939
+20044		attr	25			Nioh3+DA830
+20044		attr	20			Nioh3+3BD184 699
+20044		attr	19			Nioh3+DD7AC
+20044		attr	18			Nioh3+1772B4 693
+20044		attr	15			Nioh3+DA6E0
+20044		attr	13			Nioh3+3E7CC
+20044		incl	10283			Nioh3+1A6BB84 272
+20044		incl	10283			Nioh3+BDB740 95
+20044		incl	1655			Nioh3+3FE14
+20044		incl	1654			Nioh3+40800
+20044		incl	1596			Nioh3+403A0
+20044		incl	1473			Nioh3+3E7CC
+20044		incl	1143			Nioh3+FAE380 1216
+20044		incl	650			Nioh3+FADEA0 233
+20044		incl	649			Nioh3+174C9C 1262
+20044		incl	604			Nioh3+567A48 831
+20044		incl	482			Nioh3+411C0
+20044		incl	260			Nioh3+10E2200 46
+20044		incl	259			Nioh3+DDC70
+20044		incl	216			Nioh3+FAE200 372
+20044		incl	177			Nioh3+45DCC
+20044		incl	177			Nioh3+FADF90 224
+20044		incl	175			Nioh3+7F9F98 437
+20044		incl	164			Nioh3+207200 657
+20044		incl	141			Nioh3+10E2230 47
+20044		incl	141			Nioh3+DA830
+20044		incl	139			Nioh3+469C0
+20044		incl	117			Nioh3+1197100 967
+20044		incl	113			Nioh3+1196F10 485
+20044		incl	112			Nioh3+47550
+20044		incl	97			Nioh3+1196B70 924
+20044		incl	81			Nioh3+315664 795
+18900		self	195			Nioh3+20B900 1055
+18900		self	183			Nioh3+2866F0 688
+18900		self	104			Nioh3+20A298 103
+18900		self	103			Nioh3+E266B0 473
+18900		self	53			Nioh3+2E782C 1111
+18900		self	52			Nioh3+E26260 956
+18900		self	43			Nioh3+4AB6E4 225
+18900		self	37			Nioh3+E32D90 219
+18900		self	37			Nioh3+20A300 518
+18900		self	31			Nioh3+138558 876
+18900		self	28			Nioh3+13A830 1792
+18900		self	27			Nioh3+2FA4C4 94
+18900		self	27			Nioh3+13B580(leaf?)
+18900		self	25			Nioh3+282580(leaf?)
+18900		self	23			Nioh3+54ADC0(leaf?)
+18900		self	21			Nioh3+60C760(leaf?)
+18900		self	18			Nioh3+2BE394 171
+18900		self	16			Nioh3+282320 364
+18900		self	16			Nioh3+13B18C 353
+18900		self	14			Nioh3+484EB8 5761
+18900		self	14			Nioh3+D24D70 138
+18900		self	12			Nioh3+724CC0(leaf?)
+18900		self	12			Nioh3+37A8D4 155
+18900		self	11			Nioh3+139C60 221
+18900		self	10			Nioh3+20BD44 353
+18900		self	9			Nioh3+E26890 564
+18900		attr	8450			Nioh3+B616A4 39
+18900		attr	195			Nioh3+20B900 1055
+18900		attr	183			Nioh3+2866F0 688
+18900		attr	104			Nioh3+20A298 103
+18900		attr	103			Nioh3+E266B0 473
+18900		attr	53			Nioh3+2E782C 1111
+18900		attr	52			Nioh3+E26260 956
+18900		attr	43			Nioh3+4AB6E4 225
+18900		attr	37			Nioh3+5A612C 41
+18900		attr	37			Nioh3+E32D90 219
+18900		attr	37			Nioh3+20A300 518
+18900		attr	31			Nioh3+138558 876
+18900		attr	28			Nioh3+13A830 1792
+18900		attr	28			Nioh3+B60E98 25
+18900		attr	27			Nioh3+2FA4C4 94
+18900		attr	27			Nioh3+13B580(leaf?)
+18900		attr	25			Nioh3+282580(leaf?)
+18900		attr	23			Nioh3+54ADC0(leaf?)
+18900		attr	21			Nioh3+60C760(leaf?)
+18900		attr	20			Nioh3+48B9C
+18900		incl	9950			Nioh3+E5E060 176
+18900		incl	9950			Nioh3+5B6670 77
+18900		incl	9950			Nioh3+BDB740 95
+18900		incl	8450			Nioh3+B616A4 39
+18900		incl	8450			Nioh3+B618E8 84
+18900		incl	6746			Nioh3+3D7CC8 85
+18900		incl	3067			Nioh3+E63140 519
+18900		incl	1025			Nioh3+E64700 7696
+18900		incl	657			Nioh3+379620 773
+18900		incl	404			Nioh3+E63350 5016
+18900		incl	337			Nioh3+37A434 229
+18900		incl	317			Nioh3+20B900 1055
+18900		incl	286			Nioh3+89A328 353
+18900		incl	272			Nioh3+282320 364
+18900		incl	241			Nioh3+E266B0 473
+18900		incl	241			Nioh3+89A48C 73
+18900		incl	240			Nioh3+2824EC 134
+18900		incl	216			Nioh3+13A830 1792
+18900		incl	201			Nioh3+E26680 47
+18900		incl	200			Nioh3+2866F0 688
+18900		incl	127			Nioh3+13B18C 353
+18900		incl	104			Nioh3+20A298 103
+18900		incl	87			Nioh3+20BD44 353
+18900		incl	76			Nioh3+484EB8 5761
+18900		incl	73			Nioh3+E26260 956
+17024		self	782			Nioh3+D80B0
+17024		self	416			Nioh3+D8B70
+17024		self	157			Nioh3+D8700(leaf?)
+17024		self	146			Nioh3+D8C40(leaf?)
+17024		self	79			Nioh3+43CEC
+17024		self	74			Nioh3+168E80(leaf?) 18
+17024		self	37			Nioh3+D89E0
+17024		self	24			Nioh3+2D9EE0 48
+17024		self	4			Nioh3+44080(leaf?)
+17024		self	3			Nioh3+12E4D0 1009
+17024		self	3			Nioh3+D8B24
+17024		self	2			Nioh3+43AEC
+17024		self	1			Nioh3+D18A0(leaf?)
+17024		self	1			Nioh3+368A24 90
+17024		self	1			Nioh3+3FE14
+17024		self	1			Nioh3+3CD7C0(leaf?)
+17024		self	1			Nioh3+411C0
+17024		self	1			Nioh3+12E43C 126
+17024		self	1			Nioh3+D6E9C
+17024		self	1			Nioh3+40800
+17024		attr	8543			Nioh3+1A6BB84 272
+17024		attr	782			Nioh3+D80B0
+17024		attr	416			Nioh3+D8B70
+17024		attr	157			Nioh3+D8700(leaf?)
+17024		attr	146			Nioh3+D8C40(leaf?)
+17024		attr	79			Nioh3+43CEC
+17024		attr	74			Nioh3+168E80(leaf?) 18
+17024		attr	37			Nioh3+D89E0
+17024		attr	24			Nioh3+2D9EE0 48
+17024		attr	8			Nioh3+40800
+17024		attr	4			Nioh3+44080(leaf?)
+17024		attr	3			Nioh3+12E4D0 1009
+17024		attr	3			Nioh3+D8B24
+17024		attr	2			Nioh3+43AEC
+17024		attr	1			Nioh3+D18A0(leaf?)
+17024		attr	1			Nioh3+368A24 90
+17024		attr	1			Nioh3+3FE14
+17024		attr	1			Nioh3+3CD7C0(leaf?)
+17024		attr	1			Nioh3+411C0
+17024		attr	1			Nioh3+12E43C 126
+17024		incl	10285			Nioh3+1A6BB84 272
+17024		incl	10285			Nioh3+BDB740 95
+17024		incl	1742			Nioh3+3FE14
+17024		incl	1740			Nioh3+40800
+17024		incl	1642			Nioh3+319D5C 164
+17024		incl	1641			Nioh3+D80B0
+17024		incl	518			Nioh3+D89E0
+17024		incl	515			Nioh3+D8B70
+17024		incl	157			Nioh3+D8700(leaf?)
+17024		incl	146			Nioh3+D8C40(leaf?)
+17024		incl	98			Nioh3+2D9EE0 48
+17024		incl	90			Nioh3+43CEC
+17024		incl	90			Nioh3+7464BC 60
+17024		incl	74			Nioh3+168E80(leaf?) 18
+17024		incl	38			Nioh3+D6E9C
+17024		incl	5			Nioh3+368A24 90
+17024		incl	5			Nioh3+368980 107
+17024		incl	4			Nioh3+44080(leaf?)
+17024		incl	4			Nioh3+12E43C 126
+17024		incl	4			Nioh3+12E41C 29
+17024		incl	3			Nioh3+12E4D0 1009
+17024		incl	3			Nioh3+D8B24
+17024		incl	2			Nioh3+43AEC
+17024		incl	1			Nioh3+D18A0(leaf?)
+20472		self	724			Nioh3+D80B0
+20472		self	354			Nioh3+D8B70
+20472		self	148			Nioh3+D8700(leaf?)
+20472		self	142			Nioh3+D8C40(leaf?)
+20472		self	65			Nioh3+43CEC
+20472		self	55			Nioh3+168E80(leaf?) 18
+20472		self	45			Nioh3+D89E0
+20472		self	18			Nioh3+2D9EE0 48
+20472		self	5			Nioh3+43AEC
+20472		self	5			Nioh3+3CD7C0(leaf?)
+20472		self	3			Nioh3+12E4D0 1009
+20472		self	1			Nioh3+D18A0(leaf?)
+20472		self	1			Nioh3+D8B24
+20472		self	1			Nioh3+D1EB0(leaf?)
+20472		attr	8106			Nioh3+1A6BB84 272
+20472		attr	724			Nioh3+D80B0
+20472		attr	354			Nioh3+D8B70
+20472		attr	148			Nioh3+D8700(leaf?)
+20472		attr	142			Nioh3+D8C40(leaf?)
+20472		attr	65			Nioh3+43CEC
+20472		attr	55			Nioh3+168E80(leaf?) 18
+20472		attr	45			Nioh3+D89E0
+20472		attr	18			Nioh3+2D9EE0 48
+20472		attr	5			Nioh3+43AEC
+20472		attr	5			Nioh3+3CD7C0(leaf?)
+20472		attr	3			Nioh3+12E4D0 1009
+20472		attr	1			Nioh3+40800
+20472		attr	1			Nioh3+D18A0(leaf?)
+20472		attr	1			Nioh3+D8B24
+20472		attr	1			Nioh3+D1EB0(leaf?)
+20472		incl	9674			Nioh3+1A6BB84 272
+20472		incl	9674			Nioh3+BDB740 95
+20472		incl	1568			Nioh3+40800
+20472		incl	1568			Nioh3+3FE14
+20472		incl	1494			Nioh3+319D5C 164
+20472		incl	1492			Nioh3+D80B0
+20472		incl	457			Nioh3+D89E0
+20472		incl	432			Nioh3+D8B70
+20472		incl	148			Nioh3+D8700(leaf?)
+20472		incl	142			Nioh3+D8C40(leaf?)
+20472		incl	73			Nioh3+2D9EE0 48
+20472		incl	73			Nioh3+43CEC
+20472		incl	73			Nioh3+7464BC 60
+20472		incl	55			Nioh3+168E80(leaf?) 18
+20472		incl	21			Nioh3+D6E9C
+20472		incl	5			Nioh3+43AEC
+20472		incl	5			Nioh3+3CD7C0(leaf?)
+20472		incl	3			Nioh3+12E4D0 1009
+20472		incl	3			Nioh3+12E43C 126
+20472		incl	3			Nioh3+12E41C 29
+20472		incl	3			Nioh3+368A24 90
+20472		incl	3			Nioh3+368980 107
+20472		incl	1			Nioh3+D18A0(leaf?)
+20472		incl	1			Nioh3+D8B24
+25092		self	648			Nioh3+D80B0
+25092		self	312			Nioh3+D8B70
+25092		self	131			Nioh3+D8700(leaf?)
+25092		self	116			Nioh3+D8C40(leaf?)
+25092		self	61			Nioh3+43CEC
+25092		self	49			Nioh3+168E80(leaf?) 18
+25092		self	38			Nioh3+D89E0
+25092		self	17			Nioh3+2D9EE0 48
+25092		self	4			Nioh3+43AEC
+25092		self	4			Nioh3+3CD7C0(leaf?)
+25092		self	1			Nioh3+12E4D0 1009
+25092		self	1			Nioh3+40800
+25092		self	1			Nioh3+12F830(leaf?)
+25092		self	1			Nioh3+130A20(leaf?)
+25092		self	1			Nioh3+368980 107
+25092		self	1			Nioh3+D8B24
+25092		attr	7557			Nioh3+1A6BB84 272
+25092		attr	648			Nioh3+D80B0
+25092		attr	312			Nioh3+D8B70
+25092		attr	131			Nioh3+D8700(leaf?)
+25092		attr	116			Nioh3+D8C40(leaf?)
+25092		attr	61			Nioh3+43CEC
+25092		attr	49			Nioh3+168E80(leaf?) 18
+25092		attr	38			Nioh3+D89E0
+25092		attr	17			Nioh3+2D9EE0 48
+25092		attr	7			Nioh3+40800
+25092		attr	4			Nioh3+43AEC
+25092		attr	4			Nioh3+3CD7C0(leaf?)
+25092		attr	1			Nioh3+12E4D0 1009
+25092		attr	1			Nioh3+12F830(leaf?)
+25092		attr	1			Nioh3+130A20(leaf?)
+25092		attr	1			Nioh3+368980 107
+25092		attr	1			Nioh3+D8B24
+25092		incl	8949			Nioh3+1A6BB84 272
+25092		incl	8949			Nioh3+BDB740 95
+25092		incl	1392			Nioh3+40800
+25092		incl	1392			Nioh3+3FE14
+25092		incl	1316			Nioh3+D80B0
+25092		incl	1316			Nioh3+319D5C 164
+25092		incl	397			Nioh3+D89E0
+25092		incl	382			Nioh3+D8B70
+25092		incl	131			Nioh3+D8700(leaf?)
+25092		incl	116			Nioh3+D8C40(leaf?)
+25092		incl	69			Nioh3+43CEC
+25092		incl	69			Nioh3+7464BC 60
+25092		incl	66			Nioh3+2D9EE0 48
+25092		incl	49			Nioh3+168E80(leaf?) 18
+25092		incl	24			Nioh3+D6E9C
+25092		incl	4			Nioh3+43AEC
+25092		incl	4			Nioh3+3CD7C0(leaf?)
+25092		incl	3			Nioh3+368980 107
+25092		incl	2			Nioh3+368A24 90
+25092		incl	1			Nioh3+12E4D0 1009
+25092		incl	1			Nioh3+12E43C 126
+25092		incl	1			Nioh3+12E41C 29
+25092		incl	1			Nioh3+12F830(leaf?)
+25092		incl	1			Nioh3+12EBF4 88
+23352		self	572			Nioh3+D80B0
+23352		self	294			Nioh3+D8B70
+23352		self	131			Nioh3+D8700(leaf?)
+23352		self	114			Nioh3+D8C40(leaf?)
+23352		self	40			Nioh3+43CEC
+23352		self	36			Nioh3+168E80(leaf?) 18
+23352		self	24			Nioh3+D89E0
+23352		self	12			Nioh3+2D9EE0 48
+23352		self	4			Nioh3+3CD7C0(leaf?)
+23352		self	4			Nioh3+43AEC
+23352		self	2			Nioh3+D6E9C
+23352		self	1			Nioh3+3FE14
+23352		self	1			Nioh3+D8B24
+23352		self	1			Nioh3+40800
+23352		attr	7433			Nioh3+1A6BB84 272
+23352		attr	572			Nioh3+D80B0
+23352		attr	294			Nioh3+D8B70
+23352		attr	131			Nioh3+D8700(leaf?)
+23352		attr	114			Nioh3+D8C40(leaf?)
+23352		attr	40			Nioh3+43CEC
+23352		attr	36			Nioh3+168E80(leaf?) 18
+23352		attr	24			Nioh3+D89E0
+23352		attr	12			Nioh3+2D9EE0 48
+23352		attr	4			Nioh3+3CD7C0(leaf?)
+23352		attr	4			Nioh3+43AEC
+23352		attr	4			Nioh3+40800
+23352		attr	2			Nioh3+D6E9C
+23352		attr	1			Nioh3+3FE14
+23352		attr	1			Nioh3+D8B24
+23352		incl	8672			Nioh3+1A6BB84 272
+23352		incl	8672			Nioh3+BDB740 95
+23352		incl	1239			Nioh3+3FE14
+23352		incl	1238			Nioh3+40800
+23352		incl	1190			Nioh3+D80B0
+23352		incl	1190			Nioh3+319D5C 164
+23352		incl	357			Nioh3+D89E0
+23352		incl	346			Nioh3+D8B70
+23352		incl	131			Nioh3+D8700(leaf?)
+23352		incl	114			Nioh3+D8C40(leaf?)
+23352		incl	48			Nioh3+2D9EE0 48
+23352		incl	44			Nioh3+43CEC
+23352		incl	44			Nioh3+7464BC 60
+23352		incl	36			Nioh3+168E80(leaf?) 18
+23352		incl	16			Nioh3+D6E9C
+23352		incl	4			Nioh3+3CD7C0(leaf?)
+23352		incl	4			Nioh3+43AEC
+23352		incl	1			Nioh3+D8B24
+18932		self	417			Nioh3+E5840
+18932		self	319			Nioh3+18AB80 8259
+18932		self	147			Nioh3+E1740
+18932		self	97			Nioh3+69220
+18932		self	19			Nioh3+E3FF0
+18932		self	15			Nioh3+E6760
+18932		self	15			Nioh3+B94230 16
+18932		self	15			Nioh3+E08A0
+18932		self	13			Nioh3+E7D00
+18932		self	13			Nioh3+4E4C44 4564
+18932		self	12			Nioh3+B94250 1363
+18932		self	10			Nioh3+26BE50(leaf?)
+18932		self	10			Nioh3+6D6F80(leaf?) 12
+18932		self	9			Nioh3+383F7F0(leaf?)
+18932		self	8			Nioh3+4DD410 758
+18932		self	7			Nioh3+18AA7C 259
+18932		self	7			Nioh3+4E5924 1659
+18932		self	7			Nioh3+E7840
+18932		self	6			Nioh3+4E4B30 516
+18932		self	6			Nioh3+E62B0
+18932		self	6			Nioh3+B93EE0 16
+18932		self	6			Nioh3+E34A0
+18932		self	6			Nioh3+B94150 198
+18932		self	5			Nioh3+E49B0
+18932		self	5			Nioh3+1952E4 5187
+18932		attr	8297			Nioh3+8629AC 53
+18932		attr	417			Nioh3+E5840
+18932		attr	319			Nioh3+18AB80 8259
+18932		attr	147			Nioh3+E1740
+18932		attr	97			Nioh3+69220
+18932		attr	95			Nioh3+E1BB0
+18932		attr	19			Nioh3+E3FF0
+18932		attr	15			Nioh3+E6760
+18932		attr	15			Nioh3+B94230 16
+18932		attr	15			Nioh3+E08A0
+18932		attr	13			Nioh3+E7D00
+18932		attr	13			Nioh3+4E4C44 4564
+18932		attr	12			Nioh3+B94250 1363
+18932		attr	10			Nioh3+26BE50(leaf?)
+18932		attr	10			Nioh3+6D6F80(leaf?) 12
+18932		attr	9			Nioh3+383F7F0(leaf?)
+18932		attr	8			Nioh3+4DD410 758
+18932		attr	8			Nioh3+83B584 27
+18932		attr	7			Nioh3+18AA7C 259
+18932		attr	7			Nioh3+4E5924 1659
+18932		incl	9577			Nioh3+1A786A8 1761
+18932		incl	9577			Nioh3+9FC2F4 34
+18932		incl	9577			Nioh3+BDB740 95
+18932		incl	8297			Nioh3+8629AC 53
+18932		incl	759			Nioh3+E2050
+18932		incl	759			Nioh3+36044C 302
+18932		incl	499			Nioh3+E3FF0
+18932		incl	499			Nioh3+E3334
+18932		incl	468			Nioh3+E5394
+18932		incl	461			Nioh3+E5840
+18932		incl	438			Nioh3+18AA7C 259
+18932		incl	431			Nioh3+18AB80 8259
+18932		incl	147			Nioh3+E1740
+18932		incl	99			Nioh3+69220
+18932		incl	95			Nioh3+E1CBC
+18932		incl	95			Nioh3+E1BB0
+18932		incl	95			Nioh3+E1A48
+18932		incl	53			Nioh3+361428 261
+18932		incl	52			Nioh3+E08A0
+18932		incl	41			Nioh3+E0630
+18932		incl	28			Nioh3+E2340
+18932		incl	26			Nioh3+4E4C44 4564
+15272		self	87			Nioh3+469C0
+15272		self	69			Nioh3+D8E00
+15272		self	69			Nioh3+DBA70
+15272		self	46			Nioh3+DBB90
+15272		self	42			Nioh3+DA830
+15272		self	36			Nioh3+D6FF8
+15272		self	31			Nioh3+1196B70 924
+15272		self	30			Nioh3+411C0
+15272		self	26			Nioh3+484C0(leaf?)
+15272		self	25			Nioh3+130014 939
+15272		self	25			Nioh3+174908 915
+15272		self	18			Nioh3+DA6E0
+15272		self	15			Nioh3+D6CD8
+15272		self	12			Nioh3+40800
+15272		self	11			Nioh3+47DF8
+15272		self	11			Nioh3+DDC70
+15272		self	11			Nioh3+47550
+15272		self	9			Nioh3+1772B4 693
+15272		self	8			Nioh3+2113D0 339
+15272		self	7			Nioh3+6EFD0(leaf?)
+15272		self	7			Nioh3+3BD184 699
+15272		self	6			Nioh3+BE0378 159
+15272		self	6			Nioh3+6FA30
+15272		self	5			Nioh3+D2C34
+15272		self	5			Nioh3+6F450
+15272		self	5			Nioh3+B38930(leaf?)
+15272		self	4			Nioh3+17771C 294
+15272		self	4			Nioh3+175270 41
+15272		attr	6177			Nioh3+1A6BB84 272
+15272		attr	87			Nioh3+469C0
+15272		attr	69			Nioh3+D8E00
+15272		attr	69			Nioh3+DBA70
+15272		attr	46			Nioh3+DBB90
+15272		attr	42			Nioh3+DA830
+15272		attr	36			Nioh3+D6FF8
+15272		attr	31			Nioh3+1196B70 924
+15272		attr	30			Nioh3+411C0
+15272		attr	26			Nioh3+484C0(leaf?)
+15272		attr	25			Nioh3+130014 939
+15272		attr	25			Nioh3+174908 915
+15272		attr	19			Nioh3+40800
+15272		attr	18			Nioh3+DA6E0
+15272		attr	15			Nioh3+D6CD8
+15272		attr	11			Nioh3+47DF8
+15272		attr	11			Nioh3+DDC70
+15272		attr	11			Nioh3+47550
+15272		attr	9			Nioh3+1772B4 693
+15272		attr	8			Nioh3+2113D0 339
+15272		incl	6913			Nioh3+1A6BB84 272
+15272		incl	6913			Nioh3+BDB740 95
+15272		incl	736			Nioh3+3FE14
+15272		incl	733			Nioh3+40800
+15272		incl	440			Nioh3+FADEA0 233
+15272		incl	439			Nioh3+174C9C 1262
+15272		incl	357			Nioh3+567A48 831
+15272		incl	200			Nioh3+403A0
+15272		incl	200			Nioh3+3E7CC
+15272		incl	195			Nioh3+DA830
+15272		incl	125			Nioh3+45DCC
+15272		incl	125			Nioh3+FADF90 224
+15272		incl	124			Nioh3+7F9F98 437
+15272		incl	105			Nioh3+469C0
+15272		incl	105			Nioh3+10E2230 47
+15272		incl	104			Nioh3+D8E00
+15272		incl	69			Nioh3+DBA70
+15272		incl	63			Nioh3+1772B4 693
+15272		incl	63			Nioh3+FAE0F0 266
+15272		incl	60			Nioh3+DBB90
+15272		incl	46			Nioh3+1196B70 924
+15272		incl	44			Nioh3+174908 915
+15272		incl	41			Nioh3+D5898
+15272		incl	37			Nioh3+DDC70
+15272		incl	37			Nioh3+10E2200 46
+15272		incl	36			Nioh3+D6FF8
+7492		self	95			Nioh3+469C0
+7492		self	65			Nioh3+D8E00
+7492		self	55			Nioh3+DBA70
+7492		self	47			Nioh3+1196B70 924
+7492		self	41			Nioh3+DA830
+7492		self	38			Nioh3+DBB90
+7492		self	34			Nioh3+484C0(leaf?)
+7492		self	32			Nioh3+411C0
+7492		self	29			Nioh3+130014 939
+7492		self	24			Nioh3+D6CD8
+7492		self	23			Nioh3+DDC70
+7492		self	21			Nioh3+47DF8
+7492		self	15			Nioh3+47550
+7492		self	15			Nioh3+DA6E0
+7492		self	14			Nioh3+D6FF8
+7492		self	12			Nioh3+3BD184 699
+7492		self	9			Nioh3+174908 915
+7492		self	9			Nioh3+DD570
+7492		self	7			Nioh3+D5E90
+7492		self	7			Nioh3+6F450
+7492		self	7			Nioh3+DD7AC
+7492		self	7			Nioh3+1772B4 693
+7492		self	7			Nioh3+21FF9C 827
+7492		self	7			Nioh3+6A9E0
+7492		self	6			Nioh3+71130
+7492		self	6			Nioh3+6FA30
+7492		self	5			Nioh3+362C90 191
+7492		self	5			Nioh3+2113D0 339
+7492		attr	7795			Nioh3+1A6BB84 272
+7492		attr	95			Nioh3+469C0
+7492		attr	65			Nioh3+D8E00
+7492		attr	55			Nioh3+DBA70
+7492		attr	47			Nioh3+1196B70 924
+7492		attr	41			Nioh3+DA830
+7492		attr	38			Nioh3+DBB90
+7492		attr	34			Nioh3+484C0(leaf?)
+7492		attr	32			Nioh3+411C0
+7492		attr	29			Nioh3+130014 939
+7492		attr	24			Nioh3+D6CD8
+7492		attr	23			Nioh3+DDC70
+7492		attr	21			Nioh3+47DF8
+7492		attr	15			Nioh3+47550
+7492		attr	15			Nioh3+DA6E0
+7492		attr	15			Nioh3+40800
+7492		attr	14			Nioh3+D6FF8
+7492		attr	12			Nioh3+3BD184 699
+7492		attr	9			Nioh3+174908 915
+7492		attr	9			Nioh3+DD570
+7492		incl	8564			Nioh3+1A6BB84 272
+7492		incl	8564			Nioh3+BDB740 95
+7492		incl	769			Nioh3+3FE14
+7492		incl	768			Nioh3+40800
+7492		incl	420			Nioh3+FADEA0 233
+7492		incl	418			Nioh3+174C9C 1262
+7492		incl	357			Nioh3+567A48 831
+7492		incl	281			Nioh3+403A0
+7492		incl	281			Nioh3+3E7CC
+7492		incl	194			Nioh3+DA830
+7492		incl	143			Nioh3+FADF90 224
+7492		incl	140			Nioh3+45DCC
+7492		incl	137			Nioh3+7F9F98 437
+7492		incl	122			Nioh3+10E2230 47
+7492		incl	121			Nioh3+469C0
+7492		incl	78			Nioh3+DDC70
+7492		incl	78			Nioh3+10E2200 46
+7492		incl	76			Nioh3+D8E00
+7492		incl	71			Nioh3+DBB90
+7492		incl	63			Nioh3+1196B70 924
+7492		incl	55			Nioh3+DBA70
+7492		incl	53			Nioh3+FAE0F0 266
+7492		incl	52			Nioh3+1772B4 693
+7492		incl	50			Nioh3+D5898
+7492		incl	42			Nioh3+315664 795
+7492		incl	38			Nioh3+82F1C
+20308		self	93			Nioh3+DBA70
+20308		self	86			Nioh3+469C0
+20308		self	46			Nioh3+DBB90
+20308		self	43			Nioh3+DA830
+20308		self	29			Nioh3+1196B70 924
+20308		self	29			Nioh3+484C0(leaf?)
+20308		self	25			Nioh3+DA6E0
+20308		self	16			Nioh3+47DF8
+20308		self	15			Nioh3+D8E00
+20308		self	15			Nioh3+411C0
+20308		self	14			Nioh3+D6FF8
+20308		self	12			Nioh3+1772B4 693
+20308		self	12			Nioh3+47550
+20308		self	10			Nioh3+DDC70
+20308		self	9			Nioh3+3BD184 699
+20308		self	8			Nioh3+130014 939
+20308		self	8			Nioh3+D6CD8
+20308		self	6			Nioh3+6F450
+20308		self	5			Nioh3+DD7AC
+20308		self	5			Nioh3+B38930(leaf?)
+20308		self	5			Nioh3+174908 915
+20308		self	4			Nioh3+DD570
+20308		self	4			Nioh3+2113D0 339
+20308		self	4			Nioh3+6FA30
+20308		self	4			Nioh3+21FF9C 827
+20308		self	3			Nioh3+17771C 294
+20308		self	3			Nioh3+362C90 191
+20308		self	3			Nioh3+6A9E0
+20308		attr	7572			Nioh3+1A6BB84 272
+20308		attr	93			Nioh3+DBA70
+20308		attr	86			Nioh3+469C0
+20308		attr	46			Nioh3+DBB90
+20308		attr	43			Nioh3+DA830
+20308		attr	29			Nioh3+1196B70 924
+20308		attr	29			Nioh3+484C0(leaf?)
+20308		attr	25			Nioh3+DA6E0
+20308		attr	16			Nioh3+40800
+20308		attr	16			Nioh3+47DF8
+20308		attr	15			Nioh3+D8E00
+20308		attr	15			Nioh3+411C0
+20308		attr	14			Nioh3+D6FF8
+20308		attr	12			Nioh3+1772B4 693
+20308		attr	12			Nioh3+47550
+20308		attr	10			Nioh3+DDC70
+20308		attr	9			Nioh3+3BD184 699
+20308		attr	8			Nioh3+130014 939
+20308		attr	8			Nioh3+D6CD8
+20308		attr	6			Nioh3+6F450
+20308		incl	8170			Nioh3+1A6BB84 272
+20308		incl	8170			Nioh3+BDB740 95
+20308		incl	598			Nioh3+3FE14
+20308		incl	595			Nioh3+40800
+20308		incl	317			Nioh3+FADEA0 233
+20308		incl	314			Nioh3+174C9C 1262
+20308		incl	281			Nioh3+567A48 831
+20308		incl	234			Nioh3+DA830
+20308		incl	167			Nioh3+3E7CC
+20308		incl	166			Nioh3+403A0
+20308		incl	127			Nioh3+FADF90 224
+20308		incl	120			Nioh3+7F9F98 437
+20308		incl	120			Nioh3+45DCC
+20308		incl	112			Nioh3+10E2230 47
+20308		incl	111			Nioh3+469C0
+20308		incl	93			Nioh3+DBA70
+20308		incl	64			Nioh3+DBB90
+20308		incl	52			Nioh3+10E2200 46
+20308		incl	51			Nioh3+DDC70
+20308		incl	38			Nioh3+1196B70 924
+20308		incl	34			Nioh3+1772B4 693
+20308		incl	34			Nioh3+FAE0F0 266
+20308		incl	34			Nioh3+DA6E0
+20308		incl	30			Nioh3+207200 657
+20308		incl	29			Nioh3+484C0(leaf?)
+20308		incl	26			Nioh3+D8E00
+7836		self	300			Nioh3+411C0
+7836		self	88			Nioh3+1655E0 560
+7836		self	45			Nioh3+207200 657
+7836		self	45			Nioh3+40800
+7836		self	36			Nioh3+3DAB0(leaf?)
+7836		self	16			Nioh3+123BD50 1062
+7836		self	10			Nioh3+3CFD0
+7836		self	9			Nioh3+1195DA0 469
+7836		self	6			Nioh3+164DB4 697
+7836		self	5			Nioh3+202940 1385
+7836		self	5			Nioh3+403A0
+7836		self	5			Nioh3+B60E98 25
+7836		self	4			Nioh3+247950 29594
+7836		self	3			Nioh3+202E00(leaf?)
+7836		self	3			Nioh3+ED08C
+7836		self	2			Nioh3+202D54 313
+7836		self	2			Nioh3+3B7F70 687
+7836		self	2			Nioh3+3824D8 1668
+7836		self	2			Nioh3+165088 1402
+7836		self	2			Nioh3+3FAD8
+7836		self	2			Nioh3+202FF4 447
+7836		self	2			Nioh3+3EFC8
+7836		self	2			Nioh3+1196330 315
+7836		self	1			Nioh3+164824 55
+7836		self	1			Nioh3+1195F80 650
+7836		attr	7137			Nioh3+1A6BB84 272
+7836		attr	300			Nioh3+411C0
+7836		attr	99			Nioh3+B60E98 25
+7836		attr	88			Nioh3+1655E0 560
+7836		attr	50			Nioh3+40800
+7836		attr	45			Nioh3+207200 657
+7836		attr	36			Nioh3+3DAB0(leaf?)
+7836		attr	16			Nioh3+123BD50 1062
+7836		attr	11			Nioh3+3CFD0
+7836		attr	9			Nioh3+1195DA0 469
+7836		attr	6			Nioh3+164DB4 697
+7836		attr	5			Nioh3+247734 158
+7836		attr	5			Nioh3+202940 1385
+7836		attr	5			Nioh3+403A0
+7836		attr	4			Nioh3+247950 29594
+7836		attr	3			Nioh3+202E00(leaf?)
+7836		attr	3			Nioh3+ED08C
+7836		attr	3			Nioh3+48B9C
+7836		attr	2			Nioh3+202D54 313
+7836		attr	2			Nioh3+B61524 38
+7836		incl	7727			Nioh3+1A6BB84 272
+7836		incl	7727			Nioh3+BDB740 95
+7836		incl	620			Nioh3+40800
+7836		incl	590			Nioh3+3FE14
+7836		incl	589			Nioh3+11966F0 76
+7836		incl	588			Nioh3+123BD50 1062
+7836		incl	388			Nioh3+207200 657
+7836		incl	300			Nioh3+411C0
+7836		incl	116			Nioh3+403A0
+7836		incl	116			Nioh3+3E7CC
+7836		incl	99			Nioh3+B60E98 25
+7836		incl	89			Nioh3+164824 55
+7836		incl	89			Nioh3+1646B4 367
+7836		incl	88			Nioh3+1655E0 560
+7836		incl	68			Nioh3+841E5C 609
+7836		incl	51			Nioh3+3CFD0
+7836		incl	49			Nioh3+1196330 315
+7836		incl	47			Nioh3+3824D8 1668
+7836		incl	36			Nioh3+3DAB0(leaf?)
+7836		incl	30			Nioh3+1195F80 650
+7836		incl	29			Nioh3+ED08C
+7836		incl	29			Nioh3+ECF24
+7836		incl	24			Nioh3+1196470 571
+7836		incl	23			Nioh3+40300
+7836		incl	16			Nioh3+3DF04
+3368		self	418			Nioh3+48E90
+3368		self	125			Nioh3+2515B0(leaf?) 92
+3368		self	110			Nioh3+4A2D0
+3368		self	40			Nioh3+3898C0(leaf?)
+3368		self	17			Nioh3+49950
+3368		self	13			Nioh3+116A24 513
+3368		self	12			Nioh3+4A85C
+3368		self	11			Nioh3+7B1614 199
+3368		self	9			Nioh3+49D5C
+3368		self	8			Nioh3+40800
+3368		self	8			Nioh3+251554 87
+3368		self	5			Nioh3+411C0
+3368		self	4			Nioh3+202FF4 447
+3368		self	3			Nioh3+B93EE0 16
+3368		self	2			Nioh3+62D688 350
+3368		self	2			Nioh3+389830 134
+3368		attr	2540			Nioh3+1A6BB84 272
+3368		attr	418			Nioh3+48E90
+3368		attr	381			Nioh3+403A0
+3368		attr	125			Nioh3+2515B0(leaf?) 92
+3368		attr	125			Nioh3+117D6C 160
+3368		attr	110			Nioh3+4A2D0
+3368		attr	87			Nioh3+40800
+3368		attr	40			Nioh3+3898C0(leaf?)
+3368		attr	35			Nioh3+62D688 350
+3368		attr	34			Nioh3+5C268
+3368		attr	17			Nioh3+49950
+3368		attr	17			Nioh3+49D5C
+3368		attr	13			Nioh3+116A24 513
+3368		attr	12			Nioh3+4A85C
+3368		attr	11			Nioh3+7B1614 199
+3368		attr	9			Nioh3+5CEE8
+3368		attr	8			Nioh3+251554 87
+3368		attr	5			Nioh3+5C5B8
+3368		attr	5			Nioh3+411C0
+3368		incl	4015			Nioh3+1A6BB84 272
+3368		incl	4015			Nioh3+BDB740 95
+3368		incl	1475			Nioh3+3FE14
+3368		incl	1474			Nioh3+40800
+3368		incl	1472			Nioh3+4A2D0
+3368		incl	1471			Nioh3+9811F8 40
+3368		incl	1070			Nioh3+3E7CC
+3368		incl	1069			Nioh3+403A0
+3368		incl	599			Nioh3+48E90
+3368		incl	207			Nioh3+5B3AC
+3368		incl	205			Nioh3+62E680 533
+3368		incl	205			Nioh3+4D874
+3368		incl	170			Nioh3+5C0D4
+3368		incl	170			Nioh3+1A807F8 39
+3368		incl	170			Nioh3+62EA08 93
+3368		incl	170			Nioh3+62E9B4 118
+3368		incl	164			Nioh3+49D5C
+3368		incl	144			Nioh3+116A24 513
+3368		incl	131			Nioh3+251554 87
+3368		incl	125			Nioh3+2515B0(leaf?) 92
+3368		incl	125			Nioh3+117D6C 160
+30056		self	56			Nioh3+4C2DA0 722
+30056		self	22			Nioh3+33BDB8 128
+30056		self	15			Nioh3+578E4
+30056		self	15			Nioh3+4C2D0C 147
+30056		self	12			Nioh3+58B8A0(leaf?)
+30056		self	11			Nioh3+3410A0 2463
+30056		self	10			Nioh3+342EA4 9332
+30056		self	8			Nioh3+342420 1111
+30056		self	8			Nioh3+1A6C358 15394
+30056		self	8			Nioh3+2286B8 9508
+30056		self	8			Nioh3+55C80
+30056		self	7			Nioh3+340628 2184
+30056		self	7			Nioh3+58B854 62
+30056		self	6			Nioh3+559BC
+30056		self	6			Nioh3+33C664 1280
+30056		self	6			Nioh3+2254A4 2013
+30056		self	5			Nioh3+55378
+30056		self	4			Nioh3+341A7C 768
+30056		self	4			Nioh3+57510(leaf?)
+30056		self	4			Nioh3+6998C0 190
+30056		self	4			Nioh3+227334 2290
+30056		self	3			Nioh3+4C2604 270
+30056		self	3			Nioh3+5488C
+30056		self	3			Nioh3+342B10 486
+30056		attr	2204			Nioh3+8629AC 53
+30056		attr	732			Nioh3+B616A4 39
+30056		attr	84			Nioh3+B61524 38
+30056		attr	56			Nioh3+4C2DA0 722
+30056		attr	37			Nioh3+206BE4 582
+30056		attr	22			Nioh3+33BDB8 128
+30056		attr	15			Nioh3+578E4
+30056		attr	15			Nioh3+4C2D0C 147
+30056		attr	12			Nioh3+58B8A0(leaf?)
+30056		attr	11			Nioh3+1A6C358 15394
+30056		attr	11			Nioh3+3410A0 2463
+30056		attr	10			Nioh3+342EA4 9332
+30056		attr	8			Nioh3+342420 1111
+30056		attr	8			Nioh3+2286B8 9508
+30056		attr	8			Nioh3+55C80
+30056		attr	7			Nioh3+340628 2184
+30056		attr	7			Nioh3+58B854 62
+30056		attr	6			Nioh3+559BC
+30056		attr	6			Nioh3+33C664 1280
+30056		attr	6			Nioh3+2254A4 2013
+30056		incl	2476			Nioh3+1A6C358 15394
+30056		incl	2476			Nioh3+9FC2F4 34
+30056		incl	2476			Nioh3+BDB740 95
+30056		incl	2204			Nioh3+8629AC 53
+30056		incl	886			Nioh3+3D6E64 173
+30056		incl	886			Nioh3+3D6D90 234
+30056		incl	884			Nioh3+3D702C 1206
+30056		incl	736			Nioh3+3D7CC8 85
+30056		incl	733			Nioh3+B618E8 84
+30056		incl	732			Nioh3+B616A4 39
+30056		incl	575			Nioh3+2286B8 9508
+30056		incl	511			Nioh3+3D693C 147
+30056		incl	375			Nioh3+3D6B18 233
+30056		incl	375			Nioh3+957018 181
+30056		incl	353			Nioh3+342EA4 9332
+30056		incl	279			Nioh3+3D74E4 186
+30056		incl	277			Nioh3+3D75C4 457
+30056		incl	93			Nioh3+3D7A70 55
+30056		incl	85			Nioh3+B61524 38
+30056		incl	73			Nioh3+4C2D0C 147
+30056		incl	66			Nioh3+578E4
+17788		self	28			Nioh3+469C0
+17788		self	25			Nioh3+DBA70
+17788		self	18			Nioh3+484C0(leaf?)
+17788		self	16			Nioh3+DA830
+17788		self	15			Nioh3+DBB90
+17788		self	13			Nioh3+130014 939
+17788		self	8			Nioh3+411C0
+17788		self	8			Nioh3+D8E00
+17788		self	7			Nioh3+47DF8
+17788		self	7			Nioh3+DA6E0
+17788		self	6			Nioh3+1196B70 924
+17788		self	5			Nioh3+DDC70
+17788		self	5			Nioh3+1772B4 693
+17788		self	4			Nioh3+DD7AC
+17788		self	3			Nioh3+DD570
+17788		self	3			Nioh3+3BD184 699
+17788		self	2			Nioh3+163D20 309
+17788		self	2			Nioh3+6FA30
+17788		self	2			Nioh3+73A2A0(leaf?) 75
+17788		self	2			Nioh3+D5E90
+17788		self	2			Nioh3+47550
+17788		self	1			Nioh3+21FF9C 827
+17788		self	1			Nioh3+1A6BB84 272
+17788		self	1			Nioh3+B38930(leaf?)
+17788		self	1			Nioh3+D6FF8
+17788		self	1			Nioh3+40800
+17788		self	1			Nioh3+7403F0(leaf?)
+17788		self	1			Nioh3+17771C 294
+17788		self	1			Nioh3+17697C 565
+17788		attr	3040			Nioh3+1A6BB84 272
+17788		attr	28			Nioh3+469C0
+17788		attr	25			Nioh3+DBA70
+17788		attr	18			Nioh3+484C0(leaf?)
+17788		attr	16			Nioh3+DA830
+17788		attr	15			Nioh3+DBB90
+17788		attr	13			Nioh3+130014 939
+17788		attr	8			Nioh3+411C0
+17788		attr	8			Nioh3+D8E00
+17788		attr	7			Nioh3+47DF8
+17788		attr	7			Nioh3+DA6E0
+17788		attr	6			Nioh3+1196B70 924
+17788		attr	5			Nioh3+DDC70
+17788		attr	5			Nioh3+1772B4 693
+17788		attr	4			Nioh3+DD7AC
+17788		attr	3			Nioh3+DD570
+17788		attr	3			Nioh3+3BD184 699
+17788		attr	2			Nioh3+163D20 309
+17788		attr	2			Nioh3+6FA30
+17788		attr	2			Nioh3+40800
+17788		incl	3246			Nioh3+1A6BB84 272
+17788		incl	3246			Nioh3+BDB740 95
+17788		incl	206			Nioh3+3FE14
+17788		incl	204			Nioh3+40800
+17788		incl	94			Nioh3+174C9C 1262
+17788		incl	94			Nioh3+FADEA0 233
+17788		incl	84			Nioh3+567A48 831
+17788		incl	68			Nioh3+DA830
+17788		incl	56			Nioh3+403A0
+17788		incl	56			Nioh3+3E7CC
+17788		incl	47			Nioh3+FADF90 224
+17788		incl	46			Nioh3+45DCC
+17788		incl	45			Nioh3+7F9F98 437
+17788		incl	41			Nioh3+469C0
+17788		incl	41			Nioh3+10E2230 47
+17788		incl	25			Nioh3+DBA70
+17788		incl	25			Nioh3+FAE0F0 266
+17788		incl	24			Nioh3+1772B4 693
+17788		incl	23			Nioh3+DDC70
+17788		incl	23			Nioh3+10E2200 46
+17788		incl	20			Nioh3+DBB90
+17788		incl	18			Nioh3+484C0(leaf?)
+17788		incl	15			Nioh3+17771C 294
+17788		incl	13			Nioh3+130014 939
+17788		incl	13			Nioh3+12FFF4 29
+17788		incl	11			Nioh3+1196B70 924
+28820		self	149			Nioh3+117330 565
+28820		self	79			Nioh3+116D30 588
+28820		self	77			Nioh3+B36BF0 983
+28820		self	33			Nioh3+117940 461
+28820		self	13			Nioh3+B912E0 30
+28820		self	7			Nioh3+B34F60(leaf?)
+28820		self	7			Nioh3+B94230 16
+28820		self	7			Nioh3+B35CF0 1183
+28820		self	3			Nioh3+B93EE0 16
+28820		self	1			Nioh3+B35100 2425
+28820		attr	995			Nioh3+1A71FDC 98
+28820		attr	524			Nioh3+116D30 588
+28820		attr	199			Nioh3+311B40 49
+28820		attr	149			Nioh3+117330 565
+28820		attr	77			Nioh3+B36BF0 983
+28820		attr	33			Nioh3+117940 461
+28820		attr	28			Nioh3+4DA0C
+28820		attr	13			Nioh3+B912E0 30
+28820		attr	7			Nioh3+B34F60(leaf?)
+28820		attr	7			Nioh3+B94230 16
+28820		attr	7			Nioh3+B35CF0 1183
+28820		attr	3			Nioh3+B93EE0 16
+28820		attr	2			Nioh3+31182C 180
+28820		attr	2			Nioh3+38E4A4 61
+28820		attr	1			Nioh3+B35100 2425
+28820		incl	2047			Nioh3+1A71FDC 98
+28820		incl	2047			Nioh3+BDB740 95
+28820		incl	1052			Nioh3+116D30 588
+28820		incl	528			Nioh3+117330 565
+28820		incl	201			Nioh3+314098 182
+28820		incl	201			Nioh3+751784 154
+28820		incl	201			Nioh3+493050 118
+28820		incl	199			Nioh3+311B40 49
+28820		incl	142			Nioh3+117940 461
+28820		incl	97			Nioh3+38E4E4 251
+28820		incl	96			Nioh3+38E954 341
+28820		incl	95			Nioh3+B335B0 354
+28820		incl	93			Nioh3+B35100 2425
+28820		incl	93			Nioh3+B34670 1037
+28820		incl	85			Nioh3+B36460 1450
+28820		incl	77			Nioh3+B36BF0 983
+28820		incl	28			Nioh3+4DA0C
+5468		self	201			Nioh3+117090 565
+5468		self	37			Nioh3+116F80 217
+5468		self	28			Nioh3+1175C0 241
+5468		attr	1318			Nioh3+1A71FDC 98
+5468		attr	556			Nioh3+116F80 217
+5468		attr	314			Nioh3+1175C0 241
+5468		attr	201			Nioh3+117090 565
+5468		incl	2389			Nioh3+1A71FDC 98
+5468		incl	2389			Nioh3+BDB740 95
+5468		incl	1071			Nioh3+116F80 217
+5468		incl	515			Nioh3+117090 565
+5468		incl	314			Nioh3+1175C0 241
+14348		self	33			Nioh3+469C0
+14348		self	26			Nioh3+484C0(leaf?)
+14348		self	23			Nioh3+DDC70
+14348		self	20			Nioh3+47550
+14348		self	8			Nioh3+130014 939
+14348		self	8			Nioh3+411C0
+14348		self	8			Nioh3+DD7AC
+14348		self	8			Nioh3+DBB90
+14348		self	6			Nioh3+DBA70
+14348		self	6			Nioh3+D8E00
+14348		self	5			Nioh3+47DF8
+14348		self	5			Nioh3+D8C40(leaf?)
+14348		self	5			Nioh3+3BD184 699
+14348		self	4			Nioh3+DA6E0
+14348		self	4			Nioh3+211350 127
+14348		self	4			Nioh3+DA830
+14348		self	3			Nioh3+1772B4 693
+14348		self	3			Nioh3+163D20 309
+14348		self	3			Nioh3+73A2A0(leaf?) 75
+14348		self	3			Nioh3+174908 915
+14348		self	2			Nioh3+1196B70 924
+14348		self	2			Nioh3+6FA30
+14348		self	2			Nioh3+12FD24 488
+14348		self	2			Nioh3+71130
+14348		self	2			Nioh3+40800
+14348		self	2			Nioh3+3695D4 1159
+14348		self	1			Nioh3+86F020(leaf?)
+14348		self	1			Nioh3+D5D30(leaf?)
+14348		self	1			Nioh3+46840(leaf?)
+14348		attr	3833			Nioh3+1A6BB84 272
+14348		attr	33			Nioh3+469C0
+14348		attr	26			Nioh3+484C0(leaf?)
+14348		attr	23			Nioh3+DDC70
+14348		attr	20			Nioh3+47550
+14348		attr	8			Nioh3+130014 939
+14348		attr	8			Nioh3+411C0
+14348		attr	8			Nioh3+DD7AC
+14348		attr	8			Nioh3+DBB90
+14348		attr	6			Nioh3+DBA70
+14348		attr	6			Nioh3+D8E00
+14348		attr	5			Nioh3+47DF8
+14348		attr	5			Nioh3+D8C40(leaf?)
+14348		attr	5			Nioh3+3BD184 699
+14348		attr	4			Nioh3+DA6E0
+14348		attr	4			Nioh3+211350 127
+14348		attr	4			Nioh3+DA830
+14348		attr	3			Nioh3+40800
+14348		attr	3			Nioh3+1772B4 693
+14348		attr	3			Nioh3+163D20 309
+14348		incl	4063			Nioh3+1A6BB84 272
+14348		incl	4063			Nioh3+BDB740 95
+14348		incl	230			Nioh3+40800
+14348		incl	230			Nioh3+3FE14
+14348		incl	129			Nioh3+403A0
+14348		incl	129			Nioh3+3E7CC
+14348		incl	122			Nioh3+FADEA0 233
+14348		incl	111			Nioh3+174C9C 1262
+14348		incl	102			Nioh3+567A48 831
+14348		incl	90			Nioh3+DDC70
+14348		incl	90			Nioh3+10E2200 46
+14348		incl	47			Nioh3+FADF90 224
+14348		incl	44			Nioh3+7F9F98 437
+14348		incl	44			Nioh3+45DCC
+14348		incl	42			Nioh3+47550
+14348		incl	42			Nioh3+469C0
+14348		incl	42			Nioh3+10E2230 47
+14348		incl	26			Nioh3+484C0(leaf?)
+14348		incl	25			Nioh3+DA830
+14348		incl	20			Nioh3+1772B4 693
+14348		incl	20			Nioh3+FAE0F0 266
+14348		incl	19			Nioh3+207200 657
+14348		incl	12			Nioh3+82BF0
+14348		incl	12			Nioh3+315664 795
+14348		incl	12			Nioh3+DD7AC
+14348		incl	11			Nioh3+7FE68
+6072		self	27			Nioh3+469C0
+6072		self	20			Nioh3+484C0(leaf?)
+6072		self	16			Nioh3+47550
+6072		self	15			Nioh3+DDC70
+6072		self	11			Nioh3+47DF8
+6072		self	8			Nioh3+DBA70
+6072		self	7			Nioh3+411C0
+6072		self	6			Nioh3+D8C40(leaf?)
+6072		self	5			Nioh3+DA830
+6072		self	5			Nioh3+3BD184 699
+6072		self	4			Nioh3+DD570
+6072		self	3			Nioh3+211350 127
+6072		self	3			Nioh3+130014 939
+6072		self	3			Nioh3+D8E00
+6072		self	3			Nioh3+DBB90
+6072		self	3			Nioh3+DD7AC
+6072		self	3			Nioh3+DA6E0
+6072		self	2			Nioh3+1772B4 693
+6072		self	2			Nioh3+D6FF8
+6072		self	2			Nioh3+40800
+6072		self	2			Nioh3+163D20 309
+6072		self	2			Nioh3+1196B70 924
+6072		self	1			Nioh3+DDBA8
+6072		self	1			Nioh3+468C0(leaf?)
+6072		self	1			Nioh3+D8B24
+6072		self	1			Nioh3+3E7CC
+6072		self	1			Nioh3+7403F0(leaf?)
+6072		attr	3217			Nioh3+1A6BB84 272
+6072		attr	27			Nioh3+469C0
+6072		attr	20			Nioh3+484C0(leaf?)
+6072		attr	16			Nioh3+47550
+6072		attr	15			Nioh3+DDC70
+6072		attr	11			Nioh3+47DF8
+6072		attr	8			Nioh3+DBA70
+6072		attr	7			Nioh3+411C0
+6072		attr	6			Nioh3+D8C40(leaf?)
+6072		attr	5			Nioh3+DA830
+6072		attr	5			Nioh3+3BD184 699
+6072		attr	4			Nioh3+DD570
+6072		attr	3			Nioh3+211350 127
+6072		attr	3			Nioh3+130014 939
+6072		attr	3			Nioh3+D8E00
+6072		attr	3			Nioh3+40800
+6072		attr	3			Nioh3+DBB90
+6072		attr	3			Nioh3+DD7AC
+6072		attr	3			Nioh3+DA6E0
+6072		attr	2			Nioh3+1772B4 693
+6072		incl	3375			Nioh3+1A6BB84 272
+6072		incl	3375			Nioh3+BDB740 95
+6072		incl	158			Nioh3+40800
+6072		incl	158			Nioh3+3FE14
+6072		incl	74			Nioh3+10E2200 46
+6072		incl	73			Nioh3+DDC70
+6072		incl	51			Nioh3+403A0
+6072		incl	51			Nioh3+3E7CC
+6072		incl	44			Nioh3+FADEA0 233
+6072		incl	42			Nioh3+174C9C 1262
+6072		incl	41			Nioh3+567A48 831
+6072		incl	36			Nioh3+47550
+6072		incl	34			Nioh3+469C0
+6072		incl	34			Nioh3+10E2230 47
+6072		incl	32			Nioh3+FADF90 224
+6072		incl	30			Nioh3+7F9F98 437
+6072		incl	30			Nioh3+45DCC
+6072		incl	22			Nioh3+DA830
+6072		incl	20			Nioh3+484C0(leaf?)
+6072		incl	11			Nioh3+207200 657
+6072		incl	11			Nioh3+47DF8
+6072		incl	8			Nioh3+DBA70
+6072		incl	7			Nioh3+411C0
+6072		incl	6			Nioh3+DD7AC
+6072		incl	6			Nioh3+1196B70 924
+6072		incl	6			Nioh3+DBB90
+5832		self	139			Nioh3+48E90
+5832		self	40			Nioh3+2515B0(leaf?) 92
+5832		self	3			Nioh3+49950
+5832		self	3			Nioh3+116A24 513
+5832		self	2			Nioh3+117BE0 76
+5832		self	2			Nioh3+3FE14
+5832		self	1			Nioh3+49D5C
+5832		self	1			Nioh3+40800
+5832		self	1			Nioh3+251554 87
+5832		self	1			Nioh3+411C0
+5832		attr	1503			Nioh3+1A6BB84 272
+5832		attr	139			Nioh3+48E90
+5832		attr	40			Nioh3+2515B0(leaf?) 92
+5832		attr	6			Nioh3+49D5C
+5832		attr	4			Nioh3+40800
+5832		attr	3			Nioh3+49950
+5832		attr	3			Nioh3+116A24 513
+5832		attr	2			Nioh3+117BE0 76
+5832		attr	2			Nioh3+3FE14
+5832		attr	1			Nioh3+251554 87
+5832		attr	1			Nioh3+411C0
+5832		incl	1704			Nioh3+1A6BB84 272
+5832		incl	1704			Nioh3+BDB740 95
+5832		incl	201			Nioh3+3FE14
+5832		incl	198			Nioh3+40800
+5832		incl	194			Nioh3+48E90
+5832		incl	52			Nioh3+49D5C
+5832		incl	44			Nioh3+116A24 513
+5832		incl	41			Nioh3+251554 87
+5832		incl	40			Nioh3+2515B0(leaf?) 92
+5832		incl	3			Nioh3+49950
+5832		incl	2			Nioh3+117BE0 76
+5832		incl	2			Nioh3+1169EC 53
+5832		incl	1			Nioh3+411C0
+21472		self	88			Nioh3+1989F0 1194
+21472		self	18			Nioh3+168580 2733
+21472		self	12			Nioh3+198410 637
+21472		self	11			Nioh3+16B030 623
+21472		self	9			Nioh3+6A8F0(leaf?)
+21472		self	6			Nioh3+6F3F0
+21472		self	5			Nioh3+21ADF0 124
+21472		self	5			Nioh3+19AD90(leaf?) 18
+21472		self	5			Nioh3+199D04 1348
+21472		self	4			Nioh3+6F060(leaf?)
+21472		self	4			Nioh3+19B9C4 140
+21472		self	2			Nioh3+FFF6C0 1834
+21472		self	2			Nioh3+19E230 1321
+21472		self	2			Nioh3+168E80(leaf?) 18
+21472		self	2			Nioh3+130A20(leaf?)
+21472		self	2			Nioh3+167D70 145
+21472		self	1			Nioh3+B93F00 360
+21472		self	1			Nioh3+167B30(leaf?) 25
+21472		self	1			Nioh3+16E760 628
+21472		self	1			Nioh3+3D7CC8 85
+21472		self	1			Nioh3+72630
+21472		self	1			Nioh3+19EDA0(leaf?)
+21472		self	1			Nioh3+D3960(leaf?)
+21472		self	1			Nioh3+71090(leaf?)
+21472		self	1			Nioh3+199A40 47
+21472		self	1			Nioh3+10262A0(leaf?)
+21472		attr	1783			Nioh3+B616A4 39
+21472		attr	88			Nioh3+1989F0 1194
+21472		attr	44			Nioh3+B61524 38
+21472		attr	18			Nioh3+168580 2733
+21472		attr	12			Nioh3+198410 637
+21472		attr	11			Nioh3+16B030 623
+21472		attr	9			Nioh3+6A8F0(leaf?)
+21472		attr	6			Nioh3+6F3F0
+21472		attr	5			Nioh3+21ADF0 124
+21472		attr	5			Nioh3+19AD90(leaf?) 18
+21472		attr	5			Nioh3+199D04 1348
+21472		attr	4			Nioh3+6F060(leaf?)
+21472		attr	4			Nioh3+19B9C4 140
+21472		attr	2			Nioh3+FFF6C0 1834
+21472		attr	2			Nioh3+19E230 1321
+21472		attr	2			Nioh3+168E80(leaf?) 18
+21472		attr	2			Nioh3+BF049C 61
+21472		attr	2			Nioh3+130A20(leaf?)
+21472		attr	2			Nioh3+167D70 145
+21472		attr	1			Nioh3+B93F00 360
+21472		incl	2017			Nioh3+1A7A6FC 105
+21472		incl	2017			Nioh3+5B6670 77
+21472		incl	2017			Nioh3+BDB740 95
+21472		incl	1784			Nioh3+3D7CC8 85
+21472		incl	1783			Nioh3+B616A4 39
+21472		incl	1783			Nioh3+B618E8 84
+21472		incl	190			Nioh3+FFF6C0 1834
+21472		incl	189			Nioh3+3D7AA8 45
+21472		incl	159			Nioh3+71C280 1690
+21472		incl	158			Nioh3+71C200 225
+21472		incl	142			Nioh3+1989F0 1194
+21472		incl	58			Nioh3+199D04 1348
+21472		incl	51			Nioh3+168580 2733
+21472		incl	44			Nioh3+B61524 38
+21472		incl	20			Nioh3+B79F8
+21472		incl	14			Nioh3+198410 637
+21472		incl	12			Nioh3+16B030 623
+21472		incl	9			Nioh3+6A8F0(leaf?)
+21472		incl	6			Nioh3+6F3F0
+21472		incl	5			Nioh3+21ADF0 124
+21472		incl	5			Nioh3+19AD90(leaf?) 18
+21472		incl	4			Nioh3+6F060(leaf?)
+21472		incl	4			Nioh3+19B9C4 140
+6700		self	14			Nioh3+17A1B40
+6700		self	8			Nioh3+CC490
+6700		self	8			Nioh3+246BD0 394
+6700		self	8			Nioh3+889C0
+6700		self	6			Nioh3+B5E2C
+6700		self	5			Nioh3+37D7A0(leaf?) 27
+6700		self	4			Nioh3+B94250 1363
+6700		self	2			Nioh3+D1908
+6700		self	2			Nioh3+89500
+6700		self	2			Nioh3+203BD4 538
+6700		self	2			Nioh3+2229A4 2287
+6700		self	2			Nioh3+505A74 128
+6700		self	2			Nioh3+240100 1242
+6700		self	2			Nioh3+B94230 16
+6700		self	2			Nioh3+54360
+6700		self	1			Nioh3+86DEC
+6700		self	1			Nioh3+37DAAC 1540
+6700		self	1			Nioh3+173DE0(leaf?)
+6700		self	1			Nioh3+50521C 1178
+6700		self	1			Nioh3+4060E0 314
+6700		self	1			Nioh3+83E14
+6700		self	1			Nioh3+246F50 318
+6700		self	1			Nioh3+17164C 1294
+6700		self	1			Nioh3+4082B4 903
+6700		self	1			Nioh3+394A90 214
+6700		self	1			Nioh3+37E290 802
+6700		self	1			Nioh3+CE5F0
+6700		attr	1318			Nioh3+1A6BB84 272
+6700		attr	14			Nioh3+17A1B40
+6700		attr	8			Nioh3+CC490
+6700		attr	8			Nioh3+246BD0 394
+6700		attr	8			Nioh3+889C0
+6700		attr	6			Nioh3+B5E2C
+6700		attr	5			Nioh3+37D7A0(leaf?) 27
+6700		attr	4			Nioh3+B94250 1363
+6700		attr	2			Nioh3+D1908
+6700		attr	2			Nioh3+89500
+6700		attr	2			Nioh3+203BD4 538
+6700		attr	2			Nioh3+2229A4 2287
+6700		attr	2			Nioh3+505A74 128
+6700		attr	2			Nioh3+240100 1242
+6700		attr	2			Nioh3+B94230 16
+6700		attr	2			Nioh3+B61524 38
+6700		attr	2			Nioh3+54360
+6700		attr	1			Nioh3+86DEC
+6700		attr	1			Nioh3+37DAAC 1540
+6700		attr	1			Nioh3+173DE0(leaf?)
+6700		incl	1385			Nioh3+1A6BB84 272
+6700		incl	1385			Nioh3+BDB740 95
+6700		incl	67			Nioh3+40800
+6700		incl	67			Nioh3+3FE14
+6700		incl	49			Nioh3+404780 2055
+6700		incl	49			Nioh3+4032E8 79
+6700		incl	33			Nioh3+17A1B40
+6700		incl	29			Nioh3+37DAAC 1540
+6700		incl	22			Nioh3+408094 543
+6700		incl	18			Nioh3+83E14
+6700		incl	17			Nioh3+CC490
+6700		incl	17			Nioh3+B5E2C
+6700		incl	15			Nioh3+8825C
+6700		incl	15			Nioh3+406D10 339
+6700		incl	15			Nioh3+84394
+6700		incl	15			Nioh3+8437C
+6700		incl	14			Nioh3+6EE74C 222
+6700		incl	14			Nioh3+3834E0 356
+6700		incl	14			Nioh3+1A3250 2344
+6700		incl	14			Nioh3+6EE59C 88
+6700		incl	14			Nioh3+72730
+6700		incl	14			Nioh3+6EA50
+6700		incl	13			Nioh3+86DEC
+6700		incl	12			Nioh3+87CF8
+6700		incl	12			Nioh3+407098 495
+6700		incl	12			Nioh3+407070 38
+6288		self	30			Nioh3+D80B0
+6288		self	12			Nioh3+D8B70
+6288		self	5			Nioh3+D8700(leaf?)
+6288		self	4			Nioh3+D8C40(leaf?)
+6288		self	2			Nioh3+D89E0
+6288		self	2			Nioh3+43CEC
+6288		self	1			Nioh3+43AEC
+6288		self	1			Nioh3+168E80(leaf?) 18
+6288		self	1			Nioh3+12E43C 126
+6288		attr	1393			Nioh3+1A6BB84 272
+6288		attr	30			Nioh3+D80B0
+6288		attr	12			Nioh3+D8B70
+6288		attr	5			Nioh3+D8700(leaf?)
+6288		attr	4			Nioh3+D8C40(leaf?)
+6288		attr	2			Nioh3+D89E0
+6288		attr	2			Nioh3+43CEC
+6288		attr	1			Nioh3+43AEC
+6288		attr	1			Nioh3+168E80(leaf?) 18
+6288		attr	1			Nioh3+12E43C 126
+6288		incl	1451			Nioh3+1A6BB84 272
+6288		incl	1451			Nioh3+BDB740 95
+6288		incl	58			Nioh3+40800
+6288		incl	58			Nioh3+3FE14
+6288		incl	54			Nioh3+D80B0
+6288		incl	54			Nioh3+319D5C 164
+6288		incl	14			Nioh3+D89E0
+6288		incl	13			Nioh3+D8B70
+6288		incl	5			Nioh3+D8700(leaf?)
+6288		incl	4			Nioh3+D8C40(leaf?)
+6288		incl	4			Nioh3+43CEC
+6288		incl	4			Nioh3+7464BC 60
+6288		incl	1			Nioh3+43AEC
+6288		incl	1			Nioh3+168E80(leaf?) 18
+6288		incl	1			Nioh3+2D9EE0 48
+6288		incl	1			Nioh3+D6E9C
+6288		incl	1			Nioh3+12E43C 126
+6288		incl	1			Nioh3+12E41C 29
+6288		incl	1			Nioh3+368A24 90
+6288		incl	1			Nioh3+368980 107
+24616		self	5			Nioh3+219E80 844
+24616		self	4			Nioh3+6D360
+24616		self	2			Nioh3+C7F4C
+24616		self	1			Nioh3+BDB540(leaf?)
+24616		self	1			Nioh3+CE79C
+24616		self	1			Nioh3+3E844
+24616		self	1			Nioh3+C8498
+24616		attr	317			Nioh3+B616A4 39
+24616		attr	5			Nioh3+219E80 844
+24616		attr	4			Nioh3+6D360
+24616		attr	2			Nioh3+C7F4C
+24616		attr	1			Nioh3+BDB540(leaf?)
+24616		attr	1			Nioh3+CE79C
+24616		attr	1			Nioh3+3E844
+24616		attr	1			Nioh3+C8498
+24616		incl	332			Nioh3+1A7A774 106
+24616		incl	332			Nioh3+5B6670 77
+24616		incl	332			Nioh3+BDB740 95
+24616		incl	317			Nioh3+B616A4 39
+24616		incl	317			Nioh3+B618E8 84
+24616		incl	317			Nioh3+3D7CC8 85
+24616		incl	15			Nioh3+3D83BC 442
+24616		incl	14			Nioh3+C8498
+24616		incl	14			Nioh3+C7F4C
+24616		incl	14			Nioh3+C7A7C
+24616		incl	14			Nioh3+3D9F64 350
+24616		incl	10			Nioh3+D1444
+24616		incl	8			Nioh3+CE7E0
+24616		incl	6			Nioh3+CE79C
+24616		incl	6			Nioh3+CE73C
+24616		incl	5			Nioh3+219E80 844
+24616		incl	4			Nioh3+6D360
+24616		incl	3			Nioh3+CD4D8
+24616		incl	3			Nioh3+CE174
+24616		incl	1			Nioh3+BDB540(leaf?)
+24616		incl	1			Nioh3+CA7C0
+24616		incl	1			Nioh3+21B5FC 4470
+24616		incl	1			Nioh3+2197E4 1192
+24616		incl	1			Nioh3+219744 185
+24616		incl	1			Nioh3+C8958
+6896		self	4			Nioh3+D0F48
+6896		self	3			Nioh3+CE7E0
+6896		self	2			Nioh3+CBD6C
+6896		self	1			Nioh3+C7A7C
+6896		self	1			Nioh3+C7F4C
+6896		self	1			Nioh3+59F498 666
+6896		self	1			Nioh3+696278 178
+6896		self	1			Nioh3+216BC8 1332
+6896		self	1			Nioh3+18EE310(leaf?)
+6896		self	1			Nioh3+D1444
+6896		attr	680			Nioh3+B616A4 39
+6896		attr	4			Nioh3+D0F48
+6896		attr	3			Nioh3+CE7E0
+6896		attr	2			Nioh3+CBD6C
+6896		attr	1			Nioh3+C7A7C
+6896		attr	1			Nioh3+C7F4C
+6896		attr	1			Nioh3+59F498 666
+6896		attr	1			Nioh3+696278 178
+6896		attr	1			Nioh3+216BC8 1332
+6896		attr	1			Nioh3+18EE310(leaf?)
+6896		attr	1			Nioh3+D1444
+6896		incl	696			Nioh3+1A7A774 106
+6896		incl	696			Nioh3+5B6670 77
+6896		incl	696			Nioh3+BDB740 95
+6896		incl	680			Nioh3+B616A4 39
+6896		incl	680			Nioh3+B618E8 84
+6896		incl	680			Nioh3+3D7CC8 85
+6896		incl	16			Nioh3+C7A7C
+6896		incl	16			Nioh3+3D9F64 350
+6896		incl	16			Nioh3+3D83BC 442
+6896		incl	15			Nioh3+C7F4C
+6896		incl	15			Nioh3+C8498
+6896		incl	7			Nioh3+216BC8 1332
+6896		incl	7			Nioh3+216B34 196
+6896		incl	5			Nioh3+CE7E0
+6896		incl	5			Nioh3+D1444
+6896		incl	4			Nioh3+D0F48
+6896		incl	4			Nioh3+59F498 666
+6896		incl	4			Nioh3+219E80 844
+6896		incl	4			Nioh3+CE79C
+6896		incl	4			Nioh3+CE73C
+6896		incl	3			Nioh3+CBD6C
+6896		incl	2			Nioh3+C8958
+6896		incl	1			Nioh3+59F750 221
+6896		incl	1			Nioh3+CD4D8
+6896		incl	1			Nioh3+696278 178
+19660		self	4			Nioh3+CE7E0
+19660		self	2			Nioh3+C8958
+19660		self	2			Nioh3+219E80 844
+19660		self	1			Nioh3+C7F4C
+19660		self	1			Nioh3+CE5F0
+19660		self	1			Nioh3+6D360
+19660		self	1			Nioh3+21C4F0(leaf?) 74
+19660		self	1			Nioh3+C7A7C
+19660		attr	669			Nioh3+B616A4 39
+19660		attr	4			Nioh3+CE7E0
+19660		attr	2			Nioh3+C8958
+19660		attr	2			Nioh3+219E80 844
+19660		attr	1			Nioh3+C7F4C
+19660		attr	1			Nioh3+CE5F0
+19660		attr	1			Nioh3+6D360
+19660		attr	1			Nioh3+21C4F0(leaf?) 74
+19660		attr	1			Nioh3+C7A7C
+19660		incl	682			Nioh3+1A7A774 106
+19660		incl	682			Nioh3+5B6670 77
+19660		incl	682			Nioh3+BDB740 95
+19660		incl	669			Nioh3+B616A4 39
+19660		incl	669			Nioh3+B618E8 84
+19660		incl	669			Nioh3+3D7CC8 85
+19660		incl	13			Nioh3+C7A7C
+19660		incl	13			Nioh3+3D9F64 350
+19660		incl	13			Nioh3+3D83BC 442
+19660		incl	12			Nioh3+C7F4C
+19660		incl	12			Nioh3+C8498
+19660		incl	5			Nioh3+D1444
+19660		incl	4			Nioh3+C8958
+19660		incl	4			Nioh3+CE7E0
+19660		incl	3			Nioh3+219E80 844
+19660		incl	3			Nioh3+CE79C
+19660		incl	3			Nioh3+CD4D8
+19660		incl	3			Nioh3+CE73C
+19660		incl	2			Nioh3+CE174
+19660		incl	1			Nioh3+CE5F0
+19660		incl	1			Nioh3+2202C4 1414
+19660		incl	1			Nioh3+6D360
+19660		incl	1			Nioh3+21C4F0(leaf?) 74
+19660		incl	1			Nioh3+219B28 73
+30360		self	24			Nioh3+48E90
+30360		self	4			Nioh3+2515B0(leaf?) 92
+30360		self	1			Nioh3+49950
+30360		self	1			Nioh3+411C0
+30360		attr	341			Nioh3+1A6BB84 272
+30360		attr	24			Nioh3+48E90
+30360		attr	4			Nioh3+2515B0(leaf?) 92
+30360		attr	2			Nioh3+49D5C
+30360		attr	1			Nioh3+49950
+30360		attr	1			Nioh3+411C0
+30360		incl	373			Nioh3+1A6BB84 272
+30360		incl	373			Nioh3+BDB740 95
+30360		incl	32			Nioh3+3FE14
+30360		incl	31			Nioh3+48E90
+30360		incl	31			Nioh3+40800
+30360		incl	6			Nioh3+49D5C
+30360		incl	4			Nioh3+2515B0(leaf?) 92
+30360		incl	4			Nioh3+251554 87
+30360		incl	4			Nioh3+116A24 513
+30360		incl	1			Nioh3+49950
+30360		incl	1			Nioh3+411C0
+6096		self	1			Nioh3+C8958
+6096		self	1			Nioh3+18EE310(leaf?)
+6096		attr	330			Nioh3+B616A4 39
+6096		attr	1			Nioh3+C8958
+6096		attr	1			Nioh3+18EE310(leaf?)
+6096		incl	332			Nioh3+1A7A774 106
+6096		incl	332			Nioh3+5B6670 77
+6096		incl	332			Nioh3+BDB740 95
+6096		incl	330			Nioh3+B616A4 39
+6096		incl	330			Nioh3+B618E8 84
+6096		incl	330			Nioh3+3D7CC8 85
+6096		incl	2			Nioh3+C8498
+6096		incl	2			Nioh3+C7F4C
+6096		incl	2			Nioh3+C7A7C
+6096		incl	2			Nioh3+3D9F64 350
+6096		incl	2			Nioh3+3D83BC 442
+6096		incl	1			Nioh3+C8958
+6096		incl	1			Nioh3+18EE310(leaf?)
+6096		incl	1			Nioh3+CBD6C
+6096		incl	1			Nioh3+59F498 666
+6096		incl	1			Nioh3+59F750 221
+6096		incl	1			Nioh3+219B28 73
+6096		incl	1			Nioh3+219E80 844
+6096		incl	1			Nioh3+CE79C
+6096		incl	1			Nioh3+CD4D8
+6096		incl	1			Nioh3+CE73C
+6096		incl	1			Nioh3+D1444
+25192		self	2			Nioh3+219E80 844
+25192		self	2			Nioh3+C8958
+25192		self	2			Nioh3+616F20(leaf?)
+25192		self	1			Nioh3+C646C
+25192		self	1			Nioh3+D3214
+25192		self	1			Nioh3+18EE664 577
+25192		self	1			Nioh3+1E63A0(leaf?)
+25192		self	1			Nioh3+C7F4C
+25192		attr	671			Nioh3+B616A4 39
+25192		attr	2			Nioh3+219E80 844
+25192		attr	2			Nioh3+C8958
+25192		attr	2			Nioh3+616F20(leaf?)
+25192		attr	1			Nioh3+C646C
+25192		attr	1			Nioh3+D3214
+25192		attr	1			Nioh3+18EE664 577
+25192		attr	1			Nioh3+1E63A0(leaf?)
+25192		attr	1			Nioh3+C7F4C
+25192		incl	682			Nioh3+1A7A774 106
+25192		incl	682			Nioh3+5B6670 77
+25192		incl	682			Nioh3+BDB740 95
+25192		incl	671			Nioh3+B616A4 39
+25192		incl	671			Nioh3+B618E8 84
+25192		incl	671			Nioh3+3D7CC8 85
+25192		incl	11			Nioh3+C7F4C
+25192		incl	11			Nioh3+C7A7C
+25192		incl	11			Nioh3+3D9F64 350
+25192		incl	11			Nioh3+3D83BC 442
+25192		incl	10			Nioh3+C8498
+25192		incl	3			Nioh3+C8958
+25192		incl	2			Nioh3+219E80 844
+25192		incl	2			Nioh3+CE79C
+25192		incl	2			Nioh3+CD4D8
+25192		incl	2			Nioh3+CE73C
+25192		incl	2			Nioh3+D1444
+25192		incl	2			Nioh3+CE7E0
+25192		incl	2			Nioh3+616F20(leaf?)
+25192		incl	1			Nioh3+C646C
+25192		incl	1			Nioh3+D3214
+25192		incl	1			Nioh3+18EE664 577
+25192		incl	1			Nioh3+D1110
+25192		incl	1			Nioh3+1E63A0(leaf?)
+29764		self	2			Nioh3+CE7E0
+29764		self	2			Nioh3+6D360
+29764		self	1			Nioh3+C8958
+29764		self	1			Nioh3+71B25C 648
+29764		self	1			Nioh3+D0F48
+29764		self	1			Nioh3+D1110
+29764		attr	340			Nioh3+B616A4 39
+29764		attr	2			Nioh3+CE7E0
+29764		attr	2			Nioh3+6D360
+29764		attr	1			Nioh3+C8958
+29764		attr	1			Nioh3+71B25C 648
+29764		attr	1			Nioh3+D0F48
+29764		attr	1			Nioh3+D1110
+29764		incl	348			Nioh3+1A7A774 106
+29764		incl	348			Nioh3+5B6670 77
+29764		incl	348			Nioh3+BDB740 95
+29764		incl	340			Nioh3+B616A4 39
+29764		incl	340			Nioh3+B618E8 84
+29764		incl	340			Nioh3+3D7CC8 85
+29764		incl	8			Nioh3+C8498
+29764		incl	8			Nioh3+C7F4C
+29764		incl	8			Nioh3+C7A7C
+29764		incl	8			Nioh3+3D9F64 350
+29764		incl	8			Nioh3+3D83BC 442
+29764		incl	5			Nioh3+CE7E0
+29764		incl	3			Nioh3+C8958
+29764		incl	3			Nioh3+D1444
+29764		incl	2			Nioh3+6D360
+29764		incl	2			Nioh3+CE174
+29764		incl	1			Nioh3+71B25C 648
+29764		incl	1			Nioh3+2202C4 1414
+29764		incl	1			Nioh3+D0F48
+29764		incl	1			Nioh3+D1110
+27152		self	2			Nioh3+431690 135
+27152		self	1			Nioh3+43140C 235
+27152		self	1			Nioh3+432DE0 538
+27152		self	1			Nioh3+437290 366
+27152		self	1			Nioh3+F32D0(leaf?)
+27152		self	1			Nioh3+431E6C 135
+27152		self	1			Nioh3+432CB0 152
+27152		attr	719			Nioh3+B616A4 39
+27152		attr	20			Nioh3+435B8C 293
+27152		attr	3			Nioh3+435D58 176
+27152		attr	2			Nioh3+431690 135
+27152		attr	2			Nioh3+435864 667
+27152		attr	1			Nioh3+43140C 235
+27152		attr	1			Nioh3+432DE0 538
+27152		attr	1			Nioh3+437290 366
+27152		attr	1			Nioh3+F32D0(leaf?)
+27152		attr	1			Nioh3+431E6C 135
+27152		attr	1			Nioh3+432CB0 152
+27152		incl	749			Nioh3+1A7B8B4 106
+27152		incl	749			Nioh3+5B6670 77
+27152		incl	749			Nioh3+BDB740 95
+27152		incl	719			Nioh3+B616A4 39
+27152		incl	719			Nioh3+B618E8 84
+27152		incl	719			Nioh3+3D7CC8 85
+27152		incl	30			Nioh3+435418 46
+27152		incl	28			Nioh3+43671C 768
+27152		incl	28			Nioh3+437258 26
+27152		incl	23			Nioh3+434D24 124
+27152		incl	20			Nioh3+435B8C 293
+27152		incl	20			Nioh3+435B1C 359
+27152		incl	3			Nioh3+4385B8 75
+23548		self	7			Nioh3+2086E8 6087
+23548		self	4			Nioh3+D7238
+23548		self	3			Nioh3+2124A4 9444
+23548		self	2			Nioh3+1323080 742
+23548		self	1			Nioh3+B4FC0(leaf?)
+23548		self	1			Nioh3+462E4
+23548		self	1			Nioh3+210C54 1107
+23548		self	1			Nioh3+7A6A70 364
+23548		attr	329			Nioh3+1A6BB84 272
+23548		attr	7			Nioh3+2086E8 6087
+23548		attr	4			Nioh3+D7238
+23548		attr	3			Nioh3+2124A4 9444
+23548		attr	2			Nioh3+1323080 742
+23548		attr	1			Nioh3+B4FC0(leaf?)
+23548		attr	1			Nioh3+462E4
+23548		attr	1			Nioh3+210C54 1107
+23548		attr	1			Nioh3+7A6A70 364
+23548		incl	349			Nioh3+1A6BB84 272
+23548		incl	349			Nioh3+BDB740 95
+23548		incl	20			Nioh3+40800
+23548		incl	20			Nioh3+3FE14
+23548		incl	14			Nioh3+2086E8 6087
+23548		incl	14			Nioh3+1322F90 225
+23548		incl	6			Nioh3+1323080 742
+23548		incl	5			Nioh3+D7238
+23548		incl	4			Nioh3+2124A4 9444
+23548		incl	1			Nioh3+B4FC0(leaf?)
+23548		incl	1			Nioh3+462E4
+23548		incl	1			Nioh3+210C54 1107
+23548		incl	1			Nioh3+7A6A70 364
+21756		attr	342			Nioh3+1A82298 126
+21756		incl	342			Nioh3+1A82298 126
+21756		incl	342			Nioh3+2EEA344 16
+21756		incl	342			Nioh3+BDB740 95
+29372		self	9			Nioh3+D7238
+29372		self	5			Nioh3+2086E8 6087
+29372		self	2			Nioh3+D8700(leaf?)
+29372		self	2			Nioh3+2124A4 9444
+29372		self	1			Nioh3+209EB0 206
+29372		self	1			Nioh3+D8B70
+29372		attr	329			Nioh3+1A6BB84 272
+29372		attr	9			Nioh3+D7238
+29372		attr	5			Nioh3+2086E8 6087
+29372		attr	2			Nioh3+D8700(leaf?)
+29372		attr	2			Nioh3+2124A4 9444
+29372		attr	1			Nioh3+209EB0 206
+29372		attr	1			Nioh3+D8B70
+29372		incl	349			Nioh3+1A6BB84 272
+29372		incl	349			Nioh3+BDB740 95
+29372		incl	20			Nioh3+40800
+29372		incl	20			Nioh3+3FE14
+29372		incl	15			Nioh3+2086E8 6087
+29372		incl	15			Nioh3+1322F90 225
+29372		incl	9			Nioh3+D7238
+29372		incl	5			Nioh3+2124A4 9444
+29372		incl	5			Nioh3+1323080 742
+29372		incl	3			Nioh3+19CA9C 584
+29372		incl	2			Nioh3+D8700(leaf?)
+29372		incl	1			Nioh3+209EB0 206
+29372		incl	1			Nioh3+D8B70
+29372		incl	1			Nioh3+D89E0
+30012		self	1			Nioh3+65F64
+30012		self	1			Nioh3+3FAD8
+30012		self	1			Nioh3+699F8
+30012		self	1			Nioh3+BDE680 1339
+30012		self	1			Nioh3+66D00
+30012		attr	348			Nioh3+1A6BB84 272
+30012		attr	1			Nioh3+65F64
+30012		attr	1			Nioh3+3FAD8
+30012		attr	1			Nioh3+699F8
+30012		attr	1			Nioh3+BDE680 1339
+30012		attr	1			Nioh3+66D00
+30012		attr	1			Nioh3+40800
+30012		incl	352			Nioh3+1A6BB84 272
+30012		incl	352			Nioh3+BDB740 95
+30012		incl	6			Nioh3+40800
+30012		incl	4			Nioh3+65F64
+30012		incl	4			Nioh3+1196290 145
+30012		incl	4			Nioh3+207200 657
+30012		incl	4			Nioh3+3FE14
+30012		incl	3			Nioh3+25333C 806
+30012		incl	3			Nioh3+1196230 87
+30012		incl	2			Nioh3+403A0
+30012		incl	2			Nioh3+3E7CC
+30012		incl	1			Nioh3+3FAD8
+30012		incl	1			Nioh3+699F8
+30012		incl	1			Nioh3+66768
+30012		incl	1			Nioh3+BDE680 1339
+30012		incl	1			Nioh3+64B68
+30012		incl	1			Nioh3+65214
+30012		incl	1			Nioh3+646CC
+30012		incl	1			Nioh3+66D00
+30012		incl	1			Nioh3+66A98

@@ -1,0 +1,3145 @@
+# Ally sampling profiler (SP) blocks: thread-group headers with sample counts, then rows "<group> <pct> % [<- ]fn 0xRVA"
+SP main [App]Game: 24623 samples
+SP main 86.7 % <- fn 0x7D9E90
+SP main 1.9 % <- fn 0x1A74130
+SP main 1.1 % fn 0x61B1C
+SP main 1.0 % <- fn 0x1A74130
+SP main 0.7 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x620FA
+SP main 0.6 % fn 0x5DF70
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x1A74130
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % fn 0x113204
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x62408
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.1 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x40800
+SP kidsTS 0.1 % fn 0x415080
+SP kidsTS 0.1 % fn 0x23C9BC
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % <- fn 0x48B9C
+SP kidsTS 0.1 % fn 0x2341BC
+SP kidsTS 0.1 % fn 0x3F9487
+SP kidsTS 0.1 % <- fn 0x8DAD94
+SP kidsTS 0.1 % fn 0x3DAB5
+SP kidsTS 0.1 % fn 0x4F9CB4
+SP kidsTS 0.1 % fn 0xB94250
+SP kidsTS 0.1 % fn 0x5ACF80
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % <- fn 0x564C5C
+SP KIDSTS: 14791 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x411C0
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % fn 0x6B4DC0
+SP kidsts 0.0 % <- fn 0x40800
+SP SynergisticDispatcher: 192 samples
+SP dispatch 92.2 % <- fn 0x4930C8
+SP dispatch 2.1 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7F64DC
+SP dispatch 1.0 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x49349C
+SP dispatch 0.5 % <- fn 0x45A654
+SP dispatch 0.5 % <- fn 0x115E24
+SP dispatch 0.5 % fn 0x45A42C
+SP [App] other: 8104 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.3 % <- fn 0xAF7020
+SP app 0.0 % fn 0x43065C
+SP app 0.0 % fn 0x432CB0
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x433764
+SP app 0.0 % fn 0x431690
+SP main [App]Game: 24458 samples
+SP main 89.9 % <- fn 0x7D9E90
+SP main 1.1 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x247950
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x5E071
+SP main 0.1 % fn 0x113150
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % <- fn 0x6B8F64
+SP KIDSTaskScheduler: 1528 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.6 % <- fn 0x5AD560
+SP kidsTS 0.7 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x1A6014
+SP kidsTS 0.1 % fn 0x48DF8
+SP kidsTS 0.1 % fn 0x66E73
+SP kidsTS 0.1 % fn 0x167D7D
+SP KIDSTS: 14717 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x411C0
+SP kidsts 0.0 % fn 0x175253
+SP SynergisticDispatcher: 191 samples
+SP dispatch 94.2 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x7471BC
+SP dispatch 1.0 % <- fn 0x7F64DC
+SP dispatch 1.0 % <- fn 0x1A7C3E0
+SP dispatch 0.5 % <- fn 0x114024
+SP [App] other: 8022 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.3 % <- fn 0xAF7020
+SP app 0.0 % fn 0x4EFA88
+SP app 0.0 % <- fn 0x48C84
+SP app 0.0 % <- fn 0x99F5C0
+SP app 0.0 % <- fn 0x19A98F6
+SP main [App]Game: 24136 samples
+SP main 89.7 % <- fn 0x7D9E90
+SP main 0.9 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x1D84F8
+SP main 0.1 % fn 0x14FAD8
+SP KIDSTaskScheduler: 1512 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.3 % <- fn 0x5AD560
+SP kidsTS 0.3 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x4EFA88
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0xA6C961
+SP kidsTS 0.1 % fn 0x133628
+SP kidsTS 0.1 % fn 0x1CF2AC
+SP kidsTS 0.1 % fn 0xFF6DB0
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x1C7424
+SP kidsTS 0.1 % fn 0x855E48
+SP kidsTS 0.1 % fn 0x1C9BEC
+SP kidsTS 0.1 % fn 0x247950
+SP KIDSTS: 14536 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x207200
+SP kidsts 0.0 % fn 0x585A74
+SP SynergisticDispatcher: 189 samples
+SP dispatch 94.2 % <- fn 0x4930C8
+SP dispatch 2.1 % <- fn 0x1A7C3E0
+SP dispatch 2.1 % <- fn 0x7F64DC
+SP dispatch 1.1 % <- fn 0x7471BC
+SP [App] other: 7899 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.2 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0xAF7020
+SP main [App]Game: 24446 samples
+SP main 89.7 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % fn 0x5DF70
+SP main 0.4 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.3 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x247950
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x14FAD8
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x5E071
+SP main 0.1 % fn 0x2523FC
+SP KIDSTaskScheduler: 1528 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.5 % <- fn 0x5AD560
+SP kidsTS 0.3 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x133628
+SP kidsTS 0.1 % <- fn 0xB60E98
+SP kidsTS 0.1 % fn 0x3DAB5
+SP kidsTS 0.1 % fn 0x4FBED6
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0x231BA8
+SP KIDSTS: 14707 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x3DAB5
+SP SynergisticDispatcher: 191 samples
+SP dispatch 92.7 % <- fn 0x4930C8
+SP dispatch 3.1 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x58BDC4
+SP dispatch 0.5 % <- fn 0x7F64DC
+SP dispatch 0.5 % fn 0x1160B0
+SP dispatch 0.5 % <- fn 0x113E64
+SP [App] other: 8020 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.3 % <- fn 0xAF7020
+SP app 0.0 % fn 0x911388
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x266A84
+SP app 0.0 % fn 0x4EFB01
+SP main [App]Game: 24578 samples
+SP main 89.9 % <- fn 0x7D9E90
+SP main 1.1 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % fn 0x620FA
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x113204
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x5E071
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % <- fn 0x113DD4
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.4 % <- fn 0x5AD560
+SP kidsTS 0.4 % <- fn 0x916EBC
+SP kidsTS 0.2 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0x5D5964
+SP kidsTS 0.1 % fn 0x670B5
+SP kidsTS 0.1 % fn 0x204DFB
+SP kidsTS 0.1 % fn 0x5A7B34
+SP kidsTS 0.1 % fn 0xB94250
+SP kidsTS 0.1 % fn 0x1CCE70
+SP kidsTS 0.1 % fn 0x5AC9EC
+SP kidsTS 0.1 % fn 0x54360
+SP KIDSTS: 14784 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP SynergisticDispatcher: 192 samples
+SP dispatch 94.3 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x7F64DC
+SP dispatch 0.5 % <- fn 0x49349C
+SP dispatch 0.5 % <- fn 0x115DE8
+SP dispatch 0.5 % <- fn 0x49349C
+SP dispatch 0.5 % <- fn 0x7A728C
+SP dispatch 0.5 % fn 0x458E34
+SP [App] other: 8066 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.1 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x435748
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0x99F5C0
+SP app 0.0 % fn 0x433764
+SP app 0.0 % fn 0x2F5CAC
+SP main [App]Game: 24421 samples
+SP main 89.8 % <- fn 0x7D9E90
+SP main 0.9 % fn 0x61B1C
+SP main 0.7 % fn 0x418F40
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % fn 0x247950
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x113150
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x1269B8
+SP KIDSTaskScheduler: 1520 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.4 % <- fn 0x5AD560
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % <- fn 0x48B9C
+SP kidsTS 0.1 % fn 0x534A98
+SP kidsTS 0.1 % <- fn 0x3D7CC8
+SP kidsTS 0.1 % fn 0x471E68
+SP kidsTS 0.1 % fn 0xB93F00
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP KIDSTS: 14692 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x403EA
+SP kidsts 0.0 % fn 0x65F64
+SP kidsts 0.0 % fn 0x119634E
+SP kidsts 0.0 % fn 0x699F8
+SP SynergisticDispatcher: 190 samples
+SP dispatch 93.7 % <- fn 0x4930C8
+SP dispatch 2.1 % <- fn 0x1A7C3E0
+SP dispatch 2.1 % <- fn 0x7F64DC
+SP dispatch 1.1 % <- fn 0x7471BC
+SP dispatch 0.5 % fn 0x189C0FD
+SP [App] other: 8019 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.7 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x432DE0
+SP app 0.0 % <- fn 0x99F5E8
+SP app 0.0 % <- fn 0x99F5C0
+SP app 0.0 % fn 0x437290
+SP main [App]Game: 24253 samples
+SP main 89.6 % <- fn 0x7D9E90
+SP main 0.9 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.7 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.3 % fn 0xB93EE0
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x113204
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % <- fn 0x3EB20
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % fn 0xB94250
+SP KIDSTaskScheduler: 1520 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.2 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x564C5C
+SP kidsTS 0.1 % fn 0x8684C8
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0x4EFA88
+SP kidsTS 0.1 % fn 0x131FA8
+SP kidsTS 0.1 % <- fn 0x48B9C
+SP kidsTS 0.1 % fn 0xB94250
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x3DAD0
+SP kidsTS 0.1 % fn 0x1CD988
+SP kidsTS 0.1 % fn 0x55F368
+SP KIDSTS: 14574 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % fn 0x8420C0
+SP SynergisticDispatcher: 190 samples
+SP dispatch 94.7 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x7F64DC
+SP dispatch 1.6 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7471BC
+SP [App] other: 7969 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.9 % <- fn 0xAF7020
+SP app 0.0 % fn 0x431510
+SP app 0.0 % <- fn 0x1FE3788
+SP main [App]Game: 24645 samples
+SP main 89.9 % <- fn 0x7D9E90
+SP main 1.2 % fn 0x61B1C
+SP main 0.6 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % fn 0x620FA
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0xB94250
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % fn 0x15BAE8
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.7 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x1C5D70
+SP kidsTS 0.1 % fn 0x6642C
+SP kidsTS 0.1 % fn 0x202FF4
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP KIDSTS: 14842 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % <- fn 0x40800
+SP SynergisticDispatcher: 192 samples
+SP dispatch 93.2 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x7471BC
+SP dispatch 2.1 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x7F64DC
+SP [App] other: 8075 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x19DCA0
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % <- fn 0x19A98F6
+SP app 0.0 % fn 0x431690
+SP app 0.0 % <- fn 0x1FEE28
+SP main [App]Game: 24508 samples
+SP main 89.8 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.7 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x5DF70
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.2 % fn 0x247950
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x8AB14C
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.4 % <- fn 0x5AD560
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x5D5964
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0x1CADA8
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x6642C
+SP kidsTS 0.1 % fn 0x4F9750
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP KIDSTS: 14726 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x66768
+SP kidsts 0.0 % fn 0x65F63
+SP kidsts 0.0 % <- fn 0x3FE14
+SP SynergisticDispatcher: 192 samples
+SP dispatch 94.8 % <- fn 0x4930C8
+SP dispatch 2.1 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7F64DC
+SP dispatch 0.5 % <- fn 0x58BDC4
+SP dispatch 0.5 % <- fn 0x490D5C
+SP dispatch 0.5 % fn 0x113537
+SP [App] other: 8054 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.9 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x3634B0
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x1FF1E4
+SP main [App]Game: 24326 samples
+SP main 89.8 % <- fn 0x7D9E90
+SP main 0.8 % fn 0x61B1C
+SP main 0.7 % fn 0x418F40
+SP main 0.6 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.2 % fn 0x247950
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0x5E071
+SP KIDSTaskScheduler: 1520 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.2 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x47050C
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x123B6E0
+SP kidsTS 0.1 % fn 0x4339CC
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x8DAD94
+SP kidsTS 0.1 % fn 0xF32C4
+SP kidsTS 0.1 % fn 0x5ACF80
+SP kidsTS 0.1 % fn 0x167D7D
+SP kidsTS 0.1 % fn 0x7E22D0
+SP kidsTS 0.1 % fn 0x421554
+SP KIDSTS: 14630 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0xB617E8
+SP SynergisticDispatcher: 190 samples
+SP dispatch 93.2 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x1A7C3E0
+SP dispatch 1.1 % <- fn 0x7F64DC
+SP dispatch 1.1 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x6BE12C
+SP dispatch 0.5 % fn 0x490F64
+SP dispatch 0.5 % fn 0x119820
+SP [App] other: 7986 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.1 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x1FEE28
+SP app 0.0 % <- fn 0x1FEE28
+SP app 0.0 % <- fn 0x1FE3788
+SP main [App]Game: 24470 samples
+SP main 89.8 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % fn 0x418F40
+SP main 0.5 % fn 0x620FA
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % fn 0x247950
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x1D84F8
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % fn 0xB94250
+SP main 0.1 % <- fn 0x1A74130
+SP KIDSTaskScheduler: 1528 samples
+SP kidsTS 87.3 % <- fn 0x3FE14
+SP kidsTS 11.3 % <- fn 0x5AD560
+SP kidsTS 0.7 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x3FE14
+SP kidsTS 0.1 % fn 0x1A5FB1
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % fn 0x4FC330
+SP kidsTS 0.1 % fn 0xB93F00
+SP kidsTS 0.1 % fn 0x5AB8DC
+SP kidsTS 0.1 % fn 0x40800
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % <- fn 0x564C5C
+SP KIDSTS: 14725 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x40800
+SP SynergisticDispatcher: 191 samples
+SP dispatch 89.0 % <- fn 0x4930C8
+SP dispatch 3.7 % <- fn 0x1A7C3E0
+SP dispatch 3.1 % <- fn 0x7471BC
+SP dispatch 2.1 % <- fn 0x7F64DC
+SP dispatch 0.5 % <- fn 0x113E64
+SP dispatch 0.5 % <- fn 0x1167D4
+SP dispatch 0.5 % fn 0x189C1E1
+SP [App] other: 8026 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.7 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0xB617E8
+SP main [App]Game: 24559 samples
+SP main 89.4 % <- fn 0x7D9E90
+SP main 1.1 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % <- fn 0x1180A4
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % fn 0x113204
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x15BAE8
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.1 % <- fn 0x5AD560
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % fn 0x43684
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x471578
+SP kidsTS 0.1 % fn 0x4FC330
+SP kidsTS 0.1 % <- fn 0x8DAD94
+SP kidsTS 0.1 % fn 0x237D68
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x66A98
+SP kidsTS 0.1 % fn 0x167D7D
+SP KIDSTS: 14767 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x65214
+SP kidsts 0.0 % <- fn 0x84D700
+SP SynergisticDispatcher: 192 samples
+SP dispatch 92.7 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x7F64DC
+SP dispatch 0.5 % <- fn 0x45A42C
+SP dispatch 0.5 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x7A728C
+SP [App] other: 8064 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.7 % <- fn 0xAF7020
+SP app 0.1 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0xB617E8
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x2972EB4
+SP app 0.0 % fn 0xF3234
+SP app 0.0 % fn 0x4EFB01
+SP app 0.0 % <- fn 0x434E18
+SP main [App]Game: 24343 samples
+SP main 89.0 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.7 % <- fn 0x1180A4
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % fn 0xB94230
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.3 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x247950
+SP main 0.2 % <- fn 0x1A74130
+SP main 0.2 % fn 0x113204
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0xB94250
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % <- fn 0x1269B8
+SP KIDSTaskScheduler: 1520 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.2 % <- fn 0x5AD560
+SP kidsTS 0.7 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0xB94250
+SP kidsTS 0.1 % fn 0x202ECC
+SP kidsTS 0.1 % fn 0x133628
+SP kidsTS 0.1 % fn 0x4FC330
+SP kidsTS 0.1 % <- fn 0x8DAD94
+SP kidsTS 0.1 % fn 0x8DA880
+SP kidsTS 0.1 % fn 0x19DF552
+SP kidsTS 0.1 % fn 0x167D7D
+SP KIDSTS: 14653 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x65F64
+SP kidsts 0.0 % <- fn 0x11968D0
+SP SynergisticDispatcher: 190 samples
+SP dispatch 95.3 % <- fn 0x4930C8
+SP dispatch 1.1 % <- fn 0x7F64DC
+SP dispatch 1.1 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x45A654
+SP dispatch 0.5 % <- fn 0x1A7C3E0
+SP dispatch 0.5 % <- fn 0x1188AC
+SP dispatch 0.5 % <- fn 0x115DE8
+SP [App] other: 7980 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.7 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x432CB0
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x433764
+SP app 0.0 % <- fn 0x1FE3788
+SP main [App]Game: 24255 samples
+SP main 89.6 % <- fn 0x7D9E90
+SP main 0.9 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.7 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.5 % fn 0x620FA
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x247950
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x5E071
+SP main 0.1 % <- fn 0x5C5B8
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % <- fn 0x1269B8
+SP KIDSTaskScheduler: 1520 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.3 % <- fn 0x5AD560
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x202D54
+SP kidsTS 0.1 % fn 0x4EFA88
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % <- fn 0xB60E98
+SP kidsTS 0.1 % fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x167DE6
+SP KIDSTS: 14603 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0xB611BC
+SP kidsts 0.0 % fn 0x3E7CC
+SP kidsts 0.0 % fn 0x66A98
+SP kidsts 0.0 % fn 0x417A0
+SP SynergisticDispatcher: 190 samples
+SP dispatch 94.7 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x1A7C3E0
+SP dispatch 1.1 % <- fn 0x7471BC
+SP dispatch 0.5 % fn 0x116608
+SP dispatch 0.5 % fn 0x189C1FD
+SP dispatch 0.5 % <- fn 0x113E64
+SP [App] other: 7942 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.1 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0x435D58
+SP app 0.0 % fn 0x13438B0
+SP app 0.0 % <- fn 0xB611BC
+SP main [App]Game: 24658 samples
+SP main 87.9 % <- fn 0x7D9E90
+SP main 2.4 % <- fn 0x1180A4
+SP main 1.1 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % fn 0x418F40
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.3 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x419A8
+SP main 0.1 % fn 0x113204
+SP main 0.1 % fn 0x247950
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x7D9E90
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x113DD4
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.1 % <- fn 0x5AD560
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x8680EC
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0x48B9C
+SP kidsTS 0.1 % fn 0x1995D86
+SP kidsTS 0.1 % fn 0x133628
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % fn 0xCE5F0
+SP kidsTS 0.1 % fn 0x5AD9EC
+SP kidsTS 0.1 % fn 0x66E73
+SP kidsTS 0.1 % fn 0x202DF4
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x167D7D
+SP kidsTS 0.1 % fn 0x397678
+SP kidsTS 0.1 % fn 0xB93EE0
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP KIDSTS: 14828 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x202FF4
+SP kidsts 0.0 % <- fn 0x40800
+SP SynergisticDispatcher: 192 samples
+SP dispatch 93.8 % <- fn 0x4930C8
+SP dispatch 2.1 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7471BC
+SP dispatch 0.5 % fn 0x113E64
+SP dispatch 0.5 % <- fn 0x492220
+SP dispatch 0.5 % <- fn 0x490D5C
+SP [App] other: 8102 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.1 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x431E6C
+SP app 0.0 % fn 0x431F74
+SP app 0.0 % fn 0x7ACD08
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x13087F7
+SP app 0.0 % <- fn 0x99F5C0
+SP main [App]Game: 24526 samples
+SP main 89.9 % <- fn 0x7D9E90
+SP main 1.1 % fn 0x61B1C
+SP main 0.7 % fn 0xB94230
+SP main 0.6 % fn 0x5DF70
+SP main 0.5 % fn 0x418F40
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x247950
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x8AB14C
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.8 % <- fn 0x5AD560
+SP kidsTS 0.3 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x202ECC
+SP kidsTS 0.1 % fn 0x534A98
+SP kidsTS 0.1 % fn 0xE6F974
+SP kidsTS 0.1 % fn 0xF33A0
+SP kidsTS 0.1 % fn 0x8F3D9C
+SP kidsTS 0.1 % fn 0x1FDC1C
+SP kidsTS 0.1 % fn 0x1A83348
+SP kidsTS 0.1 % fn 0x411C0
+SP KIDSTS: 14743 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x699F8
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % <- fn 0x1A6BB84
+SP SynergisticDispatcher: 192 samples
+SP dispatch 93.2 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x7F64DC
+SP dispatch 1.6 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x1139D4
+SP dispatch 0.5 % <- fn 0x45A5F0
+SP dispatch 0.5 % <- fn 0x45A5F0
+SP dispatch 0.5 % fn 0x8741F0
+SP [App] other: 8055 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.9 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x24504C
+SP app 0.0 % <- fn 0x99F5C0
+SP app 0.0 % <- fn 0xB611BC
+SP main [App]Game: 24307 samples
+SP main 89.6 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0xB93EE0
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x7D9E90
+SP main 0.1 % fn 0x113150
+SP main 0.1 % <- fn 0x254110
+SP KIDSTaskScheduler: 1520 samples
+SP kidsTS 87.3 % <- fn 0x3FE14
+SP kidsTS 11.3 % <- fn 0x5AD560
+SP kidsTS 0.7 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x666E8
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % <- fn 0x48B9C
+SP kidsTS 0.1 % fn 0x66D15
+SP kidsTS 0.1 % fn 0x1C93A4
+SP kidsTS 0.1 % fn 0x43684
+SP kidsTS 0.1 % fn 0x41050
+SP kidsTS 0.1 % fn 0x1C0E5C
+SP kidsTS 0.1 % <- fn 0xB617E8
+SP KIDSTS: 14630 samples
+SP kidsts 99.9 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % fn 0x66768
+SP kidsts 0.0 % fn 0x699F8
+SP kidsts 0.0 % fn 0x48432
+SP kidsts 0.0 % fn 0xB611BC
+SP kidsts 0.0 % <- fn 0x1A6BB84
+SP SynergisticDispatcher: 190 samples
+SP dispatch 92.6 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x1A7C3E0
+SP dispatch 2.1 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x6BE12C
+SP dispatch 0.5 % <- fn 0x1188AC
+SP dispatch 0.5 % fn 0x189C1B4
+SP dispatch 0.5 % <- fn 0x7F64DC
+SP [App] other: 7967 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.1 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x896010
+SP app 0.0 % <- fn 0x1A76D68
+SP main [App]Game: 24459 samples
+SP main 89.8 % <- fn 0x7D9E90
+SP main 0.9 % fn 0x61B1C
+SP main 0.8 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % fn 0x620FA
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x419A8
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x7D9E90
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x5C5B8
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0x15BAE8
+SP KIDSTaskScheduler: 1528 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.1 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x47050C
+SP kidsTS 0.1 % fn 0x1C9918
+SP kidsTS 0.1 % <- fn 0x585B9C
+SP kidsTS 0.1 % fn 0x6F84C8
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x167D70
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % <- fn 0xB617E8
+SP KIDSTS: 14707 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % <- fn 0x40800
+SP SynergisticDispatcher: 191 samples
+SP dispatch 93.7 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x7F64DC
+SP dispatch 1.0 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x113E64
+SP dispatch 0.5 % fn 0x1192B0
+SP dispatch 0.5 % <- fn 0x7A728C
+SP [App] other: 8033 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.3 % <- fn 0x2665C4
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.1 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x439CF5
+SP app 0.0 % fn 0xB611BC
+SP app 0.0 % <- fn 0x1FDAA7C
+SP app 0.0 % <- fn 0x99F5C0
+SP app 0.0 % <- fn 0x2665C4
+SP app 0.0 % fn 0xB616A4
+SP main [App]Game: 24586 samples
+SP main 89.9 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.6 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.5 % fn 0x620FA
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x113204
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % fn 0x5E071
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.0 % <- fn 0x5AD560
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x8DAD94
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % fn 0x89AB80
+SP kidsTS 0.1 % fn 0x2476D5
+SP kidsTS 0.1 % fn 0x415080
+SP kidsTS 0.1 % fn 0xB611BC
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % fn 0x4FC330
+SP kidsTS 0.1 % fn 0x1349720
+SP kidsTS 0.1 % fn 0x420FA4
+SP kidsTS 0.1 % fn 0x40800
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x11126C
+SP KIDSTS: 14784 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % <- fn 0x1196230
+SP kidsts 0.0 % fn 0xBE50A0
+SP kidsts 0.0 % <- fn 0x2D0080
+SP kidsts 0.0 % <- fn 0x40800
+SP SynergisticDispatcher: 192 samples
+SP dispatch 92.7 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x7F64DC
+SP dispatch 1.0 % <- fn 0x7471BC
+SP dispatch 1.0 % <- fn 0x1A7C3E0
+SP dispatch 0.5 % <- fn 0x8F0B5C
+SP dispatch 0.5 % fn 0x45A020
+SP dispatch 0.5 % <- fn 0x490D5C
+SP dispatch 0.5 % <- fn 0x49349C
+SP dispatch 0.5 % fn 0x113537
+SP dispatch 0.5 % <- fn 0x115DE8
+SP [App] other: 8074 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP main [App]Game: 24423 samples
+SP main 89.7 % <- fn 0x7D9E90
+SP main 0.9 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.7 % fn 0x418F40
+SP main 0.7 % fn 0xB94230
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x113204
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x5E071
+SP main 0.1 % fn 0x113150
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % <- fn 0x1A74130
+SP KIDSTaskScheduler: 1528 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.3 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.2 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0x4EFA88
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0x560C11
+SP kidsTS 0.1 % fn 0x3FC48
+SP kidsTS 0.1 % fn 0x471E68
+SP kidsTS 0.1 % fn 0xB94250
+SP kidsTS 0.1 % fn 0x748144
+SP kidsTS 0.1 % fn 0x66A98
+SP kidsTS 0.1 % fn 0x411C0
+SP KIDSTS: 14707 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x205530
+SP kidsts 0.0 % fn 0x3EC2A
+SP SynergisticDispatcher: 191 samples
+SP dispatch 93.7 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x7F64DC
+SP dispatch 1.6 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x7471BC
+SP dispatch 0.5 % fn 0x119820
+SP dispatch 0.5 % <- fn 0x58BDC4
+SP dispatch 0.5 % <- fn 0x115DE8
+SP dispatch 0.5 % fn 0x45A654
+SP [App] other: 7997 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.9 % <- fn 0xAF7020
+SP app 0.1 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x432DE0
+SP app 0.0 % fn 0x2978640
+SP app 0.0 % <- fn 0x12F5E0
+SP app 0.0 % fn 0x12FA0A0
+SP main [App]Game: 24230 samples
+SP main 89.5 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.6 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x620FA
+SP main 0.3 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x113204
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x113150
+SP main 0.1 % <- fn 0x7D9E90
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x6B8F64
+SP KIDSTaskScheduler: 1512 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.4 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x93AEC4
+SP kidsTS 0.1 % fn 0x8546DC
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x5EBD08
+SP kidsTS 0.1 % fn 0x66E73
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % fn 0x3C41C
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP KIDSTS: 14565 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x3F18C
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % <- fn 0xB611BC
+SP SynergisticDispatcher: 189 samples
+SP dispatch 93.7 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x1A7C3E0
+SP dispatch 2.1 % <- fn 0x7F64DC
+SP dispatch 1.1 % <- fn 0x7471BC
+SP [App] other: 7964 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x438A01
+SP app 0.0 % <- fn 0x99F5C0
+SP app 0.0 % fn 0x4337C4
+SP app 0.0 % fn 0x433764
+SP main [App]Game: 24667 samples
+SP main 89.9 % <- fn 0x7D9E90
+SP main 1.2 % fn 0x61B1C
+SP main 0.6 % fn 0xB94230
+SP main 0.6 % fn 0x418F40
+SP main 0.6 % fn 0x5DF70
+SP main 0.5 % fn 0x620FA
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x113204
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % <- fn 0x113DD4
+SP KIDSTaskScheduler: 1544 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 10.7 % <- fn 0x5AD560
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x564C5C
+SP kidsTS 0.1 % fn 0x4FC330
+SP kidsTS 0.1 % fn 0x12FBE1F
+SP kidsTS 0.1 % fn 0x564F60
+SP kidsTS 0.1 % fn 0x5648A8
+SP kidsTS 0.1 % fn 0x39BFA8
+SP kidsTS 0.1 % fn 0x40800
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % fn 0xB94250
+SP kidsTS 0.1 % fn 0x8AB303
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x66E73
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % fn 0x6B05A8
+SP kidsTS 0.1 % fn 0x5CF30C
+SP kidsTS 0.1 % fn 0x3FE14
+SP kidsTS 0.1 % fn 0x3C41C
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP KIDSTS: 14849 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x65214
+SP kidsts 0.0 % fn 0x2DE300
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % fn 0x40800
+SP kidsts 0.0 % <- fn 0xB61524
+SP SynergisticDispatcher: 193 samples
+SP dispatch 90.7 % <- fn 0x4930C8
+SP dispatch 3.6 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7471BC
+SP dispatch 1.0 % <- fn 0x7A728C
+SP dispatch 0.5 % fn 0x119820
+SP dispatch 0.5 % <- fn 0x1167D4
+SP dispatch 0.5 % fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x4959EC
+SP dispatch 0.5 % fn 0x118E28
+SP [App] other: 8081 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0x435864
+SP app 0.0 % fn 0x432CB0
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x19DCA0
+SP app 0.0 % <- fn 0x1A76D68
+SP app 0.0 % fn 0x431690
+SP main [App]Game: 24505 samples
+SP main 89.8 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % fn 0xB94230
+SP main 0.5 % fn 0x620FA
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x247950
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x1239893
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % <- fn 0x1180A4
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x3C6C2C
+SP KIDSTaskScheduler: 1528 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.3 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x1CF4C4
+SP kidsTS 0.1 % <- fn 0x19DF552
+SP kidsTS 0.1 % <- fn 0x48B9C
+SP kidsTS 0.1 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x8DAD94
+SP kidsTS 0.1 % fn 0x6F84C8
+SP kidsTS 0.1 % fn 0x8DAD94
+SP kidsTS 0.1 % fn 0x4EFB01
+SP kidsTS 0.1 % fn 0xA6C95A
+SP kidsTS 0.1 % fn 0x167D7D
+SP KIDSTS: 14739 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % fn 0x2DE200
+SP kidsts 0.0 % fn 0x65214
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % fn 0x40800
+SP kidsts 0.0 % fn 0x3CFD0
+SP SynergisticDispatcher: 191 samples
+SP dispatch 96.3 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x7471BC
+SP dispatch 1.0 % <- fn 0x1A7C3E0
+SP [App] other: 8047 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.9 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x438A1C
+SP main [App]Game: 24281 samples
+SP main 89.5 % <- fn 0x7D9E90
+SP main 0.8 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.7 % fn 0x418F40
+SP main 0.5 % fn 0xB94230
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.3 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.1 % fn 0x113204
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % fn 0x15BAE8
+SP main 0.1 % fn 0x5E071
+SP KIDSTaskScheduler: 1520 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.2 % <- fn 0x5AD560
+SP kidsTS 0.4 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x40800
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x32FAACF
+SP kidsTS 0.1 % <- fn 0x48B9C
+SP kidsTS 0.1 % fn 0x1104260
+SP kidsTS 0.1 % fn 0x4FC330
+SP kidsTS 0.1 % fn 0xB94250
+SP kidsTS 0.1 % fn 0x165FE2
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % fn 0x167D7D
+SP kidsTS 0.1 % fn 0xF0350
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP KIDSTS: 14598 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % <- fn 0xB611BC
+SP SynergisticDispatcher: 190 samples
+SP dispatch 96.3 % <- fn 0x4930C8
+SP dispatch 1.6 % <- fn 0x1A7C3E0
+SP dispatch 0.5 % <- fn 0x6BE12C
+SP dispatch 0.5 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x45A654
+SP [App] other: 7973 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.9 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0x435D58
+SP app 0.0 % <- fn 0xB611BC
+SP main [App]Game: 24548 samples
+SP main 90.0 % <- fn 0x7D9E90
+SP main 1.1 % fn 0x61B1C
+SP main 0.7 % fn 0xB94230
+SP main 0.6 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.3 % <- fn 0x7D9E90
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0x247950
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x113DD4
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x1D8778
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % fn 0x15BAE8
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.4 % <- fn 0x5AD560
+SP kidsTS 0.4 % <- fn 0x916EBC
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % <- fn 0x19DF552
+SP kidsTS 0.1 % fn 0x398A54
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % fn 0x3DAB5
+SP kidsTS 0.1 % fn 0x40800
+SP kidsTS 0.1 % fn 0x1218D7
+SP kidsTS 0.1 % fn 0x397BA0
+SP kidsTS 0.1 % fn 0x696F74
+SP kidsTS 0.1 % fn 0x3FE14
+SP kidsTS 0.1 % fn 0x13F910
+SP KIDSTS: 14784 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x699F8
+SP kidsts 0.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % fn 0x6B4A88
+SP kidsts 0.0 % <- fn 0x1A6BB84
+SP SynergisticDispatcher: 192 samples
+SP dispatch 94.3 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7471BC
+SP dispatch 0.5 % <- fn 0x8F0B5C
+SP dispatch 0.5 % <- fn 0x6BE12C
+SP dispatch 0.5 % <- fn 0x7F64DC
+SP [App] other: 8036 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.2 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.7 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % <- fn 0x435D58
+SP main [App]Game: 24582 samples
+SP main 89.8 % <- fn 0x7D9E90
+SP main 1.1 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % fn 0x418F40
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.2 % fn 0x113204
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % fn 0x247950
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x419A8
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % <- fn 0x254110
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x62408
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % <- fn 0x5C5B8
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x1A74130
+SP KIDSTaskScheduler: 1536 samples
+SP kidsTS 87.4 % <- fn 0x3FE14
+SP kidsTS 11.1 % <- fn 0x5AD560
+SP kidsTS 0.5 % <- fn 0x916EBC
+SP kidsTS 0.1 % fn 0x411C0
+SP kidsTS 0.1 % fn 0x121F83
+SP kidsTS 0.1 % fn 0x415080
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % <- fn 0x8DAD94
+SP kidsTS 0.1 % fn 0x4FC302
+SP kidsTS 0.1 % <- fn 0xB616A4
+SP kidsTS 0.1 % fn 0x4EFB01
+SP kidsTS 0.1 % fn 0x1C6A5C
+SP kidsTS 0.1 % fn 0x5A3818
+SP kidsTS 0.1 % fn 0x66E73
+SP kidsTS 0.1 % fn 0x10E72B0
+SP kidsTS 0.1 % fn 0x244264
+SP kidsTS 0.1 % fn 0x7474C8
+SP KIDSTS: 14784 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % fn 0x411C0
+SP kidsts 0.0 % <- fn 0x3FE14
+SP kidsts 0.0 % fn 0x42073
+SP SynergisticDispatcher: 192 samples
+SP dispatch 98.4 % <- fn 0x4930C8
+SP dispatch 1.0 % <- fn 0x7471BC
+SP [App] other: 8070 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x12F5E0
+SP app 2.4 % <- fn 0x2665C4
+SP app 1.7 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0xAEAE30
+SP app 0.0 % fn 0x4EDC08
+SP app 0.0 % <- fn 0x435D58
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0xD8B24
+SP app 0.0 % fn 0x437258
+SP app 0.0 % fn 0x3E030
+SP main [App]Game: 24469 samples
+SP main 89.9 % <- fn 0x7D9E90
+SP main 1.0 % fn 0x61B1C
+SP main 0.6 % fn 0x5DF70
+SP main 0.6 % fn 0x418F40
+SP main 0.6 % fn 0xB94230
+SP main 0.5 % fn 0x620FA
+SP main 0.5 % <- fn 0x9AFED0
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.2 % <- fn 0x1180A4
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x113204
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x1CD690
+SP main 0.1 % fn 0x2523FC
+SP main 0.1 % fn 0x62408
+SP main 0.1 % <- fn 0x6B8F64
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % fn 0xB94250
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % fn 0x1D84F8
+SP main 0.1 % <- fn 0x113DD4
+SP KIDSTaskScheduler: 1528 samples
+SP kidsTS 87.5 % <- fn 0x3FE14
+SP kidsTS 11.1 % <- fn 0x5AD560
+SP kidsTS 0.4 % <- fn 0x916EBC
+SP kidsTS 0.2 % <- fn 0xB611BC
+SP kidsTS 0.1 % <- fn 0xB611BC
+SP kidsTS 0.1 % <- fn 0x205530
+SP kidsTS 0.1 % fn 0x244264
+SP kidsTS 0.1 % <- fn 0x40800
+SP kidsTS 0.1 % fn 0x1A37EF5
+SP kidsTS 0.1 % fn 0x133628
+SP kidsTS 0.1 % fn 0x233E54
+SP kidsTS 0.1 % fn 0xA6C968
+SP kidsTS 0.1 % fn 0x247950
+SP kidsTS 0.1 % <- fn 0xB617E8
+SP KIDSTS: 14707 samples
+SP kidsts 100.0 % <- fn 0x3FE14
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % <- fn 0x207200
+SP SynergisticDispatcher: 191 samples
+SP dispatch 92.7 % <- fn 0x4930C8
+SP dispatch 2.6 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x7471BC
+SP dispatch 1.0 % <- fn 0x1167D4
+SP dispatch 0.5 % <- fn 0x45A654
+SP dispatch 0.5 % fn 0x49366C
+SP dispatch 0.5 % <- fn 0x49349C
+SP dispatch 0.5 % <- fn 0x45A42C
+SP dispatch 0.5 % <- fn 0x7F64DC
+SP [App] other: 8043 samples
+SP app 85.7 % <- fn 0xB616A4
+SP app 7.1 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.4 % <- fn 0x12F5E0
+SP app 1.8 % <- fn 0xAF7020
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x436FF0
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0x1FEE28
+SP main [App]Game: 20596 samples
+SP main 67.7 % <- fn 0x7D9E90
+SP main 11.8 % <- fn 0x1A74130
+SP main 5.7 % <- fn 0x1A74130
+SP main 1.6 % fn 0x418F40
+SP main 1.3 % <- fn 0x1180A4
+SP main 1.3 % fn 0x1A74130
+SP main 0.8 % fn 0x61B1C
+SP main 0.7 % fn 0x5DF70
+SP main 0.6 % fn 0xB94230
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.3 % fn 0xB93EE0
+SP main 0.3 % <- fn 0x254110
+SP main 0.3 % fn 0x620FA
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x252746
+SP main 0.2 % fn 0x113204
+SP main 0.2 % <- fn 0x7D9E90
+SP main 0.1 % <- fn 0x8AB14C
+SP main 0.1 % fn 0x419A8
+SP main 0.1 % fn 0x10F060
+SP main 0.1 % <- fn 0x1269B8
+SP main 0.1 % <- fn 0x1A74130
+SP main 0.1 % <- fn 0x1269D4
+SP main 0.1 % fn 0x2523FC
+SP KIDSTaskScheduler: 1288 samples
+SP kidsTS 87.3 % <- fn 0x3FE14
+SP kidsTS 8.9 % <- fn 0x5AD560
+SP kidsTS 1.6 % <- fn 0xB616A4
+SP kidsTS 0.2 % <- fn 0x916EBC
+SP kidsTS 0.2 % <- fn 0xB617E8
+SP kidsTS 0.2 % <- fn 0x48B9C
+SP kidsTS 0.2 % <- fn 0xB61524
+SP kidsTS 0.2 % <- fn 0x8DAD94
+SP kidsTS 0.1 % <- fn 0x48432
+SP kidsTS 0.1 % fn 0xB94230
+SP kidsTS 0.1 % fn 0x4EDBE4
+SP kidsTS 0.1 % fn 0x3F94CF
+SP kidsTS 0.1 % fn 0x2F3D08
+SP kidsTS 0.1 % <- fn 0xB60FFC
+SP kidsTS 0.1 % fn 0x210F79C
+SP kidsTS 0.1 % <- fn 0x3A1700
+SP kidsTS 0.1 % fn 0x2478CF
+SP kidsTS 0.1 % fn 0x90061C
+SP kidsTS 0.1 % <- fn 0x48DF8
+SP kidsTS 0.1 % <- fn 0x202F6C
+SP kidsTS 0.1 % <- fn 0x645D4
+SP kidsTS 0.1 % fn 0x7E0547
+SP kidsTS 0.1 % fn 0x3F18C
+SP kidsTS 0.1 % <- fn 0x8684C8
+SP KIDSTS: 12397 samples
+SP kidsts 97.8 % <- fn 0x3FE14
+SP kidsts 0.7 % fn 0x1A6030
+SP kidsts 0.2 % <- fn 0x31182C
+SP kidsts 0.2 % fn 0x1A009C
+SP kidsts 0.1 % fn 0x1A6820
+SP kidsts 0.1 % fn 0x904B58
+SP kidsts 0.1 % fn 0x1A19E0
+SP kidsts 0.1 % <- fn 0x48B9C
+SP kidsts 0.1 % fn 0x411C0
+SP kidsts 0.1 % fn 0x1A5820
+SP kidsts 0.1 % fn 0x40800
+SP kidsts 0.0 % <- fn 0x84D700
+SP kidsts 0.0 % fn 0x3FE14
+SP kidsts 0.0 % fn 0x1A5EC4
+SP kidsts 0.0 % fn 0xB92310
+SP kidsts 0.0 % fn 0xB36BF0
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % fn 0x1343D00
+SP kidsts 0.0 % fn 0x167DE6
+SP kidsts 0.0 % fn 0x1A31E3
+SP kidsts 0.0 % fn 0x4A7A30
+SP kidsts 0.0 % fn 0xB912E0
+SP kidsts 0.0 % fn 0x1A043C
+SP kidsts 0.0 % <- fn 0xB61524
+SP kidsts 0.0 % fn 0x331CB58
+SP SynergisticDispatcher: 161 samples
+SP dispatch 92.5 % <- fn 0x4930C8
+SP dispatch 0.6 % fn 0x118BA0
+SP dispatch 0.6 % <- fn 0x8F0B5C
+SP dispatch 0.6 % <- fn 0x6BE12C
+SP dispatch 0.6 % <- fn 0x492220
+SP dispatch 0.6 % <- fn 0x1A7C3E0
+SP dispatch 0.6 % <- fn 0x492220
+SP dispatch 0.6 % <- fn 0x7471BC
+SP dispatch 0.6 % <- fn 0x7A728C
+SP dispatch 0.6 % <- fn 0x7F64DC
+SP [App] other: 6750 samples
+SP app 85.0 % <- fn 0xB616A4
+SP app 6.7 % <- fn 0xB61524
+SP app 2.4 % <- fn 0x2665C4
+SP app 2.0 % <- fn 0x12F5E0
+SP app 1.7 % <- fn 0xAF7020
+SP app 0.5 % <- fn 0x427C88
+SP app 0.4 % <- fn 0x48B9C
+SP app 0.2 % <- fn 0xB611BC
+SP app 0.2 % <- fn 0xB611BC
+SP app 0.1 % <- fn 0x3954B8
+SP app 0.1 % <- fn 0x5A6270
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % fn 0x1A76D68
+SP app 0.0 % <- fn 0x5A8C6C
+SP app 0.0 % fn 0x1A7B8B4
+SP app 0.0 % fn 0xB61524
+SP app 0.0 % <- fn 0x435D58
+SP app 0.0 % fn 0x896010
+SP app 0.0 % fn 0x1FF1E4
+SP app 0.0 % fn 0x431690
+SP main [App]Game: 17590 samples
+SP main 34.3 % <- fn 0x117D6C
+SP main 31.3 % <- fn 0x1180A4
+SP main 7.6 % <- fn 0x1A74130
+SP main 4.4 % <- fn 0x5DA48
+SP main 3.8 % <- fn 0x1A74130
+SP main 1.8 % fn 0x418F40
+SP main 0.8 % fn 0x1A74130
+SP main 0.7 % fn 0xB94230
+SP main 0.5 % fn 0x5DF70
+SP main 0.4 % fn 0x1E81AE
+SP main 0.3 % <- fn 0x3FD10
+SP main 0.3 % <- fn 0x3FD10
+SP main 0.3 % <- fn 0x9AFED0
+SP main 0.3 % fn 0x3FD10
+SP main 0.2 % <- fn 0x254110
+SP main 0.2 % fn 0xB94250
+SP main 0.2 % fn 0x1D8778
+SP main 0.2 % fn 0x252746
+SP main 0.2 % <- fn 0x5DA48
+SP main 0.1 % fn 0x113204
+SP main 0.1 % fn 0x1239893
+SP main 0.1 % fn 0x78150
+SP main 0.1 % fn 0x77AB0
+SP main 0.1 % fn 0x1E0B64
+SP KIDSTaskScheduler: 1088 samples
+SP kidsTS 75.9 % <- fn 0x3FE14
+SP kidsTS 2.9 % <- fn 0x5AD560
+SP kidsTS 2.1 % <- fn 0xB611BC
+SP kidsTS 1.7 % fn 0x71D1D
+SP kidsTS 1.1 % fn 0x1A7AAC
+SP kidsTS 0.9 % fn 0xCCC21
+SP kidsTS 0.8 % <- fn 0xB616A4
+SP kidsTS 0.7 % fn 0x6EFD4
+SP kidsTS 0.7 % fn 0x411C0
+SP kidsTS 0.6 % <- fn 0x916EBC
+SP kidsTS 0.5 % fn 0x4280B
+SP kidsTS 0.5 % fn 0x54360
+SP kidsTS 0.5 % fn 0x6EA50
+SP kidsTS 0.4 % fn 0x174613
+SP kidsTS 0.4 % fn 0x6EFDB
+SP kidsTS 0.4 % <- fn 0x19EAE0
+SP kidsTS 0.4 % fn 0x6F010
+SP kidsTS 0.4 % <- fn 0x40800
+SP kidsTS 0.4 % <- fn 0xB60FFC
+SP kidsTS 0.3 % fn 0x706CC
+SP kidsTS 0.3 % fn 0x40800
+SP kidsTS 0.3 % fn 0x73050
+SP kidsTS 0.2 % fn 0x3E7CC
+SP kidsTS 0.2 % fn 0x6FB04
+SP kidsTS 0.2 % fn 0x889C0
+SP KIDSTS: 10539 samples
+SP kidsts 96.3 % <- fn 0x3FE14
+SP kidsts 1.0 % <- fn 0x117D6C
+SP kidsts 0.5 % fn 0x1A6030
+SP kidsts 0.2 % fn 0x40800
+SP kidsts 0.2 % fn 0x1A6820
+SP kidsts 0.2 % <- fn 0x48B9C
+SP kidsts 0.1 % fn 0x1A009C
+SP kidsts 0.1 % fn 0x411C0
+SP kidsts 0.1 % fn 0x1A19E0
+SP kidsts 0.1 % fn 0x904B58
+SP kidsts 0.1 % fn 0xB36BF0
+SP kidsts 0.1 % fn 0x1A5EC4
+SP kidsts 0.1 % fn 0x3FE14
+SP kidsts 0.1 % <- fn 0x1343D00
+SP kidsts 0.1 % <- fn 0x62D688
+SP kidsts 0.1 % fn 0x1A5820
+SP kidsts 0.0 % fn 0x246BD0
+SP kidsts 0.0 % <- fn 0x207200
+SP kidsts 0.0 % fn 0x1FF1E4
+SP kidsts 0.0 % <- fn 0x31182C
+SP kidsts 0.0 % fn 0x1A31F1
+SP kidsts 0.0 % <- fn 0x1A6BB84
+SP kidsts 0.0 % fn 0x1343D00
+SP kidsts 0.0 % fn 0x167D7D
+SP kidsts 0.0 % <- fn 0x631F70
+SP SynergisticDispatcher: 136 samples
+SP dispatch 81.6 % <- fn 0x4930C8
+SP dispatch 1.5 % <- fn 0x1A7C3E0
+SP dispatch 1.5 % <- fn 0x6BE12C
+SP dispatch 1.5 % <- fn 0x7471BC
+SP dispatch 1.5 % <- fn 0x7F64DC
+SP dispatch 0.7 % fn 0x119820
+SP dispatch 0.7 % fn 0x11672E
+SP dispatch 0.7 % fn 0x114750
+SP dispatch 0.7 % fn 0xB94230
+SP dispatch 0.7 % fn 0x189C0EC
+SP dispatch 0.7 % <- fn 0x58BDC4
+SP dispatch 0.7 % <- fn 0x1167D4
+SP dispatch 0.7 % <- fn 0x45A654
+SP dispatch 0.7 % <- fn 0x1180D0
+SP dispatch 0.7 % fn 0x114D18
+SP dispatch 0.7 % <- fn 0x115DE8
+SP dispatch 0.7 % fn 0x7A5FB8
+SP [App] other: 5827 samples
+SP app 74.9 % <- fn 0xB616A4
+SP app 6.0 % <- fn 0xC7A7C
+SP app 5.9 % <- fn 0xB61524
+SP app 2.0 % <- fn 0x131EEC
+SP app 2.0 % <- fn 0x12F5E0
+SP app 2.0 % <- fn 0x175270
+SP app 1.9 % <- fn 0x31DA38
+SP app 1.3 % <- fn 0xAF7020
+SP app 0.7 % <- fn 0x2665C4
+SP app 0.7 % <- fn 0x48B9C
+SP app 0.4 % <- fn 0x427C88
+SP app 0.3 % <- fn 0xB611BC
+SP app 0.2 % <- fn 0xB611BC
+SP app 0.1 % <- fn 0x4276C0
+SP app 0.1 % <- fn 0x1A6BF0
+SP app 0.1 % <- fn 0xA9240
+SP app 0.1 % <- fn 0x1A3250
+SP app 0.1 % <- fn 0xB611BC
+SP app 0.1 % <- fn 0x8628CC
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0x5B7434
+SP app 0.0 % <- fn 0x1A6030
+SP app 0.0 % fn 0x429C7C
+SP app 0.0 % fn 0x1A6030
+SP main [App]Game: 16677 samples
+SP main 48.5 % <- fn 0x1180A4
+SP main 13.5 % <- fn 0x117D6C
+SP main 9.6 % <- fn 0x1A74130
+SP main 4.7 % <- fn 0x1A74130
+SP main 1.4 % fn 0x418F40
+SP main 1.2 % fn 0x1A74130
+SP main 1.2 % fn 0xB94230
+SP main 1.0 % fn 0x61B1C
+SP main 0.6 % fn 0x620FA
+SP main 0.5 % fn 0x5DF70
+SP main 0.4 % fn 0x2523FC
+SP main 0.4 % fn 0x1E81AE
+SP main 0.3 % <- fn 0x9AFED0
+SP main 0.3 % <- fn 0x5DA48
+SP main 0.3 % fn 0x1D8778
+SP main 0.2 % fn 0xB94250
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x6A9E0
+SP main 0.2 % fn 0x1D8220
+SP main 0.2 % fn 0xB93EE0
+SP main 0.2 % fn 0x1290B8
+SP main 0.2 % fn 0x39E20
+SP main 0.2 % fn 0x1D7340
+SP main 0.2 % fn 0x6F3F0
+SP KIDSTaskScheduler: 1032 samples
+SP kidsTS 77.5 % <- fn 0x3FE14
+SP kidsTS 2.5 % <- fn 0xB611BC
+SP kidsTS 2.0 % fn 0x411C0
+SP kidsTS 1.6 % <- fn 0xB616A4
+SP kidsTS 1.5 % <- fn 0x5AD560
+SP kidsTS 0.8 % fn 0x6EA50
+SP kidsTS 0.7 % <- fn 0xB60FFC
+SP kidsTS 0.6 % fn 0x71D1D
+SP kidsTS 0.5 % fn 0x174613
+SP kidsTS 0.5 % fn 0x1A7AAC
+SP kidsTS 0.5 % fn 0x6EFDB
+SP kidsTS 0.4 % fn 0x54360
+SP kidsTS 0.4 % fn 0x40800
+SP kidsTS 0.4 % fn 0x6EFD4
+SP kidsTS 0.4 % <- fn 0x19EAE0
+SP kidsTS 0.3 % fn 0x120274
+SP kidsTS 0.3 % fn 0x6F010
+SP kidsTS 0.3 % <- fn 0xB617E8
+SP kidsTS 0.2 % fn 0x6F06A
+SP kidsTS 0.2 % fn 0x1220BD
+SP kidsTS 0.2 % <- fn 0x48432
+SP kidsTS 0.2 % <- fn 0x40800
+SP kidsTS 0.2 % fn 0x4280B
+SP kidsTS 0.2 % fn 0x403A0
+SP kidsTS 0.2 % fn 0xCE5F0
+SP KIDSTS: 9923 samples
+SP kidsts 97.4 % <- fn 0x3FE14
+SP kidsts 0.4 % <- fn 0x117D6C
+SP kidsts 0.2 % <- fn 0x631F70
+SP kidsts 0.2 % fn 0x1A6030
+SP kidsts 0.2 % fn 0x40800
+SP kidsts 0.1 % fn 0x411C0
+SP kidsts 0.1 % fn 0x1A6820
+SP kidsts 0.1 % <- fn 0x48B9C
+SP kidsts 0.1 % fn 0x1A19E0
+SP kidsts 0.1 % <- fn 0x631C84
+SP kidsts 0.1 % fn 0x3FE14
+SP kidsts 0.1 % <- fn 0x207200
+SP kidsts 0.1 % <- fn 0x31182C
+SP kidsts 0.0 % <- fn 0x631EC0
+SP kidsts 0.0 % fn 0xB36BF0
+SP kidsts 0.0 % fn 0x1A51D4
+SP kidsts 0.0 % fn 0x17A1B40
+SP kidsts 0.0 % fn 0x48B9C
+SP kidsts 0.0 % fn 0x5C6354
+SP kidsts 0.0 % <- fn 0xB60E98
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % fn 0x246BD0
+SP kidsts 0.0 % fn 0x889C0
+SP kidsts 0.0 % fn 0x1A5EC4
+SP kidsts 0.0 % <- fn 0x429E4
+SP SynergisticDispatcher: 129 samples
+SP dispatch 65.9 % <- fn 0x4930C8
+SP dispatch 8.5 % <- fn 0x6BE12C
+SP dispatch 6.2 % <- fn 0x7471BC
+SP dispatch 3.1 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x7F64DC
+SP dispatch 0.8 % <- fn 0x113E64
+SP dispatch 0.8 % <- fn 0x45A654
+SP dispatch 0.8 % <- fn 0x1188AC
+SP dispatch 0.8 % <- fn 0x58BDC4
+SP dispatch 0.8 % <- fn 0x1A7C3E0
+SP dispatch 0.8 % fn 0x1180D0
+SP dispatch 0.8 % fn 0x115988
+SP dispatch 0.8 % <- fn 0x115E24
+SP dispatch 0.8 % fn 0xB94150
+SP dispatch 0.8 % fn 0xB94230
+SP dispatch 0.8 % fn 0x189C10F
+SP dispatch 0.8 % <- fn 0x1188AC
+SP dispatch 0.8 % <- fn 0x115DE8
+SP [App] other: 5525 samples
+SP app 67.2 % <- fn 0xB616A4
+SP app 11.5 % <- fn 0xC7A7C
+SP app 5.6 % <- fn 0xB61524
+SP app 2.8 % <- fn 0x12F5E0
+SP app 2.3 % <- fn 0x131EEC
+SP app 1.9 % <- fn 0x31DA38
+SP app 1.8 % <- fn 0xA9240
+SP app 1.8 % <- fn 0x175270
+SP app 1.3 % <- fn 0xAF7020
+SP app 0.8 % <- fn 0x2665C4
+SP app 0.4 % <- fn 0x8825C
+SP app 0.3 % <- fn 0xB611BC
+SP app 0.2 % <- fn 0x48B9C
+SP app 0.2 % <- fn 0xB611BC
+SP app 0.1 % <- fn 0x4276C0
+SP app 0.1 % fn 0x134DF30
+SP app 0.1 % fn 0x1A6030
+SP app 0.0 % <- fn 0x1A6030
+SP app 0.0 % fn 0x134DE10
+SP app 0.0 % <- fn 0x1FE3788
+SP app 0.0 % <- fn 0x2F1640
+SP app 0.0 % fn 0x1FF37C
+SP app 0.0 % <- fn 0x103F5C
+SP app 0.0 % <- fn 0x7E71B0
+SP main [App]Game: 12410 samples
+SP main 52.8 % <- fn 0x1180A4
+SP main 21.3 % <- fn 0x117D6C
+SP main 2.6 % fn 0x418F40
+SP main 1.5 % <- fn 0x1A74130
+SP main 1.0 % fn 0xB94230
+SP main 0.8 % fn 0x61B1C
+SP main 0.8 % <- fn 0x5DA48
+SP main 0.7 % <- fn 0x1A74130
+SP main 0.6 % fn 0x4AA34
+SP main 0.5 % fn 0x620FA
+SP main 0.4 % <- fn 0x254110
+SP main 0.4 % fn 0x2523FC
+SP main 0.3 % <- fn 0x9AFED0
+SP main 0.3 % fn 0x5DF70
+SP main 0.3 % fn 0x113204
+SP main 0.2 % fn 0x252746
+SP main 0.2 % <- fn 0x8AB14C
+SP main 0.2 % fn 0x1A74130
+SP main 0.2 % fn 0x1239893
+SP main 0.2 % fn 0x1DAF6C
+SP main 0.2 % fn 0x1D833C
+SP main 0.2 % fn 0x78150
+SP main 0.2 % fn 0x1D8778
+SP main 0.2 % fn 0x1E81AE
+SP main 0.2 % fn 0x4FC330
+SP KIDSTaskScheduler: 768 samples
+SP kidsTS 84.2 % <- fn 0x3FE14
+SP kidsTS 6.2 % <- fn 0xB616A4
+SP kidsTS 1.3 % fn 0x2D9B84
+SP kidsTS 1.0 % fn 0x16728D
+SP kidsTS 0.5 % fn 0x16C140
+SP kidsTS 0.4 % <- fn 0xB60FFC
+SP kidsTS 0.4 % fn 0x16BA70
+SP kidsTS 0.3 % <- fn 0x2D7F20
+SP kidsTS 0.3 % fn 0xB6C3C
+SP kidsTS 0.3 % fn 0x6F010
+SP kidsTS 0.1 % fn 0x458A4
+SP kidsTS 0.1 % fn 0x331CD4
+SP kidsTS 0.1 % fn 0x1A5FB1
+SP kidsTS 0.1 % fn 0x4DBDB0
+SP kidsTS 0.1 % <- fn 0x23C9BC
+SP kidsTS 0.1 % fn 0x1F751C
+SP kidsTS 0.1 % <- fn 0x48B9C
+SP kidsTS 0.1 % fn 0x382328
+SP kidsTS 0.1 % fn 0x4FC330
+SP kidsTS 0.1 % fn 0xF510F
+SP kidsTS 0.1 % fn 0x556F88
+SP kidsTS 0.1 % fn 0x1A6014
+SP kidsTS 0.1 % fn 0x71D1D
+SP kidsTS 0.1 % <- fn 0xFE4C60
+SP kidsTS 0.1 % fn 0x3E7CC
+SP KIDSTS: 7335 samples
+SP kidsts 91.7 % <- fn 0x3FE14
+SP kidsts 1.7 % fn 0x1A6030
+SP kidsts 0.9 % <- fn 0x117D6C
+SP kidsts 0.8 % fn 0x1A6820
+SP kidsts 0.8 % fn 0x1A009C
+SP kidsts 0.4 % fn 0x904B58
+SP kidsts 0.4 % <- fn 0x31182C
+SP kidsts 0.3 % fn 0x411C0
+SP kidsts 0.3 % fn 0x1A19E0
+SP kidsts 0.2 % fn 0xD8B70
+SP kidsts 0.2 % fn 0xD8152
+SP kidsts 0.1 % fn 0x1A5820
+SP kidsts 0.1 % fn 0x40800
+SP kidsts 0.1 % fn 0x1A5EC4
+SP kidsts 0.1 % <- fn 0x40800
+SP kidsts 0.1 % fn 0x3FE14
+SP kidsts 0.1 % <- fn 0x207200
+SP kidsts 0.1 % fn 0xDBBE1
+SP kidsts 0.1 % fn 0x19FE30
+SP kidsts 0.1 % <- fn 0x631F70
+SP kidsts 0.0 % fn 0x1A1DA0
+SP kidsts 0.0 % fn 0xB36BF0
+SP kidsts 0.0 % fn 0x207553
+SP kidsts 0.0 % fn 0x615D7C
+SP kidsts 0.0 % fn 0x19FE90
+SP SynergisticDispatcher: 96 samples
+SP dispatch 57.3 % <- fn 0x4930C8
+SP dispatch 22.9 % <- fn 0x7F64DC
+SP dispatch 4.2 % <- fn 0x7471BC
+SP dispatch 3.1 % <- fn 0x1A7C3E0
+SP dispatch 1.0 % <- fn 0x45A654
+SP dispatch 1.0 % <- fn 0x6BE12C
+SP dispatch 1.0 % fn 0x119820
+SP dispatch 1.0 % <- fn 0x1167D4
+SP dispatch 1.0 % fn 0x1192B0
+SP dispatch 1.0 % <- fn 0x4591DC
+SP dispatch 1.0 % fn 0x113A60
+SP dispatch 1.0 % <- fn 0x3D1888
+SP dispatch 1.0 % <- fn 0x115DE8
+SP dispatch 1.0 % fn 0x189C1FD
+SP [App] other: 4211 samples
+SP app 66.6 % <- fn 0xB616A4
+SP app 11.3 % <- fn 0xC7A7C
+SP app 4.6 % <- fn 0xB61524
+SP app 2.3 % <- fn 0x31DA38
+SP app 2.3 % <- fn 0x2665C4
+SP app 2.2 % <- fn 0x7E71B0
+SP app 2.1 % <- fn 0x4B2818
+SP app 1.6 % <- fn 0x131EEC
+SP app 1.3 % <- fn 0xAF7020
+SP app 0.7 % fn 0x1A6030
+SP app 0.7 % <- fn 0xB611BC
+SP app 0.6 % <- fn 0xB611BC
+SP app 0.6 % fn 0x1A009C
+SP app 0.3 % <- fn 0x1A1B30
+SP app 0.2 % fn 0x1A6820
+SP app 0.2 % <- fn 0x1A1B30
+SP app 0.1 % <- fn 0x87515C
+SP app 0.1 % <- fn 0xB611BC
+SP app 0.1 % <- fn 0x1A6030
+SP app 0.1 % <- fn 0x12E2EC
+SP app 0.1 % fn 0x1A5EC4
+SP app 0.1 % fn 0x1FF1E4
+SP app 0.0 % fn 0x1A5820
+SP app 0.0 % fn 0x19FE90
+SP main [App]Game: 14869 samples
+SP main 45.4 % <- fn 0x117D6C
+SP main 29.7 % <- fn 0x1180A4
+SP main 1.3 % fn 0x418F40
+SP main 1.0 % fn 0xB94230
+SP main 1.0 % fn 0x1E81AE
+SP main 1.0 % <- fn 0x5DA48
+SP main 0.8 % fn 0x4AA34
+SP main 0.6 % fn 0x61B1C
+SP main 0.5 % fn 0x128EF0
+SP main 0.5 % fn 0x1E7154
+SP main 0.4 % <- fn 0x3FCB8
+SP main 0.4 % fn 0x2523FC
+SP main 0.4 % fn 0x39E20
+SP main 0.3 % <- fn 0x254110
+SP main 0.3 % fn 0x1D7340
+SP main 0.3 % <- fn 0x9AFED0
+SP main 0.3 % fn 0x1D8778
+SP main 0.3 % fn 0x4D5F8
+SP main 0.2 % fn 0x419A8
+SP main 0.2 % fn 0x3C4B74
+SP main 0.2 % fn 0x1290B8
+SP main 0.2 % fn 0x1E0B64
+SP main 0.2 % fn 0x1DAF6C
+SP main 0.2 % fn 0x1D84F8
+SP main 0.2 % fn 0x620FA
+SP KIDSTaskScheduler: 912 samples
+SP kidsTS 79.3 % <- fn 0x3FE14
+SP kidsTS 5.4 % <- fn 0xB616A4
+SP kidsTS 0.9 % <- fn 0xB60FFC
+SP kidsTS 0.7 % fn 0x16728D
+SP kidsTS 0.5 % fn 0x4280B
+SP kidsTS 0.4 % fn 0xB6C3C
+SP kidsTS 0.4 % fn 0x72630
+SP kidsTS 0.4 % fn 0x16C140
+SP kidsTS 0.4 % <- fn 0x40800
+SP kidsTS 0.4 % fn 0x6EFDB
+SP kidsTS 0.3 % fn 0x556C18
+SP kidsTS 0.3 % fn 0x411C0
+SP kidsTS 0.3 % <- fn 0xB617E8
+SP kidsTS 0.2 % fn 0x2D9B84
+SP kidsTS 0.2 % fn 0x15E658
+SP kidsTS 0.2 % fn 0x3C41C
+SP kidsTS 0.2 % fn 0x1220BD
+SP kidsTS 0.2 % fn 0x167809
+SP kidsTS 0.2 % fn 0x40800
+SP kidsTS 0.2 % fn 0x6F450
+SP kidsTS 0.2 % fn 0x1A7AAC
+SP kidsTS 0.2 % fn 0x6EFD4
+SP kidsTS 0.2 % fn 0x16BA70
+SP kidsTS 0.2 % fn 0x204584
+SP kidsTS 0.2 % fn 0x6FED0
+SP KIDSTS: 8814 samples
+SP kidsts 94.8 % <- fn 0x3FE14
+SP kidsts 0.9 % <- fn 0x117D6C
+SP kidsts 0.6 % fn 0x1A6030
+SP kidsts 0.5 % <- fn 0x49ABC
+SP kidsts 0.3 % fn 0x411C0
+SP kidsts 0.3 % fn 0x40800
+SP kidsts 0.2 % <- fn 0x31182C
+SP kidsts 0.2 % fn 0x1A009C
+SP kidsts 0.2 % fn 0x1A6820
+SP kidsts 0.2 % fn 0xD8152
+SP kidsts 0.1 % fn 0x3FE14
+SP kidsts 0.1 % fn 0x1A0BFC
+SP kidsts 0.1 % fn 0xDA879
+SP kidsts 0.1 % <- fn 0x207200
+SP kidsts 0.1 % fn 0x1A19E0
+SP kidsts 0.1 % fn 0xD8E00
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % fn 0xD8B70
+SP kidsts 0.0 % fn 0xDBA70
+SP kidsts 0.0 % fn 0xDA6E0
+SP kidsts 0.0 % fn 0x246F50
+SP kidsts 0.0 % fn 0x43CEC
+SP kidsts 0.0 % fn 0x1A043C
+SP kidsts 0.0 % fn 0x904B58
+SP kidsts 0.0 % fn 0xD6FF8
+SP SynergisticDispatcher: 114 samples
+SP dispatch 50.0 % <- fn 0x7F64DC
+SP dispatch 29.8 % <- fn 0x4930C8
+SP dispatch 3.5 % <- fn 0x1A7C3E0
+SP dispatch 1.8 % <- fn 0x7471BC
+SP dispatch 1.8 % <- fn 0x45A654
+SP dispatch 0.9 % <- fn 0x1180A4
+SP dispatch 0.9 % <- fn 0x4959EC
+SP dispatch 0.9 % <- fn 0x118C10
+SP dispatch 0.9 % fn 0x189C0EC
+SP dispatch 0.9 % <- fn 0x58BDC4
+SP dispatch 0.9 % <- fn 0x45A654
+SP dispatch 0.9 % fn 0xB94230
+SP dispatch 0.9 % <- fn 0x58BE90
+SP dispatch 0.9 % <- fn 0x115DE8
+SP dispatch 0.9 % <- fn 0x1188AC
+SP dispatch 0.9 % <- fn 0x7A728C
+SP [App] other: 5029 samples
+SP app 68.0 % <- fn 0xB616A4
+SP app 11.4 % <- fn 0xC7A7C
+SP app 4.6 % <- fn 0xB61524
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.2 % <- fn 0x2665C4
+SP app 2.2 % <- fn 0x31DA38
+SP app 2.2 % <- fn 0x4B2818
+SP app 2.1 % <- fn 0x12F5E0
+SP app 1.3 % <- fn 0xAF7020
+SP app 0.7 % <- fn 0x48B9C
+SP app 0.5 % fn 0x1A6030
+SP app 0.3 % fn 0x1A009C
+SP app 0.2 % fn 0x1A6820
+SP app 0.1 % <- fn 0xB611BC
+SP app 0.1 % fn 0x1A5EC4
+SP app 0.1 % <- fn 0x47DF8
+SP app 0.1 % fn 0x1A5820
+SP app 0.1 % <- fn 0x1A6030
+SP app 0.1 % <- fn 0x12E2EC
+SP app 0.1 % <- fn 0x87515C
+SP app 0.1 % fn 0x1FEE28
+SP app 0.0 % fn 0x1A19E0
+SP app 0.0 % <- fn 0x1FD4C00
+SP app 0.0 % fn 0x1FF1E4
+SP main [App]Game: 15488 samples
+SP main 49.0 % <- fn 0x1180A4
+SP main 13.4 % <- fn 0x117D6C
+SP main 11.6 % <- fn 0x5DA48
+SP main 1.3 % fn 0x1E81AE
+SP main 0.9 % fn 0xB94230
+SP main 0.8 % fn 0x418F40
+SP main 0.8 % <- fn 0x3FD10
+SP main 0.7 % <- fn 0x3FD10
+SP main 0.6 % fn 0x3FD10
+SP main 0.6 % fn 0x1E7154
+SP main 0.6 % fn 0x4AA34
+SP main 0.6 % fn 0x61B1C
+SP main 0.5 % fn 0x128EF0
+SP main 0.4 % fn 0x39E20
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x1DAF6C
+SP main 0.3 % <- fn 0x5DA48
+SP main 0.3 % fn 0x3BC0C
+SP main 0.3 % <- fn 0x1A74130
+SP main 0.3 % fn 0x1D7340
+SP main 0.3 % fn 0x2523FC
+SP main 0.3 % fn 0x3C4B74
+SP main 0.3 % fn 0x1290B8
+SP main 0.3 % fn 0x4D5F8
+SP main 0.3 % fn 0xB94250
+SP KIDSTaskScheduler: 952 samples
+SP kidsTS 80.1 % <- fn 0x3FE14
+SP kidsTS 3.0 % <- fn 0xB616A4
+SP kidsTS 1.2 % fn 0x16728D
+SP kidsTS 1.2 % fn 0x19A51C2
+SP kidsTS 1.1 % fn 0x11E6E0
+SP kidsTS 0.9 % fn 0x11E76A
+SP kidsTS 0.7 % fn 0x4280B
+SP kidsTS 0.6 % fn 0x11E77B
+SP kidsTS 0.6 % fn 0x411C0
+SP kidsTS 0.6 % <- fn 0xB60FFC
+SP kidsTS 0.4 % fn 0x2D9B84
+SP kidsTS 0.4 % fn 0x1220BD
+SP kidsTS 0.3 % fn 0x204584
+SP kidsTS 0.3 % fn 0x16BA70
+SP kidsTS 0.3 % fn 0x1A7BF0
+SP kidsTS 0.2 % fn 0x6EFDB
+SP kidsTS 0.2 % fn 0x4FC330
+SP kidsTS 0.2 % fn 0x3311FC
+SP kidsTS 0.2 % fn 0x121EB3
+SP kidsTS 0.2 % fn 0xB6C3C
+SP kidsTS 0.2 % fn 0x3AF00
+SP kidsTS 0.2 % fn 0x6F010
+SP kidsTS 0.2 % <- fn 0xB611BC
+SP kidsTS 0.2 % fn 0x71D1D
+SP kidsTS 0.2 % fn 0x16C140
+SP KIDSTS: 9181 samples
+SP kidsts 94.8 % <- fn 0x3FE14
+SP kidsts 1.1 % <- fn 0x117D6C
+SP kidsts 0.7 % fn 0x1A6030
+SP kidsts 0.4 % fn 0x411C0
+SP kidsts 0.3 % fn 0x40800
+SP kidsts 0.2 % fn 0x1A6820
+SP kidsts 0.2 % <- fn 0x49ABC
+SP kidsts 0.2 % <- fn 0x31182C
+SP kidsts 0.2 % fn 0xD8152
+SP kidsts 0.2 % <- fn 0x48B9C
+SP kidsts 0.1 % fn 0x1A19E0
+SP kidsts 0.1 % fn 0x1A0BFC
+SP kidsts 0.1 % fn 0x3FE14
+SP kidsts 0.1 % <- fn 0x40800
+SP kidsts 0.1 % fn 0x1A009C
+SP kidsts 0.1 % fn 0xDBA70
+SP kidsts 0.1 % fn 0xDA879
+SP kidsts 0.0 % <- fn 0x207200
+SP kidsts 0.0 % fn 0x43CEC
+SP kidsts 0.0 % <- fn 0x62D688
+SP kidsts 0.0 % fn 0x1A5EC4
+SP kidsts 0.0 % fn 0x1A5820
+SP kidsts 0.0 % <- fn 0x631F70
+SP kidsts 0.0 % <- fn 0x1A6BB84
+SP kidsts 0.0 % fn 0x1A1DA0
+SP SynergisticDispatcher: 119 samples
+SP dispatch 70.6 % <- fn 0x4930C8
+SP dispatch 14.3 % <- fn 0x7F64DC
+SP dispatch 2.5 % <- fn 0x1A7C3E0
+SP dispatch 1.7 % fn 0x119820
+SP dispatch 1.7 % <- fn 0x1167D4
+SP dispatch 0.8 % fn 0x115B9C
+SP dispatch 0.8 % <- fn 0x58BDC4
+SP dispatch 0.8 % <- fn 0x115DE8
+SP dispatch 0.8 % <- fn 0x115E24
+SP dispatch 0.8 % <- fn 0x118E28
+SP dispatch 0.8 % fn 0x797384
+SP dispatch 0.8 % <- fn 0x45A654
+SP [App] other: 5236 samples
+SP app 65.1 % <- fn 0xB616A4
+SP app 11.4 % <- fn 0xC7A7C
+SP app 4.9 % <- fn 0xB61524
+SP app 2.8 % <- fn 0x12F5E0
+SP app 2.3 % <- fn 0x2665C4
+SP app 2.3 % <- fn 0x4B2818
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.3 % <- fn 0x31DA38
+SP app 1.6 % <- fn 0xAF7020
+SP app 1.5 % <- fn 0x20A858
+SP app 1.5 % <- fn 0x37F550
+SP app 1.1 % <- fn 0x48B9C
+SP app 0.1 % fn 0x1A6030
+SP app 0.1 % <- fn 0x87515C
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x1A6820
+SP app 0.0 % fn 0x2F6C14
+SP app 0.0 % fn 0x1BF1E3C
+SP app 0.0 % <- fn 0x435864
+SP app 0.0 % fn 0xB912E0
+SP app 0.0 % fn 0x20B900
+SP app 0.0 % fn 0xE266B0
+SP app 0.0 % fn 0xB93EE0
+SP app 0.0 % <- fn 0x99F5C0
+SP main [App]Game: 16016 samples
+SP main 71.2 % <- fn 0x1180A4
+SP main 2.1 % <- fn 0x5DA48
+SP main 1.2 % fn 0x1E81AE
+SP main 1.2 % fn 0xB94230
+SP main 0.8 % fn 0x418F40
+SP main 0.7 % fn 0x1E7154
+SP main 0.7 % fn 0x4AA34
+SP main 0.7 % fn 0x61B1C
+SP main 0.5 % fn 0x128EF0
+SP main 0.5 % fn 0x2523FC
+SP main 0.4 % fn 0x39E20
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x3BC0C
+SP main 0.4 % fn 0xB94250
+SP main 0.3 % fn 0x3C4B74
+SP main 0.3 % fn 0x620FA
+SP main 0.3 % fn 0x5DF70
+SP main 0.3 % fn 0x1290B8
+SP main 0.3 % fn 0x4D5F8
+SP main 0.3 % fn 0x1D8778
+SP main 0.3 % fn 0x1D7340
+SP main 0.2 % fn 0x4B104
+SP main 0.2 % fn 0x247950
+SP main 0.2 % fn 0x1E5854
+SP main 0.2 % fn 0x1DAF6C
+SP KIDSTaskScheduler: 992 samples
+SP kidsTS 72.0 % <- fn 0x3FE14
+SP kidsTS 4.1 % <- fn 0xB616A4
+SP kidsTS 2.1 % fn 0x16728D
+SP kidsTS 1.0 % <- fn 0xB611BC
+SP kidsTS 0.9 % fn 0x4280B
+SP kidsTS 0.8 % fn 0x1A7BF0
+SP kidsTS 0.7 % fn 0x1220BD
+SP kidsTS 0.6 % fn 0x16C140
+SP kidsTS 0.6 % <- fn 0xB60FFC
+SP kidsTS 0.5 % fn 0x121EB3
+SP kidsTS 0.5 % fn 0xB6C3C
+SP kidsTS 0.4 % fn 0x121EB5
+SP kidsTS 0.4 % fn 0xCE1FF
+SP kidsTS 0.4 % fn 0x411C0
+SP kidsTS 0.4 % fn 0x6F010
+SP kidsTS 0.4 % fn 0x71D1D
+SP kidsTS 0.4 % fn 0x204584
+SP kidsTS 0.3 % <- fn 0xB611BC
+SP kidsTS 0.3 % fn 0x44134
+SP kidsTS 0.3 % <- fn 0x40800
+SP kidsTS 0.3 % fn 0x6EA50
+SP kidsTS 0.3 % fn 0x1A3B78
+SP kidsTS 0.3 % fn 0x174613
+SP kidsTS 0.3 % fn 0x6EFDB
+SP kidsTS 0.2 % fn 0x61EF97
+SP KIDSTS: 9488 samples
+SP kidsts 97.2 % <- fn 0x3FE14
+SP kidsts 0.3 % fn 0xD8152
+SP kidsts 0.2 % <- fn 0x117D6C
+SP kidsts 0.1 % fn 0x411C0
+SP kidsts 0.1 % fn 0xD8B70
+SP kidsts 0.1 % fn 0x1A6030
+SP kidsts 0.1 % <- fn 0x31182C
+SP kidsts 0.1 % fn 0xD8DC0
+SP kidsts 0.1 % fn 0x48F19
+SP kidsts 0.1 % fn 0xDA879
+SP kidsts 0.1 % fn 0xD8E00
+SP kidsts 0.1 % fn 0x475BD
+SP kidsts 0.0 % fn 0x40800
+SP kidsts 0.0 % fn 0x43CEC
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % <- fn 0x404B7
+SP kidsts 0.0 % fn 0x47DF8
+SP kidsts 0.0 % fn 0x46901
+SP kidsts 0.0 % fn 0x21FF9C
+SP kidsts 0.0 % fn 0xDBA70
+SP kidsts 0.0 % fn 0x1A0BFC
+SP kidsts 0.0 % fn 0xBE0378
+SP kidsts 0.0 % fn 0x1A5EC4
+SP kidsts 0.0 % <- fn 0x49ABC
+SP kidsts 0.0 % fn 0xDDCFF
+SP SynergisticDispatcher: 123 samples
+SP dispatch 73.2 % <- fn 0x4930C8
+SP dispatch 4.1 % <- fn 0x7F64DC
+SP dispatch 4.1 % <- fn 0x7471BC
+SP dispatch 2.4 % <- fn 0x1A7C3E0
+SP dispatch 1.6 % <- fn 0x1167D4
+SP dispatch 1.6 % fn 0x1192B0
+SP dispatch 0.8 % <- fn 0x6BE12C
+SP dispatch 0.8 % <- fn 0x1188AC
+SP dispatch 0.8 % fn 0x113E64
+SP dispatch 0.8 % <- fn 0x115DE8
+SP dispatch 0.8 % fn 0x1A7C3E0
+SP dispatch 0.8 % <- fn 0x1167D4
+SP dispatch 0.8 % fn 0x114A20
+SP dispatch 0.8 % fn 0xB94150
+SP dispatch 0.8 % fn 0x114750
+SP dispatch 0.8 % <- fn 0x4959EC
+SP dispatch 0.8 % fn 0x115E24
+SP dispatch 0.8 % fn 0xB94250
+SP dispatch 0.8 % <- fn 0x45A654
+SP [App] other: 5413 samples
+SP app 60.5 % <- fn 0xB616A4
+SP app 13.2 % <- fn 0xC7A7C
+SP app 5.0 % <- fn 0xB61524
+SP app 3.5 % <- fn 0x12F5E0
+SP app 2.3 % <- fn 0x4B2818
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.3 % <- fn 0x31DA38
+SP app 2.2 % <- fn 0x37F550
+SP app 2.2 % <- fn 0x20A858
+SP app 1.6 % <- fn 0x2665C4
+SP app 1.0 % <- fn 0xAF7020
+SP app 0.7 % <- fn 0x4A09F0
+SP app 0.6 % <- fn 0x394BC8
+SP app 0.4 % <- fn 0xF4DBC
+SP app 0.1 % <- fn 0x4276C0
+SP app 0.1 % fn 0x1A6030
+SP app 0.1 % <- fn 0x87515C
+SP app 0.1 % <- fn 0xA9240
+SP app 0.1 % fn 0x20B900
+SP app 0.1 % <- fn 0x48B9C
+SP app 0.1 % <- fn 0xB611BC
+SP app 0.1 % <- fn 0xB611BC
+SP app 0.0 % fn 0x1A6820
+SP app 0.0 % fn 0x1A009C
+SP main [App]Game: 17687 samples
+SP main 65.8 % <- fn 0x1180A4
+SP main 2.2 % fn 0x418F40
+SP main 1.8 % fn 0x1E81AE
+SP main 1.2 % fn 0xB94230
+SP main 0.8 % fn 0xB94250
+SP main 0.7 % fn 0x2523FC
+SP main 0.7 % fn 0x39E20
+SP main 0.7 % fn 0x128EF0
+SP main 0.6 % fn 0x4AA34
+SP main 0.6 % fn 0x1E7154
+SP main 0.5 % fn 0x1D7340
+SP main 0.5 % fn 0x3BC0C
+SP main 0.5 % fn 0x1DAF6C
+SP main 0.4 % <- fn 0x9AFED0
+SP main 0.4 % fn 0x1D8778
+SP main 0.4 % fn 0x61B1C
+SP main 0.4 % fn 0x4DB6C
+SP main 0.3 % fn 0x1D84F8
+SP main 0.3 % fn 0x247950
+SP main 0.3 % fn 0x419A8
+SP main 0.3 % fn 0x1E0B64
+SP main 0.3 % fn 0x1E80B0
+SP main 0.3 % fn 0x1290B8
+SP main 0.2 % fn 0x5DF70
+SP main 0.2 % fn 0x1E5854
+SP KIDSTaskScheduler: 1088 samples
+SP kidsTS 67.9 % <- fn 0x3FE14
+SP kidsTS 1.8 % <- fn 0xB611BC
+SP kidsTS 1.3 % fn 0x1A7BF0
+SP kidsTS 1.2 % fn 0x1220BD
+SP kidsTS 0.9 % <- fn 0xB616A4
+SP kidsTS 0.8 % fn 0x4280B
+SP kidsTS 0.6 % fn 0x88780
+SP kidsTS 0.6 % fn 0x71D1D
+SP kidsTS 0.6 % <- fn 0xB60FFC
+SP kidsTS 0.5 % fn 0x1A7408
+SP kidsTS 0.5 % fn 0x121EB3
+SP kidsTS 0.4 % <- fn 0x40800
+SP kidsTS 0.4 % fn 0x204584
+SP kidsTS 0.4 % fn 0x411C0
+SP kidsTS 0.4 % fn 0x16D280
+SP kidsTS 0.4 % <- fn 0x23C9BC
+SP kidsTS 0.4 % fn 0x6EA50
+SP kidsTS 0.4 % fn 0x203BD4
+SP kidsTS 0.3 % fn 0x1A5DA2
+SP kidsTS 0.3 % fn 0x203B74
+SP kidsTS 0.3 % fn 0x6642C
+SP kidsTS 0.3 % fn 0x1991E0
+SP kidsTS 0.3 % fn 0x121EB5
+SP kidsTS 0.3 % fn 0xB94230
+SP kidsTS 0.3 % fn 0x16BA70
+SP KIDSTS: 10473 samples
+SP kidsts 97.5 % <- fn 0x3FE14
+SP kidsts 0.4 % fn 0xD8152
+SP kidsts 0.2 % fn 0x411C0
+SP kidsts 0.2 % fn 0xD8B70
+SP kidsts 0.2 % fn 0xDA879
+SP kidsts 0.1 % fn 0x48F19
+SP kidsts 0.1 % fn 0xDBA70
+SP kidsts 0.0 % fn 0xD8770
+SP kidsts 0.0 % <- fn 0xB60E98
+SP kidsts 0.0 % fn 0xD8DC0
+SP kidsts 0.0 % fn 0xD8E00
+SP kidsts 0.0 % fn 0xDA6E0
+SP kidsts 0.0 % fn 0x43CEC
+SP kidsts 0.0 % fn 0x475BD
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % fn 0x2086E8
+SP kidsts 0.0 % fn 0x484E6
+SP kidsts 0.0 % fn 0x2D9EE0
+SP kidsts 0.0 % fn 0x168E83
+SP kidsts 0.0 % fn 0x89572
+SP kidsts 0.0 % fn 0x40800
+SP kidsts 0.0 % <- fn 0x7464BC
+SP kidsts 0.0 % fn 0x46A24
+SP kidsts 0.0 % fn 0x47DF8
+SP kidsts 0.0 % <- fn 0x2E1A48
+SP SynergisticDispatcher: 137 samples
+SP dispatch 64.2 % <- fn 0x4930C8
+SP dispatch 2.9 % <- fn 0x7471BC
+SP dispatch 2.9 % <- fn 0x1A7C3E0
+SP dispatch 2.2 % <- fn 0x7F64DC
+SP dispatch 2.2 % fn 0xB94250
+SP dispatch 1.5 % <- fn 0x1167D4
+SP dispatch 1.5 % <- fn 0x115DE8
+SP dispatch 1.5 % fn 0x114A20
+SP dispatch 1.5 % <- fn 0x115DE8
+SP dispatch 0.7 % <- fn 0x458A50
+SP dispatch 0.7 % <- fn 0x1188AC
+SP dispatch 0.7 % fn 0x7A5FB8
+SP dispatch 0.7 % <- fn 0x118604
+SP dispatch 0.7 % fn 0x189C0EC
+SP dispatch 0.7 % fn 0x1A7C3E0
+SP dispatch 0.7 % <- fn 0x1167D4
+SP dispatch 0.7 % <- fn 0x45A654
+SP dispatch 0.7 % <- fn 0x115E24
+SP dispatch 0.7 % <- fn 0x58C144
+SP dispatch 0.7 % fn 0x45A5F0
+SP dispatch 0.7 % fn 0xB94150
+SP dispatch 0.7 % fn 0x1192B0
+SP dispatch 0.7 % fn 0xB94230
+SP [App] other: 5989 samples
+SP app 53.4 % <- fn 0xB616A4
+SP app 17.8 % <- fn 0xC7A7C
+SP app 6.8 % <- fn 0xB61524
+SP app 2.3 % <- fn 0x31DA38
+SP app 2.3 % <- fn 0x12F5E0
+SP app 2.3 % <- fn 0x4B2818
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.3 % <- fn 0x394BC8
+SP app 2.2 % <- fn 0x37F550
+SP app 2.2 % <- fn 0x4A09F0
+SP app 2.1 % <- fn 0x20A858
+SP app 1.6 % <- fn 0xF4DBC
+SP app 0.5 % <- fn 0x2665C4
+SP app 0.2 % <- fn 0x87515C
+SP app 0.2 % <- fn 0xA9240
+SP app 0.1 % fn 0xCE7E0
+SP app 0.1 % <- fn 0x4276C0
+SP app 0.1 % fn 0x219EEE
+SP app 0.1 % fn 0x20B900
+SP app 0.1 % fn 0xAC8D10
+SP app 0.1 % fn 0x198A50
+SP app 0.1 % fn 0xE266B0
+SP app 0.1 % fn 0x371784
+SP app 0.1 % fn 0x6D360
+SP main [App]Game: 17766 samples
+SP main 66.4 % <- fn 0x1180A4
+SP main 2.4 % fn 0x418F40
+SP main 1.7 % fn 0x1E81AE
+SP main 1.3 % fn 0xB94230
+SP main 0.9 % fn 0xB94250
+SP main 0.7 % fn 0x39E20
+SP main 0.6 % fn 0x2523FC
+SP main 0.6 % fn 0x1E7154
+SP main 0.6 % fn 0x4AA34
+SP main 0.5 % fn 0x128EF0
+SP main 0.5 % fn 0x3BC0C
+SP main 0.4 % fn 0x1DAF6C
+SP main 0.4 % fn 0x1D8778
+SP main 0.4 % fn 0x1290B8
+SP main 0.3 % fn 0x1D7340
+SP main 0.3 % <- fn 0x9AFED0
+SP main 0.3 % fn 0x1E80B0
+SP main 0.3 % fn 0x1D84F8
+SP main 0.3 % fn 0x3C4B74
+SP main 0.3 % fn 0x419A8
+SP main 0.3 % fn 0x247950
+SP main 0.3 % fn 0x1E8065
+SP main 0.3 % fn 0x61B1C
+SP main 0.3 % fn 0x1E5854
+SP main 0.3 % fn 0x4B104
+SP KIDSTaskScheduler: 1088 samples
+SP kidsTS 69.3 % <- fn 0x3FE14
+SP kidsTS 1.7 % <- fn 0xB611BC
+SP kidsTS 0.9 % fn 0x1A7BF0
+SP kidsTS 0.8 % fn 0x1220BD
+SP kidsTS 0.7 % <- fn 0xB60FFC
+SP kidsTS 0.7 % fn 0x411C0
+SP kidsTS 0.6 % fn 0x40800
+SP kidsTS 0.6 % fn 0x88780
+SP kidsTS 0.6 % <- fn 0xB616A4
+SP kidsTS 0.6 % fn 0x6642C
+SP kidsTS 0.5 % fn 0x71D1D
+SP kidsTS 0.5 % fn 0x121EB3
+SP kidsTS 0.4 % fn 0x120227
+SP kidsTS 0.4 % fn 0xB5E2C
+SP kidsTS 0.4 % fn 0xCE5F0
+SP kidsTS 0.4 % fn 0xE32DD0
+SP kidsTS 0.4 % fn 0x16BA70
+SP kidsTS 0.3 % fn 0x6BB80
+SP kidsTS 0.3 % fn 0x1A188C
+SP kidsTS 0.3 % fn 0x1A7408
+SP kidsTS 0.3 % <- fn 0x23C9BC
+SP kidsTS 0.3 % fn 0x4280B
+SP kidsTS 0.3 % fn 0x121EB5
+SP kidsTS 0.3 % fn 0x889C0
+SP kidsTS 0.3 % <- fn 0x204584
+SP KIDSTS: 10520 samples
+SP kidsts 97.5 % <- fn 0x3FE14
+SP kidsts 0.4 % fn 0xD8152
+SP kidsts 0.2 % fn 0xD8B70
+SP kidsts 0.1 % fn 0xDBA70
+SP kidsts 0.1 % fn 0x411C0
+SP kidsts 0.1 % fn 0xD8DC0
+SP kidsts 0.1 % fn 0xDA879
+SP kidsts 0.1 % fn 0xD8770
+SP kidsts 0.0 % <- fn 0x2E1A48
+SP kidsts 0.0 % fn 0x475BD
+SP kidsts 0.0 % fn 0xDDCFF
+SP kidsts 0.0 % fn 0xD8E00
+SP kidsts 0.0 % fn 0x48F19
+SP kidsts 0.0 % fn 0xDBBE1
+SP kidsts 0.0 % fn 0xD6FF8
+SP kidsts 0.0 % fn 0x165717
+SP kidsts 0.0 % fn 0xD7238
+SP kidsts 0.0 % <- fn 0x207200
+SP kidsts 0.0 % <- fn 0x123A6C0
+SP kidsts 0.0 % fn 0x47DF8
+SP kidsts 0.0 % fn 0xD8DCD
+SP kidsts 0.0 % fn 0x246BD0
+SP kidsts 0.0 % fn 0x2DF77D
+SP kidsts 0.0 % <- fn 0x40800
+SP SynergisticDispatcher: 136 samples
+SP dispatch 69.9 % <- fn 0x4930C8
+SP dispatch 4.4 % <- fn 0x7471BC
+SP dispatch 3.7 % <- fn 0x7F64DC
+SP dispatch 2.9 % fn 0x1192B0
+SP dispatch 1.5 % <- fn 0x1167D4
+SP dispatch 1.5 % fn 0x815DB0
+SP dispatch 1.5 % <- fn 0x115DE8
+SP dispatch 0.7 % <- fn 0x113A0C
+SP dispatch 0.7 % <- fn 0x1A7C3E0
+SP dispatch 0.7 % fn 0x1A7C3E0
+SP dispatch 0.7 % fn 0x114A20
+SP dispatch 0.7 % fn 0xB94230
+SP dispatch 0.7 % <- fn 0x118E28
+SP dispatch 0.7 % fn 0x113A60
+SP dispatch 0.7 % fn 0x11A218
+SP dispatch 0.7 % fn 0x495764
+SP dispatch 0.7 % fn 0x1199CF
+SP dispatch 0.7 % fn 0x1199D6
+SP dispatch 0.7 % fn 0x115E24
+SP dispatch 0.7 % fn 0xB94250
+SP dispatch 0.7 % <- fn 0x118E28
+SP [App] other: 6022 samples
+SP app 53.5 % <- fn 0xB616A4
+SP app 17.8 % <- fn 0xC7A7C
+SP app 5.8 % <- fn 0xB61524
+SP app 3.3 % <- fn 0x12F5E0
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.3 % <- fn 0x4B2818
+SP app 2.3 % <- fn 0x394BC8
+SP app 2.3 % <- fn 0x31DA38
+SP app 2.2 % <- fn 0x37F550
+SP app 2.2 % <- fn 0x4A09F0
+SP app 2.0 % <- fn 0x20A858
+SP app 1.6 % <- fn 0xF4DBC
+SP app 0.5 % <- fn 0x2665C4
+SP app 0.2 % <- fn 0xA9240
+SP app 0.1 % <- fn 0x87515C
+SP app 0.1 % fn 0x6D360
+SP app 0.1 % fn 0x371784
+SP app 0.0 % fn 0xE266B0
+SP app 0.0 % fn 0xCE7E0
+SP app 0.0 % fn 0x20B900
+SP app 0.0 % fn 0x21A082
+SP app 0.0 % <- fn 0xB611BC
+SP app 0.0 % fn 0x2866F0
+SP app 0.0 % fn 0x431690
+SP main [App]Game: 16892 samples
+SP main 64.4 % <- fn 0x1180A4
+SP main 2.6 % <- fn 0x5DA48
+SP main 2.0 % fn 0x418F40
+SP main 1.8 % fn 0x1E81AE
+SP main 1.1 % fn 0xB94230
+SP main 0.8 % fn 0xB94250
+SP main 0.7 % fn 0x128EF0
+SP main 0.7 % fn 0x2523FC
+SP main 0.7 % fn 0x4AA34
+SP main 0.6 % fn 0x3BC0C
+SP main 0.6 % fn 0x1E7154
+SP main 0.6 % fn 0x39E20
+SP main 0.4 % fn 0x1D8778
+SP main 0.4 % fn 0x1DAF6C
+SP main 0.3 % <- fn 0x9AFED0
+SP main 0.3 % fn 0x1D7340
+SP main 0.3 % fn 0x1D84F8
+SP main 0.3 % fn 0x3C4B74
+SP main 0.3 % fn 0x419A8
+SP main 0.3 % fn 0x4DB6C
+SP main 0.3 % fn 0x1290B8
+SP main 0.3 % fn 0x1E80B0
+SP main 0.3 % fn 0x1E5854
+SP main 0.3 % fn 0x247950
+SP main 0.3 % fn 0x4D5F8
+SP KIDSTaskScheduler: 1040 samples
+SP kidsTS 68.8 % <- fn 0x3FE14
+SP kidsTS 1.3 % <- fn 0xB611BC
+SP kidsTS 1.2 % <- fn 0xB616A4
+SP kidsTS 1.1 % fn 0x411C0
+SP kidsTS 1.0 % fn 0x1220BD
+SP kidsTS 0.8 % fn 0x4280B
+SP kidsTS 0.8 % fn 0x1A7BF0
+SP kidsTS 0.7 % fn 0x6EA50
+SP kidsTS 0.6 % fn 0x2040A0
+SP kidsTS 0.5 % fn 0x205840
+SP kidsTS 0.5 % fn 0x204584
+SP kidsTS 0.4 % fn 0x47DF8
+SP kidsTS 0.4 % fn 0xD1908
+SP kidsTS 0.4 % fn 0x54360
+SP kidsTS 0.4 % fn 0x71D1D
+SP kidsTS 0.4 % <- fn 0x40800
+SP kidsTS 0.4 % fn 0x1A188C
+SP kidsTS 0.4 % fn 0x204128
+SP kidsTS 0.4 % fn 0x42635
+SP kidsTS 0.4 % fn 0x6642C
+SP kidsTS 0.4 % fn 0x1A3B78
+SP kidsTS 0.3 % fn 0x6FED0
+SP kidsTS 0.3 % fn 0x1670FC
+SP kidsTS 0.3 % <- fn 0xB60FFC
+SP kidsTS 0.3 % fn 0x121EB3
+SP KIDSTS: 10002 samples
+SP kidsts 97.0 % <- fn 0x3FE14
+SP kidsts 0.4 % fn 0xD8152
+SP kidsts 0.2 % fn 0xD8B70
+SP kidsts 0.2 % fn 0x411C0
+SP kidsts 0.1 % fn 0xDA879
+SP kidsts 0.1 % <- fn 0x117D6C
+SP kidsts 0.1 % <- fn 0x207200
+SP kidsts 0.1 % fn 0x48F19
+SP kidsts 0.1 % fn 0xDDCFF
+SP kidsts 0.1 % fn 0xD8E00
+SP kidsts 0.1 % fn 0xDBA70
+SP kidsts 0.0 % <- fn 0x40800
+SP kidsts 0.0 % fn 0x168E83
+SP kidsts 0.0 % <- fn 0x123A6C0
+SP kidsts 0.0 % fn 0xD8DC0
+SP kidsts 0.0 % fn 0xD8770
+SP kidsts 0.0 % fn 0x43CEC
+SP kidsts 0.0 % fn 0x2DF66C
+SP kidsts 0.0 % fn 0x40800
+SP kidsts 0.0 % fn 0x2DE3BD
+SP kidsts 0.0 % fn 0xD8A3E
+SP kidsts 0.0 % <- fn 0x48B9C
+SP kidsts 0.0 % fn 0x165717
+SP kidsts 0.0 % fn 0x2124A4
+SP SynergisticDispatcher: 130 samples
+SP dispatch 70.0 % <- fn 0x4930C8
+SP dispatch 3.8 % <- fn 0x7F64DC
+SP dispatch 1.5 % <- fn 0x1167D4
+SP dispatch 1.5 % <- fn 0x7471BC
+SP dispatch 1.5 % <- fn 0x1A7C3E0
+SP dispatch 1.5 % fn 0xB94230
+SP dispatch 0.8 % fn 0x113533
+SP dispatch 0.8 % <- fn 0x115DE8
+SP dispatch 0.8 % <- fn 0x45A654
+SP dispatch 0.8 % fn 0x4591DC
+SP dispatch 0.8 % <- fn 0x1188AC
+SP dispatch 0.8 % <- fn 0x490D5C
+SP dispatch 0.8 % <- fn 0x115DE8
+SP dispatch 0.8 % fn 0x11579C
+SP dispatch 0.8 % <- fn 0x116260
+SP dispatch 0.8 % <- fn 0x115DE8
+SP dispatch 0.8 % <- fn 0x490D5C
+SP dispatch 0.8 % fn 0x1192B0
+SP dispatch 0.8 % fn 0x114750
+SP dispatch 0.8 % fn 0x118E28
+SP dispatch 0.8 % fn 0x113A60
+SP dispatch 0.8 % <- fn 0x115DE8
+SP [App] other: 5720 samples
+SP app 53.2 % <- fn 0xB616A4
+SP app 17.8 % <- fn 0xC7A7C
+SP app 5.6 % <- fn 0xB61524
+SP app 3.3 % <- fn 0x12F5E0
+SP app 2.3 % <- fn 0x394BC8
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.3 % <- fn 0x4B2818
+SP app 2.2 % <- fn 0x31DA38
+SP app 2.2 % <- fn 0x4A09F0
+SP app 2.2 % <- fn 0x37F550
+SP app 2.1 % <- fn 0x20A858
+SP app 1.8 % <- fn 0xF4DBC
+SP app 0.4 % <- fn 0x2665C4
+SP app 0.2 % <- fn 0x4276C0
+SP app 0.2 % <- fn 0x48B9C
+SP app 0.1 % <- fn 0xA9240
+SP app 0.1 % fn 0x20B878
+SP app 0.1 % fn 0x198A50
+SP app 0.1 % fn 0x20B900
+SP app 0.1 % <- fn 0xB611BC
+SP app 0.1 % <- fn 0x131510
+SP app 0.0 % fn 0xCE7E0
+SP app 0.0 % fn 0x58E29F
+SP app 0.0 % fn 0x138558
+SP main [App]Game: 14655 samples
+SP main 61.9 % <- fn 0x1180A4
+SP main 7.1 % <- fn 0x5DA48
+SP main 1.6 % fn 0x1E81AE
+SP main 1.5 % fn 0x418F40
+SP main 1.1 % fn 0xB94230
+SP main 0.8 % fn 0x39E20
+SP main 0.7 % fn 0xB94250
+SP main 0.6 % fn 0x2523FC
+SP main 0.6 % fn 0x1E7154
+SP main 0.5 % fn 0x4AA34
+SP main 0.5 % fn 0x128EF0
+SP main 0.5 % <- fn 0x3FD10
+SP main 0.5 % fn 0x3BC0C
+SP main 0.4 % fn 0x1DAF6C
+SP main 0.4 % <- fn 0x3FD10
+SP main 0.3 % fn 0x1E80B0
+SP main 0.3 % fn 0x1D8778
+SP main 0.3 % <- fn 0x254110
+SP main 0.3 % fn 0x1D84F8
+SP main 0.3 % fn 0x61B1C
+SP main 0.3 % fn 0x1E8065
+SP main 0.3 % fn 0x1D7340
+SP main 0.3 % fn 0x3C4B74
+SP main 0.2 % <- fn 0x9AFED0
+SP main 0.2 % fn 0x247950
+SP KIDSTaskScheduler: 904 samples
+SP kidsTS 68.5 % <- fn 0x3FE14
+SP kidsTS 1.4 % fn 0x1A7BF0
+SP kidsTS 1.1 % fn 0x1220BD
+SP kidsTS 0.8 % fn 0x411C0
+SP kidsTS 0.8 % fn 0x2040A0
+SP kidsTS 0.7 % fn 0x6642C
+SP kidsTS 0.6 % fn 0x6F010
+SP kidsTS 0.4 % <- fn 0xB616A4
+SP kidsTS 0.4 % fn 0x71D1D
+SP kidsTS 0.4 % fn 0x88780
+SP kidsTS 0.4 % fn 0x54360
+SP kidsTS 0.4 % <- fn 0xB611BC
+SP kidsTS 0.4 % fn 0x121EB3
+SP kidsTS 0.4 % fn 0x16D280
+SP kidsTS 0.4 % <- fn 0x40800
+SP kidsTS 0.4 % fn 0x4280B
+SP kidsTS 0.4 % fn 0x6BB80
+SP kidsTS 0.3 % <- fn 0xB60FFC
+SP kidsTS 0.3 % fn 0x1218EC
+SP kidsTS 0.3 % fn 0x6EFD4
+SP kidsTS 0.3 % fn 0x17346C
+SP kidsTS 0.3 % fn 0x16BA70
+SP kidsTS 0.3 % fn 0x6EA50
+SP kidsTS 0.3 % fn 0x165088
+SP kidsTS 0.3 % <- fn 0x23C9BC
+SP KIDSTS: 8666 samples
+SP kidsts 94.5 % <- fn 0x3FE14
+SP kidsts 0.7 % <- fn 0x117D6C
+SP kidsts 0.3 % fn 0x1A6030
+SP kidsts 0.3 % fn 0x411C0
+SP kidsts 0.3 % fn 0xD8152
+SP kidsts 0.2 % <- fn 0x31182C
+SP kidsts 0.2 % fn 0xD8B70
+SP kidsts 0.2 % fn 0x40800
+SP kidsts 0.2 % <- fn 0x49ABC
+SP kidsts 0.2 % <- fn 0x207200
+SP kidsts 0.2 % <- fn 0x40800
+SP kidsts 0.2 % fn 0xDA879
+SP kidsts 0.1 % fn 0x1A6820
+SP kidsts 0.1 % fn 0xDDCFF
+SP kidsts 0.1 % fn 0xDBA70
+SP kidsts 0.1 % fn 0xD8E00
+SP kidsts 0.1 % <- fn 0x48B9C
+SP kidsts 0.1 % fn 0x3FE14
+SP kidsts 0.1 % fn 0x1A0BFC
+SP kidsts 0.1 % fn 0x475BD
+SP kidsts 0.1 % fn 0x48F19
+SP kidsts 0.0 % fn 0x46A24
+SP kidsts 0.0 % <- fn 0x247734
+SP kidsts 0.0 % fn 0xD7238
+SP SynergisticDispatcher: 113 samples
+SP dispatch 65.5 % <- fn 0x4930C8
+SP dispatch 4.4 % <- fn 0x7F64DC
+SP dispatch 2.7 % <- fn 0x7471BC
+SP dispatch 1.8 % <- fn 0x58C144
+SP dispatch 1.8 % fn 0x1192B0
+SP dispatch 1.8 % <- fn 0x6BE12C
+SP dispatch 1.8 % <- fn 0x115DE8
+SP dispatch 1.8 % fn 0xB94230
+SP dispatch 0.9 % <- fn 0x7A5D2C
+SP dispatch 0.9 % fn 0x11676C
+SP dispatch 0.9 % <- fn 0x4591DC
+SP dispatch 0.9 % <- fn 0x4959EC
+SP dispatch 0.9 % fn 0x3D4FC4
+SP dispatch 0.9 % <- fn 0x58BDC4
+SP dispatch 0.9 % <- fn 0x119BB8
+SP dispatch 0.9 % <- fn 0x115DE8
+SP dispatch 0.9 % <- fn 0x1A7C3E0
+SP dispatch 0.9 % <- fn 0x6BE12C
+SP dispatch 0.9 % <- fn 0x1167D4
+SP dispatch 0.9 % <- fn 0x1167D4
+SP dispatch 0.9 % <- fn 0x115E24
+SP dispatch 0.9 % <- fn 0x114024
+SP dispatch 0.9 % <- fn 0x45A42C
+SP [App] other: 4972 samples
+SP app 53.1 % <- fn 0xB616A4
+SP app 17.7 % <- fn 0xC7A7C
+SP app 6.1 % <- fn 0xB61524
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.3 % <- fn 0x394BC8
+SP app 2.3 % <- fn 0x4B2818
+SP app 2.2 % <- fn 0x37F550
+SP app 2.2 % <- fn 0x31DA38
+SP app 2.2 % <- fn 0x4A09F0
+SP app 2.1 % <- fn 0xF4DBC
+SP app 2.1 % <- fn 0x20A858
+SP app 1.9 % <- fn 0x12F5E0
+SP app 0.7 % <- fn 0x48B9C
+SP app 0.6 % <- fn 0x4276C0
+SP app 0.2 % <- fn 0xA9240
+SP app 0.1 % fn 0xCE7E0
+SP app 0.1 % <- fn 0x1A6030
+SP app 0.1 % fn 0x371784
+SP app 0.1 % <- fn 0xB617E8
+SP app 0.1 % fn 0xC8958
+SP app 0.1 % fn 0x198A50
+SP app 0.1 % fn 0x20B878
+SP app 0.1 % <- fn 0x131510
+SP app 0.1 % fn 0x1A6030
+SP main [App]Game: 11340 samples
+SP main 57.5 % <- fn 0x1180A4
+SP main 10.1 % <- fn 0x5DA48
+SP main 1.5 % fn 0x1E81AE
+SP main 1.4 % fn 0x418F40
+SP main 1.2 % fn 0xB94230
+SP main 0.7 % fn 0x4AA34
+SP main 0.7 % fn 0xB94250
+SP main 0.7 % <- fn 0x3FD10
+SP main 0.6 % fn 0x39E20
+SP main 0.6 % <- fn 0x3FD10
+SP main 0.6 % fn 0x2523FC
+SP main 0.6 % <- fn 0x254110
+SP main 0.5 % fn 0x1E7154
+SP main 0.4 % fn 0x1D7340
+SP main 0.4 % fn 0x128EF0
+SP main 0.4 % fn 0x1D8778
+SP main 0.3 % fn 0x3BC0C
+SP main 0.3 % fn 0x247950
+SP main 0.3 % fn 0x3FD10
+SP main 0.3 % fn 0x1D84F8
+SP main 0.3 % fn 0x695328
+SP main 0.3 % fn 0x61B1C
+SP main 0.3 % fn 0x5DF70
+SP main 0.3 % <- fn 0x9AFED0
+SP main 0.3 % fn 0x419A8
+SP KIDSTaskScheduler: 696 samples
+SP kidsTS 74.3 % <- fn 0x3FE14
+SP kidsTS 1.7 % <- fn 0xB616A4
+SP kidsTS 1.1 % fn 0x1A7BF0
+SP kidsTS 0.9 % <- fn 0x40800
+SP kidsTS 0.7 % <- fn 0xB611BC
+SP kidsTS 0.6 % fn 0x411C0
+SP kidsTS 0.6 % fn 0xB94250
+SP kidsTS 0.4 % fn 0x121EB5
+SP kidsTS 0.4 % fn 0xE32DD0
+SP kidsTS 0.4 % fn 0x1A188C
+SP kidsTS 0.4 % fn 0x1220BD
+SP kidsTS 0.3 % <- fn 0xAF910
+SP kidsTS 0.3 % fn 0x6EA50
+SP kidsTS 0.3 % fn 0x1218EC
+SP kidsTS 0.3 % fn 0x4DBA00
+SP kidsTS 0.3 % fn 0x1A5DA2
+SP kidsTS 0.3 % fn 0x11D89C
+SP kidsTS 0.3 % fn 0xCE1FF
+SP kidsTS 0.3 % fn 0x6EFD4
+SP kidsTS 0.3 % fn 0x54360
+SP kidsTS 0.3 % <- fn 0x23C9BC
+SP kidsTS 0.3 % fn 0x3311FC
+SP kidsTS 0.3 % fn 0x120227
+SP kidsTS 0.3 % fn 0x15FC80
+SP kidsTS 0.3 % fn 0x6ED0AA
+SP KIDSTS: 6729 samples
+SP kidsts 91.8 % <- fn 0x3FE14
+SP kidsts 0.8 % <- fn 0x117D6C
+SP kidsts 0.6 % fn 0x1A6030
+SP kidsts 0.6 % <- fn 0x31182C
+SP kidsts 0.6 % fn 0x411C0
+SP kidsts 0.5 % fn 0xD8152
+SP kidsts 0.5 % <- fn 0x49ABC
+SP kidsts 0.4 % fn 0x1A6820
+SP kidsts 0.3 % fn 0x40800
+SP kidsts 0.2 % fn 0x1A0BFC
+SP kidsts 0.2 % fn 0xD8B70
+SP kidsts 0.2 % fn 0x1A009C
+SP kidsts 0.2 % <- fn 0x207200
+SP kidsts 0.2 % <- fn 0x40800
+SP kidsts 0.1 % <- fn 0x123A6C0
+SP kidsts 0.1 % fn 0xD8E00
+SP kidsts 0.1 % fn 0x1A043C
+SP kidsts 0.1 % <- fn 0x2E16AC
+SP kidsts 0.1 % fn 0x1A19E0
+SP kidsts 0.1 % fn 0xDA879
+SP kidsts 0.1 % <- fn 0x247734
+SP kidsts 0.1 % fn 0xD8DC0
+SP kidsts 0.1 % fn 0x484E6
+SP kidsts 0.1 % <- fn 0xB60E98
+SP SynergisticDispatcher: 87 samples
+SP dispatch 74.7 % <- fn 0x4930C8
+SP dispatch 2.3 % <- fn 0x1167D4
+SP dispatch 2.3 % <- fn 0x7F64DC
+SP dispatch 2.3 % fn 0xB94230
+SP dispatch 2.3 % <- fn 0x7471BC
+SP dispatch 1.1 % fn 0x815DB0
+SP dispatch 1.1 % <- fn 0x45A42C
+SP dispatch 1.1 % <- fn 0x58BDC4
+SP dispatch 1.1 % <- fn 0x1A7C3E0
+SP dispatch 1.1 % <- fn 0x1167D4
+SP dispatch 1.1 % <- fn 0x58BE90
+SP dispatch 1.1 % fn 0x58C144
+SP dispatch 1.1 % fn 0xB94250
+SP dispatch 1.1 % <- fn 0x115E24
+SP [App] other: 3828 samples
+SP app 53.3 % <- fn 0xB616A4
+SP app 17.7 % <- fn 0xC7A7C
+SP app 6.0 % <- fn 0xB61524
+SP app 2.3 % <- fn 0x4B2818
+SP app 2.3 % <- fn 0x7E71B0
+SP app 2.2 % <- fn 0x37F550
+SP app 2.2 % <- fn 0x31DA38
+SP app 2.1 % <- fn 0x4A09F0
+SP app 2.1 % <- fn 0xF4DBC
+SP app 1.6 % <- fn 0x19EAE0
+SP app 1.5 % <- fn 0x394BC8
+SP app 1.3 % <- fn 0x12F5E0
+SP app 1.0 % <- fn 0x48B9C
+SP app 0.8 % <- fn 0x175270
+SP app 0.6 % <- fn 0x20A858
+SP app 0.3 % <- fn 0x4276C0
+SP app 0.3 % <- fn 0x2665C4
+SP app 0.2 % fn 0x1A009C
+SP app 0.2 % fn 0x1A6030
+SP app 0.1 % <- fn 0xB611BC
+SP app 0.1 % fn 0xCE7E0
+SP app 0.1 % fn 0xC8958
+SP app 0.1 % fn 0xE266B0
+SP app 0.1 % <- fn 0xA9240

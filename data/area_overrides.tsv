@@ -1,0 +1,12 @@
+# area overrides for progress_treemap.py: <0xRVA or name glob>	<area> (applied before every rule; RVA beats glob)
+key	area
+0x6efd0	Math / CRT / containers
+0x6f010	Math / CRT / containers
+0x6f060	Math / CRT / containers
+0x6fed0	Math / CRT / containers
+0x47550	Object / scene update
+0x205840	Object / scene update
+0xb94230	Math / CRT / containers
+0xb94250	Math / CRT / containers
+0xbdf238	Math / CRT / containers
+0x54360	Math / CRT / containers

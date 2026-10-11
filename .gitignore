@@ -11,3 +11,6 @@ __pycache__/
 symbols/symbols.csv
 symbols/symbols_x64dbg.txt
 symbols/symbols_ida.py
+
+# tools/progress: your game dump and the tables made from it (game code/text: never commit)
+data/local/

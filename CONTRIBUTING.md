@@ -14,9 +14,9 @@ Help is welcome, especially with **decompiling**: giving names and descriptions 
 ## Decompiling: get set up
 
 1. **Your own copy of the game, v2.02.** The shipped `Nioh3.exe` is wrapped in Steam's DRM stub, so disassemblers
-   see encrypted code. Analyse a decrypted copy made from **your own install** (for example, a SteamStub removal tool
-   such as Steamless, or a dump of the running game's image). This project used a runtime memory-layout dump, where
-   file offset equals RVA. Keep it on your machine; do not share it.
+   see encrypted code. Analyse a decrypted copy made from **your own install**: run
+   `tools\progress\dump_nioh3.py` while the game sits at the title screen. It writes a memory-layout dump
+   (file offset equals RVA), the same layout this project uses. Keep it on your machine; do not share it.
 2. **A disassembler.** Ghidra (free), IDA, or x64dbg for live debugging.
 3. **Load the existing names** so you start from what is already known:
    - Ghidra: copy [`symbols/ghidra/N3ApplySymbols.java`](symbols/ghidra/N3ApplySymbols.java) into your script folder,
@@ -25,6 +25,27 @@ Help is welcome, especially with **decompiling**: giving names and descriptions 
      `py symbols/build_exports.py`).
 
 Rows are **RVAs** (offsets from the image base), so they work whatever base your tool picks.
+
+## Catch up on what we know
+
+- [`research/`](research/README.md): the notes behind the names. Most `source` entries in `symbols.tsv` cite a
+  `notes/x.md` path; [`research/SOURCE_MAP.tsv`](research/SOURCE_MAP.tsv) maps those to the published notes
+  (about 91 % of cited rows resolve). Start with [`research/renderer/00-map.md`](research/renderer/00-map.md).
+- [`docs/subsystems/`](docs/subsystems/) and [`docs/code-map.md`](docs/code-map.md): short summaries per area.
+
+## Regenerate the charts yourself
+
+Every chart in `docs/progress/` and the region table behind `docs/code-map.md` can be rebuilt from this repo plus
+your own copy of the game:
+
+1. With the game at the title screen (mods off), run `py -I tools\progress\dump_nioh3.py`. It writes
+   `data\local\Nioh3.dump.exe`, which is gitignored. **Never commit or share it**: it contains your Windows user
+   name and Steam ID.
+2. `py -m pip install -r tools\progress\requirements.txt` (numpy, only `regions.py` needs it).
+3. Run `py -I tools\progress\progress_treemap.py`, `renderer_progress.py` and `progress_chart.py` (1-2 s each).
+   `regions.py` (about 17 s) rebuilds the code map. Include the regenerated charts in your pull request.
+
+Details: [tools/progress/README.md](tools/progress/README.md). The same dump works as the input for Ghidra or IDA.
 
 ## What to work on
 

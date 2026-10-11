@@ -8,6 +8,8 @@ Not affiliated with Koei Tecmo or Team Ninja. No game files are included in this
 | [`engine-fix/`](engine-fix/) | **Nioh3EngineFix**: a native mod (ASI) that fixes engine problems in memory | 1.7.61, tested on AMD hardware |
 | [`boss-rematch/`](boss-rematch/) | **Nioh3BossRematch**: a separate add-on to refight bosses you have beaten | 1.3.3 tested, 1.4.0 beta |
 | [`symbols/`](symbols/) | the **symbol database**: about 16,000 named functions, globals and structs in `Nioh3.exe` v2.02, with x64dbg and IDA exports | ongoing |
+| [`research/`](research/) | 46 reverse-engineering notes: the renderer (all 11 packages), frame timing, loading, jobs, profiles | ongoing |
+| [`tools/progress/`](tools/progress/) | the scripts that build every chart below and the code map, from your own copy of the game | |
 | [`docs/`](docs/) | [benchmarks](docs/BENCHMARKS.md), engine subsystem write-ups, code map, decompilation progress charts | |
 
 ## Download
@@ -133,6 +135,8 @@ As of 2026-10-11. Nothing here is in the downloads until it is tested.
 ## Help decompile the game
 
 Anyone can add names to the symbol database: no coding needed, just a disassembler and your own copy of the game.
+Everything we know is public: the names ([`symbols/`](symbols/)), the reasoning behind them ([`research/`](research/)),
+and the tools that draw the progress charts ([`tools/progress/`](tools/progress/)), so you can pick up exactly where we are.
 Setup, priorities and how to send a pull request: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Building

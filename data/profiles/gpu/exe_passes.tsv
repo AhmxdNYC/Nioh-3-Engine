@@ -1,0 +1,17 @@
+key	name
+5fccb795	ExeCopy_UpscaledDepth
+7c5acaaf	ExeCopy_GBufferEdit4RT
+29ecb6e4	ExeCopy_TintBlit
+d787dbd0	ExeCopy_OutputRes1Tap
+1b4a458b	ExeCopy_3RT_2DArray
+47f71215	ExeCopy_R1Channel
+0a509b81	ExeCopy_Volume3D_CS
+a816e9f5	ExeTess_OuterFactorBufferCS
+030dc802	ExeUI_TintedQuad
+9a76cbef	ExeUI_AlphaFadeQuad
+5747cd78	ExeUI_SmoothMaskDiscard
+449cf0ae	ExePost_ThinSurfaceTAA
+06fedbf9	ExeUI_VertexPulledSpriteVS
+80e5af9e	ExeUI_SpriteDiscardPS
+e471cbc3	EffectMergeShrinkBuffer
+acf34291	EffectMergeShrinkBuffer

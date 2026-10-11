@@ -1,5 +1,5 @@
 # Subsystem write-ups (goal part 4)
-One page per area costing >= 0.3 % of profiled CPU self time. Shares are the mean of the Ally and PC profiles (`py -I re\scripts_re\perf_coverage.py --self`, areas from `re\scripts_re\progress_treemap.py`; regenerate numbers with `progress_treemap.py --check`). Coverage = share of the area's self time in functions with a real or `Unknown_` name. RVAs are image-relative.
+One page per area costing >= 0.3 % of profiled CPU self time. Shares are the mean of the Ally and PC profiles (`py -I tools\progress\perf_coverage.py --self`, areas from `tools\progress\progress_treemap.py`; regenerate numbers with `progress_treemap.py --check`). Coverage = share of the area's self time in functions with a real or `Unknown_` name. RVAs are image-relative.
 
 | area | CPU share (Ally / PC) | threads | page | coverage |
 |---|---|---|---|---|
@@ -24,5 +24,5 @@ Caveat: the area is inferred from symbol names, and unnamed functions take the a
 ## Naming issues
 Cleaned up 2026-10-08 (notes/cleanup-decompile-db.md); nothing open.
 - B94230 is `MemcpyErms`: a 16-byte `rep movsb` stub (0 direct callers). B94250 `Memcpy` jumps to it (jne at B943C6) for large copies, so the two are separate routines and both descriptions now say so.
-- Generic math/container leaves (`Vec4AddInPlace`, `Vec4Scale`, `Vec3Dot`, `TransformedBoxAabb`, `SinCosApprox`, `CrtAtan2f`) now sit in the "Math / CRT / containers" area, and `PlaceableDistanceTest`, `ObjVirtUpdateLocked` in "Object / scene update", by prefix rules and `re/scripts_re/area_overrides.tsv`.
+- Generic math/container leaves (`Vec4AddInPlace`, `Vec4Scale`, `Vec3Dot`, `TransformedBoxAabb`, `SinCosApprox`, `CrtAtan2f`) now sit in the "Math / CRT / containers" area, and `PlaceableDistanceTest`, `ObjVirtUpdateLocked` in "Object / scene update", by prefix rules and `data/area_overrides.tsv`.
 - The six former "?" rows are named: BDF238 `CrtAtan2f`, 371784 `EntityProximityTriggerScan`, AC8D10 `NavOpenListPopExpand`, 7403EC `RbTreeContainsU32`, 259C4C `AnyChildVirtualTrue`, 2833F0 `ShortKeyTableFlagGet` (low/medium confidence except the two CRT/container ones).

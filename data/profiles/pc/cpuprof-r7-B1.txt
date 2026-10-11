@@ -1,0 +1,85 @@
+## Thread 8564 samples 3892
+Nioh3+3C7750(leaf?) | 3C77C3:
+Nioh3+3D8770(leaf?) | 3D8799:
+Nioh3+1E8040(leaf?) | 1E8065:
+Nioh3+43E300(leaf?) | 44AD30:
+## Thread 10736 samples 3892
+Nioh3+6EFD0(leaf?) | 6EFDB:
+Nioh3+174610(leaf?) | 174613:
+Nioh3+121E70(leaf?) | 121EB3:
+Nioh3+6F060(leaf?) | 6F065:
+Nioh3+120120(leaf?) | 120272:
+## Thread 5024 samples 3892
+Nioh3+189BFB0(leaf?) | 189C0EC:
+## Thread 21548 samples 3892
+Nioh3+709C0(leaf?) | 709CA:
+## Thread 3252 samples 3892
+Nioh3+61EF80(leaf?) | 61EF99:
+## Thread 8056 samples 3892
+## Thread 9000 samples 3892
+## Thread 21488 samples 3892
+## Thread 19484 samples 3892
+## Thread 8348 samples 3892
+Nioh3+D8C40(leaf?) | D8DC0:
+Nioh3+D8700(leaf?) | D8770:
+Nioh3+168E80(leaf?) | 168E83:
+Nioh3+D18A0(leaf?) | D18F1:
+Nioh3+19CED0(leaf?) | 19CEEB:
+## Thread 3116 samples 3892
+Nioh3+2515B0(leaf?) | 2515F3:
+Nioh3+3898C0(leaf?) | 389978:
+## Thread 5132 samples 3892
+Nioh3+44080(leaf?) | 4408C:
+Nioh3+3CD7C0(leaf?) | 3CD86D:
+## Thread 23928 samples 3892
+## Thread 24924 samples 3892
+Nioh3+484C0(leaf?) | 484E6:
+Nioh3+17A600(leaf?) | 17A634:
+## Thread 25220 samples 3892
+## Thread 19976 samples 3892
+Nioh3+282580(leaf?) | 28258F:
+Nioh3+13B580(leaf?) | 13B5C5:
+Nioh3+754370(leaf?) | 754461:
+Nioh3+54ADC0(leaf?) | 54AE49:
+Nioh3+60C760(leaf?) | 60C764:
+Nioh3+724CC0(leaf?) | 724CD4:
+## Thread 19792 samples 3510
+Nioh3+B38930(leaf?) | B38B00:
+## Thread 648 samples 3096
+## Thread 5360 samples 3892
+Nioh3+26BE50(leaf?) | 26BF13:
+Nioh3+383F7F0(leaf?) | 383F857:
+Nioh3+E06D0(leaf?) | E081A:
+Nioh3+6D6F80(leaf?) | 6D7033:
+## Thread 2852 samples 3481
+## Thread 27568 samples 3097
+## Thread 29492 samples 3123
+Nioh3+202E00(leaf?) | 202E20:
+## Thread 26456 samples 2384
+## Thread 3940 samples 1577
+## Thread 25688 samples 1516
+Nioh3+3DAB0(leaf?) | 3DAD0:
+Nioh3+9B38A0(leaf?) | 9B38A0:
+Nioh3+3B8220(leaf?) | 3B8232:
+Nioh3+617120(leaf?) | 617114:
+Nioh3+3EBF0(leaf?) | 3EBF5:
+## Thread 25080 samples 382
+Nioh3+117C20(leaf?) | 117C20:
+## Thread 18608 samples 1154
+## Thread 27760 samples 795
+Nioh3+10F6FF0(leaf?) | 10F7030:
+Nioh3+73A2A0(leaf?) | 73A2CF:
+## Thread 20956 samples 795
+Nioh3+6A8F0(leaf?) | 6A975:
+Nioh3+19AD90(leaf?) | 19ADB5:
+Nioh3+83ABA0(leaf?) | 83AC1E:
+## Thread 24596 samples 730
+Nioh3+37D7A0(leaf?) | 37D7FA:
+Nioh3+83F30(leaf?) | 83F3F:
+## Thread 26664 samples 403
+## Thread 11812 samples 382
+## Thread 20144 samples 413
+Nioh3+2114C0(leaf?) | 2114E6:
+Nioh3+212470(leaf?) | 21248B:
+Nioh3+211A40(leaf?) | 211A4A:
+## Thread 25056 samples 406

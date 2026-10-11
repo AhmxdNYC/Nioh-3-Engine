@@ -1,0 +1,6 @@
+key	value	what
+gpu_passes_mapped	59/59	GPU passes whose engine code path is named (was the "now X/Y" count in our status notes)
+renderer_notes_written	backend,materials,lighting,post,frame-graph,resources,drawlists,meshlet,volumetrics,effects,ui	renderer packages that have a written note
+dump_timestamp	0x6aa7c106	PE TimeDateStamp of the game build all RVAs refer to (Steam v2.02)
+dump_size_of_image	0x52fb000	SizeOfImage of that build
+dump_pdata_sha256	075ebdda1eb481f4ee945d36322f7bda947a26a00cbac079053b4ab3b773d1a8	sha256 of its .pdata section (the same in every dump of that build)

@@ -1,0 +1,153 @@
+hash	indexed	kind	loc	name	replacement
+e73868403411fc81d6c238cf52f018c8	1	exe	exe-embedded @rva 0x3a0c940 (.rdata)	fsr/upscale	
+8b86a434076ec26bd7fb223ccd1b2374	1	exe	exe-embedded @rva 0x3a09970 (.rdata)	fsr/upscale	
+3010e631808d16089228a3684b3fcfb8	1	exe	exe-embedded @rva 0x3a07a20 (.rdata)	fsr/upscale	
+756aff8f97f1ffb1e7919785f5789ac0	1	exe	exe-embedded @rva 0x39f3ea0 (.rdata)	fsr/upscale	
+8e8e36dc91c2d2713dd500af0566dbff	1	exe	exe-embedded @rva 0x39f7750 (.rdata)	fsr/upscale	
+fce25fe68f1168016e83d0ccd113a7c4	1	disk	shader_dx12\0xec36dc74.file record@2288 (3041 B)	GFM	
+8f083770bf100b103e431b03cb014a15	1	disk	shader_dx12\0x3de2e18a.file record@35620 (5235 B)	HBAO	
+a2bd0e861c46e2bad6173e7626f3251f	1	exe	exe-embedded @rva 0x399ee90 (.rdata)		
+5fccb795a4b46b741d1a5d35707b419d	1	exe	exe-embedded @rva 0x3a25640 (.rdata)		
+f46385d1b2616f0ed222cd9d4c428e1d	1	exe	exe-embedded @rva 0x39ee2e0 (.rdata)	fsr/upscale	
+db8d59bf8af14fcd5a8c4ec800df07e7	1	exe	exe-embedded @rva 0x39e0de0 (.rdata)	fsr/upscale	
+f63b0ca26a4526c85808393c261db89a	1	exe	exe-embedded @rva 0x39e4d40 (.rdata)	taa	
+5a80e0882bdc603d616d5fb47ecc4191	1	disk	shader_dx12\0x2801580a.file record@448 (9412 B)	TREE2WIND	
+0ad688da55675a6ffe8559a053a3e61c	1	disk	shader_dx12\0xadb3a8f3.file record@238116 (5530 B)	AMBSL	
+ff5fcc123b3604887ee29ea3ad87b362	1	disk	shader_dx12\0xadb3a8f3.file record@285112 (5740 B)	AMBSL	
+0cc297790b67ad63d8d7be04eb48f7ae	1	exe	exe-embedded @rva 0x3a3e030 (.rdata)	tonemap/compose	
+1c49bbd52d2e7d70deccfabe7d1ae359	1	disk	shader_dx12\0xec36dc74.file record@25760 (5003 B)	GFM	
+4412dc1035a0a1b20c9bb7daf6c72f5c	1	disk	shader_dx12\0xec36dc74.file record@5329 (3657 B)	GFM	
+85cdbbf7dfb4b52bb8bde13856c2af62	1	disk	shader_dx12\0xec36dc74.file record@30763 (5055 B)	GFM	
+958736a709f62937ce423679098f524e	1	runtime	runtime-compiled (dump)		
+8cd9a74e32f109c7727c1cd15c2587fb	1	runtime	runtime-compiled (dump)		
+42344fa0cbe479dedf2c5c0f2d7351be	1	disk	shader_dx12\0xd070067d.file record@654333 (2824 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+a42ffb78c82e5857d9d5c347555c17af	1	disk	shader_dx12\0x3de2e18a.file record@19716 (4134 B)	HBAO	
+bf46882cb2555a85414a7bca854c5f86	1	disk	shader_dx12\0x98327bb0.file record@12305 (4855 B)	GFM-D	
+74e7d73b1488d0c20005c45c7c81798b	1	disk	shader_dx12\0x98327bb0.file record@7506 (4799 B)	GFM-D	
+0a509b812591e179122aa8a34863f79d	1	exe	exe-embedded @rva 0x3a2f530 (.rdata)		
+95271542a14b953b8b4d7b5ff793005d	1	disk	shader_dx12\0x3de2e18a.file record@23948 (3834 B)	HBAO	
+29ecb6e4d641308d0d3eeb54a852383e	1	exe	exe-embedded @rva 0x3be7f90 (.rdata)		
+d2077f91813d709a461ffdb9bd148705	1	disk	shader_dx12\0xadb3a8f3.file record@226972 (5180 B)	AMBSL	
+6060f12960f2897c4c89857ba923d109	1	disk	shader_dx12\0xadb3a8f3.file record@268540 (3903 B)	AMBSL	
+7cbcde1d0c208d5e1c57b4b37317b4bd	1	disk	shader_dx12\0xadb3a8f3.file record@124560 (5310 B)	AMBSL	
+8c477f3ba180de7e01528ca921e5f984	1	disk	shader_dx12\0xadb3a8f3.file record@296140 (5104 B)	AMBSL	
+5af9b3850de20c167be3f2a48d1be34c	1	exe	exe-embedded @rva 0x39f60b0 (.rdata)	fsr/upscale	
+4439823a322e963b2ac51b9556a2e42d	1	disk	shader_dx12\0x3de2e18a.file record@41024 (5235 B)	HBAO	
+9a76cbefdcab3f7b51cb63d5696bbc63	1	exe	exe-embedded @rva 0x3a3d140 (.rdata)		
+9ce0b160265b5c5e38c0974e88227054	1	disk	shader_dx12\0x3de2e18a.file record@161652 (8195 B)	HBAO	
+cfde7cbb53118ecf6131948b43baf2d8	1	disk	shader_dx12\0xadb3a8f3.file record@74876 (4463 B)	AMBSL	
+c89986a2626d38f36b72934e081050ed	1	disk	shader_dx12\0xadb3a8f3.file record@291060 (4911 B)	AMBSL	
+06fedbf928220ba50b2fc6f960de1cc0	1	runtime	runtime-compiled (dump)		
+80e5af9e14c58883cca0416c083a97c2	1	runtime	runtime-compiled (dump)		
+d787dbd05863368dc49a9e7850622f57	1	exe	exe-embedded @rva 0x3a3c6e0 (.rdata)		
+c6b0ae5c7eb61b847ce3b081bca620d7	1	disk	shader_dx12\0xadb3a8f3.file record@249864 (5751 B)	AMBSL	
+91f82e1a421d86549aaf0564c441cf5f	1	disk	shader_dx12\0xadb3a8f3.file record@416056 (6800 B)	AMBSL	
+a816e9f55626b5cae57a1ebed91b781a	1	exe	exe-embedded @rva 0x3a340f0 (.rdata)		
+dac4b71874228dda8bd3422b262c05bf	1	disk	shader_dx12\0xadb3a8f3.file record@409204 (6560 B)	AMBSL	
+5747cd78b018b314aa7bdd986fb0764b	1	exe	exe-embedded @rva 0x3ff2680 (.rdata)		
+c8728636574c39e37bca9a0abe858d39	1	disk	shader_dx12\0xdc52fd1c.file record@59224 (10671 B)	PB2LS-GbiSfbVl	
+a182bd49ca1c7a58aca6478fcd5133c4	1	disk	shader_dx12\0xdc52fd1c.file record@10629462 (236183 B)	PB2LS-GbiSfbVl	
+9b40fb320f163354806d3fa1ffbd2d74	1	disk	shader_dx12\0xdc52fd1c.file record@13507187 (23887 B)	PB2LS-GbiSfbVl	
+d6a017a245323b964619655fefcac6d8	1	disk	shader_dx12\0xdc52fd1c.file record@13464058 (9854 B)	PB2LS-GbiSfbVl	
+641524ee74b197c7d8f1535066bb2c1a	1	disk	shader_dx12\0xa9910db8.file record@8213644 (35920 B)	VFSCAT-CllLpvSfbVsm	ORIGINAL replaced in shader_dx12\0xa9910db8.file (fog: VFSCAT #235 (volumetric fog froxel scattering): one merged early-exit)
+449cf0aead06d9c5acbdb151ca04522e	1	exe	exe-embedded @rva 0x3a56590 (.rdata)		
+8fbd250c2b10415141d5b84e2041577e	1	disk	shader_dx12\0x0f33242a.file record@49862 (3661 B)	PBRLR	
+0576ae5e02461191b84d117bcca19fc0	1	disk	shader_dx12\0x0f33242a.file record@182033 (4991 B)	PBRLR	
+d41861389df61109139abed30e5798f4	1	disk	shader_dx12\0x0f33242a.file record@187024 (4991 B)	PBRLR	
+d064b3d5a3dbe651099661357c867b18	1	disk	shader_dx12\0x0f33242a.file record@45984 (3878 B)	PBRLR	
+2de25b1fceac90c235da90f3a668ebcd	1	disk	shader_dx12\0x0f33242a.file record@883211 (10700 B)	PBRLR	
+9429db012203740c584de23243116ce7	1	disk	shader_dx12\0x52c39db0.file record@151636 (47739 B)	PB2TREE2-BlrGbiMshltvOcReSfbVl	
+4671b4a12d44ab14f606670e1e91a199	1	disk	shader_dx12\0xd864e310.file record@42452 (14484 B)	PB2TREE2-BlrDimGbiMshltOcPfnPkSf	
+025bce916b736467efb8a6bae4573d03	1	disk	shader_dx12\0x3de2e18a.file record@46428 (6995 B)	HBAO	
+47f71215e4eed33ae00938c346bdfeab	1	exe	exe-embedded @rva 0x3a2daa0 (.rdata)		
+523efaab1bf203d630d878dfb804e849	1	runtime	runtime-compiled (dump)	DOF VS	
+cf792d56ae14e49c093cb5f27a66f871	1	runtime	runtime-compiled (dump)	dof	psoswap file post\out\cf792d56ae14e49c093cb5f27a66f871.dxbc (ORIGINAL key it replaces)
+7c5acaaff45033f57b4cef0b607ba558	1	exe	exe-embedded @rva 0x3a24110 (.rdata)		
+26bcdc9dad88df680cc28cc877c71093	1	disk	shader_dx12\0xee5a444b.file record@41752 (3033 B)	WDO_SST-PtSrbVsm	
+32e8deff99183945b94bc3be679bfa95	1	disk	shader_dx12\0x1fd07cc0.file record@242324 (6175 B)	WDO-PtSrbVsm	ORIGINAL replaced in shader_dx12\0x1fd07cc0.file (rewrite)
+0b17198d656715ff449183941912bea1	1	disk	shader_dx12\0x1fd07cc0.file record@235888 (6215 B)	WDO-PtSrbVsm	
+d26900e049366de0d369ce4ff15a2b3e	1	disk	shader_dx12\0xfd20cb1a.file record@21860 (3033 B)	SDFOCC-CllSdf	
+7c978f3f88026a639aad5760bcd6fe75	1	disk	shader_dx12\0xd070067d.file record@708884 (8995 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+8f702b655cc596c9a53e9b91f71b17d1	1	disk	shader_dx12\0xdcc48475.file record@43164 (15192 B)	PB2TREE2-BlrDimGbiMshltOcPfnSfbT	
+4b4c3cbe6724e06841b7ed69d7472a46	1	disk	shader_dx12\0xd070067d.file record@2361406 (26404 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	ORIGINAL replaced in shader_dx12\0xd070067d.file (gi: RefProbe #121 (diffuse probe GI gather) and #414 (reflection probe tra)
+6ae59bd0ddf1220dc8907954b1f215b4	1	disk	shader_dx12\0xd070067d.file record@12520830 (47632 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	ORIGINAL replaced in shader_dx12\0xd070067d.file (gi: RefProbe #121 (diffuse probe GI gather) and #414 (reflection probe tra)
+b76874bb17bdfc10a0739b74191c68a9	1	disk	shader_dx12\0x5f17ca9d.file record@356836 (72884 B)	VCLOUD	
+1b4b5b75901104563a62a058faef4a45	1	disk	shader_dx12\0x29ee0902.file record@382236 (8844 B)	MPC	
+d903bc720a986458842746f83ff63b62	1	disk	shader_dx12\0xd864e310.file record@2472 (39516 B)	PB2TREE2-BlrDimGbiMshltOcPfnPkSf	
+fca35a06fbea25e77d0a58702364846a	1	disk	shader_dx12\0xef68ca9a.file record@12324 (15467 B)	PB2FUR-AmtCllDinmDrLiOcOfPtS2aSf	
+6e3df988ad7d7df3157f71e765485951	1	disk	shader_dx12\0xc513ce7a.file record@128828 (57008 B)	PB2FUR-AmtAtCllDiDrLiOfPtS2aSfbS	
+563edb9d654bec6875beb60220e6bf6e	1	disk	shader_dx12\0xdd27eab2.file record@6620 (3866 B)	PB2RIPPLE-Cbbl	
+c013d8118112cb209196fc7ba5d2f92d	1	disk	shader_dx12\0xc5bc597a.file record@460856 (31836 B)	PB2DECAL-CdlRgbSfb	
+b68c49cd218439cebc523ad6efa9f2d1	1	disk	shader_dx12\0x4921783e.file record@1302588 (12903 B)	PB2MRLR-CllLasVf	
+6f7e3409d3ef96abb16e05ca28e12824	1	disk	shader_dx12\0x618b07e7.file record@5728 (6695 B)	PB2DUS-GbMasRefprobelt	
+f61e54aa0ecac84fdc8280c040a08fa2	1	disk	shader_dx12\0x04df8ee9.file record@6060 (23231 B)	PB2DS-AdmCaCllEmHsIribOfPlaSmSpl	
+727375e331822cd16d724e3d687b1f94	1	disk	shader_dx12\0x5f066893.file record@1516904 (12675 B)	G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP	
+35c0cbe6c31d8c498e8bf2dec1b14875	1	disk	shader_dx12\0x5f066893.file record@68093272 (48095 B)	G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP	
+79b30b03147e7a112e7a9fb4fb20a7e2	1	disk	shader_dx12\0xdcc48475.file record@2456 (40244 B)	PB2TREE2-BlrDimGbiMshltOcPfnSfbT	
+1559714ca496fffe6ddd3c827e1d962e	1	disk	shader_dx12\0xf00d5c8c.file record@298564 (29866 B)	PB2-BlrGbiMshltvReSfbVl	
+1dcab6c2d489f6c4c08f1e3a1a3b4090	1	disk	shader_dx12\0xdf8c9879.file record@1948 (25852 B)	PB2-BlrGbiMshltPkSfbT0Vl	
+98b2c978f0073e85a20affcc4bb97ce9	1	disk	shader_dx12\0x80ec5766.file record@6200 (27171 B)	PB2DS-AdmCaCllEmHsIribOfPlaSmSpl	
+8563c4b25a47a49f9cfbd3c91686989c	1	disk	shader_dx12\0x6cb9f85a.file record@7860 (3598 B)	SSFOG-CllFdHfMpfS2aVf	
+2c5d26ecfaa2c81381d5a6ceb68002cc	1	disk	shader_dx12\0x6cb9f85a.file record@22684 (6931 B)	SSFOG-CllFdHfMpfS2aVf	
+8a013bc73a4cdabbc561121050579e73	1	disk	shader_dx12\0x1667d3a0.file record@333372 (29431 B)	WDO-PtSrbSsmVsm	
+d8fc9fafcbf67aeb92ad981bdc2433c3	1	runtime	runtime-compiled (dump)	motion blur	
+4e13e236319c9df7c81203eca95c4df4	1	runtime	runtime-compiled (dump)	motion blur	psoswap file post\out\4e13e236319c9df7c81203eca95c4df4.dxbc (ORIGINAL key it replaces)
+aa4ff7745f7b5557a66bd71e602072c6	1	disk	shader_dx12\0x3de2e18a.file record@187228 (8375 B)	HBAO	
+13cedc64e1cdac92ece5f509f0bb3e16	1	disk	shader_dx12\0xffb67941.file record@9324 (15485 B)	PB2-DinmGbiOcPfnSfbVlWt144	
+10ab3e24c05a0229dd3199042662f7e9	1	disk	shader_dx12\0x79583958.file record@111944 (58583 B)	PB2-DiDt2l3GbiPfnRiaexSfbVlWt144	
+7d51c6987562eac61213105c8c490138	1	disk	shader_dx12\0xd070067d.file record@784798 (5090 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+d21b4b07960ae581de8586e6caeb02e1	1	runtime	runtime-compiled (dump)	post VS	
+e6efc8ff49a9b254151466f9835e8fad	1	runtime	runtime-compiled (dump)	bloom	psoswap file post\out\e6efc8ff49a9b254151466f9835e8fad.dxbc (ORIGINAL key it replaces)
+e471cbc377b06c88ff7385ba7195378f	1	runtime	runtime-compiled (dump)		
+acf342910ba23578d61937e7071e3c1f	1	runtime	runtime-compiled (dump)		
+355ad1ce80cc96fe9e4c58ebb41b71ec	1	disk	shader_dx12\0xef2fa7c0.file record@1536 (17875 B)	PB2UMAH-GbVl	
+98683c8f6b0f7e2390e84767823fefff	1	disk	shader_dx12\0xef2fa7c0.file record@19748 (17777 B)	PB2UMAH-GbVl	
+ba9722d3f50cdbb6bb7b84a4a1a600c6	1	disk	shader_dx12\0xc5bc597a.file record@237184 (39920 B)	PB2DECAL-CdlRgbSfb	
+7b8d3246350d434aee790de88b0c8009	1	disk	shader_dx12\0x5ad383c1.file record@6173 (30191 B)	PB2DS-AdmAmbSpecMapAngLimitCllCr	
+030dc8025231c963ccd451aa9cc1621d	1	exe	exe-embedded @rva 0x3be7a70 (.rdata)		
+c13033b2fced7068a73e9d7354019ce7	1	disk	shader_dx12\0x0f33242a.file record@862811 (10044 B)	PBRLR	
+803726bb459a3d1ddd59a2732f199238	1	disk	shader_dx12\0x29dc0db1.file record@696 (12008 B)	CTS	
+318fa766bb0f9ad624957b9f1da0e576	1	disk	shader_dx12\0x9c481f79.file record@8344 (6668 B)	TOONEDGE2	ORIGINAL replaced in shader_dx12\0x9c481f79.file (toonedge2: + 0x47bc5cb4.file  TOONEDGE2 #2: outline pass, 18x18 LDS tile)
+b057ed934c29db882d3a129352237ac4	1	disk	shader_dx12\0x42ed52ed.file record@20960 (5063 B)	VCLOUD	
+ded144fd108e7ba14c9f52c203685f28	1	disk	shader_dx12\0x42ed52ed.file record@116240 (7325 B)	VCLOUD	
+a05140dbae12592b6be82ee3afcdb6e1	1	disk	shader_dx12\0xcae4c6d9.file record@1464 (17483 B)	UMTV-Gb	
+5b6d5b5e74d60f3d0d32e00c2af335d6	1	disk	shader_dx12\0xcae4c6d9.file record@19312 (18229 B)	UMTV-Gb	
+b1bdb2aa4d1f6d53dd0ff3d56b1b34dc	1	disk	shader_dx12\0xd070067d.file record@2238474 (26404 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+76502ffd6f140b9a98d68c0e6e8e97af	1	disk	shader_dx12\0xd070067d.file record@737753 (8843 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+f645c4617ddac2729695c965a7300a6d	1	disk	shader_dx12\0x5f066893.file record@675428 (8734 B)	G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP	
+e1fb13993993f88dcce10ade731ffdd9	1	disk	shader_dx12\0x5f066893.file record@9380852 (23056 B)	G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP	
+dda0b143cc5b00bf2d84546d5a1de044	1	disk	shader_dx12\0x9992f2ab.file record@410536 (32238 B)	SMTREE2-BlrMfvMshltvReSfb	
+0e7a9875891c363e868393c371006cbc	1	disk	shader_dx12\0x9992f2ab.file record@549252 (6940 B)	SMTREE2-BlrMfvMshltvReSfb	
+2ec48e3f381677b6e3ad0aa136cb7b24	1	disk	shader_dx12\0xa60921c6.file record@1304136 (12659 B)	PB2MRLR-AmbSpecMapAngLimitCllLas	
+ba603d16af7ce913bbf06fd1deb77415	1	disk	shader_dx12\0xdc52fd1c.file record@8437664 (121851 B)	PB2LS-GbiSfbVl	
+0094004093244114907724a2672dbae8	1	disk	shader_dx12\0x1fd07cc0.file record@472660 (27575 B)	WDO-PtSrbVsm	
+753ad3fe71e6400e9f80d36bf6233bb6	1	disk	shader_dx12\0x6cb9f85a.file record@11552 (3811 B)	SSFOG-CllFdHfMpfS2aVf	
+3f145c1eefeb9b68058dea94f76f805c	1	disk	shader_dx12\0x6cb9f85a.file record@392916 (13664 B)	SSFOG-CllFdHfMpfS2aVf	
+46fab161917abdaf6802a8d77c5a0378	1	disk	shader_dx12\0x4f68362d.file record@608 (9772 B)	WET	
+5dc3800361f7e3624706b72f7a35dfa2	1	disk	shader_dx12\0x288f69a4.file record@413973 (22713 B)	SRIVER2-GbNRrVl	
+8a4020d2141422c88486957548e77064	1	disk	shader_dx12\0x288f69a4.file record@1535544 (20330 B)	SRIVER2-GbNRrVl	
+6a305be4d31f072c0a33a20a73e0897b	1	runtime	runtime-compiled (dump)	compose (r5 47us)	
+70d0ee9feee590f9c48c40b808858e27	1	disk	shader_dx12\0xfd4f418f.file record@490672 (32610 B)	PB2-BlrGbiMm0sMshltvReSfbVl	
+db2a9be26f6c7405af29bb9bffca1e9b	1	disk	shader_dx12\0xdf46710f.file record@60536 (18552 B)	PB2-BlrGbiMm00MshltPkSfbVl	
+aa4b98824a85a9e1ae622b76983cf888	1	disk	shader_dx12\0xc9a18f12.file record@536648 (17892 B)	SM-BlrMfvMshltvSfb	
+dbff931b96bfda577f9da58fad5ca1e7	1	disk	shader_dx12\0xdd61dd92.file record@661588 (21004 B)	SM-BlrMfvMm00MshltvSfb	
+c822907b3e1e111b5797c41b2e74301b	1	disk	shader_dx12\0x3de2e18a.file record@170112 (8295 B)	HBAO	
+fd38d1f8feaeb80d4fd79d999e845684	1	disk	shader_dx12\0xd070067d.file record@12425302 (47632 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+f311c8e29e9822ee8c34d38aba8b5966	1	disk	shader_dx12\0x4aaa34e4.file record@150888 (47494 B)	PB2TREE2-BlrGbiMshltvReSfbVl	
+f10c4d8ecc68d2fa1a03124c8e6be555	1	disk	shader_dx12\0x96f6e36d.file record@38040 (13087 B)	PB2TREE2-AtBlrGbiMshltPfnPkSfbTs	
+b01973eb624643185a6815daadef988d	1	disk	shader_dx12\0xd070067d.file record@2050850 (23864 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+646b1db913140ad1dd18ebd1dae84def	1	disk	shader_dx12\0xd070067d.file record@992078 (19706 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+99e4ce1a397d3de15cb413eef13643a9	1	disk	shader_dx12\0xd070067d.file record@764398 (12390 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+4995a76a75761ef65961f04c7c883430	1	disk	shader_dx12\0xd070067d.file record@776788 (8010 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+e4f1fed0519db96f2ee58ce36708c8d9	1	disk	shader_dx12\0xd070067d.file record@945752 (8014 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+0cdd12ed9d39b73fc7ae9899ff83726e	1	disk	shader_dx12\0xd070067d.file record@937738 (8014 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+1b4a458b4a6a5a4105c1468359c0319d	1	exe	exe-embedded @rva 0x3a245c0 (.rdata)		
+a441347f10d35e36d3d84173d0acbf42	1	disk	shader_dx12\0xd070067d.file record@698136 (4106 B)	RefProbe-CllPtSfbSplsSslsSsmVsm	
+df1296edfc4afbef0fc3c82643c36fbb	1	disk	shader_dx12\0x5f066893.file record@1506024 (10547 B)	G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP	
+2c4db869f3ff31096260c4d31c434264	1	disk	shader_dx12\0x5f066893.file record@67266416 (32671 B)	G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP	
+be0fa132bfceb143348b72df52a8698f	1	replacement	replacement\0xe0b2c239.file container #1 (12529 B)	replacement	OUR REPLACEMENT in 0xe0b2c239.file (rewrite)
+a11ff9e5ffd0f3356d74865e29e38228	1	disk	shader_dx12\0xe0b2c239.file record@105904 (53847 B)	PB2-AlepmeAtDiDt2l3GbiPfnRiaexSf	
+d4ed3fe49d61aaa118ff8e3f9fe8d5e1	1	disk	shader_dx12\0x5f066893.file record@62506136 (16140 B)	G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP	
+e5190e82a274aaa5bfc24b14ca77567a	1	disk	shader_dx12\0x193fcd66.file record@17088 (5813 B)	SM-Sfb	
+c4656a8d23602c5bacff59efa7950ab0	1	disk	shader_dx12\0xf999073d.file record@33872 (3249 B)	SM-B0I2mIptrSfb	
+879d2e68621544c5c051e526b1db9f04	1	disk	shader_dx12\0x60605e33.file record@44872 (17740 B)	PB2-BlrDt2GbiMshltPkSfbVl	
