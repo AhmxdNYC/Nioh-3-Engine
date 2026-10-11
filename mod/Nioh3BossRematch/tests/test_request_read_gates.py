@@ -13,6 +13,7 @@ def function(signature):
         depth += (text[end] == '{') - (text[end] == '}')
         end += 1
     return text[begin:end]
+attempt = text[text.index('enum AttemptPhase'):text.index('// Unknown session reads')]
 snapshot = text[text.index('struct Snap {'):text.index('Snap ReadSnap()')]
 exit_dispatch = text[text.index('            if (!g_exitOk) Refuse(g_exitWhy);'):text.index('        } else if (kind == kReqAbort)')]
 tick_observation = function('void Tick()').split('    SpawnTick(s, t, loadEnded);')[0].replace('void Tick()', 'bool ObserveTick()') + '\n    return loadEnded;\n}'
@@ -47,7 +48,9 @@ constexpr int kIdle=0;
 std::atomic<int> g_state{kIdle};
 namespace fight { bool g_active=false; }
 @SNAPSHOT@
+@ATTEMPT@
 @FUNCTIONS@
+void ToIdle(const char*) {}
 bool g_wasLoading=false,g_posAtLoadOk=false,g_posLiveOk=true;
 float g_posAtLoad[4]{},g_posLive[4]{};
 ULONGLONG g_loadRiseAt=0;
@@ -63,6 +66,7 @@ void ExitDispatch(const Snap& s) {
 @EXIT@
 }
 void seed() {
+    g_attempt=NativeAttempt{}; g_attemptPhase=aNone;
     memory.clear(); reads.clear(); bad=0;
     put<uint64_t>(G_GM,10000); memory[10000+0x588]=std::vector<unsigned char>(6,0);
     put<uint64_t>(G_PT,20000); put<uint64_t>(20000+0xCD*0x18,30000);
@@ -93,7 +97,7 @@ int main() {
         if(!check(exitCritical ? nativeReturns==0 && refusal : nativeReturns==1 && !refusal)) return 1;
         if(exitCritical && !check(NativeGate(s)!=nullptr)) return 1;
         bad=0; s=ReadSnap();
-        if(!check(!Gates(s,false))) return 1;
+        if(!check(nativeReturns ? AttemptStartGate()!=nullptr && !NativeGate(s) : !Gates(s,false))) return 1;
     }
     for(uint64_t address:{G_GM,G_PT,G_MS,uint64_t(40008),G_CH,uint64_t(60000),G_PM,G_NET}) {
         seed(); put<uint64_t>(address,0); s=ReadSnap();
@@ -128,7 +132,7 @@ int main() {
     printf("%d actual-source admission checks PASS (%zu snapshot reads faulted)\n",checks,addresses.size());
 }
 """.replace('@SNAPSHOT@',snapshot).replace('@FUNCTIONS@','\n'.join(function(sig) for sig in (
-    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation)
+    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt)
 setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'
@@ -140,7 +144,7 @@ with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     print(result.stdout.strip()); assert result.returncode==0,result.stderr
 for name in ('DoWarp','FnVerify','GateTick'):
     body=function('void '+name+'(')
-    assert body[body.index('{')+1:].lstrip().startswith('if (NativeGate(s)) return;'),name
+    assert body[body.index('{')+1:].lstrip().startswith('if (NativeGate(s) || !AttemptEffectsAllowed()) return;'),name
 spawn=function('void SpawnTick(')
 assert spawn.index('if (NativeGate(s)) return;') < spawn.index('SpawnApply(')
 assert spawn.index('SpawnRestore("online")') < spawn.index('if (NativeGate(s)) return;')

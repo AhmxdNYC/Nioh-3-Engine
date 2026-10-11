@@ -190,6 +190,83 @@ Snap ReadSnap() {
     if (s.guestOk) s.guest = conn != 0;
     return s;
 }
+// Game-thread-owned admission evidence survives UI Idle and every cleanup path.
+// Only the phase is published to UI readers. No reset API clears quarantine.
+enum AttemptPhase : int { aNone, aAwaitLoad, aActive, aReturning, aQuarantined };
+enum Admission : int { aNoEvidence, aPossible, aMatched };
+struct NativeAttempt {
+    uint64_t sequence = 0;
+    Admission evidence = aNoEvidence;
+    uint32_t mission = 0, requestedStart = 0, observedStart = 0;
+    uint32_t sourceMission = 0, sourceRetry = 0;
+    uint8_t journey = 0;
+    int row = -1, queueSlot = -1;
+    bool scroll = false, callAttempted = false, callCompleted = false;
+    bool afterValid = false, loadSeen = false, loadDown = false;
+    bool returnAttempted = false, returnCompleted = false;
+    ULONGLONG requestedAt = 0, settledAt = 0;
+    uint8_t before[3 * 0x58] = {}, after[3 * 0x58] = {};
+    const char* reason = nullptr;
+} g_attempt;
+uint64_t g_attemptSequence = 0;
+std::atomic<int> g_attemptPhase{aNone};
+const char* AttemptStartGate() {
+    const int phase = g_attemptPhase.load();
+    return phase == aNone ? nullptr : phase == aQuarantined ? "native request uncertain; restart game before another replay" : "native replay/return still pending";
+}
+void AttemptQuarantine(const char* why) {
+    if (g_attemptPhase.load() == aNone) return;
+    if (!g_attempt.reason) g_attempt.reason = why;
+    g_attemptPhase.store(aQuarantined);
+}
+void AttemptBegin(uint32_t mission, uint32_t start, uint8_t journey, int row, int slot,
+                  ULONGLONG t, const Snap& s, const uint8_t* before, bool scroll = false) {
+    g_attempt = NativeAttempt{};
+    g_attempt.sequence = ++g_attemptSequence;
+    g_attempt.mission = mission;
+    g_attempt.requestedStart = start;
+    g_attempt.journey = journey;
+    g_attempt.sourceMission = s.ms28;
+    g_attempt.sourceRetry = s.ms14;
+    g_attempt.row = row;
+    g_attempt.queueSlot = slot;
+    g_attempt.scroll = scroll;
+    g_attempt.requestedAt = t;
+    memcpy(g_attempt.before, before, sizeof(g_attempt.before));
+    g_attempt.evidence = aPossible;
+    g_attempt.callAttempted = true;
+    g_attemptPhase.store(aAwaitLoad);  // before a native call can enqueue then throw
+}
+bool AttemptMatch(const uint8_t* after, bool valid, bool completed, uint64_t carrier = 0, const uint8_t* key = nullptr) {
+    g_attempt.callCompleted = completed;
+    g_attempt.afterValid = valid;
+    if (valid) memcpy(g_attempt.after, after, sizeof(g_attempt.after));
+    if (!completed || !valid) {
+        AttemptQuarantine(completed ? "post-call queue unreadable" : "request call exception");
+        return false;
+    }
+    const uint8_t* q = after + g_attempt.queueSlot * 0x58;
+    uint32_t mission = 0, start = 0;
+    uint64_t mode = 0;
+    memcpy(&mission, q + 4, 4); memcpy(&start, q + 0xC, 4); memcpy(&mode, q + 0x14, 8);
+    g_attempt.observedStart = start;
+    if (mission != g_attempt.mission || mode != 2 ||
+        (g_attempt.requestedStart && start != g_attempt.requestedStart)) {
+        AttemptQuarantine("post-call mission/start/mode mismatch");
+        return false;
+    }
+    if (g_attempt.scroll) {
+        uint64_t observedCarrier = 0;
+        memcpy(&observedCarrier, q + 0x30, sizeof(observedCarrier));
+        if (!key || observedCarrier != carrier || memcmp(q + 0x20, key, 12)) {
+            AttemptQuarantine("scroll carrier/key mismatch");
+            return false;
+        }
+    }
+    g_attempt.evidence = aMatched;
+    return true;
+}
+
 // Unknown session reads are never evidence of offline play. Cleanup of an owned
 // spawn record remains available separately; this gates new native actions.
 const char* SessionGate(const Snap& s) {
@@ -210,8 +287,44 @@ const char* ExitGate(const Snap& s) {
     if (!s.ms28) return "not in a mission";
     return nullptr;
 }
+void AttemptObserve(const Snap& s, ULONGLONG t) {
+    const int phase = g_attemptPhase.load();
+    if (phase == aNone || phase == aQuarantined) return;
+    if (SessionGate(s)) { AttemptQuarantine("session lost or connected during native attempt"); return; }
+    if (phase != aAwaitLoad) return;
+    if (!s.gm) { g_attempt.settledAt = 0; return; }
+    if (s.st[2]) { g_attempt.loadSeen = true; g_attempt.settledAt = 0; return; }
+    if (!s.msOk || !s.player || s.st[3] || s.st[4]) { g_attempt.settledAt = 0; return; }
+    if (!g_attempt.loadSeen || g_attempt.evidence != aMatched || s.ms28 != g_attempt.mission ||
+        (!g_attempt.scroll && s.ms14 != g_attempt.observedStart)) { g_attempt.settledAt = 0; return; }
+    g_attempt.loadDown = true;
+    if (!g_attempt.settledAt) g_attempt.settledAt = t;
+    else if (t - g_attempt.settledAt > 3000) g_attemptPhase.store(aActive);
+}
+bool AttemptEffectsAllowed() {
+    const int phase = g_attemptPhase.load();
+    return phase != aQuarantined && phase != aReturning;
+}
+const char* AttemptReturnGate() {
+    const int phase = g_attemptPhase.load();
+    if (phase == aQuarantined) return "native request uncertain; no automatic recovery return";
+    if (phase == aReturning) return "return already requested";
+    if (phase == aAwaitLoad) return "native replay has not settled";
+    return nullptr;
+}
+void AttemptReturning() {
+    // Legacy menu replay has no strict admission witness, but its return still
+    // must not be retried after an exception with possible native side effects.
+    if (g_attemptPhase.load() == aNone) {
+        g_attempt = NativeAttempt{};
+        g_attempt.sequence = ++g_attemptSequence;
+    }
+    g_attempt.returnAttempted = true;
+    g_attemptPhase.store(aReturning);
+}
 const char* Gates(const Snap& s, bool uiSide) {
     if (!g_live) return "not installed";
+    if (const char* why = AttemptStartGate()) return why;
     if (const char* why = NativeGate(s)) return why;
     if (!s.queueOk) return "mission queue unreadable";
     if (!s.emakiOk) return "Picture Scroll state unreadable";
@@ -404,6 +517,7 @@ bool SpawnWrite(uint64_t rec, const float* xyzw, uint32_t flags) { return WrByte
 bool SpawnRestore(const char* why);
 // Game thread: apply once; ambiguous reload/rewrite retains recovery ownership.
 void SpawnApply(const Row& r, const char* when) {
+    if (!AttemptEffectsAllowed()) return;
     if (g_sp.st >= 3) return;
     const uint64_t rec = CallWpFind(g_sp.point);
     if (!rec) {
@@ -672,9 +786,15 @@ void Refuse(const char* why) {
     Result("refused: %s", why);
     ToastF(cOrange, 6000, "Rematch refused: %s", why);
 }
-void ToIdle(const char* why) {
+void ToIdle(const char* why, bool normalExit = false) {
+    if (!normalExit) AttemptQuarantine(why);
     UnhideRestore(why);
-    SpawnRestore(why);
+    const bool restored = SpawnRestore(why);
+    const int phase = g_attemptPhase.load();
+    if (normalExit && restored && (phase == aActive || phase == aReturning)) {
+        g_attempt = NativeAttempt{};
+        g_attemptPhase.store(aNone);  // legacy operational exit, not training completion
+    } else if (phase != aNone) AttemptQuarantine(why);
     MapRestoreNow(why);
     g_et.st = rcore::kEIdle;
     g_state.store(kIdle);
@@ -694,6 +814,7 @@ void ToIdle(const char* why) {
 
 void ExecOpen(int row, const Snap& s) {
     if (!SpawnRestore("before replay menu")) return Refuse("spawn recovery unresolved; no new replay admitted");
+    if (const char* why = AttemptStartGate()) return Refuse(why);
     if (!g_raOk) return Refuse(g_raWhy);
     const bool unh = g_cfg.hiddenDuels;
     if (unh) UnhideApply();
@@ -732,6 +853,7 @@ bool ClearedNow(uint16_t id, const char** why) {
 
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
+    if (const char* why = AttemptStartGate()) return Refuse(why);
     const Row& r = g_rows[(size_t)row];
     const char* why = nullptr;
     const uint32_t start = fight ? r.fightStart : 0;
@@ -760,7 +882,12 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         Log("Rematch: F %s: calling MissionRequestById(0x%04X, slot byte %u, start point %u, {101 1000000 10100 0 0 0}) - %s, %d m from the boss, "
             "spawn %.0f %.0f %.0f yaw %.0f, confidence %s; queue slot %d free",
             r.id, r.missionId, slot, start, r.fightKind, r.fightDist, r.warp[0], r.warp[1], r.warp[2], r.warp[3], r.fightConf, freeSlot);
-    if (CallRequestById(r.missionId, slot, start) != 0) return Refuse("exception in the game call");
+    AttemptBegin(r.missionId, start, slot, row, freeSlot, t, s, before);
+    const int callResult = CallRequestById(r.missionId, slot, start);
+    if (callResult != 0) {
+        AttemptMatch(nullptr, false, false);
+        return Refuse("native request outcome uncertain after exception; restart game");
+    }
     const uint8_t* q = after + freeSlot * 0x58;
     uint32_t qid = 0;
     uint64_t mode = 0;
@@ -769,21 +896,17 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         memcpy(&qid, q + 4, 4);
         memcpy(&mode, q + 0x14, 8);
     }
-    if (!rd || qid != r.missionId || mode != 2) {
-        Log("Rematch: R-b MissionRequestById(0x%04X, %u, %u, params) left slot %d without the request (id %u, mode %llu)", r.missionId, slot, start,
-            freeSlot, qid, (unsigned long long)mode);
-        return Refuse("the game did not take the request");
+    if (!AttemptMatch(after, rd, true)) {
+        Log("Rematch: native request #%llu uncertain (id %u, mode %llu): %s", (unsigned long long)g_attempt.sequence,
+            qid, (unsigned long long)mode, g_attempt.reason);
+        return Refuse("native request outcome uncertain; no fight effects armed; restart game");
     }
     char hb[0x58 * 3 + 4];
     Hex(hb, sizeof(hb), (uint64_t)q, 0x58);
     if (fight) {
         uint32_t sp = 0;
         memcpy(&sp, q + 0xC, 4);
-        if (!rcore::FightSlotOk(q, r.missionId, start))  // queued, but not at our start point: the mission starts there (a plain replay)
-            Log("Rematch: F %s: WARNING the queued request carries start point %u, not %u: the mission will start at that point (a plain replay)",
-                r.id, sp, start);
-        else
-            Log("Rematch: F %s: queued - slot %d +4 mission 0x%04X, +0xC start point %u, +0x14 mode 2", r.id, freeSlot, r.missionId, sp);
+        Log("Rematch: F %s: queued - slot %d +4 mission 0x%04X, +0xC start point %u, +0x14 mode 2", r.id, freeSlot, r.missionId, sp);
         g_fight.store(true);
         g_fightMission = r.missionId;
         g_fightStart = start;
@@ -839,6 +962,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
 // E (row >= 0: E1 redirect to its record) / game's pick (row < 0)
 void ExecEmaki(int row, ULONGLONG t) {
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
+    if (const char* why = AttemptStartGate()) return Refuse(why);
     if (!g_emakiOk) return Refuse(g_emakiWhy);
     Scroll sc;
     if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
@@ -846,6 +970,15 @@ void ExecEmaki(int row, ULONGLONG t) {
     if (!ReadEmakiTab(tab)) return Refuse("Picture Scroll table not readable");
     uint8_t before[3 * 0x58];
     if (!Copy(before, G_QUEUE, sizeof(before))) return Refuse("mission queue not readable");
+    int freeSlot = -1;
+    for (int i = 0; i < 3 && freeSlot < 0; ++i) {
+        uint32_t mission = 0;
+        memcpy(&mission, before + i * 0x58 + 4, 4);
+        if (!mission && !before[i * 0x58 + 8]) freeSlot = i;
+    }
+    if (freeSlot < 0) return Refuse("mission queue full");
+    const Snap current = ReadSnap();
+    if (const char* why = NativeGate(current)) return Refuse(why);
     if (row >= 0) {
         const Row& r = g_rows[(size_t)row];
         if ((uint32_t)r.emakiIndex >= tab.count) return Refuse("record index out of range");
@@ -855,21 +988,14 @@ void ExecEmaki(int row, ULONGLONG t) {
     }
     char kb[40];
     Hex(kb, sizeof(kb), (uint64_t)sc.key, 12);
-    if (CallEmakiRequest(sc.ref, sc.key) != 0) {
-        MapRestoreNow("request exception");
-        return Refuse("exception in EmakiMissionRequest");
-    }
-    uint8_t after[3 * 0x58];
-    bool queued = false;
-    if (Copy(after, G_QUEUE, sizeof(after)))
-        for (int i = 0; i < 3; ++i) {
-            uint32_t m = 0;
-            memcpy(&m, after + i * 0x58 + 4, 4);
-            queued |= m == 0xCC96 && memcmp(after + i * 0x58, before + i * 0x58, 0x58) != 0;
-        }
-    if (!queued) {
-        MapRestoreNow("no slot took the request");
-        return Refuse("the game did not queue the Picture Scroll (queue full?)");
+    AttemptBegin(0xCC96, 0, 0, row, freeSlot, t, current, before, true);
+    const int rc = CallEmakiRequest(sc.ref, sc.key);
+    uint8_t after[3 * 0x58] = {};
+    const bool readable = rc == 0 && Copy(after, G_QUEUE, sizeof(after));
+    const bool matched = AttemptMatch(after, readable, rc == 0, sc.ref, sc.key);
+    if (!matched) {
+        MapRestoreNow("uncertain scroll request");
+        return Refuse("native scroll request outcome uncertain; restart game");
     }
     g_state.store(kEmaki);
     g_activeRow.store(row);
@@ -885,7 +1011,7 @@ void ExecEmaki(int row, ULONGLONG t) {
 
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
 void DoWarp(const Snap& s, ULONGLONG t) {
-    if (NativeGate(s)) return;  // unreadable state cannot authorize a native mutation
+    if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     if (g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     if (s.st[2] || !s.player || s.st[3] || s.st[4]) return;  // loading / no player / paused: wait
@@ -967,7 +1093,7 @@ void DoWarp(const Snap& s, ULONGLONG t) {
 // game thread, every tick inside the Fight now mission: PASS = a BossBattleMode after the first warp; re-warp (<= 3) when the
 // player is not in the trigger box 1.5 s after a warp; FAIL = no fight 8 s after the first warp (loading time not counted)
 void FnVerify(const Snap& s, ULONGLONG t) {
-    if (NativeGate(s)) return;  // unreadable state cannot authorize a native mutation
+    if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     if (g_fn.load() != kFnWarped || g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     const ULONGLONG dt = g_fnLastT ? t - g_fnLastT : 0;
@@ -1032,7 +1158,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
 
 // game thread, inside the Fight now mission: open the boss gate the way the game does (door / StartWarp), once
 void GateTick(const Snap& s, ULONGLONG t) {
-    if (NativeGate(s)) return;  // unreadable state cannot authorize a native mutation
+    if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     const uint32_t want = g_gateWant.load();
     if (!want || g_gateReq || !g_gateDue || t < g_gateDue || g_fightRow < 0) return;
     if (s.st[2] || s.st[3] || s.st[4] || !s.player || fight::g_active) {
@@ -1200,17 +1326,19 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         g_exitSince = 0;
         return;
     }
+    if (!s.msOk || !s.player || s.st[2] || s.st[3] || s.st[4]) { g_exitSince = 0; return; }
     if (!g_exitSince) g_exitSince = t;
     else if (t - g_exitSince > 5000) {
         Log("Rematch: replay mission exited (stage now %u, mission state +28h 0x%X)%s", s.ms14, s.ms28,
             g_fight.load() ? (g_sp.st == 2 ? " - Fight now over (the spawn record is restored next)" : " - Fight now over (nothing was patched, nothing to restore)") : "");
         Result("exited %s", RowName(g_activeRow.load()));
-        ToIdle("replay mission exit");
+        ToIdle("replay mission exit", true);
     }
 }
 
 void TrackEmaki(const Snap& s, ULONGLONG t) {
     if (g_state.load() != kEmaki) return;
+    if (!s.gm || !s.msOk || !s.emakiOk || s.st[3] || s.st[4]) { g_et.zeroSince = 0; return; }
     if (s.online && g_map.active) {
         static ULONGLONG warned = 0;
         if (t - warned > 30000) {
@@ -1228,7 +1356,7 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
     } else if (ev == 2) {
         Log("Rematch: Picture Scroll mission ended");
         Result("exited %s", g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "game's pick");
-        ToIdle("picture scroll exit");
+        ToIdle("picture scroll exit", true);
     } else if (ev == 3) {
         Log("Rematch: the Picture Scroll never loaded within 30 s - restored");
         ToIdle("armed timeout");
@@ -1328,6 +1456,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
 
 // game thread, every tick while a spawn override is armed / applied
 void SpawnTick(const Snap& s, ULONGLONG t, bool loadEnded) {
+    if (!AttemptEffectsAllowed()) return;
     if (g_sp.st >= 3) return;  // no automatic mutation/reapply during recovery
     if (!g_sp.st || g_fightRow < 0 || !g_fight.load()) return;
     const Row& r = g_rows[(size_t)g_fightRow];
@@ -1370,6 +1499,8 @@ void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
     Snap s = ReadSnap();
+    AttemptObserve(s, t);
+    if (g_attemptPhase.load() == aQuarantined && g_state.load() != kIdle) ToIdle("native attempt quarantined");
     if (s.gm && s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
         memcpy(g_posAtLoad, g_posLive, sizeof(g_posAtLoad));
         g_posAtLoadOk = g_posLiveOk;
@@ -1411,8 +1542,12 @@ void Tick() {
             g_pend = 0;
             if (!g_exitOk) Refuse(g_exitWhy);
             else if (const char* why = ExitGate(s)) Refuse(why);
+            else if (const char* attemptWhy = AttemptReturnGate()) Refuse(attemptWhy);
             else {
+                AttemptReturning();
                 const int rc = CallReturn();
+                g_attempt.returnCompleted = rc == 0;
+                if (rc) AttemptQuarantine("return call exception");
                 Log("Rematch: exit: MissionRequestReturn(params, 1) from mission 0x%X (retry point %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Result(rc ? "exit failed" : "exit requested");
             }

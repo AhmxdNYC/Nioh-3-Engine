@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private native-admission quarantine
+
+Native replay/scroll calls publish a copied attempt before enqueue can have side effects. Ambiguous admission, wrong explicit start, abort/timeout or session loss retains a process-lifetime quarantine across cleanup and UI Idle. New start routes and active fight effects refuse; return is attempted once. Native default-start replay and the existing operational exit remain supported. Offline fault tests only; no loader cancellation, playable training or native acceptance claim. Evidence: notes/training-native-attempt-quarantine.md.
+
 ## 2026-10-11 Codex - private native-request read-validity prerequisite
 
 Unreadable session/game/mission snapshots no longer authorize rematch start/return, warp (including duel approach), gate request, or spawn reapply. Start admission also requires readable queue/scroll state. Invalid game reads preserve the last loading edge; entry settling resets on unreadable/playerless/paused observations. Offline actual-source fault tests only; not a playable training release or globally latched online disarm. Details: notes/training-request-read-gates.md.

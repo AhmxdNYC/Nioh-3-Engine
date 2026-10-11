@@ -36,6 +36,7 @@ void Log(const char*,...) {}
 @WRITE@
 @RESTORE@
 void SpawnLast(const char*) {}
+bool AttemptEffectsAllowed() { return true; }
 struct Row { const char* id="test"; float warp[4]{},arena[4]{10,11,12,13}; };
 namespace rcore {
 bool SpawnRecordMatches(const Row& r,const float* cur) { return !memcmp(r.warp,cur,16); }
