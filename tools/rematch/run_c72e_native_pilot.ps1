@@ -122,6 +122,15 @@ function Close-Owned {
     }
     $script:owned = $null
 }
+function Get-C72LaunchIdentity($Process, [DateTime]$Launched, [string]$ExpectedPath) {
+    # New process objects can precede readable image metadata. Requery in the
+    # existing bounded loop; never adopt based on process name/PID alone.
+    try { $started=$Process.StartTime; $path=$Process.Path } catch { return 'pending' }
+    if (-not $started -or [string]::IsNullOrWhiteSpace($path)) { return 'pending' }
+    if ($started -lt $Launched.AddSeconds(-1)) { throw 'Process predates this launch' }
+    if ((C72-Full $path) -ne $ExpectedPath) { throw 'New process does not belong to this launch' }
+    return 'owned'
+}
 function Finish-C72 {
     if ($script:cleaned) { return }
     try {
@@ -214,8 +223,9 @@ try {
         $games=@(Get-Process -Name Nioh3 -ErrorAction SilentlyContinue)
         if ($games.Count -gt 1) { throw 'More than one game process appeared' }
         if ($games.Count -eq 1) {
-            if ($games[0].StartTime -lt $launched.AddSeconds(-1) -or (C72-Full $games[0].Path) -ne (Join-Path $GameDir 'Nioh3.exe')) { throw 'New process does not belong to this launch' }
-            $script:owned=$games[0]; break
+            if ((Get-C72LaunchIdentity $games[0] $launched (Join-Path $GameDir 'Nioh3.exe')) -eq 'owned') {
+                $script:owned=$games[0]; break
+            }
         }
         Start-Sleep -Milliseconds 250
     } while ([DateTime]::Now -lt $until)
