@@ -57,15 +57,78 @@ RX 6650 XT PC, and an ASUS ROG Ally X (Bazzite / Proton). **NVIDIA, Intel Arc an
 A code review found nothing vendor-specific in the default fixes, so they are expected to work there, but that is not
 a test. Reports from other hardware are welcome; please attach `Nioh3EngineFix.log`.
 
-## Reverse-engineering progress
+## Decompilation progress
 
-About 6 % of the game's 211k functions have names (12,679 in `symbols.tsv`), but those cover essentially all of the
-CPU time we profiled, and every GPU pass we captured maps to named engine code. The goal is understanding performance, not a full source rebuild.
+![functions named](https://img.shields.io/badge/functions%20named-6.00%25%20(12679/211206)-orange) ![perf CPU time named](https://img.shields.io/badge/perf%20CPU%20time%20named-100%25-brightgreen) ![GPU passes mapped](https://img.shields.io/badge/GPU%20passes%20mapped-59/59-green) ![renderer understood](docs/progress/renderer_badge.svg)
+
+**In plain words:** 12,679 of the game's 211,206 functions (6 %) have real names so far. Those names cover all of the
+CPU time we measured in our profiles, and every GPU pass we captured (59 of 59) points at the engine code that runs it.
+The full-game chart stays mostly grey on purpose: we name code that matters for performance first, not the whole game.
+This is understanding the engine, not a full source rebuild. Charts as of 2026-10-11, regenerated from `symbols.tsv`.
+
+### The whole game
+
+Every function in `Nioh3.exe`, grouped by what the code is for ([docs/code-map.md](docs/code-map.md)). Block size =
+code size; green = has a real name, grey = not named yet.
+
+![Full game decompilation progress](docs/progress/full_game.svg)
+
+### The code that costs CPU time
+
+Only the functions that show up in our CPU profiles (ROG Ally + PC, self time). Block size = share of profiled time.
 
 ![Performance-relevant decompilation progress](docs/progress/performance.svg)
 
-More charts: [docs/progress/](docs/progress/). Subsystem write-ups: [docs/subsystems/](docs/subsystems/).
-Function-region map: [docs/code-map.md](docs/code-map.md).
+### GPU time
+
+One GPU capture on the ROG Ally, the 118 most expensive shader buckets (20.7 ms of a 30.1 ms frame). Area = time per
+frame. Green = shader/pass identified; blue = a faster replacement we kept in private tests (not distributed); red = a
+rewrite we tried and dropped. These are ranking numbers from a profiler, not isolated costs.
+
+![GPU time identified](docs/progress/gpu.svg)
+
+### The rendering engine
+
+The renderer on its own: 54,295 functions in 11 packages. **20.7 % of its code (by bytes) is understood.**
+
+![Rendering engine decompilation: % understood by package](docs/progress/renderer_understood.svg)
+
+| Package | Functions | Code | Understood (bytes) |
+|---|--:|--:|--:|
+| 01 backend (D3D12) | 4,931 | 1,494 KB | 12.1 % |
+| 02 materials | 6,694 | 1,575 KB | 9.4 % |
+| 03 lighting | 4,932 | 1,002 KB | 26.4 % |
+| 04 post-processing | 7,479 | 1,683 KB | 11.6 % |
+| 05 frame graph | 212 | 181 KB | 60.4 % |
+| 06 resources | 235 | 61 KB | 78.2 % |
+| 07 draw lists | 120 | 109 KB | 97.2 % |
+| 08 meshlet / geometry | 11,443 | 1,792 KB | 8.5 % |
+| 09 volumetrics | 7,041 | 2,830 KB | 42.9 % |
+| 10 effects | 5,613 | 1,312 KB | 11.3 % |
+| 11 UI | 5,595 | 944 KB | 12.9 % |
+| **Total** | **54,295** | **12,983 KB** | **20.7 %** |
+
+Core functions per package (bar = named; the thin bar = nearby functions only guessed to be renderer code):
+
+![Renderer decompilation progress](docs/progress/renderer.svg)
+
+Per-subsystem write-ups (what it does, data structures, hot addresses, threads, costs):
+[docs/subsystems/](docs/subsystems/).
+
+## Currently working on
+
+As of 2026-10-11. Nothing here is in the downloads until it is tested.
+
+- **Confirming 1.7.61 on more hardware.** Smoke tests on the second PC and the ROG Ally are queued; results pending.
+- **Frame overlap** (recording the next frame's GPU commands while the current one is still being replayed).
+  An experimental build is not safe yet: an offline audit reproduces queue-overflow and stream-boundary bugs, which
+  are being fixed one at a time. Its only big number so far (+11.7 %) came from an emulator, so there is no real gain
+  to claim yet.
+- **Small renderer CPU wins** on the replay thread, each proven byte-for-byte and A/B tested before it ships.
+- **Boss Rematch:** full per-boss validation of the catalogue, and testing of the 1.4.0 in-arena spawn.
+- **Training mode** (switching or summoning bosses inside an arena): researched and planned only; no code yet.
+- **Decompilation:** the least understood renderer packages (meshlet, materials, effects, post-processing).
+  You can help: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Help decompile the game
 
