@@ -1,6 +1,25 @@
 # Read-only on import. Helpers for the single-launch C72E pilot and isolated fixtures.
 Set-StrictMode -Version Latest
 
+function C72-ReadySettled($Tracker,[long]$NowMs,[string]$Status,[bool]$Readable) {
+    $good=$Readable -and (C72-Field $Status 'state') -eq '0' -and
+        (C72-Field $Status 'player') -eq '1' -and (C72-Field $Status 'loading') -eq '0' -and
+        $Status -match 'gate=ok(?: |$)'
+    # A stalled observer is not a continuous ready observation.
+    if ($null -ne $Tracker.last -and ($NowMs -lt $Tracker.last -or $NowMs-$Tracker.last -gt 1500)) { $Tracker.since=$null }
+    $Tracker.last=$NowMs
+    if (-not $good) { $Tracker.since=$null; return $false }
+    if ($null -eq $Tracker.since) { $Tracker.since=$NowMs }
+    return $NowMs-$Tracker.since -ge 12000
+}
+function C72-NewRefusal([string]$Before,[string]$After) {
+    if (-not $After.StartsWith($Before,[StringComparison]::Ordinal)) { throw 'Add-on log changed/truncated after request; admission unconfirmed' }
+    $tail=$After.Substring($Before.Length)
+    $match=[regex]::Match($tail,'(?m)^\[[^\r\n]+\] Rematch: refused: ([^\r\n]+)')
+    if ($match.Success) { return $match.Groups[1].Value }
+    return $null
+}
+
 function C72-Full([string]$Path) { [IO.Path]::GetFullPath($Path).TrimEnd('\') }
 function C72-Inside([string]$Root, [string]$Path) {
     (C72-Full $Path).StartsWith((C72-Full $Root) + '\', [StringComparison]::OrdinalIgnoreCase)

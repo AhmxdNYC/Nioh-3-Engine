@@ -74,7 +74,7 @@ $script:owned = $null; $script:saveHandles = $null; $script:entry = $null; $scri
 $script:binaryRecord = $null
 $script:held = New-Object 'System.Collections.Generic.List[string]'
 $script:result = [ordered]@{ arm=$Arm; start=$start; status='PREPARING'; instant_verdict='UNCONFIRMED_CONTROL_NOT_EXPOSED'
-    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; battle_observed=$false; saves_restored=$false; inis_restored=$false; binaries_restored=$false; error=$null }
+    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; battle_observed=$false; saves_restored=$false; inis_restored=$false; binaries_restored=$false; request_disposition='NOT_SENT'; error=$null }
 $entryDir = Join-Path $OutDir 'entry-saves'; $iniDir = Join-Path $OutDir 'entry-inis'
 $events = Join-Path $OutDir 'events.jsonl'; $script:watch = [Diagnostics.Stopwatch]::StartNew()
 $LockId = "pc-c72e-$PID"
@@ -233,18 +233,27 @@ try {
     $global:HG.games=@(@{pid=$script:owned.Id;name='Nioh3';start=$script:owned.StartTime.ToString('o');closed=$false;counted=$false}); HG-Save
     Write-Host "Owned game $($script:owned.Id): root selects Continue once and records first landing. No automated title input."
     $until=[DateTime]::Now.AddSeconds(180); $ready=$false
+    $readyTracker=@{since=$null;last=$null}
     do {
-        try { $s=Invoke-C72Pipe 'status'; $ready=(C72-Field $s 'state') -eq '0' -and (C72-Field $s 'player') -eq '1' -and $s -match 'gate=ok(?: |$)' } catch { Assert-Owned }
+        try { $s=Invoke-C72Pipe 'status'; $ready=C72-ReadySettled $readyTracker $script:watch.ElapsedMilliseconds $s $true }
+        catch { $ready=C72-ReadySettled $readyTracker $script:watch.ElapsedMilliseconds '' $false; Assert-Owned }
         if (-not $ready) { Start-Sleep -Milliseconds 250 }
     } while (-not $ready -and [DateTime]::Now -lt $until)
-    if (-not $ready) { throw 'No idle offline field after manual Continue' }
+    if (-not $ready) { throw 'No continuously ready offline field for12s within180s after manual Continue' }
     $null=Invoke-C72Pipe 'scan'; $cleared=$false; $until=[DateTime]::Now.AddSeconds(15)
     do { $s=Invoke-C72Pipe 'row RC72E'; $cleared=(C72-Field $s 'status') -eq '2'; if (-not $cleared) { Start-Sleep -Milliseconds 200 } } while (-not $cleared -and [DateTime]::Now -lt $until)
     if (-not $cleared) { throw 'RC72E is not cleared on this journey' }
     Shot 'before-request'
+    $requestLogBefore=C72-ReadShared $addonLog
     $q=Invoke-C72Pipe 'fight RC72E'; if ($q -notmatch '^queued') { throw "Fight request refused: $q" }
+    $script:result.request_disposition='QUEUED_ACK_ONLY'
     $script:watch.Restart(); $sawLoad=$false; $script:result.status='OBSERVING'; $until=[DateTime]::Now.AddSeconds($TrialSeconds)
     do {
+        $refusal=C72-NewRefusal $requestLogBefore (C72-ReadShared $addonLog)
+        if ($refusal) {
+            $script:result.request_disposition='REFUSED_AFTER_QUEUE_ACK'
+            throw "Native admission refused after queue acknowledgement: $refusal; no retry"
+        }
         $s=Invoke-C72Pipe 'status'
         if ($s -match 'gate=(online|co-op session)' -or (C72-Field $s 'warps') -ne '0' -or (C72-Field $s 'spawn') -ne '-') { throw "Unexpected network/warp/spawn state: $s" }
         if ((C72-Field $s 'loading') -eq '1') { $sawLoad=$true }
