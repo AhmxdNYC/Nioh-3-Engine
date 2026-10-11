@@ -2,6 +2,14 @@
 Read the newest UPDATE section only; older handoffs follow below.
 
 
+## UPDATE 2026-10-11 - RC1761 external capture audit
+- Read-only external-capture audit PASS: pc2 sampled GPUBusy A/B arithmetic reproduced for all12 windows; uniquely inferred +14h overlap offset, 7,306 samples. Evidence/script: notes/handoff-codex-rc1761-capture.md; tools/bench/audit_rc1761_capture.py. No prior passed CRC/mod-clock suite repeated.
+- Offset remains inferred, not independently calibrated; window counts/mod-clock0.991..1.017 do not prove exact frame alignment. Existing CBMODE GPU delta-0.513012 +/-0.021586ms SE / XPRE-0.477921 +/-0.018127ms SE verified conditionally; three pairs per item in one launch. No display/latency/whole-mod/new visual verdict.
+- Ally5,138 relative MangoHud samples lack an archived UTC origin/unit declaration; alignment unresolved, gpu_ms stays no-data. FrameTime/GPUTime/GPUBusy/DisplayedTime kept distinct. Default visuals unchanged; FO NO-GO; kit225 held/cancelled; installguard writer untouched.
+- No local game/capture process; no lock/test/Ghidra/build/deployment, installed-file/save/settings/hardware/controller changes or Claude call/wake. Checkpoint phone inbox empty, no new user steering.
+- Next independent ready unit: audit stock-compatible external frame selection and p99 calculation in existing benchmark parsers against existing captures, without launching or repeating passed checks. Remote whole-mod/player gates remain pending.
+
+
 ## UPDATE 2026-10-11 - RC1761 archive evidence verified
 - Read-only archive audit PASS: ZIP CRCs, 1.7.61 log versions, all24 valid mod-clock windows and three-pair FPS arithmetic per item. Evidence/script: notes/handoff-codex-rc1761-evidence.md; tools/bench/verify_rc1761.py. No previously passed test rerun.
 - CBMODE Ally neutral / pc2 +16.50% +/-0.16% SE; XPRE Ally +4.16% +/-0.18% SE / pc2 neutral, fixed spot only. XPRE measured with CBMODE0; combined CBMODE6/XPRE1 smoke is compatibility, not a default-stack A/B. No whole-mod or new visual verdict.
