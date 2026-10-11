@@ -35,6 +35,12 @@ Controller tools: C:/Users/Ahmad Hamza/universal-optimizer/tools/codex-autowake.
 
 Before a human/manual lead edits while automation owns the repo: /stop, wait for current worker to finish, then create runtime lead-active. Current setup retains lead-active until the installing lead finishes its handoff. No parallel game launch, source writer, Claude call, or auto-wake toggle. Commit/push completed topics with Co-Authored-By: OpenAI Codex <noreply@openai.com>; Discord result cards use existing tools/notify/notify.py, never read/print/write its secret.
 
+## Return handoff requirement (user1786)
+
+Continue independently with Codex continuation enabled; do not call/wake Claude. At every checkpoint update STATUS top, this ledger, notes/codex-progress-report.md and notes/claude-return-handoff.md with commits, verified evidence, failures/risks, pending queues, restoration/ownership state and exact next steps. User transfers ownership by /stop, waiting for active worker/test closure, then creating the documented lead-active hold before personally resuming Claude. Worker never changes controller state. Main audit checkpoint a68a2c4; experimental406b19d pushed. Current read-only observation enabled/working worker27908/monitor5504, no lead-active; this serial worker retains ownership until exit. No game running.
+
 ## Latest checkpoint
 
 2026-10-11 02:56 New York: bounded FO audit complete; actual code negative controls reproduce overflow/stream-bounds/late-producer hazards (11checks/0failures, no compiler warnings). Static availability and queue-count synchronization failures recorded. No production fix, ASI/game/config changes, game launch, Claude call or controller-state write. Phone inbox empty at entry/checkpoints; no game running. Bridge through1785 has no new remote results. Main1.7.61/FO0 and native gates unchanged. Experimental audit406b19d committed/pushed with Codex attribution; Discord result sent through existing notifier. Next concrete independent unit: fail-closed startup availability repair + focused proof in codex-fo10, then queue/drain lifecycle repair. STATUS top and audit note carry this ready checkpoint.
+
+Phone steering1786 acknowledged at final checkpoint; progress report and clean Claude-return handoff updated. Next work remains the independent FO availability repair; no user pause or Claude resumption requested/executed.

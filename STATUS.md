@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - User1786: preserve a clean return to Claude
+- User phone steering1786 acknowledged: continuation remains enabled, independent ready work continues; only the user resumes Claude after pausing Codex and waiting for its active worker. Do not call/wake Claude. No controller-state changes.
+- Main audit checkpoint a68a2c4 and experimental406b19d pushed; audit failures/evidence, remote gates, restoration and exact next repair are in notes/claude-return-handoff.md. Progress report and ledger updated. Current source owner is this serial worker until checkpoint/exit; no game running.
+- Read-only controller observed enabled/working, worker27908, monitor5504, lead-active absent. To transfer: user /stop, wait for paused/no active worker/no game/test lock, create documented lead-active hold, then user resumes Claude. Details in the return handoff; do not execute a transfer automatically.
+
 ## UPDATE 2026-10-11 02:56 New York - FO deferred-command audit: release NO-GO remains
 - Completed one bounded offline audit of experimental codex-fo10: actual Fo98/Flush98 negative controls reproduce overflow writing off main and overtaking queued records, logical stream-end canary damage (full queue: 196596 bytes beyond twelve-byte spare), and a late TAIL record pending after flush-then-barrier. 11 checks / 0 failures, zero compiler warnings; this means hazards reproduced, NOT release safety PASS.
 - Static findings: failed emitter-slot/range verification still permits g_ready; volatile queue count has unlocked accesses; endFrame drains replay and must never run under the queue lock. Queue/stream/lifetime closure needs a combined proof before FO shipping. No production source fix, ASI/shared build, game launch, settings change or performance claim; main remains1.7.61 / FO0.
