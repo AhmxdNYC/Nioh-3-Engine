@@ -39,3 +39,21 @@ suppresses both comparison and refill after stock returns. Native return value
 and all output bytes are preserved. MSVC /W4 /WX suite now168 checks PASS,
 including9 new reentrant checks. This is a demonstrated prototype defect,
 not an observed game race. Native integration remains uninstalled.
+
+## Direct-edge inventory
+
+audit_compute_direct_edges.py scans executable sections for call/tail-jump
+candidates and verifies instruction boundaries using pdata function ranges.
+It confirms three lookup/insertion callers (58BE90,58C000,2EFE1CC), two
+remove callers (189912C,2EFA3A0), three trim callers, two clear/reinit/teardown
+callers each, and one pdata-covered shader-cleanup caller2EE7F64. Report kept
+under scratch/compute-direct-edges.json. Indirect references are not covered.
+
+One extra target outside pdata resolves to12-byte leaf2EFD04C:
+`lea r8,[rcx+7D8]; jmp189912C`. The direct-edge scan finds no direct caller
+to that leaf, and a raw absolute-pointer search found no reference using
+the dump image base. Its runtime reachability is unresolved; absence from
+the old decompiler caller list is not proof that it cannot execute. Hooking
+only known outer callers would require resolving this edge. Instrumenting
+the common cleanup function would cover either entry, but still needs the
+complete native locking/lifetime contract.
