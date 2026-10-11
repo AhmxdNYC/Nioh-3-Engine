@@ -62,3 +62,39 @@ bytes/flag, installed shader, saves/settings and controls exactly. No result yet
 
 Stable release/default picture/public tree unchanged. Playable training and
 instant rematch remain unconfirmed; FO remains NO-GO.
+
+## Candidate validation and second guarded attempt, 18:50
+
+Private settings-menu-v4 checkpoint9eeb174 is pushed. Core1.7.67 full release
+check passed with0 errors/3 existing metadata warnings and255 sites; addon1.4.9
+built warning-free. Final actual-source suites passed:92 transaction/return/
+read-gap/map scenarios,86 read gates+7 integration checks,23 spawn recovery+3
+entry checks,60 rematch,143 lifecycle/startup and94 sites. The candidate fixes
+cross-mission verification and refuses unknown readable PlayMode values; this
+is offline acceptance, not demonstrated playable training.
+
+Main f2e0bbf adds hash-pinned optional candidate staging with backed-up original
+ASIs and retained recovery ownership. Main ea4fc9d permits the existing cloud
+helper to raise one explicitly identified Steam launch dialog, then requires
+fresh foreground OCR of Unable to Sync and Play anyway. It never infers a
+button from its color or changes Steam Cloud settings.
+
+The second bounded C72E-B attempt staged that exact private candidate at18:46:49.
+Steam acknowledged the URI18:46:51, but no new GameAction/launch window or game
+process appeared. PrintWindow evidence shows Steam NO CONNECTION; connection
+logs also report failed connectivity tests. The pilot ended18:48:54 with
+TRIAL_FAILED/no owned game; there was no retry. Output directory:
+`D:/nioh3-re/rematch-pilots/live-C72E-B-20261011-184649-28912`.
+
+All three restoration results are true: saves, INIs and binaries. The binary
+recovery record is retained with complete=true, both stageAttempted/restored
+entries true. Root independently rehashed installed Engine/addon to their
+original pins dd8b5739/02d763e7 and found no late game process at18:50.
+Candidate ASIs were never observed executing. Local native entry remains
+unconfirmed; resolve Steam launch state before another bounded attempt.
+
+Ally2017 acknowledges exact LOD container240 and starts two short GP2 launches;
+pc2 Codex AABB phase receipt is still pending. Archives237/238 are now downloaded
+and hash-verified for exact-window and original-fog audit. Root keeps three
+offline agents on material descriptor admission, MIC full proof/resource
+contracts, and frame-I/O CPU opportunities while local Steam is unavailable.
