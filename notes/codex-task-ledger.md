@@ -1,5 +1,13 @@
 # Codex continuation ledger
 
+## Latest checkpoint 2026-10-11 15:13 - Training loading/session scalars verified
+- Owned codex-training-pump dfc134c pushed, private add-on1.4.4: default-OFF independently valid loading/play-mode/connection raw scalars, per-field unknown/recovery gaps and sampled publication losses. Skips mark new scalar gaps and missionGap on next publication. Single dispatcher/observer-only isolation preserved; no retained native pointers/calls/writes.
+- Actual source/SEH Rd31 checks PASS (/W4 /WX), lifecycle143/startup wiring, existing add-on60 and ALL94 SITES OK including shifted-image simulation PASS. Warning-free isolated release build/diff check PASS. Evidence: notes/handoff-codex-training-session-scalars.md. No deployment/public sync or performance/visual/runtime acceptance claim.
+- Sequential reads are not a coherent native session; skipped/unknown intervals can hide transitions and concurrent losses may surface later. Raw values do not prove readiness/session identity; load/session generations, bounded scalar events/loss and consumer transport remain unfinished. v4 restore mutation gate separate.
+- No local game/PresentMon/Ghidra or restoration needed. Installed/pinned inputs, saves/settings/hardware/controller/holds/Claude and other writers untouched. Final phone empty, no user steering. Stable EngineFix1.7.61, FO NO-GO, guard PR1 unmerged retained; external Ally/default-stack/player and pc2 recovery/clock calibration gates remain.
+- NEXT ready independent unit: observed loading/session generations from separately valid raw changes with explicit skipped/unknown recovery semantics on owned dfc134c, then bounded events. No unchanged game retry, pinned-build replacement or passed-suite repetition.
+
+
 ## Latest checkpoint - 2026-10-11 15:10 - Training mission snapshots verified
 - Owned codex-training-pump2674878 pushed, private add-on1.4.3: default-OFF guarded mission/retry reads with independent validity, cached sequence/time, observed mission epoch and unknown/recovery gap. Local SRW publication skips contention with explicit loss totals; no retained game pointer/native calls/mutations. Existing single dispatcher/observer-only isolation preserved.
 - Actual source plus production SEH Rd20 checks PASS (/W4 /WX), actual lifecycle143 and existing add-on60 checks PASS, ALL94 SITES OK including shifted-image simulation, warning-free isolated release build and diff check PASS. Evidence: notes/handoff-codex-training-mission-snapshot.md. No deployment/public sync or performance/visual claim.
