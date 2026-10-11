@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - FO98 retirement callback traced
+- Traced descriptor/context2EEF6D4 ->2EEFEB0 -> callback2EEF8F4 -> consumer1A757B8. Callback replaces the worker flag argument; consumer calls record vtable+10, invokes pool helper under owner+CE8 exclusive, clears24bytes and releases capacity. Evidence: notes/handoff-codex-fo98-callback.md.
+- Five new static provenance checks PASS; vtable GPU-wait, helper ownership, ring restart and producer closure remain unproven. No runtime/lifetime/safety or performance verdict; FO remains NO-GO. Parent65cdf23; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game at entry/checkpoint; no game test/lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace251B5C pool-return behavior and resolve record[0] vtable+10 from enqueue provenance, then GPU/producer closure and ring rebuild ordering. Serial ownership until exit; commit/push with Codex attribution and Discord result via existing notifier after push.
+
+
 ## UPDATE 2026-10-11 - FO98 event and worker protocol traced
 - Traced queue event/worker protocol: queue+10 is a manual-reset completion event; thread handle is queue+0. Native worker1A71FDC calls descriptor callback with context and queue+18, then signals completion.1266FC/126A14 atomically set/clear a bit. Auto-reset wake probes can consume a signal. Evidence: notes/handoff-codex-fo98-event-worker.md.
 - Eight new static provenance checks PASS; no runtime/lifetime/safety or performance verdict. FO remains NO-GO; prior passed suites not repeated. Parent c38358f; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged.

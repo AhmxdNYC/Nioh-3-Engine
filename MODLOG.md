@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 retirement callback trace
+
+Descriptor/context, callback flag replacement and retirement consumer order traced; five static provenance checks PASS. Vtable GPU-wait, pool helper ownership and producer closure remain unproven. FO remains NO-GO; no production or performance change. See notes/handoff-codex-fo98-callback.md.
+
 ## 2026-10-11 Codex - FO98 event/worker evidence
 
 Traced completion/wake event initialization, atomic flags and native callback arguments. Eight new static provenance checks; no production change or safety/performance claim. FO remains NO-GO. See notes/handoff-codex-fo98-event-worker.md.
