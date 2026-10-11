@@ -40,12 +40,14 @@ std::atomic<bool> g_wantScan{false};
 constexpr int cOrange=0,cGreen=1,cRed=2;
 int requests=0,returns=0,opens=0,scrolls=0,warps=0,rights=0,writes=0,restores=0;
 int outcome=0,g_warpStep=0;
-bool canClear=true,restoreOk=true;
+bool canClear=true,restoreOk=true,mapWriteOk=true,mapReadOk=true,mapLie=false,mapReplaced=false;
+uint8_t liveMap[8]{};
 const char* refused=nullptr;
 constexpr uint64_t G_MS=1,G_QUEUE=2,G_CH=3;
 uint8_t queue[3*0x58]{};
 int reads=0;
 bool Copy(void* out,uint64_t address,size_t n) {
+    if(address==reinterpret_cast<uint64_t>(liveMap)) { if(!mapReadOk) return false; memcpy(out,liveMap,n); return true; }
     if(address==G_QUEUE) { ++reads; if(outcome==2 && requests+scrolls) return false; memcpy(out,queue,n); return true; }
     return false;
 }
@@ -71,7 +73,7 @@ uint64_t CallWpFind(uint32_t) { return 1234; }
 rcore::MapPatch g_map;
 rcore::ETrack g_et;
 int g_eRow=-1; uint8_t g_eByteSeen=0;
-void MapRestoreNow(const char*) { g_map.active=false; }
+
 bool ClearedNow(uint16_t,const char** why) { if(!canClear) *why="uncleared"; return canClear; }
 void enqueue(uint32_t mission,uint32_t start) {
     if(outcome==6) return;
@@ -95,8 +97,9 @@ uintptr_t F_RIGHTSREQ=reinterpret_cast<uintptr_t>(&NativeRights);
 struct Scroll { uint64_t ref=123; uint8_t key[12]{}; uint16_t itemId=1; int idx=0; };
 struct EmakiTab { uint64_t vb=0; int n=0; uint8_t emptyKey=0; uint32_t count=1; };
 bool FindScroll(Scroll&) { return true; }
-bool ReadEmakiTab(EmakiTab&) { return true; }
-bool WrGuard(void*,const void*,size_t) { ++writes; return true; }
+bool ReadEmakiTab(EmakiTab& t) { t.vb=reinterpret_cast<uint64_t>(liveMap)+(mapReplaced?8:0); t.n=1; return true; }
+bool WrGuard(void* dst,const void* src,size_t n) { ++writes; if(!mapWriteOk) return false; if(!mapLie) memcpy(dst,src,n); return true; }
+@MAP_RESTORE@
 int CallEmakiRequest(uint64_t ref,const uint8_t* key) {
     ++scrolls; if(g_attemptPhase!=aAwaitLoad || !g_attempt.callAttempted) abort();
     enqueue(0xCC96,12345); memcpy(queue+0x30,&ref,8); memcpy(queue+0x20,key,12);
@@ -116,7 +119,7 @@ void fresh() {
     g_loadSeen=false; g_replayMs=0; g_loadDoneAt=0; g_exitSince=0; g_wasLoading=false;
     g_qHash=0; g_qChangedAt=0; g_lastTick=20000;
     requests=returns=opens=scrolls=warps=rights=writes=restores=reads=0;
-    outcome=0; canClear=restoreOk=true; refused=nullptr; memset(queue,0,sizeof(queue));
+    outcome=0; canClear=restoreOk=mapWriteOk=mapReadOk=true; g_map=rcore::MapPatch{}; mapLie=mapReplaced=false; memset(liveMap,0,8); liveMap[0]=1; refused=nullptr; memset(queue,0,sizeof(queue));
     fixtureSnap=Snap{}; fixtureSnap.gm=fixtureSnap.player=fixtureSnap.msOk=fixtureSnap.queueOk=fixtureSnap.emakiOk=fixtureSnap.onlineOk=fixtureSnap.guestOk=true;
     fixtureSnap.ms28=0x1111; fixtureSnap.ms14=123; now=20000;
     g_rows[0]=Row{}; g_rows[0].missionId=0x1CBC; g_rows[0].fightStart=67064;
@@ -128,9 +131,58 @@ void step(ULONGLONG t,bool loading,uint32_t mission,uint32_t retry) {
     now=t; fixtureSnap.st[2]=loading?1:0; fixtureSnap.ms28=mission; fixtureSnap.ms14=retry; Tick();
 }
 void post(uint32_t kind) { g_req=kind|(1u<<8); Tick(); }
-int main() {
+int main(int argc,char** argv) {
     int checks=0;
     auto check=[&](bool ok) { ++checks; if(!ok) printf("FAIL %d phase=%d calls=%d state=%d\n",checks,g_attemptPhase.load(),requests,g_state.load()); return ok; };
+    const int scenario=argc>1?atoi(argv[1]):0;
+    if(scenario==1) {
+        fresh(); post(kReqExit); step(21000,true,0x1111,123); step(22000,false,0x2222,456); step(28001,false,0x2222,456);
+        if(!check(g_attemptPhase==aNone && !AttemptStartGate())) return 1;
+        fresh(); post(kReqExit); step(21000,true,0x1111,123); step(22000,false,0x2222,456); step(28001,false,0x3333,789);
+        if(!check(g_attemptPhase==aReturning && g_attempt.settledAt==28001)) return 1;
+        fixtureSnap.gm=false; step(38001,false,0x3333,789); fixtureSnap.gm=true; step(38002,false,0x3333,789);
+        if(!check(g_attemptPhase==aReturning && g_attempt.settledAt==38002)) return 1;
+        step(44003,false,0x3333,789);
+        if(!check(g_attemptPhase==aNone)) return 1;
+        printf("%d standalone return regression checks PASS\n",checks); return 0;
+    }
+    if(scenario==2) {
+        fresh(); start(false); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+        step(27000,false,0x1111,123); fixtureSnap.gm=false; step(37000,false,0x1111,123);
+        fixtureSnap.gm=true; step(37001,false,0x1111,123);
+        if(!check(g_attemptPhase==aActive && g_exitSince==37001)) return 1;
+        printf("unreadable exit gap regression PASS\n"); return 0;
+    }
+    if(scenario==3) {
+        fresh(); g_attemptPhase=aActive;
+        if(!rcore::MapRedirect(g_map,liveMap,1,0,1,2,&WrGuard)) return 2;
+        mapWriteOk=false; ToIdle("picture scroll exit",true);
+        if(!check(g_attemptPhase==aQuarantined && g_map.active && AttemptStartGate())) return 1;
+        mapWriteOk=true;
+        if(!check(MapRestoreNow("retry") && !g_map.active && g_attemptPhase==aQuarantined)) return 1;
+        for(int fault:{0,1,2,3}) {
+            fresh(); g_attemptPhase=aActive;
+            if(!rcore::MapRedirect(g_map,liveMap,1,0,1,2,&WrGuard)) return 2;
+            const int previousWrites=writes;
+            if(fault==0) mapReadOk=false;
+            if(fault==1) liveMap[0]^=0x80;
+            if(fault==2) mapReplaced=true;
+            if(fault==3) mapLie=true;
+            ToIdle("map failure",true);
+            if(!check(g_attemptPhase==aQuarantined && g_map.active)) return 1;
+            if(fault!=3 && !check(writes==previousWrites)) return 1;
+            mapReadOk=true; mapReplaced=false; mapLie=false;
+            if(fault==1) liveMap[0]^=0x80;
+            if(fault==1 || fault==2) {
+                if(!check(!MapRestoreNow("address/bytes return") && g_map.conflict && g_map.active)) return 1;
+            } else if(!check(MapRestoreNow("retry") && !g_map.active)) return 1;
+        }
+        fresh(); mapWriteOk=false;
+        if(!check(!rcore::MapRedirect(g_map,liveMap,1,0,1,2,&WrGuard) && g_map.active)) return 1;
+        mapWriteOk=true;
+        if(!check(MapRestoreNow("failed initial write") && !g_map.active)) return 1;
+        printf("%d map write/read/conflict ownership regression checks PASS\n",checks); return 0;
+    }
     fresh(); canClear=false; start(); if(!check(!requests && g_attemptPhase==aNone)) return 1;
     fresh(); start();
     if(!check(requests==1 && g_attemptPhase==aAwaitLoad && g_attempt.evidence==aMatched && g_fight && g_sp.st==1 && g_attempt.queueSlot==0 && g_attempt.requestedStart==67064)) return 1;
@@ -223,12 +275,15 @@ gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* Nat
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
 bodies='\n'.join(fn(sig) for sig in ('const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
-code=code.replace('@BODIES@',bodies)
+code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
 setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'; source.write_text(code)
     command=f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /I"{ROOT / "src"}" /Fo"{directory / "test.obj"}" /Fe"{exe}" "{source}"'
     result=subprocess.run('cmd /d /s /c "'+command+'"',capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
-    result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=10)
-    print(result.stdout.strip()); assert result.returncode==0,result.stderr
+    results=[]
+    for scenario in ('1','2','3','0'):
+        result=subprocess.run([str(exe),scenario],capture_output=True,text=True,timeout=10)
+        print('scenario '+scenario+': '+result.stdout.strip()); results.append(result)
+    assert all(r.returncode==0 for r in results), '\n'.join(r.stderr for r in results)

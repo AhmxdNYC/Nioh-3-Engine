@@ -50,7 +50,7 @@ namespace fight { bool g_active=false; }
 @SNAPSHOT@
 @ATTEMPT@
 @FUNCTIONS@
-void ToIdle(const char*) {}
+void ToIdle(const char*,bool=false) {}
 bool g_wasLoading=false,g_posAtLoadOk=false,g_posLiveOk=true;
 float g_posAtLoad[4]{},g_posLive[4]{};
 ULONGLONG g_loadRiseAt=0;

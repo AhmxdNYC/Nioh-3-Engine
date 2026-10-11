@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
         CHECK(rcore::MapRestore(mp, &WrPlain) == -1, "restore twice = nothing active");
         CHECK(rcore::MapRedirect(mp, map, 41, empty, 2, 20, &WrPlain), "redirect again");
         map[5 * 8 + 1] ^= 1;  // somebody else writes a pad byte
-        CHECK(rcore::MapRestore(mp, &WrPlain) == 1 && !memcmp(map, orig, sizeof(map)), "restore after a foreign write: reported, restored");
+        CHECK(rcore::MapRestore(mp, &WrPlain) == -3 && mp.active && mp.conflict, "foreign write: ownership retained, no overwrite");
         CHECK(!rcore::MapRedirect(mp, map, 41, empty, 20, 20, &WrPlain), "target out of range refused");
     }
     // ---------------- E lifecycle ----------------

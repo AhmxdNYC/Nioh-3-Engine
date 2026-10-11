@@ -198,12 +198,12 @@ struct NativeAttempt {
     uint64_t sequence = 0;
     Admission evidence = aNoEvidence;
     uint32_t mission = 0, requestedStart = 0, observedStart = 0;
-    uint32_t sourceMission = 0, sourceRetry = 0;
+    uint32_t sourceMission = 0, sourceRetry = 0, returnMission = 0, returnRetry = 0;
     uint8_t journey = 0;
     int row = -1, queueSlot = -1;
     bool scroll = false, callAttempted = false, callCompleted = false;
     bool afterValid = false, loadSeen = false, loadDown = false;
-    bool returnAttempted = false, returnCompleted = false;
+    bool returnAttempted = false, returnCompleted = false, standaloneReturn = false, standaloneDone = false;
     ULONGLONG requestedAt = 0, settledAt = 0;
     uint8_t before[3 * 0x58] = {}, after[3 * 0x58] = {};
     const char* reason = nullptr;
@@ -291,6 +291,18 @@ void AttemptObserve(const Snap& s, ULONGLONG t) {
     const int phase = g_attemptPhase.load();
     if (phase == aNone || phase == aQuarantined) return;
     if (SessionGate(s)) { AttemptQuarantine("session lost or connected during native attempt"); return; }
+    if (phase == aReturning && g_attempt.standaloneReturn) {
+        if (!s.gm) { g_attempt.settledAt = 0; return; }
+        if (s.st[2]) { g_attempt.loadSeen = true; g_attempt.settledAt = 0; return; }
+        if (!g_attempt.loadSeen || !s.msOk || !s.player || s.st[3] || s.st[4] ||
+            !s.ms28 || s.ms28 == g_attempt.sourceMission) { g_attempt.settledAt = 0; return; }
+        if (!g_attempt.settledAt || s.ms28 != g_attempt.returnMission || s.ms14 != g_attempt.returnRetry) {
+            g_attempt.returnMission = s.ms28;
+            g_attempt.returnRetry = s.ms14;
+            g_attempt.settledAt = t;
+        } else if (t - g_attempt.settledAt > 5000) g_attempt.standaloneDone = true;
+        return;
+    }
     if (phase != aAwaitLoad) return;
     if (!s.gm) { g_attempt.settledAt = 0; return; }
     if (s.st[2]) { g_attempt.loadSeen = true; g_attempt.settledAt = 0; return; }
@@ -312,12 +324,15 @@ const char* AttemptReturnGate() {
     if (phase == aAwaitLoad) return "native replay has not settled";
     return nullptr;
 }
-void AttemptReturning() {
+void AttemptReturning(const Snap& s) {
     // Legacy menu replay has no strict admission witness, but its return still
     // must not be retried after an exception with possible native side effects.
     if (g_attemptPhase.load() == aNone) {
         g_attempt = NativeAttempt{};
         g_attempt.sequence = ++g_attemptSequence;
+        g_attempt.standaloneReturn = g_state.load() == kIdle;
+        g_attempt.sourceMission = s.ms28;
+        g_attempt.sourceRetry = s.ms14;
     }
     g_attempt.returnAttempted = true;
     g_attemptPhase.store(aReturning);
@@ -718,10 +733,16 @@ bool WrGuard(void* dst, const void* src, size_t n) { return WrBytes((uint64_t)ds
 int g_eRow = -1;
 uint8_t g_eByteSeen = 0;
 
-void MapRestoreNow(const char* why) {
-    if (!g_map.active) return;
-    const int r = rcore::MapRestore(g_map, &WrGuard);
-    Log("Rematch: E1 map restored (%s): %s", why, r == 0 ? "CRC ok" : r == 1 ? "the map had changed since our write (someone else wrote; restored anyway)" : "WRITE FAILED");
+bool MapReadGuard(void* dst, const void* src, size_t n) { return Copy(dst, (uint64_t)src, n); }
+bool MapRestoreNow(const char* why) {
+    if (!g_map.active) return true;
+    if (g_map.conflict) return false;
+    EmakiTab current;
+    if (!ReadEmakiTab(current)) return false;  // unreadable is not permission to forget ownership
+    if (current.vb != (uint64_t)g_map.entries || current.n != g_map.n) { g_map.conflict = true; return false; }
+    const int r = rcore::MapRestore(g_map, &WrGuard, &MapReadGuard);
+    Log("Rematch: E1 map recovery (%s): %s", why, r == 0 ? "original bytes verified" : "unresolved; new entries blocked");
+    return r == 0;
 }
 
 // ---- scan (game thread) ----
@@ -790,12 +811,12 @@ void ToIdle(const char* why, bool normalExit = false) {
     if (!normalExit) AttemptQuarantine(why);
     UnhideRestore(why);
     const bool restored = SpawnRestore(why);
+    const bool mapRestored = MapRestoreNow(why);
     const int phase = g_attemptPhase.load();
-    if (normalExit && restored && (phase == aActive || phase == aReturning)) {
+    if (normalExit && restored && mapRestored && (phase == aActive || phase == aReturning)) {
         g_attempt = NativeAttempt{};
         g_attemptPhase.store(aNone);  // legacy operational exit, not training completion
     } else if (phase != aNone) AttemptQuarantine(why);
-    MapRestoreNow(why);
     g_et.st = rcore::kEIdle;
     g_state.store(kIdle);
     g_replayIn.store(false);
@@ -814,6 +835,7 @@ void ToIdle(const char* why, bool normalExit = false) {
 
 void ExecOpen(int row, const Snap& s) {
     if (!SpawnRestore("before replay menu")) return Refuse("spawn recovery unresolved; no new replay admitted");
+    if (!MapRestoreNow("before replay menu")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
     if (!g_raOk) return Refuse(g_raWhy);
     const bool unh = g_cfg.hiddenDuels;
@@ -853,6 +875,7 @@ bool ClearedNow(uint16_t id, const char** why) {
 
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
+    if (!MapRestoreNow("before mission request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
     const Row& r = g_rows[(size_t)row];
     const char* why = nullptr;
@@ -962,6 +985,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
 // E (row >= 0: E1 redirect to its record) / game's pick (row < 0)
 void ExecEmaki(int row, ULONGLONG t) {
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
+    if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
     if (!g_emakiOk) return Refuse(g_emakiWhy);
     Scroll sc;
@@ -982,7 +1006,7 @@ void ExecEmaki(int row, ULONGLONG t) {
     if (row >= 0) {
         const Row& r = g_rows[(size_t)row];
         if ((uint32_t)r.emakiIndex >= tab.count) return Refuse("record index out of range");
-        if (!rcore::MapRedirect(g_map, (uint8_t*)tab.vb, tab.n, tab.emptyKey, (uint32_t)r.emakiIndex, tab.count, &WrGuard))
+        if (!rcore::MapRedirect(g_map, (uint8_t*)tab.vb, tab.n, tab.emptyKey, (uint32_t)r.emakiIndex, tab.count, &WrGuard, &MapReadGuard))
             return Refuse("could not redirect the scroll map");
         Log("Rematch: E1 %s: %d map entries -> record %d (snapshot CRC %08X)", r.id, tab.n, r.emakiIndex, rcore::Crc32(g_map.snap, (size_t)tab.n * 8));
     }
@@ -1222,7 +1246,7 @@ int CallReturn() {
 }
 
 void TrackReplay(const Snap& s, ULONGLONG t) {
-    if (!s.gm) { g_loadDoneAt = 0; return; }  // an unreadable stop block is not a load-down edge
+    if (!s.gm) { g_loadDoneAt = 0; g_exitSince = 0; return; }  // an unreadable stop block is not a load-down edge
     const int st = g_state.load();
     if (st == kMenuOpen) {
         const int busy = ReplayMenuBusy();
@@ -1500,6 +1524,7 @@ void Tick() {
     g_lastTick.store(t);
     Snap s = ReadSnap();
     AttemptObserve(s, t);
+    if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("standalone return observed", true);
     if (g_attemptPhase.load() == aQuarantined && g_state.load() != kIdle) ToIdle("native attempt quarantined");
     if (s.gm && s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
         memcpy(g_posAtLoad, g_posLive, sizeof(g_posAtLoad));
@@ -1544,7 +1569,7 @@ void Tick() {
             else if (const char* why = ExitGate(s)) Refuse(why);
             else if (const char* attemptWhy = AttemptReturnGate()) Refuse(attemptWhy);
             else {
-                AttemptReturning();
+                AttemptReturning(s);
                 const int rc = CallReturn();
                 g_attempt.returnCompleted = rc == 0;
                 if (rc) AttemptQuarantine("return call exception");

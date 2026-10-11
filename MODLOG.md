@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - native-attempt review fixes
+
+Standalone manual return now has a bounded observation path to normal cleanup; unreadable GameMain frames reset exit settling. Scroll-map restoration retains ownership across read/write/readback failure, refuses foreign/replaced storage, and blocks new starts until verified cleanup. Three actual-source regressions reproduced the previous failures and now pass, with additional recovery/settling checks. Private candidate only; see notes/training-native-attempt-quarantine.md.
+
 ## 2026-10-11 Codex - private native-admission quarantine
 
 Native replay/scroll calls publish a copied attempt before enqueue can have side effects. Ambiguous admission, wrong explicit start, abort/timeout or session loss retains a process-lifetime quarantine across cleanup and UI Idle. New start routes and active fight effects refuse; return is attempted once. Native default-start replay and the existing operational exit remain supported. Offline fault tests only; no loader cancellation, playable training or native acceptance claim. Evidence: notes/training-native-attempt-quarantine.md.
