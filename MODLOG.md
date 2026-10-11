@@ -1,5 +1,9 @@
 ## 2026-10-11 Codex - FO98 dispatcher completion trace
 
+## 2026-10-11 Codex: FO98 close/ECL static boundary
+
+Traced close/recycle, token0 allocator dispatch and ECL CPU item completion; 12 new byte provenance windows PASS. No production change, GPU completion proof, safety verdict or performance claim; FO remains NO-GO. See notes/handoff-codex-fo98-close-ecl.md.
+
 Record-copy/read-index/in-flight ordering and ECL enqueue traced; six static provenance windows PASS. FO NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-dispatcher-completion.md.
 
 ## 2026-10-11 Codex - FO98 producer lock mode trace

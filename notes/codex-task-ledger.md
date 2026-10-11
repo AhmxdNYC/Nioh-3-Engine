@@ -2,6 +2,12 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
+## Latest checkpoint - FO98 close/recycle and ECL boundary traced
+- Traced context close1A7C4FC ->490F64 close/recycle; native token0 dispatches allocator vtable+30. ECL item completion is CPU replay/capacity accounting. Evidence: notes/handoff-codex-fo98-close-ecl.md.
+- Twelve new static provenance windows PASS; recovered sequence argument omitted by decomp. Concrete allocator reuse/fence contract unresolved; no GPU/producer-closure/safety/performance verdict. FO NO-GO. Parent5059eb1; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
+- No local game/test or Ghidra; no lock/build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: identify context+588 allocator vtable and trace +10/+18 reuse and +30 submit/signal fence ordering. Producer closure, resource caller modes, cache+20 identity and retirement restart remain open. Serial ownership until exit; commit/push with Codex attribution and Discord result after push; checkpoint commit via git log -1.
+
 ## Latest checkpoint - FO98 dispatcher consumer completion traced
 - Native dispatcher copies records before advancing read+28; token handlers and optional submit return before lock-decrementing in-flight+30. ECL enqueue/capacity wait traced. Evidence: notes/handoff-codex-fo98-dispatcher-completion.md.
 - Six new static provenance windows PASS; recovered handler cursor argument and close-wrapper return use omitted by decomp. No GPU/producer-closure/safety/performance verdict; FO NO-GO. Parent 5eaca34; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
