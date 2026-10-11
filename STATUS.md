@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - FO98 retirement ring rebuild traced
+- Traced2EEF3B0 capacity growth and2EF01F4 FIFO ring rebuild, semaphore replacement and counter reset;2EEF950 frees the old buffer. Evidence: notes/handoff-codex-fo98-ring-rebuild.md.
+- Four new static provenance checks PASS. CPU worker completion is not a GPU fence; GPU timing remains unresolved. Semaphore-creation failure branches restore saved handles; initial closed-handle suspicion corrected after following the common failure jump. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent3d27386; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game at entry/checkpoint; no test/lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace scheduler2EF0938 and queue+48/work-token publication to connect pending+40, worker restart and actual GPU completion; then producer closure proof. Concrete vtable and map replacement invariants remain open. Serial ownership until exit; commit/push with Codex attribution and Discord result via existing notifier after push. Static evidence only; use git log -1 for checkpoint commit.
+
 ## UPDATE 2026-10-11 - FO98 live-map references traced
 - Traced251660 live-map insertion: stores both pointers, calls record[0] vtable+8, and lock-increments optional record[1]+8. Allocation2509EC publishes under owner+CE8; explicit caller2F03E80 confirmed. Evidence: notes/handoff-codex-fo98-live-map.md.
 - Three new static provenance checks PASS. Correction: record[0] vtable+10 is release-shaped, not a proven wait; concrete vtable/GPU completion boundary still unresolved. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent32b8109; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.

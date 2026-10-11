@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 retirement ring rebuild
+
+Capacity growth, FIFO migration and semaphore/counter replacement traced; four static provenance checks PASS. CPU completion is not a proven GPU fence; failure branches restore saved handles. FO stays NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-ring-rebuild.md.
+
 ## 2026-10-11 Codex - FO98 live-map ownership
 
 Insertion reference acquisition traced; three new static provenance checks PASS. Earlier vtable+10 wait wording corrected to release-shaped inference; GPU timing and concrete vtable remain unproven. FO stays NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-live-map.md.
