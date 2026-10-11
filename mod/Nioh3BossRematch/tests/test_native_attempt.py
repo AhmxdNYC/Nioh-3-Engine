@@ -114,7 +114,7 @@ void SelfTestTick(const Snap&,ULONGLONG) {}
 void fresh() {
     // Fixture-only new process lifetime. Production has no reset seam.
     g_attempt=NativeAttempt{}; g_attemptPhase=aNone; g_state=kIdle; g_req=0; g_pend=0;
-    g_sp=Spawn{}; g_fight=false; g_fightRow=-1; g_replayIn=false;
+    g_sp=Spawn{}; g_fight=false; g_fightRow=-1; g_replayIn=false; g_practiceOwned=false; g_activeRow=-1;
     g_gateWant=0; g_gateReq=false; g_warpPending=false; g_fn=kFnIdle;
     g_loadSeen=false; g_replayMs=0; g_loadDoneAt=0; g_exitSince=0; g_wasLoading=false;
     g_qHash=0; g_qChangedAt=0; g_lastTick=20000;
@@ -122,7 +122,7 @@ void fresh() {
     outcome=0; canClear=restoreOk=mapWriteOk=mapReadOk=true; g_map=rcore::MapPatch{}; mapLie=mapReplaced=false; memset(liveMap,0,8); liveMap[0]=1; refused=nullptr; memset(queue,0,sizeof(queue));
     fixtureSnap=Snap{}; fixtureSnap.gm=fixtureSnap.player=fixtureSnap.msOk=fixtureSnap.queueOk=fixtureSnap.emakiOk=fixtureSnap.onlineOk=fixtureSnap.guestOk=true;
     fixtureSnap.ms28=0x1111; fixtureSnap.ms14=123; now=20000;
-    g_rows[0]=Row{}; g_rows[0].missionId=0x1CBC; g_rows[0].fightStart=67064;
+    g_rows.resize(1); g_rows[0]=Row{}; g_rows[0].missionId=0x1CBC; g_rows[0].fightStart=67064; g_rows[0].placement=65092;
     g_rows[0].arenaOk=true; g_rows[0].route=rcore::kR;
     strcpy_s(g_rows[0].id,"R1CBC");
 }
@@ -276,6 +276,34 @@ int main(int argc,char** argv) {
     fixtureSnap.emakiOk=true; step(47000,false,0x1111,123); step(53000,false,0x1111,123);
     if(!check(g_attemptPhase==aNone && g_state==kIdle)) return 1;
     fresh(); outcome=1; ExecEmaki(-1,now); if(!check(scrolls==1 && g_attemptPhase==aQuarantined)) return 1;
+    fresh(); post(kReqPractice);
+    if(!check(requests==1 && g_practiceOwned && g_attempt.requestedStart==67064 && !g_fightWarp && !g_sp.st && !g_gateWant && g_fn==kFnIdle)) return 1;
+    step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+    if(!check(!PracticeReturnGate(fixtureSnap) && !warps && !rights && !writes)) return 1;
+    post(kReqPracticeExit); if(!check(returns==1 && g_attemptPhase==aReturning)) return 1;
+    post(kReqPracticeExit); if(!check(returns==1)) return 1;
+    step(27000,true,0x1CBC,67064); step(28000,false,0x1111,123); step(34001,false,0x1111,123);
+    if(!check(g_attemptPhase==aNone && !g_practiceOwned)) return 1;
+    for(int wrong=0;wrong<7;++wrong) {
+        fresh();
+        if(wrong==0) strcpy_s(g_rows[0].id,"other");
+        if(wrong==1) g_rows[0].missionId=0xC72E;
+        if(wrong==2) g_rows[0].fightStart=0;
+        if(wrong==3) g_rows[0].placement=1;
+        if(wrong==4) g_rows[0].route=rcore::kE;
+        if(wrong==5) g_rows[0].atFight=true;
+        if(wrong==6) g_rows.push_back(g_rows[0]);
+        ExecPractice(0,fixtureSnap,now); if(!check(!requests && !g_practiceOwned)) return 1;
+    }
+    fresh(); canClear=false; ExecPractice(0,fixtureSnap,now); if(!check(!requests && !g_practiceOwned)) return 1;
+    fresh(); fixtureSnap.onlineOk=false; ExecPractice(0,fixtureSnap,now); if(!check(!requests)) return 1;
+    fresh(); fixtureSnap.online=true; ExecPractice(0,fixtureSnap,now); if(!check(!requests)) return 1;
+    fresh(); fixtureSnap.queueBusy=true; ExecPractice(0,fixtureSnap,now); if(!check(!requests)) return 1;
+    fresh(); outcome=1; ExecPractice(0,fixtureSnap,now);
+    if(!check(requests==1 && g_practiceOwned && g_attemptPhase==aQuarantined)) return 1;
+    post(kReqPracticeExit); if(!check(!returns)) return 1;
+    fresh(); start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+    post(kReqPracticeExit); if(!check(!returns && !g_practiceOwned)) return 1;
     printf("%d actual-source transaction checks PASS\n",checks);
 }
 """
@@ -287,7 +315,7 @@ code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session re
 gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
-bodies='\n'.join(fn(sig) for sig in ('const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
+bodies='\n'.join(fn(sig) for sig in ('const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
 code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
 setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:

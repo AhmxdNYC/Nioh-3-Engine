@@ -132,13 +132,14 @@ void Result(const char* fmt, ...) {
 }
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8 };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10 };
 std::atomic<uint32_t> g_req{0};  // kind | (row + 1) << 8
 enum State : int { kIdle = 0, kMenuOpen = 1, kInReplay = 2, kEmaki = 3 };
 std::atomic<int> g_state{kIdle};
 std::atomic<int> g_activeRow{-1};
 std::atomic<bool> g_replayIn{false};
 std::atomic<bool> g_fight{false};  // the active replay is a Fight now start
+std::atomic<bool> g_practiceOwned{false};  // game thread publishes only after the native attempt begins
 std::atomic<uint32_t> g_loadMs{0};  // request -> mission load finished, last Fight now / replay (status 'loadms', the slow-load check)
 std::atomic<ULONGLONG> g_lastTick{0}, g_qChangedAt{0};
 uint64_t g_qHash = 0;
@@ -148,7 +149,7 @@ const char* RowName(int row) { return row >= 0 && (size_t)row < g_rows.size() ? 
 void Post(uint32_t kind, int row, const char* via) {
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
-                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)"};
+                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice"};
     Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
 }
 
@@ -817,6 +818,7 @@ void ToIdle(const char* why, bool normalExit = false) {
     if (normalExit && restored && mapRestored && (phase == aActive || phase == aReturning)) {
         g_attempt = NativeAttempt{};
         g_attemptPhase.store(aNone);  // legacy operational exit, not training completion
+        g_practiceOwned.store(false);
     } else if (phase != aNone) AttemptQuarantine(why);
     g_et.st = rcore::kEIdle;
     g_state.store(kIdle);
@@ -984,6 +986,34 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
 }
 
 // E (row >= 0: E1 redirect to its record) / game's pick (row < 0)
+int PracticeRow() {
+    int found = -1;
+    for (size_t i = 0; i < g_rows.size(); ++i) {
+        const Row& r = g_rows[i];
+        if (strcmp(r.id, "R1CBC")) continue;
+        if (found >= 0 || r.route != rcore::kR || r.missionId != 0x1CBC || r.placement != 65092 ||
+            r.fightStart != 67064 || r.atFight) return -1;
+        found = (int)i;
+    }
+    return found;
+}
+const char* PracticeReturnGate(const Snap& s) {
+    if (!g_practiceOwned.load()) return "no owned Yamagata practice session";
+    const int row = PracticeRow();
+    if (row < 0 || g_activeRow.load() != row) return "practice route ownership does not match";
+    if (const char* why = ExitGate(s)) return why;
+    if (s.ms28 != 0x1CBC) return "not in the owned practice mission";
+    if (const char* why = AttemptReturnGate()) return why;
+    return g_attemptPhase.load() == aActive ? nullptr : "practice transaction is not active";
+}
+void ExecPractice(int row, const Snap& s, ULONGLONG t) {
+    if (row < 0 || row != PracticeRow()) return Refuse("Yamagata practice catalogue tuple missing or changed");
+    if (const char* why = Gates(s, false)) return Refuse(why);
+    const uint64_t previous = g_attempt.sequence;
+    ExecDirect(row, s, t, true, false); // native shrine only: no warp, spawn override or gate injection
+    if (g_attempt.sequence != previous && g_attemptPhase.load() != aNone) g_practiceOwned.store(true);
+}
+
 void ExecEmaki(int row, ULONGLONG t) {
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
     if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
@@ -1566,9 +1596,10 @@ void Tick() {
     if (g_pend) {
         const uint32_t kind = g_pend & 0xFF;
         const int row = (int)(g_pend >> 8) - 1;
-        if (kind == kReqExit) {
+        if (kind == kReqExit || kind == kReqPracticeExit) {
             g_pend = 0;
             if (!g_exitOk) Refuse(g_exitWhy);
+            else if (kind == kReqPracticeExit && PracticeReturnGate(s)) Refuse(PracticeReturnGate(s));
             else if (const char* why = ExitGate(s)) Refuse(why);
             else if (const char* attemptWhy = AttemptReturnGate()) Refuse(attemptWhy);
             else {
@@ -1598,6 +1629,7 @@ void Tick() {
             if (kind == kReqDirect) ExecDirect(row, s, t, false, false);
             else if (kind == kReqFight) ExecDirect(row, s, t, true, true);
             else if (kind == kReqShrine) ExecDirect(row, s, t, true, false);
+            else if (kind == kReqPractice) ExecPractice(row, s, t);
             else if (kind == kReqEmaki) ExecEmaki(row, t);
             else if (kind == kReqScroll) ExecEmaki(-1, t);
             else ExecOpen(row, s);
@@ -1731,7 +1763,7 @@ const char* CanArena(int row) {
 
 // ---- UI model (UI thread; snapshots / atomics from the game thread only) ----
 int g_sel = 0, g_confirm = -9;
-enum UiPage { uRoot, uBosses, uActions, uSettings, uSettingFirst };
+enum UiPage { uRoot, uBosses, uActions, uSettings, uPractice, uSettingFirst };
 #include "settings_catalog.h"
 menu_nav::Trail<> g_uiPages;
 int g_uiBoss = -1;
@@ -1740,6 +1772,7 @@ char g_msg[160] = "";
 constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
 constexpr int kItBrowse = -4, kItBack = -5, kItClose = -6;
 constexpr int kItSettings = -7, kItSave = -8, kItGroupBase = -100, kItSettingBase = -1000;
+constexpr int kItPractice = -10, kItPracticeStart = -11, kItPracticeReturn = -12;
 constexpr int kItFight = 0x10000;   // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 
@@ -1748,11 +1781,18 @@ int Items(int* out, int cap) {
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
     if (g_uiPages.page == uRoot) {
         if (g_live.load()) add(kItBrowse);
+        if (g_live.load()) add(kItPractice);
         add(kItSettings);
         if (g_raOk) add(kItOpen);
         if (g_emakiOk) add(kItScroll);
         if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) add(kItAbort);
         add(kItClose);
+        return n;
+    }
+    if (g_uiPages.page == uPractice) {
+        add(kItPracticeStart);
+        add(kItPracticeReturn);
+        add(kItBack);
         return n;
     }
     if (g_uiPages.page == uSettings) {
@@ -1992,6 +2032,11 @@ bool UiAct() {
         return false;
     }
     if (item == kItBack) return UiBack();
+    if (item == kItPractice) {
+        g_uiPages.Enter(uPractice, g_sel);
+        g_sel = 0; g_confirm = -9; g_msg[0] = 0;
+        return false;
+    }
     if (item == kItBrowse || (g_uiPages.page == uBosses && item >= 0)) {
         if (item >= 0) g_uiBoss = item;
         g_uiPages.Enter(item == kItBrowse ? uBosses : uActions, g_sel);
@@ -2008,10 +2053,39 @@ bool UiAct() {
         snprintf(g_msg, sizeof(g_msg), "Rematch is unavailable this session. Settings can be saved for the next launch.");
         return false;
     }
+    // Return is an operation on the owned transaction, not a new start. The
+    // generic start gate deliberately refuses all active native attempts.
+    if (item == kItPracticeReturn) {
+        const char* why = !g_exitOk ? g_exitWhy : PracticeReturnGate(ReadSnap());
+        if (why) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+        if (g_confirm != item) {
+            g_confirm = item;
+            snprintf(g_msg, sizeof(g_msg), "Leave practice using the native mission return? A confirm / B back.");
+            return false;
+        }
+        g_confirm = -9; Post(kReqPracticeExit, -1, "the practice menu");
+        return true;
+    }
     const char* why = Gates(ReadSnap(), true);
     if (why) {
         snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why);
         return false;
+    }
+    if (item == kItPracticeStart) {
+        const int row = PracticeRow();
+        const char* whyPractice = row < 0 ? "Yamagata practice route missing or changed" : CanFight(row);
+        if (whyPractice || g_status[(size_t)row].load() != 2) {
+            snprintf(g_msg, sizeof(g_msg), "%s", whyPractice ? whyPractice : "Beat Yamagata on this journey first.");
+            return false;
+        }
+        if (g_confirm != item) {
+            g_confirm = item;
+            snprintf(g_msg, sizeof(g_msg), "Practice Yamagata from the shrine? Normal rewards and progression apply. A confirm / B back.");
+            return false;
+        }
+        g_confirm = -9; Post(kReqPractice, row, "the practice menu");
+        ToastF(cWhite, 8000, "Practice: walk from the shrine into Yamagata's arena. Normal native rewards apply.");
+        return true;
     }
     if (item == kItOpen) {
         Post(kReqOpen, -1, "the menu");
@@ -2090,7 +2164,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     const Snap s = ReadSnap();
     const char* gate = !g_live.load() ? "rematch off; settings available" : g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();
-    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_fight.load() ? "active: fight now" : "active: replay")
+    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -2113,6 +2187,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
+        else if (it[i] == kItPractice) add(sel ? cWhite : cGray, sel, "%s Practice Yamagata   A / Enter opens", mk);
+        else if (it[i] == kItPracticeStart) add(sel ? cWhite : cGray, sel, "%s Start at boss shrine (native mission replay)", mk);
+        else if (it[i] == kItPracticeReturn) add(sel ? cWhite : g_practiceOwned.load() ? cGray : cDim, sel, "%s Return from practice", mk);
         else if (it[i] == kItBack) add(sel ? cWhite : cGray, sel, "%s Back to parent menu   B / Esc / Backspace", mk);
         else if (it[i] == kItClose) add(sel ? cWhite : cGray, sel, "%s Close menu", mk);
         else if (it[i] == kItOpen) add(sel ? cWhite : cGray, sel, "%s Open the game's Battle Scroll replay menu   (R-a)", mk);
@@ -2159,6 +2236,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItSave && g_configSaveState.load() == 2) snprintf(footer, nf, "Saved. Restart the game before these preferences apply. * = edited this session.");
         else if (item == kItSave && g_configSaveState.load() == 3) snprintf(footer, nf, "Save failed (error %lu). Preferences remain here; retry Save.", g_configSaveError.load());
         else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
+        else if (item == kItPractice || g_uiPages.page == uPractice) snprintf(footer, nf, "Normal rewards, drops and progression apply. Walk to the arena; death uses the native retry. No automatic restart. A selects / B back.");
         else if (item == kItSettings || item <= kItGroupBase) snprintf(footer, nf, "Startup preferences only. Settings do not install hooks or enable commands this session. Save then restart.");
         else if (item == kItSave) snprintf(footer, nf, "Writes only edited preferences. Paths/lists and the unavailable Training Enable key are never written.");
         else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss, then choose its replay or fight action. Existing unlock and solo checks apply.");

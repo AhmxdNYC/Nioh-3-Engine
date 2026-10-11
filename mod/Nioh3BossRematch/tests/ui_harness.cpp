@@ -8,7 +8,12 @@ void Log(const char*, ...) {}
 const wchar_t* IniPath() { return L""; }
 const wchar_t* ModDir() { return L""; }
 int IniInt(const wchar_t*, const wchar_t*, int def) { return def; }
-bool Copy(void*, uint64_t, size_t) { return false; }
+bool uiReads = false;
+bool Copy(void* out, uint64_t address, size_t n) {
+    if (!uiReads) return false;
+    memcpy(out, reinterpret_cast<const void*>(address), n);
+    return true;
+}
 bool WrU32(uint64_t, uint32_t) { return false; }
 bool WrBytes(uint64_t, const void*, size_t) { return false; }
 void Hex(char*, size_t, uint64_t, size_t) {}
@@ -65,6 +70,37 @@ int main() {
     UiRow rows[24]; char footer[240];
     CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0);
     CHECK(strstr(rows[0].text, "Boss actions") != nullptr);
+
+    // Actual menu actions: visible native practice, two presses to start,
+    // cancellation, and owned return before the generic active-start gate.
+    Row& practice = g_rows[0];
+    strcpy_s(practice.id, "R1CBC"); practice.missionId = 0x1CBC;
+    practice.placement = 65092; practice.fightStart = 67064;
+    uint8_t gm[0x600]{}, pt[0x1400]{}, ms[0x40]{}, mgr[16]{}, ch[0x2D00]{}, pm[0x40]{}, net[0x200]{}, queue[3*0x58]{};
+    uint64_t pgm=(uint64_t)gm, ppt=(uint64_t)pt, pms=(uint64_t)ms, pmgr=(uint64_t)mgr;
+    uint64_t pch=(uint64_t)ch, ach=(uint64_t)&pch, ppm=(uint64_t)pm, pnet=(uint64_t)net, player=1;
+    memcpy(pt+0xCD*0x18,&player,8); memcpy(mgr+8,&pms,8);
+    uint32_t retry=67064, mission=0x1111; memcpy(ms+0x14,&retry,4); memcpy(ms+0x28,&mission,4);
+    G_GM=(uint64_t)&pgm; G_PT=(uint64_t)&ppt; G_MS=(uint64_t)&pmgr; G_QUEUE=(uint64_t)queue;
+    G_CH=(uint64_t)&ach; G_PM=(uint64_t)&ppm; G_NET=(uint64_t)&pnet;
+    addon::uiReads=true; g_lastTick=Ms(); g_qChangedAt=Ms()-10001;
+    UiOpen(); UiMove(1); CHECK(!UiAct() && g_uiPages.page == uPractice);
+    CHECK(UiFill(rows,24,footer,sizeof(footer)) > 0 && strstr(footer,"Normal rewards, drops and progression apply"));
+    CHECK(strstr(rows[0].text,"Practice Yamagata"));
+    g_status[0]=1; CHECK(!UiAct() && !g_req);
+    g_status[0]=2; CHECK(!UiAct() && g_confirm == kItPracticeStart && !g_req);
+    CHECK(!UiBack() && g_confirm == -9 && g_uiPages.page == uPractice);
+    CHECK(!UiAct() && UiAct() && (g_req.load() & 0xFF) == kReqPractice);
+    g_req=0; g_practiceOwned=true; g_activeRow=0; g_attemptPhase=aActive;
+    g_state=kInReplay; g_exitOk=true; mission=0x1CBC; memcpy(ms+0x28,&mission,4);
+    UiOpen(); UiMove(1); CHECK(!UiAct()); UiMove(1);
+    CHECK(!UiAct() && g_confirm == kItPracticeReturn && !g_req);
+    CHECK(UiAct() && (g_req.load() & 0xFF) == kReqPracticeExit);
+    g_req=0; g_attemptPhase=aQuarantined;
+    CHECK(!UiAct() && !g_req);
+    g_attemptPhase=aActive; g_practiceOwned=false;
+    CHECK(!UiAct() && !g_req);
+    g_attemptPhase=aNone; g_state=kIdle; g_activeRow=-1; addon::uiReads=false;
 
     // With Rematch disabled, Settings remains available and changes no game state.
     g_live.store(false);
