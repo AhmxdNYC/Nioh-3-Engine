@@ -2,6 +2,12 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
+## Latest checkpoint - FO98 pre-publication resource cleanup traced
+- Traced pre-publication sorted resource membership, cache invalidation, typed-ring cleanup and three-list record cleanup before retirement publication. Evidence: notes/handoff-codex-fo98-prepublication-cleanup.md.
+- Eight new static provenance checks PASS. Native 127B4C supplies the membership argument omitted by decomp; cleanup virtual calls and actual GPU completion remain unresolved. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent d66de6d; experimental 24494d5 and tested 1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game/test at entry/checkpoint; no lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: resolve record[1] vtable+B8 and cache-object vtable+28 through construction/assignment provenance; establish submission/completion boundary, then producer closure and ring restart. Serial ownership until exit; commit/push with Codex attribution and Discord result after push. Static evidence only; use git log -1 for checkpoint commit.
+
 ## Latest checkpoint - FO98 retirement work publication traced
 - Traced 25208C pending+40 enqueue and 1267A8 active+48/work-token publication via 250650 under owner+D00; scheduler 2EF0938 reaches this path. Evidence: notes/handoff-codex-fo98-work-publication.md.
 - Six new static provenance checks PASS. Native 1278D8 carries a fourth context argument omitted by decomp; record[1] vtable+B8 and pre-publication helpers identify the next GPU-ordering trace. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent 1a65b12; experimental 24494d5 and tested 1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.

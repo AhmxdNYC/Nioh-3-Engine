@@ -1,5 +1,8 @@
 ## 2026-10-11 Codex - FO98 retirement work publication
 
+## 2026-10-11 - Codex FO98 pre-publication cleanup trace
+- Offline documentation/provenance only: sorted resource membership and cleanup precede retirement publication; concrete virtual targets/GPU completion remain open. Eight new byte-window checks PASS, not a safety verdict. FO NO-GO; no production/default visual change. See notes/handoff-codex-fo98-prepublication-cleanup.md.
+
 Pending versus active counts, work tokens and scheduler edge traced; six static provenance checks PASS. Native fourth context argument recovered; GPU boundary and producer closure remain open. FO stays NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-work-publication.md.
 
 ## 2026-10-11 Codex - FO98 retirement ring rebuild
