@@ -1,5 +1,13 @@
 # Codex continuation ledger
 
+## Latest checkpoint - RC1761 archive evidence verified
+- Read-only archive audit PASS: ZIP CRCs, 1.7.61 log versions, all24 valid mod-clock windows and three-pair FPS arithmetic per item. Evidence/script: notes/handoff-codex-rc1761-evidence.md; tools/bench/verify_rc1761.py. No previously passed test rerun.
+- CBMODE Ally neutral / pc2 +16.50% +/-0.16% SE; XPRE Ally +4.16% +/-0.18% SE / pc2 neutral, fixed spot only. XPRE measured with CBMODE0; combined CBMODE6/XPRE1 smoke is compatibility, not a default-stack A/B. No whole-mod or new visual verdict.
+- Ally archived save lists match; pc2 archived log records graceful close and backup hash restoration. Full installed ASI attestation and Ally later file restoration remain device-reported; ZIPs do not contain those binary/restoration records. External capture alignment/GPU/display arithmetic and images remain unaudited.
+- Preliminary stock-vs-default recipe now concrete in the evidence note; remote runs/final player gates remain pending. FO NO-GO; obsolete kit225 held/cancelled. Installguard writer/source left untouched. No local game, lock/test/Ghidra/build/deployment, installed files/settings/hardware/controller changes or Claude call/wake.
+- Checkpoint inbox1840/1842 unchanged, no sender=user steering. Next ready independent unit: audit existing PresentMon/MangoHud timestamp alignment and frame-metric selection, without relaunching or repeating passed mod-clock checks.
+
+
 ## Latest checkpoint - ApplyBatch negative controls and RC1761 reports
 - Final inbox1840/1842: pc2 and Ally additionally attest full test ASI SHA2564734152ACAFDC13FA417C23EE60C8F6579B023D7F93FE73A763D862446A7AD00. Device-reported provenance/restoration only; archives still unverified. Ally confirms SIGTERM exit without forced kill and6/6 saves unchanged. No sender=user steering. Audit5da4c64 pushed and Discord sent.
 - Production-body audit at main8c45cd0 reproduces nine fail-open inspection paths: each writes both sites and flushes despite failed inspection; cleanup balanced. Seventeen cases, /W4 /WX compile, audit exit0; this is hazard reproduction, not repaired-installer safety. Evidence: notes/handoff-codex-applybatch-failure-audit.md; runner tests/run_applybatch_failure_audit.py.
