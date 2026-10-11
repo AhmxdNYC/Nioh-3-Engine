@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 15:10 - Private training mission snapshots verified
+- Owned codex-training-pump2674878 pushed, private add-on1.4.3: default-OFF guarded mission/retry reads with independent validity, cached sequence/time, observed mission epoch/gap and contended-publication loss count. Single dispatcher and observer-only isolation preserved. No deployment/public sync or performance/visual claim.
+- Actual source/SEH Rd20 checks, lifecycle143, existing add-on60 and ALL94 SITES OK PASS; warning-free isolated release build/diff check PASS. Evidence: notes/handoff-codex-training-mission-snapshot.md.
+- Epochs count observed readable identity changes, not attempts; sequential game reads/gaps/skipped samples cannot prove native atomicity or complete transitions. Load/session generations, bounded events, query consumer and native runtime acceptance remain unfinished; restore mutation gate separate.
+- No local game/capture/Ghidra/restoration needed; pinned builds/settings/saves/hardware/controller/holds/Claude and other writers untouched. Checkpoint phone empty. Stable1.7.61, FO NO-GO, guard PR1 unmerged retained. External Ally/default-stack/player and pc2 recovery/clock calibration gates remain.
+- NEXT ready: separately valid session/loading scalars and loss/recovery semantics on owned training2674878, then generations/events. No unchanged launch retry or pinned deployment.
+
 
 ## UPDATE 2026-10-11 15:02 - Private training entry groundwork verified
 - Owned codex-training-pump b68377a pushed, private add-on1.4.2: default-OFF Training Observe prerequisite registration and atomic create/begin/end entry counts. Known build plus CORE/FIGHT/PUMP required; passive until FIGHT/pump success. One dispatcher; observer-only skips rematch Prepare/Tick and UI. Entry totals are not live actors, session snapshots or runtime acceptance.
