@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:31 - v4 restore ownership witnesses
+- Pinned actual-body SpawnRestore audit at c297a20: MSVC /W4 /WX and33 checks PASS; five failure witnesses plus success/three foreign controls. Failed/partial writes, unreadable fields and transient missing lookup erase st/rec; recovered retry writes nothing. Evidence: notes/handoff-codex-spawn-restore-ownership.md; tools/bench/audit_spawn_restore_ownership.py.
+- Hazard reproduction only; no repair/native reachability/safety/performance claim. Partial flag failure leaves original coordinates plus override flags. Different-record controls refuse writes but do not prove retirement. ToIdle/new Fight-now and SpawnApply rollback/resnapshot remain integration obligations.
+- No local game/capture/Ghidra or restoration needed; no build/deployment/save/settings/hardware/controller/hold/Claude changes. Other writers/worktrees and device-pinned inputs untouched. Checkpoint phone inbox empty. Stable1.7.61, guard PR1 unmerged, FO NO-GO; remote default-stack/player gates pending.
+- NEXT ready independent unit: continue default-OFF observer registration/validity/epochs on owned codex-training-pump c297a20. Separate concrete mutation unit: repair typed restore outcomes/partial-field cleanup ownership and admission blocking, prove application rollback/baseline preservation before enabling practice. Do not retry unchanged PC headroom or repeat passed suites absent changed code/concern.
+
 ## UPDATE 2026-10-11 14:27 - Training shared pump groundwork verified
 - Isolated `codex-training-pump` at c297a20 pushed, based on exact rematch-instant b2cfe09; private addon1.4.1. Init owns one pump dispatcher; preparation is separate from atomic live activation. Disabled/failed setup remains passive; UI still requires installation success. Main addon1.3.3 and device-pinned performance inputs untouched. Evidence: notes/handoff-codex-training-pump.md.
 - New actual-body lifecycle harness21 checks + startup wiring PASS; existing add-on60 checks and ALL94 SITES OK PASS; release build without warnings and diff check PASS. Original hook thunk/chaining/reentry guard unchanged. Offline groundwork only: observer, validity/epochs/event telemetry and runtime acceptance remain unfinished; no performance/visual claim.
