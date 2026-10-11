@@ -1,6 +1,13 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 02:56 New York - FO deferred-command audit: release NO-GO remains
+- Completed one bounded offline audit of experimental codex-fo10: actual Fo98/Flush98 negative controls reproduce overflow writing off main and overtaking queued records, logical stream-end canary damage (full queue: 196596 bytes beyond twelve-byte spare), and a late TAIL record pending after flush-then-barrier. 11 checks / 0 failures, zero compiler warnings; this means hazards reproduced, NOT release safety PASS.
+- Static findings: failed emitter-slot/range verification still permits g_ready; volatile queue count has unlocked accesses; endFrame drains replay and must never run under the queue lock. Queue/stream/lifetime closure needs a combined proof before FO shipping. No production source fix, ASI/shared build, game launch, settings change or performance claim; main remains1.7.61 / FO0.
+- No game was running; phone inbox empty at checkpoints. One bridge read through1785 found no new remote result: main pc2 smoke1767 / Ally1768 and conditional native pc2 FO5 1781 remain pending. No Claude calls, auto-wake toggle or controller-state write.
+- Evidence/reproducer/limits: notes/handoff-codex-fo98-audit.md, experimental tests/run_frameoverlap_98_audit.py; renderer note section8.7. Next independent unit: fail-closed emitter availability repair with focused startup proof; then bounded queue/drain lifecycle repair. Ledger remains ready for independent work.
+- Audit406b19d committed/pushed on codex-fo10 with Codex attribution; Discord result sent through the existing notifier. Checkpoint docs updated on main.
+
 ## UPDATE 2026-10-11 - Codex continuation and phone chat configured
 - User authorized ownership of all remaining tasks, Codex auto-continuation, phone chat, and direct Claude API assistance. Claude Code was not called; its existing auto-wake stays disabled. These new instructions supersede older stop-after-each-step and Codex-auto-wake restrictions.
 - universal-optimizer main94e62bd: serial fresh-worker controller, hidden logon task CodexNiohContinuation, local phone /status /stop /resume, task ledger, one-writer hold, existing-game guard, failure cooldowns and daily between-worker caps. Ten controller checks plus tools/bridge/nexus suites and applicable selftests PASS. Read-only CLI smoke and live phone route1784/1785 PASS; API-key transcript redaction PASS. Phone project Nioh 3 — Codex / PC Codex on existing port8766. Installing lead will release ownership only after committing this handoff.

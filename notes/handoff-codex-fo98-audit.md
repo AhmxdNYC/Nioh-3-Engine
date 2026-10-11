@@ -1,0 +1,32 @@
+# Codex FO deferred-command audit - 2026-10-11 02:56 New York
+
+Completed bounded offline audit of experimental `codex-fo10` at `ddabf46` in `D:/nioh3-wt/codex-fo10`. **FO remains NO-GO for release.** No production source fix, ASI rebuild, game launch, deployment, settings change, or performance claim. Main remains 1.7.61 / FrameOverlap=0. No Claude calls or controller-state changes.
+
+## Reproducible evidence
+
+Branch files `mod/Nioh3EngineFix/tests/frameoverlap_98_audit.cpp` and `tests/run_frameoverlap_98_audit.py` compile the actual `src/frameoverlap.cpp` into an isolated audit translation unit with FO_TEST. Private state is accessible without adding shipping hooks. The model emitter uses the verified twelve-byte token layout and split pointer updates; it forces every call to be due so capacity is reached deterministically. It does not model resource locks, real epoch suppression, object lifetime, or GPU execution. No D3D device or renderer/watchdog thread starts.
+
+Run from the branch's `mod/Nioh3EngineFix`: `py -I tests/run_frameoverlap_98_audit.py`. Final build: zero compiler warnings. Output: **11 checks, 0 failures; ALL HAZARDS REPRODUCED (FO IS NOT RELEASE SAFE)**. Local log: `build/fo98audit/audit.log`. Success means these negative controls reproduced the hazards, not that safety tests passed. Convert/retire these assertions when repairing the implementation; do not add them to the release safety suite as passing gates.
+
+- Exactly 16384 due calls queue without touching the main stream. Call 16385 takes the original emitter against the live device on the producer thread. Its record also overtakes the 16384 earlier queued records. This directly exercises Fo98's full-queue branch, not a duplicate queue model.
+- Flush98 writes twelve bytes with zero or eight bytes of logical stream space, crossing the end and changing a boundary canary. Twelve bytes exactly fits; the canary stays intact. A full queue with twelve bytes spare crosses the logical end by **196596 bytes**. Physical storage is deliberately large enough; the test does not corrupt unrelated process memory.
+- Off-main Flush98 cannot drain the queue; a subsequent main flush drains once. Producer backpressure that waits for main can therefore deadlock when main is waiting for that producer's replay/Tail.
+- The actual flush-then-Barrier sequence leaves one late producer record queued after TAIL completes; a second main flush publishes it. The audit injects a producer between the initial flush and TAIL completion. This proves the sequence does not close the queue; it does not prove a runtime use-after-free or identify the required GPU lifetime of that record.
+
+## Static findings and repair constraints
+
+`src/frameoverlap.cpp` Fo98 (617-675), Flush98 (676-690), FoPresent/StockPresent (754-788), FlushAll (237), Start (2088-2107), Restore (1500), SetTuning (2135), and stats (2255) were inspected narrowly.
+
+1. **Hook availability is not fail-closed.** Start logs failed emitter-slot/range verification but continues to `g_ready = true`; Install only checks g_ready. Thus FO can run without the deferral hooks that address the observed race. Missing either slot or either verified byte range must prevent readiness/installation. Preserve explicit diagnostic arms; do not silently advertise deferral when unavailable.
+2. **Queue count has a C++ data race.** `volatile uint32_t g_98n` is written under the SRW lock but read outside it by Flush98's fast path and stats. Replace unlocked access with atomic publication or acquire the lock; volatile is not synchronization. This audit deliberately joins producers before examining the queue, so it does not claim to detect that race dynamically.
+3. **Do not insert endFrame under g_98lock.** Static `D:/nioh3-re/decomp/0x418b94.c` calls FinalKick; `0x418c70.c` pushes the remaining segment, waits for dispatcher drain, then resets +3C40/+3C48 to the base and increments generation +3C60. A replay-side Fo98 needs g_98lock to complete. Main holding that lock while waiting for replay creates a circular wait. Release the lock before any drain and prove the handling of records arriving during the drain.
+4. **Space repair must respect FO halves and reset generations.** kEnd is the current logical end, sometimes a half-stream end. Account for reserve/final tokens, previous TAIL ownership, generation changes and FIFO delivery. A prefix flush that merely retains the remainder needs proof that required records reach replay before dependent resource retirement. Dropping records, blocking the replay producer for main, or calling the old shared emitter is not a repair.
+5. **Queue closure remains a lifetime gate.** StockPresent flushes before PrepareStock's TAIL wait; FoPresent flushes before its barrier; FlushAll waits but does not flush. Restore also does not close/drain this queue. Prove delivery and producer quiescence for stock transitions, flush/reset, teardown and watchdog restore, including late TAIL records. Current runtime samples with pending=0 do not cover all such schedules.
+
+The 2F06AB4 static decomp reads ctx epoch +6EB8 and emits twelve bytes without a space check. The existing emitter range hashes constrain the fake-buffer assumption; no new Ghidra session or raw dump output was used. Transitive emitter reentrancy and resource lifetime remain unproven; they are not asserted bugs here.
+
+## Next bounded unit and external gates
+
+Implement the independent missing-slot/byte-verification availability guard in the experimental branch, with a focused negative startup test and positive known-build control; fix queue-count synchronization if its publication contract is covered. Keep the shipping/default build unchanged. Then design and prove queue overflow, bounded stream draining and late-producer closure together before another shared FO build. Source changes require 255 pattern checks and `check_release --full` before a shared build; none was produced by this audit.
+
+One bounded bridge read through cursor1785 found only the existing user/Codex phone exchange after1781, no new remote results. Main smoke pc2 #1767 / Ally #1768 and conditional native pc2 FO5 #1781 remain pending. Do not repeat the passed PC game tests or promote the emulator A/B to a native gain. Phone inbox was empty at entry and checkpoints; no game process was running at entry. Continue independent work; native validation and player-involved gates are still external.

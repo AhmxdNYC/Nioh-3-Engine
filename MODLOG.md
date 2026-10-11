@@ -942,3 +942,7 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 ## 2026-10-11 - Tour report diagnostic handling (tools only)
 - Completed tours previously logged summary failure because PowerShell Stop treated Python's normal stderr clock-offset diagnostic as an exception. New tools/tour/report_tour.ps1 captures both streams and checks the actual reporter exit code; run_tour calls it after restoration. Missing logs still fail explicitly, and caller error preferences are restored.
 - Saved fo11 capture: old path reproduces failure on +4h diagnostic; new path writes tour_report.md and tour_points.csv. Missing-log negative control, PowerShell parsing and tour harness (44 checks) PASS. No game launch, ASI/default/performance change. Undo: revert this tooling commit.
+
+## 2026-10-11 02:56 - Codex experimental FO deferred-command audit (nothing applied)
+- Isolated branch negative controls against actual FO code reproduce overflow, stream bounds and late-producer queue hazards: 11 checks / 0 failures, zero compiler warnings. This is failure evidence, not release validation. Static startup availability / synchronization / drain constraints documented in notes/handoff-codex-fo98-audit.md.
+- No game, production source, ASI, user settings or saves changed. Main1.7.61 / FrameOverlap0 remains. Undo: none required. Experimental audit tests can be removed after conversion to repaired safety regressions.
