@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.0"
+#define ADDON_VERSION "1.4.1"
 
 namespace addon {
 
@@ -76,7 +76,9 @@ bool PlacementSeenRecently(uint32_t id, double withinSec);
 double Now();
 }
 namespace rematch {
-bool Start();  // reads [Rematch], loads the catalogue, needs PUMP + FIGHT + CORE
+bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live
+void SetPumpLive(bool installed);  // Init publishes pump installation outcome
+void Pump();  // shared dispatcher callback; no work until successfully prepared + live
 bool Live();
 // ui side (any thread; snapshots / atomics only)
 struct UiRow {

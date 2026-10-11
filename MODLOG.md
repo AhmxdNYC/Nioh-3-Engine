@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.1 pump preparation seam
+
+Init owns one shared pump dispatcher; rematch preparation and live activation are separate. Disabled/failed preparation never ticks; failed installation remains passive. This is observer groundwork only: no training observer or mutation API, no runtime/performance claim, no deployment.
+
 # MODLOG — every change made to the game, and how to undo it
 
 | When | Change | Undo |

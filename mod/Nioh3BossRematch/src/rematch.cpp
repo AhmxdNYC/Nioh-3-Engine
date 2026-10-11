@@ -45,7 +45,8 @@ ULONGLONG Ms() { return GetTickCount64(); }
 
 // ---- resolved sites ----
 uintptr_t G_DATA, G_CLEAR, G_MS, G_QUEUE, G_PM, G_NET, G_CH, G_GM, G_PT, F_CLEARED, F_REQBYID, F_OPENREPLAY, G_MENUMGR, F_EMAKIREQ, G_INV;
-bool g_live = false, g_raOk = false, g_emakiOk = false, g_fnowOk = false, g_warpOk = false;
+std::atomic<bool> g_live{false};
+bool g_prepared = false, g_raOk = false, g_emakiOk = false, g_fnowOk = false, g_warpOk = false;
 const char *g_raWhy = "", *g_emakiWhy = "", *g_fnowWhy = "", *g_warpWhy = "";
 // WARP: Player::SetPos tail (sites chk:SetPos_tail_a / _b): call targets read from the two matches
 uintptr_t F_SETPOSYAW, F_ACTORSYNC, F_POSNOTIFY, F_SCENEPOS, F_STAGEPATH, G_SCENE;
@@ -1534,7 +1535,7 @@ int Items(int* out, int cap) {
 
 }  // namespace
 
-bool Start() {
+bool Prepare() {
     const wchar_t* ini = IniPath();
     if (!GetPrivateProfileIntW(L"Rematch", L"Enable", 0, ini)) {
         Log("Rematch: off ([Rematch] Enable = 0)");
@@ -1622,11 +1623,7 @@ bool Start() {
         Log("Rematch: off - FIGHT hooks: %s", why);
         return false;
     }
-    if (!InstallPump(&Tick, &why)) {
-        Log("Rematch: off - pump: %s", why);
-        return false;
-    }
-    g_live = true;
+    g_prepared = true;
     int c[5] = {}, nf = 0, nfh = 0, nar = 0, nat = 0;
     for (const Row& r : g_rows) {
         c[r.route]++;
@@ -1635,7 +1632,7 @@ bool Start() {
         nar += r.fightStart && r.arenaOk;
         nat += r.fightStart && r.atFight;
     }
-    Log("Rematch: on - %zu catalogue rows (R %d, H %d, D %d, E %d, X %d; %d verified by verify_all); R-a %s%s, E %s%s; HiddenDuels %d, DirectStart %d, "
+    Log("Rematch: prepared - %zu catalogue rows (R %d, H %d, D %d, E %d, X %d; %d verified by verify_all); R-a %s%s, E %s%s; HiddenDuels %d, DirectStart %d, "
         "ShowAll %d, ShowUnverified %d. Solo/offline only; no story-flag writes.",
         g_rows.size(), c[0], c[1], c[2], c[3], c[4], nv, g_raOk ? "on" : "OFF: ", g_raOk ? "" : g_raWhy, g_emakiOk ? "on" : "OFF: ",
         g_emakiOk ? "" : g_emakiWhy, g_cfg.hiddenDuels, g_cfg.directStart, g_cfg.showAll, g_cfg.showUnverified);
@@ -1648,7 +1645,9 @@ bool Start() {
     return true;
 }
 
-bool Live() { return g_live; }
+bool Live() { return g_live.load(); }
+void SetPumpLive(bool installed) { g_live.store(g_prepared && installed); }
+void Pump() { if (Live()) Tick(); }
 
 void UiOpen() {
     g_sel = 0;
@@ -1838,7 +1837,7 @@ void Command(const char* line, char* reply, size_t n) {
     char cmd[32] = "", arg[64] = "";
     sscanf_s(line, "%31s %63s", cmd, (unsigned)sizeof(cmd), arg, (unsigned)sizeof(arg));
     if (!strcmp(cmd, "ping")) {
-        snprintf(reply, n, "pong Nioh3BossRematch %s live=%d", ADDON_VERSION, g_live);
+        snprintf(reply, n, "pong Nioh3BossRematch %s live=%d", ADDON_VERSION, g_live.load());
         return;
     }
     if (!g_live) {

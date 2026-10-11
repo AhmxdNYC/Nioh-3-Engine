@@ -98,6 +98,19 @@ void Feature(const char* name, const char* group) {
     else Log("%s: group %s OFF - %s", name, group, why ? why : "?");
 }
 
+// Init owns the single pump installation. Future observer sampling belongs here,
+// outside the enabled-rematch callback (which may mutate game state).
+void SharedPump() { rematch::Pump(); }
+
+bool StartRematchPump() {
+    if (!rematch::Prepare()) return false;
+    const char* why = nullptr;
+    const bool installed = InstallPump(&SharedPump, &why);
+    rematch::SetPumpLive(installed);
+    if (!installed) Log("Rematch: off - pump: %s", why ? why : "?");
+    return installed;
+}
+
 DWORD WINAPI Init(void*) {
     const DWORD t0 = GetTickCount();
     const int waitSec = IniInt(L"General", L"DecryptWaitSeconds", 120);
@@ -119,7 +132,7 @@ DWORD WINAPI Init(void*) {
     }
     if (rm) Feature("RematchLog", "RLOG");
     if (inv) Feature("InvLog", "INV");
-    const bool live = rematch::Start();
+    const bool live = StartRematchPump();
     if (live) ui::Start();
     remote::Start();
     Log("ready (%lu ms): BossLog %d, RematchLog %d, InvLog %d, Rematch %s", GetTickCount() - t0, boss, rm, inv, live ? "live" : "off");
