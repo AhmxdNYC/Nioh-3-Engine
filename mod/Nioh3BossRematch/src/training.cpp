@@ -11,7 +11,21 @@ SRWLOCK g_snapshotLock = SRWLOCK_INIT;
 MissionSnapshot g_snapshot;
 bool g_seenMission = false, g_missionGap = false;
 uint32_t g_lastMission = 0;
-uintptr_t g_missionSite = 0;
+uintptr_t g_missionSite = 0, g_gameMainSite = 0, g_playModeSite = 0, g_netSite = 0;
+bool g_loadingGap = false, g_playModeGap = false, g_connectionGap = false;
+template<class T> bool ReadScalar(uintptr_t site, uint64_t offset, T& out) {
+    uint64_t object = 0;
+    T value{};
+    if (!Rd(site, object) || object < 0x10000 || object > UINT64_MAX - offset ||
+        !Rd(object + offset, value)) return false;
+    out = value;
+    return true;
+}
+bool Gap(bool valid, bool skipped, bool& pending) {
+    const bool gap = pending || skipped || !valid;
+    pending = !valid;
+    return gap;
+}
 void Create(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (Live()) g_create.fetch_add(1, std::memory_order_relaxed);
 }
@@ -38,8 +52,11 @@ bool Prepare() {
     OnEntry("BossBattleMode", &Begin);
     OnEntry("BossBattleModeEnd", &End);
     g_missionSite = Site("g:MissionMgr");
+    g_gameMainSite = Site("g:GameMain");
+    g_playModeSite = Site("g:PlayMode");
+    g_netSite = Site("g:NetMgr");
     g_prepared = true;
-    Log("Training observer: prepared (mission/retry samples; session/load telemetry unavailable)");
+    Log("Training observer: prepared (mission/retry/loading/session scalars; no readiness verdict)");
     return true;
 }
 bool Live() { return g_live.load(std::memory_order_acquire); }
@@ -57,6 +74,15 @@ void Pump() {
     next.sequence = g_snapshot.sequence + 1;
     next.monotonicMs = GetTickCount64();
     next.missionEpoch = g_snapshot.missionEpoch;
+    next.publicationLosses = g_snapshotLosses.load(std::memory_order_relaxed);
+    const bool skipped = next.publicationLosses != g_snapshot.publicationLosses;
+    // Independent guarded reads: unknown never silently becomes offline/not loading.
+    next.loadingValid = ReadScalar(g_gameMainSite, 0x58A, next.loading);
+    next.playModeValid = ReadScalar(g_playModeSite, 0x34, next.playMode);
+    next.connectionValid = ReadScalar(g_netSite, 0x1DC, next.connection);
+    next.loadingGap = Gap(next.loadingValid, skipped, g_loadingGap);
+    next.playModeGap = Gap(next.playModeValid, skipped, g_playModeGap);
+    next.connectionGap = Gap(next.connectionValid, skipped, g_connectionGap);
     // Resolved CORE global and two fixed, guarded hops. No retained game pointer.
     uint64_t manager = 0, state = 0;
     if (Rd(g_missionSite, manager) && manager >= 0x10000 && manager <= UINT64_MAX - 8 &&
@@ -66,7 +92,7 @@ void Pump() {
         value = 0;
         if (Rd(state + 0x14, value)) { next.retryValid = true; next.retry = value; }
     }
-    next.missionGap = g_missionGap || !next.missionValid;
+    next.missionGap = g_missionGap || skipped || !next.missionValid;
     if (next.missionValid) {
         if (!g_seenMission || next.mission != g_lastMission) ++next.missionEpoch;
         g_seenMission = true;

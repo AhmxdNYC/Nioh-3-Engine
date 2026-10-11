@@ -14,10 +14,14 @@ namespace addon {
 Image g_img{0,0,0,0,true};
 bool observe=false;
 int siteCalls=0;
-uint64_t managerSlot=0;
+uint64_t managerSlot=0, gameMainSlot=0, playModeSlot=0, netSlot=0;
 uintptr_t Site(const char* name) {
     ++siteCalls;
-    return !strcmp(name,"g:MissionMgr") ? reinterpret_cast<uintptr_t>(&managerSlot) : 0;
+    if (!strcmp(name,"g:MissionMgr")) return reinterpret_cast<uintptr_t>(&managerSlot);
+    if (!strcmp(name,"g:GameMain")) return reinterpret_cast<uintptr_t>(&gameMainSlot);
+    if (!strcmp(name,"g:PlayMode")) return reinterpret_cast<uintptr_t>(&playModeSlot);
+    if (!strcmp(name,"g:NetMgr")) return reinterpret_cast<uintptr_t>(&netSlot);
+    return 0;
 }
 void Log(const char*, ...) {}
 int IniInt(const wchar_t*,const wchar_t*,int) { return observe; }
@@ -35,7 +39,7 @@ int main() {
     Pump();
     if(!check(!Snapshot(out) && out.sequence==0 && Counts().pumps==0)) return 1;
     observe=true;
-    if(!check(Prepare() && siteCalls==1)) return 1;
+    if(!check(Prepare() && siteCalls==4)) return 1;
     SetPumpLive(true);
     if(!check(!Snapshot(out))) return 1;
     uint64_t manager[2]{};
@@ -70,9 +74,49 @@ int main() {
     manager[1]=reinterpret_cast<uint64_t>(state);
     write(0x1CBD,0); Pump();
     if(!check(Snapshot(out) && out.missionValid && out.retryValid && out.retry==0 && out.missionEpoch==3 && out.missionGap)) return 1;
+    if(!check(!out.loadingValid && !out.playModeValid && !out.connectionValid &&
+              out.loading==0 && out.playMode==0 && out.connection==0 &&
+              out.loadingGap && out.playModeGap && out.connectionGap)) return 1;
+    auto telemetryPages=static_cast<unsigned char*>(VirtualAlloc(nullptr,8192,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE));
+    if(!telemetryPages) return 2;
+    gameMainSlot=reinterpret_cast<uint64_t>(telemetryPages+4096-0x58A);
+    playModeSlot=reinterpret_cast<uint64_t>(telemetryPages+4096-0x35);
+    netSlot=reinterpret_cast<uint64_t>(telemetryPages+4096-0x1DB);
+    telemetryPages[4096]=0; memset(telemetryPages+4095,0,4); telemetryPages[4097]=0;
+    Pump();
+    if(!check(Snapshot(out) && out.loadingValid && out.playModeValid && out.connectionValid &&
+              out.loading==0 && out.playMode==0 && out.connection==0 &&
+              out.loadingGap && out.playModeGap && out.connectionGap)) return 1;
+    Pump();
+    if(!check(Snapshot(out) && !out.loadingGap && !out.playModeGap && !out.connectionGap)) return 1;
     auto before=out;
     AcquireSRWLockShared(&g_snapshotLock); Pump(); ReleaseSRWLockShared(&g_snapshotLock);
     if(!check(SnapshotLosses()==1 && Snapshot(out) && out.sequence==before.sequence)) return 1;
+    Pump();
+    if(!check(Snapshot(out) && out.publicationLosses==1 && out.loadingGap &&
+              out.playModeGap && out.connectionGap && out.missionGap)) return 1;
+    Pump();
+    if(!check(Snapshot(out) && !out.loadingGap && !out.playModeGap && !out.connectionGap && !out.missionGap)) return 1;
+    if(!VirtualProtect(telemetryPages+4096,4096,PAGE_NOACCESS,&old)) return 2;
+    Pump();
+    if(!check(Snapshot(out) && !out.loadingValid && !out.playModeValid && !out.connectionValid &&
+              out.loading==0 && out.playMode==0 && out.connection==0)) return 1;
+    if(!VirtualProtect(telemetryPages+4096,4096,PAGE_READWRITE,&old)) return 2;
+    // Mode straddles telemetryPages; making only the first page unreadable leaves the other fields readable.
+    if(!VirtualProtect(telemetryPages,4096,PAGE_NOACCESS,&old)) return 2;
+    telemetryPages[4096]=1; telemetryPages[4097]=7; Pump();
+    if(!check(Snapshot(out) && out.loadingValid && out.loading==1 && out.connectionValid &&
+              out.connection==7 && !out.playModeValid && out.playMode==0 && out.playModeGap)) return 1;
+    if(!VirtualProtect(telemetryPages,4096,PAGE_READWRITE,&old)) return 2;
+    int32_t mode=-7; memcpy(telemetryPages+4095,&mode,4); Pump();
+    if(!check(Snapshot(out) && out.playModeValid && out.playMode==-7 && out.playModeGap)) return 1;
+    Pump();
+    if(!check(Snapshot(out) && !out.playModeGap)) return 1;
+    gameMainSlot=UINT64_MAX-0x100; playModeSlot=UINT64_MAX-0x10; netSlot=UINT64_MAX-0x10;
+    Pump();
+    if(!check(Snapshot(out) && !out.loadingValid && !out.playModeValid && !out.connectionValid)) return 1;
+    gameMainSlot=0; playModeSlot=1; netSlot=0; Pump();
+    if(!check(Snapshot(out) && !out.loadingValid && !out.playModeValid && !out.connectionValid)) return 1;
     managerSlot=UINT64_MAX-3; Pump();
     if(!check(Snapshot(out) && !out.missionValid && !out.retryValid)) return 1;
     managerSlot=reinterpret_cast<uint64_t>(manager); manager[1]=UINT64_MAX-0x10; Pump();
@@ -94,7 +138,8 @@ int main() {
     SetPumpLive(false); Pump(); out.mission=123;
     if(!check(!Snapshot(out) && out.sequence==0 && out.mission==0)) return 1;
     SetPumpLive(true);
-    if(!check(Snapshot(out) && out.sequence==before.sequence && siteCalls==1)) return 1;
+    if(!check(Snapshot(out) && out.sequence==before.sequence && siteCalls==4)) return 1;
+    VirtualFree(telemetryPages,0,MEM_RELEASE);
     VirtualFree(pages,0,MEM_RELEASE);
     printf("%d actual snapshot checks ALL PASSED\n",checks);
 }

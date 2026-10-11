@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.4 loading/session scalar observation
+
+Default-OFF Training Observe now caches independently valid loading/play-mode/connection raw scalars, per-field unknown/recovery gaps and sampled publication losses. Skipped samples also mark missionGap. Read-only offline validation; no readiness/performance/visual/native runtime claim or deployment. Undo: Observe=0. Evidence: notes/handoff-codex-training-session-scalars.md.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.2 observer entry groundwork
 
 Default-OFF Training Observe registers passive scalar entry counters before FIGHT installation, requires known build and CORE/FIGHT/PUMP, and shares one pump with enabled rematch. Observer-only startup skips rematch preparation/ticking and UI. No session snapshots, epochs, event ring, mutation API or runtime/performance acceptance yet. No deployment. Undo: leave Observe=0.

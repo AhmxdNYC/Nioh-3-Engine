@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.3"
+#define ADDON_VERSION "1.4.4"
 
 namespace addon {
 
@@ -82,7 +82,12 @@ struct MissionSnapshot {
     uint64_t sequence = 0, monotonicMs = 0, missionEpoch = 0;
     uint32_t mission = 0, retry = 0;
     bool missionValid = false, retryValid = false;
-    bool missionGap = false; // unreadable mission since the previous valid identity
+    bool missionGap = false; // unknown/skipped samples through first recovery
+    uint64_t publicationLosses = 0; // sampled loss total; later losses may be absent
+    int32_t playMode = 0;
+    uint8_t loading = 0, connection = 0;
+    bool loadingValid = false, playModeValid = false, connectionValid = false;
+    bool loadingGap = false, playModeGap = false, connectionGap = false;
 };
 bool Prepare();
 void SetPumpLive(bool installed);
