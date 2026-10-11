@@ -13,7 +13,7 @@ funcs=[struct.unpack_from('<III',b,p)[:2] for p in range(pdata,pdata+size,12)]
 starts=[f[0] for f in funcs]
 targets={0x58c0d8:'find',0x58ba50:'insert',0x2efc3d4:'remove',0x2efa3a0:'trim',
          0x2f00ac8:'clear',0x1899bd4:'reinit',0x2f00bc4:'teardown',0x189912c:'shader cleanup',
-         0x2efd04c:'leaf cleanup wrapper'}
+         0x2efd04c:'leaf cleanup wrapper',0x2ee7fdc:'outer cleanup wrapper'}
 sections=[]
 for k in range(struct.unpack_from('<H',b,pe+6)[0]):
     p=opt+struct.unpack_from('<H',b,pe+20)[0]+k*40
@@ -45,6 +45,9 @@ report=dict(edges=edges,unverified_outside_pdata=unbounded,scope='Direct calls/t
 leaf=list(md.disasm(b[0x2efd04c:0x2efd058],0x2efd04c))
 assert [(i.mnemonic,i.op_str) for i in leaf]==[('lea','r8, [rcx + 0x7d8]'),('jmp','0x189912c')]
 report['reviewed_leaf_cleanup_wrapper']={'entry':'0x2efd04c','size':12,'target':'0x189912c','reachability':'unresolved'}
+outer=list(md.disasm(b[0x2ee7fdc:0x2ee7fe5],0x2ee7fdc))
+assert [(i.mnemonic,i.op_str) for i in outer]==[('add','rcx, 0x10'),('jmp','0x2efd04c')]
+report['reviewed_outer_cleanup_wrapper']={'entry':'0x2ee7fdc','size':9,'target':'0x2efd04c','reachability':'unresolved'}
 out=root/'scratch/compute-direct-edges.json';out.parent.mkdir(exist_ok=True);out.write_text(json.dumps(report,indent=2))
 for target,name in targets.items():
     selected=[e for e in edges if e['target']==hex(target)]

@@ -50,9 +50,12 @@ callers each, and one pdata-covered shader-cleanup caller2EE7F64. Report kept
 under scratch/compute-direct-edges.json. Indirect references are not covered.
 
 One extra target outside pdata resolves to12-byte leaf2EFD04C:
-`lea r8,[rcx+7D8]; jmp189912C`. The direct-edge scan finds no direct caller
-to that leaf, and a raw absolute-pointer search found no reference using
-the dump image base. Its runtime reachability is unresolved; absence from
+`lea r8,[rcx+7D8]; jmp189912C`. Expanding the target set finds a second
+leaf outside pdata:2EE7FDC, `add rcx,10; jmp2EFD04C`, bounded by padding
+and a preceding return. Both exact sequences are now separately audited.
+An initial pdata-only caller count missed this outer leaf; do not treat that
+count as all direct callers. A raw absolute-pointer search found no reference
+to2EFD04C using the dump image base. Runtime reachability remains unresolved; absence from
 the old decompiler caller list is not proof that it cannot execute. Hooking
 only known outer callers would require resolving this edge. Instrumenting
 the common cleanup function would cover either entry, but still needs the
