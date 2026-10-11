@@ -155,6 +155,7 @@ void Post(uint32_t kind, int row, const char* via) {
 // ---- snapshot (memory reads only; any thread) ----
 struct Snap {
     bool gm = false, player = false, msOk = false, queueBusy = false, emaki = false, online = false, guest = false;
+    bool queueOk = false, emakiOk = false, onlineOk = false, guestOk = false;
     uint64_t qHash = 0;
     uint8_t st[6] = {};
     uint32_t ms14 = 0;  // mission state +14h: the retry point = the start point the mission was (re)loaded at
@@ -173,23 +174,47 @@ Snap ReadSnap() {
         uint64_t h = 0xCBF29CE484222325ull;
         for (uint8_t c : q) h = (h ^ c) * 0x100000001B3ull;
         s.qHash = h;
+        s.queueOk = true;
     }
     s.queueBusy = Ms() - g_qChangedAt.load() < 10000;
     uint64_t a = 0, ch = 0;
     uint8_t e = 0;
-    if (Rd(G_CH, a) && a && Rd(a, ch) && ch && Rd(ch + 0x2C18, e)) s.emaki = e != 0;
+    s.emakiOk = Rd(G_CH, a) && a && Rd(a, ch) && ch && Rd(ch + 0x2C18, e);
+    if (s.emakiOk) s.emaki = e != 0;
     uint64_t pm = 0, net = 0;
     int32_t mode = 0;
     uint8_t conn = 0;
-    if (Rd(G_PM, pm) && pm && Rd(pm + 0x34, mode)) s.online = mode == 1 || mode == 2;
-    if (Rd(G_NET, net) && net && Rd(net + 0x1DC, conn)) s.guest = conn != 0;
+    s.onlineOk = Rd(G_PM, pm) && pm && Rd(pm + 0x34, mode);
+    if (s.onlineOk) s.online = mode == 1 || mode == 2;
+    s.guestOk = Rd(G_NET, net) && net && Rd(net + 0x1DC, conn);
+    if (s.guestOk) s.guest = conn != 0;
     return s;
+}
+// Unknown session reads are never evidence of offline play. Cleanup of an owned
+// spawn record remains available separately; this gates new native actions.
+const char* SessionGate(const Snap& s) {
+    if (!s.onlineOk || !s.guestOk) return "session state unreadable";
+    if (s.online) return "online";
+    if (s.guest) return "co-op session";
+    return nullptr;
+}
+const char* NativeGate(const Snap& s) {
+    if (const char* why = SessionGate(s)) return why;
+    if (!s.gm) return "game not ready";
+    if (!s.msOk) return "mission state unreadable";
+    return nullptr;
+}
+const char* ExitGate(const Snap& s) {
+    if (const char* why = NativeGate(s)) return why;
+    if (s.st[2]) return "loading";
+    if (!s.ms28) return "not in a mission";
+    return nullptr;
 }
 const char* Gates(const Snap& s, bool uiSide) {
     if (!g_live) return "not installed";
-    if (s.online) return "online";
-    if (s.guest) return "co-op session";
-    if (!s.gm) return "game not ready";
+    if (const char* why = NativeGate(s)) return why;
+    if (!s.queueOk) return "mission queue unreadable";
+    if (!s.emakiOk) return "Picture Scroll state unreadable";
     if (s.st[2]) return "loading";
     if (s.st[3] | s.st[4]) return "game paused";
     if (!s.player) return "no save loaded";
@@ -860,6 +885,7 @@ void ExecEmaki(int row, ULONGLONG t) {
 
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
 void DoWarp(const Snap& s, ULONGLONG t) {
+    if (NativeGate(s)) return;  // unreadable state cannot authorize a native mutation
     if (g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     if (s.st[2] || !s.player || s.st[3] || s.st[4]) return;  // loading / no player / paused: wait
@@ -941,6 +967,7 @@ void DoWarp(const Snap& s, ULONGLONG t) {
 // game thread, every tick inside the Fight now mission: PASS = a BossBattleMode after the first warp; re-warp (<= 3) when the
 // player is not in the trigger box 1.5 s after a warp; FAIL = no fight 8 s after the first warp (loading time not counted)
 void FnVerify(const Snap& s, ULONGLONG t) {
+    if (NativeGate(s)) return;  // unreadable state cannot authorize a native mutation
     if (g_fn.load() != kFnWarped || g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     const ULONGLONG dt = g_fnLastT ? t - g_fnLastT : 0;
@@ -1005,6 +1032,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
 
 // game thread, inside the Fight now mission: open the boss gate the way the game does (door / StartWarp), once
 void GateTick(const Snap& s, ULONGLONG t) {
+    if (NativeGate(s)) return;  // unreadable state cannot authorize a native mutation
     const uint32_t want = g_gateWant.load();
     if (!want || g_gateReq || !g_gateDue || t < g_gateDue || g_fightRow < 0) return;
     if (s.st[2] || s.st[3] || s.st[4] || !s.player || fight::g_active) {
@@ -1068,6 +1096,7 @@ int CallReturn() {
 }
 
 void TrackReplay(const Snap& s, ULONGLONG t) {
+    if (!s.gm) { g_loadDoneAt = 0; return; }  // an unreadable stop block is not a load-down edge
     const int st = g_state.load();
     if (st == kMenuOpen) {
         const int busy = ReplayMenuBusy();
@@ -1075,7 +1104,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             g_menuSeen = true;
             g_closedSince = 0;
         }
-        const bool enq = s.qHash != g_qHashAtOpen;
+        const bool enq = s.queueOk && s.qHash != g_qHashAtOpen;
         if (enq || s.st[2] || (s.msOk && s.ms14 != g_msAtOpen)) {
             g_state.store(kInReplay);
             g_replayAt = t;
@@ -1107,7 +1136,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         if (s.st[2]) {
             g_loadSeen = true;
             g_loadDoneAt = 0;
-        } else if (g_loadSeen && s.player && s.msOk) {
+        } else if (g_loadSeen && s.gm && s.player && s.msOk && !s.st[3] && !s.st[4]) {
             if (!g_loadDoneAt) g_loadDoneAt = t;
             else if (t - g_loadDoneAt > 3000) {
                 g_replayMs = s.ms14;
@@ -1139,6 +1168,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                 }
             }
         }
+        if (!s.gm || !s.player || !s.msOk || s.st[3] || s.st[4]) g_loadDoneAt = 0;  // consecutive valid, unpaused frames
         // state-based: give up only when no load began within 120 s of the request, or a begun load never finished in 20 min
         if (!g_replayMs && ((!g_loadSeen && t - g_replayAt > 120000) || t - g_replayAt > 1200000)) {
             Log("Rematch: %s - idle", g_loadSeen ? "the mission load did not finish in 20 min" : "no mission load began within 120 s of the request");
@@ -1307,6 +1337,7 @@ void SpawnTick(const Snap& s, ULONGLONG t, bool loadEnded) {
         SpawnLast("failed");
         return;
     }
+    if (NativeGate(s)) return;  // retain ownership while state is unknown; do not apply/reapply
     if (g_sp.st == 1) {
         if (s.st[2]) SpawnApply(r, "load began");  // apply once the mission load runs (never in the mission we are leaving)
         else if (loadEnded) {
@@ -1339,14 +1370,15 @@ void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
     Snap s = ReadSnap();
-    if (s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
+    if (s.gm && s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
         memcpy(g_posAtLoad, g_posLive, sizeof(g_posAtLoad));
         g_posAtLoadOk = g_posLiveOk;
         g_loadRiseAt = t;
     }
-    const bool loadEnded = g_wasLoading && !s.st[2];
-    g_wasLoading = s.st[2] != 0;
-    if (!s.st[2]) g_posLiveOk = s.player && PlayerPos(g_posLive);
+    const bool loadEnded = s.gm && g_wasLoading && !s.st[2];
+    if (s.gm) g_wasLoading = s.st[2] != 0;
+    if (s.gm && !s.st[2]) g_posLiveOk = s.player && PlayerPos(g_posLive);
+    else if (!s.gm) g_posLiveOk = false;
     SpawnTick(s, t, loadEnded);
     // leaving a mission during a boss fight (the menu's leave, quit to title) never runs BossBattleModeEnd: the "in a boss fight"
     // gate would stay set for the rest of the session (self-test 2026-10-09 21:14). A mission change ends any fight.
@@ -1360,7 +1392,7 @@ void Tick() {
             lastMission = s.ms28;
         }
     }
-    if (s.qHash != g_qHash) {
+    if (s.queueOk && s.qHash != g_qHash) {
         if (g_qHash) g_qChangedAt.store(t);
         g_qHash = s.qHash;
     }
@@ -1378,9 +1410,7 @@ void Tick() {
         if (kind == kReqExit) {
             g_pend = 0;
             if (!g_exitOk) Refuse(g_exitWhy);
-            else if (s.online || s.guest) Refuse("online / co-op: not leaving");
-            else if (s.st[2]) Refuse("loading");
-            else if (!s.msOk || !s.ms28) Refuse("not in a mission");
+            else if (const char* why = ExitGate(s)) Refuse(why);
             else {
                 const int rc = CallReturn();
                 Log("Rematch: exit: MissionRequestReturn(params, 1) from mission 0x%X (retry point %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");

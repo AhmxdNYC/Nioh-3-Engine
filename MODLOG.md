@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private native-request read-validity prerequisite
+
+Unreadable session/game/mission snapshots no longer authorize rematch start/return, warp (including duel approach), gate request, or spawn reapply. Start admission also requires readable queue/scroll state. Invalid game reads preserve the last loading edge; entry settling resets on unreadable/playerless/paused observations. Offline actual-source fault tests only; not a playable training release or globally latched online disarm. Details: notes/training-request-read-gates.md.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.8 recovery candidate
 
 Failed spawn restoration now retains its record and blocks new replay/mission/scroll admission. Partial transform/flags restoration can retry independently and must read back the originals before clearing ownership. Apply records recovery before either write. Observed foreign data or replacement latches a refusal; automatic reload/reapply is deliberately suspended until native lifetime identity is proven. Actual-source fault checks and existing rematch/lifecycle checks pass; private only, not deployed or live accepted.
