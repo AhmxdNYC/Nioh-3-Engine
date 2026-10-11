@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - FO startup availability repaired in isolated branch
+- Experimental codex-fo10 **3b89c04 pushed** with Codex attribution: mandatory 0x98 emitter slot/FNV checks now reject before relay allocation, patch preparation or readiness. Actual-code known-build fixture: 18 startup cases PASS; pre-fix negative control catches original readiness bug; 255 patterns and existing FO/stub harness ALL PASSED. Evidence: notes/handoff-codex-fo-startup.md.
+- FO remains NO-GO: overflow/off-main fallback, stream bounds, late producers, queue-count synchronization and epoch/object lifetime still unresolved. No ASI built/shared, merge, game launch, settings/visual change or performance claim; full release and native gates still required. Tested main/installed1.7.61/FO0 stays usable.
+- Main pc2 smoke1767 / Ally1768 and conditional native FO5 1781 remain pending at last known bridge cursor1785; not re-read this unit. Read-only controller enabled/working, monitor45016/worker49800; this serial worker owns source until exit, no controller state changes. No game running; no test lock acquired; prior restoration retained.
+- Phone1786/1789/1791/1793 acknowledged. Discord chosen-work and result cards sent through existing notifier. Next independent bounded unit: read-only training arena/spawn inventory and isolated BossRematch prototype plan (1789); no live spawner. Rendering implementation remains the main release priority; next FO code unit must close queue/bounds/producer lifecycle together. Only the user resumes Claude via /stop, waiting for worker/test closure, then documented lead-active hold.
+
 ## UPDATE 2026-10-11 - Codex daily-cap stall corrected; rendering continuation resumes
 - User reported that auto-wake was not continuing work. Monitor was alive/enabled but the self-imposed2milliondaily input+output cap held launches after the first unit's2,590,276tokens. No worker or game test was active; took lead-active and stopped the monitor cleanly before the tooling fix.
 - Daily worker/token caps now default to null and apply only when explicitly configured. Actual usage remains tracked, cached input included; single-writer/game guards, waiting checkpoints and failure backoff remain. Added regression for continuation above old thresholds; controller13checksPASS. Narrower worker units requested to reduce repeated context. Repo checks/restart follow before releasing ownership.

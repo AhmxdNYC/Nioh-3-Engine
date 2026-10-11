@@ -2,6 +2,7 @@
 
 | When | Change | Undo |
 |---|---|---|
+| 2026-10-11 | Isolated experimental FO startup availability repaired3b89c04; 18 cases, pre-fix control, 255patterns and FO/stub harness PASS. No installed ASI/game changes. Handoff/ledger updated; FO release still held. | Keep main1.7.61/FO0; revert experimental commit if needed. |
 | 2026-10-11 | Corrected Codex continuation stall caused by the lead's unrequested daily budget; caps now optional/null, actual usage still tracked, serial ownership/game guards retained. Controller13checksPASS; main ASI/game unchanged. | Pause Codex /stop and let active work finish; set numeric optional caps in runtime config if the user requests them. |
 | 2026-10-11 | User-authorized Codex continuation/phone tooling in universal-optimizer94e62bd; ten controller checks, repo suites and live phone route PASS. Added task ledger/progress report and attributed incomplete API safety review. No ASI or game-setting change; Claude auto-wake remains disabled, no credential retained. | Phone Codex /stop; let active worker finish; disable CodexNiohContinuation and use monitor.stop. See universal tools/codex-autowake/README.md. |
 | 2026-10-06 13:34 | Backup of `%LOCALAPPDATA%\KoeiTecmo\NIOH3` (config.xml + saves) + Nioh3.exe sha256 → `backups\20261006-1334-pristine\` | — |

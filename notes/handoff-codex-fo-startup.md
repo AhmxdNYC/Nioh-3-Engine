@@ -1,0 +1,13 @@
+# FO emitter availability repair - 2026-10-11
+
+Isolated in codex-fo10; main/installed 1.7.61 remains unchanged. No game launched, lock acquired, Ghidra run, settings changed, or performance claim. Discord chosen-work and result updates sent through existing notifier.
+
+Moved both mandatory 0x98 emitter slot and FNV byte checks ahead of executable relay allocation and patch preparation. Any mismatch returns before readiness; boot modes 1/2 and diagnostic FO_Defer98=0/1 all reject. The existing readiness guard prevents later live activation or Install. This closes the startup availability failure only; diagnostic deferral-off still reproduces unsafe writes when availability succeeds.
+
+Actual-code harness tests/frameoverlap_startup.cpp with run_frameoverlap_startup.py uses the existing known-build dump as inert data, validates/relocates only the 13 pointer fixtures Start reads, and never executes game code. Four independent slot/range corruptions x two boot modes x two deferral values = 16 negative cases; two key2 known-build controls reach readiness with all optional features verified and 12 code/13 pointer patches prepared. All 18 PASS, zero compiler warnings. Negative cases assert no readiness, allocation, patch preparation, install, watchdog or image mutation; live FO=1 and Install also reject. Positive controls do not install; their idle WaitProbe dies with the test process. Full-image FNV checks fixture immutability.
+
+The same harness against pre-fix HEAD406b19d in a temporary isolated source tree detects the first corrupt slot still reaching readiness (key2, no install); expected failure confirmed and temporary tree removed. This demonstrates the test catches the original bug rather than mirroring the repair. All 255 pattern sites PASS; existing actual-code frameoverlap harness and register-exact stub checks both ALL PASSED after the source change. Existing runtime/game tests were not repeated.
+
+Limits: known-build fixture only; no general PE validation or repeated-Start contract added. Queue overflow/off-main fallback, stream bounds, late producers, unlocked volatile queue count and epoch/object lifetime remain unresolved. No new ASI built/shared; full release check and runtime/native gates remain required before sharing/release. Existing fo11 shutdown-only watchdog remains recorded. Native queues1767/1768/1781 remain pending at last bridge cursor1785; no new bridge check in this unit.
+
+Next: bounded read-only training inventory/prototype plan requested in phone1789, reusing BossRematch; no live spawner. Rendering implementation remains isolated: repair queue/bounds/producer closure together, with drain outside queue lock and explicit publication/lifetime proof, before native validation or merge.

@@ -2,6 +2,14 @@
 
 Updated 2026-10-11. This report separates completed work, measured results, and work still pending.
 
+## Latest checkpoint: isolated FO startup repair
+
+Experimental **3b89c04 pushed**. Mandatory emitter-slot and byte verification now fails before FO readiness or relay/patch preparation. Passed 18 actual-code startup cases, a pre-fix negative control that catches the original bug, all255patterns and the existing FO/stub harness. Startup compile had zero warnings. Evidence: notes/handoff-codex-fo-startup.md.
+
+No ASI/game/settings/visual changes or performance claim. Main parentcec9de6 and tested1.7.61/FO0 stay usable. Queue overflow, stream bounds, late producers, synchronization and lifetime still block FO; full release check/native device gates remain. Remote1767/1768/1781 are pending at last known bridge1785, not re-read this unit. No game running, no test lock, restoration unchanged. Worker49800 owns source until checkpoint/exit; controller observed enabled/working monitor45016, no state writes. Discord chosen-work and checkpoint result sent through existing notifier. Claude remains paused.
+
+Next bounded independent unit: phone1789's read-only training inventory/prototype plan using BossRematch, with arena selection/existing-fight reset before any supported summon; no live spawner yet. Rendering safety remains the implementation/release priority. Use /stop and wait for active worker/test closure before the user resumes Claude; exact ownership steps in notes/claude-return-handoff.md.
+
 ## Completed integration: main build 1.7.61
 
 Merged Claude's existing `cbv-upload` constant-upload fix and `extra-perf` presets into main. These features were already developed before the takeover; Codex integrated, validated, built, and smoke-tested them. Fixed instruction-length handling in FnProbe and stale harness dependencies exposed by the full checks.
@@ -45,7 +53,7 @@ This is an emulator result, **not a native PC or pc2 gain**. Screenshot samples 
 
 The game exited naturally and restoration hashes matched. A shutdown-only watchdog appeared after the tour finished, in the engine's shutdown thread join; this diagnostic is retained rather than presented as a completely clean shutdown log.
 
-Uploaded candidate kit **bridge file 225** and queued native pc2 test **1781**, conditional on smoke **1767** passing first. This branch is **not merged or released**. Before shipping it needs native pc2 validation and further audits of queue-full behavior, command-stream bounds, and unavailable-hook handling. The bounded audit is complete: experimental406b19d reproduces overflow, stream-boundary damage and late-TAIL queue retention in 11 negative controls / 0 failures, with zero compiler warnings. Static unavailable-hook readiness and queue-count synchronization failures remain. This is failure evidence, not release safety PASS; no production repair has been completed. See notes/handoff-codex-fo98-audit.md.
+Uploaded candidate kit **bridge file 225** and queued native pc2 test **1781**, conditional on smoke **1767** passing first. This branch is **not merged or released**. Before shipping it needs native pc2 validation and further audits of queue-full behavior, command-stream bounds, and unavailable-hook handling. The bounded audit is complete: experimental406b19d reproduces overflow, stream-boundary damage and late-TAIL queue retention in 11 negative controls / 0 failures, with zero compiler warnings. Startup unavailable-hook readiness is repaired3b89c04; queue-count synchronization remains. This is failure evidence, not release safety PASS; only the bounded startup availability repair has been completed. See notes/handoff-codex-fo98-audit.md.
 
 Evidence: `notes/handoff-codex-step2.md`, `notes/handoff-codex-step2b.md`, branch `notes/fo5-pc2-test.md`, and `captures/pc/fastab/20261011-0019-fo11fix/report.md`.
 
