@@ -17,6 +17,7 @@ param([switch]$DryRun, [ValidateRange(0,2147483)][int]$MinIdleSec = 20, [string]
   [long]$ExpectedLaunchHwnd = 0, [int]$ExpectedLaunchPid = 0)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'steam_cloud_decision.ps1')
+. (Join-Path $PSScriptRoot 'steam_cloud_ocr.ps1')
 if (($ExpectedLaunchHwnd -ne 0) -ne ($ExpectedLaunchPid -ne 0)) { throw 'Expected launch HWND and PID must be supplied together' }
 Add-Type -AssemblyName System.Drawing, System.Runtime.WindowsRuntime
 Add-Type @'
@@ -99,7 +100,7 @@ function Read-Candidate($h,$pids,[bool]$PlanOnly) {
   if (-not $o) { return @{decision='no-dialog';button=$null;text=''} }
   try {
     $all=($o.lines | ForEach-Object { $_.Text }) -join ' | '
-    $button=SCC-Button $o
+    $button=SCC-EnhancedButton $o
     # OCR can outlast a foreground change. Never attribute those pixels to Steam.
     $owned=Steam-Owned $h $pids
     $foreground=[SCC]::GetForegroundWindow() -eq $h
