@@ -924,3 +924,9 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - GPU/R2 harnesses supply the disabled memory-bind census stubs already used by the shader-hot harness; R2 also links SkipFx/MLP/MpcCheck required by the real GPU hooks. No production profiler change.
 - run_gp_harness.py all five modes ALL PASSED; run_r2_harness.py ALL PASSED, including device safety, barrier rewrites and trace output.
 - Undo: revert harness-only maintenance.
+
+## 2026-10-10 - 1.7.61 merged-build PC validation (Codex)
+- test_patterns ALL 255 SITES OK; full release regression suite all 36 harnesses PASS (0 errors, 3 warnings); CBU recorded-trace and ExtraPerf harnesses PASS.
+- PC fastab rc1761, stage 7356, ABBA x3: CBN/CBT no measurable FPS change (+0.55% +-0.46 SE, 101.9->102.5); opt-in Performance preset +3.14% +-0.08 SE (102.4->105.6), GPU -0.298 ms. Screenshot changes within the A/A animation floor; combined CBN/CBT + preset 30s / 3179 frames PASS, no combined performance claim.
+- One locked tour launch; saves unchanged and user INI/ASI/config restored. pc2/Ally equivalent smoke queued (#1767/#1768, kit #223), results pending; RC held until both pass. Details: notes/handoff-codex-step1.md.
+- Undo: CBN/CBT=0, ExtraPerf preset/all levels=0 (or Enabled=0); no system settings changed.

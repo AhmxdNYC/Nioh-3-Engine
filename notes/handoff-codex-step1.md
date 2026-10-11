@@ -1,0 +1,22 @@
+# Codex step 1 handoff - 2026-10-10 (PC portion complete; remote validation pending)
+
+User authorized lead takeover and step 1 only; stop after its result. No Claude calls and auto-wake stays off.
+
+- main merges: c6f312a cbv-upload c5183c2; b1852e9 extra-perf cba1fbc, version 1.7.61. Documentation be77cec, decoder 6abe913, GPU harness wiring f2d36e4.
+- Conflicts: retain both MODLOG histories; tour HeadOk supports E9 and FF25 external hooks; both build lists contain CBU/CBF and ExtraPerf; regenerate live_keys.json. Keep extra-perf live-ack retries.
+- Defaults: CBN=1, CBT=1, CBS=0, CBF=0; ExtraPerf Enabled=1 but Preset=0/all levels=0; FrameOverlap=0. Slow chipset PCIe link caveat added to profile evidence.
+- Validation: ALL 255 SITES OK; CBU byte-exact harness incl. 30,000-call trace ALL PASSED; ExtraPerf harness ALL PASSED; final check_release --full PASS (0 errors, 3 warnings), all 36 harnesses passed. captures/step1-release-final.log.
+- Initial full checks exposed a real FnProbe decoder width error at newly named 9AFDF0 (66 C7 imm16 counted as imm32) and stale GPU/R2 harness links. Fixed, regression cases added; rebuilt and full suite repeated successfully. Initial concurrent suites also had timing-sensitive JT/replayprof/thrsched failures; the isolated final suite passed all.
+- Built ASI 1.7.61 sha256 4734152ACAFDC13FA417C23EE60C8F6579B023D7F93FE73A763D862446A7AD00. Build log captures/step1-build.log.
+- Smoke kit bridge file #223: release/dist/Nioh3EngineFix-1.7.61-smoke-kit.zip, sha256 17f818c4f826cf53bdcbc5ce767ce4cb2346666f1bbad4a60ab83057e49d0690. Contains ASI, base ini, scheduler and all report dependencies, SMOKE.txt. TEST BUILD, not an RC.
+- User allowed graceful close of existing game pid 17780 (ASI 1.7.32). Saves backed up to D:/nioh3-re/save-backups/20261010-230142-codex-preclose. Old session displayed fatal C0000005 at 00007FF616A2581E, then exited without forced termination. Not from 1.7.61.
+- PC smoke completed PASS: captures/pc/fastab/20261010-2308-rc1761, fastab CBMODE 0/6 + XPRE 0/1, 3 pairs, 15 s windows, 5 s warm, 30 s settle, stage 7356, shots, lock nioh3-pc as pc-codex-step1. Tour verified backup D:/nioh3-re/save-backups/20261010-230857-tour. Explicit CBN/CBT installed, CBS/CBF/FO/mirror/profilers off; all ExtraPerf levels initially 0.
+- Steam launch held at cloud sync (Steam has no connection). Existing OCR clicker could not see occluded dialog while user active; verified Steam window with PrintWindow, brought that specific Steam window forward and clicked Play anyway, retaining lock/save guards. Started 23:11 host / 19:11 New York.
+- PC result: 12/12 measurement windows acknowledged with advancing frame clocks. CBMODE 0/6 +0.55% +-0.46 SE (101.9 -> 102.5 FPS): neutral. XPRE 0/1 +3.14% +-0.08 SE (102.4 -> 105.6), GPU busy -0.298 +-0.007 ms. Preset A/B measured with CBMODE=0; combined compatibility separately verified (not a combined FPS A/B).
+- Combined smoke CBMODE=6 XPRE=1: 30 s, 3179 advancing frames, ack PASS; restored CBMODE=6 XPRE=0 before tour exit. combined-smoke.json in the session folder.
+- Screenshot diff: CB mean abs 2.00 / 2.6% changed pixels; preset 2.17 / 3.4%; A/A floor 2.44 / 3.5%. No obvious corruption in inspected screenshots; offline byte-exact proof is stronger than animated screenshot comparison. All results are scene-specific; no normal x16-PC +15.9% claim.
+- Tour finished 19:19 New York, game closed, nioh3-pc lock released. Save folder unchanged (8 files, zero restored), verified byte-for-byte. User INI/ASI restored, and fastab restored config.xml. Normal engine LoadGates false predicates are not faults; OSD GetDevice(E_NOINTERFACE) fallback used its captured queue successfully.
+- Non-gating gotcha: run_tour optional summarize_tour.py returned an error after printing PresentMon +4h clock alignment. Primary fastab_report completed correctly with 12 valid mod-clock windows and sampled GPU metrics; raw files preserved. Initial smoke-only dry run omitted Hot.*, so its synthetic shader-effect assertion failed; rerun including Hot.ghdm passed DryRun OK.
+- Discord progress card sent. Bridge leadership FYI #1762; pc2 smoke QUEUE #1767, Ally QUEUE #1768. Same kit #223, ABBA + combined 30 s, strict stop conditions, restore verification, only one Ally claim, then HOLD. Remote results not yet received; do not package a release candidate until BOTH pass.
+- Final result card and push accompany this handoff. Stop at step 1; no fo10 work started.
+- Do not proceed to fo10 without the user starting step 2.

@@ -1,5 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
-Read this section only; older handoffs follow below.
+Read the newest UPDATE section only; older handoffs follow below.
+
+## UPDATE 2026-10-10 23:22 New York - Codex lead, step 1 PC PASS; remote smokes queued
+- Merged cbv-upload c5183c2 and extra-perf cba1fbc into main as ASI 1.7.61. Defaults: CBN=1 CBT=1 CBS=0 CBF=0; ExtraPerf preset/all levels=0; FrameOverlap=0. No Claude calls; auto-wake remains OFF.
+- Validation: ALL 255 SITES OK; CBU recorded-trace + ExtraPerf harnesses PASS; check_release --full PASS (all 36 harnesses, 0 errors, 3 warnings). Fixed FnProbe 66-prefixed immediate lengths + stale GPU/R2 harness dependencies exposed by full checks.
+- PC rc1761 (stage 7356, ABBA x3): CBMODE 0/6 +0.55% +-0.46 SE (101.9->102.5, no difference); Performance XPRE 0/1 +3.14% +-0.08 (102.4->105.6), GPU -0.298 ms. Screenshots within A/A animation floor; combined CBMODE=6 XPRE=1 30s / 3179 frames PASS. Saves + user INI/ASI restored and verified; game closed, lock released.
+- Remote smoke kit #223 (ASI sha 4734152A); pc2 QUEUE #1767, Ally QUEUE #1768, only one Ally session to claim. Remote results pending; Ally watcher was stopped and may need the user to wake that single session. Release candidate HELD until both pass. No step 2 work started.
+- Evidence / gotchas / next action: notes/handoff-codex-step1.md; captures/step1-release-final.log; captures/pc/fastab/20261010-2308-rc1761/report.md. Prior pc2 +15.9% is for its slow chipset PCIe link, not normal x16 PCs.
 
 ## PAUSED 2026-10-10 17:10 by the user (save weekly limit) - detailed: notes/handoff-2026-10-10-1710.md
 - Do NOT resume or start agents until the user says so. Devices told [HOLD] (#1758).
