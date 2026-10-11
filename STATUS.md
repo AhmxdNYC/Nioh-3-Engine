@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Training inventory complete; rendering lifecycle next
+- Read-only BossRematch inventory and isolated prototype plan completed: notes/training-mode-inventory.md. Tracked88sites,121catalogue rows; Create activates a placement,65092 is an ID, reset/cleanup/streaming/ABI/reward proofs missing. Catalogue tags are not new runtime validation. Native-arena reload/restart before one gated summon; no implementation/build/game test/performance claim.
+- Main parent7977cb9; tested1.7.61/FO0 unchanged. FO startup3b89c04 remains verified; FO release NO-GO. Remote1767/1768/1781 pending at last bridge1785 (no fresh bridge query). No game running/test lock acquired, no deployed changes; restoration unchanged. Controller read-only enabled/working monitor45016/worker51100; no state writes. Phone inbox empty at checkpoint. Serial ownership until exit; no Claude call/wake.
+- Next ready unit: bounded FO producer/flush/endFrame/drain ordering and explicit epoch/publication/lifetime contract with repair sequence in codex-fo10. Queue-count-only patch is insufficient; preserve required commands and keep drain outside queue lock. Discord result sent through existing notifier; this documentation checkpoint is committed/pushed with Codex attribution (use git log -1 for its hash).
+
 ## UPDATE 2026-10-11 - FO startup availability repaired in isolated branch
 - Experimental codex-fo10 **3b89c04 pushed** with Codex attribution: mandatory 0x98 emitter slot/FNV checks now reject before relay allocation, patch preparation or readiness. Actual-code known-build fixture: 18 startup cases PASS; pre-fix negative control catches original readiness bug; 255 patterns and existing FO/stub harness ALL PASSED. Evidence: notes/handoff-codex-fo-startup.md.
 - FO remains NO-GO: overflow/off-main fallback, stream bounds, late producers, queue-count synchronization and epoch/object lifetime still unresolved. No ASI built/shared, merge, game launch, settings/visual change or performance claim; full release and native gates still required. Tested main/installed1.7.61/FO0 stays usable.

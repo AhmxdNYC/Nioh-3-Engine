@@ -4,17 +4,11 @@ Codex continuation remains enabled. **Do not call or wake Claude. Only the user 
 
 Latest automation correction2026-10-11: the installing lead's2milliondaily cap stopped ready work after the first worker. User reported the stall; monitor stopped cleanly with no active worker, and daily caps now default null (optional user settings). Actual usage remains tracked and the single-writer/game guards remain. Tooling regression13checksPASS; restart follows repository checks/commits, then lead-active release. Rendering-first priority is unchanged. Earlier cap-hold observations below are historical and superseded by this correction.
 
-## Latest checkpoint - supersedes historical observations below
+## Latest checkpoint - Training inventory complete; rendering lifecycle next
+- Read-only BossRematch inventory and isolated prototype plan completed: notes/training-mode-inventory.md. Tracked88sites,121catalogue rows; Create activates a placement,65092 is an ID, reset/cleanup/streaming/ABI/reward proofs missing. Catalogue tags are not new runtime validation. Native-arena reload/restart before one gated summon; no implementation/build/game test/performance claim.
+- Main parent7977cb9; tested1.7.61/FO0 unchanged. FO startup3b89c04 remains verified; FO release NO-GO. Remote1767/1768/1781 pending at last bridge1785 (no fresh bridge query). No game running/test lock acquired, no deployed changes; restoration unchanged. Controller read-only enabled/working monitor45016/worker51100; no state writes. Phone inbox empty at checkpoint. Serial ownership until exit; no Claude call/wake.
+- Next ready unit: bounded FO producer/flush/endFrame/drain ordering and explicit epoch/publication/lifetime contract with repair sequence in codex-fo10. Queue-count-only patch is insufficient; preserve required commands and keep drain outside queue lock. Discord result sent through existing notifier; this documentation checkpoint is committed/pushed with Codex attribution (use git log -1 for its hash).
 
-Main documentation parent **cec9de6**, tested installed/main engine **1.7.61/FO0** unchanged; experimental **codex-fo10 3b89c04 pushed**. The current main checkpoint commit is `git log -1` after this handoff update. Emitter slot/range mismatch now fails closed before relay allocation/patch preparation/readiness. **18 startup cases PASS**, pre-fix actual-code control catches the original bug, **255patterns and existing FO/stub harness PASS**. Evidence: notes/handoff-codex-fo-startup.md. Full release/new ASI/runtime/device proofs were not done for this source-only unit; no performance claim.
-
-Known remaining failures: queue-full fallback reintroduces off-main writes/reordering, stream overrun, late TAIL producers, volatile queue-count race, epoch/object lifetime. FO still NO-GO. Existing shutdown-only watchdog stays recorded. Main pc2 smoke1767/Ally1768 and native FO5 1781 conditional on1767 remain pending at last bridge1785; no new bridge query this unit. Phone1786/1789/1791/1793 acknowledged; selected-work and result Discord cards sent through existing notifier.
-
-No game running at entry/checkpoint, no acquired game/test lock, no Ghidra, no deployed ASI/INI/save/config/settings/visual changes; prior restoration unchanged. Experimental source is committed, no competing writer observed. This serial worker owns source until final exit. Controller read-only observation enabled=true/working monitor45016 worker49800; no controller/lead-active changes. PID observations are temporary; the user must re-check before taking ownership.
-
-**Exact next unit:** read-only training-mode inventory and concrete isolated BossRematch prototype plan requested in phone1789. First milestone selectable known arena + reset/restart existing fight; then one supported summon after loading/ownership/despawn/AI/navmesh/story/save/reward proofs. Do not promise arbitrary seamless cross-stage swaps or use logged script65092 as an RVA. Rendering implementation remains the release priority afterwards: repair queue/bounds/producer closure together, with drain outside queue lock and explicit epoch/publication/lifetime proof. No merge/shared FO build until full release/native gates pass.
-
-Pause/return: user sends **/stop**, waits for active worker and any test to finish gracefully, verifies **/status** paused with no worker/no game/no owned test lock, then creates the documented **lead-active** hold before personally resuming Claude. No Claude call/wake or ownership transfer was executed.
 
 ## Verified repository and build state
 
@@ -50,4 +44,4 @@ Controller instructions: `C:/Users/Ahmad Hamza/universal-optimizer/tools/codex-a
 
 ## Exact next independent unit
 
-Use the latest checkpoint above: read-only training inventory/prototype plan next; rendering queue/lifecycle safety next implementation. Prior startup repair instructions are completed3b89c04 and must not be repeated. User pause sequence above remains required before Claude resumes.
+Use the latest checkpoint above: training inventory/prototype plan completed; FO queue producer/drain lifecycle contract and repair sequence next. Prior startup repair instructions are completed3b89c04 and must not be repeated. User pause sequence above remains required before Claude resumes.

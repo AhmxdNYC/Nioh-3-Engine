@@ -2,13 +2,11 @@
 
 Updated 2026-10-11. This report separates completed work, measured results, and work still pending.
 
-## Latest checkpoint: isolated FO startup repair
+## Latest checkpoint - Training inventory complete; rendering lifecycle next
+- Read-only BossRematch inventory and isolated prototype plan completed: notes/training-mode-inventory.md. Tracked88sites,121catalogue rows; Create activates a placement,65092 is an ID, reset/cleanup/streaming/ABI/reward proofs missing. Catalogue tags are not new runtime validation. Native-arena reload/restart before one gated summon; no implementation/build/game test/performance claim.
+- Main parent7977cb9; tested1.7.61/FO0 unchanged. FO startup3b89c04 remains verified; FO release NO-GO. Remote1767/1768/1781 pending at last bridge1785 (no fresh bridge query). No game running/test lock acquired, no deployed changes; restoration unchanged. Controller read-only enabled/working monitor45016/worker51100; no state writes. Phone inbox empty at checkpoint. Serial ownership until exit; no Claude call/wake.
+- Next ready unit: bounded FO producer/flush/endFrame/drain ordering and explicit epoch/publication/lifetime contract with repair sequence in codex-fo10. Queue-count-only patch is insufficient; preserve required commands and keep drain outside queue lock. Discord result sent through existing notifier; this documentation checkpoint is committed/pushed with Codex attribution (use git log -1 for its hash).
 
-Experimental **3b89c04 pushed**. Mandatory emitter-slot and byte verification now fails before FO readiness or relay/patch preparation. Passed 18 actual-code startup cases, a pre-fix negative control that catches the original bug, all255patterns and the existing FO/stub harness. Startup compile had zero warnings. Evidence: notes/handoff-codex-fo-startup.md.
-
-No ASI/game/settings/visual changes or performance claim. Main parentcec9de6 and tested1.7.61/FO0 stay usable. Queue overflow, stream bounds, late producers, synchronization and lifetime still block FO; full release check/native device gates remain. Remote1767/1768/1781 are pending at last known bridge1785, not re-read this unit. No game running, no test lock, restoration unchanged. Worker49800 owns source until checkpoint/exit; controller observed enabled/working monitor45016, no state writes. Discord chosen-work and checkpoint result sent through existing notifier. Claude remains paused.
-
-Next bounded independent unit: phone1789's read-only training inventory/prototype plan using BossRematch, with arena selection/existing-fight reset before any supported summon; no live spawner yet. Rendering safety remains the implementation/release priority. Use /stop and wait for active worker/test closure before the user resumes Claude; exact ownership steps in notes/claude-return-handoff.md.
 
 ## Completed integration: main build 1.7.61
 
