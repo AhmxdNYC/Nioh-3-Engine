@@ -2,6 +2,12 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
+## Latest checkpoint - FO98 end-frame drain/reset boundary traced
+- Traced native 418C70 final range publication -> 418F40/418F90 CPU dispatcher drain -> stream cursor reset. Idle predicate requires ring+24 == ring+28 and ring+30 == 0; no producer closure or GPU completion follows. Evidence: notes/handoff-codex-fo98-endframe-boundary.md.
+- Five new static provenance windows PASS, including 419028 cold tail19A6724. Broad indirect-caller scan cancelled without a result; caller modes remain open. FO remains NO-GO; no runtime/safety/performance verdict. Parent57328f3; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged; prior passed suites not repeated.
+- No local game/test at entry/checkpoint; no lock/Ghidra/build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: trace dispatcher consumer writes to ring+28/+30 and callback completion, then bounded resource vtable+28 callers/modes. Cache+20 identity, GPU completion, producer closure and retirement ring restart remain open. Commit/push with Codex attribution and Discord result after push; use git log -1 for checkpoint commit.
+
 ## Latest checkpoint - FO98 producer lock modes traced
 - Resolved 12B0D0/12AF40 as resource+198 SRW acquire/release: mode1 shared, mode2 exclusive, other modes no lock. 2F06AB4 holds the selected mode across bitmap update and opcode98 emission. 152D48 adds no wait/call edge. Evidence: notes/handoff-codex-fo98-producer-lock.md.
 - Three new static provenance checks PASS; actual caller modes/stream ownership and producer closure remain unresolved. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent 41a1b74; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
