@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 15:41 - Performance agents checkpointed; user recording active
+- Performance priority restored with3 isolated agents: prepared input-bound fogpar proof (16bcaf87/main0182852), AABB-only pc2 pilot/control witness (847505a0/main7a12419), and controller/submenu source candidate88af4b9b (isolated, unshared). Native CPU reproduction, shader seeds and menu C++/full builds deferred for user recording; no new measured gain from these checkpoints.
+- User game18068/window responding, started15:41:38 under shared lock after guard passed and user-authorized existing Play-anyway helper. Installed BossRematch1.4.0/EngineFix1.7.32 unchanged by hashes, current-entry backup external. Watcher17652 renews/release-on-exit only; no capture/input/forced exit/save restoration. DO NOT interfere with user game/progress. Root lead-active retained and heavy work waits for recording done.
+- Ally1940 reports default+2.95% +/-0.43% SE three sampled launch pairs; raw archive requested, actual FG-menu observation missed, restore/sync attested; corrected14:47-15:22 span. pc2+49.61% two-pair result still conditional on clock mapping, final crash recovery receipt requested1935. PC shared-account reservation active; no Ally launch/retry. Detailed next work/owners: notes/codex-task-ledger.md top.
+- After recording: bounded AABB control test, fresh bound fogpar proof, UI offline validation/forward-port to v4 before any shared build. UI addon1.3.4 must not replace installed1.4.0. Stable1.7.61, FO NO-GO, guard PR1 unmerged; training groundwork secondary to current performance/UI requests.
+
 ## UPDATE 2026-10-11 15:22 - Training bounded entry records verified
 - Owned codex-training-pump 0b25b2b pushed, private add-on1.4.6: default-OFF bounded64 create/begin/end records copy cached scalar validity/gaps/generations/time. Entry publication never waits; separate contention/overwrite losses. Oldest-first bounded copy does not drain. No native session membership/readiness/order claim.
 - Actual source/production SEH Rd53 checks PASS (/W4 /WX), lifecycle143/startup wiring, existing add-on60 and ALL94 SITES OK including shifted-image simulation PASS. Warning-free isolated release build/diff check PASS. Evidence: notes/handoff-codex-training-events.md. No deployment/public sync or performance/visual/runtime acceptance claim.
