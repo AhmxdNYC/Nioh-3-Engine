@@ -98,17 +98,25 @@ void Feature(const char* name, const char* group) {
     else Log("%s: group %s OFF - %s", name, group, why ? why : "?");
 }
 
-// Init owns the single pump installation. Future observer sampling belongs here,
-// outside the enabled-rematch callback (which may mutate game state).
-void SharedPump() { rematch::Pump(); }
+// One installer and dispatcher for both independently enabled modules.
+void SharedPump() {
+    training::Pump();
+    if (rematch::Live()) rematch::Pump();
+}
 
 bool StartRematchPump() {
-    if (!rematch::Prepare()) return false;
+    // Registration precedes every FIGHT installer, including debug logging.
+    const bool observing = training::Prepare();
+    const bool rematching = IniInt(L"Rematch", L"Enable", 0) != 0 && rematch::Prepare();
     const char* why = nullptr;
+    const bool fight = observing && InstallGroup("FIGHT", &why);
+    if (observing && !fight) Log("Training entries: off - FIGHT: %s", why ? why : "?");
+    if (!fight && !rematching) return false;
     const bool installed = InstallPump(&SharedPump, &why);
-    rematch::SetPumpLive(installed);
-    if (!installed) Log("Rematch: off - pump: %s", why ? why : "?");
-    return installed;
+    rematch::SetPumpLive(installed && rematching);
+    training::SetPumpLive(installed && fight);
+    if (!installed) Log("Shared pump: off - %s", why ? why : "?");
+    return rematch::Live();
 }
 
 DWORD WINAPI Init(void*) {
@@ -126,13 +134,13 @@ DWORD WINAPI Init(void*) {
     ResolveAll();
     const bool boss = IniInt(L"Debug", L"BossLog", 0) != 0, rm = IniInt(L"Debug", L"RematchLog", 0) != 0, inv = IniInt(L"Debug", L"InvLog", 0) != 0;
     bosslog::Register(boss, rm, inv);
+    const bool live = StartRematchPump();
     if (boss || rm) {
         Feature("BossLog", "FIGHT");
         Feature("BossLog", "BOSSLOG");
     }
     if (rm) Feature("RematchLog", "RLOG");
     if (inv) Feature("InvLog", "INV");
-    const bool live = StartRematchPump();
     if (live) ui::Start();
     remote::Start();
     Log("ready (%lu ms): BossLog %d, RematchLog %d, InvLog %d, Rematch %s", GetTickCount() - t0, boss, rm, inv, live ? "live" : "off");

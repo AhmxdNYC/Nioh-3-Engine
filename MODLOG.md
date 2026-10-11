@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.2 observer entry groundwork
+
+Default-OFF Training Observe registers passive scalar entry counters before FIGHT installation, requires known build and CORE/FIGHT/PUMP, and shares one pump with enabled rematch. Observer-only startup skips rematch preparation/ticking and UI. No session snapshots, epochs, event ring, mutation API or runtime/performance acceptance yet. No deployment. Undo: leave Observe=0.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.1 pump preparation seam
 
 Init owns one shared pump dispatcher; rematch preparation and live activation are separate. Disabled/failed preparation never ticks; failed installation remains passive. This is observer groundwork only: no training observer or mutation API, no runtime/performance claim, no deployment.

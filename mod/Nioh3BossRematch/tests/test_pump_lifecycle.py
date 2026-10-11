@@ -23,55 +23,115 @@ assert prepare.index('L"Enable", 0') < prepare.index('L"SelfTest"')
 assert prepare.index('return false;') < prepare.index('g_cfg.hiddenDuels')
 assert 'g_prepared = true;' in prepare
 assert main.count('InstallPump(') == 1
-assert 'rematch::Start()' not in main
-assert 'const bool live = StartRematchPump();' in main
+assert main.index('const bool live = StartRematchPump();') < main.index('Feature("BossLog", "FIGHT")')
 assert 'if (live) ui::Start();' in main
+assert 'training::Prepare()' in main
 
+import configparser
+config=configparser.ConfigParser()
+config.read(ROOT / "Nioh3BossRematch.ini")
+assert config.getint('Training','Observe') == 0
+assert config.getint('Training','Enable') == 0
+assert config.getint('Rematch','Enable') == 0
+training = (ROOT / "src/training.cpp").read_text()
+assert not any(x in training for x in ('Rd(', 'Copy(', 'Wr', 'Site(', 'rematch::', 'sp['))
 code = r"""
 #include <atomic>
+#include <cstdint>
 #include <cstdio>
+#include <cwchar>
+#include <cstring>
 #include <initializer_list>
 namespace addon {
-int ticks=0, installs=0, prepares=0;
-bool want=false, succeed=false;
+using Handler=void (*)(uint64_t,uint64_t,uint64_t,uint64_t,const uint64_t*);
+struct Image { bool knownBuild=true; } g_img;
+namespace training { struct EntryCounts { uint64_t create,begin,end,pumps; }; bool Live(); }
+int ticks=0, installs=0, prepares=0, fights=0, groups=0, nh=0, failedGroup=0;
+bool observe=false, want=false, succeed=false, fightSuccess=true, prepareSuccess=true;
 bool g_prepared=false;
 std::atomic<bool> g_live{false};
+Handler handlers[3]{};
 void Tick() { ++ticks; }
 void Log(const char*, ...) {}
+int IniInt(const wchar_t* sec,const wchar_t* key,int def) {
+    if (!wcscmp(sec,L"Training") && !wcscmp(key,L"Observe")) return observe;
+    if (!wcscmp(sec,L"Rematch") && !wcscmp(key,L"Enable")) return want;
+    return def;
+}
+bool GroupOk(const char*,const char** why) { ++groups; *why="group failure"; return groups!=failedGroup; }
+void OnEntry(const char*,Handler h) { handlers[nh++]=h; }
+bool InstallGroup(const char*,const char** why) {
+    ++fights; *why="fight failure";
+    // Registration is complete before any installer can run a hook.
+    if (observe && g_img.knownBuild && !failedGroup && nh!=3) return false;
+    for(int i=0;i<nh;++i) handlers[i](0,0,0,0,nullptr);
+    return fightSuccess;
+}
 namespace rematch {
-bool Prepare() { ++prepares; g_prepared=want; return want; }
+bool Prepare() { ++prepares; const char* why=nullptr; g_prepared=prepareSuccess && InstallGroup("FIGHT",&why); return g_prepared; }
 @EXPORTS@
 }
+}
+@TRAINING@
+namespace addon {
 bool InstallPump(void (*callback)(), const char** why) {
-    ++installs;
-    callback(); // hook can run before Init publishes live; must remain passive
-    if (ticks) return false;
-    *why="injected failure";
-    return succeed;
+    ++installs; callback();
+    for(int i=0;i<nh;++i) handlers[i](0,0,0,0,nullptr);
+    *why="pump failure"; return succeed;
 }
 @STARTUP@
 }
 int main() {
     using namespace addon;
     int checks=0;
-    auto check=[&](bool ok) { ++checks; if (!ok) { std::printf("FAIL %d\n",checks); return false; } return true; };
-    for (bool enabled : {false,true}) for (bool installed : {false,true}) {
-        want=enabled; succeed=installed; g_prepared=false; g_live=false;
-        ticks=installs=prepares=0;
-        if (!check(StartRematchPump()==(enabled && installed))) return 1;
-        if (!check(prepares==1 && installs==(enabled ? 1 : 0))) return 1;
-        if (!check(rematch::Live()==(enabled && installed) && ticks==0)) return 1;
-        SharedPump(); SharedPump();
-        if (!check(ticks==((enabled && installed) ? 2 : 0))) return 1;
-        rematch::SetPumpLive(false); SharedPump();
-        if (!check(!rematch::Live() && ticks==((enabled && installed) ? 2 : 0))) return 1;
+    auto check=[&](bool ok) { ++checks; if (!ok) std::printf("FAIL %d\n",checks); return ok; };
+    auto reset=[]() {
+        ticks=installs=prepares=fights=groups=nh=0;
+        g_prepared=false; g_live=false;
+        training::g_prepared=false; training::g_live=false;
+        training::g_create=0; training::g_begin=0; training::g_end=0; training::g_pumps=0;
+    };
+    for(bool obs : {false,true}) for(bool rm : {false,true})
+    for(bool fi : {false,true}) for(bool pu : {false,true}) {
+        reset(); observe=obs; want=rm; fightSuccess=fi; succeed=pu;
+        bool ol=obs && fi && pu, rl=rm && fi && pu;
+        if(!check(StartRematchPump()==rl)) return 1;
+        if(!check(prepares==(rm ? 1:0) && nh==(obs ? 3:0))) return 1;
+        if(!check(installs==((obs || rm) && fi ? 1:0))) return 1;
+        if(!check(training::Live()==ol && rematch::Live()==rl && ticks==0)) return 1;
+        auto initial=training::Counts();
+        if(!check(initial.create==0 && initial.begin==0 && initial.end==0 && initial.pumps==0)) return 1;
+        for(int i=0;i<nh;++i) handlers[i](~0ULL,~0ULL,~0ULL,~0ULL,nullptr);
+        SharedPump(); SharedPump(); auto c=training::Counts();
+        if(!check(c.create==(ol?1U:0U) && c.begin==c.create && c.end==c.create && c.pumps==(ol?2U:0U))) return 1;
+        if(!check(ticks==(rl?2:0))) return 1;
+        training::SetPumpLive(false); rematch::SetPumpLive(false); SharedPump();
+        for(int i=0;i<nh;++i) handlers[i](0,0,0,0,nullptr);
+        auto stop=training::Counts();
+        if(!check(stop.create==c.create && stop.pumps==c.pumps && ticks==(rl?2:0))) return 1;
     }
-    g_prepared=false; rematch::SetPumpLive(true); SharedPump();
-    if (!check(!rematch::Live() && ticks==2)) return 1;
+    for(bool obs : {false,true}) {
+        reset(); observe=obs; want=true; prepareSuccess=false; fightSuccess=true; succeed=true;
+        if(!check(!StartRematchPump() && prepares==1 && !rematch::Live() && training::Live()==obs)) return 1;
+        SharedPump(); if(!check(ticks==0 && training::Counts().pumps==(obs?1U:0U))) return 1;
+    }
+    prepareSuccess=true;
+    for(int failure : {0,1,2,3}) {
+        reset(); observe=true; want=false; g_img.knownBuild=failure!=0; failedGroup=failure;
+        if(!check(!StartRematchPump() && !training::Live() && nh==0 && installs==0 && prepares==0)) return 1;
+        if(!check(groups==(failure==0 ? 0:failure))) return 1;
+    }
+    reset(); g_img.knownBuild=true; failedGroup=0; observe=false;
+    if(!check(!training::Prepare() && groups==0 && nh==0)) return 1;
+    training::SetPumpLive(true);
+    if(!check(!training::Live())) return 1;
+    observe=true;
+    if(!check(training::Prepare() && training::Prepare() && nh==3 && groups==3)) return 1;
     std::printf("%d lifecycle checks ALL PASSED\n",checks);
 }
 """
 code = code.replace("@EXPORTS@", "\n".join(function(rematch, s) for s in ("bool Live()", "void SetPumpLive(", "void Pump()")))
+code = code.replace("@TRAINING@", training.replace('#include "addon.h"', ''))
 code = code.replace("@STARTUP@", "\n".join(function(main, s) for s in ("void SharedPump()", "bool StartRematchPump()")))
 setup = Path(r"C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat")
 with tempfile.TemporaryDirectory(prefix="nioh3-pump-") as tmp:

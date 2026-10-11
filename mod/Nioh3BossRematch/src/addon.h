@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.1"
+#define ADDON_VERSION "1.4.2"
 
 namespace addon {
 
@@ -74,6 +74,15 @@ extern volatile LONG g_active;          // inside BossBattleMode .. End
 void LastFightPlacements(char* buf, size_t n);
 bool PlacementSeenRecently(uint32_t id, double withinSec);
 double Now();
+}
+namespace training {
+// Entry-count groundwork only; no session snapshot, epochs or mutation API yet.
+struct EntryCounts { uint64_t create, begin, end, pumps; };
+bool Prepare();
+void SetPumpLive(bool installed);
+void Pump();
+bool Live();
+EntryCounts Counts();  // independent atomic totals, not a coherent session snapshot
 }
 namespace rematch {
 bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live
