@@ -1,5 +1,5 @@
 # Default: read-only plan. -Run is a bounded, ONE-launch root-coordinator experiment.
-# Same installed ASIs; no build/install, VirtualPad, SelfTest, Tour, relaunch or forced kill.
+# Optional privately built ASIs are staged transactionally; no build, relaunch or forced kill.
 [CmdletBinding()]
 param(
     [ValidateSet('A','B')][string]$Arm = 'B', [switch]$Run, [switch]$DryRun,
@@ -7,11 +7,14 @@ param(
     [ValidateRange(30,300)][int]$TrialSeconds = 180,
     [string]$Kit = 'D:\nioh3-re\rematch-pilots\C72E-native334140-20261011',
     [string]$GameDir = 'C:\Program Files (x86)\Steam\steamapps\common\Nioh3',
-    [string]$SaveRoot = '', [string]$OutDir = ''
+    [string]$SaveRoot = '', [string]$OutDir = '',
+    [string]$EngineCandidate = '', [string]$EngineCandidateSha256 = '',
+    [string]$RematchCandidate = '', [string]$RematchCandidateSha256 = ''
 )
 $ErrorActionPreference = 'Stop'
 if ($Run -and $DryRun) { throw '-Run and -DryRun are mutually exclusive' }
 . (Join-Path $PSScriptRoot 'c72e_pilot_lib.ps1')
+. (Join-Path $PSScriptRoot 'c72e_binary_lib.ps1')
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $BackupRoot=''; $CaptureRoot=''; $StateDir=''; $StashRoot=''; $OptiSrc=''; $global:LockKey=''
 . (Join-Path $repo 'tools\playsession\session_lib.ps1')
@@ -25,11 +28,15 @@ $engineIni = Join-Path $GameDir 'Nioh3EngineFix.ini'; $rematchIni = Join-Path $G
 $addonLog = Join-Path $GameDir 'Nioh3BossRematch.log'
 $hashes = @{ 'Nioh3EngineFix.asi' = 'dd8b5739062e364dfc708bd1f0f89dfc2b97477d66ae1fbfdfb6f50b0d4f2891'
     'Nioh3BossRematch.asi' = '02d763e76037365e8814820fc1ef9d3d713710435f63099d04d617e05966d4d1' }
-function Check-Asis {
-    foreach ($n in $hashes.Keys) {
-        if ((Get-FileHash -LiteralPath (Join-Path $GameDir $n) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hashes[$n]) { throw "Installed $n changed; this pilot pins the original 1.7.32/1.4.0 binaries" }
+function Check-Asis($Expected = $hashes) {
+    foreach ($n in $Expected.Keys) {
+        if ((C72-BinaryHash (Join-Path $GameDir $n)) -ne $Expected[$n]) { throw "Installed $n differs from its exact expected hash" }
     }
 }
+$binaryPlan=@(C72-BinaryPlan $GameDir $hashes @{
+    'Nioh3EngineFix.asi'=@{path=$EngineCandidate;hash=$EngineCandidateSha256}
+    'Nioh3BossRematch.asi'=@{path=$RematchCandidate;hash=$RematchCandidateSha256} })
+$runtimeHashes=@{}; foreach ($p in $binaryPlan) { $runtimeHashes[$p.name]=$p.candidate }
 $manifest = Get-Content -LiteralPath (Join-Path $Kit 'manifest.json') -Raw | ConvertFrom-Json
 foreach ($p in $manifest.artifacts.PSObject.Properties) {
     if ((Get-FileHash -LiteralPath (C72-Child $Kit $p.Name) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $p.Value) { throw "Pilot kit artifact changed: $($p.Name)" }
@@ -39,14 +46,15 @@ $selectedHash = if ($Arm -eq 'A') { '7c0c158df9b7c5bc0ce89b6b6fee3ee384c7db94bde
 if ((Get-FileHash -LiteralPath $catalog -Algorithm SHA256).Hash.ToLowerInvariant() -ne $selectedHash) { throw 'Selected catalogue differs from the reviewed kit' }
 Check-Asis
 foreach ($p in $engineIni,$rematchIni) { if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { throw "Required original INI missing: $p" } }
-$engineBytes = [IO.File]::ReadAllBytes($engineAsi)
+$engineBytes = [IO.File]::ReadAllBytes($binaryPlan[0].source)
 if ([Text.Encoding]::Unicode.GetString($engineBytes) -notmatch 'AutoContinueLoad' -and
     [Text.Encoding]::Unicode.GetString($engineBytes,1,$engineBytes.Length-1) -notmatch 'AutoContinueLoad') { throw 'Installed binary lacks the verified AutoContinueLoad key' }
 $plan = [ordered]@{ mode = 'PLAN_ONLY_NO_MUTATION'; arm = $Arm; start = $start; catalog = $catalog
-    installed_asi_hashes = $hashes; auto_continue = 'General.AutoContinueLoad=1 (350911e original 1.7.32 source; post-load tips only)'
-    title = 'Root manually selects Continue once; no OS input or engine upgrade'
+    installed_asi_hashes = $hashes; runtime_asi_hashes=$runtimeHashes; binary_plan=$binaryPlan
+    auto_continue = 'General.AutoContinueLoad=1 (post-load tips only; candidate behavior requires separate review)'
+    title = 'Root manually selects Continue once; no automated title input'
     saves = 'Fresh CURRENT entry SHA256 backup; read-only sharing locks deny current file overwrite/delete; exact post-exit restoration includes new files'
-    locks = @('nioh3-pc','nioh3'); launches = 1; relaunch = $false; kill = $false
+    locks = @('nioh3-pc'); launches = 1; relaunch = $false; kill = $false
     telemetry = 'First observed unpaused player/loading=0 at C72E/retry point; fnow=armed establishes pre-gate proxy. Control-enabled is NOT exposed.'
     verdict = 'First controllable frame requires root visual confirmation; F PASS is never instant proof'
     screenshots = 'Host screenshots before request, first observed player and BossBattleMode; root visual review required. No focus or input commands.' }
@@ -63,9 +71,10 @@ foreach ($r in $GameDir,$SaveRoot,$Kit,$repo) {
 $null = New-Item -ItemType Directory -Path $OutDir
 $script:HGdir = Join-Path $OutDir 'guard'
 $script:owned = $null; $script:saveHandles = $null; $script:entry = $null; $script:touched = $false; $script:cleaned = $false
+$script:binaryRecord = $null
 $script:held = New-Object 'System.Collections.Generic.List[string]'
 $script:result = [ordered]@{ arm=$Arm; start=$start; status='PREPARING'; instant_verdict='UNCONFIRMED_CONTROL_NOT_EXPOSED'
-    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; battle_observed=$false; saves_restored=$false; inis_restored=$false; error=$null }
+    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; battle_observed=$false; saves_restored=$false; inis_restored=$false; binaries_restored=$false; error=$null }
 $entryDir = Join-Path $OutDir 'entry-saves'; $iniDir = Join-Path $OutDir 'entry-inis'
 $events = Join-Path $OutDir 'events.jsonl'; $script:watch = [Diagnostics.Stopwatch]::StartNew()
 $LockId = "pc-c72e-$PID"
@@ -133,7 +142,9 @@ function Finish-C72 {
             }
             $script:result.inis_restored = $true
         }
+        if ($script:binaryRecord) { C72-BinaryRestore $script:binaryRecord }
         Check-Asis
+        $script:result.binaries_restored=$true
         for ($i=$script:held.Count-1; $i -ge 0; $i--) {
             $key=$script:held[$i]; $global:LockKey=$key; $r=Invoke-GameLock 'release'
             if ($r.code) { throw "Lock release failed: $key" }
@@ -161,7 +172,7 @@ function Guard-Fail([string]$why, [int]$code = 99) {
 }
 Init-Guard -Name c72e_native_pilot -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -MaxCrashes 1 -Cleanup { Finish-C72 }
 try {
-    foreach ($key in @('nioh3-pc','nioh3')) {
+    foreach ($key in @('nioh3-pc')) {
         $global:LockKey=$key; $r=Invoke-GameLock 'acquire' 1800
         if ($r.code) { throw "Shared lock '$key' unavailable: $($r.out)" }
         $script:held.Add($key)
@@ -176,6 +187,10 @@ try {
     $null = New-Item -ItemType Directory -Path $iniDir
     foreach ($n in @('Nioh3EngineFix.ini','Nioh3BossRematch.ini')) { Copy-Item -LiteralPath (Join-Path $GameDir $n) -Destination (Join-Path $iniDir $n) }
     C72-Json (Join-Path $OutDir 'entry-manifest.json') @{ captured_utc=[DateTime]::UtcNow.ToString('o'); save_root=$SaveRoot; saves=$script:entry; asis=$hashes; plan=$plan }
+    if ($EngineCandidate -or $RematchCandidate) {
+        $script:binaryRecord=C72-BinaryPrepare $binaryPlan (Join-Path $OutDir 'entry-binaries')
+        C72-BinaryStage $script:binaryRecord
+    }
     $empty = Join-Path $OutDir 'empty-arenas.tsv'
     Copy-Item -LiteralPath (Join-Path $Kit 'C72E-pilot-empty-arenas.tsv') -Destination $empty
     $lines = [IO.File]::ReadAllLines($rematchIni)
@@ -190,7 +205,7 @@ try {
     $script:touched=$true
     [IO.File]::WriteAllLines($rematchIni,$lines,(New-Object Text.UTF8Encoding($false)))
     [IO.File]::WriteAllLines($engineIni,$perf,(New-Object Text.UTF8Encoding($false)))
-    Check-Asis; Assert-Launch
+    Check-Asis $runtimeHashes; Assert-Launch
     if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { throw 'Game appeared before launch; refusing second launch' }
     $launched=[DateTime]::Now
     Start-Process -FilePath 'steam://rungameid/3681010' -WindowStyle Hidden
