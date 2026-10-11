@@ -497,7 +497,21 @@
     { "id": "VSMA3", "group": "VSMA", "rva": "0x1F8AF2", "len": 5, "orig": "E8 E9 0B 00 00", "kind": "call", "target": "caveVsmaBind", "call_at": 0, "callee": "0x1F96E0",
       "pattern": "85 FF 0F 84 ?? ?? ?? ?? 49 8B D7 48 8B CE E8 ?? ?? ?? ?? 45 33 DB 84 C0 74 5F", "offset": 14, "what": "1.7.49 VSMA: batch loop VsmTileBindViewport(clip rsi, ctx r15); samelook.asm passes rbx = tile, r14 = page manager, edi = budget to VsmaBindC: a waiting tile past the marked + front tiles off its phase is not bound (engine bind-failed path)" },
     { "id": "RCO1", "group": "RCO", "rva": "0x39B7CA", "len": 6, "orig": "FF 90 B8 04 00 00", "kind": "call", "target": "caveRco", "call_at": 0,
-      "pattern": "48 8B 06 48 8B CE 49 8B 17 FF 90 B8 04 00 00 48 8B 06 0F 28 D6", "offset": 9, "what": "1.7.49 LPVR/SKYR/FOGT/CLDR: RenderFrameSettingsApply 39B570, renderer vfunc +4B8h right after ApplyGraphicsSettings (rcx = S): caveRco writes the enabled knobs into S, then jumps to [rax+4B8h]" }
+      "pattern": "48 8B 06 48 8B CE 49 8B 17 FF 90 B8 04 00 00 48 8B 06 0F 28 D6", "offset": 9, "what": "1.7.49 LPVR/SKYR/FOGT/CLDR: RenderFrameSettingsApply 39B570, renderer vfunc +4B8h right after ApplyGraphicsSettings (rcx = S): caveRco writes the enabled knobs into S, then jumps to [rax+4B8h]" },
+    { "id": "GIS1", "group": "GIS", "rva": "0x18745A", "len": 5, "orig": "E8 F1 05 00 00", "kind": "call", "target": "caveGiScale", "call_at": 0, "callee": "0x187A50",
+      "pattern": "33 C9 E8 ?? ?? ?? ?? 8B CB 0F 28 F0 E8", "offset": 2, "what": "1.7.59 XGI: GiRenderScalesApply 1872C4 -> GiScaleLookup(0 = IndirectRenderScale); caveGiScale returns max(scale x ep_giMul, ep_giMin)" },
+    { "id": "GIS2", "group": "GIS", "rva": "0x187464", "len": 5, "orig": "E8 E7 05 00 00", "kind": "call", "target": "caveGiScale", "call_at": 0, "callee": "0x187A50",
+      "pattern": "8B CB 0F 28 F0 E8 ?? ?? ?? ?? B9 02 00 00 00 0F 28 F8", "offset": 5, "what": "1.7.59 XGI: GiScaleLookup(ebx = 1, ReflectionRenderScale)" },
+    { "id": "GIS3", "group": "GIS", "rva": "0x187471", "len": 5, "orig": "E8 DA 05 00 00", "kind": "call", "target": "caveGiScale", "call_at": 0, "callee": "0x187A50",
+      "pattern": "B9 02 00 00 00 0F 28 F8 E8 ?? ?? ?? ?? B9 03 00 00 00", "offset": 8, "what": "1.7.59 XGI: GiScaleLookup(2, IndirectRenderScaleForOcn)" },
+    { "id": "GIS4", "group": "GIS", "rva": "0x18747F", "len": 5, "orig": "E8 CC 05 00 00", "kind": "call", "target": "caveGiScale", "call_at": 0, "callee": "0x187A50",
+      "pattern": "B9 03 00 00 00 44 0F 28 C0 E8 ?? ?? ?? ?? 48 8B CE 8B D7 44 0F 28 D0", "offset": 9, "what": "1.7.59 XGI: GiScaleLookup(3, ReflectionRenderScaleForOcn)" },
+    { "id": "EPL1", "group": "EPL", "rva": "0x233A49", "len": 5, "orig": "E8 72 19 00 00", "kind": "call", "target": "caveMeshLod", "call_at": 0, "callee": "0x2353C0",
+      "pattern": "48 8B 4F 18 48 8B D6 E8 ?? ?? ?? ?? 48 8B D6 48 8B CF E8", "offset": 7, "what": "1.7.59 XLOD: GameUpdateTick 2338B0 -> ApplyMeshletLodScales(obj = [rdi+18h], rsi); caveMeshLod calls it, then ExtraPerfLodC scales obj+A108..A124" },
+    { "id": "EPF1", "group": "EPF", "rva": "0x4A5B76", "len": 8, "orig": "F3 0F 11 0D 8A 04 0C 04", "kind": "call", "target": "caveFxSim", "call_at": 0,
+      "pattern": "F3 0F 11 05 ?? ?? ?? ?? F3 0F 11 0D ?? ?? ?? ?? F3 0F 11 15 ?? ?? ?? ?? 44 89 1D", "offset": 8, "what": "1.7.59 XPRT: ViewRenderSetupEffectParams 4A58DC stores view+2650h (xmm1) to g_ViewGpuEffectSimFraction 4566008; caveFxSim stores xmm1 x ep_fxMul, all registers kept" },
+    { "id": "EPF2", "group": "EPF", "rva": "0x4A5B7E", "len": 8, "orig": "F3 0F 11 15 7A 04 0C 04", "kind": "call", "target": "caveFxDraw", "call_at": 0,
+      "pattern": "F3 0F 11 0D ?? ?? ?? ?? F3 0F 11 15 ?? ?? ?? ?? 44 89 1D ?? ?? ?? ?? 44 89 1D", "offset": 8, "what": "1.7.59 XPRT: view+2654h (xmm2) -> g_ViewGpuEffectDrawFraction 4566000; caveFxDraw stores xmm2 x ep_fxMul" }
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -630,6 +644,10 @@
     { "group": "VSMA", "rva": "0x1F8AD2", "bytes": "8B 53 08 8B 4B 04 89 8E 98 03 00 00 89 96 9C 03 00 00 85 FF 0F 84", "what": "VSMA: clip+398/39C = tile x / y written before the bind (kept for skipped tiles), test edi,edi (budget) before the bind" },
     { "group": "VSMA", "rva": "0x1F8094", "bytes": "4C 8B 81 18 01 04 00 4D 85 C0 74 23 8B 02 83 E0 0F 0F AF 81 E8 00 04 00 03 42 08 0F AF 81 E4 00 04 00 03 42 04 41 F6 04 80 04 74 03 B0 01 C3 32 C0 C3", "what": "VSMA: tile index ((t0 & 0xF) * [pm+400E8] + t[2]) * [pm+400E4] + t[1] into the u32 flags [pm+40118] (bit 2 requested, bit 0 valid) - VsmaBindC uses the same index and bit 0" },
     { "group": "VSMA", "rva": "0x8F041C", "bytes": "40 53 48 83 EC 20 41 8B D8 48 85 C9 74 21 BA E9 FA B3 37 41 B8 04 00 00 00 E8 46 1B 83 FF 48 85 C0 74 0C 48 8B 40 18 8B 00 48 83 C4 20 5B C3 8B C3 EB F6", "what": "VSMA: 8F041C(table, -, default) = node param 37B3FAE9 or default (read-only lookup); VsmClipmapRender compares it at 1F95BF (sub-light shadow throttle)" },
-    { "group": "RCO", "rva": "0x39B7B6", "bytes": "4D 8B C4 48 8B CD E8 DB EB FF FF 48 8B 06 48 8B CE 49 8B 17", "what": "RCO: ApplyGraphicsSettings 39A39C(app, -, r12) then rax = [rsi] (vtable), rcx = rsi = S, rdx = [r15] before the vfunc +4B8h call" }
+    { "group": "RCO", "rva": "0x39B7B6", "bytes": "4D 8B C4 48 8B CD E8 DB EB FF FF 48 8B 06 48 8B CE 49 8B 17", "what": "RCO: ApplyGraphicsSettings 39A39C(app, -, r12) then rax = [rsi] (vtable), rcx = rsi = S, rdx = [r15] before the vfunc +4B8h call" },
+    { "group": "GIS", "rva": "0x187A50", "bytes": "48 83 EC 78 48 8B 05", "what": "XGI: GiScaleLookup 187A50 is the leaf the 4 GIS sites call (sub rsp,78h; /GS cookie), result in xmm0" },
+    { "group": "GIS", "rva": "0x187484", "bytes": "48 8B CE 8B D7 44 0F 28 D0 E8", "what": "XGI: after the 4th lookup the caller reloads rcx / edx itself (nothing volatile is kept across the GIS calls)" },
+    { "group": "EPL", "rva": "0x233A4E", "bytes": "48 8B D6 48 8B CF E8", "what": "XLOD: after ApplyMeshletLodScales the caller reloads rdx / rcx and does not read rax" },
+    { "group": "EPF", "rva": "0x4A5B18", "bytes": "F3 0F 10 91 54 26 00 00 F3 0F 10 89 50 26 00 00 F3 0F 10 81 4C 26 00 00", "what": "XPRT: xmm2 = view+2654h (draw fraction), xmm1 = view+2650h (sim fraction), xmm0 = view+264Ch: the registers EPF1 / EPF2 store" }
   ]
 }

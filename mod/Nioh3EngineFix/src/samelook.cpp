@@ -5,6 +5,8 @@
 
 #include <windows.h>
 
+#include "extraperf.h"  // 1.7.59: the "Extra performance" render-config options ride on the same RCO cave
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -349,4 +351,5 @@ extern "C" void RcoApplyC(uint8_t* S) {
             g_knobSeen[k] = *p;
         }
     }
+    extraperf::ApplyS(S);  // 1.7.59 Extra performance options (no-op unless installed and a level is set)
 }

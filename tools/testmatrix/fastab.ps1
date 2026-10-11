@@ -109,16 +109,23 @@ if (Test-Path $lk) {
 
 # ---- control file / ack ------------------------------------------------------------------------------------------------------
 $script:state = @{}   # key -> current value written
+# LiveCtl applies every line of the file in order on each gen: a preset row (XPRE) goes FIRST, or 'XPRE = 0' after 'XCLD = 1'
+# would reset the level rows to the game's values (bug in the 2026-10-10 xp3 / xp4sky sessions).
+$script:epLv = "XCLD", "XFOG", "XGI", "XSHD", "XSHF", "XLOD", "XTER", "XPRT", "XAO", "XPOST"   # a non-zero preset in the file must not be followed by level rows (they would override it; xp5sky bug)
 function Write-Control([string]$tag) {
     $script:gen++
-    $t = "[Live]`r`nGen = $($script:gen)`r`nTag = $tag`r`n" + (($script:state.Keys | Sort-Object | ForEach-Object { "$_ = $($script:state[$_])" }) -join "`r`n") + "`r`n"
+    $t = "[Live]`r`nGen = $($script:gen)`r`nTag = $tag`r`n" + (($script:state.Keys | Where-Object { -not ($script:state["XPRE"] -and $script:state["XPRE"] -ne "0" -and $script:epLv -contains $_) } | Sort-Object { $(if ($_ -eq "XPRE") { 0 } else { 1 }) }, { $_ } | ForEach-Object { "$_ = $($script:state[$_])" }) -join "`r`n") + "`r`n"
     $tmp = "$ctl.w"
     [IO.File]::WriteAllText($tmp, $t, [Text.Encoding]::ASCII)
     Move-Item -LiteralPath $tmp -Destination $ctl -Force
 }
 function Read-Ack {
-    $h = @{}
-    foreach ($kv in ((Read-Shared $ack).Trim() -split '\s+')) { if ($kv -match '^([^=]+)=(.*)$') { $h[$Matches[1]] = $Matches[2] } }
+    for ($i = 0; $i -lt 25; $i++) {   # the ack is rewritten every 250-500 ms: retry a read that caught it mid-replace (empty / no clock fields; pc2 finding)
+        $h = @{}
+        foreach ($kv in ((Read-Shared $ack).Trim() -split '\s+')) { if ($kv -match '^([^=]+)=(.*)$') { $h[$Matches[1]] = $Matches[2] } }
+        if ($h.ContainsKey("frames") -and $h.ContainsKey("qpc_us")) { return $h }
+        Start-Sleep -Milliseconds 20
+    }
     return $h
 }
 function Wait-Ack([double]$sec = 6) {
@@ -277,7 +284,7 @@ try {
         # several PC agents share the bridge id 'pc', so a 'pc' holder may be us (run_when_idle.ps1 takes the lock before it starts
         # this script): then the only guard is that no other harness runs. Any other holder (pc2 / ally) = refuse.
         $global:LockKey = $LockKey; $h = Get-LockHolder
-        if ($h.holder -and $h.holder -ne "pc") { throw "the game lock '$LockKey' is held by '$($h.holder)' - wait for it (py -m uo_bridge.gamelock status $LockKey)" }
+        if ($h.holder -and $h.holder -ne $LockId) { throw "the game lock '$LockKey' is held by '$($h.holder)' - wait for it (py -m uo_bridge.gamelock status $LockKey)" }
         $par = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
         $other = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'powershell.exe' -and $_.ProcessId -ne $PID -and $_.ProcessId -ne $par -and
             $_.CommandLine -match 'fastab\.ps1|run_tour|abba2_pc|pc_gpu_session|cost_vs_looks|pc_weakcpu|weakcpu_stock|final_pc|pc_retest|cm_sim_pc|vrrp_ab_pc|load_pc' -and $_.CommandLine -notmatch 'run_when_idle' })

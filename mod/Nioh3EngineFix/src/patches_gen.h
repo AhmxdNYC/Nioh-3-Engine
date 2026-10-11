@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC, caveVsmaEntry, caveVsmaBudget, caveVsmaBind, caveRco };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC, caveVsmaEntry, caveVsmaBudget, caveVsmaBind, caveRco, caveGiScale, caveMeshLod, caveFxSim, caveFxDraw };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -357,6 +357,13 @@ static const uint8_t orig_VSMA1[] = { 0xE8, 0xD9, 0xF3, 0xCB, 0xFF };
 static const uint8_t orig_VSMA2[] = { 0xE8, 0xA9, 0xEE, 0xFF, 0xFF };
 static const uint8_t orig_VSMA3[] = { 0xE8, 0xE9, 0x0B, 0x00, 0x00 };
 static const uint8_t orig_RCO1[] = { 0xFF, 0x90, 0xB8, 0x04, 0x00, 0x00 };
+static const uint8_t orig_GIS1[] = { 0xE8, 0xF1, 0x05, 0x00, 0x00 };
+static const uint8_t orig_GIS2[] = { 0xE8, 0xE7, 0x05, 0x00, 0x00 };
+static const uint8_t orig_GIS3[] = { 0xE8, 0xDA, 0x05, 0x00, 0x00 };
+static const uint8_t orig_GIS4[] = { 0xE8, 0xCC, 0x05, 0x00, 0x00 };
+static const uint8_t orig_EPL1[] = { 0xE8, 0x72, 0x19, 0x00, 0x00 };
+static const uint8_t orig_EPF1[] = { 0xF3, 0x0F, 0x11, 0x0D, 0x8A, 0x04, 0x0C, 0x04 };
+static const uint8_t orig_EPF2[] = { 0xF3, 0x0F, 0x11, 0x15, 0x7A, 0x04, 0x0C, 0x04 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -607,6 +614,13 @@ static const Site kSites[] = {
     { "VSMA2", "VSMA", 0x1F8AB2, 5, orig_VSMA2, "49 8B 8A 30 3D 00 00 E8 ?? ?? ?? ?? 4C 8B C3 49 8B D5 49 8B CE 8B F8", 7, Kind::Call, nullptr, Target::caveVsmaBudget, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F7960 },
     { "VSMA3", "VSMA", 0x1F8AF2, 5, orig_VSMA3, "85 FF 0F 84 ?? ?? ?? ?? 49 8B D7 48 8B CE E8 ?? ?? ?? ?? 45 33 DB 84 C0 74 5F", 14, Kind::Call, nullptr, Target::caveVsmaBind, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1F96E0 },
     { "RCO1", "RCO", 0x39B7CA, 6, orig_RCO1, "48 8B 06 48 8B CE 49 8B 17 FF 90 B8 04 00 00 48 8B 06 0F 28 D6", 9, Kind::Call, nullptr, Target::caveRco, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "GIS1", "GIS", 0x18745A, 5, orig_GIS1, "33 C9 E8 ?? ?? ?? ?? 8B CB 0F 28 F0 E8", 2, Kind::Call, nullptr, Target::caveGiScale, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x187A50 },
+    { "GIS2", "GIS", 0x187464, 5, orig_GIS2, "8B CB 0F 28 F0 E8 ?? ?? ?? ?? B9 02 00 00 00 0F 28 F8", 5, Kind::Call, nullptr, Target::caveGiScale, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x187A50 },
+    { "GIS3", "GIS", 0x187471, 5, orig_GIS3, "B9 02 00 00 00 0F 28 F8 E8 ?? ?? ?? ?? B9 03 00 00 00", 8, Kind::Call, nullptr, Target::caveGiScale, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x187A50 },
+    { "GIS4", "GIS", 0x18747F, 5, orig_GIS4, "B9 03 00 00 00 44 0F 28 C0 E8 ?? ?? ?? ?? 48 8B CE 8B D7 44 0F 28 D0", 9, Kind::Call, nullptr, Target::caveGiScale, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x187A50 },
+    { "EPL1", "EPL", 0x233A49, 5, orig_EPL1, "48 8B 4F 18 48 8B D6 E8 ?? ?? ?? ?? 48 8B D6 48 8B CF E8", 7, Kind::Call, nullptr, Target::caveMeshLod, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x2353C0 },
+    { "EPF1", "EPF", 0x4A5B76, 8, orig_EPF1, "F3 0F 11 05 ?? ?? ?? ?? F3 0F 11 0D ?? ?? ?? ?? F3 0F 11 15 ?? ?? ?? ?? 44 89 1D", 8, Kind::Call, nullptr, Target::caveFxSim, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "EPF2", "EPF", 0x4A5B7E, 8, orig_EPF2, "F3 0F 11 0D ?? ?? ?? ?? F3 0F 11 15 ?? ?? ?? ?? 44 89 1D ?? ?? ?? ?? 44 89 1D", 8, Kind::Call, nullptr, Target::caveFxDraw, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 
@@ -713,6 +727,10 @@ static const uint8_t dep_127[] = { 0x8B, 0x53, 0x08, 0x8B, 0x4B, 0x04, 0x89, 0x8
 static const uint8_t dep_128[] = { 0x4C, 0x8B, 0x81, 0x18, 0x01, 0x04, 0x00, 0x4D, 0x85, 0xC0, 0x74, 0x23, 0x8B, 0x02, 0x83, 0xE0, 0x0F, 0x0F, 0xAF, 0x81, 0xE8, 0x00, 0x04, 0x00, 0x03, 0x42, 0x08, 0x0F, 0xAF, 0x81, 0xE4, 0x00, 0x04, 0x00, 0x03, 0x42, 0x04, 0x41, 0xF6, 0x04, 0x80, 0x04, 0x74, 0x03, 0xB0, 0x01, 0xC3, 0x32, 0xC0, 0xC3 };
 static const uint8_t dep_129[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x41, 0x8B, 0xD8, 0x48, 0x85, 0xC9, 0x74, 0x21, 0xBA, 0xE9, 0xFA, 0xB3, 0x37, 0x41, 0xB8, 0x04, 0x00, 0x00, 0x00, 0xE8, 0x46, 0x1B, 0x83, 0xFF, 0x48, 0x85, 0xC0, 0x74, 0x0C, 0x48, 0x8B, 0x40, 0x18, 0x8B, 0x00, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3, 0x8B, 0xC3, 0xEB, 0xF6 };
 static const uint8_t dep_130[] = { 0x4D, 0x8B, 0xC4, 0x48, 0x8B, 0xCD, 0xE8, 0xDB, 0xEB, 0xFF, 0xFF, 0x48, 0x8B, 0x06, 0x48, 0x8B, 0xCE, 0x49, 0x8B, 0x17 };
+static const uint8_t dep_131[] = { 0x48, 0x83, 0xEC, 0x78, 0x48, 0x8B, 0x05 };
+static const uint8_t dep_132[] = { 0x48, 0x8B, 0xCE, 0x8B, 0xD7, 0x44, 0x0F, 0x28, 0xD0, 0xE8 };
+static const uint8_t dep_133[] = { 0x48, 0x8B, 0xD6, 0x48, 0x8B, 0xCF, 0xE8 };
+static const uint8_t dep_134[] = { 0xF3, 0x0F, 0x10, 0x91, 0x54, 0x26, 0x00, 0x00, 0xF3, 0x0F, 0x10, 0x89, 0x50, 0x26, 0x00, 0x00, 0xF3, 0x0F, 0x10, 0x81, 0x4C, 0x26, 0x00, 0x00 };
 static const Dep kDeps[] = {
     { "RP", 0x311ED5, 12, dep_0, 0 },  // EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)
     { "RP", 0x311F58, 51, dep_1, 0 },  // EP: FileReqFree calls FileReqWaitAll 312754 (WFMO all, INFINITE) before its CloseHandle loop over [req+18h] events at [req+8]
@@ -845,6 +863,10 @@ static const Dep kDeps[] = {
     { "VSMA", 0x1F8094, 50, dep_128, 0 },  // VSMA: tile index ((t0 & 0xF) * [pm+400E8] + t[2]) * [pm+400E4] + t[1] into the u32 flags [pm+40118] (bit 2 requested, bit 0 valid) - VsmaBindC uses the same index and bit 0
     { "VSMA", 0x8F041C, 51, dep_129, 0 },  // VSMA: 8F041C(table, -, default) = node param 37B3FAE9 or default (read-only lookup); VsmClipmapRender compares it at 1F95BF (sub-light shadow throttle)
     { "RCO", 0x39B7B6, 20, dep_130, 0 },  // RCO: ApplyGraphicsSettings 39A39C(app, -, r12) then rax = [rsi] (vtable), rcx = rsi = S, rdx = [r15] before the vfunc +4B8h call
+    { "GIS", 0x187A50, 7, dep_131, 0 },  // XGI: GiScaleLookup 187A50 is the leaf the 4 GIS sites call (sub rsp,78h; /GS cookie), result in xmm0
+    { "GIS", 0x187484, 10, dep_132, 0 },  // XGI: after the 4th lookup the caller reloads rcx / edx itself (nothing volatile is kept across the GIS calls)
+    { "EPL", 0x233A4E, 7, dep_133, 0 },  // XLOD: after ApplyMeshletLodScales the caller reloads rdx / rcx and does not read rax
+    { "EPF", 0x4A5B18, 24, dep_134, 0 },  // XPRT: xmm2 = view+2654h (draw fraction), xmm1 = view+2650h (sim fraction), xmm0 = view+264Ch: the registers EPF1 / EPF2 store
 };
 constexpr int kNumDeps = sizeof(kDeps) / sizeof(kDeps[0]);
 

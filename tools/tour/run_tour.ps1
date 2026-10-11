@@ -198,7 +198,7 @@ try {
     if ($vp -and -not $DryRun -and $asiVer -ne "unknown" -and [version]$asiVer -lt [version]"1.7.37") { throw "the build is $asiVer; -Input vpad needs 1.7.37+" }
     if (-not $NoLock) {
         $h = Get-LockHolder
-        if ($h.ok -and $h.holder -and $h.holder -ne "pc") { throw "the game is in use on '$($h.holder)' (bridge game lock)" }
+        if ($h.ok -and $h.holder -and $h.holder -ne $LockId) { throw "the game is in use on '$($h.holder)' (bridge game lock)" }
         $r = Invoke-GameLock "acquire" ([Math]::Max(3600, $MaxMinutes * 60))
         if ($r.code -eq 1) { throw "the game lock is held by another device: $($r.out)" }
         if ($r.code -eq 0) { $script:lockHeld = $true; Say "game lock taken" } else { Say "game lock: bridge not reachable ($($r.out)) - continuing" Yellow }

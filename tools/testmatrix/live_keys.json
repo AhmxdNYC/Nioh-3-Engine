@@ -482,6 +482,94 @@
    "class": "live"
   },
   {
+   "key": "Preset",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XPRE = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XCLD",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XCLD = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XFOG",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XFOG = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XGI",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XGI = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XSHD",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XSHD = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XSHF",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XSHF = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XLOD",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XLOD = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XTER",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XTER = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XPRT",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XPRT = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XAO",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XAO = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XPOST",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XPOST = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
    "key": "WorkerCap",
    "section": "Patches",
    "cls": "relaunch",
@@ -1212,6 +1300,14 @@
   {
    "key": "GIMergeQualify",
    "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Enabled",
+   "section": "ExtraPerf",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
    "why": "read once at boot (install / hook / thread / boot list)",
@@ -2346,6 +2442,22 @@
    "class": "relaunch"
   },
   {
+   "key": "EPF",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "EPL",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
    "key": "FGP",
    "section": "Patches",
    "cls": "relaunch",
@@ -2355,6 +2467,14 @@
   },
   {
    "key": "FP",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "GIS",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms",

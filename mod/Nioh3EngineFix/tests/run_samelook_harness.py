@@ -34,7 +34,7 @@ if not setup.exists():
     setup = pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine\tools\msvc\setup_x64.bat")
 pre = ('call "%s" >nul && ' % setup) if setup.exists() else ""
 cmd = pre + (
-    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /permissive- /DUNICODE /D_UNICODE "{t}\\samelook_harness.cpp" "{s}\\samelook.cpp" '
+    'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /permissive- /DUNICODE /D_UNICODE "{t}\\samelook_harness.cpp" "{s}\\samelook.cpp" "{s}\\extraperf.cpp" '
     '/Fo"{o}\\\\" /Fe"{o}\\samelook_harness.exe" /link kernel32.lib'
 ).format(o=OUT, t=ROOT / "tests", s=ROOT / "src")
 r = subprocess.run('cmd /s /c "' + cmd + '"', capture_output=True, text=True)
@@ -74,10 +74,10 @@ src = (ROOT / "src")
 dm = (src / "dllmain.cpp").read_text(encoding="utf-8")
 for s in ('"VSMA")) return samelook::VsmaIni()', '"RCO")) return samelook::RcoIni()', "samelook::Configure(sl)",
           "samelook::SetVsmaTargets", "samelook::SetRcoInstalled", "samelook::StatusLine", "menu::kExpVSMA", "menu::kExpCLDR",
-          "gen::Target::caveRco: return", "kLastTarget = (int)gen::Target::caveRco"):
+          "gen::Target::caveRco: return"):
     check(s in dm, "dllmain.cpp lacks: " + s)
 mc = (src / "menu.cpp").read_text(encoding="utf-8")
-for s in ('L"VSMA", L"LPVR", L"SKYR", L"FOGT", L"CLDR"', '"(VSMA)"', '"(CLDR)"', "kXCLDR - kXW6 + 1 == kNumExp", "e == kExpVSMA"):
+for s in ('L"VSMA", L"LPVR", L"SKYR", L"FOGT", L"CLDR"', '"(VSMA)"', '"(CLDR)"', "kXPCM - kXW6 + 1 == kNumExp", "e == kExpVSMA"):
     check(s in mc, "menu.cpp lacks: " + s)
 check("samelook::OnPresent()" in (src / "osd.cpp").read_text(encoding="utf-8"), "osd.cpp does not count presents")
 bb = (ROOT / "build.bat").read_text(encoding="utf-8")

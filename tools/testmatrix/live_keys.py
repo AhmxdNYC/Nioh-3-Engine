@@ -27,6 +27,10 @@ BASE_ROWS = [("VRR", "VRR.Enabled"), ("W3", "Patches.W3"), ("W3MODE", "Tuning.W3
 OTHER_LIVE = {   # rows after the experimental block (menu.cpp kItems), LiveCtl key -> ini key
     "GPU": "GpuOpt.Barriers", "R2A": "GpuOpt.R2a", "R2B": "GpuOpt.R2b", "R1GPU": "GpuOpt.R1", "FPS": "Overlay.FpsCounter",
     "FRAMETIME": "Overlay.FrameTime", "SPEED": "Overlay.Speed", "AUTOCONTINUELOAD": "General.AutoContinueLoad", "PAUSEHINT": "Menu.PauseHint",
+    # 1.7.59 Extra performance level rows (extraperf.cpp; LiveCtl 'XCLD = 2', fastab 'XCLD=0/3'; XPRE = preset 0/1/2)
+    "XPRE": "ExtraPerf.Preset", "XCLD": "ExtraPerf.XCLD", "XFOG": "ExtraPerf.XFOG", "XGI": "ExtraPerf.XGI", "XSHD": "ExtraPerf.XSHD",
+    "XSHF": "ExtraPerf.XSHF", "XLOD": "ExtraPerf.XLOD", "XTER": "ExtraPerf.XTER", "XPRT": "ExtraPerf.XPRT", "XAO": "ExtraPerf.XAO",
+    "XPOST": "ExtraPerf.XPOST",
 }
 NEXT_LAUNCH_ROWS = {"WORKERCAP": "Patches.WorkerCap", "P12": "Patches.P12"}
 LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning / samelook::SetTuning)
