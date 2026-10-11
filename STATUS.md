@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 - Rendering first; clean Claude return
+- User delegated rendering versus training-mode priority to Codex. Decision: finish rendering safety and release readiness first; training remains a concise researched plan. Ledger/Claude return handoff updated; this supersedes older training-priority phone item1789.
+- First serial worker finished/pushed audit406b19d and main handoffae77b38. Eleven negative-control checks reproduced hazards, not release safety. Next concrete unit: fail-closed FO emitter availability, then queue/bounds/lifetime closure with proof. Main1.7.61/FO0 remains usable; remote gates unchanged.
+- Controller observed enabled/ready, worker_pid=null. First-worker total2,590,276reported input+outputtokens (2,466,304cached input included) reached the2,000,000daily cap. Next automatic worker waits for daily rollover. Temporary manual lead-active hold protects this docs update and will be released after commit; no active competing writer or new game launch. Claude remains paused until the user's ownership transfer.
+
 ## UPDATE 2026-10-11 - User1786: preserve a clean return to Claude
 - User phone steering1786 acknowledged: continuation remains enabled, independent ready work continues; only the user resumes Claude after pausing Codex and waiting for its active worker. Do not call/wake Claude. No controller-state changes.
 - Main audit checkpoint a68a2c4 and experimental406b19d pushed; audit failures/evidence, remote gates, restoration and exact next repair are in notes/claude-return-handoff.md. Progress report and ledger updated. Current source owner is this serial worker until checkpoint/exit; no game running.
