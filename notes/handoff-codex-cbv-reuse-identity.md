@@ -1,0 +1,29 @@
+# CBV reuse identity: bounded lifecycle audit
+
+2026-10-11, static/read-only except this private note. No source/test edits, builds, game, bridge, Ghidra, public changes or native dump census. Existing CBMODE0/6 fixed-spot A/B already passed on PC, pc2 and Ally; it is not proposed again. This follows the compute-cache handoff without proposing compute serving memo or duplicating KL_Div4.
+
+**Result:** ordinary list-pointer reuse, ring wrap and in-call cuts have a concrete invariant and meaningful existing coverage. Context/resource recreation with repeated identity is a missing witness, not a demonstrated reachable defect. The next useful unit is that focused offline/native-lifetime proof, not another unchanged fixed-spot performance trial.
+
+## Existing target and evidence
+
+The retained feature is CBN/CBT at `SynFlushCbvTables118DA8 -> SynUploadCbvTable118E28`, wrapped by `CbuTableCall`, call site118E19. It avoids byte-identical constant uploads and reuses the same open list's CBV table. The profile identifies dispatcher Memcpy/constant upload and descriptor creation as a critical-path cost (`cpu-bound-midrange.md:60–61`). Archived pc2 CBU1 reports handlers20.53->17.07ms/frame and CreateCBV1.521->1.006ms/frame (`captures/pc2/cbu1/rpf_per_arm.txt`, mode6). These are historical component observations, not current whole-mod or new performance claims. Release profiles mark both keys kept/default1 (`release/profiles.json:107,114`).
+
+Build identity is already checked: `cbvupload.cpp:30–33,643–647` fingerprints flush/upload/descriptor-allocator functions and verifies call targets; refusal on unsupported v2.02 or CbvMirror is at635–651. The wrapper depends on `ShaderVisibleDescRingAlloc1192B0`. Only authorized `118E28*.c` / `1192B0*.c` globs were attempted under D:/nioh3-re/decomp; they returned no paths, so this note relies on actual source and the existing verified renderer resource notes.
+
+## Closed conditional invariant
+
+`cbvupload.cpp:292–300` requires equal cached bytes/declared size/epoch plus current fence tag c+6D0, list pointer c+580, staging heap c+940 and native last-upload size c+F30 before clearing a dirty bit. `:308–318` adds table n/root equality and still issues SetGraphicsRootDescriptorTable. `:360–373` admits a saved table only when descriptor cursor/wrap delta and every newly allocated descriptor stamp match the open-list tag.
+
+The native lifetime rule recorded in `renderer/06-resources.md:22,25,76–77` is per-list fencing: current-list uploads/descriptors cannot be recycled until their list signals/completes; the open tag is list-ring counter+1 and close increments that counter. Thus cycling the same COM list pointer does not repeat the full identity while tags advance. Pointer equality alone is not the proof. If a ring-full cut happens inside the original upload, `cbvupload.cpp:326–340` invalidates the affected stage and reuploads precisely the skipped slots into the new list before any draw. This is narrower than a general device/recreation guarantee.
+
+Existing harness uses relocated real118E28 and1192B0 code plus mocked allocation/submit/wait. `cbvupload_harness.cpp:237–239` increments tag and cycles four list objects; poisoned granules/allocation serials and bind-time/close-time checks cover overwrite under an open list (`:225–234,245–269,289–298`). Tiny rings force thousands of in-call cuts. The archived30000-call/270-list trace compares bind bytes and safe-view lifetime (`renderer/cbv-upload.md:69–81`). No compiler/harness rerun was needed for this audit.
+
+## Missing identity witness
+
+Production `Find(c)` is a process-retained cache keyed solely by raw SynCtx address (`cbvupload.cpp:90–113`). Record/table epoch advances when tracking resumes after an untracked call (`:263–275`); tag/list changes prevent hits and in-call cuts invalidate stage records. The only global cache destruction in this module is `TestReset`, inside CBU_HARNESS (`:540–550`), not a native context-destruction notification. CBT's hit test does not compare current shader-visible heap GPU base c+9A8, descriptor-stamp-array pointer or a resource-generation identity; those are used when recording the handle, not in its later hit test.
+
+The harness resets this retained cache before each synthetic/replay run (`cbvupload_harness.cpp:509,654`). Trace replay selects only the dominant raw context and converts any recorded tag change into one mock CloseList/tag increment (`:644–680`); raw list addresses and tag resets are not recreated. It therefore does not establish behavior after SynCtx address reuse, tag reset, fence/resource recreation, or same-owner descriptor-heap replacement while old cache records survive.
+
+One precise next witness: retain production cache records, then recreate the mock/native owner at the same c address and deliberately repeat tag/list/staging/size/root/n/bytes while retiring/poisoning the previous upload or replacing the shader-visible heap. Do not call TestReset between generations. Compare the next bound table/view to stock, assert its resource generation, and check that the previous handle is never served. This is an adversarial identity test, not a claim that the game can reach that state. Also include a control with a changed tag, which must miss and remain byte-identical to stock.
+
+To close the native question, prove either (a) SynCtx and its relevant rings/heaps cannot be destroyed/reinitialized while this module remains active, or (b) every reachable reset/recreation changes the complete reuse tuple or forces a stock upload/new epoch before any hit. Constructor dirty-mask/size initialization could provide that proof; it has not been established here. A generation hook or larger key should only be chosen after the reachable ownership/mutation path is known. Existing fixed-spot visual results and monotonic-tag harness cases cannot substitute for this witness; no installed settings or shipping status changed.
