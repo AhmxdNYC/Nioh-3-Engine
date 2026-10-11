@@ -66,7 +66,18 @@ for i in outer:
         lock_calls.append((i.address,names[i.address+i.size+i.operands[0].mem.disp]))
 assert lock_calls==[(0x490743,'AcquireSRWLockExclusive'),(0x490856,'ReleaseSRWLockExclusive')]
 assert lock_calls[0][0]<0x490817<lock_calls[1][0]
+teardown={i.address:(i.mnemonic,i.op_str) for i in md.disasm(b[0x2f00bc4:0x2f00bc4+1035],0x2f00bc4)}
+for address,expected in {
+    0x2f00bdf:('mov','r14b, r8b'),
+    0x2f00d46:('test','r14b, r14b'),
+    0x2f00d49:('jne','0x2f00d6b'),
+    0x2f00d66:('call','0x2f00ac8'),
+    0x2f00d6b:('mov','rcx, qword ptr [rbx + 0x818]'),
+    0x2f00d77:('call','0x256810'),
+    0x2f00d7c:('mov','qword ptr [rbx + 0x818], r15'),
+}.items(): assert teardown[address]==expected,(hex(address),teardown.get(address))
 print(json.dumps(dict(result='PASS',resource_lock_modes={'1':'shared','2':'exclusive','other':'no helper lock'},
+    compute_teardown='third flag may skip cache clear, but does not skip nonnull lock-pointer cleanup; invalidate on entry regardless of flag',
     reviewed_vtable28_callers=callers,outer_context_lock='4906E8: context+6EA8 exclusive around call 490817; other caller closure unresolved',
     resource_lock_windows=out,compute_trim_release=hex(release),compute_trim_remove=hex(remove),
     scope='Bounded native structure only; no complete producer/lifetime proof or FPS result'),indent=2))
