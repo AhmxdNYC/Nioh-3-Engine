@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - FO98 producer lock mode trace
+
+Resource SRW modes and producer scope traced; three static provenance checks PASS. Caller modes/closure remain open. FO NO-GO; no production/default/performance change. See notes/handoff-codex-fo98-producer-lock.md.
+
 ## 2026-10-11 Codex - FO98 retirement work publication
 
 ## 2026-10-11 - Codex FO98 pre-publication cleanup trace

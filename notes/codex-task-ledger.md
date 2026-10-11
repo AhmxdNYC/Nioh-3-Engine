@@ -2,6 +2,12 @@
 
 Owner: one serial Codex lead. User authorized all remaining work and Codex auto-continuation/phone chat on 2026-10-11. Claude must remain paused; its auto-wake stays disabled. Read AGENT_BRIEF.md, this ledger, and only the relevant newest STATUS entries. Original ordered brief: notes/codex-handoff-prompt.md; its old stop-after-each-step/no-Codex-auto-wake wording is superseded by the user's explicit continuation request.
 
+## Latest checkpoint - FO98 producer lock modes traced
+- Resolved 12B0D0/12AF40 as resource+198 SRW acquire/release: mode1 shared, mode2 exclusive, other modes no lock. 2F06AB4 holds the selected mode across bitmap update and opcode98 emission. 152D48 adds no wait/call edge. Evidence: notes/handoff-codex-fo98-producer-lock.md.
+- Three new static provenance checks PASS; actual caller modes/stream ownership and producer closure remain unresolved. No runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent 41a1b74; experimental24494d5 and tested1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
+- No local game/test at entry/checkpoint; no lock, Ghidra, build/deployment or installed ASI/INI/config/save/settings/hardware change. Prior restoration retained; controller untouched; no Claude call/wake. Phone inbox empty. Remote1767/1768/1781 pending at last known bridge1785; no fresh query.
+- Next ready unit: identify indirect resource vtable+28 callers and r9d modes; trace context stream ownership/closure across endFrame. Cache+20 identity, GPU completion and ring restart remain open. Commit/push with Codex attribution and Discord result after push; use git log -1 for checkpoint commit.
+
 ## Latest checkpoint - FO98 concrete resource vtable traced
 - Resolved record[1] for two allocation paths through constructor 254BA4/vtable 38EB460: +B8 is accounting via 127A48; +B0 is the object+178 non-null predicate. The same class +28 emits 1010098 via 2F06AB4; cache-object identity remains unresolved. Evidence: notes/handoff-codex-fo98-resource-vtable.md.
 - Nine new static provenance checks PASS; 490B44 is bitmap bookkeeping. No GPU completion, runtime/lifetime/safety/performance verdict; FO remains NO-GO. Parent b18b055; experimental 24494d5 and tested 1.7.61/FO0/default visuals unchanged. Prior passed suites not repeated.
