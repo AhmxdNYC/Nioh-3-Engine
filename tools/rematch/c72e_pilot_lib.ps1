@@ -108,7 +108,40 @@ function C72-FirstCandidate([string]$Reply, [bool]$SawLoad, [int]$Start) {
     # Proxy ONLY: the ASI exposes pause/loading/player flags, not control-enabled or a render-frame boundary.
     return $SawLoad -and (C72-Field $Reply 'mission') -eq '0xC72E' -and
         (C72-Field $Reply 'stage') -eq "$Start" -and (C72-Field $Reply 'loading') -eq '0' -and
-        (C72-Field $Reply 'player') -eq '1' -and $Reply -match 'gate=(rematch active|mission queue busy)(?: |$)'
+        (C72-Field $Reply 'player') -eq '1' -and $Reply -match 'gate=(rematch active|mission queue busy|native replay/return still pending)(?: |$)'
+}
+function C72-ObserveEntry($Observation,[string]$Reply,[int]$Start,[double[]]$Target,[double]$ElapsedMs) {
+    if ((C72-Field $Reply 'loading') -eq '1') { $Observation.saw_load=$true }
+    $mission=(C72-Field $Reply 'mission') -eq '0xC72E'
+    if (-not $Observation.native_start -and $Observation.saw_load -and $mission -and (C72-Field $Reply 'stage') -eq "$Start" -and (C72-Field $Reply 'player') -eq '1') {
+        $Observation.native_start=@{reply=$Reply;elapsed_ms=$ElapsedMs;loading=(C72-Field $Reply 'loading');kind='REQUESTED_MISSION_RETRY_NOT_CONTROL'}
+    }
+    if (-not $Observation.battle -and $mission -and (C72-Field $Reply 'infight') -eq '1' -and $Reply -match 'placements=\[[^\]]*\b333550(?:\(|\s|\])') {
+        $Observation.battle=@{reply=$Reply;elapsed_ms=$ElapsedMs;kind='NATIVE_BOSS_EVENT_NOT_CONTROL'}
+    }
+    if (-not $Observation.first_player -and (C72-FirstCandidate $Reply $Observation.saw_load $Start)) {
+        $land=C72-Landing $Reply $Target
+        $land.elapsed_ms=$ElapsedMs;$land.reply=$Reply;$land.control='UNCONFIRMED';$land.pause_validity='NOT_INDEPENDENTLY_EXPOSED'
+        $Observation.first_player=$land
+    }
+    return [bool]($Observation.first_player -and $Observation.battle -and (C72-FirstCandidate $Reply $Observation.saw_load $Start))
+}
+function C72-CheckControlReview($Request,$Review) {
+    foreach ($key in @('nonce','owner_pid','owner_start','runner_pid','runner_start','game_pid','game_start')) {
+        if ([string]$Request.$key -cne [string]$Review.$key) { throw "Stale/foreign control review: $key" }
+    }
+    foreach ($key in @('visible_arena','visible_boss','control_response')) {
+        if ($Review.$key -isnot [bool] -or -not $Review.$key) { throw "Root did not confirm $key" }
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$Review.evidence)) { throw 'Root visual/control evidence required' }
+}
+function C72-ReturnProxySettled($Tracker,[long]$NowMs,[string]$Reply,[int]$Start) {
+    $good=(C72-FirstCandidate $Reply $true $Start) -and (C72-Field $Reply 'warps') -eq '0' -and (C72-Field $Reply 'spawn') -eq '-'
+    if ($null -ne $Tracker.last -and ($NowMs -lt $Tracker.last -or $NowMs-$Tracker.last -gt 1500)) { $Tracker.since=$null }
+    $Tracker.last=$NowMs
+    if (-not $good) { $Tracker.since=$null;return $false }
+    if ($null -eq $Tracker.since) { $Tracker.since=$NowMs }
+    return $NowMs-$Tracker.since -ge 4000 # proxy only: native AttemptReturnGate remains authoritative
 }
 function C72-Landing([string]$Reply, [double[]]$Target) {
     $xyz = (C72-Field $Reply 'pos').Split(',')

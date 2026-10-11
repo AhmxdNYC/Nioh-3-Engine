@@ -5,6 +5,7 @@ param(
     [ValidateSet('A','B')][string]$Arm = 'B', [switch]$Run, [switch]$DryRun,
     [int]$OwnerPid = 0, [ValidateRange(2,12)][int]$MaxMinutes = 10,
     [ValidateRange(30,300)][int]$TrialSeconds = 180,
+    [ValidateRange(15,180)][int]$ReviewSeconds = 90,
     [string]$Kit = 'D:\nioh3-re\rematch-pilots\C72E-native334140-20261011',
     [string]$GameDir = 'C:\Program Files (x86)\Steam\steamapps\common\Nioh3',
     [string]$SaveRoot = '', [string]$OutDir = '',
@@ -55,7 +56,8 @@ $plan = [ordered]@{ mode = 'PLAN_ONLY_NO_MUTATION'; arm = $Arm; start = $start; 
     title = 'Root manually selects Continue once; no automated title input'
     saves = 'Fresh CURRENT entry SHA256 backup; read-only sharing locks deny current file overwrite/delete; exact post-exit restoration includes new files'
     locks = @('nioh3-pc'); launches = 1; relaunch = $false; kill = $false
-    telemetry = 'First observed unpaused player/loading=0 at C72E/retry point; fnow=armed establishes pre-gate proxy. Control-enabled is NOT exposed.'
+    telemetry = 'Earliest loading=0/player proxy, native start and expected boss event recorded separately; pending gate masks pause/read validity. Control-enabled is NOT exposed.'
+    root_review = "Explicit nonce/process-bound arena, boss and control-response review required within $ReviewSeconds seconds before one native return; first-controllable timing remains unknown."
     verdict = 'First controllable frame requires root visual confirmation; F PASS is never instant proof'
     screenshots = 'Host screenshots before request, first observed player and BossBattleMode; root visual review required. No focus or input commands.' }
 if (-not $Run) { $plan | ConvertTo-Json -Depth 5; return }
@@ -74,7 +76,7 @@ $script:owned = $null; $script:saveHandles = $null; $script:entry = $null; $scri
 $script:binaryRecord = $null
 $script:held = New-Object 'System.Collections.Generic.List[string]'
 $script:result = [ordered]@{ arm=$Arm; start=$start; status='PREPARING'; instant_verdict='UNCONFIRMED_CONTROL_NOT_EXPOSED'
-    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; battle_observed=$false; saves_restored=$false; inis_restored=$false; binaries_restored=$false; request_disposition='NOT_SENT'; error=$null }
+    started_utc=[DateTime]::UtcNow.ToString('o'); first_observed=$null; native_start=$null; battle_observed=$false; battle_evidence=$null; root_control_confirmed=$false; control_review=$null; saves_restored=$false; inis_restored=$false; binaries_restored=$false; request_disposition='NOT_SENT'; error=$null }
 $entryDir = Join-Path $OutDir 'entry-saves'; $iniDir = Join-Path $OutDir 'entry-inis'
 $events = Join-Path $OutDir 'events.jsonl'; $script:watch = [Diagnostics.Stopwatch]::StartNew()
 $LockId = "pc-c72e-$PID"
@@ -247,7 +249,8 @@ try {
     $requestLogBefore=C72-ReadShared $addonLog
     $q=Invoke-C72Pipe 'fight RC72E'; if ($q -notmatch '^queued') { throw "Fight request refused: $q" }
     $script:result.request_disposition='QUEUED_ACK_ONLY'
-    $script:watch.Restart(); $sawLoad=$false; $script:result.status='OBSERVING'; $until=[DateTime]::Now.AddSeconds($TrialSeconds)
+    $script:watch.Restart(); $entryObservation=@{saw_load=$false;native_start=$null;battle=$null;first_player=$null}
+    $script:result.status='OBSERVING'; $until=[DateTime]::Now.AddSeconds($TrialSeconds)
     do {
         $refusal=C72-NewRefusal $requestLogBefore (C72-ReadShared $addonLog)
         if ($refusal) {
@@ -256,24 +259,44 @@ try {
         }
         $s=Invoke-C72Pipe 'status'
         if ($s -match 'gate=(online|co-op session)' -or (C72-Field $s 'warps') -ne '0' -or (C72-Field $s 'spawn') -ne '-') { throw "Unexpected network/warp/spawn state: $s" }
-        if ((C72-Field $s 'loading') -eq '1') { $sawLoad=$true }
-        if (-not $script:result.first_observed -and (C72-FirstCandidate $s $sawLoad $start)) {
-            $land=C72-Landing $s $target; $land.elapsed_ms=$script:watch.Elapsed.TotalMilliseconds; $land.reply=$s
+        $observed=C72-ObserveEntry $entryObservation $s $start $target $script:watch.Elapsed.TotalMilliseconds
+        $script:result.native_start=$entryObservation.native_start
+        $script:result.battle_observed=[bool]$entryObservation.battle
+        $script:result.battle_evidence=$entryObservation.battle
+        if (-not $script:result.first_observed -and $entryObservation.first_player) {
+            $land=$entryObservation.first_player
             $script:result.first_observed=$land; C72-Json (Join-Path $OutDir 'first-observed.json') $land
             Shot 'first-observed-player'
             Write-Host "FIRST OBSERVED PLAYER PROXY: $($land.position -join ',') before_gate=$($land.before_gate) near_target=$($land.near_target). Root visual capture required."
-            if (-not $land.before_gate -or -not $land.near_target) { throw 'Wrong landing or pre-gate proxy missed; no instant-entry claim' }
         }
-        if ((C72-Field $s 'infight') -eq '1' -and (C72-Field $s 'mission') -eq '0xC72E') { $script:result.battle_observed=$true; break }
+        if ($observed) { break } # battle during intro is retained, never an early completion
         if ((C72-Field $s 'fnow') -eq 'fail') { throw 'Native gate/encounter verifier failed' }
         Start-Sleep -Milliseconds 25
     } while ([DateTime]::Now -lt $until)
     if (-not $script:result.first_observed -or -not $script:result.battle_observed) { throw 'Bounded observation incomplete' }
     Shot 'boss-observed'
-    if ($s -notmatch 'placements=\[[^\]]*\b333550(?:\(|\s|\])') { throw 'Current fight telemetry lacks the expected placement' }
-    $log=C72-ReadShared $addonLog
+    $log=(C72-ReadShared $addonLog)
+    $null=C72-NewRefusal $requestLogBefore $log # verifies the pre-request log prefix still belongs to this run
+    $log=$log.Substring($requestLogBefore.Length)
     if ($log -notmatch 'arena: BossBattleMode start[^\r\n]*mission 0xC72E[^\r\n]*333550') { throw 'BossBattleMode log lacks the expected mission/placement' }
-    $script:result.status='LANDING_PROXY_AND_BOSS_OBSERVED'
+    $reviewRequest=@{nonce=[guid]::NewGuid().ToString('N');owner_pid=$OwnerPid;owner_start=$global:HG.ownerStart.ToString('o');
+        runner_pid=$PID;runner_start=(Get-Process -Id $PID).StartTime.ToString('o');game_pid=$script:owned.Id;game_start=$script:owned.StartTime.ToString('o')}
+    C72-Json (Join-Path $OutDir 'control-review-request.json') $reviewRequest
+    C72-Json (Join-Path $OutDir 'result.json') $script:result
+    Write-Host "WAITING FOR ROOT CONTROL REVIEW ($ReviewSeconds seconds): confirm visible arena, boss and actual control response with publish_c72e_control_review.ps1. First-player telemetry is not control proof."
+    $reviewPath=Join-Path $OutDir 'control-review.json';$reviewUntil=[DateTime]::UtcNow.AddSeconds($ReviewSeconds)
+    do { Assert-Owned;if (Test-Path -LiteralPath $reviewPath) { break };Start-Sleep -Milliseconds 250 } while ([DateTime]::UtcNow -lt $reviewUntil)
+    if (-not (Test-Path -LiteralPath $reviewPath)) { throw 'Root control review absent within bound; control remains unconfirmed' }
+    $review=Get-Content -LiteralPath $reviewPath -Raw|ConvertFrom-Json;C72-CheckControlReview ([pscustomobject]$reviewRequest) $review
+    $script:result.root_control_confirmed=$true;$script:result.control_review=$review
+    $returnTracker=@{since=$null;last=$null};$returnReady=$false;$returnUntil=[DateTime]::UtcNow.AddSeconds(15)
+    do {
+        $s=Invoke-C72Pipe 'status';$returnReady=C72-ReturnProxySettled $returnTracker $script:watch.ElapsedMilliseconds $s $start
+        if (-not $returnReady) { Start-Sleep -Milliseconds 250 }
+    } while (-not $returnReady -and [DateTime]::UtcNow -lt $returnUntil)
+    if (-not $returnReady) { throw 'Return observation proxy did not settle; no return command sent' }
+    $script:result.return_gate_evidence='FOUR_SECOND_TELEMETRY_PROXY_NATIVE_WRAPPER_AUTHORITATIVE'
+    $script:result.status=if ($script:result.first_observed.before_gate -and $script:result.first_observed.near_target) { 'LANDING_PROXY_AND_BOSS_OBSERVED' } else { 'ROOT_CONFIRMED_NATIVE_ENTRY_FIRST_CONTROL_TIME_UNKNOWN' }
     $null=Invoke-C72Pipe 'exit' # One native mission return; no retry or relaunch.
     Start-Sleep -Seconds 2
 } catch { $script:result.status='TRIAL_FAILED'; $script:result.error="$_"; Write-Warning "$_" }
@@ -281,4 +304,4 @@ finally {
     try { Finish-C72 } finally { Done-Guard -KeepFile:(-not $script:cleaned) }
 }
 Write-Host "Result: $(Join-Path $OutDir 'result.json'); instant entry remains unconfirmed until root checks visual evidence."
-if ($script:result.status -ne 'LANDING_PROXY_AND_BOSS_OBSERVED' -or -not $script:cleaned) { exit 1 }
+if ($script:result.status -notin @('LANDING_PROXY_AND_BOSS_OBSERVED','ROOT_CONFIRMED_NATIVE_ENTRY_FIRST_CONTROL_TIME_UNKNOWN') -or -not $script:result.root_control_confirmed -or -not $script:cleaned) { exit 1 }

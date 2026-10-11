@@ -176,3 +176,43 @@ Candidate B DryRun also PASS against root-reviewed private build9eeb174 using:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/run_c72e_native_pilot.ps1 -DryRun -EngineCandidate 'D:\nioh3-wt\codex-settings-menu-v4\mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi' -EngineCandidateSha256 '6890c0605e3346d915f7f2263337716ea1ddad6c0b4ea36efebb2c4d4aa8e32d' -RematchCandidate 'D:\nioh3-wt\codex-settings-menu-v4\mod\Nioh3BossRematch\bin\Nioh3BossRematch.asi' -RematchCandidateSha256 '50484e3b0e39c5621fb7b829122f92380db017fd87d64ed0e2f96a1acb3b9b07'
 ```
+
+## Native intro observation and explicit control review
+
+The retained191415-5360 trace actually has a pre-intro player/loading0 at
+19:16:49.131, retry334140, fnowarmed, position207629,6025,142678. The old helper
+discarded it because current native-attempt gate text was not in its legacy
+allowlist. Later BossBattleMode333550 occurred during loading1; the old loop
+broke immediately and closed before the intro ended.
+
+The corrected observer retains native-start, earliest player proxy and boss
+evidence independently. Battle during loading never completes observation;
+current loading0/player must be seen again before root review. Before-gate and
+target-proximity facts remain measured, without requiring them to open review.
+Pending gate masks pause/session read-validity; this is not a control flag.
+
+Root now has bounded90seconds (ReviewSeconds15..180) to provide explicit visual
+arena/boss/control-response evidence. After the review request appears, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/publish_c72e_control_review.ps1 -OutDir <run-dir> -OwnerPid <root-pid> -VisibleArena -VisibleBoss -ControlResponse -Evidence '<actual visual and control-response evidence>'
+```
+
+Receipt nonce and owner/runner/game PID+start identities must match. No receipt
+means no native return command and no control confirmation. No timing proof is
+inferred: instant_verdict remains UNCONFIRMED_CONTROL_NOT_EXPOSED. The old
+LANDING_PROXY_AND_BOSS_OBSERVED status additionally retains its before_gate and
+near_target requirements; a later first proxy with root-confirmed control uses
+ROOT_CONFIRMED_NATIVE_ENTRY_FIRST_CONTROL_TIME_UNKNOWN instead.
+
+Before the one return, require4seconds continuous same mission/retry player0-load
+telemetry (bounded15seconds). This is explicitly a return observation proxy:
+the present pipe does not expose AttemptReturnGate or ExitGate independently;
+the native wrapper remains authoritative. No retries or manual control input
+were added by this change.
+
+Verification: test_c72e_intro_observation.ps1226 ordered checks PASS, including
+the actual retained trace (no post-intro evidence exists) followed by labeled
+synthetic continuations, root receipt mutation rejects and return-proxy resets.
+Existing20 save/telemetry/parser,43 admission and18 identity/finalization checks
+PASS. No new live test or installed change was performed by the author.
