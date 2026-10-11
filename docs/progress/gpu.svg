@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" style="width:100%;height:auto" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="100%" height="100%" fill="#0d1117"/>
+<text x="8" y="19" fill="#e6edf3" font-size="15" font-weight="700">GPU time on the Ally (MAX): top-118 PSO buckets, 20.7 ms/frame</text>
+<rect x="8" y="28" width="12" height="12" fill="#2ea043"/><text x="25" y="39" fill="#c9d1d9" font-size="12">identified</text><rect x="106" y="28" width="12" height="12" fill="#388bfd"/><text x="123" y="39" fill="#c9d1d9" font-size="12">identified + kept replacement</text><rect x="329" y="28" width="12" height="12" fill="#e5534b"/><text x="346" y="39" fill="#c9d1d9" font-size="12">rewrite tried, dropped</text><rect x="506" y="28" width="12" height="12" fill="#444a54"/><text x="523" y="39" fill="#c9d1d9" font-size="12">not identified</text>
+<rect x="3.0" y="71.0" width="343.8" height="276.2" fill="#2ea043"><title>3.69 ms: FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN fsr/upscale</title></rect>
+<text x="8.0" y="87.0" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">accumulate sharpen</text>
+<text x="8.0" y="102.0" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">upscaler</text>
+<rect x="3.0" y="348.0" width="158.2" height="143.0" fill="#2ea043"><title>0.88 ms: FFX_FSR3UPSCALER_PASS_PREPARE_REACTIVITY fsr/upscale</title></rect>
+<text x="8.0" y="364.0" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">prepare reactivity</text>
+<text x="8.0" y="379.0" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">upscaler</text>
+<rect x="3.0" y="491.9" width="158.2" height="124.3" fill="#2ea043"><title>0.77 ms: FFX_FSR3UPSCALER_PASS_PREPARE_INPUTS fsr/upscale</title></rect>
+<text x="8.0" y="507.9" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">prepare inputs</text>
+<text x="8.0" y="522.9" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">upscaler</text>
+<rect x="162.0" y="348.0" width="184.8" height="97.8" fill="#2ea043"><title>0.71 ms: FFX_FSR3UPSCALER_PASS_LUMA_INSTABILITY fsr/upscale</title></rect>
+<rect x="162.0" y="446.7" width="85.9" height="114.3" fill="#2ea043"><title>0.39 ms: FFX_FSR3UPSCALER_PASS_SHADING_CHANGE_PYRAMID fsr/upscale</title></rect>
+<rect x="162.0" y="561.7" width="85.9" height="54.5" fill="#2ea043"><title>0.19 ms: FFX_FSR3UPSCALER_PASS_LUMA_PYRAMID fsr/upscale</title></rect>
+<rect x="248.7" y="446.7" width="52.4" height="88.8" fill="#2ea043"><title>0.18 ms: FFX_FSR3UPSCALER_PASS_RCAS fsr/upscale</title></rect>
+<rect x="301.9" y="446.7" width="44.9" height="88.8" fill="#2ea043"><title>0.16 ms: FFX_FSR3UPSCALER_PASS_GENERATE_REACTIVE taa</title></rect>
+<rect x="248.7" y="536.2" width="45.6" height="80.0" fill="#2ea043"><title>0.14 ms: DebugFSR3CopyUpscaledDepth? ExeCopy_UpscaledDepth</title></rect>
+<rect x="295.1" y="536.2" width="51.7" height="80.0" fill="#2ea043"><title>3 tiny functions</title></rect>
+<text x="6.0" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">FFX_FSR3 / upscaler</text>
+<text x="183.0" y="65.0" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">7.27 ms</text>
+<rect x="602.3" y="499.3" width="196.5" height="116.9" fill="#e5534b"><title>1.07 ms:  VFSCAT-CllLpvSfbVsm</title></rect>
+<text x="607.3" y="515.3" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">vfscat</text>
+<text x="607.3" y="530.3" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">fog</text>
+<text x="605.3" y="493.3" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">VFSCAT / fog</text>
+<text x="719.3" y="493.3" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">1.07 ms</text>
+<rect x="602.3" y="71.0" width="144.2" height="106.7" fill="#2ea043"><title>0.65 ms:  PB2-BlrGbiMm0sMshltvReSfbVl / PB2-BlrGbiMm00MshltPkSfbVl</title></rect>
+<rect x="747.3" y="71.0" width="72.4" height="106.7" fill="#2ea043"><title>0.33 ms: UltramarineRender PB2UMAH-GbVl</title></rect>
+<rect x="602.3" y="178.5" width="94.6" height="69.8" fill="#2ea043"><title>0.28 ms:  PB2RIPPLE-Cbbl / PB2DECAL-CdlRgbSfb</title></rect>
+<rect x="602.3" y="249.0" width="94.6" height="63.5" fill="#2ea043"><title>0.25 ms:  PB2LS-GbiSfbVl</title></rect>
+<rect x="697.7" y="178.5" width="67.9" height="49.2" fill="#2ea043"><title>0.14 ms: UltramarineCaustics CTS</title></rect>
+<rect x="766.4" y="178.5" width="53.4" height="49.2" fill="#388bfd"><title>0.11 ms:  replacement / PB2-AlepmeAtDiDt2l3GbiPfnRiaexSf</title></rect>
+<rect x="697.7" y="228.5" width="61.1" height="42.6" fill="#2ea043"><title>0.11 ms: UltramarineRenderHeight UMTV-Gb</title></rect>
+<rect x="697.7" y="271.9" width="61.1" height="40.7" fill="#2ea043"><title>0.11 ms: UltramarineWet WET</title></rect>
+<rect x="759.5" y="228.5" width="60.2" height="84.1" fill="#2ea043"><title>7 tiny functions</title></rect>
+<text x="605.3" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">PB2 / materials</text>
+<text x="746.3" y="65.0" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">2.19 ms</text>
+<rect x="353.6" y="366.5" width="137.1" height="98.6" fill="#e5534b"><title>0.56 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<text x="358.6" y="382.5" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">refprobe</text>
+<text x="358.6" y="397.5" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">lighting (GI)</text>
+<rect x="491.5" y="366.5" width="104.0" height="98.6" fill="#e5534b"><title>0.43 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="353.6" y="466.0" width="84.8" height="79.6" fill="#2ea043"><title>0.28 ms:  SDFOCC-CllSdf / RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="353.6" y="546.4" width="84.8" height="69.8" fill="#2ea043"><title>0.25 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="439.2" y="466.0" width="60.6" height="60.7" fill="#2ea043"><title>0.16 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="439.2" y="527.5" width="60.6" height="46.2" fill="#2ea043"><title>0.12 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="439.2" y="574.5" width="60.6" height="41.7" fill="#2ea043"><title>0.11 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="500.7" y="466.0" width="49.0" height="47.3" fill="#2ea043"><title>0.10 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm</title></rect>
+<rect x="550.5" y="466.0" width="45.0" height="47.3" fill="#2ea043"><title>0.09 ms:  RefProbe-CllPtSfbSplsSslsSsmVsm / HBAO</title></rect>
+<rect x="500.7" y="514.0" width="94.8" height="102.2" fill="#2ea043"><title>7 tiny functions</title></rect>
+<text x="356.6" y="360.5" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">RefProbe / lighting (GI)</text>
+<text x="578.6" y="360.5" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">2.50 ms</text>
+<rect x="353.6" y="71.0" width="127.4" height="103.7" fill="#2ea043"><title>0.55 ms:  (copy / resolve / clear)</title></rect>
+<text x="358.6" y="87.0" fill="#fff" font-size="13" font-weight="600" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">(copy / re</text>
+<text x="358.6" y="102.0" fill="#fff" font-size="11" font-weight="600" stroke="#0d1117" stroke-width="2.5" stroke-linejoin="round" paint-order="stroke">unattributed</text>
+<rect x="481.8" y="71.0" width="56.7" height="103.7" fill="#2ea043"><title>0.25 ms:  PBRLR</title></rect>
+<rect x="539.3" y="71.0" width="56.2" height="103.7" fill="#2ea043"><title>0.24 ms:  GFM / HBAO</title></rect>
+<rect x="353.6" y="175.5" width="68.6" height="58.0" fill="#2ea043"><title>0.17 ms:  G1E-CllCsDDomEmeEtmFoHHfoMMvNOcP</title></rect>
+<rect x="353.6" y="234.3" width="68.6" height="54.6" fill="#2ea043"><title>0.16 ms:  AMBSL</title></rect>
+<rect x="353.6" y="289.7" width="68.6" height="48.0" fill="#2ea043"><title>0.14 ms:  SSFOG-CllFdHfMpfS2aVf</title></rect>
+<rect x="423.0" y="175.5" width="45.7" height="59.4" fill="#2ea043"><title>0.11 ms:  tonemap/compose</title></rect>
+<rect x="423.0" y="235.7" width="45.7" height="52.8" fill="#2ea043"><title>0.10 ms:  GFM</title></rect>
+<rect x="423.0" y="289.3" width="45.7" height="48.4" fill="#2ea043"><title>0.09 ms:  AMBSL</title></rect>
+<rect x="469.5" y="175.5" width="63.6" height="34.5" fill="#2ea043"><title>0.09 ms:  post VS / compose (r5 47us)</title></rect>
+<rect x="533.9" y="175.5" width="61.6" height="34.5" fill="#2ea043"><title>0.09 ms:  GFM</title></rect>
+<rect x="469.5" y="210.8" width="126.0" height="126.9" fill="#2ea043"><title>23 tiny functions</title></rect>
+<text x="356.6" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">other / unattributed</text>
+<text x="542.6" y="65.0" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">2.65 ms</text>
+<rect x="805.6" y="480.9" width="105.4" height="67.5" fill="#2ea043"><title>0.39 ms: DrawSky VCLOUD</title></rect>
+<rect x="911.8" y="480.9" width="21.0" height="67.5" fill="#2ea043"><title>1 tiny functions</title></rect>
+<text x="808.6" y="474.9" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">sky &amp; clouds</text>
+<rect x="805.6" y="341.4" width="64.0" height="110.7" fill="#2ea043"><title>0.34 ms:  PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDimGbiMshltOcPfnPkSf</title></rect>
+<rect x="870.4" y="341.4" width="68.2" height="61.4" fill="#2ea043"><title>0.20 ms: Batch Tiles 8 SMTREE2-BlrMfvMshltvReSfb</title></rect>
+<rect x="870.4" y="403.6" width="68.2" height="48.5" fill="#2ea043"><title>0.16 ms:  PB2TREE2-BlrGbiMshltvOcReSfbVl / PB2TREE2-BlrDimGbiMshltOcPfnSfbT</title></rect>
+<rect x="939.4" y="341.4" width="56.8" height="49.8" fill="#2ea043"><title>0.14 ms:  TREE2WIND</title></rect>
+<rect x="939.4" y="392.0" width="56.8" height="60.1" fill="#2ea043"><title>4 tiny functions</title></rect>
+<text x="808.6" y="335.4" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">PB2TREE2 / trees</text>
+<text x="958.6" y="335.4" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">0.99 ms</text>
+<rect x="826.6" y="71.0" width="88.6" height="86.2" fill="#2ea043"><title>0.32 ms:  WDO_SST-PtSrbVsm / PB2MRLR-AmbSpecMapAngLimitCllLas</title></rect>
+<rect x="916.0" y="71.0" width="80.2" height="86.2" fill="#388bfd"><title>0.29 ms:  WDO_SST-PtSrbVsm / WDO-PtSrbVsm</title></rect>
+<rect x="826.6" y="158.0" width="88.3" height="77.9" fill="#2ea043"><title>0.29 ms:  WDO_SST-PtSrbVsm / WDO-PtSrbVsm</title></rect>
+<rect x="826.6" y="236.6" width="88.3" height="75.9" fill="#2ea043"><title>0.29 ms:  WDO_SST-PtSrbVsm / PB2DS-AdmCaCllEmHsIribOfPlaSmSpl</title></rect>
+<rect x="915.7" y="158.0" width="80.5" height="63.7" fill="#2ea043"><title>0.22 ms:  WDO_SST-PtSrbVsm / PB2DUS-GbMasRefprobelt</title></rect>
+<rect x="915.7" y="222.5" width="80.5" height="53.0" fill="#2ea043"><title>0.18 ms:  WDO_SST-PtSrbVsm / WDO-PtSrbSsmVsm</title></rect>
+<rect x="915.7" y="276.3" width="80.5" height="36.3" fill="#2ea043"><title>4 tiny functions</title></rect>
+<text x="829.6" y="65.0" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">shadows</text>
+<text x="898.6" y="65.0" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">1.72 ms</text>
+<rect x="602.3" y="341.4" width="98.7" height="69.4" fill="#2ea043"><title>0.32 ms:  ExeCopy_UpscaledDepth</title></rect>
+<rect x="602.3" y="411.6" width="98.7" height="59.0" fill="#2ea043"><title>0.27 ms:  ExeCopy_GBufferEdit4RT</title></rect>
+<rect x="701.8" y="341.4" width="96.9" height="55.4" fill="#2ea043"><title>0.25 ms:  ExeCopy_TintBlit</title></rect>
+<rect x="701.8" y="397.6" width="25.3" height="72.9" fill="#2ea043"><title>0.09 ms: VideoOut vs=958736a709f62937ce423679098f524e ps=8</title></rect>
+<rect x="727.9" y="397.6" width="70.9" height="72.9" fill="#2ea043"><title>6 tiny functions</title></rect>
+<text x="605.3" y="335.4" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">data copies</text>
+<text x="710.3" y="335.4" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">1.16 ms</text>
+<rect x="939.6" y="480.9" width="56.6" height="104.5" fill="#388bfd"><title>0.31 ms: MeshletPreculling MPC</title></rect>
+<text x="942.6" y="474.9" fill="#fff" font-size="12" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">culling</text>
+<rect x="805.6" y="577.1" width="76.2" height="39.1" fill="#2ea043"><title>0.20 ms:  ExeUI_TintedQuad</title></rect>
+<rect x="882.6" y="577.1" width="41.9" height="39.1" fill="#2ea043"><title>0.11 ms:  ExeUI_AlphaFadeQuad</title></rect>
+<rect x="925.3" y="577.1" width="7.4" height="39.1" fill="#2ea043"><title>3 tiny functions</title></rect>
+<text x="808.6" y="571.1" fill="#fff" font-size="10" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">UI &amp; effect merge</text>
+<text x="916.6" y="571.1" fill="#c9d1d9" font-size="12" font-weight="400" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">0.33 ms</text>
+<rect x="939.6" y="614.2" width="56.6" height="2.0" fill="#388bfd"><title>4 tiny functions</title></rect>
+<text x="942.6" y="608.2" fill="#fff" font-size="15" font-weight="700" stroke="#0d1117" stroke-width="3" stroke-linejoin="round" paint-order="stroke">post</text>
+</svg>

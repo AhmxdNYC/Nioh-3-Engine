@@ -1,0 +1,13 @@
+bin/
+build/
+__pycache__/
+*.pyc
+*.log
+*.pdb
+*.obj
+*.exe
+*.dll
+*.asi
+symbols/symbols.csv
+symbols/symbols_x64dbg.txt
+symbols/symbols_ida.py

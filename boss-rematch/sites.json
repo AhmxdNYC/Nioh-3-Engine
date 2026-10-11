@@ -1,0 +1,899 @@
+{
+ "build": {
+  "timestamp": "0x6AA7C106",
+  "size_of_image": "0x52FB000"
+ },
+ "sites": [
+  {
+   "name": "PerFrameTickCall",
+   "group": "PUMP",
+   "kind": "call",
+   "rva": 5657244,
+   "head": 0,
+   "pattern": "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??",
+   "offset": 0,
+   "callee": 3877348
+  },
+  {
+   "name": "BossBattleMode",
+   "group": "FIGHT",
+   "kind": "native",
+   "rva": 37367244,
+   "head": 5,
+   "native": "Mission::BossBattleMode",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "BossBattleModeEnd",
+   "group": "FIGHT",
+   "kind": "native",
+   "rva": 37367664,
+   "head": 9,
+   "native": "Mission::BossBattleModeEnd",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Character::Create",
+   "group": "FIGHT",
+   "kind": "hook",
+   "rva": 18351936,
+   "head": 5,
+   "pattern": "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 89 54 24 10 57 48 83 EC 30",
+   "offset": 0
+  },
+  {
+   "name": "SetMissionFlag",
+   "group": "BOSSLOG",
+   "kind": "hook",
+   "rva": 7350108,
+   "head": 5,
+   "pattern": "48 89 5C 24 08 48 89 6C 24 18 44 88 4C 24 20 56",
+   "offset": 0
+  },
+  {
+   "name": "ShowBossGauge",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37455480,
+   "head": 9,
+   "native": "UI::ShowBossGauge",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "SetMissionClearFlag",
+   "group": "BOSSLOG",
+   "kind": "hook",
+   "rva": 29481864,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC 90 00 00 00 8B F9 8B D1 48 8B 0D ??",
+   "offset": 0
+  },
+  {
+   "name": "Character::AddDropTable",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37270508,
+   "head": 5,
+   "native": "Character::AddDropTable",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Character::AddDropFixItem",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37269908,
+   "head": 5,
+   "native": "Character::AddDropFixItem",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Character::AddDropKeyItemDirectGet",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37270208,
+   "head": 5,
+   "native": "Character::AddDropKeyItemDirectGet",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Character::ForceDropAmurita",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37281024,
+   "head": 9,
+   "native": "Character::ForceDropAmurita",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Character::ForceDropItem",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37281488,
+   "head": 9,
+   "native": "Character::ForceDropItem",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Character::ForceDropItemAndGet",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37281636,
+   "head": 9,
+   "native": "Character::ForceDropItemAndGet",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Character::EnemyForceKillWithItemDrop",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37280416,
+   "head": 9,
+   "native": "Character::EnemyForceKillWithItemDrop",
+   "pattern": "40 53 48 81 EC A0 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Item::AddItem",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37358232,
+   "head": 5,
+   "native": "Item::AddItem",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::AddFixItem",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37357524,
+   "head": 7,
+   "native": "Item::AddFixItem",
+   "pattern": "48 8B C4 48 89 58 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::AddMagicItem",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37358920,
+   "head": 5,
+   "native": "Item::AddMagicItem",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::AddItemNoNotice",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37358692,
+   "head": 5,
+   "native": "Item::AddItemNoNotice",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::AddEquipment",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37356040,
+   "head": 7,
+   "native": "Item::AddEquipment",
+   "pattern": "48 8B C4 48 89 58 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::AddEquipmentBySlot",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37356564,
+   "head": 7,
+   "native": "Item::AddEquipmentBySlot",
+   "pattern": "48 8B C4 48 89 58 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::AddEquipmentPreset",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37357136,
+   "head": 7,
+   "native": "Item::AddEquipmentPreset",
+   "pattern": "48 8B C4 48 89 58 10",
+   "offset": 0
+  },
+  {
+   "name": "Player::AddGuardianSpirit",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37386004,
+   "head": 9,
+   "native": "Player::AddGuardianSpirit",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::AddGuardianSpiritNoNotice",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37386156,
+   "head": 9,
+   "native": "Player::AddGuardianSpiritNoNotice",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::AddGuardianSpiritWithTimer",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37386300,
+   "head": 9,
+   "native": "Player::AddGuardianSpiritWithTimer",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::AddSkill",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37386784,
+   "head": 5,
+   "native": "Player::AddSkill",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Player::AddSkillDojo",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37387112,
+   "head": 5,
+   "native": "Player::AddSkillDojo",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Player::AddMoney",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37386660,
+   "head": 9,
+   "native": "Player::AddMoney",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Mission::SetReward",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37379164,
+   "head": 9,
+   "native": "Mission::SetReward",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Mission::GetGameClearRewardNormal",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37373004,
+   "head": 9,
+   "native": "Mission::GetGameClearRewardNormal",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Mission::GetGameClearRewardHard",
+   "group": "BOSSLOG",
+   "kind": "native",
+   "rva": 37372908,
+   "head": 9,
+   "native": "Mission::GetGameClearRewardHard",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "GameClearRewardGrant",
+   "group": "BOSSLOG",
+   "kind": "hook",
+   "rva": 36179872,
+   "head": 7,
+   "pattern": "48 83 EC 28 80 F9 01 75 0C BA 6F CD 00 00 B9 72",
+   "offset": 0
+  },
+  {
+   "name": "MissionLoadStep",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 35893072,
+   "head": 10,
+   "pattern": "48 89 5C 24 18 48 89 6C 24 20 56 57 41 56 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 A0 00 00 00 48 8B F1 48 8B DA 48 8B 0D",
+   "offset": 0
+  },
+  {
+   "name": "EmakiMissionRequest",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 17678032,
+   "head": 5,
+   "pattern": "48 89 5C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 20 06 00 00 48",
+   "offset": 0
+  },
+  {
+   "name": "MissionSetupEmaki",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 29522252,
+   "head": 5,
+   "pattern": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 E0 FE FF FF",
+   "offset": 0
+  },
+  {
+   "name": "MissionRequestById",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 35886592,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1",
+   "offset": 0
+  },
+  {
+   "name": "MissionRequestEnqueue",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 35886396,
+   "head": 5,
+   "pattern": "48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8D 0D",
+   "offset": 0
+  },
+  {
+   "name": "MissionStartFromSave",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 35877444,
+   "head": 14,
+   "pattern": "48 8B C4 44 88 48 20 44 88 40 18 88 50 10 48 89 48 08 55 53 56 57 41 54",
+   "offset": 0
+  },
+  {
+   "name": "MissionReplayMenu_Setup",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 31228964,
+   "head": 5,
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B 01 49 8B E9 41 8B D8 48 8B F2",
+   "offset": 0
+  },
+  {
+   "name": "MissionReplayMenuOpen_1DDA258",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 31302232,
+   "head": 5,
+   "pattern": "48 89 5C 24 20 55 56 57 48 81 EC E0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 D0 00 00 00 48 8B EA 41 8B F8 BA FF 00 00 00 48 8B F1 48 8D 4C 24 40 41 8A D9 44 8D 42 89 E8 ?? ?? ?? ?? 48 81 A4 24 C0 00 00 00",
+   "offset": 0
+  },
+  {
+   "name": "UI::OpenMissionReplayMenu",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 37720268,
+   "head": 7,
+   "pattern": "48 81 EC 48 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 30 01 00 00 48 8B D1 48 8D 4C 24 20 E8 ?? ?? ?? ?? 41 B0",
+   "offset": 0
+  },
+  {
+   "name": "MissionSelectListBuild",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 3638900,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 08 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D 68 A8 48 81 EC 30 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 20 4C 8B E2 48 89 54 24",
+   "offset": 0
+  },
+  {
+   "name": "BattleScrollTop_Select",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 31129188,
+   "head": 5,
+   "pattern": "48 89 5C 24 08 57 48 83 EC 30 48 8B F9 E8 ?? ?? ?? ?? 84 C0 74 20 48 8B",
+   "offset": 0
+  },
+  {
+   "name": "EmakiItemUse_MenuHandler",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 15855712,
+   "head": 10,
+   "pattern": "48 89 5C 24 08 48 89 7C 24 10 55 48 8B EC 48 83 EC 70 48 8B F9 85 D2 0F",
+   "offset": 0
+  },
+  {
+   "name": "MissionReplayMenu_Decide",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 15859072,
+   "head": 5,
+   "pattern": "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D AC 24 A0 FA FF FF",
+   "offset": 0
+  },
+  {
+   "name": "MissionRecordGet",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 3636024,
+   "head": 9,
+   "pattern": "40 53 48 83 EC 20 48 8B D9 48 8B 49 20 E8 ?? ?? ?? ?? 48 8B 13 3B 42 04 72 08 33 C0 48 83 C4 20 5B C3 8B C0 48 69 C8 98",
+   "offset": 0
+  },
+  {
+   "name": "MissionClearedGetSlot",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 7351140,
+   "head": 10,
+   "pattern": "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C",
+   "offset": 0
+  },
+  {
+   "name": "MissionClearedGet_37AFC0",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 3649472,
+   "head": 13,
+   "pattern": "89 54 24 10 53 48 83 EC 20 4C 8B 51 08 48 8B D9",
+   "offset": 0
+  },
+  {
+   "name": "MissionUnlockedGet",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 9474584,
+   "head": 14,
+   "pattern": "41 5E 41 5D 41 5C 5D C3 4C 8B 49 08 49 B8 25 23 22 84 E4 9C F2 CB 33 C9",
+   "offset": 8
+  },
+  {
+   "name": "EmakiUniqueDefeatFlag_Serialize",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 17591920,
+   "head": 12,
+   "pattern": "40 53 48 83 EC 20 48 8B 02 48 8B DA BA 65 00 00",
+   "offset": 0
+  },
+  {
+   "name": "ClearMapSetEntry",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 35121284,
+   "head": 5,
+   "pattern": "66 89 54 24 10 55 53 56 57 41 54 41 55 41 56 41",
+   "offset": 0
+  },
+  {
+   "name": "TrophyUnlock_body",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 43512548,
+   "head": 9,
+   "pattern": "53 48 83 EC 20 8B D9 84 D2 74 0D E8 ?? ?? ?? ??",
+   "offset": 0
+  },
+  {
+   "name": "MissionResultUpdate",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 29573436,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D A8 28 F5 FF FF 48",
+   "offset": 0
+  },
+  {
+   "name": "RetryGadget_ResurrectPlayers",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 30045288,
+   "head": 11,
+   "pattern": "48 8B C4 44 88 48 20 44 88 40 18 89 50 10 89 48",
+   "offset": 0
+  },
+  {
+   "name": "SetDecideRetry_impl",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 29512136,
+   "head": 6,
+   "pattern": "48 83 EC 28 8A C1 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A 44 8A C2 8A D0 E8 ?? ?? ?? ?? 48 83 C4 28 C3 CC CC CC 88 51 04 8A",
+   "offset": 0
+  },
+  {
+   "name": "Mission::SetMissionResultClearType",
+   "group": "RLOG",
+   "kind": "native",
+   "rva": 37378492,
+   "head": 9,
+   "native": "Mission::SetMissionResultClearType",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "UI::SetGameOverUIDeadType",
+   "group": "RLOG",
+   "kind": "native",
+   "rva": 37454172,
+   "head": 9,
+   "native": "UI::SetGameOverUIDeadType",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "UI::SetGameOverUIFailType",
+   "group": "RLOG",
+   "kind": "native",
+   "rva": 37454280,
+   "head": 9,
+   "native": "UI::SetGameOverUIFailType",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::SetRetryPointIDAndSave",
+   "group": "RLOG",
+   "kind": "native",
+   "rva": 37402564,
+   "head": 5,
+   "native": "Player::SetRetryPointIDAndSave",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Player::NoGameOver",
+   "group": "RLOG",
+   "kind": "native",
+   "rva": 37399140,
+   "head": 9,
+   "native": "Player::NoGameOver",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "BuildSaveFilePath",
+   "group": "RLOG",
+   "kind": "hook",
+   "rva": 33385936,
+   "head": 7,
+   "pattern": "48 83 EC 48 49 8B 11 49 83 C8 FF 48 8B 44 24 78",
+   "offset": 0
+  },
+  {
+   "name": "InventoryAddItem",
+   "group": "INV",
+   "kind": "hook",
+   "rva": 5559076,
+   "head": 5,
+   "pattern": "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 F8 FE FF FF 48 81 EC 08 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 F0 00 00 00 4C 8B E9",
+   "offset": 0
+  },
+  {
+   "name": "fn:MissionClearedGetSlot",
+   "group": "CORE",
+   "kind": "fn",
+   "rva": 7351140,
+   "head": 0,
+   "pattern": "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C",
+   "offset": 0
+  },
+  {
+   "name": "fn:MissionRequestById",
+   "group": "CORE",
+   "kind": "fn",
+   "rva": 35886592,
+   "head": 0,
+   "pattern": "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1",
+   "offset": 0
+  },
+  {
+   "name": "g:DataDb",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 73113136,
+   "head": 0,
+   "anchor": 35886652,
+   "pattern": "48 8B 0D ?? ?? ?? ?? 8B D7 41 8A F4",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 6945,
+   "what": "mov rcx, qword ptr [rip + 0x23807ed]"
+  },
+  {
+   "name": "g:ClearDb",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 74782792,
+   "head": 0,
+   "anchor": 3640467,
+   "pattern": "48 8B 0D ?? ?? ?? ?? 41 0F B7 34 24",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 1037,
+   "what": "mov rcx, qword ptr [rip + 0x43d8bae]"
+  },
+  {
+   "name": "g:MissionMgr",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 74781904,
+   "head": 0,
+   "anchor": 289523,
+   "pattern": "48 8B 05 ?? ?? ?? ?? 48 8B 70 08 8B",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 1806,
+   "what": "mov rax, qword ptr [rip + 0x470a9d6]"
+  },
+  {
+   "name": "g:MissionQueue",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 73122848,
+   "head": 0,
+   "anchor": 17678458,
+   "pattern": "4C 8D 25 ?? ?? ?? ?? 46 88 04 20 42",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 22,
+   "what": "lea r12, [rip + 0x34e039f]"
+  },
+  {
+   "name": "g:PlayMode",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 74488656,
+   "head": 0,
+   "anchor": 546816,
+   "pattern": "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 04 8B 40 30 C3 C3 CC CC CC",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 101,
+   "what": "mov rax, qword ptr [rip + 0x4684349]"
+  },
+  {
+   "name": "g:NetMgr",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 73172216,
+   "head": 0,
+   "anchor": 547475,
+   "pattern": "48 8B 05 ?? ?? ?? ?? B3 FF 48 85 C0",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 324,
+   "what": "mov rax, qword ptr [rip + 0x4542a5e]"
+  },
+  {
+   "name": "g:CharMgr",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 73113152,
+   "head": 0,
+   "anchor": 589095,
+   "pattern": "48 8B 05 ?? ?? ?? ?? 8B DA 8B F1 49 8B F8 48 8B 0D ?? ?? ?? ?? 48 8B 10 48 8B 09 8B 52 64 E8 ?? ?? ?? ?? 45 33 F6 48 85 C0 74 0D F7 40 40 00 10 00 00 0F 85 ?? ?? ?? ?? 44 8A 47 4A",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 1712,
+   "what": "mov rax, qword ptr [rip + 0x452a112]"
+  },
+  {
+   "name": "g:GameMain",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 74815760,
+   "head": 0,
+   "anchor": 283048,
+   "pattern": "48 8B 15 ?? ?? ?? ?? 33 C0 48 85 D2 74 06 8B 82 E0 06 00 00",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 1409,
+   "what": "mov rdx, qword ptr [rip + 0x4714761]"
+  },
+  {
+   "name": "g:PlayerTab",
+   "group": "CORE",
+   "kind": "global",
+   "rva": 74732360,
+   "head": 0,
+   "anchor": 698563,
+   "pattern": "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 43 0F 28 00 48 8D 54 24 40 48 8B 84 24 88 00 00 00 48 81 C1 60 0C 00 00 48",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 427,
+   "what": "mov rcx, qword ptr [rip + 0x469aa7e]"
+  },
+  {
+   "name": "chk:ListFilter_0x4000",
+   "group": "CORE",
+   "kind": "check",
+   "rva": 3640195,
+   "head": 0,
+   "pattern": "41 F6 03 01 4C 89 45 80 75 55 41 F6 03 40 75 4F",
+   "offset": 0
+  },
+  {
+   "name": "chk:RecordId_0x158",
+   "group": "CORE",
+   "kind": "check",
+   "rva": 31063509,
+   "head": 0,
+   "pattern": "0F B7 93 58 01 00 00 48 8B C8 E8 ?? ?? ?? ?? 48",
+   "offset": 0
+  },
+  {
+   "name": "fn:MenuOpenMissionReplay",
+   "group": "RA",
+   "kind": "fn",
+   "rva": 31336680,
+   "head": 0,
+   "pattern": "48 83 EC 28 48 8B 05 ?? ?? ?? ?? 4C 8B D1 48 8B",
+   "offset": 0
+  },
+  {
+   "name": "g:MenuMgr",
+   "group": "RA",
+   "kind": "global",
+   "rva": 73172136,
+   "head": 0,
+   "anchor": 31336684,
+   "pattern": "48 8B 05 ?? ?? ?? ?? 4C 8B D1 48 8B 88 E0 04 00 00 48 85 C9",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 3880,
+   "what": "mov rax, qword ptr [rip + 0x27e5bb5]"
+  },
+  {
+   "name": "fn:EmakiMissionRequest",
+   "group": "EMAKI",
+   "kind": "fn",
+   "rva": 17678032,
+   "head": 0,
+   "pattern": "48 89 5C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 20 06 00 00 48",
+   "offset": 0
+  },
+  {
+   "name": "chk:EmakiTable_A88_map20",
+   "group": "EMAKI",
+   "kind": "check",
+   "rva": 17678113,
+   "head": 0,
+   "pattern": "48 8B 05 ?? ?? ?? ?? 4C 8B A0 88 0A 00 00 49 8B",
+   "offset": 0
+  },
+  {
+   "name": "chk:EmakiRecordGet_0x34",
+   "group": "EMAKI",
+   "kind": "check",
+   "rva": 29442652,
+   "head": 0,
+   "pattern": "40 53 48 83 EC 20 48 8B D9 48 8B 49 20 E8 ?? ?? ?? ?? 48 8B 13 3B 42 04 73 0F 8B C0 48 6B C8 34 48 8D 42 08 48 03 C1 EB 02 33 C0 48 83 C4 20 5B C3 CC CC CC 40 53 48 83 EC 20 48 8B D9 48 8B 49 20 E8 ?? ?? ?? ?? 48 8B 13 3B 42 04 73 10 8B C0 48 8D 04 40 48 8D 40 01",
+   "offset": 0
+  },
+  {
+   "name": "g:Inventory",
+   "group": "EMAKI",
+   "kind": "global",
+   "rva": 74782000,
+   "head": 0,
+   "anchor": 1000736,
+   "pattern": "48 8B 2D ?? ?? ?? ?? 45 33 D2 45 8A",
+   "offset": 0,
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "refs": 1695,
+   "what": "mov rbp, qword ptr [rip + 0x465d009]"
+  },
+  {
+   "name": "chk:ReqById_StartArg_r8",
+   "group": "FNOW",
+   "kind": "check",
+   "rva": 35886632,
+   "head": 0,
+   "pattern": "41 8B D8 44 8A FA 8B F9 45 85 C0 75 07 E8 ?? ??",
+   "offset": 0
+  },
+  {
+   "name": "chk:ReqById_Start_to_0xC",
+   "group": "FNOW",
+   "kind": "check",
+   "rva": 35886755,
+   "head": 0,
+   "pattern": "44 88 7D A0 40 88 75 A8 89 7D A4 89 5D AC E8 ??",
+   "offset": 0
+  },
+  {
+   "name": "chk:MissionState_28_14",
+   "group": "FNOW",
+   "kind": "check",
+   "rva": 35877567,
+   "head": 0,
+   "pattern": "44 8A 69 10 44 8B 79 28 40 8A 79 11 44 8B 71 14",
+   "offset": 0
+  },
+  {
+   "name": "chk:SetPos_tail_a",
+   "group": "WARP",
+   "kind": "check",
+   "rva": 37402200,
+   "head": 80,
+   "pattern": "0F 28 D6 48 8D 54 24 50 48 8B CB E8 ?? ?? ?? ?? 48 8B 83 B0 03 00 00 48 8B 48 28 48 85 C9 75 04 48 8B 48 18 48 8B 01 FF 90 D0 00 00 00 48 8B 05 ?? ?? ?? ?? 0F 28 83 10 01 00 00 48 8B 08 48 8B 41 48 F3 0F 7F 80 D0 00 00 00 E8 ?? ?? ?? ?? 48",
+   "offset": 0
+  },
+  {
+   "name": "chk:SetPos_tail_b",
+   "group": "WARP",
+   "kind": "check",
+   "rva": 37402279,
+   "head": 80,
+   "pattern": "48 8D 8B 10 01 00 00 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 0F 28 83 10 01 00 00 48 8D 91 B0 10 00 00 C6 81 C0 10 00 00 01 48 81 C1 00 05 00 00 F3 0F 7F 02 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? B2 01 48 81 C1 00 05 00 00 E8 ?? ?? ?? ?? 0F B7 5D",
+   "offset": 0
+  },
+  {
+   "name": "fn:MissionRequestReturn",
+   "group": "EXIT",
+   "kind": "fn",
+   "rva": 35886808,
+   "head": 0,
+   "pattern": "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 50 48 8B 05 ?? ?? ?? ??",
+   "offset": 0
+  },
+  {
+   "name": "call:RightsCheck",
+   "group": "GATE",
+   "kind": "call",
+   "rva": 3875619,
+   "head": 0,
+   "pattern": "E8 ?? ?? ?? ?? 48 8D 4C 24 40 88 44 24 20 48 8D 54 24 20 E8 ?? ?? ?? ?? 0F B7 45 4C 48 8B 4D 50 48 33 CC E8 ?? ?? ?? ?? 48 81 C4 60 01 00 00 5D C3 48 8B 05",
+   "offset": 0,
+   "callee": 3875668
+  },
+  {
+   "name": "fn:RightsRequest",
+   "group": "GATE",
+   "kind": "fn",
+   "rva": 30036676,
+   "head": 0,
+   "pattern": "48 83 EC 38 0F 28 02 45 33 C0 48 8D 54 24 20 66",
+   "offset": 0
+  }
+ ]
+}
