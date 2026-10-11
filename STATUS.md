@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-11 14:27 - Training shared pump groundwork verified
+- Isolated `codex-training-pump` at c297a20 pushed, based on exact rematch-instant b2cfe09; private addon1.4.1. Init owns one pump dispatcher; preparation is separate from atomic live activation. Disabled/failed setup remains passive; UI still requires installation success. Main addon1.3.3 and device-pinned performance inputs untouched. Evidence: notes/handoff-codex-training-pump.md.
+- New actual-body lifecycle harness21 checks + startup wiring PASS; existing add-on60 checks and ALL94 SITES OK PASS; release build without warnings and diff check PASS. Original hook thunk/chaining/reentry guard unchanged. Offline groundwork only: observer, validity/epochs/event telemetry and runtime acceptance remain unfinished; no performance/visual claim.
+- Phone1886 PC preflight NOT READY: reported5.4GB headroom below6GB guard; nothing launched/changed. No new sender=user item. pc2/Ally results remain pending; no unchanged local retry. No game/Ghidra/capture or restoration needed, no deployment/save/settings/hardware/controller/hold/Claude changes; other writers untouched. Stable EngineFix1.7.61, guard PR1 unmerged, FO NO-GO retained.
+- NEXT ready unit: continue on the owned codex-training-pump branch with default-OFF independent observer prerequisite registration, copied validity-aware scalar snapshots and epoch/event telemetry, then actual acceptance gates. Never use rematch Prepare/Tick in observer-only startup; no native mutation calls. v4 restore ownership remains a separate mutation gate. No passed-suite repetition absent changed code/concern.
+
 ## UPDATE 2026-10-11 14:22 - Training research integrated; device benchmark work delegated
 - Three isolated agents completed spawn, stage and integration research; root reviewed and integrated their notes. Eleven stage/pump instruction windows and ResetReceivedDead's VM binding independently verified. Summary: notes/training-mode-progress.md; detailed contracts/design linked there. No training source, build or game test yet.
 - Activation needs a registered wrapper and returns acceptance, not spawn completion. ResetReceivedDead is a VM flag-clear, not revive; a named despawn address is a dependent cold block. Existing rematch-instant1.4.0 loads a native mission/arena, not seamless arbitrary stages. Main addon remains1.3.3; any-boss/any-arena, in-place reset and reward-free sandbox remain unproved.
