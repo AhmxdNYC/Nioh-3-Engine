@@ -919,3 +919,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Full release check exposed a 66-prefixed C7 word store at newly named handler 9AFDF0: the decoder counted a 32-bit immediate and swallowed the following return/padding. Respect 16-bit immediates for C7/81/B8-BF unless REX.W overrides 66. FnProbe remains diagnostic and default off.
 - Added the real handler and width/override regression cases; run_fnprobe_harness.py ALL PASSED, 12,497 accepted of 13,826 named entries, zero disagreements with Capstone.
 - Undo: revert this decoder commit; do not use FnProbe on 66-prefixed immediate prologues with the old decoder.
+
+## 2026-10-10 - Restore GPU/R2 release harness links (1.7.61 integration)
+- GPU/R2 harnesses supply the disabled memory-bind census stubs already used by the shader-hot harness; R2 also links SkipFx/MLP/MpcCheck required by the real GPU hooks. No production profiler change.
+- run_gp_harness.py all five modes ALL PASSED; run_r2_harness.py ALL PASSED, including device safety, barrier rewrites and trace output.
+- Undo: revert harness-only maintenance.

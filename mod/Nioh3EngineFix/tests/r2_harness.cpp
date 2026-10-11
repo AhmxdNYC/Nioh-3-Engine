@@ -26,6 +26,12 @@
 
 #include "../src/gpuopt.h"
 #include "../src/gpuprof.h"
+#include "../src/memstats.h"
+
+namespace memstats {  // VS bind census is outside this rewrite test.
+bool BindsWanted() { return false; }
+void OnBind(int, uintptr_t, uintptr_t, uintptr_t, uint16_t, uint32_t) {}
+}  // namespace memstats
 #include "../src/psoswap.h"
 
 static void Log(const char* fmt, ...) {

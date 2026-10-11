@@ -18,7 +18,13 @@
 
 #include "../src/gpuopt.h"
 #include "../src/gpuprof.h"
+#include "../src/memstats.h"
 #include "../src/psoswap.h"
+
+namespace memstats {  // VS bind census is outside this GPU profiler test (same stubs as hot_harness).
+bool BindsWanted() { return false; }
+void OnBind(int, uintptr_t, uintptr_t, uintptr_t, uint16_t, uint32_t) {}
+}  // namespace memstats
 
 static std::vector<std::string> g_lines;
 static void Log(const char* fmt, ...) {
