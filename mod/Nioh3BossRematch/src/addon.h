@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.6"
+#define ADDON_VERSION "1.4.7"
 
 namespace addon {
 
@@ -122,9 +122,11 @@ struct UiRow {
 };
 int UiFill(UiRow* rows, int cap, char* footer, size_t nf);
 void UiMove(int dir);
-bool UiAct();   // A; true = a request was queued (close the menu)
-bool UiBack();  // B; true = leave the menu
+bool UiAct();   // A; enter child, confirm existing action; true = close
+bool UiBack();  // B; cancel confirmation, then parent; true = close at root
 void UiOpen();
+void UiChange(int dir);  // Left/Right: edit only a selected startup preference
+void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);
 // pipe commands (remote.cpp): returns the reply text
 void Command(const char* line, char* reply, size_t n);

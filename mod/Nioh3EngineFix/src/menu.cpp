@@ -35,6 +35,8 @@
 #include "extraperf.h"
 #include "gpuopt.h"
 #include "menu.h"
+#include "../../settings/store.h"
+#include "../../menu_navigation.h"
 #include "osd.h"
 
 namespace menu {
@@ -105,6 +107,7 @@ const KeyDef kKeys[] = {
 
 struct Cfg {
     int enabled = 1;
+    int layout = 1;  // 1 grouped pages, 0 original flat layout (automation compatibility)
     UINT vk = VK_F10;
     uint8_t dik = 0x44;
     char keyName[16] = "F10";
@@ -129,13 +132,13 @@ bool g_configured = false;
 volatile LONG g_disabled = 0;
 
 // ---- shared input state (input thread <-> Present thread) -------------------------------------------------------------
-enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32 };
+enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128 };
 // pad raw bits: wButtons | stick directions | triggers
 constexpr uint32_t B_SU = 1u << 16, B_SD = 1u << 17, B_SL = 1u << 18, B_SR = 1u << 19, B_LT = 1u << 20,
                    B_RT = 1u << 21, B_STICKS = B_SU | B_SD | B_SL | B_SR;
 // keyboard bits
-enum : uint32_t { K_TOGGLE = 1, K_UP = 2, K_DOWN = 4, K_LEFT = 8, K_RIGHT = 16, K_ENTER = 32, K_NPENTER = 64, K_ESC = 128, K_BACKSP = 256 };
-constexpr uint32_t K_NAV = K_UP | K_DOWN | K_LEFT | K_RIGHT | K_ENTER | K_NPENTER | K_ESC | K_BACKSP;
+enum : uint32_t { K_TOGGLE = 1, K_UP = 2, K_DOWN = 4, K_LEFT = 8, K_RIGHT = 16, K_ENTER = 32, K_NPENTER = 64, K_ESC = 128, K_BACKSP = 256, K_PAGEUP = 512, K_PAGEDOWN = 1024 };
+constexpr uint32_t K_NAV = K_UP | K_DOWN | K_LEFT | K_RIGHT | K_ENTER | K_NPENTER | K_ESC | K_BACKSP | K_PAGEUP | K_PAGEDOWN;
 struct NavKey {
     uint32_t bit;
     UINT vk;
@@ -143,7 +146,8 @@ struct NavKey {
 };
 const NavKey kNavKeys[] = {{K_UP, VK_UP, 0xC8},       {K_DOWN, VK_DOWN, 0xD0},     {K_LEFT, VK_LEFT, 0xCB},
                            {K_RIGHT, VK_RIGHT, 0xCD}, {K_ENTER, VK_RETURN, 0x1C},  {K_NPENTER, VK_RETURN, 0x9C},
-                           {K_ESC, VK_ESCAPE, 0x01},  {K_BACKSP, VK_BACK, 0x0E}};
+                           {K_ESC, VK_ESCAPE, 0x01},  {K_BACKSP, VK_BACK, 0x0E},
+                           {K_PAGEUP, VK_PRIOR, 0xC9}, {K_PAGEDOWN, VK_NEXT, 0xD1}};
 
 volatile LONG g_open = 0;
 volatile LONG g_pressed = 0;          // N_* edges collected while open, consumed by OnPresent
@@ -191,6 +195,8 @@ uint32_t PadNav(uint32_t raw) {
     if (raw & (XINPUT_GAMEPAD_DPAD_RIGHT | B_SR)) n |= N_RIGHT;
     if (raw & XINPUT_GAMEPAD_A) n |= N_OK;
     if (raw & XINPUT_GAMEPAD_B) n |= N_BACK;
+    if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_PAGEUP;
+    if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_PAGEDOWN;
     return n;
 }
 uint32_t KeyNav(uint32_t k) {
@@ -201,6 +207,8 @@ uint32_t KeyNav(uint32_t k) {
     if (k & K_RIGHT) n |= N_RIGHT;
     if (k & (K_ENTER | K_NPENTER)) n |= N_OK;
     if (k & (K_ESC | K_BACKSP)) n |= N_BACK;
+    if (k & K_PAGEUP) n |= N_PAGEUP;
+    if (k & K_PAGEDOWN) n |= N_PAGEDOWN;
     return n;
 }
 
@@ -820,6 +828,10 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
+#include "settings_catalog.h"
+#include "menu_pages.h"
+menu_nav::Trail<> g_pages;
+ULONGLONG g_rep[4] = {};  // repeats never carry into a different page
 static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 static_assert(kEp9 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
 bool IsExp(int id) { return id >= kXW6 && id <= kXPCM; }
@@ -977,7 +989,7 @@ int OrderPos(int id) {
     return 0;
 }
 
-int g_sel = kFps;  // first row of the menu (kOrder[0]); Up from it wraps to 'Close menu'
+int g_sel = kFps;  // unchanged for Layout=0; grouped opens start at Settings
 bool g_dirty = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
@@ -999,6 +1011,52 @@ bool Visible(int id) {
 
 // status rows: shown, never selected
 bool ReadOnly(int id) { return id == kFgState || id == kUpscaler; }
+
+int PageRows(int* out, bool selectable) {
+    int n = 0;
+    auto add = [&](int id) { out[n++] = id; };
+    if (!g_cfg.layout) {
+        for (const auto& row : kOrder)
+            if (Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+        return n;
+    }
+    const int page = g_pages.page;
+    if (page == pRoot) add(kPageRow + pSettings);
+    else if (page == pSettings) {
+        for (int p : {pDisplay, pFrameGen, pGameplay, pSafe, pExtra, pExperimental, pDiagnostics, pBoot, pAll, pConfig}) {
+            bool visible = p == pExperimental || p == pAll || p == pConfig;
+            for (const auto& row : kOrder) visible |= PageContains(p, row.id) && Visible(row.id);
+            if (visible) add(kPageRow + p);
+        }
+    } else if (page == pExperimental) {
+        for (int p : {pCpu, pGpu, pScheduling, pProton}) {
+            bool visible = false;
+            for (const auto& row : kOrder) visible |= PageContains(p, row.id) && Visible(row.id);
+            if (visible) add(kPageRow + p);
+        }
+    }
+    if (page == pConfig) {
+        for (int group = 0; group < kConfigGroupN; ++group) add(kPageRow + pCfgFirst + group);
+    } else if (page >= pCfgFirst && page < pCount) {
+        for (int i = 0; i < kConfigN; ++i)
+            if (kConfigSettings[i].group == page - pCfgFirst) add(kSettingRow + i);
+        add(kSave);
+    }
+    for (const auto& row : kOrder)
+        if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+    // All settings deliberately has exactly the original traversal order, so
+    // keyed test sequences can enter it without acquiring an extra Back row.
+    if (page != pRoot && page != pAll) add(kBackRow);
+    return n;
+}
+
+void EnterPage(int page) {
+    if (!g_pages.Enter(page, g_sel)) return;
+    int rows[kMenuRowCap];
+    const int n = PageRows(rows, true);
+    g_sel = page == pAll ? kClose : n ? rows[0] : kBackRow;
+    for (auto& repeat : g_rep) repeat = 0;
+}
 
 bool Available(int id) {
     switch (id) {
@@ -1337,6 +1395,9 @@ void StartSave() {
         swprintf(w, 32, L"%.1f", o.scale);
         add(L"Overlay", L"Scale", w);
     }
+    // Only explicitly edited catalog values override the existing live-control save.
+    // Unchanged startup preferences, paths and comments are never rewritten here.
+    g_configValues.Save(kConfigSettings, add);
     // frame generation changed from this menu: also into the game's config.xml (only that value; backup first)
     if (g_fgChanged && Available(kFg)) {
         const char* v = osd::FgTypeName(FgSetting());
@@ -1372,7 +1433,11 @@ void Open(const char* how) {
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
     MessageBeep(MB_OK);  // audible confirmation of the hold gesture, even if the overlay can't draw
-    if (!Visible(g_sel)) g_sel = kOrder[0].id;
+    if (g_cfg.layout) {
+        g_pages.Reset();
+        g_sel = kPageRow + pSettings;
+    } else if (g_sel >= kCount || !Visible(g_sel)) g_sel = kOrder[0].id;
+    for (auto& repeat : g_rep) repeat = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
 
@@ -1381,7 +1446,12 @@ void Close(const char* how) {
     InterlockedOr(&g_keyLatch, (LONG)K_NAV);
     InterlockedExchange(&g_open, 0);
     MessageBeep(MB_ICONASTERISK);
-    MLOG("closed (%s)%s", how, g_dirty ? " - unsaved changes are active until the game exits" : "");
+    MLOG("closed (%s)%s", how, g_dirty ? " - unsaved choices: live rows last until exit; startup rows need Save/restart" : "");
+}
+
+void Back() {
+    if (!g_cfg.layout || !g_pages.Back(g_sel)) Close("B / Esc");
+    for (auto& repeat : g_rep) repeat = 0;
 }
 
 // AutoContinueLoad: live switch + the one ini key written at once on a background thread (the rest waits for 'Save to ini')
@@ -1531,8 +1601,60 @@ void ChangeFg(int dir) {
          "frames", a, b, persist ? "config marked dirty" : "Proton: this session only, never saved");
 }
 
+bool RemoteValue(int id, int& value);
+void SyncConfigFromLive(int id) {
+    std::string value;
+    int number = 0;
+    auto& o = osd::Overlay();
+    if (id == kPos) value = osd::PositionName(o.pos);
+    else if (id == kScale) value = std::to_string(o.scale);
+    else if (id == kOffX || id == kOffY) value = std::to_string(id == kOffX ? o.offX : o.offY);
+    else if (Available(id) && RemoteValue(id, number)) value = std::to_string(number);
+    for (int i = 0; i < kConfigN; ++i) {
+        if (kConfigSettings[i].legacy != id) continue;
+        auto& preference = g_configValues.values[(size_t)i];
+        preference.changed = false;
+        if (!value.empty()) preference.text = value;
+    }
+}
+char g_configReply[256] = "";
+int g_configReplyRow = -1;
+void ChangeConfig(int index, int dir) {
+    if (index < 0 || index >= kConfigN) return;
+    const auto& d = kConfigSettings[index];
+    if (!g_configValues.Change(kConfigSettings, (size_t)index, dir)) return;
+    const auto& v = g_configValues.values[(size_t)index].text;
+    g_configReplyRow = index;
+    snprintf(g_configReply, sizeof(g_configReply), "Next launch: save to ini, then restart the game.");
+    if (d.apply == setting_ui::Apply::OverlayLive) {
+        auto& o = osd::Overlay();
+        if (!strcmp(d.key, "Brightness")) o.brightness = (float)atof(v.c_str());
+        else if (!strcmp(d.key, "StartupPopup")) o.popup = atoi(v.c_str());
+        else if (!strcmp(d.key, "StartupPopupSeconds")) o.popupSeconds = (float)atof(v.c_str());
+        else if (!strcmp(d.key, "StartupPopupDelay")) o.popupDelay = (float)atof(v.c_str());
+        snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
+    } else if (d.apply == setting_ui::Apply::MenuLive) {
+        g_cfg.scale = (float)atof(v.c_str());
+        snprintf(g_configReply, sizeof(g_configReply), "Menu text size applies now; 0 = auto. Save to keep it.");
+    } else if (d.apply == setting_ui::Apply::TuningLive && g_host.tuning) {
+        // Install-with-switch-off (2) means OFF now, install OFF on the next launch.
+        const char* live = !strcmp(d.section, "Patches") && v == "2" ? "0" : v.c_str();
+        if (!g_host.tuning(d.liveKey, live, g_configReply, sizeof(g_configReply)))
+            snprintf(g_configReply, sizeof(g_configReply), "Live setter unavailable; save for the next launch.");
+    }
+    g_dirty = true;
+    MLOG("[%s] %s requested %s - %s", d.section, d.key, v.c_str(), g_configReply);
+}
+
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
+    if (id >= kSettingRow) { ChangeConfig(id - kSettingRow, dir); return; }
+    if (id >= kCount) {
+        if (dir != 0) return;
+        if (id == kBackRow) Back();
+        else if (id < kBackRow) EnterPage(id - kPageRow);
+        return;
+    }
     if (id == kFg) {
         ChangeFg(dir);
         return;
@@ -1621,6 +1743,7 @@ void Change(int id, int dir) {
         case kFgWine: g_bootFgWine = !g_bootFgWine; break;
         default: return;
     }
+    SyncConfigFromLive(id);
     g_dirty = true;
     char v[64];
     uint32_t c;
@@ -1629,15 +1752,21 @@ void Change(int id, int dir) {
 }
 
 void Move(int dir) {
-    int pos = OrderPos(g_sel);
-    for (int k = 0; k < kOrderN; ++k) {
-        pos = (pos + dir + kOrderN) % kOrderN;
-        const int id = kOrder[pos].id;
-        if (Visible(id) && !ReadOnly(id)) {
-            g_sel = id;
-            return;
-        }
-    }
+    int rows[kMenuRowCap];
+    const int n = PageRows(rows, true);
+    if (!n) return;
+    int pos = 0;
+    for (int i = 0; i < n; ++i) if (rows[i] == g_sel) pos = i;
+    g_sel = rows[menu_nav::Wrap(pos, dir, n)];
+}
+
+void MovePage(int dir) {
+    int rows[kMenuRowCap];
+    const int n = PageRows(rows, true);
+    if (!n) return;
+    int pos = 0;
+    for (int i = 0; i < n; ++i) if (rows[i] == g_sel) pos = i;
+    g_sel = rows[menu_nav::PageStep(pos, dir * 10, n)];
 }
 
 // ---- remote control (vpad pipe -> Present thread) ---------------------------------------------------------------------------
@@ -1768,6 +1897,7 @@ void RunRemote(RemoteReq& q) {
                 if ((cur != 0) != (q.value != 0)) Change(id, 0);
                 break;
         }
+        SyncConfigFromLive(id);
         RemoteValue(id, cur);
     }
     char v[64];
@@ -1802,7 +1932,6 @@ struct Rates {
     double rWg = 0, rDs = 0;
 };
 Rates g_rates;
-ULONGLONG g_rep[4] = {};  // next auto-repeat time per direction (0 = not repeating)
 ULONGLONG g_lastOwnPad = 0, g_lastOwnPadScan = 0, g_lastOwnKey = 0;
 bool g_ownConnected[4] = {};
 bool g_loggedPadFallback = false, g_loggedKeyFallback = false;
@@ -2014,6 +2143,17 @@ void OnPresentImpl() {
         return;
     }
     const uint32_t pressed = (uint32_t)InterlockedExchange(&g_pressed, 0);
+    // Back owns a mixed input frame: cancelling a confirmation/page must never
+    // activate the row being left, even if A arrives in the same Present.
+    if (pressed & N_BACK) {
+        Back();
+        return;
+    }
+    if (pressed & (N_PAGEUP | N_PAGEDOWN)) {
+        if ((pressed & (N_PAGEUP | N_PAGEDOWN)) == N_PAGEUP) MovePage(-1);
+        else if ((pressed & (N_PAGEUP | N_PAGEDOWN)) == N_PAGEDOWN) MovePage(1);
+        return;
+    }
     uint32_t held = 0;
     for (int i = 0; i < 4; ++i)
         if (t - (ULONGLONG)g_padHeldAt[i] < 300) held |= PadNav((uint32_t)g_padHeld[i]);
@@ -2036,9 +2176,6 @@ void OnPresentImpl() {
         else Change(g_sel, d == 2 ? -1 : +1);
     }
     if (pressed & N_OK) Change(g_sel, 0);
-    if ((pressed & N_BACK) && g_open) {
-        Close("B / Esc");
-    }
 }
 
 // ---- drawing --------------------------------------------------------------------------------------------------------------
@@ -2112,7 +2249,7 @@ float DrawImpl(unsigned W, unsigned H) {
     // ---- the menu panel: title, a scrolling body (section headers + items in kOrder), then the explanation of the selected
     // row, the diagnostics lines and the footer. Rows are filled by put(); kValueCol keeps the values in one column.
     Row head;
-    Row body[96], tail[28];
+    Row body[128], tail[28];
     int nb = 0, nt = 0, selRow = -1;
     auto put = [&](Row* a, int& cnt, int cap, const char* label, const char* tech, const char* value, uint32_t lc, uint32_t vc, bool sel,
                    bool rule) {
@@ -2128,18 +2265,50 @@ float DrawImpl(unsigned W, unsigned H) {
     };
     auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
-    snprintf(title, sizeof(title), "Nioh3EngineFix v%s - mod menu", g_host.version);
+    snprintf(title, sizeof(title), "Nioh3EngineFix v%s - %s", g_host.version, g_cfg.layout ? PageName(g_pages.page) : "Original controls");
     {
         int c = 0;
         put(&head, c, 1, title, "", "", cGold, cYellow, false, true);
     }
     const char* pending = nullptr;
-    for (int oi = 0; oi < kOrderN; ++oi) {
-        const int id = kOrder[oi].id;
-        if (kOrder[oi].section) pending = kOrder[oi].section;
-        if (!Visible(id)) continue;
+    int pageRows[kMenuRowCap];
+    const int pageN = PageRows(pageRows, false);
+    for (int oi = 0; oi < pageN; ++oi) {
+        const int id = pageRows[oi];
+        if (id >= kSettingRow) {
+            const int index = id - kSettingRow;
+            const auto& d = kConfigSettings[index];
+            const auto& v = g_configValues.values[(size_t)index];
+            char lab[128], text[128];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", d.label);
+            snprintf(text, sizeof(text), "%.48s%s (%s)", v.text.c_str(), v.changed ? " *" : "",
+                d.kind == setting_ui::Kind::Manual ? "ini only" : d.apply == setting_ui::Apply::NextLaunch ? "next launch" : "requested");
+            if (id == g_sel) selRow = nb;
+            put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray,
+                d.kind == setting_ui::Kind::Manual ? cDim : v.changed ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
+        if (id >= kCount) {
+            char lab[128];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", id == kBackRow ? "Back" : PageName(id - kPageRow));
+            if (id == g_sel) selRow = nb;
+            put(body, nb, 128, lab, "", id == kBackRow ? "B" : "A: open", id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (!g_cfg.layout || g_pages.page == pAll) {
+            // Recover the preceding section even when its first row is hidden.
+            pending = nullptr;
+            for (int p = OrderPos(id); p >= 0; --p)
+                if (kOrder[p].section) { pending = kOrder[p].section; break; }
+            if (oi && pageRows[oi - 1] < kCount) {
+                const char* prev = nullptr;
+                for (int p = OrderPos(pageRows[oi - 1]); p >= 0; --p)
+                    if (kOrder[p].section) { prev = kOrder[p].section; break; }
+                if (prev == pending) pending = nullptr;
+            }
+        }
         if (pending) {
-            put(body, nb, 96, pending, "", "", cCyan, cWhite, false, false);
+            put(body, nb, 128, pending, "", "", cCyan, cWhite, false, false);
             pending = nullptr;
         }
         char v[64];
@@ -2154,13 +2323,21 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", plain);
         if (id == g_sel) selRow = nb;
         const bool avail = Available(id) || id >= kSave || id == kPerfNote;
-        put(body, nb, 96, lab, kItems[id].tech, v, id == g_sel ? cWhite : (avail ? cGray : cDim), vc, id == g_sel, false);
+        put(body, nb, 128, lab, kItems[id].tech, v, id == g_sel ? cWhite : (avail ? cGray : cDim), vc, id == g_sel, false);
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", kItems[g_sel].what);
-    snprintf(effect, sizeof(effect), "%s", kItems[g_sel].effect);
-    if (!Available(g_sel)) {
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? "Settings keep their current values when you change pages." : kItems[g_sel].effect);
+    if (g_sel >= kSettingRow) {
+        const int index = g_sel - kSettingRow;
+        const auto& d = kConfigSettings[index];
+        snprintf(what, sizeof(what), "[%s] %s: %s", d.section, d.key, d.help);
+        snprintf(effect, sizeof(effect), "%s", d.kind == setting_ui::Kind::Manual ? "Shown for coverage. No controller editor; this row cannot change it."
+            : index == g_configReplyRow ? g_configReply : d.apply == setting_ui::Apply::NextLaunch ? "Startup preference only. A / Left / Right edits; Save to ini, then restart."
+            : "Requested value; applies through the existing setter if installed. No enablement until you edit it.");
+    }
+    if (g_sel < kCount && !Available(g_sel)) {
         if ((g_sel == kL1 && g_host.l1 == FixState::WineSkipped) || (g_sel == kF1 && g_host.f1 == FixState::WineSkipped))
             snprintf(what, sizeof(what), "Skipped under Proton - turn on '%s on Proton' below, save, restart.", g_sel == kL1 ? "L1" : "F1");
         else if (g_sel == kFg)
@@ -2225,8 +2402,9 @@ float DrawImpl(unsigned W, unsigned H) {
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         addT(b, ss == 2 ? cGreen : cOrange);
     } else {
-        addT("Up/Down: move   A/Enter: toggle   Left/Right: change   B/Esc: close", cDim);
+        addT(g_cfg.layout && g_pages.depth ? "D-pad: move/change  A/Enter: select  B/Esc: back  LB/RB: page" : "D-pad: move/change  A/Enter: select  B/Esc: close  LB/RB: page", cDim);
     }
+    addT("Keyboard: arrows / Enter / Esc / PgUp / PgDn", cDim);
 
     // value column: just right of the longest "name (id)", between 30 and 48 characters
     size_t valueCol = 30;
@@ -2403,7 +2581,9 @@ void Configure(const Host& h) {
     }
     g_latBoot = osd::Overlay().maxLatency;
     const wchar_t* f = g_ini.c_str();
+    g_configValues.Load(kConfigSettings, f);
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
+    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 1, f) != 0;
     wchar_t b[96] = {};
     GetPrivateProfileStringW(L"Menu", L"Key", L"F10", b, 96, f);
     g_cfg.vk = 0;

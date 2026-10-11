@@ -1,4 +1,5 @@
-// menu.h - in-game mod menu of Nioh3EngineFix (keyboard F10 / controller hold-Start), drawn by the OSD (osd.cpp).
+// menu.h - in-game mod menu of Nioh3EngineFix (F10 / Escape x3 / Start x3, configurable), drawn by the OSD (osd.cpp).
+// Grouped pages by default; B/Esc returns to the parent, root closes. LB/RB or PgUp/PgDn pages; Layout=0 keeps the flat menu.
 //
 // Threads:
 //   * dllmain's Worker calls Configure() once, after the patches are applied.
@@ -51,6 +52,7 @@ struct Host {
     const char* version = "";
     void (*log)(const char* fmt, ...) = nullptr;
     const wchar_t* iniPath = nullptr;             // copied
+    bool (*tuning)(const char* key, const char* value, char* reply, size_t n) = nullptr;  // existing LiveTuning setter
     uint8_t* base = nullptr;                      // Nioh3.exe
     bool knownBuild = false;                      // v2.02: engine reads (pause flags) only then
     bool wine = false;

@@ -1,0 +1,126 @@
+// Test the real rematch UI model and the hook's input decision helper without game calls.
+#include "../src/rematch.cpp"
+#include "../src/ui_input.h"
+
+namespace addon {
+Image g_img = {};
+void Log(const char*, ...) {}
+const wchar_t* IniPath() { return L""; }
+const wchar_t* ModDir() { return L""; }
+int IniInt(const wchar_t*, const wchar_t*, int def) { return def; }
+bool Copy(void*, uint64_t, size_t) { return false; }
+bool WrU32(uint64_t, uint32_t) { return false; }
+bool WrBytes(uint64_t, const void*, size_t) { return false; }
+void Hex(char*, size_t, uint64_t, size_t) {}
+uintptr_t Site(const char*) { return 0; }
+bool GroupOk(const char*, const char**) { return false; }
+void OnEntry(const char*, Handler) {}
+bool InstallGroup(const char*, const char**) { return false; }
+bool InstallPump(void (*)(), const char**) { return false; }
+bool InstallCallRetarget(const char*, void*, void**, const char**) { return false; }
+namespace fight {
+volatile LONG g_fights = 0, g_active = 0;
+void LastFightPlacements(char* b, size_t n) { if (n) b[0] = 0; }
+bool PlacementSeenRecently(uint32_t, double) { return false; }
+double Now() { return 0; }
+}
+namespace bosslog { void FightBegin(uint64_t) {} }
+}
+
+#define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
+int main() {
+    using namespace addon::rematch;
+    g_live.store(true);  // UI fixture only; no game/pump is started
+    g_cfg.showAll = true;
+    for (int i = 0; i < 25; ++i) {
+        Row row = {};
+        snprintf(row.name, sizeof(row.name), "Boss %d", i);
+        row.route = rcore::kR;
+        row.fightStart = 7;
+        g_rows.push_back(row);
+        g_status[(size_t)i].store(2);
+    }
+    UiOpen();
+    CHECK(g_uiPages.page == uRoot && !UiAct());
+    CHECK(g_uiPages.page == uBosses);
+    UiMove(10);
+    CHECK(g_sel == 10);
+    CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 10);
+    int it[kMaxRows + 4];
+    CHECK(Items(it, kMaxRows + 4) == 2 && it[0] == 10 && it[1] == kItBack);
+    g_confirm = 10;
+    CHECK(!UiBack() && g_confirm == -9 && g_uiPages.page == uActions);
+    CHECK(!UiBack() && g_uiPages.page == uBosses && g_sel == 10);
+    UiMove(10);
+    UiMove(10);
+    CHECK(g_sel == 25);  // final Back row, paging clamps instead of wrapping
+    CHECK(!UiAct() && g_uiPages.page == uRoot);
+    CHECK(UiBack());
+    UiOpen();
+    UiMove(-1);
+    CHECK(UiAct());  // explicit Close at root
+    UiOpen(); UiAct(); UiAct();
+    g_cfg.fightNow = true; g_fnowOk = true;
+    CHECK(Items(it, kMaxRows + 4) == 4 && it[1] == kItFight && it[2] == kItShrine);
+    UiRow rows[24]; char footer[240];
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0);
+    CHECK(strstr(rows[0].text, "Boss actions") != nullptr);
+
+    // With Rematch disabled, Settings remains available and changes no game state.
+    g_live.store(false);
+    UiOpen();
+    CHECK(Items(it, kMaxRows + 4) == 2 && it[0] == kItSettings && it[1] == kItClose);
+    CHECK(!UiAct() && g_uiPages.page == uSettings);
+    for (int i = 0; i < kConfigN; ++i) g_configValues.values[(size_t)i] = {kConfigSettings[i].initial, false};
+    UiMove(1);  // Training group
+    CHECK(!UiAct() && g_uiPages.page == uSettingFirst + 1);
+    UiChange(1);
+    int edited = 0;
+    for (int i = 0; i < kConfigN; ++i) if (g_configValues.values[(size_t)i].changed) ++edited;
+    CHECK(edited == 1 && !g_live.load());
+    UiMove(1);  // reserved Training Enable
+    CHECK(!UiAct());
+    const int reserved = kItSettingBase - it[1];
+    (void)reserved;
+    edited = 0;
+    for (int i = 0; i < kConfigN; ++i) {
+        const auto& d = kConfigSettings[i];
+        if (g_configValues.values[(size_t)i].changed) ++edited;
+        if (!strcmp(d.section, "Training") && !strcmp(d.key, "Enable"))
+            CHECK(g_configValues.values[(size_t)i].text == "0" && !g_configValues.values[(size_t)i].changed);
+    }
+    CHECK(edited == 1);
+    int writes = 0;
+    g_configValues.Save(kConfigSettings, [&](const wchar_t*, const wchar_t*, const std::wstring&) { ++writes; });
+    CHECK(writes == 1);
+    CHECK(!UiBack() && g_uiPages.page == uSettings);
+    CHECK(!UiBack() && g_uiPages.page == uRoot && UiBack());
+
+    using addon_ui_input::Pad;
+    CHECK(addon_ui_input::OwnsInput(-1, 2) && addon_ui_input::OwnsInput(2, 2));
+    CHECK(!addon_ui_input::OwnsInput(2, 0));
+    CHECK(addon_ui_input::NavigationEdges(0x0010) == 0);  // Start cannot claim a keyboard-opened menu
+    CHECK(addon_ui_input::NavigationEdges(0x330F) == 0x330F);
+    Pad pads[4];
+    const uint16_t gesture = addon_ui_input::kGesture;
+    CHECK(!pads[2].Feed(gesture, true, 100, false, true, 0).toggle);
+    auto r = pads[2].Feed(gesture, true, 1100, false, true, 0);
+    CHECK(r.toggle && r.blank && !r.edges);
+    CHECK(!pads[2].Feed(gesture, true, 3000, false, true, 0).toggle);
+    CHECK(!pads[2].Feed(0x1000, true, 3100, true, true, 1).edges);  // held opening press
+    CHECK(pads[2].Feed(0, false, 3200, true, true, 1).blank);
+    CHECK(pads[2].Feed(0x1000, true, 3300, true, true, 1).edges == 0x1000);
+    r = pads[2].Feed(0x1000, true, 3400, false, true, 2);
+    CHECK(r.blank && !r.edges);  // post-close confirm cannot leak
+    CHECK(pads[2].Feed(0, true, 3500, false, true, 2).blank);  // held trigger / stick
+    CHECK(!pads[2].Feed(0, false, 3600, false, true, 2).blank);
+    CHECK(!pads[2].Feed(0x1000, true, 3700, false, true, 2).blank);
+    CHECK(pads[0].Feed(0x2000, true, 3400, true, true, 2).blank);  // every slot is isolated
+    CHECK(!pads[3].Feed(gesture, true, 100, false, false, 0).toggle);
+    CHECK(!pads[3].Feed(gesture, true, 5100, false, false, 0).toggle);
+    Pad stick;
+    CHECK(stick.Feed(0, true, 100, true, true, 0, 0x0008).edges == 0x0008);
+    CHECK(!stick.Feed(0x0020, true, 1200, false, true, 0, 0x0001).toggle);  // View+stick cannot mimic the physical open gesture
+    puts("ALL PASSED: real Boss UI root/list/actions, confirmation/back, paging and per-slot release isolation");
+    return 0;
+}

@@ -25,8 +25,11 @@
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
 #include "rematch_core.h"
+#include "../../menu_navigation.h"
+#include "../../settings/store.h"
 
 #include <atomic>
+#include <new>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -1503,19 +1506,57 @@ const char* CanArena(int row) {
     return nullptr;
 }
 
-// ---- UI model (any thread) ----
+// ---- UI model (UI thread; snapshots / atomics from the game thread only) ----
 int g_sel = 0, g_confirm = -9;
+enum UiPage { uRoot, uBosses, uActions, uSettings, uSettingFirst };
+#include "settings_catalog.h"
+menu_nav::Trail<> g_uiPages;
+int g_uiBoss = -1;
 uint32_t g_pageGen0 = 0;
 char g_msg[160] = "";
 constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
+constexpr int kItBrowse = -4, kItBack = -5, kItClose = -6;
+constexpr int kItSettings = -7, kItSave = -8, kItGroupBase = -100, kItSettingBase = -1000;
 constexpr int kItFight = 0x10000;   // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 
 int Items(int* out, int cap) {
     int n = 0;
-    if (g_raOk) out[n++] = kItOpen;
-    if (g_emakiOk) out[n++] = kItScroll;
-    if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) out[n++] = kItAbort;
+    auto add = [&](int item) { if (n < cap) out[n++] = item; };
+    if (g_uiPages.page == uRoot) {
+        if (g_live.load()) add(kItBrowse);
+        add(kItSettings);
+        if (g_raOk) add(kItOpen);
+        if (g_emakiOk) add(kItScroll);
+        if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) add(kItAbort);
+        add(kItClose);
+        return n;
+    }
+    if (g_uiPages.page == uSettings) {
+        for (int group = 0; group < kConfigGroupN; ++group) add(kItGroupBase - group);
+        add(kItSave);
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page >= uSettingFirst && g_uiPages.page < uSettingFirst + kConfigGroupN) {
+        for (int i = 0; i < kConfigN; ++i)
+            if (kConfigSettings[i].group == g_uiPages.page - uSettingFirst) add(kItSettingBase - i);
+        add(kItSave);
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page == uActions) {
+        if (g_uiBoss >= 0 && (size_t)g_uiBoss < g_rows.size()) {
+            const Row& row = g_rows[(size_t)g_uiBoss];
+            add(g_uiBoss);  // original replay action ID and validation
+            if (g_cfg.fightNow && g_fnowOk && row.fightStart && row.route != rcore::kX) {
+                add(kItFight + g_uiBoss);
+                if (!row.atFight) add(kItShrine + g_uiBoss);
+            }
+        }
+        add(kItBack);
+        return n;
+    }
     // beaten / startable first, then the rest, then X
     for (int pass = 0; pass < 3; ++pass)
         for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
@@ -1526,10 +1567,9 @@ int Items(int* out, int cap) {
             if (grp == 1 && !g_cfg.showAll) continue;
             if (grp == 2 && !g_cfg.showAll) continue;
             if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
-            out[n++] = (int)i;
-            if (g_cfg.fightNow && g_fnowOk && r.fightStart && grp != 2 && n < cap) out[n++] = kItFight + (int)i;
-            if (g_cfg.fightNow && g_fnowOk && r.fightStart && !r.atFight && grp != 2 && n < cap) out[n++] = kItShrine + (int)i;
+            add((int)i);
         }
+    add(kItBack);
     return n;
 }
 
@@ -1649,17 +1689,68 @@ bool Live() { return g_live.load(); }
 void SetPumpLive(bool installed) { g_live.store(g_prepared && installed); }
 void Pump() { if (Live()) Tick(); }
 
+std::atomic<int> g_configSaveState{0};  // 1 writing, 2 saved, 3 failed
+std::atomic<DWORD> g_configSaveError{0};
+struct ConfigSaveJob { std::wstring ini; std::vector<std::wstring> entries; };
+DWORD WINAPI SaveConfigThread(void* param) {
+    ConfigSaveJob* job = static_cast<ConfigSaveJob*>(param);
+    DWORD error = 0;
+    for (size_t i = 0; i < job->entries.size(); i += 3)
+        if (!WritePrivateProfileStringW(job->entries[i].c_str(), job->entries[i + 1].c_str(), job->entries[i + 2].c_str(), job->ini.c_str()))
+            error = GetLastError() ? GetLastError() : ERROR_WRITE_FAULT;
+    if (!WritePrivateProfileStringW(nullptr, nullptr, nullptr, job->ini.c_str()))
+        error = GetLastError() ? GetLastError() : ERROR_WRITE_FAULT;
+    delete job;
+    g_configSaveError.store(error);
+    g_configSaveState.store(error ? 3 : 2);
+    return 0;
+}
+void UiSettingsPrepare() { g_configValues.Load(kConfigSettings, IniPath()); }
+void SaveUiSettings() {
+    if (g_configSaveState.load() == 1) return;
+    ConfigSaveJob* job = new (std::nothrow) ConfigSaveJob;
+    if (!job) { snprintf(g_msg, sizeof(g_msg), "Save failed: no memory. Preferences remain in this menu."); return; }
+    job->ini = IniPath();
+    g_configValues.Save(kConfigSettings, [&](const wchar_t* section, const wchar_t* key, const std::wstring& value) {
+        job->entries.push_back(section); job->entries.push_back(key); job->entries.push_back(value);
+    });
+    if (job->entries.empty()) { delete job; snprintf(g_msg, sizeof(g_msg), "No edited startup preferences to save."); return; }
+    g_configSaveError.store(0); g_configSaveState.store(1);
+    if (HANDLE thread = CreateThread(nullptr, 0, SaveConfigThread, job, 0, nullptr)) {
+        CloseHandle(thread);
+        snprintf(g_msg, sizeof(g_msg), "Saving startup preferences. Restart before they apply.");
+    } else {
+        g_configSaveError.store(GetLastError()); g_configSaveState.store(3); delete job;
+    }
+}
+void UiChange(int dir) {
+    static int items[kMaxRows + 4];
+    const int n = Items(items, kMaxRows + 4);
+    if (!n) return;
+    if (g_sel >= n) g_sel = n - 1;
+    const int item = items[g_sel];
+    if (item > kItSettingBase) return;
+    const int index = kItSettingBase - item;
+    if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
+        const auto& d = kConfigSettings[index];
+        snprintf(g_msg, sizeof(g_msg), "[%s] %s: startup preference edited. Save, then restart. Current session unchanged.", d.section, d.key);
+        g_configSaveState.store(0);
+    }
+}
+
 void UiOpen() {
+    g_uiPages.Reset();
+    g_uiBoss = -1;
     g_sel = 0;
     g_confirm = -9;
     g_msg[0] = 0;
     g_pageGen0 = g_scanGen.load();
-    g_wantScan.store(true);
+    if (g_live.load()) g_wantScan.store(true);
 }
 void UiMove(int dir) {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
-    g_sel = n ? (g_sel + dir + n) % n : 0;
+    g_sel = (dir == 10 || dir == -10) ? menu_nav::PageStep(g_sel, dir, n) : menu_nav::Wrap(g_sel, dir, n);
     g_confirm = -9;
     g_msg[0] = 0;
 }
@@ -1669,9 +1760,30 @@ bool UiAct() {
     if (!n) return false;
     if (g_sel >= n) g_sel = n - 1;
     const int item = it[g_sel];
+    if (item == kItClose) return true;
+    if (item <= kItSettingBase) { UiChange(0); return false; }
+    if (item == kItSave) { SaveUiSettings(); return false; }
+    if (item == kItSettings || (item <= kItGroupBase && item > kItSettingBase)) {
+        g_uiPages.Enter(item == kItSettings ? uSettings : uSettingFirst + kItGroupBase - item, g_sel);
+        g_sel = 0; g_confirm = -9; g_msg[0] = 0;
+        return false;
+    }
+    if (item == kItBack) return UiBack();
+    if (item == kItBrowse || (g_uiPages.page == uBosses && item >= 0)) {
+        if (item >= 0) g_uiBoss = item;
+        g_uiPages.Enter(item == kItBrowse ? uBosses : uActions, g_sel);
+        g_sel = 0;
+        g_confirm = -9;
+        g_msg[0] = 0;
+        return false;
+    }
     if (item == kItAbort) {
         Post(kReqAbort, -1, "the menu");
         return true;
+    }
+    if (!g_live.load()) {
+        snprintf(g_msg, sizeof(g_msg), "Rematch is unavailable this session. Settings can be saved for the next launch.");
+        return false;
     }
     const char* why = Gates(ReadSnap(), true);
     if (why) {
@@ -1736,7 +1848,8 @@ bool UiBack() {
         g_msg[0] = 0;
         return false;
     }
-    return true;
+    g_msg[0] = 0;
+    return !g_uiPages.Back(g_sel);
 }
 
 int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
@@ -1752,9 +1865,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         ++k;
     };
     const Snap s = ReadSnap();
-    const char* gate = g_state.load() != kIdle ? nullptr : Gates(s, true);
+    const char* gate = !g_live.load() ? "rematch off; settings available" : g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();
-    add(cCyan, false, "Boss rematch (Nioh3BossRematch " ADDON_VERSION ")  -  %s", st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_fight.load() ? "active: fight now" : "active: replay")
+    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -1767,7 +1880,19 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     for (int i = first; i < n && k < cap - 1; ++i) {
         const bool sel = i == g_sel;
         const char* mk = sel ? ">" : " ";
-        if (it[i] == kItOpen) add(sel ? cWhite : cGray, sel, "%s Open the game's Battle Scroll replay menu   (R-a)", mk);
+        if (it[i] <= kItSettingBase) {
+            const int index = kItSettingBase - it[i];
+            const auto& d = kConfigSettings[index];
+            const auto& v = g_configValues.values[(size_t)index];
+            add(sel ? cWhite : d.kind == setting_ui::Kind::Manual ? cDim : cGray, sel, "%s %.48s: %.44s%s (%s)", mk,
+                d.label, v.text.c_str(), v.changed ? " *" : "", d.kind == setting_ui::Kind::Manual ? "ini only" : "next launch");
+        } else if (it[i] <= kItGroupBase) add(sel ? cWhite : cGray, sel, "%s %s settings   A: open", mk, kConfigGroups[kItGroupBase - it[i]]);
+        else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
+        else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
+        else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
+        else if (it[i] == kItBack) add(sel ? cWhite : cGray, sel, "%s Back to parent menu   B / Esc / Backspace", mk);
+        else if (it[i] == kItClose) add(sel ? cWhite : cGray, sel, "%s Close menu", mk);
+        else if (it[i] == kItOpen) add(sel ? cWhite : cGray, sel, "%s Open the game's Battle Scroll replay menu   (R-a)", mk);
         else if (it[i] == kItScroll) add(sel ? cWhite : cGray, sel, "%s Use an owned Picture Scroll (the game's pick)   (E0)", mk);
         else if (it[i] == kItAbort) add(cYellow, sel, "%s Abort and restore now", mk);
         else if (it[i] >= kItShrine) {
@@ -1781,24 +1906,41 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const Row& r = g_rows[(size_t)row];
             const uint8_t stt = g_status[(size_t)row].load();
             const char* why = CanArena(row);
+            const bool gateOnly = !r.atFight && !r.arenaOk && r.GateDoor() && g_gateOk;
+            const char* action = gateOnly ? "Boss gate via shrine (not direct)" : "Fight now (in the arena)";
             const char* conf = r.atFight ? r.fightConf : r.arenaConf;
             const uint32_t c = why || stt != 2 ? cDim : (!strcmp(conf, "high") || !strcmp(conf, "captured")) ? cGreen : !strcmp(conf, "medium") ? cYellow : cOrange;
-            if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Fight now (in the arena)   - not beaten on this journey", mk);
-            else if (why) add(sel ? cWhite : c, sel, "%s    Fight now (in the arena)   - %s", mk, why);
-            else add(sel ? cWhite : c, sel, "%s    Fight now (in the arena)   %s   [%s]", mk, r.atFight ? "the mission starts at the fight" : "warp into the trigger", conf);
+            if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    %s   - not beaten on this journey", mk, action);
+            else if (why) add(sel ? cWhite : c, sel, "%s    %s   - %s", mk, action, why);
+            else add(sel ? cWhite : c, sel, "%s    %s   %s   [%s]", mk, action, r.atFight ? "the mission starts at the fight" : gateOnly ? "shrine start; gate fallback" : "warp into the trigger", conf);
         } else {
             const Row& r = g_rows[(size_t)it[i]];
             const uint8_t stt = g_status[(size_t)it[i]].load();
             const char* status = r.route == rcore::kX ? "-" : r.route == rcore::kE ? "" : !scanned ? "?" : stt == 2 ? "beaten" : stt == 1 ? "not beaten" : "error";
             const uint32_t c = r.route == rcore::kX ? cDim : (r.route != rcore::kE && stt != 2) ? cDim : !r.Verified() ? cGray : cGreen;
-            add(sel ? cWhite : c, sel, "%s %-40.40s %-10.10s %-10.10s %-14.14s %s", mk, r.name, r.region, status, rcore::RouteName(r.route),
-                r.route == rcore::kX ? "" : r.Verified() ? "" : "unverified");
+            if (g_uiPages.page == uActions)
+                add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
+            else
+                add(sel ? cWhite : c, sel, "%s %-40.40s %-10.10s %-10.10s %-14.14s %s", mk, r.name, r.region, status, rcore::RouteName(r.route),
+                    r.route == rcore::kX ? "" : r.Verified() ? "" : "unverified");
         }
     }
     if (footer && nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
-        if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
+        if (item <= kItSettingBase) {
+            const auto& d = kConfigSettings[kItSettingBase - item];
+            snprintf(footer, nf, "[%s] %s: %s %s", d.section, d.key, d.help,
+                d.kind == setting_ui::Kind::Manual ? "INI only; no controller edit." : "A / Left / Right edits. Save, then restart; current session unchanged.");
+        } else if (item == kItSave && g_configSaveState.load() == 1) snprintf(footer, nf, "Saving preferences; current session unchanged.");
+        else if (item == kItSave && g_configSaveState.load() == 2) snprintf(footer, nf, "Saved. Restart the game before these preferences apply. * = edited this session.");
+        else if (item == kItSave && g_configSaveState.load() == 3) snprintf(footer, nf, "Save failed (error %lu). Preferences remain here; retry Save.", g_configSaveError.load());
+        else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
+        else if (item == kItSettings || item <= kItGroupBase) snprintf(footer, nf, "Startup preferences only. Settings do not install hooks or enable commands this session. Save then restart.");
+        else if (item == kItSave) snprintf(footer, nf, "Writes only edited preferences. Paths/lists and the unavailable Training Enable key are never written.");
+        else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss, then choose its replay or fight action. Existing unlock and solo checks apply.");
+        else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
+        else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
         else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
             snprintf(footer, nf, "%s: starts the mission at start point %u (%s, %d m from the boss, %s confidence). A start, B back.",
@@ -1806,11 +1948,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item >= kItFight) {
             const Row& r = g_rows[(size_t)(item - kItFight)];
             if (r.atFight) snprintf(footer, nf, "%s: the mission's only start point is at the fight (%d m). A start, B back.", r.mission[0] ? r.mission : r.name, r.fightDist);
+            else if (!r.arenaOk && r.GateDoor() && g_gateOk) snprintf(footer, nf, "%s: starts at the shrine; gate fallback only. Direct arena entry is unverified. A uses the existing route.", r.name);
             else snprintf(footer, nf, "%s: start point %u, then a warp to %.0f %.0f %.0f inside the arena trigger (%s). A start, B back.",
                           r.mission[0] ? r.mission : r.name, r.fightStart, r.arena[0], r.arena[1], r.arena[2], r.arenaSrc);
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
-            if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
+            if (g_uiPages.page == uBosses) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
+            else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
                           r.placement ? "" : "");
         } else if (item == kItOpen) snprintf(footer, nf, "Opens the game's own replay list (whole mission). Best at a shrine, menus closed.");

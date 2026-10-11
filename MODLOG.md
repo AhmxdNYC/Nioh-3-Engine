@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private grouped settings candidate (EngineFix 1.7.67 / BossRematch 1.4.7)
+
+Grouped controller pages retain original setting/action IDs, flat order, keys, Remote behavior and native v4 routes. A per-key catalog shows every shipped ini option; reviewed numeric/choice controls edit explicit preferences, with startup/live/requested distinctions and ini-only gaps. Addon settings remain available with Rematch disabled; Training Observe stays default OFF and reserved mutation is unavailable. Gate-only shrine fallback is labelled honestly. No DLL build, deployment, native acceptance or performance/direct-arena claim. Actual-source offline menu harnesses passed before final metadata/version edits; final catalog/default/source and menu-map checks passed. Undo: leave startup preferences unchanged; Engine Menu Layout=0 restores original traversal. Evidence/gates: notes/settings-menu-v4-candidate.md.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.6 bounded observer events
 
 Default-OFF Training Observe retains 64 copied create/begin/end entry records with cached scalar validity/generations/time. Nonblocking entry publication reports contention and overwrite loss separately; read-only oldest-first copies do not drain. Publication order and cached tags do not prove native session membership/readiness. Offline verification only; no deployment/performance/visual claim. Undo: Observe=0. Evidence: notes/handoff-codex-training-events.md.

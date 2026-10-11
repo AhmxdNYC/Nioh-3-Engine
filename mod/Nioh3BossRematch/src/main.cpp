@@ -141,7 +141,7 @@ DWORD WINAPI Init(void*) {
     }
     if (rm) Feature("RematchLog", "RLOG");
     if (inv) Feature("InvLog", "INV");
-    if (live) ui::Start();
+    ui::Start();  // settings remain reachable with Rematch disabled; no rematch hooks are added
     remote::Start();
     Log("ready (%lu ms): BossLog %d, RematchLog %d, InvLog %d, Rematch %s", GetTickCount() - t0, boss, rm, inv, live ? "live" : "off");
     return 0;
