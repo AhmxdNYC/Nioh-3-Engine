@@ -914,3 +914,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 - Prior pc2 +15.9% applies to its slow chipset PCIe link; no new performance claim until the merged build is measured. Validation and smoke outcomes: notes/handoff-codex-step1.md.
 - Undo: CBN=0, CBT=0; ExtraPerf.Enabled=0 or preset/levels 0.
 
+
+## 2026-10-10 - FnProbe decoder safety (1.7.61 integration regression)
+- Full release check exposed a 66-prefixed C7 word store at newly named handler 9AFDF0: the decoder counted a 32-bit immediate and swallowed the following return/padding. Respect 16-bit immediates for C7/81/B8-BF unless REX.W overrides 66. FnProbe remains diagnostic and default off.
+- Added the real handler and width/override regression cases; run_fnprobe_harness.py ALL PASSED, 12,497 accepted of 13,826 named entries, zero disagreements with Capstone.
+- Undo: revert this decoder commit; do not use FnProbe on 66-prefixed immediate prologues with the old decoder.

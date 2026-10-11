@@ -17,7 +17,8 @@ namespace fnprobe {
 // ModRM memory forms must not be rip-relative (mod 00, rm 101) and must have a base register (SIB base 101 with mod 00 is refused).
 inline int InsnLen(const uint8_t* p) {
     int i = 0;
-    if (p[i] == 0x66 || p[i] == 0xF2 || p[i] == 0xF3) ++i;
+    const bool operand16 = p[i] == 0x66;
+    if (operand16 || p[i] == 0xF2 || p[i] == 0xF3) ++i;
     bool rexW = false;
     if ((p[i] & 0xF0) == 0x40) {
         rexW = (p[i] & 8) != 0;
@@ -28,15 +29,15 @@ inline int InsnLen(const uint8_t* p) {
     bool modrm = false;
     bool twoByte = false;
     if (op >= 0x50 && op <= 0x57) return i;
-    if (op >= 0xB8 && op <= 0xBF) return i + (rexW ? 8 : 4);
+    if (op >= 0xB8 && op <= 0xBF) return i + (rexW ? 8 : operand16 ? 2 : 4);
     switch (op) {
         case 0x88: case 0x89: case 0x8A: case 0x8B: case 0x8D:
         case 0x31: case 0x33: case 0x29: case 0x2B: case 0x85: case 0x39: case 0x3B:
             modrm = true;
             break;
         case 0x83: modrm = true; imm = 1; break;
-        case 0x81: modrm = true; imm = 4; break;
-        case 0xC7: modrm = true; imm = 4; break;
+        case 0x81: modrm = true; imm = operand16 && !rexW ? 2 : 4; break;
+        case 0xC7: modrm = true; imm = operand16 && !rexW ? 2 : 4; break;
         case 0x0F: {
             const uint8_t o2 = p[i++];
             if (o2 != 0x10 && o2 != 0x11 && o2 != 0x28 && o2 != 0x29 && o2 != 0x6F && o2 != 0x7F) return -1;
