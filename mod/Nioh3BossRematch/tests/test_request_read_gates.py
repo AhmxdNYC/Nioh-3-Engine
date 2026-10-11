@@ -64,7 +64,8 @@ void Log(const char*,...) {}
 void Result(const char*,...) {}
 // This suite exercises the existing generic return dispatch; actual practice
 // ownership paths are executed by test_native_attempt.py.
-constexpr uint32_t kReqPracticeExit=10,kind=8;
+constexpr uint32_t kReqPracticeExit=10;
+uint32_t kind=8;
 const char* PracticeReturnGate(const Snap&) { return "not a practice fixture"; }
 void ExitDispatch(const Snap& s) {
 @EXIT@
