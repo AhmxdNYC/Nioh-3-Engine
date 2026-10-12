@@ -153,3 +153,53 @@ Fresh continuation byte windows:
 | 5BA648 / 48 | 32388dafe133f5a41abd5a8ee4e4d1fa239fe5896783606a6fbc6844fd4f20d6 |
 | 5BCBAC / 49 | b9a470281e23043e54300e49f7137f1ad0c88a9300ab46419585472053c6f8e1 |
 | 65A8A8 / 978 | a55d5418b820a7919b74a388776a7d2040cec85fe922d18ea4ef118aa4633ac2 |
+
+## Follow-up 2: pre-registered child wrappers and reservation rollback
+
+The previous continuation is committed as `bc6a4bd`. Fresh bounded byte tracing closes the missing origin of child wrappers and identifies a native pre-child reservation rollback pattern. No executable/source/game changes.
+
+### Child registration is already a native parent-registration operation
+
+The full **4BC904(registry, templateWrapper, characterTableId)** routine does more than register the one supplied wrapper. It resolves character metadata via1342E0/134358, then pre-registers child IDs before the parent. The actual sequence is:
+
+1. For metadata word+382 entries, increment slot from1, form `(slot <<28) | templateWrapper.id`, skip existing registry entries, allocate0x158 bytes, call4BDCB4(childId, template.owner+24, false), mark child+14C=1, and insert through4BD688.
+2. Continue that slot counter for metadata word+384 entries, allocating the same way but marking child+14C=2. This second loop is a **count**, whereas1C1CAB8 uses word+384+1 as its allocation upper bound; do not silently normalize the two formulas into one assumed range.
+3. Look up the parent ID; if missing, allocate/copy the parent wrapper through4BBC48 and insert it. If the parent already exists, return null even though child registration may have occurred. Thus4BC904's null return does not mean no mutation. It is not an idempotent success-status API.
+
+The child constructor sets wrapper[0]=null, +20=childId, +24=owner scalar and +50=0. It initializes tracking/list state and looks up an optional source record from the ID. Registry ownership begins at4BD688; the mod does not own these allocations. Native callers include370138 (stage-related object registration, source object+1E0),1C083B0,1C0D91C and the previously traced CreateDirect wrapper238C9BC. A confirmed caller370138 builds a temporary wrapper, registers through4BC904, then destroys only the temporary via4BC6F0. Do not transplant allocation/insertion and manually free the registry pointer.
+
+This directly explains65A8A8's conditional attachment: **the normal owner already has reserved child wrappers in the registry before the creation queue runs**. The smallest first implementation can therefore reuse one verified inactive existing type2 child wrapper. It does not need a new wrapper factory or synthetic ID. Preflight must require that actual child wrapper, the correct owner scalar, expected class marker, null live pointer, no activation/pending state, valid free slot and a matching ready character resource. A catalogue ID alone satisfies none of these checks.
+
+`669A10(wrapper, live)` attaches a native tracked reference and writes wrapper+28 from the live Character's type plus wrapper+30's resolved resource key. It does **not** set wrapper+50 to2. `669990` only notifies listeners. The parent/child update state must be preserved; pretending attachment automatically activates the cleanup state machine is unsafe.
+
+### A real native cancellation owner releases the slot before canceling
+
+**6826CC(context, bool removeMode)** has an actual function pointer at retained vtable address38F7418. It is reached virtually rather than through confirmed direct calls in this image. Its complete bounded body demonstrates the missing rollback pattern:
+
+- `683DA4(context)` obtains a valid tagged actor pointer from context+8; its +4 identifies the owner placement. Lookup135B78 obtains the owner wrapper.
+- It takes the high nibble of context+68 (generated child ID), and **clears exactly that bit in owner+ D0** at68270A.
+- It checks the context's tracked live object through324DC0. If present, removeMode selects2BF7E8 or681E9C, then the context's virtual+28 continuation runs.
+- If no live object exists, a nonnegative request token at context+64 is passed to**68157C(const uint32_t* token)**. That wrapper uses global4745348 and calls the previously established681434 queue cancellation. Then the same virtual continuation runs.
+
+Therefore slot release before pending-queue cancellation is not a speculative invention: a native owner already performs it, including the no-live-object case. Calling6826CC itself still requires its real context/vtable/tracked members; it is not an `(ownerId, childId, token)` API.
+
+Adjacent leaf **682760(wrapper, uint32_t slot)** implements precisely `wrapper.bitmap[slot >>5] &= ~(1u << (slot &31))` at wrapper+ D0. It has no allocation/resource/queue side effects. No confirmed direct call, tail jump or absolute pointer reference to this leaf was found in the retained image, so its *mechanical ABI* is established but a live resolver/signature and runtime reachability are not. The native virtual cancellation's inline operation independently corroborates the semantics; do not describe an unobserved leaf call as a tested API.
+
+The normal child-update release at2864E4 is insufficient by itself for pre-child cancellation: its sole confirmed caller2866F0 calls286124 only when wrapper+50==2. Newly pre-registered children start at0, and669A10/669990 do not change that state. This closes why waiting for generic actor cleanup is not proven to reclaim a rejected reservation.
+
+### Smallest native-backed adapter now identifiable
+
+Use a genuine current owner and its **existing** child wrapper; borrow them only inside a validated game-thread epoch, and refuse missing/busy/exhausted/mismatched slots. Use the native request constructor683FE4 and enqueue683F74 so the adapter retains the real token (the higher1C0C5E0 loses it). Use the balanced script-owned resource pair A42A7C/1C217A8 already traced. On an unaccepted or still-pending transaction, the rollback backend now has a concrete native pattern: release only the bit reserved by this transaction, cancel its token through68157C if accepted, and do not dereference/release an old epoch owner. This is a proposed adapter boundary, not live admission.
+
+The remaining hard gate is **serialization/lifetime plus completed-child removal**, rather than the existence of registration or pre-child release operations. Native6826CC's sequence assumes an execution context that excludes concurrent queue consumption/reuse; that guarantee has not been recovered for a mod pump. A late completed object takes681434's BD0 tracked-pointer path, whose actual removal consumer still needs closure before an adapter can claim abort complete. Failures after native acceptance must remain indeterminate until that drain is witnessed; clearing a bitmap alone does not authorize a retry. Resource release must follow child/request drain. No state writes should be added merely to force286124 to run.
+
+Exact fresh windows:
+
+| RVA / bytes | SHA256 |
+|---|---|
+| 4BC904 / 257 | 09b65329b4b78844a51998528818a89aa87d74851cb1afb126a375f17bf046f9 |
+| 6826CC / 92 | e4763e3361aee1d951eebf43c123b391febc21abdd99085cde761b33416ebbb8 |
+| 682760 / 21 | c785b5f4c87cfd9a0f5c7ca7842bd4148ed6bdf745bcb72e460803bf16897993 |
+| 2866F0 / 2B0 | b8dd8b7dceca346f5c4a0ecd3a93e7c4eb1cf010b17b93283a4e062d21b2a96c |
+| 669A10 / A5 | 185acf183d5036dd4957f523f6c70de3a874cba9e54d29511acfb33842528473 |
+| 68157C / 1D | c87a4531a0b326084d0b05c9e0190a21bc74daa76df9b7bb79a1cbcc3c56c4c8 |
