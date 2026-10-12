@@ -1,6 +1,10 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-12 16:16 - Combined PB2 live diagnostic implementation requested
+- Proposal335 SHAa592b6a22a57bbf522573280b53d4e190c930991f565f45f9c0c3d1342cf1b50 reviewed against257 exact shader binding and transaction source. Direction2664 requests additive A0/B0 diagnostic implementation only, with timing unreachable, current-entry restoration, pending-launch322 cleanup, exclusive shader transaction ownership and production-path inert tests. No install/launch admission issued.
+- Require two complete scene-only GP2 windows, candidate digest with positive draw/interval evidence, matched settings/camera and full screenshots. This supports exercise/manual visual screening, not exact native image equivalence. Concrete gameplay memory evidence remains pending; retain18GiB launch gate without automatic lowering. PS05ad274/vertex247 need separately bound live packages; compiler fixtures alone do not authorize staging. Lodu remains stopped/noisy.
+
 ## UPDATE 2026-10-12 16:15 - All three Ally shader compiler gates passed
 - Root reviewed adapter333 (19 inert checks,54 original archive members/74 pins) and issued sequential GO2651. Evidence334 SHA935ce3f488834ed893b5c9a7de8c6dd19e307517e64897ad791e39755638dbf3 independently parsed: PB2 vertex247 and combined257 each actualAMD15bf/WaveOps1/SM65,8 roots/16 PSOs successful, no draws. Both native/Proton/outer0, closure verified, no survivors/postcheck errors, entry/pins unchanged. Actual task17 independently free. Review: D:/nioh3-re/reviews/ally-pb2-results-334/root-review.json; remote files not independently reread.
 - Together with PS05ad331/332, all three compiler gates PASS. Visual equivalence and FPS comparisons remain UNRUN; lodu A1 remains INVALID_NOISY and B/A2 NOT_RUN. No new verified FPS improvement.
