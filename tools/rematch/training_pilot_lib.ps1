@@ -24,7 +24,7 @@ function Training-LogTail([string]$Before,[string]$After) {
     return $After.Substring($Before.Length)
 }
 function Training-ImportLifecycle([string]$Path) {
-    $pin='1ec842c76ce070fa711f40b8b0be8d2915228dc73637aff25b51302df6a255e0'
+    $pin='a2e077a66708c2ed1278bc9bddc1c64489c5a0127d4178b6efee48f199925ea6'
     if ((C72-BinaryHash $Path) -ne $pin) { throw 'C72E lifecycle changed; review and repin before training' }
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile($Path,[ref]$tokens,[ref]$errors)
