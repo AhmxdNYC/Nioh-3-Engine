@@ -1,5 +1,12 @@
 # Third PB2 material: local integer C-buffer index folding
 
+**Closed: rejected before compilation.** The follow-up `material_c_static_gate.py`
+checks all seven associated retained gfx1201 pixel ISA sections: none contains
+an `s_or_b32` or `v_or_b32`. There is no demonstrated emitted OR to remove.
+This is a conservative rejection for lack of a machine-code opportunity, not
+proof that all future drivers emit identical code. The earlier proposed next
+compile below is superseded by `MATERIAL-C-ROW.md`.
+
 Static-only unit during the user's manual game session. No GPU, game process,
 input, bridge, ASI or settings access; game shader files were only read.
 
