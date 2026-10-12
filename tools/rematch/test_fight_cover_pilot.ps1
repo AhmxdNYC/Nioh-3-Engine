@@ -70,4 +70,16 @@ foreach ($ms in @(0,1000,2000,3000)) { Check (-not (FCP-ReturnSettled $t $ms $s)
 Check (-not (FCP-ReturnSettled $t 4100 ($s.Replace('loading=0','loading=1')))) 'loading resetsreturn'
 foreach ($v in @('failed','recovery','invented')) { Reject {FCP-CheckStatus ("state=3 loading=0 player=1 mission=0x1CBC stage=67064 infight=1 warps=0 spawn=$v gate=rematch active")} "spawn $v" }
 foreach ($v in @('-','pending','applied','arena','start')) {FCP-CheckStatus ("state=3 loading=0 player=1 mission=0x1CBC stage=67064 infight=1 warps=1 spawn=$v gate=rematch active");Check $true "native spawn $v"}
+$baseline=FCP-Parse $reply
+FCP-CheckPreSubmit $baseline $reply;Check $true 'navigation preserves original baseline'
+foreach ($pair in @(@('token=42','token=43'),@('phase=4','phase=1'),@('attempt=7','attempt=8'),@('mission=0x1CBC','mission=0xC72E'),@('sample=123000','sample=123001'))) {
+    Reject { FCP-CheckPreSubmit $baseline ($reply.Replace($pair[0],$pair[1])) } 'native event during navigation refused'
+}
+$navReq=$req|Select-Object *;$navReq.stage='FightReady';$navApproval=$a|Select-Object *;$navApproval.stage='FightReady'
+FCP-CheckApproval $navReq $navApproval;Check $true 'owned FightReady accepted'
+Reject { FCP-CheckApproval $req $navApproval } 'FightReady cannot approve control'
+$navApproval.nonce='previous-run';Reject { FCP-CheckApproval $navReq $navApproval } 'stale navigation approval'
+$source=[IO.File]::ReadAllText($path)
+Check ($source.IndexOf('$script:requestLogBefore=C72-ReadShared $addonLog') -lt $source.IndexOf("Training-WaitStage 'FightReady'") -and $source.IndexOf("Training-WaitStage 'FightReady'") -lt $source.IndexOf('$coverReady=$false;$until=')) 'capture baseline then manual stage then one fight deadline'
+Check ($source.Contains("if (`$Stage -eq 'FightReady') { FCP-CheckPreSubmit `$baseline (Invoke-C72Pipe 'cover') }") -and $source.Contains('Assert-Owned')) 'navigation continuously guarded and rejects early submit'
 Write-Host "PASS $script:n fight cover pilot checks"

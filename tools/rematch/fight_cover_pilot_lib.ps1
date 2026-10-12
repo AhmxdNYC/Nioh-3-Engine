@@ -1,6 +1,6 @@
 # Pure validators; no work on import. Exact private one-pilot admission.
 function Get-FCPExpected {
-    return @{mod_tree='bd56ba71037298f080207eb3be60a3ca846322c9';engine_sha256='5efe5951bf69c170f36305bd1f0101b9d76f90658fa73f55e0993216dee62aa5';addon_sha256='7c63fbc3411991161dbcdc4da549d390e23186bb69ef5cbe33085e66144cde98';gate_receipt_sha256='9043b96c237aecfdb63613c3be6e8b9a62394c176a64f5f11f67abe8dbcc4aff';admission_receipt_sha256='575d1d42f65efba0a5a08fd81c039e4499f0f5d07c34529aa9694ded316502b6'}
+    return @{mod_tree='bd56ba71037298f080207eb3be60a3ca846322c9';engine_sha256='5efe5951bf69c170f36305bd1f0101b9d76f90658fa73f55e0993216dee62aa5';addon_sha256='7c63fbc3411991161dbcdc4da549d390e23186bb69ef5cbe33085e66144cde98';gate_receipt_sha256='9043b96c237aecfdb63613c3be6e8b9a62394c176a64f5f11f67abe8dbcc4aff';admission_receipt_sha256='a62e2fcd2064302807317b4d078d0ed57f2a5fb3b7dc4518b45099c543d4ff95'}
 }
 function FCP-CheckDependencies([string]$Repo) {
     $p=Join-Path $Repo 'tools/rematch/training_pilot_lib.ps1'
@@ -52,6 +52,12 @@ function FCP-Evidence([uint64]$BaselineToken,[string]$Before,[string]$After,[str
     if ($step -ne 4 -or $s.attempt -ne $attempt -or $s.presented -ne 1 -or $s.issued -ne 1 -or $s.bossEntry -ne 1 -or $s.placementEntry -ne 1 -or $s.control -ne 1 -or $s.algo -ne 1 -or $s.life -ne 1 -or $s.playerAlive -ne 1 -or -not $s.sample -or $s.sample -gt $s.deadline) { throw 'Ready snapshot lacks exact ordered witnesses' }
     return $true
 }
+function FCP-CheckPreSubmit($Baseline,[string]$Reply) {
+    $s=FCP-Parse $Reply
+    foreach ($key in @('token','phase','attempt','mission','start','placement','presented','issued','sample')) {
+        if ([string]$s[$key] -cne [string]$Baseline[$key]) { throw 'Cover changed before FightReady; no rebase or retry' }
+    }
+}
 function FCP-Complete($Result) {
     foreach ($key in @('root_control_confirmed','native_return_confirmed','saves_restored','inis_restored','binaries_restored')) { if ($Result[$key] -isnot [bool] -or -not $Result[$key]) { return $false } }
     return $Result.status -ceq 'FIGHT_COVER_REVIEWED_RETURN_OBSERVED'
@@ -62,7 +68,7 @@ function FCP-CheckApproval($Request,$Approval) {
     }
     if ([string]::IsNullOrWhiteSpace([string]$Approval.evidence)) { throw 'Root visual/control evidence required' }
     if ($Approval.stage -eq 'ControlReviewed') { foreach ($k in @('visible_arena','visible_boss','control_response')) { if ($Approval.$k -isnot [bool] -or -not $Approval.$k) { throw "Root confirmation missing: $k" } } }
-    if ($Approval.stage -notin @('FieldReady','ControlReviewed','NativeReturn')) { throw 'Unknown cover approval stage' }
+    if ($Approval.stage -notin @('FieldReady','FightReady','ControlReviewed','NativeReturn')) { throw 'Unknown cover approval stage' }
 }
 function FCP-CheckStatus([string]$Reply) {
     foreach ($key in @('state','loading','player','mission','stage','infight','warps','spawn')) {
