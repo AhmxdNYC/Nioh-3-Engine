@@ -92,7 +92,7 @@ bool g_spawnOk = false;
 const char* g_spawnWhy = "";
 
 struct Cfg {
-    bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = false, fightWarp = false, arenaCapture = false,
+    bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = true, fightWarp = true, arenaCapture = false,
          fightSpawn = true;
 } g_cfg;
 
@@ -1849,8 +1849,8 @@ bool Prepare() {
     g_cfg.directStart = IniInt(L"Rematch", L"DirectStart", 0) != 0;
     g_cfg.showAll = IniInt(L"Rematch", L"ShowAll", 1) != 0;
     g_cfg.showUnverified = IniInt(L"Rematch", L"ShowUnverified", 0) != 0;
-    g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 0) != 0;
-    g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 0) != 0;
+    g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 1) != 0;
+    g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 1) != 0;
     g_cfg.arenaCapture = IniInt(L"Rematch", L"ArenaCapture", 0) != 0;
     g_cfg.fightSpawn = IniInt(L"Rematch", L"FightNowSpawn", 1) != 0;
     wchar_t stw[512] = {};

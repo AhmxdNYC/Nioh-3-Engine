@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.12 enabled action defaults
+
+With Rematch explicitly enabled, missing FightNow and FightNowWarp keys now default to 1, matching the supplied INI and settings catalog; FightNowSpawn remains 1. Explicit zero values stay off. Rematch Enable itself remains opt-in/default 0, and all route, solo, clear, admission and restoration gates remain in force. Actual Prepare tests distinguish absent keys from explicit zero; no installation or handheld acceptance is claimed.
+
 ## 2026-10-11 Codex - private BossRematch 1.4.11 two-choice boss menu
 
 Every boss action page now shows Fight now and Shrine before the boss, plus Back. Disabled configuration, unsupported routes and absent start points remain visible with refusal reasons; native-at-fight missions explicitly report no separate shrine. The generic replay action is removed from boss pages; the root Battle Scroll entry remains. Shrine rendering and clicks share the same configuration/route/start checks, with an additional no-separate-shrine refusal enforced again by native dispatch. Fight now additionally refuses gate-only shrine fallback in UI and native dispatch; only native-at-fight or validated arena routes qualify. Ownership and restoration logic is unchanged. Actual UI regressions cover minimal config and supported/unsupported rows. No installed files or controller settings changed; handheld acceptance is not claimed.

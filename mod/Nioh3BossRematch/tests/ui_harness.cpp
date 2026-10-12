@@ -5,9 +5,10 @@
 namespace addon {
 Image g_img = {};
 void Log(const char*, ...) {}
-const wchar_t* IniPath() { return L""; }
+wchar_t testIni[MAX_PATH]{};
+const wchar_t* IniPath() { return testIni; }
 const wchar_t* ModDir() { return L""; }
-int IniInt(const wchar_t*, const wchar_t*, int def) { return def; }
+int IniInt(const wchar_t* section, const wchar_t* key, int def) { return testIni[0] ? (int)GetPrivateProfileIntW(section,key,def,testIni) : def; }
 bool uiReads = false;
 bool Copy(void* out, uint64_t address, size_t n) {
     if (!uiReads) return false;
@@ -35,6 +36,19 @@ namespace bosslog { void FightBegin(uint64_t) {} }
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
 int main() {
     using namespace addon::rematch;
+    CHECK(g_cfg.fightNow && g_cfg.fightWarp && g_cfg.fightSpawn);
+    wchar_t tempPath[MAX_PATH]{};
+    CHECK(GetTempPathW(MAX_PATH,tempPath) && GetTempFileNameW(tempPath,L"n3d",0,addon::testIni));
+    // Actual Prepare reads a private temporary INI; missing Enable remains off.
+    g_cfg.fightNow=false; g_cfg.fightWarp=false;
+    CHECK(!Prepare() && !g_cfg.fightNow && !g_cfg.fightWarp);
+    CHECK(WritePrivateProfileStringW(L"Rematch",L"Enable",L"1",addon::testIni));
+    // GroupOk stub refuses hook installation after actual defaults are read.
+    CHECK(!Prepare() && g_cfg.fightNow && g_cfg.fightWarp && g_cfg.fightSpawn);
+    CHECK(WritePrivateProfileStringW(L"Rematch",L"FightNow",L"0",addon::testIni));
+    CHECK(WritePrivateProfileStringW(L"Rematch",L"FightNowWarp",L"0",addon::testIni));
+    CHECK(!Prepare() && !g_cfg.fightNow && !g_cfg.fightWarp && g_cfg.fightSpawn);
+    CHECK(DeleteFileW(addon::testIni)); addon::testIni[0]=0;
     g_live.store(true);  // UI fixture only; no game/pump is started
     g_cfg.showAll = true;
     for (int i = 0; i < 25; ++i) {
