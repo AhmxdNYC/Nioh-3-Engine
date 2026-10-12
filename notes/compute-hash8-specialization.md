@@ -38,6 +38,39 @@ to these few instructions.
 
 ## Native implementation boundary
 
+### Peer-review correction and ordered-load offline helper
+
+The dispatch hash at58BF3B and subsequent key reread58BF4A both precede
+EnterCriticalSection58BF55. The later cache lock therefore supplies **no key
+stability proof**. The original single-qword arithmetic test above consumes an
+already copied value; it was not a safe native load replacement.
+
+The audit now rejects mismatching complete hash-body and all three caller-body
+SHA256s, and verifies concrete key/context pointer provenance, rather than
+merely printing hashes and checking length8. Six deliberate mode/CRC/argument/
+length mutations are rejected by `test_compute_hash8_binding.py`.
+
+New offline `compute_hash8_ordered.asm` preserves the Win64 call interface
+(RCX=context,RDX=key,R8D=length). For length8 it reads the mode byte first,
+then exactly two ordered DWORDs at key+0/key+4. CRC mode assembles the qword
+**from those two loaded registers**, without a qword memory read, and performs
+one raw seeded CRC. XOR mode likewise reads both DWORDs in order. It uses only
+volatile RAX/R9 and flags, leaves the stack and nonvolatile registers untouched,
+and zero-extends the32-bit result. Other lengths tail-call an externally supplied
+original pointer with arguments unchanged; this is an offline test stub, not a
+live address/patch or installed trampoline.
+
+ML64 plus MSVC /O2 /W4 /WX build PASS. Actual assembled helper passes98,306
+full64-bit return checks over8 alignments, zero/one/255 mode bytes and a guarded
+page ending exactly after the8-byte key;129 non-eight lengths forward unchanged
+without touching null context/key. Dumpbin confirms the52-byte helper has only
+those two DWORD memory reads per mode, one byte mode read and register CRC.
+No instruction touches a nonvolatile register or RSP. These checks do not prove
+caller lifetime, race freedom or identical exception instruction addresses;
+they preserve the original load granularity/order instead of assuming a lock.
+The later caller key reread and lookup remain unchanged. Native admission and
+actual worthwhile CPU cost are still open; no installed edits or FPS claim.
+
 The next implementation unit, if selected by lead, is an exact callsite-bound
 length8 helper for58BF3B only, preserving ABI/nonvolatile registers and stock
 mode reads. Other lengths must stay generic. The8-byte input must remain stable
