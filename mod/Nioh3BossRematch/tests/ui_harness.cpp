@@ -176,6 +176,15 @@ int main() {
     mission=0x1111;retry=67064;memcpy(ms+0x28,&mission,4);memcpy(ms+0x14,&retry,4);
     g_sp={};g_attempt={};
     g_req=0;g_cover={};g_coverHostAt=0;g_coverReadOk=false;
+    uint64_t dispatchedToken=0;char dispatchReason[160]{};
+    g_coverReadOk=true;g_lastTick=Ms();
+    CHECK(!UiTestFight("INVALID",dispatchedToken,dispatchReason,sizeof(dispatchReason))&&!g_req);
+    g_status[0]=1;CHECK(!UiTestFight("R1CBC",dispatchedToken,dispatchReason,sizeof(dispatchReason))&&!g_req);
+    g_status[0]=2;g_cfg.fightWarp=false;CHECK(!UiTestFight("R1CBC",dispatchedToken,dispatchReason,sizeof(dispatchReason))&&!g_req);
+    g_cfg.fightWarp=true;
+    CHECK(UiTestFight("R1CBC",dispatchedToken,dispatchReason,sizeof(dispatchReason))&&dispatchedToken&&!g_req);
+    CHECK(g_cover.phase==transition_cover::AwaitPresent&&!g_cover.issued);
+    CoverCancel(dispatchedToken);g_cover={};g_coverReadOk=false;
     g_status[0]=1; g_confirm=-9; CHECK(!UiAct() && !g_req);
     g_sel=1; CHECK(!UiAct() && !g_req); g_status[0]=2;
     g_cfg.fightWarp=false; practice.arenaOk=false;

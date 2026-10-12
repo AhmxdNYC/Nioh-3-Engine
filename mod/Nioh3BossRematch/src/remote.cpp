@@ -24,7 +24,9 @@ DWORD WINAPI Client(void* p) {
             *nl = 0;
             if (nl > buf && nl[-1] == '\r') nl[-1] = 0;
             char reply[1024];
-            rematch::Command(buf, reply, sizeof(reply) - 2);
+            if(!strcmp(buf,"hostfight") || !strncmp(buf,"hostfight ",10))
+                ui::HostedFightCommand(buf[9]?buf+10:"",reply,sizeof(reply)-2);
+            else rematch::Command(buf, reply, sizeof(reply) - 2);
             strcat_s(reply, "\n");
             DWORD wr = 0;
             WriteFile(h, reply, (DWORD)strlen(reply), &wr, nullptr);

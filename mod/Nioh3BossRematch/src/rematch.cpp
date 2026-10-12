@@ -1597,12 +1597,13 @@ struct CoverLock {
     bool held=TryAcquireSRWLockExclusive(&g_coverLock)!=FALSE;
     ~CoverLock(){if(held)ReleaseSRWLockExclusive(&g_coverLock);}
 };
-bool CoverBegin(int row) {
+bool CoverBegin(int row,uint64_t* token=nullptr) {
     CoverLock lock;if(!lock.held)return false;
     if(!g_coverReadOk)return false;
     const Row& r=g_rows[(size_t)row];
     const bool started=g_cover.Begin(++g_coverNext,(uint32_t)row,r.missionId,r.fightStart,r.placement,Ms());
     if(started){g_coverHostAt=0;g_coverControl=g_coverAlgo=g_coverLife=g_coverPlayer=false;g_coverSampleAt=0;Log("Rematch: cover token=%llu phase=%u attempt=0 event=begin mission=0x%X start=%u placement=%u",g_cover.token,(unsigned)g_cover.phase,r.missionId,r.fightStart,r.placement);}
+    if(started&&token)*token=g_cover.token;
     return started;
 }
 void CoverTick(const Snap& s, ULONGLONG) {
@@ -1973,6 +1974,26 @@ void CoverPresented(uint64_t token) {
     g_coverHostAt=now;g_cover.Presented(token,now); // renderer callback: bounded state only, no logging/file I/O
 }
 void CoverCancel(uint64_t token) { CoverLock lock;if(lock.held)g_cover.Cancel(token); }
+// Shared final front-end gate for manual hosted confirmation and the opt-in
+// local test dispatcher. UI-worker only; native work still requires Present ACK.
+bool BeginHostedFight(int row,uint64_t* token,char* reason,size_t n) {
+    const char* why=nullptr;
+    if(!g_live.load())why="rematch unavailable";
+    else if(row<0||(size_t)row>=g_rows.size())why="unknown exact row";
+    else if((why=Gates(ReadSnap(),true))!=nullptr){}
+    else if(g_status[(size_t)row].load()!=2)why="not beaten on this journey";
+    else why=CanArena(row);
+    if(why){snprintf(reason,n,"%s",why);return false;}
+    if(!CoverBegin(row,token)){snprintf(reason,n,"transition unavailable or already active");return false;}
+    snprintf(reason,n,"awaiting actual covered Present");return true;
+}
+bool UiTestFight(const char* id,uint64_t& token,char* reason,size_t n) {
+    token=0;
+    int row=-1;for(size_t i=0;i<g_rows.size();++i)if(!strcmp(g_rows[i].id,id)){row=(int)i;break;}
+    if(!BeginHostedFight(row,&token,reason,n))return false;
+    g_uiPages.page=uActions;g_uiBoss=row;g_sel=0;g_confirm=-9;
+    snprintf(g_msg,sizeof(g_msg),"Preparing Fight now...");return true;
+}
 bool UiActHosted(){g_hostedUiAction=true;const bool result=UiAct();g_hostedUiAction=false;return result;}
 
 bool Prepare() {
@@ -2261,7 +2282,7 @@ bool UiAct() {
         }
         g_confirm = -9;
         if(arena && g_hostedUiAction) {
-            if(!CoverBegin(row))snprintf(g_msg,sizeof(g_msg),"Transition unavailable or already active.");
+            BeginHostedFight(row,nullptr,g_msg,sizeof(g_msg));
             return false; // keep the menu until the renderer presents its cover
         }
         Post(arena ? kReqFight : kReqShrine, row, "the menu");
@@ -2439,9 +2460,9 @@ void Command(const char* line, char* reply, size_t n) {
     }
     if (!strcmp(cmd, "cover")) {
         CoverLock lock;if(!lock.held){snprintf(reply,n,"error cover busy");return;}
-        snprintf(reply,n,"token=%llu phase=%u attempt=%llu mission=0x%X start=%u placement=%u presented=%d issued=%d bossEntry=%d placementEntry=%d deadline=%llu control=%d algo=%d life=%d playerAlive=%d sample=%llu reason=%s",
+        snprintf(reply,n,"token=%llu phase=%u attempt=%llu mission=0x%X start=%u placement=%u presented=%d issued=%d bossEntry=%d placementEntry=%d deadline=%llu control=%d algo=%d life=%d playerAlive=%d sample=%llu row=%s observedActor=%u reason=%s",
             g_cover.token,(unsigned)g_cover.phase,g_cover.attempt,g_cover.mission,g_cover.start,g_cover.placement,
-            (int)g_cover.presented,(int)g_cover.issued,(int)g_cover.bossEntry,(int)g_cover.placementEntry,g_cover.deadline,(int)g_coverControl,(int)g_coverAlgo,(int)g_coverLife,(int)g_coverPlayer,g_coverSampleAt,g_cover.reason);
+            (int)g_cover.presented,(int)g_cover.issued,(int)g_cover.bossEntry,(int)g_cover.placementEntry,g_cover.deadline,(int)g_coverControl,(int)g_coverAlgo,(int)g_coverLife,(int)g_coverPlayer,g_coverSampleAt,g_cover.row<g_rows.size()?g_rows[g_cover.row].id:"-",g_cover.observedPlacement,g_cover.reason);
         return;
     }
     if (!strcmp(cmd, "status")) {

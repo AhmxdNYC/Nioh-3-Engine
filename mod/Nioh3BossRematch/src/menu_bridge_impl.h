@@ -10,6 +10,38 @@ struct BridgeTryLock {
     bool held = TryAcquireSRWLockExclusive(&g_bridgeLock) != FALSE;
     ~BridgeTryLock() { if (held) ReleaseSRWLockExclusive(&g_bridgeLock); }
 };
+bool g_hostedFightTest=false;
+struct HostedTestRequest {
+    uint64_t serial=0,session=0,deadline=0,token=0;
+    int state=0; // 0 none, 1 queued, 2 cover begun, 3 refused (never retry)
+    char row[24]{},reason[160]{};
+} g_hostedTest;
+uint64_t g_hostedTestNext=0;
+void RefuseHostedTest(const char* reason){
+    if(g_hostedTest.state==1){g_hostedTest.state=3;snprintf(g_hostedTest.reason,sizeof(g_hostedTest.reason),"%s",reason);}
+}
+void BridgeTestFight(const char* row,char* reply,size_t n) {
+    if(!g_hostedFightTest){snprintf(reply,n,"error HostedFightTest disabled");return;}
+    BridgeTryLock lock;if(!lock.held){snprintf(reply,n,"error hosted test busy");return;}
+    const uint64_t now=GetTickCount64();
+    if(g_hostedTest.state==1 && (now>=g_hostedTest.deadline || g_hostedTest.session!=g_bridgeSession))RefuseHostedTest("request expired or host changed");
+    if(!row || !*row){
+        snprintf(reply,n,"serial=%llu session=%llu state=%d row=%s token=%llu reason=%s",g_hostedTest.serial,g_hostedTest.session,g_hostedTest.state,g_hostedTest.row,g_hostedTest.token,g_hostedTest.reason);return;
+    }
+    const size_t len=strlen(row);bool valid=len>1&&len<sizeof(g_hostedTest.row);
+    for(size_t i=0;i<len;++i)valid=valid&&((row[i]>='A'&&row[i]<='Z')||(row[i]>='0'&&row[i]<='9'));
+    if(!valid){snprintf(reply,n,"error exact row ID required");return;}
+    if(!g_bridgeAvailable.load() || !g_bridgeSession || g_bridgeClose || !(g_bridgeSnapshot.flags&mb::HostedReady) ||
+       !g_bridgeSnapshot.workerTickMs || now<g_bridgeSnapshot.workerTickMs || now-g_bridgeSnapshot.workerTickMs>=1500){snprintf(reply,n,"error hosted worker unavailable");return;}
+    if(g_hostedTest.state==1 || g_bridgeQueue.count){snprintf(reply,n,"error another hosted action pending");return;}
+    rematch::CoverInfo cover{};
+    if(!rematch::CoverSnapshot(cover) || (cover.phase>=1&&cover.phase<=3)){snprintf(reply,n,"error cover busy or unknown");return;}
+    g_hostedTest={};g_hostedTest.serial=++g_hostedTestNext;g_hostedTest.session=g_bridgeSession;
+    g_hostedTest.deadline=now+5000;g_hostedTest.state=1;
+    snprintf(g_hostedTest.row,sizeof(g_hostedTest.row),"%s",row);
+    snprintf(g_hostedTest.reason,sizeof(g_hostedTest.reason),"queued UI-worker action only");
+    snprintf(reply,n,"queued serial=%llu session=%llu row=%s",g_hostedTest.serial,g_hostedTest.session,g_hostedTest.row);
+}
 int BridgeAttach(uint64_t host, uint64_t* session) {
     if (!host || !session) return mb::InvalidArgument;
     if (!g_bridgeAvailable.load()) return mb::Unavailable;
@@ -29,6 +61,7 @@ int BridgeAttach(uint64_t host, uint64_t* session) {
 int BridgeDetach(uint64_t session) {
     BridgeTryLock lock; if (!lock.held) return mb::Busy;
     if (!session || session != g_bridgeSession) return mb::StaleSession;
+    RefuseHostedTest("host detached");
     g_bridgeHost = g_bridgeSession = 0; g_bridgeQueue.Clear(); g_bridgeClose = true;
     return mb::Accepted; // remain passthrough; never resurrect a second input owner
 }
@@ -36,7 +69,7 @@ int BridgePost(uint64_t session, uint64_t generation, uint32_t action) {
     if (!mb::ValidAction(action)) return mb::InvalidArgument;
     BridgeTryLock lock; if (!lock.held) return mb::Busy;
     if (!session || session != g_bridgeSession) return mb::StaleSession;
-    if (action == mb::CloseMenu) { g_bridgeClose = true; g_bridgeQueue.Clear(); return mb::Accepted; }
+    if (action == mb::CloseMenu) { RefuseHostedTest("host closed"); g_bridgeClose = true; g_bridgeQueue.Clear(); return mb::Accepted; }
     if (g_bridgeClose) return mb::Busy; // don't queue a reopen behind a pending close
     if (!(g_bridgeSnapshot.flags & mb::HostedReady)) return mb::Unavailable;
     if (generation != g_bridgeSnapshot.generation) return mb::StaleGeneration;
@@ -79,10 +112,25 @@ void HostedTick() {
     const mb::Snapshot published = g_bridgeSnapshot;
     if (g_wnd) ShowWindow(g_wnd, SW_HIDE);
     if (!(g_bridgeSnapshot.flags & mb::HostedReady) || g_bridgeClose) {
+        RefuseHostedTest("host closing or unavailable");
         rematch::CoverCancel(g_bridgeSnapshot.coverToken);
         Toggle(false); g_padEdges.store(0); g_toggleOwner.store(-1); g_owner.store(-1);
         g_latchEpoch.fetch_add(1); g_bridgeQueue.Clear(); g_bridgeClose = false;
         ++g_bridgeSnapshot.generation;
+    }
+    if(g_hostedTest.state==1) {
+        const uint64_t now=GetTickCount64();
+        if(!g_hostedFightTest || !g_bridgeSession || g_hostedTest.session!=g_bridgeSession || now>=g_hostedTest.deadline ||
+           g_bridgeQueue.count || !published.workerTickMs || now<published.workerTickMs || now-published.workerTickMs>=1500)
+            RefuseHostedTest("hosted action expired, interrupted or stale");
+        else {
+            // Consume before any front-end operation; no native retry on failure.
+            g_hostedTest.state=3;
+            if(rematch::UiTestFight(g_hostedTest.row,g_hostedTest.token,g_hostedTest.reason,sizeof(g_hostedTest.reason))) {
+                g_hostedTest.state=2;Toggle(true);
+            }
+            ++g_bridgeSnapshot.generation;
+        }
     }
     // Scans can reorder the boss list without an input. Validate the displayed
     // model before consuming an action, not merely the last action counter.

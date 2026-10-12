@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.19"
+#define ADDON_VERSION "1.4.20"
 
 namespace addon {
 
@@ -124,6 +124,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf);
 void UiMove(int dir);
 struct CoverInfo { uint64_t token, deadline; uint32_t phase; char reason[160]; };
 bool UiActHosted();
+bool UiTestFight(const char* id,uint64_t& token,char* reason,size_t n); // UI-worker only, opt-in test caller
 bool CoverSnapshot(CoverInfo& out);
 void CoverPresented(uint64_t token);
 void CoverCancel(uint64_t token);
@@ -137,6 +138,7 @@ bool Toast(char* buf, size_t n, uint32_t& color);
 void Command(const char* line, char* reply, size_t n);
 }
 namespace ui {
+void HostedFightCommand(const char* row,char* reply,size_t n);
 bool Start();  // overlay window + input (XInputGetState IAT hook for the gesture / masking)
 }
 namespace remote {

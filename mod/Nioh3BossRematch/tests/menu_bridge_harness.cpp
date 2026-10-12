@@ -24,6 +24,11 @@ CoverInfo cover{};uint64_t acknowledged=0,cancelled=0;bool coverReadable=true;
 bool CoverSnapshot(CoverInfo& out){if(!coverReadable)return false;out=cover;return true;}
 void CoverPresented(uint64_t token){acknowledged=token;}
 void CoverCancel(uint64_t token){cancelled=token;}
+int testCalls=0;bool testAllow=true;
+bool UiTestFight(const char*,uint64_t& token,char* reason,size_t n){
+ ++testCalls;if(!testAllow){snprintf(reason,n,"normal gate refused");return false;}
+ token=++cover.token;cover.phase=1;snprintf(reason,n,"awaiting actual covered Present");return true;
+}
 bool UiBack() { return true; }
 int UiFill(UiRow* rows, int, char* footer, size_t size) {
     snprintf(rows[0].text, sizeof(rows[0].text), "model %d", model);
@@ -96,6 +101,30 @@ int main() {
     CHECK(BridgePost(session, s.generation, mb::Accept) == mb::StaleSession);
     HostedTick(); CHECK(!g_open && g_hostRequested);
     CHECK(BridgeAttach(2, &other) == mb::Accepted && other != session);
+    HostedTick();rematch::cover.phase=0;HostedTick();
+    char reply[512]{};
+    BridgeTestFight("R1DEA",reply,sizeof(reply));CHECK(strstr(reply,"disabled")&&rematch::testCalls==0);
+    g_hostedFightTest=true;
+    BridgeTestFight("R1DEA extra",reply,sizeof(reply));CHECK(strstr(reply,"exact row")&&rematch::testCalls==0);
+    BridgeTestFight("R1DEA",reply,sizeof(reply));CHECK(g_hostedTest.state==1&&strstr(reply,"queued")&&rematch::testCalls==0);
+    const auto firstSerial=g_hostedTest.serial;
+    BridgeTestFight("R1CBC",reply,sizeof(reply));CHECK(g_hostedTest.serial==firstSerial&&strstr(reply,"pending"));
+    HostedTick();CHECK(g_hostedTest.state==2&&g_hostedTest.token==rematch::cover.token&&rematch::testCalls==1);
+    CHECK(rematch::acknowledged==0); // queue/worker does not fabricate presentation
+    HostedTick();CHECK(rematch::testCalls==1);
+    BridgeTestFight("",reply,sizeof(reply));CHECK(strstr(reply,"state=2")&&strstr(reply,"row=R1DEA"));
+    rematch::cover.phase=0;HostedTick();
+    BridgeTestFight("R1DEA",reply,sizeof(reply));CHECK(g_hostedTest.state==1);
+    CHECK(BridgePost(other,0,mb::CloseMenu)==mb::Accepted);HostedTick();CHECK(g_hostedTest.state==3&&rematch::testCalls==1);
+    BridgeTestFight("R1DEA",reply,sizeof(reply));CHECK(g_hostedTest.state==1);
+    g_hostedTest.deadline=GetTickCount64();HostedTick();CHECK(g_hostedTest.state==3&&rematch::testCalls==1);
+    BridgeTestFight("R1DEA",reply,sizeof(reply));CHECK(g_hostedTest.state==1);
+    g_bridgeSnapshot.workerTickMs=GetTickCount64()-1500;HostedTick();CHECK(g_hostedTest.state==3&&rematch::testCalls==1);
+    BridgeTestFight("R1DEA",reply,sizeof(reply));CHECK(g_hostedTest.state==1);
+    CHECK(BridgeDetach(other)==mb::Accepted);HostedTick();CHECK(g_hostedTest.state==3&&rematch::testCalls==1);
+    CHECK(BridgeAttach(3,&other)==mb::Accepted);HostedTick();
+    rematch::testAllow=false;BridgeTestFight("R1DEA",reply,sizeof(reply));HostedTick();CHECK(g_hostedTest.state==3&&rematch::testCalls==2);
+    HostedTick();CHECK(rematch::testCalls==2);
     puts("PASS actual provider attach/queue/worker/close/stale model fixtures; no native game exercised");
     printf("%d checks\n", checks);
 }

@@ -307,7 +307,10 @@ UINT VkFromName(const wchar_t* s) {
 
 }  // namespace
 
+void HostedFightCommand(const char* row,char* reply,size_t n){BridgeTestFight(row,reply,n);}
+
 bool Start() {
+    g_hostedFightTest=IniInt(L"Remote",L"HostedFightTest",0)!=0;
     if (!IniInt(L"Menu", L"Overlay", 1)) {
         Log("Menu: off ([Menu] Overlay = 0): use the pipe ([Remote] Pipe = 1)");
         return false;
