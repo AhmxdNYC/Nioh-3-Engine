@@ -121,4 +121,14 @@ Refuses {EHP-BossEvidence 'prefix' ($summon+$create+$encounter)}
 Check ($text -match "'VirtualPad' '0'" -and $text -match 'Enable-WritableSavePolicy')
 Check ($text -match "'RematchLog','1'")
 Check ($text -notmatch "EHP-Wait 'renewed'")
-Write-Host "PASS $n combined-entry-hold policy/actual-observer/plan checks; no native actions"
+# PLAN returns before runtime imports, so the plan fixture cannot detect stale
+# dependency pins. Verify the actual reviewed bytes without launching anything.
+$repo=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$dependencyPins=@([regex]::Matches($text,"'(tools/[^']+)'='([a-f0-9]{64})'"))
+Check ($dependencyPins.Count -eq 7)
+foreach($pin in $dependencyPins){
+ $hasher=[Security.Cryptography.SHA256]::Create()
+ try {$actual=([BitConverter]::ToString($hasher.ComputeHash([IO.File]::ReadAllBytes((Join-Path $repo $pin.Groups[1].Value))))).Replace('-','').ToLowerInvariant()} finally {$hasher.Dispose()}
+ Check ($actual -ceq $pin.Groups[2].Value)
+}
+Write-Host "PASS $n combined-entry-hold policy/actual-observer/plan/dependency checks; no native actions"
