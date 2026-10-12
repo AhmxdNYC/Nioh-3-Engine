@@ -32,3 +32,9 @@ function CW-CaptureOnce([scriptblock]$Check,[scriptblock]$Shot,[scriptblock]$Pul
   finally { if($null -ne $before){$before.Dispose()} }
  }
 }
+
+function CW-CheckGuardRecord($r,$initial,[DateTime]$Now) {
+ foreach($k in @('ownerPid','ownerStart','harnessPid','harnessStart','deadline')){if([string]$r.$k -cne [string]$initial.$k){throw "Guard changed $k"}}
+ if($Now -ge [DateTime]$r.deadline -or @($r.games).Count -ne 1){throw 'Pilot expired/game count changed'}
+ $g=$r.games[0];if($g.closed -or $g.pid -ne $initial.games[0].pid -or $g.start -cne $initial.games[0].start){throw 'Game record changed'}
+}

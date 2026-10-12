@@ -14,8 +14,10 @@ a newer unexpected token fails. A phase4 snapshot remains historical: short age
 plus current basic status permits a brief probe, never establishes visible control.
 The lead must still inspect the images and issue the existing manual approval.
 
-Every pipe transaction checks the guard's owner/harness PID-start/deadline,
-exact adopted game PID-start/executable, one-game count, foreground HWND owner,
+Before polling, retained read-only kernel process handles bind the guard's exact
+owner/harness/game creation FILETIMEs and the game executable. Every pipe transaction
+checks the unchanged guard record/deadline and the retained handles' liveness,
+a complete native Toolhelp single-game enumeration, foreground HWND owner,
 and named-pipe server PID. No focus is attempted. Before capture and again before
 input it checks native/current status. Input connection time is included in the
 750ms freshness gate. It sends exactly `stick R 0.35 0 180` to the already-enabled
@@ -54,3 +56,31 @@ refused before input. The unchanged exact 750ms boundary and ready policy are
 checked; the real adapter is parser/AST checked for capture-only and save-only
 callbacks and the unchanged single command. No live pipe, screenshot, input or
 runtime speed improvement is claimed by these offline checks.
+
+## Retained identity timing correction (2026-10-12)
+
+Root3 failed before input between 05:58:23.434 and 05:58:24.619 UTC. Its
+phase4 sample is terminal: new `cover` reads cannot renew native readiness.
+The prior helper repeated Get-Process/start/path/window discovery in every guard.
+The revised helper opens retained identity handles before ready polling and uses
+nonblocking native liveness/foreground checks plus complete Toolhelp enumeration.
+The guard JSON, exact pipe-server PID, current state and pre-write <=750ms sample
+checks remain. Output-directory setup also occurs before ready polling. This
+removes repeated expensive process-object discovery, but does not prove that
+actual capture/transport will always finish within the bound. Slow operations
+still refuse. Receipts add check/capture/input tick times and input sample age.
+
+`camera_witness_process.cs` is required alongside the runner/lib. Both retained
+handles and the temporary startup Process object dispose on every exit, including
+partial construction failure. No access for process mutation is requested.
+
+`test_camera_witness_process.ps1` runs the existing107 checks plus retained
+self-process identity positives/negatives, guard record mutations, and the actual
+runner Check callback under injected guard latency. The slow path refuses without
+input; the fast path allows one simulated pulse; a delayed pulse still refuses.
+These are timing-policy fixtures, not live performance measurements.
+
+No automatic pause is added. Root may explicitly pause after viewing/retaining
+the successful after-capture, then review and separately request owned return.
+An automated post-capture pause would need its own fresh exact ownership and
+input admission and could alter the return gate; it is not hidden in this helper.
