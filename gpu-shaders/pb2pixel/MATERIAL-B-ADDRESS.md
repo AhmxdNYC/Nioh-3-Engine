@@ -49,3 +49,38 @@ unchanged and higher priority for actual PC2 testing.
 ```powershell
 python -B gpu-shaders/pb2pixel/material_b_address.py --repo 'C:/Users/Ahmad Hamza/nioh3-engine' --original D:/nioh3-re/pb2pixel-b-20261012/original.dxbc --out D:/nioh3-re/pb2pixel-b-address-20261012 --assemble
 ```
+
+## Sequential gfx1103 gate after game closure: retain offline candidate
+
+Root confirmed PID31708 absent, restoration complete and device lease free.
+One sequential original/candidate comparison completed with `--isa`; no game
+or install. Repeated assembly/body/interface/ordered-proof checks still pass.
+
+| Metric | Original | Local integer candidate |
+|---|---:|---:|
+| Instructions | 2102 | 2089 |
+| VALU | 1174 | 1161 |
+| VGPR / SGPR | 56 / 54 | 56 / 54 |
+| Estimated waves/SIMD | 9 | 9 |
+| Scratch | 0 | 0 |
+| Buffer loads / samples | 71 / 15 | 71 / 15 |
+| Branches | 54 | 54 |
+| Full / partial VMEM waits | 27 / 54 | 27 / 54 |
+
+Opcode delta is -4 `v_add3_u32`, -10 `v_add_nc_u32`, +1 `v_mov_b32`;
+one `v_fmac_f32` becomes `v_fma_f32` and one `s_delay_alu` becomes
+`s_waitcnt_depctr`. Thus the specific dependency-wait encoding is not identical,
+even though the full/partial VMEM wait counts and total SALU are unchanged.
+No DXIL float operation/order changed. Thirteen fewer static instructions with
+unchanged allocated registers passes this bounded offline gate. It does not
+prove a native speedup or image equivalence, and no gains are added to the
+separate ready PS7dc candidate.
+
+Candidate ISA SHA256
+`7e9de8d24c82d92d4a155f93ad6f1a51baf032504807e1853f128bf049e675fc`;
+original matches retained `8ad6895cd73746c0674ed1d5d074e973fda70fd03e07babda9afc0fe5e03dcbe`.
+Receipt `local-row.json` pins compiler/helper, paired VS, generated root/PSO,
+signed candidate, normalized body and both metric sets. Next gate is independent
+review plus an exact recorded native PSO for this full PS05ad/VS70d pair, followed
+by private one-record packing; the other shader's native verdict cannot transfer.
+Prior UV and terrain rejections remain intact.
