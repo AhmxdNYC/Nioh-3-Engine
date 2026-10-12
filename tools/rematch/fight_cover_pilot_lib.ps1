@@ -87,3 +87,39 @@ function FCP-ReturnSettled($Tracker,[long]$NowMs,[string]$Reply) {
     if ($null -eq $Tracker.since) { $Tracker.since=$NowMs }
     return $NowMs-$Tracker.since -ge 4000 # telemetry proxy; authoritative native ExitGate can still refuse
 }
+function FCP-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,$Entry) {
+    if (-not $Entry -or $Entry.mission -notmatch '^0x[0-9A-Fa-f]+$' -or [string]$Entry.stage -notmatch '^\d+$' -or $Entry.mission -ieq '0x1CBC') { throw 'Fight cover requires exact original non-target entry tuple' }
+    if (-not $After.StartsWith($Before,[StringComparison]::Ordinal)) { throw 'Fight cover return log replaced/truncated' }
+    $tail=$After.Substring($Before.Length)
+    if ($tail -match '(?i)EXCEPTION|quarantin|refus(?:ed|al)|native request uncertain|spawn[^\r\n]*(?:reappl|NOT applied|failed|recovery)' ) { throw 'Fight cover return failed or uncertain; no retry' }
+    $queued=@([regex]::Matches($tail,'Rematch: request [^\r\n]*'))
+    if ($queued.Count -gt 1 -or ($queued.Count -eq 1 -and $queued[0].Value -cne 'Rematch: request leave the mission (return) queued from pipe')) { throw 'New/multiple request in fight cover return window' }
+    if ($tail -match 'Rematch: cover [^\r\n]*event=(?:begin|native_post)|MissionRequestById|MissionRequestEmaki') { throw 'New admission during fight cover return' }
+    $requests=@([regex]::Matches($tail,'Rematch: exit:[^\r\n]*'))
+    if ($requests.Count -gt 1) { throw 'Multiple native return submissions' }
+    if ($requests.Count -eq 1 -and $requests[0].Value -cne 'Rematch: exit: MissionRequestReturn(params, 1) from mission 0x1CBC (retry point 67064) -> requested') { throw 'Wrong native return request tuple/result' }
+    $exits=@([regex]::Matches($tail,'Rematch: replay mission exited[^\r\n]*'))
+    if ($exits.Count -gt 1) { throw 'Multiple replay exits' }
+    $restore=@([regex]::Matches($tail,'Rematch: (?:F [^\r\n]*: )?spawn override[^\r\n]*'))
+    if ($restore.Count -gt 1 -or ($restore.Count -eq 1 -and $restore[0].Value -cne 'Rematch: spawn override restored and verified (replay mission exit): record 67064')) { throw 'Spawn reapply/foreign or ambiguous restoration' }
+    if ($exits.Count -and (-not $requests.Count -or $exits[0].Index -le $requests[0].Index)) { throw 'Replay exit precedes owned return request' }
+    if ($restore.Count -and (-not $exits.Count -or $restore[0].Index -le $exits[0].Index)) { throw 'Spawn restoration precedes replay exit' }
+    if ($queued.Count -and $requests.Count -and $queued[0].Index -ge $requests[0].Index) { throw 'Queued request after native return submission' }
+    if ($exits.Count -eq 1) {
+        $expected='Rematch: replay mission exited (stage now '+$Entry.stage+', mission state +28h '+$Entry.mission+')'
+        if (-not $exits[0].Value.StartsWith($expected,[StringComparison]::OrdinalIgnoreCase)) { throw 'Native return exited to a different entry tuple' }
+    }
+    if (-not $requests.Count -or -not $exits.Count -or -not $restore.Count) { return $false }
+    # Caller MUST read this log snapshot before obtaining Reply. SpawnLast is historical;
+    # exact restore+verify above, not its display label, establishes record restoration.
+    $fields=@{}
+    foreach ($key in @('state','row','infight','warps','loading','player','mission','stage','spawn','gate')) {
+        $matches=@([regex]::Matches($Reply,"(?:^| )$key=([^ ]+)(?= |$)"))
+        if ($matches.Count -ne 1) { throw "Missing/ambiguous return status: $key" }
+        $fields[$key]=$matches[0].Groups[1].Value
+    }
+    if ($fields.spawn -notin @('-','arena','applied','start')) { throw 'Unresolved or unknown spawn return status' }
+    return $fields.state -eq '0' -and $fields.row -eq '-' -and $fields.infight -eq '0' -and $fields.warps -eq '0' -and
+        $fields.loading -eq '0' -and $fields.player -eq '1' -and $fields.mission -ieq $Entry.mission -and
+        $fields.stage -eq [string]$Entry.stage -and $fields.gate -eq 'ok'
+}
