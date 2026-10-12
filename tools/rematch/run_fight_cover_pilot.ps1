@@ -1,4 +1,4 @@
-# PLAN/DryRun is read-only; frozen admission intentionally unset. One owned game only.
+# PLAN/DryRun is read-only. Exact frozen admission, one owned game only.
 [CmdletBinding()]
 param([switch]$Run,[switch]$DryRun,[int]$OwnerPid=0,
  [ValidateSet('FieldReady','ControlReviewed','NativeReturn')][string]$ApproveStage='',
@@ -13,7 +13,7 @@ if (($Run -and $DryRun) -or ($ApproveStage -and ($Run -or $DryRun))) { throw 'Ch
 . (Join-Path $PSScriptRoot 'fight_cover_pilot_lib.ps1')
 $expected=Get-FCPExpected
 $plan=[ordered]@{mode='PLAN_ONLY_NO_MUTATION';route='Hosted Fight now R1CBC';mission='0x1CBC';start=67064;placement=65092;
- admission='FROZEN_PINS_UNSET_NO_LIVE_AUTHORIZATION';expected=$expected;launches=1;relaunch=$false;retry=$false;
+ admission='EXACT_PRIVATE_PILOT_PINS_REQUIRE_OWNER_BOUND_RECEIPT';expected=$expected;launches=1;relaunch=$false;retry=$false;
  arena_override_bytes='# no arena overrides\r\n (UTF8 no BOM)';arena_override_sha256='d05722d1edae92d39bdb8a1a1fe6bac59fc92550c38f8593aa04d2087d50b171';arena_source='PINNED_CATALOGUE_R1CBC_337691_10244_206714_YAW_MINUS89.2_BOX66599';
  catalog_sha256='7c0c158df9b7c5bc0ce89b6b6fee3ee384c7db94bde892eb38ad78741aad221b';
  stages=@('Root Continue;12s ready settle;fresh clear scan','Root hosted Fight now;observe drawn ACK then native request','Exact same-token/attempt ready;root visual/control confirmation','One native exit;exact original entry;owned restoration');

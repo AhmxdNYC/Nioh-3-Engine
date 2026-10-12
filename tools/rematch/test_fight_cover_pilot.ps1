@@ -34,7 +34,9 @@ FCP-CheckApproval $req $a;Check $true 'exact root review'
 foreach ($k in @('nonce','stage','owner_pid','owner_start','runner_pid','runner_start','game_pid','game_start')) {
     $bad=$a|Select-Object *;$bad.$k='foreign';Reject { FCP-CheckApproval $req $bad } "approval $k"
 }
-Reject { FCP-Admission (Get-FCPExpected) @{} '' '' @{} '' 1 'a' } 'unset frozen admission'
+$unset=@{mod_tree='';engine_sha256='';addon_sha256='';gate_receipt_sha256='';admission_receipt_sha256=''}
+Reject { FCP-Admission $unset @{} '' '' @{} '' 1 'a' } 'unset frozen admission'
+Reject { FCP-Admission (Get-FCPExpected) @{} '' '' @{} '' 1 'a' } 'missing actual receipt'
 $expected=@{mod_tree=('a'*40);engine_sha256=('b'*64);addon_sha256=('c'*64);gate_receipt_sha256=('d'*64);admission_receipt_sha256=('e'*64)}
 $ad=@{approved=$true;scope='ONE_FIGHT_COVER_NATIVE_PILOT_NEW_FEATURE_UNTESTED';owner_pid=1;owner_start='a';mod_tree=$expected.mod_tree;engine_sha256=$expected.engine_sha256;addon_sha256=$expected.addon_sha256}
 $hashes=@{'Nioh3EngineFix.asi'=$expected.engine_sha256;'Nioh3BossRematch.asi'=$expected.addon_sha256}
@@ -61,7 +63,7 @@ $script:cleaned=$false;$script:kept=$true;&$finally;Check (-not $script:kept) 's
 $r=@{status='FIGHT_COVER_REVIEWED_RETURN_OBSERVED';root_control_confirmed=$true;native_return_confirmed=$true;saves_restored=$true;inis_restored=$true;binaries_restored=$true}
 Check (FCP-Complete $r) 'complete only with all receipts'
 foreach ($k in @('root_control_confirmed','native_return_confirmed','saves_restored','inis_restored','binaries_restored')) {$bad=$r.Clone();$bad[$k]=$false;Check (-not (FCP-Complete $bad)) "incomplete $k"}
-$plan=& $path -DryRun | ConvertFrom-Json;Check ($plan.mode -eq 'PLAN_ONLY_NO_MUTATION' -and $plan.expected.mod_tree -eq '') 'dryrun no admission'
+$plan=& $path -DryRun | ConvertFrom-Json;Check ($plan.mode -eq 'PLAN_ONLY_NO_MUTATION' -and $plan.expected.mod_tree -eq (Get-FCPExpected).mod_tree) 'dryrun remains read-only with frozen pins'
 foreach ($k in @('visible_arena','visible_boss','control_response')) {$bad=$a|Select-Object *;$bad.$k=$false;Reject {FCP-CheckApproval $req $bad} "missing visual $k"}
 $t=@{since=$null;last=$null};$s='mission=0x1CBC stage=67064 loading=0 player=1 gate=rematch active'
 foreach ($ms in @(0,1000,2000,3000)) { Check (-not (FCP-ReturnSettled $t $ms $s)) 'return settles4s' };Check (FCP-ReturnSettled $t 4000 $s) 'return proxysettled'
