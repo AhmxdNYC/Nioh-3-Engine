@@ -21,17 +21,41 @@ each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap
 
 ## Install - Windows PC
 1. Steam -> right-click Nioh 3 -> Manage -> Browse local files (the folder with `Nioh3.exe`).
-2. Copy `dinput8.dll`, `Nioh3EngineFix.asi`, `Nioh3EngineFix.ini` into that folder.
+2. Close the game. Extract this ZIP into a separate download folder. With Python 3.9+ installed, run from that folder:
+   `Install-Mod.cmd --game-dir "C:\path\to\Nioh3"`
+   This backs up the current `%LOCALAPPDATA%\KoeiTecmo\NIOH3` tree before installing. Use `--save-root "path"` if your saves are elsewhere.
 3. Start the game. After about 3 s of rendering a status popup says `Nioh3EngineFix ... loaded - N/N fixes active`.
 4. Windows Smart App Control may block unsigned DLLs. If nothing shows and there is no `Nioh3EngineFix.log`, that is the
    likely cause.
 
 ## Install - ROG Ally / Steam Deck (Proton)
 1. Desktop Mode -> Steam -> Nioh 3 -> Manage -> Browse local files.
-2. Copy the same three files next to `Nioh3.exe`.
+2. Close the game and extract the ZIP elsewhere. With Python 3.9+ installed, run:
+   `sh install-mod.sh --game-dir "/path/to/Nioh3" --proton-prefix "/path/to/steamapps/compatdata/APPID/pfx"`
+   Supply the game's actual prefix, or `--save-root "/path/to/KoeiTecmo/NIOH3"`. No prefix/account is guessed.
 3. Steam -> Nioh 3 -> Properties -> Launch options: `WINEDLLOVERRIDES="dinput8=n,b" %command%`
    (without it Proton ignores the loader and the mod never runs).
 4. Leave frame generation OFF on Proton: switching it is reported to crash there. The mod keeps it off in `config.xml`.
+
+### Automatic backups on installation and update
+
+Use the same installer command for updates. Before replacing any mod file, it creates a new UTC-timestamped backup in
+`NIOH3-mod-backups` beside the save root, copies every save file, verifies SHA256 hashes and rechecks that the source did not
+change. The printed backup directory contains `saves/`, previous mod files and `receipt.json`. Use `--backup-root "path"` to
+choose another directory outside the game/save/package folders. Existing INIs are preserved. Optional shaders are not installed.
+
+A missing/empty save directory, running game, incomplete backup or checksum mismatch stops installation. Backups are never
+reused, automatically deleted or automatically restored. If installation fails after a mod replacement, only this installer's
+unchanged replacement files are rolled back; conflicting files are left alone and marked for review in the receipt. An interrupted
+process, conflicting rollback, game starting mid-install or failed final receipt can leave `.nioh3-mod-install.lock` in the game
+directory: inspect its receipt and finish recovery before removing that lock. Loaded mod files are not rolled back while the game is running.
+For manual save recovery, close the game, preserve your current saves separately, then copy the chosen backup's `saves/` contents
+to the receipt's `save_source` directory. Older backups are never silently restored over newer progress.
+
+Downloading a ZIP cannot read or back up local saves. Automatic protection applies when this installer activates an install/update;
+manual drag-and-drop, third-party mod managers, optional shader copying and already-installed releases bypass it. Keep the game
+closed and avoid starting it or syncing/changing saves during installation; the checks do not suspend Steam Cloud or lock the game process.
+The installer does not change Steam settings, launch the game or modify `Nioh3.exe`.
 
 ## In-game settings that matter
 - Set **"FPS dynamic adjustment" OFF** (the mod's frame-timing fix needs it; a warning shows when it is on).

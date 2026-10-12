@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - Save backups before mod installation and updates
+
+Added a private packaged Windows/Proton installer that verifies a fresh timestamped current-save backup before mod activation, preserves existing INIs, and records recovery paths and exact mod-file ownership. Partial failures never restore saves; unresolved rollback or journal failure retains its lock.20 fixture tests PASS, including unreadable nested saves, partial copies, changing targets, game startup during installation and package entry-point checks. Requires Python3.9+; manual downloads/drag-and-drop and existing public releases remain outside coverage. No real saves/game files changed, deployment or public publication.
+
 ## 2026-10-11 Codex - Native AABB control runner corrected
 
 Fixed Windows batch quoting/current-directory lookup; actual source-path control compiled and executed PASS, including uninstalled ACK counterexamples and7 installed/OFF toggles. No live-game or FPS acceptance. See notes/handoff-codex-cpu-ready-aabb.md.

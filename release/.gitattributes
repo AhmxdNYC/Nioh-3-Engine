@@ -1,0 +1,3 @@
+# Proton launcher must stay executable by sh after Windows checkouts.
+install-mod.sh text eol=lf
+Install-Mod.cmd text eol=crlf
