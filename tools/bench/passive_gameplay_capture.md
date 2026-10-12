@@ -10,6 +10,7 @@ python3 passive_gameplay_capture.py --pid 12345 --start-ticks 987654 \
   --engine-log /game/Nioh3EngineFix.log \
   --mangohud /existing/MangoHud.csv \
   --hash-file /game/Nioh3EngineFix.asi --hash-file /game/Nioh3EngineFix.ini \
+  --boss "Yamagata" --mission "67064" --phase combat \
   --seconds 25 --output /existing/benchmark-receipts
 ```
 
@@ -20,5 +21,7 @@ At least one log is required; omit `--mangohud` when no CSV is already growing. 
 Output is a unique directory, ZIP and SHA256 sidecar, with UTC interval, process identity, raw appended data, hash-only ASI/config metadata and sampled-frametime summary. Explicit hash files are restricted to regular ASI/INI/CFG/CONF/XML files <=32MiB each; contents are never copied. Their hashes are compared at start/end. Operator-supplied logs themselves may contain sensitive paths and should be reviewed before sending. The collector never sends them.
 
 Percentiles use only newly appended positive finite MangoHud `frametime` rows with strictly increasing `elapsed` nanoseconds. These are **logger-sample percentiles**, not necessarily per-presented-frame percentiles. No historical rows, synthesized FPS, utilization-derived GPU/CPU milliseconds, or inferred GP2 FPS. GP2 buckets remain raw diagnostics. A complete capture with zero frametime rows has no timing percentile; it is not a performance result. No proof is made that the supplied PID wrote the supplied log or that the window stayed in combat; lead review supplies that context.
+
+The optional boss/mission/phase labels are supplied by the operator, not detected by the collector. Mark interrupted combat as `mixed`, or capture loading/death separately. `timing_samples_eligible` requires a complete capture with positive row count and no invalid rows; failed or empty captures retain diagnostic data without becoming accepted timing results. Reports include sample p50/p95/p99, subject to the sampling limits above.
 
 Fixtures: `python tools/bench/test_passive_gameplay_capture.py`. They use temporary files and a fake clock/process provider, never an actual game capture.

@@ -135,6 +135,7 @@ def summarize(schema, appended):
         s = sorted(values)
         result.update(mean_sample_frametime_ms=statistics.mean(s),
                       p50_sample_frametime_ms=s[math.ceil(.50*len(s))-1],
+                      p95_sample_frametime_ms=s[math.ceil(.95*len(s))-1],
                       p99_sample_frametime_ms=s[math.ceil(.99*len(s))-1],
                       elapsed_span_seconds=(elapsed[-1]-elapsed[0])/1e9)
     return result
@@ -156,6 +157,8 @@ def collect(args, get_identity=identity, clock=time.monotonic, sleep=time.sleep)
     out = parent / ('passive-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ-') + uuid.uuid4().hex[:12])
     out.mkdir()
     report = {'status': 'CAPTURING', 'utc_start': utc(), 'process': expected,
+              'operator_context': {key: getattr(args, key, 'unknown') for key in ('boss', 'mission', 'phase')},
+              'context_limit': 'Operator labels; loading, death and boss identity are not detected automatically.',
               'requested_seconds': args.seconds, 'inputs': [], 'hashes': [],
               'limits': {'bytes_per_input': MAX_BYTES, 'line_bytes': MAX_LINE},
               'gp2': 'Raw diagnostic buckets only; no FPS inference.',
@@ -208,6 +211,9 @@ def collect(args, get_identity=identity, clock=time.monotonic, sleep=time.sleep)
             if t.kind == 'mangohud':
                 report['mangohud'] = summarize(t.schema, bytes(chunks[t.kind]))
         report['utc_end'], report['actual_seconds'] = utc(), clock()-start
+        report['timing_samples_eligible'] = (report['status'] == 'CAPTURE_COMPLETE' and
+            report.get('mangohud', {}).get('frametime_rows', 0) > 0 and
+            report.get('mangohud', {}).get('invalid_rows', 0) == 0)
         (out / 'manifest.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     archive = out.with_suffix('.zip')
     with zipfile.ZipFile(archive, 'x', zipfile.ZIP_DEFLATED) as z:
@@ -226,6 +232,9 @@ def main():
     p.add_argument('--engine-log')
     p.add_argument('--mangohud')
     p.add_argument('--hash-file', action='append', default=[])
+    p.add_argument('--boss', default='unknown', help='operator-supplied boss label; not detected')
+    p.add_argument('--mission', default='unknown', help='operator-supplied mission ID/label')
+    p.add_argument('--phase', default='unknown', choices=('combat', 'loading', 'death', 'mixed', 'unknown'))
     p.add_argument('--seconds', type=float, default=25)
     p.add_argument('--output', required=True)
     args = p.parse_args()
