@@ -7,6 +7,32 @@ New tool: `py -I tools/loading/ally_load_phases.py <engine.log> [--rematch remat
 Every number carries a source tag: `log` (printed by the ASI), `derived` (arithmetic on log values, 0.1 s print
 rounding), `rematch log`, `external marker`, or `unknown`. An unknown is never filled in.
 
+## Independent analyzer correction (Codex)
+
+The chronology below reproduces evidence253, but the old causal labels are narrowed:
+`work end` means **last observed LoadIsLoadEnd evaluation**, not completion of all
+resource work. The remaining credited gate durations and uncredited residual are
+wall accounting, not function execution/resource-service timings. Earliest gate
+failure does not exclude earlier uncredited evaluations. G9 per-character zero
+returns and aggregate counts cannot prove a native pass or its caller; the analyzer
+now reports those observations without `pass1` or `no_eval_gap_after_pass1` claims.
+
+A cover interval now needs unique ordered same-token begin, Present ACK, positive
+native-post attempt and matching terminal attempt. It is a logged lifecycle interval,
+not continuous rendering or native tip-page visibility proof. Generic markers remain
+chronological annotations. Explicitly declare a recorded confirm using
+`--confirm-marker NAME=HH:MM:SS` or `--markers index.txt --confirm-name TIP-A`.
+This classification remains external evidence, not a native confirmation receipt.
+
+Independent replay: `D:/nioh3-re/deliveries/ally-cover-redo-evidence253/` engine.log,
+rematch.log and seq/index.txt produce load2 window102.6s, last evaluation+20.7s,
+remaining81.9s. Ordered token1/attempt1 ACK/post/terminal at rematch.log29/30/41
+split that tail into68.7s,11.1s to external TIP-A00:54:35,2.0s to clear.
+171MB of ReadProbe reads remain after its own endpoint; **20.7s is not total
+native resource time**, and68.7s is not a measured optimization gain.
+Fixtures exercise missing/wrong ACK, wrong end token/attempt, reused token,
+overlapping begin, untyped marker and three-G9-evaluation ambiguity. No game run.
+
 ## 1. Three probe facts the tool corrects for (sources)
 
 1. **Stale tail.** `FlushEval` (loadstats.cpp:145-157) runs at the clear (LogGates, :552). It credits
@@ -16,7 +42,7 @@ rounding), `rematch log`, `external marker`, or `unknown`. An unknown is never f
    - LoadCharacterReady 3B39AC returning 0 just advances the character loop (3B3562 -> 3B3543).
    - The end of the loop returns 1 (3B358A).
    - A nonzero return starts the dt60 ready-wait instead (acc 45C84A4 vs float 3BD4220, 3B356E-3B3588).
-   - So the last eval, logged as "G9 failed", is the **passing** eval. "0 full-pass evals" is an artefact of the
+   - A logged "G9 failed" is a per-character zero observation; the aggregate does not prove the enclosing evaluator returned true. "0 full-pass evals" is an artefact of the
      inverted polarity.
 3. **There is an unhooked check between G8 and G9.** After G8 (3B3506), the eval fails if 46518 && LoaderBusy 3B2970.
    3B2970 tests `[475A420]+248h || +249h`. +249h is manager A busy, written by ResourceLoadIdlePoll 1FEE28 from the
@@ -26,7 +52,7 @@ rounding), `rematch log`, `external marker`, or `unknown`. An unknown is never f
 **Mission loads pass LoadIsLoadEnd twice:**
 - Pass 1 is MissionLoadStep 223AF50. After it passes, it runs the mission-start setup (3B3B1C, GameMain+654h = 1, ...).
 - Pass 2 is state 8, 223C4A8, which goes on to state 9.
-- G9 "first-failing evals == 2" are exactly these two passes. Between them, G5 ObjectListAnyNotReady and the loader
+- G9 "first-failing evals == 2" is consistent with this path but does not independently identify those passes. Between them, G5 ObjectListAnyNotReady and the loader
   drain hold.
 
 ## 2. Per-load results (actual private Ally logs)
@@ -43,7 +69,7 @@ rounding), `rematch log`, `external marker`, or `unknown`. An unknown is never f
 | **ev253 #2 Fight now 0x1CBC** | **102.6** | 4.8 | **15.9 (+20.7)** | **11.62** | 4.3 | 1.5 | **81.9** | **G9 82.03** |
 | ev253 #3 boss intro (script) | 5.7 | 0.0 | 5.7 (+5.7) | 2.11 | 3.0 | 0.6 | 0.0 | G8 2.11 |
 
-All values are in seconds. Without the stale tail, every load's real holder is **G8 StageAreasObjectsReady**.
+All values are in seconds. After subtracting the stale tail, the largest remaining credited wall interval is **G8 StageAreasObjectsReady**; this is not measured resource-service time.
 
 During the tail, manager A has 0 in flight. Residual reads continue at 100-230 MB over the tail, mostly in its first
 5 s (scene streaming behind the page).
@@ -85,7 +111,7 @@ Prepared fix: `tools/loading/cover_tip/`.
 - `cover_tip_release.diff`: against v4 e9941b4. `git apply --check` passes; it is not applied.
 - Behaviour: while the cover is waiting for the boss and the native page waits for the confirm, the cover is ended as
   Cancelled ("native request continues"), so the player sees the page.
-- **Effect bound (ev253): 68.7 s of hidden waiting removed.** It is not a load speedup, and the native time is
+- **Historical opportunity estimate (ev253): 68.7 s between last evaluation and cover terminal log; removal was not measured.** It is not a load speedup, and the native time is
   unchanged.
 - Equivalent without code: `AutoContinueLoad = 1` answers the page through the game's own path. This is a settings
   decision for root.
@@ -105,7 +131,7 @@ and none has flag 0x40 (boss retry) or 0x200. Source: notes/rematch-fight-index.
   (by elimination of all 53 StopFlagSet sites; not runtime-proven). It loads the areas around 334650 (30 m deeper),
   RTM 31648 and boss 65092, none of which exist before the trigger. A start point at 334650 would sit outside
   BOSSAREABOX, so the fight would never start.
-- **PC comparison:** the PC runs the same sequence in 0.73 s, so the Ally cost is streaming speed.
+- **PC comparison:** the historical PC sequence took0.73s; this comparison alone does not identify the Ally bottleneck as streaming speed.
 
 ## 5. Next native candidate (one)
 

@@ -1,4 +1,6 @@
 [10:00:09.900] Rematch: cover token=1 phase=1 attempt=0 event=begin mission=0x1CBC start=67064 placement=65092
+[10:00:09.920] Rematch: cover token=1 phase=2 attempt=0 event=present_ack
+[10:00:09.930] Rematch: cover token=1 phase=2 attempt=1 event=native_post
 [10:00:09.950] Rematch: F R1CBC: calling MissionRequestById(0x1CBC, slot byte 1, start point 67064, {101 1000000 10100 0 0 0}) - shrine
 [10:00:09.960] Rematch: cover token=1 phase=3 attempt=1 event=phase reason=Waiting for the requested boss to be ready
 [10:00:25.000] Rematch: cover token=1 phase=5 attempt=1 event=phase reason=Transition timed out; native request/recovery remains owned
