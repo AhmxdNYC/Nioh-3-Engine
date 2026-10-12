@@ -17,12 +17,12 @@ Existing placement/enemy join (`notes/boss-map-all.csv`, `rematch-enemy-index.cs
 
 These resolve respectively to rows128/129/1/2 in `archive_03/23/5B761F23D263081C964209B5914CC6E3E8421698B18B8D70CE8358DAEECE72` (528 records,432bytes). The table link is exact; calling these fields a boss attack list or its values transition IDs is unproven. Rows128/129 word2 are2778/2793, also unlabelled and not admitted moves.
 
-Separately, `notes/boss-char-assets.csv` identifies the **name hint** CN_MASAKAGE (hashCF276D56). Current installed package root index and `data/tools/n3rdb.py`/`n3kod.py` reproduce:
+Root subsequently closed the exact primary-record association to CN_MASAKAGE (hashCF276D56): record60/key307259/parameter22178 contains that hash at+248/+254. See `training-yamagata-asset-binding.md` for retained-file SHA256 and variant distinction. Current installed package root index and `data/tools/n3rdb.py`/`n3kod.py` reproduce:
 
 - Loader file KTID56A3D77E,100bytes, object692E6BCB: SceneDatabaseResourceNameHashArray=A0D00ABE; CharacterSettingObjectDatabaseResourceNameHash=82AE0FD7; CharacterSettingObjectNameHash=62E11679.
 - Setting82AE0FD7,3412bytes, SHA256 `cbd96bcbf109dd0f30b4152a9afe1631958b2f07055192cc844a76a86aa8dbea`: MotorCharacterSetting62E11679 has78 action-object hashes and78 group IDs, all groups zero. First object hashes268DA6A9/B3C8582A/410309AB. Object hashes are NOT integer transition IDs or78 attacks.
 - Scene hashA0D00ABE and first action object hash268DA6A9 are absent as file KTIDs from both root and system indexes. This does not prove missing content: object/resource names can require a separate name-to-container join.
-- CE_MASAKAGE_00 (hash84806F6C, loader359C51F0) is an alternative enemy asset name in the existing catalog; loader absent there. CN name resemblance is not a proven307259 gameplay-actor asset join. Do not freeze a move allowlist on it.
+- CE_MASAKAGE_00 (hash84806F6C, loader359C51F0) belongs to the distinct598115/20878 parameter variant; its loader is absent from these indexes. The CN association is now directly verified, but transition-ID mappings are still missing. Do not derive a move allowlist from object hashes or import this alternate variant's moves.
 
 ## Script restrictions actually supported
 
