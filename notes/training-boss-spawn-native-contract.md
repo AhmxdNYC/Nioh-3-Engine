@@ -112,3 +112,44 @@ SHA256 of exact RVA windows in the retained flat dump (sizes are inspection wind
 | A429F4 / CB | 040ebc4f257e3bceca035eff5ab3899ce1707f7e6a115f563ea9bd1b6e54dca6 |
 | 23A22EC / B4 | 6295efb9ab804889378bc9423d19dd8f49b78737d7620c996a1fc7b808ae7718 |
 | 286124 / 3F9 | f956eb74158e2f01564bd2dbf0f30c4f9d2f339c5300daa69df97ffad2008f62 |
+
+## Follow-up: native resource pair closed; pending cancellation narrowed
+
+The initial note was committed as `c478721`; this continuation closes the paired native resource release rather than building an abstract model. Still no live calls, game operations or ASI changes.
+
+**Resource-load balancing is now established within a valid script-owner epoch.** `Load::UnloadCharacter` VM wrapper23A2A40 calls **1C217A8(owner, characterTableId)** at23A2A95. `UnloadCharacterPlEnemy` independently resolves placement record+4, then calls the same native at23A2B42. This exactly mirrors the two load wrappers.
+
+`1C217A8` searches owner+3C8 with A42B00. Missing entry returns without unloading. A found entry calls **1C1DF80(characterId,0)**, decrements node+20, and erases the entry via1C112BC only when the count is no longer positive. 1C1DF80 is a short tail adapter to **3F9900(characterId,2,0)**, pairing the load's **3F9E58(characterId,2,0)**. Each owned count represents one native release, not one unload only when the script count reaches zero.
+
+The release backend enumerates the same resource/dependency key families, calls3F9A8C, and updates the type2 bookkeeping via3F9A28. Inside3F9A8C, an unfinished resource increments pending-release counter+2C4; a ready resource decrements refcount+2C0 through3F9A74 and performs destructor/cache removal only at the native release condition. Therefore this is a native-managed release even before resource readiness, not a requirement to manually free or wait then discard the resource.
+
+**Owner cleanup is also located:** 1C08D1C walks owner+3C8; for each entry it calls1C1DF80(characterId,0) repeatedly while node+20>0, decrementing after every call, then clears the map through1C0D2AC. A mod must not release an old count again after this owner drain. No retained script-owner pointer or synchronization lease has been established; this pair does not make cross-epoch raw pointer calls safe.
+
+This closes the API/pairing edge for a future `AcquireCharacter`/`ReleaseCharacter` adapter. Preflight still needs a genuine native script owner, one game-thread mutation owner, build-pinned sites, successful load accounting and readiness. Pending child requests/Characters must cease using resources before the adapter voluntarily releases its count. Actual asset completeness, enemy-specific navigation/scripts and owner lifetime remain separate gates.
+
+### Queue cancellation and creation consumer: actual behavior
+
+The token-based helper **681434(manager, const uint32_t* token)** operates on the same manager+BC0 queue. It first calls5BB144, which finds the token at list-node+150 (=payload+140). If the record has a nonnull pointer at node+158 (=payload+148), it erases the record and returns that pointer. 681434 then appends a tracked pointer to manager+BD0 through681044. If no pointer is returned, it calls **5BA648(queue, token)**: that finds the token, unlinks the queue node, decrements queue count, destroys its tracked member and frees the node. There is no owner-slot lookup or bitmap release in this pending-node erase chain. This is a concrete pending cancellation mechanism, **not yet a complete dynamic-child rollback**. Meaning/final drain of the BD0 list is still unproved, so do not claim completed-child destruction from this wrapper alone.
+
+The queue consumer is **5BCBAC(queue)**. Records with state byte+144=0 call **65A8A8(queue, payload)**. Completed records with null tracked pointer are erased via its cold branch19E0122; completed nonnull records remain. The creation routine:
+
+- Uses supplied request+4 ID, or generates a fallback only when zero.
+- Calls live factory2BFA04 at65A97A; a null result returns without setting completion, so that record remains eligible for retry on later consumer ticks.
+- Performs actual position/component/AI initialization; request+76 becomes Character+AB96.
+- At65AF88 looks up the supplied child ID through135B78; **only if a wrapper already exists** does it call669A10(wrapper, live), set wrapper E5/E7 for request+76 and notify669990. This inspected path does not register a missing child wrapper itself.
+- Stores a native tracked reference to the live Character at request+148 and then sets completed byte+144=1 at65B1F6.
+
+The tracked-reference helpers2F6594/2F65C0 maintain linked tracking nodes under a lock; this is **not proven strong shared ownership**. Do not retain the raw pointer returned by5BB144 as a mod-owned actor. The native consumer can create a live object even if no matching registry wrapper exists; future tests must distinguish live factory success from wrapper registration and slot release.
+
+Consequently the immediate next reverse-engineering unit is narrower: trace **who registers owner-derived child IDs before this consumer** (or whether native dynamic children deliberately bypass wrappers), and how a rejected/erased pre-child reservation is reclaimed. The normal286124 release requires a child wrapper, while5BA648 does not supply one. This is a real remaining ownership gap; the newly closed resource pair does not hide it. The copied request, cancellation token, ready/failed-retry state and owned resource balance can now be implemented behind a disabled backend with exact contracts once that final reservation edge is solved.
+
+Fresh continuation byte windows:
+
+| RVA / bytes | SHA256 |
+|---|---|
+| 1C217A8 / 58 | 16da2564fb00e3d14dcf93738ab4e530aa8534f52b40ba776578190f96d565d6 |
+| 1C08D1C / 58 | 297fc9dff4321c24637f031b6ee62bd488afea423510a5b48ef388942fbea31b |
+| 681434 / 55 | 496a4e8b414ee99acf68c7e22497d2536b0658be8df5127c866b3e7ba3230e96 |
+| 5BA648 / 48 | 32388dafe133f5a41abd5a8ee4e4d1fa239fe5896783606a6fbc6844fd4f20d6 |
+| 5BCBAC / 49 | b9a470281e23043e54300e49f7137f1ad0c88a9300ab46419585472053c6f8e1 |
+| 65A8A8 / 978 | a55d5418b820a7919b74a388776a7d2040cec85fe922d18ea4ef118aa4633ac2 |
