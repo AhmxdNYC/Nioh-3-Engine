@@ -500,3 +500,44 @@ Retained dump SHA256 anchors:
 -2E5598/D5h:cf370c919efbb2280cdf7c09f6c0b6c2ed1fd13470edac76ed27f4e3241a1494
 -238CAD7/4Dh:c52c4f280e312de0b303a8a49040e6a6f8ce62285f358ccb1ec694510bad5f33
 -13B277/76h:1831e92927bff168e1f2eb9c1f6d0fbb45229fffc3d4df9c5e89b149c62c12be
+
+## Bounded scheduler caller follow-up (2026-10-12)
+
+Fourteen targeted native function inspections close a normal synchronous update
+chain, but not exclusive producer ownership. MissionManagerUpdate379620 calls
+37A434 at379803 with RCX=[RBX+10]. That function obtains its script runner from
+owner+8 and calls282320 at37A4B9 when its existing update flags allow. The runner
+calls2824EC at2823F0;2824EC loads runner+30 -> +8 and invokes VM13A830 at282529
+or282534. VM dispatch reaches13B18C and its native indirect call13B2A9. These are
+ordinary synchronous calls, with no lock acquisition in the inspected short
+wrappers. They are a concrete possible path to the gadget callback, not proof
+that gadget603945's parallel script uses this particular runner instance.
+
+The previously proven registry sweep at37974C and724044 processing at37976C
+precede the normal script update at379803 in this invocation. This establishes
+local order only.37A434 also updates owner+160 through37AD78 after its principal
+script; that helper calls37A8D4/136CD8/37A9CC/37AB00/37BA88. The exact parallel
+TrainingGround script's scheduler branch is not closed here. VM13A830 also has
+synchronous entry callers3013388/301A7F0/301A8C8, so its address alone cannot
+identify the normal mission-update phase or exclude reentrancy.
+
+Owner disposal also has a concrete outer path: E312A4 obtains allocator12F1F4,
+then tailcalls1BEDD1C;1BEDD1C invokes owner destructor1BF9B10 (which calls
+1C10570) and allocator virtual+58. No synchronization is established by these
+wrappers themselves. This does not prove absence of an outer barrier, and does
+not establish that this destruction can actually overlap the selected callback.
+The ordinary writes in spawn serial/list/root-ID producers therefore remain
+unprotected by any demonstrated common phase or lock.
+
+**Smallest next runtime observation:** one passive, exact gadget603945 native
+callback entry backtrace with thread ID and the current VM-state/owner+90,
+owner+120 and destination-manager identities, while in cleared6F24. This would
+select the real scheduler branch for subsequent static barrier/teardown proof;
+it would NOT itself prove exclusion merely because no competing writer was
+observed. No callback hook, runtime trace or native mutation was performed here.
+Stop this pass at the unresolved scheduler branch/exclusion edge.
+
+Retained dump SHA256:
+-2824EC/86h:b3e453b5e7610ce3b264104caa1e00ca65be1cb42f8bbd1fe22576cf3249544f
+-37A434/E5h:86d7e04fb991fc1f00f2119a65caeadd5a9ab8a2de98e86e233dce9c079e714a
+-379620/20Ah:bb7840fa11946b67d0d45e9f977015df7163d92fd7133f8e8b56c4bf3e2d0c67
