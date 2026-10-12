@@ -93,3 +93,43 @@ Reproduce the native binding without reading the whole dump into RAM:
 
 Compile the standalone C++ test with the MSVC flags above. It checks SSE4.2
 before using hardware CRC; an unsupported CPU returns SKIP, never PASS.
+
+## Actual native-body bounded cost result: park native integration
+
+`run_compute_hash8_cost.py` verifies the full native/caller binding, extracts
+the exact164-byte1199A4 body to a private temporary artifact and runs it in an
+offline RW-then-RX allocation. This particular leaf body has no external calls
+or RIP-relative data; its branches stay inside the copied body. No game module,
+process, driver, ASI or installed file is involved.65,536 comparisons of this
+actual native function against the assembled helper passed across both modes
+and8 key alignments; these extend the earlier arithmetic-surrogate checks.
+
+Ryzen5 7600X, MSVC /O2 /W4 /WX,5million identical indirect hash calls per arm,
+nine alternating-order pairs per case. The loop/call mechanism is shared,
+outputs consumed; mode stays fixed for each real mode case, with one hot key
+or32 rotating keys. A separate two-context alternating-mode stress case is
+explicitly not assumed to represent the game. Process affinity/frequency were
+not pinned, so scheduler/clock/code-placement noise remains.
+
+| Fixed mode / keys | Native median ns/call | Helper median ns/call | Median paired saving ns |
+|---|---:|---:|---:|
+| XOR /1 | 1.772 | 1.475 | 0.296 |
+| XOR /32 | 1.746 | 1.533 | 0.237 |
+| CRC /1 | 1.820 | 1.616 | 0.267 |
+| CRC /32 | 2.258 | 1.582 | 0.510 |
+
+Paired ranges include negative CRC cases (-0.068ns and -0.690ns); neither
+table differences nor stress-case ratios establish stable in-game savings.
+No native call frequency, critical-path cost or FPS was measured. Source,
+object and executable hashes plus all samples are preserved in the receipt:
+`D:/nioh3-re/bench/hash8-ordered-20261011/{receipt.json,samples.csv}`.
+
+Decision: **do not prioritize a live patch for this isolated subnanosecond
+effect**. The ordered-load/ABI candidate is useful bounded groundwork, but
+current evidence does not justify adding a native hook or consuming a game
+test slot. Keep compute-cache lifetime/lookup research and larger GPU gates
+separate; no historical lookup percentage belongs to this hash-only result.
+
+Reproduce (short offline compile/execute only):
+
+    py -I -B tools/bench/run_compute_hash8_cost.py "C:/Users/Ahmad Hamza/nioh3-engine/re/Nioh3.dump.exe" "C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat"
