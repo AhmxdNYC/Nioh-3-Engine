@@ -210,3 +210,52 @@ edge is an existing destination script phase that owns both producer ordering
 and a live construction owner without simultaneously starting Hanzo's encounter;
 it must be established before adding a new native call. The current entrance-hold
 prototype deliberately avoids this entire dynamic allocation path.
+
+## Cleaner destination and native update seam
+
+The narrow comparison now favors **native Training Ground 0x6F24 (28452)** over
+RC362 for a future independent-arena prototype. `notes/rematch-fight-index.csv`
+provides start 606826, default index 0, at 76559/3555/56559 yaw -157; alternate
+608718 has condition 908 and is not a substitute. This is static placement data,
+not a current-journey clear receipt or an accepted addon catalogue route.
+`Mission::IsTrainingMission` actually recognizes 6F24 (see battle-scrolls.md).
+
+Retained script A47086B78FCD has no dedicated incumbent boss in its
+mission-specific section. It does have native training behavior: gadget-selected
+Create calls for 605895/E08A, 602231/E270, 608021/E442 and 601766/E614, plus
+607917 in a separate demonstration loop. For example E03C..E058 tests gadget
+603945 status against 2 before the first creation. These native selectors must
+remain untouched; the map is not empty. Setup also changes training HUD/geometry
+visibility, supplies tutorial items and replenishes gauges. These are native
+Training Ground semantics, not a neutral arena stripped of scripts. The next
+bounded prototype should first enter this exact native route and verify return;
+a Yamagata request still requires destination resource ownership and disposal.
+No arbitrary clear flag, start condition or actor ID is authorized by this data.
+
+RC362 is worse for replacement: B023CC05F9E5's mission-specific section waits
+on box 1103060 (CED8), obtains the native boss placement, changes its Algo/aware
+state, waits on the character group, then requests action 152 (CF70) and boss
+BGM/voice. Deleting or freezing Hanzo does not cancel these script waiters or
+establish clean encounter ownership. No exact native stop-and-replace protocol
+was found in this bounded script review.
+
+The dynamic consumer's update phase is now exact: call 39E5D6 in
+GameModeUpdateMain 39E4E4 invokes 5BC970, which resolves character manager
+4745348 and calls 5BD168. At 5BD1A0 it drains manager+BC0 through 5BCBAC;
+that iterates pending nodes and invokes 65A8A8 at 5BCBEE. The character task graph
+allocation/enqueue follows later in 5BD168. Existing addon pump executes before
+39E4E4, and the retained game-logic audit establishes the previous MissionThread
+join at the beginning of the logic frame, with its next kick at the end. This is
+a concrete candidate serialization seam, not yet a census of all producer
+callbacks or proof that owner teardown cannot intervene. The main update runs on
+KIDSTaskScheduler0; calling it the operating system's main thread would overstate
+what is proved. Native VM DynamicCreate callbacks remain indirect table entries.
+
+A superficially simpler producer, 1C0C478 (called by state callback 21BFA48), is
+**rejected as an arbitrary boss constructor**. Although it preserves the enqueue
+token and needs no live parent actor, its A5D770 helper maps selectors 0/1/2/3 to
+fixed actor IDs 1/10/11/12, and all other selectors to zero. It is not an allocator.
+Reusing that path with a guessed selector could target an occupied special slot.
+The destination-owned child route's reservation/resource/lifetime requirements
+therefore remain; no native construction call is ready merely because a cleaner
+map and the queue-consumption phase have been identified.
