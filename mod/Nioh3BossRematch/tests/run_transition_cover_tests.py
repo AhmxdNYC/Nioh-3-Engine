@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[3]
 SETUP=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 with tempfile.TemporaryDirectory(prefix='nioh3-cover-') as temp:
     out=Path(temp)
-    for src in (ROOT/'mod/Nioh3BossRematch/tests/transition_cover_test.cpp',ROOT/'mod/Nioh3BossRematch/tests/transition_native_read_test.cpp',ROOT/'mod/Nioh3EngineFix/tests/cover_present_test.cpp'):
+    for src in (ROOT/'mod/Nioh3BossRematch/tests/transition_cover_test.cpp',ROOT/'mod/Nioh3BossRematch/tests/transition_native_read_test.cpp',ROOT/'mod/Nioh3EngineFix/tests/cover_present_test.cpp',ROOT/'mod/Nioh3EngineFix/tests/autocont_thunk_test.cpp'):
         exe=out/(src.stem+'.exe')
         cmd=f'call "{SETUP}" >nul && cl /nologo /W4 /WX /EHsc /std:c++17 "{src}" /Fo"{out / (src.stem+".obj")}" /Fe"{exe}"'
         r=subprocess.run('cmd /d /s /c "'+cmd+'"',capture_output=True,text=True,timeout=60)

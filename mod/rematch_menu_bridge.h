@@ -66,6 +66,7 @@ inline bool ValidSnapshot(const Snapshot& s, uint64_t session) {
         !Terminated(s.footer) || !Terminated(s.toast) || !Terminated(s.coverReason) || s.coverPhase>6) return false;
     if ((s.flags & HostedReady) && !s.workerTickMs) return false;
     if ((s.flags & Open) && !(s.flags & HostedReady)) return false;
+    if (s.coverPhase >= 1 && s.coverPhase <= 3 && !(s.flags & CoverActive)) return false;
     if ((s.flags & CoverActive) && (!(s.flags & HostedReady) || !s.coverToken || !s.coverDeadline || s.coverPhase<1 || s.coverPhase>3)) return false;
     for (uint32_t i = 0; i < s.rowCount; ++i)
         if (!Terminated(s.rows[i].text) || s.rows[i].selected > 1) return false;

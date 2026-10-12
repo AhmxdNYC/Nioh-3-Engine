@@ -76,6 +76,7 @@ void PublishHostedModel() {
 void HostedTick() {
     // This is the existing single UI worker. Never execute from the DX12 thread.
     AcquireSRWLockExclusive(&g_bridgeLock);
+    const mb::Snapshot published = g_bridgeSnapshot;
     if (g_wnd) ShowWindow(g_wnd, SW_HIDE);
     if (!(g_bridgeSnapshot.flags & mb::HostedReady) || g_bridgeClose) {
         rematch::CoverCancel(g_bridgeSnapshot.coverToken);
@@ -115,6 +116,17 @@ void HostedTick() {
             g_bridgeSnapshot.coverPhase=cover.phase;g_bridgeSnapshot.coverToken=cover.token;g_bridgeSnapshot.coverDeadline=cover.deadline;
             memcpy(g_bridgeSnapshot.coverReason,cover.reason,sizeof(cover.reason));
             if(cover.phase>=1&&cover.phase<=3)g_bridgeSnapshot.flags|=mb::CoverActive;
+        }
+        else {
+            // A failed try-lock is unknown, never a transition to inactive.
+            // Retain the last coherent publication and its heartbeat; permanent
+            // contention therefore expires the existing host freshness lease.
+            // Consumed actions stay consumed and their generation stays invalidated.
+            const uint64_t generation = g_bridgeSnapshot.generation;
+            g_bridgeSnapshot = published;
+            g_bridgeSnapshot.generation = generation;
+            ReleaseSRWLockExclusive(&g_bridgeLock);
+            return;
         }
         g_bridgeSnapshot.workerTickMs = GetTickCount64();
     }

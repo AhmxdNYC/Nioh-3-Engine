@@ -13,12 +13,15 @@ struct Model {
     bool Begin(uint64_t next,uint32_t r,uint32_t m,uint32_t s,uint32_t p,uint64_t now) {
         if(Active()||!next||!m||!s||!p)return false;
         *this={};token=next;row=r;mission=m;start=s;placement=p;
-        requestedAt=now;deadline=now+90000;phase=AwaitPresent;reason="Preparing covered transition";return true;
+        // Measured Ally Yamagata load: 102.6s plus a second5.7s load.
+        // This exact flow gets a finite180s budget, not a sliding freshness grace.
+        const uint64_t budget=(m==0x1CBC && s==67064 && p==65092)?180000:90000;
+        requestedAt=now;deadline=now+budget;phase=AwaitPresent;reason="Preparing covered transition";return true;
     }
     void End(Phase state,const char* why){phase=state;reason=why;settledAt=0;}
     void Expire(uint64_t now){
         if(!Active())return;
-        if(now<requestedAt || now>=deadline)End(Failed,"Transition timed out; native request/recovery remains owned");
+        if(now<requestedAt || now>=deadline)End(Failed,deadline-requestedAt==180000?"Transition timed out after 180 s; native recovery remains owned":"Transition timed out after 90 s; native recovery remains owned");
         else if(phase==AwaitPresent && now-requestedAt>=5000)End(Failed,"Cover was not presented; no native request sent");
     }
     bool Presented(uint64_t id,uint64_t now){

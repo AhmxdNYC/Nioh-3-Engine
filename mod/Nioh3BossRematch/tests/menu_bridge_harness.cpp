@@ -20,8 +20,8 @@ void UiChange(int n) { model += n; }
 bool UiAct() { ++calls; return true; }
 bool UiActHosted(){return UiAct();}
 struct CoverInfo{uint64_t token,deadline;uint32_t phase;char reason[160];};
-CoverInfo cover{};uint64_t acknowledged=0,cancelled=0;
-bool CoverSnapshot(CoverInfo& out){out=cover;return true;}
+CoverInfo cover{};uint64_t acknowledged=0,cancelled=0;bool coverReadable=true;
+bool CoverSnapshot(CoverInfo& out){if(!coverReadable)return false;out=cover;return true;}
 void CoverPresented(uint64_t token){acknowledged=token;}
 void CoverCancel(uint64_t token){cancelled=token;}
 bool UiBack() { return true; }
@@ -71,6 +71,20 @@ int main() {
     rematch::cover.token=77;rematch::cover.deadline=GetTickCount64()+90000;rematch::cover.phase=1;
     HostedTick();
     CHECK(BridgeSnapshot(session,&s,sizeof(s))==mb::Accepted && (s.flags&mb::CoverActive));
+    // Ally token1: one failed try-lock must not publish fresh inactive phase3.
+    rematch::cover.phase=3;HostedTick();
+    g_bridgeSnapshot.workerTickMs=GetTickCount64()-50;
+    CHECK(BridgeSnapshot(session,&s,sizeof(s))==mb::Accepted);
+    const auto known=s;
+    rematch::coverReadable=false;HostedTick();
+    CHECK(BridgeSnapshot(session,&s,sizeof(s))==mb::Accepted);
+    CHECK((s.flags&mb::CoverActive) && s.coverPhase==3 && s.coverToken==77);
+    CHECK(s.workerTickMs==known.workerTickMs);
+    CHECK(s.generation==known.generation);
+    for(int i=0;i<3;++i)HostedTick();
+    CHECK(BridgeSnapshot(session,&s,sizeof(s))==mb::Accepted && s.workerTickMs==known.workerTickMs);
+    rematch::coverReadable=true;HostedTick();
+    CHECK(BridgeSnapshot(session,&s,sizeof(s))==mb::Accepted && s.workerTickMs>=known.workerTickMs && (s.flags&mb::CoverActive));
     CHECK(BridgePresentCover(session+1,77)==mb::StaleSession && !rematch::acknowledged);
     CHECK(BridgePresentCover(session,78)==mb::StaleGeneration && !rematch::acknowledged);
     CHECK(BridgePresentCover(session,77)==mb::Accepted && rematch::acknowledged==77);

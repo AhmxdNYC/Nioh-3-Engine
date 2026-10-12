@@ -88,3 +88,18 @@ bool CoverCaptures(uint64_t now) {
 void CancelCoverInput(){g_coverCancel.store(true);g_coverCancelUntil=GetTickCount64()+150;}
 
 char g_coverNotice[160]{};uint64_t g_coverNoticeUntil=0;
+
+// Published only by a successful covered Present. Native tip checks never wait
+// on the renderer, read its mutable view, or extend this finite permission.
+SRWLOCK g_coverTipLock=SRWLOCK_INIT;
+cover_present::InputLease g_coverTipLease{};
+void PublishCoverTip(uint64_t now) {
+    if(!TryAcquireSRWLockExclusive(&g_coverTipLock))return;
+    g_coverTipLease={};
+    if(g_rematchView.coverPhase==3 && (g_rematchView.flags&rmb::CoverActive) &&
+       g_rematchView.coverToken==g_coverToken.load() && g_rematchView.session==g_coverSession.load() &&
+       CoverCaptures(now)) {
+        g_coverTipLease={g_coverToken.load(),g_coverSession.load(),g_coverWorker.load(),g_coverPresented.load(),g_coverDeadline.load(),true,false};
+    }
+    ReleaseSRWLockExclusive(&g_coverTipLock);
+}

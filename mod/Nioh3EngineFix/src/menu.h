@@ -122,6 +122,7 @@ void OnPresent();
 // appends the menu / pause hint / hold indicator quads through osd::DrawRect/DrawText. Returns the text scale the
 // quads were laid out for (0 = nothing drawn); osd draws them with that scale.
 float Draw(unsigned W, unsigned H);
+bool CoverTipAllowed(); // bounded covered-Fight-only tip confirmation, no preference change
 bool IsOpen();
 cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t contextGeneration);
 void CoverPresented(const cover_present::Ticket& ticket,uint64_t currentGeneration,int32_t result);

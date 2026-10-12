@@ -2873,8 +2873,18 @@ void CoverPresented(const cover_present::Ticket& ticket,uint64_t generation,int3
     const uint64_t now=GetTickCount64();
     if(!CoverCaptures(now))return; // a blocked Present cannot revive an expired worker/input lease
     g_coverPresented=now;
+    PublishCoverTip(now);
     const auto present=g_rematchApi.PresentCover;
     if(present)present(ticket.id.session,ticket.id.token); // try-only; no native or worker UI call
+}
+bool CoverTipAllowed() {
+    if(!Enabled() || !TryAcquireSRWLockShared(&g_coverTipLock))return false;
+    const auto lease=g_coverTipLease;
+    ReleaseSRWLockShared(&g_coverTipLock);
+    const uint64_t now=GetTickCount64();
+    return cover_present::Captures(lease,now) && CoverCaptures(now) && g_coverEnabled.load() && !g_coverCancel.load() &&
+        lease.token==g_coverToken.load() && lease.session==g_coverSession.load() &&
+        lease.session==g_rematchSession.load();
 }
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }

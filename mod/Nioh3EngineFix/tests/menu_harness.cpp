@@ -228,6 +228,23 @@ int main() {
     g_coverDeadline=deadlineBefore;g_coverArmedAt=Now()-5001;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);
     g_coverArmedAt=armedBefore;g_disabled=1;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);g_disabled=0;
     CoverPresented(ticket,1,0);CHECK(hf::coveredToken==42 && CoverCaptures(Now()));
+    CHECK(!menu::CoverTipAllowed()); // AwaitPresent is never load-tip permission
+    hf::view.coverPhase=3;hf::view.workerTickMs=Now();OnPresentImpl();
+    CHECK(!menu::CoverTipAllowed()); // require covered successful Present of Loading
+    CoverPresented(ticket,1,0);CHECK(menu::CoverTipAllowed());
+    const auto validTip=g_coverTipLease;
+    g_coverTipLease.workerMs=Now()-1501;CHECK(!menu::CoverTipAllowed());g_coverTipLease=validTip;
+    g_coverTipLease.presentedMs=Now()-1501;CHECK(!menu::CoverTipAllowed());g_coverTipLease=validTip;
+    g_coverTipLease.deadlineMs=Now();CHECK(!menu::CoverTipAllowed());g_coverTipLease=validTip;
+    g_coverTipLease.token++;CHECK(!menu::CoverTipAllowed());g_coverTipLease=validTip;
+    g_coverTipLease.session++;CHECK(!menu::CoverTipAllowed());g_coverTipLease=validTip;
+    AcquireSRWLockExclusive(&g_coverTipLock);CHECK(!menu::CoverTipAllowed());ReleaseSRWLockExclusive(&g_coverTipLock);
+    g_disabled=1;CHECK(!menu::CoverTipAllowed());g_disabled=0;
+    // Contradictory fresh provider snapshot cannot end or refresh the last coherent lease.
+    const auto validView=hf::view;const auto knownWorker=g_rematchFreshAt;
+    hf::view.flags&=~rmb::CoverActive;hf::view.workerTickMs=Now()+1;
+    OnPresentImpl();CHECK(g_coverToken==42 && g_rematchFreshAt==knownWorker);
+    hf::view=validView;
     uint8_t allKeys[256]{};allKeys[DIK_W]=0x80;allKeys[DIK_SPACE]=0x80;KeyFeed(allKeys,false);
     CHECK(!allKeys[DIK_W] && !allKeys[DIK_SPACE]);
     XINPUT_STATE coverPad{};coverPad.Gamepad.wButtons=XINPUT_GAMEPAD_A;coverPad.Gamepad.sThumbLX=20000;
@@ -237,7 +254,7 @@ int main() {
     PadFeed(0,&coverPad,false);CHECK(coverPad.Gamepad.wButtons==XINPUT_GAMEPAD_A);
     g_coverWorker=Now();g_coverCancel=false;g_pad[0].prev=0;
     coverPad.Gamepad.wButtons=XINPUT_GAMEPAD_B;PadFeed(0,&coverPad,false);
-    CHECK(g_coverCancel && !coverPad.Gamepad.wButtons);
+    CHECK(g_coverCancel && !coverPad.Gamepad.wButtons && !menu::CoverTipAllowed());
     coverPad.Gamepad.wButtons=XINPUT_GAMEPAD_B;PadFeed(0,&coverPad,false);CHECK(!coverPad.Gamepad.wButtons);
     allKeys[DIK_ESCAPE]=0x80;KeyFeed(allKeys,false);CHECK(!allKeys[DIK_ESCAPE]);
     allKeys[DIK_ESCAPE]=0x80;KeyFeed(allKeys,false);CHECK(!allKeys[DIK_ESCAPE]);
@@ -245,6 +262,8 @@ int main() {
     OnPresentImpl();CHECK(!g_coverToken && !g_open); // same stale active token cannot resurrect
     hf::view.coverToken=43;hf::view.workerTickMs=Now();OnPresentImpl();CHECK(g_coverToken==43);
     g_coverPresented=Now()-2000;OnPresentImpl();CHECK(!g_coverToken && !g_open); // stale rendered cover cannot persist over live input
+    hf::view.coverToken=44;hf::view.coverDeadline=Now()+180000;hf::view.workerTickMs=Now()-1501;
+    OnPresentImpl();CHECK(!g_coverToken && !g_open && !menu::CoverTipAllowed()); // long budget never relaxes stale worker
     g_rematchSession=0;
     puts("ALL PASSED: real settings pages, legacy order, back priority, paging, keys and pad isolation");
     return 0;

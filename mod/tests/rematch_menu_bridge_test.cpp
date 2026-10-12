@@ -20,6 +20,11 @@ int main() {
  t=s;memset(t.rows[0].text,'x',112);assert(!ValidSnapshot(t,7));
  t=s;memset(t.footer,'x',240);assert(!ValidSnapshot(t,7));t=s;memset(t.toast,'x',160);assert(!ValidSnapshot(t,7));
  t=s;t.rows[0].selected=2;assert(!ValidSnapshot(t,7));
+ for (uint32_t phase=1;phase<=3;++phase) {
+  t=s;t.coverPhase=phase;t.coverToken=77;t.coverDeadline=90000;
+  assert(!ValidSnapshot(t,7)); // unknown/contradictory cannot refresh the host lease
+  t.flags|=CoverActive;assert(ValidSnapshot(t,7));
+ }
  Queue<2> q;QueuedAction v{};assert(!q.Pop(v));assert(!q.Push({0,1,Accept}));assert(!q.Push({7,1,99}));
  assert(!q.Push({7,1,CloseMenu})); // close requires a separate priority mailbox
  assert(q.Push({7,1,Accept}));assert(q.Push({7,2,Back}));assert(!q.Push({7,3,Down}));
