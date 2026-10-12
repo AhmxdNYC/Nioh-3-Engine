@@ -146,3 +146,67 @@ Never recover from that gap by later advertising AwaitSummon. Releasing the hold
 permits the original script to run; it is not a newly allocated actor, repeatable
 respawn, or independent-arena transfer. Creation/AI/control completion still need
 the existing attempt-bound native witnesses.
+
+## RC362 destination construction and producer gate (bounded follow-up)
+
+A genuinely different candidate is RC362, The Demon's Regimen: mission C362,
+start 1107817, native boss placement 1102178, character scalar 131751 and
+parameter 23230. Its current supported entry is Fight now (native atFight), not
+Shrine. This is an occupied Hanzo encounter. A Yamagata child here would initially
+be a second actor, not a clean Yamagata-only arena; Hanzo's script, AI and mission
+completion remain independent blockers. Killing/removing Hanzo is not a proved
+way to retain his actor-owned construction context.
+
+The retained metadata file
+`data/extract/lfm/archive_03/C4/E1CBAE0841F7ECE87BD581BA0998F242FE69C4449DB57A473D072E0EB85FAC`
+has header 8, count 1022 and stride 398h. Record 60 has key+64=307259 and
+parameter+8=22178 (Yamagata); record 102 has key 131751 and parameter 23230
+(RC362 Hanzo). Both have words +382/+384 = 0/6. Native 134358 performs the
+key-to-record lookup in the table selected by 1342E0; the latter takes no
+character scalar argument. Native wrapper registration 4BC904 uses these counts
+for child wrappers. Thus the dynamic route can source Yamagata's character
+metadata without borrowing source placement 65092 across the load. It still
+requires the destination's actual registered, unused child and live owner.
+
+Native DynamicCreate 1C0C5E0..1C0C745 checks the character resource's +2C8
+ready byte (1C0C668), resolves the destination owner ID through 13684C, requires
+wrapper[0] live, constructs a fresh request with 683FE4, and derives its owner
+field +60 from destination live+B0->+10. It does not clone an absent source
+placement record. Resource-ready is not script/AI readiness, nor proof that this
+owner survives the deferred consumer.
+
+Two optional request arguments must not be guessed as zero: request +70 is an
+initial action override (65AD6B -> 66C330 -> 66C4A8); request +DC passes through
+66AD88 to live+3B0->+50->+190C, whose gameplay meaning is unresolved. Constructor
+683FE4 initializes both to -1 (684059 and 6840C2); the consumer skips those
+branches at the native defaults. This narrows a future constructor-backed
+adapter, but does not authorize directly calling the higher DynamicCreate with
+invented parameters.
+
+The exact producer is not a general thread-safe queue. 683F74..683FA6 resolves
+manager 4745348 and calls 9DCE70 with manager+BC0. The latter validates that the
+character metadata exists, then increments a global serial using ordinary
+load/inc/store at 9DCEB3..9DCECC. 9DCF6C..9DCFDF allocates/copies a node,
+increments the list count and writes four linked-list pointers without a lock
+in that function. No lock is acquired in 683F74 or 9DCE70 either. This establishes
+an external serialization prerequisite, not that the whole engine is unlocked.
+An arbitrary addon worker must not become another producer. The native producer
+phase and its ordering against actor-owner teardown still need closure.
+
+There is also a concrete exhaustion trap: 1C1CAB8 scans and reserves owner+D0
+bits from metadata+382+1 up to min(metadata+384+1,16). When every eligible bit
+is occupied it returns the loop limit, not an explicit failure sentinel.
+1C1CC10 still shifts that result by 28 and ORs the owner ID. For RC362's 0/6
+metadata, exhaustion can therefore produce slot 7 without reserving any slot.
+Nonzero generated ID is not a reservation receipt. DynamicCreate also returns
+the generated child ID after discarding 683F74's enqueue result. Any future
+transaction must distinguish registration/free-slot reservation, enqueue token,
+materialization and owned disposal, including rollback of a reservation after
+failed enqueue.
+
+These facts make a destination-owned prototype more specific, but do not supply
+a clean arena or a lifetime-safe producer seam. The next implementation-enabling
+edge is an existing destination script phase that owns both producer ordering
+and a live construction owner without simultaneously starting Hanzo's encounter;
+it must be established before adding a new native call. The current entrance-hold
+prototype deliberately avoids this entire dynamic allocation path.
