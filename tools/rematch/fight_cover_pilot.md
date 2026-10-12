@@ -29,3 +29,27 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/test_fight_cov
 ```
 
 Fixtures cover ordering/missingACK/token/attempt/tuple/readiness bits, failure/cancel, replaced logs, strict owner/game review, unset/mismatched admission, exactmission0 return, actual runner finally guard retention and restoration-gated completion. They perform no game actions. An initial wrong return fixture string was corrected to the actual native `replay mission exited (stage now ..., mission state +28h ...)` format; final63 checks pass.
+
+Fight Cover return oracle correction (root3): the frozen addon retains historical
+`spawn=arena` after verified spawn-record restoration. The Practice oracle stays
+unchanged. Fight Cover now requires exactly one native return from1CBC/67064,
+then exact original-entry replay exit, then `spawn override restored and verified
+(replay mission exit): record 67064`. Only a status sampled after that log read
+can finish: state0, row-, infight0, warps0, loading0, player1, exact entry tuple and
+gateok. Historical arena/applied/start labels are accepted only with this ordered
+restoration proof; pending/failed/recovery and unknown labels remain refused.
+Replacement logs, duplicate returns/exits/restores, new requests, quarantine,
+exceptions, refusals and reapplication cannot become acceptance.
+
+The actual return-loop fixture verifies owned identity check -> log read -> status
+read. The retained root3 result remains TRIAL_FAILED; offline evidence validation
+does not approve the run or change its raw receipt. A separate root review is
+required for any acceptance. The exact retained archive can be checked read-only:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/test_fight_cover_pilot.ps1 -ReturnArchive D:/nioh3-re/rematch-pilots/fight-cover-R1CBC-20261011-root3
+```
+
+Result:113 checks PASS, including the original oracle false negative, strict
+ordered restoration, subsequent idle/identity negatives and unmodified archived
+failure receipt. Without the optional archive,108 self-contained checks run.

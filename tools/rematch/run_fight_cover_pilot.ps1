@@ -108,11 +108,14 @@ function Training-WaitStage([string]$Stage) {
 function Training-Wait([string]$Kind,[int]$Seconds=180) {
     $until=[DateTime]::UtcNow.AddSeconds($Seconds);$sawLoad=$false
     do {
+        Assert-Owned
+        # Read completion/restoration evidence BEFORE the final status sample.
+        $returnLog=C72-ReadShared $addonLog
         $s=Invoke-C72Pipe 'status';FCP-CheckStatus $s
-        $refused=C72-NewRefusal $script:requestLogBefore (C72-ReadShared $addonLog)
+        $refused=C72-NewRefusal $script:requestLogBefore $returnLog
         if ($refused) { throw "Native request refused: $refused; no retry" }
         if ((C72-Field $s 'loading') -eq '1') { $sawLoad=$true }
-        if ($Kind -eq 'return' -and (Training-ReturnEvidence $script:returnLogBefore (C72-ReadShared $addonLog) $s $script:result.entry_tuple)) { return $s }
+        if ($Kind -eq 'return' -and (FCP-ReturnEvidence $script:returnLogBefore $returnLog $s $script:result.entry_tuple)) { return $s }
         Start-Sleep -Milliseconds 100
     } while ([DateTime]::UtcNow -lt $until)
     throw "Bounded $Kind observation incomplete; no second request"

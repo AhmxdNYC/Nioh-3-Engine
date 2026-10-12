@@ -1,4 +1,4 @@
-param([string]$LifecycleRepo='C:\Users\Ahmad Hamza\nioh3-engine')
+param([string]$LifecycleRepo='C:\Users\Ahmad Hamza\nioh3-engine',[string]$ReturnArchive='')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'fight_cover_pilot_lib.ps1')
 FCP-CheckDependencies $LifecycleRepo
@@ -82,4 +82,56 @@ $navApproval.nonce='previous-run';Reject { FCP-CheckApproval $navReq $navApprova
 $source=[IO.File]::ReadAllText($path)
 Check ($source.IndexOf('$script:requestLogBefore=C72-ReadShared $addonLog') -lt $source.IndexOf("Training-WaitStage 'FightReady'") -and $source.IndexOf("Training-WaitStage 'FightReady'") -lt $source.IndexOf('$coverReady=$false;$until=')) 'capture baseline then manual stage then one fight deadline'
 Check ($source.Contains("if (`$Stage -eq 'FightReady') { FCP-CheckPreSubmit `$baseline (Invoke-C72Pipe 'cover') }") -and $source.Contains('Assert-Owned')) 'navigation continuously guarded and rejects early submit'
+# Fight Cover owns a spawn override; Practice's spawn='-' return oracle stays strict.
+$restore="Rematch: spawn override restored and verified (replay mission exit): record 67064`n"
+$returnLog=$return+$restore
+$returnStatus=$status.Replace('state=0 ','state=0 row=- ').Replace('spawn=-','spawn=arena')
+Check (-not (Training-ReturnEvidence '' $returnLog $returnStatus $entry)) 'reproduces historical SpawnLast false negative in old oracle'
+Check (FCP-ReturnEvidence '' $returnLog $returnStatus $entry) 'exact verified restore accepts historical arena label'
+Check (-not (FCP-ReturnEvidence '' $return $returnStatus $entry)) 'exit without verified spawn restore incomplete'
+Check (-not (FCP-ReturnEvidence $returnLog $returnLog $returnStatus $entry)) 'old receipt cannot authorize a new return'
+foreach ($badLog in @(
+    ($returnLog+$return),($returnLog+$restore),($restore+$return),
+    ($returnLog.Replace('record 67064','record 123')),
+    ($returnLog.Replace('retry point 67064','retry point 123')),
+    ($returnLog.Replace('stage now 4019512','stage now 123')),
+    ($returnLog+"Rematch: request Fight now queued from pipe`n"),
+    ($returnLog+"Rematch: request leave the mission (return) queued from pipe`n"),
+    ($returnLog+"Rematch: F R1CBC: spawn override applied (load): start point 67064`n"),
+    ($returnLog+"Rematch: native attempt quarantined`n"),
+    ($returnLog+"Rematch: refused: queue busy`n"),
+    ($returnLog+"Rematch: exit: EXCEPTION`n"),
+    ($returnLog+"Rematch: cover token=2 phase=2 attempt=2 event=native_post`n")
+)) { Reject { FCP-ReturnEvidence '' $badLog $returnStatus $entry } 'return rejects conflicting ownership/log proof' }
+Reject { FCP-ReturnEvidence 'original prefix' $returnLog $returnStatus $entry } 'return prefix replacement'
+Reject { FCP-ReturnEvidence '' $returnLog ($returnStatus+' row=-') $entry } 'duplicate returned row'
+foreach ($pair in @(@('state=0','state=2'),@('row=-','row=R1CBC'),@('infight=0','infight=1'),@('warps=0','warps=1'),@('loading=0','loading=1'),@('player=1','player=0'),@('mission=0x0','mission=0xC362'),@('stage=4019512','stage=67064'),@('gate=ok','gate=loading'))) {
+    Check (-not (FCP-ReturnEvidence '' $returnLog ($returnStatus.Replace($pair[0],$pair[1])) $entry)) 'requires subsequent exact idle state'
+}
+foreach ($spawn in @('pending','failed','recovery','invented')) { Reject {FCP-ReturnEvidence '' $returnLog ($returnStatus.Replace('spawn=arena',"spawn=$spawn")) $entry} 'unresolved spawn label' }
+# Execute the actual runner loop, with all effects mocked, to prove log-before-status.
+$waitAst=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Training-Wait'},$true)
+Invoke-Expression $waitAst.Extent.Text
+$script:sampleOrder=[Collections.Generic.List[string]]::new()
+$script:returnLogBefore='';$script:requestLogBefore='';$script:result=@{entry_tuple=$entry}
+$script:fixtureReturnLog=$returnLog;$script:fixtureReturnStatus=$returnStatus
+$addonLog='fixture-only-no-file-access'
+function Assert-Owned { $script:sampleOrder.Add('owned') }
+function C72-ReadShared { param($Path) $script:sampleOrder.Add('log');return $script:fixtureReturnLog }
+function Invoke-C72Pipe { param($Command) $script:sampleOrder.Add($Command);return $script:fixtureReturnStatus }
+$answer=Training-Wait 'return' 1
+Check ($answer -ceq $returnStatus -and ($script:sampleOrder -join ',') -ceq 'owned,log,status') 'actual return loop obtains restore log before final status'
+if ($ReturnArchive) {
+    $archiveResult=Join-Path $ReturnArchive 'result.json';$rawHash=(Get-FileHash $archiveResult -Algorithm SHA256).Hash
+    $raw=Get-Content -LiteralPath $archiveResult -Raw|ConvertFrom-Json
+    $archivedLog=[IO.File]::ReadAllText((Join-Path $ReturnArchive 'addon.log'))
+    $boundary=$archivedLog.IndexOf('[23:52:57.087] Rematch: request leave the mission (return) queued from pipe')
+    Check ($boundary -ge 0) 'root3 exact pre-return log boundary retained'
+    $archiveBefore=$archivedLog.Substring(0,$boundary)
+    $event=Get-Content -LiteralPath (Join-Path $ReturnArchive 'events.jsonl') -Tail 1|ConvertFrom-Json
+    Check ($event.kind -eq 'status' -and [DateTime]$event.utc -gt [DateTime]'2026-10-12T03:53:35.246Z') 'root3 status follows retained restore timestamp'
+    Check (-not (Training-ReturnEvidence $archiveBefore $archivedLog $event.reply $raw.entry_tuple)) 'actual root3 old oracle false negative reproduced'
+    Check (FCP-ReturnEvidence $archiveBefore $archivedLog $event.reply $raw.entry_tuple) 'actual root3 ordered native restore and later idle evidence'
+    Check ($raw.status -ceq 'TRIAL_FAILED' -and -not $raw.native_return_confirmed -and (Get-FileHash $archiveResult -Algorithm SHA256).Hash -ceq $rawHash) 'archive raw failure preserved; no automatic promotion'
+}
 Write-Host "PASS $script:n fight cover pilot checks"
