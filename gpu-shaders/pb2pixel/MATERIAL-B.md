@@ -76,3 +76,25 @@ candidate `3b183023c1f2fbb48310ca3cb800c31ee366fd7853d97283948b4183f4b01151`.
 Reproduce with the previous command plus `--isa`; this assembles and runs the
 two compiler jobs sequentially. Generated RGA root/eight RGBA16F target state
 is diagnostic, not captured native graphics state.
+
+## Nearest shared-dominator retry: also REJECT
+
+One bounded retry computes dominators from the exact original CFG and verifies
+block650 is the nearest common dominator of all 24 original definitions. It
+places the six shared operations immediately before branch664, after the prior
+material work. All original input/operation binding checks still apply. The
+entry variant and its private receipt remain preserved.
+
+Signed assembly and exact body/interface validation pass, but sequential
+gfx1103 comparison still gives instructions2102→2080, VALU1174→1159,
+VGPR56→64 and estimated waves/SIMD9→8. Other resource/wait/branch metrics are
+unchanged. Thus moving to the nearest shared dominator did not cure register
+pressure; the earlier entry-lifetime explanation was insufficient. Reject this
+variant too, and stop this four-material sharing mechanism rather than search
+an unbounded placement matrix. No native queue or FPS conclusion.
+
+Receipt: `D:/nioh3-re/pb2pixel-b-nearest-20261012/four-material-uv.json`.
+Candidate SHA256
+`3ad7c826e676309e283d48bb8987c2d39706dd31a7bf4a3ce58c0ce46f17160e`;
+ISA SHA256 `3caf2ba70316c5117b06dde2724fde3e3e58bdbb3930377ce52fdf8cf6b1f54d`.
+Reproduce with a separate output directory and `--placement nearest --isa`.
