@@ -14,7 +14,7 @@ sys.dont_write_bytecode = True
 def sha(x): return hashlib.sha256(x).hexdigest()
 
 
-def certificate(ll, S):
+def certificate(ll, S, allow_uv_dedup=False):
     """Exact modular integer polynomial normalization; other ops opaque/exact.
 
     All resource calls, float calls, branches and outputs remain in their block
@@ -54,13 +54,16 @@ def certificate(ll, S):
                 if a:values[definition[1]]=add(scalar(a[1]),scalar(a[2]))
                 elif m:values[definition[1]]=add(mul(scalar(m[1]),scalar(m[2])),scalar(m[3]))
                 else:values[definition[1]]={(sha(expr.encode()),):1}
-            if not definition or ('call ' in rhs and not m):trace.append(expr)
+            pure_uv = allow_uv_dedup and re.search(r'@dx\.op\.(?:unary\.f32\(i32 22,|binary\.f32\(i32 (?:35|36),)', rhs)
+            if not definition or ('call ' in rhs and not m and not pure_uv):trace.append(expr)
         traces.append(trace)
     return traces
 
 
-def rewrite(ll, S, dxcom):
-    assert sha(dxcom.body(ll).encode()) == "f01abd800dbbe594ffe931f3f373db599abb749695e031b0064a9825ceeeeabd"
+def rewrite(ll, S, dxcom, expected_body="f01abd800dbbe594ffe931f3f373db599abb749695e031b0064a9825ceeeeabd"):
+    assert expected_body in ("f01abd800dbbe594ffe931f3f373db599abb749695e031b0064a9825ceeeeabd",
+                             "8cd2f2b9e1ac1a2422d27665ec90454b7cd23845fb5a96e6c879a40c8ee36138")
+    assert sha(dxcom.body(ll).encode()) == expected_body
     fn = S.Fn(ll)
     changed = 0
     mad = re.compile(r"  (%v\d+) = call i32 @dx.op.tertiary.i32\(i32 49, i32 (%v\d+), i32 (%v\d+), i32 (%v\d+)\)")
