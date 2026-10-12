@@ -135,7 +135,12 @@ function Get-C72LaunchIdentity($Process, [DateTime]$Launched, [string]$ExpectedP
 }
 function Finish-C72 {
     if ($script:cleaned) { return }
+    $stateVariable=Get-Variable -Name c72FinalState -Scope Script -ErrorAction SilentlyContinue
+    if (-not $stateVariable -or -not $stateVariable.Value) {
+        $script:c72FinalState=@{restored=$false;receiptSaved=$false;releaseStarted=$false;released=(New-Object 'System.Collections.Generic.List[string]')}
+    }
     try {
+        if (-not $script:c72FinalState.restored) {
         Close-Owned
         if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { throw 'A game remains; restoration deferred' }
         if (Test-Path -LiteralPath $addonLog) { [IO.File]::WriteAllText((Join-Path $OutDir 'addon.log'), (C72-ReadShared $addonLog)) }
@@ -156,13 +161,77 @@ function Finish-C72 {
         if ($script:binaryRecord) { C72-BinaryRestore $script:binaryRecord }
         Check-Asis
         $script:result.binaries_restored=$true
-        for ($i=$script:held.Count-1; $i -ge 0; $i--) {
-            $key=$script:held[$i]; $global:LockKey=$key; $r=Invoke-GameLock 'release'
-            if ($r.code) { throw "Lock release failed: $key" }
+            $script:c72FinalState.restored=$true
         }
-        $script:held.Clear(); $script:cleaned=$true
-    } catch { $script:result.status='RESTORE_OR_CLOSE_FAILED'; $script:result.error="$_"; throw }
-    finally { C72-Json (Join-Path $OutDir 'result.json') $script:result }
+        # Never replay entry restoration after ownership may have been released.
+        # This invariant also goes in the durable receipt for restarted recovery.
+        if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { throw 'A game appeared before cleanup finalization; no restoration replay' }
+        if (-not $script:c72FinalState.receiptSaved) {
+            $script:result.restoration_verified=$true
+            $script:result.cleanup_stage='RESTORATION_VERIFIED_LEASE_RELEASE_PENDING'
+            $script:result.automatic_restore_permitted=$false
+            $script:result.lease_release_outcome='PENDING_AFTER_THIS_RECEIPT'
+            $script:result.leases_pending=@($script:held.ToArray())
+            $receipt=Join-Path $OutDir 'result.json'
+            $temporary=Join-Path $OutDir ('result-'+[guid]::NewGuid().ToString('N')+'.tmp')
+            try {
+                C72-Json $temporary $script:result
+                $stream=[IO.File]::Open($temporary,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+                try { $stream.Flush($true) } finally { $stream.Dispose() }
+                $check=Get-Content -LiteralPath $temporary -Raw|ConvertFrom-Json
+                if ($check.restoration_verified -isnot [bool] -or -not $check.restoration_verified -or
+                    $check.automatic_restore_permitted -isnot [bool] -or $check.automatic_restore_permitted -or
+                    $check.cleanup_stage -cne 'RESTORATION_VERIFIED_LEASE_RELEASE_PENDING' -or
+                    $check.lease_release_outcome -cne 'PENDING_AFTER_THIS_RECEIPT' -or
+                    (@($check.leases_pending) -join "`n") -cne (@($script:held.ToArray()) -join "`n")) { throw 'Restoration receipt readback mismatch' }
+                if (Test-Path -LiteralPath $receipt) {
+                    $previous=Join-Path $OutDir ('result-previous-'+[guid]::NewGuid().ToString('N')+'.json')
+                    [IO.File]::Replace($temporary,$receipt,$previous) # PS5.1 coerces null backup to illegal empty path
+                }
+                else { [IO.File]::Move($temporary,$receipt) }
+                $script:c72FinalState.receiptSaved=$true
+            } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue } }
+        }
+        $script:c72FinalState.releaseStarted=$true
+        for ($i=$script:held.Count-1; $i -ge 0; $i--) {
+            $key=$script:held[$i];$global:LockKey=$key;$r=Invoke-GameLock 'release'
+            if ($r.code) { throw "Lock release failed: $key; restoration must not be replayed" }
+            $script:c72FinalState.released.Add($key)
+            $script:held.RemoveAt($i)
+        }
+        # No post-release result write: the verified receipt deliberately precedes
+        # release and reports pending. Root checks the lease service separately.
+        $script:result.lease_release_outcome='RELEASED_IN_THIS_PROCESS'
+        $script:cleaned=$true
+    } catch {
+        $script:cleaned=$false
+        $script:result.status='RESTORE_OR_CLOSE_FAILED';$script:result.error="$_"
+        $failure=[ordered]@{error="$_";restoration_verified=[bool]$script:c72FinalState.restored;
+            receipt_persisted=[bool]$script:c72FinalState.receiptSaved;lease_release_started=[bool]$script:c72FinalState.releaseStarted;
+            automatic_restore_permitted=(-not $script:c72FinalState.restored);leases_remaining=@($script:held.ToArray());
+            leases_released=@($script:c72FinalState.released.ToArray());cleaned=$false}
+        # Preserve the original failed-run result contract when no receipt exists.
+        # Never replace any prior result from this error path.
+        $failedReceipt=Join-Path $OutDir 'result.json'
+        if (-not (Test-Path -LiteralPath $failedReceipt)) {
+            $failedTemp=Join-Path $OutDir ('failure-'+[guid]::NewGuid().ToString('N')+'.tmp')
+            try {
+                $script:result.restoration_verified=[bool]$script:c72FinalState.restored
+                $script:result.automatic_restore_permitted=$false
+                $script:result.cleanup_stage='FAILED_REQUIRES_OWNERSHIP_REVIEW'
+                C72-Json $failedTemp $script:result
+                $stream=[IO.File]::Open($failedTemp,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+                try { $stream.Flush($true) } finally { $stream.Dispose() }
+                $check=Get-Content -LiteralPath $failedTemp -Raw|ConvertFrom-Json
+                if ($check.status -cne 'RESTORE_OR_CLOSE_FAILED') { throw 'Failure receipt readback mismatch' }
+                [IO.File]::Move($failedTemp,$failedReceipt)
+            } catch { Write-Warning "Failure result unavailable; guard retained: $_" }
+            finally { if (Test-Path -LiteralPath $failedTemp) { Remove-Item -LiteralPath $failedTemp -Force -ErrorAction SilentlyContinue } }
+        }
+        # A failure sidecar cannot erase the valid pre-release recovery receipt.
+        try { C72-Json (Join-Path $OutDir 'cleanup-failure.json') $failure } catch { Write-Warning "Cleanup failure journal unavailable; guard retained: $_" }
+        throw
+    }
 }
 # Guard's default forced-kill policy is overridden for this pilot. Exact owned process, graceful only.
 function Kill-Registered { try { Close-Owned } catch { Write-Warning "$_" } }
