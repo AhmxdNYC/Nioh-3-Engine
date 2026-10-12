@@ -40,3 +40,39 @@ image or native acceptance claim.
 ```powershell
 python -B gpu-shaders/pb2pixel/material_b_uv.py --repo 'C:/Users/Ahmad Hamza/nioh3-engine' --out D:/nioh3-re/pb2pixel-b-20261012
 ```
+
+## Signed assembly and gfx1103 gate: REJECT
+
+After the game closed, signed assembly succeeded and fresh DXC output matched
+the proposed body exactly. ISG1/OSG1/PSV0/SFI0 remained byte-identical. Candidate
+SHA256 is `073db04d741267fe35bbd1eb188b3da57fa613606822283e192bf3ad5f2b5700`.
+Sequential original/candidate RGA runs used the bound VS70d0ee9f and identical
+generated root/PSO inputs. Results:
+
+| Metric | Original | Candidate |
+|---|---:|---:|
+| Instructions | 2102 | 2080 |
+| VALU | 1174 | 1158 |
+| VGPR | 56 | 64 |
+| Estimated waves/SIMD | 9 | 8 |
+| SGPR | 54 | 54 |
+| Buffer loads / samples | 71 / 15 | 71 / 15 |
+| Branches / full waits / partial waits | 54 / 27 / 54 | 54 / 27 / 54 |
+| Scratch | 0 | 0 |
+
+The native queue rejects this variant: twenty-two fewer static instructions
+do not justify increased register pressure and lower estimated occupancy.
+This is an offline rejection under the candidate's conservative resource gate,
+not a measured native regression. There is no pack or installation artifact.
+Likely explanation (inference): hoisting to entry extends the UV temporaries'
+lifetimes across substantial unrelated material work. Any later retry should
+move the common expressions only to the nearest shared dominating region,
+not preserve this entry-hoist variant or broaden it to more values.
+
+Private receipt `four-material-uv.json` retains compiler/helper/root/PSO hashes
+and both complete metric sets. Original ISA SHA256
+`8ad6895cd73746c0674ed1d5d074e973fda70fd03e07babda9afc0fe5e03dcbe`;
+candidate `3b183023c1f2fbb48310ca3cb800c31ee366fd7853d97283948b4183f4b01151`.
+Reproduce with the previous command plus `--isa`; this assembles and runs the
+two compiler jobs sequentially. Generated RGA root/eight RGBA16F target state
+is diagnostic, not captured native graphics state.
