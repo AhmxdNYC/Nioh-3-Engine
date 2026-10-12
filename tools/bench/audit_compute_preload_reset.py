@@ -6,6 +6,8 @@ from audit_compute_cache_lifetime import verify
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 
 WINDOWS = [
+    (0x2ee0144, 0x67, "cd4302a7c3f6679f6d2b7bea07088512fd1465f48d339e4bd5d75a80418e56bc"),
+    (0x2edfb40, 0x2a, "7a1d097cf3e919d0a43fd1440583f98199433edf3480619913243509dc326923"),
     (0x11022fc, 0x2b8, "9c1bfc353e57cef86471d488d7f1facc8576b7edbc5fc31ede11f7f15cf467c1"),
     (0x2948b48, 0x8c, "908a173c33be17371589dfbad46fde520b1d08672247e81497f0ce3edc6f7ba9"),
     (0x2947ed8, 0x79, "cc7cb9ca8861ad8676e3cd2156c767c08724578051c49f5357183145dd63bf3a"),
@@ -53,6 +55,8 @@ def main():
                 raise AssertionError("changed native window admitted")
             decoded.update({i.address: (i.mnemonic, i.op_str) for i in md.disasm(body, rva)})
     checks = {
+        0x2edfb52: ("call", "0x2ee0144"),
+        0x2edfb67: ("mov", "qword ptr [rdi], rax"),
         0x1102466: ("cmp", "byte ptr [r14 + 0x24e], r12b"),
         0x110248e: ("call", "0xb614a8"),
         0x1102506: ("inc", "qword ptr [r14 + 0x1e0]"),
