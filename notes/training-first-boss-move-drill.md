@@ -1,6 +1,8 @@
 # First-boss selectable move practice
 
-User request2026-10-11: show a boss's move list, keep that boss idle, then let the player select an attack for the boss to perform. Scope is the first boss only for now. Working target is Yamagata Masakage, the existing Practice target R1CBC/mission0x1CBC/start67064/placement65092; a clarification about tutorial-boss terminology is pending. This does not authorize generalizing a discovered ID to other bosses.
+User request2026-10-11: show a boss's move list, keep that boss idle, then let the player select an attack for the boss to perform. User explicitly confirmed Yamagata Masakage, the existing Practice target R1CBC/mission0x1CBC/start67064/placement65092. Scope is this boss only for now. This does not authorize generalizing a discovered ID to other bosses.
+
+Latest priority: **summoning Yamagata and switching training arenas come first**. Move drills remain a required later feature. Keep one agent on performance optimization alongside the two training lanes; the user explicitly requested parallel optimization work.
 
 Desired first interaction: enter the supported practice encounter, select a named move, request it once from verified idle, let the full attack and recovery complete, then return to waiting for the next selection. Natural animations, hit reactions and encounter cleanup must remain coherent. Random attacks must not continue between selections. Automatic loops, arbitrary summoning and arena changes are separate work.
 
