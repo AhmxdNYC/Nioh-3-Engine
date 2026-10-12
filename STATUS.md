@@ -1,6 +1,10 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-12 19:03 - User game closed; retry fix agent assigned
+- User requested closing game and assigning an agent. Exact51156 normal CloseMainWindow accepted, exited19:02:47EDT; passive launcher completed, guard removed and actual task15 free. Progress preserved without save rollback; final logs in user-rematch-34296f3-20261012/user-stop-logs and copy of latest saves in user-exit-saves. Installed34296f3 pair remains in place. Tasks16/17 also free.
+- main_retest_readiness explicitly assigned isolated source work from34296f3 on RA4B4 death/retry defect. Confirmed observational fight-active latch, gate-request latch and prior PASS survive reload; safe rearm requires authoritative death/reset versus intro evidence. No runtime patch/reset or new launch. Agent may implement supported fix/tests or return bounded diagnostics if native evidence unresolved; frozen source/installed files/saves untouched. Logs-only user constraint remains. Weekly55 percent,80 cutoff unchanged.
+
 ## UPDATE 2026-10-12 19:01 - User reports missing boss after death; logs retained
 - User explicitly said DO NOT look at game screen. No further screenshots or image viewing; use event logs/read-only status only. A capture already in flight finished before its result was read; image was not opened. User continues to own game51156 and progress; no input/close/runtime mutation.
 - Manual Yagyu R1A5E:18:53:35.666 existing_actor5027806; cover closed18:53:36.189; mission6750 clear18:54:25.347; native exit18:55:08.042. Then user entered RA4B4 Gozuki & Tokugawa Kunimatsu: boss began18:57:03.812, cover closed04.324, death/reload20.274, player respawn23.966, mod logged18:57:28.459 'the fight is already on - no warp'. User reports boss absent. Exact read-only status:state2 rowRA4B4 fights2 infight1 loading0 player1 missionA4B4 fnowpass; no second boss-start/creation observed.
