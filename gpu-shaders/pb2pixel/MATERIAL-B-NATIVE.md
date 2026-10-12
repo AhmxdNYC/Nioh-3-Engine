@@ -33,7 +33,8 @@ The runner requires game absence, pins binding.json SHA256
 verifies every packet input before/after build and native invocation, then writes
 a separate actual native receipt. A PASS needs4 root and8 original/candidate PSO
 successes. No PS7dc verdict transfers even though some descriptor/root bytes
-match. The runner was syntax-parsed, not executed.
+match. The preparation checkpoint syntax-parsed the runner; root's later native
+execution is recorded below.
 
 Private one-record packed file targets `shader_dx12/0xbc09ad4a.file`, slot1:
 
@@ -49,4 +50,15 @@ negatives refuse. Exact original.file is retained for eventual ownership-checked
 rollback; never restore over a target that differs from the candidate hash.
 No live installer is included or authorized by this preparation. Existing
 PS7dc live_switch.py has different fixed pins and MUST NOT be used for this pack.
-Native PSO, draw participation, image and performance remain UNRUN.
+## Actual native compiler result - 2026-10-12 03:05 ET
+
+Root executed the pinned runner with no game running. On AMD Radeon RX9070,
+all4 captured root signatures and8 original/candidate PSOs returned S_OK;
+admission failures0. All packet inputs were checked before and after execution.
+Private receipt: `D:/nioh3-re/deliveries/pb2-material-b-native-20261012/native-admission.json`.
+Candidate SHA256 `efb7895ca386d3e0b43f4d6b61aa20195cf0c0d50c79efc4baedab313b56444c`;
+helper executable `bcd1e5395c2ac2a004b858931b9a92942f8e200eac72faeac08812ef42afee11`.
+
+This passes only this exact Windows native compiler gate. No draws executed,
+game shader files changed or other-device results inferred. Draw participation,
+image, Proton/device compatibility and performance remain unproved.
