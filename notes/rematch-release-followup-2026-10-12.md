@@ -38,5 +38,16 @@ Evidence under `D:/nioh3-re/reviews/`:
 Engine/addon binaries still match the original archive SHA256 values
 `21ce6ee58663dca6b0de2d7f2e3fc4750973bfd852cddd913abde8c622525d85` and
 `9145baebfa46b05825c1ced1a8a619ff2994cf645b9f587f2f07911f7a58cfad`.
-This is a targeted recheck of the two failed gates, not a new full-suite PASS.
-Native Yagyu entry/control/return acceptance and release readiness remain false.
+The initial follow-up above was a targeted recheck. A subsequent single full
+gate on `38b56f0e89913c9cdea9e61d5b6cf2cedd7c4ca8`, with portable MSVC setup,
+completed **PASS: 0 errors, 3 existing warnings**, return code 0: all 255 pattern
+sites and 36 harnesses passed, including replayprof and thrsched. No duplicate
+checker ran. Final binary/archive hash verification matched both values above.
+
+Full output: `D:/nioh3-re/reviews/cover-yagyu-38b56f0-full-20261012.txt`, SHA256
+`22d2cc2792f2b92525207eca014eed55ce0e619882ac2cf7680b85f75d0b38c4`.
+Final receipt:
+`D:/nioh3-re/candidates/cover-yagyu-34296f3/full-release-pass-38b56f0-20261012.json`,
+SHA256 `109653f008a2eaa60fc2ae9e61386a88308819aeca73e783ae4542b31b6abdc9`.
+Original failed results remain retained. Native Yagyu entry/control/return
+acceptance and release readiness remain false.
