@@ -12,8 +12,8 @@ int IniInt(const wchar_t* section, const wchar_t* key, int def) { return testIni
 bool uiReads = false;
 bool Copy(void* out, uint64_t address, size_t n) {
     if (!uiReads) return false;
-    memcpy(out, reinterpret_cast<const void*>(address), n);
-    return true;
+    __try { memcpy(out, reinterpret_cast<const void*>(address), n); return true; }
+    __except(EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
 bool WrU32(uint64_t, uint32_t) { return false; }
 bool WrBytes(uint64_t, const void*, size_t) { return false; }
@@ -151,6 +151,29 @@ int main() {
     g_cover=activeCover;g_coverHostAt=Ms();g_lastTick=Ms();
     CoverCancel(coverToken);CHECK(CoverSnapshot(cover) && cover.phase==transition_cover::Cancelled);
     CHECK((g_req.load()&0xFF)==kReqFight && g_attempt.sequence==8 && g_sp.st==3 && g_sp.rec==0x12345678 && g_sp.origFlags==73); // presentation cancel retains native recovery
+    // Actual hooks select only the branch created for this exact request/start.
+    mission=0x1DEA;retry=4095000;memcpy(ms+0x28,&mission,4);memcpy(ms+0x14,&retry,4);
+    g_cover={};CHECK(g_cover.Begin(90,0,mission,retry,4092708,Ms()));
+    CHECK(g_cover.Presented(90,Ms())&&g_cover.Issue(8));
+    retry=4095001;memcpy(ms+0x14,&retry,4);HkCoverCreate(4097963,0,0,0,nullptr);CHECK(!g_cover.placementEntry);
+    retry=4095000;memcpy(ms+0x14,&retry,4);HkCoverCreate(999,0,0,0,nullptr);CHECK(!g_cover.placementEntry);
+    HkCoverCreate(4097963,0,0,0,nullptr);CHECK(g_cover.ActorPlacement()==4097963&&g_cover.placementEntry);
+    // Real CoverTick + passive player reader: known dead terminates, unknown
+    // during loading does not. All native/recovery ownership sentinels survive.
+    uint8_t livePlayer[0x400]{},playerStatus[0x50]{};
+    uint64_t statusPointer=(uint64_t)playerStatus;memcpy(livePlayer+0x3A0,&statusPointer,8);
+    player=(uint64_t)livePlayer;memcpy(pt+0xCD*0x18,&player,8);
+    addon::g_img.base=(uint64_t)&ppt-0x4745348;
+    g_attempt.evidence=aMatched;g_attempt.mission=mission;g_coverHostAt=Ms();
+    int32_t dead=1;memcpy(playerStatus+0x48,&dead,4);
+    const auto deathCover=g_cover;
+    statusPointer=0;memcpy(livePlayer+0x3A0,&statusPointer,8);CoverTick(ReadSnap(),Ms());CHECK(g_cover.Active());
+    statusPointer=(uint64_t)playerStatus;memcpy(livePlayer+0x3A0,&statusPointer,8);
+    CoverTick(ReadSnap(),Ms());CHECK(g_cover.phase==transition_cover::Failed&&strstr(g_cover.reason,"Player died"));
+    CHECK((g_req.load()&0xFF)==kReqFight&&g_attempt.sequence==8&&g_sp.st==3&&g_sp.rec==0x12345678&&g_sp.origFlags==73);
+    g_cover=deathCover;g_attempt.sequence=9;CoverTick(ReadSnap(),Ms());CHECK(strstr(g_cover.reason,"Player died")==nullptr);
+    addon::g_img.base=0;player=1;memcpy(pt+0xCD*0x18,&player,8);
+    mission=0x1111;retry=67064;memcpy(ms+0x28,&mission,4);memcpy(ms+0x14,&retry,4);
     g_sp={};g_attempt={};
     g_req=0;g_cover={};g_coverHostAt=0;g_coverReadOk=false;
     g_status[0]=1; g_confirm=-9; CHECK(!UiAct() && !g_req);

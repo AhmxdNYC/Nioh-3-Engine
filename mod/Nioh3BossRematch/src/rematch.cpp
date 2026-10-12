@@ -1626,13 +1626,20 @@ void CoverTick(const Snap& s, ULONGLONG) {
     const uint64_t playerBefore=PlayerChar();
     const auto player=transition_native_read::ReadPlayer(g_img.base,&CoverRead,nullptr);
     const auto control=transition_native_read::ReadControl(g_img.base,&CoverRead,nullptr);
-    const auto actor=transition_native_read::ReadActor(g_img.base,g_cover.placement,&CoverRead,nullptr);
-    const auto life=transition_native_read::ReadLife(g_img.base,g_cover.placement,actor,&CoverRead,nullptr);
+    const auto actor=transition_native_read::ReadActor(g_img.base,g_cover.ActorPlacement(),&CoverRead,nullptr);
+    const auto life=transition_native_read::ReadLife(g_img.base,g_cover.ActorPlacement(),actor,&CoverRead,nullptr);
     const Snap after=ReadSnap();
     const bool same=after.msOk&&s.msOk&&after.ms28==s.ms28&&after.ms14==s.ms14&&
         NativeGate(after)==nullptr&&after.player==s.player&&after.gm&&s.gm&&
         after.st[2]==s.st[2]&&after.st[3]==s.st[3]&&after.st[4]==s.st[4];
     const bool playerReady=player.known&&player.notDead&&player.live&&player.live==playerBefore&&player.live==PlayerChar();
+    // A stable native DEAD result ends presentation immediately; missing/loading
+    // player reads are not death, and this never cancels the native transaction.
+    const bool playerKnown=player.known&&player.live&&player.live==playerBefore&&player.live==PlayerChar();
+    g_cover.PlayerState(g_attempt.sequence,
+        g_coverReadOk&&same&&g_attempt.evidence==aMatched&&g_attempt.mission==g_cover.mission&&
+        s.ms28==g_cover.mission&&s.ms14==g_cover.start,playerKnown,player.notDead);
+    if(!g_cover.Active())return;
     const bool controlReady=g_coverReadOk&&same&&control.known&&control.clear&&playerReady;
     // Conservative passive inverse of the native DEAD predicate; unknown is not ready.
     const bool lifeReady=life.known&&life.notDead;
@@ -1648,7 +1655,12 @@ void CoverTick(const Snap& s, ULONGLONG) {
 void HkCoverCreate(uint64_t placement,uint64_t,uint64_t,uint64_t,const uint64_t*) {
     CoverLock lock;if(!lock.held)return;
     const Snap s=ReadSnap();
-    if(s.msOk)g_cover.Entry(g_attempt.sequence,s.ms28,(uint32_t)placement,false);
+    if(s.msOk&&s.ms14==g_cover.start){
+        const uint32_t before=g_cover.observedPlacement;
+        g_cover.Entry(g_attempt.sequence,s.ms28,(uint32_t)placement,false);
+        if(g_cover.observedPlacement!=before)
+            Log("Rematch: cover token=%llu attempt=%llu event=branch_actor mission=0x%X start=%u requested=%u actor=%u",g_cover.token,g_cover.attempt,s.ms28,s.ms14,g_cover.placement,g_cover.observedPlacement);
+    }
 }
 void Tick() {
     const ULONGLONG t = Ms();
@@ -1762,7 +1774,7 @@ std::wstring ArenaPath() { return Beside(L"Arenas", L"Nioh3BossRematch_arenas.ts
 
 // BossBattleMode entry (game thread): the player position at every fight start; ArenaCapture = 1 appends it to the arenas file
 void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
-    { CoverLock lock; if(lock.held){const Snap s=ReadSnap();if(s.msOk)g_cover.Entry(g_attempt.sequence,s.ms28,0,true);} }
+    { CoverLock lock; if(lock.held){const Snap s=ReadSnap();if(s.msOk&&s.ms14==g_cover.start)g_cover.Entry(g_attempt.sequence,s.ms28,0,true);} }
     float p[4] = {}, cur[4] = {};
     const bool curOk = PlayerPos(cur);
     const bool beforeLoad = g_posAtLoadOk && Ms() - g_loadRiseAt < 5000;  // the fight began right after a load: the intro moved the player
