@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-12 07:12 - Practice entry passed; movement correction reviewed
+- PC2 trial293 reached the real shrine (1CBC/67064), confirmed player movement and stayed broken0. It stopped at the 180-second entrance-navigation bound without reaching box66599; no held menu, Summon, boss or return acceptance. Evidence294 SHA9f61e3e8f5359823fa987ea1ba5459b841d7bdb3cec8a600c2f4791da91dd681 and movement295 show only five250ms movement actions: observation/tool latency consumed most of the window.
+- Independent recovery PASS: all13 installed files, exact6 saves and fresh backup unchanged; owned game17764/runner2092 absent, guard/recovery hold absent, task16 free. Recovery SHA7673a56799529643d4768691f2b11370152f07582c09fe4a3fa13af3b4ea3364. Admission293 is consumed; never reuse it.
+- Fresh adapter a11b26d delivered as296 SHA509a8a952cab0ba7e328729ae8344286f11cf16a7ef80bb61b8b1ad0800ead3b. Independent143 runner +55 inert-input checks PASS. Movement-only holds up to2000ms require actual scene evidence and exact runner-created EnterArena window; foreground/identity/deadline/recovery checks and key-up finally preserved. Held navigation480s, original native10min/global20min unchanged. PC2 preparing fresh readiness; no new launch yet. Candidate290/1143929 unchanged. Route evidence in notes/training-yamagata-walk-route.md supports ordinary walking through visible curtain opening, not coordinate injection or native gate calls.
+- Native-test agent preparing main-PC Yagyu stage timing/preloaded witness integration offline. No fifth Yagyu launch. Phone graph/limits app remains deployed; Ally Linux adapter288 still awaiting local adoption/ACK.
+
 ## UPDATE 2026-10-12 06:47 - Corrected PC2 Summon run authorized
 - Launch ACK2449: preflight PASS10:47:57Z; runner2092/start03:47:55.0588778-07 and game17764/start03:48:00.7043357-07. Guard03:47:58-07 plus20min (about11:07:58Z), task16 renewed. Candidate290/adapter291/output0345; boot logos observed, actual FieldReady pending. Peer owns lifecycle/restore and reports transitions through exact-chat relay; no launch retry authorized.
 - Preloaded camera witness/source notes integrated from46ddb46+331ceda; main offline watcher tests PASS (350ms cold/7ms warm diagnostic, no game access/input). No fifth Yagyu admission. Earlier-stage publication/review timing still needs a concrete reviewed test plan; no native pause implemented.
