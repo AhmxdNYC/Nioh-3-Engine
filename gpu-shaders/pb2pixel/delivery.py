@@ -37,7 +37,9 @@ def main():
     shutil.copy2(native/'admission.json',out/'native/admission.json')
     for name in ('candidate.file','original.file'):shutil.copy2(root/'combined-package'/name,out/name)
     shutil.copy2(root/'combined-package/manifest.json',out/'composition-manifest.json')
-    for name in ('live_switch.py','capture_window.ps1','LIVE.md'):shutil.copy2(Path(__file__).parent/name,out/name)
+    for name in ('live_switch.py','capture_window.ps1','exercise_log.py','LIVE.md'):shutil.copy2(Path(__file__).parent/name,out/name)
+    guide=out/'LIVE.md'
+    guide.write_text(guide.read_text().replace('D:\\nioh3-re\\deliveries\\pb2-combined-live-20261012',str(out)))
     shutil.copy2(a.repo/'tools/PresentMon.exe',out/'PresentMon.exe')
     result=dict(target='shader_dx12/0xb4751b0f.file',record=1,original_sha256=ORIGINAL,candidate_sha256=CANDIDATE,
         candidate_shader_sha256=hashlib.sha256(candidate).hexdigest(),candidate_shader_digest=candidate[4:20].hex(),

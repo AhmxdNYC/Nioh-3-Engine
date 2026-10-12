@@ -82,3 +82,60 @@ distributions across A1/B/A2, excluding loading/menu frames. Twenty-five seconds
 is a screening window, not a stable FPS claim. An improvement needs repetition
 beyond baseline variation. No exact resource replay, native image equivalence,
 real-game benefit or Proton admission has passed yet.
+
+## Confirm the installed record participates in drawing
+
+Use the existing profiler in a separate short diagnostic boot before timing.
+The operator's existing INI transaction must retain and restore the exact current
+INI. No new overlay, ASI or system change is needed. The reviewed local INI has
+GPUProf=0, so its current logs alone cannot supply this evidence. Temporarily use:
+
+```ini
+[Profiler]
+GPUProf=2
+GPUProf2_SampleEvery=8
+GPUProf2_MinRun=1
+GPUProf2_Top=100
+GPUProf2_AB=0
+```
+
+Require ShaderSwap, ShaderHot and SkipFx disabled: no substitutions, twins or
+skipped draws. Keep their existing disabled values; do not create an override
+directory. Keep the file-based candidate installed through the owned switch.
+Reach the chosen field camera and remain there for two complete GP2 log windows
+(about 60 seconds), then close normally. Retain the current boot's Engine log,
+INI and ASI hashes. Extract only the second scene window (to exclude the
+preceding loading interval), keeping its timestamp and `GP2: frame` header.
+Run the read-only checker on that slice:
+
+```powershell
+python -B "$packet\exercise_log.py" "$run\B-scene-only.log"
+```
+
+The required row is `ps=e9e2d0b05b89a2d262f0e59bf39f1841` with positive
+draw-call and interval columns. MinRun=1 avoids attributing a merged mixed-PSO
+run to its longest member. Capture the G-buffer marker as well as the digest.
+The output deliberately says CANDIDATE_DRAW_INTERVAL_OBSERVED: a successful
+candidate-associated PSO was bound during submitted draw work with resolved GPU
+timestamps. It does not prove nonzero pixel shader invocations, visible pixel
+coverage or image equivalence. Absence is inconclusive (top-100 truncation,
+sampling, unvisited materials or another pack can all explain it). Do not expand
+the replacement to unreviewed packs to force a hit. If both complete windows
+lack the row, stop this scene's performance comparison as EXERCISE_UNCONFIRMED.
+
+Restore the original INI before the A1/B/A2 timing boots. GP2's queries and hooks
+have overhead; these diagnostic windows are not the performance comparison.
+If a second instrumented comparison is useful, instrument every arm identically
+and label it separately. No default-picture setting changes are required.
+
+Source provenance (reviewed at isolated commit 7e6977d): `psoswap.cpp:603`
+Consider records the input container key; `:559` TrkCommit accepts only successful
+PSO creation; `:914` HkGfx brackets the call. `gpuprof.cpp:477` Gp2Event resolves
+bound PSO and counts draw/dispatch calls, `:343` IvClose records intervals,
+`:1223` consumes GPU timestamp results, and `:1469` prints shader-set rows.
+This is stronger than PJ creation-only evidence. ShaderSwap cannot simplify the
+proof: tracking records the original input key before replacement; ShaderHot
+also deliberately preserves stock attribution (`gpuopt.cpp:893`). Therefore a
+stock digest plus a successful swap count is not direct candidate-digest draw
+evidence. Exact nonzero pixel coverage still requires an actual graphics capture
+or a suitable existing pixel-invocation measurement, absent from this packet.
