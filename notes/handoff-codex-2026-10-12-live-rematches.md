@@ -1,6 +1,6 @@
 # Fresh Codex handoff - live manual rematches
 
-Transfer checkpoint; local snapshot 2026-10-12 04:31 EDT. Recheck the newest
+Transfer checkpoint; final gate follow-up 2026-10-12 04:39 EDT. Recheck the newest
 STATUS section and actual HEAD before resuming. Main at the start of this work:
 `a643d4344b3c6d5d194cb536427d7adc10122a80`. This note does not supersede
 AGENT_BRIEF.md or the project's save, headroom, default-picture, A/B,
@@ -90,13 +90,21 @@ Engine 1.7.73 SHA256
 `21ce6ee58663dca6b0de2d7f2e3fc4750973bfd852cddd913abde8c622525d85`;
 addon 1.4.21 SHA256
 `9145baebfa46b05825c1ced1a8a619ff2994cf645b9f587f2f07911f7a58cfad`.
-Archive `D:/nioh3-re/candidates/cover-yagyu-34296f3` has a manifest initially
-marked full-gate RUNNING, native_acceptance=false. Full checker PID49876,
-wrapper29100/cmd28488, tool session48778 writes
-`D:/nioh3-re/reviews/cover-yagyu-progress-full.txt`; observe that existing run,
-do not duplicate it. Writer may record its final receipt, with no source edits.
-**UNFINISHED:** final full-gate result and native acceptance. Current installed
-build remains 4c33164. Do not swap binaries over the user's running game.
+Archive `D:/nioh3-re/candidates/cover-yagyu-34296f3` retains its original
+manifest initially marked RUNNING. **The full gate subsequently completed
+FAIL: 2 errors, 3 warnings.** PID49876 exited; do not keep waiting for it.
+Raw log `D:/nioh3-re/reviews/cover-yagyu-progress-full.txt` and supplemental
+archive `full-release-observed-result.json` preserve this result. Errors are
+`run_replayprof_harness.py` (rc1, last line "harness") and
+`run_thrsched_harness.py` (rc1, empty captured stdout). The latter's source
+explicitly refuses to run while Nioh3 is present; the full checker discards
+stderr, so this is a likely guard refusal, not a verified direct-run diagnosis.
+Replayprof's exact failure remains unknown. Preserve the failure and obtain
+full output from these two checks once the game has actually closed; do not
+silently waive them or rerun the entire suite without a reason.
+**UNFINISHED:** resolve the full-gate errors and native acceptance. Builds and
+focused tests do not make this release-ready. Current installed build remains
+4c33164. Do not swap binaries over the user's running game.
 Do not infer acceptance from a successful build or from the eventual clear.
 
 Primary evidence: live `Nioh3BossRematch.log` beside the game; session
