@@ -455,3 +455,48 @@ Byte anchors:4BE654/95h SHA256
 82621c25f4c692cd2e8805ddd44b5b39b7ced9ae816248e6c14da67f0dcb8768;
 2BF948/4Bh SHA256
 02799cc053841c3a9f4ebdae264091372c213e1cf3813ac398dd61cdd5de0821.
+
+## Destination callback borrow boundary (2026-10-12)
+
+Bounded follow-up identifies an actual destination callback candidate, but does
+not yet admit mutation there. TrainingGround script A47086B78FCD (full archive
+path above), sub_event_syunobon_toujou at E03C/E04C, supplies gadget603945 to
+`Gadget::GetStatusPlacement`; E050 compares the result with2 and E062 invokes
+Time::DebugDispPoppingWait before the later native Character::Create605895 at
+E08A. This is the shipped gadget-wait path, not permission to select its gadget
+or spawn the native dummy. Its unconditional repetition throughout an arbitrary
+addon request window is not established by these instructions alone.
+
+The retained native-name table entry3980140 binds GetStatusPlacement to
+**2E5598**. That wrapper builds its argument reader with139938, decodes arguments,
+resolves the gadget through1182160 at2E5614, reads gadget+80 -> dword+18 if both
+pointers exist, serializes the result through2E5A80, and returns. No owner lease,
+producer exclusion, or actor creation is established by this getter.
+
+The synchronous VM borrow itself is now instruction-backed. Dispatch13B18C
+constructs a stack object at13B296..13B2A5: qword0=[VM], qword8=VM, byte10=0,
+then passes its address in RCX to the resolved native function at **13B2A9**.
+After return it validates stack-result accounting and may call140514 before
+returning. Argument reader139938 stores that incoming pointer at reader+0 and
+reader+128. Consequently CreateDirect238C9BC's reader+128 load at238CAD7,
+then +8, +8, +90 at238CAF2/CAFE/CB02 resolves the current native callback's
+VM state -> script owner, and238CB11 reads owner+120. This is a real, call-scoped
+borrow; retaining the stack argument or its VM/owner pointers after callback
+return is unjustified. Calling CreateDirect with the getter's argument frame
+would also decode the wrong signature; no fabricated invocation is admitted.
+
+**Exact remaining edge:** these instructions provide neither a lock nor a join
+that excludes other native producers while the callback runs. The already traced
+serial/list writers9DCE70/9DCF6C and root allocator1C1CB40 perform ordinary writes;
+the post-world-update addon pump is not evidence of their exclusion. The specific
+TrainingGround VM invocation must still be connected to its scheduling owner,
+including exclusion of owner teardown1C10570/1C08D1C and all concurrent writers
+to that destination manager. A gadget callback plus current mission/owner checks
+cannot replace that proof. No defensible callable creation seam is closed this
+pass; stop at this scheduler/lifetime edge rather than add a global lock or
+borrow a guessed owner. No native calls or hooks were executed.
+
+Retained dump SHA256 anchors:
+-2E5598/D5h:cf370c919efbb2280cdf7c09f6c0b6c2ed1fd13470edac76ed27f4e3241a1494
+-238CAD7/4Dh:c52c4f280e312de0b303a8a49040e6a6f8ce62285f358ccb1ec694510bad5f33
+-13B277/76h:1831e92927bff168e1f2eb9c1f6d0fbb45229fffc3d4df9c5e89b149c62c12be
