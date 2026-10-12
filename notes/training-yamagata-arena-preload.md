@@ -406,3 +406,52 @@ Retained dump SHA256 windows (RVA/raw offsets):
 -379734/3Dh:3b2750d658fd47cfa0296208082ae6264b0314781013fc74c05ac3c53e217eae
 -4BDEB8/3Bh:22b0838d24fcab77e0267651927045111f338136ca277894fde87fdd60676a43
 -19B37B8/24h:6218a1afa4a5d19fc4cf338fa56036707a75c61cc5ee186d841db1ab662a8c6c
+
+## Exclusive shipped Character::Delete path (2026-10-12)
+
+One concrete per-actor chain is now closed. The retained native-name table entry
+397EF30 contains the string pointer for `Character::Delete`; its adjacent function
+pointer resolves to **4BE654**, a VM wrapper (not a function taking a placement ID
+in RCX). It builds the actual VM argument reader, decodes one ID, resolves the
+registered wrapper with135B78, calls4BDEF4 to snapshot/reset wrapper flags, then
+loads wrapper[0] and, if nonnull, calls **2BF7E8** at4BE6B3. Unlike4BDEB8, this
+call is NOT conditional on wrapper E0 ownership. It therefore supplies the shipped
+exclusive live-delete route needed by a Direct-created E0=0 actor.
+
+The already traced backend removes that exact live+E0 node from its typed factory
+bucket through2BF818/2BFC90, updates counts, and calls2BF90C. The latter first calls
+**2BF948(live+B580)**: under the native tracking lock, it walks all tracking nodes,
+zeros each node's pointer/links at2BF96C..973, then zeros the live tracking-list
+head at2BF986. It next performs6639B0 live teardown and allocator virtual+58.
+Thus registered wrapper[0] is invalidated via native tracking destruction even
+for E0=0; wrapper deletion and script-owned resource release are separate steps.
+
+Typed-live lookup20A93C ->20A7E0 resolves through the same factory+B98 buckets and
+compares the full live first qword (type plus ID). Adjacent native validator20A788
+additionally compares a handle's dword+8 against live+18 at20A7C5..7CC. This proves
+an existing instance discriminator, not a claim that it never wraps. An exclusive
+adapter must bind destination manager/owner epoch, generated ID, exact first
+qword, live pointer and that instance discriminator, and re-resolve/recheck all
+of them in the same validated serialized callback immediately before disposal.
+The VM Delete wrapper itself checks only the supplied ID; passing an old ID later
+could delete a replacement. Never call it with a fabricated VM argument context.
+
+Expected use ordering is now concrete: retain the destination resource lease;
+exclude/cancel any owned pending creation; validate the current exact instance;
+perform the shipped per-live disposal in a valid native execution context; verify
+tracking invalidation and typed-live lookup absent; let genuine mission-owner
+teardown remove the registered root wrapper on return; only then consider ID
+reuse after registry absence. Do not use owner-wide cleanup as a substitute for
+the single live deletion, and do not release character resources while the live
+instance or a pending producer can still use them.
+
+**Remaining blocker:** the validated destination script callback/borrow lifetime
+and producer exclusion are still unproved for an addon-driven call. This bounded
+chain proves the disposal operation and identity checks, not an immediately
+callable training feature. Research stops at that context boundary; no native
+mutation or fabricated callback was performed.
+
+Byte anchors:4BE654/95h SHA256
+82621c25f4c692cd2e8805ddd44b5b39b7ced9ae816248e6c14da67f0dcb8768;
+2BF948/4Bh SHA256
+02799cc053841c3a9f4ebdae264091372c213e1cf3813ac398dd61cdd5de0821.
