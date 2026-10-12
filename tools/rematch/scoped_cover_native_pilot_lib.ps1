@@ -3,7 +3,7 @@ $scpOracle=Join-Path $PSScriptRoot 'fight_cover_pilot_lib.ps1'
 if((Get-FileHash -LiteralPath $scpOracle -Algorithm SHA256).Hash.ToLowerInvariant() -cne 'e48f9155566a60d23fc2ffaa51cf19973474d2108e1108eda03889c26822a4f5'){throw 'Reviewed FightCover oracle changed'}
 . $scpOracle
 function Get-SCPExpected {
- return @{source='1ffa5696b746a7806958bef2ab4bfe1a9003fb53';mod_tree='65365b00e9e2d770de334bce33850ec3f3ad2899';engine_sha256='f6f9ba6162103f06403a11307af1c01e54487bf6f5d02aa7e12b5742935c13ab';addon_sha256='ccb7dc8c6d8b4779e405f42c79939584f63e1ef10b3044406d6e3ed4471136df';gate_receipt_sha256='9043b96c237aecfdb63613c3be6e8b9a62394c176a64f5f11f67abe8dbcc4aff';backup_policy_sha256='ba3779bca245e093dc7520e1e9e0ba300f755dfb4622b69cdd86c76d68852d82'}
+ return @{source='dd1cc4d6b1202b4cb9b947b582c842e5abff44c3';mod_tree='3254194924634cca2ca7731f81ad5594568a1465';engine_sha256='ce7aa75fa00206490ff9bb3245496d972c294cb7f8f572aeecfc5b430563a597';addon_sha256='a24d1b2b2cf6666346c2d6efe06b5a87cafb971f308eabdd8cc315972f675f97';gate_receipt_sha256='9043b96c237aecfdb63613c3be6e8b9a62394c176a64f5f11f67abe8dbcc4aff';backup_policy_sha256='ba3779bca245e093dc7520e1e9e0ba300f755dfb4622b69cdd86c76d68852d82'}
 }
 function SCP-CheckDependencies([string]$Repo) {
  FCP-CheckDependencies $Repo
