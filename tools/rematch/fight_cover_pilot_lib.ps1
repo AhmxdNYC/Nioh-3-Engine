@@ -1,6 +1,6 @@
-# Pure validators; no work on import. Frozen candidate pins intentionally unset.
+# Pure validators; no work on import. Exact private one-pilot admission.
 function Get-FCPExpected {
-    return @{mod_tree='';engine_sha256='';addon_sha256='';gate_receipt_sha256='';admission_receipt_sha256=''}
+    return @{mod_tree='bd56ba71037298f080207eb3be60a3ca846322c9';engine_sha256='5efe5951bf69c170f36305bd1f0101b9d76f90658fa73f55e0993216dee62aa5';addon_sha256='7c63fbc3411991161dbcdc4da549d390e23186bb69ef5cbe33085e66144cde98';gate_receipt_sha256='9043b96c237aecfdb63613c3be6e8b9a62394c176a64f5f11f67abe8dbcc4aff';admission_receipt_sha256='575d1d42f65efba0a5a08fd81c039e4499f0f5d07c34529aa9694ded316502b6'}
 }
 function FCP-CheckDependencies([string]$Repo) {
     $p=Join-Path $Repo 'tools/rematch/training_pilot_lib.ps1'

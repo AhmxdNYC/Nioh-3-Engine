@@ -1,6 +1,6 @@
 ﻿# Guarded hosted Fight now cover pilot
 
-New-feature preparation only. Candidate/source/admission pins in `Get-FCPExpected` are deliberately empty: `-Run` refuses until root reviews the frozen build and fills exact pins. Default or `-DryRun` only prints the plan; no game/config/save/lease mutation. No prior C72E PASS is transferred to cover acceptance.
+Private new-feature pilot only. Root reviewed and pinned candidate e9941b4 (Engine1.7.69/addon1.4.13), old native receipt and separate owner-bound admission in `Get-FCPExpected`. `-Run` still requires the exact admission file and live owner identity. Default or `-DryRun` only prints the plan; no game/config/save/lease mutation. No prior C72E PASS is transferred to cover acceptance.
 
 The runner reuses the hash-pinned training library and its exact nine C72E lifecycle function imports; it does not evaluate either old runner's top-level code. Pass `-LifecycleRepo` when using this isolated worktree, because it does not contain all current-main dependencies. Dependency mismatch is a stop requiring review, never an automatic repin.
 
@@ -18,7 +18,7 @@ One launch, root Continue confirmation,12s continuously ready field, fresh clear
 
 Confirmations use `-ApproveStage FieldReady|ControlReviewed|NativeReturn -OwnerPid ... -OutDir ... -Evidence ...`; ControlReviewed additionally requires all `-VisibleArena -VisibleBoss -ControlResponse`. Receipt nonce binds owner, runner and adopted game PID/start. Return waits for a4s telemetry proxy, then submits native `exit` exactly once; authoritative native gates may refuse. Exact original entry tuple including original mission0, ordered request/exit logs and restored saves/INIs/binaries are required. No forced retry, arbitrary walk, manual native warp, fallback route or automatic second launch.
 
-Failure retains original error and guard/recovery ownership when restoration fails. No new destructive recovery path. Root approval/live review remains outstanding.
+Failure retains original error and guard/recovery ownership when restoration fails. Verified restoration is durably recorded before lease release; partial release retries cannot restore entry saves again. No new destructive recovery path. Root has authorized one exact pilot; live review remains outstanding.
 
 Offline fixtures:
 
