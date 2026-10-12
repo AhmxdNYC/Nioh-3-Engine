@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import tempfile
 sys.dont_write_bytecode=True
 SHA='4173c9dce9ad919b5238426f345de1d1d648b1c47efeaf1ea2c59e01e558dd4b'
 BODY='a4dcfea86c85c3ec50f02b20da99382d431fc27b807c2aa9dc8c24e41dd9e3c1'
@@ -39,7 +40,7 @@ def rewrite(ll,S,dxcom):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
-    p.add_argument('--assemble',action='store_true');a=p.parse_args()
+    p.add_argument('--assemble',action='store_true');p.add_argument('--isa',action='store_true');a=p.parse_args()
     sys.path[:0]=[str(a.repo/'gpu-shaders/materials'),str(a.repo/'gpu-shaders')]
     import dxcom,sfb_rewrite as S
     from build_sfb import Group
@@ -52,12 +53,33 @@ def main():
     r=dict(file_sha256=FILE,slot=1,original_shader_sha256=SHA,original_body_sha256=BODY,
         candidate_body_sha256=sha(dxcom.body(candidate).encode()),removed_pure_calls=18,
         changed_resource_sample_or_float_arithmetic_order=False,codegen='PENDING',native='UNADMITTED')
-    if a.assemble:
+    if a.assemble or a.isa:
         b=dxcom.ll_to_container(candidate);dst=a.out/'four-material-uv.dxbc';dst.write_bytes(b)
         assert dxcom.body(dxcom.dumpbin(str(dst)))==dxcom.body(candidate)
         op,cp=dxcom.parts(binary),dxcom.parts(b)
         assert all(op.get(k)==cp.get(k) for k in ('ISG1','OSG1','PSV0','SFI0'))
         r['candidate_shader_sha256']=sha(b)
+    if a.isa:
+        import rga_ps
+        tempfile.tempdir=str(a.out.resolve())
+        vs=a.repo/'gpu-shaders/meshvs/work/70d0ee9f.dxbc'
+        assert sha(vs.read_bytes())=='83d64677954ab9c2368b032ea022659353a701bf6a1daf07c37eeaf93a6d55bf'
+        vll=dxcom.dumpbin(str(vs))
+        assert rga_ps.root_sig(ll,vll)==rga_ps.root_sig(dxcom.dumpbin(str(dst)),vll)
+        r.update(vs_sha256=sha(vs.read_bytes()),rga_sha256=sha(Path(rga_ps.RGA).read_bytes()),
+            rga_helper_sha256=sha(Path(rga_ps.__file__).read_bytes()),
+            generated_root_sha256=sha(rga_ps.root_sig(ll,vll).encode()),
+            generated_gpso_sha256=sha(rga_ps.gpso(vll).encode()),
+            codegen_scope='Synthetic RGA root and eight RGBA16F targets, not captured native graphics state')
+        for label,path in (('original',original),('candidate',dst)):
+            st,isa=rga_ps.stats(str(vs),str(path),'gfx1103')
+            (a.out/(label+'.gfx1103.isa.txt')).write_bytes(isa.encode())
+            r[label+'_stats']=st;r[label+'_isa_sha256']=sha(isa.encode())
+            print(label,json.dumps(st),flush=True)
+        before,after=r['original_stats'],r['candidate_stats']
+        good=(after['instructions']<before['instructions'] and
+              all(after[k]<=before[k] for k in ('vgprs','sgprs','scratch','buffer_loads','samples')))
+        r['codegen']='PROMISING_OFFLINE_ONLY' if good else 'REJECT_RESOURCE_OR_INSTRUCTION_GATE'
     (a.out/'four-material-uv.json').write_text(json.dumps(r,indent=2));print(json.dumps(r,indent=2))
 
 
