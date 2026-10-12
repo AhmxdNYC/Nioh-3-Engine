@@ -1,0 +1,87 @@
+"""Fixture test for ally_load_phases.py. usage: py -I tools/loading/test_ally_load_phases.py (prints ALL OK)"""
+import io, json, os, sys, tempfile, contextlib
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import ally_load_phases as alp  # noqa: E402
+
+FX = os.path.join(HERE, "fixtures")
+
+
+def run(*args):
+    out = os.path.join(tempfile.mkdtemp(), "o.json")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        alp.main(["alp", *args, "--json", out])
+    with open(out, encoding="utf-8") as f:
+        return json.load(f), buf.getvalue()
+
+
+def near(a, b, tol=0.051):
+    assert a is not None and abs(a - b) <= tol, (a, b)
+
+
+# 1. Tip-page wait credited to G9 by the probe: the tail is split off, the active holder is G8, the tip wait stays unknown.
+j, txt = run(os.path.join(FX, "tip_wait_g9_stale.log"))
+L = j["loads"][0]
+assert j["auto_continue"] == 0
+near(L["pre_gate"]["s"], 2.0); near(L["active"]["s"], 4.0); near(L["post_eval"]["s"], 24.0)
+assert L["stale_gate"] == "G9"
+near(L["gates"]["G9"]["stale_tail"], 24.0); near(L["gates"]["G9"]["active_held"], 0.10)
+near(L["gates"]["G8"]["active_held"], 2.0)
+assert L["holder_active"].startswith("G8 ")
+near(L["uncredited"]["s"], 0.9)
+assert L["ticks_no_failing_gate"] == [6]
+assert L["evals_stalled_from_tick"] == 7
+assert L["post_eval_split"]["tip_confirm_wait"]["s"] is None and L["post_eval_split"]["tip_confirm_wait"]["src"] == "unknown"
+assert L["tail_reads_probe"]["MB"] == 20
+near(L["pass1"]["s"], 5.9); near(L["pass1_to_last_eval"]["s"], 0.1); near(L["no_eval_gap_after_pass1"]["s"], 0.10)
+assert "unknown" in txt
+
+# 1b. Same log with an external press marker: used, and tagged as external.
+j, _ = run(os.path.join(FX, "tip_wait_g9_stale.log"), "--marker", "press=10:00:30.000")
+sp = j["loads"][0]["post_eval_split"]
+near(sp["tip_confirm_wait"]["s"], 14.0); near(sp["after_confirm_to_clear"]["s"], 10.0)
+assert "external" in sp["tip_confirm_wait"]["src"]
+
+# 1c. Mod cover still up after the work end (it hides the tip page), then a harness press marker from seq/index.txt.
+j, txt = run(os.path.join(FX, "tip_wait_g9_stale.log"), "--rematch", os.path.join(FX, "cover_hides_tip.rematch.log"),
+             "--markers", os.path.join(FX, "cover_hides_tip.index.txt"))
+L = j["loads"][0]
+near(L["mod_cover_after_work_end"]["s"], 9.0)
+assert [(s["from"].split(" (")[0], round(s["s"], 1)) for s in L["tail_segments"]] == [
+    ("last eval", 9.0), ("mod cover end", 13.0), ("marker TIP-A", 2.0)], L["tail_segments"]
+near(L["post_eval_split"]["tip_confirm_wait"]["s"], 22.0)
+assert "mod cover stayed up 9.0 s" in txt
+
+# 2. AutoContinue answer inside the tail, across midnight.
+j, _ = run(os.path.join(FX, "autocontinue_midnight.log"))
+L = j["loads"][0]
+assert j["auto_continue"] == 1
+near(L["post_eval"]["s"], 2.5)
+near(L["post_eval_split"]["tip_confirm_wait"]["s"], 1.0); near(L["post_eval_split"]["after_confirm_to_clear"]["s"], 1.5)
+assert L["post_eval_split"]["tip_confirm_wait"]["src"].startswith("log")
+near(L["gates"]["G9"]["active_held"], 1.0)
+
+# 3. Chained loads (map load, then the short script-owned boss-intro load) + rematch events + an open window.
+j, txt = run(os.path.join(FX, "chained_boss_entry.log"), "--rematch", os.path.join(FX, "chained_boss_entry.rematch.log"))
+a, b = j["loads"]
+near(a["post_eval"]["s"], 11.0); near(a["gates"]["G9"]["active_held"], 0.5)
+near(b["post_eval"]["s"], 0.0); near(b["gates"]["G9"]["active_held"], 0.70)
+assert j["open_windows"] == [3]
+ev = {e["event"]: e for e in j["rematch_events"]}
+assert ev["boss_battle_start"]["where"] == "inside #2 at +3.0 s", ev["boss_battle_start"]["where"]
+assert ev["request"]["where"] == "outside any 58A window"
+assert ev["first_frame_after_load"]["where"].startswith("after #1 clear")
+assert "gap #1 clear -> #2 set: 1.5 s" in txt
+
+# 4. LoadGates off: phases are unknown, not zero.
+src = open(os.path.join(FX, "tip_wait_g9_stale.log"), encoding="utf-8").read().splitlines(True)
+tmp = os.path.join(tempfile.mkdtemp(), "nogates.log")
+with open(tmp, "w", encoding="utf-8") as f:
+    f.writelines(x for x in src if "LoadGates" not in x)
+j, _ = run(tmp)
+L = j["loads"][0]
+assert L["pre_gate"]["s"] is None and L["active"]["s"] is None and L["post_eval"]["s"] is None
+
+print("ALL OK")

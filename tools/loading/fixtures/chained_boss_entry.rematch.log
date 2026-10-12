@@ -1,0 +1,5 @@
+[12:00:00.900] Rematch: F R1CBC: calling MissionRequestById(0x1CBC, slot byte 1, start point 67064, {101 1000000 10100 0 0 0}) - shrine
+[12:00:01.400] Rematch: F R1CBC: spawn override applied (load began): start point 67064
+[12:00:21.010] Rematch: F R1CBC: first frame after the load (#0 in the mission): player 1 2 3 - in the arena
+[12:00:25.497] Rematch: arena: BossBattleMode start - player now 4 5 6
+[12:00:28.000] Rematch: IN replay mission (stage 67064) 27.1 s after the start (the load itself ended 24.6 s after it)

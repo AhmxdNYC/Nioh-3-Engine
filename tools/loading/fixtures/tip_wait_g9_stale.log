@@ -1,0 +1,23 @@
+[10:00:00.000] AutoContinue: installed (tip page confirm check 1CECAED), OFF (stock) - [General] AutoContinueLoad = 0; switch in the mod menu
+[10:00:10.000] LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[10:00:10.000] LoadSeq #1 owner at set: script/other (FT state 0, B state 0)
+[10:00:11.000] LoadStats tick #1 +1 s: frames 50, CPU 7.00 cores, A act 0, read 30.0 MB, inflate 50 ms, PSO 1, stage 3, acc 0.0
+[10:00:11.000] LoadStats tick #1 +1 s: 58A 1, FT 0, B 0, first failing gate none, evals 0
+[10:00:13.000] LoadStats tick #1 +3 s: frames 50, CPU 9.00 cores, A act 10, read 40.0 MB, inflate 10 ms, PSO 0, stage 3, acc 0.0
+[10:00:13.000] LoadStats tick #1 +3 s: 58A 1, FT 0, B 0, first failing gate G8 StageAreasObjectsReady, evals 60
+[10:00:16.000] LoadStats tick #1 +6 s: frames 50, CPU 10.00 cores, A act 9, read 20.0 MB, inflate 0 ms, PSO 0, stage 3, acc 0.0
+[10:00:16.000] LoadStats tick #1 +6 s: 58A 1, FT 0, B 0, first failing gate none, evals 200
+[10:00:17.000] LoadStats tick #1 +7 s: frames 60, CPU 6.00 cores, A act 0, read 20.0 MB, inflate 0 ms, PSO 0, stage 3, acc 0.0
+[10:00:17.000] LoadStats tick #1 +7 s: 58A 1, FT 0, B 0, first failing gate G9 LoadCharacterReady, evals 230
+[10:00:20.000] LoadStats tick #1 +10 s: frames 60, CPU 4.00 cores, A act 0, read 1.0 MB, inflate 0 ms, PSO 0, stage 3, acc 0.0
+[10:00:20.000] LoadStats tick #1 +10 s: 58A 1, FT 0, B 0, first failing gate G9 LoadCharacterReady, evals 230
+[10:00:40.000] LoadStats #1: 30.0 s | frames 1500 (20.0 ms) | CPU 6.00 cores | stage ready +0.0 s | loaders busy 5.0/1.0 s (first +0.0, last +5.9), in-flight avg A 9.0 B 1.0 of 10 (at cap A 80 % B 5 %), pending avg A 100.0 B 1.0 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[10:00:40.000] LoadStats #1 io: read 300 MB archive (10000 calls, 400 MB overlapped, 1000 ms in-call) + 100 MB other (50000 calls, 2000 ms) | inflate 1.00 CPU-s
+[10:00:40.000] LoadGates #1: 230 evaluations (0 with no failing gate) | last failing eval +6.0 s, first full-pass eval -999.0 s, last eval +6.0 s, window 30.0 s
+[10:00:40.000] LoadGates #1 G1 StagePathInitStep       calls 230, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[10:00:40.000] LoadGates #1 G5 ObjectListAnyNotReady   calls 230, failed 40, first-failing in 40 evals (17 %), held 1.00 s (3 % of window) | first fail +4.0 s, last fail +5.0 s, last flip to pass +5.0 s
+[10:00:40.000] LoadGates #1 G8 StageAreasObjectsReady  calls 190, failed 150, first-failing in 150 evals (65 %), held 2.00 s (7 % of window) | first fail +2.0 s, last fail +4.0 s, last flip to pass +4.0 s
+[10:00:40.000] LoadGates #1 G9 LoadCharacterReady      calls 3, failed 3, first-failing in 2 evals (1 %), held 24.10 s (80 % of window) | first fail +5.9 s, last fail +6.0 s, last flip to pass -999.0 s
+[10:00:40.000] LoadGates #1 holder: G9 LoadCharacterReady (24.10 s of 30.0 s)
+[10:00:40.000] ReadProbe #1 split [set->work end +6.0 s] 6.0 s: 50000 calls, 380 MB, in-call 3.00 thread-s, WFMO 0.01 thread-s, CreateEventA 100
+[10:00:40.000] ReadProbe #1 split [work end->clear] 24.0 s: 1000 calls, 20 MB, in-call 0.10 thread-s, WFMO 0.00 thread-s, CreateEventA 10

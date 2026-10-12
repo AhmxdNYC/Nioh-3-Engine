@@ -1,0 +1,65 @@
+diff --git a/mod/Nioh3BossRematch/src/rematch.cpp b/mod/Nioh3BossRematch/src/rematch.cpp
+index 1c2a04b..6a9c76d 100644
+--- a/mod/Nioh3BossRematch/src/rematch.cpp
++++ b/mod/Nioh3BossRematch/src/rematch.cpp
+@@ -27,6 +27,7 @@
+ #include "rematch_core.h"
+ #include "transition_cover.h"
+ #include "transition_native_read.h"
++#include "tip_page_state.h"
+ #include "../../menu_navigation.h"
+ #include "../../settings/store.h"
+ 
+@@ -1637,6 +1638,13 @@ void CoverTick(const Snap& s, ULONGLONG t) {
+     g_coverPlayer=playerReady;g_coverControl=controlReady;g_coverAlgo=actor.known&&actor.present&&actor.algoReady;g_coverLife=lifeReady;g_coverSampleAt=t;
+     if(!controlReady)g_cover.reason="Waiting for player control restrictions to clear";
+     else if(!bossReady)g_cover.reason="Waiting for the requested boss to be ready";
++    // The boss is created by the mission script only after the native tip page is answered (its intro load starts after
++    // the 58A clear), and that page sits under this cover: release the cover instead of running into the 90 s deadline.
++    const auto tip=tip_page_state::ReadTip(g_img.base,&CoverRead,nullptr);
++    if(!bossReady&&g_cover.Active()&&g_cover.issued&&tip_page_state::AwaitingConfirm(tip)){
++        g_cover.End(transition_cover::Cancelled,"Load finished; press Continue on the game's page (cover released, native request continues)");
++        return;
++    }
+     g_cover.Observe(t,g_attempt.sequence,g_attempt.evidence==aMatched&&g_attempt.mission==g_cover.mission,
+         g_attemptPhase==aQuarantined,NativeGate(s)==nullptr,
+         s.msOk && s.ms28==g_cover.mission && s.ms14==g_cover.start,
+diff --git a/mod/Nioh3BossRematch/src/tip_page_state.h b/mod/Nioh3BossRematch/src/tip_page_state.h
+new file mode 100644
+index 0000000..b6fc6eb
+--- /dev/null
++++ b/mod/Nioh3BossRematch/src/tip_page_state.h
+@@ -0,0 +1,33 @@
++#pragma once
++#include <cstddef>
++#include <cstdint>
++// Native load tip page ("[DECIDE] Continue", UI slot 0x2B), passive read for the BossRematch transition cover.
++// v2.02 RVAs; the caller validates the build like transition_native_read.h does. Static facts (Nioh3.dump.exe):
++// - page = [[base+45C84A8]+158h]: TipPageSetLoadDone 1D010E4 loads it the same way (1D010EE / 1D010F8).
++// - +71Bh load done: written = 1 only by 1D010E4 (and its unreferenced twin 1D0112C), from mission sequencer state
++//   0Bh 223BE08 after LoadIsLoadEnd passed (notes/auto-continue-load.md).
++// - +717h prompt shown: TipPageLoadDoneTick 1CECB24 clears it while +71Bh == 0 and polls the confirm check 1CECAE4
++//   every frame once it is set.
++// The ctor 1CD1DA8 stores two vtables (4015EC8 then 40157D8), so the vtable is NOT used as an identity check; the
++// dedicated slot +158h is.
++namespace tip_page_state {
++using Read = bool (*)(void*, uint64_t, void*, size_t);
++constexpr uint64_t kUiManager = 0x45C84A8, kSlot2B = 0x158, kPrompt = 0x717, kLoadDone = 0x71B;
++struct State { bool known = false, open = false, prompt = false, loadDone = false; };
++inline State ReadTip(uint64_t base, Read read, void* ctx) {
++    State s;
++    uint64_t ui = 0, page = 0;
++    uint8_t b[kLoadDone - kPrompt + 1] = {};
++    if (!read || !base || !read(ctx, base + kUiManager, &ui, sizeof(ui))) return s;
++    if (ui && !read(ctx, ui + kSlot2B, &page, sizeof(page))) return s;
++    if (!page) { s.known = true; return s; }  // no tip page open
++    if (!read(ctx, page + kPrompt, b, sizeof(b))) return s;
++    s.known = s.open = true;
++    s.prompt = b[0] != 0;
++    s.loadDone = b[kLoadDone - kPrompt] != 0;
++    return s;
++}
++// The native load finished and the page is waiting for the player's confirm. Nothing that the mission script creates
++// after the 58A clear (boss intro load, BossBattleMode, the boss actor) can appear before this page is answered.
++inline bool AwaitingConfirm(const State& s) { return s.known && s.open && s.loadDone && s.prompt; }
++}  // namespace tip_page_state

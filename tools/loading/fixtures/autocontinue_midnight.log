@@ -1,0 +1,9 @@
+[23:59:50.000] AutoContinue: installed (tip page confirm check 1CECAED), ON - [General] AutoContinueLoad = 1; switch in the mod menu
+[23:59:55.000] LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[23:59:55.000] LoadSeq #1 owner at set: script/other (FT state 0, B state 0)
+[00:00:03.500] AutoContinue #1: load done - answered the tip page's 'press to continue' check
+[00:00:05.000] LoadStats #1: 10.0 s | frames 500 (20.0 ms) | CPU 8.00 cores | stage ready +0.5 s | loaders busy 6.0/1.0 s (first +0.0, last +7.0), in-flight avg A 8.0 B 1.0 of 10 (at cap A 70 % B 5 %), pending avg A 50.0 B 1.0 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[00:00:05.000] LoadGates #1: 100 evaluations (0 with no failing gate) | last failing eval +7.5 s, first full-pass eval -999.0 s, last eval +7.5 s, window 10.0 s
+[00:00:05.000] LoadGates #1 G8 StageAreasObjectsReady  calls 100, failed 90, first-failing in 90 evals (90 %), held 5.00 s (50 % of window) | first fail +1.0 s, last fail +6.0 s, last flip to pass +6.0 s
+[00:00:05.000] LoadGates #1 G9 LoadCharacterReady      calls 10, failed 10, first-failing in 2 evals (2 %), held 3.50 s (35 % of window) | first fail +6.0 s, last fail +7.5 s, last flip to pass -999.0 s
+[00:00:05.000] LoadGates #1 holder: G8 StageAreasObjectsReady (5.00 s of 10.0 s)
