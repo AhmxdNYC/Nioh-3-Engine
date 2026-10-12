@@ -1,21 +1,21 @@
 # Dedicated local preparation. Default PLAN never launches or edits configuration.
 [CmdletBinding()]
-param([switch]$Run,[switch]$DryRun,[int]$OwnerPid=43708,[string]$AdmissionReceipt='',
+param([switch]$Run,[switch]$DryRun,[switch]$WritableSaves,[int]$OwnerPid=43708,[string]$AdmissionReceipt='',
  [string]$AdmissionSha256='',[string]$OutDir='',
  [ValidateSet('FieldReady','EnterArena','HoldMenuReviewed','ControlReviewed','NativeReturn')][string]$ApproveStage='',
- [string]$Evidence='',[switch]$VisibleMenu,[switch]$HeldWithoutBoss,[switch]$VisibleBoss,[switch]$ControlResponse,
+ [string]$Evidence='',[ValidateRange(0,600)][double]$MenuObservedSeconds=0,[switch]$VisibleMenu,[switch]$HeldWithoutBoss,[switch]$VisibleBoss,[switch]$ControlResponse,
  [ValidateRange(5,25)][int]$MaxMinutes=20,
  [string]$GameDir='C:\Program Files (x86)\Steam\steamapps\common\Nioh3',[string]$SaveRoot='',
- [string]$CandidateRoot='D:\nioh3-re\candidates\training-entry-hold-dbd6752')
+ [string]$CandidateRoot='D:\nioh3-re\candidates\combined-training-c6d9abe')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'entry_hold_pilot_lib.ps1')
-$plan=@{mode='PLAN_ONLY';scope='ONE_FRESH_YAMAGATA_ENTRY_HOLD_PILOT';archive=$CandidateRoot;manifest_sha256='f9847291b9a3fc9e1a212604b36fdcbe94e873bb3ae8c4fa7f590772b140a6bf';owner_pid=43708;owner_start='2026-10-11T02:34:24.0733347-04:00';route='R1CBC/67064/65092/box66599';stages=@('FieldReady','EnterArena','HoldMenuReviewed','ControlReviewed','NativeReturn');launches=1;native_factory=$false;auto_input=$false;retry=$false;requires='NEW ROOT REVIEWED ADMISSION; no old acceptance transferred'}
+$plan=@{mode='PLAN_ONLY';scope='ONE_FRESH_YAMAGATA_SUMMON_INTENT_PILOT';archive=$CandidateRoot;manifest_sha256='56ed97e041d1a8ec1ccd3e406c79ebba0cbcb7f3c44f455916556e5487085ca7';owner_pid=43708;owner_start='2026-10-11T02:34:24.0733347-04:00';route='R1CBC/67064/65092/box66599';stages=@('FieldReady','EnterArena','HoldMenuReviewed','ControlReviewed','NativeReturn');launches=1;native_factory=$false;auto_input=$false;retry=$false;requires='NEW ROOT REVIEWED ADMISSION; no old acceptance transferred'}
 if(($Run -and $DryRun) -or ($ApproveStage -and ($Run -or $DryRun))){throw 'Choose plan/run/approval'}
 if(-not $Run -and -not $ApproveStage){$plan|ConvertTo-Json -Depth 5;return}
 if($OwnerPid -ne 43708 -or (Get-Process -Id $OwnerPid).StartTime.ToString('o') -cne '2026-10-11T02:34:24.0733347-04:00'){throw 'Exact root owner no longer available'}
 $repo=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 # These sources import functions only. Hash changes require review, never automatic repinning.
-$pins=@{'tools/rematch/training_pilot_lib.ps1'='50192ec2eb4f0cda36d15bb5a14b210d996fd795bb871ec5dd041476b13f1f28';'tools/rematch/c72e_pilot_lib.ps1'='03fd4554849f23eba0f69992b60d1723352b854cbf306ca1f1361b0525e0d94d';'tools/rematch/c72e_binary_lib.ps1'='ae16d3011b0966ec156aed2218eaa3e86d6a1b690279776babc29feb570617b6';'tools/rematch/run_c72e_native_pilot.ps1'='a2e077a66708c2ed1278bc9bddc1c64489c5a0127d4178b6efee48f199925ea6';'tools/playsession/session_lib.ps1'='98324e91ce8410edc2d519ac0855534d7e78495eb5582d297277c12fd5a248ee';'tools/testmatrix/harness_guard.ps1'='e2e6034c240e74806a2885ea053b23bf8d3c37aed89f0b4e9fa72b30447c6c81'}
+$pins=@{'tools/rematch/writable_save_policy.ps1'='5b7f8ffa2b5a0e6c24d0444adc8c8f4d841f3285a9a2e99ea60f62512352d333';'tools/rematch/training_pilot_lib.ps1'='50192ec2eb4f0cda36d15bb5a14b210d996fd795bb871ec5dd041476b13f1f28';'tools/rematch/c72e_pilot_lib.ps1'='03fd4554849f23eba0f69992b60d1723352b854cbf306ca1f1361b0525e0d94d';'tools/rematch/c72e_binary_lib.ps1'='ae16d3011b0966ec156aed2218eaa3e86d6a1b690279776babc29feb570617b6';'tools/rematch/run_c72e_native_pilot.ps1'='a2e077a66708c2ed1278bc9bddc1c64489c5a0127d4178b6efee48f199925ea6';'tools/playsession/session_lib.ps1'='98324e91ce8410edc2d519ac0855534d7e78495eb5582d297277c12fd5a248ee';'tools/testmatrix/harness_guard.ps1'='e2e6034c240e74806a2885ea053b23bf8d3c37aed89f0b4e9fa72b30447c6c81'}
 foreach($rel in $pins.Keys){if((Get-FileHash -LiteralPath (Join-Path $repo $rel) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pins[$rel]){throw "Pilot dependency changed: $rel"}}
 . (Join-Path $PSScriptRoot 'training_pilot_lib.ps1');Training-CheckDependencies $repo
 . (Join-Path $PSScriptRoot 'c72e_pilot_lib.ps1')
@@ -24,24 +24,24 @@ if($ApproveStage){
  $request=Get-Content -LiteralPath (C72-Child $OutDir 'awaiting.json') -Raw|ConvertFrom-Json
  if($request.stage -cne $ApproveStage -or $request.owner_pid -ne $OwnerPid){throw 'Wrong approval session/stage'}
  foreach($pair in @(@($request.runner_pid,$request.runner_start),@($request.game_pid,$request.game_start))){if((Get-Process -Id $pair[0]).StartTime.ToString('o') -cne $pair[1]){throw 'Approval identity expired'}}
- $approval=$request|Select-Object *;$approval|Add-Member evidence $Evidence
+ $approval=$request|Select-Object *;$approval|Add-Member evidence $Evidence;$approval|Add-Member menu_observed_seconds $MenuObservedSeconds
  $approval|Add-Member visible_menu ([bool]$VisibleMenu);$approval|Add-Member held_without_boss ([bool]$HeldWithoutBoss);$approval|Add-Member visible_boss ([bool]$VisibleBoss);$approval|Add-Member control_response ([bool]$ControlResponse)
  EHP-Approval $request $approval
  $dest=C72-Child $OutDir ('approve-'+$ApproveStage+'.json');$tmp=C72-Child $OutDir ([guid]::NewGuid().ToString('N')+'.tmp')
  try{C72-Json $tmp $approval;[IO.File]::Move($tmp,$dest)}finally{if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp}}
  return
 }
-if(-not $OutDir -or $AdmissionSha256 -notmatch '^[a-f0-9]{64}$' -or -not $AdmissionReceipt){throw 'Fresh root admission/hash and unique OutDir required'}
+if(-not $WritableSaves -or -not $OutDir -or $AdmissionSha256 -notmatch '^[a-f0-9]{64}$' -or -not $AdmissionReceipt){throw 'Fresh root admission/hash and unique OutDir required'}
 $OutDir=C72-Full $OutDir
 if((C72-BinaryHash $AdmissionReceipt) -cne $AdmissionSha256){throw 'Admission bytes differ'}
 $hostedAdmission=Get-Content -LiteralPath $AdmissionReceipt -Raw|ConvertFrom-Json
 EHP-Admission $hostedAdmission $OutDir (C72-BinaryHash $PSCommandPath) (C72-BinaryHash (Join-Path $PSScriptRoot 'entry_hold_pilot_lib.ps1')) ([datetime]::UtcNow)
 if((C72-BinaryHash (Join-Path $CandidateRoot 'manifest.json')) -cne $plan.manifest_sha256){throw 'Archive manifest changed'}
 $manifest=Get-Content -LiteralPath (Join-Path $CandidateRoot 'manifest.json') -Raw|ConvertFrom-Json
-foreach($f in $manifest.files.psobject.Properties){if((C72-BinaryHash (C72-Child $CandidateRoot $f.Name)) -cne $f.Value){throw 'Archive artifact changed'}}
+foreach($f in $manifest.files){if((C72-BinaryHash (C72-Child $CandidateRoot $f.file)) -cne $f.sha256){throw 'Archive artifact changed'}}
 if($env:HG_MIN_HEADROOM_GB -and [double]$env:HG_MIN_HEADROOM_GB -lt 18){throw 'Requires18GB headroom'}
 if(Get-Process -Name Nioh3 -ErrorAction SilentlyContinue){throw 'Game already active'}
-$hashes=@{'Nioh3EngineFix.asi'='dd8b5739062e364dfc708bd1f0f89dfc2b97477d66ae1fbfdfb6f50b0d4f2891';'Nioh3BossRematch.asi'='02d763e76037365e8814820fc1ef9d3d713710435f63099d04d617e05966d4d1'}
+$hashes=@{'Nioh3EngineFix.asi'=$hostedAdmission.engine_entry_sha256;'Nioh3BossRematch.asi'=$hostedAdmission.addon_entry_sha256}
 $runtimeHashes=@{'Nioh3EngineFix.asi'=$hostedAdmission.engine_sha256;'Nioh3BossRematch.asi'=$hostedAdmission.addon_sha256}
 $catalog=Join-Path $CandidateRoot 'Nioh3BossRematch_bosses.tsv';$plan.catalog_sha256='7c0c158df9b7c5bc0ce89b6b6fee3ee384c7db94bde892eb38ad78741aad221b'
 $Kit=$CandidateRoot
@@ -65,7 +65,7 @@ foreach ($root in @($GameDir,$SaveRoot,$Kit,$repo,$CandidateRoot)) { if ($OutDir
 $null=New-Item -ItemType Directory -Path $OutDir
 C72-Json (Join-Path $OutDir 'entry-hold-admission.json') $hostedAdmission
 $script:HGdir=Join-Path $OutDir 'guard';$entryDir=Join-Path $OutDir 'entry-saves';$iniDir=Join-Path $OutDir 'entry-inis';$events=Join-Path $OutDir 'events.jsonl'
-$script:owned=$null;$script:saveHandles=$null;$script:entry=$null;$script:touched=$false;$script:cleaned=$false;$script:binaryRecord=$null
+$script:writablePolicy=$null;$script:owned=$null;$script:saveHandles=$null;$script:entry=$null;$script:touched=$false;$script:cleaned=$false;$script:binaryRecord=$null
 $script:held=New-Object 'System.Collections.Generic.List[string]';$script:watch=[Diagnostics.Stopwatch]::StartNew()
 $script:result=[ordered]@{route='R1CBC';feature_scope='ENTRY_HOLD_ONE_SHIPPED_ENCOUNTER';status='PREPARING';error=$null;saves_restored=$false;inis_restored=$false;binaries_restored=$false;hold_menu_reviewed=$false;root_control_confirmed=$false;native_return_confirmed=$false}
 $LockId="pc-entry-hold-$PID"
@@ -81,22 +81,22 @@ function EHP-Sample {
  return @{log=$log;status=$status;hold=$hold}
 }
 function EHP-Wait([string]$Kind,[int]$Seconds=180) {
- $until=[datetime]::UtcNow.AddSeconds($Seconds);$load=$false
+ $until=[datetime]::UtcNow.AddSeconds($Seconds);$load=$false;$intent=@{deadline=0}
  do {
   $x=EHP-Sample;$h=$x.hold;$s=$x.status
   if((C72-Field $s 'loading') -eq '1'){$load=$true}
   if($Kind -eq 'shrine' -and (Training-AtShrine $s $load) -and $h.enabled -eq 1 -and $h.phase -in @(1,2) -and $h.attempt -gt $script:baselineAttempt -and $h.loadSeen -eq 1){return $x}
-  if($Kind -eq 'renewed') {
-   EHP-Held $h $script:attempt ([EHPClock]::GetTickCount64()) $s -Preserved
-   if($h.boxAt -gt $script:reviewBoxAt -and [EHPClock]::GetTickCount64()-$h.boxAt -le 1500){EHP-Held $h $script:attempt ([EHPClock]::GetTickCount64()) $s;return $x}
-  }
   if($Kind -eq 'held' -and $h.phase -eq 2){EHP-Held $h $script:attempt ([EHPClock]::GetTickCount64()) $s;return $x}
-  if($Kind -eq 'released' -and $h.phase -eq 3){
+  if($Kind -eq 'released'){
+   $intentState=EHP-Intent $h $script:attempt ([EHPClock]::GetTickCount64()) $s $intent
+   if($intentState -eq 'released'){
    $tail=EHP-Log $script:requestLogBefore $x.log $true
-   if(@([regex]::Matches($tail,'Rematch: request release Yamagata entrance[^\r\n]*queued from practice entrance menu')).Count -ne 1){throw 'Release lacks one menu Summon'}
-   return $x
+   # The log is read before the hold snapshot. Release can occur between reads;
+   # resample a missing queue line within this wait's existing deadline.
+   if(@([regex]::Matches($tail,'Rematch: request release Yamagata entrance[^\r\n]*queued from practice entrance menu')).Count -eq 1){return $x}
+   }
   }
-  if($Kind -eq 'boss' -and (C72-Field $s 'mission') -eq '0x1CBC' -and (C72-Field $s 'stage') -eq '67064' -and (C72-Field $s 'loading') -eq '0' -and (C72-Field $s 'player') -eq '1' -and (C72-Field $s 'infight') -eq '1' -and $h.phase -eq 3 -and (Training-LogTail $script:summonLogBefore $x.log) -match 'arena: BossBattleMode start[^\r\n]*mission 0x1CBC[^\r\n]*65092'){return $x}
+  if($Kind -eq 'boss' -and (C72-Field $s 'mission') -eq '0x1CBC' -and (C72-Field $s 'stage') -eq '67064' -and (C72-Field $s 'loading') -eq '0' -and (C72-Field $s 'player') -eq '1' -and (C72-Field $s 'infight') -eq '1' -and $h.phase -eq 3 -and (EHP-BossEvidence $script:summonLogBefore $x.log)){return $x}
   if($Kind -eq 'return' -and (Training-ReturnEvidence $script:returnLogBefore $x.log $s $script:result.entry_tuple)){return $x}
   Start-Sleep -Milliseconds 100
  }while([datetime]::UtcNow -lt $until)
@@ -128,14 +128,17 @@ try {
     Add-Type -AssemblyName System.Drawing,System.Windows.Forms
     $script:entry=C72-Manifest $SaveRoot;if (-not $script:entry.Count) { throw 'Empty save tree refused' }
     C72-Backup $SaveRoot $entryDir $script:entry;$script:saveHandles=C72-LockSaves $SaveRoot $script:entry
+    . (Join-Path $PSScriptRoot 'writable_save_policy.ps1')
+    $script:writablePolicy=Enable-WritableSavePolicy -OptIn:$WritableSaves -Root $SaveRoot -Backup $entryDir -Manifest $script:entry -CurrentHandles $script:saveHandles -Receipt (Join-Path $OutDir 'writable-save-policy.json') -HeldLeases $script:held -AdmissionSha256 $AdmissionSha256
+    $script:result.save_policy=$script:writablePolicy.policy;$script:result.save_policy_receipt=$script:writablePolicy.receipt
     $null=New-Item -ItemType Directory -Path $iniDir
     foreach ($n in @('Nioh3EngineFix.ini','Nioh3BossRematch.ini')) { Copy-Item -LiteralPath (Join-Path $GameDir $n) -Destination (Join-Path $iniDir $n) }
     C72-Json (Join-Path $OutDir 'entry-manifest.json') @{plan=$plan;saves=$script:entry;admission_sha256=(C72-BinaryHash $AdmissionReceipt);binary_plan=$binaryPlan}
     $script:binaryRecord=C72-BinaryPrepare $binaryPlan (Join-Path $OutDir 'entry-binaries');C72-BinaryStage $script:binaryRecord
     $empty=Join-Path $OutDir 'empty-arenas.tsv';[IO.File]::WriteAllText($empty,"# no arena overrides`r`n")
     $lines=[IO.File]::ReadAllLines($rematchIni);C72-UniqueIni $lines @('Rematch','Remote','Menu','Debug','Training')
-    foreach ($kv in @(@('Training','EntryHold','1'),@('Rematch','Enable','1'),@('Rematch','FightNow','1'),@('Rematch','FightNowWarp','0'),@('Rematch','FightNowSpawn','0'),@('Rematch','ArenaCapture','0'),@('Rematch','SelfTest',''),@('Rematch','Catalog',$catalog),@('Rematch','Arenas',$empty),@('Remote','Pipe','1'),@('Menu','Overlay','1'),@('Debug','BossLog','1'),@('Debug','RematchLog','0'))) { $lines=Set-IniValue $lines $kv[0] $kv[1] $kv[2] }
-    $perf=[IO.File]::ReadAllLines($engineIni);C72-UniqueIni $perf @('General','Debug');$perf=Set-IniValue $perf 'General' 'AutoContinueLoad' '1';$perf=Set-IniValue $perf 'Debug' 'Tour' '0'
+    foreach ($kv in @(@('Training','EntryHold','1'),@('Rematch','Enable','1'),@('Rematch','FightNow','1'),@('Rematch','FightNowWarp','0'),@('Rematch','FightNowSpawn','0'),@('Rematch','ArenaCapture','0'),@('Rematch','SelfTest',''),@('Rematch','Catalog',$catalog),@('Rematch','Arenas',$empty),@('Remote','Pipe','1'),@('Menu','Overlay','1'),@('Debug','BossLog','1'),@('Debug','RematchLog','1'))) { $lines=Set-IniValue $lines $kv[0] $kv[1] $kv[2] }
+    $perf=[IO.File]::ReadAllLines($engineIni);C72-UniqueIni $perf @('General','Debug');$perf=Set-IniValue $perf 'General' 'AutoContinueLoad' '1';$perf=Set-IniValue $perf 'Debug' 'Tour' '0';$perf=Set-IniValue $perf 'Debug' 'VirtualPad' '0'
     $script:touched=$true;[IO.File]::WriteAllLines($rematchIni,$lines,(New-Object Text.UTF8Encoding($false)));[IO.File]::WriteAllLines($engineIni,$perf,(New-Object Text.UTF8Encoding($false)))
     Check-Asis $runtimeHashes;Assert-Launch;if (Get-Process -Name Nioh3 -ErrorAction SilentlyContinue) { throw 'Refusing second launch' }
     $launched=[DateTime]::Now;Start-Process -FilePath 'steam://rungameid/3681010' -WindowStyle Hidden
@@ -169,15 +172,12 @@ try {
     Shot 'shrine';EHP-WaitStage 'EnterArena'
     Write-Host 'ROOT: manually walk into entrance66599. No movement is sent.'
     $null=EHP-Wait 'held';Shot 'held-before-menu'
-    Write-Host 'ROOT: open hosted Practice menu without selecting Summon. Confirm visible menu with boss still held.'
+    Write-Host 'ROOT: open hosted Practice menu without selecting Summon. Observe it for at least2 seconds; confirm visible menu and boss still held with MenuObservedSeconds.'
     EHP-WaitStage 'HoldMenuReviewed';$script:result.hold_menu_reviewed=$true
     $x=EHP-Sample;EHP-Held $x.hold $script:attempt ([EHPClock]::GetTickCount64()) $x.status -Preserved
-    $script:reviewBoxAt=$x.hold.boxAt
-    Write-Host 'ROOT: if paused, close/unpause the menu while staying at the held entrance. Wait for a NEW native box witness; then reopen and select Summon promptly only when invited. Stale paused Summon is not supported.'
-    $x=EHP-Wait 'renewed' 30
     $script:summonLogBefore=$x.log;$script:summonAllowed=$true
-    Write-Host 'ROOT: select Summon Yamagata exactly once now. No factory/flags/input commands are sent.'
-    $null=EHP-Wait 'released';$null=EHP-Wait 'boss';Shot 'boss-after-summon'
+    Write-Host 'ROOT: select Summon Yamagata exactly once from the paused menu now, then manually close any ordinary pause menu. Only a fresh stock-true entrance query may release the held boss.'
+    $null=EHP-Wait 'released' 35;$null=EHP-Wait 'boss';Shot 'boss-after-summon'
     EHP-WaitStage 'ControlReviewed';$script:result.root_control_confirmed=$true
     EHP-WaitStage 'NativeReturn'
     $script:returnLogBefore=C72-ReadShared $addonLog
@@ -187,6 +187,6 @@ try {
     $script:result.native_return_confirmed=$true;Shot 'returned'
     $script:result.status='ENTRY_HOLD_REVIEWED_NATIVE_RETURN_OBSERVED'
 } catch { $script:result.status='TRIAL_FAILED';$script:result.error="$_";Write-Warning "$_" }
-finally { try { Finish-C72 } finally { Done-Guard -KeepFile:(-not $script:cleaned) } }
+finally { try { Finish-C72;if($script:writablePolicy -and $script:cleaned){Close-WritableSavePolicy $script:writablePolicy $script:cleaned} } finally { Done-Guard -KeepFile:(-not $script:cleaned) } }
 Write-Host "Result: $OutDir\result.json; root visual evidence governs usable practice acceptance."
 if ($script:result.status -ne 'ENTRY_HOLD_REVIEWED_NATIVE_RETURN_OBSERVED' -or -not $script:cleaned) { exit 1 }
