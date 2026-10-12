@@ -12,7 +12,7 @@ class Tests(unittest.TestCase):
     def test_real_rows_only(self):
         r=c.summarize(HEADER,b'100,10,99,1000000000\n50,20,1,2000000000\n1,nan,50,3000000000\n1,4,50,1000000000\n')
         self.assertEqual(r['frametime_rows'],2);self.assertEqual(r['invalid_rows'],2)
-        self.assertEqual(r['p99_sample_frametime_ms'],20);self.assertIsNone(r['gpu_busy_ms'])
+        self.assertEqual(r['p99_sample_frametime_ms'],20);self.assertEqual(r['p95_sample_frametime_ms'],20);self.assertIsNone(r['gpu_busy_ms'])
         self.assertNotIn('p99_sample_frametime_ms',c.summarize(HEADER,b''))
     def test_offsets_partial_schema_and_rotation(self):
         with tempfile.TemporaryDirectory() as d:
@@ -47,6 +47,8 @@ class Tests(unittest.TestCase):
                 with p.open('ab') as f:f.write(f'100,10,50,{int(now[0]*1e9)}\n'.encode())
             out,r=c.collect(args,ident,lambda:now[0],sleep)
             self.assertEqual(r['status'],'CAPTURE_FAILED' if replace else 'CAPTURE_COMPLETE')
+            self.assertEqual(r['timing_samples_eligible'], not replace)
+            self.assertEqual(r['operator_context']['phase'], 'unknown')
             self.assertEqual(ini.read_text(),'private-value-not-to-copy')
             raw=(out/'mangohud-appended.log').read_bytes();self.assertNotIn(b'999',raw)
             with zipfile.ZipFile(out.with_suffix('.zip')) as z:
