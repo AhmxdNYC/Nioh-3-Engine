@@ -346,3 +346,63 @@ root-ID reuse or registry disappearance. This identifies why destination-owned
 Direct registration can participate in native mission teardown, but the mod must
 never invoke owner-wide cleanup to remove its one boss: native training actors
 share that owner key and would be affected.
+
+## Registry erase closure and bounded reuse predicate (2026-10-12)
+
+The final dirty-registry sweep is **968D2C -> E25370**, not either of the proposed
+erase helpers.968D32 tests registry+B8;968D6E invokes E25370 and968D73 clears B8
+only after it returns. E25370 walks the registry's16-byte ID/pointer entries and
+E253DD tests each wrapper+EF. In the selected erase path, E25F78..E25F81 detaches
+any remaining tracked live reference through2F65D4; E25F86..E25F94 obtains the
+native allocator and frees the exact wrapper via virtual+58. E25FB0..E25FC4 shifts
+subsequent ID/pointer entries down, and E25FCA..E25FCD decrements registry count.
+The loop continues at the same entry after erasure. This is actual pointer
+removal/free, not merely a dirty marker or a presumed next-frame event.
+
+Candidate-name corrections:2BC958 resets position-related wrapper fields from
+its placement record (or native zero vector);2BD1B8 resolves a placement table
+through8F3F48/2BD1D8. Neither is an erase helper.1C1030C calls E4DD50 conditionally;
+it is not the registry sweep.2BCA24 is a larger lifecycle routine which can mark
+wrappers and calls the actual sweep at2BCC37.
+
+Ordering is instruction-backed: MissionManagerUpdate379620 obtains registry from
+manager[0]+48 and calls968D2C at37974C, then2FEA98 and98F04C, then724044 at37976C.
+724044 can itself call2BCA24 at72437F, including that second sweep. Consequently,
+observing B8 clear before724044 is not proof the rest of the update cannot change
+ownership again. No elapsed-time or dirty-bit-only completion rule is justified.
+
+**4BDEB8 does not unconditionally clear wrapper[0].** Its hot path calls4BDEF4,
+then clears state+50, flags+F6/+EE and bitmap+D0. Only E0!=0 takes cold branch
+19B37B8: if live is nonnull it calls2BF7E8, then releases its character resource
+pair and clears E0. The sweep similarly calls2BF7E8 atE25436 only in its E0-owned
+branch; E0==0 skips toE25DE2. The later2F65D4 unlinks the wrapper's tracked-reference
+node under its native lock and explicitly zeros wrapper[0],+8,+10 at2F6616..1E;
+that operation alone does not destroy the live Character. Thus especially for a
+Direct-created root, wrapper disappearance must not be equated with actor death
+or factory removal.
+
+A defensible completion check, inside an independently validated serialized
+native epoch, must bind the original generated ID, old character scalar, native
+request token if queued, and destination owner/manager identities. Require the
+owned request absent (no late materialization), exact wrapper ID absent from
+135B78/registry AFTER native sweep completion, and the typed live lookup20A93C
+absent using the same old scalar/ID pair that1C1CB40 tests. A freed wrapper address
+must never be read to obtain this evidence. The native root-ID allocator can
+reuse a nonzero occupancy entry only after both registry and typed-live searches
+miss; the occupancy scalar need not become zero. Let the allocator choose; do
+not force its cursor or clear a reservation table entry. Any intervening epoch
+change or reappearance refuses reuse. This is a native-backed predicate, not a
+new live-tested observer or a permission to call the allocator from a worker.
+
+Remaining implementation gate: a validated destination script execution/borrow
+context and exact owned-live disposal when E0 is false. Owner-wide cleanup would
+affect native training actors and is not an acceptable substitute. Registry erase
+is closed; exclusive single-actor destruction/resource ownership is not silently
+inferred from it.
+
+Retained dump SHA256 windows (RVA/raw offsets):
+-968D2C/50h:437346855cc4ac68a3c832552f05ecbf233fdcb53cdb531d977ec4c1a9039207
+-E25370/C8Dh:9dc281648c0dab2fb22d1e75812598be1cec539a8be75ab29cff5e9942b5e396
+-379734/3Dh:3b2750d658fd47cfa0296208082ae6264b0314781013fc74c05ac3c53e217eae
+-4BDEB8/3Bh:22b0838d24fcab77e0267651927045111f338136ca277894fde87fdd60676a43
+-19B37B8/24h:6218a1afa4a5d19fc4cf338fa56036707a75c61cc5ee186d841db1ab662a8c6c
