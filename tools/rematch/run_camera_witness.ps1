@@ -69,9 +69,18 @@ try{
  } -Shot {
   param($label)
   $game=CW-Guard;$bounds=[Windows.Forms.Screen]::FromHandle($game.MainWindowHandle).Bounds
-  $bitmap=New-Object Drawing.Bitmap($bounds.Width,$bounds.Height);$graphics=[Drawing.Graphics]::FromImage($bitmap)
-  try{$graphics.CopyFromScreen($bounds.X,$bounds.Y,0,0,$bounds.Size);$null=CW-Guard;$bitmap.Save((Join-Path $output "$label.png"),[Drawing.Imaging.ImageFormat]::Png)}finally{$graphics.Dispose();$bitmap.Dispose()}
- } -Pulse {CW-Pipe 'nioh3vpad' 'stick R 0.35 0 180' 3800}
+  $bitmap=New-Object Drawing.Bitmap($bounds.Width,$bounds.Height);$graphics=$null
+  try {
+   try {
+    $graphics=[Drawing.Graphics]::FromImage($bitmap)
+    $graphics.CopyFromScreen($bounds.X,$bounds.Y,0,0,$bounds.Size);$null=CW-Guard
+   } finally { if($null -ne $graphics){$graphics.Dispose()} }
+  } catch { $bitmap.Dispose();throw }
+  return $bitmap # Ownership transfers to CW-CaptureOnce; no PNG encoding here.
+ } -Pulse {CW-Pipe 'nioh3vpad' 'stick R 0.35 0 180' 3800} -Save {
+  param($bitmap,$label)
+  $bitmap.Save((Join-Path $output "$label.png"),[Drawing.Imaging.ImageFormat]::Png)
+ } -State $receipt
  $receipt.status='CAMERA_COMMAND_COMPLETED_REQUIRES_ROOT_VISUAL_REVIEW';$receipt.reply=$reply
-}catch{$receipt.error="$_";throw}finally{$receipt.finished_utc=[DateTime]::UtcNow.ToString('o');$receipt|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $output 'receipt.json') -Encoding UTF8}
+}catch{$receipt.status=if($receipt.pulse_attempted){'FAILED_AFTER_PULSE_ATTEMPT_NO_RETRY'}else{'FAILED_BEFORE_INPUT'};$receipt.error="$_";throw}finally{$receipt.finished_utc=[DateTime]::UtcNow.ToString('o');$receipt|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $output 'receipt.json') -Encoding UTF8}
 Write-Host "Review $output now; stage approval remains manual."
