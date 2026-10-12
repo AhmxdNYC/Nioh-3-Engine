@@ -1,7 +1,7 @@
 # PLAN/DryRun is read-only. Exact frozen admission, one owned game only.
 [CmdletBinding()]
 param([switch]$Run,[switch]$DryRun,[int]$OwnerPid=0,
- [ValidateSet('FieldReady','ControlReviewed','NativeReturn')][string]$ApproveStage='',
+ [ValidateSet('FieldReady','FightReady','ControlReviewed','NativeReturn')][string]$ApproveStage='',
  [switch]$VisibleArena,[switch]$VisibleBoss,[switch]$ControlResponse,
  [string]$Evidence='',[string]$OutDir='',[string]$RequestGateReceipt='',[string]$AdmissionReceipt='',
  [ValidateRange(5,25)][int]$MaxMinutes=20,
@@ -16,7 +16,7 @@ $plan=[ordered]@{mode='PLAN_ONLY_NO_MUTATION';route='Hosted Fight now R1CBC';mis
  admission='EXACT_PRIVATE_PILOT_PINS_REQUIRE_OWNER_BOUND_RECEIPT';expected=$expected;launches=1;relaunch=$false;retry=$false;
  arena_override_bytes='# no arena overrides\r\n (UTF8 no BOM)';arena_override_sha256='d05722d1edae92d39bdb8a1a1fe6bac59fc92550c38f8593aa04d2087d50b171';arena_source='PINNED_CATALOGUE_R1CBC_337691_10244_206714_YAW_MINUS89.2_BOX66599';
  catalog_sha256='7c0c158df9b7c5bc0ce89b6b6fee3ee384c7db94bde892eb38ad78741aad221b';
- stages=@('Root Continue;12s ready settle;fresh clear scan','Root hosted Fight now;observe drawn ACK then native request','Exact same-token/attempt ready;root visual/control confirmation','One native exit;exact original entry;owned restoration');
+ stages=@('Root Continue;12s ready settle;fresh clear scan','Root navigates to final confirmation;FightReady arms bounded observation','Root hosted Fight now;observe drawn ACK then native request','Exact same-token/attempt ready;root visual/control confirmation','One native exit;exact original entry;owned restoration');
  recovery='Pinned existing C72 finalizer, current entry backups, retained guard on any failure';limits='No prior PASS transferred; telemetry alone is not seamless/control acceptance'}
 if (-not $Run -and -not $ApproveStage) { $plan|ConvertTo-Json -Depth 7;return }
 if (-not $LifecycleRepo) { $LifecycleRepo=Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
@@ -96,9 +96,12 @@ function Training-WaitStage([string]$Stage) {
         # Title/initial pipe readiness is not a field-state failure. Root must
         # confirm Continue completed; the first request then requires gate=ok.
         if ($Stage -ne 'FieldReady') { $s=Invoke-C72Pipe 'status';FCP-CheckStatus $s }
+        if ($Stage -eq 'FightReady') { FCP-CheckPreSubmit $baseline (Invoke-C72Pipe 'cover') }
         Start-Sleep -Milliseconds 250
     }
     $a=Get-Content -LiteralPath $file -Raw|ConvertFrom-Json;FCP-CheckApproval ([pscustomobject]$request) $a;if ($a.game_pid -ne $script:owned.Id -or $a.game_start -cne $script:owned.StartTime.ToString('o')) { throw 'Approval game identity mismatch' }
+    Assert-Owned
+    if ($Stage -eq 'FightReady') { FCP-CheckPreSubmit $baseline (Invoke-C72Pipe 'cover') }
     C72-Event $events 'root-confirmation' ($a|ConvertTo-Json -Compress) $script:watch.Elapsed.TotalMilliseconds
     Remove-Item -LiteralPath (Join-Path $OutDir 'awaiting.json')
 }
@@ -155,6 +158,8 @@ try {
     Shot 'before-fight-cover';$baseline=FCP-Parse (Invoke-C72Pipe 'cover')
     if ($baseline.phase -notin @(0,4,5,6)) { throw 'Existing cover transaction active' }
     $script:requestLogBefore=C72-ReadShared $addonLog
+    Write-Host 'Root: navigate to the final Yamagata Fight now confirmation without confirming. Record FightReady, then confirm once after observation is armed.'
+    Training-WaitStage 'FightReady'
     Write-Host 'Root: open hosted Boss Rematch > Yamagata > Fight now and confirm once. Observing now; no fight pipe command.'
     $coverReady=$false;$until=[DateTime]::UtcNow.AddSeconds(180)
     do {
