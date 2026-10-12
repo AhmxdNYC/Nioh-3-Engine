@@ -7,7 +7,7 @@ param([switch]$Run,[switch]$DryRun,[switch]$WritableSaves,[int]$OwnerPid=0,
  [ValidateRange(5,25)][int]$MaxMinutes=20,
  [string]$GameDir='C:\Program Files (x86)\Steam\steamapps\common\Nioh3',[string]$SaveRoot='',
  [string]$Kit='D:\nioh3-re\rematch-pilots\C72E-native334140-20261011',
- [string]$CandidateRoot='D:\nioh3-wt\cover-publication-fix',[string]$LifecycleRepo='')
+ [string]$CandidateRoot='D:\nioh3-wt\cover-tick-order',[string]$LifecycleRepo='')
 $ErrorActionPreference='Stop'
 if (($Run -and $DryRun) -or ($ApproveStage -and ($Run -or $DryRun))) { throw 'Choose plan, Run or approval' }
 . (Join-Path $PSScriptRoot 'scoped_cover_native_pilot_lib.ps1')
