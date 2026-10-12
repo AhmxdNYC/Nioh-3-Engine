@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -16,11 +17,27 @@ GROUPS=((666,754,852,938),(667,755,853,939),(689,777,875,961),
 def sha(x):return hashlib.sha256(x).hexdigest()
 
 
-def rewrite(ll,S,dxcom):
+def rewrite(ll,S,dxcom,placement='entry'):
     if sha(dxcom.body(ll).encode())!=BODY:raise ValueError('unexpected original body')
     f=S.Fn(ll);defs={S.DEF.match(x)[1]:x for _,lines in f.blocks for x in lines if S.DEF.match(x)}
     repl={'%v'+str(n):'%v'+str(g[0]) for g in GROUPS for n in g[1:]}
     selected={'%v'+str(n) for g in GROUPS for n in g}
+    # Compute dominators from the actual CFG; nearest retry must dominate all
+    # original definitions, not merely look nearby in textual order.
+    labels={b for b,_ in f.blocks};pred={b:set() for b in labels}
+    for b,lines in f.blocks:
+        for dest in re.findall(r'label %(b\d+)',lines[-1]):pred[dest].add(b)
+    first=f.blocks[0][0];dom={b:({b} if b==first else set(labels)) for b in labels}
+    while True:
+        changed=False
+        for b,_ in f.blocks[1:]:
+            assert pred[b], 'unexpected unreachable block'
+            d={b}|set.intersection(*(dom[x] for x in pred[b]))
+            if d!=dom[b]:dom[b]=d;changed=True
+        if not changed:break
+    source_blocks={b for b,lines in f.blocks for x in lines if S.DEF.match(x) and S.DEF.match(x)[1] in selected}
+    common=set.intersection(*(dom[b] for b in source_blocks))
+    nearest=max(common,key=lambda b:len(dom[b]));assert nearest=='b650'
     sub=lambda line:S.TOK.sub(lambda m:repl.get(m[0],m[0]),line)
     lifted=[]
     for g in GROUPS:
@@ -33,14 +50,20 @@ def rewrite(ll,S,dxcom):
         lifted.append(defs['%v'+str(g[0])])
     for _,lines in f.blocks:
         lines[:]=[sub(x) for x in lines if not(S.DEF.match(x) and S.DEF.match(x)[1] in selected)]
-    entry=f.blocks[0][1];at=next(i for i,x in enumerate(entry) if x.startswith('  %v99 = '))+1
-    entry[at:at]=lifted
+    if placement=='entry':
+        target=f.blocks[0][1];at=next(i for i,x in enumerate(target) if x.startswith('  %v99 = '))+1
+    else:
+        assert placement=='nearest'
+        target=next(lines for b,lines in f.blocks if b==nearest)
+        at=len(target)-1;assert target[at].startswith('  br i1 %v664,')
+    target[at:at]=lifted
     return f.emit()
 
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
-    p.add_argument('--assemble',action='store_true');p.add_argument('--isa',action='store_true');a=p.parse_args()
+    p.add_argument('--assemble',action='store_true');p.add_argument('--isa',action='store_true')
+    p.add_argument('--placement',choices=['entry','nearest'],default='entry');a=p.parse_args()
     sys.path[:0]=[str(a.repo/'gpu-shaders/materials'),str(a.repo/'gpu-shaders')]
     import dxcom,sfb_rewrite as S
     from build_sfb import Group
@@ -48,9 +71,9 @@ def main():
     raw=source.read_bytes();assert sha(raw)==FILE
     binary=Group(raw).dxbc(1);assert sha(binary)==SHA and binary[4:20].hex()=='05ad17151de4f513fb82c7428874a7f9'
     a.out.mkdir(parents=True,exist_ok=True);original=a.out/'original.dxbc';original.write_bytes(binary)
-    ll=dxcom.dumpbin(str(original));candidate=rewrite(ll,S,dxcom)
+    ll=dxcom.dumpbin(str(original));candidate=rewrite(ll,S,dxcom,a.placement)
     (a.out/'four-material-uv.ll').write_bytes(candidate.encode())
-    r=dict(file_sha256=FILE,slot=1,original_shader_sha256=SHA,original_body_sha256=BODY,
+    r=dict(file_sha256=FILE,slot=1,placement=a.placement,original_shader_sha256=SHA,original_body_sha256=BODY,
         candidate_body_sha256=sha(dxcom.body(candidate).encode()),removed_pure_calls=18,
         changed_resource_sample_or_float_arithmetic_order=False,codegen='PENDING',native='UNADMITTED')
     if a.assemble or a.isa:
