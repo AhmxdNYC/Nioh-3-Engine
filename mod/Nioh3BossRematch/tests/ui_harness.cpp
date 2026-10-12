@@ -52,7 +52,7 @@ int main() {
     CHECK(g_sel == 10);
     CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 10);
     int it[kMaxRows + 4];
-    CHECK(Items(it, kMaxRows + 4) == 2 && it[0] == 10 && it[1] == kItBack);
+    CHECK(Items(it, kMaxRows + 4) == 3 && it[0] == kItFight + 10 && it[1] == kItShrine + 10 && it[2] == kItBack);
     g_confirm = 10;
     CHECK(!UiBack() && g_confirm == -9 && g_uiPages.page == uActions);
     CHECK(!UiBack() && g_uiPages.page == uBosses && g_sel == 10);
@@ -66,7 +66,7 @@ int main() {
     CHECK(UiAct());  // explicit Close at root
     UiOpen(); UiAct(); UiAct();
     g_cfg.fightNow = true; g_fnowOk = true;
-    CHECK(Items(it, kMaxRows + 4) == 4 && it[1] == kItFight && it[2] == kItShrine);
+    CHECK(Items(it, kMaxRows + 4) == 3 && it[0] == kItFight && it[1] == kItShrine && it[2] == kItBack);
     UiRow rows[24]; char footer[240];
     CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0);
     CHECK(strstr(rows[0].text, "Boss actions") != nullptr);
@@ -84,6 +84,42 @@ int main() {
     G_GM=(uint64_t)&pgm; G_PT=(uint64_t)&ppt; G_MS=(uint64_t)&pmgr; G_QUEUE=(uint64_t)queue;
     G_CH=(uint64_t)&ach; G_PM=(uint64_t)&ppm; G_NET=(uint64_t)&pnet;
     addon::uiReads=true; g_lastTick=Ms(); g_qChangedAt=Ms()-10001;
+    // Every boss has exactly two stable choices, including unavailable routes.
+    UiOpen(); UiAct(); UiAct();
+    auto shown = [&](const char* text) {
+        const int count = UiFill(rows,24,footer,sizeof(footer));
+        for (int i=0;i<count;++i) if (strstr(rows[i].text,text)) return true;
+        return false;
+    };
+    CHECK(Items(it,kMaxRows+4)==3 && it[0]==kItFight && it[1]==kItShrine && it[2]==kItBack);
+    CHECK(!shown("Replay mission:"));
+    g_cfg.fightNow=false;
+    CHECK(shown("Fight now") && shown("Shrine before the boss") && shown("FightNow = 1"));
+    g_sel=0; CHECK(!UiAct() && !g_req && strstr(g_msg,"Fight now is off"));
+    g_sel=1; CHECK(!UiAct() && !g_req && strstr(g_msg,"Fight now is off"));
+    g_cfg.fightNow=true; practice.atFight=true; g_confirm=-9;
+    CHECK(Items(it,kMaxRows+4)==3 && shown("no separate shrine"));
+    CHECK(!UiAct() && !g_req && strstr(g_msg,"no separate shrine"));
+    g_sel=0; CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqFight); g_req=0;
+    practice.atFight=false; practice.fightStart=0; g_confirm=-9;
+    CHECK(shown("no start point"));
+    g_sel=0; CHECK(!UiAct() && !g_req); g_sel=1; CHECK(!UiAct() && !g_req);
+    practice.fightStart=67064; practice.route=rcore::kX;
+    CHECK(Items(it,kMaxRows+4)==3 && shown("replayable missions only"));
+    CHECK(!UiAct() && !g_req); g_sel=0; CHECK(!UiAct() && !g_req);
+    practice.route=rcore::kR; g_cfg.fightWarp=false;
+    CHECK(shown("arena warp off")); CHECK(!UiAct() && !g_req);
+    g_sel=1; CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqShrine); g_req=0;
+    g_cfg.fightWarp=true; g_warpOk=true; practice.arenaOk=true; g_confirm=-9; g_sel=0;
+    CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqFight); g_req=0;
+    g_status[0]=1; g_confirm=-9; CHECK(!UiAct() && !g_req);
+    g_sel=1; CHECK(!UiAct() && !g_req); g_status[0]=2;
+    g_cfg.fightWarp=false; practice.arenaOk=false;
+    practice.gateId=1; g_gateOk=true; g_sel=0; g_confirm=-9;
+    CHECK(!UiAct() && !g_req && strstr(g_msg,"arena warp off"));
+    g_cfg.fightWarp=true; CHECK(!UiAct() && !g_req && strstr(g_msg,"no arena position"));
+    g_cfg.fightWarp=false;
+    practice.gateId=0; g_gateOk=false; g_confirm=-9;
     UiOpen(); UiMove(1); CHECK(!UiAct() && g_uiPages.page == uPractice);
     CHECK(UiFill(rows,24,footer,sizeof(footer)) > 0 && strstr(footer,"Normal rewards, drops and progression apply"));
     CHECK(strstr(rows[0].text,"Practice Yamagata"));

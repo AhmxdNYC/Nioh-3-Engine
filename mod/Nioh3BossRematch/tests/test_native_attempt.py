@@ -276,6 +276,20 @@ int main(int argc,char** argv) {
     fixtureSnap.emakiOk=true; step(47000,false,0x1111,123); step(53000,false,0x1111,123);
     if(!check(g_attemptPhase==aNone && g_state==kIdle)) return 1;
     fresh(); outcome=1; ExecEmaki(-1,now); if(!check(scrolls==1 && g_attemptPhase==aQuarantined)) return 1;
+    fresh(); g_rows[0].atFight=true;
+    ExecDirect(0,fixtureSnap,now,true,false);
+    if(!check(!requests && g_attemptPhase==aNone)) return 1;
+    post(kReqShrine);
+    if(!check(!requests && g_attemptPhase==aNone)) return 1;
+    // Gate-only missions must never fall back to a shrine through Fight now,
+    // including raw direct calls and delayed/pipe request dispatch.
+    fresh(); g_rows[0].arenaOk=false; g_rows[0].gateId=1;
+    ExecDirect(0,fixtureSnap,now,true,true);
+    if(!check(!requests && g_attemptPhase==aNone && !g_gateWant && !g_fightWarp)) return 1;
+    post(kReqFight);
+    if(!check(!requests && g_attemptPhase==aNone && !g_gateWant && !g_fightWarp)) return 1;
+    post(kReqShrine);
+    if(!check(requests==1 && !g_gateWant && !g_fightWarp)) return 1;
     fresh(); post(kReqPractice);
     if(!check(requests==1 && g_practiceOwned && g_attempt.requestedStart==67064 && !g_fightWarp && !g_sp.st && !g_gateWant && g_fn==kFnIdle)) return 1;
     step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);

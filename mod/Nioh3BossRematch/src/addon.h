@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.10"
+#define ADDON_VERSION "1.4.11"
 
 namespace addon {
 

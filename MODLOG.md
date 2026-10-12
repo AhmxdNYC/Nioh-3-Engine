@@ -1,3 +1,7 @@
+## 2026-10-11 Codex - private BossRematch 1.4.11 two-choice boss menu
+
+Every boss action page now shows Fight now and Shrine before the boss, plus Back. Disabled configuration, unsupported routes and absent start points remain visible with refusal reasons; native-at-fight missions explicitly report no separate shrine. The generic replay action is removed from boss pages; the root Battle Scroll entry remains. Shrine rendering and clicks share the same configuration/route/start checks, with an additional no-separate-shrine refusal enforced again by native dispatch. Fight now additionally refuses gate-only shrine fallback in UI and native dispatch; only native-at-fight or validated arena routes qualify. Ownership and restoration logic is unchanged. Actual UI regressions cover minimal config and supported/unsupported rows. No installed files or controller settings changed; handheld acceptance is not claimed.
+
 ## 2026-10-11 Codex - private EngineFix 1.7.68 / BossRematch 1.4.10 hosted practice candidate
 
 The EngineFix DX12 menu now hosts Boss Rematch / Practice through a versioned, bounded snapshot/action bridge. The addon UI worker owns its model; the renderer performs no synchronous pipe, file or native mission operation. Hosted mode suppresses the separate addon window/input owner, rejects stale actions, prioritizes close and releases the host menu on worker heartbeat/action timeout.

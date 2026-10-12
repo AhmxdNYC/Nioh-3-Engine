@@ -887,7 +887,8 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         if (!g_cfg.fightNow) return Refuse("Fight now is off ([Rematch] FightNow = 0)");
         if (!g_fnowOk) return Refuse(g_fnowWhy);
         if (!start) return Refuse("no start point next to this boss in the catalogue (use the replay)");
-        if (warp && !r.atFight && !(r.GateDoor() && g_gateOk) && (!g_cfg.fightWarp || !g_warpOk || !r.arenaOk))
+        if (!warp && r.atFight) return Refuse("no separate shrine: this mission starts at the fight");
+        if (warp && !r.atFight && (!g_cfg.fightWarp || !g_warpOk || !r.arenaOk))
             return Refuse(!g_cfg.fightWarp ? "the arena warp is off ([Rematch] FightNowWarp = 0)" : !g_warpOk ? g_warpWhy : "no arena position for this boss yet");
         Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
     }
@@ -1750,11 +1751,15 @@ const char* CanFight(int row) {
     if (!r.fightStart) return "no start point next to this boss in the catalogue (use the replay)";
     return nullptr;
 }
+const char* CanShrine(int row) {
+    if (const char* w = CanFight(row)) return w;
+    if (g_rows[(size_t)row].atFight) return "no separate shrine: this mission starts at the fight";
+    return nullptr;
+}
 const char* CanArena(int row) {
     if (const char* w = CanFight(row)) return w;
     const Row& r = g_rows[(size_t)row];
     if (r.atFight) return nullptr;
-    if (r.GateDoor() && g_gateOk) return nullptr;
     if (!g_cfg.fightWarp) return "arena warp off ([Rematch] FightNowWarp = 1 turns it on)";
     if (!g_warpOk) return g_warpWhy;
     if (!r.arenaOk) return "no arena position yet (fight it once with [Rematch] ArenaCapture = 1)";
@@ -1810,12 +1815,8 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uActions) {
         if (g_uiBoss >= 0 && (size_t)g_uiBoss < g_rows.size()) {
-            const Row& row = g_rows[(size_t)g_uiBoss];
-            add(g_uiBoss);  // original replay action ID and validation
-            if (g_cfg.fightNow && g_fnowOk && row.fightStart && row.route != rcore::kX) {
-                add(kItFight + g_uiBoss);
-                if (!row.atFight) add(kItShrine + g_uiBoss);
-            }
+            add(kItFight + g_uiBoss);
+            add(kItShrine + g_uiBoss);
         }
         add(kItBack);
         return n;
@@ -2106,7 +2107,7 @@ bool UiAct() {
             snprintf(g_msg, sizeof(g_msg), "Not beaten on this journey: Fight now only replays bosses you have beaten.");
             return false;
         }
-        if (const char* w = arena ? CanArena(row) : CanFight(row)) {
+        if (const char* w = arena ? CanArena(row) : CanShrine(row)) {
             snprintf(g_msg, sizeof(g_msg), "%s", w);
             return false;
         }
@@ -2198,21 +2199,22 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] >= kItShrine) {
             const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
             const uint8_t stt = g_status[(size_t)(it[i] - kItShrine)].load();
-            const uint32_t c = stt == 2 ? (!strcmp(r.fightConf, "high") ? cGreen : !strcmp(r.fightConf, "medium") ? cYellow : cOrange) : cDim;
+            const char* why = CanShrine(it[i] - kItShrine);
+            const uint32_t c = stt == 2 && !why ? (!strcmp(r.fightConf, "high") ? cGreen : !strcmp(r.fightConf, "medium") ? cYellow : cOrange) : cDim;
             if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Shrine before the boss   - not beaten on this journey", mk);
+            else if (why) add(sel ? cWhite : c, sel, "%s    Shrine before the boss   - %s", mk, why);
             else add(sel ? cWhite : c, sel, "%s    Shrine before the boss   %s, %d m   [%s]", mk, r.fightKind, r.fightDist, r.fightConf);
         } else if (it[i] >= kItFight) {
             const int row = it[i] - kItFight;
             const Row& r = g_rows[(size_t)row];
             const uint8_t stt = g_status[(size_t)row].load();
             const char* why = CanArena(row);
-            const bool gateOnly = !r.atFight && !r.arenaOk && r.GateDoor() && g_gateOk;
-            const char* action = gateOnly ? "Boss gate via shrine (not direct)" : "Fight now (in the arena)";
+            const char* action = "Fight now";
             const char* conf = r.atFight ? r.fightConf : r.arenaConf;
             const uint32_t c = why || stt != 2 ? cDim : (!strcmp(conf, "high") || !strcmp(conf, "captured")) ? cGreen : !strcmp(conf, "medium") ? cYellow : cOrange;
             if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    %s   - not beaten on this journey", mk, action);
             else if (why) add(sel ? cWhite : c, sel, "%s    %s   - %s", mk, action, why);
-            else add(sel ? cWhite : c, sel, "%s    %s   %s   [%s]", mk, action, r.atFight ? "the mission starts at the fight" : gateOnly ? "shrine start; gate fallback" : "warp into the trigger", conf);
+            else add(sel ? cWhite : c, sel, "%s    %s   %s   [%s]", mk, action, r.atFight ? "the mission starts at the fight" : "warp into the trigger", conf);
         } else {
             const Row& r = g_rows[(size_t)it[i]];
             const uint8_t stt = g_status[(size_t)it[i]].load();
@@ -2239,17 +2241,20 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItPractice || g_uiPages.page == uPractice) snprintf(footer, nf, "Normal rewards, drops and progression apply. Walk to the arena; death uses the native retry. No automatic restart. A selects / B back.");
         else if (item == kItSettings || item <= kItGroupBase) snprintf(footer, nf, "Startup preferences only. Settings do not install hooks or enable commands this session. Save then restart.");
         else if (item == kItSave) snprintf(footer, nf, "Writes only edited preferences. Paths/lists and the unavailable Training Enable key are never written.");
-        else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss, then choose its replay or fight action. Existing unlock and solo checks apply.");
+        else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss, then Fight now or Shrine before the boss. Existing unlock and solo checks apply.");
         else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
         else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
-            snprintf(footer, nf, "%s: starts the mission at start point %u (%s, %d m from the boss, %s confidence). A start, B back.",
+            const char* why = CanShrine(item - kItShrine);
+            if (why) snprintf(footer, nf, "%s. B back.", why);
+            else snprintf(footer, nf, "%s: starts the mission at start point %u (%s, %d m from the boss, %s confidence). A start, B back.",
                      r.mission[0] ? r.mission : r.name, r.fightStart, r.fightKind, r.fightDist, r.fightConf);
         } else if (item >= kItFight) {
             const Row& r = g_rows[(size_t)(item - kItFight)];
-            if (r.atFight) snprintf(footer, nf, "%s: the mission's only start point is at the fight (%d m). A start, B back.", r.mission[0] ? r.mission : r.name, r.fightDist);
-            else if (!r.arenaOk && r.GateDoor() && g_gateOk) snprintf(footer, nf, "%s: starts at the shrine; gate fallback only. Direct arena entry is unverified. A uses the existing route.", r.name);
+            const char* why = CanArena(item - kItFight);
+            if (why) snprintf(footer, nf, "%s. B back.", why);
+            else if (r.atFight) snprintf(footer, nf, "%s: the mission's only start point is at the fight (%d m). A start, B back.", r.mission[0] ? r.mission : r.name, r.fightDist);
             else snprintf(footer, nf, "%s: start point %u, then a warp to %.0f %.0f %.0f inside the arena trigger (%s). A start, B back.",
                           r.mission[0] ? r.mission : r.name, r.fightStart, r.arena[0], r.arena[1], r.arena[2], r.arenaSrc);
         } else if (item >= 0) {
