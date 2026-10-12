@@ -1,6 +1,11 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-12 16:15 - All three Ally shader compiler gates passed
+- Root reviewed adapter333 (19 inert checks,54 original archive members/74 pins) and issued sequential GO2651. Evidence334 SHA935ce3f488834ed893b5c9a7de8c6dd19e307517e64897ad791e39755638dbf3 independently parsed: PB2 vertex247 and combined257 each actualAMD15bf/WaveOps1/SM65,8 roots/16 PSOs successful, no draws. Both native/Proton/outer0, closure verified, no survivors/postcheck errors, entry/pins unchanged. Actual task17 independently free. Review: D:/nioh3-re/reviews/ally-pb2-results-334/root-review.json; remote files not independently reread.
+- Together with PS05ad331/332, all three compiler gates PASS. Visual equivalence and FPS comparisons remain UNRUN; lodu A1 remains INVALID_NOISY and B/A2 NOT_RUN. No new verified FPS improvement.
+- PC2 report2659: restored308 baseline13 files/exact6 saves unchanged, game absent/task16free; old owner11484 exited. New owner8880/start2026-10-12T13:06:42.5902656-07:00, same exact thread; sole listener4468 healthy. Future pause/resume adapter must review/rebind this owner and obtain fresh admission. No old launch authority reused.
+
 ## UPDATE 2026-10-12 16:05 - PS05ad Ally compiler gate and supplemental cleanup verified
 - Command-only probe328/evidence329 independently passed exact stdout/stderr/exit markers and clean closure; no native helper. Root verified330 as exact328 mode/scope/receipt-label change,13 inert tests, shared36 pins unchanged. GO2637 one PS05ad v2 run through327 capture with policy324.
 - Evidence331 SHAc31ab18c6c3a0b490893796359d2cfc80608a2b3a159711c50fba06fd0cbcf43 independently confirms actualAMD15bf, WaveOps32..64, SM65,4 successful roots/8 original-candidate PSOs, native/Proton/outer0 and no draws. Original274 ZIP independently checked: all18 delivered files match. The sole postcheck error is generated packet/vkd3d-proton.cache.write incorrectly included by directory-glob pinning; all35 other pins match. It is absent original274; current vkd3d-proton.cache hash equals the prior .write hash, consistent with (not proof of) cache merge. Original outer receipt remains failed/hold retained; peer reports current entry unchanged and no processes.
