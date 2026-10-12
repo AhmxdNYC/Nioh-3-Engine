@@ -126,6 +126,20 @@ int main() {
     g_sel=1; CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqShrine); g_req=0;
     g_cfg.fightWarp=true; g_warpOk=true; practice.arenaOk=true; g_confirm=-9; g_sel=0;
     CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqFight); g_req=0;
+    // Actual hosted confirmation stages only; no request before exact presentation ACK.
+    g_coverReadOk=true; g_confirm=-9;
+    g_attempt={};g_attemptSequence=7; // normal return resets record, never monotonic admission counter
+    CHECK(!UiActHosted() && !UiActHosted() && !g_req);
+    CoverInfo cover{};CHECK(CoverSnapshot(cover) && cover.phase==transition_cover::AwaitPresent);
+    const uint64_t coverToken=cover.token;
+    CoverPresented(coverToken+1);CoverTick(ReadSnap(),Ms());CHECK(!g_req);
+    CoverPresented(coverToken);CoverTick(ReadSnap(),Ms());
+    CHECK((g_req.load()&0xFF)==kReqFight && g_cover.issued && g_cover.attempt==8);
+    g_attempt.sequence=8;g_sp.st=3;g_sp.rec=0x12345678;g_sp.origFlags=73;
+    CoverCancel(coverToken);CHECK(CoverSnapshot(cover) && cover.phase==transition_cover::Cancelled);
+    CHECK((g_req.load()&0xFF)==kReqFight && g_attempt.sequence==8 && g_sp.st==3 && g_sp.rec==0x12345678 && g_sp.origFlags==73); // presentation cancel retains native recovery
+    g_sp={};g_attempt={};
+    g_req=0;g_cover={};g_coverHostAt=0;g_coverReadOk=false;
     g_status[0]=1; g_confirm=-9; CHECK(!UiAct() && !g_req);
     g_sel=1; CHECK(!UiAct() && !g_req); g_status[0]=2;
     g_cfg.fightWarp=false; practice.arenaOk=false;

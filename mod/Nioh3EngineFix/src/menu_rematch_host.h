@@ -71,3 +71,20 @@ void CloseRematchHostPage() {
     if (g_rematchPage) g_rematchClosePending = !PostRematchAction(rmb::CloseMenu);
     g_rematchPage = g_rematchAwait = g_rematchOpened = false;
 }
+
+std::atomic<uint64_t> g_coverToken{0},g_coverSession{0},g_coverWorker{0},g_coverPresented{0},g_coverDeadline{0},g_coverArmedAt{0},g_coverTombstone{0},g_coverTombstoneSession{0},g_coverCancelUntil{0};
+std::atomic<bool> g_coverCancel{false},g_coverEnabled{false};
+uint64_t g_coverDrawnToken=0;
+bool CoverCaptures(uint64_t now) {
+    if(!menu::Enabled())return false;
+    cover_present::InputLease lease{g_coverToken.load(),g_coverSession.load(),g_coverWorker.load(),g_coverPresented.load(),g_coverDeadline.load(),g_coverEnabled.load(),g_coverCancel.load()};
+    if(!lease.presentedMs) {
+        const uint64_t armed=g_coverArmedAt.load();
+        return lease.enabled&&!lease.cancelled&&lease.token&&lease.session&&armed&&now>=armed&&now-armed<5000&&
+            now<lease.deadlineMs&&cover_present::Fresh(lease.workerMs,now,1500);
+    }
+    return cover_present::Captures(lease,now);
+}
+void CancelCoverInput(){g_coverCancel.store(true);g_coverCancelUntil=GetTickCount64()+150;}
+
+char g_coverNotice[160]{};uint64_t g_coverNoticeUntil=0;

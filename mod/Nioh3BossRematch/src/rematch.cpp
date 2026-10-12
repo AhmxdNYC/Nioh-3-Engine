@@ -25,6 +25,8 @@
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
 #include "rematch_core.h"
+#include "transition_cover.h"
+#include "transition_native_read.h"
 #include "../../menu_navigation.h"
 #include "../../settings/store.h"
 
@@ -1553,10 +1555,103 @@ void SpawnTick(const Snap& s, ULONGLONG t, bool loadEnded) {
     }
 }
 
+// Only presentation state is shared here. Never clear native attempt/recovery state.
+SRWLOCK g_coverLock = SRWLOCK_INIT;
+transition_cover::Model g_cover;
+uint64_t g_coverNext=0, g_coverHostAt=0;
+bool g_hostedUiAction=false, g_coverReadOk=false;
+bool g_coverControl=false,g_coverAlgo=false,g_coverLife=false,g_coverPlayer=false;
+uint64_t g_coverSampleAt=0;
+bool CoverRead(void*,uint64_t address,void* out,size_t n){return Copy(out,address,n);}
+bool CoverAnchors() {
+    struct Anchor{uint32_t rva;const char* bytes;size_t n;};
+    const Anchor anchors[]={
+        {0x23AB184,"\x48\x8B\x0D\xCD\x0B\x21\x02",7},
+        {0x23AB18B,"\xB2\x48",2},{0x9DC710,"\xC6\x40\x01\x01",4},
+        {0x563F1C,"\xC6\x40\x01\x00",4},{0x19D37F0,"\x38\x50\x08",3},
+        {0x705B5D,"\x89\x41\x34",3},
+        {0x486BE0,"\x48\x8B\x81\xB0\x03\x00\x00\x48\x85\xC0\x74\x14\x48\x8B\x40\x50",16},
+        {0x486BF0,"\x48\x85\xC0\x74\x0B\x83\xB8\x74\x15\x00\x00\x01\x0F\x94\xC0\xC3",16}};
+    // Pin the native DEAD predicate, supported default condition dispatch and character-ID getter.
+    const Anchor lifeAnchors[]={
+        {0x23A9110,"\x48\x85\xC0\x74\x15\x48\x8B\x80\xA0\x03\x00\x00\x48\x85\xC0\x74\x09\x83\x78\x48\x01\x0F\x94\x44\x24\x20",26},
+        {0x23A910B,"\xE8\x04\x18\xE6\xFD",5},
+        {0x4892A8,"\x40\x53\x48\x83\xEC\x20\x48\x8B\x81\xA0\x03\x00\x00\x48\x8B\xD9\x48\x85\xC0\x0F\x84\xB6\x00\x00\x00\x83\x78\x48\x01\x0F\x84\xA8\x00\x00\x00\x48\x8B\x81\xB0\x03\x00\x00\x48\x8B\x48\x08\x48\x85\xC9\x74\x16\x48\x8B\x01\xBA\x35\x00\x00\x00\xFF\x90\xC0\x00\x00\x00\x84\xC0\x0F\x85\x86\x00\x00\x00\x48\x8B\x83\xB0\x03\x00\x00\x48\x8B\x48\x08\x48\x85\xC9\x74\x12\x48\x8B\x01\xBA\xB0\x00\x00\x00\xFF\x90\xC0\x00\x00\x00\x84\xC0\x75\x2B\x48\x8B\x83\xB0\x03\x00\x00\x48\x8B\x48\x08\x48\x85\xC9\x74\x12\x48\x8B\x01\xBA\x2C\x00\x00\x00\xFF\x90\xC0\x00\x00\x00\x84\xC0\x75\x3E\x83\xBB\xD4\x08\x00\x00\x01\x7D\x35\x8B\x03\x83\xE0\xF0\x3D\xE0\x0F\x93\x00\x75\x2D\x48\x8B\x8B\xB0\x03\x00\x00\x48\x85\xC9\x74\x21\xE8\x6D\x68\xFF\xFF\x3D\x52\x4E\x00\x00\x75\x15\xBA\xAB\x07\x00\x00\x48\x8B\xCB\xE8\xB1\x73\xDF\xFF\x84\xC0\x74\x04\xB0\x01\xEB\x02\x32\xC0\x48\x83\xC4\x20\x5B\xC3",215},
+        {0x2E9934,"\x4C\x8B\x81\xE8\x00\x00\x00",7},
+        {0x2EA1A3,"\x48\x8B\x86\xA8\x00\x00\x00\x48\xC1\xE8\x2E\xE9\x85\xF9\xFF\xFF",16},
+        {0x2EA447,"\x8B\x43\x18\xE9\x46\xF8\xFF\xFF",8},
+        {0x2EB1CB,"\x48\x8B\x86\x18\x01\x00\x00\x48\x85\xC0\x0F\x84\x9F\xEF\xFF\xFF\x48\x8B\x40\x20\x8B\x40\x18\xE9\xAE\xEA\xFF\xFF",28},
+        {0x2E9C95,"\x48\xC1\xE8\x08\xE9\x9A\xFE\xFF\xFF",9},
+        {0x47FBC8,"\x48\x8B\x41\x08\x48\x85\xC0\x74\x1C\x48\x8B\x80\xE8\x00\x00\x00\x48\x85\xC0\x74\x10\x48\x83\x78\x20\x00\x74\x09\x48\x8B\x40\x20\x0F\xB7\x40\x0C\xC3\x33\xC0\xC3",40},
+        {0x2EA0FA,"\x41\x83\xE9\x28\x0F\x84\x6F\x01\x00\x00\x45\x2B\xCE\x0F\x84\xE3\x00\x00\x00\x45\x2B\xCE\x0F\x84\xCF\x00\x00\x00\x45\x2B\xCE\x0F\x84\x94\x00\x00\x00\x45\x2B\xCE\x74\x7F",42},
+        {0x2EA351,"\x41\x83\xE9\x32\x0F\x84\x10\x01\x00\x00\x45\x2B\xCE\x0F\x84\xFB\x00\x00\x00\x45\x2B\xCE\x0F\x84\xE2\x00\x00\x00\x45\x2B\xCE\x0F\x84\xD1\x00\x00\x00",37},
+        {0x2EB152,"\x41\x81\xE9\xAC\x00\x00\x00\x0F\x84\xEB\x00\x00\x00\x45\x2B\xCE\x0F\x84\xCF\x00\x00\x00\x45\x2B\xCE\x0F\x84\x99\x00\x00\x00\x45\x2B\xCE\x74\x71\x45\x2B\xCE\x74\x50",41}};
+    if(!g_img.base)return false;
+    for(const auto& a:lifeAnchors){char bytes[256];const uint64_t at=g_img.base+a.rva;
+        if(at<g_img.base||at+a.n>g_img.end||!Copy(bytes,at,a.n)||memcmp(bytes,a.bytes,a.n))return false;}
+    for(const auto& a:anchors){char bytes[16];const uint64_t at=g_img.base+a.rva;
+        if(at<g_img.base||at+a.n>g_img.end||!Copy(bytes,at,a.n)||memcmp(bytes,a.bytes,a.n))return false;}
+    return true;
+}
+struct CoverLock {
+    bool held=TryAcquireSRWLockExclusive(&g_coverLock)!=FALSE;
+    ~CoverLock(){if(held)ReleaseSRWLockExclusive(&g_coverLock);}
+};
+bool CoverBegin(int row) {
+    CoverLock lock;if(!lock.held)return false;
+    if(!g_coverReadOk)return false;
+    const Row& r=g_rows[(size_t)row];
+    const bool started=g_cover.Begin(++g_coverNext,(uint32_t)row,r.missionId,r.fightStart,r.placement,Ms());
+    if(started){g_coverHostAt=0;g_coverControl=g_coverAlgo=g_coverLife=g_coverPlayer=false;g_coverSampleAt=0;Log("Rematch: cover token=%llu phase=%u attempt=0 event=begin mission=0x%X start=%u placement=%u",g_cover.token,(unsigned)g_cover.phase,r.missionId,r.fightStart,r.placement);}
+    return started;
+}
+void CoverTick(const Snap& s, ULONGLONG t) {
+    CoverLock lock;if(!lock.held)return;
+    g_cover.Expire(t);
+    if(g_cover.Active() && g_coverHostAt && (t<g_coverHostAt || t-g_coverHostAt>=1500))
+        g_cover.End(transition_cover::Failed,"Cover renderer stale; native recovery remains owned");
+    if(!g_cover.Active())return;
+    if(g_cover.phase==transition_cover::AwaitNative && !g_cover.issued) {
+        Log("Rematch: cover token=%llu phase=%u attempt=0 event=present_ack",g_cover.token,(unsigned)g_cover.phase);
+        if(g_req.load() || g_pend){g_cover.End(transition_cover::Failed,"Another request is pending; no transition request sent");return;}
+        if(const char* why=Gates(s,false)){g_cover.End(transition_cover::Failed,why);return;}
+        if(g_cover.Issue(g_attemptSequence+1)){
+            Log("Rematch: cover token=%llu phase=%u attempt=%llu event=native_post",g_cover.token,(unsigned)g_cover.phase,g_cover.attempt);
+            Post(kReqFight,(int)g_cover.row,"presented hosted cover");
+        }
+    }
+    const uint64_t playerBefore=PlayerChar();
+    const auto player=transition_native_read::ReadPlayer(g_img.base,&CoverRead,nullptr);
+    const auto control=transition_native_read::ReadControl(g_img.base,&CoverRead,nullptr);
+    const auto actor=transition_native_read::ReadActor(g_img.base,g_cover.placement,&CoverRead,nullptr);
+    const auto life=transition_native_read::ReadLife(g_img.base,g_cover.placement,actor,&CoverRead,nullptr);
+    const Snap after=ReadSnap();
+    const bool same=after.msOk&&s.msOk&&after.ms28==s.ms28&&after.ms14==s.ms14&&
+        NativeGate(after)==nullptr&&after.player==s.player&&after.gm&&s.gm&&
+        after.st[2]==s.st[2]&&after.st[3]==s.st[3]&&after.st[4]==s.st[4];
+    const bool playerReady=player.known&&player.notDead&&player.live&&player.live==playerBefore&&player.live==PlayerChar();
+    const bool controlReady=g_coverReadOk&&same&&control.known&&control.clear&&playerReady;
+    // Conservative passive inverse of the native DEAD predicate; unknown is not ready.
+    const bool lifeReady=life.known&&life.notDead;
+    const bool bossReady=g_coverReadOk&&same&&actor.known&&actor.present&&actor.algoReady&&lifeReady;
+    g_coverPlayer=playerReady;g_coverControl=controlReady;g_coverAlgo=actor.known&&actor.present&&actor.algoReady;g_coverLife=lifeReady;g_coverSampleAt=t;
+    if(!controlReady)g_cover.reason="Waiting for player control restrictions to clear";
+    else if(!bossReady)g_cover.reason="Waiting for the requested boss to be ready";
+    g_cover.Observe(t,g_attempt.sequence,g_attempt.evidence==aMatched&&g_attempt.mission==g_cover.mission,
+        g_attemptPhase==aQuarantined,NativeGate(s)==nullptr,
+        s.msOk && s.ms28==g_cover.mission && s.ms14==g_cover.start,
+        s.st[2]!=0,s.player,s.st[3]||s.st[4],fight::g_active!=0,controlReady,bossReady);
+}
+void HkCoverCreate(uint64_t placement,uint64_t,uint64_t,uint64_t,const uint64_t*) {
+    CoverLock lock;if(!lock.held)return;
+    const Snap s=ReadSnap();
+    if(s.msOk)g_cover.Entry(g_attempt.sequence,s.ms28,(uint32_t)placement,false);
+}
 void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
     Snap s = ReadSnap();
+    CoverTick(s,t);
     AttemptObserve(s, t);
     if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("standalone return observed", true);
     if (g_attemptPhase.load() == aQuarantined && g_state.load() != kIdle) ToIdle("native attempt quarantined");
@@ -1639,6 +1734,7 @@ void Tick() {
     TrackReplay(s, t);
     SelfTestTick(s, t);
     TrackEmaki(s, t);
+    CoverTick(s,t);
 }
 
 // ---- catalogue ----
@@ -1663,6 +1759,7 @@ std::wstring ArenaPath() { return Beside(L"Arenas", L"Nioh3BossRematch_arenas.ts
 
 // BossBattleMode entry (game thread): the player position at every fight start; ArenaCapture = 1 appends it to the arenas file
 void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    { CoverLock lock; if(lock.held){const Snap s=ReadSnap();if(s.msOk)g_cover.Entry(g_attempt.sequence,s.ms28,0,true);} }
     float p[4] = {}, cur[4] = {};
     const bool curOk = PlayerPos(cur);
     const bool beforeLoad = g_posAtLoadOk && Ms() - g_loadRiseAt < 5000;  // the fight began right after a load: the intro moved the player
@@ -1839,6 +1936,30 @@ int Items(int* out, int cap) {
 
 }  // namespace
 
+bool CoverSnapshot(CoverInfo& out) {
+    CoverLock lock;if(!lock.held)return false;
+    const uint64_t now=Ms();g_cover.Expire(now);
+    if(g_cover.Active() && g_coverHostAt && (now<g_coverHostAt || now-g_coverHostAt>=1500))
+        g_cover.End(transition_cover::Failed,"Cover renderer stale; native recovery remains owned");
+    const uint64_t pump=g_lastTick.load();
+    if(g_cover.Active() && g_cover.issued && (!pump || now<pump || now-pump>=1500))
+        g_cover.End(transition_cover::Failed,"Native update owner stale; recovery remains owned");
+    static uint64_t loggedToken=0;static uint32_t loggedPhase=0;
+    if(loggedToken!=g_cover.token||loggedPhase!=(uint32_t)g_cover.phase){
+        Log("Rematch: cover token=%llu phase=%u attempt=%llu event=phase reason=%s",g_cover.token,(unsigned)g_cover.phase,g_cover.attempt,g_cover.reason);
+        loggedToken=g_cover.token;loggedPhase=(uint32_t)g_cover.phase;
+    }
+    out={};out.token=g_cover.token;out.deadline=g_cover.deadline;out.phase=g_cover.phase;
+    snprintf(out.reason,sizeof(out.reason),"%s",g_cover.reason);return true;
+}
+void CoverPresented(uint64_t token) {
+    CoverLock lock;if(!lock.held||token!=g_cover.token||!g_cover.Active())return;
+    const uint64_t now=Ms();g_cover.Expire(now);if(!g_cover.Active())return;
+    g_coverHostAt=now;g_cover.Presented(token,now); // renderer callback: bounded state only, no logging/file I/O
+}
+void CoverCancel(uint64_t token) { CoverLock lock;if(lock.held)g_cover.Cancel(token); }
+bool UiActHosted(){g_hostedUiAction=true;const bool result=UiAct();g_hostedUiAction=false;return result;}
+
 bool Prepare() {
     const wchar_t* ini = IniPath();
     if (!GetPrivateProfileIntW(L"Rematch", L"Enable", 0, ini)) {
@@ -1860,6 +1981,8 @@ bool Prepare() {
         Log("Rematch: off - %s", why);
         return false;
     }
+    g_coverReadOk=CoverAnchors();
+    Log("Rematch: transition readiness anchors %s",g_coverReadOk?"matched":"unavailable");
     G_DATA = Site("g:DataDb");
     G_CLEAR = Site("g:ClearDb");
     G_MS = Site("g:MissionMgr");
@@ -1908,6 +2031,7 @@ bool Prepare() {
     int na = 0;
     if (ReadText(ArenaPath(), at)) na = rcore::ApplyArenas(at, g_rows);
     if (na) Log("Rematch: %d rows take their arena point from %ls (captured)", na, ArenaPath().c_str());
+    OnEntry("Character::Create", &HkCoverCreate);
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
         char st8[512] = {};
@@ -2121,6 +2245,10 @@ bool UiAct() {
             return false;
         }
         g_confirm = -9;
+        if(arena && g_hostedUiAction) {
+            if(!CoverBegin(row))snprintf(g_msg,sizeof(g_msg),"Transition unavailable or already active.");
+            return false; // keep the menu until the renderer presents its cover
+        }
         Post(arena ? kReqFight : kReqShrine, row, "the menu");
         ToastF(cWhite, 6000, arena ? "Rematch: into the fight with %s..." : "Rematch: to the shrine before %s...", g_rows[(size_t)row].name);
         return true;
@@ -2292,6 +2420,13 @@ void Command(const char* line, char* reply, size_t n) {
     }
     if (!g_live) {
         snprintf(reply, n, "error rematch not live (see Nioh3BossRematch.log)");
+        return;
+    }
+    if (!strcmp(cmd, "cover")) {
+        CoverLock lock;if(!lock.held){snprintf(reply,n,"error cover busy");return;}
+        snprintf(reply,n,"token=%llu phase=%u attempt=%llu mission=0x%X start=%u placement=%u presented=%d issued=%d bossEntry=%d placementEntry=%d deadline=%llu control=%d algo=%d life=%d playerAlive=%d sample=%llu reason=%s",
+            g_cover.token,(unsigned)g_cover.phase,g_cover.attempt,g_cover.mission,g_cover.start,g_cover.placement,
+            (int)g_cover.presented,(int)g_cover.issued,(int)g_cover.bossEntry,(int)g_cover.placementEntry,g_cover.deadline,(int)g_coverControl,(int)g_coverAlgo,(int)g_coverLife,(int)g_coverPlayer,g_coverSampleAt,g_cover.reason);
         return;
     }
     if (!strcmp(cmd, "status")) {

@@ -245,6 +245,13 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     const uint32_t pressed = raw & ~prev;
     g_padHeld[idx] = (LONG)raw;
     g_padHeldAt[idx] = (LONG64)t;
+    if(g_coverToken.load()) {
+        if((pressed & XINPUT_GAMEPAD_B)!=0){CancelCoverInput();if(!own)g.wButtons&=~XINPUT_GAMEPAD_B;}
+        if(!own && CoverCaptures(t)){memset(&g,0,sizeof(g));st->dwPacketNumber+=0x40000000u;}
+        else if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
+        return; // cover cancellation/staleness must not leave normal menu latches capturing
+    }
+
     if (g_disabled) return;
     ForceCloseIfDead(t);
     const bool alive = Alive(t, 1000);
@@ -303,6 +310,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
             s.holdFired = false;
         }
     }
+    if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
     if (g_open) InterlockedOr(&g_pressed, (LONG)PadNav(pressed));
     if (own) return;
     if (tapModified) st->dwPacketNumber += 0x40000000u;
@@ -338,6 +346,13 @@ void KeyFeed(uint8_t* keys, bool own) {
     g_keyPrev = raw;
     g_keyHeld = (LONG)raw;
     g_keyHeldAt = (LONG64)t;
+    if(g_coverToken.load()) {
+        if((pressed & K_ESC)!=0){CancelCoverInput();if(!own)keys[DIK_ESCAPE]=0;}
+        if(!own && CoverCaptures(t))memset(keys,0,256);
+        else if(!own && t<g_coverCancelUntil.load())keys[DIK_ESCAPE]=0;
+        return;
+    }
+    if(!own && t<g_coverCancelUntil.load())keys[DIK_ESCAPE]=0;
     if (g_disabled) return;
     ForceCloseIfDead(t);
     if ((pressed & K_TOGGLE) && Alive(t, 1000)) Request(t, 1);
@@ -1457,6 +1472,14 @@ void Close(const char* how) {
     MLOG("closed (%s)%s", how, g_dirty ? " - unsaved choices: live rows last until exit; startup rows need Save/restart" : "");
 }
 
+void CloseCover(const char* why) {
+    g_coverTombstone=g_coverToken.load();g_coverTombstoneSession=g_coverSession.load();
+    CloseRematchHostPage();
+    for(PadSlot& p:g_pad)p.latch=false;
+    g_keyLatch=0;g_pressed=0;g_toggleReq=0;for(auto& repeat:g_rep)repeat=0;g_open=0;g_coverEnabled=false;g_coverToken=0;g_coverPresented=0;
+    snprintf(g_coverNotice,sizeof(g_coverNotice),"%s",why);g_coverNoticeUntil=Now()+8000;
+    MLOG("transition cover closed: %s (native ownership unchanged)",why);
+}
 void Back() {
     if (!g_cfg.layout || !g_pages.Back(g_sel)) Close("B / Esc");
     for (auto& repeat : g_rep) repeat = 0;
@@ -2144,6 +2167,25 @@ void OnPresentImpl() {
     const ULONGLONG t = Now();
     g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present
     const bool rematchReady = RefreshRematchHost(t);
+    if((g_rematchView.flags & rmb::CoverActive) &&
+       !(g_rematchView.coverToken==g_coverTombstone.load() && g_rematchView.session==g_coverTombstoneSession.load())) {
+        const bool captureHooks=g_padHooked && g_keyHooked && !g_disabled;
+        if(g_coverToken.load()!=g_rematchView.coverToken) {
+            g_coverPresented=0;g_coverCancel=false;g_coverToken=g_rematchView.coverToken;g_coverArmedAt=t;g_toggleReq=0;g_pressed=0;for(auto& repeat:g_rep)repeat=0;
+        }
+        g_coverSession=g_rematchView.session;g_coverWorker=g_rematchView.workerTickMs;
+        g_coverDeadline=g_rematchView.coverDeadline;g_coverEnabled=captureHooks;
+        if(!captureHooks || !rematchReady || !CoverCaptures(t)) {
+            CloseCover("cancelled/stale/unavailable");
+        } else {
+            // Keep native simulation running; do not call PauseDetect/frame-advance.
+            g_lastPresent=(LONG64)t;OwnPolling(t);return;
+        }
+    } else if(g_coverToken.load()) {
+        MLOG("transition finished: %s",g_rematchView.coverReason);
+        CloseCover(g_rematchView.coverReason);
+    }
+
     g_lastPresent = (LONG64)t;
     OwnPolling(t);
     SampleRates(t);
@@ -2302,6 +2344,19 @@ float DrawRematchHost(unsigned W, unsigned H) {
 }
 
 float DrawImpl(unsigned W, unsigned H) {
+    g_coverDrawnToken=0;
+    if(!g_coverToken.load() && Now()<g_coverNoticeUntil && !g_open) {
+        osd::DrawText(30.0f,40.0f,g_coverNotice,0xFFFFFFFF,1.0f);return 1.0f;
+    }
+    if(g_coverToken.load() && !g_coverCancel.load() && g_coverEnabled.load()) {
+        if(!osd::DrawCoverRect((float)W,(float)H))return 0;
+        const float scale=2.0f;
+        osd::DrawText(40.0f,(float)H*0.45f,"Loading boss fight...",0xFFFFFFFF,scale);
+        osd::DrawText(40.0f,(float)H*0.45f+48.0f,g_rematchView.coverReason,0xFFBBBBBB,1.0f);
+        osd::DrawText(40.0f,(float)H-50.0f,"B / Escape: dismiss cover (does not cancel the native request)",0xFFBBBBBB,1.0f);
+        g_coverDrawnToken=g_coverToken.load();return scale;
+    }
+
     const ULONGLONG t = Now();
     // hold progress of the controller gesture (opening: corner note; closing: menu footer). All quads of this module
     // share one text scale, so the two are never drawn together.
@@ -2809,6 +2864,18 @@ float Draw(unsigned W, unsigned H) {
     }
 }
 
+cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t generation) {
+    return {g_coverDrawnToken,g_coverSession.load(),swapchain,generation};
+}
+void CoverPresented(const cover_present::Ticket& ticket,uint64_t generation,int32_t result) {
+    cover_present::Identity current{g_coverToken.load(),g_coverSession.load(),ticket.id.swapchain,generation};
+    if(!cover_present::Accept(ticket,current,result,g_coverCancel.load()||!g_coverEnabled.load()))return;
+    const uint64_t now=GetTickCount64();
+    if(!CoverCaptures(now))return; // a blocked Present cannot revive an expired worker/input lease
+    g_coverPresented=now;
+    const auto present=g_rematchApi.PresentCover;
+    if(present)present(ticket.id.session,ticket.id.token); // try-only; no native or worker UI call
+}
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }
 
@@ -2857,6 +2924,14 @@ bool SwallowMessage(const tagMSG* m) {
     const UINT msg = m->message;
     if (msg != WM_KEYDOWN && msg != WM_KEYUP && msg != WM_SYSKEYDOWN && msg != WM_SYSKEYUP) return false;
     const UINT vk = (UINT)m->wParam;
+    if(g_coverToken.load()) {
+        if(vk==VK_ESCAPE && (msg==WM_KEYDOWN||msg==WM_SYSKEYDOWN)){
+            if(!g_coverCancel.load())CancelCoverInput();
+            return Now()<g_coverCancelUntil.load();
+        }
+        return CoverCaptures(Now());
+    }
+
     if (g_cfg.vk && vk == g_cfg.vk) return true;
     if (g_open || g_keyLatch)
         for (const NavKey& k : kNavKeys)

@@ -1,3 +1,4 @@
+#include <atomic>
 // osd.cpp - in-game overlay for Nioh3EngineFix (see osd.h and notes\osd-design.md).
 //
 // How it works
@@ -761,7 +762,9 @@ void WaitIdle(Ctx& c, DWORD ms) {
     if (SUCCEEDED(c.fence->SetEventOnCompletion(c.fenceVal, c.ev))) WaitForSingleObject(c.ev, ms);
 }
 
+std::atomic<uint64_t> g_coverContextGeneration{1};
 void DestroyCtx(Ctx& c) {
+    g_coverContextGeneration.fetch_add(1);
     WaitIdle(c, 1500);  // the old context's last submission must be done before anything it uses is released
     if (c.upload && c.mapped) c.upload->Unmap(0, nullptr);
     SafeRelease(c.pso);
@@ -1095,7 +1098,7 @@ void ApplyLatency(IDXGISwapChain* sc, int64_t now) {
     s2->Release();
 }
 
-void OnPresent(IDXGISwapChain* sc) {
+void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
     const int64_t now = Qpc();
     if (sc != g_ctx.sc) {
         if (IsBad(sc)) return;
@@ -1151,6 +1154,8 @@ void OnPresent(IDXGISwapChain* sc) {
     menu::OnPresent();  // menu input + runtime switches (needs a working drawing context, checked above)
     static bool loggedFirst = false;
     if (DrawFrame(g_ctx, now)) {
+        cover->id=menu::CoverDrawn((uint64_t)sc,g_coverContextGeneration.load());
+        cover->submitted=cover_present::Valid(cover->id);
         if (!loggedFirst) {
             loggedFirst = true;
             OLOG("first overlay frame drawn (%d quads)", g_n);
@@ -1159,16 +1164,17 @@ void OnPresent(IDXGISwapChain* sc) {
     }
 }
 
-void OnPresentSafe(IDXGISwapChain* sc) {
+void OnPresentSafe(IDXGISwapChain* sc, cover_present::Ticket* cover) {
     __try {
-        OnPresent(sc);
+        OnPresent(sc,cover);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         InterlockedExchange(&g_disabled, 1);
         if (g_log) g_log("OSD: exception %08lX while drawing - overlay disabled for this session", GetExceptionCode());
     }
 }
 
-void Hooked(IDXGISwapChain* sc, UINT flags) {
+void Hooked(IDXGISwapChain* sc, UINT flags, cover_present::Ticket* cover) {
+    cover->outermost=t_depth==1;cover->testPresent=(flags & DXGI_PRESENT_TEST)!=0;
     if (t_depth != 1 || (flags & DXGI_PRESENT_TEST) || g_disabled) return;
     const int64_t now = Qpc();
     CountPresent(sc, now);  // every swapchain, every presenting thread (FG presenter included), lock-free
@@ -1178,7 +1184,7 @@ void Hooked(IDXGISwapChain* sc, UINT flags) {
         ApplyLatency(sc, now);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
-    OnPresentSafe(sc);
+    OnPresentSafe(sc,cover);
     ReleaseSRWLockExclusive(&g_lock);
 }
 
@@ -1191,7 +1197,8 @@ bool PresentArgs(IDXGISwapChain* sc, UINT& sync, UINT& flags, const void* caller
 
 HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     ++t_depth;
-    Hooked(sc, flags);
+    cover_present::Ticket cover{};
+    Hooked(sc, flags,&cover);
     UINT s2 = sync, f2 = flags;
     const bool rw = PresentArgs(sc, s2, f2, _ReturnAddress());
     HRESULT hr = g_origPresent(sc, s2, f2);
@@ -1199,13 +1206,15 @@ HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
         pmode::Refused(sc, hr);
         hr = g_origPresent(sc, sync, flags);
     }
+    menu::CoverPresented(cover,g_coverContextGeneration.load(),hr);
     --t_depth;
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
     ++t_depth;
-    Hooked(sc, flags);
+    cover_present::Ticket cover{};
+    Hooked(sc, flags,&cover);
     UINT s2 = sync, f2 = flags;
     const bool rw = PresentArgs(sc, s2, f2, _ReturnAddress());
     HRESULT hr = g_origPresent1(sc, s2, f2, p);
@@ -1213,6 +1222,7 @@ HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags,
         pmode::Refused(sc, hr);
         hr = g_origPresent1(sc, sync, flags, p);
     }
+    menu::CoverPresented(cover,g_coverContextGeneration.load(),hr);
     --t_depth;
     return hr;
 }
@@ -1431,6 +1441,7 @@ const char* PositionName(int pos) {
 }
 float CounterScale(unsigned H) { return CounterScaleImpl(H); }
 void DrawRect(float x, float y, float w, float h, uint32_t abgr) { AddQuad(x, y, w, h, kSolid, abgr); }
+bool DrawCoverRect(float w,float h) { const int before=g_n;AddQuad(0,0,w,h,kSolid,0xFF000000);return g_n==before+1; }
 float DrawText(float x, float y, const char* text, uint32_t abgr, float scale) { return AddText(x, y, text, abgr, scale); }
 
 const char* FgTypeName(int v) {

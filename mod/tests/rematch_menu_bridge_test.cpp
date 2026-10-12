@@ -8,8 +8,9 @@ int A(uint64_t,uint64_t*) { return Accepted; }
 int D(uint64_t) { return Accepted; }
 int P(uint64_t,uint64_t,uint32_t) { return Accepted; }
 int C(uint64_t,Snapshot*,uint32_t) { return Accepted; }
+int V(uint64_t,uint64_t){return Accepted;}
 int main() {
- Api a{sizeof(Api),kVersion,kRequiredCapabilities,0,A,D,P,C};assert(ValidApi(a));
+ Api a{sizeof(Api),kVersion,kRequiredCapabilities,0,A,D,P,C,V};assert(ValidApi(a));
  auto b=a;b.version++;assert(!ValidApi(b));b=a;b.size--;assert(!ValidApi(b));
  b=a;b.capabilities&=~ExclusiveHost;assert(!ValidApi(b));b=a;b.CopySnapshot=nullptr;assert(!ValidApi(b));
  Snapshot s{};s.size=sizeof(s);s.version=kVersion;s.session=7;s.generation=1;s.workerTickMs=100;s.flags=HostedReady|Open;s.rowCount=1;

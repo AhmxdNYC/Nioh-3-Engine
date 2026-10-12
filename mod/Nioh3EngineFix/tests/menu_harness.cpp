@@ -16,6 +16,7 @@ const char* FgTypeName(int) { return "OFF"; }
 const char* FgReason(const FgStatus&) { return nullptr; }
 void NoteFgSwitch() {}
 void DrawRect(float, float, float, float, uint32_t) {}
+bool DrawCoverRect(float,float){return true;}
 float DrawText(float x, float, const char*, uint32_t, float) { return x; }
 }
 namespace gpuopt {
@@ -44,6 +45,8 @@ namespace host_fixture {
 namespace mb = rematch_menu_bridge;
 mb::Snapshot view{};
 uint32_t posted = 999;
+uint64_t coveredToken=0;
+int Covered(uint64_t,uint64_t token){coveredToken=token;return mb::Accepted;}
 bool closeBusy = false;
 int Attach(uint64_t, uint64_t*) { return mb::Accepted; }
 int Detach(uint64_t) { return mb::Accepted; }
@@ -184,7 +187,7 @@ int main() {
     hf::view.size=sizeof(hf::view); hf::view.version=rmb::kVersion;
     hf::view.session=7; hf::view.generation=1; hf::view.flags=rmb::HostedReady;
     hf::view.workerTickMs=Now();
-    g_rematchApi={sizeof(rmb::Api),rmb::kVersion,rmb::kRequiredCapabilities,0,hf::Attach,hf::Detach,hf::Post,hf::Copy};
+    g_rematchApi={sizeof(rmb::Api),rmb::kVersion,rmb::kRequiredCapabilities,0,hf::Attach,hf::Detach,hf::Post,hf::Copy,hf::Covered};
     g_rematchSession=7;
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
@@ -207,6 +210,41 @@ int main() {
     hf::Complete(false); Open("pending timeout"); Change(kRematchRow,0);
     g_rematchAwaitAt=Now()-2000; OnPresentImpl(); CHECK(!g_open && !g_rematchPage);
     hf::Complete(false); hf::view.workerTickMs=Now()+5000; CHECK(!RefreshRematchHost(Now()));
+    // Actual host draw/accepted-Present handshake and full keyboard/pad capture.
+    g_configured=true;
+    hf::Complete(true);g_rematchAwait=false;g_rematchPage=true;g_open=1;
+    hf::view.flags|=rmb::CoverActive;hf::view.coverToken=42;hf::view.coverPhase=1;hf::view.coverDeadline=Now()+90000;
+    OnPresentImpl();CHECK(g_coverToken==42 && !hf::coveredToken);
+    CHECK(DrawImpl(1280,720)>0);
+    cover_present::Ticket ticket{CoverDrawn(9,1),true,true,false};
+    auto rejectedTicket=ticket;rejectedTicket.testPresent=true;CoverPresented(rejectedTicket,1,0);CHECK(!hf::coveredToken);
+    rejectedTicket=ticket;rejectedTicket.outermost=false;CoverPresented(rejectedTicket,1,0);CHECK(!hf::coveredToken);
+    rejectedTicket=ticket;rejectedTicket.submitted=false;CoverPresented(rejectedTicket,1,0);CHECK(!hf::coveredToken);
+    CoverPresented(ticket,1,1);CHECK(!hf::coveredToken); // OCCLUDED/non-S_OK
+    CoverPresented(ticket,2,0);CHECK(!hf::coveredToken); // stale context
+    const uint64_t workerBefore=g_coverWorker.load(),deadlineBefore=g_coverDeadline.load(),armedBefore=g_coverArmedAt.load();
+    g_coverWorker=Now()-2000;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);
+    g_coverWorker=workerBefore;g_coverDeadline=Now();CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);
+    g_coverDeadline=deadlineBefore;g_coverArmedAt=Now()-5001;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);
+    g_coverArmedAt=armedBefore;g_disabled=1;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);g_disabled=0;
+    CoverPresented(ticket,1,0);CHECK(hf::coveredToken==42 && CoverCaptures(Now()));
+    uint8_t allKeys[256]{};allKeys[DIK_W]=0x80;allKeys[DIK_SPACE]=0x80;KeyFeed(allKeys,false);
+    CHECK(!allKeys[DIK_W] && !allKeys[DIK_SPACE]);
+    XINPUT_STATE coverPad{};coverPad.Gamepad.wButtons=XINPUT_GAMEPAD_A;coverPad.Gamepad.sThumbLX=20000;
+    PadFeed(0,&coverPad,false);CHECK(!coverPad.Gamepad.wButtons && !coverPad.Gamepad.sThumbLX);
+    // Worker loss must pass input even before another Present executes.
+    g_coverWorker=Now()-2000;coverPad.Gamepad.wButtons=XINPUT_GAMEPAD_A;
+    PadFeed(0,&coverPad,false);CHECK(coverPad.Gamepad.wButtons==XINPUT_GAMEPAD_A);
+    g_coverWorker=Now();g_coverCancel=false;g_pad[0].prev=0;
+    coverPad.Gamepad.wButtons=XINPUT_GAMEPAD_B;PadFeed(0,&coverPad,false);
+    CHECK(g_coverCancel && !coverPad.Gamepad.wButtons);
+    coverPad.Gamepad.wButtons=XINPUT_GAMEPAD_B;PadFeed(0,&coverPad,false);CHECK(!coverPad.Gamepad.wButtons);
+    allKeys[DIK_ESCAPE]=0x80;KeyFeed(allKeys,false);CHECK(!allKeys[DIK_ESCAPE]);
+    allKeys[DIK_ESCAPE]=0x80;KeyFeed(allKeys,false);CHECK(!allKeys[DIK_ESCAPE]);
+    OnPresentImpl();CHECK(!g_coverToken && !g_open && !g_pad[0].latch);
+    OnPresentImpl();CHECK(!g_coverToken && !g_open); // same stale active token cannot resurrect
+    hf::view.coverToken=43;hf::view.workerTickMs=Now();OnPresentImpl();CHECK(g_coverToken==43);
+    g_coverPresented=Now()-2000;OnPresentImpl();CHECK(!g_coverToken && !g_open); // stale rendered cover cannot persist over live input
     g_rematchSession=0;
     puts("ALL PASSED: real settings pages, legacy order, back priority, paging, keys and pad isolation");
     return 0;

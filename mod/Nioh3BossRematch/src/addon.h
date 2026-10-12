@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.12"
+#define ADDON_VERSION "1.4.13"
 
 namespace addon {
 
@@ -122,6 +122,11 @@ struct UiRow {
 };
 int UiFill(UiRow* rows, int cap, char* footer, size_t nf);
 void UiMove(int dir);
+struct CoverInfo { uint64_t token, deadline; uint32_t phase; char reason[160]; };
+bool UiActHosted();
+bool CoverSnapshot(CoverInfo& out);
+void CoverPresented(uint64_t token);
+void CoverCancel(uint64_t token);
 bool UiAct();   // A; enter child, confirm existing action; true = close
 bool UiBack();  // B; cancel confirmation, then parent; true = close at root
 void UiOpen();

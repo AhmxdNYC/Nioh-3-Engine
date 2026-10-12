@@ -49,6 +49,13 @@ int BridgeSnapshot(uint64_t session, mb::Snapshot* out, uint32_t bytes) {
     *out = g_bridgeSnapshot;
     return mb::Accepted;
 }
+int BridgePresentCover(uint64_t session,uint64_t token) {
+    BridgeTryLock lock;if(!lock.held)return mb::Busy;
+    if(!session||session!=g_bridgeSession)return mb::StaleSession;
+    if(g_bridgeClose || !(g_bridgeSnapshot.flags&mb::CoverActive))return mb::Unavailable;
+    if(!token||token!=g_bridgeSnapshot.coverToken)return mb::StaleGeneration;
+    rematch::CoverPresented(token);return mb::Accepted;
+}
 void PublishHostedModel() {
     rematch::UiRow rows[mb::kMaxRows]{};
     mb::Row next[mb::kMaxRows]{};
@@ -71,6 +78,7 @@ void HostedTick() {
     AcquireSRWLockExclusive(&g_bridgeLock);
     if (g_wnd) ShowWindow(g_wnd, SW_HIDE);
     if (!(g_bridgeSnapshot.flags & mb::HostedReady) || g_bridgeClose) {
+        rematch::CoverCancel(g_bridgeSnapshot.coverToken);
         Toggle(false); g_padEdges.store(0); g_toggleOwner.store(-1); g_owner.store(-1);
         g_latchEpoch.fetch_add(1); g_bridgeQueue.Clear(); g_bridgeClose = false;
         ++g_bridgeSnapshot.generation;
@@ -90,7 +98,7 @@ void HostedTick() {
                 case mb::Right: rematch::UiChange(1); break;
                 case mb::PageUp: rematch::UiMove(-10); break;
                 case mb::PageDown: rematch::UiMove(10); break;
-                case mb::Accept: closeRequested = rematch::UiAct(); break;
+                case mb::Accept: closeRequested = rematch::UiActHosted(); break;
                 case mb::Back: closeRequested = rematch::UiBack(); break;
                 default: break;
             }
@@ -101,6 +109,13 @@ void HostedTick() {
     if (g_bridgeSession) {
         g_bridgeSnapshot.flags = mb::HostedReady | (g_open.load() ? mb::Open : 0u) | (closeRequested ? mb::CloseRequested : 0u);
         if (g_open.load() || closeRequested) PublishHostedModel();
+        rematch::CoverInfo cover{};
+        if(rematch::CoverSnapshot(cover)) {
+            if(g_bridgeSnapshot.coverPhase!=cover.phase || g_bridgeSnapshot.coverToken!=cover.token)++g_bridgeSnapshot.generation;
+            g_bridgeSnapshot.coverPhase=cover.phase;g_bridgeSnapshot.coverToken=cover.token;g_bridgeSnapshot.coverDeadline=cover.deadline;
+            memcpy(g_bridgeSnapshot.coverReason,cover.reason,sizeof(cover.reason));
+            if(cover.phase>=1&&cover.phase<=3)g_bridgeSnapshot.flags|=mb::CoverActive;
+        }
         g_bridgeSnapshot.workerTickMs = GetTickCount64();
     }
     ReleaseSRWLockExclusive(&g_bridgeLock);

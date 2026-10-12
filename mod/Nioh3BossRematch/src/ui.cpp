@@ -344,6 +344,6 @@ extern "C" __declspec(dllexport) int Nioh3RematchMenuGetApi(uint32_t version, ui
     namespace mb = rematch_menu_bridge;
     if (!out || version != mb::kVersion || bytes != sizeof(*out)) return mb::BadVersion;
     *out = {sizeof(*out), mb::kVersion, mb::kRequiredCapabilities, 0,
-        &addon::ui::BridgeAttach, &addon::ui::BridgeDetach, &addon::ui::BridgePost, &addon::ui::BridgeSnapshot};
+        &addon::ui::BridgeAttach, &addon::ui::BridgeDetach, &addon::ui::BridgePost, &addon::ui::BridgeSnapshot, &addon::ui::BridgePresentCover};
     return mb::Accepted;
 }

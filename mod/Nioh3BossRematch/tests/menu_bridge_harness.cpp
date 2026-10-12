@@ -18,6 +18,12 @@ struct UiRow { char text[112]; uint32_t color; bool sel; };
 void UiMove(int n) { model += n; }
 void UiChange(int n) { model += n; }
 bool UiAct() { ++calls; return true; }
+bool UiActHosted(){return UiAct();}
+struct CoverInfo{uint64_t token,deadline;uint32_t phase;char reason[160];};
+CoverInfo cover{};uint64_t acknowledged=0,cancelled=0;
+bool CoverSnapshot(CoverInfo& out){out=cover;return true;}
+void CoverPresented(uint64_t token){acknowledged=token;}
+void CoverCancel(uint64_t token){cancelled=token;}
 bool UiBack() { return true; }
 int UiFill(UiRow* rows, int, char* footer, size_t size) {
     snprintf(rows[0].text, sizeof(rows[0].text), "model %d", model);
@@ -62,6 +68,16 @@ int main() {
     HostedTick(); CHECK(calls == 1 && !g_open);
     CHECK(BridgeSnapshot(session, &s, sizeof(s)) == mb::Accepted && (s.flags & mb::CloseRequested));
     CHECK(BridgePost(session, s.generation - 1, mb::OpenMenu) == mb::StaleGeneration);
+    rematch::cover.token=77;rematch::cover.deadline=GetTickCount64()+90000;rematch::cover.phase=1;
+    HostedTick();
+    CHECK(BridgeSnapshot(session,&s,sizeof(s))==mb::Accepted && (s.flags&mb::CoverActive));
+    CHECK(BridgePresentCover(session+1,77)==mb::StaleSession && !rematch::acknowledged);
+    CHECK(BridgePresentCover(session,78)==mb::StaleGeneration && !rematch::acknowledged);
+    CHECK(BridgePresentCover(session,77)==mb::Accepted && rematch::acknowledged==77);
+    CHECK(BridgePost(session,0,mb::CloseMenu)==mb::Accepted);
+    rematch::acknowledged=0;
+    CHECK(BridgePresentCover(session,77)==mb::Unavailable && !rematch::acknowledged);
+    HostedTick();CHECK(rematch::cancelled==77);
     CHECK(BridgeDetach(session) == mb::Accepted);
     CHECK(BridgePost(session, s.generation, mb::Accept) == mb::StaleSession);
     HostedTick(); CHECK(!g_open && g_hostRequested);

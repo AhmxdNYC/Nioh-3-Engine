@@ -5,11 +5,11 @@
 #include <type_traits>
 
 namespace rematch_menu_bridge {
-constexpr uint32_t kVersion = 1;
+constexpr uint32_t kVersion = 2;
 constexpr uint32_t kMaxRows = 24;
 constexpr const char* kExport = "Nioh3RematchMenuGetApi";
 enum Result : int { Accepted = 0, Busy = 1, Unavailable = 2, BadVersion = 3, StaleSession = 4, StaleGeneration = 5, InvalidArgument = 6 };
-enum Flags : uint32_t { HostedReady = 1u, Open = 2u, CloseRequested = 4u };
+enum Flags : uint32_t { HostedReady = 1u, Open = 2u, CloseRequested = 4u, CoverActive = 8u };
 enum Capability : uint32_t { SnapshotV1 = 1u, InputV1 = 2u, ExclusiveHost = 4u };
 constexpr uint32_t kRequiredCapabilities = SnapshotV1 | InputV1 | ExclusiveHost;
 enum Action : uint32_t { OpenMenu = 0, CloseMenu, Up, Down, Left, Right, PageUp, PageDown, Accept, Back };
@@ -26,6 +26,9 @@ struct Snapshot {
     char footer[240];
     char toast[160];
     uint32_t toastColor;
+    uint32_t coverPhase;
+    uint64_t coverToken, coverDeadline;
+    char coverReason[160];
 };
 struct Api {
     uint32_t size;
@@ -42,6 +45,7 @@ struct Api {
     int (*Post)(uint64_t session, uint64_t expectedGeneration, uint32_t action);
     // Caller initializes size/version. Never partial-copy; Busy preserves caller buffer.
     int (*CopySnapshot)(uint64_t session, Snapshot* out, uint32_t bytes);
+    int (*PresentCover)(uint64_t session, uint64_t token);
 };
 using GetApi = int (*)(uint32_t version, uint32_t bytes, Api* out);
 // All function pointers use platform x64 C calling convention. Query exported with
@@ -50,7 +54,7 @@ using GetApi = int (*)(uint32_t version, uint32_t bytes, Api* out);
 inline bool ValidAction(uint32_t action) { return action <= Back; }
 inline bool ValidApi(const Api& a) {
     return a.size == sizeof(Api) && a.version == kVersion && a.reserved == 0 &&
-        (a.capabilities & kRequiredCapabilities) == kRequiredCapabilities && a.Attach && a.Detach && a.Post && a.CopySnapshot;
+        (a.capabilities & kRequiredCapabilities) == kRequiredCapabilities && a.Attach && a.Detach && a.Post && a.CopySnapshot && a.PresentCover;
 }
 template<size_t N> inline bool Terminated(const char (&text)[N]) {
     for (size_t i = 0; i < N; ++i) if (!text[i]) return true;
@@ -58,10 +62,11 @@ template<size_t N> inline bool Terminated(const char (&text)[N]) {
 }
 inline bool ValidSnapshot(const Snapshot& s, uint64_t session) {
     if (!session || s.size != sizeof(Snapshot) || s.version != kVersion || s.session != session ||
-        !s.generation || s.rowCount > kMaxRows || (s.flags & ~(HostedReady | Open | CloseRequested)) ||
-        !Terminated(s.footer) || !Terminated(s.toast)) return false;
+        !s.generation || s.rowCount > kMaxRows || (s.flags & ~(HostedReady | Open | CloseRequested | CoverActive)) ||
+        !Terminated(s.footer) || !Terminated(s.toast) || !Terminated(s.coverReason) || s.coverPhase>6) return false;
     if ((s.flags & HostedReady) && !s.workerTickMs) return false;
     if ((s.flags & Open) && !(s.flags & HostedReady)) return false;
+    if ((s.flags & CoverActive) && (!(s.flags & HostedReady) || !s.coverToken || !s.coverDeadline || s.coverPhase<1 || s.coverPhase>3)) return false;
     for (uint32_t i = 0; i < s.rowCount; ++i)
         if (!Terminated(s.rows[i].text) || s.rows[i].selected > 1) return false;
     return true;
@@ -85,8 +90,8 @@ template<size_t Capacity = 32> struct Queue {
 };
 static_assert(std::is_standard_layout<Row>::value && std::is_standard_layout<Snapshot>::value && std::is_standard_layout<Api>::value, "POD ABI");
 static_assert(sizeof(Row) == 120 && offsetof(Snapshot, rows) == 40, "fixed row layout");
-static_assert(sizeof(Snapshot) == 3328, "x64 snapshot size");
+static_assert(sizeof(Snapshot) == 3504, "x64 snapshot size");
 #if INTPTR_MAX == INT64_MAX
-static_assert(sizeof(Api) == 48, "x64 API size");
+static_assert(sizeof(Api) == 56, "x64 API size");
 #endif
 } // namespace rematch_menu_bridge

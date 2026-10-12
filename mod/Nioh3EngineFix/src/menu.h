@@ -1,3 +1,4 @@
+#include "cover_present.h"
 // menu.h - in-game mod menu of Nioh3EngineFix (F10 / Escape x3 / Start x3, configurable), drawn by the OSD (osd.cpp).
 // Grouped pages by default; B/Esc returns to the parent, root closes. LB/RB or PgUp/PgDn pages; Layout=0 keeps the flat menu.
 //
@@ -122,6 +123,8 @@ void OnPresent();
 // quads were laid out for (0 = nothing drawn); osd draws them with that scale.
 float Draw(unsigned W, unsigned H);
 bool IsOpen();
+cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t contextGeneration);
+void CoverPresented(const cover_present::Ticket& ticket,uint64_t currentGeneration,int32_t result);
 // why the game is paused right now (any thread; set by the Present thread): 0 none, 1 a game menu is open (the engine's own
 // "menu open" getters 0x5A37D4 / 0xD63C0), 2 game time stopped (stop flags 58B / 58C), 3 loading (58A)
 int GamePauseReason();
