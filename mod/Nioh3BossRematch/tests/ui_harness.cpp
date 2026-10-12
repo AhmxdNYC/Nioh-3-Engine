@@ -127,6 +127,19 @@ int main() {
     g_cfg.fightWarp=true; g_warpOk=true; practice.arenaOk=true; g_confirm=-9; g_sel=0;
     CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqFight); g_req=0;
     // Actual hosted confirmation stages only; no request before exact presentation ACK.
+    const Row originalPractice=practice;
+    practice.missionId=0x1A5E;practice.fightStart=5021112;practice.placement=5027806;
+    g_coverReadOk=true;
+    mission=0x1A5E;memcpy(ms+0x28,&mission,4);
+    CHECK(!CoverBegin(0)&&!g_req&&!g_cover.Active());
+    const uint64_t originalMS=G_MS;G_MS=0;
+    CHECK(!CoverBegin(0)&&!g_req&&!g_cover.Active());G_MS=originalMS;
+    mission=0x1111;memcpy(ms+0x28,&mission,4);
+    CHECK(CoverBegin(0)&&!g_req);
+    // Current source may change while presentation is pending: recheck before Post.
+    CoverPresented(g_cover.token);mission=0x1A5E;memcpy(ms+0x28,&mission,4);
+    CoverTick(ReadSnap(),Ms());CHECK(g_cover.phase==transition_cover::Failed&&!g_req);
+    g_cover={};g_coverHostAt=0;practice=originalPractice;mission=0x1111;memcpy(ms+0x28,&mission,4);
     g_coverReadOk=true; g_confirm=-9;
     g_attempt={};g_attemptSequence=7; // normal return resets record, never monotonic admission counter
     CHECK(!UiActHosted() && !UiActHosted() && !g_req);

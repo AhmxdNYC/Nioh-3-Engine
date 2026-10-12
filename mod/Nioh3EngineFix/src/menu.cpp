@@ -2350,10 +2350,21 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     if(g_coverToken.load() && !g_coverCancel.load() && g_coverEnabled.load()) {
         if(!osd::DrawCoverRect((float)W,(float)H))return 0;
-        const float scale=2.0f;
-        osd::DrawText(40.0f,(float)H*0.45f,"Loading boss fight...",0xFFFFFFFF,scale);
-        osd::DrawText(40.0f,(float)H*0.45f+48.0f,g_rematchView.coverReason,0xFFBBBBBB,1.0f);
-        osd::DrawText(40.0f,(float)H-50.0f,"B / Escape: dismiss cover (does not cancel the native request)",0xFFBBBBBB,1.0f);
+        const float scale=W<960?1.25f:2.0f;
+        const float x=(float)W*0.06f,y=(float)H*0.43f;
+        const float width=(float)W*0.72f<640.0f?(float)W*0.72f:640.0f;
+        osd::DrawText(x,y,"Loading boss rematch",0xFFFFFFFF,scale);
+        // Indeterminate activity, never a fabricated asset/time percentage.
+        // Stage labels derive only from the coherent provider phase.
+        const float travel=width*0.78f;
+        const float cycle=(float)(Now()%1800)/900.0f;
+        const float offset=travel*(cycle<=1.0f?cycle:2.0f-cycle);
+        osd::DrawRect(x,y+52.0f,width,8.0f,0xFF3A3A3A);
+        osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
+        const char* stage=g_rematchView.coverPhase==1?"Preparing...":
+            (g_rematchView.coverPhase==2?"Starting rematch...":"Entering boss arena...");
+        osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
+        osd::DrawText(x,(float)H-50.0f,"B / Escape: show game",0xFFBBBBBB,1.0f);
         g_coverDrawnToken=g_coverToken.load();return scale;
     }
 

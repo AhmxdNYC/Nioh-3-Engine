@@ -1601,6 +1601,13 @@ bool CoverBegin(int row,uint64_t* token=nullptr) {
     CoverLock lock;if(!lock.held)return false;
     if(!g_coverReadOk)return false;
     const Row& r=g_rows[(size_t)row];
+    if(r.missionId==0x1A5E && r.fightStart==5021112 && r.placement==5027806) {
+        const Snap source=ReadSnap();
+        if(!source.msOk || source.ms28==r.missionId) {
+            Log("Rematch: covered dojo entry refused: leave the current dojo before starting a fresh encounter");
+            return false;
+        }
+    }
     const bool started=g_cover.Begin(++g_coverNext,(uint32_t)row,r.missionId,r.fightStart,r.placement,Ms());
     if(started){g_coverHostAt=0;g_coverControl=g_coverAlgo=g_coverLife=g_coverPlayer=false;g_coverSampleAt=0;Log("Rematch: cover token=%llu phase=%u attempt=0 event=begin mission=0x%X start=%u placement=%u",g_cover.token,(unsigned)g_cover.phase,r.missionId,r.fightStart,r.placement);}
     if(started&&token)*token=g_cover.token;
@@ -1619,6 +1626,9 @@ void CoverTick(const Snap& s, ULONGLONG) {
         Log("Rematch: cover token=%llu phase=%u attempt=0 event=present_ack",g_cover.token,(unsigned)g_cover.phase);
         if(g_req.load() || g_pend){g_cover.End(transition_cover::Failed,"Another request is pending; no transition request sent");return;}
         if(const char* why=Gates(s,false)){g_cover.End(transition_cover::Failed,why);return;}
+        if(g_cover.PreplacedRoute() && (!s.msOk || s.ms28==g_cover.mission)) {
+            g_cover.End(transition_cover::Failed,"Leave this dojo before starting another rematch");return;
+        }
         if(g_cover.Issue(g_attemptSequence+1)){
             Log("Rematch: cover token=%llu phase=%u attempt=%llu event=native_post",g_cover.token,(unsigned)g_cover.phase,g_cover.attempt);
             Post(kReqFight,(int)g_cover.row,"presented hosted cover");
@@ -1648,10 +1658,13 @@ void CoverTick(const Snap& s, ULONGLONG) {
     g_coverPlayer=playerReady;g_coverControl=controlReady;g_coverAlgo=actor.known&&actor.present&&actor.algoReady;g_coverLife=lifeReady;g_coverSampleAt=t;
     if(!controlReady)g_cover.reason="Waiting for player control restrictions to clear";
     else if(!bossReady)g_cover.reason="Waiting for the requested boss to be ready";
+    const bool hadPlacement=g_cover.placementEntry;
     g_cover.Observe(t,g_attempt.sequence,g_attempt.evidence==aMatched&&g_attempt.mission==g_cover.mission,
         g_attemptPhase==aQuarantined,NativeGate(s)==nullptr,
         s.msOk && s.ms28==g_cover.mission && s.ms14==g_cover.start,
         s.st[2]!=0,s.player,s.st[3]||s.st[4],fight::g_active!=0,controlReady,bossReady);
+    if(!hadPlacement && g_cover.placementEntry)
+        Log("Rematch: cover token=%llu attempt=%llu event=existing_actor mission=0x%X start=%u actor=%u",g_cover.token,g_cover.attempt,s.ms28,s.ms14,g_cover.observedPlacement);
 }
 void HkCoverCreate(uint64_t placement,uint64_t,uint64_t,uint64_t,const uint64_t*) {
     CoverLock lock;if(!lock.held)return;

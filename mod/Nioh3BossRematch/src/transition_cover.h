@@ -34,6 +34,7 @@ struct Model {
     }
     void Cancel(uint64_t id){if(id==token&&Active())End(Cancelled,"Transition cover cancelled; native request is not cancelled");}
     bool BranchRoute() const { return mission==0x1DEA && start==4095000 && placement==4092708; }
+    bool PreplacedRoute() const { return mission==0x1A5E && start==5021112 && placement==5027806; }
     bool AllowsPlacement(uint32_t p) const {
         // D38178C9B28E: mission flag187 / parallel mission chooses the shipped
         // Souji or Yoshinobu-only entrance. This is not a general multi-boss list.
@@ -60,6 +61,14 @@ struct Model {
         if(uncertain||sequence>attempt){End(Failed,"Native request refused or uncertain; recovery remains owned");return;}
         if(sequence==attempt&&matched)phase=Loading;
         if(phase!=Loading){if(now-requestedAt>=10000)End(Failed,"Native request was not admitted; no automatic retry");return;}
+        // BFC230194A06 TeacherZakoRushCommon uses the already materialized
+        // Duel boss, not Character::Create. bossReady is the caller's exact
+        // placement double-read + active algorithm + native not-dead predicate.
+        // Only this fresh mission entry may substitute that current observation.
+        if(PreplacedRoute() && sequence==attempt && matched && valid && exactMission &&
+           !loading && player && !paused && fightActive && controlReady && bossReady && bossEntry) {
+            observedPlacement=placement;placementEntry=true;
+        }
         if(sequence==attempt && valid && exactMission && encounterObserved && loading) {
             End(Failed,"Encounter reloaded during transition; native recovery remains owned");return;
         }

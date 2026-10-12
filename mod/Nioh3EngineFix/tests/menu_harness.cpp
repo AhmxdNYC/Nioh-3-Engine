@@ -1,6 +1,8 @@
 // Exercise the real menu.cpp model and input feed; no game, graphics, hooks or files.
 #include "../src/menu.cpp"
 #include <cstdlib>
+#include <string>
+#include <vector>
 
 namespace osd {
 OverlaySettings& Overlay() { static OverlaySettings o; return o; }
@@ -15,9 +17,12 @@ FgStatus FrameGen() { return {}; }
 const char* FgTypeName(int) { return "OFF"; }
 const char* FgReason(const FgStatus&) { return nullptr; }
 void NoteFgSwitch() {}
-void DrawRect(float, float, float, float, uint32_t) {}
+struct Rect { float x,y,w,h; };
+std::vector<Rect> drawnRects;
+std::vector<std::string> drawnTexts;
+void DrawRect(float x, float y, float w, float h, uint32_t) { drawnRects.push_back({x,y,w,h}); }
 bool DrawCoverRect(float,float){return true;}
-float DrawText(float x, float, const char*, uint32_t, float) { return x; }
+float DrawText(float x, float, const char* text, uint32_t, float) { drawnTexts.emplace_back(text);return x; }
 }
 namespace gpuopt {
 State GetState() { return State::Off; }
@@ -223,6 +228,20 @@ int main() {
     hf::view.flags|=rmb::CoverActive;hf::view.coverToken=42;hf::view.coverPhase=1;hf::view.coverDeadline=Now()+90000;
     OnPresentImpl();CHECK(g_coverToken==42 && !hf::coveredToken);
     CHECK(DrawImpl(1280,720)>0);
+    strcpy_s(g_rematchView.coverReason,"INTERNAL DIAGNOSTIC MUST NOT BE DISPLAYED");
+    for(unsigned width:{640u,1280u,2560u}) {
+        const unsigned height=width*9/16;
+        for(uint32_t phase:{1u,2u,3u}) {
+            g_rematchView.coverPhase=phase;osd::drawnRects.clear();osd::drawnTexts.clear();
+            CHECK(DrawImpl(width,height)>0 && g_coverDrawnToken==42);
+            CHECK(osd::drawnRects.size()==2 && osd::drawnTexts.size()==3);
+            for(const auto& r:osd::drawnRects)CHECK(r.x>=0&&r.y>=0&&r.w>0&&r.h>0&&r.x+r.w<=width&&r.y+r.h<=height);
+            CHECK(osd::drawnTexts[0]=="Loading boss rematch");
+            CHECK(osd::drawnTexts[1]==(phase==1?"Preparing...":phase==2?"Starting rematch...":"Entering boss arena..."));
+            for(const auto& text:osd::drawnTexts)CHECK(text.find("INTERNAL")==std::string::npos&&text.find('%')==std::string::npos);
+        }
+    }
+    g_rematchView.coverPhase=1;
     cover_present::Ticket ticket{CoverDrawn(9,1),true,true,false};
     auto rejectedTicket=ticket;rejectedTicket.testPresent=true;CoverPresented(rejectedTicket,1,0);CHECK(!hf::coveredToken);
     rejectedTicket=ticket;rejectedTicket.outermost=false;CoverPresented(rejectedTicket,1,0);CHECK(!hf::coveredToken);
