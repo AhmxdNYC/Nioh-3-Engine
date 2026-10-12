@@ -30,6 +30,7 @@ foreach ($case in @('success','second-stage','restore','foreign','close','prefli
         $candidates[$names[$i]]=@{path=$src;hash=(C72-BinaryHash $src)}
     }
     $script:fault=''; $script:closed=0; $script:released=0
+    $script:c72FinalState=$null # Independent transaction, not a retry of the previous fixture.
     $script:cleaned=$false; $script:touched=$false; $script:entry=$null; $script:saveHandles=$null
     $script:held=New-Object 'System.Collections.Generic.List[string]'; $script:held.Add('nioh3-pc')
     $script:result=@{status='FIXTURE';error=$null;binaries_restored=$false}
