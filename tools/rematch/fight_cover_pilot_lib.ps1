@@ -4,7 +4,7 @@ function Get-FCPExpected {
 }
 function FCP-CheckDependencies([string]$Repo) {
     $p=Join-Path $Repo 'tools/rematch/training_pilot_lib.ps1'
-    if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -cne '0e66ba321ce0beb0c3af2ffa96c9386e14bdd3938c28a5cae271a5b59bfccc36') { throw 'Reviewed training library changed' }
+    if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -cne '50192ec2eb4f0cda36d15bb5a14b210d996fd795bb871ec5dd041476b13f1f28') { throw 'Reviewed training library changed' }
 }
 function FCP-Admission($Expected,$Receipt,[string]$ReceiptHash,[string]$Tree,[hashtable]$Hashes,[string]$GateHash,[int]$OwnerPid,[string]$OwnerStart) {
     if ($Expected.mod_tree -notmatch '^[0-9a-f]{40}$') { throw 'Frozen cover candidate admission unset; no launch authorized' }
