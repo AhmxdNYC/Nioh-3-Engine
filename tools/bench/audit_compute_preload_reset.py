@@ -6,6 +6,11 @@ from audit_compute_cache_lifetime import verify
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 
 WINDOWS = [
+    (0x11022fc, 0x2b8, "9c1bfc353e57cef86471d488d7f1facc8576b7edbc5fc31ede11f7f15cf467c1"),
+    (0x2948b48, 0x8c, "908a173c33be17371589dfbad46fde520b1d08672247e81497f0ce3edc6f7ba9"),
+    (0x2947ed8, 0x79, "cc7cb9ca8861ad8676e3cd2156c767c08724578051c49f5357183145dd63bf3a"),
+    (0x2948b2c, 0x1a, "0310765cbe86cf27976d85d66b4b60212956ea2d1a2efd7fd9eb47a7449c00f0"),
+    (0x2002a0, 0x4, "85c65a0003b0225546ba37cd5c58b2ba1bcfad2a259eb9019dc1caa892b64fc7"),
     (0x3aad6c8, 0x68, "a517aa1fcd21801546fd3df3206250cb3ae60d7b55259d3bd8f6ee45f5f706c5"),
     (0x11030a0, 0x3, "e18aacce29affcdddaa5f641ac1ec12552e0fe9d066e6408941b1792818b8619"),
     (0x1ff92e, 0x209, "92e302de5d8edd4130e5de1cdd577baec29083bf73b73e055ce0e41947ccfb0f"),
@@ -48,6 +53,15 @@ def main():
                 raise AssertionError("changed native window admitted")
             decoded.update({i.address: (i.mnemonic, i.op_str) for i in md.disasm(body, rva)})
     checks = {
+        0x1102466: ("cmp", "byte ptr [r14 + 0x24e], r12b"),
+        0x110248e: ("call", "0xb614a8"),
+        0x1102506: ("inc", "qword ptr [r14 + 0x1e0]"),
+        0x110252e: ("call", "0xb61524"),
+        0x2948b55: ("mov", "byte ptr [rcx + 0x24e], 0"),
+        0x2948b5c: ("call", "0x2947ed8"),
+        0x2947f05: ("mov", "byte ptr [rcx + 0x56], 1"),
+        0x2948b81: ("mov", "byte ptr [rax + 0x56], 1"),
+        0x2002a0: ("movzx", "eax, byte ptr [rcx + 0x56]"),
         0x11030a0: ("mov", "al, 1"),
         0x1ff942: ("mov", "eax, dword ptr [rax + 0x6b4]"),
         0x1ffaba: ("mov", "qword ptr [rcx], rbx"),
