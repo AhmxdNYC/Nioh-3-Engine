@@ -15,7 +15,7 @@ Both are routeR, native mission-start encounters with Hattori Hanzo in the catal
 
 ## Exact request contract
 
-Use the existing addon's **Shrine before the boss** action for the chosen row, or its existing `shrine RC362` / `shrine RE18C` command in a separately authorized observer harness. Despite the generic action label, these rows start at their native mission-start encounter. This dispatches `ExecDirect(row,s,t,true,false)`; do not add a raw native call or pass a guessed journey.
+Correction against frozen e9941b4: use **Fight now** for these already-at-fight rows, or existing `fight RC362` / `fight RE18C` in a separately authorized harness. `ExecDirect:892` and `CanShrine:1853` reject Shrine for atFight rows; the previous shrine instructions here are superseded. Fight dispatches `ExecDirect(row,s,t,true,true)`; atFight suppresses warp/spawn and gate injection (`:945,951,963`). Do not add a raw native call or pass a guessed journey.
 
 The native call is `MissionRequestById(mission, currentJourneyByte, start, params)`, existing wrapper in candidate `rematch.cpp:395`. Params are16-byte-aligned `uint32_t[8] {0x101,0x1000000,0x10100,0,0,0,0,0}`; native reads24 bytes. `ExecDirect:879` first resolves owned spawn/map recovery, checks attempt admission, requires FightNow/FNOW/start availability, rechecks `ClearedNow` on the current journey, and reads the byte at `[[G_MS]+8]+0x10`. A catalogue region byte is **not** that journey byte.
 
@@ -31,7 +31,7 @@ One explicitly authorized native death/retry should produce a fresh load and ret
 
 ## Exact return and ownership
 
-Generic native `exit`/existing leave action is the appropriate return for these **generic shrine** starts. The new **Return from practice** UI is Yamagata-specific and intentionally refuses them; do not bypass its ownership gate or use it as a generic return API.
+Generic native `exit`/existing leave action is the appropriate return for these **native at-fight** starts. The new **Return from practice** UI is Yamagata-specific and intentionally refuses them; do not bypass its ownership gate or use it as a generic return API.
 
 Before one return, require the selected current mission/start, readable native EXIT/session gates and settled active attempt; the native wrapper remains authoritative. Capture a new log boundary, issue once, distinguish queue acknowledgement from `MissionRequestReturn(params,1) ... -> requested`, then require the later native `replay mission exited` log and idle/player/nonloading/gateok telemetry matching the **original entry tuple**. Original mission0 is allowed only when so bound. Any refusal, exception, quarantined state, replaced log prefix or timeout blocks another request. Restore saves, INIs and exact binary ownership through the existing lifecycle finalizer; unresolved recovery retains its record.
 
