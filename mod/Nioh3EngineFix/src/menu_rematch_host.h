@@ -43,7 +43,7 @@ void StartRematchHostResolver() {
     if (HANDLE th = CreateThread(nullptr, 0, ResolveRematchHost, nullptr, 0, nullptr)) CloseHandle(th);
     else g_rematchResolverStarted.store(false);
 }
-bool RefreshRematchHost(ULONGLONG now) {
+bool RefreshRematchHost(ULONGLONG) {
     const uint64_t session = g_rematchSession.load(std::memory_order_acquire);
     if (!session) return false;
     if (g_rematchClosePending && g_rematchApi.Post(session, 0, rmb::CloseMenu) == rmb::Accepted) g_rematchClosePending = false;
@@ -53,6 +53,7 @@ bool RefreshRematchHost(ULONGLONG now) {
         if (g_rematchAwait && fresh.generation != g_rematchSentGeneration) g_rematchAwait = false;
         if (fresh.flags & rmb::Open) g_rematchOpened = true;
     }
+    const ULONGLONG now=GetTickCount64(); // clock after the worker snapshot, not before CopySnapshot
     return g_rematchFreshAt && now >= g_rematchFreshAt && now - g_rematchFreshAt < 1500 &&
         (!g_rematchAwait || now - g_rematchAwaitAt < 1500) && (g_rematchView.flags & rmb::HostedReady);
 }
@@ -75,11 +76,12 @@ void CloseRematchHostPage() {
 std::atomic<uint64_t> g_coverToken{0},g_coverSession{0},g_coverWorker{0},g_coverPresented{0},g_coverDeadline{0},g_coverArmedAt{0},g_coverTombstone{0},g_coverTombstoneSession{0},g_coverCancelUntil{0};
 std::atomic<bool> g_coverCancel{false},g_coverEnabled{false};
 uint64_t g_coverDrawnToken=0;
-bool CoverCaptures(uint64_t now) {
+bool CoverCaptures(uint64_t) {
     if(!menu::Enabled())return false;
     cover_present::InputLease lease{g_coverToken.load(),g_coverSession.load(),g_coverWorker.load(),g_coverPresented.load(),g_coverDeadline.load(),g_coverEnabled.load(),g_coverCancel.load()};
+    const uint64_t armed=g_coverArmedAt.load();
+    const uint64_t now=GetTickCount64(); // copied heartbeat/lease may be newer than caller's input timestamp
     if(!lease.presentedMs) {
-        const uint64_t armed=g_coverArmedAt.load();
         return lease.enabled&&!lease.cancelled&&lease.token&&lease.session&&armed&&now>=armed&&now-armed<5000&&
             now<lease.deadlineMs&&cover_present::Fresh(lease.workerMs,now,1500);
     }

@@ -189,6 +189,13 @@ int main() {
     hf::view.workerTickMs=Now();
     g_rematchApi={sizeof(rmb::Api),rmb::kVersion,rmb::kRequiredCapabilities,0,hf::Attach,hf::Detach,hf::Post,hf::Copy,hf::Covered};
     g_rematchSession=7;
+    const uint64_t beforeCopy=Now();while(Now()<=beforeCopy)Sleep(1);
+    hf::view.workerTickMs=Now();
+    CHECK(RefreshRematchHost(beforeCopy)); // worker legitimately published after caller sampled time
+    hf::view.workerTickMs=Now()+60000;CHECK(!RefreshRematchHost(Now()));
+    hf::view.workerTickMs=Now()-1500;CHECK(!RefreshRematchHost(Now()));
+    hf::view.workerTickMs=Now();CHECK(RefreshRematchHost(Now()));
+
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     CHECK(found);
@@ -223,6 +230,7 @@ int main() {
     CoverPresented(ticket,1,1);CHECK(!hf::coveredToken); // OCCLUDED/non-S_OK
     CoverPresented(ticket,2,0);CHECK(!hf::coveredToken); // stale context
     const uint64_t workerBefore=g_coverWorker.load(),deadlineBefore=g_coverDeadline.load(),armedBefore=g_coverArmedAt.load();
+    g_coverWorker=Now()+60000;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);
     g_coverWorker=Now()-2000;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);
     g_coverWorker=workerBefore;g_coverDeadline=Now();CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);
     g_coverDeadline=deadlineBefore;g_coverArmedAt=Now()-5001;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);

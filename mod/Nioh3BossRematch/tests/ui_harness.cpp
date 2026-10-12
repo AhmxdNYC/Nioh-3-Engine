@@ -133,9 +133,22 @@ int main() {
     CoverInfo cover{};CHECK(CoverSnapshot(cover) && cover.phase==transition_cover::AwaitPresent);
     const uint64_t coverToken=cover.token;
     CoverPresented(coverToken+1);CoverTick(ReadSnap(),Ms());CHECK(!g_req);
-    CoverPresented(coverToken);CoverTick(ReadSnap(),Ms());
+    // Tick sampled time before a concurrent successful covered Present acquired
+    // the cover lock. The historical tick timestamp must not age that newer ACK.
+    const uint64_t cachedTick=g_cover.requestedAt;
+    while(Ms()<=cachedTick)Sleep(1);
+    CoverPresented(coverToken);CHECK(g_coverHostAt>cachedTick);
+    CoverTick(ReadSnap(),cachedTick);
     CHECK((g_req.load()&0xFF)==kReqFight && g_cover.issued && g_cover.attempt==8);
     g_attempt.sequence=8;g_sp.st=3;g_sp.rec=0x12345678;g_sp.origFlags=73;
+    const auto activeCover=g_cover;
+    g_coverHostAt=Ms()+60000;CoverTick(ReadSnap(),Ms());CHECK(g_cover.phase==transition_cover::Failed);
+    g_cover=activeCover;g_coverHostAt=Ms()-1500;CoverTick(ReadSnap(),Ms());CHECK(g_cover.phase==transition_cover::Failed);
+    g_cover=activeCover;g_coverHostAt=Ms();g_lastTick=Ms()+60000;
+    CHECK(CoverSnapshot(cover) && cover.phase==transition_cover::Failed);
+    g_cover=activeCover;g_coverHostAt=Ms();g_lastTick=Ms()-1500;
+    CHECK(CoverSnapshot(cover) && cover.phase==transition_cover::Failed);
+    g_cover=activeCover;g_coverHostAt=Ms();g_lastTick=Ms();
     CoverCancel(coverToken);CHECK(CoverSnapshot(cover) && cover.phase==transition_cover::Cancelled);
     CHECK((g_req.load()&0xFF)==kReqFight && g_attempt.sequence==8 && g_sp.st==3 && g_sp.rec==0x12345678 && g_sp.origFlags==73); // presentation cancel retains native recovery
     g_sp={};g_attempt={};

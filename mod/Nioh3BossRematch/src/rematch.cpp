@@ -1605,8 +1605,11 @@ bool CoverBegin(int row) {
     if(started){g_coverHostAt=0;g_coverControl=g_coverAlgo=g_coverLife=g_coverPlayer=false;g_coverSampleAt=0;Log("Rematch: cover token=%llu phase=%u attempt=0 event=begin mission=0x%X start=%u placement=%u",g_cover.token,(unsigned)g_cover.phase,r.missionId,r.fightStart,r.placement);}
     return started;
 }
-void CoverTick(const Snap& s, ULONGLONG t) {
+void CoverTick(const Snap& s, ULONGLONG) {
     CoverLock lock;if(!lock.held)return;
+    // Tick's entry time can precede a concurrently accepted Present/Begin.
+    // Sample after ownership of the cover state; genuine future stamps still fail.
+    const ULONGLONG t=Ms();
     g_cover.Expire(t);
     if(g_cover.Active() && g_coverHostAt && (t<g_coverHostAt || t-g_coverHostAt>=1500))
         g_cover.End(transition_cover::Failed,"Cover renderer stale; native recovery remains owned");
@@ -1938,10 +1941,10 @@ int Items(int* out, int cap) {
 
 bool CoverSnapshot(CoverInfo& out) {
     CoverLock lock;if(!lock.held)return false;
+    const uint64_t pump=g_lastTick.load();
     const uint64_t now=Ms();g_cover.Expire(now);
     if(g_cover.Active() && g_coverHostAt && (now<g_coverHostAt || now-g_coverHostAt>=1500))
         g_cover.End(transition_cover::Failed,"Cover renderer stale; native recovery remains owned");
-    const uint64_t pump=g_lastTick.load();
     if(g_cover.Active() && g_cover.issued && (!pump || now<pump || now-pump>=1500))
         g_cover.End(transition_cover::Failed,"Native update owner stale; recovery remains owned");
     static uint64_t loggedToken=0;static uint32_t loggedPhase=0;
