@@ -1,7 +1,8 @@
 # PB2 PS7dcfe3de: exact binding and UV hoist probe
 
 Private offline work only. No shader staging, installation, native admission or
-FPS claim. Codegen comparison waits for the lead's local-game-closed notice.
+FPS claim. Fresh original/candidate gfx1103 codegen completed after the lead
+confirmed game closure and restoration.
 
 ## Input and concrete candidate
 
@@ -44,12 +45,61 @@ three actual-body mutants (wrong UV component, wrong SRV register and changed
 clamp constant) fail. Two input mutations also fail the exact module binding.
 No resource or memory validity assumption is added by this pure-op rewrite.
 
+Signed assembly, fresh body equality and ISG1/OSG1/PSV0/SFI0 equality PASS.
+The certificate also checks the actual signed candidate, not just source IR.
+Finite full-output checks: 256 pixels across four shared resource scenes,
+all 10 blocks covered, output/discard/UAV logs identical. This is supplementary
+finite evidence, not universal float/resource verification.
+
+The unmodified old `verify_sfb.py` initially mismatched because it creates each
+scene from that module's debug resource names; reassembly strips those names.
+An actual oracle trace isolated the difference to the first sampler's name
+(`sBindlessSamplerState@s0` versus `@s0`), with identical remaining operands.
+The new check creates both independent scenes from the original binding table.
+No shader instruction changed to hide the mismatch; the shared resource binding
+is necessary to compare the same program inputs. Existing oracle limits remain.
+
 The structural argument assumes identical deterministic dx.op behavior for
 identical operands and unobservable evaluation of unused pure float results.
 It does not use an algebraic NaN simplification, float tolerance or finite
 random coverage as a universal proof. Native helper-lane behavior and driver
-compilation are not simulated. Signed assembly/body/metadata checks and native
-codegen comparison must pass before considering a next gate.
+compilation are not simulated.
+
+## Fresh emitted result: small viable offline reduction
+
+| gfx1103 offline metric | Original | UV hoist |
+|---|---:|---:|
+| Instructions | 658 | 645 |
+| VALU | 355 | 346 |
+| VGPR / SGPR | 32 / 38 | 32 / 38 |
+| Buffer loads / samples | 17 / 3 | 17 / 3 |
+| Branches / full VMEM waits | 12 / 7 | 12 / 7 |
+| Scratch instructions | 0 | 0 |
+
+The reduction is real emitted work: `v_fract_f32` 6→2, fused
+`v_maxmin_f32` 6→2, `v_mov_b32` 7→5, `v_swap_b32` 2→3,
+`s_delay_alu` 86→83 and `s_waitcnt_depctr` 8→7. Static counts include both
+wrap/clamp branches; do not equate eight fewer static UV instructions with
+eight saved instructions on every lane, or 13/658 with a frame-time gain.
+No memory traffic reduction is claimed. Original code already narrows the
+three material loads with unused fourth dwords to b96, so a DXIL-mask trim
+would be a paper optimization on this compiler.
+
+Candidate SHA256
+`bbd47920e47762776bf232ac49b06f4dd344a35e81b9cb80b14c1ca4bd9b2b34`;
+normalized body
+`8cd2f2b9e1ac1a2422d27665ec90454b7cd23845fb5a96e6c879a40c8ee36138`.
+Original/candidate ISA SHA256:
+`5f9acbc2a7e1e8b845ad1d5010df64f3d5f78f2aa2c736fa9898759eb89f662b` /
+`8d05adf8ba61416dfa5da0243b38e499bcb5ae703d475f243f7e7c042d417cbc`.
+Both compilations used identical generated root and pipeline hashes, recorded
+with compiler hashes in private `binding.json` and `uv-hoist.json`.
+
+Decision: retain for independent review and exact captured-PSO admission,
+not native installation. Next concrete gate is the captured graphics root/PSO
+for this exact PS and paired VS, then a one-record pack with untouched tails
+and all other records identical. Actual Proton codegen and bounded native A/B
+remain required; historical whole-PSO timing is not isolated pixel cost.
 
 ## Reproduction and admission
 

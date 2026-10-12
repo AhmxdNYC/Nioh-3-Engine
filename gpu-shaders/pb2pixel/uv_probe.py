@@ -74,7 +74,7 @@ def main():
     delta.subtract(ops(actual))
     if {k: v for k, v in delta.items() if v} != {"unary.f32": 4, "binary.f32": 8}:
         raise ValueError("unexpected opcode delta")
-    (a.out / "uv-hoist.ll").write_text(actual, encoding="utf-8")
+    (a.out / "uv-hoist.ll").write_bytes(actual.encode())
     result = dict(original_sha256=PS_SHA, candidate_sha256=sha(candidate.read_bytes()),
                   original_body_sha256=BODY_SHA, candidate_body_sha256=sha(dxcom.body(actual).encode()),
                   removed_pure_ops=12, changed_resource_operations=0,
@@ -84,8 +84,12 @@ def main():
         tempfile.tempdir = str(a.out.resolve())
         vs = a.repo / "gpu-shaders/meshvs/work/1559714c.dxbc"
         st, isa = rga_ps.stats(str(vs), str(candidate), "gfx1103")
-        (a.out / "uv-hoist.gfx1103.isa.txt").write_text(isa)
-        result.update(stats=st, isa_sha256=sha(isa.encode()))
+        (a.out / "uv-hoist.gfx1103.isa.txt").write_bytes(isa.encode())
+        result.update(stats=st, isa_sha256=sha(isa.encode()),
+                      rga_sha256=sha(Path(rga_ps.RGA).read_bytes()),
+                      generated_root_sha256=sha(rga_ps.root_sig(actual, dxcom.dumpbin(str(vs))).encode()),
+                      generated_gpso_sha256=sha(rga_ps.gpso(dxcom.dumpbin(str(vs))).encode()),
+                      proof="Exact bound pure subgraph substitution; offline codegen completed, native unadmitted")
     (a.out / "uv-hoist.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
 

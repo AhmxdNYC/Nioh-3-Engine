@@ -3,6 +3,7 @@ import argparse
 import hashlib
 from pathlib import Path
 import re
+import random
 import sys
 
 sys.dont_write_bytecode = True
@@ -52,6 +53,11 @@ def main():
     if uv_probe.sha((a.out / "original.dxbc").read_bytes()) != uv_probe.PS_SHA:
         raise ValueError("container binding failed")
     out = uv_probe.rewrite(ll, S, dxcom)
+    actual_path = a.out / "uv-hoist.dxbc"
+    if actual_path.exists():
+        actual = dxcom.dumpbin(str(actual_path))
+        assert dxcom.body(actual) == dxcom.body(out), "actual candidate differs from exact rewrite"
+        out = actual
     original = certificate(ll, S)
     assert original == certificate(out, S), "resource/output/control mismatch"
     # Mutate the actual candidate text, not a detached mathematical model.
@@ -61,7 +67,22 @@ def main():
     for mutant in mutants:
         assert mutant != out
         assert certificate(mutant, S) != original, "semantic mutation escaped"
-    print("PASS: 10-block resource/output/control certificate; 3 actual-body mutants rejected")
+    if actual_path.exists():
+        import verify_sfb as V
+        A, B = V.psim.PShader(ll, "original"), V.psim.PShader(out, "candidate")
+        coverage = [0] * len(B.m.blocks)
+        for scene in range(4):
+            # Reassembly drops debug resource names. Bind both programs to the
+            # ORIGINAL scene: debug names must not change sampler oracle identity.
+            sca, ua = V.scene_for(ll, random.Random(1000 + scene))
+            scb, ub = V.scene_for(ll, random.Random(1000 + scene))
+            pixels = V.pixels_for(ll, random.Random(1000 + scene), 64)
+            ra, _ = A.run_pixels(sca, pixels)
+            rb, _ = B.run_pixels(scb, pixels, coverage)
+            assert ra == rb, "finite full-output model mismatch"
+            assert [x.writes for x in ua] == [x.writes for x in ub]
+        print("Finite shared-binding model PASS: 256 pixels; blocks covered=" + str(sum(x > 0 for x in coverage)) + "/" + str(len(coverage)))
+    print("PASS: 10-block resource/output/control certificate; 3 actual-body mutants rejected; actual signed candidate checked=" + str(actual_path.exists()))
 
 
 if __name__ == "__main__":
