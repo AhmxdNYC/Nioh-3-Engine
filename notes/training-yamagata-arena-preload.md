@@ -243,11 +243,12 @@ The dynamic consumer's update phase is now exact: call 39E5D6 in
 GameModeUpdateMain 39E4E4 invokes 5BC970, which resolves character manager
 4745348 and calls 5BD168. At 5BD1A0 it drains manager+BC0 through 5BCBAC;
 that iterates pending nodes and invokes 65A8A8 at 5BCBEE. The character task graph
-allocation/enqueue follows later in 5BD168. Existing addon pump executes before
-39E4E4, and the retained game-logic audit establishes the previous MissionThread
-join at the beginning of the logic frame, with its next kick at the end. This is
-a concrete candidate serialization seam, not yet a census of all producer
-callbacks or proof that owner teardown cannot intervene. The main update runs on
+allocation/enqueue follows later in 5BD168. Correction after tracing the actual caller: 565288 calls 39E4E4 first;
+565294 then calls 5A29F0; the addon pump at 56529C precedes its original callee
+3B29E4. Thus the addon pump is AFTER the world update/queue drain, not before it.
+The retained game-logic audit places the previous MissionThread join at frame
+start and the next kick at frame end. None of this by itself proves producer
+exclusion or prevents owner teardown between phases. The main update runs on
 KIDSTaskScheduler0; calling it the operating system's main thread would overstate
 what is proved. Native VM DynamicCreate callbacks remain indirect table entries.
 
@@ -259,3 +260,89 @@ Reusing that path with a guessed selector could target an occupied special slot.
 The destination-owned child route's reservation/resource/lifetime requirements
 therefore remain; no native construction call is ready merely because a cleaner
 map and the queue-consumption phase have been identified.
+
+## Training Ground admission and the unselected-parent limit
+
+For the first native scene switch, retain the current offline/queue/attempt gates
+and request mission6F24/start606826 with the actual current MissionState+10 byte.
+Use the existing exact-entry return transaction. Static replay-list eligibility
+and a default start do not prove that this user's current journey cleared it.
+Pinned clear helper702B64(db,id) finds the mission node, invokes2853FC(db), then
+reads node+38+selectedIndex and ANDs bit1. The selector helper reads db[0]; only
+selector6 substitutes current MissionState+10. Other selectors1..5 select their
+own journey (unrecognized values fall back to1). Therefore a future explicit
+Training Ground preset must verify current-selector provenance, or refuse, before
+using that clear bit as current-journey evidence. Do not alter the clear DB to
+make it pass. Frozen addon catalogue has no admitted 6F24 preset, so this is a
+concrete next scene-entry implementation, not an already available pipe command.
+
+Keeping native training gadgets unselected rules out borrowing an unmaterialized
+dummy as DynamicCreate's parent: 1C0C67E..1C0C68D explicitly requires wrapper[0]
+nonzero. Registering six child wrappers does not supply a live parent. Starting a
+dummy just to obtain its context would violate the selected empty-training-area
+scope and introduce its own native respawn script.
+
+The separate native CreateDirect path can avoid an incumbent parent, but cannot
+be reduced to the existing child queue call. At238CB02 the VM wrapper extracts
+destination script owner+90; +120 supplies ownership to the temporary registered
+wrapper at238CCAF..238CCC3. It allocates a root ID through1C1CB40, constructs and
+initializes the live object through2BFA04 and the following component operations,
+then attaches the native tracked reference and registers via4BC904 before
+destroying the temporary wrapper. No cached source VM owner is valid here.
+
+Root-ID allocation is now mechanically bounded:1C1CB40..1C1CC0E cycles4000..4999
+in manager[0]+16B8, with 1000 occupancy entries at+16BC. For nonzero recorded
+character scalar it checks both registry135B78 and typed live lookup20A93C before
+reuse; on success it writes the requested scalar into that slot. After1000 busy
+checks it returns0. These are global manager-owned reservation writes without
+local locking, not a mod-owned free list. A failed factory/registration must not
+be treated as no mutation. The exact destination script-phase borrow, complete
+initialization and registered-root disposal remain to be closed before invoking
+this adapter. This is preferable research to pretending a special player slot
+or unselected dummy is a valid arbitrary enemy owner.
+
+### Completed-request removal drain located
+
+The previously open BD0 disposal edge is now traced through actual instructions.
+At5BD194, before pending creation drain5BD1A0, native5BC9A0 processes manager+BD0.
+It acquires list+10 via48B44, copies tracked live pointers to a temporary list,
+clears the original list via5BCAC0 and unlocks viaB61524, then invokes2BF7E8 for
+each retained pointer at5BCA73. The copying phase includes native temporary-list
+sorting/iteration cold paths; no mod should reproduce its containers manually.
+
+2BF7E8 resolves the current manager and calls2BF818(manager+B98,live). The latter
+computes the factory bucket from live type/ID, optionally informs the native AI
+removal queue, and calls2BFC90. That helper finds the exact live+E0 intrusive node,
+unlinks it, decrements bucket count, marks the node self-linked and calls2BF8E4.
+The manager's overall count is decremented only when the bucket count changed.
+2BF8E4 reaches2BF90C, which invokes2BF948(live+B580),6639B0(live) teardown, then
+tail-calls the factory allocator virtual+58 with the live pointer. This is an
+actual live-object destruction path, not merely a pending token removal.
+
+This closes the native backend for a late completed-token cancellation. It does
+not prove immediate completion when68157C returns: destruction is deferred to
+the next BD0 drain. Nor does it itself release a parent reservation bit, unregister
+all wrappers or establish that an old pointer belongs to the current epoch. The
+adapter must preserve token/actor identity until native tracking is invalidated
+and its own reservation is reconciled; no immediate second spawn is authorized.
+For root-ID Direct construction, disposal still needs its own registration and
+root occupancy/mission-owner bookkeeping rather than assuming the child bitmap
+protocol applies.
+
+Additional admission byte check: mission-master archive_03/52/BD29D455...E4FC2,
+record25 (stride198h), contains id+158=28452 and default-start override+90=0.
+Thus ById start0 would use native default-point fallback; it does not encode
+606826 in the mission record itself. The explicit606826 comes from the retained
+point-table index0. Verify that registered destination point rather than treating
+an unrelated mission-master field as its source.
+
+The Direct root wrapper's owner key also has a real cleanup consumer: script
+cleanup1C10570 calls1C10324(owner+120,true) at1C105CE, before resource-map drain.
+1C10324 walks the character registry and compares wrapper+24 with that key. For
+matches on this forced owner-cleanup path, it calls4BDEB8, clears wrapper+D0,
+marks wrapper+EF=1 and registry+B8 dirty. It does not immediately erase registry
+entries in this function. The later dirty sweep must be closed before claiming
+root-ID reuse or registry disappearance. This identifies why destination-owned
+Direct registration can participate in native mission teardown, but the mod must
+never invoke owner-wide cleanup to remove its one boss: native training actors
+share that owner key and would be affected.
