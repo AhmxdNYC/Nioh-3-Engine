@@ -6,6 +6,13 @@ from audit_compute_cache_lifetime import verify
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 
 WINDOWS = [
+    (0x3aad6c8, 0x68, "a517aa1fcd21801546fd3df3206250cb3ae60d7b55259d3bd8f6ee45f5f706c5"),
+    (0x11030a0, 0x3, "e18aacce29affcdddaa5f641ac1ec12552e0fe9d066e6408941b1792818b8619"),
+    (0x1ff92e, 0x209, "92e302de5d8edd4130e5de1cdd577baec29083bf73b73e055ce0e41947ccfb0f"),
+    (0x1343cb0, 0x50, "1e1aa6878a20c88ef1b2ffaf877616594ab3ebe1fdbc9dc820c832619662a97b"),
+    (0x3b84658, 0x10, "24d7e948b7098cd5e94e7e39a6dd8de5d6f8a606795a0c003ddfb4c1bf0b4d42"),
+    (0x2ee0d90, 0x37, "3dc675cc0ce4b4f57f4862bef32eda195643cfb73a0a5e81c2d1d11391d9368e"),
+    (0x2ee09fc, 0x22, "26f0f99440c5a8b06bbc3e82047204666e1049c3fe7d7f6a07653c2af6501246"),
     (0x34835d4, 0x10c, "bce94a6c5f5ab457a66b1bb776ffb1d7e4af6018ff71ac24e1dd03b2e1727487"),
     (0x3483e04, 0x78d, "3dfbb5c720f7489da8a8a787f3b12f9dcea724d07475a2a752d611d3a2d7593a"),
     (0x3e7cc, 0x77, "1a0e46a778eea40ee16534efa108b8f0c4b58a59a9918a48d539334c8c8a95b3"),
@@ -41,6 +48,16 @@ def main():
                 raise AssertionError("changed native window admitted")
             decoded.update({i.address: (i.mnemonic, i.op_str) for i in md.disasm(body, rva)})
     checks = {
+        0x11030a0: ("mov", "al, 1"),
+        0x1ff942: ("mov", "eax, dword ptr [rax + 0x6b4]"),
+        0x1ffaba: ("mov", "qword ptr [rcx], rbx"),
+        0x1ffad0: ("mov", "qword ptr [rbx + 0x48], rcx"),
+        0x1ffaeb: ("mov", "r9, qword ptr [rax + 0xe8]"),
+        0x1ffaf4: ("mov", "rax, qword ptr [rax + 0x3a0]"),
+        0x1ffb0f: ("cmp", "edx, dword ptr [rcx + 0x34]"),
+        0x1ffb2b: ("call", "0x31a63c"),
+        0x1343cd9: ("mov", "rdx, qword ptr [rbx + 0x48]"),
+        0x1343ce0: ("call", "qword ptr [rax + 8]"),
         0x3483631: ("call", "0x2efe1cc"),
         0x3484444: ("call", "0x3fad8"),
         0x348445f: ("call", "0x3e7cc"),
