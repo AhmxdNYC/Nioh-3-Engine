@@ -2,7 +2,7 @@
 Read the newest UPDATE section only; older handoffs follow below.
 
 ## UPDATE 2026-10-12 20:55 - Ally field baseline354 review needs timing corrections
-- Package354 ZIP8cfe8c7bc4ed911b274eb23d79cb1507cbb172bbfb94f0b09af68232329a2e02/sourceaeb820f7861c634484ab014cb0d12925f5f419182e24d6b694dbc01a64bd91c3: seven manifest hashes verified; current entry and proposed INI unchanged from352 except additive source pin.18 supplied plus four independent checks completed. Reproduced two acceptance defects: quiet slices omit CPU work between slices; final CSV can include a26s row after noise accounting ends25s. Inherited field input lock and cleanup/observer rejection are intact.
+- Package354 ZIP8cfe8c7bc4ed911b274eb23d79cb1507cbb172bbfb94f0b09af68232329a2e02/sourceaeb820f7861c634484ab014cb0d12925f5f419182e24d6b694dbc01a64bd91c3: seven manifest hashes verified; current entry and proposed INI unchanged from352 except additive source pin.18 supplied plus five independent checks completed. Reproduced two acceptance defects: quiet slices omit CPU work between slices; final CSV can include a26s row after noise accounting ends25s. Inherited field input lock and cleanup/observer rejection are intact.
 - Direction2761 requests additive correction with continuous CPU accounting through quiet admission and every selected CSV row, plus regression tests. No launch admitted.353 startup remains PASS; gameplay/FPS unrun. Evidence D:/nioh3-re/reviews/main-retest-readiness-20261012/ally354-independent/results.txt. Weekly65 percent;80 cutoff unchanged. Ally reports game closed/no lease.
 
 ## UPDATE 2026-10-12 20:47 - Profiler-off startup353 verified; gameplay baseline preparation
