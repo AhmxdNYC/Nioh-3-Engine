@@ -1,3 +1,7 @@
+## 2026-10-13 Codex - combined CPU trial on hosted1.7.73
+
+Integrated default-off RD and M2S candidates together on hosted592a888, retaining J1/MW/WG/LK and current menus. Requested run delta enables RD/M2S/J1 plus retained WG/LK/MW and explicitly leaves M1/fullM2 disabled. No other optimization flags change. Combined byte/pattern and focused native wait/seed/unwind checks passed; actual gameplay benefit remains untested. See notes/cpu-combined-bundle-2026-10-13.md.
+
 ## 2026-10-13 Codex - private renderer drain candidate on 1.7.73
 
 Default-off `[Patches] RD` replaces end-frame active polling with 64 predicate polls then a bounded address wait on the native in-flight count. Paired native completion still decrements only after replay/submission and now wakes that address. Full write/read/count checks, command work, submission, shutdown and current menus/MW remain intact. Zero-count publication gaps poll; timeout is never success; API failure latches native polling. Startup publication uses the existing MW all-or-nothing frozen pair. Native race/unwind tests and exact pattern checks passed; game stability and CPU/frame benefit are untested. See notes/renderer-drain-wait-candidate-2026-10-13.md.
