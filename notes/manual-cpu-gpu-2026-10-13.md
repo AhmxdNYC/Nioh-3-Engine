@@ -74,6 +74,42 @@ byte flag. Both yield with Sleep(0) every256iterations. This explains why it is
 a candidate; the acknowledgement writer and required wake/order semantics still
 need review before any patch. The descriptive RE name is not a vendor symbol.
 
+### Follow-up: actual sampled branch and completion closure
+
+Read-only parallel review on October13 narrows the earlier explanation. Raw
+cpu-diagnostic.txt line156 records four direct samples in3FD10: three at3FD4D,
+one at3FD5C. Retained-dump Capstone decoding confirms these addresses belong
+to the M+5F8 byte-poll/Sleep(0) branch, not the cold SetEvent branch19279CC.
+The65 attributed samples (15.258% of426 main samples) include callees; only4
+(0.939%) directly land inside this function. Neither percentage is CPU savings.
+
+The byte represents completion of the entire request job:5A8C4 sets it before
+pool42 submission;9811F8 calls4A2D0 and clears it at981211 only after return.
+This independently agrees with notes/frame-io-writer-closure.md. Calling this
+runtime observation merely a worker wake acknowledgement was incomplete.
+
+Exact retained-dump callsites identify the remaining latency breakdown:
+4A327->3FC48 manager lock;4A3D0/4A41B->5B3AC sequential GPU readback maps;
+4A592->3E5F8 CPU child fanout/join;4A60D->4A85C count recomputation;
+4A637/4A659->5CEE8 cleanup/flush. The child join actively helps execute jobs,
+so passive blocking there would remove useful work. Next targeted diagnosis
+must distinguish queued-start, lock, readbacks and child work; the current
+profile cannot identify which dominates. No patch or new live capture made.
+
+### Remote results received through2962
+
+Ally evidence373: manual two-boss recording complete, collectors stopped,
+game left open and progress preserved. Approximate Yamagata/Ibaraki segments:
+31.7/30.8FPS,8.52/8.57CPU cores,97/96.5%GPU, maximum CPU75/77C. Mango interval
+averages and approximate alignment remain limitations; no optimization gain.
+
+PC2 evidence374: four OFF/ON/ON/OFF CPU windows9.1095/8.4253/10.1826/10.3917
+cores, only three completed wrappers. User movement affects comparability and
+PresentMon emitted no CSV: no WG CPU-saving or FPS verdict. Following foreground
+failure and initial graceful-close timeout, independent recovery PASS confirmed
+13 baseline files and6 saves, user exit saves separately preserved, all owned
+processes absent and task16 free. ACKs2961/2962 sent; no repeat launch authorized.
+
 ## Tooling and other devices
 
 Universal Optimizer already had cpucores.ps1, pmstats.py, ABBA/seqtest, session
