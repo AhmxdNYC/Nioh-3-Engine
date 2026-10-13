@@ -4,7 +4,7 @@ Read the newest UPDATE section only; older handoffs follow below.
 ## UPDATE 2026-10-13 - CPU utilization comparisons assigned
 - User wants10-20% less game CPU at equal/better FPS/smoothness and asked PC2+Ally to test. Added process CPU sampler/procedure6a45d3c, packet367;3 focused checks and Windows query smoke passed. No game performance result yet.
 - WG first at unchanged current graphics/FG/cap/simulation;8x30s windows in two OFF-ON-ON-OFF quads. Reuse local game/input/frame/restore workflow. No memory gates, no prolonged noise waits or unchanged suite reruns. Actual process CPU counters, not PresentMon MsCPUBusy, determine utilization.
-- PC2 tasks2880/2884 ACK2882 preparing; Ally2881/2885 sent, ACK pending. Both may proceed after narrow local checks without another approval loop. Brief ACK/STARTED/RESULT requested; automatic phone/Discord updates retained. Prior trial closures below remain historical.
+- PC2 tasks2880/2884 ACK2882/2886 preparing; Ally2881/2885 ACK2888 preparing. Both may proceed after narrow local checks without another approval loop. Brief ACK/STARTED/RESULT requested; automatic phone/Discord updates retained. Prior trial closures below remain historical.
 
 ## UPDATE 2026-10-12 23:10 - Claude handoff finalized; both gameplay trials closed
 - Final catch-up: [notes/handoff-codex-to-claude-2026-10-12.md](notes/handoff-codex-to-claude-2026-10-12.md). Covers changes, tests/failures, workflows, source and evidence pointers, superseded instructions, phone/Discord automation, and next work. README and AGENT_BRIEF link it; older entries below are historical.

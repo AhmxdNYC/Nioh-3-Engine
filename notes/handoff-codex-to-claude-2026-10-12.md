@@ -386,6 +386,6 @@ Peer assignments2880/2881, packet/run directions2884/2885: adapt existing local
 lifecycle/input/frame capture, one WG comparison at unchanged settings, two
 OFF-ON-ON-OFF quads of30s. Actual process CPU, matched frame times, noisy-window
 caveats and exact restoration required. No new memory gates or broad suite reruns.
-PC2 ACK2882 confirms availability/preparation; Ally acknowledgement and both
-runtime outcomes remain pending at this checkpoint. Earlier365/366 are closed
+PC2 ACK2882/2886 and Ally ACK2888 confirm availability/preparation; both chose
+a fixed20min session upfront. Runtime outcomes remain pending at this checkpoint. Earlier365/366 are closed
 training/field trials, not the result of these new CPU comparisons.
