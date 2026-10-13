@@ -347,3 +347,29 @@ remain reports, not independent proof. Final artifacts365/366 are indexed.
   because the old handoff still lists them as failures.
 - Do not wake or invoke Claude automatically. This document is for Claude to read
   when the user brings that agent back.
+
+## CPU utilization priority added October 13
+
+User clarified the desired outcome: roughly10-20% lower CPU utilization at the
+same or better performance. Working interpretation is a relative reduction
+(e.g.80% utilization to64-72%), not10-20 percentage points. No such gain is proven.
+Keep the same scene, current FPS cap, graphics, simulation behavior and comparable
+workload. Measure game-process CPU seconds per wall second and per presented frame,
+frame-time distribution, and package power where already available. Machine-wide
+CPU alone mixes in other applications and is not the optimization result.
+
+Concrete source/config check: the last manual session's entry INI has GF=1, W6=1,
+WK=1, CP=1, MQ=1; WG=0, SPF=0, LK=0, WorkerCap=0 and TG=0. Retained startup log
+confirms LoadOnlyCpuFixes=0 and user GF/W6=1. These are historical session settings,
+not a fresh live-state query. Evidence is the entry-inis and user-stop-logs under
+`D:/nioh3-re/rematch-pilots/user-rematch-34296f3-20261012`.
+
+The current source already implements WG in dllmain.cpp: pending worker wakes are
+tracked, redundant wake-one requests can be skipped, and the menu supports a live
+switch. Next focused candidate is WG alone against the existing baseline, with
+actual installed/live-state readback, CPU consumption and frame times compared.
+No new binary, install, runtime test or CPU saving was produced by this inspection.
+SPF/LK are secondary built candidates, not measured reductions. Do not repackage
+already-enabled GF/W6 as new gains, lower the frame cap to manufacture a CPU win,
+or use TG's changed simulation rate for an equal-behavior comparison. Older worker
+savings estimates are not proof of a10-20% whole-process improvement.
