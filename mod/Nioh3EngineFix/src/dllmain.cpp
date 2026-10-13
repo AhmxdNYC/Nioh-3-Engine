@@ -1264,6 +1264,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     struct MWInstallDiag {
         unsigned snapshot=0, open=0, owner=0, suspend=0, context=0, rip=0;
         unsigned census=0, censusApi=0, censusUnknown=0, censusBound=0, original=0, rollback=0;
+        unsigned terminated=0; DWORD terminatedTid=0;
         DWORD tid=0, error=0; ULONG status=0; uintptr_t ip=0;
         const char* stage="none"; const char* site="none";
     } md;
@@ -1283,7 +1284,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             for (unsigned n = 0; n < 4096 && GetTickCount64() - snapshotStart < 100; ++n) {
                 HANDLE current = nullptr;
                 const LONG status = nextThread(GetCurrentProcess(), previous,
-                    THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, 0, 0, &current);
+                    SYNCHRONIZE | THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, 0, 0, &current);
                 if (previous && !previousRetained) CloseHandle(previous);
                 previous = current;
                 previousRetained = false;
@@ -1292,6 +1293,9 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
                     ++md.open; md.stage="NativeSnapshotApi"; md.status=static_cast<ULONG>(status); break;
                 }
                 const DWORD tid = GetThreadId(current);
+                const DWORD state = WaitForSingleObject(current, 0);
+                if (state == WAIT_OBJECT_0) {++md.terminated;md.terminatedTid=tid;continue;}
+                if (state != WAIT_TIMEOUT) {++md.open;md.stage="NativeSnapshotWait";md.tid=tid;md.error=GetLastError();break;}
                 if (!tid || GetProcessIdOfThread(current) != pid) {
                     ++md.owner; md.stage="NativeSnapshotOwner"; md.tid=tid; md.error=GetLastError(); break;
                 }
@@ -1331,12 +1335,21 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         std::vector<uint8_t> suspended(hs.size(), 0);
         // ---- frozen section: no allocation from here until resume ----
         for (size_t i = 0; i < hs.size(); ++i) {
+            if (strictMW) {
+                const DWORD state=WaitForSingleObject(hs[i],0);
+                if(state==WAIT_OBJECT_0){suspended[i]=2;++md.terminated;md.terminatedTid=tids[i];continue;}
+                if(state!=WAIT_TIMEOUT){++md.suspend;md.stage="PreSuspendWait";md.error=GetLastError();md.tid=tids[i];continue;}
+            }
             suspended[i] = (SuspendThread(hs[i]) != (DWORD)-1);
-            if(strictMW && !suspended[i]){++md.suspend;md.stage="SuspendThread";md.error=GetLastError();md.tid=tids[i];}
+            if(strictMW && !suspended[i]){
+                const DWORD suspendError=GetLastError();
+                if(WaitForSingleObject(hs[i],0)==WAIT_OBJECT_0){suspended[i]=2;++md.terminated;md.terminatedTid=tids[i];}
+                else {++md.suspend;md.stage="SuspendThread";md.error=suspendError;md.tid=tids[i];}
+            }
         }
         bool clash = strictMW && std::find(suspended.begin(), suspended.end(), 0) != suspended.end();
         for (size_t i = 0; i < hs.size() && !clash; ++i) {
-            if (!suspended[i]) continue;
+            if (suspended[i] != 1) continue;
             CONTEXT ctx{};
             ctx.ContextFlags = CONTEXT_CONTROL;
             if (!GetThreadContext(hs[i], &ctx)) { if (strictMW) {clash = true;++md.context;md.stage="GetThreadContext";md.error=GetLastError();md.tid=tids[i];} continue; }
@@ -1355,12 +1368,15 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             for (unsigned n = 0; n < 4096 && GetTickCount64() - censusStart < 100; ++n) {
                 HANDLE current = nullptr;
                 const LONG status = nextThread(GetCurrentProcess(), previous,
-                    THREAD_QUERY_LIMITED_INFORMATION, 0, 0, &current);
+                    SYNCHRONIZE | THREAD_QUERY_LIMITED_INFORMATION, 0, 0, &current);
                 if (previous) CloseHandle(previous);
                 previous = current;
                 if (static_cast<ULONG>(status) == 0x8000001Au) { complete = true; break; } // NO_MORE_ENTRIES
                 if (status != 0 || !current) {++md.censusApi;md.stage="CensusApi";md.status=static_cast<ULONG>(status);censusRejected=true;break;}
                 const DWORD observedTid=GetThreadId(current);
+                const DWORD state=WaitForSingleObject(current,0);
+                if(state==WAIT_OBJECT_0){++md.terminated;md.terminatedTid=observedTid;continue;}
+                if(state!=WAIT_TIMEOUT){++md.censusApi;md.stage="CensusWait";md.tid=observedTid;md.error=GetLastError();censusRejected=true;break;}
                 if (!meshletwait::KnownThread(observedTid, self, tids.data(), tids.size())) {++md.censusUnknown;md.stage="CensusUnknownThread";md.tid=observedTid;md.error=observedTid?0:GetLastError();censusRejected=true;break;}
             }
             if (previous) CloseHandle(previous);
@@ -1387,7 +1403,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             written = true;
         }
         for (size_t i = 0; i < hs.size(); ++i)
-            if (suspended[i]) ResumeThread(hs[i]);
+            if (suspended[i] == 1) ResumeThread(hs[i]);
         // ---- end frozen section ----
         for (HANDLE h : hs) CloseHandle(h);
         if (!written) Sleep(1 + attempts % 4);
@@ -1395,6 +1411,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     for (size_t i = 0; i < items.size(); ++i) { DWORD t; VirtualProtect(items[i]->addr, items[i]->s->len, oldProt[i], &t); }
     if(strictMW) Log("MW install diagnostics: snapshot=%u open=%u owner=%u suspend=%u context=%u rip=%u census=%u census_api=%u census_unknown=%u census_bound=%u original=%u rollback=%u last=%s tid=%lu error=%lu status=%08lX site=%s rip=%llX",
         md.snapshot,md.open,md.owner,md.suspend,md.context,md.rip,md.census,md.censusApi,md.censusUnknown,md.censusBound,md.original,md.rollback,md.stage,md.tid,md.error,md.status,md.site,static_cast<unsigned long long>(md.ip));
+    if(strictMW) Log("MW thread lifetime: positively signaled observations=%u last_terminated_tid=%lu (no exit-code-only exclusion)",md.terminated,md.terminatedTid);
     if (!written) { Log("%s: not installed after %d attempts; %s", name, attempts, g_mwInstallUncertain && strictMW ? "UNRESOLVED rollback/cache flush - do not claim stock" : "no writes retained"); return false; }
     // MW readback and any rollback happened before resume, not after publication.
     // Other groups retain their existing behavior.

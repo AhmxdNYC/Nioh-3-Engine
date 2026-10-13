@@ -53,3 +53,27 @@ SHA256: `4cec2ae50f0f6d50d81e480c615cf46ea0d3bc6e0fccbfbab64ba94901104207`.
 No game launch or installation was performed by this port task. The coordinator
 owns deployment and capture. Actual MW ON/activity and CPU/frame-time results
 remain required before claiming a gameplay or optimization success.
+
+## Follow-up: positively terminated thread handles
+
+The first combined startup reported `suspend=200`, error5, TID2264, with zero
+publication writes. Later read-only OpenThread returned87 and native
+enumeration no longer included2264; this does not prove its exact state at the
+failed suspension. The revised installer checks the retained thread handle
+with `WaitForSingleObject(handle,0)` using SYNCHRONIZE rights. Only
+`WAIT_OBJECT_0` proves a terminated thread can no longer execute and excludes
+it. This check covers initial enumeration, pre-suspension, the exit race after
+a failed suspension, and the final census. Alive or unqueryable threads still
+block publication. Confirmed terminated handles are neither context-queried
+nor resumed. Their observations are logged after the freeze ends.
+
+The exact production suspension/context block passed a standalone harness
+with a live worker and a retained terminated worker deliberately returning
+exit code259. The signaled handle, not the ambiguous exit code, caused the
+exclusion. The live worker was suspended, context-queried and resumed.
+Harness: `D:/nioh3-re/reviews/mw-signaled-thread-harness.cpp`.
+
+Rebuilt ASI SHA256:
+`41553b09a131903f959afee5bd6ad7b5e1b92a217072c507b29a4fe36948984e`.
+Build passed; current menus and addon remain unchanged. Actual next-startup
+activation and gameplay validation remain coordinator-owned and pending.
