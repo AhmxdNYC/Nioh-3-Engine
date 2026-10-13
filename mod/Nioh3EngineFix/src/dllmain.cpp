@@ -64,6 +64,7 @@
 #include "livectl.h"
 #include "rebar.h"
 #include "scenemirror.h"
+#include "meshletwait.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -422,7 +423,15 @@ std::wstring SelfPathWithExt(const wchar_t* ext) {
 static bool s_asyncKnown = false, s_as0Applied = false;  // AS0 / async-queue stats (stats thread)
 
 // ---- config ----------------------------------------------------------------------------------------------------
+meshletwait::State g_mw;
+bool g_mwInstallUncertain = false;
+extern "C" void caveMW();
+extern "C" void caveMWWake();
+extern "C" void MWWait(uint8_t* m) { g_mw.Round(m + 0x5F8); }
+extern "C" void MWComplete(uint8_t* m) { g_mw.Complete(m + 0x5F8); }
+
 struct Config {
+    int mw = 0;
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
     int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
@@ -533,6 +542,7 @@ Config LoadConfig() {
     c.j1 = I(L"Patches", L"J1", c.j1);
     c.x1 = I(L"Patches", L"X1", c.x1);
     c.e1 = I(L"Patches", L"E1", c.e1);
+    c.mw = I(L"Patches", L"MW", 0);  // explicit opt-in, never Auto
     c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
     c.s1 = I(L"Patches", L"S1", c.s1);
     c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
@@ -753,6 +763,8 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveX1: return (void*)&caveX1;
         case gen::Target::caveE1A: return (void*)&caveE1A;
         case gen::Target::caveE1B: return (void*)&caveE1B;
+        case gen::Target::caveMW: return (void*)&caveMW;
+        case gen::Target::caveMWWake: return (void*)&caveMWWake;
         case gen::Target::caveW6: return (void*)&caveW6;
         case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
         case gen::Target::caveIkKick: return (void*)&caveIkKick;
@@ -818,7 +830,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveFxDraw;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveMWWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1227,9 +1239,19 @@ bool BuildRepl(Item& it) {
 // No heap / CRT / loader use while threads are suspended.
 bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     if (items.empty()) return true;
+    const bool strictMW = !strcmp(name, "MW");
+    using NextThreadFn = LONG(NTAPI*)(HANDLE, HANDLE, ACCESS_MASK, ULONG, ULONG, PHANDLE);
+    NextThreadFn nextThread = nullptr;
+    if (strictMW) {
+        HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+        nextThread = nt ? reinterpret_cast<NextThreadFn>(GetProcAddress(nt, "NtGetNextThread")) : nullptr;
+        if (!nextThread) { Log("MW: kernel thread census unavailable; stock retained"); return false; }
+    }
     for (Item* it : items)
         if (!BuildRepl(*it)) { Log("%s: cannot encode %s (out of rel32 range?) - group skipped", name, it->s->id); return false; }
 
+    std::vector<meshletwait::Site> mwSites;
+    if (strictMW) for (Item* it : items) mwSites.push_back({it->addr, it->s->orig, it->repl.data(), it->repl.size()});
     std::vector<DWORD> oldProt(items.size());
     for (size_t i = 0; i < items.size(); ++i)
         if (!VirtualProtect(items[i]->addr, items[i]->s->len, PAGE_EXECUTE_READWRITE, &oldProt[i])) {
@@ -1243,36 +1265,73 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     int attempts = 0;
     for (; attempts < 200 && !written; ++attempts) {
         std::vector<HANDLE> hs;
+        std::vector<DWORD> tids;
+        bool freezeComplete = true;
         {
-            std::vector<DWORD> tids;
             HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
             if (snap != INVALID_HANDLE_VALUE) {
                 THREADENTRY32 te{};
                 te.dwSize = sizeof(te);
-                for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te))
+                BOOL ok = Thread32First(snap, &te);
+                if (!ok) freezeComplete = false;
+                for (; ok; ok = Thread32Next(snap, &te))
                     if (te.th32OwnerProcessID == pid && te.th32ThreadID != self) tids.push_back(te.th32ThreadID);
+                if (GetLastError() != ERROR_NO_MORE_FILES) freezeComplete = false;
                 CloseHandle(snap);
-            }
+            } else freezeComplete = false;
             hs.reserve(tids.size());
             for (DWORD tid : tids)
-                if (HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, tid))
-                    hs.push_back(h);
+                if (HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, tid)) {
+                    if (strictMW && (GetThreadId(h) != tid || GetProcessIdOfThread(h) != pid)) {
+                        CloseHandle(h); freezeComplete = false; // reused foreign TID: never suspend it
+                    } else hs.push_back(h);
+                } else freezeComplete = false;
+        }
+        if (strictMW && !freezeComplete) {
+            for (HANDLE h : hs) CloseHandle(h);
+            Sleep(1 + attempts % 4);
+            continue;
         }
         std::vector<uint8_t> suspended(hs.size(), 0);
         // ---- frozen section: no allocation from here until resume ----
         for (size_t i = 0; i < hs.size(); ++i) suspended[i] = (SuspendThread(hs[i]) != (DWORD)-1);
-        bool clash = false;
+        bool clash = strictMW && std::find(suspended.begin(), suspended.end(), 0) != suspended.end();
         for (size_t i = 0; i < hs.size() && !clash; ++i) {
             if (!suspended[i]) continue;
             CONTEXT ctx{};
             ctx.ContextFlags = CONTEXT_CONTROL;
-            if (!GetThreadContext(hs[i], &ctx)) continue;  // exited / not inspectable
+            if (!GetThreadContext(hs[i], &ctx)) { if (strictMW) clash = true; continue; }
             for (Item* it : items) {
                 uintptr_t a = (uintptr_t)it->addr;
                 if (ctx.Rip > a && ctx.Rip < a + it->s->len) { clash = true; break; }
             }
         }
-        if (!clash) {
+        if (!clash && strictMW) {
+            // Kernel-only bounded census: detect threads born between the initial
+            // Toolhelp snapshot and suspension. No allocation/loader while frozen.
+            HANDLE previous = nullptr;
+            bool complete = false;
+            const ULONGLONG censusStart = GetTickCount64();
+            for (unsigned n = 0; n < 4096 && GetTickCount64() - censusStart < 100; ++n) {
+                HANDLE current = nullptr;
+                const LONG status = nextThread(GetCurrentProcess(), previous,
+                    THREAD_QUERY_LIMITED_INFORMATION, 0, 0, &current);
+                if (previous) CloseHandle(previous);
+                previous = current;
+                if (static_cast<ULONG>(status) == 0x8000001Au) { complete = true; break; } // NO_MORE_ENTRIES
+                if (status != 0 || !current || !meshletwait::KnownThread(GetThreadId(current), self, tids.data(), tids.size())) break;
+            }
+            if (previous) CloseHandle(previous);
+            if (!complete) clash = true;
+        }
+        if (!clash && strictMW) {
+            const auto result = meshletwait::Publish(mwSites.data(), mwSites.size(), [&]() {
+                return FlushInstructionCache(GetCurrentProcess(), nullptr, 0) != FALSE;
+            });
+            written = result == meshletwait::Publication::Applied;
+            g_mwInstallUncertain = result == meshletwait::Publication::Uncertain;
+            if (g_mwInstallUncertain) attempts = 200; // never retry an uncertain write
+        } else if (!clash) {
             for (Item* it : items) {
                 if (it->s->kind == gen::Kind::VPtr)  // vtable slot: one aligned 8-byte store
                     InterlockedExchange64(reinterpret_cast<volatile LONG64*>(it->addr), *reinterpret_cast<const LONG64*>(it->repl.data()));
@@ -1289,9 +1348,10 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         if (!written) Sleep(1 + attempts % 4);
     }
     for (size_t i = 0; i < items.size(); ++i) { DWORD t; VirtualProtect(items[i]->addr, items[i]->s->len, oldProt[i], &t); }
-    if (!written) { Log("%s: a thread kept sitting inside a site after %d tries - nothing written", name, attempts); return false; }
-    // read back
-    for (Item* it : items)
+    if (!written) { Log("%s: not installed after %d attempts; %s", name, attempts, g_mwInstallUncertain && strictMW ? "UNRESOLVED rollback/cache flush - do not claim stock" : "no writes retained"); return false; }
+    // MW readback and any rollback happened before resume, not after publication.
+    // Other groups retain their existing behavior.
+    if (!strictMW) for (Item* it : items)
         if (memcmp(it->addr, it->repl.data(), it->repl.size()) != 0) { Log("%s: READ-BACK MISMATCH at %s", name, it->s->id); return false; }
     for (Item* it : items) {
         char hex[3 * 32] = {};
@@ -1633,6 +1693,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "X1")) return cfg.x1 != 0;
         if (!strcmp(g, "E1")) return cfg.e1 != 0;
         if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
+        if (!strcmp(g, "MW")) return cfg.mw != 0;
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
         if (!strcmp(g, "TS")) return cfg.ts != 0;
@@ -1858,6 +1919,19 @@ DWORD WINAPI Worker(LPVOID) {
         if (ok && prep) ok = prep();
         return run(g, v, ok);
     };
+    // MW reader + completion writer are ONE atomic group: never timeout-only install.
+    if (cfg.mw) {
+        HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
+        auto wait = kb ? reinterpret_cast<meshletwait::WaitFn>(GetProcAddress(kb, "WaitOnAddress")) : nullptr;
+        auto wake = kb ? reinterpret_cast<meshletwait::WakeFn>(GetProcAddress(kb, "WakeByAddressAll")) : nullptr;
+        const bool installed = expGroup("MW", wait && wake, [&]() {
+            g_mw.wait = wait; g_mw.wake = wake; g_mw.enabled = true;
+            return true;
+        });
+        if (!installed && !g_mwInstallUncertain) g_mw.enabled = false;
+        Log("MW: %s (paired meshlet completion wait/wake; startup-only; no job work skipped)",
+            installed ? "ON" : g_mwInstallUncertain ? "UNRESOLVED publication; keep paired helpers valid" : "skipped, stock retained");
+    }
     // 1.7.44 FGC / FGP (FSR frame generation under Proton, notesg-proton-fix.md). Not menu rows: FGC is a pure
     // crash guard (bit-identical while both textures exist), FGP is driven by the menu's frame-generation item.
     if (cfg.fgc || (g_wineEarly && cfg.fgToggle == 3)) {
@@ -2649,6 +2723,8 @@ DWORD WINAPI Worker(LPVOID) {
                     }
                 }
                 if (sec % 30) continue;
+                if (g_mw.enabled) Log("MW totals: wait rounds %ld timeouts %ld wakes %ld errors %ld",
+                    g_mw.rounds, g_mw.timeouts, g_mw.wakes, g_mw.errors);
                 if (g_fgcOn || g_fgpOn) {
                     static uint32_t s_pSrc = 0, s_pHits = 0;
                     const uint32_t src = fgc_src, hits = fgp_hits;

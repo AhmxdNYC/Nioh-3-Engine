@@ -797,6 +797,20 @@ e1Skip:
     ret
 caveE1B ENDP
 
+; MW paired completion wait. Reader RSI=M; stock Sleep may clobber all volatile
+; registers. Writer RAX=M, next native instruction xor eax,eax; volatile regs
+; and flags are dead. Both native prologues provide aligned 20h home space.
+EXTERN MWWait:PROC, MWComplete:PROC
+PUBLIC caveMW, caveMWWake
+caveMW PROC
+    mov rcx, rsi
+    jmp MWWait
+caveMW ENDP
+caveMWWake PROC
+    mov rcx, rax
+    jmp MWComplete
+caveMWWake ENDP
+
 ; ---- W6: present wait. Site 7D9EA2 `xor ecx,ecx; call [Sleep]` inside `while ([ctx+7728h]) Sleep(0)` (7D9E90,
 ; rbx = ctx) -> call here; nop3. W6Wait (C++) blocks until the flag clears (or Sleep(0)s once when switched off); the
 ; loop's own re-check at 7D9EAA then exits. Stack: 7D9E90 keeps rsp 16-aligned + 20h home space, so this is a
