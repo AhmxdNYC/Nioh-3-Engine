@@ -1,6 +1,6 @@
 # Codex to Claude handoff: Nioh3, device testing, and phone coordination
 
-Status: **DRAFT — current Ally and PC2 gameplay trials are still in progress.**
+Status: **DRAFT — Ally finished; PC2's current gameplay trial is still in progress.**
 Prepared at the user's request on October 12, 2026 (America/New_York). Final
 outcomes and recovery receipts belong in the first section when those trials end.
 This is a catch-up document, not authorization to take over another live owner.
@@ -32,8 +32,8 @@ This is a catch-up document, not authorization to take over another live owner.
 | Device | Current authorized work | Latest confirmed state |
 |---|---|---|
 | Main PC | No new manual game launch; preserve user's latest progress | Previous user session closed normally at their request; RA4B4 retry bug remains unresolved |
-| PC2 | One native pause/resume, Practice, held-entry Summon trial; instruction2844 | ACK2845; actual game8180 and runner3332 launched, visible logo reported2851; output `C:/nioh3-re/pc2-summon-2844-20261012-1945`; fixed deadline20:02:40.570 PDT. **No pause/Summon success yet** |
-| Ally | One original-shader GPUProf0 actual field baseline; instruction2843 | Actual isolated derivative launched once, report2853; source5b9cbf83/entry893122e5, owner220871, task17 held;480s phase/600s guard. Report2854 confirms **actual character/HUD/Pray at the current shrine**; control/baseline and final cleanup pending |
+| PC2 | One native pause/resume, Practice, held-entry Summon trial; instruction2844 | Actual field/native Pause3/resume verified in report2860; now proceeding to Practice. Game8180/runner3332; output `C:/nioh3-re/pc2-summon-2844-20261012-1945`; fixed deadline20:02:40.570 PDT. **Summon and final cleanup pending** |
+| Ally | One original-shader GPUProf0 actual field baseline; instruction2843 | **FINISHED: field/control PASS; FPS baseline UNRUN.** Evidence365 verified:61 manifest files,497 memory rows,9/9 noisy admission intervals. Exact restoration and bounded observer PASS; root independently queried task17 FREE. No retry. Source5b9cbf83/entry893122e5 |
 
 PC2's latest local admission is `C:/nioh3-re/pc2-admission-2844-local.json`,
 SHA256 `4acaa0e575a0a1d602ec1458f461074db65ead50c5a64a60f812569749fe9776`.
@@ -45,6 +45,26 @@ Finalization checklist: actual scene/actions/results; game/runner absence; exact
 save/config/binary restoration or explicit preservation of human progress;
 lease/hold state; raw artifact IDs and hashes; what remains untested. A stop before
 gameplay is not a gameplay failure or a performance result.
+
+Ally's inherited generic STOP receipt says gameplay UNRUN even though prior
+observations demonstrate field and menu control. Keep that original unchanged and
+link the peer's factual clarification; do not discard the actual observations or
+silently rewrite the receipt. Nine CPU admission intervals were noisy (last total
+about1.98 cores); no25s benchmark window was accepted. No performance gain follows
+from this successful functional smoke.
+
+Ally final evidence365 SHA256:
+`bcfe4c849eccf489aa45ea568e63e22802603439648922104e507b6760400ef1`.
+Local archive/review: `D:/nioh3-re/reviews/ally-gameplay-365.zip` and
+`D:/nioh3-re/reviews/ally-gameplay-365/root-review.json`. Peer output:
+`/var/home/bazzite/Nioh3EngineFix/backup/gameplay-nonblocking-r1-20261012`.
+Runtime is `experimental-11.0-20261008-x86_64`, with exact hashes in entry.json.
+Five observed inputs, Level136 current shrine, FG off, original shader, no movement;
+45s settle passed. Memory remained telemetry only despite full PSIavg10 reaching1.13
+and physical memory reaching3.319 GiB. This proves the former limit was not a
+necessary condition for this functional smoke; it does not establish unrestricted
+memory safety, quiet timing, or a shader performance gain. Images stayed on Ally;
+root reviewed the recorded local observations and raw receipts, not the pictures.
 
 ## What changed in the game work
 
@@ -120,6 +140,10 @@ Trial308 first raw healthy held phase2 was12:44:36.1824485Z, with healthy sample
 through12:47:44.3177270Z. Escape opened Equipment with “3 Pause”; F10 showed the
 top-level overlay. Neither demonstrated actual native pause. Do not call308 a
 Summon pass. Latest functional work is the currently running2844 trial above.
+
+Trial276's literal `cover busy` during native loading caused a conservative stop;
+the runner's foreign-token wording did not prove a foreign token actually existed.
+Retain that distinction when diagnosing the older rematch trace.
 
 Important worktrees: `training-site-registration-20261012`,
 `training-diagnostics-20261012`, `training-observer-20261012`,
@@ -250,6 +274,9 @@ Separate worktrees are intentional; do not consolidate by overwriting them:
    draw/visual acceptance, control/gameplay acceptance and comparative FPS separate.
 5. Send a concise normal bridge milestone; Discord/phone forwarding requires no
    additional model turn. Explicitly ACK task instructions before execution.
+   Peers should begin messages `[TO-CODEX] RESULT ...` (or STARTED/READY/etc.);
+   destination-first is required by the exact-chat wake relay. `RESULT [TO-CODEX]`
+   can reach Discord yet fail to wake the lead chat, so do not invert the order.
 
 Bridge commands run from `universal-optimizer-phone-delivery/agent-bridge`:
 `py -m uo_bridge get <id> --out <path> --agent codex --json`, and
