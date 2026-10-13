@@ -150,3 +150,5 @@ alignment approximate/per-framep99 unavailable. Never call send receipt an ACK.
 Phone+Discord use existing automatic status sync. No Claude invocation.
 Notifications2932/2934/2937/2938 independently confirmed phone_done=1/sent=1,
 attempts0/errornull. Actual Ally acknowledgement is separately2942.
+
+User-requested closure: exact main game23500 closed gracefully via CloseMainWindow; process absence verified, watcher state game-exited and lease release succeeded. No save rollback or forced termination. Receipt: D:/nioh3-re/user-telemetry-20261013/user-close-receipt.json. PC2 independently STARTED2981 the admitted MW series (not a result yet).
