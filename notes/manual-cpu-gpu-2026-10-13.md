@@ -96,6 +96,14 @@ so passive blocking there would remove useful work. Next targeted diagnosis
 must distinguish queued-start, lock, readbacks and child work; the current
 profile cannot identify which dominates. No patch or new live capture made.
 
+Subsequent implementation: MW paired completion wait candidate is now built in
+commit364c5e2; see [candidate behavior and tests](meshlet-completion-wait-candidate.md).
+Default OFF, actual wait/wake code change, not a diagnostic-only addition.
+Native race/publication tests and257 pattern sites passed; independent final
+source review approved first opt-in gameplay test. Packet376 supplied to PC2
+under task2972, adapter preparation ACK2969. No gameplay gain yet. The same
+candidate binary must be used for OFF/ON/OFF; preserve all settings except MW.
+
 ### Remote results received through2962
 
 Ally evidence373: manual two-boss recording complete, collectors stopped,
