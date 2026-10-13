@@ -1,8 +1,8 @@
 # Codex to Claude handoff: Nioh3, device testing, and phone coordination
 
-Status: **DRAFT — Ally finished; PC2's current gameplay trial is still in progress.**
-Prepared at the user's request on October 12, 2026 (America/New_York). Final
-outcomes and recovery receipts belong in the first section when those trials end.
+Status: **FINAL - both authorized trials finished; recovery verified.**
+Prepared at the user's request on October 12, 2026 (America/New_York); finalized
+after evidence365/366 on October12 evening (October13 UTC).
 This is a catch-up document, not authorization to take over another live owner.
 
 ## Read this first
@@ -22,17 +22,19 @@ This is a catch-up document, not authorization to take over another live owner.
   runtime and cleanup. Never roll an old automated backup over later human play.
 - User prohibited looking at the main-PC game screen during their manual test.
   Main investigation stayed logs-only after that instruction. Device-local visual
-  checks are used for remote trials; images are not uploaded to the lead.
+  checks are used for remote trials. Ally images stayed local. PC2 evidence366
+  includes screenshots in its archive; root hashed their bytes but did not view
+  or extract the images. Root reviewed logs and peer observation receipts.
 - ACKs are mandatory: instruction ID plus next action/blocker. Sending or IPC
   submission is not acknowledgement of understanding. Retries must not duplicate
   a game run. Discord and phone status forwarding are now automatic.
 
-## Current trials — replace this section with final outcomes
+## Final outcomes of the authorized trials
 
 | Device | Current authorized work | Latest confirmed state |
 |---|---|---|
 | Main PC | No new manual game launch; preserve user's latest progress | Previous user session closed normally at their request; RA4B4 retry bug remains unresolved |
-| PC2 | One native pause/resume, Practice, held-entry Summon trial; instruction2844 | Actual field/native Pause3/resume verified in report2860; now proceeding to Practice. Game8180/runner3332; output `C:/nioh3-re/pc2-summon-2844-20261012-1945`; fixed deadline20:02:40.570 PDT. **Summon and final cleanup pending** |
+| PC2 | One native pause/resume, Practice, held-entry Summon trial; instruction2844 | **FINISHED: field pause/resume, Practice/control and healthy held phase2 PASS. Summon/native return UNRUN.** Evidence366 verified; original20min deadline ended trial before submenu completion. Exact13 baseline files/6 saves restored; task16 FREE. No retry |
 | Ally | One original-shader GPUProf0 actual field baseline; instruction2843 | **FINISHED: field/control PASS; FPS baseline UNRUN.** Evidence365 verified:61 manifest files,497 memory rows,9/9 noisy admission intervals. Exact restoration and bounded observer PASS; root independently queried task17 FREE. No retry. Source5b9cbf83/entry893122e5 |
 
 PC2's latest local admission is `C:/nioh3-re/pc2-admission-2844-local.json`,
@@ -41,10 +43,33 @@ Peer reports a narrow derivative of357: memory wait becomes nonblocking telemetr
 pilot memory-environment refusal removed, transitive pins updated. Original357
 and earlier admission362 remain immutable; do not reuse those admissions.
 
-Finalization checklist: actual scene/actions/results; game/runner absence; exact
-save/config/binary restoration or explicit preservation of human progress;
-lease/hold state; raw artifact IDs and hashes; what remains untested. A stop before
-gameplay is not a gameplay failure or a performance result.
+PC2 final evidence366 SHA256:
+`a8a3dd4a846224fc44ed400da621862ce93b917e2d069cd6aa6c942ed27f0b98`.
+Local archive/review: `D:/nioh3-re/reviews/pc2-final-2844-366.zip` and
+`D:/nioh3-re/reviews/pc2-final-2844-366/root-review.json`; remote output
+`C:/nioh3-re/pc2-summon-2844-20261012-1945`. Root verified all64 manifest members,
+13 restoration pins and6-save inventory against readiness358, and1871 raw
+practicehold samples.402 were healthy phase2 from02:59:55.4338688Z through
+03:02:40.4989966Z; all broken/diagReady/pending values were zero.
+
+Actual field Pause3/Key3 resume was recorded before one Practice confirmation at
+02:57:15.4349571Z. Shrine and250ms movement response were observed. Held native
+pause was also observed, but the held Practice submenu review was incomplete;
+**no Summon intent or native return was tested**. The original20min deadline
+03:02:40.5701103Z ended the run. Serial input/capture/review latency consumed the
+budget; this is an incomplete trial, not a native Summon failure. Final Forward2000
+was interrupted by movement-window closure and released in finally; it has no
+successful full-duration input receipt.
+
+Original game8180/runner3332 exited. Independent recovery at03:04:26.554155Z
+verified13 baseline files, exact6 saves and fresh backup, no game/collectors/guard
+or recovery hold; root separately queried task16 FREE. Original result.json's
+PREPARING/null and pending-lease snapshot remains unchanged; operator-summary.json
+and independent-recovery.json clarify the actual outcome and final cleanup.
+The runner's entry-hold-admission.json SHA256 is
+`f29e456c9a1c662faf947e3e132340fa4d29d99d0d082bc27fc50b8e59a711ab`;
+its parsed JSON is identical to the original4acaa0e5 admission above, despite
+serialization byte differences. Both are retained in366. No further run is queued.
 
 Ally's inherited generic STOP receipt says gameplay UNRUN even though prior
 observations demonstrate field and menu control. Keep that original unchanged and
@@ -135,11 +160,12 @@ and `D:/nioh3-re/reviews/main-retest-readiness-20261012/root11-capture-review/RE
 | Pause/resume runner `71eae77`; package340 | Actual field pause/resume proof required before Practice; held menu/intent/resume checks added | Source/196 runner+126 input checks are not native acceptance |
 | Owner-only package357/readiness358 | Current owner13024 binding replaces8880;11 dependencies unchanged | Trial362 blocked before any game launch |
 | Trial362/evidence364 | Existing18GB effective/6GB current memory gate waited300s then restored staged files | **Gameplay NOT TESTED**; prompted user to remove the gate |
+| Trial2844/evidence366 | Native field pause/resume, Practice shrine/control and healthy held phase2; actual held pause | Fixed20min elapsed before Summon; exact restoration verified |
 
 Trial308 first raw healthy held phase2 was12:44:36.1824485Z, with healthy samples
 through12:47:44.3177270Z. Escape opened Equipment with “3 Pause”; F10 showed the
 top-level overlay. Neither demonstrated actual native pause. Do not call308 a
-Summon pass. Latest functional work is the currently running2844 trial above.
+Summon pass. Latest functional evidence is the completed2844 trial above.
 
 Trial276's literal `cover busy` during native loading caused a conservative stop;
 the runner's foreign-token wording did not prove a foreign token actually existed.
@@ -291,21 +317,24 @@ approaches. No public release, general all-boss acceptance, or new FPS improveme
 is claimed by this handoff.
 
 Local audit archive (outside Git):
-`D:/nioh3-re/handoffs/codex-to-claude-20261012/bridge-timeline.json` records444
-channel reports after2267 through2856, and `artifact-index.json` indexes66
+`D:/nioh3-re/handoffs/codex-to-claude-20261012/bridge-timeline.json` records458
+channel reports after2267 through2875, and `artifact-index.json` indexes67
 available artifact metadata records from257 onward at this checkpoint. This keeps
 the intermediate workflow decisions available without expanding this summary into
 hundreds of messages. Credentials/webhook URLs are redacted; game files, saves,
 screenshots and binary contents are not copied into this archive. Bridge reports
-remain reports, not independent proof. Refresh the final tail at finalization.
+remain reports, not independent proof. Final artifacts365/366 are indexed.
 
-## Open work after the current results are inserted
+## Open work for the next session
 
 - Fix RA4B4 death/retry lifecycle using actual native evidence; RetryTrace is only
   a diagnostic candidate, not a fix.
-- Establish actual native pause/resume and Summon completion (current PC2 trial).
-- Obtain useful Ally gameplay baseline (current memory-gate-free trial), then
-  correct live binding/visual/performance tests for shader candidates.
+- PC2 pause/resume and Practice/held entry now have live evidence. Complete the
+  held Practice submenu, one Summon intent, timely native resume, visible boss/control
+  and native return in a separately authorized trial. Reduce operator round trips.
+- Ally field/control baseline now has live evidence. Obtain a valid comparative
+  timing window, then correct live binding/visual/performance tests for candidates.
+  No shader candidate gained live visual/performance acceptance in these last runs.
 - Keep prior runtime compiler evidence distinct from the updated Proton runtime.
 - The specific34296f3 offline release gate is resolved as described above. Keep
   native release acceptance separate; do not rerun those unchanged harnesses merely
