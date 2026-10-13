@@ -1,4 +1,5 @@
 # Nioh 3 agent brief (read first; keep briefs short and point here)
+- Returning Claude: read notes/handoff-codex-to-claude-2026-10-12.md for the consolidated Codex work/evidence/workflow handoff. Its first section explicitly marks pending versus final device results; old handoffs contain superseded installed-process, memory-gate and release-check states.
 - Goal: real 60 fps on ROG Ally (Proton) at the user's settings / max 1080p, low input delay; PC gains are a bonus. Ally is GPU-bound (99 %): CPU fixes are fps-neutral there; GPU shader/pass savings move fps (GHDM +8.7 % at MAX).
 - Scope: game-side only (ASI mod, shaders, game data, game's own API calls). Never system/hardware tweaks (TDP, boost, env vars, gamescope). Never strip DRM or edit Nioh3.exe on disk. No secrets in files.
 - Same look: no quality reductions; prove equivalence offline (bit-exact or within output quantization).

@@ -1,5 +1,10 @@
 # Fresh Codex handoff - live manual rematches
 
+Historical checkpoint. The later [Codex-to-Claude catch-up](handoff-codex-to-claude-2026-10-12.md)
+supersedes current-state claims below, including installed build, game ownership,
+the subsequently resolved offline release gate, and user-overridden memory limits.
+Retain the original observations below as evidence, not instructions for a new launch.
+
 Transfer checkpoint; final gate follow-up 2026-10-12 04:39 EDT. Recheck the newest
 STATUS section and actual HEAD before resuming. Main at the start of this work:
 `a643d4344b3c6d5d194cb536427d7adc10122a80`. This note does not supersede
