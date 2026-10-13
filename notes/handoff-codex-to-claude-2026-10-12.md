@@ -33,7 +33,7 @@ This is a catch-up document, not authorization to take over another live owner.
 |---|---|---|
 | Main PC | No new manual game launch; preserve user's latest progress | Previous user session closed normally at their request; RA4B4 retry bug remains unresolved |
 | PC2 | One native pause/resume, Practice, held-entry Summon trial; instruction2844 | ACK2845; actual game8180 and runner3332 launched, visible logo reported2851; output `C:/nioh3-re/pc2-summon-2844-20261012-1945`; fixed deadline20:02:40.570 PDT. **No pause/Summon success yet** |
-| Ally | One original-shader GPUProf0 actual field baseline; instruction2843 | Actual isolated derivative launched once, report2853; source5b9cbf83/entry893122e5, owner220871, task17 held;480s phase/600s guard. **Latest new gameplay result pending** |
+| Ally | One original-shader GPUProf0 actual field baseline; instruction2843 | Actual isolated derivative launched once, report2853; source5b9cbf83/entry893122e5, owner220871, task17 held;480s phase/600s guard. Report2854 confirms **actual character/HUD/Pray at the current shrine**; control/baseline and final cleanup pending |
 
 PC2's latest local admission is `C:/nioh3-re/pc2-admission-2844-local.json`,
 SHA256 `4acaa0e575a0a1d602ec1458f461074db65ead50c5a64a60f812569749fe9776`.
@@ -262,6 +262,15 @@ incoming live-rematches handoff, branch-specific notes and immutable bridge
 artifacts. Those contain more detail than this catch-up summary, including failed
 approaches. No public release, general all-boss acceptance, or new FPS improvement
 is claimed by this handoff.
+
+Local audit archive (outside Git):
+`D:/nioh3-re/handoffs/codex-to-claude-20261012/bridge-timeline.json` records444
+channel reports after2267 through2856, and `artifact-index.json` indexes66
+available artifact metadata records from257 onward at this checkpoint. This keeps
+the intermediate workflow decisions available without expanding this summary into
+hundreds of messages. Credentials/webhook URLs are redacted; game files, saves,
+screenshots and binary contents are not copied into this archive. Bridge reports
+remain reports, not independent proof. Refresh the final tail at finalization.
 
 ## Open work after the current results are inserted
 
