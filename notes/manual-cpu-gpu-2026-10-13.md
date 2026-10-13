@@ -97,7 +97,12 @@ Ally370: OFF only, missing math import; exact import-only diff reviewed and65
 manifest hashes match, clean restoration/observer. User then replaced pending
 automatic WG r5 with manual play: two fights/open world, installed current mod,
 normal saves, no Tour save-block, no auto inputs/termination. Task2932, reminders
-2934/2938; ACK outstanding at this checkpoint. Never call send receipt an ACK.
+2934/2938. ACK/READY2942 now confirms game274917/ticks7394731 and recorder active
+at backup/manual-play-20261013-011657; user told PLAY NOW. CPU/RAM1s and existing
+full MangoHud/log capture active, unchanged config/mod, fresh backup, no Tour,
+save rollback, input automation or game kill. Existing recorder retained instead
+of restarting for372. End on user notification; stop collectors only. Clock
+alignment approximate/per-framep99 unavailable. Never call send receipt an ACK.
 Phone+Discord use existing automatic status sync. No Claude invocation.
 Notifications2932/2934/2937/2938 independently confirmed phone_done=1/sent=1,
-attempts0/errornull. This is notification delivery, not the missing Ally ACK.
+attempts0/errornull. Actual Ally acknowledgement is separately2942.
