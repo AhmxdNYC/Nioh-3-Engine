@@ -182,3 +182,20 @@ Discord and phone completion notification 3031 delivered successfully. Combined 
 User requested enabling the two discussed CPU candidates together. Only WG and LK changed from 0 to 1 in the installed INI; MW and existing fixes remain enabled. The exact same combined Engine1.7.73 ASI41553b09 and addon1.4.21 remain installed, preserving hosted menus. Original INI saved under D:/nioh3-re/manual-wg-lk-20261013; fresh verified save backup D:/nioh3-re/save-backups/20261013-033211-user-recording.
 
 Game20784/start2026-10-13T07:32:54.8194954Z. Log confirms MW2sites/ON, WG switchON, LK18sites applied and F10 menu ready. Actual frame CSV611,716bytes, process CPU and hardware records verified; no screenshot of gameplay or automated gameplay input. Steam-only sync prompt was observed and authorized Play Anyway clicked once. CPU/frame/GPU/RAM capture remains active in the new root. User progress is preserved; no gain or separate WG/LK attribution claimed. Discord/phone READY3034 submitted.
+
+
+### WG + LK session completion and rematch loading
+
+User requested data collection and closure, and asked whether mission loading was skipped. Game20784 closed normally after CloseMainWindow; watcher reports game-exited and released the lease. Eight current save files copied and hash-verified under `manual-wg-lk-20261013/user-exit-saves`; no rollback. Collectors exited0/0 with no errors. Recorded399.901s (whole-session6.025cores includes menus/loading; not a gameplay gain metric). Final MW totals6,969rounds/3,284timeouts/27,882wakes/errors0; WG counters show positive wake suppression while ON; LK18sites applied at startup.
+
+Mission loading was NOT eliminated. The addon called the game's MissionRequestById for each Fight Now request, selecting boss/retry entry with spawn override. The cover stayed through the transition until requested boss and player control were ready. Ibaraki request03:35:40.825 to readiness03:36:00.437 =19.612s; Yamagata03:37:52.930 to03:38:09.227 =16.297s. These are complete request-to-control transition durations, not isolated disk-load timing. Both fight-began-before-warp messages mean the fallback post-load warp was unnecessary; they do not mean native mission loading was skipped. Logs preserve native mission requests, actor readiness, fight starts/ends and returns. Discord/phone completion3037 submitted. Selected combat metrics follow separately.
+
+
+Final WG/LK gameplay selection is saved in `D:/nioh3-re/manual-wg-lk-20261013/gameplay-selection-and-summary.json`, with exact log boundaries and slice reports. Both fights have matching SetMissionClearFlag records (60021 and7356) and replay exits. Asset/inflate activity confirms native loading occurred.
+
+| Combat after control readiness | Duration | Game CPU /12 logical processors | Displayed FPS | Displayed frame p99 | Game GPU3D engine sum |
+|---|---:|---:|---:|---:|---:|
+| Ibaraki Doji | 53.13s | 57.41% (6.889cores) | 93.50 | 14.24ms | 95.50% |
+| Yamagata Masakage | 21.36s | 54.86% (6.583cores) | 96.81 | 11.636ms | 94.08% |
+
+Short open-world slices: before12.14s,76.97%CPU/89.76FPS; return11.08s,63.50%CPU/89.60FPS. All frame sources cover their CPU intervals. Different bosses/scenes and short open-world intervals prevent a causal improvement verdict; the bundle cannot attribute any difference to WG or LK separately. No claim of a demonstrated10?20% reduction. LK has installation proof, no activity counter; WG has positive suppression/fallback counters; MW has positive waits/wakes and zero errors.
