@@ -515,7 +515,9 @@
     { "id": "EPF1", "group": "EPF", "rva": "0x4A5B76", "len": 8, "orig": "F3 0F 11 0D 8A 04 0C 04", "kind": "call", "target": "caveFxSim", "call_at": 0,
       "pattern": "F3 0F 11 05 ?? ?? ?? ?? F3 0F 11 0D ?? ?? ?? ?? F3 0F 11 15 ?? ?? ?? ?? 44 89 1D", "offset": 8, "what": "1.7.59 XPRT: ViewRenderSetupEffectParams 4A58DC stores view+2650h (xmm1) to g_ViewGpuEffectSimFraction 4566008; caveFxSim stores xmm1 x ep_fxMul, all registers kept" },
     { "id": "EPF2", "group": "EPF", "rva": "0x4A5B7E", "len": 8, "orig": "F3 0F 11 15 7A 04 0C 04", "kind": "call", "target": "caveFxDraw", "call_at": 0,
-      "pattern": "F3 0F 11 0D ?? ?? ?? ?? F3 0F 11 15 ?? ?? ?? ?? 44 89 1D ?? ?? ?? ?? 44 89 1D", "offset": 8, "what": "1.7.59 XPRT: view+2654h (xmm2) -> g_ViewGpuEffectDrawFraction 4566000; caveFxDraw stores xmm2 x ep_fxMul" }
+      "pattern": "F3 0F 11 0D ?? ?? ?? ?? F3 0F 11 15 ?? ?? ?? ?? 44 89 1D ?? ?? ?? ?? 44 89 1D", "offset": 8, "what": "1.7.59 XPRT: view+2654h (xmm2) -> g_ViewGpuEffectDrawFraction 4566000; caveFxDraw stores xmm2 x ep_fxMul" },
+    {"id": "RDR", "group": "RD", "rva": "0x418f63", "len": 5, "orig": "E8 28 00 00 00", "kind": "call", "target": "caveRDWait", "pattern": "48 8B CB E8 28 00 00 00 88 05 32", "offset": 3},
+    {"id": "RDW", "group": "RD", "rva": "0x1a7c4af", "len": 9, "orig": "F0 FF 4B 30 E9 3D FF FF FF", "kind": "jmp", "target": "caveRDWake", "pattern": "6C A1 FE F0 FF 4B 30 E9 3D FF FF FF 48 8B 5C", "offset": 3}
   ],
   "deps": [
     { "group": "RP", "rva": "0x311ED5", "bytes": "45 33 C9 45 33 C0 33 C9 41 8D 51 01", "what": "EP: FileReqAlloc CreateEventA args r9d=0 (no name), r8d=0 (not signalled), ecx=0 (no SA), edx=1 (manual reset): pooled events match (readprobe.cpp re-checks)" },
@@ -657,6 +659,14 @@
     { "group": "GIS", "rva": "0x187A50", "bytes": "48 83 EC 78 48 8B 05", "what": "XGI: GiScaleLookup 187A50 is the leaf the 4 GIS sites call (sub rsp,78h; /GS cookie), result in xmm0" },
     { "group": "GIS", "rva": "0x187484", "bytes": "48 8B CE 8B D7 44 0F 28 D0 E8", "what": "XGI: after the 4th lookup the caller reloads rcx / edx itself (nothing volatile is kept across the GIS calls)" },
     { "group": "EPL", "rva": "0x233A4E", "bytes": "48 8B D6 48 8B CF E8", "what": "XLOD: after ApplyMeshletLodScales the caller reloads rdx / rcx and does not read rax" },
-    { "group": "EPF", "rva": "0x4A5B18", "bytes": "F3 0F 10 91 54 26 00 00 F3 0F 10 89 50 26 00 00 F3 0F 10 81 4C 26 00 00", "what": "XPRT: xmm2 = view+2654h (draw fraction), xmm1 = view+2650h (sim fraction), xmm0 = view+264Ch: the registers EPF1 / EPF2 store" }
+    { "group": "EPF", "rva": "0x4A5B18", "bytes": "F3 0F 10 91 54 26 00 00 F3 0F 10 89 50 26 00 00 F3 0F 10 81 4C 26 00 00", "what": "XPRT: xmm2 = view+2654h (draw fraction), xmm1 = view+2650h (sim fraction), xmm0 = view+264Ch: the registers EPF1 / EPF2 store" },
+    {"group": "RD", "rva": "0x418f40", "bytes": "40 53 48 83 EC 30 48 8D 42 28 48 8B D9 48 89 44 24 20 E8 D9 C5 DE FF 48 89 44 24 28 0F 1F 40 00 48 8B CB", "what": "drain call ABI and native timing start"},
+    {"group": "RD", "rva": "0x418f90", "bytes": "8B 41 28 39 41 24 74 03 B0 01 C3 83 79 30 00 77 F7 32 C0 C3", "what": "full native write/read/in-flight predicate"},
+    {"group": "RD", "rva": "0x1a7c3e0", "bytes": "48 89 5C 24 08 48 89 7C 24 10 55 48 8B EC 48 83 EC 50 48 8B D9 48 8B 4B 10 83 CA FF FF 15 3E 5F E6 01 8B 43 28 39 43 24 0F 84 AA 00 00 00 33 D2 F7 73 20 48 8B 43 18 8B CA 48 C1 E1 05 0F 10 04 01 0F 11 45 E0 0F 10 4C 01 10 B8 01 00 00 00 0F 11 4D F0 F0 0F", "what": "consumer ABI, semaphore, empty shutdown, read publication"},
+    {"group": "RD", "rva": "0x1a7c484", "bytes": "E8 03 AE D2 FE 48 8B 4D E0 E8 E6 9B A1 FE 48 8B 4D E0 41 B1 01 4C 8B C0 48 8D 91 88 05 00 00 48 81 C1 A0 05 00 00 E8 19 6C A1 FE", "what": "submission returns before completion"},
+    {"group": "RD", "rva": "0x2542b4", "bytes": "B8 01 00 00 00 F0 0F C1 43 24 0F 10 44 24 30 33 D2 F7 73 20 48 8B 43 18 0F 10 4C 24 40 8B CA 48 C1 E1 05 0F 11 04 01 0F 11 4C 01 10 F0 FF 43 30 48 8B 4B 10 45 33 C0 41 8D 50 01 FF 15 A3 E2 68 03", "what": "producer reservation, payload, count then semaphore"},
+    {"group": "RD", "rva": "0x254184", "bytes": "E8 8B 87 08 3C 00 00 03 87 00 3C 00 00 66 44 89 65 FD 44 88 65 FF 48 89 4D F0 40 88 75 F8 39 87 04 3C 00 00 0F 84 48 CA 6B 01 B8 01 00 00 00 F0 0F C1 87 04 3C 00 00 0F 10 45 E0 33 D2 F7 B7 00 3C 00 00 48 8B 87 F8 3B 00 00 0F 10 4D F0 8B CA 48 C1 E1 05 0F 11 04 01 0F 11 4C 01 10 F0 FF 87 10 3C 00 00 48 8B 8F F0 3B 00 00 45 33 C0 41 8D", "what": "inline producer publication"},
+    {"group": "RD", "rva": "0x2eeddec", "bytes": "48 89 5C 24 08 57 48 83 EC 20 48 8B D9 48 8D B9 E0 3B 00 00 EB 08 33 C9 FF 15 2E 45 9F 00 48 8B CF E8 7E B1 52 FD 84 C0 75 EC 48 8D 4B 10 48 8B 5C 24 30 48 83 C4 20 5F E9 4B 2C 01 00", "what": "teardown drains before context cleanup"},
+    {"group": "RD", "rva": "0x2eede4c", "bytes": "40 53 48 83 EC 20 48 8B D9 48 8B 49 08 48 85 C9 74 34 48 83 7B 10 00 74 15 48 8B 4B 10 45 33 C0 41 8D 50 01 FF 15 22 47 9F 00 48 8B 4B 08 83 CA FF FF 15 BD 44 9F 00 48 8B 4B 08 FF 15 03 45 9F 00 48 83 63 08 00 48 8B 4B 10 48 85 C9 74 0B FF 15 EF 44 9F 00 48 83 63 10 00 48 83 63 18 00 83 63 20 00 83 63 24 00 83 63 28 00 48 83 C4 20 5B C3", "what": "shutdown sentinel and join before ring clear"}
   ]
 }

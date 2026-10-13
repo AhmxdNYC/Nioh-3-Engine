@@ -1,3 +1,7 @@
+## 2026-10-13 Codex - private renderer drain candidate on 1.7.73
+
+Default-off `[Patches] RD` replaces end-frame active polling with 64 predicate polls then a bounded address wait on the native in-flight count. Paired native completion still decrements only after replay/submission and now wakes that address. Full write/read/count checks, command work, submission, shutdown and current menus/MW remain intact. Zero-count publication gaps poll; timeout is never success; API failure latches native polling. Startup publication uses the existing MW all-or-nothing frozen pair. Native race/unwind tests and exact pattern checks passed; game stability and CPU/frame benefit are untested. See notes/renderer-drain-wait-candidate-2026-10-13.md.
+
 ## 2026-10-12 Codex - private EngineFix 1.7.73 / BossRematch 1.4.21 dojo cover readiness and loading bar
 
 Yagyu Munenori (Veteran) uses an already placed dojo teacher rather than the Character::Create path. Only its exact mission/start/actor tuple may now use the current validated actor, active algorithm and native not-dead observation with the owned attempt's BossBattle witness, current player control and the existing continuous settle gate. Same-mission or unknown-source entry is refused before the request. No other route gains this exception, and native ownership, failures and deadlines are unchanged. The loading cover shows an indeterminate bar and short stage labels instead of internal diagnostic text; it never claims an asset percentage. Offline checks are not native gameplay acceptance.

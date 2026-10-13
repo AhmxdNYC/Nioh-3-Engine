@@ -307,7 +307,7 @@ def main():
             ok &= check(ca + 5 <= ln and ln - ca - 5 in (0, 1, 2, 3, 5), "%s: call does not fit / bad nop pad" % sid)
             ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
         elif k == "jmp":
-            ok &= check(ln - 5 in (0, 1, 2, 3, 5), "%s: jmp does not fit / bad nop pad" % sid)
+            ok &= check(ln - 5 in (0, 1, 2, 3, 4, 5), "%s: jmp does not fit / bad nop pad" % sid)
             ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
         elif k == "check":
             pass  # verified like every site (pattern, RVA, bytes), never written (GP marker code, 1.7.0)

@@ -65,6 +65,7 @@
 #include "rebar.h"
 #include "scenemirror.h"
 #include "meshletwait.h"
+#include "drainwait.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -423,6 +424,13 @@ std::wstring SelfPathWithExt(const wchar_t* ext) {
 static bool s_asyncKnown = false, s_as0Applied = false;  // AS0 / async-queue stats (stats thread)
 
 // ---- config ----------------------------------------------------------------------------------------------------
+drainwait::State g_rd;
+bool g_rdInstallUncertain = false;
+extern "C" void caveRDWait();
+extern "C" void caveRDWake();
+extern "C" uint64_t rd_resume;
+extern "C" bool RDWait(uint8_t* ring) { return g_rd.Poll(ring); }
+extern "C" void RDComplete(uint8_t* ring) { g_rd.Complete(ring); }
 meshletwait::State g_mw;
 bool g_mwInstallUncertain = false;
 extern "C" void caveMW();
@@ -431,7 +439,7 @@ extern "C" void MWWait(uint8_t* m) { g_mw.Round(m + 0x5F8); }
 extern "C" void MWComplete(uint8_t* m) { g_mw.Complete(m + 0x5F8); }
 
 struct Config {
-    int mw = 0;
+    int mw = 0, rd = 0;
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
     int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
@@ -542,6 +550,7 @@ Config LoadConfig() {
     c.j1 = I(L"Patches", L"J1", c.j1);
     c.x1 = I(L"Patches", L"X1", c.x1);
     c.e1 = I(L"Patches", L"E1", c.e1);
+    c.rd = I(L"Patches", L"RD", 0); // startup-only paired renderer drain
     c.mw = I(L"Patches", L"MW", 0);  // explicit opt-in, never Auto
     c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
     c.s1 = I(L"Patches", L"S1", c.s1);
@@ -764,6 +773,8 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveE1A: return (void*)&caveE1A;
         case gen::Target::caveE1B: return (void*)&caveE1B;
         case gen::Target::caveMW: return (void*)&caveMW;
+        case gen::Target::caveRDWait: return (void*)&caveRDWait;
+        case gen::Target::caveRDWake: return (void*)&caveRDWake;
         case gen::Target::caveMWWake: return (void*)&caveMWWake;
         case gen::Target::caveW6: return (void*)&caveW6;
         case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
@@ -830,7 +841,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveMWWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveRDWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1208,6 +1219,7 @@ bool BuildRepl(Item& it) {
             case 1: pp = pad1; break;
             case 2: pp = pad2; break;
             case 3: pp = pad3; break;
+            case 4: { static const uint8_t pad4[] = {0x0F,0x1F,0x40,0x00}; pp = pad4; break; }
             case 5: pp = pad5; break;
             default: return false;
         }
@@ -1239,7 +1251,8 @@ bool BuildRepl(Item& it) {
 // No heap / CRT / loader use while threads are suspended.
 bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     if (items.empty()) return true;
-    const bool strictMW = !strcmp(name, "MW");
+    const bool isRD = !strcmp(name, "RD");
+    const bool strictMW = !strcmp(name, "MW") || isRD;
     using NextThreadFn = LONG(NTAPI*)(HANDLE, HANDLE, ACCESS_MASK, ULONG, ULONG, PHANDLE);
     NextThreadFn nextThread = nullptr;
     if (strictMW) {
@@ -1390,8 +1403,8 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             });
             written = result == meshletwait::Publication::Applied;
             if(!written && !originalMismatch){++md.rollback;md.stage="PublicationRollback";}
-            g_mwInstallUncertain = result == meshletwait::Publication::Uncertain;
-            if (g_mwInstallUncertain) attempts = 200; // never retry an uncertain write
+            (isRD ? g_rdInstallUncertain : g_mwInstallUncertain) = result == meshletwait::Publication::Uncertain;
+            if (isRD ? g_rdInstallUncertain : g_mwInstallUncertain) attempts = 200; // never retry an uncertain write
         } else if (!clash) {
             for (Item* it : items) {
                 if (it->s->kind == gen::Kind::VPtr)  // vtable slot: one aligned 8-byte store
@@ -1757,6 +1770,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "X1")) return cfg.x1 != 0;
         if (!strcmp(g, "E1")) return cfg.e1 != 0;
         if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
+        if (!strcmp(g, "RD")) return cfg.rd != 0;
         if (!strcmp(g, "MW")) return cfg.mw != 0;
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
@@ -1983,6 +1997,19 @@ DWORD WINAPI Worker(LPVOID) {
         if (ok && prep) ok = prep();
         return run(g, v, ok);
     };
+    if (cfg.rd) {
+        HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
+        auto wait = kb ? reinterpret_cast<meshletwait::WaitFn>(GetProcAddress(kb, "WaitOnAddress")) : nullptr;
+        auto wake = kb ? reinterpret_cast<meshletwait::WakeFn>(GetProcAddress(kb, "WakeByAddressAll")) : nullptr;
+        const bool installed = expGroup("RD", wait && wake, [&]() {
+            rd_resume = (uint64_t)(uintptr_t)(g_base + 0x1A7C3F5);
+            g_rd.wait=wait; g_rd.wake=wake; g_rd.enabled=true;
+            return true;
+        });
+        if (!installed && !g_rdInstallUncertain) g_rd.enabled=false;
+        Log("RD: %s (paired renderer drain; startup-only; full native predicate retained)",
+            installed ? "ON" : g_rdInstallUncertain ? "UNRESOLVED publication; helpers retained" : "stock retained");
+    }
     // MW reader + completion writer are ONE atomic group: never timeout-only install.
     if (cfg.mw) {
         HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
@@ -2787,6 +2814,8 @@ DWORD WINAPI Worker(LPVOID) {
                     }
                 }
                 if (sec % 30) continue;
+                if (g_rd.enabled) Log("RD totals: rounds %ld timeouts %ld wakes %ld errors %ld fallback %ld",
+                    g_rd.rounds,g_rd.timeouts,g_rd.wakes,g_rd.errors,g_rd.failed);
                 if (g_mw.enabled) Log("MW totals: wait rounds %ld timeouts %ld wakes %ld errors %ld",
                     g_mw.rounds, g_mw.timeouts, g_mw.wakes, g_mw.errors);
                 if (g_fgcOn || g_fgpOn) {
