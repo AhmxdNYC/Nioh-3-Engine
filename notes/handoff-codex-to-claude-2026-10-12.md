@@ -284,6 +284,8 @@ Separate worktrees are intentional; do not consolidate by overwriting them:
   restarted the same scheduled task. It resumed the durable queue through2876.
   Stop cause is unestablished; check task state and delivery receipts, not merely
   an old health timestamp. This incident is not evidence of continuous delivery.
+  Final audit confirmed completion2876 phone_done=1/sent=1, no error, and zero
+  pending Discord deliveries after the backlog drained.
 - Cursor starts after2808 only on first initialization; never delete its database
   to restart. Normal replay is deduplicated. A crash after Discord accepts but
   before local success commit can duplicate one notification; IDs identify it.
