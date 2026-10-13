@@ -1,0 +1,298 @@
+{
+  "scope": "static only; no callable reset API admitted",
+  "script_sha256": "44d8bee6b36f28b79b4188a06f61218169e032685deb35c82c0ab27773331bd7",
+  "symbol_id_mapping": "symbol-table explicit id, all function markers crosschecked with code table",
+  "checked_markers": 187,
+  "corrected_selected_functions": [
+    {
+      "offset": "0x117fe",
+      "symbol_id": 446,
+      "name": "sub_event_boss_battle_start"
+    },
+    {
+      "offset": "0x119be",
+      "symbol_id": 447,
+      "name": "sub_event_boss_clear_check"
+    },
+    {
+      "offset": "0x11e30",
+      "symbol_id": 448,
+      "name": "sub_event_jouka_event"
+    },
+    {
+      "offset": "0x12110",
+      "symbol_id": 449,
+      "name": "sub_event_talk_shizuka"
+    }
+  ],
+  "string_pool_count": 174,
+  "create_string166": "sub_event_boss_clear_check",
+  "start_calls": [
+    {
+      "offset": "0x1180e",
+      "kind": "script",
+      "symbol_id": 281,
+      "name": "Function::WaitWarpStart"
+    },
+    {
+      "offset": "0x11818",
+      "kind": "native",
+      "symbol_id": 191,
+      "name": "Debug::PrintString"
+    },
+    {
+      "offset": "0x1181e",
+      "kind": "native",
+      "symbol_id": 392,
+      "name": "Player::IsGameOver"
+    },
+    {
+      "offset": "0x11832",
+      "kind": "native",
+      "symbol_id": 135,
+      "name": "Graphics::BlackFadeOut"
+    },
+    {
+      "offset": "0x1183a",
+      "kind": "native",
+      "symbol_id": 390,
+      "name": "Player::SetControlOff"
+    },
+    {
+      "offset": "0x11846",
+      "kind": "script",
+      "symbol_id": 406,
+      "name": "Time::Wait"
+    },
+    {
+      "offset": "0x1184c",
+      "kind": "native",
+      "symbol_id": 392,
+      "name": "Player::IsGameOver"
+    },
+    {
+      "offset": "0x1185c",
+      "kind": "native",
+      "symbol_id": 131,
+      "name": "Pause::SetFlag"
+    },
+    {
+      "offset": "0x11868",
+      "kind": "script",
+      "symbol_id": 406,
+      "name": "Time::Wait"
+    },
+    {
+      "offset": "0x1187a",
+      "kind": "native",
+      "symbol_id": 174,
+      "name": "Gadget::SetReplacementStatus"
+    },
+    {
+      "offset": "0x11884",
+      "kind": "native",
+      "symbol_id": 191,
+      "name": "Debug::PrintString"
+    },
+    {
+      "offset": "0x11890",
+      "kind": "native",
+      "symbol_id": 74,
+      "name": "Mission::SetCharacterLoadDistanceRate"
+    },
+    {
+      "offset": "0x11896",
+      "kind": "native",
+      "symbol_id": 118,
+      "name": "Mission::InterruptionSummon"
+    },
+    {
+      "offset": "0x1189c",
+      "kind": "native",
+      "symbol_id": 240,
+      "name": "Character::SetAllEnemyDeactive"
+    },
+    {
+      "offset": "0x118b6",
+      "kind": "native",
+      "symbol_id": 402,
+      "name": "Player::SetPos"
+    },
+    {
+      "offset": "0x118bc",
+      "kind": "native",
+      "symbol_id": 146,
+      "name": "Camera::Reset"
+    },
+    {
+      "offset": "0x118c4",
+      "kind": "native",
+      "symbol_id": 217,
+      "name": "Character::WarpCoopCharacterToPlayer"
+    },
+    {
+      "offset": "0x118ca",
+      "kind": "script",
+      "symbol_id": 148,
+      "name": "Load::WaitLoadEnd"
+    },
+    {
+      "offset": "0x118d6",
+      "kind": "native",
+      "symbol_id": 7,
+      "name": "RTM::Request"
+    },
+    {
+      "offset": "0x118dc",
+      "kind": "native",
+      "symbol_id": 54,
+      "name": "UI::LoadStart"
+    },
+    {
+      "offset": "0x118e8",
+      "kind": "script",
+      "symbol_id": 11,
+      "name": "RTM::Play"
+    },
+    {
+      "offset": "0x118f4",
+      "kind": "native",
+      "symbol_id": 378,
+      "name": "Character::Create"
+    },
+    {
+      "offset": "0x11902",
+      "kind": "native",
+      "symbol_id": 238,
+      "name": "Character::SetActiveFlag"
+    },
+    {
+      "offset": "0x11908",
+      "kind": "script",
+      "symbol_id": 148,
+      "name": "Load::WaitLoadEnd"
+    },
+    {
+      "offset": "0x1190e",
+      "kind": "script",
+      "symbol_id": 112,
+      "name": "Online::WaitTokoyoCoopPlayer"
+    },
+    {
+      "offset": "0x11924",
+      "kind": "native",
+      "symbol_id": 115,
+      "name": "Sound::PlayBossBGM"
+    },
+    {
+      "offset": "0x1192a",
+      "kind": "native",
+      "symbol_id": 92,
+      "name": "Mission::IsParallelStreamMission"
+    },
+    {
+      "offset": "0x1193c",
+      "kind": "native",
+      "symbol_id": 162,
+      "name": "Sound::SetProhibitedEndStateFlag"
+    },
+    {
+      "offset": "0x11942",
+      "kind": "native",
+      "symbol_id": 391,
+      "name": "Player::RecoverStamina"
+    },
+    {
+      "offset": "0x1194e",
+      "kind": "native",
+      "symbol_id": 121,
+      "name": "Mission::BossBattleMode"
+    },
+    {
+      "offset": "0x11954",
+      "kind": "native",
+      "symbol_id": 146,
+      "name": "Camera::Reset"
+    },
+    {
+      "offset": "0x1195c",
+      "kind": "native",
+      "symbol_id": 131,
+      "name": "Pause::SetFlag"
+    },
+    {
+      "offset": "0x11964",
+      "kind": "script",
+      "symbol_id": 406,
+      "name": "Time::Wait"
+    },
+    {
+      "offset": "0x11970",
+      "kind": "native",
+      "symbol_id": 136,
+      "name": "Graphics::BlackFadeIn"
+    },
+    {
+      "offset": "0x1197a",
+      "kind": "native",
+      "symbol_id": 181,
+      "name": "Script::Create"
+    },
+    {
+      "offset": "0x11982",
+      "kind": "native",
+      "symbol_id": 390,
+      "name": "Player::SetControlOff"
+    },
+    {
+      "offset": "0x1198e",
+      "kind": "native",
+      "symbol_id": 7,
+      "name": "RTM::Request"
+    },
+    {
+      "offset": "0x1199a",
+      "kind": "native",
+      "symbol_id": 7,
+      "name": "RTM::Request"
+    },
+    {
+      "offset": "0x119a6",
+      "kind": "native",
+      "symbol_id": 7,
+      "name": "RTM::Request"
+    },
+    {
+      "offset": "0x119b2",
+      "kind": "script",
+      "symbol_id": 282,
+      "name": "Function::EndWarpRights"
+    }
+  ],
+  "native_windows": {
+    "0x94550": {
+      "size": "0x93",
+      "sha256": "c091b52673482cfc6797a9fa7d2ecbcab0fcc853cfbdaa18ffca359223723384"
+    },
+    "0x94b04": {
+      "size": "0xeb",
+      "sha256": "fdddc6baa820c4d5c40ec94dd95238a261c494a3872d9e85da584aa5d966adf4"
+    },
+    "0x94bf0": {
+      "size": "0x5a",
+      "sha256": "b8f47688ea3557f29742d229dc4db025afc02bfb47acccfe0333518e366c704f"
+    },
+    "0x94d80": {
+      "size": "0x79",
+      "sha256": "38fa864b6eb157bcdc8324aa073cc06b5902b1400f06c5db659ea9b04ebcb3e3"
+    },
+    "0x94fac": {
+      "size": "0xc1",
+      "sha256": "489e5f785e6ebb23df9d94a59ed9ce82594d37e3825cf2f4c518e471278f6a83"
+    },
+    "0x95664": {
+      "size": "0x5d",
+      "sha256": "6cd3cee1303622d020aedf9cfafe091494b9c30a5effb672ec54b0fd5285bd1f"
+    }
+  }
+}
