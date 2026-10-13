@@ -204,3 +204,10 @@ Short open-world slices: before12.14s,76.97%CPU/89.76FPS; return11.08s,63.50%CPU
 ### Matched-boss repeat active, 03:45 EDT
 
 User requested another run, repeating Takeda Shingen then Minamoto no Yoritomo followed by similar open-world movement. Same combined installed binary and WG1/LK1/MW1; no additional setting changes. MAIN16044/start2026-10-13T07:45:01.3177922Z; root `D:/nioh3-re/manual-wg-lk-matched-20261013`. Runtime LK18sites applied, WG positive suppression/ON, MW positive rounds/wakes/errors0. Verified process CPU samples, hardware records and growing frame CSV (2,518,067 bytes at ready check). Current menus initialized. User owns gameplay; no gameplay screenshots/input. READY3039 submitted to automatic phone/Discord delivery. Recording and game remain active; results pending, no causal claim.
+
+
+### Matched-boss repeat completed; switches retained by user
+
+Capture finalized with collectors0/0/errors[], game16044 left running. User beat Takeda, lost to Yoritomo, and played open world. Fight-only comparison MW-only -> MW+WG+LK: Takeda75.70% ->76.71% CPU and86.11 ->83.05FPS; Yoritomo73.66% ->71.58% CPU and84.68 ->86.01FPS. Open world79.22% ->77.75%CPU and84.86 ->76.48FPS, route unmatched. Current/baseline durations differ (Takeda44.07/26.49s, Yoritomo116.82/34.36s); Yoritomo compares loss with victory, excluding death-load and empty-arena time. Mixed results, no demonstrated10-20% reduction. Detailed aligned slices and reproducible analysis live in `D:/nioh3-re/manual-wg-lk-matched-20261013/gameplay-selection-and-summary.json` and `matched-gameplay-results.md`.
+
+User explicitly chose to retain WG/LK/MW ON despite uncertain benefit. RESULT3040 delivered to phone and Discord. Logs reproduce empty-arena retry; see `yoritomo-death-retry-20261013.md` and `rematch-fast-restart-2026-10-13.md`. These are investigation findings, not installed fixes. A separate background-CPU capture was requested while the user types in VS Code; no gameplay screenshot or automatic input.
