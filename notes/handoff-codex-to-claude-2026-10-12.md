@@ -280,6 +280,10 @@ Separate worktrees are intentional; do not consolidate by overwriting them:
   `*-health.json`; phone snapshot `D:/nioh3-re/status/operations.json`.
   Existing notifier loads protected credentials; no URL/token belongs in notes.
   Nine real events were verified delivered to both outputs at deployment.
+  At final handoff audit the task was Ready with last exit1 and cursor2844; root
+  restarted the same scheduled task. It resumed the durable queue through2876.
+  Stop cause is unestablished; check task state and delivery receipts, not merely
+  an old health timestamp. This incident is not evidence of continuous delivery.
 - Cursor starts after2808 only on first initialization; never delete its database
   to restart. Normal replay is deduplicated. A crash after Discord accepts but
   before local success commit can duplicate one notification; IDs identify it.
