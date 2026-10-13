@@ -36,3 +36,12 @@ Native fresh-wait semantics remain the specific unknown to resolve. The existing
 An explicit user-facing `Restart rematch` using existing native return followed by a fresh rematch request is a practical fallback while same-mission reset is unverified; it costs a load and must wait for verified return before re-entry. It is not seamless arena reset.
 
 Focused verification: confirmed death/reload, boss-intro load, Begin during loading, stale-key rejection, unknown player/mission state, and normal mission exit; then real Yoritomo defeat and retry with fresh target/combat/control evidence. A second boss death cycle checks generalization. No broad release sweep is required before that focused test.
+
+
+## Behavioral candidate and PC2 handoff
+
+Isolated worktree `D:/nioh3-wt/rematch-retry-epoch-20261013`, commit46adfab76cc595f37a928833f398ae2005a23bbf, addon1.4.22-retry2 SHA5c6660c7210ed5b419877340ecd964af352c6cdc2735563ee98c11c540ab4df4. On anchored known-dead player before load, restores only the owned spawn record to its original native entrance; rechecks player/session/load scope, one attempt per fight, no late mutation, disables retry warp. Fresh retry generation invalidates historical PASS/key; native Begin+requested actor+player/control needed for recovery. Missed timing/ownership failure remain explicit, not assumed fixed. No script/HP/gate mutations or mission-load skip.
+
+Root independently reran27policy+27actual-body integration/hook+200native-reader checks PASS. Agent also built Release and passed native transaction/owned restoration tests. Full code/README/validation in worktree and original addon package. Paired PC2 packet382 (`D:/nioh3-re/candidates/pc2-yori-retry-46adfab.zip`) SHA5bb370ac1a7dc6013d5aa3f5981e827506244f1225a4a758b2f12731c9e93a49; manifestc7e2c83a9333c8fad2b81bf0544dfaa32129f71132107a87212510634aa01f54. Exact existing hosted engine41553b09 included; main installation untouched.
+
+PC2 ACK3042 ready/restored/currentowner13024, preparation proposal381 reviewed.3053 grants source preparation of30min single-launch Yoritomo natural defeat/original entrance/Return runner with local image review, no root roundtrip for each input; telemetry-only memory/noise.3056 supplies candidate382 and exact trial-contract.json. Actual launch remains pending wrapper/readiness review and fresh admission; no live success claimed. Both game versions and all test-side source remain immutable. User requested quiet peer ACKs, actual milestone Discord/phone delivery.
