@@ -373,3 +373,19 @@ SPF/LK are secondary built candidates, not measured reductions. Do not repackage
 already-enabled GF/W6 as new gains, lower the frame cap to manufacture a CPU win,
 or use TG's changed simulation rate for an equal-behavior comparison. Older worker
 savings estimates are not proof of a10-20% whole-process improvement.
+
+## October13 CPU comparison execution follow-up
+
+User requested adapting the tests and having PC2 and Ally execute them, with token
+efficiency on both peers. Source6a45d3c adds the read-only cross-platform
+process_cpu_window.py and CPU_REDUCTION.md under tools/testmatrix; packet367
+SHA2561b228c2dcb10475b569791edf0e53e50550aefe410aaced472ec2d4481bb5e15.
+Three focused tests and one real Windows query passed. Existing FPS-oriented
+abba2_pc.ps1 is intentionally not launched unchanged: it overrides user settings.
+Peer assignments2880/2881, packet/run directions2884/2885: adapt existing local
+lifecycle/input/frame capture, one WG comparison at unchanged settings, two
+OFF-ON-ON-OFF quads of30s. Actual process CPU, matched frame times, noisy-window
+caveats and exact restoration required. No new memory gates or broad suite reruns.
+PC2 ACK2882 confirms availability/preparation; Ally acknowledgement and both
+runtime outcomes remain pending at this checkpoint. Earlier365/366 are closed
+training/field trials, not the result of these new CPU comparisons.
