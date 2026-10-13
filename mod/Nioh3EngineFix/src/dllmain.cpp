@@ -440,6 +440,7 @@ extern "C" void MWComplete(uint8_t* m) { g_mw.Complete(m + 0x5F8); }
 
 struct Config {
     int mw = 0, rd = 0;
+    int m2s = 0;  // narrow completion-CAS seed loads, startup only; full M2 unchanged
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
     int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
@@ -547,6 +548,7 @@ Config LoadConfig() {
     c.aabb = I(L"Patches", L"AABB", c.aabb);
     c.m1 = I(L"Patches", L"M1", c.m1);
     c.m2 = I(L"Patches", L"M2", c.m2);
+    c.m2s = I(L"Patches", L"M2S", c.m2s);
     c.j1 = I(L"Patches", L"J1", c.j1);
     c.x1 = I(L"Patches", L"X1", c.x1);
     c.e1 = I(L"Patches", L"E1", c.e1);
@@ -1765,7 +1767,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "FPC")) return cfg.fpc != 0;
         if (!strcmp(g, "AABB")) return cfg.aabb != 0;
         if (!strcmp(g, "M1")) return cfg.m1 != 0;
-        if (!strcmp(g, "M2")) return cfg.m2 != 0;
+        if (!strcmp(g, "M2")) return cfg.m2 != 0 || cfg.m2s != 0;
+        if (!strcmp(g, "M2S")) return cfg.m2s != 0 && cfg.m2 == 0;
         if (!strcmp(g, "J1")) return cfg.j1 != 0;
         if (!strcmp(g, "X1")) return cfg.x1 != 0;
         if (!strcmp(g, "E1")) return cfg.e1 != 0;
@@ -2116,6 +2119,16 @@ DWORD WINAPI Worker(LPVOID) {
         return true;
     });
     exDone[menu::kExpM2] = expGroup("M2", cfg.m2 != 0, nullptr);
+    // Reuse M2e's single manifest row so overlapping byte patches cannot coexist.
+    // Both seed loads reach an unconditional retained locked CAS before any other memory access.
+    // Full M2 takes precedence if explicitly requested; do not partially combine the two groups.
+    if (cfg.m2s && cfg.m2) Log("M2S: skipped because full M2 is requested; no extra seed site installed");
+    if (cfg.m2s && !cfg.m2) {
+        std::vector<Item*> seed{findItem("M2e"), findItem("M2S0")};
+        bool ok = known && seed[0] && seed[1] && allFound(seed) && DepsOk("M2S");
+        if (run("M2S", seed, ok))
+            Log("M2S: ON (2 completion seed loads; retained locked CAS barriers; startup-only)");
+    }
     exDone[menu::kExpJ1] = expGroup("J1", cfg.j1 != 0, nullptr);
     exDone[menu::kExpX1] = expGroup("X1", cfg.x1 != 0, [&]() {
         uint8_t* a = findItem("X1")->addr;  // FF 15 disp32

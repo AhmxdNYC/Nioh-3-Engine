@@ -977,3 +977,8 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 
 ## 2026-10-11 - Private BossRematch 1.4.3 mission observer (Codex)
 - Default-OFF read-only pump snapshots copy independent valid-or-unknown mission/retry scalars, publication sequence/time and observed mission epoch/gap. Cached SRW-protected publication skips contention with an explicit loss count. No native mutations/deployment or runtime/performance claim; load/session/events remain unfinished. Evidence: notes/handoff-codex-training-mission-snapshot.md.
+
+### 2026-10-13: M2S completion seed candidate (default off, not gameplay accepted)
+
+- Isolated hosted/MW base592a888: new startup-only `[Patches] M2S` replaces only seed reads493DC/49412; both unconditional completion CAS barriers493E9/49428 remain. Full M2 behavior/default and current menus/MW unchanged. Conflicting full M2 takes precedence and logs M2S skipped.
+- Exact byte/dependency/branch checks and40,002 own-process native equivalence/contention cases pass; release build succeeds. No installed file changed or runtime gain claimed. See notes/meshlet-cpu-audit-20261013.md for test contract and the actual pool append mutator invalidating M1's old immutable-list justification.
