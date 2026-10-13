@@ -1273,7 +1273,36 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         std::vector<HANDLE> hs;
         std::vector<DWORD> tids;
         bool freezeComplete = true;
-        {
+        if (strictMW) {
+            // Use the same kernel enumeration for the initial retained handles
+            // and the frozen census. Toolhelp can omit a thread the kernel sees.
+            // Retain returned handles directly rather than reopening a reusable TID.
+            HANDLE previous = nullptr;
+            bool previousRetained = false, complete = false;
+            const ULONGLONG snapshotStart = GetTickCount64();
+            for (unsigned n = 0; n < 4096 && GetTickCount64() - snapshotStart < 100; ++n) {
+                HANDLE current = nullptr;
+                const LONG status = nextThread(GetCurrentProcess(), previous,
+                    THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, 0, 0, &current);
+                if (previous && !previousRetained) CloseHandle(previous);
+                previous = current;
+                previousRetained = false;
+                if (static_cast<ULONG>(status) == 0x8000001Au) { complete = true; break; }
+                if (status != 0 || !current) {
+                    ++md.open; md.stage="NativeSnapshotApi"; md.status=static_cast<ULONG>(status); break;
+                }
+                const DWORD tid = GetThreadId(current);
+                if (!tid || GetProcessIdOfThread(current) != pid) {
+                    ++md.owner; md.stage="NativeSnapshotOwner"; md.tid=tid; md.error=GetLastError(); break;
+                }
+                if (tid == self) continue; // cursor handle closed only after the next query
+                hs.push_back(current);
+                tids.push_back(tid);
+                previousRetained = true;
+            }
+            if (previous && !previousRetained) CloseHandle(previous);
+            if (!complete) { freezeComplete=false; ++md.snapshot; }
+        } else {
             HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
             if (snap != INVALID_HANDLE_VALUE) {
                 THREADENTRY32 te{};
@@ -1319,7 +1348,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         if (!clash && strictMW) {
             ++md.census;
             // Kernel-only bounded census: detect threads born between the initial
-            // Toolhelp snapshot and suspension. No allocation/loader while frozen.
+            // native snapshot and suspension. No allocation/loader while frozen.
             HANDLE previous = nullptr;
             bool complete = false, censusRejected = false;
             const ULONGLONG censusStart = GetTickCount64();

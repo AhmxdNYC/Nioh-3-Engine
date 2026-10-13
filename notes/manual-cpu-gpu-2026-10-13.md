@@ -152,3 +152,7 @@ Notifications2932/2934/2937/2938 independently confirmed phone_done=1/sent=1,
 attempts0/errornull. Actual Ally acknowledgement is separately2942.
 
 User-requested closure: exact main game23500 closed gracefully via CloseMainWindow; process absence verified, watcher state game-exited and lease release succeeded. No save rollback or forced termination. Receipt: D:/nioh3-re/user-telemetry-20261013/user-close-receipt.json. PC2 independently STARTED2981 the admitted MW series (not a result yet).
+
+
+### Follow-up open-world combat, 02:48-02:54 EDT
+User reports open-world killing only, no boss rematch. Root D:/nioh3-re/mw-manual-diagnostic-20261013. MW requested but installer SKIPPED (native census initial-list mismatch), so baseline only. Process15444, capture375.185s/3244.672CPU-s=8.648cores including startup/menu/load, collectors0/0/errors[]. Agent extracted log-selected gameplay slices83.4-87.6displayedFPS and8.89-9.69cores (74.1-80.7% of12 logicalCPUs), system95-100%, summed game3D70-74%; latest99.6s slice02:52:45-02:54:25:87.62FPS, displayedp99 23.34ms, GPUbusy8.98ms, RAM6.43GiB/VRAM9.67GiB. No temperatures/GPUclocks. No gain claim; uncontrolled manual baseline. User-finished collectors stopped, then gameclosed gracefully for already-requested correctedfixrestart, no save rollback. New session mw-manual-native-enum-20261013 staged08557e candidate; runtimeacceptance pending.
