@@ -22,6 +22,8 @@ The XPRE tests used CBMODE0. The CBMODE6/XPRE1 compatibility smoke does not esta
 
 Evidence: [PC smoke handoff](notes/handoff-codex-step1.md), [remote archive audit and metrics](notes/handoff-codex-rc1761-evidence.md), and [external-capture alignment limits](notes/handoff-codex-rc1761-capture.md). See the [Codex progress report](notes/codex-progress-report.md) and newest section of [STATUS](STATUS.md) for current gates.
 
+For the returning Claude agent: [Codex catch-up handoff, October 12](notes/handoff-codex-to-claude-2026-10-12.md) consolidates source work, device tests, failures, coordination workflows and evidence. Its first section states whether the current live trials have finished.
+
 ## Renderer progress
 
 All 54,295 renderer catalog entries have local C exports. Core naming coverage is 2,382/5,932 functions (40.2%); broader named byte coverage is 20.71%. These counts describe exports and symbol naming, not fully understood or rebuilt renderer code. They are unchanged from the Codex takeover baseline. See [the rendering progress audit](notes/codex-rendering-progress-2026-10-11.md) for definitions and caveats.
