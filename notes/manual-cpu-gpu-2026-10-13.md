@@ -175,3 +175,10 @@ Both boss clears and returns are logged. All frame sources bracket their CPU int
 The prior manual open-world baseline (8.89?9.69 cores, 83.37?87.62 FPS) overlaps this run. No 10?20% CPU reduction is demonstrated. Scenes were not matched and the earlier engine was 1.7.61 versus this combined 1.7.73 build, so these are not causal A/B results. The whole-run average of 5.17 cores includes title/menu/loading time and must not be presented as a saving. Temperature and GPU-clock sensors remain unavailable.
 
 Discord and phone completion notification 3031 delivered successfully. Combined candidate remains installed; game is closed.
+
+
+### Active WG + LK bundle, 03:33 EDT
+
+User requested enabling the two discussed CPU candidates together. Only WG and LK changed from 0 to 1 in the installed INI; MW and existing fixes remain enabled. The exact same combined Engine1.7.73 ASI41553b09 and addon1.4.21 remain installed, preserving hosted menus. Original INI saved under D:/nioh3-re/manual-wg-lk-20261013; fresh verified save backup D:/nioh3-re/save-backups/20261013-033211-user-recording.
+
+Game20784/start2026-10-13T07:32:54.8194954Z. Log confirms MW2sites/ON, WG switchON, LK18sites applied and F10 menu ready. Actual frame CSV611,716bytes, process CPU and hardware records verified; no screenshot of gameplay or automated gameplay input. Steam-only sync prompt was observed and authorized Play Anyway clicked once. CPU/frame/GPU/RAM capture remains active in the new root. User progress is preserved; no gain or separate WG/LK attribution claimed. Discord/phone READY3034 submitted.
