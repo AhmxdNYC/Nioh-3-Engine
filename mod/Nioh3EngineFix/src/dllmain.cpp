@@ -1261,6 +1261,12 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         }
 
     const DWORD self = GetCurrentThreadId(), pid = GetCurrentProcessId();
+    struct MWInstallDiag {
+        unsigned snapshot=0, open=0, owner=0, suspend=0, context=0, rip=0;
+        unsigned census=0, censusApi=0, censusUnknown=0, censusBound=0, original=0, rollback=0;
+        DWORD tid=0, error=0; ULONG status=0; uintptr_t ip=0;
+        const char* stage="none"; const char* site="none";
+    } md;
     bool written = false;
     int attempts = 0;
     for (; attempts < 200 && !written; ++attempts) {
@@ -1273,19 +1279,20 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
                 THREADENTRY32 te{};
                 te.dwSize = sizeof(te);
                 BOOL ok = Thread32First(snap, &te);
-                if (!ok) freezeComplete = false;
+                if (!ok) { freezeComplete = false; if(strictMW){++md.snapshot;md.stage="Thread32First";md.error=GetLastError();} }
                 for (; ok; ok = Thread32Next(snap, &te))
                     if (te.th32OwnerProcessID == pid && te.th32ThreadID != self) tids.push_back(te.th32ThreadID);
-                if (GetLastError() != ERROR_NO_MORE_FILES) freezeComplete = false;
+                if (GetLastError() != ERROR_NO_MORE_FILES) { freezeComplete = false; if(strictMW){++md.snapshot;md.stage="Thread32Next";md.error=GetLastError();} }
                 CloseHandle(snap);
-            } else freezeComplete = false;
+            } else { freezeComplete = false; if(strictMW){++md.snapshot;md.stage="Snapshot";md.error=GetLastError();} }
             hs.reserve(tids.size());
             for (DWORD tid : tids)
                 if (HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, tid)) {
                     if (strictMW && (GetThreadId(h) != tid || GetProcessIdOfThread(h) != pid)) {
+                        ++md.owner;md.stage="ThreadOwner";md.tid=tid;md.error=GetLastError();
                         CloseHandle(h); freezeComplete = false; // reused foreign TID: never suspend it
                     } else hs.push_back(h);
-                } else freezeComplete = false;
+                } else { freezeComplete = false; if(strictMW){++md.open;md.stage="OpenThread";md.tid=tid;md.error=GetLastError();} }
         }
         if (strictMW && !freezeComplete) {
             for (HANDLE h : hs) CloseHandle(h);
@@ -1294,23 +1301,27 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         }
         std::vector<uint8_t> suspended(hs.size(), 0);
         // ---- frozen section: no allocation from here until resume ----
-        for (size_t i = 0; i < hs.size(); ++i) suspended[i] = (SuspendThread(hs[i]) != (DWORD)-1);
+        for (size_t i = 0; i < hs.size(); ++i) {
+            suspended[i] = (SuspendThread(hs[i]) != (DWORD)-1);
+            if(strictMW && !suspended[i]){++md.suspend;md.stage="SuspendThread";md.error=GetLastError();md.tid=tids[i];}
+        }
         bool clash = strictMW && std::find(suspended.begin(), suspended.end(), 0) != suspended.end();
         for (size_t i = 0; i < hs.size() && !clash; ++i) {
             if (!suspended[i]) continue;
             CONTEXT ctx{};
             ctx.ContextFlags = CONTEXT_CONTROL;
-            if (!GetThreadContext(hs[i], &ctx)) { if (strictMW) clash = true; continue; }
+            if (!GetThreadContext(hs[i], &ctx)) { if (strictMW) {clash = true;++md.context;md.stage="GetThreadContext";md.error=GetLastError();md.tid=tids[i];} continue; }
             for (Item* it : items) {
                 uintptr_t a = (uintptr_t)it->addr;
-                if (ctx.Rip > a && ctx.Rip < a + it->s->len) { clash = true; break; }
+                if (ctx.Rip > a && ctx.Rip < a + it->s->len) { clash = true; if(strictMW){++md.rip;md.stage="RipInsideSite";md.tid=tids[i];md.ip=ctx.Rip;md.site=it->s->id;} break; }
             }
         }
         if (!clash && strictMW) {
+            ++md.census;
             // Kernel-only bounded census: detect threads born between the initial
             // Toolhelp snapshot and suspension. No allocation/loader while frozen.
             HANDLE previous = nullptr;
-            bool complete = false;
+            bool complete = false, censusRejected = false;
             const ULONGLONG censusStart = GetTickCount64();
             for (unsigned n = 0; n < 4096 && GetTickCount64() - censusStart < 100; ++n) {
                 HANDLE current = nullptr;
@@ -1319,16 +1330,21 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
                 if (previous) CloseHandle(previous);
                 previous = current;
                 if (static_cast<ULONG>(status) == 0x8000001Au) { complete = true; break; } // NO_MORE_ENTRIES
-                if (status != 0 || !current || !meshletwait::KnownThread(GetThreadId(current), self, tids.data(), tids.size())) break;
+                if (status != 0 || !current) {++md.censusApi;md.stage="CensusApi";md.status=static_cast<ULONG>(status);censusRejected=true;break;}
+                const DWORD observedTid=GetThreadId(current);
+                if (!meshletwait::KnownThread(observedTid, self, tids.data(), tids.size())) {++md.censusUnknown;md.stage="CensusUnknownThread";md.tid=observedTid;md.error=observedTid?0:GetLastError();censusRejected=true;break;}
             }
             if (previous) CloseHandle(previous);
-            if (!complete) clash = true;
+            if (!complete) {clash = true;if(!censusRejected){++md.censusBound;md.stage="CensusTimeOrCountBound";}}
         }
         if (!clash && strictMW) {
+            bool originalMismatch=false;
+            for(Item* it:items) if(memcmp(it->addr,it->s->orig,it->repl.size())){originalMismatch=true;++md.original;md.stage="OriginalMismatch";md.site=it->s->id;}
             const auto result = meshletwait::Publish(mwSites.data(), mwSites.size(), [&]() {
                 return FlushInstructionCache(GetCurrentProcess(), nullptr, 0) != FALSE;
             });
             written = result == meshletwait::Publication::Applied;
+            if(!written && !originalMismatch){++md.rollback;md.stage="PublicationRollback";}
             g_mwInstallUncertain = result == meshletwait::Publication::Uncertain;
             if (g_mwInstallUncertain) attempts = 200; // never retry an uncertain write
         } else if (!clash) {
@@ -1348,6 +1364,8 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         if (!written) Sleep(1 + attempts % 4);
     }
     for (size_t i = 0; i < items.size(); ++i) { DWORD t; VirtualProtect(items[i]->addr, items[i]->s->len, oldProt[i], &t); }
+    if(strictMW) Log("MW install diagnostics: snapshot=%u open=%u owner=%u suspend=%u context=%u rip=%u census=%u census_api=%u census_unknown=%u census_bound=%u original=%u rollback=%u last=%s tid=%lu error=%lu status=%08lX site=%s rip=%llX",
+        md.snapshot,md.open,md.owner,md.suspend,md.context,md.rip,md.census,md.censusApi,md.censusUnknown,md.censusBound,md.original,md.rollback,md.stage,md.tid,md.error,md.status,md.site,static_cast<unsigned long long>(md.ip));
     if (!written) { Log("%s: not installed after %d attempts; %s", name, attempts, g_mwInstallUncertain && strictMW ? "UNRESOLVED rollback/cache flush - do not claim stock" : "no writes retained"); return false; }
     // MW readback and any rollback happened before resume, not after publication.
     // Other groups retain their existing behavior.
