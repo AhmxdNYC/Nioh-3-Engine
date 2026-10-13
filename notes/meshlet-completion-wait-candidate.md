@@ -2,6 +2,12 @@
 
 Status: implemented default OFF, not installed or game-tested. No CPU/FPS benefit claimed.
 
+PC2 acknowledged candidate376 in2973. Adapter377 source hashes and independent
+metrics/cleanup review passed. GO2978 authorizes one OFF/ON/OFF series using the
+same candidate ASI, three launches maximum,30s measurement and45s settle per arm,
+20min total, fresh entry restoration. STARTED/result still pending at admission.
+Collector errors and actual CPU/frame coverage must be reviewed before a verdict.
+
 ## Behavior
 
 `[Patches] MW = 1` opts in at startup only. Reader3FD5C replaces the existing Sleep(0) call after256 stock polling iterations with one WaitOnAddress round on the actual manager+5F8 byte. The original3FD46 comparison remains authoritative after every return, including timeout/spurious wake. The round requests1ms, which is not a guaranteed wall-time bound. No extra spin phase or simulation/quality change.
