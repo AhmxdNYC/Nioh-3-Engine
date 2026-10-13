@@ -1,5 +1,7 @@
 # Worker threads: what they burn, what is waste, and the patches
 
+> October 13 correction: M1's immutable-pool justification is superseded by [the meshlet audit](meshlet-cpu-audit-20261013.md), which found a real tail-append path and cache-publication gaps. Keep M1/full M2 off pending complete review. New narrow M2S is built and gameplay-untested; historical savings below are estimates.
+
 Static analysis only: dump disassembly, Ghidra decompiles, and the r5 / r6-A1 / r7-A1 / ingame2 sampling profiles.
 Nothing was attached, read live, written or applied. Date: 2026-10-06.
 Scripts and raw outputs are in `re\scripts_workers\`. The live script is `re\scripts_workers\workers_live.fsx`.
