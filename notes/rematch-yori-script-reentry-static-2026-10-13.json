@@ -293,6 +293,75 @@
     "0x95664": {
       "size": "0x5d",
       "sha256": "6cd3cee1303622d020aedf9cfafe091494b9c30a5effb672ec54b0fd5285bd1f"
+    },
+    "0x94664": {
+      "size": "0xfe",
+      "sha256": "7264e579f3cd5a9f13cd1f30b7604973ca0dedcfad19f09606cd183b68215021"
+    },
+    "0x1908e94": {
+      "size": "0x22",
+      "sha256": "e9da2e78d62159a53caad5811eb39b2aff997ba522969c0202a15b500109f2f1"
+    },
+    "0x94a34": {
+      "size": "0x2f",
+      "sha256": "2db4f01d232a46851a6b3f9d82efea215f539b18c5b1f8884682e1549083c18f"
+    },
+    "0x86621c": {
+      "size": "0x2b",
+      "sha256": "732aaffc3b48bfc2f5461a4c7cd6b1bd06e86ffe10d5fd9b24801aa021fda96e"
+    },
+    "0x282320": {
+      "size": "0x16c",
+      "sha256": "bfe1c03938a91ae607c134d71e1f0c3f681ff4a9850621bbc9c88b63b67127b3"
+    },
+    "0x282574": {
+      "size": "0x27",
+      "sha256": "05f3f19dc8252215136f878cbf2491a7d48f5295e89efaafc8aaf15e39e22b18"
+    },
+    "0x95244": {
+      "size": "0x24",
+      "sha256": "3afe1433bfca44be79b6eab5dbe4f6afc64d6f5c0666b04137b51ba4f4b976d1"
+    },
+    "0x95268": {
+      "size": "0x32",
+      "sha256": "0325a8aec0f38dedd8382a353c9cfb9092f1668221196286ee73e8ca9665ae15"
+    },
+    "0x9529c": {
+      "size": "0x2e",
+      "sha256": "9414804e286a1daa856c8c51ddc84319ef508eb6373bfb48531e86b7f4255002"
+    },
+    "0xe22d10": {
+      "size": "0xce",
+      "sha256": "a03289bb3dfbd6f6ba238fc8925d3c876fb767fd7ffb49f610b2d520dd55dc6d"
+    },
+    "0x23bd710": {
+      "size": "0xb4",
+      "sha256": "0ac36731f3478cc7f474d9aa6a505967f0905287fd35d6a32ebcd21cf474c6de"
+    },
+    "0x1ca7468": {
+      "size": "0x87",
+      "sha256": "022ffd2d8727e1ee9922b97057953df419de36de28a995153e7d5a8cdee9f973"
+    },
+    "0x1c4d608": {
+      "size": "0xdc",
+      "sha256": "aafb2747af433441b22d3fd2b262d73356f9c052ef480e6005b08921a834e739"
+    },
+    "0x1c251ec": {
+      "size": "0x27",
+      "sha256": "7f1b568a2f9af602be222b745d872cdeb9df01639ec3f3c6288f4db064f2d89b"
     }
+  },
+  "followup": {
+    "same_name_create": "String-key duplicate returns existing task node;94D80 destroys old VM before fresh allocation. Distinct boss-start/boss-clear tasks remain independent.",
+    "normal_completion": "282320 ->282574/slot completion ->95244 ->7248D4 erase",
+    "mission_owner_shutdown": "E22D10 queues mission_end once under owner+134/+142 and waits23BD710 before removal",
+    "player_resurrection": "1CA7468 ->1C4D6E4 ->1C4D718 ->1C4D778 ->1C4D608 request construction/submission; return is handle presence, not alive/control readiness",
+    "admitted_no_load_reset": false,
+    "remaining": [
+      "native boss placement reset",
+      "completed player recovery",
+      "external operation drain on task replacement",
+      "scene residency through reset"
+    ]
   }
 }
