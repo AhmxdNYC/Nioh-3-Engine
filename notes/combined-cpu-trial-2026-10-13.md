@@ -26,6 +26,19 @@ Discord/phone delivery for3099/3107 verified in bridge-sync SQLite: both sent an
 
 ## Runtime checkpoint
 
+### Two real fights recorded — result
+
+User completed Yoritomo and Ibaraki. Both native boss-end and mission-clear events recorded. Capture finalized cleanly (both collectors exit0, errors[]); MAIN29304 remains running and user saves are preserved. Root `two-boss-result/` retains both logs; `analyze-two-bosses.py`, `two-boss-summary.json`, and slice JSONs reproduce the comparison. QPC-aligned combat intervals exclude loading and postfight travel.
+
+| Fight | Prior WG/LK/MW CPU | Combined CPU | Prior FPS | Combined FPS | Prior/current p99 frame ms |
+|---|---:|---:|---:|---:|---:|
+| Yoritomo |71.58%|69.49%|86.01|87.45|15.545 /13.803|
+| Ibaraki |57.41%|55.41%|93.50|94.24|14.240 /13.861|
+
+CPU normalized across12logical CPUs. Relative reductions2.91% and3.49%, roughly2percentage points each. Descriptive improvement only: manual movement, combat phases, duration and outcome differ; earlier Yoritomo ended in death. Not controlled proof or10–20% gain. Current requested UTC intervals17:04:40–17:05:45 and17:09:01–17:10:24, actual64.13s/82.21s and5609/7747frames. FrameType unavailable but sampled game log reportsFGoff. RD/MW errors0; RD fallback0. No current death cycle, so no acceptance of retry fix. Both mission loads still occur; no arena-only loading claim.
+
+RESULT3123 sent to automatic Discord/phone. PC2 successor9772 acknowledged transfer3115 and supplied source395 for controlled OFF/ON; independent review active, no PC2 combined launch yet. Ally source-only J1 preparation396 awaiting installed-build table binding.
+
 MAIN29304 start16:45:28.1627418Z, watcher3616, collector parent31212, PresentMon27316 and PDH25836. Six runtime patch checks passed and retained in `runtime-ready.json`: RD2sites, M2S2, J1eight, MWtwo, WGinstalled and LK18. Addon log confirms1.4.22-retry3. RD startup rounds/wakes active, errors0/fallback0; this proves execution, not measured benefit. User can play; recording runs until game exits, stop.flag or7200s. Frame-type classification unavailable (existing explicit compatibility fallback); CPU/QPC/frames retained. No screenshot inspection on MAIN.
 
 PC2 reported3106 recovery390 PASS: six saves/all13 files restored, exit saves preserved, original failure retained, lease16 released.3113 explicitly confirms combined393/3107 received but NOT STARTED: user there requested handoff and a new chat. Task is in `C:/Users/User/projects/nioh3-engine/notes/handoff-pc2-2026-10-13.md`;3114 tells successor to acknowledge and bind fresh exact owner before preparing existing comparison runner. Do not imply PC2 test is already running. MAIN ready milestone3112 sent to automatic Discord/phone sync.
