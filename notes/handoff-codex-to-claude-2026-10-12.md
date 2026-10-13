@@ -389,3 +389,11 @@ caveats and exact restoration required. No new memory gates or broad suite rerun
 PC2 ACK2882/2886 and Ally ACK2888 confirm availability/preparation; both chose
 a fixed20min session upfront. Runtime outcomes remain pending at this checkpoint. Earlier365/366 are closed
 training/field trials, not the result of these new CPU comparisons.
+
+Ally follow-up2902-2905: first WG launch stopped before input/field/windows because
+LiveCtl creates its mutable ACK at startup and inherited file-equality logic
+expected it absent. Exact restoration and bounded observer PASS. Root reviewed
+artifact368 (20 hashes, one-line diff, syntax, preserved ACK restoration inventory)
+and authorized one fresh corrected run2906, source7ba3f743/entryd835bdc7. This is a
+harness bookkeeping fix, not a WG failure or CPU performance result. Review:
+`D:/nioh3-re/reviews/ally-wg-ack-368-review.json`.
