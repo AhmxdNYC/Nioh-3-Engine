@@ -199,3 +199,8 @@ Final WG/LK gameplay selection is saved in `D:/nioh3-re/manual-wg-lk-20261013/ga
 | Yamagata Masakage | 21.36s | 54.86% (6.583cores) | 96.81 | 11.636ms | 94.08% |
 
 Short open-world slices: before12.14s,76.97%CPU/89.76FPS; return11.08s,63.50%CPU/89.60FPS. All frame sources cover their CPU intervals. Different bosses/scenes and short open-world intervals prevent a causal improvement verdict; the bundle cannot attribute any difference to WG or LK separately. No claim of a demonstrated10?20% reduction. LK has installation proof, no activity counter; WG has positive suppression/fallback counters; MW has positive waits/wakes and zero errors.
+
+
+### Matched-boss repeat active, 03:45 EDT
+
+User requested another run, repeating Takeda Shingen then Minamoto no Yoritomo followed by similar open-world movement. Same combined installed binary and WG1/LK1/MW1; no additional setting changes. MAIN16044/start2026-10-13T07:45:01.3177922Z; root `D:/nioh3-re/manual-wg-lk-matched-20261013`. Runtime LK18sites applied, WG positive suppression/ON, MW positive rounds/wakes/errors0. Verified process CPU samples, hardware records and growing frame CSV (2,518,067 bytes at ready check). Current menus initialized. User owns gameplay; no gameplay screenshots/input. READY3039 submitted to automatic phone/Discord delivery. Recording and game remain active; results pending, no causal claim.
