@@ -1,13 +1,13 @@
 <# Launch the installed game for a user recording. No mod/config installation,
    capture, input automation, automatic relaunch, game termination or save restore.
    Uses the existing launch guard and shared Steam-account game lock. #>
-param([switch]$Watch, [string]$StatePath = '')
+param([switch]$Watch, [string]$StatePath = '', [string]$GameLockKey = 'nioh3-pc', [switch]$MemoryTelemetryOnly)
 $ErrorActionPreference = 'Stop'
 $recordingRoot = Join-Path $env:LOCALAPPDATA 'nioh3-codex'
 if (-not $StatePath) { $StatePath = Join-Path $recordingRoot 'user-recording.json' }
 . (Join-Path $PSScriptRoot 'session_lib.ps1')
 $LockId = 'codex-user-recording'
-$global:LockKey = 'nioh3'
+$global:LockKey = $GameLockKey
 
 if ($Watch) {
     $recordingState = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
@@ -40,7 +40,9 @@ New-Item -ItemType Directory -Path $recordingRoot -Force | Out-Null
 $leaseHeld = $false
 $launchIssued = $false
 . (Join-Path $PSScriptRoot '..\testmatrix\harness_guard.ps1')
-Init-Guard -Name 'user_recording_launch' -OwnerPid $PID -MaxMinutes 10 -Cleanup {
+$launchHeadroom = if ($MemoryTelemetryOnly) { 0 } else { 18 }
+if ($MemoryTelemetryOnly) { $env:HG_MIN_HEADROOM_GB = '0'; $env:HG_MIN_CURRENT_GB = '0' }
+Init-Guard -Name 'user_recording_launch' -OwnerPid $PID -MaxMinutes 10 -MinHeadroomGB $launchHeadroom -Cleanup {
     if ($leaseHeld -and -not $launchIssued) { $released = Invoke-GameLock 'release'; $leaseHeld = ($released.code -ne 0) }
 }
 try {
@@ -87,7 +89,7 @@ try {
     $recordingState.gamePid = $recordingGame[0].Id
     $recordingState.gameStart = $recordingGame[0].StartTime.ToUniversalTime().ToString('o')
     $recordingState | ConvertTo-Json | Set-Content -LiteralPath $StatePath -Encoding UTF8
-    $watchArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Watch -StatePath "{1}"' -f $PSCommandPath, $StatePath
+    $watchArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Watch -StatePath "{1}" -GameLockKey "{2}"' -f $PSCommandPath, $StatePath, $GameLockKey
     $recordingWatcher = Start-Process powershell -ArgumentList $watchArgs -WindowStyle Hidden -PassThru
     Write-Output ('RECORDING READY: Nioh3 PID ' + $recordingGame[0].Id + '; installed files preserved; backup ' + $recordingBackup)
 } finally {

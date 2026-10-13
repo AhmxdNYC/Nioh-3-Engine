@@ -1,6 +1,12 @@
 # STATUS (handoff) - rewritten 2026-10-10 01:25
 Read the newest UPDATE section only; older handoffs follow below.
 
+## UPDATE 2026-10-13 - Main manual gameplay measured; standard telemetry implemented
+- Main manual two fights/open-world captured at current installed settings, with fresh saves backed up and user progress retained; game left open. Detailed evidence/limitations: notes/manual-cpu-gpu-2026-10-13.md. Earlier sections112-113FPS/54-55% gameCPU; later83FPS/78-81%, GPU activity lower. Different scenes, not an optimization gain.
+- Separate5s diagnostic: scheduler2.48cores, meshlet-request1.14, collision-family0.93, stage0.83. Exact-RVA join nominates KtglSignalUntilAwake2(+3FD10), worker polling/help and rendering/streaming; thread-family labels do not prove where all productive work occurs. Source confirms repeated flag checks/SetEvent with Sleep(0) every256. No new patch proven.
+- UO7f47eae combines CPU/RAM, QPC-aligned frames, PDH/thread counters and available sensor reporting; bench.ps1 default updated.190 tests plus Windows query/collector/report smokes PASS. Missing sensors explicit; no memory/noise gates. Packet372 delivered. Prior367 remains historical.
+- PC2 ACK2939/STARTED2941 fresh WG comparison under2937, fixed deadline22:38:16PDT. Ally user-manual task2932 supersedes automatic r5; reminders2934/2938 sent, ACK outstanding. Discord/phone delivery confirmed for instructions; never equate that with peer acknowledgement.
+
 ## UPDATE 2026-10-13 - CPU utilization comparisons assigned
 - User wants10-20% less game CPU at equal/better FPS/smoothness and asked PC2+Ally to test. Added process CPU sampler/procedure6a45d3c, packet367;3 focused checks and Windows query smoke passed. No game performance result yet.
 - WG first at unchanged current graphics/FG/cap/simulation;8x30s windows in two OFF-ON-ON-OFF quads. Reuse local game/input/frame/restore workflow. No memory gates, no prolonged noise waits or unchanged suite reruns. Actual process CPU counters, not PresentMon MsCPUBusy, determine utilization.

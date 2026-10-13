@@ -1,5 +1,12 @@
 # CPU reduction comparison: existing device runners
 
+2026-10-13 update: prefer the shared UO `tools/bench` measurement bundle372
+(see its `MEASUREMENT.md`), which retains this CPU sampler CLI and adds RAM,
+native Windows QPC boundaries, hardware/thread telemetry and a combined report.
+367 remains historical; do not overwrite old evidence. PresentMon `--qpc_time_ms`
+uses `CPUStartQPCTime`; do not infer timezone corrections. User expects all
+available metrics per performance window, with unavailable sensors explicit.
+
 User target: approximately10-20% less CPU at equal or better performance, same
 picture/simulation/current frame cap. This is a target, not a demonstrated gain.
 

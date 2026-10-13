@@ -1,5 +1,10 @@
 # Codex to Claude handoff: Nioh3, device testing, and phone coordination
 
+**Newer October13 follow-up:** [manual CPU/GPU capture and unified measurement](manual-cpu-gpu-2026-10-13.md)
+records the user's two fights/open-world sections, separate CPU profile and exact
+wake-helper source finding, UO measurement implementation7f47eae/packet372, and
+new PC2/Ally tasks. The FINAL status below refers to the earlier365/366 trials.
+
 Status: **FINAL - both authorized trials finished; recovery verified.**
 Prepared at the user's request on October 12, 2026 (America/New_York); finalized
 after evidence365/366 on October12 evening (October13 UTC).
