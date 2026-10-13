@@ -156,3 +156,22 @@ User-requested closure: exact main game23500 closed gracefully via CloseMainWind
 
 ### Follow-up open-world combat, 02:48-02:54 EDT
 User reports open-world killing only, no boss rematch. Root D:/nioh3-re/mw-manual-diagnostic-20261013. MW requested but installer SKIPPED (native census initial-list mismatch), so baseline only. Process15444, capture375.185s/3244.672CPU-s=8.648cores including startup/menu/load, collectors0/0/errors[]. Agent extracted log-selected gameplay slices83.4-87.6displayedFPS and8.89-9.69cores (74.1-80.7% of12 logicalCPUs), system95-100%, summed game3D70-74%; latest99.6s slice02:52:45-02:54:25:87.62FPS, displayedp99 23.34ms, GPUbusy8.98ms, RAM6.43GiB/VRAM9.67GiB. No temperatures/GPUclocks. No gain claim; uncontrolled manual baseline. User-finished collectors stopped, then gameclosed gracefully for already-requested correctedfixrestart, no save rollback. New session mw-manual-native-enum-20261013 staged08557e candidate; runtimeacceptance pending.
+
+
+### Completed MW + hosted-menu gameplay, 03:18?03:24 EDT
+
+The user completed two boss fights and open-world combat, then requested data collection and game closure. Game 12332 closed normally; the device watcher released its lease. All eight final save files were copied and hash-verified, with no rollback. CPU, frame and hardware collectors finalized successfully (exit 0/0, no recording errors).
+
+Evidence: `D:/nioh3-re/mw-manual-hosted-final-20261013`. Read `gameplay-selection-and-summary.json` for exact log lines, selected intervals and caveats; five `slice-*.json` reports preserve both full fights and combat interiors after control became available. ?Controlled? in those filenames means player control was available, not a controlled A/B experiment.
+
+| Activity | Selected duration | Game CPU cores | Game CPU / 12 logical CPUs | Displayed FPS | Displayed frame p99 |
+|---|---:|---:|---:|---:|---:|
+| Open world | 51.31 s | 9.506 | 79.22% | 84.86 | 24.371 ms |
+| Takeda Shingen combat | 26.49 s | 9.084 | 75.70% | 86.11 | 23.353 ms |
+| Minamoto no Yoritomo combat | 34.36 s | 8.840 | 73.66% | 84.68 | 16.529 ms |
+
+Both boss clears and returns are logged. All frame sources bracket their CPU intervals. MW was actually installed and exercised: 13,493 wait rounds, 6,643 timeout returns, 35,560 wake signals, zero reported errors. Timeout returns re-enter the original completion check; they are not failed fights or fake job completion.
+
+The prior manual open-world baseline (8.89?9.69 cores, 83.37?87.62 FPS) overlaps this run. No 10?20% CPU reduction is demonstrated. Scenes were not matched and the earlier engine was 1.7.61 versus this combined 1.7.73 build, so these are not causal A/B results. The whole-run average of 5.17 cores includes title/menu/loading time and must not be presented as a saving. Temperature and GPU-clock sensors remain unavailable.
+
+Discord and phone completion notification 3031 delivered successfully. Combined candidate remains installed; game is closed.
