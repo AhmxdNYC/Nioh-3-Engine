@@ -1,3 +1,21 @@
+# Current handoff - 2026-10-14
+
+**All work is paused until explicit user resume.**
+
+Read [the current Codex handoff](handoff-codex-2026-10-14-paused.md) first. It supersedes current-state claims in the historical entries below.
+
+- MAIN: two real boss fights recorded with the combined CPU build; roughly 3% lower process CPU and slightly higher FPS versus earlier manual fights. Descriptive, not controlled proof.
+- PC2: reached actual field with OFF and ON; only OFF CPU measured, frame capture missing and ON capture not reached. No paired result. Restored and paused.
+- Ally: game launched but stopped during Steam runtime update before gameplay/measurement. Restored, lease released and paused (final402).
+- MAIN game is now closed; combined engine09cb2e9d and retry3 addon2c381f3c remain installed. User saves preserved.
+- Rematch death-retry repair remains live-unverified. Training Summon/native return and skipping the whole mission load remain incomplete.
+
+The handoff includes exact source/build hashes, evidence locations, failure causes, workflow, device cleanup and backlog. This documentation update does not resume testing.
+
+---
+
+## Historical progress (superseded where the current handoff differs)
+
 # Codex work on Nioh 3
 
 ## Current result - 2026-10-11 16:41
