@@ -43,6 +43,7 @@
 #include "scenemirror.h"
 #include "cbvstage.h"
 #include "osd.h"
+#include "dxgidiag.h"
 #include "psoswap.h"
 #include "tilestats.h"
 #include "samelook.h"
@@ -812,6 +813,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
         OLOG("IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr %08lX, swapchain %s) - drawing on the game's "
              "captured DIRECT queue instead", (unsigned long)qhr, ModuleOf(*(void**)sc).c_str());
     }
+    dxgidiag::QueueInfo(sc, c.q, c.qFallback);
     const D3D12_COMMAND_QUEUE_DESC qd = c.q->GetDesc();
     if (qd.Type != D3D12_COMMAND_LIST_TYPE_DIRECT) {
         OLOG("swapchain queue is type %d, not DIRECT - overlay off for this swapchain", (int)qd.Type);
@@ -1168,6 +1170,7 @@ void OnPresentSafe(IDXGISwapChain* sc, cover_present::Ticket* cover) {
     __try {
         OnPresent(sc,cover);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
+        dxgidiag::Note(dxgidiag::Present, dxgidiag::Fault, sc, nullptr, S_OK, false, GetExceptionCode());
         InterlockedExchange(&g_disabled, 1);
         if (g_log) g_log("OSD: exception %08lX while drawing - overlay disabled for this session", GetExceptionCode());
     }
@@ -1197,38 +1200,56 @@ bool PresentArgs(IDXGISwapChain* sc, UINT& sync, UINT& flags, const void* caller
 
 HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     ++t_depth;
+    auto diag = dxgidiag::Begin(sc, dxgidiag::Present, sync, flags, t_depth,
+                              reinterpret_cast<const void*>(g_origPresent), _ReturnAddress());
+    const bool passthrough = dxgidiag::Passthrough();
+    dxgidiag::Mark(diag, dxgidiag::Overlay, sync, flags);
     cover_present::Ticket cover{};
-    Hooked(sc, flags,&cover);
+    if (!passthrough) Hooked(sc, flags, &cover);
     UINT s2 = sync, f2 = flags;
-    const bool rw = PresentArgs(sc, s2, f2, _ReturnAddress());
-    HRESULT hr = g_origPresent(sc, s2, f2);
-    if (rw && hr == DXGI_ERROR_INVALID_CALL) {  // validation refused the rewrite: nothing was presented - present as the game asked
-        pmode::Refused(sc, hr);
-        hr = g_origPresent(sc, sync, flags);
-    }
-    menu::CoverPresented(cover,g_coverContextGeneration.load(),hr);
+    dxgidiag::Mark(diag, dxgidiag::Filter, sync, flags);
+    const bool rw = !passthrough && PresentArgs(sc, s2, f2, _ReturnAddress());
+    const HRESULT hr = dxgidiag::Forward(sync, flags, s2, f2, rw,
+        [&](UINT si, UINT pf) { return g_origPresent(sc, si, pf); },
+        [&](dxgidiag::Stage stage, UINT si, UINT pf, int32_t result) {
+            if (stage == dxgidiag::Returned) dxgidiag::Result(diag, result, sc);
+            else dxgidiag::Mark(diag, stage, si, pf);
+        },
+        [&](int32_t result) { pmode::Refused(sc, result); });
+    menu::CoverPresented(cover, g_coverContextGeneration.load(), hr);
+    dxgidiag::End(diag);
     --t_depth;
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
     ++t_depth;
+    auto diag = dxgidiag::Begin(sc, dxgidiag::Present1, sync, flags, t_depth,
+                              reinterpret_cast<const void*>(g_origPresent1), _ReturnAddress(), p);
+    const bool passthrough = dxgidiag::Passthrough();
+    dxgidiag::Mark(diag, dxgidiag::Overlay, sync, flags);
     cover_present::Ticket cover{};
-    Hooked(sc, flags,&cover);
+    if (!passthrough) Hooked(sc, flags, &cover);
     UINT s2 = sync, f2 = flags;
-    const bool rw = PresentArgs(sc, s2, f2, _ReturnAddress());
-    HRESULT hr = g_origPresent1(sc, s2, f2, p);
-    if (rw && hr == DXGI_ERROR_INVALID_CALL) {
-        pmode::Refused(sc, hr);
-        hr = g_origPresent1(sc, sync, flags, p);
-    }
-    menu::CoverPresented(cover,g_coverContextGeneration.load(),hr);
+    dxgidiag::Mark(diag, dxgidiag::Filter, sync, flags);
+    const bool rw = !passthrough && PresentArgs(sc, s2, f2, _ReturnAddress());
+    const HRESULT hr = dxgidiag::Forward(sync, flags, s2, f2, rw,
+        [&](UINT si, UINT pf) { return g_origPresent1(sc, si, pf, p); },
+        [&](dxgidiag::Stage stage, UINT si, UINT pf, int32_t result) {
+            if (stage == dxgidiag::Returned) dxgidiag::Result(diag, result, sc);
+            else dxgidiag::Mark(diag, stage, si, pf);
+        },
+        [&](int32_t result) { pmode::Refused(sc, result); });
+    menu::CoverPresented(cover, g_coverContextGeneration.load(), hr);
+    dxgidiag::End(diag);
     --t_depth;
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HkSetColorSpace1(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) {
+    dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Enter, sc, reinterpret_cast<void*>(g_origSetCs1), S_OK, false, cs);
     HRESULT hr = g_origSetCs1(sc, cs);
+    dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Returned, sc, reinterpret_cast<void*>(g_origSetCs1), hr, true, cs);
     if (SUCCEEDED(hr)) {
         if (g_colorSpace != (LONG)cs) OLOG("swapchain %p color space -> %d", (void*)sc, (int)cs);
         InterlockedExchange(&g_colorSpace, (LONG)cs);
@@ -1238,6 +1259,7 @@ HRESULT STDMETHODCALLTYPE HkSetColorSpace1(IDXGISwapChain3* sc, DXGI_COLOR_SPACE
 
 // ---- hook installation ---------------------------------------------------------------------------------------------
 bool PatchSlot(void** slot, void* hook, void** orig, const char* name) {
+    dxgidiag::Note(dxgidiag::Hook, dxgidiag::Setup, slot, *slot);
     if (*slot == hook) return true;
     DWORD old;
     if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) {
@@ -1256,6 +1278,7 @@ bool PatchSlot(void** slot, void* hook, void** orig, const char* name) {
 LRESULT CALLBACK DummyWndProc(HWND h, UINT m, WPARAM w, LPARAM l) { return DefWindowProcW(h, m, w, l); }
 
 bool InstallHooks() {
+    dxgidiag::Note(dxgidiag::Install, dxgidiag::Enter);
     wchar_t sys[MAX_PATH] = {};
     UINT n = GetSystemDirectoryW(sys, MAX_PATH);
     if (!n || n > MAX_PATH - 16) { OLOG("GetSystemDirectory failed"); return false; }
@@ -1285,14 +1308,20 @@ bool InstallHooks() {
     ID3D12CommandQueue* q = nullptr;
     IDXGISwapChain1* sc = nullptr;
     do {
+        dxgidiag::Note(dxgidiag::Factory, dxgidiag::Enter);
         HRESULT hr = createFactory(IID_PPV_ARGS(&factory));
+        dxgidiag::Note(dxgidiag::Factory, dxgidiag::Returned, nullptr, nullptr, hr, true);
         if (FAILED(hr)) { OLOG("CreateDXGIFactory1 failed (hr %08lX)", (unsigned long)hr); break; }
         // D3D12 devices are per-adapter singletons: this returns the game's device (or vkd3d-proton's cached one)
+        dxgidiag::Note(dxgidiag::Device, dxgidiag::Enter);
         hr = createDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&dev));
+        dxgidiag::Note(dxgidiag::Device, dxgidiag::Returned, nullptr, nullptr, hr, true);
         if (FAILED(hr)) { OLOG("D3D12CreateDevice failed (hr %08lX)", (unsigned long)hr); break; }
         D3D12_COMMAND_QUEUE_DESC qd{};
         qd.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        dxgidiag::Note(dxgidiag::CommandQueue, dxgidiag::Enter);
         hr = dev->CreateCommandQueue(&qd, IID_PPV_ARGS(&q));
+        dxgidiag::Note(dxgidiag::CommandQueue, dxgidiag::Returned, nullptr, nullptr, hr, true);
         if (FAILED(hr)) { OLOG("CreateCommandQueue failed (hr %08lX)", (unsigned long)hr); break; }
         DXGI_SWAP_CHAIN_DESC1 sd{};
         sd.Width = 64;
@@ -1303,11 +1332,23 @@ bool InstallHooks() {
         sd.BufferCount = 2;
         sd.Scaling = DXGI_SCALING_STRETCH;
         sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        dxgidiag::Note(dxgidiag::SwapChain, dxgidiag::Enter);
         hr = factory->CreateSwapChainForHwnd(q, hwnd, &sd, nullptr, nullptr, &sc);
+        dxgidiag::Note(dxgidiag::SwapChain, dxgidiag::Returned, nullptr, nullptr, hr, true);
         if (FAILED(hr)) { OLOG("dummy CreateSwapChainForHwnd failed (hr %08lX)", (unsigned long)hr); break; }
         void** vt = *reinterpret_cast<void***>(sc);
         void** qvt = *reinterpret_cast<void***>(q);
         OLOG("dummy swapchain %p, vtable %s; dummy queue vtable %s", (void*)sc, ModuleOf(vt).c_str(), ModuleOf(qvt).c_str());
+        // In diagnostics mode validate the interface before reading its extended vtable.
+        // The off path retains the original installation behavior.
+        void** csVt = vt;
+        if (dxgidiag::Enabled()) {
+            IDXGISwapChain3* sc3 = nullptr;
+            const HRESULT qi = sc->QueryInterface(IID_PPV_ARGS(&sc3));
+            dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Setup, sc, nullptr, qi, true);
+            csVt = SUCCEEDED(qi) && sc3 ? *reinterpret_cast<void***>(sc3) : nullptr;
+            if (sc3) sc3->Release();
+        }
         // release the dummy objects before patching, so none of their calls go through our hooks
         sc->Release();
         sc = nullptr;
@@ -1317,7 +1358,7 @@ bool InstallHooks() {
         if (tilestats::WantsHooks()) tilestats::InstallOnQueueVtable(qvt, /*eclViaOsd=*/g_origEcl != nullptr);
         bool a = PatchSlot(&vt[kSlotPresent], (void*)&HkPresent, (void**)&g_origPresent, "Present");
         bool b = PatchSlot(&vt[kSlotPresent1], (void*)&HkPresent1, (void**)&g_origPresent1, "Present1");
-        if (!PatchSlot(&vt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
+        if (csVt && !PatchSlot(&csVt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
             OLOG("SetColorSpace1 not hooked - HDR10 text brightness is not adjusted");
         ok = a || b;
     } while (false);
@@ -1327,6 +1368,7 @@ bool InstallHooks() {
     SafeRelease(factory);
     DestroyWindow(hwnd);
     UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    dxgidiag::Note(dxgidiag::Install, dxgidiag::Returned, nullptr, nullptr, ok ? S_OK : E_FAIL, true);
     return ok;
 }
 
@@ -1515,6 +1557,7 @@ void NoteFgSwitch() { g_fgSwitchAt = Qpc(); }
 
 void Start(const StartupInfo& si) {
     g_log = si.log;
+    dxgidiag::Start(si);
     QueryPerformanceFrequency(&g_freq);
     g_info.version = si.version ? si.version : "";
     g_info.wine = si.wine ? si.wine : "";
@@ -1563,7 +1606,7 @@ void Start(const StartupInfo& si) {
     OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f Offset=%d,%d (px at 1080p)", g_cfg.fpsCounter,
          g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale, OffsetX(), OffsetY());
     if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled() && !padlat::WantsPresentHook() && !pmode::WantsPresentHook() &&
-        !upmirror::WantsPresentHook() && !scenemirror::Wanted() && !cbvstage::WantsEclHook()) {
+        !upmirror::WantsPresentHook() && !scenemirror::Wanted() && !cbvstage::WantsEclHook() && !dxgidiag::Enabled()) {
         OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0, [Debug] PresentModeLog=0, "
              "[Latency] VrrPresent=0) - no Present hook");
         return;
