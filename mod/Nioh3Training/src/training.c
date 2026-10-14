@@ -8,11 +8,20 @@
 //   lchr id                     Load::Character native A42A7C(loader, id) using the loader captured by the trace hook
 //   mission id slot start       MissionRequestById 2239600(id, slot, start, {101 1000000 10100 0..})
 //   call rva a b c d            raw native call with four integer args (RE only)
+//   actors                      list the live actor table (mgr [4745348]+B98 intrusive hash set, node = actor+E0)
+//   despawn [all|last|N]        delete actors spawned by this ASI (found by diffing the actor table around CreateDynamic; native delete 2BF7E8)
+//   kill [last|N] [drop]        native Character::EnemyForceKill 786C84 on a spawned actor (drop=1: ...WithItemDrop)
+//   gauge <id> / ungauge <id>   UI::ShowBossGauge / UI::HideBossGauge natives (1D115D4 / 1C208BC)
+//   yaw                         log camera yaw (deg), player pos, forward convention
+//   fwdmode <0..3>              forward convention: 0 (sin,cos) 1 (cos,sin) 2 (-sin,cos) 3 (cos,-sin) on (x,z)
+//   autogauge <0|1>             show boss gauge after each spawn (default 1)
+//   phase <ms>                  mission-switch phase sampling interval in ms (default 500); the log window after 'mission' is 60 s
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
 #include <windows.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 static uintptr_t B;
 static char g_dir[MAX_PATH];
@@ -59,6 +68,56 @@ static uint64_t PlayerChar(void) {
 static int PlayerPos(float o[4]) {
     uint64_t ch = PlayerChar(); if (!ch) return 0;
     __try { memcpy(o, (void*)(ch + 0x110), 16); return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+
+static float CamYawDeg(void) {
+    void* cam = ((void* (*)(int))(B + 0x20A914))(0);
+    if (!cam) return 0.0f;
+    return ((float (*)(void*))(B + 0x356018))(cam) * 57.2957764f;
+}
+static int g_fwdmode = 0, g_autogauge = 1;
+static void FwdVec(float yawDeg, float* dx, float* dz) {
+    float y = yawDeg * 0.01745329252f, s = sinf(y), c = cosf(y);
+    switch (g_fwdmode) { case 1: *dx = c; *dz = s; break; case 2: *dx = -s; *dz = c; break; case 3: *dx = c; *dz = -s; break; default: *dx = s; *dz = c; }
+}
+// Actor table: every live actor is linked (node = actor+0xE0, next = *node) into 16 hash buckets {head,count} at [[mgr]+0xB98+8].
+static int Actors(uint64_t* out, int max) {
+    int n = 0; uint64_t mgr = 0, bk = 0;
+    __try {
+        if (!Rd64(B + 0x4745348, &mgr) || !mgr || !Rd64(mgr + 0xB98 + 8, &bk) || !bk) return 0;
+        for (int i = 0; i < 16; ++i) {
+            uint64_t node = *(uint64_t*)(bk + i * 16);
+            for (int guard = 0; node && guard < 4096; ++guard, node = *(uint64_t*)node)
+                if (n < max) out[n++] = node - 0xE0;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    return n;
+}
+#define MAXSP 32
+static uint64_t g_sp_actor[MAXSP]; static int g_nsp;
+static uint64_t g_snap[1024]; static int g_nsnap; static DWORD g_watch_t0; static int g_watch; static uint32_t g_watch_id;
+static int InSnap(uint64_t a) { for (int i = 0; i < g_nsnap; ++i) if (g_snap[i] == a) return 1; return 0; }
+static int InSp(uint64_t a) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == a) return 1; return 0; }
+static void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
+    if (!g_watch) return;
+    uint64_t cur[1024]; int n = Actors(cur, 1024);
+    for (int i = 0; i < n; ++i) if (!InSnap(cur[i]) && !InSp(cur[i]) && *(uint32_t*)(cur[i] + 4) == g_watch_id && g_nsp < MAXSP) {
+        float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
+        g_sp_actor[g_nsp++] = cur[i];
+        Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
+        g_watch = 0;
+    }
+    if (GetTickCount() - g_watch_t0 > 3000) { Log("SPAWN: no new actor with handle id %08X appeared within 3 s (previous actor of the same owner/slot still alive? despawn it first)", g_watch_id); g_watch = 0; }
+}
+static int Despawn(int idx) {
+    if (idx < 0 || idx >= g_nsp) { Log("DESPAWN #%d: no such spawned actor (have %d)", idx, g_nsp); return 0; }
+    uint64_t a = g_sp_actor[idx], cur[1024]; int n = Actors(cur, 1024), found = 0;
+    for (int i = 0; i < n; ++i) if (cur[i] == a) found = 1;
+    if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); g_sp_actor[idx] = 0; return 0; }
+    ((void (*)(uint64_t))(B + 0x2BF7E8))(a);
+    Log("DESPAWN #%d %p: native delete 2BF7E8 called", idx, (void*)a);
+    g_sp_actor[idx] = 0;
+    return 1;
 }
 
 // ---- trace hooks
@@ -115,16 +174,51 @@ static void SpawnTick(void) {
     }
     float pos[4]; uint64_t ch = PlayerChar();
     if (!PlayerPos(pos) || !ch) { Log("SPAWN %u: no player", g_sp.id); g_sp.active = 0; return; }
-    // spawn along +X from the player (player yaw not decoded yet)
-    __attribute__((aligned(16))) float p[4] = {pos[0] + g_sp.dist, pos[1], pos[2], 1.0f};
+    // spawn dist units in front of the player (camera yaw), facing the player
+    float cy = CamYawDeg(), dx, dz; FwdVec(cy, &dx, &dz);
+    __attribute__((aligned(16))) float p[4] = {pos[0] + dx * g_sp.dist, pos[1], pos[2] + dz * g_sp.dist, 1.0f};
     uint32_t owner = g_sp.owner ? g_sp.owner : PickOwner();
-    uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_sp.id, p, 0.0f, 0, owner, 0);
-    Log("SPAWN %u: resources ready after %lu ms; CreateDynamic(owner %u) at %.0f %.0f %.0f -> 0x%X%s", g_sp.id, dt, owner, p[0], p[1], p[2], r, r ? "" : " (refused)");
+    float face = cy + 180.0f;
+    g_nsnap = Actors(g_snap, 1024);
+    uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_sp.id, p, face, 0, owner, 0);
+    g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount();
+    Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
+    if (r && g_autogauge) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0); Log("SPAWN %u: ShowBossGauge(0x%X) called", g_sp.id, r); }
     g_sp.active = 0;
+}
+static volatile LONG g_ticks;
+static DWORD g_phase_ms = 500, g_lastTickT;
+static struct { DWORD t0, last, lastTick, lastBeat, window; LONG ticks0, lastTicks; int hadPlayer, active; uint32_t id, lastReg; float lastPos[4]; } g_ms;
+static uint32_t RegCount(void) {
+    uint64_t cm = 0, c0 = 0; if (!Rd64(B + 0x45B9E40, &cm) || !cm || !Rd64(cm, &c0) || !c0) return 0;
+    uint64_t* reg = *(uint64_t**)(c0 + 0x48); return reg ? (uint32_t)reg[1] : 0;
+}
+static void PhaseTick(void) {
+    DWORD now = GetTickCount();
+    if (g_lastTickT && now - g_lastTickT > 1000 && g_ms.active) {
+        Log("PHASE pump gap %lu ms: game thread stalled from +%lu ms to +%lu ms", now - g_lastTickT, g_lastTickT - g_ms.t0, now - g_ms.t0);
+        g_ms.lastBeat = 0;
+    }
+    g_lastTickT = now;
+    if (!g_ms.active) return;
+    if (now - g_ms.last < g_phase_ms) return;
+    DWORD dt = now - g_ms.last; g_ms.last = now;
+    long dticks = (long)(g_ticks - g_ms.lastTicks); g_ms.lastTicks = g_ticks;
+    float pos[4] = {0}; uint64_t ch = PlayerChar(); int ok = ch && PlayerPos(pos); uint32_t rc = RegCount();
+    int has = ch != 0, changed = 0;
+    if (has != g_ms.hadPlayer) { Log("PHASE player pointer %s at +%lu ms", has ? "APPEARED" : "GONE", now - g_ms.t0); g_ms.hadPlayer = has; changed = 1; }
+    if (rc != g_ms.lastReg) { Log("PHASE registry count %u -> %u at +%lu ms", g_ms.lastReg, rc, now - g_ms.t0); g_ms.lastReg = rc; changed = 1; }
+    if (ok && (fabsf(pos[0] - g_ms.lastPos[0]) > 50 || fabsf(pos[2] - g_ms.lastPos[2]) > 50)) { Log("PHASE player moved %.0f %.0f %.0f -> %.0f %.0f %.0f at +%lu ms (world switched)", g_ms.lastPos[0], g_ms.lastPos[1], g_ms.lastPos[2], pos[0], pos[1], pos[2], now - g_ms.t0); changed = 1; }
+    if (ok) memcpy(g_ms.lastPos, pos, 12);
+    if (changed || now - g_ms.lastBeat >= 2000) {
+        g_ms.lastBeat = now;
+        Log("PHASE mission 0x%X +%lu ms: ticks=%ld (+%ld in %lu ms) player=%p pos=%.0f %.0f %.0f reg=%u", g_ms.id, now - g_ms.t0, (long)(g_ticks - g_ms.ticks0), dticks, dt, (void*)ch, ok ? pos[0] : 0, ok ? pos[1] : 0, ok ? pos[2] : 0, rc);
+    }
+    if (now - g_ms.t0 > g_ms.window) { Log("PHASE window of %lu ms over", g_ms.window); g_ms.active = 0; }
 }
 static void Exec(char* line) {
     char op[32] = {0}; long long a[6] = {0};
-    int n = sscanf(line, "%31s %lld %lld %lld %lld %lld %lld", op, &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
+    int n = sscanf(line, "%31s %lli %lli %lli %lli %lli %lli", op, &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
     if (n < 1) return;
     float pos[4] = {0};
     __try {
@@ -166,6 +260,36 @@ static void Exec(char* line) {
             if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(g_sp.id, 2, 0);
             Log("CMD spawn %u dist %.0f: %s", g_sp.id, g_sp.dist, e && *(uint8_t*)(e + 0x2c8) ? "resources already loaded" : "Load::Character requested");
             g_sp.active = 1; SpawnTick();
+        } else if (!strcmp(op, "actors")) {
+            uint64_t cur[1024]; int n = Actors(cur, 1024); uint64_t me = PlayerChar();
+            Log("CMD actors: %d in table, player=%p", n, (void*)me);
+            for (int i = 0; i < n; ++i) { float xyz[4]; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
+                Log("  actor %p%s%s handle %08X %08X pos %.0f %.0f %.0f", (void*)cur[i], cur[i] == me ? " PLAYER" : "", InSp(cur[i]) ? " SPAWNED" : "", *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2]); }
+        } else if (!strcmp(op, "despawn")) {
+            char w[16] = "all"; sscanf(line, "%*s %15s", w);
+            if (!strcmp(w, "all")) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i); }
+            else if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { Despawn(i); break; } }
+            else Despawn(atoi(w));
+        } else if (!strcmp(op, "kill")) {
+            char w[16] = "last"; int drop = 0; sscanf(line, "%*s %15s %d", w, &drop);
+            int idx = -1;
+            if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { idx = i; break; } } else idx = atoi(w);
+            if (idx < 0 || idx >= g_nsp || !g_sp_actor[idx]) { Log("CMD kill: no spawned actor %s", w); return; }
+            uint64_t live = g_sp_actor[idx]; uint32_t flag = *(uint32_t*)(live + 0xAB84); uint64_t comp = *(uint64_t*)(live + 0x3B0);
+            Log("CMD kill #%d %p: +ab84=%08X comp=%p drop=%d", idx, (void*)live, flag, (void*)comp, drop);
+            if (flag != 0xFFFFFFFFu || !comp) { Log("CMD kill: guard refused (needs +ab84==-1 and comp)"); return; }
+            ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1);
+            Log("CMD kill #%d: 786C84 called", idx);
+        } else if (!strcmp(op, "gauge")) {
+            ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))((uint32_t)a[0], 0, 0); Log("CMD gauge 0x%llX shown", a[0]);
+        } else if (!strcmp(op, "ungauge")) {
+            ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))((uint32_t)a[0], 0, 0); Log("CMD ungauge 0x%llX", a[0]);
+        } else if (!strcmp(op, "yaw")) {
+            float y = CamYawDeg(), dx, dz; FwdVec(y, &dx, &dz); PlayerPos(pos);
+            Log("CMD yaw camyaw=%.2f deg mode=%d fwd=(%.3f,%.3f) player %.1f %.1f %.1f", y, g_fwdmode, dx, dz, pos[0], pos[1], pos[2]);
+        } else if (!strcmp(op, "fwdmode")) { g_fwdmode = (int)a[0]; Log("CMD fwdmode %d", g_fwdmode);
+        } else if (!strcmp(op, "autogauge")) { g_autogauge = (int)a[0]; Log("CMD autogauge %d", g_autogauge);
+        } else if (!strcmp(op, "phase")) { g_phase_ms = (DWORD)a[0]; Log("CMD phase interval %lu ms", g_phase_ms);
         } else if (!strcmp(op, "act")) {
             uint8_t r = ((uint8_t (*)(uint32_t, uint32_t, uint8_t, uint32_t))(B + 0x1180740))((uint32_t)a[0], 0, 0, 0);
             Log("CMD act %llu -> %u", a[0], r);
@@ -177,6 +301,8 @@ static void Exec(char* line) {
             __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};
             ((void (*)(uint32_t, uint8_t, uint32_t, const uint32_t*))(B + 0x2239600))((uint32_t)a[0], (uint8_t)a[1], (uint32_t)a[2], p);
             Log("CMD mission 0x%llX slot %llu start %llu requested", a[0], a[1], a[2]);
+            g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
+            g_ms.id = (uint32_t)a[0];
         } else if (!strcmp(op, "call")) {
             uint64_t r = ((uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t))(B + a[0]))(a[1], a[2], a[3], a[4]);
             Log("CMD call 0x%llX(%llu,%llu,%llu,%llu) -> 0x%llX", a[0], a[1], a[2], a[3], a[4], r);
@@ -194,13 +320,14 @@ static void Exec(char* line) {
 
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static PumpFn o_pump;
-static volatile LONG g_ticks;
 static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     if (InterlockedIncrement(&g_ticks) == 1) Log("pump: first game-thread tick (thread %lu)", GetCurrentThreadId());
     if (g_have) {
         char buf[4096]; memcpy(buf, g_cmd, sizeof buf); InterlockedExchange(&g_have, 0);
         for (char* s = strtok(buf, "\r\n"); s; s = strtok(0, "\r\n")) if (*s && *s != '#') { Log("exec: %s", s); Exec(s); }
     }
+    __try { PhaseTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     return o_pump(c, d, r8, r9);
 }
