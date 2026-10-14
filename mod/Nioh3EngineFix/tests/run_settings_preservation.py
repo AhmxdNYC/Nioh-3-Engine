@@ -32,7 +32,7 @@ def source_checks():
     for value in ('0x1FDDFCC', '0x45C6F80', '0x4B736F0', 'config.xml', '.fgmarker'):
         assert value.lower() not in (menu + dll).lower(), value
     assert re.search(r'bool ReadOnly\(int id\).*id == kFg \|\|', menu)
-    assert re.search(r'void Change\(int id, int dir\)\s*{\s*if \(ReadOnly\(id\)\) return;', menu)
+    assert re.search(r'void Change\(int id, int dir\)\s*{(?:(?!\n}\n).)*?\n    if \(ReadOnly\(id\)\) return;', menu, re.S)
     assert 'FrameGenToggle' not in menu  # no legacy value can enable writes
     assert 'job->ini = g_ini;' in menu
     assert 'g_ini = h.iniPath ? h.iniPath : L"";' in menu
