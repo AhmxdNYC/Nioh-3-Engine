@@ -94,20 +94,10 @@ struct Host {
     const char* (*gpStatus)(char* buf, size_t n) = nullptr;  // GP profiler: frame ms + top 5 passes (empty = off)
     volatile uint8_t* autoContinue = nullptr;     // autocont.cpp live switch (1 = skip the post-load tip page's press); nullptr = not installed
     long (*autoContinueCount)() = nullptr;        // times the tip page's confirm check was answered by the switch
-    // 1.7.44 FSR FG under Proton ([Menu] FrameGenToggle = 3, notesg-proton-fix.md)
-    volatile uint32_t* fgPause = nullptr;         // caves.asm fgp_pause (1 = FG paused by the mod); nullptr = FGP not installed
-    bool fgcOn = false;                           // FGC copy-job null guard written this session
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.
 void Configure(const Host& h);
-// Proton only (FG crash-loop guard, see menu.cpp). Early: called by dllmain's worker before the game reads config.xml;
-// restores FRAME_GENERATION OFF when the last session left the mod's FG marker. Exit: called from the ExitProcess /
-// TerminateProcess import hooks (or DLL detach); restores OFF when the mod switched FG on this session.
-// fgToggle = [Menu] FrameGenToggle. 3 ("Proton safe FG"): a launch with FG on in config.xml arms the marker before the
-// game reads it (a crash in that session -> OFF at the next start), and a clean exit keeps the FG value the user chose.
-void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath, int fgToggle);
-void ProtonFgExit(const char* how);
 // true when [Menu] Enabled=1 (the OSD then installs its Present hook even with the counter and popup off)
 bool Enabled();
 // osd install thread, after the Present hook is installed: hooks XInputGetState (game IAT) and DirectInput

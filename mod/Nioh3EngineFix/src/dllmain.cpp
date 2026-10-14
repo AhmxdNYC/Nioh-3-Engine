@@ -480,9 +480,8 @@ struct Config {
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
     int jt = 0;  // 1.7.40 JT job-timing probe ([Profiler] JT; measurement only, sites written only when 1)
-    // 1.7.44: FGC = FG copy-job null guard ([Patches] FGC, default 0); fgToggle = [Menu] FrameGenToggle (3 = Proton safe
-    // FG: FGC + FGP pause installed under Proton, FG kept in config.xml with the crash marker; notesg-proton-fix.md)
-    int fgc = 0, fgToggle = 1;
+    // Legacy FrameGenToggle=3 retains only the independent Proton FGC crash guard.
+    int fgc = 0, fgToggle = 0;
 };
 
 // OS-auto keys (ini value -1): resolved here, logged right after the version line (the log is not open yet).
@@ -1467,50 +1466,8 @@ void ConfigureVrr(const Config& c) {
 
 bool InModule(uintptr_t a) { return a >= (uintptr_t)g_base && a < (uintptr_t)g_base + g_imageSize; }
 
-// ---- Proton FG guard: exit hooks on the game's own ExitProcess / TerminateProcess imports (menu::ProtonFgExit puts
-// FRAME_GENERATION OFF back into config.xml when the mod switched FG on this session). They run on the exiting thread
-// before the process is torn down, unlike DLL_PROCESS_DETACH (loader lock, other threads already killed).
-using ExitProcess_t = void(WINAPI*)(UINT);
-using TerminateProcess_t = BOOL(WINAPI*)(HANDLE, UINT);
-ExitProcess_t g_origExitProcess = nullptr;
-TerminateProcess_t g_origTerminateProcess = nullptr;
 bool g_wineEarly = false;
-bool g_fgcOn = false, g_fgpOn = false;  // 1.7.44 FGC / FGP written this session
-
-void WINAPI HkExitProcess(UINT code) {
-    menu::ProtonFgExit("ExitProcess");
-    g_origExitProcess(code);
-}
-BOOL WINAPI HkTerminateProcess(HANDLE h, UINT code) {
-    if (h == GetCurrentProcess() || GetProcessId(h) == GetCurrentProcessId()) menu::ProtonFgExit("TerminateProcess");
-    return g_origTerminateProcess(h, code);
-}
-
-void** ImportSlot(const char* dll, const char* fn) {
-    auto nt = Nt(g_base);
-    const IMAGE_DATA_DIRECTORY& dd = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-    if (!dd.VirtualAddress) return nullptr;
-    for (auto d = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(g_base + dd.VirtualAddress); d->Name; ++d) {
-        if (_stricmp(reinterpret_cast<const char*>(g_base + d->Name), dll) != 0 || !d->OriginalFirstThunk) continue;
-        auto oft = reinterpret_cast<IMAGE_THUNK_DATA64*>(g_base + d->OriginalFirstThunk);
-        auto ft = reinterpret_cast<IMAGE_THUNK_DATA64*>(g_base + d->FirstThunk);
-        for (; oft->u1.AddressOfData; ++oft, ++ft)
-            if (!IMAGE_SNAP_BY_ORDINAL64(oft->u1.Ordinal) &&
-                !strcmp(reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(g_base + oft->u1.AddressOfData)->Name, fn))
-                return reinterpret_cast<void**>(&ft->u1.Function);
-    }
-    return nullptr;
-}
-
-bool SwapImport(const char* fn, void* hook, void** orig) {
-    void** slot = ImportSlot("KERNEL32.dll", fn);
-    if (!slot || !*slot) return false;
-    DWORD old, t;
-    if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) return false;
-    *orig = InterlockedExchangePointer(slot, hook);
-    VirtualProtect(slot, sizeof(void*), old, &t);
-    return true;
-}
+bool g_fgcOn = false;  // independent FG copy-job null guard
 
 // fast-testing LiveCtl 'Tuning.<key> = v': [Tuning] values that the installed code reads at use time. PP_Period is the
 // PP cave's mask (read on every sweep decision); the same-look values are read per clipmap visit / frame (samelook.cpp).
@@ -1575,16 +1532,7 @@ DWORD WINAPI Worker(LPVOID) {
         return 0;
     }
 
-    // Proton FG guard, before the game reads config.xml (the crash-loop case: put OFF back if the last session left
-    // the mod's FG marker), plus the exit hooks. The import table is the loader's, not encrypted by SteamStub.
     if (HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) g_wineEarly = GetProcAddress(ntdll, "wine_get_version") != nullptr;
-    if (g_wineEarly) {
-        std::wstring marker = SelfPathWithExt(L".fgmarker");
-        menu::ProtonFgEarly(&Log, marker.c_str(), cfg.fgToggle);
-        const bool e = SwapImport("ExitProcess", (void*)&HkExitProcess, (void**)&g_origExitProcess);
-        const bool t = SwapImport("TerminateProcess", (void*)&HkTerminateProcess, (void**)&g_origTerminateProcess);
-        Log("Proton FG guard: exit hooks ExitProcess %s, TerminateProcess %s", e ? "ok" : "MISSING", t ? "ok" : "MISSING");
-    }
 
     // PSO bytecode swap / shader dump (notes\gpu-post-exe.md): early, so the IAT slot swap beats the engine's device creation
     {
@@ -1815,7 +1763,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         if (!strcmp(g, "JT")) return cfg.jt != 0;  // 1.7.40 job-timing probe (measurement only)
         if (!strcmp(g, "FGC")) return cfg.fgc != 0 || (g_wineEarly && cfg.fgToggle == 3);  // 1.7.44
-        if (!strcmp(g, "FGP")) return g_wineEarly && cfg.fgToggle == 3;                    // 1.7.44
+        if (!strcmp(g, "FGP")) return false;  // retired menu pause switch
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -2026,8 +1974,7 @@ DWORD WINAPI Worker(LPVOID) {
         Log("MW: %s (paired meshlet completion wait/wake; startup-only; no job work skipped)",
             installed ? "ON" : g_mwInstallUncertain ? "UNRESOLVED publication; keep paired helpers valid" : "skipped, stock retained");
     }
-    // 1.7.44 FGC / FGP (FSR frame generation under Proton, notesg-proton-fix.md). Not menu rows: FGC is a pure
-    // crash guard (bit-identical while both textures exist), FGP is driven by the menu's frame-generation item.
+    // Independent FG copy-job crash guard; does not change game settings.
     if (cfg.fgc || (g_wineEarly && cfg.fgToggle == 3)) {
         g_fgcOn = expGroup("FGC", true, [&]() {
             Item* i1 = findItem("FGC1");
@@ -2039,18 +1986,6 @@ DWORD WINAPI Worker(LPVOID) {
         });
         Log("FGC: frame-generation copy-job null guard %s (%s)", g_fgcOn ? "installed" : "NOT installed",
             cfg.fgc ? "[Patches] FGC = 1" : "[Menu] FrameGenToggle = 3 under Proton");
-    }
-    if (g_wineEarly && cfg.fgToggle == 3) {
-        g_fgpOn = expGroup("FGP", true, [&]() {
-            Item* i = findItem("FGP");
-            const uintptr_t t = (uintptr_t)(g_base + i->s->expectRva);
-            if (calleeOf(i->addr) != t) return false;
-            fgp_target = t;
-            fgp_pause = 0;
-            return true;
-        });
-        Log("FGP: frame-generation pause switch %s (FG off in the mod menu pauses FSR FG instead of rebuilding the swapchain)",
-            g_fgpOn ? "installed" : "NOT installed - FG off then applies at the next launch only");
     }
     LARGE_INTEGER qf;
     QueryPerformanceFrequency(&qf);
@@ -2831,12 +2766,12 @@ DWORD WINAPI Worker(LPVOID) {
                     g_rd.rounds,g_rd.timeouts,g_rd.wakes,g_rd.errors,g_rd.failed);
                 if (g_mw.enabled) Log("MW totals: wait rounds %ld timeouts %ld wakes %ld errors %ld",
                     g_mw.rounds, g_mw.timeouts, g_mw.wakes, g_mw.errors);
-                if (g_fgcOn || g_fgpOn) {
+                if (g_fgcOn) {
                     static uint32_t s_pSrc = 0, s_pHits = 0;
                     const uint32_t src = fgc_src, hits = fgp_hits;
                     Log("stats/s FG: copy jobs %u (= frames interpolated/s = real fps while FSR FG runs), NULL textures skipped "
                         "src %u / dst %u (total) | FGP %s, paused frames %u",
-                        (src - s_pSrc) / 30, fgc_srcNull, fgc_dstNull, !g_fgpOn ? "not installed" : fgp_pause ? "PAUSED" : "off",
+                        (src - s_pSrc) / 30, fgc_srcNull, fgc_dstNull, "not installed",
                         (hits - s_pHits) / 30);
                     s_pSrc = src;
                     s_pHits = hits;
@@ -2895,8 +2830,6 @@ DWORD WINAPI Worker(LPVOID) {
         mh.p12 = cfg.p12;
         mh.l1OnWine = cfg.l1OnWine;
         mh.fgOnWine = cfg.fgOnWine;
-        mh.fgPause = g_fgpOn ? &fgp_pause : nullptr;  // 1.7.44 FGP (FrameGenToggle = 3 under Proton)
-        mh.fgcOn = g_fgcOn;
         // experimental patches: live switch when installed (M2/J1/S1 are code bytes only: next launch)
         auto U = [](uint32_t& v) { return reinterpret_cast<volatile uint32_t*>(&v); };
         volatile uint32_t* sw[menu::kNumExp] = {};
@@ -3532,11 +3465,7 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     return TRUE;
 }
 
-BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID reserved) {
-    if (reason == DLL_PROCESS_DETACH && reserved && g_wineEarly) {
-        menu::ProtonFgExit("DLL detach");  // last resort; no-op when an exit hook already ran or FG was never switched on
-        return TRUE;
-    }
+BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         g_self = mod;
         DisableThreadLibraryCalls(mod);

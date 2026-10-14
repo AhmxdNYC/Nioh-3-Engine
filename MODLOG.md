@@ -1,3 +1,7 @@
+## 2026-10-14 Codex - Preserve user game settings (Task 3254)
+
+Made FG status-only for every legacy toggle value. Removed game XML writes, native FG setter/dirty flag, and startup/exit repair; retained own-INI saves, telemetry and the independent FGC crash guard. Added a 64-case offline preservation harness. Source contracts PASS; native build/harness and pattern checks await MSVC and the decrypted dump. See notes/settings-isolation-pc2-3254.md. No game launch or installed-bin change.
+
 ## 2026-10-13 Codex - combined CPU trial on hosted1.7.73
 
 Integrated default-off RD and M2S candidates together on hosted592a888, retaining J1/MW/WG/LK and current menus. Requested run delta enables RD/M2S/J1 plus retained WG/LK/MW and explicitly leaves M1/fullM2 disabled. No other optimization flags change. Combined byte/pattern and focused native wait/seed/unwind checks passed; actual gameplay benefit remains untested. See notes/cpu-combined-bundle-2026-10-13.md.

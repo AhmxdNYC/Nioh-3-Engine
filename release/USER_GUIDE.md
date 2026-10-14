@@ -31,7 +31,7 @@ each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap
 2. Copy the same three files next to `Nioh3.exe`.
 3. Steam -> Nioh 3 -> Properties -> Launch options: `WINEDLLOVERRIDES="dinput8=n,b" %command%`
    (without it Proton ignores the loader and the mod never runs).
-4. Leave frame generation OFF on Proton: switching it is reported to crash there. The mod keeps it off in `config.xml`.
+4. Change frame generation in the game's Options. The mod shows its status and never changes or restores the game's settings; Save to ini saves only mod choices.
 
 ## In-game settings that matter
 - Set **"FPS dynamic adjustment" OFF** (the mod's frame-timing fix needs it; a warning shows when it is on).
