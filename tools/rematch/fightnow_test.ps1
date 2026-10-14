@@ -14,7 +14,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\rematch\fightnow_test.ps1 -OwnerPid <agent pid> [-Rows R1CBC,R15FF]
 #        [-IncludeAtFight] [-WaitMinutes 480] [-MaxMinutes 240] [-LoadWaitSec 240] [-DryRun]
 param([int]$OwnerPid = 0, [string[]]$Rows = @(), [switch]$IncludeAtFight, [int]$WaitMinutes = 480, [int]$MaxMinutes = 240,
-      [int]$LoadWaitSec = 240, [bool]$KeepBuild = $true, [string]$PerfAsi = "", [switch]$DryRun)
+      [int]$LoadWaitSec = 240, [switch]$Retry, [int]$RetryMaxSec = 600, [bool]$KeepBuild = $true, [string]$PerfAsi = "", [switch]$DryRun)
 $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tm = Join-Path (Split-Path -Parent $here) "testmatrix"
@@ -194,6 +194,17 @@ try {
                     if ($res.fnow -eq 'pass') { $res.result = "PASS"; $sum.pass++ }
                     else { $res.result = "FAIL"; $res.note = if ($end) { LastOf $end } else { "no result in $($LoadWaitSec + 60) s: $(RMP status)" }; $sum.fail++ }
                     T "  -> $($res.result) fnow=$($res.fnow) warps=$($res.warps) load=$($res.load) s pos=$($res.pos) after $($res.seconds) s; $(LastOf $end)"
+                    if ($Retry -and $res.fnow -eq 'pass') {   # stand idle until the boss kills the player twice; time every load (retry timing)
+                        T "  retry mode: idle until 2 deaths (max $RetryMaxSec s); polling status 2x/s"
+                        $tr = Get-Date; $prevL = '0'; $loads = 0; $tl = $null
+                        while ($loads -lt 2 -and ((Get-Date) - $tr).TotalSeconds -lt $RetryMaxSec) {
+                            $sx = RMP status; $l = F $sx 'loading'; $now = [math]::Round(((Get-Date) - $tr).TotalSeconds, 1)
+                            if ($l -eq '1' -and $prevL -ne '1') { $tl = Get-Date; T "  RETRY load start at +$now s: $(LastOf $sx)" }
+                            if ($l -ne '1' -and $prevL -eq '1') { $loads++; T "  RETRY #$loads load end at +$now s (load $([math]::Round(((Get-Date) - $tl).TotalSeconds, 1)) s) player=$(F $sx 'player') fnow=$(F $sx 'fnow')" }
+                            $prevL = $l; Start-Sleep -Milliseconds 500
+                        }
+                        T "  retry mode done: $loads loads observed in $([math]::Round(((Get-Date) - $tr).TotalSeconds, 1)) s"
+                    }
                     Start-Sleep 4
                     $x = RMP "exit"; T "  exit: $x"
                     $back = Wait-RM { param($y) (F $y 'state') -eq '0' -and (F $y 'loading') -eq '0' -and (F $y 'player') -eq '1' } 150 2

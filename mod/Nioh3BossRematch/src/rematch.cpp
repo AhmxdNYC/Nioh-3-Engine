@@ -995,10 +995,20 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         if (s.st[2] && !g_fightLoading) {
             ++g_fightLoads;
             Log("Rematch: F load inside the mission #%d (death / retry, or leaving) - retry point %u", g_fightLoads, s.ms14);
+            if (fight::g_active) {  // dying never runs BossBattleModeEnd: the stale flag made DoWarp skip the re-entry (user saw the player left at the door)
+                InterlockedExchange(&fight::g_active, 0);
+                Log("Rematch: F load during a boss fight (death / retry) - fight flag cleared so the warp re-enters the arena");
+                if (g_gateWant.load()) {  // the boss script restarts and waits for the gate again: re-arm the gate request after the warp
+                    g_gateReq = false;
+                    g_gateSeen.store(false);
+                    g_gateDue = 0;
+                }
+            }
         }
         if (!s.st[2] && g_fightLoading && g_fightWarp && !(g_gateReq && g_fn.load() == kFnWarped)) {  // a reload (death / retry) ended: back into the arena; never during a gate intro
             g_warpPending = true;
             g_warpDue = t + 4500;  // 1.5 s after the 3 s settle the landing uses
+            if (g_gateWant.load() && !g_gateDue) g_gateDue = t + 4500 + 2500;  // retry: request the gate right again after the warp
         }
         g_fightLoading = s.st[2] != 0;
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
