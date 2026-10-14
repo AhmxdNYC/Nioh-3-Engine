@@ -33,3 +33,18 @@ Standalone ASI (built on Linux with zig: `mod/Nioh3Training/build.sh`). Chains t
 - Spawn direction is world +X (player yaw not decoded). Some bosses spawn without their arena script (no boss intro/gauge/music). A boss gauge did not appear; only a world health bar.
 - Owner semantics are partly understood: an owner id is required. Multiple spawns with the same owner return the same id, and whether a new spawn replaces the previous one is unverified.
 - Not wired into the mod menu/UI yet; command file only. Online/co-op is unguarded: use offline only.
+
+## Update 2026-10-14 (bridge 4380): despawn, forward spawn, kill reward, mission phases
+
+Ally, Proton, game v2.02. Runtime-tested; evidence /tmp/train-4380 (bridge file with the ASI).
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| 1. Despawn | WORKS | `despawn [all\|last\|N]`. The spawned actor is found by diffing the actor table (below) around CreateDynamic: new actor whose handle dword[1] == the returned id (appears 15-22 ms later). Delete = native `2BF7E8(actor)` (the tail of `Character::Delete`). Spawn -> kill -> despawn -> spawn again verified (log run5). The id returned by CreateDynamic (`slot<<28 \| ownerPlacement`) is NOT in the charMgr registry, so scripts' `Character::Delete(id)` path cannot find it; the actor pointer is used instead. |
+| 2. Spawn in front | WORKS | camera yaw = `356018(20A914(0))` rad; forward on (x,z) = (sin yaw, cos yaw). Calibrated in game: walking forward moved (-164,+363) = (-0.41,0.91) vs predicted (-0.415,0.910). Spawn at `dist` units ahead (default 400) facing the player (yaw+180). Yamagata appeared dead ahead of the camera and attacked. |
+| 3. Kill reward | WORKS | `kill [last\|N] [drop]` calls `786C84(comp,0,0,-1,drop,1,0,0,1)` (the ForceKill / ForceKillWithItemDrop native, guarded by `actor+AB84==-1`). Yamagata killed with drop=1: loot light pillars appeared and the HUD Amrita counter went 430,178 -> 581,207 (+151,029). |
+| 3b. Boss HP bar | NOT for spawns | `gauge <id>` / autogauge call `UI::ShowBossGauge` native `1D115D4(id,0,0)`. It resolves the id by owner placement: with the Oni of Rajomon placement as owner it showed "Ibaraki Doji" (the Oni's bar, not the spawn's); with an ordinary enemy owner nothing showed. No gauge for the spawned actor itself. Default `autogauge 1` (harmless; use `autogauge 0` to skip). |
+| 4. Mission switch phases | LOGGED | `mission 0x1CBC 1 67064` (hex accepted now). Rajomon -> Hitokoto Slope: +0.5 s request, **+1.0 s world data switched** (registry 228 -> 44, player pos jumps to the new map), game thread never stalls (30 ticks/0.5 s, ~22 while streaming), **+16.8 s registry 44 -> 136** (field entities created), load screen shows "Continue" at about +22-24 s (needs an A press), playable right after. Total request -> playable about 28 s, of which most is the loading screen. |
+
+Other fixes: spawning again with the same owner while the previous actor still exists silently produces no actor (slot occupied); the ASI now logs a warning after 3 s. `despawn` the old one first (a dead corpse counts).
+Dying: bosses kill the player in a few seconds; use `despawn` or `kill` right away when testing.
