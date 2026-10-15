@@ -589,7 +589,7 @@ static int Warp(float x, float y, float z, float yaw, int full) {
     ((void (*)(uint64_t))(B + 0x1C2A3CC))(pl + 0x110);
     uint64_t s = StageMgr();
     memcpy((void*)(s + 0x10B0), (void*)(pl + 0x110), 16); *(uint8_t*)(s + 0x10C0) = 1;
-    ((void (*)(uint64_t))(B + 0x3A083C))(s + 0x500);
+    ((void (*)(uint64_t, uint64_t))(B + 0x3A083C))(s + 0x500, s + 0x10B0);  // bridge 6047: rdx = centre pointer, as the native SetPos tail (23AB6C1) and 39E58D pass it
     ((uint8_t (*)(uint64_t, uint8_t))(B + 0x3B35B4))(s + 0x500, 1);
     return 1;
 }
@@ -1039,12 +1039,71 @@ static void EnterTick(void) {
     int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1); g_en.warped = 1; g_en.tWarp = now;
     Log("ENTER %s (%s): warped into the arena %.0f %.0f %.0f yaw %.1f -> %d (+%lu ms after the request); waiting for the mission script to spawn the boss", r->id, r->name, r->p[0], r->p[1], r->p[2], r->p[3], w, now - g_en.t0);
 }
+// bridge 6047: stage cell streaming after a world switch. Per-cell update 31DFB8 (called for every cell of the set stage+0x500+0x40 by 31D480,
+// from the per-frame stage update 39FBF4 -> 31D28C) only STARTS a cell load (type 0 cells, record +0xD5 == 0) while
+//   (A) 1FBFA30(stage) + loading areas of list stage+0x19C0 < 4   (31E0B2: 83 F8 04 = cmp eax,4; 1FBFA30 = type-0 ids in stage+0x1A90 + release queue stage+0x1AA8)
+//   (B) map size [stage+0x1B48] < 4                              (31E0BB: 48 83 BB 48 1B 00 00 04)
+// so at most 4 cells load at once, and after a world switch the old world's releases count against the same 4 slots.
+// [ArenaSwap] CrossWorldCellLoads = N (5..64) raises both imm8 to N from the world request until the new world's cells are all loaded (or 60 s), then restores 4.
+static int g_cfg_xcells = 0;
+static struct { int on, sawReset, lastSt, patched; DWORD t0, t5, tAll, lastLog; uint8_t w0; uint64_t lastN, lastR, lastF; char tag[24]; } g_xs;
+static int CellCapSet(int n) {  // returns 1 when both imm8 now hold n
+    static const uint8_t a0[] = {0x83, 0xF8}, a1[] = {0x0F, 0x8D, 0x3D, 0x01, 0x00, 0x00}, b0[] = {0x48, 0x83, 0xBB, 0x48, 0x1B, 0x00, 0x00}, b1[] = {0x0F, 0x83, 0x2F, 0x01, 0x00, 0x00};
+    uint8_t* pa = (uint8_t*)(B + 0x31E0B2); uint8_t* pb = (uint8_t*)(B + 0x31E0BB);
+    if (n < 1 || n > 0x7F) return 0;
+    if (memcmp(pa, a0, 2) || memcmp(pa + 3, a1, 6) || memcmp(pb, b0, 7) || memcmp(pb + 8, b1, 6)) { Log("XSTREAM cell cap: bytes at 31E0B2/31E0BB differ (game version?), not patched"); return 0; }
+    if (pa[2] == n && pb[7] == n) return 1;
+    DWORD old; if (!VirtualProtect(pa, 0x18, PAGE_EXECUTE_READWRITE, &old)) return 0;
+    pa[2] = (uint8_t)n; pb[7] = (uint8_t)n;  // single-byte stores: the game thread sees the old or the new immediate, never a torn instruction
+    VirtualProtect(pa, 0x18, old, &old); FlushInstructionCache(GetCurrentProcess(), pa, 0x18);
+    Log("XSTREAM cell load cap -> %d (31E0B4 / 31E0C2)", n);
+    return 1;
+}
+static int CellStats(uint64_t* n, uint64_t* ready, uint64_t* loading, uint64_t* relq, uint64_t* m) {
+    uint64_t s = StageMgr(), a = 0, b = 0; *n = *ready = *loading = *relq = *m = 0;
+    if (!s || !Rd64(s + 0x500 + 0x60, n)) return 0;
+    if (Rd64(s + 0x19C0, &a) && Rd64(s + 0x19C8, &b) && b >= a && b - a < 0x10000) *loading = (b - a) / 4;
+    if (Rd64(s + 0x1AA8, &a) && Rd64(s + 0x1AB0, &b) && b >= a && b - a < 0x10000) *relq = (b - a) / 4;
+    Rd64(s + 0x1B48, m);
+    for (uint64_t i = 0; i < *n && i < 256; ++i) {
+        uint64_t e = 0;
+        __try { e = ((uint64_t (*)(uint64_t, uint64_t))(B + 0xD3B9C))(s + 0x500 + 0x40, i); if (e && *(uint8_t*)(e + 0xE8)) ++*ready; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    }
+    return 1;
+}
+static void XsStart(const char* tag) {  // called right before a WarpOtherWorld request
+    memset(&g_xs, 0, sizeof g_xs); snprintf(g_xs.tag, sizeof g_xs.tag, "%s", tag);
+    uint64_t s = StageMgr(); g_xs.w0 = s ? *(uint8_t*)(s + 0x500) : 0xFF; g_xs.t0 = GetTickCount(); g_xs.lastSt = StageState(); g_xs.on = 1;
+    g_xs.patched = g_cfg_xcells > 4 && CellCapSet(g_cfg_xcells);
+    Log("XSTREAM %s: start, world 0x%02X state %d, cell load cap %d (CrossWorldCellLoads %d)", tag, g_xs.w0, g_xs.lastSt, g_xs.patched ? g_cfg_xcells : 4, g_cfg_xcells);
+}
+static void XsEnd(const char* why) {
+    if (g_xs.patched) CellCapSet(4);
+    Log("XSTREAM %s: %s; state 5 at %s%lu ms, all cells loaded at %s%lu ms (cap %d)", g_xs.tag, why, g_xs.t5 ? "+" : "never/", g_xs.t5 ? g_xs.t5 - g_xs.t0 : 0, g_xs.tAll ? "+" : "never/", g_xs.tAll ? g_xs.tAll - g_xs.t0 : 0, g_xs.patched ? g_cfg_xcells : 4);
+    g_xs.on = 0; g_xs.patched = 0;
+}
+static void XsTick(void) {
+    if (!g_xs.on) return;
+    DWORD now = GetTickCount(), dt = now - g_xs.t0; uint64_t s = StageMgr(); if (!s) return;
+    int st = StageState(); uint8_t w = *(uint8_t*)(s + 0x500);
+    uint64_t n, r, f, q, m; int ok = CellStats(&n, &r, &f, &q, &m);
+    if (st != 5 || w != g_xs.w0) g_xs.sawReset = 1;
+    int chg = st != g_xs.lastSt || (ok && (n != g_xs.lastN || f != g_xs.lastF || (r != g_xs.lastR && now - g_xs.lastLog >= 250)));
+    if (chg || now - g_xs.lastLog >= 1000) {
+        Log("XSTREAM %s +%lu ms: world 0x%02X state %d cells %llu loaded %llu | loading areas %llu release queue %llu map 1B48 %llu", g_xs.tag, dt, w, st, n, r, f, q, m);
+        g_xs.lastLog = now; g_xs.lastN = n; g_xs.lastR = r; g_xs.lastF = f;
+    }
+    if (st == 5 && g_xs.sawReset && !g_xs.t5) { g_xs.t5 = now; Log("XSTREAM %s: stage state 5 at +%lu ms, %llu/%llu cells loaded", g_xs.tag, dt, r, n); }
+    g_xs.lastSt = st;
+    if (g_xs.t5 && now - g_xs.t5 >= 500 && ok && n && r == n) { g_xs.tAll = now; XsEnd("new world streamed"); return; }
+    if (dt > 60000) XsEnd("60 s timeout");
+}
 // bridge 5276 (pc2 5116/5275): boss in ANOTHER world, no mission load. Only a world switch brings the other world's arena: World::WarpOtherWorld request (22399B8, mission 0, target world, start point)
 // switches in ~1 s and the stage is ready (state 5) ~5-11 s later; then the normal in-place arena swap (warp + live spawn) runs. ~10 s to a fightable boss vs ~29 s native. Any failure -> native MissionRequestById.
 static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy;
 static struct { int active; ArenaRow* row; DWORD t0, tReady; } g_xw;
 static void XwNative(const char* why) {
-    ArenaRow* r = g_xw.row; g_xw.active = 0; if (!r) return;
+    ArenaRow* r = g_xw.row; g_xw.active = 0; if (g_xs.on) XsEnd("native fallback"); if (!r) return;
     __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};
     Log("XWORLD %s: %s, native mission request 0x%X start %u", r->id, why, r->mission, r->start);
     ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))(r->mission, 1, r->start, p);
@@ -1060,6 +1119,7 @@ static int XwStart(ArenaRow* r) {
     uint8_t journey = *(uint8_t*)(ms + 0x10); uint32_t mode = *(uint32_t*)(ms + 0x24);
     memset(&g_xw, 0, sizeof g_xw); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1;
     Log("XWORLD %s (%s): world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, CurWorld(), r->world, r->start, journey, mode);
+    XsStart(r->id);
     ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(r->world, journey, r->start, mode, prm);
     if (g_cfg_xpre) {  // pc2 5294: the boss model load (~8 s) otherwise starts only after the stage is ready; start it with the world request
         uint64_t e = ResEntry(r->chr);
@@ -1306,6 +1366,10 @@ static void Exec(char* line) {
             else if (!r) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("CMD fnow: not handled, native request"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))((uint32_t)a[0], 1, (uint32_t)a[1], p); }
         } else if (!strcmp(op, "preload")) { PreloadNearby("CMD preload");
         } else if (!strcmp(op, "swap")) { g_cfg_enable = (int)a[0]; Log("CMD swap %d", g_cfg_enable);
+        } else if (!strcmp(op, "cellcap")) {  // cellcap N: set the stage cell load cap now (4 = native); cellcap alone: print the cell stats
+            if (n >= 2) { g_cfg_xcells = (int)a[0]; Log("CMD cellcap %d -> %d", g_cfg_xcells, CellCapSet(g_cfg_xcells < 4 ? 4 : g_cfg_xcells)); }
+            uint64_t cn, cr, cf, cq, cm; CellStats(&cn, &cr, &cf, &cq, &cm);
+            Log("CMD cellcap: state %d cells %llu loaded %llu loading areas %llu release queue %llu map 1B48 %llu, imm %u/%u", StageState(), cn, cr, cf, cq, cm, *(uint8_t*)(B + 0x31E0B4), *(uint8_t*)(B + 0x31E0C2));
         } else if (!strcmp(op, "mworld")) {
             uint64_t db = *(uint64_t*)(B + 0x45B9E30); db = db ? *(uint64_t*)db : 0;
             for (int i = 0; i < n - 1; ++i) {
@@ -1320,6 +1384,7 @@ static void Exec(char* line) {
             if (n >= 4 && a[2]) { prm[4] = 1; prm[0xF] = 1; }     // WarpOtherWorldWhiteOut
             ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);  // same pre-call as the VM wrapper (GameMain+588 stop bytes)
             uint8_t journey = *(uint8_t*)(st + 0x10); uint32_t mode = *(uint32_t*)(st + 0x24);
+            XsStart("oworld");
             ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))((uint8_t)a[0], journey, (uint32_t)a[1], mode, prm);
             Log("CMD oworld world 0x%llX start %llu white %d journey %u mode %u requested", a[0], a[1], n >= 4 && a[2] ? 1 : 0, journey, mode);
             g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
@@ -1383,6 +1448,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
     __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
+    __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
@@ -1440,6 +1506,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
         g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
+        g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
         g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
