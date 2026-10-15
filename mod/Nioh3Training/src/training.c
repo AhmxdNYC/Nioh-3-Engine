@@ -155,6 +155,23 @@ static void DumpOwnerState(const char* why) {
 }
 // bridge 4878: boss monitor, 20 s after a spawned boss enters the table: boss->player distance and team every 500 ms (engagement evidence: an active boss closes in)
 static struct { uint64_t a; DWORD t0, last; float minD; } g_mon;
+static int g_cfg_awarefix = 1;  // bridge 5089: 0 off, 1 SetAwareFlg + diag, 2 also AI-on 66982C, 3 also lock-on 68210C
+static void AwareDiag(const char* tag) {  // perception list of the spawned boss: [[boss+3B0]+50]=ai, [ai+10]=perc, 8 entries of 0x58, aware byte +0x10, target ref +0x28
+    uint64_t comp = 0, ai = 0, perc = 0, me = PlayerChar(); int hit = -1, aw = 0, n = 0;
+    if (!Rd64(g_mon.a + 0x3B0, &comp) || !comp || !Rd64(comp + 0x50, &ai) || !ai || !Rd64(ai + 0x10, &perc) || !perc) { Log("AWARE %s: no comp/ai/perc (comp %p ai %p)", tag, (void*)comp, (void*)ai); return; }
+    for (int i = 0; i < 8; ++i) { uint64_t e = 0; Rd64(perc + 0x28 + i * 0x58, &e); if (e) n++; if (e && e == me) hit = i; if (*(uint8_t*)(perc + 0x10 + i * 0x58)) aw++; }
+    Log("AWARE %s: ai+1574=%u ai+1AA8=%u perc+2D0=%d entries %d player-entry %d aware-bytes %d", tag, *(uint8_t*)(ai + 0x1574), *(uint32_t*)(ai + 0x1AA8), *(int32_t*)(perc + 0x2D0), n, hit, aw);
+}
+static void AwareApply(void) {
+    uint64_t comp = 0, me = PlayerChar(); if (!g_cfg_awarefix || !Rd64(g_mon.a + 0x3B0, &comp) || !comp) return;
+    __try {
+        AwareDiag("before");
+        if (g_cfg_awarefix >= 2) ((void (*)(uint64_t))(B + 0x66982C))(g_mon.a);
+        if (g_cfg_awarefix >= 3 && me) ((void (*)(uint64_t, uint64_t))(B + 0x68210C))(comp, me);
+        ((void (*)(uint64_t, uint8_t, int))(B + 0x1FF1FA0))(comp, 1, 0);
+        AwareDiag("after");
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AWARE: native call faulted"); }
+}
 static void MonTick(void) {
     if (!g_mon.a) return;
     DWORD now = GetTickCount(); if (now - g_mon.last < 500) return; g_mon.last = now;
@@ -163,12 +180,27 @@ static void MonTick(void) {
     if (!found || !PlayerPos(p)) { Log("BOSSMON +%lu ms boss actor gone", now - g_mon.t0); g_mon.a = 0; return; }
     memcpy(b, (void*)(g_mon.a + 0x110), 16);
     float dx = b[0] - p[0], dz = b[2] - p[2], d = sqrtf(dx * dx + dz * dz) / 100.0f; if (d < g_mon.minD) g_mon.minD = d;
+    if (now - g_mon.t0 < 6000) AwareApply();
     uint64_t c = 0; Rd64(g_mon.a + 0xB0, &c);
     Log("BOSSMON +%lu ms boss %.0f %.0f %.0f player %.0f %.0f %.0f dist %.1f m (min %.1f) team %d", now - g_mon.t0, b[0], b[1], b[2], p[0], p[1], p[2], d, g_mon.minD, c ? *(int32_t*)(c + 0x10) : -999);
     if (now - g_mon.t0 > 20000) { Log("BOSSMON end: closest %.1f m", g_mon.minD); g_mon.a = 0; }
 }
 static int g_cfg_sidefix = 1;
 static int ActorTeam(uint64_t actor);
+// bridge 4942: Character::SetAwareFlg(boss) (VM 2394200) = 1FF1FA0(actor+0x3B0, 1, 0) -> FC4EA0([[ai+0x50]+0x10], 1, 0). The duel script calls it once the player is within 8 m; a
+// CreateDynamic boss has no script, so passive bosses (Takeda Shingen) never notice the player. Applied to every spawned boss at +AwareDelayMs and again 1.5 s later.
+static int g_cfg_aware = 1, g_cfg_aware_ms = 400;
+static struct { uint64_t a; DWORD t; int n; } g_aw;
+static int SetAware(uint64_t actor, const char* why) {
+    uint64_t ai = 0; if (!actor || !Rd64(actor + 0x3B0, &ai) || !ai) { Log("AWARE %s: no AI object on %p", why, (void*)actor); return 0; }
+    __try { ((void (*)(uint64_t, uint8_t, uint32_t))(B + 0x1FF1FA0))(ai, 1, 0); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AWARE %s: exception %08lX", why, GetExceptionCode()); return 0; }
+    Log("AWARE %s: SetAwareFlg applied to actor %p (ai %p)", why, (void*)actor, (void*)ai); return 1;
+}
+static void AwareTick(void) {
+    if (!g_aw.a || (int)(GetTickCount() - g_aw.t) < 0) return;
+    SetAware(g_aw.a, g_aw.n ? "retry" : "spawn");
+    if (g_aw.n++ >= 1) g_aw.a = 0; else g_aw.t = GetTickCount() + 1500;
+}
 static void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
     uint64_t cur[1024]; int n = Actors(cur, 1024);
@@ -189,6 +221,7 @@ static void WatchTick(void) {  // after CreateDynamic: collect actors that were 
             } else Log("SIDEFIX: skipped, team %d already differs from player's %d", t0, pt);
         }
         g_mon.a = cur[i]; g_mon.t0 = g_mon.last = GetTickCount(); g_mon.minD = 1e9f;
+        if (g_cfg_aware) { g_aw.a = cur[i]; g_aw.n = 0; g_aw.t = GetTickCount() + g_cfg_aware_ms; }
         if (g_dump_pending) { DumpWords("boss", cur[i], g_dump_owner, 0x100); g_dump_pending = 0; }
         g_watch = 0;
     }
@@ -933,6 +966,8 @@ static void Exec(char* line) {
             char tok[32] = {0}; float d = 400.0f; sscanf(line, "%*s %31s %f", tok, &d); SummonStart(tok, d);
         } else if (!strcmp(op, "train")) {  // bridge 4942: train <R-id|charId> [dist]: no-load session (player NoDeath, auto reset when beaten, 'retry', 'trainstop')
             char tok[32] = {0}; float d = (float)g_cfg_tr_dist; sscanf(line, "%*s %31s %f", tok, &d); TrainStart(tok, d);
+        } else if (!strcmp(op, "aware")) { uint64_t act = n >= 2 ? ActorByHandle((uint32_t)a[0]) : (g_nsp ? g_sp_actor[g_nsp - 1] : 0); SetAware(act, "command");
+        } else if (!strcmp(op, "awarecfg")) { g_cfg_aware = (int)a[0]; if (n >= 3) g_cfg_aware_ms = (int)a[1]; Log("CMD awarecfg %d delay %d", g_cfg_aware, g_cfg_aware_ms);
         } else if (!strcmp(op, "retry")) { TrainRetry("command");
         } else if (!strcmp(op, "trainstop")) { TrainStop("command");
         } else if (!strcmp(op, "hp")) { uint64_t c = 0, m = 0; int ok = PlayerHp(&c, &m); Log("CMD hp: %s %llu / %llu, NoDeath %d, wrapper %p", ok ? "player" : "no player", c, m, g_tr.nodeath, (void*)PlayerWrapper());
@@ -1092,6 +1127,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
+    __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     return o_pump(c, d, r8, r9);
@@ -1132,6 +1168,7 @@ static DWORD WINAPI Worker(LPVOID x) {
     {   // arena swap: config, table, MissionRequestById hook
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
+        g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 600, ini);
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
@@ -1143,7 +1180,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1, ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
-        g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
+        g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 3, ini); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
