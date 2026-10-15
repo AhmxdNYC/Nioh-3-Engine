@@ -31,6 +31,7 @@
 //   ownerwait ms / owneract 0|1 owner fallbacks for the arena swap (ini OwnerWaitMs / OwnerActivate)
 //   swap 0|1                    arena swap Enable at run time
 //   team / setteam id t         (bridge 4878) log the team id [[actor+B0]+10] of every actor / write one; teamfix 0|1 [enemyTeam]; forceowner N (1 = reproduce owner = player)
+//   perc [id] / percnear [m] / percfix N / percdiag 0|1 / inject [id] / bpoke off size val / mon [id]  (bridge 5201) perception list diag + player inject fix
 //   train id [dist] / retry / trainstop  (bridge 4942) no-load training session: summon here (any world), player NoDeath, reset round without a load; hp / nodeath 0|1 / recover
 // Config Nioh3Training.ini [ArenaSwap]; table Nioh3Training_arenas.tsv (tools/gen_arena_table.py). Exports: Nioh3Training_FightNow / _Preload / _Version.
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
@@ -157,12 +158,58 @@ static void DumpOwnerState(const char* why) {
 // bridge 4878: boss monitor, 20 s after a spawned boss enters the table: boss->player distance and team every 500 ms (engagement evidence: an active boss closes in)
 static struct { uint64_t a; DWORD t0, last; float minD; } g_mon;
 static int g_cfg_awarefix = 1;  // bridge 5089: 0 off, 1 SetAwareFlg + diag, 2 also AI-on 66982C, 3 also lock-on 68210C
-static void AwareDiag(const char* tag) {  // perception list of the spawned boss: [[boss+3B0]+50]=ai, [ai+10]=perc, 8 entries of 0x58, aware byte +0x10, target ref +0x28
-    uint64_t comp = 0, ai = 0, perc = 0, me = PlayerChar(); int hit = -1, aw = 0, n = 0;
-    if (!Rd64(g_mon.a + 0x3B0, &comp) || !comp || !Rd64(comp + 0x50, &ai) || !ai || !Rd64(ai + 0x10, &perc) || !perc) { Log("AWARE %s: no comp/ai/perc (comp %p ai %p)", tag, (void*)comp, (void*)ai); return; }
-    for (int i = 0; i < 8; ++i) { uint64_t e = 0; Rd64(perc + 0x28 + i * 0x58, &e); if (e) n++; if (e && e == me) hit = i; if (*(uint8_t*)(perc + 0x10 + i * 0x58)) aw++; }
-    Log("AWARE %s: ai+1574=%u ai+1AA8=%u perc+2D0=%d entries %d player-entry %d aware-bytes %d", tag, *(uint8_t*)(ai + 0x1574), *(uint32_t*)(ai + 0x1AA8), *(int32_t*)(perc + 0x2D0), n, hit, aw);
+static int ActorTeam(uint64_t actor);
+// bridge 5201: perception entry ref = {qword key = *(u64*)actor, dword serial = actor+0x18} (27B870), empty key = 0xF; 20A6F0(perc,i) resolves it to the actor
+// through the actor table. The old diag compared the key with the actor POINTER, so 'player-entry' was always -1 (false negative).
+static uint64_t PercOf(uint64_t actor, uint64_t* comp, uint64_t* ai) {
+    uint64_t c = 0, a = 0, p = 0;
+    if (!actor || !Rd64(actor + 0x3B0, &c) || !c || !Rd64(c + 0x50, &a) || !a || !Rd64(a + 0x10, &p)) return 0;
+    if (comp) *comp = c; if (ai) *ai = a; return p;
 }
+static uint64_t PercEntry(uint64_t perc, int i) { return ((uint64_t (*)(uint64_t, int))(B + 0x20A6F0))(perc, i); }
+static int PercFind(uint64_t perc, uint64_t who) { for (int i = 0; i < 8; ++i) if (who && PercEntry(perc, i) == who) return i; return -1; }
+static int PercDiag(uint64_t actor, const char* tag) {  // log-only; returns the player's entry index or -1
+    uint64_t comp = 0, ai = 0, perc = PercOf(actor, &comp, &ai), me = PlayerChar();
+    if (!perc) { Log("PERC %s %p: no comp/ai/perc (comp %p ai %p)", tag, (void*)actor, (void*)comp, (void*)ai); return -1; }
+    int hit = -1, used = 0; char row[600]; int k = 0; row[0] = 0;
+    __try {
+        for (int i = 0; i < 8; ++i) {
+            uint64_t key = *(uint64_t*)(perc + 0x28 + i * 0x58), e = PercEntry(perc, i);
+            if (key != 0xF) used++;
+            if (e && e == me) hit = i;
+            if (key != 0xF) k += snprintf(row + k, sizeof row - k, "[%d %s%p id %08X team %d aw %u] ", i, e == me ? "PLAYER " : "", (void*)e, e ? *(uint32_t*)(e + 4) : 0, e ? ActorTeam(e) : -999, *(uint8_t*)(perc + 0x10 + i * 0x58));
+        }
+        uint64_t mt = ((uint64_t (*)(uint64_t))(B + 0xA8520))(actor);
+        Log("PERC %s %p id %08X team %d: ai+1574=%u ai+1AA8=%u perc+2D0=%d +2DC=%d +558=%d +378=%d actor+8A4=%d player+8A4=%d actor+ACCA=%u player-entry %d used %d main-target %s%p | %s",
+            tag, (void*)actor, *(uint32_t*)(actor + 4), ActorTeam(actor), *(uint8_t*)(ai + 0x1574), *(uint32_t*)(ai + 0x1AA8), *(int32_t*)(perc + 0x2D0), *(int32_t*)(perc + 0x2DC),
+            *(int32_t*)(perc + 0x558), *(int32_t*)(perc + 0x378), *(int32_t*)(actor + 0x8A4), me ? *(int32_t*)(me + 0x8A4) : -999, *(uint8_t*)(actor + 0xACCA), hit, used, mt && mt == me ? "PLAYER " : "", (void*)mt, row);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PERC %s %p: exception %08lX", tag, (void*)actor, GetExceptionCode()); }
+    return hit;
+}
+// bridge 5201 fix candidate (ini [Summon] PerceptionFix, command 'percfix N'): put the player into the boss's perception list the way the native perception update does
+// when it adds a new target (289CB0 tail 28A0BD..28A17A: clear the slot, ref = 27B870(player), perc+0x2DC = 0, 2BE2E8(perc, idx) = make it the current target), then SetAwareFlg.
+// 1 = inject only when the player is missing, 2 = also 66982C (AlgoActiveFlag 1 + AI reset) before the inject.
+static int g_cfg_percfix = 0, g_cfg_percdiag = 1;
+static int PercInject(uint64_t actor, const char* why) {
+    uint64_t comp = 0, ai = 0, perc = PercOf(actor, &comp, &ai), me = PlayerChar(); if (!perc || !me) return -1;
+    int idx = PercFind(perc, me);
+    if (idx >= 0) { Log("PERCFIX %s: player already in entry %d", why, idx); }
+    else {
+        for (int i = 0; i < 8 && idx < 0; ++i) if (*(uint64_t*)(perc + 0x28 + i * 0x58) == 0xF) idx = i;
+        if (idx < 0) idx = 7;
+        uint8_t* e = (uint8_t*)(perc + idx * 0x58);
+        *(uint64_t*)(e + 0x14) = 0; *(uint64_t*)(e + 0x1C) = 0; *(uint64_t*)(e + 0x40) = 0; e[0x10] = 0; *(int32_t*)(e + 0x48) = -1;
+        *(uint16_t*)(e + 0x38) = 0; *(uint64_t*)(e + 0x4C) = 0; *(uint64_t*)(e + 0x54) = 0; *(uint32_t*)(e + 0x3C) = 0; *(uint32_t*)(e + 0x5C) = 0; e[0x60] = 0;
+        *(uint64_t*)(e + 0x28) = *(uint64_t*)me; *(uint32_t*)(e + 0x30) = *(uint32_t*)(me + 0x18);
+        *(int32_t*)(perc + 0x2DC) = 0;
+        Log("PERCFIX %s: player written into entry %d (resolves to %p)", why, idx, (void*)PercEntry(perc, idx));
+    }
+    if (g_cfg_percfix >= 2) ((void (*)(uint64_t))(B + 0x66982C))(actor);
+    ((void (*)(uint64_t, int))(B + 0x2BE2E8))(perc, idx);
+    ((void (*)(uint64_t, uint8_t, int))(B + 0x1FF1FA0))(comp, 1, 0);
+    return idx;
+}
+static void AwareDiag(const char* tag) { PercDiag(g_mon.a, tag); }
 static void AwareApply(void) {
     uint64_t comp = 0, me = PlayerChar(); if (!g_cfg_awarefix || !Rd64(g_mon.a + 0x3B0, &comp) || !comp) return;
     __try {
@@ -182,6 +229,11 @@ static void MonTick(void) {
     memcpy(b, (void*)(g_mon.a + 0x110), 16);
     float dx = b[0] - p[0], dz = b[2] - p[2], d = sqrtf(dx * dx + dz * dz) / 100.0f; if (d < g_mon.minD) g_mon.minD = d;
     if (now - g_mon.t0 < 6000) AwareApply();
+    if (g_cfg_percfix && now - g_mon.t0 >= 600 && now - g_mon.t0 < 8000) {  // bridge 5201: re-inject while the player is missing (the native update may evict it)
+        uint64_t perc = PercOf(g_mon.a, 0, 0);
+        if (perc && PercFind(perc, PlayerChar()) < 0) { PercDiag(g_mon.a, "before-fix"); __try { PercInject(g_mon.a, "mon"); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PERCFIX: exception %08lX", GetExceptionCode()); } PercDiag(g_mon.a, "after-fix"); }
+    }
+    if (g_cfg_percdiag && ((now - g_mon.t0) / 500) % 4 == 0) PercDiag(g_mon.a, "mon");
     uint64_t c = 0; Rd64(g_mon.a + 0xB0, &c);
     Log("BOSSMON +%lu ms boss %.0f %.0f %.0f player %.0f %.0f %.0f dist %.1f m (min %.1f) team %d", now - g_mon.t0, b[0], b[1], b[2], p[0], p[1], p[2], d, g_mon.minD, c ? *(int32_t*)(c + 0x10) : -999);
     if (now - g_mon.t0 > 20000) { Log("BOSSMON end: closest %.1f m", g_mon.minD); g_mon.a = 0; }
@@ -991,6 +1043,23 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "train")) {  // bridge 4942: train <R-id|charId> [dist]: no-load session (player NoDeath, auto reset when beaten, 'retry', 'trainstop')
             char tok[32] = {0}; float d = (float)g_cfg_tr_dist; sscanf(line, "%*s %31s %f", tok, &d); TrainStart(tok, d);
         } else if (!strcmp(op, "aware")) { uint64_t act = n >= 2 ? ActorByHandle((uint32_t)a[0]) : (g_nsp ? g_sp_actor[g_nsp - 1] : 0); SetAware(act, "command");
+        } else if (!strcmp(op, "perc")) {  // bridge 5201: perc [handle id]: perception list of the spawned boss or of any actor by id (+4)
+            uint64_t act = n >= 2 ? ActorByHandle((uint32_t)a[0]) : (g_nsp ? g_sp_actor[g_nsp - 1] : 0); PercDiag(act, "cmd");
+        } else if (!strcmp(op, "percnear")) {  // percnear [m]: perception list of every non-player actor with an AI within m metres (default 30)
+            uint64_t cur[1024]; int k = Actors(cur, 1024); uint64_t me = PlayerChar(); float pp[4] = {0}, r = n >= 2 ? (float)a[0] * 100.0f : 3000.0f; PlayerPos(pp);
+            for (int i = 0; i < k; ++i) { if (cur[i] == me) continue; float* q = (float*)(cur[i] + 0x110); float dx = q[0] - pp[0], dz = q[2] - pp[2];
+                if (dx * dx + dz * dz <= r * r) { char tg[48]; snprintf(tg, sizeof tg, "near %.1fm%s", sqrtf(dx * dx + dz * dz) / 100.0f, InSp(cur[i]) ? " SPAWNED" : ""); PercDiag(cur[i], tg); } }
+        } else if (!strcmp(op, "percfix")) { g_cfg_percfix = (int)a[0]; Log("CMD percfix %d", g_cfg_percfix);
+        } else if (!strcmp(op, "percdiag")) { g_cfg_percdiag = (int)a[0]; Log("CMD percdiag %d", g_cfg_percdiag);
+        } else if (!strcmp(op, "inject")) { uint64_t act = n >= 2 ? ActorByHandle((uint32_t)a[0]) : (g_nsp ? g_sp_actor[g_nsp - 1] : 0); int sv = g_cfg_percfix; if (!g_cfg_percfix) g_cfg_percfix = 1;
+            PercDiag(act, "inject-before"); PercInject(act, "command"); PercDiag(act, "inject-after"); g_cfg_percfix = sv;
+        } else if (!strcmp(op, "bpoke")) {  // bpoke off size val: write 1/2/4 bytes at spawned-boss+off (RE)
+            uint64_t act = g_nsp ? g_sp_actor[g_nsp - 1] : 0; if (!act) { Log("CMD bpoke: no boss"); return; }
+            uint8_t* q = (uint8_t*)(act + a[0]); int64_t old = a[1] == 1 ? *q : a[1] == 2 ? *(uint16_t*)q : *(int32_t*)q;
+            if (a[1] == 1) *q = (uint8_t)a[2]; else if (a[1] == 2) *(uint16_t*)q = (uint16_t)a[2]; else *(int32_t*)q = (int32_t)a[2];
+            Log("CMD bpoke boss %p +0x%llX (%lld bytes): %lld -> %lld", (void*)act, a[0], a[1], old, a[2]);
+        } else if (!strcmp(op, "mon")) { uint64_t act = n >= 2 ? ActorByHandle((uint32_t)a[0]) : (g_nsp ? g_sp_actor[g_nsp - 1] : 0);  // mon [id]: restart the 20 s BOSSMON on an actor
+            if (act) { g_mon.a = act; g_mon.t0 = g_mon.last = GetTickCount(); g_mon.minD = 1e9f; Log("CMD mon %p", (void*)act); }
         } else if (!strcmp(op, "awarecfg")) { g_cfg_aware = (int)a[0]; if (n >= 3) g_cfg_aware_ms = (int)a[1]; Log("CMD awarecfg %d delay %d", g_cfg_aware, g_cfg_aware_ms);
         } else if (!strcmp(op, "retry")) { TrainRetry("command");
         } else if (!strcmp(op, "trainstop")) { TrainStop("command");
@@ -1205,7 +1274,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1, ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
-        g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
+        g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag);  g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
