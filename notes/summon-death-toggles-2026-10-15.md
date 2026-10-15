@@ -33,3 +33,8 @@ Only ASI-spawned bosses (actor in g_sp_actor) are touched; one kill per boss-mod
 ## Infeasible / not done
 - The mission's boss-defeat cutscene (RTM, `PlayBossDefeatRTM` / `BossDefeatEventMain`) is mission-script bytecode per boss; there is no generic native to play it for a summoned boss outside its mission. CutsceneOnKill therefore means the native death animation after one finisher, not the RTM movie.
 - Script/mission rewards (first-clear gear, guardian spirits, story items, mission reward screen) are granted by the mission script / mission tables, which are not located (boss-rewards.md section 3). BossLoot gives only the enemy drop table (Soul Core chance, materials, Amrita). Bosses whose drop table is empty (boss-drops.md: 131/186 have no reward-set link) may drop only Amrita.
+
+## Death-blow revive (#6643, commit 5346c74)
+- User logs 18:57 / 19:02 (captures/pc/user_play_1856/1900.log): native kill at HP 1 -> sensor 0->1->0, HP back to 1; a raw HP 0 write was undone the same way.
+- Cause (786C84, after damage apply 787268 sets hp+0x48 = 1): `786FFC mov edx,27h; mov rcx,rdi; call 4893B8` = CharacterConditionEvaluate(0x27) (chr byte +0x20D bit 4). True -> `66C188(hp+0x38, 1)` (HP 1, dead flag cleared) + death-blow-pending (+0xEA0 / 0x400000000000); false -> death handler 1FFFEDC(comp, type, BL = drop). Second revive path when actor+0x894 != 0 (786F7E) not touched.
+- Fix: E8 at 787004 retargeted to a near stub; cond 0x27 reported false for the boss-mode/summoned boss when DeathBlowRequired=0 and during our own force kills; stub clears BL (no drop, also the 0x8000 bit at 787219) for natural kills with BossLoot=0. Raw HP 0 write removed. Untested in game.
