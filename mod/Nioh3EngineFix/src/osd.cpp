@@ -497,8 +497,28 @@ float CounterScaleImpl(UINT H) {
     return std::clamp(g_cfg.scale * autoMul, 0.5f, 8.0f);
 }
 
+// ---- screen fade (bridge 6519/6536): Nioh3EngineFix_Fade(on, ms) ramps a full-screen black quad (alpha 0..255) ----------------------
+// Used by Nioh3Training's arena switch: black out, swap behind it, fade in once the new arena has streamed. Drawn first, so the
+// counter / menu stay on top. Any thread may call the export; the Present hook reads the ramp.
+struct FadeState { float from = 0, to = 0; int64_t t0 = 0; float ms = 1; };
+FadeState g_fade;
+SRWLOCK g_fadeLock = SRWLOCK_INIT;
+volatile LONG g_fadeActive = 0;  // 1 while alpha may be non-zero (fast out for the hook)
+float FadeAlphaAt(int64_t now) {  // 0..255
+    AcquireSRWLockShared(&g_fadeLock);
+    const FadeState f = g_fade;
+    ReleaseSRWLockShared(&g_fadeLock);
+    const double k = f.ms <= 0 ? 1.0 : std::clamp(Secs(now - f.t0) * 1000.0 / (double)f.ms, 0.0, 1.0);
+    return f.from + (f.to - f.from) * (float)k;
+}
+
 void BuildOverlay(UINT W, UINT H, int64_t now) {
     g_n = 0;
+    if (g_fadeActive) {
+        const float fa = FadeAlphaAt(now);
+        if (fa >= 0.5f) AddQuad(0, 0, (float)W, (float)H, kSolid, (uint32_t)std::min(255.0f, fa + 0.5f) << 24);
+        else if (g_fade.to <= 0) InterlockedExchange(&g_fadeActive, 0);
+    }
     g_nMain = 0;
     g_menuScale = 0;
     const float sc = CounterScaleImpl(H);
@@ -1562,3 +1582,25 @@ void Start(const StartupInfo& si) {
 }
 
 }  // namespace osd
+
+// C API for Nioh3Training (GetProcAddress on Nioh3EngineFix.asi). Works only while the overlay hook is installed (FpsCounter / popup / menu on).
+//   Nioh3EngineFix_Fade(1, ms)  ramp to black over ms; (0, ms) ramp back to clear. Continues from the current alpha. Returns 1.
+//   Nioh3EngineFix_FadeAlpha()  current alpha 0..255 (what the last frame drew), -1 when the overlay is not drawing yet.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_Fade(int on, int ms) {
+    using namespace osd;
+    const int64_t now = Qpc();
+    const float cur = FadeAlphaAt(now);
+    AcquireSRWLockExclusive(&g_fadeLock);
+    g_fade.from = cur;
+    g_fade.to = on ? 255.0f : 0.0f;
+    g_fade.t0 = now;
+    g_fade.ms = ms < 1 ? 1.0f : (float)ms;
+    ReleaseSRWLockExclusive(&g_fadeLock);
+    InterlockedExchange(&g_fadeActive, 1);
+    return 1;
+}
+extern "C" __declspec(dllexport) int Nioh3EngineFix_FadeAlpha(void) {
+    using namespace osd;
+    if (!g_ctx.ok || !g_ctx.sc) return -1;
+    return (int)(FadeAlphaAt(Qpc()) + 0.5f);
+}
