@@ -36,6 +36,7 @@ param(
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 $wsHere = (Resolve-Path (Join-Path $here "..\..")).Path
+if (-not $DryRun) { & (Join-Path $wsHere 'tools/steam/start_autoplay.ps1') }
 $stamp = Get-Date -Format "yyyyMMdd-HHmm"
 $Items = @($Items -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $HotSets = @($HotSets -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })

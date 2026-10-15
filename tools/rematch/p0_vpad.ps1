@@ -127,6 +127,7 @@ function Launch {
     if ($DryRun) { $script:launchN++; T "[dry] launch #$($script:launchN): Assert-Launch ($(Get-CommitInfo)), steam://rungameid/3681010, give focus back, wait pipe, title-continue"; return $true }
     Assert-Launch
     $before = VP-ForegroundInfo; T "foreground before launch: $($before.name)"
+    & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
     Start-Process "steam://rungameid/3681010"; $t0 = Get-Date; $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
     if (-not $p) { Note-Crash "no window"; throw "no game window after 180 s" }

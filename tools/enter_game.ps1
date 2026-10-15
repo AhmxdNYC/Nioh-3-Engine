@@ -7,6 +7,7 @@ function U { Assert-Owner; dotnet fsi $ui @args 2>&1 | Out-Null }
 Assert-Launch
 Start-Process "steam://rungameid/3681010"
 $t0 = Get-Date
+& (Join-Path $PSScriptRoot 'steam/start_autoplay.ps1')
 while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 150) { Start-Sleep 3 }
 Register-Game; if (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { Note-Crash "no game window after launch" }
 Start-Sleep 25
