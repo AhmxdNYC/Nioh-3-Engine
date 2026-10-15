@@ -609,6 +609,10 @@ static void Exec(char* line) {
             Log("CMD mission 0x%llX slot %llu start %llu requested", a[0], a[1], a[2]);
             g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
             g_ms.id = (uint32_t)a[0];
+        } else if (!strcmp(op, "dump")) {  // dump rva len -> <dir>\\dump_<rva>.bin (RE: disassemble with objdump -D -b binary -mi386:x86-64 --adjust-vma)
+            char p[MAX_PATH]; snprintf(p, sizeof p, "%s\\dump_%llX.bin", g_dir, a[0]);
+            FILE* f = fopen(p, "wb"); if (f) { fwrite((void*)(B + a[0]), 1, (size_t)a[1], f); fclose(f); }
+            Log("CMD dump rva 0x%llX len %lld -> %s (%s)", a[0], a[1], p, f ? "ok" : "open failed");
         } else if (!strcmp(op, "call")) {
             uint64_t r = ((uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t))(B + a[0]))(a[1], a[2], a[3], a[4]);
             Log("CMD call 0x%llX(%llu,%llu,%llu,%llu) -> 0x%llX", a[0], a[1], a[2], a[3], a[4], r);
