@@ -574,6 +574,11 @@ static void StageLog(const char* tag) {
         *(uint8_t*)(sub + 0x389), n, buf, c[0], c[1], c[2], *(uint8_t*)(B + 0x45BC428), *(uint32_t*)(B + 0x45BC42C));
 }
 // native Player::SetPos (VM 23AB4DC) tail for the non-riding case
+// bridge 6514: the game's own loading screen widget (script UI::LoadStart / UI::LoadEnd: [45C84A8]+748h) = native fade to black + loading emblem.
+static int LoadScreen(int on) {
+    __try { ((void (*)(void))(B + (on ? 0x6372A0 : 0x3B1B6C)))(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("LOADSCREEN %d: exception %08lX", on, GetExceptionCode()); return 0; }
+    Log("LOADSCREEN %s called", on ? "start" : "end"); return 1;
+}
 static int Warp(float x, float y, float z, float yaw, int full) {
     uint64_t pl = ((uint64_t (*)(int))(B + 0x20A914))(0);
     if (!pl) return 0;
@@ -1602,6 +1607,8 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "rm")) {  // bridge 6473 test aid: send the rest of the line to the Boss Rematch pipe (from inside the game process: no second wine process) and log the reply
             const char* t = line + 2; while (*t == ' ') ++t; char* dup = _strdup(t); if (dup) { char* e = dup + strlen(dup); while (e > dup && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0; CloseHandle(CreateThread(0, 0, RmPipeThread, dup, 0, 0)); }
         } else if (!strcmp(op, "fade")) { FadeWant((int)a[0], "CMD fade");
+        } else if (!strcmp(op, "lstart")) { LoadScreen(1);
+        } else if (!strcmp(op, "lend")) { LoadScreen(0);
         } else if (!strcmp(op, "xpre")) { Log("CMD xpre mission 0x%llX", a[0]); XwPrewarm((uint32_t)a[0], "CMD xpre");
         } else if (!strcmp(op, "preload")) { PreloadNearby("CMD preload");
         } else if (!strcmp(op, "swap")) { g_cfg_enable = (int)a[0]; Log("CMD swap %d", g_cfg_enable);
