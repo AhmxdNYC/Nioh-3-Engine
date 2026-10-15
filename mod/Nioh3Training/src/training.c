@@ -25,6 +25,7 @@
 //                               point); white=1 uses the WhiteOut variant's transition flags. Starts the 60 s phase log.
 //   fnow missionId [start]      Fight now through the C API (Nioh3Training_FightNow): in-place swap when the row is in Nioh3Training_arenas.tsv and in this world, else the native request
 //   preload                     Nioh3Training_Preload: request the models of the nearest bosses of this world
+//   bbm id [notify] / bbmend    native Mission::BossBattleMode / BossBattleModeEnd replica (HUD/BGM mode, bridge 4576); bossmode 0|1 [notify]; flag id [val] = SetMissionFlag
 //   swap 0|1                    arena swap Enable at run time
 // Config Nioh3Training.ini [ArenaSwap]; table Nioh3Training_arenas.tsv (tools/gen_arena_table.py). Exports: Nioh3Training_FightNow / _Preload / _Version.
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
@@ -236,6 +237,68 @@ static int Warp(float x, float y, float z, float yaw, int full) {
     ((uint8_t (*)(uint64_t, uint8_t))(B + 0x3B35B4))(s + 0x500, 1);
     return 1;
 }
+
+// ---- boss mode (bridge 4576): native replica of Mission::BossBattleMode (VM 23A2DCC) / ...End (23A2F70) without a VM context, and Mission::SetMissionFlag (70275C)
+static int g_cfg_bossmode = 1, g_cfg_notify = 1;
+static uint64_t CharMgr(void) { uint64_t cm = 0; Rd64(B + 0x45B9E40, &cm); return cm; }
+static uint64_t FindWrapper(uint32_t id) { uint64_t cm = CharMgr(); return cm ? ((uint64_t (*)(uint64_t, uint32_t))(B + 0x135B78))(cm, id) : 0; }
+static struct { int active; uint32_t id; int v0, diff; DWORD t0, last, since; } g_bm;
+static uint64_t ActorByHandle(uint32_t h) { uint64_t cur[1024]; int n = Actors(cur, 1024); for (int i = 0; i < n; ++i) if (*(uint32_t*)(cur[i] + 4) == h) return cur[i]; return 0; }
+// live-object death predicate 4892A8 (the tail of 7E11F0 / Duel::IsAliveBoss); a dynamic boss (CreateDynamic handle) has no registered wrapper, so use the actor table
+static int BossAliveSensor(uint32_t id) { uint64_t a = ActorByHandle(id); if (!a) { uint64_t w = FindWrapper(id); return w ? (int)(((uint8_t (*)(uint64_t))(B + 0x7E11F0))(w) & 1) : -1; } return (int)(((uint8_t (*)(uint64_t))(B + 0x4892A8))(a) & 1); }
+static int BossModeBegin(uint32_t id, int notify) {
+    uint64_t cm = CharMgr(), c0 = 0; if (!cm || !Rd64(cm, &c0) || !c0) { Log("BBM: no character manager"); return 0; }
+    *(uint8_t*)(c0 + 0x26AA) = 1;
+    uint64_t w = FindWrapper(id);
+    if (!w) { Log("BBM %u: no registered wrapper (dynamic boss): HUD/mode steps only, no listener message", id); notify = 0; }
+    if (!((uint8_t (*)(uint64_t))(B + 0x1341F8))(cm)) {
+        ((void (*)(uint64_t))(B + 0x1C19E14))(cm);
+        int keep = w && *(uint32_t*)(w + 0x28) == 0x4ACDF && ((uint8_t (*)(uint64_t, uint32_t))(B + 0x374184))(cm, 0xC12);
+        if (!keep) { *(uint8_t*)(c0 + 0x3036) = 0; *(uint8_t*)(c0 + 0x3037) = 0; }
+        ((void (*)(uint32_t))(B + 0x1C20600))(0);
+        if (((uint8_t (*)(void))(B + 0x85948))() && *(uint8_t*)(c0 + 0x305A) == 0) ((void (*)(uint8_t))(B + 0x1CA885C))(1);
+    } else Log("BBM %u: 1341F8 true (script lock set), HUD/mode steps skipped as the native does", id);
+    if (notify && w) {  // listener message {wrapper+0x20}, as at 23A2EBD..F3B
+        uint32_t v = *(uint32_t*)(w + 0x20); uint64_t out[2] = {0, 0};
+        ((void (*)(uint64_t*, uint32_t*))(B + 0xE33410))(out, &v);
+        uint64_t tmp[2] = {out[0], out[1]}; out[0] = out[1] = 0;
+        ((void (*)(uint64_t, uint64_t*))(B + 0x66BBF4))(w, tmp);
+        uint64_t obj = tmp[1];
+        if (obj && InterlockedDecrement((volatile LONG*)(obj + 8)) == 0) {
+            void** vt = *(void***)obj; ((void (*)(uint64_t))vt[0])(obj);
+            if (InterlockedDecrement((volatile LONG*)(obj + 0xC)) == 0) ((void (*)(uint64_t))vt[1])(obj);
+        }
+    }
+    g_bm.active = 1; g_bm.id = id; g_bm.t0 = g_bm.last = GetTickCount(); g_bm.v0 = BossAliveSensor(id); g_bm.diff = 0; g_bm.since = 0;
+    Log("BBM %u: BossBattleMode applied (wrapper %p, +26AA=1, alive sensor %d, notify %d)", id, (void*)w, g_bm.v0, notify);
+    return 1;
+}
+static void BossModeEnd(const char* why) {
+    uint64_t cm = CharMgr(); if (!cm) return;
+    if (((uint8_t (*)(uint64_t))(B + 0x1C1AE20))(cm)) ((void (*)(uint64_t))(B + 0x1C0CFB4))(cm);
+    ((void (*)(uint64_t))(B + 0x1C0CEEC))(cm); ((void (*)(uint64_t))(B + 0x1C0D068))(cm);
+    ((void (*)(uint64_t))(B + 0x1C0E83C))(cm); ((void (*)(uint64_t))(B + 0x9DECF8))(cm);
+    Log("BBM END (%s): BossBattleModeEnd steps done", why);
+}
+static void BossTick(void) {
+    if (!g_bm.active) return;
+    DWORD now = GetTickCount(); if (now - g_bm.last < 250) return; g_bm.last = now;
+    int v = BossAliveSensor(g_bm.id);
+    if (g_bm.v0 < 0) { if (v >= 0) { g_bm.v0 = v; Log("BBM +%lu ms actor in table, death sensor baseline %d", now - g_bm.t0, v); } else if (now - g_bm.t0 > 8000) { Log("BBM actor never appeared, giving up"); g_bm.active = 0; } return; }
+    if (v != g_bm.v0) { if (!g_bm.since) { g_bm.since = now; Log("BBM +%lu ms alive sensor %d -> %d", now - g_bm.t0, g_bm.v0, v); } }
+    else g_bm.since = 0;
+    if (g_bm.since && now - g_bm.since >= 1500) {
+        Log("BBM +%lu ms boss %u gone/dead (sensor %d, was %d)", now - g_bm.t0, g_bm.id, v, g_bm.v0);
+        BossModeEnd("boss dead");
+        ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(g_bm.id, 0, 0);
+        g_bm.active = 0;
+    }
+}
+static void SetFlag(uint32_t id, uint8_t val) {
+    uint64_t mm = 0; Rd64(B + 0x47514D0, &mm);
+    ((void (*)(uint64_t, uint32_t, uint8_t, uint8_t))(B + 0x70275C))(mm, id, val, 0);
+    Log("FLAG SetMissionFlag(%u, %u) called (mgr %p)", id, val, (void*)mm);
+}
 static struct { int active, spawned, released; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog; int lastState, lastCell; } g_ar;
 static void ArenaTick(void) {
     if (!g_ar.active) return;
@@ -257,6 +320,7 @@ static void ArenaTick(void) {
                 g_watch = r != 0; g_watch_id = r; g_watch_t0 = now; g_ar.spawned = 1; g_ar.tSpawn = now;
                 Log("ARENA +%lu ms CreateDynamic(%u owner %u) at %.0f %.0f %.0f yaw %.1f -> 0x%X", dt, g_ar.chr, owner, b[0], b[1], b[2], g_ar.byaw, r);
                 if (r && g_autogauge) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0);
+                if (r && g_cfg_bossmode) BossModeBegin(r, g_cfg_notify);
             }
             if (now - g_ar.tSpawn >= 200) { g_ar.released = 1; Log("ARENA +%lu ms CONTROL: player released at %.0f %.0f %.0f (command -> control %.2f s)", dt, pos[0], pos[1], pos[2], dt / 1000.0); }
         } else if (dt > 30000) { Log("ARENA +%lu ms timeout: state %d res %d - releasing", dt, st, res); g_ar.released = 1; }
@@ -483,6 +547,10 @@ static void Exec(char* line) {
             if (flag != 0xFFFFFFFFu || !comp) { Log("CMD kill: guard refused (needs +ab84==-1 and comp)"); return; }
             ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1);
             Log("CMD kill #%d: 786C84 called", idx);
+        } else if (!strcmp(op, "bbm")) { BossModeBegin((uint32_t)a[0], n >= 3 ? (int)a[1] : g_cfg_notify);
+        } else if (!strcmp(op, "bbmend")) { BossModeEnd("cmd"); g_bm.active = 0;
+        } else if (!strcmp(op, "bossmode")) { g_cfg_bossmode = (int)a[0]; if (n >= 3) g_cfg_notify = (int)a[1]; Log("CMD bossmode %d notify %d", g_cfg_bossmode, g_cfg_notify);
+        } else if (!strcmp(op, "flag")) { SetFlag((uint32_t)a[0], n >= 3 ? (uint8_t)a[1] : 1);
         } else if (!strcmp(op, "gauge")) {
             ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))((uint32_t)a[0], 0, 0); Log("CMD gauge 0x%llX shown", a[0]);
         } else if (!strcmp(op, "ungauge")) {
@@ -567,6 +635,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { PhaseTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
+    __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     return o_pump(c, d, r8, r9);
@@ -608,6 +677,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
+        g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1, ini);
+        g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
         const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};
