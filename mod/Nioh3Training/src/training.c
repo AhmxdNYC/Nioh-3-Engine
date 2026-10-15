@@ -449,6 +449,66 @@ static void GaugeTick(void) {
     Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", g_fakeid, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
 }
 static struct { int active, round, nodeath, beaten, hasStart; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
+// bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
+// (1) the player's own recent trail (0.5 s samples, 20 s): a point the player stood on is on the floor and connected to the player; (2) a post-spawn progress check
+// (VerifyTick): a boss that has not closed in after 5 s is deleted and respawned at the next candidate. Candidate order: trail points 4-9 m away, then a fan around the camera
+// front (Distance, 5 m, 8 m; angles 0/+-45/+-90/+-135/180), last the player's own spot offset 1.5 m. Every candidate is logged.
+#define TRAILN 40
+#define MAXCAND 40
+static struct { float p[3]; DWORD t; } g_trail[TRAILN]; static int g_trN, g_trHead; static DWORD g_trLast; static float g_trPrev[3];
+static struct { float p[3]; char kind[12]; } g_cand[MAXCAND]; static int g_ncand, g_candIdx;
+static struct { int active, attempt; uint32_t h; DWORD t0, respawnAt; float d0; } g_vf;
+static int g_cfg_spawnverify = 1; static DWORD g_candFor;
+static void TrailTick(void) {
+    DWORD now = GetTickCount(); if (now - g_trLast < 500) return; g_trLast = now;
+    float pos[4]; if (!PlayerPos(pos)) return;
+    float jx = pos[0] - g_trPrev[0], jz = pos[2] - g_trPrev[2];
+    if (g_trN && jx * jx + jz * jz > 2500.0f * 2500.0f) g_trN = 0;  // warp / world change: the old trail is not connected
+    g_trPrev[0] = pos[0]; g_trPrev[1] = pos[1]; g_trPrev[2] = pos[2];
+    g_trail[g_trHead].p[0] = pos[0]; g_trail[g_trHead].p[1] = pos[1]; g_trail[g_trHead].p[2] = pos[2]; g_trail[g_trHead].t = now;
+    g_trHead = (g_trHead + 1) % TRAILN; if (g_trN < TRAILN) g_trN++;
+}
+static void AddCand(const char* kind, float x, float y, float z) { if (g_ncand >= MAXCAND) return; g_cand[g_ncand].p[0] = x; g_cand[g_ncand].p[1] = y; g_cand[g_ncand].p[2] = z; snprintf(g_cand[g_ncand].kind, sizeof g_cand[0].kind, "%s", kind); g_ncand++; }
+static void BuildCandidates(const float* pos, float camYaw, float dist) {
+    g_ncand = 0; g_candIdx = 0;
+    DWORD now = GetTickCount();
+    for (int pass = 0; pass < 3; ++pass) {  // trail points nearest to 6 m first (at most 3, at least 1.5 m apart)
+        int best = -1; float bd = 1e9f;
+        for (int i = 0; i < g_trN; ++i) {
+            float dx = g_trail[i].p[0] - pos[0], dz = g_trail[i].p[2] - pos[2], dy = g_trail[i].p[1] - pos[1], h = sqrtf(dx * dx + dz * dz);
+            if (h < 400.0f || h > 900.0f || fabsf(dy) > 250.0f || now - g_trail[i].t > 20000) continue;
+            int dup = 0; for (int k = 0; k < g_ncand; ++k) { float ex = g_cand[k].p[0] - g_trail[i].p[0], ez = g_cand[k].p[2] - g_trail[i].p[2]; if (ex * ex + ez * ez < 150.0f * 150.0f) dup = 1; }
+            if (dup) continue;
+            float sc = fabsf(h - 600.0f); if (sc < bd) { bd = sc; best = i; }
+        }
+        if (best >= 0) AddCand("trail", g_trail[best].p[0], g_trail[best].p[1], g_trail[best].p[2]);
+    }
+    static const float ang[8] = {0, 45, -45, 90, -90, 135, -135, 180};
+    float rings[3] = {dist, 500.0f, 800.0f};
+    for (int r = 0; r < 3; ++r) for (int a = 0; a < 8; ++a) {
+        float dx, dz; FwdVec(camYaw + ang[a], &dx, &dz); AddCand("fan", pos[0] + dx * rings[r], pos[1], pos[2] + dz * rings[r]);
+    }
+    float dx, dz; FwdVec(camYaw + 180.0f, &dx, &dz); AddCand("self", pos[0] + dx * 150.0f, pos[1], pos[2] + dz * 150.0f);
+    Log("SPAWNPOS %d candidates (trail %d samples, player %.0f %.0f %.0f camyaw %.1f)", g_ncand, g_trN, pos[0], pos[1], pos[2], camYaw);
+    for (int i = 0; i < g_ncand && i < 12; ++i) Log("SPAWNPOS cand %d %s %.0f %.0f %.0f", i, g_cand[i].kind, g_cand[i].p[0], g_cand[i].p[1], g_cand[i].p[2]);
+}
+static void TrainClear(const char* why);
+static void VerifyTick(void) {
+    DWORD now = GetTickCount();
+    if (g_vf.respawnAt && (int)(now - g_vf.respawnAt) >= 0) { g_vf.respawnAt = 0; g_sp.t0 = now; g_sp.active = 1; return; }
+    if (!g_vf.active || !g_cfg_spawnverify) return;
+    DWORD dt = now - g_vf.t0; if (dt < 5000) return;
+    uint64_t a = ActorByHandle(g_vf.h); float pos[4];
+    if (!a || !PlayerPos(pos)) { g_vf.active = 0; return; }
+    float bx = *(float*)(a + 0x110), bz = *(float*)(a + 0x118), dx = bx - pos[0], dz = bz - pos[2], d = sqrtf(dx * dx + dz * dz);
+    g_vf.active = 0;
+    if (d > 700.0f && d > g_vf.d0 * 0.8f && g_candIdx + 1 < g_ncand && g_vf.attempt < 3) {
+        Log("SPAWNPOS verify: boss 0x%X still %.0f from the player after %lu ms (start %.0f): stuck, respawn at the next candidate", g_vf.h, d, dt, g_vf.d0);
+        g_candIdx++; g_vf.attempt++; TrainClear("spawn stuck");
+        g_tr.hasStart = 0; g_vf.respawnAt = now + 500; return;
+    }
+    Log("SPAWNPOS verify: boss 0x%X %.0f from the player after %lu ms (start %.0f), attempt %d: %s", g_vf.h, d, dt, g_vf.d0, g_vf.attempt, d > 700.0f ? "not closing but out of candidates" : "ok");
+}
 static void SpawnTick(void) {
     if (!g_sp.active) return;
     uint64_t e = ResEntry(g_sp.id);
@@ -462,6 +522,14 @@ static void SpawnTick(void) {
     // spawn dist units in front of the player (camera yaw), facing the player
     float cy = CamYawDeg(), dx, dz; FwdVec(cy, &dx, &dz);
     __attribute__((aligned(16))) float p[4] = {pos[0] + dx * g_sp.dist, pos[1], pos[2] + dz * g_sp.dist, 1.0f};
+    if (g_sp.boss && g_cfg_spawnverify) {
+        if (!g_vf.attempt && g_candFor != g_sp.t0) { g_candFor = g_sp.t0; BuildCandidates(pos, cy, g_sp.dist); }
+        if (g_candIdx < g_ncand) { p[0] = g_cand[g_candIdx].p[0]; p[1] = g_cand[g_candIdx].p[1]; p[2] = g_cand[g_candIdx].p[2]; }
+        float ddx = p[0] - pos[0], ddz = p[2] - pos[2];
+        Log("SPAWNPOS chosen cand %d/%d (%s) %.0f %.0f %.0f, %.0f from the player; rejected so far: %d", g_candIdx, g_ncand, g_candIdx < g_ncand ? g_cand[g_candIdx].kind : "none", p[0], p[1], p[2], sqrtf(ddx * ddx + ddz * ddz), g_candIdx);
+        float fx = pos[0] - p[0], fz = pos[2] - p[2];  // face the player
+        cy = atan2f(-fx, -fz) * 57.2957795f;
+    }
     uint32_t owner = g_sp.owner ? g_sp.owner : PickOwner();
     if (owner <= 1 && g_sp.boss && g_cfg_ownwait > 0 && !g_sp.tOwn) g_sp.tOwn = GetTickCount();
     if (owner <= 1 && g_sp.boss && g_sp.tOwn && GetTickCount() - g_sp.tOwn < (DWORD)g_cfg_ownwait) return;  // summon: keep retrying the owner pick
@@ -476,7 +544,7 @@ static void SpawnTick(void) {
     g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount();
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
     if (r && g_autogauge) { FakeGaugeRequest(r, owner); Log("SPAWN %u: boss gauge requested for 0x%X", g_sp.id, r); }
-    if (r && g_sp.boss) SummonFinish(r, g_sp.bgm);
+    if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = 1; g_vf.h = r; g_vf.t0 = GetTickCount(); g_vf.d0 = sqrtf(ex * ex + ez * ez); }
     g_sp.active = 0;
 }
 
@@ -797,7 +865,7 @@ static int SummonStart(const char* tok, float d) {
     if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
     if (!chr) { Log("SUMMON: unknown boss '%s'", tok); return 0; }
     if (g_bm.active) BossModeEnd("new summon");
-    BgmStop("new summon");
+    BgmStop("new summon"); g_vf.attempt = 0; g_vf.active = 0; g_vf.respawnAt = 0;
     g_sp.id = chr; g_sp.dist = d; g_sp.owner = 0; g_sp.boss = 1; g_sp.bgm = bgm; g_sp.tOwn = 0; g_sp.t0 = GetTickCount();
     uint64_t e = ResEntry(chr);
     if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(chr, 2, 0); PoolAdd(chr); }
@@ -1300,6 +1368,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
         char buf[4096]; memcpy(buf, g_cmd, sizeof buf); InterlockedExchange(&g_have, 0);
         for (char* s = strtok(buf, "\r\n"); s; s = strtok(0, "\r\n")) if (*s && *s != '#') { Log("exec: %s", s); Exec(s); }
     }
+    __try { TrailTick(); VerifyTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { PhaseTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { PoolTick(g_sp.id); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("POOL: release faulted"); }
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
@@ -1353,7 +1422,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
-        g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
+        g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
