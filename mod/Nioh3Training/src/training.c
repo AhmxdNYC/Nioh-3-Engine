@@ -1343,6 +1343,7 @@ static int XwStart(ArenaRow* r, int claimed) {
     return 1;
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
+static int FightNowImpl(uint32_t mission);
 static void XwTick(void) {
     if (!g_xw.active) return;
     DWORD now = GetTickCount(); ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
@@ -1361,7 +1362,7 @@ static void XwTick(void) {
     XsBlkRestore("arena swap fired");
     if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
 }
-N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+static int FightNowImpl(uint32_t mission) {
     if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && g_xw.active && !g_xw.claimed) {  // a prewarm request is running: claim it when the boss is in that world
         ArenaRow* xr = FindRow(mission);
         if (xr && xr->world == g_xw.row->world) { g_xw.row = xr; g_xw.claimed = 1; g_xw.tClaim = GetTickCount(); Log("XWORLD %s: Fight now claimed the prewarm request (running %lu ms already)", xr->id, g_xw.tClaim - g_xw.t0); return 1; }
@@ -1408,6 +1409,89 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     int ok = StartArena(r->chr, r->p, b, r->p[3] + 180.0f);
     if (ok && g_cfg_fn_arena) TrainAttachArena(r, r->p, b, r->p[3] + 180.0f);
     return ok;
+}
+// ---- bridge 6519: arena switch transition. Own topmost click-through layered window (like Boss Rematch's menu, no graphics hook): fades to black around the swap and holds
+// until the new arena has settled (boss spawned, stage state 5, no placeable loads in flight, quiet for FadeStableMs) instead of showing the 20-35 s streaming pop-in.
+// Same-world Fight now: black first (FadeOutMs), then the in-place swap, then hold, then FadeInMs. Cross-world: black from the call, hold through the world switch + swap + settle.
+static int g_cfg_fade = 1, g_cfg_fade_out = 250, g_cfg_fade_in = 400, g_cfg_fade_min = 800, g_cfg_fade_stable = 500, g_cfg_fade_max = 60000;
+static volatile LONG g_fd_want, g_fd_alpha;   // want: overlay target (1 = black); alpha 0..255 as drawn
+static struct { int pend, phase, inside; uint32_t mission; DWORD tPend, tSwap, tStable, tWant; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
+static HWND g_fd_wnd, g_fd_game;
+static BOOL CALLBACK FdFind(HWND h, LPARAM lp) { (void)lp;
+    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fd_wnd) return TRUE;
+    RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
+    g_fd_game = h; return FALSE;
+}
+static LRESULT CALLBACK FdProc(HWND h, UINT m, WPARAM w, LPARAM l) { if (m == WM_NCHITTEST) return HTTRANSPARENT; return DefWindowProcW(h, m, w, l); }
+static DWORD WINAPI FadeThread(LPVOID x) {
+    WNDCLASSEXW wc = {sizeof wc}; wc.lpfnWndProc = FdProc; wc.hInstance = GetModuleHandleW(0); wc.lpszClassName = L"Nioh3TrainingFade"; wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    RegisterClassExW(&wc);
+    g_fd_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, 0, 0, wc.hInstance, 0);
+    if (!g_fd_wnd) { Log("FADE: overlay window failed (%lu), transitions off", GetLastError()); g_cfg_fade = 0; return 0; }
+    SetLayeredWindowAttributes(g_fd_wnd, 0, 0, LWA_ALPHA);
+    float a = 0; DWORD last = GetTickCount(); int shown = 0, lastA = -1;
+    for (;;) {
+        Sleep(10); DWORD now = GetTickCount(), dt = now - last; last = now;
+        float step = 255.0f * dt / (float)((g_fd_want ? g_cfg_fade_out : g_cfg_fade_in) > 0 ? (g_fd_want ? g_cfg_fade_out : g_cfg_fade_in) : 1);
+        if (g_fd_want) a = a + step > 255 ? 255 : a + step; else a = a - step < 0 ? 0 : a - step;
+        MSG msg; while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
+        int ia = (int)(a + 0.5f); g_fd_alpha = ia;
+        if (ia > 0) {
+            if (!g_fd_game || !IsWindow(g_fd_game)) { g_fd_game = 0; EnumWindows(FdFind, 0); }
+            if (g_fd_game && !IsIconic(g_fd_game)) {
+                RECT r; GetClientRect(g_fd_game, &r); POINT o = {0, 0}; ClientToScreen(g_fd_game, &o);
+                if (ia != lastA) SetLayeredWindowAttributes(g_fd_wnd, 0, (BYTE)ia, LWA_ALPHA);
+                SetWindowPos(g_fd_wnd, HWND_TOPMOST, o.x, o.y, r.right, r.bottom, SWP_NOACTIVATE | SWP_SHOWWINDOW); shown = 1; lastA = ia;
+            }
+        } else if (shown) { ShowWindow(g_fd_wnd, SW_HIDE); shown = 0; lastA = -1; }
+    }
+}
+static void FadeWant(int on, const char* why) {
+    if (!g_cfg_fade || !g_fd_wnd) return;
+    if (g_fd_want != on) { g_fd_want = on; g_fd.tWant = GetTickCount(); Log("FADE %s (%s), alpha %ld", on ? "to black" : "back in", why, (long)g_fd_alpha); }
+}
+static int FadeSettled(void) {
+    if (g_sp.active || g_vf.respawnAt || (g_ar.active && !g_ar.released) || StageState() != 5 || !PlayerChar()) return 0;
+    int b = 0, p = 0; if (AreaObjPending(&b, &p) && (b || p)) return 0;
+    return 1;
+}
+static int FadeInPlaceOk(uint32_t mission, ArenaRow* r) {  // same logic as FightNowImpl: will it swap here without a native load?
+    if (!r) return 0;
+    if (g_cfg_fn_summon) return 1;
+    return !(g_cfg_native && NativeListed(mission)) && !SwapGate(r);
+}
+static void FadeTick(void) {
+    if (!g_cfg_fade || !g_fd_wnd) return;
+    DWORD now = GetTickCount();
+    if (g_fd.pend) {  // same-world swap waits for black (or 400 ms over the ramp if the overlay cannot draw)
+        if (g_fd_alpha < 255 && now - g_fd.tPend < (DWORD)g_cfg_fade_out + 400) return;
+        uint32_t m = g_fd.mission; g_fd.pend = 0; g_fd.inside = 1;
+        Log("FADE black (alpha %ld, %lu ms): swapping mission 0x%X", (long)g_fd_alpha, now - g_fd.tPend, m);
+        int ok = FightNowImpl(m); g_fd.inside = 0;
+        if (!ok) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("FADE: swap refused, native request"); FadeWant(0, "swap refused"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))(m, 1, 0, p); return; }
+        g_fd.phase = 2; g_fd.tSwap = now; g_fd.tStable = 0; return;
+    }
+    if (g_fd.phase != 2) return;
+    if (now - g_fd.tSwap > (DWORD)g_cfg_fade_max) { Log("FADE: not settled after %lu ms, releasing", now - g_fd.tSwap); g_fd.phase = 0; FadeWant(0, "max hold"); return; }
+    if (g_xw.active) { g_fd.tStable = 0; if (!g_xw.claimed) { g_fd.phase = 0; FadeWant(0, "prewarm only"); } return; }  // cross-world still switching / waiting for the stage
+    if (!FadeSettled()) { g_fd.tStable = 0; return; }
+    if (!g_fd.tStable) g_fd.tStable = now;
+    if (now - g_fd.tStable < (DWORD)g_cfg_fade_stable || now - g_fd.tSwap < (DWORD)g_cfg_fade_min) return;
+    Log("FADE: arena settled %lu ms after the swap (stable %lu ms)", now - g_fd.tSwap, now - g_fd.tStable);
+    g_fd.phase = 0; FadeWant(0, "settled");
+}
+N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    if (!g_cfg_fade || !g_fd_wnd || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
+    ArenaRow* r = FindRow(mission);
+    if (g_fd.pend) return 1;  // a switch is already waiting for black
+    if (r && g_cfg_xworld && CurWorld() >= 0 && (CurWorld() != r->world || g_xw.active)) {  // cross-world (or claiming a prewarm)
+        int ok = FightNowImpl(mission);
+        if (ok && g_xw.active) { FadeWant(1, "cross-world switch"); g_fd.phase = 2; g_fd.tSwap = GetTickCount(); g_fd.tStable = 0; }
+        return ok;
+    }
+    if (!FadeInPlaceOk(mission, r)) return FightNowImpl(mission);
+    g_fd.pend = 1; g_fd.mission = mission; g_fd.tPend = GetTickCount(); g_fd.phase = 0; FadeWant(1, "same-world switch");
+    return 1;
 }
 static int XwPrewarm(uint32_t mission, const char* tag) {
     if (!g_cfg_enable || !g_cfg_xworld || !g_cfg_xprewarm || g_xw_busy || g_xw.active) return 0;
@@ -1611,6 +1695,7 @@ static void Exec(char* line) {
             const char* t = line + 2; while (*t == ' ') ++t; char* dup = _strdup(t); if (dup) { char* e = dup + strlen(dup); while (e > dup && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0; CloseHandle(CreateThread(0, 0, RmPipeThread, dup, 0, 0)); }
         } else if (!strcmp(op, "lstart")) { LoadScreen(1);
         } else if (!strcmp(op, "lend")) { LoadScreen(0);
+        } else if (!strcmp(op, "fade")) { FadeWant((int)a[0], "CMD fade");
         } else if (!strcmp(op, "xpre")) { Log("CMD xpre mission 0x%llX", a[0]); XwPrewarm((uint32_t)a[0], "CMD xpre");
         } else if (!strcmp(op, "preload")) { PreloadNearby("CMD preload");
         } else if (!strcmp(op, "swap")) { g_cfg_enable = (int)a[0]; Log("CMD swap %d", g_cfg_enable);
@@ -1698,6 +1783,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
+    __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
@@ -1770,6 +1856,10 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
         g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_gaugereset = GetPrivateProfileIntA("ArenaSwap", "GaugeStateReset", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
+        g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
+        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini);
+        Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max);
+        if (g_cfg_fade) CreateThread(0, 0, FadeThread, 0, 0, 0);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
         const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};
