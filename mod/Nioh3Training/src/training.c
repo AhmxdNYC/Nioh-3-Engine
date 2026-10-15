@@ -163,7 +163,9 @@ static void WatchTick(void) {  // after CreateDynamic: collect actors that were 
     }
     if (GetTickCount() - g_watch_t0 > 3000) { Log("SPAWN: no new actor with handle id %08X appeared within 3 s (previous actor of the same owner/slot still alive? despawn it first)", g_watch_id); g_watch = 0; }
 }
+static void FakeGaugeHide(const char* why);
 static int Despawn(int idx) {
+    FakeGaugeHide("despawn");
     if (idx < 0 || idx >= g_nsp) { Log("DESPAWN #%d: no such spawned actor (have %d)", idx, g_nsp); return 0; }
     uint64_t a = g_sp_actor[idx], cur[1024]; int n = Actors(cur, 1024), found = 0;
     for (int i = 0; i < n; ++i) if (cur[i] == a) found = 1;
@@ -231,6 +233,39 @@ static uint32_t PickOwner(void) {  // a registered placement with a live actor (
     }
     return any ? (uint32_t)any : 1;
 }
+// ---- boss HP bar for a CreateDynamic boss (bridge 4768). The gauge natives look the boss up by PLACEMENT id: AddBossGaugeRow 1CE7C6C -> FindWrapper 135B78 (sorted registry [c0+0x48], row = {id, wrapper*}) -> wrapper[0] = live actor.
+// A dynamic boss has no registry row (its handle 0x1000xxxx is not an id there), so the gauge finds nothing or the owner placement's own actor. We hook FindWrapper: a private id FAKE_GAUGE_ID returns a copy of the owner's wrapper whose live-actor field points at the spawned boss.
+#define FAKE_GAUGE_ID 0x7FFF0001u
+typedef uint64_t (*FwFn)(uint64_t, uint32_t);
+static FwFn o_fw; static uint64_t g_fwbuf[64]; static volatile uint64_t g_fakew;
+static uint64_t h_fw(uint64_t cm, uint32_t id) { if (id == FAKE_GAUGE_ID && g_fakew) return g_fakew; return o_fw(cm, id); }
+static uint64_t ActorByHandle(uint32_t h);
+static struct { int pending, shown; uint32_t handle, owner; DWORD t0, tHide; } g_gg;
+static void FakeGaugeDrop(void) { g_fwbuf[0] = 0; g_fakew = 0; g_gg.tHide = 0; }
+static void FakeGaugeHide(const char* why) {  // the native hide is a queued message that looks the id up again later: keep the fake wrapper valid for 3 s (GaugeTick drops it)
+    g_gg.pending = 0; if (!g_gg.shown) return;
+    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(FAKE_GAUGE_ID, 0, 0);
+    g_gg.shown = 0; g_gg.tHide = GetTickCount() | 1; Log("GAUGE HideBossGauge(fake id) (%s)", why);
+}
+static void FakeGaugeRequest(uint32_t handle, uint32_t owner) {  // the actor enters the table a few ms after CreateDynamic: GaugeTick finishes the job
+    if (!o_fw) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(handle, 0, 0); Log("GAUGE FindWrapper hook missing: legacy ShowBossGauge(0x%X)", handle); return; }
+    FakeGaugeHide("new request"); FakeGaugeDrop(); g_gg.pending = 1; g_gg.handle = handle; g_gg.owner = owner; g_gg.t0 = GetTickCount();
+}
+static void GaugeTick(void) {
+    if (g_gg.tHide && GetTickCount() - g_gg.tHide > 3000) FakeGaugeDrop();
+    if (!g_gg.pending) return;
+    uint64_t a = ActorByHandle(g_gg.handle);
+    if (!a) { if (GetTickCount() - g_gg.t0 > 4000) { Log("GAUGE actor 0x%X never appeared, no bar", g_gg.handle); g_gg.pending = 0; } return; }
+    uint64_t cm = 0, tmpl = 0; Rd64(B + 0x45B9E40, &cm);
+    if (g_gg.owner > 1 && cm) tmpl = o_fw(cm, g_gg.owner);
+    memset(g_fwbuf, 0, sizeof g_fwbuf);
+    if (tmpl) { __try { memcpy(g_fwbuf, (void*)tmpl, sizeof g_fwbuf); } __except (EXCEPTION_EXECUTE_HANDLER) { memset(g_fwbuf, 0, sizeof g_fwbuf); } }
+    g_fwbuf[0] = a; *(uint32_t*)((uint8_t*)g_fwbuf + 0xD4) = 0;  // name text id from the actor's charParam
+    g_fakew = (uint64_t)g_fwbuf;
+    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(FAKE_GAUGE_ID, 0, 0);
+    g_gg.pending = 0; g_gg.shown = 1;
+    Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", FAKE_GAUGE_ID, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
+}
 static void SpawnTick(void) {
     if (!g_sp.active) return;
     uint64_t e = ResEntry(g_sp.id);
@@ -253,7 +288,7 @@ static void SpawnTick(void) {
     uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_sp.id, p, face, 0, owner, 0);
     g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount();
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
-    if (r && g_autogauge) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0); Log("SPAWN %u: ShowBossGauge(0x%X) called", g_sp.id, r); }
+    if (r && g_autogauge) { FakeGaugeRequest(r, owner); Log("SPAWN %u: boss gauge requested for 0x%X", g_sp.id, r); }
     if (r && g_sp.boss) SummonFinish(r, g_sp.bgm);
     g_sp.active = 0;
 }
@@ -368,14 +403,14 @@ static void BossTick(void) {
             Log("BBM +%lu ms boss %u actor gone, not dead (player died or area reset): leaving boss mode without the victory sting", now - g_bm.t0, g_bm.id);
             BgmStop("boss gone");
             BossModeEnd("boss gone");
-            ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(g_bm.id, 0, 0);
+            FakeGaugeHide("boss mode end");
             g_bm.active = 0;
             return;
         }
         Log("BBM +%lu ms boss %u dead (sensor %d, was %d)", now - g_bm.t0, g_bm.id, v, g_bm.v0);
         BgmEnd();
         BossModeEnd("boss dead");
-        ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(g_bm.id, 0, 0);
+        FakeGaugeHide("boss mode end");
         g_bm.active = 0;
     }
 }
@@ -442,7 +477,7 @@ static void ArenaTick(void) {
                 uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_ar.chr, b, g_ar.byaw, 0, owner, 0);
                 g_watch = r != 0; g_watch_id = r; g_watch_t0 = now; g_ar.spawned = 1; g_ar.tSpawn = now;
                 Log("ARENA +%lu ms CreateDynamic(%u owner %u) at %.0f %.0f %.0f yaw %.1f -> 0x%X", dt, g_ar.chr, owner, b[0], b[1], b[2], g_ar.byaw, r);
-                if (r && g_autogauge) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0);
+                if (r && g_autogauge) FakeGaugeRequest(r, owner);
                 if (r && g_cfg_bossmode) BossModeBegin(r, g_cfg_notify);
                 if (r && g_cfg_bgm && g_ar_bgm) BgmStart(g_ar_bgm);
             }
@@ -745,6 +780,13 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "posttrace")) { g_post_trace = (LONG)a[0]; Log("CMD posttrace %ld", (long)g_post_trace);
         } else if (!strcmp(op, "door")) { DoorCtl((uint32_t)a[0], n >= 3 ? (uint32_t)a[1] : 3);
         } else if (!strcmp(op, "flag")) { SetFlag((uint32_t)a[0], n >= 3 ? (uint8_t)a[1] : 1);
+        } else if (!strcmp(op, "rdump")) {  // rdump rva len: raw code/data bytes to <game>\\code_<rva>.bin (offline disassembly, the exe on disk is encrypted)
+            char fp[MAX_PATH]; snprintf(fp, sizeof fp, "%s\\code_%llX.bin", g_dir, a[0]);
+            HANDLE h = CreateFileA(fp, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0); DWORD w = 0;
+            if (h != INVALID_HANDLE_VALUE) { __try { WriteFile(h, (void*)(B + a[0]), (DWORD)a[1], &w, 0); } __except (EXCEPTION_EXECUTE_HANDLER) { } CloseHandle(h); }
+            Log("CMD rdump rva %llX len %llu -> %lu bytes written", a[0], a[1], w);
+        } else if (!strcmp(op, "fgauge")) { FakeGaugeRequest((uint32_t)a[0], n >= 3 ? (uint32_t)a[1] : 0);
+        } else if (!strcmp(op, "unfgauge")) { FakeGaugeHide("cmd");
         } else if (!strcmp(op, "gauge")) {
             ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))((uint32_t)a[0], 0, 0); Log("CMD gauge 0x%llX shown", a[0]);
         } else if (!strcmp(op, "ungauge")) {
@@ -849,6 +891,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
+    __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
@@ -879,6 +922,8 @@ static DWORD WINAPI Worker(LPVOID x) {
     // sanity: verify prologues before hooking
     const uint8_t dynp[] = {0x48, 0x8B, 0xC4, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57};
     const uint8_t lchp[] = {0x89, 0x54, 0x24, 0x10, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x8B, 0xC2, 0x45, 0x33, 0xC0};
+    { static const uint8_t fwp[12] = {0x48, 0x8B, 0x09, 0x45, 0x33, 0xC0, 0x44, 0x8B, 0xDA, 0x48, 0x85, 0xC9};
+      if (!memcmp((void*)(B + 0x135B78), fwp, 12)) { o_fw = (FwFn)Hook(0x135B78, 12, h_fw); Log("hook FindWrapper ok (boss gauge for dynamic bosses)"); } else Log("hook FindWrapper: prologue mismatch, boss gauge falls back to the legacy call"); }
     if (!memcmp((void*)(B + 0x1C0C5E0), dynp, 13)) { o_dyn = (DynFn)Hook(0x1C0C5E0, 13, h_dyn); Log("hook CreateDynamic ok"); }
     else Log("hook CreateDynamic: prologue mismatch");
     if (!memcmp((void*)(B + 0xA42A7C), lchp, 14)) { o_lchr = (LoadChrFn)Hook(0xA42A7C, 14, h_lchr); Log("hook Load::Character ok"); }
