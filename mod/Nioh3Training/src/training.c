@@ -382,12 +382,14 @@ static uint32_t CreateBoss(uint32_t chr, const float* p, float yaw, uint32_t own
 #define FAKE_GAUGE_ID 0x7FFF0001u
 typedef uint64_t (*FwFn)(uint64_t, uint32_t);
 static FwFn o_fw; static uint64_t g_fwbuf[64]; static volatile uint64_t g_fakew;
-static uint64_t h_fw(uint64_t cm, uint32_t id) { if (id == FAKE_GAUGE_ID && g_fakew) return g_fakew; return o_fw(cm, id); }
+// bridge 5437: every show uses a fresh fake id (FAKE_GAUGE_ID + n) so no HUD state left by an earlier bar can match it; hide uses the id that was shown
+static volatile uint32_t g_fakeid = FAKE_GAUGE_ID, g_fakeid_shown = FAKE_GAUGE_ID;
+static uint64_t h_fw(uint64_t cm, uint32_t id) { if ((id == g_fakeid || id == g_fakeid_shown) && (id & 0xFFFF0000u) == 0x7FFF0000u && g_fakew) return g_fakew; return o_fw(cm, id); }
 static uint64_t ActorByHandle(uint32_t h);
 static struct { int pending, shown; uint32_t handle, owner; DWORD t0, tHide; } g_gg;
 // bridge 4801: the native HideBossGauge (queued event) leaves the empty frame on screen. Do what BossGaugeSetup does for unused rows by hand: clear the row vector (hud+0x3C0, 1CEE8C8),
 // hide the 3 row elements (type 0xF5) and the 42 detail elements (type 0xF6) with 5D1D8C(elem,0), then hide the HUD (1CEC2E0).
-static int g_hudHidden, g_noForceHide;
+static int g_hudHidden, g_noForceHide; static int g_cfg_freshid = 1; static uint32_t g_gaugeN;
 static void GaugeForceHide(const char* why) {
     uint64_t root = 0, hud = 0; Rd64(B + 0x45C84A8, &root); if (!root || !Rd64(root + 0xA8, &hud) || !hud) { Log("GAUGE force hide (%s): no HUD", why); return; }
     __try {
@@ -409,7 +411,7 @@ static DWORD g_forceHideAt;
 static void FakeGaugeDrop(void) { g_fwbuf[0] = 0; g_fakew = 0; g_gg.tHide = 0; }
 static void FakeGaugeHide(const char* why) {  // the native hide is a queued message that looks the id up again later: keep the fake wrapper valid for 3 s (GaugeTick drops it)
     g_gg.pending = 0; if (!g_gg.shown) return;
-    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(FAKE_GAUGE_ID, 0, 0);
+    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(g_fakeid_shown, 0, 0);
     g_gg.shown = 0; g_gg.tHide = GetTickCount() | 1; Log("GAUGE HideBossGauge(fake id) (%s)", why);
     GaugeForceHide(why); g_forceHideAt = GetTickCount() + 700; if (!g_forceHideAt) g_forceHideAt = 1;  // again after the queued native hide ran
 }
@@ -435,10 +437,18 @@ static void GaugeTick(void) {
         g_hudHidden = 0;
     }
     g_forceHideAt = 0;  // bridge 4942: a retry hides the old bar and shows the new one 300 ms later: the delayed force-hide of the old bar must not hit the new one
-    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(FAKE_GAUGE_ID, 0, 0);
+    if (g_cfg_freshid) g_fakeid = FAKE_GAUGE_ID + (++g_gaugeN & 0xFFF);
+    g_fakeid_shown = g_fakeid;
+    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(g_fakeid, 0, 0);
     g_gg.pending = 0; g_gg.shown = 1;
-    Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", FAKE_GAUGE_ID, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
+    {   // bridge 5437 diag: ShowBossGauge (1D05824) is synchronous; it needs hud vfunc +0x50 true, a FindWrapper hit and 4892A8(actor) false. rows = bars added.
+        uint64_t root = 0, hud = 0, r0 = 0, r1 = 0; int v50 = -1, blk = -1; Rd64(B + 0x45C84A8, &root); if (root) Rd64(root + 0xA8, &hud);
+        __try { if (hud) { v50 = ((uint8_t (*)(uint64_t))(*(uint64_t*)(*(uint64_t*)hud + 0x50)))(hud); r0 = *(uint64_t*)(hud + 0x3C0); r1 = *(uint64_t*)(hud + 0x3C8); } blk = ((uint8_t (*)(uint64_t))(B + 0x4892A8))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        Log("GAUGE diag #%u: hud %p vf50=%d rows=%lld actorBlocked(4892A8)=%d", g_gaugeN, (void*)hud, v50, r0 ? (long long)((r1 - r0) / 0x60) : -1LL, blk);
+    }
+    Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", g_fakeid, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
 }
+static struct { int active, round, nodeath, beaten, hasStart; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 static void SpawnTick(void) {
     if (!g_sp.active) return;
     uint64_t e = ResEntry(g_sp.id);
@@ -457,6 +467,10 @@ static void SpawnTick(void) {
     if (owner <= 1 && g_sp.boss && g_sp.tOwn && GetTickCount() - g_sp.tOwn < (DWORD)g_cfg_ownwait) return;  // summon: keep retrying the owner pick
     if (owner <= 1) { Log("SPAWN WARNING no live registered actor to own the boss: owner = player"); DumpOwnerState("spawn-no-owner"); g_dump_pending = 1; g_dump_owner = owner; }
     float face = cy + 180.0f;
+    if (g_tr.active && g_sp.boss) {  // bridge 5310: after "player beaten" the live player pose is a ragdoll/knock-up (Y 19756, 16260): every later round reuses the round-1 pose, no live height
+        if (!g_tr.hasStart) { memcpy(g_tr.pp, pos, 4 * sizeof(float)); g_tr.bp[0] = p[0]; g_tr.bp[1] = p[1]; g_tr.bp[2] = p[2]; g_tr.face = face; g_tr.hasStart = 1; }
+        else { p[0] = g_tr.bp[0]; p[1] = g_tr.bp[1]; p[2] = g_tr.bp[2]; face = g_tr.face; Log("SPAWN round %d: round-1 pose %.0f %.0f %.0f (player live %.0f %.0f %.0f)", g_tr.round, p[0], p[1], p[2], pos[0], pos[1], pos[2]); }
+    }
     g_nsnap = Actors(g_snap, 1024);
     uint32_t r = CreateBoss(g_sp.id, p, face, owner, "SPAWN");
     g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount();
@@ -564,6 +578,11 @@ static void BossModeEnd(const char* why) {
     ((void (*)(uint64_t))(B + 0x1C0E83C))(cm); ((void (*)(uint64_t))(B + 0x9DECF8))(cm);
     Log("BBM END (%s): BossBattleModeEnd steps done", why);
 }
+static DWORD g_dead_at; static uint32_t g_dead_id;
+static int ActorHp(uint64_t a, uint64_t* cur, uint64_t* max) {  // Character::GetHpRate parts: [[actor+0x3A0]+0x58] / [+0x50]
+    uint64_t h = 0; *cur = *max = 0; if (!a) return 0;
+    __try { if (!Rd64(a + 0x3A0, &h) || !h) return 0; return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
 static void BossTick(void) {
     if (!g_bm.active) return;
     DWORD now = GetTickCount(); if (now - g_bm.last < 250) return; g_bm.last = now;
@@ -580,6 +599,9 @@ static void BossTick(void) {
             g_bm.active = 0;
             return;
         }
+        uint64_t hc = 0, hm = 0;  // bridge 5350: a sensor drift right after a fast respawn (round 2) must not end boss mode while the boss still has HP
+        if (ActorHp(ActorByHandle(g_bm.id), &hc, &hm) && hm && hc > 0) { Log("BBM +%lu ms boss %u sensor %d -> %d but HP %llu / %llu: not dead, new baseline", now - g_bm.t0, g_bm.id, g_bm.v0, v, hc, hm); g_bm.v0 = v; g_bm.since = 0; return; }
+        g_dead_at = now; g_dead_id = g_bm.id;  // bridge 5360: the only proof of a kill for the training round
         Log("BBM +%lu ms boss %u dead (sensor %d, was %d)", now - g_bm.t0, g_bm.id, v, g_bm.v0);
         BgmEnd();
         BossModeEnd("boss dead");
@@ -721,8 +743,7 @@ static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm
 // boss's character resources are loaded, no mission/stage load), keeps the player alive (native Character::SetNoDeath replica on the player's wrapper), and resets the round
 // without a load: player beaten (HP at the floor) or 'retry' -> despawn the boss, Player::RecoverFull replica, summon the same boss again (resources stay loaded = instant).
 // Boss killed -> victory end state; RespawnOnWinMs > 0 respawns it after that many ms. 'trainstop' ends the session (NoDeath off, boss removed).
-static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1;
-static struct { int active, round, nodeath, beaten; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport; } g_tr;
+static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1, g_cfg_fn_arena = 1;
 static uint64_t PlayerWrapper(void) {  // registry row whose live actor is the player
     uint64_t cm = CharMgr(), c0 = 0, me = PlayerChar(); if (!cm || !Rd64(cm, &c0) || !c0 || !me) return 0;
     uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
@@ -802,12 +823,23 @@ static int TrainStart(const char* tok, float d) {
 static void TrainRetry(const char* why) {
     if (!g_tr.active) { Log("TRAIN retry (%s): no session", why); return; }
     TrainClear(why); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
+    if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
+    g_dead_at = 0; g_dead_id = 0;
     g_tr.round++; g_tr.beaten = 0; g_tr.tWin = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + 300;
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
 }
 static void TrainStop(const char* why) {
     TrainClear(why); if (g_tr.nodeath) PlayerSetNoDeath(0);
     g_tr.active = 0; Log("TRAIN stop (%s)", why);
+}
+// bridge 5338: Fight now in the boss's own arena (in-place ARENA swap, no load) becomes a retry-able session: round 1 pose = arena player start / boss spawn, so 'player beaten' and 'retry'
+// warp back into the arena and respawn the boss there (no open-world summon). NoDeath + round reset as for 'train'.
+static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp, float face) {
+    if (g_tr.active && g_tr.nodeath) PlayerSetNoDeath(0);
+    memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr;
+    memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
+    if (g_cfg_tr_nodeath) PlayerSetNoDeath(1);
+    g_tr.active = 1; Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
 }
 static void TrainTick(void) {
     if (!g_tr.active) return;
@@ -819,8 +851,8 @@ static void TrainTick(void) {
         g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), resetting the round in 2 s", g_tr.round, c, m);
     }
     if (g_tr.beaten && now - g_tr.tBeat >= 2000) TrainRetry("player beaten");
-    if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000) {
-        g_tr.tWin = now; Log("TRAIN round %d: boss defeated%s", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)");
+    if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
+        g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
     if (g_tr.tWin && g_cfg_tr_win > 0 && now - g_tr.tWin >= (DWORD)g_cfg_tr_win) TrainRetry("respawn on win");
 }
@@ -930,11 +962,64 @@ static void EnterTick(void) {
     int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1); g_en.warped = 1; g_en.tWarp = now;
     Log("ENTER %s (%s): warped into the arena %.0f %.0f %.0f yaw %.1f -> %d (+%lu ms after the request); waiting for the mission script to spawn the boss", r->id, r->name, r->p[0], r->p[1], r->p[2], r->p[3], w, now - g_en.t0);
 }
+// bridge 5276 (pc2 5116/5275): boss in ANOTHER world, no mission load. Only a world switch brings the other world's arena: World::WarpOtherWorld request (22399B8, mission 0, target world, start point)
+// switches in ~1 s and the stage is ready (state 5) ~5-11 s later; then the normal in-place arena swap (warp + live spawn) runs. ~10 s to a fightable boss vs ~29 s native. Any failure -> native MissionRequestById.
+static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy;
+static struct { int active; ArenaRow* row; DWORD t0, tReady; } g_xw;
+static void XwNative(const char* why) {
+    ArenaRow* r = g_xw.row; g_xw.active = 0; if (!r) return;
+    __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};
+    Log("XWORLD %s: %s, native mission request 0x%X start %u", r->id, why, r->mission, r->start);
+    ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))(r->mission, 1, r->start, p);
+}
+static int XwStart(ArenaRow* r) {
+    const uint8_t* st = GameState();
+    if (!st || st[2] || !PlayerChar() || StageState() != 5) return 0;
+    uint64_t mm = 0, ms = 0; if (!Rd64(B + 0x47514D0, &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) return 0;
+    __attribute__((aligned(16))) uint8_t prm[32] = {0};
+    ((void (*)(void*))(B + 0x1BF7D68))(prm);
+    prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;  // WarpOtherWorld, mission 0 = stay in the running mission
+    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);
+    uint8_t journey = *(uint8_t*)(ms + 0x10); uint32_t mode = *(uint32_t*)(ms + 0x24);
+    memset(&g_xw, 0, sizeof g_xw); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1;
+    Log("XWORLD %s (%s): world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, CurWorld(), r->world, r->start, journey, mode);
+    ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(r->world, journey, r->start, mode, prm);
+    if (g_cfg_xpre) {  // pc2 5294: the boss model load (~8 s) otherwise starts only after the stage is ready; start it with the world request
+        uint64_t e = ResEntry(r->chr);
+        if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(r->chr, 2, 0); PoolAdd(r->chr); Log("XWORLD %s: boss resources (char %u) requested with the world request", r->id, r->chr); }
+    }
+    return 1;
+}
+N3T_API int Nioh3Training_FightNow(uint32_t mission);
+static void XwTick(void) {
+    if (!g_xw.active) return;
+    DWORD now = GetTickCount(); ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
+    static DWORD lastLog; if (now - lastLog >= 2000) { lastLog = now; StageLog("XWORLD wait"); }  // pc 5328: stage state 4->5 vs cell loading split
+    if (now - g_xw.t0 > 40000) { XwNative("stage not ready 40 s after the world request"); return; }
+    if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || st[2]) { g_xw.tReady = 0; return; }
+    if (!g_xw.tReady) { g_xw.tReady = now; Log("XWORLD %s: landed in world 0x%02X, stage ready +%lu ms after the request", r->id, r->world, now - g_xw.t0); }
+    if (now - g_xw.tReady < 700) return;
+    g_xw.active = 0;
+    int sf = g_cfg_fn_summon, sn = g_cfg_native; g_cfg_fn_summon = 0; g_cfg_native = 0; g_xw_busy = 1;
+    int ok = Nioh3Training_FightNow(r->mission);
+    g_xw_busy = 0; g_cfg_fn_summon = sf; g_cfg_native = sn;
+    Log("XWORLD %s: arena swap in the new world -> %d (+%lu ms after the request)", r->id, ok, now - g_xw.t0);
+    if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
+}
 N3T_API int Nioh3Training_FightNow(uint32_t mission) {
-    if (g_cfg_fn_summon) { Log("FIGHTNOW mission 0x%X: no-load summon here (FightNowSummon=1, bridge 4942)", mission); return Nioh3Training_Summon(mission); }
+    if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && !g_xw.active) {
+        ArenaRow* xr = FindRow(mission);
+        if (xr && CurWorld() != xr->world && CurWorld() >= 0) {
+            if (XwStart(xr)) return 1;
+            Log("XWORLD %s: request refused (load running / stage not ready), native load", xr->id);
+            return 0;
+        }
+    }
     ArenaRow* r = g_cfg_enable ? FindRow(mission) : 0;
+    int arenaFirst = g_cfg_fn_summon && g_cfg_fn_arena && r && !SwapGate(r);  // bridge 5338: the boss's own arena when we stand in its world
+    if (g_cfg_fn_summon && !arenaFirst) { Log("FIGHTNOW mission 0x%X: no-load summon here (FightNowSummon=1, bridge 4942)", mission); return Nioh3Training_Summon(mission); }
     if (!r) return 0;
-    if (g_cfg_native && NativeListed(mission)) {
+    if (!arenaFirst && g_cfg_native && NativeListed(mission)) {
         memset(&g_en, 0, sizeof g_en); g_en.row = r; g_en.t0 = GetTickCount(); g_en.active = 1;
         Log("FIGHTNOW %s (%s) mission 0x%X: native load + auto-enter (NativeEnter=1, listed)", r->id, r->name, mission);
         return 0;
@@ -951,14 +1036,18 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
         pp[3] = atan2f(dx, dz) * 57.2957795f;
         Log("FIGHTNOW %s: boss anchored at its own position %.0f %.0f %.0f, player placed %d units away at %.0f %.0f %.0f yaw %.1f", r->id, b[0], b[1], b[2], g_cfg_bossdist, pp[0], pp[1], pp[2], pp[3]);
         g_ar_bgm = r->bgm;
-        return StartArena(r->chr, pp, b, pp[3] + 180.0f);
+        int ok = StartArena(r->chr, pp, b, pp[3] + 180.0f);
+        if (ok && g_cfg_fn_arena) TrainAttachArena(r, pp, b, pp[3] + 180.0f);
+        return ok;
     }
     if (g_cfg_bossdist > 0 && d > g_cfg_bossdist) {  // an idle boss only notices the player within ~10 m: pull it in along the same line
         float k = g_cfg_bossdist / d;
         b[0] = r->p[0] + dx * k; b[1] = r->p[1] + (b[1] - r->p[1]) * k; b[2] = r->p[2] + dz * k;
     }
     g_ar_bgm = r->bgm;
-    return StartArena(r->chr, r->p, b, r->p[3] + 180.0f);
+    int ok = StartArena(r->chr, r->p, b, r->p[3] + 180.0f);
+    if (ok && g_cfg_fn_arena) TrainAttachArena(r, r->p, b, r->p[3] + 180.0f);
+    return ok;
 }
 N3T_API void Nioh3Training_Preload(void) { if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
 N3T_API int Nioh3Training_Version(void) { return 4942; }
@@ -1216,6 +1305,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
     __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
+    __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
@@ -1263,7 +1353,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
-        g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
+        g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 1, ini);
@@ -1271,10 +1361,11 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
-        g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1, ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
+        g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
+        g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
-        g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag);  g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
+        g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
