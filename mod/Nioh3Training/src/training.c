@@ -779,7 +779,7 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) 
 }
 
 // ---- arena table (Nioh3Training_arenas.tsv, tools/gen_arena_table.py): mission, start, world, char, placement, player x y z yaw, boss x y z, kind, id, name
-typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; } ArenaRow;
+typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; uint32_t cells[32]; int ncells; } ArenaRow;  // cells: optional 16th tsv column (comma list) = CrossWorldCellSkip whitelist
 static ArenaRow g_rows[160]; static int g_nrows;
 static void LoadTable(void) {
     char path[MAX_PATH]; snprintf(path, sizeof path, "%s\\Nioh3Training_arenas.tsv", g_dir);
@@ -788,15 +788,17 @@ static void LoadTable(void) {
     while (fgets(line, sizeof line, f) && g_nrows < 160) {
         if (line[0] == '#' || line[0] == '\n') continue;
         char* col[16]; int n = 0; char* c = line;
-        while (n < 15) { col[n++] = c; char* t = strchr(c, '\t'); if (!t) break; *t = 0; c = t + 1; }
+        while (n < 16) { col[n++] = c; char* t = strchr(c, '\t'); if (!t) break; *t = 0; c = t + 1; }
         if (n < 15) continue;
-        char* nl = strpbrk(col[14], "\r\n"); if (nl) *nl = 0;
+        char* nl = strpbrk(col[n - 1], "\r\n"); if (nl) *nl = 0;
         ArenaRow* r = &g_rows[g_nrows];
         r->mission = (uint32_t)strtoul(col[0], 0, 0); r->start = (uint32_t)strtoul(col[1], 0, 0); r->world = (uint8_t)strtoul(col[2], 0, 0);
         r->chr = (uint32_t)strtoul(col[3], 0, 0); r->placement = (uint32_t)strtoul(col[4], 0, 0);
         for (int i = 0; i < 4; ++i) r->p[i] = (float)atof(col[5 + i]);
         for (int i = 0; i < 3; ++i) r->b[i] = (float)atof(col[9 + i]);
         snprintf(r->kind, sizeof r->kind, "%s", col[12]); snprintf(r->id, sizeof r->id, "%s", col[13]); snprintf(r->name, sizeof r->name, "%s", col[14]);
+        r->ncells = 0;  // optional col 16: comma list of arena cell ids (CrossWorldCellSkip whitelist)
+        if (n > 15) for (const char* q = col[15]; *q && r->ncells < 32; ) { char* e; unsigned long v = strtoul(q, &e, 0); if (e == q) { ++q; continue; } r->cells[r->ncells++] = (uint32_t)v; q = e; }
         if (r->mission && r->chr) ++g_nrows;
     }
     fclose(f);
@@ -1174,10 +1176,58 @@ static void XsTick(void) {
 // bridge 5276 (pc2 5116/5275): boss in ANOTHER world, no mission load. Only a world switch brings the other world's arena: World::WarpOtherWorld request (22399B8, mission 0, target world, start point)
 // switches in ~1 s and the stage is ready (state 5) ~5-11 s later; then the normal in-place arena swap (warp + live spawn) runs. ~10 s to a fightable boss vs ~29 s native. Any failure -> native MissionRequestById.
 static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
-static struct { int active, preDeferred; ArenaRow* row; DWORD t0, tReady; } g_xw;
+// bridge 6375: CrossWorldSettleMs = wait after 'stage ready' before the swap (was fixed 700). CrossWorldPrewarm = 1: Nioh3Training_Preload()/PreloadFor(mission) (menu opened) starts the world request for the
+// likely target (ini CrossWorldPrewarmMission, else the last cross-world boss) before the player picks; Fight now for a boss of that world then just claims the running request (or is a plain same-world swap once landed).
+static int g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
+static struct { int active, claimed, preDeferred; ArenaRow* row; DWORD t0, tReady, tClaim; } g_xw;
 static void XwPreload(ArenaRow* r, const char* when) {
     uint64_t e = ResEntry(r->chr);
     if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(r->chr, 2, 0); PoolAdd(r->chr); Log("XWORLD %s: boss resources (char %u) requested %s", r->id, r->chr, when); }
+}
+// task 5116b: [ArenaSwap] CrossWorldCellSkip. 0 = off (no hook installed, exact old behaviour); 1 = log-only probe of every stage-cell request during a cross-world
+// Fight now; 2 = also skip requests whose cell id is not in the arena whitelist. Hook = 3A0534(sub=[45B9E58]+0x500, cellId, deferByte, void* p16, flagByte) -> al:
+// the only entry to the cell streamers 1FB460C/1FB4738 (sub+0x40; 1 caller each = 3A0534) and to the pending list sub+0x390 (state byte sub+0x389 != 5).
+// Static facts (rdump 3A0534/223B8F0, pc2): the WarpOtherWorld scheduler 223B8F0 asks for ONE centre cell (3A1700) via 1FC4208/1FCEE1C/1FCECE4 (1FCEE1C ->
+// 1FCE6F4(sub,...), not dumped); whether the ring cells go through 3A0534 is NOT known statically -> the probe logs the caller RVA of every request.
+// Skipped requests return 1 (= the 'already queued' path of 3A0534). The window (g_xw_skip) is open only between XwStart and the swap / abort / 40 s timeout.
+typedef uint8_t (*CellReqFn)(uint64_t, uint32_t, uint8_t, void*, uint8_t);
+static CellReqFn o_cellreq; static int g_cfg_cellskip;
+static volatile LONG g_xw_skip, g_cs_allow, g_cs_skip, g_cs_other;
+static uint32_t g_cs_wl[32]; static int g_cs_nwl; static uint8_t g_cs_world;
+static volatile LONG64 g_cs_ret[8]; static volatile LONG g_cs_retn[8];
+static const uint32_t kCellsB1[] = {67253, 221265, 285287, 301780, 320919, 329181, 364049, 500328, 525291, 584691, 625536, 780040, 820705, 833442, 889691, 974198, 983784};  // 0xB1 Yoritomo (pc2 5116, all runs)
+static uint8_t h_cellreq(uint64_t sub, uint32_t id, uint8_t defer, void* p, uint8_t flag) {
+    uintptr_t ret = (uintptr_t)__builtin_return_address(0) - B;
+    if (g_xw_skip) {
+        uint8_t w = 0xFF; __try { w = *(volatile uint8_t*)sub; } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        int inwl = 0; for (int i = 0; i < g_cs_nwl; ++i) if (g_cs_wl[i] == id) { inwl = 1; break; }
+        int k; for (k = 0; k < 8; ++k) { LONG64 v = g_cs_ret[k]; if (!v) v = InterlockedCompareExchange64(&g_cs_ret[k], (LONG64)ret, 0); if (!v || v == (LONG64)ret) break; }
+        if (k < 8) InterlockedIncrement(&g_cs_retn[k]);
+        int skip = g_cfg_cellskip >= 2 && g_cs_nwl && w == g_cs_world && !inwl;
+        LONG n = skip ? InterlockedIncrement(&g_cs_skip) : w == g_cs_world ? InterlockedIncrement(&g_cs_allow) : InterlockedIncrement(&g_cs_other);
+        if (n <= 64) Log("CELLREQ %s cell %u world 0x%02X (target 0x%02X) defer %u flag %u state %u wl %d caller %llX tid %lu", skip ? "SKIP" : "allow", id, w, g_cs_world, defer, flag,
+                         (unsigned)*(volatile uint8_t*)(sub + 0x389), inwl, (unsigned long long)ret, GetCurrentThreadId());
+        if (skip) return 1;
+    }
+    return o_cellreq(sub, id, defer, p, flag);
+}
+static void CellSkipOpen(const ArenaRow* r) {
+    if (!o_cellreq) return;
+    g_cs_nwl = 0;
+    for (int i = 0; i < r->ncells && g_cs_nwl < 32; ++i) g_cs_wl[g_cs_nwl++] = r->cells[i];
+    if (!g_cs_nwl && r->world == 0xB1) for (unsigned i = 0; i < sizeof kCellsB1 / sizeof *kCellsB1; ++i) g_cs_wl[g_cs_nwl++] = kCellsB1[i];
+    g_cs_world = r->world; g_cs_allow = g_cs_skip = g_cs_other = 0;
+    for (int k = 0; k < 8; ++k) { g_cs_ret[k] = 0; g_cs_retn[k] = 0; }
+    Log("CELLSKIP %s: window open, mode %d (%s), world 0x%02X whitelist %d cells%s", r->id, g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip" : "log only", r->world, g_cs_nwl, g_cs_nwl ? "" : " (unknown world: nothing skipped)");
+    InterlockedExchange(&g_xw_skip, 1);
+}
+static void CellSkipClose(const char* why) {
+    if (!InterlockedExchange(&g_xw_skip, 0)) return;
+    char buf[400]; int k = 0;
+    for (int i = 0; i < 8 && g_cs_ret[i]; ++i) k += snprintf(buf + k, sizeof buf - k, "%llX x%ld ", (unsigned long long)g_cs_ret[i], g_cs_retn[i]);
+    buf[k] = 0;
+    Log("CELLSKIP window closed (%s) +%lu ms: allowed %ld, skipped %ld, other-world %ld; callers [%s]", why, GetTickCount() - g_xw.t0, g_cs_allow, g_cs_skip, g_cs_other, buf);
+    StageLog("CELLSKIP close");
 }
 static void XwNative(const char* why) {
     ArenaRow* r = g_xw.row; g_xw.active = 0; if (g_xs.on) XsEnd("native fallback"); if (!r) return;
@@ -1185,7 +1235,7 @@ static void XwNative(const char* why) {
     Log("XWORLD %s: %s, native mission request 0x%X start %u", r->id, why, r->mission, r->start);
     ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))(r->mission, 1, r->start, p);
 }
-static int XwStart(ArenaRow* r) {
+static int XwStart(ArenaRow* r, int claimed) {
     const uint8_t* st = GameState();
     if (!st || st[2] || !PlayerChar() || StageState() != 5) return 0;
     uint64_t mm = 0, ms = 0; if (!Rd64(B + 0x47514D0, &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) return 0;
@@ -1194,8 +1244,9 @@ static int XwStart(ArenaRow* r) {
     prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;  // WarpOtherWorld, mission 0 = stay in the running mission
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);
     uint8_t journey = *(uint8_t*)(ms + 0x10); uint32_t mode = *(uint32_t*)(ms + 0x24);
-    memset(&g_xw, 0, sizeof g_xw); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1;
-    Log("XWORLD %s (%s): world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, CurWorld(), r->world, r->start, journey, mode);
+    memset(&g_xw, 0, sizeof g_xw); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1; g_xw.claimed = claimed; g_xw.tClaim = claimed ? g_xw.t0 : 0; g_xw_last_mission = (int)r->mission;
+    CellSkipOpen(r);  // before the request: it may already ask for cells synchronously
+    Log("XWORLD %s (%s)%s: world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, claimed ? "" : " PREWARM (menu opened, not claimed yet)", CurWorld(), r->world, r->start, journey, mode);
     XsStart(r->id, r->world);
     ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(r->world, journey, r->start, mode, prm);
     if (g_cfg_xpre && g_cfg_xpre_after) { g_xw.preDeferred = 1; Log("XWORLD %s: boss resource request deferred until the world has switched (CrossWorldPreloadAfterSwitch)", r->id); }
@@ -1208,23 +1259,29 @@ static void XwTick(void) {
     DWORD now = GetTickCount(); ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
     static DWORD lastLog; if (now - lastLog >= 2000) { lastLog = now; StageLog("XWORLD wait"); Log("XWORLD wait: GAMESTATE[2]=%u PlayerChar=%llX world 0x%02X (target 0x%02X) stage %d", st[2], (unsigned long long)PlayerChar(), CurWorld(), r->world, StageState()); }  // pc 5328: stage state 4->5 vs cell loading split
     if (g_xw.preDeferred && CurWorld() == r->world) { g_xw.preDeferred = 0; XwPreload(r, "after the world switch"); Log("XWORLD %s: world switched to 0x%02X at +%lu ms (mission seq state %d, GAMESTATE[2] %u)", r->id, r->world, now - g_xw.t0, (int)SeqState(), st[2]); }
-    if (now - g_xw.t0 > 40000) { g_xw.active = 0; Log("XWORLD %s: stage not ready 40 s after the world request, swap aborted (no native fallback, bridge 5455)", r->id); XsBlkRestore("swap aborted"); return; }
+    if (!g_xw.claimed ? now - g_xw.t0 > 120000 : now - (g_xw.tClaim > g_xw.t0 + 20000 ? g_xw.tClaim : g_xw.t0) > 40000) { g_xw.active = 0; CellSkipClose("40 s timeout"); XsBlkRestore("swap aborted"); Log("XWORLD %s: stage not ready 40 s after the world request, swap aborted (no native fallback, bridge 5455)", r->id); return; }
     if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || (st[2] && !g_cfg_xearly)) { g_xw.tReady = 0; return; }
-    if (!g_xw.tReady) { g_xw.tReady = now; Log("XWORLD %s: landed in world 0x%02X, stage ready +%lu ms after the request", r->id, r->world, now - g_xw.t0); }
-    if (now - g_xw.tReady < 700) return;
-    g_xw.active = 0;
+    if (!g_xw.tReady) { g_xw.tReady = now; Log("XWORLD %s: landed in world 0x%02X, stage ready +%lu ms after the request%s", r->id, r->world, now - g_xw.t0, g_xw.claimed ? "" : " (prewarm, not claimed)"); }
+    if (!g_xw.claimed) return;  // prewarm landed: keep the state (GAMESTATE[2] may stay 1 on Ally) until Fight now claims it; dropped by the timeout below
+    if (now - g_xw.tReady < (DWORD)g_cfg_xsettle) return;
+    g_xw.active = 0; CellSkipClose("arena swap");
     int sf = g_cfg_fn_summon, sn = g_cfg_native; g_cfg_fn_summon = 0; g_cfg_native = 0; g_xw_busy = 1;
     int ok = Nioh3Training_FightNow(r->mission);
     g_xw_busy = 0; g_cfg_fn_summon = sf; g_cfg_native = sn;
+    Log("XWORLD %s: arena swap in the new world -> %d (+%lu ms after the request, +%lu ms after Fight now claimed it)", r->id, ok, now - g_xw.t0, now - g_xw.tClaim);
     XsBlkRestore("arena swap fired");
-    Log("XWORLD %s: arena swap in the new world -> %d (+%lu ms after the request)", r->id, ok, now - g_xw.t0);
     if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && g_xw.active && !g_xw.claimed) {  // a prewarm request is running: claim it when the boss is in that world
+        ArenaRow* xr = FindRow(mission);
+        if (xr && xr->world == g_xw.row->world) { g_xw.row = xr; g_xw.claimed = 1; g_xw.tClaim = GetTickCount(); Log("XWORLD %s: Fight now claimed the prewarm request (running %lu ms already)", xr->id, g_xw.tClaim - g_xw.t0); return 1; }
+        if (xr) { Log("XWORLD %s: boss is in another world than the prewarm, prewarm dropped", xr->id); g_xw.active = 0; }
+    }
     if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && !g_xw.active) {
         ArenaRow* xr = FindRow(mission);
         if (xr && CurWorld() != xr->world && CurWorld() >= 0) {
-            if (XwStart(xr)) return 1;
+            if (XwStart(xr, 1)) return 1;
             Log("XWORLD %s: request refused (load running / stage not ready), native load", xr->id);
             return 0;
         }
@@ -1263,7 +1320,15 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     if (ok && g_cfg_fn_arena) TrainAttachArena(r, r->p, b, r->p[3] + 180.0f);
     return ok;
 }
-N3T_API void Nioh3Training_Preload(void) { if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
+static int XwPrewarm(uint32_t mission, const char* tag) {
+    if (!g_cfg_enable || !g_cfg_xworld || !g_cfg_xprewarm || g_xw_busy || g_xw.active) return 0;
+    if (!mission) mission = g_cfg_xprewarm_mission ? g_cfg_xprewarm_mission : (uint32_t)g_xw_last_mission;
+    ArenaRow* xr = mission ? FindRow(mission) : 0;
+    if (!xr || CurWorld() < 0 || CurWorld() == xr->world) { Log("XWORLD prewarm (%s): nothing to do (mission 0x%X row %p world 0x%02X)", tag, mission, (void*)xr, CurWorld()); return 0; }
+    int ok = XwStart(xr, 0); Log("XWORLD prewarm (%s) %s -> %d", tag, xr->id, ok); return ok;
+}
+N3T_API void Nioh3Training_PreloadFor(uint32_t mission) { XwPrewarm(mission, "PreloadFor"); }
+N3T_API void Nioh3Training_Preload(void) { XwPrewarm(0, "menu opened"); if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
 N3T_API int Nioh3Training_Version(void) { return 4942; }
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
@@ -1441,6 +1506,7 @@ static void Exec(char* line) {
             int r = Nioh3Training_FightNow((uint32_t)a[0]);
             if (!r && GameState() && GameState()[2]) Log("CMD fnow: a load is running, nothing requested");
             else if (!r) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("CMD fnow: not handled, native request"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))((uint32_t)a[0], 1, (uint32_t)a[1], p); }
+        } else if (!strcmp(op, "xpre")) { Log("CMD xpre mission 0x%llX", a[0]); XwPrewarm((uint32_t)a[0], "CMD xpre");
         } else if (!strcmp(op, "preload")) { PreloadNearby("CMD preload");
         } else if (!strcmp(op, "swap")) { g_cfg_enable = (int)a[0]; Log("CMD swap %d", g_cfg_enable);
         } else if (!strcmp(op, "cellcap")) {  // cellcap N: set the stage cell load cap now (4 = native); cellcap alone: print the cell stats
@@ -1526,7 +1592,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
-    __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; }
+    __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
@@ -1582,10 +1648,16 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
-        g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xearly = GetPrivateProfileIntA("ArenaSwap", "CrossWorldEarlySwap", 0, ini); Log("CrossWorldEarlySwap %d", g_cfg_xearly); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
+        g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xearly = GetPrivateProfileIntA("ArenaSwap", "CrossWorldEarlySwap", 0, ini); Log("CrossWorldEarlySwap %d", g_cfg_xearly); g_cfg_xsettle = GetPrivateProfileIntA("ArenaSwap", "CrossWorldSettleMs", 700, ini); g_cfg_xprewarm = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPrewarm", 0, ini); g_cfg_xprewarm_mission = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "CrossWorldPrewarmMission", 0, ini); Log("bridge 6375: CrossWorldSettleMs %d, CrossWorldPrewarm %d, PrewarmMission 0x%X", g_cfg_xsettle, g_cfg_xprewarm, g_cfg_xprewarm_mission); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
         g_cfg_xaoskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldAreaObjSkipMs", 0, ini); Log("cross-world (bridge 6047c): CrossWorldAreaObjSkipMs %d", g_cfg_xaoskip);
         g_cfg_xpre_after = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreloadAfterSwitch", 0, ini); Log("cross-world (bridge 6047b): CrossWorldPreloadAfterSwitch %d", g_cfg_xpre_after);
         g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); g_cfg_xblock = GetPrivateProfileIntA("ArenaSwap", "CrossWorldBlockCells", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
+        g_cfg_cellskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellSkip", 0, ini);
+        if (g_cfg_cellskip) {  // 3A0534 prologue: mov [rsp+8],rbx; mov [rsp+10h],rsi; mov [rsp+18h],rdi (15 bytes, no rip-relative)
+            static const uint8_t csp[15] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18};
+            if (!memcmp((void*)(B + 0x3A0534), csp, 15)) { o_cellreq = (CellReqFn)Hook(0x3A0534, 15, h_cellreq); Log("hook stage cell request 3A0534 ok: CrossWorldCellSkip %d (%s)", g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip non-arena cells during cross-world Fight now" : "log only"); }
+            else Log("hook stage cell request 3A0534: prologue mismatch, CrossWorldCellSkip disabled");
+        }
         g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
