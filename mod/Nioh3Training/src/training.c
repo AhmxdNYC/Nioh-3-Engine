@@ -1328,6 +1328,13 @@ static int XwPrewarm(uint32_t mission, const char* tag) {
     int ok = XwStart(xr, 0); Log("XWORLD prewarm (%s) %s -> %d", tag, xr->id, ok); return ok;
 }
 // bridge 6473: 1 while a prewarm world request is running or landed and not claimed yet (GAMESTATE[2] is 1 then, Boss Rematch must not refuse 'loading')
+static DWORD WINAPI RmPipeThread(LPVOID p) {
+    char* cmd = (char*)p; HANDLE h = CreateFileA("\\\\.\\pipe\\nioh3bossrematch", GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
+    if (h == INVALID_HANDLE_VALUE) { Log("CMD rm '%s': pipe not available (%lu)", cmd, GetLastError()); free(cmd); return 0; }
+    char b[700], r[1024]; DWORD n = 0; snprintf(b, sizeof b, "%s\n", cmd); WriteFile(h, b, (DWORD)strlen(b), &n, 0);
+    if (ReadFile(h, r, sizeof r - 1, &n, 0)) { r[n] = 0; while (n && (r[n - 1] == '\n' || r[n - 1] == '\r')) r[--n] = 0; Log("CMD rm '%s' -> %s", cmd, r); } else Log("CMD rm '%s': no reply", cmd);
+    CloseHandle(h); free(cmd); return 0;
+}
 N3T_API int Nioh3Training_XwPending(void) { return g_xw.active && !g_xw.claimed; }
 N3T_API void Nioh3Training_PreloadFor(uint32_t mission) { XwPrewarm(mission, "PreloadFor"); }
 N3T_API void Nioh3Training_Preload(void) { XwPrewarm(0, "menu opened"); if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
@@ -1508,6 +1515,8 @@ static void Exec(char* line) {
             int r = Nioh3Training_FightNow((uint32_t)a[0]);
             if (!r && GameState() && GameState()[2]) Log("CMD fnow: a load is running, nothing requested");
             else if (!r) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("CMD fnow: not handled, native request"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))((uint32_t)a[0], 1, (uint32_t)a[1], p); }
+        } else if (!strcmp(op, "rm")) {  // bridge 6473 test aid: send the rest of the line to the Boss Rematch pipe (from inside the game process: no second wine process) and log the reply
+            const char* t = line + 2; while (*t == ' ') ++t; char* dup = _strdup(t); if (dup) { char* e = dup + strlen(dup); while (e > dup && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0; CloseHandle(CreateThread(0, 0, RmPipeThread, dup, 0, 0)); }
         } else if (!strcmp(op, "xpre")) { Log("CMD xpre mission 0x%llX", a[0]); XwPrewarm((uint32_t)a[0], "CMD xpre");
         } else if (!strcmp(op, "preload")) { PreloadNearby("CMD preload");
         } else if (!strcmp(op, "swap")) { g_cfg_enable = (int)a[0]; Log("CMD swap %d", g_cfg_enable);
