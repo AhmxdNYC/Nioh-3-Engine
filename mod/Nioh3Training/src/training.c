@@ -23,6 +23,10 @@
 //   mworld id [id..]            log mission record world byte (+15C) for mission ids (record = 377B38([[45B9E30]], id))
 //   oworld world start [white]  World::WarpOtherWorld native request (22399B8: mission 0 = stay in this mission, new world byte + start
 //                               point); white=1 uses the WhiteOut variant's transition flags. Starts the 60 s phase log.
+//   fnow missionId [start]      Fight now through the C API (Nioh3Training_FightNow): in-place swap when the row is in Nioh3Training_arenas.tsv and in this world, else the native request
+//   preload                     Nioh3Training_Preload: request the models of the nearest bosses of this world
+//   swap 0|1                    arena swap Enable at run time
+// Config Nioh3Training.ini [ArenaSwap]; table Nioh3Training_arenas.tsv (tools/gen_arena_table.py). Exports: Nioh3Training_FightNow / _Preload / _Version.
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
 #include <windows.h>
 #include <stdio.h>
@@ -160,16 +164,18 @@ static uint64_t ResEntry(uint32_t id) {
     uint64_t rm = 0; if (!Rd64(B + 0x45B9E60, &rm) || !rm) return 0;
     return ((uint64_t (*)(uint64_t, uint64_t))(B + 0x133440))(rm, key);
 }
-static uint32_t PickOwner(void) {  // first registered enemy placement with a live actor (not the player); fall back to the player (1)
+static uint32_t PickOwner(void) {  // a registered placement with a live actor (not the player): enemy records first, then any live registered actor; 1 = the player (the boss is then friendly/passive)
     uint64_t cm = 0, c0 = 0; Rd64(B + 0x45B9E40, &cm); if (!cm) return 1; Rd64(cm, &c0); if (!c0) return 1;
-    uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
+    uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1], me = PlayerChar(), any = 0;
     for (uint64_t i = 0; i < cnt; ++i) {
         uint32_t id = *(uint32_t*)(arr + i * 16); uint64_t w = *(uint64_t*)(arr + i * 16 + 8), live = 0, rec = 0;
         if (id <= 1 || id >= 0x10000000 || !w) continue;
         Rd64(w, &live); Rd64(w + 0x18, &rec);
-        if (live && rec) return id;
+        if (!live || live == me) continue;
+        if (rec) return id;
+        if (!any) any = id;  // bridge 4506: a live non-enemy registered actor (id 9528 in Rajomon) also gives the boss hostile AI; a dead/unspawned placement is refused (CreateDynamic -> 0)
     }
-    return 1;
+    return any ? (uint32_t)any : 1;
 }
 static void SpawnTick(void) {
     if (!g_sp.active) return;
@@ -245,6 +251,7 @@ static void ArenaTick(void) {
             if (!g_ar.spawned) {
                 __attribute__((aligned(16))) float b[4] = {g_ar.b[0], g_ar.b[1], g_ar.b[2], 1.0f};
                 uint32_t owner = PickOwner();
+                if (owner <= 1) Log("ARENA WARNING no live registered actor to own the boss: owner = player, the boss will be passive");
                 g_nsnap = Actors(g_snap, 1024);
                 uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_ar.chr, b, g_ar.byaw, 0, owner, 0);
                 g_watch = r != 0; g_watch_id = r; g_watch_t0 = now; g_ar.spawned = 1; g_ar.tSpawn = now;
@@ -257,6 +264,131 @@ static void ArenaTick(void) {
     if (now - g_ar.lastLog >= 500) { g_ar.lastLog = now; Log("ARENA +%lu ms player %.0f %.0f %.0f state %d", dt, pos[0], pos[1], pos[2], st); }
     if (g_ar.released && dt > 15000 + (g_ar.tReady ? g_ar.tReady - g_ar.t0 : 0)) { Log("ARENA monitor end"); g_ar.active = 0; }
 }
+
+static int g_cfg_enable = 1, g_cfg_preload = 1, g_cfg_preload_max = 3, g_cfg_hook = 0, g_cfg_ambient = 0, g_cfg_bossdist = 900;
+static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) {
+    for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);  // one swapped-in boss at a time
+    memset(&g_ar, 0, sizeof g_ar);
+    g_ar.chr = chr; memcpy(g_ar.p, p, 3 * sizeof(float)); g_ar.yaw = p[3]; memcpy(g_ar.b, b, 3 * sizeof(float)); g_ar.byaw = byaw;
+    g_ar.t0 = GetTickCount(); g_ar.lastState = -9; g_ar.lastCell = -9;
+    StageLog("ARENA before");
+    uint64_t e = ResEntry(chr);
+    if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(chr, 2, 0);
+    int r = Warp(g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, 1);
+    Log("ARENA start chr %u player -> %.0f %.0f %.0f yaw %.1f boss -> %.0f %.0f %.0f: warp %d (+%lu ms), resources %s", chr, g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, g_ar.b[0], g_ar.b[1], g_ar.b[2], r, GetTickCount() - g_ar.t0,
+        e && *(uint8_t*)(e + 0x2c8) ? "preloaded" : "loading");
+    g_ar.active = r == 1;
+    return r == 1;
+}
+
+// ---- arena table (Nioh3Training_arenas.tsv, tools/gen_arena_table.py): mission, start, world, char, placement, player x y z yaw, boss x y z, kind, id, name
+typedef struct { uint32_t mission, start, chr, placement; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; } ArenaRow;
+static ArenaRow g_rows[160]; static int g_nrows;
+static void LoadTable(void) {
+    char path[MAX_PATH]; snprintf(path, sizeof path, "%s\\Nioh3Training_arenas.tsv", g_dir);
+    FILE* f = fopen(path, "r"); if (!f) { Log("arena table %s not found: Fight now keeps the native load", path); return; }
+    char line[512];
+    while (fgets(line, sizeof line, f) && g_nrows < 160) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        char* col[16]; int n = 0; char* c = line;
+        while (n < 15) { col[n++] = c; char* t = strchr(c, '\t'); if (!t) break; *t = 0; c = t + 1; }
+        if (n < 15) continue;
+        char* nl = strpbrk(col[14], "\r\n"); if (nl) *nl = 0;
+        ArenaRow* r = &g_rows[g_nrows];
+        r->mission = (uint32_t)strtoul(col[0], 0, 0); r->start = (uint32_t)strtoul(col[1], 0, 0); r->world = (uint8_t)strtoul(col[2], 0, 0);
+        r->chr = (uint32_t)strtoul(col[3], 0, 0); r->placement = (uint32_t)strtoul(col[4], 0, 0);
+        for (int i = 0; i < 4; ++i) r->p[i] = (float)atof(col[5 + i]);
+        for (int i = 0; i < 3; ++i) r->b[i] = (float)atof(col[9 + i]);
+        snprintf(r->kind, sizeof r->kind, "%s", col[12]); snprintf(r->id, sizeof r->id, "%s", col[13]); snprintf(r->name, sizeof r->name, "%s", col[14]);
+        if (r->mission && r->chr) ++g_nrows;
+    }
+    fclose(f);
+    Log("arena table: %d bosses", g_nrows);
+}
+static ArenaRow* FindRow(uint32_t mission) { for (int i = 0; i < g_nrows; ++i) if (g_rows[i].mission == mission) return &g_rows[i]; return 0; }
+static int CurWorld(void) { uint64_t s = StageMgr(); return s ? *(uint8_t*)(s + 0x500) : -1; }
+static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm); return gm ? (const uint8_t*)(gm + 0x588) : 0; }  // [2] loading, [3]/[4] paused
+
+// ---- Fight now without a loading screen: MissionRequestById 2239600 called by an add-on (BossRematch) for a catalogued boss in the world we stand in
+typedef uint64_t (*ReqFn)(uint32_t, uint8_t, uint32_t, void*);
+__declspec(dllexport) int Nioh3Training_FightNow(uint32_t mission);
+static ReqFn o_req;
+static uint32_t g_imgSize;
+static const char* SwapGate(const ArenaRow* r) {
+    const uint8_t* st = GameState();
+    if (!st) return "game state unreadable";
+    if (st[2]) return "a load is running";
+    if (!PlayerChar()) return "no player";
+    if (CurWorld() != r->world) return "boss is in another world";
+    if (StageState() != 5) return "stage streamer not ready";
+    return 0;
+}
+static uint64_t h_req(uint32_t id, uint8_t slot, uint32_t start, void* prm) {  // opt-in HookFightNow = 1: swaps for any add-on caller (Boss Rematch 1.4.13 then reports 'native request uncertain; restart game')
+    uintptr_t ret = (uintptr_t)__builtin_return_address(0);
+    if (g_cfg_enable && ret - B >= g_imgSize && Nioh3Training_FightNow(id)) return 0;  // game-internal callers (story, retry) are never touched
+    return o_req(id, slot, start, prm);
+}
+// preload: when the game pauses (the Boss Rematch menu opens) request the model resources of the nearest catalogued bosses of this world
+static void PreloadNearby(const char* tag) {
+    float pos[4]; if (!PlayerPos(pos)) return;
+    int w = CurWorld(), done[8] = {0}, nsel = 0, idx[8];
+    for (int k = 0; k < g_cfg_preload_max && k < 8; ++k) {
+        int best = -1; float bd = 1e30f;
+        for (int i = 0; i < g_nrows; ++i) {
+            if (g_rows[i].world != w) continue;
+            int dup = 0; for (int j = 0; j < nsel; ++j) if (idx[j] == i) dup = 1;
+            if (dup) continue;
+            float dx = g_rows[i].b[0] - pos[0], dz = g_rows[i].b[2] - pos[2], d = dx * dx + dz * dz;
+            if (d < bd) { bd = d; best = i; }
+        }
+        if (best < 0) break;
+        idx[nsel++] = best;
+    }
+    (void)done;
+    for (int j = 0; j < nsel; ++j) {
+        ArenaRow* r = &g_rows[idx[j]];
+        uint64_t e = ResEntry(r->chr);
+        if (e && *(uint8_t*)(e + 0x2c8)) { Log("%s: %s char %u already loaded", tag, r->id, r->chr); continue; }
+        ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(r->chr, 2, 0);
+        Log("%s: requested resources of %s %s (char %u)", tag, r->id, r->name, r->chr);
+    }
+}
+static void PreloadTick(void) {
+    static int wasPaused; static DWORD readySince; static int ambientWorld = -2;
+    const uint8_t* st = GameState(); if (!st) return;
+    int paused = (st[3] | st[4]) && !st[2];
+    static uint8_t last[6]; if (memcmp(last, st, 6)) { Log("GAMESTATE bytes %u %u %u %u %u %u", st[0], st[1], st[2], st[3], st[4], st[5]); memcpy(last, st, 6); }
+    if (paused && !wasPaused && g_cfg_preload && g_cfg_enable && PlayerChar()) PreloadNearby("PRELOAD (menu opened)");
+    wasPaused = paused;
+    if (g_cfg_ambient && g_cfg_preload && g_cfg_enable) {  // PreloadAmbient = 1: also once per world, 4 s after the player landed
+        int w = PlayerChar() && !st[2] && StageState() == 5 ? CurWorld() : -1;
+        if (w < 0) readySince = 0; else if (!readySince) readySince = GetTickCount();
+        if (w >= 0 && w != ambientWorld && GetTickCount() - readySince > 4000) { ambientWorld = w; PreloadNearby("PRELOAD (landed)"); }
+    }
+}
+
+// ---- C API for Nioh3BossRematch (bridge 4506): call both on the game thread, resolved with GetProcAddress(GetModuleHandle("Nioh3Training.asi"), ...)
+//   int  Nioh3Training_FightNow(uint32_t missionId)  1 = the boss was swapped in place (warp + live spawn, no mission load): do NOT call MissionRequestById;
+//                                                    0 = not handled (other world, row not in the table, Enable=0, a load is running): do the native request.
+//   void Nioh3Training_Preload(void)                 call when the Boss Rematch menu opens: requests the model resources of the nearest bosses of this world.
+//   int  Nioh3Training_Version(void)
+#define N3T_API __declspec(dllexport)
+N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    ArenaRow* r = g_cfg_enable ? FindRow(mission) : 0;
+    if (!r) return 0;
+    const char* why = SwapGate(r);
+    if (why) { Log("FIGHTNOW %s mission 0x%X: native load (%s)", r->id, mission, why); return 0; }
+    Log("FIGHTNOW %s (%s) mission 0x%X: arena swap in place (no mission load), world 0x%02X", r->id, r->name, mission, r->world);
+    float b[3] = {r->b[0], r->b[1], r->b[2]};
+    float dx = b[0] - r->p[0], dz = b[2] - r->p[2], d = sqrtf(dx * dx + dz * dz);
+    if (g_cfg_bossdist > 0 && d > g_cfg_bossdist) {  // an idle boss only notices the player within ~10 m: pull it in along the same line
+        float k = g_cfg_bossdist / d;
+        b[0] = r->p[0] + dx * k; b[1] = r->p[1] + (b[1] - r->p[1]) * k; b[2] = r->p[2] + dz * k;
+    }
+    return StartArena(r->chr, r->p, b, r->p[3] + 180.0f);
+}
+N3T_API void Nioh3Training_Preload(void) { if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
+N3T_API int Nioh3Training_Version(void) { return 4506; }
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
 static struct { DWORD t0, last, lastTick, lastBeat, window; LONG ticks0, lastTicks; int hadPlayer, active; uint32_t id, lastReg; float lastPos[4]; } g_ms;
@@ -367,17 +499,17 @@ static void Exec(char* line) {
             DWORD t = GetTickCount(); int r = Warp(v[0], v[1], v[2], v[3], 1);
             Log("CMD warp %.0f %.0f %.0f yaw %.1f -> %d (%lu ms)", v[0], v[1], v[2], v[3], r, GetTickCount() - t); StageLog("CMD warp stage");
         } else if (!strcmp(op, "arena")) {
-            memset(&g_ar, 0, sizeof g_ar);
-            int k = sscanf(line, "%*s %u %f %f %f %f %f %f %f %f", &g_ar.chr, &g_ar.p[0], &g_ar.p[1], &g_ar.p[2], &g_ar.yaw, &g_ar.b[0], &g_ar.b[1], &g_ar.b[2], &g_ar.byaw);
+            float v[9] = {0}; unsigned chr = 0;
+            int k = sscanf(line, "%*s %u %f %f %f %f %f %f %f %f", &chr, &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7]);
             if (k < 8) { Log("CMD arena: need charId x y z yaw bx by bz [bossYaw]"); return; }
-            if (k < 9) g_ar.byaw = g_ar.yaw + 180.0f;
-            g_ar.t0 = GetTickCount(); g_ar.lastState = -9; g_ar.lastCell = -9;
-            StageLog("ARENA before");
-            uint64_t e = ResEntry(g_ar.chr);
-            if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(g_ar.chr, 2, 0);
-            int r = Warp(g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, 1);
-            Log("ARENA start chr %u player -> %.0f %.0f %.0f yaw %.1f boss -> %.0f %.0f %.0f: warp %d (+%lu ms)", g_ar.chr, g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, g_ar.b[0], g_ar.b[1], g_ar.b[2], r, GetTickCount() - g_ar.t0);
-            g_ar.active = r == 1;
+            StartArena(chr, v, v + 4, k < 9 ? v[3] + 180.0f : v[7]);
+        } else if (!strcmp(op, "fnow")) {  // Fight now through the hooked MissionRequestById (as an add-on caller): swaps in place when the row is eligible, else the native load
+            Log("CMD fnow mission 0x%llX", a[0]);
+            int r = Nioh3Training_FightNow((uint32_t)a[0]);
+            if (!r && GameState() && GameState()[2]) Log("CMD fnow: a load is running, nothing requested");
+            else if (!r) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("CMD fnow: not handled, native request"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))((uint32_t)a[0], 1, (uint32_t)a[1], p); }
+        } else if (!strcmp(op, "preload")) { PreloadNearby("CMD preload");
+        } else if (!strcmp(op, "swap")) { g_cfg_enable = (int)a[0]; Log("CMD swap %d", g_cfg_enable);
         } else if (!strcmp(op, "mworld")) {
             uint64_t db = *(uint64_t*)(B + 0x45B9E30); db = db ? *(uint64_t*)db : 0;
             for (int i = 0; i < n - 1; ++i) {
@@ -405,7 +537,7 @@ static void Exec(char* line) {
             Log("CMD lchr %llu done (loader %p)", a[0], (void*)g_loader);
         } else if (!strcmp(op, "mission")) {
             __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};
-            ((void (*)(uint32_t, uint8_t, uint32_t, const uint32_t*))(B + 0x2239600))((uint32_t)a[0], (uint8_t)a[1], (uint32_t)a[2], p);
+            ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))((uint32_t)a[0], (uint8_t)a[1], (uint32_t)a[2], p);  // always the native load (bypasses the arena-swap hook)
             Log("CMD mission 0x%llX slot %llu start %llu requested", a[0], a[1], a[2]);
             g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
             g_ms.id = (uint32_t)a[0];
@@ -434,6 +566,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     }
     __try { PhaseTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
+    __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     return o_pump(c, d, r8, r9);
@@ -467,6 +600,21 @@ static DWORD WINAPI Worker(LPVOID x) {
     else Log("hook CreateDynamic: prologue mismatch");
     if (!memcmp((void*)(B + 0xA42A7C), lchp, 14)) { o_lchr = (LoadChrFn)Hook(0xA42A7C, 14, h_lchr); Log("hook Load::Character ok"); }
     else Log("hook Load::Character: prologue mismatch");
+    {   // arena swap: config, table, MissionRequestById hook
+        char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+        g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
+        g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 1, ini);
+        g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
+        g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
+        g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini);
+        g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
+        g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
+        LoadTable();
+        const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};
+        if (!g_cfg_hook) Log("arena swap: Enable %d, Preload %d (max %d, ambient %d); API Nioh3Training_FightNow / _Preload for Boss Rematch; MissionRequestById hook off (HookFightNow = 0)", g_cfg_enable, g_cfg_preload, g_cfg_preload_max, g_cfg_ambient);
+        else if (!memcmp((void*)(B + 0x2239600), reqp, sizeof reqp)) { o_req = (ReqFn)Hook(0x2239600, 19, h_req); Log("hook MissionRequestById ok; arena swap on Fight now %s, preload %s (max %d), image 0x%X", g_cfg_enable ? "ON" : "off", g_cfg_preload ? "on" : "off", g_cfg_preload_max, g_imgSize); }
+        else Log("hook MissionRequestById: prologue mismatch (hooked by another add-on?): Fight now keeps the native load");
+    }
     HookPump();
     char p[MAX_PATH]; snprintf(p, sizeof p, "%s\\Nioh3Training.cmd", g_dir);
     for (;;) {
