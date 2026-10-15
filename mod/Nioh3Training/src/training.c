@@ -359,7 +359,6 @@ static void FakeGaugeHide(const char* why) {  // the native hide is a queued mes
     g_gg.pending = 0; if (!g_gg.shown) return;
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(FAKE_GAUGE_ID, 0, 0);
     g_gg.shown = 0; g_gg.tHide = GetTickCount() | 1; Log("GAUGE HideBossGauge(fake id) (%s)", why);
-    if (g_noForceHide) return;  // bridge 4942: a retry shows a new bar right away; the force-hide breaks the next ShowBossGauge
     GaugeForceHide(why); g_forceHideAt = GetTickCount() + 700; if (!g_forceHideAt) g_forceHideAt = 1;  // again after the queued native hide ran
 }
 static void FakeGaugeRequest(uint32_t handle, uint32_t owner) {  // the actor enters the table a few ms after CreateDynamic: GaugeTick finishes the job
@@ -735,8 +734,7 @@ static int SummonStart(const char* tok, float d) {
 }
 static void TrainClear(const char* why) {  // remove our boss and its HUD/BGM state
     if (g_bm.active) { BossModeEnd(why); g_bm.active = 0; }
-    g_noForceHide = !strcmp(why, "train start") || !strncmp(why, "player beaten", 13) || !strcmp(why, "command") || !strcmp(why, "API") || !strcmp(why, "respawn on win");
-    BgmStop(why); FakeGaugeHide(why); g_noForceHide = 0;
+    BgmStop(why); FakeGaugeHide(why);  // the force-hide inside is required: without it the HUD gauge row keeps reading the despawned actor (crash 0xC0000005 at 4893CC, bridge 4942 test)
     for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);
     g_nsp = 0; g_watch = 0; g_mon.a = 0;
 }
