@@ -15,3 +15,8 @@
 ## Nuribotoke native diff (mission 0x401E, native load, then act 4087191)
 - Registry holds 222 rows (placement 4087191 = Nuribotoke, char 392871, live=0 until activated). 26 actors in table before, 27 after `act 4087191` (boss live at 180761 23861 217416). `dump` run before and after: DUMP lines 115.. and 837.. in final-training.log (registry wrapper words, +0..0xFF of every actor).
 - Summon in this mission: owner 4080158 (live registered actor) found at once, boss hostile, bar OK.
+
+## HideBossGauge fix + death-sensor re-verify (bridge 4801, 2026-10-15, Ally)
+- GaugeForceHide (training.c): the native HideBossGauge (queued event) is still called, then by hand: clear row vector hud+0x3C0 (1CEE8C8), hide the 3 row elements (type 0xF5) and 42 detail elements (0xF6) via 300F44 + 5D1D8C(elem,0), HUD hide 1CEC2E0(hud,0); repeated 700 ms later. hud = [[45C84A8]+0xA8]. Command: hidegauge.
+- Live (Yoritomo R7B35, fnow, Proton 1920x1080 fullscreen): kill -> boss dead -> bar fully gone (k4.png); before: empty frame stayed. Evidence /tmp/hpbar-4801 (f1 bar shown, k2 bar at kill, k4 gone, s5/r1 gameplay).
+- Death: player died at +48 s, actor left table -> 'actor gone, not dead' path, boss mode ended, no victory sting, bar hidden, no stale bar after Retry. After retry fnow again: win -> 'boss dead' -> victory path.
