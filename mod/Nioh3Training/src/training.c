@@ -715,7 +715,8 @@ static void BossTick(void) {
         uint64_t act = ActorByHandle(g_bm.id); int ours = 0;
         for (int i = 0; i < g_nsp; ++i) if (act && g_sp_actor[i] == act) ours = 1;
         uint64_t fc = 0, fm = 0;
-        if (!done && ours && ActorHp(act, &fc, &fm) && fm && fc <= 1) {
+        { static DWORD dgAt; uint64_t dc = 9, dm = 0; if (act && ActorHp(act, &dc, &dm) && dm && dc <= 1 && now - dgAt > 5000) { dgAt = now; Log("DEATHBLOW diag: hp %llu ours %d done %d nsp %d act %p", dc, ours, done, g_nsp, (void*)act); } }
+        if (!done && act && ActorHp(act, &fc, &fm) && fm && fc <= 1) {
             const char* why = 0;
             if (!g_cfg_deathblow) why = "HP floor, DeathBlowRequired=0";
             else if (g_cfg_cutscene || g_cfg_loot) {
