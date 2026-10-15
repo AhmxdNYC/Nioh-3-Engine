@@ -75,3 +75,29 @@ LoadIsLoadEnd gate mask (1 G2, 2 G3, 4 G5, 8 G7, 16 G8)` via read-only predicate
 Expected: switch at ~+0.1 s instead of ~+6 s, total ~5-6 s less (UNVERIFIED). Risk: if state 8 then waits on the boss
 model instead of field entities, the gain shrinks; the gate mask shows which. Early arena swap with GAMESTATE[2] = 1 was
 not built: the screen stays covered until state 0xB and control until 0xF, so it saves only the 0.7 s settle.
+
+## Round 3 (bridge 6047c): gate 16 'area objects' holds ~16 s
+
+Ally: CrossWorldPreloadAfterSwitch no gain (switch still at ~+6 s); log shows sequencer state 4 for 5.4 s, state 5 from
++6 s to +29.8 s with only gate 0x10 failing from +14 s. **Correction** of round 2 numbering (cold dispatch 19DBA8C):
+1 223BDB0 (UiLoadingScreenStart), 2 223B3A8, 3 223B3F8, **4 223B8F0** (starts with StageAreasObjectsReady(S,0,-1) for the
+OLD world = the 5.4 s before the switch, then unload/load world), **5 MissionLoadStep 223AF50** (1FC6674 + LoadIsLoadEnd),
+6 223C53C, 7 223C630, 8 223C4A8 (LoadIsLoadEnd), 9 223C684, 0xA 223C5B8, 0xB 223BE08, 0xC-0xE 223BEA8, 0xF 223C308 (timer,
+clears GAMESTATE[2]). So the preload refutation is consistent: G5 was not what held state 5.
+
+Gate 16 = StageAreasObjectsReady 3B3A28(S, force, area): per loaded cell A = D3B9C(S+0x540,i) (active object), o=[A+0x30]:
+ready iff o+0x1F0 != 0, **o+0x1EC == 0**, A+0x1C0 == 0. o+0x1EC = placeable loads in flight: incremented in
+PlaceableCollisionUpdate D8E00 (D97E8 / D9EC7, placeable +0x10D = 3) when a load request (prio at req+0x50) is put on the
+loader [475A420] list +0x1D8 (count +0x1E0, mutex +0x98, flag +0x24A); decremented in 2007E4 on completion. The loader
+feeds the TrySync step pool (3 threads, ReadFile-bound on the Ally per loading-ally-fixed.md). No per-frame budget or
+immediate cap found in D8E00; throughput is I/O/step-thread bound (TSY / RC in the engine fix are the throughput levers).
+
+Change: `[ArenaSwap] CrossWorldAreaObjSkipMs = N` (default 0). Inline hook on 3B3A28 (15-byte prologue verified):
+original result first; if 0, area == -1, XSTREAM active with target world current, stage init state 5 and sequencer state
+5 or 8, then after N ms the hook returns 1 (first 3 times logged with blocking cells / placeable loads in flight). State 4
+(old world before unload) and single-area callers (1FD4388, 28B75xx) untouched. Placeable loads are not cancelled.
+Also logged on every gate change with bit 16: `area objects: X cells blocking, Y placeable loads in flight`.
+
+Risks (UNVERIFIED): props/destructibles/doors and their collision appear after control returns; scripts that look up a
+placeable right after the load may not find it yet; the autosave in 0xC runs with placeables still streaming.
+Expected: control ~+15-16 s instead of ~+31 s on the Ally route.
