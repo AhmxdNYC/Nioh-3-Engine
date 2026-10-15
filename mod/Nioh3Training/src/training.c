@@ -1046,7 +1046,23 @@ static void EnterTick(void) {
 // so at most 4 cells load at once, and after a world switch the old world's releases count against the same 4 slots.
 // [ArenaSwap] CrossWorldCellLoads = N (5..64) raises both imm8 to N from the world request until the new world's cells are all loaded (or 60 s), then restores 4.
 static int g_cfg_xcells = 0;
-static struct { int on, sawReset, lastSt, patched; DWORD t0, t5, tAll, lastLog; uint8_t w0; uint64_t lastN, lastR, lastF; char tag[24]; } g_xs;
+static struct { int on, sawReset, lastSt, patched, lastSeq, lastG; DWORD t0, t5, tAll, lastLog, tSeq; uint8_t w0, last58A; uint64_t lastN, lastR, lastF; char tag[24]; } g_xs;
+// bridge 6047b: mission load sequencer (handlers via 5A29F0, state mirrored in u32 B+0x45BA21C): 1 MissionLoadStep 223AF50 waits 1FC6674(stage+0x500) AND LoadIsLoadEnd
+// 3B3424 BEFORE it consumes the request (the world switch); 8 223C4A8 waits LoadIsLoadEnd again; 0xB 223BE08 UiLoadingScreenEnd; 0xF 223C308 fixed 30/100 dt60 timer, then
+// StopFlagSet(2,0) = GAMESTATE[2] cleared. LoadIsLoadEnd gate G5 = ObjectListAnyNotReady([45B9E60]) = any character resource entry with +0x2C8 == 0, i.e. the
+// boss resources requested by CrossWorldPreload hold state 1 (the world switch) until the boss model is loaded (Ally: switch at +6.5 s vs +0.1 s without).
+static uint32_t SeqState(void) { uint32_t v = 0xFFFFFFFF; __try { v = *(volatile uint32_t*)(B + 0x45BA21C); } __except (EXCEPTION_EXECUTE_HANDLER) { } return v; }
+static int LoadGates(void) {  // bit set = that LoadIsLoadEnd gate currently blocks (read-only predicates, game thread): 1 G2 area list, 2 G3 request queue, 4 G5 resource list, 8 G7 blocker list, 16 G8 area objects
+    uint64_t s = StageMgr(), rm = 0; int g = 0; if (!s) return -1;
+    __try {
+        if (((uint8_t (*)(uint64_t))(B + 0x8B3868))(s + 0x540)) g |= 1;
+        if (((uint8_t (*)(uint64_t))(B + 0x3B3974))(s + 0x450)) g |= 2;
+        if (Rd64(B + 0x45B9E60, &rm) && rm && ((uint8_t (*)(uint64_t))(B + 0x13335C))(rm)) g |= 4;
+        uint32_t a = 0, b = 0; if (!((uint8_t (*)(uint32_t*, uint32_t*))(B + 0x2BE284))(&a, &b)) g |= 8;
+        if (!((uint8_t (*)(uint64_t, uint8_t, int32_t))(B + 0x3B3A28))(s, 0, -1)) g |= 16;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return -2; }
+    return g;
+}
 static int CellCapSet(int n) {  // returns 1 when both imm8 now hold n
     static const uint8_t a0[] = {0x83, 0xF8}, a1[] = {0x0F, 0x8D, 0x3D, 0x01, 0x00, 0x00}, b0[] = {0x48, 0x83, 0xBB, 0x48, 0x1B, 0x00, 0x00}, b1[] = {0x0F, 0x83, 0x2F, 0x01, 0x00, 0x00};
     uint8_t* pa = (uint8_t*)(B + 0x31E0B2); uint8_t* pb = (uint8_t*)(B + 0x31E0BB);
@@ -1073,7 +1089,7 @@ static int CellStats(uint64_t* n, uint64_t* ready, uint64_t* loading, uint64_t* 
 }
 static void XsStart(const char* tag) {  // called right before a WarpOtherWorld request
     memset(&g_xs, 0, sizeof g_xs); snprintf(g_xs.tag, sizeof g_xs.tag, "%s", tag);
-    uint64_t s = StageMgr(); g_xs.w0 = s ? *(uint8_t*)(s + 0x500) : 0xFF; g_xs.t0 = GetTickCount(); g_xs.lastSt = StageState(); g_xs.on = 1;
+    uint64_t s = StageMgr(); g_xs.w0 = s ? *(uint8_t*)(s + 0x500) : 0xFF; g_xs.t0 = GetTickCount(); g_xs.tSeq = g_xs.t0; g_xs.lastSt = StageState(); g_xs.on = 1; g_xs.lastSeq = -9; g_xs.last58A = 0xEE; g_xs.lastG = -9;
     g_xs.patched = g_cfg_xcells > 4 && CellCapSet(g_cfg_xcells);
     Log("XSTREAM %s: start, world 0x%02X state %d, cell load cap %d (CrossWorldCellLoads %d)", tag, g_xs.w0, g_xs.lastSt, g_xs.patched ? g_cfg_xcells : 4, g_cfg_xcells);
 }
@@ -1082,12 +1098,19 @@ static void XsEnd(const char* why) {
     Log("XSTREAM %s: %s; state 5 at %s%lu ms, all cells loaded at %s%lu ms (cap %d)", g_xs.tag, why, g_xs.t5 ? "+" : "never/", g_xs.t5 ? g_xs.t5 - g_xs.t0 : 0, g_xs.tAll ? "+" : "never/", g_xs.tAll ? g_xs.tAll - g_xs.t0 : 0, g_xs.patched ? g_cfg_xcells : 4);
     g_xs.on = 0; g_xs.patched = 0;
 }
+static int g_cfg_xpre_after = 0;
 static void XsTick(void) {
     if (!g_xs.on) return;
     DWORD now = GetTickCount(), dt = now - g_xs.t0; uint64_t s = StageMgr(); if (!s) return;
     int st = StageState(); uint8_t w = *(uint8_t*)(s + 0x500);
     uint64_t n, r, f, q, m; int ok = CellStats(&n, &r, &f, &q, &m);
     if (st != 5 || w != g_xs.w0) g_xs.sawReset = 1;
+    { const uint8_t* gs = GameState(); uint8_t f = gs ? gs[2] : 0xFF; uint32_t q = SeqState(); int g = LoadGates();
+      if (f != g_xs.last58A || (int)q != g_xs.lastSeq || g != g_xs.lastG || dt == 0) {
+          Log("XSTREAM %s +%lu ms: GAMESTATE[2] %u, mission seq state %d (was %d, %lu ms), LoadIsLoadEnd gates 0x%X (1 areas 2 stage req 4 res list 8 blockers 16 area objs) world 0x%02X stage %d",
+              g_xs.tag, dt, f, (int)q, g_xs.lastSeq, now - g_xs.tSeq, g, w, st);
+          if ((int)q != g_xs.lastSeq) g_xs.tSeq = now;
+          g_xs.last58A = f; g_xs.lastSeq = (int)q; g_xs.lastG = g; } }
     int chg = st != g_xs.lastSt || (ok && (n != g_xs.lastN || f != g_xs.lastF || (r != g_xs.lastR && now - g_xs.lastLog >= 250)));
     if (chg || now - g_xs.lastLog >= 1000) {
         Log("XSTREAM %s +%lu ms: world 0x%02X state %d cells %llu loaded %llu | loading areas %llu release queue %llu map 1B48 %llu", g_xs.tag, dt, w, st, n, r, f, q, m);
@@ -1095,13 +1118,17 @@ static void XsTick(void) {
     }
     if (st == 5 && g_xs.sawReset && !g_xs.t5) { g_xs.t5 = now; Log("XSTREAM %s: stage state 5 at +%lu ms, %llu/%llu cells loaded", g_xs.tag, dt, r, n); }
     g_xs.lastSt = st;
-    if (g_xs.t5 && now - g_xs.t5 >= 500 && ok && n && r == n) { g_xs.tAll = now; XsEnd("new world streamed"); return; }
+    if (g_xs.t5 && now - g_xs.t5 >= 500 && ok && n && r == n && g_xs.last58A == 0) { g_xs.tAll = now; XsEnd("new world streamed"); return; }
     if (dt > 60000) XsEnd("60 s timeout");
 }
 // bridge 5276 (pc2 5116/5275): boss in ANOTHER world, no mission load. Only a world switch brings the other world's arena: World::WarpOtherWorld request (22399B8, mission 0, target world, start point)
 // switches in ~1 s and the stage is ready (state 5) ~5-11 s later; then the normal in-place arena swap (warp + live spawn) runs. ~10 s to a fightable boss vs ~29 s native. Any failure -> native MissionRequestById.
 static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy;
-static struct { int active; ArenaRow* row; DWORD t0, tReady; } g_xw;
+static struct { int active, preDeferred; ArenaRow* row; DWORD t0, tReady; } g_xw;
+static void XwPreload(ArenaRow* r, const char* when) {
+    uint64_t e = ResEntry(r->chr);
+    if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(r->chr, 2, 0); PoolAdd(r->chr); Log("XWORLD %s: boss resources (char %u) requested %s", r->id, r->chr, when); }
+}
 static void XwNative(const char* why) {
     ArenaRow* r = g_xw.row; g_xw.active = 0; if (g_xs.on) XsEnd("native fallback"); if (!r) return;
     __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};
@@ -1121,10 +1148,8 @@ static int XwStart(ArenaRow* r) {
     Log("XWORLD %s (%s): world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, CurWorld(), r->world, r->start, journey, mode);
     XsStart(r->id);
     ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(r->world, journey, r->start, mode, prm);
-    if (g_cfg_xpre) {  // pc2 5294: the boss model load (~8 s) otherwise starts only after the stage is ready; start it with the world request
-        uint64_t e = ResEntry(r->chr);
-        if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(r->chr, 2, 0); PoolAdd(r->chr); Log("XWORLD %s: boss resources (char %u) requested with the world request", r->id, r->chr); }
-    }
+    if (g_cfg_xpre && g_cfg_xpre_after) { g_xw.preDeferred = 1; Log("XWORLD %s: boss resource request deferred until the world has switched (CrossWorldPreloadAfterSwitch)", r->id); }
+    else if (g_cfg_xpre) XwPreload(r, "with the world request");  // pc2 5294 (bridge 6047b: this holds MissionLoadStep's LoadIsLoadEnd, i.e. the switch itself, until the model is loaded)
     return 1;
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
@@ -1132,6 +1157,7 @@ static void XwTick(void) {
     if (!g_xw.active) return;
     DWORD now = GetTickCount(); ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
     static DWORD lastLog; if (now - lastLog >= 2000) { lastLog = now; StageLog("XWORLD wait"); Log("XWORLD wait: GAMESTATE[2]=%u PlayerChar=%llX world 0x%02X (target 0x%02X) stage %d", st[2], (unsigned long long)PlayerChar(), CurWorld(), r->world, StageState()); }  // pc 5328: stage state 4->5 vs cell loading split
+    if (g_xw.preDeferred && CurWorld() == r->world) { g_xw.preDeferred = 0; XwPreload(r, "after the world switch"); Log("XWORLD %s: world switched to 0x%02X at +%lu ms (mission seq state %d, GAMESTATE[2] %u)", r->id, r->world, now - g_xw.t0, (int)SeqState(), st[2]); }
     if (now - g_xw.t0 > 40000) { g_xw.active = 0; Log("XWORLD %s: stage not ready 40 s after the world request, swap aborted (no native fallback, bridge 5455)", r->id); return; }
     if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || st[2]) { g_xw.tReady = 0; return; }
     if (!g_xw.tReady) { g_xw.tReady = now; Log("XWORLD %s: landed in world 0x%02X, stage ready +%lu ms after the request", r->id, r->world, now - g_xw.t0); }
@@ -1506,6 +1532,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
         g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
+        g_cfg_xpre_after = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreloadAfterSwitch", 0, ini); Log("cross-world (bridge 6047b): CrossWorldPreloadAfterSwitch %d", g_cfg_xpre_after);
         g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
         g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
