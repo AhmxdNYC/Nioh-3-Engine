@@ -994,8 +994,8 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission);
 static void XwTick(void) {
     if (!g_xw.active) return;
     DWORD now = GetTickCount(); ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
-    static DWORD lastLog; if (now - lastLog >= 2000) { lastLog = now; StageLog("XWORLD wait"); }  // pc 5328: stage state 4->5 vs cell loading split
-    if (now - g_xw.t0 > 40000) { XwNative("stage not ready 40 s after the world request"); return; }
+    static DWORD lastLog; if (now - lastLog >= 2000) { lastLog = now; StageLog("XWORLD wait"); Log("XWORLD wait: GAMESTATE[2]=%u PlayerChar=%llX world 0x%02X (target 0x%02X) stage %d", st[2], (unsigned long long)PlayerChar(), CurWorld(), r->world, StageState()); }  // pc 5328: stage state 4->5 vs cell loading split
+    if (now - g_xw.t0 > 40000) { g_xw.active = 0; Log("XWORLD %s: stage not ready 40 s after the world request, swap aborted (no native fallback, bridge 5455)", r->id); return; }
     if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || st[2]) { g_xw.tReady = 0; return; }
     if (!g_xw.tReady) { g_xw.tReady = now; Log("XWORLD %s: landed in world 0x%02X, stage ready +%lu ms after the request", r->id, r->world, now - g_xw.t0); }
     if (now - g_xw.tReady < 700) return;
@@ -1356,7 +1356,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
-        g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 1, ini);
+        g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
