@@ -23,6 +23,7 @@
 #include <xinput.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstdarg>
@@ -35,10 +36,14 @@
 #include "extraperf.h"
 #include "gpuopt.h"
 #include "menu.h"
+#include "../../settings/store.h"
+#include "../../menu_navigation.h"
 #include "osd.h"
+#include "../../rematch_menu_bridge.h"
 
 namespace menu {
 namespace {
+#include "menu_rematch_host.h"
 
 using LogFn = void (*)(const char*, ...);
 LogFn g_log = nullptr;
@@ -62,33 +67,6 @@ const uint8_t kMenuBBytes[] = {0x48, 0x8B, 0x0D, 0xD9, 0x27, 0x68, 0x04, 0x48, 0
                                0x48, 0x8B, 0x01, 0x48, 0xFF, 0x60, 0x08, 0x32, 0xC0, 0xC3};
 constexpr uint32_t kRvaXInputIat = 0x38E2C50;    // XINPUT1_4 ordinal 2 (XInputGetState) on v2.02
 
-// ---- frame generation (v2.02 only; notes\frame-generation.md) ---------------------------------------------------------
-// The game's options menu changes FG through SetOptionValue(0x126, v) (0x12A2368): FrameGenSettingWrite(v) + the
-// config-dirty byte. Nothing else: the engine's per-frame display watcher (0x1350210) sees the new slot value, posts
-// window message 0x405, and its display reset (0x226D140) rebuilds the swapchain with the chosen FG backend after a
-// 5-tick countdown. The menu item below does exactly those two steps (the game's own function, bytes verified).
-constexpr uint32_t kRvaFrameGen = 0x45BB008;      // FRAME_GENERATION slot: 0 OFF, 1 DLSS, 2 FSR, 3 XeSS
-constexpr uint32_t kRvaFgWrite = 0x1FDDFCC;       // FrameGenSettingWrite(int): gate 0x1FE3FA4, then slot (+VSYNC/Reflex/XeLL)
-constexpr uint32_t kRvaFgAvail = 0x1FE3FA4;       // IsFrameGenTypeAvailable(int): DLSS = Streamline caps+F0, XeSS = 45C3EAA, FSR = 1
-constexpr uint32_t kRvaDirtyStore = 0x12A46AD;    // SetOptionValue: mov byte [g_ConfigDirty],1
-constexpr uint32_t kRvaConfigDirty = 0x45C6F80;   // u8: SaveConfigIfDirty (0x283892C) writes config.xml and clears it
-constexpr uint32_t kRvaXessFgAvail = 0x45C3EAA;   // u8 g_XessFgAvailable
-constexpr uint32_t kRvaSlCaps = 0x46D7690;        // Streamline feature caps (static returned by 0x6B8E88); +F0 = DLSS-G
-constexpr uint32_t kRvaConfigDesc = 0x45C8570;    // 60 x 0x30 descriptors: +0 name*, +8 values**, +0x24 count
-constexpr int kIdxFrameGen = 54;
-constexpr uint32_t kRvaConfigPathW = 0x4B736F0;   // wchar_t[]: the game's full config.xml path
-const uint8_t kFgWriteBytes[] = {  // 0x1FDDFCC, 93 bytes (rel32 / RIP disp32 only - position independent)
-    0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x8B, 0xD9, 0xE8, 0xCB, 0x5F, 0x00, 0x00, 0x33, 0xC9, 0x84, 0xC0, 0x74, 0x3E,
-    0x89, 0x1D, 0x23, 0xD0, 0x5D, 0x02, 0x83, 0xEB, 0x01, 0x74, 0x20, 0x83, 0xFB, 0x02, 0x74, 0x09, 0x48, 0x89, 0x0D,
-    0x1A, 0xD0, 0x5D, 0x02, 0xEB, 0x2B, 0xC7, 0x05, 0x12, 0xD0, 0x5D, 0x02, 0x01, 0x00, 0x00, 0x00, 0x89, 0x0D, 0x08,
-    0xD0, 0x5D, 0x02, 0xEB, 0x19, 0x48, 0xC7, 0x05, 0xFB, 0xCF, 0x5D, 0x02, 0x01, 0x00, 0x00, 0x00, 0x89, 0x0D, 0x21,
-    0xCF, 0x5D, 0x02, 0xEB, 0x06, 0x89, 0x0D, 0xE5, 0xCF, 0x5D, 0x02, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3};
-const uint8_t kFgAvailBytes[] = {  // 0x1FE3FA4, 47 bytes
-    0x48, 0x83, 0xEC, 0x28, 0x83, 0xE9, 0x01, 0x74, 0x16, 0x83, 0xE9, 0x01, 0x74, 0x0D, 0x83, 0xF9, 0x01, 0x75,
-    0x08, 0x8A, 0x05, 0xED, 0xFE, 0x5D, 0x02, 0xEB, 0x0F, 0xB0, 0x01, 0xEB, 0x0B, 0xE8, 0xC0, 0x4E, 0x6D, 0xFE,
-    0x8A, 0x80, 0xF0, 0x00, 0x00, 0x00, 0x48, 0x83, 0xC4, 0x28, 0xC3};
-const uint8_t kDirtyStoreBytes[] = {0xC6, 0x05, 0xCC, 0x28, 0x32, 0x03, 0x01};  // -> 0x45C6F80
-
 // ---- configuration ([Menu]) ------------------------------------------------------------------------------------------
 struct KeyDef {
     const char* name;
@@ -105,6 +83,7 @@ const KeyDef kKeys[] = {
 
 struct Cfg {
     int enabled = 1;
+    int layout = 1;  // 1 grouped pages, 0 original flat layout (automation compatibility)
     UINT vk = VK_F10;
     uint8_t dik = 0x44;
     char keyName[16] = "F10";
@@ -118,7 +97,6 @@ struct Cfg {
     float scale = 0;    // 0 = auto
     int pauseHint = 2;  // [Menu] PauseHint: 2 always, 1 while a game menu is open, 0 off
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
-    int fgToggle = 1;          // [Menu] FrameGenToggle: 0 status only, 1 switch on Windows, 2 also under Proton (risky)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
@@ -129,13 +107,13 @@ bool g_configured = false;
 volatile LONG g_disabled = 0;
 
 // ---- shared input state (input thread <-> Present thread) -------------------------------------------------------------
-enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32 };
+enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128 };
 // pad raw bits: wButtons | stick directions | triggers
 constexpr uint32_t B_SU = 1u << 16, B_SD = 1u << 17, B_SL = 1u << 18, B_SR = 1u << 19, B_LT = 1u << 20,
                    B_RT = 1u << 21, B_STICKS = B_SU | B_SD | B_SL | B_SR;
 // keyboard bits
-enum : uint32_t { K_TOGGLE = 1, K_UP = 2, K_DOWN = 4, K_LEFT = 8, K_RIGHT = 16, K_ENTER = 32, K_NPENTER = 64, K_ESC = 128, K_BACKSP = 256 };
-constexpr uint32_t K_NAV = K_UP | K_DOWN | K_LEFT | K_RIGHT | K_ENTER | K_NPENTER | K_ESC | K_BACKSP;
+enum : uint32_t { K_TOGGLE = 1, K_UP = 2, K_DOWN = 4, K_LEFT = 8, K_RIGHT = 16, K_ENTER = 32, K_NPENTER = 64, K_ESC = 128, K_BACKSP = 256, K_PAGEUP = 512, K_PAGEDOWN = 1024 };
+constexpr uint32_t K_NAV = K_UP | K_DOWN | K_LEFT | K_RIGHT | K_ENTER | K_NPENTER | K_ESC | K_BACKSP | K_PAGEUP | K_PAGEDOWN;
 struct NavKey {
     uint32_t bit;
     UINT vk;
@@ -143,7 +121,8 @@ struct NavKey {
 };
 const NavKey kNavKeys[] = {{K_UP, VK_UP, 0xC8},       {K_DOWN, VK_DOWN, 0xD0},     {K_LEFT, VK_LEFT, 0xCB},
                            {K_RIGHT, VK_RIGHT, 0xCD}, {K_ENTER, VK_RETURN, 0x1C},  {K_NPENTER, VK_RETURN, 0x9C},
-                           {K_ESC, VK_ESCAPE, 0x01},  {K_BACKSP, VK_BACK, 0x0E}};
+                           {K_ESC, VK_ESCAPE, 0x01},  {K_BACKSP, VK_BACK, 0x0E},
+                           {K_PAGEUP, VK_PRIOR, 0xC9}, {K_PAGEDOWN, VK_NEXT, 0xD1}};
 
 volatile LONG g_open = 0;
 volatile LONG g_pressed = 0;          // N_* edges collected while open, consumed by OnPresent
@@ -191,6 +170,8 @@ uint32_t PadNav(uint32_t raw) {
     if (raw & (XINPUT_GAMEPAD_DPAD_RIGHT | B_SR)) n |= N_RIGHT;
     if (raw & XINPUT_GAMEPAD_A) n |= N_OK;
     if (raw & XINPUT_GAMEPAD_B) n |= N_BACK;
+    if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_PAGEUP;
+    if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_PAGEDOWN;
     return n;
 }
 uint32_t KeyNav(uint32_t k) {
@@ -201,6 +182,8 @@ uint32_t KeyNav(uint32_t k) {
     if (k & K_RIGHT) n |= N_RIGHT;
     if (k & (K_ENTER | K_NPENTER)) n |= N_OK;
     if (k & (K_ESC | K_BACKSP)) n |= N_BACK;
+    if (k & K_PAGEUP) n |= N_PAGEUP;
+    if (k & K_PAGEDOWN) n |= N_PAGEDOWN;
     return n;
 }
 
@@ -234,6 +217,13 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     const uint32_t pressed = raw & ~prev;
     g_padHeld[idx] = (LONG)raw;
     g_padHeldAt[idx] = (LONG64)t;
+    if(g_coverToken.load()) {
+        if((pressed & XINPUT_GAMEPAD_B)!=0){CancelCoverInput();if(!own)g.wButtons&=~XINPUT_GAMEPAD_B;}
+        if(!own && CoverCaptures(t)){memset(&g,0,sizeof(g));st->dwPacketNumber+=0x40000000u;}
+        else if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
+        return; // cover cancellation/staleness must not leave normal menu latches capturing
+    }
+
     if (g_disabled) return;
     ForceCloseIfDead(t);
     const bool alive = Alive(t, 1000);
@@ -292,6 +282,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
             s.holdFired = false;
         }
     }
+    if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
     if (g_open) InterlockedOr(&g_pressed, (LONG)PadNav(pressed));
     if (own) return;
     if (tapModified) st->dwPacketNumber += 0x40000000u;
@@ -327,6 +318,13 @@ void KeyFeed(uint8_t* keys, bool own) {
     g_keyPrev = raw;
     g_keyHeld = (LONG)raw;
     g_keyHeldAt = (LONG64)t;
+    if(g_coverToken.load()) {
+        if((pressed & K_ESC)!=0){CancelCoverInput();if(!own)keys[DIK_ESCAPE]=0;}
+        if(!own && CoverCaptures(t))memset(keys,0,256);
+        else if(!own && t<g_coverCancelUntil.load())keys[DIK_ESCAPE]=0;
+        return;
+    }
+    if(!own && t<g_coverCancelUntil.load())keys[DIK_ESCAPE]=0;
     if (g_disabled) return;
     ForceCloseIfDead(t);
     if ((pressed & K_TOGGLE) && Alive(t, 1000)) Request(t, 1);
@@ -584,231 +582,12 @@ bool Rd(const void* p, T& out) {
     }
 }
 
-// ---- frame generation through the game's own setter --------------------------------------------------------------------
-bool g_fgOk = false;         // setter, gate and dirty store verified, and [Menu] FrameGenToggle allows it (1 / 2 on Proton)
-bool g_fgChanged = false;    // changed from this menu this session: "Save to ini" also writes config.xml (Proton: OFF only)
-bool g_fgNextLaunch = false;  // Proton: FG ON -> OFF written to config.xml, applies at the next launch
-int g_fgLastOn = 2;          // A/Enter turns FG on with this type (FSR unless another one was picked)
-ULONGLONG g_fgChangedAt = 0;
-const int kFgCycle[] = {0, 2, 3, 1};  // OFF, FSR, XeSS, DLSS (unavailable types are skipped)
-
 bool BytesAt(uint32_t rva, const uint8_t* b, size_t n) {
     __try {
         return memcmp(g_host.base + rva, b, n) == 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
-}
-
-int FgSetting() {
-    int v = -1;
-    if (g_host.knownBuild && g_host.base) Rd(g_host.base + kRvaFrameGen, v);
-    return v >= 0 && v <= 3 ? v : -1;
-}
-
-// mirrors IsFrameGenTypeAvailable (0x1FE3FA4) without calling it: FSR always, DLSS / XeSS only when the game found them
-bool FgTypeAvailable(int v) {
-    uint8_t b = 0;
-    switch (v) {
-        case 0: case 2: return true;
-        case 1: return Rd(g_host.base + kRvaSlCaps + 0xF0, b) && b;
-        case 3: return Rd(g_host.base + kRvaXessFgAvail, b) && b;
-        default: return false;
-    }
-}
-
-// FrameGenSettingWrite(v) - the game's own setter (it re-checks availability and writes 0 if the type is unavailable).
-// Returns the slot value afterwards (-2 on an exception).
-int CallFgWrite(int v) {
-    using Fn = void (*)(int);
-    __try {
-        reinterpret_cast<Fn>(g_host.base + kRvaFgWrite)(v);
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return -2;
-    }
-    return FgSetting();
-}
-
-void SetConfigDirty() {
-    __try {
-        *reinterpret_cast<volatile uint8_t*>(g_host.base + kRvaConfigDirty) = 1;
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-    }
-}
-
-bool CStrEq(const char* p, const char* s) {
-    __try {
-        return p && s && strcmp(p, s) == 0;
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return false;
-    }
-}
-
-// the game's own descriptor for FRAME_GENERATION still says {OFF, DLSS, FSR, XeSS} (the strings config.xml uses)
-bool FgDescMatches() {
-    const uint8_t* d = g_host.base + kRvaConfigDesc + kIdxFrameGen * 0x30;
-    uint64_t name = 0, vals = 0;
-    int cnt = 0;
-    if (!Rd(d, name) || !Rd(d + 8, vals) || !Rd(d + 0x24, cnt) || cnt != 4) return false;
-    if (!CStrEq(reinterpret_cast<const char*>((uintptr_t)name), "FRAME_GENERATION")) return false;
-    for (int i = 0; i < 4; ++i) {
-        uint64_t p = 0;
-        if (!Rd(reinterpret_cast<const uint8_t*>((uintptr_t)vals) + 8 * i, p) ||
-            !CStrEq(reinterpret_cast<const char*>((uintptr_t)p), osd::FgTypeName(i)))
-            return false;
-    }
-    return true;
-}
-
-bool ReadWStr(const wchar_t* p, wchar_t* out, size_t n) {
-    __try {
-        size_t i = 0;
-        for (; i + 1 < n && p[i]; ++i) out[i] = p[i];
-        out[i] = 0;
-        return i > 0 && i + 1 < n;
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return false;
-    }
-}
-
-// the config.xml the game loaded (its own path string); %LOCALAPPDATA%\KoeiTecmo\NIOH3\config.xml if that looks wrong
-std::wstring GameConfigPath() {
-    static const wchar_t kTail[] = L"\\KoeiTecmo\\NIOH3\\config.xml";
-    const size_t tail = wcslen(kTail);
-    wchar_t b[MAX_PATH] = {};
-    if (ReadWStr(reinterpret_cast<const wchar_t*>(g_host.base + kRvaConfigPathW), b, MAX_PATH)) {
-        const size_t n = wcslen(b);
-        if (n > tail + 2 && !_wcsicmp(b + n - tail, kTail)) return b;
-    }
-    wchar_t e[MAX_PATH] = {};
-    const DWORD n = ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\KoeiTecmo\\NIOH3\\config.xml", e, MAX_PATH);
-    MLOG("config.xml: the game's path string is not readable - using %ls", n && n <= MAX_PATH ? e : L"(none)");
-    return n && n <= MAX_PATH && e[0] != L'%' ? e : L"";
-}
-
-// Rewrites ONLY the FRAME_GENERATION value of the game's config.xml (every other byte stays), after copying the file
-// to config.xml.Nioh3EngineFix.bak. Returns 1 written, 2 already that value, 3 failed (logged). Save thread.
-int WriteGameConfigFg(const std::wstring& path, const std::string& value) {
-    if (path.empty()) return 3;
-    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (h == INVALID_HANDLE_VALUE) {
-        MLOG("config.xml: cannot open %ls (%lu) - not changed", path.c_str(), GetLastError());
-        return 3;
-    }
-    std::string data;
-    LARGE_INTEGER sz{};
-    bool ok = GetFileSizeEx(h, &sz) && sz.QuadPart > 0 && sz.QuadPart < (1 << 20);
-    if (ok) {
-        data.resize((size_t)sz.QuadPart);
-        DWORD rd = 0;
-        ok = ReadFile(h, &data[0], (DWORD)data.size(), &rd, nullptr) && rd == (DWORD)data.size();
-    }
-    CloseHandle(h);
-    if (!ok) {
-        MLOG("config.xml: reading %ls failed - not changed", path.c_str());
-        return 3;
-    }
-    static const char kOpen[] = "<FRAME_GENERATION>", kClose[] = "</FRAME_GENERATION>";
-    const size_t a = data.find(kOpen);
-    if (a == std::string::npos || data.find(kOpen, a + 1) != std::string::npos) {
-        MLOG("config.xml: <FRAME_GENERATION> not found exactly once - not changed");
-        return 3;
-    }
-    const size_t v0 = a + strlen(kOpen), b = data.find(kClose, v0);
-    const std::string cur = b == std::string::npos ? std::string() : data.substr(v0, b - v0);
-    bool known = false;
-    for (int i = 0; i < 4; ++i) known |= cur == osd::FgTypeName(i);
-    if (!known) {
-        MLOG("config.xml: unexpected FRAME_GENERATION value \"%.16s\" - not changed", cur.c_str());
-        return 3;
-    }
-    if (cur == value) {
-        MLOG("config.xml: FRAME_GENERATION is already %s - not changed", value.c_str());
-        return 2;
-    }
-    const std::wstring bak = path + L".Nioh3EngineFix.bak", tmp = path + L".Nioh3EngineFix.tmp";
-    if (!CopyFileW(path.c_str(), bak.c_str(), FALSE)) {
-        MLOG("config.xml: backup to %ls failed (%lu) - not changed", bak.c_str(), GetLastError());
-        return 3;
-    }
-    const std::string out = data.substr(0, v0) + value + data.substr(b);
-    h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    DWORD wr = 0;
-    ok = h != INVALID_HANDLE_VALUE && WriteFile(h, out.data(), (DWORD)out.size(), &wr, nullptr) && wr == (DWORD)out.size() &&
-         FlushFileBuffers(h);
-    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
-    if (!ok || !MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-        MLOG("config.xml: writing %ls failed (%lu) - not changed", path.c_str(), GetLastError());
-        DeleteFileW(tmp.c_str());
-        return 3;
-    }
-    MLOG("config.xml: FRAME_GENERATION %s -> %s in %ls (previous file: %ls)", cur.c_str(), value.c_str(), path.c_str(), bak.c_str());
-    return 1;
-}
-
-// ---- Proton: never leave FRAME_GENERATION on in config.xml because of the mod ---------------------------------------------
-// FG on under Proton is reported to crash the game, and a config.xml with FG on then crash-loops it. The mod never saves
-// FG on there itself, but the game does as soon as the user leaves its own Options/pause menu. So when the mod switched
-// FG on this session and config.xml had FG OFF at startup, it drops a marker file next to the mod and puts OFF back:
-//   * at exit (dllmain hooks the game's ExitProcess / TerminateProcess imports and calls ProtonFgExit; DLL detach as a
-//     last resort), and
-//   * at the next start, before the game reads its config, if the marker is still there (crash) - ProtonFgEarly.
-std::wstring g_fgMarker;        // Nioh3EngineFix.fgmarker
-std::wstring g_cfgPathEarly;    // %LOCALAPPDATA%\KoeiTecmo\NIOH3\config.xml
-std::string g_fgAtStart;        // FRAME_GENERATION in config.xml when the mod started ("" = unknown)
-volatile LONG g_fgMarkerSet = 0;
-volatile LONG g_fgExitDone = 0;
-// 1.7.44 [Menu] FrameGenToggle = 3 ("Proton safe FG", notes\fg-proton-fix.md)
-int g_fgToggleEarly = 1;        // [Menu] FrameGenToggle as read by dllmain before Configure (ProtonFgEarly)
-std::string g_fgExitWant;       // FRAME_GENERATION config.xml must hold at a clean exit ("" = OFF, the FrameGenToggle 2 rule)
-bool g_fgSoft = false;          // FSR FG paused by the mod (FGP): the setting stays FSR, no frames are interpolated
-
-std::string ReadGameConfigFg(const std::wstring& path) {
-    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (h == INVALID_HANDLE_VALUE) return "";
-    std::string data;
-    LARGE_INTEGER sz{};
-    DWORD rd = 0;
-    if (GetFileSizeEx(h, &sz) && sz.QuadPart > 0 && sz.QuadPart < (1 << 20)) {
-        data.resize((size_t)sz.QuadPart);
-        if (!ReadFile(h, &data[0], (DWORD)data.size(), &rd, nullptr) || rd != (DWORD)data.size()) data.clear();
-    }
-    CloseHandle(h);
-    static const char kOpen[] = "<FRAME_GENERATION>", kClose[] = "</FRAME_GENERATION>";
-    const size_t a = data.find(kOpen);
-    if (a == std::string::npos) return "";
-    const size_t v0 = a + strlen(kOpen), b = data.find(kClose, v0);
-    return b == std::string::npos || b - v0 > 8 ? "" : data.substr(v0, b - v0);
-}
-
-void SetFgMarker() {
-    if (g_fgMarker.empty() || InterlockedExchange(&g_fgMarkerSet, 1)) return;
-    HANDLE h = CreateFileW(g_fgMarker.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    static const char kText[] = "Frame generation is on in this Proton session (switched on by the mod, or launched with it).\r\n"
-                                "If this file is still here at the next start, the session did not end cleanly and\r\n"
-                                "Nioh3EngineFix puts FRAME_GENERATION OFF back into config.xml before the game reads it.\r\n";
-    DWORD wr = 0;
-    const bool ok = h != INVALID_HANDLE_VALUE && WriteFile(h, kText, (DWORD)sizeof(kText) - 1, &wr, nullptr) && FlushFileBuffers(h);
-    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
-    MLOG("Proton: FG on this session - marker %ls %s (a crash puts FRAME_GENERATION OFF back at the next start; clean exit: %s)",
-         g_fgMarker.c_str(), ok ? "written" : "COULD NOT be written", g_fgExitWant.empty() ? "OFF" : g_fgExitWant.c_str());
-}
-
-// 1.7.44 FrameGenToggle = 3: a launch with FG on in config.xml (and no crash marker left, or after ProtonFgEarly put OFF
-// back) arms the marker before the game reads config.xml; a clean exit keeps the value, a crash reverts it to OFF.
-void ProtonFgArmAtLaunch() {
-    if (g_fgToggleEarly != 3 || g_fgAtStart.empty() || g_fgAtStart == "OFF") return;
-    g_fgExitWant = g_fgAtStart;
-    SetFgMarker();
-    MLOG("Proton safe FG ([Menu] FrameGenToggle = 3): launching with FRAME_GENERATION %s - crash guard armed before the game "
-         "reads config.xml", g_fgAtStart.c_str());
-}
-
-// called from ChangeFg on the Present thread after a switch
-void NoteFgSwitchProton(int want) {
-    if (!g_host.wine || !want) return;
-    if (g_fgAtStart == "OFF") SetFgMarker();
-    else MLOG("Proton: config.xml had FRAME_GENERATION %s at startup - no OFF restore at exit", g_fgAtStart.empty() ? "?" : g_fgAtStart.c_str());
 }
 
 // ---- items ----------------------------------------------------------------------------------------------------------
@@ -820,6 +599,10 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
+#include "settings_catalog.h"
+#include "menu_pages.h"
+menu_nav::Trail<> g_pages;
+ULONGLONG g_rep[4] = {};  // repeats never carry into a different page
 static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 static_assert(kEp9 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
 bool IsExp(int id) { return id >= kXW6 && id <= kXPCM; }
@@ -929,7 +712,7 @@ const ItemDef kItems[kCount] = {
     {"Show game speed", "", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow.", "Overlay only. Applies now."},
     {"Move FPS counter", "(corner)", "Which screen corner the counter sits in. Top-left starts below the game's own health bars.", "Overlay only. Applies now. Save to ini keeps it."},
     {"FPS counter text size", "", "1.0 = 8x16 px letters (x2 at 4K). Whole numbers look sharpest.", "Overlay only. Applies now."},
-    {"Turn frame gen ON", "(FG)", "Same as the game's Options > Frame Generation. Left/Right picks the type. The screen blinks while it switches.", "Changes the picture (extra frames). Applies now. Proton: ON->OFF applies at the next launch."},
+    {"Frame generation (game setting)", "(FG)", "Shows the game's frame-generation setting. Change it in the game's Options.", "Status only."},
     {"Frame gen:", "", "Real fps (game thread) vs displayed fps (FSR presenter thread): running when displayed > 1.15x real.", "Status only."},
     {"Upscaler (game setting)", "", "The game's upscaler setting. FSR frame gen does not need the FSR upscaler.", "Status only."},
     {"Nudge counter right", "(offset X)", "Moves the counter away from its corner's left/right screen edge (pixels at 1080p).", "Overlay only. Applies now. A resets to 0."},
@@ -941,7 +724,7 @@ const ItemDef kItems[kCount] = {
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
     {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
-    {"Save to ini", "", "Saves these choices to Nioh3EngineFix.ini; a frame-gen change made here also goes to the game's config.xml.", "Applies at the next launch."},
+    {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
 };
 
@@ -977,7 +760,7 @@ int OrderPos(int id) {
     return 0;
 }
 
-int g_sel = kFps;  // first row of the menu (kOrder[0]); Up from it wraps to 'Close menu'
+int g_sel = kFps;  // unchanged for Layout=0; grouped opens start at Settings
 bool g_dirty = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
@@ -998,7 +781,57 @@ bool Visible(int id) {
 }
 
 // status rows: shown, never selected
-bool ReadOnly(int id) { return id == kFgState || id == kUpscaler; }
+bool ReadOnly(int id) { return id == kFg || id == kFgState || id == kUpscaler; }
+
+int PageRows(int* out, bool selectable) {
+    int n = 0;
+    auto add = [&](int id) { out[n++] = id; };
+    if (!g_cfg.layout) {
+        for (const auto& row : kOrder)
+            if (Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+        if (g_rematchSession.load()) add(kRematchRow);
+        return n;
+    }
+    const int page = g_pages.page;
+    if (page == pRoot) {
+        add(kPageRow + pSettings);
+        if (g_rematchSession.load()) add(kRematchRow);
+    }
+    else if (page == pSettings) {
+        for (int p : {pDisplay, pFrameGen, pGameplay, pSafe, pExtra, pExperimental, pDiagnostics, pBoot, pAll, pConfig}) {
+            bool visible = p == pExperimental || p == pAll || p == pConfig;
+            for (const auto& row : kOrder) visible |= PageContains(p, row.id) && Visible(row.id);
+            if (visible) add(kPageRow + p);
+        }
+    } else if (page == pExperimental) {
+        for (int p : {pCpu, pGpu, pScheduling, pProton}) {
+            bool visible = false;
+            for (const auto& row : kOrder) visible |= PageContains(p, row.id) && Visible(row.id);
+            if (visible) add(kPageRow + p);
+        }
+    }
+    if (page == pConfig) {
+        for (int group = 0; group < kConfigGroupN; ++group) add(kPageRow + pCfgFirst + group);
+    } else if (page >= pCfgFirst && page < pCount) {
+        for (int i = 0; i < kConfigN; ++i)
+            if (kConfigSettings[i].group == page - pCfgFirst) add(kSettingRow + i);
+        add(kSave);
+    }
+    for (const auto& row : kOrder)
+        if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+    // All settings deliberately has exactly the original traversal order, so
+    // keyed test sequences can enter it without acquiring an extra Back row.
+    if (page != pRoot && page != pAll) add(kBackRow);
+    return n;
+}
+
+void EnterPage(int page) {
+    if (!g_pages.Enter(page, g_sel)) return;
+    int rows[kMenuRowCap];
+    const int n = PageRows(rows, true);
+    g_sel = page == pAll ? kClose : n ? rows[0] : kBackRow;
+    for (auto& repeat : g_rep) repeat = 0;
+}
 
 bool Available(int id) {
     switch (id) {
@@ -1011,7 +844,7 @@ bool Available(int id) {
         case kWk: return g_host.wkEnable != nullptr;
         case kAutoCont: return g_host.autoContinue != nullptr;
         case kEpPre: return extraperf::AnyAvailable();
-        case kFg: return g_fgOk;
+        case kFg: return g_host.knownBuild && g_host.base;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
             return gpuopt::GetState() == gpuopt::State::Active || gpuopt::GetState() == gpuopt::State::Paused;
@@ -1097,34 +930,11 @@ void FgValue(int id, char* buf, size_t n, uint32_t& color) {
         static const uint32_t kCol[4] = {cGray, cGreen, cOrange, cYellow};
         const int cls = osd::FgStateText(s, buf, n);
         color = kCol[cls & 3];
-        if (g_fgNextLaunch && s.setting != 0) {
-            snprintf(buf, n, "ON - turns OFF at next launch");
-            color = cOrange;
-        }
-        if (g_fgSoft && s.setting != 0) {
-            snprintf(buf, n, "OFF - paused by the mod (no rebuild)");
-            color = cGray;
-        }
         return;
     }
-    // kFg
-    const char* ro = Available(kFg) ? "" : "  (read-only)";
-    if (!name) {
-        snprintf(buf, n, "?%s", ro);
-        color = cDim;
-    } else if (g_fgNextLaunch && s.setting != 0) {
-        snprintf(buf, n, "FG off at next launch");
-        color = cOrange;
-    } else if (g_fgSoft && s.setting != 0) {
-        snprintf(buf, n, "type: FSR (paused)%s", ro);
-        color = cGray;
-    } else if (s.setting == 0) {
-        snprintf(buf, n, "type: FSR%s", ro);  // what A/Enter would switch on
-        color = cGray;
-    } else {
-        snprintf(buf, n, "type: %s%s", name, ro);
-        color = s.active ? cGreen : cYellow;
-    }
+    // The setting is telemetry only, including when FG is OFF.
+    snprintf(buf, n, "%s  (read-only)", name ? name : "?");
+    color = !name ? cDim : s.setting == 0 ? cGray : s.active ? cGreen : cYellow;
 }
 
 void Value(int id, char* buf, size_t n, uint32_t& color) {
@@ -1239,12 +1049,9 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
 struct SaveJob {
     std::wstring ini;
     std::vector<std::wstring> entries;  // section, key, value triples
-    std::wstring gameCfg;               // config.xml to update (empty = leave it alone)
-    std::string fgValue;                // FRAME_GENERATION value for it ("OFF", "FSR", ...)
 };
 volatile LONG g_saveState = 0;  // 0 idle, 1 running, 2 ok, 3 failed
 volatile LONG g_saveErr = 0;
-volatile LONG g_cfgXmlState = 0;  // last save: 0 config.xml not touched, 1 written, 2 already that value, 3 failed
 ULONGLONG g_saveShownAt = 0;
 
 DWORD WINAPI SaveThread(LPVOID p) {
@@ -1261,10 +1068,8 @@ DWORD WINAPI SaveThread(LPVOID p) {
     WritePrivateProfileStringW(nullptr, nullptr, nullptr, job->ini.c_str());  // flush the profile cache
     if (err) MLOG("save: %zu of %zu keys written, first error %lu", ok, job->entries.size() / 3, err);
     else MLOG("save: %zu keys written to the ini", ok);
-    const LONG xml = job->fgValue.empty() ? 0 : (LONG)WriteGameConfigFg(job->gameCfg, job->fgValue);
-    InterlockedExchange(&g_cfgXmlState, xml);
     g_saveErr = (LONG)err;
-    InterlockedExchange(&g_saveState, err || xml == 3 ? 3 : 2);
+    InterlockedExchange(&g_saveState, err ? 3 : 2);
     delete job;
     return 0;
 }
@@ -1337,19 +1142,9 @@ void StartSave() {
         swprintf(w, 32, L"%.1f", o.scale);
         add(L"Overlay", L"Scale", w);
     }
-    // frame generation changed from this menu: also into the game's config.xml (only that value; backup first)
-    if (g_fgChanged && Available(kFg)) {
-        const char* v = osd::FgTypeName(FgSetting());
-        if (!v) MLOG("save: FRAME_GENERATION slot unreadable - config.xml not changed");
-        else if (g_host.wine && strcmp(v, "OFF") != 0)
-            MLOG("save: Proton - frame generation %s is kept for this session only, config.xml not changed", v);
-        else if (!FgDescMatches()) MLOG("save: the game's FRAME_GENERATION descriptor differs from OFF/DLSS/FSR/XeSS - config.xml not changed");
-        else {
-            job->gameCfg = GameConfigPath();
-            job->fgValue = v;
-        }
-    }
-    InterlockedExchange(&g_cfgXmlState, 0);
+    // Only explicitly edited catalog values override the existing live-control save.
+    // Unchanged startup preferences, paths and comments are never rewritten here.
+    g_configValues.Save(kConfigSettings, add);
     InterlockedExchange(&g_saveState, 1);
     g_saveShownAt = 0;
     MLOG("save: writing %zu keys", job->entries.size() / 3);
@@ -1372,16 +1167,34 @@ void Open(const char* how) {
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
     MessageBeep(MB_OK);  // audible confirmation of the hold gesture, even if the overlay can't draw
-    if (!Visible(g_sel)) g_sel = kOrder[0].id;
+    if (g_cfg.layout) {
+        g_pages.Reset();
+        g_sel = kPageRow + pSettings;
+    } else if (g_sel >= kCount || !Visible(g_sel)) g_sel = kOrder[0].id;
+    for (auto& repeat : g_rep) repeat = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
 
 void Close(const char* how) {
+    CloseRematchHostPage();
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedOr(&g_keyLatch, (LONG)K_NAV);
     InterlockedExchange(&g_open, 0);
     MessageBeep(MB_ICONASTERISK);
-    MLOG("closed (%s)%s", how, g_dirty ? " - unsaved changes are active until the game exits" : "");
+    MLOG("closed (%s)%s", how, g_dirty ? " - unsaved choices: live rows last until exit; startup rows need Save/restart" : "");
+}
+
+void CloseCover(const char* why) {
+    g_coverTombstone=g_coverToken.load();g_coverTombstoneSession=g_coverSession.load();
+    CloseRematchHostPage();
+    for(PadSlot& p:g_pad)p.latch=false;
+    g_keyLatch=0;g_pressed=0;g_toggleReq=0;for(auto& repeat:g_rep)repeat=0;g_open=0;g_coverEnabled=false;g_coverToken=0;g_coverPresented=0;
+    snprintf(g_coverNotice,sizeof(g_coverNotice),"%s",why);g_coverNoticeUntil=Now()+8000;
+    MLOG("transition cover closed: %s (native ownership unchanged)",why);
+}
+void Back() {
+    if (!g_cfg.layout || !g_pages.Back(g_sel)) Close("B / Esc");
+    for (auto& repeat : g_rep) repeat = 0;
 }
 
 // AutoContinueLoad: live switch + the one ini key written at once on a background thread (the rest waits for 'Save to ini')
@@ -1410,131 +1223,65 @@ void SetLiveBool(int id, bool v) {
     }
 }
 
-// 1.7.44 [Menu] FrameGenToggle = 3 under Proton ("Proton safe FG", notes\fg-proton-fix.md). OFF <-> FSR only.
-//   * on: from a paused FG (FGP) = resume, no swapchain rebuild. From OFF = the game's setter (the live OFF -> FSR rebuild
-//     ran 3/3 on the Ally). Then the crash marker is armed FIRST and config.xml gets FSR, so the next launch starts with
-//     FG, and a crash in this or a later FG session puts OFF back at the next start (ProtonFgEarly).
-//   * off: never the game's FSR -> OFF rebuild (it crashed the game ~2 s later on the Ally, v9 log). FGP pauses FSR FG at
-//     once (the engine's own menu pause: real frames only); config.xml gets OFF, so the next launch has no FG swapchain.
-//     Without FGP: config.xml OFF only, FG stays until the next launch (the FrameGenToggle 2 behaviour).
-void ChangeFgSafe(ULONGLONG t) {
-    const int cur = FgSetting();
-    if (cur < 0) return;
-    const int eff = (g_fgSoft || g_fgNextLaunch) ? 0 : cur;
-    const std::wstring path = GameConfigPath();
-    g_fgChangedAt = t;
-    if (eff != 0) {  // -> OFF
-        if (g_host.fgPause) {
-            *g_host.fgPause = 1;
-            g_fgSoft = true;
-        }
-        g_fgExitWant = "OFF";
-        SetFgMarker();  // the clean-exit OFF rule needs the marker (no-op when already armed)
-        const int r = path.empty() ? 3 : WriteGameConfigFg(path, "OFF");
-        g_fgNextLaunch = !g_host.fgPause;
-        g_dirty = true;
-        MLOG("Frame generation %s -> OFF (Proton safe FG): %s; config.xml %s", osd::FgTypeName(cur),
-             g_host.fgPause ? "FSR FG paused now through the engine's own FG pause (FGP) - no swapchain rebuild"
-                            : "FGP not installed - FG keeps running until the next launch",
-             r == 3 ? "could NOT be written (OFF is still forced at a clean exit)" : "set to OFF for the next launch");
-        return;
+bool RemoteValue(int id, int& value);
+void SyncConfigFromLive(int id) {
+    std::string value;
+    int number = 0;
+    auto& o = osd::Overlay();
+    if (id == kPos) value = osd::PositionName(o.pos);
+    else if (id == kScale) value = std::to_string(o.scale);
+    else if (id == kOffX || id == kOffY) value = std::to_string(id == kOffX ? o.offX : o.offY);
+    else if (Available(id) && RemoteValue(id, number)) value = std::to_string(number);
+    for (int i = 0; i < kConfigN; ++i) {
+        if (kConfigSettings[i].legacy != id) continue;
+        auto& preference = g_configValues.values[(size_t)i];
+        preference.changed = false;
+        if (!value.empty()) preference.text = value;
     }
-    // -> FSR
-    if (cur == 2 && (g_fgSoft || g_fgNextLaunch)) {
-        if (g_fgSoft) *g_host.fgPause = 0;
-        MLOG("Frame generation back ON (Proton safe FG): %s - no swapchain rebuild",
-             g_fgSoft ? "FGP pause cleared" : "the 'off at next launch' is cancelled");
-        g_fgSoft = false;
-    } else if (cur == 0) {
-        const int got = CallFgWrite(2);
-        if (got != 2) {
-            MLOG("Frame generation OFF -> FSR (Proton safe FG): the game's setter left it at %s", osd::FgTypeName(got) ? osd::FgTypeName(got) : "?");
-            return;
-        }
-        osd::NoteFgSwitch();
-        MLOG("Frame generation OFF -> FSR (Proton safe FG) via the game's FrameGenSettingWrite; the game rebuilds its swapchain "
-             "in a few frames%s", g_host.fgcOn ? " (FGC copy-job guard installed)" : " - WARNING: FGC guard not installed");
-    } else {
-        MLOG("Frame generation: Proton safe FG switches only OFF <-> FSR (the setting is %s) - nothing changed", osd::FgTypeName(cur));
-        return;
-    }
-    g_fgLastOn = 2;
-    g_fgNextLaunch = false;
-    g_fgExitWant = "FSR";
-    SetFgMarker();  // armed BEFORE config.xml holds FSR (a crash from here on puts OFF back at the next start)
-    const int r = path.empty() ? 3 : WriteGameConfigFg(path, "FSR");
-    g_dirty = true;
-    MLOG("Proton safe FG: config.xml FRAME_GENERATION %s", r == 3 ? "could NOT be set to FSR (FG is on for this session only)"
-                                                                : "= FSR - the next launch starts with FG (crash guard: marker)");
-    if (r == 3) g_fgExitWant.clear();
 }
-
-// Frame generation: A/Enter = OFF <-> last type (FSR), Left/Right = cycle OFF / FSR / XeSS / DLSS (available ones).
-// One switch per 2 s: every change makes the game rebuild its swapchain.
-void ChangeFg(int dir) {
-    if (!Available(kFg)) return;
-    const ULONGLONG t = Now();
-    if (g_fgChangedAt && t - g_fgChangedAt < 2000) return;
-    if (g_host.wine && g_cfg.fgToggle == 3) {
-        ChangeFgSafe(t);
-        return;
+char g_configReply[256] = "";
+int g_configReplyRow = -1;
+void ChangeConfig(int index, int dir) {
+    if (index < 0 || index >= kConfigN) return;
+    const auto& d = kConfigSettings[index];
+    if (!g_configValues.Change(kConfigSettings, (size_t)index, dir)) return;
+    const auto& v = g_configValues.values[(size_t)index].text;
+    g_configReplyRow = index;
+    snprintf(g_configReply, sizeof(g_configReply), "Next launch: save to ini, then restart the game.");
+    if (d.apply == setting_ui::Apply::OverlayLive) {
+        auto& o = osd::Overlay();
+        if (!strcmp(d.key, "Brightness")) o.brightness = (float)atof(v.c_str());
+        else if (!strcmp(d.key, "StartupPopup")) o.popup = atoi(v.c_str());
+        else if (!strcmp(d.key, "StartupPopupSeconds")) o.popupSeconds = (float)atof(v.c_str());
+        else if (!strcmp(d.key, "StartupPopupDelay")) o.popupDelay = (float)atof(v.c_str());
+        snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
+    } else if (d.apply == setting_ui::Apply::MenuLive) {
+        g_cfg.scale = (float)atof(v.c_str());
+        snprintf(g_configReply, sizeof(g_configReply), "Menu text size applies now; 0 = auto. Save to keep it.");
+    } else if (d.apply == setting_ui::Apply::TuningLive && g_host.tuning) {
+        // Install-with-switch-off (2) means OFF now, install OFF on the next launch.
+        const char* live = !strcmp(d.section, "Patches") && v == "2" ? "0" : v.c_str();
+        if (!g_host.tuning(d.liveKey, live, g_configReply, sizeof(g_configReply)))
+            snprintf(g_configReply, sizeof(g_configReply), "Live setter unavailable; save for the next launch.");
     }
-    const int cur = FgSetting();
-    if (cur < 0) return;
-    int want = cur;
-    if (dir == 0) {
-        want = cur ? 0 : (FgTypeAvailable(g_fgLastOn) ? g_fgLastOn : 2);
-    } else {
-        int i = 0;
-        while (i < 3 && kFgCycle[i] != cur) ++i;
-        for (int k = 0; k < 4; ++k) {
-            i = (i + (dir > 0 ? 1 : 3)) % 4;
-            if (FgTypeAvailable(kFgCycle[i])) break;
-        }
-        want = kFgCycle[i];
-    }
-    if (want == cur) return;
-    if (g_host.wine && cur != 0 && want == 0) {
-        // Proton: rebuilding the swapchain away from FSR frame generation crashed the game (v9 log). So FG ON -> OFF is
-        // applied at the next launch: config.xml gets FRAME_GENERATION OFF now, the game keeps running as it is.
-        g_fgChangedAt = t;
-        const std::wstring path = GameConfigPath();
-        const int r = path.empty() ? 3 : WriteGameConfigFg(path, "OFF");
-        if (r != 3) {
-            if (g_fgAtStart == "OFF") SetFgMarker();
-            g_fgNextLaunch = true;
-            g_dirty = true;
-        }
-        MLOG("Frame generation %s -> OFF on Proton: %s (live swapchain rebuild skipped - it crashed the game)",
-             osd::FgTypeName(cur), r != 3 ? "config.xml set to OFF, takes effect at the next launch" : "config.xml could NOT be written");
-        return;
-    }
-    const int got = CallFgWrite(want);
-    g_fgChangedAt = t;
-    const char* a = osd::FgTypeName(cur);
-    const char* b = osd::FgTypeName(want);
-    if (got != want) {
-        const char* g = osd::FgTypeName(got);
-        MLOG("Frame generation %s -> %s: the game's setter left it at %s (type not available here)", a, b, g ? g : "?");
-        return;
-    }
-    // as the game's SetOptionValue does: its next SaveConfigIfDirty writes config.xml. Not for FG on under Proton:
-    // if the FG swapchain crashes the game there, the next launch must still start with the old (working) config.
-    const bool persist = !(g_host.wine && want != 0);
-    if (persist) SetConfigDirty();
-    osd::NoteFgSwitch();
-    g_fgChanged = true;
     g_dirty = true;
-    if (want) g_fgLastOn = want;
-    NoteFgSwitchProton(want);
-    MLOG("Frame generation %s -> %s via the game's FrameGenSettingWrite (%s); the game rebuilds its swapchain in a few "
-         "frames", a, b, persist ? "config marked dirty" : "Proton: this session only, never saved");
+    MLOG("[%s] %s requested %s - %s", d.section, d.key, v.c_str(), g_configReply);
 }
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
-    if (id == kFg) {
-        ChangeFg(dir);
+    if (id == kRematchRow) {
+        if (dir == 0 && RefreshRematchHost(Now()) && PostRematchAction(rmb::OpenMenu)) {
+            g_rematchPage = true; g_rematchOpened = false;
+            for (auto& repeat : g_rep) repeat = 0;
+        }
+        return;
+    }
+    if (id >= kSettingRow) { ChangeConfig(id - kSettingRow, dir); return; }
+    if (id >= kCount) {
+        if (dir != 0) return;
+        if (id == kBackRow) Back();
+        else if (id < kBackRow) EnterPage(id - kPageRow);
         return;
     }
     if (ReadOnly(id)) return;
@@ -1621,6 +1368,7 @@ void Change(int id, int dir) {
         case kFgWine: g_bootFgWine = !g_bootFgWine; break;
         default: return;
     }
+    SyncConfigFromLive(id);
     g_dirty = true;
     char v[64];
     uint32_t c;
@@ -1629,15 +1377,21 @@ void Change(int id, int dir) {
 }
 
 void Move(int dir) {
-    int pos = OrderPos(g_sel);
-    for (int k = 0; k < kOrderN; ++k) {
-        pos = (pos + dir + kOrderN) % kOrderN;
-        const int id = kOrder[pos].id;
-        if (Visible(id) && !ReadOnly(id)) {
-            g_sel = id;
-            return;
-        }
-    }
+    int rows[kMenuRowCap];
+    const int n = PageRows(rows, true);
+    if (!n) return;
+    int pos = 0;
+    for (int i = 0; i < n; ++i) if (rows[i] == g_sel) pos = i;
+    g_sel = rows[menu_nav::Wrap(pos, dir, n)];
+}
+
+void MovePage(int dir) {
+    int rows[kMenuRowCap];
+    const int n = PageRows(rows, true);
+    if (!n) return;
+    int pos = 0;
+    for (int i = 0; i < n; ++i) if (rows[i] == g_sel) pos = i;
+    g_sel = rows[menu_nav::PageStep(pos, dir * 10, n)];
 }
 
 // ---- remote control (vpad pipe -> Present thread) ---------------------------------------------------------------------------
@@ -1768,6 +1522,7 @@ void RunRemote(RemoteReq& q) {
                 if ((cur != 0) != (q.value != 0)) Change(id, 0);
                 break;
         }
+        SyncConfigFromLive(id);
         RemoteValue(id, cur);
     }
     char v[64];
@@ -1802,7 +1557,6 @@ struct Rates {
     double rWg = 0, rDs = 0;
 };
 Rates g_rates;
-ULONGLONG g_rep[4] = {};  // next auto-repeat time per direction (0 = not repeating)
 ULONGLONG g_lastOwnPad = 0, g_lastOwnPadScan = 0, g_lastOwnKey = 0;
 bool g_ownConnected[4] = {};
 bool g_loggedPadFallback = false, g_loggedKeyFallback = false;
@@ -1998,6 +1752,27 @@ void PauseDetect(ULONGLONG t) {
 
 void OnPresentImpl() {
     const ULONGLONG t = Now();
+    g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present
+    const bool rematchReady = RefreshRematchHost(t);
+    if((g_rematchView.flags & rmb::CoverActive) &&
+       !(g_rematchView.coverToken==g_coverTombstone.load() && g_rematchView.session==g_coverTombstoneSession.load())) {
+        const bool captureHooks=g_padHooked && g_keyHooked && !g_disabled;
+        if(g_coverToken.load()!=g_rematchView.coverToken) {
+            g_coverPresented=0;g_coverCancel=false;g_coverToken=g_rematchView.coverToken;g_coverArmedAt=t;g_toggleReq=0;g_pressed=0;for(auto& repeat:g_rep)repeat=0;
+        }
+        g_coverSession=g_rematchView.session;g_coverWorker=g_rematchView.workerTickMs;
+        g_coverDeadline=g_rematchView.coverDeadline;g_coverEnabled=captureHooks;
+        if(!captureHooks || !rematchReady || !CoverCaptures(t)) {
+            CloseCover("cancelled/stale/unavailable");
+        } else {
+            // Keep native simulation running; do not call PauseDetect/frame-advance.
+            g_lastPresent=(LONG64)t;OwnPolling(t);return;
+        }
+    } else if(g_coverToken.load()) {
+        MLOG("transition finished: %s",g_rematchView.coverReason);
+        CloseCover(g_rematchView.coverReason);
+    }
+
     g_lastPresent = (LONG64)t;
     OwnPolling(t);
     SampleRates(t);
@@ -2014,6 +1789,44 @@ void OnPresentImpl() {
         return;
     }
     const uint32_t pressed = (uint32_t)InterlockedExchange(&g_pressed, 0);
+    if (g_rematchPage) {
+        if (!rematchReady) {
+            Close("rematch worker stale/unavailable");
+            return; // fail closed; ordinary neutral-release latches still apply
+        }
+        if (g_rematchOpened && !(g_rematchView.flags & rmb::Open) && !g_rematchAwait) {
+            const bool back = g_rematchLastAction == rmb::Back;
+            CloseRematchHostPage();
+            if (!back) Close("rematch action");
+            return;
+        }
+        if (g_rematchAwait || !(g_rematchView.flags & rmb::Open)) {
+            if (pressed & N_BACK) CloseRematchHostPage();
+            return;
+        }
+        // One normalized edge per frame; Back wins, then paging/navigation.
+        // The addon worker rechecks the displayed generation before dispatch.
+        if (pressed & N_BACK) PostRematchAction(rmb::Back);
+        else if (pressed & N_PAGEUP) PostRematchAction(rmb::PageUp);
+        else if (pressed & N_PAGEDOWN) PostRematchAction(rmb::PageDown);
+        else if (pressed & N_UP) PostRematchAction(rmb::Up);
+        else if (pressed & N_DOWN) PostRematchAction(rmb::Down);
+        else if (pressed & N_LEFT) PostRematchAction(rmb::Left);
+        else if (pressed & N_RIGHT) PostRematchAction(rmb::Right);
+        else if (pressed & N_OK) PostRematchAction(rmb::Accept);
+        return;
+    }
+    // Back owns a mixed input frame: cancelling a confirmation/page must never
+    // activate the row being left, even if A arrives in the same Present.
+    if (pressed & N_BACK) {
+        Back();
+        return;
+    }
+    if (pressed & (N_PAGEUP | N_PAGEDOWN)) {
+        if ((pressed & (N_PAGEUP | N_PAGEDOWN)) == N_PAGEUP) MovePage(-1);
+        else if ((pressed & (N_PAGEUP | N_PAGEDOWN)) == N_PAGEDOWN) MovePage(1);
+        return;
+    }
     uint32_t held = 0;
     for (int i = 0; i < 4; ++i)
         if (t - (ULONGLONG)g_padHeldAt[i] < 300) held |= PadNav((uint32_t)g_padHeld[i]);
@@ -2036,9 +1849,6 @@ void OnPresentImpl() {
         else Change(g_sel, d == 2 ? -1 : +1);
     }
     if (pressed & N_OK) Change(g_sel, 0);
-    if ((pressed & N_BACK) && g_open) {
-        Close("B / Esc");
-    }
 }
 
 // ---- drawing --------------------------------------------------------------------------------------------------------------
@@ -2090,7 +1900,61 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     return sc;
 }
 
+float DrawRematchHost(unsigned W, unsigned H) {
+    const float scale = std::max(0.5f, std::min(AutoScale(H), ((float)W - 32.f) / (112.f * osd::kGlyphW + 16.f)));
+    const float line = (osd::kGlyphH + 3.f) * scale, pad = 8.f * scale;
+    const float width = std::min((float)W - 16.f, (112.f * osd::kGlyphW + 16.f) * scale);
+    const float x = ((float)W - width) * 0.5f, y0 = 12.f;
+    osd::DrawRect(x, y0, width, std::min((float)H - 24.f, line * 32.f + pad * 2.f), cPanel);
+    float y = y0 + pad;
+    auto text = [&](const char* value, uint32_t color) {
+        while (*value) {
+            size_t n = std::min(strlen(value), (size_t)111);
+            if (value[n] && n > 1) { size_t space = n; while (space && value[space] != ' ') --space; if (space) n = space; }
+            char part[112]{}; memcpy(part, value, n);
+            osd::DrawText(x + pad, y, part, color, scale); y += line;
+            value += n; while (*value == ' ') ++value;
+        }
+    };
+    if (!g_rematchFreshAt || Now() - g_rematchFreshAt >= 1500 || !(g_rematchView.flags & rmb::Open)) {
+        text("Boss Rematch / Practice: waiting for the menu worker. B: back.", cWhite);
+        return scale;
+    }
+    for (uint32_t i = 0; i < g_rematchView.rowCount; ++i) {
+        const auto& row = g_rematchView.rows[i];
+        text(row.text, row.color | 0xFF000000u);
+    }
+    y += line * 0.5f;
+    text(g_rematchView.footer, cGray);
+    if (g_rematchView.toast[0]) { y += line * 0.5f; text(g_rematchView.toast, g_rematchView.toastColor | 0xFF000000u); }
+    return scale;
+}
+
 float DrawImpl(unsigned W, unsigned H) {
+    g_coverDrawnToken=0;
+    if(!g_coverToken.load() && Now()<g_coverNoticeUntil && !g_open) {
+        osd::DrawText(30.0f,40.0f,g_coverNotice,0xFFFFFFFF,1.0f);return 1.0f;
+    }
+    if(g_coverToken.load() && !g_coverCancel.load() && g_coverEnabled.load()) {
+        if(!osd::DrawCoverRect((float)W,(float)H))return 0;
+        const float scale=W<960?1.25f:2.0f;
+        const float x=(float)W*0.06f,y=(float)H*0.43f;
+        const float width=(float)W*0.72f<640.0f?(float)W*0.72f:640.0f;
+        osd::DrawText(x,y,"Loading boss rematch",0xFFFFFFFF,scale);
+        // Indeterminate activity, never a fabricated asset/time percentage.
+        // Stage labels derive only from the coherent provider phase.
+        const float travel=width*0.78f;
+        const float cycle=(float)(Now()%1800)/900.0f;
+        const float offset=travel*(cycle<=1.0f?cycle:2.0f-cycle);
+        osd::DrawRect(x,y+52.0f,width,8.0f,0xFF3A3A3A);
+        osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
+        const char* stage=g_rematchView.coverPhase==1?"Preparing...":
+            (g_rematchView.coverPhase==2?"Starting rematch...":"Entering boss arena...");
+        osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
+        osd::DrawText(x,(float)H-50.0f,"B / Escape: show game",0xFFBBBBBB,1.0f);
+        g_coverDrawnToken=g_coverToken.load();return scale;
+    }
+
     const ULONGLONG t = Now();
     // hold progress of the controller gesture (opening: corner note; closing: menu footer). All quads of this module
     // share one text scale, so the two are never drawn together.
@@ -2109,10 +1973,11 @@ float DrawImpl(unsigned W, unsigned H) {
         return 0;
     }
 
+    if (g_rematchPage) return DrawRematchHost(W, H);
     // ---- the menu panel: title, a scrolling body (section headers + items in kOrder), then the explanation of the selected
     // row, the diagnostics lines and the footer. Rows are filled by put(); kValueCol keeps the values in one column.
     Row head;
-    Row body[96], tail[28];
+    Row body[128], tail[28];
     int nb = 0, nt = 0, selRow = -1;
     auto put = [&](Row* a, int& cnt, int cap, const char* label, const char* tech, const char* value, uint32_t lc, uint32_t vc, bool sel,
                    bool rule) {
@@ -2128,18 +1993,55 @@ float DrawImpl(unsigned W, unsigned H) {
     };
     auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
-    snprintf(title, sizeof(title), "Nioh3EngineFix v%s - mod menu", g_host.version);
+    snprintf(title, sizeof(title), "Nioh3EngineFix v%s - %s", g_host.version, g_cfg.layout ? PageName(g_pages.page) : "Original controls");
     {
         int c = 0;
         put(&head, c, 1, title, "", "", cGold, cYellow, false, true);
     }
     const char* pending = nullptr;
-    for (int oi = 0; oi < kOrderN; ++oi) {
-        const int id = kOrder[oi].id;
-        if (kOrder[oi].section) pending = kOrder[oi].section;
-        if (!Visible(id)) continue;
+    int pageRows[kMenuRowCap];
+    const int pageN = PageRows(pageRows, false);
+    for (int oi = 0; oi < pageN; ++oi) {
+        const int id = pageRows[oi];
+        if (id == kRematchRow) {
+            if (id == g_sel) selRow = nb;
+            put(body, nb, 128, id == g_sel ? "> Boss Rematch / Practice" : "  Boss Rematch / Practice", "", "A: open", cWhite, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (id >= kSettingRow) {
+            const int index = id - kSettingRow;
+            const auto& d = kConfigSettings[index];
+            const auto& v = g_configValues.values[(size_t)index];
+            char lab[128], text[128];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", d.label);
+            snprintf(text, sizeof(text), "%.48s%s (%s)", v.text.c_str(), v.changed ? " *" : "",
+                d.kind == setting_ui::Kind::Manual ? "ini only" : d.apply == setting_ui::Apply::NextLaunch ? "next launch" : "requested");
+            if (id == g_sel) selRow = nb;
+            put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray,
+                d.kind == setting_ui::Kind::Manual ? cDim : v.changed ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
+        if (id >= kCount) {
+            char lab[128];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", id == kBackRow ? "Back" : PageName(id - kPageRow));
+            if (id == g_sel) selRow = nb;
+            put(body, nb, 128, lab, "", id == kBackRow ? "B" : "A: open", id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (!g_cfg.layout || g_pages.page == pAll) {
+            // Recover the preceding section even when its first row is hidden.
+            pending = nullptr;
+            for (int p = OrderPos(id); p >= 0; --p)
+                if (kOrder[p].section) { pending = kOrder[p].section; break; }
+            if (oi && pageRows[oi - 1] < kCount) {
+                const char* prev = nullptr;
+                for (int p = OrderPos(pageRows[oi - 1]); p >= 0; --p)
+                    if (kOrder[p].section) { prev = kOrder[p].section; break; }
+                if (prev == pending) pending = nullptr;
+            }
+        }
         if (pending) {
-            put(body, nb, 96, pending, "", "", cCyan, cWhite, false, false);
+            put(body, nb, 128, pending, "", "", cCyan, cWhite, false, false);
             pending = nullptr;
         }
         char v[64];
@@ -2147,27 +2049,31 @@ float DrawImpl(unsigned W, unsigned H) {
         Value(id, v, sizeof(v), vc);
         char lab[96];
         const char* plain = kItems[id].plain;
-        if (id == kFg) {
-            const osd::FgStatus fs = osd::FrameGen();
-            plain = (fs.setting > 0 && !g_fgNextLaunch && !g_fgSoft) ? "Turn frame gen OFF" : "Turn frame gen ON";
-        }
         snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", plain);
         if (id == g_sel) selRow = nb;
         const bool avail = Available(id) || id >= kSave || id == kPerfNote;
-        put(body, nb, 96, lab, kItems[id].tech, v, id == g_sel ? cWhite : (avail ? cGray : cDim), vc, id == g_sel, false);
+        put(body, nb, 128, lab, kItems[id].tech, v, id == g_sel ? cWhite : (avail ? cGray : cDim), vc, id == g_sel, false);
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", kItems[g_sel].what);
-    snprintf(effect, sizeof(effect), "%s", kItems[g_sel].effect);
-    if (!Available(g_sel)) {
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? "Settings keep their current values when you change pages." : kItems[g_sel].effect);
+    if (g_sel == kRematchRow) {
+        snprintf(what, sizeof(what), "Boss rematches and native Yamagata practice, inside this overlay.");
+        snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
+    } else if (g_sel >= kSettingRow) {
+        const int index = g_sel - kSettingRow;
+        const auto& d = kConfigSettings[index];
+        snprintf(what, sizeof(what), "[%s] %s: %s", d.section, d.key, d.help);
+        snprintf(effect, sizeof(effect), "%s", d.kind == setting_ui::Kind::Manual ? "Shown for coverage. No controller editor; this row cannot change it."
+            : index == g_configReplyRow ? g_configReply : d.apply == setting_ui::Apply::NextLaunch ? "Startup preference only. A / Left / Right edits; Save to ini, then restart."
+            : "Requested value; applies through the existing setter if installed. No enablement until you edit it.");
+    }
+    if (g_sel < kCount && !Available(g_sel)) {
         if ((g_sel == kL1 && g_host.l1 == FixState::WineSkipped) || (g_sel == kF1 && g_host.f1 == FixState::WineSkipped))
             snprintf(what, sizeof(what), "Skipped under Proton - turn on '%s on Proton' below, save, restart.", g_sel == kL1 ? "L1" : "F1");
         else if (g_sel == kFg)
-            snprintf(what, sizeof(what), "%s",
-                     !g_cfg.fgToggle ? "Status only ([Menu] FrameGenToggle = 0): switch it in the game's Options."
-                     : g_host.wine && g_cfg.fgToggle == 1 ? "Status only on Proton: FG is reported to crash there (FrameGenToggle=2)."
-                                                          : "Status only: the game's FG setter did not verify on this build (see the log).");
+            snprintf(what, sizeof(what), "Status only: change frame generation in the game's Options.");
         else
             snprintf(what, sizeof(what), "Not installed this session (off in the ini or a site was not found - see the log).");
         effect[0] = 0;
@@ -2219,14 +2125,13 @@ float DrawImpl(unsigned W, unsigned H) {
     else if (ss == 1) addT("Saving to Nioh3EngineFix.ini...", cYellow);
     else if (ss >= 2 && t - g_saveShownAt < 4000) {
         char b[96];
-        const LONG xml = g_cfgXmlState;
-        if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini%s", xml == 1 ? " + game config.xml (FG)" : "");
-        else if (xml == 3) snprintf(b, sizeof(b), "config.xml NOT changed (FG) - see the log");
+        if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini");
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         addT(b, ss == 2 ? cGreen : cOrange);
     } else {
-        addT("Up/Down: move   A/Enter: toggle   Left/Right: change   B/Esc: close", cDim);
+        addT(g_cfg.layout && g_pages.depth ? "D-pad: move/change  A/Enter: select  B/Esc: back  LB/RB: page" : "D-pad: move/change  A/Enter: select  B/Esc: close  LB/RB: page", cDim);
     }
+    addT("Keyboard: arrows / Enter / Esc / PgUp / PgDn", cDim);
 
     // value column: just right of the longest "name (id)", between 30 and 48 characters
     size_t valueCol = 30;
@@ -2345,48 +2250,6 @@ bool ParseHold(const wchar_t* s, uint32_t& mask, char* name, size_t nameLen) {
 }  // namespace
 
 // ---- public ------------------------------------------------------------------------------------------------------------------
-void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath, int fgToggle) {
-    if (!g_log) g_log = log;
-    g_fgToggleEarly = fgToggle;
-    g_fgMarker = markerPath ? markerPath : L"";
-    wchar_t e[MAX_PATH] = {};
-    const DWORD n = ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\KoeiTecmo\\NIOH3\\config.xml", e, MAX_PATH);
-    if (n && n <= MAX_PATH && e[0] != L'%') g_cfgPathEarly = e;
-    g_fgAtStart = g_cfgPathEarly.empty() ? "" : ReadGameConfigFg(g_cfgPathEarly);
-    const bool marker = !g_fgMarker.empty() && GetFileAttributesW(g_fgMarker.c_str()) != INVALID_FILE_ATTRIBUTES;
-    MLOG("Proton: config.xml %ls: FRAME_GENERATION %s at startup%s", g_cfgPathEarly.empty() ? L"(no path)" : g_cfgPathEarly.c_str(),
-         g_fgAtStart.empty() ? "?" : g_fgAtStart.c_str(), marker ? "; FG marker from the last session found" : "");
-    if (!marker) {
-        ProtonFgArmAtLaunch();
-        return;
-    }
-    if (!g_fgAtStart.empty() && g_fgAtStart != "OFF") {
-        MLOG("Proton: the last session ended with FG switched on by the mod (crash?) and config.xml has %s - putting OFF back "
-             "before the game reads it", g_fgAtStart.c_str());
-        const int r = WriteGameConfigFg(g_cfgPathEarly, "OFF");
-        if (r == 1 || r == 2) g_fgAtStart = "OFF";
-    }
-    DeleteFileW(g_fgMarker.c_str());
-    ProtonFgArmAtLaunch();
-}
-
-void ProtonFgExit(const char* how) {
-    if (!g_fgMarkerSet || InterlockedExchange(&g_fgExitDone, 1)) return;
-    std::wstring path = g_host.base && g_host.knownBuild ? GameConfigPath() : g_cfgPathEarly;
-    if (path.empty()) path = g_cfgPathEarly;
-    const std::string cur = ReadGameConfigFg(path);
-    // FrameGenToggle 2: always OFF. 3 (Proton safe FG): what the user chose last (FSR stays for the next launch, OFF after
-    // a mod-menu FG off - the game may have written its in-memory FSR back when its Options menu closed)
-    const std::string want = g_fgExitWant.empty() ? std::string("OFF") : g_fgExitWant;
-    MLOG("Proton exit (%s): config.xml FRAME_GENERATION is %s, wanted %s", how, cur.empty() ? "?" : cur.c_str(), want.c_str());
-    if (cur != want) {
-        const int r = WriteGameConfigFg(path, want);
-        MLOG("Proton exit: FRAME_GENERATION %s %s", want.c_str(), r == 1 ? "restored" : r == 2 ? "already set" : "NOT restored - the marker stays for the next start");
-        if (r == 3) return;
-    }
-    DeleteFileW(g_fgMarker.c_str());
-}
-
 void Configure(const Host& h) {
     g_host = h;
     g_log = h.log;
@@ -2403,7 +2266,10 @@ void Configure(const Host& h) {
     }
     g_latBoot = osd::Overlay().maxLatency;
     const wchar_t* f = g_ini.c_str();
+    g_configValues.Load(kConfigSettings, f);
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
+    if (g_cfg.enabled) StartRematchHostResolver();
+    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 1, f) != 0;
     wchar_t b[96] = {};
     GetPrivateProfileStringW(L"Menu", L"Key", L"F10", b, 96, f);
     g_cfg.vk = 0;
@@ -2471,28 +2337,7 @@ void Configure(const Host& h) {
     }
     if (g_cfg.gesture == 0 && g_cfg.holdMask && g_cfg.holdMask == XINPUT_GAMEPAD_START && g_cfg.holdMs == 0)
         MLOG("[Menu] HoldSeconds=0 with HoldButton=Start opens the menu on every Start press - consider a combo");
-    g_cfg.fgToggle = (int)GetPrivateProfileIntW(L"Menu", L"FrameGenToggle", 1, f);
-    g_fgOk = false;
-    if (g_host.knownBuild && g_host.base) {
-        const bool code = BytesAt(kRvaFgWrite, kFgWriteBytes, sizeof(kFgWriteBytes)) &&
-                          BytesAt(kRvaFgAvail, kFgAvailBytes, sizeof(kFgAvailBytes)) &&
-                          BytesAt(kRvaDirtyStore, kDirtyStoreBytes, sizeof(kDirtyStoreBytes));
-        // Proton: FG is reported to crash the game on Steam Deck / Linux (vkd3d-proton issue 2845, notes\community)
-        g_fgOk = code && (g_cfg.fgToggle >= 2 || (g_cfg.fgToggle == 1 && !g_host.wine));
-        MLOG("frame generation: %s", !code ? "the game's FG setter bytes differ - status only"
-                                     : g_fgOk ? (g_host.wine ? (g_cfg.fgToggle == 3 ? "Proton safe FG ([Menu] FrameGenToggle = 3): OFF <-> FSR; "
-                                                                "off = engine FG pause (FGP), on = resume or one OFF -> FSR rebuild; FG is "
-                                                                "kept in config.xml behind the crash marker"
-                                                              : "live switch enabled under Proton ([Menu] FrameGenToggle = 2); FG on is "
-                                                                "never saved to the game's config here")
-                                                             : "live switch through the game's FrameGenSettingWrite (0x1FDDFCC) verified")
-                                     : g_cfg.fgToggle ? "status only under Proton (FG is reported to crash there; FrameGenToggle = 2 "
-                                                        "allows the switch)"
-                                                      : "status only ([Menu] FrameGenToggle = 0)");
-    }
-    if (g_host.wine && g_cfg.fgToggle == 3)
-        MLOG("Proton safe FG: FGC copy-job guard %s, FGP pause switch %s", g_host.fgcOn ? "installed" : "NOT installed",
-             g_host.fgPause ? "installed" : "NOT installed (FG off applies at the next launch)");
+    MLOG("frame generation: status only; change it in the game's Options");
     g_configured = true;
     if (!g_cfg.enabled) {
         MLOG("off in ini ([Menu] Enabled=0)");
@@ -2545,6 +2390,28 @@ float Draw(unsigned W, unsigned H) {
     }
 }
 
+cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t generation) {
+    return {g_coverDrawnToken,g_coverSession.load(),swapchain,generation};
+}
+void CoverPresented(const cover_present::Ticket& ticket,uint64_t generation,int32_t result) {
+    cover_present::Identity current{g_coverToken.load(),g_coverSession.load(),ticket.id.swapchain,generation};
+    if(!cover_present::Accept(ticket,current,result,g_coverCancel.load()||!g_coverEnabled.load()))return;
+    const uint64_t now=GetTickCount64();
+    if(!CoverCaptures(now))return; // a blocked Present cannot revive an expired worker/input lease
+    g_coverPresented=now;
+    PublishCoverTip(now);
+    const auto present=g_rematchApi.PresentCover;
+    if(present)present(ticket.id.session,ticket.id.token); // try-only; no native or worker UI call
+}
+bool CoverTipAllowed() {
+    if(!Enabled() || !TryAcquireSRWLockShared(&g_coverTipLock))return false;
+    const auto lease=g_coverTipLease;
+    ReleaseSRWLockShared(&g_coverTipLock);
+    const uint64_t now=GetTickCount64();
+    return cover_present::Captures(lease,now) && CoverCaptures(now) && g_coverEnabled.load() && !g_coverCancel.load() &&
+        lease.token==g_coverToken.load() && lease.session==g_coverSession.load() &&
+        lease.session==g_rematchSession.load();
+}
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }
 
@@ -2593,6 +2460,14 @@ bool SwallowMessage(const tagMSG* m) {
     const UINT msg = m->message;
     if (msg != WM_KEYDOWN && msg != WM_KEYUP && msg != WM_SYSKEYDOWN && msg != WM_SYSKEYUP) return false;
     const UINT vk = (UINT)m->wParam;
+    if(g_coverToken.load()) {
+        if(vk==VK_ESCAPE && (msg==WM_KEYDOWN||msg==WM_SYSKEYDOWN)){
+            if(!g_coverCancel.load())CancelCoverInput();
+            return Now()<g_coverCancelUntil.load();
+        }
+        return CoverCaptures(Now());
+    }
+
     if (g_cfg.vk && vk == g_cfg.vk) return true;
     if (g_open || g_keyLatch)
         for (const NavKey& k : kNavKeys)
@@ -2601,3 +2476,8 @@ bool SwallowMessage(const tagMSG* m) {
 }
 
 }  // namespace menu
+
+extern "C" __declspec(dllexport) uint32_t Nioh3EngineMenuHostVersion() {
+    const uint64_t tick = menu::g_rematchRendererTick.load();
+    return menu::Enabled() && tick && GetTickCount64() - tick < 1500 ? rematch_menu_bridge::kVersion : 0u;
+}

@@ -6,7 +6,9 @@
 Rules read from the source (menu.cpp: OnPresentImpl / Move / Change / Open / Close):
   * rows = enum Id (kItems has the labels, same order); navigation order = kOrder (1.7.13 section layout). A row is selectable when Visible(id) && !ReadOnly(id); both
     predicates are PARSED from the source text here, not copied. Rows that are visible but not Available stay selectable.
-  * Up/Down: Move() steps to the next selectable row with wrap-around. g_sel is NOT reset when the menu is closed and
+  * Layout=1 opens at Settings; sequences enter Settings > All settings, whose rows keep the original order and start
+    at Close. Layout=0 keeps the original flat traversal and parked cursor. Both paths use the same stable row keys.
+  * Up/Down: Move() steps to the next selectable row with wrap-around. In Layout=0, g_sel is NOT reset when closed and
     reopened (Open() only resets it when the row became invisible), so the cursor has to be tracked. Invariant used here:
     every sequence ends with the cursor parked on the last row "Close menu" (Enter on it closes the menu). Reopening starts
     there, so "open -> N downs" counts from Close (one Down wraps to the first selectable row). A fresh game starts on
@@ -56,6 +58,7 @@ class Menu:
 
     def __init__(self, src_path=MENU_CPP):
         s = open(src_path, encoding="utf-8", errors="replace").read()
+        self.grouped_default = 'L"Layout", 1' in s
         m = re.search(r"enum Id \{(.*?)\};", s, re.S)
         names = [x.strip() for x in re.sub(r"//[^\n]*", "", m.group(1)).split(",") if x.strip()]
         assert names[-1] == "kCount"
@@ -138,10 +141,14 @@ def step_keys(sel, target, n):
     return ["down"] * d if d <= n - d else ["up"] * (n - d)
 
 
-def build_tokens(sel_rows, row):
+def build_tokens(sel_rows, row, grouped=False):
     """F10, move from the parked Close row to `row`, Enter (toggle), move back to Close, Enter (close)."""
     n, ci, ti = len(sel_rows), sel_rows.index("kClose"), sel_rows.index(row)
     t = [VK["open"], OPEN_WAIT]
+    if grouped:
+        # Fresh root: Settings; fresh Settings: Display; Up -> Back -> All settings.
+        for k in ("enter", "up", "up", "enter"):
+            t += [VK[k], GAP]
     for k in step_keys(ci, ti, n):
         t += [VK[k], GAP]
     t += [VK["enter"], TOGGLE_WAIT]
@@ -154,6 +161,7 @@ def build_map(menu, matrix, base_ini, device="pc", wine=False, known_build=True,
     live = live_items(matrix, device, wine)
     ini = batch_ini(matrix, live, base_ini) if batch else base_ini
     env = make_env(ini, wine, known_build)
+    env["grouped"] = bool(int(ini.get(("menu", "layout"), int(menu.grouped_default))))
     sel = menu.selectable(env)
     out = {"rows": [menu.labels[menu.rows.index(r)] for r in sel],
            "init": [VK["open"], OPEN_WAIT, VK["up"], GAP, VK["enter"], CLOSE_WAIT], "items": {}, "skipped": {}}
@@ -166,7 +174,7 @@ def build_map(menu, matrix, base_ini, device="pc", wine=False, known_build=True,
         else:
             out["items"][it["id"]] = {"row": row, "label": menu.labels[menu.rows.index(row)], "index": sel.index(row),
                                       "start": "OFF" if it.get("live_installed_value") else "ON",
-                                      "keys": build_tokens(sel, row)}
+                                      "keys": build_tokens(sel, row, env["grouped"])}
     return out, env, live
 
 
@@ -176,6 +184,7 @@ class Sim:
     def __init__(self, menu, env, installed, start_on):
         self.m, self.env, self.installed = menu, env, set(installed)
         self.sel, self.open, self.log = 0, False, []
+        self.page, self.folder_sel = "root", 0
         self.state = {r: start_on[r] for r in installed}
 
     def move(self, d):
@@ -189,10 +198,27 @@ class Sim:
     def press(self, vk):
         if vk == VK["open"]:
             self.open = not self.open
+            if self.open and self.env.get("grouped"):
+                self.page, self.folder_sel = "root", 0
             if self.open and not self.m.visible(self.m.order[self.sel], self.env):
                 self.sel = 0
         elif not self.open:
             pass
+        elif self.env.get("grouped") and self.page != "all":
+            if vk in (VK["down"], VK["up"]):
+                count = 3 if self.page == "root" else 10
+                self.folder_sel = (self.folder_sel + (1 if vk == VK["down"] else -1)) % count
+            elif vk == VK["enter"]:
+                if self.page == "root" and self.folder_sel == 0:
+                    self.page, self.folder_sel = "settings", 0
+                elif self.page == "settings" and self.folder_sel == 8:
+                    self.page = "all"
+                    self.sel = self.m.order.index("kClose")
+                elif self.page == "root" and self.folder_sel == 2:
+                    self.sel = self.m.order.index("kClose")
+                    self.open = False
+                else:
+                    raise AssertionError("sequence entered an unexpected settings folder")
         elif vk == VK["down"]:
             self.move(+1)
         elif vk == VK["up"]:
@@ -216,8 +242,10 @@ def selftest():
     matrix = json.load(open(os.path.join(HERE, "matrix.json"), encoding="utf-8"))
     base = parse_ini(DEFAULT_INI)
     bad = 0
-    for device, wine in (("pc", False), ("ally", True)):
-        mp, env, live = build_map(menu, matrix, base, device, wine)
+    for device, wine, layout in (("pc", False, 0), ("ally", True, 0), ("pc", False, 1), ("ally", True, 1)):
+        configured = dict(base)
+        configured[("menu", "layout")] = str(layout)
+        mp, env, live = build_map(menu, matrix, configured, device, wine)
         rows = {v["row"] for v in mp["items"].values()}
         sim = Sim(menu, env, rows, {v["row"]: v["start"] == "ON" for v in mp["items"].values()})
         sim.run(mp["init"])
@@ -238,7 +266,7 @@ def selftest():
                     and not sim.open and menu.order[sim.sel] == "kClose"):
                 bad += 1
                 print("FAIL %s %s: log=%s" % (device, iid, sim.log))
-        print("%s wine=%s: %d items x3 toggled in sim, %d selectable rows, skipped=%s" % (device, wine, len(ids), len(mp["rows"]), list(mp["skipped"])))
+        print("%s wine=%s layout=%d: %d items x3 toggled in sim, %d selectable rows, skipped=%s" % (device, wine, layout, len(ids), len(mp["rows"]), list(mp["skipped"])))
     assert menu.order[0] == "kFps" and menu.order[-1] == "kClose" and {"kFgState", "kUpscaler"} <= menu.readonly
     print("SELFTEST", "FAILED" if bad else "OK")
     return 1 if bad else 0
@@ -262,7 +290,7 @@ def main():
     matrix = json.load(open(a.matrix, encoding="utf-8"))
     mp, _, _ = build_map(menu, matrix, parse_ini(a.ini), a.device, a.wine, not a.unknown_build, not a.no_batch)
     mp = {"_doc": "generated by menu_map.py from menu.cpp. keys = ui.fsx `keyseq` tokens (hex VK; wNNN = wait ms). Each item: "
-                  "F10, move from the parked 'Close menu' row, Enter (toggle), move back, Enter (close). Run `init` once after "
+                  "F10, enter Settings > All settings when Layout=1, move from 'Close menu', Enter (toggle), move back, Enter (close). Run `init` once after "
                   "the game reaches play (cursor starts on row 0). start = state right after launch with the batch ini.",
           "device": a.device, "wine": a.wine, "ini": os.path.basename(a.ini), **mp}
     if a.out:

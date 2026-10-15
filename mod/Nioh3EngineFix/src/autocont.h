@@ -8,10 +8,11 @@
 // 223BE08 -> TipPageSetLoadDone 1D010E4, after LoadIsLoadEnd 3B3424 has passed), then calls TipPageConfirmCheck 1CECAE4:
 //   if (ConfirmPressed 283950 && !GameMain+3Fh 28393C && !SystemMessageQueued 27FBC44) { close page; return 1; }
 // The one patched byte range is that check's first call, E8 at 1CECAED -> ConfirmPressed 283950 (patches.json AC1), retargeted
-// to a near thunk that touches only al and the flags (rcx/rdx/r8-r11 and every other register are preserved):
-//   cmp byte [switch], 0 ; je original ; mov al, 1 ; lock inc dword [count] ; ret ; original: jmp [283950]
-// So with the switch on the page closes on the first frame the press would be accepted; the other two conditions (and
-// the game's own reasons to hold the page) still apply. With the switch off the thunk is a plain jump to the original.
+// to a near thunk. It preserves RCX/RDX/R8-R11 and XMM0-5 across a try-only
+// covered-Fight permission callback and has registered stack-unwind metadata.
+// The persistent user switch still independently enables the existing behavior.
+// With it off, only a fresh, coherent Loading-phase cover permission can answer;
+// denial restores incoming registers and tail-jumps to the original confirm leaf.
 // v2.02 only; installed whenever the build is known (the menu row switches it live), bytes verified first.
 #pragma once
 #include <cstdint>
@@ -22,6 +23,7 @@ struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;
     const wchar_t* iniPath = nullptr;  // [General] AutoContinueLoad (default 0)
     uintptr_t base = 0;                // Nioh3.exe image base
+    bool (*coverPermission)() = nullptr; // try-only, checked at each native tip predicate
     bool knownBuild = false;           // v2.02 only
 };
 

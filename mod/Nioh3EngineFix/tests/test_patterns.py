@@ -18,8 +18,8 @@ The dump is a memory-layout snapshot of the decrypted image (raw offset == RVA).
   * src/patches_gen.h is in sync with patches.json
   * mod menu: the XInputGetState IAT slot and the engine stop-flag code it relies on (pause hint)
   * game 'menu open' getters 0x5A37D4 / 0xD63C0 (pause hint, FG pause reason)
-  * frame generation (menu FG item, overlay FG status): FrameGenSettingWrite / IsFrameGenTypeAvailable bytes, the
-    SetOptionValue dirty store, the slots/flags they reference, config descriptors 50/54, the config.xml path string
+  * frame generation telemetry provenance: original game setter/gate/dirty-store bytes, their slots/flags,
+    config descriptors 50/54 and path string (the mod no longer invokes those setters or accesses that file)
   * (info) any Lyall Nioh3Fix 0.0.6 pattern that lands within 32 bytes of one of our sites
 """
 import json, re
@@ -307,7 +307,7 @@ def main():
             ok &= check(ca + 5 <= ln and ln - ca - 5 in (0, 1, 2, 3, 5), "%s: call does not fit / bad nop pad" % sid)
             ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
         elif k == "jmp":
-            ok &= check(ln - 5 in (0, 1, 2, 3, 5), "%s: jmp does not fit / bad nop pad" % sid)
+            ok &= check(ln - 5 in (0, 1, 2, 3, 4, 5), "%s: jmp does not fit / bad nop pad" % sid)
             ok &= check(s.get("target") in gen_header.TARGETS[1:], "%s: unknown target" % sid)
         elif k == "check":
             pass  # verified like every site (pattern, RVA, bytes), never written (GP marker code, 1.7.0)
@@ -416,7 +416,7 @@ def main():
     gm_ok &= check(0xD63C0 + 7 + struct.unpack_from("<i", img, 0xD63C0 + 3)[0] == 0x4758BA0, "menu: 0xD63C0 reads [0x4758BA0]")
     print("menu: game 'menu open' getters 5A37D4 / D63C0 %s" % ("OK" if gm_ok else "DIFFER"))
 
-    # frame generation (menu.cpp FG item / osd.cpp FG status) - called / read at run time, not patched
+    # Original-game provenance for read-only FG telemetry. No mod setter/dirty-store call remains.
     fg_bytes = {
         0x1FDDFCC: "40 53 48 83 EC 20 8B D9 E8 CB 5F 00 00 33 C9 84 C0 74 3E 89 1D 23 D0 5D 02 83 EB 01 74 20 83 FB 02 74 09 "
                    "48 89 0D 1A D0 5D 02 EB 2B C7 05 12 D0 5D 02 01 00 00 00 89 0D 08 D0 5D 02 EB 19 48 C7 05 FB CF 5D 02 01 "

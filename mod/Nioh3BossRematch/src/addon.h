@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.3.3"
+#define ADDON_VERSION "1.4.21"
 
 namespace addon {
 
@@ -75,10 +75,46 @@ void LastFightPlacements(char* buf, size_t n);
 bool PlacementSeenRecently(uint32_t id, double withinSec);
 double Now();
 }
-namespace rematch {
-bool Start();  // reads [Rematch], loads the catalogue, needs PUMP + FIGHT + CORE
+namespace training {
+// Copied read-only evidence; no native readiness or mutation API.
+struct EntryCounts { uint64_t create, begin, end, pumps; };
+struct MissionSnapshot {
+    uint64_t sequence = 0, monotonicMs = 0, missionEpoch = 0;
+    uint32_t mission = 0, retry = 0;
+    bool missionValid = false, retryValid = false;
+    bool missionGap = false; // unknown/skipped samples through first recovery
+    uint64_t publicationLosses = 0; // sampled loss total; later losses may be absent
+    int32_t playMode = 0;
+    uint8_t loading = 0, connection = 0;
+    bool loadingValid = false, playModeValid = false, connectionValid = false;
+    bool loadingGap = false, playModeGap = false, connectionGap = false;
+    // Observed raw changes/recovery boundaries, never native attempts/session IDs.
+    uint64_t loadGeneration = 0, sessionGeneration = 0;
+    bool sessionValid = false, sessionGap = false;
+};
+enum class EntryKind : uint8_t { Create, Begin, End };
+struct EntryEvent {
+    uint64_t sequence = 0, monotonicMs = 0;
+    EntryKind kind = EntryKind::Create;
+    MissionSnapshot observation; // cached before entry; age/validity remain explicit
+};
+struct EventLossCounts { uint64_t contention, capacity; };
+size_t Events(EntryEvent* out, size_t capacity); // retained oldest-first copy, no drain
+EventLossCounts EventLosses(); // independent totals; not native event loss
+bool Prepare();
+void SetPumpLive(bool installed);
+void Pump();
 bool Live();
-// ui side (any thread; snapshots / atomics only)
+EntryCounts Counts();  // independent atomic totals, not a coherent session snapshot
+bool Snapshot(MissionSnapshot& out); // cached copy only; false before publication/when off
+uint64_t SnapshotLosses(); // contended pump publications; not native event loss
+}
+namespace rematch {
+bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live
+void SetPumpLive(bool installed);  // Init publishes pump installation outcome
+void Pump();  // shared dispatcher callback; no work until successfully prepared + live
+bool Live();
+// UI model: one UI worker only. The in-game renderer uses the snapshot/action ABI.
 struct UiRow {
     char text[112];
     uint32_t color;
@@ -86,14 +122,23 @@ struct UiRow {
 };
 int UiFill(UiRow* rows, int cap, char* footer, size_t nf);
 void UiMove(int dir);
-bool UiAct();   // A; true = a request was queued (close the menu)
-bool UiBack();  // B; true = leave the menu
+struct CoverInfo { uint64_t token, deadline; uint32_t phase; char reason[160]; };
+bool UiActHosted();
+bool UiTestFight(const char* id,uint64_t& token,char* reason,size_t n); // UI-worker only, opt-in test caller
+bool CoverSnapshot(CoverInfo& out);
+void CoverPresented(uint64_t token);
+void CoverCancel(uint64_t token);
+bool UiAct();   // A; enter child, confirm existing action; true = close
+bool UiBack();  // B; cancel confirmation, then parent; true = close at root
 void UiOpen();
+void UiChange(int dir);  // Left/Right: edit only a selected startup preference
+void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);
 // pipe commands (remote.cpp): returns the reply text
 void Command(const char* line, char* reply, size_t n);
 }
 namespace ui {
+void HostedFightCommand(const char* row,char* reply,size_t n);
 bool Start();  // overlay window + input (XInputGetState IAT hook for the gesture / masking)
 }
 namespace remote {

@@ -894,6 +894,60 @@
    "head": 0,
    "pattern": "48 83 EC 38 0F 28 02 45 33 C0 48 8D 54 24 20 66",
    "offset": 0
+  },
+  {
+   "name": "fn:WarpPointFind",
+   "group": "SPAWN",
+   "kind": "fn",
+   "rva": 1277388,
+   "head": 0,
+   "pattern": "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B 05 ?? ?? ?? ?? 8B F1 48 8B 58 18 48 8B 78 20 EB 25 48 8B 03 48 85 C0 74 19 48 8D 48 10 E8 ?? ?? ?? ?? 84 C0 74 0C 8B D6 E8 ?? ?? ?? ?? 48 85 C0 75 0B 48 83 C3 10 48",
+   "offset": 0
+  },
+  {
+   "name": "chk:WarpPointPos_40",
+   "group": "SPAWN",
+   "kind": "check",
+   "rva": 3876646,
+   "head": 20,
+   "pattern": "F3 0F 10 49 48 48 8B FA F3 0F 10 41 44 48 8B D9 8B 41 40 F3",
+   "offset": 0
+  },
+  {
+   "name": "chk:WarpPointYaw_4C",
+   "group": "SPAWN",
+   "kind": "check",
+   "rva": 3876485,
+   "head": 0,
+   "pattern": "F3 0F 10 41 4C 48 8B D9 F3 0F 11 45 18 85 D2 74",
+   "offset": 0
+  },
+  {
+   "name": "chk:PlayerPlace_Retry14",
+   "group": "SPAWN",
+   "kind": "check",
+   "rva": 29422269,
+   "head": 28,
+   "pattern": "48 8B 05 ?? ?? ?? ?? 48 8B 71 48 48 8B 48 08 0F B7 96 10 01 00 00 8B 49 14 66 85 D2",
+   "offset": 0
+  },
+  {
+   "name": "chk:PlayerPlace_Find",
+   "group": "SPAWN",
+   "kind": "check",
+   "rva": 29422435,
+   "head": 48,
+   "pattern": "E8 ?? ?? ?? ?? 48 8B F8 48 85 C0 74 26 44 8B C3 48 8D 54 24 20 48 8B C8 E8 ?? ?? ?? ?? 8B D3 48 8B CF 0F 28 00 66 0F 7F 44 24 30 E8 ?? ?? ?? ??",
+   "offset": 0
+  },
+  {
+   "name": "chk:CamFlag4_Retry14",
+   "group": "SPAWN",
+   "kind": "check",
+   "rva": 35888201,
+   "head": 48,
+   "pattern": "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 8B 49 14 E8 ?? ?? ?? ?? 48 85 C0 74 2B F6 40 08 04 74 25 F3 0F 10 88 80 00 00 00 41 B0 01 F3 0F 10 40 7C F3 0F",
+   "offset": 0
   }
  ]
 }
