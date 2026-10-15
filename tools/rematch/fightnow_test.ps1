@@ -83,6 +83,7 @@ $script:gamePid = 0; $script:locked = $false; $script:installed = $false; $scrip
 function Launch {
     Assert-Launch
     $before = VP-ForegroundInfo
+    & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
     Start-Process "steam://rungameid/3681010"; $t0 = Get-Date; $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) {
         $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }

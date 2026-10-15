@@ -143,6 +143,7 @@ function Start-Play-Vpad {   # -Input vpad: no clicks, no focus, no idle wait
     Assert-Launch
     $before = VP-ForegroundInfo
     $t0 = Get-Date
+    & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
     Start-Process "steam://rungameid/3681010"
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }
@@ -164,6 +165,7 @@ function Start-Play {
         T ("launch waits: system idle {0:N0}s < {1}s" -f $idle, $IdleNeed); Start-Sleep 30; $idle = Idle-Sec
     }
     $t0 = Get-Date
+    & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
     Start-Process "steam://rungameid/3681010"
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }

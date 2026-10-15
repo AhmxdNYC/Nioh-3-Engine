@@ -5,6 +5,7 @@ $ui = "C:\Users\User\projects\nioh3-engine\tools\ui.fsx"
 Init-Guard -Name "enter_game" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes
 function U { Assert-Owner; dotnet fsi $ui @args 2>&1 | Out-Null }
 Assert-Launch
+& (Join-Path $PSScriptRoot 'steam/start_autoplay.ps1')
 Start-Process "steam://rungameid/3681010"
 $t0 = Get-Date
 while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 150) { Start-Sleep 3 }

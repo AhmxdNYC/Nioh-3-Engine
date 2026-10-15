@@ -573,6 +573,21 @@ bool ClearedNow(uint16_t id, const char** why) {
     return true;
 }
 
+// Nioh3Training.asi (optional, ally arena-swap 4506): swaps the boss in place with no mission load; absent -> native load as before.
+HMODULE TrainingAsi() { return GetModuleHandleW(L"Nioh3Training.asi"); }
+int TrainingFightNow(uint32_t missionId) {
+    using Fn = int (*)(uint32_t);
+    static Fn fn = [] { HMODULE m = TrainingAsi(); return m ? (Fn)GetProcAddress(m, "Nioh3Training_FightNow") : nullptr; }();
+    return fn ? fn(missionId) : 0;
+}
+void TrainingPreload() {
+    using Fn = void (*)();
+    static Fn fn = [] { HMODULE m = TrainingAsi(); return m ? (Fn)GetProcAddress(m, "Nioh3Training_Preload") : nullptr; }();
+    static ULONGLONG last = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (fn && now - last > 15000) { last = now; fn(); }
+}
+
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     const Row& r = g_rows[(size_t)row];
     const char* why = nullptr;
@@ -1590,6 +1605,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         rows[k].sel = sel;
         ++k;
     };
+    TrainingPreload();
     const Snap s = ReadSnap();
     const char* gate = g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();

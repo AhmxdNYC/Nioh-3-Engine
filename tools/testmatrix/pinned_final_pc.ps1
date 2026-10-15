@@ -166,6 +166,7 @@ try {
         $graphics = [IO.File]::ReadAllText($ConfigPath)
         $fgConfigured = Assert-PBFgOff $graphics
         Assert-Launch
+        & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
         $started = Get-Date; Start-Process 'steam://rungameid/3681010'
         while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) {
             Assert-Owner; Start-Sleep 1
