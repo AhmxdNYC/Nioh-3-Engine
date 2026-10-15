@@ -389,7 +389,7 @@ static uint64_t ActorByHandle(uint32_t h);
 static struct { int pending, shown; uint32_t handle, owner; DWORD t0, tHide; } g_gg;
 // bridge 4801: the native HideBossGauge (queued event) leaves the empty frame on screen. Do what BossGaugeSetup does for unused rows by hand: clear the row vector (hud+0x3C0, 1CEE8C8),
 // hide the 3 row elements (type 0xF5) and the 42 detail elements (type 0xF6) with 5D1D8C(elem,0), then hide the HUD (1CEC2E0).
-static int g_hudHidden, g_noForceHide; static int g_cfg_freshid = 1; static uint32_t g_gaugeN;
+static int g_hudHidden, g_noForceHide; static int g_cfg_freshid = 1, g_cfg_gaugereset = 1; static uint32_t g_gaugeN;
 static void GaugeForceHide(const char* why) {
     uint64_t root = 0, hud = 0; Rd64(B + 0x45C84A8, &root); if (!root || !Rd64(root + 0xA8, &hud) || !hud) { Log("GAUGE force hide (%s): no HUD", why); return; }
     __try {
@@ -439,6 +439,15 @@ static void GaugeTick(void) {
     g_forceHideAt = 0;  // bridge 4942: a retry hides the old bar and shows the new one 300 ms later: the delayed force-hide of the old bar must not hit the new one
     if (g_cfg_freshid) g_fakeid = FAKE_GAUGE_ID + (++g_gaugeN & 0xFFF);
     g_fakeid_shown = g_fakeid;
+    {   // bridge 5479: BossGaugeSetup 1D05824 starts with hud vf50 (1CFD6D4 -> 563754) = (hud+0x2C == 0 && hud+0x1F == 0). Show runs 70781C(hud) which sets hud+0x2C = 1 (opening);
+        // only the native hide/close state machine puts it back to 0, and GaugeForceHide bypasses that, so every bar after the first was refused (rows stayed 0). Reset the idle state first.
+        uint64_t root = 0, hud = 0; Rd64(B + 0x45C84A8, &root); if (root) Rd64(root + 0xA8, &hud);
+        __try { if (hud) {
+            uint32_t s2c = *(uint32_t*)(hud + 0x2C); uint8_t s1f = *(uint8_t*)(hud + 0x1F);
+            Log("GAUGE pre-show #%u: hud+2C=%u hud+1F=%u%s", g_gaugeN, s2c, s1f, (s2c || s1f) && g_cfg_gaugereset ? " -> reset to 0" : "");
+            if (g_cfg_gaugereset) { *(uint32_t*)(hud + 0x2C) = 0; *(uint8_t*)(hud + 0x1F) = 0; }
+        } } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    }
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(g_fakeid, 0, 0);
     g_gg.pending = 0; g_gg.shown = 1;
     {   // bridge 5437 diag: ShowBossGauge (1D05824) is synchronous; it needs hud vfunc +0x50 true, a FindWrapper hit and 4892A8(actor) false. rows = bars added.
@@ -1434,7 +1443,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
-        g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
+        g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_gaugereset = GetPrivateProfileIntA("ArenaSwap", "GaugeStateReset", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
