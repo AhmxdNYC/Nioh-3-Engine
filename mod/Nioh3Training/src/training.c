@@ -180,11 +180,11 @@ static void WatchTick(void) {  // after CreateDynamic: collect actors that were 
           Log("SPAWN actor #%d team %d (player team %d)", g_nsp - 1, c ? *(int32_t*)(c + 0x10) : -999, pc ? *(int32_t*)(pc + 0x10) : -999); }
         if (g_cfg_sidefix) {  // bridge 5030 FIX 1 (pc RE): runtime side change + AI retarget; fallback SetSideEnemy 669510
             int t0 = ActorTeam(cur[i]), pt = ActorTeam(PlayerChar());
-            if (t0 == pt || t0 == 0) {
+            if (1) {  // pc 5033: team already 1 yet the boss stayed passive, so always run the retarget call, not only when the team is wrong
                 __try { ((void (*)(uint64_t, int))(B + 0x1C272F0))(cur[i], 1); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SIDEFIX: 1C272F0 faulted"); }
                 int t1 = ActorTeam(cur[i]);
                 Log("SIDEFIX: 1C272F0(actor,1) team %d -> %d", t0, t1);
-                if (t1 == t0) { __try { ((void (*)(uint64_t))(B + 0x669510))(cur[i]); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SIDEFIX: 669510 faulted"); }
+                if (t1 == t0 && (t0 == pt || t0 == 0)) { __try { ((void (*)(uint64_t))(B + 0x669510))(cur[i]); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SIDEFIX: 669510 faulted"); }
                     Log("SIDEFIX: fallback 669510 team %d -> %d", t1, ActorTeam(cur[i])); }
             } else Log("SIDEFIX: skipped, team %d already differs from player's %d", t0, pt);
         }
