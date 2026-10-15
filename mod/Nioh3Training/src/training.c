@@ -310,14 +310,60 @@ static int FadeOutActor(int idx, float frames) {
 // With force = 1 the HP-floor guard (hp+0x188 bit 1, cleared through EC4C5C(hp+0x178,1,-1)) is bypassed, so it kills a boss that sits at HP 1 waiting for its death blow.
 // 786C84 returns at once when hp+0x48 == 1 (already dead), so a second call is harmless. Ally bridge 458: Yamagata 'kill last 1' -> loot pillars + Amrita.
 static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_timeout = 6000;
+// #6643 death-blow revive. Logs 18:57 / 19:02: the native kill set the dead flag, then the boss came back at HP 1 (sensor 0->1->0), and a raw HP 0
+// write was also undone. Cause (static RE, 786C84 after the damage apply 787268): once hp+0x48 == 1 (dead), unless actor+0x894 != 0,
+//   786FFC  mov edx,27h / mov rcx,rdi / call 4893B8   ; CharacterConditionEvaluate(cond 0x27) = byte [chr+0x20D] bit 4 ("needs death blow")
+//   787009  test al,al / jz 787058                   ; 0 -> 1FFFEDC(comp, type, drop): the normal death + drop handler
+//   78700D  ... call 66C188(hp+0x38, 1)              ; 1 -> HP set to 1, dead flag cleared, +0xEA0 / 0x400000000000 = death-blow-pending state
+// So the "HP floor" is a revive-to-1 inside the damage function. Fix: retarget that one call (E8 rel32) to a near stub. For the boss-mode / summoned
+// boss with DeathBlowRequired=0, or during our own native force kill, a true cond 0x27 is reported as false, so the game takes its own death path
+// in the same call (no timing change, no memory writes to the actor). BL (= 786C84 arg 5, drop) feeds 1FFFEDC and the "no drop" bit 0x8000
+// (test bl,bl at 787219); the stub clears BL when the C detour returns 2 (natural kill with BossLoot=0 -> no drop, as before).
+typedef uint8_t (*CondFn)(uint64_t, uint32_t);
+static CondFn o_cond;
+static volatile uint64_t g_db_act, g_kill_act;  // boss-mode boss actor (BossTick), actor being force-killed by ForceKillActor
+static volatile LONG g_db_logs;
+static uint8_t h_cond(uint64_t comp, uint32_t cond) {
+    uint8_t r = o_cond(comp, cond);
+    if (!r || cond != 0x27) return r;
+    uint64_t a = 0; if (!Rd64(comp, &a) || !a) return r;
+    int forcing = a == g_kill_act;
+    if (!forcing && (g_cfg_deathblow || (a != g_db_act && !InSp(a)))) return r;
+    if (InterlockedIncrement(&g_db_logs) <= 20) Log("DEATHBLOW skip: actor %p lethal hit, death-blow revive (cond 0x27) skipped -> native death (%s, drop %s)", (void*)a, forcing ? "force kill" : "DeathBlowRequired=0", forcing ? "per kill call" : g_cfg_loot ? "game" : "off");
+    return (forcing || g_cfg_loot) ? 0 : 2;
+}
+static int HookDeathBlowCond(void) {
+    uint8_t* site = (uint8_t*)(B + 0x787004);
+    static const uint8_t pre[8] = {0xBA, 0x27, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xCF}, post[4] = {0x84, 0xC0, 0x74, 0x4B};
+    if (memcmp(site - 8, pre, 8) || site[0] != 0xE8 || memcmp(site + 5, post, 4) || memcmp((void*)(B + 0x787219), "\x84\xDB\x75\x08", 4)) { Log("DEATHBLOW hook 787004: bytes mismatch, DeathBlowRequired=0 falls back to the native kill only"); return 0; }
+    uintptr_t prev = (uintptr_t)(site + 5) + *(int32_t*)(site + 1);
+    uint8_t* stub = 0;
+    for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !stub; a += 0x10000)
+        stub = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!stub) { Log("DEATHBLOW hook: no near stub"); return 0; }
+    // sub rsp,28h; mov rax,h_cond; call rax; add rsp,28h; cmp al,2; jne ret; xor bl,bl; xor eax,eax; ret
+    static const uint8_t code[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xD0, 0x48, 0x83, 0xC4, 0x28, 0x3C, 0x02, 0x75, 0x04, 0x30, 0xDB, 0x31, 0xC0, 0xC3};
+    memcpy(stub, code, sizeof code); *(uint64_t*)(stub + 6) = (uint64_t)h_cond;
+    FlushInstructionCache(GetCurrentProcess(), stub, sizeof code);
+    o_cond = (CondFn)prev;
+    int32_t rel = (int32_t)((intptr_t)stub - (intptr_t)(site + 5));
+    DWORD old; VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &old);
+    InterlockedExchange((volatile LONG*)(site + 1), rel);
+    VirtualProtect(site, 5, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), site, 5);
+    Log("DEATHBLOW hook 787004 ok: cond 0x27 revive call -> stub %p (previous target rva %llX)", stub, (unsigned long long)(prev - B));
+    return 1;
+}
 static int ForceKillActor(uint64_t live, int drop, const char* why) {
     if (!live) return 0;
     uint32_t flag = 0; uint64_t comp = 0, h = 0; int dead = 0;
     __try { flag = *(uint32_t*)(live + 0xAB84); comp = *(uint64_t*)(live + 0x3B0); if (Rd64(live + 0x3A0, &h) && h) dead = *(int*)(h + 0x48) == 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     if (dead) { Log("KILL %s %p: already dead (hp+48 == 1), nothing to do", why, (void*)live); return 0; }
     if (flag != 0xFFFFFFFFu || !comp) { Log("KILL %s %p: guard refused (+ab84=%08X comp=%p; the script natives need +ab84 == -1)", why, (void*)live, flag, (void*)comp); return 0; }
+    g_kill_act = live;  // h_cond: a force kill really kills (no death-blow revive to HP 1)
     __try { ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1); }
-    __except (EXCEPTION_EXECUTE_HANDLER) { Log("KILL %s: exception %08lX", why, GetExceptionCode()); return 0; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { g_kill_act = 0; Log("KILL %s: exception %08lX", why, GetExceptionCode()); return 0; }
+    g_kill_act = 0;
     Log("KILL %s %p: native EnemyForceKill%s 786C84 called", why, (void*)live, drop ? "WithItemDrop" : "");
     return 1;
 }
@@ -690,7 +736,7 @@ static int ActorHp(uint64_t a, uint64_t* cur, uint64_t* max) {  // Character::Ge
     __try { if (!Rd64(a + 0x3A0, &h) || !h) return 0; return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 static void BossTick(void) {
-    if (!g_bm.active) return;
+    if (!g_bm.active) { g_db_act = 0; return; }
     DWORD now = GetTickCount(); if (now - g_bm.last < 250) return; g_bm.last = now;
     {   // full-fight heartbeat (user play-test 12:27): boss + player HP every 2 s, one line per 25 % boss-HP step, player 0 HP
         static DWORD hbAt; static int lastPct = 101, plDead; uint64_t bc = 0, bmx = 0, pc = 0, pm = 0;
@@ -713,6 +759,7 @@ static void BossTick(void) {
         static DWORD sess, finAt, killSess; static int prevV, done;
         if (sess != g_bm.t0) { sess = g_bm.t0; finAt = 0; prevV = v; done = 0; }
         uint64_t act = ActorByHandle(g_bm.id); int ours = 0;
+        g_db_act = act;  // h_cond: lethal hits on this actor skip the death-blow revive when DeathBlowRequired=0
         for (int i = 0; i < g_nsp; ++i) if (act && g_sp_actor[i] == act) ours = 1;
         uint64_t fc = 0, fm = 0;
         { static DWORD dgAt; uint64_t dc = 9, dm = 0; if (act && ActorHp(act, &dc, &dm) && dm && dc <= 1 && now - dgAt > 5000) { dgAt = now; Log("DEATHBLOW diag: hp %llu ours %d done %d nsp %d act %p", dc, ours, done, g_nsp, (void*)act); } }
@@ -726,15 +773,13 @@ static void BossTick(void) {
             }
             if (why) { done = 1; Log("DEATHBLOW +%lu ms boss %u HP %llu / %llu: %s -> native kill (BossLoot %d)", now - g_bm.t0, g_bm.id, fc, fm, why, g_cfg_loot); ForceKillActor(act, g_cfg_loot, why); }
         }
-        // user play-test 18:53: the native kill at HP 1 only replayed the finisher state (sensor 0->1->0) and the boss stayed at HP 1: 1.5 s after the kill, if HP is still 1, write HP 0 and kill again
-        static DWORD killAt; static int zeroed;
-        if (sess != killSess) { killSess = sess; killAt = 0; zeroed = 0; }
+        // #6643: the raw HP 0 write (4df272c..fa17802) is gone (the game revived the boss to HP 1 anyway, and it is a suspect in a PC hard freeze).
+        // The death-blow revive is now skipped inside the damage function (h_cond); this only reports if the boss is still at HP 1 1.5 s after the kill.
+        static DWORD killAt; static int reported;
+        if (sess != killSess) { killSess = sess; killAt = 0; reported = 0; }
         if (done && !killAt) killAt = now;
-        if (done && !zeroed && killAt && now - killAt >= 250 && act && ours && ActorHp(act, &fc, &fm) && fm && fc == 1) {
-            uint64_t h = 0; zeroed = 1;
-            __try { if (Rd64(act + 0x3A0, &h) && h) *(uint64_t*)(h + 0x58) = 0; } __except (EXCEPTION_EXECUTE_HANDLER) { h = 0; }
-            Log("KILL boss still at HP 1 %d ms after the native kill: wrote HP 0 (hp obj %p) and kill again", (int)(now - killAt), (void*)h);
-            ForceKillActor(act, g_cfg_loot, "HP 0 write");
+        if (done && !reported && killAt && now - killAt >= 1500 && act && ActorHp(act, &fc, &fm) && fm && fc == 1) {
+            reported = 1; Log("KILL boss still at HP 1 %d ms after the native kill (death-blow hook %s)", (int)(now - killAt), o_cond ? "on" : "OFF");
         }
         prevV = v;
     }
@@ -1556,7 +1601,7 @@ static void Exec(char* line) {
             uint64_t live = g_sp_actor[idx]; uint32_t flag = *(uint32_t*)(live + 0xAB84); uint64_t comp = *(uint64_t*)(live + 0x3B0);
             Log("CMD kill #%d %p: +ab84=%08X comp=%p drop=%d", idx, (void*)live, flag, (void*)comp, drop);
             if (flag != 0xFFFFFFFFu || !comp) { Log("CMD kill: guard refused (needs +ab84==-1 and comp)"); return; }
-            ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1);
+            g_kill_act = live; ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1); g_kill_act = 0;
             Log("CMD kill #%d: 786C84 called", idx);
         } else if (!strcmp(op, "deathcfg")) {  // #6185: deathcfg BossLoot DeathBlowRequired CutsceneOnKill (run-time INI override)
             if (n >= 4) { g_cfg_loot = (int)a[0]; g_cfg_deathblow = (int)a[1]; g_cfg_cutscene = (int)a[2]; }
@@ -1606,7 +1651,7 @@ static void Exec(char* line) {
             uint32_t flag = *(uint32_t*)(act + 0xAB84); uint64_t comp = *(uint64_t*)(act + 0x3B0); int drop = n >= 3 ? (int)a[1] : 1;
             Log("CMD killid %p: +ab84=%08X comp=%p drop=%d", (void*)act, flag, (void*)comp, drop);
             if (flag != 0xFFFFFFFFu || !comp) { Log("CMD killid: guard refused (needs +ab84==-1 and comp)"); return; }
-            ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1);
+            g_kill_act = act; ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1); g_kill_act = 0;
             Log("CMD killid: EnemyForceKill called");
         } else if (!strcmp(op, "fnow")) {  // Fight now through the hooked MissionRequestById (as an add-on caller): swaps in place when the row is eligible, else the native load
             Log("CMD fnow mission 0x%llX", a[0]);
@@ -1786,6 +1831,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         if (!memcmp((void*)(B + 0x3B3A28), aorp, sizeof aorp)) { o_aor = (AorFn)Hook(0x3B3A28, 15, h_aor); Log("hook StageAreasObjectsReady 3B3A28 ok (CrossWorldAreaObjSkipMs %d)", g_cfg_xaoskip); }
         else { g_cfg_xaoskip = 0; Log("hook StageAreasObjectsReady 3B3A28: prologue mismatch, CrossWorldAreaObjSkipMs off"); }
     }
+    HookDeathBlowCond();
     HookPump();
     char p[MAX_PATH]; snprintf(p, sizeof p, "%s\\Nioh3Training.cmd", g_dir);
     for (;;) {
