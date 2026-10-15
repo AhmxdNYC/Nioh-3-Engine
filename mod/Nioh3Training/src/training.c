@@ -729,7 +729,7 @@ static void BossTick(void) {
         static DWORD killAt; static int zeroed;
         if (sess != killSess) { killSess = sess; killAt = 0; zeroed = 0; }
         if (done && !killAt) killAt = now;
-        if (done && !zeroed && killAt && now - killAt >= 1500 && act && ours && ActorHp(act, &fc, &fm) && fm && fc == 1) {
+        if (done && !zeroed && killAt && now - killAt >= 250 && act && ours && ActorHp(act, &fc, &fm) && fm && fc == 1) {
             uint64_t h = 0; zeroed = 1;
             __try { if (Rd64(act + 0x3A0, &h) && h) *(uint64_t*)(h + 0x58) = 0; } __except (EXCEPTION_EXECUTE_HANDLER) { h = 0; }
             Log("KILL boss still at HP 1 %d ms after the native kill: wrote HP 0 (hp obj %p) and kill again", (int)(now - killAt), (void*)h);
