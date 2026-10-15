@@ -710,7 +710,7 @@ static void BossTick(void) {
         //  CutsceneOnKill = 1 (or BossLoot = 1): keep the death blow, but when the first finisher animation ends (sensor 1 -> 0 at HP <= 1, or FinisherKillTimeoutMs
         //  after it started) kill natively, so one finisher plays the final animation and the boss dies.
         //  BossLoot = 1: that native kill is EnemyForceKillWithItemDrop (drop table + Amrita); 0 = EnemyForceKill (no drop).
-        static DWORD sess, finAt; static int prevV, done;
+        static DWORD sess, finAt, killSess; static int prevV, done;
         if (sess != g_bm.t0) { sess = g_bm.t0; finAt = 0; prevV = v; done = 0; }
         uint64_t act = ActorByHandle(g_bm.id); int ours = 0;
         for (int i = 0; i < g_nsp; ++i) if (act && g_sp_actor[i] == act) ours = 1;
@@ -724,6 +724,16 @@ static void BossTick(void) {
                 else if (finAt && now - finAt >= (DWORD)g_cfg_fin_timeout) why = "finisher timeout";
             }
             if (why) { done = 1; Log("DEATHBLOW +%lu ms boss %u HP %llu / %llu: %s -> native kill (BossLoot %d)", now - g_bm.t0, g_bm.id, fc, fm, why, g_cfg_loot); ForceKillActor(act, g_cfg_loot, why); }
+        }
+        // user play-test 18:53: the native kill at HP 1 only replayed the finisher state (sensor 0->1->0) and the boss stayed at HP 1: 1.5 s after the kill, if HP is still 1, write HP 0 and kill again
+        static DWORD killAt; static int zeroed;
+        if (sess != killSess) { killSess = sess; killAt = 0; zeroed = 0; }
+        if (done && !killAt) killAt = now;
+        if (done && !zeroed && killAt && now - killAt >= 1500 && act && ours && ActorHp(act, &fc, &fm) && fm && fc == 1) {
+            uint64_t h = 0; zeroed = 1;
+            __try { if (Rd64(act + 0x3A0, &h) && h) *(uint64_t*)(h + 0x58) = 0; } __except (EXCEPTION_EXECUTE_HANDLER) { h = 0; }
+            Log("KILL boss still at HP 1 %d ms after the native kill: wrote HP 0 (hp obj %p) and kill again", (int)(now - killAt), (void*)h);
+            ForceKillActor(act, g_cfg_loot, "HP 0 write");
         }
         prevV = v;
     }
