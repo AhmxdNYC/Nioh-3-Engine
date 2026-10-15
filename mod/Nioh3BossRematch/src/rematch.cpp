@@ -125,6 +125,12 @@ void* TrainingExport(const char* name) {
     return m ? (void*)GetProcAddress(m, name) : nullptr;
 }
 
+bool XwPending() {
+    using Fn = int (*)();
+    static const auto f = (Fn)TrainingExport("Nioh3Training_XwPending");
+    return f && f();
+}
+
 // ---- requests ----
 enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8 };
 std::atomic<uint32_t> g_req{0};  // kind | (row + 1) << 8
@@ -184,7 +190,7 @@ const char* Gates(const Snap& s, bool uiSide) {
     if (s.online) return "online";
     if (s.guest) return "co-op session";
     if (!s.gm) return "game not ready";
-    if (s.st[2]) return "loading";
+    if (s.st[2] && !XwPending()) return "loading";  // a Nioh3Training prewarm world load is not a reason to refuse: Fight now claims it (bridge 6473)
     if (s.st[3] | s.st[4]) return "game paused";
     if (!s.player) return "no save loaded";
     if (s.queueBusy) return "mission queue busy";
