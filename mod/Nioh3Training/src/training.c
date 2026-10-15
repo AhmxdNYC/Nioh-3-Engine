@@ -30,6 +30,8 @@
 //   dump                        also (bridge 4717) wrapper words of live registry rows and +0..0xFF of every non-player actor: run it in a native boss fight
 //   ownerwait ms / owneract 0|1 owner fallbacks for the arena swap (ini OwnerWaitMs / OwnerActivate)
 //   swap 0|1                    arena swap Enable at run time
+//   team / setteam id t         (bridge 4878) log the team id [[actor+B0]+10] of every actor / write one; teamfix 0|1 [enemyTeam]; forceowner N (1 = reproduce owner = player)
+//   train id [dist] / retry / trainstop  (bridge 4942) no-load training session: summon here (any world), player NoDeath, reset round without a load; hp / nodeath 0|1 / recover
 // Config Nioh3Training.ini [ArenaSwap]; table Nioh3Training_arenas.tsv (tools/gen_arena_table.py). Exports: Nioh3Training_FightNow / _Preload / _Version.
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
 #include <windows.h>
@@ -151,6 +153,20 @@ static void DumpOwnerState(const char* why) {
         if (g_dump_full) for (int i = 0; i < n; ++i) if (cur[i] != me) { char tg[40]; snprintf(tg, sizeof tg, "actor%d(%08X)", i, *(uint32_t*)(cur[i] + 4)); DumpWords(tg, cur[i], 0, 0x100); }
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DUMP [%s]: exception", why); }
 }
+// bridge 4878: boss monitor, 20 s after a spawned boss enters the table: boss->player distance and team every 500 ms (engagement evidence: an active boss closes in)
+static struct { uint64_t a; DWORD t0, last; float minD; } g_mon;
+static void MonTick(void) {
+    if (!g_mon.a) return;
+    DWORD now = GetTickCount(); if (now - g_mon.last < 500) return; g_mon.last = now;
+    uint64_t cur[1024]; int n = Actors(cur, 1024), found = 0; for (int i = 0; i < n; ++i) if (cur[i] == g_mon.a) found = 1;
+    float b[4] = {0}, p[4] = {0};
+    if (!found || !PlayerPos(p)) { Log("BOSSMON +%lu ms boss actor gone", now - g_mon.t0); g_mon.a = 0; return; }
+    memcpy(b, (void*)(g_mon.a + 0x110), 16);
+    float dx = b[0] - p[0], dz = b[2] - p[2], d = sqrtf(dx * dx + dz * dz) / 100.0f; if (d < g_mon.minD) g_mon.minD = d;
+    uint64_t c = 0; Rd64(g_mon.a + 0xB0, &c);
+    Log("BOSSMON +%lu ms boss %.0f %.0f %.0f player %.0f %.0f %.0f dist %.1f m (min %.1f) team %d", now - g_mon.t0, b[0], b[1], b[2], p[0], p[1], p[2], d, g_mon.minD, c ? *(int32_t*)(c + 0x10) : -999);
+    if (now - g_mon.t0 > 20000) { Log("BOSSMON end: closest %.1f m", g_mon.minD); g_mon.a = 0; }
+}
 static void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
     uint64_t cur[1024]; int n = Actors(cur, 1024);
@@ -158,6 +174,9 @@ static void WatchTick(void) {  // after CreateDynamic: collect actors that were 
         float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
         g_sp_actor[g_nsp++] = cur[i];
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
+        { uint64_t c = 0, me = PlayerChar(), pc = 0; Rd64(cur[i] + 0xB0, &c); if (me) Rd64(me + 0xB0, &pc);
+          Log("SPAWN actor #%d team %d (player team %d)", g_nsp - 1, c ? *(int32_t*)(c + 0x10) : -999, pc ? *(int32_t*)(pc + 0x10) : -999); }
+        g_mon.a = cur[i]; g_mon.t0 = g_mon.last = GetTickCount(); g_mon.minD = 1e9f;
         if (g_dump_pending) { DumpWords("boss", cur[i], g_dump_owner, 0x100); g_dump_pending = 0; }
         g_watch = 0;
     }
@@ -220,7 +239,9 @@ static uint64_t ResEntry(uint32_t id) {
     uint64_t rm = 0; if (!Rd64(B + 0x45B9E60, &rm) || !rm) return 0;
     return ((uint64_t (*)(uint64_t, uint64_t))(B + 0x133440))(rm, key);
 }
-static uint32_t PickOwner(void) {  // a registered placement with a live actor (not the player): enemy records first, then any live registered actor; 1 = the player (the boss is then friendly/passive)
+static uint32_t g_force_owner;  // debug (bridge 4878): ForceOwner / 'forceowner N' makes PickOwner return N (1 = reproduce the no-live-owner case on any save)
+static uint32_t PickOwner(void) {  // a registered placement with a live actor (not the player): enemy records first, then any live registered actor; 1 = the player (team fix below keeps the boss hostile)
+    if (g_force_owner) return g_force_owner;
     uint64_t cm = 0, c0 = 0; Rd64(B + 0x45B9E40, &cm); if (!cm) return 1; Rd64(cm, &c0); if (!c0) return 1;
     uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1], me = PlayerChar(), any = 0;
     for (uint64_t i = 0; i < cnt; ++i) {
@@ -232,6 +253,31 @@ static uint32_t PickOwner(void) {  // a registered placement with a live actor (
         if (!any) any = id;  // bridge 4506: a live non-enemy registered actor (id 9528 in Rajomon) also gives the boss hostile AI; a dead/unspawned placement is refused (CreateDynamic -> 0)
     }
     return any ? (uint32_t)any : 1;
+}
+// ---- bridge 4878: team of a CreateDynamic boss. CreateDynamic 1C0C5E0 builds the spawn request (683FE4 init, 683F74 enqueue) and copies the OWNER actor's
+// team id [[owner+0xB0]+0x10] into request+0x60 (the team every AI target check compares: same team = never a target, e.g. A23192.., 20CA86, 3273C2).
+// Owner = player (no live registered actor in the area, handle 0x50000001) puts the boss on the PLAYER's team: it idles and never attacks.
+// Fix: while our CreateDynamic runs with owner = player, the player's team field holds the enemy team (read back from a live enemy, else ini EnemyTeam / default);
+// the request is filled synchronously inside the call, then the player's team is restored.
+static int g_cfg_teamfix = 1, g_cfg_enemyteam = -1;
+#define DEFAULT_ENEMY_TEAM 1
+static int32_t* TeamPtr(uint64_t actor) { uint64_t c = 0; if (!actor || !Rd64(actor + 0xB0, &c) || !c) return 0; return (int32_t*)(c + 0x10); }
+static int ActorTeam(uint64_t actor) { int32_t* p = TeamPtr(actor); int v = -999; if (p) { __try { v = *p; } __except (EXCEPTION_EXECUTE_HANDLER) { v = -999; } } return v; }
+static int EnemyTeam(const char** src) {
+    if (g_cfg_enemyteam >= 0) { *src = "ini EnemyTeam"; return g_cfg_enemyteam; }
+    uint64_t me = PlayerChar(), cur[1024]; int n = Actors(cur, 1024), pt = ActorTeam(me), cnt[16] = {0}, best = -1;
+    for (int i = 0; i < n; ++i) { if (cur[i] == me) continue; int t = ActorTeam(cur[i]); if (t >= 0 && t < 16 && t != pt) cnt[t]++; }
+    for (int t = 0; t < 16; ++t) if (cnt[t] && (best < 0 || cnt[t] > cnt[best])) best = t;
+    if (best >= 0) { *src = "live actors"; return best; }
+    *src = "default"; return DEFAULT_ENEMY_TEAM;
+}
+static uint32_t CreateBoss(uint32_t chr, const float* p, float yaw, uint32_t owner, const char* tag) {
+    uint64_t me = PlayerChar(); int32_t* tp = (owner == 1 && g_cfg_teamfix) ? TeamPtr(me) : 0; int old = 0, et = -1; const char* src = "";
+    if (tp) { old = *tp; et = EnemyTeam(&src); if (et == old) { Log("%s TEAM: enemy team %d (%s) equals the player's, no override", tag, et, src); tp = 0; } }
+    if (tp) *tp = et;
+    uint32_t r = ((DynFn)(B + 0x1C0C5E0))(chr, p, yaw, 0, owner, 0);
+    if (tp) { *tp = old; Log("%s TEAM: owner = player, boss created on enemy team %d (%s) instead of the player's team %d (player team restored)", tag, et, src, old); }
+    return r;
 }
 // ---- boss HP bar for a CreateDynamic boss (bridge 4768). The gauge natives look the boss up by PLACEMENT id: AddBossGaugeRow 1CE7C6C -> FindWrapper 135B78 (sorted registry [c0+0x48], row = {id, wrapper*}) -> wrapper[0] = live actor.
 // A dynamic boss has no registry row (its handle 0x1000xxxx is not an id there), so the gauge finds nothing or the owner placement's own actor. We hook FindWrapper: a private id FAKE_GAUGE_ID returns a copy of the owner's wrapper whose live-actor field points at the spawned boss.
@@ -307,7 +353,7 @@ static void SpawnTick(void) {
     if (owner <= 1) { Log("SPAWN WARNING no live registered actor to own the boss: owner = player"); DumpOwnerState("spawn-no-owner"); g_dump_pending = 1; g_dump_owner = owner; }
     float face = cy + 180.0f;
     g_nsnap = Actors(g_snap, 1024);
-    uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_sp.id, p, face, 0, owner, 0);
+    uint32_t r = CreateBoss(g_sp.id, p, face, owner, "SPAWN");
     g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount();
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
     if (r && g_autogauge) { FakeGaugeRequest(r, owner); Log("SPAWN %u: boss gauge requested for 0x%X", g_sp.id, r); }
@@ -494,9 +540,9 @@ static void ArenaTick(void) {
                     if (now - g_ar.tOwn < wait) goto owner_wait;
                     Log("ARENA owner wait over after %lu ms", now - g_ar.tOwn);
                 } else if (owner > 1 && g_ar.tOwn) Log("ARENA owner %u found %lu ms after the wait began", owner, now - g_ar.tOwn);
-                if (owner <= 1) { Log("ARENA WARNING no live registered actor to own the boss: owner = player, the boss will be passive"); DumpOwnerState("arena-no-owner"); g_dump_pending = 1; g_dump_owner = owner; }
+                if (owner <= 1) { Log("ARENA WARNING no live registered actor to own the boss: owner = player (%s)", g_cfg_teamfix ? "TeamFix 1: boss created on the enemy team" : "TeamFix 0: the boss will be passive"); DumpOwnerState("arena-no-owner"); g_dump_pending = 1; g_dump_owner = owner; }
                 g_nsnap = Actors(g_snap, 1024);
-                uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_ar.chr, b, g_ar.byaw, 0, owner, 0);
+                uint32_t r = CreateBoss(g_ar.chr, b, g_ar.byaw, owner, "ARENA");
                 g_watch = r != 0; g_watch_id = r; g_watch_t0 = now; g_ar.spawned = 1; g_ar.tSpawn = now;
                 Log("ARENA +%lu ms CreateDynamic(%u owner %u) at %.0f %.0f %.0f yaw %.1f -> 0x%X", dt, g_ar.chr, owner, b[0], b[1], b[2], g_ar.byaw, r);
                 if (r && g_autogauge) FakeGaugeRequest(r, owner);
@@ -511,7 +557,7 @@ static void ArenaTick(void) {
     if (g_ar.released && dt > 15000 + (g_ar.tReady ? g_ar.tReady - g_ar.t0 : 0)) { Log("ARENA monitor end"); g_ar.active = 0; }
 }
 
-static int g_cfg_enable = 1, g_cfg_preload = 1, g_cfg_preload_max = 3, g_cfg_hook = 0, g_cfg_ambient = 0, g_cfg_bossdist = 900;
+static int g_cfg_enable = 1, g_cfg_preload = 1, g_cfg_preload_max = 3, g_cfg_hook = 0, g_cfg_ambient = 0, g_cfg_bossdist = 900, g_cfg_anchor = 1;
 static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) {
     BgmStop("new swap");
     for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);  // one swapped-in boss at a time
@@ -565,6 +611,106 @@ static void LoadTable(void) {
 static ArenaRow* FindRow(uint32_t mission) { for (int i = 0; i < g_nrows; ++i) if (g_rows[i].mission == mission) return &g_rows[i]; return 0; }
 static int CurWorld(void) { uint64_t s = StageMgr(); return s ? *(uint8_t*)(s + 0x500) : -1; }
 static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm); return gm ? (const uint8_t*)(gm + 0x588) : 0; }  // [2] loading, [3]/[4] paused
+
+// ---- bridge 4942: no-load training session. 'train <R-id|charId> [dist]' summons the boss next to the player in whatever map is loaded (any world: only the
+// boss's character resources are loaded, no mission/stage load), keeps the player alive (native Character::SetNoDeath replica on the player's wrapper), and resets the round
+// without a load: player beaten (HP at the floor) or 'retry' -> despawn the boss, Player::RecoverFull replica, summon the same boss again (resources stay loaded = instant).
+// Boss killed -> victory end state; RespawnOnWinMs > 0 respawns it after that many ms. 'trainstop' ends the session (NoDeath off, boss removed).
+static int g_cfg_tr_dist = 600, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1;
+static struct { int active, round, nodeath, beaten; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport; } g_tr;
+static uint64_t PlayerWrapper(void) {  // registry row whose live actor is the player
+    uint64_t cm = CharMgr(), c0 = 0, me = PlayerChar(); if (!cm || !Rd64(cm, &c0) || !c0 || !me) return 0;
+    uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
+    for (uint64_t i = 0; i < cnt; ++i) { uint64_t w = *(uint64_t*)(arr + i * 16 + 8), live = 0; if (w && Rd64(w, &live) && live == me) return w; }
+    return 0;
+}
+static int PlayerSetNoDeath(int on) {  // Character::SetNoDeath (VM 239711C): msg = 2386460(&out, &flag), 66BBF4(wrapper, &msg), release
+    uint64_t w = PlayerWrapper(); if (!w) { Log("TRAIN NoDeath %d: no player wrapper in the registry", on); return 0; }
+    uint8_t flag = on ? 1 : 0; uint64_t out[2] = {0, 0};
+    ((uint64_t* (*)(uint64_t*, uint8_t*))(B + 0x2386460))(out, &flag);
+    uint64_t tmp[2] = {out[0], out[1]}; out[0] = out[1] = 0;
+    ((void (*)(uint64_t, uint64_t*))(B + 0x66BBF4))(w, tmp);
+    uint64_t obj = tmp[1];
+    if (obj && InterlockedDecrement((volatile LONG*)(obj + 8)) == 0) {
+        void** vt = *(void***)obj; ((void (*)(uint64_t))vt[0])(obj);
+        if (InterlockedDecrement((volatile LONG*)(obj + 0xC)) == 0) ((void (*)(uint64_t))vt[1])(obj);
+    }
+    g_tr.nodeath = on; Log("TRAIN player NoDeath %d (wrapper %p)", on, (void*)w); return 1;
+}
+static int PlayerHp(uint64_t* cur, uint64_t* max) {  // Character::GetHpRate (323BB4): [[actor+0x3A0]+0x58] / [+0x50]
+    uint64_t me = PlayerChar(), h = 0; if (!me || !Rd64(me + 0x3A0, &h) || !h) return 0;
+    return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max);
+}
+static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
+    uint64_t p = ((uint64_t (*)(uint32_t))(B + 0x20A914))(0);
+    if (p) ((void (*)(uint64_t, uint64_t, uint64_t))(B + 0x54AFBC))(CharMgr(), 0, 0);
+    p = ((uint64_t (*)(uint32_t))(B + 0x20A914))(0);
+    if (p) ((void (*)(uint64_t))(B + 0x204E038))(p);
+    uint64_t c = 0, m = 0; PlayerHp(&c, &m); Log("TRAIN player RecoverFull: HP %llu / %llu", c, m);
+}
+static int SummonStart(const char* tok, float d) {
+    if (g_sp.active) { Log("SUMMON %s: previous spawn %u still loading", tok, g_sp.id); return 0; }
+    uint32_t chr = 0, bgm = 0;
+    for (int i = 0; i < g_nrows; ++i) if (!_stricmp(g_rows[i].id, tok)) { chr = g_rows[i].chr; bgm = g_rows[i].bgm; break; }
+    if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
+    if (!chr) { Log("SUMMON: unknown boss '%s'", tok); return 0; }
+    if (g_bm.active) BossModeEnd("new summon");
+    BgmStop("new summon");
+    g_sp.id = chr; g_sp.dist = d; g_sp.owner = 0; g_sp.boss = 1; g_sp.bgm = bgm; g_sp.tOwn = 0; g_sp.t0 = GetTickCount();
+    uint64_t e = ResEntry(chr);
+    if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(chr, 2, 0);
+    Log("SUMMON %s -> char %u dist %.0f world 0x%02X: %s", tok, chr, d, CurWorld(), e && *(uint8_t*)(e + 0x2c8) ? "resources already loaded" : "Load::Character requested");
+    g_sp.active = 1; SpawnTick();
+    return 1;
+}
+static void TrainClear(const char* why) {  // remove our boss and its HUD/BGM state
+    if (g_bm.active) { BossModeEnd(why); g_bm.active = 0; }
+    BgmStop(why); FakeGaugeHide(why);
+    for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);
+    g_nsp = 0; g_watch = 0; g_mon.a = 0;
+}
+static int TrainStart(const char* tok, float d) {
+    if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
+    TrainClear("train start");
+    memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", tok); g_tr.tCmd = GetTickCount(); g_tr.round = 1;
+    if (g_cfg_tr_nodeath) PlayerSetNoDeath(1);
+    g_tr.tRespawn = GetTickCount() + 300;  // the native delete of the previous boss is applied on a later frame: spawn shortly after
+    g_tr.active = 1; Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
+    return 1;
+}
+static void TrainRetry(const char* why) {
+    if (!g_tr.active) { Log("TRAIN retry (%s): no session", why); return; }
+    TrainClear(why); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
+    g_tr.round++; g_tr.beaten = 0; g_tr.tWin = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + 300;
+    Log("TRAIN retry (%s): round %d", why, g_tr.round);
+}
+static void TrainStop(const char* why) {
+    TrainClear(why); if (g_tr.nodeath) PlayerSetNoDeath(0);
+    g_tr.active = 0; Log("TRAIN stop (%s)", why);
+}
+static void TrainTick(void) {
+    if (!g_tr.active) return;
+    DWORD now = GetTickCount();
+    if (g_tr.tRespawn && (int)(now - g_tr.tRespawn) >= 0) { g_tr.tRespawn = 0; g_tr.tReport = 1; SummonStart(g_tr.tok, (float)g_cfg_tr_dist); }
+    if (g_tr.tReport && g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: boss in the world %lu ms after the command", g_tr.round, now - g_tr.tCmd); g_tr.tReport = 0; }
+    uint64_t c = 0, m = 0;
+    if (!g_tr.beaten && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
+        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), resetting the round in 2 s", g_tr.round, c, m);
+    }
+    if (g_tr.beaten && now - g_tr.tBeat >= 2000) TrainRetry("player beaten");
+    if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000) {
+        g_tr.tWin = now; Log("TRAIN round %d: boss defeated%s", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)");
+    }
+    if (g_tr.tWin && g_cfg_tr_win > 0 && now - g_tr.tWin >= (DWORD)g_cfg_tr_win) TrainRetry("respawn on win");
+}
+// C API (bridge 4942) for Boss Rematch: Nioh3Training_Summon(missionId or charId) starts a no-load session (1 = started), _Retry() resets the round, _StopTraining() ends it.
+__declspec(dllexport) int Nioh3Training_Summon(uint32_t id) {
+    ArenaRow* r = FindRow(id); char tok[32];
+    if (r) snprintf(tok, sizeof tok, "%s", r->id); else snprintf(tok, sizeof tok, "%u", id);
+    return TrainStart(tok, (float)g_cfg_tr_dist);
+}
+__declspec(dllexport) void Nioh3Training_Retry(void) { TrainRetry("API"); }
+__declspec(dllexport) void Nioh3Training_StopTraining(void) { TrainStop("API"); }
 
 // ---- Fight now without a loading screen: MissionRequestById 2239600 called by an add-on (BossRematch) for a catalogued boss in the world we stand in
 typedef uint64_t (*ReqFn)(uint32_t, uint8_t, uint32_t, void*);
@@ -664,6 +810,7 @@ static void EnterTick(void) {
     Log("ENTER %s (%s): warped into the arena %.0f %.0f %.0f yaw %.1f -> %d (+%lu ms after the request); waiting for the mission script to spawn the boss", r->id, r->name, r->p[0], r->p[1], r->p[2], r->p[3], w, now - g_en.t0);
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    if (g_cfg_fn_summon) { Log("FIGHTNOW mission 0x%X: no-load summon here (FightNowSummon=1, bridge 4942)", mission); return Nioh3Training_Summon(mission); }
     ArenaRow* r = g_cfg_enable ? FindRow(mission) : 0;
     if (!r) return 0;
     if (g_cfg_native && NativeListed(mission)) {
@@ -676,6 +823,15 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     Log("FIGHTNOW %s (%s) mission 0x%X: arena swap in place (no mission load), world 0x%02X", r->id, r->name, mission, r->world);
     float b[3] = {r->b[0], r->b[1], r->b[2]};
     float dx = b[0] - r->p[0], dz = b[2] - r->p[2], d = sqrtf(dx * dx + dz * dz);
+    if (g_cfg_anchor && g_cfg_bossdist > 0 && d > g_cfg_bossdist && !strcmp(r->kind, "start")) {
+        // bridge 4852: a 'start' row's boss is far from the mission start point, usually on another level. Pulling the boss in along the line puts it on the wrong floor or off a ledge (Okita fell 4 m below the player, Nuribotoke stood still: passive).
+        // Keep the boss on its own catalogue floor and put the player BossDistance away from it, towards the start point, facing it (verified Ally: Okita and Nuribotoke attack within 10 s).
+        float k = g_cfg_bossdist / d, pp[4]; pp[0] = b[0] - dx * k; pp[1] = b[1] + 50.0f; pp[2] = b[2] - dz * k;
+        pp[3] = atan2f(dx, dz) * 57.2957795f;
+        Log("FIGHTNOW %s: boss anchored at its own position %.0f %.0f %.0f, player placed %d units away at %.0f %.0f %.0f yaw %.1f", r->id, b[0], b[1], b[2], g_cfg_bossdist, pp[0], pp[1], pp[2], pp[3]);
+        g_ar_bgm = r->bgm;
+        return StartArena(r->chr, pp, b, pp[3] + 180.0f);
+    }
     if (g_cfg_bossdist > 0 && d > g_cfg_bossdist) {  // an idle boss only notices the player within ~10 m: pull it in along the same line
         float k = g_cfg_bossdist / d;
         b[0] = r->p[0] + dx * k; b[1] = r->p[1] + (b[1] - r->p[1]) * k; b[2] = r->p[2] + dz * k;
@@ -684,7 +840,7 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     return StartArena(r->chr, r->p, b, r->p[3] + 180.0f);
 }
 N3T_API void Nioh3Training_Preload(void) { if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
-N3T_API int Nioh3Training_Version(void) { return 4506; }
+N3T_API int Nioh3Training_Version(void) { return 4942; }
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
 static struct { DWORD t0, last, lastTick, lastBeat, window; LONG ticks0, lastTicks; int hadPlayer, active; uint32_t id, lastReg; float lastPos[4]; } g_ms;
@@ -762,19 +918,14 @@ static void Exec(char* line) {
             Log("CMD spawn %u dist %.0f: %s", g_sp.id, g_sp.dist, e && *(uint8_t*)(e + 0x2c8) ? "resources already loaded" : "Load::Character requested");
             g_sp.active = 1; SpawnTick();
         } else if (!strcmp(op, "summon")) {  // summon <R-id|charId> [dist]: boss next to the player in the current world, no arena swap / load; HUD gauge, boss mode, boss BGM
-            if (g_sp.active) { Log("CMD summon: previous spawn %u still loading", g_sp.id); return; }
-            char tok[32] = {0}; float d = 400.0f; sscanf(line, "%*s %31s %f", tok, &d);
-            uint32_t chr = 0, bgm = 0;
-            for (int i = 0; i < g_nrows; ++i) if (!_stricmp(g_rows[i].id, tok)) { chr = g_rows[i].chr; bgm = g_rows[i].bgm; break; }
-            if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
-            if (!chr) { Log("CMD summon: unknown boss '%s'", tok); return; }
-            if (g_bm.active) BossModeEnd("new summon");
-            BgmStop("new summon");
-            g_sp.id = chr; g_sp.dist = d; g_sp.owner = 0; g_sp.boss = 1; g_sp.bgm = bgm; g_sp.tOwn = 0; g_sp.t0 = GetTickCount();
-            uint64_t e = ResEntry(chr);
-            if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(chr, 2, 0);
-            Log("CMD summon %s -> char %u dist %.0f: %s", tok, chr, d, e && *(uint8_t*)(e + 0x2c8) ? "resources already loaded" : "Load::Character requested");
-            g_sp.active = 1; SpawnTick();
+            char tok[32] = {0}; float d = 400.0f; sscanf(line, "%*s %31s %f", tok, &d); SummonStart(tok, d);
+        } else if (!strcmp(op, "train")) {  // bridge 4942: train <R-id|charId> [dist]: no-load session (player NoDeath, auto reset when beaten, 'retry', 'trainstop')
+            char tok[32] = {0}; float d = (float)g_cfg_tr_dist; sscanf(line, "%*s %31s %f", tok, &d); TrainStart(tok, d);
+        } else if (!strcmp(op, "retry")) { TrainRetry("command");
+        } else if (!strcmp(op, "trainstop")) { TrainStop("command");
+        } else if (!strcmp(op, "hp")) { uint64_t c = 0, m = 0; int ok = PlayerHp(&c, &m); Log("CMD hp: %s %llu / %llu, NoDeath %d, wrapper %p", ok ? "player" : "no player", c, m, g_tr.nodeath, (void*)PlayerWrapper());
+        } else if (!strcmp(op, "nodeath")) { PlayerSetNoDeath((int)a[0]);
+        } else if (!strcmp(op, "recover")) { PlayerRecoverFull();
         } else if (!strcmp(op, "actors")) {
             uint64_t cur[1024]; int n = Actors(cur, 1024); uint64_t me = PlayerChar();
             Log("CMD actors: %d in table, player=%p", n, (void*)me);
@@ -867,6 +1018,17 @@ static void Exec(char* line) {
             Log("CMD oworld world 0x%llX start %llu white %d journey %u mode %u requested", a[0], a[1], n >= 4 && a[2] ? 1 : 0, journey, mode);
             g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
             g_ms.id = 0;
+        } else if (!strcmp(op, "team")) {  // bridge 4878: team id [[actor+0xB0]+0x10] of every live actor
+            uint64_t cur[1024]; int k = Actors(cur, 1024); uint64_t me = PlayerChar();
+            Log("CMD team: %d actors, TeamFix %d, EnemyTeam %d, ForceOwner %u", k, g_cfg_teamfix, g_cfg_enemyteam, g_force_owner);
+            for (int i = 0; i < k; ++i) { float xyz[4]; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
+                Log("  actor %p%s%s id %08X team %d pos %.0f %.0f %.0f", (void*)cur[i], cur[i] == me ? " PLAYER" : "", InSp(cur[i]) ? " SPAWNED" : "", *(uint32_t*)(cur[i] + 4), ActorTeam(cur[i]), xyz[0], xyz[1], xyz[2]); }
+        } else if (!strcmp(op, "setteam")) {  // setteam <handle id> <team>: write the team of a live actor (RE)
+            uint64_t act = ActorByHandle((uint32_t)a[0]); int32_t* tp = TeamPtr(act);
+            if (!tp) { Log("CMD setteam: no actor/team for id 0x%llX", a[0]); return; }
+            int old = *tp; *tp = (int32_t)a[1]; Log("CMD setteam %p id 0x%llX: team %d -> %d", (void*)act, a[0], old, *tp);
+        } else if (!strcmp(op, "teamfix")) { g_cfg_teamfix = (int)a[0]; if (n >= 3) g_cfg_enemyteam = (int)a[1]; Log("CMD teamfix %d enemyteam %d", g_cfg_teamfix, g_cfg_enemyteam);
+        } else if (!strcmp(op, "forceowner")) { g_force_owner = (uint32_t)a[0]; Log("CMD forceowner %u", g_force_owner);
         } else if (!strcmp(op, "ownerwait")) { g_cfg_ownwait = (int)a[0]; Log("CMD ownerwait %d ms", g_cfg_ownwait);
         } else if (!strcmp(op, "owneract")) { g_cfg_ownact = (int)a[0]; Log("CMD owneract %d", g_cfg_ownact);
         } else if (!strcmp(op, "act")) {
@@ -911,12 +1073,14 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     }
     __try { PhaseTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
+    __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
+    __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     return o_pump(c, d, r8, r9);
 }
@@ -956,14 +1120,19 @@ static DWORD WINAPI Worker(LPVOID x) {
     {   // arena swap: config, table, MissionRequestById hook
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
+        g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 600, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini);
+        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 1, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
-        g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini);
+        g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
         g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1, ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
+        g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
+        Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
         const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};
