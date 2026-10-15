@@ -375,6 +375,7 @@ static void GaugeTick(void) {
     if (tmpl) { __try { memcpy(g_fwbuf, (void*)tmpl, sizeof g_fwbuf); } __except (EXCEPTION_EXECUTE_HANDLER) { memset(g_fwbuf, 0, sizeof g_fwbuf); } }
     g_fwbuf[0] = a; *(uint32_t*)((uint8_t*)g_fwbuf + 0xD4) = 0;  // name text id from the actor's charParam
     g_fakew = (uint64_t)g_fwbuf;
+    g_forceHideAt = 0;  // bridge 4942: a retry hides the old bar and shows the new one 300 ms later: the delayed force-hide of the old bar must not hit the new one
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(FAKE_GAUGE_ID, 0, 0);
     g_gg.pending = 0; g_gg.shown = 1;
     Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", FAKE_GAUGE_ID, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
@@ -661,7 +662,7 @@ static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm
 // boss's character resources are loaded, no mission/stage load), keeps the player alive (native Character::SetNoDeath replica on the player's wrapper), and resets the round
 // without a load: player beaten (HP at the floor) or 'retry' -> despawn the boss, Player::RecoverFull replica, summon the same boss again (resources stay loaded = instant).
 // Boss killed -> victory end state; RespawnOnWinMs > 0 respawns it after that many ms. 'trainstop' ends the session (NoDeath off, boss removed).
-static int g_cfg_tr_dist = 400, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1;
+static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1;
 static struct { int active, round, nodeath, beaten; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport; } g_tr;
 static uint64_t PlayerWrapper(void) {  // registry row whose live actor is the player
     uint64_t cm = CharMgr(), c0 = 0, me = PlayerChar(); if (!cm || !Rd64(cm, &c0) || !c0 || !me) return 0;
@@ -1169,7 +1170,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
-        g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 400, ini);
+        g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 1, ini);
