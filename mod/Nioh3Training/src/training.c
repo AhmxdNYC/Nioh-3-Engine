@@ -947,10 +947,11 @@ typedef uint64_t (*ReqFn)(uint32_t, uint8_t, uint32_t, void*);
 __declspec(dllexport) int Nioh3Training_FightNow(uint32_t mission);
 static ReqFn o_req;
 static uint32_t g_imgSize;
+static int g_cfg_xearly, g_xw_busy;
 static const char* SwapGate(const ArenaRow* r) {
     const uint8_t* st = GameState();
     if (!st) return "game state unreadable";
-    if (st[2]) return "a load is running";
+    if (st[2] && !(g_cfg_xearly && g_xw_busy)) return "a load is running";
     if (!PlayerChar()) return "no player";
     if (CurWorld() != r->world) return "boss is in another world";
     if (StageState() != 5) return "stage streamer not ready";
@@ -1165,14 +1166,14 @@ static void XsTick(void) {
         Log("XSTREAM %s +%lu ms: world 0x%02X state %d cells %llu loaded %llu | loading areas %llu release queue %llu map 1B48 %llu", g_xs.tag, dt, w, st, n, r, f, q, m);
         g_xs.lastLog = now; g_xs.lastN = n; g_xs.lastR = r; g_xs.lastF = f;
     }
-    if (st == 5 && g_xs.sawReset && !g_xs.t5) { g_xs.t5 = now; Log("XSTREAM %s: stage state 5 at +%lu ms, %llu/%llu cells loaded", g_xs.tag, dt, r, n); if (g_xs.blk) XsBlkRestore("state 5"); }
+    if (st == 5 && g_xs.sawReset && !g_xs.t5) { g_xs.t5 = now; Log("XSTREAM %s: stage state 5 at +%lu ms, %llu/%llu cells loaded", g_xs.tag, dt, r, n); if (g_xs.blk && g_cfg_xblock < 2) XsBlkRestore("state 5"); }
     g_xs.lastSt = st;
     if (g_xs.t5 && now - g_xs.t5 >= 500 && ok && n && r == n && g_xs.last58A == 0) { g_xs.tAll = now; XsEnd("new world streamed"); return; }
     if (dt > 60000) XsEnd("60 s timeout");
 }
 // bridge 5276 (pc2 5116/5275): boss in ANOTHER world, no mission load. Only a world switch brings the other world's arena: World::WarpOtherWorld request (22399B8, mission 0, target world, start point)
 // switches in ~1 s and the stage is ready (state 5) ~5-11 s later; then the normal in-place arena swap (warp + live spawn) runs. ~10 s to a fightable boss vs ~29 s native. Any failure -> native MissionRequestById.
-static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy;
+static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 static struct { int active, preDeferred; ArenaRow* row; DWORD t0, tReady; } g_xw;
 static void XwPreload(ArenaRow* r, const char* when) {
     uint64_t e = ResEntry(r->chr);
@@ -1207,14 +1208,15 @@ static void XwTick(void) {
     DWORD now = GetTickCount(); ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
     static DWORD lastLog; if (now - lastLog >= 2000) { lastLog = now; StageLog("XWORLD wait"); Log("XWORLD wait: GAMESTATE[2]=%u PlayerChar=%llX world 0x%02X (target 0x%02X) stage %d", st[2], (unsigned long long)PlayerChar(), CurWorld(), r->world, StageState()); }  // pc 5328: stage state 4->5 vs cell loading split
     if (g_xw.preDeferred && CurWorld() == r->world) { g_xw.preDeferred = 0; XwPreload(r, "after the world switch"); Log("XWORLD %s: world switched to 0x%02X at +%lu ms (mission seq state %d, GAMESTATE[2] %u)", r->id, r->world, now - g_xw.t0, (int)SeqState(), st[2]); }
-    if (now - g_xw.t0 > 40000) { g_xw.active = 0; Log("XWORLD %s: stage not ready 40 s after the world request, swap aborted (no native fallback, bridge 5455)", r->id); return; }
-    if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || st[2]) { g_xw.tReady = 0; return; }
+    if (now - g_xw.t0 > 40000) { g_xw.active = 0; Log("XWORLD %s: stage not ready 40 s after the world request, swap aborted (no native fallback, bridge 5455)", r->id); XsBlkRestore("swap aborted"); return; }
+    if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || (st[2] && !g_cfg_xearly)) { g_xw.tReady = 0; return; }
     if (!g_xw.tReady) { g_xw.tReady = now; Log("XWORLD %s: landed in world 0x%02X, stage ready +%lu ms after the request", r->id, r->world, now - g_xw.t0); }
     if (now - g_xw.tReady < 700) return;
     g_xw.active = 0;
     int sf = g_cfg_fn_summon, sn = g_cfg_native; g_cfg_fn_summon = 0; g_cfg_native = 0; g_xw_busy = 1;
     int ok = Nioh3Training_FightNow(r->mission);
     g_xw_busy = 0; g_cfg_fn_summon = sf; g_cfg_native = sn;
+    XsBlkRestore("arena swap fired");
     Log("XWORLD %s: arena swap in the new world -> %d (+%lu ms after the request)", r->id, ok, now - g_xw.t0);
     if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
 }
@@ -1580,7 +1582,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
-        g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
+        g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xearly = GetPrivateProfileIntA("ArenaSwap", "CrossWorldEarlySwap", 0, ini); Log("CrossWorldEarlySwap %d", g_cfg_xearly); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
         g_cfg_xaoskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldAreaObjSkipMs", 0, ini); Log("cross-world (bridge 6047c): CrossWorldAreaObjSkipMs %d", g_cfg_xaoskip);
         g_cfg_xpre_after = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreloadAfterSwitch", 0, ini); Log("cross-world (bridge 6047b): CrossWorldPreloadAfterSwitch %d", g_cfg_xpre_after);
         g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); g_cfg_xblock = GetPrivateProfileIntA("ArenaSwap", "CrossWorldBlockCells", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
