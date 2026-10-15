@@ -119,6 +119,12 @@ void Result(const char* fmt, ...) {
     ReleaseSRWLockExclusive(&g_lock);
 }
 
+// Nioh3Training.asi arena swap (bridge 4506/4616): "Fight now (in the arena)" for a boss of the current world needs no mission load
+void* TrainingExport(const char* name) {
+    HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
+    return m ? (void*)GetProcAddress(m, name) : nullptr;
+}
+
 // ---- requests ----
 enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8 };
 std::atomic<uint32_t> g_req{0};  // kind | (row + 1) << 8
@@ -540,6 +546,7 @@ void ExecOpen(int row, const Snap& s) {
         UnhideRestore("open failed");
         return Refuse(kWhy[r]);
     }
+    if (const auto pre = (void (*)())TrainingExport("Nioh3Training_Preload")) pre();  // boss models of this world start loading while the menu is open
     g_state.store(kMenuOpen);
     g_activeRow.store(row);
     g_openAt = Ms();
@@ -579,6 +586,16 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
     }
     if (!ClearedNow(r.missionId, &why)) return Refuse(why);
+    if (fight && warp) {  // swapped in place: no queue slot, no cover, nothing armed (the add-on keeps the native request for every other case)
+        using FightNowFn = int (*)(uint32_t);
+        static const auto swap = (FightNowFn)TrainingExport("Nioh3Training_FightNow");
+        if (swap && swap(r.missionId)) {
+            Log("Rematch: F %s: arena swap in place by Nioh3Training (no mission load)", r.id);
+            Result("started %s (fight now, in place)", r.id);
+            ToastF(cGreen, 6000, "Rematch: into the fight with %s...", r.name);
+            return;
+        }
+    }
     uint64_t g = 0, ms = 0;
     uint8_t slot = 0;
     if (!Rd(G_MS, g) || !g || !Rd(g + 8, ms) || !ms || !Rd(ms + 0x10, slot)) return Refuse("mission state not readable");
