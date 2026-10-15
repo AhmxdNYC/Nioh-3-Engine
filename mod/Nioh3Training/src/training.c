@@ -1417,6 +1417,9 @@ static int g_cfg_fade = 1, g_cfg_fade_out = 250, g_cfg_fade_in = 400, g_cfg_fade
 static volatile LONG g_fd_want, g_fd_alpha;   // want: overlay target (1 = black); alpha 0..255 as drawn
 static struct { int pend, phase, inside; uint32_t mission; DWORD tPend, tSwap, tStable, tWant; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
 static HWND g_fd_wnd, g_fd_game;
+static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn in the game's own frame) or the fallback GDI window
+static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
+static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
 static BOOL CALLBACK FdFind(HWND h, LPARAM lp) { (void)lp;
     DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fd_wnd) return TRUE;
     RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
@@ -1428,6 +1431,7 @@ static DWORD WINAPI FadeThread(LPVOID x) {
     RegisterClassExW(&wc);
     g_fd_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, 0, 0, wc.hInstance, 0);
     if (!g_fd_wnd) { Log("FADE: overlay window failed (%lu), transitions off", GetLastError()); g_cfg_fade = 0; return 0; }
+    g_fd_ok = 1;
     SetLayeredWindowAttributes(g_fd_wnd, 0, 0, LWA_ALPHA);
     float a = 0; DWORD last = GetTickCount(); int shown = 0, lastA = -1;
     for (;;) {
@@ -1447,8 +1451,8 @@ static DWORD WINAPI FadeThread(LPVOID x) {
     }
 }
 static void FadeWant(int on, const char* why) {
-    if (!g_cfg_fade || !g_fd_wnd) return;
-    if (g_fd_want != on) { g_fd_want = on; g_fd.tWant = GetTickCount(); Log("FADE %s (%s), alpha %ld", on ? "to black" : "back in", why, (long)g_fd_alpha); }
+    if (!g_cfg_fade || !g_fd_ok) return;
+    if (g_fd_want != on) { g_fd_want = on; g_fd.tWant = GetTickCount(); Log("FADE %s (%s), alpha %ld", on ? "to black" : "back in", why, FdAlpha()); if (p_osdFade) p_osdFade(on, on ? g_cfg_fade_out : g_cfg_fade_in); }
 }
 static int FadeSettled(void) {
     if (g_sp.active || g_vf.respawnAt || (g_ar.active && !g_ar.released) || StageState() != 5 || !PlayerChar()) return 0;
@@ -1461,12 +1465,12 @@ static int FadeInPlaceOk(uint32_t mission, ArenaRow* r) {  // same logic as Figh
     return !(g_cfg_native && NativeListed(mission)) && !SwapGate(r);
 }
 static void FadeTick(void) {
-    if (!g_cfg_fade || !g_fd_wnd) return;
+    if (!g_cfg_fade || !g_fd_ok) return;
     DWORD now = GetTickCount();
     if (g_fd.pend) {  // same-world swap waits for black (or 400 ms over the ramp if the overlay cannot draw)
-        if (g_fd_alpha < 255 && now - g_fd.tPend < (DWORD)g_cfg_fade_out + 400) return;
+        if (FdAlpha() < 255 && now - g_fd.tPend < (DWORD)g_cfg_fade_out + 400) return;
         uint32_t m = g_fd.mission; g_fd.pend = 0; g_fd.inside = 1;
-        Log("FADE black (alpha %ld, %lu ms): swapping mission 0x%X", (long)g_fd_alpha, now - g_fd.tPend, m);
+        Log("FADE black (alpha %ld, %lu ms): swapping mission 0x%X", FdAlpha(), now - g_fd.tPend, m);
         int ok = FightNowImpl(m); g_fd.inside = 0;
         if (!ok) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("FADE: swap refused, native request"); FadeWant(0, "swap refused"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))(m, 1, 0, p); return; }
         g_fd.phase = 2; g_fd.tSwap = now; g_fd.tStable = 0; return;
@@ -1481,7 +1485,7 @@ static void FadeTick(void) {
     g_fd.phase = 0; FadeWant(0, "settled");
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission) {
-    if (!g_cfg_fade || !g_fd_wnd || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
+    if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
     ArenaRow* r = FindRow(mission);
     if (g_fd.pend) return 1;  // a switch is already waiting for black
     if (r && g_cfg_xworld && CurWorld() >= 0 && (CurWorld() != r->world || g_xw.active)) {  // cross-world (or claiming a prewarm)
@@ -1859,7 +1863,12 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
         g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini);
         Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max);
-        if (g_cfg_fade) CreateThread(0, 0, FadeThread, 0, 0, 0);
+        if (g_cfg_fade) {
+            HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
+            p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
+            if (p_osdFade && p_osdAlpha) { g_fd_ok = 1; Log("FADE: using the Nioh3EngineFix overlay export (D3D)"); }
+            else { p_osdFade = 0; p_osdAlpha = 0; Log("FADE: Nioh3EngineFix fade export not found, using the GDI overlay window"); CreateThread(0, 0, FadeThread, 0, 0, 0); }
+        }
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
         const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};
