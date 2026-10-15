@@ -292,6 +292,35 @@ static int Despawn(int idx) {
     g_sp_actor[idx] = 0;
     return 1;
 }
+// Character::FadeOut(id, frames) (VM 238DC40): live = wrapper[0]; c = [live+0x20]; if c: 2BC5DC(c+0x240, 0.0f target, frames) -- a lerp {start,target,cur,t,dur}
+// toward alpha 0. Mission scripts call it with f30 and follow with Character::Delete. Does not free the actor; Despawn later does. (ported from work-src529, 13:50 fade build)
+static int FadeOutActor(int idx, float frames) {
+    if (idx < 0 || idx >= g_nsp || !g_sp_actor[idx]) return 0;
+    uint64_t a = g_sp_actor[idx], cur[1024], c = 0; int n = Actors(cur, 1024), found = 0;
+    for (int i = 0; i < n; ++i) if (cur[i] == a) found = 1;
+    if (!found) { Log("FADEOUT #%d %p: not in actor table any more", idx, (void*)a); return 0; }
+    if (!Rd64(a + 0x20, &c) || !c) { Log("FADEOUT #%d %p: no fade component at +0x20", idx, (void*)a); return 0; }
+    __try { ((void (*)(uint64_t, float, float))(B + 0x2BC5DC))(c + 0x240, 0.0f, frames); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADEOUT #%d: exception %08lX", idx, GetExceptionCode()); return 0; }
+    Log("FADEOUT #%d %p: native fade 2BC5DC(%p+0x240, 0, %.0f) started", idx, (void*)a, (void*)c, frames);
+    return 1;
+}
+// #6185 summon death toggles. Native Character::EnemyForceKill (VM 238D504) / EnemyForceKillWithItemDrop (VM 238DAA0) both call the death component
+// 786C84(comp = actor+0x3B0, dmg 0, type 0, r9 -1, drop, force 1, 0, 0, notify 1) guarded by actor+0xAB84 == -1; the only difference is drop (arg 5):
+// 786C84 hands it to the death/drop handler 1FFFEDC(comp, type, drop) and sets death-message bit 0x8000 when it is 0 (no item drop).
+// With force = 1 the HP-floor guard (hp+0x188 bit 1, cleared through EC4C5C(hp+0x178,1,-1)) is bypassed, so it kills a boss that sits at HP 1 waiting for its death blow.
+// 786C84 returns at once when hp+0x48 == 1 (already dead), so a second call is harmless. Ally bridge 458: Yamagata 'kill last 1' -> loot pillars + Amrita.
+static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_timeout = 6000;
+static int ForceKillActor(uint64_t live, int drop, const char* why) {
+    if (!live) return 0;
+    uint32_t flag = 0; uint64_t comp = 0, h = 0; int dead = 0;
+    __try { flag = *(uint32_t*)(live + 0xAB84); comp = *(uint64_t*)(live + 0x3B0); if (Rd64(live + 0x3A0, &h) && h) dead = *(int*)(h + 0x48) == 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    if (dead) { Log("KILL %s %p: already dead (hp+48 == 1), nothing to do", why, (void*)live); return 0; }
+    if (flag != 0xFFFFFFFFu || !comp) { Log("KILL %s %p: guard refused (+ab84=%08X comp=%p; the script natives need +ab84 == -1)", why, (void*)live, flag, (void*)comp); return 0; }
+    __try { ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { Log("KILL %s: exception %08lX", why, GetExceptionCode()); return 0; }
+    Log("KILL %s %p: native EnemyForceKill%s 786C84 called", why, (void*)live, drop ? "WithItemDrop" : "");
+    return 1;
+}
 
 // ---- trace hooks
 typedef uint32_t (*DynFn)(uint32_t, const float*, float, uint32_t, uint32_t, uint32_t);
@@ -457,7 +486,7 @@ static void GaugeTick(void) {
     }
     Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", g_fakeid, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
 }
-static struct { int active, round, nodeath, beaten, hasStart; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
+static struct { int active, round, nodeath, beaten, hasStart, bodyGone; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
 // (1) the player's own recent trail (0.5 s samples, 20 s): a point the player stood on is on the floor and connected to the player; (2) a post-spawn progress check
 // (VerifyTick): a boss that has not closed in after 5 s is deleted and respawned at the next candidate. Candidate order: trail points 4-9 m away, then a fan around the camera
@@ -663,11 +692,58 @@ static int ActorHp(uint64_t a, uint64_t* cur, uint64_t* max) {  // Character::Ge
 static void BossTick(void) {
     if (!g_bm.active) return;
     DWORD now = GetTickCount(); if (now - g_bm.last < 250) return; g_bm.last = now;
+    {   // full-fight heartbeat (user play-test 12:27): boss + player HP every 2 s, one line per 25 % boss-HP step, player 0 HP
+        static DWORD hbAt; static int lastPct = 101, plDead; uint64_t bc = 0, bmx = 0, pc = 0, pm = 0;
+        if (now - hbAt >= 2000) { hbAt = now;
+            int okb = ActorHp(ActorByHandle(g_bm.id), &bc, &bmx), okp = ActorHp(PlayerChar(), &pc, &pm);
+            Log("HB +%lu ms boss HP %llu/%llu%s player HP %llu/%llu%s", now - g_bm.t0, bc, bmx, okb ? "" : " (n/a)", pc, pm, okp ? "" : " (n/a)");
+            if (okb && bmx) { int pct = (int)(bc * 100 / bmx); if (pct < lastPct - 24 || pct <= 1 || pct > lastPct + 50) { Log("HB boss HP milestone %d %%", pct); lastPct = pct; } }
+            if (okp && pm) { if (pc == 0 && !plDead) { plDead = 1; Log("HB player HP 0 (dead)"); } else if (pc > 0) plDead = 0; }
+        }
+    }
+    static uint64_t lastHc, lastHm; { uint64_t c = 0, m = 0; if (ActorHp(ActorByHandle(g_bm.id), &c, &m) && m) { lastHc = c; lastHm = m; } }
     int v = BossAliveSensor(g_bm.id);
     if (g_bm.v0 < 0) { if (v >= 0) { g_bm.v0 = v; Log("BBM +%lu ms actor in table, death sensor baseline %d", now - g_bm.t0, v); } else if (now - g_bm.t0 > 8000) { Log("BBM actor never appeared, giving up"); g_bm.active = 0; } return; }
+    {   // #6185 [Summon] DeathBlowRequired / CutsceneOnKill / BossLoot, summoned (ASI-spawned) bosses only. Without its mission script a summoned boss sits at HP 1
+        // after the death blow (log 12:30: HP 1 / 51712, sensor 0->1 for ~2.3 s = the finisher, then 1->0 = back up) and needs a second finisher.
+        //  DeathBlowRequired = 0: kill natively as soon as the boss HP reaches the floor (<= 1), no finisher needed.
+        //  CutsceneOnKill = 1 (or BossLoot = 1): keep the death blow, but when the first finisher animation ends (sensor 1 -> 0 at HP <= 1, or FinisherKillTimeoutMs
+        //  after it started) kill natively, so one finisher plays the final animation and the boss dies.
+        //  BossLoot = 1: that native kill is EnemyForceKillWithItemDrop (drop table + Amrita); 0 = EnemyForceKill (no drop).
+        static DWORD sess, finAt; static int prevV, done;
+        if (sess != g_bm.t0) { sess = g_bm.t0; finAt = 0; prevV = v; done = 0; }
+        uint64_t act = ActorByHandle(g_bm.id); int ours = 0;
+        for (int i = 0; i < g_nsp; ++i) if (act && g_sp_actor[i] == act) ours = 1;
+        uint64_t fc = 0, fm = 0;
+        if (!done && ours && ActorHp(act, &fc, &fm) && fm && fc <= 1) {
+            const char* why = 0;
+            if (!g_cfg_deathblow) why = "HP floor, DeathBlowRequired=0";
+            else if (g_cfg_cutscene || g_cfg_loot) {
+                if (v == 1 && prevV != 1 && !finAt) { finAt = now; Log("DEATHBLOW +%lu ms boss %u at HP %llu / %llu: finisher started (sensor %d -> 1)", now - g_bm.t0, g_bm.id, fc, fm, prevV); }
+                if (finAt && v == 0 && prevV == 1) why = "first finisher ended";
+                else if (finAt && now - finAt >= (DWORD)g_cfg_fin_timeout) why = "finisher timeout";
+            }
+            if (why) { done = 1; Log("DEATHBLOW +%lu ms boss %u HP %llu / %llu: %s -> native kill (BossLoot %d)", now - g_bm.t0, g_bm.id, fc, fm, why, g_cfg_loot); ForceKillActor(act, g_cfg_loot, why); }
+        }
+        prevV = v;
+    }
     if (v != g_bm.v0) { if (!g_bm.since) { g_bm.since = now; Log("BBM +%lu ms alive sensor %d -> %d", now - g_bm.t0, g_bm.v0, v); } }
     else g_bm.since = 0;
+    {   // user play-test 12:49: boss HP hit 0 but the sensor had already flickered at HP 1 (new baseline), so no transition ever fired and boss mode / bar stayed up: HP 0 stable for 4.5 s = dead
+        static DWORD hp0Since; uint64_t zc = 1, zm = 0;
+        if (ActorHp(ActorByHandle(g_bm.id), &zc, &zm) && zm && zc == 0) { if (!hp0Since) hp0Since = now; }
+        else hp0Since = 0;
+        if (hp0Since && now - hp0Since >= 4500) {
+            hp0Since = 0; g_dead_at = now; g_dead_id = g_bm.id;
+            Log("BBM +%lu ms boss %u dead (HP 0 stable 4.5 s, sensor %d)", now - g_bm.t0, g_bm.id, v);
+            BgmEnd(); BossModeEnd("boss dead (HP 0)"); FakeGaugeHide("boss mode end"); g_bm.active = 0; return;
+        }
+    }
     if (g_bm.since && now - g_bm.since >= 1500) {
+        if (v < 0 && lastHm && lastHc * 100 <= lastHm * 3) {  // user play-test: the boss left the table at <=3 % HP = it was killed (finisher done), not a player death / reset: victory path
+            Log("BBM +%lu ms boss %u actor gone at %llu / %llu HP: treated as killed", now - g_bm.t0, g_bm.id, lastHc, lastHm);
+            g_dead_at = now; g_dead_id = g_bm.id; BgmEnd(); BossModeEnd("boss dead (gone at low HP)"); FakeGaugeHide("boss mode end"); g_bm.active = 0; return;
+        }
         if (v < 0) {  // bridge 4739: the actor left the table (player died / respawn reset the arena), the boss was not killed: no victory end state, just leave boss mode
             Log("BBM +%lu ms boss %u actor gone, not dead (player died or area reset): leaving boss mode without the victory sting", now - g_bm.t0, g_bm.id);
             BgmStop("boss gone");
@@ -678,6 +754,7 @@ static void BossTick(void) {
         }
         uint64_t hc = 0, hm = 0;  // bridge 5350: a sensor drift right after a fast respawn (round 2) must not end boss mode while the boss still has HP
         if (ActorHp(ActorByHandle(g_bm.id), &hc, &hm) && hm && hc > 0) { Log("BBM +%lu ms boss %u sensor %d -> %d but HP %llu / %llu: not dead, new baseline", now - g_bm.t0, g_bm.id, g_bm.v0, v, hc, hm); g_bm.v0 = v; g_bm.since = 0; return; }
+        if (now - g_bm.since < 4500) return;  // HP 0 but the actor is still in the table: the finisher / break hand-off may still be running (no duel script) - keep boss mode up for 4.5 s of stable death sensor
         g_dead_at = now; g_dead_id = g_bm.id;  // bridge 5360: the only proof of a kill for the training round
         Log("BBM +%lu ms boss %u dead (sensor %d, was %d)", now - g_bm.t0, g_bm.id, v, g_bm.v0);
         BgmEnd();
@@ -820,7 +897,7 @@ static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm
 // boss's character resources are loaded, no mission/stage load), keeps the player alive (native Character::SetNoDeath replica on the player's wrapper), and resets the round
 // without a load: player beaten (HP at the floor) or 'retry' -> despawn the boss, Player::RecoverFull replica, summon the same boss again (resources stay loaded = instant).
 // Boss killed -> victory end state; RespawnOnWinMs > 0 respawns it after that many ms. 'trainstop' ends the session (NoDeath off, boss removed).
-static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1, g_cfg_fn_arena = 1;
+static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1, g_cfg_fn_arena = 1, g_cfg_body_fade = 1, g_cfg_body_delay = 25000;
 static uint64_t PlayerWrapper(void) {  // registry row whose live actor is the player
     uint64_t cm = CharMgr(), c0 = 0, me = PlayerChar(); if (!cm || !Rd64(cm, &c0) || !c0 || !me) return 0;
     uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
@@ -902,7 +979,7 @@ static void TrainRetry(const char* why) {
     TrainClear(why); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
-    g_tr.round++; g_tr.beaten = 0; g_tr.tWin = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + 300;
+    g_tr.round++; g_tr.beaten = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + 300;
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
 }
 static void TrainStop(const char* why) {
@@ -932,6 +1009,13 @@ static void TrainTick(void) {
         g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
     if (g_tr.tWin && g_cfg_tr_win > 0 && now - g_tr.tWin >= (DWORD)g_cfg_tr_win) TrainRetry("respawn on win");
+    // user play-test 13:11 (corpse stays) + #6185: the body stays on the floor BodyFadeDelayMs after the kill (finisher / death animation untouched), then fades out like
+    // mission scripts (Character::FadeOut f30); native delete 6 s later frees the slot (immediately if the fade could not start). BodyFade = 0: the body stays.
+    if (g_tr.tWin && g_cfg_tr_win <= 0 && !g_tr.bodyGone && !g_tr.tFade && g_cfg_body_fade && now - g_tr.tWin >= (DWORD)g_cfg_body_delay && g_nsp > 0 && g_sp_actor[g_nsp - 1]) {
+        Log("TRAIN round %d: fading out the dead boss body %d ms after the kill", g_tr.round, g_cfg_body_delay);
+        if (FadeOutActor(g_nsp - 1, 30.0f)) g_tr.tFade = now; else { g_tr.bodyGone = 1; Despawn(g_nsp - 1); }
+    }
+    if (g_tr.tFade && !g_tr.bodyGone && now - g_tr.tFade >= 6000) { g_tr.bodyGone = 1; if (g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: deleting the faded boss body", g_tr.round); Despawn(g_nsp - 1); } }
 }
 // C API (bridge 4942) for Boss Rematch: Nioh3Training_Summon(missionId or charId) starts a no-load session (1 = started), _Retry() resets the round, _StopTraining() ends it.
 __declspec(dllexport) int Nioh3Training_Summon(uint32_t id) {
@@ -1252,6 +1336,9 @@ static void Exec(char* line) {
             if (flag != 0xFFFFFFFFu || !comp) { Log("CMD kill: guard refused (needs +ab84==-1 and comp)"); return; }
             ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1);
             Log("CMD kill #%d: 786C84 called", idx);
+        } else if (!strcmp(op, "deathcfg")) {  // #6185: deathcfg BossLoot DeathBlowRequired CutsceneOnKill (run-time INI override)
+            if (n >= 4) { g_cfg_loot = (int)a[0]; g_cfg_deathblow = (int)a[1]; g_cfg_cutscene = (int)a[2]; }
+            Log("CMD deathcfg: BossLoot %d DeathBlowRequired %d CutsceneOnKill %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene);
         } else if (!strcmp(op, "bbm")) { BossModeBegin((uint32_t)a[0], n >= 3 ? (int)a[1] : g_cfg_notify);
         } else if (!strcmp(op, "bgm")) { if (n >= 2 && a[0]) BgmStart((uint32_t)a[0]); else { g_bgm_on = 1; BgmStop("cmd"); }
         } else if (!strcmp(op, "bbmend")) { BossModeEnd("cmd"); g_bm.active = 0;
@@ -1432,7 +1519,9 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
-        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini);
+        g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
+        Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
