@@ -16,6 +16,13 @@
 //   fwdmode <0..3>              forward convention: 0 (sin,cos) 1 (cos,sin) 2 (-sin,cos) 3 (cos,-sin) on (x,z)
 //   autogauge <0|1>             show boss gauge after each spawn (default 1)
 //   phase <ms>                  mission-switch phase sampling interval in ms (default 500); the log window after 'mission' is 60 s
+//   stage                       log the stage streamer: world byte, main cell id, init state, loaded cells (stage mgr [45B9E58]+500)
+//   warp x y z yaw              native Player::SetPos tail (position, physics, actor-manager, stream centre, path init) - no mission load
+//   arena charId x y z yaw bx by bz [bossYaw]  live arena swap: Load::Character + warp the player to x y z, hold him there until the
+//                               stage streamer reports ready, then CreateDynamic the boss at bx by bz; logs ms from command to control
+//   mworld id [id..]            log mission record world byte (+15C) for mission ids (record = 377B38([[45B9E30]], id))
+//   oworld world start [white]  World::WarpOtherWorld native request (22399B8: mission 0 = stay in this mission, new world byte + start
+//                               point); white=1 uses the WhiteOut variant's transition flags. Starts the 60 s phase log.
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
 #include <windows.h>
 #include <stdio.h>
@@ -186,6 +193,70 @@ static void SpawnTick(void) {
     if (r && g_autogauge) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0); Log("SPAWN %u: ShowBossGauge(0x%X) called", g_sp.id, r); }
     g_sp.active = 0;
 }
+
+// ---- stage streamer (global stage mgr [45B9E58]; sub = +0x500: byte +0 world, u32 +4 main cell, u8 +0x389 init state 0..5, set +0x40 (count +0x60))
+static uint64_t StageMgr(void) { uint64_t s = 0; Rd64(B + 0x45B9E58, &s); return s; }
+static int StageState(void) { uint64_t s = StageMgr(); return s ? *(uint8_t*)(s + 0x500 + 0x389) : -1; }
+static void StageLog(const char* tag) {
+    uint64_t s = StageMgr(); if (!s) { Log("%s stage mgr null", tag); return; }
+    uint64_t sub = s + 0x500; uint64_t n = *(uint64_t*)(sub + 0x60);
+    char buf[700]; int k = 0;
+    for (uint64_t i = 0; i < n && i < 48 && k < 600; ++i) {
+        uint64_t e = ((uint64_t (*)(uint64_t, uint64_t))(B + 0xD3B9C))(sub + 0x40, i);
+        if (e) k += snprintf(buf + k, sizeof buf - k, "%u%s ", *(uint32_t*)e >> 4, *(uint8_t*)(e + 0xE8) ? "*" : "");
+    }
+    buf[k] = 0;
+    float* c = (float*)(s + 0x10B0);
+    Log("%s world=0x%02X cell=%d state=%u loaded(%llu)=[%s] centre=%.0f %.0f %.0f req world=0x%02X start=%u", tag, *(uint8_t*)sub, *(int32_t*)(sub + 4),
+        *(uint8_t*)(sub + 0x389), n, buf, c[0], c[1], c[2], *(uint8_t*)(B + 0x45BC428), *(uint32_t*)(B + 0x45BC42C));
+}
+// native Player::SetPos (VM 23AB4DC) tail for the non-riding case
+static int Warp(float x, float y, float z, float yaw, int full) {
+    uint64_t pl = ((uint64_t (*)(int))(B + 0x20A914))(0);
+    if (!pl) return 0;
+    if (*(int32_t*)(pl + 0xAB84) != -1 && ((uint8_t (*)(void))(B + 0x20CF24))()) return -1;  // SetPos takes its attached/riding branch then
+    __attribute__((aligned(16))) float p[4] = {x, y, z, 1.0f};
+    ((void (*)(uint64_t, const float*, float))(B + 0x1C27010))(pl, p, yaw);
+    uint64_t comp = *(uint64_t*)(pl + 0x3B0), ph = *(uint64_t*)(comp + 0x28); if (!ph) ph = *(uint64_t*)(comp + 0x18);
+    ((void (*)(uint64_t))(*(uint64_t*)(*(uint64_t*)ph + 0xD0)))(ph);
+    if (!full) return 1;
+    uint64_t cm = *(uint64_t*)(B + 0x45B9E40), c0 = *(uint64_t*)cm, am = *(uint64_t*)(c0 + 0x48);
+    memcpy((void*)(am + 0xD0), (void*)(pl + 0x110), 16);
+    ((void (*)(void))(B + 0xA429B4))();
+    ((void (*)(uint64_t))(B + 0x1C2A3CC))(pl + 0x110);
+    uint64_t s = StageMgr();
+    memcpy((void*)(s + 0x10B0), (void*)(pl + 0x110), 16); *(uint8_t*)(s + 0x10C0) = 1;
+    ((void (*)(uint64_t))(B + 0x3A083C))(s + 0x500);
+    ((uint8_t (*)(uint64_t, uint8_t))(B + 0x3B35B4))(s + 0x500, 1);
+    return 1;
+}
+static struct { int active, spawned, released; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog; int lastState, lastCell; } g_ar;
+static void ArenaTick(void) {
+    if (!g_ar.active) return;
+    DWORD now = GetTickCount(), dt = now - g_ar.t0;
+    uint64_t s = StageMgr(); int st = StageState(), cell = s ? *(int32_t*)(s + 0x504) : -2;
+    if (st != g_ar.lastState || cell != g_ar.lastCell) { Log("ARENA +%lu ms stage state %d -> %d, cell %d -> %d", dt, g_ar.lastState, st, g_ar.lastCell, cell); g_ar.lastState = st; g_ar.lastCell = cell; }
+    float pos[4] = {0}; PlayerPos(pos);
+    if (!g_ar.released) {
+        Warp(g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, 0);  // hold until the cells around the arena are in
+        uint64_t e = ResEntry(g_ar.chr); int res = e && *(uint8_t*)(e + 0x2c8);
+        if (st == 5 && res && dt >= 300) {
+            if (!g_ar.tReady) { g_ar.tReady = now; Log("ARENA +%lu ms ready: stage state 5 and boss resources loaded", dt); StageLog("ARENA stage"); }
+            if (!g_ar.spawned) {
+                __attribute__((aligned(16))) float b[4] = {g_ar.b[0], g_ar.b[1], g_ar.b[2], 1.0f};
+                uint32_t owner = PickOwner();
+                g_nsnap = Actors(g_snap, 1024);
+                uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_ar.chr, b, g_ar.byaw, 0, owner, 0);
+                g_watch = r != 0; g_watch_id = r; g_watch_t0 = now; g_ar.spawned = 1; g_ar.tSpawn = now;
+                Log("ARENA +%lu ms CreateDynamic(%u owner %u) at %.0f %.0f %.0f yaw %.1f -> 0x%X", dt, g_ar.chr, owner, b[0], b[1], b[2], g_ar.byaw, r);
+                if (r && g_autogauge) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0);
+            }
+            if (now - g_ar.tSpawn >= 200) { g_ar.released = 1; Log("ARENA +%lu ms CONTROL: player released at %.0f %.0f %.0f (command -> control %.2f s)", dt, pos[0], pos[1], pos[2], dt / 1000.0); }
+        } else if (dt > 30000) { Log("ARENA +%lu ms timeout: state %d res %d - releasing", dt, st, res); g_ar.released = 1; }
+    }
+    if (now - g_ar.lastLog >= 500) { g_ar.lastLog = now; Log("ARENA +%lu ms player %.0f %.0f %.0f state %d", dt, pos[0], pos[1], pos[2], st); }
+    if (g_ar.released && dt > 15000 + (g_ar.tReady ? g_ar.tReady - g_ar.t0 : 0)) { Log("ARENA monitor end"); g_ar.active = 0; }
+}
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
 static struct { DWORD t0, last, lastTick, lastBeat, window; LONG ticks0, lastTicks; int hadPlayer, active; uint32_t id, lastReg; float lastPos[4]; } g_ms;
@@ -290,6 +361,41 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "fwdmode")) { g_fwdmode = (int)a[0]; Log("CMD fwdmode %d", g_fwdmode);
         } else if (!strcmp(op, "autogauge")) { g_autogauge = (int)a[0]; Log("CMD autogauge %d", g_autogauge);
         } else if (!strcmp(op, "phase")) { g_phase_ms = (DWORD)a[0]; Log("CMD phase interval %lu ms", g_phase_ms);
+        } else if (!strcmp(op, "stage")) { StageLog("CMD stage");
+        } else if (!strcmp(op, "warp")) {
+            float v[4] = {0}; sscanf(line, "%*s %f %f %f %f", &v[0], &v[1], &v[2], &v[3]);
+            DWORD t = GetTickCount(); int r = Warp(v[0], v[1], v[2], v[3], 1);
+            Log("CMD warp %.0f %.0f %.0f yaw %.1f -> %d (%lu ms)", v[0], v[1], v[2], v[3], r, GetTickCount() - t); StageLog("CMD warp stage");
+        } else if (!strcmp(op, "arena")) {
+            memset(&g_ar, 0, sizeof g_ar);
+            int k = sscanf(line, "%*s %u %f %f %f %f %f %f %f %f", &g_ar.chr, &g_ar.p[0], &g_ar.p[1], &g_ar.p[2], &g_ar.yaw, &g_ar.b[0], &g_ar.b[1], &g_ar.b[2], &g_ar.byaw);
+            if (k < 8) { Log("CMD arena: need charId x y z yaw bx by bz [bossYaw]"); return; }
+            if (k < 9) g_ar.byaw = g_ar.yaw + 180.0f;
+            g_ar.t0 = GetTickCount(); g_ar.lastState = -9; g_ar.lastCell = -9;
+            StageLog("ARENA before");
+            uint64_t e = ResEntry(g_ar.chr);
+            if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(g_ar.chr, 2, 0);
+            int r = Warp(g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, 1);
+            Log("ARENA start chr %u player -> %.0f %.0f %.0f yaw %.1f boss -> %.0f %.0f %.0f: warp %d (+%lu ms)", g_ar.chr, g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, g_ar.b[0], g_ar.b[1], g_ar.b[2], r, GetTickCount() - g_ar.t0);
+            g_ar.active = r == 1;
+        } else if (!strcmp(op, "mworld")) {
+            uint64_t db = *(uint64_t*)(B + 0x45B9E30); db = db ? *(uint64_t*)db : 0;
+            for (int i = 0; i < n - 1; ++i) {
+                uint64_t r = db ? ((uint64_t (*)(uint64_t, uint32_t))(B + 0x377B38))(db, (uint32_t)a[i]) : 0;
+                Log("CMD mworld mission 0x%llX rec %p world 0x%02X", a[i], (void*)r, r ? *(uint8_t*)(r + 0x15C) : 0xFF);
+            }
+        } else if (!strcmp(op, "oworld")) {
+            uint64_t mm = *(uint64_t*)(B + 0x47514D0), st = *(uint64_t*)(mm + 8);
+            __attribute__((aligned(16))) uint8_t prm[32] = {0};
+            ((void (*)(void*))(B + 0x1BF7D68))(prm);
+            prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;               // WarpOtherWorld
+            if (n >= 4 && a[2]) { prm[4] = 1; prm[0xF] = 1; }     // WarpOtherWorldWhiteOut
+            ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);  // same pre-call as the VM wrapper (GameMain+588 stop bytes)
+            uint8_t journey = *(uint8_t*)(st + 0x10); uint32_t mode = *(uint32_t*)(st + 0x24);
+            ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))((uint8_t)a[0], journey, (uint32_t)a[1], mode, prm);
+            Log("CMD oworld world 0x%llX start %llu white %d journey %u mode %u requested", a[0], a[1], n >= 4 && a[2] ? 1 : 0, journey, mode);
+            g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
+            g_ms.id = 0;
         } else if (!strcmp(op, "act")) {
             uint8_t r = ((uint8_t (*)(uint32_t, uint32_t, uint8_t, uint32_t))(B + 0x1180740))((uint32_t)a[0], 0, 0, 0);
             Log("CMD act %llu -> %u", a[0], r);
@@ -328,6 +434,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     }
     __try { PhaseTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
+    __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     return o_pump(c, d, r8, r9);
 }
