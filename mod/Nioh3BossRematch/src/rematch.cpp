@@ -941,6 +941,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         if (!g_menuSeen) {
             if (t - g_openAt > 6000) {
                 Log("Rematch: the replay menu never showed (+0x48) in 6 s - idle");
+                if (const auto cancel = (void (*)())TrainingExport("Nioh3Training_PreloadCancel")) cancel();  // bridge 6550: a world prewarm must not outlive the menu
                 ToIdle("replay menu not seen");
             }
             return;
@@ -949,6 +950,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             if (!g_closedSince) g_closedSince = t;
             else if (t - g_closedSince > 5000) {
                 Log("Rematch: replay menu closed without a start");
+                if (const auto cancel = (void (*)())TrainingExport("Nioh3Training_PreloadCancel")) cancel();  // bridge 6550: a world prewarm must not outlive the menu
                 ToIdle("replay menu closed");
             }
         }
