@@ -14,7 +14,12 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\rematch\fightnow_test.ps1 -OwnerPid <agent pid> [-Rows R1CBC,R15FF]
 #        [-IncludeAtFight] [-WaitMinutes 480] [-MaxMinutes 240] [-LoadWaitSec 240] [-DryRun]
 param([int]$OwnerPid = 0, [string[]]$Rows = @(), [switch]$IncludeAtFight, [int]$WaitMinutes = 480, [int]$MaxMinutes = 240,
-      [int]$LoadWaitSec = 240, [switch]$Retry, [int]$RetryMaxSec = 600, [bool]$KeepBuild = $true, [string]$PerfAsi = "", [switch]$DryRun)
+      [int]$LoadWaitSec = 240, [switch]$Retry, [int]$WalkSec = 0, [int]$RetryMaxSec = 600, [bool]$KeepBuild = $true, [string]$PerfAsi = "", [string[]]$PerfSet = @(), [string]$AddonAsi = "",
+      [string[]]$TrainCmds = @(), [int]$TrainWaitSec = 45, [switch]$DryRun)
+# -AddonAsi <path>: test this add-on build instead of mod\Nioh3BossRematch\bin (use with -KeepBuild:$false to put the user's back)
+# -TrainCmds "create 375545","scriptcreate sub_event_boss_battle_start","mission 1CBC 67064","wait 10": EXPERIMENTAL training pipe commands
+#   ([Training] LiveCommands = 1 in the test ini) sent after the fight; each is timed via 'trainstatus' and screenshotted (notes\training-live-4341.md)
+# -PerfSet "Section/Key=Value",... : extra keys for the TEST perf ini only (e.g. Profiler/LoadStats=1); the user's ini is restored after
 $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tm = Join-Path (Split-Path -Parent $here) "testmatrix"
@@ -23,7 +28,7 @@ $AddonDir = Join-Path $repo "mod\Nioh3BossRematch"
 $GameDir = "C:\Program Files (x86)\Steam\steamapps\common\Nioh3"
 $perfIni = "$GameDir\Nioh3EngineFix.ini"
 $aAsi = "$GameDir\Nioh3BossRematch.asi"; $aIni = "$GameDir\Nioh3BossRematch.ini"; $aCat = "$GameDir\Nioh3BossRematch_bosses.tsv"; $aLog = "$GameDir\Nioh3BossRematch.log"
-$srcAsi = Join-Path $AddonDir "bin\Nioh3BossRematch.asi"; $srcCat = Join-Path $AddonDir "Nioh3BossRematch_bosses.tsv"
+$srcAsi = if ($AddonAsi) { $AddonAsi } else { Join-Path $AddonDir "bin\Nioh3BossRematch.asi" }; $srcCat = Join-Path $AddonDir "Nioh3BossRematch_bosses.tsv"
 $saveDir = "$env:LOCALAPPDATA\KoeiTecmo\NIOH3"
 # VirtualPad needs the perf ASI >= 1.7.37: the test installs this one for its run and puts the user's back afterwards
 if (-not $PerfAsi) { $PerfAsi = Join-Path $repo "mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi" }
@@ -49,7 +54,7 @@ if (-not $DryRun -and (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { T "Ni
 . "$tm\vpad.ps1"
 $uo = "C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge"
 $env:UO_BRIDGE_TOKEN_FILE = "$env:APPDATA\uo-bridge\token"; $env:UO_AGENT_ID = "pc"
-function Lock([string]$a) { Push-Location $uo; try { $o = (py -m uo_bridge.gamelock $a nioh3 --ttl 14400 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } } finally { Pop-Location } }
+function Lock([string]$a) { if ($env:FN_NOLOCK) { return @{ code = 0; out = "skipped (FN_NOLOCK: devices may run the game concurrently)" } }; Push-Location $uo; try { $o = (py -m uo_bridge.gamelock $a nioh3 --ttl 14400 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } } finally { Pop-Location } }
 function Set-IniKey([string]$t, [string]$sec, [string]$key, [string]$val) {
     $nl = "`r`n"
     $m = [regex]::Match($t, "(?ms)^\[$([regex]::Escape($sec))\][^\r\n]*\r?\n(.*?)(?=^\[|\z)")
@@ -79,6 +84,49 @@ function Wait-RM([scriptblock]$cond, [int]$sec, [int]$poll = 1) {
     return $null
 }
 
+
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+function Shot([string]$name) {   # full primary screen (the game window) -> $out\shots\<name>.png
+    try {
+        $d = Join-Path $out "shots"; New-Item -ItemType Directory -Force $d | Out-Null
+        $b = [Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object Drawing.Bitmap $b.Width, $b.Height
+        $g = [Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location, [Drawing.Point]::Empty, $b.Size)
+        $bmp.Save((Join-Path $d "$name.png"), [Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose(); T "  shot $name.png"
+    } catch { T "  shot ${name} failed: $_" }
+}
+function Run-Train {   # EXPERIMENTAL training commands, one at a time: send, then poll trainstatus 2x/s; screenshots before / +3 s / end
+    $i = 0
+    foreach ($tc in @($TrainCmds | ForEach-Object { $_ -split ';' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+        $i++; $tag = "train{0:D2}_{1}" -f $i, (($tc -replace '[^A-Za-z0-9]+', '_').Trim('_'))
+        if ($tc -match '^wait (\d+)$') { T "  [train $i] wait $($Matches[1]) s"; Start-Sleep ([int]$Matches[1]); Shot $tag; continue }
+        Set-TestStatus "train $i/$($TrainCmds.Count): $tc"
+        Shot "${tag}_0before"; $s0 = RMP status; T "  [train $i] before: $s0"
+        $tq = Get-Date; $q = RMP $tc; T "  [train $i] '$tc' -> $q"
+        if ($q -notmatch '^queued') { $script:trainRes += "$tc => $q"; continue }
+        $shot3 = $false; $last = ""; $t0 = Get-Date
+        while (((Get-Date) - $t0).TotalSeconds -lt $TrainWaitSec) {
+            Start-Sleep -Milliseconds 500
+            $ts = RMP trainstatus; if ($ts -and $ts -notmatch '^error') { $last = $ts }
+            if (-not $shot3 -and ((Get-Date) - $tq).TotalSeconds -ge 3) { Shot "${tag}_1plus3s"; $shot3 = $true }
+            if (-not (Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue)) { T "  [train $i] !! game process gone"; break }
+        }
+        $s1 = RMP status; Shot "${tag}_2end"
+        T "  [train $i] after $([math]::Round(((Get-Date) - $tq).TotalSeconds, 1)) s: $last"
+        T "  [train $i] status: $s1"
+        $script:trainRes += "$tc => $q | $last | $(LastOf $s1)"
+        if (-not (Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue)) { $script:trainRes += "GAME EXITED after '$tc'"; break }
+        # let a load it started finish before the next command
+        $null = Wait-RM { param($x) (F $x 'loading') -eq '0' -and (F $x 'player') -eq '1' } 180 1
+    }
+}
+Add-Type -Namespace FnW -Name U -MemberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -ErrorAction SilentlyContinue
+function Fix-Focus {   # FN_FOCUS=1: minimize Steam windows, bring the game to the foreground (validity: fullscreen + focused)
+    if (-not $env:FN_FOCUS) { return }
+    foreach ($sp in @(Get-Process steam, steamwebhelper -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0)) { [void][FnW.U]::ShowWindow($sp.MainWindowHandle, 6) }
+    $gp = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
+    if ($gp) { [void][FnW.U]::ShowWindow($gp.MainWindowHandle, 9); [void][FnW.U]::SetForegroundWindow($gp.MainWindowHandle) }
+}
+$script:trainRes = @()
 $script:gamePid = 0; $script:locked = $false; $script:installed = $false; $script:saved = $false; $script:had = @{}; $script:launchN = 0
 function Launch {
     Assert-Launch
@@ -107,6 +155,7 @@ function Close-Game {
     if ($p) { Note-Closed; $null = $p.CloseMainWindow(); $p.WaitForExit(45000) | Out-Null; if (-not $p.HasExited) { T "!! game did not exit in 45 s - killing pid $($p.Id)"; Stop-Process -Id $p.Id -Force }; Start-Sleep 8 }
     $script:gamePid = 0
     if (Test-Path $aLog) { Copy-Item $aLog "$out\addon_launch$($script:launchN).log" -Force -ErrorAction SilentlyContinue }
+    if (Test-Path "$GameDir\Nioh3EngineFix.log") { Copy-Item "$GameDir\Nioh3EngineFix.log" "$out\engine_launch$($script:launchN).log" -Force -ErrorAction SilentlyContinue }
 }
 function Restore {
     if ($script:installed) {
@@ -159,10 +208,15 @@ try {
     }
     $aText = if (Test-Path $aIni) { [IO.File]::ReadAllText($aIni) } else { [IO.File]::ReadAllText((Join-Path $AddonDir "Nioh3BossRematch.ini")) }
     foreach ($kv in @(@("Rematch", "Enable", "1"), @("Rematch", "FightNow", "1"), @("Rematch", "FightNowWarp", "1"), @("Rematch", "ArenaCapture", "1"),
-                      @("Rematch", "ShowAll", "1"), @("Remote", "Pipe", "1"), @("Menu", "Overlay", "0"), @("Debug", "BossLog", "1"), @("Debug", "RematchLog", "0"))) {
+                      @("Rematch", "ShowAll", "1"), @("Remote", "Pipe", "1"), @("Menu", "Overlay", "0"), @("Debug", "BossLog", "1"), @("Debug", "RematchLog", "0"),
+                      @("Training", "LiveCommands", $(if ($TrainCmds.Count) { "1" } else { "0" })))) {
         $aText = Set-IniKey $aText $kv[0] $kv[1] $kv[2]
     }
     $pText = Force-Acl (Force-Vpad ([IO.File]::ReadAllText($perfIni)))
+    foreach ($ps in @($PerfSet | ForEach-Object { $_ -split "," } | Where-Object { $_ })) {
+        if ($ps -match '^\s*([^/]+)/([^=]+)=(.*)$') { $pText = Set-IniKey $pText $Matches[1].Trim() $Matches[2].Trim() $Matches[3].Trim(); T "test perf ini: [$($Matches[1].Trim())] $($Matches[2].Trim()) = $($Matches[3].Trim())" }
+        else { throw "bad -PerfSet entry: $ps" }
+    }
     $script:installed = $true
     [IO.File]::WriteAllText($aIni, $aText, (New-Object Text.UTF8Encoding($false))); [IO.File]::WriteAllText($perfIni, $pText, (New-Object Text.UTF8Encoding($false)))
     Copy-Item $srcAsi $aAsi -Force; Copy-Item $srcCat $aCat -Force; Copy-Item $PerfAsi "$GameDir\Nioh3EngineFix.asi" -Force
@@ -182,12 +236,39 @@ try {
         T "  $rr"
         if ((F $rr 'status') -ne '2') { $res.result = "skip"; $res.note = "not cleared on this journey"; $sum.skip++ }
         else {
+            Fix-Focus
+            if ($env:FN_PRECMD) { [IO.File]::WriteAllText("$GameDir\Nioh3Training.cmd", "$($env:FN_PRECMD)`r`n"); T "  precmd (simulated menu open): $($env:FN_PRECMD)"; Start-Sleep $(if ($env:FN_PREWAIT) { [int]$env:FN_PREWAIT } else { 5 }) }
             $q = RMP "fight $($row.id)"; T "  fight: $q"
             if ($q -notmatch '^queued') { $res.result = "FAIL"; $res.note = "refused: $q"; $sum.fail++ }
             else {
                 $tq = Get-Date
-                $st = Wait-RM { param($x) (LastOf $x) -match '^(started|refused)' } 20
-                if ((LastOf $st) -notmatch '^started') { $res.result = "FAIL"; $res.note = "game thread: $(LastOf $st)"; $sum.fail++ }
+                if ($WalkSec -gt 0) { Start-Sleep 3; T "  walk forward $WalkSec s (no-load summon spacing test)"; $w = VP stick L 0 1 ($WalkSec * 1000); T "  walk: $($w.reply)" }
+                $st = Wait-RM { param($x) (LastOf $x) -match '^(started|refused)' } $(if ($env:FN_SWAP) { 3 } else { 20 })
+                $swapped = (Test-Path $aLog) -and ((Get-Content $aLog -Tail 40) -match "F $($row.id): Nioh3Training swapped the boss in place")
+                if ((LastOf $st) -notmatch '^started' -and $swapped) {   # no-load swap: judge by Nioh3Training BOSSMON (boss-to-player distance)
+                    $tlog = "$GameDir\Nioh3Training.log"; $tcmd = "$GameDir\Nioh3Training.cmd"
+                    [IO.File]::WriteAllText($tcmd, "mon`r`n"); Start-Sleep 0
+                    $w = VP stick L 0 1 3000; T "  swap: walked 3 s: $($w.reply)"; [IO.File]::WriteAllText($tcmd, "mon`r`n"); Start-Sleep 1; for ($k = 0; $k -lt 24; $k++) { $null = VP press RB 120; Start-Sleep -Milliseconds 600 }; T "  swap: 24 RB presses"; Start-Sleep 6; Shot "swap_$($row.id)"
+                    $bm = @(Get-Content $tlog -ErrorAction SilentlyContinue | Where-Object { $_ -match 'BOSSMON \+' } | Select-Object -Last 40)
+                    foreach ($l in (($bm | Select-Object -First 3) + ($bm | Select-Object -Last 3))) { T "  $l" }
+                    $ds = @($bm | ForEach-Object { if ($_ -match 'dist ([\d.]+) m') { [double]$Matches[1] } })
+                    $mn = if ($ds.Count) { ($ds | Measure-Object -Minimum).Minimum } else { -1 }
+                    $res.note = "swap BOSSMON rows=$($ds.Count) first=$($ds[0]) last=$($ds[-1]) min=$mn"
+                    if ($ds.Count -and ($mn -lt 3.5 -or $ds[-1] -lt $ds[0] - 1)) { $res.result = "PASS"; $sum.pass++ } else { $res.result = "FAIL"; $sum.fail++ }
+                    T "  -> $($res.result) $($res.note)"
+                    if ($env:FN_OWORLD) {   # Nioh3Training.cmd file commands ';'-separated (e.g. cross-world oworld, then train <R-id>), timed by the Training log
+                        $n0 = @(Get-Content $tlog -ErrorAction SilentlyContinue).Count; $sh = 0
+                        foreach ($oc in @($env:FN_OWORLD -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+                            $tc0 = Get-Date; [IO.File]::WriteAllText($tcmd, "$oc`r`n"); T "  tcmd: wrote '$oc'"
+                            while (((Get-Date) - $tc0).TotalSeconds -lt $(if ($env:FN_WAIT) { [int]$env:FN_WAIT } else { 40 })) { Start-Sleep 5; $sh++; Fix-Focus; if ($sh % 3 -eq 1) { Shot ("tcmd_{0:D2}" -f $sh) } }
+                        }
+                        $nl = @(Get-Content $tlog -ErrorAction SilentlyContinue | Select-Object -Skip $n0)
+                        foreach ($l in (@($nl | Where-Object { $_ -notmatch 'BOSSMON|PHASE mission' } | Select-Object -First 50) + @($nl | Where-Object { $_ -match 'BOSSMON' } | Select-Object -Last 12))) { T "  TLOG $l" }
+                        T "  tcmd status: $(RMP status)"
+                    }
+                    Start-Sleep 3; $x = RMP "exit"; T "  exit: $x"; Start-Sleep 20
+                }
+                elseif ((LastOf $st) -notmatch '^started') { $res.result = "FAIL"; $res.note = "game thread: $(LastOf $st)"; $sum.fail++ }
                 else {
                     $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass', 'fail') -or ((F $x 'state') -eq '0' -and (F $x 'fnow') -ne 'armed' -and (F $x 'fnow') -ne 'warped') } ($LoadWaitSec + 60) 1
                     $res.fnow = F $end 'fnow'; $res.warps = F $end 'warps'; $res.pos = F $end 'pos'; $lm = F $end 'loadms'; if ($lm) { $res.load = [math]::Round([int]$lm / 1000.0, 1) }
@@ -206,6 +287,7 @@ try {
                         }
                         T "  retry mode done: $loads loads observed in $([math]::Round(((Get-Date) - $tr).TotalSeconds, 1)) s"
                     }
+                    if ($TrainCmds.Count) { Run-Train; T "  train results:"; foreach ($tr in $script:trainRes) { T "    $tr" } }
                     Start-Sleep 4
                     $x = RMP "exit"; T "  exit: $x"
                     $back = Wait-RM { param($y) (F $y 'state') -eq '0' -and (F $y 'loading') -eq '0' -and (F $y 'player') -eq '1' } 150 2

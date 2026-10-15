@@ -173,12 +173,18 @@ Snap ReadSnap() {
     if (Rd(G_NET, net) && net && Rd(net + 0x1DC, conn)) s.guest = conn != 0;
     return s;
 }
+// Nioh3Training prewarm world load pending and unclaimed: not a reason to refuse, Fight now claims it (bridge 6473)
+static bool XwPending() {
+    using Fn = int (*)();
+    static const Fn f = [] { HMODULE m = GetModuleHandleW(L"Nioh3Training.asi"); return m ? (Fn)GetProcAddress(m, "Nioh3Training_XwPending") : nullptr; }();
+    return f && f();
+}
 const char* Gates(const Snap& s, bool uiSide) {
     if (!g_live) return "not installed";
     if (s.online) return "online";
     if (s.guest) return "co-op session";
     if (!s.gm) return "game not ready";
-    if (s.st[2]) return "loading";
+    if (s.st[2] && !XwPending()) return "loading";
     if (s.st[3] | s.st[4]) return "game paused";
     if (!s.player) return "no save loaded";
     if (s.queueBusy) return "mission queue busy";
