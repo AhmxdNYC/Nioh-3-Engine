@@ -44,3 +44,34 @@ Also fixed: Warp() called 3A083C without rdx (the centre pointer it reads as a f
   If state 0-3 dominate the 13 s (path data), the change cannot help that part.
 - Meaning of S+0x1B40 map (assumed async cell release tracking); raising B may raise the memory peak.
 - Code patch of live imm8 while the game thread runs (single-byte store; old or new value is seen).
+
+## Round 2 (bridge 6047b): Ally test, cap 12 = no gain; what holds the switch
+
+Ally data (/tmp/xs6047 OFF1/OFF2/ON1, route oworld E0 then fnow 0x7B35): stage state 5 at +12..15 s, GAMESTATE[2] stays 1
+to ~+31 s, map 1B48 = 4 and cell flags constant -> the cell cap is not the limiter (CrossWorldCellLoads stays, default 0).
+Key timing: with the boss preload the stage world byte changes only at **+6.5 s / +5.95 s**; in the plain `oworld` leg
+(no preload) at **+0.12 s**.
+
+Static chain:
+- GAMESTATE = GameMain+0x588 stop-flag block; StopFlagSet 3B28FC -> A461E4 is a counter (+0x598 for idx 2; on=1 adds,
+  on=0 subtracts, clamped at 0). XwStart's pre-call (2,0,0) is a decrement.
+- Mission load sequencer (state [seq+4], dispatched by 5A29F0, mirrored in u32 **B+0x45BA21C**):
+  1 MissionLoadStep 223AF50: waits 1FC6674(stage+0x500) **and LoadIsLoadEnd 3B3424** before consuming the request;
+  2 223B8F0 (warp point, 3A1700 main cell, 1FCEE1C/1FCECE4 unload/load world); 3 223B3F8; 4 223B3A8; 5 223BDB0
+  (UiLoadingScreenStart); 6 223C53C; 7 223C630 (sets [[45B9E40]]+0x2679 = 1, enables gate G7); **8 223C4A8 waits
+  LoadIsLoadEnd**; 9 223C684; 0xA 223C5B8; 0xB 223BE08 (219F3A0 wait, UiLoadingScreenEnd); 0xC-0xE 223BEA8 (5A29B0 /
+  1CFCD24 / player gates, actor AI-on 66982C, autosave) -> 0xF; **0xF 223C308: fixed timer 30 or 100 dt60 (+60 for journey
+  0xC0) then StopFlagSet(2,0)** = GAMESTATE[2] clear -> 0x10/0x11.
+- LoadIsLoadEnd gates (order): G1 StagePathInitStep, G2 8B3868(S+0x540) area with no active object, G3 3B3974(S+0x450),
+  G4 UI pair (if byte 45C6F2C), **G5 13335C([45B9E60]) any resource entry +0x2C8 == 0**, G6 D3958, G7 2BE284 blocker
+  list, G8 3B3A28, G9 3B2970, then characters (3B39AC) with a 120 dt60 (2 s) timeout (acc float 45C84A4).
+- [45B9E60] is the list ResEntry() searches and +0x2C8 is the flag XwStart tests: **the CrossWorldPreload request
+  (3F9E58) holds G5 -> state 1 -> the world switch until the boss model is loaded.** The remaining ~17 s after state 5
+  are most likely state 8 (field placement resources, registry 44 -> 228 at +17 s); not confirmed which gate.
+
+Change: `[ArenaSwap] CrossWorldPreloadAfterSwitch = 1` (default 0) defers XwPreload until CurWorld() == target.
+New log (always on while XSTREAM runs): on every change `GAMESTATE[2] / mission seq state (+ time in previous state) /
+LoadIsLoadEnd gate mask (1 G2, 2 G3, 4 G5, 8 G7, 16 G8)` via read-only predicates from the pump (game thread).
+Expected: switch at ~+0.1 s instead of ~+6 s, total ~5-6 s less (UNVERIFIED). Risk: if state 8 then waits on the boss
+model instead of field entities, the gain shrinks; the gate mask shows which. Early arena swap with GAMESTATE[2] = 1 was
+not built: the screen stays covered until state 0xB and control until 0xF, so it saves only the 0.7 s settle.
