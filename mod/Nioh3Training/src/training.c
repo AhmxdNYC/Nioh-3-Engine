@@ -8,6 +8,7 @@
 //   lchr id                     Load::Character native A42A7C(loader, id) using the loader captured by the trace hook
 //   mission id slot start       MissionRequestById 2239600(id, slot, start, {101 1000000 10100 0..})
 //   call rva a b c d            raw native call with four integer args (RE only)
+//   dump                        log-only: actors, registry (c0+0x48), player words; also auto on the no-owner path, then boss words (bridge 4650)
 //   actors                      list the live actor table (mgr [4745348]+B98 intrusive hash set, node = actor+E0)
 //   despawn [all|last|N]        delete actors spawned by this ASI (found by diffing the actor table around CreateDynamic; native delete 2BF7E8)
 //   kill [last|N] [drop]        native Character::EnemyForceKill 786C84 on a spawned actor (drop=1: ...WithItemDrop)
@@ -26,6 +27,8 @@
 //   fnow missionId [start]      Fight now through the C API (Nioh3Training_FightNow): in-place swap when the row is in Nioh3Training_arenas.tsv and in this world, else the native request
 //   preload                     Nioh3Training_Preload: request the models of the nearest bosses of this world
 //   bbm id [notify] / bbmend    native Mission::BossBattleMode / BossBattleModeEnd replica (HUD/BGM mode, bridge 4576); bossmode 0|1 [notify]; flag id [val] = SetMissionFlag
+//   dump                        also (bridge 4717) wrapper words of live registry rows and +0..0xFF of every non-player actor: run it in a native boss fight
+//   ownerwait ms / owneract 0|1 owner fallbacks for the arena swap (ini OwnerWaitMs / OwnerActivate)
 //   swap 0|1                    arena swap Enable at run time
 // Config Nioh3Training.ini [ArenaSwap]; table Nioh3Training_arenas.tsv (tools/gen_arena_table.py). Exports: Nioh3Training_FightNow / _Preload / _Version.
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
@@ -110,6 +113,44 @@ static uint64_t g_sp_actor[MAXSP]; static int g_nsp;
 static uint64_t g_snap[1024]; static int g_nsnap; static DWORD g_watch_t0; static int g_watch; static uint32_t g_watch_id;
 static int InSnap(uint64_t a) { for (int i = 0; i < g_nsnap; ++i) if (g_snap[i] == a) return 1; return 0; }
 static int InSp(uint64_t a) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == a) return 1; return 0; }
+static int g_dump_pending, g_dump_full; static uint32_t g_dump_owner;
+// bridge 4650: log-only diagnostics for "no live registered actor to own the boss" (passive boss)
+static void DumpWords(const char* tag, uint64_t a, uint32_t owner, int bytes) {
+    __try {
+        char row[200];
+        for (int o = 0; o < bytes; o += 32) {
+            int k = 0; for (int j = 0; j < 8; ++j) k += snprintf(row + k, sizeof row - k, "%08X ", *(uint32_t*)(a + o + j * 4));
+            Log("  %s +%04X: %s", tag, o, row);
+        }
+        for (int o = 0; o < 0x2000; o += 4) { uint32_t v = *(uint32_t*)(a + o); if (owner > 1 && v == owner) Log("  %s owner id %u found at +%X", tag, owner, o); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  %s: unreadable %p", tag, (void*)a); }
+}
+static void DumpOwnerState(const char* why) {
+    __try {
+        uint64_t cm = 0, c0 = 0, me = PlayerChar(); Rd64(B + 0x45B9E40, &cm); if (cm) Rd64(cm, &c0);
+        Log("DUMP [%s] charMgr=%p c0=%p player=%p", why, (void*)cm, (void*)c0, (void*)me);
+        uint64_t cur[1024]; int n = Actors(cur, 1024);
+        Log("DUMP actors: %d in table", n);
+        for (int i = 0; i < n; ++i) { float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
+            Log("  actor %p%s handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X", (void*)cur[i], cur[i] == me ? " PLAYER" : "", *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84)); }
+        if (c0) {
+            uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
+            Log("DUMP registry c0+0x48=%p count=%llu", (void*)reg, cnt);
+            int shown = 0;
+            for (uint64_t i = 0; i < cnt; ++i) {
+                uint32_t id = *(uint32_t*)(arr + i * 16); uint64_t w = *(uint64_t*)(arr + i * 16 + 8), live = 0, rec = 0; uint32_t pl = 0;
+                if (w) { Rd64(w, &live); Rd64(w + 0x18, &rec); pl = *(uint32_t*)(w + 0x20); }
+                if (!live && shown >= 100) continue;  // live rows always, dead rows only the first 100
+                if (!live) ++shown;
+                if (live && live != me && g_dump_full) { char tg[40]; snprintf(tg, sizeof tg, "reg%u wrapper", id); DumpWords(tg, w, 0, 0x60); }
+                char rb[200] = {0}; int k = 0; if (rec) for (int j = 0; j < 12; ++j) k += snprintf(rb + k, sizeof rb - k, "%u ", ((uint32_t*)rec)[j]);
+                Log("  reg id=%u w=%p live=%p%s pl=%u rec=%p [%s]", id, (void*)w, (void*)live, live == me ? " PLAYER" : "", pl, (void*)rec, rb);
+            }
+        }
+        if (me) DumpWords("player", me, 0, 0x100);
+        if (g_dump_full) for (int i = 0; i < n; ++i) if (cur[i] != me) { char tg[40]; snprintf(tg, sizeof tg, "actor%d(%08X)", i, *(uint32_t*)(cur[i] + 4)); DumpWords(tg, cur[i], 0, 0x100); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DUMP [%s]: exception", why); }
+}
 static void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
     uint64_t cur[1024]; int n = Actors(cur, 1024);
@@ -117,6 +158,7 @@ static void WatchTick(void) {  // after CreateDynamic: collect actors that were 
         float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
         g_sp_actor[g_nsp++] = cur[i];
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
+        if (g_dump_pending) { DumpWords("boss", cur[i], g_dump_owner, 0x100); g_dump_pending = 0; }
         g_watch = 0;
     }
     if (GetTickCount() - g_watch_t0 > 3000) { Log("SPAWN: no new actor with handle id %08X appeared within 3 s (previous actor of the same owner/slot still alive? despawn it first)", g_watch_id); g_watch = 0; }
@@ -151,6 +193,15 @@ static void h_lchr(uint64_t loader, uint32_t id) {
     o_lchr(loader, id);
 }
 
+// registry message post 60BE48(reg, &pair{obj, ctrl}): every script->placement message (SetDoorControl*, SetStatusPlacement, ...) goes through it. Log-only trace (bridge 4718): vtable RVA, placement id (+8), dwords +0x10/+0x14.
+typedef void (*PostFn)(uint64_t, uint64_t*);
+static PostFn o_post; static volatile LONG g_post_trace = 1;
+static void h_post(uint64_t reg, uint64_t* pair) {
+    static volatile LONG n; if (g_post_trace && InterlockedIncrement(&n) < 20000) { uint64_t o = pair ? pair[0] : 0; uint64_t vt = 0, v10 = 0; uint32_t id = 0;
+        __try { vt = *(uint64_t*)o; id = *(uint32_t*)(o + 8); v10 = *(uint64_t*)(o + 0x10); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        Log("TRACE Post vtbl=+%llX id=%u (0x%X) w10=%08X w14=%04X ret=%p", (unsigned long long)(vt - B), id, id, (uint32_t)v10, (uint32_t)(v10 >> 32) & 0xFFFF, (void*)((uintptr_t)__builtin_return_address(0) - B)); }
+    o_post(reg, pair);
+}
 // ---- command channel: worker thread reads the file, game thread executes
 static char g_cmd[4096];
 static volatile LONG g_have;
@@ -159,7 +210,9 @@ typedef void (*LogFn)(const char*, ...);
 typedef void (*PlugFn)(uintptr_t, const char*, LogFn);
 static PlugFn g_plug;
 // ---- spawn <charId> [dist] : Load::Character request (3F9E58 id,2,0), wait until resource entry +2C8 is ready, then CreateDynamic
-static struct { uint32_t id, owner; float dist; DWORD t0; int active; } g_sp;
+static int g_cfg_ownwait;
+static void SummonFinish(uint32_t h, uint32_t bgm);
+static struct { uint32_t id, owner, bgm; float dist; DWORD t0, tOwn; int active, boss; } g_sp;
 static uint64_t ResEntry(uint32_t id) {
     uint64_t key = ((uint64_t (*)(uint64_t, uint32_t))(B + 0x134314))(0, id);
     uint64_t rm = 0; if (!Rd64(B + 0x45B9E60, &rm) || !rm) return 0;
@@ -192,12 +245,16 @@ static void SpawnTick(void) {
     float cy = CamYawDeg(), dx, dz; FwdVec(cy, &dx, &dz);
     __attribute__((aligned(16))) float p[4] = {pos[0] + dx * g_sp.dist, pos[1], pos[2] + dz * g_sp.dist, 1.0f};
     uint32_t owner = g_sp.owner ? g_sp.owner : PickOwner();
+    if (owner <= 1 && g_sp.boss && g_cfg_ownwait > 0 && !g_sp.tOwn) g_sp.tOwn = GetTickCount();
+    if (owner <= 1 && g_sp.boss && g_sp.tOwn && GetTickCount() - g_sp.tOwn < (DWORD)g_cfg_ownwait) return;  // summon: keep retrying the owner pick
+    if (owner <= 1) { Log("SPAWN WARNING no live registered actor to own the boss: owner = player"); DumpOwnerState("spawn-no-owner"); g_dump_pending = 1; g_dump_owner = owner; }
     float face = cy + 180.0f;
     g_nsnap = Actors(g_snap, 1024);
     uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_sp.id, p, face, 0, owner, 0);
     g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount();
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
     if (r && g_autogauge) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0); Log("SPAWN %u: ShowBossGauge(0x%X) called", g_sp.id, r); }
+    if (r && g_sp.boss) SummonFinish(r, g_sp.bgm);
     g_sp.active = 0;
 }
 
@@ -239,7 +296,25 @@ static int Warp(float x, float y, float z, float yaw, int full) {
 }
 
 // ---- boss mode (bridge 4576): native replica of Mission::BossBattleMode (VM 23A2DCC) / ...End (23A2F70) without a VM context, and Mission::SetMissionFlag (70275C)
-static int g_cfg_bossmode = 1, g_cfg_notify = 1;
+static int g_cfg_bossmode = 1, g_cfg_notify = 1, g_cfg_bgm = 1;
+// bridge 4717: owner fallbacks when no live registered actor exists yet. (a) OwnerWaitMs: keep retrying PickOwner this long before spawning with owner = player; (b) OwnerActivate: while waiting, ActivatePlacement (1180740) one registered enemy-record placement per 250 ms (max 12) to get a live owner.
+static int g_cfg_ownwait = 0, g_cfg_ownact = 0;
+// ---- boss BGM (bridge 4640). Sound state object S = 5A16F8(); S+0xB4 = boss BGM id (-1 none). Natives behind the script wrappers: PlayBossBGM 29057EC(-, hash), StopBossBGM 59FFDC, RequestBossBattleBgmEndState 2906098.
+// The field music is not touched, so StopBossBGM hands it back. Per-boss hash = first Sound::PlayBossBGM constant of the boss script (Nioh3Training_bgm.tsv); bosses without one keep the automatic boss music.
+static uint32_t g_ar_bgm; static DWORD g_bgm_stop_at; static int g_bgm_on;
+static void BgmStart(uint32_t h) {
+    ((void (*)(uint32_t, uint32_t))(B + 0x29057EC))(0, h); g_bgm_on = 1; g_bgm_stop_at = 0;
+    uint64_t S = ((uint64_t (*)(void))(B + 0x5A16F8))(); Log("BGM PlayBossBGM(0x%08X) called, state %p +B4=0x%08X", h, (void*)S, S ? *(uint32_t*)(S + 0xB4) : 0);
+}
+static void BgmEnd(void) {  // boss died: native end state now, plain stop after the victory sting
+    if (!g_bgm_on) return;
+    ((void (*)(void))(B + 0x2906098))(); g_bgm_stop_at = GetTickCount() + 6000; Log("BGM RequestBossBattleBgmEndState called, StopBossBGM in 6 s");
+}
+static void BgmStop(const char* why) {
+    if (!g_bgm_on) return;
+    ((void (*)(void))(B + 0x59FFDC))(); g_bgm_on = 0; g_bgm_stop_at = 0; Log("BGM StopBossBGM (%s): field music is back", why);
+}
+static void BgmTick(void) { if (g_bgm_on && g_bgm_stop_at && (int)(GetTickCount() - g_bgm_stop_at) >= 0) BgmStop("after boss end"); }
 static uint64_t CharMgr(void) { uint64_t cm = 0; Rd64(B + 0x45B9E40, &cm); return cm; }
 static uint64_t FindWrapper(uint32_t id) { uint64_t cm = CharMgr(); return cm ? ((uint64_t (*)(uint64_t, uint32_t))(B + 0x135B78))(cm, id) : 0; }
 static struct { int active; uint32_t id; int v0, diff; DWORD t0, last, since; } g_bm;
@@ -273,6 +348,7 @@ static int BossModeBegin(uint32_t id, int notify) {
     Log("BBM %u: BossBattleMode applied (wrapper %p, +26AA=1, alive sensor %d, notify %d)", id, (void*)w, g_bm.v0, notify);
     return 1;
 }
+static void SummonFinish(uint32_t h, uint32_t bgm) { if (g_cfg_bossmode) BossModeBegin(h, g_cfg_notify); if (g_cfg_bgm && bgm) BgmStart(bgm); Log("SUMMON done: handle 0x%X", h); }
 static void BossModeEnd(const char* why) {
     uint64_t cm = CharMgr(); if (!cm) return;
     if (((uint8_t (*)(uint64_t))(B + 0x1C1AE20))(cm)) ((void (*)(uint64_t))(B + 0x1C0CFB4))(cm);
@@ -288,7 +364,16 @@ static void BossTick(void) {
     if (v != g_bm.v0) { if (!g_bm.since) { g_bm.since = now; Log("BBM +%lu ms alive sensor %d -> %d", now - g_bm.t0, g_bm.v0, v); } }
     else g_bm.since = 0;
     if (g_bm.since && now - g_bm.since >= 1500) {
-        Log("BBM +%lu ms boss %u gone/dead (sensor %d, was %d)", now - g_bm.t0, g_bm.id, v, g_bm.v0);
+        if (v < 0) {  // bridge 4739: the actor left the table (player died / respawn reset the arena), the boss was not killed: no victory end state, just leave boss mode
+            Log("BBM +%lu ms boss %u actor gone, not dead (player died or area reset): leaving boss mode without the victory sting", now - g_bm.t0, g_bm.id);
+            BgmStop("boss gone");
+            BossModeEnd("boss gone");
+            ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(g_bm.id, 0, 0);
+            g_bm.active = 0;
+            return;
+        }
+        Log("BBM +%lu ms boss %u dead (sensor %d, was %d)", now - g_bm.t0, g_bm.id, v, g_bm.v0);
+        BgmEnd();
         BossModeEnd("boss dead");
         ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(g_bm.id, 0, 0);
         g_bm.active = 0;
@@ -299,7 +384,38 @@ static void SetFlag(uint32_t id, uint8_t val) {
     ((void (*)(uint64_t, uint32_t, uint8_t, uint8_t))(B + 0x70275C))(mm, id, val, 0);
     Log("FLAG SetMissionFlag(%u, %u) called (mgr %p)", id, val, (void*)mm);
 }
-static struct { int active, spawned, released; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog; int lastState, lastCell; } g_ar;
+// ---- gadget door/fog control (bridge 4718). Gadget::SetDoorControl{Normal=0,AbsoluteClose=3,AbsoluteOpen=4,...} (VM wrappers 60C7E4 / 60A45C / A52C0C, same template): build a message {vtbl 38F5468, placement id +8, mode +0x10}
+// with 60C924(out, &id, &mode) -> shared pair, post it to the placement registry [c0+0x48] with 60BE48(reg, &pair), then release the pair. The registry routes it to the gadget with that placement id (no live actor wrapper needed on our side).
+static int DoorCtl(uint32_t id, uint32_t mode) {
+    uint64_t cm = CharMgr(), c0 = 0; if (!cm || !Rd64(cm, &c0) || !c0) { Log("DOOR: no character manager"); return 0; }
+    uint64_t reg = 0; Rd64(c0 + 0x48, &reg); if (!reg) { Log("DOOR: no registry"); return 0; }
+    uint64_t out[2] = {0, 0}; uint32_t m = mode;
+    uint64_t* r = ((uint64_t* (*)(uint64_t*, uint32_t*, uint32_t*))(B + 0x60C924))(out, &id, &m);
+    uint64_t tmp[2] = {r[0], r[1]}; r[0] = r[1] = 0;
+    ((void (*)(uint64_t, uint64_t*))(B + 0x60BE48))(reg, tmp);
+    uint64_t obj = tmp[1];
+    if (obj && InterlockedDecrement((volatile LONG*)(obj + 8)) == 0) {
+        void** vt = *(void***)obj; ((void (*)(uint64_t))vt[0])(obj);
+        if (InterlockedDecrement((volatile LONG*)(obj + 0xC)) == 0) ((void (*)(uint64_t))vt[1])(obj);
+    }
+    Log("DOOR SetDoorControl(%u, mode %u) posted to registry %p", id, mode, (void*)reg);
+    return 1;
+}
+static struct { int active, spawned, released; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog, tOwn, lastAct; int lastState, lastCell, nact, actIdx; } g_ar;
+static int OwnerActivateOne(void) {  // next registered placement with an enemy record and no live actor -> ActivatePlacement; 1 = one was tried
+    uint64_t cm = 0, c0 = 0; Rd64(B + 0x45B9E40, &cm); if (!cm) return 0; Rd64(cm, &c0); if (!c0) return 0;
+    uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
+    for (; (uint64_t)g_ar.actIdx < cnt; ++g_ar.actIdx) {
+        uint64_t i = g_ar.actIdx; uint32_t id = *(uint32_t*)(arr + i * 16); uint64_t w = *(uint64_t*)(arr + i * 16 + 8), live = 0, rec = 0;
+        if (id <= 1 || id >= 0x10000000 || !w) continue;
+        Rd64(w, &live); Rd64(w + 0x18, &rec);
+        if (live || !rec) continue;
+        ++g_ar.actIdx; ++g_ar.nact;
+        uint8_t r = ((uint8_t (*)(uint32_t, uint32_t, uint8_t, uint32_t))(B + 0x1180740))(id, 0, 0, 0);
+        Log("ARENA owner-activate #%d: ActivatePlacement(%u) -> %u", g_ar.nact, id, r); return 1;
+    }
+    return 0;
+}
 static void ArenaTick(void) {
     if (!g_ar.active) return;
     DWORD now = GetTickCount(), dt = now - g_ar.t0;
@@ -314,15 +430,24 @@ static void ArenaTick(void) {
             if (!g_ar.spawned) {
                 __attribute__((aligned(16))) float b[4] = {g_ar.b[0], g_ar.b[1], g_ar.b[2], 1.0f};
                 uint32_t owner = PickOwner();
-                if (owner <= 1) Log("ARENA WARNING no live registered actor to own the boss: owner = player, the boss will be passive");
+                if (owner <= 1 && (g_cfg_ownwait > 0 || g_cfg_ownact)) {
+                    DWORD wait = g_cfg_ownwait > 0 ? (DWORD)g_cfg_ownwait : 4000;
+                    if (!g_ar.tOwn) { g_ar.tOwn = now; Log("ARENA +%lu ms no live owner yet: waiting up to %lu ms (OwnerActivate %d)", dt, wait, g_cfg_ownact); }
+                    if (g_cfg_ownact && g_ar.nact < 12 && now - g_ar.lastAct >= 250) { g_ar.lastAct = now; OwnerActivateOne(); }
+                    if (now - g_ar.tOwn < wait) goto owner_wait;
+                    Log("ARENA owner wait over after %lu ms", now - g_ar.tOwn);
+                } else if (owner > 1 && g_ar.tOwn) Log("ARENA owner %u found %lu ms after the wait began", owner, now - g_ar.tOwn);
+                if (owner <= 1) { Log("ARENA WARNING no live registered actor to own the boss: owner = player, the boss will be passive"); DumpOwnerState("arena-no-owner"); g_dump_pending = 1; g_dump_owner = owner; }
                 g_nsnap = Actors(g_snap, 1024);
                 uint32_t r = ((DynFn)(B + 0x1C0C5E0))(g_ar.chr, b, g_ar.byaw, 0, owner, 0);
                 g_watch = r != 0; g_watch_id = r; g_watch_t0 = now; g_ar.spawned = 1; g_ar.tSpawn = now;
                 Log("ARENA +%lu ms CreateDynamic(%u owner %u) at %.0f %.0f %.0f yaw %.1f -> 0x%X", dt, g_ar.chr, owner, b[0], b[1], b[2], g_ar.byaw, r);
                 if (r && g_autogauge) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(r, 0, 0);
                 if (r && g_cfg_bossmode) BossModeBegin(r, g_cfg_notify);
+                if (r && g_cfg_bgm && g_ar_bgm) BgmStart(g_ar_bgm);
             }
-            if (now - g_ar.tSpawn >= 200) { g_ar.released = 1; Log("ARENA +%lu ms CONTROL: player released at %.0f %.0f %.0f (command -> control %.2f s)", dt, pos[0], pos[1], pos[2], dt / 1000.0); }
+            owner_wait:
+            if (g_ar.spawned && now - g_ar.tSpawn >= 200) { g_ar.released = 1; Log("ARENA +%lu ms CONTROL: player released at %.0f %.0f %.0f (command -> control %.2f s)", dt, pos[0], pos[1], pos[2], dt / 1000.0); }
         } else if (dt > 30000) { Log("ARENA +%lu ms timeout: state %d res %d - releasing", dt, st, res); g_ar.released = 1; }
     }
     if (now - g_ar.lastLog >= 500) { g_ar.lastLog = now; Log("ARENA +%lu ms player %.0f %.0f %.0f state %d", dt, pos[0], pos[1], pos[2], st); }
@@ -331,6 +456,7 @@ static void ArenaTick(void) {
 
 static int g_cfg_enable = 1, g_cfg_preload = 1, g_cfg_preload_max = 3, g_cfg_hook = 0, g_cfg_ambient = 0, g_cfg_bossdist = 900;
 static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) {
+    BgmStop("new swap");
     for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);  // one swapped-in boss at a time
     memset(&g_ar, 0, sizeof g_ar);
     g_ar.chr = chr; memcpy(g_ar.p, p, 3 * sizeof(float)); g_ar.yaw = p[3]; memcpy(g_ar.b, b, 3 * sizeof(float)); g_ar.byaw = byaw;
@@ -346,7 +472,7 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) 
 }
 
 // ---- arena table (Nioh3Training_arenas.tsv, tools/gen_arena_table.py): mission, start, world, char, placement, player x y z yaw, boss x y z, kind, id, name
-typedef struct { uint32_t mission, start, chr, placement; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; } ArenaRow;
+typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; } ArenaRow;
 static ArenaRow g_rows[160]; static int g_nrows;
 static void LoadTable(void) {
     char path[MAX_PATH]; snprintf(path, sizeof path, "%s\\Nioh3Training_arenas.tsv", g_dir);
@@ -367,7 +493,17 @@ static void LoadTable(void) {
         if (r->mission && r->chr) ++g_nrows;
     }
     fclose(f);
-    Log("arena table: %d bosses", g_nrows);
+    snprintf(path, sizeof path, "%s\\Nioh3Training_bgm.tsv", g_dir);  // mission<TAB>0xHASH
+    int nb = 0; if ((f = fopen(path, "r"))) {
+        while (fgets(line, sizeof line, f)) {
+            if (line[0] == '#' || line[0] == '\n') continue;
+            char* t = strchr(line, '\t'); if (!t) continue; *t = 0;
+            uint32_t m = (uint32_t)strtoul(line, 0, 0), h = (uint32_t)strtoul(t + 1, 0, 0);
+            for (int i = 0; i < g_nrows; ++i) if (g_rows[i].mission == m && h) { g_rows[i].bgm = h; ++nb; }
+        }
+        fclose(f);
+    }
+    Log("arena table: %d bosses, %d with a boss BGM id", g_nrows, nb);
 }
 static ArenaRow* FindRow(uint32_t mission) { for (int i = 0; i < g_nrows; ++i) if (g_rows[i].mission == mission) return &g_rows[i]; return 0; }
 static int CurWorld(void) { uint64_t s = StageMgr(); return s ? *(uint8_t*)(s + 0x500) : -1; }
@@ -437,9 +573,47 @@ static void PreloadTick(void) {
 //   void Nioh3Training_Preload(void)                 call when the Boss Rematch menu opens: requests the model resources of the nearest bosses of this world.
 //   int  Nioh3Training_Version(void)
 #define N3T_API __declspec(dllexport)
+// bridge 4718: NativeEnter = 1: the fog gate, arena intro cutscene, boss BGM, boss gauge/HUD, clear flags and rewards are all driven by the boss's mission script, which only exists in the mission's own placement DB. So Fight now does the native mission load
+// (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
+static int g_cfg_native = 1; static char g_native_list[256] = "0x1CBC";
+static int NativeListed(uint32_t m) {  // [ArenaSwap] NativeMissions = comma list of mission ids (or *): bosses whose script trigger is verified to start from the table arena point
+    if (strchr(g_native_list, '*')) return 1;
+    for (const char* c = g_native_list; *c; ) { char* e; unsigned long v = strtoul(c, &e, 0); if (e != c && v == m) return 1; c = e != c ? e : c + 1; while (*c == ',' || *c == ' ') ++c; }
+    return 0;
+}
+static struct { int active, sawLoad, warped, fellBack; ArenaRow* row; DWORD t0, tReady, tWarp; } g_en;
+N3T_API int Nioh3Training_FightNow(uint32_t mission);
+static void EnterTick(void) {
+    if (!g_en.active) return;
+    DWORD now = GetTickCount();
+    const uint8_t* st = GameState(); if (!st) return;
+    if (now - g_en.t0 > 300000) { Log("ENTER %s: timeout, giving up", g_en.row->id); g_en.active = 0; return; }
+    ArenaRow* r = g_en.row;
+    if (g_en.warped) {
+        if (ActorByHandle(r->placement)) { Log("ENTER %s: native fight started (boss placement %u live, +%lu ms after the warp): intro, gate, BGM and rewards are the mission script's", r->id, r->placement, now - g_en.tWarp); g_en.active = 0; return; }
+        if (now - g_en.tWarp > 2000 && st[2]) { Log("ENTER %s: the mission script started a load/cutscene %lu ms after the warp: native fight (intro first)", r->id, now - g_en.tWarp); g_en.active = 0; return; }  // Yamagata: ~10 s after the warp
+        if (now - g_en.tWarp > 30000) {  // the script trigger did not fire from the table's arena point: fall back to the in-place swap (no fog/intro for this boss)
+            Log("ENTER %s: no native boss/intro 30 s after the warp, falling back to the in-place swap", r->id); g_en.active = 0;
+            int keep = g_cfg_native; g_cfg_native = 0; Nioh3Training_FightNow(r->mission); g_cfg_native = keep;
+        }
+        return;
+    }
+    if (st[2]) { if (!g_en.sawLoad) Log("ENTER %s: load started (+%lu ms)", r->id, now - g_en.t0); g_en.sawLoad = 1; g_en.tReady = 0; return; }
+    if (!g_en.sawLoad) return;
+    if (!PlayerChar() || StageState() != 5 || CurWorld() != r->world) { g_en.tReady = 0; return; }
+    if (!g_en.tReady) { g_en.tReady = now; Log("ENTER %s: landed in world 0x%02X, settling", r->id, r->world); }
+    if (now - g_en.tReady < 3000) return;
+    int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1); g_en.warped = 1; g_en.tWarp = now;
+    Log("ENTER %s (%s): warped into the arena %.0f %.0f %.0f yaw %.1f -> %d (+%lu ms after the request); waiting for the mission script to spawn the boss", r->id, r->name, r->p[0], r->p[1], r->p[2], r->p[3], w, now - g_en.t0);
+}
 N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     ArenaRow* r = g_cfg_enable ? FindRow(mission) : 0;
     if (!r) return 0;
+    if (g_cfg_native && NativeListed(mission)) {
+        memset(&g_en, 0, sizeof g_en); g_en.row = r; g_en.t0 = GetTickCount(); g_en.active = 1;
+        Log("FIGHTNOW %s (%s) mission 0x%X: native load + auto-enter (NativeEnter=1, listed)", r->id, r->name, mission);
+        return 0;
+    }
     const char* why = SwapGate(r);
     if (why) { Log("FIGHTNOW %s mission 0x%X: native load (%s)", r->id, mission, why); return 0; }
     Log("FIGHTNOW %s (%s) mission 0x%X: arena swap in place (no mission load), world 0x%02X", r->id, r->name, mission, r->world);
@@ -449,6 +623,7 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
         float k = g_cfg_bossdist / d;
         b[0] = r->p[0] + dx * k; b[1] = r->p[1] + (b[1] - r->p[1]) * k; b[2] = r->p[2] + dz * k;
     }
+    g_ar_bgm = r->bgm;
     return StartArena(r->chr, r->p, b, r->p[3] + 180.0f);
 }
 N3T_API void Nioh3Training_Preload(void) { if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
@@ -506,6 +681,8 @@ static void Exec(char* line) {
                 if (rec) for (int j = 0; j < 12; ++j) k += snprintf(rb + k, sizeof rb - k, "%u ", ((uint32_t*)rec)[j]);
                 Log("  id=%u w=%p live=%p%s pl=%u pos=%.0f %.0f %.0f rec=%p [%s]", id, (void*)w, (void*)live, live == me ? " PLAYER" : "", pl, xyz[0], xyz[1], xyz[2], (void*)rec, rb);
             }
+        } else if (!strcmp(op, "dump")) {
+            g_dump_full = 1; DumpOwnerState("cmd dump"); g_dump_full = 0;  // native-boss diff (bridge 4717): wrapper words of live registry rows and +0..0xFF of every non-player actor
         } else if (!strcmp(op, "loaded")) {
             uint64_t key = ((uint64_t (*)(uint64_t, uint32_t))(B + 0x134314))(0, (uint32_t)a[0]);
             uint64_t rm = 0; Rd64(B + 0x45B9E60, &rm);
@@ -522,10 +699,24 @@ static void Exec(char* line) {
             Log("CMD dyn a0=%llu a4=%llu a5=%llu a6=%llu at %.1f %.1f %.1f -> %u (0x%X)", a[0], a[1], a[2], a[3], p[0], p[1], p[2], r, r);
         } else if (!strcmp(op, "spawn")) {
             if (g_sp.active) { Log("CMD spawn: previous spawn %u still loading", g_sp.id); return; }
-            g_sp.id = (uint32_t)a[0]; g_sp.dist = n >= 3 ? (float)a[1] : 400.0f; g_sp.owner = n >= 4 ? (uint32_t)a[2] : 0; g_sp.t0 = GetTickCount();
+            g_sp.boss = 0; g_sp.tOwn = 0; g_sp.id = (uint32_t)a[0]; g_sp.dist = n >= 3 ? (float)a[1] : 400.0f; g_sp.owner = n >= 4 ? (uint32_t)a[2] : 0; g_sp.t0 = GetTickCount();
             uint64_t e = ResEntry(g_sp.id);
             if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(g_sp.id, 2, 0);
             Log("CMD spawn %u dist %.0f: %s", g_sp.id, g_sp.dist, e && *(uint8_t*)(e + 0x2c8) ? "resources already loaded" : "Load::Character requested");
+            g_sp.active = 1; SpawnTick();
+        } else if (!strcmp(op, "summon")) {  // summon <R-id|charId> [dist]: boss next to the player in the current world, no arena swap / load; HUD gauge, boss mode, boss BGM
+            if (g_sp.active) { Log("CMD summon: previous spawn %u still loading", g_sp.id); return; }
+            char tok[32] = {0}; float d = 400.0f; sscanf(line, "%*s %31s %f", tok, &d);
+            uint32_t chr = 0, bgm = 0;
+            for (int i = 0; i < g_nrows; ++i) if (!_stricmp(g_rows[i].id, tok)) { chr = g_rows[i].chr; bgm = g_rows[i].bgm; break; }
+            if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
+            if (!chr) { Log("CMD summon: unknown boss '%s'", tok); return; }
+            if (g_bm.active) BossModeEnd("new summon");
+            BgmStop("new summon");
+            g_sp.id = chr; g_sp.dist = d; g_sp.owner = 0; g_sp.boss = 1; g_sp.bgm = bgm; g_sp.tOwn = 0; g_sp.t0 = GetTickCount();
+            uint64_t e = ResEntry(chr);
+            if (!e || !*(uint8_t*)(e + 0x2c8)) ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(chr, 2, 0);
+            Log("CMD summon %s -> char %u dist %.0f: %s", tok, chr, d, e && *(uint8_t*)(e + 0x2c8) ? "resources already loaded" : "Load::Character requested");
             g_sp.active = 1; SpawnTick();
         } else if (!strcmp(op, "actors")) {
             uint64_t cur[1024]; int n = Actors(cur, 1024); uint64_t me = PlayerChar();
@@ -548,8 +739,11 @@ static void Exec(char* line) {
             ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1);
             Log("CMD kill #%d: 786C84 called", idx);
         } else if (!strcmp(op, "bbm")) { BossModeBegin((uint32_t)a[0], n >= 3 ? (int)a[1] : g_cfg_notify);
+        } else if (!strcmp(op, "bgm")) { if (n >= 2 && a[0]) BgmStart((uint32_t)a[0]); else { g_bgm_on = 1; BgmStop("cmd"); }
         } else if (!strcmp(op, "bbmend")) { BossModeEnd("cmd"); g_bm.active = 0;
         } else if (!strcmp(op, "bossmode")) { g_cfg_bossmode = (int)a[0]; if (n >= 3) g_cfg_notify = (int)a[1]; Log("CMD bossmode %d notify %d", g_cfg_bossmode, g_cfg_notify);
+        } else if (!strcmp(op, "posttrace")) { g_post_trace = (LONG)a[0]; Log("CMD posttrace %ld", (long)g_post_trace);
+        } else if (!strcmp(op, "door")) { DoorCtl((uint32_t)a[0], n >= 3 ? (uint32_t)a[1] : 3);
         } else if (!strcmp(op, "flag")) { SetFlag((uint32_t)a[0], n >= 3 ? (uint8_t)a[1] : 1);
         } else if (!strcmp(op, "gauge")) {
             ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))((uint32_t)a[0], 0, 0); Log("CMD gauge 0x%llX shown", a[0]);
@@ -571,6 +765,18 @@ static void Exec(char* line) {
             int k = sscanf(line, "%*s %u %f %f %f %f %f %f %f %f", &chr, &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7]);
             if (k < 8) { Log("CMD arena: need charId x y z yaw bx by bz [bossYaw]"); return; }
             StartArena(chr, v, v + 4, k < 9 ? v[3] + 180.0f : v[7]);
+        } else if (!strcmp(op, "nativelist")) { char v[200] = {0}; sscanf(line, "%*s %199s", v); snprintf(g_native_list, sizeof g_native_list, "%s", v); Log("CMD nativelist %s", g_native_list);
+        } else if (!strcmp(op, "nativeenter")) { g_cfg_native = (int)a[0]; Log("CMD nativeenter %d", g_cfg_native);
+        } else if (!strcmp(op, "enter")) {  // enter <mission>: warp into the table arena of a mission that is already loaded (the script starts the fight)
+            ArenaRow* r = FindRow((uint32_t)a[0]); if (!r) { Log("CMD enter: mission 0x%llX not in the table", a[0]); return; }
+            int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1); Log("CMD enter %s -> warp %d", r->id, w);
+        } else if (!strcmp(op, "killid")) {  // killid <handle id or placement id> [drop]: native EnemyForceKill on the live actor whose id (+4) matches (a native-script boss)
+            uint64_t act = ActorByHandle((uint32_t)a[0]); if (!act) { Log("CMD killid: no actor with id %llu (0x%llX)", a[0], a[0]); return; }
+            uint32_t flag = *(uint32_t*)(act + 0xAB84); uint64_t comp = *(uint64_t*)(act + 0x3B0); int drop = n >= 3 ? (int)a[1] : 1;
+            Log("CMD killid %p: +ab84=%08X comp=%p drop=%d", (void*)act, flag, (void*)comp, drop);
+            if (flag != 0xFFFFFFFFu || !comp) { Log("CMD killid: guard refused (needs +ab84==-1 and comp)"); return; }
+            ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1);
+            Log("CMD killid: EnemyForceKill called");
         } else if (!strcmp(op, "fnow")) {  // Fight now through the hooked MissionRequestById (as an add-on caller): swaps in place when the row is eligible, else the native load
             Log("CMD fnow mission 0x%llX", a[0]);
             int r = Nioh3Training_FightNow((uint32_t)a[0]);
@@ -596,6 +802,8 @@ static void Exec(char* line) {
             Log("CMD oworld world 0x%llX start %llu white %d journey %u mode %u requested", a[0], a[1], n >= 4 && a[2] ? 1 : 0, journey, mode);
             g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
             g_ms.id = 0;
+        } else if (!strcmp(op, "ownerwait")) { g_cfg_ownwait = (int)a[0]; Log("CMD ownerwait %d ms", g_cfg_ownwait);
+        } else if (!strcmp(op, "owneract")) { g_cfg_ownact = (int)a[0]; Log("CMD owneract %d", g_cfg_ownact);
         } else if (!strcmp(op, "act")) {
             uint8_t r = ((uint8_t (*)(uint32_t, uint32_t, uint8_t, uint32_t))(B + 0x1180740))((uint32_t)a[0], 0, 0, 0);
             Log("CMD act %llu -> %u", a[0], r);
@@ -609,7 +817,7 @@ static void Exec(char* line) {
             Log("CMD mission 0x%llX slot %llu start %llu requested", a[0], a[1], a[2]);
             g_ms.t0 = GetTickCount(); g_ms.last = g_ms.t0; g_ms.ticks0 = g_ticks; g_ms.hadPlayer = PlayerChar() != 0; g_ms.active = 1; g_ms.lastTick = g_ms.t0; g_ms.lastBeat = 0; g_ms.window = 60000; PlayerPos(g_ms.lastPos); g_ms.lastTicks = g_ticks; g_ms.lastReg = RegCount();
             g_ms.id = (uint32_t)a[0];
-        } else if (!strcmp(op, "dump")) {  // dump rva len -> <dir>\\dump_<rva>.bin (RE: disassemble with objdump -D -b binary -mi386:x86-64 --adjust-vma)
+        } else if (!strcmp(op, "dumpmem")) {  // dump rva len -> <dir>\\dump_<rva>.bin (RE: disassemble with objdump -D -b binary -mi386:x86-64 --adjust-vma)
             char p[MAX_PATH]; snprintf(p, sizeof p, "%s\\dump_%llX.bin", g_dir, a[0]);
             FILE* f = fopen(p, "wb"); if (f) { fwrite((void*)(B + a[0]), 1, (size_t)a[1], f); fclose(f); }
             Log("CMD dump rva 0x%llX len %lld -> %s (%s)", a[0], a[1], p, f ? "ok" : "open failed");
@@ -638,7 +846,9 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     }
     __try { PhaseTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
+    __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
+    __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
@@ -673,6 +883,8 @@ static DWORD WINAPI Worker(LPVOID x) {
     else Log("hook CreateDynamic: prologue mismatch");
     if (!memcmp((void*)(B + 0xA42A7C), lchp, 14)) { o_lchr = (LoadChrFn)Hook(0xA42A7C, 14, h_lchr); Log("hook Load::Character ok"); }
     else Log("hook Load::Character: prologue mismatch");
+    { const uint8_t postp[] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20};
+      if (!memcmp((void*)(B + 0x60BE48), postp, 15)) { o_post = (PostFn)Hook(0x60BE48, 15, h_post); Log("hook registry Post ok"); } else Log("hook registry Post: prologue mismatch"); }
     {   // arena swap: config, table, MissionRequestById hook
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
@@ -681,8 +893,9 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
-        g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1, ini);
+        g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1, ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
+        g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
         const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};
