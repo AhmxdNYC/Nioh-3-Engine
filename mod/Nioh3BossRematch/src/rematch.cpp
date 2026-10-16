@@ -1958,6 +1958,27 @@ constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
 constexpr int kItBrowse = -4, kItBack = -5, kItClose = -6;
 constexpr int kItSettings = -7, kItSave = -8, kItGroupBase = -100, kItSettingBase = -1000;
 constexpr int kItPractice = -10, kItPracticeStart = -11, kItPracticeReturn = -12;
+// user #6618: summoned-boss death toggles at the top of the root page (Nioh3Training [Summon] keys, live + saved to its ini)
+constexpr int kItDeathCut = -20, kItDeathBlow = -21, kItDeathLoot = -22;
+bool DeathCfgGet(int& loot, int& blow, int& cut) {
+    using Fn = void (*)(int*, int*, int*);
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetDeathCfg");
+    if (!f) return false;
+    f(&loot, &blow, &cut);
+    return true;
+}
+bool DeathCfgToggle(int item, int dir) {  // dir 0 flips, > 0 on, < 0 off
+    using Fn = void (*)(int, int, int, int);
+    const auto set = (Fn)TrainingExport("Nioh3Training_SetDeathCfg");
+    int loot = 0, blow = 1, cut = 0;
+    if (!set || !DeathCfgGet(loot, blow, cut)) { snprintf(g_msg, sizeof(g_msg), "Needs a Nioh3Training.asi with the Boss Rematch death toggles."); return false; }
+    int& v = item == kItDeathCut ? cut : item == kItDeathBlow ? blow : loot;
+    v = dir ? (dir > 0) : !v;
+    set(item == kItDeathLoot ? loot : -1, item == kItDeathBlow ? blow : -1, item == kItDeathCut ? cut : -1, 1);
+    Log("Rematch: menu death toggle -> CutsceneOnKill %d DeathBlowRequired %d BossLoot %d", cut, blow, loot);
+    g_msg[0] = 0;
+    return true;
+}
 constexpr int kItFight = 0x10000;   // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 
@@ -1965,6 +1986,7 @@ int Items(int* out, int cap) {
     int n = 0;
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
     if (g_uiPages.page == uRoot) {
+        if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
         if (g_live.load()) add(kItBrowse);
         if (g_live.load()) add(kItPractice);
         add(kItSettings);
@@ -2220,6 +2242,7 @@ void UiChange(int dir) {
     if (!n) return;
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
+    if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2252,6 +2275,7 @@ bool UiAct() {
     if (g_sel >= n) g_sel = n - 1;
     const int item = it[g_sel];
     if (item == kItClose) return true;
+    if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
     if (item <= kItSettingBase) { UiChange(0); return false; }
     if (item == kItSave) { SaveUiSettings(); return false; }
     if (item == kItSettings || (item <= kItGroupBase && item > kItSettingBase)) {
@@ -2419,6 +2443,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : d.kind == setting_ui::Kind::Manual ? cDim : cGray, sel, "%s %.48s: %.44s%s (%s)", mk,
                 d.label, v.text.c_str(), v.changed ? " *" : "", d.kind == setting_ui::Kind::Manual ? "ini only" : "next launch");
         } else if (it[i] <= kItGroupBase) add(sel ? cWhite : cGray, sel, "%s %s settings   A: open", mk, kConfigGroups[kItGroupBase - it[i]]);
+        else if (it[i] == kItDeathCut || it[i] == kItDeathBlow || it[i] == kItDeathLoot) {
+            int loot = 0, blow = 1, cut = 0;
+            const bool ok = DeathCfgGet(loot, blow, cut);
+            const int v = it[i] == kItDeathCut ? cut : it[i] == kItDeathBlow ? blow : loot;
+            add(sel ? cWhite : ok ? (v ? cGreen : cGray) : cDim, sel, "%s %-24s %s   A / Left / Right", mk,
+                it[i] == kItDeathCut ? "Cutscene on kill:" : it[i] == kItDeathBlow ? "Final blow required:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF");
+        }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
@@ -2477,6 +2508,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItSave) snprintf(footer, nf, "Writes only edited preferences. Paths/lists and the unavailable Training Enable key are never written.");
         else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss, then Fight now or Shrine before the boss. Existing unlock and solo checks apply.");
         else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
+        else if (item == kItDeathCut) snprintf(footer, nf, "On: one finisher kills the boss and its death animation plays (no second finisher). The mission's own defeat cutscene is not played. Applies now, saved.");
+        else if (item == kItDeathBlow) snprintf(footer, nf, "On: the boss must be finished with a death blow (finisher). Off: it dies as soon as its HP runs out. Applies now, saved.");
+        else if (item == kItDeathLoot) snprintf(footer, nf, "On: the boss drops its own loot and Amrita (also one-finisher kill). Story/first-clear rewards are never granted. Applies now, saved.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
         else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];

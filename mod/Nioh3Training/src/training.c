@@ -1624,6 +1624,22 @@ N3T_API void Nioh3Training_PreloadCancel(void) { XwCancel("menu closed"); }
 N3T_API void Nioh3Training_PreloadFor(uint32_t mission) { XwPrewarm(mission, "PreloadFor"); }
 N3T_API void Nioh3Training_Preload(void) { XwPrewarm(0, "menu opened"); if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
 N3T_API int Nioh3Training_Version(void) { return 4942; }
+// user #6618: Boss Rematch menu toggles = the 'deathcfg <loot> <blow> <cut>' command as an in-process API (no command file round trip).
+// Get fills any non-null pointer with the live value. Set: -1 keeps a value; persist 1 also writes [Summon] BossLoot/DeathBlowRequired/CutsceneOnKill
+// to Nioh3Training.ini on a short worker thread (the caller is the Rematch UI worker; no file I/O on its thread).
+static DWORD WINAPI DeathCfgSaveThread(LPVOID p) {
+    (void)p; char ini[MAX_PATH], v[8]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    snprintf(v, sizeof v, "%d", g_cfg_loot); WritePrivateProfileStringA("Summon", "BossLoot", v, ini);
+    snprintf(v, sizeof v, "%d", g_cfg_deathblow); WritePrivateProfileStringA("Summon", "DeathBlowRequired", v, ini);
+    snprintf(v, sizeof v, "%d", g_cfg_cutscene); WritePrivateProfileStringA("Summon", "CutsceneOnKill", v, ini);
+    WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+N3T_API void Nioh3Training_GetDeathCfg(int* loot, int* blow, int* cut) { if (loot) *loot = g_cfg_loot; if (blow) *blow = g_cfg_deathblow; if (cut) *cut = g_cfg_cutscene; }
+N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist) {
+    if (loot >= 0) g_cfg_loot = loot != 0; if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
+    Log("API deathcfg (Boss Rematch menu, #6618): BossLoot %d DeathBlowRequired %d CutsceneOnKill %d%s", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+}
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
 static struct { DWORD t0, last, lastTick, lastBeat, window; LONG ticks0, lastTicks; int hadPlayer, active; uint32_t id, lastReg; float lastPos[4]; } g_ms;
