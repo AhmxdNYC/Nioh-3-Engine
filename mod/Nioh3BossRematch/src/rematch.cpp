@@ -1987,7 +1987,19 @@ int Items(int* out, int cap) {
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
     if (g_uiPages.page == uRoot) {
         if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
-        if (g_live.load()) add(kItBrowse);
+        // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
+        if (g_live.load())
+            for (int pass = 0; pass < 3; ++pass)
+                for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+                    const Row& r = g_rows[i];
+                    const uint8_t st = g_status[i].load();
+                    const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
+                    if (grp != pass) continue;
+                    if (grp == 1 && !g_cfg.showAll) continue;
+                    if (grp == 2 && !g_cfg.showAll) continue;
+                    if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
+                    add((int)i);
+                }
         if (g_live.load()) add(kItPractice);
         add(kItSettings);
         if (g_raOk) add(kItOpen);
@@ -2289,7 +2301,7 @@ bool UiAct() {
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
         return false;
     }
-    if (item == kItBrowse || (g_uiPages.page == uBosses && item >= 0)) {
+    if (item == kItBrowse || ((g_uiPages.page == uBosses || g_uiPages.page == uRoot) && item >= 0)) {
         if (item >= 0) g_uiBoss = item;
         g_uiPages.Enter(item == kItBrowse ? uBosses : uActions, g_sel);
         g_sel = 0;
@@ -2527,7 +2539,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                           r.mission[0] ? r.mission : r.name, r.fightStart, r.arena[0], r.arena[1], r.arena[2], r.arenaSrc);
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
-            if (g_uiPages.page == uBosses) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
+            if (g_uiPages.page == uBosses || g_uiPages.page == uRoot) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
             else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
                           r.placement ? "" : "");
