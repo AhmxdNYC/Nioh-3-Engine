@@ -323,12 +323,15 @@ typedef uint8_t (*CondFn)(uint64_t, uint32_t);
 static CondFn o_cond;
 static volatile uint64_t g_db_act, g_kill_act;  // boss-mode boss actor (BossTick), actor being force-killed by ForceKillActor
 static volatile LONG g_db_logs;
+static volatile uint64_t g_killHideAct;  // #6711: actor killed inside the damage function (h_cond skip); GaugeTick hides its bar on the next pump tick
+static void GaugeHideOnKill(uint64_t a, const char* why);
 static uint8_t h_cond(uint64_t comp, uint32_t cond) {
     uint8_t r = o_cond(comp, cond);
     if (!r || cond != 0x27) return r;
     uint64_t a = 0; if (!Rd64(comp, &a) || !a) return r;
     int forcing = a == g_kill_act;
     if (!forcing && (g_cfg_deathblow || (a != g_db_act && !InSp(a)))) return r;
+    g_killHideAct = a;  // #6711: not from inside the damage function, the HUD is touched on the pump tick
     if (InterlockedIncrement(&g_db_logs) <= 20) Log("DEATHBLOW skip: actor %p lethal hit, death-blow revive (cond 0x27) skipped -> native death (%s, drop %s)", (void*)a, forcing ? "force kill" : "DeathBlowRequired=0", forcing ? "per kill call" : g_cfg_loot ? "game" : "off");
     return (forcing || g_cfg_loot) ? 0 : 2;
 }
@@ -365,6 +368,7 @@ static int ForceKillActor(uint64_t live, int drop, const char* why) {
     __except (EXCEPTION_EXECUTE_HANDLER) { g_kill_act = 0; Log("KILL %s: exception %08lX", why, GetExceptionCode()); return 0; }
     g_kill_act = 0;
     Log("KILL %s %p: native EnemyForceKill%s 786C84 called", why, (void*)live, drop ? "WithItemDrop" : "");
+    GaugeHideOnKill(live, why);  // #6711: bar off the moment the kill is applied (pump thread, after 786C84 returned)
     return 1;
 }
 
@@ -494,7 +498,19 @@ static void FakeGaugeRequest(uint32_t handle, uint32_t owner) {  // the actor en
     if (!o_fw) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(handle, 0, 0); Log("GAUGE FindWrapper hook missing: legacy ShowBossGauge(0x%X)", handle); return; }
     FakeGaugeHide("new request"); FakeGaugeDrop(); g_gg.pending = 1; g_gg.handle = handle; g_gg.owner = owner; g_gg.t0 = GetTickCount();
 }
+// #6711: hide the boss bar the instant its boss is killed (h_cond skip or ForceKillActor), not at boss-mode end (4.5 s later). Only the actor the shown
+// bar points at (g_fwbuf[0]) and only if it is really dead (hp+0x48 == 1 or HP 0). FakeGaugeHide sets shown = 0, so the later "boss mode end" hide is a no-op;
+// the next FakeGaugeRequest shows the HUD again through the g_hudHidden path. No game-state change, only the HUD.
+static void GaugeHideOnKill(uint64_t a, const char* why) {
+    if (!a || !g_gg.shown || !g_fakew || g_fwbuf[0] != a) return;
+    uint64_t h = 0, cur = 1, mx = 0; int dead = 0;
+    __try { if (Rd64(a + 0x3A0, &h) && h) { dead = *(int*)(h + 0x48) == 1; Rd64(h + 0x58, &cur); Rd64(h + 0x50, &mx); } } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    if (!dead && !(mx && cur == 0)) { Log("GAUGE kill-hide (%s): actor %p not dead (hp+48 %d, HP %llu / %llu), bar kept", why, (void*)a, dead, cur, mx); return; }
+    Log("GAUGE kill-hide (%s): boss %p dead, hiding the bar now", why, (void*)a);
+    FakeGaugeHide("boss killed");
+}
 static void GaugeTick(void) {
+    { uint64_t ka = g_killHideAct; if (ka) { g_killHideAct = 0; GaugeHideOnKill(ka, "lethal hit, death-blow revive skipped"); } }
     if (g_forceHideAt && (int)(GetTickCount() - g_forceHideAt) >= 0) { g_forceHideAt = 0; GaugeForceHide("delayed"); }
     if (g_gg.tHide && GetTickCount() - g_gg.tHide > 3000) FakeGaugeDrop();
     if (!g_gg.pending) return;
