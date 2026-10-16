@@ -34,3 +34,9 @@ Click -> arena swap (command to visible), n=2 OFF / n=1 ON (the second ON run wa
 - ON  (CrossWorldOldAreaObjSkipMs 300): 18.2 s         (xworldprobe-20261016-080012)
 The trim works as designed: the new world starts at +2.9 s instead of +6.9 s (state-4 gate passed at +985 ms). But the new world's last cell then stalls from +9.4 s to +17.4 s (OFF: cells finish ~4.7 s after their start), because the ~870 old-world placeable loads (up to ~3100 after the swap) are still streaming on the same loader pool (3 threads). Total is conserved: the wait moved, it did not go away. Gain ~1.3-2.9 s, n=1 ON, not significant.
 Conclusion: the cold wait is bound by the placeable load queue throughput (loader pool), not by a gate. To literally skip it the placeable loads must be cancelled or never queued (hook the queue sites D97E8/D9EC7 in PlaceableCollisionUpdate D8E00 during a cross-world switch). Not built yet.
+
+## Answer to pc #8253 (user #8248): what blocks stage state 4->5
+From captures/rematch/xworldprobe-20261016-080012 (ON) and -201624 (cold) training.log, and training.c comments near line 1348 and 1280:
+- Sequencer state 4 (LoadIsLoadEnd gates 0x110/0x100): bit 16 = G8 StageAreasObjectsReady (every loaded cell's placeable loads must finish) and bit 256 = G9 (loader busy flags +0x248/+0x249 on resource loader [475A420] while placeable/area loads are queued). Not an unload and not a job queue in the normal sense.
+- Measured: state 4 holds ~6 s (old world 0xE0, ~870 loads queued) before the new world even starts. Then 3-4 new-world cells (3080 loads queued) hold state 4/5 until the loader drains, ~5 s.
+- Forcing the 3 cells earlier at click time: NOT TESTED. The two gate trims (CrossWorldAreaObjSkipMs for state 5, CrossWorldOldAreaObjSkipMs for state 4) only pass the gate; the loads keep streaming and the last cell still stalls, so forcing cells earlier should move the wait again unless the loader queue shrinks.
