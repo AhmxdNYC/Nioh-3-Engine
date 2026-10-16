@@ -16,3 +16,8 @@ Caveats:
 - n=1. Repeat at least 3 times, both arms, on the current build.
 - Not verified: memory use, mission script/doors of the arena (placement filter, see arena-swap-static-pc2-4947.md), leaving the arena back to the old world.
 - Game currently busy with another slot's test (pid 23608), so no repeat yet.
+
+## Direction from user (#8233, 2026-10-16 ~07:35 PDT)
+"We should not need to pre warm on boss menu, not fun." So the default must NOT prewarm when the Boss Rematch menu opens.
+Plan: arena-only load on demand (oworld keep 0 -> arena warp), with CrossWorldPrewarm=0. Prewarm stays opt-in.
+Next test (queued; game busy with another slot's test pid 23608 at 07:35 PDT): n=3 arena-only with prewarm OFF vs native cross-world with prewarm OFF, same build, same menu dwell. Report both arms.
