@@ -312,7 +312,7 @@ static int FadeOutActor(int idx, float frames) {
 static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_timeout = 6000;
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 2000;
-static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void);
+static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static volatile int g_nf_gold;  // GoldWalk: a watched boss is Ki-broken or in its HP-0 window right now -> paint the Ki fill quad gold
 // #6643 death-blow revive. Logs 18:57 / 19:02: the native kill set the dead flag, then the boss came back at HP 1 (sensor 0->1->0), and a raw HP 0
 // write was also undone. Cause (static RE, 786C84 after the damage apply 787268): once hp+0x48 == 1 (dead), unless actor+0x894 != 0,
@@ -2007,20 +2007,23 @@ static void GoldPaint(uint8_t* q) {
 // screenshot captures/goldki/k5_crop.png: only the Ki bar gold, HP bar untouched). Boss-bar quads are local-space x -440.5..440.5, y -6..6 (881 x 12);
 // the bar width does not follow Ki (the fill is shader/UV driven, why the width learner never matched). Ki fill = atlas v 0.688..0.746 (u 0..0.645);
 // HP / frame / back quads use v 0.000, 0.062, 0.188, 0.500, 0.625 strips. Vertex = 11 floats: x y z u v ..., RGBA at +0x24.
+// Live 01:49 (Yamagata, native Ki break): while Ki-broken the Ki fill is NOT the 0.688 strip: the broken (pink) fill and the in-break regen fill use other strips
+// (dump: 0.375 and 0.438 appear only while broken). The Ki-fill strips are a list (strip start v, height ~0.058), run-time 'nofinstrips <v*1000> ...'.
+static float g_nf_strip[8] = {0.688f, 0.375f, 0.438f}; static int g_nf_nstrip = 3; static volatile LONG g_nf_dumpN;
 static int NfIsKiFill(const uint8_t* q) {
-    const float* f = (const float*)q; float y0 = f[1], y1 = f[22 + 1], v0 = f[4], v2 = f[22 + 4], x0 = f[0];
-    float h = y0 > y1 ? y0 - y1 : y1 - y0;
-    (void)x0; return h > 10.0f && h < 14.0f && v0 > 0.675f && v0 < 0.700f && v2 > 0.735f && v2 < 0.760f;
+    const float* f = (const float*)q; float y0 = f[1], y1 = f[22 + 1], v0 = f[4], v2 = f[22 + 4];
+    float h = y0 > y1 ? y0 - y1 : y1 - y0, dv = v2 - v0;
+    if (!(h > 10.0f && h < 14.0f && dv > 0.045f && dv < 0.070f)) return 0;
+    for (int i = 0; i < g_nf_nstrip; ++i) if (v0 > g_nf_strip[i] - 0.010f && v0 < g_nf_strip[i] + 0.010f) return 1;
+    return 0;
 }
 static void GoldQuad(uint8_t* q, uint64_t el) {
-    if (g_nf_gold) {
-        if (NfIsKiFill(q)) { GoldPaint(q); return; }
-        {   // test aid: log the boss-bar-sized quads (geometry + uv) a few times while the gold is wanted, to check the Ki-broken bar keeps the same strip
-            static int nd; static DWORD tD; DWORD now = GetTickCount(); const float* f = (const float*)q; float w = f[11] - f[0];
-            if (nd < 40 && (w > 800.0f || w < -800.0f) && (now - tD > 3000 || nd % 8)) { if (!(nd % 8)) tD = now; nd++;
-                Log("NOFIN goldquad: x %.1f..%.1f y %.1f..%.1f uv0 %.3f,%.3f uv2 %.3f,%.3f rgba %08X kifill %d", f[0], f[11], f[1], f[23], f[3], f[4], f[25], f[26], *(uint32_t*)(q + 0x24), NfIsKiFill(q)); }
-        }
+    {   // test aid 'nofindump [n]': log the next n boss-bar-sized quads (geometry, u range of the top edge, v strip, colour, matcher verdict)
+        const float* f = (const float*)q; float w = f[11] - f[0];
+        if (g_nf_dumpN > 0 && (w > 800.0f || w < -800.0f) && InterlockedDecrement(&g_nf_dumpN) >= 0)
+            Log("NOFIN goldquad: x %.1f..%.1f y %.1f..%.1f u %.3f..%.3f v %.3f..%.3f rgba %08X kifill %d gold %d", f[0], f[11], f[1], f[23], f[3], f[14], f[4], f[26], *(uint32_t*)(q + 0x24), NfIsKiFill(q), g_nf_gold);
     }
+    if (g_nf_gold && NfIsKiFill(q)) { GoldPaint(q); return; }
     if (!g_cfg_goldki) return;
     for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) { GoldPaint(q); return; }
     uint32_t rgba = *(uint32_t*)(q + 0x24);
@@ -2054,8 +2057,8 @@ static void GoldQuad(uint8_t* q, uint64_t el) {
     } else if (g_gk[k].score > 0) g_gk[k].score--;
 }
 static void __cdecl GoldWalk(uint8_t* obj, uint8_t* base) {
-    if ((!g_cfg_goldki && !g_nf_gold) || GetTickCount() - g_ki_seen > 250) return;
-    if (!g_nf_gold && !g_ngold && !g_goldki_ncols && !(g_cfg_goldki_learn && g_ki_ratio >= 0) && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
+    if ((!g_cfg_goldki && !g_nf_gold && g_nf_dumpN <= 0) || GetTickCount() - g_ki_seen > 250) return;
+    if (!g_nf_gold && g_nf_dumpN <= 0 && !g_ngold && !g_goldki_ncols && !(g_cfg_goldki_learn && g_ki_ratio >= 0) && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
     __try {
         // pc/jumpfix2 d86350e: walk from the alpha pass's real vertex base (rbp at 1CD7CD; obj+358h is only the map out-param = misaligned walk) and skip
         // non-quad nodes only at the START of a group, then cnt consecutive quads, as the native alpha pass does.
@@ -2241,7 +2244,16 @@ static void Exec(char* line) {
             if (g_cfg_nofin && !g_gold_hooked) { HookGoldKi(); HookGoldQuad(); g_gold_hooked = 1; } if (g_cfg_nofin) NfInstallHooks();
             Log("CMD nofin: KiBreakNoFinisher %d window %d ms", g_cfg_nofin, g_cfg_nofin_ms);
         } else if (!strcmp(op, "kibreaknow")) {  // test aid: Ki break the watched boss now (KiSetCur to the floor), as a natural Ki break
-            uint64_t a0 = NfFirstBoss(), st = 0; if (a0 && Rd64(a0 + 0x3A0, &st) && st) NfBreakNow(st, "command", a0); else Log("CMD kibreaknow: no boss");
+            // the Ki regenerates within frames, so the prime is HELD (NfTick, up to 10 s or until the break) until a hit's Ki damage crosses 0 (live 01:42: a single prime was gone before the hit)
+            uint64_t a0 = NfFirstBoss(), st = 0;
+            if (a0 && Rd64(a0 + 0x3A0, &st) && st && NfPrimeHold(a0, 10000)) NfBreakNow(st, "command, held 10 s", a0); else Log("CMD kibreaknow: no boss");
+        } else if (!strcmp(op, "nofinstrips")) {  // test aid: nofinstrips <v*1000> ...: Ki-fill atlas strips painted gold (default 688 375 438)
+            if (n >= 2) { g_nf_nstrip = 0; for (int i = 0; i < n - 1 && i < 6; ++i) g_nf_strip[g_nf_nstrip++] = (float)a[i] / 1000.0f; }
+            Log("CMD nofinstrips: %d strips %.3f %.3f %.3f %.3f", g_nf_nstrip, g_nf_strip[0], g_nf_strip[1], g_nf_strip[2], g_nf_strip[3]);
+        } else if (!strcmp(op, "nofindump")) { g_nf_dumpN = n >= 2 ? (LONG)a[0] : 24; Log("CMD nofindump %ld", g_nf_dumpN);
+        } else if (!strcmp(op, "bossai")) {  // test aid: bossai <0|1>: watched boss AI off (668D74, AlgoActiveFlag false) / on (66982C) so a scripted pad can land hits
+            uint64_t a0 = NfFirstBoss(); if (!a0) Log("CMD bossai: no boss");
+            else { if (a[0]) ((void (*)(uint64_t))(B + 0x66982C))(a0); else ((void (*)(uint64_t))(B + 0x668D74))(a0); Log("CMD bossai %p -> %lld", (void*)a0, a[0]); }
         } else if (!strcmp(op, "nearboss")) {  // test aid: nearboss [cm]: warp the player cm (default 150) from the watched boss on the player's side, facing it
             uint64_t a0 = NfFirstBoss(); float bp[4] = {0}, pp[4] = {0}; float dcm = n >= 2 && a[0] ? (float)a[0] : 150.0f;
             if (a0 && PlayerPos(pp)) { __try { memcpy(bp, (void*)(a0 + 0x110), 16); } __except (EXCEPTION_EXECUTE_HANDLER) { a0 = 0; } }
@@ -2585,7 +2597,18 @@ static void NfBreakNow(uint64_t st, const char* why, uint64_t a) {
     float kc = 0; __try { kc = *(float*)(st + 0xAC); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     NfLog("NOFIN Ki primed boss %p (%s): Ki -> %.1f (next hit breaks it)", (void*)a, why, kc);
 }
+// test aid prime hold (kibreaknow), independent of the toggle so the toggle-off baseline gets the same native break
+static uint64_t g_kbt_a; static DWORD g_kbt_until;
+static int NfPrimeHold(uint64_t a, DWORD ms) { if (!a) return 0; g_kbt_a = a; g_kbt_until = GetTickCount() + ms; return 1; }
+static void NfTestPrime(void) {
+    if (!g_kbt_a) return;
+    uint64_t a = g_kbt_a, st = 0, ai = 0; float kc = 0; int brk = 0;
+    if ((int)(g_kbt_until - GetTickCount()) <= 0 || !Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai) { g_kbt_a = 0; return; }
+    __try { kc = *(float*)(st + 0xAC); brk = KbState(ai, 0x23) || *(float*)(st + 0x98 + 0x5C) > 0 || *(float*)(st + 0x98 + 0x74) > 0 || *(float*)(st + 0x98 + 0x7C) > 0 || *(uint8_t*)(st + 0x98 + 0x83);
+            if (brk) { g_kbt_a = 0; return; } if (kc > 0.5f) ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { g_kbt_a = 0; }
+}
 static void NfTick(void) {
+    NfTestPrime();
     if (!g_cfg_nofin) { if (g_nf_gold || g_nf_act[0] || g_nf_act[1] || g_nf_act[2] || g_nf_act[3]) { for (int s = 0; s < NF_N; ++s) NfClear(s); g_nf_gold = 0; } return; }
     if (!g_nf_hooked) NfInstallHooks();
     DWORD now = GetTickCount();
@@ -2615,7 +2638,9 @@ static void NfTick(void) {
         int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, broken = s23 || exh;
         if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf[s].win = 3; continue; }
         g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl;
-        if (broken != g_nf[s].broken) { g_nf[s].broken = broken;
+        // prime hold: the whole HP-0 window keeps the Ki at 0.5 while the boss is not broken, so the next hit's Ki damage breaks it natively
+        if (!broken && kc > 0.5f && g_nf[s].win == 1) { __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+        if (broken != g_nf[s].broken) { g_nf[s].broken = broken; if (!broken && g_nf[s].win == 1) g_nf[s].nRebreak++;
             NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d, Ki %.1f, HP %llu/%llu); blocked so far: grapple selection %ld, grab box %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, kc, hc, hm,
                   g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28); }
         if (hc <= 1 && g_nf[s].win == 0) {
@@ -2629,13 +2654,12 @@ static void NfTick(void) {
             if (hc > 1) { g_nf[s].win = 0; NfLog("NOFIN boss %p HP back to %llu: window off", (void*)a, hc); }
             else if (now - g_nf[s].tLast >= (DWORD)g_cfg_nofin_ms) {
                 g_nf[s].win = 2; g_nf[s].tKill = now; g_nf[s].tries = 0;
-                NfLog("NOFIN boss %p: no hit for %d ms at HP 0 (window %lu ms, %d hits, re-breaks %d) -> native kill (BossLoot %d)", (void*)a, g_cfg_nofin_ms, now - g_nf[s].tWin, g_nf[s].nHits, g_nf[s].nRebreak, g_cfg_loot);
+                NfLog("NOFIN boss %p: no hit for %d ms at HP 0 (window %lu ms, %d hits, break ends %d) -> native kill (BossLoot %d)", (void*)a, g_cfg_nofin_ms, now - g_nf[s].tWin, g_nf[s].nHits, g_nf[s].nRebreak, g_cfg_loot);
                 g_nf_drain[s].on = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;  // the kill hit must not be revived / filtered
                 if (a == g_db_act) g_db_done = 1;
                 ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher HP-0 window", 1);
                 continue;
             }
-            else if (!exh && now - g_nf[s].tRebreak > 500) { g_nf[s].tRebreak = now; g_nf[s].nRebreak++; NfBreakNow(st, "HP-0 window, break ended", a); }
         }
         if (g_nf[s].win == 2) {  // kill issued, boss still alive: retry (the death-blow gates are cleared from the 1st retry)
             g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;
