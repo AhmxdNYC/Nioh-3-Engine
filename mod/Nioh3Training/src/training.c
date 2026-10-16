@@ -945,7 +945,7 @@ static struct { int active, spawned, released, cross, xHeld; uint32_t chr; float
 // player at the arena and the boss unspawned until no cell is blocking and GAMESTATE[2] is 0, at most this long after 'ready'; the fade-in then waits for the
 // same condition within the same window. Same-world swaps are unchanged ([Fade] AreaWaitMs).
 static int g_cfg_fade_areawait_x = 15000, g_xw_busy;
-static int AreaObjPending(int* blocking, int* pending); static const uint8_t* GameState(void);
+static int AreaObjPending(int* blocking, int* pending); static const uint8_t* GameState(void); static void AreaObjDetail(const char* why);
 // pc 2026-10-16 (fnowvis3): on pc the arena 'ready' waited 9.3 s for sequencer state 5 (1912 open-world placeable loads); with
 // CrossWorldAreaObjSkipMs > 0 the game lifts its load cover while placeables still stream, so the hold/fade only wait for GAMESTATE[2] = 0.
 static int g_cfg_xaoskip;
@@ -983,6 +983,7 @@ static void ArenaTick(void) {
             if (!g_ar.spawned && g_ar.cross && g_cfg_fade_areawait_x > 0) {  // cross-world: boss + control wait for the arena cells and the game's load cover
                 int cb, cp; const uint8_t* gs = GameState(); int clear = XArenaClear(&cb, &cp);
                 if (!clear && now - g_ar.tReady < (DWORD)g_cfg_fade_areawait_x) {
+                    { static DWORD tDet; if (!g_ar.xHeld || now - tDet >= 1000) { tDet = now; AreaObjDetail("ARENA hold"); } }
                     if (!g_ar.xHeld) { g_ar.xHeld = 1; Log("ARENA +%lu ms cross-world: holding boss spawn + control until the arena cells are in (%d cells blocking, %d placeable loads, GAMESTATE[2] %u; AreaWaitCrossMs %d)", dt, cb, cp, gs ? gs[2] : 0xFF, g_cfg_fade_areawait_x); }
                     goto owner_wait;
                 }
@@ -1464,9 +1465,48 @@ static int LoaderGatePatch(int on) {
 // or CrossWorldPlaceableSkipMaxMs (default 20000). Loads queued BEFORE the window are not cancelled.
 static const uint32_t kCellsB1[] = {67253, 221265, 285287, 301780, 320919, 329181, 364049, 500328, 525291, 584691, 625536, 780040, 820705, 833442, 889691, 974198, 983784};  // 0xB1 Yoritomo (pc2 5116, all runs)
 static int g_cfg_pskip = 0, g_cfg_pskip_max = 20000;
+// pc #8552 (user: "skip them all except what the arena needs"; branch pc/near-arena-only): [ArenaSwap] NearArenaOnly = 1 uses the same D90C0 hook as
+// CrossWorldPlaceableSkip, but decides by DISTANCE instead of by cell: during a cross-world Fight now a NEW-world placeable (inside the arena cells too) is
+// queued only if it lies within NearArenaRadius (game units = cm; default 15000 = 150 m) of the row's player spawn OR boss spawn point (distance from the
+// placeable centre +0x80 minus half its scaled extent |+0x90 * +0x70| / 2, so big terrain pieces that reach the arena still count as near); old-world
+// placeables are not queued at all. Why: StageAreasObjectsReady (G8 3B3A28, also the hold's XArenaClear) calls a cell blocking while its area object o has
+// o+0x1EC != 0 (placeable loads in flight, ++ at D97E8/D9EC7 when queued, -- in 2007E4), o+0x1F0 == 0 or entry+0x1C0 != 0; on Shingen 3 arena cells carry
+// ~3100 queued placeables (pc2 #8542) draining through manager A at 10 in flight. Far placeables held in state 0 are never counted in o+0x1EC, so the cells
+// stop blocking as soon as the NEAR set is in and the cross-world hold (AreaWaitCrossMs) ends there instead of at the cap. The window stays open until the
+// player has control and the fade-in is done, then the far ones stream normally; NearArenaMaxMs (default 40000) caps it. 0 (default) = off, nothing patched.
+static int g_cfg_far = 0, g_cfg_far_radius = 15000, g_cfg_far_max = 40000;
+static float g_ps_c[3], g_ps_c2[3]; static int g_ps_far;  // g_ps_far: this window uses the radius rule (player spawn g_ps_c, boss spawn g_ps_c2)
+static volatile LONG g_ps_near, g_ps_farn, g_ps_nlog, g_ps_flog;
 static const ArenaRow* g_ps_row;  // set by XwStart right before XsStart (whitelist source); NULL for the oworld command = old world only
 static struct { volatile LONG on; uint8_t w0, target; int nwl; uint32_t wl[32]; DWORD t0; char tag[24]; } g_ps;
 static volatile LONG g_ps_old, g_ps_new, g_ps_allow, g_ps_logged, g_ps_hooked;
+// pc #8552 diagnostics: what each blocking cell waits on (G8 flags): area object o = [entry+0x30]: o+0x1F0 (setup done), o+0x1EC (placeable loads in flight),
+// entry+0x1C0 (pending count on the entry); cell id = [[o]] >> 4.
+static void AreaObjDetail(const char* why) {
+    uint64_t s = StageMgr(), n = 0; if (!s || !Rd64(s + 0x560, &n)) return;
+    char buf[640]; int k = 0, nb = 0;
+    __try {
+        for (uint64_t i = 0; i < n && i < 256; ++i) {
+            uint64_t a = ((uint64_t (*)(uint64_t, uint64_t))(B + 0xD3B9C))(s + 0x540, i), o, e = 0; if (!a) continue;
+            o = *(uint64_t*)(a + 0x30); if (!o) continue;
+            uint8_t f = *(uint8_t*)(o + 0x1F0); int32_t c = *(int32_t*)(o + 0x1EC), x = *(int32_t*)(a + 0x1C0);
+            if (f && !c && !x) continue;
+            ++nb; Rd64(o, &e); uint32_t id = 0; if (e) id = *(uint32_t*)e >> 4;
+            if (k < (int)sizeof buf - 64) k += snprintf(buf + k, sizeof buf - k, " [%u 1F0=%u 1EC=%d 1C0=%d]", id, f, c, x);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    buf[k] = 0; const uint8_t* gs = GameState();
+    Log("AREAOBJ %s: %d of %llu cells blocking%s; GAMESTATE[2] %u, seq state %u%s", why, nb, (unsigned long long)n, k ? buf : "", gs ? gs[2] : 0xFF, *(volatile uint32_t*)(B + 0x45BA21C),
+        g_ps.on && g_ps_far ? "; NearArenaOnly window open" : "");
+}
+static float PsDist(uint64_t pl) {  // placeable -> nearer of the player / boss spawn point, minus half the scaled extent, >= 0
+    const float* p = (const float*)(pl + 0x80); const float* sc = (const float*)(pl + 0x70); const float* ex = (const float*)(pl + 0x90);
+    float dx = p[0] - g_ps_c[0], dy = p[1] - g_ps_c[1], dz = p[2] - g_ps_c[2], d1 = dx * dx + dy * dy + dz * dz;
+    dx = p[0] - g_ps_c2[0]; dy = p[1] - g_ps_c2[1]; dz = p[2] - g_ps_c2[2]; float d2 = dx * dx + dy * dy + dz * dz;
+    float ex0 = ex[0] * sc[0], ex1 = ex[1] * sc[1], ex2 = ex[2] * sc[2];
+    float d = __builtin_sqrtf(d1 < d2 ? d1 : d2) - 0.5f * __builtin_sqrtf(ex0 * ex0 + ex1 * ex1 + ex2 * ex2);
+    return d != d ? 0.0f : d < 0.0f ? 0.0f : d;  // NaN -> 0 (= keep: load it)
+}
 static uint8_t PsFilter(uint64_t o, uint64_t pl) {  // called from the stub on the KIDSTS stage-update thread(s): 1 = do not queue this placeable now
     if (!g_ps.on) return 0;
     __try {
@@ -1475,6 +1515,14 @@ static uint8_t PsFilter(uint64_t o, uint64_t pl) {  // called from the stub on t
         uint64_t e = *(volatile uint64_t*)o; if (!e) return 0;
         uint32_t id = *(volatile uint32_t*)e >> 4;
         int old = w == g_ps.w0, skip = old;
+        if (!old && w == g_ps.target && g_ps_far) {
+            float d = PsDist(pl); skip = d > (float)g_cfg_far_radius;
+            InterlockedIncrement(skip ? &g_ps_farn : &g_ps_near);
+            if (InterlockedIncrement(skip ? &g_ps_flog : &g_ps_nlog) <= 6) { const float* p = (const float*)(pl + 0x80);
+                Log("PSKIP %s +%lu ms: FAR %s cell %u placeable %llX at %.0f %.0f %.0f, %.0f from the player/boss spawn (radius %d)", g_ps.tag, GetTickCount() - g_ps.t0, skip ? "held" : "kept (near)", id, (unsigned long long)pl, p[0], p[1], p[2], d, g_cfg_far_radius); }
+            if (!skip) return 0;
+            InterlockedIncrement(&g_ps_new); return 1;
+        }
         if (!old && w == g_ps.target && g_ps.nwl) { skip = 1; for (int i = 0; i < g_ps.nwl; ++i) if (g_ps.wl[i] == id) { skip = 0; break; } }
         if (!skip) { InterlockedIncrement(&g_ps_allow); return 0; }
         InterlockedIncrement(old ? &g_ps_old : &g_ps_new);
@@ -1526,14 +1574,17 @@ static int PsHook(void) {  // installs the D90C0 retarget once (only when CrossW
 }
 static void PsClose(const char* why) {
     if (!InterlockedExchange(&g_ps.on, 0)) return;
-    Log("PSKIP %s: window closed (%s) +%lu ms; skip decisions (per frame, a placeable counts again every frame it waits): old world %ld, new world %ld; allowed %ld",
-        g_ps.tag, why, GetTickCount() - g_ps.t0, g_ps_old, g_ps_new, g_ps_allow);
+    Log("PSKIP %s: window closed (%s) +%lu ms; skip decisions (per frame, a placeable counts again every frame it waits): old world %ld, new world %ld; allowed %ld%s",
+        g_ps.tag, why, GetTickCount() - g_ps.t0, g_ps_old, g_ps_new, g_ps_allow, g_ps_far ? " (NearArenaOnly radius rule)" : "");
+    if (g_ps_far) Log("PSKIP %s: NearArenaOnly new-world decisions: kept (near) %ld, held (far) %ld (per frame)", g_ps.tag, g_ps_near, g_ps_farn);
 }
 static void PsOpen(const char* tag, int target, uint8_t w0) {
-    if (!g_cfg_pskip || !g_ps_hooked) return;
+    if ((!g_cfg_pskip && !g_cfg_far) || !g_ps_hooked) return;
     PsClose("reopened");
-    const ArenaRow* r = g_ps_row; g_ps.nwl = 0;
-    if (r && r->world == (uint8_t)target) {
+    const ArenaRow* r = g_ps_row; g_ps.nwl = 0; g_ps_far = 0;
+    if (g_cfg_far && r && r->world == (uint8_t)target) { g_ps_c[0] = r->p[0]; g_ps_c[1] = r->p[1]; g_ps_c[2] = r->p[2]; memcpy(g_ps_c2, r->b, sizeof g_ps_c2); if (!g_ps_c2[0] && !g_ps_c2[1] && !g_ps_c2[2]) memcpy(g_ps_c2, g_ps_c, sizeof g_ps_c2); g_ps_far = 1; }
+    g_ps_near = g_ps_farn = g_ps_nlog = g_ps_flog = 0;
+    if (r && r->world == (uint8_t)target && !g_ps_far) {
         for (int i = 0; i < r->ncells && g_ps.nwl < 32; ++i) g_ps.wl[g_ps.nwl++] = r->cells[i];
         if (!g_ps.nwl && r->world == 0xB1) for (unsigned i = 0; i < sizeof kCellsB1 / sizeof *kCellsB1 && g_ps.nwl < 32; ++i) g_ps.wl[g_ps.nwl++] = kCellsB1[i];
     }
@@ -1541,11 +1592,13 @@ static void PsOpen(const char* tag, int target, uint8_t w0) {
     g_ps.w0 = w0; g_ps.target = (uint8_t)target; g_ps.t0 = GetTickCount(); snprintf(g_ps.tag, sizeof g_ps.tag, "%s", tag);
     g_ps_old = g_ps_new = g_ps_allow = g_ps_logged = 0;
     InterlockedExchange(&g_ps.on, 1);
-    Log("PSKIP %s: window open, world 0x%02X -> 0x%02X, new-world whitelist %d cells%s", tag, w0, (uint8_t)target, g_ps.nwl, g_ps.nwl ? "" : " (none: only old-world placeables are held back)");
+    if (g_ps_far) Log("PSKIP %s: window open, world 0x%02X -> 0x%02X, NearArenaOnly: new-world placeables farther than %d from the player spawn %.0f %.0f %.0f and the boss spawn %.0f %.0f %.0f held until control + fade-in (max %d ms)", tag, w0, (uint8_t)target, g_cfg_far_radius, g_ps_c[0], g_ps_c[1], g_ps_c[2], g_ps_c2[0], g_ps_c2[1], g_ps_c2[2], g_cfg_far_max);
+    else Log("PSKIP %s: window open, world 0x%02X -> 0x%02X, new-world whitelist %d cells%s", tag, w0, (uint8_t)target, g_ps.nwl, g_ps.nwl ? "" : " (none: only old-world placeables are held back)");
 }
 static void PsTick(void) {
     if (!g_ps.on) return;
     DWORD now = GetTickCount();
+    if (g_ps_far) { if (now - g_ps.t0 > (DWORD)g_cfg_far_max) PsClose("NearArenaMaxMs"); return; }  // closed by PsFarTick (control + fade-in)
     if (now - g_ps.t0 > (DWORD)g_cfg_pskip_max) { PsClose("CrossWorldPlaceableSkipMaxMs"); return; }
     uint64_t s = StageMgr(); const uint8_t* gs = GameState(); uint32_t q = SeqState(); if (!s || !gs) return;
     if (*(volatile uint8_t*)(s + 0x500) == g_ps.target && StageState() == 5 && !gs[2] && q != 4 && q != 5 && q != 8) PsClose("new world landed, load flag clear");
@@ -1920,6 +1973,14 @@ static int FadeInPlaceOk(uint32_t mission, ArenaRow* r) {  // same logic as Figh
     if (!r) return 0;
     if (g_cfg_fn_summon) return 1;
     return !(g_cfg_native && NativeListed(mission)) && !SwapGate(r);
+}
+// NearArenaOnly window end: the swap has fired, the player is released and the fade-in is not pending any more (then the held placeables stream normally)
+static void PsFarTick(void) {
+    static DWORD tOk;
+    if (!g_ps.on || !g_ps_far) { tOk = 0; return; }
+    if (g_xw.active || (g_ar.active && !g_ar.released) || g_fd.phase == 2 || g_fd.pend) { tOk = 0; return; }
+    DWORD now = GetTickCount(); if (!tOk) tOk = now;
+    if (now - tOk >= 250) { tOk = 0; PsClose("player has control and the fade-in is done"); }
 }
 static void FadeTick(void) {
     if (!g_cfg_fade || !g_fd_ok) return;
@@ -3064,6 +3125,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { GoldKiRatios(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { GateTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE tick exception %08lX", GetExceptionCode()); g_gate.tried = 3; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
+    __try { PsFarTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PSKIP far tick exception %08lX", GetExceptionCode()); PsClose("exception"); }
     __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
@@ -3132,7 +3194,10 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); g_cfg_xblock = GetPrivateProfileIntA("ArenaSwap", "CrossWorldBlockCells", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
         g_cfg_cellskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellSkip", 0, ini); g_cfg_xlgs = GetPrivateProfileIntA("ArenaSwap", "CrossWorldLoaderGateSkip", 0, ini); Log("cross-world (pc2 #6801): CrossWorldLoaderGateSkip %d", g_cfg_xlgs);
         g_cfg_pskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPlaceableSkip", 0, ini); g_cfg_pskip_max = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPlaceableSkipMaxMs", 20000, ini); Log("cross-world (pc2 placeable-skip): CrossWorldPlaceableSkip %d, MaxMs %d", g_cfg_pskip, g_cfg_pskip_max);
-        if (g_cfg_pskip) PsHook();
+        g_cfg_far = GetPrivateProfileIntA("ArenaSwap", "NearArenaOnly", 0, ini); g_cfg_far_radius = GetPrivateProfileIntA("ArenaSwap", "NearArenaRadius", 15000, ini); g_cfg_far_max = GetPrivateProfileIntA("ArenaSwap", "NearArenaMaxMs", 40000, ini);
+        if (g_cfg_far_radius < 0) g_cfg_far_radius = 0;
+        Log("cross-world (pc #8552): NearArenaOnly %d, NearArenaRadius %d, NearArenaMaxMs %d", g_cfg_far, g_cfg_far_radius, g_cfg_far_max);
+        if (g_cfg_pskip || g_cfg_far) PsHook();
         if (g_cfg_cellskip) {  // 3A0534 prologue: mov [rsp+8],rbx; mov [rsp+10h],rsi; mov [rsp+18h],rdi (15 bytes, no rip-relative)
             static const uint8_t csp[15] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18};
             if (!memcmp((void*)(B + 0x3A0534), csp, 15)) { o_cellreq = (CellReqFn)Hook(0x3A0534, 15, h_cellreq); Log("hook stage cell request 3A0534 ok: CrossWorldCellSkip %d (%s)", g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip non-arena cells during cross-world Fight now" : "log only"); }
