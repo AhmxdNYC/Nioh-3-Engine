@@ -1,20 +1,4 @@
 
-## 2026-10-15 14:46:46 session e14e29ff-6344-44f9-8655-61801d2af346
-I told you the status through the bridge (#6246). The game is closed on this PC and nothing is running here.
-
-- **Load skip:** pc2 (arena-only cells) and Ally (block world streaming) are still working. Neither has reported a result yet.
-- **Boss kill:** the body fade build with its on/off toggle is installed and waiting for you to test. The loot drop and the death-blow and cutscene toggles are not done yet.
-- **FPS test:** the AABB fps test failed on this PC earlier: 0 of 4 runs, because the in-place Fight now didn't enter the fight in the test script. I'm fixing the script and will rerun it next.
-
-If you'd rather I put something else first, tell me.
-
-## 2026-10-15 15:10:45 session 3871558c-9a50-4469-aa3a-3ad3b93ef576
-I sent a GO to pc2 and ally to clear any hold, and told you on the phone. I haven't confirmed pc2 is no longer shown as held, because nothing has come back from it yet.
-
-I found no pause file on my side. The task board has no "held" entry for pc2. The only hold I know of is the earlier HOLD message sent to pc2 and ally, which the GO should now cancel.
-
-I asked you to tell me where you still see "held" if it persists, so I can chase it. I added your report (#6264) to the standing-orders file.
-
 ## 2026-10-15 15:33:43 session 3871558c-9a50-4469-aa3a-3ad3b93ef576
 The boss death toggles are built but not yet installed or tested in game. A load-skip timing test is still running on the main PC, so I'm holding off until it finishes. I've told you on the phone and noted it in `.handoff/next.md`.
 
@@ -280,4 +264,25 @@ Nothing needs me right now, so I'm ending this run without starting anything new
 - **Waiting on you:** the no-finisher toggle play test with boss AI on.
 
 I'll act when either result comes back.
-- 2026-10-16 03:05 pc2 (#7749): first-load Shingen cold, Prewarm2/Hold120000/Cell0, n=3 dwell13s: F->control 13.9/6.3/9.2 s, menu->control 27.0/19.5/22.2; no-dwell n=1 18.8 s (21.3 total). Gate HG_MIN_HEADROOM_GB=16. Next: report to user; files dl6160/s7749, captures/rematch/xworldprobe-20261016-0239..0258.
+
+## 2026-10-16 05:21:46 session 4ac5b1b7-5459-404d-8741-44fcd232e414
+pc2's report was a worker timeout, not a code problem, and I've handled it. I also resumed the builder agent that was cut off earlier.
+
+- **pc2:** its worker was killed before finishing the first-load timing job (#7749). I told it to re-run in smaller steps, starting with one run and a STATUS message with the numbers, so another cut costs little.
+- **Builder agent:** it was stopped when its session ended. I resumed it on the same two fixes: the Otoroshi Fight now fallback and the black-screen fade. I told it to check its partial work first, since `tools/rematch/fightnow_test.ps1` has uncommitted edits.
+- **Cleanup:** I removed the stale `test-active` marker. No game was running.
+
+The builder reports back on its own when done. You still need to play-test the no-finisher toggle with boss AI on.
+
+## 2026-10-16 05:53:57 session 4ac5b1b7-5459-404d-8741-44fcd232e414
+The black-screen fix works on this PC, and I've sent the build to Ally for a retest. The one remaining gap is on cross-world swaps.
+
+- **Otoroshi Fight now:** it is now offered, because rows missing from the Rematch arena table take their position from the Training table.
+- **Same-world swap (Yoritomo):** the first visible frame comes about 4.1 s after the click. The boss is live under black for 0.7 s, down from 2.4 s with the earlier 1.5 s fade wait. The fade no longer waits for the open world to finish loading.
+- **Cross-world swap (Otoroshi):** the first visible frame comes at 15.6 s, with the boss live under black for about 3 s. That 3 s comes from the game's own load cover, not our fade. A fix would be to hold the boss spawn until that cover drops. I haven't built it, and it's an open item.
+- **Ally's long black screens (26–44 s):** these should now be capped, but that is only confirmed on this PC. I sent Ally the build as bridge file #618 to retest Otoroshi and Shingen through the real Rematch menu.
+- **Installed on this PC:** Training `6d005617` (includes the no-finisher toggle work) and Rematch `dd271ec1`, with backups of the previous versions. The code is pushed on branches `pc/fightnow-swap-wire` and `pc/fnow-visible`.
+- **Test script:** the script marked Yoritomo as failed, but that is a timing problem in the script, not the mod. The boss moved and fought.
+
+The game is closed and the test marker is cleared. I added lines to `next.md` and the done log. Still waiting
+- 2026-10-16 03:20 pc2 (#8141): swap build 6d005617/dd271ec1 Shingen cold n=2 13s dwell: black 3.5/6.2 s, live-while-black 0.5 s. Files dl6160/b618, captures/rematch/sw618-*.
