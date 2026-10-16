@@ -314,6 +314,8 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 2000;
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
+static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
+static int g_nf_kirow_unbreak = 1;  // #8827 [Summon] KiBreakGoldUnbreak (run time 'nofinunbreak 0|1')
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
                             // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
@@ -586,8 +588,9 @@ static void GaugeTick(void) {
     }
     Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", g_fakeid, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
 }
+static int g_cfg_gate;  // [Return] ReturnGate (defined with the gate code)
 static int g_cfg_autoretry = 0;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118: one toggle; see TrainTick / TrainLost)
-static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
+static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
 // (1) the player's own recent trail (0.5 s samples, 20 s): a point the player stood on is on the floor and connected to the player; (2) a post-spawn progress check
 // (VerifyTick): a boss that has not closed in after 5 s is deleted and respawned at the next candidate. Candidate order: trail points 4-9 m away, then a fan around the camera
@@ -1084,15 +1087,30 @@ static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn
 // #6774: native kill = the boss death animation plays out in full. The kill-time fade (DeathBlowRequired=0) was f30 (0.5 s) and hid the death animation:
 // KillFadeFrames (default 120 = 2 s at 60 fps) still starts at the kill but lets the collapse be seen while the body fades. Delete waits for the fade end.
 static int g_cfg_kill_fade_frames = 120;
+// user #8827 (play 16:09, KiBreakNoFinisher kill): 'the boss disappeared mid cutscene' - KillFadeNow started the 2 s fade at the kill itself, so the body was
+// gone while its death animation was still playing. Every kill path (NOFIN HP-0 window, CutsceneOnKill, BossLoot, DeathBlowRequired=0, HP-0 fallback) now waits
+// KillFadeDelayMs (default 5000, capped by BodyFadeDelayMs; 0 = old 'at once') after the kill before the fade starts; delete 6 s after the fade as before.
+static int g_cfg_kill_fade_delay = 5000;
 static DWORD FadeDeleteMs(void) { DWORD f = (DWORD)(g_cfg_kill_fade_frames > 30 ? g_cfg_kill_fade_frames : 30) * 1000 / 60 + 1000; return f > 6000 ? f : 6000; }
 static void KillFadeNow(uint64_t a) {
     // #6746: DeathBlowRequired=0 -> start the body fade at the kill too (not BodyFadeDelayMs after the 4.5 s "HP 0 stable" win detection). Same fade + 6 s delete as below.
     // #7234: every confirmed kill (CutsceneOnKill / finisher / BossLoot / HP-0 fallback too), so the boss always dies + fades like in the mission; the
     // KillFadeFrames (2 s) fade lets the death animation be seen. BodyFadeDelayMs is only the fallback for kills we never saw.
     if (a && g_cfg_body_fade && g_tr.active && !g_tr.tFade && !g_tr.bodyGone && g_nsp > 0 && g_sp_actor[g_nsp - 1] == a) {
+        int d = g_cfg_kill_fade_delay; if (d > g_cfg_body_delay) d = g_cfg_body_delay; if (d < 0) d = 0;
+        if (d > 0) { if (!g_tr.tFadeAt) { g_tr.tFadeAt = GetTickCount() + (DWORD)d; if (!g_tr.tFadeAt) g_tr.tFadeAt = 1; g_tr.fadeAct = a;
+                Log("TRAIN round %d: kill confirmed, body fade in %d ms (death animation plays first; KillFadeDelayMs, DeathBlowRequired %d CutsceneOnKill %d KiBreakNoFinisher %d)", g_tr.round, d, g_cfg_deathblow, g_cfg_cutscene, g_cfg_nofin); }
+            return; }
         Log("TRAIN round %d: fading out the dead boss body at once (kill confirmed, DeathBlowRequired %d CutsceneOnKill %d)", g_tr.round, g_cfg_deathblow, g_cfg_cutscene);
         if (FadeOutActor(g_nsp - 1, (float)(g_cfg_kill_fade_frames > 0 ? g_cfg_kill_fade_frames : 30))) g_tr.tFade = GetTickCount();
     }
+}
+static void KillFadeDue(void) {  // TrainTick: start the delayed kill fade (same body only; a retry / new round clears tFadeAt)
+    if (!g_tr.tFadeAt || (int)(GetTickCount() - g_tr.tFadeAt) < 0) return;
+    g_tr.tFadeAt = 0;
+    if (!g_cfg_body_fade || g_tr.tFade || g_tr.bodyGone || g_nsp <= 0 || g_sp_actor[g_nsp - 1] != g_tr.fadeAct) { Log("TRAIN round %d: delayed body fade dropped (body gone / replaced)", g_tr.round); return; }
+    Log("TRAIN round %d: fading out the dead boss body (KillFadeDelayMs %d after the kill)", g_tr.round, g_cfg_kill_fade_delay);
+    if (FadeOutActor(g_nsp - 1, (float)(g_cfg_kill_fade_frames > 0 ? g_cfg_kill_fade_frames : 30))) g_tr.tFade = GetTickCount(); else { g_tr.bodyGone = 1; Despawn(g_nsp - 1); }
 }
 static uint64_t PlayerWrapper(void) {  // registry row whose live actor is the player
     uint64_t cm = CharMgr(), c0 = 0, me = PlayerChar(); if (!cm || !Rd64(cm, &c0) || !c0 || !me) return 0;
@@ -1178,7 +1196,7 @@ static void TrainRetry(const char* why) {
     TrainClear(why); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
-    g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
+    g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tFadeAt = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
 }
 static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone, no respawn, wait for the Return gate choice
@@ -1186,7 +1204,7 @@ static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone
     g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0;
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN lost: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
-    g_tr.beaten = 0; g_tr.tBeat = 0; g_tr.tRespawn = 0; g_tr.tReport = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.lost = 1;
+    g_tr.beaten = 0; g_tr.tBeat = 0; g_tr.tRespawn = 0; g_tr.tReport = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tFadeAt = 0; g_tr.lost = 1;
     Log("TRAIN round %d lost (AutoRetryOnDeath 0): boss removed, no respawn; Return gate: Return to where I was / Fight again", g_tr.round);
 }
 static void TrainStop(const char* why) {
@@ -1213,7 +1231,9 @@ static void TrainTick(void) {
     }
     // AutoRetryOnDeath 1 = the 'dejavu' instant round reset (player + boss) 2 s after the player is beaten; 0 (default) = TrainLost: boss removed, player healed,
     // NO respawn, the arena Return gate (spawned only while idle, #7138) offers Return to where I was / Fight again (Fight again = the same TrainRetry)
-    if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_autoretry) TrainRetry("player beaten"); else TrainLost(); }
+    // #8827 toggle matrix: AutoRetryOnDeath 0 relies on the Return gate for 'Fight again'; with ReturnGate 0 there is no gate, so a defeat resets the round (as 1)
+    if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
+    KillFadeDue();
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
         g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
@@ -2340,8 +2360,9 @@ static void NfGoldUv(uint8_t* q) {
 }
 static void GoldQuad(uint8_t* q, uint64_t el) {
     {   // test aid 'nofindump [n]': log the next n boss-bar-sized quads (geometry, u range of the top edge, v strip, colour, matcher verdict)
-        const float* f = (const float*)q; float w = f[11] - f[0];
-        if (g_nf_dumpN > 0 && (w > 100.0f || w < -100.0f) && InterlockedDecrement(&g_nf_dumpN) >= 0)
+        const float* f = (const float*)q; float w = f[11] - f[0], hh = f[1] - f[23]; if (hh < 0) hh = -hh;
+        // #8827: only bar-shaped quads (width > 100, w/h 20..150): the 16:09 auto dump spent its 36 lines on icons / squares before the boss bar rows
+        if (g_nf_dumpN > 0 && (w > 100.0f || w < -100.0f) && hh > 0.5f && (w < 0 ? -w : w) / hh > 20.0f && (w < 0 ? -w : w) / hh < 150.0f && InterlockedDecrement(&g_nf_dumpN) >= 0)
             Log("NOFIN goldquad: x %.1f..%.1f y %.1f..%.1f u %.3f..%.3f v %.3f..%.3f rgba %08X kifill %d gold %d", f[0], f[11], f[1], f[23], f[3], f[14], f[4], f[26], *(uint32_t*)(q + 0x24), NfIsKiFill(q), g_nf_gold);
     }
     if (g_nf_test) {  // test aid 'nofintest 1': every boss-bar quad (881 x 12) coloured by its atlas strip, to see which strip is the Ki fill
@@ -2586,6 +2607,8 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "nofinhide")) { g_nf_hide = (float)a[0] / 1000.0f; Log("CMD nofinhide %.3f (0 = off)", g_nf_hide);
         } else if (!strcmp(op, "nofintrace")) { NfTraceStart(n >= 2 ? (DWORD)a[0] : 4000);
         } else if (!strcmp(op, "nofinkneel")) { g_nf_kneel = (int)a[0]; Log("CMD nofinkneel %d", g_nf_kneel);
+        } else if (!strcmp(op, "nofin101")) { g_nf_clear101 = (int)a[0]; Log("CMD nofin101 %d", g_nf_clear101);
+        } else if (!strcmp(op, "nofinunbreak")) { g_nf_kirow_unbreak = (int)a[0]; Log("CMD nofinunbreak %d", g_nf_kirow_unbreak);
         } else if (!strcmp(op, "nofinsnap")) { NfSnap(0);
         } else if (!strcmp(op, "nofindiff")) { NfSnap(1);
         } else if (!strcmp(op, "nofindump")) { g_nf_dumpN = n >= 2 ? (LONG)a[0] : 24; Log("CMD nofindump %ld", g_nf_dumpN);
@@ -2889,7 +2912,13 @@ static uint8_t NfHitProbe(uint64_t ai, uint32_t id) {
 static void NfKiRow(uint64_t w, uint64_t row28, uint64_t snap, uint8_t broken, uint8_t style) {  // 1D220E3: KiRowWidget 235F9A4 (display copy of the Ki)
     if (g_cfg_nofin && row28 && snap) {
         __try { uint32_t id = *(uint32_t*)(row28 - 0x24);
-            for (int i = 0; i < NF_N; ++i) if (g_nf_drain[i].on && g_nf_drain[i].id == id) { float mx = *(float*)(snap + 0x18), r = g_nf_drain[i].ratio; if (r < 0) r = 0; if (r > 1) r = 1; *(float*)(snap + 0x14) = mx * r; *(float*)(snap + 0x88) = 0; break; }
+            for (int i = 0; i < NF_N; ++i) if (g_nf_drain[i].on && g_nf_drain[i].id == id) { float mx = *(float*)(snap + 0x18), r = g_nf_drain[i].ratio; if (r < 0) r = 0; if (r > 1) r = 1; *(float*)(snap + 0x14) = mx * r; *(float*)(snap + 0x88) = 0;
+                // user #8827 (play 16:09): gold only showed in the last 2 s of the HP-0 window = the only time the boss was NOT natively broken (23=0). While broken
+                // the widget draws its broken layout (Ki 0 -> empty fill + pink broken layer, other atlas strips; dump 16:09:11 'kifill 0' on every quad), so no
+                // fill quad existed to tint. While gold: draw the row as NOT broken, so the normal Ki fill quad (strip 0.688 / 0.375) is drawn at the snapshot
+                // value (full while broken, draining in the HP-0 window) and GoldQuad tints it. Display only (the snapshot is the widget's own copy).
+                if (broken && g_nf_kirow_unbreak) { broken = 0; static int nl; if (++nl <= 3) NfLog("NOFIN Ki row %u: native broken layout replaced by the normal fill (gold), style %u", id, style); }
+                break; }
         } __except (EXCEPTION_EXECUTE_HANDLER) { }
     }
     ((void (*)(uint64_t, uint64_t, uint64_t, uint8_t, uint8_t))(B + 0x235F9A4))(w, row28, snap, broken, style);
@@ -3083,6 +3112,11 @@ static void NfTick(void) {
             // live 03:49 (nofinsnap/nofindiff, lethal vs normal hit): the lethal hit leaves ctrl+0xEA0 = 1 = death-blow pending (786C84's own cond 0x27
             // revive at 787004); while it is set every normal hit whiffs (03:40: 0 hits landed in the window, only the grapple/death blow could). Clear it.
             __try { if (*(volatile uint32_t*)(ctrl + 0xEA0)) { *(volatile uint32_t*)(ctrl + 0xEA0) = 0; static int nc; if (++nc <= 20) NfLog("NOFIN boss %p: death-blow pending flag ctrl+EA0 cleared (normal hits land again)", (void*)a); } } __except (EXCEPTION_EXECUTE_HANDLER) { }
+            // user #8827 'grapple buggy' (play 16:09, and 15:41): at HP 1 the finisher still played (KIFINISHER 35=1 'HP floor (death blow)' 1921 ms, KIBREAK end #2
+            // 'grapple yes' = that finisher state seen in the break) although the grapple target hook blocked 746 frames. Both plays had runtime bit 101
+            // (ctrl+0x1068 bit 37, 'bits1068 0000002000000000') set from the HP-0 window on; no dev run (boss AI off, no finisher) ever had it -> it is the
+            // death-blow-available state the AI/script sets at the HP floor. Clear it every pump frame of the window ([Summon] KiBreakHp0ClearDeathBlow, default 1).
+            if (g_nf_clear101) __try { volatile uint64_t* rb = (volatile uint64_t*)(ctrl + 0x1068); if (*rb & (1ull << 37)) { *rb &= ~(1ull << 37); g_nf_n101++; if (g_nf_n101 <= 10 || g_nf_n101 % 100 == 0) NfLog("NOFIN boss %p: death-blow runtime bit 101 (ctrl+1068 bit 37) cleared (#%ld)", (void*)a, g_nf_n101); } } __except (EXCEPTION_EXECUTE_HANDLER) { }
             // live 03:52: at HP 1 the hits' Ki damage takes the Ki below 0 but the native break never starts (lethal hits skip it), so the HP-0 window sets the
             // break itself: A4F098(ctrl) = the native break-window start (runtime bit 0x3A = state 0x23 + per-character timer ctrl+0x1014), plus, once per window,
             // the native kneel-down action (script Character::ForceKneelDown 238E1BC: ctrl+0x994 = 0x27, 668D74(actor), actor+0x91B = 1) = the stagger.
@@ -3111,7 +3145,7 @@ static void NfTick(void) {
         g_nf_drain[s].id = g_nf[s].id; g_nf_drain[s].ratio = g_nf[s].win == 1 ? 1.0f - (float)(now - g_nf[s].tLast) / (float)g_cfg_nofin_ms : 1.0f; g_nf_drain[s].on = g_nf[s].win == 1 || broken;  // broken: full gold bar (display only)
         if (broken || g_nf[s].win == 1) gold = 1;
     }
-    if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); if (gold && g_nf_dumpN <= 0) g_nf_dumpN = 36; }  // auto-dump the wide quads of the first frames (evidence if the strips do not match)
+    if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); if (gold && g_nf_dumpN <= 0) g_nf_dumpN = 48; }  // auto-dump the wide quads of the first frames (evidence if the strips do not match)
 }
 
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
@@ -3185,7 +3219,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
-        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d, KillFadeFrames %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay, g_cfg_kill_fade_frames);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
@@ -3245,7 +3279,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
         g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 2000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
-        g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini);
+        g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini); g_nf_clear101 = GetPrivateProfileIntA("Summon", "KiBreakHp0ClearDeathBlow", 1, ini); g_nf_kirow_unbreak = GetPrivateProfileIntA("Summon", "KiBreakGoldUnbreak", 1, ini);
+        Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);

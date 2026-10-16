@@ -2545,8 +2545,14 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             int loot = 0, blow = 1, cut = 0;
             const bool ok = DeathCfgGet(loot, blow, cut);
             const int v = it[i] == kItDeathCut ? cut : it[i] == kItDeathBlow ? blow : loot;
-            add(sel ? cWhite : ok ? (v ? cGreen : cGray) : cDim, sel, "%s %-24s %s   A / Left / Right", mk,
-                it[i] == kItDeathCut ? "Cutscene on kill:" : it[i] == kItDeathBlow ? "Final blow required:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF");
+            // #8827 toggle matrix: No finisher (Ki break) ON owns the HP floor (no finisher, kill after the 2 s window) -> 'Final blow required' and 'Cutscene on
+            // kill' do not apply; 'Cutscene on kill' also needs 'Final blow required' ON. Shown dim with the reason (values stay saved).
+            using G = int (*)();
+            const auto gnf = (G)TrainingExport("Nioh3Training_GetNoFinisher");
+            const bool nofin = gnf && gnf() > 0;
+            const char* why = it[i] == kItDeathLoot ? "" : nofin ? "   (n/a: No finisher is ON)" : (it[i] == kItDeathCut && !blow) ? "   (n/a: Final blow required is OFF)" : "";
+            add(sel ? cWhite : !ok || *why ? cDim : (v ? cGreen : cGray), sel, "%s %-24s %s   A / Left / Right%s", mk,
+                it[i] == kItDeathCut ? "Cutscene on kill:" : it[i] == kItDeathBlow ? "Final blow required:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF", why);
         }
         else if (it[i] == kItReturnHome) {
             const int f = ReturnInfo();
