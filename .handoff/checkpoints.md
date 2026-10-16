@@ -1,18 +1,4 @@
 
-## 2026-10-15 13:58:50 session 7264cd95-a99f-42e5-90ac-35bb4c66ac1e
-The AABB fps test is running on the main PC. I'm waiting for it to finish before I read the numbers.
-
-## 2026-10-15 14:25:25 session 7264cd95-a99f-42e5-90ac-35bb4c66ac1e
-The AABB fps test on the main PC failed: none of the 4 runs entered the fight, so I have no fps numbers.
-
-The installed add-on now does Fight-now as an in-place swap. The bench script still expects the old mission-load path, so each run sat in the world until it timed out ("fight not entered", fights=0).
-
-The game is closed and saves are restored byte for byte. The test-active marker is removed, and I logged the failure in `.handoff/next.md`.
-
-The next step is to rerun with the swap-wire Fight-now turned off in the add-on settings, or with the older add-on build. I haven't done that yet. Ally's AABB test is still on the board for it to pick up. It will likely hit the same Fight-now problem if it uses the same add-on build, but I haven't checked.
-
-I also told you on your phone. The loot, death-blow and cutscene toggles for the boss-kill fix are still not done.
-
 ## 2026-10-15 14:46:46 session e14e29ff-6344-44f9-8655-61801d2af346
 I told you the status through the bridge (#6246). The game is closed on this PC and nothing is running here.
 
@@ -270,4 +256,28 @@ What I changed:
 - **Records:** I added a line to `.handoff/done.md`.
 
 I didn't message the user. I haven't checked the toggle's progress this run, and I didn't touch `next.md` or `owners.md`.
-- 2026-10-15 22:50 pc2 (#7655 other worlds): Fight now -> control, pc2, Training pw0 (Prewarm=2, CellSkip=0), 10 s dwell, n=1 each: Yoritomo(0xB1) ON 0.5 s vs OFF 13.7 s; Hino-enma(0x96) ON 3.2 s vs OFF 18.9 s. Needed Rematch_good.asi (repo Rematch asi pipe times out in xworld_probe). Added -RematchAsi param to tools/rematch/xworld_probe.ps1. Next: #7749 cold real-menu runs n=3 + no-dwell n=1. Files: dl6160/s7655, captures/rematch/xworldprobe-20261015-2227..2242.
+
+## 2026-10-16 04:25:53 session e9a941af-2199-4beb-a382-75250e628836
+The no-finisher toggle works in the game. I installed it and turned it on, and sent you the ready-to-play message five times. All tests had boss AI off, so I haven't seen how a boss that fights back behaves.
+
+- **Grapple:** with the toggle on, pressing LB during a Ki break does nothing. The full break ran 3.9 s and the grapple was blocked on 391 frames.
+- **Gold bar:** I checked the screenshot myself. Only the stamina (Ki) bar turns gold, and the health bar stays white.
+- **At 0 health:** the boss stays at 1 HP in the broken state while the gold bar drains. It died 2.0 s after the last hit, and each hit restarted the window.
+- **Toggle off:** the grapple and normal death work as before.
+
+Untested: boss AI on, native mission bosses, Boss Rematch arenas and fights with several bosses. A "No finisher (Ki break)" menu row is built, but I didn't install it because I couldn't open the menu in game to test it.
+
+I set `KiBreakNoFinisher = 1` in the live `Nioh3Training.ini` for your play test. Setting it to 0 turns it off, and `nofin 0|1` switches it live. The code is on branch `pc/ki-break-nofinisher` (last commit adf23ae), and I added your play-test item to the needs-player list and a line to the done log.
+
+Ally's combined Linux-defaults test and pc2's first-load timing are still waiting to resume now that the usage limit has reset. I haven't re-sent either one yet.
+
+## 2026-10-16 04:49:23 session 4ac5b1b7-5459-404d-8741-44fcd232e414
+Nothing needs me right now, so I'm ending this run without starting anything new.
+
+- **ally:** running the live arena-swap test on the build I sent (file #609), and doing static GPU-pass analysis while it waits.
+- **pc2:** running the first-load timing test (#7749).
+- **pc:** the game is closed and nothing is running. I haven't started a new test.
+- **Waiting on you:** the no-finisher toggle play test with boss AI on.
+
+I'll act when either result comes back.
+- 2026-10-16 03:05 pc2 (#7749): first-load Shingen cold, Prewarm2/Hold120000/Cell0, n=3 dwell13s: F->control 13.9/6.3/9.2 s, menu->control 27.0/19.5/22.2; no-dwell n=1 18.8 s (21.3 total). Gate HG_MIN_HEADROOM_GB=16. Next: report to user; files dl6160/s7749, captures/rematch/xworldprobe-20261016-0239..0258.
