@@ -288,3 +288,7 @@ The inbox is empty, and pc2's "skip far scene objects" build hasn't arrived yet.
 Done: branch pc2/placeable-skip 0cc4c83 pushed; bridge file #652 asi, #653 ON ini. pc2 Shingen cold Fight now, no prewarm, n=2/arm: click->control OFF 16.7/17.8 s, ON 13.0/11.1 s (-5 s); stage 5 OFF 15.5/16.5, ON 11.8/9.9.
 Unproven: click->visible + pop-in (base pc2/oldao-trim fade waits for all placeables -> visible ~48 s both arms); window always hits 20 s cap (never closes on 'landed').
 Next: rebase pc2/placeable-skip onto pc/fnow-visible (AreaWaitMs cap), re-run visible n=2 + screenshot for missing props. Logs: captures/rematch/xworldprobe-20261016-{081844,084321,085022,091634}.
+
+## 2026-10-16 10:08 am EST pc2 | placeable-skip on fnow-visible: no click->visible gain
+Done: branch pc2/pskip-fnowvis 064cae4 (asi #655, ini #656). Shingen cold, prewarm 0: visible OFF 32.9/36.7/27.8 s, ON 31.1/26.8 s; control 15.5 s always (AreaWaitCrossMs cap). Arena-cell placeables (~3000) are whitelisted so skip doesn't touch the gate.
+Unproven: pop-in (no post-fade screenshots for ON). Next: try limiting arena-cell placeables to ~150 m of the arena point / lower the hold cap.
