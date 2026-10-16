@@ -2319,8 +2319,11 @@ static void GoldPaint(uint8_t* q) {
 static float g_nf_strip[8] = {0.375f, 0.438f, 0.625f}; static int g_nf_nstrip = 3; static float g_nf_hide = 0.500f; static volatile LONG g_nf_dumpN; static int g_nf_test;
 static int NfStrip(const uint8_t* q, float want) {  // boss-bar quad (12 units high) on the atlas strip starting at v = want
     const float* f = (const float*)q; float y0 = f[1], y1 = f[22 + 1], v0 = f[4], v2 = f[22 + 4];
-    float h = y0 > y1 ? y0 - y1 : y1 - y0, dv = v2 - v0;
-    return h > 10.0f && h < 14.0f && dv > 0.045f && dv < 0.070f && v0 > want - 0.010f && v0 < want + 0.010f;
+    float h = y0 > y1 ? y0 - y1 : y1 - y0, dv = v2 - v0, w = f[11] - f[0]; if (w < 0) w = -w;
+    // size test by SHAPE (881 x 12 = 73:1), not absolute pixels: with a non-default resolution / UI scale the walked vertices are not 12 units high (user play 15:41,
+    // gold Ki bar never painted although the NOFIN gold state ran 4 s)
+    int shape = (h > 10.0f && h < 14.0f) || (h > 1.0f && w > 100.0f && w / h > 55.0f && w / h < 95.0f);
+    return shape && dv > 0.045f && dv < 0.070f && v0 > want - 0.010f && v0 < want + 0.010f;
 }
 static int NfIsKiFill(const uint8_t* q) { for (int i = 0; i < g_nf_nstrip; ++i) if (NfStrip(q, g_nf_strip[i])) return 1; return 0; }
 // Live 02:09: the Ki-broken fill texture is pink, so pink x gold reads orange-red. g_nf_uv: sample the white HP-fill strip instead (v 0.062, atlas column
@@ -2333,12 +2336,12 @@ static void NfGoldUv(uint8_t* q) {
 static void GoldQuad(uint8_t* q, uint64_t el) {
     {   // test aid 'nofindump [n]': log the next n boss-bar-sized quads (geometry, u range of the top edge, v strip, colour, matcher verdict)
         const float* f = (const float*)q; float w = f[11] - f[0];
-        if (g_nf_dumpN > 0 && (w > 800.0f || w < -800.0f) && InterlockedDecrement(&g_nf_dumpN) >= 0)
+        if (g_nf_dumpN > 0 && (w > 100.0f || w < -100.0f) && InterlockedDecrement(&g_nf_dumpN) >= 0)
             Log("NOFIN goldquad: x %.1f..%.1f y %.1f..%.1f u %.3f..%.3f v %.3f..%.3f rgba %08X kifill %d gold %d", f[0], f[11], f[1], f[23], f[3], f[14], f[4], f[26], *(uint32_t*)(q + 0x24), NfIsKiFill(q), g_nf_gold);
     }
     if (g_nf_test) {  // test aid 'nofintest 1': every boss-bar quad (881 x 12) coloured by its atlas strip, to see which strip is the Ki fill
         const float* f = (const float*)q; float w = f[11] - f[0], h = f[1] - f[23]; if (w < 0) w = -w; if (h < 0) h = -h;
-        if (w > 800.0f && h > 10.0f && h < 14.0f) { int k = (int)(f[4] / 0.0625f + 0.5f) & 15;  // strip index: v 0.000=0, 0.062=1, 0.188=3, 0.375=6, 0.438=7, 0.500=8, 0.625=10, 0.688=11
+        if (w > 100.0f && h > 1.0f && w / h > 55.0f && w / h < 95.0f) { int k = (int)(f[4] / 0.0625f + 0.5f) & 15;  // strip index: v 0.000=0, 0.062=1, 0.188=3, 0.375=6, 0.438=7, 0.500=8, 0.625=10, 0.688=11
             static const uint8_t pal[16][3] = {{0,255,255},{255,0,255},{128,128,128},{255,255,0},{255,128,0},{0,0,0},{0,0,255},{0,255,0},{255,0,0},{128,0,255},{255,255,255},{255,200,50},{0,128,0},{128,0,0},{0,0,128},{64,64,64}};
             for (int v = 0; v < 4; ++v) { uint8_t* c = q + v * 0x2C + 0x24; c[0] = pal[k][0]; c[1] = pal[k][1]; c[2] = pal[k][2]; } }
         return;
@@ -3103,7 +3106,7 @@ static void NfTick(void) {
         g_nf_drain[s].id = g_nf[s].id; g_nf_drain[s].ratio = g_nf[s].win == 1 ? 1.0f - (float)(now - g_nf[s].tLast) / (float)g_cfg_nofin_ms : 1.0f; g_nf_drain[s].on = g_nf[s].win == 1 || broken;  // broken: full gold bar (display only)
         if (broken || g_nf[s].win == 1) gold = 1;
     }
-    if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); }
+    if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); if (gold && g_nf_dumpN <= 0) g_nf_dumpN = 36; }  // auto-dump the wide quads of the first frames (evidence if the strips do not match)
 }
 
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);

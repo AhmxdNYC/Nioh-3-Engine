@@ -11,6 +11,7 @@ uint64_t g_rematchSentGeneration = 0;
 uint32_t g_rematchLastAction = rmb::OpenMenu;
 ULONGLONG g_rematchFreshAt = 0;
 ULONGLONG g_rematchAwaitAt = 0;
+ULONGLONG g_rematchNoAutoOpenUntil = 0;  // after the host closes its page, a stale Open snapshot must not reopen it
 DWORD WINAPI ResolveRematchHost(void*) {
     const uint64_t host = (uint64_t)&g_rematchApi;
     for (;;) {
@@ -69,6 +70,7 @@ bool PostRematchAction(uint32_t action) {
     return true;
 }
 void CloseRematchHostPage() {
+    g_rematchNoAutoOpenUntil = GetTickCount64() + 1500;
     if (g_rematchPage) g_rematchClosePending = !PostRematchAction(rmb::CloseMenu);
     g_rematchPage = g_rematchAwait = g_rematchOpened = false;
 }

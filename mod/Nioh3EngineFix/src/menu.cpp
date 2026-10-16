@@ -1778,6 +1778,14 @@ void OnPresentImpl() {
     SampleRates(t);
     PauseDetect(t);  // also feeds the frame-generation status row (why FG is paused)
     ProcessRemote();  // vpad pipe: 'menu get / set' (1.7.37)
+    // The add-on opened its own menu (arena Return gate page): the host draws and drives it, so open the host menu on the Rematch page.
+    // Without this the add-on's menu state was 'open' but nothing was drawn and no input reached it (user: Return / Fight again did nothing).
+    if (rematchReady && !g_disabled && !g_open && !g_rematchPage && !g_rematchClosePending && !g_rematchAwait && !g_coverToken.load() &&
+        (g_rematchView.flags & rmb::Open) && t >= g_rematchNoAutoOpenUntil) {
+        Open("Boss Rematch request");
+        g_rematchPage = true; g_rematchOpened = true;
+        for (auto& repeat : g_rep) repeat = 0;
+    }
     if (InterlockedExchange(&g_toggleReq, 0) && t - (ULONGLONG)g_toggleAt < 1000) {
         const LONG src = g_toggleSrc;
         if (g_open) Close(SrcName(src));
