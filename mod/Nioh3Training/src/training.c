@@ -693,7 +693,6 @@ static int Warp(float x, float y, float z, float yaw, int full) {
     uint64_t s = StageMgr();
     memcpy((void*)(s + 0x10B0), (void*)(pl + 0x110), 16); *(uint8_t*)(s + 0x10C0) = 1;
     ((void (*)(uint64_t, uint64_t))(B + 0x3A083C))(s + 0x500, s + 0x10B0);  // bridge 6047: rdx = centre pointer, as the native SetPos tail (23AB6C1) and 39E58D pass it
-    ((uint8_t (*)(uint64_t, uint8_t))(B + 0x3B35B4))(s + 0x500, 1);
     return 1;
 }
 
@@ -1254,7 +1253,7 @@ static int g_cfg_xcells = 0;
 // stage state 5 (the main cell is then the only cell in the set, so state 4 passes without the surrounding world), restores it at state 5, or at the end.
 // Default 0 = off. The boss arena may need neighbour cells: that is what the test has to show.
 static int g_cfg_xblock = 0;
-static struct { int on, sawReset, lastSt, patched, lastSeq, lastG, target, aoSkips, blk; DWORD t0, t5, tAll, lastLog, tSeq, tAo; uint8_t w0, last58A, blkOld; uint64_t lastN, lastR, lastF; char tag[24]; } g_xs;
+static struct { int on, sawReset, lastSt, patched, lastSeq, lastG, target, aoSkips, blk; DWORD t0, t5, tAll, lastLog, tSeq, tAo; uint8_t w0, last58A, blkOld; uint64_t lastN, lastR, lastF; char tag[24]; int lgs; } g_xs;
 // bridge 6047b (state numbers corrected in 6047c: 1 223BDB0, 2 223B3A8, 3 223B3F8, 4 223B8F0 world switch, 5 MissionLoadStep): mission load sequencer (handlers via 5A29F0, state mirrored in u32 B+0x45BA21C): 5 MissionLoadStep 223AF50 waits 1FC6674(stage+0x500) AND LoadIsLoadEnd
 // 3B3424 BEFORE it consumes the request (the world switch); 8 223C4A8 waits LoadIsLoadEnd again; 0xB 223BE08 UiLoadingScreenEnd; 0xF 223C308 fixed 30/100 dt60 timer, then
 // StopFlagSet(2,0) = GAMESTATE[2] cleared. LoadIsLoadEnd gate G5 = ObjectListAnyNotReady([45B9E60]) = any character resource entry with +0x2C8 == 0, i.e. the
@@ -1268,6 +1267,11 @@ static int LoadGates(void) {  // bit set = that LoadIsLoadEnd gate currently blo
         if (Rd64(B + 0x45B9E60, &rm) && rm && ((uint8_t (*)(uint64_t))(B + 0x13335C))(rm)) g |= 4;
         uint32_t a = 0, b = 0; if (!((uint8_t (*)(uint32_t*, uint32_t*))(B + 0x2BE284))(&a, &b)) g |= 8;
         if (!((uint8_t (*)(uint64_t, uint8_t, int32_t))(B + 0x3B3A28))(s, 0, -1)) g |= 16;
+        // pc2 #6801 extra predicates of 3B3424 / 223AF50 (read-only): 32 G1 3B35B4 not ready, 64 G4 UI pair 3B3934, 128 G6 D3958(stage+0x540,[stage+0x504]) null, 256 G9 3B2970, 512 1FC6674 (state 5 own gate)
+        if (*(volatile uint8_t*)(B + 0x45C6F2C) && !((uint8_t (*)(void))(B + 0x3B3934))()) g |= 64;
+        if (*(volatile int32_t*)(s + 0x504) != -1 && !((uint64_t (*)(uint64_t, uint32_t))(B + 0xD3958))(s + 0x540, *(volatile uint32_t*)(s + 0x504))) g |= 128;
+        if (((int (*)(void))(B + 0x46518))() && ((uint8_t (*)(void))(B + 0x3B2970))()) g |= 256;
+        if (!((uint8_t (*)(uint64_t))(B + 0x1FC6674))(s + 0x500)) g |= 512;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return -2; }
     return g;
 }
@@ -1331,10 +1335,32 @@ static int CellStats(uint64_t* n, uint64_t* ready, uint64_t* loading, uint64_t* 
     }
     return 1;
 }
+// pc2 #6801: [ArenaSwap] CrossWorldLoaderGateSkip = bit mask (default 0; 1 = G9 only). NOT a gain on pc2: state 5 ends ~8 s earlier but state 6 (223C53C waits until every node of a list at 1C1C61C has +0x138 == 8, ~+24 s) then holds the same total; also skipping that wait (tried, jne at 223C55A) hangs the game at sequencer state 0xF. LoadIsLoadEnd gate G9 (3B3424: 46518() != 0 && 3B2970() != 0, jne at 3B3523 = 75 6E) blocks the mission sequencer states 5 and 8
+// while the resource loader [475A420] has +0x248 / +0x249 set (placeable / area loads still queued): measured on pc2 it alone holds state 5 for ~12 s after the stage is ready (+11 -> +23.6 s) and
+// state 8 for ~3 s, i.e. the control lock after a cross-world Fight now. NOPs the 2-byte jne from the world request until the switch has streamed (XsEnd, <= 60 s); loads keep running in the background.
+static int g_cfg_xlgs = 0;
+static const struct { uint32_t rva; uint8_t jcc, rel; int bit; const char* name; } k_lgs[] = {
+    {0x3B3523, 0x75, 0x6E, 1, "G9 loader busy (3B2970)"},
+};
+static int LoaderGatePatch(int on) {
+    int ok = 0;
+    for (int i = 0; i < (int)(sizeof k_lgs / sizeof k_lgs[0]); ++i) {
+        if (!(g_cfg_xlgs & k_lgs[i].bit)) continue;
+        uint8_t* pa = (uint8_t*)(B + k_lgs[i].rva); DWORD old; int done = 0;
+        __try {
+            if (on && !(pa[0] == k_lgs[i].jcc && pa[1] == k_lgs[i].rel)) { Log("XSTREAM loader gate %s: bytes at %X are %02X %02X, left alone", k_lgs[i].name, k_lgs[i].rva, pa[0], pa[1]); continue; }
+            if (!on && !(pa[0] == 0x90 && pa[1] == 0x90)) continue;
+            if (VirtualProtect(pa, 2, PAGE_EXECUTE_READWRITE, &old)) { *(volatile uint16_t*)pa = on ? 0x9090 : (uint16_t)(k_lgs[i].jcc | (k_lgs[i].rel << 8)); VirtualProtect(pa, 2, old, &old); FlushInstructionCache(GetCurrentProcess(), pa, 2); done = 1; }
+        } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        if (done) { ok = 1; Log("XSTREAM loader gate %s (%X) %s", k_lgs[i].name, k_lgs[i].rva, on ? "skipped" : "restored"); }
+    }
+    return ok;
+}
 static void XsStart(const char* tag, int target) {  // called right before a WarpOtherWorld request
     memset(&g_xs, 0, sizeof g_xs); snprintf(g_xs.tag, sizeof g_xs.tag, "%s", tag); g_xs.target = target;
     uint64_t s = StageMgr(); g_xs.w0 = s ? *(uint8_t*)(s + 0x500) : 0xFF; g_xs.t0 = GetTickCount(); g_xs.tSeq = g_xs.t0; g_xs.lastSt = StageState(); g_xs.on = 1; g_xs.lastSeq = -9; g_xs.last58A = 0xEE; g_xs.lastG = -9;
     g_xs.patched = g_cfg_xcells > 4 && CellCapSet(g_cfg_xcells);
+    g_xs.lgs = g_cfg_xlgs && LoaderGatePatch(1);
     if (g_cfg_xblock && s) { __try { g_xs.blkOld = *(volatile uint8_t*)(s + 0x11F1); *(volatile uint8_t*)(s + 0x11F1) = 0; g_xs.blk = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { g_xs.blk = 0; } }
     Log("XSTREAM %s: CrossWorldBlockCells %d (stage +0x11F1 %s)", tag, g_cfg_xblock, g_xs.blk ? "cleared until state 5" : "not changed");
     Log("XSTREAM %s: start, world 0x%02X state %d, cell load cap %d (CrossWorldCellLoads %d)", tag, g_xs.w0, g_xs.lastSt, g_xs.patched ? g_cfg_xcells : 4, g_cfg_xcells);
@@ -1346,6 +1372,7 @@ static void XsBlkRestore(const char* why) {
 }
 static void XsEnd(const char* why) {
     if (g_xs.patched) CellCapSet(4);
+    if (g_xs.lgs) { LoaderGatePatch(0); g_xs.lgs = 0; }
     XsBlkRestore(why);
     Log("XSTREAM %s: %s; state 5 at %s%lu ms, all cells loaded at %s%lu ms (cap %d)", g_xs.tag, why, g_xs.t5 ? "+" : "never/", g_xs.t5 ? g_xs.t5 - g_xs.t0 : 0, g_xs.tAll ? "+" : "never/", g_xs.tAll ? g_xs.tAll - g_xs.t0 : 0, g_xs.patched ? g_cfg_xcells : 4);
     g_xs.on = 0; g_xs.patched = 0;
@@ -1359,7 +1386,7 @@ static void XsTick(void) {
     if (st != 5 || w != g_xs.w0) g_xs.sawReset = 1;
     { const uint8_t* gs = GameState(); uint8_t f = gs ? gs[2] : 0xFF; uint32_t q = SeqState(); int g = LoadGates();
       if (f != g_xs.last58A || (int)q != g_xs.lastSeq || g != g_xs.lastG || dt == 0) {
-          Log("XSTREAM %s +%lu ms: GAMESTATE[2] %u, mission seq state %d (was %d, %lu ms), LoadIsLoadEnd gates 0x%X (1 areas 2 stage req 4 res list 8 blockers 16 area objs) world 0x%02X stage %d",
+          Log("XSTREAM %s +%lu ms: GAMESTATE[2] %u, mission seq state %d (was %d, %lu ms), LoadIsLoadEnd gates 0x%X (1 areas 2 stage req 4 res list 8 blockers 16 area objs 32 G1 64 G4 128 G6 256 G9 512 seq5) world 0x%02X stage %d",
               g_xs.tag, dt, f, (int)q, g_xs.lastSeq, now - g_xs.tSeq, g, w, st);
           if ((int)q != g_xs.lastSeq) g_xs.tSeq = now;
           if (g & 16) { int b, p; if (AreaObjPending(&b, &p)) Log("XSTREAM %s +%lu ms: area objects: %d cells blocking, %d placeable loads in flight", g_xs.tag, dt, b, p); }
@@ -1593,7 +1620,7 @@ static int FightNowImpl(uint32_t mission) {
 static int g_cfg_fade = 1, g_cfg_fade_out = 250, g_cfg_fade_in = 400, g_cfg_fade_min = 800, g_cfg_fade_stable = 500, g_cfg_fade_max = 60000;
 static volatile LONG g_fd_want, g_fd_alpha;   // want: overlay target (1 = black); alpha 0..255 as drawn
 static struct { int pend, phase, inside; uint32_t mission; DWORD tPend, tSwap, tStable, tWant; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
-static HWND g_fd_wnd, g_fd_game;
+static HWND g_fd_wnd, g_fd_game; static DWORD g_fd_tPl;
 static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn in the game's own frame) or the fallback GDI window
 static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
 static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
@@ -1629,11 +1656,18 @@ static DWORD WINAPI FadeThread(LPVOID x) {
 }
 static void FadeWant(int on, const char* why) {
     if (!g_cfg_fade || !g_fd_ok) return;
-    if (g_fd_want != on) { g_fd_want = on; g_fd.tWant = GetTickCount(); Log("FADE %s (%s), alpha %ld", on ? "to black" : "back in", why, FdAlpha()); if (p_osdFade) p_osdFade(on, on ? g_cfg_fade_out : g_cfg_fade_in); }
+    if (g_fd_want != on) { g_fd_want = on; if (on) g_fd_tPl = 0; g_fd.tWant = GetTickCount(); Log("FADE %s (%s), alpha %ld", on ? "to black" : "back in", why, FdAlpha()); if (p_osdFade) p_osdFade(on, on ? g_cfg_fade_out : g_cfg_fade_in); }
 }
+static int g_cfg_fade_pwait = -1;  // [Fade] PlaceableWaitMs (pc2 #6801): -1 = hold the cover until every placeable load finished (old); N >= 0 = give up waiting for them N ms after everything else (boss, stage 5, control back) is ready
 static int FadeSettled(void) {
     if (g_sp.active || g_vf.respawnAt || (g_ar.active && !g_ar.released) || StageState() != 5 || !PlayerChar()) return 0;
-    int b = 0, p = 0; if (AreaObjPending(&b, &p) && (b || p)) return 0;
+    int b = 0, p = 0;
+    if (AreaObjPending(&b, &p) && (b || p)) {
+        const uint8_t* st = GameState();
+        if (g_cfg_fade_pwait < 0 || !st || st[2]) { g_fd_tPl = 0; return 0; }  // pc2 #6801: with control back, props may keep loading behind the fade-in
+        DWORD now = GetTickCount(); if (!g_fd_tPl) g_fd_tPl = now;
+        if (now - g_fd_tPl < (DWORD)g_cfg_fade_pwait) return 0;
+    }
     return 1;
 }
 static int FadeInPlaceOk(uint32_t mission, ArenaRow* r) {  // same logic as FightNowImpl: will it swap here without a native load?
@@ -2055,7 +2089,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { WatchTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_watch = 0; }
     __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
-    __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
+    __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); if (g_xs.lgs) LoaderGatePatch(0); g_xs.lgs = 0; g_xs.on = 0; g_xs.patched = 0; }
     __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
     __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
@@ -2120,7 +2154,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_xaoskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldAreaObjSkipMs", 0, ini); Log("cross-world (bridge 6047c): CrossWorldAreaObjSkipMs %d", g_cfg_xaoskip);
         g_cfg_xpre_after = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreloadAfterSwitch", 0, ini); Log("cross-world (bridge 6047b): CrossWorldPreloadAfterSwitch %d", g_cfg_xpre_after);
         g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); g_cfg_xblock = GetPrivateProfileIntA("ArenaSwap", "CrossWorldBlockCells", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
-        g_cfg_cellskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellSkip", 0, ini);
+        g_cfg_cellskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellSkip", 0, ini); g_cfg_xlgs = GetPrivateProfileIntA("ArenaSwap", "CrossWorldLoaderGateSkip", 0, ini); Log("cross-world (pc2 #6801): CrossWorldLoaderGateSkip %d", g_cfg_xlgs);
         if (g_cfg_cellskip) {  // 3A0534 prologue: mov [rsp+8],rbx; mov [rsp+10h],rsi; mov [rsp+18h],rdi (15 bytes, no rip-relative)
             static const uint8_t csp[15] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18};
             if (!memcmp((void*)(B + 0x3A0534), csp, 15)) { o_cellreq = (CellReqFn)Hook(0x3A0534, 15, h_cellreq); Log("hook stage cell request 3A0534 ok: CrossWorldCellSkip %d (%s)", g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip non-arena cells during cross-world Fight now" : "log only"); }
@@ -2132,7 +2166,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_gaugereset = GetPrivateProfileIntA("ArenaSwap", "GaugeStateReset", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
-        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini);
+        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_pwait = GetPrivateProfileIntA("Fade", "PlaceableWaitMs", -1, ini); Log("fade (pc2 #6801): PlaceableWaitMs %d", g_cfg_fade_pwait);
         Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max);
         if (g_cfg_fade) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
