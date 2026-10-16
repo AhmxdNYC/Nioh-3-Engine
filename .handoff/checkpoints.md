@@ -1,22 +1,4 @@
 
-## 2026-10-15 20:34:45 session b783c838-e132-414e-9580-92aa5692c532
-I closed the game, installed the instant-fade build and relaunched it. With the final-blow toggle off, the boss body should now start fading at the kill instead of a few seconds later. It has been running since 20:33. I haven't tested the fade myself, and I told you in message #6749.
-
-You only said I could close the game, so the relaunch was my call. If you'd rather it stay closed, tell me.
-
-The previous Training mod file is backed up as `Nioh3Training.asi.pre-fade6746.bak` in the game folder. The change is commit `294f923` on `pc/toggles-merge`, which a parallel job had already built and pushed. I added a line to `.handoff/next.md`.
-
-## 2026-10-15 20:55:08 session 88cfd0e5-c043-4a39-b52d-dbb942de4799
-I read the log of your kill in the old build. A helper is now working on making our toggled version match it, and I haven't changed anything in the game.
-
-**What the log shows:** when the boss dies, the game does everything at once. Loot, Amrita and the end of the boss fight all happen in the same millisecond, and the fight lasted 54.8 s. The log has no animation or fade timing, so I can't tell you more about how the kill looked.
-
-**What's running:** a helper is comparing that kill against our toggled kills, covering health-bar hide, death animation, body fade, loot and when the fight ends. It will change the timing to match the native sequence and commit it to `pc/toggles-merge`. It won't touch your game.
-
-**Your game:** the old build is still installed. Tell me when you're done playing. I'll then put the current build back and install the matched version.
-
-I sent you the short version on the bridge (#6776).
-
 ## 2026-10-15 21:16:39 session 96686cbc-dd24-4e6a-8bf0-2c86927408b0
 I answered the question in the phone Chat. I only sent that one message and ran no tests.
 
@@ -284,11 +266,22 @@ Shingen looks better but is noisy at n=2, and Otoroshi is clearly worse. I logge
 
 The inbox is empty, and pc2's "skip far scene objects" build hasn't arrived yet. I'm still waiting on that and on Ally's baseline numbers. I didn't send you a message.
 
-## 2026-10-16 12:22 pm EST pc2 | CrossWorldPlaceableSkip measured (#8365)
-Done: branch pc2/placeable-skip 0cc4c83 pushed; bridge file #652 asi, #653 ON ini. pc2 Shingen cold Fight now, no prewarm, n=2/arm: click->control OFF 16.7/17.8 s, ON 13.0/11.1 s (-5 s); stage 5 OFF 15.5/16.5, ON 11.8/9.9.
-Unproven: click->visible + pop-in (base pc2/oldao-trim fade waits for all placeables -> visible ~48 s both arms); window always hits 20 s cap (never closes on 'landed').
-Next: rebase pc2/placeable-skip onto pc/fnow-visible (AreaWaitMs cap), re-run visible n=2 + screenshot for missing props. Logs: captures/rematch/xworldprobe-20261016-{081844,084321,085022,091634}.
+## 2026-10-16 12:37:52 session 68a18a33-a286-4ca5-9e7e-3b060adc9413
+Mostly yes. I sent the details in #8478.
 
-## 2026-10-16 10:08 am EST pc2 | placeable-skip on fnow-visible: no click->visible gain
-Done: branch pc2/pskip-fnowvis 064cae4 (asi #655, ini #656). Shingen cold, prewarm 0: visible OFF 32.9/36.7/27.8 s, ON 31.1/26.8 s; control 15.5 s always (AreaWaitCrossMs cap). Arena-cell placeables (~3000) are whitelisted so skip doesn't touch the gate.
-Unproven: pop-in (no post-fade screenshots for ON). Next: try limiting arena-cell placeables to ~150 m of the arena point / lower the hold cap.
+The skip works at the game's loader, in the choice of which scene objects get queued during a cross-world swap. It isn't tied to one boss, so it should apply to any boss whose arena is in another world. Only the list of arena cells to keep differs per boss, and that comes from the same data as the Fight now table. I haven't verified that on any boss other than Shingen. Same-world bosses already take about 3 s.
+
+Where it stands:
+- **Result so far:** pc2's skip took Shingen from 17.3 s to 12.1 s to control. Otoroshi hasn't been measured with it yet.
+- **In flight:** Ally is testing it, and pc2 is merging it with the fast-fade build.
+- **New numbers:** none since the last update.
+
+## 2026-10-16 13:00:03 session 85ce38c0-d5c6-4e6e-aab1-6a6322b0b29a
+The test script on this PC is still running, so there are no numbers yet. It has finished the first "off" run and the first "on" run, and is partway through the second "on" run. The script restores the previous Training build after each run, so nothing stays installed. The inbox is empty and neither pc2 nor Ally has reported an error. I haven't sent you a message.
+
+I'll report once the second "off" and "on" runs have finished and I have the Shingen and Otoroshi click-to-control times.
+
+## 2026-10-16 10:15 am EST pc2 | merged-visible measured (#8449)
+Done: branch pc2/merged-visible 3598c95 (fnow-visible + placeable-skip), bridge files asi #662, ON ini #663, OFF ini #664. pc2 Shingen cold Fight now, ForceCells=1, n=1-2/arm: click->visible OFF 27.8 s, ON 26.8/27.9 s (no gain); stage 5 OFF 11.1, ON 10.0/11.2 s. Arena screenshot intact (boss, props, HUD) at 40 s.
+Why: after stage 5 the 'hold until arena cells in' waits the full AreaWaitCrossMs 15 s cap: 3 cells stay blocking, ~3100 placeable loads in flight, even with skip ON.
+Next: find what blocks those 3 arena cells (placeable loads for arena cells themselves?) or lower AreaWaitCrossMs and check pop-in. Logs captures/rematch/xworldprobe-20261016-{095249,095826,100404}.
