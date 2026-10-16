@@ -341,8 +341,13 @@ static int g_db_done;  // BossTick: the HP-floor / finisher native kill of this 
 // while the boss is already at HP 1 AND in the finisher/down state (death sensor 1, sampled every pump frame BEFORE the hit: g_fin_live) skips the revive,
 // so the first finisher's own hit kills natively (death animation follows the finisher, drop per BossLoot) = the mission kill. Normal hits at HP 1 still revive.
 static volatile uint64_t g_fin_live;  // BossTick: actor at HP <= 1 and in the finisher state right now (CutsceneOnKill / BossLoot with DeathBlowRequired=1)
+static volatile uint64_t g_nf_act[4];  // KiBreakNoFinisher watched bosses (defined with the NfTick code)
 static uint8_t h_cond(uint64_t comp, uint32_t cond) {
     uint8_t r = o_cond(comp, cond);
+    if (cond == 0x27 && g_cfg_nofin) {  // #7467 live 04:05: a hit at HP 1 in the HP-0 window killed the boss natively here (cond 0x27 false once its break
+        uint64_t a = 0;                  // ended) -> a watched boss always takes the revive-to-HP-1 branch; NfTick clears the death-blow flag and decides
+        if (Rd64(comp, &a) && a && a != g_kill_act) for (int i = 0; i < 4; ++i) if (g_nf_act[i] == a) return 1;
+    }
     if (!r || cond != 0x27) return r;
     uint64_t a = 0; if (!Rd64(comp, &a) || !a) return r;
     int forcing = a == g_kill_act, finisher = g_cfg_deathblow && (g_cfg_cutscene || g_cfg_loot) && a == g_fin_live && a == g_db_act;
@@ -1774,6 +1779,16 @@ N3T_API void Nioh3Training_SetAutoRetry(int on, int persist) {
     g_cfg_autoretry = on != 0; Log("API AutoRetryOnDeath %d%s", g_cfg_autoretry, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, AutoRetrySaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
+// #7465 Boss Rematch menu row 'No finisher (Ki break)': KiBreakNoFinisher live + saved. The hooks are installed by NfTick on the game thread.
+static DWORD WINAPI NoFinSaveThread(LPVOID p) {
+    (void)p; char ini[MAX_PATH], v[8]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    snprintf(v, sizeof v, "%d", g_cfg_nofin); WritePrivateProfileStringA("Summon", "KiBreakNoFinisher", v, ini); WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+N3T_API int Nioh3Training_GetNoFinisher(void) { return g_cfg_nofin; }
+N3T_API void Nioh3Training_SetNoFinisher(int on, int persist) {
+    g_cfg_nofin = on != 0; Log("API KiBreakNoFinisher %d (Boss Rematch menu)%s", g_cfg_nofin, persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, NoFinSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+}
 N3T_API void Nioh3Training_GetDeathCfg(int* loot, int* blow, int* cut) { if (loot) *loot = g_cfg_loot; if (blow) *blow = g_cfg_deathblow; if (cut) *cut = g_cfg_cutscene; }
 N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist) {
     if (loot >= 0) g_cfg_loot = loot != 0; if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
@@ -2525,7 +2540,7 @@ static volatile uint64_t g_nf_act[NF_N], g_nf_ai[NF_N], g_nf_ctrl[NF_N];  // rea
 static volatile DWORD g_nf_hitT[NF_N]; static volatile LONG g_nf_hits[NF_N];
 static volatile LONG g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28, g_nf_cnt_cg; static volatile uint64_t g_nf_cg_tgt;  // + every CanGrapple call / its last target (diag)  // asm stub counters: grapple selection / grab box / bit-31 box / bit-28 box
 static struct { volatile uint32_t id; volatile int on; volatile float ratio; } g_nf_drain[NF_N];
-static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; } g_nf[NF_N];
+static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; } g_nf[NF_N];
 static int g_nf_hooked; static volatile LONG g_nf_lines;
 static void NfLog(const char* fmt, ...) { if (InterlockedIncrement(&g_nf_lines) > 800) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint8_t* NearPage(void* site) {
@@ -2614,7 +2629,9 @@ static void NfInstallHooks(void) {
             LONG64 o8 = *(volatile LONG64*)site, n8 = o8; uint8_t* nb = (uint8_t*)&n8; nb[0] = 0xE8; *(int32_t*)(nb + 1) = (int32_t)((intptr_t)s - (intptr_t)(site + 5)); nb[5] = 0x90;
             InterlockedCompareExchange64((volatile LONG64*)site, n8, o8); VirtualProtect(site, 8, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 8); ok |= 2; }
     }
-    for (int k = 0; k < 2; ++k) {   // 117AC17 (bit 31: hits only Ki-broken) / 117ABF7 (bit 28: skips Ki-broken): call 4893B8(rcx = victim ai, 0x23) -> 0 for a watched boss
+    // bit-28 box 117ABF7 (skips Ki-broken victims) is NOT hooked any more: reporting 'not broken' there would make those boxes hit a broken boss = a
+    // gameplay change outside the finisher. Only the bit-31 box (hits only Ki-broken victims = finisher-type boxes) is filtered.
+    for (int k = 0; k < 1; ++k) {   // 117AC17 (bit 31: hits only Ki-broken): call 4893B8(rcx = victim ai, 0x23) -> 0 for a watched boss
         uint8_t* site = (uint8_t*)(B + (k ? 0x117ABF7 : 0x117AC17)); uint8_t* s = NearPage(site); if (!s) continue;
         uint8_t* p = s; uint8_t* je[NF_N]; uint8_t* jz;
         *p++ = 0x48; *p++ = 0x85; *p++ = 0xC9; *p++ = 0x74; jz = p; *p++ = 0;  // test rcx,rcx; jz orig
@@ -2645,7 +2662,7 @@ static void NfInstallHooks(void) {
         if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfGrappleTarget); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
             if (NfPatchCall(site, B + 0x867258, s, "grapple target 2F7045")) ok |= 64; }
     }
-    Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s, lethal cond %s, Ki row drain %s, grapple target %s, hit probe %s", g_cfg_nofin, g_cfg_nofin_ms,
+    Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s (off by design), lethal cond %s, Ki row drain %s, grapple target %s, hit probe %s", g_cfg_nofin, g_cfg_nofin_ms,
         ok & 1 ? "on" : "OFF", ok & 2 ? "on" : "OFF", ok & 4 ? "on" : "OFF", ok & 8 ? "on" : "OFF", ok & 16 ? "on" : "OFF", ok & 32 ? "on" : "OFF", ok & 64 ? "on" : "OFF", ok & 128 ? "on" : "OFF");
 }
 static uint64_t NfFirstBoss(void) { for (int i = 0; i < NF_N; ++i) if (g_nf[i].a) return g_nf[i].a; return g_nsp ? (uint64_t)g_sp_actor[g_nsp - 1] : 0; }
@@ -2726,6 +2743,7 @@ static void NfTick(void) {
             lastCg = c; }
     }
     if (!g_cfg_nofin) { if (g_nf_gold || g_nf_act[0] || g_nf_act[1] || g_nf_act[2] || g_nf_act[3]) { for (int s = 0; s < NF_N; ++s) NfClear(s); g_nf_gold = 0; } return; }
+    if (!g_gold_hooked) { HookGoldKi(); HookGoldQuad(); g_gold_hooked = 1; }  // turned on at run time (Boss Rematch menu / 'nofin 1')
     if (!g_nf_hooked) NfInstallHooks();
     DWORD now = GetTickCount();
     uint64_t act[NF_N] = {0}; uint32_t ids[NF_N] = {0}; int n = 0;
@@ -2773,7 +2791,7 @@ static void NfTick(void) {
             // live 03:52: at HP 1 the hits' Ki damage takes the Ki below 0 but the native break never starts (lethal hits skip it), so the HP-0 window sets the
             // break itself: A4F098(ctrl) = the native break-window start (runtime bit 0x3A = state 0x23 + per-character timer ctrl+0x1014), plus, once per window,
             // the native kneel-down action (script Character::ForceKneelDown 238E1BC: ctrl+0x994 = 0x27, 668D74(actor), actor+0x91B = 1) = the stagger.
-            if (!s23) { __try { ((void (*)(uint64_t))(B + 0xA4F098))(ctrl);
+            if (!s23 && now - g_nf[s].tSet >= 250) { g_nf[s].tSet = now; __try { ((void (*)(uint64_t))(B + 0xA4F098))(ctrl);
                     if (g_nf_kneel && !g_nf[s].kneeled) { g_nf[s].kneeled = 1; *(volatile uint32_t*)(ctrl + 0x994) = 0x27; ((void (*)(uint64_t))(B + 0x668D74))(a); *(volatile uint8_t*)(a + 0x91B) = 1; }
                 } __except (EXCEPTION_EXECUTE_HANDLER) { }
                 g_nf[s].nSet++; if (g_nf[s].nSet <= 10) NfLog("NOFIN boss %p at HP 0: Ki break set (A4F098%s), break #%d", (void*)a, g_nf_kneel && g_nf[s].kneeled == 1 ? " + kneel-down" : "", g_nf[s].nSet); if (g_nf[s].kneeled == 1) g_nf[s].kneeled = 2; }
