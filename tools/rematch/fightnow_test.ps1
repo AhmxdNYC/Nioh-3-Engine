@@ -207,6 +207,9 @@ $all = foreach ($l in ($cat | Select-Object -Skip 1)) {
     [pscustomobject]@{ id = $c[$ix.id]; name = $c[$ix.name]; route = $c[$ix.route]; arena = ($c[$ix.arena_x] -ne '-' -or ($c[$ix.gate_id] -ne '-' -and $c[$ix.gate_kind] -ne 'box')); atfight = ($c[$ix.arena_src] -like 'mission start*');
                        conf = $c[$ix.arena_conf]; src = "$($c[$ix.arena_src]) gate=$($c[$ix.gate_id])/$($c[$ix.gate_kind])" }
 }
+# ally #8093: rows without a catalogue arena point but in the game folder's Nioh3Training_arenas.tsv count too (the add-on falls back to that table)
+$tAr = Join-Path $GameDir "Nioh3Training_arenas.tsv"; $tIds = @(if (Test-Path $tAr) { Get-Content $tAr | Where-Object { $_ -and -not $_.StartsWith("#") } | ForEach-Object { ($_ -split "`t")[13] } })
+foreach ($a in $all) { if (-not $a.arena -and -not $a.atfight -and $tIds -contains $a.id) { $a.arena = $true; $a.conf = "training"; $a.src = "Nioh3Training_arenas.tsv" } }
 $Rows = @($Rows | ForEach-Object { $_ -split "," } | Where-Object { $_ })
 $sel = @($all | Where-Object { $_.route -in @("R", "H", "D") -and ($_.arena -or ($IncludeAtFight -and $_.atfight)) -and ($Rows.Count -eq 0 -or $Rows -contains $_.id) })
 
