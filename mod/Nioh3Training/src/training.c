@@ -327,15 +327,23 @@ static volatile uint64_t g_killHideAct;  // #6711: actor killed inside the damag
 static void GaugeHideOnKill(uint64_t a, const char* why);
 static void BossKilledNow(uint64_t a, const char* why);
 static void KillFadeNow(uint64_t a);
+static int ActorDeadNow(uint64_t a, int* dead, uint64_t* cur, uint64_t* mx);
 static int g_db_done;  // BossTick: the HP-floor / finisher native kill of this boss-mode session was issued
+// #7234 'after the kill cutscene the boss should die like in the real mission'. Log 22:52: CutsceneOnKill=1 - the first finisher's lethal hit went through the
+// cond 0x27 revive (boss back to HP 1), the force kill at the finisher end did nothing (no 'DEATHBLOW skip' line: 786C84 left early or took the actor+0x894
+// revive), the boss stood at HP 1 for 13 s until a 2nd finisher, then the body waited BodyFadeDelayMs (25 s). Now, with CutsceneOnKill / BossLoot, a lethal hit
+// while the boss is already at HP 1 AND in the finisher/down state (death sensor 1, sampled every pump frame BEFORE the hit: g_fin_live) skips the revive,
+// so the first finisher's own hit kills natively (death animation follows the finisher, drop per BossLoot) = the mission kill. Normal hits at HP 1 still revive.
+static volatile uint64_t g_fin_live;  // BossTick: actor at HP <= 1 and in the finisher state right now (CutsceneOnKill / BossLoot with DeathBlowRequired=1)
 static uint8_t h_cond(uint64_t comp, uint32_t cond) {
     uint8_t r = o_cond(comp, cond);
     if (!r || cond != 0x27) return r;
     uint64_t a = 0; if (!Rd64(comp, &a) || !a) return r;
-    int forcing = a == g_kill_act;
-    if (!forcing && (g_cfg_deathblow || (a != g_db_act && !InSp(a)))) return r;
+    int forcing = a == g_kill_act, finisher = g_cfg_deathblow && (g_cfg_cutscene || g_cfg_loot) && a == g_fin_live && a == g_db_act;
+    if (!forcing && !finisher && (g_cfg_deathblow || (a != g_db_act && !InSp(a)))) return r;
     g_killHideAct = a;  // #6711: not from inside the damage function, the HUD is touched on the pump tick
-    if (InterlockedIncrement(&g_db_logs) <= 20) Log("DEATHBLOW skip: actor %p lethal hit, death-blow revive (cond 0x27) skipped -> native death (%s, drop %s)", (void*)a, forcing ? "force kill" : "DeathBlowRequired=0", forcing ? "per kill call" : g_cfg_loot ? "game" : "off");
+    if (finisher) g_db_done = 1;  // BossTick: no extra force kill at the finisher end
+    if (InterlockedIncrement(&g_db_logs) <= 20) Log("DEATHBLOW skip: actor %p lethal hit, death-blow revive (cond 0x27) skipped -> native death (%s, drop %s)", (void*)a, forcing ? "force kill" : finisher ? "first finisher, CutsceneOnKill" : "DeathBlowRequired=0", forcing ? "per kill call" : g_cfg_loot ? "game" : "off");
     return (forcing || g_cfg_loot) ? 0 : 2;
 }
 static int HookDeathBlowCond(void) {
@@ -360,20 +368,29 @@ static int HookDeathBlowCond(void) {
     Log("DEATHBLOW hook 787004 ok: cond 0x27 revive call -> stub %p (previous target rva %llX)", stub, (unsigned long long)(prev - B));
     return 1;
 }
-static int ForceKillActor(uint64_t live, int drop, const char* why) {
+// #7234: 786C84 leaves at once while [comp+8]+0xEB2 != 0 (786CEC) and revives to HP 1 without cond 0x27 while actor+0x894 != 0 (786F7E): the post-finisher
+// force kill of the 22:52 log did nothing. unblock = 1 (BossTick retries only) clears those two bytes for the kill call and puts them back if the boss lived.
+static int ForceKillActorEx(uint64_t live, int drop, const char* why, int unblock) {
     if (!live) return 0;
-    uint32_t flag = 0; uint64_t comp = 0, h = 0; int dead = 0;
-    __try { flag = *(uint32_t*)(live + 0xAB84); comp = *(uint64_t*)(live + 0x3B0); if (Rd64(live + 0x3A0, &h) && h) dead = *(int*)(h + 0x48) == 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    uint32_t flag = 0; uint64_t comp = 0, h = 0, c8 = 0; int dead = 0; uint8_t eb2 = 0xFF, f894 = 0xFF;
+    __try { flag = *(uint32_t*)(live + 0xAB84); comp = *(uint64_t*)(live + 0x3B0); if (Rd64(live + 0x3A0, &h) && h) dead = *(int*)(h + 0x48) == 1;
+            if (comp && Rd64(comp + 8, &c8) && c8) eb2 = *(uint8_t*)(c8 + 0xEB2); f894 = *(uint8_t*)(live + 0x894); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     if (dead) { Log("KILL %s %p: already dead (hp+48 == 1), nothing to do", why, (void*)live); return 0; }
     if (flag != 0xFFFFFFFFu || !comp) { Log("KILL %s %p: guard refused (+ab84=%08X comp=%p; the script natives need +ab84 == -1)", why, (void*)live, flag, (void*)comp); return 0; }
+    int cleared = 0;
+    if (unblock) { __try { if (c8 && eb2 && eb2 != 0xFF) { *(uint8_t*)(c8 + 0xEB2) = 0; cleared |= 1; } if (f894 && f894 != 0xFF) { *(uint8_t*)(live + 0x894) = 0; cleared |= 2; } } __except (EXCEPTION_EXECUTE_HANDLER) { } }
     g_kill_act = live;  // h_cond: a force kill really kills (no death-blow revive to HP 1)
     __try { ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1); }
     __except (EXCEPTION_EXECUTE_HANDLER) { g_kill_act = 0; Log("KILL %s: exception %08lX", why, GetExceptionCode()); return 0; }
     g_kill_act = 0;
-    Log("KILL %s %p: native EnemyForceKill%s 786C84 called", why, (void*)live, drop ? "WithItemDrop" : "");
+    { uint64_t c = 1, m = 0; int dd = 0; int ok = ActorDeadNow(live, &dd, &c, &m);
+      if (!ok && cleared) { __try { if (cleared & 1) *(uint8_t*)(c8 + 0xEB2) = eb2; if (cleared & 2) *(uint8_t*)(live + 0x894) = f894; } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+      Log("KILL %s %p: native EnemyForceKill%s 786C84 called -> %s (hp+48 %d, HP %llu / %llu; gates before: chr+EB2 %u, actor+894 %u%s)", why, (void*)live, drop ? "WithItemDrop" : "", ok ? "dead" : "still alive",
+          dd, c, m, eb2, f894, cleared ? (ok ? ", cleared for the kill" : ", cleared for the kill and restored") : ""); }
     BossKilledNow(live, why);  // #6711 / #6774: boss mode end + bar off the moment the kill is applied (pump thread, after 786C84 returned)
     return 1;
 }
+static int ForceKillActor(uint64_t live, int drop, const char* why) { return ForceKillActorEx(live, drop, why, 0); }
 
 // ---- trace hooks
 typedef uint32_t (*DynFn)(uint32_t, const float*, float, uint32_t, uint32_t, uint32_t);
@@ -782,8 +799,16 @@ static int ActorHp(uint64_t a, uint64_t* cur, uint64_t* max) {  // Character::Ge
     __try { if (!Rd64(a + 0x3A0, &h) || !h) return 0; return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 static void BossTick(void) {
-    if (!g_bm.active) { g_db_act = 0; return; }
+    if (!g_bm.active) { g_db_act = 0; g_fin_live = 0; return; }
     DWORD now = GetTickCount();
+    {   // #7234: every pump frame (before any hit of this frame): is the boss at HP <= 1 and in the finisher/down state (death sensor 4892A8 = 1)? h_cond lets that hit kill.
+        uint64_t fa = 0;
+        if (g_cfg_deathblow && (g_cfg_cutscene || g_cfg_loot) && !g_db_done && g_db_act) {
+            uint64_t c = 9, m = 0; int dd = 0;
+            if (ActorHp(g_db_act, &c, &m) && m && c <= 1 && ActorDeadNow(g_db_act, &dd, &c, &m) == 0) { __try { if (((uint8_t (*)(uint64_t))(B + 0x4892A8))(g_db_act) & 1) fa = g_db_act; } __except (EXCEPTION_EXECUTE_HANDLER) { fa = 0; } }
+        }
+        static int finLogs; if (fa != g_fin_live) { if (fa && ++finLogs <= 20) Log("DEATHBLOW finisher state: boss %p at HP 1 in the finisher/down state -> its next lethal hit kills (CutsceneOnKill)", (void*)fa); g_fin_live = fa; }
+    }
     // #6774: DeathBlowRequired=0 - the HP-floor kill is checked every pump frame (not only on the 250 ms tick), so the boss dies on the frame its HP hits
     // the floor like a native kill. g_db_act is only a hint (validated by ActorByHandle on the full tick below).
     int floorNow = 0; if (!g_cfg_deathblow && !g_db_done && g_db_act && g_bm.v0 >= 0) { uint64_t c = 9, m = 0; floorNow = ActorHp(g_db_act, &c, &m) && m && c <= 1; }
@@ -825,11 +850,21 @@ static void BossTick(void) {
         }
         // #6643: the raw HP 0 write (4df272c..fa17802) is gone (the game revived the boss to HP 1 anyway, and it is a suspect in a PC hard freeze).
         // The death-blow revive is now skipped inside the damage function (h_cond); this only reports if the boss is still at HP 1 1.5 s after the kill.
-        static DWORD killAt; static int reported;
-        if (sess != killSess) { killSess = sess; killAt = 0; reported = 0; }
+        static DWORD killAt; static int reported, retries;
+        if (sess != killSess) { killSess = sess; killAt = 0; reported = 0; retries = 0; }
         if (g_db_done && !killAt) killAt = now;
         if (g_db_done && !reported && killAt && now - killAt >= 1500 && act && ActorHp(act, &fc, &fm) && fm && fc == 1) {
             reported = 1; Log("KILL boss still at HP 1 %d ms after the native kill (death-blow hook %s)", (int)(now - killAt), o_cond ? "on" : "OFF");
+        }
+        // #7234: the kill must take like a mission kill. Dead (hp+48 == 1 or HP 0) after our kill / the finisher-kill skip -> boss mode end, bar off, body fade NOW
+        // (not after the 4.5 s 'HP 0 stable' fallback + BodyFadeDelayMs). Still at HP 1 -> force kill again every 500 ms (6 tries; from the 2nd the EB2/894 gates are cleared).
+        if (g_db_done && act && g_bm.active) {
+            uint64_t kc = 1, km = 0; int kd = 0;
+            if (ActorDeadNow(act, &kd, &kc, &km)) { BossKilledNow(act, "kill applied"); if (!g_bm.active) { g_db_act = 0; g_fin_live = 0; return; } }
+            else if (killAt && retries < 6 && now - killAt >= 500u * (DWORD)(retries + 1) && ActorHp(act, &kc, &km) && km && kc <= 1) {
+                retries++; Log("KILL retry %d: boss %u still at HP %llu / %llu %lu ms after the kill", retries, g_bm.id, kc, km, now - killAt);
+                ForceKillActorEx(act, g_cfg_loot, "kill retry", retries >= 2); if (!g_bm.active) { g_db_act = 0; g_fin_live = 0; return; }
+            }
         }
         prevV = v;
     }
@@ -842,7 +877,9 @@ static void BossTick(void) {
         if (hp0Since && now - hp0Since >= 4500) {
             hp0Since = 0; g_dead_at = now; g_dead_id = g_bm.id;
             Log("BBM +%lu ms boss %u dead (HP 0 stable 4.5 s, sensor %d)", now - g_bm.t0, g_bm.id, v);
-            BgmEnd(); BossModeEnd("boss dead (HP 0)"); FakeGaugeHide("boss mode end"); g_bm.active = 0; return;
+            BgmEnd(); BossModeEnd("boss dead (HP 0)"); FakeGaugeHide("boss mode end"); g_bm.active = 0;
+            KillFadeNow(ActorByHandle(g_dead_id));  // #7234: fade the body now, as after a mission kill (not BodyFadeDelayMs later)
+            return;
         }
     }
     if (g_bm.since && now - g_bm.since >= 1500) {
@@ -1012,8 +1049,10 @@ static int g_cfg_kill_fade_frames = 120;
 static DWORD FadeDeleteMs(void) { DWORD f = (DWORD)(g_cfg_kill_fade_frames > 30 ? g_cfg_kill_fade_frames : 30) * 1000 / 60 + 1000; return f > 6000 ? f : 6000; }
 static void KillFadeNow(uint64_t a) {
     // #6746: DeathBlowRequired=0 -> start the body fade at the kill too (not BodyFadeDelayMs after the 4.5 s "HP 0 stable" win detection). Same fade + 6 s delete as below.
-    if (!g_cfg_deathblow && g_cfg_body_fade && g_tr.active && !g_tr.tFade && !g_tr.bodyGone && g_nsp > 0 && g_sp_actor[g_nsp - 1] == a) {
-        Log("TRAIN round %d: fading out the dead boss body at once (DeathBlowRequired=0)", g_tr.round);
+    // #7234: every confirmed kill (CutsceneOnKill / finisher / BossLoot / HP-0 fallback too), so the boss always dies + fades like in the mission; the
+    // KillFadeFrames (2 s) fade lets the death animation be seen. BodyFadeDelayMs is only the fallback for kills we never saw.
+    if (a && g_cfg_body_fade && g_tr.active && !g_tr.tFade && !g_tr.bodyGone && g_nsp > 0 && g_sp_actor[g_nsp - 1] == a) {
+        Log("TRAIN round %d: fading out the dead boss body at once (kill confirmed, DeathBlowRequired %d CutsceneOnKill %d)", g_tr.round, g_cfg_deathblow, g_cfg_cutscene);
         if (FadeOutActor(g_nsp - 1, (float)(g_cfg_kill_fade_frames > 0 ? g_cfg_kill_fade_frames : 30))) g_tr.tFade = GetTickCount();
     }
 }
@@ -1929,35 +1968,31 @@ static void HookGoldKi(void) {
 // UI vertex buffer: hook UiQuadBuild 1CD690 at 1CD7CD (after every element wrote its vertices, before the alpha pass / unmap). GoldWalk replays the alpha
 // pass's own walk (groups of [obj+100h] vtbl+18h/+8, nodes from [obj+28h]; node +10h element, +24h vertex count; element type vtbl+8 and widget 1CEA08
 // vtbl+90h decide quad (0xB0 B = 4 x 0x2C vertices, RGBA at +24h) or skip count*0x2C) so it runs whether or not the alpha pass is on.
-// Ki quads are found from the start of the fight by a probe: when a boss gauge appears the pump sets the boss's Ki to 40 % for up to 1.5 s (then refills it);
-// the elements whose quad width drops below 75 % while that happens are the Ki bar -> repainted GoldKiRGB every frame. GoldKiColors (exact RGBA) also tints;
-// GoldKiDump = 1 logs the walked quads once.
+// #7234: NO gameplay change. The round-3 probe (b61d665) held the boss Ki at 40 % for 1.5 s to find the bar: the user saw the boss stamina drop, and the probe
+// still picked the wrong quad (a transparent 0.9 px element, log 22:50:58) because its 256-slot table was full before the Ki fill was drawn. Now a PASSIVE
+// learner (e22edb6 idea): the boss Ki only changes by itself (attacks, guard, hits, regen); every visible quad drawn while the boss Ki row is up goes into
+// a 4096-slot hash table; a quad whose width / its max width follows the boss Ki ratio (|r - Ki| < 0.06, Ki < 0.95, Ki not close to the HP ratio) on
+// 3 separate Ki changes is the Ki fill -> repainted GoldKiRGB every frame. The boss Ki value is only READ ([actor+0x3A0]+0xAC / +0xB0, notes/boss-ki-bar-re).
+// GoldKiColors (exact RGBA) also tints; GoldKiDump = 1 logs 120 walked quads once; a 'GOLDKI diag' line every 5 s while learning.
 static volatile float g_ki_ratio = -1.0f, g_hp_ratio = -1.0f;
 static int g_cfg_goldki_dump = 0, g_goldki_dumped, g_cfg_goldki_learn = 1; static uint32_t g_goldki_cols[8]; static int g_goldki_ncols;
 static uint8_t g_gold_r = 255, g_gold_g = 200, g_gold_b = 50;
-static struct { uint64_t e; float baseW, minW; int seen; } g_gk[256]; static int g_ngk;
+#define GK_N 4096
+static struct { uint64_t e; float maxW, lastKi; int score; } g_gk[GK_N]; static int g_ngk;
 static uint64_t g_gold_el[8]; static volatile LONG g_ngold;
-static struct { volatile LONG phase; uint64_t actor; DWORD t0; int walks; } g_kp;  // phase 0 idle, 1 baseline, 2 Ki lowered, 3 done
-static void GoldKiRatios(void) {  // pump: ratios + the probe state machine for the summoned boss (the gauge actor)
+static volatile int g_gk_best; static volatile uint64_t g_gk_bestEl; static volatile LONG g_gk_walks;
+static void GoldKiRatios(void) {  // pump: READ-ONLY Ki / HP ratios of the summoned boss (the gauge actor)
     uint64_t a = (g_cfg_goldki && g_nsp > 0) ? (uint64_t)g_sp_actor[g_nsp - 1] : 0;
-    if (!a) { g_ki_ratio = -1.0f; if (g_kp.phase == 2 && g_kp.actor) g_kp.phase = 0; return; }
-    uint64_t st = 0; __try { st = *(uint64_t*)(a + 0x3A0); } __except (EXCEPTION_EXECUTE_HANDLER) { st = 0; }
-    if (!st) return;
-    float cur = *(float*)(st + 0xAC), mx = *(float*)(st + 0xB0); uint64_t hm = *(uint64_t*)(st + 0x50), hc = *(uint64_t*)(st + 0x58);
-    g_ki_ratio = mx > 0 ? (cur < 0 ? 0 : cur / mx) : -1.0f; g_hp_ratio = hm ? (float)((double)hc / (double)hm) : -1.0f;
-    DWORD now = GetTickCount();
-    if (!g_cfg_goldki_learn || g_ngold) { g_kp.phase = 3; return; }
-    if (g_kp.actor != a && g_kp.phase != 2) { g_kp.actor = a; g_kp.phase = 0; }
-    if (g_kp.phase == 0 && now - g_ki_seen < 100 && mx > 0) { g_kp.phase = 4; g_kp.t0 = now; }  // wait out the gauge's intro fill animation
-    else if (g_kp.phase == 4 && now - g_kp.t0 > 2500) { g_ngk = 0; g_kp.walks = 0; g_kp.t0 = now; g_kp.phase = 1; Log("GOLDKI probe: boss gauge up, measuring the bar quads"); }
-    else if (g_kp.phase == 1 && now - g_kp.t0 > 400 && g_kp.walks >= 5) { g_kp.phase = 2; g_kp.t0 = now; Log("GOLDKI probe: %d quads measured, boss Ki -> 40 %% for up to 1.5 s", g_ngk); }
-    else if (g_kp.phase == 1 && now - g_kp.t0 > 5000) { g_kp.phase = 3; Log("GOLDKI probe: no quad walk seen in 5 s (UI hook not running?): probe off"); }
-    if (g_kp.phase == 2) {
-        if (mx > 0) *(float*)(st + 0xAC) = mx * 0.4f;
-        if (g_ngold || now - g_kp.t0 > 1500) {
-            ((void (*)(uint64_t))(B + 0x5FB5C8))(st + 0x98);  // KiRefill
-            g_kp.phase = 3; Log("GOLDKI probe: done, %ld Ki bar element(s) found, boss Ki refilled", g_ngold);
-        }
+    if (!a) { g_ki_ratio = -1.0f; return; }
+    __try {
+        uint64_t st = *(uint64_t*)(a + 0x3A0); if (!st) { g_ki_ratio = -1.0f; return; }
+        float cur = *(float*)(st + 0xAC), mx = *(float*)(st + 0xB0); uint64_t hm = *(uint64_t*)(st + 0x50), hc = *(uint64_t*)(st + 0x58);
+        float r = mx > 0 ? (cur < 0 ? 0 : cur / mx) : -1.0f; if (r > 1.0f) r = 1.0f;
+        g_ki_ratio = r; g_hp_ratio = hm ? (float)((double)hc / (double)hm) : -1.0f;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { g_ki_ratio = -1.0f; }
+    static DWORD tDiag; DWORD now = GetTickCount();
+    if (g_cfg_goldki_learn && !g_ngold && now - g_ki_seen < 250 && now - tDiag >= 5000) {
+        tDiag = now; Log("GOLDKI diag (learning, boss Ki read only): Ki %.2f HP %.2f, quads tracked %d, walks %ld, best score %d (%p), gold elements %ld", g_ki_ratio, g_hp_ratio, g_ngk, g_gk_walks, g_gk_best, (void*)g_gk_bestEl, g_ngold);
     }
 }
 static void GoldPaint(uint8_t* q) {
@@ -1965,26 +2000,39 @@ static void GoldPaint(uint8_t* q) {
 }
 static void GoldQuad(uint8_t* q, uint64_t el) {
     for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) { GoldPaint(q); return; }
-    int ph = g_kp.phase, dump = g_cfg_goldki_dump && g_goldki_dumped < 120;
-    if (ph != 1 && ph != 2 && !dump && !g_goldki_ncols) return;
     uint32_t rgba = *(uint32_t*)(q + 0x24);
     for (int i = 0; i < g_goldki_ncols; ++i) if ((g_goldki_cols[i] & 0x00FFFFFF) == (rgba & 0x00FFFFFF)) { GoldPaint(q); return; }
-    if (ph != 1 && ph != 2 && !dump) return;
-    float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
-    for (int v = 0; v < 4; ++v) { float x = *(float*)(q + v * 0x2C), y = *(float*)(q + v * 0x2C + 4); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    if (dump) { g_goldki_dumped++; Log("GOLDKI dump: elem %p rgba %08X box %.1f %.1f - %.1f %.1f (Ki %.2f HP %.2f probe %d)", (void*)el, rgba, x0, y0, x1, y1, g_ki_ratio, g_hp_ratio, ph); }
-    float w = x1 - x0; if (!(w > 0.5f) || w > 1e5f) return;
-    int k = -1; for (int i = 0; i < g_ngk; ++i) if (g_gk[i].e == el) { k = i; break; }
-    if (ph == 1) { if (k < 0 && g_ngk < 256) { k = g_ngk++; g_gk[k].e = el; g_gk[k].baseW = w; g_gk[k].minW = w; g_gk[k].seen = 0; } if (k >= 0) { if (w > g_gk[k].baseW) g_gk[k].baseW = w; g_gk[k].minW = w < g_gk[k].minW ? w : g_gk[k].minW; g_gk[k].seen++; } return; }
-    if (ph == 2 && k >= 0 && g_gk[k].baseW >= 8.0f && g_gk[k].minW > g_gk[k].baseW * 0.95f && w < g_gk[k].baseW * 0.75f && g_ngold < 8) {
-        for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) return;
-        g_gold_el[g_ngold] = el; InterlockedIncrement(&g_ngold);
-        Log("GOLDKI probe: element %p shrank %.1f -> %.1f with the boss Ki at 40 %% (rgba %08X, box y %.1f-%.1f): Ki bar, tinted gold", (void*)el, g_gk[k].baseW, w, rgba, y0, y1);
+    int dump = g_cfg_goldki_dump && g_goldki_dumped < 120;
+    float ki = g_ki_ratio, hp = g_hp_ratio;
+    if (!dump && (!g_cfg_goldki_learn || g_ngold >= 2 || ki < 0)) return;
+    float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f; int alpha = 0;
+    for (int v = 0; v < 4; ++v) { float x = *(float*)(q + v * 0x2C), y = *(float*)(q + v * 0x2C + 4); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (q[v * 0x2C + 0x27]) alpha = 1; }
+    if (dump) { g_goldki_dumped++; Log("GOLDKI dump: elem %p rgba %08X box %.1f %.1f - %.1f %.1f (Ki %.2f HP %.2f)", (void*)el, rgba, x0, y0, x1, y1, ki, hp); }
+    float w = x1 - x0;
+    if (!g_cfg_goldki_learn || g_ngold >= 2 || ki < 0 || !alpha || !(w >= 0.0f) || w > 1e5f || y1 - y0 < 2.0f) return;  // invisible / degenerate quads (the b61d665 mis-pick) never qualify
+    int k = -1; uint32_t hsh = (uint32_t)((el >> 4) * 0x9E3779B1u) & (GK_N - 1);
+    for (int n = 0; n < 32; ++n, hsh = (hsh + 1) & (GK_N - 1)) {
+        if (g_gk[hsh].e == el) { k = (int)hsh; break; }
+        if (!g_gk[hsh].e) { if (g_ngk >= GK_N * 3 / 4) return; k = (int)hsh; g_ngk++; g_gk[k].e = el; g_gk[k].maxW = w; g_gk[k].lastKi = -1; g_gk[k].score = 0; break; }
     }
+    if (k < 0) return;
+    if (w > g_gk[k].maxW) g_gk[k].maxW = w;
+    if (g_gk[k].maxW < 8.0f || fabsf(ki - g_gk[k].lastKi) < 0.04f) return;  // judge once per Ki change of >= 4 %
+    g_gk[k].lastKi = ki;
+    if (ki > 0.95f || (hp >= 0 && fabsf(ki - hp) < 0.1f)) return;  // full Ki = every full-width quad matches; Ki near HP = the HP bar would match
+    float r = w / g_gk[k].maxW;
+    if (fabsf(r - ki) < 0.06f) {
+        int sc = ++g_gk[k].score; if (sc > g_gk_best) { g_gk_best = sc; g_gk_bestEl = el; }
+        if (sc >= 3 && g_ngold < 8) {
+            for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) return;
+            g_gold_el[g_ngold] = el; InterlockedIncrement(&g_ngold);
+            Log("GOLDKI: element %p follows the boss Ki ratio (width %.1f of %.1f, Ki %.2f, HP %.2f, rgba %08X, box y %.1f-%.1f): Ki bar, tinted gold (boss Ki untouched)", (void*)el, w, g_gk[k].maxW, ki, hp, rgba, y0, y1);
+        }
+    } else if (g_gk[k].score > 0) g_gk[k].score--;
 }
 static void __cdecl GoldWalk(uint8_t* obj) {
     if (!g_cfg_goldki || GetTickCount() - g_ki_seen > 250) return;
-    if (!g_ngold && !g_goldki_ncols && g_kp.phase != 1 && g_kp.phase != 2 && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
+    if (!g_ngold && !g_goldki_ncols && !(g_cfg_goldki_learn && g_ki_ratio >= 0) && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
     __try {
         uint8_t* q = *(uint8_t**)(obj + 0x358); if (!q) return;
         uint64_t node = *(uint64_t*)(obj + 0x28), sent = (uint64_t)obj + 0x60, grpObj = (uint64_t)obj + 0x100;
@@ -2003,7 +2051,7 @@ static void __cdecl GoldWalk(uint8_t* obj) {
                 GoldQuad(q, el); q += 0xB0; node = *(uint64_t*)(node + 8); --cnt;
             }
         }
-        if (g_kp.phase == 1) g_kp.walks++;
+        InterlockedIncrement(&g_gk_walks);
     } __except (EXCEPTION_EXECUTE_HANDLER) { static int once; if (!once++) Log("GOLDKI: quad walk faulted %08lX", GetExceptionCode()); }
 }
 static void HookGoldQuad(void) {
@@ -2028,7 +2076,7 @@ static void HookGoldQuad(void) {
     InterlockedCompareExchange64((volatile LONG64*)site, n8, o8);
     VirtualProtect(site, 16, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 16);
     uint64_t us = 0; uint8_t f368 = 0xFF; if (Rd64(B + 0x4BD0AC0, &us) && us) f368 = *(uint8_t*)(us + 0x368);
-    Log("GOLDKI: vertex tint hook at UiQuadBuild 1CD7CD on (gold %u %u %u, probe %d, colours %d, dump %d; alpha pass flag %u)", g_gold_r, g_gold_g, g_gold_b, g_cfg_goldki_learn, g_goldki_ncols, g_cfg_goldki_dump, f368);
+    Log("GOLDKI: vertex tint hook at UiQuadBuild 1CD7CD on (gold %u %u %u, passive learn %d (boss Ki read only), colours %d, dump %d; alpha pass flag %u)", g_gold_r, g_gold_g, g_gold_b, g_cfg_goldki_learn, g_goldki_ncols, g_cfg_goldki_dump, f368);
 }
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
