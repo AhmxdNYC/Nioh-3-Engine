@@ -949,7 +949,7 @@ static struct { int active, spawned, released, cross, xHeld; uint32_t chr; float
 // (GAMESTATE[2]) was up: ~11 s live fight on a black scene (Shingen, Ally). [Fade] AreaWaitCrossMs (default 15000, 0 = off): for CROSS-world arenas only, hold the
 // player at the arena and the boss unspawned until no cell is blocking and GAMESTATE[2] is 0, at most this long after 'ready'; the fade-in then waits for the
 // same condition within the same window. Same-world swaps are unchanged ([Fade] AreaWaitMs).
-static int g_cfg_fade_areawait_x = 15000, g_xw_busy;
+static int g_cfg_fade_areawait_x = 15000, g_xw_busy, g_cfg_coverrel = -1;  // [ArenaSwap] CoverReleaseMs (pc2 #8619, default -1 = off): cross-world arena only, N ms after 'ready' clear GAMESTATE[2] (the game's load/control cover) by hand
 static int AreaObjPending(int* blocking, int* pending); static const uint8_t* GameState(void); static void AreaObjDetail(const char* why);
 // pc 2026-10-16 (fnowvis3): on pc the arena 'ready' waited 9.3 s for sequencer state 5 (1912 open-world placeable loads); with
 // CrossWorldAreaObjSkipMs > 0 the game lifts its load cover while placeables still stream, so the hold/fade only wait for GAMESTATE[2] = 0.
@@ -986,7 +986,9 @@ static void ArenaTick(void) {
         if (st == 5 && res && dt >= 300) {
             if (!g_ar.tReady) { g_ar.tReady = now; Log("ARENA +%lu ms ready: stage state 5 and boss resources loaded", dt); StageLog("ARENA stage"); }
             if (!g_ar.spawned && g_ar.cross && g_cfg_fade_areawait_x > 0) {  // cross-world: boss + control wait for the arena cells and the game's load cover
-                int cb, cp; const uint8_t* gs = GameState(); int clear = XArenaClear(&cb, &cp);
+                int cb, cp; const uint8_t* gs = GameState();
+                if (g_cfg_coverrel >= 0 && gs && gs[2] && now - g_ar.tReady >= (DWORD)g_cfg_coverrel) { ((volatile uint8_t*)gs)[2] = 0; static int once; if (once++ < 3) Log("COVER +%lu ms: GAMESTATE[2] cleared by hand %lu ms after ready (CoverReleaseMs %d)", dt, now - g_ar.tReady, g_cfg_coverrel); }
+                int clear = XArenaClear(&cb, &cp);
                 if (!clear && now - g_ar.tReady < (DWORD)g_cfg_fade_areawait_x) {
                     { static DWORD tDet; if (!g_ar.xHeld || now - tDet >= 1000) { tDet = now; AreaObjDetail("ARENA hold"); } }
                     if (!g_ar.xHeld) { g_ar.xHeld = 1; Log("ARENA +%lu ms cross-world: holding boss spawn + control until the arena cells are in (%d cells blocking, %d placeable loads, GAMESTATE[2] %u; AreaWaitCrossMs %d)", dt, cb, cp, gs ? gs[2] : 0xFF, g_cfg_fade_areawait_x); }
@@ -3269,7 +3271,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
         g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_areawait = GetPrivateProfileIntA("Fade", "AreaWaitMs", 500, ini); g_cfg_fade_areawait_x = GetPrivateProfileIntA("Fade", "AreaWaitCrossMs", 15000, ini);
         g_cfg_fade_pwait = GetPrivateProfileIntA("Fade", "PlaceableWaitMs", -1, ini); Log("fade (pc2 #6801): PlaceableWaitMs %d", g_cfg_fade_pwait);
-        Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d, AreaWaitCrossMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait, g_cfg_fade_areawait_x);
+        g_cfg_coverrel = GetPrivateProfileIntA("ArenaSwap", "CoverReleaseMs", -1, ini); Log("cover release (pc2 #8619): CoverReleaseMs %d", g_cfg_coverrel); Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d, AreaWaitCrossMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait, g_cfg_fade_areawait_x);
         if (g_cfg_fade) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
