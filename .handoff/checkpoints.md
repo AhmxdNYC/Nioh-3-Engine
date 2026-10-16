@@ -287,12 +287,7 @@ Ally found that the long black screen isn't our wait. Lowering the wait cap give
 
 I acknowledged #8618 and added a line to `next.md`. I haven't run anything new on this PC.
 
-## 2026-10-16 11:20 am EST pc2 | placeable distance whitelist (#8554)
-Done: placeable position = placeable+0x50 (x,y,z, cm, same space as player pos). Branch pc2/merged-visible 63c2b92: CrossWorldPlaceableNear (radius cm around arena+boss point; needs CrossWorldPlaceableSkip=1), window held until arena hold ends; PlaceableDump diag. Bridge asi #669, ini #670. pc independently pushed NearArenaOnly (origin 92c4ada) - same idea.
-Proven: R=15000 n=1 -> still ~2300 loads pending, 15 s hold TIMEOUT, visible 27.5 s (no gain). Unproven: R=5000 (my run was contaminated by another agent's asi in the game folder; rerun never finished - game in use by another job). Also ally #8606: #662 ON vs OFF no gain (n=2).
-Next: valid R=5000 / 3000 run; if loads still pending at hold start, loads queued before the window (cells admitted at state 4) are the cause - cancel/dequeue instead of not queueing.
-
-## 2026-10-16 11:36 am EST pc2 | CoverReleaseMs (#8619)
-Done: branch pc2/merged-visible 003a7b5, asi #676, ini #677. [ArenaSwap] CoverReleaseMs=N (default -1 off) clears GAMESTATE[2] by hand N ms after cross-world arena ready. pc2 Shingen n=1 (ms=0): fade-in + control 13.5 s vs ~27.5 s baseline; gs[2] stayed 0, seq state continued to 6 at +51 s; arena screenshot fine (captures/rematch/xworldprobe-20261016-112659).
-Unproven: full fight after release, n=2, other bosses, ally/pc measure, sequencer end-state side effects (state 0xF StopFlagSet).
-Next: wait for pc/ally numbers; then n=2 + a short fight test.
+## 2026-10-16 12:10 pm EST pc2 | G9 / cover (#8632)
+Done: G9 = LoadIsLoadEnd gate bit 0x100 = loader [475A420]+0x248/+0x249 busy (placeable/area loads queued); skip already exists (CrossWorldLoaderGateSkip=1). Run captures/rematch/xworldprobe-20261016-114252 (Shingen, G9 skip, PlaceableSkip 0, cover off): state 5 ends ~+24 s but state 6 then holds 20 s (actor-ready wait behind queued placeables) -> state 8 at +48 s = same as baseline. Same as #6801 finding.
+Unproven: G9+CoverReleaseMs arm never ran (another slot used the game concurrently; runs 114900/115434/120211 are not mine).
+Next: CoverReleaseMs=0 (13.5 s) remains the only lever that moves the cover; needs a fight test (side effects). Real fix = placeable queue drain/drop before state 6.
