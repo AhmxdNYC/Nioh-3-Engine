@@ -1365,6 +1365,107 @@ static int LoaderGatePatch(int on) {
     }
     return ok;
 }
+// pc2 placeable-skip: [ArenaSwap] CrossWorldPlaceableSkip = 1 (default 0 = no patch at all, byte-identical): while a cross-world switch runs, placeables
+// of the OLD world, and of the NEW world outside the row's arena cells (tsv col 16 / kCellsB1), are not queued on the loader.
+// Static facts (Nioh3.exe .text from the fl-bin memory dump, capstone): PlaceableCollisionUpdate D8E00(o = cell object list, ctx) walks the placeables
+// of o (+0x180, 16-byte entries); placeable state +0x10D: 0 = not loaded, 3 = load in flight, 5 = loaded. D90B6 movzx eax,[r13+10D]; D90BE test al,al;
+// D90C0 je D91FA (0F 84 rel32) is the ONLY entry into the state-0 load block D91FA..D9EF2 (no other jmp/jcc in .text targets that range).
+// Both queue sites are inside it: D97E0/D97E8 (shared resource record via D8D90: alloc node, push on loader [475A420]+0x1D8, +0x1E0++, +0x24A = 1,
+// record +0x10D = 3, [o]+0x1EC++) and D9EBF/D9EC7 (own resource: 5CE980 push on +0x1D8, +0x24A = 1, placeable +0x10D = 3, o+0x1EC++).
+// o = [ctx+0x30]'s +0x30 = D8E00's rcx; e = [o] is the stage cell entry (567A90: [e] & 0xF == 1), cell id = [e] >> 4 (same ids as StageLog / CELLREQ).
+// Skip = the native 'not eligible this frame' exit of the state-0 block (D9260 je D9EF2): nothing allocated or queued, +0x10D stays 0, o+0x1EC
+// (gate G8 3B3A28) is never incremented, loader +0x24A not set, the placeable is re-evaluated next frame and loads normally once the window closes.
+// Patch: the rel32 of D90C0 is retargeted (one locked 4-byte write) to a near stub that calls PsFilter(o, placeable) and jumps to D91FA or D9EF2.
+// Window: from XsStart (world request) until the target world is current with stage 5, mission seq state not 4/5/8 and GAMESTATE[2] == 0, XsEnd,
+// or CrossWorldPlaceableSkipMaxMs (default 20000). Loads queued BEFORE the window are not cancelled.
+static const uint32_t kCellsB1[] = {67253, 221265, 285287, 301780, 320919, 329181, 364049, 500328, 525291, 584691, 625536, 780040, 820705, 833442, 889691, 974198, 983784};  // 0xB1 Yoritomo (pc2 5116, all runs)
+static int g_cfg_pskip = 0, g_cfg_pskip_max = 20000;
+static const ArenaRow* g_ps_row;  // set by XwStart right before XsStart (whitelist source); NULL for the oworld command = old world only
+static struct { volatile LONG on; uint8_t w0, target; int nwl; uint32_t wl[32]; DWORD t0; char tag[24]; } g_ps;
+static volatile LONG g_ps_old, g_ps_new, g_ps_allow, g_ps_logged, g_ps_hooked;
+static uint8_t PsFilter(uint64_t o, uint64_t pl) {  // called from the stub on the KIDSTS stage-update thread(s): 1 = do not queue this placeable now
+    if (!g_ps.on) return 0;
+    __try {
+        uint64_t s = *(volatile uint64_t*)(B + 0x45B9E58); if (!s || !o) return 0;
+        uint8_t w = *(volatile uint8_t*)(s + 0x500);
+        uint64_t e = *(volatile uint64_t*)o; if (!e) return 0;
+        uint32_t id = *(volatile uint32_t*)e >> 4;
+        int old = w == g_ps.w0, skip = old;
+        if (!old && w == g_ps.target && g_ps.nwl) { skip = 1; for (int i = 0; i < g_ps.nwl; ++i) if (g_ps.wl[i] == id) { skip = 0; break; } }
+        if (!skip) { InterlockedIncrement(&g_ps_allow); return 0; }
+        InterlockedIncrement(old ? &g_ps_old : &g_ps_new);
+        if (InterlockedIncrement(&g_ps_logged) <= 8) Log("PSKIP %s +%lu ms: %s-world cell %u (world 0x%02X) placeable %llX not queued (tid %lu)", g_ps.tag, GetTickCount() - g_ps.t0, old ? "old" : "new", id, w, (unsigned long long)pl, GetCurrentThreadId());
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static int PsHook(void) {  // installs the D90C0 retarget once (only when CrossWorldPlaceableSkip = 1)
+    static const uint8_t pre[16] = {0x41, 0x0F, 0xB6, 0x85, 0x0D, 0x01, 0x00, 0x00, 0x84, 0xC0, 0x0F, 0x84, 0x34, 0x01, 0x00, 0x00};
+    static const uint8_t ld3a[8] = {0x41, 0xC6, 0x87, 0x0D, 0x01, 0x00, 0x00, 0x03}, ld3b[8] = {0x41, 0xC6, 0x85, 0x0D, 0x01, 0x00, 0x00, 0x03}, tgt[7] = {0x49, 0x8B, 0x85, 0xB8, 0x00, 0x00, 0x00};
+    uint8_t* site = (uint8_t*)(B + 0xD90B6);
+    __try {
+        if (memcmp(site, pre, 16) || memcmp((void*)(B + 0xD97E0), ld3a, 8) || memcmp((void*)(B + 0xD9EBF), ld3b, 8) || memcmp((void*)(B + 0xD91FA), tgt, 7) || memcmp((void*)(B + 0xD9EF2), tgt, 7)) {
+            Log("PSKIP: bytes at D90B6/D97E0/D9EBF/D91FA/D9EF2 differ (game version or another patch), CrossWorldPlaceableSkip disabled"); return 0; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PSKIP: site not readable, disabled"); return 0; }
+    uint8_t* st = 0;
+    for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !st; a += 0x10000)
+        st = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!st) { Log("PSKIP: no near stub, disabled"); return 0; }
+    // entered with al == 0 (placeable state 0), rsp 16-aligned (D8E00 body: 7 pushes + sub 240h), this = [rsp+40h]; r10 (live constant) and the other volatiles are preserved
+    static const uint8_t c0[] = {
+        0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53,           // push rcx rdx r8 r9 r10 r11 (30h)
+        0x48, 0x81, 0xEC, 0x80, 0x00, 0x00, 0x00,                             // sub rsp,80h (20h shadow + 6 xmm), rsp stays 16-aligned
+        0x0F, 0x11, 0x44, 0x24, 0x20, 0x0F, 0x11, 0x4C, 0x24, 0x30, 0x0F, 0x11, 0x54, 0x24, 0x40,
+        0x0F, 0x11, 0x5C, 0x24, 0x50, 0x0F, 0x11, 0x64, 0x24, 0x60, 0x0F, 0x11, 0x6C, 0x24, 0x70,  // movups [rsp+20h..70h], xmm0..xmm5
+        0x48, 0x8B, 0x8C, 0x24, 0xF0, 0x00, 0x00, 0x00,                       // mov rcx,[rsp+0F0h] (= D8E00's [rsp+40h] = o)
+        0x4C, 0x89, 0xEA,                                                     // mov rdx,r13 (placeable)
+        0x48, 0xB8 };                                                         // mov rax, imm64 (PsFilter)
+    static const uint8_t c1[] = {
+        0xFF, 0xD0,                                                           // call rax
+        0x84, 0xC0,                                                           // test al,al (flags survive the restores below)
+        0x0F, 0x10, 0x44, 0x24, 0x20, 0x0F, 0x10, 0x4C, 0x24, 0x30, 0x0F, 0x10, 0x54, 0x24, 0x40,
+        0x0F, 0x10, 0x5C, 0x24, 0x50, 0x0F, 0x10, 0x64, 0x24, 0x60, 0x0F, 0x10, 0x6C, 0x24, 0x70,  // movups xmm0..xmm5
+        0x48, 0x8D, 0xA4, 0x24, 0x80, 0x00, 0x00, 0x00,                       // lea rsp,[rsp+80h]
+        0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59,           // pop r11 r10 r9 r8 rdx rcx
+        0x75, 0x0E,                                                           // jnz skip
+        0xFF, 0x25, 0x00, 0x00, 0x00, 0x00 };                                 // jmp [rip] -> D91FA (load block), then skip: jmp [rip] -> D9EF2
+    int k = 0;
+    memcpy(st + k, c0, sizeof c0); k += sizeof c0; *(uint64_t*)(st + k) = (uint64_t)PsFilter; k += 8;
+    memcpy(st + k, c1, sizeof c1); k += sizeof c1; *(uint64_t*)(st + k) = B + 0xD91FA; k += 8;
+    st[k++] = 0xFF; st[k++] = 0x25; *(uint32_t*)(st + k) = 0; k += 4; *(uint64_t*)(st + k) = B + 0xD9EF2; k += 8;
+    FlushInstructionCache(GetCurrentProcess(), st, k);
+    int32_t rel = (int32_t)((intptr_t)st - (intptr_t)(site + 16));  // je rel32 at D90C0: next ip = D90C6
+    DWORD old; if (!VirtualProtect(site + 12, 4, PAGE_EXECUTE_READWRITE, &old)) { Log("PSKIP: VirtualProtect failed, disabled"); return 0; }
+    InterlockedExchange((volatile LONG*)(site + 12), rel);  // only the rel32 of the je changes (D90C2, 4 bytes inside one cache line)
+    VirtualProtect(site + 12, 4, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 16);
+    g_ps_hooked = 1; Log("PSKIP: state-0 entry D90C0 retargeted to stub %p (%d bytes), CrossWorldPlaceableSkip on, max window %d ms", st, k, g_cfg_pskip_max);
+    return 1;
+}
+static void PsClose(const char* why) {
+    if (!InterlockedExchange(&g_ps.on, 0)) return;
+    Log("PSKIP %s: window closed (%s) +%lu ms; skip decisions (per frame, a placeable counts again every frame it waits): old world %ld, new world %ld; allowed %ld",
+        g_ps.tag, why, GetTickCount() - g_ps.t0, g_ps_old, g_ps_new, g_ps_allow);
+}
+static void PsOpen(const char* tag, int target, uint8_t w0) {
+    if (!g_cfg_pskip || !g_ps_hooked) return;
+    PsClose("reopened");
+    const ArenaRow* r = g_ps_row; g_ps.nwl = 0;
+    if (r && r->world == (uint8_t)target) {
+        for (int i = 0; i < r->ncells && g_ps.nwl < 32; ++i) g_ps.wl[g_ps.nwl++] = r->cells[i];
+        if (!g_ps.nwl && r->world == 0xB1) for (unsigned i = 0; i < sizeof kCellsB1 / sizeof *kCellsB1 && g_ps.nwl < 32; ++i) g_ps.wl[g_ps.nwl++] = kCellsB1[i];
+    }
+    if (target < 0 || (uint8_t)target == w0) return;
+    g_ps.w0 = w0; g_ps.target = (uint8_t)target; g_ps.t0 = GetTickCount(); snprintf(g_ps.tag, sizeof g_ps.tag, "%s", tag);
+    g_ps_old = g_ps_new = g_ps_allow = g_ps_logged = 0;
+    InterlockedExchange(&g_ps.on, 1);
+    Log("PSKIP %s: window open, world 0x%02X -> 0x%02X, new-world whitelist %d cells%s", tag, w0, (uint8_t)target, g_ps.nwl, g_ps.nwl ? "" : " (none: only old-world placeables are held back)");
+}
+static void PsTick(void) {
+    if (!g_ps.on) return;
+    DWORD now = GetTickCount();
+    if (now - g_ps.t0 > (DWORD)g_cfg_pskip_max) { PsClose("CrossWorldPlaceableSkipMaxMs"); return; }
+    uint64_t s = StageMgr(); const uint8_t* gs = GameState(); uint32_t q = SeqState(); if (!s || !gs) return;
+    if (*(volatile uint8_t*)(s + 0x500) == g_ps.target && StageState() == 5 && !gs[2] && q != 4 && q != 5 && q != 8) PsClose("new world landed, load flag clear");
+}
 static void XsStart(const char* tag, int target) {  // called right before a WarpOtherWorld request
     memset(&g_xs, 0, sizeof g_xs); snprintf(g_xs.tag, sizeof g_xs.tag, "%s", tag); g_xs.target = target;
     uint64_t s = StageMgr(); g_xs.w0 = s ? *(uint8_t*)(s + 0x500) : 0xFF; g_xs.t0 = GetTickCount(); g_xs.tSeq = g_xs.t0; g_xs.lastSt = StageState(); g_xs.on = 1; g_xs.lastSeq = -9; g_xs.last58A = 0xEE; g_xs.lastG = -9;
@@ -1373,6 +1474,7 @@ static void XsStart(const char* tag, int target) {  // called right before a War
     if (g_cfg_xblock && s) { __try { g_xs.blkOld = *(volatile uint8_t*)(s + 0x11F1); *(volatile uint8_t*)(s + 0x11F1) = 0; g_xs.blk = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { g_xs.blk = 0; } }
     Log("XSTREAM %s: CrossWorldBlockCells %d (stage +0x11F1 %s)", tag, g_cfg_xblock, g_xs.blk ? "cleared until state 5" : "not changed");
     Log("XSTREAM %s: start, world 0x%02X state %d, cell load cap %d (CrossWorldCellLoads %d)", tag, g_xs.w0, g_xs.lastSt, g_xs.patched ? g_cfg_xcells : 4, g_cfg_xcells);
+    PsOpen(tag, target, g_xs.w0);
 }
 static void XsBlkRestore(const char* why) {
     uint64_t s = StageMgr(); if (!g_xs.blk || !s) { g_xs.blk = 0; return; }
@@ -1383,11 +1485,13 @@ static void XsEnd(const char* why) {
     if (g_xs.patched) CellCapSet(4);
     if (g_xs.lgs) { LoaderGatePatch(0); g_xs.lgs = 0; }
     XsBlkRestore(why);
+    PsClose(why);
     Log("XSTREAM %s: %s; state 5 at %s%lu ms, all cells loaded at %s%lu ms (cap %d)", g_xs.tag, why, g_xs.t5 ? "+" : "never/", g_xs.t5 ? g_xs.t5 - g_xs.t0 : 0, g_xs.tAll ? "+" : "never/", g_xs.tAll ? g_xs.tAll - g_xs.t0 : 0, g_xs.patched ? g_cfg_xcells : 4);
     g_xs.on = 0; g_xs.patched = 0;
 }
 static int g_cfg_xpre_after = 0;
 static void XsTick(void) {
+    PsTick();
     if (!g_xs.on) return;
     DWORD now = GetTickCount(), dt = now - g_xs.t0; uint64_t s = StageMgr(); if (!s) return;
     int st = StageState(); uint8_t w = *(uint8_t*)(s + 0x500);
@@ -1448,7 +1552,6 @@ static CellReqFn o_cellreq; static int g_cfg_cellskip;
 static volatile LONG g_xw_skip, g_cs_allow, g_cs_skip, g_cs_other;
 static uint32_t g_cs_wl[32]; static int g_cs_nwl; static uint8_t g_cs_world;
 static volatile LONG64 g_cs_ret[8]; static volatile LONG g_cs_retn[8];
-static const uint32_t kCellsB1[] = {67253, 221265, 285287, 301780, 320919, 329181, 364049, 500328, 525291, 584691, 625536, 780040, 820705, 833442, 889691, 974198, 983784};  // 0xB1 Yoritomo (pc2 5116, all runs)
 static uint8_t h_cellreq(uint64_t sub, uint32_t id, uint8_t defer, void* p, uint8_t flag) {
     uintptr_t ret = (uintptr_t)__builtin_return_address(0) - B;
     if (g_xw_skip) {
@@ -1502,7 +1605,7 @@ static int XwStart(ArenaRow* r, int claimed) {
     memset(&g_xw, 0, sizeof g_xw); g_xw.oWorld = oW; g_xw.oJourney = journey; g_xw.oStart = oS; g_xw.oMode = mode; memcpy(g_xw.oPos, oP, sizeof oP); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1; g_xw.claimed = claimed; g_xw.tClaim = claimed ? g_xw.t0 : 0; g_xw_last_mission = (int)r->mission;
     CellSkipOpen(r);  // before the request: it may already ask for cells synchronously
     Log("XWORLD %s (%s)%s: world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, claimed ? "" : " PREWARM (menu opened, not claimed yet)", CurWorld(), r->world, r->start, journey, mode);
-    XsStart(r->id, r->world);
+    g_ps_row = r; XsStart(r->id, r->world); g_ps_row = 0;
     ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(r->world, journey, r->start, mode, prm);
     if (g_cfg_xpre && g_cfg_xpre_after) { g_xw.preDeferred = 1; Log("XWORLD %s: boss resource request deferred until the world has switched (CrossWorldPreloadAfterSwitch)", r->id); }
     else if (g_cfg_xpre) XwPreload(r, "with the world request");  // pc2 5294 (bridge 6047b: this holds MissionLoadStep's LoadIsLoadEnd, i.e. the switch itself, until the model is loaded)
@@ -2164,6 +2267,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_xpre_after = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreloadAfterSwitch", 0, ini); Log("cross-world (bridge 6047b): CrossWorldPreloadAfterSwitch %d", g_cfg_xpre_after);
         g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); g_cfg_xblock = GetPrivateProfileIntA("ArenaSwap", "CrossWorldBlockCells", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
         g_cfg_cellskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellSkip", 0, ini); g_cfg_xlgs = GetPrivateProfileIntA("ArenaSwap", "CrossWorldLoaderGateSkip", 0, ini); Log("cross-world (pc2 #6801): CrossWorldLoaderGateSkip %d", g_cfg_xlgs);
+        g_cfg_pskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPlaceableSkip", 0, ini); g_cfg_pskip_max = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPlaceableSkipMaxMs", 20000, ini); Log("cross-world (pc2 placeable-skip): CrossWorldPlaceableSkip %d, MaxMs %d", g_cfg_pskip, g_cfg_pskip_max);
+        if (g_cfg_pskip) PsHook();
         if (g_cfg_cellskip) {  // 3A0534 prologue: mov [rsp+8],rbx; mov [rsp+10h],rsi; mov [rsp+18h],rdi (15 bytes, no rip-relative)
             static const uint8_t csp[15] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18};
             if (!memcmp((void*)(B + 0x3A0534), csp, 15)) { o_cellreq = (CellReqFn)Hook(0x3A0534, 15, h_cellreq); Log("hook stage cell request 3A0534 ok: CrossWorldCellSkip %d (%s)", g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip non-arena cells during cross-world Fight now" : "log only"); }
