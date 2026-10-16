@@ -53,6 +53,7 @@ function Close-GameClean {
 function Start-Play {
     Assert-Launch
     $t0 = Get-Date
+    & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
     Start-Process "steam://rungameid/3681010"
     $p = $null
     while (((Get-Date) - $t0).TotalSeconds -lt 180) { $p = Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1; if ($p) { break }; Start-Sleep 3 }

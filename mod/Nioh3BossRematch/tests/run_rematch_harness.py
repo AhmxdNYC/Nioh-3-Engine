@@ -44,7 +44,7 @@ bb = (ROOT / "build.bat").read_text(encoding="utf-8")
 for f in (ROOT / "src").glob("*.cpp"):
     check(f.stem in bb, "build.bat does not build %s" % f.name)
 ini = (ROOT / "Nioh3BossRematch.ini").read_text(encoding="utf-8")
-for k in ("Enable = 0", "DirectStart = 0", "ShowUnverified = 0", "Pipe = 0", "BossLog = 0", "RematchLog = 0", "InvLog = 0", "HiddenDuels = 0", "FightNow = 0", "FightNowWarp = 0", "ArenaCapture = 0"):
+for k in ("Enable = 0", "DirectStart = 0", "ShowUnverified = 0", "Pipe = 0", "BossLog = 0", "RematchLog = 0", "InvLog = 0", "HiddenDuels = 0", "FightNow = 1", "FightNowWarp = 1", "ArenaCapture = 0"):
     check(re.search(r"(?m)^" + re.escape(k) + r"\s*$", ini) is not None, "ini default: " + k)
 r = subprocess.run([sys.executable, "-I", str(REPO / "tools" / "rematch_catalog.py"), "--check"], capture_output=True, text=True)
 check(r.returncode == 0, "catalogue out of date: " + r.stdout.strip())

@@ -68,6 +68,99 @@ Documentation/static provenance only: three swap-removal branches and locked ret
 ## 2026-10-11 Codex - FO98 consumer registration trace
 
 Documentation/static provenance only: native token98 registration and downstream object virtual calls traced;5identity checks PASS. FO remains NO-GO pending lifetime/admission/caller-mode proof. No runtime or performance claim, deployment or defaults change. See notes/handoff-codex-fo98-consumer.md.
+## 2026-10-14 Codex - Preserve user game settings (Task 3254)
+
+Made FG status-only for every legacy toggle value. Removed game XML writes, native FG setter/dirty flag, and startup/exit repair; retained own-INI saves, telemetry and the independent FGC crash guard. Added a 64-case offline preservation harness. Source contracts PASS; native build/harness and pattern checks await MSVC and the decrypted dump. See notes/settings-isolation-pc2-3254.md. No game launch or installed-bin change.
+
+## 2026-10-13 Codex - combined CPU trial on hosted1.7.73
+
+Integrated default-off RD and M2S candidates together on hosted592a888, retaining J1/MW/WG/LK and current menus. Requested run delta enables RD/M2S/J1 plus retained WG/LK/MW and explicitly leaves M1/fullM2 disabled. No other optimization flags change. Combined byte/pattern and focused native wait/seed/unwind checks passed; actual gameplay benefit remains untested. See notes/cpu-combined-bundle-2026-10-13.md.
+
+## 2026-10-13 Codex - private renderer drain candidate on 1.7.73
+
+Default-off `[Patches] RD` replaces end-frame active polling with 64 predicate polls then a bounded address wait on the native in-flight count. Paired native completion still decrements only after replay/submission and now wakes that address. Full write/read/count checks, command work, submission, shutdown and current menus/MW remain intact. Zero-count publication gaps poll; timeout is never success; API failure latches native polling. Startup publication uses the existing MW all-or-nothing frozen pair. Native race/unwind tests and exact pattern checks passed; game stability and CPU/frame benefit are untested. See notes/renderer-drain-wait-candidate-2026-10-13.md.
+
+## 2026-10-12 Codex - private EngineFix 1.7.73 / BossRematch 1.4.21 dojo cover readiness and loading bar
+
+Yagyu Munenori (Veteran) uses an already placed dojo teacher rather than the Character::Create path. Only its exact mission/start/actor tuple may now use the current validated actor, active algorithm and native not-dead observation with the owned attempt's BossBattle witness, current player control and the existing continuous settle gate. Same-mission or unknown-source entry is refused before the request. No other route gains this exception, and native ownership, failures and deadlines are unchanged. The loading cover shows an indeterminate bar and short stage labels instead of internal diagnostic text; it never claims an asset percentage. Offline checks are not native gameplay acceptance.
+
+## 2026-10-12 Codex - private BossRematch 1.4.20 hosted test dispatcher
+
+Adds a default-off local test queue for exact catalogue rows. With Remote.Pipe and Remote.HostedFightTest explicitly enabled, hostfight queues one session-bound UI-worker action through the same final hosted Fight now gates as manual confirmation. It begins presentation only; actual renderer acknowledgement still precedes the native request. Pending actions cannot be overwritten or revived after close, detach, expiry, interference or refusal. Status distinguishes queued, cover begun and refused, and cover telemetry reports canonical and observed actor identities separately. EngineFix remains the unchanged1.7.71 binary. No automated approval, fallback request, retry, native return or gameplay acceptance is supplied by this command.
+
+## 2026-10-12 Codex - private BossRematch 1.4.19 native branch cover readiness
+
+The Scion of the Gods replay can start the native Yoshinobu-only encounter instead of Souji according to the mission script. Its exact R1DEA/start4095000 cover now latches the allowlisted actor from the owned attempt's native Create before BossBattleMode and checks that actor's current readiness. It never treats arbitrary fights as the requested boss. Stable native player death or a later reload after a readable, controlled encounter terminates presentation without canceling or retrying native work. Initial intro loads, fixed deadlines, freshness and all recovery ownership remain unchanged. EngineFix stays at the exact 1.7.71 binary. Offline reproduction/checks do not establish native acceptance.
+
+## 2026-10-12 Codex - private EngineFix 1.7.71 / BossRematch 1.4.16 cover clock ordering
+
+Actual native root2 testing exposed an immediate false renderer-stale failure: Tick captured time before a concurrent valid presentation ACK. Cover checks now sample the clock after acquiring the relevant cover state or copying the heartbeat snapshot. The Engine worker-snapshot/input-lease paths receive the same ordering correction. Real future timestamps,1500ms freshness expiry, pre-presentation/admission bounds and the fixed Yamagata180s deadline remain enforced. Actual-source interleavings reproduced both false failures before correction and pass after correction; no live acceptance is claimed by this checkpoint. No native request, readiness, input ownership, recovery or controller behavior changed.
+
+## 2026-10-12 Codex - private EngineFix 1.7.70 / BossRematch 1.4.15 cover publication and tip continuation
+
+A busy addon cover-state read now retains the last coherent published cover and its original heartbeat. Unknown reads cannot publish a fresh inactive phase or renew the host lease; the host also rejects contradictory active-phase snapshots. Fight now can answer the native post-load tip confirmation only under its separate, finite Loading-phase cover permission with the current token/session and fresh worker/covered-Present evidence. The global AutoContinueLoad preference remains unchanged, including explicit zero. The measured Yamagata tuple1CBC/67064/65092 receives a fixed180-second absolute cover budget; other routes retain90seconds and the independent5-second presentation,10-second admission and1500ms freshness gates are unchanged. Native readiness, cancellation and restoration ownership stay in force. Offline regression and emitted-thunk tests are separate from pending Ally/native acceptance; no installation or live success is claimed.
+
+## 2026-10-11 Codex - private EngineFix 1.7.69 / BossRematch 1.4.13 Fight now cover
+
+Hosted Fight now presents an opaque DX12 transition cover before posting the native request. A versioned ABI2 handshake requires a submitted cover and successful final Present; input capture has worker/presentation leases and bounded B/Escape dismissal. Release requires the same native attempt and exact mission/start/placement, fresh boss/create witnesses, readable solo state, current native control restrictions clear, expected boss algorithm active and conservative native not-dead evidence continuously settled. Unknown reads keep readiness closed. Failure, cancel, stale owners and absolute timeout dismiss presentation only, retaining native transaction and map restoration ownership. No pause/loading-bit manipulation, retries or automatic exits. New pipe `cover` telemetry links token, presentation ACK, native post and terminal reason. Offline checks do not prove physical scanout or live first-control behavior; root's native pilot remains required. Standalone UI, shrine and Practice routes retain existing behavior.
+
+## 2026-10-11 Codex - private BossRematch 1.4.12 enabled action defaults
+
+With Rematch explicitly enabled, missing FightNow and FightNowWarp keys now default to 1, matching the supplied INI and settings catalog; FightNowSpawn remains 1. Explicit zero values stay off. Rematch Enable itself remains opt-in/default 0, and all route, solo, clear, admission and restoration gates remain in force. Actual Prepare tests distinguish absent keys from explicit zero; no installation or handheld acceptance is claimed.
+
+## 2026-10-11 Codex - private BossRematch 1.4.11 two-choice boss menu
+
+Every boss action page now shows Fight now and Shrine before the boss, plus Back. Disabled configuration, unsupported routes and absent start points remain visible with refusal reasons; native-at-fight missions explicitly report no separate shrine. The generic replay action is removed from boss pages; the root Battle Scroll entry remains. Shrine rendering and clicks share the same configuration/route/start checks, with an additional no-separate-shrine refusal enforced again by native dispatch. Fight now additionally refuses gate-only shrine fallback in UI and native dispatch; only native-at-fight or validated arena routes qualify. Ownership and restoration logic is unchanged. Actual UI regressions cover minimal config and supported/unsupported rows. No installed files or controller settings changed; handheld acceptance is not claimed.
+
+## 2026-10-11 Codex - private EngineFix 1.7.68 / BossRematch 1.4.10 hosted practice candidate
+
+The EngineFix DX12 menu now hosts Boss Rematch / Practice through a versioned, bounded snapshot/action bridge. The addon UI worker owns its model; the renderer performs no synchronous pipe, file or native mission operation. Hosted mode suppresses the separate addon window/input owner, rejects stale actions, prioritizes close and releases the host menu on worker heartbeat/action timeout.
+
+Practice Yamagata is one allowlisted, cleared-current-journey native shrine replay with an owned return. Normal rewards, drops and progression apply; walking, fighting and death/retry remain native player actions. This is an initial practice route, not the requested full training mode or arbitrary enemy sandbox. Warp/spawn overrides and gate injection stay off for this route. Offline builds, pattern/site checks and actual-source menu/bridge/admission/recovery checks pass; no handheld visibility, controller or native practice acceptance claim. See notes/rematch-hosted-menu-implementation.md. Undo: close the hosted menu; restoring the archived Engine 1.7.67/addon 1.4.9 pair restores the prior menu implementation. No deployment performed by this checkpoint.
+
+## 2026-10-11 Codex - private BossRematch 1.4.9 safety integration
+
+Integrates native-admission quarantine, retained map recovery, standalone return settling, and mission/retry guards for duel verification effects. Only readable proven-solo PlayMode0 permits native operations. Actual-source regressions reproduced cross-mission warp and unsafe unknown-mode admission before the fixes. Private build and required offline checks pass; not deployed or native accepted, and not yet playable training. See notes/training-native-attempt-quarantine.md for exact evidence and remaining limits.
+
+## 2026-10-11 Codex - native-attempt review fixes
+
+Standalone manual return now has a bounded observation path to normal cleanup; unreadable GameMain frames reset exit settling. Scroll-map restoration retains ownership across read/write/readback failure, refuses foreign/replaced storage, and blocks new starts until verified cleanup. Three actual-source regressions reproduced the previous failures and now pass, with additional recovery/settling checks. Private candidate only; see notes/training-native-attempt-quarantine.md.
+
+## 2026-10-11 Codex - private native-admission quarantine
+
+Native replay/scroll calls publish a copied attempt before enqueue can have side effects. Ambiguous admission, wrong explicit start, abort/timeout or session loss retains a process-lifetime quarantine across cleanup and UI Idle. New start routes and active fight effects refuse; return is attempted once. Native default-start replay and the existing operational exit remain supported. Offline fault tests only; no loader cancellation, playable training or native acceptance claim. Evidence: notes/training-native-attempt-quarantine.md.
+
+## 2026-10-11 Codex - private native-request read-validity prerequisite
+
+Unreadable session/game/mission snapshots no longer authorize rematch start/return, warp (including duel approach), gate request, or spawn reapply. Start admission also requires readable queue/scroll state. Invalid game reads preserve the last loading edge; entry settling resets on unreadable/playerless/paused observations. Offline actual-source fault tests only; not a playable training release or globally latched online disarm. Details: notes/training-request-read-gates.md.
+
+## 2026-10-11 Codex - private BossRematch 1.4.8 recovery candidate
+
+Failed spawn restoration now retains its record and blocks new replay/mission/scroll admission. Partial transform/flags restoration can retry independently and must read back the originals before clearing ownership. Apply records recovery before either write. Observed foreign data or replacement latches a refusal; automatic reload/reapply is deliberately suspended until native lifetime identity is proven. Actual-source fault checks and existing rematch/lifecycle checks pass; private only, not deployed or live accepted.
+
+## 2026-10-11 Codex - private grouped settings candidate (EngineFix 1.7.67 / BossRematch 1.4.7)
+
+Grouped controller pages retain original setting/action IDs, flat order, keys, Remote behavior and native v4 routes. A per-key catalog shows every shipped ini option; reviewed numeric/choice controls edit explicit preferences, with startup/live/requested distinctions and ini-only gaps. Addon settings remain available with Rematch disabled; Training Observe stays default OFF and reserved mutation is unavailable. Gate-only shrine fallback is labelled honestly. No DLL build, deployment, native acceptance or performance/direct-arena claim. Actual-source offline menu harnesses passed before final metadata/version edits; final catalog/default/source and menu-map checks passed. Undo: leave startup preferences unchanged; Engine Menu Layout=0 restores original traversal. Evidence/gates: notes/settings-menu-v4-candidate.md.
+
+## 2026-10-11 Codex - private BossRematch 1.4.6 bounded observer events
+
+Default-OFF Training Observe retains 64 copied create/begin/end entry records with cached scalar validity/generations/time. Nonblocking entry publication reports contention and overwrite loss separately; read-only oldest-first copies do not drain. Publication order and cached tags do not prove native session membership/readiness. Offline verification only; no deployment/performance/visual claim. Undo: Observe=0. Evidence: notes/handoff-codex-training-events.md.
+
+## 2026-10-11 Codex - private BossRematch 1.4.5 observed generations
+
+Default-OFF Training Observe adds loading and mission/play-mode/connection tuple generations for valid raw changes and unknown/skipped recovery. Unknown retains counters; gaps remain explicit. These are observation boundaries, not native session/attempt identities or readiness. Offline validation only; no deployment/performance/visual claim. Undo: Observe=0. Evidence: notes/handoff-codex-training-generations.md.
+
+## 2026-10-11 Codex - private BossRematch 1.4.4 loading/session scalar observation
+
+Default-OFF Training Observe now caches independently valid loading/play-mode/connection raw scalars, per-field unknown/recovery gaps and sampled publication losses. Skipped samples also mark missionGap. Read-only offline validation; no readiness/performance/visual/native runtime claim or deployment. Undo: Observe=0. Evidence: notes/handoff-codex-training-session-scalars.md.
+
+## 2026-10-11 Codex - private BossRematch 1.4.2 observer entry groundwork
+
+Default-OFF Training Observe registers passive scalar entry counters before FIGHT installation, requires known build and CORE/FIGHT/PUMP, and shares one pump with enabled rematch. Observer-only startup skips rematch preparation/ticking and UI. No session snapshots, epochs, event ring, mutation API or runtime/performance acceptance yet. No deployment. Undo: leave Observe=0.
+
+## 2026-10-11 Codex - private BossRematch 1.4.1 pump preparation seam
+
+Init owns one shared pump dispatcher; rematch preparation and live activation are separate. Disabled/failed preparation never ticks; failed installation remains passive. This is observer groundwork only: no training observer or mutation API, no runtime/performance claim, no deployment.
 
 # MODLOG — every change made to the game, and how to undo it
 
@@ -1023,3 +1116,23 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 ## 2026-10-11 02:56 - Codex experimental FO deferred-command audit (nothing applied)
 - Isolated branch negative controls against actual FO code reproduce overflow, stream bounds and late-producer queue hazards: 11 checks / 0 failures, zero compiler warnings. This is failure evidence, not release validation. Static startup availability / synchronization / drain constraints documented in notes/handoff-codex-fo98-audit.md.
 - No game, production source, ASI, user settings or saves changed. Main1.7.61 / FrameOverlap0 remains. Undo: none required. Experimental audit tests can be removed after conversion to repaired safety regressions.
+## 2026-10-10 16:45 - Nioh3BossRematch 1.4.0: Fight now spawns in the arena (no shrine first), branch `rematch-instant` (not merged)
+- "Fight now (in the arena)" rows with an arena point: while the Fight now runs, the start point's warp-point record (game data in
+  memory: spawn x y z yaw `+40h`, arrival-camera bit `+8 & 4`) holds the arena point, so the game's own placement / streaming / death
+  reload put the player in the arena; restored when the Fight now ends; the start point id (what the game may save) is unchanged.
+  Warp after the landing stays as the fallback. New ini key `[Rematch] FightNowSpawn = 1` (0 = 1.3.x behaviour). Site group SPAWN
+  (6 sites, ALL 94 SITES OK), harness ALL PASSED (60). Arena capture skipped while the override is on (it had captured a wrong point).
+- Tested: one in-game check on the PC (Yamagata Masakage): spawned exactly on the arena point, fight started with 0 warps, record
+  restored on exit; saves backed up (`D:\nioh3-re\save-backups\20261010-161939-fightnow-test`) and restored byte for byte. Full test
+  plan queued in `notes/boss-rematch-build.md` (E1 v4).
+- Game folder: `Nioh3BossRematch.asi` 1.4.0 left installed by the test (`-KeepBuild`, as with 1.3.x); the inis / perf ASI restored;
+  one wrong line (0x1CBC 334650 ... 16:24 fight-start) removed from `Nioh3BossRematch_arenas.tsv`.
+- Undo: `[Rematch] FightNowSpawn = 0`, or reinstall the 1.3.3 `Nioh3BossRematch.asi`; `git branch -D rematch-instant`.
+
+## 2026-10-11 - Private BossRematch 1.4.3 mission observer (Codex)
+- Default-OFF read-only pump snapshots copy independent valid-or-unknown mission/retry scalars, publication sequence/time and observed mission epoch/gap. Cached SRW-protected publication skips contention with an explicit loss count. No native mutations/deployment or runtime/performance claim; load/session/events remain unfinished. Evidence: notes/handoff-codex-training-mission-snapshot.md.
+
+### 2026-10-13: M2S completion seed candidate (default off, not gameplay accepted)
+
+- Isolated hosted/MW base592a888: new startup-only `[Patches] M2S` replaces only seed reads493DC/49412; both unconditional completion CAS barriers493E9/49428 remain. Full M2 behavior/default and current menus/MW unchanged. Conflicting full M2 takes precedence and logs M2S skipped.
+- Exact byte/dependency/branch checks and40,002 own-process native equivalence/contention cases pass; release build succeeds. No installed file changed or runtime gain claimed. See notes/meshlet-cpu-audit-20261013.md for test contract and the actual pool append mutator invalidating M1's old immutable-list justification.

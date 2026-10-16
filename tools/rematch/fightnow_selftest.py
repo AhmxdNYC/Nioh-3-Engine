@@ -147,6 +147,10 @@ def main():
         logf = gd / "Nioh3BossRematch.log"
         t_launch = time.time()
         log("launching: %s" % a.launch)
+        if os.name == "nt":
+            subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                            str(Path(__file__).resolve().parents[1] / "steam" / "start_autoplay.ps1"),
+                            "-OwnerPid", str(os.getpid())], check=True)
         subprocess.Popen(a.launch, shell=True)
         deadline = t_launch + a.timeout_min * 60
         pos, lines, done = 0, [], False
@@ -168,7 +172,7 @@ def main():
             new = text[pos:]
             pos = len(text)
             for ln in new.splitlines():
-                if "SELFTEST" in ln or "IN replay mission" in ln or "F FAIL" in ln or "F PASS" in ln:
+                if "SELFTEST" in ln or "IN replay mission" in ln or "F FAIL" in ln or "F PASS" in ln or "first frame after the load" in ln:
                     lines.append(ln)
                     log("  " + ln.split("] ", 1)[-1])
                 if "SELFTEST DONE" in ln:

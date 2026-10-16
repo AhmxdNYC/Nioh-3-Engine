@@ -1,4 +1,6 @@
-// menu.h - in-game mod menu of Nioh3EngineFix (keyboard F10 / controller hold-Start), drawn by the OSD (osd.cpp).
+#include "cover_present.h"
+// menu.h - in-game mod menu of Nioh3EngineFix (F10 / Escape x3 / Start x3, configurable), drawn by the OSD (osd.cpp).
+// Grouped pages by default; B/Esc returns to the parent, root closes. LB/RB or PgUp/PgDn pages; Layout=0 keeps the flat menu.
 //
 // Threads:
 //   * dllmain's Worker calls Configure() once, after the patches are applied.
@@ -8,6 +10,8 @@
 //     menu is open (plus until the buttons are released after closing).
 //   * the Present hook thread (osd.cpp, under the osd lock) runs OnPresent() + Draw(): all menu state changes and
 //     every runtime switch write happen there.
+//   * the optional boss/practice page posts bounded actions and copies snapshots;
+//     its addon UI model and native request handling stay on their existing workers.
 // Fail-safe: any exception in a hook disables the menu (the hooks keep passing through), and the input hooks
 // stop blanking by themselves when the overlay has not presented for 1.5 s.
 // See notes\osd-design.md section 10.
@@ -51,6 +55,7 @@ struct Host {
     const char* version = "";
     void (*log)(const char* fmt, ...) = nullptr;
     const wchar_t* iniPath = nullptr;             // copied
+    bool (*tuning)(const char* key, const char* value, char* reply, size_t n) = nullptr;  // existing LiveTuning setter
     uint8_t* base = nullptr;                      // Nioh3.exe
     bool knownBuild = false;                      // v2.02: engine reads (pause flags) only then
     bool wine = false;
@@ -89,20 +94,10 @@ struct Host {
     const char* (*gpStatus)(char* buf, size_t n) = nullptr;  // GP profiler: frame ms + top 5 passes (empty = off)
     volatile uint8_t* autoContinue = nullptr;     // autocont.cpp live switch (1 = skip the post-load tip page's press); nullptr = not installed
     long (*autoContinueCount)() = nullptr;        // times the tip page's confirm check was answered by the switch
-    // 1.7.44 FSR FG under Proton ([Menu] FrameGenToggle = 3, notesg-proton-fix.md)
-    volatile uint32_t* fgPause = nullptr;         // caves.asm fgp_pause (1 = FG paused by the mod); nullptr = FGP not installed
-    bool fgcOn = false;                           // FGC copy-job null guard written this session
 };
 
 // dllmain: copies the host description and reads [Menu]. Cheap; installs nothing.
 void Configure(const Host& h);
-// Proton only (FG crash-loop guard, see menu.cpp). Early: called by dllmain's worker before the game reads config.xml;
-// restores FRAME_GENERATION OFF when the last session left the mod's FG marker. Exit: called from the ExitProcess /
-// TerminateProcess import hooks (or DLL detach); restores OFF when the mod switched FG on this session.
-// fgToggle = [Menu] FrameGenToggle. 3 ("Proton safe FG"): a launch with FG on in config.xml arms the marker before the
-// game reads it (a crash in that session -> OFF at the next start), and a clean exit keeps the FG value the user chose.
-void ProtonFgEarly(void (*log)(const char* fmt, ...), const wchar_t* markerPath, int fgToggle);
-void ProtonFgExit(const char* how);
 // true when [Menu] Enabled=1 (the OSD then installs its Present hook even with the counter and popup off)
 bool Enabled();
 // osd install thread, after the Present hook is installed: hooks XInputGetState (game IAT) and DirectInput
@@ -117,7 +112,10 @@ void OnPresent();
 // appends the menu / pause hint / hold indicator quads through osd::DrawRect/DrawText. Returns the text scale the
 // quads were laid out for (0 = nothing drawn); osd draws them with that scale.
 float Draw(unsigned W, unsigned H);
+bool CoverTipAllowed(); // bounded covered-Fight-only tip confirmation, no preference change
 bool IsOpen();
+cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t contextGeneration);
+void CoverPresented(const cover_present::Ticket& ticket,uint64_t currentGeneration,int32_t result);
 // why the game is paused right now (any thread; set by the Present thread): 0 none, 1 a game menu is open (the engine's own
 // "menu open" getters 0x5A37D4 / 0xD63C0), 2 game time stopped (stop flags 58B / 58C), 3 loading (58A)
 int GamePauseReason();

@@ -137,6 +137,17 @@ SPEC = [
     # the Fight now mission for the row's gate id and requests exactly that key, as the door interaction / StartWarp would.
     ("call:RightsCheck", "GATE", "call", 0x3B2323, 0),
     ("fn:RightsRequest", "GATE", "fn", 0x1CA52C4, 0),
+    # SPAWN (Fight now appears in the arena from the first frame): the player is placed on a mission load / retry at the warp-point
+    # record of the retry point [[47514D0]+8]+14h (1C0F24C: WarpPointFind 137DCC -> pos 3B271C = rec +40h/+44h/+48h, yaw 3B2678 =
+    # rec +4Ch), the stage streams around the same record (223B8F0) and the arrival camera preset is rec +7Ch/+80h when rec +8 bit 4
+    # (2239C3C). The add-on overwrites those 16 bytes (+ clears bit 4) of the Fight now start point's record with the arena point
+    # while the Fight now runs (in memory only, restored at the end; the retry point id itself never changes).
+    ("fn:WarpPointFind", "SPAWN", "fn", 0x137DCC, 0),
+    ("chk:WarpPointPos_40", "SPAWN", "check", 0x3B2726, 20),
+    ("chk:WarpPointYaw_4C", "SPAWN", "check", 0x3B2685, 0),
+    ("chk:PlayerPlace_Retry14", "SPAWN", "check", 0x1C0F2BD, 28),
+    ("chk:PlayerPlace_Find", "SPAWN", "check", 0x1C0F363, 48),
+    ("chk:CamFlag4_Retry14", "SPAWN", "check", 0x2239C49, 48),
 ]
 # preferred functions to anchor a global's reference in (first hit there wins; else any unique hit in .text)
 PREFER = {"g:DataDb": 0x223963C, "g:ClearDb": 0x378C93, "g:MissionQueue": 0x10DC07A, "g:MenuMgr": 0x1DE28EC}

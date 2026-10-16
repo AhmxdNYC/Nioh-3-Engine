@@ -35,7 +35,7 @@ each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap
    Supply the game's actual prefix, or `--save-root "/path/to/KoeiTecmo/NIOH3"`. No prefix/account is guessed.
 3. Steam -> Nioh 3 -> Properties -> Launch options: `WINEDLLOVERRIDES="dinput8=n,b" %command%`
    (without it Proton ignores the loader and the mod never runs).
-4. Leave frame generation OFF on Proton: switching it is reported to crash there. The mod keeps it off in `config.xml`.
+4. Change frame generation in the game's Options. The mod shows its status and never changes or restores the game's settings; Save to ini saves only mod choices.
 
 ### Automatic backups on installation and update
 

@@ -226,3 +226,97 @@ after the game reports the load done, so a slow disk only delays them.
 **Results on this PC (save of the user, journey 1; 68 catalogue rows with a start point, 59 of them Fight-now capable):**
 run 4 (1.3.0): 19 PASS, 1 FAIL (Solitary Blade: deadline shorter than its intro), 9 not cleared. Run 5 (1.3.1, all 59): 30 PASS,
 3 FAIL (Solitary Blade, Fuma Kotaro, Tomoe Gozen), 26 not cleared. Run 6 (1.3.2): the 3 + Yamagata all PASS. Final run 7: below.
+(Run 7, 1.3.3: 33 PASS / 0 FAIL, per STATUS.md.)
+
+### E1 v4 (add-on 1.4.0): in the arena from the first frame - start point spawn override (2026-10-10, branch `rematch-instant`)
+User: "Fight now still sends you to the shrine first, then to the fight." In 1.3.x the load ends at the start point (often a shrine),
+the add-on waits for a stable landing (3 s + 1 s) and then warps. 1.4.0 makes the game itself place the player in the arena.
+
+**Options checked**
+- (a) a start point in or next to each arena: **not available.** The start points are the mission's fixed `+0x6C` table (the only
+  ids MissionRequestById / Continue accept); the catalogue already takes the closest one. Yamagata 0x1CBC has four (67064 shrine
+  35 m = the one used, 67971, 67982, 68174), none inside BOSSAREABOX; the 16 arena rows all start 8-60 m away (2 within 5 m).
+- (b) the arena position during the load: **chosen** (below). No hook needed: the game reads the start point's record at
+  placement time, so an in-memory record override is enough.
+- (c) keep the screen faded until the warp: not needed (fallback only if (b) had failed).
+
+**RE (v2.02, `py -I` capstone over re\Nioh3.dump.exe).** Warp-point records = the point-set registry `[47098E0]+18h` (loaded
+`+0x6C` tables, heap, writable), found by `WarpPointFind(id)` 137DCC (pure lookup).
+- Player placement 1C0F24C (from 379620 when `[[45B9E40]]+26ABh`): id = mission state `[[47514D0]+8]+14h` (the retry point =
+  our start point) -> 137DCC -> position 3B271C = record `+40h/+44h/+48h` (gadget-relative transform only with its flag argument
+  and a gadget at `+0Ch`; the 1.3.3 landings sat exactly on `+40h`), yaw 3B2678 = `+4Ch` -> 669AB8(player, pos) + rotation -> ch+120h.
+  (If `word [[[45B9E40]]+48h]+110h != 0` the position comes from DataMgr `+188h` instead: then the override does nothing and the
+  warp fallback runs.)
+- Stage streaming centre 223B8F0: `[45BC42C]` -> 137DCC -> 3B271C -> `WorldGridFindCellContainingPoint` (streams around the arena).
+- Arrival camera 2239C3C: `+14h` -> record; when `+8 & 4` the camera gets the preset angles `+7Ch/+80h` (aimed for the shrine).
+- Death / retry reloads use the same `+14h` path, so the override also respawns the player in the arena.
+
+**Mechanism.** For a Fight now row that would warp (an arena point, `FightNowWarp = 1`, `[Rematch] FightNowSpawn = 1` default), the
+add-on, on the game thread at the first tick of the mission load, finds the start point's record, checks it still spawns where the
+catalogue says (warp_x..z within 1 m), saves it, and writes the arena point into `+40h..+4Fh` and clears bit 4 of `+8` (no
+shrine camera preset). Checked once a second (every tick while loading) and re-applied if the game rewrote / reloaded it.
+Restored in `ToIdle` (mission exit, timeouts, abort, any new request) only if the bytes are still ours; removed if an online
+session appears. The start point id (what the game keeps in `+14h` and may save) never changes: the save holds the same id as in
+1.3.3 and a plain Continue / replay spawns at the shrine again. The warp stays as the fallback: when the first frame after a load
+still has the player within 5 m of the start point (override did not take), the 1.3.3 warp runs; otherwise no warp (the arena-box
+trigger fires from the spawn, door rows still get the gate request). Gate-only rows (no arena point: 13) and the start-at-fight
+rows are unchanged. Log: `Rematch: F <id>: spawn override applied (load began) ...`, `first frame after the load (#n in the
+mission): ... in the arena`, `no warp - the player spawned in the arena`, `spawn override restored (...)`. Pipe status `spawn=`
+(`-` / pending / applied / arena / start / failed); CSV column `spawn`; SELFTEST lines `spawn <v>`.
+
+**Patch resilience.** New site group SPAWN (6 sites: fn:WarpPointFind, chk:WarpPointPos_40, chk:WarpPointYaw_4C,
+chk:PlayerPlace_Retry14, chk:PlayerPlace_Find, chk:CamFlag4_Retry14) + run-time cross-checks (the placement calls WarpPointFind /
+the pos / yaw getters; placement and camera read `+14h` of g:MissionMgr). Group fails -> `arena spawn ... OFF: <why>` and Fight
+now behaves exactly as 1.3.3. Offline: `tests\test_sites.py` ALL 94 SITES OK (+ patch simulation), `tests\run_rematch_harness.py`
+ALL PASSED (60 checks, incl. record match / flag / at-start tests on the Yamagata row; 14 of 16 arena rows spawn > 5 m from their
+start point), build clean.
+
+**1.4.0 one-boss check (PC, 2026-10-10 16:19-16:25, Yamagata Masakage R1CBC; `fightnow_test.ps1 -Rows R1CBC -AgentId pc-rematch
+-PcLock nioh3-pc -SaveCopy D:\nioh3-re\save-backups`; locks `nioh3-pc` (queued) + `nioh3`; saves backed up to
+`D:\nioh3-re\save-backups\20261010-161939-fightnow-test` and restored byte for byte (8 files); game closed normally): PASS.**
+`spawn override applied (load began)` 0.6 s after the request (record loaded already: the point sets are resident) -> load 19.7 s ->
+`first frame after the load: player 337042 10100 206691 - in the arena (0.0 m from the arena point, 26.5 m from the start point)`
+(on the ground: y 10100) -> BOSSAREABOX fired by itself -> the game's intro load (6.5 s) -> BossBattleMode at 334650 -> `F PASS
+(fight before the warp)`, **warps = 0**, request -> fight 24.5 s; `+14h` stayed 67064 (the shrine id) throughout; on leaving
+`spawn override restored: record 67064 spawn 339660 10192 206266 yaw -146 flags 4`. Not seen: the screen (no screenshot, camera
+untested) and a death reload (queued below).
+Bug found and fixed in the same build: the arena capture (ArenaCapture = 1) took the post-intro spot 334650 as `fight-start`
+(the intro load ran past its 5 s window) - outside BOSSAREABOX, it would have broken the row at the next launch. 1.4.0 now never
+captures while the override is on; the bad line was removed from the game folder's `Nioh3BossRematch_arenas.tsv` (copy with it:
+`D:\nioh3-wt\rematch-instant\captures\rematch\fightnow-20261010-161939\arenas_with_bad_line.tsv`). The test build left installed by
+`-KeepBuild` is swapped for the fixed one by `D:\nioh3-wt\rematch-instant\captures\rematch\swap_asi_when_closed.ps1` once Nioh3 is closed (it was running for
+another agent; log next to the script).
+
+#### QUEUED (not run): full 1.4.0 test plan
+Run only on a free PC turn (`nioh3-pc` lock, queued as its own bridge id) plus the exclusive `nioh3` lock (these runs write saves);
+save folder backed up and restored exactly by the scripts, second copy in `D:\nioh3-re\save-backups`. Solo/offline. Exit gracefully.
+1. **All rows, PC** (~60-90 min):
+   `powershell -NoProfile -ExecutionPolicy Bypass -File tools\rematch\fightnow_test.ps1 -IncludeAtFight -AgentId pc-rematch -PcLock nioh3-pc -SaveCopy D:\nioh3-re\save-backups -PerfAsi <perf ASI with VirtualPad>`
+   Pass = every row that passed in run 7 still PASS; CSV `spawn` = `arena` on the 14 arena rows > 5 m from their start point
+   (Yamagata, Takeda Shingen, Hino-enma, Ippon-Datara, Magatsu Warrior, Ibaraki Doji, Kiyomizu x3, Scion of the Gods x2, Jakotsu-baba,
+   Yoritomo, Kunimatsu ...), `start` + warps=1 allowed only on the 2 rows whose arena point is within 5 m of the start point,
+   `-` on gate-only / start-at-fight / duel rows; warps = 0 on `arena` rows; no `spawn override NOT applied` / `RE-applied` lines
+   (a RE-applied line = the game rewrites point sets during loads: note which rows).
+2. **Kinds, by hand or pipe, one each** (log `Rematch: F`): arena box (Yamagata 0x1CBC, Hino-enma), door + arena point (Takeda Shingen,
+   Jakotsu-baba 0x34), door without arena point (Kasha: unchanged 1.3.3 path), duel (Fuma Kotaro, Tomoe Gozen: duel approach warp
+   still fires), start-at-fight (Hanzo RC362: no override). Check: first frame after the load already shows the arena (no shrine),
+   the trigger / gate intro plays, BossBattleMode, no second warp during the intro.
+3. **Death / retry** on Yamagata, Takeda Shingen and Fuma Kotaro: die in the fight -> `F load inside the mission #1` -> `first frame
+   after the load (#1 ...): in the arena` -> the fight restarts (box trigger / gate) with no warp; Retry from the game-over menu
+   the same; 3 deaths in a row (no drift, no `RE-applied` storm). If the script moved the retry point (`+14h` != start point) the
+   respawn is the game's own boss retry point: fine, note it.
+4. **Restore**: leave each mission (menu leave + `exit`) -> `Fight now over` + `spawn override restored (replay mission exit)`; then
+   "Shrine before the boss" and the game's own Battle Scroll replay of the same mission start at the shrine again; quit to title
+   during a Fight now -> Continue -> resumes at the shrine (nothing persistent). Abort / timeout paths log `restored`.
+5. **Saves**: `py -I re\scripts_re\savediff.py` before/after one Fight now with a death: only the 1.3.3 kinds of writes (retry
+   point = the start point id, playtime / inventory / amrita, repeat clear flags); no position or record data.
+6. **Camera** (bit 4 cleared): screenshots on the first frame for 3 shrine-start rows (Yamagata, a door row, a spawn-point row):
+   the camera sits behind the player facing the arena, not the shrine preset angle. If it looks wrong, try keeping bit 4 and writing
+   `+7Ch/+80h` instead (convention unknown).
+7. **A/B regression**: `[Rematch] FightNowSpawn = 0` on 5 rows = identical to 1.3.3 (warp after the landing, same PASS).
+8. **Patch resilience**: `tests\test_sites.py` on the next game build; a SPAWN failure must log `arena spawn ... OFF: <why>` and leave
+   Fight now on the 1.3.3 warp.
+9. **Proton / Ally**: `[Rematch] SelfTest = arena` via `tools\rematch\fightnow_selftest.py` (no pipe) -> SELFTEST lines carry
+   `spawn arena`; plus one manual Fight now on Yamagata watching the screen (HDD/SD load: `spawn override applied (load began)`
+   must come before `first frame after the load`). Linux check rule as usual.
+10. **Online gate**: Fight now stays refused online; a co-op session joining mid-Fight-now logs `spawn override removed`.

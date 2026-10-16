@@ -227,6 +227,20 @@ inline bool FightSlotOk(const uint8_t* slot, uint16_t mission, uint32_t start) {
     return m == mission && sp == start && start != 0 && mode == 2;
 }
 
+// ---- Fight now SPAWN (1.4.0): the start point's warp-point record (0xA4 B: +8 flags, +40h spawn x y z yaw) gets the arena point ----
+// Only a record that still spawns where the catalogue says (warp_x..z, the shipped +40h, within 1 m) is patched; bit 4 of the flags
+// (the arrival-camera preset +7Ch/+80h, aimed for the start point) is cleared while it spawns in the arena.
+inline bool SpawnRecordMatches(const Row& r, const float cur[4]) {
+    const float dx = cur[0] - r.warp[0], dy = cur[1] - r.warp[1], dz = cur[2] - r.warp[2];
+    return dx * dx + dy * dy + dz * dz <= 100.0f * 100.0f;
+}
+inline uint32_t SpawnFlags(uint32_t flags) { return flags & ~4u; }
+// a player within 5 m (horizontal) of the start point's spawn = the override did not take (the warp fallback runs)
+inline bool AtStartPoint(const Row& r, const float p[3]) {
+    const float dx = p[0] - r.warp[0], dz = p[2] - r.warp[2];
+    return dx * dx + dz * dz <= 500.0f * 500.0f;
+}
+
 inline uint32_t Crc32(const void* p, size_t n, uint32_t c = 0) {
     c = ~c;
     const uint8_t* b = (const uint8_t*)p;
@@ -244,16 +258,21 @@ struct MapPatch {
     static constexpr int kMax = 256;
     uint8_t* entries = nullptr;  // live map vector
     int n = 0;
-    uint8_t snap[kMax * 8] = {};
+    uint8_t snap[kMax * 8] = {}, written[kMax * 8] = {};
     uint32_t crcWritten = 0;
     uint32_t target = 0;
-    bool active = false;
+    bool active = false, conflict = false;
 };
 // writer: memcpy-like callback (so the live build can use a guarded write); returns false on failure
 using WriteFn = bool (*)(void* dst, const void* src, size_t n);
-inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey, uint32_t target, uint32_t count, WriteFn wr) {
+using ReadFn = bool (*)(void* dst, const void* src, size_t n);
+inline bool MapReadBytes(void* dst, const void* src, size_t n, ReadFn rd) {
+    if (rd) return rd(dst, src, n);
+    memcpy(dst, src, n); return true;  // pure harness callers own their memory
+}
+inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey, uint32_t target, uint32_t count, WriteFn wr, ReadFn rd = nullptr) {
     if (mp.active || !entries || n <= 0 || n > MapPatch::kMax || target >= count) return false;
-    memcpy(mp.snap, entries, (size_t)n * 8);
+    if (!MapReadBytes(mp.snap, entries, (size_t)n * 8, rd)) return false;
     std::vector<uint8_t> nw(mp.snap, mp.snap + (size_t)n * 8);
     int valid = 0;
     for (int i = 0; i < n; ++i) {
@@ -262,22 +281,29 @@ inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey,
         ++valid;
     }
     if (!valid) return false;
-    if (!wr(entries, nw.data(), (size_t)n * 8)) return false;
     mp.entries = entries;
     mp.n = n;
     mp.target = target;
     mp.crcWritten = Crc32(nw.data(), nw.size());
-    mp.active = true;
-    return true;
+    memcpy(mp.written, nw.data(), nw.size());
+    mp.active = true;  // recovery ownership precedes a possibly partial write
+    return wr(entries, nw.data(), (size_t)n * 8);
 }
-// 0 restored, 1 restored but the bytes had changed since our write (someone else wrote: logged), -1 nothing active, -2 write failed
-inline int MapRestore(MapPatch& mp, WriteFn wr) {
+// 0 restored/read back, -1 inactive, -2 write/readback failed, -3 foreign data, -4 unreadable.
+// Foreign identity/bytes latch a conflict; never overwrite another owner's data.
+inline int MapRestore(MapPatch& mp, WriteFn wr, ReadFn rd = nullptr) {
     if (!mp.active) return -1;
-    const uint32_t cur = Crc32(mp.entries, (size_t)mp.n * 8);
-    const bool ok = wr(mp.entries, mp.snap, (size_t)mp.n * 8);
+    if (mp.conflict) return -3;
+    uint8_t current[MapPatch::kMax * 8] = {};
+    const size_t size = (size_t)mp.n * 8;
+    if (!MapReadBytes(current, mp.entries, size, rd)) return -4;
+    if (memcmp(current, mp.snap, size)) {
+        if (memcmp(current, mp.written, size)) { mp.conflict = true; return -3; }
+        if (!wr(mp.entries, mp.snap, size)) return -2;
+    }
+    if (!MapReadBytes(current, mp.entries, size, rd) || memcmp(current, mp.snap, size)) return -2;
     mp.active = false;
-    if (!ok) return -2;
-    return cur == mp.crcWritten ? 0 : 1;
+    return 0;
 }
 
 // ---- E lifecycle (one call per pump tick) ----

@@ -100,6 +100,7 @@ void NoteFgSwitch();
 constexpr int kGlyphW = 8, kGlyphH = 16;  // font cell in texels
 // append a solid rectangle / a text run (pixels, top-left origin; colours 0xAABBGGRR) to this frame's quads
 void DrawRect(float x, float y, float w, float h, uint32_t abgr);
+bool DrawCoverRect(float w,float h); // true only if opaque quad was appended
 float DrawText(float x, float y, const char* text, uint32_t abgr, float scale);  // returns the end x
 
 }  // namespace osd
