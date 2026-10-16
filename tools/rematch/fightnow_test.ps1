@@ -187,6 +187,9 @@ $all = foreach ($l in ($cat | Select-Object -Skip 1)) {
     [pscustomobject]@{ id = $c[$ix.id]; name = $c[$ix.name]; route = $c[$ix.route]; arena = ($c[$ix.arena_x] -ne '-' -or ($c[$ix.gate_id] -ne '-' -and $c[$ix.gate_kind] -ne 'box')); atfight = ($c[$ix.arena_src] -like 'mission start*');
                        conf = $c[$ix.arena_conf]; src = "$($c[$ix.arena_src]) gate=$($c[$ix.gate_id])/$($c[$ix.gate_kind])" }
 }
+# ally #8093: rows without a catalogue arena point but in the game folder's Nioh3Training_arenas.tsv count too (the add-on falls back to that table)
+$tAr = Join-Path $GameDir "Nioh3Training_arenas.tsv"; $tIds = @(if (Test-Path $tAr) { Get-Content $tAr | Where-Object { $_ -and -not $_.StartsWith("#") } | ForEach-Object { ($_ -split "`t")[13] } })
+foreach ($a in $all) { if (-not $a.arena -and -not $a.atfight -and $tIds -contains $a.id) { $a.arena = $true; $a.conf = "training"; $a.src = "Nioh3Training_arenas.tsv" } }
 $Rows = @($Rows | ForEach-Object { $_ -split "," } | Where-Object { $_ })
 $sel = @($all | Where-Object { $_.route -in @("R", "H", "D") -and ($_.arena -or ($IncludeAtFight -and $_.atfight)) -and ($Rows.Count -eq 0 -or $Rows -contains $_.id) })
 
@@ -244,8 +247,8 @@ try {
                 $tq = Get-Date
                 if ($WalkSec -gt 0) { Start-Sleep 3; T "  walk forward $WalkSec s (no-load summon spacing test)"; $w = VP stick L 0 1 ($WalkSec * 1000); T "  walk: $($w.reply)" }
                 $st = Wait-RM { param($x) (LastOf $x) -match '^(started|refused)' } $(if ($env:FN_SWAP) { 3 } else { 20 })
-                $swapped = (Test-Path $aLog) -and ((Get-Content $aLog -Tail 40) -match "F $($row.id): Nioh3Training swapped the boss in place")
-                if ((LastOf $st) -notmatch '^started' -and $swapped) {   # no-load swap: judge by Nioh3Training BOSSMON (boss-to-player distance)
+                $swapped = (Test-Path $aLog) -and ((Get-Content $aLog -Tail 40) -match "F $($row.id): (Nioh3Training swapped the boss in place|arena swap in place by Nioh3Training)") -or (LastOf $st) -match 'in place'
+                if (((LastOf $st) -notmatch '^started' -or (LastOf $st) -match 'in place') -and $swapped) {   # no-load swap: judge by Nioh3Training BOSSMON (boss-to-player distance)
                     $tlog = "$GameDir\Nioh3Training.log"; $tcmd = "$GameDir\Nioh3Training.cmd"
                     [IO.File]::WriteAllText($tcmd, "mon`r`n"); Start-Sleep 0
                     $w = VP stick L 0 1 3000; T "  swap: walked 3 s: $($w.reply)"; [IO.File]::WriteAllText($tcmd, "mon`r`n"); Start-Sleep 1; for ($k = 0; $k -lt 24; $k++) { $null = VP press RB 120; Start-Sleep -Milliseconds 600 }; T "  swap: 24 RB presses"; Start-Sleep 6; Shot "swap_$($row.id)"
