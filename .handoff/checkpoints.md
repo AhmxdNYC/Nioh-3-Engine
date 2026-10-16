@@ -288,8 +288,10 @@ Ally found that the long black screen isn't our wait. Lowering the wait cap give
 I acknowledged #8618 and added a line to `next.md`. I haven't run anything new on this PC.
 2026-10-16 14:58 pc: started captures/pc/cover/all.ps1 (hidden, waits for 2 min input idle; log captures/pc/cover/run.log). Next: read results, check side effects, tell user.
 2026-10-16 15:13 pc: fixed all.ps1 self-wait bug, harness running (OFF1 started 15:12). Next: read run.log/training logs, report.
+2026-10-16 15:35 pc: cover ON pc result in thread 8667; Training restored 644C2149, marker gone. Next: pop-in/death-retry check, wait ally/pc2 results, decide default.
 
-## 2026-10-16 pc2 | arm D + ABC top-up (#8648)
-Done: branch pc2/merged-near 326b5f0 (merged-visible + pc NearArenaOnly). Shingen cold click->control: base 41.5/36.9/33.3, Near 26.0/32.0, 6s 21.6/22.7, D (CoverReleaseMs=0+NearArenaOnly=1+AreaWaitCross 3000, ForceCells+PlaceableSkip) 11.2 & 11.2. Bridge asi #681, ini #682.
-Proven: D arena intact in +40 s shot. Unproven: early pop-in (+6/+12 s), full fight after cover release, other bosses. Lesson: other pc2 job chains launch the game concurrently - check processes (run8.sh etc.) before starting.
-Next: ally/pc verify D with early shots; then n=2 + fight test.
+## 2026-10-16 12:45 pm EST pc2 | CoverReleaseMs=0 fight test (#8674)
+Done: Shingen cross-world, arm mgCV0 (CoverReleaseMs 0), scripted bot (walk + RB), n=2: captures/rematch/xworldprobe-20261016-122127 and -123318 (+ scen_fight.txt in pc2-arms-8256). Control 0.52 s after ready, fade-in, boss bar + HP live, no crash.
+Proven: run1 player died at 3 min -> boss removed, HP restored, Return gate spawned (death/retry/gate OK); run2 6.6 min fight, no crash.
+Unproven: boss kill/loot (bot never damaged boss), other bosses, pop-in beyond 1 shot, human feel.
+Next: pc to play-test CoverReleaseMs=0 by hand; then placeable drop attempt.
