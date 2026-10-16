@@ -1,6 +1,6 @@
 # Nioh3Training arena table (tools/gen_arena_table.py). mission, start point, world, boss char id, boss placement id (owner fallback), player x y z yaw, boss x y z, kind (arena = inside the trigger; start = the Fight-now start point), id, name
 0x1CBC	67064	0x4B	307259	65092	337691	10244	206714	-89.2	336153	10107	206736	arena	R1CBC	Yamagata Masakage
-0x15FF	105270	0x96	42450	102544	190969	11587	198241	27.5	191532	11492	199322	arena	R15FF	Takeda Shingen
+0x15FF	105270	0x96	42450	102544	190969	11587	198241	27.5	191532	11492	199322	arena	R15FF	Takeda Shingen	193960,333645,439542,633740,929786
 0x1352	112646	0x96	451004	117731	195810	22490	100490	150.0	197214	22500	99453	start	R1352	Ryomen Sukuna (The Apparition of Ryotan Temple)
 0x23E5	202814	0x96	83953	206387	198997	5667	284996	-150.5	198049	5498	283319	arena	R23E5	Hino-enma
 0xC362	1107817	0x96	131751	1102178	250806	9624	251043	-40.2	249363	10136	251949	start	RC362	Hattori Hanzo (The Demon's Regimen)
