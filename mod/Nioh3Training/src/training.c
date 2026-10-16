@@ -325,7 +325,9 @@ static volatile uint64_t g_db_act, g_kill_act;  // boss-mode boss actor (BossTic
 static volatile LONG g_db_logs;
 static volatile uint64_t g_killHideAct;  // #6711: actor killed inside the damage function (h_cond skip); GaugeTick hides its bar on the next pump tick
 static void GaugeHideOnKill(uint64_t a, const char* why);
+static void BossKilledNow(uint64_t a, const char* why);
 static void KillFadeNow(uint64_t a);
+static int g_db_done;  // BossTick: the HP-floor / finisher native kill of this boss-mode session was issued
 static uint8_t h_cond(uint64_t comp, uint32_t cond) {
     uint8_t r = o_cond(comp, cond);
     if (!r || cond != 0x27) return r;
@@ -369,7 +371,7 @@ static int ForceKillActor(uint64_t live, int drop, const char* why) {
     __except (EXCEPTION_EXECUTE_HANDLER) { g_kill_act = 0; Log("KILL %s: exception %08lX", why, GetExceptionCode()); return 0; }
     g_kill_act = 0;
     Log("KILL %s %p: native EnemyForceKill%s 786C84 called", why, (void*)live, drop ? "WithItemDrop" : "");
-    GaugeHideOnKill(live, why);  // #6711: bar off the moment the kill is applied (pump thread, after 786C84 returned)
+    BossKilledNow(live, why);  // #6711 / #6774: boss mode end + bar off the moment the kill is applied (pump thread, after 786C84 returned)
     return 1;
 }
 
@@ -502,17 +504,20 @@ static void FakeGaugeRequest(uint32_t handle, uint32_t owner) {  // the actor en
 // #6711: hide the boss bar the instant its boss is killed (h_cond skip or ForceKillActor), not at boss-mode end (4.5 s later). Only the actor the shown
 // bar points at (g_fwbuf[0]) and only if it is really dead (hp+0x48 == 1 or HP 0). FakeGaugeHide sets shown = 0, so the later "boss mode end" hide is a no-op;
 // the next FakeGaugeRequest shows the HUD again through the g_hudHidden path. No game-state change, only the HUD.
+static int ActorDeadNow(uint64_t a, int* dead, uint64_t* cur, uint64_t* mx) {  // dead = hp+0x48 == 1 (death applied) or HP 0
+    uint64_t h = 0; *dead = 0; *cur = 1; *mx = 0;
+    __try { if (Rd64(a + 0x3A0, &h) && h) { *dead = *(int*)(h + 0x48) == 1; Rd64(h + 0x58, cur); Rd64(h + 0x50, mx); } } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return *dead || (*mx && *cur == 0);
+}
 static void GaugeHideOnKill(uint64_t a, const char* why) {
-    if (!a || !g_gg.shown || !g_fakew || g_fwbuf[0] != a) return;
-    uint64_t h = 0, cur = 1, mx = 0; int dead = 0;
-    __try { if (Rd64(a + 0x3A0, &h) && h) { dead = *(int*)(h + 0x48) == 1; Rd64(h + 0x58, &cur); Rd64(h + 0x50, &mx); } } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
-    if (!dead && !(mx && cur == 0)) { Log("GAUGE kill-hide (%s): actor %p not dead (hp+48 %d, HP %llu / %llu), bar kept", why, (void*)a, dead, cur, mx); return; }
-    Log("GAUGE kill-hide (%s): boss %p dead, hiding the bar now", why, (void*)a);
-    FakeGaugeHide("boss killed");
-    KillFadeNow(a);
+    if (!a) return;
+    uint64_t cur = 1, mx = 0; int dead = 0;
+    if (!ActorDeadNow(a, &dead, &cur, &mx)) { Log("GAUGE kill-hide (%s): actor %p not dead (hp+48 %d, HP %llu / %llu), bar kept", why, (void*)a, dead, cur, mx); return; }
+    if (g_gg.shown && g_fakew && g_fwbuf[0] == a) { Log("GAUGE kill-hide (%s): boss %p dead, hiding the bar now", why, (void*)a); FakeGaugeHide("boss killed"); }
+    KillFadeNow(a);  // only our summoned boss with DeathBlowRequired=0 (checked inside)
 }
 static void GaugeTick(void) {
-    { uint64_t ka = g_killHideAct; if (ka) { g_killHideAct = 0; GaugeHideOnKill(ka, "lethal hit, death-blow revive skipped"); } }
+    { uint64_t ka = g_killHideAct; if (ka) { g_killHideAct = 0; BossKilledNow(ka, "lethal hit, death-blow revive skipped"); } }
     if (g_forceHideAt && (int)(GetTickCount() - g_forceHideAt) >= 0) { g_forceHideAt = 0; GaugeForceHide("delayed"); }
     if (g_gg.tHide && GetTickCount() - g_gg.tHide > 3000) FakeGaugeDrop();
     if (!g_gg.pending) return;
@@ -753,14 +758,35 @@ static void BossModeEnd(const char* why) {
     ((void (*)(uint64_t))(B + 0x1C0E83C))(cm); ((void (*)(uint64_t))(B + 0x9DECF8))(cm);
     Log("BBM END (%s): BossBattleModeEnd steps done", why);
 }
+// #6774/#6777: native kill (old Boss Rematch-only build, captures/pc/oldest_kill_2050.log 20:53:30.555-.557): the boss script's Character::ForceDropItem +
+// ForceDropAmurita and BossBattleModeEnd all run in the same ms as the death; the game plays its own death animation. Ours ended boss mode / BGM only after
+// "HP 0 stable 4.5 s". Now the confirmed kill (h_cond skip or ForceKillActor, drop already inside 786C84 per BossLoot) ends boss mode + BGM end state at once,
+// hides the bar and starts the body fade (#6746), in that order. The 4.5 s sensor / HP-0 paths in BossTick stay as fallbacks for kills we did not see.
 static DWORD g_dead_at; static uint32_t g_dead_id;
+static void BossKilledNow(uint64_t a, const char* why) {
+    if (!a) return;
+    uint64_t cur = 1, mx = 0; int dead = 0, ended = 0;
+    if (g_bm.active && ActorByHandle(g_bm.id) == a) {
+        if (ActorDeadNow(a, &dead, &cur, &mx)) {
+            DWORD now = GetTickCount(); g_dead_at = now; g_dead_id = g_bm.id;
+            Log("BBM +%lu ms boss %u killed (%s, hp+48 %d, HP %llu / %llu): boss mode ends now, as the native kill", now - g_bm.t0, g_bm.id, why, dead, cur, mx);
+            BgmEnd(); BossModeEnd("boss killed"); g_bm.active = 0; ended = 1;
+        } else Log("BBM boss %u: kill (%s) not applied yet (hp+48 %d, HP %llu / %llu), boss mode kept", g_bm.id, why, dead, cur, mx);
+    }
+    GaugeHideOnKill(a, why);
+    if (ended) FakeGaugeHide("boss mode end");  // no-op when the kill-hide above already took the bar down
+}
 static int ActorHp(uint64_t a, uint64_t* cur, uint64_t* max) {  // Character::GetHpRate parts: [[actor+0x3A0]+0x58] / [+0x50]
     uint64_t h = 0; *cur = *max = 0; if (!a) return 0;
     __try { if (!Rd64(a + 0x3A0, &h) || !h) return 0; return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 static void BossTick(void) {
     if (!g_bm.active) { g_db_act = 0; return; }
-    DWORD now = GetTickCount(); if (now - g_bm.last < 250) return; g_bm.last = now;
+    DWORD now = GetTickCount();
+    // #6774: DeathBlowRequired=0 - the HP-floor kill is checked every pump frame (not only on the 250 ms tick), so the boss dies on the frame its HP hits
+    // the floor like a native kill. g_db_act is only a hint (validated by ActorByHandle on the full tick below).
+    int floorNow = 0; if (!g_cfg_deathblow && !g_db_done && g_db_act && g_bm.v0 >= 0) { uint64_t c = 9, m = 0; floorNow = ActorHp(g_db_act, &c, &m) && m && c <= 1; }
+    if (now - g_bm.last < 250 && !floorNow) return; g_bm.last = now;
     {   // full-fight heartbeat (user play-test 12:27): boss + player HP every 2 s, one line per 25 % boss-HP step, player 0 HP
         static DWORD hbAt; static int lastPct = 101, plDead; uint64_t bc = 0, bmx = 0, pc = 0, pm = 0;
         if (now - hbAt >= 2000) { hbAt = now;
@@ -779,14 +805,14 @@ static void BossTick(void) {
         //  CutsceneOnKill = 1 (or BossLoot = 1): keep the death blow, but when the first finisher animation ends (sensor 1 -> 0 at HP <= 1, or FinisherKillTimeoutMs
         //  after it started) kill natively, so one finisher plays the final animation and the boss dies.
         //  BossLoot = 1: that native kill is EnemyForceKillWithItemDrop (drop table + Amrita); 0 = EnemyForceKill (no drop).
-        static DWORD sess, finAt, killSess; static int prevV, done;
-        if (sess != g_bm.t0) { sess = g_bm.t0; finAt = 0; prevV = v; done = 0; }
+        static DWORD sess, finAt, killSess; static int prevV;
+        if (sess != g_bm.t0) { sess = g_bm.t0; finAt = 0; prevV = v; g_db_done = 0; }
         uint64_t act = ActorByHandle(g_bm.id); int ours = 0;
         g_db_act = act;  // h_cond: lethal hits on this actor skip the death-blow revive when DeathBlowRequired=0
         for (int i = 0; i < g_nsp; ++i) if (act && g_sp_actor[i] == act) ours = 1;
         uint64_t fc = 0, fm = 0;
-        { static DWORD dgAt; uint64_t dc = 9, dm = 0; if (act && ActorHp(act, &dc, &dm) && dm && dc <= 1 && now - dgAt > 5000) { dgAt = now; Log("DEATHBLOW diag: hp %llu ours %d done %d nsp %d act %p", dc, ours, done, g_nsp, (void*)act); } }
-        if (!done && act && ActorHp(act, &fc, &fm) && fm && fc <= 1) {
+        { static DWORD dgAt; uint64_t dc = 9, dm = 0; if (act && ActorHp(act, &dc, &dm) && dm && dc <= 1 && now - dgAt > 5000) { dgAt = now; Log("DEATHBLOW diag: hp %llu ours %d done %d nsp %d act %p", dc, ours, g_db_done, g_nsp, (void*)act); } }
+        if (!g_db_done && act && ActorHp(act, &fc, &fm) && fm && fc <= 1) {
             const char* why = 0;
             if (!g_cfg_deathblow) why = "HP floor, DeathBlowRequired=0";
             else if (g_cfg_cutscene || g_cfg_loot) {
@@ -794,14 +820,14 @@ static void BossTick(void) {
                 if (finAt && v == 0 && prevV == 1) why = "first finisher ended";
                 else if (finAt && now - finAt >= (DWORD)g_cfg_fin_timeout) why = "finisher timeout";
             }
-            if (why) { done = 1; Log("DEATHBLOW +%lu ms boss %u HP %llu / %llu: %s -> native kill (BossLoot %d)", now - g_bm.t0, g_bm.id, fc, fm, why, g_cfg_loot); ForceKillActor(act, g_cfg_loot, why); }
+            if (why) { g_db_done = 1; Log("DEATHBLOW +%lu ms boss %u HP %llu / %llu: %s -> native kill (BossLoot %d)", now - g_bm.t0, g_bm.id, fc, fm, why, g_cfg_loot); ForceKillActor(act, g_cfg_loot, why); if (!g_bm.active) { g_db_act = 0; return; } }
         }
         // #6643: the raw HP 0 write (4df272c..fa17802) is gone (the game revived the boss to HP 1 anyway, and it is a suspect in a PC hard freeze).
         // The death-blow revive is now skipped inside the damage function (h_cond); this only reports if the boss is still at HP 1 1.5 s after the kill.
         static DWORD killAt; static int reported;
         if (sess != killSess) { killSess = sess; killAt = 0; reported = 0; }
-        if (done && !killAt) killAt = now;
-        if (done && !reported && killAt && now - killAt >= 1500 && act && ActorHp(act, &fc, &fm) && fm && fc == 1) {
+        if (g_db_done && !killAt) killAt = now;
+        if (g_db_done && !reported && killAt && now - killAt >= 1500 && act && ActorHp(act, &fc, &fm) && fm && fc == 1) {
             reported = 1; Log("KILL boss still at HP 1 %d ms after the native kill (death-blow hook %s)", (int)(now - killAt), o_cond ? "on" : "OFF");
         }
         prevV = v;
