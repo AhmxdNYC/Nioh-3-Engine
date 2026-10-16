@@ -181,5 +181,5 @@ void HostedTick() {
     ReleaseSRWLockExclusive(&g_bridgeLock);
 }
 DWORD WINAPI HostedThread(void*) {
-    for (;;) { HostedTick(); Sleep(33); }
+    for (;;) { GateReqTick(); HostedTick(); Sleep(33); }
 }

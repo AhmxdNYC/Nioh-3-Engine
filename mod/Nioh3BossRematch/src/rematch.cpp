@@ -1974,6 +1974,9 @@ constexpr int kItPractice = -10, kItPracticeStart = -11, kItPracticeReturn = -12
 constexpr int kItDeathCut = -20, kItDeathBlow = -21, kItDeathLoot = -22;
 // user #6779: 'Return to where I was' = Nioh3Training_ReturnHome (ends the arena session, back to the spot / world before Fight now; also mid-swap)
 constexpr int kItReturnHome = -23;
+// user #6789: the physical Return gate in the arena opens page uGate: Return to where I was / Fight again (Nioh3Training_GateFightAgain = queued round reset)
+constexpr int kItFightAgain = -24;
+constexpr int uGate = 900;
 bool DeathCfgGet(int& loot, int& blow, int& cut) {
     using Fn = void (*)(int*, int*, int*);
     const auto f = (Fn)TrainingExport("Nioh3Training_GetDeathCfg");
@@ -2020,6 +2023,12 @@ int Items(int* out, int cap) {
         if (g_raOk) add(kItOpen);
         if (g_emakiOk) add(kItScroll);
         if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) add(kItAbort);
+        add(kItClose);
+        return n;
+    }
+    if (g_uiPages.page == uGate) {
+        add(kItReturnHome);
+        if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);
         add(kItClose);
         return n;
     }
@@ -2288,6 +2297,11 @@ void UiOpen() {
     g_pageGen0 = g_scanGen.load();
     if (g_live.load()) g_wantScan.store(true);
 }
+void UiGatePage() {
+    UiOpen();
+    g_uiPages.Enter(uGate, 0);
+    g_sel = 0;
+}
 void UiMove(int dir) {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -2311,6 +2325,15 @@ bool UiAct() {
         if (rc == -1) { snprintf(g_msg, sizeof(g_msg), "Already returning..."); return false; }
         if (rc == 0) { snprintf(g_msg, sizeof(g_msg), "Nothing to return from: no Fight now arena swap since the game started (or you are already back)."); return false; }
         ToastF(cWhite, 5000, rc == 1 ? "Rematch: back to where you were..." : "Rematch: arena session ended (no stored spot to return to).");
+        return true;
+    }
+    if (item == kItFightAgain) {
+        using Fn = int (*)();
+        const auto fa = (Fn)TrainingExport("Nioh3Training_GateFightAgain");
+        const int rc = fa ? fa() : 0;
+        Log("Rematch: gate 'Fight again' -> %d", rc);
+        if (rc <= 0) { snprintf(g_msg, sizeof(g_msg), "No arena session to fight again in."); return false; }
+        ToastF(cWhite, 4000, "Rematch: fight again...");
         return true;
     }
     if (item <= kItSettingBase) { UiChange(0); return false; }
@@ -2460,7 +2483,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     const Snap s = ReadSnap();
     const char* gate = !g_live.load() ? "rematch off; settings available" : g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();
-    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
+    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -2494,6 +2517,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                              : (f & 8) ? "   (cancels the arena switch)" : (f & 4) ? "   <- no boss here: A takes you back" : "";
             add(sel ? cWhite : (f > 0 && (f & (2 | 4)) && (f & 1)) ? cGreen : can ? cGray : cDim, sel, "%s Return to where I was%s", mk, tail);
         }
+        else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
@@ -2556,6 +2580,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItDeathBlow) snprintf(footer, nf, "On: the boss must be finished with a death blow (finisher). Off: it dies as soon as its HP runs out. Applies now, saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "On: the boss drops its own loot and Amrita (also one-finisher kill). Story/first-clear rewards are never granted. Applies now, saved.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the Fight now arena session (boss removed) and puts you back where you stood before Fight now, in that world. Works after a kill, with no boss, or mid-switch.");
+        else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
         else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];

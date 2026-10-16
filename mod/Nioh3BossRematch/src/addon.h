@@ -131,6 +131,7 @@ void CoverCancel(uint64_t token);
 bool UiAct();   // A; enter child, confirm existing action; true = close
 bool UiBack();  // B; cancel confirmation, then parent; true = close at root
 void UiOpen();
+void UiGatePage();  // user #6789: the arena Return gate's 2-option page (Return to where I was / Fight again)
 void UiChange(int dir);  // Left/Right: edit only a selected startup preference
 void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);

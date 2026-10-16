@@ -1836,7 +1836,18 @@ static int GateSpawn(const char* why) {
     return 1;
 }
 static int GateBossAlive(void) { int f = Nioh3Training_ReturnInfo(); return !(f & 2) && !(f & 4); }
+// gate used: Boss Rematch opens its 2-option page (Return to where I was / Fight again); without it (old Rematch, no menu) return directly. 2 = choice shown.
+static volatile LONG g_gate_again;
+static int GateUse(void) {
+    HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi");
+    int (*choice)(void) = rm ? (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_GateChoice") : 0;
+    if (choice && choice()) return 2;
+    Log("GATE: Boss Rematch gate choice not available, returning directly"); return Nioh3Training_ReturnHome();
+}
+// 'Fight again' from the gate page: queued, the pump runs TrainRetry (same boss, round reset, player back to the round-1 spot). 1 = queued, 0 = no session.
+N3T_API int Nioh3Training_GateFightAgain(void) { if (!g_tr.active || g_rh.active) return 0; InterlockedExchange(&g_gate_again, 1); return 1; }
 static void GateTick(void) {
+    if (InterlockedExchange(&g_gate_again, 0) && g_tr.active && !g_rh.active) { Log("GATE: Fight again (Boss Rematch gate page)"); TrainRetry("gate: fight again"); }
     if (!g_cfg_gate) return;
     if (!g_tr.active) { if (g_gate.session) { g_gate.session = 0; g_gate.up = 0; g_gate.tried = 0; } return; }
     if (!g_gate.session) { g_gate.session = 1; g_gate.up = 0; g_gate.tried = 0; g_gate.tTry = 0; }
@@ -1852,14 +1863,14 @@ static void GateTick(void) {
         if (!in) { g_gate.left = 1; g_gate.tIn = 0; return; }
         if (!g_gate.left || GateBossAlive()) return;
         if (!g_gate.tIn) g_gate.tIn = now;
-        if (now - g_gate.tIn >= (DWORD)g_cfg_gate_touch) { g_gate.tIn = 0; g_gate.left = 0; int r = Nioh3Training_ReturnHome(); Log("GATE: player stood on the return gate %d ms -> ReturnHome %d", g_cfg_gate_touch, r); }
+        if (now - g_gate.tIn >= (DWORD)g_cfg_gate_touch) { g_gate.tIn = 0; g_gate.left = 0; int r = GateUse(); Log("GATE: player stood on the return gate %d ms -> %d", g_cfg_gate_touch, r); }
     }
 }
 static void h_reqret(const uint32_t* p, uint8_t f) {
     void* ra = __builtin_return_address(0);
     if (g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
         if (GateBossAlive()) { Log("GATE: MissionRequestReturn from %p while the boss is alive: ignored (gate is inactive during a fight)", (void*)((uintptr_t)ra - B)); return; }
-        int r = Nioh3Training_ReturnHome(); Log("GATE: MissionRequestReturn (caller +%llX) diverted to Return to where I was -> %d", (unsigned long long)((uintptr_t)ra - B), r); return;
+        int r = GateUse(); Log("GATE: MissionRequestReturn (caller +%llX) diverted to the gate choice -> %d", (unsigned long long)((uintptr_t)ra - B), r); return;
     }
     o_reqret(p, f);
 }

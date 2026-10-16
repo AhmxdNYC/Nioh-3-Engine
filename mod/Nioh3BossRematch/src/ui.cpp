@@ -209,6 +209,7 @@ bool KeyEdge(int vk) {
     return e;
 }
 
+std::atomic<bool> g_gateReq{false};
 void Toggle(bool open) {
     if (open == g_open.load()) return;
     if (open) rematch::UiOpen();
@@ -219,6 +220,12 @@ void Toggle(bool open) {
     Log("Menu %s", open ? "opened" : "closed");
 }
 
+void GateReqTick() {  // UI worker only. user #6789: Return gate used in the arena -> 2-option page
+    if (!g_gateReq.exchange(false)) return;
+    if (!g_open.load()) { g_owner.store(-1); Toggle(true); }
+    rematch::UiGatePage();
+    Log("Menu: Return gate page opened");
+}
 #include "menu_bridge_impl.h"
 
 DWORD WINAPI UiThread(void*) {
@@ -239,6 +246,7 @@ DWORD WINAPI UiThread(void*) {
     g_font = CreateFontW(-18, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, FIXED_PITCH, L"Consolas");
     bool shown = false;
     for (;;) {
+        GateReqTick();
         if (g_hostRequested.load()) { HostedTick(); Sleep(33); continue; }
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -309,6 +317,8 @@ UINT VkFromName(const wchar_t* s) {
 
 void HostedFightCommand(const char* row,char* reply,size_t n){BridgeTestFight(row,reply,n);}
 
+bool GateChoiceRequest() { if (!g_bridgeAvailable.load()) return false; g_gateReq.store(true); return true; }
+
 bool Start() {
     g_hostedFightTest=IniInt(L"Remote",L"HostedFightTest",0)!=0;
     if (!IniInt(L"Menu", L"Overlay", 1)) {
@@ -342,6 +352,9 @@ bool Start() {
 
 }  // namespace ui
 }  // namespace addon
+
+// user #6789: Nioh3Training's arena Return gate asks for the 2-option page (1 = the menu worker will open it, 0 = no menu: caller returns directly)
+extern "C" __declspec(dllexport) int Nioh3BossRematch_GateChoice() { return addon::ui::GateChoiceRequest() ? 1 : 0; }
 
 extern "C" __declspec(dllexport) int Nioh3RematchMenuGetApi(uint32_t version, uint32_t bytes, rematch_menu_bridge::Api* out) {
     namespace mb = rematch_menu_bridge;
