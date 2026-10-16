@@ -286,8 +286,10 @@ Ally found that the long black screen isn't our wait. Lowering the wait cap give
 - **Ally:** I asked it to log the state each second and report the 15 lines around the moment the cover drops.
 
 I acknowledged #8618 and added a line to `next.md`. I haven't run anything new on this PC.
+2026-10-16 14:58 pc: started captures/pc/cover/all.ps1 (hidden, waits for 2 min input idle; log captures/pc/cover/run.log). Next: read results, check side effects, tell user.
+2026-10-16 15:13 pc: fixed all.ps1 self-wait bug, harness running (OFF1 started 15:12). Next: read run.log/training logs, report.
 
-## 2026-10-16 12:10 pm EST pc2 | G9 / cover (#8632)
-Done: G9 = LoadIsLoadEnd gate bit 0x100 = loader [475A420]+0x248/+0x249 busy (placeable/area loads queued); skip already exists (CrossWorldLoaderGateSkip=1). Run captures/rematch/xworldprobe-20261016-114252 (Shingen, G9 skip, PlaceableSkip 0, cover off): state 5 ends ~+24 s but state 6 then holds 20 s (actor-ready wait behind queued placeables) -> state 8 at +48 s = same as baseline. Same as #6801 finding.
-Unproven: G9+CoverReleaseMs arm never ran (another slot used the game concurrently; runs 114900/115434/120211 are not mine).
-Next: CoverReleaseMs=0 (13.5 s) remains the only lever that moves the cover; needs a fight test (side effects). Real fix = placeable queue drain/drop before state 6.
+## 2026-10-16 pc2 | arm D + ABC top-up (#8648)
+Done: branch pc2/merged-near 326b5f0 (merged-visible + pc NearArenaOnly). Shingen cold click->control: base 41.5/36.9/33.3, Near 26.0/32.0, 6s 21.6/22.7, D (CoverReleaseMs=0+NearArenaOnly=1+AreaWaitCross 3000, ForceCells+PlaceableSkip) 11.2 & 11.2. Bridge asi #681, ini #682.
+Proven: D arena intact in +40 s shot. Unproven: early pop-in (+6/+12 s), full fight after cover release, other bosses. Lesson: other pc2 job chains launch the game concurrently - check processes (run8.sh etc.) before starting.
+Next: ally/pc verify D with early shots; then n=2 + fight test.
