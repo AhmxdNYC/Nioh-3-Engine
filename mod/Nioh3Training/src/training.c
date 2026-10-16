@@ -314,7 +314,9 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 2000;
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
-static int g_nf_kneel = 1;  // HP-0 window: also the native kneel-down action once (run time 'nofinkneel 0|1')
+static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
+                            // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
+                            // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
 static volatile int g_nf_gold;  // GoldWalk: a watched boss is Ki-broken or in its HP-0 window right now -> paint the Ki fill quad gold
 // #6643 death-blow revive. Logs 18:57 / 19:02: the native kill set the dead flag, then the boss came back at HP 1 (sensor 0->1->0), and a raw HP 0
 // write was also undone. Cause (static RE, 786C84 after the damage apply 787268): once hp+0x48 == 1 (dead), unless actor+0x894 != 0,
@@ -2316,7 +2318,10 @@ static void GoldPaint(uint8_t* q) {
 // Live 02:00 strip colour test (nofintest 1, Yamagata): boss bar = two quad groups per frame. Ki row: frame (v 0.000, u 0.212..0.856), 0.500 (the pink
 // Ki-broken flash layer), 0.438 (only while broken), 0.625, 0.375 (the Ki fill, blue in normal state). HP row: frame, 0.188, 0.062 (HP fill). While gold:
 // Ki-row strips are tinted gold and the pink 0.500 flash layer is made transparent (pink x gold reads salmon, live 02:01), HP row untouched.
-static float g_nf_strip[8] = {0.375f, 0.438f, 0.625f}; static int g_nf_nstrip = 3; static float g_nf_hide = 0.500f; static volatile LONG g_nf_dumpN; static int g_nf_test;
+// User play 2026-10-16 15:41: no gold on a boss with Ki bar style 0 (log 'GOLDKI: first boss Ki row: charParam+0x80 = 1, native style 0'). The strips above
+// were found on Yamagata = style 1 (charParam+0x80 = 0). Style-0 Ki row (pc/jumpfix2 dump 23:30 'GOLDKI vtx' k0..k3): frame 0.000, 0.500, 0.625, Ki fill
+// 0.688 (gold-verified by GoldKiTest=5, captures/goldki/k5_crop.png, user #7394); style 1 never draws 0.688 (all nofindump lines), HP row neither. -> 0.688 added.
+static float g_nf_strip[8] = {0.375f, 0.438f, 0.625f, 0.688f}; static int g_nf_nstrip = 4; static float g_nf_hide = 0.500f; static volatile LONG g_nf_dumpN; static int g_nf_test;
 static int NfStrip(const uint8_t* q, float want) {  // boss-bar quad (12 units high) on the atlas strip starting at v = want
     const float* f = (const float*)q; float y0 = f[1], y1 = f[22 + 1], v0 = f[4], v2 = f[22 + 4];
     float h = y0 > y1 ? y0 - y1 : y1 - y0, dv = v2 - v0, w = f[11] - f[0]; if (w < 0) w = -w;
@@ -2573,7 +2578,7 @@ static void Exec(char* line) {
             // the Ki regenerates within frames, so the prime is HELD (NfTick, up to 10 s or until the break) until a hit's Ki damage crosses 0 (live 01:42: a single prime was gone before the hit)
             uint64_t a0 = NfFirstBoss(), st = 0;
             if (a0 && Rd64(a0 + 0x3A0, &st) && st && NfPrimeHold(a0, 10000)) NfBreakNow(st, "command, held 10 s", a0); else Log("CMD kibreaknow: no boss");
-        } else if (!strcmp(op, "nofinstrips")) {  // test aid: nofinstrips <v*1000> ...: Ki-row atlas strips painted gold (default 375 438 625)
+        } else if (!strcmp(op, "nofinstrips")) {  // test aid: nofinstrips <v*1000> ...: Ki-row atlas strips painted gold (default 375 438 625 688)
             if (n >= 2) { g_nf_nstrip = 0; for (int i = 0; i < n - 1 && i < 6; ++i) g_nf_strip[g_nf_nstrip++] = (float)a[i] / 1000.0f; }
             Log("CMD nofinstrips: %d strips %.3f %.3f %.3f %.3f", g_nf_nstrip, g_nf_strip[0], g_nf_strip[1], g_nf_strip[2], g_nf_strip[3]);
         } else if (!strcmp(op, "nofintest")) { g_nf_test = (int)a[0]; if (g_nf_test && !g_gold_hooked) { HookGoldKi(); HookGoldQuad(); g_gold_hooked = 1; } Log("CMD nofintest %d", g_nf_test);
@@ -3240,7 +3245,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
         g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 2000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
-        Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window)", g_cfg_nofin, g_cfg_nofin_ms);
+        g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini);
+        Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
