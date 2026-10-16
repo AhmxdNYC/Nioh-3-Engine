@@ -2242,6 +2242,11 @@ static void Exec(char* line) {
             Log("CMD nofin: KiBreakNoFinisher %d window %d ms", g_cfg_nofin, g_cfg_nofin_ms);
         } else if (!strcmp(op, "kibreaknow")) {  // test aid: Ki break the watched boss now (KiSetCur to the floor), as a natural Ki break
             uint64_t a0 = NfFirstBoss(), st = 0; if (a0 && Rd64(a0 + 0x3A0, &st) && st) NfBreakNow(st, "command", a0); else Log("CMD kibreaknow: no boss");
+        } else if (!strcmp(op, "nearboss")) {  // test aid: nearboss [cm]: warp the player cm (default 150) from the watched boss on the player's side, facing it
+            uint64_t a0 = NfFirstBoss(); float bp[4] = {0}, pp[4] = {0}; float dcm = n >= 2 && a[0] ? (float)a[0] : 150.0f;
+            if (a0 && PlayerPos(pp)) { __try { memcpy(bp, (void*)(a0 + 0x110), 16); } __except (EXCEPTION_EXECUTE_HANDLER) { a0 = 0; } }
+            if (a0) { float dx = pp[0] - bp[0], dz = pp[2] - bp[2], l = sqrtf(dx * dx + dz * dz); if (l < 1) { dx = 1; dz = 0; l = 1; } dx /= l; dz /= l;
+                float yaw = atan2f(-dx, -dz); int r = Warp(bp[0] + dx * dcm, bp[1], bp[2] + dz * dcm, yaw, 1); Log("CMD nearboss %p: warp %.0f cm -> %d", (void*)a0, dcm, r); } else Log("CMD nearboss: no boss");
         } else if (!strcmp(op, "bosshp")) {  // test aid: bosshp <hp>: set the watched boss HP (native HP set 66C188 on hp+0x38)
             uint64_t a0 = NfFirstBoss(), st = 0; if (a0 && Rd64(a0 + 0x3A0, &st) && st) { ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(st + 0x38, a[0]); uint64_t c = 0, m = 0; ActorHp(a0, &c, &m); Log("CMD bosshp %p: HP now %llu / %llu", (void*)a0, c, m); } else Log("CMD bosshp: no boss");
         } else if (!strcmp(op, "deathcfg")) {  // #6185: deathcfg BossLoot DeathBlowRequired CutsceneOnKill (run-time INI override)
