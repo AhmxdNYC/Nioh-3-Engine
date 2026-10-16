@@ -2337,6 +2337,86 @@ static void Exec(char* line) {
     }
 }
 
+// #7290 Ki-break finisher detection (PASSIVE, log only; notes/ki-break-finisher.md). Never writes boss Ki/HP/state.
+// When a boss's Ki (stamina) runs out it is "Ki broken" (StateTest 0x23: ctrl+0xA8 bit 41 or ctrl+0x1060 bit 0x3A, set by the hit-apply 327DEC at 3EFE0
+// when the attack flags have bit 63; Ki exhausted = K+0x5C/+0x74/+0x7C > 0 or K+0x83, K = [actor+0x3A0]+0x98). The player can then Grapple it (the game's
+// "Final Blow/Grapple" damage class). While the grapple/final-blow animation holds the boss, the death sensor 4892A8 states are on:
+// StateTest 0x35 (current action data dword +0x18 bit 8), 0xB0 (same bit on the linked action ctrl+0x118) or 0x2C (ctrl+0x1068 bit 8 = runtime bit 0x48).
+// The death blow at the HP floor uses the same states (log 12:30: sensor 1 for ~2.3 s at HP 1); a Ki-break grapple is the same hit at HP > 1.
+// Every pump frame, for each actor that has a boss HP/Ki bar (gauge rows hud+0x3C0, 0x60 B, +4 id -> FindWrapper, as BossGaugeRowsUpdate 1D21EF8 does) plus the
+// boss-mode actor, log: Ki-break start/end, finisher (grapple) state on/off and every HP hit during a break or a finisher state, with the raw bits for in-game RE.
+static int g_cfg_kibreak_log = 1; static volatile LONG g_kb_lines;
+#define KB_MAX 4
+static struct { uint64_t a; int broken, fin, valid; uint64_t hp, hm; DWORD tBreak, tFin, tLastWin, seen; uint64_t dmgBreak; int hitsBreak, finInBreak, nBreaks; } g_kb[KB_MAX];
+static int KbState(uint64_t ai, uint32_t id) { return ((uint8_t (*)(uint64_t, uint32_t))(B + 0x4893B8))(ai, id) ? 1 : 0; }
+static void KbLog(const char* fmt, ...) {
+    if (InterlockedIncrement(&g_kb_lines) > 400) return;
+    char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m);
+}
+static int KbCollect(uint64_t* out, int max) {
+    int n = 0; uint64_t root = 0, hud = 0, r0 = 0, r1 = 0;
+    if (Rd64(B + 0x45C84A8, &root) && root && Rd64(root + 0xA8, &hud) && hud && Rd64(hud + 0x3C0, &r0) && Rd64(hud + 0x3C8, &r1) && r0 && r1 > r0 && (r1 - r0) / 0x60 <= 8) {
+        for (uint64_t r = r0; r < r1 && n < max; r += 0x60) {
+            uint32_t slot = 0, id = 0; __try { slot = *(uint32_t*)r; id = *(uint32_t*)(r + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+            if (slot >= 3 || !id) continue;
+            uint64_t w = FindWrapper(id), a = 0; if (!w || !Rd64(w, &a) || !a) continue;
+            int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (!dup) out[n++] = a;
+        }
+    }
+    if (g_bm.active && n < max) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (a && !dup) out[n++] = a; }
+    return n;
+}
+static void KiBreakTick(void) {
+    if (!g_cfg_kibreak_log) return;
+    uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); DWORD now = GetTickCount();
+    for (int k = 0; k < n; ++k) {
+        uint64_t a = act[k], st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0;
+        if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) continue;
+        if (!ActorHp(a, &hc, &hm) || !hm) continue;
+        int s = -1; for (int i = 0; i < KB_MAX; ++i) if (g_kb[i].a == a) s = i;
+        if (s < 0) { for (int i = 0; i < KB_MAX; ++i) if (!g_kb[i].a || now - g_kb[i].seen > 10000) { s = i; break; } if (s < 0) continue; memset(&g_kb[s], 0, sizeof g_kb[s]); g_kb[s].a = a; }
+        float kc = 0, km = 0, x5c = 0, x74 = 0, x7c = 0; uint8_t x83 = 0; uint64_t w0 = 0, w1 = 0, wA8 = 0; int s23 = 0, s35 = 0, sB0 = 0, s2C = 0, dead = 0;
+        __try {
+            kc = *(float*)(st + 0xAC); km = *(float*)(st + 0xB0); x5c = *(float*)(st + 0x98 + 0x5C); x74 = *(float*)(st + 0x98 + 0x74); x7c = *(float*)(st + 0x98 + 0x7C); x83 = *(uint8_t*)(st + 0x98 + 0x83);
+            dead = *(int32_t*)(st + 0x48) == 1; w0 = *(uint64_t*)(ctrl + 0x1060); w1 = *(uint64_t*)(ctrl + 0x1068); wA8 = *(uint64_t*)(ctrl + 0xA8);
+            s23 = KbState(ai, 0x23); s35 = KbState(ai, 0x35); sB0 = KbState(ai, 0xB0); s2C = KbState(ai, 0x2C);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, broken = s23 || exh, fin = s35 | (sB0 << 1) | (s2C << 2);
+        if (dead) { g_kb[s].seen = now; g_kb[s].hp = hc; g_kb[s].broken = broken; g_kb[s].fin = fin; continue; }
+        if (!g_kb[s].valid) { g_kb[s].valid = 1; g_kb[s].hp = hc; g_kb[s].hm = hm; g_kb[s].broken = broken; g_kb[s].fin = fin; g_kb[s].seen = now;
+            KbLog("KIBREAK watch boss %p HP %llu/%llu Ki %.0f/%.0f (broken %d, fin %d)", (void*)a, hc, hm, kc, km, broken, fin); continue; }
+        g_kb[s].seen = now;
+        if (broken && !g_kb[s].broken) {
+            g_kb[s].tBreak = now; g_kb[s].dmgBreak = 0; g_kb[s].hitsBreak = 0; g_kb[s].finInBreak = 0; g_kb[s].nBreaks++;
+            KbLog("KIBREAK start #%d boss %p: Ki %.1f/%.1f HP %llu/%llu (state23 %d exhausted %d [5C %.2f 74 %.2f 7C %.2f 83 %u]) bits1060 %016llX 1068 %016llX A8 %016llX",
+                  g_kb[s].nBreaks, (void*)a, kc, km, hc, hm, s23, exh, x5c, x74, x7c, x83, w0, w1, wA8);
+        }
+        if (fin && !g_kb[s].fin) {
+            g_kb[s].tFin = now; int inBreak = broken || g_kb[s].broken || (g_kb[s].tLastWin && now - g_kb[s].tLastWin < 1500);
+            if (inBreak) g_kb[s].finInBreak++;
+            KbLog("KIFINISHER state on boss %p: 35=%d B0=%d 2C=%d, HP %llu/%llu, Ki %.1f/%.1f, %s bits1060 %016llX 1068 %016llX",
+                  (void*)a, s35, sB0, s2C, hc, hm, kc, km, hc <= 1 ? "HP floor (death blow)" : inBreak ? "Ki broken -> GRAPPLE (Ki-break finisher)" : "not Ki broken (down/other finisher)", w0, w1);
+        }
+        if (hc < g_kb[s].hp) {
+            uint64_t d = g_kb[s].hp - hc; int win = broken || fin || g_kb[s].broken || g_kb[s].fin || (g_kb[s].tLastWin && now - g_kb[s].tLastWin < 1000);
+            if (win) {
+                const char* kind = (g_kb[s].hp <= 1 || hc <= 1) ? "FINAL BLOW (HP floor)" : (fin || g_kb[s].fin) ? (broken || g_kb[s].broken || g_kb[s].finInBreak ? "KI-BREAK FINISHER (grapple)" : "finisher-state hit") : "hit on Ki-broken boss";
+                if (broken || g_kb[s].broken) { g_kb[s].dmgBreak += d; g_kb[s].hitsBreak++; }
+                KbLog("KIFINISHER hit boss %p: %s dmg %llu (%.1f %% max) HP %llu -> %llu/%llu, Ki %.1f/%.1f, 23=%d 35=%d B0=%d 2C=%d, +%lu ms since break, bits1060 %016llX 1068 %016llX",
+                      (void*)a, kind, d, 100.0 * (double)d / (double)hm, g_kb[s].hp, hc, hm, kc, km, s23, s35, sB0, s2C, g_kb[s].tBreak ? now - g_kb[s].tBreak : 0, w0, w1);
+            }
+        }
+        if (fin && !broken && g_kb[s].broken) g_kb[s].tLastWin = now;
+        if (!fin && g_kb[s].fin) { g_kb[s].tLastWin = now; KbLog("KIFINISHER state off boss %p after %lu ms, HP %llu/%llu", (void*)a, now - g_kb[s].tFin, hc, hm); }
+        if (!broken && g_kb[s].broken) {
+            g_kb[s].tLastWin = now;
+            KbLog("KIBREAK end #%d boss %p after %lu ms: %d hits, %llu dmg (%.1f %% max) during the break, grapple %s, Ki %.1f/%.1f",
+                  g_kb[s].nBreaks, (void*)a, now - g_kb[s].tBreak, g_kb[s].hitsBreak, g_kb[s].dmgBreak, 100.0 * (double)g_kb[s].dmgBreak / (double)hm, g_kb[s].finInBreak ? "yes" : "no", kc, km);
+        }
+        g_kb[s].hp = hc; g_kb[s].hm = hm; g_kb[s].broken = broken; g_kb[s].fin = fin;
+    }
+}
+
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static PumpFn o_pump;
 static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
@@ -2360,6 +2440,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
+    __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #7290 passive Ki-break finisher log (read only), before BossTick
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
@@ -2456,6 +2537,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_gate_dist = GetPrivateProfileIntA("Return", "ReturnGateDistance", 220, ini); g_cfg_gate_touch = GetPrivateProfileIntA("Return", "ReturnGateTouchMs", 1500, ini);
         g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
+        g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
