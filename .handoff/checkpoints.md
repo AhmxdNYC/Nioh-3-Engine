@@ -289,9 +289,11 @@ I acknowledged #8618 and added a line to `next.md`. I haven't run anything new o
 2026-10-16 14:58 pc: started captures/pc/cover/all.ps1 (hidden, waits for 2 min input idle; log captures/pc/cover/run.log). Next: read results, check side effects, tell user.
 2026-10-16 15:13 pc: fixed all.ps1 self-wait bug, harness running (OFF1 started 15:12). Next: read run.log/training logs, report.
 2026-10-16 15:35 pc: cover ON pc result in thread 8667; Training restored 644C2149, marker gone. Next: pop-in/death-retry check, wait ally/pc2 results, decide default.
+2026-10-16 15:40 pc: installed cover-lift build (train 96FC29CD, CoverReleaseMs 0) on main PC for the user to play; marker set; previous asi/ini in captures/pc/cover/user_play_prev.*. After user reports: restore + delete marker.
+2026-10-16 15:44 pc: user kill test: KiBreakNoFinisher=1 fired (NOFIN, EnemyForceKill after 2s window) but GOLDKI gold elements 0 (tint never found bar) and user still did grapple. Log Nioh3Training.log ~59600. Next: fix gold tint (build train 96FC29CD lacks working gold? compare with kifade build) + full grapple block; installed asi 96FC29CD; marker test-active set; restore captures/pc/cover/user_play_prev.* after user done.
+2026-10-16 15:52 pc: Opus built pc/nofin-gold-kneel deb812c asi 37541107, staged captures/pc/stage-nofin-gold; install when user done (game running, user playing). Then restore prev from captures/pc/cover/user_play_prev.* when finished, delete test-active.
 
-## 2026-10-16 12:45 pm EST pc2 | CoverReleaseMs=0 fight test (#8674)
-Done: Shingen cross-world, arm mgCV0 (CoverReleaseMs 0), scripted bot (walk + RB), n=2: captures/rematch/xworldprobe-20261016-122127 and -123318 (+ scen_fight.txt in pc2-arms-8256). Control 0.52 s after ready, fade-in, boss bar + HP live, no crash.
-Proven: run1 player died at 3 min -> boss removed, HP restored, Return gate spawned (death/retry/gate OK); run2 6.6 min fight, no crash.
-Unproven: boss kill/loot (bot never damaged boss), other bosses, pop-in beyond 1 shot, human feel.
-Next: pc to play-test CoverReleaseMs=0 by hand; then placeable drop attempt.
+## 2026-10-16 pc2 | state-6 wait RE (#8719)
+Done: static RE note notes/state6-wait-re-pc2.md (no game run). State 6 waits for each mission's setup machine A31A50 to reach 8; hold is in step 2 (G5 13335C or flag 28F307C). 223C55A skip froze at state 0xF because mission setup never ran.
+Proven: code reading of the control flow. Inferred: the 20 s hold is 28F307C, from the log only.
+Next: read-only probe at A319EF (log per-mission state and both checks in state 6); then H1 stub at A31B41 only if probe confirms. Caveat: agent said nioh3-merged is on pc2/merged-near; check before editing.
