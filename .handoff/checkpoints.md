@@ -1,16 +1,4 @@
 
-## 2026-10-15 18:17:39 session a70875ef-f836-4d5f-bc87-1ff96ec9d8ee
-I found the likely cause of the jumping boss from the logs. I haven't fixed or reproduced it, so it's a lead, not a confirmed cause.
-
-- **Round 1:** the boss spawned normally and its AI switched into attack mode about 5 s into the fight, so it fought you.
-- **Round 2 (after you died):** the retry spawned the new boss only 0.3 s after deleting the old one. The AI never switched to attack mode in that round (the log field `ai+1AA8` stayed at -1 the whole time). It walked up to you (closest 0.7 m) and did nothing but jump. Your HP stayed at 2658 for the full 60 s, and you killed it.
-
-I think the too-quick respawn is the cause, but I haven't ruled out that the boss spawned while you were still in your beaten state.
-
-The Training add-on's source isn't in this repo, so I sent the full timeline to Ally (#6561). Ally is to reproduce it, try a 1.5–3 s delay before the retry spawn, and test die-then-retry twice. Ally should then push the fix and send a build id.
-
-I told you (#6562) to avoid dying in a rematch for now, or press Fight now again instead of auto retry. I also added a line to `.handoff/next.md`.
-
 ## 2026-10-15 18:37:58 session b7b603aa-384e-4e7f-978d-d4509c15db74
 I told the human they can play now (#6596). The game is already running on the main PC with the updated menu build, and the engine log shows it rendering at about 114 fps.
 
@@ -291,4 +279,17 @@ I answered you on the bridge (#8211). Yes, cross-world loading is shorter, but y
 
 I didn't start work on the total cross-world wait; it's the next thing to cut. I also logged your question in the user-directives file.
 
-## 2026-10-16 07:30 pc2 | #8218 Shingen cell probe n=2 reported (13 s dwell cover 10.2/8.2 s; 30 s dwell 2.1/6.1 s). Cells appear only at state 4->5; arena placeables stream after swap since centre moves then. Unproven: moving stream centre to arena during hold. Next: build that on pc2/faster-load if pc agrees. Files captures/rematch/c6-20261016-03*
+## 2026-10-16 10:40:31 session 68a18a33-a286-4ca5-9e7e-3b060adc9413
+I told you in #8273 why the helper stopped. It wasn't a crash. Each time you messaged, my run only sent a reply and then exited without starting the cross-world work. Nothing was running between your messages.
+
+The helper from #8271 is the one doing the work now. I haven't seen any results from it yet, so I don't have before/after numbers. I'll report them once it has some.
+
+## 2026-10-16 ~11:20 pc | CrossWorldForceCells (no prewarm) built + measured
+Done: pc/fnow-visible (nioh3-fnowvis) commit adds [ArenaSwap] CrossWorldForceCells=1 (old-world area-obj wait skipped, stream centre -> arena at click, direct admit of arena cells). Test on pc, 644c base, n=1 per row: Shingen click->control 20.4 s OFF -> 14.7 s ON; Otoroshi 11.2 -> 9.0 s. Saves/inis restored (verified); game closed. Evidence captures/pc/xskip.
+Unproven: n=1, noisy (stage ready 6-10 s varies); Shingen cell admit returned 0/3 (Otoroshi 3/6) - why? Not installed as default (ini default 0).
+Next: repeat n>=3 ABBA, find why 3A0534 returns 0 for Shingen cells, then ally/pc2 runs.
+
+## 2026-10-16 ~11:10 pc | ForceCells repeat (n=2 per arm, pc)
+Shingen click->control OFF 20.4/14.2 s, ON 14.7/15.6 s: NO real gain (first OFF was an outlier). Otoroshi OFF 11.2/11.3, ON 9.0/9.2: -2.1 s consistent. Shingen cell admit 0/3 (refused), Otoroshi 3/6. Not installed. Next: why 3A0534 refuses (needs RE), pc2/ally results #8298/#8299.
+
+## 2026-10-16 08:10 pc2 | #8224 CrossWorldCentreEarly built+tested: ON 2.0/4.2/8.1 s vs OFF 23.5 (n=1; old build 10.2/8.2). Unproven: clean OFF n>=2. Next: 2 more OFF runs or pc/ally runs of bridge file #643. Branch pc2/faster-load-centre 34e5d44; logs captures/rematch/ce*
