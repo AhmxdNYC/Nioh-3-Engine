@@ -296,6 +296,14 @@ I acknowledged #8618 and added a line to `next.md`. I haven't run anything new o
   prev installed asi FE43115F/ini backed up to captures/pc/user_play_prev2.*; test-active marker left in place (older restore point still captures/pc/cover/user_play_prev.*).
 2026-10-16 16:15 pc: user play #8827 findings sent to agent a626ff (gold on every stagger, NOFIN kill fade-at-once ignores BodyFade/CutsceneOnKill, toggle matrix). Staged captures/pc/stage-combo2, NOT installed (user playing). Next: on RESULT, swap when user says done.
 
-## 2026-10-16 pc2 | #8769 CoverRelease visibility check
-Done: read pc2 screenshots (xworldprobe-123448 CoverRelease 0, -125635 baseline): screen visible at +8 s and +20 s; pc2 never shows the Ally-style black cover. Proven: fade-in time on pc2 is real. Unproven: why Ally is black (Linux/capture?), early-release side effect at +40 s (no boss bar, hall).
-Next: seq-gate G5/G7 holder if pc asks; asi #689 (pc2/seq-gates 1e58f2f).
+## 2026-10-16 pc2 | documented session log (#8855)
+Task: #8751 seq-gate build (P0/P1/P2). Built earlier, not redone this session.
+Did this session (read-only, no game launched, no installs):
+- Read #8751 task; checked branches, next.md, checkpoints.md. notes/seq-state6-gate-RE.md is NOT in the working tree here (it is in commit 49a4c0f); I did not read it, so the P0/P1/P2 details come from #8751 and the older checkpoint.
+- Looked at screenshots + trace/training logs of captures/rematch/xworldprobe-20261016-123448 (CoverReleaseMs 0) and -125635 (baseline OFF): visible arena + boss HP bar at +8 s, +12 s, +18 s, +20 s, +60 s; no black screen on pc2.
+- Unexplained: release run at +40 s showed a hall with no boss bar (not checked further).
+- Messages sent: #8866 STATUS, #8872 RESULT (cover visible on pc2), #8877 STATUS, #8879/#8880/#8884 TO-USER, #8882 A to pc.
+- Git: pushed this checkpoint commit (pull --rebase --autostash first).
+Proven: pc2 fade-in is really visible at ~8-20 s; Ally's black until ~48 s not reproduced here.
+Unproven: why Ally is black; cause of the hall at +40 s; G5/G7 holders of state 8.
+Paused by user (#8852). Next step when resumed: G5/G7 holder for state 8 (~21 s hold) in branch pc2/seq-gates, after reading notes/seq-state6-gate-RE.md from commit 49a4c0f.
