@@ -17,3 +17,16 @@ Findings
 - Initial boot to field (title -> Continue) 54 s; not changed.
 - Memory: game working set 7.4 GB during the cross-world swap; no OOM on pc2 (16 GB).
 Evidence: captures/rematch/fl{A-base,B-aoskip,C-aoskip-pw,E-probe,F-lgs,G-lgs3,H-pre35,I-pre10,J-pre27}-*/training.log; driver tools/rematch/fl_test.ps1 (tools/ is gitignored).
+
+## Final recommended INI (pc2, 2026-10-15; [ArenaSwap] of Nioh3Training.ini)
+```
+CrossWorld = 1
+CrossWorldEarlySwap = 1
+CrossWorldBlockCells = 2
+CrossWorldAreaObjSkipMs = 500
+CrossWorldPrewarm = 2
+CrossWorldPrewarmHoldMs = 120000
+CrossWorldCellSkip = 2      ; only effective for rows with a whitelist (tsv col 16; Yoritomo 0xB1 built in, Shingen R15FF added)
+```
+Evidence: prewarm 2, 27 s menu dwell, Shingen, n=2 each: ON cover 2.2 s / 3.3 s vs OFF 33.2 / 30.5 s (captures/rematch/n2C-20261015-194618, n2A-20261015-193415). Needs the Training asi to read CrossWorldPrewarm=2 (stock Training_installed.asi read 0 -> invalid ON arm earlier).
+CellSkip (cold, no menu dwell, Shingen): CellSkip=2 with whitelist 193960,333645,439542,633740,929786 -> swap 14.4 s vs 19.0 s log-only (n=1 each, captures/rematch/xworldprobe-20261015-201624 vs -200555); arena + boss HP bar fine. Helps only when the menu dwell is short.
