@@ -1,0 +1,109 @@
+"""Bound PS05ad1715 four-material UV hoist; no resource or sample motion."""
+import argparse
+import hashlib
+import json
+import re
+from pathlib import Path
+import sys
+import tempfile
+sys.dont_write_bytecode=True
+SHA='4173c9dce9ad919b5238426f345de1d1d648b1c47efeaf1ea2c59e01e558dd4b'
+BODY='a4dcfea86c85c3ec50f02b20da99382d431fc27b807c2aa9dc8c24e41dd9e3c1'
+FILE='2fd6d3c82b14be2b5cc47e76dd36f0c65a1af394833f2b17737ddfb2fab89326'
+GROUPS=((666,754,852,938),(667,755,853,939),(689,777,875,961),
+        (690,778,876,962),(691,779,877,963),(692,780,878,964))
+
+
+def sha(x):return hashlib.sha256(x).hexdigest()
+
+
+def rewrite(ll,S,dxcom,placement='entry'):
+    if sha(dxcom.body(ll).encode())!=BODY:raise ValueError('unexpected original body')
+    f=S.Fn(ll);defs={S.DEF.match(x)[1]:x for _,lines in f.blocks for x in lines if S.DEF.match(x)}
+    repl={'%v'+str(n):'%v'+str(g[0]) for g in GROUPS for n in g[1:]}
+    selected={'%v'+str(n) for g in GROUPS for n in g}
+    # Compute dominators from the actual CFG; nearest retry must dominate all
+    # original definitions, not merely look nearby in textual order.
+    labels={b for b,_ in f.blocks};pred={b:set() for b in labels}
+    for b,lines in f.blocks:
+        for dest in re.findall(r'label %(b\d+)',lines[-1]):pred[dest].add(b)
+    first=f.blocks[0][0];dom={b:({b} if b==first else set(labels)) for b in labels}
+    while True:
+        changed=False
+        for b,_ in f.blocks[1:]:
+            assert pred[b], 'unexpected unreachable block'
+            d={b}|set.intersection(*(dom[x] for x in pred[b]))
+            if d!=dom[b]:dom[b]=d;changed=True
+        if not changed:break
+    source_blocks={b for b,lines in f.blocks for x in lines if S.DEF.match(x) and S.DEF.match(x)[1] in selected}
+    common=set.intersection(*(dom[b] for b in source_blocks))
+    nearest=max(common,key=lambda b:len(dom[b]));assert nearest=='b650'
+    sub=lambda line:S.TOK.sub(lambda m:repl.get(m[0],m[0]),line)
+    lifted=[]
+    for g in GROUPS:
+        rhs=[sub(defs['%v'+str(n)]).split(' = ',1)[1] for n in g]
+        assert len(set(rhs))==1
+        # Strict operation whitelist: never value-number reads/samples/handles.
+        assert rhs[0].startswith(('call float @dx.op.unary.f32(i32 22,',
+                                  'call float @dx.op.binary.f32(i32 35,',
+                                  'call float @dx.op.binary.f32(i32 36,'))
+        lifted.append(defs['%v'+str(g[0])])
+    for _,lines in f.blocks:
+        lines[:]=[sub(x) for x in lines if not(S.DEF.match(x) and S.DEF.match(x)[1] in selected)]
+    if placement=='entry':
+        target=f.blocks[0][1];at=next(i for i,x in enumerate(target) if x.startswith('  %v99 = '))+1
+    else:
+        assert placement=='nearest'
+        target=next(lines for b,lines in f.blocks if b==nearest)
+        at=len(target)-1;assert target[at].startswith('  br i1 %v664,')
+    target[at:at]=lifted
+    return f.emit()
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--assemble',action='store_true');p.add_argument('--isa',action='store_true')
+    p.add_argument('--placement',choices=['entry','nearest'],default='entry');a=p.parse_args()
+    sys.path[:0]=[str(a.repo/'gpu-shaders/materials'),str(a.repo/'gpu-shaders')]
+    import dxcom,sfb_rewrite as S
+    from build_sfb import Group
+    source=Path('C:/Program Files (x86)/Steam/steamapps/common/Nioh3/shader_dx12/0xbc09ad4a.file')
+    raw=source.read_bytes();assert sha(raw)==FILE
+    binary=Group(raw).dxbc(1);assert sha(binary)==SHA and binary[4:20].hex()=='05ad17151de4f513fb82c7428874a7f9'
+    a.out.mkdir(parents=True,exist_ok=True);original=a.out/'original.dxbc';original.write_bytes(binary)
+    ll=dxcom.dumpbin(str(original));candidate=rewrite(ll,S,dxcom,a.placement)
+    (a.out/'four-material-uv.ll').write_bytes(candidate.encode())
+    r=dict(file_sha256=FILE,slot=1,placement=a.placement,original_shader_sha256=SHA,original_body_sha256=BODY,
+        candidate_body_sha256=sha(dxcom.body(candidate).encode()),removed_pure_calls=18,
+        changed_resource_sample_or_float_arithmetic_order=False,codegen='PENDING',native='UNADMITTED')
+    if a.assemble or a.isa:
+        b=dxcom.ll_to_container(candidate);dst=a.out/'four-material-uv.dxbc';dst.write_bytes(b)
+        assert dxcom.body(dxcom.dumpbin(str(dst)))==dxcom.body(candidate)
+        op,cp=dxcom.parts(binary),dxcom.parts(b)
+        assert all(op.get(k)==cp.get(k) for k in ('ISG1','OSG1','PSV0','SFI0'))
+        r['candidate_shader_sha256']=sha(b)
+    if a.isa:
+        import rga_ps
+        tempfile.tempdir=str(a.out.resolve())
+        vs=a.repo/'gpu-shaders/meshvs/work/70d0ee9f.dxbc'
+        assert sha(vs.read_bytes())=='83d64677954ab9c2368b032ea022659353a701bf6a1daf07c37eeaf93a6d55bf'
+        vll=dxcom.dumpbin(str(vs))
+        assert rga_ps.root_sig(ll,vll)==rga_ps.root_sig(dxcom.dumpbin(str(dst)),vll)
+        r.update(vs_sha256=sha(vs.read_bytes()),rga_sha256=sha(Path(rga_ps.RGA).read_bytes()),
+            rga_helper_sha256=sha(Path(rga_ps.__file__).read_bytes()),
+            generated_root_sha256=sha(rga_ps.root_sig(ll,vll).encode()),
+            generated_gpso_sha256=sha(rga_ps.gpso(vll).encode()),
+            codegen_scope='Synthetic RGA root and eight RGBA16F targets, not captured native graphics state')
+        for label,path in (('original',original),('candidate',dst)):
+            st,isa=rga_ps.stats(str(vs),str(path),'gfx1103')
+            (a.out/(label+'.gfx1103.isa.txt')).write_bytes(isa.encode())
+            r[label+'_stats']=st;r[label+'_isa_sha256']=sha(isa.encode())
+            print(label,json.dumps(st),flush=True)
+        before,after=r['original_stats'],r['candidate_stats']
+        good=(after['instructions']<before['instructions'] and
+              all(after[k]<=before[k] for k in ('vgprs','sgprs','scratch','buffer_loads','samples')))
+        r['codegen']='PROMISING_OFFLINE_ONLY' if good else 'REJECT_RESOURCE_OR_INSTRUCTION_GATE'
+    (a.out/'four-material-uv.json').write_text(json.dumps(r,indent=2));print(json.dumps(r,indent=2))
+
+
+if __name__=='__main__':main()

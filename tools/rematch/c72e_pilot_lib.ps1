@@ -1,6 +1,25 @@
 # Read-only on import. Helpers for the single-launch C72E pilot and isolated fixtures.
 Set-StrictMode -Version Latest
 
+function C72-ReadySettled($Tracker,[long]$NowMs,[string]$Status,[bool]$Readable) {
+    $good=$Readable -and (C72-Field $Status 'state') -eq '0' -and
+        (C72-Field $Status 'player') -eq '1' -and (C72-Field $Status 'loading') -eq '0' -and
+        $Status -match 'gate=ok(?: |$)'
+    # A stalled observer is not a continuous ready observation.
+    if ($null -ne $Tracker.last -and ($NowMs -lt $Tracker.last -or $NowMs-$Tracker.last -gt 1500)) { $Tracker.since=$null }
+    $Tracker.last=$NowMs
+    if (-not $good) { $Tracker.since=$null; return $false }
+    if ($null -eq $Tracker.since) { $Tracker.since=$NowMs }
+    return $NowMs-$Tracker.since -ge 12000
+}
+function C72-NewRefusal([string]$Before,[string]$After) {
+    if (-not $After.StartsWith($Before,[StringComparison]::Ordinal)) { throw 'Add-on log changed/truncated after request; admission unconfirmed' }
+    $tail=$After.Substring($Before.Length)
+    $match=[regex]::Match($tail,'(?m)^\[[^\r\n]+\] Rematch: refused: ([^\r\n]+)')
+    if ($match.Success) { return $match.Groups[1].Value }
+    return $null
+}
+
 function C72-Full([string]$Path) { [IO.Path]::GetFullPath($Path).TrimEnd('\') }
 function C72-Inside([string]$Root, [string]$Path) {
     (C72-Full $Path).StartsWith((C72-Full $Root) + '\', [StringComparison]::OrdinalIgnoreCase)
@@ -89,7 +108,40 @@ function C72-FirstCandidate([string]$Reply, [bool]$SawLoad, [int]$Start) {
     # Proxy ONLY: the ASI exposes pause/loading/player flags, not control-enabled or a render-frame boundary.
     return $SawLoad -and (C72-Field $Reply 'mission') -eq '0xC72E' -and
         (C72-Field $Reply 'stage') -eq "$Start" -and (C72-Field $Reply 'loading') -eq '0' -and
-        (C72-Field $Reply 'player') -eq '1' -and $Reply -match 'gate=(rematch active|mission queue busy)(?: |$)'
+        (C72-Field $Reply 'player') -eq '1' -and $Reply -match 'gate=(rematch active|mission queue busy|native replay/return still pending)(?: |$)'
+}
+function C72-ObserveEntry($Observation,[string]$Reply,[int]$Start,[double[]]$Target,[double]$ElapsedMs) {
+    if ((C72-Field $Reply 'loading') -eq '1') { $Observation.saw_load=$true }
+    $mission=(C72-Field $Reply 'mission') -eq '0xC72E'
+    if (-not $Observation.native_start -and $Observation.saw_load -and $mission -and (C72-Field $Reply 'stage') -eq "$Start" -and (C72-Field $Reply 'player') -eq '1') {
+        $Observation.native_start=@{reply=$Reply;elapsed_ms=$ElapsedMs;loading=(C72-Field $Reply 'loading');kind='REQUESTED_MISSION_RETRY_NOT_CONTROL'}
+    }
+    if (-not $Observation.battle -and $mission -and (C72-Field $Reply 'infight') -eq '1' -and $Reply -match 'placements=\[[^\]]*\b333550(?:\(|\s|\])') {
+        $Observation.battle=@{reply=$Reply;elapsed_ms=$ElapsedMs;kind='NATIVE_BOSS_EVENT_NOT_CONTROL'}
+    }
+    if (-not $Observation.first_player -and (C72-FirstCandidate $Reply $Observation.saw_load $Start)) {
+        $land=C72-Landing $Reply $Target
+        $land.elapsed_ms=$ElapsedMs;$land.reply=$Reply;$land.control='UNCONFIRMED';$land.pause_validity='NOT_INDEPENDENTLY_EXPOSED'
+        $Observation.first_player=$land
+    }
+    return [bool]($Observation.first_player -and $Observation.battle -and (C72-FirstCandidate $Reply $Observation.saw_load $Start))
+}
+function C72-CheckControlReview($Request,$Review) {
+    foreach ($key in @('nonce','owner_pid','owner_start','runner_pid','runner_start','game_pid','game_start')) {
+        if ([string]$Request.$key -cne [string]$Review.$key) { throw "Stale/foreign control review: $key" }
+    }
+    foreach ($key in @('visible_arena','visible_boss','control_response')) {
+        if ($Review.$key -isnot [bool] -or -not $Review.$key) { throw "Root did not confirm $key" }
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$Review.evidence)) { throw 'Root visual/control evidence required' }
+}
+function C72-ReturnProxySettled($Tracker,[long]$NowMs,[string]$Reply,[int]$Start) {
+    $good=(C72-FirstCandidate $Reply $true $Start) -and (C72-Field $Reply 'warps') -eq '0' -and (C72-Field $Reply 'spawn') -eq '-'
+    if ($null -ne $Tracker.last -and ($NowMs -lt $Tracker.last -or $NowMs-$Tracker.last -gt 1500)) { $Tracker.since=$null }
+    $Tracker.last=$NowMs
+    if (-not $good) { $Tracker.since=$null;return $false }
+    if ($null -eq $Tracker.since) { $Tracker.since=$NowMs }
+    return $NowMs-$Tracker.since -ge 4000 # proxy only: native AttemptReturnGate remains authoritative
 }
 function C72-Landing([string]$Reply, [double[]]$Target) {
     $xyz = (C72-Field $Reply 'pos').Split(',')
@@ -118,4 +170,34 @@ function C72-UniqueIni([string[]]$Lines, [string[]]$Sections) {
 function C72-Event([string]$Path, [string]$Kind, [string]$Reply, [double]$ElapsedMs) {
     $v = @{ utc = [DateTime]::UtcNow.ToString('o'); elapsed_ms = [Math]::Round($ElapsedMs,3); kind = $Kind; reply = $Reply }
     [IO.File]::AppendAllText($Path, ($v | ConvertTo-Json -Compress) + "`r`n", (New-Object Text.UTF8Encoding($false)))
+}
+
+function C72-ReturnEvidence([string]$Before,[string]$After,[string]$Reply,[int]$Start,$Entry) {
+    if (-not $Entry -or $Entry.mission -notmatch "^0x[0-9A-Fa-f]+$" -or [string]$Entry.stage -notmatch "^\d+$") { throw "Bound original entry tuple required" }
+    $refusal=C72-NewRefusal $Before $After # also validates captured prefix
+    if ($refusal) { throw "Native return refused: $refusal; no retry" }
+    $tail=$After.Substring($Before.Length)
+    if ($tail -match 'Rematch: exit:[^\r\n]*EXCEPTION' -or $Reply -match 'gate=native request uncertain') { throw 'Native return exception/quarantine; no retry' }
+    $request=[regex]::Match($tail,('Rematch: exit: MissionRequestReturn\(params, 1\) from mission 0xC72E \(retry point '+$Start+'\) -> requested'))
+    $confirmed=$false;$disposition='QUEUED_ACK_ONLY'
+    if ($request.Success) {
+        $disposition='NATIVE_RETURN_REQUESTED'
+        $afterRequest=$tail.Substring($request.Index+$request.Length)
+        $exited=$afterRequest -match ('Rematch: replay mission exited \(stage now '+[regex]::Escape([string]$Entry.stage)+', mission state \+28h '+[regex]::Escape([string]$Entry.mission)+'\)')
+        $mission=C72-Field $Reply 'mission'
+        $confirmed=$exited -and $mission -eq $Entry.mission -and (C72-Field $Reply 'stage') -eq [string]$Entry.stage -and $mission -ne '0xC72E' -and
+            (C72-Field $Reply 'state') -eq '0' -and (C72-Field $Reply 'loading') -eq '0' -and (C72-Field $Reply 'player') -eq '1' -and
+            (C72-Field $Reply 'warps') -eq '0' -and (C72-Field $Reply 'spawn') -eq '-' -and $Reply -match 'gate=ok(?: |$)'
+        if ($confirmed) { $disposition='NATIVE_RETURN_OBSERVED' }
+    }
+    return @{confirmed=[bool]$confirmed;disposition=$disposition;reply=$Reply;kind='ORDERED_NATIVE_RETURN_AND_REPLAY_EXIT_LOG_PLUS_IDLE_EXACT_ENTRY_TUPLE'}
+}
+
+function C72-EntrySettled($Tracker,[long]$NowMs,[string]$Reply,[bool]$ReadOk) {
+    $mission=C72-Field $Reply 'mission';$stage=C72-Field $Reply 'stage'
+    $valid=$ReadOk -and $mission -match '^0x[0-9A-Fa-f]+$' -and $stage -match '^\d+$'
+    $key=$mission+':'+$stage
+    if (-not $valid -or ($Tracker.ContainsKey('identity') -and $Tracker.identity -ne $key)) { $Tracker.since=$null }
+    $Tracker.identity=$key
+    return C72-ReadySettled $Tracker $NowMs $Reply $valid
 }

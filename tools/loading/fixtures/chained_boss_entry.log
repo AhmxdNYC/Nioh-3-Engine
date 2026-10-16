@@ -1,0 +1,17 @@
+[12:00:00.000] AutoContinue: installed (tip page confirm check 1CECAED), OFF (stock) - [General] AutoContinueLoad = 0; switch in the mod menu
+[12:00:01.000] LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[12:00:01.000] LoadSeq #1 owner at set: script/other (FT state 0, B state 0)
+[12:00:21.000] LoadStats #1: 20.0 s | frames 1000 (20.0 ms) | CPU 7.00 cores | stage ready +0.0 s | loaders busy 8.0/2.0 s (first +0.0, last +8.9), in-flight avg A 9.0 B 2.0 of 10 (at cap A 85 % B 10 %), pending avg A 120.0 B 1.0 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[12:00:21.000] LoadGates #1: 300 evaluations (0 with no failing gate) | last failing eval +9.0 s, first full-pass eval -999.0 s, last eval +9.0 s, window 20.0 s
+[12:00:21.000] LoadGates #1 G8 StageAreasObjectsReady  calls 300, failed 250, first-failing in 250 evals (83 %), held 5.00 s (25 % of window) | first fail +2.0 s, last fail +7.0 s, last flip to pass +7.0 s
+[12:00:21.000] LoadGates #1 G9 LoadCharacterReady      calls 4, failed 4, first-failing in 2 evals (1 %), held 11.50 s (58 % of window) | first fail +8.5 s, last fail +9.0 s, last flip to pass -999.0 s
+[12:00:21.000] LoadGates #1 holder: G9 LoadCharacterReady (11.50 s of 20.0 s)
+[12:00:22.500] LoadStats #2: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[12:00:22.500] LoadSeq #2 owner at set: script/other (FT state 0, B state 0)
+[12:00:25.500] LoadStats #2: 3.0 s | frames 120 (25.0 ms) | CPU 9.00 cores | stage ready +0.0 s | loaders busy 2.5/1.0 s (first +0.0, last +3.0), in-flight avg A 5.0 B 1.0 of 10 (at cap A 10 % B 0 %), pending avg A 2.0 B 0.2 | ready-wait +3.0..+3.0 s (acc max 1.0) | event scene 0.0 s
+[12:00:25.500] LoadGates #2: 80 evaluations (0 with no failing gate) | last failing eval +3.0 s, first full-pass eval -999.0 s, last eval +3.0 s, window 3.0 s
+[12:00:25.500] LoadGates #2 G5 ObjectListAnyNotReady   calls 80, failed 30, first-failing in 30 evals (38 %), held 1.00 s (33 % of window) | first fail +0.0 s, last fail +2.0 s, last flip to pass +2.0 s
+[12:00:25.500] LoadGates #2 G8 StageAreasObjectsReady  calls 50, failed 20, first-failing in 20 evals (25 %), held 1.00 s (33 % of window) | first fail +0.5 s, last fail +1.5 s, last flip to pass +1.5 s
+[12:00:25.500] LoadGates #2 G9 LoadCharacterReady      calls 30, failed 29, first-failing in 3 evals (4 %), held 0.70 s (23 % of window) | first fail +2.3 s, last fail +3.0 s, last flip to pass +3.0 s
+[12:00:25.500] LoadGates #2 holder: G5 ObjectListAnyNotReady (1.00 s of 3.0 s)
+[12:00:40.000] LoadStats #3: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)

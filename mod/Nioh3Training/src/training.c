@@ -649,6 +649,11 @@ static void StageLog(const char* tag) {
         *(uint8_t*)(sub + 0x389), n, buf, c[0], c[1], c[2], *(uint8_t*)(B + 0x45BC428), *(uint32_t*)(B + 0x45BC42C));
 }
 // native Player::SetPos (VM 23AB4DC) tail for the non-riding case
+// bridge 6514: the game's own loading screen widget (script UI::LoadStart / UI::LoadEnd: [45C84A8]+748h) = native fade to black + loading emblem.
+static int LoadScreen(int on) {
+    __try { ((void (*)(void))(B + (on ? 0x6372A0 : 0x3B1B6C)))(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("LOADSCREEN %d: exception %08lX", on, GetExceptionCode()); return 0; }
+    Log("LOADSCREEN %s called", on ? "start" : "end"); return 1;
+}
 static int Warp(float x, float y, float z, float yaw, int full) {
     uint64_t pl = ((uint64_t (*)(int))(B + 0x20A914))(0);
     if (!pl) return 0;
@@ -1032,12 +1037,13 @@ static int TrainStart(const char* tok, float d) {
     g_tr.active = 1; Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
     return 1;
 }
+static int g_cfg_tr_respawn = 2000;
 static void TrainRetry(const char* why) {
     if (!g_tr.active) { Log("TRAIN retry (%s): no session", why); return; }
     TrainClear(why); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
-    g_tr.round++; g_tr.beaten = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + 300;
+    g_tr.round++; g_tr.beaten = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
 }
 static void TrainStop(const char* why) {
@@ -1318,8 +1324,9 @@ static void XsTick(void) {
 static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 // bridge 6375: CrossWorldSettleMs = wait after 'stage ready' before the swap (was fixed 700). CrossWorldPrewarm = 1: Nioh3Training_Preload()/PreloadFor(mission) (menu opened) starts the world request for the
 // likely target (ini CrossWorldPrewarmMission, else the last cross-world boss) before the player picks; Fight now for a boss of that world then just claims the running request (or is a plain same-world swap once landed).
-static int g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
-static struct { int active, claimed, preDeferred; ArenaRow* row; DWORD t0, tReady, tClaim; } g_xw;
+static int g_cfg_xabbm = 1, g_cfg_xhold = 30000, g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
+static struct { int active, claimed, preDeferred, cancel; ArenaRow* row; DWORD t0, tReady, tClaim, tCancel; uint8_t oWorld, oJourney; uint32_t oStart, oMode; float oPos[4]; } g_xw;  // bridge 6550: o* = where the prewarm started (cancel returns there)
+static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0; } g_xr;  // bridge 6550: return trip after a cancelled prewarm
 static void XwPreload(ArenaRow* r, const char* when) {
     uint64_t e = ResEntry(r->chr);
     if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(r->chr, 2, 0); PoolAdd(r->chr); Log("XWORLD %s: boss resources (char %u) requested %s", r->id, r->chr, when); }
@@ -1384,7 +1391,8 @@ static int XwStart(ArenaRow* r, int claimed) {
     prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;  // WarpOtherWorld, mission 0 = stay in the running mission
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);
     uint8_t journey = *(uint8_t*)(ms + 0x10); uint32_t mode = *(uint32_t*)(ms + 0x24);
-    memset(&g_xw, 0, sizeof g_xw); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1; g_xw.claimed = claimed; g_xw.tClaim = claimed ? g_xw.t0 : 0; g_xw_last_mission = (int)r->mission;
+    uint8_t oW = (uint8_t)CurWorld(); uint32_t oS = *(uint32_t*)(B + 0x45BC42C); float oP[4] = {0}; PlayerPos(oP);
+    memset(&g_xw, 0, sizeof g_xw); g_xw.oWorld = oW; g_xw.oJourney = journey; g_xw.oStart = oS; g_xw.oMode = mode; memcpy(g_xw.oPos, oP, sizeof oP); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1; g_xw.claimed = claimed; g_xw.tClaim = claimed ? g_xw.t0 : 0; g_xw_last_mission = (int)r->mission;
     CellSkipOpen(r);  // before the request: it may already ask for cells synchronously
     Log("XWORLD %s (%s)%s: world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, claimed ? "" : " PREWARM (menu opened, not claimed yet)", CurWorld(), r->world, r->start, journey, mode);
     XsStart(r->id, r->world);
@@ -1394,12 +1402,60 @@ static int XwStart(ArenaRow* r, int claimed) {
     return 1;
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
+static int FightNowImpl(uint32_t mission);
+// bridge 6550: a prewarm (menu opened) issues a REAL WarpOtherWorld: the mission sequencer switches the world even if the menu is closed without Fight now. Cancel = wait until
+// the request landed, then WarpOtherWorld back to the world/start it began in and put the player back on the spot (XrTick). A claimed request is never cancelled.
+static void XwAbort(const char* why) { g_xw.active = 0; g_xw.cancel = 0; CellSkipClose(why); if (g_xs.on) XsEnd(why); XsBlkRestore(why); }
+static void XwCancel(const char* why) {
+    if (!g_xw.active || g_xw.claimed || g_xw.cancel) return;
+    g_xw.cancel = 1; g_xw.tCancel = GetTickCount(); Log("XWORLD prewarm cancel requested (%s): will return to world 0x%02X start %u when the request landed", why, g_xw.oWorld, g_xw.oStart);
+}
+static void XrTick(void) {
+    if (!g_xr.active) return;
+    DWORD now = GetTickCount(); const uint8_t* st = GameState(); if (!st) return;
+    if (now - g_xr.t0 > 60000) { Log("XWORLD return: position fix not applied within 60 s (the player stays at the return start point)"); g_xr.active = 0; return; }
+    if (CurWorld() != g_xr.world || !PlayerChar() || StageState() != 5 || st[2]) return;
+    static DWORD tSeen; if (!tSeen) tSeen = now; if (now - tSeen < 700) return;
+    { uint64_t n, r, f, q, m; if (CellStats(&n, &r, &f, &q, &m) && n && r < n && now - tSeen < 25000) return; }  // bridge 6541: put the player back only once the old world's cells (collision) are loaded, not into a half-loaded world
+    tSeen = 0; g_xr.active = 0;
+    int w = Warp(g_xr.pos[0], g_xr.pos[1], g_xr.pos[2], g_xr.pos[3], 1);
+    Log("XWORLD return: back in world 0x%02X +%lu ms, player put back at %.0f %.0f %.0f -> %d", g_xr.world, now - g_xr.t0, g_xr.pos[0], g_xr.pos[1], g_xr.pos[2], w);
+}
+// bridge 6541: the start point the origin world is re-entered at. The old read of the 'current start' global was 0 (an undefined spot: the player fell to death while the old world loaded), so use the table row of that world whose arena is nearest to where the player stood
+static uint32_t XwReturnStart(uint8_t world, const float* pos, uint32_t fallback) {
+    uint32_t best = fallback; float bd = 1e30f;
+    for (int i = 0; i < g_nrows; ++i) { ArenaRow* q = &g_rows[i]; if (q->world != world || !q->start) continue; float dx = q->p[0] - pos[0], dz = q->p[2] - pos[2], d = dx * dx + dz * dz; if (d < bd) { bd = d; best = q->start; } }
+    return best;
+}
+static void XwCancelTick(DWORD now) {
+    ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
+    if (now - g_xw.tCancel > 60000) { Log("XWORLD cancel: prewarm never landed in 60 s, dropped"); XwAbort("cancel timeout"); return; }
+    if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || (st[2] && now - g_xw.tCancel < 20000)) { return; }  // still switching: the return can only be requested once the request is through (bridge 6541: after 20 s try anyway, a stalled load flag must not strand the player)
+    { uint64_t cm = CharMgr(), c0 = 0; if (g_cfg_xabbm && cm && Rd64(cm, &c0) && c0 && *(uint8_t*)(c0 + 0x26AA)) BossModeEnd("xworld abort: native boss mode in the wrong world (bridge 6541)"); }
+    if (CurWorld() == g_xw.oWorld) { XwAbort("cancel: never left the world"); return; }
+    uint64_t mm = 0, ms = 0; if (!Rd64(B + 0x47514D0, &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) return;
+    __attribute__((aligned(16))) uint8_t prm[32] = {0};
+    ((void (*)(void*))(B + 0x1BF7D68))(prm); prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;
+    ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);
+    memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_xw.oWorld; g_xr.start = XwReturnStart(g_xw.oWorld, g_xw.oPos, g_xw.oStart); g_xr.t0 = now; memcpy(g_xr.pos, g_xw.oPos, sizeof g_xr.pos); g_xr.active = 1;
+    Log("XWORLD cancel: prewarm landed in 0x%02X, returning to world 0x%02X start %u (WarpOtherWorld)", CurWorld(), g_xw.oWorld, g_xr.start);
+    XwAbort("prewarm cancelled");
+    ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(g_xr.world, g_xw.oJourney, g_xr.start, g_xw.oMode, prm);
+}
 static void XwTick(void) {
+    XrTick();
     if (!g_xw.active) return;
+    if (g_xw.cancel) { XwCancelTick(GetTickCount()); return; }
     DWORD now = GetTickCount(); ArenaRow* r = g_xw.row; const uint8_t* st = GameState(); if (!st) return;
     static DWORD lastLog; if (now - lastLog >= 2000) { lastLog = now; StageLog("XWORLD wait"); Log("XWORLD wait: GAMESTATE[2]=%u PlayerChar=%llX world 0x%02X (target 0x%02X) stage %d", st[2], (unsigned long long)PlayerChar(), CurWorld(), r->world, StageState()); }  // pc 5328: stage state 4->5 vs cell loading split
     if (g_xw.preDeferred && CurWorld() == r->world) { g_xw.preDeferred = 0; XwPreload(r, "after the world switch"); Log("XWORLD %s: world switched to 0x%02X at +%lu ms (mission seq state %d, GAMESTATE[2] %u)", r->id, r->world, now - g_xw.t0, (int)SeqState(), st[2]); }
-    if (!g_xw.claimed ? now - g_xw.t0 > 120000 : now - (g_xw.tClaim > g_xw.t0 + 20000 ? g_xw.tClaim : g_xw.t0) > 40000) { g_xw.active = 0; CellSkipClose("40 s timeout"); XsBlkRestore("swap aborted"); Log("XWORLD %s: stage not ready 40 s after the world request, swap aborted (no native fallback, bridge 5455)", r->id); return; }
+    if (!g_xw.claimed && g_xw.tReady && now - g_xw.tReady > (DWORD)g_cfg_xhold) { XwCancel("nobody claimed it in time"); return; }  // bridge 6550
+    if (!g_xw.claimed && now - g_xw.t0 > 120000) { XwAbort("prewarm 120 s"); return; }
+    if (g_xw.claimed && now - (g_xw.tClaim > g_xw.t0 + 20000 ? g_xw.tClaim : g_xw.t0) > 60000) {  // bridge 6541: no native fallback, but never leave the player stranded in the half-loaded target world / in a native boss mode
+        Log("XWORLD %s: stage not ready 60 s after the world request (world 0x%02X target 0x%02X, PlayerChar %llX, stage %d, GAMESTATE[2] %u, EarlySwap %d), swap aborted, returning to world 0x%02X (bridge 6541)", r->id, CurWorld(), r->world, (unsigned long long)PlayerChar(), StageState(), st[2], g_cfg_xearly, g_xw.oWorld);
+        g_xw.claimed = 0; XwCancel("claimed swap timed out"); return;
+    }
+    if (CurWorld() == r->world && PlayerChar() && StageState() == 5 && st[2] && !g_cfg_xearly) XsBlkRestore("stage 5, waiting for the load flag: cells must load (bridge 6541, CrossWorldBlockCells 2 deadlock)");
     if (CurWorld() != r->world || !PlayerChar() || StageState() != 5 || (st[2] && !g_cfg_xearly)) { g_xw.tReady = 0; return; }
     if (!g_xw.tReady) { g_xw.tReady = now; Log("XWORLD %s: landed in world 0x%02X, stage ready +%lu ms after the request%s", r->id, r->world, now - g_xw.t0, g_xw.claimed ? "" : " (prewarm, not claimed)"); }
     if (!g_xw.claimed) return;  // prewarm landed: keep the state (GAMESTATE[2] may stay 1 on Ally) until Fight now claims it; dropped by the timeout below
@@ -1412,11 +1468,11 @@ static void XwTick(void) {
     XsBlkRestore("arena swap fired");
     if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
 }
-N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+static int FightNowImpl(uint32_t mission) {
     if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && g_xw.active && !g_xw.claimed) {  // a prewarm request is running: claim it when the boss is in that world
         ArenaRow* xr = FindRow(mission);
-        if (xr && xr->world == g_xw.row->world) { g_xw.row = xr; g_xw.claimed = 1; g_xw.tClaim = GetTickCount(); Log("XWORLD %s: Fight now claimed the prewarm request (running %lu ms already)", xr->id, g_xw.tClaim - g_xw.t0); return 1; }
-        if (xr) { Log("XWORLD %s: boss is in another world than the prewarm, prewarm dropped", xr->id); g_xw.active = 0; }
+        if (xr && xr->world == g_xw.row->world) { g_xw.row = xr; g_xw.claimed = 1; g_xw.cancel = 0; g_xw.tClaim = GetTickCount(); Log("XWORLD %s: Fight now claimed the prewarm request (running %lu ms already)", xr->id, g_xw.tClaim - g_xw.t0); return 1; }
+        if (xr) { Log("XWORLD %s: boss is in another world than the prewarm, prewarm cancelled", xr->id); XwCancel("other world picked"); return 0; }
     }
     if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && !g_xw.active) {
         ArenaRow* xr = FindRow(mission);
@@ -1460,11 +1516,99 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     if (ok && g_cfg_fn_arena) TrainAttachArena(r, r->p, b, r->p[3] + 180.0f);
     return ok;
 }
+// ---- bridge 6519: arena switch transition. Own topmost click-through layered window (like Boss Rematch's menu, no graphics hook): fades to black around the swap and holds
+// until the new arena has settled (boss spawned, stage state 5, no placeable loads in flight, quiet for FadeStableMs) instead of showing the 20-35 s streaming pop-in.
+// Same-world Fight now: black first (FadeOutMs), then the in-place swap, then hold, then FadeInMs. Cross-world: black from the call, hold through the world switch + swap + settle.
+static int g_cfg_fade = 1, g_cfg_fade_out = 250, g_cfg_fade_in = 400, g_cfg_fade_min = 800, g_cfg_fade_stable = 500, g_cfg_fade_max = 60000;
+static volatile LONG g_fd_want, g_fd_alpha;   // want: overlay target (1 = black); alpha 0..255 as drawn
+static struct { int pend, phase, inside; uint32_t mission; DWORD tPend, tSwap, tStable, tWant; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
+static HWND g_fd_wnd, g_fd_game;
+static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn in the game's own frame) or the fallback GDI window
+static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
+static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
+static BOOL CALLBACK FdFind(HWND h, LPARAM lp) { (void)lp;
+    DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fd_wnd) return TRUE;
+    RECT r; GetClientRect(h, &r); if (r.right < 400 || r.bottom < 300) return TRUE;
+    g_fd_game = h; return FALSE;
+}
+static LRESULT CALLBACK FdProc(HWND h, UINT m, WPARAM w, LPARAM l) { if (m == WM_NCHITTEST) return HTTRANSPARENT; return DefWindowProcW(h, m, w, l); }
+static DWORD WINAPI FadeThread(LPVOID x) {
+    WNDCLASSEXW wc = {sizeof wc}; wc.lpfnWndProc = FdProc; wc.hInstance = GetModuleHandleW(0); wc.lpszClassName = L"Nioh3TrainingFade"; wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    RegisterClassExW(&wc);
+    g_fd_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, 0, 0, wc.hInstance, 0);
+    if (!g_fd_wnd) { Log("FADE: overlay window failed (%lu), transitions off", GetLastError()); g_cfg_fade = 0; return 0; }
+    g_fd_ok = 1;
+    SetLayeredWindowAttributes(g_fd_wnd, 0, 0, LWA_ALPHA);
+    float a = 0; DWORD last = GetTickCount(); int shown = 0, lastA = -1;
+    for (;;) {
+        Sleep(10); DWORD now = GetTickCount(), dt = now - last; last = now;
+        float step = 255.0f * dt / (float)((g_fd_want ? g_cfg_fade_out : g_cfg_fade_in) > 0 ? (g_fd_want ? g_cfg_fade_out : g_cfg_fade_in) : 1);
+        if (g_fd_want) a = a + step > 255 ? 255 : a + step; else a = a - step < 0 ? 0 : a - step;
+        MSG msg; while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
+        int ia = (int)(a + 0.5f); g_fd_alpha = ia;
+        if (ia > 0) {
+            if (!g_fd_game || !IsWindow(g_fd_game)) { g_fd_game = 0; EnumWindows(FdFind, 0); }
+            if (g_fd_game && !IsIconic(g_fd_game)) {
+                RECT r; GetClientRect(g_fd_game, &r); POINT o = {0, 0}; ClientToScreen(g_fd_game, &o);
+                if (ia != lastA) SetLayeredWindowAttributes(g_fd_wnd, 0, (BYTE)ia, LWA_ALPHA);
+                SetWindowPos(g_fd_wnd, HWND_TOPMOST, o.x, o.y, r.right, r.bottom, SWP_NOACTIVATE | SWP_SHOWWINDOW); shown = 1; lastA = ia;
+            }
+        } else if (shown) { ShowWindow(g_fd_wnd, SW_HIDE); shown = 0; lastA = -1; }
+    }
+}
+static void FadeWant(int on, const char* why) {
+    if (!g_cfg_fade || !g_fd_ok) return;
+    if (g_fd_want != on) { g_fd_want = on; g_fd.tWant = GetTickCount(); Log("FADE %s (%s), alpha %ld", on ? "to black" : "back in", why, FdAlpha()); if (p_osdFade) p_osdFade(on, on ? g_cfg_fade_out : g_cfg_fade_in); }
+}
+static int FadeSettled(void) {
+    if (g_sp.active || g_vf.respawnAt || (g_ar.active && !g_ar.released) || StageState() != 5 || !PlayerChar()) return 0;
+    int b = 0, p = 0; if (AreaObjPending(&b, &p) && (b || p)) return 0;
+    return 1;
+}
+static int FadeInPlaceOk(uint32_t mission, ArenaRow* r) {  // same logic as FightNowImpl: will it swap here without a native load?
+    if (!r) return 0;
+    if (g_cfg_fn_summon) return 1;
+    return !(g_cfg_native && NativeListed(mission)) && !SwapGate(r);
+}
+static void FadeTick(void) {
+    if (!g_cfg_fade || !g_fd_ok) return;
+    DWORD now = GetTickCount();
+    if (g_fd.pend) {  // same-world swap waits for black (or 400 ms over the ramp if the overlay cannot draw)
+        if (FdAlpha() < 255 && now - g_fd.tPend < (DWORD)g_cfg_fade_out + 400) return;
+        uint32_t m = g_fd.mission; g_fd.pend = 0; g_fd.inside = 1;
+        Log("FADE black (alpha %ld, %lu ms): swapping mission 0x%X", FdAlpha(), now - g_fd.tPend, m);
+        int ok = FightNowImpl(m); g_fd.inside = 0;
+        if (!ok) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("FADE: swap refused, native request"); FadeWant(0, "swap refused"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))(m, 1, 0, p); return; }
+        g_fd.phase = 2; g_fd.tSwap = now; g_fd.tStable = 0; return;
+    }
+    if (g_fd.phase != 2) return;
+    if (now - g_fd.tSwap > (DWORD)g_cfg_fade_max) { Log("FADE: not settled after %lu ms, releasing", now - g_fd.tSwap); g_fd.phase = 0; FadeWant(0, "max hold"); return; }
+    if (g_xw.active) { g_fd.tStable = 0; if (!g_xw.claimed) { g_fd.phase = 0; FadeWant(0, "prewarm only"); } return; }  // cross-world still switching / waiting for the stage
+    if (!FadeSettled()) { g_fd.tStable = 0; return; }
+    if (!g_fd.tStable) g_fd.tStable = now;
+    if (now - g_fd.tStable < (DWORD)g_cfg_fade_stable || now - g_fd.tSwap < (DWORD)g_cfg_fade_min) return;
+    Log("FADE: arena settled %lu ms after the swap (stable %lu ms)", now - g_fd.tSwap, now - g_fd.tStable);
+    g_fd.phase = 0; FadeWant(0, "settled");
+}
+N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
+    ArenaRow* r = FindRow(mission);
+    if (g_fd.pend) return 1;  // a switch is already waiting for black
+    if (r && g_cfg_xworld && CurWorld() >= 0 && (CurWorld() != r->world || g_xw.active)) {  // cross-world (or claiming a prewarm)
+        int ok = FightNowImpl(mission);
+        if (ok && g_xw.active) { FadeWant(1, "cross-world switch"); g_fd.phase = 2; g_fd.tSwap = GetTickCount(); g_fd.tStable = 0; }
+        return ok;
+    }
+    if (!FadeInPlaceOk(mission, r)) return FightNowImpl(mission);
+    g_fd.pend = 1; g_fd.mission = mission; g_fd.tPend = GetTickCount(); g_fd.phase = 0; FadeWant(1, "same-world switch");
+    return 1;
+}
 static int XwPrewarm(uint32_t mission, const char* tag) {
     if (!g_cfg_enable || !g_cfg_xworld || !g_cfg_xprewarm || g_xw_busy || g_xw.active) return 0;
     if (!mission) mission = g_cfg_xprewarm_mission ? g_cfg_xprewarm_mission : (uint32_t)g_xw_last_mission;
     ArenaRow* xr = mission ? FindRow(mission) : 0;
     if (!xr || CurWorld() < 0 || CurWorld() == xr->world) { Log("XWORLD prewarm (%s): nothing to do (mission 0x%X row %p world 0x%02X)", tag, mission, (void*)xr, CurWorld()); return 0; }
+    if (g_cfg_xprewarm < 2) { XwPreload(xr, "(menu opened, resources only: CrossWorldPrewarm 1 never switches the world, bridge 6550)"); return 0; }
     int ok = XwStart(xr, 0); Log("XWORLD prewarm (%s) %s -> %d", tag, xr->id, ok); return ok;
 }
 // bridge 6473: 1 while a prewarm world request is running or landed and not claimed yet (GAMESTATE[2] is 1 then, Boss Rematch must not refuse 'loading')
@@ -1476,6 +1620,7 @@ static DWORD WINAPI RmPipeThread(LPVOID p) {
     CloseHandle(h); free(cmd); return 0;
 }
 N3T_API int Nioh3Training_XwPending(void) { return g_xw.active && !g_xw.claimed; }
+N3T_API void Nioh3Training_PreloadCancel(void) { XwCancel("menu closed"); }
 N3T_API void Nioh3Training_PreloadFor(uint32_t mission) { XwPrewarm(mission, "PreloadFor"); }
 N3T_API void Nioh3Training_Preload(void) { XwPrewarm(0, "menu opened"); if (g_cfg_enable && g_cfg_preload) PreloadNearby("PRELOAD (menu opened)"); }
 N3T_API int Nioh3Training_Version(void) { return 4942; }
@@ -1660,6 +1805,11 @@ static void Exec(char* line) {
             else if (!r) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("CMD fnow: not handled, native request"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + 0x2239600)))((uint32_t)a[0], 1, (uint32_t)a[1], p); }
         } else if (!strcmp(op, "rm")) {  // bridge 6473 test aid: send the rest of the line to the Boss Rematch pipe (from inside the game process: no second wine process) and log the reply
             const char* t = line + 2; while (*t == ' ') ++t; char* dup = _strdup(t); if (dup) { char* e = dup + strlen(dup); while (e > dup && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0; CloseHandle(CreateThread(0, 0, RmPipeThread, dup, 0, 0)); }
+        } else if (!strcmp(op, "fade")) { FadeWant((int)a[0], "CMD fade");
+        } else if (!strcmp(op, "lstart")) { LoadScreen(1);
+        } else if (!strcmp(op, "lend")) { LoadScreen(0);
+        } else if (!strcmp(op, "xcancel")) { XwCancel("CMD xcancel");
+        } else if (!strcmp(op, "xtimeout")) { g_xw.t0 -= 50000; if (g_xw.tClaim) g_xw.tClaim -= 50000; Log("CMD xtimeout: pretending the running world request is 50 s old (test aid, bridge 6541)");
         } else if (!strcmp(op, "xpre")) { Log("CMD xpre mission 0x%llX", a[0]); XwPrewarm((uint32_t)a[0], "CMD xpre");
         } else if (!strcmp(op, "preload")) { PreloadNearby("CMD preload");
         } else if (!strcmp(op, "swap")) { g_cfg_enable = (int)a[0]; Log("CMD swap %d", g_cfg_enable);
@@ -1747,6 +1897,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
+    __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
@@ -1795,7 +1946,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
-        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
@@ -1804,7 +1955,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
         g_cfg_bossdist = GetPrivateProfileIntA("ArenaSwap", "BossDistance", 900, ini); g_cfg_anchor = GetPrivateProfileIntA("ArenaSwap", "BossAnchor", 1, ini);
         g_cfg_ambient = GetPrivateProfileIntA("ArenaSwap", "PreloadAmbient", 0, ini);
-        g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xearly = GetPrivateProfileIntA("ArenaSwap", "CrossWorldEarlySwap", 0, ini); Log("CrossWorldEarlySwap %d", g_cfg_xearly); g_cfg_xsettle = GetPrivateProfileIntA("ArenaSwap", "CrossWorldSettleMs", 700, ini); g_cfg_xprewarm = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPrewarm", 0, ini); g_cfg_xprewarm_mission = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "CrossWorldPrewarmMission", 0, ini); Log("bridge 6375: CrossWorldSettleMs %d, CrossWorldPrewarm %d, PrewarmMission 0x%X", g_cfg_xsettle, g_cfg_xprewarm, g_cfg_xprewarm_mission); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
+        g_cfg_xworld = GetPrivateProfileIntA("ArenaSwap", "CrossWorld", 1, ini); g_cfg_xabbm = GetPrivateProfileIntA("ArenaSwap", "CrossWorldAbortEndBossMode", 1, ini); g_cfg_xearly = GetPrivateProfileIntA("ArenaSwap", "CrossWorldEarlySwap", 1, ini); Log("CrossWorldEarlySwap %d", g_cfg_xearly); g_cfg_xsettle = GetPrivateProfileIntA("ArenaSwap", "CrossWorldSettleMs", 700, ini); g_cfg_xprewarm = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPrewarm", 0, ini); g_cfg_xprewarm_mission = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "CrossWorldPrewarmMission", 0, ini); g_cfg_xhold = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPrewarmHoldMs", 30000, ini); Log("bridge 6375: CrossWorldSettleMs %d, CrossWorldPrewarm %d, PrewarmMission 0x%X", g_cfg_xsettle, g_cfg_xprewarm, g_cfg_xprewarm_mission); g_cfg_xpre = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreload", 1, ini); Log("cross-world Fight now (bridge 5276): CrossWorld %d, CrossWorldPreload %d", g_cfg_xworld, g_cfg_xpre);
         g_cfg_xaoskip = GetPrivateProfileIntA("ArenaSwap", "CrossWorldAreaObjSkipMs", 0, ini); Log("cross-world (bridge 6047c): CrossWorldAreaObjSkipMs %d", g_cfg_xaoskip);
         g_cfg_xpre_after = GetPrivateProfileIntA("ArenaSwap", "CrossWorldPreloadAfterSwitch", 0, ini); Log("cross-world (bridge 6047b): CrossWorldPreloadAfterSwitch %d", g_cfg_xpre_after);
         g_cfg_xcells = GetPrivateProfileIntA("ArenaSwap", "CrossWorldCellLoads", 0, ini); g_cfg_xblock = GetPrivateProfileIntA("ArenaSwap", "CrossWorldBlockCells", 0, ini); Log("cross-world streaming (bridge 6047): CrossWorldCellLoads %d (%s)", g_cfg_xcells, g_cfg_xcells > 4 ? "cell load cap raised during world switches" : "native cap 4, timeline log only");
@@ -1819,6 +1970,15 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
         g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_gaugereset = GetPrivateProfileIntA("ArenaSwap", "GaugeStateReset", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
+        g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
+        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini);
+        Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max);
+        if (g_cfg_fade) {
+            HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
+            p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
+            if (p_osdFade && p_osdAlpha) { g_fd_ok = 1; Log("FADE: using the Nioh3EngineFix overlay export (D3D)"); }
+            else { p_osdFade = 0; p_osdAlpha = 0; Log("FADE: Nioh3EngineFix fade export not found, using the GDI overlay window"); CreateThread(0, 0, FadeThread, 0, 0, 0); }
+        }
         g_imgSize = *(uint32_t*)(B + *(uint32_t*)(B + 0x3C) + 0x18 + 0x38);
         LoadTable();
         const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};

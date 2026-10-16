@@ -121,3 +121,105 @@ Live gates still open: title Continue, save-lock load compatibility, continuous
 first-controllable/combat evidence, and exact exit/restoration. The automated
 pilot still cannot establish actual combat or first control from status alone;
 its immediate exit after BossBattleMode is not playable-training acceptance.
+
+## Optional candidate binary transaction - 2026-10-11
+
+The runner now accepts optional `-EngineCandidate <external-ASI>` with
+`-EngineCandidateSha256 <64-hex>` and/or `-RematchCandidate <external-ASI>` with
+`-RematchCandidateSha256 <64-hex>`. Both parameters of each pair are required.
+Default original binary pins remain unchanged; originals must match those pins
+even when a candidate is selected. DryRun validates candidates and displays
+original/runtime hashes without creating output, acquiring leases or staging.
+The selected engine still must contain AutoContinueLoad; that string check is
+not a proof of candidate behavior. Title input and one-launch policy are unchanged.
+
+After fresh entry-save protection, both original ASIs are copied and hashed in
+`entry-binaries` before either candidate can be staged. `recovery.json` contains
+owner PID/start, exact original/candidate hashes, destinations and backups.
+Each stage intent is persisted before replacement. Staging copies to a unique
+same-directory temporary file, validates it, rechecks destination ownership,
+then uses atomic NTFS File.Replace; there is no overwrite fallback. A partial
+two-file stage is recoverable because the record exists before the first write.
+
+Finish-C72 closes the owned game and rejects any remaining Nioh3 process before
+restoring saves, INIs and binaries. Binary restoration accepts only original
+bytes or the candidate hash of an entry with recorded stage intent. Missing,
+foreign or tampered bytes/backup cause failure and retain the guard, PC lease,
+binary recovery record and backups. Successful restoration also retains the
+binary record as a receipt, with complete=true. No automatic recovery launcher
+or cancellation assumption has been added.
+
+The lease is now **nioh3-pc only**, per the user's explicit multi-device testing
+authorization. Other device coordination and cloud settings are untouched.
+Hash checks plus the cooperative PC lease do not provide an OS compare-and-swap
+against an unrelated concurrent writer between the check and File.Replace.
+Full power-loss durability is not proven. Live Steam delayed-launch/cancellation
+uncertainty remains a separate blocker; no live test was performed here.
+
+Verification commands (run from this worktree):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/test_c72e_binaries.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/test_c72e_abort.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/test_c72e_pilot.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/run_c72e_native_pilot.ps1 -DryRun
+```
+
+Results: seven new actual transaction/Finish-C72 fixtures PASS (success, partial
+two-file stage, restore failure, foreign binary, close failure, preflight hash
+rejection, changed candidate after preflight); four existing isolated abort
+cases PASS; twenty existing save/telemetry/parser checks PASS; original-pin B
+DryRun PASS. All mutations were in new temporary fixture directories.
+
+Candidate B DryRun also PASS against root-reviewed private build9eeb174 using:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/run_c72e_native_pilot.ps1 -DryRun -EngineCandidate 'D:\nioh3-wt\codex-settings-menu-v4\mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi' -EngineCandidateSha256 '6890c0605e3346d915f7f2263337716ea1ddad6c0b4ea36efebb2c4d4aa8e32d' -RematchCandidate 'D:\nioh3-wt\codex-settings-menu-v4\mod\Nioh3BossRematch\bin\Nioh3BossRematch.asi' -RematchCandidateSha256 '50484e3b0e39c5621fb7b829122f92380db017fd87d64ed0e2f96a1acb3b9b07'
+```
+
+## Native intro observation and explicit control review
+
+The retained191415-5360 trace actually has a pre-intro player/loading0 at
+19:16:49.131, retry334140, fnowarmed, position207629,6025,142678. The old helper
+discarded it because current native-attempt gate text was not in its legacy
+allowlist. Later BossBattleMode333550 occurred during loading1; the old loop
+broke immediately and closed before the intro ended.
+
+The corrected observer retains native-start, earliest player proxy and boss
+evidence independently. Battle during loading never completes observation;
+current loading0/player must be seen again before root review. Before-gate and
+target-proximity facts remain measured, without requiring them to open review.
+Pending gate masks pause/session read-validity; this is not a control flag.
+
+Root now has bounded90seconds (ReviewSeconds15..180) to provide explicit visual
+arena/boss/control-response evidence. After the review request appears, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/rematch/publish_c72e_control_review.ps1 -OutDir <run-dir> -OwnerPid <root-pid> -VisibleArena -VisibleBoss -ControlResponse -Evidence '<actual visual and control-response evidence>'
+```
+
+Receipt nonce and owner/runner/game PID+start identities must match. No receipt
+means no native return command and no control confirmation. No timing proof is
+inferred: instant_verdict remains UNCONFIRMED_CONTROL_NOT_EXPOSED. The old
+LANDING_PROXY_AND_BOSS_OBSERVED status additionally retains its before_gate and
+near_target requirements; a later first proxy with root-confirmed control uses
+ROOT_CONFIRMED_NATIVE_ENTRY_FIRST_CONTROL_TIME_UNKNOWN instead.
+
+Before the one return, require4seconds continuous same mission/retry player0-load
+telemetry (bounded15seconds). This is explicitly a return observation proxy:
+the present pipe does not expose AttemptReturnGate or ExitGate independently;
+the native wrapper remains authoritative. No retries or manual control input
+were added by this change.
+
+Verification: test_c72e_intro_observation.ps1226 ordered checks PASS, including
+the actual retained trace (no post-intro evidence exists) followed by labeled
+synthetic continuations, root receipt mutation rejects and return-proxy resets.
+Existing20 save/telemetry/parser,43 admission and18 identity/finalization checks
+PASS. No new live test or installed change was performed by the author.
+## 2026-10-11 native return acceptance correction
+
+The observation deadline now requires the current complete observation, not merely accumulated pre-intro player and later loading boss evidence. One exit command records its acknowledgement and then waits at most90s for the exact fresh C72E/start MissionRequestReturn requested log followed by native replay mission exited, with idle/player/nonloading/different nonzero mission and gate=ok. Refusal, exception, quarantine or replaced log prefix fails without retry. `native_return_confirmed` is required for successful harness acceptance; this is operational return evidence, not native cancellation proof or exact first-control timing. Native source TrackReplay requires >5s settled exit and ToIdle restores ownership; gate=ok excludes a retained attempt quarantine. Tests:20 return/timeout,226 intro/review/proxy,43ready/refusal,20pilot fixtures PASS. No game/UI actions in this correction.
+
+## 2026-10-11 exact-entry return oracle
+
+The live193651-24196 trial proved a return-oracle defect: normal TrackReplay accepts the original overworld mission0 when different fromC72E; after its >5s settle it logged replay mission exited at19:40:14.962, stage4019512/mission0. The old oracle incorrectly demanded a nonzero destination. Future runner captures a continuously settled original mission/stage tuple and requires that exact tuple in both native exit log and idle telemetry;0 is allowed only when bound to original entry.37 focused checks cover bound0/unbound0/wrongstage/missingentry/settleidentity reset. Offline replay validator preserved raw TRIAL_FAILED result and produced a separate evidence-ready receipt for root review after all restoration booleans were true. No repeated game run and no return visual or exact first-control claim.

@@ -37,7 +37,7 @@ Game not run, mod not touched. Output: `notes\boss-enemy-params.csv` (all 1022 r
 | +0x1F4 | key -> `6C\7CE6AC...` (96 rows x ~512 B), 39/39 | H (link) | |
 | +0x1F8..+0x234 | 16-bit ids (motion/model/effect set refs); no containment found | L | **model id / music id NOT found here** (model is via CE_/CS_ char-key hash -> MotorCharacterSetting per boss-char-assets.md; BGM is script-driven per boss-bgm-events.md) |
 | +0x23C | key -> `61\1AF149C5...` col5 (188x24), 172/172 | H (link) | |
-| +0x248,+0x24C,+0x254,+0x258 | u32 kids-style hashes; +0x248 (933/936) and +0x254 (821) are in `BC\A7FA73E0...` col3 (268 rows twin of the master table) | H (link) | = per-enemy-type hash pair; not a CE_ name hash (0 matches against the 2138 stage_names `chara` keys) |
+| +0x248,+0x24C,+0x254,+0x258 | u32 kids-style hashes; +0x248 (933/936) and +0x254 (821) are in `BC\A7FA73E0...` col3 (268 rows twin of the master table) | H (link) | +248/+254 include character-name hashes: Yamagata307259=CN_MASAKAGE and598115=CE_MASAKAGE_00, directly verified2026-10-11 in `training-yamagata-asset-binding.md`. Earlier zero-match comparison used loader IDs from stage_names, so its non-character-hash inference was invalid. Neighboring-field semantics remain open. |
 | +0x264..+0x2BC | float32 tuning (100.0 / 55.0 / 250 / 120 ...) | M | e.g. 0x42C80000 = 100.0 |
 | +0x2C8..+0x2E8 | float scales 1.0 (0.98..1.4 on few) | M | |
 | +0x30C..+0x394 | packed u16 pairs (0x00640064 = 100|100 ...) | L | |

@@ -41,9 +41,9 @@ if ($Case) {
         [IO.File]::WriteAllText((Join-Path $iniDir $name),'ORIGINAL')
         [IO.File]::WriteAllText((Join-Path $GameDir $name),'OVERLAY')
     }
-    $script:cleaned=$false; $script:touched=$true
+    $script:cleaned=$false; $script:touched=$true; $script:binaryRecord=$null
     $script:held=New-Object 'System.Collections.Generic.List[string]'
-    $script:held.Add('nioh3-pc'); $script:held.Add('nioh3')
+    $script:held.Add('nioh3-pc')
     $script:RealSleep=Get-Command Start-Sleep -CommandType Cmdlet
     $script:result=@{status='TRIAL_FAILED';error='injected abort';saves_restored=$false;inis_restored=$false}
     $global:HG=@{aborting=$false;file=(Join-Path $Root 'guard.json');cleanup={

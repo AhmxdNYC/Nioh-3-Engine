@@ -82,6 +82,9 @@ def main(argv):
             "Nioh3EngineFix.ini": REL / "profiles" / f"Nioh3EngineFix.{dev}.ini",
             "README.md": guide,
             "README-MOD.md": modref,
+            "install_mod.py": REL / "install_mod.py",
+            "Install-Mod.cmd": REL / "Install-Mod.cmd",
+            "install-mod.sh": REL / "install-mod.sh",
         }
         for s in p.get("shaders", []):
             if s["status"] != "kept":
