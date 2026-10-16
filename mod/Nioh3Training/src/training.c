@@ -1876,12 +1876,13 @@ static void h_reqret(const uint32_t* p, uint8_t f) {
 }
 // user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
-// found statically), so GoldKiBar = 1 flips the native style of the boss Ki bar (the alternate native bar look); GoldKiBar = 2 forces style 0x20, 3 forces 0x21.
-static int g_cfg_goldki = 1;
+// found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
+static int g_cfg_goldki = 1; static volatile DWORD g_ki_seen;
 static uint8_t KiStyleHook(uint64_t charParam) {
     uint8_t s = ((uint8_t (*)(uint64_t))(B + 0x5D4434))(charParam);
     static int logged; if (!logged) { logged = 1; int v = -1; __try { v = charParam ? *(int32_t*)(charParam + 0x80) : -1; } __except (EXCEPTION_EXECUTE_HANDLER) {} Log("GOLDKI: first boss Ki row: charParam+0x80 = %d, native style %d, GoldKiBar %d", v, s, g_cfg_goldki); }
-    if (g_cfg_goldki == 1) return !s; if (g_cfg_goldki == 2) return 1; if (g_cfg_goldki == 3) return 0; return s;
+    g_ki_seen = GetTickCount();  // the boss Ki row is being drawn: enables the vertex tint (GoldQuad)
+    return s;
 }
 static void HookGoldKi(void) {
     uint8_t* site = (uint8_t*)(B + 0x1D220C1);
@@ -1893,6 +1894,73 @@ static void HookGoldKi(void) {
     int32_t rel = (int32_t)((intptr_t)stub - (intptr_t)(site + 5)); DWORD old; VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &old);
     InterlockedExchange((volatile LONG*)(site + 1), rel); VirtualProtect(site, 5, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 5);
     Log("GOLDKI: boss Ki bar style hook at 1D220C1 on (GoldKiBar %d)", g_cfg_goldki);
+}
+// ---- user #6781 gold Ki bar, real tint: the layout colour is in VertexColor FCurves of the HUD layout (no static field), so the colour is overridden where
+// the UI vertices are finalised: UiQuadBuild 1CD690 per-quad loop at 1CD88B (rbp = quad, 4 vertices of 0x2C B, RGBA at +0x24, rbx node, [rbx+0x10] = the
+// quad's element; that loop already rewrites alpha +0x27 each frame). Ki quads are found by behaviour: an element whose quad width / its max width follows
+// the boss Ki ratio (and not the HP ratio) is the Ki fill; [Summon] GoldKiColors = RGBA hex list also tints any quad of those exact colours; GoldKiDump = 1
+// logs the distinct quad colours/boxes once while the boss gauge is up (to pick GoldKiColors). Only active while the boss Ki row was drawn in the last 250 ms.
+static volatile float g_ki_ratio = -1.0f, g_hp_ratio = -1.0f;
+static int g_cfg_goldki_dump = 0, g_goldki_dumped, g_cfg_goldki_learn = 1; static uint32_t g_goldki_cols[8]; static int g_goldki_ncols;
+static uint8_t g_gold_r = 255, g_gold_g = 200, g_gold_b = 50;
+static struct { uint64_t e; float maxW, lastKi; int score; } g_gk[64]; static int g_ngk; static uint64_t g_gold_el[6]; static int g_ngold;
+static void GoldKiRatios(void) {  // pump: ratios of the summoned boss (the gauge actor)
+    if (!g_cfg_goldki || g_nsp <= 0 || !g_sp_actor[g_nsp - 1]) { g_ki_ratio = -1.0f; return; }
+    __try {
+        uint64_t st = *(uint64_t*)((uint64_t)g_sp_actor[g_nsp - 1] + 0x3A0); if (!st) return;
+        float cur = *(float*)(st + 0xAC), mx = *(float*)(st + 0xB0); uint64_t hm = *(uint64_t*)(st + 0x50), hc = *(uint64_t*)(st + 0x58);
+        g_ki_ratio = mx > 0 ? (cur < 0 ? 0 : cur / mx) : -1.0f; g_hp_ratio = hm ? (float)((double)hc / (double)hm) : -1.0f;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { g_ki_ratio = -1.0f; }
+}
+static void GoldPaint(uint8_t* q) {
+    for (int v = 0; v < 4; ++v) { uint8_t* c = q + v * 0x2C + 0x24; int l = c[0] > c[1] ? c[0] : c[1]; if (c[2] > l) l = c[2]; if (l < 96) l = 96; c[0] = (uint8_t)(g_gold_r * l / 255); c[1] = (uint8_t)(g_gold_g * l / 255); c[2] = (uint8_t)(g_gold_b * l / 255); }
+}
+static void __cdecl GoldQuad(uint8_t* q, uint64_t el) {
+    if (!g_cfg_goldki || GetTickCount() - g_ki_seen > 250) return;
+    __try {
+        uint32_t rgba = *(uint32_t*)(q + 0x24);
+        float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+        for (int v = 0; v < 4; ++v) { float x = *(float*)(q + v * 0x2C), y = *(float*)(q + v * 0x2C + 4); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        if (g_cfg_goldki_dump && g_goldki_dumped < 80) { g_goldki_dumped++; Log("GOLDKI dump: elem %p rgba %08X box %.1f %.1f - %.1f %.1f (Ki %.2f HP %.2f)", (void*)el, rgba, x0, y0, x1, y1, g_ki_ratio, g_hp_ratio); }
+        for (int i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) { GoldPaint(q); return; }
+        for (int i = 0; i < g_goldki_ncols; ++i) if ((g_goldki_cols[i] & 0x00FFFFFF) == (rgba & 0x00FFFFFF)) { GoldPaint(q); return; }
+        float ki = g_ki_ratio, hp = g_hp_ratio, w = x1 - x0;
+        if (!g_cfg_goldki_learn || ki < 0 || !(w > 0) || w > 1e5f) return;
+        int k = -1; for (int i = 0; i < g_ngk; ++i) if (g_gk[i].e == el) { k = i; break; }
+        if (k < 0) { if (g_ngk >= 64) return; k = g_ngk++; g_gk[k].e = el; g_gk[k].maxW = w; g_gk[k].lastKi = -1; g_gk[k].score = 0; }
+        if (w > g_gk[k].maxW) g_gk[k].maxW = w;
+        if (g_gk[k].maxW < 8.0f || fabsf(ki - g_gk[k].lastKi) < 0.04f) return;  // judge once per Ki change
+        g_gk[k].lastKi = ki;
+        if (ki > 0.95f || fabsf(ki - hp) < 0.1f) return;
+        float r = w / g_gk[k].maxW;
+        if (fabsf(r - ki) < 0.04f) { if (++g_gk[k].score >= 3 && g_ngold < 6) { g_gold_el[g_ngold++] = el; Log("GOLDKI: element %p follows the boss Ki ratio (width %.1f of %.1f, Ki %.2f, HP %.2f, rgba %08X): tinted gold from now on", (void*)el, w, g_gk[k].maxW, ki, hp, rgba); } }
+        else if (g_gk[k].score > 0) g_gk[k].score--;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+}
+static void HookGoldQuad(void) {
+    static const uint8_t orig[14] = {0x48, 0x8B, 0x4B, 0x10, 0x48, 0x8B, 0x5B, 0x08, 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x40};
+    uint8_t* site = (uint8_t*)(B + 0x1CD88B);
+    if (memcmp(site, orig, 14)) { Log("GOLDKI: UiQuadBuild loop 1CD88B bytes differ, vertex tint off"); return; }
+    uint8_t* s = 0;
+    for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !s; a += 0x10000) s = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!s) { Log("GOLDKI: no near stub for 1CD88B"); return; }
+    uint8_t* p = s;
+    static const uint8_t pre[] = {0x50, 0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53,  // push rax rcx rdx r8 r9 r10 r11
+                                  0x48, 0x83, 0xEC, 0x28,                                          // sub rsp, 28h (16-aligned at the call)
+                                  0x48, 0x89, 0xE9,                                                // mov rcx, rbp (quad)
+                                  0x48, 0x8B, 0x53, 0x10};                                         // mov rdx, [rbx+10h] (element)
+    memcpy(p, pre, sizeof pre); p += sizeof pre;
+    *p++ = 0x48; *p++ = 0xB8; *(uint64_t*)p = (uint64_t)GoldQuad; p += 8; *p++ = 0xFF; *p++ = 0xD0;  // mov rax, GoldQuad; call rax
+    static const uint8_t post[] = {0x48, 0x83, 0xC4, 0x28, 0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59, 0x58};
+    memcpy(p, post, sizeof post); p += sizeof post;
+    memcpy(p, orig, 14); p += 14;
+    *p++ = 0xFF; *p++ = 0x25; *(uint32_t*)p = 0; p += 4; *(uint64_t*)p = (uint64_t)(site + 14); p += 8;
+    // only the first 5 bytes change, in one locked 8-byte exchange (the UI thread may be inside this loop); bytes 5..13 stay original
+    DWORD old; VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old);
+    LONG64 o8 = *(volatile LONG64*)site, n8 = o8; uint8_t* nb = (uint8_t*)&n8; nb[0] = 0xE9; *(int32_t*)(nb + 1) = (int32_t)((intptr_t)s - (intptr_t)(site + 5));
+    InterlockedCompareExchange64((volatile LONG64*)site, n8, o8);
+    VirtualProtect(site, 16, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 16);
+    Log("GOLDKI: vertex tint hook at UiQuadBuild 1CD88B on (gold %u %u %u, learn %d, colours %d, dump %d)", g_gold_r, g_gold_g, g_gold_b, g_cfg_goldki_learn, g_goldki_ncols, g_cfg_goldki_dump);
 }
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
@@ -2169,6 +2237,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
     __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; }
+    __try { GoldKiRatios(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { GateTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE tick exception %08lX", GetExceptionCode()); g_gate.tried = 3; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
     __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
@@ -2274,7 +2343,10 @@ static DWORD WINAPI Worker(LPVOID x) {
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
         if (g_cfg_gate) { if (!memcmp((void*)(B + 0x22396D8), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
-        if (g_cfg_goldki) HookGoldKi();
+        g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);
+        { char b[160]; GetPrivateProfileStringA("Summon", "GoldKiColors", "", b, sizeof b, ini); for (char* s = strtok(b, ", "); s && g_goldki_ncols < 8; s = strtok(0, ", ")) g_goldki_cols[g_goldki_ncols++] = (uint32_t)strtoul(s, 0, 16);
+          GetPrivateProfileStringA("Summon", "GoldKiRGB", "255,200,50", b, sizeof b, ini); int r = 255, g = 200, bl = 50; if (sscanf(b, "%d,%d,%d", &r, &g, &bl) == 3) { g_gold_r = (uint8_t)r; g_gold_g = (uint8_t)g; g_gold_b = (uint8_t)bl; } }
+        if (g_cfg_goldki) { HookGoldKi(); HookGoldQuad(); }
     }
     HookDeathBlowCond();
     HookPump();
