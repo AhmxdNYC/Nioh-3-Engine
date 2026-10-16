@@ -1382,6 +1382,21 @@ static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 static int g_cfg_xabbm = 1, g_cfg_xhold = 30000, g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
 static struct { int active, claimed, preDeferred, cancel; ArenaRow* row; DWORD t0, tReady, tClaim, tCancel; uint8_t oWorld, oJourney; uint32_t oStart, oMode; float oPos[4]; } g_xw;  // bridge 6550: o* = where the prewarm started (cancel returns there)
 static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0; } g_xr;  // bridge 6550: return trip after a cancelled prewarm
+// user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
+// running mission / journey / mode); chained Fight nows keep it, a Fight now with no arena session running (or after a mission change) takes a new one.
+static struct { int valid; uint8_t world, journey; uint32_t mission, mode, start; float pos[4]; } g_home;
+static struct { volatile LONG want; int active, phase; DWORD t0, tPh, tStable; } g_rh;  // RhTick: 1 cancel a running swap, 2 move, 3 cross-world trip, 4 settle + fade in
+static int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode) {  // mission state: +10 journey, +24 mode (XwStart), +28 running mission id (Boss Rematch Snap.ms28)
+    uint64_t mm = 0, ms = 0; if (!Rd64(B + 0x47514D0, &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) return 0;
+    __try { *journey = *(uint8_t*)(ms + 0x10); *mode = *(uint32_t*)(ms + 0x24); *mission = *(uint32_t*)(ms + 0x28); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+static void HomeCapture(int world, const float* pos, const char* why) {
+    uint32_t mis = 0, mode = 0; uint8_t jr = 0; if (world < 0 || !MsRead(&mis, &jr, &mode)) return;
+    if (g_home.valid && g_tr.active && g_tr.hasStart && mis == g_home.mission) return;  // still in the session that started there
+    g_home.valid = 1; g_home.world = (uint8_t)world; g_home.journey = jr; g_home.mode = mode; g_home.mission = mis; g_home.start = *(uint32_t*)(B + 0x45BC42C); memcpy(g_home.pos, pos, sizeof g_home.pos);
+    Log("RETURN home stored (%s): world 0x%02X %.0f %.0f %.0f yaw %.1f, mission 0x%X journey %u mode %u", why, world, pos[0], pos[1], pos[2], pos[3], mis, jr, mode);
+}
 static void XwPreload(ArenaRow* r, const char* when) {
     uint64_t e = ResEntry(r->chr);
     if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(r->chr, 2, 0); PoolAdd(r->chr); Log("XWORLD %s: boss resources (char %u) requested %s", r->id, r->chr, when); }
@@ -1447,6 +1462,7 @@ static int XwStart(ArenaRow* r, int claimed) {
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);
     uint8_t journey = *(uint8_t*)(ms + 0x10); uint32_t mode = *(uint32_t*)(ms + 0x24);
     uint8_t oW = (uint8_t)CurWorld(); uint32_t oS = *(uint32_t*)(B + 0x45BC42C); float oP[4] = {0}; PlayerPos(oP);
+    if (!g_rh.active) HomeCapture(oW, oP, claimed ? "cross-world Fight now" : "prewarm");  // #6779
     memset(&g_xw, 0, sizeof g_xw); g_xw.oWorld = oW; g_xw.oJourney = journey; g_xw.oStart = oS; g_xw.oMode = mode; memcpy(g_xw.oPos, oP, sizeof oP); g_xw.row = r; g_xw.t0 = GetTickCount(); g_xw.active = 1; g_xw.claimed = claimed; g_xw.tClaim = claimed ? g_xw.t0 : 0; g_xw_last_mission = (int)r->mission;
     CellSkipOpen(r);  // before the request: it may already ask for cells synchronously
     Log("XWORLD %s (%s)%s: world 0x%02X -> 0x%02X, WarpOtherWorld start %u journey %u mode %u requested", r->id, r->name, claimed ? "" : " PREWARM (menu opened, not claimed yet)", CurWorld(), r->world, r->start, journey, mode);
@@ -1646,6 +1662,7 @@ static void FadeTick(void) {
     g_fd.phase = 0; FadeWant(0, "settled");
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
     ArenaRow* r = FindRow(mission);
     if (g_fd.pend) return 1;  // a switch is already waiting for black
@@ -1694,6 +1711,78 @@ N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist)
     if (loot >= 0) g_cfg_loot = loot != 0; if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
     Log("API deathcfg (Boss Rematch menu, #6618): BossLoot %d DeathBlowRequired %d CutsceneOnKill %d%s", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+}
+// user #6779: 'Return to where I was' (Boss Rematch menu): ends the arena session (boss, boss mode, BGM, bar, NoDeath) and puts the player back at g_home, after a kill,
+// with no boss or mid-swap. A running cross-world swap / prewarm is cancelled through the bridge 6541/6550 abort path (XwCancel -> XwCancelTick WarpOtherWorld back
+// -> XrTick puts the player on the spot), aimed at g_home; another world without a swap running uses the same WarpOtherWorld trip; the same world is a plain warp.
+// Fade to black around it like Fight now. Game thread (pump); the export only queues.
+static void RhDone(const char* why) { Log("RETURN done (%s) +%lu ms", why, GetTickCount() - g_rh.t0); g_rh.active = 0; g_rh.phase = 0; FadeWant(0, "return to where I was"); }
+static void RhTick(void) {
+    DWORD now = GetTickCount();
+    if (InterlockedExchange(&g_rh.want, 0) && !g_rh.active) {
+        g_rh.active = 1; g_rh.phase = 1; g_rh.t0 = g_rh.tPh = now; g_rh.tStable = 0;
+        Log("RETURN requested (Boss Rematch menu, #6779): home world 0x%02X %.0f %.0f %.0f mission 0x%X; now world 0x%02X, swap %d (claimed %d), switch pending %d, session %d (round %d, beaten boss %d)",
+            g_home.world, g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.mission, CurWorld(), g_xw.active, g_xw.claimed, g_fd.pend, g_tr.active, g_tr.round, g_tr.tWin != 0);
+        g_fd.pend = 0; g_fd.phase = 0;  // a same-world switch still waiting for black is dropped
+        if (g_xw.active) {
+            g_xw.oWorld = g_home.world; g_xw.oJourney = g_home.journey; g_xw.oMode = g_home.mode; g_xw.oStart = g_home.start; memcpy(g_xw.oPos, g_home.pos, sizeof g_xw.oPos);
+            g_xw.claimed = 0; g_xw.cancel = 0; XwCancel("Return to where I was");
+        }
+        if (g_home.valid) FadeWant(1, "return to where I was");
+    }
+    if (!g_rh.active) return;
+    if (now - g_rh.t0 > 90000) { Log("RETURN: not finished after 90 s (phase %d), giving up", g_rh.phase); RhDone("timeout"); return; }
+    if (g_rh.phase == 1) {
+        if (g_xw.active) return;  // XwCancelTick: waits for the request to land, then sends the player back (g_xr)
+        TrainStop("return to where I was"); g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0; g_ar.active = 0; g_en.active = 0;
+        if (g_xr.active) { g_rh.phase = 3; g_home.valid = 0; return; }
+        g_rh.phase = 2; g_rh.tPh = now;
+    }
+    if (g_rh.phase == 2) {
+        const uint8_t* st = GameState();
+        if (!g_home.valid) { Log("RETURN: no stored spot (no Fight now since the game started / last return): session ended, player not moved"); RhDone("nothing stored"); return; }
+        if (!st || st[2] || !PlayerChar() || StageState() != 5) return;
+        if (FdAlpha() < 255 && now - g_rh.tPh < (DWORD)g_cfg_fade_out + 400) return;  // black first (or the ramp + 400 ms when the overlay cannot draw)
+        { uint64_t cm = CharMgr(), c0 = 0; if (cm && Rd64(cm, &c0) && c0 && *(uint8_t*)(c0 + 0x26AA)) BossModeEnd("return to where I was: boss mode still on"); }
+        uint32_t mis = 0, mode = 0; uint8_t jr = 0;
+        if (g_home.mission && MsRead(&mis, &jr, &mode) && mis != g_home.mission) { Log("RETURN: the mission changed 0x%X -> 0x%X since Fight now: not moved (the game's own mission exit applies)", g_home.mission, mis); g_home.valid = 0; RhDone("mission changed"); return; }
+        g_home.valid = 0;
+        if (CurWorld() == g_home.world) {
+            int w = Warp(g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.pos[3], 1);
+            Log("RETURN: same world 0x%02X, player put back at %.0f %.0f %.0f -> %d", g_home.world, g_home.pos[0], g_home.pos[1], g_home.pos[2], w);
+            g_rh.phase = 4; g_rh.tPh = now; return;
+        }
+        uint64_t mm = 0, ms = 0; if (!Rd64(B + 0x47514D0, &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) { Log("RETURN: mission state unreadable, world 0x%02X not left", CurWorld()); RhDone("mission state unreadable"); return; }
+        __attribute__((aligned(16))) uint8_t prm[32] = {0};
+        ((void (*)(void*))(B + 0x1BF7D68))(prm); prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;  // as XwCancelTick
+        ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3B28FC))(2, 0, 0);
+        memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_home.world; g_xr.start = XwReturnStart(g_home.world, g_home.pos, g_home.start); g_xr.t0 = now; memcpy(g_xr.pos, g_home.pos, sizeof g_xr.pos); g_xr.active = 1;
+        Log("RETURN: world 0x%02X -> home world 0x%02X start %u (WarpOtherWorld), put back on the spot once its cells are loaded", CurWorld(), g_home.world, g_xr.start);
+        ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(g_xr.world, g_home.journey, g_xr.start, g_home.mode, prm);
+        g_rh.phase = 3; return;
+    }
+    if (g_rh.phase == 3) { if (g_xr.active) return; g_rh.phase = 4; g_rh.tPh = now; }
+    if (g_rh.phase == 4) {  // hold black until the spot has settled (as the Fight now fade), at most 15 s
+        if (now - g_rh.tPh > 15000) { RhDone("settle 15 s cap"); return; }
+        if (!FadeSettled()) { g_rh.tStable = 0; return; }
+        if (!g_rh.tStable) g_rh.tStable = now;
+        if (now - g_rh.tStable >= (DWORD)g_cfg_fade_stable) RhDone("back where the player was");
+    }
+}
+// 1 = queued, 2 = no stored spot: only the running session / swap is ended, 0 = nothing to do (no spot, no session, no swap), -1 = a return is already running
+N3T_API int Nioh3Training_ReturnHome(void) {
+    if (g_rh.active || g_rh.want) return -1;
+    if (!g_home.valid && !g_tr.active && !g_xw.active && !g_fd.pend) return 0;
+    int had = g_home.valid; InterlockedExchange(&g_rh.want, 1); return had ? 1 : 2;
+}
+// Boss Rematch menu state: 1 a spot is stored, 2 the session's boss is defeated, 4 session running with no boss in the world, 8 a swap is running, 16 a return is running
+N3T_API int Nioh3Training_ReturnInfo(void) {
+    int f = g_home.valid ? 1 : 0;
+    if (g_tr.active && g_tr.tWin) f |= 2;
+    if (g_tr.active && !g_sp.active && !g_tr.tRespawn && (g_nsp <= 0 || !g_sp_actor[g_nsp - 1] || g_tr.bodyGone)) f |= 4;
+    if (g_xw.active || g_fd.pend || (g_fd.phase == 2 && !g_rh.active)) f |= 8;
+    if (g_rh.active || g_rh.want) f |= 16;
+    return f;
 }
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
@@ -1967,6 +2056,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
+    __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
     __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }

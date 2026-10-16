@@ -138,6 +138,12 @@ void* TrainingExport(const char* name) {
     HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
     return m ? (void*)GetProcAddress(m, name) : nullptr;
 }
+// user #6779: Boss Rematch "Return to where I was" state
+int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defeated, 4 no boss, 8 swap running, 16 returning; -1 = no export
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_ReturnInfo");
+    return f ? f() : -1;
+}
 
 // ---- requests ----
 enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10 };
@@ -1765,6 +1771,12 @@ void Tick() {
         g_qHash = s.qHash;
     }
     if (g_wantScan.exchange(false)) DoScan(s);
+    {   // user #6779: once the swapped-in boss is dead, point at the way back
+        static int lastRet = 0;
+        const int f = ReturnInfo();
+        if (f > 0 && (f & 2) && !(lastRet & 2) && (f & 1)) ToastF(cGreen, 8000, "Boss defeated. Boss Rematch menu > Return to where I was takes you back.");
+        lastRet = f > 0 ? f : 0;
+    }
     if (const uint32_t r = g_req.exchange(0)) {
         if (g_pend) Refuse("a request is already pending");
         else {
@@ -1960,6 +1972,8 @@ constexpr int kItSettings = -7, kItSave = -8, kItGroupBase = -100, kItSettingBas
 constexpr int kItPractice = -10, kItPracticeStart = -11, kItPracticeReturn = -12;
 // user #6618: summoned-boss death toggles at the top of the root page (Nioh3Training [Summon] keys, live + saved to its ini)
 constexpr int kItDeathCut = -20, kItDeathBlow = -21, kItDeathLoot = -22;
+// user #6779: 'Return to where I was' = Nioh3Training_ReturnHome (ends the arena session, back to the spot / world before Fight now; also mid-swap)
+constexpr int kItReturnHome = -23;
 bool DeathCfgGet(int& loot, int& blow, int& cut) {
     using Fn = void (*)(int*, int*, int*);
     const auto f = (Fn)TrainingExport("Nioh3Training_GetDeathCfg");
@@ -1987,6 +2001,7 @@ int Items(int* out, int cap) {
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
     if (g_uiPages.page == uRoot) {
         if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
+        if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
             for (int pass = 0; pass < 3; ++pass)
@@ -2288,6 +2303,16 @@ bool UiAct() {
     const int item = it[g_sel];
     if (item == kItClose) return true;
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
+    if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
+        using Fn = int (*)();
+        const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
+        const int rc = ret ? ret() : 0;
+        Log("Rematch: menu 'Return to where I was' -> %d (info %d)", rc, ReturnInfo());
+        if (rc == -1) { snprintf(g_msg, sizeof(g_msg), "Already returning..."); return false; }
+        if (rc == 0) { snprintf(g_msg, sizeof(g_msg), "Nothing to return from: no Fight now arena swap since the game started (or you are already back)."); return false; }
+        ToastF(cWhite, 5000, rc == 1 ? "Rematch: back to where you were..." : "Rematch: arena session ended (no stored spot to return to).");
+        return true;
+    }
     if (item <= kItSettingBase) { UiChange(0); return false; }
     if (item == kItSave) { SaveUiSettings(); return false; }
     if (item == kItSettings || (item <= kItGroupBase && item > kItSettingBase)) {
@@ -2462,6 +2487,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : ok ? (v ? cGreen : cGray) : cDim, sel, "%s %-24s %s   A / Left / Right", mk,
                 it[i] == kItDeathCut ? "Cutscene on kill:" : it[i] == kItDeathBlow ? "Final blow required:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF");
         }
+        else if (it[i] == kItReturnHome) {
+            const int f = ReturnInfo();
+            const bool can = f > 0 && (f & (1 | 8)) != 0;
+            const char* tail = f < 0 ? "" : (f & 16) ? "   returning..." : !(f & 1) && !(f & 8) ? "   (nothing to return from)" : (f & 2) ? "   <- boss defeated: A takes you back"
+                             : (f & 8) ? "   (cancels the arena switch)" : (f & 4) ? "   <- no boss here: A takes you back" : "";
+            add(sel ? cWhite : (f > 0 && (f & (2 | 4)) && (f & 1)) ? cGreen : can ? cGray : cDim, sel, "%s Return to where I was%s", mk, tail);
+        }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
@@ -2523,6 +2555,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItDeathCut) snprintf(footer, nf, "On: one finisher kills the boss and its death animation plays (no second finisher). The mission's own defeat cutscene is not played. Applies now, saved.");
         else if (item == kItDeathBlow) snprintf(footer, nf, "On: the boss must be finished with a death blow (finisher). Off: it dies as soon as its HP runs out. Applies now, saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "On: the boss drops its own loot and Amrita (also one-finisher kill). Story/first-clear rewards are never granted. Applies now, saved.");
+        else if (item == kItReturnHome) snprintf(footer, nf, "Ends the Fight now arena session (boss removed) and puts you back where you stood before Fight now, in that world. Works after a kill, with no boss, or mid-switch.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
         else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
