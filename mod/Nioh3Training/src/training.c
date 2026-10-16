@@ -313,7 +313,8 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 2000;
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
-static void NfTraceStart(DWORD ms);
+static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
+static int g_nf_kneel = 1;  // HP-0 window: also the native kneel-down action once (run time 'nofinkneel 0|1')
 static volatile int g_nf_gold;  // GoldWalk: a watched boss is Ki-broken or in its HP-0 window right now -> paint the Ki fill quad gold
 // #6643 death-blow revive. Logs 18:57 / 19:02: the native kill set the dead flag, then the boss came back at HP 1 (sensor 0->1->0), and a raw HP 0
 // write was also undone. Cause (static RE, 786C84 after the damage apply 787268): once hp+0x48 == 1 (dead), unless actor+0x894 != 0,
@@ -2274,6 +2275,9 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "nofinuv")) { g_nf_uv = (int)a[0]; Log("CMD nofinuv %d", g_nf_uv);
         } else if (!strcmp(op, "nofinhide")) { g_nf_hide = (float)a[0] / 1000.0f; Log("CMD nofinhide %.3f (0 = off)", g_nf_hide);
         } else if (!strcmp(op, "nofintrace")) { NfTraceStart(n >= 2 ? (DWORD)a[0] : 4000);
+        } else if (!strcmp(op, "nofinkneel")) { g_nf_kneel = (int)a[0]; Log("CMD nofinkneel %d", g_nf_kneel);
+        } else if (!strcmp(op, "nofinsnap")) { NfSnap(0);
+        } else if (!strcmp(op, "nofindiff")) { NfSnap(1);
         } else if (!strcmp(op, "nofindump")) { g_nf_dumpN = n >= 2 ? (LONG)a[0] : 24; Log("CMD nofindump %ld", g_nf_dumpN);
         } else if (!strcmp(op, "bossai")) {  // test aid: bossai <0|1>: watched boss AI off (668D74, AlgoActiveFlag false) / on (66982C) so a scripted pad can land hits
             uint64_t a0 = NfFirstBoss(); if (!a0) Log("CMD bossai: no boss");
@@ -2521,7 +2525,7 @@ static volatile uint64_t g_nf_act[NF_N], g_nf_ai[NF_N], g_nf_ctrl[NF_N];  // rea
 static volatile DWORD g_nf_hitT[NF_N]; static volatile LONG g_nf_hits[NF_N];
 static volatile LONG g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28, g_nf_cnt_cg; static volatile uint64_t g_nf_cg_tgt;  // + every CanGrapple call / its last target (diag)  // asm stub counters: grapple selection / grab box / bit-31 box / bit-28 box
 static struct { volatile uint32_t id; volatile int on; volatile float ratio; } g_nf_drain[NF_N];
-static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits; } g_nf[NF_N];
+static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; } g_nf[NF_N];
 static int g_nf_hooked; static volatile LONG g_nf_lines;
 static void NfLog(const char* fmt, ...) { if (InterlockedIncrement(&g_nf_lines) > 800) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint8_t* NearPage(void* site) {
@@ -2547,11 +2551,12 @@ static uint8_t NfLethalCond(uint64_t ai, uint32_t id) {  // 329C9F: 327DEC 'need
     uint8_t r = ((uint8_t (*)(uint64_t, uint32_t))(B + 0x4893B8))(ai, id);
     if (!g_cfg_nofin || !ai) return r;
     for (int i = 0; i < NF_N; ++i) if (g_nf_ai[i] == ai) {
-        g_nf_hitT[i] = GetTickCount(); InterlockedIncrement(&g_nf_hits[i]);
+        { static LONG nl; if (++nl <= 60) Log("NOFIN lethal hit on boss slot %d -> survive at HP 1 (hits counted by the hit probe 326E81)", i); }
         // the break: this check runs BEFORE the hit's KiDamage 844604 (327DEC); with the Ki primed to 0.5 the same hit's Ki damage crosses 0 = the native Ki break
         __try { uint64_t a = *(uint64_t*)ai, st = a ? *(uint64_t*)(a + 0x3A0) : 0;
                 if (st && !((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) && *(float*)(st + 0xAC) > 0.5f) ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-        return 1;  // revive to HP 1: the window decides
+        return 2;  // survive at HP 1 via the native no-death path 329D1A (the asm stub redirects). NOT the death-blow branch: live 03:22 that set
+                   // bit 46 -> finisher-down state 2C, the boss was not Ki-broken and later hits never reached this check (window ran out unhit)
     }
     return r;
 }
@@ -2563,6 +2568,13 @@ static uint64_t NfGrappleTarget(uint64_t ctrl, uint8_t flag) {
     uint64_t t = ((uint64_t (*)(uint64_t, uint8_t))(B + 0x867258))(ctrl, flag);
     if (t && g_cfg_nofin) for (int i = 0; i < NF_N; ++i) if (g_nf_act[i] == t) { InterlockedIncrement(&g_nf_cnt_tgt); return 0; }
     return t;
+}
+// 326E81: hit processing 326C94 tests the VICTIM's StateTest 0x23 once per landed hit (live trace 03:13: n = number of hits, incl. the zero-damage hits at
+// HP 1). Used as the HP-0 window's hit counter (the lethal-hit check 329C9F is no longer reached once the boss survives at HP 1, live 03:32).
+static uint8_t NfHitProbe(uint64_t ai, uint32_t id) {
+    uint8_t r = ((uint8_t (*)(uint64_t, uint32_t))(B + 0x4893B8))(ai, id);
+    if (g_cfg_nofin && ai) for (int i = 0; i < NF_N; ++i) if (g_nf_ai[i] == ai) { g_nf_hitT[i] = GetTickCount(); InterlockedIncrement(&g_nf_hits[i]); break; }
+    return r;
 }
 static void NfKiRow(uint64_t w, uint64_t row28, uint64_t snap, uint8_t broken, uint8_t style) {  // 1D220E3: KiRowWidget 235F9A4 (display copy of the Ki)
     if (g_cfg_nofin && row28 && snap) {
@@ -2613,19 +2625,28 @@ static void NfInstallHooks(void) {
         if (NfPatchCall(site, B + 0x4893B8, s, k ? "bit-28 box 117ABF7" : "bit-31 box 117AC17")) ok |= k ? 8 : 4;
     }
     {   uint8_t* site = (uint8_t*)(B + 0x329C9F); uint8_t* s = NearPage(site);
-        if (s && !memcmp(site - 12, "\xBA\x27\x00\x00\x00", 5)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfLethalCond); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+        // stub: sub rsp,28h; call NfLethalCond; add rsp,28h; cmp al,2; jne ret; [rsp] = 329D1A (mov rdx,rsi(=1); mov rcx,r12; call 66C188 'survive at HP 1'
+        // = the native no-death path; jmp 329DE0); xor eax,eax; ret
+        if (s && !memcmp(site - 12, "\xBA\x27\x00\x00\x00", 5) && !memcmp((void*)(B + 0x329D1A), "\x48\x8B\xD6\x49\x8B\xCC\xE8", 7)) { uint8_t* p = s;
+            *p++ = 0x48; *p++ = 0x83; *p++ = 0xEC; *p++ = 0x28; p = E_mov_rax(p, (uint64_t)NfLethalCond); *p++ = 0xFF; *p++ = 0xD0; *p++ = 0x48; *p++ = 0x83; *p++ = 0xC4; *p++ = 0x28;
+            *p++ = 0x3C; *p++ = 0x02; *p++ = 0x75; uint8_t* jn = p++; p = E_mov_rax(p, B + 0x329D1A); *p++ = 0x48; *p++ = 0x89; *p++ = 0x04; *p++ = 0x24; *p++ = 0x31; *p++ = 0xC0;
+            *jn = (uint8_t)(p - (jn + 1)); *p++ = 0xC3; FlushInstructionCache(GetCurrentProcess(), s, p - s);
             if (NfPatchCall(site, B + 0x4893B8, s, "lethal-hit cond 0x27 329C9F")) ok |= 16; } else Log("NOFIN hook 329C9F: bytes differ, HP-0 window off");
     }
     {   uint8_t* site = (uint8_t*)(B + 0x1D220E3); uint8_t* s = NearPage(site);
         if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfKiRow); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
             if (NfPatchCall(site, B + 0x235F9A4, s, "Ki row 1D220E3")) ok |= 32; }
     }
+    {   uint8_t* site = (uint8_t*)(B + 0x326E81); uint8_t* s = NearPage(site);
+        if (s && !memcmp(site - 7, "\x48\x8B\x88\xB0\x03\x00\x00", 7)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfHitProbe); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+            if (NfPatchCall(site, B + 0x4893B8, s, "hit probe 326E81")) ok |= 128; }
+    }
     {   uint8_t* site = (uint8_t*)(B + 0x2F7045); uint8_t* s = NearPage(site);
         if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfGrappleTarget); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
             if (NfPatchCall(site, B + 0x867258, s, "grapple target 2F7045")) ok |= 64; }
     }
-    Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s, lethal cond %s, Ki row drain %s, grapple target %s", g_cfg_nofin, g_cfg_nofin_ms,
-        ok & 1 ? "on" : "OFF", ok & 2 ? "on" : "OFF", ok & 4 ? "on" : "OFF", ok & 8 ? "on" : "OFF", ok & 16 ? "on" : "OFF", ok & 32 ? "on" : "OFF", ok & 64 ? "on" : "OFF");
+    Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s, lethal cond %s, Ki row drain %s, grapple target %s, hit probe %s", g_cfg_nofin, g_cfg_nofin_ms,
+        ok & 1 ? "on" : "OFF", ok & 2 ? "on" : "OFF", ok & 4 ? "on" : "OFF", ok & 8 ? "on" : "OFF", ok & 16 ? "on" : "OFF", ok & 32 ? "on" : "OFF", ok & 64 ? "on" : "OFF", ok & 128 ? "on" : "OFF");
 }
 static uint64_t NfFirstBoss(void) { for (int i = 0; i < NF_N; ++i) if (g_nf[i].a) return g_nf[i].a; return g_nsp ? (uint64_t)g_sp_actor[g_nsp - 1] : 0; }
 // test aid 'nofintrace [ms]': every StateTest (default impl 2E9948) on the watched boss's ctrl for ms, aggregated by (caller, caller's caller, id):
@@ -2658,6 +2679,19 @@ static void NfTraceStart(DWORD ms) {
         g_tr_orig = (NfStFn)Hook(0x2E9948, 15, (void*)NfStDetour); }
     memset((void*)g_ntr, 0, sizeof g_ntr); g_tr_ctrl = ctrl; g_tr_t0 = GetTickCount(); g_tr_until = g_tr_t0 + ms; g_tr_dumped = 0; g_tr_on = 1;
     Log("CMD nofintrace: boss %p ctrl %p, %lu ms", (void*)a, (void*)ctrl, ms);
+}
+// test aid 'nofinsnap' / 'nofindiff': dword diff of the watched boss actor (0xC000 B), its ai (0x2000) and ctrl (0x2000) between the snap and now
+static uint8_t g_snp[3][0xC000]; static uint64_t g_snpBase[3]; static const uint32_t g_snpLen[3] = {0xC000, 0x2000, 0x2000};
+static void NfSnap(int diff) {
+    uint64_t a = NfFirstBoss(), ai = 0, ctrl = 0; if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl)) { Log("CMD nofinsnap: no boss"); return; }
+    uint64_t base[3] = {a, ai, ctrl}; static const char* nm[3] = {"actor", "ai", "ctrl"}; int nd = 0;
+    for (int k = 0; k < 3; ++k) {
+        if (!diff) { g_snpBase[k] = base[k]; __try { memcpy(g_snp[k], (void*)base[k], g_snpLen[k]); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("CMD nofinsnap: %s read fault", nm[k]); } continue; }
+        if (g_snpBase[k] != base[k]) { Log("CMD nofindiff: %s moved", nm[k]); continue; }
+        __try { for (uint32_t o = 0; o < g_snpLen[k]; o += 4) { uint32_t was = *(uint32_t*)(g_snp[k] + o), now = *(uint32_t*)(base[k] + o);
+            if (was != now && nd < 300) { nd++; Log("NOFIN diff %s+%04X: %08X -> %08X (%g -> %g)", nm[k], o, was, now, *(float*)&was, *(float*)&now); } } } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    }
+    Log("CMD nofin%s: actor %p ai %p ctrl %p, %d diffs", diff ? "diff" : "snap", (void*)a, (void*)ai, (void*)ctrl, nd);
 }
 static void NfTraceTick(void) {
     if (g_tr_dumped || (int)(GetTickCount() - g_tr_until) < 0) return;
@@ -2714,10 +2748,12 @@ static void NfTick(void) {
         if (s < 0) { for (int i = 0; i < NF_N; ++i) if (!g_nf[i].a) { s = i; break; } if (s < 0) continue; NfClear(s); g_nf[s].a = a; g_nf[s].hits0 = g_nf_hits[s];
             NfLog("NOFIN watch boss %p (row id %u) HP %llu/%llu: grapple blocked, gold Ki while broken, HP-0 window %d ms", (void*)a, ids[k], hc, hm, g_cfg_nofin_ms); }
         g_nf[s].seen = now; if (ids[k]) g_nf[s].id = ids[k];
+        { static uint64_t lastHp[NF_N]; static int nHpLog; if (hc != lastHp[s] && hc * 20 < hm && nHpLog < 80) { nHpLog++; NfLog("NOFIN boss %p HP %llu -> %llu (win %d)", (void*)a, lastHp[s], hc, g_nf[s].win); } lastHp[s] = hc; }
         int dead = 0, s23 = 0; float x5c = 0, x74 = 0, x7c = 0, kc = 0; uint8_t x83 = 0;
         __try { dead = *(int32_t*)(st + 0x48) == 1; x5c = *(float*)(st + 0x98 + 0x5C); x74 = *(float*)(st + 0x98 + 0x74); x7c = *(float*)(st + 0x98 + 0x7C); x83 = *(uint8_t*)(st + 0x98 + 0x83); kc = *(float*)(st + 0xAC);
                 s23 = KbState(ai, 0x23); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
         int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, broken = s23 || exh;
+        if (g_nf[s].win >= 2 && !dead && hc > 1) { g_nf[s].win = 0; g_nf[s].tries = 0; NfLog("NOFIN boss %p alive again (HP %llu, actor reused after despawn/summon): window re-armed", (void*)a, hc); }
         if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf[s].win = 3; continue; }
         g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl;
         // prime hold: the whole HP-0 window keeps the Ki at 0.5 while the boss is not broken, so the next hit's Ki damage breaks it natively
@@ -2731,8 +2767,19 @@ static void NfTick(void) {
             if (!exh) { NfBreakNow(st, "HP 0", a); g_nf[s].tRebreak = now; }
         }
         if (g_nf[s].win == 1) {
+            // live 03:49 (nofinsnap/nofindiff, lethal vs normal hit): the lethal hit leaves ctrl+0xEA0 = 1 = death-blow pending (786C84's own cond 0x27
+            // revive at 787004); while it is set every normal hit whiffs (03:40: 0 hits landed in the window, only the grapple/death blow could). Clear it.
+            __try { if (*(volatile uint32_t*)(ctrl + 0xEA0)) { *(volatile uint32_t*)(ctrl + 0xEA0) = 0; static int nc; if (++nc <= 20) NfLog("NOFIN boss %p: death-blow pending flag ctrl+EA0 cleared (normal hits land again)", (void*)a); } } __except (EXCEPTION_EXECUTE_HANDLER) { }
+            // live 03:52: at HP 1 the hits' Ki damage takes the Ki below 0 but the native break never starts (lethal hits skip it), so the HP-0 window sets the
+            // break itself: A4F098(ctrl) = the native break-window start (runtime bit 0x3A = state 0x23 + per-character timer ctrl+0x1014), plus, once per window,
+            // the native kneel-down action (script Character::ForceKneelDown 238E1BC: ctrl+0x994 = 0x27, 668D74(actor), actor+0x91B = 1) = the stagger.
+            if (!s23) { __try { ((void (*)(uint64_t))(B + 0xA4F098))(ctrl);
+                    if (g_nf_kneel && !g_nf[s].kneeled) { g_nf[s].kneeled = 1; *(volatile uint32_t*)(ctrl + 0x994) = 0x27; ((void (*)(uint64_t))(B + 0x668D74))(a); *(volatile uint8_t*)(a + 0x91B) = 1; }
+                } __except (EXCEPTION_EXECUTE_HANDLER) { }
+                g_nf[s].nSet++; if (g_nf[s].nSet <= 10) NfLog("NOFIN boss %p at HP 0: Ki break set (A4F098%s), break #%d", (void*)a, g_nf_kneel && g_nf[s].kneeled == 1 ? " + kneel-down" : "", g_nf[s].nSet); if (g_nf[s].kneeled == 1) g_nf[s].kneeled = 2; }
             LONG h = g_nf_hits[s]; if (h != g_nf[s].hits0) { g_nf[s].nHits += (int)(h - g_nf[s].hits0); g_nf[s].hits0 = h; g_nf[s].tLast = now;
                 if (g_nf[s].nHits <= 30) NfLog("NOFIN hit at HP 0 boss %p: window restarted (+%lu ms since start, hit %d)", (void*)a, now - g_nf[s].tWin, g_nf[s].nHits); }
+            { static DWORD tk; if (now - tk >= 250) { tk = now; NfLog("NOFIN window boss %p: +%lu ms, Ki %.1f, 23=%d exh %d, hits %d, since last hit %lu ms", (void*)a, now - g_nf[s].tWin, kc, s23, exh, g_nf[s].nHits, now - g_nf[s].tLast); } }
             if (hc > 1) { g_nf[s].win = 0; NfLog("NOFIN boss %p HP back to %llu: window off", (void*)a, hc); }
             else if (now - g_nf[s].tLast >= (DWORD)g_cfg_nofin_ms) {
                 g_nf[s].win = 2; g_nf[s].tKill = now; g_nf[s].tries = 0;
