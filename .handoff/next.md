@@ -172,3 +172,5 @@ Fight-now rerun: use -OwnerPid <claude.exe pid> (a transient shell pid aborts th
 2026-10-15 18:55 pc2 #6801 DONE: cold cross-world Fight now cover 27.4 s on pc2; prewarm=2 (27 s menu dwell) -> 1.0 s. Branch pc2/faster-load 9e53d7b, notes/faster-load-pc2-6801.md. Game closed, files+saves restored, lock released. Rematch not rebuilt (no MSVC on pc2).
 
 2026-10-15 18:54 pc2 (user #6907/#6916): Yoritomo Fight-now R7B35 FAILED on pc2. Arena swap logged (Nioh3Training swapped in place at 18:53:29) but no game-thread "started" within 20 s; game closed, saves byte-restored, lock released. Evidence captures/rematch/fightnow-20261015-185154. Next: diagnose the missing start ack, then initial load time (user #6916).
+
+2026-10-15 19:00 pc2: Yoritomo retry (pc gate fix 04161be, build branch pc2/rm-retry-3 e56570e) FAILED: harness pipe Connect timed out after title->field; no timings. Evidence captures/rematch/fightnow-20261015-185616. Saves restored, lock released. Open: check add-on log timestamps vs launch time, then initial load time (user #6916).
