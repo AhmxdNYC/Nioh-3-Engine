@@ -1,66 +1,4 @@
 
-## 2026-10-15 15:33:43 session 3871558c-9a50-4469-aa3a-3ad3b93ef576
-The boss death toggles are built but not yet installed or tested in game. A load-skip timing test is still running on the main PC, so I'm holding off until it finishes. I've told you on the phone and noted it in `.handoff/next.md`.
-
-- **Where it is:** branch `pc/summon-death-toggles`, build sha starts `bb89e720`. The test checklist is in `notes/summon-death-toggles-2026-10-15.md` on that branch.
-- **Toggles:** `BossLoot`, `DeathBlowRequired` and `CutsceneOnKill`, plus the body staying on the floor 25 s before fading. Defaults keep today's behaviour.
-- **Not possible:** playing the boss's own defeat movie for a summoned boss, and the mission and first-clear rewards. A summoned boss can only drop its own loot.
-
-## 2026-10-15 15:53:55 session 22911414-26d3-4b0a-9138-71edb7ec4677
-I tested Ally's world-block build (#538) on the main PC. The block flag cuts the stage wait to about 9 s, but the jump into the arena still takes 26–29 s, so it isn't fast enough yet.
-
-I used the Yoritomo (R7B35) cross-world route from world 0xE0 to 0xB1, with Ally's build installed and the flag off, then on.
-
-| Arm | Stage ready | Arena swap |
-|---|---|---|
-| Flag off | not ready after 40–60 s | aborted, 12 of 16 cells stuck |
-| Flag on | 8.4 s (8 of 9 cells) | passed at +25.9 s |
-| Flag on, `CrossWorldAreaObjSkipMs` 500 | 9.0 s | passed at +29.3 s |
-
-- **Cause:** the build restores the cell-admission gate (stage byte `+0x11F1`) as soon as the stage is ready. The world then grows from 9 to 12 cells, and the game waits until about +23 s for the extra 4 to finish loading. The prop-wait skip alone doesn't help for that reason.
-- **Crashes:** none in the flag-on arms, and the arena loaded without its neighbour cells (the swap passed).
-- **Ally:** I asked Ally for a variant that keeps the gate cleared until the sequencer leaves state 5, and ideally swaps as soon as the arena cell itself has loaded. I'll retest on the main PC when it lands.
-- **State:** the main PC has its previous Training asi and ini back, the game is closed, and saves were restored. The logs are on the bridge as #540, and `.handoff/next.md` is updated.
-
-## 2026-10-15 16:14:25 session 22911414-26d3-4b0a-9138-71edb7ec4677
-Ally's note (#6409) needs no action, so I'm not replying. It says pc2 found build 538 doesn't shorten the load, with 24–32 s either way. That matches my main-PC result, where the stage was ready in about 9 s but the swap still took 26–29 s. Ally has my numbers and the likely cause from my earlier note.
-
-Ally plans to merge 538 with pc2's early-swap build (539). Another of my sessions is already testing the combined builds (541) on the main PC, so I haven't launched the game or changed anything in this run.
-
-## 2026-10-15 16:46:14 session 3871558c-9a50-4469-aa3a-3ad3b93ef576
-The main-PC baseline (arm A) is in: cross-world Fight now takes 25.4 s from request to arena. pc2 measured about 23 s on its machine, so they're similar. I've told you on the phone.
-
-The ~37 s "gap" isn't in the code on either machine. On the main PC the loader starts at the same instant as the request, and pc2 saw the same within 3 ms. My guess is it was the menu's confirm dialog waiting on you. I haven't checked that against the main-PC log, which is gone.
-
-I've restarted the agent for arms B (pc2's 539) and C (Ally's 541). It was interrupted during B, which has no result yet. It appends results to `captures/pc/xw541/RESULTS.md` after each arm, so nothing is lost if it dies again. No game is running right now.
-
-## 2026-10-15 17:09:56 session 3871558c-9a50-4469-aa3a-3ad3b93ef576
-The load skip is now confirmed on the main PC and pc2, with proper fullscreen and focus proof, and I've told you on the phone.
-
-| Device | Before | After | Notes |
-|---|---|---|---|
-| Main PC | 25.4 s | 8.5 s | Ally's merged build (544), real boss combat for about 2.5 min |
-| pc2 | 23.2 s | 9.0 s | Build 541, 60 s fullscreen combat verified, one run |
-| Ally | not measured | 16.2 s, or 3.7 s with prewarm | Ally's own test with build 542; I haven't checked it myself |
-
-One thing is not working: the menu prewarm didn't trigger in the main-PC run. The harness's stand-in for opening the menu was parsed as mission 0, so the prewarm found nothing to do, and 8.5 s is effectively plain 541. The agent is retrying with `CrossWorldPrewarmMission=0x7B35` set in the ini and a plain `xpre` command, then will restore the original files and clear the test marker. It stopped partway again and I've resumed it.
-
-I've noted your live arena-switching idea for Training mode (switch arenas in real time, with a transition effect) in the standing-orders file. It comes after the load skip is confirmed.
-
-## 2026-10-15 17:32:09 session 65297990-2caf-416f-91cb-62d50c4292eb
-I've asked ally to build the prewarm fix merged with the 547 build and test it. I haven't tested anything myself this run, because there was no new build to try.
-
-The fix is commit 04161be. Ally wrote it after my main PC test showed Fight now getting refused while the prewarmed world was still loading. Ally should test opening the menu and then Fight now, expecting about 3.7 s and no refusal. When the build file is posted I'll test it on the main PC.
-
-After that, the next open task is live arena switching with a transition effect for Training mode (#6466). I added a line about this to `.handoff/next.md`.
-
-## 2026-10-15 17:56:26 session b7b603aa-384e-4e7f-978d-d4509c15db74
-I think I found why the human can't control the game on the main PC, but I haven't confirmed the fix works. `Nioh3EngineFix.ini` still had `VirtualPad = 1`, a leftover from my testing. The standing rule is `VirtualPad = 0` on the main PC so their Xbox 360 pad works.
-
-I set it to 0 and backed up the old file to `captures/pc/Nioh3EngineFix.ini.prepad.bak`. The game is running now, and I'm assuming it reads the setting at launch. The human needs to restart the game once for the change to apply. I told them that (#6524) and added a line to `.handoff/next.md`.
-
-I didn't restart the game myself, since the main PC is theirs to test on.
-
 ## 2026-10-15 18:17:39 session a70875ef-f836-4d5f-bc87-1ff96ec9d8ee
 I found the likely cause of the jumping boss from the logs. I haven't fixed or reproduced it, so it's a lead, not a confirmed cause.
 
@@ -285,4 +223,72 @@ The black-screen fix works on this PC, and I've sent the build to Ally for a ret
 - **Test script:** the script marked Yoritomo as failed, but that is a timing problem in the script, not the mod. The boss moved and fought.
 
 The game is closed and the test marker is cleared. I added lines to `next.md` and the done log. Still waiting
-- 2026-10-16 03:20 pc2 (#8141): swap build 6d005617/dd271ec1 Shingen cold n=2 13s dwell: black 3.5/6.2 s, live-while-black 0.5 s. Files dl6160/b618, captures/rematch/sw618-*.
+
+## 2026-10-16 06:15:19 session 01ece3d7-345f-4947-93a4-60ebda6f5bf7
+pc2's swap-build result (#8155) is good. With prewarm on, the black screen lasted 3.5 s and 6.2 s (n=2, Shingen, cold start, 13 s menu wait). The numbers were pipe-driven rather than the real menu, and the boss was live for only 0.5 s before the fade-in. Three cells still block during the swap.
+
+Ally's Shingen run through the real Rematch menu still shows a ~39 s fade, so the two devices differ a lot. I took that from the slot 0 note and haven't checked it myself.
+
+I sent pc2 a follow-up (#8156) to find why those 3 cells still block. It should also check whether they can be requested during the prewarm hold, to shorten the black screen further, and report n=2 with the cell ids.
+
+I added a line to `.handoff/done.md`. I didn't message the user about this result. `next.md` and `owners.md` are not updated this run.
+
+## 2026-10-16 06:43:20 session 4ac5b1b7-5459-404d-8741-44fcd232e414
+Ally confirmed the cross-world fix, and I've sent you the ready-to-play message five times.
+
+**Ally's retest** (Ally, Proton, 1080p, build #624, Training `644c2149`, one run each):
+
+| Fight | Before | Now |
+|---|---|---|
+| Shingen (cross-world), live fight on a black scene | ~11 s | ~0.8 s |
+| Shingen, first 3D frame after the click | ~50 s | ~51 s |
+| Otoroshi (same-world), first visible frame | ~39 s | ~7 s |
+
+- **Shingen's total wait** is unchanged at about 50 s.
+- **Otoroshi:** a white fog haze stays until about 25–30 s, and the arena is fully rendered around 30 s. That is the same as before.
+- **Ally harness:** its test runner crashed once on a half-written command file after the Shingen run. Ally restored everything and re-ran Otoroshi cleanly.
+
+**Your play test:** the main PC has Training `644c2149`, Rematch `dd271ec1` and the no-finisher toggle on. Try it with boss AI on and tell me what feels off.
+
+pc2's run of the earlier swap build (#618) hasn't reported yet. I added lines to the done log and `next.md`.
+
+## 2026-10-16 07:03:37 session 4ac5b1b7-5459-404d-8741-44fcd232e414
+Nothing needs action from me, so I'm ending this run.
+
+- **Needs you:** the play test of the new build on the main PC. It includes the Boss Rematch fade-in fixes and the no-finisher toggle, and I need you to try it with boss AI on.
+- **pc2:** still running the earlier swap build (#618) through the real Rematch menu on a cold Shingen start.
+- **Ally and pc:** both are idle, and the game is closed on this PC.
+
+## 2026-10-16 07:34:14 session 4ac5b1b7-5459-404d-8741-44fcd232e414
+Nothing is waiting on me, so I'm ending this run with nothing new started.
+
+- **Needs you:** the play test of the new build on the main PC (Boss Rematch fade-in fixes plus the no-finisher toggle). Please try it with boss AI on. I sent the ready message five times, and I won't resend it.
+- **pc2:** still has the earlier swap build (#618) test outstanding.
+- **Ally:** idle, doing static GPU analysis.
+- **This PC:** the game is closed.
+
+## 2026-10-16 08:14:38 session 4ac5b1b7-5459-404d-8741-44fcd232e414
+Nothing is waiting on me, so I'm ending this run without starting anything new.
+
+- **Blocked on you:** the play test of the new build on the main PC (Boss Rematch fade-in fixes and the no-finisher toggle, with boss AI on). I won't resend the ready message.
+- **pc2:** its run of the earlier swap build (#618) hasn't reported yet.
+- **Ally:** idle.
+- **This PC:** the game is closed.
+
+## 2026-10-16 09:35:18 session e5dcf1d8-6241-428b-93e3-19b8e67a1720
+I didn't start any new work this run. The only open item is your play test of the current build on the main PC, so I sent you a short note on the bridge (#8208). The five ready-to-play pings went out earlier, and I haven't resent them.
+
+I found no error from pc2 or ally. I didn't read their recent messages, so I can't confirm pc2's #618 test result has come in. The game is closed on this PC, and no pause file or test marker exists.
+
+I changed no code and didn't touch the handoff files, since nothing changed this run.
+
+## 2026-10-16 10:20:19 session e5dcf1d8-6241-428b-93e3-19b8e67a1720
+I answered you on the bridge (#8211). Yes, cross-world loading is shorter, but you still wait a long time.
+
+- **Blind time:** the black-screen stretch before the fight is visible dropped from 11 s to under 1 s on the Ally, and from 3.1 s to 0.7 s on this PC (Otoroshi).
+- **Total wait:** unchanged in size, about 21 s on this PC and about 50 s on the Ally.
+- **Same-world fights:** visible in 3 to 7 s.
+
+I didn't start work on the total cross-world wait; it's the next thing to cut. I also logged your question in the user-directives file.
+
+## 2026-10-16 07:30 pc2 | #8218 Shingen cell probe n=2 reported (13 s dwell cover 10.2/8.2 s; 30 s dwell 2.1/6.1 s). Cells appear only at state 4->5; arena placeables stream after swap since centre moves then. Unproven: moving stream centre to arena during hold. Next: build that on pc2/faster-load if pc agrees. Files captures/rematch/c6-20261016-03*
