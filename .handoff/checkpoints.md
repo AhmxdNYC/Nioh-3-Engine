@@ -1,11 +1,4 @@
 
-## 2026-10-15 20:14:09 session 1c72c084-5287-4d29-b334-1ae69c7d81e1
-The death-blow kill works, and I've started the fix to hide the boss health bar the instant the boss is killed. That fix is still in progress and I haven't seen a result yet.
-
-An Opus helper is on it in the same branch (`pc/toggles-merge`). It won't install anything or touch the game while you're playing.
-
-I'll install it together with the merged build and the menu toggles once you say you're done playing. I told you this in a note, and your fix-worked report is saved in `user-directives.md`.
-
 ## 2026-10-15 20:34:45 session b783c838-e132-414e-9580-92aa5692c532
 I closed the game, installed the instant-fade build and relaunched it. With the final-blow toggle off, the boss body should now start fading at the kill instead of a few seconds later. It has been running since 20:33. I haven't tested the fade myself, and I told you in message #6749.
 
@@ -277,4 +270,21 @@ I replied to your "What's progress now" (message #8399): there's no new result y
 - **Next test:** Once pc2 has a build, Ally and this PC will measure Shingen and Otoroshi. Ally is free for it, since its AABB bench came back as no gain.
 - **Main PC:** I haven't touched it. It's waiting for your play test.
 
-## 2026-10-16 09:25 pc2 | #8333 CrossWorldPlaceableSkip cold Shingen swap OFF 16.2/17.3 s vs ON 12.5/10.6 s (n=2/arm, pc2). Unproven: click->visible, pop-in, pc/ally. Branch pc2/placeable-skip 0cc4c83; logs captures/rematch/xworldprobe-20261016-{081844,084321,085022,091634}
+## 2026-10-16 12:17:14 session 85ce38c0-d5c6-4e6e-aab1-6a6322b0b29a
+pc2's ForceCells test (forcing the arena cells to load early) is not a win. I haven't run any game tests myself this run.
+
+pc2 ran it twice per arm with prewarm off:
+
+| Arena | ForceCells ON | ForceCells OFF |
+|---|---|---|
+| Shingen | 13.3 s | 19.1 s |
+| Otoroshi | 35.2 s | 21.0 s |
+
+Shingen looks better but is noisy at n=2, and Otoroshi is clearly worse. I logged it as not a keep in `done.md` and acknowledged message #8427.
+
+The inbox is empty, and pc2's "skip far scene objects" build hasn't arrived yet. I'm still waiting on that and on Ally's baseline numbers. I didn't send you a message.
+
+## 2026-10-16 12:22 pm EST pc2 | CrossWorldPlaceableSkip measured (#8365)
+Done: branch pc2/placeable-skip 0cc4c83 pushed; bridge file #652 asi, #653 ON ini. pc2 Shingen cold Fight now, no prewarm, n=2/arm: click->control OFF 16.7/17.8 s, ON 13.0/11.1 s (-5 s); stage 5 OFF 15.5/16.5, ON 11.8/9.9.
+Unproven: click->visible + pop-in (base pc2/oldao-trim fade waits for all placeables -> visible ~48 s both arms); window always hits 20 s cap (never closes on 'landed').
+Next: rebase pc2/placeable-skip onto pc/fnow-visible (AreaWaitMs cap), re-run visible n=2 + screenshot for missing props. Logs: captures/rematch/xworldprobe-20261016-{081844,084321,085022,091634}.
