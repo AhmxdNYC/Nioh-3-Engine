@@ -18,3 +18,12 @@ Proposed change to test (hypothesis): during prewarm, cap or prioritise the plac
 Default settings candidate: commit 7144a86 on pc2/faster-load, [ArenaSwap] in Nioh3Training.ini:
 CrossWorld=1, CrossWorldEarlySwap=1, CrossWorldBlockCells=2, CrossWorldAreaObjSkipMs=500, CrossWorldPrewarm=2, CrossWorldPrewarmHoldMs=120000, CrossWorldCellSkip=2 (rows with a whitelist only).
 Evidence for the prewarm part: n=2 each, 2.2 / 3.3 s ON vs 33.2 / 30.5 s OFF (27 s menu dwell, Shingen). Menu-open auto-trigger not yet tested.
+
+## Update (pc2 #8256, 2026-10-16 07:40 PDT) - where the cold wait really goes (Shingen R15FF, no prewarm)
+Logs: captures/rematch/xworldprobe-20261015-201624 (CellSkip 2) and -200555 (CellSkip log-only), both cold fnow, n=2.
+- +0.7 s .. +6.9 s (6.2 s): mission sequencer state 4, LoadIsLoadEnd gates 0x110 = area-objects (16) + G9 (256). The OLD world 0xE0 is unchanged (15 cells, 11 loaded) and holds ~870 placeable loads in flight. CrossWorldAreaObjSkipMs never touches state 4.
+- +6.9 .. +9 s: new world states 0-3.
+- +9 .. +13.7 s: state 4, 6 cells, 1 loaded -> 5 (cell streaming, ~4.7 s). Stage ready +13.7 s.
+- New-world area-objects gate (state 5): passes via CrossWorldAreaObjSkipMs 500 -> only 0.5 s. ~3100 placeable loads still queued, they keep streaming.
+=> The object queue that costs time is the OLD world's, in state 4 (6.2 s), not the target world's (0.5 s).
+Change: [ArenaSwap] CrossWorldOldAreaObjSkipMs = N (default 0) passes that gate after N ms in state 4. Branch pc2/oldao-trim 3d0911a. A-B-A-B (OFF/ON 300 ms, prewarm 0, CellSkip 0) queued, results pending.
