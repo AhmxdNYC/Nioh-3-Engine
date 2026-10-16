@@ -1784,6 +1784,105 @@ N3T_API int Nioh3Training_ReturnInfo(void) {
     if (g_rh.active || g_rh.want) f |= 16;
     return f;
 }
+// user #6789/#6798: 'Return to where I was' as a PHYSICAL object in the arena = the game's own mission clear gadget (the one the mission script spawns at the boss
+// after the kill: Function::CreateClearGadgetBossPosition(10|11|13, x, y, z) -> Gadget::CreatePlacementGadgetPosition -> 1C1F07C -> GadgetCreateFromRecord 7D39E8;
+// clear gadget = placement record of type 0x353 (851), record 0x6C B: +8 type). Record lookup 7D4480(id) (set, default set for unknown ids) + 7D41E0(set, id).
+// Spawned (once per arena session, gadgets have no delete native) when a session is running, a spot is stored and no boss is alive (also right after the arena load).
+// Interacting: the native clear gadget ends the mission through MissionRequestReturn 22396D8; while our gate is up that call is diverted into ReturnHome.
+// Fallback 'touch': standing ReturnGateTouchMs on the gate (after having left it once) also returns (ReturnGateTouchMs 0 = off).
+static int g_cfg_gate = 1, g_cfg_gate_fake = 1, g_cfg_gate_dist = 220, g_cfg_gate_touch = 1500, g_cfg_gate_radius = 110; static char g_gate_ids[64] = "10,11,13,12";
+static struct { int up, tried, left; uint32_t id, mission; float pos[4]; DWORD tTry, tIn; int session; } g_gate;
+static uint8_t g_gate_fakerec[0x100];
+typedef void (*ReqRetFn)(const uint32_t*, uint8_t);
+static ReqRetFn o_reqret;
+static int GateRecType(uint64_t rec) { __try { return rec ? *(int32_t*)(rec + 8) : -1; } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; } }
+static uint64_t GateRecord(uint32_t id) {
+    uint64_t set = ((uint64_t (*)(uint32_t))(B + 0x7D4480))(id); if (!set) return 0;
+    return ((uint64_t (*)(uint64_t, uint32_t))(B + 0x7D41E0))(set, id);
+}
+// scan the default gadget placement set for any 0x353 record: set G: [[G]+0x488]+0x418 = header (count +4, records +8, 0x6C B each), id map G[3] {+4 empty key, +8..+10 (id, idx) pairs}
+static uint64_t GateScan(uint32_t* outId) {
+    __try {
+        uint64_t g = ((uint64_t (*)(uint32_t))(B + 0x7D4480))(0x7FFFFFF1u); if (!g) return 0;
+        uint64_t d0 = *(uint64_t*)g; if (!d0) return 0; uint64_t res = *(uint64_t*)(d0 + 0x488); if (!res || !*(uint32_t*)(res + 0x460)) return 0;
+        uint64_t hdr = *(uint64_t*)(res + 0x418); if (!hdr) return 0; uint32_t cnt = *(uint32_t*)(hdr + 4); if (cnt > 100000) return 0;
+        uint64_t map = *(uint64_t*)(g + 0x18); if (!map) return 0; uint64_t mb = *(uint64_t*)(map + 8), me = *(uint64_t*)(map + 0x10); int32_t empty = *(int32_t*)(map + 4);
+        for (uint32_t i = 0; i < cnt; ++i) {
+            uint64_t rec = hdr + 8 + (uint64_t)i * 0x6C; if (*(int32_t*)(rec + 8) != 0x353) continue;
+            for (uint64_t e = mb; e < me; e += 8) if (*(int32_t*)e != empty && *(uint32_t*)(e + 4) == i) { *outId = *(uint32_t*)e; Log("GATE: default gadget set has clear gadget record #%u id %u", i, *outId); return rec; }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE: scan faulted"); }
+    return 0;
+}
+static int GateSpawn(const char* why) {
+    float pp[4] = {0}; if (!PlayerPos(pp)) return 0;
+    float base[3] = {pp[0], pp[1], pp[2]}, dx = 1.0f, dz = 0.0f;
+    if (g_tr.hasStart) { base[0] = g_tr.pp[0]; base[1] = g_tr.pp[1]; base[2] = g_tr.pp[2]; float vx = g_tr.pp[0] - g_tr.bp[0], vz = g_tr.pp[2] - g_tr.bp[2], l = sqrtf(vx * vx + vz * vz); if (l > 1.0f) { dx = vx / l; dz = vz / l; } }
+    __attribute__((aligned(16))) float pos[4] = {base[0] + dx * g_cfg_gate_dist, base[1], base[2] + dz * g_cfg_gate_dist, 1.0f};
+    __attribute__((aligned(16))) float mat[16]; memcpy(mat, ((const float* (*)(void))(B + 0x20F030))(), sizeof mat);
+    uint32_t mis = 0, mode = 0; uint8_t jr = 0; MsRead(&mis, &jr, &mode);
+    uint64_t rec = 0; uint32_t id = 0; char ids[64]; snprintf(ids, sizeof ids, "%s", g_gate_ids);
+    for (char* s = strtok(ids, ", "); s && !rec; s = strtok(0, ", ")) { uint32_t c = (uint32_t)strtoul(s, 0, 0); uint64_t r = 0; __try { r = GateRecord(c); } __except (EXCEPTION_EXECUTE_HANDLER) { r = 0; } int t = GateRecType(r); Log("GATE: candidate id %u -> record %p type 0x%X", c, (void*)r, t); if (t == 0x353) { rec = r; id = c; } }
+    if (!rec) rec = GateScan(&id);
+    if (!rec && g_cfg_gate_fake) {  // no clear gadget record loaded here: synthesize one (type 0x353, all else zero; risky, ReturnGateFakeRecord = 0 turns it off)
+        memset(g_gate_fakerec, 0, sizeof g_gate_fakerec); *(int32_t*)(g_gate_fakerec + 8) = 0x353; id = 0x7FFF0353u; rec = (uint64_t)g_gate_fakerec;
+        Log("GATE: no clear gadget record in the loaded placement sets, using a synthesized 0x353 record (id 0x%X)", id);
+    }
+    if (!rec) { Log("GATE (%s): no clear gadget record, nothing spawned", why); return 0; }
+    __try { ((void (*)(uint64_t, uint32_t, uint32_t, float*, float*, uint8_t))(B + 0x7D39E8))(rec, id, mis, pos, mat, 1); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE (%s): GadgetCreateFromRecord 7D39E8 faulted %08lX", why, GetExceptionCode()); return 0; }
+    g_gate.up = 1; g_gate.id = id; g_gate.mission = mis; memcpy(g_gate.pos, pos, sizeof g_gate.pos); g_gate.left = 0; g_gate.tIn = 0;
+    Log("GATE (%s): clear gadget id %u spawned at %.0f %.0f %.0f (mission 0x%X, record %p): interact (or stand on it %d ms) = Return to where I was", why, id, pos[0], pos[1], pos[2], mis, (void*)rec, g_cfg_gate_touch);
+    return 1;
+}
+static int GateBossAlive(void) { int f = Nioh3Training_ReturnInfo(); return !(f & 2) && !(f & 4); }
+static void GateTick(void) {
+    if (!g_cfg_gate) return;
+    if (!g_tr.active) { if (g_gate.session) { g_gate.session = 0; g_gate.up = 0; g_gate.tried = 0; } return; }
+    if (!g_gate.session) { g_gate.session = 1; g_gate.up = 0; g_gate.tried = 0; g_gate.tTry = 0; }
+    if (g_rh.active || g_xw.active || g_fd.pend) return;
+    const uint8_t* st = GameState(); if (!st || st[2] || !PlayerChar() || StageState() != 5) return;
+    DWORD now = GetTickCount();
+    if (!g_gate.up && g_home.valid && g_gate.tried < 3 && (!g_gate.tTry || now - g_gate.tTry > 3000) && (!GateBossAlive() || now - g_tr.tCmd < 1500)) {
+        g_gate.tTry = now; g_gate.tried++; GateSpawn(g_gate.tried == 1 ? "arena session" : "retry");
+    }
+    if (g_gate.up && g_cfg_gate_touch > 0) {
+        float p[4]; if (!PlayerPos(p)) return;
+        float dx = p[0] - g_gate.pos[0], dz = p[2] - g_gate.pos[2], dy = p[1] - g_gate.pos[1]; int in = dx * dx + dz * dz < (float)g_cfg_gate_radius * g_cfg_gate_radius && fabsf(dy) < 250.0f;
+        if (!in) { g_gate.left = 1; g_gate.tIn = 0; return; }
+        if (!g_gate.left || GateBossAlive()) return;
+        if (!g_gate.tIn) g_gate.tIn = now;
+        if (now - g_gate.tIn >= (DWORD)g_cfg_gate_touch) { g_gate.tIn = 0; g_gate.left = 0; int r = Nioh3Training_ReturnHome(); Log("GATE: player stood on the return gate %d ms -> ReturnHome %d", g_cfg_gate_touch, r); }
+    }
+}
+static void h_reqret(const uint32_t* p, uint8_t f) {
+    void* ra = __builtin_return_address(0);
+    if (g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+        if (GateBossAlive()) { Log("GATE: MissionRequestReturn from %p while the boss is alive: ignored (gate is inactive during a fight)", (void*)((uintptr_t)ra - B)); return; }
+        int r = Nioh3Training_ReturnHome(); Log("GATE: MissionRequestReturn (caller +%llX) diverted to Return to where I was -> %d", (unsigned long long)((uintptr_t)ra - B), r); return;
+    }
+    o_reqret(p, f);
+}
+// user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
+// KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
+// found statically), so GoldKiBar = 1 flips the native style of the boss Ki bar (the alternate native bar look); GoldKiBar = 2 forces style 0x20, 3 forces 0x21.
+static int g_cfg_goldki = 1;
+static uint8_t KiStyleHook(uint64_t charParam) {
+    uint8_t s = ((uint8_t (*)(uint64_t))(B + 0x5D4434))(charParam);
+    static int logged; if (!logged) { logged = 1; int v = -1; __try { v = charParam ? *(int32_t*)(charParam + 0x80) : -1; } __except (EXCEPTION_EXECUTE_HANDLER) {} Log("GOLDKI: first boss Ki row: charParam+0x80 = %d, native style %d, GoldKiBar %d", v, s, g_cfg_goldki); }
+    if (g_cfg_goldki == 1) return !s; if (g_cfg_goldki == 2) return 1; if (g_cfg_goldki == 3) return 0; return s;
+}
+static void HookGoldKi(void) {
+    uint8_t* site = (uint8_t*)(B + 0x1D220C1);
+    if (site[0] != 0xE8 || (uintptr_t)(site + 5) + *(int32_t*)(site + 1) != B + 0x5D4434) { Log("GOLDKI: call site 1D220C1 is not 'call 5D4434', not hooked"); return; }
+    uint8_t* stub = 0;
+    for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !stub; a += 0x10000) stub = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!stub) { Log("GOLDKI: no near stub"); return; }
+    stub[0] = 0x48; stub[1] = 0xB8; *(uint64_t*)(stub + 2) = (uint64_t)KiStyleHook; stub[10] = 0xFF; stub[11] = 0xE0;
+    int32_t rel = (int32_t)((intptr_t)stub - (intptr_t)(site + 5)); DWORD old; VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &old);
+    InterlockedExchange((volatile LONG*)(site + 1), rel); VirtualProtect(site, 5, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 5);
+    Log("GOLDKI: boss Ki bar style hook at 1D220C1 on (GoldKiBar %d)", g_cfg_goldki);
+}
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
 static struct { DWORD t0, last, lastTick, lastBeat, window; LONG ticks0, lastTicks; int hadPlayer, active; uint32_t id, lastReg; float lastPos[4]; } g_ms;
@@ -1820,7 +1919,9 @@ static void Exec(char* line) {
     if (n < 1) return;
     float pos[4] = {0};
     __try {
-        if (!strcmp(op, "pos")) {
+        if (!strcmp(op, "gate")) {  // spawn the return gate now (test)
+            Log("CMD gate -> %d", GateSpawn("command"));
+        } else if (!strcmp(op, "pos")) {
             uint64_t ch = PlayerChar(); int ok = PlayerPos(pos);
             Log("CMD pos ch=%p ok=%d %.1f %.1f %.1f %.1f", (void*)ch, ok, pos[0], pos[1], pos[2], pos[3]);
         } else if (!strcmp(op, "reg")) {
@@ -2057,6 +2158,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); g_xs.on = 0; g_xs.patched = 0; }
     __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; }
+    __try { GateTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE tick exception %08lX", GetExceptionCode()); g_gate.tried = 3; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
     __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
@@ -2151,6 +2253,17 @@ static DWORD WINAPI Worker(LPVOID x) {
         static const uint8_t aorp[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18};
         if (!memcmp((void*)(B + 0x3B3A28), aorp, sizeof aorp)) { o_aor = (AorFn)Hook(0x3B3A28, 15, h_aor); Log("hook StageAreasObjectsReady 3B3A28 ok (CrossWorldAreaObjSkipMs %d)", g_cfg_xaoskip); }
         else { g_cfg_xaoskip = 0; Log("hook StageAreasObjectsReady 3B3A28: prologue mismatch, CrossWorldAreaObjSkipMs off"); }
+    }
+    {   // user #6789 return gate + #6781 gold Ki bar
+        char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+        g_cfg_gate = GetPrivateProfileIntA("Return", "ReturnGate", 1, ini); g_cfg_gate_fake = GetPrivateProfileIntA("Return", "ReturnGateFakeRecord", 1, ini);
+        g_cfg_gate_dist = GetPrivateProfileIntA("Return", "ReturnGateDistance", 220, ini); g_cfg_gate_touch = GetPrivateProfileIntA("Return", "ReturnGateTouchMs", 1500, ini);
+        g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
+        g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
+        Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
+        static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
+        if (g_cfg_gate) { if (!memcmp((void*)(B + 0x22396D8), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
+        if (g_cfg_goldki) HookGoldKi();
     }
     HookDeathBlowCond();
     HookPump();
