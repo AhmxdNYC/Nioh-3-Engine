@@ -293,7 +293,7 @@ I acknowledged #8618 and added a line to `next.md`. I haven't run anything new o
 2026-10-16 15:44 pc: user kill test: KiBreakNoFinisher=1 fired (NOFIN, EnemyForceKill after 2s window) but GOLDKI gold elements 0 (tint never found bar) and user still did grapple. Log Nioh3Training.log ~59600. Next: fix gold tint (build train 96FC29CD lacks working gold? compare with kifade build) + full grapple block; installed asi 96FC29CD; marker test-active set; restore captures/pc/cover/user_play_prev.* after user done.
 2026-10-16 15:52 pc: Opus built pc/nofin-gold-kneel deb812c asi 37541107, staged captures/pc/stage-nofin-gold; install when user done (game running, user playing). Then restore prev from captures/pc/cover/user_play_prev.* when finished, delete test-active.
 
-## 2026-10-16 pc2 | state-6 wait RE (#8719)
-Done: static RE note notes/state6-wait-re-pc2.md (no game run). State 6 waits for each mission's setup machine A31A50 to reach 8; hold is in step 2 (G5 13335C or flag 28F307C). 223C55A skip froze at state 0xF because mission setup never ran.
-Proven: code reading of the control flow. Inferred: the 20 s hold is 28F307C, from the log only.
-Next: read-only probe at A319EF (log per-mission state and both checks in state 6); then H1 stub at A31B41 only if probe confirms. Caveat: agent said nioh3-merged is on pc2/merged-near; check before editing.
+## 2026-10-16 1:25 pm EST pc2 | seq-gate experiments (#8751)
+Done: branch pc2/seq-gates 1e58f2f (worktree C:/Users/User/projects/nioh3-seqgates), asi bridge #689; keys CrossWorldSeqLog / CrossWorldG9State8 / CrossWorldDispatchCap default 0. Runs (Shingen cold, pc2, n=1 each): P0 captures/rematch/xworldprobe-20261016-125635, P1 -130453.
+Proven: flag [[B+4759910]+4D] = 0 the whole window -> P2 never applies (cap already 10). Placeable queue q200 ~3400 drains over ~45 s with active loads only 0-4 (not in-flight-cap bound). P1 (G9 ignored in state 8): cover drop 68 s vs 76.5 s baseline (-8 s), but state 8 still holds ~21 s: gates 0x10C = G5 res list + G7 blockers + G9, so G5/G7 hold it too. Unproven: n=1, pc2 slow vs ally (48 s).
+Next: G7/G5 holder (other slot's SeqProbe #8682 branch is in nioh3-merged working tree, uncommitted).
