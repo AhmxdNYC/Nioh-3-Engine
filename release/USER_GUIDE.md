@@ -57,6 +57,26 @@ manual drag-and-drop, third-party mod managers, optional shader copying and alre
 closed and avoid starting it or syncing/changing saves during installation; the checks do not suspend Steam Cloud or lock the game process.
 The installer does not change Steam settings, launch the game or modify `Nioh3.exe`.
 
+### Automatic backups on installation and update
+
+Use the same installer command for updates. Before replacing any mod file, it creates a new UTC-timestamped backup in
+`NIOH3-mod-backups` beside the save root, copies every save file, verifies SHA256 hashes and rechecks that the source did not
+change. The printed backup directory contains `saves/`, previous mod files and `receipt.json`. Use `--backup-root "path"` to
+choose another directory outside the game/save/package folders. Existing INIs are preserved. Optional shaders are not installed.
+
+A missing/empty save directory, running game, incomplete backup or checksum mismatch stops installation. Backups are never
+reused, automatically deleted or automatically restored. If installation fails after a mod replacement, only this installer's
+unchanged replacement files are rolled back; conflicting files are left alone and marked for review in the receipt. An interrupted
+process, conflicting rollback, game starting mid-install or failed final receipt can leave `.nioh3-mod-install.lock` in the game
+directory: inspect its receipt and finish recovery before removing that lock. Loaded mod files are not rolled back while the game is running.
+For manual save recovery, close the game, preserve your current saves separately, then copy the chosen backup's `saves/` contents
+to the receipt's `save_source` directory. Older backups are never silently restored over newer progress.
+
+Downloading a ZIP cannot read or back up local saves. Automatic protection applies when this installer activates an install/update;
+manual drag-and-drop, third-party mod managers, optional shader copying and already-installed releases bypass it. Keep the game
+closed and avoid starting it or syncing/changing saves during installation; the checks do not suspend Steam Cloud or lock the game process.
+The installer does not change Steam settings, launch the game or modify `Nioh3.exe`.
+
 ## In-game settings that matter
 - Set **"FPS dynamic adjustment" OFF** (the mod's frame-timing fix needs it; a warning shows when it is on).
 - Pick an FPS cap you can mostly hold (Ally: 30 or 60; PC: 60 or 120). With the mod the game runs at real speed below
