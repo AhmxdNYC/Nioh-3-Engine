@@ -17,7 +17,7 @@ Confidence: H = read in decompiled code, M = strong inference, L = guess.
 | 0x35 | finisher/down action on the victim | current action data `[[ctrl+0xE8]+0x20]` dword +0x18 bit 8 | H (bits), M |
 | 0xB0 | same flag on the linked action `[[ctrl+0x118]+0x20]` | dword +0x18 bit 8 | H (bits), M |
 | 0x2C | runtime bit **0x48** (`ctrl+0x1068` bit 8) | | H (bits), M |
-| 0x27 | "needs death blow" (HP floor revive cond; see summon-death-toggles) | KiBreak... `2A3AC0(ctrl)` or `ctrl+0xA8` bit 45 | H |
+| 0x27 | "needs death blow" (HP floor revive cond; see summon-death-toggles) | `2A3AC0(ctrl)` or `ctrl+0xA8` bit 45 | H |
 
 - Death sensor **0x4892A8**(actor) = `hp+0x48==1` or StateTest 0x35 / 0xB0 / 0x2C or `actor+0x8D4 > 0` (H). Live log 12:30: sensor 1 for ~2.3 s during the HP-1 finisher, so these three are the finisher (grapple) states on the victim.
 - Hit apply **0x327DEC** (37 KB, caller 0x2A32E4): near its end (decomp: `6C5EA4(hit+0x190, 0x8000000000000000)`) an attack whose param flags (hit+0x190) have **bit 63** sets the target's runtime bit **0x3A** (= StateTest 0x23) and `ctrl+0x1014 = 0` (H). KiDamage 0x844604 is applied in the same function before the Ki-break transition check (`Ki exhausted` 0x6B3758 before/after) (H).
