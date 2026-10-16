@@ -1,32 +1,4 @@
 
-## 2026-10-15 21:16:39 session 96686cbc-dd24-4e6a-8bf0-2c86927408b0
-I answered the question in the phone Chat. I only sent that one message and ran no tests.
-
-The cell work (#5332) is an optional extra, not part of the main plan. After a no-load summon, it would make you fight inside the boss's own arena instead of on open-world terrain. It would reuse the old arena-swap code, which warps to the arena in about 4 seconds.
-
-You're right that it's the wrong thing to work on now. The arena swap is the unreliable part: cells stream in for 20–57 seconds, and a Fight-now timeout once left you stuck in the arena. So I've parked the cell task and put arena-swap and load fixes first. I added a line about this to `.handoff/next.md`. I did not tick or edit the `open.md` entry.
-
-## 2026-10-15 21:50:05 session d85724c4-3bd6-43ea-9ccd-a423d69e0b8c
-I told the user the boss was most likely Yoritomo (Minamoto no Yoritomo). I sent that as message #6905.
-
-The answer comes from counting boss names in our handoff notes, not from a log of what the user played. Yoritomo shows up 44 times, Nuribotoke 16 and Yamagata 11. Nuribotoke is the second most likely. I asked the user to describe the arena if I got it wrong.
-
-I didn't launch the game or change any files.
-
-## 2026-10-15 22:10:55 session d85724c4-3bd6-43ea-9ccd-a423d69e0b8c
-The new build is installed on the main PC and the game is launching. It is untested in game, and I sent you five "ready to play" messages.
-
-- **Install:** Nioh3Training asi, hash 95059B19, built from branch `pc/return-object-gold-ki` at commit 3c0003f. I installed only the Training asi. The Rematch asi and `.ini` are unchanged.
-- **Launch:** the game process is running. Steam is handling the "Play anyway" prompt.
-- **Return gate:** a physical object (the game's mission clear gadget) is meant to appear in the arena when no boss is alive. Using it, or standing on it for 1.5 s, runs the existing "Return to where I was". It is untested. The builder flagged two risks:
-  - The object may not be loaded in field arenas, and the fallback to a made-up record could crash or show nothing. `ReturnGateFakeRecord=0` turns that off.
-  - Using it may not go through the game's mission-return call. The stand-on trigger is the fallback.
-- **Gold Ki bar:** this is not really gold. The color isn't in the RE notes, so `GoldKiBar` only swaps the bar between the game's two built-in styles. The log line `GOLDKI` shows each boss's style. Setting it to 2 or 3 forces one style or the other, and 0 is native.
-
-Faster cross-world loading is not in this build. pc2's prewarm branch hasn't been merged yet.
-
-I left the test-active marker file in place because the test outlives this job. After your play-test I'll read the logs for the Return gate and `GOLDKI`, delete the marker, and update the handoff files.
-
 ## 2026-10-15 22:33:17 session d85724c4-3bd6-43ea-9ccd-a423d69e0b8c
 The new build is installed and the game is running on the main PC. I pinged you 5 times to play. None of it has been tested in game yet.
 
@@ -281,7 +253,41 @@ The test script on this PC is still running, so there are no numbers yet. It has
 
 I'll report once the second "off" and "on" runs have finished and I have the Shingen and Otoroshi click-to-control times.
 
-## 2026-10-16 10:15 am EST pc2 | merged-visible measured (#8449)
-Done: branch pc2/merged-visible 3598c95 (fnow-visible + placeable-skip), bridge files asi #662, ON ini #663, OFF ini #664. pc2 Shingen cold Fight now, ForceCells=1, n=1-2/arm: click->visible OFF 27.8 s, ON 26.8/27.9 s (no gain); stage 5 OFF 11.1, ON 10.0/11.2 s. Arena screenshot intact (boss, props, HUD) at 40 s.
-Why: after stage 5 the 'hold until arena cells in' waits the full AreaWaitCrossMs 15 s cap: 3 cells stay blocking, ~3100 placeable loads in flight, even with skip ON.
-Next: find what blocks those 3 arena cells (placeable loads for arena cells themselves?) or lower AreaWaitCrossMs and check pop-in. Logs captures/rematch/xworldprobe-20261016-{095249,095826,100404}.
+## 2026-10-16 13:20:46 session 85ce38c0-d5c6-4e6e-aab1-6a6322b0b29a
+Nothing has changed since my last update. The inbox is empty, no new branch has been pushed, and the game isn't running on this PC. Neither pc2 nor Ally has reported an error. I didn't message you or start any tests.
+
+The load-skip work is waiting on pc2. It's looking for what keeps the 3 arena cells "blocking", or a way to cut the 15 s hold cap. Ally and this PC have nothing to test until pc2 sends a build. I'll test it when it arrives.
+
+## 2026-10-16 13:48:54 session 85ce38c0-d5c6-4e6e-aab1-6a6322b0b29a
+I've asked pc2 and Ally for a one-line status, since the channel has been quiet since about 12:30 pm EST. That was the OPS patrol's flag in message #8578, which I acknowledged.
+
+- **This PC:** The near-arena-only branch (`pc/near-arena-only`) is pushed. Its first "on" test run started at 1:42 pm EST, and Nioh3 is running now for it. The builder that wrote it was stopped, but the test script kept going.
+- **pc2 and Ally:** I asked each for what is running, an ETA and any blocker. I'll relay their answers.
+
+I haven't sent you a message this run, and there are no results yet.
+
+## 2026-10-16 14:18:42 session 85ce38c0-d5c6-4e6e-aab1-6a6322b0b29a
+Ally found that the long black screen isn't our wait. Lowering the wait cap gives player control sooner, but the screen stays black until about 48–51 s whatever the cap is. I sent you this in #8621.
+
+**Ally's numbers (merged build, Shingen cold, two runs each):**
+
+| Wait cap | Control | First visible |
+|---|---|---|
+| 15 s | 30.6 / 32.2 s | about 46 / 51 s |
+| 6 s | 21.5 / 21.3 s | about 51 / 49 s |
+| 3 s | 17.6 / 19.2 s | about 48 / 51 s |
+
+- **Black screen:** The game's own loading cover only lifts at about 48 s, so the +10 s and +40 s screenshots were black and there was nothing to judge.
+- **Missing objects:** The first visible frames showed the arena complete.
+- **Ally's pick:** It recommends 3 s. That costs nothing but only helps if the cover is also removed, since control comes under a black screen.
+
+**Next steps:**
+- **pc2:** I asked it to find what releases the game's cover (`GAMESTATE[2]`) after a cross-world swap. It should try forcing it once the arena cells are in, behind an opt-in setting.
+- **Ally:** I asked it to log the state each second and report the 15 lines around the moment the cover drops.
+
+I acknowledged #8618 and added a line to `next.md`. I haven't run anything new on this PC.
+
+## 2026-10-16 11:20 am EST pc2 | placeable distance whitelist (#8554)
+Done: placeable position = placeable+0x50 (x,y,z, cm, same space as player pos). Branch pc2/merged-visible 63c2b92: CrossWorldPlaceableNear (radius cm around arena+boss point; needs CrossWorldPlaceableSkip=1), window held until arena hold ends; PlaceableDump diag. Bridge asi #669, ini #670. pc independently pushed NearArenaOnly (origin 92c4ada) - same idea.
+Proven: R=15000 n=1 -> still ~2300 loads pending, 15 s hold TIMEOUT, visible 27.5 s (no gain). Unproven: R=5000 (my run was contaminated by another agent's asi in the game folder; rerun never finished - game in use by another job). Also ally #8606: #662 ON vs OFF no gain (n=2).
+Next: valid R=5000 / 3000 run; if loads still pending at hold start, loads queued before the window (cells admitted at state 4) are the cause - cancel/dequeue instead of not queueing.
