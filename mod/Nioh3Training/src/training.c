@@ -555,7 +555,7 @@ static void GaugeTick(void) {
     }
     Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", g_fakeid, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
 }
-static struct { int active, round, nodeath, beaten, hasStart, bodyGone; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
+static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
 // (1) the player's own recent trail (0.5 s samples, 20 s): a point the player stood on is on the floor and connected to the player; (2) a post-spawn progress check
 // (VerifyTick): a boss that has not closed in after 5 s is deleted and respawned at the next candidate. Candidate order: trail points 4-9 m away, then a fan around the camera
@@ -1093,13 +1093,24 @@ static int TrainStart(const char* tok, float d) {
     return 1;
 }
 static int g_cfg_tr_respawn = 2000;
+// user #7118: InstantRespawn ([Summon], default 0). 0 = player beaten -> the boss is removed (boss mode / BGM / bar ended), player healed and put back on the
+// round-1 spot, NO respawn: the Return gate appears (Return to where I was / Fight again). 1 = the old instant round reset (boss respawned RetryRespawnMs later).
+static int g_cfg_instant = 0;
 static void TrainRetry(const char* why) {
     if (!g_tr.active) { Log("TRAIN retry (%s): no session", why); return; }
     TrainClear(why); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
-    g_tr.round++; g_tr.beaten = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
+    g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
+}
+static void TrainLost(void) {  // InstantRespawn 0: player beaten -> boss gone, no respawn, wait for the Return gate choice
+    TrainClear("player beaten"); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
+    g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0;
+    if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN lost: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
+    g_dead_at = 0; g_dead_id = 0;
+    g_tr.beaten = 0; g_tr.tBeat = 0; g_tr.tRespawn = 0; g_tr.tReport = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.lost = 1;
+    Log("TRAIN round %d lost (InstantRespawn 0): boss removed, no respawn; Return gate: Return to where I was / Fight again", g_tr.round);
 }
 static void TrainStop(const char* why) {
     TrainClear(why); if (g_tr.nodeath) PlayerSetNoDeath(0);
@@ -1120,10 +1131,10 @@ static void TrainTick(void) {
     if (g_tr.tRespawn && (int)(now - g_tr.tRespawn) >= 0) { g_tr.tRespawn = 0; g_tr.tReport = 1; SummonStart(g_tr.tok, (float)g_cfg_tr_dist); }
     if (g_tr.tReport && g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: boss in the world %lu ms after the command", g_tr.round, now - g_tr.tCmd); g_tr.tReport = 0; }
     uint64_t c = 0, m = 0;
-    if (!g_tr.beaten && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
-        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), resetting the round in 2 s", g_tr.round, c, m);
+    if (!g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
+        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in 2 s", g_tr.round, c, m, g_cfg_instant ? "resetting the round (InstantRespawn 1)" : "removing the boss for the Return gate (InstantRespawn 0)");
     }
-    if (g_tr.beaten && now - g_tr.tBeat >= 2000) TrainRetry("player beaten");
+    if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_instant) TrainRetry("player beaten"); else TrainLost(); }
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
         g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
@@ -1704,12 +1715,19 @@ static DWORD WINAPI DeathCfgSaveThread(LPVOID p) {
     snprintf(v, sizeof v, "%d", g_cfg_loot); WritePrivateProfileStringA("Summon", "BossLoot", v, ini);
     snprintf(v, sizeof v, "%d", g_cfg_deathblow); WritePrivateProfileStringA("Summon", "DeathBlowRequired", v, ini);
     snprintf(v, sizeof v, "%d", g_cfg_cutscene); WritePrivateProfileStringA("Summon", "CutsceneOnKill", v, ini);
+    snprintf(v, sizeof v, "%d", g_cfg_instant); WritePrivateProfileStringA("Summon", "InstantRespawn", v, ini);
     WritePrivateProfileStringA(0, 0, 0, ini); return 0;
 }
 N3T_API void Nioh3Training_GetDeathCfg(int* loot, int* blow, int* cut) { if (loot) *loot = g_cfg_loot; if (blow) *blow = g_cfg_deathblow; if (cut) *cut = g_cfg_cutscene; }
 N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist) {
     if (loot >= 0) g_cfg_loot = loot != 0; if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
     Log("API deathcfg (Boss Rematch menu, #6618): BossLoot %d DeathBlowRequired %d CutsceneOnKill %d%s", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+}
+// user #7118: Boss Rematch menu toggle 'Instant respawn on death' ([Summon] InstantRespawn). persist 1 also writes it to Nioh3Training.ini.
+N3T_API int Nioh3Training_GetInstantRespawn(void) { return g_cfg_instant; }
+N3T_API void Nioh3Training_SetInstantRespawn(int on, int persist) {
+    g_cfg_instant = on != 0; Log("API InstantRespawn %d (Boss Rematch menu, #7118)%s", g_cfg_instant, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
 // user #6779: 'Return to where I was' (Boss Rematch menu): ends the arena session (boss, boss mode, BGM, bar, NoDeath) and puts the player back at g_home, after a kill,
@@ -1787,7 +1805,7 @@ N3T_API int Nioh3Training_ReturnInfo(void) {
 // user #6789/#6798: 'Return to where I was' as a PHYSICAL object in the arena = the game's own mission clear gadget (the one the mission script spawns at the boss
 // after the kill: Function::CreateClearGadgetBossPosition(10|11|13, x, y, z) -> Gadget::CreatePlacementGadgetPosition -> 1C1F07C -> GadgetCreateFromRecord 7D39E8;
 // clear gadget = placement record of type 0x353 (851), record 0x6C B: +8 type). Record lookup 7D4480(id) (set, default set for unknown ids) + 7D41E0(set, id).
-// Spawned (once per arena session, gadgets have no delete native) when a session is running, a spot is stored and no boss is alive (also right after the arena load).
+// Spawned (once per arena session, gadgets have no delete native) when a session is running, a spot is stored and no boss is alive and no respawn is pending (#7138: not right after the arena load or a retry any more).
 // Interacting: the native clear gadget ends the mission through MissionRequestReturn 22396D8; while our gate is up that call is diverted into ReturnHome.
 // Fallback 'touch': standing ReturnGateTouchMs on the gate (after having left it once) also returns (ReturnGateTouchMs 0 = off).
 static int g_cfg_gate = 1, g_cfg_gate_fake = 1, g_cfg_gate_dist = 220, g_cfg_gate_touch = 1500, g_cfg_gate_radius = 110; static char g_gate_ids[64] = "10,11,13,12";
@@ -1854,7 +1872,12 @@ static void GateTick(void) {
     if (g_rh.active || g_xw.active || g_fd.pend) return;
     const uint8_t* st = GameState(); if (!st || st[2] || !PlayerChar() || StageState() != 5) return;
     DWORD now = GetTickCount();
-    if (!g_gate.up && g_home.valid && g_gate.tried < 3 && (!g_gate.tTry || now - g_gate.tTry > 3000) && (!GateBossAlive() || now - g_tr.tCmd < 1500)) {
+    // #7118/#7138: only while the session is idle (no boss, no respawn pending). The removed 'or now - tCmd < 1500' clause also matched the 2 s window after every
+    // TrainRetry (tCmd reset): the clear gadget was created 2 s before the retry boss (log 22:34:19.5 gadget, 22:34:21.5 boss) and that boss stayed passive
+    // (ai+1AA8 = -1, walks up and hops back to its spawn = the 'jumping' boss; the confirmed-good 20:39 retry without a gadget went 0 at once).
+    // Also never before the round-1 arena boss exists (Fight now arena swap still loading its resources: no boss yet, but one is about to spawn).
+    int idle = !GateBossAlive() && !g_tr.tRespawn && !g_sp.active && !g_vf.respawnAt && !g_tr.beaten && !(g_tr.tWin && g_cfg_tr_win > 0) && !(g_ar.active && !g_ar.spawned);
+    if (!g_gate.up && g_home.valid && g_gate.tried < 3 && (!g_gate.tTry || now - g_gate.tTry > 3000) && idle) {
         g_gate.tTry = now; g_gate.tried++; GateSpawn(g_gate.tried == 1 ? "arena session" : "retry");
     }
     if (g_gate.up && g_cfg_gate_touch > 0) {
@@ -2289,10 +2312,10 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
-        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_instant = GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d, KillFadeFrames %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay, g_cfg_kill_fade_frames);
-        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
+        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d, InstantRespawn %d (#7118)", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win, g_cfg_instant);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);

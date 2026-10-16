@@ -1976,6 +1976,13 @@ constexpr int kItDeathCut = -20, kItDeathBlow = -21, kItDeathLoot = -22;
 constexpr int kItReturnHome = -23;
 // user #6789: the physical Return gate in the arena opens page uGate: Return to where I was / Fight again (Nioh3Training_GateFightAgain = queued round reset)
 constexpr int kItFightAgain = -24;
+// user #7118: 'Instant respawn on death' toggle (Nioh3Training [Summon] InstantRespawn, default off: death -> Return gate only)
+constexpr int kItDeathRespawn = -25;
+int InstantRespawnGet() {  // -1 = Training without the export
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetInstantRespawn");
+    return f ? f() : -1;
+}
 constexpr int uGate = 900;
 bool DeathCfgGet(int& loot, int& blow, int& cut) {
     using Fn = void (*)(int*, int*, int*);
@@ -1996,6 +2003,17 @@ bool DeathCfgToggle(int item, int dir) {  // dir 0 flips, > 0 on, < 0 off
     g_msg[0] = 0;
     return true;
 }
+bool InstantRespawnToggle(int dir) {  // dir 0 flips, > 0 on, < 0 off
+    using Fn = void (*)(int, int);
+    const auto set = (Fn)TrainingExport("Nioh3Training_SetInstantRespawn");
+    const int cur = InstantRespawnGet();
+    if (!set || cur < 0) { snprintf(g_msg, sizeof(g_msg), "Needs a Nioh3Training.asi with the instant respawn toggle."); return false; }
+    const int v = dir ? (dir > 0) : !cur;
+    set(v, 1);
+    Log("Rematch: menu toggle -> InstantRespawn %d", v);
+    g_msg[0] = 0;
+    return true;
+}
 constexpr int kItFight = 0x10000;   // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 
@@ -2004,6 +2022,7 @@ int Items(int* out, int cap) {
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
     if (g_uiPages.page == uRoot) {
         if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
+        if (TrainingExport("Nioh3Training_SetInstantRespawn")) add(kItDeathRespawn);
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
@@ -2279,6 +2298,7 @@ void UiChange(int dir) {
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
+    if (item == kItDeathRespawn) { InstantRespawnToggle(dir); return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2317,6 +2337,7 @@ bool UiAct() {
     const int item = it[g_sel];
     if (item == kItClose) return true;
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
+    if (item == kItDeathRespawn) { InstantRespawnToggle(0); return false; }
     if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
         using Fn = int (*)();
         const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
@@ -2510,6 +2531,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : ok ? (v ? cGreen : cGray) : cDim, sel, "%s %-24s %s   A / Left / Right", mk,
                 it[i] == kItDeathCut ? "Cutscene on kill:" : it[i] == kItDeathBlow ? "Final blow required:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF");
         }
+        else if (it[i] == kItDeathRespawn) {
+            const int v = InstantRespawnGet();
+            add(sel ? cWhite : v >= 0 ? (v ? cGreen : cGray) : cDim, sel, "%s %-24s %s   A / Left / Right", mk, "Instant respawn on death:", v < 0 ? "?" : v ? "ON" : "OFF");
+        }
         else if (it[i] == kItReturnHome) {
             const int f = ReturnInfo();
             const bool can = f > 0 && (f & (1 | 8)) != 0;
@@ -2579,6 +2604,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItDeathCut) snprintf(footer, nf, "On: one finisher kills the boss and its death animation plays (no second finisher). The mission's own defeat cutscene is not played. Applies now, saved.");
         else if (item == kItDeathBlow) snprintf(footer, nf, "On: the boss must be finished with a death blow (finisher). Off: it dies as soon as its HP runs out. Applies now, saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "On: the boss drops its own loot and Amrita (also one-finisher kill). Story/first-clear rewards are never granted. Applies now, saved.");
+        else if (item == kItDeathRespawn) snprintf(footer, nf, "On: when you die in the arena you and the boss respawn at once (new round). Off: the boss is removed and only the Return gate appears (Return / Fight again). Applies now, saved.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the Fight now arena session (boss removed) and puts you back where you stood before Fight now, in that world. Works after a kill, with no boss, or mid-switch.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
