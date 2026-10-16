@@ -555,6 +555,7 @@ static void GaugeTick(void) {
     }
     Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", g_fakeid, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
 }
+static int g_cfg_autoretry = 0;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118: one toggle; see TrainTick / TrainLost)
 static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
 // (1) the player's own recent trail (0.5 s samples, 20 s): a point the player stood on is on the floor and connected to the player; (2) a post-spawn progress check
@@ -1093,9 +1094,8 @@ static int TrainStart(const char* tok, float d) {
     return 1;
 }
 static int g_cfg_tr_respawn = 2000;
-// user #7118: InstantRespawn ([Summon], default 0). 0 = player beaten -> the boss is removed (boss mode / BGM / bar ended), player healed and put back on the
-// round-1 spot, NO respawn: the Return gate appears (Return to where I was / Fight again). 1 = the old instant round reset (boss respawned RetryRespawnMs later).
-static int g_cfg_instant = 0;
+// user #7118 / round-2: [Summon] AutoRetryOnDeath (g_cfg_autoretry, default 0; legacy key InstantRespawn read as fallback). 0 = player beaten -> TrainLost: the boss is
+// removed (boss mode / BGM / bar ended), player healed and put back on the round-1 spot, NO respawn: the Return gate appears. 1 = instant round reset (TrainRetry).
 static void TrainRetry(const char* why) {
     if (!g_tr.active) { Log("TRAIN retry (%s): no session", why); return; }
     TrainClear(why); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
@@ -1104,13 +1104,13 @@ static void TrainRetry(const char* why) {
     g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
 }
-static void TrainLost(void) {  // InstantRespawn 0: player beaten -> boss gone, no respawn, wait for the Return gate choice
+static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone, no respawn, wait for the Return gate choice
     TrainClear("player beaten"); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
     g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0;
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN lost: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
     g_tr.beaten = 0; g_tr.tBeat = 0; g_tr.tRespawn = 0; g_tr.tReport = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.lost = 1;
-    Log("TRAIN round %d lost (InstantRespawn 0): boss removed, no respawn; Return gate: Return to where I was / Fight again", g_tr.round);
+    Log("TRAIN round %d lost (AutoRetryOnDeath 0): boss removed, no respawn; Return gate: Return to where I was / Fight again", g_tr.round);
 }
 static void TrainStop(const char* why) {
     TrainClear(why); if (g_tr.nodeath) PlayerSetNoDeath(0);
@@ -1132,9 +1132,11 @@ static void TrainTick(void) {
     if (g_tr.tReport && g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: boss in the world %lu ms after the command", g_tr.round, now - g_tr.tCmd); g_tr.tReport = 0; }
     uint64_t c = 0, m = 0;
     if (!g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
-        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in 2 s", g_tr.round, c, m, g_cfg_instant ? "resetting the round (InstantRespawn 1)" : "removing the boss for the Return gate (InstantRespawn 0)");
+        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in 2 s", g_tr.round, c, m, g_cfg_autoretry ? "resetting the round (AutoRetryOnDeath 1)" : "removing the boss for the Return gate (AutoRetryOnDeath 0)");
     }
-    if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_instant) TrainRetry("player beaten"); else TrainLost(); }
+    // AutoRetryOnDeath 1 = the 'dejavu' instant round reset (player + boss) 2 s after the player is beaten; 0 (default) = TrainLost: boss removed, player healed,
+    // NO respawn, the arena Return gate (spawned only while idle, #7138) offers Return to where I was / Fight again (Fight again = the same TrainRetry)
+    if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_autoretry) TrainRetry("player beaten"); else TrainLost(); }
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
         g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
@@ -1715,8 +1717,16 @@ static DWORD WINAPI DeathCfgSaveThread(LPVOID p) {
     snprintf(v, sizeof v, "%d", g_cfg_loot); WritePrivateProfileStringA("Summon", "BossLoot", v, ini);
     snprintf(v, sizeof v, "%d", g_cfg_deathblow); WritePrivateProfileStringA("Summon", "DeathBlowRequired", v, ini);
     snprintf(v, sizeof v, "%d", g_cfg_cutscene); WritePrivateProfileStringA("Summon", "CutsceneOnKill", v, ini);
-    snprintf(v, sizeof v, "%d", g_cfg_instant); WritePrivateProfileStringA("Summon", "InstantRespawn", v, ini);
     WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+static DWORD WINAPI AutoRetrySaveThread(LPVOID p) {
+    (void)p; char ini[MAX_PATH], v[8]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    snprintf(v, sizeof v, "%d", g_cfg_autoretry); WritePrivateProfileStringA("Summon", "AutoRetryOnDeath", v, ini); WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+N3T_API int Nioh3Training_GetAutoRetry(void) { return g_cfg_autoretry; }
+N3T_API void Nioh3Training_SetAutoRetry(int on, int persist) {
+    g_cfg_autoretry = on != 0; Log("API AutoRetryOnDeath %d%s", g_cfg_autoretry, persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, AutoRetrySaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
 N3T_API void Nioh3Training_GetDeathCfg(int* loot, int* blow, int* cut) { if (loot) *loot = g_cfg_loot; if (blow) *blow = g_cfg_deathblow; if (cut) *cut = g_cfg_cutscene; }
 N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist) {
@@ -1724,12 +1734,9 @@ N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist)
     Log("API deathcfg (Boss Rematch menu, #6618): BossLoot %d DeathBlowRequired %d CutsceneOnKill %d%s", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
-// user #7118: Boss Rematch menu toggle 'Instant respawn on death' ([Summon] InstantRespawn). persist 1 also writes it to Nioh3Training.ini.
-N3T_API int Nioh3Training_GetInstantRespawn(void) { return g_cfg_instant; }
-N3T_API void Nioh3Training_SetInstantRespawn(int on, int persist) {
-    g_cfg_instant = on != 0; Log("API InstantRespawn %d (Boss Rematch menu, #7118)%s", g_cfg_instant, persist ? " (saved to ini)" : "");
-    if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
-}
+// user #7118: legacy aliases of Get/SetAutoRetry (jumpfix 'Instant respawn on death'); same flag, persisted as [Summon] AutoRetryOnDeath.
+N3T_API int Nioh3Training_GetInstantRespawn(void) { return Nioh3Training_GetAutoRetry(); }
+N3T_API void Nioh3Training_SetInstantRespawn(int on, int persist) { Nioh3Training_SetAutoRetry(on, persist); }
 // user #6779: 'Return to where I was' (Boss Rematch menu): ends the arena session (boss, boss mode, BGM, bar, NoDeath) and puts the player back at g_home, after a kill,
 // with no boss or mid-swap. A running cross-world swap / prewarm is cancelled through the bridge 6541/6550 abort path (XwCancel -> XwCancelTick WarpOtherWorld back
 // -> XrTick puts the player on the spot), aimed at g_home; another world without a swap running uses the same WarpOtherWorld trip; the same world is a plain warp.
@@ -1918,72 +1925,110 @@ static void HookGoldKi(void) {
     InterlockedExchange((volatile LONG*)(site + 1), rel); VirtualProtect(site, 5, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 5);
     Log("GOLDKI: boss Ki bar style hook at 1D220C1 on (GoldKiBar %d)", g_cfg_goldki);
 }
-// ---- user #6781 gold Ki bar, real tint: the layout colour is in VertexColor FCurves of the HUD layout (no static field), so the colour is overridden where
-// the UI vertices are finalised: UiQuadBuild 1CD690 per-quad loop at 1CD88B (rbp = quad, 4 vertices of 0x2C B, RGBA at +0x24, rbx node, [rbx+0x10] = the
-// quad's element; that loop already rewrites alpha +0x27 each frame). Ki quads are found by behaviour: an element whose quad width / its max width follows
-// the boss Ki ratio (and not the HP ratio) is the Ki fill; [Summon] GoldKiColors = RGBA hex list also tints any quad of those exact colours; GoldKiDump = 1
-// logs the distinct quad colours/boxes once while the boss gauge is up (to pick GoldKiColors). Only active while the boss Ki row was drawn in the last 250 ms.
+// ---- user #6781 gold Ki bar, real tint (round 3). The colour lives in the HUD layout's VertexColor FCurves (no static field), so it is overridden in the
+// UI vertex buffer: hook UiQuadBuild 1CD690 at 1CD7CD (after every element wrote its vertices, before the alpha pass / unmap). GoldWalk replays the alpha
+// pass's own walk (groups of [obj+100h] vtbl+18h/+8, nodes from [obj+28h]; node +10h element, +24h vertex count; element type vtbl+8 and widget 1CEA08
+// vtbl+90h decide quad (0xB0 B = 4 x 0x2C vertices, RGBA at +24h) or skip count*0x2C) so it runs whether or not the alpha pass is on.
+// Ki quads are found from the start of the fight by a probe: when a boss gauge appears the pump sets the boss's Ki to 40 % for up to 1.5 s (then refills it);
+// the elements whose quad width drops below 75 % while that happens are the Ki bar -> repainted GoldKiRGB every frame. GoldKiColors (exact RGBA) also tints;
+// GoldKiDump = 1 logs the walked quads once.
 static volatile float g_ki_ratio = -1.0f, g_hp_ratio = -1.0f;
 static int g_cfg_goldki_dump = 0, g_goldki_dumped, g_cfg_goldki_learn = 1; static uint32_t g_goldki_cols[8]; static int g_goldki_ncols;
 static uint8_t g_gold_r = 255, g_gold_g = 200, g_gold_b = 50;
-static struct { uint64_t e; float maxW, lastKi; int score; } g_gk[64]; static int g_ngk; static uint64_t g_gold_el[6]; static int g_ngold;
-static void GoldKiRatios(void) {  // pump: ratios of the summoned boss (the gauge actor)
-    if (!g_cfg_goldki || g_nsp <= 0 || !g_sp_actor[g_nsp - 1]) { g_ki_ratio = -1.0f; return; }
-    __try {
-        uint64_t st = *(uint64_t*)((uint64_t)g_sp_actor[g_nsp - 1] + 0x3A0); if (!st) return;
-        float cur = *(float*)(st + 0xAC), mx = *(float*)(st + 0xB0); uint64_t hm = *(uint64_t*)(st + 0x50), hc = *(uint64_t*)(st + 0x58);
-        g_ki_ratio = mx > 0 ? (cur < 0 ? 0 : cur / mx) : -1.0f; g_hp_ratio = hm ? (float)((double)hc / (double)hm) : -1.0f;
-    } __except (EXCEPTION_EXECUTE_HANDLER) { g_ki_ratio = -1.0f; }
+static struct { uint64_t e; float baseW, minW; int seen; } g_gk[256]; static int g_ngk;
+static uint64_t g_gold_el[8]; static volatile LONG g_ngold;
+static struct { volatile LONG phase; uint64_t actor; DWORD t0; int walks; } g_kp;  // phase 0 idle, 1 baseline, 2 Ki lowered, 3 done
+static void GoldKiRatios(void) {  // pump: ratios + the probe state machine for the summoned boss (the gauge actor)
+    uint64_t a = (g_cfg_goldki && g_nsp > 0) ? (uint64_t)g_sp_actor[g_nsp - 1] : 0;
+    if (!a) { g_ki_ratio = -1.0f; if (g_kp.phase == 2 && g_kp.actor) g_kp.phase = 0; return; }
+    uint64_t st = 0; __try { st = *(uint64_t*)(a + 0x3A0); } __except (EXCEPTION_EXECUTE_HANDLER) { st = 0; }
+    if (!st) return;
+    float cur = *(float*)(st + 0xAC), mx = *(float*)(st + 0xB0); uint64_t hm = *(uint64_t*)(st + 0x50), hc = *(uint64_t*)(st + 0x58);
+    g_ki_ratio = mx > 0 ? (cur < 0 ? 0 : cur / mx) : -1.0f; g_hp_ratio = hm ? (float)((double)hc / (double)hm) : -1.0f;
+    DWORD now = GetTickCount();
+    if (!g_cfg_goldki_learn || g_ngold) { g_kp.phase = 3; return; }
+    if (g_kp.actor != a && g_kp.phase != 2) { g_kp.actor = a; g_kp.phase = 0; }
+    if (g_kp.phase == 0 && now - g_ki_seen < 100 && mx > 0) { g_kp.phase = 4; g_kp.t0 = now; }  // wait out the gauge's intro fill animation
+    else if (g_kp.phase == 4 && now - g_kp.t0 > 2500) { g_ngk = 0; g_kp.walks = 0; g_kp.t0 = now; g_kp.phase = 1; Log("GOLDKI probe: boss gauge up, measuring the bar quads"); }
+    else if (g_kp.phase == 1 && now - g_kp.t0 > 400 && g_kp.walks >= 5) { g_kp.phase = 2; g_kp.t0 = now; Log("GOLDKI probe: %d quads measured, boss Ki -> 40 %% for up to 1.5 s", g_ngk); }
+    else if (g_kp.phase == 1 && now - g_kp.t0 > 5000) { g_kp.phase = 3; Log("GOLDKI probe: no quad walk seen in 5 s (UI hook not running?): probe off"); }
+    if (g_kp.phase == 2) {
+        if (mx > 0) *(float*)(st + 0xAC) = mx * 0.4f;
+        if (g_ngold || now - g_kp.t0 > 1500) {
+            ((void (*)(uint64_t))(B + 0x5FB5C8))(st + 0x98);  // KiRefill
+            g_kp.phase = 3; Log("GOLDKI probe: done, %ld Ki bar element(s) found, boss Ki refilled", g_ngold);
+        }
+    }
 }
 static void GoldPaint(uint8_t* q) {
-    for (int v = 0; v < 4; ++v) { uint8_t* c = q + v * 0x2C + 0x24; int l = c[0] > c[1] ? c[0] : c[1]; if (c[2] > l) l = c[2]; if (l < 96) l = 96; c[0] = (uint8_t)(g_gold_r * l / 255); c[1] = (uint8_t)(g_gold_g * l / 255); c[2] = (uint8_t)(g_gold_b * l / 255); }
+    for (int v = 0; v < 4; ++v) { uint8_t* c = q + v * 0x2C + 0x24; int l = c[0] > c[1] ? c[0] : c[1]; if (c[2] > l) l = c[2]; if (l < 110) l = 110; c[0] = (uint8_t)(g_gold_r * l / 255); c[1] = (uint8_t)(g_gold_g * l / 255); c[2] = (uint8_t)(g_gold_b * l / 255); }
 }
-static void __cdecl GoldQuad(uint8_t* q, uint64_t el) {
+static void GoldQuad(uint8_t* q, uint64_t el) {
+    for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) { GoldPaint(q); return; }
+    int ph = g_kp.phase, dump = g_cfg_goldki_dump && g_goldki_dumped < 120;
+    if (ph != 1 && ph != 2 && !dump && !g_goldki_ncols) return;
+    uint32_t rgba = *(uint32_t*)(q + 0x24);
+    for (int i = 0; i < g_goldki_ncols; ++i) if ((g_goldki_cols[i] & 0x00FFFFFF) == (rgba & 0x00FFFFFF)) { GoldPaint(q); return; }
+    if (ph != 1 && ph != 2 && !dump) return;
+    float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+    for (int v = 0; v < 4; ++v) { float x = *(float*)(q + v * 0x2C), y = *(float*)(q + v * 0x2C + 4); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (dump) { g_goldki_dumped++; Log("GOLDKI dump: elem %p rgba %08X box %.1f %.1f - %.1f %.1f (Ki %.2f HP %.2f probe %d)", (void*)el, rgba, x0, y0, x1, y1, g_ki_ratio, g_hp_ratio, ph); }
+    float w = x1 - x0; if (!(w > 0.5f) || w > 1e5f) return;
+    int k = -1; for (int i = 0; i < g_ngk; ++i) if (g_gk[i].e == el) { k = i; break; }
+    if (ph == 1) { if (k < 0 && g_ngk < 256) { k = g_ngk++; g_gk[k].e = el; g_gk[k].baseW = w; g_gk[k].minW = w; g_gk[k].seen = 0; } if (k >= 0) { if (w > g_gk[k].baseW) g_gk[k].baseW = w; g_gk[k].minW = w < g_gk[k].minW ? w : g_gk[k].minW; g_gk[k].seen++; } return; }
+    if (ph == 2 && k >= 0 && g_gk[k].baseW >= 8.0f && g_gk[k].minW > g_gk[k].baseW * 0.95f && w < g_gk[k].baseW * 0.75f && g_ngold < 8) {
+        for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) return;
+        g_gold_el[g_ngold] = el; InterlockedIncrement(&g_ngold);
+        Log("GOLDKI probe: element %p shrank %.1f -> %.1f with the boss Ki at 40 %% (rgba %08X, box y %.1f-%.1f): Ki bar, tinted gold", (void*)el, g_gk[k].baseW, w, rgba, y0, y1);
+    }
+}
+static void __cdecl GoldWalk(uint8_t* obj) {
     if (!g_cfg_goldki || GetTickCount() - g_ki_seen > 250) return;
+    if (!g_ngold && !g_goldki_ncols && g_kp.phase != 1 && g_kp.phase != 2 && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
     __try {
-        uint32_t rgba = *(uint32_t*)(q + 0x24);
-        float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
-        for (int v = 0; v < 4; ++v) { float x = *(float*)(q + v * 0x2C), y = *(float*)(q + v * 0x2C + 4); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-        if (g_cfg_goldki_dump && g_goldki_dumped < 80) { g_goldki_dumped++; Log("GOLDKI dump: elem %p rgba %08X box %.1f %.1f - %.1f %.1f (Ki %.2f HP %.2f)", (void*)el, rgba, x0, y0, x1, y1, g_ki_ratio, g_hp_ratio); }
-        for (int i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) { GoldPaint(q); return; }
-        for (int i = 0; i < g_goldki_ncols; ++i) if ((g_goldki_cols[i] & 0x00FFFFFF) == (rgba & 0x00FFFFFF)) { GoldPaint(q); return; }
-        float ki = g_ki_ratio, hp = g_hp_ratio, w = x1 - x0;
-        if (!g_cfg_goldki_learn || ki < 0 || !(w > 0) || w > 1e5f) return;
-        int k = -1; for (int i = 0; i < g_ngk; ++i) if (g_gk[i].e == el) { k = i; break; }
-        if (k < 0) { if (g_ngk >= 64) return; k = g_ngk++; g_gk[k].e = el; g_gk[k].maxW = w; g_gk[k].lastKi = -1; g_gk[k].score = 0; }
-        if (w > g_gk[k].maxW) g_gk[k].maxW = w;
-        if (g_gk[k].maxW < 8.0f || fabsf(ki - g_gk[k].lastKi) < 0.04f) return;  // judge once per Ki change
-        g_gk[k].lastKi = ki;
-        if (ki > 0.95f || fabsf(ki - hp) < 0.1f) return;
-        float r = w / g_gk[k].maxW;
-        if (fabsf(r - ki) < 0.04f) { if (++g_gk[k].score >= 3 && g_ngold < 6) { g_gold_el[g_ngold++] = el; Log("GOLDKI: element %p follows the boss Ki ratio (width %.1f of %.1f, Ki %.2f, HP %.2f, rgba %08X): tinted gold from now on", (void*)el, w, g_gk[k].maxW, ki, hp, rgba); } }
-        else if (g_gk[k].score > 0) g_gk[k].score--;
-    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        uint8_t* q = *(uint8_t**)(obj + 0x358); if (!q) return;
+        uint64_t node = *(uint64_t*)(obj + 0x28), sent = (uint64_t)obj + 0x60, grpObj = (uint64_t)obj + 0x100;
+        uint64_t* gv = *(uint64_t**)grpObj;
+        uint32_t ng = ((uint32_t (*)(uint64_t))gv[3])(grpObj);
+        int guard = 0;
+        for (uint32_t g = 0; g < ng && g < 4096; ++g) {
+            uint64_t grp = ((uint64_t (*)(uint64_t, uint32_t))gv[1])(grpObj, g); if (!grp) return;
+            uint32_t cnt = *(uint32_t*)(grp + 4);
+            while (cnt) {
+                if (!node || node == sent || ++guard > 200000) return;
+                uint64_t el = *(uint64_t*)(node + 0x10); if (!el) return;
+                int type = ((int (*)(uint64_t))(*(uint64_t**)el)[1])(el);
+                uint64_t wdg = ((uint64_t (*)(uint64_t))(B + 0x1CEA08))(el);
+                if ((type & ~4) || (wdg && ((int (*)(uint64_t))(*(uint64_t**)wdg)[0x90 / 8])(wdg) == 1)) { q += (uint64_t)*(uint32_t*)(node + 0x24) * 0x2C; node = *(uint64_t*)(node + 8); continue; }
+                GoldQuad(q, el); q += 0xB0; node = *(uint64_t*)(node + 8); --cnt;
+            }
+        }
+        if (g_kp.phase == 1) g_kp.walks++;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { static int once; if (!once++) Log("GOLDKI: quad walk faulted %08lX", GetExceptionCode()); }
 }
 static void HookGoldQuad(void) {
-    static const uint8_t orig[14] = {0x48, 0x8B, 0x4B, 0x10, 0x48, 0x8B, 0x5B, 0x08, 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x40};
-    uint8_t* site = (uint8_t*)(B + 0x1CD88B);
-    if (memcmp(site, orig, 14)) { Log("GOLDKI: UiQuadBuild loop 1CD88B bytes differ, vertex tint off"); return; }
+    uint8_t* site = (uint8_t*)(B + 0x1CD7CD);  // mov rax, [rip+X] (g_UiSettings 4BD0AC0); cmp byte [rax+368h], r12b
+    if (site[0] != 0x48 || site[1] != 0x8B || site[2] != 0x05 || (uintptr_t)(site + 7) + *(int32_t*)(site + 3) != B + 0x4BD0AC0) { Log("GOLDKI: UiQuadBuild 1CD7CD bytes differ, vertex tint off"); return; }
     uint8_t* s = 0;
     for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !s; a += 0x10000) s = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-    if (!s) { Log("GOLDKI: no near stub for 1CD88B"); return; }
+    if (!s) { Log("GOLDKI: no near stub for 1CD7CD"); return; }
     uint8_t* p = s;
-    static const uint8_t pre[] = {0x50, 0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53,  // push rax rcx rdx r8 r9 r10 r11
-                                  0x48, 0x83, 0xEC, 0x28,                                          // sub rsp, 28h (16-aligned at the call)
-                                  0x48, 0x89, 0xE9,                                                // mov rcx, rbp (quad)
-                                  0x48, 0x8B, 0x53, 0x10};                                         // mov rdx, [rbx+10h] (element)
+    static const uint8_t pre[] = {0x50, 0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53,  // push rax rcx rdx r8 r9 r10 r11 (rsp 16-aligned at the site)
+                                  0x48, 0x83, 0xEC, 0x28,                                          // sub rsp, 28h
+                                  0x48, 0x89, 0xF9};                                               // mov rcx, rdi (UiQuadBuild object)
     memcpy(p, pre, sizeof pre); p += sizeof pre;
-    *p++ = 0x48; *p++ = 0xB8; *(uint64_t*)p = (uint64_t)GoldQuad; p += 8; *p++ = 0xFF; *p++ = 0xD0;  // mov rax, GoldQuad; call rax
+    *p++ = 0x48; *p++ = 0xB8; *(uint64_t*)p = (uint64_t)GoldWalk; p += 8; *p++ = 0xFF; *p++ = 0xD0;  // mov rax, GoldWalk; call rax
     static const uint8_t post[] = {0x48, 0x83, 0xC4, 0x28, 0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59, 0x58};
     memcpy(p, post, sizeof post); p += sizeof post;
-    memcpy(p, orig, 14); p += 14;
-    *p++ = 0xFF; *p++ = 0x25; *(uint32_t*)p = 0; p += 4; *(uint64_t*)p = (uint64_t)(site + 14); p += 8;
-    // only the first 5 bytes change, in one locked 8-byte exchange (the UI thread may be inside this loop); bytes 5..13 stay original
+    *p++ = 0x48; *p++ = 0xB8; *(uint64_t*)p = (uint64_t)(B + 0x4BD0AC0); p += 8;  // mov rax, &g_UiSettings
+    *p++ = 0x48; *p++ = 0x8B; *p++ = 0x00;                                          // mov rax, [rax]
+    *p++ = 0xFF; *p++ = 0x25; *(uint32_t*)p = 0; p += 4; *(uint64_t*)p = (uint64_t)(site + 7); p += 8;  // jmp 1CD7D4
     DWORD old; VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old);
     LONG64 o8 = *(volatile LONG64*)site, n8 = o8; uint8_t* nb = (uint8_t*)&n8; nb[0] = 0xE9; *(int32_t*)(nb + 1) = (int32_t)((intptr_t)s - (intptr_t)(site + 5));
     InterlockedCompareExchange64((volatile LONG64*)site, n8, o8);
     VirtualProtect(site, 16, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 16);
-    Log("GOLDKI: vertex tint hook at UiQuadBuild 1CD88B on (gold %u %u %u, learn %d, colours %d, dump %d)", g_gold_r, g_gold_g, g_gold_b, g_cfg_goldki_learn, g_goldki_ncols, g_cfg_goldki_dump);
+    uint64_t us = 0; uint8_t f368 = 0xFF; if (Rd64(B + 0x4BD0AC0, &us) && us) f368 = *(uint8_t*)(us + 0x368);
+    Log("GOLDKI: vertex tint hook at UiQuadBuild 1CD7CD on (gold %u %u %u, probe %d, colours %d, dump %d; alpha pass flag %u)", g_gold_r, g_gold_g, g_gold_b, g_cfg_goldki_learn, g_goldki_ncols, g_cfg_goldki_dump, f368);
 }
 static volatile LONG g_ticks;
 static DWORD g_phase_ms = 500, g_lastTickT;
@@ -2312,10 +2357,10 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
-        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_instant = GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d, KillFadeFrames %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay, g_cfg_kill_fade_frames);
-        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d, InstantRespawn %d (#7118)", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win, g_cfg_instant);
+        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
@@ -2363,6 +2408,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_gate_dist = GetPrivateProfileIntA("Return", "ReturnGateDistance", 220, ini); g_cfg_gate_touch = GetPrivateProfileIntA("Return", "ReturnGateTouchMs", 1500, ini);
         g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
+        g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
         if (g_cfg_gate) { if (!memcmp((void*)(B + 0x22396D8), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
