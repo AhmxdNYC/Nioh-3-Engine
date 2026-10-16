@@ -1742,7 +1742,7 @@ static void FadeTick(void) {
     if (g_xw.active) { g_fd.tStable = 0; if (!g_xw.claimed) { g_fd.phase = 0; FadeWant(0, "prewarm only"); } return; }  // cross-world still switching / waiting for the stage
     if (!FadeBaseReady()) { g_fd.tStable = 0; g_fd.tBase = 0; return; }  // boss spawned, player released, stage ready
     if (!g_fd.tBase) g_fd.tBase = now;
-    int xw = g_fd.cross && g_cfg_fade_areawait_x > 0, xb = 0, xp = 0;
+    int xw = g_fd.cross && g_cfg_fade_areawait_x > 0 && !g_ar.cross, xb = 0, xp = 0;  // pc 06:12: when the arena already held the spawn until clear, the boss spawn re-opens cells for ~2 s: use the AreaWaitMs rule then (boss was live 2.6 s under black)
     if (xw && !XArenaClear(&xb, &xp)) {  // cross-world: cells + game load cover, within AreaWaitCrossMs of the arena 'ready' (shared with the spawn hold)
         DWORD t = g_ar.tReady ? g_ar.tReady : g_fd.tBase;
         if (now - t < (DWORD)g_cfg_fade_areawait_x) { g_fd.tStable = 0; return; }
