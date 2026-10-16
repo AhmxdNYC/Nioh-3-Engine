@@ -1976,6 +1976,8 @@ constexpr int kItDeathCut = -20, kItDeathBlow = -21, kItDeathLoot = -22;
 constexpr int kItReturnHome = -23;
 // user #6789: the physical Return gate in the arena opens page uGate: Return to where I was / Fight again (Nioh3Training_GateFightAgain = queued round reset)
 constexpr int kItFightAgain = -24;
+// user round-2 test: AutoRetryOnDeath toggle (Nioh3Training [Summon]; 0 = no instant player+boss reset on defeat, the Return gate offers Fight again)
+constexpr int kItAutoRetry = -25;
 constexpr int uGate = 900;
 bool DeathCfgGet(int& loot, int& blow, int& cut) {
     using Fn = void (*)(int*, int*, int*);
@@ -1996,7 +1998,18 @@ bool DeathCfgToggle(int item, int dir) {  // dir 0 flips, > 0 on, < 0 off
     g_msg[0] = 0;
     return true;
 }
-constexpr int kItFight = 0x10000;   // kItFight + row = "Fight now (in the arena)" under that boss row
+void AutoRetryToggle(int dir) {
+    using G = int (*)();
+    using S = void (*)(int, int);
+    const auto g = (G)TrainingExport("Nioh3Training_GetAutoRetry");
+    const auto s = (S)TrainingExport("Nioh3Training_SetAutoRetry");
+    if (!g || !s) return;
+    const int v = dir ? (dir > 0) : !g();
+    s(v, 1);
+    Log("Rematch: menu AutoRetryOnDeath -> %d", v);
+    g_msg[0] = 0;
+}
+constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 
 int Items(int* out, int cap) {
@@ -2004,6 +2017,7 @@ int Items(int* out, int cap) {
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
     if (g_uiPages.page == uRoot) {
         if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
+        if (TrainingExport("Nioh3Training_SetAutoRetry")) add(kItAutoRetry);
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
@@ -2279,6 +2293,7 @@ void UiChange(int dir) {
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
+    if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2317,6 +2332,7 @@ bool UiAct() {
     const int item = it[g_sel];
     if (item == kItClose) return true;
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
+    if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
     if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
         using Fn = int (*)();
         const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
@@ -2517,6 +2533,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                              : (f & 8) ? "   (cancels the arena switch)" : (f & 4) ? "   <- no boss here: A takes you back" : "";
             add(sel ? cWhite : (f > 0 && (f & (2 | 4)) && (f & 1)) ? cGreen : can ? cGray : cDim, sel, "%s Return to where I was%s", mk, tail);
         }
+        else if (it[i] == kItAutoRetry) {
+            using G = int (*)();
+            const auto g = (G)TrainingExport("Nioh3Training_GetAutoRetry");
+            const int v = g ? g() : -1;
+            add(sel ? cWhite : v > 0 ? cGreen : cGray, sel, "%s %-24s %s   A / Left / Right", mk, "Auto retry on death:", v < 0 ? "?" : v ? "ON" : "OFF");
+        }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
@@ -2580,6 +2602,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItDeathBlow) snprintf(footer, nf, "On: the boss must be finished with a death blow (finisher). Off: it dies as soon as its HP runs out. Applies now, saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "On: the boss drops its own loot and Amrita (also one-finisher kill). Story/first-clear rewards are never granted. Applies now, saved.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the Fight now arena session (boss removed) and puts you back where you stood before Fight now, in that world. Works after a kill, with no boss, or mid-switch.");
+        else if (item == kItAutoRetry) snprintf(footer, nf, "On: when you are beaten, player and boss reset instantly (dejavu). Off: the boss is removed and the arena Return gate offers Return / Fight again. Saved.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
         else if (item >= kItShrine) {
