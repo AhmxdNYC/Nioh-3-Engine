@@ -193,6 +193,30 @@ inline int ApplyArenas(const std::string& text, std::vector<Row>& rows) {
     return n;
 }
 
+// ally #8093 (Otoroshi 0x2EE9): a row with neither a catalogue arena point nor a capture took 'no arena position yet' even though
+// Nioh3Training_arenas.tsv (tools/gen_arena_table.py, the table the in-place swap uses) has it. Fallback, applied after the captures:
+// "mission<TAB>start<TAB>world<TAB>char<TAB>placement<TAB>x<TAB>y<TAB>z<TAB>yaw<TAB>bx<TAB>by<TAB>bz<TAB>kind<TAB>id<TAB>name[...]"
+// (kind arena = inside the trigger, start = the Fight-now start point). Only fills rows still without an arena point.
+inline int ApplyTrainingArenas(const std::string& text, std::vector<Row>& rows) {
+    int n = 0;
+    for (const auto& line : Lines(text)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto f = SplitTab(line);
+        if (f.size() < 15) continue;
+        const uint32_t mis = (uint32_t)strtoul(f[0].c_str(), nullptr, 0);
+        if (!mis) continue;
+        for (auto& r : rows) {
+            if (r.missionId != mis || !r.fightStart || r.arenaOk || r.atFight) continue;
+            for (int k = 0; k < 4; ++k) r.arena[k] = (float)atof(f[(size_t)(5 + k)].c_str());
+            r.arenaOk = true;
+            snprintf(r.arenaConf, sizeof(r.arenaConf), "training");
+            snprintf(r.arenaSrc, sizeof(r.arenaSrc), "Nioh3Training_arenas.tsv %s", f[12].c_str());
+            ++n;
+        }
+    }
+    return n;
+}
+
 // verify_all.ps1 results: "id<TAB>verified<TAB>..." (header line "id\tverified..."); returns rows marked
 inline int ApplyVerified(const std::string& text, std::vector<Row>& rows) {
     int n = 0;

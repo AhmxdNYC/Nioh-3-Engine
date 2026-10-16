@@ -2220,6 +2220,12 @@ bool Prepare() {
     int na = 0;
     if (ReadText(ArenaPath(), at)) na = rcore::ApplyArenas(at, g_rows);
     if (na) Log("Rematch: %d rows take their arena point from %ls (captured)", na, ArenaPath().c_str());
+    {  // ally #8093: rows still without an arena point fall back to Nioh3Training's arena table (same folder), the table the in-place swap uses
+        const std::wstring tpath = std::wstring(ModDir()) + L"Nioh3Training_arenas.tsv";
+        std::string tt;
+        const int nt = ReadText(tpath, tt) ? rcore::ApplyTrainingArenas(tt, g_rows) : 0;
+        if (nt) Log("Rematch: %d rows without an arena point take it from %ls (Nioh3Training table)", nt, tpath.c_str());
+    }
     OnEntry("Character::Create", &HkCoverCreate);
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)

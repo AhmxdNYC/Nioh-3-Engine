@@ -192,6 +192,18 @@ int main(int argc, char** argv) {
             if (!strcmp(r.id, "R0034")) jc = &r;
         CHECK(jc && jc->arenaOk && !strcmp(jc->arenaConf, "captured") && jc->arena[0] == 204600.0f && jc->arena[1] == 12440.0f,
               "captured point overrides the catalogue (+0.5 m on y)");
+        {  // ally #8093: Otoroshi R2EE9 has no catalogue arena point; the Nioh3Training table fills it, rows with a point stay untouched
+            std::vector<rcore::Row> w = rows;
+            const rcore::Row* ot = nullptr;
+            for (auto& r : w)
+                if (!strcmp(r.id, "R2EE9")) ot = &r;
+            CHECK(ot && ot->fightStart && !ot->arenaOk, "Otoroshi: catalogue has a start point but no arena point");
+            const std::string tt = "# hdr\n0x2EE9\t348323\t0xB1\t371449\t340693\t143923\t11871\t244615\t155.9\t145760\t11300\t239615\tstart\tR2EE9\tOtoroshi\n"
+                                   "0x0034\t1\t0x96\t1\t1\t9\t9\t9\t0\t0\t0\t0\tarena\tR0034\tx\n";
+            CHECK(rcore::ApplyTrainingArenas(tt, w) == 1, "training table fills only rows without an arena point");
+            CHECK(ot && ot->arenaOk && ot->arena[0] == 143923.0f && ot->arena[2] == 244615.0f && !strcmp(ot->arenaConf, "training") && ot->FightNowReady(),
+                  "Otoroshi: Fight now ready from the Nioh3Training table");
+        }
     }
     CHECK(rcore::ParseCatalogue("garbage\n", rows) == -1, "a file without the header is rejected");
 
