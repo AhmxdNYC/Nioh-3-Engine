@@ -65,3 +65,10 @@ Log `Nioh3Training.log` ~60990-61180 (game folder).
 | AutoRetryOnDeath 0 + ReturnGate 1 | defeat: boss removed, Return gate offers Return / Fight again. |
 | AutoRetryOnDeath 0 + ReturnGate 0 | was a dead end (no gate, no respawn). Now a defeat resets the round as AutoRetryOnDeath 1 (log `player beaten, ReturnGate 0`). |
 | AutoRetryOnDeath 1 + ReturnGate 1 | defeat resets the round; the gate still appears after a boss kill (idle session). |
+
+## User play 2026-10-16 16:29-16:31 (Yoritomo, Training b77ded2f) and fixes (#8894)
+Log `Nioh3Training.log` from line 61743 (launch 16:27:55).
+- HP-0 window: gold worked with KiBreakGoldUnbreak (`NOFIN Ki row ... native broken layout replaced`, goldquad 881x12 v 0.625 / 0.688 `kifill 1`). Kill fade delay worked (kill 16:30:56.44, fade 16:31:01.44, delete +6 s).
+- **Staggers before HP 0 were never detected**: the boss Ki read 0.00 at 16:29:52, 16:30:27-32 (5 s+), 16:30:47, but there was no `KIBREAK start` and no `NOFIN ... BROKEN`: state 0x23 and the exhausted fields stayed 0. So no gold and no extra block on those staggers. Fix: `Ki <= 0` counts as a stagger (outside the HP-0 window).
+- **Finisher at HP 1 still happened** (`KIFINISHER state on 35=1 'HP floor'` 16:30:50.716, 3.7 s), with bit 101 set again at that moment, so clearing it is not enough. Static RE (re/Nioh3.dump.exe): the player target update 2F6EC8 fills five slots: ctrl+B50 <- 8671D4 (filter 1174A10 = StateTest 9 = DOWNED target), B68 <- 867258 (grapple, hooked), B80 <- 8670D4 (filter 1174C60), B98 <- 867034, BE0 <- 866F24 (filter 1174BD0). Fix: hook the 2F7015 call (8671D4) and drop a watched boss from the B50 'down' slot while its Ki bar is gold. Log: `NOFIN hook down target 2F7015 ... on`, the counter `down target N` in the NOFIN BROKEN/recovered lines. NOT verified in game.
+- Not done: making the HP-0 state play the normal stagger animation instead of the HP-floor kneel (needs RE of the boss's HP-floor action; A4F098 only sets the break state).

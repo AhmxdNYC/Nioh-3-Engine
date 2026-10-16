@@ -2897,6 +2897,16 @@ static uint8_t NfLethalCond(uint64_t ai, uint32_t id) {  // 329C9F: 327DEC 'need
 // search, range param 0x9A2D, filter 1174A60 = !StateTest 9 && StateTest 0x23 on the candidate). Live trace 03:13 (nofintrace): the LB grapple on a
 // Ki-broken boss goes through this filter (vcall at 27FC6C, id 0x23), CanGrapple A5F7F8 is never called. No grapple target = LB grapple never starts.
 static volatile LONG g_nf_cnt_tgt;
+// user #8894 (Yoritomo play 16:29-16:30): the finisher still came on the staggers. The per-frame target update 2F6EC8 fills five target slots from five
+// finders (static RE re/Nioh3.dump.exe): B50 <- 8671D4 (filter 1174A10 = StateTest 9, a DOWNED target), B68 <- 867258 (grapple, StateTest 0x23, hooked
+// above), B80 <- 8670D4, B98 <- 867034, BE0 <- 866F24. The finisher on a downed / HP-floor boss (KIFINISHER 35=1 'HP floor' at 16:30:50 while the grapple
+// slot was blocked 392 frames) is the B50 'down' target. While a watched boss's Ki bar is gold (stagger or HP-0 window) it is removed from that slot too.
+static volatile uint64_t g_nf_goldact[4]; static volatile LONG g_nf_cnt_down;
+static uint64_t NfDownTarget(uint64_t ctrl, uint8_t flag) {
+    uint64_t t = ((uint64_t (*)(uint64_t, uint8_t))(B + 0x8671D4))(ctrl, flag);
+    if (t && g_cfg_nofin) for (int i = 0; i < 4; ++i) if (g_nf_goldact[i] == t) { InterlockedIncrement(&g_nf_cnt_down); return 0; }
+    return t;
+}
 static uint64_t NfGrappleTarget(uint64_t ctrl, uint8_t flag) {
     uint64_t t = ((uint64_t (*)(uint64_t, uint8_t))(B + 0x867258))(ctrl, flag);
     if (t && g_cfg_nofin) for (int i = 0; i < NF_N; ++i) if (g_nf_act[i] == t) { InterlockedIncrement(&g_nf_cnt_tgt); return 0; }
@@ -2986,6 +2996,10 @@ static void NfInstallHooks(void) {
         if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfGrappleTarget); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
             if (NfPatchCall(site, B + 0x867258, s, "grapple target 2F7045")) ok |= 64; }
     }
+    {   uint8_t* site = (uint8_t*)(B + 0x2F7015); uint8_t* s = NearPage(site);
+        if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfDownTarget); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+            if (NfPatchCall(site, B + 0x8671D4, s, "down target 2F7015")) { Log("NOFIN hook down target 2F7015 (8671D4, StateTest 9 slot ctrl+B50): on, blocked while the Ki bar is gold (#8894)"); } else Log("NOFIN hook down target 2F7015: OFF (call site differs)"); }
+    }
     Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s (off by design), lethal cond %s, Ki row drain %s, grapple target %s, hit probe %s", g_cfg_nofin, g_cfg_nofin_ms,
         ok & 1 ? "on" : "OFF", ok & 2 ? "on" : "OFF", ok & 4 ? "on" : "OFF", ok & 8 ? "on" : "OFF", ok & 16 ? "on" : "OFF", ok & 32 ? "on" : "OFF", ok & 64 ? "on" : "OFF", ok & 128 ? "on" : "OFF");
 }
@@ -3041,7 +3055,7 @@ static void NfTraceTick(void) {
         Log("NOFIN trace: %s %06llX id %02llX n %ld true %ld t %lu..%lu ms", (k >> 15) & 1 ? "via4893B8 from" : "vcall at", (unsigned long long)(k >> 16), (unsigned long long)(k & 0x7FFF), g_ntr[i].n, g_ntr[i].nt, g_ntr[i].t1, g_ntr[i].t2); }
     Log("NOFIN trace end: %d keys", m);
 }
-static void NfClear(int s) { g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
+static void NfClear(int s) { g_nf_goldact[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
 // Live 00:32:11: KiSetCur(K, -max) leaves the boss at Ki -1000 but NOT broken (no exhaustion, it kept attacking): the break is the hit-reaction when a hit's
 // Ki damage takes the Ki across 0 (327DEC). So 'break' = prime the Ki to 0.5: the next hit breaks the boss natively (NfLethalCond primes inside the lethal hit).
 static void NfBreakNow(uint64_t st, const char* why, uint64_t a) {
@@ -3094,15 +3108,16 @@ static void NfTick(void) {
         int dead = 0, s23 = 0; float x5c = 0, x74 = 0, x7c = 0, kc = 0; uint8_t x83 = 0;
         __try { dead = *(int32_t*)(st + 0x48) == 1; x5c = *(float*)(st + 0x98 + 0x5C); x74 = *(float*)(st + 0x98 + 0x74); x7c = *(float*)(st + 0x98 + 0x7C); x83 = *(uint8_t*)(st + 0x98 + 0x83); kc = *(float*)(st + 0xAC);
                 s23 = KbState(ai, 0x23); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
-        int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, broken = s23 || exh;
+        // user #8894: Yoritomo sat at Ki 0 for 5 s+ (16:30:27-32) with neither state 0x23 nor the exhausted fields set: no gold, no block. Ki <= 0 = stagger too.
+        int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, ki0 = kc <= 0.0f && g_nf[s].win != 1, broken = s23 || exh || ki0;
         if (g_nf[s].win >= 2 && !dead && hc > 1) { g_nf[s].win = 0; g_nf[s].tries = 0; NfLog("NOFIN boss %p alive again (HP %llu, actor reused after despawn/summon): window re-armed", (void*)a, hc); }
-        if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf[s].win = 3; continue; }
+        if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf[s].win = 3; continue; }
         g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl;
         // prime hold: the whole HP-0 window keeps the Ki at 0.5 while the boss is not broken, so the next hit's Ki damage breaks it natively
         if (!broken && kc > 0.5f && g_nf[s].win == 1) { __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
         if (broken != g_nf[s].broken) { g_nf[s].broken = broken; if (!broken && g_nf[s].win == 1) g_nf[s].nRebreak++;
-            NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d, Ki %.1f, HP %llu/%llu); blocked so far: grapple target %ld, CanGrapple %ld, grab box %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, kc, hc, hm,
-                  g_nf_cnt_tgt, g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28); }
+            NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d ki0 %d, Ki %.1f, HP %llu/%llu); blocked so far: down target %ld, grapple target %ld, CanGrapple %ld, grab box %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, ki0, kc, hc, hm,
+                  g_nf_cnt_down, g_nf_cnt_tgt, g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28); }
         if (hc <= 1 && g_nf[s].win == 0) {
             g_nf[s].win = 1; g_nf[s].tWin = g_nf[s].tLast = now; g_nf[s].hits0 = g_nf_hits[s]; g_nf[s].nHits = 0; g_nf[s].nRebreak = 0;
             NfLog("NOFIN HP-0 window start boss %p (HP %llu/%llu): Ki broken + gold bar draining %d ms; dies if not hit", (void*)a, hc, hm, g_cfg_nofin_ms);
@@ -3138,12 +3153,13 @@ static void NfTick(void) {
             }
         }
         if (g_nf[s].win == 2) {  // kill issued, boss still alive: retry (the death-blow gates are cleared from the 1st retry)
-            g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;
+            g_nf_goldact[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;
             if (hc <= 1 && g_nf[s].tries < 6 && now - g_nf[s].tKill >= 500u * (DWORD)(g_nf[s].tries + 1)) { g_nf[s].tries++; NfLog("NOFIN kill retry %d boss %p HP %llu", g_nf[s].tries, (void*)a, hc); ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher retry", 1); }
             continue;
         }
         g_nf_drain[s].id = g_nf[s].id; g_nf_drain[s].ratio = g_nf[s].win == 1 ? 1.0f - (float)(now - g_nf[s].tLast) / (float)g_cfg_nofin_ms : 1.0f; g_nf_drain[s].on = g_nf[s].win == 1 || broken;  // broken: full gold bar (display only)
         if (broken || g_nf[s].win == 1) gold = 1;
+        g_nf_goldact[s] = (broken || g_nf[s].win == 1) ? a : 0;
     }
     if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); if (gold && g_nf_dumpN <= 0) g_nf_dumpN = 48; }  // auto-dump the wide quads of the first frames (evidence if the strips do not match)
 }
