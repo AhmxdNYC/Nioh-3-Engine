@@ -269,8 +269,8 @@ try {
                 $tq = Get-Date
                 if ($WalkSec -gt 0) { Start-Sleep 3; T "  walk forward $WalkSec s (no-load summon spacing test)"; $w = VP stick L 0 1 ($WalkSec * 1000); T "  walk: $($w.reply)" }
                 $st = Wait-RM { param($x) (LastOf $x) -match '^(started|refused)' } $(if ($env:FN_SWAP) { 3 } else { 20 })
-                $swapped = (Test-Path $aLog) -and ((Get-Content $aLog -Tail 40) -match "F $($row.id): Nioh3Training swapped the boss in place")
-                if ((LastOf $st) -notmatch '^started' -and $swapped) {   # no-load swap: judge by Nioh3Training BOSSMON (boss-to-player distance)
+                $swapped = (Test-Path $aLog) -and ((Get-Content $aLog -Tail 40) -match "F $($row.id): (Nioh3Training swapped the boss in place|arena swap in place by Nioh3Training)") -or (LastOf $st) -match 'in place'
+                if (((LastOf $st) -notmatch '^started' -or (LastOf $st) -match 'in place') -and $swapped) {   # no-load swap: judge by Nioh3Training BOSSMON (boss-to-player distance)
                     $tlog = "$GameDir\Nioh3Training.log"; $tcmd = "$GameDir\Nioh3Training.cmd"
                     [IO.File]::WriteAllText($tcmd, "mon`r`n"); Start-Sleep 0
                     $w = VP stick L 0 1 3000; T "  swap: walked 3 s: $($w.reply)"; [IO.File]::WriteAllText($tcmd, "mon`r`n"); Start-Sleep 1; for ($k = 0; $k -lt 24; $k++) { $null = VP press RB 120; Start-Sleep -Milliseconds 600 }; T "  swap: 24 RB presses"; Start-Sleep 6; Shot "swap_$($row.id)"
