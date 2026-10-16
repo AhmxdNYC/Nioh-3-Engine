@@ -310,6 +310,10 @@ static int FadeOutActor(int idx, float frames) {
 // With force = 1 the HP-floor guard (hp+0x188 bit 1, cleared through EC4C5C(hp+0x178,1,-1)) is bypassed, so it kills a boss that sits at HP 1 waiting for its death blow.
 // 786C84 returns at once when hp+0x48 == 1 (already dead), so a second call is harmless. Ally bridge 458: Yamagata 'kill last 1' -> loot pillars + Amrita.
 static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_timeout = 6000;
+// #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
+static int g_cfg_nofin = 0, g_cfg_nofin_ms = 2000;
+static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void);
+static volatile int g_nf_gold;  // GoldWalk: a watched boss is Ki-broken or in its HP-0 window right now -> paint the Ki fill quad gold
 // #6643 death-blow revive. Logs 18:57 / 19:02: the native kill set the dead flag, then the boss came back at HP 1 (sensor 0->1->0), and a raw HP 0
 // write was also undone. Cause (static RE, 786C84 after the damage apply 787268): once hp+0x48 == 1 (dead), unless actor+0x894 != 0,
 //   786FFC  mov edx,27h / mov rcx,rdi / call 4893B8   ; CharacterConditionEvaluate(cond 0x27) = byte [chr+0x20D] bit 4 ("needs death blow")
@@ -340,7 +344,8 @@ static uint8_t h_cond(uint64_t comp, uint32_t cond) {
     if (!r || cond != 0x27) return r;
     uint64_t a = 0; if (!Rd64(comp, &a) || !a) return r;
     int forcing = a == g_kill_act, finisher = g_cfg_deathblow && (g_cfg_cutscene || g_cfg_loot) && a == g_fin_live && a == g_db_act;
-    if (!forcing && !finisher && (g_cfg_deathblow || (a != g_db_act && !InSp(a)))) return r;
+    if (!forcing && g_cfg_nofin) return r;  // #7467: KiBreakNoFinisher owns the HP floor (2 s window, then NfTick's force kill)
+    if (!forcing && !finisher &&(g_cfg_deathblow || (a != g_db_act && !InSp(a)))) return r;
     g_killHideAct = a;  // #6711: not from inside the damage function, the HUD is touched on the pump tick
     if (finisher) g_db_done = 1;  // BossTick: no extra force kill at the finisher end
     if (InterlockedIncrement(&g_db_logs) <= 20) Log("DEATHBLOW skip: actor %p lethal hit, death-blow revive (cond 0x27) skipped -> native death (%s, drop %s)", (void*)a, forcing ? "force kill" : finisher ? "first finisher, CutsceneOnKill" : "DeathBlowRequired=0", forcing ? "per kill call" : g_cfg_loot ? "game" : "off");
@@ -811,7 +816,7 @@ static void BossTick(void) {
     }
     // #6774: DeathBlowRequired=0 - the HP-floor kill is checked every pump frame (not only on the 250 ms tick), so the boss dies on the frame its HP hits
     // the floor like a native kill. g_db_act is only a hint (validated by ActorByHandle on the full tick below).
-    int floorNow = 0; if (!g_cfg_deathblow && !g_db_done && g_db_act && g_bm.v0 >= 0) { uint64_t c = 9, m = 0; floorNow = ActorHp(g_db_act, &c, &m) && m && c <= 1; }
+    int floorNow = 0; if (!g_cfg_deathblow && !g_cfg_nofin && !g_db_done && g_db_act && g_bm.v0 >= 0) { uint64_t c = 9, m = 0; floorNow = ActorHp(g_db_act, &c, &m) && m && c <= 1; }
     if (now - g_bm.last < 250 && !floorNow) return; g_bm.last = now;
     {   // full-fight heartbeat (user play-test 12:27): boss + player HP every 2 s, one line per 25 % boss-HP step, player 0 HP
         static DWORD hbAt; static int lastPct = 101, plDead; uint64_t bc = 0, bmx = 0, pc = 0, pm = 0;
@@ -838,7 +843,7 @@ static void BossTick(void) {
         for (int i = 0; i < g_nsp; ++i) if (act && g_sp_actor[i] == act) ours = 1;
         uint64_t fc = 0, fm = 0;
         { static DWORD dgAt; uint64_t dc = 9, dm = 0; if (act && ActorHp(act, &dc, &dm) && dm && dc <= 1 && now - dgAt > 5000) { dgAt = now; Log("DEATHBLOW diag: hp %llu ours %d done %d nsp %d act %p", dc, ours, g_db_done, g_nsp, (void*)act); } }
-        if (!g_db_done && act && ActorHp(act, &fc, &fm) && fm && fc <= 1) {
+        if (!g_db_done && !g_cfg_nofin && act && ActorHp(act, &fc, &fm) && fm && fc <= 1) {  // #7467: with KiBreakNoFinisher NfTick does the HP-floor kill
             const char* why = 0;
             if (!g_cfg_deathblow) why = "HP floor, DeathBlowRequired=0";
             else if (g_cfg_cutscene || g_cfg_loot) {
@@ -1946,7 +1951,7 @@ static void h_reqret(const uint32_t* p, uint8_t f) {
 // user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
 // found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
-static int g_cfg_goldki = 1; static volatile DWORD g_ki_seen;
+static int g_cfg_goldki = 1; static volatile DWORD g_ki_seen; static int g_gold_hooked;
 static uint8_t KiStyleHook(uint64_t charParam) {
     uint8_t s = ((uint8_t (*)(uint64_t))(B + 0x5D4434))(charParam);
     static int logged; if (!logged) { logged = 1; int v = -1; __try { v = charParam ? *(int32_t*)(charParam + 0x80) : -1; } __except (EXCEPTION_EXECUTE_HANDLER) {} Log("GOLDKI: first boss Ki row: charParam+0x80 = %d, native style %d, GoldKiBar %d", v, s, g_cfg_goldki); }
@@ -1998,7 +2003,25 @@ static void GoldKiRatios(void) {  // pump: READ-ONLY Ki / HP ratios of the summo
 static void GoldPaint(uint8_t* q) {
     for (int v = 0; v < 4; ++v) { uint8_t* c = q + v * 0x2C + 0x24; int l = c[0] > c[1] ? c[0] : c[1]; if (c[2] > l) l = c[2]; if (l < 110) l = 110; c[0] = (uint8_t)(g_gold_r * l / 255); c[1] = (uint8_t)(g_gold_g * l / 255); c[2] = (uint8_t)(g_gold_b * l / 255); }
 }
+// #7465 KiBreakNoFinisher gold: the boss Ki fill quad, identified by its geometry + atlas strip (live dump 23:30 log 'GOLDKI vtx', pc/jumpfix2 GoldKiTest=5
+// screenshot captures/goldki/k5_crop.png: only the Ki bar gold, HP bar untouched). Boss-bar quads are local-space x -440.5..440.5, y -6..6 (881 x 12);
+// the bar width does not follow Ki (the fill is shader/UV driven, why the width learner never matched). Ki fill = atlas v 0.688..0.746 (u 0..0.645);
+// HP / frame / back quads use v 0.000, 0.062, 0.188, 0.500, 0.625 strips. Vertex = 11 floats: x y z u v ..., RGBA at +0x24.
+static int NfIsKiFill(const uint8_t* q) {
+    const float* f = (const float*)q; float y0 = f[1], y1 = f[22 + 1], v0 = f[4], v2 = f[22 + 4], x0 = f[0];
+    float h = y0 > y1 ? y0 - y1 : y1 - y0;
+    (void)x0; return h > 10.0f && h < 14.0f && v0 > 0.675f && v0 < 0.700f && v2 > 0.735f && v2 < 0.760f;
+}
 static void GoldQuad(uint8_t* q, uint64_t el) {
+    if (g_nf_gold) {
+        if (NfIsKiFill(q)) { GoldPaint(q); return; }
+        {   // test aid: log the boss-bar-sized quads (geometry + uv) a few times while the gold is wanted, to check the Ki-broken bar keeps the same strip
+            static int nd; static DWORD tD; DWORD now = GetTickCount(); const float* f = (const float*)q; float w = f[11] - f[0];
+            if (nd < 40 && (w > 800.0f || w < -800.0f) && (now - tD > 3000 || nd % 8)) { if (!(nd % 8)) tD = now; nd++;
+                Log("NOFIN goldquad: x %.1f..%.1f y %.1f..%.1f uv0 %.3f,%.3f uv2 %.3f,%.3f rgba %08X kifill %d", f[0], f[11], f[1], f[23], f[3], f[4], f[25], f[26], *(uint32_t*)(q + 0x24), NfIsKiFill(q)); }
+        }
+    }
+    if (!g_cfg_goldki) return;
     for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) { GoldPaint(q); return; }
     uint32_t rgba = *(uint32_t*)(q + 0x24);
     for (int i = 0; i < g_goldki_ncols; ++i) if ((g_goldki_cols[i] & 0x00FFFFFF) == (rgba & 0x00FFFFFF)) { GoldPaint(q); return; }
@@ -2030,11 +2053,13 @@ static void GoldQuad(uint8_t* q, uint64_t el) {
         }
     } else if (g_gk[k].score > 0) g_gk[k].score--;
 }
-static void __cdecl GoldWalk(uint8_t* obj) {
-    if (!g_cfg_goldki || GetTickCount() - g_ki_seen > 250) return;
-    if (!g_ngold && !g_goldki_ncols && !(g_cfg_goldki_learn && g_ki_ratio >= 0) && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
+static void __cdecl GoldWalk(uint8_t* obj, uint8_t* base) {
+    if ((!g_cfg_goldki && !g_nf_gold) || GetTickCount() - g_ki_seen > 250) return;
+    if (!g_nf_gold && !g_ngold && !g_goldki_ncols && !(g_cfg_goldki_learn && g_ki_ratio >= 0) && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
     __try {
-        uint8_t* q = *(uint8_t**)(obj + 0x358); if (!q) return;
+        // pc/jumpfix2 d86350e: walk from the alpha pass's real vertex base (rbp at 1CD7CD; obj+358h is only the map out-param = misaligned walk) and skip
+        // non-quad nodes only at the START of a group, then cnt consecutive quads, as the native alpha pass does.
+        uint8_t* q = base; if (!q) return;
         uint64_t node = *(uint64_t*)(obj + 0x28), sent = (uint64_t)obj + 0x60, grpObj = (uint64_t)obj + 0x100;
         uint64_t* gv = *(uint64_t**)grpObj;
         uint32_t ng = ((uint32_t (*)(uint64_t))gv[3])(grpObj);
@@ -2042,12 +2067,18 @@ static void __cdecl GoldWalk(uint8_t* obj) {
         for (uint32_t g = 0; g < ng && g < 4096; ++g) {
             uint64_t grp = ((uint64_t (*)(uint64_t, uint32_t))gv[1])(grpObj, g); if (!grp) return;
             uint32_t cnt = *(uint32_t*)(grp + 4);
-            while (cnt) {
+            if (!cnt) continue;
+            for (;;) {
                 if (!node || node == sent || ++guard > 200000) return;
                 uint64_t el = *(uint64_t*)(node + 0x10); if (!el) return;
                 int type = ((int (*)(uint64_t))(*(uint64_t**)el)[1])(el);
                 uint64_t wdg = ((uint64_t (*)(uint64_t))(B + 0x1CEA08))(el);
-                if ((type & ~4) || (wdg && ((int (*)(uint64_t))(*(uint64_t**)wdg)[0x90 / 8])(wdg) == 1)) { q += (uint64_t)*(uint32_t*)(node + 0x24) * 0x2C; node = *(uint64_t*)(node + 8); continue; }
+                if (!(type & ~4) && (!wdg || ((int (*)(uint64_t))(*(uint64_t**)wdg)[0x90 / 8])(wdg) != 1)) break;
+                q += (uint64_t)*(uint32_t*)(node + 0x24) * 0x2C; node = *(uint64_t*)(node + 8);
+            }
+            while (cnt) {
+                if (!node || node == sent || ++guard > 200000) return;
+                uint64_t el = *(uint64_t*)(node + 0x10); if (!el) return;
                 GoldQuad(q, el); q += 0xB0; node = *(uint64_t*)(node + 8); --cnt;
             }
         }
@@ -2063,7 +2094,8 @@ static void HookGoldQuad(void) {
     uint8_t* p = s;
     static const uint8_t pre[] = {0x50, 0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53,  // push rax rcx rdx r8 r9 r10 r11 (rsp 16-aligned at the site)
                                   0x48, 0x83, 0xEC, 0x28,                                          // sub rsp, 28h
-                                  0x48, 0x89, 0xF9};                                               // mov rcx, rdi (UiQuadBuild object)
+                                  0x48, 0x89, 0xF9,                                                // mov rcx, rdi (UiQuadBuild object)
+                                  0x48, 0x89, 0xEA};                                               // mov rdx, rbp (vertex buffer base, as the alpha pass uses; pc/jumpfix2)
     memcpy(p, pre, sizeof pre); p += sizeof pre;
     *p++ = 0x48; *p++ = 0xB8; *(uint64_t*)p = (uint64_t)GoldWalk; p += 8; *p++ = 0xFF; *p++ = 0xD0;  // mov rax, GoldWalk; call rax
     static const uint8_t post[] = {0x48, 0x83, 0xC4, 0x28, 0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59, 0x58};
@@ -2204,6 +2236,14 @@ static void Exec(char* line) {
             if (flag != 0xFFFFFFFFu || !comp) { Log("CMD kill: guard refused (needs +ab84==-1 and comp)"); return; }
             g_kill_act = live; ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1); g_kill_act = 0;
             Log("CMD kill #%d: 786C84 called", idx);
+        } else if (!strcmp(op, "nofin")) {  // #7465: nofin <0|1> [windowMs]: KiBreakNoFinisher at run time (hooks installed on first use)
+            g_cfg_nofin = (int)a[0]; if (n >= 3 && a[1] >= 200) g_cfg_nofin_ms = (int)a[1];
+            if (g_cfg_nofin && !g_gold_hooked) { HookGoldKi(); HookGoldQuad(); g_gold_hooked = 1; } if (g_cfg_nofin) NfInstallHooks();
+            Log("CMD nofin: KiBreakNoFinisher %d window %d ms", g_cfg_nofin, g_cfg_nofin_ms);
+        } else if (!strcmp(op, "kibreaknow")) {  // test aid: Ki break the watched boss now (KiSetCur to the floor), as a natural Ki break
+            uint64_t a0 = NfFirstBoss(), st = 0; if (a0 && Rd64(a0 + 0x3A0, &st) && st) NfBreakNow(st, "command", a0); else Log("CMD kibreaknow: no boss");
+        } else if (!strcmp(op, "bosshp")) {  // test aid: bosshp <hp>: set the watched boss HP (native HP set 66C188 on hp+0x38)
+            uint64_t a0 = NfFirstBoss(), st = 0; if (a0 && Rd64(a0 + 0x3A0, &st) && st) { ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(st + 0x38, a[0]); uint64_t c = 0, m = 0; ActorHp(a0, &c, &m); Log("CMD bosshp %p: HP now %llu / %llu", (void*)a0, c, m); } else Log("CMD bosshp: no boss");
         } else if (!strcmp(op, "deathcfg")) {  // #6185: deathcfg BossLoot DeathBlowRequired CutsceneOnKill (run-time INI override)
             if (n >= 4) { g_cfg_loot = (int)a[0]; g_cfg_deathblow = (int)a[1]; g_cfg_cutscene = (int)a[2]; }
             Log("CMD deathcfg: BossLoot %d DeathBlowRequired %d CutsceneOnKill %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene);
@@ -2417,6 +2457,184 @@ static void KiBreakTick(void) {
     }
 }
 
+// ---- #7465 / #7467 [Summon] KiBreakNoFinisher (default 0). notes/ki-break-nofinisher.md.
+// (1) No grapple finisher on a watched boss (every boss with an HP/Ki bar + the boss-mode boss): the grapple is gated by StateTest 0x23 ("Ki broken"
+//     window = ctrl+0x1060 bit 0x3A with its own timer ctrl+0x1014, set at the break by A4F098, ended by a hit whose attack flags have bit 63 at 32EEDC)
+//     on the TARGET in exactly two places:
+//       - CanGrapple A5F7F8(self, target): 0x23 on target, or target == self+0xB68 (grab target). Called from the action-condition switch F68D8 (case at
+//         F9E3B, target = [actor+0xA90]) = the player's move-table condition that turns the attack input into the grapple. Hooked at its entry: false for
+//         a watched boss.
+//       - hit filter 117A6D0 (attack box vs victim): grab box (+0x4C bit0|bit7) connects only if victim 0x23 (vcall at 117A9EE) or victim is the grab
+//         target; flag +0x48 bit 31 = box hits only 0x23 victims (117AC17); bit 28 = box skips 0x23 victims (117ABF7). For a watched boss: grab box rejected,
+//         bit-31 box misses, bit-28 box hits (the normal hit of the attack lands, so the combo goes on).
+//     The boss's own break (stagger, Ki state machine 844674, damage-vs-winded multipliers 78CE8C, Ki-damage immunity 2F8884, gauge flash) still reads
+//     the real 0x23: no other timing change.
+// (2) HP floor: a lethal hit on a boss that needs a death blow goes through 327DEC's cond 0x27 test (329C9F; true -> HP 1 + death-blow pending). For a
+//     watched boss the test is reported true (so it never dies on the hit) and every lethal hit stamps the boss's hit time. NfTick: at HP <= 1 the boss
+//     is Ki-broken (KiSetCur 2F88D0(K, -max), clamped to the native floor; re-broken if it recovers), its Ki row shows a gold bar draining over
+//     KiBreakHp0WindowMs (display only: the Ki snapshot handed to KiRowWidget 235F9A4 at 1D220E3), and when no hit lands for that long: native force
+//     kill (ForceKillActorEx, drop per BossLoot). Each hit refills the bar and restarts the window.
+// (3) Gold: GoldQuad paints the Ki fill quad (NfIsKiFill) while any watched boss is Ki-broken (0x23 or Ki exhausted) or in the HP-0 window.
+#define NF_N 4
+static volatile uint64_t g_nf_act[NF_N], g_nf_ai[NF_N], g_nf_ctrl[NF_N];  // read by the asm stubs (0 = free)
+static volatile DWORD g_nf_hitT[NF_N]; static volatile LONG g_nf_hits[NF_N];
+static volatile LONG g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28;  // asm stub counters: grapple selection / grab box / bit-31 box / bit-28 box
+static struct { volatile uint32_t id; volatile int on; volatile float ratio; } g_nf_drain[NF_N];
+static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits; } g_nf[NF_N];
+static int g_nf_hooked; static volatile LONG g_nf_lines;
+static void NfLog(const char* fmt, ...) { if (InterlockedIncrement(&g_nf_lines) > 800) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
+static uint8_t* NearPage(void* site) {
+    uint8_t* s = 0;
+    for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !s; a += 0x10000) s = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    return s;
+}
+static uint8_t* E_mov_rax(uint8_t* p, uint64_t v) { *p++ = 0x48; *p++ = 0xB8; memcpy(p, &v, 8); return p + 8; }
+static uint8_t* E_inc(uint8_t* p, volatile LONG* c) { p = E_mov_rax(p, (uint64_t)c); *p++ = 0xF0; *p++ = 0xFF; *p++ = 0x00; return p; }  // lock inc dword [rax]
+// cmp <reg>, [rax + 8*i] for the 4 slots, je <label>; reg: 1 = rcx, 2 = rdx. Returns the je displacement bytes to patch.
+static uint8_t* E_cmp4(uint8_t* p, int reg, uint8_t** je) {
+    for (int i = 0; i < NF_N; ++i) { *p++ = 0x48; *p++ = 0x3B; *p++ = (uint8_t)(0x40 | (reg << 3)); *p++ = (uint8_t)(i * 8); *p++ = 0x74; je[i] = p; *p++ = 0; }
+    return p;
+}
+static void E_bind(uint8_t** je, int n, uint8_t* target) { for (int i = 0; i < n; ++i) *je[i] = (uint8_t)(target - (je[i] + 1)); }
+static int NfPatchCall(uint8_t* site, uintptr_t expect, uint8_t* stub, const char* what) {  // retarget an E8 rel32 call
+    if (site[0] != 0xE8 || (uintptr_t)(site + 5) + *(int32_t*)(site + 1) != expect) { Log("NOFIN hook %s at %llX: bytes differ, not hooked", what, (unsigned long long)((uintptr_t)site - B)); return 0; }
+    int32_t rel = (int32_t)((intptr_t)stub - (intptr_t)(site + 5)); DWORD old; VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &old);
+    InterlockedExchange((volatile LONG*)(site + 1), rel); VirtualProtect(site, 5, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 5);
+    return 1;
+}
+static uint8_t NfLethalCond(uint64_t ai, uint32_t id) {  // 329C9F: 327DEC 'needs death blow' (cond 0x27) on a lethal hit
+    uint8_t r = ((uint8_t (*)(uint64_t, uint32_t))(B + 0x4893B8))(ai, id);
+    if (!g_cfg_nofin || !ai) return r;
+    for (int i = 0; i < NF_N; ++i) if (g_nf_ai[i] == ai) { g_nf_hitT[i] = GetTickCount(); InterlockedIncrement(&g_nf_hits[i]); return 1; }  // revive to HP 1: the window decides
+    return r;
+}
+static void NfKiRow(uint64_t w, uint64_t row28, uint64_t snap, uint8_t broken, uint8_t style) {  // 1D220E3: KiRowWidget 235F9A4 (display copy of the Ki)
+    if (g_cfg_nofin && row28 && snap) {
+        __try { uint32_t id = *(uint32_t*)(row28 - 0x24);
+            for (int i = 0; i < NF_N; ++i) if (g_nf_drain[i].on && g_nf_drain[i].id == id) { float mx = *(float*)(snap + 0x18), r = g_nf_drain[i].ratio; if (r < 0) r = 0; if (r > 1) r = 1; *(float*)(snap + 0x14) = mx * r; *(float*)(snap + 0x88) = 0; break; }
+        } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    }
+    ((void (*)(uint64_t, uint64_t, uint64_t, uint8_t, uint8_t))(B + 0x235F9A4))(w, row28, snap, broken, style);
+}
+static void NfInstallHooks(void) {
+    if (g_nf_hooked) return; g_nf_hooked = 1;
+    int ok = 0;
+    {   // A5F7F8 CanGrapple(rcx self, rdx target) entry: 48 89 5C 24 08 (mov [rsp+8],rbx) | 57 push rdi
+        uint8_t* site = (uint8_t*)(B + 0xA5F7F8); static const uint8_t pro[6] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57};
+        uint8_t* s = memcmp(site, pro, 6) ? 0 : NearPage(site);
+        if (!s) Log("NOFIN hook CanGrapple A5F7F8: prologue differs / no stub, grapple selection not blocked");
+        else { uint8_t* p = s; uint8_t* je[NF_N]; p = E_mov_rax(p, (uint64_t)g_nf_act); p = E_cmp4(p, 2, je);
+            memcpy(p, pro, 5); p += 5; *p++ = 0xFF; *p++ = 0x25; *(uint32_t*)p = 0; p += 4; *(uint64_t*)p = (uint64_t)(site + 5); p += 8;  // mov [rsp+8],rbx; jmp A5F7FD
+            E_bind(je, NF_N, p); p = E_inc(p, &g_nf_cnt_sel); *p++ = 0x31; *p++ = 0xC0; *p++ = 0xC3;  // block: count; xor eax,eax; ret
+            FlushInstructionCache(GetCurrentProcess(), s, p - s);
+            DWORD old; VirtualProtect(site, 8, PAGE_EXECUTE_READWRITE, &old);
+            LONG64 o8 = *(volatile LONG64*)site, n8 = o8; uint8_t* nb = (uint8_t*)&n8; nb[0] = 0xE9; *(int32_t*)(nb + 1) = (int32_t)((intptr_t)s - (intptr_t)(site + 5));
+            InterlockedCompareExchange64((volatile LONG64*)site, n8, o8); VirtualProtect(site, 8, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 8); ok |= 1; }
+    }
+    {   // 117A9EE: mov rax,[rcx]; mov edx,23h; call [rax+0C0h] (rcx = victim ctrl) -> call stub; nop. Watched boss: drop the return address, jmp 117C6ED (reject)
+        uint8_t* site = (uint8_t*)(B + 0x117A9EE); static const uint8_t org[6] = {0xFF, 0x90, 0xC0, 0x00, 0x00, 0x00};
+        uint8_t* s = (memcmp(site, org, 6) || memcmp(site - 5, "\xBA\x23\x00\x00\x00", 5)) ? 0 : NearPage(site);
+        if (!s) Log("NOFIN hook grab box 117A9EE: bytes differ / no stub, not hooked");
+        else { uint8_t* p = s; uint8_t* je[NF_N]; p = E_mov_rax(p, (uint64_t)g_nf_ctrl); p = E_cmp4(p, 1, je);
+            *p++ = 0x48; *p++ = 0x8B; *p++ = 0x01; *p++ = 0xFF; *p++ = 0xA0; *p++ = 0xC0; *p++ = 0; *p++ = 0; *p++ = 0;  // mov rax,[rcx]; jmp [rax+0C0h]
+            E_bind(je, NF_N, p); p = E_inc(p, &g_nf_cnt_grab); *p++ = 0x48; *p++ = 0x83; *p++ = 0xC4; *p++ = 0x08;  // add rsp,8
+            p = E_mov_rax(p, B + 0x117C6ED); *p++ = 0xFF; *p++ = 0xE0;
+            FlushInstructionCache(GetCurrentProcess(), s, p - s);
+            DWORD old; VirtualProtect(site, 8, PAGE_EXECUTE_READWRITE, &old);
+            LONG64 o8 = *(volatile LONG64*)site, n8 = o8; uint8_t* nb = (uint8_t*)&n8; nb[0] = 0xE8; *(int32_t*)(nb + 1) = (int32_t)((intptr_t)s - (intptr_t)(site + 5)); nb[5] = 0x90;
+            InterlockedCompareExchange64((volatile LONG64*)site, n8, o8); VirtualProtect(site, 8, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 8); ok |= 2; }
+    }
+    for (int k = 0; k < 2; ++k) {   // 117AC17 (bit 31: hits only Ki-broken) / 117ABF7 (bit 28: skips Ki-broken): call 4893B8(rcx = victim ai, 0x23) -> 0 for a watched boss
+        uint8_t* site = (uint8_t*)(B + (k ? 0x117ABF7 : 0x117AC17)); uint8_t* s = NearPage(site); if (!s) continue;
+        uint8_t* p = s; uint8_t* je[NF_N]; uint8_t* jz;
+        *p++ = 0x48; *p++ = 0x85; *p++ = 0xC9; *p++ = 0x74; jz = p; *p++ = 0;  // test rcx,rcx; jz orig
+        p = E_mov_rax(p, (uint64_t)g_nf_ai); p = E_cmp4(p, 1, je);
+        *jz = (uint8_t)(p - (jz + 1)); p = E_mov_rax(p, B + 0x4893B8); *p++ = 0xFF; *p++ = 0xE0;  // orig: jmp StateTest
+        E_bind(je, NF_N, p); p = E_inc(p, k ? &g_nf_cnt_b28 : &g_nf_cnt_b31); *p++ = 0x31; *p++ = 0xC0; *p++ = 0xC3;
+        FlushInstructionCache(GetCurrentProcess(), s, p - s);
+        if (NfPatchCall(site, B + 0x4893B8, s, k ? "bit-28 box 117ABF7" : "bit-31 box 117AC17")) ok |= k ? 8 : 4;
+    }
+    {   uint8_t* site = (uint8_t*)(B + 0x329C9F); uint8_t* s = NearPage(site);
+        if (s && !memcmp(site - 12, "\xBA\x27\x00\x00\x00", 5)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfLethalCond); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+            if (NfPatchCall(site, B + 0x4893B8, s, "lethal-hit cond 0x27 329C9F")) ok |= 16; } else Log("NOFIN hook 329C9F: bytes differ, HP-0 window off");
+    }
+    {   uint8_t* site = (uint8_t*)(B + 0x1D220E3); uint8_t* s = NearPage(site);
+        if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfKiRow); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+            if (NfPatchCall(site, B + 0x235F9A4, s, "Ki row 1D220E3")) ok |= 32; }
+    }
+    Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s, lethal cond %s, Ki row drain %s", g_cfg_nofin, g_cfg_nofin_ms,
+        ok & 1 ? "on" : "OFF", ok & 2 ? "on" : "OFF", ok & 4 ? "on" : "OFF", ok & 8 ? "on" : "OFF", ok & 16 ? "on" : "OFF", ok & 32 ? "on" : "OFF");
+}
+static uint64_t NfFirstBoss(void) { for (int i = 0; i < NF_N; ++i) if (g_nf[i].a) return g_nf[i].a; return g_nsp ? (uint64_t)g_sp_actor[g_nsp - 1] : 0; }
+static void NfClear(int s) { g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
+static void NfBreakNow(uint64_t st, const char* why, uint64_t a) {  // native Ki break: Ki to its floor (KiSetCur clamps), the Ki state machine does the rest
+    __try { float mx = *(float*)(st + 0xB0); ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, -(mx > 1 ? mx : 100.0f)); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN break: exception"); return; }
+    float kc = 0; __try { kc = *(float*)(st + 0xAC); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    NfLog("NOFIN Ki break now boss %p (%s): Ki -> %.1f", (void*)a, why, kc);
+}
+static void NfTick(void) {
+    if (!g_cfg_nofin) { if (g_nf_gold || g_nf_act[0] || g_nf_act[1] || g_nf_act[2] || g_nf_act[3]) { for (int s = 0; s < NF_N; ++s) NfClear(s); g_nf_gold = 0; } return; }
+    if (!g_nf_hooked) NfInstallHooks();
+    DWORD now = GetTickCount();
+    uint64_t act[NF_N] = {0}; uint32_t ids[NF_N] = {0}; int n = 0;
+    {   uint64_t root = 0, hud = 0, r0 = 0, r1 = 0;  // boss gauge rows (as KbCollect / BossGaugeRowsUpdate) + the boss-mode boss
+        if (Rd64(B + 0x45C84A8, &root) && root && Rd64(root + 0xA8, &hud) && hud && Rd64(hud + 0x3C0, &r0) && Rd64(hud + 0x3C8, &r1) && r0 && r1 > r0 && (r1 - r0) / 0x60 <= 8)
+            for (uint64_t r = r0; r < r1 && n < NF_N; r += 0x60) {
+                uint32_t slot = 0, id = 0; __try { slot = *(uint32_t*)r; id = *(uint32_t*)(r + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+                if (slot >= 3 || !id) continue;
+                uint64_t w = FindWrapper(id), a = 0; if (!w || !Rd64(w, &a) || !a) continue;
+                int dup = 0; for (int i = 0; i < n; ++i) if (act[i] == a) dup = 1; if (!dup) { ids[n] = id; act[n++] = a; }
+            }
+        if (g_bm.active && n < NF_N) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (act[i] == a) dup = 1; if (a && !dup) { ids[n] = 0; act[n++] = a; } }
+    }
+    for (int s = 0; s < NF_N; ++s) if (g_nf[s].a) { int here = 0; for (int k = 0; k < n; ++k) if (act[k] == g_nf[s].a) here = 1; if (!here && now - g_nf[s].seen > 3000) NfClear(s); }
+    int gold = 0;
+    for (int k = 0; k < n; ++k) {
+        uint64_t a = act[k], st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0;
+        if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl || !ActorHp(a, &hc, &hm) || !hm) continue;
+        int s = -1; for (int i = 0; i < NF_N; ++i) if (g_nf[i].a == a) s = i;
+        if (s < 0) { for (int i = 0; i < NF_N; ++i) if (!g_nf[i].a) { s = i; break; } if (s < 0) continue; NfClear(s); g_nf[s].a = a; g_nf[s].hits0 = g_nf_hits[s];
+            NfLog("NOFIN watch boss %p (row id %u) HP %llu/%llu: grapple blocked, gold Ki while broken, HP-0 window %d ms", (void*)a, ids[k], hc, hm, g_cfg_nofin_ms); }
+        g_nf[s].seen = now; if (ids[k]) g_nf[s].id = ids[k];
+        int dead = 0, s23 = 0; float x5c = 0, x74 = 0, x7c = 0, kc = 0; uint8_t x83 = 0;
+        __try { dead = *(int32_t*)(st + 0x48) == 1; x5c = *(float*)(st + 0x98 + 0x5C); x74 = *(float*)(st + 0x98 + 0x74); x7c = *(float*)(st + 0x98 + 0x7C); x83 = *(uint8_t*)(st + 0x98 + 0x83); kc = *(float*)(st + 0xAC);
+                s23 = KbState(ai, 0x23); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, broken = s23 || exh;
+        if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf[s].win = 3; continue; }
+        g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl;
+        if (broken != g_nf[s].broken) { g_nf[s].broken = broken;
+            NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d, Ki %.1f, HP %llu/%llu); blocked so far: grapple selection %ld, grab box %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, kc, hc, hm,
+                  g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28); }
+        if (hc <= 1 && g_nf[s].win == 0) {
+            g_nf[s].win = 1; g_nf[s].tWin = g_nf[s].tLast = now; g_nf[s].hits0 = g_nf_hits[s]; g_nf[s].nHits = 0; g_nf[s].nRebreak = 0;
+            NfLog("NOFIN HP-0 window start boss %p (HP %llu/%llu): Ki broken + gold bar draining %d ms; dies if not hit", (void*)a, hc, hm, g_cfg_nofin_ms);
+            if (!exh) { NfBreakNow(st, "HP 0", a); g_nf[s].tRebreak = now; }
+        }
+        if (g_nf[s].win == 1) {
+            LONG h = g_nf_hits[s]; if (h != g_nf[s].hits0) { g_nf[s].nHits += (int)(h - g_nf[s].hits0); g_nf[s].hits0 = h; g_nf[s].tLast = now;
+                if (g_nf[s].nHits <= 30) NfLog("NOFIN hit at HP 0 boss %p: window restarted (+%lu ms since start, hit %d)", (void*)a, now - g_nf[s].tWin, g_nf[s].nHits); }
+            if (hc > 1) { g_nf[s].win = 0; NfLog("NOFIN boss %p HP back to %llu: window off", (void*)a, hc); }
+            else if (now - g_nf[s].tLast >= (DWORD)g_cfg_nofin_ms) {
+                g_nf[s].win = 2; g_nf[s].tKill = now; g_nf[s].tries = 0;
+                NfLog("NOFIN boss %p: no hit for %d ms at HP 0 (window %lu ms, %d hits, re-breaks %d) -> native kill (BossLoot %d)", (void*)a, g_cfg_nofin_ms, now - g_nf[s].tWin, g_nf[s].nHits, g_nf[s].nRebreak, g_cfg_loot);
+                g_nf_drain[s].on = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;  // the kill hit must not be revived / filtered
+                if (a == g_db_act) g_db_done = 1;
+                ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher HP-0 window", 1);
+                continue;
+            }
+            else if (!exh && now - g_nf[s].tRebreak > 500) { g_nf[s].tRebreak = now; g_nf[s].nRebreak++; NfBreakNow(st, "HP-0 window, break ended", a); }
+        }
+        if (g_nf[s].win == 2) {  // kill issued, boss still alive: retry (the death-blow gates are cleared from the 1st retry)
+            g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;
+            if (hc <= 1 && g_nf[s].tries < 6 && now - g_nf[s].tKill >= 500u * (DWORD)(g_nf[s].tries + 1)) { g_nf[s].tries++; NfLog("NOFIN kill retry %d boss %p HP %llu", g_nf[s].tries, (void*)a, hc); ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher retry", 1); }
+            continue;
+        }
+        g_nf_drain[s].id = g_nf[s].id; g_nf_drain[s].ratio = g_nf[s].win == 1 ? 1.0f - (float)(now - g_nf[s].tLast) / (float)g_cfg_nofin_ms : 1.0f; g_nf_drain[s].on = g_nf[s].win == 1 || broken;  // broken: full gold bar (display only)
+        if (broken || g_nf[s].win == 1) gold = 1;
+    }
+    if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); }
+}
+
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static PumpFn o_pump;
 static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
@@ -2441,6 +2659,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
     __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #7290 passive Ki-break finisher log (read only), before BossTick
+    __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
@@ -2537,6 +2756,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_gate_dist = GetPrivateProfileIntA("Return", "ReturnGateDistance", 220, ini); g_cfg_gate_touch = GetPrivateProfileIntA("Return", "ReturnGateTouchMs", 1500, ini);
         g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
+        g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 2000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
+        Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window)", g_cfg_nofin, g_cfg_nofin_ms);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
@@ -2545,7 +2766,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);
         { char b[160]; GetPrivateProfileStringA("Summon", "GoldKiColors", "", b, sizeof b, ini); for (char* s = strtok(b, ", "); s && g_goldki_ncols < 8; s = strtok(0, ", ")) g_goldki_cols[g_goldki_ncols++] = (uint32_t)strtoul(s, 0, 16);
           GetPrivateProfileStringA("Summon", "GoldKiRGB", "255,200,50", b, sizeof b, ini); int r = 255, g = 200, bl = 50; if (sscanf(b, "%d,%d,%d", &r, &g, &bl) == 3) { g_gold_r = (uint8_t)r; g_gold_g = (uint8_t)g; g_gold_b = (uint8_t)bl; } }
-        if (g_cfg_goldki) { HookGoldKi(); HookGoldQuad(); }
+        if (g_cfg_goldki || g_cfg_nofin) { HookGoldKi(); HookGoldQuad(); g_gold_hooked = 1; }
+        if (g_cfg_nofin) NfInstallHooks();
     }
     HookDeathBlowCond();
     HookPump();
