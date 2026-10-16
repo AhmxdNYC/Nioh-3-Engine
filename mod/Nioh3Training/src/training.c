@@ -940,7 +940,14 @@ static int DoorCtl(uint32_t id, uint32_t mode) {
     Log("DOOR SetDoorControl(%u, mode %u) posted to registry %p", id, mode, (void*)reg);
     return 1;
 }
-static struct { int active, spawned, released; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog, tOwn, lastAct; int lastState, lastCell, nact, actIdx; } g_ar;
+static struct { int active, spawned, released, cross, xHeld; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog, tOwn, lastAct; int lastState, lastCell, nact, actIdx; } g_ar;
+// ally #618/pc 05:48: cross-world swaps spawned the boss and released the player while the arena cells were still streaming and the game's own load cover
+// (GAMESTATE[2]) was up: ~11 s live fight on a black scene (Shingen, Ally). [Fade] AreaWaitCrossMs (default 15000, 0 = off): for CROSS-world arenas only, hold the
+// player at the arena and the boss unspawned until no cell is blocking and GAMESTATE[2] is 0, at most this long after 'ready'; the fade-in then waits for the
+// same condition within the same window. Same-world swaps are unchanged ([Fade] AreaWaitMs).
+static int g_cfg_fade_areawait_x = 15000, g_xw_busy;
+static int AreaObjPending(int* blocking, int* pending); static const uint8_t* GameState(void);
+static int XArenaClear(int* b, int* p) { const uint8_t* gs = GameState(); *b = *p = 0; AreaObjPending(b, p); return !*b && !(gs && gs[2]); }
 static int OwnerActivateOne(void) {  // next registered placement with an enemy record and no live actor -> ActivatePlacement; 1 = one was tried
     uint64_t cm = 0, c0 = 0; Rd64(B + 0x45B9E40, &cm); if (!cm) return 0; Rd64(cm, &c0); if (!c0) return 0;
     uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
@@ -966,6 +973,15 @@ static void ArenaTick(void) {
         uint64_t e = ResEntry(g_ar.chr); int res = e && *(uint8_t*)(e + 0x2c8);
         if (st == 5 && res && dt >= 300) {
             if (!g_ar.tReady) { g_ar.tReady = now; Log("ARENA +%lu ms ready: stage state 5 and boss resources loaded", dt); StageLog("ARENA stage"); }
+            if (!g_ar.spawned && g_ar.cross && g_cfg_fade_areawait_x > 0) {  // cross-world: boss + control wait for the arena cells and the game's load cover
+                int cb, cp; const uint8_t* gs = GameState(); int clear = XArenaClear(&cb, &cp);
+                if (!clear && now - g_ar.tReady < (DWORD)g_cfg_fade_areawait_x) {
+                    if (!g_ar.xHeld) { g_ar.xHeld = 1; Log("ARENA +%lu ms cross-world: holding boss spawn + control until the arena cells are in (%d cells blocking, %d placeable loads, GAMESTATE[2] %u; AreaWaitCrossMs %d)", dt, cb, cp, gs ? gs[2] : 0xFF, g_cfg_fade_areawait_x); }
+                    goto owner_wait;
+                }
+                if (g_ar.xHeld == 1) { g_ar.xHeld = 2; Log("ARENA +%lu ms cross-world hold over after %lu ms: %s (%d cells blocking, %d placeable loads, GAMESTATE[2] %u)", dt, now - g_ar.tReady, clear ? "arena cells in" : "TIMEOUT", cb, cp, gs ? gs[2] : 0xFF); }
+                else if (!g_ar.xHeld) { g_ar.xHeld = 2; Log("ARENA +%lu ms cross-world: arena already clear at ready, no hold", dt); }
+            }
             if (!g_ar.spawned) {
                 __attribute__((aligned(16))) float b[4] = {g_ar.b[0], g_ar.b[1], g_ar.b[2], 1.0f};
                 uint32_t owner = PickOwner();
@@ -999,7 +1015,7 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) 
     for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);  // one swapped-in boss at a time
     memset(&g_ar, 0, sizeof g_ar);
     g_ar.chr = chr; memcpy(g_ar.p, p, 3 * sizeof(float)); g_ar.yaw = p[3]; memcpy(g_ar.b, b, 3 * sizeof(float)); g_ar.byaw = byaw;
-    g_ar.t0 = GetTickCount(); g_ar.lastState = -9; g_ar.lastCell = -9;
+    g_ar.t0 = GetTickCount(); g_ar.lastState = -9; g_ar.lastCell = -9; g_ar.cross = g_xw_busy;
     StageLog("ARENA before");
     uint64_t e = ResEntry(chr);
     if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(chr, 2, 0); PoolAdd(chr); }
@@ -1660,7 +1676,7 @@ static int g_cfg_fade = 1, g_cfg_fade_out = 250, g_cfg_fade_in = 400, g_cfg_fade
 // most this long for the area objects, then fade in anyway (streaming pop-in at the edges is visible, the fight is not hidden). 0 = old behaviour (wait for all).
 static int g_cfg_fade_areawait = 500;  // pc 05:29: 1500 left the boss live 2.2 s under black; 500 + the stable window counted from ready -> ~0.5 s
 static volatile LONG g_fd_want, g_fd_alpha;   // want: overlay target (1 = black); alpha 0..255 as drawn
-static struct { int pend, phase, inside, areaSkip; uint32_t mission; DWORD tPend, tSwap, tStable, tWant, tBase; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
+static struct { int pend, phase, inside, areaSkip, cross; uint32_t mission; DWORD tPend, tSwap, tStable, tWant, tBase; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
 static HWND g_fd_wnd, g_fd_game;
 static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn in the game's own frame) or the fallback GDI window
 static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
@@ -1726,7 +1742,12 @@ static void FadeTick(void) {
     if (g_xw.active) { g_fd.tStable = 0; if (!g_xw.claimed) { g_fd.phase = 0; FadeWant(0, "prewarm only"); } return; }  // cross-world still switching / waiting for the stage
     if (!FadeBaseReady()) { g_fd.tStable = 0; g_fd.tBase = 0; return; }  // boss spawned, player released, stage ready
     if (!g_fd.tBase) g_fd.tBase = now;
-    if (!FadeSettled()) {  // only the area objects (placeable streaming) still pending
+    int xw = g_fd.cross && g_cfg_fade_areawait_x > 0, xb = 0, xp = 0;
+    if (xw && !XArenaClear(&xb, &xp)) {  // cross-world: cells + game load cover, within AreaWaitCrossMs of the arena 'ready' (shared with the spawn hold)
+        DWORD t = g_ar.tReady ? g_ar.tReady : g_fd.tBase;
+        if (now - t < (DWORD)g_cfg_fade_areawait_x) { g_fd.tStable = 0; return; }
+        if (!g_fd.areaSkip) { const uint8_t* gs = GameState(); Log("FADE: cross-world arena still not clear %lu ms after ready (%d cells blocking, %d placeable loads, GAMESTATE[2] %u): fading in anyway (AreaWaitCrossMs %d)", now - t, xb, xp, gs ? gs[2] : 0xFF, g_cfg_fade_areawait_x); g_fd.areaSkip = 1; g_fd.tStable = g_fd.tBase; }
+    } else if (!xw && !FadeSettled()) {  // only the area objects (placeable streaming) still pending
         if (g_cfg_fade_areawait <= 0 || now - g_fd.tBase < (DWORD)g_cfg_fade_areawait) { g_fd.tStable = 0; return; }
         if (!g_fd.areaSkip) { int b = 0, p = 0; AreaObjPending(&b, &p); Log("FADE: boss live, area objects still streaming %lu ms after ready (%d cells blocking, %d placeable loads): not waiting for them (AreaWaitMs %d)", now - g_fd.tBase, b, p, g_cfg_fade_areawait); g_fd.areaSkip = 1; g_fd.tStable = g_fd.tBase; }  // the base state has been steady since tBase: count StableMs from there, not again after the wait
     }
@@ -1742,11 +1763,11 @@ N3T_API int Nioh3Training_FightNow(uint32_t mission) {
     if (g_fd.pend) return 1;  // a switch is already waiting for black
     if (r && g_cfg_xworld && CurWorld() >= 0 && (CurWorld() != r->world || g_xw.active)) {  // cross-world (or claiming a prewarm)
         int ok = FightNowImpl(mission);
-        if (ok && g_xw.active) { FadeWant(1, "cross-world switch"); g_fd.tBase = 0; g_fd.areaSkip = 0; g_fd.phase = 2; g_fd.tSwap = GetTickCount(); g_fd.tStable = 0; }
+        if (ok && g_xw.active) { FadeWant(1, "cross-world switch"); g_fd.cross = 1; g_fd.tBase = 0; g_fd.areaSkip = 0; g_fd.phase = 2; g_fd.tSwap = GetTickCount(); g_fd.tStable = 0; }
         return ok;
     }
     if (!FadeInPlaceOk(mission, r)) return FightNowImpl(mission);
-    g_fd.pend = 1; g_fd.mission = mission; g_fd.tPend = GetTickCount(); g_fd.phase = 0; FadeWant(1, "same-world switch");
+    g_fd.pend = 1; g_fd.cross = 0; g_fd.mission = mission; g_fd.tPend = GetTickCount(); g_fd.phase = 0; FadeWant(1, "same-world switch");
     return 1;
 }
 static int XwPrewarm(uint32_t mission, const char* tag) {
@@ -2924,8 +2945,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_gaugereset = GetPrivateProfileIntA("ArenaSwap", "GaugeStateReset", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
-        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_areawait = GetPrivateProfileIntA("Fade", "AreaWaitMs", 500, ini);
-        Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait);
+        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_areawait = GetPrivateProfileIntA("Fade", "AreaWaitMs", 500, ini); g_cfg_fade_areawait_x = GetPrivateProfileIntA("Fade", "AreaWaitCrossMs", 15000, ini);
+        Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d, AreaWaitCrossMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait, g_cfg_fade_areawait_x);
         if (g_cfg_fade) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
