@@ -325,6 +325,7 @@ static volatile uint64_t g_db_act, g_kill_act;  // boss-mode boss actor (BossTic
 static volatile LONG g_db_logs;
 static volatile uint64_t g_killHideAct;  // #6711: actor killed inside the damage function (h_cond skip); GaugeTick hides its bar on the next pump tick
 static void GaugeHideOnKill(uint64_t a, const char* why);
+static void KillFadeNow(uint64_t a);
 static uint8_t h_cond(uint64_t comp, uint32_t cond) {
     uint8_t r = o_cond(comp, cond);
     if (!r || cond != 0x27) return r;
@@ -508,6 +509,7 @@ static void GaugeHideOnKill(uint64_t a, const char* why) {
     if (!dead && !(mx && cur == 0)) { Log("GAUGE kill-hide (%s): actor %p not dead (hp+48 %d, HP %llu / %llu), bar kept", why, (void*)a, dead, cur, mx); return; }
     Log("GAUGE kill-hide (%s): boss %p dead, hiding the bar now", why, (void*)a);
     FakeGaugeHide("boss killed");
+    KillFadeNow(a);
 }
 static void GaugeTick(void) {
     { uint64_t ka = g_killHideAct; if (ka) { g_killHideAct = 0; GaugeHideOnKill(ka, "lethal hit, death-blow revive skipped"); } }
@@ -977,6 +979,13 @@ static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm
 // without a load: player beaten (HP at the floor) or 'retry' -> despawn the boss, Player::RecoverFull replica, summon the same boss again (resources stay loaded = instant).
 // Boss killed -> victory end state; RespawnOnWinMs > 0 respawns it after that many ms. 'trainstop' ends the session (NoDeath off, boss removed).
 static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1, g_cfg_fn_arena = 1, g_cfg_body_fade = 1, g_cfg_body_delay = 25000;
+static void KillFadeNow(uint64_t a) {
+    // #6746: DeathBlowRequired=0 -> start the body fade at the kill too (not BodyFadeDelayMs after the 4.5 s "HP 0 stable" win detection). Same fade + 6 s delete as below.
+    if (!g_cfg_deathblow && g_cfg_body_fade && g_tr.active && !g_tr.tFade && !g_tr.bodyGone && g_nsp > 0 && g_sp_actor[g_nsp - 1] == a) {
+        Log("TRAIN round %d: fading out the dead boss body at once (DeathBlowRequired=0)", g_tr.round);
+        if (FadeOutActor(g_nsp - 1, 30.0f)) g_tr.tFade = GetTickCount();
+    }
+}
 static uint64_t PlayerWrapper(void) {  // registry row whose live actor is the player
     uint64_t cm = CharMgr(), c0 = 0, me = PlayerChar(); if (!cm || !Rd64(cm, &c0) || !c0 || !me) return 0;
     uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
