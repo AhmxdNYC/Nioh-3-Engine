@@ -2505,7 +2505,13 @@ static int NfPatchCall(uint8_t* site, uintptr_t expect, uint8_t* stub, const cha
 static uint8_t NfLethalCond(uint64_t ai, uint32_t id) {  // 329C9F: 327DEC 'needs death blow' (cond 0x27) on a lethal hit
     uint8_t r = ((uint8_t (*)(uint64_t, uint32_t))(B + 0x4893B8))(ai, id);
     if (!g_cfg_nofin || !ai) return r;
-    for (int i = 0; i < NF_N; ++i) if (g_nf_ai[i] == ai) { g_nf_hitT[i] = GetTickCount(); InterlockedIncrement(&g_nf_hits[i]); return 1; }  // revive to HP 1: the window decides
+    for (int i = 0; i < NF_N; ++i) if (g_nf_ai[i] == ai) {
+        g_nf_hitT[i] = GetTickCount(); InterlockedIncrement(&g_nf_hits[i]);
+        // the break: this check runs BEFORE the hit's KiDamage 844604 (327DEC); with the Ki primed to 0.5 the same hit's Ki damage crosses 0 = the native Ki break
+        __try { uint64_t a = *(uint64_t*)ai, st = a ? *(uint64_t*)(a + 0x3A0) : 0;
+                if (st && !((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) && *(float*)(st + 0xAC) > 0.5f) ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        return 1;  // revive to HP 1: the window decides
+    }
     return r;
 }
 static void NfKiRow(uint64_t w, uint64_t row28, uint64_t snap, uint8_t broken, uint8_t style) {  // 1D220E3: KiRowWidget 235F9A4 (display copy of the Ki)
@@ -2567,10 +2573,12 @@ static void NfInstallHooks(void) {
 }
 static uint64_t NfFirstBoss(void) { for (int i = 0; i < NF_N; ++i) if (g_nf[i].a) return g_nf[i].a; return g_nsp ? (uint64_t)g_sp_actor[g_nsp - 1] : 0; }
 static void NfClear(int s) { g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
-static void NfBreakNow(uint64_t st, const char* why, uint64_t a) {  // native Ki break: Ki to its floor (KiSetCur clamps), the Ki state machine does the rest
-    __try { float mx = *(float*)(st + 0xB0); ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, -(mx > 1 ? mx : 100.0f)); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN break: exception"); return; }
+// Live 00:32:11: KiSetCur(K, -max) leaves the boss at Ki -1000 but NOT broken (no exhaustion, it kept attacking): the break is the hit-reaction when a hit's
+// Ki damage takes the Ki across 0 (327DEC). So 'break' = prime the Ki to 0.5: the next hit breaks the boss natively (NfLethalCond primes inside the lethal hit).
+static void NfBreakNow(uint64_t st, const char* why, uint64_t a) {
+    __try { if (*(float*)(st + 0xAC) <= 0.5f) return; ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN break: exception"); return; }
     float kc = 0; __try { kc = *(float*)(st + 0xAC); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-    NfLog("NOFIN Ki break now boss %p (%s): Ki -> %.1f", (void*)a, why, kc);
+    NfLog("NOFIN Ki primed boss %p (%s): Ki -> %.1f (next hit breaks it)", (void*)a, why, kc);
 }
 static void NfTick(void) {
     if (!g_cfg_nofin) { if (g_nf_gold || g_nf_act[0] || g_nf_act[1] || g_nf_act[2] || g_nf_act[3]) { for (int s = 0; s < NF_N; ++s) NfClear(s); g_nf_gold = 0; } return; }
