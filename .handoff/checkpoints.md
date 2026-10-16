@@ -1,34 +1,4 @@
 
-## 2026-10-15 18:37:58 session b7b603aa-384e-4e7f-978d-d4509c15db74
-I told the human they can play now (#6596). The game is already running on the main PC with the updated menu build, and the engine log shows it rendering at about 114 fps.
-
-`VirtualPad` is 0, so their Xbox pad should work, and prewarm is off. I haven't opened the F10 menu or Boss Rematch myself, so the hosted menu and Fight now are still untested in game. I told them to open the menu with F10 (or triple-tap Start) and report anything that breaks.
-
-Nothing of mine is running on the main PC.
-
-## 2026-10-15 18:58:56 session 572429ba-c18c-4a2a-94de-53cd094ec1ca
-I changed the kill timing and restarted the game, but I don't know yet whether it fixes what you saw.
-
-Your last run's log shows the kill did fire when the boss hit its last HP. It took about 1.5 seconds to finish him. During that gap the game's own death-blow prompt was probably still up. I cut that delay to 0.25 seconds.
-
-Settings are the same: cutscene off, final blow off, loot off. I haven't confirmed the game is back up. Kill the boss again. Then tell me what you see at the end: whether the death-blow prompt appears, and whether the boss falls on his own.
-
-## 2026-10-15 19:20:14 session 88cfd0e5-c043-4a39-b52d-dbb942de4799
-No new work this run. #6643 ("HP 0 still needed death blow") was already answered in #6646.
-
-The research agent is still working on a fix for the boss staying at 0 HP and waiting for the death blow. The game isn't running at the moment. Once the fix lands, I'll build it, install it and restart the game for you.
-
-I sent no new bridge message, so you won't get a duplicate.
-
-## 2026-10-15 19:49:50 session 1c72c084-5287-4d29-b334-1ae69c7d81e1
-I started an Opus helper on the death-blow bug (the boss stays at 1 HP when DeathBlowRequired=0). It's still running, and I haven't seen any result yet.
-
-The earlier helper never delivered anything, so I restarted it. The branch `pc/toggles-merge` is still at the old fallback commits. The new helper is replacing the raw HP-0 write that may have caused the main PC freeze. It isn't launching the game, since you're on the main PC.
-
-I sent you a short note on this and added a line to `.handoff/next.md`. When the helper finishes, I'll build and install its fix and tell you when it's ready to test.
-
-I'll also merge Ally's two fix branches (`ally/xworld-abort-6541` and `ally/retry-6561`). After that comes the Boss Rematch menu toggles for cutscene, final blow and loot (#6618).
-
 ## 2026-10-15 20:14:09 session 1c72c084-5287-4d29-b334-1ae69c7d81e1
 The death-blow kill works, and I've started the fix to hide the boss health bar the instant the boss is killed. That fix is still in progress and I haven't seen a result yet.
 
@@ -292,4 +262,19 @@ Next: repeat n>=3 ABBA, find why 3A0534 returns 0 for Shingen cells, then ally/p
 ## 2026-10-16 ~11:10 pc | ForceCells repeat (n=2 per arm, pc)
 Shingen click->control OFF 20.4/14.2 s, ON 14.7/15.6 s: NO real gain (first OFF was an outlier). Otoroshi OFF 11.2/11.3, ON 9.0/9.2: -2.1 s consistent. Shingen cell admit 0/3 (refused), Otoroshi 3/6. Not installed. Next: why 3A0534 refuses (needs RE), pc2/ally results #8298/#8299.
 
-## 2026-10-16 08:10 pc2 | #8224 CrossWorldCentreEarly built+tested: ON 2.0/4.2/8.1 s vs OFF 23.5 (n=1; old build 10.2/8.2). Unproven: clean OFF n>=2. Next: 2 more OFF runs or pc/ally runs of bridge file #643. Branch pc2/faster-load-centre 34e5d44; logs captures/rematch/ce*
+## 2026-10-16 11:34:37 session 85ce38c0-d5c6-4e6e-aab1-6a6322b0b29a
+Nothing is failing on pc2 or ally, and the inbox is empty, so I did no work this run.
+
+- **Waiting on pc2:** It is still building the fix that skips far-away scene objects during a cross-world Fight now. I'm waiting for its result.
+- **Main PC:** I left the main PC alone. The game isn't running, and your toggle play test is still pending.
+
+I sent you a short status message (#8374) saying this.
+
+## 2026-10-16 11:54:38 session 85ce38c0-d5c6-4e6e-aab1-6a6322b0b29a
+I replied to your "What's progress now" (message #8399): there's no new result yet.
+
+- **pc2:** It's still building the fix that skips loading far-away scene objects during a cross-world Fight now. I haven't received a build or any numbers from it.
+- **Next test:** Once pc2 has a build, Ally and this PC will measure Shingen and Otoroshi. Ally is free for it, since its AABB bench came back as no gain.
+- **Main PC:** I haven't touched it. It's waiting for your play test.
+
+## 2026-10-16 09:25 pc2 | #8333 CrossWorldPlaceableSkip cold Shingen swap OFF 16.2/17.3 s vs ON 12.5/10.6 s (n=2/arm, pc2). Unproven: click->visible, pop-in, pc/ally. Branch pc2/placeable-skip 0cc4c83; logs captures/rematch/xworldprobe-20261016-{081844,084321,085022,091634}
