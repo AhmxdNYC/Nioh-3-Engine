@@ -1658,7 +1658,7 @@ static int g_cfg_fade = 1, g_cfg_fade_out = 250, g_cfg_fade_in = 400, g_cfg_fade
 // ally #8076/#8093: the settle check also waited for EVERY loaded cell's placeable loads (open-world streaming, 26-44 s on the Ally) while the boss was
 // already live (7-30 s fighting in the dark). [Fade] AreaWaitMs (default 1500): once the boss is spawned, the player released and the stage ready, wait at
 // most this long for the area objects, then fade in anyway (streaming pop-in at the edges is visible, the fight is not hidden). 0 = old behaviour (wait for all).
-static int g_cfg_fade_areawait = 1500;
+static int g_cfg_fade_areawait = 500;  // pc 05:29: 1500 left the boss live 2.2 s under black; 500 + the stable window counted from ready -> ~0.5 s
 static volatile LONG g_fd_want, g_fd_alpha;   // want: overlay target (1 = black); alpha 0..255 as drawn
 static struct { int pend, phase, inside, areaSkip; uint32_t mission; DWORD tPend, tSwap, tStable, tWant, tBase; } g_fd;  // phase 2 = waiting for the world/swap then the settle check
 static HWND g_fd_wnd, g_fd_game;
@@ -1728,7 +1728,7 @@ static void FadeTick(void) {
     if (!g_fd.tBase) g_fd.tBase = now;
     if (!FadeSettled()) {  // only the area objects (placeable streaming) still pending
         if (g_cfg_fade_areawait <= 0 || now - g_fd.tBase < (DWORD)g_cfg_fade_areawait) { g_fd.tStable = 0; return; }
-        if (!g_fd.areaSkip) { int b = 0, p = 0; AreaObjPending(&b, &p); Log("FADE: boss live, area objects still streaming %lu ms after ready (%d cells blocking, %d placeable loads): not waiting for them (AreaWaitMs %d)", now - g_fd.tBase, b, p, g_cfg_fade_areawait); g_fd.areaSkip = 1; }
+        if (!g_fd.areaSkip) { int b = 0, p = 0; AreaObjPending(&b, &p); Log("FADE: boss live, area objects still streaming %lu ms after ready (%d cells blocking, %d placeable loads): not waiting for them (AreaWaitMs %d)", now - g_fd.tBase, b, p, g_cfg_fade_areawait); g_fd.areaSkip = 1; g_fd.tStable = g_fd.tBase; }  // the base state has been steady since tBase: count StableMs from there, not again after the wait
     }
     if (!g_fd.tStable) g_fd.tStable = now;
     if (now - g_fd.tStable < (DWORD)g_cfg_fade_stable || now - g_fd.tSwap < (DWORD)g_cfg_fade_min) return;
@@ -2924,7 +2924,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_gaugereset = GetPrivateProfileIntA("ArenaSwap", "GaugeStateReset", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);
         Log("team fix (bridge 4878): TeamFix %d, EnemyTeam %d (-1 = from live enemies, else %d), ForceOwner %u", g_cfg_teamfix, g_cfg_enemyteam, DEFAULT_ENEMY_TEAM, g_force_owner);
         g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
-        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_areawait = GetPrivateProfileIntA("Fade", "AreaWaitMs", 1500, ini);
+        g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_areawait = GetPrivateProfileIntA("Fade", "AreaWaitMs", 500, ini);
         Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait);
         if (g_cfg_fade) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
