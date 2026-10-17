@@ -320,6 +320,16 @@ static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action on
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
                             // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
 static volatile int g_nf_gold;  // GoldWalk: a watched boss is Ki-broken or in its HP-0 window right now -> paint the Ki fill quad gold
+// user #9133 'gold Ki bar does not return to normal when the Ki refills': the gold bar (full while broken) snapped to the real (low, refilling) Ki in the
+// native colour, and an exhausted field lingering after state 0x23 ended kept it gold + full while the Ki refilled. Now gold ends with 0x23 (the native broken
+// layout's own test, A6A34 = StateTest 0x23) / Ki > 0, and the bar blends back over KiBreakGoldFadeMs: tint gold -> native colours, fill full -> real Ki.
+static int g_cfg_nf_fade = 350; static volatile float g_nf_goldw;  // [Summon] KiBreakGoldFadeMs (0 = instant); goldw = current blend weight (0 = native)
+// user #9133 'at HP 0 the boss plays a death pose and ignores hits': every hit at HP 1 is lethal, so 786C84 takes its cond 0x27 revive branch each hit:
+// 78700D SetHP 1, then death-blow pending (ctrl+0xEA0 = 1, or ctrl+0xA8 bit 46 = finisher-down 2C) and at 7870D6 ctrl+0xA8 bit 51 + action request 0x308
+// (3F21A4(chr+0x2DC0, 0x308) when the actor has that action = the HP-floor / dying motion) -> the boss re-enters the HP-floor pose on every hit and its
+// normal hit reaction (3F21A4 at 329C86 in the hit apply) is overridden. [Summon] KiBreakHp0Stagger = 1 (default): for a watched boss h_cond does SetHP 1
+// itself and the stub skips 78700D..78714B (no death-blow pending, no 0x308 motion), so the HP-0 window keeps the native hit reaction + the A4F098 break.
+static int g_nf_stagger = 1; static volatile LONG g_nf_n_stag; static int g_db_stub3;  // stub3: the 787004 stub has the 'al == 3 -> 78714B' path (bytes verified)
 // #6643 death-blow revive. Logs 18:57 / 19:02: the native kill set the dead flag, then the boss came back at HP 1 (sensor 0->1->0), and a raw HP 0
 // write was also undone. Cause (static RE, 786C84 after the damage apply 787268): once hp+0x48 == 1 (dead), unless actor+0x894 != 0,
 //   786FFC  mov edx,27h / mov rcx,rdi / call 4893B8   ; CharacterConditionEvaluate(cond 0x27) = byte [chr+0x20D] bit 4 ("needs death blow")
@@ -350,7 +360,13 @@ static uint8_t h_cond(uint64_t comp, uint32_t cond) {
     uint8_t r = o_cond(comp, cond);
     if (cond == 0x27 && g_cfg_nofin) {  // #7467 live 04:05: a hit at HP 1 in the HP-0 window killed the boss natively here (cond 0x27 false once its break
         uint64_t a = 0;                  // ended) -> a watched boss always takes the revive-to-HP-1 branch; NfTick clears the death-blow flag and decides
-        if (Rd64(comp, &a) && a && a != g_kill_act) for (int i = 0; i < 4; ++i) if (g_nf_act[i] == a) return 1;
+        if (Rd64(comp, &a) && a && a != g_kill_act) for (int i = 0; i < 4; ++i) if (g_nf_act[i] == a) {
+            if (!g_nf_stagger || !g_db_stub3) return 1;  // native revive branch (HP 1 + death-blow pending + HP-floor motion)
+            uint64_t st = 0; if (!Rd64(a + 0x3A0, &st) || !st) return 1;
+            __try { ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(st + 0x38, 1); } __except (EXCEPTION_EXECUTE_HANDLER) { return 1; }  // = 787010..787020
+            { LONG k = InterlockedIncrement(&g_nf_n_stag); if (k <= 10 || k % 50 == 0) Log("NOFIN boss %p lethal hit at HP floor #%ld: HP 1, death-blow pending + HP-floor motion 0x308 skipped (KiBreakHp0Stagger)", (void*)a, k); }
+            return 3;  // stub: skip to 78714B (after the 0x308 request)
+        }
     }
     if (!r || cond != 0x27) return r;
     uint64_t a = 0; if (!Rd64(comp, &a) || !a) return r;
@@ -371,9 +387,18 @@ static int HookDeathBlowCond(void) {
     for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !stub; a += 0x10000)
         stub = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!stub) { Log("DEATHBLOW hook: no near stub"); return 0; }
-    // sub rsp,28h; mov rax,h_cond; call rax; add rsp,28h; cmp al,2; jne ret; xor bl,bl; xor eax,eax; ret
-    static const uint8_t code[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xD0, 0x48, 0x83, 0xC4, 0x28, 0x3C, 0x02, 0x75, 0x04, 0x30, 0xDB, 0x31, 0xC0, 0xC3};
-    memcpy(stub, code, sizeof code); *(uint64_t*)(stub + 6) = (uint64_t)h_cond;
+    // sub rsp,28h; mov rax,h_cond; call rax; add rsp,28h;
+    // #9133: cmp al,3; jne L; add rsp,8 (drop the return to 787009); mov r12b,1; mov r14d,308h (register state of the native revive path at 78714B); mov rax,78714B; jmp rax
+    // L: cmp al,2; jne ret; xor bl,bl; xor eax,eax; ret
+    static const uint8_t code[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xD0, 0x48, 0x83, 0xC4, 0x28,
+                                   0x3C, 0x03, 0x75, 0x19, 0x48, 0x83, 0xC4, 0x08, 0x41, 0xB4, 0x01, 0x41, 0xBE, 0x08, 0x03, 0x00, 0x00, 0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0,
+                                   0x3C, 0x02, 0x75, 0x04, 0x30, 0xDB, 0x31, 0xC0, 0xC3};
+    memcpy(stub, code, sizeof code); *(uint64_t*)(stub + 6) = (uint64_t)h_cond; *(uint64_t*)(stub + 39) = B + 0x78714B;
+    // 78700D..78714B as expected (revive: mov rax,[rdi]; mov edx,1 ... / 7870E4 mov r14d,308h / 78714B call 2086D4): else al == 3 is never returned
+    {   const uint8_t* t = (const uint8_t*)(B + 0x78714B);
+        g_db_stub3 = !memcmp((void*)(B + 0x78700D), "\x48\x8B\x07\xBA\x01\x00\x00\x00", 8) && !memcmp((void*)(B + 0x7870E4), "\x41\xBE\x08\x03\x00\x00", 6) &&
+                     t[0] == 0xE8 && (uintptr_t)(t + 5) + *(int32_t*)(t + 1) == B + 0x2086D4;
+        Log("DEATHBLOW hook 787004: HP-floor stagger path (KiBreakHp0Stagger) %s", g_db_stub3 ? "available" : "OFF (bytes differ)"); }
     FlushInstructionCache(GetCurrentProcess(), stub, sizeof code);
     o_cond = (CondFn)prev;
     int32_t rel = (int32_t)((intptr_t)stub - (intptr_t)(site + 5));
@@ -951,6 +976,13 @@ static struct { int active, spawned, released, cross, xHeld; uint32_t chr; float
 // same condition within the same window. Same-world swaps are unchanged ([Fade] AreaWaitMs).
 static int g_cfg_fade_areawait_x = 15000, g_xw_busy, g_cfg_coverrel = -1;  // [ArenaSwap] CoverReleaseMs (pc2 #8619, default -1 = off): cross-world arena only, N ms after 'ready' clear GAMESTATE[2] (the game's load/control cover) by hand
 static int AreaObjPending(int* blocking, int* pending); static const uint8_t* GameState(void); static void AreaObjDetail(const char* why);
+// user #9133: with CoverReleaseMs 0 the player had control 0.5 s after the click but the screen stayed black ~30-40 s (pc 19:54/19:57: black ends exactly when
+// the mission sequencer leaves its load states, seq 15 -> 16/17, 19:55:30.2 / 19:57:47.2), and the boss (spawned at +0.3 s) attacked in the black.
+// [ArenaSwap] BossGraceAfterCoverMs (default 1500, -1 = off): every arena-swap boss spawns with its AI off (668D74) and gets it back (66982C) only
+// BossGraceAfterCoverMs after the screen is really visible = GAMESTATE[2] 0, mission seq state not 1..15 (the native load cover) and our fade overlay clear.
+// BossHoldMaxMs (default 60000) caps the hold.
+static int g_cfg_bossgrace = 1500, g_cfg_bosshold_max = 60000;
+static void BhStart(uint32_t handle);
 // pc 2026-10-16 (fnowvis3): on pc the arena 'ready' waited 9.3 s for sequencer state 5 (1912 open-world placeable loads); with
 // CrossWorldAreaObjSkipMs > 0 the game lifts its load cover while placeables still stream, so the hold/fade only wait for GAMESTATE[2] = 0.
 static int g_cfg_xaoskip;
@@ -1015,6 +1047,7 @@ static void ArenaTick(void) {
                 if (r && g_autogauge) FakeGaugeRequest(r, owner);
                 if (r && g_cfg_bossmode) BossModeBegin(r, g_cfg_notify);
                 if (r && g_cfg_bgm && g_ar_bgm) BgmStart(g_ar_bgm);
+                if (r) BhStart(r);  // #9133 boss AI held until the screen is visible + BossGraceAfterCoverMs
             }
             owner_wait:
             if (g_ar.spawned && now - g_ar.tSpawn >= 200) { g_ar.released = 1; Log("ARENA +%lu ms CONTROL: player released at %.0f %.0f %.0f (command -> control %.2f s)", dt, pos[0], pos[1], pos[2], dt / 1000.0); }
@@ -2006,6 +2039,46 @@ static void PsFarTick(void) {
     DWORD now = GetTickCount(); if (!tOk) tOk = now;
     if (now - tOk >= 250) { tOk = 0; PsClose("player has control and the fade-in is done"); }
 }
+// #9133 boss hold (see g_cfg_bossgrace)
+static struct { uint32_t h; uint64_t a; DWORD t0, tVis, tReapply; int phase, nOff, logged; } g_bh;  // phase 1 = waiting for the actor, 2 = AI held, 0 = idle
+static void BhStart(uint32_t handle) {
+    if (g_cfg_bossgrace < 0) return;
+    memset(&g_bh, 0, sizeof g_bh); g_bh.h = handle; g_bh.t0 = GetTickCount(); g_bh.phase = 1;
+    Log("BOSSHOLD boss 0x%X: AI held until the screen is visible + %d ms (BossGraceAfterCoverMs, max %d ms)", handle, g_cfg_bossgrace, g_cfg_bosshold_max);
+}
+static int BhAiOn(uint64_t a) { uint64_t c = 0, ai = 0; uint32_t f = 0; if (!Rd64(a + 0x3B0, &c) || !c || !Rd64(c + 0x50, &ai) || !ai) return -1; __try { f = *(volatile uint32_t*)(ai + 0x1574); } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; } return f != 0; }
+static int BhScreenVisible(int* why) {  // 1 = no load cover (GAMESTATE[2]), no native mission-load sequencer state, our fade overlay clear
+    const uint8_t* gs = GameState(); uint32_t q = SeqState();
+    if (!gs || gs[2]) { *why = 1; return 0; }
+    if (q >= 1 && q <= 15) { *why = 2; return 0; }
+    if (g_fd_ok && (g_fd_want || g_fd.pend || g_fd.phase == 2 || FdAlpha() > 24)) { *why = 3; return 0; }
+    *why = 0; return 1;
+}
+static void BhTick(void) {
+    if (!g_bh.phase) return;
+    DWORD now = GetTickCount();
+    if (g_cfg_bossgrace < 0) { if (g_bh.phase == 2 && g_bh.a) ((void (*)(uint64_t))(B + 0x66982C))(g_bh.a); Log("BOSSHOLD off (BossGraceAfterCoverMs < 0): boss AI back on"); g_bh.phase = 0; return; }
+    if (g_bh.phase == 1) {
+        uint64_t a = ActorByHandle(g_bh.h);
+        if (!a) { if (now - g_bh.t0 > 5000) { Log("BOSSHOLD boss 0x%X: no actor after 5 s, nothing held", g_bh.h); g_bh.phase = 0; } return; }
+        g_bh.a = a; g_bh.phase = 2; ((void (*)(uint64_t))(B + 0x668D74))(a); g_bh.nOff = 1; g_bh.tReapply = now;
+        Log("BOSSHOLD boss 0x%X actor %p: AI off (+%lu ms after spawn)", g_bh.h, (void*)a, now - g_bh.t0);
+        return;
+    }
+    uint64_t a = ActorByHandle(g_bh.h);
+    if (!a || a != g_bh.a) { Log("BOSSHOLD boss 0x%X: actor gone / replaced, hold ends", g_bh.h); g_bh.phase = 0; return; }
+    { int dead = 0; uint64_t hc = 0, hm = 0; if (ActorDeadNow(a, &dead, &hc, &hm) && dead) { g_bh.phase = 0; return; } }
+    int why = 0, vis = BhScreenVisible(&why);
+    if (!vis) g_bh.tVis = 0; else if (!g_bh.tVis) { g_bh.tVis = now; Log("BOSSHOLD boss 0x%X: screen visible +%lu ms after spawn (GAMESTATE[2] 0, seq %d, fade clear): AI on in %d ms", g_bh.h, now - g_bh.t0, (int)SeqState(), g_cfg_bossgrace); }
+    int timeout = now - g_bh.t0 >= (DWORD)g_cfg_bosshold_max;
+    if ((g_bh.tVis && now - g_bh.tVis >= (DWORD)g_cfg_bossgrace) || timeout) {
+        ((void (*)(uint64_t))(B + 0x66982C))(a); g_bh.phase = 0;
+        Log("BOSSHOLD boss 0x%X: AI on +%lu ms after spawn (%s; AI re-held %d times)", g_bh.h, now - g_bh.t0, timeout ? "BossHoldMaxMs TIMEOUT" : "grace over", g_bh.nOff - 1);
+        return;
+    }
+    { static DWORD tl; if (now - tl >= 2000) { tl = now; Log("BOSSHOLD boss 0x%X: +%lu ms, waiting (%s), seq %d", g_bh.h, now - g_bh.t0, why == 1 ? "GAMESTATE[2] load cover" : why == 2 ? "mission load sequencer" : why == 3 ? "fade overlay" : "grace", (int)SeqState()); } }
+    if (now - g_bh.tReapply >= 100 && BhAiOn(a) == 1) { g_bh.tReapply = now; ((void (*)(uint64_t))(B + 0x668D74))(a); if (++g_bh.nOff <= 10) Log("BOSSHOLD boss 0x%X: AI was switched back on by the game, off again (#%d)", g_bh.h, g_bh.nOff - 1); }
+}
 static void FadeTick(void) {
     if (!g_cfg_fade || !g_fd_ok) return;
     DWORD now = GetTickCount();
@@ -2377,6 +2450,12 @@ static void GoldQuad(uint8_t* q, uint64_t el) {
     if (g_nf_gold) {
         if (g_nf_hide > 0 && NfStrip(q, g_nf_hide)) { for (int v = 0; v < 4; ++v) q[v * 0x2C + 0x24 + 3] = 0; return; }  // pink broken flash layer: alpha 0
         if (NfIsKiFill(q)) { if (g_nf_uv) NfGoldUv(q); GoldPaint(q); return; }
+    } else if (g_nf_goldw > 0.0f) {  // #9133 blend back: native strip / UVs, vertex colour native -> gold by the weight, pink flash layer faded in
+        float w = g_nf_goldw; if (w > 1.0f) w = 1.0f;
+        if (g_nf_hide > 0 && NfStrip(q, g_nf_hide)) { for (int v = 0; v < 4; ++v) { uint8_t* c = q + v * 0x2C + 0x24; c[3] = (uint8_t)(c[3] * (1.0f - w)); } return; }
+        if (NfIsKiFill(q)) { uint8_t org[16]; for (int v = 0; v < 4; ++v) memcpy(org + v * 4, q + v * 0x2C + 0x24, 4);
+            GoldPaint(q); for (int v = 0; v < 4; ++v) { uint8_t* c = q + v * 0x2C + 0x24; for (int k = 0; k < 3; ++k) c[k] = (uint8_t)(org[v * 4 + k] + (c[k] - org[v * 4 + k]) * w); }
+            return; }
     }
     if (!g_cfg_goldki) return;
     for (LONG i = 0; i < g_ngold; ++i) if (g_gold_el[i] == el) { GoldPaint(q); return; }
@@ -2411,8 +2490,8 @@ static void GoldQuad(uint8_t* q, uint64_t el) {
     } else if (g_gk[k].score > 0) g_gk[k].score--;
 }
 static void __cdecl GoldWalk(uint8_t* obj, uint8_t* base) {
-    if ((!g_cfg_goldki && !g_nf_gold && g_nf_dumpN <= 0 && !g_nf_test) || GetTickCount() - g_ki_seen > 250) return;
-    if (!g_nf_gold && g_nf_dumpN <= 0 && !g_nf_test && !g_ngold && !g_goldki_ncols && !(g_cfg_goldki_learn && g_ki_ratio >= 0) && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
+    if ((!g_cfg_goldki && !g_nf_gold && g_nf_goldw <= 0.0f && g_nf_dumpN <= 0 && !g_nf_test) || GetTickCount() - g_ki_seen > 250) return;
+    if (!g_nf_gold && g_nf_goldw <= 0.0f && g_nf_dumpN <= 0 && !g_nf_test && !g_ngold && !g_goldki_ncols && !(g_cfg_goldki_learn && g_ki_ratio >= 0) && !(g_cfg_goldki_dump && g_goldki_dumped < 120)) return;
     __try {
         // pc/jumpfix2 d86350e: walk from the alpha pass's real vertex base (rbp at 1CD7CD; obj+358h is only the map out-param = misaligned walk) and skip
         // non-quad nodes only at the START of a group, then cnt consecutive quads, as the native alpha pass does.
@@ -2608,6 +2687,9 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "nofinuv")) { g_nf_uv = (int)a[0]; Log("CMD nofinuv %d", g_nf_uv);
         } else if (!strcmp(op, "nofinhide")) { g_nf_hide = (float)a[0] / 1000.0f; Log("CMD nofinhide %.3f (0 = off)", g_nf_hide);
         } else if (!strcmp(op, "nofintrace")) { NfTraceStart(n >= 2 ? (DWORD)a[0] : 4000);
+        } else if (!strcmp(op, "nofinstagger")) { g_nf_stagger = (int)a[0]; Log("CMD nofinstagger %d (stub path %s)", g_nf_stagger, g_db_stub3 ? "available" : "OFF");
+        } else if (!strcmp(op, "nofinfade")) { g_cfg_nf_fade = (int)a[0] < 0 ? 0 : (int)a[0]; Log("CMD nofinfade %d ms", g_cfg_nf_fade);
+        } else if (!strcmp(op, "bossgrace")) { g_cfg_bossgrace = (int)a[0]; Log("CMD bossgrace %d ms", g_cfg_bossgrace);
         } else if (!strcmp(op, "nofinkneel")) { g_nf_kneel = (int)a[0]; Log("CMD nofinkneel %d", g_nf_kneel);
         } else if (!strcmp(op, "nofin101")) { g_nf_clear101 = (int)a[0]; Log("CMD nofin101 %d", g_nf_clear101);
         } else if (!strcmp(op, "nofinunbreak")) { g_nf_kirow_unbreak = (int)a[0]; Log("CMD nofinunbreak %d", g_nf_kirow_unbreak);
@@ -2859,8 +2941,8 @@ static void KiBreakTick(void) {
 static volatile uint64_t g_nf_act[NF_N], g_nf_ai[NF_N], g_nf_ctrl[NF_N];  // read by the asm stubs (0 = free)
 static volatile DWORD g_nf_hitT[NF_N]; static volatile LONG g_nf_hits[NF_N];
 static volatile LONG g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28, g_nf_cnt_cg; static volatile uint64_t g_nf_cg_tgt;  // + every CanGrapple call / its last target (diag)  // asm stub counters: grapple selection / grab box / bit-31 box / bit-28 box
-static struct { volatile uint32_t id; volatile int on; volatile float ratio; } g_nf_drain[NF_N];
-static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; } g_nf[NF_N];
+static struct { volatile uint32_t id; volatile int on; volatile float ratio, w; } g_nf_drain[NF_N];  // w: 1 = gold override, 0..1 = blend back (#9133)
+static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; DWORD tFade, tGoldEnd; int goldWas; float fadeFrom; } g_nf[NF_N];
 static int g_nf_hooked; static volatile LONG g_nf_lines;
 static void NfLog(const char* fmt, ...) { if (InterlockedIncrement(&g_nf_lines) > 800) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint8_t* NearPage(void* site) {
@@ -2924,7 +3006,10 @@ static uint8_t NfHitProbe(uint64_t ai, uint32_t id) {
 static void NfKiRow(uint64_t w, uint64_t row28, uint64_t snap, uint8_t broken, uint8_t style) {  // 1D220E3: KiRowWidget 235F9A4 (display copy of the Ki)
     if (g_cfg_nofin && row28 && snap) {
         __try { uint32_t id = *(uint32_t*)(row28 - 0x24);
-            for (int i = 0; i < NF_N; ++i) if (g_nf_drain[i].on && g_nf_drain[i].id == id) { float mx = *(float*)(snap + 0x18), r = g_nf_drain[i].ratio; if (r < 0) r = 0; if (r > 1) r = 1; *(float*)(snap + 0x14) = mx * r; *(float*)(snap + 0x88) = 0;
+            for (int i = 0; i < NF_N; ++i) if (g_nf_drain[i].on && g_nf_drain[i].id == id) { float mx = *(float*)(snap + 0x18), r = g_nf_drain[i].ratio, w = g_nf_drain[i].w; if (r < 0) r = 0; if (r > 1) r = 1;
+                if (w < 1.0f) {  // #9133 blend back after the gold: last gold value -> the native snapshot value (no snap to the refilling Ki), native layout
+                    float cur = *(float*)(snap + 0x14); if (w < 0) w = 0; *(float*)(snap + 0x14) = mx * r * w + cur * (1.0f - w); break; }
+                *(float*)(snap + 0x14) = mx * r; *(float*)(snap + 0x88) = 0;
                 // user #8827 (play 16:09): gold only showed in the last 2 s of the HP-0 window = the only time the boss was NOT natively broken (23=0). While broken
                 // the widget draws its broken layout (Ki 0 -> empty fill + pink broken layer, other atlas strips; dump 16:09:11 'kifill 0' on every quad), so no
                 // fill quad existed to tint. While gold: draw the row as NOT broken, so the normal Ki fill quad (strip 0.688 / 0.375) is drawn at the snapshot
@@ -3082,7 +3167,7 @@ static void NfTick(void) {
             NfLog("NOFIN diag CanGrapple calls %ld (+%ld), last target %p: %s (boss %p ai %p ctrl %p), blocked %ld, toggle %d", c, c - lastCg, (void*)t, t && t == a ? "THE BOSS" : t && (t == ai || t == ctrl) ? "boss ai/ctrl" : "other", (void*)a, (void*)ai, (void*)ctrl, g_nf_cnt_sel, g_cfg_nofin);
             lastCg = c; }
     }
-    if (!g_cfg_nofin) { if (g_nf_gold || g_nf_act[0] || g_nf_act[1] || g_nf_act[2] || g_nf_act[3]) { for (int s = 0; s < NF_N; ++s) NfClear(s); g_nf_gold = 0; } return; }
+    if (!g_cfg_nofin) { if (g_nf_gold || g_nf_act[0] || g_nf_act[1] || g_nf_act[2] || g_nf_act[3]) { for (int s = 0; s < NF_N; ++s) NfClear(s); g_nf_gold = 0; } g_nf_goldw = 0.0f; return; }
     if (!g_gold_hooked) { HookGoldKi(); HookGoldQuad(); g_gold_hooked = 1; }  // turned on at run time (Boss Rematch menu / 'nofin 1')
     if (!g_nf_hooked) NfInstallHooks();
     DWORD now = GetTickCount();
@@ -3098,7 +3183,7 @@ static void NfTick(void) {
         if (g_bm.active && n < NF_N) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (act[i] == a) dup = 1; if (a && !dup) { ids[n] = 0; act[n++] = a; } }
     }
     for (int s = 0; s < NF_N; ++s) if (g_nf[s].a) { int here = 0; for (int k = 0; k < n; ++k) if (act[k] == g_nf[s].a) here = 1; if (!here && now - g_nf[s].seen > 3000) NfClear(s); }
-    int gold = 0;
+    int gold = 0; float fadeW = 0.0f;
     for (int k = 0; k < n; ++k) {
         uint64_t a = act[k], st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0;
         if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl || !ActorHp(a, &hc, &hm) || !hm) continue;
@@ -3111,7 +3196,8 @@ static void NfTick(void) {
         __try { dead = *(int32_t*)(st + 0x48) == 1; x5c = *(float*)(st + 0x98 + 0x5C); x74 = *(float*)(st + 0x98 + 0x74); x7c = *(float*)(st + 0x98 + 0x7C); x83 = *(uint8_t*)(st + 0x98 + 0x83); kc = *(float*)(st + 0xAC);
                 s23 = KbState(ai, 0x23); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
         // user #8894: Yoritomo sat at Ki 0 for 5 s+ (16:30:27-32) with neither state 0x23 nor the exhausted fields set: no gold, no block. Ki <= 0 = stagger too.
-        int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, ki0 = kc <= 0.0f && g_nf[s].win != 1, broken = s23 || exh || ki0;
+        // #9133: an exhausted field alone (0x23 over) no longer holds the gold once the Ki refills (> 0): that kept a full gold bar while the native bar refilled
+        int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, ki0 = kc <= 0.0f && g_nf[s].win != 1, broken = s23 || (exh && kc <= 0.0f) || ki0;
         if (g_nf[s].win >= 2 && !dead && hc > 1) { g_nf[s].win = 0; g_nf[s].tries = 0; NfLog("NOFIN boss %p alive again (HP %llu, actor reused after despawn/summon): window re-armed", (void*)a, hc); }
         if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf[s].win = 3; continue; }
         g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl;
@@ -3155,14 +3241,25 @@ static void NfTick(void) {
             }
         }
         if (g_nf[s].win == 2) {  // kill issued, boss still alive: retry (the death-blow gates are cleared from the 1st retry)
-            g_nf_goldact[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;
+            g_nf_goldact[s] = a; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;  // #9133: down-target slot stays blocked until it is dead
             if (hc <= 1 && g_nf[s].tries < 6 && now - g_nf[s].tKill >= 500u * (DWORD)(g_nf[s].tries + 1)) { g_nf[s].tries++; NfLog("NOFIN kill retry %d boss %p HP %llu", g_nf[s].tries, (void*)a, hc); ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher retry", 1); }
             continue;
         }
-        g_nf_drain[s].id = g_nf[s].id; g_nf_drain[s].ratio = g_nf[s].win == 1 ? 1.0f - (float)(now - g_nf[s].tLast) / (float)g_cfg_nofin_ms : 1.0f; g_nf_drain[s].on = g_nf[s].win == 1 || broken;  // broken: full gold bar (display only)
-        if (broken || g_nf[s].win == 1) gold = 1;
-        g_nf_goldact[s] = (broken || g_nf[s].win == 1) ? a : 0;
+        int isGold = broken || g_nf[s].win == 1;
+        float want = g_nf[s].win == 1 ? 1.0f - (float)(now - g_nf[s].tLast) / (float)g_cfg_nofin_ms : 1.0f;
+        g_nf_drain[s].id = g_nf[s].id;
+        if (isGold) { g_nf_drain[s].ratio = want; g_nf_drain[s].w = 1.0f; g_nf_drain[s].on = 1; g_nf[s].tFade = 0; g_nf[s].goldWas = 1; gold = 1; }  // broken: full gold bar (display only)
+        else {  // #9133: gold over -> blend back to the native bar over KiBreakGoldFadeMs (tint gold -> native, fill last gold value -> real Ki)
+            if (g_nf[s].goldWas) { g_nf[s].goldWas = 0; g_nf[s].tGoldEnd = now ? now : 1; g_nf[s].tFade = g_cfg_nf_fade > 0 ? (now ? now : 1) : 0; g_nf[s].fadeFrom = g_nf_drain[s].ratio; NfLog("NOFIN boss %p gold over (Ki %.1f): blending back to the native bar over %d ms", (void*)a, kc, g_cfg_nf_fade); }
+            float w = 0.0f; if (g_nf[s].tFade && now - g_nf[s].tFade < (DWORD)g_cfg_nf_fade) w = 1.0f - (float)(now - g_nf[s].tFade) / (float)g_cfg_nf_fade; else g_nf[s].tFade = 0;
+            g_nf_drain[s].ratio = g_nf[s].fadeFrom; g_nf_drain[s].w = w; g_nf_drain[s].on = w > 0.0f;
+            if (w > fadeW) fadeW = w;
+        }
+        // #9133 (4th bug): the finisher slipped through after the 3.9 s break window ended. The downed/HP-floor target slot (2F7015) stays blocked for the
+        // whole break, the HP-0 window, any time the boss sits at the HP floor (HP <= 1) until it dies, and 1.5 s after the gold ends.
+        g_nf_goldact[s] = (isGold || hc <= 1 || (g_nf[s].tGoldEnd && now - g_nf[s].tGoldEnd < 1500)) ? a : 0;
     }
+    g_nf_goldw = gold ? 1.0f : fadeW;
     if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); if (gold && g_nf_dumpN <= 0) g_nf_dumpN = 48; }  // auto-dump the wide quads of the first frames (evidence if the strips do not match)
 }
 
@@ -3192,6 +3289,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
     __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #7290 passive Ki-break finisher log (read only), before BossTick
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
+    __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
@@ -3299,6 +3397,9 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 2000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
         g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini); g_nf_clear101 = GetPrivateProfileIntA("Summon", "KiBreakHp0ClearDeathBlow", 1, ini); g_nf_kirow_unbreak = GetPrivateProfileIntA("Summon", "KiBreakGoldUnbreak", 1, ini);
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
+        g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
+        g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini);
+        Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
