@@ -11,6 +11,11 @@
 #include <initializer_list>
 #include <intrin.h>
 
+#if defined(__clang__) && defined(__x86_64__) && !defined(__CX16__)
+// Clang's intrinsic header hides this declaration for generic x64 targets.
+extern "C" unsigned char _InterlockedCompareExchange128(volatile long long*, long long, long long, long long*) noexcept;
+#endif
+
 namespace addon {
 int SiteIndex(const char* name);
 bool SiteHookedByOther(int i);
@@ -58,6 +63,12 @@ bool Thunks() {
     return g_thunks != nullptr;
 }
 
+// Windows x64 supports CMPXCHG16B. Clang's generic x64 target can otherwise
+// lower this intrinsic to a 128-bit runtime helper with an incompatible ABI
+// (observed with Zig 0.16 on Windows). Emit the instruction in this function.
+#if defined(__clang__) && defined(__x86_64__)
+__attribute__((target("cx16")))
+#endif
 bool PatchAtomic(uint8_t* p, const uint8_t* bytes, size_t len) {
     const uintptr_t a = (uintptr_t)p, w8 = a & ~uintptr_t(7), w16 = a & ~uintptr_t(15);
     const bool fit8 = a + len <= w8 + 8, fit16 = a + len <= w16 + 16;
