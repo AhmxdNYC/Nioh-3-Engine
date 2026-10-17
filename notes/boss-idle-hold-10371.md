@@ -82,3 +82,10 @@ Back up saves/config, acquire the game lock and use the standard launch harness.
 Report device, boss, settings, OFF/ON durations, time to held, attack/movement
 counts after held, OFF recovery, cleanup and debug-freeze verdicts. A synthetic
 PASS or idle 0x2 in a log alone is not evidence of a stable visible idle stance.
+
+## Clarification #10396
+The requested pause is an idle stance with attacks paused, never a mid-attack
+animation freeze. Existing implementation above follows that contract. Rechecked
+both offline suites after the clarification: PASS (202 catalogue entries, 181
+veto cases, 21 protected entries, idle lifecycle suite). Actual visible idle
+validation remains pending with pc; offline success does not close that check.
