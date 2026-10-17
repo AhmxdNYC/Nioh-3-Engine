@@ -1994,6 +1994,7 @@ static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn
 static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
 // #8902/#9133 Return to where I was shows the Boss Rematch loading screen look (EngineFix export Nioh3EngineFix_LoadScreen) with the title 'Return'
 // instead of a plain black screen. [Return] LoadScreen = 1 (default), 0 = black only. Missing export (older EngineFix) = black only.
+static int (*p_osdMask)(int, int); static int g_cfg_gate_mask_r = 400, g_cfg_gate_mask_btn = 0xF000;  // #9324 [Return] ReturnGateMaskRadius / ReturnGateMaskButtons
 static int (*p_osdLoad)(int, const char*, const char*); static int g_cfg_rh_ls = 1, g_rh_ls_on;
 static void RhLoadScreen(int on) { if (!p_osdLoad || !g_cfg_rh_ls || on == g_rh_ls_on) return; g_rh_ls_on = on; int r = p_osdLoad(on, "Return", "Returning to where you were..."); Log("RETURN loading screen %s (EngineFix overlay %s)", on ? "on" : "off", r ? "drawing" : "menu off: black only"); }
 static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
@@ -2349,6 +2350,16 @@ static void GateTick(void) {
     int idle = !GateBossAlive() && !g_tr.tRespawn && !g_sp.active && !g_vf.respawnAt && !g_tr.beaten && !(g_tr.tWin && g_cfg_tr_win > 0) && !(g_ar.active && !g_ar.spawned);
     if (!g_gate.up && g_home.valid && g_gate.tried < 3 && (!g_gate.tTry || now - g_gate.tTry > 3000) && idle) {
         g_gate.tTry = now; g_gate.tried++; GateSpawn(g_gate.tried == 1 ? "arena session" : "retry");
+    }
+    // #9324 (user screen 22:4x): the gate is the game's own mission clear gadget; its interact (A near it) opens the native 'This will end the mission.
+    // Proceed?' prompt on top of our gate page, and its Yes ended the game process (22:14: no MissionRequestReturn, the game just closed). While the player
+    // is within ReturnGateMaskRadius of the gate and no boss is alive, the face buttons are hidden from the GAME (EngineFix lease, renewed every tick;
+    // our menus still read them), so the native prompt never opens; our gate page opens by standing on it (ReturnGateTouchMs).
+    if (g_gate.up && p_osdMask && g_cfg_gate_mask_r > 0) {
+        float q[4]; static int masked;
+        int nearG = 0; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearG = mx * mx + mz * mz < (float)g_cfg_gate_mask_r * g_cfg_gate_mask_r && fabsf(q[1] - g_gate.pos[1]) < 400.0f && !GateBossAlive(); }
+        if (nearG) p_osdMask(g_cfg_gate_mask_btn, 300);
+        if (nearG != masked) { masked = nearG; Log("GATE: player %s the gate: native interact %s", nearG ? "near" : "away from", nearG ? "hidden (no end-mission prompt)" : "back"); if (!nearG) p_osdMask(0, 0); }
     }
     if (g_gate.up && g_cfg_gate_touch > 0) {
         float p[4]; if (!PlayerPos(p)) return;
@@ -3472,6 +3483,9 @@ static DWORD WINAPI Worker(LPVOID x) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
             p_osdLoad = ef ? (int (*)(int, const char*, const char*))GetProcAddress(ef, "Nioh3EngineFix_LoadScreen") : 0;
+            p_osdMask = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_MaskGameButtons") : 0;
+            g_cfg_gate_mask_r = GetPrivateProfileIntA("Return", "ReturnGateMaskRadius", 400, ini); g_cfg_gate_mask_btn = GetPrivateProfileIntA("Return", "ReturnGateMaskButtons", 0xF000, ini);
+            Log("RETURN gate (#9324): native interact hidden within %d cm of the gate (buttons 0x%X), EngineFix export %s", g_cfg_gate_mask_r, g_cfg_gate_mask_btn, p_osdMask ? "found" : "MISSING: the native end-mission prompt can open");
             {   char gd[MAX_PATH]; snprintf(gd, sizeof gd, "%s", ini); char* sl = strrchr(gd, '\\'); if (sl) *sl = 0; char def[MAX_PATH + 32]; snprintf(def, sizeof def, "%s\\Nioh3FightRecorder.ps1", gd);
                 g_cfg_rec = GetPrivateProfileIntA("Record", "Enable", 0, ini); GetPrivateProfileStringA("Record", "Script", def, g_rec_script, sizeof g_rec_script, ini); GetPrivateProfileStringA("Record", "OutRoot", gd, g_rec_out, sizeof g_rec_out, ini);
                 g_rec_max = GetPrivateProfileIntA("Record", "MaxMinutes", 20, ini); Log("RECORD (#9291): Enable %d, Script %s, OutRoot %s, MaxMinutes %d", g_cfg_rec, g_rec_script, g_rec_out, g_rec_max); }

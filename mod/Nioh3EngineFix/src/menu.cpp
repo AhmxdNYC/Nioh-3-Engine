@@ -130,6 +130,10 @@ volatile LONG g_toggleReq = 0;
 volatile LONG64 g_toggleAt = 0;
 volatile LONG g_toggleSrc = 0;        // 1 key, 2 pad
 volatile LONG64 g_lastPresent = 0;    // last OnPresent (GetTickCount64): the overlay is alive
+// #9324 Nioh3EngineFix_MaskGameButtons(mask, ms): these pad buttons are hidden from the GAME (not from our menus) until the lease ends.
+// Nioh3Training renews it every frame while the player stands near its Return gate (the native clear gadget's interact would open
+// the game's own "This will end the mission" prompt, whose Yes exits the game outside a real mission).
+volatile LONG g_gameMask = 0; volatile LONG64 g_gameMaskUntil = 0;
 volatile LONG64 g_lastPadFeed = 0;    // the game called XInputGetState (any slot)
 volatile LONG64 g_lastKeyFeed = 0;    // the game read the keyboard successfully
 volatile LONG g_padHeld[4] = {};
@@ -286,6 +290,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     if (g_open) InterlockedOr(&g_pressed, (LONG)PadNav(pressed));
     if (own) return;
     if (tapModified) st->dwPacketNumber += 0x40000000u;
+    if (g_gameMask && t < (ULONGLONG)g_gameMaskUntil && (g.wButtons & (WORD)g_gameMask)) { g.wButtons &= (WORD)~(WORD)g_gameMask; st->dwPacketNumber += 0x40000000u; }
     bool blank = g_open != 0;
     if (s.latch) {
         if ((raw & ~B_STICKS) == 0) s.latch = false;
@@ -2506,6 +2511,11 @@ bool SwallowMessage(const tagMSG* m) {
 
 // Nioh3EngineFix_LoadScreen(on, title, stage): full-screen loading screen (black, title, moving bar, stage line) drawn by the overlay until
 // called with on = 0. title/stage may be null (kept). Any thread. Returns 1 when the menu overlay is enabled (it draws it), else 0.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_MaskGameButtons(int mask, int ms) {
+    InterlockedExchange64(&menu::g_gameMaskUntil, (LONG64)(GetTickCount64() + (ms > 0 ? (ULONGLONG)ms : 0)));
+    InterlockedExchange(&menu::g_gameMask, ms > 0 ? mask : 0);
+    return menu::Enabled() ? 1 : 0;
+}
 extern "C" __declspec(dllexport) int Nioh3EngineFix_LoadScreen(int on, const char* title, const char* stage) {
     AcquireSRWLockExclusive(&menu::g_lsLock);
     if (title) snprintf(menu::g_lsTitle, sizeof(menu::g_lsTitle), "%s", title);
