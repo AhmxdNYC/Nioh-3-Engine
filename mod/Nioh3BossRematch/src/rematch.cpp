@@ -2077,8 +2077,8 @@ int Items(int* out, int cap) {
         return n;
     }
     if (g_uiPages.page == uGate) {
+        if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);  // #9994: Fight again first, Return second
         add(kItReturnHome);
-        if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);
         add(kItClose);
         return n;
     }
