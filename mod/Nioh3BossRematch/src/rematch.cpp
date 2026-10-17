@@ -1983,6 +1983,20 @@ constexpr int kItAutoRetry = -25;
 constexpr int kItNoFin = -26;
 constexpr int uGate = 900;
 constexpr int uMoves = 901, kItMoves = -27, kItMoveBase = 0x30000;
+constexpr int kItIdleHold = -28;
+int IdleHoldStatus() {
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetIdleHold");
+    return f ? f() : -1;
+}
+void IdleHoldToggle(int dir) {
+    using Fn = int (*)(int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SetIdleHold");
+    const int on = dir ? dir > 0 : IdleHoldStatus() <= 0;
+    const int ok = f ? f(on) : 0;
+    snprintf(g_msg, sizeof g_msg, "%s", !ok ? "Start a Fight now session with a live boss first." :
+        on ? "Requested: pause the boss at its next safe idle. Player remains usable." : "Requested: release the boss idle pause.");
+}
 uint32_t g_uiMoveChr = 0;
 uint32_t MoveBoss() {
     using Fn = uint32_t (*)();
@@ -2085,6 +2099,7 @@ int Items(int* out, int cap) {
     if (g_uiPages.page == uMoves) {
         const uint32_t chr = MoveBoss();
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
+        if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) add(kItMoveBase + i);
         add(kItBack);
         return n;
@@ -2351,6 +2366,7 @@ void UiChange(int dir) {
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
     if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
+    if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2392,6 +2408,7 @@ bool UiAct() {
     if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
     if (item == kItNoFin) { NoFinToggle(0); return false; }
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
+    if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
     if (item == kItMoves) {
         g_uiPages.Enter(uMoves, g_sel);
         g_uiMoveChr = MoveBoss(); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
@@ -2630,6 +2647,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
         else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Training: current boss moves   A: open", mk);
+        else if (it[i] == kItIdleHold) {
+            const int hold = IdleHoldStatus();
+            add(sel ? cWhite : hold == 2 ? cGreen : hold ? cYellow : cGray, sel,
+                "%s Pause boss at idle: %s   A / Left / Right", mk,
+                hold == 2 ? "ON" : hold == 1 ? "WAITING FOR IDLE" : hold < 0 ? "NOT HELD (retry)" : "OFF");
+        }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
@@ -2683,6 +2706,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "%s", hook < 0 ? "Move hooks unavailable: validation failed. Saved OFF switches cannot veto actions in this session." :
                 !hook && allowed == 0 ? "Saved OFF; activation is pending until the game resumes." :
                 g_msg[0] ? g_msg : "A toggles; Left OFF / Right ON. Saved per boss. (?) = unverified label. The current action finishes; the next selection skips disabled actions.");
+        } else if (item == kItIdleHold) {
+            const int hold = IdleHoldStatus();
+            snprintf(footer, nf, "%s", hold < 0 ? "Idle was not safely acquired. No hold remains. Retry after the fight/loading/finisher settles." :
+                hold == 2 ? "Boss AI paused at idle; player stays usable. Hits can play reactions. Left/OFF or session exit releases. Debug freeze is separate." :
+                hold == 1 ? "Waiting for a safe idle transition (10 s limit). Current action may finish. Left cancels; session changes cancel automatically." :
+                g_msg[0] ? g_msg : "Pause only the current boss at idle; player stays usable. Right requests; Left releases. Session-only, not saved. Debug freeze is separate.");
         } else if (item == kItMoves || g_uiPages.page == uMoves) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the current Fight now boss. Start a session to see recorded actions. B returns.");
         } else if (item <= kItSettingBase) {

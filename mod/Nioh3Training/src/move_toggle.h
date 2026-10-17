@@ -13,6 +13,7 @@ typedef uint32_t (*MvSelFn)(uint64_t, uint64_t);
 typedef uint64_t (*MvComFn)(uint64_t, uint32_t, uint64_t, int, uint64_t);
 static MvSelFn o_mvsel;
 static MvComFn o_mvcom;
+static uint32_t IhSelect(uint64_t st, uint32_t id);
 
 static int MvBlocked(uint32_t chr, uint32_t id) {
     if (N3MoveProtected(id) || id == g_mv_fallback) return 0;
@@ -36,7 +37,7 @@ static uint32_t MvBossChr(uint64_t st) {
     return g_tr.chr;
 }
 static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
-    uint32_t id = o_mvsel(st, tr);
+    uint32_t id = IhSelect(st, o_mvsel(st, tr));
     if (!MvBlocked(g_tr.chr, id)) return id;
     uint32_t chr = MvBossChr(st);
     if (!chr || !MvBlocked(chr, id)) return id;

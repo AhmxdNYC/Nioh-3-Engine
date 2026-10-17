@@ -313,6 +313,7 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 2000;
 static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static volatile LONG g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
+static void IhStop(const char* why, int failed);
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
@@ -812,6 +813,7 @@ static int BossModeBegin(uint32_t id, int notify) {
 }
 static void SummonFinish(uint32_t h, uint32_t bgm) { if (g_cfg_bossmode) BossModeBegin(h, g_cfg_notify); if (g_cfg_bgm && bgm) BgmStart(bgm); Log("SUMMON done: handle 0x%X", h); }
 static void BossModeEnd(const char* why) {
+    IhStop(why, 0);
     uint64_t cm = CharMgr(); if (!cm) return;
     if (((uint8_t (*)(uint64_t))(B + 0x1C1AE20))(cm)) ((void (*)(uint64_t))(B + 0x1C0CFB4))(cm);
     ((void (*)(uint64_t))(B + 0x1C0CEEC))(cm); ((void (*)(uint64_t))(B + 0x1C0D068))(cm);
@@ -1224,6 +1226,7 @@ static int SummonStart(const char* tok, float d) {
     return 1;
 }
 static void TrainClear(const char* why) {  // remove our boss and its HUD/BGM state
+    IhStop(why, 0);
     if (g_bm.active) { BossModeEnd(why); g_bm.active = 0; }
     BgmStop(why); FakeGaugeHide(why);  // the force-hide inside is required: without it the HUD gauge row keeps reading the despawned actor (crash 0xC0000005 at 4893CC, bridge 4942 test)
     for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);
@@ -1264,6 +1267,7 @@ static void TrainStop(const char* why) {
 // bridge 5338: Fight now in the boss's own arena (in-place ARENA swap, no load) becomes a retry-able session: round 1 pose = arena player start / boss spawn, so 'player beaten' and 'retry'
 // warp back into the arena and respawn the boss there (no open-world summon). NoDeath + round reset as for 'train'.
 static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp, float face) {
+    IhStop("new arena session", 0);
     if (g_tr.active && g_tr.nodeath) PlayerSetNoDeath(0);
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr;
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
@@ -1370,6 +1374,8 @@ static void PreloadTick(void) {
 //   void Nioh3Training_Preload(void)                 call when the Boss Rematch menu opens: requests the model resources of the nearest bosses of this world.
 //   int  Nioh3Training_Version(void)
 #define N3T_API __declspec(dllexport)
+N3T_API int Nioh3Training_GetIdleHold(void);
+N3T_API int Nioh3Training_SetIdleHold(int on);
 // bridge 4718: NativeEnter = 1: the fog gate, arena intro cutscene, boss BGM, boss gauge/HUD, clear flags and rewards are all driven by the boss's mission script, which only exists in the mission's own placement DB. So Fight now does the native mission load
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
 static int g_cfg_native = 1; static char g_native_list[256] = "0x1CBC";
@@ -2677,6 +2683,11 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "moveblock")) {  // #9928: moveblock [id ...] (0x4E4E style, up to 6; no ids = clear)
             uint32_t ids[6]; int k = 0; for (int i = 0; i < n - 1 && i < 6; ++i) ids[k++] = (uint32_t)a[i]; MvSet(ids, k);
         } else if (!strcmp(op, "moveforce")) { if (n >= 2) MvForce((uint32_t)a[0]);
+        } else if (!strcmp(op, "idlehold")) {
+            if (n >= 2) Log("CMD idlehold %llu -> %d", a[0], Nioh3Training_SetIdleHold(a[0] != 0));
+            Log("CMD idlehold status %d (0 OFF, 1 pending, 2 held, -1 failed)", Nioh3Training_GetIdleHold());
+        } else if (!strcmp(op, "idlestat")) {
+            Log("CMD idlehold status %d (0 OFF, 1 pending, 2 held, -1 failed)", Nioh3Training_GetIdleHold());
         } else if (!strcmp(op, "movestat")) { Log("CMD movestat: hooked %d, %d blocked, %ld select vetoes, %ld rerolls", g_mv_hooked, g_mv_nblock, (long)g_mv_vetoes, (long)g_mv_rerolls);
         } else if (!strcmp(op, "nodeath")) { PlayerSetNoDeath((int)a[0]);
         } else if (!strcmp(op, "recover")) { PlayerRecoverFull();
@@ -2937,6 +2948,23 @@ static void ActLogTick(void) {
 }
 // Boss-specific Training menu preferences, selection veto and commit backstop.
 #include "move_toggle.h"
+static void IhNativeAi(uint64_t actor, int on) { ((void (*)(uint64_t))(B + (on ? 0x66982C : 0x668D74)))(actor); }
+static uint32_t IhReadAction(uint64_t ctrl) { return ((uint32_t (*)(uint64_t))(B + 0x358528))(ctrl); }
+static int IhAlive(uint64_t actor) {
+    int dead = 0; uint64_t hp = 0, max = 0;
+    return ActorDeadNow(actor, &dead, &hp, &max) && !dead && max && hp > 1;
+}
+static int IhEligible(uint64_t actor, uint64_t ctrl) {
+    (void)ctrl;
+    uint64_t ai = 0, stats = 0; int why = 0;
+    if (!IhAlive(actor) || !Rd64(actor + 0x3B0, &ai) || !ai || !Rd64(actor + 0x3A0, &stats) || !stats) return 0;
+    __try {
+        if (!BhScreenVisible(&why) || KbState(ai, 0x23) || KbState(ai, 0x35) || KbState(ai, 0xB0) || KbState(ai, 0x2C)) return 0;
+        if (*(float*)(stats + 0xF4) > 0 || *(float*)(stats + 0x10C) > 0 || *(float*)(stats + 0x114) > 0 || *(uint8_t*)(stats + 0x11B)) return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+#include "idle_hold.h"
 static int MvForce(uint32_t id) {
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); if (n < 1) { Log("MOVEFORCE: no boss"); return 0; }
     uint64_t ai = 0, st = 0; if (!Rd64(act[0] + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &st) || !st) { Log("MOVEFORCE: no state"); return 0; }
@@ -3373,6 +3401,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
+    __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
     return o_pump(c, d, r8, r9);
 }
 

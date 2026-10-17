@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#undef NDEBUG // Zig -O2 defines it; harness assertions must execute, including API calls.
 #include <assert.h>
 #define N3T_API
 static uintptr_t B;
@@ -33,6 +34,7 @@ static void* Hook(uintptr_t rva, int ncopy, void* detour) {
     (void)ncopy; (void)detour; ++hook_calls;
     return rva == 0x35EF04 ? (void*)Select : (void*)Commit;
 }
+static uint32_t IhSelect(uint64_t st, uint32_t id) { (void)st; return id; }
 #include "../src/move_toggle.h"
 
 static void Pick(uint32_t id) {
