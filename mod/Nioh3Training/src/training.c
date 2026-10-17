@@ -3269,10 +3269,7 @@ static void ActLogTick(void) {
 #include "move_toggle.h"
 static void IhNativeAi(uint64_t actor, int on) { ((void (*)(uint64_t))(B + (on ? 0x66982C : 0x668D74)))(actor); }
 static uint32_t IhReadAction(uint64_t ctrl) { return ((uint32_t (*)(uint64_t))(B + 0x358528))(ctrl); }
-static int IhAlive(uint64_t actor) {
-    int dead = 0; uint64_t hp = 0, max = 0;
-    return ActorDeadNow(actor, &dead, &hp, &max) && !dead && max && hp > 1;
-}
+#include "ih_alive.h"
 static int IhEligible(uint64_t actor, uint64_t ctrl) {
     (void)ctrl;
     uint64_t ai = 0, stats = 0; int why = 0;
