@@ -2882,6 +2882,45 @@ static int KbCollect(uint64_t* out, int max) {
     if (g_bm.active && n < max) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (a && !dup) out[n++] = a; }
     return n;
 }
+// pc2 #9508: boss current-action logger (read only). Every pump frame (>= 40 ms) for each boss (KbCollect): id = native 358528(state) = dword at
+// current-action state+E8 (FFFF = no current action); logs each change and buckets per (arena chr, id): samples, entries, total ms.
+// Written to Nioh3Training_actions.tsv in the game folder every 10 s (chr, action id, entries, samples, ms) so boss move lists can be built by id.
+static int g_cfg_actlog = 1;
+#define AL_MAX 768
+static struct { uint32_t chr, id; uint32_t entries, samples; DWORD ms; } g_al[AL_MAX]; static int g_al_n;
+static struct { uint64_t a; uint32_t id; DWORD t, seen; int valid; } g_alw[KB_MAX];
+static DWORD g_al_lastDump, g_al_lastTick; static int g_al_dirty; static volatile LONG g_al_lines;
+static int AlSlot(uint32_t chr, uint32_t id) { for (int i = 0; i < g_al_n; ++i) if (g_al[i].chr == chr && g_al[i].id == id) return i; if (g_al_n >= AL_MAX) return -1; g_al[g_al_n].chr = chr; g_al[g_al_n].id = id; return g_al_n++; }
+static void AlDump(void) {
+    char p[MAX_PATH]; snprintf(p, sizeof p, "%s/Nioh3Training_actions.tsv", g_dir);
+    FILE* f = fopen(p, "wb"); if (!f) return;
+    fprintf(f, "chr\taction_id\tentries\tsamples\tms\r\n");
+    for (int i = 0; i < g_al_n; ++i) fprintf(f, "%u\t0x%X\t%u\t%u\t%lu\r\n", g_al[i].chr, g_al[i].id, g_al[i].entries, g_al[i].samples, (unsigned long)g_al[i].ms);
+    fclose(f);
+}
+static void ActLogTick(void) {
+    if (!g_cfg_actlog) return;
+    DWORD now = GetTickCount(); if (now - g_al_lastTick < 40) return; g_al_lastTick = now;
+    uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX);
+    for (int k = 0; k < n; ++k) {
+        uint64_t a = act[k], ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
+        if (!Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) continue;
+        __try { id = ((uint32_t (*)(uint64_t))(B + 0x358528))(ctrl); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        int s = -1; for (int i = 0; i < KB_MAX; ++i) if (g_alw[i].a == a) s = i;
+        if (s < 0) { for (int i = 0; i < KB_MAX; ++i) if (!g_alw[i].a || now - g_alw[i].seen > 10000) { s = i; break; } if (s < 0) continue; memset(&g_alw[s], 0, sizeof g_alw[s]); g_alw[s].a = a; }
+        uint32_t chr = g_ar.chr;
+        if (g_alw[s].valid) {
+            int b = AlSlot(chr, g_alw[s].id); if (b >= 0) { g_al[b].samples++; g_al[b].ms += now - g_alw[s].seen; }
+        }
+        if (!g_alw[s].valid || g_alw[s].id != id) {
+            int b = AlSlot(chr, id); if (b >= 0) g_al[b].entries++;
+            if (InterlockedIncrement(&g_al_lines) < 3000) Log("ACTLOG boss %p chr %u: action 0x%X (prev 0x%X, ran %lu ms)", (void*)a, chr, id, g_alw[s].valid ? g_alw[s].id : 0xFFFFFFFF, g_alw[s].valid ? now - g_alw[s].t : 0UL);
+            g_alw[s].id = id; g_alw[s].t = now; g_al_dirty = 1;
+        }
+        g_alw[s].valid = 1; g_alw[s].seen = now;
+    }
+    if (g_al_dirty && now - g_al_lastDump > 10000) { g_al_lastDump = now; g_al_dirty = 0; AlDump(); }
+}
 static void KiBreakTick(void) {
     if (!g_cfg_kibreak_log) return;
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); DWORD now = GetTickCount();
@@ -3301,7 +3340,8 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
-    __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #7290 passive Ki-break finisher log (read only), before BossTick
+    __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    __try { ActLogTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #9508 boss action-id logger (read only)  // #7290 passive Ki-break finisher log (read only), before BossTick
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
@@ -3415,6 +3455,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
+        g_cfg_actlog = GetPrivateProfileIntA("Summon", "ActionLog", 1, ini); Log("ActionLog %d (#9508 boss current-action id log + Nioh3Training_actions.tsv)", g_cfg_actlog);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
