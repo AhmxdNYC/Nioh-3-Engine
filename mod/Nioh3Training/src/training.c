@@ -3171,8 +3171,26 @@ static int KbCollect(uint64_t* out, int max) {
 }
 static void KbxStart(int s, uint64_t a, uint64_t ai, uint64_t ctrl, int nBreak, float kc, uint64_t hc, uint64_t hm, int s23, int exh, uint64_t w0, uint64_t wA8);
 static void KbxTick(int s, uint64_t a, uint64_t ai, uint64_t ctrl, DWORD now, int broken);
+// #10087 who sets the Ki-break bit 0x3A on a watched boss: A4F098(ctrl) = the hit-apply's 'Ki-break hit' (66FC28, hit flag bit 43, default break time)
+// and 236DF4C(ctrl, s) = the action-event setter (2004E69, break time from the current action's event = the stagger action). Log only: caller,
+// action id, Ki, bits before the call.
+static void (*o_kbA4F)(uint64_t); static void (*o_kb236)(uint64_t, float); static volatile LONG g_kbset_n;
+static uint32_t ActIdOf(uint64_t ctrl);
+static void KbSetLog(const char* which, uint64_t ctrl, float secs, uintptr_t ra) {
+    for (int i = 0; i < KB_MAX; ++i) { uint64_t a = g_kb[i].a, ai = 0, c = 0, st = 0; if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &c) || c != ctrl) continue;
+        if (InterlockedIncrement(&g_kbset_n) > 200) return;
+        float kc = 0; uint64_t w0 = 0, wA8 = 0; __try { if (Rd64(a + 0x3A0, &st) && st) kc = *(float*)(st + 0xAC); w0 = *(volatile uint64_t*)(ctrl + 0x1060); wA8 = *(volatile uint64_t*)(ctrl + 0xA8); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        void* fr[3] = {0}; USHORT k = RtlCaptureStackBackTrace(1, 3, fr, 0); uint32_t f[3] = {0}; for (int j = 0; j < k && j < 3; ++j) f[j] = fr[j] ? (uint32_t)((uintptr_t)fr[j] - B) : 0;
+        Log("KIBRK SET %s boss %p: from %X (%X %X %X), %.2f s, action 0x%X, Ki %.1f, bits1060 before %016llX A8 %016llX%s", which, (void*)a, (uint32_t)(ra - B), f[0], f[1], f[2], secs, ActIdOf(ctrl), kc, w0, wA8,
+            (w0 & (1ull << 0x3A)) ? " (bit 0x3A already set)" : ""); return; }
+}
+static void KbSetA4F(uint64_t ctrl) { KbSetLog("A4F098 hit-apply", ctrl, -1.0f, (uintptr_t)__builtin_return_address(0)); o_kbA4F(ctrl); }
+static void KbSet236(uint64_t ctrl, float s) { KbSetLog("236DF4C action event", ctrl, s, (uintptr_t)__builtin_return_address(0)); o_kb236(ctrl, s); }
 static void KiBreakTick(void) {
     if (!g_cfg_kibreak_log) return;
+    {   static int once; if (!once) { once = 1;
+            if (!memcmp((void*)(B + 0xA4F098), "\x40\x53\x48\x83\xEC\x20\x48\x8B\xD9\x48\xB8", 11)) { o_kbA4F = (void (*)(uint64_t))Hook(0xA4F098, 19, (void*)KbSetA4F); Log("KIBRK SET hook A4F098: on"); } else Log("KIBRK SET hook A4F098: bytes differ, off");
+            if (!memcmp((void*)(B + 0x236DF4C), "\x40\x53\x48\x83\xEC\x30\x0F\x29\x74\x24\x20\x48\x8B\xD9", 14)) { o_kb236 = (void (*)(uint64_t, float))Hook(0x236DF4C, 14, (void*)KbSet236); Log("KIBRK SET hook 236DF4C: on"); } else Log("KIBRK SET hook 236DF4C: bytes differ, off"); } }
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); DWORD now = GetTickCount();
     for (int k = 0; k < n; ++k) {
         uint64_t a = act[k], st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0;
