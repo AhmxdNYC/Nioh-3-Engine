@@ -43,6 +43,18 @@ static void Pick(uint32_t id) {
 }
 int main(void) {
     assert(N3_MOVE_COUNT == 202);
+    // Startup: no Training session, no boss identity, and no game image needed.
+    assert(!g_tr.active && !g_bm.active && !B);
+    MvTick();
+    assert(Nioh3Training_GetMoveBoss() == 0 && hook_calls == 0);
+    assert(MvBossChr(0) == 0 && MvBossChr(0x3000) == 0);
+    for (int i = 0; i < N3_MOVE_COUNT; ++i) {
+        assert(kN3Moves[i].chr != 0);
+        assert(Nioh3Training_GetMoveAllowed(0, kN3Moves[i].id) == -1);
+        assert(Nioh3Training_SetMoveAllowed(0, kN3Moves[i].id, 0, 0) == 0);
+    }
+    assert(!g_mv_install_pending && hook_calls == 0);
+    puts("PASS: zero-session startup; 202 chr=0 queries/setters rejected without hooks");
     g_tr.active = g_bm.active = 1; g_bm.id = 7;
     o_mvsel = Select; o_mvcom = Commit;
     int tested = 0, protected_count = 0, yoritomo = 0;

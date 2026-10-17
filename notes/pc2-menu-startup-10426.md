@@ -1,0 +1,59 @@
+# PC2 startup exit: offline diagnosis (#10426)
+
+Verdict: no root cause proven. No game process, game lock, or installed files were
+changed by this investigation. The captured launch failed before a window; it is
+not evidence that the Training moves page crashes with no session.
+
+## Evidence
+
+- `captures/rematch/xworldprobe-20261017-011932/addon_launch0.log`: all site groups
+  resolve, transition anchors match, RightsCheck call retarget succeeds, and arena
+  tables merge. The final line is the Training table merge inside `Prepare()`.
+- The next operations register Character::Create/BossBattleMode callbacks and
+  install FIGHT hooks. `ui::Start()` is later, after `StartRematchPump()` returns.
+  The move page and its chr=0 title branch are not called in this startup path.
+  Missing later logs alone do not prove that the fault was on this worker thread.
+- `training.log` contains only the probe-loaded line. Training's Worker first
+  sleeps **45 seconds**, before installing hooks or loading move preferences.
+  The probe-loaded line therefore does not implicate the move preference loader.
+- EngineFix's game-folder log identifies **1.7.55**, and progresses through site
+  resolution after the final Rematch line. Its earlier absence in Rematch's boot
+  log means load order, not a missing dependency. Full compatibility remains
+  unproven for this launch. No new EngineFix export is required by c8d2a3c.
+- Harness stdout reports no window after 180 seconds, then restores six save files
+  byte-for-byte and restores game-folder files. It does not record an exception
+  address or process exit status. No matching Application Error event or local
+  Nioh crash dump was found during this investigation. Queued kernel reports
+  refer to older dump filenames and are not proof of this launch's cause.
+
+## Offline checks
+
+Current `pc2/move-toggle` source includes subsequent idle-pause work; the captured
+Training binary is the original test artifact and differs from the newer local
+Training binary. Do not silently substitute one when reproducing the failure.
+
+- Added explicit zero-session tests: no image base, no active session, no boss;
+  publishing identity installs zero hooks, and all 202 chr=0 action queries and
+  setters reject the unknown boss. Catalogue has no chr=0 rows. Static inspection
+  of c8d2a3c's moves page yields only Back and its start-session title for chr=0.
+- Existing tests pass: 181 editable actions, 21 protected entries, boss ownership,
+  selection/commit veto, INI persistence, deferred install and prologue mismatch.
+- Compiled and ran the actual Rematch hooks offline using the existing synthetic
+  executable-memory harness: **63 checks, 0 failures**, including chained entry
+  hooks and pump retarget. This does not reproduce concurrent game startup.
+  Zig emitted the already documented intrinsic declaration warning.
+
+## Next step for the game owner
+
+Capture process exit code and a crash dump/exception address on the exact original
+pair before attributing the exit to the menu. If unavailable, compare the same
+EngineFix/config with (1) original Rematch only and (2) original pair; retain all
+logs. Startup breadcrumbs immediately before/after each FIGHT InstallSlot can
+narrow the unresolved interval. Keep each case offline/infinite-health as usual.
+This branch predates current gate/HP-0 fixes and is not the full player build.
+
+Original captured Training SHA256:
+`f0b3944147c5cee63e9901b86added3b084a1e5c0bc2cbc47d66b7cbf037860f`.
+Rematch artifact read during investigation SHA256:
+`c34bba8564a4aa52c7ad47d557d5f8737d8a1b10debe6724acca49a9c9976b22`.
+Build paths/dependencies: `notes/boss-move-menu-10183.md` and bridge reply #10738.
