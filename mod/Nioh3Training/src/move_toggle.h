@@ -44,8 +44,28 @@ static uint32_t MvBossChr(uint64_t st) {
         !Rd64(ai + 8, &ctrl) || ctrl != st) return 0;
     return g_tr.chr;
 }
+// bridge 12953: Repeat move (SF6-style). Per boss character one repeated action: every time that boss's AI picks its next catalogued
+// move, the pick becomes the repeated one (overrides Idle stance and OFF switches for that one id). RepeatGapMs (ini [Training]) > 0 lets
+// the AI's own pick through until that many ms passed since the last repeat. Only ordinary catalogued attacks (id >= 0x4E20)
+// plus the idle pick (0x2) are replaced, so reactions, Ki break and status actions still play natively.
+#define MV_REP_MAX 8
+static volatile LONG g_rep_chr[MV_REP_MAX], g_rep_id[MV_REP_MAX], g_rep_count[MV_REP_MAX]; static DWORD g_rep_last[MV_REP_MAX];
+static int g_cfg_rep_gap;
+static int MvRepFind(uint32_t chr) { for (int i = 0; i < MV_REP_MAX; ++i) if (chr && (uint32_t)g_rep_chr[i] == chr) return i; return -1; }
+static uint32_t MvRepeatId(uint32_t chr) { int i = MvRepFind(chr); return i >= 0 ? (uint32_t)g_rep_id[i] : 0; }
+static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
+    if (id < 0x4E20 && id != 2) return 0;  // idle picks too: a calm / out-of-range boss only re-picks idle (live 19:10, every 6 s)
+    uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0) return 0;
+    uint32_t rep = (uint32_t)g_rep_id[i]; if (!rep || rep == id || N3MoveFind(chr, id) < 0) return 0;
+    DWORD now = GetTickCount(); if (g_cfg_rep_gap > 0 && g_rep_last[i] && now - g_rep_last[i] < (DWORD)g_cfg_rep_gap) return 0;
+    g_rep_last[i] = now; LONG n = InterlockedIncrement(&g_rep_count[i]);
+    if (n <= 500) Log("REPEAT chr %u pick 0x%X -> 0x%X (#%ld, state %p)", chr, id, rep, n, (void*)st);
+    return rep;
+}
 static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
-    uint32_t id = IhSelect(st, o_mvsel(st, tr));
+    uint32_t raw = o_mvsel(st, tr), rep = MvRepeatPick(st, raw);
+    if (rep) return rep;
+    uint32_t id = IhSelect(st, raw);
     uint32_t chr = MvBossChr(st);
     if (!chr || !MvBlocked(chr, id)) return id;
     for (int i = 0; i < 8; ++i) {
@@ -63,7 +83,7 @@ static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
 }
 static uint64_t h_mvcom(uint64_t st, uint32_t id, uint64_t tbl, int layer, uint64_t slot) {
     uint32_t vchr = MvBossChr(st);
-    if (vchr && MvBlocked(vchr, id)) {
+    if (vchr && MvBlocked(vchr, id) && MvRepeatId(vchr) != id) {
         InterlockedIncrement(&g_mv_vetoes);
         if (g_mv_vetoes < 200) Log("MOVETOG commit veto chr %u 0x%X (state %p)", vchr, id, (void*)st);
         id = 0xFFFF; // native refuses before any write
@@ -125,7 +145,22 @@ N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed,
     Log("MOVEMENU chr %u action 0x%X %s%s", chr, id, allowed ? "ON" : "OFF", persist ? " saved" : "");
     return 1;
 }
+// bridge 12953: on = 1 repeats (chr, id), on = 0 stops that boss's repeat. 1 = done, 0 = unknown move / table full.
+N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) {
+    int i = MvRepFind(chr);
+    if (!on) { if (i >= 0) { Log("REPEAT chr %u 0x%X stopped after %ld repeat(s)", chr, (uint32_t)g_rep_id[i], g_rep_count[i]); InterlockedExchange(&g_rep_id[i], 0); InterlockedExchange(&g_rep_chr[i], 0); } return 1; }
+    if (N3MoveFind(chr, id) < 0 || N3MoveProtected(id)) return 0;
+    if (i < 0) for (int k = 0; k < MV_REP_MAX; ++k) if (!g_rep_chr[k]) { i = k; break; }
+    if (i < 0) return 0;
+    InterlockedExchange(&g_rep_id[i], (LONG)id); InterlockedExchange(&g_rep_count[i], 0); g_rep_last[i] = 0; InterlockedExchange(&g_rep_chr[i], (LONG)chr);
+    InterlockedExchange(&g_mv_install_pending, 1);
+    for (int k = 0; k < g_nsp; ++k) { uint64_t a = g_sp_actor[k], ai = 0, ctrl = 0; if (a && g_sp_chr[k] == chr && Rd64(a + 0x3B0, &ai) && ai) Rd64(ai + 8, &ctrl); if (a && g_sp_chr[k] == chr) Log("REPEAT chr %u actor %p ai %p ctrl %p", chr, (void*)a, (void*)ai, (void*)ctrl); }
+    Log("REPEAT chr %u 0x%X ON (gap %d ms)", chr, id, g_cfg_rep_gap);
+    return 1;
+}
+N3T_API uint32_t Nioh3Training_GetMoveRepeat(uint32_t chr) { return MvRepeatId(chr); }
 static void MvLoadPrefs(const char* ini) {
+    g_cfg_rep_gap = (int)GetPrivateProfileIntA("Training", "RepeatGapMs", 0, ini);
     for (int i = 0; i < N3_MOVE_COUNT; ++i) {
         char section[40], key[24];
         MvIniKey(kN3Moves[i].chr, kN3Moves[i].id, section, sizeof section, key, sizeof key);

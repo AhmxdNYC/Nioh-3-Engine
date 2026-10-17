@@ -2147,6 +2147,11 @@ int MoveAllowed(const N3Move& move) {
     const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveAllowed");
     return f ? f(move.chr, move.id) : -1;
 }
+bool MoveRepeating(const N3Move& move) {
+    using Fn = uint32_t (*)(uint32_t);
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveRepeat");
+    return f && f(move.chr) == move.id;
+}
 bool IsMoveItem(int item) { return item >= kItMoveBase && item < kItMoveBase + N3_MOVE_COUNT; }
 void MoveToggle(int item, int dir) {
     if (!IsMoveItem(item)) return;
@@ -2157,6 +2162,17 @@ void MoveToggle(int item, int dir) {
     const auto f = (Fn)TrainingExport("Nioh3Training_SetMoveAllowed");
     const int old = MoveAllowed(move);
     if (!f || old < 0) { snprintf(g_msg, sizeof g_msg, "Move controls unavailable in this Training build."); return; }
+    // bridge 12953: Right on an ON move = Repeat (the boss uses this move every time it picks its next attack); Right again, Left or A stops it.
+    using RepFn = int (*)(uint32_t, uint32_t, int);
+    const auto rep = (RepFn)TrainingExport("Nioh3Training_SetMoveRepeat");
+    const bool repeating = MoveRepeating(move);
+    if (rep && (repeating || (dir > 0 && old > 0))) {
+        const int on = !repeating;
+        if (on) for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == move.chr && MoveRepeating(kN3Moves[i])) rep(move.chr, kN3Moves[i].id, 0);
+        const int rr = rep(move.chr, move.id, on);
+        snprintf(g_msg, sizeof g_msg, "%s", !rr ? "This action cannot be repeated." : on ? "Repeat ON: the boss uses this move whenever it picks its next attack. Right again stops." : "Repeat stopped; the boss picks its own moves again.");
+        if (dir > 0 || !on) return;  // A / Left on a repeating move only stop the repeat
+    }
     const int rc = f(move.chr, move.id, dir ? dir > 0 : !old, 1);
     snprintf(g_msg, sizeof g_msg, "%s", rc == 1 ? "Saved for this boss; applies to the next move selection." :
         rc == -1 ? "Changed this session, but saving failed. Retry to save." : "This action is required by the idle fallback and stays ON.");
@@ -2803,8 +2819,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (IsMoveItem(it[i])) {
             const auto& move = kN3Moves[it[i] - kItMoveBase];
             const int allowed = MoveAllowed(move);
-            add(sel ? cWhite : N3MoveProtected(move.id) ? cDim : allowed > 0 ? cGreen : cGray, sel,
-                "%s 0x%04X  %-3s  %.60s%s", mk, move.id, allowed < 0 ? "?" : allowed ? "ON" : "OFF",
+            const bool rpt = MoveRepeating(move);
+            add(sel ? cWhite : rpt ? cYellow : N3MoveProtected(move.id) ? cDim : allowed > 0 ? cGreen : cGray, sel,
+                "%s 0x%04X  %-3s  %.60s%s", mk, move.id, rpt ? "RPT" : allowed < 0 ? "?" : allowed ? "ON" : "OFF",
                 N3MoveProtected(move.id) ? "Idle / initialization (required)" : *move.label ? move.label : "Unlabelled action",
                 !N3MoveProtected(move.id) && *move.label ? " (?)" : "");
         } else if (it[i] <= kItSettingBase) {
@@ -2938,7 +2955,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const int allowed = MoveAllowed(kN3Moves[item - kItMoveBase]);
             snprintf(footer, nf, "%s", hook < 0 ? "Move hooks unavailable: validation failed. Saved OFF switches cannot veto actions in this session." :
                 !hook && allowed == 0 ? "Saved OFF; activation is pending until the game resumes." :
-                g_msg[0] ? g_msg : "A toggles; Left OFF / Right ON. Saved per boss. (?) = unverified label. The current action finishes; the next selection skips disabled actions.");
+                g_msg[0] ? g_msg : "A toggles; Left OFF / Right ON; Right on an ON move = Repeat (RPT, Right again stops). Saved per boss. (?) = unverified label.");
         } else if (item == kItIdleHold) {
             const int hold = IdleHoldStatus();
             snprintf(footer, nf, "%s", hold < 0 ? "Idle was not safely acquired. No hold remains. Retry after the fight/loading/finisher settles." :
