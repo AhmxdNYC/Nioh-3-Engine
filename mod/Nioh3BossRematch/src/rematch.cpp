@@ -1985,8 +1985,8 @@ constexpr int kItNoFin = -26;
 // Live + saved through Nioh3Training_Get/SetTuning; the kill toggles themselves are not touched.
 constexpr int kItFinT = -27, kItHp0W = -28;
 constexpr int uGate = 900;
-constexpr int uMoves = 901, kItMoves = -27, kItMoveBase = 0x30000;
-constexpr int kItIdleHold = -28;
+constexpr int uMoves = 901, kItMoves = -29, kItMoveBase = 0x30000;
+constexpr int kItIdleHold = -30;
 int IdleHoldStatus() {
     using Fn = int (*)();
     const auto f = (Fn)TrainingExport("Nioh3Training_GetIdleHold");

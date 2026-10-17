@@ -1,0 +1,1 @@
+2026-10-17 4:46 am EDT | cx-pc2 #10870: both ASIs build; 202 moves plus idle/menu/cover suites pass. Startup unproven; next isolated atomic patch reproduction for #10995, then owner test. Integration b583133 plus menu-ID correction; notes/move-toggle-full-build-10870.md.

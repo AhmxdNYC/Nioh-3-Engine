@@ -36,6 +36,7 @@ int UiFill(UiRow* rows, int, char* footer, size_t size) {
 }
 bool Toast(char* out, size_t, uint32_t&) { out[0] = 0; return false; }
 }
+void GateReqTick() {} // no native gate requests in this provider fixture
 #include "../src/menu_bridge_impl.h"
 }
 #define CHECK(c) do { ++checks; if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
