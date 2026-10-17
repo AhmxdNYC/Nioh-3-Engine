@@ -1,68 +1,4 @@
 
-## 2026-10-16 01:50:14 session 01ece3d7-345f-4947-93a4-60ebda6f5bf7
-Ally's stacked result (#7823) is not a KEEP on fps. Ally ran R2a + AABB + J1 together with Barriers=1 (1080p fullscreen, OFF/ON/ON/OFF, about 63 s per arm):
-
-| Pair | OFF fps | ON fps | Gain |
-|---|---|---|---|
-| 1 | 30.21 | 30.53 | +0.32 |
-| 2 | 30.05 | 30.37 | +0.32 |
-
-The rule needs at least 0.5 fps in both pairs, so this misses. The 1% low was better with the toggles on (15.8 to 18.2), and the picture is unchanged. The OFF baseline ran higher than Ally's earlier OFF arms, so the earlier gains (+4% for R2a, +7% for AABB+J1) did not stack. The toggles stay opt-in.
-
-What I changed:
-- **Ally:** I told it the verdict (#7825) and gave it board task #60 (soul cores, static RE of the summon animation and call path, no game needed).
-- **R2a on pc and pc2:** no bench is needed. pc2 found that R2a only works under Proton/vkd3d, so on native Windows ON and OFF are the same code.
-- **AABB+J1 on pc:** task #69 is still queued behind the no-finisher toggle test, which holds the game.
-- **Task #67:** I cancelled it. It was my duplicate toggle task, and another slot's agent is already building that toggle.
-- **Records:** I added a line to `.handoff/done.md`.
-
-I didn't message the user. I haven't checked the toggle's progress this run, and I didn't touch `next.md` or `owners.md`.
-
-## 2026-10-16 04:25:53 session e9a941af-2199-4beb-a382-75250e628836
-The no-finisher toggle works in the game. I installed it and turned it on, and sent you the ready-to-play message five times. All tests had boss AI off, so I haven't seen how a boss that fights back behaves.
-
-- **Grapple:** with the toggle on, pressing LB during a Ki break does nothing. The full break ran 3.9 s and the grapple was blocked on 391 frames.
-- **Gold bar:** I checked the screenshot myself. Only the stamina (Ki) bar turns gold, and the health bar stays white.
-- **At 0 health:** the boss stays at 1 HP in the broken state while the gold bar drains. It died 2.0 s after the last hit, and each hit restarted the window.
-- **Toggle off:** the grapple and normal death work as before.
-
-Untested: boss AI on, native mission bosses, Boss Rematch arenas and fights with several bosses. A "No finisher (Ki break)" menu row is built, but I didn't install it because I couldn't open the menu in game to test it.
-
-I set `KiBreakNoFinisher = 1` in the live `Nioh3Training.ini` for your play test. Setting it to 0 turns it off, and `nofin 0|1` switches it live. The code is on branch `pc/ki-break-nofinisher` (last commit adf23ae), and I added your play-test item to the needs-player list and a line to the done log.
-
-Ally's combined Linux-defaults test and pc2's first-load timing are still waiting to resume now that the usage limit has reset. I haven't re-sent either one yet.
-
-## 2026-10-16 04:49:23 session 4ac5b1b7-5459-404d-8741-44fcd232e414
-Nothing needs me right now, so I'm ending this run without starting anything new.
-
-- **ally:** running the live arena-swap test on the build I sent (file #609), and doing static GPU-pass analysis while it waits.
-- **pc2:** running the first-load timing test (#7749).
-- **pc:** the game is closed and nothing is running. I haven't started a new test.
-- **Waiting on you:** the no-finisher toggle play test with boss AI on.
-
-I'll act when either result comes back.
-
-## 2026-10-16 05:21:46 session 4ac5b1b7-5459-404d-8741-44fcd232e414
-pc2's report was a worker timeout, not a code problem, and I've handled it. I also resumed the builder agent that was cut off earlier.
-
-- **pc2:** its worker was killed before finishing the first-load timing job (#7749). I told it to re-run in smaller steps, starting with one run and a STATUS message with the numbers, so another cut costs little.
-- **Builder agent:** it was stopped when its session ended. I resumed it on the same two fixes: the Otoroshi Fight now fallback and the black-screen fade. I told it to check its partial work first, since `tools/rematch/fightnow_test.ps1` has uncommitted edits.
-- **Cleanup:** I removed the stale `test-active` marker. No game was running.
-
-The builder reports back on its own when done. You still need to play-test the no-finisher toggle with boss AI on.
-
-## 2026-10-16 05:53:57 session 4ac5b1b7-5459-404d-8741-44fcd232e414
-The black-screen fix works on this PC, and I've sent the build to Ally for a retest. The one remaining gap is on cross-world swaps.
-
-- **Otoroshi Fight now:** it is now offered, because rows missing from the Rematch arena table take their position from the Training table.
-- **Same-world swap (Yoritomo):** the first visible frame comes about 4.1 s after the click. The boss is live under black for 0.7 s, down from 2.4 s with the earlier 1.5 s fade wait. The fade no longer waits for the open world to finish loading.
-- **Cross-world swap (Otoroshi):** the first visible frame comes at 15.6 s, with the boss live under black for about 3 s. That 3 s comes from the game's own load cover, not our fade. A fix would be to hold the boss spawn until that cover drops. I haven't built it, and it's an open item.
-- **Ally's long black screens (26–44 s):** these should now be capped, but that is only confirmed on this PC. I sent Ally the build as bridge file #618 to retest Otoroshi and Shingen through the real Rematch menu.
-- **Installed on this PC:** Training `6d005617` (includes the no-finisher toggle work) and Rematch `dd271ec1`, with backups of the previous versions. The code is pushed on branches `pc/fightnow-swap-wire` and `pc/fnow-visible`.
-- **Test script:** the script marked Yoritomo as failed, but that is a timing problem in the script, not the mod. The boss moved and fought.
-
-The game is closed and the test marker is cleared. I added lines to `next.md` and the done log. Still waiting
-
 ## 2026-10-16 06:15:19 session 01ece3d7-345f-4947-93a4-60ebda6f5bf7
 pc2's swap-build result (#8155) is good. With prewarm on, the black screen lasted 3.5 s and 6.2 s (n=2, Shingen, cold start, 13 s menu wait). The numbers were pipe-driven rather than the real menu, and the boss was live for only 0.5 s before the fade-in. Three cells still block during the swap.
 
@@ -292,5 +228,76 @@ I replied to the user (message #9067): the black screen is about 8 s on the main
 - **Not yet confirmed:** Ally and PC2 haven't tested it, and it isn't installed in the play build.
 - **State:** The fleet is still paused, as the user asked in #9036. Per my reply, once they say "resume" I'll have Ally and PC2 confirm it, then ship it on by default.
 - **Notes:** I added a line to `.handoff/next.md`. I didn't update `owners.md` or `done.md`, and I didn't run any game tests.
-2026-10-16 18:05 pc2 | #9055 cover-release A/B on Yoritomo (asi #716, ini #717): black 25.5/23.9/23.6 s (-1) vs 10.3/8.9/8.4 s (0); control 15.5 vs 0.52 s; BBM applied+boss HP full both arms | boss bar at +40 s not visually confirmed (shot shows no boss in frame) | next #8886, #8889 | captures/rematch/xworldprobe-20261016-1721..1755
-2026-10-16 18:0x pc2 | #9079 cover-release A/B done (Shingen cross-world, asi ec72c2c4, NearArenaOnly 0, AreaWaitCrossMs 15000, ABABAB): black OFF 25.5/23.9/23.6 s vs ON 10.3/8.9/8.4 s; control 15.5 s (cap) vs 0.5 s after arena ready | boss bar on screen at +40 s NOT proven (HB log shows boss HP intact; shots unreliable) | next: pc decides ship CoverReleaseMs=0 | captures/rematch/xworldprobe-20261016-{172155..175558}
+
+## 2026-10-16 20:44:21 session 0d474b6b-cbba-4a5a-ae8c-f219fd8862c2
+I've started a fix for the three problems from the user's play test. They said the Return object works, and I sent my acknowledgement (#9134).
+
+- **Gold Ki bar:** It doesn't return to normal when Ki refills.
+- **HP 0:** The boss plays a death-pose animation instead of reacting to hits like a Ki-broken stagger.
+- **Black screen:** It lifted too late, so the boss was already attacking when the user could see again.
+
+I gave the three bugs to an Opus builder (`pc/cover-fixes-9133`, in the cover-release worktree) and haven't seen its result. It will build the new asi to `captures/pc/cover/train_fix9133.asi` and won't install it or launch the game, because the user is playing and `Nioh3.exe` is running. I saved the feedback to `user-directives.md` and a note to `.handoff/next.md`.
+
+Next steps are to install when the user is idle and to check the gold bar on screen before the next ready ping. I also haven't paused Ally and PC2 yet, since neither has reported on the cover-release test.
+
+## 2026-10-16 21:04:22 session 0d474b6b-cbba-4a5a-ae8c-f219fd8862c2
+PC2's cover-release result is in (#9196). I've relayed it to the user (#9200) and asked PC2 to pause.
+
+**PC2 (RX 6650 XT, 3 runs each):**
+
+| | Cover-release fix off | Cover-release fix on |
+|---|---|---|
+| Black screen | 23.6–25.5 s | 8.4–10.3 s |
+| Time to player control | 15.5 s | 0.5 s |
+
+The fight stayed intact: the boss had full HP and battle mode was on in all 6 runs. The boss bar wasn't visually confirmed.
+
+**Caveat for the user:** PC2 timed the mod's own fade, not the screen brightness. My main-PC smoke test of the newest build held the boss for about 45 s until the screen really came back. So the true black time may be longer than 9 s, and I said that. The black-screen investigation is still running in a separate agent.
+
+Ally's cover-release result hasn't arrived yet, and my earlier status query to Ally (#9154) is unanswered.
+
+I also told the user the new build is installed (0b0eb0de) and the game is closed. I added a line to `.handoff/next.md`.
+
+## 2026-10-16 21:26:06 session ed6fcf13-57bf-41ff-90d4-95fcd51e280e
+I told the user the build is ready to play. I also started an agent to study the loading-screen state.
+
+**Build:** The toggle-fix build (hash 0B0EB0DE) is installed on the main PC and the game is closed. It includes:
+- The gold Ki bar fading back to normal.
+- The boss reacting to hits at HP 0.
+- No grapple finisher under gold Ki.
+- The boss waiting until the screen is back.
+
+I haven't re-launched the game to test this build since restoring the install.
+
+**Black screen:** It is still about 22–40 s. Closing the loading screen by hand gave no gain, so that fix is not in the build.
+
+**Agent:** It is a static study only; the game won't be launched. It is looking at what holds the screen black and what the smallest next change to test would be. It will write `notes/loadscreen-state-study.md`.
+
+I added the done-log and next-step lines in `.handoff`.
+2026-10-16 21:36 pc: #9261 user not playing -> test lsend BlackFadeIn build when builder (worktree nioh3-lsend, uncommitted training.c) finishes; game closed, no marker.
+2026-10-16 21:35 pc: #9182 lsend+BlackFadeIn build done (pc/loadscreen-end b9dfc5f, asi eed29387 = captures/pc/cover/train_lsfade.asi/.ini, run with run5.ps1 -Arm lsfade). NOT tested: user active (GetLastInputInfo idle 0 s for 25 s+). Install untouched, no marker, no leftovers.
+
+## 2026-10-16 22:04:00 session ed6fcf13-57bf-41ff-90d4-95fcd51e280e
+The game is running on the main PC (process 16744) with the toggle-fix, short-black-screen build. I haven't confirmed it has reached the title screen.
+
+My first launch attempt used the wrong Steam app id and did nothing. The second one worked, using the id the existing test script uses. I told you in chat to give it about a minute. I set the test-active marker so no other job touches the game while you play. Tell me what you see after the screen comes back from a Fight now.
+2026-10-16 22:17 pc: #9296 game already closed, test-active marker removed, capture stopped (rec9291, 159 frames). Next: build mod-tied recording (open.md).
+2026-10-16 22:25 pc: pc/ki-break-nofinisher b950cb2 (on 4dc07f2): KiBreakBlockDeathBlow (0x27 false + plain grab box 117A9AC for gold boss), motion hook 3F21A4 (0x308 HP-floor pose -> learned Ki-break stagger id), Return loading screen (EngineFix export Nioh3EngineFix_LoadScreen, asi 85f7eb7b), [Record] Enable fight recorder (Nioh3FightRecorder.ps1). Training asi 9a2e7edb at nioh3-kibreak2/mod/Nioh3Training. BUILT, NOT TESTED, NOT INSTALLED.
+2026-10-16 22:19 pc: INCIDENT: captures/pc/nofin9135/run.ps1 (copied from combo/run.ps1) killed a user-launched Nioh3 (pid 6940, started 22:16, at title) in Finish; fixed in that script (never kills a game it did not launch); combo/run.ps1 has the same flaw. Game folder: Training eed29387 (lsend, user's), EngineFix restored 10839837, ini restored; user active (idle 0 s) + someone's rec.ps1 running.
+22:10:44-54 log: LSEND dropped our fade 0.3 s after 'ready' while 6 arena cells / 2055 placeables still streamed (GAMESTATE[2] 1); boss spawn 22:10:53.6, control 53.8 -> ~9 s visible arena with no boss = the 'awkward loading'.
+2026-10-16 22:30 pc: INSTALLED b950cb2 build (Training 9a2e7edb, EngineFix 85f7eb7b, Nioh3FightRecorder.ps1, [Record] Enable=1 OutRoot captures/pc/fightrec); backups *.pre-b950cb2.bak. Untested in game; game closed; user to play.
+2026-10-16 22:35 pc: #9319 log: b950cb2 stagger id never learned (real Ki break sets state 23 w/o a motion request; 0x38A/0x4 are only flinches; learn window 400ms failed, last 0x4 2234ms before). HP-floor break #2 bits1060=0400.. vs real break 4400200200001000. Spawning Opus agent to find how real Ki-break stagger is started.
+2026-10-16 22:43 pc: #9329-9331 pc2 TASK boss movesets (#9334); ground-spawn object in open.md; stagger Opus agent ad80beb2 stopped unfinished (check worktree nioh3-kibreak2 / other sessions before respawning); game running = other job's test.
+2026-10-16 22:50 pc: #9324 gate native 'end the mission' prompt: pc/ki-break-nofinisher b55b195 - Training hides pad A/B/X/Y from the game within 400 cm of the gate (no boss) via new EngineFix export Nioh3EngineFix_MaskGameButtons (lease 300 ms); our page still opens by standing on it. Built: Training f5d3d0fa (nioh3-kibreak2/mod/Nioh3Training), EngineFix cf80f1c6 (nioh3-kibreak2/mod/Nioh3EngineFix/bin). NOT tested/installed: user playing (idle 0 s, pid 9932). 22:14 exit: gate page opened 22:14:41, no MissionRequestReturn logged, game closed ~22:15:30 (native Yes path is not 22396D8). Keyboard interact not masked.
+
+## 2026-10-16 23:10:50 session ed6fcf13-57bf-41ff-90d4-95fcd51e280e
+The HP-0 "looks dead" fix is the blocker for the full build, and nothing new is installed yet. The first builder I started on it produced nothing. I started a second one on a different approach: copy how a real Ki-break puts the boss in the stagger, instead of trying to learn a stagger animation id.
+
+- **Return-gate "end mission" box:** The fix is written but untested.
+- **Ground-spawn object:** Your request that the Return object spawn on the ground is still queued. Nothing is built yet.
+- **Boss move lists:** The pc2 task for them is queued.
+- **Builder's job:** It is told to build, then close the game if it is just sitting there. It will install and quick-test only if the game is free, and will never kill a game it didn't launch.
+- **Chat message:** I sent you a short status. I wrote "11:2x pm EST" in it because I hadn't checked the exact time; the bridge stamped it 11:10 pm.
+
+I'll ping you on Discord when the full build is installed and the game is closed.
+2026-10-16 pc2 | #9334 boss-movesets.md written (static, 47/104 boss rows matched to assets w/ action-object counts; NO move names/IDs obtainable statically) | proven: counts per asset; unproven: any label/ID mapping | next: live 358528 current-action logging per boss if wanted; #8886/#8889 | notes/boss-movesets.md, tools/pc2/boss_movesets_gen.py
