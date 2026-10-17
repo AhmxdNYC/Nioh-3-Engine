@@ -1,1 +1,2 @@
 2026-10-17 4:46 am EDT | cx-pc2 #10870: both ASIs build; 202 moves plus idle/menu/cover suites pass. Startup unproven; next isolated atomic patch reproduction for #10995, then owner test. Integration b583133 plus menu-ID correction; notes/move-toggle-full-build-10870.md.
+2026-10-17 4:48 am EDT | #10995: exact BossBattleModeEnd installer and thunk execute offline; 150 patch layouts pass, 10 refusals preserve bytes; 63 hook/core checks pass. No startup fix proven. Next owner exclusive startup with crash context; tests/atomic_patch_harness.cpp.

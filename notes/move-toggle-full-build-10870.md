@@ -15,3 +15,5 @@ omitting -shared, then run the EXE for the new menu regression.
 No game access. Startup is NOT proven: owner #10995 reports an exit during
 BossBattleModeEnd installation; offline investigation is next. Multi-boss
 still needs native ownership and late-arrival cleanup from study #10541.
+
+Offline startup follow-up (#10995): atomic_patch_harness.cpp exercises the actual patcher on private executable memory: 150 patch layouts pass, 10 unsupported straddling heads refuse unchanged; exact BossBattleModeEnd head/alignment installs and executes. Existing rematch_harness also passes 63 checks. Compiler warning alone does not reproduce the crash. Owner subsequently reported live run contamination (#11035); obtain exclusive startup evidence before choosing a fix.
