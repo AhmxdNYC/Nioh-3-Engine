@@ -2960,6 +2960,7 @@ static int IhEligible(uint64_t actor, uint64_t ctrl) {
     if (!IhAlive(actor) || !Rd64(actor + 0x3B0, &ai) || !ai || !Rd64(actor + 0x3A0, &stats) || !stats) return 0;
     __try {
         if (!BhScreenVisible(&why) || KbState(ai, 0x23) || KbState(ai, 0x35) || KbState(ai, 0xB0) || KbState(ai, 0x2C)) return 0;
+        if (!(*(float*)(stats + 0xAC) > 0)) return 0; // also excludes an unflagged first Ki break and NaN
         if (*(float*)(stats + 0xF4) > 0 || *(float*)(stats + 0x10C) > 0 || *(float*)(stats + 0x114) > 0 || *(uint8_t*)(stats + 0x11B)) return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return 1;

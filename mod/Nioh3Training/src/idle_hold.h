@@ -55,7 +55,9 @@ static void IhPublishSession(void) {
 static uint32_t IhSelect(uint64_t st, uint32_t id) {
     // Only substitute an ordinary, catalogued move at the existing native transition.
     // Unknown/status/reaction IDs pass through. Never force an action mid-animation.
-    if (!g_ih.phase || st != g_ih.ctrl || id < 0x4E20 ||
+    if (!g_ih.phase || !g_tr.active || !g_bm.active || g_bm.id != g_ih.handle ||
+        g_tr.chr != g_ih.chr || g_tr.round != g_ih_seen_round || g_tr.tCmd != g_ih_seen_start ||
+        st != g_ih.ctrl || id < 0x4E20 ||
         N3MoveFind(g_ih.chr, id) < 0 ||
         InterlockedCompareExchange(&g_ih_request, 0, 0) != g_ih.epoch ||
         InterlockedCompareExchange(&g_ih_epoch, 0, 0) != g_ih.epoch ||

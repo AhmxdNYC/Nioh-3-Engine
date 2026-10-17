@@ -62,6 +62,8 @@ int main(void) {
     assert(IhSelect(0x3000, 0x308) == 0x308); // death/status
     assert(IhSelect(0x3000, 0xFFFF) == 0xFFFF); // unknown
     assert(IhSelect(0x3000, 2) == 2);
+    ++g_tr.round; assert(IhSelect(0x3000, 0x4E64) == 0x4E64); --g_tr.round;
+    g_tr.active = 0; assert(IhSelect(0x3000, 0x4E64) == 0x4E64); g_tr.active = 1;
     can_idle = 0; assert(IhSelect(0x3000, 0x4E64) == 0x4E64); // Ki break / finisher / hidden
     can_idle = 1; Nioh3Training_SetIdleHold(0);
     assert(IhSelect(0x3000, 0x4E64) == 0x4E64); IhTick(); assert(!off_calls && !on_calls);

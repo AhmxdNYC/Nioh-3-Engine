@@ -12,7 +12,7 @@ on a match it calls 35CF28 (state vtable +0x1A8) -> **35EF04(state, transition) 
 (`cmp edx,0xFFFE; ja` -> refuse before any write). Same id space as 358528 / ActionLog (0x4E21..). Player uses the same classes (ids 0x286x): filter by state.
 
 ## Veto (implemented, Nioh3Training branch pc2/move-toggle)
-- 35EF04 (prologue `48895c2408 4889742410 57 4883ec30`, 15 B): re-roll up to 8x away from blocked ids; if all blocked return 0xFFFF (callers skip that transition, move simply not taken).
+- 35EF04 (prologue `48895c2408 4889742410 57 4883ec30`, 15 B): re-roll up to 8x away from blocked ids; if all blocked return idle `0x2` (the earlier `0xFFFF` experiment stalled Shingen; see live result below).
 - 35BC68 backstop (prologue `488bc4 48895808 48897018 48897820`, 15 B): blocked id -> 0xFFFF -> refused. Catches forced/script paths.
 - Never veto inside 66C4A8 (already cleared state fields); skip the whole call instead if forced moves must be blocked. Do not hook 35CF28 (relative je in prologue).
 ## Force
