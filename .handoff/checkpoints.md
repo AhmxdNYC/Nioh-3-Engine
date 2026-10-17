@@ -5,3 +5,6 @@
 2026-10-17 4:59 AM EDT | cx-pc2 #10870: requested integ/move-toggle-on-hp0 branch independently rebuilt; all move/menu/idle/hook/core/cover offline suites PASS. Source base 3602481 preserved.
 Live unproven; next pc2 owner tests exact fresh pair. Paths/hashes in notes/move-toggle-full-build-10870.md; no game access.
 2026-10-17 5:01 am EDT | cx-pc2 #11017: bounded C owned registry passes lifecycle gates + 200 recycling cycles; move/idle 202 entries pass. Native adapter/despawn-all/append unimplemented. Next native owner proves admission, late attribution, release and reader drain, then wire single-boss dispatch. Files owned_registry.h, owned_registry_test.c, notes/owned-cleanup-11017.md.
+
+2026-10-17 5:05 AM EDT | cx-pc2 #11037: existing fix 4f7b7c7 verified on integ/move-toggle-on-hp0; moves=-29, idle=-30, sliders=-27/-28.
+PC2 offline generic-x64 harness rebuilt: both timing sliders, idle and 12 editable move dispatches PASS; no game touched. Next: pc2 live validation; publish exact requested branch.
