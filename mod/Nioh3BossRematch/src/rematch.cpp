@@ -2103,6 +2103,26 @@ constexpr int kItFinT = -27, kItHp0W = -28;
 constexpr int uGate = 900;
 constexpr int uMoves = 901, kItMoves = -29, kItMoveBase = 0x30000;
 constexpr int kItIdleHold = -30;
+// bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
+// kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
+constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
+constexpr int kItSummonA = 0x50000, kItSummonB = 0x60000, kItSummonEnd = 0x70000;
+uint32_t SlotChr(int slot) {
+    using Fn = uint32_t (*)(int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SlotChr");
+    return f ? f(slot) : 0;
+}
+const char* SlotBossName(uint32_t chr) {
+    static char buf[40];
+    if (!chr) return "empty";
+    for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) return kN3Moves[i].boss;
+    snprintf(buf, sizeof buf, "boss %u", chr);
+    return buf;
+}
+void SetMoveSlot(int slot) {
+    using Fn = void (*)(int);
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_SetMoveSlot")) f(slot);
+}
 int IdleHoldStatus() {
     using Fn = int (*)();
     const auto f = (Fn)TrainingExport("Nioh3Training_GetIdleHold");
@@ -2213,6 +2233,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
         if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
         if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
+        if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); add(kItDespawnAll); }
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
@@ -2273,6 +2294,7 @@ int Items(int* out, int cap) {
             add(kItFight + g_uiBoss);
             add(kItShrine + g_uiBoss);
             add(kItTeleport + g_uiBoss);
+            if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItSummonA + g_uiBoss); add(kItSummonB + g_uiBoss); }
         }
         add(kItBack);
         return n;
@@ -2553,7 +2575,39 @@ bool UiAct() {
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, 0); return false; }
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
+    if (item == kItDespawnAll) {
+        using Fn = int (*)();
+        const auto f = (Fn)TrainingExport("Nioh3Training_DespawnAll");
+        const int rc = f ? f() : 0;
+        Log("Rematch: menu 'Despawn all bosses' -> %d", rc);
+        snprintf(g_msg, sizeof g_msg, "%s", rc ? "Removing every summoned boss." : "Busy: try again in a moment.");
+        return false;
+    }
+    if (item >= kItSummonA && item < kItSummonEnd) {
+        const int slot = item >= kItSummonB ? 1 : 0;
+        const int row = item - (slot ? kItSummonB : kItSummonA);
+        if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].missionId) {
+            snprintf(g_msg, sizeof g_msg, "No boss mission id for this row: cannot summon it.");
+            return false;
+        }
+        using Fn = int (*)(int, uint32_t);
+        const auto f = (Fn)TrainingExport("Nioh3Training_SummonSlot");
+        const int rc = f ? f(slot, g_rows[(size_t)row].missionId) : 0;
+        Log("Rematch: menu summon %s as Boss %c -> %d", g_rows[(size_t)row].id, 'A' + slot, rc);
+        if (!rc) { snprintf(g_msg, sizeof g_msg, "Busy (a summon or load is running): try again in a moment."); return false; }
+        ToastF(cGreen, 4000, "Training: summoning %s as Boss %c...", g_rows[(size_t)row].name, 'A' + slot);
+        return true;
+    }
+    if (item == kItMovesA || item == kItMovesB) {
+        const int slot = item == kItMovesB;
+        if (!SlotChr(slot)) { snprintf(g_msg, sizeof g_msg, "Boss %c is empty: summon a boss into slot %c first (boss row -> Summon).", 'A' + slot, 'A' + slot); return false; }
+        SetMoveSlot(slot);
+        g_uiPages.Enter(uMoves, g_sel);
+        g_uiMoveChr = MoveBoss(); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
+        return false;
+    }
     if (item == kItMoves) {
+        SetMoveSlot(-1);
         g_uiPages.Enter(uMoves, g_sel);
         g_uiMoveChr = MoveBoss(); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
         return false;
@@ -2809,6 +2863,16 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
         else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Training: current boss moves   A: open", mk);
+        else if (it[i] == kItMovesA || it[i] == kItMovesB) {
+            const int slot = it[i] == kItMovesB;
+            const uint32_t c = SlotChr(slot);
+            add(sel ? cWhite : c ? cGray : cDim, sel, "%s Boss %c moves: %s", mk, 'A' + slot, SlotBossName(c));
+        }
+        else if (it[i] == kItDespawnAll) add(sel ? cWhite : cGray, sel, "%s Despawn all (A:%s B:%s)", mk, SlotBossName(SlotChr(0)), SlotBossName(SlotChr(1)));
+        else if (it[i] >= kItSummonA && it[i] < kItSummonEnd) {
+            const int slot = it[i] >= kItSummonB ? 1 : 0;
+            add(sel ? cWhite : cGreen, sel, "%s   Summon as Boss %c (now: %s)", mk, 'A' + slot, SlotBossName(SlotChr(slot)));
+        }
         else if (it[i] == kItIdleHold) {
             const int hold = IdleHoldStatus();
             add(sel ? cWhite : hold == 2 ? cGreen : hold ? cYellow : cGray, sel,
@@ -2881,6 +2945,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 hold == 2 ? "Boss AI paused at idle; player stays usable. Hits can play reactions. Left/OFF or session exit releases. Debug freeze is separate." :
                 hold == 1 ? "Waiting for boss readiness, then a safe idle transition. Current action may finish. Left selects CPU." :
                 g_msg[0] ? g_msg : "Training starts in Idle stance. Right Idle / Left CPU. The stance survives retry; a new session starts Idle. Player stays usable.");
+        } else if (item == kItDespawnAll) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Removes every boss you summoned (A and B) and their health bar. A confirms.");
+        } else if (item == kItMovesA || item == kItMovesB) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the boss in this slot. Each boss keeps its own list. A opens, B returns.");
+        } else if (item >= kItSummonA && item < kItSummonEnd) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Spawns this boss next to you in the current world without a load (up to two: A and B). Summoning again replaces that slot. Player cannot die. A starts.");
         } else if (item == kItMoves || g_uiPages.page == uMoves) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the current Fight now boss. Start a session to see recorded actions. B returns.");
         } else if (item <= kItSettingBase) {
