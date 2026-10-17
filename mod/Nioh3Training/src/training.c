@@ -2530,6 +2530,28 @@ static void h_reqret(const uint32_t* p, uint8_t f) {
     }
     o_reqret(p, f);
 }
+// #9909 (mark_025821_305_freeze.jpg: our gate page AND the native 'This will end the mission. Proceed?' Yes/No at once): the input mask only hides
+// the XInput face buttons, so any other way the game sees an interact (keyboard, a pad read outside XInputGetState, an A already latched) still opened
+// the native box. Game-side fix, independent of the input path: the box is built by EndMissionConfirmOpen 12A1F80(ctx, action) for action 0x2613
+// (text 0x3E0C230 'This will end the mission. Proceed?' / 0x3C96C71 'You are about to abandon the mission...', Yes 0x3DB0E79 / No 0x3CD8F47, opened
+// through the choice box 2806FD4; callers 1EC0E10 (passes 0x2613), 282FE6C / 2834370 (gadget action from the record)). While our Return gate is up
+// in a training session the 0x2613 request is swallowed (the box never opens) and our gate page opens instead (unless it is already open or the
+// boss is alive). [Return] ReturnGateBlockNativePrompt (default 1; 0 = old behaviour). Other actions (0x536 / 0x196D / 0x359E / 0x4A55 / 0x576B /
+// 0x604E) and the pause menu's own end-mission entries (1DAE4E0 / 1DB58B0) are untouched.
+typedef uint64_t (*EndConfFn)(void*, int);
+static EndConfFn o_endconf; static int g_cfg_gate_block = 1; static volatile LONG g_endconf_n;
+static uint64_t h_endconf(void* ctx, int action) {
+    if (action == 0x2613 && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+        void* ra = __builtin_return_address(0); LONG n = InterlockedIncrement(&g_endconf_n);
+        int boss = GateBossAlive(), page = GateMenuOpen(), r = -1;
+        if (!boss && !page) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
+        if (n <= 50) { float q[4]; float d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
+            Log("GATE: native end-mission prompt (action 0x2613, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", (unsigned long long)((uintptr_t)ra - B), d, n,
+                boss ? "boss alive, nothing opened" : page ? "our gate page already open" : r >= 0 ? "our gate page opened instead" : "?"); }
+        return 0;
+    }
+    return o_endconf(ctx, action);
+}
 // user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
 // found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
@@ -3980,6 +4002,11 @@ static DWORD WINAPI Worker(LPVOID x) {
         if (g_dbg_on) { HANDLE t = CreateThread(0, 0, DbgThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("DBG hotkeys off ([Debug] Hotkeys 0)");
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
         if (g_cfg_gate) { if (!memcmp((void*)(B + 0x22396D8), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
+        g_cfg_gate_block = GetPrivateProfileIntA("Return", "ReturnGateBlockNativePrompt", 1, ini);
+        {   static const uint8_t ecp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x48, 0x89, 0x70, 0x18, 0x48, 0x89, 0x78, 0x20};  // 12A1F80 v2.02
+            if (g_cfg_gate && g_cfg_gate_block) { if (!memcmp((void*)(B + 0x12A1F80), ecp, 15)) { o_endconf = (EndConfFn)Hook(0x12A1F80, 15, h_endconf); Log("hook EndMissionConfirmOpen 12A1F80 ok (#9909: the native 'This will end the mission' box never opens while our Return gate is up)"); }
+                else Log("hook EndMissionConfirmOpen 12A1F80: prologue mismatch, native end-mission prompt NOT blocked (input mask only)"); }
+            else Log("ReturnGateBlockNativePrompt %d: native end-mission prompt not blocked", g_cfg_gate_block); }
         g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);
         { char b[160]; GetPrivateProfileStringA("Summon", "GoldKiColors", "", b, sizeof b, ini); for (char* s = strtok(b, ", "); s && g_goldki_ncols < 8; s = strtok(0, ", ")) g_goldki_cols[g_goldki_ncols++] = (uint32_t)strtoul(s, 0, 16);
           GetPrivateProfileStringA("Summon", "GoldKiRGB", "255,200,50", b, sizeof b, ini); int r = 255, g = 200, bl = 50; if (sscanf(b, "%d,%d,%d", &r, &g, &bl) == 3) { g_gold_r = (uint8_t)r; g_gold_g = (uint8_t)g; g_gold_b = (uint8_t)bl; } }
