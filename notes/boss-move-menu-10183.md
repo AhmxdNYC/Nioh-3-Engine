@@ -81,3 +81,28 @@ py -m ziglang cc -target x86_64-windows-gnu -shared -O2 -fms-extensions -Wall sr
 # Run in mod/Nioh3BossRematch (create bin first):
 py -m ziglang c++ -target x86_64-windows-gnu -shared -O2 -fms-extensions -std=c++17 -DUNICODE -D_UNICODE src/main.cpp src/sites.cpp src/hooks.cpp src/bosslog.cpp src/rematch.cpp src/training.cpp src/ui.cpp src/remote.cpp -o bin/Nioh3BossRematch.asi -lgdi32 -luser32
 ```
+
+## Existing Yoritomo engine evidence reconciled (2026-10-17, task #10183)
+
+PC2 game owner results #10276/#10356 already verify the second boss with the
+legacy INI block list, not the new menu build. Independent recount of the local
+`training.log` files on this task restart confirms:
+
+| PC2 Windows, Yoritomo chr16102 | Blocking OFF | Blocking ON |
+| --- | ---: | ---: |
+| ACTLOG action entries | 198 | 126 |
+| Starts of the six blocked actions | 35 | 0 |
+
+Same reported settings: idle-ish player, AutoRetryOnDeath=1, idle fallback 2.
+Blocked IDs: 4E60/4E62/4E6C/4E74/4E7B/4EA7; OFF counts respectively
+4/4/9/6/7/5, ON counts all zero. Evidence lives in the main worktree under
+`captures/rematch/xworldprobe-20261017-002849` (OFF) and
+`captures/rematch/xworldprobe-20261017-010758` (ON). These are action-start
+counts, not matched-duration performance rates. Tested code was
+`pc/boss-atk-toggle` at `8b3c001`; this does not validate the menu integration.
+
+The actual callback/offline suite passes again at `c098c77` (202 entries,
+181 editable, 21 protected, plus startup/ownership/persistence/idle lifecycle).
+Remaining owner checks: menu integration after the startup-isolation issue,
+and time-aligned Ki-break attack/dash veto. Ki-break veto remains unproven.
+No game process was touched by the companion worker.
