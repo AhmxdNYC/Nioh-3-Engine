@@ -112,7 +112,7 @@ static void IhTick(void) {
         MvInstall();
         if (g_mv_hooked != 1) { IhStop("move hook unavailable", 1); return; }
         InterlockedExchange(&g_ih_status, 1);
-        Log("IDLEHOLD pending chr %u actor %p (10 s timeout)", g_ih.chr, (void*)actor);
+        Log("IDLEHOLD pending chr %u actor %p (20 s timeout)", g_ih.chr, (void*)actor);
     }
     if (epoch != g_ih.epoch || !g_bm.active || g_bm.id != g_ih.handle || !IhSameActor()) {
         IhStop("boss gone/replaced", 0); return;
@@ -126,7 +126,7 @@ static void IhTick(void) {
     }
     if (!IhAlive(g_ih.actor)) { IhStop("boss defeated", 0); return; }
     if (g_ih.phase == 1) {
-        if (now - g_ih.started >= 10000) { IhStop("no safe idle within 10 s", 1); return; }
+        if (now - g_ih.started >= 20000) { IhStop("no safe idle within 20 s", 1); return; }
         if (!IhEligible(g_ih.actor, g_ih.ctrl) || IhReadAction(g_ih.ctrl) != 2) return;
         // An already-disabled AI belongs to somebody else. Never adopt or re-enable it.
         if (BhAiOn(g_ih.actor) != 1) return;
