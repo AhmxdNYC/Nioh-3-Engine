@@ -60,3 +60,6 @@ so seq 6/8 are not slowed). Log the lum/shot as now. Expected: bright ~+1 s afte
 the scene). Risks: seq 0xB calls it again (likely a no-op close); the tip page byte 45BC467 path is not involved for
 mode-1/2 warps (unverified). Fallback ini-only probe if no code change is wanted: AreaWaitCrossMs 5000 (tests the side
 observation, may shave ~10 s off Shingen OFF).
+
+## Probe result (pc, RX 9070, asi d3aa82c8 = LoadingScreenEndMs 0, CoverReleaseMs -1, 1 run per boss, 21:17-21:23)
+UiLoadingScreenEnd called ~6.3 s (Shingen) / 9.6 s (Otoroshi) after the fade started, but luminance stayed black: Shingen 25.5 s total (OFF ~22-26), Otoroshi 14.8 s (OFF 17.8). Bright came ~4 s after our 'FADE back in' / control release, ~19 s (Shingen) after the call. Calling UiLoadingScreenEnd by hand does NOT close the screen: the loading screen is re-asserted or driven by state until the sequencer reaches 0xB. Not a win.
