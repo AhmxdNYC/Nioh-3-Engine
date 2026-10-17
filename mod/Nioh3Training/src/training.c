@@ -576,7 +576,7 @@ static struct { int pending, shown; uint32_t handle, owner, seq; int bindNew; ui
 static int g_cfg_bar_vis = 600; static int BhScreenVisible(int* why);
 // bridge 4801: the native HideBossGauge (queued event) leaves the empty frame on screen. Do what BossGaugeSetup does for unused rows by hand: clear the row vector (hud+0x3C0, 1CEE8C8),
 // hide the 3 row elements (type 0xF5) and the 42 detail elements (type 0xF6) with 5D1D8C(elem,0), then hide the HUD (1CEC2E0).
-static int g_hudHidden, g_noForceHide; static int g_cfg_freshid = 1, g_cfg_gaugereset = 1; static uint32_t g_gaugeN;
+static int g_hudHidden, g_noForceHide; static int g_cfg_freshid = 1, g_cfg_gaugereset = 1; static uint32_t g_gaugeN; static int g_elemsHidden; static DWORD g_elemShowAt;
 static void GaugeForceHide(const char* why) {
     uint64_t root = 0, hud = 0; Rd64(B + 0x45C84A8, &root); if (!root || !Rd64(root + 0xA8, &hud) || !hud) { Log("GAUGE force hide (%s): no HUD", why); return; }
     __try {
@@ -590,14 +590,28 @@ static void GaugeForceHide(const char* why) {
                 ((void (*)(void*, uint8_t))(B + 0x5D1D8C))(e ? (void*)e : (void*)tmp, 0);
             }
         }
-        ((void (*)(uint64_t, uint8_t))(B + 0x1CEC2E0))(hud, 0); g_hudHidden = 1;
+        ((void (*)(uint64_t, uint8_t))(B + 0x1CEC2E0))(hud, 0); g_hudHidden = 1; g_elemsHidden = 1;
         Log("GAUGE force hide done (%s), hud %p", why, (void*)hud);
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE force hide exception %08lX (%s)", GetExceptionCode(), why); }
+}
+// bridge 12666: after a force hide the rows/details stay hidden (a summon after despawn shows no bar): set their visibility back on. rows: type 0xF5 x3, details: type 0xF6 x42
+static void GaugeElemVis(int rows, int details, uint8_t on) {
+    uint64_t root = 0, hud = 0; Rd64(B + 0x45C84A8, &root); if (!root || !Rd64(root + 0xA8, &hud) || !hud) { Log("GAUGE elem vis: no HUD"); return; }
+    __try {
+        typedef uint64_t (*ElemFn)(uint64_t, void*, uint32_t, uint64_t);
+        for (int pass = 0; pass < 2; pass++) {
+            if (!(pass ? details : rows)) continue;
+            uint32_t type = pass ? 0xF6 : 0xF5, cnt = pass ? 0x2A : 3;
+            for (uint32_t i = 0; i < cnt; i++) { uint8_t tmp[256] = {0}; uint64_t e = ((ElemFn)(B + 0x300F44))(hud + 0x140, tmp, type, i); ((void (*)(void*, uint8_t))(B + 0x5D1D8C))(e ? (void*)e : (void*)tmp, on); }
+        }
+        ((void (*)(uint64_t, uint8_t))(B + 0x1CEC2E0))(hud, on); if (on) g_hudHidden = 0;
+        Log("GAUGE elem vis rows %d details %d -> %d", rows, details, on);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE elem vis exception %08lX", GetExceptionCode()); }
 }
 static DWORD g_forceHideAt;
 static void FakeGaugeDrop(void) { g_fwbuf[0] = 0; g_fakew = 0; g_gg.tHide = 0; }
 static void FakeGaugeHide(const char* why) {  // the native hide is a queued message that looks the id up again later: keep the fake wrapper valid for 3 s (GaugeTick drops it)
-    g_gg.pending = 0; if (!g_gg.shown) return;
+    g_gg.pending = 0; g_elemShowAt = 0; if (!g_gg.shown) return;
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1C208BC))(g_fakeid_shown, 0, 0);
     g_gg.shown = 0; g_gg.tHide = GetTickCount() | 1; Log("GAUGE HideBossGauge(fake id) (%s)", why);
     GaugeForceHide(why); g_forceHideAt = GetTickCount() + 700; if (!g_forceHideAt) g_forceHideAt = 1;  // again after the queued native hide ran
@@ -625,6 +639,7 @@ static void GaugeTick(void) {
     { uint64_t ka = g_killHideAct; if (ka) { g_killHideAct = 0; BossKilledNow(ka, "lethal hit, death-blow revive skipped"); } }
     if (g_forceHideAt && (int)(GetTickCount() - g_forceHideAt) >= 0) { g_forceHideAt = 0; GaugeForceHide("delayed"); }
     if (g_gg.tHide && GetTickCount() - g_gg.tHide > 3000) FakeGaugeDrop();
+    if (g_elemShowAt && (int)(GetTickCount() - g_elemShowAt) >= 0) { g_elemShowAt = 0; if (g_gg.shown) { GaugeElemVis(1, 0, 1); g_elemsHidden = 0; } }
     if (!g_gg.pending) return;
     if (g_gg.bindNew && !g_gg.actor && g_newSeq != g_gg.seq && g_newH == g_gg.handle) g_gg.actor = g_newActor;
     uint64_t a = g_gg.bindNew ? g_gg.actor : ActorByHandle(g_gg.handle);
@@ -661,6 +676,7 @@ static void GaugeTick(void) {
     }
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(g_fakeid, 0, 0);
     g_gg.pending = 0; g_gg.shown = 1;
+    if (g_elemsHidden) { g_elemShowAt = GetTickCount() + 250; if (!g_elemShowAt) g_elemShowAt = 1; }  // bridge 12666: force hide left the row elements hidden: show them again after the native row exists
     {   // bridge 5437 diag: ShowBossGauge (1D05824) is synchronous; it needs hud vfunc +0x50 true, a FindWrapper hit and 4892A8(actor) false. rows = bars added.
         uint64_t root = 0, hud = 0, r0 = 0, r1 = 0; int v50 = -1, blk = -1; Rd64(B + 0x45C84A8, &root); if (root) Rd64(root + 0xA8, &hud);
         __try { if (hud) { v50 = ((uint8_t (*)(uint64_t))(*(uint64_t*)(*(uint64_t*)hud + 0x50)))(hud); r0 = *(uint64_t*)(hud + 0x3C0); r1 = *(uint64_t*)(hud + 0x3C8); } blk = ((uint8_t (*)(uint64_t))(B + 0x4892A8))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { }
@@ -3084,6 +3100,7 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "fgauge")) { FakeGaugeRequest((uint32_t)a[0], n >= 3 ? (uint32_t)a[1] : 0);
         } else if (!strcmp(op, "unfgauge")) { FakeGaugeHide("cmd");
         } else if (!strcmp(op, "hidegauge")) { GaugeForceHide("cmd");
+        } else if (!strcmp(op, "gshow")) { GaugeElemVis(n >= 2 ? (int)a[0] : 1, n >= 3 ? (int)a[1] : 0, 1);
         } else if (!strcmp(op, "gauge")) {
             ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))((uint32_t)a[0], 0, 0); Log("CMD gauge 0x%llX shown", a[0]);
         } else if (!strcmp(op, "ungauge")) {
