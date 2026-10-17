@@ -57,3 +57,20 @@ Original captured Training SHA256:
 Rematch artifact read during investigation SHA256:
 `c34bba8564a4aa52c7ad47d557d5f8737d8a1b10debe6724acca49a9c9976b22`.
 Build paths/dependencies: `notes/boss-move-menu-10183.md` and bridge reply #10738.
+
+## Follow-up: owner isolation artifacts
+
+The owner's `captures/pc2-isolation-10454/stdout.txt` now records startup PASS
+(window alive 15 seconds) for both Rematch OFF and Rematch ON on PC2 with EngineFix
+and Training present. These are startup checks, not performance measurements.
+`start.ps1` passes scratch-9702/arm3/Nioh3Training.asi to both arms; its SHA256 is
+`1792e991435718649f396864c8d8f9dbacf77e91ab3c1047c3ab3b989c879fa0`, different
+from the failing menu Training `f0b39441...`. Consequently these checks support
+Rematch startup with the alternate Training build only; they do not reproduce or
+clear the exact original pair. The 15-second window hold also does not guarantee
+coverage of Training's delayed 45-second worker initialization.
+
+Next owner check: use the captured original Training artifact with the same
+Rematch, retain exit code/exception dump on failure, and keep successful startup
+observation beyond 45 seconds from module load. No companion game access used.
+The zero-session and full move/idle lifecycle offline suite was rerun and passed.
