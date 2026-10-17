@@ -118,7 +118,10 @@ static void IhTick(void) {
         IhStop("boss gone/replaced", 0); return;
     }
     if (IhForeignHold()) {
-        // Grace/cover owns this actor now. Do not retain a claim that could re-enable it later.
+        // Before we hold anything, the post-load boss hold owns the AI until the screen is visible:
+        // wait for it (and do not spend the 10 s acquisition window). Once we hold, never keep a
+        // claim that could re-enable it later.
+        if (g_ih.phase == 1) { g_ih.started = now; return; }
         IhStop("loading hold owns AI", 0); return;
     }
     if (!IhAlive(g_ih.actor)) { IhStop("boss defeated", 0); return; }
