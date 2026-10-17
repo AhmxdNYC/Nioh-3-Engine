@@ -2103,6 +2103,8 @@ constexpr int kItFinT = -27, kItHp0W = -28;
 constexpr int uGate = 900;
 constexpr int uMoves = 901, kItMoves = -29, kItMoveBase = 0x30000;
 constexpr int kItIdleHold = -30;
+// bridge 12958: 'Repeat delay' slider on the move page (Nioh3Training_Get/SetRepeatGap, live + saved as [Training] RepeatGapMs)
+constexpr int kItRepGap = -34;
 // bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
@@ -2225,6 +2227,24 @@ void TuneStep(int item, int dir) {  // dir > 0 longer, < 0 shorter, 0 (A) = long
     Log("Rematch: menu slider %s -> %d ms", which == 0 ? "FinisherKillTimeoutMs" : "KiBreakHp0WindowMs", v);
     g_msg[0] = 0;
 }
+int RepGapGet() {
+    using G = int (*)();
+    const auto g = (G)TrainingExport("Nioh3Training_GetRepeatGap");
+    return g ? g() : -1;
+}
+void RepGapStep(int dir) {  // dir > 0 longer, < 0 shorter, 0 (A) = longer, wrapping to 0 after the maximum
+    using S = int (*)(int, int);
+    const auto set = (S)TrainingExport("Nioh3Training_SetRepeatGap");
+    int v = RepGapGet();
+    if (!set || v < 0) { snprintf(g_msg, sizeof(g_msg), "Needs a Nioh3Training.asi with the Repeat delay slider."); return; }
+    const int step = 250, hi = 10000;
+    v = dir < 0 ? v - step : v + step;
+    if (dir == 0 && v > hi) v = 0;
+    v = v < 0 ? 0 : v > hi ? hi : v;
+    v = set(v, 1);
+    Log("Rematch: menu slider RepeatGapMs -> %d ms", v);
+    g_msg[0] = 0;
+}
 void NoFinToggle(int dir) {
     using G = int (*)();
     using S = void (*)(int, int);
@@ -2276,6 +2296,7 @@ int Items(int* out, int cap) {
         const uint32_t chr = MoveBoss();
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
         if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
+        if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) add(kItMoveBase + i);
         add(kItBack);
         return n;
@@ -2548,6 +2569,7 @@ void UiChange(int dir) {
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, dir); return; }
     if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
     if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
+    if (item == kItRepGap) { RepGapStep(dir); return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2591,6 +2613,7 @@ bool UiAct() {
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, 0); return false; }
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
+    if (item == kItRepGap) { RepGapStep(0); return false; }
     if (item == kItDespawnAll) {
         using Fn = int (*)();
         const auto f = (Fn)TrainingExport("Nioh3Training_DespawnAll");
@@ -2896,6 +2919,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 "%s Boss stance: %s   A / Left CPU / Right Idle", mk,
                 hold == 2 ? "IDLE" : hold == 1 ? "IDLE (waiting)" : hold < 0 ? "CPU (idle failed)" : "CPU");
         }
+        else if (it[i] == kItRepGap) {
+            const int v = RepGapGet();
+            char val[24];
+            if (v < 0) snprintf(val, sizeof(val), "?");
+            else snprintf(val, sizeof(val), "%d.%02d s", v / 1000, (v % 1000) / 10);
+            add(sel ? cWhite : v < 0 ? cDim : cYellow, sel, "%s Repeat delay: %-7s   Left / Right", mk, val);
+        }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
@@ -2962,6 +2992,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 hold == 2 ? "Boss AI paused at idle; player stays usable. Hits can play reactions. Left/OFF or session exit releases. Debug freeze is separate." :
                 hold == 1 ? "Waiting for boss readiness, then a safe idle transition. Current action may finish. Left selects CPU." :
                 g_msg[0] ? g_msg : "Training starts in Idle stance. Right Idle / Left CPU. The stance survives retry; a new session starts Idle. Player stays usable.");
+        } else if (item == kItRepGap) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Pause between repeats of the RPT move (boss idles this long after each repeat ends). Left / Right 0.25 s. Applies now, saved.");
         } else if (item == kItDespawnAll) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Removes every boss you summoned (A and B) and their health bar. A confirms.");
         } else if (item == kItMovesA || item == kItMovesB) {

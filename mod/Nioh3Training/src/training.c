@@ -1473,6 +1473,7 @@ static void PreloadTick(void) {
 N3T_API int Nioh3Training_GetIdleHold(void);
 N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed, int persist);
 N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on);
+N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist);
 N3T_API int Nioh3Training_SetIdleHold(int on);
 // bridge 4718: NativeEnter = 1: the fog gate, arena intro cutscene, boss BGM, boss gauge/HUD, clear flags and rewards are all driven by the boss's mission script, which only exists in the mission's own placement DB. So Fight now does the native mission load
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
@@ -3016,6 +3017,7 @@ static void Exec(char* line) {
             char w[16] = {0}, x[16] = {0}; int on = 1; sscanf(line, "%*s %15s %15s %d", w, x, &on);
             uint32_t chr = (w[0] == 'A' || w[0] == 'B') ? Nioh3Training_SlotChr(w[0] - 'A') : (uint32_t)strtoul(w, 0, 10);
             Log("CMD repeat chr %u 0x%lX %d -> %d", chr, strtoul(x, 0, 16), on, Nioh3Training_SetMoveRepeat(chr, (uint32_t)strtoul(x, 0, 16), on));
+        } else if (!strcmp(op, "repgap")) { Log("CMD repgap %d -> %d", (int)a[0], Nioh3Training_SetRepeatGap((int)a[0], 0));  // bridge 12958
         } else if (!strcmp(op, "moveallow")) { Log("CMD moveallow chr %llu id 0x%llX %llu -> %d", a[0], a[1], a[2], Nioh3Training_SetMoveAllowed((uint32_t)a[0], (uint32_t)a[1], (int)a[2], 0));
         } else if (!strcmp(op, "train")) {  // bridge 4942: train <R-id|charId> [dist]: no-load session (player NoDeath, auto reset when beaten, 'retry', 'trainstop')
             char tok[32] = {0}; float d = (float)g_cfg_tr_dist; sscanf(line, "%*s %31s %f", tok, &d); TrainStart(tok, d);
