@@ -2542,7 +2542,7 @@ static void h_reqret(const uint32_t* p, uint8_t f) {
 // through the choice box 2806FD4; callers 1EC0E10 (passes 0x2613), 282FE6C / 2834370 (gadget action from the record)). While our Return gate is up
 // in a training session the 0x2613 request is swallowed (the box never opens) and our gate page opens instead (unless it is already open or the
 // boss is alive). [Return] ReturnGateBlockNativePrompt (default 1; 0 = old behaviour). Other actions (0x536 / 0x196D / 0x359E / 0x4A55 / 0x576B /
-// 0x604E) and the pause menu's own end-mission entries (1DAE4E0 / 1DB58B0) are untouched.
+// 0x604E) are untouched; the pause menu's own end-mission entries (1DAE4E0 / 1DB58B0) are handled by #10020 below.
 typedef uint64_t (*EndConfFn)(void*, int);
 static EndConfFn o_endconf; static int g_cfg_gate_block = 1; static volatile LONG g_endconf_n;
 static uint64_t h_endconf(void* ctx, int action) {
@@ -2560,6 +2560,34 @@ static uint64_t h_endconf(void* ctx, int action) {
     if (g_cfg_gate && g_gate.up) { static LONG nO; if (InterlockedIncrement(&nO) <= 40) Log("GATE diag (#9978): EndMissionConfirmOpen action 0x%X NOT blocked (caller +%llX, tr.active %d, rh.active %d, block %d) - this opens a native box while our gate is up", action, (unsigned long long)((uintptr_t)__builtin_return_address(0) - B), g_tr.active, g_rh.active, g_cfg_gate_block); }
     return o_endconf(ctx, action);
 }
+// #10020 (mark_033810_846_freeze.jpg, log 03:37:28-03:38:10: the 'This will end the mission. Proceed?' box opened near the gate, h_endconf never logged, not even
+// its diag): static RE, text 0x3E0C230 is loaded in only three functions: 12A1F80 (hooked above) and the pause menu's two 'decide' handlers PauseMenuDecide
+// 1DAE4E0 (reached from the vtable slot 1DB8920 when the cursor row changed) and 1DB58B0 (vtable slot, row read through menu+0x3C0 vfunc +0x70). Both: state
+// menu+0x3C8 == 1, menu+0x3E8 / +0x404 clear, entry id = ((int*)menu+0x3D0)[row]; id 3 = end mission -> Yes/No through the choice box 2806FD4 (short text
+// 0x3E0C230 or 0x3C96C71 'abandon'). So the box came from the pause menu path, not from the gadget. While our gate is up in a training session and the
+// player is within 600 u of it, entry 3 is swallowed (menu state untouched, no box) and our gate page opens instead. Other entries run natively.
+typedef void (*PmDecideFn)(void*);
+static PmDecideFn o_pmdec1, o_pmdec2; static volatile LONG g_pmdec_n;
+static int PmDecideSwallow(void* m, int viaVfunc, void* ra, const char* which) {
+    if (!(g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active)) return 0;
+    float q[4], d; if (!PlayerPos(q)) return 0;
+    { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); } if (d >= 600.0f) return 0;
+    int id = -1;
+    __try { uint8_t* p = (uint8_t*)m;
+        if (*(int*)(p + 0x3C8) != 1 || *(uint8_t*)(p + 0x3E8) || *(uint8_t*)(p + 0x404)) return 0;
+        int row = *(int*)(p + 0x3FC);
+        if (viaVfunc) { void* lst = *(void**)(p + 0x3C0); if (!lst) return 0; row = ((int (*)(void*))(*(void***)lst)[0x70 / 8])(lst); }
+        int* ids = *(int**)(p + 0x3D0); if (!ids || row < 0) return 0; id = ids[row];
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    if (id != 3) return 0;
+    LONG n = InterlockedIncrement(&g_pmdec_n); int boss = GateBossAlive(), page = GateMenuOpen(), r = -1;
+    if (!boss && !page) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
+    if (n <= 50) Log("GATE: native end-mission prompt from the pause menu (%s, entry 3, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", which,
+        (unsigned long long)((uintptr_t)ra - B), d, n, boss ? "boss alive, nothing opened" : page ? "our gate page already open" : r >= 0 ? "our gate page opened instead" : "?");
+    return 1;
+}
+static void h_pmdec1(void* m) { if (PmDecideSwallow(m, 0, __builtin_return_address(0), "PauseMenuDecide 1DAE4E0")) return; o_pmdec1(m); }
+static void h_pmdec2(void* m) { if (PmDecideSwallow(m, 1, __builtin_return_address(0), "PauseMenuDecide 1DB58B0")) return; o_pmdec2(m); }
 // user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
 // found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
@@ -4027,7 +4055,13 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_gate_block = GetPrivateProfileIntA("Return", "ReturnGateBlockNativePrompt", 1, ini);
         {   static const uint8_t ecp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x48, 0x89, 0x70, 0x18, 0x48, 0x89, 0x78, 0x20};  // 12A1F80 v2.02
             if (g_cfg_gate && g_cfg_gate_block) { if (!memcmp((void*)(B + 0x12A1F80), ecp, 15)) { o_endconf = (EndConfFn)Hook(0x12A1F80, 15, h_endconf); Log("hook EndMissionConfirmOpen 12A1F80 ok (#9909: the native 'This will end the mission' box never opens while our Return gate is up)"); }
-                else Log("hook EndMissionConfirmOpen 12A1F80: prologue mismatch, native end-mission prompt NOT blocked (input mask only)"); }
+                else Log("hook EndMissionConfirmOpen 12A1F80: prologue mismatch, native end-mission prompt NOT blocked (input mask only)");
+                // #10020: pause menu decide handlers, same 14-byte prologue (mov [rsp+10],rbx; push rbp; lea rbp,[rsp-120]), no rip-relative bytes
+                static const uint8_t pmp[14] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x55, 0x48, 0x8D, 0xAC, 0x24, 0xE0, 0xFE, 0xFF, 0xFF};
+                if (!memcmp((void*)(B + 0x1DAE4E0), pmp, 14)) { o_pmdec1 = (PmDecideFn)Hook(0x1DAE4E0, 14, h_pmdec1); Log("hook PauseMenuDecide 1DAE4E0 ok (#10020: pause-menu 'end mission' near our gate opens our gate page)"); }
+                else Log("hook PauseMenuDecide 1DAE4E0: prologue mismatch, not hooked");
+                if (!memcmp((void*)(B + 0x1DB58B0), pmp, 14)) { o_pmdec2 = (PmDecideFn)Hook(0x1DB58B0, 14, h_pmdec2); Log("hook PauseMenuDecide 1DB58B0 ok (#10020)"); }
+                else Log("hook PauseMenuDecide 1DB58B0: prologue mismatch, not hooked"); }
             else Log("ReturnGateBlockNativePrompt %d: native end-mission prompt not blocked", g_cfg_gate_block); }
         g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);
         { char b[160]; GetPrivateProfileStringA("Summon", "GoldKiColors", "", b, sizeof b, ini); for (char* s = strtok(b, ", "); s && g_goldki_ncols < 8; s = strtok(0, ", ")) g_goldki_cols[g_goldki_ncols++] = (uint32_t)strtoul(s, 0, 16);
