@@ -39,6 +39,7 @@ static void IhNativeAi(uint64_t a, int on) {
 static void Reset(void) {
     memset(&g_ih, 0, sizeof g_ih);
     g_ih_request = g_ih_status = g_ih_epoch = g_ih_serial = 0;
+    g_ih_default_pending = g_ih_idle_stance = 0;
     g_ih_seen_active = g_ih_seen_round = 0; g_ih_seen_chr = g_ih_seen_start = 0;
     g_tr.active = g_tr.round = 1; g_tr.chr = 42450; g_tr.tCmd = 1;
     g_bm.active = 1; g_bm.id = 7; g_bh.phase = 0; g_bh.h = 7;
@@ -89,6 +90,26 @@ int main(void) {
     Reset(); g_tr.chr = 123; IhTick(); Nioh3Training_SetIdleHold(1); IhTick(); assert(!off_calls && Nioh3Training_GetIdleHold() == -1);
     Reset(); g_bm.active = 0; Nioh3Training_SetIdleHold(1); IhTick(); assert(!off_calls && Nioh3Training_GetIdleHold() == -1);
     Reset(); player = actor; Nioh3Training_SetIdleHold(1); IhTick(); assert(!off_calls && Nioh3Training_GetIdleHold() == -1);
+    Reset(); IhDefault(1); g_bm.active = 0; IhTick();
+    assert(Nioh3Training_GetIdleHold() == 1 && !off_calls);
+    clock_ms += 20000; g_bm.active = 1; g_bh.phase = 2; IhTick();
+    assert(!g_ih.phase && !off_calls && g_ih_default_pending);
+    g_bh.phase = 0; can_idle = 0; IhTick(); assert(!g_ih.phase);
+    can_idle = 1; IhTick(); assert(g_ih.phase == 1);
+    action = 2; IhTick(); assert(ai_on == 0 && Nioh3Training_GetIdleHold() == 2);
+    Nioh3Training_SetIdleHold(0); IhTick(); assert(ai_on == 1 && !g_ih_idle_stance);
+    IhStop("retry CPU", 0); ++g_tr.round; ++g_tr.tCmd; IhDefault(0); IhTick();
+    assert(Nioh3Training_GetIdleHold() == 0 && off_calls == 1);
+    IhDefault(1); IhTick(); assert(Nioh3Training_GetIdleHold() == 2 && off_calls == 2);
+    IhStop("retry idle", 0); ++g_tr.round; ++g_tr.tCmd; IhDefault(0); IhTick();
+    assert(Nioh3Training_GetIdleHold() == 2 && off_calls == 3);
+    Reset(); IhDefault(1); Nioh3Training_SetIdleHold(0); IhTick();
+    assert(!g_ih_default_pending && !g_ih.phase && !off_calls);
+    Reset(); IhDefault(1); g_tr.active = 0; IhTick(); assert(!g_ih_default_pending && !off_calls);
+    Reset(); IhDefault(1); ++g_tr.tCmd; IhTick(); assert(!g_ih_default_pending && !off_calls);
+    Reset(); IhDefault(1); g_bm.active = 0; clock_ms = 60001; IhTick();
+    assert(Nioh3Training_GetIdleHold() == -1 && !off_calls);
+    puts("PASS: Training defaults idle after readiness, CPU survives retry, fresh session resets idle, no native/story adoption");
     puts("PASS: idle hold acquisition, OFF/exit restore, round/session change, actor replacement, loading ownership, no AI adoption, timeout, HP floor, unreadable state, re-hold, reactions, hook/disable failure, pre-despawn cleanup, unknown boss, player isolation");
     return 0;
 }

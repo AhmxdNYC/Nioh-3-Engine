@@ -1,5 +1,19 @@
 # Boss idle pause (#10371)
 
+## Current integrated default (#11017)
+
+On the full-build integration branch, explicit Training starts/arena attaches
+now default to Idle stance. The request waits for a live, eligible boss and
+loading/grace release (60-second readiness limit), then uses the existing
+10-second safe-idle acquisition. Left selects CPU, Right selects Idle, A toggles.
+CPU retains ordinary native AI; stance choice survives retry. A new Training
+session defaults Idle again. Story bosses without a Training session are unchanged.
+OFF during loading cancels the default. Return/session replacement cancels it.
+Both ASIs build; extended actual-header tests pass readiness, cover, CPU retry,
+Idle retry, new-session default, early cancellation and timeout. Live behavior
+remains owner-unproven. The older OFF-by-default description below is historical.
+
+
 Implemented on `pc2/move-toggle`, building on the 202-entry attack menu (#10183).
 **Built and tested offline; persistent idle behavior is not live-proven.**
 The branch baseline predates the latest HP-0/gate/debug-freeze builds. Integrate

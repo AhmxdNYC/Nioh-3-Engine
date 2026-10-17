@@ -2,6 +2,15 @@
 // Never writes action state, position, player input, animation time or the debug-freeze state.
 static volatile LONG g_ih_epoch, g_ih_request, g_ih_status;
 static LONG g_ih_serial;
+// Defaults apply only to an explicitly started Training session, never native CPU bosses.
+static volatile LONG g_ih_default_pending, g_ih_idle_stance;
+static DWORD g_ih_default_start;
+static int g_ih_default_round;
+static void IhDefault(int fresh) {
+    if (fresh) InterlockedExchange(&g_ih_idle_stance, 1);
+    g_ih_default_start = g_tr.tCmd; g_ih_default_round = g_tr.round;
+    InterlockedExchange(&g_ih_default_pending, g_ih_idle_stance != 0);
+}
 static uint32_t g_ih_seen_chr;
 static int g_ih_seen_round, g_ih_seen_active;
 static DWORD g_ih_seen_start;
@@ -26,6 +35,7 @@ static void IhStop(const char* why, int failed) {
     if (g_ih.owns_ai && IhSameActor() && IhAlive(g_ih.actor) && !IhForeignHold() && BhAiOn(g_ih.actor) == 0)
         IhNativeAi(g_ih.actor, 1);
     if (g_ih.phase) Log("IDLEHOLD stop %s: phase %d actor %p owned %d", why, g_ih.phase, (void*)g_ih.actor, g_ih.owns_ai);
+    InterlockedExchange(&g_ih_default_pending, 0);
     memset(&g_ih, 0, sizeof g_ih);
     InterlockedExchange(&g_ih_request, 0);
     InterlockedExchange(&g_ih_status, failed ? -1 : 0);
@@ -33,12 +43,14 @@ static void IhStop(const char* why, int failed) {
 N3T_API int Nioh3Training_GetIdleHold(void) {
     // 0 OFF, 1 awaiting safe idle, 2 AI held, -1 acquisition/validation failed.
     LONG status = InterlockedCompareExchange(&g_ih_status, 0, 0);
-    if (!status && InterlockedCompareExchange(&g_ih_request, 0, 0)) return 1;
+    if (!status && (InterlockedCompareExchange(&g_ih_request, 0, 0) || InterlockedCompareExchange(&g_ih_default_pending, 0, 0))) return 1;
     return (int)status;
 }
 N3T_API int Nioh3Training_SetIdleHold(int on) {
     LONG epoch = InterlockedCompareExchange(&g_ih_epoch, 0, 0);
     if (on && !epoch) return 0;
+    InterlockedExchange(&g_ih_default_pending, 0);
+    InterlockedExchange(&g_ih_idle_stance, on != 0);
     InterlockedExchange(&g_ih_request, on ? epoch : 0);
     // Game-thread tick owns both native calls and the observed status.
     return 1;
@@ -67,6 +79,23 @@ static uint32_t IhSelect(uint64_t st, uint32_t id) {
 }
 static void IhTick(void) {
     IhPublishSession();
+    if (InterlockedCompareExchange(&g_ih_default_pending, 0, 0)) {
+        if (!g_tr.active || g_tr.tCmd != g_ih_default_start || g_tr.round != g_ih_default_round) {
+            IhStop("default session changed", 0);
+        } else if (GetTickCount() - g_ih_default_start >= 60000) {
+            IhStop("default boss readiness timeout", 1);
+        } else {
+            uint64_t actor = g_bm.active ? ActorByHandle(g_bm.id) : 0, ai = 0, ctrl = 0;
+            // Do not consume the ten-second acquisition window during load/grace.
+            if (actor && actor != PlayerChar() && !(g_bh.phase && g_bh.h == g_bm.id) &&
+                Rd64(actor + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl &&
+                IhEligible(actor, ctrl) && BhAiOn(actor) == 1) {
+                InterlockedExchange(&g_ih_default_pending, 0);
+                InterlockedExchange(&g_ih_request, g_ih_epoch);
+                Log("IDLEHOLD default: Training idle stance ready");
+            }
+        }
+    }
     LONG request = InterlockedCompareExchange(&g_ih_request, 0, 0);
     LONG epoch = InterlockedCompareExchange(&g_ih_epoch, 0, 0);
     if (!request) { if (g_ih.phase) IhStop("OFF", 0); return; }

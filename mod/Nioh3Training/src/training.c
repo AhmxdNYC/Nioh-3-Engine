@@ -313,7 +313,7 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 1000;
 static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static volatile LONG g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
-static void IhStop(const char* why, int failed);
+static void IhStop(const char* why, int failed); static void IhDefault(int fresh);
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
@@ -1292,7 +1292,7 @@ static int TrainStart(const char* tok, float d) {
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", tok); g_tr.tCmd = GetTickCount(); g_tr.round = 1;
     if (g_cfg_tr_nodeath) PlayerSetNoDeath(1);
     g_tr.tRespawn = GetTickCount() + 300;  // the native delete of the previous boss is applied on a later frame: spawn shortly after
-    g_tr.active = 1; Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
+    g_tr.active = 1; IhDefault(1); Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
     return 1;
 }
 static int g_cfg_tr_respawn = 2000;
@@ -1304,6 +1304,7 @@ static void TrainRetry(const char* why) {
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
     g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tFadeAt = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
+    IhDefault(0);
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
 }
 static volatile DWORD g_gate_maskUntil; static int g_cfg_gate_mask_hold = 2000;  // #9909 [Return] ReturnGateMaskHoldMs; mask forced on after a lost round's put-back
@@ -1328,7 +1329,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr;
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
     if (g_cfg_tr_nodeath) PlayerSetNoDeath(1);
-    g_tr.active = 1; Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
+    g_tr.active = 1; IhDefault(1); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
 }
 static void TrainTick(void) {
     if (!g_tr.active) return;

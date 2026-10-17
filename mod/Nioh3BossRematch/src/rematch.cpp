@@ -1998,7 +1998,7 @@ void IdleHoldToggle(int dir) {
     const int on = dir ? dir > 0 : IdleHoldStatus() <= 0;
     const int ok = f ? f(on) : 0;
     snprintf(g_msg, sizeof g_msg, "%s", !ok ? "Start a Fight now session with a live boss first." :
-        on ? "Requested: pause the boss at its next safe idle. Player remains usable." : "Requested: release the boss idle pause.");
+        on ? "Requested: pause the boss at its next safe idle. Player remains usable." : "CPU stance: normal boss AI resumes.");
 }
 uint32_t g_uiMoveChr = 0;
 uint32_t MoveBoss() {
@@ -2691,8 +2691,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItIdleHold) {
             const int hold = IdleHoldStatus();
             add(sel ? cWhite : hold == 2 ? cGreen : hold ? cYellow : cGray, sel,
-                "%s Pause boss at idle: %s   A / Left / Right", mk,
-                hold == 2 ? "ON" : hold == 1 ? "WAITING FOR IDLE" : hold < 0 ? "NOT HELD (retry)" : "OFF");
+                "%s Boss stance: %s   A / Left CPU / Right Idle", mk,
+                hold == 2 ? "IDLE" : hold == 1 ? "IDLE (waiting)" : hold < 0 ? "CPU (idle failed)" : "CPU");
         }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
@@ -2751,8 +2751,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const int hold = IdleHoldStatus();
             snprintf(footer, nf, "%s", hold < 0 ? "Idle was not safely acquired. No hold remains. Retry after the fight/loading/finisher settles." :
                 hold == 2 ? "Boss AI paused at idle; player stays usable. Hits can play reactions. Left/OFF or session exit releases. Debug freeze is separate." :
-                hold == 1 ? "Waiting for a safe idle transition (10 s limit). Current action may finish. Left cancels; session changes cancel automatically." :
-                g_msg[0] ? g_msg : "Pause only the current boss at idle; player stays usable. Right requests; Left releases. Session-only, not saved. Debug freeze is separate.");
+                hold == 1 ? "Waiting for boss readiness, then a safe idle transition. Current action may finish. Left selects CPU." :
+                g_msg[0] ? g_msg : "Training starts in Idle stance. Right Idle / Left CPU. The stance survives retry; a new session starts Idle. Player stays usable.");
         } else if (item == kItMoves || g_uiPages.page == uMoves) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the current Fight now boss. Start a session to see recorded actions. B returns.");
         } else if (item <= kItSettingBase) {
