@@ -1,0 +1,7 @@
+- [ ] Play-test merged build (latest hosted menu with toggles, gold Ki bar, Return / Fight again object) | install pending from builder; when ready: play Rematch, check toggles at menu top, Ki bar gold, Return object options | main PC
+- [ ] No-finisher toggle play test (user #7465) | Play a boss fight (Training summon / Rematch): break its Ki -> LB grapple should do nothing, gold Ki bar only; bring HP to 0 -> boss stays broken, gold bar drains ~2 s, dies only if you stop hitting. Boss AI was OFF in all my tests: tell me if it still attacks at HP 0. Ini KiBreakNoFinisher=1 is set in the live Training ini (0 = off) | main PC
+- [ ] Play lsfade build | play Shingen/Otoroshi cross-world Fight now: is the arena fully visible/OK when screen returns at ~7 s? toggles ok? | main PC
+- [ ] Play-test build b950cb2 (no finisher on gold boss, HP0 stagger, Return loading screen, auto-record) | not installed yet; waiting for user: install now or test first | pc
+- [ ] Return gate native 'End mission?' dialog (shot9324) | builder a32d0a7 fixing; user may see it again until installed | pc
+- [ ] Report which part of loading looked awkward | after rematch: arena visible then what? | main PC
+- [ ] Ki-break death pose check on build 5675ecc8 | play normal Ki breaks on any boss; F9 if death pose shows | pc
