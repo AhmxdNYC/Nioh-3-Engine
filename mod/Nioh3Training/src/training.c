@@ -312,7 +312,7 @@ static int FadeOutActor(int idx, float frames) {
 static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_timeout = 6000;
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 2000;
-static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static int g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
+static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static volatile LONG g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')

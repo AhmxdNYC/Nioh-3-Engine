@@ -2676,7 +2676,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
         if (IsMoveItem(item)) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A toggles; Left OFF / Right ON. Saved per boss. (?) = unverified label. The current action finishes; the next selection skips disabled actions.");
+            using StatusFn = int (*)();
+            const auto status = (StatusFn)TrainingExport("Nioh3Training_GetMoveHookStatus");
+            const int hook = status ? status() : 0;
+            const int allowed = MoveAllowed(kN3Moves[item - kItMoveBase]);
+            snprintf(footer, nf, "%s", hook < 0 ? "Move hooks unavailable: validation failed. Saved OFF switches cannot veto actions in this session." :
+                !hook && allowed == 0 ? "Saved OFF; activation is pending until the game resumes." :
+                g_msg[0] ? g_msg : "A toggles; Left OFF / Right ON. Saved per boss. (?) = unverified label. The current action finishes; the next selection skips disabled actions.");
         } else if (item == kItMoves || g_uiPages.page == uMoves) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the current Fight now boss. Start a session to see recorded actions. B returns.");
         } else if (item <= kItSettingBase) {
