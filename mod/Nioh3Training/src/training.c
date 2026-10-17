@@ -1725,7 +1725,21 @@ static int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode) {  // mis
     __try { *journey = *(uint8_t*)(ms + 0x10); *mode = *(uint32_t*)(ms + 0x24); *mission = *(uint32_t*)(ms + 0x28); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return 1;
 }
+// user #9291/#9296: screen recording tied to Boss Rematch. [Record] Enable = 1: at every Fight now (Boss Rematch menu / Fight again) start the recorder
+// script ([Record] Script, default <game dir>\Nioh3FightRecorder.ps1) once, hidden; it captures ~3 fps half-size jpgs into [Record] OutRoot\rec_<stamp>\
+// and stops by itself at 'RETURN done', when the game exits, 90 s after a fight end with no new Fight now, or after MaxMinutes. 0 (default) = off.
+static int g_cfg_rec = 0; static char g_rec_script[MAX_PATH], g_rec_out[MAX_PATH]; static int g_rec_max = 20; static HANDLE g_rec_proc;
+static void RecStart(const char* why) {
+    if (!g_cfg_rec) return;
+    if (g_rec_proc) { if (WaitForSingleObject(g_rec_proc, 0) == WAIT_TIMEOUT) return; CloseHandle(g_rec_proc); g_rec_proc = 0; }
+    if (GetFileAttributesA(g_rec_script) == INVALID_FILE_ATTRIBUTES) { static int nl; if (nl++ < 3) Log("RECORD: script %s not found, no recording", g_rec_script); return; }
+    char cmd[3 * MAX_PATH + 160]; snprintf(cmd, sizeof cmd, "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%s\" -GamePid %lu -OutRoot \"%s\" -MaxMinutes %d", g_rec_script, GetCurrentProcessId(), g_rec_out, g_rec_max);
+    STARTUPINFOA si; PROCESS_INFORMATION pi; memset(&si, 0, sizeof si); si.cb = sizeof si; si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_HIDE; memset(&pi, 0, sizeof pi);
+    if (CreateProcessA(0, cmd, 0, 0, FALSE, CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS, 0, 0, &si, &pi)) { g_rec_proc = pi.hProcess; CloseHandle(pi.hThread); Log("RECORD: recorder started (%s), pid %lu -> %s\\rec_<stamp>", why, pi.dwProcessId, g_rec_out); }
+    else Log("RECORD: CreateProcess failed (%lu)", GetLastError());
+}
 static void HomeCapture(int world, const float* pos, const char* why) {
+    RecStart(why);
     uint32_t mis = 0, mode = 0; uint8_t jr = 0; if (world < 0 || !MsRead(&mis, &jr, &mode)) return;
     if (g_home.valid && g_tr.active && g_tr.hasStart && mis == g_home.mission) return;  // still in the session that started there
     g_home.valid = 1; g_home.world = (uint8_t)world; g_home.journey = jr; g_home.mode = mode; g_home.mission = mis; g_home.start = *(uint32_t*)(B + 0x45BC42C); memcpy(g_home.pos, pos, sizeof g_home.pos);
@@ -1978,6 +1992,10 @@ static HWND g_fd_wnd, g_fd_game;
 static DWORD g_fd_tPl;
 static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn in the game's own frame) or the fallback GDI window
 static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
+// #8902/#9133 Return to where I was shows the Boss Rematch loading screen look (EngineFix export Nioh3EngineFix_LoadScreen) with the title 'Return'
+// instead of a plain black screen. [Return] LoadScreen = 1 (default), 0 = black only. Missing export (older EngineFix) = black only.
+static int (*p_osdLoad)(int, const char*, const char*); static int g_cfg_rh_ls = 1, g_rh_ls_on;
+static void RhLoadScreen(int on) { if (!p_osdLoad || !g_cfg_rh_ls || on == g_rh_ls_on) return; g_rh_ls_on = on; int r = p_osdLoad(on, "Return", "Returning to where you were..."); Log("RETURN loading screen %s (EngineFix overlay %s)", on ? "on" : "off", r ? "drawing" : "menu off: black only"); }
 static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
 static BOOL CALLBACK FdFind(HWND h, LPARAM lp) { (void)lp;
     DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fd_wnd) return TRUE;
@@ -2186,7 +2204,7 @@ N3T_API void Nioh3Training_SetInstantRespawn(int on, int persist) { Nioh3Trainin
 // with no boss or mid-swap. A running cross-world swap / prewarm is cancelled through the bridge 6541/6550 abort path (XwCancel -> XwCancelTick WarpOtherWorld back
 // -> XrTick puts the player on the spot), aimed at g_home; another world without a swap running uses the same WarpOtherWorld trip; the same world is a plain warp.
 // Fade to black around it like Fight now. Game thread (pump); the export only queues.
-static void RhDone(const char* why) { Log("RETURN done (%s) +%lu ms", why, GetTickCount() - g_rh.t0); g_rh.active = 0; g_rh.phase = 0; FadeWant(0, "return to where I was"); }
+static void RhDone(const char* why) { Log("RETURN done (%s) +%lu ms", why, GetTickCount() - g_rh.t0); g_rh.active = 0; g_rh.phase = 0; RhLoadScreen(0); FadeWant(0, "return to where I was"); }
 static void RhTick(void) {
     DWORD now = GetTickCount();
     if (InterlockedExchange(&g_rh.want, 0) && !g_rh.active) {
@@ -2198,7 +2216,7 @@ static void RhTick(void) {
             g_xw.oWorld = g_home.world; g_xw.oJourney = g_home.journey; g_xw.oMode = g_home.mode; g_xw.oStart = g_home.start; memcpy(g_xw.oPos, g_home.pos, sizeof g_xw.oPos);
             g_xw.claimed = 0; g_xw.cancel = 0; XwCancel("Return to where I was");
         }
-        if (g_home.valid) FadeWant(1, "return to where I was");
+        if (g_home.valid) { FadeWant(1, "return to where I was"); RhLoadScreen(1); }
     }
     if (!g_rh.active) return;
     if (now - g_rh.t0 > 90000) { Log("RETURN: not finished after 90 s (phase %d), giving up", g_rh.phase); RhDone("timeout"); return; }
@@ -2986,6 +3004,15 @@ static volatile LONG g_nf_cnt_tgt;
 // above), B80 <- 8670D4, B98 <- 867034, BE0 <- 866F24. The finisher on a downed / HP-floor boss (KIFINISHER 35=1 'HP floor' at 16:30:50 while the grapple
 // slot was blocked 392 frames) is the B50 'down' target. While a watched boss's Ki bar is gold (stagger or HP-0 window) it is removed from that slot too.
 static volatile uint64_t g_nf_goldact[4]; static volatile LONG g_nf_cnt_down;
+// user #9135 (play 20:41, Yoritomo): the finisher (KIFINISHER 35=1 at HP 1) still came while the Ki bar was gold, with the grapple-target block at 362
+// frames and down target / CanGrapple / grab box all 0, so it did not use any blocked slot (notes/grapple-finisher-paths-9133.md). Two more gates for a
+// gold boss (g_nf_goldact: break, HP-0 window, HP floor until dead):
+//  (a) grab boxes WITHOUT the Ki-broken flag (+0x4C bit 0 but not bit 7) jump past the 117A9EE hook (117A9AC 'test al,al; jns 117AA2A') and only
+//      need the attacker's grab target; the stub at 117A9AC rejects (117C6ED) every grab box whose victim (rbx) is a gold boss.
+//  (b) StateTest 0x27 ('needs death blow' = 2A3AC0(ctrl) || ctrl+0xA8 bit 45, the HP-floor death-blow offer) answers false for a gold boss, except to
+//      the two native damage functions that use it as their revive test (E43BF2 / 21FAEFA; the other two sites, 329C9F and 787004, are our stubs).
+//      Detour on the StateTest default implementation 2E9948 (same hook as the nofintrace aid). [Summon] KiBreakBlockDeathBlow = 1 (default).
+static volatile uint64_t g_nf_goldctrl[4]; static volatile LONG g_nf_cnt_grab0, g_nf_cnt_st27; static int g_nf_st27 = 1;
 static uint64_t NfDownTarget(uint64_t ctrl, uint8_t flag) {
     uint64_t t = ((uint64_t (*)(uint64_t, uint8_t))(B + 0x8671D4))(ctrl, flag);
     if (t && g_cfg_nofin) for (int i = 0; i < 4; ++i) if (g_nf_goldact[i] == t) { InterlockedIncrement(&g_nf_cnt_down); return 0; }
@@ -3020,6 +3047,30 @@ static void NfKiRow(uint64_t w, uint64_t row28, uint64_t snap, uint8_t broken, u
     }
     ((void (*)(uint64_t, uint64_t, uint64_t, uint8_t, uint8_t))(B + 0x235F9A4))(w, row28, snap, broken, style);
 }
+// user #9296/#9297 (play 22:12): at HP 0 the boss must play the normal Ki-break stagger, not the HP-floor / dying pose. Every lethal hit (all hits at HP 1)
+// requests motion 0x308 (HP floor / dying) in the hit apply (3F21A4(chr+0x2DC0, id) at 329C86, after 4B50D8(chr+0x2DC0, 0x308) says the boss has it) and
+// again in 786C84's revive branch (7870E4). Hook on the motion request 3F21A4 for a watched boss: logs every id it is asked to play (first 300) and learns the
+// id requested when its native Ki break starts (NfTick, state 0x23 rising outside the HP-0 window); while KiBreakNoFinisher owns the HP floor a 0x308 request
+// is replaced by that Ki-break stagger id ([Summon] KiBreakHp0StaggerId, 0 = learned; until learned the 0x308 request is dropped = normal hit reaction).
+typedef uint64_t (*NfMotFn)(uint64_t, uint32_t, uint64_t, uint64_t); static NfMotFn g_mot_orig;
+static volatile uint64_t g_nf_chr[4]; static volatile DWORD g_mot_t[4]; static volatile uint32_t g_mot_id[4]; static volatile LONG g_mot_logs, g_mot_swaps;
+static int g_cfg_stag_id = 0; static volatile uint32_t g_nf_brk_id;
+static uint64_t NfMotDetour(uint64_t c, uint32_t id, uint64_t r8, uint64_t r9) {
+    uint32_t want = id & 0xFFFF;
+    if (c && g_cfg_nofin) for (int i = 0; i < 4; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x2DC0 == c) {
+        void* fr[1] = {0}; RtlCaptureStackBackTrace(1, 1, fr, 0); uint32_t from = fr[0] ? (uint32_t)((uintptr_t)fr[0] - B) : 0;
+        if (InterlockedIncrement(&g_mot_logs) <= 300) Log("NOFIN motion request boss slot %d: id 0x%X from %X", i, want, from);
+        if (want == 0x308 && g_nf_stagger && g_nf_act[i] && g_nf_act[i] != g_kill_act) {  // not during our own kill (g_nf_act cleared then)
+            uint32_t sub = g_cfg_stag_id ? (uint32_t)g_cfg_stag_id : g_nf_brk_id; LONG k = InterlockedIncrement(&g_mot_swaps);
+            if (k <= 20 || k % 50 == 0) Log("NOFIN HP-floor motion 0x308 on boss slot %d (from %X) -> %s 0x%X (#%ld)", i, from, sub ? "Ki-break stagger" : "dropped, no stagger id learned yet", sub, k);
+            if (!sub) return 0;
+            id = sub; want = sub;
+        }
+        g_mot_id[i] = want; g_mot_t[i] = GetTickCount(); break;
+    }
+    return g_mot_orig(c, id, r8, r9);
+}
+typedef uint8_t (*NfStFn)(uint64_t, uint32_t, uint64_t); static NfStFn g_tr_orig; static uint8_t NfStDetour(uint64_t c, uint32_t id, uint64_t r8);
 static void NfInstallHooks(void) {
     if (g_nf_hooked) return; g_nf_hooked = 1;
     int ok = 0;
@@ -3087,6 +3138,37 @@ static void NfInstallHooks(void) {
         if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfDownTarget); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
             if (NfPatchCall(site, B + 0x8671D4, s, "down target 2F7015")) { Log("NOFIN hook down target 2F7015 (8671D4, StateTest 9 slot ctrl+B50): on, blocked while the Ki bar is gold (#8894)"); } else Log("NOFIN hook down target 2F7015: OFF (call site differs)"); }
     }
+    {   // #9135 (a) 117A9AC: test al,al; jns 117AA2A; mov rax,[rsi+3B0h] (11 bytes) -> jmp stub. Victim actor = rbx (its ctrl is tested at 117A9EE).
+        uint8_t* site = (uint8_t*)(B + 0x117A9AC); static const uint8_t org[11] = {0x84, 0xC0, 0x79, 0x7A, 0x48, 0x8B, 0x86, 0xB0, 0x03, 0x00, 0x00};
+        uint8_t* s = memcmp(site, org, 11) ? 0 : NearPage(site);
+        if (!s) Log("NOFIN hook plain grab box 117A9AC: bytes differ / no stub, not hooked (%02X %02X %02X %02X)", site[0], site[1], site[2], site[3]);
+        else { uint8_t* p = s; uint8_t* je[4]; uint8_t* jz;
+            *p++ = 0x48; *p++ = 0x85; *p++ = 0xDB; *p++ = 0x74; jz = p++;  // test rbx,rbx; jz orig
+            *p++ = 0x50; p = E_mov_rax(p, (uint64_t)g_nf_goldact); p = E_cmp4(p, 3, je); *p++ = 0x58;  // push rax; cmp rbx,[rax+8i] x4; pop rax
+            *jz = (uint8_t)(p - (jz + 1));
+            uint8_t* orig = p; *p++ = 0x84; *p++ = 0xC0; *p++ = 0x79; uint8_t* jns = p++;  // test al,al; jns L1
+            *p++ = 0x48; *p++ = 0x8B; *p++ = 0x86; *p++ = 0xB0; *p++ = 0x03; *p++ = 0; *p++ = 0;  // mov rax,[rsi+3B0h]
+            *p++ = 0xFF; *p++ = 0x25; *(uint32_t*)p = 0; p += 4; *(uint64_t*)p = B + 0x117A9B7; p += 8;
+            *jns = (uint8_t)(p - (jns + 1)); *p++ = 0xFF; *p++ = 0x25; *(uint32_t*)p = 0; p += 4; *(uint64_t*)p = B + 0x117AA2A; p += 8;
+            E_bind(je, 4, p); *p++ = 0x58; p = E_inc(p, &g_nf_cnt_grab0);  // block: pop rax; count; jmp 117C6ED (reject)
+            *p++ = 0xFF; *p++ = 0x25; *(uint32_t*)p = 0; p += 4; *(uint64_t*)p = B + 0x117C6ED; p += 8;
+            (void)orig; FlushInstructionCache(GetCurrentProcess(), s, p - s);
+            DWORD old; VirtualProtect(site, 11, PAGE_EXECUTE_READWRITE, &old);
+            uint8_t nb[11]; memset(nb, 0x90, sizeof nb); nb[0] = 0xE9; *(int32_t*)(nb + 1) = (int32_t)((intptr_t)s - (intptr_t)(site + 5));
+            memcpy(site + 5, nb + 5, 6); InterlockedExchange((volatile LONG*)(site + 1), *(LONG*)(nb + 1)); site[0] = 0xE9;
+            VirtualProtect(site, 11, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 11);
+            Log("NOFIN hook plain grab box 117A9AC: on (grab boxes without the Ki-broken flag miss a gold boss, #9135)"); }
+    }
+    {   static const uint8_t mp[15] = {0x48,0x89,0x5C,0x24,0x08, 0x48,0x89,0x6C,0x24,0x10, 0x48,0x89,0x74,0x24,0x18};
+        if (g_mot_orig) { } else if (memcmp((void*)(B + 0x3F21A4), mp, 15)) Log("NOFIN motion hook 3F21A4: prologue differs, OFF (HP floor keeps the native pose)");
+        else { g_mot_orig = (NfMotFn)Hook(0x3F21A4, 15, (void*)NfMotDetour); Log("NOFIN motion hook 3F21A4: on (HP-floor motion 0x308 -> Ki-break stagger id %d (0 = learned), #9297)", g_cfg_stag_id); }
+    }
+    if (g_nf_st27) {  // #9135 (b): StateTest default impl 2E9948 detour (shared with the nofintrace aid)
+        static const uint8_t pro[15] = {0x48,0x8B,0xC4, 0x48,0x89,0x58,0x08, 0x48,0x89,0x70,0x10, 0x48,0x89,0x78,0x20};
+        if (g_tr_orig) Log("NOFIN death-blow test 2E9948: on (detour already in)");
+        else if (memcmp((void*)(B + 0x2E9948), pro, 15)) Log("NOFIN death-blow test 2E9948: prologue differs, OFF");
+        else { g_tr_orig = (NfStFn)Hook(0x2E9948, 15, (void*)NfStDetour); Log("NOFIN death-blow test 2E9948: on (StateTest 0x27 false for a gold boss, #9135)"); }
+    }
     Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s (off by design), lethal cond %s, Ki row drain %s, grapple target %s, hit probe %s", g_cfg_nofin, g_cfg_nofin_ms,
         ok & 1 ? "on" : "OFF", ok & 2 ? "on" : "OFF", ok & 4 ? "on" : "OFF", ok & 8 ? "on" : "OFF", ok & 16 ? "on" : "OFF", ok & 32 ? "on" : "OFF", ok & 64 ? "on" : "OFF", ok & 128 ? "on" : "OFF");
 }
@@ -3099,6 +3181,17 @@ static NfStFn g_tr_orig; static volatile uint64_t g_tr_ctrl; static volatile DWO
 static struct { volatile LONG64 key; volatile LONG n, nt; volatile DWORD t1, t2; uint32_t f2; } g_ntr[NF_TRN];
 static uint8_t NfStDetour(uint64_t c, uint32_t id, uint64_t r8) {
     uint8_t r = g_tr_orig(c, id, r8);
+    if (r && id == 0x27 && c && g_nf_st27 && g_cfg_nofin) {  // #9135 (b): no death-blow offer on a gold boss
+        for (int i = 0; i < 4; ++i) if (g_nf_goldctrl[i] == c) {
+            uint64_t a = g_nf_goldact[i]; if (!a || a == g_kill_act) break;
+            void* fr[2] = {0}; USHORT k = RtlCaptureStackBackTrace(1, 2, fr, 0);
+            uintptr_t f1 = k >= 1 ? (uintptr_t)fr[0] : 0, site = (f1 - B == 0x4893EB && k >= 2) ? (uintptr_t)fr[1] : f1;
+            if (site < B || site >= B + g_imgSize) break;  // our own stubs (lethal-hit 329C9F, revive 787004) decide themselves
+            uint32_t rv = (uint32_t)(site - B); if (rv == 0xE43BF7 || rv == 0x21FAEFF) break;  // native damage revive tests: keep (no death instead of HP 1)
+            LONG n = InterlockedIncrement(&g_nf_cnt_st27); if (n <= 8 || n % 500 == 0) Log("NOFIN death-blow test (StateTest 0x27) on gold boss %p from %X -> false (#%ld)", (void*)a, rv, n);
+            return 0;
+        }
+    }
     if (g_tr_on && c == g_tr_ctrl) {
         void* fr[3] = {0}; USHORT k = RtlCaptureStackBackTrace(1, 2, fr, 0);
         uint32_t f1 = k >= 1 ? (uint32_t)((uintptr_t)fr[0] - B) : 0, f2 = k >= 2 ? (uint32_t)((uintptr_t)fr[1] - B) : 0;
@@ -3142,7 +3235,7 @@ static void NfTraceTick(void) {
         Log("NOFIN trace: %s %06llX id %02llX n %ld true %ld t %lu..%lu ms", (k >> 15) & 1 ? "via4893B8 from" : "vcall at", (unsigned long long)(k >> 16), (unsigned long long)(k & 0x7FFF), g_ntr[i].n, g_ntr[i].nt, g_ntr[i].t1, g_ntr[i].t2); }
     Log("NOFIN trace end: %d keys", m);
 }
-static void NfClear(int s) { g_nf_goldact[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
+static void NfClear(int s) { g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf_chr[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
 // Live 00:32:11: KiSetCur(K, -max) leaves the boss at Ki -1000 but NOT broken (no exhaustion, it kept attacking): the break is the hit-reaction when a hit's
 // Ki damage takes the Ki across 0 (327DEC). So 'break' = prime the Ki to 0.5: the next hit breaks the boss natively (NfLethalCond primes inside the lethal hit).
 static void NfBreakNow(uint64_t st, const char* why, uint64_t a) {
@@ -3199,13 +3292,18 @@ static void NfTick(void) {
         // #9133: an exhausted field alone (0x23 over) no longer holds the gold once the Ki refills (> 0): that kept a full gold bar while the native bar refilled
         int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, ki0 = kc <= 0.0f && g_nf[s].win != 1, broken = s23 || (exh && kc <= 0.0f) || ki0;
         if (g_nf[s].win >= 2 && !dead && hc > 1) { g_nf[s].win = 0; g_nf[s].tries = 0; NfLog("NOFIN boss %p alive again (HP %llu, actor reused after despawn/summon): window re-armed", (void*)a, hc); }
-        if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf[s].win = 3; continue; }
-        g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl;
+        if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf[s].win = 3; continue; }
+        g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl; g_nf_chr[s] = st;
+        {   static int prev23[NF_N]; if (s23 && !prev23[s] && g_nf[s].win == 0 && hc > 1) {  // native Ki break started: learn its stagger motion id (#9297)
+                uint32_t mid = g_mot_id[s]; DWORD mt = g_mot_t[s];
+                if (mid && mid != 0x308 && now - mt < 400) { if (g_nf_brk_id != mid) NfLog("NOFIN boss %p Ki-break stagger motion learned: 0x%X (requested %lu ms before the break was seen)", (void*)a, mid, now - mt); g_nf_brk_id = mid; }
+                else NfLog("NOFIN boss %p Ki break started, no motion request in the last 400 ms (last 0x%X %lu ms ago)", (void*)a, mid, mt ? now - mt : 0); }
+            prev23[s] = s23; }
         // prime hold: the whole HP-0 window keeps the Ki at 0.5 while the boss is not broken, so the next hit's Ki damage breaks it natively
         if (!broken && kc > 0.5f && g_nf[s].win == 1) { __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
         if (broken != g_nf[s].broken) { g_nf[s].broken = broken; if (!broken && g_nf[s].win == 1) g_nf[s].nRebreak++;
-            NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d ki0 %d, Ki %.1f, HP %llu/%llu); blocked so far: down target %ld, grapple target %ld, CanGrapple %ld, grab box %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, ki0, kc, hc, hm,
-                  g_nf_cnt_down, g_nf_cnt_tgt, g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28); }
+            NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d ki0 %d, Ki %.1f, HP %llu/%llu); blocked so far: down target %ld, grapple target %ld, CanGrapple %ld, grab box %ld, plain grab box %ld, death-blow test %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, ki0, kc, hc, hm,
+                  g_nf_cnt_down, g_nf_cnt_tgt, g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_grab0, g_nf_cnt_st27, g_nf_cnt_b31, g_nf_cnt_b28); }
         if (hc <= 1 && g_nf[s].win == 0) {
             g_nf[s].win = 1; g_nf[s].tWin = g_nf[s].tLast = now; g_nf[s].hits0 = g_nf_hits[s]; g_nf[s].nHits = 0; g_nf[s].nRebreak = 0;
             NfLog("NOFIN HP-0 window start boss %p (HP %llu/%llu): Ki broken + gold bar draining %d ms; dies if not hit", (void*)a, hc, hm, g_cfg_nofin_ms);
@@ -3241,7 +3339,7 @@ static void NfTick(void) {
             }
         }
         if (g_nf[s].win == 2) {  // kill issued, boss still alive: retry (the death-blow gates are cleared from the 1st retry)
-            g_nf_goldact[s] = a; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;  // #9133: down-target slot stays blocked until it is dead
+            g_nf_goldact[s] = a; g_nf_goldctrl[s] = ctrl; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;  // #9133: down-target slot stays blocked until it is dead
             if (hc <= 1 && g_nf[s].tries < 6 && now - g_nf[s].tKill >= 500u * (DWORD)(g_nf[s].tries + 1)) { g_nf[s].tries++; NfLog("NOFIN kill retry %d boss %p HP %llu", g_nf[s].tries, (void*)a, hc); ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher retry", 1); }
             continue;
         }
@@ -3257,7 +3355,7 @@ static void NfTick(void) {
         }
         // #9133 (4th bug): the finisher slipped through after the 3.9 s break window ended. The downed/HP-floor target slot (2F7015) stays blocked for the
         // whole break, the HP-0 window, any time the boss sits at the HP floor (HP <= 1) until it dies, and 1.5 s after the gold ends.
-        g_nf_goldact[s] = (isGold || hc <= 1 || (g_nf[s].tGoldEnd && now - g_nf[s].tGoldEnd < 1500)) ? a : 0;
+        g_nf_goldact[s] = (isGold || hc <= 1 || (g_nf[s].tGoldEnd && now - g_nf[s].tGoldEnd < 1500)) ? a : 0; g_nf_goldctrl[s] = g_nf_goldact[s] ? ctrl : 0;
     }
     g_nf_goldw = gold ? 1.0f : fadeW;
     if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); if (gold && g_nf_dumpN <= 0) g_nf_dumpN = 48; }  // auto-dump the wide quads of the first frames (evidence if the strips do not match)
@@ -3278,7 +3376,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); if (g_xs.lgs) LoaderGatePatch(0); g_xs.lgs = 0; g_xs.on = 0; g_xs.patched = 0; }
-    __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; }
+    __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; RhLoadScreen(0); }
     __try { GoldKiRatios(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { GateTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE tick exception %08lX", GetExceptionCode()); g_gate.tried = 3; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
@@ -3373,6 +3471,11 @@ static DWORD WINAPI Worker(LPVOID x) {
         if (g_cfg_fade) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
+            p_osdLoad = ef ? (int (*)(int, const char*, const char*))GetProcAddress(ef, "Nioh3EngineFix_LoadScreen") : 0;
+            {   char gd[MAX_PATH]; snprintf(gd, sizeof gd, "%s", ini); char* sl = strrchr(gd, '\\'); if (sl) *sl = 0; char def[MAX_PATH + 32]; snprintf(def, sizeof def, "%s\\Nioh3FightRecorder.ps1", gd);
+                g_cfg_rec = GetPrivateProfileIntA("Record", "Enable", 0, ini); GetPrivateProfileStringA("Record", "Script", def, g_rec_script, sizeof g_rec_script, ini); GetPrivateProfileStringA("Record", "OutRoot", gd, g_rec_out, sizeof g_rec_out, ini);
+                g_rec_max = GetPrivateProfileIntA("Record", "MaxMinutes", 20, ini); Log("RECORD (#9291): Enable %d, Script %s, OutRoot %s, MaxMinutes %d", g_cfg_rec, g_rec_script, g_rec_out, g_rec_max); }
+            g_cfg_rh_ls = GetPrivateProfileIntA("Return", "LoadScreen", 1, ini); Log("RETURN loading screen (#8902): [Return] LoadScreen %d, EngineFix export %s", g_cfg_rh_ls, p_osdLoad ? "found" : "missing (black only)");
             if (p_osdFade && p_osdAlpha) { g_fd_ok = 1; Log("FADE: using the Nioh3EngineFix overlay export (D3D)"); }
             else { p_osdFade = 0; p_osdAlpha = 0; Log("FADE: Nioh3EngineFix fade export not found, using the GDI overlay window"); CreateThread(0, 0, FadeThread, 0, 0, 0); }
         }
@@ -3397,6 +3500,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 2000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
         g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini); g_nf_clear101 = GetPrivateProfileIntA("Summon", "KiBreakHp0ClearDeathBlow", 1, ini); g_nf_kirow_unbreak = GetPrivateProfileIntA("Summon", "KiBreakGoldUnbreak", 1, ini);
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
+        g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
+        g_nf_st27 = GetPrivateProfileIntA("Summon", "KiBreakBlockDeathBlow", 1, ini); Log("KiBreakBlockDeathBlow %d (#9135: no death-blow offer + no plain grab box on a gold boss)", g_nf_st27);
         g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
         g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);

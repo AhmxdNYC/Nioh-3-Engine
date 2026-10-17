@@ -1938,8 +1938,27 @@ float DrawRematchHost(unsigned W, unsigned H) {
     return scale;
 }
 
+// #8902/#9133 Nioh3EngineFix_LoadScreen: the same 'Loading boss rematch' look for Nioh3Training's own transitions (Return to where I was),
+// title + stage text given by the caller. Independent of the Rematch cover state machine (no native request, no input capture).
+SRWLOCK g_lsLock=SRWLOCK_INIT;volatile LONG g_lsOn=0;char g_lsTitle[64]="";char g_lsStage[96]="";
 float DrawImpl(unsigned W, unsigned H) {
     g_coverDrawnToken=0;
+    if(g_lsOn && !g_coverToken.load() && !g_open) {
+        char title[64],stage[96];
+        AcquireSRWLockShared(&g_lsLock);memcpy(title,g_lsTitle,sizeof title);memcpy(stage,g_lsStage,sizeof stage);ReleaseSRWLockShared(&g_lsLock);
+        if(!osd::DrawCoverRect((float)W,(float)H))return 0;
+        const float scale=W<960?1.25f:2.0f;
+        const float x=(float)W*0.06f,y=(float)H*0.43f;
+        const float width=(float)W*0.72f<640.0f?(float)W*0.72f:640.0f;
+        osd::DrawText(x,y,title,0xFFFFFFFF,scale);
+        const float travel=width*0.78f;
+        const float cycle=(float)(Now()%1800)/900.0f;
+        const float offset=travel*(cycle<=1.0f?cycle:2.0f-cycle);
+        osd::DrawRect(x,y+52.0f,width,8.0f,0xFF3A3A3A);
+        osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
+        if(stage[0])osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
+        return scale;
+    }
     if(!g_coverToken.load() && Now()<g_coverNoticeUntil && !g_open) {
         osd::DrawText(30.0f,40.0f,g_coverNotice,0xFFFFFFFF,1.0f);return 1.0f;
     }
@@ -2485,6 +2504,16 @@ bool SwallowMessage(const tagMSG* m) {
 
 }  // namespace menu
 
+// Nioh3EngineFix_LoadScreen(on, title, stage): full-screen loading screen (black, title, moving bar, stage line) drawn by the overlay until
+// called with on = 0. title/stage may be null (kept). Any thread. Returns 1 when the menu overlay is enabled (it draws it), else 0.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_LoadScreen(int on, const char* title, const char* stage) {
+    AcquireSRWLockExclusive(&menu::g_lsLock);
+    if (title) snprintf(menu::g_lsTitle, sizeof(menu::g_lsTitle), "%s", title);
+    if (stage) snprintf(menu::g_lsStage, sizeof(menu::g_lsStage), "%s", stage);
+    ReleaseSRWLockExclusive(&menu::g_lsLock);
+    InterlockedExchange(&menu::g_lsOn, on ? 1 : 0);
+    return menu::Enabled() ? 1 : 0;
+}
 extern "C" __declspec(dllexport) uint32_t Nioh3EngineMenuHostVersion() {
     const uint64_t tick = menu::g_rematchRendererTick.load();
     return menu::Enabled() && tick && GetTickCount64() - tick < 1500 ? rematch_menu_bridge::kVersion : 0u;
