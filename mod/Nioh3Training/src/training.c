@@ -2555,6 +2555,7 @@ static uint64_t h_endconf(void* ctx, int action) {
                 boss ? "boss alive, nothing opened" : page ? "our gate page already open" : r >= 0 ? "our gate page opened instead" : "?"); }
         return 0;
     }
+    if (g_cfg_gate && g_gate.up) { static LONG nO; if (InterlockedIncrement(&nO) <= 40) Log("GATE diag (#9978): EndMissionConfirmOpen action 0x%X NOT blocked (caller +%llX, tr.active %d, rh.active %d, block %d) - this opens a native box while our gate is up", action, (unsigned long long)((uintptr_t)__builtin_return_address(0) - B), g_tr.active, g_rh.active, g_cfg_gate_block); }
     return o_endconf(ctx, action);
 }
 // user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
