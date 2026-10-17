@@ -154,6 +154,7 @@ struct PadSlot {
     ULONGLONG tap0 = 0, lastTap = 0, synthUntil = 0;
     bool passHold = false;  // the press turned out to be a hold: the game sees it from now on
     volatile bool latch = false;  // keep the pad neutral for the game until every button is released
+    WORD maskHeld = 0;            // #9909: buttons masked by MaskGameButtons that are still held: stay hidden after the lease until released
 };
 PadSlot g_pad[4];
 uint32_t g_keyPrev = 0;
@@ -290,7 +291,12 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     if (g_open) InterlockedOr(&g_pressed, (LONG)PadNav(pressed));
     if (own) return;
     if (tapModified) st->dwPacketNumber += 0x40000000u;
-    if (g_gameMask && t < (ULONGLONG)g_gameMaskUntil && (g.wButtons & (WORD)g_gameMask)) { g.wButtons &= (WORD)~(WORD)g_gameMask; st->dwPacketNumber += 0x40000000u; }
+    {   // #9324 lease; #9909: a masked button held when the lease ends stays hidden until released (unmasking a held A = a fresh press for the game)
+        WORD mk;
+        if (g_gameMask && t < (ULONGLONG)g_gameMaskUntil) { mk = (WORD)g_gameMask; s.maskHeld = (WORD)(g.wButtons & mk); }
+        else { s.maskHeld = (WORD)(s.maskHeld & g.wButtons); mk = s.maskHeld; }
+        if (mk && (g.wButtons & mk)) { g.wButtons &= (WORD)~mk; st->dwPacketNumber += 0x40000000u; }
+    }
     bool blank = g_open != 0;
     if (s.latch) {
         if ((raw & ~B_STICKS) == 0) s.latch = false;

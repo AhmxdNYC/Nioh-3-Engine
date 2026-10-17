@@ -1268,7 +1268,9 @@ static void TrainRetry(const char* why) {
     g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tFadeAt = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
 }
+static volatile DWORD g_gate_maskUntil; static int g_cfg_gate_mask_hold = 2000;  // #9909 [Return] ReturnGateMaskHoldMs; mask forced on after a lost round's put-back
 static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone, no respawn, wait for the Return gate choice
+    g_gate_maskUntil = GetTickCount() + 2500; if (!g_gate_maskUntil) g_gate_maskUntil = 1;  // #9909: the put-back lands next to the gate: no unmasked frames while the position settles
     TrainClear("player beaten"); PlayerRecoverFull(); if (g_cfg_tr_nodeath && !g_tr.nodeath) PlayerSetNoDeath(1);
     g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0;
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN lost: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
@@ -1749,7 +1751,8 @@ static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 // likely target (ini CrossWorldPrewarmMission, else the last cross-world boss) before the player picks; Fight now for a boss of that world then just claims the running request (or is a plain same-world swap once landed).
 static int g_cfg_xabbm = 1, g_cfg_xhold = 30000, g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
 static struct { int active, claimed, preDeferred, cancel, forced; ArenaRow* row; DWORD t0, tReady, tClaim, tCancel; uint8_t oWorld, oJourney; uint32_t oStart, oMode; float oPos[4]; } g_xw;  // bridge 6550: o* = where the prewarm started (cancel returns there)
-static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0; } g_xr;  // bridge 6550: return trip after a cancelled prewarm
+static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0, tSeen, tLast, run, paused; int watch, pauseLogged; } g_xr;
+static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void DbgFreeze(int on);  // F9 debug freeze (defined with the hotkeys below)  // bridge 6550: return trip after a cancelled prewarm
 // user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
 // running mission / journey / mode); chained Fight nows keep it, a Fight now with no arena session running (or after a mission change) takes a new one.
 static struct { int valid; uint8_t world, journey; uint32_t mission, mode, start; float pos[4]; } g_home;
@@ -1901,16 +1904,39 @@ static void XwCancel(const char* why) {
     if (!g_xw.active || g_xw.claimed || g_xw.cancel) return;
     g_xw.cancel = 1; g_xw.tCancel = GetTickCount(); Log("XWORLD prewarm cancel requested (%s): will return to world 0x%02X start %u when the request landed", why, g_xw.oWorld, g_xw.oStart);
 }
+// #9920 (user log 03:02:22-03:03:22): the Return was picked while the F9 debug freeze was on (stop counter G+0x590+12, time scale 0 since 02:58:21).
+// The WarpOtherWorld request only ran once the freeze was released (03:04:24, LoadStats #3 03:04:25-03:04:52), but this put-back gave up after 60 s of
+// wall-clock time (03:03:22), so the player was left at the world's start point (next Fight now stored 139622 24414 207550, not 153478 21792 201895).
+// Now: (1) the clock only runs while game time runs (time scale > 0); (2) after XrFixMs (60 s) of running time it does not give up but WATCHES for up to
+// XrWatchMs (10 min, game running): as soon as the player is in the home world, the world is loaded and he is > 500 u from the stored spot, he is put
+// back; within 500 u = already there, done; (3) a new Fight now / training session cancels the watch; (4) the frozen/paused time is logged.
+static DWORD XrRunMs(DWORD now) {
+    float ts = DbgTimeScale(); DWORD dt = g_xr.tLast ? now - g_xr.tLast : 0; g_xr.tLast = now; if (dt > 1000) dt = 1000;
+    if (ts == 0.0f || g_dbg_frozen) { g_xr.paused += dt; if (!g_xr.pauseLogged) { g_xr.pauseLogged = 1; Log("XWORLD return: game time stopped (time scale %.3f, F9 freeze %ld): the return clock waits", ts, g_dbg_frozen); } }
+    else { g_xr.run += dt; if (g_xr.pauseLogged) { g_xr.pauseLogged = 0; Log("XWORLD return: game time runs again (%lu ms stopped so far)", g_xr.paused); } }
+    return g_xr.run;
+}
 static void XrTick(void) {
     if (!g_xr.active) return;
     DWORD now = GetTickCount(); const uint8_t* st = GameState(); if (!st) return;
-    if (now - g_xr.t0 > 60000) { Log("XWORLD return: position fix not applied within 60 s (the player stays at the return start point)"); g_xr.active = 0; return; }
-    if (CurWorld() != g_xr.world || !PlayerChar() || StageState() != 5 || st[2]) return;
-    static DWORD tSeen; if (!tSeen) tSeen = now; if (now - tSeen < 700) return;
-    { uint64_t n, r, f, q, m; if (CellStats(&n, &r, &f, &q, &m) && n && r < n && now - tSeen < 25000) return; }  // bridge 6541: put the player back only once the old world's cells (collision) are loaded, not into a half-loaded world
-    tSeen = 0; g_xr.active = 0;
+    DWORD run = XrRunMs(now);
+    if (g_xr.watch && (g_tr.active || (g_xw.active && g_xw.claimed))) { Log("XWORLD return watch: cancelled (a new Fight now / session started)"); g_xr.active = 0; return; }
+    if (!g_xr.watch && run > 60000) {
+        g_xr.watch = 1; g_xr.tSeen = 0;
+        Log("XWORLD return: position fix not applied within 60 s of game time (+%lu ms wall, %lu ms stopped; world now 0x%02X, home 0x%02X, stage %d, load %d): watching up to 10 min, the player is put back once the home world is loaded",
+            now - g_xr.t0, g_xr.paused, CurWorld(), g_xr.world, StageState(), st[2]);
+    }
+    if (g_xr.watch && run > 660000) { Log("XWORLD return watch: gave up after 10 min of game time (world 0x%02X, home 0x%02X)", CurWorld(), g_xr.world); g_xr.active = 0; return; }
+    if (CurWorld() != g_xr.world || !PlayerChar() || StageState() != 5 || st[2]) { g_xr.tSeen = 0; return; }
+    if (!g_xr.tSeen) { g_xr.tSeen = now; Log("XWORLD return: home world 0x%02X reached (+%lu ms wall, %lu ms game time, %lu ms stopped)%s", g_xr.world, now - g_xr.t0, run, g_xr.paused, g_xr.watch ? " [watch]" : ""); }
+    if (now - g_xr.tSeen < 700) return;
+    { uint64_t n, r, f, q, m; if (CellStats(&n, &r, &f, &q, &m) && n && r < n && now - g_xr.tSeen < 25000) return; }  // bridge 6541: put the player back only once the old world's cells (collision) are loaded, not into a half-loaded world
+    if (g_xr.watch) {
+        float p[4]; if (PlayerPos(p)) { float dx = p[0] - g_xr.pos[0], dz = p[2] - g_xr.pos[2]; if (dx * dx + dz * dz < 500.0f * 500.0f) { Log("XWORLD return watch: player already at the spot (%.0f %.0f %.0f), done", p[0], p[1], p[2]); g_xr.active = 0; return; } }
+    }
+    g_xr.tSeen = 0; g_xr.active = 0;
     int w = Warp(g_xr.pos[0], g_xr.pos[1], g_xr.pos[2], g_xr.pos[3], 1);
-    Log("XWORLD return: back in world 0x%02X +%lu ms, player put back at %.0f %.0f %.0f -> %d", g_xr.world, now - g_xr.t0, g_xr.pos[0], g_xr.pos[1], g_xr.pos[2], w);
+    Log("XWORLD return: back in world 0x%02X +%lu ms (game time %lu ms, stopped %lu ms%s), player put back at %.0f %.0f %.0f -> %d", g_xr.world, now - g_xr.t0, run, g_xr.paused, g_xr.watch ? ", late fix from the watch" : "", g_xr.pos[0], g_xr.pos[1], g_xr.pos[2], w);
 }
 // bridge 6541: the start point the origin world is re-entered at. The old read of the 'current start' global was 0 (an undefined spot: the player fell to death while the old world loaded), so use the table row of that world whose arena is nearest to where the player stood
 static uint32_t XwReturnStart(uint8_t world, const float* pos, uint32_t fallback) {
@@ -2163,6 +2189,7 @@ static void FadeTick(void) {
     g_fd.phase = 0; g_fd.areaSkip = 0; g_fd.tBase = 0; FadeWant(0, "settled");
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
     ArenaRow* r = FindRow(mission);
@@ -2266,6 +2293,9 @@ static void RhTick(void) {
         Log("RETURN requested (Boss Rematch menu, #6779): home world 0x%02X %.0f %.0f %.0f mission 0x%X; now world 0x%02X, swap %d (claimed %d), switch pending %d, session %d (round %d, beaten boss %d)",
             g_home.world, g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.mission, CurWorld(), g_xw.active, g_xw.claimed, g_fd.pend, g_tr.active, g_tr.round, g_tr.tWin != 0);
         g_fd.pend = 0; g_fd.phase = 0;  // a same-world switch still waiting for black is dropped
+        // #9920: a Return picked while the F9 freeze holds game time never runs the world switch (it ran only after F9 was released, 2 min later): release it first
+        if (g_dbg_frozen) { DbgFreeze(0); Log("RETURN: F9 debug freeze released first (game time was stopped: time scale now %.3f)", DbgTimeScale()); }
+        if (g_xr.active) { Log("RETURN: an older return put-back (watch %d) dropped for this return", g_xr.watch); g_xr.active = 0; }
         if (g_xw.active) {
             g_xw.oWorld = g_home.world; g_xw.oJourney = g_home.journey; g_xw.oMode = g_home.mode; g_xw.oStart = g_home.start; memcpy(g_xw.oPos, g_home.pos, sizeof g_xw.oPos);
             g_xw.claimed = 0; g_xw.cancel = 0; XwCancel("Return to where I was");
@@ -2303,7 +2333,11 @@ static void RhTick(void) {
         ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + 0x22399B8))(g_xr.world, g_home.journey, g_xr.start, g_home.mode, prm);
         g_rh.phase = 3; return;
     }
-    if (g_rh.phase == 3) { if (g_xr.active) return; g_rh.phase = 4; g_rh.tPh = now; }
+    if (g_rh.phase == 3) {
+        if (g_xr.active && !g_xr.watch) return;
+        if (g_xr.active) Log("RETURN: position fix still pending after 60 s of game time: loading screen lifted, the put-back watch keeps running");
+        g_rh.phase = 4; g_rh.tPh = now;
+    }
     if (g_rh.phase == 4) {  // hold black until the spot has settled (as the Fight now fade), at most 15 s
         if (now - g_rh.tPh > 15000) { RhDone("settle 15 s cap"); return; }
         if (!FadeSettled()) { g_rh.tStable = 0; return; }
@@ -2449,11 +2483,25 @@ static void GateTick(void) {
     // mod menu is already open (EngineFix_MenuOpen) or a page was opened < 1.5 s ago; (3) the mask lease covers the whole radius as before.
     if (g_gate.up && !p_osdMask) { static DWORD tRes; if (!tRes || now - tRes > 5000) { tRes = now; HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi");
         p_osdMask = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_MaskGameButtons") : 0; static int nl; if (!p_osdMask && nl++ < 2) Log("GATE: EngineFix MaskGameButtons export MISSING: install the matching Nioh3EngineFix.asi or A near the gate can still open the native end-mission prompt"); } }
+    // #9909 (user log 02:58:12-02:58:16, mark_025821_305_freeze.jpg: our gate page AND the native 'This will end the mission. Proceed?' box): right after the
+    // lost-round teleport onto the round-1 spot (220 u from the gate) the mask flickered off for 1.3 s (02:58:13.318 'away' -> 02:58:14.593 'near') while
+    // the player stood in the gadget's interact range; an A in that gap (or an A held through it: unmasking a held A is a fresh press for the game) opened
+    // the native prompt, and standing on the gate 1.5 s later opened ours on top. Now the mask (a) stays on ReturnGateMaskHoldMs (2000) after the last
+    // 'near' sample, (b) stays on while our gate page is open or the player position is unreadable, (c) is forced on for 2.5 s after a lost round put the
+    // player back next to the gate (g_gate_maskUntil), and (d) EngineFix keeps a masked button hidden until it is released, so a held A never re-presses.
+    // The 'away' line logs why (distance, height, boss, page).
     if (g_gate.up && g_cfg_gate_mask_r > 0) {
-        float q[4]; static int masked;
-        int nearG = 0; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearG = mx * mx + mz * mz < (float)g_cfg_gate_mask_r * g_cfg_gate_mask_r && fabsf(q[1] - g_gate.pos[1]) < 400.0f && !GateBossAlive(); }
+        float q[4]; static int masked; static DWORD tNear;
+        int boss = GateBossAlive(), posOk = PlayerPos(q), page = GateMenuOpen(); float d = -1.0f, dy = 0.0f;
+        if (posOk) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); dy = fabsf(q[1] - g_gate.pos[1]); }
+        int inR = posOk && d < (float)g_cfg_gate_mask_r && dy < 400.0f;
+        if (!boss && (inR || page || (!posOk && masked))) tNear = now;
+        int nearG = !boss && (inR || page || (!posOk && masked) || (tNear && now - tNear < (DWORD)g_cfg_gate_mask_hold) || (g_gate_maskUntil && (LONG)(g_gate_maskUntil - now) > 0));
         if (nearG && p_osdMask) p_osdMask(g_cfg_gate_mask_btn, 300);
-        if (nearG != masked) { masked = nearG; Log("GATE: player %s the gate: native interact %s", nearG ? "near" : "away from", !nearG ? "back" : p_osdMask ? "hidden (no end-mission prompt), A opens the gate page" : "NOT hidden (EngineFix export missing), A opens the gate page"); if (!nearG && p_osdMask) p_osdMask(0, 0); }
+        if (nearG != masked) { masked = nearG;
+            if (nearG) Log("GATE: player near the gate (%.0f u, dy %.0f%s%s): native interact %s", d, dy, page ? ", gate page open" : "", posOk ? "" : ", position unreadable", p_osdMask ? "hidden (no end-mission prompt), A opens the gate page" : "NOT hidden (EngineFix export missing), A opens the gate page");
+            else Log("GATE: player away from the gate (%.0f u of %d, dy %.0f, boss alive %d, page %d, pos %d, %lu ms since near): native interact back", d, g_cfg_gate_mask_r, dy, boss, page, posOk, tNear ? now - tNear : 0);
+            if (!nearG && p_osdMask) p_osdMask(0, 0); }
         static int aWas; static DWORD tOpen; int aNow = GatePadA();
         if (nearG && g_cfg_gate_opena && aNow && !aWas && (!tOpen || now - tOpen > 1500) && !GateMenuOpen()) { tOpen = now; g_gate.tIn = 0; g_gate.left = 0; int r = GateUse(); Log("GATE: pad A near the return gate -> our gate page (%d)", r); }
         aWas = aNow;
@@ -3864,6 +3912,7 @@ static DWORD WINAPI Worker(LPVOID x) {
             p_osdLoad = ef ? (int (*)(int, const char*, const char*))GetProcAddress(ef, "Nioh3EngineFix_LoadScreen") : 0;
             p_osdMask = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_MaskGameButtons") : 0;
             g_cfg_gate_mask_r = GetPrivateProfileIntA("Return", "ReturnGateMaskRadius", 400, ini); g_cfg_gate_mask_btn = GetPrivateProfileIntA("Return", "ReturnGateMaskButtons", 0xF000, ini);
+            g_cfg_gate_mask_hold = GetPrivateProfileIntA("Return", "ReturnGateMaskHoldMs", 2000, ini); if (g_cfg_gate_mask_hold < 0) g_cfg_gate_mask_hold = 0; Log("RETURN gate (#9909): ReturnGateMaskHoldMs %d (mask kept after leaving the gate radius)", g_cfg_gate_mask_hold);
             Log("RETURN gate (#9324): native interact hidden within %d cm of the gate (buttons 0x%X), EngineFix export %s", g_cfg_gate_mask_r, g_cfg_gate_mask_btn, p_osdMask ? "found" : "MISSING: the native end-mission prompt can open");
             {   char gd[MAX_PATH]; snprintf(gd, sizeof gd, "%s", ini); char* sl = strrchr(gd, '\\'); if (sl) *sl = 0; char def[MAX_PATH + 32]; snprintf(def, sizeof def, "%s\\Nioh3FightRecorder.ps1", gd);
                 g_cfg_rec = GetPrivateProfileIntA("Record", "Enable", 0, ini); GetPrivateProfileStringA("Record", "Script", def, g_rec_script, sizeof g_rec_script, ini); GetPrivateProfileStringA("Record", "OutRoot", gd, g_rec_out, sizeof g_rec_out, ini);
