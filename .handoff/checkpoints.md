@@ -1,23 +1,4 @@
 
-## 2026-10-16 06:43:20 session 4ac5b1b7-5459-404d-8741-44fcd232e414
-Ally confirmed the cross-world fix, and I've sent you the ready-to-play message five times.
-
-**Ally's retest** (Ally, Proton, 1080p, build #624, Training `644c2149`, one run each):
-
-| Fight | Before | Now |
-|---|---|---|
-| Shingen (cross-world), live fight on a black scene | ~11 s | ~0.8 s |
-| Shingen, first 3D frame after the click | ~50 s | ~51 s |
-| Otoroshi (same-world), first visible frame | ~39 s | ~7 s |
-
-- **Shingen's total wait** is unchanged at about 50 s.
-- **Otoroshi:** a white fog haze stays until about 25–30 s, and the arena is fully rendered around 30 s. That is the same as before.
-- **Ally harness:** its test runner crashed once on a half-written command file after the Shingen run. Ally restored everything and re-ran Otoroshi cleanly.
-
-**Your play test:** the main PC has Training `644c2149`, Rematch `dd271ec1` and the no-finisher toggle on. Try it with boss AI on and tell me what feels off.
-
-pc2's run of the earlier swap build (#618) hasn't reported yet. I added lines to the done log and `next.md`.
-
 ## 2026-10-16 07:03:37 session 4ac5b1b7-5459-404d-8741-44fcd232e414
 Nothing needs action from me, so I'm ending this run.
 
@@ -309,4 +290,16 @@ Next I'll build it, install it, launch the game and check it myself. Then I'll p
 2026-10-17 00:47 builder(ground) step2 #9542: a parallel builder in nioh3-hp0 already pushed ff1afe3 (KiBreakHp0WindowMs 2000->1000, KiBreakHp0AiHold = AI held off in the HP-0 window, re-applied each 100 ms). Not duplicated. Log evidence: in the window the boss is natively NOT broken (23=0 between hits), so its 'Ki-break moves/dashes' are normal AI actions; motion hook 3F21A4 sees only hit reactions 0x38A/0x4 (from 32EFE5/32EFF2), no Ki-break/attack ids.
 2026-10-17 00:47 builder(ground) step3 #9542 death pose: user log copied to captures/pc/userplay9542 (session 00:24:43-00:35:34). Two break kinds: real (bits1060 4400200200001000/3000, Ki refills to 968 at end: #1 00:28:02, r3 00:33:18) vs BARE (bits1060 0400000000002000 = only break bit 0x3A + bit 13, no bits 62/45/33, Ki stays 0.0 to the end, 2 hits: #2 00:28:33 HP 33 %, #3 00:29:58 HP 22 %; also 16:09:11 on 10-16 at 30 %). Recorder frame fightrec/rec_20261017_002729/f_002836_492.jpg: boss crouched, no hits = the 'death pose'. Same signature as the old HP-floor 'looks dead' (A4F098 bare 0x3A). Trigger not identified (HP alone no: real break at 21.6 % and 8.5 %); ff1afe3's kneel-block + 'NOFIN break diag' lines should confirm next play. No blind fix.
 2026-10-17 00:52 pc | installed ground-out asi 3d3fd1ec (dde6e96+ff1afe3) + ini window 1000; game launched for user | untested in game: ground gate, AI hold, window | backups *.pre9542.bak in game dir
-2026-10-16 22:15 pc2 | #9566: lsfade ON arm works (lsend fired, black 8.5s vs OFF 23.4s; earlier 'ON' was spoiled by overlapping harness overwriting the ini); Yoritomo+Otoroshi action ids logged | unproven: visual luminance on pc2 | next: await pc
+2026-10-17 01:10 builder(ground) #9579 death stance: user log 00:49-00:59 (asi 3d3fd1ec) copied to captures/pc/userplay9579. Kneel NOT involved (no 668D74/kneel lines, ctrl+994 0xFFFFFFFF, 91B 0, AI 1 all through). Death stance = BARE break again (00:56:24 HP 23.7 %, bits1060 0400000000002000, Ki held 0.0 for 3.8 s; recorder rec_20261017_005357/f_005627_279 boss hunched); real break 00:54:48 (4400200200003000) stood up.
+2026-10-17 01:10 builder(ground) #9579 trigger: real = Ki-depleting hit WITH hit reaction (pre bits 0080200000001800, Ki -381.9, break 156 ms later); bare = Ki crossed 0 (-11.2) during a boss attack (pre bits 0000000000006001, no hit motion for 9.7 s), break bit 0x3A set 670 ms later with no stagger action. StateTest 0x23 = ctrl+A8 bit 41 || ctrl+1060 bit 0x3A (2E9FA6); 0x3A setters: A4F098 (only caller 6700BD in hit-apply 66FC28, after hit flag bit 43) and 236DF4C (from 2004E69). Stagger bits 62/45/33 come from the stagger action, not FC1A20 immediates.
+2026-10-17 01:10 builder(ground) #9579 fix 4a771c3 on pc/hp0-stagger: KiBreakBareFix=1/KiBreakBareMs=200 ('nofinbare'): bare break at HP > 0 (win 0) -> clear 1060 bit 0x3A (FC1A20), A8 bit 41, timer 1014, Ki raw 0.5 -> boss acts again, next hit breaks natively. Log 'BARE Ki break ... cancelled'. Built C:/Users/Ahmad Hamza/nioh3-ground-out/bare9579 (asi a36f8f6e), NOT installed/tested. Untested: crouch really ends when 0x23 clears; next hit gives real stagger (may re-bare if boss is mid-attack again).
+
+## 2026-10-17 01:34:50 session e1f1a29a-58a7-4fa7-9c44-8b158b375541
+F9 now freezes the whole game, and F9 again resumes it. I haven't pressed it or checked that the key registers. It's a small helper running on the PC, so it works in your current game session and isn't part of the mod.
+
+When you see the death stance, press F9 and message me. Each press is logged with a clock time in `tools/playsession/freeze_marks.log`, and I'll match that to the boss log. Windows may show "not responding" while the game is frozen, which is normal.
+
+The in-mod freeze key and the "BUG HERE" marker are still queued for the next build. They are not in the installed build.
+
+I added a line to `.handoff/next.md` and your message to `user-directives.md`. `owners.md` is not updated.
+2026-10-16 23:05 pc2 | #9713 per-id table (times used, avg ms) in boss-action-ids.md for 7 bosses; damage per hit NOT measured (player HP constant) | next: needs vulnerable-player run + damage hook; game owned by other pc2 slot (#9702 screenshots) | notes/boss-action-ids*.tsv
