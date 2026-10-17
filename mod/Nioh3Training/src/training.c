@@ -254,12 +254,14 @@ static void AwareTick(void) {
     SetAware(g_aw.a, g_aw.n ? "retry" : "spawn");
     if (g_aw.n++ >= 1) g_aw.a = 0; else g_aw.t = GetTickCount() + 1500;
 }
+// per-actor identity (bridge 12666): bosses summoned from the same owner share the +4 handle, so gauge / boss mode bind to the actor pointer WatchTick finds
+static uint64_t g_newActor; static uint32_t g_newH, g_newSeq;
 static void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
     uint64_t cur[1024]; int n = Actors(cur, 1024);
     for (int i = 0; i < n; ++i) if (!InSnap(cur[i]) && !InSp(cur[i]) && *(uint32_t*)(cur[i] + 4) == g_watch_id && g_nsp < MAXSP) {
         float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
-        g_sp_actor[g_nsp++] = cur[i];
+        g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
         { uint64_t c = 0, me = PlayerChar(), pc = 0; Rd64(cur[i] + 0xB0, &c); if (me) Rd64(me + 0xB0, &pc);
           Log("SPAWN actor #%d team %d (player team %d)", g_nsp - 1, c ? *(int32_t*)(c + 0x10) : -999, pc ? *(int32_t*)(pc + 0x10) : -999); }
@@ -567,7 +569,7 @@ static FwFn o_fw; static uint64_t g_fwbuf[64]; static volatile uint64_t g_fakew;
 static volatile uint32_t g_fakeid = FAKE_GAUGE_ID, g_fakeid_shown = FAKE_GAUGE_ID;
 static uint64_t h_fw(uint64_t cm, uint32_t id) { if ((id == g_fakeid || id == g_fakeid_shown) && (id & 0xFFFF0000u) == 0x7FFF0000u && g_fakew) return g_fakew; return o_fw(cm, id); }
 static uint64_t ActorByHandle(uint32_t h);
-static struct { int pending, shown; uint32_t handle, owner; DWORD t0, tHide, tVis; int waitLog; } g_gg;
+static struct { int pending, shown; uint32_t handle, owner, seq; int bindNew; uint64_t actor; DWORD t0, tHide, tVis; int waitLog; } g_gg;
 // user #9685: the boss bar showed at spawn +16 ms while the Fight now screen was still black (fade overlay / load cover; log 01:29:29.67 vs screen
 // visible ~01:29:30.7). [Summon] BossBarAfterVisibleMs (default 600, -1 = old: at once): the bar waits until the screen is visible (BhScreenVisible:
 // GAMESTATE[2] 0, no mission-load sequencer state, our fade clear) + this many ms, max 60 s.
@@ -602,7 +604,7 @@ static void FakeGaugeHide(const char* why) {  // the native hide is a queued mes
 }
 static void FakeGaugeRequest(uint32_t handle, uint32_t owner) {  // the actor enters the table a few ms after CreateDynamic: GaugeTick finishes the job
     if (!o_fw) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(handle, 0, 0); Log("GAUGE FindWrapper hook missing: legacy ShowBossGauge(0x%X)", handle); return; }
-    FakeGaugeHide("new request"); FakeGaugeDrop(); g_gg.pending = 1; g_gg.handle = handle; g_gg.owner = owner; g_gg.t0 = GetTickCount(); g_gg.tVis = 0; g_gg.waitLog = 0;
+    FakeGaugeHide("new request"); FakeGaugeDrop(); g_gg.pending = 1; g_gg.handle = handle; g_gg.owner = owner; g_gg.t0 = GetTickCount(); g_gg.tVis = 0; g_gg.waitLog = 0; g_gg.seq = g_newSeq; g_gg.actor = 0; g_gg.bindNew = g_watch && g_watch_id == handle;
 }
 // #6711: hide the boss bar the instant its boss is killed (h_cond skip or ForceKillActor), not at boss-mode end (4.5 s later). Only the actor the shown
 // bar points at (g_fwbuf[0]) and only if it is really dead (hp+0x48 == 1 or HP 0). FakeGaugeHide sets shown = 0, so the later "boss mode end" hide is a no-op;
@@ -624,7 +626,8 @@ static void GaugeTick(void) {
     if (g_forceHideAt && (int)(GetTickCount() - g_forceHideAt) >= 0) { g_forceHideAt = 0; GaugeForceHide("delayed"); }
     if (g_gg.tHide && GetTickCount() - g_gg.tHide > 3000) FakeGaugeDrop();
     if (!g_gg.pending) return;
-    uint64_t a = ActorByHandle(g_gg.handle);
+    if (g_gg.bindNew && !g_gg.actor && g_newSeq != g_gg.seq && g_newH == g_gg.handle) g_gg.actor = g_newActor;
+    uint64_t a = g_gg.bindNew ? g_gg.actor : ActorByHandle(g_gg.handle);
     if (!a) { if (GetTickCount() - g_gg.t0 > 4000) { Log("GAUGE actor 0x%X never appeared, no bar", g_gg.handle); g_gg.pending = 0; } return; }
     if (g_cfg_bar_vis >= 0) {  // #9685
         DWORD nowg = GetTickCount(); int why = 0;
@@ -728,6 +731,7 @@ static void VerifyTick(void) {
     }
     Log("SPAWNPOS verify: boss 0x%X %.0f from the player after %lu ms (start %.0f), attempt %d: %s", g_vf.h, d, dt, g_vf.d0, g_vf.attempt, d > 700.0f ? "not closing but out of candidates" : "ok");
 }
+static int PlayerSetNoDeath(int on); static int g_cfg_tr_nodeath_summon = 1, g_tr_nodeath_now;
 static void SpawnTick(void) {
     if (!g_sp.active) return;
     uint64_t e = ResEntry(g_sp.id);
@@ -764,6 +768,7 @@ static void SpawnTick(void) {
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
     if (r && g_autogauge) { FakeGaugeRequest(r, owner); Log("SPAWN %u: boss gauge requested for 0x%X", g_sp.id, r); }
     if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = !g_tr.chr; g_vf.h = r; g_vf.t0 = GetTickCount();  /* bridge 6566: an arena session (g_tr.chr) keeps the boss at its round-1 pose; the 5 s 'stuck' verify despawned it and respawned it at a candidate spot */ g_vf.d0 = sqrtf(ex * ex + ez * ez); }
+    if (r && g_sp.boss && g_cfg_tr_nodeath_summon && !g_tr_nodeath_now) PlayerSetNoDeath(1);  // bridge 12666: summoned bosses must not kill the player in Training (default on)
     g_sp.active = 0;
 }
 
@@ -830,10 +835,13 @@ static void BgmStop(const char* why) {
 static void BgmTick(void) { if (g_bgm_on && g_bgm_stop_at && (int)(GetTickCount() - g_bgm_stop_at) >= 0) BgmStop("after boss end"); }
 static uint64_t CharMgr(void) { uint64_t cm = 0; Rd64(B + 0x45B9E40, &cm); return cm; }
 static uint64_t FindWrapper(uint32_t id) { uint64_t cm = CharMgr(); return cm ? ((uint64_t (*)(uint64_t, uint32_t))(B + 0x135B78))(cm, id) : 0; }
-static struct { int active; uint32_t id; int v0, diff; DWORD t0, last, since; } g_bm;
+static struct { int active; uint32_t id; int v0, diff, await; uint32_t seq; uint64_t actor; DWORD t0, last, since; } g_bm;
 static uint64_t ActorByHandle(uint32_t h) { uint64_t cur[1024]; int n = Actors(cur, 1024); for (int i = 0; i < n; ++i) if (*(uint32_t*)(cur[i] + 4) == h) return cur[i]; return 0; }
 // live-object death predicate 4892A8 (the tail of 7E11F0 / Duel::IsAliveBoss); a dynamic boss (CreateDynamic handle) has no registered wrapper, so use the actor table
-static int BossAliveSensor(uint32_t id) { uint64_t a = ActorByHandle(id); if (!a) { uint64_t w = FindWrapper(id); return w ? (int)(((uint8_t (*)(uint64_t))(B + 0x7E11F0))(w) & 1) : -1; } return (int)(((uint8_t (*)(uint64_t))(B + 0x4892A8))(a) & 1); }
+static int ActorInTable(uint64_t x) { uint64_t cur[1024]; int n = Actors(cur, 1024); for (int i = 0; i < n; ++i) if (cur[i] == x) return 1; return 0; }
+static int BossAliveSensor(uint32_t id) { uint64_t a;
+    if (g_bm.await) { if (!g_bm.actor && g_newSeq != g_bm.seq && g_newH == id) g_bm.actor = g_newActor; if (!g_bm.actor) return -1; a = ActorInTable(g_bm.actor) ? g_bm.actor : 0; if (!a) return -1; }
+    else a = ActorByHandle(id); if (!a) { uint64_t w = FindWrapper(id); return w ? (int)(((uint8_t (*)(uint64_t))(B + 0x7E11F0))(w) & 1) : -1; } return (int)(((uint8_t (*)(uint64_t))(B + 0x4892A8))(a) & 1); }
 static int BossModeBegin(uint32_t id, int notify) {
     uint64_t cm = CharMgr(), c0 = 0; if (!cm || !Rd64(cm, &c0) || !c0) { Log("BBM: no character manager"); return 0; }
     *(uint8_t*)(c0 + 0x26AA) = 1;
@@ -857,6 +865,7 @@ static int BossModeBegin(uint32_t id, int notify) {
             if (InterlockedDecrement((volatile LONG*)(obj + 0xC)) == 0) ((void (*)(uint64_t))vt[1])(obj);
         }
     }
+    g_bm.seq = g_newSeq; g_bm.actor = 0; g_bm.await = g_watch && g_watch_id == id;
     g_bm.active = 1; g_bm.id = id; g_bm.t0 = g_bm.last = GetTickCount(); g_bm.v0 = BossAliveSensor(id); g_bm.diff = 0; g_bm.since = 0;
     Log("BBM %u: BossBattleMode applied (wrapper %p, +26AA=1, alive sensor %d, notify %d)", id, (void*)w, g_bm.v0, notify);
     return 1;
@@ -1235,7 +1244,7 @@ static int PlayerSetNoDeath(int on) {  // Character::SetNoDeath (VM 239711C): ms
         void** vt = *(void***)obj; ((void (*)(uint64_t))vt[0])(obj);
         if (InterlockedDecrement((volatile LONG*)(obj + 0xC)) == 0) ((void (*)(uint64_t))vt[1])(obj);
     }
-    g_tr.nodeath = on; Log("TRAIN player NoDeath %d (wrapper %p)", on, (void*)w); return 1;
+    g_tr.nodeath = g_tr_nodeath_now = on; Log("TRAIN player NoDeath %d (wrapper %p)", on, (void*)w); return 1;
 }
 static int PlayerHp(uint64_t* cur, uint64_t* max) {  // Character::GetHpRate (323BB4): [[actor+0x3A0]+0x58] / [+0x50]
     uint64_t me = PlayerChar(), h = 0; if (!me || !Rd64(me + 0x3A0, &h) || !h) return 0;
@@ -4145,6 +4154,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d, KillFadeFrames %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay, g_cfg_kill_fade_frames);
+        g_cfg_tr_nodeath_summon = GetPrivateProfileIntA("Summon", "SummonNoDeath", 1, ini);
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
