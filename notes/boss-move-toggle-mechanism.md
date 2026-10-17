@@ -21,3 +21,9 @@ Immediate: 66C4A8(state, id, 0, 0.0f) (what SetActionID does), invasive.
 
 ## Test commands / ini
 Training pipe: `moveblock <id> ...` (up to 6, none = clear), `moveforce <id>`, `movestat`, `dumpimg <file>`; ini [Summon] MoveBlock=0x4E4E,0x4E45. Logs `MOVETOG ...`, `MOVEFORCE ...`; ActionLog tsv shows resulting ids.
+
+## Live result (pc2, Shingen 0x15FF, vs idle invulnerable player, ~3 min; xworldprobe-20261017-010114)
+- Blocked 0x4E4E 0x4E45 0x4E44 0x4E64 0x4E7E (Shingen's longest/most used): **0 occurrences** in the ACTLOG; boss kept using the other moves (0x4E2D/2E/2F, 4E41, 4E21-23, 4E56, 4E8F ...). 5283 select vetoes, 0 re-rolls (the single-target transitions don't re-roll to another id).
+- Veto returning 0xFFFF ('no target') made the boss re-try every frame and never act (37379 vetoes, 3 min, #10001 run). Fix: return idle id 0x2 (ini MoveBlockFallback, default 2) - boss keeps fighting, blocked move is skipped.
+- Force `moveforce 0x4E2F` (state+0x15C4): action became 0x4E2F within ~15 ms, 2 of 3 tries took effect at idle (the 3rd was written while the boss was mid-action and ran after).
+- Not yet: per-boss/per-id UI in the Training menu; hit-count/damage per id; veto of Ki-break moves not tested.
