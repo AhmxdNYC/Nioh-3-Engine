@@ -3108,6 +3108,9 @@ static uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint8_t p4) {
             { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld (reserve %lld) dmg %d", i, (long long)cur, (long long)off, dmg); }
             if (*(int32_t*)(hp + 0x10) != 1) {
                 if (off > 0) {
+                    if (g_nf[i].win == 1) { g_nf_hitT[i] = GetTickCount(); InterlockedIncrement(&g_nf_hits[i]); }  // every hit in the window restarts it (the 326E81 probe misses some)
+                    if (cur - (int64_t)dmg < off && g_nf_prime && !((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) && !KbState(g_nf_ai[i], 0x23) && *(float*)(st + 0xAC) > 0.5f)
+                        *(float*)(st + 0xAC) = 0.5f;  // raw Ki write (not KiSetCur 2F88D0: after it the hit's Ki damage went to -133 with no break, tries 4/5)
                     if (cur - (int64_t)dmg < off) { ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(hp, (uint64_t)(off + dmg));
                         LONG k = InterlockedIncrement(&g_nf_n_nl); if (k <= 20 || k % 50 == 0) Log("NOFIN boss slot %d hit at the shown HP 0: real HP topped up to reserve %lld + dmg %d (non-lethal, normal hit) (#%ld)", i, (long long)off, dmg, k); }
                 } else if (cur - (int64_t)dmg < 2) {  // no reserve (KiBreakHp0Reserve 0 or not set yet): floor at HP 2
@@ -3390,14 +3393,14 @@ static void NfTick(void) {
                 else NfLog("NOFIN boss %p Ki break started, no motion request in the last 400 ms (last 0x%X %lu ms ago)", (void*)a, mid, mt ? now - mt : 0); }
             prev23[s] = s23; }
         // prime hold: the whole HP-0 window keeps the Ki at 0.5 while the boss is not broken, so the next hit's Ki damage breaks it natively
-        if (g_nf_prime && !broken && kc > 0.5f && g_nf[s].win == 1) { __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+        if (g_nf_prime && !broken && kc > 0.5f && g_nf[s].win == 1) { __try { if (g_nf_off[s] > 0) *(float*)(st + 0xAC) = 0.5f; else ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
         if (broken != g_nf[s].broken) { g_nf[s].broken = broken; if (!broken && g_nf[s].win == 1) g_nf[s].nRebreak++;
             NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d ki0 %d, Ki %.1f, HP %llu/%llu); blocked so far: down target %ld, grapple target %ld, CanGrapple %ld, grab box %ld, plain grab box %ld, death-blow test %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, ki0, kc, hc, hm,
                   g_nf_cnt_down, g_nf_cnt_tgt, g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_grab0, g_nf_cnt_st27, g_nf_cnt_b31, g_nf_cnt_b28); }
         if (hc <= NF_FLOOR && g_nf[s].win == 0) {
             g_nf[s].win = 1; g_nf[s].tWin = g_nf[s].tLast = now; g_nf[s].hits0 = g_nf_hits[s]; g_nf[s].nHits = 0; g_nf[s].nRebreak = 0;
             NfLog("NOFIN HP-0 window start boss %p (HP %llu/%llu): Ki broken + gold bar draining %d ms; dies if not hit", (void*)a, hc, hm, g_cfg_nofin_ms);
-            if (!exh && g_nf_prime) { NfBreakNow(st, "HP 0", a); g_nf[s].tRebreak = now; }
+            if (!exh && g_nf_prime && !g_nf_off[s]) { NfBreakNow(st, "HP 0", a); g_nf[s].tRebreak = now; }
         }
         if (g_nf[s].win == 1) {
             // live 03:49 (nofinsnap/nofindiff, lethal vs normal hit): the lethal hit leaves ctrl+0xEA0 = 1 = death-blow pending (786C84's own cond 0x27
