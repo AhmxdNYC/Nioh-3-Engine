@@ -1,55 +1,4 @@
 
-## 2026-10-15 22:33:17 session d85724c4-3bd6-43ea-9ccd-a423d69e0b8c
-The new build is installed and the game is running on the main PC. I pinged you 5 times to play. None of it has been tested in game yet.
-
-I closed the old session, installed the Training asi (hash 1F30AE08) and the Boss Rematch asi (hash 44CC7526), and relaunched. I merged the new settings into your current `Nioh3Training.ini` without changing your values. The old asi files and ini are backed up as `*.pre7014.bak` in the game folder.
-
-The log shows the Return gate, the Ki bar style hook, the new Ki tint hook (gold 255,200,50) and the death-blow hook all installed, and the game reached its first tick.
-
-Things to check when you play:
-- **Death toggles:** they should be at the top of the Rematch menu.
-- **Ki bar:** it should go gold after about 3 Ki hits, not from the start. This is the riskiest part, because the tint hook runs every frame and rests on guesses about how the bar is drawn. If the bar stays un-gold, tell me and I'll turn on `GoldKiDump=1` to log the bar colors.
-- **Return gate:** it should appear when no boss is alive and offer "Return to where I was" or "Fight again". The builder didn't know whether using the object triggers the page or only standing on it for 1.5 s does.
-
-pc2's faster cross-world prewarm is not in this build yet. I'll read the logs after you've played and delete the test-active marker then.
-
-## 2026-10-15 22:54:14 session d85724c4-3bd6-43ea-9ccd-a423d69e0b8c
-pc2's clean rerun confirmed the cross-world speedup. I told you on the phone (#7237) and logged it in `.handoff/done.md`.
-
-| Run | Cover after the press (Shingen R15FF) |
-|---|---|
-| Prewarm on, run 1 | 2.2 s |
-| Prewarm on, run 2 | 2.2 s |
-| Prewarm off | 33.2 s, 28.8 s (41.4 s in the cell-probe run) |
-
-- **Setup:** pc2, branch `pc2/faster-load` at 9e53d7b, `CrossWorldPrewarm=2`, `CrossWorldPrewarmHoldMs=120000`, 27 s menu dwell. The target world loads in the background while the menu is open.
-- **Coverage:** this is pc2 only, so partial (1 of 3 devices). I haven't tested it on this PC. Ally can't do cross-world because it lacks the RAM, so the 3-device verdict can't be completed.
-- **Real trigger untested:** pc2 fired the prewarm by hand. The automatic start when the menu opens hasn't been tested.
-
-It isn't in the build you're playing now. After your play-test I'll merge it into the jump-fix line and make `CrossWorldPrewarm=2` with the 120000 hold the default. Then I'll check the menu-open trigger on this PC. I noted that in `.handoff/next.md`.
-
-## 2026-10-15 23:21:23 session afe1fb94-6d42-4567-980b-900ae2eb9f67
-There's nothing new for me to act on this run. Ally's code check (#7339, nioh3fps changes no visuals) I already relayed to you in #7343.
-
-pc2 told another slot that it's switching to open task #5332, fighting inside the boss's own arena cell, which is the polish item from your #7248. That fits, since its cell-skip test earlier found no gain. I'm leaving it on that.
-
-I'm still waiting for the agent to show me a gold Ki bar on screen. After that I'll merge the boss-fade fix, install, and send the 5 pings.
-
-## 2026-10-15 23:50:17 session e9a941af-2199-4beb-a382-75250e628836
-Yes, the agent is working again. It had been cut off, so I restarted it just now. It's building the no-finisher toggle and has nothing built or tested yet.
-
-I also passed on your #7467 addition: at 0 health the boss goes into the broken state, with the gold bar draining over about 2 seconds. I told the agent to send me its result when it's done. I've told you in #7494.
-
-## 2026-10-16 00:17:58 session 01ece3d7-345f-4947-93a4-60ebda6f5bf7
-pc2's arena-cell check (#7634) confirms that Fight Now already puts the player in each boss's own arena. On Shingen and then Hino-enma it showed the real arena, with the boss HP bar up and the player fighting at 194/2658 HP after 25 s. That is n=1 on pc2. Only hiding the leftover open-world cells remains, and that is cosmetic.
-
-I replied to pc2 (#7638):
-- **Unload step:** skip it. It's cosmetic and parked.
-- **JT bench:** skip it. The 60 Hz logic work is not a pc2 task.
-- **Back to my earlier task (#7626):** the n=2 repeat of Prewarm=2, CellSkip=0, HoldMs=120000, and the cold first-load phase split.
-
-I added a line to `.handoff/done.md` for the arena result. I didn't message the user. The no-finisher toggle agent still hasn't reported back.
-
 ## 2026-10-16 00:46:01 session e9a941af-2199-4beb-a382-75250e628836
 I answered #7698 and #7683 in #7699; the toggle isn't done and isn't ready to play.
 
@@ -295,15 +244,48 @@ I acknowledged #8618 and added a line to `next.md`. I haven't run anything new o
 2026-10-16 16:04 pc: built pc/gate-gold-fix merge 2610091 (zig build.sh) asi 65615FB1, staged captures/pc/stage-merged-2610091, INSTALLED on main PC (ini: KiBreakNoFinisher=1, Hp0Kneel=0, carried CrossWorldPlaceableSkip=1 + CrossWorldForceCells=1). Game closed, not launched.
   prev installed asi FE43115F/ini backed up to captures/pc/user_play_prev2.*; test-active marker left in place (older restore point still captures/pc/cover/user_play_prev.*).
 2026-10-16 16:15 pc: user play #8827 findings sent to agent a626ff (gold on every stagger, NOFIN kill fade-at-once ignores BodyFade/CutsceneOnKill, toggle matrix). Staged captures/pc/stage-combo2, NOT installed (user playing). Next: on RESULT, swap when user says done.
+2026-10-16 16:31 pc: user fighting Yoritomo on combined build b77ded2f (marker set). Log 16:30: GOLDKI gold elements 0 still (tint not finding Ki bar) -> needs code fix, builder nioh3-engine-84 staging, install after user done. pc2 tasked #8886 (G5/G7 holders + CoverRelease side-effect).
+2026-10-16 16:40 pc: user (#8905) said close game + do everything; game closed. Builder a626ff building stage-combo3 (gold every stagger, grapple block, HP0 stagger anim, Return loading overlay). Next: when staged, install (back up b77ded2f), run combo/run.ps1 -Try 2 with -OwnerPid, screenshot gold, report.
+2026-10-16 16:50 pc: combo3 asi 09aa569b installed+tested (try2 OK: gold in stagger+HP0, 0 KIFINISHER, return ok). user pinged 5x. combo4 builder aa015f (Return overlay + HP0 stagger anim) staging captures/pc/stage-combo4. Next: user play result; install combo4 when ready.
 
-## 2026-10-16 pc2 | documented session log (#8855)
-Task: #8751 seq-gate build (P0/P1/P2). Built earlier, not redone this session.
-Did this session (read-only, no game launched, no installs):
-- Read #8751 task; checked branches, next.md, checkpoints.md. notes/seq-state6-gate-RE.md is NOT in the working tree here (it is in commit 49a4c0f); I did not read it, so the P0/P1/P2 details come from #8751 and the older checkpoint.
-- Looked at screenshots + trace/training logs of captures/rematch/xworldprobe-20261016-123448 (CoverReleaseMs 0) and -125635 (baseline OFF): visible arena + boss HP bar at +8 s, +12 s, +18 s, +20 s, +60 s; no black screen on pc2.
-- Unexplained: release run at +40 s showed a hall with no boss bar (not checked further).
-- Messages sent: #8866 STATUS, #8872 RESULT (cover visible on pc2), #8877 STATUS, #8879/#8880/#8884 TO-USER, #8882 A to pc.
-- Git: pushed this checkpoint commit (pull --rebase --autostash first).
-Proven: pc2 fade-in is really visible at ~8-20 s; Ally's black until ~48 s not reproduced here.
-Unproven: why Ally is black; cause of the hall at +40 s; G5/G7 holders of state 8.
-Paused by user (#8852). Next step when resumed: G5/G7 holder for state 8 (~21 s hold) in branch pc2/seq-gates, after reading notes/seq-state6-gate-RE.md from commit 49a4c0f.
+## 2026-10-16 17:19:53 session ec46a39a-5b7e-463e-9599-4872fc880f7d
+I've sent the near-arena-only A/B test to pc2 (task #8951) as well as ally. Nothing has been measured yet, so there are no results to report.
+
+- **Setup on both machines:** the Yoritomo build files (#698–#701), with `NearArenaOnly` set to 0 for one arm and 1 for the other. Each machine does 3 runs per arm and times menu press to player control.
+- **Ally:** already working on it (task #8937, with the same files).
+- **Main PC:** I have not launched the game. The Yoritomo build is installed and waiting for you to play it.
+- **Next step:** read the pc2 and ally results and run the PC arm if you aren't playing. I added this plan to `.handoff/next.md`.
+
+## 2026-10-16 17:50:30 session ec46a39a-5b7e-463e-9599-4872fc880f7d
+Still no results from pc2 or ally on the near-arena-only A/B test, and neither has reported an error or BLOCKED. The inbox is empty and I have nothing new to act on.
+
+The game is closed on this PC and the Yoritomo build is installed for you to play. I'll read the numbers when they arrive and send you a verdict.
+
+## 2026-10-16 18:34:31 session ec46a39a-5b7e-463e-9599-4872fc880f7d
+The skip-far-objects feature (`NearArenaOnly`) gave player control at 0.5 s on the main PC, but the screen was still black at +10 s. That means the visible wait isn't proven shorter yet. I've sent you this as message #8960.
+
+Results are from this PC (RX 9070), 1 run per row per arm. This was an earlier harness run (15:14–15:30, Training asi 96FC29CD), not the current Yoritomo build.
+
+| Arm | Shingen | Otoroshi |
+|---|---|---|
+| OFF | 15.5 s | 3.7 s |
+| ON | 0.52 s | 0.52 s |
+
+- **Black screen:** In the ON arm the Shingen screenshot at +10 s is still black. At +40 s the boss fight is normal at 81 fps. I haven't looked at the Otoroshi screenshots or the OFF-arm shots.
+- **Missing arms:** The other two arms did not give clean numbers. ON1 logged no control time, so it probably didn't reach a fight. The OFF2 arm didn't run.
+- **Other machines:** Ally and pc2 are still running their own A/B arms on the Yoritomo build. Nothing has come back from them yet.
+
+Next, I'll read the screenshots at +10 s in the OFF arm to compare when the screen clears. I'll also check the logs for what keeps the cover up in the ON arm. I logged this in `.handoff/done.md`.
+
+## 2026-10-16 19:05:13 session ec46a39a-5b7e-463e-9599-4872fc880f7d
+Nothing has changed since my last update, and I did no new work this run. The inbox is empty, ally and pc2 haven't reported on the near-arena A/B test (tasks #8937 and #8951), and neither has flagged an error or a block.
+
+The game is closed on this PC, there's no test marker, and the Yoritomo build is installed and ready for you to play. Nothing is waiting on you. I'll read the ally and pc2 numbers when they arrive, then run clean one-change arms here.
+
+## 2026-10-16 19:27:17 session 4e579b2c-6ef5-492e-a76a-8d227c9f9cd2
+Ally's result is in. Skipping the far props gave no gain on Ally (Linux): click to control was 31.1 s with the skip off and about 30.1 s with it on, and the screen stayed black until 47–65 s either way. It's a small sample, since only 3 of the 6 runs were valid (1 off, 2 on).
+
+I logged it in the done log and `next.md`, and sent you a short status in chat.
+
+The main PC's earlier gain (22 s to 7 s) was mixed with another change, so it isn't a clean comparison yet. pc2 is running its test now. When its result arrives, I'll run a clean one-change test on this PC and give a keep-or-drop verdict per device.
+2026-10-16 17:20 pc2 | #8951 near-arena A/B done on Yoritomo (R7B35): control 15.52/15.52/15.52 OFF vs 15.52/15.52/15.53 ON (pinned at 15 s AreaWait cap) -> NearArenaOnly no gain on pc2 | PSKIP window closes +25 s ON; visible-time not measured | next #8886 (G5/G7 holders + CoverRelease side check), #8889 | captures/rematch/xworldprobe-20261016-1638..1711
