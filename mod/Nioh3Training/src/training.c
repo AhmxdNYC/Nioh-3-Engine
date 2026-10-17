@@ -114,6 +114,8 @@ static int Actors(uint64_t* out, int max) {
 #define MAXSP 32
 static void PoolAdd(uint32_t chr);
 static uint64_t g_sp_actor[MAXSP]; static int g_nsp;
+// bridge 12666: per-actor identity for multi-boss Training. g_sp_chr[i] = character id of g_sp_actor[i]; slots A/B = the menu's two summon slots
+static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp_slot_next = -1; static uint64_t g_slot_act[2]; static uint32_t g_slot_chr[2];
 static uint64_t g_snap[1024]; static int g_nsnap; static DWORD g_watch_t0; static int g_watch; static uint32_t g_watch_id;
 static int InSnap(uint64_t a) { for (int i = 0; i < g_nsnap; ++i) if (g_snap[i] == a) return 1; return 0; }
 static int InSp(uint64_t a) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == a) return 1; return 0; }
@@ -261,6 +263,7 @@ static void WatchTick(void) {  // after CreateDynamic: collect actors that were 
     uint64_t cur[1024]; int n = Actors(cur, 1024);
     for (int i = 0; i < n; ++i) if (!InSnap(cur[i]) && !InSp(cur[i]) && *(uint32_t*)(cur[i] + 4) == g_watch_id && g_nsp < MAXSP) {
         float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
+        g_sp_chr[g_nsp] = g_watch_chr; if (g_watch_slot >= 0 && g_watch_slot < 2) { g_slot_act[g_watch_slot] = cur[i]; g_slot_chr[g_watch_slot] = g_watch_chr; g_watch_slot = -1; }
         g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
         { uint64_t c = 0, me = PlayerChar(), pc = 0; Rd64(cur[i] + 0xB0, &c); if (me) Rd64(me + 0xB0, &pc);
@@ -283,15 +286,16 @@ static void WatchTick(void) {  // after CreateDynamic: collect actors that were 
     if (GetTickCount() - g_watch_t0 > 3000) { Log("SPAWN: no new actor with handle id %08X appeared within 3 s (previous actor of the same owner/slot still alive? despawn it first)", g_watch_id); g_watch = 0; }
 }
 static void FakeGaugeHide(const char* why);
+static void SlotForget(uint64_t a) { for (int k = 0; k < 2; ++k) if (a && g_slot_act[k] == a) { g_slot_act[k] = 0; g_slot_chr[k] = 0; } }
 static int Despawn(int idx) {
     FakeGaugeHide("despawn");
     if (idx < 0 || idx >= g_nsp) { Log("DESPAWN #%d: no such spawned actor (have %d)", idx, g_nsp); return 0; }
     uint64_t a = g_sp_actor[idx], cur[1024]; int n = Actors(cur, 1024), found = 0;
     for (int i = 0; i < n; ++i) if (cur[i] == a) found = 1;
-    if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); g_sp_actor[idx] = 0; return 0; }
+    if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; return 0; }
     ((void (*)(uint64_t))(B + 0x2BF7E8))(a);
     Log("DESPAWN #%d %p: native delete 2BF7E8 called", idx, (void*)a);
-    g_sp_actor[idx] = 0;
+    SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0;
     return 1;
 }
 // Character::FadeOut(id, frames) (VM 238DC40): live = wrapper[0]; c = [live+0x20]; if c: 2BC5DC(c+0x240, 0.0f target, frames) -- a lerp {start,target,cur,t,dur}
@@ -514,7 +518,7 @@ static PlugFn g_plug;
 // ---- spawn <charId> [dist] : Load::Character request (3F9E58 id,2,0), wait until resource entry +2C8 is ready, then CreateDynamic
 static int g_cfg_ownwait;
 static void SummonFinish(uint32_t h, uint32_t bgm);
-static struct { uint32_t id, owner, bgm; float dist; DWORD t0, tOwn; int active, boss; } g_sp;
+static struct { uint32_t id, owner, bgm; float dist; DWORD t0, tOwn; int active, boss, slot; } g_sp;
 static uint64_t ResEntry(uint32_t id) {
     uint64_t key = ((uint64_t (*)(uint64_t, uint32_t))(B + 0x134314))(0, id);
     uint64_t rm = 0; if (!Rd64(B + 0x45B9E60, &rm) || !rm) return 0;
@@ -780,10 +784,10 @@ static void SpawnTick(void) {
     }
     g_nsnap = Actors(g_snap, 1024);
     uint32_t r = CreateBoss(g_sp.id, p, face, owner, "SPAWN");
-    g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount();
+    g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount(); g_watch_chr = g_sp.id; g_watch_slot = r ? g_sp.slot : -1;
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
     if (r && g_autogauge) { FakeGaugeRequest(r, owner); Log("SPAWN %u: boss gauge requested for 0x%X", g_sp.id, r); }
-    if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = !g_tr.chr; g_vf.h = r; g_vf.t0 = GetTickCount();  /* bridge 6566: an arena session (g_tr.chr) keeps the boss at its round-1 pose; the 5 s 'stuck' verify despawned it and respawned it at a candidate spot */ g_vf.d0 = sqrtf(ex * ex + ez * ez); }
+    if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = !g_tr.chr && g_sp.slot < 0; g_vf.h = r; g_vf.t0 = GetTickCount();  /* bridge 6566: an arena session (g_tr.chr) keeps the boss at its round-1 pose; the 5 s 'stuck' verify despawned it and respawned it at a candidate spot */ g_vf.d0 = sqrtf(ex * ex + ez * ez); }
     if (r && g_sp.boss && g_cfg_tr_nodeath_summon && !g_tr_nodeath_now) PlayerSetNoDeath(1);  // bridge 12666: summoned bosses must not kill the player in Training (default on)
     g_sp.active = 0;
 }
@@ -1297,7 +1301,7 @@ static int SummonStart(const char* tok, float d) {
     if (!chr) { Log("SUMMON: unknown boss '%s'", tok); return 0; }
     if (g_bm.active) BossModeEnd("new summon");
     BgmStop("new summon"); g_vf.attempt = 0; g_vf.active = 0; g_vf.respawnAt = 0;
-    g_sp.id = chr; g_sp.dist = d; g_sp.owner = 0; g_sp.boss = 1; g_sp.bgm = bgm; g_sp.tOwn = 0; g_sp.t0 = GetTickCount();
+    g_sp.slot = g_sp_slot_next; g_sp_slot_next = -1; g_sp.id = chr; g_sp.dist = d; g_sp.owner = 0; g_sp.boss = 1; g_sp.bgm = bgm; g_sp.tOwn = 0; g_sp.t0 = GetTickCount();
     uint64_t e = ResEntry(chr);
     if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x3F9E58))(chr, 2, 0); PoolAdd(chr); }
     Log("SUMMON %s -> char %u dist %.0f world 0x%02X: %s", tok, chr, d, CurWorld(), e && *(uint8_t*)(e + 0x2c8) ? "resources already loaded" : "Load::Character requested");
@@ -1467,6 +1471,7 @@ static void PreloadTick(void) {
 //   int  Nioh3Training_Version(void)
 #define N3T_API __declspec(dllexport)
 N3T_API int Nioh3Training_GetIdleHold(void);
+N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed, int persist);
 N3T_API int Nioh3Training_SetIdleHold(int on);
 // bridge 4718: NativeEnter = 1: the fog gate, arena intro cutscene, boss BGM, boss gauge/HUD, clear flags and rewards are all driven by the boss's mission script, which only exists in the mission's own placement DB. So Fight now does the native mission load
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
@@ -2534,6 +2539,29 @@ static int GateMenuOpen(void) {
     return mo ? mo() : 0;
 }
 // 'Fight again' from the gate page: queued, the pump runs TrainRetry (same boss, round reset, player back to the round-1 spot). 1 = queued, 0 = no session.
+// bridge 12666: Training menu (Boss Rematch UI) -> game thread. op 1 summon into slot A/B (replaces that slot's boss), 2 despawn all, 3 despawn one slot.
+static volatile LONG g_rq_op, g_rq_slot; static volatile uint32_t g_rq_mission;
+static int SlotAlive(int s) { if (s < 0 || s > 1 || !g_slot_act[s]) return 0; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == g_slot_act[s]) return 1; return 0; }
+N3T_API int Nioh3Training_SummonSlot(int slot, uint32_t mission) {
+    if (slot < 0 || slot > 1 || !mission || g_rq_op || g_sp.active) return 0;
+    g_rq_slot = slot; g_rq_mission = mission; InterlockedExchange(&g_rq_op, 1); return 1;
+}
+N3T_API int Nioh3Training_DespawnAll(void) { if (g_rq_op) return 0; InterlockedExchange(&g_rq_op, 2); return 1; }
+N3T_API int Nioh3Training_DespawnSlot(int slot) { if (slot < 0 || slot > 1 || g_rq_op) return 0; g_rq_slot = slot; InterlockedExchange(&g_rq_op, 3); return 1; }
+N3T_API uint32_t Nioh3Training_SlotChr(int slot) { return SlotAlive(slot) ? g_slot_chr[slot] : 0; }  // 0 = empty
+static void SlotDespawn(int s) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_actor[i] == g_slot_act[s]) { Despawn(i); break; } g_slot_act[s] = 0; g_slot_chr[s] = 0; }
+static void RqTick(void) {
+    LONG op = InterlockedExchange(&g_rq_op, 0); if (!op) return;
+    int s = (int)g_rq_slot;
+    if (op == 1) {
+        if (GameState() && GameState()[2]) { Log("MENU summon slot %c: a load is running, refused", 'A' + s); return; }
+        SlotDespawn(s);
+        char tok[32]; snprintf(tok, sizeof tok, "R%X", g_rq_mission);
+        g_sp_slot_next = s; int ok = SummonStart(tok, s ? 700.0f : 400.0f); if (!ok) g_sp_slot_next = -1;
+        Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
+    } else if (op == 2) { DespawnAll("menu"); g_slot_act[0] = g_slot_act[1] = 0; g_slot_chr[0] = g_slot_chr[1] = 0; }
+    else if (op == 3) { SlotDespawn(s); Log("MENU despawn slot %c", 'A' + s); }
+}
 N3T_API int Nioh3Training_GateFightAgain(void) { if (!g_tr.active || g_rh.active) return 0; InterlockedExchange(&g_gate_again, 1); return 1; }
 static void GateTick(void) {
     if (InterlockedExchange(&g_gate_again, 0) && g_tr.active && !g_rh.active) { Log("GATE: Fight again (Boss Rematch gate page)"); TrainRetry("gate: fight again"); }
@@ -2978,6 +3006,12 @@ static void Exec(char* line) {
             g_sp.active = 1; SpawnTick();
         } else if (!strcmp(op, "summon")) {  // summon <R-id|charId> [dist]: boss next to the player in the current world, no arena swap / load; HUD gauge, boss mode, boss BGM
             char tok[32] = {0}; float d = 400.0f; sscanf(line, "%*s %31s %f", tok, &d); SummonStart(tok, d);
+        } else if (!strcmp(op, "slot")) {  // slot <0|1> <R-id>: the Training menu's summon A/B path (bridge 12666)
+            char tok[32] = {0}; int sl = 0; sscanf(line, "%*s %d %31s", &sl, tok); uint32_t ms = (uint32_t)strtoul(tok[0] == 'R' || tok[0] == 'r' ? tok + 1 : tok, 0, 16);
+            Log("CMD slot %d %s -> %d", sl, tok, Nioh3Training_SummonSlot(sl, ms));
+        } else if (!strcmp(op, "slotdel")) { int sl = (int)a[0]; Log("CMD slotdel %d -> %d", sl, Nioh3Training_DespawnSlot(sl));
+        } else if (!strcmp(op, "slotinfo")) { Log("CMD slotinfo: A chr %u, B chr %u, spawned %d", Nioh3Training_SlotChr(0), Nioh3Training_SlotChr(1), g_nsp);
+        } else if (!strcmp(op, "moveallow")) { Log("CMD moveallow chr %llu id 0x%llX %llu -> %d", a[0], a[1], a[2], Nioh3Training_SetMoveAllowed((uint32_t)a[0], (uint32_t)a[1], (int)a[2], 0));
         } else if (!strcmp(op, "train")) {  // bridge 4942: train <R-id|charId> [dist]: no-load session (player NoDeath, auto reset when beaten, 'retry', 'trainstop')
             char tok[32] = {0}; float d = (float)g_cfg_tr_dist; sscanf(line, "%*s %31s %f", tok, &d); TrainStart(tok, d);
         } else if (!strcmp(op, "aware")) { uint64_t act = n >= 2 ? ActorByHandle((uint32_t)a[0]) : (g_nsp ? g_sp_actor[g_nsp - 1] : 0); SetAware(act, "command");
@@ -4136,6 +4170,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
+    __try { RqTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU request tick exception %08lX", GetExceptionCode()); }
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
     return o_pump(c, d, r8, r9);

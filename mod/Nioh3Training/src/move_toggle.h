@@ -30,15 +30,22 @@ static int MvBlocked(uint32_t chr, uint32_t id) {
 }
 static uint32_t MvBossChr(uint64_t st) {
     // Positive ownership check, not merely "not the player". Unknown ownership passes through.
-    if (!st || !g_tr.active || !g_bm.active) return 0;
-    uint64_t actor = ActorByHandle(g_bm.id), ai = 0, ctrl = 0;
-    if (!actor || actor == PlayerChar() || !Rd64(actor + 0x3B0, &ai) || !ai ||
+    // bridge 12666: every spawned boss is matched by its own AI controller, so two bosses each use their own move list
+    if (!st) return 0;
+    uint64_t me = PlayerChar();
+    for (int i = 0; i < g_nsp; ++i) {
+        uint64_t actor = g_sp_actor[i], ai = 0, ctrl = 0;
+        if (!actor || actor == me || !g_sp_chr[i]) continue;
+        if (Rd64(actor + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl == st) return g_sp_chr[i];
+    }
+    if (!g_tr.active || !g_bm.active) return 0;
+    uint64_t actor = g_bm.actor ? g_bm.actor : ActorByHandle(g_bm.id), ai = 0, ctrl = 0;
+    if (!actor || actor == me || !Rd64(actor + 0x3B0, &ai) || !ai ||
         !Rd64(ai + 8, &ctrl) || ctrl != st) return 0;
     return g_tr.chr;
 }
 static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
     uint32_t id = IhSelect(st, o_mvsel(st, tr));
-    if (!MvBlocked(g_tr.chr, id)) return id;
     uint32_t chr = MvBossChr(st);
     if (!chr || !MvBlocked(chr, id)) return id;
     for (int i = 0; i < 8; ++i) {
@@ -55,9 +62,10 @@ static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
     return g_mv_fallback;
 }
 static uint64_t h_mvcom(uint64_t st, uint32_t id, uint64_t tbl, int layer, uint64_t slot) {
-    if (MvBlocked(g_tr.chr, id) && MvBossChr(st)) {
+    uint32_t vchr = MvBossChr(st);
+    if (vchr && MvBlocked(vchr, id)) {
         InterlockedIncrement(&g_mv_vetoes);
-        if (g_mv_vetoes < 200) Log("MOVETOG commit veto chr %u 0x%X (state %p)", g_tr.chr, id, (void*)st);
+        if (g_mv_vetoes < 200) Log("MOVETOG commit veto chr %u 0x%X (state %p)", vchr, id, (void*)st);
         id = 0xFFFF; // native refuses before any write
     }
     return o_mvcom(st, id, tbl, layer, slot);
@@ -87,7 +95,10 @@ static void MvSet(const uint32_t* ids, int n) {
 static void MvIniKey(uint32_t chr, uint32_t id, char* section, size_t cap, char* key, size_t kcap) {
     snprintf(section, cap, "Moves.%u", chr); snprintf(key, kcap, "0x%X", id);
 }
+static volatile LONG g_mv_view_slot = -1;  // bridge 12666: the move page shows this slot's boss (-1 = current boss)
+N3T_API void Nioh3Training_SetMoveSlot(int slot) { InterlockedExchange(&g_mv_view_slot, slot); }
 N3T_API uint32_t Nioh3Training_GetMoveBoss(void) {
+    LONG vs = g_mv_view_slot; if (vs == 0 || vs == 1) { uint32_t c = Nioh3Training_SlotChr((int)vs); if (c) return c; }
     return (uint32_t)InterlockedCompareExchange(&g_mv_current_chr, 0, 0);
 }
 N3T_API int Nioh3Training_GetMoveHookStatus(void) {
@@ -126,6 +137,8 @@ static void MvLoadPrefs(const char* ini) {
     }
 }
 static void MvTick(void) {
-    InterlockedExchange(&g_mv_current_chr, g_tr.active ? (LONG)g_tr.chr : 0);
+    LONG cur = g_tr.active ? (LONG)g_tr.chr : 0;
+    if (!cur) for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i] && g_sp_chr[i]) { cur = (LONG)g_sp_chr[i]; break; }  // bridge 12666: summoned (no session) boss
+    InterlockedExchange(&g_mv_current_chr, cur);
     if (InterlockedExchange(&g_mv_install_pending, 0)) MvInstall();
 }
