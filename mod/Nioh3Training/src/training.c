@@ -2546,12 +2546,14 @@ static void h_reqret(const uint32_t* p, uint8_t f) {
 typedef uint64_t (*EndConfFn)(void*, int);
 static EndConfFn o_endconf; static int g_cfg_gate_block = 1; static volatile LONG g_endconf_n;
 static uint64_t h_endconf(void* ctx, int action) {
-    if (action == 0x2613 && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+    int nearGate = 0;  // #9983: the box opened by itself near the gate with no 0x2613 call logged -> the gate record's own action id differs; any action while the player is at the gate counts
+    if (action != 0x2613 && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) { float q[4]; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearGate = sqrtf(mx * mx + mz * mz) < 600.0f; } }
+    if ((action == 0x2613 || nearGate) && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
         void* ra = __builtin_return_address(0); LONG n = InterlockedIncrement(&g_endconf_n);
         int boss = GateBossAlive(), page = GateMenuOpen(), r = -1;
         if (!boss && !page) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
         if (n <= 50) { float q[4]; float d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
-            Log("GATE: native end-mission prompt (action 0x2613, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", (unsigned long long)((uintptr_t)ra - B), d, n,
+            Log("GATE: native end-mission prompt (action 0x%X, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", (unsigned long long)((uintptr_t)ra - B), d, n,
                 boss ? "boss alive, nothing opened" : page ? "our gate page already open" : r >= 0 ? "our gate page opened instead" : "?"); }
         return 0;
     }
