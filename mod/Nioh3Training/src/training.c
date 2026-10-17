@@ -2309,11 +2309,32 @@ static uint64_t GateScan(uint32_t* outId) {
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE: scan faulted"); }
     return 0;
 }
+// user #9330/#9543: the gate floated in the air. Its y was the stored round-1 player pose (g_tr.pp, log 00:28:59: 15111), taken right after the arena
+// teleport while the player still drops ~1 m to the floor (standing y 15000-15016 in BOSSMON/SPAWNPOS of the same session). No native raycast is known
+// (TECH_DEBT), so the floor height comes from where the player actually stood: the trail (0.5 s feet samples, last 20 s). Samples within 500 u of the
+// gate x/z (|dy| < 300 from the old y): lowest of the 3 nearest (a jump/dodge sample is higher, never lower). Else the median of all recent samples
+// within |dy| < 300 (flat arena floor around the fight). Else the player's current y if within 300. Else the old y.
+static float GateGroundY(float x, float z, float y0, const char** src) {
+    DWORD now = GetTickCount(); float best[3] = {1e9f, 1e9f, 1e9f}, by[3] = {0, 0, 0}, all[TRAILN]; int na = 0;
+    for (int i = 0; i < g_trN; ++i) {
+        if (now - g_trail[i].t > 30000 || fabsf(g_trail[i].p[1] - y0) > 300.0f) continue;
+        all[na++] = g_trail[i].p[1];
+        float ddx = g_trail[i].p[0] - x, ddz = g_trail[i].p[2] - z, h = ddx * ddx + ddz * ddz; if (h > 500.0f * 500.0f) continue;
+        for (int k = 0; k < 3; ++k) if (h < best[k]) { for (int m = 2; m > k; --m) { best[m] = best[m - 1]; by[m] = by[m - 1]; } best[k] = h; by[k] = g_trail[i].p[1]; break; }
+    }
+    if (best[0] < 1e9f) { float y = by[0]; for (int k = 1; k < 3; ++k) if (best[k] < 1e9f && by[k] < y) y = by[k]; *src = "trail near the gate"; return y; }
+    if (na > 0) { for (int i = 1; i < na; ++i) { float v = all[i]; int j = i - 1; while (j >= 0 && all[j] > v) { all[j + 1] = all[j]; --j; } all[j + 1] = v; } *src = "trail median"; return all[na / 2]; }
+    float pp[4]; if (PlayerPos(pp) && fabsf(pp[1] - y0) < 300.0f) { *src = "player now"; return pp[1]; }
+    *src = "round-1 pose (no floor sample)"; return y0;
+}
+static int g_cfg_gate_ground = 1;  // [Return] ReturnGateGround (default 1): gate y = floor from the player trail (0 = old: round-1 pose y)
 static int GateSpawn(const char* why) {
     float pp[4] = {0}; if (!PlayerPos(pp)) return 0;
     float base[3] = {pp[0], pp[1], pp[2]}, dx = 1.0f, dz = 0.0f;
     if (g_tr.hasStart) { base[0] = g_tr.pp[0]; base[1] = g_tr.pp[1]; base[2] = g_tr.pp[2]; float vx = g_tr.pp[0] - g_tr.bp[0], vz = g_tr.pp[2] - g_tr.bp[2], l = sqrtf(vx * vx + vz * vz); if (l > 1.0f) { dx = vx / l; dz = vz / l; } }
     __attribute__((aligned(16))) float pos[4] = {base[0] + dx * g_cfg_gate_dist, base[1], base[2] + dz * g_cfg_gate_dist, 1.0f};
+    if (g_cfg_gate_ground) { const char* src = "?"; float gy = GateGroundY(pos[0], pos[2], base[1], &src);
+        Log("GATE ground (#9543): y %.0f -> %.0f (%s; %d trail samples, player now y %.0f)", base[1], gy, src, g_trN, pp[1]); pos[1] = gy; }
     __attribute__((aligned(16))) float mat[16]; memcpy(mat, ((const float* (*)(void))(B + 0x20F030))(), sizeof mat);
     uint32_t mis = 0, mode = 0; uint8_t jr = 0; MsRead(&mis, &jr, &mode);
     uint64_t rec = 0; uint32_t id = 0; char ids[64]; snprintf(ids, sizeof ids, "%s", g_gate_ids);
@@ -3627,7 +3648,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_gate = GetPrivateProfileIntA("Return", "ReturnGate", 1, ini); g_cfg_gate_fake = GetPrivateProfileIntA("Return", "ReturnGateFakeRecord", 1, ini);
         g_cfg_gate_dist = GetPrivateProfileIntA("Return", "ReturnGateDistance", 220, ini); g_cfg_gate_touch = GetPrivateProfileIntA("Return", "ReturnGateTouchMs", 1500, ini);
-        g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
+        g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); g_cfg_gate_ground = GetPrivateProfileIntA("Return", "ReturnGateGround", 1, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
         g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 1000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
         g_nf_kneelall = GetPrivateProfileIntA("Summon", "KiBreakKneelBlockAll", 1, ini); g_nf_hp0aihold = GetPrivateProfileIntA("Summon", "KiBreakHp0AiHold", 1, ini);
