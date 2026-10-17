@@ -969,7 +969,7 @@ static int DoorCtl(uint32_t id, uint32_t mode) {
     Log("DOOR SetDoorControl(%u, mode %u) posted to registry %p", id, mode, (void*)reg);
     return 1;
 }
-static struct { int active, spawned, released, cross, xHeld; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog, tOwn, lastAct; int lastState, lastCell, nact, actIdx; } g_ar;
+static struct { int active, spawned, released, cross, xHeld, lsend; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog, tOwn, lastAct; int lastState, lastCell, nact, actIdx; } g_ar;
 // ally #618/pc 05:48: cross-world swaps spawned the boss and released the player while the arena cells were still streaming and the game's own load cover
 // (GAMESTATE[2]) was up: ~11 s live fight on a black scene (Shingen, Ally). [Fade] AreaWaitCrossMs (default 15000, 0 = off): for CROSS-world arenas only, hold the
 // player at the arena and the boss unspawned until no cell is blocking and GAMESTATE[2] is 0, at most this long after 'ready'; the fade-in then waits for the
@@ -982,6 +982,10 @@ static int AreaObjPending(int* blocking, int* pending); static const uint8_t* Ga
 // BossGraceAfterCoverMs after the screen is really visible = GAMESTATE[2] 0, mission seq state not 1..15 (the native load cover) and our fade overlay clear.
 // BossHoldMaxMs (default 60000) caps the hold.
 static int g_cfg_bossgrace = 1500, g_cfg_bosshold_max = 60000;
+// #9182 (notes/black-source-9182.md): the black after a cross-world Fight now is the game's own loading-screen widget, closed only when the mission
+// sequencer reaches state 0xB (223BE08 -> UiLoadingScreenEnd 3B1B6C, void(void)). [ArenaSwap] LoadingScreenEndMs (default -1 = off): cross-world arena
+// only, N ms after 'ready' call UiLoadingScreenEnd once per swap on the game thread (GAMESTATE[2] is left alone; CoverReleaseMs is independent).
+static int g_cfg_lsend = -1;
 static void BhStart(uint32_t handle);
 // pc 2026-10-16 (fnowvis3): on pc the arena 'ready' waited 9.3 s for sequencer state 5 (1912 open-world placeable loads); with
 // CrossWorldAreaObjSkipMs > 0 the game lifts its load cover while placeables still stream, so the hold/fade only wait for GAMESTATE[2] = 0.
@@ -1011,6 +1015,11 @@ static void ArenaTick(void) {
     DWORD now = GetTickCount(), dt = now - g_ar.t0;
     uint64_t s = StageMgr(); int st = StageState(), cell = s ? *(int32_t*)(s + 0x504) : -2;
     if (st != g_ar.lastState || cell != g_ar.lastCell) { Log("ARENA +%lu ms stage state %d -> %d, cell %d -> %d", dt, g_ar.lastState, st, g_ar.lastCell, cell); g_ar.lastState = st; g_ar.lastCell = cell; }
+    if (g_cfg_lsend >= 0 && g_ar.cross && g_ar.tReady && !g_ar.lsend && now - g_ar.tReady >= (DWORD)g_cfg_lsend) {
+        g_ar.lsend = 1;  // once per swap (g_ar is zeroed per swap); only while this cross-world swap is active
+        ((void (*)(void))(B + 0x3B1B6C))();
+        Log("LSEND +%lu ms: UiLoadingScreenEnd called %lu ms after ready (LoadingScreenEndMs %d)", dt, now - g_ar.tReady, g_cfg_lsend);
+    }
     float pos[4] = {0}; PlayerPos(pos);
     if (!g_ar.released) {
         Warp(g_ar.p[0], g_ar.p[1], g_ar.p[2], g_ar.yaw, 0);  // hold until the cells around the arena are in
@@ -3369,7 +3378,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
         g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_areawait = GetPrivateProfileIntA("Fade", "AreaWaitMs", 500, ini); g_cfg_fade_areawait_x = GetPrivateProfileIntA("Fade", "AreaWaitCrossMs", 15000, ini);
         g_cfg_fade_pwait = GetPrivateProfileIntA("Fade", "PlaceableWaitMs", -1, ini); Log("fade (pc2 #6801): PlaceableWaitMs %d", g_cfg_fade_pwait);
-        g_cfg_coverrel = GetPrivateProfileIntA("ArenaSwap", "CoverReleaseMs", -1, ini); Log("cover release (pc2 #8619): CoverReleaseMs %d", g_cfg_coverrel); Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d, AreaWaitCrossMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait, g_cfg_fade_areawait_x);
+        g_cfg_coverrel = GetPrivateProfileIntA("ArenaSwap", "CoverReleaseMs", -1, ini); Log("cover release (pc2 #8619): CoverReleaseMs %d", g_cfg_coverrel); g_cfg_lsend = GetPrivateProfileIntA("ArenaSwap", "LoadingScreenEndMs", -1, ini); Log("loading screen end (#9182): LoadingScreenEndMs %d", g_cfg_lsend); Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d, AreaWaitCrossMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait, g_cfg_fade_areawait_x);
         if (g_cfg_fade) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
