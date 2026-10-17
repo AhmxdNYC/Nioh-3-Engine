@@ -149,6 +149,14 @@ int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defe
 // ---- requests ----
 enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11 };
 bool g_noSwap = false;  // game thread: kReqTeleport = Fight now through the NORMAL mission load (never Nioh3Training's in-place swap)
+// #12444: the teleport's mission load is not plain: once the target world's stage is ready inside a load, end the loading screen early (lsfade) and
+// request the boss gate sooner. [Rematch] TeleportFastLoad (1), TeleportLoadingScreenEndMs (-2 = Nioh3Training.ini [ArenaSwap] LoadingScreenEndMs, the
+// Fight now value; -1 off), TeleportCoverReleaseMs (-2 = [ArenaSwap] CoverReleaseMs), TeleportGateMs (gate request delay after landing, 2500 = plain).
+struct TfState {
+    bool on = false, inLoad = false, lsDone = false;
+    int row = -1, world = -1, lsMs = -1, coverMs = -1, gateMs = 2500, loads = 0, lastWorld = -2, lastStage = -2, covers = 0;
+    ULONGLONG t0 = 0, loadAt = 0, readyAt = 0;
+} g_tf;
 std::atomic<uint32_t> g_req{0};  // kind | (row + 1) << 8
 enum State : int { kIdle = 0, kMenuOpen = 1, kInReplay = 2, kEmaki = 3 };
 std::atomic<int> g_state{kIdle};
@@ -422,6 +430,25 @@ int CallRequestById(uint16_t id, uint8_t slot, uint32_t start) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
     }
+}
+// #12444 teleport fast load: the same two native calls Nioh3Training's [ArenaSwap] LoadingScreenEndMs (lsfade, #9182) makes for a cross-world Fight now
+// (UiLoadingScreenEnd 3B1B6C closes the loading-screen widget; BlackFadeIn 345508(0, 30, 0) lifts the black fader that seq 0x12 would lift later). Game thread.
+int CallLoadingScreenEnd() {
+    if (!g_img.base) return 2;
+    __try {
+        ((void (*)())(g_img.base + 0x3B1B6C))();
+        ((void (*)(uint32_t, float, float))(g_img.base + 0x345508))(0, 30.0f, 0.0f);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+int StageWorld(int* stage) {  // StageMgr [45B9E58]: +0x500 current world, +0x889 streamer state (5 = ready), as Nioh3Training CurWorld/StageState
+    uint64_t sm = 0;
+    uint8_t w = 0, st = 0;
+    if (!g_img.base || !Rd(g_img.base + 0x45B9E58, sm) || !sm || !Rd(sm + 0x500, w) || !Rd(sm + 0x889, st)) { *stage = -1; return -1; }
+    *stage = st;
+    return w;
 }
 int CallEmakiRequest(uint64_t ref, const uint8_t* key12) {
     alignas(16) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};  // movaps [params] (10DC0CD): 16-byte aligned
@@ -1021,6 +1048,25 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
             Log("Rematch: F %s: no spawn override (%s) - warp after the landing", r.id, !g_cfg.fightSpawn ? "[Rematch] FightNowSpawn = 0" : g_spawnWhy);
         else if (warp)
             Log("Rematch: F %s: no warp needed - the mission starts at the fight", r.id);
+        g_tf = TfState{};
+        if (g_noSwap && IniInt(L"Rematch", L"TeleportFastLoad", 1)) {
+            const std::wstring tini = std::wstring(ModDir()) + L"Nioh3Training.ini";
+            auto pick = [&](const wchar_t* key, const wchar_t* tkey) {
+                const int v = IniInt(L"Rematch", key, -2);
+                return v != -2 ? v : (int)GetPrivateProfileIntW(L"ArenaSwap", tkey, -1, tini.c_str());
+            };
+            g_tf.on = true;
+            g_tf.row = row;
+            g_tf.world = r.world;
+            g_tf.t0 = t;
+            g_tf.lsMs = pick(L"TeleportLoadingScreenEndMs", L"LoadingScreenEndMs");
+            g_tf.coverMs = pick(L"TeleportCoverReleaseMs", L"CoverReleaseMs");
+            g_tf.gateMs = IniInt(L"Rematch", L"TeleportGateMs", 300);
+            int st = -1;
+            const int w = StageWorld(&st);
+            Log("Rematch: TELEPORT fast load armed for %s (#12444): target world 0x%02X (now 0x%02X, stage %d), LoadingScreenEndMs %d, CoverReleaseMs %d, gate %d ms after landing",
+                r.id, r.world & 0xFF, w & 0xFF, st, g_tf.lsMs, g_tf.coverMs, g_tf.gateMs);
+        }
     }
     g_state.store(kInReplay);
     g_activeRow.store(row);
@@ -1376,7 +1422,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             g_loadDoneAt = 0;
         } else if (g_loadSeen && s.gm && s.player && s.msOk && !s.st[3] && !s.st[4]) {
             if (!g_loadDoneAt) g_loadDoneAt = t;
-            else if (t - g_loadDoneAt > 3000) {
+            else if (t - g_loadDoneAt > (g_tf.on ? 1000u : 3000u)) {  // #12444 teleport: 1 s settle instead of 3 s
                 g_replayMs = s.ms14;
                 g_replayIn.store(true);
                 Log("Rematch: IN replay mission (stage %u) %.1f s after the start (the load itself ended %.1f s after it)", s.ms14,
@@ -1395,6 +1441,10 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                         g_warpDue = t + 1000;
                     }
                     if (g_gateWant.load()) g_gateDue = t + (g_fightWarp ? 2500 : 1000);
+                    if (g_gateWant.load() && g_tf.on && g_tf.gateMs >= 0 && g_tf.gateMs < 2500 && strcmp(g_sp.last, "arena") == 0) {  // #12444: spawned in the arena, nothing to wait for
+                        g_gateDue = t + (ULONGLONG)g_tf.gateMs;
+                        Log("Rematch: TELEPORT gate request in %d ms (spawned in the arena; plain = 2500)", g_tf.gateMs);
+                    }
                     if (!g_fightWarp && g_gateWant.load()) {
                         // gate only: GateTick requests the right and starts the verification
                     } else if (!g_fightWarp && g_fn.load() == kFnArmed) {  // the mission starts at the fight: no warp, just verify
@@ -1738,6 +1788,69 @@ void HkCoverCreate(uint64_t placement,uint64_t,uint64_t,uint64_t,const uint64_t*
             Log("Rematch: cover token=%llu attempt=%llu event=branch_actor mission=0x%X start=%u requested=%u actor=%u",g_cover.token,g_cover.attempt,s.ms28,s.ms14,g_cover.placement,g_cover.observedPlacement);
     }
 }
+// #12444 game thread: Teleport to arena fast load. Every load of the teleport (the mission load, then the load the boss gate starts) gets the
+// lsfade treatment once the target world's stage streamer is ready (state 5) with a player: UiLoadingScreenEnd + BlackFadeIn after LoadingScreenEndMs.
+void TfTick(const Snap& s, ULONGLONG t) {
+    if (!g_tf.on) return;
+    const char* end = !g_fight.load() || g_state.load() != kInReplay ? "the fight attempt ended"
+                      : g_fn.load() == kFnPass                        ? "BossBattleMode started (Fight now PASS)"
+                      : g_fn.load() == kFnFail                        ? "Fight now FAIL"
+                      : t - g_tf.t0 > 300000                          ? "timeout 300 s"
+                                                                      : nullptr;
+    if (end && !(s.gm && s.st[2])) {
+        Log("Rematch: TELEPORT fast load over +%.1f s: %s (%d loads)", (double)(t - g_tf.t0) / 1000.0, end, g_tf.loads);
+        g_tf.on = false;
+        return;
+    }
+    if (!s.gm) return;
+    int stage = -1;
+    const int w = StageWorld(&stage);
+    if (w != g_tf.lastWorld || stage != g_tf.lastStage) {
+        Log("Rematch: TELEPORT +%.1f s world 0x%02X stage %d (GAMESTATE[2] %u, player %d)", (double)(t - g_tf.t0) / 1000.0, w & 0xFF, stage, s.st[2], s.player ? 1 : 0);
+        g_tf.lastWorld = w;
+        g_tf.lastStage = stage;
+    }
+    if (s.st[2] && !g_tf.inLoad) {
+        g_tf.inLoad = true;
+        g_tf.lsDone = false;
+        g_tf.readyAt = 0;
+        g_tf.loadAt = t;
+        ++g_tf.loads;
+        Log("Rematch: TELEPORT load #%d began +%.1f s", g_tf.loads, (double)(t - g_tf.t0) / 1000.0);
+    } else if (!s.st[2] && g_tf.inLoad) {
+        g_tf.inLoad = false;
+        Log("Rematch: TELEPORT load #%d ended +%.1f s (%.1f s long%s)", g_tf.loads, (double)(t - g_tf.t0) / 1000.0, (double)(t - g_tf.loadAt) / 1000.0,
+            g_tf.readyAt ? ", stage was ready before" : ", stage never ready inside it");
+        return;
+    }
+    if (!g_tf.inLoad) return;
+    const bool ready = s.player && stage == 5 && (g_tf.world < 0 || w == g_tf.world) && t - g_tf.loadAt >= 300;
+    if (ready && !g_tf.readyAt) {
+        g_tf.readyAt = t;
+        Log("Rematch: TELEPORT load #%d ready +%.1f s (%.1f s into the load): world 0x%02X stage 5, player", g_tf.loads, (double)(t - g_tf.t0) / 1000.0,
+            (double)(t - g_tf.loadAt) / 1000.0, w & 0xFF);
+    }
+    if (!g_tf.readyAt) return;
+    if (g_tf.lsMs >= 0 && !g_tf.lsDone && t - g_tf.readyAt >= (ULONGLONG)g_tf.lsMs) {
+        g_tf.lsDone = true;
+        const int rc = CallLoadingScreenEnd();
+        Log("Rematch: TELEPORT LSEND load #%d +%.1f s: UiLoadingScreenEnd + BlackFadeIn(0, 30, 0) %s, %llu ms after ready (LoadingScreenEndMs %d)", g_tf.loads,
+            (double)(t - g_tf.t0) / 1000.0, rc == 0 ? "called" : "EXCEPTION", (unsigned long long)(t - g_tf.readyAt), g_tf.lsMs);
+    }
+    if (g_tf.coverMs >= 0 && t - g_tf.readyAt >= (ULONGLONG)g_tf.coverMs) {
+        uint64_t gm = 0;
+        if (Rd(G_GM, gm) && gm) {
+            __try {
+                *(volatile uint8_t*)(gm + 0x588 + 2) = 0;
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+            }
+            if (g_tf.covers++ < 3)
+                Log("Rematch: TELEPORT COVER load #%d: GAMESTATE[2] cleared by hand %llu ms after ready (CoverReleaseMs %d)", g_tf.loads,
+                    (unsigned long long)(t - g_tf.readyAt), g_tf.coverMs);
+        }
+    }
+}
+
 void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
@@ -1830,6 +1943,7 @@ void Tick() {
         }
     }
     TrackReplay(s, t);
+    TfTick(s, t);
     SelfTestTick(s, t);
     TrackEmaki(s, t);
     CoverTick(s,t);
