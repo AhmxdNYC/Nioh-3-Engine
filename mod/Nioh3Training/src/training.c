@@ -322,6 +322,12 @@ static int g_nf_nonlethal = 1, g_nf_prime = 1, g_nf_hprow_ok;  // g_nf_prime: [S
 // blocked on a watched boss whose Ki is <= 0 / broken at HP > 0 (normal Ki breaks), not only in the HP-0 window. [Summon] KiBreakHp0AiHold (default 1,
 // 'nofinaihold 0|1'): the boss AI is held off (668D74, re-applied every 100 ms) for the whole HP-0 window = no Ki-broken moves / dashes there.
 static int g_nf_kneelall = 1, g_nf_hp0aihold = 1;
+// #9579 [Summon] KiBreakBareFix (default 1, run time 'nofinbare 0|1') / KiBreakBareMs (default 200): a 'bare' Ki break (state 0x23 from ctrl+0x1060 bit 0x3A only,
+// none of the stagger action's runtime bits 62/45/33; user log 00:56:24: Ki crossed 0 at -11.2 during a boss attack, no hit reaction, break bit set 670 ms
+// later) plays no stagger: the boss stands crouched for the 3.8 s break timer with hit reactions off = the 'death stance' (vanilla: grapple bait, which
+// KiBreakNoFinisher blocks). After KiBreakBareMs of bare break at HP > 0 the break is cancelled (bit 0x3A + ctrl+0xA8 bit 41 cleared, timer ctrl+0x1014 0)
+// and the Ki is set to 0.5 (raw), so the boss acts again and the next hit that lands breaks it natively with the real stagger.
+static int g_nf_barefix = 1, g_nf_bare_ms = 200;
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
                             // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
@@ -2753,6 +2759,7 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "nofinprime")) { g_nf_prime = (int)a[0]; Log("CMD nofinprime %d", g_nf_prime);
         } else if (!strcmp(op, "nofinnl")) { g_nf_nonlethal = (int)a[0]; Log("CMD nofinnl %d", g_nf_nonlethal);
         } else if (!strcmp(op, "nofinkneelall")) { g_nf_kneelall = (int)a[0]; Log("CMD nofinkneelall %d", g_nf_kneelall);
+        } else if (!strcmp(op, "nofinbare")) { g_nf_barefix = (int)a[0]; Log("CMD nofinbare %d (bare Ki break -> cancelled + Ki primed, #9579)", g_nf_barefix);
         } else if (!strcmp(op, "nofinaihold")) { g_nf_hp0aihold = (int)a[0]; Log("CMD nofinaihold %d", g_nf_hp0aihold);
         } else if (!strcmp(op, "nofinkneel")) { g_nf_kneel = (int)a[0]; Log("CMD nofinkneel %d", g_nf_kneel);
         } else if (!strcmp(op, "nofin101")) { g_nf_clear101 = (int)a[0]; Log("CMD nofin101 %d", g_nf_clear101);
@@ -3007,7 +3014,7 @@ static volatile uint64_t g_nf_act[NF_N], g_nf_ai[NF_N], g_nf_ctrl[NF_N];  // rea
 static volatile DWORD g_nf_hitT[NF_N]; static volatile LONG g_nf_hits[NF_N];
 static volatile LONG g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28, g_nf_cnt_cg; static volatile uint64_t g_nf_cg_tgt;  // + every CanGrapple call / its last target (diag)  // asm stub counters: grapple selection / grab box / bit-31 box / bit-28 box
 static struct { volatile uint32_t id; volatile int on; volatile float ratio, w; } g_nf_drain[NF_N];  // w: 1 = gold override, 0..1 = blend back (#9133)
-static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; DWORD tFade, tGoldEnd; int goldWas; float fadeFrom; int aiHeld, nAiRe; DWORD tAi, tDiag; } g_nf[NF_N];
+static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; DWORD tFade, tGoldEnd; int goldWas; float fadeFrom; int aiHeld, nAiRe; DWORD tAi, tDiag; DWORD tBare; int nBare; } g_nf[NF_N];
 static int g_nf_hooked; static volatile LONG g_nf_lines;
 static void NfLog(const char* fmt, ...) { if (InterlockedIncrement(&g_nf_lines) > 800) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint8_t* NearPage(void* site) {
@@ -3449,6 +3456,25 @@ static void NfTick(void) {
                       KbState(ai, 0x35), KbState(ai, 0x9), KbState(ai, 0xB0), KbState(ai, 0x2C), KbState(ai, 0x27), exh, *(uint32_t*)(ctrl + 0x994), *(uint8_t*)(a + 0x91B), BhAiOn(a),
                       *(uint64_t*)(ctrl + 0x1060), *(uint64_t*)(ctrl + 0x1068), g_mot_id[s], g_mot_t[s] ? now - g_mot_t[s] : 0); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
         } else if (g_nf[s].win == 0) g_nf[s].tDiag = 0;
+        // #9579 bare Ki break (see g_nf_barefix): cancel it and prime the Ki so the next hit gives the real stagger
+        if (g_nf_barefix && g_nf[s].win == 0 && s23 && hc > NF_FLOOR) {
+            uint64_t w0 = 0, wA8 = 0; __try { w0 = *(volatile uint64_t*)(ctrl + 0x1060); wA8 = *(volatile uint64_t*)(ctrl + 0xA8); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+            const uint64_t stag = (1ull << 62) | (1ull << 45) | (1ull << 33);
+            if ((w0 & (1ull << 0x3A)) && !(w0 & stag)) {
+                if (!g_nf[s].tBare) g_nf[s].tBare = now ? now : 1;
+                else if (now - g_nf[s].tBare >= (DWORD)g_nf_bare_ms) {
+                    float k0 = kc; __try {
+                        ((void (*)(uint64_t, uint64_t, uint8_t))(B + 0xFC1A20))(ctrl + 0x1060, 0x3A, 0);
+                        InterlockedAnd64((volatile LONG64*)(ctrl + 0xA8), ~(LONG64)(1ull << 41));
+                        *(volatile float*)(ctrl + 0x1014) = 0.0f;
+                        if (*(float*)(st + 0xAC) < 0.5f) *(volatile float*)(st + 0xAC) = 0.5f;
+                    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+                    g_nf[s].nBare++; g_nf[s].tBare = 0;
+                    int s23b = KbState(ai, 0x23);
+                    static int nb; if (++nb <= 40) NfLog("NOFIN boss %p HP %llu: BARE Ki break (bits1060 %016llX A8 %016llX, no stagger bits 62/45/33) for %d ms -> cancelled + Ki %.1f -> 0.5 (23 now %d, #%d, KiBreakBareFix)", (void*)a, hc, w0, wA8, g_nf_bare_ms, k0, s23b, g_nf[s].nBare);
+                }
+            } else g_nf[s].tBare = 0;
+        } else g_nf[s].tBare = 0;
         if (hc <= NF_FLOOR && g_nf[s].win == 0) {
             g_nf[s].win = 1; g_nf[s].tWin = g_nf[s].tLast = now; g_nf[s].hits0 = g_nf_hits[s]; g_nf[s].nHits = 0; g_nf[s].nRebreak = 0;
             NfLog("NOFIN HP-0 window start boss %p (HP %llu/%llu): Ki broken + gold bar draining %d ms; dies if not hit", (void*)a, hc, hm, g_cfg_nofin_ms);
@@ -3659,6 +3685,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_nf_kneelall = GetPrivateProfileIntA("Summon", "KiBreakKneelBlockAll", 1, ini); g_nf_hp0aihold = GetPrivateProfileIntA("Summon", "KiBreakHp0AiHold", 1, ini);
         g_cfg_nofin_fade = GetPrivateProfileIntA("Summon", "KiBreakHp0FadeDelayMs", 1000, ini); if (g_cfg_nofin_fade < 0) g_cfg_nofin_fade = 0;
         Log("KiBreakKneelBlockAll %d, KiBreakHp0AiHold %d (#9542); KiBreakHp0FadeDelayMs %d, ReturnGateGround %d (#9543)", g_nf_kneelall, g_nf_hp0aihold, g_cfg_nofin_fade, g_cfg_gate_ground);
+        g_nf_barefix = GetPrivateProfileIntA("Summon", "KiBreakBareFix", 1, ini); g_nf_bare_ms = GetPrivateProfileIntA("Summon", "KiBreakBareMs", 200, ini); if (g_nf_bare_ms < 0) g_nf_bare_ms = 0;
+        Log("KiBreakBareFix %d, KiBreakBareMs %d (#9579: bare Ki break = crouch without stagger -> cancelled, Ki primed for a real break)", g_nf_barefix, g_nf_bare_ms);
         g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini); g_nf_clear101 = GetPrivateProfileIntA("Summon", "KiBreakHp0ClearDeathBlow", 1, ini); g_nf_kirow_unbreak = GetPrivateProfileIntA("Summon", "KiBreakGoldUnbreak", 1, ini);
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
