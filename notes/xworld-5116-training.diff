@@ -1,0 +1,36 @@
+717a718
+> static struct { int active, logged_end; DWORD t0, last; uint32_t lastKey, world, id; } g_xs;
+740a742,752
+>         } else if (!strcmp(op, "rdump")) {  // rdump rva len -> <dir>\rdump_<rva>.bin (xworld 5116)
+>             char p[MAX_PATH]; snprintf(p, sizeof p, "%s/rdump_%llX.bin", g_dir, a[0]);
+>             FILE* f = fopen(p, "wb"); if (f) { fwrite((void*)(B + a[0]), 1, (size_t)a[1], f); fclose(f); }
+>             Log("CMD rdump rva 0x%llX len %lld -> %s (%s)", a[0], a[1], p, f ? "ok" : "open failed");
+>         } else if (!strcmp(op, "stgreq")) {  // stgreq world stageId [mode]: arena-stage-only request FB0530(stageMgr+0x500, stageId, world, 0), then poll A40A30 IsStageLoadEnd (xworld 5116)
+>             uint64_t s = StageMgr(); if (!s) { Log("CMD stgreq: no stage mgr"); return; }
+>             StageLog("STGREQ before");
+>             g_xs.t0 = GetTickCount(); g_xs.last = g_xs.t0; g_xs.lastKey = 0xFFFFFFFFu; g_xs.world = (uint32_t)a[0]; g_xs.id = (uint32_t)a[1]; g_xs.active = 1; g_xs.logged_end = 0;
+>             Log("CMD stgreq: calling FB0530(sub=%p, id=%u, world=0x%X, 0)", (void*)(s + 0x500), g_xs.id, g_xs.world);
+>             uint64_t r = ((uint64_t (*)(uint64_t, uint32_t, uint32_t, uint32_t))(B + 0xFB0530))(s + 0x500, g_xs.id, g_xs.world, 0);
+>             Log("CMD stgreq: FB0530 returned 0x%llX after %lu ms", r, GetTickCount() - g_xs.t0);
+863a876
+>             if (n >= 5 && a[3]) prm[2] = 1;                       // KeepLoadedStage (23B9FA8)
+867c880
+<             Log("CMD oworld world 0x%llX start %llu white %d journey %u mode %u requested", a[0], a[1], n >= 4 && a[2] ? 1 : 0, journey, mode);
+---
+>             Log("CMD oworld world 0x%llX start %llu white %d keep %d journey %u mode %u requested", a[0], a[1], n >= 4 && a[2] ? 1 : 0, n >= 5 && a[3] ? 1 : 0, journey, mode); StageLog("OWORLD t0");
+903a917,929
+> // ---- xworld 5116: stage-load poll (stgreq): logs every change of (stage state, +0x760, world, cell, loaded count) with ms since the request, and A40A30 IsStageLoadEnd
+> static void XTick(void) {
+>     if (!g_xs.active) return;
+>     uint64_t s = StageMgr(); DWORD now = GetTickCount(); if (!s) return;
+>     uint64_t sub = s + 0x500; uint32_t v760 = *(uint32_t*)(s + 0x760);
+>     uint32_t key = (uint32_t)*(uint8_t*)(sub + 0x389) | (v760 << 8) | ((uint32_t)*(uint8_t*)sub << 16) | ((uint32_t)(*(uint64_t*)(sub + 0x60)) << 24);
+>     if (key != g_xs.lastKey || now - g_xs.last > 5000) {
+>         g_xs.lastKey = key; g_xs.last = now;
+>         char tag[64]; snprintf(tag, sizeof tag, "XS +%lu ms v760=%u", now - g_xs.t0, v760); StageLog(tag);
+>     }
+>     if (!g_xs.logged_end && v760 == 3) { g_xs.logged_end = 1; Log("XS IsStageLoadEnd ([45B9E58]+760h == 3) TRUE after %lu ms", now - g_xs.t0); StageLog("XS end"); }
+>     if (now - g_xs.t0 > 120000) { g_xs.active = 0; Log("XS poll stopped after 120 s"); }
+> }
+911a938
+>     __try { XTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XS tick exception %08lX", GetExceptionCode()); g_xs.active = 0; }

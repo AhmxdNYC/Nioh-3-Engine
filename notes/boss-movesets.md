@@ -93,3 +93,5 @@ Source: `ACTLOG` (action id read ~25 Hz; ids bucketed per boss). Times used = st
 | Red Kappa | R3B19 | 21 | 13 |  |
 | Nuribotoke | R401E | 12 | 9 |  |
 | Kamaitachi | RFCCB | 31 | 21 |  |
+
+Labels (pc2 #9888): column label_lowconf in boss-action-ids-all.csv, from 2 screenshots per id (start + later) - LOW confidence, coarse (frame at an arbitrary moment, often motion-blurred, camera on the player; Kamaitachi frames partly covered by a console window). Only ids with a frame in captures/rematch/*/acts are labelled; others blank. Treat as hints, not names.

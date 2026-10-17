@@ -1,0 +1,15 @@
+# Steam autoplay repair, pc2 task 3620
+
+PASS: two real Steam cloud dialogs were automatically accepted, and Nioh 3 started in both tests. The second test used the production prelaunch wrapper: helper ready at 10:28:38, Open Steam clicked at 10:28:42, Play anyway clicked at 10:28:46, Nioh3 PID 11224 started at 10:28:46.664. No manual click was used in this second launch.
+
+The benchmark watchers had actually started (09:57:57, 10:00:30, 10:02:38, 10:09:40). Their original helper matched current universal-optimizer origin/fleet-v2 at b9e68d309de6dfc4548c51304b880a6a891266ae, SHA256 9cba5d1a089c6784f09ce86beb0ae72090da00498294e73cd7d13da37b5bd338. The failure was detection: the Launching window obscured the cloud prompt, and native-size Windows OCR read the warning but omitted the small Play anyway and Cancel text even when the prompt was visible. A captured real Steam window and OCR transcripts reproduce this.
+
+The canonical helper now enumerates every visible Steam top-level window, automatically exposes the cloud prompt through Open Steam, and retries OCR on overlapping 2x tiles with correct screen-coordinate mapping. It disposes OCR buffers and reports its PID/path. The new prelaunch wrapper starts that canonical file hidden for 15 minutes, waits for OCR readiness, records the SHA256, and refuses launch if initialization fails. Each watcher exits when its launch owner exits; a direct lifecycle check verified this within two seconds.
+
+All 20 PowerShell Steam launch sites call the wrapper, including the pc2 variants and tour relaunches. Fastab starts it immediately after resolving its script root, before setup, and run_tour refreshes it immediately before the launch. The Windows Python fightnow launcher also calls it. Dry runs skip real Steam startup. The old repeated Open Steam subprocess loop in run_tour is removed.
+
+Validation: two actual game starts, fixed-helper dry-run detection at the correct button center (1076,618), full fastab dry run PASS, PowerShell parse and Python compile PASS, git diff checks PASS, universal-optimizer scripts/check.ps1 -SkipFSharp PASS (all three Python suites, header sync, ABBA and guard selftests). A prelaunch wrapper integration issue with the guard's shadowed Start-Sleep was found and corrected before the second test using the module-qualified cmdlet.
+
+Both game tests held nioh3-pc2 and used fresh backups. Each restored and SHA256-verified all six save/config files. No ASI/INI was installed or modified for these dialog tests. Final state: no Nioh3 process, no task-owned Steam helper, device lock released. First test evidence C:/nioh3-re/task3620-autoplay; second test evidence in its second subdirectory. Private save backups remain local.
+
+Delivery contains two incremental patches: nioh3-launchers.patch applies on top of the prior task3578 recorder changes; universal-autoplay.patch applies to current fleet-v2. Unrelated local edits are excluded. pc owns fleet integration. Remaining display/language coverage is tracked in universal-optimizer/TECH_DEBT.md.
