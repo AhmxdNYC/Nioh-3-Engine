@@ -1295,6 +1295,16 @@ static void TrainClear(const char* why) {  // remove our boss and its HUD/BGM st
     for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);
     g_nsp = 0; g_watch = 0; g_mon.a = 0;
 }
+// bridge 12614 (cx-pc study 10541): one despawn-all transaction for every entry point. Cancels a pending spawn so a late actor cannot appear after it, deletes every tracked actor,
+// and resets the 32-slot counter only after the removal pass (individual Despawn never lowers g_nsp, so tracking otherwise stops after 32 cumulative spawns).
+static int DespawnAll(const char* why) {
+    int removed = 0, gone = 0;
+    g_sp.active = 0; g_watch = 0; g_mon.a = 0;
+    for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) { if (Despawn(i)) removed++; else gone++; }
+    g_nsp = 0;
+    Log("DESPAWN ALL (%s): %d deleted, %d already gone, slots reset", why, removed, gone);
+    return removed;
+}
 static int TrainStart(const char* tok, float d) {
     if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
     TrainClear("train start");
@@ -3003,7 +3013,7 @@ static void Exec(char* line) {
                 Log("  actor %p%s%s handle %08X %08X pos %.0f %.0f %.0f", (void*)cur[i], cur[i] == me ? " PLAYER" : "", InSp(cur[i]) ? " SPAWNED" : "", *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2]); }
         } else if (!strcmp(op, "despawn")) {
             char w[16] = "all"; sscanf(line, "%*s %15s", w);
-            if (!strcmp(w, "all")) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i); }
+            if (!strcmp(w, "all")) DespawnAll("command");
             else if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { Despawn(i); break; } }
             else Despawn(atoi(w));
         } else if (!strcmp(op, "kill")) {
