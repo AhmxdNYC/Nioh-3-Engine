@@ -343,9 +343,18 @@ static uint32_t g_nf_actbad[16], g_nf_actgood; static int g_nf_nactbad;  // ini 
 // #9946 learned ids per boss (key = gauge row id): good = the action seen (stable >= 250 ms) in the gold-Ki phase (Ki < 0, not 0x23, bits1060 all 0, HP > 0);
 // bad = the action seen in a bare break (bit 0x3A without stagger bits) or, once a good id is known, one that replaced the break's start action >= 600 ms in.
 static struct { uint32_t id, good, bad[8]; int nbad; } g_nf_lrn[8];
-static int NfLrn(uint32_t id) { int f = -1; for (int i = 0; i < 8; ++i) { if (g_nf_lrn[i].id == id && id) return i; if (f < 0 && !g_nf_lrn[i].id) f = i; } if (f < 0) f = 0; memset(&g_nf_lrn[f], 0, sizeof g_nf_lrn[f]); g_nf_lrn[f].id = id; return f; }
+static void NfLrnSave(int l);
+static int NfLrn(uint32_t id) { int f = -1; for (int i = 0; i < 8; ++i) { if (g_nf_lrn[i].id == id && id) return i; if (f < 0 && !g_nf_lrn[i].id) f = i; } if (f < 0) f = 0; memset(&g_nf_lrn[f], 0, sizeof g_nf_lrn[f]); g_nf_lrn[f].id = id;
+    {   // #10069: learned ids persist per boss (g_dir/Nioh3Training_learned.ini [boss <chr id>]) so a new session starts with them
+        char fp[MAX_PATH], sec[32], v[96]; snprintf(fp, sizeof fp, "%s/Nioh3Training_learned.ini", g_dir); snprintf(sec, sizeof sec, "boss %X", id);
+        GetPrivateProfileStringA(sec, "good", "0", v, sizeof v, fp); g_nf_lrn[f].good = (uint32_t)strtoul(v, 0, 0);
+        GetPrivateProfileStringA(sec, "bad", "", v, sizeof v, fp); for (const char* q = v; *q && g_nf_lrn[f].nbad < 8; ) { char* e; unsigned long x = strtoul(q, &e, 0); if (e == q) { ++q; continue; } if (x) g_nf_lrn[f].bad[g_nf_lrn[f].nbad++] = (uint32_t)x; q = e; } }
+    return f; }
+static void NfLrnSave(int l) { char fp[MAX_PATH], sec[32], v[96] = ""; snprintf(fp, sizeof fp, "%s/Nioh3Training_learned.ini", g_dir); snprintf(sec, sizeof sec, "boss %X", g_nf_lrn[l].id);
+    snprintf(v, sizeof v, "0x%X", g_nf_lrn[l].good); WritePrivateProfileStringA(sec, "good", v, fp);
+    v[0] = 0; for (int i = 0; i < g_nf_lrn[l].nbad; ++i) { size_t n = strlen(v); snprintf(v + n, sizeof v - n, "%s0x%X", i ? "," : "", g_nf_lrn[l].bad[i]); } WritePrivateProfileStringA(sec, "bad", v, fp); }
 static int NfActBadFor(int l, uint32_t id) { for (int i = 0; i < g_nf_nactbad; ++i) if (g_nf_actbad[i] == id) return 1; for (int i = 0; i < g_nf_lrn[l].nbad; ++i) if (g_nf_lrn[l].bad[i] == id) return 1; return 0; }
-static void NfLrnBad(int l, uint32_t id) { if (!id || NfActBadFor(l, id) || g_nf_lrn[l].nbad >= 8) return; g_nf_lrn[l].bad[g_nf_lrn[l].nbad++] = id; }
+static void NfLrnBad(int l, uint32_t id) { if (!id || NfActBadFor(l, id) || g_nf_lrn[l].nbad >= 8) return; g_nf_lrn[l].bad[g_nf_lrn[l].nbad++] = id; NfLrnSave(l); }
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
                             // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
@@ -3698,20 +3707,23 @@ static void NfTick(void) {
                 g_nf[s].brkAct = ActIdOf(ctrl); g_nf[s].tBrk = now ? now : 1; g_nf[s].tSwap = 0; g_nf[s].tFixLast = 0; g_nf[s].nFix = 0; }  // #9895 break start action (log); #9937 fix state reset
             if (!s23) g_nf[s].tBrk = 0;
             prev23[s] = s23; }
-        // #9946/#10014 learn the boss's good Ki-break action: held >= 300 ms inside a real stagger (state 0x23 with stagger bits 62/45/33), HP > 0, not the HP-0 window.
-        // (Learning it from the gold-Ki phase picked ordinary moves 0x3FD/0x4E42, and swapping to those ended the break.)
-        if (g_nf_actfix && g_nf[s].win == 0 && s23 && hc > NF_FLOOR) {
-            static uint32_t lastA[NF_N]; static DWORD tA[NF_N]; uint32_t cur = ActIdOf(ctrl); uint64_t wg = 0;
+        // #9946/#10014/#10069 learn the boss's good Ki-break action (never overwritten once known): (1) held >= 300 ms inside a real stagger (0x23 with stagger bits
+        // 62/45/33), or (2) held >= 250 ms with bits all 0 within the first 2500 ms after Ki dropped below 0 (the gold-Ki stagger; later moves like 0x3FD/0x4E42 are
+        // ordinary actions and must not count). HP > 0, not the HP-0 window. Saved per boss in Nioh3Training_learned.ini.
+        if (g_nf_actfix && g_nf[s].win == 0 && hc > NF_FLOOR) {
+            static uint32_t lastA[NF_N]; static DWORD tA[NF_N], tK[NF_N]; uint32_t cur = ActIdOf(ctrl); uint64_t wg = 0;
             __try { wg = *(volatile uint64_t*)(ctrl + 0x1060); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-            int stag = (wg & ((1ull << 62) | (1ull << 45) | (1ull << 33))) != 0 && !(wg & (1ull << 0x3A));
-            if (!stag || cur != lastA[s]) { lastA[s] = cur; tA[s] = now; }
-            else if (now - tA[s] >= 300) { int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
-                if (g_nf_lrn[l].good != cur && !NfActBadFor(l, cur)) { NfLog("NOFIN boss %p: learned GOOD Ki-break action 0x%X (stagger bits %016llX, stable %lu ms, row %u; was 0x%X)", (void*)a, cur, wg, now - tA[s], g_nf[s].id, g_nf_lrn[l].good); g_nf_lrn[l].good = cur; } }
+            if (kc >= 0.0f) tK[s] = 0; else if (!tK[s]) tK[s] = now ? now : 1;
+            int stag = s23 && (wg & ((1ull << 62) | (1ull << 45) | (1ull << 33))) != 0 && !(wg & (1ull << 0x3A));
+            int gold = !s23 && kc < 0.0f && wg == 0 && tK[s] && now - tK[s] <= 2500;
+            if (!(stag || gold) || cur != lastA[s]) { lastA[s] = cur; tA[s] = now; }
+            else if (now - tA[s] >= (stag ? 300u : 250u)) { int l = NfLrn(g_tr.active && g_tr.chr ? g_tr.chr : g_nf[s].id ? g_nf[s].id : 0xFFFF);
+                if (!g_nf_lrn[l].good && !NfActBadFor(l, cur)) { g_nf_lrn[l].good = cur; NfLrnSave(l); NfLog("NOFIN boss %p: learned GOOD Ki-break action 0x%X (%s, bits %016llX, stable %lu ms, key %X)", (void*)a, cur, stag ? "real stagger" : "gold-Ki start", wg, now - tA[s], g_nf_lrn[l].id); } }
         }
         // #9895 Ki-break action swap fix (see g_nf_actfix)
         if (g_nf_actfix && g_nf[s].win == 0 && hc > NF_FLOOR && s23 && g_nf[s].tBrk) {  // #10014: NOT in the HP-0 window - the forced swap to a non-stagger move ended the break after 125 ms and the boss moved away mid-combo
             // #9937: bad action id (KiBreakActBadIds) -> the good one (KiBreakActGoodId); brkAct = the start action, log only
-            int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
+            int l = NfLrn(g_tr.active && g_tr.chr ? g_tr.chr : g_nf[s].id ? g_nf[s].id : 0xFFFF);
             uint32_t cur = ActIdOf(ctrl), b0 = g_nf[s].brkAct, good = g_nf_lrn[l].good ? g_nf_lrn[l].good : g_nf_actgood; DWORD el = now - g_nf[s].tBrk;
             {   uint64_t wb = 0; __try { wb = *(volatile uint64_t*)(ctrl + 0x1060); } __except (EXCEPTION_EXECUTE_HANDLER) { }
                 if ((wb & (1ull << 0x3A)) && !(wb & ((1ull << 62) | (1ull << 45) | (1ull << 33))) && cur != good && !NfActBadFor(l, cur)) { NfLrnBad(l, cur); NfLog("NOFIN boss %p: learned BAD Ki-break action 0x%X (bare crouch bits %016llX, row %u)", (void*)a, cur, wb, g_nf[s].id); }
