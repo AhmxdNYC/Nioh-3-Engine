@@ -28,6 +28,7 @@
 #include "transition_cover.h"
 #include "transition_native_read.h"
 #include "../../menu_navigation.h"
+#include "../../boss_moves.h"
 #include "../../settings/store.h"
 
 #include <atomic>
@@ -1984,6 +1985,46 @@ constexpr int kItNoFin = -26;
 // Live + saved through Nioh3Training_Get/SetTuning; the kill toggles themselves are not touched.
 constexpr int kItFinT = -27, kItHp0W = -28;
 constexpr int uGate = 900;
+constexpr int uMoves = 901, kItMoves = -27, kItMoveBase = 0x30000;
+constexpr int kItIdleHold = -28;
+int IdleHoldStatus() {
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetIdleHold");
+    return f ? f() : -1;
+}
+void IdleHoldToggle(int dir) {
+    using Fn = int (*)(int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SetIdleHold");
+    const int on = dir ? dir > 0 : IdleHoldStatus() <= 0;
+    const int ok = f ? f(on) : 0;
+    snprintf(g_msg, sizeof g_msg, "%s", !ok ? "Start a Fight now session with a live boss first." :
+        on ? "Requested: pause the boss at its next safe idle. Player remains usable." : "Requested: release the boss idle pause.");
+}
+uint32_t g_uiMoveChr = 0;
+uint32_t MoveBoss() {
+    using Fn = uint32_t (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveBoss");
+    return f ? f() : 0;
+}
+int MoveAllowed(const N3Move& move) {
+    using Fn = int (*)(uint32_t, uint32_t);
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveAllowed");
+    return f ? f(move.chr, move.id) : -1;
+}
+bool IsMoveItem(int item) { return item >= kItMoveBase && item < kItMoveBase + N3_MOVE_COUNT; }
+void MoveToggle(int item, int dir) {
+    if (!IsMoveItem(item)) return;
+    const auto& move = kN3Moves[item - kItMoveBase];
+    if (move.chr != MoveBoss()) { snprintf(g_msg, sizeof g_msg, "The current boss changed; reopen Training moves."); return; }
+    if (N3MoveProtected(move.id)) { snprintf(g_msg, sizeof g_msg, "Idle and initialization stay ON so the boss can resume after a skipped move."); return; }
+    using Fn = int (*)(uint32_t, uint32_t, int, int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SetMoveAllowed");
+    const int old = MoveAllowed(move);
+    if (!f || old < 0) { snprintf(g_msg, sizeof g_msg, "Move controls unavailable in this Training build."); return; }
+    const int rc = f(move.chr, move.id, dir ? dir > 0 : !old, 1);
+    snprintf(g_msg, sizeof g_msg, "%s", rc == 1 ? "Saved for this boss; applies to the next move selection." :
+        rc == -1 ? "Changed this session, but saving failed. Retry to save." : "This action is required by the idle fallback and stays ON.");
+}
 bool DeathCfgGet(int& loot, int& blow, int& cut) {
     using Fn = void (*)(int*, int*, int*);
     const auto f = (Fn)TrainingExport("Nioh3Training_GetDeathCfg");
@@ -2054,6 +2095,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetAutoRetry")) add(kItAutoRetry);
         if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
         if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
+        if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
@@ -2074,6 +2116,14 @@ int Items(int* out, int cap) {
         if (g_emakiOk) add(kItScroll);
         if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) add(kItAbort);
         add(kItClose);
+        return n;
+    }
+    if (g_uiPages.page == uMoves) {
+        const uint32_t chr = MoveBoss();
+        if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
+        if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
+        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) add(kItMoveBase + i);
+        add(kItBack);
         return n;
     }
     if (g_uiPages.page == uGate) {
@@ -2248,6 +2298,7 @@ bool Prepare() {
         const int nt = ReadText(tpath, tt) ? rcore::ApplyTrainingArenas(tt, g_rows) : 0;
         if (nt) Log("Rematch: %d rows without an arena point take it from %ls (Nioh3Training table)", nt, tpath.c_str());
     }
+    Log("Startup: registering Rematch FIGHT callbacks");
     OnEntry("Character::Create", &HkCoverCreate);
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
@@ -2264,6 +2315,7 @@ bool Prepare() {
         }
         Log("Rematch: SELFTEST armed: %zu rows (%ls); starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw);
     }
+    Log("Startup: installing Rematch FIGHT group");
     if (!InstallGroup("FIGHT", &why)) {
         Log("Rematch: off - FIGHT hooks: %s", why);
         return false;
@@ -2338,6 +2390,8 @@ void UiChange(int dir) {
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, dir); return; }
+    if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
+    if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2379,6 +2433,13 @@ bool UiAct() {
     if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
     if (item == kItNoFin) { NoFinToggle(0); return false; }
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, 0); return false; }
+    if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
+    if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
+    if (item == kItMoves) {
+        g_uiPages.Enter(uMoves, g_sel);
+        g_uiMoveChr = MoveBoss(); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
+        return false;
+    }
     if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
         using Fn = int (*)();
         const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
@@ -2545,7 +2606,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     const Snap s = ReadSnap();
     const char* gate = !g_live.load() ? "rematch off; settings available" : g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();
-    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
+    const char* movesTitle = "Training moves (start a Fight now session)";
+    if (g_uiPages.page == uMoves) {
+        const uint32_t chr = MoveBoss();
+        if (chr) movesTitle = "Training moves (no recorded actions for this boss)";
+        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) { movesTitle = kN3Moves[i].boss; break; }
+    }
+    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : g_uiPages.page == uMoves ? movesTitle : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -2558,7 +2625,14 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     for (int i = first; i < n && k < cap - 1; ++i) {
         const bool sel = i == g_sel;
         const char* mk = sel ? ">" : " ";
-        if (it[i] <= kItSettingBase) {
+        if (IsMoveItem(it[i])) {
+            const auto& move = kN3Moves[it[i] - kItMoveBase];
+            const int allowed = MoveAllowed(move);
+            add(sel ? cWhite : N3MoveProtected(move.id) ? cDim : allowed > 0 ? cGreen : cGray, sel,
+                "%s 0x%04X  %-3s  %.60s%s", mk, move.id, allowed < 0 ? "?" : allowed ? "ON" : "OFF",
+                N3MoveProtected(move.id) ? "Idle / initialization (required)" : *move.label ? move.label : "Unlabelled action",
+                !N3MoveProtected(move.id) && *move.label ? " (?)" : "");
+        } else if (it[i] <= kItSettingBase) {
             const int index = kItSettingBase - it[i];
             const auto& d = kConfigSettings[index];
             const auto& v = g_configValues.values[(size_t)index];
@@ -2613,6 +2687,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 it[i] == kItFinT ? "Finisher kill window:" : "HP-0 combo window:", val, why);
         }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
+        else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Training: current boss moves   A: open", mk);
+        else if (it[i] == kItIdleHold) {
+            const int hold = IdleHoldStatus();
+            add(sel ? cWhite : hold == 2 ? cGreen : hold ? cYellow : cGray, sel,
+                "%s Pause boss at idle: %s   A / Left / Right", mk,
+                hold == 2 ? "ON" : hold == 1 ? "WAITING FOR IDLE" : hold < 0 ? "NOT HELD (retry)" : "OFF");
+        }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
@@ -2658,7 +2739,23 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     if (footer && nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
-        if (item <= kItSettingBase) {
+        if (IsMoveItem(item)) {
+            using StatusFn = int (*)();
+            const auto status = (StatusFn)TrainingExport("Nioh3Training_GetMoveHookStatus");
+            const int hook = status ? status() : 0;
+            const int allowed = MoveAllowed(kN3Moves[item - kItMoveBase]);
+            snprintf(footer, nf, "%s", hook < 0 ? "Move hooks unavailable: validation failed. Saved OFF switches cannot veto actions in this session." :
+                !hook && allowed == 0 ? "Saved OFF; activation is pending until the game resumes." :
+                g_msg[0] ? g_msg : "A toggles; Left OFF / Right ON. Saved per boss. (?) = unverified label. The current action finishes; the next selection skips disabled actions.");
+        } else if (item == kItIdleHold) {
+            const int hold = IdleHoldStatus();
+            snprintf(footer, nf, "%s", hold < 0 ? "Idle was not safely acquired. No hold remains. Retry after the fight/loading/finisher settles." :
+                hold == 2 ? "Boss AI paused at idle; player stays usable. Hits can play reactions. Left/OFF or session exit releases. Debug freeze is separate." :
+                hold == 1 ? "Waiting for a safe idle transition (10 s limit). Current action may finish. Left cancels; session changes cancel automatically." :
+                g_msg[0] ? g_msg : "Pause only the current boss at idle; player stays usable. Right requests; Left releases. Session-only, not saved. Debug freeze is separate.");
+        } else if (item == kItMoves || g_uiPages.page == uMoves) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the current Fight now boss. Start a session to see recorded actions. B returns.");
+        } else if (item <= kItSettingBase) {
             const auto& d = kConfigSettings[kItSettingBase - item];
             snprintf(footer, nf, "[%s] %s: %s %s", d.section, d.key, d.help,
                 d.kind == setting_ui::Kind::Manual ? "INI only; no controller edit." : "A / Left / Right edits. Save, then restart; current session unchanged.");
