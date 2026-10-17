@@ -1,27 +1,4 @@
 
-## 2026-10-16 07:03:37 session 4ac5b1b7-5459-404d-8741-44fcd232e414
-Nothing needs action from me, so I'm ending this run.
-
-- **Needs you:** the play test of the new build on the main PC. It includes the Boss Rematch fade-in fixes and the no-finisher toggle, and I need you to try it with boss AI on.
-- **pc2:** still running the earlier swap build (#618) through the real Rematch menu on a cold Shingen start.
-- **Ally and pc:** both are idle, and the game is closed on this PC.
-
-## 2026-10-16 07:34:14 session 4ac5b1b7-5459-404d-8741-44fcd232e414
-Nothing is waiting on me, so I'm ending this run with nothing new started.
-
-- **Needs you:** the play test of the new build on the main PC (Boss Rematch fade-in fixes plus the no-finisher toggle). Please try it with boss AI on. I sent the ready message five times, and I won't resend it.
-- **pc2:** still has the earlier swap build (#618) test outstanding.
-- **Ally:** idle, doing static GPU analysis.
-- **This PC:** the game is closed.
-
-## 2026-10-16 08:14:38 session 4ac5b1b7-5459-404d-8741-44fcd232e414
-Nothing is waiting on me, so I'm ending this run without starting anything new.
-
-- **Blocked on you:** the play test of the new build on the main PC (Boss Rematch fade-in fixes and the no-finisher toggle, with boss AI on). I won't resend the ready message.
-- **pc2:** its run of the earlier swap build (#618) hasn't reported yet.
-- **Ally:** idle.
-- **This PC:** the game is closed.
-
 ## 2026-10-16 09:35:18 session e5dcf1d8-6241-428b-93e3-19b8e67a1720
 I didn't start any new work this run. The only open item is your play test of the current build on the main PC, so I sent you a short note on the bridge (#8208). The five ready-to-play pings went out earlier, and I haven't resent them.
 
@@ -302,4 +279,23 @@ When you see the death stance, press F9 and message me. Each press is logged wit
 The in-mod freeze key and the "BUG HERE" marker are still queued for the next build. They are not in the installed build.
 
 I added a line to `.handoff/next.md` and your message to `user-directives.md`. `owners.md` is not updated.
-2026-10-16 23:05 pc2 | #9713 per-id table (times used, avg ms) in boss-action-ids.md for 7 bosses; damage per hit NOT measured (player HP constant) | next: needs vulnerable-player run + damage hook; game owned by other pc2 slot (#9702 screenshots) | notes/boss-action-ids*.tsv
+
+## 2026-10-17 02:02:26 session cc324e1c-ef00-4a67-ba0b-2ff4569651c3
+pc2's move table now covers 7 bosses (result #9730): Shingen, Yoritomo, Otoroshi, Yamagata, Hino-enma, Ippon-Datara and Ibaraki Doji. Each move has its id, times used and average duration, in `notes/boss-action-ids.md` (commit ce19dfa).
+
+There are still no move names and no hit counts. The test player was never hit, and the logger has no damage hook. A run with a vulnerable player and an `.asi` change adding a damage hook would be needed.
+
+Another pc2 session is taking a screenshot per move id on seven bosses (Shingen, Yoritomo, Otoroshi, Takasugi, Kappa, Nuribotoke, Kamaitachi). That is meant to help with naming the moves. It holds the game, so pc2's own batch is paused.
+
+I added a line to `.handoff/done.md` and sent the user a short summary. I didn't update the other handoff files.
+
+## 2026-10-17 02:22:50 session 772ec191-5ce9-4906-8665-66a6e6e807f7
+Message #9793 is an FYI that each machine now has two Codex companion agents. It asks this PC to pull `fleet-v2` and restart the helper once idle. I haven't done either yet, because the builder session is still running. I added a line to `.handoff/next.md` so the next session does both when the builder finishes.
+
+## 2026-10-17 02:43:08 session 772ec191-5ce9-4906-8665-66a6e6e807f7
+That was only the automated notice that my earlier background `find` finished. I already got the worktree list I needed from a second command, so I'm ignoring its output. Nothing here is a message from the user, and there's no new action.
+
+I'm still waiting on the builder for the next build. The user has been told that and that I'll ping them once it's installed.
+2026-10-17 02:55 pc builder(takeover) pc/hp0-stagger 1e3679e (pushed): gate A -> our page only (root cause: installed EngineFix 85f7eb7b had no MaskGameButtons; new EngineFix adds MenuOpen), [Debug] F9 freeze (time scale 0) / F8 BUG HERE + shots in fightrec/marks, KIBRK ACT action-id lines at each Ki break +150/400/1000 ms, boss bar waits for visible screen (BossBarAfterVisibleMs 600), Rematch sliders FinisherKillTimeoutMs / KiBreakHp0WindowMs.
+2026-10-17 02:55 pc INSTALLED (game closed, not launched, untested in game): Training f8c67769, EngineFix 19dc9db0, Rematch af3063c2, Training.ini + new keys (5556948f); backups captures/pc/*.pre-1e3679e.bak + pre-1e3679e.sha256 (prev Training 6fc9200b, EngineFix 85f7eb7b, Rematch dd271ec1). Also includes KiBreakBareFix 8d6300d (first install of it).
+2026-10-16 23:58 pc2 | #9888: 38 ids labelled (low confidence, screenshots, boss-action-ids-all.csv, 7734081); Ippon-Datara redo failed twice: 0 ids (arena point bad, no boss visible) | next: arena point check for R25E4 | notes/boss-action-ids-all.csv
