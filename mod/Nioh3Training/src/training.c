@@ -328,6 +328,13 @@ static int g_nf_kneelall = 1, g_nf_hp0aihold = 1;
 // KiBreakNoFinisher blocks). After KiBreakBareMs of bare break at HP > 0 the break is cancelled (bit 0x3A + ctrl+0xA8 bit 41 cleared, timer ctrl+0x1014 0)
 // and the Ki is set to 0.5 (raw), so the boss acts again and the next hit that lands breaks it natively with the real stagger.
 static int g_nf_barefix = 1, g_nf_bare_ms = 200;
+// #9895 [Summon] KiBreakActFix (default 1, run time 'nofinact 0|1'): a NORMAL Ki break (stagger bits set, so not bare) whose boss action swaps mid-break
+// (live catch 02:53:59 Yoritomo: break action 0x4E4C at +0/+157/+407 ms, then 0x4E3E at +1000 and 0x4E40 at +3.5 s while 0x23 stayed 1 = crouched
+// 'death stance'). The break action is learned in the first KiBreakActLearnMs of the break; if the action then differs for KiBreakActFixMs while the
+// boss is still Ki-broken at HP > 0 (inside KiBreakActFixWindowMs from the break start), the learned break action is requested again, at most
+// KiBreakActFixMax times per break. KiBreakActFixMode 2 (default) = SetActionID's forced transition 66C4A8(state, id, 0, 0.0) (1C0A41C), 1 = the
+// RequestActionTrans pending field state+0x2E4 (9A732C; its consumer is not traced).
+static int g_nf_actfix = 1, g_nf_actfix_mode = 2, g_nf_actfix_ms = 100, g_nf_actfix_max = 2, g_nf_actfix_win = 3500, g_nf_actfix_learn = 400;
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
                             // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
@@ -2814,6 +2821,7 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "nofinnl")) { g_nf_nonlethal = (int)a[0]; Log("CMD nofinnl %d", g_nf_nonlethal);
         } else if (!strcmp(op, "nofinkneelall")) { g_nf_kneelall = (int)a[0]; Log("CMD nofinkneelall %d", g_nf_kneelall);
         } else if (!strcmp(op, "nofinbare")) { g_nf_barefix = (int)a[0]; Log("CMD nofinbare %d (bare Ki break -> cancelled + Ki primed, #9579)", g_nf_barefix);
+        } else if (!strcmp(op, "nofinact")) { g_nf_actfix = (int)a[0]; Log("CMD nofinact %d (Ki-break action swap -> break action re-requested, #9895)", g_nf_actfix);
         } else if (!strcmp(op, "nofinaihold")) { g_nf_hp0aihold = (int)a[0]; Log("CMD nofinaihold %d", g_nf_hp0aihold);
         } else if (!strcmp(op, "nofinkneel")) { g_nf_kneel = (int)a[0]; Log("CMD nofinkneel %d", g_nf_kneel);
         } else if (!strcmp(op, "nofin101")) { g_nf_clear101 = (int)a[0]; Log("CMD nofin101 %d", g_nf_clear101);
@@ -2994,7 +3002,7 @@ static int KbCollect(uint64_t* out, int max) {
     return n;
 }
 static void KbxStart(int s, uint64_t a, uint64_t ai, uint64_t ctrl, int nBreak, float kc, uint64_t hc, uint64_t hm, int s23, int exh, uint64_t w0, uint64_t wA8);
-static void KbxTick(int s, uint64_t a, uint64_t ai, uint64_t ctrl, DWORD now);
+static void KbxTick(int s, uint64_t a, uint64_t ai, uint64_t ctrl, DWORD now, int broken);
 static void KiBreakTick(void) {
     if (!g_cfg_kibreak_log) return;
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); DWORD now = GetTickCount();
@@ -3021,7 +3029,7 @@ static void KiBreakTick(void) {
                   g_kb[s].nBreaks, (void*)a, kc, km, hc, hm, s23, exh, x5c, x74, x7c, x83, w0, w1, wA8);
             KbxStart(s, a, ai, ctrl, g_kb[s].nBreaks, kc, hc, hm, s23, exh, w0, wA8);
         }
-        KbxTick(s, a, ai, ctrl, now);
+        KbxTick(s, a, ai, ctrl, now, broken);
         if (fin && !g_kb[s].fin) {
             g_kb[s].tFin = now; int inBreak = broken || g_kb[s].broken || (g_kb[s].tLastWin && now - g_kb[s].tLastWin < 1500);
             if (inBreak) g_kb[s].finInBreak++;
@@ -3072,7 +3080,7 @@ static volatile uint64_t g_nf_act[NF_N], g_nf_ai[NF_N], g_nf_ctrl[NF_N];  // rea
 static volatile DWORD g_nf_hitT[NF_N]; static volatile LONG g_nf_hits[NF_N];
 static volatile LONG g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28, g_nf_cnt_cg; static volatile uint64_t g_nf_cg_tgt;  // + every CanGrapple call / its last target (diag)  // asm stub counters: grapple selection / grab box / bit-31 box / bit-28 box
 static struct { volatile uint32_t id; volatile int on; volatile float ratio, w; } g_nf_drain[NF_N];  // w: 1 = gold override, 0..1 = blend back (#9133)
-static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; DWORD tFade, tGoldEnd; int goldWas; float fadeFrom; int aiHeld, nAiRe; DWORD tAi, tDiag; DWORD tBare; int nBare; } g_nf[NF_N];
+static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; DWORD tFade, tGoldEnd; int goldWas; float fadeFrom; int aiHeld, nAiRe; DWORD tAi, tDiag; DWORD tBare; int nBare; uint32_t brkAct; DWORD tBrk, tSwap; int nFix; } g_nf[NF_N];
 static int g_nf_hooked; static volatile LONG g_nf_lines;
 static void NfLog(const char* fmt, ...) { if (InterlockedIncrement(&g_nf_lines) > 800) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint8_t* NearPage(void* site) {
@@ -3175,15 +3183,23 @@ static void MotOf(uint64_t a, uint32_t* id, DWORD* age) {
     *id = 0; *age = 0; DWORD now = GetTickCount();
     for (int i = 0; i < 4; ++i) if (a && g_nf[i].a == a) { *id = g_mot_id[i]; *age = g_mot_t[i] ? now - g_mot_t[i] : 0; return; }
 }
-static struct { uint64_t a; DWORD t0; int step, n; uint32_t act0; } g_kbx[KB_MAX];
+static struct { uint64_t a; DWORD t0; int step, n; uint32_t act0, last; } g_kbx[KB_MAX];
 static void KbxStart(int s, uint64_t a, uint64_t ai, uint64_t ctrl, int nBreak, float kc, uint64_t hc, uint64_t hm, int s23, int exh, uint64_t w0, uint64_t wA8) {
     (void)ai; uint32_t act = ActIdOf(ctrl), mid = 0; DWORD mage = 0; MotOf(a, &mid, &mage);
-    g_kbx[s].a = a; g_kbx[s].t0 = GetTickCount(); g_kbx[s].step = 0; g_kbx[s].n = nBreak; g_kbx[s].act0 = act;
+    g_kbx[s].a = a; g_kbx[s].t0 = GetTickCount(); g_kbx[s].step = 0; g_kbx[s].n = nBreak; g_kbx[s].act0 = act; g_kbx[s].last = act;
     Log("KIBRK ACT start #%d boss %p: action 0x%X (%u), last motion 0x%X %lu ms ago, Ki %.1f HP %llu/%llu (%.1f %%), 23=%d exh %d, bits1060 %016llX A8 %016llX",
         nBreak, (void*)a, act, act, mid, mage, kc, hc, hm, hm ? 100.0 * (double)hc / (double)hm : 0.0, s23, exh, w0, wA8);
 }
-static void KbxTick(int s, uint64_t a, uint64_t ai, uint64_t ctrl, DWORD now) {
+static void KbxTick(int s, uint64_t a, uint64_t ai, uint64_t ctrl, DWORD now, int broken) {
     static const DWORD at[3] = {150, 400, 1000};
+    if (broken && g_kbx[s].a == a && g_kbx[s].t0) {  // #9895: every action change while the break lasts
+        uint32_t cur = ActIdOf(ctrl);
+        if (cur != g_kbx[s].last) { static int nc; if (++nc <= 300) { uint64_t w0 = 0; float kc = 0; uint64_t st = 0, hc = 0, hm = 0; int s23 = 0;
+                __try { w0 = *(volatile uint64_t*)(ctrl + 0x1060); if (Rd64(a + 0x3A0, &st) && st) kc = *(float*)(st + 0xAC); s23 = KbState(ai, 0x23); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+                ActorHp(a, &hc, &hm);
+                Log("KIBRK ACT change +%lu ms #%d boss %p: action 0x%X -> 0x%X (start 0x%X), Ki %.1f HP %llu/%llu 23=%d, bits1060 %016llX", now - g_kbx[s].t0, g_kbx[s].n, (void*)a, g_kbx[s].last, cur, g_kbx[s].act0, kc, hc, hm, s23, w0); }
+            g_kbx[s].last = cur; }
+    }
     if (g_kbx[s].a != a || !g_kbx[s].t0 || g_kbx[s].step >= 3 || now - g_kbx[s].t0 < at[g_kbx[s].step]) return;
     uint32_t act = ActIdOf(ctrl), mid = 0; DWORD mage = 0; MotOf(a, &mid, &mage); uint64_t w0 = 0, wA8 = 0; float kc = 0; uint64_t st = 0; int s23 = 0;
     __try { w0 = *(volatile uint64_t*)(ctrl + 0x1060); wA8 = *(volatile uint64_t*)(ctrl + 0xA8); if (Rd64(a + 0x3A0, &st) && st) kc = *(float*)(st + 0xAC); s23 = KbState(ai, 0x23); } __except (EXCEPTION_EXECUTE_HANDLER) { }
@@ -3519,8 +3535,28 @@ static void NfTick(void) {
         {   static int prev23[NF_N]; if (s23 && !prev23[s] && g_nf[s].win == 0 && hc > 1) {  // native Ki break started: learn its stagger motion id (#9297)
                 uint32_t mid = g_mot_id[s]; DWORD mt = g_mot_t[s];
                 if (mid && mid != 0x308 && now - mt < 400) { if (g_nf_brk_id != mid) NfLog("NOFIN boss %p Ki-break stagger motion learned: 0x%X (requested %lu ms before the break was seen)", (void*)a, mid, now - mt); g_nf_brk_id = mid; }
-                else NfLog("NOFIN boss %p Ki break started, no motion request in the last 400 ms (last 0x%X %lu ms ago)", (void*)a, mid, mt ? now - mt : 0); }
+                else NfLog("NOFIN boss %p Ki break started, no motion request in the last 400 ms (last 0x%X %lu ms ago)", (void*)a, mid, mt ? now - mt : 0);
+                g_nf[s].brkAct = ActIdOf(ctrl); g_nf[s].tBrk = now ? now : 1; g_nf[s].tSwap = 0; g_nf[s].nFix = 0; }  // #9895 break action (re-learned for KiBreakActLearnMs)
+            if (!s23) g_nf[s].tBrk = 0;
             prev23[s] = s23; }
+        // #9895 Ki-break action swap fix (see g_nf_actfix)
+        if (g_nf_actfix && g_nf[s].win == 0 && s23 && hc > NF_FLOOR && g_nf[s].tBrk) {
+            uint32_t cur = ActIdOf(ctrl), b0 = g_nf[s].brkAct; DWORD el = now - g_nf[s].tBrk;
+            int okId = cur != 0xFFFFFFFFu && cur != 0xFFFF;
+            if (el < (DWORD)g_nf_actfix_learn) { if (okId && cur) g_nf[s].brkAct = cur; g_nf[s].tSwap = 0; }
+            else if (!okId || !b0 || b0 == 0xFFFF || b0 == 0xFFFFFFFFu || cur == b0 || el > (DWORD)g_nf_actfix_win) g_nf[s].tSwap = 0;
+            else if (!g_nf[s].tSwap) g_nf[s].tSwap = now ? now : 1;
+            else if (now - g_nf[s].tSwap >= (DWORD)g_nf_actfix_ms && g_nf[s].nFix < g_nf_actfix_max) {
+                uint64_t w0 = 0; int ok = 1;
+                __try { w0 = *(volatile uint64_t*)(ctrl + 0x1060);
+                    if (g_nf_actfix_mode == 1) *(volatile uint32_t*)(ctrl + 0x2E4) = b0;
+                    else ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))(ctrl, (uint64_t)b0, 0, 0.0f);
+                } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+                g_nf[s].nFix++; g_nf[s].tSwap = 0;
+                static int nfx; if (++nfx <= 60) NfLog("NOFIN boss %p HP %llu: Ki-break action swapped 0x%X -> 0x%X at +%lu ms while broken (23=1, bits1060 %016llX) -> break action 0x%X re-requested (%s)%s, now 0x%X (#%d, KiBreakActFix)",
+                    (void*)a, hc, b0, cur, el, w0, b0, g_nf_actfix_mode == 1 ? "pending +2E4" : "forced 66C4A8", ok ? "" : " FAULTED", ActIdOf(ctrl), g_nf[s].nFix);
+            }
+        }
         // prime hold: the whole HP-0 window keeps the Ki at 0.5 while the boss is not broken, so the next hit's Ki damage breaks it natively
         if (g_nf_prime && !broken && kc > 0.5f && g_nf[s].win == 1) { __try { if (g_nf_off[s] > 0) *(float*)(st + 0xAC) = 0.5f; else ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
         if (broken != g_nf[s].broken) { g_nf[s].broken = broken; if (!broken && g_nf[s].win == 1) g_nf[s].nRebreak++;
@@ -3860,6 +3896,12 @@ static DWORD WINAPI Worker(LPVOID x) {
         Log("KiBreakKneelBlockAll %d, KiBreakHp0AiHold %d (#9542); KiBreakHp0FadeDelayMs %d, ReturnGateGround %d (#9543)", g_nf_kneelall, g_nf_hp0aihold, g_cfg_nofin_fade, g_cfg_gate_ground);
         g_nf_barefix = GetPrivateProfileIntA("Summon", "KiBreakBareFix", 1, ini); g_nf_bare_ms = GetPrivateProfileIntA("Summon", "KiBreakBareMs", 200, ini); if (g_nf_bare_ms < 0) g_nf_bare_ms = 0;
         Log("KiBreakBareFix %d, KiBreakBareMs %d (#9579: bare Ki break = crouch without stagger -> cancelled, Ki primed for a real break)", g_nf_barefix, g_nf_bare_ms);
+        g_nf_actfix = GetPrivateProfileIntA("Summon", "KiBreakActFix", 1, ini); g_nf_actfix_mode = GetPrivateProfileIntA("Summon", "KiBreakActFixMode", 2, ini);
+        g_nf_actfix_ms = GetPrivateProfileIntA("Summon", "KiBreakActFixMs", 100, ini); g_nf_actfix_max = GetPrivateProfileIntA("Summon", "KiBreakActFixMax", 2, ini);
+        g_nf_actfix_win = GetPrivateProfileIntA("Summon", "KiBreakActFixWindowMs", 3500, ini); g_nf_actfix_learn = GetPrivateProfileIntA("Summon", "KiBreakActLearnMs", 400, ini);
+        if (g_nf_actfix_ms < 0) g_nf_actfix_ms = 0; if (g_nf_actfix_learn < 0) g_nf_actfix_learn = 0;
+        Log("KiBreakActFix %d mode %d (2 forced 66C4A8, 1 pending +2E4), after %d ms, max %d per break, window %d ms, learn %d ms (#9895: break action swapped mid-break = death stance -> re-requested)",
+            g_nf_actfix, g_nf_actfix_mode, g_nf_actfix_ms, g_nf_actfix_max, g_nf_actfix_win, g_nf_actfix_learn);
         g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini); g_nf_clear101 = GetPrivateProfileIntA("Summon", "KiBreakHp0ClearDeathBlow", 1, ini); g_nf_kirow_unbreak = GetPrivateProfileIntA("Summon", "KiBreakGoldUnbreak", 1, ini);
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
