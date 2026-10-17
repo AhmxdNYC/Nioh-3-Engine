@@ -13,3 +13,6 @@ Ids 0x4E21..0x4E8F (19 of them) look like the attack/move family (0x4E4E, 0x4E45
 ## Caveats
 - One boss clean only. Yoritomo (chr 16102) and Otoroshi runs of this batch are contaminated: a second pc2 harness instance (another slot) sent its own `fnow` commands to the same game (7B35 and 2EE9 crossed, "a load is running, refused"), so the Yoritomo file has only 14 changes and no Otoroshi data exists. Redo them alone.
 - Ids are action *ids*, not names; ids are per-boss assets and must not be reused across bosses.
+
+## Yoritomo (chr 16102) and Otoroshi (chr 371449), 2026-10-16 pc2
+Same logger, ~5 min vs idle player, one harness at a time. Yoritomo: 13 ids (12 in 0x4E24-0x4E7B). Otoroshi: 13 ids (0x4E33-0x4EEE plus 0x18C7). Unlabelled. Data: boss-action-ids-yoritomo-chr16102.tsv, boss-action-ids-otoroshi-chr371449.tsv.

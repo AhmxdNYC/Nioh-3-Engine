@@ -1,13 +1,4 @@
 
-## 2026-10-16 06:15:19 session 01ece3d7-345f-4947-93a4-60ebda6f5bf7
-pc2's swap-build result (#8155) is good. With prewarm on, the black screen lasted 3.5 s and 6.2 s (n=2, Shingen, cold start, 13 s menu wait). The numbers were pipe-driven rather than the real menu, and the boss was live for only 0.5 s before the fade-in. Three cells still block during the swap.
-
-Ally's Shingen run through the real Rematch menu still shows a ~39 s fade, so the two devices differ a lot. I took that from the slot 0 note and haven't checked it myself.
-
-I sent pc2 a follow-up (#8156) to find why those 3 cells still block. It should also check whether they can be requested during the prewarm hold, to shorten the black screen further, and report n=2 with the cell ids.
-
-I added a line to `.handoff/done.md`. I didn't message the user about this result. `next.md` and `owners.md` are not updated this run.
-
 ## 2026-10-16 06:43:20 session 4ac5b1b7-5459-404d-8741-44fcd232e414
 Ally confirmed the cross-world fix, and I've sent you the ready-to-play message five times.
 
@@ -300,4 +291,22 @@ The HP-0 "looks dead" fix is the blocker for the full build, and nothing new is 
 - **Chat message:** I sent you a short status. I wrote "11:2x pm EST" in it because I hadn't checked the exact time; the bridge stamped it 11:10 pm.
 
 I'll ping you on Discord when the full build is installed and the game is closed.
-2026-10-16 pc2 | #9334 boss-movesets.md written (static, 47/104 boss rows matched to assets w/ action-object counts; NO move names/IDs obtainable statically) | proven: counts per asset; unproven: any label/ID mapping | next: live 358528 current-action logging per boss if wanted; #8886/#8889 | notes/boss-movesets.md, tools/pc2/boss_movesets_gen.py
+2026-10-16 pc: pc2 #9384 boss-movesets partial (counts only, 47/104 rows; names need live log of action id 358528). Told GO live-log.
+
+## 2026-10-16 23:53:51 session b2e3ac35-b7ea-4d68-8522-cff9ba21f8b8
+The build isn't ready yet, as of 11:54 pm EST. I've sent you the same status on the bridge.
+
+- **HP-0 stagger fix:** It's written and committed (c5a23c2). The idea is that a boss at 0 HP gets the normal hit reaction and a real Ki-break stagger. A second edit on it is still in progress.
+- **Not built or installed yet:** I haven't tested any of it in the game.
+- **Ground-spawn object:** It isn't done.
+- **Game:** The game on your PC is still closed.
+
+Next I'll build it, install it, launch the game and check it myself. Then I'll ping you.
+2026-10-17 00:12 pc | user #9490 watched hp0 test: boss still enters death pose at HP 0 (347ef66 try) | HP-0 stagger UNPROVEN | builder continues in nioh3-hp0 (pc/hp0-stagger) | .handoff/user-directives.md
+2026-10-17 00:2x pc | user #9521 saw boss stagger at HP0 in builder live test | user-eyeballed, not log-verified | next: builder commits, builds ground-object, full-build install, relaunch, PLAY-PING | nioh3-hp0 pc/hp0-stagger
+2026-10-17 00:25 pc: #9319 HP-0 'looks dead' = native dying sequence started by the first LETHAL hit (crouch/down KIFINISHER 35=1 exactly 2.25 s later, at HP 1 or 2, AI on/off; HP set w/o hit never). Fix pc/hp0-stagger f394ff8 (Training 72CFE63C, installed; backups *.pre-hp0stagger.bak): hidden HP reserve 20% + HP-row display hook 1D220B5 + HP damage hook 329890 -> no hit lethal. Tested pc try 9/10 (captures/pc/hp0stagger): no 35=1, HP bar empty + gold Ki, boss flinches (0x38A) at HP 0. UNPROVEN: native Ki-break stagger at HP 0 (Ki -133 w/o break even primed); boss AI keeps attacking at HP 0; phase thresholds see +20% HP. Next: user play.
+2026-10-17 00:47 builder(ground) step1 #9543: Return gate y came from the round-1 pose g_tr.pp (log 00:28:59 y 15111) taken mid-drop; floor is 15000-15016. Fix dde6e96 on pc/hp0-stagger (worktree C:/Users/Ahmad Hamza/nioh3-ground): GateGroundY = lowest of 3 nearest trail samples within 500 u of the gate, else trail median, else player y; [Return] ReturnGateGround=1; logs 'GATE ground (#9543): y A -> B (src)'. Built to C:/Users/Ahmad Hamza/nioh3-ground-out (not installed, untested).
+2026-10-17 00:47 builder(ground) step2 #9542: a parallel builder in nioh3-hp0 already pushed ff1afe3 (KiBreakHp0WindowMs 2000->1000, KiBreakHp0AiHold = AI held off in the HP-0 window, re-applied each 100 ms). Not duplicated. Log evidence: in the window the boss is natively NOT broken (23=0 between hits), so its 'Ki-break moves/dashes' are normal AI actions; motion hook 3F21A4 sees only hit reactions 0x38A/0x4 (from 32EFE5/32EFF2), no Ki-break/attack ids.
+2026-10-17 00:47 builder(ground) step3 #9542 death pose: user log copied to captures/pc/userplay9542 (session 00:24:43-00:35:34). Two break kinds: real (bits1060 4400200200001000/3000, Ki refills to 968 at end: #1 00:28:02, r3 00:33:18) vs BARE (bits1060 0400000000002000 = only break bit 0x3A + bit 13, no bits 62/45/33, Ki stays 0.0 to the end, 2 hits: #2 00:28:33 HP 33 %, #3 00:29:58 HP 22 %; also 16:09:11 on 10-16 at 30 %). Recorder frame fightrec/rec_20261017_002729/f_002836_492.jpg: boss crouched, no hits = the 'death pose'. Same signature as the old HP-floor 'looks dead' (A4F098 bare 0x3A). Trigger not identified (HP alone no: real break at 21.6 % and 8.5 %); ff1afe3's kneel-block + 'NOFIN break diag' lines should confirm next play. No blind fix.
+2026-10-17 00:52 pc | installed ground-out asi 3d3fd1ec (dde6e96+ff1afe3) + ini window 1000; game launched for user | untested in game: ground gate, AI hold, window | backups *.pre9542.bak in game dir
+2026-10-16 22:15 pc2 | #9566: lsfade ON arm works (lsend fired, black 8.5s vs OFF 23.4s; earlier 'ON' was spoiled by overlapping harness overwriting the ini); Yoritomo+Otoroshi action ids logged | unproven: visual luminance on pc2 | next: await pc
