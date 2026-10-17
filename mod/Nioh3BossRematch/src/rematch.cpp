@@ -147,7 +147,8 @@ int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defe
 }
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10 };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11 };
+bool g_noSwap = false;  // game thread: kReqTeleport = Fight now through the NORMAL mission load (never Nioh3Training's in-place swap)
 std::atomic<uint32_t> g_req{0};  // kind | (row + 1) << 8
 enum State : int { kIdle = 0, kMenuOpen = 1, kInReplay = 2, kEmaki = 3 };
 std::atomic<int> g_state{kIdle};
@@ -164,7 +165,7 @@ const char* RowName(int row) { return row >= 0 && (size_t)row < g_rows.size() ? 
 void Post(uint32_t kind, int row, const char* via) {
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
-                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice"};
+                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (normal loading)"};
     Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
 }
 
@@ -934,7 +935,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
     }
     if (!ClearedNow(r.missionId, &why)) return Refuse(why);
-    if (fight && warp) {  // swapped in place: no queue slot, no cover, nothing armed (the add-on keeps the native request for every other case)
+    if (fight && warp && !g_noSwap) {  // swapped in place: no queue slot, no cover, nothing armed (the add-on keeps the native request for every other case)
         using FightNowFn = int (*)(uint32_t);
         static const auto swap = (FightNowFn)TrainingExport("Nioh3Training_FightNow");
         if (swap && swap(r.missionId)) {
@@ -1821,6 +1822,7 @@ void Tick() {
             if (kind == kReqDirect) ExecDirect(row, s, t, false, false);
             else if (kind == kReqFight) ExecDirect(row, s, t, true, true);
             else if (kind == kReqShrine) ExecDirect(row, s, t, true, false);
+            else if (kind == kReqTeleport) { g_noSwap = true; ExecDirect(row, s, t, true, true); g_noSwap = false; }
             else if (kind == kReqPractice) ExecPractice(row, s, t);
             else if (kind == kReqEmaki) ExecEmaki(row, t);
             else if (kind == kReqScroll) ExecEmaki(-1, t);
@@ -2085,6 +2087,7 @@ void NoFinToggle(int dir) {
     g_msg[0] = 0;
 }
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
+constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (normal loading)": native mission load + arena warp, no live swap
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 
 int Items(int* out, int cap) {
@@ -2155,6 +2158,7 @@ int Items(int* out, int cap) {
         if (g_uiBoss >= 0 && (size_t)g_uiBoss < g_rows.size()) {
             add(kItFight + g_uiBoss);
             add(kItShrine + g_uiBoss);
+            add(kItTeleport + g_uiBoss);
         }
         add(kItBack);
         return n;
@@ -2535,8 +2539,9 @@ bool UiAct() {
         return true;
     }
     if (item >= kItFight) {
-        const bool arena = item < kItShrine;
-        const int row = item - (arena ? kItFight : kItShrine);
+        const bool tele = item >= kItTeleport;
+        const bool arena = item < kItShrine || tele;
+        const int row = item - (tele ? kItTeleport : arena ? kItFight : kItShrine);
         if (g_status[(size_t)row].load() != 2) {
             snprintf(g_msg, sizeof(g_msg), "Not beaten on this journey: Fight now only replays bosses you have beaten.");
             return false;
@@ -2548,7 +2553,9 @@ bool UiAct() {
         if (g_confirm != item) {
             g_confirm = item;
             const Row& r = g_rows[(size_t)row];
-            if (arena)
+            if (tele)
+                snprintf(g_msg, sizeof(g_msg), "Teleport to the %s arena with the normal loading screen? A confirm / B back. Solo only.", r.name);
+            else if (arena)
                 snprintf(g_msg, sizeof(g_msg), "Fight %s now, inside the arena? A confirm / B back. Solo only.", r.name);
             else
                 snprintf(g_msg, sizeof(g_msg), "Start at the %s %d m before %s? A confirm / B back. Solo only.", r.fightKind, r.fightDist, r.name);
@@ -2557,11 +2564,11 @@ bool UiAct() {
         g_confirm = -9;
         // Nioh3Training loaded: the hosted Fight now takes the same path as the overlay (kReqFight -> ExecDirect ->
         // Nioh3Training_FightNow in-place swap with its own fade). The cover waits for a native mission load the swap never does.
-        if(arena && g_hostedUiAction && !TrainingSwapAvailable()) {
+        if(arena && !tele && g_hostedUiAction && !TrainingSwapAvailable()) {
             BeginHostedFight(row,nullptr,g_msg,sizeof(g_msg));
             return false; // keep the menu until the renderer presents its cover
         }
-        Post(arena ? kReqFight : kReqShrine, row, "the menu");
+        Post(tele ? kReqTeleport : arena ? kReqFight : kReqShrine, row, "the menu");
         ToastF(cWhite, 6000, arena ? "Rematch: into the fight with %s..." : "Rematch: to the shrine before %s...", g_rows[(size_t)row].name);
         return true;
     }
@@ -2705,7 +2712,14 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItOpen) add(sel ? cWhite : cGray, sel, "%s Open the game's Battle Scroll replay menu   (R-a)", mk);
         else if (it[i] == kItScroll) add(sel ? cWhite : cGray, sel, "%s Use an owned Picture Scroll (the game's pick)   (E0)", mk);
         else if (it[i] == kItAbort) add(cYellow, sel, "%s Abort and restore now", mk);
-        else if (it[i] >= kItShrine) {
+        else if (it[i] >= kItTeleport) {
+            const int row = it[i] - kItTeleport;
+            const char* why = CanArena(row);
+            const uint8_t stt = g_status[(size_t)row].load();
+            if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (normal loading)   - not beaten on this journey", mk);
+            else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (normal loading)   - %s", mk, why);
+            else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (normal loading)   game loading screen, then warp into the arena", mk);
+        } else if (it[i] >= kItShrine) {
             const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
             const uint8_t stt = g_status[(size_t)(it[i] - kItShrine)].load();
             const char* why = CanShrine(it[i] - kItShrine);
@@ -2778,7 +2792,11 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItHp0W) snprintf(footer, nf, "No finisher (Ki break): at 0 HP the boss dies if no hit lands for this long (gold Ki bar drains). Left / Right 0.1 s. Applies now, saved.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
-        else if (item >= kItShrine) {
+        else if (item >= kItTeleport) {
+            const char* why = CanArena(item - kItTeleport);
+            if (why) snprintf(footer, nf, "%s. B back.", why);
+            else snprintf(footer, nf, "Loads this boss's mission with the game's normal loading screen, then warps into the arena. No live swap. A start, B back.");
+        } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
             const char* why = CanShrine(item - kItShrine);
             if (why) snprintf(footer, nf, "%s. B back.", why);
