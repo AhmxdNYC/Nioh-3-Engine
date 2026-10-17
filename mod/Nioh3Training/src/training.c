@@ -2445,8 +2445,9 @@ static int GateSpawn(const char* why) {
 }
 static int GateBossAlive(void) { int f = Nioh3Training_ReturnInfo(); return !(f & 2) && !(f & 4); }
 // gate used: Boss Rematch opens its 2-option page (Return to where I was / Fight again); without it (old Rematch, no menu) return directly. 2 = choice shown.
-static volatile LONG g_gate_again;
+static volatile LONG g_gate_again; static volatile DWORD g_gate_tUse;  // #10022: last time our gate page was requested (dialog hook window)
 static int GateUse(void) {
+    g_gate_tUse = GetTickCount();
     HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi");
     int (*choice)(void) = rm ? (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_GateChoice") : 0;
     if (choice && choice()) return 2;
@@ -2588,6 +2589,52 @@ static int PmDecideSwallow(void* m, int viaVfunc, void* ra, const char* which) {
 }
 static void h_pmdec1(void* m) { if (PmDecideSwallow(m, 0, __builtin_return_address(0), "PauseMenuDecide 1DAE4E0")) return; o_pmdec1(m); }
 static void h_pmdec2(void* m) { if (PmDecideSwallow(m, 1, __builtin_return_address(0), "PauseMenuDecide 1DB58B0")) return; o_pmdec2(m); }
+// #10022 (user #10021/#10022: the box still opened after cdbb866/ae25528, no h_endconf line): lowest common chokepoint. Every Yes/No box in the game is
+// opened by DialogOpen 348274(mgr = [g+0x6C8], std::wstring text BY VALUE, a3 (dtor 705218), a4 (dtor 7073FC), u128* hashes, int, u8); its only 3 callers
+// are YesNoBox 347FE8 (30 callers, generic Yes 0x3DB0E79 / No 0x3CD8F47), ChoiceBox 2806FD4 (EndMissionConfirmOpen 12A1F80, PauseMenuDecide 1DAE4E0 /
+// 1DB58B0, ...) and 2807094. Text 0x3E0C230 'This will end the mission. Proceed?' / 0x3C96C71 'You are about to abandon the mission' is only loaded in
+// 12A1F80 / 1DAE4E0 / 1DB58B0, but a data-driven path would still pass through 348274, so the box is matched here by its TEXT (localized strings of
+// those ids via TextGetById 5A4B04, prefix match; plus 'end the mission' / 'abandon the mission' in the English text). While our gate is up in a training
+// session and (player < 600 u from the gate, or our gate page is open, or it was requested < 1500 ms ago) the box is dropped: the by-value args are
+// destroyed exactly as 348274's own epilogue does (310C18 text, 705218 a3, 7073FC a4) and nothing opens. Every DialogOpen while the gate is up is logged
+// (text, blocked or not, 5-frame stack as module offsets) so the real route shows in the log. [Return] ReturnGateBlockDialog (default 1).
+typedef void (*DlgOpenFn)(void*, void*, void*, void*, void*, int, uint8_t);
+static DlgOpenFn o_dlgopen; static int g_cfg_gate_dlg = 1; static volatile LONG g_dlg_n, g_dlg_blk;
+static const wchar_t* WsData(const uint8_t* ws) { uint64_t cap = *(const uint64_t*)(ws + 0x18); return cap >= 8 ? *(const wchar_t* const*)ws : (const wchar_t*)ws; }
+static int WsPrefix(const wchar_t* s, const wchar_t* p) { if (!s || !p || !*p) return 0; for (; *p; ++s, ++p) if (*s != *p) return 0; return 1; }
+static int WsHasA(const wchar_t* s, const char* a) {  // ASCII case-insensitive substring
+    if (!s) return 0; size_t n = strlen(a);
+    for (int i = 0; s[i] && i < 512; ++i) { size_t k = 0; while (k < n && s[i + k] && (s[i + k] | 0x20) == (wchar_t)(a[k] | 0x20)) ++k; if (k == n) return 1; }
+    return 0;
+}
+static void h_dlgopen(void* mgr, void* text, void* a3, void* a4, void* a5, int a6, uint8_t a7) {
+    if (g_cfg_gate_dlg && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active && text) {
+        const wchar_t* s = 0; int endm = 0;
+        __try { s = WsData((const uint8_t*)text);
+            static const uint32_t ids[3] = {0x3E0C230, 0x3C96C71, 0x26AC231};
+            for (int i = 0; i < 3 && !endm; ++i) { const wchar_t* t = ((const wchar_t* (*)(uint32_t))(B + 0x5A4B04))(ids[i]); endm = WsPrefix(s, t); }
+            if (!endm) endm = WsHasA(s, "end the mission") || WsHasA(s, "abandon the mission");
+        } __except (EXCEPTION_EXECUTE_HANDLER) { s = 0; endm = 0; }
+        DWORD now = GetTickCount(); float q[4], d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
+        int page = GateMenuOpen(), recent = g_gate_tUse && now - g_gate_tUse < 1500, nearG = d >= 0.0f && d < 600.0f;
+        int block = endm && (nearG || page || recent);
+        void* fr[6] = {0}; USHORT k = RtlCaptureStackBackTrace(1, 6, fr, 0); char st[160] = ""; size_t L = 0;
+        for (USHORT i = 0; i < k && L < sizeof st - 20; ++i) { uintptr_t a = (uintptr_t)fr[i]; L += (size_t)snprintf(st + L, sizeof st - L, "%s%llX", i ? " < " : "", (unsigned long long)(a >= B && a - B < 0x6000000 ? a - B : a)); }
+        char tx[72] = "?"; if (s) { __try { int i = 0; for (; s[i] && i < 70; ++i) tx[i] = s[i] < 0x80 && s[i] >= 0x20 ? (char)s[i] : '.'; tx[i] = 0; } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy(tx, "?"); } }
+        LONG n = InterlockedIncrement(&g_dlg_n);
+        if (block) {
+            int boss = GateBossAlive(), r = -1; LONG nb = InterlockedIncrement(&g_dlg_blk);
+            if (!boss && !page && !recent) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
+            if (nb <= 60) Log("GATE: native end-mission box at DialogOpen 348274 BLOCKED #%ld ('%s', player %.0f u from the gate, page %d, page requested %lu ms ago, stack %s): %s", nb, tx, d, page,
+                g_gate_tUse ? now - g_gate_tUse : 0, st, boss ? "boss alive, nothing opened" : page || recent ? "our gate page already open/opening" : r >= 0 ? "our gate page opened instead" : "?");
+            __try { ((void (*)(void*))(B + 0x310C18))(text); ((void (*)(void*))(B + 0x705218))(a3); ((void (*)(void*))(B + 0x7073FC))(a4); }
+            __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE: DialogOpen drop: arg destructor faulted %08lX", GetExceptionCode()); }
+            return;
+        }
+        if (n <= 60) Log("GATE diag (#10022): DialogOpen 348274 NOT blocked ('%s', end-mission text %d, player %.0f u from the gate, page %d, stack %s)", tx, endm, d, page, st);
+    }
+    o_dlgopen(mgr, text, a3, a4, a5, a6, a7);
+}
 // user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
 // found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
@@ -4061,7 +4108,13 @@ static DWORD WINAPI Worker(LPVOID x) {
                 if (!memcmp((void*)(B + 0x1DAE4E0), pmp, 14)) { o_pmdec1 = (PmDecideFn)Hook(0x1DAE4E0, 14, h_pmdec1); Log("hook PauseMenuDecide 1DAE4E0 ok (#10020: pause-menu 'end mission' near our gate opens our gate page)"); }
                 else Log("hook PauseMenuDecide 1DAE4E0: prologue mismatch, not hooked");
                 if (!memcmp((void*)(B + 0x1DB58B0), pmp, 14)) { o_pmdec2 = (PmDecideFn)Hook(0x1DB58B0, 14, h_pmdec2); Log("hook PauseMenuDecide 1DB58B0 ok (#10020)"); }
-                else Log("hook PauseMenuDecide 1DB58B0: prologue mismatch, not hooked"); }
+                else Log("hook PauseMenuDecide 1DB58B0: prologue mismatch, not hooked");
+                // #10022: DialogOpen 348274, 16-byte prologue (push rbp/rbx/rsi/rdi/r12/r14/r15; lea rbp,[rsp-70h]), no rip-relative bytes
+                g_cfg_gate_dlg = GetPrivateProfileIntA("Return", "ReturnGateBlockDialog", 1, ini);
+                static const uint8_t dop[16] = {0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, 0x90};
+                if (!g_cfg_gate_dlg) Log("ReturnGateBlockDialog 0: DialogOpen 348274 not hooked");
+                else if (!memcmp((void*)(B + 0x348274), dop, 16)) { o_dlgopen = (DlgOpenFn)Hook(0x348274, 16, h_dlgopen); Log("hook DialogOpen 348274 ok (#10022: any Yes/No box with the end-mission text is dropped near our gate; every box while the gate is up is logged with its stack)"); }
+                else Log("hook DialogOpen 348274: prologue mismatch, not hooked"); }
             else Log("ReturnGateBlockNativePrompt %d: native end-mission prompt not blocked", g_cfg_gate_block); }
         g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);
         { char b[160]; GetPrivateProfileStringA("Summon", "GoldKiColors", "", b, sizeof b, ini); for (char* s = strtok(b, ", "); s && g_goldki_ncols < 8; s = strtok(0, ", ")) g_goldki_cols[g_goldki_ncols++] = (uint32_t)strtoul(s, 0, 16);
