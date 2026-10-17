@@ -1,96 +1,4 @@
 
-## 2026-10-16 19:05:13 session ec46a39a-5b7e-463e-9599-4872fc880f7d
-Nothing has changed since my last update, and I did no new work this run. The inbox is empty, ally and pc2 haven't reported on the near-arena A/B test (tasks #8937 and #8951), and neither has flagged an error or a block.
-
-The game is closed on this PC, there's no test marker, and the Yoritomo build is installed and ready for you to play. Nothing is waiting on you. I'll read the ally and pc2 numbers when they arrive, then run clean one-change arms here.
-
-## 2026-10-16 19:27:17 session 4e579b2c-6ef5-492e-a76a-8d227c9f9cd2
-Ally's result is in. Skipping the far props gave no gain on Ally (Linux): click to control was 31.1 s with the skip off and about 30.1 s with it on, and the screen stayed black until 47–65 s either way. It's a small sample, since only 3 of the 6 runs were valid (1 off, 2 on).
-
-I logged it in the done log and `next.md`, and sent you a short status in chat.
-
-The main PC's earlier gain (22 s to 7 s) was mixed with another change, so it isn't a clean comparison yet. pc2 is running its test now. When its result arrives, I'll run a clean one-change test on this PC and give a keep-or-drop verdict per device.
-
-## 2026-10-16 19:47:33 session ec46a39a-5b7e-463e-9599-4872fc880f7d
-I've found why the earlier 7 s black screen run was fast. It used an older Training build with the early-cover-release code, which the current build doesn't have. The fix hasn't been built or tested yet.
-
-- **What I tested here:** I ran the current Yoritomo build (09aa569b) with `CoverReleaseMs = 0`. Black screen was 22.2 s on Shingen and 17.3 s on Otoroshi, the same as with the setting off. The log has no "cover release" line, because that build has no such code.
-- **Where the code lives:** the feature is in pc2's `merged-visible` branch (003a7b5, asi #676) and in `pc/ki-break-nofinisher`. In the fast run the boss bar and fight were normal at +40 s.
-- **Ally:** its result (#8979) agrees that far-prop skip gives no gain: about 30 s to control in both arms.
-- **Messages sent:** I told pc2 to resume (the user never paused it) and A/B the cover release with #676/#677 (#9029). I also told you in the phone chat (#9030).
-- **In progress:** I started a background agent to port the cover-release code onto the Yoritomo line as branch `pc/cover-release-merge`, with the build going to `captures/pc/cover/train_cover.asi`. It hasn't reported back, so I know nothing about its result yet.
-
-The game is closed here. Next I'll test the merged build on this PC once the agent delivers it.
-
-## 2026-10-16 20:18:43 session 0d474b6b-cbba-4a5a-ae8c-f219fd8862c2
-I replied to the user (message #9067): the black screen is about 8 s on the main PC, but that is a single-machine result and it isn't in their play build yet.
-
-- **Numbers:** On the main PC (RX 9070), the black screen dropped from 22 s to 8.9 s on Shingen and from 17.8 s to 6.8 s on Otoroshi. That is one run each.
-- **Not yet confirmed:** Ally and PC2 haven't tested it, and it isn't installed in the play build.
-- **State:** The fleet is still paused, as the user asked in #9036. Per my reply, once they say "resume" I'll have Ally and PC2 confirm it, then ship it on by default.
-- **Notes:** I added a line to `.handoff/next.md`. I didn't update `owners.md` or `done.md`, and I didn't run any game tests.
-
-## 2026-10-16 20:44:21 session 0d474b6b-cbba-4a5a-ae8c-f219fd8862c2
-I've started a fix for the three problems from the user's play test. They said the Return object works, and I sent my acknowledgement (#9134).
-
-- **Gold Ki bar:** It doesn't return to normal when Ki refills.
-- **HP 0:** The boss plays a death-pose animation instead of reacting to hits like a Ki-broken stagger.
-- **Black screen:** It lifted too late, so the boss was already attacking when the user could see again.
-
-I gave the three bugs to an Opus builder (`pc/cover-fixes-9133`, in the cover-release worktree) and haven't seen its result. It will build the new asi to `captures/pc/cover/train_fix9133.asi` and won't install it or launch the game, because the user is playing and `Nioh3.exe` is running. I saved the feedback to `user-directives.md` and a note to `.handoff/next.md`.
-
-Next steps are to install when the user is idle and to check the gold bar on screen before the next ready ping. I also haven't paused Ally and PC2 yet, since neither has reported on the cover-release test.
-
-## 2026-10-16 21:04:22 session 0d474b6b-cbba-4a5a-ae8c-f219fd8862c2
-PC2's cover-release result is in (#9196). I've relayed it to the user (#9200) and asked PC2 to pause.
-
-**PC2 (RX 6650 XT, 3 runs each):**
-
-| | Cover-release fix off | Cover-release fix on |
-|---|---|---|
-| Black screen | 23.6–25.5 s | 8.4–10.3 s |
-| Time to player control | 15.5 s | 0.5 s |
-
-The fight stayed intact: the boss had full HP and battle mode was on in all 6 runs. The boss bar wasn't visually confirmed.
-
-**Caveat for the user:** PC2 timed the mod's own fade, not the screen brightness. My main-PC smoke test of the newest build held the boss for about 45 s until the screen really came back. So the true black time may be longer than 9 s, and I said that. The black-screen investigation is still running in a separate agent.
-
-Ally's cover-release result hasn't arrived yet, and my earlier status query to Ally (#9154) is unanswered.
-
-I also told the user the new build is installed (0b0eb0de) and the game is closed. I added a line to `.handoff/next.md`.
-
-## 2026-10-16 21:26:06 session ed6fcf13-57bf-41ff-90d4-95fcd51e280e
-I told the user the build is ready to play. I also started an agent to study the loading-screen state.
-
-**Build:** The toggle-fix build (hash 0B0EB0DE) is installed on the main PC and the game is closed. It includes:
-- The gold Ki bar fading back to normal.
-- The boss reacting to hits at HP 0.
-- No grapple finisher under gold Ki.
-- The boss waiting until the screen is back.
-
-I haven't re-launched the game to test this build since restoring the install.
-
-**Black screen:** It is still about 22–40 s. Closing the loading screen by hand gave no gain, so that fix is not in the build.
-
-**Agent:** It is a static study only; the game won't be launched. It is looking at what holds the screen black and what the smallest next change to test would be. It will write `notes/loadscreen-state-study.md`.
-
-I added the done-log and next-step lines in `.handoff`.
-2026-10-16 21:36 pc: #9261 user not playing -> test lsend BlackFadeIn build when builder (worktree nioh3-lsend, uncommitted training.c) finishes; game closed, no marker.
-2026-10-16 21:35 pc: #9182 lsend+BlackFadeIn build done (pc/loadscreen-end b9dfc5f, asi eed29387 = captures/pc/cover/train_lsfade.asi/.ini, run with run5.ps1 -Arm lsfade). NOT tested: user active (GetLastInputInfo idle 0 s for 25 s+). Install untouched, no marker, no leftovers.
-
-## 2026-10-16 22:04:00 session ed6fcf13-57bf-41ff-90d4-95fcd51e280e
-The game is running on the main PC (process 16744) with the toggle-fix, short-black-screen build. I haven't confirmed it has reached the title screen.
-
-My first launch attempt used the wrong Steam app id and did nothing. The second one worked, using the id the existing test script uses. I told you in chat to give it about a minute. I set the test-active marker so no other job touches the game while you play. Tell me what you see after the screen comes back from a Fight now.
-2026-10-16 22:17 pc: #9296 game already closed, test-active marker removed, capture stopped (rec9291, 159 frames). Next: build mod-tied recording (open.md).
-2026-10-16 22:25 pc: pc/ki-break-nofinisher b950cb2 (on 4dc07f2): KiBreakBlockDeathBlow (0x27 false + plain grab box 117A9AC for gold boss), motion hook 3F21A4 (0x308 HP-floor pose -> learned Ki-break stagger id), Return loading screen (EngineFix export Nioh3EngineFix_LoadScreen, asi 85f7eb7b), [Record] Enable fight recorder (Nioh3FightRecorder.ps1). Training asi 9a2e7edb at nioh3-kibreak2/mod/Nioh3Training. BUILT, NOT TESTED, NOT INSTALLED.
-2026-10-16 22:19 pc: INCIDENT: captures/pc/nofin9135/run.ps1 (copied from combo/run.ps1) killed a user-launched Nioh3 (pid 6940, started 22:16, at title) in Finish; fixed in that script (never kills a game it did not launch); combo/run.ps1 has the same flaw. Game folder: Training eed29387 (lsend, user's), EngineFix restored 10839837, ini restored; user active (idle 0 s) + someone's rec.ps1 running.
-22:10:44-54 log: LSEND dropped our fade 0.3 s after 'ready' while 6 arena cells / 2055 placeables still streamed (GAMESTATE[2] 1); boss spawn 22:10:53.6, control 53.8 -> ~9 s visible arena with no boss = the 'awkward loading'.
-2026-10-16 22:30 pc: INSTALLED b950cb2 build (Training 9a2e7edb, EngineFix 85f7eb7b, Nioh3FightRecorder.ps1, [Record] Enable=1 OutRoot captures/pc/fightrec); backups *.pre-b950cb2.bak. Untested in game; game closed; user to play.
-2026-10-16 22:35 pc: #9319 log: b950cb2 stagger id never learned (real Ki break sets state 23 w/o a motion request; 0x38A/0x4 are only flinches; learn window 400ms failed, last 0x4 2234ms before). HP-floor break #2 bits1060=0400.. vs real break 4400200200001000. Spawning Opus agent to find how real Ki-break stagger is started.
-2026-10-16 22:43 pc: #9329-9331 pc2 TASK boss movesets (#9334); ground-spawn object in open.md; stagger Opus agent ad80beb2 stopped unfinished (check worktree nioh3-kibreak2 / other sessions before respawning); game running = other job's test.
-2026-10-16 22:50 pc: #9324 gate native 'end the mission' prompt: pc/ki-break-nofinisher b55b195 - Training hides pad A/B/X/Y from the game within 400 cm of the gate (no boss) via new EngineFix export Nioh3EngineFix_MaskGameButtons (lease 300 ms); our page still opens by standing on it. Built: Training f5d3d0fa (nioh3-kibreak2/mod/Nioh3Training), EngineFix cf80f1c6 (nioh3-kibreak2/mod/Nioh3EngineFix/bin). NOT tested/installed: user playing (idle 0 s, pid 9932). 22:14 exit: gate page opened 22:14:41, no MissionRequestReturn logged, game closed ~22:15:30 (native Yes path is not 22396D8). Keyboard interact not masked.
-
 ## 2026-10-16 23:10:50 session ed6fcf13-57bf-41ff-90d4-95fcd51e280e
 The HP-0 "looks dead" fix is the blocker for the full build, and nothing new is installed yet. The first builder I started on it produced nothing. I started a second one on a different approach: copy how a real Ki-break puts the boss in the stagger, instead of trying to learn a stagger animation id.
 
@@ -305,4 +213,78 @@ Most of what you listed is not done yet. I sent you this answer as message #1251
 - **Picking all bosses' moves in the menu:** only two bosses are tested. The move lists for the other bosses are still being catalogued.
 
 Everyone is paused per your order. Say "resume" and I'll start on multi-boss spawn and despawn, then test the arena teleport.
-2026-10-17 10:25 | pc2 live idle-hold + move-toggle test on pc2 (Yoritomo): hold 0 actions/42 s vs 25-36 per 60 s; 4 moves off = 0 uses/75 s vs 4,9 on | proven: hook veto on pc2 via per-boss pref (moveset cmd); unproven: menu VP navigation indices stale | next: extend move table beyond 11 bosses via ActLog fights, fix runner menu indices | branch pc2/move-toggle-test-pc2 8426457, notes/training-sf6-menu-design.md
+
+## 2026-10-17 13:26:11 session d6f006fc-d3a0-40eb-8d6a-7674c224f9cc
+pc2 confirmed that the idle boss and the move toggle both work on a second PC (Yoritomo). Both features are now confirmed on pc and pc2. Each result is one run per arm.
+
+- **Idle boss:** the boss held 0 actions in 42 s. With its AI on, it made 25–36 actions per minute.
+- **Move toggle:** with 4 moves switched off, those 4 were used 0 times in 75 s. The boss kept using 17 other actions.
+
+I logged this in the done list and told you in message #12577. I haven't started the arena teleport test on this PC yet.
+2026-10-17 2:30 pm pc: arena teleport live PASS n=1 (55 s press->fight, 40 s load, ~7 s black), captures/rematch/teleport-20261017-141033. Next: add lsfade/early-cover/EarlySwap to teleport path (#12444); investigate PlayerNoDeath not preventing death. Game closed, files restored.
+
+## 2026-10-17 14:59:55 session d6f006fc-d3a0-40eb-8d6a-7674c224f9cc
+Two updates:
+
+- **Spawning two bosses and despawn all (Ally):** both work in game. 35 of 35 cycles were clean, with both bosses alive together and none left afterwards. Known problems: the boss health bar vanishes once the second boss is summoned, and the player isn't invincible after a summon unless "no death" is turned on first. The Ally is next fixing the bar, then the menu buttons.
+- **Faster arena teleport (this PC):** my first test attempt died mid-run. It left Nioh running and the test files installed. I've sent the helper back to close the game, restore everything and redo the test once against the 55 s baseline. No result yet.
+
+I sent you the Ally result as #12643.
+2026-10-17 3:15 pm pc: teleport 6b1a6cc live n=1: 34.1 s vs 55.7 s baseline, black ~12 s vs ~7 s. Next: shorten post-loading black (early cover release / prewarm); ally per-actor boss bar; pc2 all-boss move lists. Game closed, files restored.
+
+## 2026-10-17 15:38:19 session d6f006fc-d3a0-40eb-8d6a-7674c224f9cc
+The Ally finished the invincibility fix. After it summoned two bosses, the player stayed alive for 45 s with both out. The boss health bar also shows after every re-summon and after despawn-all. That was one run on the Ally only.
+
+It also found and fixed a second bug: after a despawn the bar stayed hidden. One limit remains: only the newest boss gets a bar, and the name text shown is the owner's, not the new boss's. The Ally has moved on to the menu buttons for summon and despawn all. I told you in #12699 and logged it in the done list.
+
+## 2026-10-17 16:08:43 session 9b3661c9-162f-409d-a4b2-b8f19b140d96
+I sent you the progress report in the phone chat (#12729). Here it is in full.
+
+**Working and tested**
+- **Idle boss:** the boss stays idle on spawn. This is the earlier result: 0 attacks in 31 s against 17.
+- **Move toggles:** turning single moves on and off works on two PCs (Shingen on this PC, Yoritomo on pc2).
+- **Two bosses and despawn all:** this passed on the Ally, 35 of 35 cycles.
+- **Player stays alive after a summon:** the player lasted 45 s with two bosses out.
+- **Health bar:** it follows the right boss.
+- **Arena teleport menu:** it now takes 34 s instead of 55 s (this PC, one run). The black screen after loading got longer, about 12 s against about 7 s, and I'm still shortening it.
+
+**In progress**
+- **Menu buttons:** the Ally is adding menu buttons for summon and despawn all.
+- **Move lists for other bosses:** pc2 is capturing 11 more bosses. 11 of 105 are done so far, and about 80 need a different way to start the fight.
+
+**Known limit:** only the newest boss gets a health bar.
+
+None of this is combined into one build yet, so you haven't played it. I'll tell you when a build is ready.
+
+## 2026-10-17 16:29:42 session 9b3661c9-162f-409d-a4b2-b8f19b140d96
+I haven't sent the video, because I haven't recorded it yet. Two things are in the way. The Ally is still finishing the menu buttons for summon and despawn all. The pieces also aren't merged into one build yet: arena teleport, move toggles, and the Ally's summon and despawn work.
+
+I asked the Ally (#12765) for a status and an ETA. When it reports back, I'll merge the pieces, record the video and send it. I told you in the phone chat (#12766) that I'll ping you when it's sent.
+- 2026-10-17 16:39:46 pc: training-combined worktree ../nioh3-combined; merged arena-teleport(6b1a6cc, includes pc2/move-toggle) + training-menu-12666(7de2e08) + despawn-all new commit 0bc1a97 (conflict in training.c gauge vars resolved); 3 ASIs built OK
+- 2026-10-17 16:43:38 pc: combined build installed on main PC (backup captures/combined-bak-20261017, saves backed up), lock held, test-active marker set
+- 2026-10-17 16:49:55 pc: training-buttons-12786 merged -> pc/training-combined 49cedd9, rebuilt + reinstalled
+
+## 2026-10-17 17:10:32 session 8347fe3e-bcdd-4f05-b46f-e47becf70dc4
+I told you in chat (#12833) that I'll message you the moment the video is sent. It isn't recorded yet.
+
+The game is running on this PC right now (Nioh3.exe, PID 25156). It's there for the on-screen check of the new side menu. The video gets recorded after that check works. I haven't verified the menu rows on screen yet.
+- 2026-10-17 17:11:45 pc: combined test done on 49cedd9: compact right panel OK, summon (Yamagata) + boss bar OK, move toggle OK, despawn all OK; summon Enenra R0034 fails (no row in Training arenas.tsv). Originals restored, saves restored, marker removed, lock released
+
+## 2026-10-17 17:39:12 session 9b3661c9-162f-409d-a4b2-b8f19b140d96
+The demo video hasn't been recorded yet. It has been slow because the agent doing it was cut off twice.
+
+My first reply to you today was wrong: I said the game running was the video test. It isn't. The game running now is a separate arena teleport black-screen test that started at 5:36 pm EST. I sent you a correction in the phone chat (#12877).
+
+I restarted the video agent. It will wait for the teleport test to finish, then record. After that it compresses the video, uploads it and restores the original files. I told it to send me a BLOCKED message if it gets stuck, so it doesn't stop silently again. You'll hear from me when the video is sent.
+2026-10-17 5:45 pm pc: teleport black-after-load pass on pc/arena-teleport-menu 9e4909d (pushed). Live pc R0034 n=2/arm, press->fight: OFF 29.7/31.8 s (black 7-11 s); settle/gate cut 32.7/35.4; fader lift 31.0/33.7; GS2 cover release 29.6/34.9 -> NO gain, all knobs default off.
+Cause found (TELEPORT SEQ log): the post-loading black is the boss door warp held in mission seq 0x14 (GS2=1) until the loader backlog of load #1 drains (gates G9/G8); boss script polls the gate only after load #1 ends, BlackFadeIn/UiLoadingScreenEnd/GS2 clear do not show the scene. Next lever: make load #1 drain the loader (or skip far placeables) before landing, or find the warp's own fade.
+Test notes: pipe 'teleport <id>' added (menu nav via harness was flaky); another agent swapped installed Training/EngineFix at ~17:20 -> COV1/2 confounded, reran pinned (CVB). Installed files left as that agent set them; captures/rematch/teleblk-*.
+
+## 2026-10-17 18:16:57 session a13c370a-1392-48a6-b27f-4b60094dbd85
+The video isn't sent yet, as of 6:16 pm EST.
+
+- **State:** the game is still open on this PC. A raw recording from 6:08 pm (about 120 MB) is in `captures/video`, so the take or compress step looks to be running. I can't see the video agent's progress directly.
+- **Other machines:** pc2 and the Ally both report no active work and no errors.
+- **Fallback:** I told the user in the phone chat that if the video isn't out by 6:35 pm EST, I'll record and compress it myself.
+2026-10-17 18:41 pc: demo video #1025 done (keyboard-driven, 58 s). Game closed; originals restored (xworldprobe-080953/orig). Next: Enenra R34 row, teleport black-after-load drain, pc2 capture batch.
+2026-10-17 4:30 pm pc2 | Enenra/Jakotsu-baba summon fix a064bf9 (branch pc2/training-arena-fix) live-proven via slot cmd | menu clicks unproven | next: finish actcap batch3 s19-s30, consolidate move lists, rerun s17 | captures/pc2-enenra-jb, captures/rematch/xworldprobe-20261017-162400

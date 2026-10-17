@@ -650,4 +650,203 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 2026-10-16 pc: #9356 status; respawned Opus hp0-stagger builder (worktree nioh3-hp0, pc/hp0-stagger); a59b56 had produced nothing.
 2026-10-16 23:20 pc: user #9395 game closed (pid 9932). Next: install full build when HP0 + ground-object builders finish, relaunch, ping user (5x).
 - 2026-10-17 00:20 pc: ROOT CAUSE of 'arena visible, no black, then fight' (pc2 #9511): LoadingScreenEndMs=0 fades in 0-16 ms after arena ready, but boss hold/control still waits AreaWaitCrossMs=15000 cap -> ~15 s visible arena with no control. FIX TODO (next build): when lsend on, either keep black until boss live/control, or cut AreaWaitCrossMs for the in-place path; goal total fight-start well below 20 s. Not started.
-2026-10-16 21:50 pc2: action-id logger (pc2/action-log 3926553) works; Shingen 22 ids clean (notes/boss-action-ids.md); Yoritomo/Otoroshi need a solo redo (two pc2 harnesses collided). #760 ON arm never activated (LoadingScreenEndMs read -1) -> rerun. Marker deleted, worktrees removed.
+2026-10-17 pc: INSTALLED hp0stagger build (Training 72cfe63c, pc/hp0-stagger f394ff8: KiBreakHp0Reserve hidden 20% HP so no lethal hit, pose gone, exact stagger NOT solved; AI attacks at HP0). Game launched for user, marker set. TODO: ground-spawn Return object, hp0 true stagger, Return gate fix untested, pc2/ally lsfade results.
+2026-10-17 pc: user #9545 fade-delay too late (5.0 s KillFadeDelayMs after kill) forwarded to builder session c4 with #9543/#9544 list.
+2026-10-17 pc: hp0full 6fc9200b installed, game closed, user pinged. Queue in open.md (#9585-9596).
+2026-10-17 pc: pc2 #9620 lsfade verified (black 23.4->8.5 s). Control still waits AreaWaitCrossMs; queued in open.md next-build item (5). Yoritomo+Otoroshi action ids in notes/boss-action-ids-*.tsv. pc2 next: movesets for remaining bosses.
+- 2026-10-17 01:25 | launched game for user (#9633), marker test-active set
+- 2026-10-17 01:35 | F9 freeze helper tools/playsession/freeze_hotkey.py running for user (#9648)
+- 2026-10-17 01:45 pc: user freeze #9655 (01:36:55): real break bits 4400200200001000 identical to good break 01:32:41; captures/pc/freeze9655. Need anim id logging at break start to tell pose apart.
+2026-10-17 pc: #9657 answered: death-stance at normal Ki break = real bug (anim wrong, state right); in-mod freeze must log anim id.
+- 2026-10-17 01:50 pc: game closed per #9661, marker removed, F9 helper stopped. Next build: in-mod F9 freeze + break anim id log.
+2026-10-17 pc: game closed per #9661; Return gate sometimes native menu (#9586/#9664) queued.
+- 2026-10-17 01:55 pc: opus builder agent started for next build (A gate menu, B F9/F8+anim log, C bare fix, D hpbar, E sliders); will install+launch on BUILD msg.
+2026-10-17 pc: ops #9743 NOTE: Codex companions cx-pc/cx-pc2/cx-ally exist (offline work only, TASK @cx-<machine>). No action needed; builder session still on next build.
+2026-10-17 pc: ops #9793: 2 Codex companions per machine; pc must pull fleet-v2 (universal-optimizer) and restart helper once idle (not while builder/test running).
+2026-10-17 02:45 pc: builder edits in C:/Users/Ahmad Hamza/nioh3-hp0 (uncommitted, last write 2:03am); no build yet. If still idle next run, take over: build from that worktree, install, launch.
+2026-10-17 02:55 pc: 1e3679e (pc/hp0-stagger) installed, game closed, user pinged. Untested: F9/F8, gate, bar, sliders. Still pending: pull fleet-v2 + restart helper (ops #9793/#9842/#9863). Backups captures/pc/*.pre-1e3679e.bak.
+2026-10-17 pc: #9895 death-stance caught: action 4E4C->4E3E->4E40 mid-break (notes/kibreak-deathstance-9895.md). Next: compare with a good break's ids; fix = restore stagger action on that swap.
+2026-10-17 02:58 pc: death-stance fix 00c7098 (KiBreakActFix, asi sha bf6982cb, in C:/Users/Ahmad Hamza/nioh3-hp0/mod/Nioh3Training/Nioh3Training.asi) built NOT installed - game running (user playing). Install when game closed (back up first, copy ini keys too), then ask user to test.
+- 2026-10-17 03:02 pc: #9909 freeze shot captures/pc/fightrec/marks/mark_025821_305_freeze.jpg = BOTH menus at once on Return object: our gate page (opened 02:58:16) + native 'This will end the mission. Proceed?' Yes/No. Need: suppress native dialog while our page opens (mask interact for whole gate, kill native confirm).
+2026-10-17 03:08 pc: #9920 Return worked but put-back position fix not applied (60s timeout); gate double menu; opus agent fixing both (build only, game running).
+2026-10-17 03:16 pc: 82864b0 Return fix (Training b98f16a7, EngineFix 32deff54, Rematch eb4852b8 + ini key ReturnGateMaskHoldMs=2000) + 00c7098 KiBreakActFix: built in C:/Users/Ahmad Hamza/nioh3-hp0, NOT installed (user in game). Install together once closed; need training.asi from latest HEAD includes both.
+2026-10-17 03:2x pc: FINAL install set (HEAD ffc68ea pc/hp0-stagger in C:/Users/Ahmad Hamza/nioh3-hp0): Training.asi 49058faa (Ki-break swap fix to 4E38 + Return put-back), EngineFix.asi 32deff54, BossRematch.asi eb4852b8; merge ini keys (KiBreakActBadIds/GoodId/FixGapMs, ReturnGateMaskHoldMs). Install when user closes game; back up first (captures/pc/*.pre-ffc68ea.bak). Untested.
+2026-10-17 03:3x pc: INSTALLED ffc68ea set on pc (Training 49058faa, EngineFix 32deff54, Rematch eb4852b8, ini keys merged; backups captures/pc/*.pre-ffc68ea.bak). Game closed. TODO #9946: make Ki-break action fix NOT hardcoded (learn bad/good ids per boss from its own breaks: good = action seen in Ki-drain with Ki<0, bad = crouch w/o stagger bits).
+2026-10-17 03:3x pc: game closed, ffc68ea (KiBreak good-move 4E38 swap, ini ids) + Return fixes installed, untested. User away; launch + ask when they say play. Next: make good/bad move ids learned not hardcoded (#9946); pull fleet-v2 + restart helper.
+- 2026-10-17 03:2x pc: gate double-menu fix built cdbb866 pc/hp0-stagger, captures/pc/gate_fix/Nioh3Training.asi sha 73a46b71...; NOT installed (game running, user mid-session). Install after user closes game; check log 'hook EndMissionConfirmOpen 12A1F80 ok'.
+2026-10-17 pc: KiBreakActFix=1 re-enabled in installed ini per #9968.
+2026-10-17 03:5x pc: #9946 DONE+INSTALLED: Training.asi f04e168b (hp0 repo d0521b6) learns Ki-break good/bad action ids per boss (good = stable action in gold-Ki phase Ki<0; bad = bare-crouch action or one replacing start action >=600ms in once good known); ini ids now empty seeds. First bad break of a new boss before a good one is learned is not fixed. UNTESTED in game; check log lines 'learned GOOD/BAD'. Backup captures/pc/*.pre-9946.bak. Game closed.
+2026-10-17 03:3x pc: #9978 native 'This will end the mission' box appeared on its own 13 s after HP-0 kill (F9 shot mark_032510_952_freeze.jpg); EndMissionConfirmOpen hook was installed but logged NO block => box opened via another action id/path. Diag build Training.asi 27332f14 (hp0 repo, commit pushed) logs unblocked calls; NOT installed (user in game). Next: install when closed, repro, read 'GATE diag (#9978)' line for the action/caller, then block it.
+2026-10-17 03:3x pc: #9983 box sat open (native) from ~3:25 until user pressed A at 3:26:33; hook logged nothing (installed build lacked diag, action != 0x2613). New Training.asi (hp0 repo HEAD) blocks ANY EndMissionConfirmOpen action within 600u of the gate + logs the action id. NOT installed (game running). Install when closed.
+2026-10-17 03:3x pc: #9988 HP0 break #2 FA6->4E3E not swapped by KiBreakActFix (no fix log); window 1s expired -> kill. TODO make fix cover HP0 break; maybe window 1.5s.
+2026-10-17 03:3x pc: #9987 HP-0 window 03:29:18-25 (round 2): boss break started on bare-ish crouch 0xFA6 (bits 0400200000002000), 4E3E at +2016ms, user still comboing = death-like pose. Fix gate extended to win==1 (Training.asi dba63e8f, hp0 repo pushed, includes gate-box block dde37bd7 changes). NOT installed (game running). Known gap: start action FA6 itself not swapped (== start, no stagger-only signature).
+2026-10-17 03:33 pc: game closed per #9995. A builder session is live in nioh3-hp0 doing #9994 menu order (rematch.cpp edit 03:32); pending to install: gate any-id block (ae25528), HP0 act-fix (0e1062e), menu order. Install + tell user when builder done.
+2026-10-17 03:3x pc: #9994 gate page order Fight again first (Rematch.asi 5C4F6357, Training dba63e8f, hp0 repo pushed). NOT installed (game running): install Training dba63e8f + Rematch 5C4F6357 together when user closes game.
+2026-10-17 03:3x pc: INSTALLED Training dba63e8f + Rematch 5C4F6357 (gate box block any id, HP-0 window pose fix, Fight again first). Game closed. Backups captures/pc/*.pre-9994.bak. Untested. pc2 told to stop move naming (#10005).
+2026-10-17 03:4x pc: #10014 cause: in HP-0 window break #2 (3:36:16.386, start FA6 bare) my swap forced 4E42 at +110ms, break ended 125ms later (23=0), boss moved away, combo whiffed, 1 s no hit -> kill. Also 'learned good' picked ordinary moves (3FD/4E42/4E39). Fix: Training.asi ada37f8c (no swap in HP-0 window; good learned only from held stagger w/ stagger bits). NOT installed (game running).
+2026-10-17 03:42 pc: #10022 freeze mark_033810: native end-mission box STILL opens at gate; our EndMissionConfirmOpen hook never fires -> different route. Opus builder a00add06 finding the real chokepoint (captures/pc/gate_fix2).
+2026-10-17 03:4x pc: #10021 native end-mission box = pause-menu decide handlers 1DAE4E0/1DB58B0 (entry 3) -> 2806FD4, not 12A1F80. Opus hooked both (hp0 repo 7355338). Training.asi 163dc41b = this + #10014 fix (no swap in HP-0 window). NOT installed (game running). Untested.
+2026-10-17 03:4x pc: gate_fix2 built 228175d (hook DialogOpen 348274), sha efbe84d9..., captures/pc/gate_fix2; install when game closed; check log 'hook DialogOpen 348274 ok'.
+2026-10-17 03:44 pc: INSTALLED+LAUNCHED full build (Training 163dc41b, Rematch 5c4f6357, EngineFix 32deff54) per #10029/#10035; pc2 re-tasked (#10051). Untested.
+2026-10-17 03:5x pc: #10069 03:47:12 normal break #1 was BARE (FA6, no stagger bits) -> 3.8s -> 4E3E -> 4E40 death stance; fix did nothing because no GOOD id learned yet (new rule needed a real stagger, none seen). Training.asi 2592ea71 (hp0 repo ad511d6): good also learned from gold-Ki start (first 2.5 s of Ki<0), never overwritten; learned ids persisted in Nioh3Training_learned.ini per boss chr id. NOT installed (game running). Limit: first bad break of a boss before any learn. KiBreakBareFix is 0 in ini.
+2026-10-17 03:55 pc: installed gate_fix2 (Training efbe84d9), relaunched game for user. kibreak_fix3 builder ab147af4 running (normal Ki break starting on FA6 bare = death pose; hypothesis KiBreakKneelBlockAll).
+2026-10-17 03:5x pc: opus agent acfd4d0 root-causing Ki-break death-stance in game (#10087). Await its report; no hardcoded forcing.
+2026-10-17 03:53 pc: INSTALLED Training 2592ea71 (hp0 ad511d6: gate hooks DialogOpen/PauseMenuDecide + Ki-break learn fix) and relaunched game; untested at gate. Next: user kills boss, check log 'GATE: native end-mission' lines.
+2026-10-17 03:5x pc: kibreak_fix3 built 87dcfe7 (includes gatefix2), captures/pc/kibreak_fix3/Nioh3Training.asi sha 5675ecc8...; NOT installed (user actively playing). Install when they close/say. Findings: bare breaks = Ki<0 2.6-3.9s no hit reaction then break flag w/o stagger action (FA6/4E3E); old fix learned wrong ids; kneel block ruled out.
+2026-10-17 03:58 pc: game closed per #10106; Opus agent ad2a7c37 self-testing gate (A) + normal Ki breaks (B) with Training 5675ecc8 (hp0 87dcfe7); results -> captures/pc/selftest_10106. test-active marker set.
+2026-10-17 03:58 pc: ops #10126 Codex-only: hand future tasks to cx-pc. Pending: self-test results (gate x many, Ki breaks) from existing tester session; kibreak_fix3 5675ecc8 not confirmed live (installed sha 2592ea71 unknown).
+2026-10-17 04:0x pc: ally #10133 lsfade A/B invalid (ON had -1); rerun posted to board for cx-ally. pc2 got 8.5 s vs 23.4 s earlier.
+
+2026-10-17 04:03 pc: open.md: 5 done items ticked; TASK #10147 to ally (lsfade rerun, AABB). Next: Codex (cx-pc) for 60Hz logic optimization study; await selftest_10106.
+
+2026-10-17 4:07 AM Eastern cx-pc #10160: offline study done in notes/logic-opt-ideas.md (branch cx-pc/logic-opt-10160); next pc validation AABB then BPO at preserved 60 Hz; JT scheduling proposal needs overlap-corrected attribution.
+
+2026-10-17 4:14 AM EDT cx-pc #10179: bench plan c55623a on cx-pc/logic-opt-10160 ready for pc; AABB then BPO mask 1/5 at 60 Hz, mask 7 deferred for ordering proof. No game touched.
+
+- 2026-10-17 04:16 AM EDT cx-pc #10221: Return study complete: 61.579 s log includes 25.000 s cell wait + 8.845 s cover tail; no game touched. Plan notes/return-time-plan.md, branch cx-pc/return-time-10221. Next pc: implement Return-only CoverAfterPutBackMs=-1/500 probe, AABB and destination-readiness trace.
+2026-10-17 04:19 pc: cx-pc Return plan done (c36ab6d: 25s cell wait + 8.8s extra cover). Queued cx-pc: collector, Return cover probe build, #9715. Then pc tests Return probe on game.
+2026-10-17 4:19 AM EDT cx-pc #10277 DONE: collector pushed cx-pc/logic-tick-10277 HEAD 6bbc8bd, tools/logic_ticks.py + guide/tests, 10 offline tests pass. Worktree C:/Users/Ahmad Hamza/nioh3-logic-opt-10160. pc/ally/pc2 notified #10400-10402; owner game/Proton capture next, reconcile existing cx-ally collector before deployment. No game touched.
+
+2026-10-17 4:22 am EDT cx-pc: #10221 plan ad5e404 on cx-pc/return-time-10221; #10252 boss lookup/animation study c3070ec on cx-pc/boss-records-10252. #9715 remains open for hit/damage/localized-name join. pc owns any live collector/test; no game touched.
+- 2026-10-17 4:22 am EDT | cx-pc #10319: Return-only CoverAfterPutBackMs probe built/pushed 8b092ec (cx-pc/return-cover-10319); ASI sha256 a3903d58c1abef1f5881430a8d7258db3d2aac052e3473431a3e289ee8b40c77 | 128517 offline cases PASS, game untested | next pc: OFF=-1 / ON=500 AABB; artifact ../nioh3-return-cover-10319/mod/Nioh3Training/Nioh3Training.asi. Collector done 6bbc8bd; action-table #9715 already actively owned by concurrent #10252 session in ../nioh3-boss-records-10252. No game touched.
+2026-10-17 pc: boss-move block verified pc2 (#10276/#10356). Tasked cx-pc2 to merge menu toggles c8d2a3c + live test on pc2. Next pc: test Return cover probe 8b092ec (OFF=-1/ON=500).
+2026-10-17 pc: pc2 menu build c8d2a3c exits before first window (#10446); cx-pc2 diagnosing #10426, then isolate Training vs Rematch ASI and retest.
+2026-10-17 pc: cx-pc logic-opt (#10175) digested; AABB bench posted to board for pc/pc2/ally; cx-pc tasked JT overlap tooling.
+2026-10-17 pc: cx-pc bench plan c55623a ack; asked for runbook script for #82-84.
+2026-10-17 pc: ally lsfade #75 no gain (8s vs 25s n=1, LSEND never fired); keep off.
+2026-10-17 pc: Return cover probe bench posted for pc,pc2 (8b092ec).
+2026-10-17 4:27 am EDT | cx-pc #10486 | Shared print-only runbook pushed e240626 on cx-pc/bench-runbook-10486; 9 device/stage checks PASS, 12 windows/24 boundary generations per stage; no game touched.
+2026-10-17 pc: cx-pc boss-record lookup done (2f87b96); tasked multi-boss spawn/despawn-all static study; naming stays stopped.
+- 2026-10-17 4:29 am EDT cx-pc #10472: JT overlap attribution pushed on cx-pc/jt-overlap-10472 (bd04129 plus test-suite commit). 18 offline tests PASS, including 100 randomized nested traces. Exclusive elapsed thread-job ms/tick and 60 Hz normalization; raw interval export prerequisite, no game touched. Next pc: provide complete CSV/QPC/tick capture; tooling docs tools/logic_ticks.md.
+2026-10-17 pc: ally bench = #81 only (cancelled #80,#87); cx-ally adapts collector 6bbc8bd for Linux.
+2026-10-17 pc: Linux collector 6276d02 done; ally GO on #81; cx-ally tasked Return probe Linux recipe.
+2026-10-17 pc: pc2 stale-thread BLOCKED #10297 -> UPDATE sent.
+
+2026-10-17 4:31 AM EDT cx-pc #10541: design pushed 85c94ef, cx-pc/multi-boss-study-10541. Next pc: lifecycle registry + complete despawn-all cancellation/drain, then serialized two-boss append. Existing despawn all can leave pending creation/retry alive. No game touched.
+2026-10-17 pc: ally collector needs runtime TID/frameTask discovery; cx-ally tasked.
+2026-10-17 pc: routed user #10092 Training wishes to cx-pc2 (crash first).
+2026-10-17 pc: pc2 tasked live test of move menu c132195; cx-pc2 rebase + multi-spawn.
+2026-10-17 pc: idle pause c132195 added to pc2 live test scope.
+2026-10-17 pc: shared bench runbook e240626 (tools/logic_bench_runbook.py, branch cx-pc/bench-runbook-10486) ready for #82/#83/#81; pc runs #82 after the Ki-break self-test frees the game.
+2026-10-17 pc: ally Return recipe 58751f6 -> board task posted for ally after #81.
+
+2026-10-17 4:42 AM EDT | cx-pc #10841 complete: registry model branch cx-pc/multi-boss-model-10841 at c8692bc, 14 offline tests PASS. Next pc: integrate one existing-boss path before append; exact contract notes/training-registry-model-10841.md. No game or move-toggle edits.
+2026-10-17 pc: ally Linux discovery 0f9ece1 delivered; ally validates live under #81.
+2026-10-17 pc: menu id collisions (-27,-28) found in full-idle integration; cx-pc2 to fix + uniqueness test.
+2026-10-17 04:47 pc: board #76 (pc AABB bench) released: game in use by Ki-break self-test (fresh test-active marker 04:40). Re-claim when marker clears; use tools/logic_bench_runbook.py --device pc --stage aabb.
+
+2026-10-17 4:47 AM EDT cx-pc #10773: raw JT exporter COMPLETE/pushed 8a850fc + 44ef511, cx-pc/jt-export-10773. Default OFF; JT=1/JT_RawExport=1 writes jobs.csv+capture.json into unique INI-adjacent jt-raw directory; shared attribute-jt consumer. Release ASI 95622977c145b1cf85844e0d62a64bed02854dca7bbbd3eb08404c101bb8bc38e; offline validation PASS, game untested. Next pc integrates onto current engine baseline and schedules runtime capture; cx-pc asks for next offline assignment.
+2026-10-17 04:48 pc: pc AABB bench not run (game busy, Ki-break self-test, Nioh3.exe PID 17220 + fresh marker). #82 cancelled, #76 failed (not run). Repost ONE pc bench task (runbook tools/logic_bench_runbook.py --device pc --stage aabb) once the marker clears.
+2026-10-17 04:49 pc: #85 marked failed (not run, game busy). Repost Return probe bench for pc after Ki-break test ends.
+2026-10-17 05:40 pc: selftest_10106 done: gate 5/5 ours-only, 0 native; RB at object opens nothing (A opens ours); Ki-break B unverified (needs human). Installed Training 5675ecc8, inis restored, game closed.
+2026-10-17 pc: tasked pc2 (reply 11161): Yoritomo toggle ON/OFF/ON then idlehold arms.
+2026-10-17 pc: pc2 #11217 full-build startup PASS 75 s (Training 03A90704, Rematch 3332FF78, cfc73e2); pc2 now doing attack-toggle ON/OFF/ON; unproven until its RESULT.
+2026-10-17 pc: pc2 startup PASS (#11222); pc2 tasked with move-toggle ON/OFF/ON + persistence live test on cfc73e2+.
+2026-10-17 pc: pc2 test contaminated by concurrent install (cx-pc2 vs pc2 harness); ruled: only lock holder installs; target pair cfc73e2 (Training 03A90704, Rematch 3332FF78).
+2026-10-17 pc: pc2 Return probe #86 startup fail; told pc2 to drop probe/AABB, do only move-menu test; contamination by concurrent install reported (BLOCKED slot 0) - serialize pc2 installs.
+2026-10-17 pc: ally #11026 blocked (no Training asi, landed in Char Creation); answered with install cfc73e2 pair + Fight now route.
+2026-10-17 pc: gave cx-pc2 dump file #890 for bounds equivalence.
+2026-10-17 pc: cx-pc2 #11194 full build integ-move-toggle-on-hp0 HEAD 2487770 (Training 03a90704, Rematch 3332ff78) pushed; runtime unproven; pc2 owns live test (#11154); multi-boss pending native ownership evidence.
+2026-10-17 pc: cx-pc2 tasked: bounds gate with dump #890, then Ki-break non-hardcoded fix proposal.
+2026-10-17 pc: cx-ally scheduler cross-check accepted; tasked ally live runbook (notes/ally-live-runbook.md).
+2026-10-17 pc: cx-pc2 #11120/#11210/#11211: Training defaults Idle (21d06c5); older Rematch 56297F80 superseded by 3332FF78 (use latter). Live acceptance with pc2; multi-spawn gated on native ownership proof.
+2026-10-17 pc: cx-pc tasked native receipts RE (#11209).
+2026-10-17 pc: gave ally stack #897 (EF 32deff54, BR 5c4f6357, Training 5675ecc8) for board81 fnow R7B35.
+
+2026-10-17 5:44 am EDT cx-pc #11440: review delivered at 055b0e6 (cx-pc/move-review-11440), notes/boss-move-toggle-crash-review-11440.md. Five risks; 181 offline veto cases PASS. Next pc: hook publication, forced-path early veto and force ownership/id validation before wider native testing.
+2026-10-17 pc: pc2 #11391 AABB no gain (1 pair); cx-pc2 tasked persistent player protection.
+2026-10-17 pc: multi-boss cleanup RE (4 ownership guarantees) tasked to cx-pc; cx-pc2 continues bounds/protection/recipe/Ki-break.
+
+2026-10-17 5:45 AM Eastern cx-pc #11477: native ownership contract pushed 2671b6f on cx-pc/native-contract-11477; notes/multi-boss-native-contract-11477.md, dump bridge artifact 899. All 23 retained native byte windows PASS; runtime serialization/completed removal remain unproven. Next cx-pc2: typed admission/late identity/release adapter; pc owns game tests.
+2026-10-17 pc: pointed cx-pc2/cx-pc to bridge #890 dump, #897 stack.
+2026-10-17 pc: bounds offline PASS #11516; cx-pc2 asked to upload cfc73e2 ASIs to bridge for ally (blocked).
+2026-10-17 pc: ally runbook c2d1306 accepted; correct fight cmd is fnow 0x7B35 (R7B35 was wrong, mine too).
+2026-10-17 pc: cx-pc multi-boss ownership contract delivered (23 byte checks); cx-pc2 to build proof harness against it.
+2026-10-17 5:46 AM EDT cx-pc #11488: native receipts branch cx-pc/native-receipts-11488 pushed; pc owns four live probes, cx-pc2 native integration. BD0 empties BEFORE deletion completes; no single free-slot receipt is sufficient.
+2026-10-17 pc: cx-pc2 #11585: bounds gate 6/6 PASS (no perf claim); Ki-break proposal 1154e35 (notes/kibreak-semantic-proposal-11450.md): reuse native flags, 4E38 gold-only, no fixed-ID fix. cx-pc native contract 2671b6f (file 903) -> cx-pc2 building ownership proof harness (#11578). pc2 doing live #11482 (4f7b7c7); ally awaiting pair 3332FF78/03A90704 from pc2 (#11563).
+2026-10-17 pc: pc2 sent fixed Yoritomo runner (43b0a96, fnow 0x7B35) for ON/OFF/ON.
+2026-10-17 pc: cx-pc native receipts bb6c729 (4 lifecycle signals; BD0 empty != release); cx-pc tasked to build read-only polling collector; 4 live probes pending pc scheduling.
+2026-10-17 pc: cx-pc2 recipe d78744d (files 910/911/912, pins boss 0x7B35) routed to pc2 for #11482 live test; supersedes 4f7b7c7 as test pair.
+2026-10-17 pc: cx-pc2 ownership proof harness becb4b4 (52 offline tests PASS, synthetic only); next: adapter to cx-pc polling collector.
+2026-10-17 pc: cx-pc native receipts bb6c729 (4 live probes await scheduling); move-safety 41daeef offline tests pending.
+2026-10-17 pc: cx-pc2 tasked FinisherKillTimeoutMs slider (#9585) then hide boss HP bar until visible (#9685).
+2026-10-17 pc: ally interval invalidated by bare guard leftovers kill; broadcast dry-run/orphans-only rule.
+2026-10-17 pc: ally test interrupted by duplicate session running leftovers; rule: only lock holder kills game. cx-pc tasked multi-spawn runtime checklist.
+2026-10-17 pc: cx-ally tasked Ki-break semantic metadata RE.
+2026-10-17 pc: ally #11677 duplicate session exited, 0 measurements; interrupted board81 interval INVALID; live Ally owner must rerun OFF/ON.
+2026-10-17 pc: single-owner rule for nioh3-six-arm-11521; protection pair confirmed 633acfc.
+
+2026-10-17 5:52 AM EDT cx-pc #11536: offline cleanup RE delivered on cx-pc/cleanup-guarantees-11536 (study 747a316, verifier 4c0a318). 26 windows/20 call edges PASS; actual deferred-cancel destruction and weak invalidation chain closed. Next pc: receipt hooks, BC0 exclusion, HUD hide-event/all-reader drain; multi-spawn not admitted. No game touched.
+2026-10-17 pc: cx-pc cleanup mapping 5f6d223 (26 windows/20 edges PASS offline): multi-boss cleanup still needs sync proof; registry proof flags stay gated. Multi-boss/despawn-all remain offline-only, no live probe until polling collector (#11599) exists.
+2026-10-17 pc: ally runner ee21a73 (cx-ally/board81-identity-11678) ready; waits pc2 ASI upload + owner restore.
+2026-10-17 pc: board81 wrapper ee21a73 still wrong fnow R7B35; cx-ally to fix to 0x7B35 + regression; ally not to run before.
+2026-10-17 5:54 am EDT cx-pc #11561: move safety pushed adb2e9b on cx-pc/move-safety-11561, bridge ASI #926 sha 6d407790df7a. pc owns native validation per notes/move-safety-11561.md. Early forced-entry veto replaces late commit veto; force is owned transition queue. Fallback passes native if no validated idle candidate; native lifetime serialization remains unproven.
+2026-10-17 05:55 pc: Codex usage limit hit (cx-pc #11776, until Oct 23); asked user to lift 'Codex-only' order; default after 1 h = resume Claude work on pc2 move test / ally bench / Ki-break. Pending: cx-pc2 upload ids for cfc73e2 pair, cx-ally wrapper fnow 0x7B35 confirm, FinisherKillTimeoutMs slider + HP bar tasks (cx-pc2) may stall.
+2026-10-17 05:55 pc: cx-pc2 + another cx-* worker BLOCKED by Codex usage limit until Oct 23. Asked user (DECISION) to lift Codex-only order; default yes after 1h (~6:55 am EST). Pending offline: #11599 polling collector (cx-pc), #11636 adapter, 60Hz witness.
+2026-10-17 pc: cx-pc AND cx-pc2 confirmed down (usage limit until Oct 23). cx-pc2 offline proof harness done: cx-pc2/offline-11517 @ becb4b4 (52/52). Awaiting user answer on Codex-only order (#11784).
+2026-10-17 pc: ally agent also Codex-limited; wrapper 496b412 ready.
+2026-10-17 pc: Ki-break semantic note ownership ping-pong (cx-ally says cx-pc2 owns; cx-pc2 is down till Oct 23). Stalled; decide after user answers #11784 (may need Claude slot).
+2026-10-17 pc: Ki-break IsDeadDownLoop finding (state 0x127, jump table 0x2EBF0C->0x2EB785) exists only in a lost cx-ally session; unreproduced. Codex cx-pc repeated usage-limit BLOCKED #11797.
+2026-10-17 05:56 pc: ally ALSO hit Codex usage limit (until Oct 23). pc2/ally live tests (#11482, board81) stalled; only pc (Claude) can test. Awaiting user answer to #11785; default yes ~6:55 am EST -> then run move-toggle (recipe file 920, runner.ps1 becb4b4) and Ally-equivalent on this PC.
+2026-10-17 pc: pc2 live recipe pushed origin/cx-pc2/live-recipe-11512 @ d78744d (authoritative PC2 move pair + corrected Yoritomo recipe); finished deliverable, leave it.
+2026-10-17 pc: cx-pc2 #11856 snapshot adapter done offline (cx-pc2/offline-11517, 6 new tests + 52 pass); waits for #11599 collector wiring. No game touched. Still awaiting user answer on Codex-only order (#11784/#11785); default yes ~6:55 am EST then pc runs live tests itself.
+2026-10-17 pc: ally #11864 BLOCKED = Codex usage limit again (until Oct 23); nothing to fix on ally. cx-pc2 adapter actually pushed as 34f1ba2 on cx-pc2/offline-11517. Waiting on user answer #11784/#11785 (default yes ~6:55 am EST).
+2026-10-17 pc: assigned #11599 collector to cx-pc2 (cx-pc out till Oct 23). Waiting RESULT.
+2026-10-17 05:59 pc: #11599 polling collector reassigned cx-pc -> cx-pc2 (cx-pc out of usage).
+2026-10-17 06:00 pc: cx-pc2 polling collector cx-pc2/poll-collector-11599 @1744015 (21 tests PASS offline; 4 layout assumptions need live probes: null chain end, payload+148 actor ptr, owner+D0 32-bit bitmap, post-update serialization gate). Root RVA is hex 0x4745348. Live probes wait for Claude-slot approval (Codex out of usage).
+2026-10-17 06:05 pc: pc2 + ally both Codex-limited until Oct 23; only pc can test.
+2026-10-17 06:06 pc: #11599 collector done offline (cx-pc2/poll-collector-11599 @1744015, NOT 45dc181). Next: 4 live probes on pc (null chain end, payload+148 actor ptr, owner+D0 bitmap, serialization gate); then wire into multi-spawn.
+2026-10-17 pc: cx-pc2 #11599 collector done offline (17/17, adapter 6/6, proof 56/56). pc2 Codex worker also at limit till Oct 23. Next: native integration/live test by pc after user answer or ~6:55 am EST default.
+2026-10-17 06:08 pc: AABB pc2 pair done (-0.71ms/tick), partial 1/3; pc arm pending (pc only live tester now).
+2026-10-17 06:09 pc: answered pc2 #11986: no pause-writing code exists, only detection (GameMain+0x58B/58C); pausing under our menu needs a live probe on pc (open.md).
+2026-10-17 06:11 pc: move-toggle PASS on pc2 (Yoritomo, cfc73e2). Remaining: Ki-break veto check, pc run.
+2026-10-17 06:3x pc: idle-hold FAILS live on pc2 (#12022): IhAlive() in idle_hold.h:124 false for live arena boss -> 'boss defeated' same ms. Fix with cx-pc2; then retest.
+2026-10-17 06:4x pc: IhAlive fix 1655217 (fix/idlehold-alive-12025) offline PASS; needs ASI build + live idle-hold retest (pc2 after 6:55 or pc).
+2026-10-17 06:4x pc: Training ASI w/ IhAlive fix = file #954 sha 9a0c814a..., for idle-hold retest on pc2 (after 6:55).
+2026-10-17 06:50 pc: pc2 agent hit Codex limit too (#12069) -> pc2 queued tests (Shingen OFF/ON/OFF, idle-hold retest w/ file #954, menu persistence) will NOT run. After 6:55 EDT (no human 'no'): pc runs them itself, in order: idle-hold retest (#954), Shingen toggle, collector probes, AABB arm.
+2026-10-17 06:51 pc: ally #12077: cannot hold 60 ticks in L136 scene -> logic bench invalid on ally; verdict for AABB/BPO will be pc+pc2 only (state reason).
+2026-10-17 06:58 pc: idle-hold 2nd bug 'loading hold owns AI' (pc2 #12096) -> cx-pc2 task; pc2 told to run move arms CPU-stance-only.
+2026-10-17 07:01 pc: cx-pc2 out of usage; I fixed idle-hold 'loading hold owns AI' myself: cd88dd2 branch pc/idlehold-wait-12099, ASI file #962 sha a05cb77c. pc2 to live-retest (replaces #954). Unverified in game.
+2026-10-17 07:03 pc: HOLD sent to cx-pc,cx-pc2 (Codex limit retry loop). No new tasks to cx-* until Oct 23.
+2026-10-17 pc: sent HOLD to pc2 to stop Codex retry loop (#12128 etc).
+2026-10-17 07:05 pc: pc2 is Codex-only and out (#12133) so its queued tests are dead. Started a subagent on this PC for the live idle-hold retest (ASI #962, Yoritomo ON/OFF). Awaiting its result; then Shingen/collector probes/AABB pc arm.
+2026-10-17 07:03 pc: no user answer to #11784 after 1h -> default applied: light Claude work resumed on pc2 move test / Ki-break fix, pc only. Game not running, no lock held. Next: fetch recipe (file 920) + runner.ps1 from origin/cx-pc2/live-recipe-11512 and run move-toggle test on pc.
+2026-10-17 07:08 pc: fetched bridge files 939/940 to ../nioh3-recipe-asi (sha ade39ade.../4856f746...) - they do NOT match the PC2 recipe pair (8d98ce0f.../ae19c7af...). Recipe pair exists only on pc2 disk; need cx-pc2 to upload it (file) or build from 094c8d5. Live test not started.
+2026-10-17 07:12 pc: idle-hold PASS live on pc (#962). Caveat: pending->held 9.8 s vs 10 s timeout - raise timeout/margin next. Next: merge pc/idlehold-wait-12099, Shingen toggle, collector probes, AABB pc arm.
+2026-10-17 pc: idle-hold timeout widened 10->20 s, pushed on pc/idlehold-wait-12099 (offline only, not rebuilt/live-tested). Next: build ASI, Shingen toggle, collector probes, AABB pc arm. Codex cx-*/pc2/ally out until Oct 23.
+2026-10-17 pc: built ASI for b776ddb (sha 10480954c2fd, uploaded to bridge); live retest + Shingen/collector/AABB still pending, pc only.
+2026-10-17 08:15 pc: idle-hold #970 (20 s timeout) PASS live on pc: ON 0 attacks/31.1 s, OFF 17/31.3 s, pending->held 10.24 s. Installed ASI restored to original. Next: merge pc/idlehold-wait-12099, Shingen toggle, collector probes, AABB pc arm.
+2026-10-17 pc: Shingen toggle live test BLOCKED: harness could not drive move menu via pad (F7,DOWN... no MOVEMENU log); no OFF/ON numbers. Idle-hold held Shingen OK. Next: screenshot menu per keypress to fix nav path (uo-scratch/ih/ihsh.ps1). Game closed, files restored.
+2026-10-17 pc: user #12251 'continue with Claude agents'. pc2 pair on bridge file #974. Launched background Claude subagent to run move-toggle live test on pc (RESULT will come to pc). Do not start another game test meanwhile.
+2026-10-17 pc: move-toggle subagent did NOT run: another job's live test holds the game (Nioh3 PID 25872, test-active marker 09:28). Queue it after that test ends. Runner is tools/rematch/yoritomo/runner.ps1 on origin/cx-pc2/finisher-slider-11650 (not captures/pc2-yoritomo-11343). Use file #974 pair.
+2026-10-17 pc: told pc2 (#12313) marker stale (dead owner) -> run #954 ON/OFF + move toggle. Await RESULT.
+2026-10-17 pc: answered #12327 (live arena switch not done; open.md #6466).
+2026-10-17 pc: user #12340 live arena swap inside Training = priority. Launched Opus study agent for design from existing arena-swap/EarlySwap/prewarm code.
+2026-10-17 pc: user #12342 asked if live arena switch was started: answered yes (swap built; Training live switch #6466 was parked Oct 15, Opus design now running).
+- 2026-10-17 pc: ROOT CAUSE user #12357 (no boss rematch in mod menu): test harness left Oct15 Rematch ASI a7567767 installed; restored last-night 5c4f6357 from captures/rematch/xworldprobe-20261017-080953/orig. LESSON: harness backups must be taken from a verified known-good set; verify sha of ALL installed files after any live test.
+2026-10-17 pc: Opus built aswap on pc/live-arena-swap 05370f2 (ASI at ../nioh3-liveswap/mod/Nioh3Training/Nioh3Training.asi), compiled, untested. Plan notes/live-arena-swap-plan.md. Next: in-game test same-world swap (R7B35->R2EE9) per recipe.
+2026-10-17 10:0x pc: user #12381: native menu still shows under our Return menu (ours has control) - parked, low priority. Game running for user play; do not touch game. Shingen test + live-arena-swap pending.
+2026-10-17 10:13 pc: aswap test agent was cut off with test ASI installed (4b54ef7e) and stale marker; resumed it (a07b2ad) to finish test + restore user's play build. pc2 #12391 BLOCKED = worker crashed, no action yet.
+2026-10-17 pc: user #12399 focus = Training toggleable boss moves in menu; when done -> everyone pause. aswap test only finishes/restores, no new scope.
+2026-10-17 pc: pc2 move-toggle #12410 failed (stuck on map screen, 0/5); asked pc2 to diagnose+retry once. Prime focus per #12399.
+2026-10-17 pc: user #12439 -> arena teleport menu (normal load) subagent started (branch pc/arena-teleport-menu, offline); Shingen move test (agent a6a58eb) running on pc; after move toggles done -> everyone PAUSE (#12399).
+2026-10-17 pc: user #12444 teleport-to-arena menu must use the learned load speedups (lsfade, cover release, EarlySwap/prewarm). Session building it per #12441.
+2026-10-17 pc: arena teleport menu built offline: branch pc/arena-teleport-menu 8442bfc, Rematch ASI #990 sha 37f520230b7f; live test pending after Shingen run (game lock busy).
+2026-10-17 11:25 pc: move toggle PASS on pc (Shingen 0x4E4E ON1 1 / OFF 0 / ON2 5, totals 37/38/32). PAUSED per user #12399 (PAUSED file, HOLD sent). Resume items: arena teleport menu (branch pc/arena-teleport-menu, needs early-cover/short-black tricks per #12444, live test pending), Return-gate native menu under ours, live arena swap parked. Game closed, installed files verified vs captures/rematch/xworldprobe-20261017-080953/orig.
+2026-10-17 pc: pc2 SF6 design 678de8e noted; told pc2 idle-hold + move toggle already proven on pc, focus all-boss move lists + menu toggles.
+2026-10-17 1:27 pm EST pc: pc2 #12576 digested (move toggle proven on pc2; runner menu indices stale, extending table to remaining bosses). Told pc2 to proceed (#12581). pc next: arena teleport menu live test (branch pc/arena-teleport-menu 8442bfc) when lock free.
+2026-10-17 2:30 pm pc: arena teleport live PASS n=1 (55 s press->fight, 40 s load, ~7 s black), captures/rematch/teleport-20261017-141033. Next: add lsfade/early-cover/EarlySwap to teleport path (#12444); investigate PlayerNoDeath not preventing death. Game closed, files restored.
+2026-10-17 pc: #12613 -> opus agent fast-load teleport on pc; pc2/ally notified of full-feature scope.
+2026-10-17 pc: ally #12616 despawn-all built (ally/despawn-all-12614 44b4c0b, offline only); approved ally live test (#12618): 2-boss summon, despawn all->0, 33+ cycles. Opus fast-load teleport agent (#12613) still outstanding on pc.
+2026-10-17 pc: ordered pc2 11-boss capture batch (#12620). Remaining ~80 bosses await multi-spawn.
+2026-10-17 3:15 pm pc: teleport 6b1a6cc live n=1: 34.1 s vs 55.7 s baseline, black ~12 s vs ~7 s. Next: shorten post-loading black (early cover release / prewarm); ally per-actor boss bar; pc2 all-boss move lists. Game closed, files restored.
+2026-10-17 pc: user #12682: custom region dropped; Training features first; later idea = preload other maps' arena cells only (not whole maps). Backlog, not started.
+2026-10-17 pc: user #12733 wants a compressed demo video of Training mode (summon/despawn/toggle moves) once combined build ready. Needs: combined build + recorder (mod-tied recorder exists) + ffmpeg compress.
+2026-10-17 pc: #12735 demo video must use in-game menu navigation (VirtualPad/keys), not pipe commands. pc2 noted menu-nav runner indices stale.
+2026-10-17 4:35 pm pc: ally compact menu 7de2e08 received (#12782); agent building pc/training-combined (merge teleport+ally+pc2 branches), will verify menu on screen, then record demo video.
+2026-10-17 pc: ally #12797 menu buttons 3141dcd received; menu rows to be eyeballed on pc in pc/training-combined (agent running, game up). Asked ally for per-actor boss bar next.
+2026-10-17 pc: ally #12808 = same commit 3141dcd (dup push, no action).
+2026-10-17 5:15 pm pc: combined build tested OK (49cedd9). Open: Enenra R34 summon needs arenas.tsv row; menu once closed on its own. Agent recording demo video (#12762).
+2026-10-17 4:10 pm pc: teleport black-screen fixes (dd5f81b,9e4909d) no gain; next: finish first-load streaming before landing; Training features on ally/pc2.
+2026-10-17 6:41 pm pc: demo video #1025 sent (user #12921). Game closed, originals restored from captures/rematch/xworldprobe-20261017-080953/orig, marker removed. Video agent aa333000bd7dbaa9c obsolete. Open: Enenra R34 summon (arenas.tsv row), Training menu first page still big centered, teleport black-after-load, pc2 11-boss capture.
+- 2026-10-17 pc2: actcap batch3 running (captures/pc2-actcap-12621/batch3.log, s19-s30, marker test-active). After it: rerun s17_HanzoDemon, consolidate move lists into Training actions table. Enenra/Jakotsu fix on branch pc2/training-arena-fix a064bf9 awaits pc merge.
