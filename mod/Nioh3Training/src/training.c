@@ -3623,16 +3623,18 @@ static void NfTick(void) {
                 g_nf[s].brkAct = ActIdOf(ctrl); g_nf[s].tBrk = now ? now : 1; g_nf[s].tSwap = 0; g_nf[s].tFixLast = 0; g_nf[s].nFix = 0; }  // #9895 break start action (log); #9937 fix state reset
             if (!s23) g_nf[s].tBrk = 0;
             prev23[s] = s23; }
-        // #9946 learn the boss's good Ki-drain action: gold-Ki phase (Ki < 0, not broken by 0x23, bits all 0), same action stable >= 250 ms
-        if (g_nf_actfix && g_nf[s].win == 0 && !s23 && kc < 0.0f && hc > NF_FLOOR) {
-            static uint32_t lastA[NF_N]; static DWORD tA[NF_N]; uint32_t cur = ActIdOf(ctrl); uint64_t wg = 1;
+        // #9946/#10014 learn the boss's good Ki-break action: held >= 300 ms inside a real stagger (state 0x23 with stagger bits 62/45/33), HP > 0, not the HP-0 window.
+        // (Learning it from the gold-Ki phase picked ordinary moves 0x3FD/0x4E42, and swapping to those ended the break.)
+        if (g_nf_actfix && g_nf[s].win == 0 && s23 && hc > NF_FLOOR) {
+            static uint32_t lastA[NF_N]; static DWORD tA[NF_N]; uint32_t cur = ActIdOf(ctrl); uint64_t wg = 0;
             __try { wg = *(volatile uint64_t*)(ctrl + 0x1060); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-            if (wg != 0 || cur != lastA[s]) { lastA[s] = cur; tA[s] = now; }
-            else if (now - tA[s] >= 250) { int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
-                if (g_nf_lrn[l].good != cur && !NfActBadFor(l, cur)) { NfLog("NOFIN boss %p: learned GOOD Ki-drain action 0x%X (Ki %.1f, bits all 0, stable %lu ms, row %u; was 0x%X)", (void*)a, cur, kc, now - tA[s], g_nf[s].id, g_nf_lrn[l].good); g_nf_lrn[l].good = cur; } }
+            int stag = (wg & ((1ull << 62) | (1ull << 45) | (1ull << 33))) != 0 && !(wg & (1ull << 0x3A));
+            if (!stag || cur != lastA[s]) { lastA[s] = cur; tA[s] = now; }
+            else if (now - tA[s] >= 300) { int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
+                if (g_nf_lrn[l].good != cur && !NfActBadFor(l, cur)) { NfLog("NOFIN boss %p: learned GOOD Ki-break action 0x%X (stagger bits %016llX, stable %lu ms, row %u; was 0x%X)", (void*)a, cur, wg, now - tA[s], g_nf[s].id, g_nf_lrn[l].good); g_nf_lrn[l].good = cur; } }
         }
         // #9895 Ki-break action swap fix (see g_nf_actfix)
-        if (g_nf_actfix && ((g_nf[s].win == 0 && hc > NF_FLOOR) || g_nf[s].win == 1) && s23 && g_nf[s].tBrk) {
+        if (g_nf_actfix && g_nf[s].win == 0 && hc > NF_FLOOR && s23 && g_nf[s].tBrk) {  // #10014: NOT in the HP-0 window - the forced swap to a non-stagger move ended the break after 125 ms and the boss moved away mid-combo
             // #9937: bad action id (KiBreakActBadIds) -> the good one (KiBreakActGoodId); brkAct = the start action, log only
             int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
             uint32_t cur = ActIdOf(ctrl), b0 = g_nf[s].brkAct, good = g_nf_lrn[l].good ? g_nf_lrn[l].good : g_nf_actgood; DWORD el = now - g_nf[s].tBrk;
