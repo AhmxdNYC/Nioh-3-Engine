@@ -3616,7 +3616,7 @@ static void NfTick(void) {
         if (g_nf[s].win >= 2 && !dead && hc > NF_FLOOR) { g_nf[s].win = 0; g_nf[s].tries = 0; g_nf[s].aiHeld = 0; NfLog("NOFIN boss %p alive again (HP %llu, actor reused after despawn/summon): window re-armed", (void*)a, hc); }
         if (dead) { g_nf_off[s] = 0; if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf[s].win = 3; continue; }
         g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl; g_nf_chr[s] = st;
-        {   static int prev23[NF_N]; if (s23 && !prev23[s] && g_nf[s].win == 0 && hc > 1) {  // native Ki break started: learn its stagger motion id (#9297)
+        {   static int prev23[NF_N]; if (s23 && !prev23[s] && ((g_nf[s].win == 0 && hc > 1) || g_nf[s].win == 1)) {  // #9987: the HP-0 window's break too (death-like crouch FA6/4E3E seen while comboing)  // native Ki break started: learn its stagger motion id (#9297)
                 uint32_t mid = g_mot_id[s]; DWORD mt = g_mot_t[s];
                 if (mid && mid != 0x308 && now - mt < 400) { if (g_nf_brk_id != mid) NfLog("NOFIN boss %p Ki-break stagger motion learned: 0x%X (requested %lu ms before the break was seen)", (void*)a, mid, now - mt); g_nf_brk_id = mid; }
                 else NfLog("NOFIN boss %p Ki break started, no motion request in the last 400 ms (last 0x%X %lu ms ago)", (void*)a, mid, mt ? now - mt : 0);
@@ -3632,7 +3632,7 @@ static void NfTick(void) {
                 if (g_nf_lrn[l].good != cur && !NfActBadFor(l, cur)) { NfLog("NOFIN boss %p: learned GOOD Ki-drain action 0x%X (Ki %.1f, bits all 0, stable %lu ms, row %u; was 0x%X)", (void*)a, cur, kc, now - tA[s], g_nf[s].id, g_nf_lrn[l].good); g_nf_lrn[l].good = cur; } }
         }
         // #9895 Ki-break action swap fix (see g_nf_actfix)
-        if (g_nf_actfix && g_nf[s].win == 0 && s23 && hc > NF_FLOOR && g_nf[s].tBrk) {
+        if (g_nf_actfix && ((g_nf[s].win == 0 && hc > NF_FLOOR) || g_nf[s].win == 1) && s23 && g_nf[s].tBrk) {
             // #9937: bad action id (KiBreakActBadIds) -> the good one (KiBreakActGoodId); brkAct = the start action, log only
             int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
             uint32_t cur = ActIdOf(ctrl), b0 = g_nf[s].brkAct, good = g_nf_lrn[l].good ? g_nf_lrn[l].good : g_nf_actgood; DWORD el = now - g_nf[s].tBrk;
