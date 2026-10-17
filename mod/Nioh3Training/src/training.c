@@ -339,8 +339,13 @@ static int g_nf_barefix = 1, g_nf_bare_ms = 200;
 // at most KiBreakActFixMax per break, >= KiBreakActFixGapMs apart, inside KiBreakActFixWindowMs. Defaults seen on Yoritomo (R7B35): bad 0x4E3E/0x4E40
 // (hunched, wings folded) /0xFA6 (bare crouch), good 0x4E38 (upright, wings spread; 0x4E37 also good). Other bosses: set the ids in the ini.
 static int g_nf_actfix = 1, g_nf_actfix_mode = 2, g_nf_actfix_ms = 100, g_nf_actfix_max = 3, g_nf_actfix_win = 4000, g_nf_actfix_learn = 400, g_nf_actfix_gap = 500;
-static uint32_t g_nf_actbad[16] = {0x4E3E, 0x4E40, 0xFA6}, g_nf_actgood = 0x4E38; static int g_nf_nactbad = 3;
-static int NfActBad(uint32_t id) { for (int i = 0; i < g_nf_nactbad; ++i) if (g_nf_actbad[i] == id) return 1; return 0; }
+static uint32_t g_nf_actbad[16], g_nf_actgood; static int g_nf_nactbad;  // ini = optional seed only (default empty); #9946: ids are LEARNED per boss
+// #9946 learned ids per boss (key = gauge row id): good = the action seen (stable >= 250 ms) in the gold-Ki phase (Ki < 0, not 0x23, bits1060 all 0, HP > 0);
+// bad = the action seen in a bare break (bit 0x3A without stagger bits) or, once a good id is known, one that replaced the break's start action >= 600 ms in.
+static struct { uint32_t id, good, bad[8]; int nbad; } g_nf_lrn[8];
+static int NfLrn(uint32_t id) { int f = -1; for (int i = 0; i < 8; ++i) { if (g_nf_lrn[i].id == id && id) return i; if (f < 0 && !g_nf_lrn[i].id) f = i; } if (f < 0) f = 0; memset(&g_nf_lrn[f], 0, sizeof g_nf_lrn[f]); g_nf_lrn[f].id = id; return f; }
+static int NfActBadFor(int l, uint32_t id) { for (int i = 0; i < g_nf_nactbad; ++i) if (g_nf_actbad[i] == id) return 1; for (int i = 0; i < g_nf_lrn[l].nbad; ++i) if (g_nf_lrn[l].bad[i] == id) return 1; return 0; }
+static void NfLrnBad(int l, uint32_t id) { if (!id || NfActBadFor(l, id) || g_nf_lrn[l].nbad >= 8) return; g_nf_lrn[l].bad[g_nf_lrn[l].nbad++] = id; }
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
                             // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
@@ -3615,11 +3620,23 @@ static void NfTick(void) {
                 g_nf[s].brkAct = ActIdOf(ctrl); g_nf[s].tBrk = now ? now : 1; g_nf[s].tSwap = 0; g_nf[s].tFixLast = 0; g_nf[s].nFix = 0; }  // #9895 break start action (log); #9937 fix state reset
             if (!s23) g_nf[s].tBrk = 0;
             prev23[s] = s23; }
+        // #9946 learn the boss's good Ki-drain action: gold-Ki phase (Ki < 0, not broken by 0x23, bits all 0), same action stable >= 250 ms
+        if (g_nf_actfix && g_nf[s].win == 0 && !s23 && kc < 0.0f && hc > NF_FLOOR) {
+            static uint32_t lastA[NF_N]; static DWORD tA[NF_N]; uint32_t cur = ActIdOf(ctrl); uint64_t wg = 1;
+            __try { wg = *(volatile uint64_t*)(ctrl + 0x1060); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+            if (wg != 0 || cur != lastA[s]) { lastA[s] = cur; tA[s] = now; }
+            else if (now - tA[s] >= 250) { int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
+                if (g_nf_lrn[l].good != cur && !NfActBadFor(l, cur)) { NfLog("NOFIN boss %p: learned GOOD Ki-drain action 0x%X (Ki %.1f, bits all 0, stable %lu ms, row %u; was 0x%X)", (void*)a, cur, kc, now - tA[s], g_nf[s].id, g_nf_lrn[l].good); g_nf_lrn[l].good = cur; } }
+        }
         // #9895 Ki-break action swap fix (see g_nf_actfix)
         if (g_nf_actfix && g_nf[s].win == 0 && s23 && hc > NF_FLOOR && g_nf[s].tBrk) {
             // #9937: bad action id (KiBreakActBadIds) -> the good one (KiBreakActGoodId); brkAct = the start action, log only
-            uint32_t cur = ActIdOf(ctrl), b0 = g_nf[s].brkAct, good = g_nf_actgood; DWORD el = now - g_nf[s].tBrk;
-            if (!NfActBad(cur) || !good || cur == good || el > (DWORD)g_nf_actfix_win) g_nf[s].tSwap = 0;
+            int l = NfLrn(g_nf[s].id ? g_nf[s].id : 0xFFFF);
+            uint32_t cur = ActIdOf(ctrl), b0 = g_nf[s].brkAct, good = g_nf_lrn[l].good ? g_nf_lrn[l].good : g_nf_actgood; DWORD el = now - g_nf[s].tBrk;
+            {   uint64_t wb = 0; __try { wb = *(volatile uint64_t*)(ctrl + 0x1060); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+                if ((wb & (1ull << 0x3A)) && !(wb & ((1ull << 62) | (1ull << 45) | (1ull << 33))) && cur != good && !NfActBadFor(l, cur)) { NfLrnBad(l, cur); NfLog("NOFIN boss %p: learned BAD Ki-break action 0x%X (bare crouch bits %016llX, row %u)", (void*)a, cur, wb, g_nf[s].id); }
+                else if (g_nf_lrn[l].good && el >= 600 && cur != b0 && cur != good && !NfActBadFor(l, cur)) { NfLrnBad(l, cur); NfLog("NOFIN boss %p: learned BAD Ki-break action 0x%X (replaced start 0x%X at +%lu ms, good 0x%X, row %u)", (void*)a, cur, b0, el, good, g_nf[s].id); } }
+            if (!NfActBadFor(l, cur) || !good || cur == good || el > (DWORD)g_nf_actfix_win) g_nf[s].tSwap = 0;
             else if (!g_nf[s].tSwap) g_nf[s].tSwap = now ? now : 1;
             else if (now - g_nf[s].tSwap >= (DWORD)g_nf_actfix_ms && g_nf[s].nFix < g_nf_actfix_max && (!g_nf[s].tFixLast || now - g_nf[s].tFixLast >= (DWORD)g_nf_actfix_gap)) {
                 uint64_t w0 = 0; int ok = 1;
@@ -3978,8 +3995,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_nf_actfix_win = GetPrivateProfileIntA("Summon", "KiBreakActFixWindowMs", 4000, ini); g_nf_actfix_learn = GetPrivateProfileIntA("Summon", "KiBreakActLearnMs", 400, ini);
         if (g_nf_actfix_ms < 0) g_nf_actfix_ms = 0; if (g_nf_actfix_learn < 0) g_nf_actfix_learn = 0;
         g_nf_actfix_gap = GetPrivateProfileIntA("Summon", "KiBreakActFixGapMs", 500, ini); if (g_nf_actfix_gap < 0) g_nf_actfix_gap = 0;
-        {   char sb[256], sg[32]; GetPrivateProfileStringA("Summon", "KiBreakActBadIds", "0x4E3E,0x4E40,0xFA6", sb, sizeof sb, ini);
-            GetPrivateProfileStringA("Summon", "KiBreakActGoodId", "0x4E38", sg, sizeof sg, ini); g_nf_actgood = (uint32_t)strtoul(sg, 0, 0);
+        {   char sb[256], sg[32]; GetPrivateProfileStringA("Summon", "KiBreakActBadIds", "", sb, sizeof sb, ini);
+            GetPrivateProfileStringA("Summon", "KiBreakActGoodId", "0", sg, sizeof sg, ini); g_nf_actgood = (uint32_t)strtoul(sg, 0, 0);
             g_nf_nactbad = 0; for (const char* q = sb; *q && g_nf_nactbad < 16; ) { char* e; unsigned long v = strtoul(q, &e, 0); if (e == q) { ++q; continue; } if (v) g_nf_actbad[g_nf_nactbad++] = (uint32_t)v; q = e; }
             char lb[200] = ""; for (int i = 0; i < g_nf_nactbad; ++i) { size_t l = strlen(lb); snprintf(lb + l, sizeof lb - l, "%s0x%X", i ? "," : "", g_nf_actbad[i]); }
             Log("KiBreakActFix %d mode %d (2 forced 66C4A8, 1 pending +2E4): bad ids {%s} -> good 0x%X after %d ms, max %d per break, gap %d ms, window %d ms (#9937, defaults seen on Yoritomo R7B35)",
