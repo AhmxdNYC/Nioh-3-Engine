@@ -316,7 +316,8 @@ static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
 static int g_nf_kirow_unbreak = 1;  // #8827 [Summon] KiBreakGoldUnbreak (run time 'nofinunbreak 0|1')
-static int g_nf_nonlethal = 1;  // #9319 [Summon] KiBreakHp0NonLethal (run time 'nofinnl 0|1'), see NfHpDamage
+static int g_nf_nonlethal = 1, g_nf_prime = 1;  // g_nf_prime: [Summon] KiBreakHp0Prime / 'nofinprime 0|1' (Ki 0.5 prime at the HP floor)
+// #9319 [Summon] KiBreakHp0NonLethal (run time 'nofinnl 0|1'), see NfHpDamage
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
                             // (KIFINISHER 35=1 'HP floor (death blow)', 1078 ms) and the user did the finisher although the grapple target was blocked 67 frames.
@@ -2720,6 +2721,7 @@ static void Exec(char* line) {
         } else if (!strcmp(op, "nofinstagger")) { g_nf_stagger = (int)a[0]; Log("CMD nofinstagger %d (stub path %s)", g_nf_stagger, g_db_stub3 ? "available" : "OFF");
         } else if (!strcmp(op, "nofinfade")) { g_cfg_nf_fade = (int)a[0] < 0 ? 0 : (int)a[0]; Log("CMD nofinfade %d ms", g_cfg_nf_fade);
         } else if (!strcmp(op, "bossgrace")) { g_cfg_bossgrace = (int)a[0]; Log("CMD bossgrace %d ms", g_cfg_bossgrace);
+        } else if (!strcmp(op, "nofinprime")) { g_nf_prime = (int)a[0]; Log("CMD nofinprime %d", g_nf_prime);
         } else if (!strcmp(op, "nofinnl")) { g_nf_nonlethal = (int)a[0]; Log("CMD nofinnl %d", g_nf_nonlethal);
         } else if (!strcmp(op, "nofinkneel")) { g_nf_kneel = (int)a[0]; Log("CMD nofinkneel %d", g_nf_kneel);
         } else if (!strcmp(op, "nofin101")) { g_nf_clear101 = (int)a[0]; Log("CMD nofin101 %d", g_nf_clear101);
@@ -3101,12 +3103,26 @@ static uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint8_t p4) {
                 // floor at HP 2, not 1: live 00:00:23 (try 4) the boss still entered the native HP-floor down action (KIFINISHER 35=1, bits1060 bit 14,
                 // runtime bit 101) 2.3 s after a keepAlive hit left it at HP 1 -> at HP 2 it is an ordinary boss with 2 HP (window starts at HP <= 2)
                 int nd = cur > 2 ? (int)(cur - 2) : 0; dmg = nd;
-                if (!((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) && !KbState(g_nf_ai[i], 0x23)) { float kc = *(float*)(st + 0xAC); if (kc > 0.5f) ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); }
+                if (g_nf_prime && !((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) && !KbState(g_nf_ai[i], 0x23)) { float kc = *(float*)(st + 0xAC); if (kc > 0.5f) ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); }
                 LONG k = InterlockedIncrement(&g_nf_n_nl); if (k <= 20 || k % 50 == 0) Log("NOFIN boss slot %d hit at HP floor (HP %lld): damage cut to %d (stays at HP 2, non-lethal), Ki primed -> native hit reaction + Ki break (#%ld)", i, (long long)cur, dmg, k);
             } } __except (EXCEPTION_EXECUTE_HANDLER) { }
         break;
     }
     return ((uint64_t (*)(uint64_t, int, uint8_t, uint8_t))(B + 0x787268))(hp, dmg, keep, p4);
+}
+// #9319 live tries 4-6 (00:00:23, 00:03:29, 00:06:39): even at HP 2 with full Ki the boss entered a down action (KIFINISHER 35=1, bits1060 0x6000,
+// runtime bit 101) 2.25 s after the floor hit, AI on or off = the native HP-floor kneel: every kneel writer (script ForceKneelDown 238E1BC, AI 7CF878
+// at 1A153FF/1A15450, 2001E34, 2369F08) does ctrl+0x994 = 0x27 (kneel action), 668D74(actor) (AI off) and actor+0x91B = 1. With KiBreakHp0NonLethal a
+// watched boss in its HP-0 window: 668D74 from the game is dropped (caller logged), and NfTick undoes 0x994 = 0x27 / 0x91B = 1.
+static void (*o_aioff)(uint64_t); static volatile LONG g_nf_n_kneel; static volatile int g_nf_kneelblk[NF_N];
+static void NfAiOffDetour(uint64_t a) {
+    uintptr_t ra = (uintptr_t)__builtin_return_address(0);
+    if (g_cfg_nofin && g_nf_nonlethal && a && ra >= B && ra < B + g_imgSize) for (int i = 0; i < NF_N; ++i) if (g_nf[i].a == a && g_nf[i].win == 1 && g_nf_act[i]) {
+        g_nf_kneelblk[i] = 1; LONG k = InterlockedIncrement(&g_nf_n_kneel);
+        if (k <= 20) Log("NOFIN boss %p in the HP-0 window: native AI-off/kneel 668D74 from %llX dropped (#%ld)", (void*)a, (unsigned long long)(ra - B), k);
+        return;
+    }
+    o_aioff(a);
 }
 typedef uint8_t (*NfStFn)(uint64_t, uint32_t, uint64_t); static NfStFn g_tr_orig; static uint8_t NfStDetour(uint64_t c, uint32_t id, uint64_t r8);
 static void NfInstallHooks(void) {
@@ -3206,6 +3222,9 @@ static void NfInstallHooks(void) {
         if (g_mot_orig) { } else if (memcmp((void*)(B + 0x3F21A4), mp, 15)) Log("NOFIN motion hook 3F21A4: prologue differs, OFF (HP floor keeps the native pose)");
         else { g_mot_orig = (NfMotFn)Hook(0x3F21A4, 15, (void*)NfMotDetour); Log("NOFIN motion hook 3F21A4: on (HP-floor motion 0x308 -> Ki-break stagger id %d (0 = learned), #9297)", g_cfg_stag_id); }
     }
+    if (g_nf_nonlethal && !o_aioff) { static const uint8_t pro[13] = {0x40,0x53, 0x48,0x83,0xEC,0x20, 0x48,0x8B,0x99,0xB0,0x03,0x00,0x00};
+        if (memcmp((void*)(B + 0x668D74), pro, 13)) Log("NOFIN kneel block 668D74: prologue differs, OFF");
+        else { o_aioff = (void (*)(uint64_t))Hook(0x668D74, 13, (void*)NfAiOffDetour); Log("NOFIN kneel block 668D74: on (HP-0 window: no native HP-floor kneel / AI off, #9319)"); } }
     if (g_nf_st27) {  // #9135 (b): StateTest default impl 2E9948 detour (shared with the nofintrace aid)
         static const uint8_t pro[15] = {0x48,0x8B,0xC4, 0x48,0x89,0x58,0x08, 0x48,0x89,0x70,0x10, 0x48,0x89,0x78,0x20};
         if (g_tr_orig) Log("NOFIN death-blow test 2E9948: on (detour already in)");
@@ -3343,14 +3362,14 @@ static void NfTick(void) {
                 else NfLog("NOFIN boss %p Ki break started, no motion request in the last 400 ms (last 0x%X %lu ms ago)", (void*)a, mid, mt ? now - mt : 0); }
             prev23[s] = s23; }
         // prime hold: the whole HP-0 window keeps the Ki at 0.5 while the boss is not broken, so the next hit's Ki damage breaks it natively
-        if (!broken && kc > 0.5f && g_nf[s].win == 1) { __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+        if (g_nf_prime && !broken && kc > 0.5f && g_nf[s].win == 1) { __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
         if (broken != g_nf[s].broken) { g_nf[s].broken = broken; if (!broken && g_nf[s].win == 1) g_nf[s].nRebreak++;
             NfLog("NOFIN boss %p Ki %s (23=%d exhausted %d ki0 %d, Ki %.1f, HP %llu/%llu); blocked so far: down target %ld, grapple target %ld, CanGrapple %ld, grab box %ld, plain grab box %ld, death-blow test %ld, bit-31 box %ld, bit-28 box %ld", (void*)a, broken ? "BROKEN -> gold Ki bar" : "recovered", s23, exh, ki0, kc, hc, hm,
                   g_nf_cnt_down, g_nf_cnt_tgt, g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_grab0, g_nf_cnt_st27, g_nf_cnt_b31, g_nf_cnt_b28); }
         if (hc <= NF_FLOOR && g_nf[s].win == 0) {
             g_nf[s].win = 1; g_nf[s].tWin = g_nf[s].tLast = now; g_nf[s].hits0 = g_nf_hits[s]; g_nf[s].nHits = 0; g_nf[s].nRebreak = 0;
             NfLog("NOFIN HP-0 window start boss %p (HP %llu/%llu): Ki broken + gold bar draining %d ms; dies if not hit", (void*)a, hc, hm, g_cfg_nofin_ms);
-            if (!exh) { NfBreakNow(st, "HP 0", a); g_nf[s].tRebreak = now; }
+            if (!exh && g_nf_prime) { NfBreakNow(st, "HP 0", a); g_nf[s].tRebreak = now; }
         }
         if (g_nf[s].win == 1) {
             // live 03:49 (nofinsnap/nofindiff, lethal vs normal hit): the lethal hit leaves ctrl+0xEA0 = 1 = death-blow pending (786C84's own cond 0x27
@@ -3360,6 +3379,9 @@ static void NfTick(void) {
             // 'grapple yes' = that finisher state seen in the break) although the grapple target hook blocked 746 frames. Both plays had runtime bit 101
             // (ctrl+0x1068 bit 37, 'bits1068 0000002000000000') set from the HP-0 window on; no dev run (boss AI off, no finisher) ever had it -> it is the
             // death-blow-available state the AI/script sets at the HP floor. Clear it every pump frame of the window ([Summon] KiBreakHp0ClearDeathBlow, default 1).
+            if (g_nf_nonlethal) __try { uint8_t* k91b = (uint8_t*)(a + 0x91B); volatile uint32_t* r994 = (volatile uint32_t*)(ctrl + 0x994);
+                if (*k91b || *r994 == 0x27 || g_nf_kneelblk[s]) { int was91b = *k91b; uint32_t was994 = *r994; *k91b = 0; if (*r994 == 0x27) *r994 = 0; g_nf_kneelblk[s] = 0;
+                    static int nk; if (++nk <= 20) NfLog("NOFIN boss %p: HP-floor kneel undone (actor+91B %d, ctrl+994 0x%X)", (void*)a, was91b, was994); } } __except (EXCEPTION_EXECUTE_HANDLER) { }
             if (g_nf_clear101) __try { volatile uint64_t* rb = (volatile uint64_t*)(ctrl + 0x1068); if (*rb & (1ull << 37)) { *rb &= ~(1ull << 37); g_nf_n101++; if (g_nf_n101 <= 10 || g_nf_n101 % 100 == 0) NfLog("NOFIN boss %p: death-blow runtime bit 101 (ctrl+1068 bit 37) cleared (#%ld)", (void*)a, g_nf_n101); } } __except (EXCEPTION_EXECUTE_HANDLER) { }
             // live 03:52: at HP 1 the hits' Ki damage takes the Ki below 0 but the native break never starts (lethal hits skip it), so the HP-0 window sets the
             // break itself: A4F098(ctrl) = the native break-window start (runtime bit 0x3A = state 0x23 + per-character timer ctrl+0x1014), plus, once per window,
@@ -3549,7 +3571,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
         g_nf_st27 = GetPrivateProfileIntA("Summon", "KiBreakBlockDeathBlow", 1, ini); Log("KiBreakBlockDeathBlow %d (#9135: no death-blow offer + no plain grab box on a gold boss)", g_nf_st27);
-        g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
+        g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); g_nf_prime = GetPrivateProfileIntA("Summon", "KiBreakHp0Prime", 1, ini); Log("KiBreakHp0Prime %d", g_nf_prime); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
         g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
