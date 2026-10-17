@@ -316,7 +316,7 @@ static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
 static int g_nf_kirow_unbreak = 1;  // #8827 [Summon] KiBreakGoldUnbreak (run time 'nofinunbreak 0|1')
-static int g_nf_nonlethal = 1, g_nf_prime = 1;  // g_nf_prime: [Summon] KiBreakHp0Prime / 'nofinprime 0|1' (Ki 0.5 prime at the HP floor)
+static int g_nf_nonlethal = 1, g_nf_prime = 1, g_nf_hprow_ok;  // g_nf_prime: [Summon] KiBreakHp0Prime / 'nofinprime 0|1' (Ki 0.5 prime at the HP floor)
 // #9319 [Summon] KiBreakHp0NonLethal (run time 'nofinnl 0|1'), see NfHpDamage
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
@@ -3095,20 +3095,37 @@ static uint64_t NfMotDetour(uint64_t c, uint32_t id, uint64_t r8, uint64_t r9) {
 // KiDamage, native Ki break = the real stagger). The Ki is primed to 0.5 on that hit (and held there in the window while not broken) so every hit at the
 // floor re-breaks natively; A4F098 is not called in this mode. Window / gold / kill after KiBreakHp0WindowMs unchanged.
 static volatile LONG g_nf_n_nl;
+// #9319 live tries 4-8 (pc, Yoritomo R7B35): the first hit that takes the boss to the floor starts the native dying sequence (it stands ~2.25 s, then the
+// crouched down action KIFINISHER 35=1 + runtime bit 101 = 'looks dead'), at HP 1 or 2, Ki primed or not, AI on or off; HP set to 2 with no hit never
+// starts it (try 8). So no hit may ever be lethal: [Summon] KiBreakHp0Reserve = 1 (default): when a watched boss first drops to <= 20 % max HP its real
+// HP gets a hidden reserve of 20 % max (g_nf_off) and its boss HP bar shows real - reserve (hook on the HP row call 1D220B5); the HP-0 window starts when
+// the shown HP reaches 0, and in the window every hit is topped up so the real HP never drops below the reserve (normal, non-lethal hits: native hit
+// reaction / Ki break). The kill at the end of the window is the native force kill as before.
+static int g_nf_reserve = 1; static volatile int64_t g_nf_off[NF_N];
 static uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint8_t p4) {
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
-        __try { int64_t cur = *(int64_t*)(hp + 0x20); uint64_t st = g_nf_chr[i];
-            { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld dmg %d keepAlive %u", i, (long long)cur, dmg, keep); }
-            if (*(int32_t*)(hp + 0x10) != 1 && cur - (int64_t)dmg < 2) {
-                // floor at HP 2, not 1: live 00:00:23 (try 4) the boss still entered the native HP-floor down action (KIFINISHER 35=1, bits1060 bit 14,
-                // runtime bit 101) 2.3 s after a keepAlive hit left it at HP 1 -> at HP 2 it is an ordinary boss with 2 HP (window starts at HP <= 2)
-                int nd = cur > 2 ? (int)(cur - 2) : 0; dmg = nd;
-                if (g_nf_prime && !((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) && !KbState(g_nf_ai[i], 0x23)) { float kc = *(float*)(st + 0xAC); if (kc > 0.5f) ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); }
-                LONG k = InterlockedIncrement(&g_nf_n_nl); if (k <= 20 || k % 50 == 0) Log("NOFIN boss slot %d hit at HP floor (HP %lld): damage cut to %d (stays at HP 2, non-lethal), Ki primed -> native hit reaction + Ki break (#%ld)", i, (long long)cur, dmg, k);
+        __try { int64_t cur = *(int64_t*)(hp + 0x20), off = g_nf_off[i]; uint64_t st = g_nf_chr[i];
+            { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld (reserve %lld) dmg %d", i, (long long)cur, (long long)off, dmg); }
+            if (*(int32_t*)(hp + 0x10) != 1) {
+                if (off > 0) {
+                    if (cur - (int64_t)dmg < off) { ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(hp, (uint64_t)(off + dmg));
+                        LONG k = InterlockedIncrement(&g_nf_n_nl); if (k <= 20 || k % 50 == 0) Log("NOFIN boss slot %d hit at the shown HP 0: real HP topped up to reserve %lld + dmg %d (non-lethal, normal hit) (#%ld)", i, (long long)off, dmg, k); }
+                } else if (cur - (int64_t)dmg < 2) {  // no reserve (KiBreakHp0Reserve 0 or not set yet): floor at HP 2
+                    int nd = cur > 2 ? (int)(cur - 2) : 0; dmg = nd;
+                    if (g_nf_prime && !((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) && !KbState(g_nf_ai[i], 0x23)) { float kc = *(float*)(st + 0xAC); if (kc > 0.5f) ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, 0.5f); }
+                    LONG k = InterlockedIncrement(&g_nf_n_nl); if (k <= 20 || k % 50 == 0) Log("NOFIN boss slot %d hit at HP floor (HP %lld): damage cut to %d (stays at HP 2) (#%ld)", i, (long long)cur, dmg, k);
+                }
             } } __except (EXCEPTION_EXECUTE_HANDLER) { }
         break;
     }
     return ((uint64_t (*)(uint64_t, int, uint8_t, uint8_t))(B + 0x787268))(hp, dmg, keep, p4);
+}
+static void NfHpRow(uint64_t w, uint64_t row, uint64_t snap, float ratio, float x5) {  // 1D220B5: boss HP row widget 235F92C(w, row, HP snapshot copy, ...)
+    if (g_cfg_nofin && row && snap) __try { uint32_t id = *(uint32_t*)(row - 0x0C);
+        for (int i = 0; i < NF_N; ++i) if (g_nf_off[i] > 0 && g_nf[i].id == id) { int64_t cur = *(int64_t*)(snap + 0x20), d = cur - g_nf_off[i]; if (d < 0) d = 0;
+            ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(snap, (uint64_t)d); break; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    ((void (*)(uint64_t, uint64_t, uint64_t, float, float))(B + 0x235F92C))(w, row, snap, ratio, x5);
 }
 // #9319 live tries 4-6 (00:00:23, 00:03:29, 00:06:39): even at HP 2 with full Ki the boss entered a down action (KIFINISHER 35=1, bits1060 0x6000,
 // runtime bit 101) 2.25 s after the floor hit, AI on or off = the native HP-floor kneel: every kneel writer (script ForceKneelDown 238E1BC, AI 7CF878
@@ -3188,6 +3205,11 @@ static void NfInstallHooks(void) {
         if (s && !memcmp(site - 22, "\x45\x8A\x85\x8D\x02\x00\x00", 7)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfHpDamage); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
             if (NfPatchCall(site, B + 0x787268, s, "HP damage 329890")) Log("NOFIN hook HP damage 329890: on (KiBreakHp0NonLethal %d: hits at the HP floor stay normal hits)", g_nf_nonlethal); }
         else Log("NOFIN hook HP damage 329890: bytes differ, off (HP-floor hits stay lethal)");
+    }
+    {   uint8_t* site = (uint8_t*)(B + 0x1D220B5); uint8_t* s2 = NearPage(site);  // HP row (rdx = row, r8 = HP snapshot copy)
+        if (s2 && !memcmp(site - 9, "\x4C\x8D\x44\x24\x30\x48\x8D\x4D\x90", 9)) { uint8_t* p = E_mov_rax(s2, (uint64_t)NfHpRow); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s2, 16);
+            if (NfPatchCall(site, B + 0x235F92C, s2, "HP row 1D220B5") && (g_nf_hprow_ok = 1)) Log("NOFIN hook HP row 1D220B5: on (shown HP = real - reserve, KiBreakHp0Reserve %d)", g_nf_reserve); }
+        else Log("NOFIN hook HP row 1D220B5: bytes differ, off");
     }
     {   uint8_t* site = (uint8_t*)(B + 0x2F7045); uint8_t* s = NearPage(site);
         if (s) { uint8_t* p = E_mov_rax(s, (uint64_t)NfGrappleTarget); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
@@ -3297,7 +3319,7 @@ static void NfTraceTick(void) {
         Log("NOFIN trace: %s %06llX id %02llX n %ld true %ld t %lu..%lu ms", (k >> 15) & 1 ? "via4893B8 from" : "vcall at", (unsigned long long)(k >> 16), (unsigned long long)(k & 0x7FFF), g_ntr[i].n, g_ntr[i].nt, g_ntr[i].t1, g_ntr[i].t2); }
     Log("NOFIN trace end: %d keys", m);
 }
-static void NfClear(int s) { g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf_chr[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
+static void NfClear(int s) { g_nf_off[s] = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf_chr[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
 // Live 00:32:11: KiSetCur(K, -max) leaves the boss at Ki -1000 but NOT broken (no exhaustion, it kept attacking): the break is the hit-reaction when a hit's
 // Ki damage takes the Ki across 0 (327DEC). So 'break' = prime the Ki to 0.5: the next hit breaks the boss natively (NfLethalCond primes inside the lethal hit).
 static void NfBreakNow(uint64_t st, const char* why, uint64_t a) {
@@ -3346,6 +3368,12 @@ static void NfTick(void) {
         if (s < 0) { for (int i = 0; i < NF_N; ++i) if (!g_nf[i].a) { s = i; break; } if (s < 0) continue; NfClear(s); g_nf[s].a = a; g_nf[s].hits0 = g_nf_hits[s];
             NfLog("NOFIN watch boss %p (row id %u) HP %llu/%llu: grapple blocked, gold Ki while broken, HP-0 window %d ms", (void*)a, ids[k], hc, hm, g_cfg_nofin_ms); }
         g_nf[s].seen = now; if (ids[k]) g_nf[s].id = ids[k];
+        if (g_nf_nonlethal && g_nf_reserve && g_nf_hprow_ok && !g_nf_off[s] && g_nf[s].win == 0 && hc > 0 && hc <= hm / 5 && g_nf[s].id) {  // #9319 hidden HP reserve
+            int dead0 = 0; __try { dead0 = *(int32_t*)(st + 0x48) == 1; } __except (EXCEPTION_EXECUTE_HANDLER) { dead0 = 1; }
+            if (!dead0) { int64_t off = (int64_t)(hm / 5); __try { ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(st + 0x38, hc + (uint64_t)off); g_nf_off[s] = off; } __except (EXCEPTION_EXECUTE_HANDLER) { }
+                NfLog("NOFIN boss %p HP %llu/%llu: hidden reserve %lld added (real HP %llu, HP bar shows real - reserve; no hit can be lethal now)", (void*)a, hc, hm, (long long)off, hc + (uint64_t)off); }
+        }
+        if (g_nf_off[s] > 0) { uint64_t real = hc; ActorHp(a, &real, &hm); hc = real > (uint64_t)g_nf_off[s] ? real - (uint64_t)g_nf_off[s] : 0; if (hc < 1) hc = 1; }
         { static uint64_t lastHp[NF_N]; static int nHpLog; if (hc != lastHp[s] && hc * 20 < hm && nHpLog < 80) { nHpLog++; NfLog("NOFIN boss %p HP %llu -> %llu (win %d)", (void*)a, lastHp[s], hc, g_nf[s].win); } lastHp[s] = hc; }
         int dead = 0, s23 = 0; float x5c = 0, x74 = 0, x7c = 0, kc = 0; uint8_t x83 = 0;
         __try { dead = *(int32_t*)(st + 0x48) == 1; x5c = *(float*)(st + 0x98 + 0x5C); x74 = *(float*)(st + 0x98 + 0x74); x7c = *(float*)(st + 0x98 + 0x7C); x83 = *(uint8_t*)(st + 0x98 + 0x83); kc = *(float*)(st + 0xAC);
@@ -3354,7 +3382,7 @@ static void NfTick(void) {
         // #9133: an exhausted field alone (0x23 over) no longer holds the gold once the Ki refills (> 0): that kept a full gold bar while the native bar refilled
         int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, ki0 = kc <= 0.0f && g_nf[s].win != 1, broken = s23 || (exh && kc <= 0.0f) || ki0;
         if (g_nf[s].win >= 2 && !dead && hc > NF_FLOOR) { g_nf[s].win = 0; g_nf[s].tries = 0; NfLog("NOFIN boss %p alive again (HP %llu, actor reused after despawn/summon): window re-armed", (void*)a, hc); }
-        if (dead) { if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf[s].win = 3; continue; }
+        if (dead) { g_nf_off[s] = 0; if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf[s].win = 3; continue; }
         g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl; g_nf_chr[s] = st;
         {   static int prev23[NF_N]; if (s23 && !prev23[s] && g_nf[s].win == 0 && hc > 1) {  // native Ki break started: learn its stagger motion id (#9297)
                 uint32_t mid = g_mot_id[s]; DWORD mt = g_mot_t[s];
@@ -3571,7 +3599,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);
         g_nf_st27 = GetPrivateProfileIntA("Summon", "KiBreakBlockDeathBlow", 1, ini); Log("KiBreakBlockDeathBlow %d (#9135: no death-blow offer + no plain grab box on a gold boss)", g_nf_st27);
-        g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); g_nf_prime = GetPrivateProfileIntA("Summon", "KiBreakHp0Prime", 1, ini); Log("KiBreakHp0Prime %d", g_nf_prime); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
+        g_nf_stagger = GetPrivateProfileIntA("Summon", "KiBreakHp0Stagger", 1, ini); g_nf_nonlethal = GetPrivateProfileIntA("Summon", "KiBreakHp0NonLethal", 1, ini); g_nf_prime = GetPrivateProfileIntA("Summon", "KiBreakHp0Prime", 1, ini); g_nf_reserve = GetPrivateProfileIntA("Summon", "KiBreakHp0Reserve", 1, ini); Log("KiBreakHp0Prime %d, KiBreakHp0Reserve %d", g_nf_prime, g_nf_reserve); Log("KiBreakHp0NonLethal %d (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)", g_nf_nonlethal); g_cfg_nf_fade = GetPrivateProfileIntA("Summon", "KiBreakGoldFadeMs", 350, ini); if (g_cfg_nf_fade < 0) g_cfg_nf_fade = 0;
         g_cfg_bossgrace = GetPrivateProfileIntA("ArenaSwap", "BossGraceAfterCoverMs", 1500, ini); g_cfg_bosshold_max = GetPrivateProfileIntA("ArenaSwap", "BossHoldMaxMs", 60000, ini);
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
