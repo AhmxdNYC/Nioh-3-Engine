@@ -986,6 +986,7 @@ static int g_cfg_bossgrace = 1500, g_cfg_bosshold_max = 60000;
 // sequencer reaches state 0xB (223BE08 -> UiLoadingScreenEnd 3B1B6C, void(void)). [ArenaSwap] LoadingScreenEndMs (default -1 = off): cross-world arena
 // only, N ms after 'ready' call UiLoadingScreenEnd once per swap on the game thread (GAMESTATE[2] is left alone; CoverReleaseMs is independent).
 static int g_cfg_lsend = -1;
+static void FadeWant(int on, const char* why);
 static void BhStart(uint32_t handle);
 // pc 2026-10-16 (fnowvis3): on pc the arena 'ready' waited 9.3 s for sequencer state 5 (1912 open-world placeable loads); with
 // CrossWorldAreaObjSkipMs > 0 the game lifts its load cover while placeables still stream, so the hold/fade only wait for GAMESTATE[2] = 0.
@@ -1018,7 +1019,11 @@ static void ArenaTick(void) {
     if (g_cfg_lsend >= 0 && g_ar.cross && g_ar.tReady && !g_ar.lsend && now - g_ar.tReady >= (DWORD)g_cfg_lsend) {
         g_ar.lsend = 1;  // once per swap (g_ar is zeroed per swap); only while this cross-world swap is active
         ((void (*)(void))(B + 0x3B1B6C))();
-        Log("LSEND +%lu ms: UiLoadingScreenEnd called %lu ms after ready (LoadingScreenEndMs %d)", dt, now - g_ar.tReady, g_cfg_lsend);
+        // notes/loadscreen-state-study.md: the widget closes but the game's black fader [4758BA0] stays faded out until seq 0x12 (223ACF5
+        // BlackFadeIn(0, 30.0f, 0.0f)). Issue the same fade-in now and drop our own overlay; seq 0x12 re-issues both later (no-ops).
+        ((void (*)(uint32_t, float, float))(B + 0x345508))(0, 30.0f, 0.0f);
+        FadeWant(0, "lsend");
+        Log("LSEND +%lu ms: UiLoadingScreenEnd + BlackFadeIn(0, 30, 0) + overlay off, %lu ms after ready (LoadingScreenEndMs %d)", dt, now - g_ar.tReady, g_cfg_lsend);
     }
     float pos[4] = {0}; PlayerPos(pos);
     if (!g_ar.released) {
