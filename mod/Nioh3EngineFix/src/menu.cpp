@@ -1919,33 +1919,65 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     return sc;
 }
 
+// bridge 12773 (user #12772): the Rematch / Training page is a compact semi-transparent side panel docked right (about 44 columns,
+// at most ~62% of the screen height), so the boss and the arena stay visible while toggling moves / summoning. Long pages scroll:
+// the window follows the selected row, the footer stays; nothing is ever drawn over the left/center of the screen.
 float DrawRematchHost(unsigned W, unsigned H) {
-    const float scale = std::max(0.5f, std::min(AutoScale(H), ((float)W - 32.f) / (112.f * osd::kGlyphW + 16.f)));
+    constexpr size_t kCols = 44;
+    constexpr uint32_t kPanelA = 0x98000000u;  // ~60% black: the scene shows through
+    const float scale = std::max(0.5f, std::min(AutoScale(H) * 0.75f, ((float)W * 0.42f - 16.f) / ((float)kCols * osd::kGlyphW)));
     const float line = (osd::kGlyphH + 3.f) * scale, pad = 8.f * scale;
-    const float width = std::min((float)W - 16.f, (112.f * osd::kGlyphW + 16.f) * scale);
-    const float x = ((float)W - width) * 0.5f, y0 = 12.f;
-    osd::DrawRect(x, y0, width, std::min((float)H - 24.f, line * 32.f + pad * 2.f), cPanel);
-    float y = y0 + pad;
-    auto text = [&](const char* value, uint32_t color) {
-        while (*value) {
-            size_t n = std::min(strlen(value), (size_t)111);
-            if (value[n] && n > 1) { size_t space = n; while (space && value[space] != ' ') --space; if (space) n = space; }
-            char part[112]{}; memcpy(part, value, n);
-            osd::DrawText(x + pad, y, part, color, scale); y += line;
-            value += n; while (*value == ' ') ++value;
+    const float width = std::min((float)W - 16.f, (float)kCols * osd::kGlyphW * scale + pad * 2.f);
+    const float x = (float)W - width - 12.f, y0 = 12.f;
+    const int maxLines = std::max(6, (int)((0.62f * (float)H - pad * 2.f) / line));
+    struct L { char t[kCols + 1]; uint32_t c; bool sel; };
+    static L lines[96];
+    int n = 0, selLine = -1;
+    auto wrap = [&](const char* value, uint32_t color, bool sel) {
+        if (!*value && n < 96) { lines[n++] = {"", color, sel}; return; }
+        while (*value && n < 96) {
+            size_t k = std::min(strlen(value), kCols);
+            if (value[k] && k > 1) { size_t space = k; while (space && value[space] != ' ') --space; if (space) k = space; }
+            L& l = lines[n++]; memset(l.t, 0, sizeof l.t); memcpy(l.t, value, k); l.c = color; l.sel = sel;
+            if (sel && selLine < 0) selLine = n - 1;
+            value += k; while (*value == ' ') ++value;
         }
     };
     if (!g_rematchFreshAt || Now() - g_rematchFreshAt >= 1500 || !(g_rematchView.flags & rmb::Open)) {
-        text("Boss Rematch / Practice: waiting for the menu worker. B: back.", cWhite);
+        osd::DrawRect(x, y0, width, line + pad * 2.f, kPanelA);
+        osd::DrawText(x + pad, y0 + pad, "Waiting for the menu worker. B: back.", cWhite, scale);
         return scale;
     }
     for (uint32_t i = 0; i < g_rematchView.rowCount; ++i) {
         const auto& row = g_rematchView.rows[i];
-        text(row.text, row.color | 0xFF000000u);
+        wrap(row.text, row.color | 0xFF000000u, row.selected != 0);
     }
-    y += line * 0.5f;
-    text(g_rematchView.footer, cGray);
-    if (g_rematchView.toast[0]) { y += line * 0.5f; text(g_rematchView.toast, g_rematchView.toastColor | 0xFF000000u); }
+    const int bodyN = n;
+    wrap(g_rematchView.footer, cGray, false);
+    if (g_rematchView.toast[0]) wrap(g_rematchView.toast, g_rematchView.toastColor | 0xFF000000u, false);
+    const int tailN = n - bodyN, room = std::max(3, maxLines - tailN - 1);
+    static int scroll = 0;
+    int first = 0, shown = bodyN;
+    if (bodyN > room) {  // scroll window over the body, selected row kept in view
+        shown = room;
+        const int row = selLine < 0 ? 0 : selLine;
+        if (row - 1 < scroll) scroll = std::max(0, row - 1);
+        if (row + 2 > scroll + shown) scroll = row + 2 - shown;
+        scroll = std::clamp(scroll, 0, bodyN - shown);
+        first = scroll;
+    } else scroll = 0;
+    const int total = shown + tailN + (shown < bodyN ? 1 : 0);
+    osd::DrawRect(x, y0, width, line * (float)total + pad * 2.f, kPanelA);
+    float y = y0 + pad;
+    auto draw = [&](const L& l) {
+        if (l.sel) osd::DrawRect(x + pad / 2, y - scale, width - pad, line, cHighlight);
+        osd::DrawText(x + pad, y, l.t, l.c, scale); y += line;
+    };
+    for (int i = 0; i < shown; ++i) draw(lines[first + i]);
+    if (shown < bodyN) {
+        L m{}; snprintf(m.t, sizeof m.t, "lines %d-%d of %d", first + 1, first + shown, bodyN); m.c = cDim; draw(m);
+    }
+    for (int i = 0; i < tailN; ++i) draw(lines[bodyN + i]);
     return scale;
 }
 
