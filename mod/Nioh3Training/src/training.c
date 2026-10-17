@@ -2935,34 +2935,8 @@ static void ActLogTick(void) {
     }
     if (g_al_dirty && now - g_al_lastDump > 10000) { g_al_lastDump = now; g_al_dirty = 0; AlDump(); }
 }
-// #9928 boss move toggles. Boss moves are committed by 35BC68(state, id, table, layer, slot) (the only writer of the current action state+0xE8; returns 0 on refusal, ids > 0xFFFE refused
-// before any write) after 35EF04(state, transition) rolled the target id (weighted word list at transition+0..+0xA). Veto = 35EF04 re-rolls away from blocked ids (all blocked -> 0xFFFF =
-// 'no target', the callers skip that transition) + 35BC68 backstop (id -> 0xFFFF). Player state is never touched. Force = state+0x15C4 (pending id), applied by the state's own update.
-static uint32_t g_mv_block[64]; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls; static int g_mv_hooked;
-typedef uint32_t (*MvSelFn)(uint64_t, uint64_t); typedef uint64_t (*MvComFn)(uint64_t, uint32_t, uint64_t, int, uint64_t);
-static uint32_t g_mv_fallback = 0x2; static MvSelFn o_mvsel; static MvComFn o_mvcom;
-static int MvBlocked(uint32_t id) { int n = g_mv_nblock; for (int i = 0; i < n; ++i) if (g_mv_block[i] == id) return 1; return 0; }
-static int MvIsPlayer(uint64_t st) { uint64_t pc = PlayerChar(), ai = 0, ctrl = 0; if (!pc || !Rd64(pc + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl)) return 0; return ctrl == st; }
-static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
-    uint32_t id = o_mvsel(st, tr);
-    if (!MvBlocked(id) || MvIsPlayer(st)) return id;
-    for (int i = 0; i < 8; ++i) { uint32_t r = o_mvsel(st, tr); if (!MvBlocked(r)) { InterlockedIncrement(&g_mv_rerolls); if (g_mv_rerolls < 200) Log("MOVETOG reroll 0x%X -> 0x%X (state %p)", id, r, (void*)st); return r; } }
-    InterlockedIncrement(&g_mv_vetoes); if (g_mv_vetoes < 200) Log("MOVETOG select veto 0x%X -> 0x%X (state %p)", id, g_mv_fallback, (void*)st);
-    return g_mv_fallback;  // pc2 #10001: 0xFFFF ('no target') left the boss stuck retrying every frame (37379 vetoes, no action for 3 min); idle 0x2 lets its AI pick again
-}
-static uint64_t h_mvcom(uint64_t st, uint32_t id, uint64_t tbl, int layer, uint64_t slot) {
-    if (MvBlocked(id) && !MvIsPlayer(st)) { InterlockedIncrement(&g_mv_vetoes); if (g_mv_vetoes < 200) Log("MOVETOG commit veto 0x%X (state %p)", id, (void*)st); id = 0xFFFF; }
-    return o_mvcom(st, id, tbl, layer, slot);
-}
-static void MvInstall(void) {
-    if (g_mv_hooked) return;
-    static const uint8_t selp[15] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x30};
-    static const uint8_t comp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x18, 0x48, 0x89, 0x78, 0x20};
-    if (memcmp((void*)(B + 0x35EF04), selp, 15) || memcmp((void*)(B + 0x35BC68), comp, 15)) { Log("MoveToggle: prologue mismatch (35EF04/35BC68), not installed"); g_mv_hooked = -1; return; }
-    o_mvsel = (MvSelFn)Hook(0x35EF04, 15, (void*)h_mvsel); o_mvcom = (MvComFn)Hook(0x35BC68, 15, (void*)h_mvcom); g_mv_hooked = 1; Log("MoveToggle hooks installed (35EF04 select, 35BC68 commit)");
-}
-static void MvSet(const uint32_t* ids, int n) { g_mv_nblock = 0; for (int i = 0; i < n && i < 64; ++i) g_mv_block[i] = ids[i]; g_mv_nblock = n > 64 ? 64 : n; if (n > 0) MvInstall();
-    Log("MoveToggle: %d blocked id(s)%s", g_mv_nblock, g_mv_hooked == 1 ? "" : " (hooks NOT installed)"); for (int i = 0; i < g_mv_nblock; ++i) Log("  block 0x%X", g_mv_block[i]); }
+// Boss-specific Training menu preferences, selection veto and commit backstop.
+#include "move_toggle.h"
 static int MvForce(uint32_t id) {
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); if (n < 1) { Log("MOVEFORCE: no boss"); return 0; }
     uint64_t ai = 0, st = 0; if (!Rd64(act[0] + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &st) || !st) { Log("MOVEFORCE: no state"); return 0; }
@@ -3391,7 +3365,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
     __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-    __try { ActLogTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #9508 boss action-id logger (read only)  // #7290 passive Ki-break finisher log (read only), before BossTick
+    __try { MvTick(); ActLogTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #9508 boss action-id logger (read only)  // #7290 passive Ki-break finisher log (read only), before BossTick
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
@@ -3506,6 +3480,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }
+        MvLoadPrefs(ini);
         g_cfg_actlog = GetPrivateProfileIntA("Summon", "ActionLog", 1, ini); Log("ActionLog %d (#9508 boss current-action id log + Nioh3Training_actions.tsv)", g_cfg_actlog);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
