@@ -538,7 +538,11 @@ static FwFn o_fw; static uint64_t g_fwbuf[64]; static volatile uint64_t g_fakew;
 static volatile uint32_t g_fakeid = FAKE_GAUGE_ID, g_fakeid_shown = FAKE_GAUGE_ID;
 static uint64_t h_fw(uint64_t cm, uint32_t id) { if ((id == g_fakeid || id == g_fakeid_shown) && (id & 0xFFFF0000u) == 0x7FFF0000u && g_fakew) return g_fakew; return o_fw(cm, id); }
 static uint64_t ActorByHandle(uint32_t h);
-static struct { int pending, shown; uint32_t handle, owner; DWORD t0, tHide; } g_gg;
+static struct { int pending, shown; uint32_t handle, owner; DWORD t0, tHide, tVis; int waitLog; } g_gg;
+// user #9685: the boss bar showed at spawn +16 ms while the Fight now screen was still black (fade overlay / load cover; log 01:29:29.67 vs screen
+// visible ~01:29:30.7). [Summon] BossBarAfterVisibleMs (default 600, -1 = old: at once): the bar waits until the screen is visible (BhScreenVisible:
+// GAMESTATE[2] 0, no mission-load sequencer state, our fade clear) + this many ms, max 60 s.
+static int g_cfg_bar_vis = 600; static int BhScreenVisible(int* why);
 // bridge 4801: the native HideBossGauge (queued event) leaves the empty frame on screen. Do what BossGaugeSetup does for unused rows by hand: clear the row vector (hud+0x3C0, 1CEE8C8),
 // hide the 3 row elements (type 0xF5) and the 42 detail elements (type 0xF6) with 5D1D8C(elem,0), then hide the HUD (1CEC2E0).
 static int g_hudHidden, g_noForceHide; static int g_cfg_freshid = 1, g_cfg_gaugereset = 1; static uint32_t g_gaugeN;
@@ -569,7 +573,7 @@ static void FakeGaugeHide(const char* why) {  // the native hide is a queued mes
 }
 static void FakeGaugeRequest(uint32_t handle, uint32_t owner) {  // the actor enters the table a few ms after CreateDynamic: GaugeTick finishes the job
     if (!o_fw) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + 0x1D115D4))(handle, 0, 0); Log("GAUGE FindWrapper hook missing: legacy ShowBossGauge(0x%X)", handle); return; }
-    FakeGaugeHide("new request"); FakeGaugeDrop(); g_gg.pending = 1; g_gg.handle = handle; g_gg.owner = owner; g_gg.t0 = GetTickCount();
+    FakeGaugeHide("new request"); FakeGaugeDrop(); g_gg.pending = 1; g_gg.handle = handle; g_gg.owner = owner; g_gg.t0 = GetTickCount(); g_gg.tVis = 0; g_gg.waitLog = 0;
 }
 // #6711: hide the boss bar the instant its boss is killed (h_cond skip or ForceKillActor), not at boss-mode end (4.5 s later). Only the actor the shown
 // bar points at (g_fwbuf[0]) and only if it is really dead (hp+0x48 == 1 or HP 0). FakeGaugeHide sets shown = 0, so the later "boss mode end" hide is a no-op;
@@ -593,6 +597,13 @@ static void GaugeTick(void) {
     if (!g_gg.pending) return;
     uint64_t a = ActorByHandle(g_gg.handle);
     if (!a) { if (GetTickCount() - g_gg.t0 > 4000) { Log("GAUGE actor 0x%X never appeared, no bar", g_gg.handle); g_gg.pending = 0; } return; }
+    if (g_cfg_bar_vis >= 0) {  // #9685
+        DWORD nowg = GetTickCount(); int why = 0;
+        if (!BhScreenVisible(&why) && nowg - g_gg.t0 < 60000) { g_gg.tVis = 0; if (!g_gg.waitLog) { g_gg.waitLog = 1; Log("GAUGE bar held until the boss is on a visible screen (%s, BossBarAfterVisibleMs %d, #9685)", why == 1 ? "GAMESTATE[2] load cover" : why == 2 ? "mission load sequencer" : "fade overlay", g_cfg_bar_vis); } return; }
+        if (!g_gg.tVis) g_gg.tVis = nowg;
+        if (nowg - g_gg.tVis < (DWORD)g_cfg_bar_vis && nowg - g_gg.t0 < 60000) return;
+        Log("GAUGE bar shown +%lu ms after the boss request (screen visible %lu ms, #9685)", nowg - g_gg.t0, nowg - g_gg.tVis);
+    }
     uint64_t cm = 0, tmpl = 0; Rd64(B + 0x45B9E40, &cm);
     if (g_gg.owner > 1 && cm) tmpl = o_fw(cm, g_gg.owner);
     memset(g_fwbuf, 0, sizeof g_fwbuf);
@@ -2214,6 +2225,25 @@ N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist)
     Log("API deathcfg (Boss Rematch menu, #6618): BossLoot %d DeathBlowRequired %d CutsceneOnKill %d%s", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
+// user #9585 (+ NEXT BUILD list item 1): Boss Rematch menu sliders. which 0 = [Summon] FinisherKillTimeoutMs (CutsceneOnKill finisher window, read live
+// by BossTick), 1 = [Summon] KiBreakHp0WindowMs (HP-0 no-hit window, read live by NfTick). Only the lengths change; the DeathBlowRequired /
+// CutsceneOnKill / BossLoot toggles and their behaviour are untouched. Get returns -1 for an unknown id. Set clamps, persist 1 = saved to the ini.
+static void TuneRange(int which, int* lo, int* hi) { if (which == 0) { *lo = 500; *hi = 30000; } else { *lo = 200; *hi = 5000; } }
+static DWORD WINAPI TuneSaveThread(LPVOID p) {
+    (void)p; char ini[MAX_PATH], v[16]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    snprintf(v, sizeof v, "%d", g_cfg_fin_timeout); WritePrivateProfileStringA("Summon", "FinisherKillTimeoutMs", v, ini);
+    snprintf(v, sizeof v, "%d", g_cfg_nofin_ms); WritePrivateProfileStringA("Summon", "KiBreakHp0WindowMs", v, ini);
+    WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+N3T_API int Nioh3Training_GetTuning(int which) { return which == 0 ? g_cfg_fin_timeout : which == 1 ? g_cfg_nofin_ms : -1; }
+N3T_API int Nioh3Training_SetTuning(int which, int value, int persist) {
+    if (which != 0 && which != 1) return -1;
+    int lo, hi; TuneRange(which, &lo, &hi); if (value < lo) value = lo; if (value > hi) value = hi;
+    if (which == 0) g_cfg_fin_timeout = value; else g_cfg_nofin_ms = value;
+    Log("API tuning (Boss Rematch menu slider, #9585): %s %d ms%s", which == 0 ? "FinisherKillTimeoutMs" : "KiBreakHp0WindowMs", value, persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, TuneSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+    return value;
+}
 // user #7118: legacy aliases of Get/SetAutoRetry (jumpfix 'Instant respawn on death'); same flag, persisted as [Summon] AutoRetryOnDeath.
 N3T_API int Nioh3Training_GetInstantRespawn(void) { return Nioh3Training_GetAutoRetry(); }
 N3T_API void Nioh3Training_SetInstantRespawn(int on, int persist) { Nioh3Training_SetAutoRetry(on, persist); }
@@ -2370,6 +2400,20 @@ static int GateUse(void) {
     if (choice && choice()) return 2;
     Log("GATE: Boss Rematch gate choice not available, returning directly"); return Nioh3Training_ReturnHome();
 }
+// #9664/#9670 [Return] ReturnGateOpenOnA (default 1): raw pad A (XInputGetState read directly from xinput1_4, not through the game's hooked IAT
+// slot, so the EngineFix mask does not hide it from us) near the gate opens our page. GateMenuOpen: EngineFix_MenuOpen (0 when the export is missing).
+static int g_cfg_gate_opena = 1;
+static int GatePadA(void) {
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    if (!xgs) return 0;
+    for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) == 0 && (*(uint16_t*)(st + 4) & 0x1000)) return 1; }  // XINPUT_STATE: dwPacketNumber, Gamepad.wButtons; A = 0x1000
+    return 0;
+}
+static int GateMenuOpen(void) {
+    static int (*mo)(void); static int tried; if (!mo && !tried) { tried = 1; HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); mo = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_MenuOpen") : 0; }
+    return mo ? mo() : 0;
+}
 // 'Fight again' from the gate page: queued, the pump runs TrainRetry (same boss, round reset, player back to the round-1 spot). 1 = queued, 0 = no session.
 N3T_API int Nioh3Training_GateFightAgain(void) { if (!g_tr.active || g_rh.active) return 0; InterlockedExchange(&g_gate_again, 1); return 1; }
 static void GateTick(void) {
@@ -2392,16 +2436,26 @@ static void GateTick(void) {
     // Proceed?' prompt on top of our gate page, and its Yes ended the game process (22:14: no MissionRequestReturn, the game just closed). While the player
     // is within ReturnGateMaskRadius of the gate and no boss is alive, the face buttons are hidden from the GAME (EngineFix lease, renewed every tick;
     // our menus still read them), so the native prompt never opens; our gate page opens by standing on it (ReturnGateTouchMs).
-    if (g_gate.up && p_osdMask && g_cfg_gate_mask_r > 0) {
+    // #9664/#9670 (user log 01:23: 'EngineFix export MISSING'): the installed EngineFix had no MaskGameButtons, so A near the gate opened the native
+    // 'end the mission' prompt (alone, or under our page after standing 1500 ms = both). Now: (1) the export is re-resolved here if it was missing at
+    // start; (2) a pad A press within ReturnGateMaskRadius opens OUR gate page at once (ReturnGateOpenOnA, raw XInput read, not the game's), unless the
+    // mod menu is already open (EngineFix_MenuOpen) or a page was opened < 1.5 s ago; (3) the mask lease covers the whole radius as before.
+    if (g_gate.up && !p_osdMask) { static DWORD tRes; if (!tRes || now - tRes > 5000) { tRes = now; HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi");
+        p_osdMask = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_MaskGameButtons") : 0; static int nl; if (!p_osdMask && nl++ < 2) Log("GATE: EngineFix MaskGameButtons export MISSING: install the matching Nioh3EngineFix.asi or A near the gate can still open the native end-mission prompt"); } }
+    if (g_gate.up && g_cfg_gate_mask_r > 0) {
         float q[4]; static int masked;
         int nearG = 0; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearG = mx * mx + mz * mz < (float)g_cfg_gate_mask_r * g_cfg_gate_mask_r && fabsf(q[1] - g_gate.pos[1]) < 400.0f && !GateBossAlive(); }
-        if (nearG) p_osdMask(g_cfg_gate_mask_btn, 300);
-        if (nearG != masked) { masked = nearG; Log("GATE: player %s the gate: native interact %s", nearG ? "near" : "away from", nearG ? "hidden (no end-mission prompt)" : "back"); if (!nearG) p_osdMask(0, 0); }
+        if (nearG && p_osdMask) p_osdMask(g_cfg_gate_mask_btn, 300);
+        if (nearG != masked) { masked = nearG; Log("GATE: player %s the gate: native interact %s", nearG ? "near" : "away from", !nearG ? "back" : p_osdMask ? "hidden (no end-mission prompt), A opens the gate page" : "NOT hidden (EngineFix export missing), A opens the gate page"); if (!nearG && p_osdMask) p_osdMask(0, 0); }
+        static int aWas; static DWORD tOpen; int aNow = GatePadA();
+        if (nearG && g_cfg_gate_opena && aNow && !aWas && (!tOpen || now - tOpen > 1500) && !GateMenuOpen()) { tOpen = now; g_gate.tIn = 0; g_gate.left = 0; int r = GateUse(); Log("GATE: pad A near the return gate -> our gate page (%d)", r); }
+        aWas = aNow;
     }
     if (g_gate.up && g_cfg_gate_touch > 0) {
         float p[4]; if (!PlayerPos(p)) return;
         float dx = p[0] - g_gate.pos[0], dz = p[2] - g_gate.pos[2], dy = p[1] - g_gate.pos[1]; int in = dx * dx + dz * dz < (float)g_cfg_gate_radius * g_cfg_gate_radius && fabsf(dy) < 250.0f;
         if (!in) { g_gate.left = 1; g_gate.tIn = 0; return; }
+        if (GateMenuOpen()) { g_gate.tIn = 0; return; }  // our menu already up: no second open; the stand timer restarts after it closes
         if (!g_gate.left || GateBossAlive()) return;
         if (!g_gate.tIn) g_gate.tIn = now;
         if (now - g_gate.tIn >= (DWORD)g_cfg_gate_touch) { g_gate.tIn = 0; g_gate.left = 0; int r = GateUse(); Log("GATE: player stood on the return gate %d ms -> %d", g_cfg_gate_touch, r); }
@@ -2939,6 +2993,8 @@ static int KbCollect(uint64_t* out, int max) {
     if (g_bm.active && n < max) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (a && !dup) out[n++] = a; }
     return n;
 }
+static void KbxStart(int s, uint64_t a, uint64_t ai, uint64_t ctrl, int nBreak, float kc, uint64_t hc, uint64_t hm, int s23, int exh, uint64_t w0, uint64_t wA8);
+static void KbxTick(int s, uint64_t a, uint64_t ai, uint64_t ctrl, DWORD now);
 static void KiBreakTick(void) {
     if (!g_cfg_kibreak_log) return;
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); DWORD now = GetTickCount();
@@ -2963,7 +3019,9 @@ static void KiBreakTick(void) {
             g_kb[s].tBreak = now; g_kb[s].dmgBreak = 0; g_kb[s].hitsBreak = 0; g_kb[s].finInBreak = 0; g_kb[s].nBreaks++;
             KbLog("KIBREAK start #%d boss %p: Ki %.1f/%.1f HP %llu/%llu (state23 %d exhausted %d [5C %.2f 74 %.2f 7C %.2f 83 %u]) bits1060 %016llX 1068 %016llX A8 %016llX",
                   g_kb[s].nBreaks, (void*)a, kc, km, hc, hm, s23, exh, x5c, x74, x7c, x83, w0, w1, wA8);
+            KbxStart(s, a, ai, ctrl, g_kb[s].nBreaks, kc, hc, hm, s23, exh, w0, wA8);
         }
+        KbxTick(s, a, ai, ctrl, now);
         if (fin && !g_kb[s].fin) {
             g_kb[s].tFin = now; int inBreak = broken || g_kb[s].broken || (g_kb[s].tLastWin && now - g_kb[s].tLastWin < 1500);
             if (inBreak) g_kb[s].finInBreak++;
@@ -3109,6 +3167,30 @@ static void NfKiRow(uint64_t w, uint64_t row28, uint64_t snap, uint8_t broken, u
 typedef uint64_t (*NfMotFn)(uint64_t, uint32_t, uint64_t, uint64_t); static NfMotFn g_mot_orig;
 static volatile uint64_t g_nf_chr[4]; static volatile DWORD g_mot_t[4]; static volatile uint32_t g_mot_id[4]; static volatile LONG g_mot_logs, g_mot_swaps;
 static int g_cfg_stag_id = 0; static volatile uint32_t g_nf_brk_id;
+// user #9648/#9655: good Ki break vs 'death pose' break look identical in the bits (4400200200001000 both, captures/pc/freeze9655). Log the boss's
+// current ACTION id at every Ki-break start and 150 / 400 / 1000 ms later: 358528(state) = dword at [state+0xE8] (0xFFFF = no action), state =
+// [[actor+0x3B0]+8] (= our ctrl; SetActionID 1C0A41C passes the same object to 66C4A8). Plus the last motion request (3F21A4 hook, NOFIN on) and its age.
+static uint32_t ActIdOf(uint64_t ctrl) { uint64_t p = 0; if (!ctrl || !Rd64(ctrl + 0xE8, &p)) return 0xFFFFFFFFu; if (!p) return 0xFFFF; __try { return *(volatile uint32_t*)p; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0xFFFFFFFFu; } }
+static void MotOf(uint64_t a, uint32_t* id, DWORD* age) {
+    *id = 0; *age = 0; DWORD now = GetTickCount();
+    for (int i = 0; i < 4; ++i) if (a && g_nf[i].a == a) { *id = g_mot_id[i]; *age = g_mot_t[i] ? now - g_mot_t[i] : 0; return; }
+}
+static struct { uint64_t a; DWORD t0; int step, n; uint32_t act0; } g_kbx[KB_MAX];
+static void KbxStart(int s, uint64_t a, uint64_t ai, uint64_t ctrl, int nBreak, float kc, uint64_t hc, uint64_t hm, int s23, int exh, uint64_t w0, uint64_t wA8) {
+    (void)ai; uint32_t act = ActIdOf(ctrl), mid = 0; DWORD mage = 0; MotOf(a, &mid, &mage);
+    g_kbx[s].a = a; g_kbx[s].t0 = GetTickCount(); g_kbx[s].step = 0; g_kbx[s].n = nBreak; g_kbx[s].act0 = act;
+    Log("KIBRK ACT start #%d boss %p: action 0x%X (%u), last motion 0x%X %lu ms ago, Ki %.1f HP %llu/%llu (%.1f %%), 23=%d exh %d, bits1060 %016llX A8 %016llX",
+        nBreak, (void*)a, act, act, mid, mage, kc, hc, hm, hm ? 100.0 * (double)hc / (double)hm : 0.0, s23, exh, w0, wA8);
+}
+static void KbxTick(int s, uint64_t a, uint64_t ai, uint64_t ctrl, DWORD now) {
+    static const DWORD at[3] = {150, 400, 1000};
+    if (g_kbx[s].a != a || !g_kbx[s].t0 || g_kbx[s].step >= 3 || now - g_kbx[s].t0 < at[g_kbx[s].step]) return;
+    uint32_t act = ActIdOf(ctrl), mid = 0; DWORD mage = 0; MotOf(a, &mid, &mage); uint64_t w0 = 0, wA8 = 0; float kc = 0; uint64_t st = 0; int s23 = 0;
+    __try { w0 = *(volatile uint64_t*)(ctrl + 0x1060); wA8 = *(volatile uint64_t*)(ctrl + 0xA8); if (Rd64(a + 0x3A0, &st) && st) kc = *(float*)(st + 0xAC); s23 = KbState(ai, 0x23); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    Log("KIBRK ACT +%lu ms #%d boss %p: action 0x%X (start 0x%X%s), last motion 0x%X %lu ms ago, Ki %.1f 23=%d, bits1060 %016llX A8 %016llX%s", now - g_kbx[s].t0, g_kbx[s].n, (void*)a, act, g_kbx[s].act0,
+        act == g_kbx[s].act0 ? ", unchanged" : "", mid, mage, kc, s23, w0, wA8, (w0 & (1ull << 0x3A)) && !(w0 & ((1ull << 62) | (1ull << 45) | (1ull << 33))) ? "  <- BARE (no stagger bits)" : "");
+    g_kbx[s].step++;
+}
 static uint64_t NfMotDetour(uint64_t c, uint32_t id, uint64_t r8, uint64_t r9) {
     uint32_t want = id & 0xFFFF;
     if (c && g_cfg_nofin) for (int i = 0; i < 4; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x2DC0 == c) {
@@ -3471,7 +3553,7 @@ static void NfTick(void) {
                     } __except (EXCEPTION_EXECUTE_HANDLER) { }
                     g_nf[s].nBare++; g_nf[s].tBare = 0;
                     int s23b = KbState(ai, 0x23);
-                    static int nb; if (++nb <= 40) NfLog("NOFIN boss %p HP %llu: BARE Ki break (bits1060 %016llX A8 %016llX, no stagger bits 62/45/33) for %d ms -> cancelled + Ki %.1f -> 0.5 (23 now %d, #%d, KiBreakBareFix)", (void*)a, hc, w0, wA8, g_nf_bare_ms, k0, s23b, g_nf[s].nBare);
+                    static int nb; if (++nb <= 40) NfLog("NOFIN boss %p HP %llu: BARE Ki break (bits1060 %016llX A8 %016llX, no stagger bits 62/45/33, action 0x%X, last motion 0x%X) for %d ms -> cancelled + Ki %.1f -> 0.5 (23 now %d, #%d, KiBreakBareFix)", (void*)a, hc, w0, wA8, ActIdOf(ctrl), g_mot_id[s], g_nf_bare_ms, k0, s23b, g_nf[s].nBare);
                 }
             } else g_nf[s].tBare = 0;
         } else g_nf[s].tBare = 0;
@@ -3540,6 +3622,97 @@ static void NfTick(void) {
     }
     g_nf_goldw = gold ? 1.0f : fadeW;
     if (gold != g_nf_gold) { g_nf_gold = gold; NfLog("NOFIN gold Ki bar %s", gold ? "ON" : "off"); if (gold && g_nf_dumpN <= 0) g_nf_dumpN = 48; }  // auto-dump the wide quads of the first frames (evidence if the strips do not match)
+}
+
+// ---- user #9595/#9596/#9658 in-mod debug hotkeys ([Debug] Hotkeys 1 = on; FreezeKey default 0x78 = F9, BugKey default 0x77 = F8; only while the
+// game window is in front). F9 toggles a freeze of the whole fight + player: engine stop request #3 (counter G+0x59C, G = [base+4759910]; the latch
+// 89B6EC sets stop flag G+0x58B and FrameDtSetup 5AD6C5 then zeroes the game time scale G+0x624 = what the game's own pause uses; the logic and
+// render keep running, time does not advance). F9 again releases our request. F8 = 'BUG HERE' marker. Both log the boss state (action id, last
+// motion, Ki, HP, state 0x23, break bits, AI) and save a screenshot jpg (GDI+; bmp if GDI+ fails) to [Debug] ShotDir (default [Record] OutRoot\marks).
+// Runs on its own thread (the game-thread pump may not tick while time is stopped). Our real-time timers (HP-0 window, bare-break cancel) keep running.
+static int g_dbg_on = 1, g_dbg_freeze_vk = 0x78, g_dbg_bug_vk = 0x77; static char g_dbg_dir[MAX_PATH]; static volatile LONG g_dbg_frozen, g_dbg_n;
+static int DbgBossLine(char* o, int cap) {
+    int len = 0, nb = 0; DWORD now = GetTickCount(); o[0] = 0;
+    for (int i = 0; i < KB_MAX; ++i) {
+        uint64_t a = g_kb[i].a; if (!a || now - g_kb[i].seen > 5000) continue;
+        uint64_t st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0; float kc = 0, km = 0; int dead = 0, s23 = -1, s35 = -1; uint64_t w0 = 0, wA8 = 0;
+        if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) continue;
+        ActorHp(a, &hc, &hm);
+        __try { kc = *(float*)(st + 0xAC); km = *(float*)(st + 0xB0); dead = *(int32_t*)(st + 0x48) == 1; w0 = *(volatile uint64_t*)(ctrl + 0x1060); wA8 = *(volatile uint64_t*)(ctrl + 0xA8); s23 = KbState(ai, 0x23); s35 = KbState(ai, 0x35); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        uint32_t act = ActIdOf(ctrl), mid = 0; DWORD mage = 0; MotOf(a, &mid, &mage);
+        int ns = -1; for (int k = 0; k < NF_N; ++k) if (g_nf[k].a == a) ns = k;
+        int n = snprintf(o + len, cap - len, "%sboss %p: action 0x%X, last motion 0x%X %lu ms ago, HP %llu/%llu%s, Ki %.1f/%.1f, 23=%d 35=%d dead %d, AI %d, bits1060 %016llX A8 %016llX%s, Ki breaks %d, NOFIN win %d broken %d",
+            nb ? " | " : "", (void*)a, act, mid, mage, hc, hm, ns >= 0 && g_nf_off[ns] > 0 ? " (real, incl. hidden reserve)" : "", kc, km, s23, s35, dead, BhAiOn(a), w0, wA8,
+            (w0 & (1ull << 0x3A)) && !(w0 & ((1ull << 62) | (1ull << 45) | (1ull << 33))) ? " BARE" : "", g_kb[i].nBreaks, ns >= 0 ? g_nf[ns].win : -1, ns >= 0 ? g_nf[ns].broken : -1);
+        if (n > 0 && len + n < cap) len += n; nb++;
+    }
+    if (!nb) len += snprintf(o + len, cap - len, "no boss watched");
+    float pp[4]; if (PlayerPos(pp) && len < cap) snprintf(o + len, cap - len, "; player %.0f %.0f %.0f", pp[0], pp[1], pp[2]);
+    return nb;
+}
+typedef struct { UINT32 ver; void* cb; BOOL noThread, noCodecs; } DbgGpIn;
+static int DbgShot(const char* tag, char* out, int cap) {
+    out[0] = 0; HWND w = GetForegroundWindow(); RECT r; DWORD pid = 0; if (w) GetWindowThreadProcessId(w, &pid);
+    if (!w || pid != GetCurrentProcessId() || !GetWindowRect(w, &r) || r.right - r.left < 64) { r.left = 0; r.top = 0; r.right = GetSystemMetrics(SM_CXSCREEN); r.bottom = GetSystemMetrics(SM_CYSCREEN); }
+    else { POINT p0 = {0, 0}; RECT c; if (GetClientRect(w, &c) && ClientToScreen(w, &p0) && c.right > 64) { r.left = p0.x; r.top = p0.y; r.right = p0.x + c.right; r.bottom = p0.y + c.bottom; } }
+    int W = r.right - r.left, H = r.bottom - r.top; if (W <= 0 || H <= 0) return 0;
+    HDC sdc = GetDC(0), mdc = CreateCompatibleDC(sdc); HBITMAP bm = CreateCompatibleBitmap(sdc, W, H); HGDIOBJ old = SelectObject(mdc, bm);
+    BitBlt(mdc, 0, 0, W, H, sdc, r.left, r.top, SRCCOPY | CAPTUREBLT); SelectObject(mdc, old);
+    CreateDirectoryA(g_dbg_dir, 0);
+    SYSTEMTIME t; GetLocalTime(&t); char base[MAX_PATH + 64]; snprintf(base, sizeof base, "%s\\mark_%02d%02d%02d_%03d_%s", g_dbg_dir, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds, tag);
+    int ok = 0;
+    {   static HMODULE gp; static ULONG_PTR tok; static int (WINAPI *gStart)(ULONG_PTR*, const DbgGpIn*, void*); static int (WINAPI *gFromH)(HBITMAP, HPALETTE, void**);
+        static int (WINAPI *gSave)(void*, const WCHAR*, const GUID*, const void*); static int (WINAPI *gDisp)(void*); static int inited;
+        if (!inited) { inited = 1; gp = LoadLibraryA("gdiplus.dll");
+            if (gp) { *(FARPROC*)&gStart = GetProcAddress(gp, "GdiplusStartup"); *(FARPROC*)&gFromH = GetProcAddress(gp, "GdipCreateBitmapFromHBITMAP"); *(FARPROC*)&gSave = GetProcAddress(gp, "GdipSaveImageToFile"); *(FARPROC*)&gDisp = GetProcAddress(gp, "GdipDisposeImage");
+                DbgGpIn in = {1, 0, FALSE, FALSE}; if (!gStart || !gFromH || !gSave || !gDisp || gStart(&tok, &in, 0) != 0) gp = 0; } }
+        if (gp) { static const GUID jpg = {0x557CF401, 0x1A04, 0x11D3, {0x9A, 0x73, 0x00, 0x00, 0xF8, 0x1E, 0xF3, 0x2E}}; void* img = 0; WCHAR wp[MAX_PATH + 80];
+            snprintf(out, cap, "%s.jpg", base); MultiByteToWideChar(CP_ACP, 0, out, -1, wp, MAX_PATH + 80);
+            if (gFromH(bm, 0, &img) == 0 && img) { ok = gSave(img, wp, &jpg, 0) == 0; gDisp(img); } }
+    }
+    if (!ok) {  // 24-bit bmp fallback
+        snprintf(out, cap, "%s.bmp", base); BITMAPINFOHEADER bi; memset(&bi, 0, sizeof bi); bi.biSize = sizeof bi; bi.biWidth = W; bi.biHeight = H; bi.biPlanes = 1; bi.biBitCount = 24; bi.biCompression = BI_RGB;
+        DWORD row = ((DWORD)W * 3 + 3) & ~3u, sz = row * (DWORD)H; uint8_t* px = (uint8_t*)VirtualAlloc(0, sz, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        if (px && GetDIBits(mdc, bm, 0, (UINT)H, px, (BITMAPINFO*)&bi, DIB_RGB_COLORS)) {
+            BITMAPFILEHEADER fh; memset(&fh, 0, sizeof fh); fh.bfType = 0x4D42; fh.bfOffBits = sizeof fh + sizeof bi; fh.bfSize = fh.bfOffBits + sz;
+            HANDLE f = CreateFileA(out, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0); if (f != INVALID_HANDLE_VALUE) { DWORD wr; WriteFile(f, &fh, sizeof fh, &wr, 0); WriteFile(f, &bi, sizeof bi, &wr, 0); WriteFile(f, px, sz, &wr, 0); CloseHandle(f); ok = 1; } }
+        if (px) VirtualFree(px, 0, MEM_RELEASE);
+    }
+    DeleteObject(bm); DeleteDC(mdc); ReleaseDC(0, sdc);
+    if (!ok) snprintf(out, cap, "(screenshot failed)");
+    return ok;
+}
+static volatile LONG* DbgStopCounter(void) { uint64_t g = 0; if (!Rd64(B + 0x4759910, &g) || !g) return 0; return (volatile LONG*)(g + 0x590 + 4 * 3); }
+static float DbgTimeScale(void) { uint64_t g = 0; float v = -1.0f; if (Rd64(B + 0x4759910, &g) && g) { __try { v = *(volatile float*)(g + 0x624); } __except (EXCEPTION_EXECUTE_HANDLER) { } } return v; }
+static void DbgFreeze(int on) {
+    volatile LONG* c = DbgStopCounter(); if (!c) { Log("DBG FREEZE: no frame manager"); return; }
+    __try {
+        if (on) { InterlockedIncrement(c); InterlockedExchange(&g_dbg_frozen, 1); }
+        else { LONG v; do { v = *c; if (v <= 0) break; } while (InterlockedCompareExchange(c, v - 1, v) != v); InterlockedExchange(&g_dbg_frozen, 0); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DBG FREEZE: stop counter write faulted"); }
+}
+static DWORD WINAPI DbgThread(LPVOID p) {
+    (void)p; int fWas = 1, bWas = 1;  // ignore keys already held at start
+    Log("DBG hotkeys (#9658): freeze VK 0x%X, BUG HERE VK 0x%X, shots -> %s", g_dbg_freeze_vk, g_dbg_bug_vk, g_dbg_dir);
+    for (;;) {
+        Sleep(30);
+        HWND w = GetForegroundWindow(); DWORD pid = 0; if (w) GetWindowThreadProcessId(w, &pid);
+        int fg = pid == GetCurrentProcessId();
+        int f = fg && g_dbg_freeze_vk && (GetAsyncKeyState(g_dbg_freeze_vk) & 0x8000), b = fg && g_dbg_bug_vk && (GetAsyncKeyState(g_dbg_bug_vk) & 0x8000);
+        if (f && !fWas) {
+            int on = !g_dbg_frozen; LONG n = InterlockedIncrement(&g_dbg_n); char line[1400], shot[MAX_PATH + 96];
+            if (on) { DbgFreeze(1); DbgBossLine(line, sizeof line); Sleep(120); DbgShot("freeze", shot, sizeof shot);
+                Log("DBG FREEZE ON #%ld (F9; time scale now %.3f, 0 = frozen): %s; screenshot %s", n, DbgTimeScale(), line, shot); }
+            else { DbgBossLine(line, sizeof line); DbgFreeze(0); Log("DBG FREEZE OFF #%ld (F9): %s", n, line); }
+        }
+        if (b && !bWas) {
+            LONG n = InterlockedIncrement(&g_dbg_n); char line[1400], shot[MAX_PATH + 96];
+            DbgBossLine(line, sizeof line); Log("BUG HERE #%ld (F8)%s: %s", n, g_dbg_frozen ? " (frozen)" : "", line);
+            DbgShot("bug", shot, sizeof shot); Log("BUG HERE #%ld screenshot %s", n, shot);
+        }
+        fWas = f; bWas = b;
+    }
+    return 0;
 }
 
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
@@ -3698,6 +3871,11 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
+        g_cfg_gate_opena = GetPrivateProfileIntA("Return", "ReturnGateOpenOnA", 1, ini); g_cfg_bar_vis = GetPrivateProfileIntA("Summon", "BossBarAfterVisibleMs", 600, ini);
+        Log("ReturnGateOpenOnA %d (#9664/#9670: pad A near the gate opens our gate page), BossBarAfterVisibleMs %d (#9685), FinisherKillTimeoutMs %d / KiBreakHp0WindowMs %d (Boss Rematch sliders, #9585)", g_cfg_gate_opena, g_cfg_bar_vis, g_cfg_fin_timeout, g_cfg_nofin_ms);
+        g_dbg_on = GetPrivateProfileIntA("Debug", "Hotkeys", 1, ini); g_dbg_freeze_vk = GetPrivateProfileIntA("Debug", "FreezeKey", 0x78, ini); g_dbg_bug_vk = GetPrivateProfileIntA("Debug", "BugKey", 0x77, ini);
+        {   char dd[MAX_PATH]; snprintf(dd, sizeof dd, "%s\\marks", g_rec_out[0] ? g_rec_out : g_dir); GetPrivateProfileStringA("Debug", "ShotDir", dd, g_dbg_dir, sizeof g_dbg_dir, ini); }
+        if (g_dbg_on) { HANDLE t = CreateThread(0, 0, DbgThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("DBG hotkeys off ([Debug] Hotkeys 0)");
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
         if (g_cfg_gate) { if (!memcmp((void*)(B + 0x22396D8), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
         g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);

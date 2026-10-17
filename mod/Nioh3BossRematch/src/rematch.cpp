@@ -1980,6 +1980,9 @@ constexpr int kItFightAgain = -24;
 constexpr int kItAutoRetry = -25;
 // user #7465: KiBreakNoFinisher (Nioh3Training [Summon]): no grapple finisher on a Ki-broken boss, gold Ki bar, HP-0 window
 constexpr int kItNoFin = -26;
+// user #9585: sliders for Nioh3Training [Summon] FinisherKillTimeoutMs (CutsceneOnKill finisher window) and KiBreakHp0WindowMs (HP-0 no-hit window).
+// Live + saved through Nioh3Training_Get/SetTuning; the kill toggles themselves are not touched.
+constexpr int kItFinT = -27, kItHp0W = -28;
 constexpr int uGate = 900;
 bool DeathCfgGet(int& loot, int& blow, int& cut) {
     using Fn = void (*)(int*, int*, int*);
@@ -2011,6 +2014,24 @@ void AutoRetryToggle(int dir) {
     Log("Rematch: menu AutoRetryOnDeath -> %d", v);
     g_msg[0] = 0;
 }
+int TuneGet(int which) {
+    using G = int (*)(int);
+    const auto g = (G)TrainingExport("Nioh3Training_GetTuning");
+    return g ? g(which) : -1;
+}
+void TuneStep(int item, int dir) {  // dir > 0 longer, < 0 shorter, 0 (A) = longer, wrapping to the minimum after the maximum
+    using S = int (*)(int, int, int);
+    const auto set = (S)TrainingExport("Nioh3Training_SetTuning");
+    const int which = item == kItFinT ? 0 : 1, step = which == 0 ? 500 : 100, lo = which == 0 ? 500 : 200, hi = which == 0 ? 30000 : 5000;
+    int v = TuneGet(which);
+    if (!set || v < 0) { snprintf(g_msg, sizeof(g_msg), "Needs a Nioh3Training.asi with the Boss Rematch sliders."); return; }
+    v = dir < 0 ? v - step : v + step;
+    if (dir == 0 && v > hi) v = lo;
+    v = v < lo ? lo : v > hi ? hi : v;
+    v = set(which, v, 1);
+    Log("Rematch: menu slider %s -> %d ms", which == 0 ? "FinisherKillTimeoutMs" : "KiBreakHp0WindowMs", v);
+    g_msg[0] = 0;
+}
 void NoFinToggle(int dir) {
     using G = int (*)();
     using S = void (*)(int, int);
@@ -2032,6 +2053,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
         if (TrainingExport("Nioh3Training_SetAutoRetry")) add(kItAutoRetry);
         if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
+        if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
@@ -2315,6 +2337,7 @@ void UiChange(int dir) {
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
+    if (item == kItFinT || item == kItHp0W) { TuneStep(item, dir); return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2355,6 +2378,7 @@ bool UiAct() {
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
     if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
     if (item == kItNoFin) { NoFinToggle(0); return false; }
+    if (item == kItFinT || item == kItHp0W) { TuneStep(item, 0); return false; }
     if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
         using Fn = int (*)();
         const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
@@ -2573,6 +2597,21 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const int v = g ? g() : -1;
             add(sel ? cWhite : v > 0 ? cGreen : cGray, sel, "%s %-24s %s   A / Left / Right", mk, "No finisher (Ki break):", v < 0 ? "?" : v ? "ON" : "OFF");
         }
+        else if (it[i] == kItFinT || it[i] == kItHp0W) {
+            const int v = TuneGet(it[i] == kItFinT ? 0 : 1);
+            using G = int (*)();
+            const auto gnf = (G)TrainingExport("Nioh3Training_GetNoFinisher");
+            const bool nofin = gnf && gnf() > 0;
+            int loot = 0, blow = 1, cut = 0;
+            DeathCfgGet(loot, blow, cut);
+            const char* why = it[i] == kItFinT ? (nofin ? "   (n/a: No finisher is ON)" : !blow ? "   (n/a: Final blow required is OFF)" : !cut && !loot ? "   (used with Cutscene on kill / Boss loot ON)" : "")
+                                               : (!nofin ? "   (used with No finisher ON)" : "");
+            char val[24];
+            if (v < 0) snprintf(val, sizeof(val), "?");
+            else snprintf(val, sizeof(val), "%d.%d s", v / 1000, (v % 1000) / 100);
+            add(sel ? cWhite : v < 0 || *why ? cDim : cGreen, sel, "%s %-24s %-7s   Left / Right%s", mk,
+                it[i] == kItFinT ? "Finisher kill window:" : "HP-0 combo window:", val, why);
+        }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
         else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
@@ -2638,6 +2677,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the Fight now arena session (boss removed) and puts you back where you stood before Fight now, in that world. Works after a kill, with no boss, or mid-switch.");
         else if (item == kItAutoRetry) snprintf(footer, nf, "On: when you are beaten, player and boss reset instantly (dejavu). Off: the boss is removed and the arena Return gate offers Return / Fight again. Saved.");
         else if (item == kItNoFin) snprintf(footer, nf, "On: a Ki-broken boss cannot be grappled (keep comboing), its Ki bar turns gold; at 0 HP it stays broken and dies only after 2 s without a hit. Applies now, saved.");
+        else if (item == kItFinT) snprintf(footer, nf, "Cutscene on kill / Boss loot: the boss is killed when the first finisher animation ends, or this long after it started. Left / Right 0.5 s. Applies now, saved.");
+        else if (item == kItHp0W) snprintf(footer, nf, "No finisher (Ki break): at 0 HP the boss dies if no hit lands for this long (gold Ki bar drains). Left / Right 0.1 s. Applies now, saved.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
         else if (item >= kItShrine) {

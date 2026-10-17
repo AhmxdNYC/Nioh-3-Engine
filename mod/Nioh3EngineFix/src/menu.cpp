@@ -2516,6 +2516,9 @@ extern "C" __declspec(dllexport) int Nioh3EngineFix_MaskGameButtons(int mask, in
     InterlockedExchange(&menu::g_gameMask, ms > 0 ? mask : 0);
     return menu::Enabled() ? 1 : 0;
 }
+// #9664/#9670 Nioh3EngineFix_MenuOpen(): 1 while the mod menu (host of the Boss Rematch pages) is open. Nioh3Training reads it so a pad A press
+// near the Return gate opens the gate page only when no menu is up (the A that picks a menu row must not reopen the page).
+extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuOpen() { return menu::g_open ? 1 : 0; }
 extern "C" __declspec(dllexport) int Nioh3EngineFix_LoadScreen(int on, const char* title, const char* stage) {
     AcquireSRWLockExclusive(&menu::g_lsLock);
     if (title) snprintf(menu::g_lsTitle, sizeof(menu::g_lsTitle), "%s", title);
