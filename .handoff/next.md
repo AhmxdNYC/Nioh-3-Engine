@@ -1,2 +1,3 @@
 
 2026-10-17 4:55 am EDT cx-pc2 #10803/#10870: use integ-move-toggle-on-hp0 cfc73e2, worktree nioh3-multiboss-10803. Full base + idle-default + unique menu IDs + cx16 startup fix. pc2 receives exact hashes/75s startup check in #11154. Multi-boss/despawn-all not implemented: native admission/release and late-spawn attribution need owner (#11121). Bounds runner already pushed 01f0a20 by parallel companion; needs retained dump. Consolidate duplicate sessions before further edits.
+2026-10-17 4:59 AM EDT | #10870: requested integ/move-toggle-on-hp0 verified and ready; pc2 tests fresh pair in nioh3-integ-10870/mod (hashes in integration note).

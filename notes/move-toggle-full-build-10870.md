@@ -31,3 +31,20 @@ Rematch 3332ff789f8c86f861b37293d5994108e865cdd599ac48810bf991426c190672
 Paths under C:/Users/User/projects/nioh3-multiboss-10803/mod:
 Nioh3Training/Nioh3Training.asi; Nioh3BossRematch/bin/Nioh3BossRematch.asi.
 Both are owner-test candidates, not installed or live-verified by this companion.
+
+## Independent requested-branch verification (#10870)
+
+Branch `integ/move-toggle-on-hp0` reuses the completed integration merge
+b583133 (parents 3602481 and d0a5d59) and subsequent menu/idle/atomic fixes.
+Fetched origin/pc/hp0-stagger remains 3602481; both requested source tips
+are ancestors. No source changes or writes to pc/hp0-stagger were needed.
+Fresh PC2 Windows generic x64 Zig builds both pass (existing unused-variable
+warning in Training). Offline rerun: 202 catalogue entries, 181 editable,
+21 protected; idle lifecycle; 225+150 patch cases and 10 safe refusals;
+merged menu/sliders/12 editable Yoritomo moves; provider 95 checks;
+core 63/0 failures; cover/branch/dojo/passive readers 73/48/42/200 PASS.
+No game touched; live startup, menu and Ki-break behavior remain owner checks.
+Fresh binaries are under C:/Users/User/projects/nioh3-integ-10870/mod/:
+- Nioh3Training/Nioh3Training.asi SHA256 3024f2a9fb0e3dbb385ab859adebe9b3da72e8e029be5d2c5027669a23337df1
+- Nioh3BossRematch/bin/Nioh3BossRematch.asi SHA256 2e67c9d9a7079d1a606675bc2a3246f4822ba37940f54b0f830167a091ecae98
+These are fresh rebuilds; earlier handoff hashes refer to the other worktree.
