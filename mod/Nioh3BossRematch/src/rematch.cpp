@@ -2276,6 +2276,7 @@ bool Prepare() {
         const int nt = ReadText(tpath, tt) ? rcore::ApplyTrainingArenas(tt, g_rows) : 0;
         if (nt) Log("Rematch: %d rows without an arena point take it from %ls (Nioh3Training table)", nt, tpath.c_str());
     }
+    Log("Startup: registering Rematch FIGHT callbacks");
     OnEntry("Character::Create", &HkCoverCreate);
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
@@ -2292,6 +2293,7 @@ bool Prepare() {
         }
         Log("Rematch: SELFTEST armed: %zu rows (%ls); starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw);
     }
+    Log("Startup: installing Rematch FIGHT group");
     if (!InstallGroup("FIGHT", &why)) {
         Log("Rematch: off - FIGHT hooks: %s", why);
         return false;

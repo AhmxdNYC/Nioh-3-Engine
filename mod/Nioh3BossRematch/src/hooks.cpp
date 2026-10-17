@@ -212,12 +212,15 @@ bool InstallGroup(const char* group, const char** why) {
     for (int k = 0; k < g_nslots; ++k) {
         Slot& s = g_slots[k];
         if (s.installed || strcmp(sites::kDefs[s.site].group, group)) continue;
+        Log("Startup: installing hook %s (%s)", sites::kDefs[s.site].name, group);
         if (const char* r = InstallSlot(s)) {
+            Log("Startup: hook %s failed: %s", sites::kDefs[s.site].name, r);
             static char b[160];
             snprintf(b, sizeof(b), "%s: %s", sites::kDefs[s.site].name, r);
             if (why) *why = b;
             return false;
         }
+        Log("Startup: installed hook %s", sites::kDefs[s.site].name);
     }
     return true;
 }

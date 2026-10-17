@@ -74,3 +74,23 @@ Next owner check: use the captured original Training artifact with the same
 Rematch, retain exit code/exception dump on failure, and keep successful startup
 observation beyond 45 seconds from module load. No companion game access used.
 The zero-session and full move/idle lifecycle offline suite was rerun and passed.
+
+## Latest original-Training retry and diagnostic build (#10454)
+
+The owner retry `captures/rematch/xworldprobe-20261017-013441` reached the
+field (`title -> Continue -> field: True`), then failed its add-on pipe connection.
+Training loaded at 01:35:18 local and installed hooks at 01:36:03, confirming its
+45-second delay was passed. Rematch still ends at the arena merge, without ready
+or pipe startup. This run does not reproduce the original pre-window exit and
+does not complete the requested ON/OFF/ON move test. The harness restored six
+save files byte-for-byte. No companion worker touched the game.
+
+Added startup-only breadcrumbs before callback registration, before FIGHT group
+installation, and around each entry-hook installer (including failure reason).
+Built successfully with the existing intrinsic declaration warning. Artifact:
+`mod/Nioh3BossRematch/bin/Nioh3BossRematch-startup-10454.asi`, SHA256
+`0f63ef5d417f1f0b20d30667d982dabcf53f793038cc2836d02b5a7c57109d13`.
+This is diagnostic only, not a crash fix. Owner next: use this Rematch with the
+captured original Training and unchanged EngineFix/config, observe beyond 45 s,
+retain the last Startup line and process exit code (dump if an actual crash).
+Only after add-on readiness proceed with the move ON/OFF/ON checks.
