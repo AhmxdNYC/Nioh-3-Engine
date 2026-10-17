@@ -1,19 +1,4 @@
 
-## 2026-10-16 00:46:01 session e9a941af-2199-4beb-a382-75250e628836
-I answered #7698 and #7683 in #7699; the toggle isn't done and isn't ready to play.
-
-- **Toggle (#7465):** the agent has made two commits in the worktree. A live test at 12:32 am EST showed that setting the boss's stamina to zero doesn't start the game's own break. The agent now sets it to 0.5 inside the killing hit instead. It also added a command that warps you next to the boss for testing. The game is running for its tests.
-- **Commit rule (#7683):** I have no record of a rule about when to commit. I asked you to tell me the rule.
-
-## 2026-10-16 01:07:51 session e9a941af-2199-4beb-a382-75250e628836
-Ally's AABB-only result (#7760) is within noise, so there's no clear win on Ally. I haven't told the user.
-
-- **Ally:** AABB alone gave 30.7 fps against 29.7 (+3%), and the 1% low did not improve (16.6 vs 17.6). Ally reads the earlier AABB+J1 gain of about 2 fps as mostly J1 or noise.
-- **pc2:** it measured +6.3% earlier. The verdict is partial and not a clear win.
-- **Ally's next job (#7761):** the soul-core call path, which is static work and needs no game. It has to find the summon animation and script event ids, plus a call path a mod could trigger.
-
-I added the AABB result to the done log and the next-steps file.
-
 ## 2026-10-16 01:50:14 session 01ece3d7-345f-4947-93a4-60ebda6f5bf7
 Ally's stacked result (#7823) is not a KEEP on fps. Ally ran R2a + AABB + J1 together with Barriers=1 (1080p fullscreen, OFF/ON/ON/OFF, about 63 s per arm):
 
@@ -288,4 +273,23 @@ Ally's result is in. Skipping the far props gave no gain on Ally (Linux): click 
 I logged it in the done log and `next.md`, and sent you a short status in chat.
 
 The main PC's earlier gain (22 s to 7 s) was mixed with another change, so it isn't a clean comparison yet. pc2 is running its test now. When its result arrives, I'll run a clean one-change test on this PC and give a keep-or-drop verdict per device.
-2026-10-16 17:20 pc2 | #8951 near-arena A/B done on Yoritomo (R7B35): control 15.52/15.52/15.52 OFF vs 15.52/15.52/15.53 ON (pinned at 15 s AreaWait cap) -> NearArenaOnly no gain on pc2 | PSKIP window closes +25 s ON; visible-time not measured | next #8886 (G5/G7 holders + CoverRelease side check), #8889 | captures/rematch/xworldprobe-20261016-1638..1711
+
+## 2026-10-16 19:47:33 session ec46a39a-5b7e-463e-9599-4872fc880f7d
+I've found why the earlier 7 s black screen run was fast. It used an older Training build with the early-cover-release code, which the current build doesn't have. The fix hasn't been built or tested yet.
+
+- **What I tested here:** I ran the current Yoritomo build (09aa569b) with `CoverReleaseMs = 0`. Black screen was 22.2 s on Shingen and 17.3 s on Otoroshi, the same as with the setting off. The log has no "cover release" line, because that build has no such code.
+- **Where the code lives:** the feature is in pc2's `merged-visible` branch (003a7b5, asi #676) and in `pc/ki-break-nofinisher`. In the fast run the boss bar and fight were normal at +40 s.
+- **Ally:** its result (#8979) agrees that far-prop skip gives no gain: about 30 s to control in both arms.
+- **Messages sent:** I told pc2 to resume (the user never paused it) and A/B the cover release with #676/#677 (#9029). I also told you in the phone chat (#9030).
+- **In progress:** I started a background agent to port the cover-release code onto the Yoritomo line as branch `pc/cover-release-merge`, with the build going to `captures/pc/cover/train_cover.asi`. It hasn't reported back, so I know nothing about its result yet.
+
+The game is closed here. Next I'll test the merged build on this PC once the agent delivers it.
+
+## 2026-10-16 20:18:43 session 0d474b6b-cbba-4a5a-ae8c-f219fd8862c2
+I replied to the user (message #9067): the black screen is about 8 s on the main PC, but that is a single-machine result and it isn't in their play build yet.
+
+- **Numbers:** On the main PC (RX 9070), the black screen dropped from 22 s to 8.9 s on Shingen and from 17.8 s to 6.8 s on Otoroshi. That is one run each.
+- **Not yet confirmed:** Ally and PC2 haven't tested it, and it isn't installed in the play build.
+- **State:** The fleet is still paused, as the user asked in #9036. Per my reply, once they say "resume" I'll have Ally and PC2 confirm it, then ship it on by default.
+- **Notes:** I added a line to `.handoff/next.md`. I didn't update `owners.md` or `done.md`, and I didn't run any game tests.
+2026-10-16 18:05 pc2 | #9055 cover-release A/B on Yoritomo (asi #716, ini #717): black 25.5/23.9/23.6 s (-1) vs 10.3/8.9/8.4 s (0); control 15.5 vs 0.52 s; BBM applied+boss HP full both arms | boss bar at +40 s not visually confirmed (shot shows no boss in frame) | next #8886, #8889 | captures/rematch/xworldprobe-20261016-1721..1755
