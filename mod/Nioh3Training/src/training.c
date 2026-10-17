@@ -2553,7 +2553,7 @@ static uint64_t h_endconf(void* ctx, int action) {
         int boss = GateBossAlive(), page = GateMenuOpen(), r = -1;
         if (!boss && !page) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
         if (n <= 50) { float q[4]; float d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
-            Log("GATE: native end-mission prompt (action 0x%X, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", (unsigned long long)((uintptr_t)ra - B), d, n,
+            Log("GATE: native end-mission prompt (action 0x%X, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", (unsigned)action, (unsigned long long)((uintptr_t)ra - B), d, n,
                 boss ? "boss alive, nothing opened" : page ? "our gate page already open" : r >= 0 ? "our gate page opened instead" : "?"); }
         return 0;
     }
