@@ -1132,15 +1132,19 @@ static int g_cfg_kill_fade_frames = 120;
 // gone while its death animation was still playing. Every kill path (NOFIN HP-0 window, CutsceneOnKill, BossLoot, DeathBlowRequired=0, HP-0 fallback) now waits
 // KillFadeDelayMs (default 5000, capped by BodyFadeDelayMs; 0 = old 'at once') after the kill before the fade starts; delete 6 s after the fade as before.
 static int g_cfg_kill_fade_delay = 5000;
+// #9543 (user play on 72cfe63c): after the HP-0 window kill the body faded 5 s later (window, then KillFadeDelayMs 5000 stacked on top) - too slow vs the
+// mission / the earlier kifade build. A kill issued by the KiBreakNoFinisher HP-0 window path uses [Summon] KiBreakHp0FadeDelayMs (default 1000) instead.
+static int g_cfg_nofin_fade = 1000; static volatile uint64_t g_nf_killact; static volatile DWORD g_nf_killt;
 static DWORD FadeDeleteMs(void) { DWORD f = (DWORD)(g_cfg_kill_fade_frames > 30 ? g_cfg_kill_fade_frames : 30) * 1000 / 60 + 1000; return f > 6000 ? f : 6000; }
 static void KillFadeNow(uint64_t a) {
     // #6746: DeathBlowRequired=0 -> start the body fade at the kill too (not BodyFadeDelayMs after the 4.5 s "HP 0 stable" win detection). Same fade + 6 s delete as below.
     // #7234: every confirmed kill (CutsceneOnKill / finisher / BossLoot / HP-0 fallback too), so the boss always dies + fades like in the mission; the
     // KillFadeFrames (2 s) fade lets the death animation be seen. BodyFadeDelayMs is only the fallback for kills we never saw.
     if (a && g_cfg_body_fade && g_tr.active && !g_tr.tFade && !g_tr.bodyGone && g_nsp > 0 && g_sp_actor[g_nsp - 1] == a) {
-        int d = g_cfg_kill_fade_delay; if (d > g_cfg_body_delay) d = g_cfg_body_delay; if (d < 0) d = 0;
+        int hp0 = a == g_nf_killact && GetTickCount() - g_nf_killt < 15000;
+        int d = hp0 ? g_cfg_nofin_fade : g_cfg_kill_fade_delay; if (d > g_cfg_body_delay) d = g_cfg_body_delay; if (d < 0) d = 0;
         if (d > 0) { if (!g_tr.tFadeAt) { g_tr.tFadeAt = GetTickCount() + (DWORD)d; if (!g_tr.tFadeAt) g_tr.tFadeAt = 1; g_tr.fadeAct = a;
-                Log("TRAIN round %d: kill confirmed, body fade in %d ms (death animation plays first; KillFadeDelayMs, DeathBlowRequired %d CutsceneOnKill %d KiBreakNoFinisher %d)", g_tr.round, d, g_cfg_deathblow, g_cfg_cutscene, g_cfg_nofin); }
+                Log("TRAIN round %d: kill confirmed, body fade in %d ms (death animation plays first; %s, DeathBlowRequired %d CutsceneOnKill %d KiBreakNoFinisher %d)", g_tr.round, d, hp0 ? "HP-0 window kill: KiBreakHp0FadeDelayMs" : "KillFadeDelayMs", g_cfg_deathblow, g_cfg_cutscene, g_cfg_nofin); }
             return; }
         Log("TRAIN round %d: fading out the dead boss body at once (kill confirmed, DeathBlowRequired %d CutsceneOnKill %d)", g_tr.round, g_cfg_deathblow, g_cfg_cutscene);
         if (FadeOutActor(g_nsp - 1, (float)(g_cfg_kill_fade_frames > 0 ? g_cfg_kill_fade_frames : 30))) g_tr.tFade = GetTickCount();
@@ -1150,7 +1154,7 @@ static void KillFadeDue(void) {  // TrainTick: start the delayed kill fade (same
     if (!g_tr.tFadeAt || (int)(GetTickCount() - g_tr.tFadeAt) < 0) return;
     g_tr.tFadeAt = 0;
     if (!g_cfg_body_fade || g_tr.tFade || g_tr.bodyGone || g_nsp <= 0 || g_sp_actor[g_nsp - 1] != g_tr.fadeAct) { Log("TRAIN round %d: delayed body fade dropped (body gone / replaced)", g_tr.round); return; }
-    Log("TRAIN round %d: fading out the dead boss body (KillFadeDelayMs %d after the kill)", g_tr.round, g_cfg_kill_fade_delay);
+    Log("TRAIN round %d: fading out the dead boss body (fade delay after the kill elapsed; KillFadeDelayMs %d, KiBreakHp0FadeDelayMs %d)", g_tr.round, g_cfg_kill_fade_delay, g_cfg_nofin_fade);
     if (FadeOutActor(g_nsp - 1, (float)(g_cfg_kill_fade_frames > 0 ? g_cfg_kill_fade_frames : 30))) g_tr.tFade = GetTickCount(); else { g_tr.bodyGone = 1; Despawn(g_nsp - 1); }
 }
 static uint64_t PlayerWrapper(void) {  // registry row whose live actor is the player
@@ -3484,13 +3488,14 @@ static void NfTick(void) {
                 NfLog("NOFIN boss %p: no hit for %d ms at HP 0 (window %lu ms, %d hits, break ends %d) -> native kill (BossLoot %d)", (void*)a, g_cfg_nofin_ms, now - g_nf[s].tWin, g_nf[s].nHits, g_nf[s].nRebreak, g_cfg_loot);
                 g_nf_drain[s].on = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;  // the kill hit must not be revived / filtered
                 if (a == g_db_act) g_db_done = 1;
+                g_nf_killt = now; g_nf_killact = a;  // #9543: KillFadeNow uses KiBreakHp0FadeDelayMs for this body
                 ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher HP-0 window", 1);
                 continue;
             }
         }
         if (g_nf[s].win == 2) {  // kill issued, boss still alive: retry (the death-blow gates are cleared from the 1st retry)
             g_nf_goldact[s] = a; g_nf_goldctrl[s] = ctrl; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0;  // #9133: down-target slot stays blocked until it is dead
-            if (hc <= NF_FLOOR && g_nf[s].tries < 6 && now - g_nf[s].tKill >= 500u * (DWORD)(g_nf[s].tries + 1)) { g_nf[s].tries++; NfLog("NOFIN kill retry %d boss %p HP %llu", g_nf[s].tries, (void*)a, hc); ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher retry", 1); }
+            if (hc <= NF_FLOOR && g_nf[s].tries < 6 && now - g_nf[s].tKill >= 500u * (DWORD)(g_nf[s].tries + 1)) { g_nf[s].tries++; NfLog("NOFIN kill retry %d boss %p HP %llu", g_nf[s].tries, (void*)a, hc); g_nf_killt = now; g_nf_killact = a; ForceKillActorEx(a, g_cfg_loot, "KiBreakNoFinisher retry", 1); }
             continue;
         }
         int isGold = broken || g_nf[s].win == 1;
@@ -3652,7 +3657,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
         g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 1000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
         g_nf_kneelall = GetPrivateProfileIntA("Summon", "KiBreakKneelBlockAll", 1, ini); g_nf_hp0aihold = GetPrivateProfileIntA("Summon", "KiBreakHp0AiHold", 1, ini);
-        Log("KiBreakKneelBlockAll %d, KiBreakHp0AiHold %d (#9542)", g_nf_kneelall, g_nf_hp0aihold);
+        g_cfg_nofin_fade = GetPrivateProfileIntA("Summon", "KiBreakHp0FadeDelayMs", 1000, ini); if (g_cfg_nofin_fade < 0) g_cfg_nofin_fade = 0;
+        Log("KiBreakKneelBlockAll %d, KiBreakHp0AiHold %d (#9542); KiBreakHp0FadeDelayMs %d, ReturnGateGround %d (#9543)", g_nf_kneelall, g_nf_hp0aihold, g_cfg_nofin_fade, g_cfg_gate_ground);
         g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini); g_nf_clear101 = GetPrivateProfileIntA("Summon", "KiBreakHp0ClearDeathBlow", 1, ini); g_nf_kirow_unbreak = GetPrivateProfileIntA("Summon", "KiBreakGoldUnbreak", 1, ini);
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);

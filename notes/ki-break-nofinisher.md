@@ -88,3 +88,7 @@ Log `Nioh3Training.log` from line 61743 (launch 16:27:55).
 - Fix (`[Summon] KiBreakKneelBlockAll = 1`, run time `nofinkneelall`): the HP-0 kneel block now also covers a watched boss with Ki <= 0 / broken at HP > 0: a game call to 668D74 with ctrl+0x994 = 0x27 is dropped and NfTick undoes 0x994 / actor+0x91B. Every game 668D74 call on a watched boss at HP > 0 is logged (caller, 0x994, Ki), plus a `NOFIN break diag` line per second of any break (23/35/9/B0/2C/27, 0x994, 0x91B, AI, bits) = the evidence for (B) next play.
 - HP-0 window: `[Summon] KiBreakHp0AiHold = 1` (`nofinaihold`): boss AI off (668D74, re-applied every 100 ms when the game turns it back on) for the whole window, AI on again if the window ends with HP back; motion requests while broken / in the window are logged (`NOFIN motion while ...`, first 150) = the moves.
 - `KiBreakHp0WindowMs` default 2000 -> 1000.
+
+## #9543 build train_hp0full (branch pc/hp0-stagger)
+- Body fade after the HP-0 window kill: `[Summon] KiBreakHp0FadeDelayMs = 1000` (was KillFadeDelayMs 5000 stacked after the window; log 00:33:28.78 kill -> 00:33:33.78 fade). Other kill paths keep KillFadeDelayMs. Log: `kill confirmed, body fade in 1000 ms (... HP-0 window kill: KiBreakHp0FadeDelayMs ...)`.
+- Return gate on the ground: dde6e96 (trail-based `GATE ground` line, ReturnGateGround).
