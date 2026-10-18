@@ -2827,7 +2827,7 @@ bool UiAct() {
             g_confirm = item;
             const Row& r = g_rows[(size_t)row];
             if (tele)
-                snprintf(g_msg, sizeof(g_msg), "Teleport to the %s arena with the normal loading screen? A confirm / B back. Solo only.", r.name);
+                snprintf(g_msg, sizeof(g_msg), "Enter the %s arena and summon its boss (idle)? A confirm / B back. Solo only.", r.name);
             else if (arena)
                 snprintf(g_msg, sizeof(g_msg), "Fight %s now, inside the arena? A confirm / B back. Solo only.", r.name);
             else
@@ -2841,7 +2841,7 @@ bool UiAct() {
             BeginHostedFight(row,nullptr,g_msg,sizeof(g_msg));
             return false; // keep the menu until the renderer presents its cover
         }
-        Post(tele ? kReqTeleport : arena ? kReqFight : kReqShrine, row, "the menu");
+        Post(arena ? kReqFight : kReqShrine, row, "the menu");  // #13167: Training arena = Fight now (Nioh3Training session, boss summoned in idle stance)
         ToastF(cWhite, 6000, arena ? "Rematch: into the fight with %s..." : "Rematch: to the shrine before %s...", g_rows[(size_t)row].name);
         return true;
     }
