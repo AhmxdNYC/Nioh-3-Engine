@@ -73,6 +73,7 @@ extern volatile LONG g_active;          // inside BossBattleMode .. End
 // placements created in the 60 s before the last BossBattleMode start (" id id ..."), copied under a lock
 void LastFightPlacements(char* buf, size_t n);
 bool PlacementSeenRecently(uint32_t id, double withinSec);
+void ForceEnd(const char* why);
 double Now();
 }
 namespace training {

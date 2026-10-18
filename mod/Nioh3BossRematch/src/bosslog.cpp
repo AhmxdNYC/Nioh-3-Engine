@@ -903,6 +903,13 @@ void Register(bool boss, bool rm, bool inv) {
 }  // namespace bosslog
 
 namespace fight {
+// 'Leave arena' (user 20261018): the native boss mode was ended outside the script's BossBattleModeEnd: clear the fight state as HkEnd does
+void ForceEnd(const char* why) {
+    if (bosslog::g_logOn) Log("BossLog: fight state cleared (%s)", why);
+    bosslog::g_endAt.store(-1e9);  // no post-fight grace: there was no fight
+    bosslog::g_active.store(false);
+    InterlockedExchange(&g_active, 0);
+}
 void LastFightPlacements(char* buf, size_t n) {
     AcquireSRWLockShared(&bosslog::g_lastLock);
     snprintf(buf, n, "%s", bosslog::g_lastPlac);

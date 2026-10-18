@@ -2123,7 +2123,19 @@ constexpr int uTools = 905, kItRootTools = -45;
 // retry in place) / Arenas (arena rows only) / Boss summoning (summon list + passive time) / Practice tools.
 constexpr int uPracticeHub = 906, uTrainHere = 907;
 constexpr int kItTrainHereOpen = -46, kItArenas = -47, kItBossSumm = -48;
-constexpr int kItTrainHere = 0x80000, kItTrainHereEnd = 0x90000;  // kItTrainHere + row = start a Practice session with that boss right here
+constexpr int kItTrainHere = 0x80000, kItTrainHereEnd = 0x90000;
+// user 20261018: a save made inside a Fight-now arena loads IN the arena with no mission and a native BossBattleMode with no boss (no exit, no travel).
+// 'Leave arena' = Nioh3Training_LeaveArena (ends the session + native boss mode, returns to the stored spot if any) + our fight flag cleared.
+constexpr int kItLeaveArena = -49;
+bool LeaveArenaOffered() { return fight::g_active && !ReadSnap().ms28 && TrainingExport("Nioh3Training_LeaveArena"); }
+int LeaveArena(const char* src) {
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_LeaveArena");
+    const int rc = f ? f() : 0;
+    if (rc > 0) fight::ForceEnd(src);
+    Log("Rematch: leave arena (%s) -> %d", src, rc);
+    return rc;
+}  // kItTrainHere + row = start a Practice session with that boss right here
 void SetPracticeNext(int on) {
     using Fn = void (*)(int);
     if (const auto f = (Fn)TrainingExport("Nioh3Training_SetPracticeNext")) f(on);
@@ -2318,6 +2330,7 @@ int Items(int* out, int cap) {
         add(kItSettings);  // user #13223: Settings / Boss Rematch / Practice (Summon Boss and the tools live inside Practice)
         add(kItRootRematch);
         add(kItRootTraining);
+        if (LeaveArenaOffered()) add(kItLeaveArena);
         add(kItClose);
         return n;
     }
@@ -2779,6 +2792,12 @@ bool UiAct() {
         g_uiMoveChr = MoveBoss(); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
         return false;
     }
+    if (item == kItLeaveArena) {
+        const int rc = LeaveArena("menu");
+        if (rc == 0) { snprintf(g_msg, sizeof(g_msg), "Nioh3Training is missing or too old: Leave arena needs it."); return false; }
+        ToastF(cWhite, 6000, "Rematch: boss mode ended. Open the map and travel to a shrine.");
+        return true;
+    }
     if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
         using Fn = int (*)();
         const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
@@ -3046,6 +3065,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] == kItRootRematch) add(sel ? cWhite : cGray, sel, "%s Boss Rematch   A: open", mk);
         else if (it[i] == kItRootTraining) add(sel ? cWhite : cGray, sel, "%s Practice   A: open", mk);
+        else if (it[i] == kItLeaveArena) add(sel ? cWhite : cGreen, sel, "%s Leave arena (stuck: end boss mode, then travel from the map)", mk);
         else if (it[i] == kItTrainHereOpen) add(sel ? cWhite : cGray, sel, "%s Training here (no teleport)   A: open", mk);
         else if (it[i] == kItArenas) add(sel ? cWhite : cGray, sel, "%s Arenas   A: open", mk);
         else if (it[i] == kItBossSumm) add(sel ? cWhite : cGray, sel, "%s Boss summoning   A: open", mk);
@@ -3158,6 +3178,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Slot the next boss goes into (two bosses at once: A and B). A / Left / Right switches. Despawn all: Practice tools.");
         } else if (item == kItRootRematch) {
             snprintf(footer, nf, "Rematch beaten bosses: Fight now / shrine, death and finisher options, Practice Yamagata.");
+        } else if (item == kItLeaveArena) {
+            snprintf(footer, nf, "No mission and a boss fight with no boss (save made in an arena): ends the boss mode so the map / shrine travel works again.");
         } else if (item == kItRootTraining) {
             snprintf(footer, nf, "Practice: Training here, Arenas, Boss summoning and the practice tools.");
         } else if (item == kItTrainHereOpen) {
@@ -3290,6 +3312,11 @@ void Command(const char* line, char* reply, size_t n) {
                 return;
             }
         snprintf(reply, n, "error no row %s", arg);
+        return;
+    }
+    if (!strcmp(cmd, "leave")) {  // user 20261018: stuck in an arena with no mission: end the session + native boss mode (then map / shrine travel)
+        const int rc = LeaveArena("pipe");
+        snprintf(reply, n, rc > 0 ? "queued: boss mode ends on the next game tick; then open the map and travel to a shrine" : rc < 0 ? "already queued" : "error Nioh3Training_LeaveArena missing");
         return;
     }
     if (!strcmp(cmd, "exit")) {  // leave the running mission (MissionRequestReturn, as the mission menu does)

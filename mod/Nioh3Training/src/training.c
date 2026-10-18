@@ -2450,6 +2450,22 @@ N3T_API int Nioh3Training_ReturnHome(void) {
     if (!g_home.valid && !g_tr.active && !g_xw.active && !g_fd.pend) return 0;
     int had = g_home.valid; InterlockedExchange(&g_rh.want, 1); return had ? 1 : 2;
 }
+// user 20261018: a save made inside a Fight-now arena reloads the player IN the arena with no mission (mission 0, open world) and the native area script
+// starts BossBattleMode with no boss: no exit, no fast travel, no return record. 'Leave arena': on the game thread end any arena session, end the native
+// boss mode (BossBattleModeEnd steps, as 'bbmend') so the map fast travel / shrine works again, and run 'Return to where I was' if a spot is stored.
+// 1 = queued, -1 = already queued.
+static volatile LONG g_leave;
+static void LeaveTick(void) {
+    if (!InterlockedExchange(&g_leave, 0)) return;
+    uint64_t cm = CharMgr(), c0 = 0; int bbm = cm && Rd64(cm, &c0) && c0 && *(uint8_t*)(c0 + 0x26AA);
+    uint32_t mis = 0, mode = 0; uint8_t jr = 0; MsRead(&mis, &jr, &mode);
+    Log("LEAVE ARENA requested: mission 0x%X world 0x%02X, native boss mode %d, session %d, stored spot %d", mis, CurWorld(), bbm, g_tr.active, g_home.valid);
+    TrainStop("leave arena"); g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0; g_ar.active = 0; g_en.active = 0;
+    BgmEnd(); BossModeEnd("leave arena"); g_bm.active = 0; FakeGaugeHide("leave arena");
+    if (g_home.valid && !g_rh.active) InterlockedExchange(&g_rh.want, 1);
+    c0 = 0; Log("LEAVE ARENA done: native boss mode now %d; %s", cm && Rd64(cm, &c0) && c0 ? *(uint8_t*)(c0 + 0x26AA) : -1, g_home.valid ? "returning to the stored spot" : "no stored spot: use the map / a shrine to travel");
+}
+N3T_API int Nioh3Training_LeaveArena(void) { return InterlockedExchange(&g_leave, 1) ? -1 : 1; }
 // Boss Rematch menu state: 1 a spot is stored, 2 the session's boss is defeated, 4 session running with no boss in the world, 8 a swap is running, 16 a return is running
 N3T_API int Nioh3Training_ReturnInfo(void) {
     int f = g_home.valid ? 1 : 0;
@@ -3232,6 +3248,7 @@ static __attribute__((noinline)) void Exec(char* line) {
         } else if (!strcmp(op, "bbm")) { BossModeBegin((uint32_t)a[0], n >= 3 ? (int)a[1] : g_cfg_notify);
         } else if (!strcmp(op, "bgm")) { if (n >= 2 && a[0]) BgmStart((uint32_t)a[0]); else { g_bgm_on = 1; BgmStop("cmd"); }
         } else if (!strcmp(op, "bbmend")) { BossModeEnd("cmd"); g_bm.active = 0;
+        } else if (!strcmp(op, "leave")) { Nioh3Training_LeaveArena();
         } else if (!strcmp(op, "bossmode")) { g_cfg_bossmode = (int)a[0]; if (n >= 3) g_cfg_notify = (int)a[1]; Log("CMD bossmode %d notify %d", g_cfg_bossmode, g_cfg_notify);
         } else if (!strcmp(op, "posttrace")) { g_post_trace = (LONG)a[0]; Log("CMD posttrace %ld", (long)g_post_trace);
         } else if (!strcmp(op, "door")) { DoorCtl((uint32_t)a[0], n >= 3 ? (uint32_t)a[1] : 3);
@@ -4263,6 +4280,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { MonTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_mon.a = 0; }
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); if (g_xs.lgs) LoaderGatePatch(0); g_xs.lgs = 0; g_xs.on = 0; g_xs.patched = 0; }
+    __try { LeaveTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("LEAVE ARENA exception %08lX", GetExceptionCode()); }
     __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; RhLoadScreen(0); }
     __try { GoldKiRatios(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { GateTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE tick exception %08lX", GetExceptionCode()); g_gate.tried = 3; }
